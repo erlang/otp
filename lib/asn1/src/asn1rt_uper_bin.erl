@@ -36,7 +36,6 @@
  -export([decode_enumerated/3, 
  	 encode_bit_string/3, decode_bit_string/3  ]).
  -export([encode_octet_string/2, decode_octet_string/2,
-	  encode_null/1, decode_null/1,
 	  encode_relative_oid/1, decode_relative_oid/1,
  	 encode_object_identifier/1, decode_object_identifier/1,
 	  encode_real/1, decode_real/1,
@@ -1426,12 +1425,6 @@ decode_UTF8String(Bytes) ->
     {Len,Bytes2} = decode_length(Bytes,undefined),
     getoctets_as_bin(Bytes2,Len).
     
-
-						% X.691:17 
-encode_null(_) -> []. % encodes to nothing
-
-decode_null(Bytes) ->
-    {'NULL',Bytes}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% encode_object_identifier(Val) -> CompleteList

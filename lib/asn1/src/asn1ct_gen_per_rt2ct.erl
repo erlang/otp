@@ -176,7 +176,7 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 			  {asis,NamedNumberList},")"})
 	    end;
 	'NULL' ->
-	    emit({"?RT_PER:encode_null(",Value,")"});
+	    emit("[]");
 	'OBJECT IDENTIFIER' ->
 	    emit({"?RT_PER:encode_object_identifier(",Value,")"});
 	'RELATIVE-OID' ->
@@ -1612,8 +1612,7 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 			  {asis,NamedNumberList},")"})
 	    end;
 	'NULL' ->
-	    emit({"?RT_PER:decode_null(",
-		  BytesVar,")"});
+	    emit({"{'NULL',",BytesVar,"}"});
 	'OBJECT IDENTIFIER' ->
 	    emit({"?RT_PER:decode_object_identifier(",
 		  BytesVar,")"});

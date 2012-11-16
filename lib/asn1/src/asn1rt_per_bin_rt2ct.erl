@@ -34,7 +34,6 @@
 -export([decode_enumerated/3, 
 	 encode_bit_string/3, decode_bit_string/3  ]).
 -export([encode_octet_string/2, decode_octet_string/2,
-	 encode_null/1, decode_null/1,
 	 encode_object_identifier/1, decode_object_identifier/1,
 	 encode_real/1, decode_real/1,
 	 encode_relative_oid/1, decode_relative_oid/1,
@@ -1541,16 +1540,6 @@ chars_decode2(Bytes,{Min,Max,notab},NumBits,Len,Acc) ->
 chars_decode2(Bytes,{Min,Max,CharInTab},NumBits,Len,Acc) ->
     {Char,Bytes2} = getbits(Bytes,NumBits),
     chars_decode2(Bytes2,{Min,Max,CharInTab},NumBits,Len -1,[element(Char+1,CharInTab)|Acc]).
-
-
-						% X.691:17 
-encode_null(_Val) -> []. % encodes to nothing
-%encode_null({Name,Val}) when is_atom(Name) ->
-%    encode_null(Val).
-
-decode_null(Bytes) ->
-    {'NULL',Bytes}.
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
