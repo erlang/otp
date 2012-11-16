@@ -142,6 +142,33 @@ first.</p>
 
 </section>
 
+<section><title>Diameter 1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix fault in sending of 'closed' events.</p>
+          <p>
+	    The fault made it possible for the 'closed' event not to
+	    be sent following a failed capabilities exchange.</p>
+          <p>
+	    Own Id: OTP-9824</p>
+        </item>
+        <item>
+          <p>
+	    Fix faulty diameterc -name/-prefix.</p>
+          <p>
+	    A minor blunder when introducing the new dictionary
+	    parser in diameter-1.0 broke these options.</p>
+          <p>
+	    Own Id: OTP-9826</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Diameter 1.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
