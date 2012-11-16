@@ -62,6 +62,7 @@
 	  latest_channel_id = 0, 
 	  opts,
 	  channel_args,
+	  idle_timer_ref, % timerref
 	  connected 
 	 }).
 
@@ -203,6 +204,8 @@ init([client, Opts]) ->
     ChannelPid = proplists:get_value(channel_pid, Opts),
     self() ! 
 	{start_connection, client, [Parent, Address, Port, SocketOpts, Options]},
+    TimerRef = get_idle_time(Options),
+	
     {ok, #state{role = client, 
 		client = ChannelPid,
 		connection_state = #connection{channel_cache = Cache,
@@ -211,6 +214,7 @@ init([client, Opts]) ->
 					       connection_supervisor = Parent,
 					       requests = []},
 		opts = Opts,
+		idle_timer_ref = TimerRef,
 		connected = false}}.
 
 %%--------------------------------------------------------------------
@@ -230,6 +234,13 @@ handle_call({request, ChannelPid, ChannelId, Type, Data}, From, State0) ->
     %% channel is sent later when reply arrives from the connection
     %% handler. 
     lists:foreach(fun send_msg/1, Replies),
+    SshOpts = proplists:get_value(ssh_opts, State0#state.opts),
+    case proplists:get_value(idle_time, SshOpts) of
+	infinity ->
+	    ok;
+	_IdleTime ->
+	    erlang:send_after(5000, self(), {check_cache, [], []})
+    end,
     {noreply, State};
 
 handle_call({request, ChannelId, Type, Data}, From, State0) ->
@@ -358,7 +369,7 @@ handle_call({open, ChannelPid, Type, InitialWindowSize, MaxPacketSize, Data},
 		       recv_packet_size = MaxPacketSize},
     ssh_channel:cache_update(Cache, Channel),
     State = add_request(true, ChannelId, From, State1),
-    {noreply, State};
+    {noreply, remove_timer_ref(State)};
 
 handle_call({send_window, ChannelId}, _From, 
 	    #state{connection_state = 
@@ -403,6 +414,13 @@ handle_call({close, ChannelId}, _,
 	    send_msg({connection_reply, Pid, 
 		      ssh_connection:channel_close_msg(Id)}),
 	    ssh_channel:cache_update(Cache, Channel#channel{sent_close = true}),
+	    SshOpts = proplists:get_value(ssh_opts, State#state.opts),
+	    case proplists:get_value(idle_time, SshOpts) of
+		infinity ->
+		    ok;
+		_IdleTime ->
+		    erlang:send_after(5000, self(), {check_cache, [], []})
+	    end,
 	    {reply, ok, State};
 	undefined -> 
 	    {reply, ok, State}
@@ -523,7 +541,10 @@ handle_info({start_connection, client,
 	    Pid ! {self(), not_connected, Reason},
 	    {stop, {shutdown, normal}, State}
     end;
-
+handle_info({check_cache, _ , _}, 
+	    #state{connection_state = 
+		       #connection{channel_cache = Cache}} = State) ->
+    {noreply, check_cache(State, Cache)};
 handle_info({ssh_cm, _Sender, Msg}, State0) ->
     %% Backwards compatibility!  
     State = cm_message(Msg, State0),
@@ -621,6 +642,45 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+get_idle_time(SshOptions) ->
+    case proplists:get_value(idle_time, SshOptions) of
+	infinity ->
+	    infinity;
+       _IdleTime -> %% We dont want to set the timeout on first connect
+	    undefined
+    end.
+check_cache(State, Cache) ->
+    %% Check the number of entries in Cache
+    case proplists:get_value(size, ets:info(Cache)) of
+	0 ->
+	    Opts = proplists:get_value(ssh_opts, State#state.opts),
+	    case proplists:get_value(idle_time, Opts) of
+		infinity ->
+		    State;
+		undefined ->
+		    State;
+		Time ->
+		    case State#state.idle_timer_ref of
+			undefined ->
+			    TimerRef = erlang:send_after(Time, self(), {'EXIT', [], "Timeout"}),
+			    State#state{idle_timer_ref=TimerRef};
+			_ ->
+			    State
+		    end
+	    end;
+	_ ->
+	    State
+    end.
+remove_timer_ref(State) ->
+    case State#state.idle_timer_ref of
+	infinity -> %% If the timer is not activated
+	    State;
+	undefined -> %% If we already has cancelled the timer
+	    State;
+	TimerRef -> %% Timer is active
+	    erlang:cancel_timer(TimerRef),
+	    State#state{idle_timer_ref = undefined}
+    end.
 channel_data(Id, Type, Data, Connection0, ConnectionPid, From, State) ->
     case ssh_connection:channel_data(Id, Type, Data, Connection0,
 				     ConnectionPid, From) of
@@ -718,7 +778,7 @@ handle_channel_down(ChannelPid, #state{connection_state =
 		  (_,Acc) ->
 		       Acc
 	       end, [], Cache),
-    {{replies, []}, State}.
+    {{replies, []}, check_cache(State, Cache)}.
 
 update_sys(Cache, Channel, Type, ChannelPid) ->
     ssh_channel:cache_update(Cache, 
