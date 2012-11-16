@@ -56,7 +56,12 @@ yes_no(Prompt, Ssh) ->
 
 read_password(Prompt, Ssh) ->
     format("~s", [listify(Prompt)]),
-    proplists:get_value(user_pid, Ssh#ssh.opts) ! {self(), user_password},
+    case is_list(Ssh) of
+	false ->
+	    proplists:get_value(user_pid, Ssh#ssh.opts) ! {self(), user_password};
+	_ ->
+	    proplists:get_value(user_pid, Ssh) ! {self(), user_password}
+    end,
     receive
 	Answer ->
 	    case Answer of
