@@ -133,7 +133,7 @@ kex_dh_gex_messages() ->
     ].
 
 yes_no(Ssh, Prompt)  ->
-    (Ssh#ssh.io_cb):yes_no(Prompt).
+    (Ssh#ssh.io_cb):yes_no(Prompt, Ssh).
 
 connect(ConnectionSup, Address, Port, SocketOpts, Opts) ->    
     Timeout = proplists:get_value(connect_timeout, Opts, infinity),
