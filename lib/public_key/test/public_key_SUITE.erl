@@ -111,7 +111,7 @@ all() ->
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, encrypted_pem,
-			      dh_pem, cert_pem]},
+			      dh_pem, cert_pem, pkcs10_pem]},
      {ssh_public_key_decode_encode, [],
       [ssh_rsa_public_key, ssh_dsa_public_key, ssh_rfc4716_rsa_comment,
        ssh_rfc4716_dsa_comment, ssh_rfc4716_rsa_subject, ssh_known_hosts,
@@ -249,7 +249,42 @@ dh_pem(Config) when is_list(Config) ->
     DHParameter = public_key:pem_entry_decode(Entry),
 
     Entry = public_key:pem_entry_encode('DHParameter', DHParameter).
-   
+
+%%--------------------------------------------------------------------
+
+pkcs10_pem(doc) ->
+    [""];
+pkcs10_pem(suite) ->
+    [];
+pkcs10_pem(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    [{'CertificationRequest', DerPKCS10, not_encrypted} = Entry] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "req.pem")),
+
+    erl_make_certs:der_to_pem(filename:join(Datadir, "new_req.pem"), [Entry]),
+
+    PKCS10 = public_key:der_decode('CertificationRequest', DerPKCS10),
+    PKCS10 = public_key:pem_entry_decode(Entry),
+
+    Entry = public_key:pem_entry_encode('CertificationRequest', PKCS10).
+
+%%--------------------------------------------------------------------
+pkcs7_pem(doc) ->
+    [""];
+pkcs7_pem(suite) ->
+    [];
+pkcs7_pem(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    [{'ContentInfo', DerPKCS7, not_encrypted} = Entry] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "pkcs7_cert.pem")),
+
+    erl_make_certs:der_to_pem(filename:join(Datadir, "new_pkcs7_cert.pem"), [Entry]),
+
+    PKCS7 = public_key:der_decode('ContentInfo', DerPKCS7),
+    PKCS7 = public_key:pem_entry_decode(Entry),
+
+    Entry = public_key:pem_entry_encode('ContentInfo', PKCS7).
+
 %%--------------------------------------------------------------------
 cert_pem(doc) ->
     [""];

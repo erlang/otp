@@ -78,7 +78,7 @@
 -type dsa_public_key()       :: {integer(), #'Dss-Parms'{}}.
 -type pki_asn1_type()        ::  'Certificate' | 'RSAPrivateKey' | 'RSAPublicKey'
 			       | 'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter'
-                               | 'SubjectPublicKeyInfo'.
+                               | 'SubjectPublicKeyInfo' | 'CertificationRequest'.
 -type pem_entry()            :: {pki_asn1_type(), binary(), %% DER or Encrypted DER
 				 not_encrypted | {Cipher :: string(), Salt :: binary()}}.
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
