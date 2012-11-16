@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -233,10 +233,16 @@ priv_dir(Driver0, Silent) ->
 	{ok, _} ->
 	    Priv;
 	{error, _} ->
-	    opt_error_log(Silent,
-                          "ERROR: Could not find \'~s\' in: ~s~n",
-                          [Driver, Priv]),
-	    erlang:error({load_driver, "No driver found"})
+	    SrcPriv = filename:join(Priv, erlang:system_info(system_architecture)),
+	    case file:read_file_info(filename:join(SrcPriv, Driver)) of
+		{ok, _} ->
+		    SrcPriv;
+		{error, _} ->
+		    opt_error_log(Silent,
+				  "ERROR: Could not find \'~s\' in: ~s~n",
+				  [Driver, Priv]),
+		    erlang:error({load_driver, "No driver found"})
+	    end
     end.
 
 strip(Src, Src) ->
