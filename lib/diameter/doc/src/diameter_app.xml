@@ -234,7 +234,6 @@ requests are received: &handle_request; callbacks must be
 handled independently of &peer_up; and &peer_down;.</p>
 </note>
 
-<marker id="peer_down"/>
 </desc>
 </func>
 
@@ -254,7 +253,6 @@ In particular, that the RFC 3539 watchdog state machine for the
 connection has left state <c>OKAY</c> and the peer will no longer be a
 candidate in &pick_peer; callbacks.</p>
 
-<marker id="pick_peer"/>
 </desc>
 </func>
 
@@ -324,7 +322,6 @@ value returned by a &peer_up;
 or &peer_down; callback.</p>
 </note>
 
-<marker id="prepare_request"/>
 </desc>
 
 </func>
@@ -378,7 +375,6 @@ callback has taken place to return <c>{error, Reason}</c>.
 Returning <c>discard</c> is equivalent to returning <c>{discard,
 discarded}</c>.</p>
 
-<marker id="prepare_retransmit"/>
 </desc>
 </func>
 
@@ -409,7 +405,6 @@ take place with <c>Reason</c> as initial argument.
 Returning <c>discard</c> is equivalent to returning <c>{discard,
 discarded}</c>.</p>
 
-<marker id="handle_answer"/>
 </desc>
 </func>
 
@@ -454,7 +449,6 @@ case.
 The &mod_application_opt;
 <c>answer_errors</c> can be set to change this behaviour.</p>
 
-<marker id="handle_error"/>
 </desc>
 </func>
 
@@ -483,7 +477,6 @@ that the transport connection to the peer to which the request has
 been sent has become unavailable and that not alternate peer was
 not selected.</p>
 
-<marker id="handle_request"/>
 </desc>
 </func>
 

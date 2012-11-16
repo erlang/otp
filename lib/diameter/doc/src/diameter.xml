@@ -528,7 +528,7 @@ connectivity.</p>
 <p>
 Note that a single <c>up</c>/<c>down</c> event for a given peer
 corresponds to one
-<seealso marker="diameter_app#peer_up">peer_up/peer_down</seealso>
+<seealso marker="diameter_app#Mod:peer_up-3">peer_up/peer_down</seealso>
 callback for each of the Diameter applications negotiated during
 capablilities exchange.
 That is, the event communicates connectivity with the
@@ -1063,7 +1063,6 @@ identifies the configuration.</p>
 
 </section>
 
-<marker id="add_transport"/>
 <funcs>
 
 <!-- ===================================================================== -->
@@ -1113,7 +1112,6 @@ been configured: a service can be started after configuring
 its transports.</p>
 </note>
 
-<marker id="call"/>
 </desc>
 </func>
 
@@ -1220,7 +1218,6 @@ Note that <c>{error,encode}</c> is the only return value which
 guarantees that the request has <em>not</em> been sent over the
 transport connection.</p>
 
-<marker id="origin_state_id"/>
 </desc>
 </func>
 
@@ -1239,7 +1236,6 @@ The value returned is the number of seconds since 19680120T031408Z,
 the first value that can be encoded as a Diameter <c>&dict_Time;</c>,
 at the time the diameter application was started.</p>
 
-<marker id="remove_transport"/>
 </desc>
 </func>
 
@@ -1287,7 +1283,6 @@ Whether or not a DPR message is sent to a peer is
 controlled by value of &disconnect_cb;
 configured on the transport.</p>
 
-<marker id="service_info"/>
 </desc>
 </func>
 
@@ -1590,7 +1585,6 @@ For example:</p>
 
 </taglist>
 
-<marker id="services"/>
 </desc>
 </func>
 
@@ -1606,7 +1600,6 @@ For example:</p>
 <p>
 Return the list of started services.</p>
 
-<marker id="session_id"/>
 </desc>
 </func>
 
@@ -1627,7 +1620,6 @@ The value has the form required by section 8.8 of RFC 3588.
 Ident should be the Origin-Host of the peer from which
 the message containing the returned value will be sent.</p>
 
-<marker id="start"/>
 </desc>
 </func>
 
@@ -1644,7 +1636,6 @@ The diameter application must be started before starting a service.
 In a production system this is typically accomplished by a boot
 file, not by calling <c>start/0</c> explicitly.</p>
 
-<marker id="start_service"/>
 </desc>
 </func>
 
@@ -1675,7 +1666,6 @@ capabilities and restrict its supported Diameter applications so
 necessarily the case.</p>
 </note>
 
-<marker id="stop_service"/>
 </desc>
 </func>
 
@@ -1690,7 +1680,6 @@ Stop the diameter application.</p>
 <p>
 </p>
 
-<marker id="stop_service"/>
 </desc>
 </func>
 
@@ -1718,7 +1707,6 @@ Stopping a service does not remove any associated transports:
 be called to remove transport configuration.</p>
 </note>
 
-<marker id="subscribe"/>
 </desc>
 </func>
 
@@ -1741,7 +1729,6 @@ that does not yet exist.
 Doing so before adding transports is required to guarantee the
 reception of all related events.</p>
 
-<marker id="unsubscribe"/>
 </desc>
 </func>
 
