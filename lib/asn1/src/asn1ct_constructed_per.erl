@@ -76,9 +76,7 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
     case {Optionals = optionals(to_textual_order(CompList)),CompList,
 	  is_optimized(Erule)} of
 	{[],EmptyCL,_} when EmptyCL == {[],[],[]};EmptyCL == {[],[]};EmptyCL == [] -> 
-	    emit(["%%Variable setting just to eliminate ",
-		  "compiler warning for unused vars!",nl,
-		  "_Val = ",{curr,val},",",nl]);
+	    ok;
 	{[],_,_} ->
 	    emit([{next,val}," = ",{curr,val},",",nl]);
 	{_,_,true} ->
