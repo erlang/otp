@@ -2119,7 +2119,9 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	goto sbc_final_touch;
     }
     else {
+#ifndef ARCH_64
 	ASSERT(crr_sz <= MBC_SZ_MAX_LIMIT);
+#endif
 	SET_CARRIER_HDR(crr, crr_sz, SCH_MSEG|SCH_MBC, allctr);
 	STAT_MSEG_MBC_ALLOC(allctr, crr_sz);
 	goto mbc_final_touch;
@@ -4162,9 +4164,11 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     allctr->ramv			= init->ramv;
     allctr->main_carrier_size		= init->mmbcs;
     allctr->sbc_threshold		= init->sbct;
+#ifndef ARCH_64
     if (allctr->sbc_threshold > MBC_ABLK_SZ_MASK - ABLK_HDR_SZ) {
 	allctr->sbc_threshold = MBC_ABLK_SZ_MASK - ABLK_HDR_SZ + 1;
     }
+#endif
 
 #if HAVE_ERTS_MSEG
     allctr->mseg_opt.abs_shrink_th	= init->asbcst;
@@ -4182,10 +4186,11 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 #endif
 
     allctr->largest_mbc_size		= MAX(init->lmbcs, init->smbcs);
+#ifndef ARCH_64
     if (allctr->largest_mbc_size > MBC_SZ_MAX_LIMIT) {
 	allctr->largest_mbc_size = MBC_SZ_MAX_LIMIT;
     }
-
+#endif
     allctr->smallest_mbc_size		= init->smbcs;
     allctr->mbc_growth_stages		= MAX(1, init->mbcgs);
 
