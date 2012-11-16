@@ -79,7 +79,7 @@ connect(Host, Port, Options, Timeout) ->
 	    DisableIpv6 =  proplists:get_value(ip_v6_disabled, SshOptions, false),
 	    Inet = inetopt(DisableIpv6),
 	    do_connect(Host, Port, [Inet | SocketOptions], 
-		       [{host, Host} | SshOptions], Timeout, DisableIpv6)
+		       [{user_pid, self()}, {host, Host} | SshOptions], Timeout, DisableIpv6)
     end.
 
 do_connect(Host, Port, SocketOptions, SshOptions, Timeout, DisableIpv6) ->
@@ -91,30 +91,39 @@ do_connect(Host, Port, SocketOptions, SshOptions, Timeout, DisableIpv6) ->
  	{ok, ConnectionSup} ->
 	    {ok, Manager} = 
 		ssh_connection_sup:connection_manager(ConnectionSup),
-	    receive 
-		{Manager, is_connected} ->
-		    {ok, Manager};
-		%% When the connection fails 
-		%% ssh_connection_sup:connection_manager
-		%% might return undefined as the connection manager
-		%% could allready have terminated, so we will not
-		%% match the Manager in this case
-		{_, not_connected, {error, econnrefused}} when DisableIpv6 == false ->
-		    do_connect(Host, Port, proplists:delete(inet6, SocketOptions), 
-			    SshOptions, Timeout, true);
-		{_, not_connected, {error, Reason}} ->
-		    {error, Reason};
-		{_, not_connected, Other} ->
-		    {error, Other}
-	    after Timeout  ->
-		    ssh_connection_manager:stop(Manager),
-		    {error, timeout}
-	    end
+	    msg_loop(Manager, DisableIpv6, Host, Port, SocketOptions, SshOptions, Timeout)
     catch 
 	exit:{noproc, _} ->
  	    {error, ssh_not_started}
     end.
-
+msg_loop(Manager, DisableIpv6, Host, Port, SocketOptions, SshOptions, Timeout) ->
+    receive 
+	{Manager, is_connected} ->
+	    {ok, Manager};
+	%% When the connection fails 
+	%% ssh_connection_sup:connection_manager
+	%% might return undefined as the connection manager
+	%% could allready have terminated, so we will not
+	%% match the Manager in this case
+	{_, not_connected, {error, econnrefused}} when DisableIpv6 == false ->
+	    do_connect(Host, Port, proplists:delete(inet6, SocketOptions), 
+		       SshOptions, Timeout, true);
+	{_, not_connected, {error, Reason}} ->
+	    {error, Reason};
+	{_, not_connected, Other} ->
+	    {error, Other};
+	{From, user_password} ->
+	    Pass = io:get_password(),
+	    From ! Pass,
+	    msg_loop(Manager, DisableIpv6, Host, Port, SocketOptions, SshOptions, Timeout);
+	{From, question} ->
+	    Answer = io:get_line(""),
+	    From ! Answer,
+	    msg_loop(Manager, DisableIpv6, Host, Port, SocketOptions, SshOptions, Timeout)
+    after Timeout  ->
+	    ssh_connection_manager:stop(Manager),
+	    {error, timeout}
+    end.
 %%--------------------------------------------------------------------
 %% Function: close(ConnectionRef) -> ok
 %%

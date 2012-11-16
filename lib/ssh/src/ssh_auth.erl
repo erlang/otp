@@ -71,7 +71,7 @@ password_msg([#ssh{opts = Opts, io_cb = IoCb,
     ssh_bits:install_messages(userauth_passwd_messages()),
     Password = case proplists:get_value(password, Opts) of
 		   undefined -> 
-		       user_interaction(IoCb);
+		       user_interaction(IoCb, Ssh);
 		   PW -> 
 		       PW
 	       end,
@@ -89,10 +89,10 @@ password_msg([#ssh{opts = Opts, io_cb = IoCb,
 	      Ssh)
     end.
 
-user_interaction(ssh_no_io) ->
+user_interaction(ssh_no_io, _) ->
     not_ok;
-user_interaction(IoCb) ->
-    IoCb:read_password("ssh password: ").
+user_interaction(IoCb, Ssh) ->
+    IoCb:read_password("ssh password: ", Ssh).
 
 
 %% See RFC 4256 for info on keyboard-interactive
@@ -401,11 +401,11 @@ keyboard_interact_get_responses(IoCb, Opts, Name, Instr, PromptInfos) ->
 	    %% Special case/fallback for just one prompt
 	    %% (assumed to be the password prompt)
 	    case proplists:get_value(password, Opts) of
-		undefined -> keyboard_interact(IoCb, Name, Instr, PromptInfos);
+		undefined -> keyboard_interact(IoCb, Name, Instr, PromptInfos, Opts);
 		PW        -> [PW]
 	    end;
 	undefined ->
-	    keyboard_interact(IoCb, Name, Instr, PromptInfos);
+	    keyboard_interact(IoCb, Name, Instr, PromptInfos, Opts);
 	KbdInteractFun ->
 	    Prompts = lists:map(fun({Prompt, _Echo}) -> Prompt end,
 				PromptInfos),
@@ -419,15 +419,15 @@ keyboard_interact_get_responses(IoCb, Opts, Name, Instr, PromptInfos) ->
 	    end
     end.
 
-keyboard_interact(IoCb, Name, Instr, Prompts) ->
+keyboard_interact(IoCb, Name, Instr, Prompts, Opts) ->
     if Name /= "" -> IoCb:format("~s", [Name]);
        true       -> ok
     end,
     if Instr /= "" -> IoCb:format("~s", [Instr]);
        true        -> ok
     end,
-    lists:map(fun({Prompt, true})  -> IoCb:read_line(Prompt);
-		 ({Prompt, false}) -> IoCb:read_password(Prompt)
+    lists:map(fun({Prompt, true})  -> IoCb:read_line(Prompt, Opts);
+		 ({Prompt, false}) -> IoCb:read_password(Prompt, Opts)
 	      end,
 	      Prompts).
 
