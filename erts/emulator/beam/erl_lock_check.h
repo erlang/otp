@@ -104,7 +104,7 @@ void erts_lc_unrequire_lock(erts_lc_lock_t *lck);
 
 
 #define ERTS_LC_ASSERT(A) \
-  ((void) ((A) ? 1 : erts_lc_assert_failed(__FILE__, __LINE__, #A)))
+    ((void) (((A) || ERTS_SOMEONE_IS_CRASH_DUMPING) ? 1 : erts_lc_assert_failed(__FILE__, __LINE__, #A)))
 #ifdef ERTS_SMP
 #define ERTS_SMP_LC_ASSERT(A) ERTS_LC_ASSERT(A)
 #else
