@@ -1699,7 +1699,8 @@ nodes(_Arg) ->
            | in
            | out
            | binary
-           | eof.
+           | eof
+	   | hide.
 open_port(_PortName,_PortSettings) ->
     erlang:nif_error(undefined).
 
@@ -1836,7 +1837,7 @@ process_flag(_Flag, _Value) ->
       {group_leader, GroupLeader :: pid()} |
       {heap_size, Size :: non_neg_integer()} |
       {initial_call, mfa()} |
-      {links, Pids :: [pid()]} |
+      {links, Pids :: [pid() | port()]} |
       {last_calls, false | (Calls :: [mfa()])} |
       {memory, Size :: non_neg_integer()} |
       {message_que_len, MessageQueueLen :: non_neg_integer()} |
