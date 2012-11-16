@@ -34,30 +34,6 @@
   <lib>erl_nif</lib>
   <libsummary>API functions for an Erlang NIF library</libsummary>
   <description>
-     <note><p>The NIF concept is officially supported from R14B. NIF source code
-     written for earlier experimental versions might need adaption to run on R14B.</p>
-    <p>No incompatible changes between <em>R14B</em> and R14A.</p>
-    <p>Incompatible changes between <em>R14A</em> and R13B04:</p>
-  <list>
-    <item>Environment argument removed for <c>enif_alloc</c>,
-    <c>enif_realloc</c>, <c>enif_free</c>, <c>enif_alloc_binary</c>,
-    <c>enif_realloc_binary</c>, <c>enif_release_binary</c>,
-    <c>enif_alloc_resource</c>, <c>enif_release_resource</c>,
-    <c>enif_is_identical</c> and <c>enif_compare</c>.</item>
-    <item>Character encoding argument added to <c>enif_get_atom</c>
-    and <c>enif_make_existing_atom</c>.</item>
-    <item>Module argument added to <c>enif_open_resource_type</c>
-      while changing name spaces of resource types from global to module local.</item>
-  </list>
-  <p>Incompatible changes between <em>R13B04</em> and R13B03:</p>
-  <list>
-    <item>The function prototypes of the NIFs have  changed to expect <c>argc</c> and <c>argv</c>
-	  arguments. The arity of a NIF is by that no longer limited to 3.</item>
-    <item><c>enif_get_data</c> renamed as <c>enif_priv_data</c>.</item>
-    <item><c>enif_make_string</c> got a third argument for character encoding.</item>
-  </list>
-  </note>
-
     <p>A NIF library contains native implementation of some functions
     of an Erlang module. The native implemented functions (NIFs) are
     called like any other functions without any difference to the
@@ -67,6 +43,57 @@
     is to throw an exception. But it can also be used as a fallback
     implementation if the NIF library is not implemented for some
     architecture.</p>     
+    <marker id="WARNING"/>
+      <warning><p><em>Use this functionality with extreme care!</em></p>
+      <p>A native function is executed as a direct extension of the
+      native code of the VM. Execution is not made in a safe environment.
+      The VM can <em>not</em> provide the same services as provided when
+      executing Erlang code, such as preemptive scheduling or memory
+      protection. If the native function doesn't behave well, the whole
+      VM will misbehave.</p>
+      <list>
+	<item><p>A native function that crash will crash the whole VM.</p></item>
+	<item><p>An erroneously implemented native function might cause
+	a VM internal state inconsistency which may cause a crash of the VM,
+	or miscellaneous misbehaviors of the VM at any point after the call
+	to the native function.</p></item>
+	<item><p>A native function that do <seealso marker="#lengthy_work">lengthy
+	work</seealso> before returning will degrade responsiveness of the VM,
+	and may cause miscellaneous strange behaviors. Such strange behaviors
+	include, but are not limited to, extreme memory usage, and bad load
+	balancing between schedulers. Strange behaviors that might occur due
+	to lengthy work may also vary between OTP releases.</p></item>
+      </list>
+      </warning>
+
+     <p>The NIF concept is officially supported from R14B. NIF source code
+     written for earlier experimental versions might need adaption to run on R14B
+     or later versions:</p>
+     <list>
+       <item>No incompatible changes between <em>R14B</em> and R14A.</item>
+       <item>Incompatible changes between <em>R14A</em> and R13B04:
+       <list>
+	 <item>Environment argument removed for <c>enif_alloc</c>,
+	 <c>enif_realloc</c>, <c>enif_free</c>, <c>enif_alloc_binary</c>,
+	 <c>enif_realloc_binary</c>, <c>enif_release_binary</c>,
+	 <c>enif_alloc_resource</c>, <c>enif_release_resource</c>,
+	 <c>enif_is_identical</c> and <c>enif_compare</c>.</item>
+	 <item>Character encoding argument added to <c>enif_get_atom</c>
+	 and <c>enif_make_existing_atom</c>.</item>
+	 <item>Module argument added to <c>enif_open_resource_type</c>
+	 while changing name spaces of resource types from global to module local.</item>
+       </list>
+     </item>
+     <item>Incompatible changes between <em>R13B04</em> and R13B03:
+     <list>
+       <item>The function prototypes of the NIFs have  changed to expect <c>argc</c> and <c>argv</c>
+       arguments. The arity of a NIF is by that no longer limited to 3.</item>
+       <item><c>enif_get_data</c> renamed as <c>enif_priv_data</c>.</item>
+       <item><c>enif_make_string</c> got a third argument for character encoding.</item>
+     </list>
+     </item>
+    </list>
+
     <p>A minimal example of a NIF library can look like this:</p>
       <p/>
       <code type="none">
@@ -136,7 +163,23 @@ ok
      then retrieved by calling <seealso marker="#enif_priv_data">enif_priv_data</seealso>.</p>
     <p>There is no way to explicitly unload a NIF library. A library will be
      automatically unloaded when the module code that it belongs to is purged
-     by the code server.</p> 
+     by the code server.</p>
+
+     <p><marker id="lengthy_work"/>
+     As mentioned in the <seealso marker="#WARNING">warning</seealso> text at
+     the beginning of this document it is of vital importance that a native function
+     does return relatively fast. It is hard to give an exact maximum amount
+     of time that a native function is allowed to work, but as a rule of thumb
+     a well behaving native function should return to its caller before a
+     millisecond has passed. This can be achieved using different approaches.
+     If you have full control over the code that are to execute in the native
+     function, the best approach is to divide the work into multiple chunks of
+     work and call the native function multiple times. This might, however,
+     not always be possible, e.g. when calling third party libraries. In this
+     case you typically want to dispatch the work to another thread, return
+     from the native function, and wait for the result. The thread can send
+     the result back to the calling thread using message passing. Information
+     about thread primitives can be found below.</p>
   </description>
   <section>
   <title>FUNCTIONALITY</title>
@@ -266,10 +309,6 @@ ok
       mutable.</p>
       <p>The library initialization callbacks <c>load</c>, <c>reload</c> and
       <c>upgrade</c> are all thread-safe even for shared state data.</p>
-      <p>Avoid doing lengthy work in NIF calls as that may degrade the
-      responsiveness of the VM. NIFs are called directly by the same scheduler
-      thread that executed the calling Erlang code. The calling scheduler will thus
-      be blocked from doing any other work until the NIF returns.</p>
       </item>
     </taglist>
   </section>

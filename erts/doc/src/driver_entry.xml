@@ -34,6 +34,29 @@
   <lib>driver_entry</lib>
   <libsummary>The driver-entry structure used by erlang drivers.</libsummary>
   <description>
+    <marker id="WARNING"/>
+      <warning><p><em>Use this functionality with extreme care!</em></p>
+      <p>A driver callback is executed as a direct extension of the
+      native code of the VM. Execution is not made in a safe environment.
+      The VM can <em>not</em> provide the same services as provided when
+      executing Erlang code, such as preemptive scheduling or memory
+      protection. If the driver callback function doesn't behave well,
+      the whole VM will misbehave.</p>
+      <list>
+	<item><p>A driver callback that crash will crash the whole VM.</p></item>
+	<item><p>An erroneously implemented driver callback might cause
+	a VM internal state inconsistency which may cause a crash of the VM,
+	or miscellaneous misbehaviors of the VM at any point after the call
+	to the driver callback.</p></item>
+	<item><p>A driver callback that do
+	<seealso marker="erl_driver#lengthy_work">lengthy work</seealso>
+	before returning will degrade responsiveness of the VM,
+	and may cause miscellaneous strange behaviors. Such strange behaviors
+	include, but are not limited to, extreme memory usage, and bad load
+	balancing between schedulers. Strange behaviors that might occur due
+	to lengthy work may also vary between OTP releases.</p></item>
+      </list>
+      </warning>
     <p>
       As of erts version 5.9 (OTP release R15B) the driver interface
       has been changed with larger types for the callbacks
