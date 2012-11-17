@@ -3163,17 +3163,16 @@ request_id() ->
 %%----------------------------------------------------------------------
 
 agent_data(TargetName, SendOpts) ->
-    case snmpm_config:agent_info(TargetName, all) of
-	{ok, Info} ->
-	    Version = agent_data_item(version, Info), 
+    case snmpm_config:agent_info(TargetName, version) of
+	{ok, Version} ->
 	    MsgData = 
 		case Version of
 		    v3 ->
-			DefSecModel = agent_data_item(sec_model, Info),
-			DefSecName  = agent_data_item(sec_name,  Info),
-			DefSecLevel = agent_data_item(sec_level, Info),
+			DefSecModel = agent_data_item(sec_model, TargetName),
+			DefSecName  = agent_data_item(sec_name,  TargetName),
+			DefSecLevel = agent_data_item(sec_level, TargetName),
 			
-			EngineId    = agent_data_item(engine_id, Info),
+			EngineId    = agent_data_item(engine_id, TargetName),
 			CtxName     = agent_data_item(context, 
 						      SendOpts, 
 						      ?DEFAULT_CONTEXT),
@@ -3191,8 +3190,8 @@ agent_data(TargetName, SendOpts) ->
 			{SecModel, SecName, mk_sec_level_flag(SecLevel), 
 			 EngineId, CtxName, TargetName};
 		    _ ->
-			DefComm     = agent_data_item(community, Info),
-			DefSecModel = agent_data_item(sec_model, Info),
+			DefComm     = agent_data_item(community, TargetName),
+			DefSecModel = agent_data_item(sec_model, TargetName),
 			
 			Comm        = agent_data_item(community, 
 						      SendOpts, 
@@ -3203,21 +3202,21 @@ agent_data(TargetName, SendOpts) ->
 			
 			{Comm, SecModel}
 		end,
-	    Domain  = agent_data_item(tdomain,  Info),
-	    Addr    = agent_data_item(address,  Info),
-	    Port    = agent_data_item(port,     Info),
-	    RegType = agent_data_item(reg_type, Info),
+	    Domain  = agent_data_item(tdomain,  TargetName),
+	    Addr    = agent_data_item(address,  TargetName),
+	    Port    = agent_data_item(port,     TargetName),
+	    RegType = agent_data_item(reg_type, TargetName),
 	    {ok, RegType, Domain, Addr, Port, version(Version), MsgData};
 	Error ->
 	    Error
     end.
 
-agent_data_item(Item, Info) ->
-    case lists:keysearch(Item, 1, Info) of
-	{value, {_, Val}} ->
+agent_data_item(Item, TargetName) ->
+    case snmpm_config:agent_info(TargetName, Item) of
+	{ok, Val} ->
 	    Val;
-	false ->
-	    throw({error, {not_found, Item, Info}})
+	{error, not_found} ->
+	    throw({error, {not_found, Item, TargetName}})
     end.
 
 agent_data_item(Item, Info, Default) ->
