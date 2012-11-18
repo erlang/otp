@@ -73,7 +73,7 @@
 -define(IS_SUCCESS(N), 2 == (N) div 1000).
 
 %% Guards.
--define(IS_UINT32(N), (0 =< N andalso 0 == N bsr 32)).
+-define(IS_UINT32(N), (is_integer(N) andalso 0 =< N andalso 0 == N bsr 32)).
 -define(IS_TIMEOUT(N), ?IS_UINT32(N)).
 -define(IS_CAUSE(N), N == ?REBOOT; N == rebooting;
                      N == ?GOAWAY; N == goaway;
@@ -85,6 +85,7 @@
 %%                  for some event.
 %%
 -define(EVENT_TIMEOUT, 10000).
+%% Default timeout for reception of CER/CEA.
 
 %% Default timeout for DPA in response to DPR. A bit short but the
 %% timeout used to be hardcoded. (So it could be worse.)
@@ -93,8 +94,9 @@
 -type uint32() :: diameter:'Unsigned32'().
 
 -record(state,
-        {state = 'Wait-Conn-Ack'   %% state of RFC 3588 Peer State Machine
-              :: 'Wait-Conn-Ack'
+        {state %% of RFC 3588 Peer State Machine
+              :: 'Wait-Conn-Ack'  %% old code
+               | {'Wait-Conn-Ack', uint32()}
                | recv_CER
                | 'Wait-CEA' %% old code
                | {'Wait-CEA', uint32(), uint32()}
@@ -191,7 +193,10 @@ i({WPid, T, Opts, {Mask, Nodes, #diameter_service{applications = Apps,
     putr(?RESTRICT_KEY, Nodes),
     erlang:monitor(process, WPid),
     {TPid, Addrs} = start_transport(T, Rest, Svc),
-    #state{parent = WPid,
+    Tmo = proplists:get_value(capx_timeout, Opts, ?EVENT_TIMEOUT),
+    ?IS_TIMEOUT(Tmo) orelse ?ERROR({invalid, {capx_timeout, Tmo}}),
+    #state{state = {'Wait-Conn-Ack', Tmo},
+           parent = WPid,
            transport = TPid,
            mode = M,
            service = svc(Svc, Addrs)}.
@@ -329,13 +334,17 @@ eraser(Key) ->
 
 %% transition/2
 
+%% Started in old code.
+transition(T, #state{state = 'Wait-Conn-Ack' = PS} = S) ->
+    transition(T, S#state{state = {PS, ?EVENT_TIMEOUT}});
+
 %% Connection to peer.
 transition({diameter, {TPid, connected, Remote}},
            #state{transport = TPid,
                   state = PS,
                   mode = M}
            = S) ->
-    'Wait-Conn-Ack' = PS,  %% assert
+    {'Wait-Conn-Ack', _} = PS,  %% assert
     connect = M,           %%
     keep_transport(TPid),
     send_CER(S#state{mode = {M, Remote}});
@@ -347,11 +356,11 @@ transition({diameter, {TPid, connected}},
                   mode = M,
                   parent = Pid}
            = S) ->
-    'Wait-Conn-Ack' = PS,  %% assert
+    {'Wait-Conn-Ack', Tmo} = PS,  %% assert
     accept = M,            %%
     keep_transport(TPid),
     Pid ! {accepted, self()},
-    start_timer(S#state{state = recv_CER});
+    start_timer(Tmo, S#state{state = recv_CER});
 
 %% Connection established after receiving a connection_timeout
 %% message. This may be followed by an incoming message which arrived
@@ -365,7 +374,7 @@ transition({diameter, {_, connected, _}}, _) ->
 %% Connection has timed out: start an alternate.
 transition({connection_timeout = T, TPid},
            #state{transport = TPid,
-                  state = 'Wait-Conn-Ack'}
+                  state = {'Wait-Conn-Ack', _}}
            = S) ->
     exit(TPid, {shutdown, T}),
     start_next(S);
@@ -380,7 +389,7 @@ transition({diameter, {recv, Pkt}}, S) ->
 
 %% Timeout when still in the same state ...
 transition({timeout, PS}, #state{state = PS}) ->
-    stop;
+    {stop, {capx(PS), timeout}};
 
 %% ... or not.
 transition({timeout, _}, _) ->
@@ -435,6 +444,11 @@ transition({state, Pid}, #state{state = S, transport = TPid}) ->
 
 %% Crash on anything unexpected.
 
+capx(recv_CER) ->
+    'CER';
+capx({'Wait-CEA', _, _}) ->
+    'CEA'.
+
 %% start_next/1
 
 start_next(#state{service = Svc0} = S) ->
@@ -450,7 +464,8 @@ start_next(#state{service = Svc0} = S) ->
 
 %% send_CER/1
 
-send_CER(#state{mode = {connect, Remote},
+send_CER(#state{state = {'Wait-Conn-Ack', Tmo},
+                mode = {connect, Remote},
                 service = #diameter_service{capabilities = LCaps},
                 transport = TPid}
          = S) ->
@@ -465,7 +480,7 @@ send_CER(#state{mode = {connect, Remote},
         = Pkt
         = encode(CER),
     send(TPid, Pkt),
-    start_timer(S#state{state = {'Wait-CEA', Hid, Eid}}).
+    start_timer(Tmo, S#state{state = {'Wait-CEA', Hid, Eid}}).
 
 %% Register ourselves as connecting to the remote endpoint in
 %% question. This isn't strictly necessary since a peer implementing
@@ -477,10 +492,10 @@ send_CER(#state{mode = {connect, Remote},
 req_send_CER(OriginHost, Remote) ->
     register_everywhere({?MODULE, connection, OriginHost, {remote, Remote}}).
 
-%% start_timer/1
+%% start_timer/2
 
-start_timer(#state{state = PS} = S) ->
-    erlang:send_after(?EVENT_TIMEOUT, self(), {timeout, PS}),
+start_timer(Tmo, #state{state = PS} = S) ->
+    erlang:send_after(Tmo, self(), {timeout, PS}),
     S.
 
 %% build_CER/1

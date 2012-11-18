@@ -617,6 +617,14 @@ indicated result code.
 <c>Pkt</c> contains the CER in question.</p>
 </item>
 
+<tag><c>{'CER', timeout}</c></tag>
+<item>
+<p>
+An expected CER was not received within <seealso
+marker="#capx_timeout">capx_timeout</seealso> of
+connection establishment.</p>
+</item>
+
 <tag><c>{'CEA', Result, Caps, Pkt}</c></tag>
 <item>
 <code>
@@ -648,6 +656,14 @@ Pkt  = #diameter_packet{}
 An incoming CEA contained errors and has been rejected.
 <c>Caps</c> contains only values for the the local node.
 <c>Pkt</c> contains the CEA in question.</p>
+</item>
+
+<tag><c>{'CEA', timeout}</c></tag>
+<item>
+<p>
+An expected CEA was not received within <seealso
+marker="#capx_timeout">capx_timeout</seealso>
+of connection establishment.</p>
 </item>
 
 </taglist>
@@ -704,7 +720,8 @@ well as the following.</p>
 Defines a Diameter application supported by the service.</p>
 
 <p>
-A service must configure one <c>application</c> for each Diameter
+A service must configure one <seealso
+marker="#application">application</seealso> for each Diameter
 application it intends to support.
 For an outgoing Diameter request, the relevant <c><seealso 
 marker="#application_alias">application_alias()</seealso></c> is
@@ -719,7 +736,7 @@ file.</p>
                              | node
                              | nodes
                              | [node()]
-                             | diameter:evaluable()}</c></tag>
+                             | evaluable()}</c></tag>
 <item>
 <p>
 Specifies the degree to which multiple transport connections to the
@@ -729,10 +746,10 @@ same peer are accepted by the service.</p>
 If type <c>[node()]</c> then a connection is rejected if another already
 exists on any of the specified nodes.
 Values of type <c>false</c>, <c>node</c>, <c>nodes</c> or
-<c>diameter:evaluable()</c> are equivalent to values <c>[]</c>,
-<c>[node()]</c>, <c>[node()|nodes()]</c> and the evaluated value,
-respectively, evaluation of each expression taking place whenever a
-new connection is to be established.
+<seealso marker="#evaluable">evaluable()</seealso> are equivalent to
+values <c>[]</c>, <c>[node()]</c>, <c>[node()|nodes()]</c> and the
+evaluated value, respectively, evaluation of each expression taking
+place whenever a new connection is to be established.
 Note that <c>false</c> allows an unlimited number of connections to be
 established with the same peer.</p>
 
@@ -745,14 +762,14 @@ Defaults to <c>nodes</c>.</p>
 </item>
 
 <tag><c>{sequence, {H,N} | <seealso
-   marker="diameter#evaluable">diameter:evaluable()</seealso>}</c></tag>
+   marker="#evaluable">evaluable()</seealso>}</c></tag>
 <item>
 <p>
 Specifies a constant value <c>H</c> for the topmost <c>32-N</c> bits of
 of 32-bit End-to-End and Hop-by-Hop identifiers generated
 by the service, either explicity or as a return value of a function
 to be evaluated at <seealso
-marker="diameter#start_service">diameter:start_service/2</seealso>.
+marker="#start_service">start_service/2</seealso>.
 In particular, an identifier <c>Id</c> is mapped to a new identifier
 as follows.</p>
 <code>
@@ -786,53 +803,6 @@ marker="#add_transport">add_transport/2</seealso>.
 Has one of the following types.</p>
 
 <taglist>
-<tag><c>{transport_module, atom()}</c></tag>
-<item>
-<p>
-A module implementing a transport process as defined in <seealso
-marker="diameter_transport">diameter_transport(3)</seealso>.
-Defaults to <c>diameter_tcp</c> if unspecified.</p>
-
-<p>
-Multiple <c>transport_module</c> and <c>transport_config</c>
-options are allowed.
-The order of these is significant in this case (and only in this case),
-a <c>transport_module</c> being paired with the first
-<c>transport_config</c> following it in the options list, or the
-default value for trailing modules.
-Transport starts will be attempted with each of the
-modules in order until one establishes a connection within the
-corresponding timeout (see below) or all fail.</p>
-</item>
-
-<tag><c>{transport_config, term()}</c></tag>
-<tag><c>{transport_config, term(), <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
-<item>
-<p>
-A term passed as the third argument to the <seealso
-marker="diameter_transport#start">start/3</seealso> function of
-the relevant <c>transport_module</c> in order to start a transport process.
-Defaults to the empty list if unspecified.</p>
-
-<p>
-The 3-tuple form additionally specifies an interval, in milliseconds,
-after which a started transport process should be terminated if it has
-not yet established a connection.
-For example, the following options on a connecting transport
-request a connection with one peer over SCTP or another
-(typically the same) over TCP.</p>
-
-<code>
-{transport_module, diameter_sctp}
-{transport_config, SctpOpts, 5000}
-{transport_module, diameter_tcp}
-{transport_config, TcpOpts}
-</code>
-
-<p>
-To listen on both SCTP and TCP, define one transport for each.</p>
-</item>
-
 <marker id="applications"/>
 <tag><c>{applications, [<seealso marker="#application_alias">application_alias()</seealso>]}</c></tag>
 <item>
@@ -901,9 +871,27 @@ Equivalent to returning <c>3010</c>, DIAMETER_UNKNOWN_PEER.</p>
 <p>
 Returning anything but <c>ok</c> or a 2xxx series result
 code causes the transport connection to be broken.
-Multiple <c>capabilities_cb</c> options can be specified, in which
+Multiple <seealso marker="#capabilities_cb">capabilities_cb</seealso>
+options can be specified, in which
 case the corresponding callbacks are applied until either all return
 <c>ok</c> or one does not.</p>
+</item>
+
+<marker id="capx_timeout"/>
+<tag><c>{capx_timeout,
+  <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
+<item>
+<p>
+The number of milliseconds after which a transport process having an
+established transport connection will be terminated if the expected
+capabilities exchange message (CER or CEA) is not received from the peer.
+For a connecting transport, the timing reconnection attempts is
+governed by <seealso marker="#watchdog_timer">watchdog_timer</seealso> or
+<seealso marker="#reconnect_timer">reconnect_timer</seealso> expiry.
+For a listening transport, the peer determines the timing.</p>
+
+<p>
+Defaults to 10000.</p>
 </item>
 
 <marker id="disconnect_cb"/>
@@ -911,17 +899,17 @@ case the corresponding callbacks are applied until either all return
 
 <item>
 <p>
-A callback invoked prior to requesting shutdown of a transport process
-for a transport connection having watchdog state <c>OKAY</c>.
+A callback invoked prior to terminating the transport process of a
+transport connection having watchdog state <c>OKAY</c>.
 Applied to <c>Reason=transport|service|application</c> and the
 <c><seealso marker="#transport_ref">transport_ref()</seealso></c> and
 <c><seealso marker="diameter_app#peer">diameter_app:peer()</seealso></c>
 in question, <c>Reason</c> indicating whether the the diameter
 application is being stopped, the service in question is being stopped
 at <seealso
-marker="diameter#stop_service">diameter:stop_service/1</seealso> or
+marker="#stop_service">stop_service/1</seealso> or
 the transport in question is being removed at <seealso
-marker="diameter#remove_transport">diameter:remove_transport/2</seealso>,
+marker="#remove_transport">remove_transport/2</seealso>,
 respectively.</p>
 
 <p>
@@ -931,20 +919,12 @@ The return value can have one of the following types.</p>
 <tag><c>{dpr, [option()]}</c></tag>
 <item>
 <p>
-Causes Disconnect-Peer-Request to be sent to the peer, transport
-process shutdown being requested after reception of
+Causes Disconnect-Peer-Request to be sent to the peer, the transport
+process being terminated following reception of
 Disconnect-Peer-Answer or timeout.
 An <c>option()</c> can be one of the following.</p>
 
 <taglist>
-<tag><c>{timeout, integer()}</c></tag>
-<item>
-<p>
-Transport process shutdown will be requested after this number of
-milliseconds if DPA is not received.
-Defaults to 1000.</p>
-</item>
-
 <tag><c>{cause, 0|rebooting|1|busy|2|goaway}</c></tag>
 <item>
 <p>
@@ -952,6 +932,15 @@ The Disconnect-Cause to send, <c>REBOOTING</c>, <c>BUSY</c> and
 <c>DO_NOT_WANT_TO_TALK_TO_YOU</c> respectively.
 Defaults to <c>rebooting</c> for <c>Reason=service|application</c> and
 <c>goaway</c> for <c>Reason=transport</c>.</p>
+</item>
+
+<tag><c>{timeout,
+  <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
+<item>
+<p>
+The number of milliseconds after which the transport process is
+terminated if DPA has not been received.
+Defaults to 1000.</p>
 </item>
 </taglist>
 </item>
@@ -965,7 +954,7 @@ Equivalent to <c>{dpr, []}</c>.</p>
 <tag><c>close</c></tag>
 <item>
 <p>
-Causes transport process shutdown to be requested without
+Causes the transport process to be terminated without
 Disconnect-Peer-Request being sent to the peer.</p>
 </item>
 
@@ -977,7 +966,8 @@ Equivalent to not having configured the callback.</p>
 </taglist>
 
 <p>
-Multiple <c>disconnect_cb</c> options can be specified, in which
+Multiple <seealso marker="#disconnect_cb">disconnect_cb</seealso>
+options can be specified, in which
 case the corresponding callbacks are applied until one of them returns
 a value other than <c>ignore</c>.
 All callbacks returning <c>ignore</c> is equivalent to not having
@@ -985,6 +975,91 @@ configured them.</p>
 
 <p>
 Defaults to a single callback returning <c>dpr</c>.</p>
+</item>
+
+<marker id="reconnect_timer"/>
+<tag><c>{reconnect_timer, Tc}</c></tag>
+<item>
+<code>
+Tc = <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>
+</code>
+
+<p>
+For a connecting transport, the RFC 3588 Tc timer, in milliseconds.
+Note that this timer determines the frequency with which a transport
+will attempt to establish a connection with its peer only <em>before</em>
+an initial connection is established: once there is an initial
+connection it's <seealso
+marker="#watchdog_timer">watchdog_timer</seealso> that determines the
+frequency of reconnection attempts, as required by RFC 3539.</p>
+
+<p>
+For a listening transport, the timer specifies the time after which a
+previously connected peer will be forgotten: a connection after this time is
+regarded as an initial connection rather than a reestablishment,
+causing the RFC 3539 state machine to pass to state OKAY rather than
+REOPEN.
+Note that these semantics are not governed by the RFC and
+that a listening transport's <seealso
+marker="#reconnect_timer">reconnect_timer</seealso> should be greater
+than its peer's Tw plus jitter.</p>
+
+<p>
+Defaults to 30000 for a connecting transport and 60000 for a listening
+transport.</p>
+</item>
+
+<marker id="transport_config"/>
+<tag><c>{transport_config, term()}</c></tag>
+<tag><c>{transport_config, term(), <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
+<item>
+<p>
+A term passed as the third argument to the <seealso
+marker="diameter_transport#start">start/3</seealso> function of
+the relevant <seealso
+marker="#transport_module">transport_module</seealso> in order to
+start a transport process.
+Defaults to the empty list if unspecified.</p>
+
+<p>
+The 3-tuple form additionally specifies an interval, in milliseconds,
+after which a started transport process should be terminated if it has
+not yet established a connection.
+For example, the following options on a connecting transport
+request a connection with one peer over SCTP or another
+(typically the same) over TCP.</p>
+
+<code>
+{transport_module, diameter_sctp}
+{transport_config, SctpOpts, 5000}
+{transport_module, diameter_tcp}
+{transport_config, TcpOpts}
+</code>
+
+<p>
+To listen on both SCTP and TCP, define one transport for each.</p>
+</item>
+
+<marker id="transport_module"/>
+<tag><c>{transport_module, atom()}</c></tag>
+<item>
+<p>
+A module implementing a transport process as defined in <seealso
+marker="diameter_transport">diameter_transport(3)</seealso>.
+Defaults to <c>diameter_tcp</c> if unspecified.</p>
+
+<p>
+Multiple <c>transport_module</c> and <seealso
+marker="#transport_config">transport_config</seealso>
+options are allowed.
+The order of these is significant in this case (and only in this case),
+a <c>transport_module</c> being paired with the first
+<seealso marker="#transport_config">transport_config</seealso>
+following it in the options list, or the default value for trailing
+modules.
+Transport starts will be attempted with each of the
+modules in order until one establishes a connection within the
+corresponding timeout (see below) or all fail.</p>
 </item>
 
 <marker id="watchdog_timer"/>
@@ -1007,37 +1082,6 @@ the callback.</p>
 <p>
 An integer value must be at least 6000 as required by RFC 3539.
 Defaults to 30000 if unspecified.</p>
-</item>
-
-<marker id="reconnect_timer"/>
-<tag><c>{reconnect_timer, Tc}</c></tag>
-<item>
-<code>
-Tc = <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>
-</code>
-
-<p>
-For a connecting transport, the RFC 3588 Tc timer, in milliseconds.
-Note that this timer determines the frequency with which a transport
-will attempt to establish a connection with its peer only <em>before</em>
-an initial connection is established: once there is an initial
-connection it's watchdog_timer that determines the frequency of
-reconnection attempts, as required by RFC 3539.</p>
-
-<p>
-For a listening transport, the timer specifies the time after which a
-previously connected peer will be forgotten: a connection after this time is
-regarded as an initial connection rather than a reestablishment,
-causing the RFC 3539 state machine to pass to state OKAY rather than
-REOPEN.
-Note that these semantics are not goverened by the RFC and
-that a listening transport's <c>reconnect_timer</c> should be greater
-than its peer's Tw plus jitter.</p>
-
-<p>
-Defaults to 30000 for a connecting transport and 60000 for a listening
-transport.</p>
-
 </item>
 
 </taglist>
@@ -1302,7 +1346,7 @@ Pred = {M,F,A}:  fun(Ref, Type, Opts) -> apply(M, F, [Ref, Type, Opts | A]) end
 
 <p>
 Removing a transport causes the corresponding transport processes to
-be asked to terminate.
+be terminated.
 Whether or not a DPR message is sent to a peer is
 controlled by
 value of <seealso marker="disconnect_cb">disconnect_cb</seealso>
