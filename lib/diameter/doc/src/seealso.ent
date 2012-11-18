@@ -57,7 +57,6 @@ significant.
 <!ENTITY mod_transport_opt '<seealso marker="diameter#transport_opt">diameter:transport_opt()</seealso>'>
 <!ENTITY mod_transport_ref '<seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso>'>
 
-<!ENTITY application '<seealso marker="#application">application</seealso>'>
 <!ENTITY capabilities_cb '<seealso marker="#capabilities_cb">capabilities_cb</seealso>'>
 <!ENTITY capx_timeout '<seealso marker="#capx_timeout">capx_timeout</seealso>'>
 <!ENTITY disconnect_cb '<seealso marker="#disconnect_cb">disconnect_cb</seealso>'>

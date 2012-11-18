@@ -697,7 +697,7 @@ Can be any <c>&capability;</c> as well as the following.</p>
 Defines a Diameter application supported by the service.</p>
 
 <p>
-A service must configure one &application; for each Diameter
+A service must configure one tuple for each Diameter
 application it intends to support.
 For an outgoing Diameter request, the relevant <c>&application_alias;</c> is
 passed to &call;, while for an
