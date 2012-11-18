@@ -487,6 +487,14 @@ throwaway(S) ->
     throw({?MODULE, throwaway, S}).
 
 %% rcv/2
+%%
+%% The lack of Hop-by-Hop and End-to-End Identifiers checks in a
+%% received DWA is intentional. The purpose of the message is to
+%% demonstrate life but a peer that consistently bungles it by sending
+%% the wrong identifiers causes the connection to toggle between OPEN
+%% and SUSPECT, with failover and failback as result, despite there
+%% being no real problem with connectivity. Thus, relax and accept any
+%% incoming DWA as being in response to an outgoing DWR.
 
 %%   INITIAL       Receive DWA          Pending = FALSE
 %%                                      Throwaway()          INITIAL
