@@ -48,18 +48,19 @@
 -record(watchdog,
         {%% PCB - Peer Control Block; see RFC 3539, Appendix A
          status = initial :: initial | okay | suspect | down | reopen,
-         pending = false  :: boolean(),
+         pending = false  :: boolean(),  %% DWA
          tw :: 6000..16#FFFFFFFF | {module(), atom(), list()},
                                 %% {M,F,A} -> integer() >= 0
          num_dwa = 0 :: -1 | non_neg_integer(),
                      %% number of DWAs received during reopen
          %% end PCB
-         parent = self() :: pid(),
-         transport       :: pid() | undefined,
+         parent = self() :: pid(),              %% service process
+         transport       :: pid() | undefined,  %% peer_fsm process
          tref :: reference(), %% reference for current watchdog timer
          message_data,      %% term passed into diameter_service with message
          sequence :: diameter:sequence(),     %% mask
-         restrict :: {diameter:restriction(), boolean()}}).
+         restrict :: {diameter:restriction(), boolean()},
+         shutdown = false :: boolean()}).
 
 %% start/2
 %%
@@ -168,7 +169,8 @@ handle_info(T, S) ->
     handle_info(T, upgrade(S)).
 
 upgrade(S) ->
-    #watchdog{} = list_to_tuple(tuple_to_list(S) ++ [?NOMASK, {nodes, true}]).
+    #watchdog{} = list_to_tuple(tuple_to_list(S)
+                                ++ [?NOMASK, {nodes, true}, false]).
 
 event(#watchdog{status = T}, #watchdog{status = T}) ->
     ok;
@@ -225,9 +227,10 @@ transition({shutdown, Pid}, #watchdog{parent = Pid,
     down = S,  %% sanity check
     stop;
 transition({shutdown = T, Pid}, #watchdog{parent = Pid,
-                                          transport = TPid}) ->
+                                          transport = TPid}
+                                = S) ->
     TPid ! {T, self()},
-    ok;
+    S#watchdog{shutdown = true};
 
 %% Parent process has died,
 transition({'DOWN', _, process, Pid, _Reason},
@@ -301,7 +304,10 @@ transition({open = P, TPid, _Hosts, T},
 
 transition({'DOWN', _, process, TPid, _},
            #watchdog{transport = TPid,
-                     status = initial}) ->
+                     status = S,
+                     shutdown = D})
+  when S == initial;
+       D ->
     stop;
 
 transition({'DOWN', _, process, TPid, _},
@@ -481,6 +487,14 @@ throwaway(S) ->
     throw({?MODULE, throwaway, S}).
 
 %% rcv/2
+%%
+%% The lack of Hop-by-Hop and End-to-End Identifiers checks in a
+%% received DWA is intentional. The purpose of the message is to
+%% demonstrate life but a peer that consistently bungles it by sending
+%% the wrong identifiers causes the connection to toggle between OPEN
+%% and SUSPECT, with failover and failback as result, despite there
+%% being no real problem with connectivity. Thus, relax and accept any
+%% incoming DWA as being in response to an outgoing DWR.
 
 %%   INITIAL       Receive DWA          Pending = FALSE
 %%                                      Throwaway()          INITIAL

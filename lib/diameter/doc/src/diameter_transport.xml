@@ -149,9 +149,9 @@ contains the binary to send.</p>
 <tag><c>{diameter, {close, Pid}}</c></tag>
 <item>
 <p>
-A request to close the transport connection.
-The transport process should terminate after closing the
-connection.
+A request to terminate the transport process after having received DPA
+in response to DPR.
+The transport process should exit.
 <c>Pid</c> is the pid() of the parent process.</p>
 </item>
 

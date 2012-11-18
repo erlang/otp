@@ -330,6 +330,8 @@ call(SvcName, App, Message) ->
     | {applications, [app_alias()]}
     | {capabilities, [capability()]}
     | {capabilities_cb, evaluable()}
+    | {capx_timeout, 'Unsigned32'()}
+    | {disconnect_cb, evaluable()}
     | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
     | {reconnect_timer, 'Unsigned32'()}
     | {private, any()}.

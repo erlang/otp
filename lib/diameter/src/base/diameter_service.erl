@@ -494,7 +494,7 @@ handle_call({info, Item}, _From, S) ->
     {reply, service_info(Item, S), S};
 
 handle_call(stop, _From, S) ->
-    shutdown(S),
+    shutdown(service, S),
     {stop, normal, ok, S};
 %% The server currently isn't guaranteed to be dead when the caller
 %% gets the reply. We deal with this in the call to the server,
@@ -681,9 +681,10 @@ upgrade_insert(#state{service = #diameter_service{pid = Pid}} = S) ->
 %%% ---------------------------------------------------------------------------
 
 terminate(Reason, #state{service_name = Name} = S) ->
+    send_event(Name, stop),
     ets:delete(?STATE_TABLE, Name),
     shutdown == Reason  %% application shutdown
-        andalso shutdown(S).
+        andalso shutdown(application, S).
 
 %%% ---------------------------------------------------------------------------
 %%% # code_change(FromVsn, State, Extra)
@@ -766,44 +767,48 @@ mod_state(Alias, ModS) ->
 %%% # shutdown/2
 %%% ---------------------------------------------------------------------------
 
-shutdown(Refs, #state{peerT = PeerT}) ->
-    ets:foldl(fun(P,ok) -> s(P, Refs), ok end, ok, PeerT).
+%% remove_transport: ask watchdogs to terminate their transport.
+shutdown(Refs, #state{peerT = PeerT})
+  when is_list(Refs) ->
+    ets:foldl(fun(P,ok) -> sp(P, Refs), ok end, ok, PeerT);
 
-s(#peer{ref = Ref, pid = Pid}, Refs) ->
-    s(lists:member(Ref, Refs), Pid);
-
-s(true, Pid) ->
-    Pid ! {shutdown, self()};  %% 'DOWN' will cleanup as usual
-s(false, _) ->
-    ok.
-
-%%% ---------------------------------------------------------------------------
-%%% # shutdown/1
-%%% ---------------------------------------------------------------------------
-
-shutdown(#state{peerT = PeerT}) ->
+%% application/service shutdown: ask transports to terminate themselves.
+shutdown(Reason, #state{peerT = PeerT}) ->
     %% A transport might not be alive to receive the shutdown request
     %% but give those that are a chance to shutdown gracefully.
-    wait(fun st/2, PeerT),
+    shutdown(conn, Reason, PeerT),
     %% Kill the watchdogs explicitly in case there was no transport.
-    wait(fun sw/2, PeerT).
+    shutdown(peer, Reason, PeerT).
 
-wait(Fun, T) ->
-    diameter_lib:wait(ets:foldl(Fun, [], T)).
+%% sp/2
 
-st(#peer{op_state = {OS,_}} = P, Acc) ->
-    st(P#peer{op_state = OS}, Acc);
-st(#peer{op_state = ?STATE_UP, conn = Pid}, Acc) ->
-    Pid ! shutdown,
-    [Pid | Acc];
-st(#peer{}, Acc) ->
-    Acc.
+sp(#peer{ref = Ref, pid = Pid}, Refs) ->
+    lists:member(Ref, Refs)
+        andalso (Pid ! {shutdown, self()}).  %% 'DOWN' cleans up
 
-sw(#peer{pid = Pid}, Acc)
+%% shutdown/3
+
+shutdown(Who, Reason, T) ->
+    diameter_lib:wait(ets:foldl(fun(X,A) -> shutdown(Who, X, Reason, A) end,
+                                [],
+                                T)).
+
+shutdown(conn = Who, #peer{op_state = {OS,_}} = P, Reason, Acc) ->
+    shutdown(Who, P#peer{op_state = OS}, Reason, Acc);
+
+shutdown(conn,
+         #peer{pid = Pid, op_state = ?STATE_UP, conn = TPid},
+         Reason,
+         Acc) ->
+    TPid ! {shutdown, Pid, Reason},
+    [TPid | Acc];
+
+shutdown(peer, #peer{pid = Pid}, _Reason, Acc)
   when is_pid(Pid) ->
     exit(Pid, shutdown),
     [Pid | Acc];
-sw(#peer{}, Acc) ->
+
+shutdown(_, #peer{}, _, Acc) ->
     Acc.
 
 %%% ---------------------------------------------------------------------------
@@ -857,6 +862,7 @@ i(SvcName) ->
     lists:foreach(fun(T) -> start_fsm(T,S) end, CL),
 
     init_shared(S),
+    send_event(SvcName, start),
     S.
 
 cfg_acc({SvcName, #diameter_service{applications = Apps} = Rec, Opts},
@@ -2171,15 +2177,13 @@ reply([Msg], Dict, TPid, Fs, Pkt)
     reply(Msg, Dict, TPid, Fs, Pkt#diameter_packet{errors = []});
 
 %% No errors or a diameter_header/avp list.
-reply(Msg, Dict, TPid, Fs, #diameter_packet{errors = Es,
-                                            transport_data = TD}
-                           = ReqPkt)
+reply(Msg, Dict, TPid, Fs, #diameter_packet{errors = Es} = ReqPkt)
   when [] == Es;
        is_record(hd(Msg), diameter_header) ->
     Pkt = diameter_codec:encode(Dict, make_answer_packet(Msg, ReqPkt)),
     eval_packet(Pkt, Fs),
     incr(send, Pkt, Dict, TPid),  %% count result codes in sent answers
-    send(TPid, Pkt#diameter_packet{transport_data = TD});
+    send(TPid, Pkt);
 
 %% Or not: set Result-Code and Failed-AVP AVP's.
 reply(Msg, Dict, TPid, Fs, #diameter_packet{errors = [H|_] = Es} = Pkt) ->
@@ -2194,23 +2198,36 @@ eval_packet(Pkt, Fs) ->
     
 %% make_answer_packet/2
 
-%% Binaries and header/avp lists are sent as-is.
-make_answer_packet(Bin, _)
-  when is_binary(Bin) ->
-    #diameter_packet{bin = Bin};
-make_answer_packet([#diameter_header{} | _] = Msg, _) ->
-    #diameter_packet{msg = Msg};
+%% A reply message clears the R and T flags and retains the P flag.
+%% The E flag will be set at encode. 6.2 of 3588 requires the same P
+%% flag on an answer as on the request. A #diameter_packet{} returned
+%% from a handle_request callback can circumvent this by setting its
+%% own header values.
+make_answer_packet(#diameter_packet{header = Hdr,
+                                    msg = Msg,
+                                    transport_data = TD},
+                   #diameter_packet{header = ReqHdr}) ->
+    Hdr0 = ReqHdr#diameter_header{version = ?DIAMETER_VERSION,
+                                  is_request = false,
+                                  is_error = undefined,
+                                  is_retransmitted = false},
+    #diameter_packet{header = fold_record(Hdr0, Hdr),
+                     msg = Msg,
+                     transport_data = TD};
 
-%% Otherwise a reply message clears the R and T flags and retains the
-%% P flag. The E flag will be set at encode. 6.2 of 3588 requires the
-%% same P flag on an answer as on the request.
-make_answer_packet(Msg, #diameter_packet{header = ReqHdr}) ->
-    Hdr = ReqHdr#diameter_header{version = ?DIAMETER_VERSION,
-                                 is_request = false,
-                                 is_error = undefined,
-                                 is_retransmitted = false},
-    #diameter_packet{header = Hdr,
-                     msg = Msg}.
+%% Binaries and header/avp lists are sent as-is.
+make_answer_packet(Bin, #diameter_packet{transport_data = TD})
+  when is_binary(Bin) ->
+    #diameter_packet{bin = Bin,
+                     transport_data = TD};
+make_answer_packet([#diameter_header{} | _] = Msg,
+                   #diameter_packet{transport_data = TD}) ->
+    #diameter_packet{msg = Msg,
+                     transport_data = TD};
+
+%% Otherwise, preserve transport_data.
+make_answer_packet(Msg, #diameter_packet{transport_data = TD} = Pkt) ->
+    make_answer_packet(#diameter_packet{msg = Msg, transport_data = TD}, Pkt).
 
 %% rc/1
 
