@@ -105,7 +105,7 @@ available() ->
 user_trace_s1(_Message) ->
     erlang:nif_error(nif_not_loaded).
 
--spec user_trace_i4s4(iolist(),
+-spec user_trace_i4s4(binary() | undefined,
                       integer_maybe(), integer_maybe(),
                           integer_maybe(), integer_maybe(),
                       iolist_maybe(), iolist_maybe(),
@@ -115,7 +115,7 @@ user_trace_s1(_Message) ->
 user_trace_i4s4(_, _, _, _, _, _, _, _, _) ->
     erlang:nif_error(nif_not_loaded).
 
--spec user_trace_n(n_probe_label(), iolist(),
+-spec user_trace_n(n_probe_label(), binary() | undefined,
                    integer_maybe(), integer_maybe(),
                    integer_maybe(), integer_maybe(),
                    iolist_maybe(), iolist_maybe(),
