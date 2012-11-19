@@ -650,7 +650,7 @@
 
       <fo:flow flow-name="xsl-region-body">
         <fo:block xsl:use-attribute-sets="cover.logo">
-          <fo:external-graphic src="{$docgen}/priv/images/erlang-logo.gif"/>
+          <fo:external-graphic src="{$logo}"/>
         </fo:block>
         <fo:block xsl:use-attribute-sets="cover.title" id="cover-page">
           <xsl:apply-templates/>

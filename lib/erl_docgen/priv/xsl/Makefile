@@ -42,7 +42,8 @@ XSL_FILES = \
 	db_pdf_params.xsl \
 	db_html.xsl \
 	db_html_params.xsl \
-	db_man.xsl
+	db_man.xsl \
+	db_eix.xsl
 
 
 # ----------------------------------------------------
