@@ -111,26 +111,6 @@ cleanup_for_destroy({ObjType,ObjID}) ?tcheck(ir_ExceptionDef, ObjType) ->
 describe({ObjType, ObjID}) ?tcheck(ir_ExceptionDef, ObjType) ->
     orber_ifr_contained:describe({ObjType,ObjID}).
 
-%%% *** This function should be removed. Use
-%%% orber_ifr_repository:lookup_id/2 instead.
-
-%%lookup_id(SearchId) ->
-%%    _F = fun() ->
-%%                 Q = query [X.ir_Internal_ID || X <- table(ir_ExceptionDef)]
-%%                     end,
-%%                 mnemosyne:eval(Q)
-%%         end,
-%%    case orber_ifr_utils:ifr_transaction_read(_F) of
-%%	?read_check_2() ->
-%%	    {ok, []};
-%%	?read_check_1(Rep_IDs) ->
-%%	    ExceptionDefs = lists:map(fun(X) -> {ir_ExceptionDef, X} end,
-%%				      Rep_IDs),
-%%	    {ok, lists:filter(fun(X) -> orber_ifr_exceptiondef:'_get_id'(X) ==
-%%					    SearchId end,
-%%			      ExceptionDefs)}
-%%    end.
-
 move({ObjType, ObjID}, New_container, New_name, New_version)
     ?tcheck(ir_ExceptionDef, ObjType) ->
     orber_ifr_contained:move({ObjType,ObjID},New_container,New_name,

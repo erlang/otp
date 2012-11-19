@@ -57,9 +57,8 @@ init() ->
 
     Event = event_procs(),
     Kernel = kernel_procs(),
-    Mnemosyne = mnemosyne_procs(),
 
-    {ok, {Flags, Event ++ Kernel ++ Mnemosyne}}.
+    {ok, {Flags, Event ++ Kernel}}.
 
 event_procs() ->
     KillAfter = timer:seconds(30),
@@ -71,16 +70,6 @@ kernel_procs() ->
     K = mnesia_kernel_sup,
     KA = infinity,
     [{K, {K, start, []}, permanent, KA, supervisor, [K, supervisor]}].
-
-mnemosyne_procs() ->
-    case mnesia_monitor:get_env(embedded_mnemosyne) of
-	true ->
-	    Q = mnemosyne_sup,
-	    KA = infinity,
-	    [{Q, {Q, start, []}, permanent, KA, supervisor, [Q, supervisor]}];
-	false ->
-	    []
-    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% event handler
@@ -107,11 +96,8 @@ add_event_handler() ->
 
 kill() ->
     Mnesia = [mnesia_fallback | mnesia:ms()],
-    Mnemosyne = mnemosyne_ms(),
     Kill = fun(Name) -> catch exit(whereis(Name), kill) end,
-    lists:foreach(Kill, Mnemosyne),
     lists:foreach(Kill, Mnesia),
-    lists:foreach(fun ensure_dead/1, Mnemosyne),
     lists:foreach(fun ensure_dead/1, Mnesia),
     timer:sleep(10),
     case lists:keymember(mnesia, 1, application:which_applications()) of
@@ -127,10 +113,4 @@ ensure_dead(Name) ->
 	    exit(Pid, kill),
 	    timer:sleep(10),
 	    ensure_dead(Name)
-    end.
-
-mnemosyne_ms() ->
-    case mnesia_monitor:get_env(embedded_mnemosyne) of
-	true -> mnemosyne:ms();
-	false -> []
     end.
