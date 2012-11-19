@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -79,7 +79,8 @@ groups() ->
 all() ->
     [test_server_SUITE, test_server_parallel01_SUITE,
      test_server_conf02_SUITE, test_server_conf01_SUITE,
-     test_server_skip_SUITE, test_server_shuffle01_SUITE].
+     test_server_skip_SUITE, test_server_shuffle01_SUITE,
+     test_server_break_SUITE].
 
 
 %%--------------------------------------------------------------------
@@ -115,6 +116,10 @@ test_server_conf02_SUITE(Config) ->
     run_test_server_tests("test_server_conf02_SUITE", 26, 0, 12, 
 			  12, 0, 0, 0, 0, 26, Config).
 
+test_server_break_SUITE(Config) ->
+    D = run_test_server_tests("test_server_break_SUITE", 8, 2, 6,
+			  4, 0, 0, 0, 2, 6, Config),
+    D.
 
 run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc, 
 		      NUsrSkip, NAutoSkip, 
@@ -139,9 +144,11 @@ run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc,
     rpc:call(Node,test_server_ctrl, stop, []),
 
     {ok,Data} =	test_server_test_lib:parse_suite(
-		  hd(filelib:wildcard(
-		       filename:join([WorkDir,SuiteName++".logs",
-				      "run*","suite.log"])))),
+		  lists:last(
+		    lists:sort(
+		      filelib:wildcard(
+			filename:join([WorkDir,SuiteName++".logs",
+				       "run*","suite.log"]))))),
     check([{"Number of cases",NCases,Data#suite.n_cases},
 	   {"Number failed",NFail,Data#suite.n_cases_failed},
 	   {"Number expected",NExpected,Data#suite.n_cases_expected},
