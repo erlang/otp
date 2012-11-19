@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="latin1" ?>
-<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
 
 <erlref>
 <header>
@@ -41,10 +46,9 @@ under the License.
 This module implements diameter transport over SCTP using <seealso
 marker="kernel:gen_sctp">gen_sctp</seealso>.
 It can be specified as the value of a transport_module option to
-<seealso
-marker="diameter#add_transport">diameter:add_transport/2</seealso>
+&mod_add_transport;
 and implements the behaviour documented in
-<seealso marker="diameter_transport">diameter_transport(3)</seealso>.</p>
+&man_transport;.</p>
 
 <marker id="start"/>
 </description>
@@ -59,7 +63,7 @@ and implements the behaviour documented in
 <fsummary>Start a transport process.</fsummary>
 <type>
 <v>Type = connect | accept</v>
-<v>Ref = <seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso></v>
+<v>Ref = &mod_transport_ref;</v>
 <v>Svc = #diameter_service{}</v>
 <v>Opt = {raddr, <seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>} | {rport, integer()} | term()</v>
 <v>Pid = pid()</v>
@@ -69,8 +73,7 @@ and implements the behaviour documented in
 <desc>
 
 <p>
-The start function required by <seealso
-marker="diameter_transport#start">diameter_transport(3)</seealso>.</p>
+The start function required by &man_transport;.</p>
 
 <p>
 The only diameter_sctp-specific argument is the options list.
@@ -115,16 +118,13 @@ diameter_sctp uses the <c>transport_data</c> field of
 the <c>#diameter_packet{}</c> record to communicate the stream on which an
 inbound message has been received, or on which an outbound message
 should be sent: the value will be of the form <c>{stream, Id}</c>
-on an inbound message passed to a <seealso
-marker="diameter_app#handle_request">handle_request</seealso> or <seealso
-marker="diameter_app#handle_answer">handle_answer</seealso> callback.
+on an inbound message passed to a &app_handle_request; or
+&app_handle_answer; callback.
 For an outbound message, either <c>undefined</c> (explicitly or
 by receiving the outbound message as a <c>binary()</c>) or a tuple
-should be set in the return value of <seealso
-marker="diameter_app#handle_request">handle_request</seealso>
+should be set in the return value of &app_handle_request;
 (typically by retaining the value passed into this function)
-or <seealso
-marker="diameter_app#prepare_request">prepare_request</seealso>.
+or &app_prepare_request;.
 The value <c>undefined</c> uses a "next outbound stream" id and
 increments this modulo the total number outbound streams.
 That is, successive values of <c>undefined</c> cycle through all
@@ -145,7 +145,8 @@ outbound streams.</p>
 <title>SEE ALSO</title>
 
 <p>
-<seealso marker="diameter_transport">diameter_transport(3)</seealso>,
+&man_main;,
+&man_transport;,
 <seealso marker="kernel:gen_sctp">gen_sctp(3)</seealso>,
 <seealso marker="kernel:inet">inet(3)</seealso></p>
 

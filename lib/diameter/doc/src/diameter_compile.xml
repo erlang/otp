@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="iso-8859-1" ?>
-<!DOCTYPE comref SYSTEM "comref.dtd">
+<!DOCTYPE comref SYSTEM "comref.dtd" [
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
 
 <comref>
 <header>
@@ -122,7 +127,7 @@ Returns 0 on success, non-zero on failure.</p>
 <title>SEE ALSO</title>
 
 <p>
-<seealso marker="diameter_dict">diameter_dict(4)</seealso></p>
+&man_dict;</p>
 
 </section>
 

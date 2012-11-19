@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="latin1" ?>
-<!DOCTYPE chapter SYSTEM "chapter.dtd">
+<!DOCTYPE chapter SYSTEM "chapter.dtd" [
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
 
 <chapter>
 
 <header>
 <copyright>
 <year>2011</year>
+<year>2012</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -395,8 +401,7 @@ Known issues or limitations:</p>
 Some agent-related functionality is not entirely complete.
 In particular, support for proxy agents, that advertise specific
 Diameter applications but otherwise relay messages in much the same
-way as relay agents (for which a <seealso
-marker="diameter_app#handle_request">handle_request/3</seealso>
+way as relay agents (for which a &handle_request;
 callback can return a <c>relay</c> tuple), will be completed in an
 upcoming release.
 There may also be more explicit support for redirect agents, although
@@ -428,8 +433,7 @@ could likely be expanded upon.</p>
 
 <item>
 <p>
-The function <seealso
-marker="diameter#service_info">diameter:service_info/2</seealso>
+The function &service_info;
 can be used to retrieve information about a started service
 (statistics, information about connected peers, etc) but
 this is not yet documented and both the input and output may change

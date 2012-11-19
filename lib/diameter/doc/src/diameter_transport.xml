@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="latin1" ?>
-<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
 
 <erlref>
 <header>
@@ -38,8 +43,7 @@ under the License.
 <description>
 
 <p>
-A module specified as a <c>transport_module</c> to <seealso
-marker="diameter#add_transport">diameter:add_transport/2</seealso>
+A module specified as a <c>transport_module</c> to &mod_add_transport;
 must implement the interface documented here.
 The interface consists of a function with which
 diameter starts a transport process and a message interface with which
@@ -59,7 +63,7 @@ parent).</p>
 <fsummary>Start a transport process.</fsummary>
 <type>
 <v>Type = connect | accept</v>
-<v>Ref = <seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso></v>
+<v>Ref = &mod_transport_ref;</v>
 <v>Svc = #diameter_service{}</v>
 <v>Config = term()</v>
 <v>Pid = pid()</v>
@@ -69,8 +73,7 @@ parent).</p>
 <desc>
 <p>
 Start a transport process.
-Called by diameter as a consequence of a call to <seealso
-marker="diameter#add_transport">diameter:add_transport/2</seealso> in
+Called by diameter as a consequence of a call to &mod_add_transport; in
 order to establish or accept a transport connection respectively.
 A transport process maintains a connection with a single remote peer.</p>
 
@@ -82,22 +85,18 @@ In the latter case, transport processes are started as required to
 accept connections from multiple peers.</p>
 
 <p>
-Ref is the value that was returned from the call to <seealso
-marker="diameter#add_transport">diameter:add_transport/2</seealso>
+Ref is the value that was returned from the call to &mod_add_transport;
 that has lead to starting of a transport process.</p>
 
 <p>
-<c>Svc</c> contains the capabilities passed to <seealso
-marker="diameter#start_service">diameter:start_service/2</seealso> and 
-<seealso
-marker="diameter#add_transport">diameter:add_transport/2</seealso>,
+<c>Svc</c> contains the capabilities passed to &mod_start_service; and
+&mod_add_transport;,
 values passed to the latter overriding those passed to the former.</p>
 
 <p>
 <c>Config</c> is as passed in <c>transport_config</c> tuple in the
-<seealso marker="diameter#transport_opt">diameter:transport_opt()</seealso>
-list passed to <seealso
-marker="diameter#add_transport">diameter:add_transport/2</seealso>.</p>
+&mod_transport_opt;
+list passed to &mod_add_transport;.</p>
 
 <p>
 The start function should use the <c>Host-IP-Address</c> list and/or
@@ -245,8 +244,7 @@ A transport must exit if a handshake is not successful.</p>
 <title>SEE ALSO</title>
 
 <p>
-<seealso marker="diameter_tcp">diameter_tcp(3)</seealso>,
-<seealso marker="diameter_sctp">diameter_sctp(3)</seealso></p>
+&man_tcp;, &man_sctp;</p>
 
 </section>
 
