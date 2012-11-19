@@ -3262,7 +3262,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		       inlined=IsInlined},
     TestFun = 
 	fun(Tref) ->
-		{_,MaybeChoice} = get_referenced_type(S,Tref),
+		MaybeChoice = get_non_typedef(S, Tref),
 		case catch((MaybeChoice#typedef.typespec)#type.def) of
 		    {'CHOICE',_} ->
 			maybe_illicit_implicit_tag(choice,Tag);
@@ -3616,6 +3616,14 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
     T5#type{constraint=check_constraints(S,T5#type.constraint)};
 check_type(_S,Type,Ts) ->
     exit({error,{asn1,internal_error,Type,Ts}}).
+
+get_non_typedef(S, Tref0) ->
+    case get_referenced_type(S, Tref0) of
+	{_,#typedef{typespec=#type{def=#'Externaltypereference'{}=Tref}}} ->
+	    get_non_typedef(S, Tref);
+	{_,Type} ->
+	    Type
+    end.
 
 %% tablecinf_choose. A SEQUENCE or SET may be inserted in another
 %% SEQUENCE or SET by the COMPONENTS OF directive. If this inserted

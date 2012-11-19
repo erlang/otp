@@ -105,6 +105,7 @@ groups() ->
        testChoTypeRefPrim,
        testChoTypeRefSeq,
        testChoTypeRefSet,
+       testMultipleLevels,
        testDef,
        testOpt,
        testSeqDefault,
@@ -407,6 +408,11 @@ testChoTypeRefSet(Config) -> test(Config, fun testChoTypeRefSet/3).
 testChoTypeRefSet(Config, Rule, Opts) ->
     asn1_test_lib:compile("ChoTypeRefSet", Config, [Rule|Opts]),
     testChoTypeRefSet:set(Rule).
+
+testMultipleLevels(Config) -> test(Config, fun testMultipleLevels/3).
+testMultipleLevels(Config, Rule, Opts) ->
+    asn1_test_lib:compile("MultipleLevels", Config, [Rule|Opts]),
+    testMultipleLevels:main(Rule).
 
 testDef(Config) -> test(Config, fun testDef/3).
 testDef(Config, Rule, Opts) ->
