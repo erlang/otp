@@ -2516,9 +2516,9 @@ handle_unrecv_data(StateName, #state{socket = Socket, transport_cb = Transport} 
 	    handle_close_alert(Data, StateName, State)
     end.
 
-handle_close_alert(Data, StateName, State) ->
-    case next_tls_record(Data, State) of
-	#ssl_tls{type = ?ALERT, fragment = EncAlerts} ->
+handle_close_alert(Data, StateName, State0) ->
+    case next_tls_record(Data, State0) of
+	{#ssl_tls{type = ?ALERT, fragment = EncAlerts}, State} ->
 	    [Alert|_] = decode_alerts(EncAlerts),
 	    handle_normal_shutdown(Alert, StateName, State);
 	_ ->
