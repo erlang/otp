@@ -34,7 +34,8 @@ XML_REF_FILES = $(XML_REF1_FILES) $(XML_REF3_FILES) $(XML_REF4_FILES)
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) \
             $(XML_REF_FILES) \
-            $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+            $(XML_PART_FILES) $(XML_CHAPTER_FILES) \
+            seealso.ent
 
 INTERNAL_HTML_FILES = $(TECHNICAL_DESCR_FILES:%.xml=$(HTMLDIR)/%.html)
 
@@ -93,7 +94,7 @@ html: gifs $(HTML_REF_MAN_FILE)
 
 clean clean_docs: clean_pdf clean_html clean_man
 	rm -f errs core *~
-	rm -f depend.mk
+	rm -f depend.mk seehere.ent
 
 clean_pdf:
 	rm -f $(PDFDIR)/*
@@ -170,7 +171,9 @@ release_docs_spec: $(LOCAL)docs
 
 release_spec:
 
-depend.mk: depend.sed $(XML_REF_FILES) $(XML_CHAPTER_FILES) Makefile
+depend.mk: depend.sed Makefile seealso.ent \
+           $(XML_REF_FILES) $(XML_CHAPTER_FILES)
+	sed -f seehere.sed seealso.ent > seehere.ent
 	(for f in $(XML_REF_FILES) $(XML_CHAPTER_FILES); do \
 	     sed -f $< $$f | sed "s@%FILE%@`basename $$f .xml`@g"; \
 	 done) \

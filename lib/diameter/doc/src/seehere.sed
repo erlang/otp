@@ -1,8 +1,7 @@
-#-*-makefile-*-   ; force emacs to enter makefile-mode
-
+#
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2012. All Rights Reserved.
+# Copyright Ericsson AB 2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -17,36 +16,20 @@
 #
 # %CopyrightEnd%
 
-XML_APPLICATION_FILES = \
-	ref_man.xml
+#
+# Map entities for inter-document references to ones for
+# intra-document references like this:
+#
+#   <!ENTITY aaa_xxx '<seealso marker="bbb#yyy">ccc:zzz</seealso>'>
+#
+#   ===>
+#
+#   <!ENTITY xxx '<seealso marker="#yyy">zzz</seealso>'>
+#
 
-XML_REF1_FILES = \
-	diameter_compile.xml
-
-XML_REF3_FILES = \
-	diameter.xml \
-	diameter_app.xml \
-	diameter_transport.xml \
-	diameter_tcp.xml \
-	diameter_sctp.xml
-
-XML_REF4_FILES = \
-	diameter_dict.xml
-
-XML_PART_FILES = \
-	user_man.xml
-
-XML_EXTRA_FILES = 
-
-XML_CHAPTER_FILES = \
-	diameter_intro.xml \
-	diameter_using.xml \
-	diameter_examples.xml \
-	diameter_soc.xml \
-	notes.xml
-
-BOOK_FILES = \
-	book.xml
-
-GIF_FILES = \
-	notes.gif
+/<!ENTITY/!d
+/#/!d
+/"#/d
+s@ [^_]*_@ @
+s@"[^#]*#@"#@
+s@>[^:]*:@>@
