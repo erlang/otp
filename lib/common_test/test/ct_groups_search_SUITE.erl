@@ -162,7 +162,7 @@ all_groups(_) ->
 %%%-----------------------------------------------------------------
 %%%
 testcases_in_all_groups(_) ->
-    GPath = all, TCs = [sub_tc2,tc3],
+    GPath = all, TCs = [tc3,sub_tc2],
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
@@ -170,60 +170,61 @@ testcases_in_all_groups(_) ->
 	 {conf,[{name,top1}],{?M2,init_per_group},
 	  [{?M2,tc3},
 	   {conf,[{name,sub11}],
-	    {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],
+	    {?M2,init_per_group},[{?M2,tc3},{?M2,sub_tc2}],
 	    {?M2,end_per_group}},
 	   {conf,[{name,sub12}],
 	    {?M2,init_per_group},
-	    [{?M2,sub_tc2},{?M2,tc3},
+	    [{?M2,tc3},{?M2,sub_tc2},
 	     {conf,[{name,sub121}],
-	      {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],
+	      {?M2,init_per_group},[{?M2,tc3},{?M2,sub_tc2}],
 	      {?M2,end_per_group}}],
 	    {?M2,end_per_group}}],
 	  {?M2,end_per_group}},
      
      Top2 =
 	 {conf,[{name,top2}],{?M2,init_per_group},
-	  [{conf,[{name,sub21}],
+	  [{?M2,tc3},
+	   {conf,[{name,sub21}],
 	    {?M2,init_per_group},
-	    [{?M2,sub_tc2},{?M2,tc3},
+	    [{?M2,tc3},{?M2,sub_tc2},
 	     {conf,[{name,sub2xx}],
-	      {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],
+	      {?M2,init_per_group},[{?M2,tc3},{?M2,sub_tc2}],
 	      {?M2,end_per_group}}],
 	    {?M2,end_per_group}},
-	   {?M2,tc3},				% in top2
+	   
 	   {conf,[{name,sub22}],
 	    {?M2,init_per_group},
-	    [{conf,[{name,sub221}],
-	      {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],
+	    [{?M2,tc3},{?M2,sub_tc2},
+	     {conf,[{name,sub221}],
+	      {?M2,init_per_group},[{?M2,tc3},{?M2,sub_tc2}],
 	      {?M2,end_per_group}},
-	     {?M2,sub_tc2},{?M2,tc3},		% in sub22
 	     {conf,[{name,sub2xx}],
-	      {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],
+	      {?M2,init_per_group},[{?M2,tc3},{?M2,sub_tc2}],
 	      {?M2,end_per_group}}],
 	    {?M2,end_per_group}}],
 	  {?M2,end_per_group}},
 
      {conf,[{name,sub21}],
       {?M2,init_per_group},
-      [{?M2,sub_tc2},{?M2,tc3},
+      [{?M2,tc3},{?M2,sub_tc2},
        {conf,[{name,sub2xx}],
-	{?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],{?M2,end_per_group}}],
+	{?M2,init_per_group},[{?M2,tc3},{?M2,sub_tc2}],{?M2,end_per_group}}],
       {?M2,end_per_group}},
 
      {conf,[{name,sub22}],
       {?M2,init_per_group},
-      [{conf,[{name,sub221}],
-	{?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],{?M2,end_per_group}},
-       {?M2,sub_tc2},{?M2,tc3},
+      [{?M2,tc3},{?M2,sub_tc2},
+       {conf,[{name,sub221}],
+	{?M2,init_per_group},[{?M2,tc3},{?M2,sub_tc2}],{?M2,end_per_group}},
        {conf,[{name,sub2xx}],
-	{?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],{?M2,end_per_group}}],
+	{?M2,init_per_group},[{?M2,tc3},{?M2,sub_tc2}],{?M2,end_per_group}}],
       {?M2,end_per_group}},
 
      {conf,[{name,sub221}],
-      {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],{?M2,end_per_group}},
+      {?M2,init_per_group},[{?M2,tc3},{?M2,sub_tc2}],{?M2,end_per_group}},
 
      {conf,[{name,sub2xx}],
-      {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],{?M2,end_per_group}}]
+      {?M2,init_per_group},[{?M2,tc3},{?M2,sub_tc2}],{?M2,end_per_group}}]
 
 	= Found,
 
@@ -450,7 +451,8 @@ testcase_in_top_groups2(_) ->
 
      {conf,[{name,top2}],
       {?M2,init_per_group},
-      [{conf,[{name,sub21}],
+      [{?M2,tc3},
+       {conf,[{name,sub21}],
 	{?M2,init_per_group},
 	[{?M2,tc3},
 	 {conf,[{name,sub2xx}],
@@ -458,14 +460,14 @@ testcase_in_top_groups2(_) ->
 	  [{?M2,tc3}],
 	  {?M2,end_per_group}}],
 	{?M2,end_per_group}},
-       {?M2,tc3},
+       
        {conf,[{name,sub22}],
 	{?M2,init_per_group},
-	[{conf,[{name,sub221}],
+	[{?M2,tc3},
+	 {conf,[{name,sub221}],
 	  {?M2,init_per_group},
 	  [{?M2,tc3}],
-	  {?M2,end_per_group}},
-	 {?M2,tc3},
+	  {?M2,end_per_group}},	 
 	 {conf,[{name,sub2xx}],
 	  {?M2,init_per_group},
 	  [{?M2,tc3}],

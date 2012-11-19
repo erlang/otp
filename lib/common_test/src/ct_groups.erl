@@ -287,30 +287,68 @@ rm_unwanted_tcs(Tests, all, []) ->
     Tests;
 
 rm_unwanted_tcs(Tests, TCs, []) ->
-    lists:flatmap(fun(Test) when is_tuple(Test), (size(Test) > 2) ->
-			  [Test];
-		     (Test={group,_}) ->
-			  [Test];
-		     (Test={_M,TC}) ->
-			  case lists:member(TC, TCs) of
-			      true  -> [Test];
-			      false -> []
-			  end;
-		     (Test) when is_atom(Test) ->
-			  case lists:keysearch(Test, 2, TCs) of
-			      {value,_} ->
-				  [Test];
-			      _ ->
-				  case lists:member(Test, TCs) of
-				      true  -> [Test];
-				      false -> []
-				  end
-			  end;
-		     (Test) -> [Test]
-		  end, Tests);
+    sort_tests(lists:flatmap(fun(Test) when is_tuple(Test),
+					    (size(Test) > 2) ->
+				     [Test];
+				(Test={group,_}) ->
+				     [Test];
+				(Test={_M,TC}) ->
+				     case lists:member(TC, TCs) of
+					 true  -> [Test];
+					 false -> []
+				     end;
+				(Test) when is_atom(Test) ->
+				     case lists:keysearch(Test, 2, TCs) of
+					 {value,_} ->
+					     [Test];
+					 _ ->
+					     case lists:member(Test, TCs) of
+						 true  -> [Test];
+						 false -> []
+					     end
+				     end;
+				(Test) -> [Test]
+			     end, Tests), TCs);
 					  
 rm_unwanted_tcs(Tests, _TCs, _) ->
     [Test || Test <- Tests, not is_atom(Test)].
+
+%% make sure the order of tests is according to the order in TCs
+sort_tests(Tests, TCs) when is_list(TCs)->
+    lists:sort(fun(T1, T2) ->
+		       case {is_tc(T1),is_tc(T2)} of
+			   {true,true} ->
+			       (position(T1, TCs) =<
+				position(T2, TCs));
+			   {false,true} ->
+			       (position(T2, TCs) == (length(TCs)+1));
+			   _ -> true
+				   
+		       end
+	       end, Tests);
+sort_tests(Tests, _) ->
+    Tests.
+
+is_tc(T) when is_atom(T)      -> true;
+is_tc({group,_})              -> false;
+is_tc({_M,T}) when is_atom(T) -> true;
+is_tc(_)                      -> false.
+
+position(T, TCs) ->
+    position(T, TCs, 1).
+
+position(T, [T|_TCs], Pos) ->
+    Pos;
+position(T, [{_,T}|_TCs], Pos) ->
+    Pos;
+position({M,T}, [T|_TCs], Pos) when M /= group ->
+    Pos;
+position(T, [_|TCs], Pos) ->
+    position(T, TCs, Pos+1);
+position(_, [], Pos) ->
+    Pos.
+
+%%%-----------------------------------------------------------------
 
 delete_subs([{conf, _,_,_,_} = Conf | Confs], All) ->
     All1 = delete_conf(Conf, All),
