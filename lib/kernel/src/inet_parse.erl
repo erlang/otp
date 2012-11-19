@@ -37,7 +37,7 @@
 
 -export([ipv4_address/1, ipv6_address/1]).
 -export([ipv4strict_address/1, ipv6strict_address/1]).
--export([address/1]).
+-export([address/1, strict_address/1]).
 -export([visible_string/1, domain/1]).
 -export([ntoa/1, dots/1]).
 -export([split_line/1]).
@@ -470,6 +470,17 @@ address(Cs) when is_list(Cs) ->
 	    ipv6strict_address(Cs)
     end;
 address(_) -> 
+    {error, einval}.
+
+%%Parse ipv4 strict address or ipv6 strict address
+strict_address(Cs) when is_list(Cs) ->
+    case ipv4strict_address(Cs) of
+	{ok,IP} ->
+	    {ok,IP};
+	_ ->
+	    ipv6strict_address(Cs)
+    end;
+strict_address(Cs) ->
     {error, einval}.
 
 %%

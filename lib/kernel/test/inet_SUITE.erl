@@ -37,7 +37,8 @@
          gethostnative_soft_restart/0, gethostnative_soft_restart/1,
 	 gethostnative_debug_level/0, gethostnative_debug_level/1,
 	 getif/1,
-	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1]).
+	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
+	 parse_strict_address/1]).
 
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
 	 kill_gethost/0, parallell_gethost/0]).
@@ -52,7 +53,7 @@ all() ->
      t_gethostnative, gethostnative_parallell, cname_loop,
      gethostnative_debug_level, gethostnative_soft_restart,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
-     getifaddrs].
+     getifaddrs, parse_strict_address].
 
 groups() -> 
     [{parse, [], [parse_hosts, parse_address]}].
@@ -599,14 +600,16 @@ t_parse_address(Func, []) ->
     ok;
 t_parse_address(Func, [{Addr,String}|L]) ->
     io:format("~p = ~p.~n", [Addr,String]),
-    {ok,Addr} = inet_parse:Func(String),
+    {ok,Addr} = inet:Func(String),
     t_parse_address(Func, L);
 t_parse_address(Func, [String|L]) ->
     io:format("~p.~n", [String]),
-    {error,einval} = inet_parse:Func(String),
+    {error,einval} = inet:Func(String),
     t_parse_address(Func, L).
 
-
+parse_strict_address(Config) when is_list(Config) ->
+    {ok, Ipv4} = inet:parse_strict_address("127.0.0.1"),
+    {ok, Ipv6} = inet:parse_strict_address("c11:0c22:5c33:c440:55c0:c66c:77:0088").
 
 t_gethostnative(suite) ->[];
 t_gethostnative(doc) ->[];

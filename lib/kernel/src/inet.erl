@@ -30,7 +30,9 @@
 	 ifget/3, ifget/2, ifset/3, ifset/2,
 	 getstat/1, getstat/2,
 	 ip/1, stats/0, options/0, 
-	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1]).
+	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1, 
+	 ipv4_address/1, ipv6_address/1, ipv4strict_address/1,
+	 ipv6strict_address/1, parse_address/1, parse_strict_address/1]).
 
 -export([connect_options/2, listen_options/2, udp_options/2, sctp_options/2]).
 
@@ -526,6 +528,24 @@ getservbyname(Name, Protocol) when is_atom(Name) ->
 	    Res;
 	Error -> Error
     end.
+
+ipv4_address(Addr) ->
+    inet_parse:ipv4_address(Addr).
+
+ipv6_address(Addr) ->
+    inet_parse:ipv6_address(Addr).
+
+ipv4strict_address(Addr) ->
+    inet_parse:ipv4strict_address(Addr).
+
+ipv6strict_address(Addr) ->
+    inet_parse:ipv6strict_address(Addr).
+
+parse_address(Addr) ->
+    inet_parse:address(Addr).
+
+parse_strict_address(Addr) ->
+    inet_parse:strict_address(Addr).
 
 %% Return a list of available options
 options() ->
