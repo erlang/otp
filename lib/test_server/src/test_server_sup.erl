@@ -568,15 +568,10 @@ format_loc1({Mod,Func,Line}) ->
 	{false,[$E,$T,$I,$U,$S,$_|_]}  ->
 	    io_lib:format("{~s,~w,<a href=\"~s~s#~w\">~w</a>}",
 			  [ModStr,Func,downcase(ModStr),?src_listing_ext,
-			   round_to_10(Line),Line]);
+			   Line,Line]);
 	_ ->
 	    io_lib:format("{~s,~w,~w}",[ModStr,Func,Line])
     end.
-
-round_to_10(N) when (N rem 10) == 0 ->
-    N;
-round_to_10(N) ->
-    trunc(N/10)*10.
 
 downcase(S) -> downcase(S, []).
 downcase([Uc|Rest], Result) when $A =< Uc, Uc =< $Z ->

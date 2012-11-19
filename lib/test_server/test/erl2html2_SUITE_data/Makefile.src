@@ -1,0 +1,2 @@
+all:
+	erlc -Iinclude m1.erl

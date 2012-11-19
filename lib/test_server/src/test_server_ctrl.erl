@@ -1796,7 +1796,7 @@ start_minor_log_file1(Mod, Func, LogDir, AbsName, MFA) ->
 	  lists:member(no_src, get(test_server_logopts))} of
 	{true,false} ->
 	    print(Lev, "<a href=\"~s#~s\">source code for ~p:~p/1</a>\n",
-		  [SrcListing,Func,Mod,Func]);
+		  [SrcListing,atom_to_list(Func)++"-1",Mod,Func]);
 	_ -> ok
     end,
 

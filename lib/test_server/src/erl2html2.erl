@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,18 +18,8 @@
 %%
 
 %%%------------------------------------------------------------------
-%%% Purpose:Convert Erlang files to html. (Pretty faaast... :-)
+%%% Purpose:Convert Erlang files to html.
 %%%------------------------------------------------------------------
-
-%--------------------------------------------------------------------
-% Some stats (Sparc5@110Mhz):
-% 4109 lines (erl_parse.erl):              3.00 secs
-% 1847 lines (application_controller.erl): 0.57 secs
-% 3160 lines (test_server.erl):            1.00 secs
-% 1199 lines (ts_estone.erl):              0.35 secs
-%
-% Avg: ~4.5e-4s/line, or ~0.45s/1000 lines, or ~2200 lines/sec.
-%--------------------------------------------------------------------
 
 -module(erl2html2).
 -export([convert/2, convert/3]).
@@ -54,132 +44,118 @@ convert(File, Dest) ->
     convert(File, Dest, Header).
     
 convert(File, Dest, Header) ->
-    case file:read_file(File) of
-	{ok, Bin} ->
-	    Code=binary_to_list(Bin),
-	    statistics(runtime),
-	    {Html1, Lines} = root(Code, [], 1),
-	    Html = [Header,
-		    "<pre>\n", Html1, "</pre>\n", 
-		    footer(Lines),"</body>\n</html>\n"],
-	    file:write_file(Dest, Html);
-	{error, Reason}  ->
-	    {error, Reason}
-    end.
-
-root([], Res, Line) ->
-    {Res, Line};
-root([Char0|Code], Res, Line0) ->
-    Char = [Char0],
-    case Char of
-	"-" ->
-	    {Match, Line1, NewCode0, AttName} = 
-		read_to_char(Line0+1, Code, [], [$(, $.]),
-	    {_, Line2, NewCode, Stuff} = read_to_char(Line1, NewCode0, [], $\n),
-	    NewRes = [Res,linenum(Line0),"-<b>",AttName,
-			 "</b>",Match, Stuff, "\n"],
-	    root(NewCode, NewRes, Line2);
-	"%" ->
-	    {_, Line, NewCode, Stuff} = read_to_char(Line0+1, Code, [], $\n),
-	    NewRes = [Res,linenum(Line0),"<i>%",Stuff,"</i>\n"],
-	    root(NewCode, NewRes, Line);
-	"\n" ->
-	    root(Code, [Res,linenum(Line0), "\n"], Line0+1);
-	" " ->
-	    {_, Line, NewCode, Stuff} = read_to_char(Line0+1, Code, [], $\n),
-	    root(NewCode, [Res,linenum(Line0)," ",Stuff, "\n"],
-		 Line);
-	"\t" ->
-	    {_, Line, NewCode, Stuff} = read_to_char(Line0+1, Code, [], $\n),
-	    root(NewCode, [Res,linenum(Line0),"\t",Stuff, "\n"],
-		 Line);
-	[Chr|_] when Chr>96, Chr<123 ->
-	    %% Assumed to be function/clause start.
-	    %% FIXME: This will trivially generate non-unique anchors
-	    %% (one for each clause) --- which is illegal HTML.
-	    {_, Line1, NewCode0, FName0} = read_to_char(Line0+1, Code, [], $(),
-	    {_, Line2, NewCode, Stuff} = 
-                read_to_char(Line1,NewCode0, [], $\n),
-	    FuncName = [[Chr],FName0],
-	    NewRes=[Res,"<a name=",FuncName,">",
-		    linenum(Line0),"<b>",FuncName,"</b></a>",
-		    "(",Stuff, "\n"],
-	    root(NewCode, NewRes, Line2);
-	Chr ->
-	    {_, Line, NewCode, Stuff} = read_to_char(Line0+1, Code, [], $\n),
-	    root(NewCode, [Res,linenum(Line0),Chr,Stuff, "\n"],
-		 Line)
-    end.
-
-read_to_char(Line0, [], Res, _Chr) ->
-    {nomatch, Line0, [], Res};
-read_to_char(Line0, [Char|Code], Res, Chr) ->
-    case Char of
-	Chr -> {Char, Line0, Code, Res};
-	_ when is_list(Chr) ->
-	    case lists:member(Char,Chr) of
-		true -> 
-		    {Char, Line0, Code, Res};
-		false -> 
-		    {Line,NewCode,NewRes} = maybe_convert(Line0,Code,Res,Char),
-		    read_to_char(Line, NewCode, NewRes, Chr)
+    %% statistics(runtime),
+    case parse_file(File) of
+	{ok,Functions} ->
+	    %% io:format("~p~n",[Functions]),
+	    case file:read_file(File) of
+		{ok,Bin} ->
+		    {Html,Lines} = build_html(Bin,Functions),
+		    Html1 = [Header,"<pre>\n",Html,"</pre>\n",
+			     footer(Lines),"</body>\n</html>\n"],
+		    file:write_file(Dest,Html1);
+		Error ->
+		    Error
 	    end;
-	_ ->
-	    {Line,NewCode,NewRes} = maybe_convert(Line0,Code,Res,Char),
-	    read_to_char(Line,NewCode, NewRes, Chr)
+	Error ->
+	    Error
     end.
 
-maybe_convert(Line0,Code,Res,Chr) ->
-    case Chr of
-	%% Quoted stuff should not have the highlighting like normal code
-	%% FIXME: unbalanced quotes (e.g. in comments) will cause trouble with
-	%% highlighting and line numbering in the rest of the module.
-	$" ->  
-	    {_, Line1, NewCode, Stuff0} = read_to_char(Line0, Code, [], $"),
-            {Line2,Stuff} = add_linenumbers(Line1,lists:flatten(Stuff0),[]),
-	    {Line2,NewCode,[Res,$",Stuff,$"]};
-	%% These chars have meaning in HTML, and *must* *not* be
-	%% written as themselves.
-	$& ->
-	    {Line0, Code, [Res,"&amp;"]};
-	$< ->
-	    {Line0, Code, [Res,"&lt;"]};
-	$> ->
-	    {Line0, Code, [Res,"&gt;"]};
-	%% Everything else is simply copied.
-	OtherChr ->
-	    {Line0, Code, [Res,OtherChr]}
+%%%-----------------------------------------------------------------
+%%% Parse the input file to get the line numbers for all function
+%%% definitions. This will be used when creating link targets for each
+%%% function in build_html/5.
+%%%
+%%% All function clauses are also marked in order to allow
+%%% possibly_enhance/2 to write these in bold.
+parse_file(File) ->
+    case epp:parse_file(File,[],[]) of
+	{ok,Forms} ->
+	    {ok,get_functions(Forms,File,false)};
+	Error ->
+	    Error
     end.
 
-add_linenumbers(Line,[Chr|Chrs],Res) ->
-    case Chr of
-	$\n -> add_linenumbers(Line+1,Chrs,[Res,$\n,linenum(Line)]);
-	_  -> add_linenumbers(Line,Chrs,[Res,Chr])
-    end;
-add_linenumbers(Line,[],Res) ->
-    {Line,Res}.
+get_functions([{attribute,_,file,{File,_}}|Forms],File,_) ->
+    get_functions(Forms,File,true);
+get_functions([{attribute,_,file,{_OtherFile,_}}|Forms],File,_) ->
+    get_functions(Forms,File,false);
+get_functions([{function,L,F,A,[_|C]}|Forms],File,true) ->
+    Clauses = [{clause,CL} || {clause,CL,_,_,_} <- C],
+    [{atom_to_list(F),A,L} | Clauses] ++ get_functions(Forms,File,true);
+get_functions([_|Forms],File,InCorrectFile) ->
+    get_functions(Forms,File,InCorrectFile);
+get_functions([],_,_) ->
+    [].
 
-%% Make nicely indented line numbers.
-linenum(Line) ->
-    Num = integer_to_list(Line),
-    A = case Line rem 10 of
-	    0 -> "<a name=\"" ++ Num ++"\"></a>";
-	    _ -> []
-	end,
+%%%-----------------------------------------------------------------
+%%% Add a link target for each line and one for each function definition.
+build_html(Bin,Functions) ->
+    build_html(binary:split(Bin,<<"\n">>),1,Functions,false,[]).
+
+build_html(Split,L,[{F,A,L}|Functions],_IsFuncDef,Acc) ->
+    FALink = http_uri:encode(F++"-"++integer_to_list(A)),
+    NewAcc = [Acc,"<a name=\"",FALink,"\"/>"],
+    build_html(Split,L,Functions,true,NewAcc);
+build_html(Split,L,[{clause,L}|Functions],_IsFuncDef,Acc) ->
+    build_html(Split,L,Functions,true,Acc);
+build_html([Line,Bin],L,Functions,IsFuncDef,Acc) ->
+    NewAcc = [Acc,line_number(L),line(binary_to_list(Line),IsFuncDef),$\n],
+    build_html(binary:split(Bin,<<"\n">>),L+1,Functions,false,NewAcc);
+build_html([Line],L,Functions,IsFuncDef,Acc) ->
+    {[Acc,line_number(L),line(binary_to_list(Line),IsFuncDef)],L}.
+
+line_number(L) ->
+    LStr = integer_to_list(L),
     Pred =
-	case length(Num) of
+	case length(LStr) of
 	    Length when Length < 5 ->
 		lists:duplicate(5-Length,$\s);
 	    _ -> 
 		[]
 	end, 
-    [A,Pred,integer_to_list(Line),":"].
+    ["<a name=\"",LStr,"\"/>",Pred,LStr,": "].
 
+line(Str,IsFuncDef) ->
+    Str1 = htmlize(Str),
+    possibly_enhance(Str1,IsFuncDef).
+
+%%%-----------------------------------------------------------------
+%%% Substitute special characters that should not appear in HTML
+htmlize([$<|Str]) ->
+    [$&,$l,$t,$;|htmlize(Str)];
+htmlize([$>|Str]) ->
+    [$&,$g,$t,$;|htmlize(Str)];
+htmlize([$&|Str]) ->
+    [$&,$a,$m,$p,$;|htmlize(Str)];
+htmlize([$"|Str]) ->
+    [$&,$q,$u,$o,$t,$;|htmlize(Str)];
+htmlize([Ch|Str]) ->
+    [Ch|htmlize(Str)];
+htmlize([]) ->
+    [].
+
+%%%-----------------------------------------------------------------
+%%% Write comments in italic and function definitions in bold.
+possibly_enhance(Str,true) ->
+    case lists:splitwith(fun($() -> false; (_) -> true end, Str) of
+	{_,[]} -> Str;
+	{F,A} -> ["<b>",F,"</b>",A]
+    end;
+possibly_enhance([$%|_]=Str,_) ->
+    ["<i>",Str,"</i>"];
+possibly_enhance([$-|_]=Str,_) ->
+    possibly_enhance(Str,true);
+possibly_enhance(Str,false) ->
+    Str.
+
+%%%-----------------------------------------------------------------
+%%% End of the file
 footer(_Lines) ->
-    "".
-%%    {_, Time} = statistics(runtime),
-%%    io:format("Converted ~p lines in ~.2f Seconds.~n",
-%%	      [Lines, Time/1000]),
-%%    S = "<i>The transformation of this file (~p lines) took ~.2f seconds</i>",
-%%    F = lists:flatten(io_lib:format(S, [Lines, Time/1000])),
-%%    ["<hr size=1>",F,"<br>\n"].
+   "".
+   %% {_, Time} = statistics(runtime),
+   %% io:format("Converted ~p lines in ~.2f Seconds.~n",
+   %% 	      [_Lines, Time/1000]),
+   %% S = "<i>The transformation of this file (~p lines) took ~.2f seconds</i>",
+   %% F = lists:flatten(io_lib:format(S, [_Lines, Time/1000])),
+   %% ["<hr size=1>",F,"<br>\n"].
