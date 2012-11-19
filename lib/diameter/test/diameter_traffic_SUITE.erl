@@ -183,14 +183,14 @@ suite() ->
 
 all() ->
     [start, start_services, add_transports, result_codes]
-        ++ [{group, name([E,C]), P} || E <- ?ENCODINGS,
-                                       C <- ?CONNECTIONS,
-                                       P <- [[], [parallel]]]
+        ++ [{group, ?util:name([E,C]), P} || E <- ?ENCODINGS,
+                                             C <- ?CONNECTIONS,
+                                             P <- [[], [parallel]]]
         ++ [remove_transports, stop_services, stop].
 
 groups() ->
     Ts = tc(),
-    [{name([E,C]), [], Ts} || E <- ?ENCODINGS, C <- ?CONNECTIONS].
+    [{?util:name([E,C]), [], Ts} || E <- ?ENCODINGS, C <- ?CONNECTIONS].
 
 init_per_group(Name, Config) ->
     [{group, Name} | Config].
@@ -559,7 +559,7 @@ call(Config, Req) ->
 
 call(Config, Req, Opts) ->
     Name = proplists:get_value(testcase, Config),
-    [Encoding, Client] = name(proplists:get_value(group, Config)),
+    [Encoding, Client] = ?util:name(proplists:get_value(group, Config)),
     diameter:call(?CLIENT,
                   dict(Req),
                   req(Req, Encoding),
@@ -598,17 +598,6 @@ set(Dict, E, FV, Rec)
     Dict:'#set-'(FV, Rec);
 set(_, _, _, Rec) ->
     Rec.
-
-%% Contruct and deconstruct names to work around group names being
-%% restricted to atoms.
-
-name(Names)
-  when is_list(Names) ->
-    ?A(string:join([?L(A) || A <- Names], ","));
-
-name(A)
-  when is_atom(A) ->
-    [?A(S) || S <- string:tokens(?L(A), ",")].
 
 %% ===========================================================================
 %% diameter callbacks

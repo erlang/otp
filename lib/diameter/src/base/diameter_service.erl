@@ -3231,9 +3231,6 @@ peer_acc(ConnT, Acc, #peer{pid = Pid,
                  | info_conn(ConnT, TPid, WS /= ?WD_DOWN)],
                 Acc).
 
-info_conn(ConnT, [TPid], B) ->
-    info_conn(ConnT, TPid, B);
-
 info_conn(ConnT, TPid, true)
   when is_pid(TPid) ->
     try ets:lookup(ConnT, TPid) of

@@ -24,7 +24,8 @@
 %%
 
 %% generic
--export([consult/2,
+-export([name/1,
+         consult/2,
          run/1,
          fold/3,
          foldl/3,
@@ -44,6 +45,21 @@
          map_priv/3]).
 
 -define(L, atom_to_list).
+
+
+%% ---------------------------------------------------------------------------
+%% name/2
+%%
+%% Contruct and deconstruct lists of atoms as atoms to work around
+%% group names in common_test being restricted to atoms.
+
+name(Names)
+  when is_list(Names) ->
+    list_to_atom(string:join([atom_to_list(A) || A <- Names], ","));
+
+name(A)
+  when is_atom(A) ->
+    [list_to_atom(S) || S <- string:tokens(atom_to_list(A), ",")].
 
 %% ---------------------------------------------------------------------------
 %% consult/2
