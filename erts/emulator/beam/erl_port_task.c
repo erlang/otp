@@ -541,7 +541,8 @@ erts_port_task_schedule(Eterm id,
 #endif
     }
 
-    ASSERT(!enq_port || !(runq->flags & ERTS_RUNQ_FLG_SUSPENDED));
+    ASSERT(!enq_port
+	   || !(ERTS_RUNQ_FLGS_GET_NOB(runq) & ERTS_RUNQ_FLG_SUSPENDED));
 
     if (!pp->sched.taskq)
 	pp->sched.taskq = port_taskq_init(port_taskq_alloc(), pp);
