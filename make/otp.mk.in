@@ -215,6 +215,22 @@ TEXDIR = .
 
 SPECDIR = $(DOCDIR)/specs
 
+ifeq ($(CSS_FILE),)
+CSS_FILE = otp_doc.css
+endif
+ifeq ($(WINPREFIX),)
+WINPREFIX = Erlang
+endif
+ifeq ($(HTMLLOGO),)
+HTMLLOGO_FILE = erlang-logo.png
+endif
+ifeq ($(PDFLOGO),)
+PDFLOGO_FILE = $(DOCGEN)/priv/images/erlang-logo.gif
+endif
+ifeq ($(PDFCOLOR),)
+PDFCOLOR = \#960003
+endif
+
 # HTML & GIF files that always are generated and must be delivered 
 SGML_COLL_FILES = $(SGML_APPLICATION_FILES) $(SGML_PART_FILES)
 XML_COLL_FILES = $(XML_APPLICATION_FILES) $(XML_PART_FILES)
@@ -256,11 +272,9 @@ $(MAN1DIR)/%.1: %.xml
 	date=`date +"%B %e %Y"`; \
 	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
 
-
 $(MAN2DIR)/%.2: %.xml
 	date=`date +"%B %e %Y"`; \
 	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
-
 
 ifneq ($(wildcard $(SPECDIR)),)
 $(MAN3DIR)/%.3: %.xml $(SPECDIR)/specs_%.xml

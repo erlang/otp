@@ -87,7 +87,7 @@
   <xsl:attribute-set name="cover.title">
     <xsl:attribute name="border-before-style">solid</xsl:attribute>
     <xsl:attribute name="border-before-width">10pt</xsl:attribute>
-    <xsl:attribute name="border-color">#960003</xsl:attribute>
+    <xsl:attribute name="border-color"><xsl:value-of select="$pdfcolor"/></xsl:attribute>
     <xsl:attribute name="font-size">2.3em</xsl:attribute>
     <xsl:attribute name="padding-before">0.5em</xsl:attribute>
     <xsl:attribute name="text-align">end</xsl:attribute>
@@ -101,7 +101,7 @@
   <xsl:attribute-set name="cover.inner.copyright">
     <xsl:attribute name="border-before-style">solid</xsl:attribute>
     <xsl:attribute name="border-before-width">1pt</xsl:attribute>
-    <xsl:attribute name="border-color">#960003</xsl:attribute>
+    <xsl:attribute name="border-color"><xsl:value-of select="$pdfcolor"/></xsl:attribute>
     <xsl:attribute name="font-weight">bold</xsl:attribute>
     <xsl:attribute name="padding-before">0.5em</xsl:attribute>
     <xsl:attribute name="space-before">200mm</xsl:attribute>
@@ -160,7 +160,7 @@
   <xsl:attribute-set name="h1">
     <xsl:attribute name="border-after-style">solid</xsl:attribute>
     <xsl:attribute name="border-after-width">1pt</xsl:attribute>
-    <xsl:attribute name="border-color">#960003</xsl:attribute>
+    <xsl:attribute name="border-color"><xsl:value-of select="$pdfcolor"/></xsl:attribute>
     <xsl:attribute name="break-before">page</xsl:attribute>
     <xsl:attribute name="font-family">sans-serif</xsl:attribute>
     <xsl:attribute name="font-size">1.83em</xsl:attribute>
@@ -226,7 +226,7 @@
   <xsl:attribute-set name="page-header">
     <xsl:attribute name="border-after-style">solid</xsl:attribute>
     <xsl:attribute name="border-after-width">2pt</xsl:attribute>
-    <xsl:attribute name="border-color">#960003</xsl:attribute>
+    <xsl:attribute name="border-color"><xsl:value-of select="$pdfcolor"/></xsl:attribute>
     <xsl:attribute name="font-family">sans-serif</xsl:attribute>
     <xsl:attribute name="font-size">0.9em</xsl:attribute>
     <xsl:attribute name="font-weight">bold</xsl:attribute>

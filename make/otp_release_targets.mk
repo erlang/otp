@@ -42,17 +42,34 @@ $(HTMLDIR)/index.html: $(XML_FILES) $(SPECS_FILES)
           --stringparam gendate "$$date" \
           --stringparam appname "$(APPLICATION)" \
           --stringparam appver "$(VSN)" \
+	  --stringparam stylesheet "$(CSS_FILE)" \
+	  --stringparam winprefix "$(WINPREFIX)" \
+	  --stringparam logo "$(HTMLLOGO_FILE)" \
+	  --stringparam pdfname "$(PDFNAME)" \
           -path $(DOCGEN)/priv/dtd \
           -path $(DOCGEN)/priv/dtd_html_entities \
             $(DOCGEN)/priv/xsl/db_html.xsl book.xml
+
 endif
 
 $(HTMLDIR)/users_guide.html: $(XML_FILES)
 	date=`date +"%B %e %Y"`; \
-	$(XSLTPROC) --noout --stringparam outdir $(HTMLDIR) --stringparam docgen "$(DOCGEN)" --stringparam topdocdir "$(TOPDOCDIR)" \
+	$(XSLTPROC) --noout  \
+		--stringparam outdir  $(HTMLDIR)  \
+		--stringparam docgen "$(DOCGEN)"  \
+		--stringparam topdocdir "$(TOPDOCDIR)" \
 		--stringparam pdfdir "$(PDFDIR)" \
-		--stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude  \
-		-path $(DOCGEN)/priv/dtd -path $(DOCGEN)/priv/dtd_html_entities $(DOCGEN)/priv/xsl/db_html.xsl book.xml
+		--stringparam gendate "$$date" \
+	        --stringparam appname "$(APPLICATION)" \
+	        --stringparam appver "$(VSN)" \
+		--stringparam stylesheet "$(CSS_FILE)" \
+		--stringparam winprefix "$(WINPREFIX)" \
+		--stringparam logo "$(HTMLLOGO_FILE)" \
+		--stringparam pdfname "$(PDFNAME)" \
+	        --xinclude  \
+		-path $(DOCGEN)/priv/dtd \
+	        -path $(DOCGEN)/priv/dtd_html_entities \
+	        $(DOCGEN)/priv/xsl/db_html.xsl book.xml
 
 %.fo: $(XML_FILES) $(SPECS_FILES)
 	date=`date +"%B %e %Y"`; \
@@ -61,6 +78,8 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
          --stringparam gendate "$$date" \
          --stringparam appname "$(APPLICATION)" \
          --stringparam appver "$(VSN)" \
+	 --stringparam logo "$(PDFLOGO_FILE)" \
+	 --stringparam pdfcolor "$(PDFCOLOR)" \
          --xinclude $(TOP_SPECS_PARAM) \
          -path $(DOCGEN)/priv/dtd \
          -path $(DOCGEN)/priv/dtd_html_entities \
@@ -77,8 +96,13 @@ ifneq ($(XML_FILES),)
 $(HTMLDIR)/$(APPLICATION).eix: $(XML_FILES) $(SPECS_FILES)
 	date=`date +"%B %e %Y"`; \
 	$(XSLTPROC) --stringparam docgen "$(DOCGEN)" \
-		--stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude $(TOP_SPECS_PARAM)  \
-		-path $(DOCGEN)/priv/dtd -path $(DOCGEN)/priv/dtd_html_entities $(DOCGEN)/priv/xsl/db_eix.xsl book.xml >  $@ 
+		--stringparam gendate "$$date" \
+	        --stringparam appname "$(APPLICATION)" \
+	        --stringparam appver "$(VSN)" \
+	        -xinclude $(TOP_SPECS_PARAM)  \
+		-path $(DOCGEN)/priv/dtd \
+	        -path $(DOCGEN)/priv/dtd_html_entities \
+	        $(DOCGEN)/priv/xsl/db_eix.xsl book.xml >  $@ 
 
 docs: $(HTMLDIR)/$(APPLICATION).eix
 
