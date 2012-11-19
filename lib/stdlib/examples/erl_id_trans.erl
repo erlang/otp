@@ -153,7 +153,6 @@ pattern({record,Line,Name,Pfs0}) ->
 pattern({record_index,Line,Name,Field0}) ->
     Field1 = pattern(Field0),
     {record_index,Line,Name,Field1};
-%% record_field occurs in query expressions
 pattern({record_field,Line,Rec0,Name,Field0}) ->
     Rec1 = expr(Rec0),
     Field1 = expr(Field0),
@@ -431,10 +430,6 @@ expr({'catch',Line,E0}) ->
     %% No new variables added.
     E1 = expr(E0),
     {'catch',Line,E1};
-expr({'query', Line, E0}) ->
-    %% lc expression
-    E = expr(E0),
-    {'query', Line, E};
 expr({match,Line,P0,E0}) ->
     E1 = expr(E0),
     P1 = pattern(P0),

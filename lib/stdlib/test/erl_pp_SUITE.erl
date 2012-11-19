@@ -537,29 +537,9 @@ messages(Config) when is_list(Config) ->
     ?line true = "\n" =:= lists:flatten(erl_pp:form({eof,0})),
     ok.
 
-old_mnemosyne_syntax(suite) ->
-    [];
 old_mnemosyne_syntax(Config) when is_list(Config) ->
-    %% Since we have kept the 'query' syntax and ':-' token,
+    %% Since we have kept the ':-' token,
     %% better test that we can pretty print it.
-    Q = {'query',6,
-         {lc,6,
-          {var,6,'X'},
-          [{generate,6,
-            {var,6,'X'},
-            {call,6,{atom,6,table},[{atom,6,tab}]}},
-           {match,7,
-            {record_field,7,{var,7,'X'},{atom,7,foo}},
-            {atom,7,bar}}]}},
-    ?line "query\n"
-          "    [ \n" % extra space...
-          "     X ||\n"
-          "         X <- table(tab),\n"
-          "         X.foo = bar\n"
-          "    ]\n"
-          "end" =
-        lists:flatten(erl_pp:expr(Q)),
-
     R = {rule,12,sales,2,
          [{clause,12,
            [{var,12,'E'},{atom,12,employee}],

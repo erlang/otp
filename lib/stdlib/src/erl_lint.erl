@@ -2205,9 +2205,7 @@ expr({op,_Line,_Op,L,R}, Vt, St) ->
     expr_list([L,R], Vt, St);                   %They see the same variables
 %% The following are not allowed to occur anywhere!
 expr({remote,Line,_M,_F}, _Vt, St) ->
-    {[],add_error(Line, illegal_expr, St)};
-expr({'query',Line,_Q}, _Vt, St) ->
-    {[],add_error(Line, {mnemosyne,"query"}, St)}.
+    {[],add_error(Line, illegal_expr, St)}.
 
 %% expr_list(Expressions, Variables, State) ->
 %%      {UsedVarTable,State}

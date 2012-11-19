@@ -485,7 +485,6 @@ is_keyword('not') -> true;
 is_keyword('of' ) -> true;
 is_keyword('or' ) -> true;
 is_keyword('orelse' ) -> true;
-is_keyword('query' ) -> true;
 is_keyword('receive' ) -> true;
 is_keyword('rem' ) -> true;
 is_keyword('spec') -> true;

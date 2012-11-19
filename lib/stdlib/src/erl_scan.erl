@@ -1404,7 +1404,6 @@ reserved_word('fun') -> true;
 reserved_word('if') -> true;
 reserved_word('let') -> true;
 reserved_word('of') -> true;
-reserved_word('query') -> true;
 reserved_word('receive') -> true;
 reserved_word('when') -> true;
 reserved_word('bnot') -> true;
