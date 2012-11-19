@@ -2099,8 +2099,6 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	    crr_sz = allctr->mbc_header_size + blk_sz;
 	mseg_flags = ERTS_MSEG_FLG_2POW;
     }
-    crr_sz = MSEG_UNIT_CEILING(crr_sz);
-    ASSERT(crr_sz % MSEG_UNIT_SZ == 0);
 
     crr = (Carrier_t *) alcu_mseg_alloc(allctr, &crr_sz, mseg_flags);
     if (!crr) {
@@ -4200,7 +4198,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 						       + sizeof(FreeBlkFtr_t));
 #if ERTS_SMP
     if (init->tpref) {
-	Uint sz = sizeof(Block_t);
+	Uint sz = ABLK_HDR_SZ;
 	sz += ERTS_ALCU_DD_FIX_TYPE_OFFS*sizeof(UWord);
 	if (init->fix)
 	    sz += sizeof(UWord);
