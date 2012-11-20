@@ -88,8 +88,8 @@ require(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     run_test(config_static_SUITE,
 	     Config,
-	     [{config, filename:join(DataDir, "config/shadow.txt")},
-	      {config, filename:join(DataDir, "config/config.txt")}],
+	     [{config, [filename:join(DataDir, "config/shadow.txt"),
+			filename:join(DataDir, "config/config.txt")]}],
              ["config_static_SUITE"]).
 
 install_config(Config) when is_list(Config) ->
@@ -174,6 +174,7 @@ run_test(Name, Config, CTConfig, SuiteNames)->
     Joiner = fun(Suite) -> filename:join(DataDir, "config/test/"++Suite) end,
     Suites = lists:map(Joiner, SuiteNames),
     {Opts,ERPid} = setup_env({suite,Suites}, Config, CTConfig),
+
     ok = ct_test_support:run(Opts, Config),
     TestEvents = ct_test_support:get_events(ERPid, Config),
     ct_test_support:log_events(Name,

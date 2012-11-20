@@ -2786,8 +2786,10 @@ opts2args(EnvStartOpts) ->
 			  [{halt_with,[atom_to_list(HaltM),atom_to_list(HaltF)]}];
 		     ({interactive_mode,true}) ->
 			  [{shell,[]}];
-		     ({config,CfgFiles}) ->
-			  [{ct_config,[CfgFiles]}];
+		     ({config,CfgFile}) when is_integer(hd(CfgFile)) ->
+			  [{ct_config,[CfgFile]}];
+		     ({config,CfgFiles}) when is_list(hd(CfgFiles)) ->
+			  [{ct_config,CfgFiles}];
 		     ({userconfig,{CBM,CfgStr=[X|_]}}) when is_integer(X) ->
 			  [{userconfig,[atom_to_list(CBM),CfgStr]}];
 		     ({userconfig,{CBM,CfgStrs}}) when is_list(CfgStrs) ->
