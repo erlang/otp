@@ -371,7 +371,48 @@ fe80::204:acff:fe17:bf38
         </taglist>
       </desc>
     </func>
-
+    <func>
+      <name name="ipv4_address" arity="1" />
+      <fsummary>Parse an IPv4 address</fsummary>
+      <desc>
+	<p>Returns a ipv4 address tuple</p>
+      </desc>
+    </func>
+    <func>
+      <name name="ipv4strict_address" arity="1" />
+      <fsummary>Parse an IPv4 address strict.</fsummary>
+      <desc>
+	<p>Returns a ipv4 address tuple</p>
+      </desc>
+    </func>
+    <func>
+      <name name="ipv6_address" arity="1" />
+      <fsummary>Parse an IPv6 address</fsummary>
+      <desc>
+	<p>Returns a ipv6 address tuple</p>
+      </desc>
+    </func>
+    <func>
+      <name name="ipv6strict_address" arity="1" />
+      <fsummary>Parse an IPv6 address strict.</fsummary>
+      <desc>
+	<p>Returns a ipv4 address tuple</p>
+      </desc>
+    </func>
+    <func>
+      <name name="parse_address" arity="1" />
+      <fsummary>Parse an IPv4 or IPv6 address.</fsummary>
+      <desc>
+	<p>Returns a ipv4 or ipv6 address tuple</p>
+      </desc>
+    </func>
+    <func>
+      <name name="parse_strict_address" arity="1" />
+      <fsummary>Parse an IPv4 or IPv6 address strict.</fsummary>
+      <desc>
+	<p>Returns a ipv4 or ipv6 address tuple</p>
+      </desc>
+    </func>
     <func>
       <name name="peername" arity="1"/>
       <fsummary>Return the address and port for the other end of a connection</fsummary>

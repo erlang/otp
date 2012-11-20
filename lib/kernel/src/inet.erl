@@ -529,21 +529,45 @@ getservbyname(Name, Protocol) when is_atom(Name) ->
 	Error -> Error
     end.
 
+-spec ipv4_address(Address) ->
+	{ok, IPv4Address} | {error, einval} when
+      Address :: string(),
+      IPv4Address :: ip_address().
 ipv4_address(Addr) ->
     inet_parse:ipv4_address(Addr).
 
+-spec ipv6_address(Address) ->
+	{ok, IPv6Address} | {error, einval} when
+      Address :: string(),
+      IPv6Address :: ip_address().
 ipv6_address(Addr) ->
     inet_parse:ipv6_address(Addr).
 
+-spec ipv4strict_address(Address) ->
+	{ok, IPv4Address} | {error, einval} when
+      Address :: string(),
+      IPv4Address :: ip_address().
 ipv4strict_address(Addr) ->
     inet_parse:ipv4strict_address(Addr).
 
+-spec ipv6strict_address(Address) ->
+	{ok, IPv6Address} | {error, einval} when
+      Address :: string(),
+      IPv6Address :: ip_address().
 ipv6strict_address(Addr) ->
     inet_parse:ipv6strict_address(Addr).
 
+-spec parse_address(Address) ->
+	{ok, IPAddress} | {error, einval} when
+      Address :: string(),
+      IPAddress :: ip_address().
 parse_address(Addr) ->
     inet_parse:address(Addr).
 
+-spec parse_strict_address(Address) ->
+	{ok, IPAddress} | {error, einval} when
+      Address :: string(),
+      IPAddress :: ip_address().
 parse_strict_address(Addr) ->
     inet_parse:strict_address(Addr).
 
