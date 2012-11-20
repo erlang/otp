@@ -39,8 +39,8 @@
   describe the data types and not to specify the meaning of each
   component for this we refer you to <url
   href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280</url>. Also
-  descirbed is <p>CertificationRequest</p> that is defined by <url
-  href=http://www.rsa.com/rsalabs/node.asp?id=2124">PKCS-10</url>.
+  descirbed is <p>CertificationRequest</p> that is defined by 
+  <url href="http://www.rsa.com/rsalabs/node.asp?id=2124">PKCS-10</url>.
   </p>
 
   <p>Use the following include directive to get access to the
