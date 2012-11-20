@@ -171,7 +171,7 @@ process_default_configs(Opts) ->
     lists:flatmap(fun({config,[_|_] = FileOrFiles}) ->
 			  case {io_lib:printable_list(FileOrFiles),
 				io_lib:printable_list(hd(FileOrFiles))} of
-			      {true,true} ->
+			      {false,true} ->
 				  FileOrFiles;
 			      {true,false} ->
 				  [FileOrFiles];
