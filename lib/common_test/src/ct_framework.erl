@@ -32,8 +32,6 @@
 -export([error_in_suite/1, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2]).
 
--export([make_all_conf/3, make_conf/5]).
-
 -include("ct_event.hrl").
 -include("ct_util.hrl").
 
@@ -876,13 +874,13 @@ get_suite(Mod, all) ->
 	{'EXIT',_} ->
 	    get_all(Mod, []);
 	GroupDefs when is_list(GroupDefs) ->
-	    case catch find_groups(Mod, all, all, GroupDefs) of
+	    case catch ct_groups:find_groups(Mod, all, all, GroupDefs) of
 		{error,_} = Error ->
 		    %% this makes test_server call error_in_suite as first
 		    %% (and only) test case so we can report Error properly
 		    [{?MODULE,error_in_suite,[[Error]]}];
 		ConfTests ->
-		    get_all(Mod, ConfTests)		    
+		    get_all(Mod, ConfTests)
 	    end;
 	_ ->
 	    E = "Bad return value from "++atom_to_list(Mod)++":groups/0",
@@ -901,7 +899,7 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
 	{'EXIT',_} ->
 	    [Group];
 	GroupDefs when is_list(GroupDefs) ->
-	    case catch find_groups(Mod, Name, TCs, GroupDefs) of
+	    case catch ct_groups:find_groups(Mod, Name, TCs, GroupDefs) of
 		{error,_} = Error ->
 		    %% this makes test_server call error_in_suite as first
 		    %% (and only) test case so we can report Error properly
@@ -916,12 +914,13 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
 			    %% init/end functions for top groups will be executed
 			    case catch ?val(name, element(2, hd(ConfTests))) of
 				Name ->		% top group
-				    delete_subs(ConfTests, ConfTests);
+				    ct_groups:delete_subs(ConfTests, ConfTests);
 				_ ->
 				    []
 			    end;
 			false ->
-			    ConfTests1 = delete_subs(ConfTests, ConfTests),
+			    ConfTests1 = ct_groups:delete_subs(ConfTests,
+							       ConfTests),
 			    case ?val(override, Props) of
 				undefined ->
 				    ConfTests1;
@@ -930,9 +929,9 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
 				ORSpec ->
 				    ORSpec1 = if is_tuple(ORSpec) -> [ORSpec];
 						 true -> ORSpec end,
-				    search_and_override(ConfTests1,
-							ORSpec1, Mod)
-			    end							      
+				    ct_groups:search_and_override(ConfTests1,
+								  ORSpec1, Mod)
+			    end
 		    end
 	    end;
 	_ ->
@@ -976,234 +975,6 @@ get_all_cases1(_, []) ->
 
 %%%-----------------------------------------------------------------
 
-find_groups(Mod, Name, TCs, GroupDefs) ->
-    Found = find(Mod, Name, TCs, GroupDefs, [], GroupDefs, false),
-    trim(Found).
-
-find(Mod, all, _TCs, [{Name,Props,Tests} | Gs], Known, Defs, _) 
-  when is_atom(Name), is_list(Props), is_list(Tests) ->
-    cyclic_test(Mod, Name, Known),
-    [make_conf(Mod, Name, Props,
-	       find(Mod, all, all, Tests, [Name | Known], Defs, true)) |
-     find(Mod, all, all, Gs, [], Defs, true)];
-
-find(Mod, Name, TCs, [{Name,Props,Tests} | _Gs], Known, Defs, false)
-  when is_atom(Name), is_list(Props), is_list(Tests) ->
-    cyclic_test(Mod, Name, Known),
-    case TCs of
-	all ->
-	    [make_conf(Mod, Name, Props,
-		       find(Mod, Name, TCs, Tests, [Name | Known], Defs, true))];
-	_ ->
-	    Tests1 = [TC || TC <- TCs,
-			    lists:member(TC, Tests) == true],
-	    [make_conf(Mod, Name, Props, Tests1)]
-    end;
-
-find(Mod, Name, TCs, [{Name1,Props,Tests} | Gs], Known, Defs, false)
-  when is_atom(Name1), is_list(Props), is_list(Tests) ->
-    cyclic_test(Mod, Name1, Known),
-    [make_conf(Mod,Name1,Props,
-		   find(Mod, Name, TCs, Tests, [Name1 | Known], Defs, false)) |
-     find(Mod, Name, TCs, Gs, [], Defs, false)];
-
-find(Mod, Name, _TCs, [{Name,_Props,_Tests} | _Gs], _Known, _Defs, true)
-  when is_atom(Name) ->
-    E = "Duplicate groups named "++atom_to_list(Name)++" in "++
-	atom_to_list(Mod)++":groups/0",
-    throw({error,list_to_atom(E)});
-
-find(Mod, Name, all, [{Name1,Props,Tests} | Gs], Known, Defs, true)
-  when is_atom(Name1), is_list(Props), is_list(Tests) ->
-    cyclic_test(Mod, Name1, Known),
-    [make_conf(Mod, Name1, Props,
-	       find(Mod, Name, all, Tests, [Name1 | Known], Defs, true)) |
-     find(Mod, Name, all, Gs, [], Defs, true)];
-
-find(Mod, Name, TCs, [{group,Name1} | Gs], Known, Defs, Found) 
-  when is_atom(Name1) ->
-    find(Mod, Name, TCs, [expand(Mod, Name1, Defs) | Gs], Known, Defs, Found);
-
-%% Undocumented remote group feature, use with caution
-find(Mod, Name, TCs, [{group, ExtMod, ExtGrp} | Gs], Known, Defs, true)
-  when is_atom(ExtMod), is_atom(ExtGrp) ->
-    ExternalDefs = ExtMod:groups(),
-    ExternalTCs = find(ExtMod, ExtGrp, TCs, [{group, ExtGrp}],
-                       [], ExternalDefs, false),
-     ExternalTCs ++ find(Mod, Name, TCs, Gs, Known, Defs, true);
-
-find(Mod, Name, TCs, [{Name1,Tests} | Gs], Known, Defs, Found)
-  when is_atom(Name1), is_list(Tests) ->
-    find(Mod, Name, TCs, [{Name1,[],Tests} | Gs], Known, Defs, Found);
-
-find(Mod, Name, TCs, [_TC | Gs], Known, Defs, false) ->
-    find(Mod, Name, TCs, Gs, Known, Defs, false);
-
-find(Mod, Name, TCs, [TC | Gs], Known, Defs, true) when is_atom(TC) ->
-    [{Mod, TC} | find(Mod, Name, TCs, Gs, Known, Defs, true)];
-
-find(Mod, Name, TCs, [{ExternalTC, Case} = TC | Gs], Known, Defs, true)
-  when is_atom(ExternalTC),
-       is_atom(Case) ->
-    [TC | find(Mod, Name, TCs, Gs, Known, Defs, true)];
-
-find(Mod, _Name, _TCs, [BadTerm | _Gs], Known, _Defs, _Found) ->
-    Where = if length(Known) == 0 ->
-		    atom_to_list(Mod)++":groups/0";
-	       true ->
-		    "group "++atom_to_list(lists:last(Known))++
-			" in "++atom_to_list(Mod)++":groups/0"
-	    end,		 
-    Term = io_lib:format("~p", [BadTerm]),
-    E = "Bad term "++lists:flatten(Term)++" in "++Where,
-    throw({error,list_to_atom(E)});
-
-find(_Mod, _Name, _TCs,  [], _Known, _Defs, false) ->
-    ['$NOMATCH'];
-
-find(_Mod, _Name, _TCs,  [], _Known, _Defs, _Found) ->
-    [].
-
-delete_subs([{conf, _,_,_,_} = Conf | Confs], All) ->
-    All1 = delete_conf(Conf, All),
-    case is_sub(Conf, All1) of
-	true ->
-	    delete_subs(Confs, All1);
-	false ->
-	    delete_subs(Confs, All)
-    end;
-delete_subs([_Else | Confs], All) ->
-    delete_subs(Confs, All);
-delete_subs([], All) ->
-    All.
-
-delete_conf({conf,Props,_,_,_}, Confs) ->
-    Name = ?val(name, Props),
-    [Conf || Conf = {conf,Props0,_,_,_} <- Confs,
-	     Name =/= ?val(name, Props0)].
-
-is_sub({conf,Props,_,_,_}=Conf, [{conf,_,_,Tests,_} | Confs]) ->
-    Name = ?val(name, Props),
-    case lists:any(fun({conf,Props0,_,_,_}) ->
-			   case ?val(name, Props0) of
-			       N when N == Name ->
-				   true;
-			       _ ->
-				   false
-			   end;
-		      (_) ->
-			   false
-		   end, Tests) of
-	true ->
-	    true;
-	false ->
-	    is_sub(Conf, Tests) or is_sub(Conf, Confs)
-    end;
-
-is_sub(Conf, [_TC | Tests]) ->
-    is_sub(Conf, Tests);
-
-is_sub(_Conf, []) ->
-    false.
-
-trim(['$NOMATCH' | Tests]) ->
-    trim(Tests);
-
-trim([{conf,Props,Init,Tests,End} | Confs]) ->
-    case trim(Tests) of
-	[] ->
-	    trim(Confs);
-	Trimmed ->
-	    [{conf,Props,Init,Trimmed,End} | trim(Confs)]
-    end;
-
-trim([TC | Tests]) ->
-    [TC | trim(Tests)];
-
-trim([]) ->
-    [].
-
-cyclic_test(Mod, Name, Names) ->
-    case lists:member(Name, Names) of
-	true ->
-	    E = "Cyclic reference to group "++atom_to_list(Name)++
-		" in "++atom_to_list(Mod)++":groups/0",
-	    throw({error,list_to_atom(E)});
-	false ->
-	    ok
-    end.
-
-expand(Mod, Name, Defs) ->
-    case lists:keysearch(Name, 1, Defs) of
-	{value,Def} -> 
-	    Def;
-	false ->
-	    E = "Invalid group "++atom_to_list(Name)++
-		" in "++atom_to_list(Mod)++":groups/0",
-	    throw({error,list_to_atom(E)})
-    end.
-
-make_all_conf(Dir, Mod, _Props) ->
-    case code:is_loaded(Mod) of
-	false ->
-	    code:load_abs(filename:join(Dir,atom_to_list(Mod)));
-	_ ->
-	    ok
-    end,
-    make_all_conf(Mod).
-
-make_all_conf(Mod) ->
-    case catch apply(Mod, groups, []) of
-	{'EXIT',_} ->
-	    {error,{invalid_group_definition,Mod}};
-	GroupDefs when is_list(GroupDefs) ->
-	    case catch find_groups(Mod, all, all, GroupDefs) of
-		{error,_} = Error ->
-		    %% this makes test_server call error_in_suite as first
-		    %% (and only) test case so we can report Error properly
-		    [{?MODULE,error_in_suite,[[Error]]}];
-		[] ->
-		    {error,{invalid_group_spec,Mod}};
-		ConfTests ->
-		    [{conf,Props,Init,all,End} ||
-			{conf,Props,Init,_,End}
-			    <- delete_subs(ConfTests, ConfTests)]
-	    end
-    end.
-
-make_conf(Dir, Mod, Name, Props, TestSpec) ->
-    case code:is_loaded(Mod) of
-	false ->
-	    code:load_abs(filename:join(Dir,atom_to_list(Mod)));
-	_ ->
-	    ok
-    end,
-    make_conf(Mod, Name, Props, TestSpec).
-
-make_conf(Mod, Name, Props, TestSpec) ->
-    case code:is_loaded(Mod) of
-	false ->
-	    code:load_file(Mod);
-	_ ->
-	    ok
-    end,
-    {InitConf,EndConf,ExtraProps} =
-	case erlang:function_exported(Mod,init_per_group,2) of
-	    true ->
-		{{Mod,init_per_group},{Mod,end_per_group},[]};
-	    false ->
-		ct_logs:log("TEST INFO", "init_per_group/2 and "
-			    "end_per_group/2 missing for group "
-			    "~p in ~p, using default.",
-			    [Name,Mod]),
-		{{?MODULE,init_per_group},
-		 {?MODULE,end_per_group},
-		 [{suite,Mod}]}
-	end,
-    {conf,[{name,Name}|Props++ExtraProps],InitConf,TestSpec,EndConf}.
-
-%%%-----------------------------------------------------------------
-
 get_all(Mod, ConfTests) ->	
     case catch apply(Mod, all, []) of
 	{'EXIT',_} ->
@@ -1218,132 +989,23 @@ get_all(Mod, ConfTests) ->
 		    [{?MODULE,error_in_suite,[[{error,What}]]}];
 		SeqsAndTCs ->
 		    %% expand group references in all() using ConfTests
-		    case catch expand_groups(SeqsAndTCs, ConfTests, Mod) of
+		    case catch ct_groups:expand_groups(SeqsAndTCs,
+						       ConfTests,
+						       Mod) of
 			{error,_} = Error ->
 			    [{?MODULE,error_in_suite,[[Error]]}];
 			Tests ->
-			    delete_subs(Tests, Tests)
+			    ct_groups:delete_subs(Tests, Tests)
 		    end
 	    end;
 	Skip = {skip,_Reason} ->
 	    Skip;
 	_ ->
 	    Reason = 
-		list_to_atom("Bad return value from "++atom_to_list(Mod)++":all/0"),
+		list_to_atom("Bad return value from "++
+				 atom_to_list(Mod)++":all/0"),
 	    [{?MODULE,error_in_suite,[[{error,Reason}]]}]
     end.
-
-expand_groups([H | T], ConfTests, Mod) ->
-    [expand_groups(H, ConfTests, Mod) | expand_groups(T, ConfTests, Mod)];
-expand_groups([], _ConfTests, _Mod) ->
-    [];
-expand_groups({group,Name}, ConfTests, Mod) ->
-    expand_groups({group,Name,default,[]}, ConfTests, Mod);
-expand_groups({group,Name,default}, ConfTests, Mod) ->
-    expand_groups({group,Name,default,[]}, ConfTests, Mod);
-expand_groups({group,Name,ORProps}, ConfTests, Mod) when is_list(ORProps) ->
-    expand_groups({group,Name,ORProps,[]}, ConfTests, Mod);
-expand_groups({group,Name,ORProps,SubORSpec}, ConfTests, Mod) ->
-    FindConf =
-	fun(Conf = {conf,Props,Init,Ts,End}) ->
-		case ?val(name, Props) of
-		    Name when ORProps == default ->
-			[Conf];
-		    Name ->
-			[{conf,[{name,Name}|ORProps],Init,Ts,End}];
-		    _    -> 
-			[]
-		end
-	end,					 
-    case lists:flatmap(FindConf, ConfTests) of
-	[] ->
-	    throw({error,invalid_ref_msg(Name, Mod)});
-	Matching when SubORSpec == [] -> 
-	    Matching;
-	Matching -> 
-	    override_props(Matching, SubORSpec, Name,Mod)
-    end;
-expand_groups(SeqOrTC, _ConfTests, _Mod) ->
-    SeqOrTC.
-
-%% search deep for the matching conf test and modify it and any 
-%% sub tests according to the override specification
-search_and_override([Conf = {conf,Props,Init,Tests,End}], ORSpec, Mod) ->
-    Name = ?val(name, Props),
-    case lists:keysearch(Name, 1, ORSpec) of
-	{value,{Name,default}} ->
-	    [Conf];
-	{value,{Name,ORProps}} ->
-	    [{conf,[{name,Name}|ORProps],Init,Tests,End}];
-	{value,{Name,default,[]}} ->
-	    [Conf];
-	{value,{Name,default,SubORSpec}} ->
-	    override_props([Conf], SubORSpec, Name,Mod);
-	{value,{Name,ORProps,SubORSpec}} ->
-	    override_props([{conf,[{name,Name}|ORProps],
-			    Init,Tests,End}], SubORSpec, Name,Mod);
-	_ ->
-	    [{conf,Props,Init,search_and_override(Tests,ORSpec,Mod),End}]
-    end.
-
-%% Modify the Tests element according to the override specification
-override_props([{conf,Props,Init,Tests,End} | Confs], SubORSpec, Name,Mod) ->
-    {Subs,SubORSpec1} = override_sub_props(Tests, [], SubORSpec, Mod),
-    [{conf,Props,Init,Subs,End} | override_props(Confs, SubORSpec1, Name,Mod)];
-override_props([], [], _,_) ->
-    [];
-override_props([], SubORSpec, Name,Mod) ->
-    Es = [invalid_ref_msg(Name, element(1,Spec), Mod) || Spec <- SubORSpec],
-    throw({error,Es}).
-
-override_sub_props([], New, ORSpec, _) ->    
-    {?rev(New),ORSpec};
-override_sub_props([T = {conf,Props,Init,Tests,End} | Ts],
-		   New, ORSpec, Mod) ->
-    Name = ?val(name, Props),
-    case lists:keysearch(Name, 1, ORSpec) of
-	{value,Spec} ->				% group found in spec
-	    Props1 =
-		case element(2, Spec) of
-		    default -> Props;
-		    ORProps -> [{name,Name} | ORProps]
-		end,
-	    case catch element(3, Spec) of
-		Undef when Undef == [] ; 'EXIT' == element(1, Undef) ->
-		    override_sub_props(Ts, [{conf,Props1,Init,Tests,End} | New],
-				       lists:keydelete(Name, 1, ORSpec), Mod);
-		SubORSpec when is_list(SubORSpec) ->
-		    case override_sub_props(Tests, [], SubORSpec, Mod) of
-			{Subs,[]} ->
-			    override_sub_props(Ts, [{conf,Props1,Init,
-						     Subs,End} | New],
-					       lists:keydelete(Name, 1, ORSpec),
-					       Mod);
-			{_,NonEmptySpec} ->
-			    Es = [invalid_ref_msg(Name, element(1, GrRef),
-						  Mod) || GrRef <- NonEmptySpec],
-			    throw({error,Es})
-		    end;
-		BadGrSpec ->
-		    throw({error,{invalid_form,BadGrSpec}})
-	    end;
-	_ ->					% not a group in spec
-	    override_sub_props(Ts, [T | New], ORSpec, Mod)
-    end;
-override_sub_props([TC | Ts], New, ORSpec, Mod) ->
-    override_sub_props(Ts, [TC | New], ORSpec, Mod).
-
-invalid_ref_msg(Name, Mod) ->
-    E = "Invalid reference to group "++
-	atom_to_list(Name)++" in "++
-	atom_to_list(Mod)++":all/0",
-    list_to_atom(E).
-
-invalid_ref_msg(Name0, Name1, Mod) ->
-    E = "Invalid reference to group "++
-	atom_to_list(Name1)++" from "++atom_to_list(Name0)++
-	" in "++atom_to_list(Mod)++":all/0",
-    list_to_atom(E).
 
 %%!============================================================
 %%! The support for sequences by means of using sequences/0

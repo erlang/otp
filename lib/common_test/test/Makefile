@@ -55,7 +55,8 @@ MODULES= \
 	ct_system_error_SUITE \
 	ct_snmp_SUITE \
 	ct_group_leader_SUITE \
-	ct_cover_SUITE
+	ct_cover_SUITE \
+	ct_groups_search_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

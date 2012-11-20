@@ -73,7 +73,8 @@ MODULES= \
 	cth_surefire \
 	ct_netconfc \
 	ct_conn_log_h \
-	cth_conn_log
+	cth_conn_log \
+	ct_groups
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 BEAM_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
