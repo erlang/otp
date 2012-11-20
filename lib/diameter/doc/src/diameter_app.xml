@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY message '<seealso marker="#message">message()</seealso>'>
+  <!ENTITY dict
+  '<seealso marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -124,39 +127,17 @@ mandatory values as the bare value.</p>
 
 <marker id="message"/>
 
-<tag><c>message() = record() | list()</c></tag>
+<tag><c>message() = &codec_message;</c></tag>
 <item>
 <p>
 The representation of a Diameter message as passed to
-&mod_call;.
-The record representation is as outlined in
-<seealso
-marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>:
-a message as defined in a dictionary file is encoded as a record with
-one field for each component AVP.
-Equivalently, a message can also be encoded as a list whose head is
-the atom-valued message name (the record name minus any
-prefix specified in the relevant dictionary file) and whose tail is a
-list of <c>{FieldName, FieldValue}</c> pairs.</p>
-
-<p>
-A third representation allows a message to be specified as a list
-whose head is a <c>#diameter_header{}</c> record and whose tail is a list
-of <c>#diameter_avp{}</c> records.
-This representation is used by diameter itself when relaying requests
-as directed by the return value of a
-&handle_request;
-callback.
-It differs from the other other two in that it bypasses the checks for
-messages that do not agree with their definitions in the dictionary in
-question (since relays agents must handle arbitrary request): messages
-are sent exactly as specified.</p>
+&mod_call; or returned from a &handle_request; callback.</p>
 
 </item>
 
 <marker id="packet"/>
 
-<tag><c>packet() = #diameter_packet{}</c></tag>
+<tag><c>packet() = &codec_packet;</c></tag>
 <item>
 <p>
 A container for incoming and outgoing Diameter messages that's passed
@@ -505,8 +486,7 @@ The application in which the callback takes place (that is, the
 callback module as configured with &mod_start_service;)
 is determined by the Application Identifier in the header of the
 incoming request message, the selected module being the one
-whose corresponding <seealso
-marker="diameter_dict#MESSAGE_RECORDS">dictionary</seealso> declares
+whose corresponding dictionary declares
 itself as defining either the application in question or the Relay
 application.</p>
 
@@ -526,8 +506,7 @@ The argument &packet; has the following signature.</p>
 The <c>msg</c> field will be <c>undefined</c> in case the request has
 been received in the relay application.
 Otherwise it contains the record representing the request as outlined
-in <seealso
-marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>.</p>
+in &dict;.</p>
 
 <p>
 The <c>errors</c> field specifies any Result-Code's identifying errors

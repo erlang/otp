@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY filename
+  '<seealso marker="kernel:file#type-name">file:name()</seealso>'>
+  <!ENTITY dictionary
+  '<seealso marker="diameter_dict">dictionary file</seealso>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -43,7 +47,14 @@ under the License.
 <description>
 
 <p>
-</p>
+The function &codec; is used to compile a diameter
+&dictionary; into Erlang source.
+The resulting source implements the interface diameter required
+to encode and decode the dictionary's messages and AVP's.</p>
+
+<p>
+The utility &man_compile; provides an alternate compilation
+interface.</p>
 
 </description>
 
@@ -52,16 +63,56 @@ under the License.
 <funcs>
 
 <func>
-<name>codec(Name) -> ok</name>
-<fsummary>Compile a dictionary into a codec module.</fsummary>
-<type>
-<v></v>
-<v></v>
-</type>
+<name>codec(Path::string(), [Opt]) -> ok | {error, Reason}</name>
+<fsummary>Compile a dictionary file into Erlang source.</fsummary>
 <desc>
 
 <p>
-</p>
+Compile a single dictionary file to Erlang source.
+<c>Opt</c> can have the following types.</p>
+
+<taglist>
+
+<tag><c>{include, Dir::string()}</c></tag>
+<item>
+<p>
+Prepend the specified directory to the code path.
+Use to point at beam files compiled from inherited dictionaries,
+<c>&dict_inherits;</c> in a dictionary file creating a beam
+dependency, not an erl/hrl dependency.</p>
+
+<p>
+Multiple <c>include</c> options can be specified.</p>
+</item>
+
+<tag><c>{outdir, Dir::string()}</c></tag>
+<item>
+<p>
+Write generated source to the specified directory.
+Defaults to the current working directory.</p>
+</item>
+
+<tag><c>{name|prefix, string()}</c></tag>
+<item>
+<p>
+Set <c>&dict_name;</c> or <c>&dict_prefix;</c> to the specified
+string.
+Overrides any setting in the file itself.</p>
+</item>
+
+<tag><c>{inherits, Mod::string()}</c></tag>
+<item>
+<p>
+Append &dict_inherits; of the specified module.
+Specifying <c>"-"</c> has the effect of discarding clearing any
+previous inherits, both in the dictionary file and on the options
+list.</p>
+
+<p>
+Multiple <c>inherits</c> options can be specified.</p>
+</item>
+
+</taglist>
 
 </desc>
 </func>
@@ -69,14 +120,24 @@ under the License.
 </funcs>
 
 <!-- ===================================================================== -->
+
+<section>
+<title>BUGS</title>
+
+<p>
+All options are string-valued.
+In particular, it is not currently possible to
+an &dict_inherits; module as an atom() or a path as a &filename;</p>
+
+</section>
+
 <!-- ===================================================================== -->
 
 <section>
 <title>SEE ALSO</title>
 
 <p>
-&man_main;,
-&man_dict;</p>
+&man_compile;, &man_dict;</p>
 
 </section>
 
