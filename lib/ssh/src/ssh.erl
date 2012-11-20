@@ -463,7 +463,7 @@ check_pref_algs([H|T]) ->
 inetopt(true) ->
     inet;
 inetopt(false) ->
-    case gen_tcp:listen(0, [inet6, {ip, loopback}]) of
+    case gen_tcp:listen(0, [inet6]) of
 	{ok, Dummyport} ->
 	    gen_tcp:close(Dummyport),
 	    inet6;
