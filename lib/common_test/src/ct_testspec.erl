@@ -1026,20 +1026,24 @@ insert_groups(Node,Dir,Suite,Group,Cases,Tests,MergeTests)
     insert_groups(Node,Dir,Suite,[Group],Cases,Tests,MergeTests);
 insert_groups(Node,Dir,Suite,Groups,Cases,Tests,false) when
       ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
-    Groups1 = [{Gr,Cases} || Gr <- Groups],
+    Groups1 = [if is_list(Gr) ->		% preserve group path
+		       {[Gr],Cases};
+		  true ->
+		       {Gr,Cases} end || Gr <- Groups],
     append({{Node,Dir},[{Suite,Groups1}]},Tests);
 insert_groups(Node,Dir,Suite,Groups,Cases,Tests,true) when
       ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
+    Groups1 = [if is_list(Gr) ->		% preserve group path
+		       {[Gr],Cases};
+		  true ->
+		       {Gr,Cases} end || Gr <- Groups],
     case lists:keysearch({Node,Dir},1,Tests) of
 	{value,{{Node,Dir},[{all,_}]}} ->
 	    Tests;
 	{value,{{Node,Dir},Suites0}} ->
-	    Suites1 = insert_groups1(Suite,
-				     [{Gr,Cases} || Gr <- Groups],
-				     Suites0),
+	    Suites1 = insert_groups1(Suite,Groups1,Suites0),
 	    insert_in_order({{Node,Dir},Suites1},Tests);
 	false ->
-	    Groups1 = [{Gr,Cases} || Gr <- Groups],
 	    insert_in_order({{Node,Dir},[{Suite,Groups1}]},Tests)
     end;
 insert_groups(Node,Dir,Suite,Groups,Case,Tests, MergeTests) 
@@ -1062,13 +1066,13 @@ insert_groups1(Suite,Groups,Suites0) ->
 
 insert_groups2(_Groups,all) ->
     all;
-insert_groups2([Group={GrName,Cases}|Groups],GrAndCases) ->
-    case lists:keysearch(GrName,1,GrAndCases) of
-	{value,{GrName,all}} ->
+insert_groups2([Group={Gr,Cases}|Groups],GrAndCases) ->
+    case lists:keysearch(Gr,1,GrAndCases) of
+	{value,{Gr,all}} ->
 	    GrAndCases;
-	{value,{GrName,Cases0}} ->
+	{value,{Gr,Cases0}} ->
 	    Cases1 = insert_in_order(Cases,Cases0),
-	    insert_groups2(Groups,insert_in_order({GrName,Cases1},GrAndCases));
+	    insert_groups2(Groups,insert_in_order({Gr,Cases1},GrAndCases));
 	false ->
 	    insert_groups2(Groups,insert_in_order(Group,GrAndCases))
     end;

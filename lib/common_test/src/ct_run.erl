@@ -1272,7 +1272,8 @@ run_dir(Opts = #opts{logdir = LogDir,
 			    reformat_result(catch do_run(tests(Dir2, Mod),
 							 [], Opts1, StartOpts));
 			_ ->
-			    reformat_result(catch do_run(tests(Dir2, Mod, GsAndCs),
+			    reformat_result(catch do_run(tests(Dir2, Mod,
+							       GsAndCs),
 							 [], Opts1, StartOpts))
 		    end;
 
@@ -1281,7 +1282,8 @@ run_dir(Opts = #opts{logdir = LogDir,
 			[_,_|_] when GsAndCs /= [] ->
 			    exit({error,multiple_suites_and_cases});
 			[{Dir2,Mod}] when GsAndCs /= [] ->
-			    reformat_result(catch do_run(tests(Dir2, Mod, GsAndCs),
+			    reformat_result(catch do_run(tests(Dir2, Mod,
+							       GsAndCs),
 							 [], Opts1, StartOpts));
 			DirMods ->
 			    reformat_result(catch do_run(tests(DirMods),
@@ -1536,17 +1538,36 @@ groups_and_cases(Gs, Cs) when ((Gs == undefined) or (Gs == [])) and
 			      ((Cs == undefined) or (Cs == [])) ->
     [];
 groups_and_cases(Gs, Cs) when Gs == undefined ; Gs == [] ->
-    [ensure_atom(C) || C <- listify(Cs)];
-groups_and_cases(Gs, Cs) when Cs == undefined ; Cs == [] ->
-    [{ensure_atom(G),all} || G <- listify(Gs)];
-groups_and_cases(G, Cs) when is_atom(G) ->
-    [{G,[ensure_atom(C) || C <- listify(Cs)]}];
-groups_and_cases([G], Cs) ->
-    [{ensure_atom(G),[ensure_atom(C) || C <- listify(Cs)]}];
-groups_and_cases([_,_|_] , Cs) when Cs =/= [] ->
-    {error,multiple_groups_and_cases};
-groups_and_cases(_Gs, _Cs) ->
-    {error,incorrect_group_or_case_option}.
+    if (Cs == all) or (Cs == [all]) or (Cs == ["all"]) -> all;
+       true -> [ensure_atom(C) || C <- listify(Cs)]
+    end;
+groups_and_cases(GOrGs, Cs) when (is_atom(GOrGs) orelse
+				  (is_list(GOrGs) andalso
+				   (is_atom(hd(GOrGs)) orelse
+				    (is_list(hd(GOrGs)) andalso
+				     is_atom(hd(hd(GOrGs))))))) ->
+    if (Cs == undefined) or (Cs == []) or
+       (Cs == all) or (Cs == [all]) or (Cs == ["all"]) ->
+	    [{GOrGs,all}];
+       true ->
+	    [{GOrGs,[ensure_atom(C) || C <- listify(Cs)]}]
+    end;
+groups_and_cases(Gs, Cs) when is_integer(hd(hd(Gs))) ->
+    %% if list of strings, this comes from 'ct_run -group G1 G2 ...' and
+    %% we need to parse the strings
+    Gs1 = 
+	if (Gs == [all]) or (Gs == ["all"]) ->
+		all;
+	   true ->
+		lists:map(fun(G) ->
+				  {ok,Ts,_} = erl_scan:string(G++"."),
+				  {ok,Term} = erl_parse:parse_term(Ts),
+				  Term
+			  end, Gs)
+	end,
+    groups_and_cases(Gs1, Cs);
+groups_and_cases(Gs, Cs) ->
+    {error,{incorrect_group_or_case_option,Gs,Cs}}.
 
 tests(TestDir, Suites, []) when is_list(TestDir), is_integer(hd(TestDir)) ->
     [{?testdir(TestDir,Suites),ensure_atom(Suites),all}];
@@ -1687,11 +1708,15 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 	    SavedErrors = save_make_errors(SuiteMakeErrors),
 	    ct_repeat:log_loop_info(Args),
 	    
-	    {Tests1,Skip1} = final_tests(Tests,Skip,SavedErrors),
-	    
-	    ReleaseSh = proplists:get_value(release_shell, Args),
-	    ct_util:set_testdata({release_shell,ReleaseSh}),
-	    possibly_spawn(ReleaseSh == true, Tests1, Skip1, Opts);
+	    try final_tests(Tests,Skip,SavedErrors) of
+		{Tests1,Skip1} ->	    
+		    ReleaseSh = proplists:get_value(release_shell, Args),
+		    ct_util:set_testdata({release_shell,ReleaseSh}),
+		    possibly_spawn(ReleaseSh == true, Tests1, Skip1, Opts)
+	    catch
+		_:BadFormat ->
+		    {error,BadFormat}
+	    end;
 	false ->
 	    io:nl(),
 	    ct_util:stop(clean),
@@ -1961,22 +1986,21 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
 		  %% for now, only flat group defs are allowed as
 		  %% start options and test spec terms
 		  fun({all,all}) ->
-			  ct_framework:make_all_conf(TestDir,
-						      Suite, []);
+			  [ct_groups:make_conf(TestDir, Suite, all, [], all)];
 		     ({skipped,Group,TCs}) ->
-			  [ct_framework:make_conf(TestDir, Suite,
-						  Group, [skipped], TCs)];
-		     ({GrSpec = {Group,_},TCs}) ->
+			  [ct_groups:make_conf(TestDir, Suite,
+					       Group, [skipped], TCs)];
+		     ({GrSpec = {GroupName,_},TCs}) ->
 			  Props = [{override,GrSpec}],
-			  [ct_framework:make_conf(TestDir, Suite,
-						  Group, Props, TCs)];
-		     ({GrSpec = {Group,_,_},TCs}) ->
+			  [ct_groups:make_conf(TestDir, Suite,
+					       GroupName, Props, TCs)];
+		     ({GrSpec = {GroupName,_,_},TCs}) ->
 			  Props = [{override,GrSpec}],
-			  [ct_framework:make_conf(TestDir, Suite,
-						  Group, Props, TCs)];
-		     ({Group,TCs}) ->
-			  [ct_framework:make_conf(TestDir, Suite,
-						  Group, [], TCs)];
+			  [ct_groups:make_conf(TestDir, Suite,
+					       GroupName, Props, TCs)];
+		     ({GroupOrGroups,TCs}) ->
+			  [ct_groups:make_conf(TestDir, Suite,
+					       GroupOrGroups, [], TCs)];
 		     (TC) ->
 			  [TC]
 		  end, GrsOrCs),
@@ -1988,12 +2012,12 @@ final_tests1([], Final, Skip, _Bad) ->
     {lists:reverse(Final),Skip}.
 
 final_skip([{TestDir,Suite,{all,all},Reason}|Skips], Final) ->
-    SkipConf =  ct_framework:make_conf(TestDir, Suite, all, [], all),
+    SkipConf = ct_groups:make_conf(TestDir, Suite, all, [], all),
     Skip = {TestDir,Suite,SkipConf,Reason},
     final_skip(Skips, [Skip|Final]);
 
 final_skip([{TestDir,Suite,{Group,TCs},Reason}|Skips], Final) ->
-    Conf =  ct_framework:make_conf(TestDir, Suite, Group, [], TCs),
+    Conf =  ct_groups:make_conf(TestDir, Suite, Group, [], TCs),
     Skip = {TestDir,Suite,Conf,Reason},
     final_skip(Skips, [Skip|Final]);
 
@@ -2256,9 +2280,11 @@ add_jobs([{TestDir,all,_}|Tests], Skip, Opts, CleanUp) ->
 	    wait_for_idle(),
 	    add_jobs(Tests, Skip, Opts, CleanUp)
     end;
-add_jobs([{TestDir,[Suite],all}|Tests], Skip, Opts, CleanUp) when is_atom(Suite) ->
+add_jobs([{TestDir,[Suite],all}|Tests], Skip,
+	 Opts, CleanUp) when is_atom(Suite) ->
     add_jobs([{TestDir,Suite,all}|Tests], Skip, Opts, CleanUp);
-add_jobs([{TestDir,Suites,all}|Tests], Skip, Opts, CleanUp) when is_list(Suites) ->
+add_jobs([{TestDir,Suites,all}|Tests], Skip,
+	 Opts, CleanUp) when is_list(Suites) ->
     Name = get_name(TestDir) ++ ".suites",
     case catch test_server_ctrl:add_module_with_skip(Name, Suites,
 						     skiplist(TestDir,Skip)) of
@@ -2273,7 +2299,8 @@ add_jobs([{TestDir,Suite,all}|Tests], Skip, Opts, CleanUp) ->
 	ok ->
 	    Name =  get_name(TestDir) ++ "." ++ atom_to_list(Suite),
 	    case catch test_server_ctrl:add_module_with_skip(Name, [Suite],
-							     skiplist(TestDir,Skip)) of
+							     skiplist(TestDir,
+								      Skip)) of
 		{'EXIT',_} ->
 		    CleanUp;
 		_ ->
@@ -2296,15 +2323,24 @@ add_jobs([{TestDir,Suite,Confs}|Tests], Skip, Opts, CleanUp) when
     GrTestName =
 	case Confs of
 	    [Conf] ->
-		"." ++ atom_to_list(Group(Conf)) ++ TCTestName(TestCases(Conf));
+		case Group(Conf) of
+		    GrName when is_atom(GrName) ->
+			"." ++ atom_to_list(GrName) ++
+			    TCTestName(TestCases(Conf));
+		    _ ->
+			".groups" ++ TCTestName(TestCases(Conf))
+		end;
 	    _ ->
 		".groups"
 	end,
     TestName = get_name(TestDir) ++ "." ++ atom_to_list(Suite) ++ GrTestName,
     case maybe_interpret(Suite, init_per_group, Opts) of
 	ok ->
-	    case catch test_server_ctrl:add_conf_with_skip(TestName, Suite, Confs,
-							   skiplist(TestDir,Skip)) of
+	    case catch test_server_ctrl:add_conf_with_skip(TestName,
+							   Suite,
+							   Confs,
+							   skiplist(TestDir,
+								    Skip)) of
 		{'EXIT',_} ->
 		    CleanUp;
 		_ ->
@@ -2316,18 +2352,21 @@ add_jobs([{TestDir,Suite,Confs}|Tests], Skip, Opts, CleanUp) when
     end;
 
 %% test case
-add_jobs([{TestDir,Suite,[Case]}|Tests], Skip, Opts, CleanUp) when is_atom(Case) ->
+add_jobs([{TestDir,Suite,[Case]}|Tests],
+	 Skip, Opts, CleanUp) when is_atom(Case) ->
     add_jobs([{TestDir,Suite,Case}|Tests], Skip, Opts, CleanUp);
 
-add_jobs([{TestDir,Suite,Cases}|Tests], Skip, Opts, CleanUp) when is_list(Cases) ->
+add_jobs([{TestDir,Suite,Cases}|Tests],
+	 Skip, Opts, CleanUp) when is_list(Cases) ->
     Cases1 = lists:map(fun({GroupName,_}) when is_atom(GroupName) -> GroupName;
 			  (Case) -> Case
 		       end, Cases),
     case maybe_interpret(Suite, Cases1, Opts) of
 	ok ->
-	    Name =  get_name(TestDir) ++ "." ++	atom_to_list(Suite) ++ ".cases",
+	    Name =  get_name(TestDir) ++ "." ++ atom_to_list(Suite) ++ ".cases",
 	    case catch test_server_ctrl:add_cases_with_skip(Name, Suite, Cases1,
-							    skiplist(TestDir,Skip)) of
+							    skiplist(TestDir,
+								     Skip)) of
 		{'EXIT',_} ->
 		    CleanUp;
 		_ ->
@@ -2343,7 +2382,8 @@ add_jobs([{TestDir,Suite,Case}|Tests], Skip, Opts, CleanUp) when is_atom(Case) -
 	    Name = get_name(TestDir) ++	"." ++ atom_to_list(Suite) ++ "." ++
 		atom_to_list(Case),
 	    case catch test_server_ctrl:add_case_with_skip(Name, Suite, Case,
-							   skiplist(TestDir,Skip)) of
+							   skiplist(TestDir,
+								    Skip)) of
 		{'EXIT',_} ->
 		    CleanUp;
 		_ ->
@@ -2378,7 +2418,8 @@ skiplist(Dir, [{Dir,all,Cmt}|Skip]) ->
     %% we need to turn 'all' into list of modules since
     %% test_server doesn't do skips on Dir level
     Ss = filelib:wildcard(filename:join(Dir, "*_SUITE.beam")),
-    [{list_to_atom(filename:basename(S,".beam")),Cmt} || S <- Ss] ++ skiplist(Dir,Skip);
+    [{list_to_atom(filename:basename(S,".beam")),Cmt} || S <- Ss] ++
+	skiplist(Dir,Skip);
 skiplist(Dir, [{Dir,S,Cmt}|Skip]) ->
     [{S,Cmt} | skiplist(Dir, Skip)];
 skiplist(Dir, [{Dir,S,C,Cmt}|Skip]) ->
@@ -2438,8 +2479,10 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 				FileTest = fun(F, suites) -> is_suite(F);
 					      (F, helpmods) -> not is_suite(F)
 					   end,
-				Files = lists:flatmap(fun({F,out_of_date}) ->
-							      case FileTest(F, Targets) of
+				Files =
+				    lists:flatmap(fun({F,out_of_date}) ->
+							  case FileTest(F,
+									Targets) of
 								  true -> [F];
 								  false -> []
 							      end;
@@ -2783,7 +2826,8 @@ opts2args(EnvStartOpts) ->
     lists:flatmap(fun({exit_status,ExitStatusOpt}) when is_atom(ExitStatusOpt) ->
 			  [{exit_status,[atom_to_list(ExitStatusOpt)]}];
 		     ({halt_with,{HaltM,HaltF}}) ->
-			  [{halt_with,[atom_to_list(HaltM),atom_to_list(HaltF)]}];
+			  [{halt_with,[atom_to_list(HaltM),
+				       atom_to_list(HaltF)]}];
 		     ({interactive_mode,true}) ->
 			  [{shell,[]}];
 		     ({config,CfgFile}) when is_integer(hd(CfgFile)) ->
@@ -2807,6 +2851,12 @@ opts2args(EnvStartOpts) ->
 					end, UserCfg),
 			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
 			  [{userconfig,lists:reverse(StrsR)}];
+		     ({group,G}) when is_atom(G) ->
+			  [{group,[atom_to_list(G)]}];
+		     ({group,Gs}) when is_list(Gs) ->
+			  LOfGStrs = [lists:flatten(io_lib:format("~w",[G])) ||
+					 G <- Gs],
+			  [{group,LOfGStrs}];
 		     ({testcase,Case}) when is_atom(Case) ->
 			  [{'case',[atom_to_list(Case)]}];
 		     ({testcase,Cases}) ->

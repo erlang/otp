@@ -51,7 +51,8 @@ MODULES= \
 	ct_basic_html_SUITE \
 	ct_auto_compile_SUITE \
 	ct_verbosity_SUITE \
-	ct_shell_SUITE
+	ct_shell_SUITE \
+	ct_groups_search_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
