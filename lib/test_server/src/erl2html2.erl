@@ -42,18 +42,31 @@ convert(File, Dest) ->
 	      "<body bgcolor=\"white\" text=\"black\""
 	      " link=\"blue\" vlink=\"purple\" alink=\"red\">\n"],
     convert(File, Dest, Header).
-    
+
+
 convert(File, Dest, Header) ->
     %% statistics(runtime),
     case parse_file(File) of
 	{ok,Functions} ->
-	    %% io:format("~p~n",[Functions]),
-	    case file:read_file(File) of
-		{ok,Bin} ->
-		    {Html,Lines} = build_html(Bin,Functions),
-		    Html1 = [Header,"<pre>\n",Html,"</pre>\n",
-			     footer(Lines),"</body>\n</html>\n"],
-		    file:write_file(Dest,Html1);
+	    %% {_, Time1} = statistics(runtime),
+	    %% io:format("Parsed file in ~.2f Seconds.~n",[Time1/1000]),
+	    case file:open(File,[raw,{read_ahead,10000}]) of
+		{ok,SFd} ->
+		    case file:open(Dest,[write,raw]) of
+			{ok,DFd} ->
+			    file:write(DFd,[Header,"<pre>\n"]),
+			    Lines = build_html(SFd,DFd,Functions),
+			    file:write(DFd,["</pre>\n",footer(),
+					    "</body>\n</html>\n"]),
+			    %% {_, Time2} = statistics(runtime),
+			    %% io:format("Converted ~p lines in ~.2f Seconds.~n",
+			    %% 	      [Lines, Time2/1000]),
+			    file:close(SFd),
+			    file:close(DFd),
+			    ok;
+			Error ->
+			    Error
+		    end;
 		Error ->
 		    Error
 	    end;
@@ -69,41 +82,55 @@ convert(File, Dest, Header) ->
 %%% All function clauses are also marked in order to allow
 %%% possibly_enhance/2 to write these in bold.
 parse_file(File) ->
-    case epp:parse_file(File,[],[]) of
-	{ok,Forms} ->
-	    {ok,get_functions(Forms,File,false)};
-	Error ->
-	    Error
+    case epp:open(File, [], []) of
+	{ok,Epp} ->
+	    Forms = parse_file(Epp,File,false),
+	    epp:close(Epp),
+	    {ok,Forms};
+	{error,E} ->
+	    {error,E}
     end.
 
-get_functions([{attribute,_,file,{File,_}}|Forms],File,_) ->
-    get_functions(Forms,File,true);
-get_functions([{attribute,_,file,{_OtherFile,_}}|Forms],File,_) ->
-    get_functions(Forms,File,false);
-get_functions([{function,L,F,A,[_|C]}|Forms],File,true) ->
-    Clauses = [{clause,CL} || {clause,CL,_,_,_} <- C],
-    [{atom_to_list(F),A,L} | Clauses] ++ get_functions(Forms,File,true);
-get_functions([_|Forms],File,InCorrectFile) ->
-    get_functions(Forms,File,InCorrectFile);
-get_functions([],_,_) ->
-    [].
+
+parse_file(Epp,File,InCorrectFile) ->
+    case epp:parse_erl_form(Epp) of
+	{ok,Form} ->
+	    case Form of
+		{attribute,_,file,{File,_}} ->
+		    parse_file(Epp,File,true);
+		{attribute,_,file,{_OtherFile,_}} ->
+		    parse_file(Epp,File,false);
+		{function,L,F,A,[_|C]} when InCorrectFile ->
+		    Clauses = [{clause,CL} || {clause,CL,_,_,_} <- C],
+		    [{atom_to_list(F),A,L} | Clauses] ++
+			parse_file(Epp,File,true);
+		_ ->
+		    parse_file(Epp,File,InCorrectFile)
+	    end;
+	{error,_E} ->
+	    parse_file(Epp,File,InCorrectFile);
+	{eof,_Location} ->
+	    []
+    end.
 
 %%%-----------------------------------------------------------------
 %%% Add a link target for each line and one for each function definition.
-build_html(Bin,Functions) ->
-    build_html(binary:split(Bin,<<"\n">>),1,Functions,false,[]).
+build_html(SFd,DFd,Functions) ->
+    build_html(SFd,DFd,file:read_line(SFd),1,Functions,false).
 
-build_html(Split,L,[{F,A,L}|Functions],_IsFuncDef,Acc) ->
+build_html(SFd,DFd,{ok,Str},L,[{F,A,L}|Functions],_IsFuncDef) ->
     FALink = http_uri:encode(F++"-"++integer_to_list(A)),
-    NewAcc = [Acc,"<a name=\"",FALink,"\"/>"],
-    build_html(Split,L,Functions,true,NewAcc);
-build_html(Split,L,[{clause,L}|Functions],_IsFuncDef,Acc) ->
-    build_html(Split,L,Functions,true,Acc);
-build_html([Line,Bin],L,Functions,IsFuncDef,Acc) ->
-    NewAcc = [Acc,line_number(L),line(binary_to_list(Line),IsFuncDef),$\n],
-    build_html(binary:split(Bin,<<"\n">>),L+1,Functions,false,NewAcc);
-build_html([Line],L,Functions,IsFuncDef,Acc) ->
-    {[Acc,line_number(L),line(binary_to_list(Line),IsFuncDef)],L}.
+    file:write(DFd,["<a name=\"",FALink,"\"/>"]),
+    build_html(SFd,DFd,{ok,Str},L,Functions,true);
+build_html(SFd,DFd,{ok,Str},L,[{clause,L}|Functions],_IsFuncDef) ->
+    build_html(SFd,DFd,{ok,Str},L,Functions,true);
+build_html(SFd,DFd,{ok,Str},L,Functions,IsFuncDef) ->
+    LStr = line_number(L),
+    Str1 = line(Str,IsFuncDef),
+    file:write(DFd,[LStr,Str1]),
+    build_html(SFd,DFd,file:read_line(SFd),L+1,Functions,false);
+build_html(_SFd,_DFd,eof,L,_Functions,_IsFuncDef) ->
+    L.
 
 line_number(L) ->
     LStr = integer_to_list(L),
@@ -143,7 +170,7 @@ possibly_enhance(Str,true) ->
 	{F,A} -> ["<b>",F,"</b>",A]
     end;
 possibly_enhance([$%|_]=Str,_) ->
-    ["<i>",Str,"</i>"];
+    ["<i>",Str--"\n","</i>","\n"];
 possibly_enhance([$-|_]=Str,_) ->
     possibly_enhance(Str,true);
 possibly_enhance(Str,false) ->
@@ -151,11 +178,5 @@ possibly_enhance(Str,false) ->
 
 %%%-----------------------------------------------------------------
 %%% End of the file
-footer(_Lines) ->
-   "".
-   %% {_, Time} = statistics(runtime),
-   %% io:format("Converted ~p lines in ~.2f Seconds.~n",
-   %% 	      [_Lines, Time/1000]),
-   %% S = "<i>The transformation of this file (~p lines) took ~.2f seconds</i>",
-   %% F = lists:flatten(io_lib:format(S, [_Lines, Time/1000])),
-   %% ["<hr size=1>",F,"<br>\n"].
+footer() ->
+    "".

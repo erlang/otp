@@ -160,7 +160,7 @@ convert_module(Mod,Config) ->
 check_line_numbers(Src,Dst) ->
     {ok,SFd} = file:open(Src,[read]),
     {ok,DFd} = file:open(Dst,[read]),
-    {ok,SN} = count_src_lines(SFd,1),
+    {ok,SN} = count_src_lines(SFd,0),
     ok = file:close(SFd),
     {ok,DN} = read_dst_line_numbers(DFd),
     ok = file:close(DFd),
