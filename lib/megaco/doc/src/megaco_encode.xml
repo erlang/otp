@@ -224,20 +224,9 @@
           messages.</p>
       </item>
       <item>
-        <p>megaco_ber_bin_encoder - encode/decode ASN.1 BER
-          messages. This encoder uses ASN.1 ber_bin which
-          has been optimized using the bit syntax.</p>
-      </item>
-      <item>
         <p>megaco_per_encoder - encode/decode ASN.1 PER
           messages. N.B. that this format is not included in the
           Megaco standard.</p>
-      </item>
-      <item>
-        <p>megaco_per_bin_encoder - encode/decode ASN.1 PER
-          messages. N.B. that this format is not included in the
-          Megaco standard. This encoder uses ASN.1 per_bin which
-          has been optimized using the bit syntax.</p>
       </item>
       <item>
         <p>megaco_erl_dist_encoder - encodes messages into Erlangs
@@ -369,18 +358,6 @@
     <p>When using binary encoding, the structure of the termination id's 
       needs to be specified.</p>
     <list type="bulleted">
-      <item>
-        <p><c><![CDATA[[driver|_]]]></c> - make use of the asn1 driver for decode
-          (ber_bin) and encode (per_bin). This option is only available for 
-          encoding modules: <c><![CDATA[megaco_binary_encoder]]></c>, 
-          <c><![CDATA[megaco_ber_bin_encoder]]></c> and <c><![CDATA[megaco_per_bin_encoder]]></c>.</p>
-        <p>If this option is present in the encoding config, it <em>must</em> 
-          to be the <em>first</em>, unless the 
-          <seealso marker="#handling_versions">version3</seealso> encoding 
-          config is present, in which case it must come second, after 
-          the version3 encoding config,  
-          e.g. <c><![CDATA[[{version3,prev3b},driver]]]></c>.</p>
-      </item>
       <item>
         <p><c><![CDATA[[native]]]></c> - skips the transformation phase, i.e. 
           the decoded message(s) will not be transformed into our internal
