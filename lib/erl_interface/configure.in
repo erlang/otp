@@ -79,7 +79,7 @@ AC_ARG_ENABLE(threads,
     no) threads_disabled=yes ;;
     *)  threads_disabled=no ;;
   esac ],
-[ threads_disabled=no ])
+[ threads_disabled=maybe ])
 
 dnl ----------------------------------------------------------------------
 dnl Checks for programs
@@ -237,12 +237,16 @@ AC_SUBST(THR_DEFS)
 AC_SUBST(EI_THREADS)
 
 case "$threads_disabled" in
-    no)
+    no|maybe)
 	LM_CHECK_THR_LIB
 
 	case "$THR_LIB_NAME" in
 	    "")
 	        EI_THREADS="false"
+		# Fail if --enable-threads given and no threads found
+		if test "x$threads_disabled" = "xno"; then
+		    AC_MSG_ERROR(No threads support found)
+		fi
 	        ;;
 	    win32_threads)
 		EI_THREADS="true"	
