@@ -39,7 +39,8 @@
     <p> This application provides an API to public key infrastructure
     from <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC
     5280</url> (X.509 certificates) and public key formats defined by
-    the <url href=http://www.rsa.com/rsalabs/node.asp?id=2124"> PKCS-standard</url></p>
+    the <url href="http://www.rsa.com/rsalabs/node.asp?id=2124">
+    PKCS-standard</url></p>
   </section>
 
   <section>
