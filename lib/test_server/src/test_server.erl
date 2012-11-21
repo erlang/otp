@@ -97,7 +97,8 @@ init_purify() ->
 %% is found, else {error,application_not_found}.
 
 cover_compile({none,_Exclude,Include,Cross}) ->
-    CompileMods = Include++Cross,
+    CrossMods = lists:flatmap(fun({_,M}) -> M end,Cross),
+    CompileMods = Include++CrossMods,
     case length(CompileMods) of
 	0 ->
 	    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
@@ -111,7 +112,8 @@ cover_compile({none,_Exclude,Include,Cross}) ->
 	    {ok,Include}
     end;
 cover_compile({App,all,Include,Cross}) ->
-    CompileMods = Include++Cross,
+    CrossMods = lists:flatmap(fun({_,M}) -> M end,Cross),
+    CompileMods = Include++CrossMods,
     case length(CompileMods) of
 	0 ->
 	    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
@@ -129,9 +131,10 @@ cover_compile({App,all,Include,Cross}) ->
 	    {ok,Include}
     end;
 cover_compile({App,Exclude,Include,Cross}) ->
+    CrossMods = lists:flatmap(fun({_,M}) -> M end,Cross),
     case code:lib_dir(App) of
 	{error,bad_name} ->
-	    case Include++Cross of
+	    case Include++CrossMods of
 		[] ->
 		    io:format("\nWARNING: Can't find lib_dir for \'~w\'\n"
 			      "Not cover compiling!\n\n",[App]),
@@ -152,7 +155,7 @@ cover_compile({App,Exclude,Include,Cross}) ->
 	    WC = filename:join(EbinDir,"*.beam"),
 	    AllMods = module_names(filelib:wildcard(WC)),
 	    AnalyseMods = (AllMods ++ Include) -- Exclude,
-	    CompileMods = AnalyseMods ++ Cross,
+	    CompileMods = AnalyseMods ++ CrossMods,
 	    case length(CompileMods) of
 		0 ->
 		    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
