@@ -205,7 +205,6 @@ erts_gfalc_start(GFAllctr_t *gfallctr,
 
     init->sbmbct = 0; /* Small mbc not yet supported by goodfit */
 
-    allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= sizeof(GFFreeBlock_t);

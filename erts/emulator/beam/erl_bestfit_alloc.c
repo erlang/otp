@@ -179,7 +179,6 @@ erts_bfalc_start(BFAllctr_t *bfallctr,
     bfallctr->address_order		= bfinit->ao;
 
 
-    allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= (bfinit->ao
