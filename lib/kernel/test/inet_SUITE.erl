@@ -583,16 +583,16 @@ parse_address(Config) when is_list(Config) ->
 	 "fe80::198.168.0.",
 	 "fec0::fFfF:127.0.0.1."],
     t_parse_address
-      (ipv6_address,
+      (parse_ipv6_address,
        V6Strict++V6Sloppy++V6Err++V4Err),
     t_parse_address
-      (ipv6strict_address,
+      (parse_ipv6strict_address,
        V6Strict++V6Err++V4Err++[S || {_,S} <- V6Sloppy]),
     t_parse_address
-      (ipv4_address,
+      (parse_ipv4_address,
        V4Strict++V4Sloppy++V4Err++V6Err++[S || {_,S} <- V6Strict]),
     t_parse_address
-      (ipv4strict_address,
+      (parse_ipv4strict_address,
        V4Strict++V4Err++V6Err++[S || {_,S} <- V4Sloppy++V6Strict]).
 
 t_parse_address(Func, []) ->
