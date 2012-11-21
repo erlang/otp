@@ -1401,6 +1401,7 @@ default_hash_signs() ->
 			 [?TLSEXT_SIGALG(sha512),
 			  ?TLSEXT_SIGALG(sha384),
 			  ?TLSEXT_SIGALG(sha256),
+			  ?TLSEXT_SIGALG(sha224),
 			  ?TLSEXT_SIGALG(sha),
 			  ?TLSEXT_SIGALG_DSA(sha),
 			  ?TLSEXT_SIGALG_RSA(md5)]}.
