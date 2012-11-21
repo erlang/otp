@@ -336,6 +336,19 @@ erts_gc_after_bif_call(Process* p, Eterm result, Eterm* regs, Uint arity)
     return result;
 }
 
+static ERTS_INLINE void reset_active_writer(Process *p)
+{
+    struct erl_off_heap_header* ptr;
+    ptr = MSO(p).first;
+    while (ptr) {
+	if (ptr->thing_word == HEADER_PROC_BIN) {	
+	    ProcBin *pbp = (ProcBin*) ptr;
+	    pbp->flags &= ~PB_ACTIVE_WRITER;
+	}
+	ptr = ptr->next;
+    }
+}
+
 /*
  * Garbage collect a process.
  *
@@ -395,6 +408,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 	    DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
 	}
     }
+    reset_active_writer(p);
 
     /*
      * Finish.
@@ -2181,7 +2195,6 @@ link_live_proc_bin(struct shrink_cand_data *shrink,
 
 
 	if (pbp->flags & PB_ACTIVE_WRITER) {
-	    pbp->flags &= ~PB_ACTIVE_WRITER;
 	    shrink->no_of_active++;
 	}
 	else { /* inactive */
