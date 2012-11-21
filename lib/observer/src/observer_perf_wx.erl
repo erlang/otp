@@ -24,7 +24,7 @@
 	 handle_event/2, handle_sync_event/3, handle_cast/2]).
 
 %% Drawing wrappers for DC and GC areas
--export([haveGC/1,
+-export([haveGC/0,
 	 setPen/2, setFont/3, setBrush/2,
 	 strokeLine/5, strokeLines/2, drawRoundedRectangle/6,
 	 drawText/4, getTextExtent/2]).
@@ -90,7 +90,7 @@ init([Notebook, Parent]) ->
 	_ -> ok
     end,
 
-    UseGC = haveGC(Panel),
+    UseGC = haveGC(),
     Version28 = ?wxMAJOR_VERSION =:= 2 andalso ?wxMINOR_VERSION =:= 8,
     {Font, SmallFont}
 	= case os:type() of
@@ -525,10 +525,9 @@ colors() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% wxDC and ?wxGC wrappers
 
-haveGC(Win) ->
+haveGC() ->
     try
-	GC = ?wxGC:create(Win),
-	?wxGC:destroy(GC),
+	wxGraphicsRenderer:getDefaultRenderer(),
 	true
     catch _:_  -> false
     end.
