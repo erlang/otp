@@ -115,8 +115,9 @@ init([Notebook, Parent]) ->
     end,
 
     UseGC = haveGC(DrawingArea),
+    Version28 = ?wxMAJOR_VERSION =:= 2 andalso ?wxMINOR_VERSION =:= 8,
     Font = case os:type() of
-	       {unix,_} when UseGC -> 
+	       {unix,_} when UseGC, Version28 ->
 		   wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_NORMAL);
 	       _ ->
 		   wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT)

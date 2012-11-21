@@ -91,10 +91,11 @@ init([Notebook, Parent]) ->
     end,
 
     UseGC = haveGC(Panel),
+    Version28 = ?wxMAJOR_VERSION =:= 2 andalso ?wxMINOR_VERSION =:= 8,
     {Font, SmallFont}
 	= case os:type() of
-	      {unix, _} when UseGC ->
-		  %% Def font is really small when using Graphics contexts for some reason
+	      {unix, _} when UseGC, Version28 ->
+		  %% Def font is really small when using Graphics contexts in 2.8
 		  %% Hardcode it
 		  F = wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_BOLD),
 		  SF = wxFont:new(10, ?wxFONTFAMILY_DECORATIVE, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
