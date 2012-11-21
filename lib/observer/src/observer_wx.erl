@@ -465,41 +465,36 @@ create_connect_dialog(ping, #state{frame = Frame, prev_node=Prev}) ->
 	    cancel
     end;
 create_connect_dialog(connect, #state{frame = Frame}) ->
-    Dialog = wxDialog:new(Frame, ?wxID_ANY, "Distribute node "),
+    Dialog = wxDialog:new(Frame, ?wxID_ANY, "Distribute node",
+			  [{style, ?wxDEFAULT_FRAME_STYLE bor ?wxRESIZE_BORDER}]),
 
     VSizer = wxBoxSizer:new(?wxVERTICAL),
-    RadioBoxSizer = wxBoxSizer:new(?wxHORIZONTAL),
 
     Choices = ["Short name", "Long name"],
-    RadioBox = wxRadioBox:new(Dialog, 1, "",
-			      ?wxDefaultPosition,
-			      ?wxDefaultSize,
-			      Choices,
-			      [{majorDim, 2},
-			       {style, ?wxHORIZONTAL}]),
+    RadioBox = wxRadioBox:new(Dialog, 1, "", ?wxDefaultPosition, ?wxDefaultSize,
+			      Choices, [{majorDim, 2}, {style, ?wxHORIZONTAL}]),
 
     NameText = wxStaticText:new(Dialog, ?wxID_ANY, "Node name: "),
-    NameCtrl = wxTextCtrl:new(Dialog, ?wxID_ANY, [{size, {200, 25}}]),
+    NameCtrl = wxTextCtrl:new(Dialog, ?wxID_ANY, [{size, {300,-1}}]),
     wxTextCtrl:setValue(NameCtrl, "observer"),
     CookieText = wxStaticText:new(Dialog, ?wxID_ANY, "Secret cookie: "),
-    CookieCtrl = wxTextCtrl:new(Dialog, ?wxID_ANY,
-				[{size, {200, 25}}, {style, ?wxTE_PASSWORD}]),
+    CookieCtrl = wxTextCtrl:new(Dialog, ?wxID_ANY,[{style, ?wxTE_PASSWORD}]),
 
-    BtnSizer = wxDialog:createStdDialogButtonSizer(Dialog, ?wxID_DEFAULT),
-    Flags = [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}],
-    wxSizer:add(RadioBoxSizer, RadioBox, Flags),
-
-    wxSizer:add(VSizer, RadioBoxSizer, Flags),
+    BtnSizer = wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL),
+    Dir = ?wxLEFT bor ?wxRIGHT bor ?wxDOWN,
+    Flags = [{flag, ?wxEXPAND bor Dir bor ?wxALIGN_CENTER_VERTICAL}, {border, 5}],
+    wxSizer:add(VSizer, RadioBox, Flags),
     wxSizer:addSpacer(VSizer, 10),
-    wxSizer:add(VSizer, NameText),
+    wxSizer:add(VSizer, NameText, [{flag, ?wxLEFT}, {border, 5}]),
     wxSizer:add(VSizer, NameCtrl, Flags),
     wxSizer:addSpacer(VSizer, 10),
-    wxSizer:add(VSizer, CookieText),
+    wxSizer:add(VSizer, CookieText, [{flag, ?wxLEFT}, {border, 5}]),
     wxSizer:add(VSizer, CookieCtrl, Flags),
     wxSizer:addSpacer(VSizer, 10),
-    wxSizer:add(VSizer, BtnSizer, [{flag, ?wxALIGN_LEFT}]),
+    wxSizer:add(VSizer, BtnSizer, [{proportion, 1}, {flag, ?wxEXPAND bor ?wxALL},{border, 5}]),
 
-    wxWindow:setSizer(Dialog, VSizer),
+    wxWindow:setSizerAndFit(Dialog, VSizer),
+    wxSizer:setSizeHints(VSizer, Dialog),
     CookiePath = filename:join(os:getenv("HOME"), ".erlang.cookie"),
     DefaultCookie = case filelib:is_file(CookiePath) of
 			true ->
