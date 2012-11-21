@@ -740,9 +740,14 @@ dnl Try to find POSIX threads
 dnl The usual pthread lib...
     AC_CHECK_LIB(pthread, pthread_create, THR_LIBS="-lpthread")
 
-dnl FreeBSD has pthreads in special c library, c_r...
+dnl Very old versions of FreeBSD have pthreads in special c library, c_r...
     if test "x$THR_LIBS" = "x"; then
 	AC_CHECK_LIB(c_r, pthread_create, THR_LIBS="-lc_r")
+    fi
+
+dnl QNX has pthreads in standard C library
+    if test "x$THR_LIBS" = "x"; then
+	AC_CHECK_FUNC(pthread_create, THR_LIBS="none_needed")
     fi
 
 dnl On ofs1 the '-pthread' switch should be used
@@ -765,6 +770,9 @@ dnl On ofs1 the '-pthread' switch should be used
     if test "x$THR_LIBS" != "x"; then
 	THR_DEFS="$THR_DEFS -D_THREAD_SAFE -D_REENTRANT -DPOSIX_THREADS"
 	THR_LIB_NAME=pthread
+	if test "x$THR_LIBS" = "xnone_needed"; then
+	    THR_LIBS=
+	fi
 	case $host_os in
 	    solaris*)
 		THR_DEFS="$THR_DEFS -D_POSIX_PTHREAD_SEMANTICS" ;;
