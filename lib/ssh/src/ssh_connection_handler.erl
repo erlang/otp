@@ -35,7 +35,8 @@
 
 -export([start_link/4, send/2, renegotiate/1, send_event/2,
 	 connection_info/3,
-	 peer_address/1]).
+	 peer_address/1,
+	 renegotiate_data/1]).
 
 %% gen_fsm callbacks
 -export([hello/2, kexinit/2, key_exchange/2, new_keys/2,
@@ -85,6 +86,8 @@ send(ConnectionHandler, Data) ->
 renegotiate(ConnectionHandler) ->
     send_all_state_event(ConnectionHandler, renegotiate).
  
+renegotiate_data(ConnectionHandler) ->
+    send_all_state_event(ConnectionHandler, data_size).
 connection_info(ConnectionHandler, From, Options) ->
      send_all_state_event(ConnectionHandler, {info, From, Options}).
 
@@ -500,7 +503,22 @@ handle_event(renegotiate, StateName, State) ->
 handle_event({info, From, Options}, StateName,  #state{ssh_params = Ssh} = State) ->
     spawn(?MODULE, ssh_info_handler, [Options, Ssh, From]), 
     {next_state, StateName, State};
-
+handle_event(data_size, connected, #state{ssh_params = Ssh0} = State) ->
+    Sent = inet:getstat(State#state.socket, [send_oct]),
+    MaxSent = proplists:get_value(rekey_limit, State#state.opts, 1024000000),
+    case Sent >= MaxSent of
+	true ->
+	    {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(Ssh0),
+	    send_msg(SshPacket, State),
+	    {next_state, connected, 
+	     next_packet(State#state{ssh_params = Ssh,
+			     key_exchange_init_msg = KeyInitMsg,
+				     renegotiate = true})};
+	_ ->
+	    {next_state, connected, next_packet(State)}
+    end;
+handle_event(data_size, StateName, State) ->
+    {next_state, StateName, State};
 handle_event({unknown, Data}, StateName, State) ->
     Msg = #ssh_msg_unimplemented{sequence = Data},
     send_msg(Msg, State),

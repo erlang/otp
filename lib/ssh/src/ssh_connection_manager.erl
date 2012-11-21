@@ -125,7 +125,8 @@ info(ConnectionManager, ChannelProcess) ->
 %% or amount of data sent counter! 
 renegotiate(ConnectionManager) ->
     cast(ConnectionManager, renegotiate).
-
+renegotiate_data(ConnectionManager) ->
+    cast(ConnectionManager, renegotiate_data).
 connection_info(ConnectionManager, Options) ->
     call(ConnectionManager, {connection_info, Options}).
 
@@ -481,7 +482,9 @@ handle_cast({global_request, _, _, _, _} = Request, State0) ->
 handle_cast(renegotiate, #state{connection = Pid} = State) ->
     ssh_connection_handler:renegotiate(Pid),
     {noreply, State};
-
+handle_cast(renegotiate_data, #state{connection = Pid} = State) ->
+    ssh_connection_handler:renegotiate_data(Pid),
+    {noreply, State};
 handle_cast({adjust_window, ChannelId, Bytes}, 
 	    #state{connection = Pid, connection_state =
 		   #connection{channel_cache = Cache}} = State) ->
@@ -520,6 +523,8 @@ handle_info({start_connection, server,
     Exec = proplists:get_value(exec, Options),
     CliSpec = proplists:get_value(ssh_cli, Options, {ssh_cli, [Shell]}),
     ssh_connection_handler:send_event(Connection, socket_control),
+    erlang:send_after(3600000, self(), rekey),
+    erlang:send_after(60000, self(), rekey_data),
     {noreply, State#state{connection = Connection,
 			  connection_state = 
 			  CState#connection{address = Address,
@@ -536,6 +541,8 @@ handle_info({start_connection, client,
     case (catch ssh_transport:connect(Parent, Address, 
 				      Port, SocketOpts, Options)) of
 	{ok, Connection} ->
+	    erlang:send_after(60000, self(), rekey_data),
+	    erlang:send_after(3600000, self(), rekey),
 	    {noreply, State#state{connection = Connection}};
 	Reason ->
 	    Pid ! {self(), not_connected, Reason},
@@ -568,8 +575,15 @@ handle_info({'DOWN', _Ref, process, ChannelPid, _Reason}, State) ->
 
 %%% So that terminate will be run when supervisor is shutdown
 handle_info({'EXIT', _Sup, Reason}, State) ->
-    {stop, Reason, State}.
-
+    {stop, Reason, State};
+handle_info(rekey, State) ->
+    renegotiate(self()),
+    erlang:send_after(3600000, self(), rekey),
+    {noreply, State};
+handle_info(rekey_data, State) ->
+    renegotiate_data(self()),
+    erlang:send_after(60000, self(), rekey_data),
+    {noreply, State}.
 handle_password(Opts) ->
     handle_rsa_password(handle_dsa_password(handle_normal_password(Opts))).
 handle_normal_password(Opts) ->
