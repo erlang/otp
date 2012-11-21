@@ -53,8 +53,6 @@
 	 decode_open_type_as_binary/3]).
 
 -export([decode_primitive_incomplete/2,decode_selective/2]).
-
--export([is_nif_loadable/0]).
  
 % the encoding of class of tag bits 8 and 7 
 -define(UNIVERSAL,   0). 
@@ -134,12 +132,7 @@ encode(Tlv,_) when is_binary(Tlv) ->
 encode([Tlv],Method) ->
     encode(Tlv,Method);
 encode(Tlv, nif) ->
-    case is_nif_loadable() of
-	true ->
-	    asn1rt_nif:encode_ber_tlv(Tlv);
-	false ->
-	    encode_erl(Tlv)
-    end;
+    asn1rt_nif:encode_ber_tlv(Tlv);
 encode(Tlv, _) ->
     encode_erl(Tlv).
 
@@ -177,35 +170,14 @@ decode(B) ->
 
 %% asn1-1.7
 decode(B, nif) ->
-    case is_nif_loadable() of
-	true ->
-	    case asn1rt_nif:decode_ber_tlv(B) of
-		{error, Reason} -> handle_error(Reason, B);
-		Else -> Else
-	    end;
-	false ->
-	    decode(B)
+    case asn1rt_nif:decode_ber_tlv(B) of
+	{error, Reason} -> handle_error(Reason, B);
+	Else -> Else
     end;
 decode(B,erlang) when is_binary(B) ->
     decode_primitive(B);
 decode(Tlv,erlang) ->
     {Tlv,<<>>}.
-
-%% Have to check this since asn1 is not guaranteed to be available
-is_nif_loadable() ->
-    case application:get_env(asn1, nif_loadable) of
-	{ok,R} ->
-	    R;
-	undefined ->
-	    case catch code:load_file(asn1rt_nif) of
-		{module, asn1rt_nif} ->
-		    application:set_env(asn1, nif_loadable, true),
-		    true;
-		_Else ->
-		    application:set_env(asn1, nif_loadable, false),
-		    false
-	    end
-    end.
 
 handle_error([],_)->
     exit({error,{asn1,{"memory allocation problem"}}});
