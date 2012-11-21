@@ -26,7 +26,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES= \
 	test_server_SUITE \
-	test_server_test_lib
+	test_server_test_lib \
+	erl2html2_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
