@@ -102,12 +102,18 @@ new() ->
 
 %% @doc Starts a wx server.
 %% Option may be {debug, Level}, see debug/1.
--spec new([Option]) -> wx_object() when Option :: {debug, list() | atom()}.
+%% Or {silent_start, Bool}, which causes error messages at startup to
+%% be suppressed. The latter can be used as a silent test of whether
+%% wx is properly installed or not.
+-spec new([Option]) -> wx_object() when Option :: {debug, list() | atom()} |
+                                                  {silent_start, boolean()}.
 new(Options) when is_list(Options) ->
-    #wx_env{port=Port} = wxe_server:start(),
-    put(opengl_port, Port),
     Debug = proplists:get_value(debug, Options, 0),
-    debug(Debug),
+    SilentStart = proplists:get_value(silent_start, Options, false),
+    Level = calc_level(Debug),
+    #wx_env{port=Port} = wxe_server:start(SilentStart andalso Level =:= 0),
+    put(opengl_port, Port),
+    set_debug(Level),
     null().
 
 %% @doc Stops a wx server.
@@ -282,13 +288,16 @@ release_memory(Bin) when is_binary(Bin) ->
 -spec debug(Level | [Level]) -> ok
      when Level :: none | verbose | trace | driver | integer().
 
-debug(none) -> debug(0);
-debug(verbose) -> debug(1);
-debug(trace) -> debug(2);
-debug(driver) -> debug(16);
-debug([]) -> debug(0);
+debug(Debug) ->
+    Level = calc_level(Debug),
+    set_debug(Level).
 
-debug(List) when is_list(List) ->
+calc_level(none) -> calc_level(0);
+calc_level(verbose) -> calc_level(1);
+calc_level(trace) -> calc_level(2);
+calc_level(driver) -> calc_level(16);
+calc_level([]) -> calc_level(0);
+calc_level(List) when is_list(List) ->
     {Drv,Erl} =
 	lists:foldl(fun(verbose, {Drv,_Erl}) ->
 			    {Drv,1};
@@ -297,8 +306,11 @@ debug(List) when is_list(List) ->
 		       (driver, {_Drv,Erl}) ->
 			    {16, Erl}
 		    end, {0,0}, List),
-    debug(Drv + Erl);
-debug(Level) when is_integer(Level) ->
+    Drv + Erl;
+calc_level(Level) when is_integer(Level) ->
+    Level.
+
+set_debug(Level) when is_integer(Level) ->
     case get(?WXE_IDENTIFIER) of
 	undefined -> erlang:error({wxe,unknown_port});
 	#wx_env{debug=Old} when Old =:= Level -> ok;
