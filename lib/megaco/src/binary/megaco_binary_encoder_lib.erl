@@ -275,26 +275,13 @@ decode_message_dynamic(_EC, _BadBin, _Mods, _Type) ->
     {error, no_binary}.
 
 
-decode_message(EC, Bin, AsnMod, TransMod, binary) ->
+decode_message(EC, Bin, AsnMod, TransMod, _) ->
     case asn1rt:decode(AsnMod, 'MegacoMessage', Bin) of
 	{ok, MegaMsg} ->
 	    case EC of
 		[native] ->
 		    {ok, MegaMsg};
 		_ ->		
-		    {ok, TransMod:tr_message(MegaMsg, decode, EC)}
-	    end;
-	{error, Reason} ->
-	    {error, Reason}
-    end;
-decode_message(EC, Bin, AsnMod, TransMod, io_list) ->
-    ShallowIoList = erlang:binary_to_list(Bin),
-    case asn1rt:decode(AsnMod, 'MegacoMessage', ShallowIoList) of
-	{ok, MegaMsg} ->
-	    case EC of
-		[native] ->
-		    {ok, MegaMsg};
-		_ ->
 		    {ok, TransMod:tr_message(MegaMsg, decode, EC)}
 	    end;
 	{error, Reason} ->

@@ -1,5 +1,5 @@
 {exclusive_decode,
- {'megaco_ber_bin_media_gateway_control_prev3a',
+ {'megaco_ber_media_gateway_control_v1',
   [
    {decode_message_trans_partial,
     [
@@ -14,7 +14,7 @@
         {actions,parts}
        ]
       },
-      {transactionReply,  
+      {transactionReply,
        [
         {transactionResult, [{actionReplies,parts}]}
        ]
@@ -38,6 +38,7 @@
      ]
     ]
    }
+
   ]
  }
 }.
