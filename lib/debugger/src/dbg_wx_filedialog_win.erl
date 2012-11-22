@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -381,7 +381,6 @@ show_completion(Wanted, State = #state{text=TC, win=Win, list=LC, completion=Com
 	    Last = wxTextCtrl:getLastPosition(TC),
 	    wxTextCtrl:setSelection(TC, Start, Last),
 	    destroy_completion(Comp),
-	    wxWindow:setFocus(TC),
 	    State#state{ptext=Path, completion=undefined};
 	Paths when Comp =:= undefined ->
 	    {PosX,PosY} = wxListCtrl:getPosition(LC),
@@ -406,14 +405,16 @@ show_completion(Wanted, State = #state{text=TC, win=Win, list=LC, completion=Com
 	    %% wxListBox:connect(LB, command_listbox_doubleclicked),
 	    wxListBox:connect(LB, command_listbox_selected),
 	    wxWindow:show(Temp),
+	    %% setFocus does a select all on 2.9 sigh..
+	    {Start, Last} = wxTextCtrl:getSelection(TC),
 	    wxWindow:setFocus(TC),
+	    wxTextCtrl:setSelection(TC, Start, Last),
 	    State#state{completion = {Temp, LB}, ptext=Wanted};
 	Paths ->
 	    {_Temp, LB} = Comp,
 	    wxListBox:clear(LB),
 	    Files = [filename:basename(File) || File <- Paths],
-	    wxListBox:insertItems(LB,Files,0),
-	    wxWindow:setFocus(TC),
+	    Files /= [] andalso wxListBox:insertItems(LB,Files,0),
 	    State#state{ptext=Wanted}
     end.
 
