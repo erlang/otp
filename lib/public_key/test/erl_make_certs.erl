@@ -137,10 +137,10 @@ decode_key(PemBin, Pw) ->
 
 encode_key(Key = #'RSAPrivateKey'{}) ->
     {ok, Der} = 'OTP-PUB-KEY':encode('RSAPrivateKey', Key),
-    {'RSAPrivateKey', list_to_binary(Der), not_encrypted};   
+    {'RSAPrivateKey', Der, not_encrypted};
 encode_key(Key = #'DSAPrivateKey'{}) ->
     {ok, Der} = 'OTP-PUB-KEY':encode('DSAPrivateKey', Key),
-    {'DSAPrivateKey', list_to_binary(Der), not_encrypted}.
+    {'DSAPrivateKey', Der, not_encrypted}.
 
 make_tbs(SubjectKey, Opts) ->    
     Version = list_to_atom("v"++integer_to_list(proplists:get_value(version, Opts, 3))),
