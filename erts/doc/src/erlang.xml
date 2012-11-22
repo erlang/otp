@@ -3706,10 +3706,11 @@ os_prompt% </pre>
               the initial function call with which the process was
               spawned.</p>
           </item>
-          <tag><c>{links, <anno>Pids</anno>}</c></tag>
+          <tag><c>{links, <anno>PidsAndPorts</anno>}</c></tag>
           <item>
-            <p><c><anno>Pids</anno></c> is a list of pids, with processes to
-              which the process has a link.</p>
+            <p><c><anno>PidsAndPorts</anno></c> is a list of pids and 
+	    port identifiers, with processes or ports to which the process 
+	    has a link.</p>
           </item>
           <tag><c>{last_calls, false|Calls}</c></tag>
           <item>

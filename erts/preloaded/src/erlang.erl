@@ -1756,7 +1756,7 @@ process_flag(_Flag, _Value) ->
       {group_leader, GroupLeader :: pid()} |
       {heap_size, Size :: non_neg_integer()} |
       {initial_call, mfa()} |
-      {links, Pids :: [pid() | port()]} |
+      {links, PidsAndPorts :: [pid() | port()]} |
       {last_calls, false | (Calls :: [mfa()])} |
       {memory, Size :: non_neg_integer()} |
       {message_que_len, MessageQueueLen :: non_neg_integer()} |
