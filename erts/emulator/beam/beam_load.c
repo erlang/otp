@@ -5904,7 +5904,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	Eterm* tp;
 	Eterm func;
 	Eterm arity_term;
-	Uint arity;
+	Sint arity;
 	Uint native_address;
 	Eterm op;
 

@@ -3286,7 +3286,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	else if (ERTS_IS_ATOM_STR("next_pid", BIF_ARG_1)
 		 || ERTS_IS_ATOM_STR("next_port", BIF_ARG_1)) {
 	    /* Used by node_container_SUITE (emulator) */
-	    Eterm res;
+	    Sint res;
 	    if (ERTS_IS_ATOM_STR("next_pid", BIF_ARG_1))
 		res = erts_ptab_test_next_id(&erts_proc, 0, 0);
 	    else
@@ -3644,7 +3644,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    Uint next;
 
 	    if (term_to_Uint(BIF_ARG_2, &next) != 0) {
-		Eterm res;
+		Sint res;
 
 		if (ERTS_IS_ATOM_STR("next_pid", BIF_ARG_1))
 		    res = erts_ptab_test_next_id(&erts_proc, 1, next);

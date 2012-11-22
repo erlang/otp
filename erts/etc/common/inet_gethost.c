@@ -2562,7 +2562,8 @@ static void debugf(char *format, ...)
     }
 #else
     /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)));
+    if(write(2,buff,strlen(buff)))
+	;
 #endif
     va_end(ap);
 }
@@ -2585,7 +2586,8 @@ static void warning(char *format, ...)
     }
 #else
     /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)));
+    if(write(2,buff,strlen(buff)))
+	;
 #endif
     va_end(ap);
 }
@@ -2608,7 +2610,8 @@ static void fatal(char *format, ...)
     }
 #else
     /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)));
+    if(write(2,buff,strlen(buff)))
+	;
 #endif
     va_end(ap);
 #ifndef WIN32

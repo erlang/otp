@@ -359,8 +359,7 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
 	break;
     default:
 	ASSERT(! "Invalid dsig prepare result");
-	res = ERTS_DEMONITOR_INTERNAL_ERROR;
-	break;
+	return ERTS_DEMONITOR_INTERNAL_ERROR;
     }
 
 #ifndef ERTS_SMP

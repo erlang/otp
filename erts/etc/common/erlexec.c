@@ -184,7 +184,6 @@ void error(char* format, ...);
 #if !defined(ERTS_HAVE_SMP_EMU)
 static void usage_notsup(const char *switchname);
 #endif
-static void usage_msg(const char *msg);
 static char **build_args_from_env(char *env_var);
 static char **build_args_from_string(char *env_var);
 static void initial_argv_massage(int *argc, char ***argv);
@@ -1130,13 +1129,6 @@ usage_notsup(const char *switchname)
     usage_aux();
 }
 #endif
-
-static void
-usage_msg(const char *msg)
-{
-    fprintf(stderr, "%s\n", msg);
-    usage_aux();
-}
 
 static void
 usage_format(char *format, ...)

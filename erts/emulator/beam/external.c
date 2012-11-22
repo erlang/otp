@@ -926,7 +926,7 @@ BIF_RETTYPE erts_debug_dist_ext_to_term_2(BIF_ALIST_2)
     Eterm res;
     Eterm *hp;
     Eterm *hendp;
-    Uint hsz;
+    Sint hsz;
     ErtsDistExternal ede;
     Eterm *tp;
     Eterm real_bin;
@@ -972,7 +972,7 @@ BIF_RETTYPE erts_debug_dist_ext_to_term_2(BIF_ALIST_2)
     if (hsz < 0)
 	goto badarg;
 
-    hp = HAlloc(BIF_P, hsz);
+    hp = HAlloc(BIF_P, (Uint) hsz);
     hendp = hp + hsz;
 
     res = erts_decode_dist_ext(&hp, &MSO(BIF_P), &ede);

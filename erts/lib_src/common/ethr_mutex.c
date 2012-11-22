@@ -692,7 +692,7 @@ write_lock_wait(struct ethr_mutex_base_ *mtxb,
 		    goto chk_spin;
 		if (--until_yield == 0) {
 		    until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
-		    ETHR_YIELD();
+		    (void) ETHR_YIELD();
 		}
 	    }
 
@@ -711,7 +711,7 @@ write_lock_wait(struct ethr_mutex_base_ *mtxb,
 	    ETHR_SPIN_BODY;
 	    if (--until_yield == 0) {
 		until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
-		ETHR_YIELD();
+		(void) ETHR_YIELD();
 	    }
 	    act = ethr_atomic32_read(&mtxb->flgs);
 	    scnt--;
@@ -2161,7 +2161,7 @@ rwmutex_normal_rlock_wait(ethr_rwmutex *rwmtx, ethr_sint32_t initial)
 	    ETHR_SPIN_BODY;
 	    if (--until_yield == 0) {
 		until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
-		ETHR_YIELD();
+		(void) ETHR_YIELD();
 	    }
 	    act = ethr_atomic32_read(&rwmtx->mtxb.flgs);
 	    scnt--;
@@ -2288,7 +2288,7 @@ rwmutex_freqread_rlock_wait(ethr_rwmutex *rwmtx,
 	    ETHR_SPIN_BODY;
 	    if (--until_yield == 0) {
 		until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
-		ETHR_YIELD();
+		(void) ETHR_YIELD();
 	    }
 	    act = ethr_atomic32_read(&rwmtx->mtxb.flgs);
 	    scnt--;
