@@ -222,11 +222,14 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #define CARRIER_SZ_MASK         UNIT_MASK
 
 
-#ifdef ARCH_64
-#  define MBC_ABLK_OFFSET_BITS   24
-#elif HAVE_SUPER_ALIGNED_MB_CARRIERS
-#  define MBC_ABLK_OFFSET_BITS   13
-#else
+#if HAVE_ERTS_MSEG
+#  ifdef ARCH_64 
+#    define MBC_ABLK_OFFSET_BITS   24
+#  elif HAVE_SUPER_ALIGNED_MB_CARRIERS
+#    define MBC_ABLK_OFFSET_BITS   13
+#  endif
+#endif
+#ifndef MBC_ABLK_OFFSET_BITS
 #  define MBC_ABLK_OFFSET_BITS   0 /* no carrier offset in block header */
 #endif
 
