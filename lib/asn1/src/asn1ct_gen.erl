@@ -1107,19 +1107,16 @@ gen_dispatcher([Flast|_T],FuncName,Prefix,ExtraArg) ->
 
 pgen_info() ->
     emit(["info() ->",nl,
-	  "   case ?MODULE:module_info() of",nl,
-	  "      MI when is_list(MI) ->",nl,
-	  "         case lists:keysearch(attributes,1,MI) of",nl,
-	  "            {value,{_,Attributes}} when is_list(Attributes) ->",nl,
-	  "               case lists:keysearch(asn1_info,1,Attributes) of",nl,
-	  "                  {value,{_,Info}} when is_list(Info) ->",nl,
-	  "                     Info;",nl,
-	  "                  _ ->",nl,
-	  "                     []",nl,
-	  "               end;",nl,
-	  "            _ ->",nl,
-	  "               []",nl,
-	  "         end",nl,
+	  "   case ?MODULE:module_info(attributes) of",nl,
+	  "     Attributes when is_list(Attributes) ->",nl,
+	  "       case lists:keyfind(asn1_info, 1, Attributes) of",nl,
+	  "         {_,Info} when is_list(Info) ->",nl,
+	  "           Info;",nl,
+	  "         _ ->",nl,
+	  "           []",nl,
+	  "       end;",nl,
+	  "     _ ->",nl,
+	  "       []",nl,
 	  "   end.",nl]).
 
 open_hrl(OutFile,Module) ->
@@ -1418,7 +1415,7 @@ gen_head(Erules,Mod,Hrl) ->
     emit(["-define('",Rtmac,"',",Rtmod,").",nl]),
     emit(["-asn1_info([{vsn,'",asn1ct:vsn(),"'},",nl,
 	  "            {module,'",Mod,"'},",nl,
-	  "            {options,",io_lib:format("~w",[Options]),"}]).",nl,nl]).
+	  "            {options,",io_lib:format("~p",[Options]),"}]).",nl,nl]).
 			
 
 gen_hrlhead(Mod) ->
