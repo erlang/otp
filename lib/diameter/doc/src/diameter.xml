@@ -56,7 +56,7 @@ under the License.
 <p>
 This module provides the interface with which a user can
 implement a Diameter node that sends and receives messages using the
-Diameter protocol as defined in RFC 3588.</p>
+Diameter protocol as defined in &the_rfc;.</p>
 
 <p>
 Basic usage consists of creating a representation of a
@@ -73,7 +73,7 @@ Beware the difference between <em>diameter</em> (not capitalised) and
 <em>Diameter</em> (capitalised).
 The former refers to the Erlang application named diameter whose main
 api is defined here, the latter to Diameter protocol in the sense of
-RFC 3588.</p>
+&the_rfc;.</p>
 
 <p>
 The diameter application must be started before calling most functions
@@ -97,7 +97,7 @@ in this module.</p>
 <tag><c>UTF8String()</c></tag>
 <item>
 <p>
-Types corresponding to RFC 3588 AVP Data Formats.
+Types corresponding to &the_rfc; AVP Data Formats.
 Defined in &dict_data_types;.</p>
 
 <marker id="application_alias"/>
@@ -318,7 +318,7 @@ returns an address list.</p>
 Origin-State-Id is optional but will be included in outgoing messages
 sent by diameter itself: CER/CEA, DWR/DWA and DPR/DPA.
 Setting a value of <c>0</c> (zero) is equivalent to not setting a
-value as documented in RFC 3588.
+value as documented in &the_rfc;.
 The function &origin_state_id;
 can be used as to retrieve a value that is computed when the diameter
 application is started.</p>
@@ -753,7 +753,7 @@ as follows.</p>
 (H bsl N) bor (Id band ((1 bsl N) - 1))
 </pre>
 <p>
-Note that RFC 3588 requires that End-to-End identifiers remain unique
+Note that &the_rfc; requires that End-to-End identifiers remain unique
 for a period of at least 4 minutes and that this and the call rate
 places a lower bound on the appropriate values of <c>N</c>:
 at a rate of <c>R</c> requests per second an <c>N</c>-bit counter
@@ -955,7 +955,7 @@ Tc = &dict_Unsigned32;
 </pre>
 
 <p>
-For a connecting transport, the RFC 3588 Tc timer, in milliseconds.
+For a connecting transport, the &the_rfc; Tc timer, in milliseconds.
 Note that this timer determines the frequency with which a transport
 will attempt to establish a connection with its peer only <em>before</em>
 an initial connection is established: once there is an initial
@@ -1622,7 +1622,7 @@ Return the list of started services.</p>
 Return a value for a Session-Id AVP.</p>
 
 <p>
-The value has the form required by section 8.8 of RFC 3588.
+The value has the form required by section 8.8 of &the_rfc;.
 Ident should be the Origin-Host of the peer from which
 the message containing the returned value will be sent.</p>
 

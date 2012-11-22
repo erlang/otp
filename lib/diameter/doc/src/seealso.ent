@@ -32,6 +32,8 @@ significant.
 
 -->
 
+<!ENTITY the_rfc 'RFC 6733'>
+
 <!-- diameter -->
 
 <!ENTITY mod_add_transport '<seealso marker="diameter#add_transport-2">diameter:add_transport/2</seealso>'>

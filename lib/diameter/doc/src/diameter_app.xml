@@ -558,7 +558,7 @@ where <c>Avps</c> sets the Origin-Host, Origin-Realm, the specified
 Result-Code and (if the request sent one) Session-Id AVP's.</p>
 
 <p>
-Note that RFC 3588 mandates that only answers with a 3xxx series
+Note that &the_rfc; mandates that only answers with a 3xxx series
 Result-Code (protocol errors) may set the E bit.
 Returning a non-3xxx value in a <c>protocol_error</c> tuple
 will cause the request process in question to fail.</p>
