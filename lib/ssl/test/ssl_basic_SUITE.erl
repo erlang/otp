@@ -248,6 +248,7 @@ api_tests() ->
     [connection_info,
      peername,
      peercert,
+     peercert_with_client_cert,
      sockname,
      versions,
      controlling_process,
@@ -788,6 +789,43 @@ peercert(Config) when is_list(Config) ->
 
 peercert_result(Socket) ->
     ssl:peercert(Socket).
+%%--------------------------------------------------------------------
+
+peercert_with_client_cert(doc) ->
+    [""];
+peercert_with_client_cert(suite) ->
+    [];
+peercert_with_client_cert(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_dsa_opts, Config),
+    ServerOpts = ?config(server_dsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, peercert_result, []}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {?MODULE, peercert_result, []}},
+			   {options, ClientOpts}]),
+
+    ServerCertFile = proplists:get_value(certfile, ServerOpts),
+    [{'Certificate', ServerBinCert, _}]= ssl_test_lib:pem_to_der(ServerCertFile),
+     ClientCertFile = proplists:get_value(certfile, ClientOpts),
+    [{'Certificate', ClientBinCert, _}]= ssl_test_lib:pem_to_der(ClientCertFile),
+
+    ServerMsg = {ok, ClientBinCert},
+    ClientMsg = {ok, ServerBinCert},
+
+    test_server:format("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 sockname(doc) -> 
