@@ -420,8 +420,7 @@ handle_ssh_option({disconnectfun , Value} = Opt) when is_function(Value) ->
     Opt;
 handle_ssh_option({failfun, Value} = Opt) when is_function(Value) ->
     Opt;
-handle_ssh_option({ip_v6_disabled, Value} = Opt) when Value == true;
-						      Value == false ->
+handle_ssh_option({ip_v6_disabled, Value} = Opt) when is_boolean(Value) ->
     Opt;
 handle_ssh_option({transport, {Protocol, Cb, ClosTag}} = Opt) when is_atom(Protocol),
 								   is_atom(Cb),
@@ -474,7 +473,7 @@ check_pref_algs([H|T]) ->
 inetopt(true) ->
     inet;
 inetopt(false) ->
-    case gen_tcp:listen(0, [inet6, {ip, loopback}]) of
+    case gen_tcp:listen(0, [inet6]) of
 	{ok, Dummyport} ->
 	    gen_tcp:close(Dummyport),
 	    inet6;
