@@ -119,7 +119,7 @@
       <item><c><![CDATA[ct_run -userconfig <callbackmodulename> <configfilenames> -suite <suiteswithfullpath>]]></c>
       </item>
       <item><c><![CDATA[ct_run -config <configfilenames> -suite <suitewithfullpath>
-	      -group <groupnames> -case <casenames>]]></c></item>
+	      -group <groups> -case <casenames>]]></c></item>
     </list>
     <p>Examples:</p>
     <p><c>$ ct_run -config $CFGS/sys1.cfg $CFGS/sys2.cfg -dir $SYS1_TEST $SYS2_TEST</c></p>
@@ -136,6 +136,8 @@
     <p>This has the same effect as calling:</p>
 
     <p><c>$ ct_run -suite ./testdir/x_SUITE ./testdir/y_SUITE</c></p>
+
+    <p>For more details on <seealso marker="run_test_chapter#group_execution">test case group execution</seealso>, please see below.</p>
 
     <p>Other flags that may be used with <c>ct_run</c>:</p>
     <list>
@@ -267,6 +269,163 @@
         <c><seealso marker="ct#run_test-1">ct</seealso></c> manual page.</p>    
   </section>
   
+  <marker id="group_execution"></marker>
+   <section>
+    <title>Test case group execution</title>
+    
+    <p>With the <c>ct_run</c> flag, or <c>ct:run_test/1</c> option <c>group</c>,
+    one or more test case groups can be specified, optionally in combination
+    with specific test cases. The syntax for specifying groups is as follows
+    (on the command line):</p>
+
+    <pre>
+      <![CDATA[$ ct_run -group <group_names_or_paths> [-case <cases>]]]></pre>
+    <p>or (in the Erlang shell):</p>
+    <pre>
+      <![CDATA[1> ct:run_test([{group,GroupsNamesOrPaths}, {case,Cases}]).]]></pre>
+    
+    <p>The <c>group_names_or_paths</c> parameter specifies either one
+    or more group names and/or one or more group paths. At start up,
+    Common Test will search for matching groups in the group definitions
+    tree (i.e. the list returned from <c>Suite:groups/0</c>, please see the
+    <seealso marker="write_test_chapter#test_case_groups">Test case groups</seealso>
+    chapter for details).
+    Given a group name, say <c>g</c>, Common Test will search for all paths
+    that lead to <c>g</c>. By path here we mean a sequence of nested groups,
+    all of which have to be followed in order to get from the top level
+    group to <c>g</c>. Actually, what Common Test needs to do in order to
+    execute the test cases in group <c>g</c>, is to call the
+    <c>init_per_group/2</c> function for each group in the path to
+    <c>g</c>, as well as all corresponding <c>end_per_group/2</c>
+    functions afterwards. The obvious reason for this is that the configuration
+    of a test case in <c>g</c> (and its <c>Config</c> input data) depends on
+    <c>init_per_testcase(TestCase, Config)</c> and its return value, which
+    in turn depends on <c>init_per_group(g, Config)</c> and its return value,
+    which in turn depends on <c>init_per_group/2</c> of the group above
+    <c>g</c>, etc, all the way up to the top level group.</p>
+
+    <p>As you may have already realized, this means that if there is more than
+    one way to locate a group (and its test cases) in a path, the result of the
+    group search operation is a number of tests, all of which will be performed.
+    Common Test actually interprets a group specification that consists of a
+    single name this way:</p>
+
+    <p>"Search and find all paths in the group definitions tree that lead
+    to the specified group and, for each path, create a test which (1) executes
+    all configuration functions in the path to the specified group, then (2)
+    executes all - or all matching - test cases in this group, as well as (3)
+    all - or all matching - test cases in all sub groups of the group".
+    </p>
+    
+    <p>It is also possible for the user to specify a specific group path with
+    the <c>group_names_or_paths</c> parameter. With this type of specification it's
+    possible to avoid execution of unwanted groups (in otherwise matching paths),
+    and/or the execution of sub groups. The syntax of the group path is a list of
+    group names in the path, e.g. on the command line:
+    </p>
+    <p><c>$ ct_run -suite "./x_SUITE" -group [g1,g3,g4] -case tc1 tc5</c></p>
+    <p>or similarly in the Erlang shell (requires a list within the groups list):</p>
+    <p><c>1> ct:run_test([{suite,"./x_SUITE"}, {group,[[g1,g3,g4]]}, {testcase,[tc1,tc5]}]).</c></p>
+    
+    <p>The last group in the specified path will be the terminating group in
+    the test, i.e. no sub groups following this group will be executed. In the
+    example above, <c>g4</c> is the terminating group, hence Common Test will
+    execute a test that calls all init configuration functions in the path to
+    <c>g4</c>, i.e. <c>g1..g3..g4</c>. It will then call test cases <c>tc1</c>
+    and <c>tc5</c> in <c>g4</c> and finally all end configuration functions in order
+    <c>g4..g3..g1</c>.</p>
+    
+    <p>Note that the group path specification doesn't necessarily
+    have to include <em>all</em> groups in the path to the terminating group.
+    Common Test will search for all matching paths if given an incomplete group
+    path.</p>
+    
+    <p>Note also that it's possible to combine group names and group paths with the
+    <c>group_names_or_paths</c> parameter. Each element is treated as
+    an individual specification in combination with the <c>cases</c> parameter.
+    See examples below.</p>    
+
+    <p>Examples:</p>
+    <pre>
+      -module(x_SUITE).
+      ...
+      %% The group definitions:      
+      groups() ->
+        [{top1,[],[tc11,tc12,
+	           {sub11,[],[tc12,tc13]},
+	           {sub12,[],[tc14,tc15,
+			      {sub121,[],[tc12,tc16]}]}]},
+
+         {top2,[],[{group,sub21},{group,sub22}]},
+         {sub21,[],[tc21,{group,sub2X2}]},
+         {sub22,[],[{group,sub221},tc21,tc22,{group,sub2X2}]},
+         {sub221,[],[tc21,tc23]},
+         {sub2X2,[],[tc21,tc24]}].
+    </pre>
+    <br></br>
+    <p><c>$ ct_run -suite "x_SUITE" -group all</c></p>
+    <p><c>1> ct:run_test([{suite,"x_SUITE"}, {group,all}]).</c></p>
+    <p>Two tests will be executed, one for all cases and all sub groups under <c>top1</c>,
+    and one for all under <c>top2</c>. (We would get the same result with
+    <c>-group top1 top2</c>, or <c>{group,[top1,top2]}</c>.</p>
+    <br></br>
+    <p><c>$ ct_run -suite "x_SUITE" -group top1</c></p>
+    <p><c>1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}]).</c></p>
+    <p>This will execute one test for all cases and sub groups under <c>top1</c>.</p>
+    <br></br>
+    <p><c>$ ct_run -suite "x_SUITE" -group top1 -case tc12</c></p>
+    <p><c>1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}, {testcase,[tc12]}]).</c></p>
+    <p>This will run a test that executes <c>tc12</c> in <c>top1</c> and any sub group
+    under <c>top1</c> where it can be found (<c>sub11</c> and <c>sub121</c>).</p>
+    <br></br>
+    <p><c>$ ct_run -suite "x_SUITE" -group [top1] -case tc12</c></p>
+    <p><c>1> ct:run_test([{suite,"x_SUITE"}, {group,[[top1]]}, {testcase,[tc12]}]).</c></p>
+    <p>This will execute <c>tc12</c> <em>only</em> in group <c>top1</c>.</p>
+    <br></br>
+    <p><c>$ ct_run -suite "x_SUITE" -group top1 -case tc16</c></p>
+    <p><c>1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}, {testcase,[tc16]}]).</c></p>
+    <p>This will search <c>top1</c> and all its sub groups for <c>tc16</c> and the result
+    will be that this test case executes in group <c>sub121</c>. (The specific path: 
+    <c>-group [sub121]</c> or <c>{group,[[sub121]]}</c>, would have given
+    us the same result in this example).</p>
+    <br></br>
+    <p><c>$ ct_run -suite "x_SUITE" -group sub12 [sub12]</c></p>
+    <p><c>1> ct:run_test([{suite,"x_SUITE"}, {group,[sub12,[sub12]]}]).</c></p>
+    <p>This will execute two tests, one that includes all cases and sub groups under
+    <c>sub12</c>, and one with <em>only</em> the test cases in <c>sub12</c>.</p>
+    <br></br>
+    <p><c>$ ct_run -suite "x_SUITE" -group sub2X2</c></p>
+    <p><c>1> ct:run_test([{suite,"x_SUITE"}, {group,[sub2X2]}]).</c></p>
+    <p>In this example, Common Test will find and execute two tests, one for the path from
+    <c>top2</c> to <c>sub2X2</c> via <c>sub21</c>, and one from <c>top2</c> to <c>sub2X2</c>
+    via <c>sub22</c>.</p>
+    <br></br>
+    <p><c>$ ct_run -suite "x_SUITE" -group [sub21,sub2X2]</c></p>
+    <p><c>1> ct:run_test([{suite,"x_SUITE"}, {group,[[sub21,sub2X2]]}]).</c></p>
+    <p>Here, by specifying the unique path: <c>top2 -> sub21 -> sub2X2</c>, only one test
+    is executed. The second possible path from <c>top2</c> to <c>sub2X2</c> (above)
+    will be discarded.</p>
+    <br></br>
+    <p><c>$ ct_run -suite "x_SUITE" -group [sub22] -case tc22 tc21</c></p>
+    <p><c>1> ct:run_test([{suite,"x_SUITE"}, {group,[[sub22]]}, {testcase,[tc22,tc21]}]).</c></p>
+    <p>In this example only the test cases for <c>sub22</c> will be executed, and in
+    reverse order compared to the group definition.</p>
+    <br></br>
+
+    <p>If a test case that belongs to a group (according to the group definition), is executed
+    without a group specification, i.e. simply by means of (command line):</p>
+    <p><c>$ ct_run -suite "my_SUITE" -case my_tc</c></p>
+    <p>or (Erlang shell):</p>
+    <p><c>1> ct:run_test([{suite,"my_SUITE"}, {testcase,my_tc}]).</c></p>
+    <p>then Common Test ignores the group definition and executes the test case in the scope of the
+    test suite only (no group configuration functions are called).</p>
+
+    <p>The group specification feature, exactly as it has been presented in this section, can also
+    be used in <seealso marker="run_test_chapter#test_specifications">Test
+    Specifications</seealso> (with some extra features added). Please see below.</p>
+   </section>
+      
+
   <section>
     <title>Running the interactive shell mode</title>
     
@@ -398,8 +557,8 @@
       terms (e.g. log directory, label, style sheet, auto compilation).</p>
     <p>With test specification terms it is possible to state exactly
       which tests should run and in which order. A test term specifies
-      either one or more suites, one or more test case groups, or one
-      or more test cases in a group or suite.</p>
+      either one or more suites, one or more test case groups (possibly nested),
+      or one or more test cases in a group (or in multiple groups) or in a suite.</p>
     <p>An arbitrary number of test terms may be declared in sequence.
       Common Test will by default compile the terms into one or more tests 
       to be performed in one resulting test run. Note that a term that
@@ -418,28 +577,32 @@
       are not executed and show up in the HTML log files as
       SKIPPED.</p>
     <p>When a test case group is specified, the resulting test
-      executes the
-      <c>init_per_group</c> function, followed by all test cases and
-      sub groups (including their configuration functions), and
+      executes the <c>init_per_group</c> function, followed by all test
+      cases and sub groups (including their configuration functions), and
       finally the <c>end_per_group</c> function. Also if particular
       test cases in a group are specified, <c>init_per_group</c>
       and <c>end_per_group</c> for the group in question are
       called. If a group which is defined (in <c>Suite:group/0</c>) to
-      be a sub group of another group, is specified (or particular test
+      be a sub group of another group, is specified (or if particular test
       cases of a sub group are), Common Test will call the configuration
       functions for the top level groups as well as for the sub group
       in question (making it possible to pass configuration data all
       the way from <c>init_per_suite</c> down to the test cases in the
       sub group).</p>
-
-    <p>With the <c>GroupSpec</c> element (below) it's possible to specify
-      group execution properties that will override those specified in the
+    <p>The test specification utilizes the same mechanism for specifying
+      test case groups by means of names and paths, as explained in the
+      <seealso marker="run_test_chapter#group_execution">Group Execution</seealso>
+      section above, with the addition of the <c>GroupSpec</c> element
+      described next.</p>
+    <p>The <c>GroupSpec</c> element makes it possible to specify
+      group execution properties that will override those in the
       group definition (i.e. in <c>groups/0</c>). Execution properties for
       sub-groups may be overridden as well. This feature makes it possible to
       change properties of groups at the time of execution,
-      without even having to edit the test suite. More detailed documentation,
-      and examples, can be found in the
-      <seealso marker="write_test_chapter#test_case_groups">
+      without even having to edit the test suite. The very same
+      feature is available for <c>group</c> elements in the <c>Suite:all/0</c>
+      list. Therefore, more detailed documentation, and examples, can be
+      found in the <seealso marker="write_test_chapter#test_case_groups">
       Test case groups</seealso> chapter.</p>
 
     <p>Below is the test specification syntax. Test specifications can
@@ -541,8 +704,8 @@
       {groups, Dir, Suite, Groups}.
       {groups, NodeRefs, Dir, Suite, Groups}.
 
-      {groups, Dir, Suite, GroupSpec, {cases,Cases}}.
-      {groups, NodeRefs, Dir, Suite, GroupSpec, {cases,Cases}}.
+      {groups, Dir, Suite, Groups, {cases,Cases}}.
+      {groups, NodeRefs, Dir, Suite, Groups, {cases,Cases}}.
 
       {cases, Dir, Suite, Cases}.                           
       {cases, NodeRefs, Dir, Suite, Cases}.
@@ -590,7 +753,8 @@
       Dir             = string()
       Suites          = atom() | [atom()] | all
       Suite           = atom()
-      Groups          = GroupSpec | [GroupSpec] | all
+      Groups          = GroupPath | [GroupPath] | GroupSpec | [GroupSpec] | all
+      GroupPath       = [GroupName]
       GroupSpec       = GroupName | {GroupName,Properties} | {GroupName,Properties,GroupSpec}
       GroupName       = atom()
       GroupNames      = GroupName | [GroupName]

@@ -90,7 +90,7 @@
     <pre>
 	ct_run [-dir TestDir1 TestDir2 .. TestDirN] |
 	[[-dir TestDir] -suite Suite1 Suite2 .. SuiteN
-	 [[-group Group1 Group2 .. GroupN] [-case Case1 Case2 .. CaseN]]]
+	 [[-group Groups1 Groups2 .. GroupsN] [-case Case1 Case2 .. CaseN]]]
 	[-step [config | keep_inactive]]
 	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
 	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2

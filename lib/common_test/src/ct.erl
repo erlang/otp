@@ -161,7 +161,8 @@ run(TestDirs) ->
 %%%   TestDirs = [string()] | string()
 %%%   Suites = [string()] | [atom()] | string() | atom()
 %%%   Cases = [atom()] | atom()
-%%%   Groups = [atom()] | atom()
+%%%   Groups = GroupNameOrPath | [GroupNameOrPath]
+%%%   GroupNameOrPath = [atom()] | atom() | all
 %%%   TestSpecs = [string()] | string()
 %%%   Label = string() | atom()
 %%%   CfgFiles = [string()] | string()
