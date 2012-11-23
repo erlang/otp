@@ -237,8 +237,10 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #  define MBC_ABLK_OFFSET_SHIFT  (sizeof(UWord)*8 - MBC_ABLK_OFFSET_BITS)
 #  define MBC_ABLK_OFFSET_MASK   (~((UWord)0) << MBC_ABLK_OFFSET_SHIFT)
 #  define MBC_ABLK_SZ_MASK	(~MBC_ABLK_OFFSET_MASK & ~FLG_MASK)
+#  define HAVE_ERTS_SBMBC 0
 #else
 #  define MBC_ABLK_SZ_MASK	(~FLG_MASK)
+#  define HAVE_ERTS_SBMBC 1
 #endif
 
 #define MBC_ABLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_ABLK_SZ_MASK)

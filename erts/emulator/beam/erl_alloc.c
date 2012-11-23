@@ -1173,6 +1173,11 @@ handle_au_arg(struct au_init *auip,
 	break;
     case 'e':
 	auip->enable = get_bool_value(sub_param+1, argv, ip);
+#if !HAVE_ERTS_SBMBC
+	if (auip->init.util.alloc_no == ERTS_ALC_A_SBMBC) {
+	    auip->enable = 0;
+	}
+#endif
 	break;
     case 'l':
 	if (has_prefix("lmbcs", sub_param)) {
@@ -1233,10 +1238,16 @@ handle_au_arg(struct au_init *auip,
 	    auip->init.util.sbct = get_kb_value(sub_param + 4, argv, ip);
 	}
 	else if (has_prefix("sbmbcs", sub_param)) {
-	    auip->init.util.sbmbcs = get_byte_value(sub_param + 6, argv, ip);
+#if HAVE_ERTS_SBMBC
+	    auip->init.util.sbmbcs =
+#endif
+		get_byte_value(sub_param + 6, argv, ip);
 	}
 	else if (has_prefix("sbmbct", sub_param)) {
-	    auip->init.util.sbmbct = get_byte_value(sub_param + 6, argv, ip);
+#if HAVE_ERTS_SBMBC
+	    auip->init.util.sbmbct =
+#endif
+		get_byte_value(sub_param + 6, argv, ip);
 	}
 	else if (has_prefix("smbcs", sub_param)) {
 	    auip->default_.smbcs = 0;
@@ -1390,6 +1401,9 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			else if (strcmp("max", arg) == 0) {
 			    for (a = 0; a < aui_sz; a++)
 				aui[a]->enable = 1;
+#if !HAVE_ERTS_SBMBC
+			    init->sbmbc_alloc.enable = 0;
+#endif
 			}
 			else if (strcmp("config", arg) == 0) {
 			    init->erts_alloc_config = 1;
