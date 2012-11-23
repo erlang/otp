@@ -184,6 +184,7 @@ static Eterm make_signed_integer(int x, Process *p)
 #define CAPSPEC_VALUES 0
 #define CAPSPEC_TYPE 1
 #define CAPSPEC_SIZE 2
+#define CAPSPEC_INIT {0,0}
 
 static int /* 0 == ok, < 0 == error */ 
 parse_options(Eterm listp, /* in */
@@ -864,7 +865,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     size_t code_size;
     Uint loop_limit_tmp;
     unsigned long loop_count;
-    Eterm capture[CAPSPEC_SIZE];
+    Eterm capture[CAPSPEC_SIZE] = CAPSPEC_INIT;
     int is_list_cap;
 
     if (parse_options(arg3,&comp_options,&options,&pflags,&startoffset,capture)
