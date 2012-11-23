@@ -176,7 +176,7 @@ find(Mod, GrNames, all, [{M,TC} | Gs], Known,
 %% Check if test case should be saved
 find(Mod, GrNames, TCs, [TC | Gs], Known,
      Defs, FindAll) when is_atom(TC) orelse 
-			 ((size(TC) == 2) and (hd(TC) /= group)) ->
+			 ((size(TC) == 2) and (element(1,TC) /= group)) ->
     Case =
 	if is_atom(TC) ->
 		Tuple = {Mod,TC},
