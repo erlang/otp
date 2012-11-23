@@ -266,24 +266,66 @@ Fields have the following types.</p>
 
 <taglist>
 
-<tag><c>header = &header;</c></tag>
+<tag><c>header = &header; | undefined</c></tag>
 <item>
+<p>
+The Diameter header of the message.
+Can be (and typically should be) <c>undefined</c> for an outgoing
+message in a non-relay application, in which case diameter provides
+appropriate values.</p>
 </item>
 
-<tag><c>msg = &message;</c></tag>
+<tag><c>avps = [&avp;] | undefined</c></tag>
 <item>
+<p>
+The AVPs of the message.
+Ignored for an outgoing message if the <c>msg</c> field is set to a
+value other than <c>undefined</c>.</p>
+</item>
+
+<tag><c>msg = &message; | undefined</c></tag>
+<item>
+<p>
+The incoming/outgoing message.
+For an incoming message, a record if the message can be
+decoded in a non-relay application, <c>undefined</c> otherwise.
+For an outgoing message, setting a <c>[&header; | &avp;]</c> list is
+equivalent to setting the <c>header</c> and <c>avps</c> fields to the
+corresponding values.</p>
+
+<warning>
+<p>
+A record-valued <c>msg</c> field does <b>not</b> imply an absence of
+decode errors.
+The <c>errors</c> field should also be examined.</p>
+</warning>
+
 </item>
 
 <tag><c>bin = binary()</c></tag>
 <item>
+<p>
+The incoming message prior to encode or the outgoing message after
+encode.</p>
 </item>
 
-<tag><c>errors = [&dict_Unsigned32; | {&dict_Unsigned32;, avp()}]</c></tag>
+<tag><c>errors = [5000..5999 | {5000..5999, avp()}]</c></tag>
 <item>
+<p>
+Errors detected at decode of an incoming message, as identified by
+a corresponding 5xxx series Result-Code (Permanent Failures).
+For an incoming request, these should be used to formulate an
+appropriate answer as documented for the &app_handle_request;
+callback in &man_app;.
+For an incoming answer, the &mod_application_opt;
+<c>answer_errors</c> determines the behaviour.</p>
 </item>
 
 <tag><c>transport_data = term()</c></tag>
 <item>
+<p>
+An arbitrary term of meaning only to the transport process in
+question, as documented in &man_transport;.</p>
 </item>
 
 </taglist>
@@ -299,11 +341,12 @@ Fields have the following types.</p>
 <funcs>
 
 <func>
-<name>decode(Mod, Bin) -> &packet;</name>
+<name>decode(Mod, Bin) -> Pkt</name>
 <fsummary>Decode a Diameter message.</fsummary>
 <type>
 <v>Mod = &dictionary;</v>
 <v>Bin = binary()</v>
+<v>Pkt = &packet;</v>
 </type>
 <desc>
 
@@ -314,11 +357,12 @@ Decode a Diameter message.</p>
 </func>
 
 <func>
-<name>encode(Mod, Msg) -> binary()</name>
+<name>encode(Mod, Msg) -> Pkt</name>
 <fsummary>Encode a Diameter message.</fsummary>
 <type>
 <v>Mod = &dictionary;</v>
 <v>Msg = &message; | &packet;</v>
+<v>Pkt = &packet;</v>
 </type>
 <desc>
 
