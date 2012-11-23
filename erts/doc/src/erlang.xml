@@ -3998,10 +3998,10 @@ os_prompt% </pre>
               the initial function call with which the process was
               spawned.</p>
           </item>
-          <tag><c>{links, Pids}</c></tag>
+          <tag><c>{links, PidsAndPorts}</c></tag>
           <item>
-            <p><c>Pids</c> is a list of pids, with processes to
-              which the process has a link.</p>
+            <p><c>PidsAndPorts</c> is a list of pids and port identifiers, with 
+	    processes or ports to which the process has a link.</p>
           </item>
           <tag><c>{last_calls, false|Calls}</c></tag>
           <item>
