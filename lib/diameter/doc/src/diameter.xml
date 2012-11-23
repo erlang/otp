@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY make_ref
+  '<seealso marker="erts:erlang#make_ref-0">erlang:make_ref/0</seealso>'>
+  <!ENTITY transport_module
+  '<seealso marker="diameter_transport">transport module</seealso>'>
+  <!ENTITY dictionary
+  '<seealso marker="diameter_dict">dictionary</seealso>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -298,7 +304,7 @@ Has one of the following types.</p>
 <item>
 <p>
 An address list is available to the start function of a
-<seealso marker="diameter_transport">transport module</seealso>, which
+&transport_module;, which
 can return a new list for use in the subsequent CER or CEA.
 Host-IP-Address need not be specified if the transport start function
 returns an address list.</p>
@@ -464,7 +470,7 @@ that matches no peer.</p>
 <p>
 The <c>host</c> and <c>realm</c> filters examine the
 outgoing request as passed to &call;,
-assuming that this is a record- or list-valued <c>&app_message;</c>,
+assuming that this is a record- or list-valued <c>&codec_message;</c>,
 and that the message contains at most one of each AVP.
 If this is not the case then the <c>{host|realm, &dict_DiameterIdentity;}</c>
 filters must be used to achieve the desired result.
@@ -529,8 +535,7 @@ connectivity.</p>
 
 <p>
 Note that a single <c>up</c>/<c>down</c> event for a given peer
-corresponds to one
-<seealso marker="diameter_app#Mod:peer_up-3">peer_up/peer_down</seealso>
+corresponds to one &app_peer_up;/&app_peer_down;
 callback for each of the Diameter applications negotiated during
 capablilities exchange.
 That is, the event communicates connectivity with the
@@ -677,7 +682,7 @@ info fields of forms other than the above.</p>
 The name of a service as passed to &start_service; and with which the
 service is identified.
 There can be at most one service with a given name on a given node.
-Note that <seealso marker="erts:erlang#make_ref-0">erlang:make_ref/0</seealso>
+Note that &make_ref;
 can be used to generate a service name that is somewhat unique.</p>
 
 <marker id="service_opt"/>
@@ -703,8 +708,7 @@ For an outgoing Diameter request, the relevant <c>&application_alias;</c> is
 passed to &call;, while for an
 incoming request the application identifier in the message
 header determines the application, the identifier being specified in
-the application's <seealso marker="diameter_dict">dictionary</seealso>
-file.</p>
+the application's &dictionary; file.</p>
 </item>
 
 <tag><c>{restrict_connections, false
@@ -1125,7 +1129,7 @@ its transports.</p>
 <type>
 <v>SvcName = &service_name;</v>
 <v>App = &application_alias;</v>
-<v>Request = &app_message;</v>
+<v>Request = &codec_message;</v>
 <v>Answer = term()</v>
 <v>Opt = &call_opt;</v>
 </type>

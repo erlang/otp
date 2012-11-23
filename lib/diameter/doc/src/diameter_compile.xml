@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE comref SYSTEM "comref.dtd" [
+  <!ENTITY dictionary
+  '<seealso marker="diameter_dict">dictionary file</seealso>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -36,11 +38,13 @@ supplied.
 <description>
 
 <p>
-The diameterc utility is used to compile diameter
-<seealso marker="diameter_dict">dictionary files</seealso>
-into Erlang source.
-The resulting source implements the interface diameter requires
+The diameterc utility is used to compile a diameter
+&dictionary; into Erlang source.
+The resulting source implements the interface diameter required
 to encode and decode the dictionary's messages and AVP's.</p>
+
+<p>
+The module &man_make; provides an alternate compilation interface.</p>
 
 </description>
 
@@ -52,53 +56,52 @@ to encode and decode the dictionary's messages and AVP's.</p>
 <tag><![CDATA[diameterc [<options>] <file>]]></tag>
 <item>
 <p>
-Compiles a single dictionary file. Valid options are as follows.</p>
+Compile a single dictionary file to Erlang source.
+Valid options are as follows.</p>
 
-<!-- Leave -h/d/v undocumented, except for the usage message from the
-     utility itself. -->
+<tag><![CDATA[-i <dir>]]></tag>
+<item>
+<p>
+Prepend the specified directory to the code path.
+Use to point at beam files compiled from inherited dictionaries,
+<c>&dict_inherits;</c> in a dictionary file creating a beam
+dependency, not an erl/hrl dependency.</p>
+
+<p>
+Multiple <c>-i</c> options can be specified.</p>
+</item>
 
 <taglist>
 <tag><![CDATA[-o <dir>]]></tag>
 <item>
 <p>
-Specifies the directory into which the generated source should be written.
+Write generated source to the specified directory.
 Defaults to the current working directory.</p>
-</item>
-
-<tag><![CDATA[-i <dir>]]></tag>
-<item>
-<p>
-Specifies a directory to add to the code path.
-Use to point at beam files compiled from inherited dictionaries,
-<c>@inherits</c> in a dictionary file creating a beam dependency, not
-an erl/hrl dependency.</p>
-
-<p>
-Multiple <c>-i</c> options can be specified.</p>
 </item>
 
 <tag><![CDATA[-E]]></tag>
 <tag><![CDATA[-H]]></tag>
 <item>
 <p>
-Supresses erl and hrl generation, respectively.</p>
+Supress erl and hrl generation, respectively.</p>
 </item>
 
 <tag><![CDATA[--name <name>]]></tag>
 <tag><![CDATA[--prefix <prefix>]]></tag>
 <item>
 <p>
-Set <c>@name</c> and <c>@prefix</c> in the dictionary,
-respectively.
+Set <c>&dict_name;</c> or <c>&dict_prefix;</c> to the specified
+string.
 Overrides any setting in the file itself.</p>
 </item>
 
 <tag><![CDATA[--inherits <dict>]]></tag>
 <item>
 <p>
-Append an <c>@inherits</c> to the dictionary before compiling.
-Specifying <c>'-'</c> as the dictionary has the effect of clearing any
-previous inherits, causing them to be ignored.</p>
+Append &dict_inherits; of the specified module.
+Specifying <c>"-"</c> has the effect of discarding clearing any
+previous inherits, both in the dictionary file and on the options
+list.</p>
 
 <p>
 Multiple <c>--inherits</c> options can be specified.</p>
@@ -127,7 +130,7 @@ Returns 0 on success, non-zero on failure.</p>
 <title>SEE ALSO</title>
 
 <p>
-&man_dict;</p>
+&man_make;, &man_dict;</p>
 
 </section>
 

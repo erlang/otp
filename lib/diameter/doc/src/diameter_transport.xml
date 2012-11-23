@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY message '<seealso marker="#message">message()</seealso>'>
+  <!ENTITY ip_address
+  '<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -50,8 +53,39 @@ diameter starts a transport process and a message interface with which
 the transport process communicates with the process that starts it (aka its
 parent).</p>
 
-<marker id="start"/>
 </description>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>DATA TYPES</title>
+
+<taglist>
+
+<marker id="message"/>
+
+<tag><c>message() = binary() | &codec_packet;</c></tag>
+<item>
+<p>
+A Diameter message as passed over the transport interface.</p>
+
+<p>
+For an inbound message from a transport process, a &codec_packet; must
+contain the received message in its <c>bin</c> field.
+In the case of an inbound request, any value set in the
+<c>transport_data</c> field will passed back to the transport module
+in the corresponding answer message, unless the sender supplies
+another value.</p>
+
+<p>
+For an outbound message to a transport process, a &codec_packet; has a
+value other than <c>undefined</c> in its <c>transport_data</c> field
+and has the binary() to send in its <c>bin</c> field.</p>
+</item>
+
+</taglist>
+
+</section>
 
 <!-- ===================================================================== -->
 
@@ -59,7 +93,9 @@ parent).</p>
 
 <func>
 <name>Mod:start({Type, Ref}, Svc, Config)
-         -> {ok, Pid} | {ok, Pid, LAddrs} | {error, Reason}</name>
+         -> {ok, Pid}
+          | {ok, Pid, LAddrs}
+          | {error, Reason}</name>
 <fsummary>Start a transport process.</fsummary>
 <type>
 <v>Type = connect | accept</v>
@@ -67,7 +103,7 @@ parent).</p>
 <v>Svc = #diameter_service{}</v>
 <v>Config = term()</v>
 <v>Pid = pid()</v>
-<v>LAddrs = [<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>]</v>
+<v>LAddrs = [&ip_address;]</v>
 <v>Reason = term()</v>
 </type>
 <desc>
@@ -79,8 +115,8 @@ A transport process maintains a connection with a single remote peer.</p>
 
 <p>
 <c>Type</c> indicates whether the transport process in question
-is being started for a connecting (<c>connect</c>) or listening
-(<c>accept</c>) transport.
+is being started for a connecting (<c>Type=connect</c>) or listening
+(<c>Type=accept</c>) transport.
 In the latter case, transport processes are started as required to
 accept connections from multiple peers.</p>
 
@@ -90,13 +126,12 @@ that has lead to starting of a transport process.</p>
 
 <p>
 <c>Svc</c> contains the capabilities passed to &mod_start_service; and
-&mod_add_transport;,
-values passed to the latter overriding those passed to the former.</p>
+&mod_add_transport;, values passed to the latter overriding those
+passed to the former.</p>
 
 <p>
 <c>Config</c> is as passed in <c>transport_config</c> tuple in the
-&mod_transport_opt;
-list passed to &mod_add_transport;.</p>
+&mod_transport_opt; list passed to &mod_add_transport;.</p>
 
 <p>
 The start function should use the <c>Host-IP-Address</c> list and/or
@@ -114,13 +149,13 @@ it dies.
 It should not link to the parent.
 It should exit if its transport connection with its peer is lost.</p>
 
-<marker id="MESSAGES"/>
 </desc>
 </func>
 
 </funcs>
 
 <!-- ===================================================================== -->
+<marker id="MESSAGES"/>
 
 <section>
 <title>MESSAGES</title>
@@ -130,19 +165,15 @@ All messages sent over the transport interface are of the
 form <c>{diameter, term()}</c>.</p>
 
 <p>
-A transport process can expect the following messages from
-diameter.</p>
+A transport process can expect messages of the following types from
+its parent.</p>
 
 <taglist>
 
-<tag><c>{diameter, {send, Packet}}</c></tag>
+<tag><c>{diameter, {send, &message;}}</c></tag>
 <item>
 <p>
-An outbound Diameter message.
-<c>Packet</c> can be either binary() (the message to be sent)
-or a <c>#diameter_packet{}</c> record whose <c>transport_data</c>
-field contains a value other than undefined and whose <c>bin</c> field
-contains the binary to send.</p>
+An outbound Diameter message.</p>
 </item>
 
 <tag><c>{diameter, {close, Pid}}</c></tag>
@@ -185,7 +216,7 @@ TLS.</p>
 </taglist>
 
 <p>
-A transport process should send the following messages
+A transport process should send messages of the following types
 to its parent.</p>
 
 <taglist>
@@ -208,19 +239,10 @@ Not sent if the transport process has <c>Type=accept</c>.
 endpoint to which the transport has connected.</p>
 </item>
 
-<tag><c>{diameter, {recv, Packet}}</c></tag>
+<tag><c>{diameter, {recv, &message;}}</c></tag>
 <item>
 <p>
-An inbound Diameter message.
-<c>Packet</c> can be either binary() (the received message)
-or a <c>#diameter_packet{}</c> record
-whose <c>bin</c> field contains the received binary().
-Any value (other than <c>undefined</c>) set in
-the <c>transport_data</c> field will be passed back with a
-corresponding answer message in the case that the inbound message is a
-request unless the sender sets another value.
-How <c>transport_data</c> is used/interpreted is up to the
-transport module.</p>
+An inbound Diameter message.</p>
 </item>
 
 <tag><c>{diameter, {tls, Ref}}</c></tag>
