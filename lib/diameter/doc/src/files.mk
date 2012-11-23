@@ -26,6 +26,8 @@ XML_REF1_FILES = \
 XML_REF3_FILES = \
 	diameter.xml \
 	diameter_app.xml \
+	diameter_codec.xml \
+	diameter_make.xml \
 	diameter_transport.xml \
 	diameter_tcp.xml \
 	diameter_sctp.xml

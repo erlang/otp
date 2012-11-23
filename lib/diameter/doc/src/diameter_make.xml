@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY filename
+  '<seealso marker="kernel:file#type-name">file:name()</seealso>'>
+  <!ENTITY dictionary
+  '<seealso marker="diameter_dict">dictionary file</seealso>'>
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
+]>
+
+<erlref>
+<header>
+<copyright>
+<year>2012</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+</legalnotice>
+
+<title>diameter_make(3)</title>
+<prepared>Anders Svensson</prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_make.xml</file>
+</header>
+
+<module>diameter_make</module>
+<modulesummary>Diameter dictionary compilation.</modulesummary>
+
+<description>
+
+<p>
+The function &codec; is used to compile a diameter
+&dictionary; into Erlang source.
+The resulting source implements the interface diameter required
+to encode and decode the dictionary's messages and AVP's.</p>
+
+<p>
+The utility &man_compile; provides an alternate compilation
+interface.</p>
+
+</description>
+
+<!-- ===================================================================== -->
+
+<funcs>
+
+<func>
+<name>codec(Path::string(), [Opt]) -> ok | {error, Reason}</name>
+<fsummary>Compile a dictionary file into Erlang source.</fsummary>
+<desc>
+
+<p>
+Compile a single dictionary file to Erlang source.
+<c>Opt</c> can have the following types.</p>
+
+<taglist>
+
+<tag><c>{include, Dir::string()}</c></tag>
+<item>
+<p>
+Prepend the specified directory to the code path.
+Use to point at beam files compiled from inherited dictionaries,
+<c>&dict_inherits;</c> in a dictionary file creating a beam
+dependency, not an erl/hrl dependency.</p>
+
+<p>
+Multiple <c>include</c> options can be specified.</p>
+</item>
+
+<tag><c>{outdir, Dir::string()}</c></tag>
+<item>
+<p>
+Write generated source to the specified directory.
+Defaults to the current working directory.</p>
+</item>
+
+<tag><c>{name|prefix, string()}</c></tag>
+<item>
+<p>
+Set <c>&dict_name;</c> or <c>&dict_prefix;</c> to the specified
+string.
+Overrides any setting in the file itself.</p>
+</item>
+
+<tag><c>{inherits, Mod::string()}</c></tag>
+<item>
+<p>
+Append &dict_inherits; of the specified module.
+Specifying <c>"-"</c> has the effect of discarding clearing any
+previous inherits, both in the dictionary file and on the options
+list.</p>
+
+<p>
+Multiple <c>inherits</c> options can be specified.</p>
+</item>
+
+</taglist>
+
+</desc>
+</func>
+
+</funcs>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>BUGS</title>
+
+<p>
+All options are string-valued.
+In particular, it is not currently possible to
+an &dict_inherits; module as an atom() or a path as a &filename;</p>
+
+</section>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>SEE ALSO</title>
+
+<p>
+&man_compile;, &man_dict;</p>
+
+</section>
+
+</erlref>

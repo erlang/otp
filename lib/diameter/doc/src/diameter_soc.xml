@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="latin1" ?>
-<!DOCTYPE chapter SYSTEM "chapter.dtd">
+<!DOCTYPE chapter SYSTEM "chapter.dtd" [
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  %also;
+]>
 
 <chapter>
 
 <header>
 <copyright>
 <year>2011</year>
+<year>2012</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 
@@ -41,38 +45,20 @@ Known points of questionable or non-compliance.</p>
 <!-- ===================================================================== -->
 
 <section>
-<title>RFC 3588</title>
+<title>&the_rfc;</title>
 
 <list>
 
 <item>
 <p>
-The End-to-End Security framework (section 2.9) isn't implemented
-since it is largely unspecified.
-The document that was to describe it
-(reference [AAACMS]) was abandoned in an uncompleted state several
-years ago and the current draft RFC deprecates the framework,
-including the P Flag in the AVP header.</p>
-</item>
-
-<item>
-<p>
-There is no TLS support over SCTP.
-RFC 3588 requires that a Diameter server support TLS but in
-practise this seems to mean TLS over SCTP since there are limitations
-with running over SCTP: see RFC 6083 (DTLS over SCTP), which is a
-response to RFC 3436 (TLS over SCTP).
-The current RFC 3588 draft acknowledges this by equating
-TLS with TLS/TCP and DTLS/SCTP but we do not yet support DTLS.</p>
+There is no support for DTLS over SCTP.</p>
 </item>
 
 <item>
 <p>
 There is no explicit support for peer discovery (section 5.2).
 It can possibly be implemented on top of diameter as is but this is
-probably something that diameter should do.
-The current draft deprecates portions of the original RFC's mechanisms
-however.</p>
+probably something that diameter should do.</p>
 </item>
 
 <item>

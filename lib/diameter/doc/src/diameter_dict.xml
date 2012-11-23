@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "fileref.dtd" [
+  <!ENTITY format
+           '<seealso marker="#FILE_FORMAT">FILE FORMAT</seealso>'>
+  <!ENTITY records
+           '<seealso marker="#MESSAGE_RECORDS">MESSAGE RECORDS</seealso>'>
+  <!ENTITY types
+           '<seealso marker="#DATA_TYPES">DATA TYPES</seealso>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -45,34 +51,33 @@ under the License.
 
 <description>
 <p>
-A diameter service as configured with &mod_start_service;
+A diameter service, as configured with &mod_start_service;,
 specifies one or more supported Diameter applications.
 Each Diameter application specifies a dictionary module that knows how
 to encode and decode its messages and AVPs.
 The dictionary module is in turn generated from a file that defines
 these messages and AVPs.
-The format of such a file is defined in
-<seealso marker="#FILE_FORMAT">FILE FORMAT</seealso> below.
+The format of such a file is defined in &format; below.
 Users add support for their specific applications by creating
 dictionary files, compiling them to Erlang modules using
-<seealso marker="diameterc">diameterc</seealso> and configuring the
+either &man_compile; or &man_make; and configuring the
 resulting dictionaries modules on a service.</p>
 
 <p>
-The codec generation also results in a hrl file that defines records
-for the messages and grouped AVPs defined for the application, these
-records being what a user of the diameter application sends and receives.
-(Modulo other available formats as discussed in &man_app;.)
+Dictionary module generation also results in a hrl file that defines
+records for the messages and Grouped AVPs defined by the
+dictionary, these records being what a user of the diameter
+application sends and receives, modulo other possible formats as
+discussed in &man_app;.
 These records and the underlying Erlang data types corresponding to
-Diameter data formats are discussed in <seealso
-marker="#MESSAGE_RECORDS">MESSAGE RECORDS</seealso> and <seealso
-marker="#DATA_TYPES">DATA TYPES</seealso> respectively.
-The generated hrl also contains defines for the possible values of
+Diameter data formats are discussed in &records; and &types;
+respectively.
+The generated hrl also contains macro definitions for the possible values of
 AVPs of type Enumerated.</p>
 
 <p>
 The diameter application includes three dictionary modules
-corresponding to applications defined in section 2.4 of RFC 3588:
+corresponding to applications defined in section 2.4 of &the_rfc;:
 <c>diameter_gen_base_rfc3588</c> for the Diameter Common Messages
 application with application identifier 0,
 <c>diameter_gen_accounting</c> for the Diameter Base Accounting
@@ -111,6 +116,8 @@ The order in which sections are specified is unimportant.</p>
 
 <taglist>
 
+<marker id="id"/>
+
 <tag><c>@id Number</c></tag>
 <item>
 <p>
@@ -134,6 +141,8 @@ Example:</p>
 
 </item>
 
+<marker id="name"/>
+
 <tag><c>@name Mod</c></tag>
 <item>
 <p>
@@ -154,6 +163,8 @@ Example:</p>
 </pre>
 
 </item>
+
+<marker id="prefix"/>
 
 <tag><c>@prefix Name</c></tag>
 <item>
@@ -178,6 +189,8 @@ Example:</p>
 
 </item>
 
+<marker id="vendor"/>
+
 <tag><c>@vendor Number Name</c></tag>
 <item>
 <p>
@@ -198,6 +211,8 @@ Example:</p>
 
 </item>
 
+<marker id="avp_vendor_id"/>
+
 <tag><c>@avp_vendor_id Number</c></tag>
 <item>
 <p>
@@ -217,6 +232,8 @@ Region-Set
 </pre>
 
 </item>
+
+<marker id="inherits"/>
 
 <tag><c>@inherits Mod</c></tag>
 <item>
@@ -241,7 +258,7 @@ is equivalent to using <c>@avp_vendor_id</c> with a copy of the
 dictionary's definitions but the former makes for easier reuse.</p>
 
 <p>
-All dictionaries should typically inherit RFC3588 AVPs from
+All dictionaries should typically inherit &the_rfc; AVPs from
 <c>diameter_gen_base_rfc3588</c>.</p>
 
 <p>
@@ -253,6 +270,8 @@ Example:</p>
 
 </item>
 
+<marker id="avp_types"/>
+
 <tag><c>@avp_types</c></tag>
 <item>
 <p>
@@ -263,7 +282,7 @@ The section consists of definitions of the form</p>
 
 <p>
 where Code is the integer AVP code, Type identifies an AVP Data Format
-as defined in <seealso marker="#DATA_TYPES">DATA TYPES</seealso> below,
+as defined in section &types; below,
 and Flags is a string of V, M and P characters indicating the flags to be
 set on an outgoing AVP or a single <c>'-'</c> (minus) character if
 none are to be set.</p>
@@ -280,12 +299,12 @@ Requested-Information  353  Enumerated   V
 
 <warning>
 <p>
-The P flag has been deprecated by the Diameter Maintenance
-and Extensions Working Group of the IETF and should be omitted
-to conform to the current draft standard.</p>
+The P flag has been deprecated by &the_rfc;.</p>
 </warning>
 
 </item>
+
+<marker id="custom_types"/>
 
 <tag><c>@custom_types Mod</c></tag>
 <item>
@@ -308,6 +327,8 @@ Framed-IP-Address
 </pre>
 </item>
 
+<marker id="codecs"/>
+
 <tag><c>@codecs Mod</c></tag>
 <item>
 <p>
@@ -325,12 +346,14 @@ Framed-IP-Address
 </pre>
 </item>
 
+<marker id="messages"/>
+
 <tag><c>@messages</c></tag>
 <item>
 <p>
 Defines the messages of the application.
 The section content consists of definitions of the form specified in
-section 3.2 of RFC 3588, "Command Code ABNF specification".</p>
+section 3.2 of &the_rfc;, "Command Code Format Specification".</p>
 
 <!-- RFC 4740 RTR/RTA -->
 <pre>
@@ -370,13 +393,15 @@ RTA ::= &lt; Diameter Header: 287, PXY >
 
 </item>
 
+<marker id="grouped"/>
+
 <tag><c>@grouped</c></tag>
 <item>
 <p>
 Defines the contents of the AVPs of the application having type
 Grouped.
 The section content consists of definitions of the form specified in
-section 4.4 of RFC 3588, "Grouped AVP Values".</p>
+section 4.4 of &the_rfc;, "Grouped AVP Values".</p>
 
 <p>
 Example:</p>
@@ -394,6 +419,8 @@ SIP-Deregistration-Reason ::= &lt; AVP Header: 383 >
 Specifying a Vendor-Id in the definition of a grouped AVP is
 equivalent to specifying it with <c>@avp_vendor_id</c>.</p>
 </item>
+
+<marker id="enum"/>
 
 <tag><c>@enum Name</c></tag>
 <item>
@@ -421,6 +448,8 @@ REMOVE_SIP_SERVER        3
 </pre>
 </item>
 
+<marker id="end"/>
+
 <tag><c>@end</c></tag>
 <item>
 <p>
@@ -447,8 +476,8 @@ The hrl generated from a dictionary specification defines records for the
 messages and grouped AVPs defined in <c>@messages</c> and
 <c>@grouped</c> sections.
 For each message or grouped AVP definition, a record is defined whose
-name is the message or AVP name prefixed with any dictionary prefix
-defined with <c>@prefix</c> and whose fields are the names of the AVPs
+name is the message or AVP name, prefixed with any dictionary prefix
+defined with <c>@prefix</c>, and whose fields are the names of the AVPs
 contained in the message or grouped AVP in the order specified in the
 definition in question.
 For example, the grouped AVP</p>
@@ -476,7 +505,7 @@ type and number of times the AVP can occur.
 In particular, an AVP which is specified as occurring exactly once is
 encoded as a value of the AVP's type while an AVP with any other
 specification is encoded as a list of values of the AVP's type.
-The AVP's type is as specified in the AVP definition, the RFC 3588
+The AVP's type is as specified in the AVP definition, the &the_rfc;
 types being described below.</p>
 
 <marker id="DATA_TYPES"/>
@@ -489,7 +518,7 @@ types being described below.</p>
 
 <p>
 The data formats defined in sections 4.2 ("Basic AVP Data
-Formats") and 4.3 ("Derived AVP Data Formats") of RFC 3588 are encoded
+Formats") and 4.3 ("Derived AVP Data Formats") of &the_rfc; are encoded
 as values of the types defined here.
 Values are passed to &mod_call;
 in a request record when sending a request, returned in a resulting
@@ -564,8 +593,8 @@ where
 
 <p>
 Additionally, values that can be encoded are
-limited by way of their encoding as four octets as required by RFC
-3588 with the required extension from RFC 2030.
+limited by way of their encoding as four octets as required by
+&the_rfc; with the required extension from RFC 2030.
 In particular, only values between <c>{{1968,1,20},{3,14,8}}</c>
 and <c>{{2104,2,26},{9,42,23}}</c> (both inclusive) can be encoded.</p>
 
@@ -609,7 +638,7 @@ where
 On encode, fields port, transport and protocol default to 3868, sctp
 and diameter respectively.
 The grammar of an OctetString-valued DiameterURI() is as specified in
-section 4.3 of RFC 3588.
+section 4.3 of &the_rfc;.
 The record representation is used on decode.</p>
 
 <marker id="Enumerated"/>
@@ -640,7 +669,7 @@ Values of these types are not currently parsed by diameter.</p>
 <title>SEE ALSO</title>
 
 <p>
-&man_compile;, &man_main;, &man_app;</p>
+&man_compile;, &man_main;, &man_app;, &man_codec;, &man_make;</p>
 
 </section>
 

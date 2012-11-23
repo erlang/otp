@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="latin1" ?>
-<!DOCTYPE chapter SYSTEM "chapter.dtd">
+<!DOCTYPE chapter SYSTEM "chapter.dtd" [
+  <!ENTITY % also SYSTEM "seealso.ent">
+  %also;
+]>
 
 <chapter>
 <header>
@@ -35,7 +38,7 @@ under the License.
 
 <p>
 The diameter application is an implementation of the Diameter protocol
-as defined by RFC 3588.
+as defined by &the_rfc;.
 It supports arbitrary Diameter applications by way of a
 <em>dictionary</em> interface that allows messages and AVP's to be
 defined and input into diameter as configuration.
@@ -86,9 +89,9 @@ dictionary module
 that provide encode/decode functionality for outgoing/incoming
 Diameter messages belonging to the application.
 A dictionary module is generated from a <seealso
-marker="diameter_dict">specification file</seealso> using the <seealso
+marker="diameter_dict">dictionary file</seealso> using the <seealso
 marker="diameterc">diameterc</seealso> utility.
-Dictionaries for the RFC 3588 Diameter Common Messages, Base
+Dictionaries for the &the_rfc; Diameter Common Messages, Base
 Accounting and Relay applications are provided with the diameter
 application.</p>
 
