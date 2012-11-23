@@ -66,7 +66,7 @@ It can be specified as the value of a <c>transport_module</c> option to
 and implements the behaviour documented in
 &man_transport;.
 TLS security is supported, both as an upgrade following
-capabilities exchange as specified by RFC 3588 and
+capabilities exchange as specified by &the_rfc; and
 at connection establishment as in the current draft standard.</p>
 
 <p>
