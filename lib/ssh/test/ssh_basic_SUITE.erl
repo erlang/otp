@@ -43,14 +43,15 @@ all() ->
      {group, rsa_pass_key},
      {group, internal_error},
      {group, idle_time},
+     {group, rekey},
      daemon_already_started,
      server_password_option,
      server_userpassword_option,
      close].
 
 groups() -> 
-    [{dsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time]},
-     {rsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time]},
+    [{dsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time, rekey]},
+     {rsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time, rekey]},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {internal_error, [], [internal_error]}
@@ -255,6 +256,28 @@ idle_time(Config) ->
 	    {error,channel_closed} = ssh_connection:session_channel(ConnectionRef, 1000)
     end,
     ssh:stop_daemon(Pid).
+%%--------------------------------------------------------------------
+rekey(doc) ->
+    ["Idle timeout test"];
+rekey(Config) ->
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {rekey_limit, 0}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false},
+					  {rekey_limit, 0}]),
+    receive
+    after 15000 ->
+	    %%By this time rekeying would have been done
+	    ssh:close(ConnectionRef),
+	    ssh:stop_daemon(Pid)
+    end.
 %%--------------------------------------------------------------------
 shell(doc) ->
     ["Test that ssh:shell/2 works"];
