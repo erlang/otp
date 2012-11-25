@@ -241,21 +241,45 @@ btb_reaches_match_2([{bif,_,{f,F},Ss,Dst}=I|Is], Regs0, D0) ->
     Regs = btb_kill([Dst], Regs0),
     D = btb_follow_branch(F, Regs, D0),
     btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{test,bs_start_match2,_,_,[Ctx,_],Ctx}|Is], Regs, D) ->
-    case btb_context_regs(Regs) of
-	[Ctx] ->
-	    D;
-	CtxRegs ->
-	    case member(Ctx, CtxRegs) of
-		false -> btb_reaches_match_2(Is, Regs, D);
-		true -> btb_error(unsuitable_bs_start_match)
+btb_reaches_match_2([{test,bs_start_match2,{f,F},Live,[Ctx,_],Ctx}=I|Is],
+		    Regs0, D0) ->
+    CtxRegs = btb_context_regs(Regs0),
+    case member(Ctx, CtxRegs) of
+	false ->
+	    %% This bs_start_match2 instruction does not use "our"
+	    %% match state. Therefore we can continue the search
+	    %% for another bs_start_match2 instruction.
+	    D = btb_follow_branch(F, Regs0, D0),
+	    Regs = btb_kill_not_live(Live, Regs0),
+	    btb_reaches_match_2(Is, Regs, D);
+	true ->
+	    %% OK. This instruction will use "our" match state,
+	    %% but we must make sure that all other copies of the
+	    %% match state are killed in the code that follows
+	    %% the instruction. (We know that the fail branch cannot
+	    %% be taken in this case.)
+	    OtherCtxRegs = CtxRegs -- [Ctx],
+	    case btb_are_all_unused(OtherCtxRegs, Is, D0) of
+		false -> btb_error({OtherCtxRegs,not_all_unused_after,I});
+		true -> D0
 	    end
     end;
-btb_reaches_match_2([{test,bs_start_match2,_,_,[Bin,_],Ctx}|Is], Regs, D) ->
-    CtxRegs = btb_context_regs(Regs),
+btb_reaches_match_2([{test,bs_start_match2,{f,F},Live,[Bin,_],Ctx}|Is],
+		    Regs0, D0) ->
+    CtxRegs = btb_context_regs(Regs0),
     case member(Bin, CtxRegs) orelse member(Ctx, CtxRegs) of
-	false -> btb_reaches_match_2(Is, Regs, D);
-	true -> btb_error(unsuitable_bs_start_match)
+	false ->
+	    %% This bs_start_match2 does not reference any copy of the
+	    %% match state. Therefore it can safely be passed on the
+	    %% way to another (perhaps more suitable) bs_start_match2
+	    %% instruction.
+	    D = btb_follow_branch(F, Regs0, D0),
+	    Regs = btb_kill_not_live(Live, Regs0),
+	    btb_reaches_match_2(Is, Regs, D);
+	true ->
+	    %% This variant of the bs_start_match2 instruction does
+	    %% not accept a match state as source.
+	    btb_error(unsuitable_bs_start_match)
     end;
 btb_reaches_match_2([{test,_,{f,F},Ss}=I|Is], Regs, D0) ->
     btb_ensure_not_used(Ss, I, Regs),
