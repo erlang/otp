@@ -1131,17 +1131,21 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 
 
 gen_dec_prim(Erules,Att,BytesVar) ->
+    Aligned = case Erules of
+		  uper -> false;
+		  per -> true
+	      end,
     Typename = Att#type.def,
     Constraint = Att#type.constraint,
     case Typename of
 	'INTEGER' ->
-	    emit({"?RT_PER:decode_integer(",BytesVar,",",
-		  {asis,asn1ct_imm:effective_constraint(integer,Constraint)},")"});
+	    Imm = asn1ct_imm:per_dec_integer(Constraint, Aligned),
+	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
 	{'INTEGER',NamedNumberList} ->
-	    emit({"?RT_PER:decode_integer(",BytesVar,",",
-		  {asis,asn1ct_imm:effective_constraint(integer,Constraint)},",",
-		  {asis,NamedNumberList},")"});
-
+	    Imm = asn1ct_imm:per_dec_named_integer(Constraint,
+						   NamedNumberList,
+						   Aligned),
+	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
 	'REAL' ->
 	    emit({"?RT_PER:decode_real(",BytesVar,")"});
 	
@@ -1167,21 +1171,15 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	'ObjectDescriptor' ->
 	    emit({"?RT_PER:decode_ObjectDescriptor(",
 		  BytesVar,")"});
-	{'ENUMERATED',{NamedNumberList1,NamedNumberList2}} ->
-	    NewTup = {list_to_tuple([X||{X,_} <- NamedNumberList1]),
-		      list_to_tuple([X||{X,_} <- NamedNumberList2])},
-	    NewC = [{'ValueRange',{0,size(element(1,NewTup))-1}}],
-	    emit({"?RT_PER:decode_enumerated(",BytesVar,",",
-		  {asis,NewC},",",
-		  {asis,NewTup},")"});
+	{'ENUMERATED',{Base,Ext}} ->
+	    Imm = asn1ct_imm:per_dec_enumerated(Base, Ext, Aligned),
+	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
 	{'ENUMERATED',NamedNumberList} ->
-	    NewTup = list_to_tuple([X||{X,_} <- NamedNumberList]),
-	    NewC = [{'ValueRange',{0,size(NewTup)-1}}],
-	    emit({"?RT_PER:decode_enumerated(",BytesVar,",",
-		  {asis,NewC},",",
-		  {asis,NewTup},")"});
+	    Imm = asn1ct_imm:per_dec_enumerated(NamedNumberList, Aligned),
+	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
 	'BOOLEAN'->
-	    emit({"?RT_PER:decode_boolean(",BytesVar,")"});
+	    Imm = asn1ct_imm:per_dec_boolean(),
+	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
 	'OCTET STRING' ->
 	    emit({"?RT_PER:decode_octet_string(",BytesVar,",",
 		  {asis,Constraint},")"});

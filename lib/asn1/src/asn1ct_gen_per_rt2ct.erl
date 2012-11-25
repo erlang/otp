@@ -1509,17 +1509,9 @@ gen_dec_prim(Erules,Att,BytesVar) ->
     Constraint = Att#type.constraint,
     case Typename of
 	'INTEGER' ->
-	    EffectiveConstr = effective_constraint(integer,Constraint),
-	    emit_dec_integer(EffectiveConstr,BytesVar);
-% 	    emit({"?RT_PER:decode_integer(",BytesVar,",",
-% 		  {asis,EffectiveConstr},")"});
-	{'INTEGER',NamedNumberList} ->
-	    EffectiveConstr = effective_constraint(integer,Constraint),
-	    emit_dec_integer(EffectiveConstr,BytesVar,NamedNumberList);
-% 	    emit({"?RT_PER:decode_integer(",BytesVar,",",
-% 		  {asis,EffectiveConstr},",",
-% 		  {asis,NamedNumberList},")"});
-
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
+	{'INTEGER',_NamedNumberList} ->
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 	'REAL' ->
 	    emit(["?RT_PER:decode_real(",BytesVar,")"]);
 
@@ -1545,20 +1537,10 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	'ObjectDescriptor' ->
 	    emit({"?RT_PER:decode_ObjectDescriptor(",
 		  BytesVar,")"});
-	{'ENUMERATED',{NamedNumberList1,NamedNumberList2}} ->
-	    NewTup = {list_to_tuple([X||{X,_} <- NamedNumberList1]),
-		      list_to_tuple([X||{X,_} <- NamedNumberList2])},
-	    NewC = [{'ValueRange',{0,size(element(1,NewTup))-1}}],
-	    emit({"?RT_PER:decode_enumerated(",BytesVar,",",
-		  {asis,NewC},",",
-		  {asis,NewTup},")"});
-	{'ENUMERATED',NamedNumberList} ->
-	    NewNNL = [X||{X,_} <- NamedNumberList],
-	    NewC = effective_constraint(integer,
-					[{'ValueRange',{0,length(NewNNL)-1}}]),
-	    emit_dec_enumerated(BytesVar,NewC,NewNNL);
+	{'ENUMERATED',_} ->
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 	'BOOLEAN'->
-	    emit({"?RT_PER:decode_boolean(",BytesVar,")"});
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 
 	'OCTET STRING' ->
 	    emit_dec_octet_string(Constraint,BytesVar);
@@ -1637,88 +1619,6 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	Other ->
 	    exit({'cant decode' ,Other})
     end.
-
-
-emit_dec_integer(C,BytesVar,NNL) ->
-    asn1ct_name:new(tmpterm),
-    asn1ct_name:new(buffer),
-    Tmpterm = asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),
-    Buffer = asn1ct_gen:mk_var(asn1ct_name:curr(buffer)),
-    emit({" begin {",{curr,tmpterm},",",{curr,buffer},"} = ",nl}),
-    emit_dec_integer(C,BytesVar),
-    emit({",",nl," case ",Tmpterm," of",nl}),
-    lists:map(fun({Name,Int})->emit({"   ",Int," -> {",{asis,Name},",",
-				     Buffer,"};",nl});
-		 (_)-> exit({error,{asn1,{"error in named number list",NNL}}})
-	      end,
-	      NNL),
-    emit({"   _ -> {",Tmpterm,",",Buffer,"}",nl}),
-    emit({" end",nl}), % end of case
-    emit(" end"). % end of begin
-
-emit_dec_integer([{'SingleValue',Int}],BytesVar) when is_integer(Int) -> 
-    emit(["{",Int,",",BytesVar,"}"]);
-emit_dec_integer([{_,{Lb,_Ub},_Range,{BitsOrOctets,N}}],BytesVar) ->
-    GetBorO = 
-	case BitsOrOctets of
-	    bits -> "getbits";
-	    _ -> "getoctets"
-	end,
-    asn1ct_name:new(tmpterm),
-    asn1ct_name:new(tmpremain),
-    emit({"  begin",nl,"    {",{curr,tmpterm},",",{curr,tmpremain},"}=",
-	  "?RT_PER:",GetBorO,"(",BytesVar,",",N,"),",nl}),
-    emit({"    {",{curr,tmpterm},"+",Lb,",",{curr,tmpremain},"}",nl,
-	  "  end"});
-emit_dec_integer([{_,{'MIN',_}}],BytesVar) ->
-    emit({"?RT_PER:decode_unconstrained_number(",BytesVar,")"});
-emit_dec_integer([{_,{Lb,'MAX'}}],BytesVar) ->
-    emit({"?RT_PER:decode_semi_constrained_number(",BytesVar,",",Lb,")"});
-emit_dec_integer([{'ValueRange',VR={Lb,Ub}}],BytesVar) ->
-    Range = Ub-Lb+1,
-     emit({"?RT_PER:decode_constrained_number(",BytesVar,",",
-	   {asis,VR},",",Range,")"});
-emit_dec_integer(C=[{Rc,_}],BytesVar) when is_tuple(Rc) ->
-    emit({"?RT_PER:decode_integer(",BytesVar,",",{asis,C},")"});
-emit_dec_integer(_,BytesVar) ->
-    emit({"?RT_PER:decode_unconstrained_number(",BytesVar,")"}).
-    
-
-emit_dec_enumerated(BytesVar,C,NamedNumberList) ->
-    emit_dec_enumerated_begin(),% emits a begin if component
-    asn1ct_name:new(tmpterm),
-    Tmpterm = asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),
-    asn1ct_name:new(tmpremain),
-    Tmpremain = asn1ct_gen:mk_var(asn1ct_name:curr(tmpremain)),
-    emit({"    {",{curr,tmpterm},",",{curr,tmpremain},"} =",nl}),
-    emit_dec_integer(C,BytesVar),
-    emit({",",nl,"    case ",Tmpterm," of "}),
-
-    Cases=lists:flatten(dec_enumerated_cases(NamedNumberList,Tmpremain,0)),
-    emit({Cases++"_->exit({error,{asn1,{decode_enumerated,{",Tmpterm,
-	  ",",{asis,NamedNumberList},"}}}}) end",nl}),
-    emit_dec_enumerated_end().
-	     
-emit_dec_enumerated_begin() ->
-    case get(component_type) of
-	{true,_} ->
-	    emit({"  begin",nl});
-	_ -> ok
-    end.
-
-emit_dec_enumerated_end() ->
-    case get(component_type) of
-	{true,_} ->
-	    emit("  end");
-	_ -> ok
-    end.
-
-
-dec_enumerated_cases([Name|Rest],Tmpremain,No) ->
-    io_lib:format("~w->{~w,~s};",[No,Name,Tmpremain])++
-	dec_enumerated_cases(Rest,Tmpremain,No+1);
-dec_enumerated_cases([],_,_) ->
-    "".
 
 %% For PER the ExtensionAdditionGroup notation has significance for the encoding and decoding
 %% the components within the ExtensionAdditionGroup is treated in a similar way as if they

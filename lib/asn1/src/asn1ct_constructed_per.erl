@@ -512,10 +512,10 @@ gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _ ->
 		""
 	end,
-    gen_decode_length(SizeConstraint,
-		      is_optimized(Erules)),
-    emit({"'dec_",asn1ct_gen:list2name(Typename),
-	  "_components'(Num, Bytes1",ObjFun,", []).",nl,nl}),
+    {Num,Buf} = gen_decode_length(SizeConstraint, Erules),
+    emit([",",nl,
+	  "'dec_",asn1ct_gen:list2name(Typename),
+	  "_components'(",Num,", ",Buf,ObjFun,", []).",nl,nl]),
     NewComponentType =
 	case ComponentType#type.def of
 	    {'ENUMERATED',_,Component}->
@@ -524,40 +524,13 @@ gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	end,
     gen_decode_sof_components(Erules,Typename,SeqOrSetOf,NewComponentType).
 
-%% Logic copied from asn1_per_bin_rt2ct:decode_constrained_number
-gen_decode_length({Lb,Ub},true) when Ub =< 65535, Lb >= 0 ->
-    Range = Ub - Lb + 1,
-    Call = if
-	       Range  == 1 ->
-		   "{0,Bytes}";
-	       Range  == 2 ->
-		   "?RT_PER:getbits(Bytes,1)";
-	       Range  =< 4 ->
-		   "?RT_PER:getbits(Bytes,2)";
-	       Range  =< 8 ->
-		   "?RT_PER:getbits(Bytes,3)";
-	       Range  =< 16 ->
-		   "?RT_PER:getbits(Bytes,4)";
-	       Range  =< 32 ->
-		   "?RT_PER:getbits(Bytes,5)";
-	       Range  =< 64 ->
-		   "?RT_PER:getbits(Bytes,6)";
-	       Range  =< 128 ->
-		   "?RT_PER:getbits(Bytes,7)";
-	       Range  =< 255 ->
-		   "?RT_PER:getbits(Bytes,8)";
-	       Range  =< 256 ->
-		   "?RT_PER:getoctets(Bytes,1)";
-	       Range  =< 65536 ->
-		   "?RT_PER:getoctets(Bytes,2)";
-	       true ->
-		   ["exit({not_supported,{integer_range,",Range,"}}"]
-	   end,
-    emit({nl,"{Val,Remain} = ",Call,",",nl}),
-    emit({nl,"{Num,Bytes1} = {Val+",Lb,",Remain},",nl});
-gen_decode_length(SizeConstraint,_) ->
-    emit({nl,"{Num,Bytes1} = ?RT_PER:decode_length(Bytes,",
-	  {asis,SizeConstraint},"),",nl}).
+is_aligned(per) -> true;
+is_aligned(uper) -> false.
+
+gen_decode_length(Constraint, Erule) ->
+    emit(["%% Length with constraint ",{asis,Constraint},nl]),
+    Imm = asn1ct_imm:per_dec_length(Constraint, true, is_aligned(Erule)),
+    asn1ct_imm:dec_slim_cg(Imm, "Bytes").
 
 gen_encode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
     {ObjFun,ObjFun_Var} =
