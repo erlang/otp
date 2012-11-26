@@ -287,11 +287,11 @@ btb_reaches_match_2([{bs_restore2,Src,_}=I|Is], Regs0, D) ->
 	    btb_reaches_match_1(Is, Regs0, D);
 	true ->
 	    %% Check that all other copies of the context registers
-	    %% are killed by the following instructions.
+	    %% are unused by the following instructions.
 	    Regs = btb_kill([Src], Regs0),
 	    CtxRegs = btb_context_regs(Regs),
-	    case btb_are_all_killed(CtxRegs, Is, D) of
-		false -> btb_error({CtxRegs,not_all_killed_after,I});
+	    case btb_are_all_unused(CtxRegs, Is, D) of
+		false -> btb_error({CtxRegs,not_all_unused_after,I});
 		true -> D#btb{must_not_save=true}
 	    end
     end;
@@ -301,11 +301,11 @@ btb_reaches_match_2([{bs_context_to_binary,Src}=I|Is], Regs0, D) ->
 	    btb_reaches_match_1(Is, Regs0, D);
 	true ->
 	    %% Check that all other copies of the context registers
-	    %% are killed by the following instructions.
+	    %% are unused by the following instructions.
 	    Regs = btb_kill([Src], Regs0),
 	    CtxRegs = btb_context_regs(Regs),
-	    case btb_are_all_killed(CtxRegs, Is, D) of
-		false -> btb_error({CtxRegs,not_all_killed_after,I});
+	    case btb_are_all_unused(CtxRegs, Is, D) of
+		false -> btb_error({CtxRegs,not_all_unused_after,I});
 		true -> D#btb{must_not_save=true}
 	    end
     end;
@@ -343,7 +343,7 @@ btb_call(Arity, Lbl, Regs0, Is, D0) ->
 	    %% tucked away in a y register.
 	    RegList = btb_context_regs(Regs),
 	    YRegs = [R || {y,_}=R <- RegList],
-	    case btb_are_all_killed(YRegs, Is, D) of
+	    case btb_are_all_unused(YRegs, Is, D) of
 		true -> D;
 		false -> btb_error({multiple_uses,RegList})
 	    end;
@@ -426,11 +426,11 @@ btb_reaches_match_block([], Regs) ->
     Regs.
 
 %% btb_are_all_killed([Register], [Instruction], D) -> true|false
-%%  Test whether all of the register are killed in the instruction stream.
+%%  Test whether all of the register are unused in the instruction stream.
 
-btb_are_all_killed(RegList, Is, #btb{index=Li}) ->
+btb_are_all_unused(RegList, Is, #btb{index=Li}) ->
     all(fun(R) ->
-		beam_utils:is_killed(R, Is, Li)
+		beam_utils:is_not_used(R, Is, Li)
 	end, RegList).
 
 %% btp_regs_from_list([Register]) -> RegisterSet.
