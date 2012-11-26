@@ -37,12 +37,14 @@ MODULES= \
 	appmon \
 	appmon_a \
 	appmon_dg \
-	appmon_info \
 	appmon_place \
 	appmon_txt \
 	appmon_lb \
 	process_info \
 	appmon_web
+
+#	appmon_info \  Moved to runtime tools where it belongs
+
 
 HRL_FILES= appmon_dg.hrl
 
