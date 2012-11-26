@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A faulty spec for process_info/2 could cause false
+	    dialyzer warnings. The spec is corrected.</p>
+          <p>
+	    Own Id: OTP-10584</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

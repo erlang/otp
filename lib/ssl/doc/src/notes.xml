@@ -30,7 +30,39 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
   
-  <section><title>SSL 5.1</title>
+  <section><title>SSL 5.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ssl:recv/3 could "loose" data when the timeout occurs. If
+	    the timout in ssl:connect or ssl:ssl_accept expired the
+	    ssl connection process was not terminated as it should,
+	    this due to gen_fsm:send_all_state_event timout is a
+	    client side time out. These timouts are now handled by
+	    the gen_fsm-procss instead.</p>
+          <p>
+	    Own Id: OTP-10569</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Better termination handling that avoids hanging.</p>
+          <p>
+	    Own Id: OTP-10574</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
