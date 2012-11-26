@@ -259,21 +259,43 @@ run(List, Opts) when is_list(List), is_list(Opts) ->
 run(Testspec, Config) when is_atom(Testspec), is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
     File=atom_to_list(Testspec),
-    Spec = case code:lib_dir(Testspec) of
-	       _ when Testspec == emulator;
-		      Testspec == system;
-		      Testspec == epmd ->
-		   File++".spec";
-	       {error, bad_name} ->
-		   create_skip_spec(Testspec, tests(Testspec));
-	       Path ->
-		   case file:read_file_info(filename:join(Path,"ebin")) of
-		       {ok,_} ->
-			   File++".spec";
-		       _ ->
-			   create_skip_spec(Testspec, tests(Testspec))
-		   end
-	       end,
+    WhatToDo =
+	case Testspec of
+	    %% Known to exist but fails generic tests below
+	    emulator -> test;
+	    system -> test;
+	    erl_interface -> test;
+	    epmd -> test;
+	    _ ->
+		case code:lib_dir(Testspec) of
+		    {error,bad_name} ->
+			%% Application does not exist
+			skip;
+		    Path ->
+			case file:read_file_info(filename:join(Path,"ebin")) of
+			    {ok,#file_info{type=directory}} ->
+				%% Erlang application is built
+				test;
+			    _ ->
+				case filelib:wildcard(
+				       filename:join([Path,"priv","*.jar"])) of
+				    [] ->
+					%% The application is not built
+					skip;
+				    [_|_] ->
+					%% Java application is built
+					test
+				end
+			end
+		end
+	end,
+    Spec =
+	case WhatToDo of
+	    skip ->
+		create_skip_spec(Testspec, tests(Testspec));
+	    test ->
+		File++".spec"
+	end,
     run_test(File, [{spec,[Spec]}], Options);
 %% Runs one module in a spec (interactive)
 run(Testspec, Mod) when is_atom(Testspec), is_atom(Mod) ->
