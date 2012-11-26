@@ -43,17 +43,11 @@ main(Erule) ->
     ?line EncVal = 
 	case Erule of
 	    per -> 
-		[1,100];
-	    per_bin -> 
 		<<1,100>>;
-	    uper_bin ->
+	    uper ->
 		<<1,100>>;
 	    ber ->
-		[2,1,1];
-	    ber_bin ->
-		<<2,1,1>>;
-	    ber_bin_v2 ->
-		<<2,1,1>>
+		[2,1,1]
 	end,
     ?line PEVal2 = [{dummy,1,ignore,EncVal},{dummy,2,reject,EncVal}],
     ?line Val2 = 
@@ -76,7 +70,7 @@ main(Erule) ->
 
 mvrasn(Erule) ->
     case Erule of
-	Ber when Ber == ber;Ber == ber_bin ->
+	ber ->
 	    ?line ok = test(isd),
 	    ?line ok = test(isd2),
 	    ?line ok = test(dsd),

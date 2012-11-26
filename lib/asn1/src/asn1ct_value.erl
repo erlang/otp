@@ -54,7 +54,7 @@ from_type(M,Typename,Type) when is_record(Type,type) ->
 	{notype,_} ->
 	    true;
 	{primitive,bif} ->
-	    from_type_prim(Type,get_encoding_rule(M));
+	    from_type_prim(Type);
 	'ASN1_OPEN_TYPE' ->
 	    case  Type#type.constraint of
 		[#'Externaltypereference'{type=TrefConstraint}] ->
@@ -164,7 +164,7 @@ gen_list(_,_,_,0) ->
 gen_list(M,Typename,Oftype,N) ->
     [from_type(M,Typename,Oftype)|gen_list(M,Typename,Oftype,N-1)].
     
-from_type_prim(D,Erule) ->
+from_type_prim(D) ->
     C = D#type.constraint,
     case D#type.def of
 	'INTEGER' ->
@@ -303,12 +303,7 @@ from_type_prim(D,Erule) ->
 	    adjust_list(size_random(C),c_string(C,"BMPString"));
 	'UTF8String' ->
 	    {ok,Res}=asn1rt:utf8_list_to_binary(adjust_list(random(50),[$U,$T,$F,$8,$S,$t,$r,$i,$n,$g,16#ffff,16#fffffff,16#ffffff,16#fffff,16#fff])),
-	    case Erule of
-		per ->
-		    binary_to_list(Res);
-		_ ->
-		    Res
-	    end;
+	    Res;
 	'UniversalString' ->
 	    adjust_list(size_random(C),c_string(C,"UniversalString"));
 	XX ->
@@ -440,17 +435,9 @@ get_encoding_rule(M) ->
     end.
 
 open_type_value(ber) ->
-    [4,9,111,112,101,110,95,116,121,112,101];
-open_type_value(ber_bin) ->
-%    [4,9,111,112,101,110,95,116,121,112,101];
-    <<4,9,111,112,101,110,95,116,121,112,101>>;
-open_type_value(ber_bin_v2) ->
-%    [4,9,111,112,101,110,95,116,121,112,101];
     <<4,9,111,112,101,110,95,116,121,112,101>>;
 open_type_value(per) ->
-    "\n\topen_type"; %octet string value "open_type"
-open_type_value(per_bin) ->
-    <<"\n\topen_type">>;
+    <<"\n\topen_type">>;	       %octet string value "open_type"
 %    <<10,9,111,112,101,110,95,116,121,112,101>>;
 open_type_value(_) ->
     [4,9,111,112,101,110,95,116,121,112,101].

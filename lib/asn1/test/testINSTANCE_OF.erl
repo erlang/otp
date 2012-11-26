@@ -26,7 +26,7 @@
 main(Erule) ->
 
     ?line {ok,Integer} = asn1_wrapper:encode('INSTANCEOF','Int',3),
-    Int = wrap(Erule,Integer),
+    Int = list_to_binary(Integer),
     ValotherName = {otherName,{'INSTANCE OF',{2,4},Int}},
     VallastName1 = {lastName,{'GeneralName_lastName',{2,4},12}},
     VallastName2 = {lastName,{'GeneralName_lastName',{2,3,4},
@@ -61,18 +61,3 @@ test_encdec(_Erule,{lastName,{'GeneralName_lastName',{2,3,4},
     ok;
 test_encdec(Erule,Res) ->
     {error,{Erule,Res}}.
-
-wrap(ber,Int) when is_list(Int) ->
-    binary_to_list(list_to_binary(Int));
-wrap(per,Int) when is_list(Int) ->
-    binary_to_list(list_to_binary(Int));
-wrap(ber_bin,Int) when is_list(Int) ->
-    list_to_binary(Int);
-wrap(ber_bin_v2,Int) when is_list(Int) ->
-    list_to_binary(Int);
-wrap(per_bin,Int) when is_list(Int) ->
-    list_to_binary(Int);
-wrap(uper_bin,Int) when is_list(Int) ->
-    list_to_binary(Int);
-wrap(_,Int) ->
-    Int.

@@ -42,11 +42,11 @@ compile(Config, Options) ->
     asn1_test_lib:compile_all(["PKIX1Explicit93", "PKIX1Implicit93"],
                               Config, NewOptions).
 
-compile_inline(Config, Rule) when Rule == ber_bin; Rule == ber_bin_v2 ->
+compile_inline(Config, ber=Rule) ->
     DataDir = ?config(data_dir, Config),
     CaseDir = ?config(case_dir, Config),
     Options = [{i, CaseDir}, {i, DataDir}, Rule,
-               der, compact_bit_string, optimize, asn1config, inline],
+               der, compact_bit_string, asn1config, inline],
     ok = remove_db_file_inline(CaseDir),
     asn1_test_lib:compile("OTP-PKIX.set.asn", Config, Options);
 compile_inline(_Config, _Rule) ->
@@ -73,7 +73,7 @@ remove_db_file_inline(Dir) ->
     ?line ok = remove_db_file(Dir ++ "PKIX1Explicit88.asn1db"),
     ?line ok = remove_db_file(Dir ++ "PKIX1Implicit88.asn1db").
 
-run(BER) when BER==ber_bin;BER==ber_bin_v2 ->
+run(ber) ->
     run1(1);
 run(_) ->
     ok.
@@ -100,20 +100,20 @@ transform1(ATAV) ->
     ?line {ok, ATAVEnc} = 'PKIX1Explicit88':encode('AttributeTypeAndValue',
 ATAV),
     ?line {ok, _ATAVDec} = 'SSL-PKIX':decode('AttributeTypeAndValue',
-                                      list_to_binary(ATAVEnc)).
+                                      ATAVEnc).
 
 transform2(ATAV) ->
     ?line {ok, ATAVEnc} = 'PKIX1Explicit88':encode('AttributeTypeAndValue',
 ATAV),
     ?line {ok, _ATAVDec} = 'PKIX1Explicit88':decode('AttributeTypeAndValue',
-                                             list_to_binary(ATAVEnc)).
+                                             ATAVEnc).
 
 
 transform4(ATAV) ->
     ?line {ok, ATAVEnc} = 'PKIX1Explicit88':encode('Attribute',
 ATAV),
     ?line {ok, _ATAVDec} = 'PKIX1Explicit88':decode('Attribute',
-                                             list_to_binary(ATAVEnc)).
+                                             ATAVEnc).
 
 
 ex(1) ->
@@ -146,7 +146,7 @@ ex(7) ->
      {1,2,840,113549,1,9,1},
      [[19,5,111,116,112,67,65]]}.
 
-run_inline(Rule) when Rule==ber_bin;Rule==ber_bin_v2 ->
+run_inline(ber) ->
     Cert = cert(),
     ?line {ok,{'CertificatePKIX1Explicit88',{Type,UnDec},_,_}} = 'OTP-PKIX':decode_TBSCert_exclusive(Cert),
     ?line {ok,_} = 'OTP-PKIX':decode_part(Type,UnDec),

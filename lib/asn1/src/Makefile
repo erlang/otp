@@ -52,8 +52,6 @@ CT_MODULES= \
 	asn1ct_gen_per_rt2ct \
 	asn1ct_name \
 	asn1ct_constructed_per \
-	asn1ct_constructed_ber \
-	asn1ct_gen_ber \
 	asn1ct_constructed_ber_bin_v2 \
 	asn1ct_gen_ber_bin_v2 \
 	asn1ct_value \
@@ -63,7 +61,6 @@ CT_MODULES= \
 
 RT_MODULES= \
 	asn1rt \
-	asn1rt_per_bin \
 	asn1rt_ber_bin \
 	asn1rt_ber_bin_v2 \
 	asn1rt_per_bin_rt2ct \

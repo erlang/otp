@@ -198,19 +198,10 @@ main(Rules) ->
     
     ?line {ok,Bytes51} = asn1_wrapper:encode('SeqOf','SeqEmp',#'SeqEmp'{seq1 = [#'Empty'{}]}),
     ?line {ok,{'SeqEmp',[{'Empty'}]}} = asn1_wrapper:decode('SeqOf','SeqEmp',lists:flatten(Bytes51)),
-    
-    case Rules of
-	ber ->
-	    ?line {ok,Bytes52} = asn1_wrapper:encode('SeqOfEnum','SeqOfEnum',
-					     {'SeqOfEnum',[{'Enum',a},{'Enum',b}]}),
-	    ?line {ok,[a,b]} = asn1_wrapper:decode('SeqOfEnum','SeqOfEnum',
-					   lists:flatten(Bytes52));
-	_ -> ok
-    end,
 
     %% tests of OTP-4590
     case Rules of
-	PER when PER == per; PER == per_bin ->
+	per ->
 	    DayNames = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
 	    ?line {ok,Bytes60} = asn1_wrapper:encode('XSeqOf','DayNames2',DayNames),
 	    ?line {ok,Bytes60} = asn1_wrapper:encode('XSeqOf','DayNames4',DayNames),

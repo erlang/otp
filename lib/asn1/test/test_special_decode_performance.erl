@@ -33,7 +33,7 @@ go(all) ->
 go(N,Mod) ->
     ?line Val = val(Mod),
     ?line {ok,B} = Mod:encode(element(1,Val),Val),
-    ?line go(Mod,list_to_binary(B),N).
+    ?line go(Mod,B,N).
 
 go(Mod,Bin,N) ->
     ?line FsS = get_selective_funcs(Mod),

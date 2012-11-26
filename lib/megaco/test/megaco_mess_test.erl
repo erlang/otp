@@ -1393,7 +1393,7 @@ rarpaop_mgc_event_sequence(text, tcp) ->
 rarpaop_mgc_event_sequence(binary, tcp) ->
     Port      = 2945, 
     TranspMod = megaco_tcp, 
-    EncMod    = megaco_ber_bin_encoder,
+    EncMod    = megaco_ber_encoder,
     EncConf   = [], 
     rarpaop_mgc_event_sequence(Port, TranspMod, EncMod, EncConf).
 
@@ -1680,7 +1680,7 @@ rarpaop_mg_event_sequence(text, tcp) ->
     rarpaop_mg_event_sequence(Port, EncMod, EncConf);
 rarpaop_mg_event_sequence(binary, tcp) ->
     Port      = 2945, 
-    EncMod    = megaco_ber_bin_encoder,
+    EncMod    = megaco_ber_encoder,
     EncConf   = [], 
     rarpaop_mg_event_sequence(Port, EncMod, EncConf).
 

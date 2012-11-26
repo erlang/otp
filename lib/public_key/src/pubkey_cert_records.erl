@@ -119,7 +119,7 @@ encode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{algorithm= PA =
 						     subjectPublicKey = SPK0}) ->
     Type = supportedPublicKeyAlgorithms(Algo),
     {ok, SPK} = 'OTP-PUB-KEY':encode(Type, SPK0),
-    #'OTPSubjectPublicKeyInfo'{subjectPublicKey = {0,list_to_binary(SPK)}, algorithm=PA}.
+    #'OTPSubjectPublicKeyInfo'{subjectPublicKey = {0,SPK}, algorithm=PA}.
 
 %%% Extensions
 
@@ -161,7 +161,7 @@ decode_extensions(Exts) ->
 		      case extension_id(Id) of
 			  undefined -> Ext;
 			  Type ->
-			      {ok, Value} = 'OTP-PUB-KEY':decode(Type, list_to_binary(Value0)),
+			      {ok, Value} = 'OTP-PUB-KEY':decode(Type, iolist_to_binary(Value0)),
 			      Ext#'Extension'{extnValue=transform(Value,decode)}
 		      end
 	      end, Exts).
@@ -176,7 +176,7 @@ encode_extensions(Exts) ->
 			  Type ->
 			      Value1 = transform(Value0,encode),
 			      {ok, Value} = 'OTP-PUB-KEY':encode(Type, Value1),
-			      Ext#'Extension'{extnValue=list_to_binary(Value)}
+			      Ext#'Extension'{extnValue=Value}
 		      end
 	      end, Exts).
 

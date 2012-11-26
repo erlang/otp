@@ -155,7 +155,7 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    NewList = lists:concat([[{0,X}||{X,_} <- Nlist1],['EXT_MARK'],[{1,X}||{X,_} <- Nlist2]]),
 	    NewC = [{'ValueRange',{0,length(Nlist1)-1}}],
 	    case Erules of
-		uper_bin ->
+		uper ->
 		    emit(["case ",Value," of",nl]);
 		_ ->
 		    emit(["case (case ",Value," of {_,",{curr,enumval},"}-> ",
@@ -168,7 +168,7 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    NewList = [X||{X,_} <- NamedNumberList],
 	    NewC = [{'ValueRange',{0,length(NewList)-1}}],
 	    case Erules of
-		uper_bin ->
+		uper ->
 		    emit(["case ",Value," of",nl]);
 		_ ->
 		    emit(["case (case ",Value," of {_,",{curr,enumval},
@@ -274,7 +274,7 @@ emit_enc_enumerated_cases(Erule, C, [H1,H2|T], Count) ->
     
 
 
-emit_enc_enumerated_case(uper_bin,_C, {asn1_enum,High}, _) ->
+emit_enc_enumerated_case(uper,_C, {asn1_enum,High}, _) ->
     emit([
 	  "{asn1_enum,EnumV} when is_integer(EnumV), EnumV > ",High," -> ",
 	  "[<<1:1>>,?RT_PER:encode_small_number(EnumV)]"]);
@@ -284,11 +284,11 @@ emit_enc_enumerated_case(_Per,_C, {asn1_enum,High}, _) ->
 	  "[{bit,1},?RT_PER:encode_small_number(EnumV)]"]);
 emit_enc_enumerated_case(_Erule, _C, 'EXT_MARK', _Count) ->
     true;
-emit_enc_enumerated_case(uper_bin,_C, {1,EnumName}, Count) ->
+emit_enc_enumerated_case(uper,_C, {1,EnumName}, Count) ->
     emit(["'",EnumName,"' -> [<<1:1>>,?RT_PER:encode_small_number(",Count,")]"]);
 emit_enc_enumerated_case(_Per,_C, {1,EnumName}, Count) ->
     emit(["'",EnumName,"' -> [{bit,1},?RT_PER:encode_small_number(",Count,")]"]);
-emit_enc_enumerated_case(uper_bin,C, {0,EnumName}, Count) ->
+emit_enc_enumerated_case(uper,C, {0,EnumName}, Count) ->
     emit(["'",EnumName,"' -> [<<0:1>>,?RT_PER:encode_integer(",{asis,C},", ",Count,")]"]);
 emit_enc_enumerated_case(_Per,C, {0,EnumName}, Count) ->
     emit(["'",EnumName,"' -> [{bit,0},?RT_PER:encode_integer(",{asis,C},", ",Count,")]"]);
@@ -442,7 +442,7 @@ gen_encode_objectfields(Erule,ClassName,[{typefield,Name,OptOrMand}|Rest],
 	    {false,'OPTIONAL'} ->
 		EmitFuncClause("Val"),
 		case Erule of
-		    uper_bin ->
+		    uper ->
 			emit("   Val");
 		    _ ->
 			emit("   [{octets,Val}]")
@@ -833,7 +833,7 @@ gen_objset_enc(Erule,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
     emit({"'getenc_",ObjSetName,"'(_, _) ->",nl}),
     emit({indent(3),"fun(_, Val, _) ->",nl}),
     case Erule of
-	uper_bin ->
+	uper ->
 	    emit([indent(6),"Val",nl]);
 	_ ->
 	    emit([indent(6),"[{octets,Val}]",nl])
@@ -883,7 +883,7 @@ gen_inlined_enc_funs(Erule,Fields,[{typefield,Name,_}|Rest],ObjSetName,NthObj) -
 	    emit({indent(9),{asis,Name}," ->",nl}),
 	    emit([indent(12),"'",M,"'",":'enc_",T,"'(Val)"]),
 	    gen_inlined_enc_funs1(Erule,Fields,Rest,ObjSetName,NthObj,[]);
-	false when Erule == uper_bin ->
+	false when Erule =:= uper ->
 	    emit([indent(3),"fun(Type,Val,_) ->",nl,
 		  indent(6),"case Type of",nl,
 		  indent(9),{asis,Name}," -> Val",nl]),
@@ -921,7 +921,7 @@ gen_inlined_enc_funs1(Erule,Fields,[{typefield,Name,_}|Rest],ObjSetName,
 		emit({";",nl,indent(9),{asis,Name}," ->",nl}),
 		emit([indent(12),"'",M,"'",":'enc_",T,"'(Val)"]),
 		{Acc,0};
-	    false when Erule == uper_bin ->
+	    false when Erule =:= uper ->
 		emit([";",nl,
 		      indent(9),{asis,Name}," -> ",nl,
 		      "Val",nl]),

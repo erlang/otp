@@ -213,11 +213,11 @@ decode_message(compact, BinMsg) ->
     Conf = [{version3,?V3}],
     do_decode(Mod, Conf, BinMsg);
 decode_message(ber, BinMsg) ->
-    Mod  = megaco_ber_bin_encoder,
+    Mod  = megaco_ber_encoder,
     Conf = [{version3,?V3}],
     do_decode(Mod, Conf, BinMsg);
 decode_message(per, BinMsg) ->
-    Mod  = megaco_per_bin_encoder,
+    Mod  = megaco_per_encoder,
     Conf = [{version3,?V3}],
     do_decode(Mod, Conf, BinMsg);
 decode_message(erlang, BinMsg) ->

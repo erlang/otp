@@ -133,23 +133,7 @@ go(Config,Enc) ->
     Module = 'H323-MESSAGES',
     Type = 'H323-UserInformation',
     Value = val(),
-%%    ok = asn1ct:compile(HelpModule,[Enc]),
-
-%%    ok = asn1ct:compile(Module,[Enc]),
-    ?line {ok,B} = asn1rt:encode(Module,Type,Value),
-    Bytes = case Enc of
-		ber_bin ->
-		    list_to_binary(B);
-		per_bin when is_list(B) ->
-		    list_to_binary(B);
-		per_bin ->
-		    B;
-		uper_bin ->
-		    B;
-		_ ->
-		    %%lists:flatten(B)
-		    list_to_binary(B)
-	    end,
+    {ok,Bytes} = asn1rt:encode(Module,Type,Value),
 
     CompileOptions = compile_options(),
     
@@ -181,35 +165,18 @@ encode(N, Module,Type,Value) ->
 decode(0, _Module,_Type,_Value,_Erule) ->
     done;
 decode(N, Module,Type,Value,Erule) ->
-    case Erule of
-	ber ->
-	    ?line {ok,_B} = asn1rt:decode(Module,Type,binary_to_list(Value));
-	per ->
-	    ?line {ok,_B} = asn1rt:decode(Module,Type,binary_to_list(Value));
-	_ ->
-	    ?line {ok,_B} = asn1rt:decode(Module,Type,Value)
-    end,
+    {ok,_B} = asn1rt:decode(Module,Type,Value),
     decode(N-1, Module,Type,Value,Erule).
 
 compile_options() ->
-    ?line {ok,Info} = asn1rt:info('H323-MESSAGES'),
-    case lists:keysearch(options,1,Info) of
-	{_,{_,Opts}} ->
-	    Opts2 = 
-		case lists:member(ber_bin_v2,Opts) of
-		    true ->
-			[ber_bin,optimize] ++ lists:delete(optimize,Opts);
-		    _ ->
-			Opts
-		end,
-	    Opts3 = [X||X <- Opts2,
-			(X == ber orelse
-			 X == ber_bin orelse
-			 X == per orelse
-			 X == per_bin orelse
-			 X == optimize orelse
-			 X == driver)],
-	    lists:flatten(io_lib:format("~p",[Opts3]));
+    {ok,Info} = asn1rt:info('H323-MESSAGES'),
+    case lists:keyfind(options, 1, Info) of
+	{_,Opts0} ->
+	    Opts1 = [X || X <- Opts0,
+			  (X =:= ber orelse
+			   X =:= per orelse
+			   X =:= uper)],
+	    lists:flatten(io_lib:format("~p", [Opts1]));
 	_ ->
 	    "[]"
     end.

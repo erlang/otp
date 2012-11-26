@@ -25,7 +25,6 @@
 %% megaco_call_flow_test:compact_text().
 %% megaco_call_flow_test:bin().
 %% megaco_call_flow_test:asn1_ber().
-%% megaco_call_flow_test:asn1_ber_bin().
 %% megaco_call_flow_test:asn1_per().
 %% megaco_call_flow_test:erl_dist().
 %% megaco_call_flow_test:compressed_erl_dist().
@@ -62,7 +61,7 @@ all() ->
 groups() -> 
     [{text, [], [pretty, compact]},
      {flex, [], [pretty_flex, compact_flex]},
-     {binary, [], [bin, ber, ber_bin, per]}].
+     {binary, [], [bin, ber, per]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -105,12 +104,6 @@ ber(suite) ->
 ber(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     asn1_ber().
-
-ber_bin(suite) ->
-    [];
-ber_bin(Config) when is_list(Config) ->
-    ?ACQUIRE_NODES(1, Config),
-    asn1_ber_bin().
 
 per(suite) ->
     [];
@@ -1198,8 +1191,7 @@ encoders() ->
      {megaco_pretty_text_encoder,  [], 	         []},
      {megaco_compact_text_encoder, [], 	         []},
      {megaco_binary_encoder,       [], 	         [native]},
-     %% {megaco_ber_encoder,       [],           [native]},
-     %% {megaco_ber_bin_encoder,   [],           [native]},
+     {megaco_ber_encoder,          [],           [native]},
      {megaco_per_encoder,          [], 	         [native]},
      {megaco_erl_dist_encoder,     [],      	 []},
      {megaco_erl_dist_encoder,     [compressed], [compressed]}
@@ -1214,7 +1206,6 @@ pretty_mod({Mod, Opt, _Opt2}) ->
 	megaco_compact_text_encoder -> compact_text;
 	megaco_binary_encoder       -> asn1_ber;
 	megaco_ber_encoder          -> asn1_ber_old;
-	megaco_ber_bin_encoder      -> asn1_ber_bin;
 	megaco_per_encoder          -> asn1_per;
 	megaco_erl_dist_encoder when Opt == []           -> standard_erl;
 	megaco_erl_dist_encoder when Opt == [compressed] -> compressed_erl;
@@ -1260,13 +1251,6 @@ asn1_ber() ->
     Default = [],
     Native = [native],
     Encoder = {megaco_ber_encoder, Default, Native},
-    All = [encode(Slogan, Msg, Encoder) || {Slogan, Msg} <- messages()],
-    compute_res(All).
-
-asn1_ber_bin() ->
-    Default = [],
-    Native = [native],
-    Encoder = {megaco_ber_bin_encoder, Default, Native},
     All = [encode(Slogan, Msg, Encoder) || {Slogan, Msg} <- messages()],
     compute_res(All).
 
@@ -1634,7 +1618,7 @@ gen_ber_header() ->
 %% Generate headerfile for asn.1 BER test in C
 %%----------------------------------------------------------------------
 gen_ber_bin_header() ->
-    Encoder = {megaco_ber_bin_encoder, [], []},
+    Encoder = {megaco_ber_encoder, [], []},
     L = [{S, gen_byte_msg(Msg, Encoder)} ||  {S, Msg} <- messages()],
     gen_header_file_binary(L).
 

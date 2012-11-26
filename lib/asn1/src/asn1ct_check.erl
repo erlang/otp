@@ -61,13 +61,13 @@
 
 -define(TAG_PRIMITIVE(Num),
 	case S#state.erule of
-	    ber_bin_v2 ->
+	    ber ->
 		#tag{class='UNIVERSAL',number=Num,type='IMPLICIT',form=0};
 	    _ -> []
 	end).
 -define(TAG_CONSTRUCTED(Num),
 	case S#state.erule of
-	    ber_bin_v2 ->
+	    ber ->
 		#tag{class='UNIVERSAL',number=Num,type='IMPLICIT',form=32};
 	    _ -> []
 	end).
@@ -3262,7 +3262,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		       inlined=IsInlined},
     TestFun = 
 	fun(Tref) ->
-		{_,MaybeChoice} = get_referenced_type(S,Tref),
+		MaybeChoice = get_non_typedef(S, Tref),
 		case catch((MaybeChoice#typedef.typespec)#type.def) of
 		    {'CHOICE',_} ->
 			maybe_illicit_implicit_tag(choice,Tag);
@@ -3347,7 +3347,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 			TempNewDef#newt{
 			  type = check_externaltypereference(S,NewExt),
 			  tag = case S#state.erule of
-				    ber_bin_v2 ->
+				    ber ->
 					merge_tags(Ct,RefType#type.tag);
 				    _ ->
 					Ct
@@ -3616,6 +3616,14 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
     T5#type{constraint=check_constraints(S,T5#type.constraint)};
 check_type(_S,Type,Ts) ->
     exit({error,{asn1,internal_error,Type,Ts}}).
+
+get_non_typedef(S, Tref0) ->
+    case get_referenced_type(S, Tref0) of
+	{_,#typedef{typespec=#type{def=#'Externaltypereference'{}=Tref}}} ->
+	    get_non_typedef(S, Tref);
+	{_,Type} ->
+	    Type
+    end.
 
 %% tablecinf_choose. A SEQUENCE or SET may be inserted in another
 %% SEQUENCE or SET by the COMPONENTS OF directive. If this inserted
@@ -5289,7 +5297,7 @@ iof_associated_type(S,[]) ->
 	    AssociateSeq = iof_associated_type1(S,[]),
 	    Tag =
 		case S#state.erule of
-		    ber_bin_v2 ->
+		    ber ->
 			[?TAG_CONSTRUCTED(?N_INSTANCE_OF)];
 		    _ -> []
 		end,
@@ -5320,7 +5328,7 @@ iof_associated_type1(S,C) ->
 	end,
     {ObjIdTag,C1TypeTag}=
 	case S#state.erule of
-	    ber_bin_v2 -> 
+	    ber ->
 		{[{'UNIVERSAL',8}],
 		 [#tag{class='UNIVERSAL',
 		       number=6,
@@ -5551,8 +5559,9 @@ complist_as_tuple(_Per,[],Acc,Ext,_Acc2,ext) ->
 complist_as_tuple(_Per,[],Acc,Ext,Acc2,root2) ->
     {lists:reverse(Acc),lists:reverse(Ext),lists:reverse(Acc2)}.
 
-is_erule_per(Erule) ->
-    lists:member(Erule,[per,per_bin,uper_bin]).
+is_erule_per(per) -> true;
+is_erule_per(uper) -> true;
+is_erule_per(ber) -> false.
 
 expand_components(S, [{'COMPONENTS OF',Type}|T]) ->
     CompList = expand_components2(S,get_referenced_type(S,Type#type.def)),
@@ -5641,7 +5650,7 @@ check_set(S,Type,Components) ->
 	{true,_} ->
 	    {Sorted,SortedComponents} = sort_components(der,S,NewComponents),
 	    {Sorted,TableCInf,SortedComponents};
-	{_,PER} when PER =:= per; PER =:= per_bin; PER =:= uper_bin ->
+	{_,PER} when PER =:= per; PER =:= uper ->
 	    {Sorted,SortedComponents} = sort_components(per,S,NewComponents),
 	    {Sorted,TableCInf,SortedComponents};
 	_ ->
@@ -5765,7 +5774,7 @@ sort_universal_type(Components) ->
 decode_type(I) when is_integer(I) ->
     I;
 decode_type(T) ->
-    asn1ct_gen_ber:decode_type(T).
+    asn1ct_gen_ber_bin_v2:decode_type(T).
 
 untagged_choice(_S,[#'ComponentType'{typespec=#type{tag=[],def={'CHOICE',_}}}|_Rest]) ->
     true;
@@ -6884,16 +6893,16 @@ get_taglist(S,{ObjCl,FieldNameList}) when is_record(ObjCl,objectclass),
 	{TypeFieldName,_} when is_atom(TypeFieldName) -> []%should check if allowed
     end;
 get_taglist(S,Def) ->
-    case lists:member(S#state.erule,[ber_bin_v2]) of
-	false ->
+    case S#state.erule of
+	ber ->
+	    [];
+	_ ->
 	    case Def of
 		'ASN1_OPEN_TYPE' -> % open_type has no UNIVERSAL tag as such
 		    [];
 		_ ->
 		    [asn1ct_gen:def_to_tag(Def)]
-	    end;
-	_ -> 
-	    []
+	    end
     end.
 
 get_taglist1(S,[#'ComponentType'{name=_Cname,tags=TagL}|Rest]) when is_list(TagL) -> 

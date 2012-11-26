@@ -83,6 +83,7 @@ MODULES= \
 	testInfObj \
 	testParameterizedInfObj \
 	testMergeCompile \
+	testMultipleLevels \
 	testDeepTConstr \
 	testTimer \
 	testMegaco \

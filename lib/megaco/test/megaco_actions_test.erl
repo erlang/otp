@@ -80,8 +80,7 @@ end_per_testcase(Case, Config) ->
 
 all() -> 
     [pretty_text, flex_pretty_text, compact_text,
-     flex_compact_text, erl_dist, erl_dist_mc, ber_bin,
-     ber_bin_drv, ber_bin_native, ber_bin_drv_native].
+     flex_compact_text, erl_dist, erl_dist_mc].
 
 groups() -> 
     [].
@@ -168,39 +167,6 @@ erl_dist_mc(Config) when is_list(Config) ->
     Version = 1, 
     EncodingConfig = [megaco_compressed],
     req_and_rep(Config, Codec, Version, EncodingConfig).
-
-
-ber_bin(suite) ->
-    [];
-ber_bin(doc) ->
-    [];
-ber_bin(Config) when is_list(Config) ->
-    ?SKIP(currently_not_supported_by_asn1).
-
-
-ber_bin_drv(suite) ->
-    [];
-ber_bin_drv(doc) ->
-    [];
-ber_bin_drv(Config) when is_list(Config) ->
-    ?SKIP(currently_not_supported_by_asn1).
-
-
-ber_bin_native(suite) ->
-    [];
-ber_bin_native(doc) ->
-    [];
-ber_bin_native(Config) when is_list(Config) ->
-    ?SKIP(currently_not_supported_by_asn1).
-
-
-ber_bin_drv_native(suite) ->
-    [];
-ber_bin_drv_native(doc) ->
-    [];
-ber_bin_drv_native(Config) when is_list(Config) ->
-    ?SKIP(currently_not_supported_by_asn1).
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

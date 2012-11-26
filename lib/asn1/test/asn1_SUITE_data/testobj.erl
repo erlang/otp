@@ -1420,24 +1420,7 @@ wrapper_encode(Module,Type,Value) ->
 	    Error
     end.
 
-wrapper_decode(Module,Type,Bytes) ->
-    case Module:encoding_rule() of
-	ber ->
-	    asn1rt:decode(Module,Type,Bytes);
-	ber_bin when binary(Bytes) ->
-	    asn1rt:decode(Module,Type,Bytes);
-	ber_bin ->
-	    asn1rt:decode(Module,Type,list_to_binary(Bytes));
-	ber_bin_v2 when binary(Bytes) ->
-	    asn1rt:decode(Module,Type,Bytes);
-	ber_bin_v2 ->
-	    asn1rt:decode(Module,Type,list_to_binary(Bytes));
-	per ->
-	    asn1rt:decode(Module,Type,Bytes);
-	per_bin when binary(Bytes) ->
-	    asn1rt:decode(Module,Type,Bytes);
-	per_bin ->
-	    asn1rt:decode(Module,Type,list_to_binary(Bytes));
-	uper_bin ->
-	    asn1rt:decode(Module,Type,list_to_binary(Bytes))
-    end.
+wrapper_decode(Module, Type, Bytes) when is_binary(Bytes) ->
+    asn1rt:decode(Module, Type, Bytes);
+wrapper_decode(Module, Type, Bytes) when is_list(Bytes) ->
+    asn1rt:decode(Module, Type, list_to_binary(Bytes)).

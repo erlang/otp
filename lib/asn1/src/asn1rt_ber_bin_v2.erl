@@ -22,8 +22,7 @@
 %% encoding / decoding of BER  
 
 -export([decode/1, decode/2, match_tags/2, encode/1, encode/2]). 
--export([fixoptionals/2, cindex/3,
-	 list_to_record/2,
+-export([fixoptionals/2,
 	 encode_tag_val/1,
 	 encode_tags/3,
 	 skip_ExtensionAdditions/2]).
@@ -54,8 +53,6 @@
 	 decode_open_type_as_binary/3]).
 
 -export([decode_primitive_incomplete/2,decode_selective/2]).
-
--export([is_nif_loadable/0]).
  
 % the encoding of class of tag bits 8 and 7 
 -define(UNIVERSAL,   0). 
@@ -135,12 +132,7 @@ encode(Tlv,_) when is_binary(Tlv) ->
 encode([Tlv],Method) ->
     encode(Tlv,Method);
 encode(Tlv, nif) ->
-    case is_nif_loadable() of
-	true ->
-	    asn1rt_nif:encode_ber_tlv(Tlv);
-	false ->
-	    encode_erl(Tlv)
-    end;
+    asn1rt_nif:encode_ber_tlv(Tlv);
 encode(Tlv, _) ->
     encode_erl(Tlv).
 
@@ -178,35 +170,14 @@ decode(B) ->
 
 %% asn1-1.7
 decode(B, nif) ->
-    case is_nif_loadable() of
-	true ->
-	    case asn1rt_nif:decode_ber_tlv(B) of
-		{error, Reason} -> handle_error(Reason, B);
-		Else -> Else
-	    end;
-	false ->
-	    decode(B)
+    case asn1rt_nif:decode_ber_tlv(B) of
+	{error, Reason} -> handle_error(Reason, B);
+	Else -> Else
     end;
 decode(B,erlang) when is_binary(B) ->
     decode_primitive(B);
 decode(Tlv,erlang) ->
     {Tlv,<<>>}.
-
-%% Have to check this since asn1 is not guaranteed to be available
-is_nif_loadable() ->
-    case application:get_env(asn1, nif_loadable) of
-	{ok,R} ->
-	    R;
-	undefined ->
-	    case catch code:load_file(asn1rt_nif) of
-		{module, asn1rt_nif} ->
-		    application:set_env(asn1, nif_loadable, true),
-		    true;
-		_Else ->
-		    application:set_env(asn1, nif_loadable, false),
-		    false
-	    end
-    end.
 
 handle_error([],_)->
     exit({error,{asn1,{"memory allocation problem"}}});
@@ -612,13 +583,6 @@ match_tags(Tlv, []) ->
     Tlv;
 match_tags(Tlv = {Tag,_V},[T|_Tt]) ->
     exit({error,{asn1,{wrong_tag,{{expected,T},{got,Tag,Tlv}}}}}).
-
- 
-cindex(Ix,Val,Cname) -> 
-    case element(Ix,Val) of 
-	{Cname,Val2} -> Val2; 
-	X -> X 
-    end. 
  
 %%%
 %% skips components that do not match a tag in Tags
@@ -641,13 +605,6 @@ skip_ExtensionAdditions(TLV=[{Tag,_}|Rest],Tags) ->
 %%=============================================================================== 
 %%=============================================================================== 
 %%=============================================================================== 
- 
-% converts a list to a record if necessary 
-list_to_record(Name,List) when is_list(List) -> 
-    list_to_tuple([Name|List]); 
-list_to_record(_Name,Tuple) when is_tuple(Tuple) -> 
-    Tuple. 
- 
  
 fixoptionals(OptList,Val) when is_list(Val) -> 
     fixoptionals(OptList,Val,1,[],[]). 

@@ -176,7 +176,7 @@ display_megaco_info() ->
     io:format("Megaco version:      ~s (~s)~n", [Ver, FlexStr]).
 
 display_asn1_info() ->
-    AI = megaco_ber_bin_drv_media_gateway_control_v1:info(),
+    AI = megaco_ber_media_gateway_control_v1:info(),
     Vsn = 
 	case lists:keysearch(vsn, 1, AI) of
 	    {value, {vsn, V}} when is_atom(V) ->
@@ -281,15 +281,11 @@ expand_codec(Codec) ->
 	    [{Codec, megaco_compact_text_encoder, [flex_scanner], 3000},
 	     {Codec, megaco_compact_text_encoder, [],             1500}];
 	ber ->
-	    [{Codec, megaco_ber_bin_encoder, [driver,native], 4000},
-	     {Codec, megaco_ber_bin_encoder, [native],        3000},
-	     {Codec, megaco_ber_bin_encoder, [driver],        3000},
-	     {Codec, megaco_ber_bin_encoder, [],              1000}];
+	    [{Codec, megaco_ber_encoder, [native],        3000},
+	     {Codec, megaco_ber_encoder, [],              1000}];
 	per ->
-	    [{Codec, megaco_per_bin_encoder, [driver,native], 4000},
-	     {Codec, megaco_per_bin_encoder, [native],        3000},
-	     {Codec, megaco_per_bin_encoder, [driver],        3000},
-	     {Codec, megaco_per_bin_encoder, [],              1000}];
+	    [{Codec, megaco_per_encoder, [native],        3000},
+	     {Codec, megaco_per_encoder, [],              1000}];
 	erlang ->
 	    [
 	     {Codec, megaco_erl_dist_encoder, [megaco_compressed,compressed], 500},
