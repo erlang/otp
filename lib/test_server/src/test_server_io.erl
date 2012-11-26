@@ -307,8 +307,10 @@ do_print_buffered(Q0, St) ->
 
 gc(#st{gls=Gls0}) ->
     InUse0 = [begin
-		  {group_leader,GL} = process_info(P, group_leader),
-		  GL
+		  case process_info(P, group_leader) of
+		      {group_leader,GL} -> GL;
+		      undefined -> undefined
+		  end
 	      end || P <- processes()],
     InUse = ordsets:from_list(InUse0),
     Gls = gb_sets:to_list(Gls0),
