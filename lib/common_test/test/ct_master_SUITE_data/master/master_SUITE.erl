@@ -39,7 +39,8 @@ init_per_suite(Config) ->
 end_per_suite(_) ->
     ok.
 
-all() -> [first_testcase, second_testcase, third_testcase].
+all() -> [first_testcase, second_testcase, third_testcase,
+	  env_vars].
 
 init_per_testcase(_, Config) ->
     Config.
@@ -56,3 +57,9 @@ second_testcase(_)->
 third_testcase(_)->
     A = 4,
     A = 2*2.
+
+env_vars(_) ->
+    io:format("~p\n", [os:getenv()]),
+    "yes" = os:getenv("THIS_MUST_BE_SET"),
+    "value" = os:getenv("SO_MUST_THIS"),
+    ok.

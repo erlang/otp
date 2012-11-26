@@ -37,7 +37,7 @@
 
 -record(options, {username, password, boot_timeout, init_timeout,
 		  startup_timeout, startup_functions, monitor_master,
-		  kill_if_fail, erl_flags}).
+		  kill_if_fail, erl_flags, env}).
 
 %%%-----------------------------------------------------------------
 %%% @spec start(Node) -> Result
@@ -85,7 +85,8 @@ start(Host, Node) ->
 %%%		  {startup_functions, StartupFunctions} |
 %%%		  {monitor_master, Monitor} |
 %%%		  {kill_if_fail, KillIfFail} |
-%%%		  {erl_flags, ErlangFlags}
+%%%		  {erl_flags, ErlangFlags} |
+%%%               {env, [{EnvVar,Value}]}
 %%%   Username = string()
 %%%   Password = string()
 %%%   BootTimeout = integer()
@@ -99,6 +100,8 @@ start(Host, Node) ->
 %%%   Monitor = bool()
 %%%   KillIfFail = bool()
 %%%   ErlangFlags = string()
+%%%   EnvVar = string()
+%%%   Value = string()
 %%%   Result = {ok, NodeName} | {error, already_started, NodeName} |
 %%%	       {error, started_not_connected, NodeName} |
 %%%	       {error, boot_timeout, NodeName} |
@@ -151,6 +154,9 @@ start(Host, Node) ->
 %%%
 %%% <p>Option <code>erlang_flags</code> specifies, which flags will be added
 %%% to the parameters of the <code>erl</code> executable.</p>
+%%%
+%%% <p>Option <code>env</code> specifies a list of environment variables
+%%% that will extended the environment.</p>
 %%%
 %%% <p>Special return values are:
 %%% <list>
@@ -233,10 +239,12 @@ fetch_options(Options) ->
     Monitor = get_option_value(monitor_master, Options, false),
     KillIfFail = get_option_value(kill_if_fail, Options, true),
     ErlFlags = get_option_value(erl_flags, Options, []),
+    EnvVars = get_option_value(env, Options, []),
     #options{username=UserName, password=Password,
 	     boot_timeout=BootTimeout, init_timeout=InitTimeout,
 	     startup_timeout=StartupTimeout, startup_functions=StartupFunctions,
-	     monitor_master=Monitor, kill_if_fail=KillIfFail, erl_flags=ErlFlags}.
+	     monitor_master=Monitor, kill_if_fail=KillIfFail,
+	     erl_flags=ErlFlags, env=EnvVars}.
 
 % send a message when slave node is started
 % @hidden
@@ -306,6 +314,7 @@ do_start(Host, Node, Options) ->
 	true->
 	    spawn_remote_node(Host, Node, Options)
     end,
+
     BootTimeout = Options#options.boot_timeout,
     InitTimeout = Options#options.init_timeout,
     StartupTimeout = Options#options.startup_timeout,
@@ -372,9 +381,9 @@ get_cmd(Node, Flags) ->
 
 % spawn node locally
 spawn_local_node(Node, Options) ->
-    ErlFlags = Options#options.erl_flags,
+    #options{env=Env,erl_flags=ErlFlags} = Options,
     Cmd = get_cmd(Node, ErlFlags),
-    open_port({spawn, Cmd}, [stream]).
+    open_port({spawn, Cmd}, [stream,{env,Env}]).
 
 % start crypto and ssh if not yet started
 check_for_ssh_running() ->
@@ -393,9 +402,10 @@ check_for_ssh_running() ->
 
 % spawn node remotely
 spawn_remote_node(Host, Node, Options) ->
-    Username = Options#options.username,
-    Password = Options#options.password,
-    ErlFlags = Options#options.erl_flags,
+    #options{username=Username,
+	     password=Password,
+	     erl_flags=ErlFlags,
+	     env=Env} = Options,
     SSHOptions = case {Username, Password} of
 	{[], []}->
 	    [];
@@ -407,7 +417,16 @@ spawn_remote_node(Host, Node, Options) ->
     check_for_ssh_running(),
     {ok, SSHConnRef} = ssh:connect(atom_to_list(Host), 22, SSHOptions),
     {ok, SSHChannelId} = ssh_connection:session_channel(SSHConnRef, infinity),
+    ssh_setenv(SSHConnRef, SSHChannelId, Env),
     ssh_connection:exec(SSHConnRef, SSHChannelId, get_cmd(Node, ErlFlags), infinity).
+
+
+ssh_setenv(SSHConnRef, SSHChannelId, [{Var, Value} | Vars])
+  when is_list(Var), is_list(Value) ->
+    success = ssh_connection:setenv(SSHConnRef, SSHChannelId,
+				    Var, Value, infinity),
+    ssh_setenv(SSHConnRef, SSHChannelId, Vars);
+ssh_setenv(_SSHConnRef, _SSHChannelId, []) -> ok.
 
 % call functions on a remote Erlang node
 call_functions(_Node, []) ->
