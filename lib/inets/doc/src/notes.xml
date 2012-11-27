@@ -33,7 +33,27 @@
   </header>
   
   
-  <section>
+  <section><title>Inets 5.9.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minimum bytes per second</p>
+          <p>
+	    New option to http server, {minimum_bytes_per_second,
+	    integer()}, for a connection, if it is not reached the
+	    socket will close for that specific connection. Can be
+	    used to prevent hanging requests from faulty clients.</p>
+          <p>
+	    Own Id: OTP-10392</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>Inets 5.9.1</title>
   
     <section>

@@ -31,6 +31,24 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix a crash in race condition detection</p> <p>Remove
+	    old untested experimental extension</p> <p>Respect
+	    {plt_check,false} option when using dialyzer:run/1</p>
+	    <p>Fix handling of tuple set remote types appearing in
+	    tuple sets</p>
+          <p>
+	    Own Id: OTP-10464</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

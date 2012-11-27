@@ -29,6 +29,50 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    SSH quiet mode</p>
+          <p>
+	    A new option to ssh:connect/3,4, quiet_mode. If true, the
+	    client will not print out anything on authorization.</p>
+          <p>
+	    Own Id: OTP-10429 Aux Id: kunagi-273 [184] </p>
+        </item>
+        <item>
+          <p>
+	    Restrict which key algorithms to use</p>
+          <p>
+	    A new option to ssh:connect/3,4 is introduced,
+	    public_key_algs, where you can restrict which key
+	    algorithms to use and in which order to try them.</p>
+          <p>
+	    Own Id: OTP-10498 Aux Id: kunagi-289 [200] </p>
+        </item>
+        <item>
+          <p>
+	    Confidentiality of client password</p>
+          <p>
+	    Unsets clients password after authentication.</p>
+          <p>
+	    Own Id: OTP-10511 Aux Id: kunagi-292 [203] </p>
+        </item>
+        <item>
+          <p>
+	    Fixed user interaction for SSH</p>
+          <p>
+	    It's now available to accept hosts and input password</p>
+          <p>
+	    Own Id: OTP-10513 Aux Id: kunagi-293 [204] </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 2.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

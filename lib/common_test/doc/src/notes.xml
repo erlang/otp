@@ -32,6 +32,100 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The ct:run_test/1 option 'config' only worked with a
+	    single config file, not a list of files. This has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-10495</p>
+        </item>
+        <item>
+          <p>
+	    ct_netconfc:close_session sometimes returned
+	    {error,closed} because the ssh connection was closed
+	    (from the server side) before the rpc-reply was received
+	    by the client. This is normal and can not be helped. It
+	    has been corrected so the return will be 'ok' in this
+	    case. Other error situations will still give
+	    {error,Reason}.</p>
+          <p>
+	    Own Id: OTP-10510 Aux Id: kunagi-320 [231] </p>
+        </item>
+        <item>
+          <p>
+	    ct_netconfc:close_session sometimes returned
+	    {error,closed} or (if the connection was named)
+	    {error,{process_down,Pid,normal}} because the ssh
+	    connection was closed (from the server side) before the
+	    rpc-reply was received by the client. This is normal and
+	    can not be helped. It has been corrected so the return
+	    will be 'ok' in this situation.</p>
+          <p>
+	    Own Id: OTP-10570</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where ct:require of same name with same config
+	    would return name_in_use.</p>
+          <p>
+	    Own Id: OTP-10572</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new test case group search functionality has been
+	    implemented that makes Common Test search automatically
+	    through the group definitions tree (the return value of
+	    groups/0) and create tests for all paths of nested groups
+	    that match the specification. It also allows for
+	    specifying unique paths to sub groups in order to avoid
+	    execution of unwanted tests. This new feature can be used
+	    whenever starting a test run by means of the ct_run
+	    program, the ct:run_test/1 API function, or a Test
+	    Specification. Details can be found in the Test Case
+	    Group Execution section in the Running Tests chapter.</p>
+          <p>
+	    Own Id: OTP-10466 Aux Id: kunagi-276 [187] </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Restore Config data if lost when test case fails.</p>
+          <p>
+	    Own Id: OTP-10070 Aux Id: kunagi-175 [86] </p>
+        </item>
+        <item>
+          <p>
+	    IO server error in test_server.</p>
+          <p>
+	    Own Id: OTP-10125 Aux Id: OTP-10101, kunagi-177 [88] </p>
+        </item>
+        <item>
+          <p>
+	    Faulty connection handling in common_test.</p>
+          <p>
+	    Own Id: OTP-10126 Aux Id: kunagi-178 [89] </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.6.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
