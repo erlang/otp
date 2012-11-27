@@ -515,7 +515,7 @@ gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     gen_decode_length(SizeConstraint,
 		      is_optimized(Erules)),
     emit({"'dec_",asn1ct_gen:list2name(Typename),
-	      "_components'(Num, Bytes1, telltype",ObjFun,", []).",nl}),
+	  "_components'(Num, Bytes1",ObjFun,", []).",nl,nl}),
     NewComponentType =
 	case ComponentType#type.def of
 	    {'ENUMERATED',_,Component}->
@@ -609,10 +609,10 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
 		{"",""}
 	end,
     emit({"'dec_",asn1ct_gen:list2name(Typename),
-	  "_components'(0, Bytes, _",ObjFun_Var,", Acc) ->",nl,
+	  "_components'(0, Bytes",ObjFun_Var,", Acc) ->",nl,
 	  indent(3),"{lists:reverse(Acc), Bytes};",nl}),
     emit({"'dec_",asn1ct_gen:list2name(Typename),
-	  "_components'(Num, Bytes, _",ObjFun,", Acc) ->",nl}),
+	  "_components'(Num, Bytes",ObjFun,", Acc) ->",nl}),
     emit({indent(3),"{Term,Remain} = "}),
     Constructed_Suffix = asn1ct_gen:constructed_suffix(SeqOrSetOf,
 						       Cont#type.def),
@@ -641,7 +641,7 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
 	    emit({"'dec_",Conttype,"'(Bytes,telltype),",nl})
     end,
     emit({indent(3),"'dec_",asn1ct_gen:list2name(Typename),
-	  "_components'(Num-1, Remain, telltype",ObjFun,", [Term|Acc]).",nl}). 
+	  "_components'(Num-1, Remain",ObjFun,", [Term|Acc]).",nl}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
