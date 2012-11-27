@@ -24,8 +24,6 @@
 -module(ssl_manager).
 -behaviour(gen_server).
 
--include("ssl_internal.hrl").
-
 %% Internal application API
 -export([start_link/1, start_link_dist/1,
 	 connection_init/2, cache_pem_file/2,
