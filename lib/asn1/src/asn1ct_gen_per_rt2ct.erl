@@ -624,23 +624,6 @@ get_constraint(C,Key) ->
 	    V
     end.
 
-get_constraints(L=[{Key,_}],Key) ->
-    L;
-get_constraints([],_) ->
-    [];
-get_constraints(C,Key) ->
-    {value,L} = keysearch_allwithkey(Key,1,C,[]),
-    L.
-
-keysearch_allwithkey(Key,Ix,C,Acc) ->
-    case lists:keysearch(Key,Ix,C) of
-	false ->
-	    {value,Acc};
-	{value,T} ->
-	    RestC = lists:delete(T,C),
-	    keysearch_allwithkey(Key,Ix,RestC,[T|Acc])
-    end.
-
 %% effective_constraint(Type,C)
 %% Type = atom()
 %% C = [C1,...]
@@ -657,69 +640,9 @@ keysearch_allwithkey(Key,Ix,C,Acc) ->
 effective_constraint(integer,[C={{_,_},_}|_Rest]) -> % extension
     [C]; %% [C|effective_constraint(integer,Rest)]; XXX what is possible ???
 effective_constraint(integer,C) ->
-    SVs = get_constraints(C,'SingleValue'),
-    SV = effective_constr('SingleValue',SVs),
-    VRs = get_constraints(C,'ValueRange'),
-    VR = effective_constr('ValueRange',VRs),
-    CRange = greatest_common_range(SV,VR),
-    pre_encode(integer,CRange);
+    pre_encode(integer, asn1ct_imm:effective_constraint(integer, C));
 effective_constraint(bitstring,C) ->
-    get_constraint(C,'SizeConstraint').
-
-effective_constr(_,[]) ->
-    [];
-effective_constr('SingleValue',List) ->
-    SVList = lists:flatten(lists:map(fun(X)->element(2,X)end,List)),
-    %% Sort and remove duplicates before generating SingleValue or ValueRange
-    %% In case of ValueRange, also check for 'MIN and 'MAX'
-    case lists:usort(SVList) of
-	[N] ->
-	    [{'SingleValue',N}];
-	L when is_list(L) ->
-	    [{'ValueRange',{least_Lb(L),greatest_Ub(L)}}]
-    end;
-effective_constr('ValueRange',List) ->
-    LBs = lists:map(fun({_,{Lb,_}})-> Lb end,List),
-    UBs = lists:map(fun({_,{_,Ub}})-> Ub end,List),
-    Lb = least_Lb(LBs),
-    [{'ValueRange',{Lb,lists:max(UBs)}}].
-
-greatest_common_range([],VR) ->
-    VR;
-greatest_common_range(SV,[]) ->
-    SV;
-greatest_common_range([{_,Int}],[{_,{'MIN',Ub}}]) when is_integer(Int),
-						       Int > Ub ->
-    [{'ValueRange',{'MIN',Int}}];
-greatest_common_range([{_,Int}],[{_,{Lb,Ub}}]) when is_integer(Int),
-						    Int < Lb ->
-    [{'ValueRange',{Int,Ub}}];
-greatest_common_range([{_,Int}],VR=[{_,{_Lb,_Ub}}]) when is_integer(Int) ->
-    VR;
-greatest_common_range([{_,L}],[{_,{Lb,Ub}}]) when is_list(L) ->
-    Min = least_Lb([Lb|L]),
-    Max = greatest_Ub([Ub|L]),
-    [{'ValueRange',{Min,Max}}];
-greatest_common_range([{_,{Lb1,Ub1}}],[{_,{Lb2,Ub2}}]) ->
-    Min = least_Lb([Lb1,Lb2]),
-    Max = greatest_Ub([Ub1,Ub2]),
-    [{'ValueRange',{Min,Max}}].
-    
-
-least_Lb(L) ->
-    case lists:member('MIN',L) of
-	true -> 'MIN';
-	_ -> lists:min(L)
-    end.
-
-greatest_Ub(L) ->
-    case lists:member('MAX',L) of
-	true -> 'MAX';
-	_ -> lists:max(L)
-    end.
-
-
-
+    asn1ct_imm:effective_constraint(bitstring, C).
 
 pre_encode(integer,[]) ->
     [];

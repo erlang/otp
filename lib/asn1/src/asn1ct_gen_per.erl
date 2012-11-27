@@ -146,10 +146,12 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
     case D#type.def of
 	'INTEGER' ->
 	    emit({"?RT_PER:encode_integer(", %fel
-		  {asis,effective_constraint(integer,Constraint)},",",Value,")"});
+		  {asis,asn1ct_imm:effective_constraint(integer,Constraint)},
+		  ",",Value,")"});
 	{'INTEGER',NamedNumberList} ->
 	    emit({"?RT_PER:encode_integer(",
-		  {asis,effective_constraint(integer,Constraint)},",",Value,",",
+		  {asis,asn1ct_imm:effective_constraint(integer,Constraint)},
+		  ",",Value,",",
 		  {asis,NamedNumberList},")"});
 	{'ENUMERATED',{Nlist1,Nlist2}} ->
 	    NewList = lists:concat([[{0,X}||{X,_} <- Nlist1],['EXT_MARK'],[{1,X}||{X,_} <- Nlist2]]),
@@ -294,107 +296,6 @@ emit_enc_enumerated_case(_Per,C, {0,EnumName}, Count) ->
     emit(["'",EnumName,"' -> [{bit,0},?RT_PER:encode_integer(",{asis,C},", ",Count,")]"]);
 emit_enc_enumerated_case(_Erule, C, EnumName, Count) ->
     emit(["'",EnumName,"' -> ?RT_PER:encode_integer(",{asis,C},", ",Count,")"]).
-
-%% effective_constraint(Type,C)
-%% Type = atom()
-%% C = [C1,...]
-%% C1 = {'SingleValue',SV} | {'ValueRange',VR} | {atom(),term()}
-%% SV = integer() | [integer(),...]
-%% VR = {Lb,Ub}
-%% Lb = 'MIN' | integer()
-%% Ub = 'MAX' | integer()
-%% Returns a single value if C only has a single value constraint, and no
-%% value range constraints, that constrains to a single value, otherwise 
-%% returns a value range that has the lower bound set to the lowest value 
-%% of all single values and lower bound values in C and the upper bound to
-%% the greatest value.
-effective_constraint(integer,[C={{_,_},_}|_Rest]) -> % extension
-    [C]; %% [C|effective_constraint(integer,Rest)]; XXX what is possible ???
-effective_constraint(integer,C) ->
-    SVs = get_constraints(C,'SingleValue'),
-    SV = effective_constr('SingleValue',SVs),
-    VRs = get_constraints(C,'ValueRange'),
-    VR = effective_constr('ValueRange',VRs),
-    greatest_common_range(SV,VR).
-
-effective_constr(_,[]) ->
-    [];
-effective_constr('SingleValue',List) ->
-    SVList = lists:flatten(lists:map(fun(X)->element(2,X)end,List)),
-    %% Sort and remove duplicates before generating SingleValue or ValueRange
-    %% In case of ValueRange, also check for 'MIN and 'MAX'
-    case lists:usort(SVList) of
-	[N] ->
-	    [{'SingleValue',N}];
-	L when is_list(L) ->
-	    [{'ValueRange',{least_Lb(L),greatest_Ub(L)}}]
-    end;
-effective_constr('ValueRange',List) ->
-    LBs = lists:map(fun({_,{Lb,_}})-> Lb end,List),
-    UBs = lists:map(fun({_,{_,Ub}})-> Ub end,List),
-    Lb = least_Lb(LBs),
-    [{'ValueRange',{Lb,lists:max(UBs)}}].
-
-greatest_common_range([],VR) ->
-    VR;
-greatest_common_range(SV,[]) ->
-    SV;
-greatest_common_range(SV,VR) ->
-    greatest_common_range2(mk_vr(SV),mk_vr(VR)).
-greatest_common_range2({_,Int},{'MIN',Ub}) when is_integer(Int),
-						       Int > Ub ->
-    [{'ValueRange',{'MIN',Int}}];
-greatest_common_range2({_,Int},{Lb,Ub}) when is_integer(Int),
-						    Int < Lb ->
-    [{'ValueRange',{Int,Ub}}];
-greatest_common_range2({_,Int},VR={_Lb,_Ub}) when is_integer(Int) ->
-    [{'ValueRange',VR}];
-greatest_common_range2({_,L},{Lb,Ub}) when is_list(L) ->
-    Min = least_Lb([Lb|L]),
-    Max = greatest_Ub([Ub|L]),
-    [{'ValueRange',{Min,Max}}];
-greatest_common_range2({Lb1,Ub1},{Lb2,Ub2}) ->
-    Min = least_Lb([Lb1,Lb2]),
-    Max = greatest_Ub([Ub1,Ub2]),
-    [{'ValueRange',{Min,Max}}].
-
-mk_vr([{Type,I}]) when is_atom(Type), is_integer(I) ->
-    {I,I};
-mk_vr([{Type,{Lb,Ub}}]) when is_atom(Type) ->
-    {Lb,Ub};
-mk_vr(Other) ->
-    Other.
-
-least_Lb(L) ->
-    case lists:member('MIN',L) of
-	true -> 'MIN';
-	_ -> lists:min(L)
-    end.
-
-greatest_Ub(L) ->
-    case lists:member('MAX',L) of
-	true -> 'MAX';
-	_ -> lists:max(L)
-    end.
-
-
-get_constraints(L=[{Key,_}],Key) ->
-    L;
-get_constraints([],_) ->
-    [];
-get_constraints(C,Key) ->
-    {value,L} = keysearch_allwithkey(Key,1,C,[]),
-    L.
-
-keysearch_allwithkey(Key,Ix,C,Acc) ->
-    case lists:keysearch(Key,Ix,C) of
-	false ->
-	    {value,Acc};
-	{value,T} ->
-	    RestC = lists:delete(T,C),
-	    keysearch_allwithkey(Key,Ix,RestC,[T|Acc])
-    end.
-
 
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------
@@ -1235,10 +1136,10 @@ gen_dec_prim(Erules,Att,BytesVar) ->
     case Typename of
 	'INTEGER' ->
 	    emit({"?RT_PER:decode_integer(",BytesVar,",",
-		  {asis,effective_constraint(integer,Constraint)},")"});
+		  {asis,asn1ct_imm:effective_constraint(integer,Constraint)},")"});
 	{'INTEGER',NamedNumberList} ->
 	    emit({"?RT_PER:decode_integer(",BytesVar,",",
-		  {asis,effective_constraint(integer,Constraint)},",",
+		  {asis,asn1ct_imm:effective_constraint(integer,Constraint)},",",
 		  {asis,NamedNumberList},")"});
 
 	'REAL' ->
