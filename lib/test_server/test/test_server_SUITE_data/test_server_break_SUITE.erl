@@ -41,7 +41,7 @@ init_per_suite(Config) ->
     spawn(fun break_and_continue_sup/0),
     Config.
 
-end_per_suite(Config) ->
+end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(Case,Config) when Case==break_in_init_tc ->
@@ -90,19 +90,19 @@ break_in_end_tc_after_fail(Config) when is_list(Config) ->
 break_in_end_tc_after_abort(Config) when is_list(Config) ->
     ?t:adjusted_sleep(2000). % will cause a timetrap timeout
 
-%%%-----------------------------------------------------------------
-%%% Internal functions
-
 %% This test case checks that all breaks in previous test cases was
 %% also continued, and that the break lasted as long as expected.
 %% The reason for this is that some of the breaks above are in
 %% end_per_testcase, and failures there will only produce a warning,
 %% not an error - so this is to catch the error for real.
-check_all_breaks(Config) ->
+check_all_breaks(Config) when is_list(Config) ->
     break_and_continue_sup ! {done,self()},
     receive {Breaks,Continued} ->
 	    check_all_breaks(Breaks,Continued)
     end.
+%%%-----------------------------------------------------------------
+%%% Internal functions
+
 
 check_all_breaks([{From,Case,T,Start}|Breaks],[{From,End}|Continued]) ->
     Diff = timer:now_diff(End,Start),
