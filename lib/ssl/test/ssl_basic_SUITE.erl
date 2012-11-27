@@ -274,6 +274,7 @@ certificate_verify_tests() ->
      server_verify_client_once_passive,
      server_verify_client_once_active,
      server_verify_client_once_active_once,
+     new_server_wants_peer_cert,
      client_verify_none_passive,
      client_verify_none_active,
      client_verify_none_active_once,
@@ -3610,9 +3611,14 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
 
     %% Make sure session is registered
     test_server:sleep(?SLEEP),
+    Monitor = erlang:monitor(process, Server),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client0),
-
+    receive
+	{'DOWN', Monitor, _, _, _} ->
+	    ok
+    end,
+    
     Server1 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
 				   {from, self()},
@@ -3719,10 +3725,14 @@ reuseaddr(Config) when is_list(Config) ->
 				   {from, self()},
 				   {mfa, {ssl_test_lib, no_result, []}},
 				   {options, [{active, false} | ClientOpts]}]),
-    test_server:sleep(?SLEEP),
+    Monitor = erlang:monitor(process, Server),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
-
+    receive
+	{'DOWN', Monitor, _, _, _} ->
+	    ok
+    end,
+    
     Server1 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
 				   {from, self()},
@@ -4040,6 +4050,67 @@ client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == rsa orelse KeyAlgo == 
 client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == dss orelse KeyAlgo == dhe_dss ->
     {?config(client_dsa_opts, Config),
      ?config(server_dsa_opts, Config)}.
+
+
+%%--------------------------------------------------------------------
+
+new_server_wants_peer_cert(doc) ->
+    ["Test that server configured to do client certification does"
+     " not reuse session without a client certificate."];
+new_server_wants_peer_cert(suite) ->
+    [];
+new_server_wants_peer_cert(Config) when is_list(Config) ->
+    ServerOpts = ?config(server_opts, Config),
+    VServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
+		  | ?config(server_verification_opts, Config)],
+    ClientOpts = ?config(client_verification_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {?MODULE, peercert_result, []}},
+				   {options,  [ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+				   {host, Hostname},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {options, ClientOpts}]),
+
+    Monitor = erlang:monitor(process, Server),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    receive
+	{'DOWN', Monitor, _, _, _} ->
+	    ok
+    end,
+    
+    Server1 = ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
+					 {from, self()},
+					 {mfa, {?MODULE, peercert_result, []}},
+					 {options,  VServerOpts}]), 
+    Client1 =
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+				   {host, Hostname},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {options, [ClientOpts]}]),
+
+    CertFile = proplists:get_value(certfile, ClientOpts),
+    [{'Certificate', BinCert, _}]= ssl_test_lib:pem_to_der(CertFile),
+
+    ServerMsg = {error, no_peercert},
+    Sever1Msg = {ok, BinCert},
+   
+    ssl_test_lib:check_result(Server, ServerMsg, Server1, Sever1Msg),
+
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client),
+    ssl_test_lib:close(Client1).
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions
