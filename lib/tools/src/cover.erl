@@ -1945,7 +1945,7 @@ move_clauses([]) ->
 
 %% Given a .beam file, find the .erl file. Look first in same directory as
 %% the .beam file, then in <beamdir>/../src
-find_source(File0) ->
+find_source(Module, File0) ->
     case filename:rootname(File0,".beam") of
 	File0 ->
 	    File0;
@@ -1962,10 +1962,26 @@ find_source(File0) ->
 			true ->
 			    InDotDotSrc;
 			false ->
-			    {beam,File0}
+			    find_source_from_module(Module, File0)
 		    end
 	    end
     end.
+
+%% In case we can't find the file from the given .beam,
+%% we try to get the information directly from the module source
+find_source_from_module(Module, File) ->
+    Compile = Module:module_info(compile),
+    case lists:keyfind(source, 1, Compile) of
+	{source, Path} ->
+	    case filelib:is_file(Path) of
+		true ->
+		    Path;
+		false ->
+		    {beam, File}
+	    end;
+	false ->
+		{beam, File}
+	end.
 
 do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
     analyse_info(Module,State#main_state.imported),
@@ -2070,7 +2086,7 @@ do_parallel_analysis_to_file(Module, OutFile, Opts, Loaded, From, State) ->
 	       {imported, File0, _} ->
 		   File0
 	   end,
-    case find_source(File) of
+    case find_source(Module, File) of
 	{beam,_BeamFile} ->
 	    reply(From, {error,no_source_code_found});
 	ErlFile ->

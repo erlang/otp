@@ -277,12 +277,23 @@ analyse(Config) when is_list(Config) ->
     ?line f:f2(),
     ?line {ok, "f.COVER.out"} = cover:analyse_to_file(f),
 
-    %% Source code cannot be found by analyse_to_file
+    %% Source code can be found via source
     ?line {ok,v} = compile:file("compile_beam/v",[debug_info]),
     ?line code:purge(v),
     ?line {module,v} = code:load_file(v),
     ?line {ok,v} = cover:compile_beam(v),
-    ?line {error,no_source_code_found} = cover:analyse_to_file(v),
+    {ok,"v.COVER.out"} = cover:analyse_to_file(v),
+
+    %% Source code cannot be found
+    {ok,_} = file:copy("compile_beam/z.erl", "z.erl"),
+    {ok,z} = compile:file(z,[debug_info]),
+    code:purge(z),
+    {module,z} = code:load_file(z),
+    {ok,z} = cover:compile_beam(z),
+    ok = file:delete("z.erl"),
+    {error,no_source_code_found} = cover:analyse_to_file(z),
+    code:purge(z),
+    code:delete(z),
 
     ?line {error,{not_cover_compiled,b}} = cover:analyse(b),
     ?line {error,{not_cover_compiled,g}} = cover:analyse(g),
