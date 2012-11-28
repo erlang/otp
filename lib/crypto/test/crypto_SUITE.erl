@@ -360,12 +360,8 @@ hmac_update_sha256(doc) ->
 hmac_update_sha256(suite) ->
     [];
 hmac_update_sha256(Config) when is_list(Config) ->
-    case openssl_version() of
-	V when V < 16#908000 ->
-	    {skipped,"OpenSSL version too old"};
-	_ ->
-	    hmac_update_sha256_do()
-    end.
+    if_098(fun() -> hmac_update_sha256_do() end).
+
 
 hmac_update_sha256_do() ->
     ?line Key = hexstr2bin("00010203101112132021222330313233"
@@ -387,12 +383,7 @@ hmac_update_sha512(doc) ->
 hmac_update_sha512(suite) ->
     [];
 hmac_update_sha512(Config) when is_list(Config) ->
-    case openssl_version() of
-	V when V < 16#908000 ->
-	    {skipped,"OpenSSL version too old"};
-	_ ->
-	    hmac_update_sha512_do()
-    end.
+    if_098(fun() -> hmac_update_sha512_do() end).
 
 hmac_update_sha512_do() ->
     ?line Key = hexstr2bin("00010203101112132021222330313233"
@@ -433,12 +424,7 @@ hmac_rfc4231(doc) ->
 hmac_rfc4231(suite) ->
     [];
 hmac_rfc4231(Config) when is_list(Config) ->
-    case openssl_version() of
-	V when V < 16#908000 ->
-	    {skipped,"OpenSSL version too old"};
-	_ ->
-	    hmac_rfc4231_do()
-    end.
+    if_098(fun() -> hmac_rfc4231_do() end).
 
 hmac_rfc4231_do() ->
     %% Test Case 1
@@ -1976,3 +1962,10 @@ openssl_version() ->
 	    undefined
     end.
 
+if_098(Fun) ->
+    case openssl_version() of
+	V when V < 16#908000 ->
+	    {skipped,"OpenSSL version too old"};
+	_ ->
+	    Fun()
+    end.
