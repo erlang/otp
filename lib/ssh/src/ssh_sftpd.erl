@@ -369,7 +369,8 @@ handle_op(?SSH_FXP_FSETSTAT, ReqId, <<?UINT32(HLen), BinHandle:HLen/binary,
 handle_op(?SSH_FXP_REMOVE, ReqId, <<?UINT32(PLen), BPath:PLen/binary>>, 
 	  State0 = #state{file_handler = FileMod, file_state = FS0, xf = #ssh_xfer{vsn = Vsn}}) ->
     Path = relate_file_name(BPath, State0),
-    case FileMod:is_dir(Path) of %% This version 6 we still have ver 5
+    {IsDir, _FS1} = FileMod:is_dir(Path, FS0),
+    case IsDir of %% This version 6 we still have ver 5
 	true when Vsn > 5 ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
 				    ?SSH_FX_FILE_IS_A_DIRECTORY, "File is a directory"); 
@@ -641,7 +642,8 @@ do_open(ReqId, State0, Path, Flags) ->
     #state{file_handler = FileMod, file_state = FS0, root = Root, xf = #ssh_xfer{vsn = Vsn}} = State0,
     XF = State0#state.xf,
     F = [binary | Flags],
-    case FileMod:is_dir(Path) of 
+    {IsDir, _FS1} = FileMod:is_dir(Path, FS0),
+    case IsDir of 
 	true when Vsn > 5 ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
     				    ?SSH_FX_FILE_IS_A_DIRECTORY, "File is a directory");
