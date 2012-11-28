@@ -20,7 +20,8 @@
 -module(asn1ct_imm).
 -export([per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
 	 per_dec_integer/2,per_dec_length/3,per_dec_named_integer/3,
-	 per_dec_octet_string/2,
+	 per_dec_octet_string/2]).
+-export([optimize_alignment/1,optimize_alignment/2,
 	 dec_slim_cg/2,dec_code_gen/2]).
 -export([effective_constraint/2]).
 -import(asn1ct_gen, [emit/1]).
@@ -28,7 +29,8 @@
 -record(st, {var,
 	     base}).
 
-dec_slim_cg(Imm, BytesVar) ->
+dec_slim_cg(Imm0, BytesVar) ->
+    {Imm,_} = optimize_alignment(Imm0),
     asn1ct_name:new(v),
     [H|T] = atom_to_list(asn1ct_name:curr(v)) ++ "@",
     VarBase = [H-($a-$A)|T],
@@ -44,6 +46,13 @@ dec_code_gen(Imm, BytesVar) ->
 	  "{",Dst,",",DstBuf,"}",nl,
 	  "end"]),
     ok.
+
+optimize_alignment(Imm) ->
+    opt_al(Imm, unknown).
+
+optimize_alignment(Imm, Al) ->
+    opt_al(Imm, Al).
+
 
 per_dec_boolean() ->
     {map,{get_bits,1,[1]},[{0,false},{1,true}]}.
@@ -211,6 +220,91 @@ per_num_bits(N) when N =< 128 -> 7;
 per_num_bits(N) when N =< 255 -> 8.
 
 %%%
+%%% Remove unnecessary aligning to octet boundaries.
+%%%
+
+opt_al({get_bits,E0,Opts0}, A0) ->
+    {E,A1} = opt_al(E0, A0),
+    Opts = opt_al_1(A1, Opts0),
+    A = update_al(A1, E, Opts),
+    {{get_bits,E,Opts},A};
+opt_al({call,Fun,E0}, A0) ->
+    {E,A} = opt_al(E0, A0),
+    {{call,Fun,E},A};
+opt_al({convert,Op,E0}, A0) ->
+    {E,A} = opt_al(E0, A0),
+    {{convert,Op,E},A};
+opt_al({value,E0}, A0) ->
+    {E,A} = opt_al(E0, A0),
+    {{value,E},A};
+opt_al({add,E0,I}, A0) when is_integer(I) ->
+    {E,A} = opt_al(E0, A0),
+    {{add,E,I},A};
+opt_al({test,E0,V,B0}, A0) ->
+    {E,A1} = opt_al(E0, A0),
+    {B,A2} = opt_al(B0, A1),
+    {{test,E,V,B},A2};
+opt_al({'case',Cs0}, A0) ->
+    {Cs,A} = opt_al_cs(Cs0, A0),
+    {{'case',Cs},A};
+opt_al({map,E0,Cs}, A0) ->
+    {E,A} = opt_al(E0, A0),
+    {{map,E,Cs},A};
+opt_al(I, A) when is_integer(I) ->
+    {I,A}.
+
+opt_al_cs([C0|Cs0], A0) ->
+    {C,A1} = opt_al(C0, A0),
+    {Cs,A2} = opt_al_cs(Cs0, A0),
+    {[C|Cs],merge_al(A1, A2)};
+opt_al_cs([], _) -> {[],none}.
+
+merge_al(unknown, _) -> unknown;
+merge_al(Other, none) -> Other;
+merge_al(_, unknown) -> unknown;
+merge_al(I0, I1) ->
+    case {I0 rem 8,I1 rem 8} of
+	{I,I} -> I;
+	{_,_} -> unknown
+    end.
+
+opt_al_1(unknown, Opts) ->
+    Opts;
+opt_al_1(A, Opts0) ->
+    case alignment(Opts0) of
+	none ->
+	    Opts0;
+	full ->
+	    case A rem 8 of
+		0 ->
+		    %% Already in alignment.
+		    proplists:delete(align, Opts0);
+		Bits ->
+		    %% Cheaper alignment with a constant padding.
+		    Opts1 = proplists:delete(align, Opts0),
+		    [{align,8-Bits }|Opts1]
+	    end;
+	A ->					%Assertion.
+	    Opts0
+    end.
+
+update_al(A0, E, Opts) ->
+    A = case alignment(Opts) of
+	    none -> A0;
+	    full -> 0;
+	    Bits when is_integer(A0) ->
+		0  = (A0 + Bits) rem 8;		%Assertion.
+	    _ ->
+		0
+	end,
+    [U] = [U || U <- Opts, is_integer(U)],
+    if
+	U rem 8 =:= 0 -> A;
+	is_integer(A), is_integer(E) -> A + U*E;
+	true -> unknown
+    end.
+
+%%%
 %%% Flatten the intermediate format and assign temporaries.
 %%%
 
@@ -288,16 +382,21 @@ flatten_hoist_align_1([], Ab, Acc) ->
     {[Ab],lists:reverse(Acc)}.
 
 flatten_align({get_bits,{SrcBits,SrcBuf},U,Dst}=Gb0, Pre, St0) ->
-    case is_aligned(U) of
-	false ->
+    case alignment(U) of
+	none ->
 	    flatten_align_1(U, Dst, Pre++[Gb0], St0);
-	true ->
+	full ->
 	    {PadBits,St1} = new_var("Pad", St0),
 	    {DstBuf,St2} = new_var("Buf", St1),
 	    Ab = {align_bits,SrcBuf,PadBits},
 	    Agb = {get_bits,{PadBits,SrcBuf},[1],{'_',DstBuf}},
 	    Gb = {get_bits,{SrcBits,DstBuf},U,Dst},
-	    flatten_align_1(U, Dst, Pre++[Ab,Agb,Gb], St2)
+	    flatten_align_1(U, Dst, Pre++[Ab,Agb,Gb], St2);
+	PadBits when is_integer(PadBits), PadBits > 0 ->
+	    {DstBuf,St1} = new_var("Buf", St0),
+	    Agb = {get_bits,{PadBits,SrcBuf},[1],{'_',DstBuf}},
+	    Gb = {get_bits,{SrcBits,DstBuf},U,Dst},
+	    flatten_align_1(U, Dst, Pre++[Agb,Gb], St1)
     end.
 
 flatten_align_1(U, {D,_}=Dst, Pre, St) ->
@@ -316,8 +415,11 @@ new_var_pair(St0) ->
 new_var(Tag, #st{base=VarBase,var=N}=St) ->
     {VarBase++Tag++integer_to_list(N),St#st{var=N+1}}.
 
-is_aligned(Fl) ->
-    proplists:get_bool(align, Fl).
+alignment([{align,false}|_]) -> none;
+alignment([{align,true}|_]) -> full;
+alignment([{align,Bits}|_]) -> Bits;
+alignment([_|T]) -> alignment(T);
+alignment([]) -> none.
 
 is_non_zero(Fl) ->
     lists:member(non_zero, Fl).
