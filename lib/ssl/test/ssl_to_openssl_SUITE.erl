@@ -1080,14 +1080,13 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
     
     OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
     port_command(OpenSslPort, Data),
-    
+    receive
+	{'EXIT', OpenSslPort, _} ->
+	    ok
+
+    end,
     ssl_test_lib:check_result(Server, {error,"protocol version"}),
-    
-    %% Clean close down!   Server needs to be closed first !!
-    ssl_test_lib:close(Server),
-    close_port(OpenSslPort),
-    process_flag(trap_exit, false),
-    ok.
+    process_flag(trap_exit, false).
 
 %%--------------------------------------------------------------------
 erlang_client_openssl_server_npn(doc) ->
