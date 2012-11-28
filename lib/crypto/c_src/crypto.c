@@ -53,6 +53,8 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
+#include "crypto_callback.h"
+
 #if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA224) && defined(NID_sha224)\
          && !defined(OPENSSL_NO_SHA256) /* disabled like this in my sha.h (?) */
 # define HAVE_SHA224
@@ -125,7 +127,6 @@
 
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
-static int reload(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
 static void unload(ErlNifEnv* env, void* priv_data);
 
@@ -204,17 +205,6 @@ static ERL_NIF_TERM bf_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM blowfish_ofb64_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 
-/* openssl callbacks */
-#ifdef OPENSSL_THREADS
-static void locking_function(int mode, int n, const char *file, int line);
-static unsigned long id_function(void);
-static struct CRYPTO_dynlock_value* dyn_create_function(const char *file,
-							int line);
-static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value* ptr,
-			      const char *file, int line);
-static void dyn_destroy_function(struct CRYPTO_dynlock_value *ptr,
-				 const char *file, int line);
-#endif /* OPENSSL_THREADS */
 
 /* helpers */
 static void init_digest_types(ErlNifEnv* env);
@@ -325,7 +315,7 @@ static ErlNifFunc nif_funcs[] = {
     {"blowfish_ofb64_encrypt", 3, blowfish_ofb64_encrypt}
 };
 
-ERL_NIF_INIT(crypto,nif_funcs,load,reload,upgrade,unload)
+ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 
 
 #define MD5_CTX_LEN     (sizeof(MD5_CTX))
@@ -347,7 +337,6 @@ ERL_NIF_INIT(crypto,nif_funcs,load,reload,upgrade,unload)
 #define HMAC_OPAD       0x5c
 
 
-static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
 static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_sha;
@@ -374,55 +363,60 @@ static ERL_NIF_TERM atom_none;
 static ERL_NIF_TERM atom_notsup;
 static ERL_NIF_TERM atom_digest;
 
+/*
+#define PRINTF_ERR0(FMT) enif_fprintf(stderr, FMT "\n")
+#define PRINTF_ERR1(FMT, A1) enif_fprintf(stderr, FMT "\n", A1)
+*/
+#define PRINTF_ERR0(FMT)
+#define PRINTF_ERR1(FMT,A1)
 
-static int is_ok_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info)
+#ifdef HAVE_DYNAMIC_CRYPTO_LIB
+static int change_basename(char* buf, int bufsz, const char* newfile)
 {
-    int i;
-    return enif_get_int(env,load_info,&i) && i == 101;
-}
-static void* crypto_alloc(size_t size)
-{   
-    return enif_alloc(size);
-}
-static void* crypto_realloc(void* ptr, size_t size)
-{
-    return enif_realloc(ptr, size);
-}   
-static void crypto_free(void* ptr)
-{   
-    enif_free(ptr); 
+    char* p = strrchr(buf, '/');
+    p = (p == NULL) ? buf : p + 1;
+    
+    if ((p - buf) + strlen(newfile) >= bufsz) {
+	PRINTF_ERR0("CRYPTO: lib name too long");
+	return 0;
+    }
+    strcpy(p, newfile);
+    return 1;
 }
 
-static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+static void error_handler(void* null, const char* errstr)
+{
+    PRINTF_ERR1("CRYPTO LOADING ERROR: '%s'", errstr);
+}
+#endif /* HAVE_DYNAMIC_CRYPTO_LIB */
+
+static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
     ErlNifSysInfo sys_info;
-    CRYPTO_set_mem_functions(crypto_alloc, crypto_realloc, crypto_free);
+    get_crypto_callbacks_t* funcp;
+    struct crypto_callbacks* ccb;
+    int nlocks = 0;
+    int tpl_arity;
+    const ERL_NIF_TERM* tpl_array;
+    int vernum;
+    char lib_buf[1000];
 
-    if (!is_ok_load_info(env, load_info)) {
-	return -1;
+    /* load_info: {201, "/full/path/of/this/library"} */
+    if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)
+	|| tpl_arity != 2
+	|| !enif_get_int(env, tpl_array[0], &vernum)
+	|| vernum != 201
+	|| enif_get_string(env, tpl_array[1], lib_buf, sizeof(lib_buf), ERL_NIF_LATIN1) <= 0) {
+
+	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
+	return 0;
     }
-
-#ifdef OPENSSL_THREADS
-    enif_system_info(&sys_info, sizeof(sys_info));
-
-    if (sys_info.scheduler_threads > 1) {
-	int i;
-	lock_vec = enif_alloc(CRYPTO_num_locks()*sizeof(*lock_vec));
-	if (lock_vec==NULL) return -1;
-	memset(lock_vec,0,CRYPTO_num_locks()*sizeof(*lock_vec));
-
-	for (i=CRYPTO_num_locks()-1; i>=0; --i) {
-	    lock_vec[i] = enif_rwlock_create("crypto_stat");
-	    if (lock_vec[i]==NULL) return -1;
-	}
-	CRYPTO_set_locking_callback(locking_function);
-	CRYPTO_set_id_callback(id_function);
-	CRYPTO_set_dynlock_create_callback(dyn_create_function);
-	CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
-	CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
+    if (library_refc > 0) {
+	/* Repeated loading of this library (module upgrade).
+	 * Atoms and callbacks are already set, we are done.
+	 */
+	return 1;
     }
-    /* else no need for locks */
-#endif /* OPENSSL_THREADS */
 
     atom_true = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
@@ -451,37 +445,75 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     init_digest_types(env);
 
+#ifdef HAVE_DYNAMIC_CRYPTO_LIB
+    {
+	void* handle;
+	if (!change_basename(lib_buf, sizeof(lib_buf), "crypto_callback")) {
+	    return 0;
+	}
+	if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {
+	    return 0;
+	}
+	if (!(funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
+							   &error_handler, NULL))) {
+	    return 0;
+	}
+    }
+#else /* !HAVE_DYNAMIC_CRYPTO_LIB */
+    funcp = &get_crypto_callbacks;
+#endif
+    
+#ifdef OPENSSL_THREADS
+    enif_system_info(&sys_info, sizeof(sys_info));
+    if (sys_info.scheduler_threads > 1) {
+	nlocks = CRYPTO_num_locks(); 
+    }
+    /* else no need for locks */
+#endif
+    
+    ccb = (*funcp)(nlocks);
+    
+    if (!ccb || ccb->sizeof_me != sizeof(*ccb)) {
+	PRINTF_ERR0("Invalid 'crypto_callbacks'");
+	return 0;
+    }
+    
+    CRYPTO_set_mem_functions(ccb->crypto_alloc, ccb->crypto_realloc, ccb->crypto_free);
+    
+#ifdef OPENSSL_THREADS
+    if (nlocks > 0) {
+	CRYPTO_set_locking_callback(ccb->locking_function);
+	CRYPTO_set_id_callback(ccb->id_function);
+	CRYPTO_set_dynlock_create_callback(ccb->dyn_create_function);
+	CRYPTO_set_dynlock_lock_callback(ccb->dyn_lock_function);
+	CRYPTO_set_dynlock_destroy_callback(ccb->dyn_destroy_function);
+    }
+#endif /* OPENSSL_THREADS */
+    return 1;
+}
+
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    if (!init(env, load_info)) {
+	return -1;
+    }
+
     *priv_data = NULL;
     library_refc++;
     return 0;
 }
 
-static int reload(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
-{   
-    if (*priv_data != NULL) {
-	return -1; /* Don't know how to do that */
-    }
-    if (library_refc == 0) {
-	/* No support for real library upgrade. The tricky thing is to know
-	   when to (re)set the callbacks for allocation and locking. */
-	return -2;
-    }
-    if (!is_ok_load_info(env, load_info)) {
-	return -1;
-    }
-    return 0;    
-}
-
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 		   ERL_NIF_TERM load_info)
 {
-    int i;
     if (*old_priv_data != NULL) {
 	return -1; /* Don't know how to do that */
     }
-    i = reload(env,priv_data,load_info);
-    if (i != 0) {
-	return i;
+    if (*priv_data != NULL) {
+	return -1; /* Don't know how to do that */
+    }
+    if (!init(env, load_info)) {
+	return -1;
     }
     library_refc++;
     return 0;
@@ -489,20 +521,7 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 
 static void unload(ErlNifEnv* env, void* priv_data)
 {
-    if (--library_refc <= 0) {
-	CRYPTO_cleanup_all_ex_data();
-
-	if (lock_vec != NULL) {
-	    int i;
-	    for (i=CRYPTO_num_locks()-1; i>=0; --i) {
-		if (lock_vec[i] != NULL) {
-		    enif_rwlock_destroy(lock_vec[i]);
-		}
-	    }
-	    enif_free(lock_vec);
-	}
-    }
-    /*else NIF library still used by other (new) module code */
+    --library_refc;
 }
 
 static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -2338,59 +2357,6 @@ static ERL_NIF_TERM blowfish_ofb64_encrypt(ErlNifEnv* env, int argc, const ERL_N
 
 
 
-#ifdef OPENSSL_THREADS /* vvvvvvvvvvvvvvv OPENSSL_THREADS vvvvvvvvvvvvvvvv */
-
-static INLINE void locking(int mode, ErlNifRWLock* lock)
-{
-    switch (mode) {
-    case CRYPTO_LOCK|CRYPTO_READ:
-	enif_rwlock_rlock(lock);
-	break;
-    case CRYPTO_LOCK|CRYPTO_WRITE:
-	enif_rwlock_rwlock(lock);
-	break;
-    case CRYPTO_UNLOCK|CRYPTO_READ:
-	enif_rwlock_runlock(lock);
-	break;
-    case CRYPTO_UNLOCK|CRYPTO_WRITE:
-	enif_rwlock_rwunlock(lock);
-	break;
-    default:
-	ASSERT(!"Invalid lock mode");
-    }
-}
-
-/* Callback from openssl for static locking
- */
-static void locking_function(int mode, int n, const char *file, int line)
-{
-    ASSERT(n>=0 && n<CRYPTO_num_locks());
-
-    locking(mode, lock_vec[n]);
-}
-
-/* Callback from openssl for thread id
- */
-static unsigned long id_function(void)
-{
-    return(unsigned long) enif_thread_self();
-}
-
-/* Callbacks for dynamic locking, not used by current openssl version (0.9.8)
- */
-static struct CRYPTO_dynlock_value* dyn_create_function(const char *file, int line) {
-    return(struct CRYPTO_dynlock_value*) enif_rwlock_create("crypto_dyn");
-}
-static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value* ptr,const char *file, int line)
-{
-    locking(mode, (ErlNifRWLock*)ptr);
-}
-static void dyn_destroy_function(struct CRYPTO_dynlock_value *ptr, const char *file, int line)
-{
-    enif_rwlock_destroy((ErlNifRWLock*)ptr);
-}
-
-#endif /* ^^^^^^^^^^^^^^^^^^^^^^ OPENSSL_THREADS ^^^^^^^^^^^^^^^^^^^^^^ */
 
 /* HMAC */
 
