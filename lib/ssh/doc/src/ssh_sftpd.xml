@@ -86,6 +86,11 @@
 	      the user will end up in <c>/tmp/etc</c>.
 	    </p>
 	  </item>
+	  <tag><c><![CDATA[{sftpd_vsn, integer()}]]></c></tag>
+	  <item>
+	    <p>Sets the sftp version to use, defaults to 5. Version 6 is under
+	    development and limited.</p>
+	  </item>
         </taglist>
       </desc>
     </func>
