@@ -149,7 +149,9 @@ compile(Config) when is_list(Config) ->
 	    ok = beam_lib:crypto_key_fun(simple_crypto_fun(Key)),
 	    {ok,crypt} = cover:compile_beam("crypt.beam")
     end,
+    Path = filename:join([?config(data_dir, Config), "compile_beam", "v.erl"]),
     ?line {ok,v} = cover:compile_beam(v),
+    {source,Path} = lists:keyfind(source, 1, v:module_info(compile)),
     ?line {ok,w} = cover:compile_beam("w.beam"),
     ?line {error,{no_abstract_code,"./x.beam"}} = cover:compile_beam(x),
     ?line {error,{already_cover_compiled,no_beam_found,a}}=cover:compile_beam(a),

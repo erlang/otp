@@ -1372,10 +1372,15 @@ do_compile_beam(Module,Beam,UserOptions) ->
             Forms0 = epp:interpret_file_attribute(Code),
 	    {Forms,Vars} = transform(Vsn, Forms0, Module, Beam),
 
+	    %% We need to recover the source from the compilation
+	    %% info otherwise the newly compiled module will have
+	    %% source pointing to the current directory
+	    SourceInfo = get_source_info(Module, Beam),
+
 	    %% Compile and load the result
 	    %% It's necessary to check the result of loading since it may
 	    %% fail, for example if Module resides in a sticky directory
-	    {ok, Module, Binary} = compile:forms(Forms, UserOptions),
+	    {ok, Module, Binary} = compile:forms(Forms, SourceInfo ++ UserOptions),
 	    case code:load_binary(Module, ?TAG, Binary) of
 		{module, Module} ->
 		    
@@ -1401,6 +1406,17 @@ get_abstract_code(Module, Beam) ->
 	{error,beam_lib,{key_missing_or_invalid,_,_}} ->
 	    encrypted_abstract_code;
 	Error -> Error
+    end.
+
+get_source_info(Module, Beam) ->
+    case beam_lib:chunks(Beam, [compile_info]) of
+	{ok, {Module, [{compile_info, Compile}]}} ->
+		case lists:keyfind(source, 1, Compile) of
+			{ source, _ } = Tuple -> [Tuple];
+			false -> []
+		end;
+	_ ->
+		[]
     end.
 
 transform(Vsn, Code, Module, Beam) when Vsn=:=abstract_v1; Vsn=:=abstract_v2 ->
