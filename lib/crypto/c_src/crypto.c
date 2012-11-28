@@ -536,12 +536,21 @@ static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     const char* ver = SSLeay_version(SSLEAY_VERSION);
     unsigned ver_sz = strlen(ver);
     ERL_NIF_TERM name_term, ver_term;
+    int ver_num = OPENSSL_VERSION_NUMBER;
+    /* R16:
+     * Ignore library version number from SSLeay() and instead show header
+     * version. Otherwise user might try to call a function that is implemented
+     * by a newer library but not supported by the headers used at compile time.
+     * Example: DES_ede3_cfb_encrypt in 0.9.7i but not in 0.9.7d.
+     *
+     * Version string is still from library though.
+     */
 
     memcpy(enif_make_new_binary(env, name_sz, &name_term), libname, name_sz);    
     memcpy(enif_make_new_binary(env, ver_sz, &ver_term), ver, ver_sz);
 
     return enif_make_list1(env, enif_make_tuple3(env, name_term,
-						 enif_make_int(env, SSLeay()),
+						 enif_make_int(env, ver_num),						 
 						 ver_term));
 }
 

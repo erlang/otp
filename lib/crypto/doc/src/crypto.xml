@@ -115,6 +115,12 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 > <input>info_lib().</input>
 [{&lt;&lt;"OpenSSL"&gt;&gt;,9469983,&lt;&lt;"OpenSSL 0.9.8a 11 Oct 2005"&gt;&gt;}]
         </pre>
+	<note><p>
+	  From OTP R16 the <em>numeric version</em> represents the version of the OpenSSL
+	  <em>header files</em> (<c>openssl/opensslv.h</c>) used when crypto was compiled.
+	  The text variant represents the OpenSSL library used at runtime.
+	  In earlier OTP versions both numeric and text was taken from the library.
+	</p></note>
       </desc>
     </func>
     <func>
