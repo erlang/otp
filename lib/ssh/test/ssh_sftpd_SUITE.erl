@@ -114,7 +114,7 @@ init_per_testcase(TestCase, Config) ->
 						  {user_dir, PrivDir},
 						  {user_passwords,[{?USER, ?PASSWD}]},
 						  {pwdfun, fun(_,_) -> true end}, 
-						  {sftp_vsn, 6}]);
+						  {sftpd_vsn, 6}]);
 		      _ ->
 			  ssh_sftpd:listen(Port, [{system_dir, SystemDir},
 						  {user_dir, PrivDir},
