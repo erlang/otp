@@ -1799,17 +1799,11 @@ munge_expr({'catch',Line,Expr}, Vars) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     {{'catch',Line,MungedExpr}, Vars2};
 munge_expr({call,Line1,{remote,Line2,ExprM,ExprF},Exprs},
-	   Vars) when Vars#vars.is_guard=:=false->
+	   Vars) ->
     {MungedExprM, Vars2} = munge_expr(ExprM, Vars),
     {MungedExprF, Vars3} = munge_expr(ExprF, Vars2),
     {MungedExprs, Vars4} = munge_exprs(Exprs, Vars3, []),
     {{call,Line1,{remote,Line2,MungedExprM,MungedExprF},MungedExprs}, Vars4};
-munge_expr({call,Line1,{remote,_Line2,_ExprM,ExprF},Exprs},
-	   Vars) when Vars#vars.is_guard=:=true ->
-    %% Difference in abstract format after preprocessing: BIF calls in guards
-    %% are translated to {remote,...} (which is not allowed as source form)
-    %% NOT NECESSARY FOR Vsn=raw_abstract_v1
-    munge_expr({call,Line1,ExprF,Exprs}, Vars);
 munge_expr({call,Line,Expr,Exprs}, Vars) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     {MungedExprs, Vars3} = munge_exprs(Exprs, Vars2, []),
