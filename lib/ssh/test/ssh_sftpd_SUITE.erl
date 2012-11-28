@@ -108,11 +108,19 @@ init_per_testcase(TestCase, Config) ->
 
     Port = ssh_test_lib:inet_port(node()),
 
-    {ok, Sftpd} =
-	ssh_sftpd:listen(Port, [{system_dir, SystemDir},
-				      {user_dir, PrivDir},
-				      {user_passwords,[{?USER, ?PASSWD}]},
-				      {pwdfun, fun(_,_) -> true end}]),
+    {ok, Sftpd} = case TestCase of
+		      ver6_basic ->
+			  ssh_sftpd:listen(Port, [{system_dir, SystemDir},
+						  {user_dir, PrivDir},
+						  {user_passwords,[{?USER, ?PASSWD}]},
+						  {pwdfun, fun(_,_) -> true end}, 
+						  {sftp_vsn, 6}]);
+		      _ ->
+			  ssh_sftpd:listen(Port, [{system_dir, SystemDir},
+						  {user_dir, PrivDir},
+						  {user_passwords,[{?USER, ?PASSWD}]},
+						  {pwdfun, fun(_,_) -> true end}])
+		  end,
     
     Cm = ssh_test_lib:connect(Port,
 			      [{user_dir, ClientUserDir},
@@ -129,8 +137,6 @@ init_per_testcase(TestCase, Config) ->
     ProtocolVer = case atom_to_list(TestCase) of
 		      "ver3_" ++ _ ->
 			  3;
-		      "ver6_" ++ _ ->
-			  6;
 		      _ ->
 			  ?SSH_SFTP_PROTOCOL_VERSION
 		  end,
