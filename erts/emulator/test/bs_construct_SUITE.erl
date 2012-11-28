@@ -546,11 +546,47 @@ huge_float_check({'EXIT',{badarg,_}}) -> ok.
 huge_binary(Config) when is_list(Config) ->
     ?line 16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
     ?line garbage_collect(),
-    ?line id(<<0:((1 bsl 32)-1)>>),
+    {Shift,Return} = case free_mem() of
+			 undefined -> {32,ok};
+			 Mb when Mb > 600 -> {32,ok};
+			 Mb when Mb > 300 -> {31,"Limit huge binaries to 256 Mb"};
+			 _ -> {30,"Limit huge binary to 128 Mb"}
+		     end,
     ?line garbage_collect(),
-    ?line id(<<0:(id((1 bsl 32)-1))>>),
+    ?line id(<<0:((1 bsl Shift)-1)>>),
     ?line garbage_collect(),
-    ok.
+    ?line id(<<0:(id((1 bsl Shift)-1))>>),
+    ?line garbage_collect(),
+    case Return of
+	ok -> ok;	     
+	Comment -> {comment, Comment}
+    end.
+
+free_mem() ->
+    Cmd = "uname; free",
+    Output = string:tokens(os:cmd(Cmd), "\n"),
+    io:format("Output from command ~p\n~p\n",[Cmd,Output]),
+    case Output of
+	[OS, ColumnNames, Values | _] ->
+	    case string:str(OS,"Linux") of
+		0 -> 
+		    io:format("Unknown OS\n",[]),
+		    undefined;
+		_ ->
+		    case {string:tokens(ColumnNames, " \t"),
+			  string:tokens(Values, " \t")} of
+			{[_,_,"free"|_],["Mem:",_,_,FreeKb|_]} ->
+			    list_to_integer(FreeKb) div 1024;
+			_ ->
+			    io:format("Failed to parse output from 'free':\n",[]),
+			    undefined
+		    end
+	    end;
+	_ ->
+	    io:format("Too few lines in output\n",[]),
+	    undefined
+    end.
+    
 
 system_limit(Config) when is_list(Config) ->
     WordSize = erlang:system_info(wordsize),
