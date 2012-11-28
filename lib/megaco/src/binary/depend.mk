@@ -53,8 +53,8 @@ PER_V3_FLAGS             = $(ASN1_CT_OPTS)
 $(BER_ASN1_V1_SPEC).erl: \
 	$(BER_ASN1_V1_SPEC).set.asn \
 	$(ASN1_V1_SPEC).asn
-	@echo "$(BER_ASN1_V1_SPEC):"
-	$(ERLC) -bber $(BER_V1_FLAGS) $(BER_ASN1_V1_SPEC).set.asn
+	$(V_colon)@echo "$(BER_ASN1_V1_SPEC):"
+	$(asn_verbose)$(ERLC) -bber $(BER_V1_FLAGS) $(BER_ASN1_V1_SPEC).set.asn
 
 $(EBIN)/$(BER_ASN1_V1_SPEC).$(EMULATOR): \
 	$(BER_ASN1_V1_SPEC).erl
@@ -62,8 +62,8 @@ $(EBIN)/$(BER_ASN1_V1_SPEC).$(EMULATOR): \
 $(PER_ASN1_V1_SPEC).erl: \
 	$(PER_ASN1_V1_SPEC).set.asn \
 	$(ASN1_V1_SPEC).asn
-	@echo "$(PER_ASN1_V1_SPEC):"
-	$(ERLC) -bper $(PER_V1_FLAGS) $(PER_ASN1_V1_SPEC).set.asn
+	$(V_colon)@echo "$(PER_ASN1_V1_SPEC):"
+	$(asn_verbose)$(ERLC) -bper $(PER_V1_FLAGS) $(PER_ASN1_V1_SPEC).set.asn
 
 $(EBIN)/$(PER_ASN1_V1_SPEC).$(EMULATOR): \
 	$(PER_ASN1_V1_SPEC).erl
@@ -74,8 +74,8 @@ $(EBIN)/$(PER_ASN1_V1_SPEC).$(EMULATOR): \
 $(BER_ASN1_V2_SPEC).erl: \
 	$(BER_ASN1_V2_SPEC).set.asn \
 	$(ASN1_V2_SPEC).asn
-	@echo "$(BER_ASN1_V2_SPEC):"
-	$(ERLC) -bber $(BER_V2_FLAGS) $(BER_ASN1_V2_SPEC).set.asn
+	$(V_colon)@echo "$(BER_ASN1_V2_SPEC):"
+	$(asn_verbose)$(ERLC) -bber $(BER_V2_FLAGS) $(BER_ASN1_V2_SPEC).set.asn
 
 $(EBIN)/$(BER_ASN1_V2_SPEC).$(EMULATOR): \
 	$(BER_ASN1_V2_SPEC).erl
@@ -83,8 +83,8 @@ $(EBIN)/$(BER_ASN1_V2_SPEC).$(EMULATOR): \
 $(PER_ASN1_V2_SPEC).erl: \
 	$(PER_ASN1_V2_SPEC).set.asn \
 	$(ASN1_V2_SPEC).asn
-	@echo "$(PER_ASN1_V2_SPEC):"
-	$(ERLC) -bper $(PER_V2_FLAGS) $(PER_ASN1_V2_SPEC).set.asn
+	$(V_colon)@echo "$(PER_ASN1_V2_SPEC):"
+	$(asn_verbose)$(ERLC) -bper $(PER_V2_FLAGS) $(PER_ASN1_V2_SPEC).set.asn
 
 $(EBIN)/$(PER_ASN1_V2_SPEC).$(EMULATOR): \
 	$(PER_ASN1_V2_SPEC).erl
@@ -96,8 +96,8 @@ $(EBIN)/$(PER_ASN1_V2_SPEC).$(EMULATOR): \
 $(BER_ASN1_PREV3A_SPEC).erl: \
 	$(BER_ASN1_PREV3A_SPEC).set.asn \
 	$(ASN1_PREV3A_SPEC).asn
-	@echo "$(BER_ASN1_PREV3A_SPEC):"
-	$(ERLC) -bber $(BER_PREV3A_FLAGS) $(BER_ASN1_PREV3A_SPEC).set.asn
+	$(V_colon)@echo "$(BER_ASN1_PREV3A_SPEC):"
+	$(asn_verbose)$(ERLC) -bber $(BER_PREV3A_FLAGS) $(BER_ASN1_PREV3A_SPEC).set.asn
 
 $(EBIN)/$(BER_ASN1_PREV3A_SPEC).$(EMULATOR): \
 	$(BER_ASN1_PREV3A_SPEC).erl
@@ -105,8 +105,8 @@ $(EBIN)/$(BER_ASN1_PREV3A_SPEC).$(EMULATOR): \
 $(PER_ASN1_PREV3A_SPEC).erl: \
 	$(PER_ASN1_PREV3A_SPEC).set.asn \
 	$(ASN1_PREV3A_SPEC).asn
-	@echo "$(PER_ASN1_PREV3A_SPEC):"
-	$(ERLC) -bper $(PER_PREV3A_FLAGS) $(PER_ASN1_PREV3A_SPEC).set.asn
+	$(V_colon)@echo "$(PER_ASN1_PREV3A_SPEC):"
+	$(asn_verbose)$(ERLC) -bper $(PER_PREV3A_FLAGS) $(PER_ASN1_PREV3A_SPEC).set.asn
 
 $(EBIN)/$(PER_ASN1_PREV3A_SPEC).$(EMULATOR): \
 	$(PER_ASN1_PREV3A_SPEC).erl
@@ -117,8 +117,8 @@ $(EBIN)/$(PER_ASN1_PREV3A_SPEC).$(EMULATOR): \
 $(BER_ASN1_PREV3B_SPEC).erl: \
 	$(BER_ASN1_PREV3B_SPEC).set.asn \
 	$(ASN1_PREV3B_SPEC).asn
-	@echo "$(BER_ASN1_PREV3B_SPEC):"
-	$(ERLC) -bber $(BER_PREV3B_FLAGS) $(BER_ASN1_PREV3B_SPEC).set.asn
+	$(V_colon)@echo "$(BER_ASN1_PREV3B_SPEC):"
+	$(asn_verbose)$(ERLC) -bber $(BER_PREV3B_FLAGS) $(BER_ASN1_PREV3B_SPEC).set.asn
 
 $(EBIN)/$(BER_ASN1_PREV3B_SPEC).$(EMULATOR): \
 	$(BER_ASN1_PREV3B_SPEC).erl
@@ -126,8 +126,8 @@ $(EBIN)/$(BER_ASN1_PREV3B_SPEC).$(EMULATOR): \
 $(PER_ASN1_PREV3B_SPEC).erl: \
 	$(PER_ASN1_PREV3B_SPEC).set.asn \
 	$(ASN1_PREV3B_SPEC).asn
-	@echo "$(PER_ASN1_PREV3B_SPEC):"
-	$(ERLC) -bper $(PER_PREV3B_FLAGS) $(PER_ASN1_PREV3B_SPEC).set.asn
+	$(V_colon)@echo "$(PER_ASN1_PREV3B_SPEC):"
+	$(asn_verbose)$(ERLC) -bper $(PER_PREV3B_FLAGS) $(PER_ASN1_PREV3B_SPEC).set.asn
 
 $(EBIN)/$(PER_ASN1_PREV3B_SPEC).$(EMULATOR): \
 	$(PER_ASN1_PREV3B_SPEC).erl
@@ -138,8 +138,8 @@ $(EBIN)/$(PER_ASN1_PREV3B_SPEC).$(EMULATOR): \
 $(BER_ASN1_PREV3C_SPEC).erl: \
 	$(BER_ASN1_PREV3C_SPEC).set.asn \
 	$(ASN1_PREV3C_SPEC).asn
-	@echo "$(BER_ASN1_PREV3C_SPEC):"
-	$(ERLC) -bber $(BER_PREV3C_FLAGS) $(BER_ASN1_PREV3C_SPEC).set.asn
+	$(V_colon)@echo "$(BER_ASN1_PREV3C_SPEC):"
+	$(asn_verbose)$(ERLC) -bber $(BER_PREV3C_FLAGS) $(BER_ASN1_PREV3C_SPEC).set.asn
 
 $(EBIN)/$(BER_ASN1_PREV3C_SPEC).$(EMULATOR): \
 	$(BER_ASN1_PREV3C_SPEC).erl
@@ -147,8 +147,8 @@ $(EBIN)/$(BER_ASN1_PREV3C_SPEC).$(EMULATOR): \
 $(PER_ASN1_PREV3C_SPEC).erl: \
 	$(PER_ASN1_PREV3C_SPEC).set.asn \
 	$(ASN1_PREV3C_SPEC).asn
-	@echo "$(PER_ASN1_PREV3C_SPEC):"
-	$(ERLC) -bper $(PER_PREV3C_FLAGS) $(PER_ASN1_PREV3C_SPEC).set.asn
+	$(V_colon)@echo "$(PER_ASN1_PREV3C_SPEC):"
+	$(asn_verbose)$(ERLC) -bper $(PER_PREV3C_FLAGS) $(PER_ASN1_PREV3C_SPEC).set.asn
 
 $(EBIN)/$(PER_ASN1_PREV3C_SPEC).$(EMULATOR): \
 	$(PER_ASN1_PREV3C_SPEC).erl
@@ -159,8 +159,8 @@ $(EBIN)/$(PER_ASN1_PREV3C_SPEC).$(EMULATOR): \
 $(BER_ASN1_V3_SPEC).erl: \
 	$(BER_ASN1_V3_SPEC).set.asn \
 	$(ASN1_V3_SPEC).asn
-	@echo "$(BER_ASN1_V3_SPEC):"
-	$(ERLC) -bber $(BER_V3_FLAGS) $(BER_ASN1_V3_SPEC).set.asn
+	$(V_colon)@echo "$(BER_ASN1_V3_SPEC):"
+	$(asn_verbose)$(ERLC) -bber $(BER_V3_FLAGS) $(BER_ASN1_V3_SPEC).set.asn
 
 $(EBIN)/$(BER_ASN1_V3_SPEC).$(EMULATOR): \
 	$(BER_ASN1_V3_SPEC).erl
@@ -168,8 +168,8 @@ $(EBIN)/$(BER_ASN1_V3_SPEC).$(EMULATOR): \
 $(PER_ASN1_V3_SPEC).erl: \
 	$(PER_ASN1_V3_SPEC).set.asn \
 	$(ASN1_V3_SPEC).asn
-	@echo "$(PER_ASN1_V3_SPEC):"
-	$(ERLC) -bper $(PER_V3_FLAGS) $(PER_ASN1_V3_SPEC).set.asn
+	$(V_colon)@echo "$(PER_ASN1_V3_SPEC):"
+	$(asn_verbose)$(ERLC) -bper $(PER_V3_FLAGS) $(PER_ASN1_V3_SPEC).set.asn
 
 $(EBIN)/$(PER_ASN1_V3_SPEC).$(EMULATOR): \
 	$(PER_ASN1_V3_SPEC).erl

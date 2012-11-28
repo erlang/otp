@@ -63,12 +63,12 @@ endif # gcov
 
 ifeq ($(TARGET), win32)
 $(ZLIB_LIBRARY): $(ZLIB_OBJS)
-	$(AR) -out:$@ $(ZLIB_OBJS)
+	$(V_AR) -out:$@ $(ZLIB_OBJS)
 else
 $(ZLIB_LIBRARY): $(ZLIB_OBJS)
-	$(AR) $(ARFLAGS) $@ $(ZLIB_OBJS)
+	$(V_AR) $(ARFLAGS) $@ $(ZLIB_OBJS)
 	-@ ($(RANLIB) $@ || true) 2>/dev/null
 endif
 
 $(ZLIB_OBJDIR)/%.o: zlib/%.c
-	$(CC) -c $(ZLIB_CFLAGS) -o $@ $<
+	$(V_CC) -c $(ZLIB_CFLAGS) -o $@ $<

@@ -134,13 +134,13 @@ HIPE_MKLITERALS=$(ERL_TOP)/bin/$(TARGET)/hipe_mkliterals$(TYPE_STR)$(FLAVOR_STR)
 
 
 hipe_literals.hrl: $(HIPE_MKLITERALS)
-	$(HIPE_MKLITERALS) $(MKLIT_FLAGS) -e > hipe_literals.hrl
+	$(gen_verbose)$(HIPE_MKLITERALS) $(MKLIT_FLAGS) -e > hipe_literals.hrl
 
 # Need to generate hipe.hrl from one and only one target in one and only
 # one makefile; otherwise, clearmake will force rebuilds of hipe over and
 # over again.
 ../main/hipe.hrl: ../vsn.mk ../main/hipe.hrl.src
-	(cd ../main && $(MAKE) hipe.hrl)
+	$(V_at)(cd ../main && $(MAKE) hipe.hrl)
 
 # 2012-02-24. Please keep these dependencies up to date. They tend to rot.
 # grep ^-include *.erl says a lot, but you need to dig further, e.g:

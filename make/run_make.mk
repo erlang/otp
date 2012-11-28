@@ -25,19 +25,20 @@
 #
 # ----------------------------------------------------
 
+include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 
 .PHONY: valgrind
 
 opt debug purify quantify purecov valgrind gcov gprof lcnt:
-	$(MAKE) -f $(TARGET)/Makefile TYPE=$@
+	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 
 plain smp frag smp_frag:
-	$(MAKE) -f $(TARGET)/Makefile FLAVOR=$@
+	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile FLAVOR=$@
 
 clean generate depend docs release release_spec release_docs release_docs_spec \
   tests release_tests release_tests_spec:
-	$(MAKE) -f $(TARGET)/Makefile $@
+	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@
 
 
 

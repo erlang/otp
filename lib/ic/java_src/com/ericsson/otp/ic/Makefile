@@ -85,7 +85,10 @@ JAR= jar
 
 JAVADOCFLAGS=-d $(DOCDIR)
 JAVAFLAGS=-d $(JAVA_DEST_ROOT) 
-JARFLAGS= -cvf
+JARFLAGS= -cf
+ifneq ($(V),0)
+JARFLAGS= -cfv
+endif
 
 JAVA_OPTIONS = 
 

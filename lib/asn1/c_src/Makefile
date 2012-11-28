@@ -94,10 +94,10 @@ docs:
 
 
 $(OBJDIR)/%.o: %.c
-	$(CC) -c $(CFLAGS) -O3 -o $@ $<
+	$(V_CC) -c $(CFLAGS) -O3 -o $@ $<
 
 $(NIF_SHARED_OBJ_FILE): $(NIF_OBJ_FILES)
-	$(LD) $(LDFLAGS) -o $(NIF_SHARED_OBJ_FILE) $(NIF_OBJ_FILES) $(CLIB_FLAGS) $(LIBS)
+	$(V_LD) $(LDFLAGS) -o $(NIF_SHARED_OBJ_FILE) $(NIF_OBJ_FILES) $(CLIB_FLAGS) $(LIBS)
 
 # ----------------------------------------------------
 # Release Target

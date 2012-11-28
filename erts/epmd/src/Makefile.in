@@ -128,13 +128,13 @@ clean:
 #
 
 $(BINDIR)/$(EPMD): $(EPMD_OBJS) $(ERTS_LIB)
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(EPMD_OBJS) $(LIBS)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(EPMD_OBJS) $(LIBS)
 
 $(OBJDIR)/%.o: %.c epmd.h epmd_int.h
-	$(CC) $(CFLAGS) $(EPMD_FLAGS) -o $@ -c $<
+	$(V_CC) $(CFLAGS) $(EPMD_FLAGS) -o $@ -c $<
 
 $(ERTS_LIB):
-	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
+	$(make_verbose)cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
 
 include $(ERL_TOP)/make/otp_release_targets.mk
 

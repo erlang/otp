@@ -104,8 +104,8 @@ docs:
 test: $(TEST_TARGET_FILES)
 
 IDL-GENERATED: stack.idl
-	erlc $(ERL_IDL_FLAGS) stack.idl
-	>IDL-GENERATED
+	$(gen_verbose)erlc $(ERL_IDL_FLAGS) stack.idl
+	$(V_at)>IDL-GENERATED
 
 $(GEN_FILES): IDL-GENERATED
 

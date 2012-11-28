@@ -108,17 +108,17 @@ docs:
 
 ifdef UNIX_TARGET
 $(UNIX_TARGET): $(OBJ_DIR)/odbcserver.o
-	$(CC) $(CFLAGS) -o $@ $(OBJ_DIR)/odbcserver.o $(LDFLAGS) $(LIBS)
+	$(V_CC) $(CFLAGS) -o $@ $(OBJ_DIR)/odbcserver.o $(LDFLAGS) $(LIBS)
 endif
 
 ifdef WIN32_TARGET
 $(WIN32_TARGET): $(OBJ_DIR)/odbcserver.o
-	$(LD) $(LDFLAGS) -o $@ $(OBJ_DIR)/odbcserver.o $(ENTRY_OBJ) \
+	$(V_LD) $(LDFLAGS) -o $@ $(OBJ_DIR)/odbcserver.o $(ENTRY_OBJ) \
 		$(LIBS) $(ENTRY_LDFLAGS)
 endif
 
 $(OBJ_DIR)/odbcserver.o: odbcserver.c
-	$(CC) $(CFLAGS) $(INCLUDES) $(TARGET_FLAGS) -o $@ -c odbcserver.c
+	$(V_CC) $(CFLAGS) $(INCLUDES) $(TARGET_FLAGS) -o $@ -c odbcserver.c
 
 # ----------------------------------------------------
 # Release Target

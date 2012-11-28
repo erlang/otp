@@ -73,16 +73,16 @@ clean:
 # ----------------------------------------------------
 
 $(EBIN)/$(TOOLNAME).gif: $(TOOLNAME).gif
-	rm -f $@
-	cp $(TOOLNAME).gif $@
+	$(gen_verbose)rm -f $@
+	$(V_at)cp $(TOOLNAME).gif $@
 
 $(EBIN)/$(TOOLNAME).tool: $(TOOLNAME).tool
-	rm -f $@
-	cp $(TOOLNAME).tool $@
+	$(gen_verbose)rm -f $@
+	$(V_at)cp $(TOOLNAME).tool $@
 
 $(EBIN)/help.gif: help.gif
-	rm -f $@
-	cp help.gif $@
+	$(gen_verbose)rm -f $@
+	$(V_at)cp help.gif $@
 
 # ----------------------------------------------------
 # Release Target

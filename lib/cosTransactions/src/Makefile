@@ -145,10 +145,10 @@ clean:
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)
-	sed -e 's;%VSN%;$(VSN);' $(APP_SRC) > $(APP_TARGET)
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $(APP_SRC) > $(APP_TARGET)
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 docs:
 
@@ -156,9 +156,9 @@ docs:
 # Special Build Targets
 # ----------------------------------------------------
 IDL-GENERATED: CosTransactions.idl
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosTransactions.cfg"}' CosTransactions.idl
-	mv $(GEN_HRL_FILES) $(EXTERNAL_INC_PATH)
-	>IDL-GENERATED
+	$(gen_verbose)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosTransactions.cfg"}' CosTransactions.idl
+	$(V_at)mv $(GEN_HRL_FILES) $(EXTERNAL_INC_PATH)
+	$(V_at)>IDL-GENERATED
 
 $(GEN_FILES): IDL-GENERATED
 

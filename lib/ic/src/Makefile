@@ -175,7 +175,7 @@ clean:
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 docs:
 
@@ -183,7 +183,7 @@ docs:
 # Special Build Targets
 # ----------------------------------------------------
 ../ebin/icparse.beam: icparse.erl
-	$(ERLC) $(ERL_COMPILE_FLAGS) +nowarn_unused_vars +nowarn_unused_function -o$(EBIN) +pj $<
+	$(V_ERLC) $(ERL_COMPILE_FLAGS) +nowarn_unused_vars +nowarn_unused_function -o$(EBIN) +pj $<
 
 icparse.erl: icparse.yrl icyeccpre.hrl
 

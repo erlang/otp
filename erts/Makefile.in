@@ -19,6 +19,7 @@
 
 .NOTPARALLEL:
 
+include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 include vsn.mk
 
@@ -38,11 +39,11 @@ all: smp opt
 
 .PHONY: docs
 docs:
-	( cd doc/src && $(MAKE) $@ )
+	$(V_at)( cd doc/src && $(MAKE) $@ )
 
 .PHONY: debug opt clean
 debug opt clean:
-	for d in emulator $(ERTSDIRS); do \
+	$(V_at)for d in emulator $(ERTSDIRS); do \
 		if test -d $$d; then \
 			( cd $$d && $(MAKE) $@ FLAVOR=$(FLAVOR) ) || exit $$? ; \
 		fi ; \
@@ -55,7 +56,7 @@ debug opt clean:
 
 .PHONY: $(EXTRA_FLAVORS)
 $(EXTRA_FLAVORS):
-	( cd emulator && $(MAKE) opt FLAVOR=$@ )
+	$(V_at)( cd emulator && $(MAKE) opt FLAVOR=$@ )
 
 # Make erl script and erlc in $(ERL_TOP)/bin which runs the compiled version
 # Note that erlc is not a script and requires extra handling on cygwin.
@@ -67,7 +68,7 @@ $(EXTRA_FLAVORS):
 .PHONY: local_setup
 local_setup:
 	@cd start_scripts && $(MAKE)
-	@echo `ls $(ERL_TOP)/bin/`
+	$(V_colon)@echo `ls $(ERL_TOP)/bin/`
 	@rm -f $(ERL_TOP)/bin/erl $(ERL_TOP)/bin/erlc $(ERL_TOP)/bin/cerl \
 		$(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe \
 		$(ERL_TOP)/bin/escript $(ERL_TOP)/bin/escript.exe \
@@ -128,10 +129,10 @@ makefiles:
 
 .PHONY: release
 release:
-	for f in plain $(EXTRA_FLAVORS) ; do \
+	$(V_at)for f in plain $(EXTRA_FLAVORS) ; do \
 		( cd emulator && $(MAKE) release FLAVOR=$$f ) \
 	done
-	for d in $(ERTSDIRS) $(XINSTDIRS); do \
+	$(V_at)for d in $(ERTSDIRS) $(XINSTDIRS); do \
 		if test -d $$d; then \
 			( cd $$d && $(MAKE) $@ ) || exit $$? ; \
 		fi ; \
@@ -139,4 +140,4 @@ release:
 
 .PHONY: release_docs
 release_docs:
-	( cd doc/src && $(MAKE) $@ )
+	$(V_at)( cd doc/src && $(MAKE) $@ )

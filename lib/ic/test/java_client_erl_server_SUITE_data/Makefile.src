@@ -86,15 +86,15 @@ clean:
 		java_erl_test.built_erl java_erl_test.built_java
 
 java_erl_test.built_java: java_erl_test.idl
-	$(ERLC) -I $(IC_INCLUDE_PATH) "+{be,java}" java_erl_test.idl
-	echo done > java_erl_test.built_java
+	$(gen_verbose)$(ERLC) -I $(IC_INCLUDE_PATH) "+{be,java}" java_erl_test.idl
+	$(V_at)echo done > java_erl_test.built_java
 
 $(CLASS_FILES) : $(JAVA_FILES)
-	$(JAVAC) -classpath $(CLASSPATH) $(JAVA_FILES)
+	$(V_JAVAC) -classpath $(CLASSPATH) $(JAVA_FILES)
 
 java_erl_test.built_erl: java_erl_test.idl
-	$(ERLC) -I $(IC_INCLUDE_PATH) "+{be,erl_genserv}" java_erl_test.idl
-	echo done > java_erl_test.built_erl
+	$(gen_verbose)$(ERLC) -I $(IC_INCLUDE_PATH) "+{be,erl_genserv}" java_erl_test.idl
+	$(V_at)echo done > java_erl_test.built_erl
 
 .erl.@EMULATOR@:
-	$(ERLC) -I $(IC_INCLUDE_PATH) $<
+	$(V_ERLC) -I $(IC_INCLUDE_PATH) $<

@@ -22,10 +22,11 @@
 
 # FIXME let configure put in this last part TARGET
 
+include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 
 debug opt shared purify quantify purecov gcov:
-	$(MAKE) -f $(TARGET)/Makefile TYPE=$@
+	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 
 clean depend docs release release_docs tests release_tests check:
-	$(MAKE) -f $(TARGET)/Makefile $@
+	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@

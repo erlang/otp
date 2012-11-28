@@ -93,28 +93,28 @@ docs:
 # ----------------------------------------------------
 
 $(BINDIR)/win32sysinfo.exe: $(OBJDIR)/win32sysinfo.o $(ENTRY_OBJ)
-	$(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/win32sysinfo.o $(ENTRY_OBJ)
+	$(V_LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/win32sysinfo.o $(ENTRY_OBJ)
 
 $(BINDIR)/nteventlog.exe: $(EVLOG_OBJECTS)
-	$(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(EVLOG_OBJECTS) $(ENTRY_OBJ)
+	$(V_LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(EVLOG_OBJECTS) $(ENTRY_OBJ)
 
 $(BINDIR)/ferrule: $(OBJDIR)/ferrule.o
-	$(LD) $(LDFLAGS) -o $@ $<
+	$(V_LD) $(LDFLAGS) -o $@ $<
 
 $(BINDIR)/mod_syslog: $(OBJDIR)/mod_syslog.o
-	$(LD) $(LDFLAGS) -o $@ $<
+	$(V_LD) $(LDFLAGS) -o $@ $<
 
 $(BINDIR)/memsup: $(OBJDIR)/memsup.o
-	$(LD) $(LDFLAGS) -o $@ $<
+	$(V_LD) $(LDFLAGS) -o $@ $<
 
 $(BINDIR)/cpu_sup: $(OBJDIR)/cpu_sup.o
-	$(LD) $(LDFLAGS) -o $@ $< $(CPU_SUP_LIBS) 
+	$(V_LD) $(LDFLAGS) -o $@ $< $(CPU_SUP_LIBS)
 
 $(OBJDIR)/%.o: %.c
-	$(CC) -c -o $@ $(ALL_CFLAGS) $<
+	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
 
 $(OBJDIR)/%.o: nteventlog/%.c
-	$(CC) -c -o $@ $(ALL_CFLAGS) $<
+	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
 
 $(OBJDIR)/memsup.o: memsup.h
 

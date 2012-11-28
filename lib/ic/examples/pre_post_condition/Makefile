@@ -109,9 +109,9 @@ test: $(TEST_TARGET_FILES)
 
 
 IDL-GENERATED: ex.idl
-	erlc $(ERL_LOCAL_FLAGS) +'{precond,{tracer,pre}}' \
+	$(gen_verbose)erlc $(ERL_LOCAL_FLAGS) +'{precond,{tracer,pre}}' \
 		+'{{postcond,"m::i::f"},{tracer,post}}' ex.idl
-	>IDL-GENERATED
+	$(V_at)>IDL-GENERATED
 
 $(GEN_ERL_MODULES:%=%.erl) $(GEN_HRL_FILES): IDL-GENERATED
 

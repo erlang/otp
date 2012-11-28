@@ -17,6 +17,7 @@
 # %CopyrightEnd%
 #
 
+include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 include ../include/internal/$(TARGET)/ethread.mk
 
@@ -326,6 +327,7 @@ _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
 all: $(OBJ_DIR)/MADE
 
 $(OBJ_DIR)/MADE: $(ETHREAD_LIB) $(ERTS_LIBS) $(ERTS_INTERNAL_LIBS)
+	$(gen_verbose)
 ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
@@ -335,7 +337,7 @@ ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 endif
-	echo  $? > $(OBJ_DIR)/MADE
+	$(V_at)echo $? > $(OBJ_DIR)/MADE
 
 #
 # The libs ...
@@ -345,7 +347,11 @@ AR_OUT=-out:
 AR_FLAGS=
 else
 AR_OUT=
+ifeq ($(V),0)
+AR_FLAGS=rc
+else
 AR_FLAGS=rcv
+endif
 endif
 
 ifndef RANLIB
@@ -353,85 +359,85 @@ RANLIB=true
 endif
 
 $(ETHREAD_LIB): $(ETHREAD_LIB_OBJS)
-	$(AR) $(AR_FLAGS) $(AR_OUT)$@ $(ETHREAD_LIB_OBJS)
-	$(RANLIB) $@
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ETHREAD_LIB_OBJS)
+	$(V_RANLIB) $@
 
 $(ERTS_INTERNAL_LIB): $(ERTS_INTERNAL_LIB_OBJS)
-	$(AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_INTERNAL_LIB_OBJS)
-	$(RANLIB) $@
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_INTERNAL_LIB_OBJS)
+	$(V_RANLIB) $@
 
 $(ERTS_INTERNAL_r_LIB): $(ERTS_INTERNAL_r_LIB_OBJS)
-	$(AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_INTERNAL_r_LIB_OBJS)
-	$(RANLIB) $@
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_INTERNAL_r_LIB_OBJS)
+	$(V_RANLIB) $@
 
 $(ERTS_MD_LIB): $(ERTS_MD_LIB_OBJS)
-	$(AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MD_LIB_OBJS)
-	$(RANLIB) $@
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MD_LIB_OBJS)
+	$(V_RANLIB) $@
 
 $(ERTS_MDd_LIB): $(ERTS_MDd_LIB_OBJS)
-	$(AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MDd_LIB_OBJS)
-	$(RANLIB) $@
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MDd_LIB_OBJS)
+	$(V_RANLIB) $@
 
 $(ERTS_MT_LIB): $(ERTS_MT_LIB_OBJS)
-	$(AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MT_LIB_OBJS)
-	$(RANLIB) $@
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MT_LIB_OBJS)
+	$(V_RANLIB) $@
 
 $(ERTS_MTd_LIB): $(ERTS_MTd_LIB_OBJS)
-	$(AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MTd_LIB_OBJS)
-	$(RANLIB) $@
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_MTd_LIB_OBJS)
+	$(V_RANLIB) $@
 
 $(ERTS_r_LIB): $(ERTS_r_LIB_OBJS)
-	$(AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_r_LIB_OBJS)
-	$(RANLIB) $@
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_r_LIB_OBJS)
+	$(V_RANLIB) $@
 
 $(ERTS_LIB): $(ERTS_LIB_OBJS)
-	$(AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_LIB_OBJS)
-	$(RANLIB) $@
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ $(ERTS_LIB_OBJS)
+	$(V_RANLIB) $@
 
 #
 # Object files
 #
 
 $(r_OBJ_DIR)/ethr_x86_sse2_asm.o: pthread/ethr_x86_sse2_asm.c
-	$(CC) -msse2 $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	$(V_CC) -msse2 $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(r_OBJ_DIR)/%.o: common/%.c
-	$(CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	$(V_CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(r_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
-	$(CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	$(V_CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(OBJ_DIR)/%.o: common/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 # Win32 specific
 
 $(MD_OBJ_DIR)/%.o: common/%.c
-	$(CC) $(THR_DEFS) $(CFLAGS) -MD $(INCLUDES) -c $< -o $@
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MD $(INCLUDES) -c $< -o $@
 
 $(MD_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
-	$(CC) $(THR_DEFS) $(CFLAGS) -MD $(INCLUDES) -c $< -o $@
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MD $(INCLUDES) -c $< -o $@
 
 $(MDd_OBJ_DIR)/%.o: common/%.c
-	$(CC) $(THR_DEFS) $(CFLAGS) -MDd $(INCLUDES) -c $< -o $@
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MDd $(INCLUDES) -c $< -o $@
 
 $(MDd_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
-	$(CC) $(THR_DEFS) $(CFLAGS) -MDd $(INCLUDES) -c $< -o $@
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MDd $(INCLUDES) -c $< -o $@
 
 $(MT_OBJ_DIR)/%.o: common/%.c
-	$(CC) $(THR_DEFS) $(CFLAGS) -MT $(INCLUDES) -c $< -o $@
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MT $(INCLUDES) -c $< -o $@
 
 $(MT_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
-	$(CC) $(THR_DEFS) $(CFLAGS) -MT $(INCLUDES) -c $< -o $@
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MT $(INCLUDES) -c $< -o $@
 
 $(MTd_OBJ_DIR)/%.o: common/%.c
-	$(CC) $(THR_DEFS) $(CFLAGS) -MTd $(INCLUDES) -c $< -o $@
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MTd $(INCLUDES) -c $< -o $@
 
 $(MTd_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
-	$(CC) $(THR_DEFS) $(CFLAGS) -MTd $(INCLUDES) -c $< -o $@
+	$(V_CC) $(THR_DEFS) $(CFLAGS) -MTd $(INCLUDES) -c $< -o $@
 
 #
 # Install
@@ -560,73 +566,74 @@ DEPEND_MK=$(OBJ_DIR)/depend.mk
 .PHONY: depend
 depend: $(DEPEND_MK)
 $(DEPEND_MK):
-	@echo "Generating dependency file $(DEPEND_MK)..."
+	$(gen_verbose)
+	$(V_colon)@echo "Generating dependency file $(DEPEND_MK)..."
 	@echo "# Generated dependency rules" > $(DEPEND_MK);
 	@echo "# " >> $(DEPEND_MK);
 ifneq ($(strip $(ETHREAD_LIB_SRC)),)
 	@echo "# ethread lib objects..." >> $(DEPEND_MK);
 ifeq ($(USING_VC),yes)
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ETHREAD_LIB_SRC) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ETHREAD_LIB_SRC) \
 		| $(SED_MD_DEPEND) >> $(DEPEND_MK)
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ETHREAD_LIB_SRC) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ETHREAD_LIB_SRC) \
 		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
 else
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ETHREAD_LIB_SRC) \
-		| $(SED_r_DEPEND) >> $(DEPEND_MK)
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ETHREAD_LIB_SRC) \
+		| $(SED_r_DEPEND) >$(V_at)> $(DEPEND_MK)
 endif
 endif
 ifneq ($(strip $(ERTS_INTERNAL_LIB_SRCS)),)
 ifneq ($(strip $(ETHREAD_LIB_SRC)),)
 	@echo "# erts_internal_r lib objects..." >> $(DEPEND_MK);
 ifeq ($(USING_VC),yes)
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
 		| $(SED_MD_DEPEND) >> $(DEPEND_MK)
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
 		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
 else
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
 		| $(SED_r_DEPEND) >> $(DEPEND_MK)
 endif
 endif
 	@echo "# erts_internal lib objects..." >> $(DEPEND_MK);
 ifeq ($(USING_VC),yes)
-	$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
 		| $(SED_MD_DEPEND) >> $(DEPEND_MK)
-	$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
 		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
 else
-	$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
 		| $(SED_DEPEND) >> $(DEPEND_MK)
 endif
 endif
 ifneq ($(strip $(ERTS_LIB_SRCS)),)
 ifeq ($(USING_VC),yes)
 	@echo "# erts_MD lib objects..." >> $(DEPEND_MK);
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
 		| $(SED_MD_DEPEND) >> $(DEPEND_MK)
 	@echo "# erts_MDd lib objects..." >> $(DEPEND_MK);
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
 		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
 	@echo "# erts_MT lib objects..." >> $(DEPEND_MK);
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
 		| $(SED_MT_DEPEND) >> $(DEPEND_MK)
 	@echo "# erts_MTd lib objects..." >> $(DEPEND_MK);
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
 		| $(SED_MTd_DEPEND) >> $(DEPEND_MK)
 	@echo "# erts_internal_r lib objects..." >> $(DEPEND_MK);
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
 		| $(SED_MD_DEPEND) >> $(DEPEND_MK)
 	@echo "# erts_internal_r.debug lib objects..." >> $(DEPEND_MK);
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_INTERNAL_LIB_SRCS) \
 		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
 else
 ifneq ($(strip $(ETHREAD_LIB_SRC)),)
 	@echo "# erts_r lib objects..." >> $(DEPEND_MK);
-	$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
 		| $(SED_r_DEPEND) >> $(DEPEND_MK)
 endif
 	@echo "# erts lib objects..." >> $(DEPEND_MK);
-	$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
+	$(V_at)$(DEP_CC) -MM $(DEP_FLAGS) $(ERTS_LIB_SRCS) \
 		| $(SED_DEPEND) >> $(DEPEND_MK)
 endif
 endif

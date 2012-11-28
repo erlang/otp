@@ -136,13 +136,13 @@ info:
 # ----------------------------------------------------
 
 $(EBIN)/asn1ct.$(EMULATOR):asn1ct.erl
-	 $(ERLC) -b$(EMULATOR) -o$(EBIN) $(ERL_COMPILE_FLAGS) -Dvsn=\"$(VSN)\" $<
+	 $(V_ERLC) -b$(EMULATOR) -o$(EBIN) $(ERL_COMPILE_FLAGS) -Dvsn=\"$(VSN)\" $<
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 
 # ----------------------------------------------------

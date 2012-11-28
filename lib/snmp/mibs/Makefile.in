@@ -141,11 +141,11 @@ OTP_MIBDIR = $(shell if test -d ../../otp_mibs; then echo otp_mibs; \
 debug opt: $(TARGET_FILES)
 
 $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1: $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1.src
-	$(PERL) -p -e 's?%PERL%?$(PERL)? ' < $< > $@
-	chmod 755 $@
+	$(gen_verbose)$(PERL) -p -e 's?%PERL%?$(PERL)? ' < $< > $@
+	$(V_at)chmod 755 $@
 
 $(SNMP_BIN_TARGET_DIR)/OTP-REG.bin:	$(ERL_TOP)/lib/$(OTP_MIBDIR)/mibs/OTP-REG.mib
-	$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
+	$(snmp_verbose)$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
 
 # To support parallel make, we'll need explicit dependencies
 # to ensure that an imported MIB has been compiled when it's needed.
@@ -214,7 +214,7 @@ info:
 	@echo "RELSYSDIR   = "$(RELSYSDIR)""
 
 v1/%.mib.v1: %.mib $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1
-	$(ERL_TOP)/lib/snmp/bin/snmp-v2tov1 -o $@ $<
+	$(gen_verbose)$(ERL_TOP)/lib/snmp/bin/snmp-v2tov1 -o $@ $<
 
 
 # ----------------------------------------------------

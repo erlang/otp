@@ -57,20 +57,20 @@ edocs:
 	fi
 
 all-subdirs:
-	for dir in $(SUB_DIRECTORIES); do \
+	$(V_at)for dir in $(SUB_DIRECTORIES); do \
 		(cd $$dir; $(MAKE) $(MAKETARGET) EBIN=$(EBIN); cd ..); \
 	done
 
 # distclean and realclean should clean the bootstrap files
 all-subdirs-x:
-	for dir in $(SUB_DIRECTORIES); do \
+	$(V_at)for dir in $(SUB_DIRECTORIES); do \
 		(cd $$dir; $(MAKE) $(MAKETARGET) EBIN=../boot_ebin; cd ..); \
 	done
 
 clean:
-	$(MAKE) MAKETARGET="clean" all-subdirs all-subdirs-x
+	$(V_at)$(MAKE) MAKETARGET="clean" all-subdirs all-subdirs-x
 distclean:
-	$(MAKE) MAKETARGET="distclean" all-subdirs all-subdirs-x
+	$(V_at)$(MAKE) MAKETARGET="distclean" all-subdirs all-subdirs-x
 realclean:
-	$(MAKE) MAKETARGET="realclean" all-subdirs all-subdirs-x
+	$(V_at)$(MAKE) MAKETARGET="realclean" all-subdirs all-subdirs-x
 

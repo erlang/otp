@@ -67,7 +67,11 @@ ifeq ($(findstring solaris,$(HOST_OS)),solaris)
 SKIP_BUILDING_BINARIES := true
 endif
 else
+ifeq ($(V),0)
+AR_OUT = rc
+else
 AR_OUT = rcv
+endif
 CC_FLAGS = @DED_CFLAGS@
 LIBRARY = $(LIBDIR)/libic.a
 SKIP_BUILDING_BINARIES := false
@@ -128,11 +132,13 @@ docs:
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
 $(LIBRARY): $(OBJ_FILES) 
-	-$(AR) $(AR_OUT) $@ $(OBJ_FILES) 
+	$(ar_verbose)
+	-$(AR) $(AR_OUT) $@ $(OBJ_FILES)
+	$(ranlib_verbose)
 	-$(RANLIB) $@
 
 $(OBJDIR)/%.o: %.c
-	$(CC) $(CC_FLAGS) -c -o $@ $(ALL_CFLAGS) $<
+	$(V_CC) $(CC_FLAGS) -c -o $@ $(ALL_CFLAGS) $<
 
 # ----------------------------------------------------
 # Release Target

@@ -173,8 +173,8 @@ release_spec:
 
 depend.mk: depend.sed Makefile seealso.ent \
            $(XML_REF_FILES) $(XML_CHAPTER_FILES)
-	sed -f seehere.sed seealso.ent > seehere.ent
-	(for f in $(XML_REF_FILES) $(XML_CHAPTER_FILES); do \
+	$(gen_verbose)sed -f seehere.sed seealso.ent > seehere.ent
+	$(V_at)(for f in $(XML_REF_FILES) $(XML_CHAPTER_FILES); do \
 	     sed -f $< $$f | sed "s@%FILE%@`basename $$f .xml`@g"; \
 	 done) \
 	> $@

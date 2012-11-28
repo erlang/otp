@@ -118,7 +118,7 @@ clean clean_docs: clean_html clean_man clean_pdf
 	rm -f errs core *~
 
 $(INDEX_TARGET): $(INDEX_SRC) ../../vsn.mk	# Create top make file 
-	sed -e 's;%VSN%;$(VSN);' $< > $@	# inserting version number
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@	# inserting version number
 
 man: man1 man3 man6 man7
 

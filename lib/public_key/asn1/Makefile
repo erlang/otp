@@ -81,10 +81,10 @@ clean:
 docs:
 
 %.erl %.hrl: %.set.asn
-	erlc $(ASN_FLAGS) $<
+	$(asn_verbose)erlc $(ASN_FLAGS) $<
 
 $(INCLUDE)/%.hrl: %.hrl
-	cp -p $<  $@
+	$(gen_verbose)cp -p $<  $@
 
 # ----------------------------------------------------
 # Release Target
@@ -119,6 +119,6 @@ OTP-PUB-KEY.asn1db:		PKIX1Algorithms88.asn1 \
 				OTP-PKIX.asn1
 
 $(EBIN)/PKCS-FRAME.beam: 	        PKCS-FRAME.erl PKCS-FRAME.hrl
-PKCS-FRAME.erl PKCS-FRAME.hrl:	        PKCS-FRAME.asn1db
+PKCS-FRAME.erl PKCS-FRAME.hrl:		PKCS-FRAME.asn1db
 PKCS-FRAME.asn1db:			PKCS5v2-0.asn1\
 					PKCS-8.asn1\

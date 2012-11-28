@@ -76,7 +76,7 @@ ERL_COMPILE_FLAGS += +nowarn_shadow_vars +warn_missing_spec +warn_untyped_record
 # ----------------------------------------------------
 
 hipe.hrl: ../vsn.mk hipe.hrl.src
-	sed -e "s;%VSN%;$(HIPE_VSN);" ../../hipe/main/hipe.hrl.src > ../../hipe/main/hipe.hrl
+	$(vsn_verbose)sed -e "s;%VSN%;$(HIPE_VSN);" ../../hipe/main/hipe.hrl.src > ../../hipe/main/hipe.hrl
 
 $(EBIN)/hipe.beam: hipe.hrl ../../compiler/src/beam_disasm.hrl
 $(EBIN)/hipe_main.beam: hipe.hrl ../icode/hipe_icode.hrl #../rtl/hipe_rtl.hrl
@@ -97,17 +97,17 @@ distclean: clean
 realclean: clean
 
 $(DOCS)/%.html:%.erl
-	erl -noshell -run edoc_run file '"$<"' '[{dir, "$(DOCS)"}]' -s init stop
+	$(gen_verbose)erl -noshell -run edoc_run file '"$<"' '[{dir, "$(DOCS)"}]' -s init stop
 
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 # ----------------------------------------------------
 # Release Target

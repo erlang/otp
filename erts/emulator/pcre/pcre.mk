@@ -49,18 +49,18 @@ PCRE_CFLAGS = $(filter-out -DDEBUG,$(CFLAGS)) -DERLANG_INTEGRATION
 
 ifeq ($(TARGET), win32)
 $(EPCRE_LIB): $(PCRE_OBJS)
-	$(AR) -out:$@ $(PCRE_OBJS)
+	$(V_AR) -out:$@ $(PCRE_OBJS)
 else
 $(EPCRE_LIB): $(PCRE_OBJS)
-	$(AR) $(ARFLAGS) $@ $(PCRE_OBJS)
+	$(V_AR) $(ARFLAGS) $@ $(PCRE_OBJS)
 	-@ ($(RANLIB) $@ || true) 2>/dev/null
 endif
 
 $(PCRE_OBJDIR)/%.o: pcre/%.c
-	$(CC) -c $(PCRE_CFLAGS) -o $@ $<
+	$(V_CC) -c $(PCRE_CFLAGS) -o $@ $<
 
 $(PCRE_GENINC): pcre/pcre_exec.c
-	for x in `grep -n COST_CHK pcre/pcre_exec.c | grep -v 'COST_CHK(N)' | awk -F: '{print $$1}'`; \
+	$(gen_verbose)for x in `grep -n COST_CHK pcre/pcre_exec.c | grep -v 'COST_CHK(N)' | awk -F: '{print $$1}'`; \
 	do \
 		N=`expr $$x + 100`; \
 		echo "case $$N: goto L_LOOP_COUNT_$${x};"; \

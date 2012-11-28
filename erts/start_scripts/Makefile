@@ -65,28 +65,28 @@ debug opt script: rel $(INSTALL_SCRIPTS) $(RELEASES_SRC)
 rel:	$(REL_SCRIPTS)
 
 RELEASES.src:
-	$(INSTALL_DIR) $(SS_TMP)
-	( cd $(SS_TMP) && \
+	$(gen_verbose)$(INSTALL_DIR) $(SS_TMP)
+	$(V_at)( cd $(SS_TMP) && \
 	$(ERL) -noinput +B -eval 'release_handler:create_RELEASES("%ERL_ROOT%", "$(SS_ROOT)", "$(SS_ROOT)/start_sasl.rel", []), halt()')
-	mv RELEASES RELEASES.src
+	$(V_at)mv RELEASES RELEASES.src
 
 $(SS_ROOT)/start_clean.script \
 $(SS_ROOT)/start_clean.boot:	$(SS_ROOT)/start_clean.rel
-	$(INSTALL_DIR) $(SS_TMP)
-	( cd $(SS_TMP) && \
+	$(gen_verbose)$(INSTALL_DIR) $(SS_TMP)
+	$(V_at)( cd $(SS_TMP) && \
 	$(ERLC) $(SASL_FLAGS) $(SCRIPT_PATH) +no_warn_sasl -o $(SS_ROOT) $< )
 
 $(SS_ROOT)/start_sasl.script \
 $(SS_ROOT)/start_sasl.boot:	$(SS_ROOT)/start_sasl.rel
-	$(INSTALL_DIR) $(SS_TMP)
-	( cd $(SS_TMP) && \
+	$(gen_verbose)$(INSTALL_DIR) $(SS_TMP)
+	$(V_at)( cd $(SS_TMP) && \
 	$(ERLC) $(SASL_FLAGS) $(SCRIPT_PATH) -o $(SS_ROOT) $< )
 
 $(SS_ROOT)/start_clean.rel: $(SS_ROOT)/start_clean.rel.src \
 			../vsn.mk \
 			$(LIBPATH)/kernel/vsn.mk \
 			$(LIBPATH)/stdlib/vsn.mk
-	sed -e 's;%SYS_VSN%;$(SYSTEM_VSN);' \
+	$(gen_verbose)sed -e 's;%SYS_VSN%;$(SYSTEM_VSN);' \
             -e 's;%ERTS_VSN%;$(VSN);' \
             -e 's;%KERNEL_VSN%;$(KERNEL_VSN);' \
             -e 's;%STDLIB_VSN%;$(STDLIB_VSN);' \
@@ -97,7 +97,7 @@ $(SS_ROOT)/start_sasl.rel:	$(SS_ROOT)/start_sasl.rel.src \
 			$(LIBPATH)/kernel/vsn.mk \
 			$(LIBPATH)/stdlib/vsn.mk \
 			$(LIBPATH)/sasl/vsn.mk
-	sed -e 's;%SYS_VSN%;$(SYSTEM_VSN);' \
+	$(gen_verbose)sed -e 's;%SYS_VSN%;$(SYSTEM_VSN);' \
             -e 's;%ERTS_VSN%;$(VSN);' \
             -e 's;%KERNEL_VSN%;$(KERNEL_VSN);' \
             -e 's;%STDLIB_VSN%;$(STDLIB_VSN);' \
@@ -113,7 +113,7 @@ $(SS_ROOT)/start_all_example.rel:	$(SS_ROOT)/start_all_example.rel.src \
 			$(LIBPATH)/mnesia/vsn.mk \
 			$(LIBPATH)/snmp/vsn.mk \
 			$(LIBPATH)/inets/vsn.mk
-	sed -e 's;%SYS_VSN%;$(SYSTEM_VSN);' \
+	$(gen_verbose)sed -e 's;%SYS_VSN%;$(SYSTEM_VSN);' \
             -e 's;%ERTS_VSN%;$(VSN);' \
             -e 's;%KERNEL_VSN%;$(KERNEL_VSN);' \
             -e 's;%STDLIB_VSN%;$(STDLIB_VSN);' \
@@ -126,33 +126,33 @@ $(SS_ROOT)/start_all_example.rel:	$(SS_ROOT)/start_all_example.rel.src \
 
 ## Special target used from $(ERL_TOP)/erts/Makefile.
 $(ERL_TOP)/bin/start.script:
-	$(INSTALL_DIR) $(SS_TMP)
-	( cd $(SS_TMP) && \
+	$(gen_verbose)$(INSTALL_DIR) $(SS_TMP)
+	$(V_at)( cd $(SS_TMP) && \
 	  $(ERLC) $(SCRIPT_PATH) +no_warn_sasl +otp_build -o $@ $(SS_ROOT)/start_clean.rel )
 
 $(ERL_TOP)/bin/start_sasl.script:
-	$(INSTALL_DIR) $(SS_TMP)
-	( cd $(SS_TMP) && \
+	$(gen_verbose)$(INSTALL_DIR) $(SS_TMP)
+	$(V_at)( cd $(SS_TMP) && \
 	  $(ERLC) $(SCRIPT_PATH) +otp_build -o $@ $(SS_ROOT)/start_sasl.rel )
 
 $(ERL_TOP)/bin/start_clean.script:
-	$(INSTALL_DIR) $(SS_TMP)
-	( cd $(SS_TMP) && \
+	$(gen_verbose)$(INSTALL_DIR) $(SS_TMP)
+	$(V_at)( cd $(SS_TMP) && \
 	  $(ERLC) $(SCRIPT_PATH) +no_warn_sasl +otp_build -o $@ $(SS_ROOT)/start_clean.rel )
 
 ## Special target used from system/build/Makefile for source code release bootstrap.
 bootstrap_scripts: $(SS_ROOT)/start_clean.rel
-	$(INSTALL_DIR) $(TESTROOT)/bin
-	$(INSTALL_DIR) $(SS_TMP)
-	( cd $(SS_TMP) && \
+	$(V_at)$(INSTALL_DIR) $(TESTROOT)/bin
+	$(V_at)$(INSTALL_DIR) $(SS_TMP)
+	$(V_at)( cd $(SS_TMP) && \
 	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +otp_build +no_module_tests \
 	    -o $(TESTROOT)/bin/start.script $(SS_ROOT)/start_clean.rel )
-	( cd $(SS_TMP) && \
+	$(V_at)( cd $(SS_TMP) && \
 	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +otp_build +no_module_tests \
 	    -o $(TESTROOT)/bin/start_clean.script $(SS_ROOT)/start_clean.rel )
 
 clean:
-	$(RM) $(REL_SCRIPTS) $(INSTALL_SCRIPTS)
+	$(V_at)$(RM) $(REL_SCRIPTS) $(INSTALL_SCRIPTS)
 
 docs:
 
@@ -163,14 +163,14 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: script
-	$(INSTALL_DIR) "$(RELEASE_PATH)/releases/$(SYSTEM_VSN)"
+	$(V_at)$(INSTALL_DIR) "$(RELEASE_PATH)/releases/$(SYSTEM_VSN)"
 ifneq ($(findstring win32,$(TARGET)),win32)
-	$(INSTALL_DATA) RELEASES.src "$(RELEASE_PATH)/releases"
+	$(V_at)$(INSTALL_DATA) RELEASES.src "$(RELEASE_PATH)/releases"
 endif
-	$(INSTALL_DATA) $(INSTALL_SCRIPTS) $(REL_SCRIPTS) \
+	$(V_at)$(INSTALL_DATA) $(INSTALL_SCRIPTS) $(REL_SCRIPTS) \
 	   "$(RELEASE_PATH)/releases/$(SYSTEM_VSN)"
-	$(INSTALL_DATA) start_clean.script "$(RELEASE_PATH)/releases/$(SYSTEM_VSN)/start.script"
-	$(INSTALL_DATA) start_clean.boot "$(RELEASE_PATH)/releases/$(SYSTEM_VSN)/start.boot"
+	$(V_at)$(INSTALL_DATA) start_clean.script "$(RELEASE_PATH)/releases/$(SYSTEM_VSN)/start.script"
+	$(V_at)$(INSTALL_DATA) start_clean.boot "$(RELEASE_PATH)/releases/$(SYSTEM_VSN)/start.boot"
 
 
 release_docs_spec:

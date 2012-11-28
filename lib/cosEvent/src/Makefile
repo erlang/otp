@@ -168,9 +168,9 @@ clean:
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)
-	sed -e 's;%VSN%;$(VSN);' $(APP_SRC) > $(APP_TARGET)
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $(APP_SRC) > $(APP_TARGET)
 $(APPUP_TARGET): $(APPUP_SRC)
-	sed -e 's;%VSN%;$(VSN);' $(APPUP_SRC) > $(APPUP_TARGET)
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $(APPUP_SRC) > $(APPUP_TARGET)
 
 docs:
 
@@ -179,12 +179,12 @@ docs:
 # ----------------------------------------------------
 
 IDL-GENERATED: CosEventChannelAdmin.idl cosEventApp.idl CosEventComm.idl
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosEventChannelAdmin.cfg"}' CosEventChannelAdmin.idl
-	mv $(GEN_HRL_FILES1) $(EXTERNAL_INC_PATH)
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"cosEventApp.cfg"}' cosEventApp.idl
-	erlc $(ERL_IDL_FLAGS) CosEventComm.idl
-	mv $(GEN_HRL_FILES3) $(EXTERNAL_INC_PATH)
-	>IDL-GENERATED
+	$(gen_verbose)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosEventChannelAdmin.cfg"}' CosEventChannelAdmin.idl
+	$(V_at)mv $(GEN_HRL_FILES1) $(EXTERNAL_INC_PATH)
+	$(V_at)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"cosEventApp.cfg"}' cosEventApp.idl
+	$(V_at)erlc $(ERL_IDL_FLAGS) CosEventComm.idl
+	$(V_at)mv $(GEN_HRL_FILES3) $(EXTERNAL_INC_PATH)
+	$(V_at)>IDL-GENERATED
 
 $(GEN_FILES): IDL-GENERATED
 
