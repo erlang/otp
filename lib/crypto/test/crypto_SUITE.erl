@@ -743,6 +743,9 @@ sha256(doc) ->
 sha256(suite) ->
     [];
 sha256(Config) when is_list(Config) ->
+    if_098(fun() -> sha256_do() end).
+
+sha256_do() ->
     ?line m(crypto:sha256("abc"),
 	    hexstr2bin("BA7816BF8F01CFEA4141"
 		       "40DE5DAE2223B00361A396177A9CB410FF61F20015AD")),
@@ -759,6 +762,9 @@ sha256_update(doc) ->
 sha256_update(suite) ->
     [];
 sha256_update(Config) when is_list(Config) ->
+    if_098(fun() -> sha256_update_do() end).
+
+sha256_update_do() ->
     ?line Ctx = crypto:sha256_init(),
     ?line Ctx1 = crypto:sha256_update(Ctx, "abcdbcdecdefdefgefghfghighi"),
     ?line Ctx2 = crypto:sha256_update(Ctx1, "jhijkijkljklmklmnlmnomnopnopq"),
@@ -775,6 +781,9 @@ sha512(doc) ->
 sha512(suite) ->
     [];
 sha512(Config) when is_list(Config) ->
+    if_098(fun() -> sha512_do() end).
+
+sha512_do() ->
     ?line m(crypto:sha512("abc"),
 	    hexstr2bin("DDAF35A193617ABACC417349AE20413112E6FA4E89A97EA2"
 		       "0A9EEEE64B55D39A2192992A274FC1A836BA3C23A3FEEBBD"
@@ -793,6 +802,9 @@ sha512_update(doc) ->
 sha512_update(suite) ->
     [];
 sha512_update(Config) when is_list(Config) ->
+    if_098(fun() -> sha512_update_do() end).
+
+sha512_update_do() ->
     ?line Ctx = crypto:sha512_init(),
     ?line Ctx1 = crypto:sha512_update(Ctx, "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn"),
     ?line Ctx2 = crypto:sha512_update(Ctx1, "hijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"),
