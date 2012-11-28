@@ -107,19 +107,17 @@ init_per_testcase(TestCase, Config) ->
     SystemDir = filename:join(?config(priv_dir, Config), system),
 
     Port = ssh_test_lib:inet_port(node()),
-
+    Options = [{system_dir, SystemDir},
+	       {user_dir, PrivDir},
+	       {user_passwords,[{?USER, ?PASSWD}]},
+	       {pwdfun, fun(_,_) -> true end}],
     {ok, Sftpd} = case TestCase of
 		      ver6_basic ->
-			  ssh_sftpd:listen(Port, [{system_dir, SystemDir},
-						  {user_dir, PrivDir},
-						  {user_passwords,[{?USER, ?PASSWD}]},
-						  {pwdfun, fun(_,_) -> true end}, 
-						  {sftpd_vsn, 6}]);
+			  SubSystems = [ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}])],
+			  ssh:daemon(Port, [{subsystems, SubSystems}|Options]);
 		      _ ->
-			  ssh_sftpd:listen(Port, [{system_dir, SystemDir},
-						  {user_dir, PrivDir},
-						  {user_passwords,[{?USER, ?PASSWD}]},
-						  {pwdfun, fun(_,_) -> true end}])
+			  SubSystems = [ssh_sftpd:subsystem_spec([])],
+			  ssh:daemon(Port, [{subsystems, SubSystems}|Options])
 		  end,
     
     Cm = ssh_test_lib:connect(Port,
