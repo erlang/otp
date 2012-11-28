@@ -168,15 +168,21 @@ erts_init_gc(void)
      * we really don't want that growth when the heaps are that big.
      */
 	    
-    heap_sizes[0] = 34;
-    heap_sizes[1] = 55;
-    for (i = 2; i < 23; i++) {
-	heap_sizes[i] = heap_sizes[i-1] + heap_sizes[i-2];
+    /* Growth stage 1 - Fibonacci + 1*/
+    /* 12,38 will hit size 233, the old default */
+
+    heap_sizes[0] = 12;
+    heap_sizes[1] = 38;
+
+    for(i = 2; i < 23; i++) {
+        /* one extra word for block header */
+        heap_sizes[i] = heap_sizes[i-1] + heap_sizes[i-2] + 1;
     }
 
+    /* Growth stage 2 - 20% growth */
     /* At 1.3 mega words heap, we start to slow down. */
     for (i = 23; i < ALENGTH(heap_sizes); i++) {
-	heap_sizes[i] = 5*(heap_sizes[i-1]/4);
+	heap_sizes[i] = heap_sizes[i-1] + heap_sizes[i-1]/5;
 	if (heap_sizes[i] < 0) {
 	    /* Size turned negative. Discard this last size. */
 	    i--;
