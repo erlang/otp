@@ -2039,7 +2039,7 @@ erts_dist_command(Port *prt, int reds_limit)
     if (reds > reds_limit)
 	goto preempted;
 
-    if (!(sched_flags & ERTS_PTS_FLG_BUSY) && foq.first) {
+    if (!(sched_flags & ERTS_PTS_FLG_BUSY_PORT) && foq.first) {
 	int preempt = 0;
 	do {
 	    Uint size;
@@ -2057,7 +2057,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	    free_dist_obuf(fob);
 	    sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
 	    preempt = reds > reds_limit || (sched_flags & ERTS_PTS_FLG_EXIT);
-	    if (sched_flags & ERTS_PTS_FLG_BUSY)
+	    if (sched_flags & ERTS_PTS_FLG_BUSY_PORT)
 		break;
 	} while (foq.first && !preempt);
 	if (!foq.first)
@@ -2066,7 +2066,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	    goto preempted;
     }
 
-    if (sched_flags & ERTS_PTS_FLG_BUSY) {
+    if (sched_flags & ERTS_PTS_FLG_BUSY_PORT) {
 	if (oq.first) {
 	    ErtsDistOutputBuf *ob;
 	    int preempt;
@@ -2139,7 +2139,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	    free_dist_obuf(fob);
 	    sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
 	    preempt = reds > reds_limit || (sched_flags & ERTS_PTS_FLG_EXIT);
-	    if ((sched_flags & ERTS_PTS_FLG_BUSY) && oq.first && !preempt)
+	    if ((sched_flags & ERTS_PTS_FLG_BUSY_PORT) && oq.first && !preempt)
 		goto finalize_only;
 	}
 
@@ -2168,7 +2168,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	ASSERT(dep->qsize >= obufsize);
 	dep->qsize -= obufsize;
 	obufsize = 0;
-	if (!(sched_flags & ERTS_PTS_FLG_BUSY)
+	if (!(sched_flags & ERTS_PTS_FLG_BUSY_PORT)
 	    && (dep->qflgs & ERTS_DE_QFLG_BUSY)
 	    && dep->qsize < erts_dist_buf_busy_limit) {
 	    ErtsProcList *suspendees;
@@ -2691,6 +2691,15 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
 	goto badarg;
 
     erts_atomic32_read_bor_nob(&pp->state, ERTS_PORT_SFLG_DISTRIBUTION);
+
+    /*
+     * Dist-ports do not use the "busy port message queue" functionality, but
+     * instead use "busy dist entry" functionality.
+     */
+    {
+	ErlDrvSizeT disable = ERL_DRV_BUSY_MSGQ_DISABLED;
+	erl_drv_busy_msgq_limits((ErlDrvPort) pp, &disable, NULL);
+    }
 
     pp->dist_entry = dep;
 

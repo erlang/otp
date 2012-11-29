@@ -1071,6 +1071,8 @@ enc_opt(deliver)         -> ?INET_LOPT_DELIVER;
 enc_opt(exit_on_close)   -> ?INET_LOPT_EXITONCLOSE;
 enc_opt(high_watermark)  -> ?INET_LOPT_TCP_HIWTRMRK;
 enc_opt(low_watermark)   -> ?INET_LOPT_TCP_LOWTRMRK;
+enc_opt(high_msgq_watermark)  -> ?INET_LOPT_TCP_MSGQ_HIWTRMRK;
+enc_opt(low_msgq_watermark)   -> ?INET_LOPT_TCP_MSGQ_LOWTRMRK;
 enc_opt(bit8)            -> ?INET_LOPT_BIT8;
 enc_opt(send_timeout)    -> ?INET_LOPT_TCP_SEND_TIMEOUT;
 enc_opt(send_timeout_close) -> ?INET_LOPT_TCP_SEND_TIMEOUT_CLOSE;
@@ -1125,6 +1127,8 @@ dec_opt(?INET_LOPT_DELIVER)       -> deliver;
 dec_opt(?INET_LOPT_EXITONCLOSE)   -> exit_on_close;
 dec_opt(?INET_LOPT_TCP_HIWTRMRK)  -> high_watermark;
 dec_opt(?INET_LOPT_TCP_LOWTRMRK)  -> low_watermark;
+dec_opt(?INET_LOPT_TCP_MSGQ_HIWTRMRK)  -> high_msgq_watermark;
+dec_opt(?INET_LOPT_TCP_MSGQ_LOWTRMRK)  -> low_msgq_watermark;
 dec_opt(?INET_LOPT_BIT8)          -> bit8;
 dec_opt(?INET_LOPT_TCP_SEND_TIMEOUT) -> send_timeout;
 dec_opt(?INET_LOPT_TCP_SEND_TIMEOUT_CLOSE) -> send_timeout_close;
@@ -1220,6 +1224,8 @@ type_opt_1(deliver) ->
 type_opt_1(exit_on_close)   -> bool;
 type_opt_1(low_watermark)   -> int;
 type_opt_1(high_watermark)  -> int;
+type_opt_1(low_msgq_watermark)   -> int;
+type_opt_1(high_msgq_watermark)  -> int;
 type_opt_1(bit8) ->
     {enum,[{clear, ?INET_BIT8_CLEAR},
 	   {set,   ?INET_BIT8_SET},

@@ -157,6 +157,7 @@ typedef struct {
 
 #define ERL_DRV_FLAG_USE_PORT_LOCKING	(1 << 0)
 #define ERL_DRV_FLAG_SOFT_BUSY		(1 << 1)
+#define ERL_DRV_FLAG_NO_BUSY_MSGQ	(1 << 2)
 
 /*
  * Integer types
@@ -384,9 +385,18 @@ typedef struct erl_drv_entry {
     ErlDrvEntry* driver_init(void)
 #endif
 
+#define ERL_DRV_BUSY_MSGQ_DISABLED	(~((ErlDrvSizeT) 0))
+#define ERL_DRV_BUSY_MSGQ_READ_ONLY	((ErlDrvSizeT) 0)
+#define ERL_DRV_BUSY_MSGQ_LIM_MAX	(ERL_DRV_BUSY_MSGQ_DISABLED - 1)
+#define ERL_DRV_BUSY_MSGQ_LIM_MIN	((ErlDrvSizeT) 1)
+
 /*
  * These are the functions available for driver writers.
  */
+EXTERN void erl_drv_busy_msgq_limits(ErlDrvPort port,
+				     ErlDrvSizeT *low,
+				     ErlDrvSizeT *high);
+
 EXTERN int driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on);
 EXTERN int driver_event(ErlDrvPort port, ErlDrvEvent event, 
 			ErlDrvEventData event_data);

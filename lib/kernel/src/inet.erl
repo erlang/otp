@@ -535,6 +535,7 @@ options() ->
      buffer, header, active, packet, deliver, mode,
      multicast_if, multicast_ttl, multicast_loop,
      exit_on_close, high_watermark, low_watermark,
+     high_msgq_watermark, low_msgq_watermark,
      bit8, send_timeout, send_timeout_close
     ].
 
@@ -552,8 +553,9 @@ stats() ->
 connect_options() ->
     [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      header, active, packet, packet_size, buffer, mode, deliver,
-     exit_on_close, high_watermark, low_watermark, bit8, send_timeout,
-     send_timeout_close, delay_send,raw].
+     exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
+     low_msgq_watermark, bit8, send_timeout, send_timeout_close,
+     delay_send,raw].
     
 connect_options(Opts, Family) ->
     BaseOpts = 
@@ -608,8 +610,9 @@ con_add(Name, Val, R, Opts, AllOpts) ->
 listen_options() ->
     [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      header, active, packet, buffer, mode, deliver, backlog,
-     exit_on_close, high_watermark, low_watermark, bit8, send_timeout,
-     send_timeout_close, delay_send, packet_size,raw].
+     exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
+     low_msgq_watermark, bit8, send_timeout, send_timeout_close,
+     delay_send, packet_size,raw].
 
 listen_options(Opts, Family) ->
     BaseOpts = 

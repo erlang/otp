@@ -761,15 +761,36 @@ erts_port_driver_callback_epilogue(Port *prt, erts_aint32_t *statep)
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
+void erts_port_resume_procs(Port *);
+
 struct binary;
 
-#define ERTS_P2P_SIG_DATA_FLG_BANG_OP		(1 << 0)
-#define ERTS_P2P_SIG_DATA_FLG_REPLY		(1 << 1)
-#define ERTS_P2P_SIG_DATA_FLG_NOSUSPEND		(1 << 2)
-#define ERTS_P2P_SIG_DATA_FLG_FORCE		(1 << 3)
-#define ERTS_P2P_SIG_DATA_FLG_BAD_OUTPUT	(1 << 4)
-#define ERTS_P2P_SIG_DATA_FLG_BROKEN_LINK	(1 << 5)
-#define ERTS_P2P_SIG_DATA_FLG_SCHED		(1 << 6)
+#define ERTS_P2P_SIG_TYPE_BAD			0
+#define ERTS_P2P_SIG_TYPE_OUTPUT		1
+#define ERTS_P2P_SIG_TYPE_OUTPUTV		2
+#define ERTS_P2P_SIG_TYPE_CONNECT		3
+#define ERTS_P2P_SIG_TYPE_EXIT			4
+#define ERTS_P2P_SIG_TYPE_CONTROL		5
+#define ERTS_P2P_SIG_TYPE_CALL			6
+#define ERTS_P2P_SIG_TYPE_INFO			7
+#define ERTS_P2P_SIG_TYPE_LINK			8
+#define ERTS_P2P_SIG_TYPE_UNLINK		9
+#define ERTS_P2P_SIG_TYPE_SET_DATA		10
+#define ERTS_P2P_SIG_TYPE_GET_DATA		11
+
+#define ERTS_P2P_SIG_TYPE_BITS			4
+#define ERTS_P2P_SIG_TYPE_MASK \
+    ((1 << ERTS_P2P_SIG_TYPE_BITS) - 1)
+
+#define ERTS_P2P_SIG_DATA_FLG(N) \
+    (1 << (ERTS_P2P_SIG_TYPE_BITS + (N)))
+#define ERTS_P2P_SIG_DATA_FLG_BANG_OP		ERTS_P2P_SIG_DATA_FLG(0)
+#define ERTS_P2P_SIG_DATA_FLG_REPLY		ERTS_P2P_SIG_DATA_FLG(1)
+#define ERTS_P2P_SIG_DATA_FLG_NOSUSPEND		ERTS_P2P_SIG_DATA_FLG(2)
+#define ERTS_P2P_SIG_DATA_FLG_FORCE		ERTS_P2P_SIG_DATA_FLG(3)
+#define ERTS_P2P_SIG_DATA_FLG_BAD_OUTPUT	ERTS_P2P_SIG_DATA_FLG(4)
+#define ERTS_P2P_SIG_DATA_FLG_BROKEN_LINK	ERTS_P2P_SIG_DATA_FLG(5)
+#define ERTS_P2P_SIG_DATA_FLG_SCHED		ERTS_P2P_SIG_DATA_FLG(6)
 
 struct ErtsProc2PortSigData_ {
     int flags;
@@ -822,6 +843,35 @@ struct ErtsProc2PortSigData_ {
 	} set_data;
     } u;
 } ;
+
+ERTS_GLB_INLINE int
+erts_proc2port_sig_is_command_op(ErtsProc2PortSigData *sigdp);
+ERTS_GLB_INLINE ErlDrvSizeT
+erts_proc2port_sig_command_data_size(ErtsProc2PortSigData *sigdp);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE int
+erts_proc2port_sig_is_command_op(ErtsProc2PortSigData *sigdp)
+{
+    switch (sigdp->flags & ERTS_P2P_SIG_TYPE_MASK) {
+    case ERTS_P2P_SIG_TYPE_OUTPUT:	return !0;
+    case ERTS_P2P_SIG_TYPE_OUTPUTV:	return !0;
+    default:				return 0;
+    }
+}
+
+ERTS_GLB_INLINE ErlDrvSizeT
+erts_proc2port_sig_command_data_size(ErtsProc2PortSigData *sigdp)
+{
+    switch (sigdp->flags & ERTS_P2P_SIG_TYPE_MASK) {
+    case ERTS_P2P_SIG_TYPE_OUTPUT:	return sigdp->u.output.size;
+    case ERTS_P2P_SIG_TYPE_OUTPUTV:	return sigdp->u.outputv.evp->size;
+    default:				return (ErlDrvSizeT) 0;
+    }
+}
+
+#endif
 
 #define ERTS_PROC2PORT_SIG_EXEC			0
 #define ERTS_PROC2PORT_SIG_ABORT		1

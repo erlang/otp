@@ -141,6 +141,8 @@
 -define(INET_LOPT_READ_PACKETS,  33).
 -define(INET_OPT_RAW,            34).
 -define(INET_LOPT_TCP_SEND_TIMEOUT_CLOSE, 35).
+-define(INET_LOPT_TCP_MSGQ_HIWTRMRK,  36).
+-define(INET_LOPT_TCP_MSGQ_LOWTRMRK,  37).
 % Specific SCTP options: separate range:
 -define(SCTP_OPT_RTOINFO,	 	100).
 -define(SCTP_OPT_ASSOCINFO,	 	101).

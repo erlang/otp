@@ -66,16 +66,20 @@ typedef enum {
 extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
 #endif
 
-#define ERTS_PTS_FLG_IN_RUNQ		(((erts_aint32_t) 1) << 0)
-#define ERTS_PTS_FLG_EXEC		(((erts_aint32_t) 1) << 1)
-#define ERTS_PTS_FLG_HAVE_TASKS		(((erts_aint32_t) 1) << 2)
-#define ERTS_PTS_FLG_EXIT		(((erts_aint32_t) 1) << 3)
-#define ERTS_PTS_FLG_BUSY		(((erts_aint32_t) 1) << 4)
-#define ERTS_PTS_FLG_HAVE_BUSY_TASKS	(((erts_aint32_t) 1) << 5)
-#define ERTS_PTS_FLG_HAVE_NS_TASKS	(((erts_aint32_t) 1) << 6)
-#define ERTS_PTS_FLG_PARALLELISM	(((erts_aint32_t) 1) << 7)
-#define ERTS_PTS_FLG_FORCE_SCHED	(((erts_aint32_t) 1) << 8)
+#define ERTS_PTS_FLG_IN_RUNQ			(((erts_aint32_t) 1) <<  0)
+#define ERTS_PTS_FLG_EXEC			(((erts_aint32_t) 1) <<  1)
+#define ERTS_PTS_FLG_HAVE_TASKS			(((erts_aint32_t) 1) <<  2)
+#define ERTS_PTS_FLG_EXIT			(((erts_aint32_t) 1) <<  3)
+#define ERTS_PTS_FLG_BUSY_PORT			(((erts_aint32_t) 1) <<  4)
+#define ERTS_PTS_FLG_BUSY_PORT_Q		(((erts_aint32_t) 1) <<  5)
+#define ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q	(((erts_aint32_t) 1) <<  6)
+#define ERTS_PTS_FLG_HAVE_BUSY_TASKS		(((erts_aint32_t) 1) <<  7)
+#define ERTS_PTS_FLG_HAVE_NS_TASKS		(((erts_aint32_t) 1) <<  8)
+#define ERTS_PTS_FLG_PARALLELISM		(((erts_aint32_t) 1) <<  9)
+#define ERTS_PTS_FLG_FORCE_SCHED		(((erts_aint32_t) 1) << 10)
 
+#define ERTS_PTS_FLGS_BUSY \
+    (ERTS_PTS_FLG_BUSY_PORT | ERTS_PTS_FLG_BUSY_PORT_Q)
 
 #define ERTS_PTS_FLGS_FORCE_SCHEDULE_OP		\
     (ERTS_PTS_FLG_EXIT				\
@@ -83,6 +87,15 @@ extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
      | ERTS_PTS_FLG_HAVE_TASKS			\
      | ERTS_PTS_FLG_EXEC			\
      | ERTS_PTS_FLG_FORCE_SCHED)
+
+#define ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_HIGH			8192
+#define ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_LOW			4096
+
+typedef struct {
+    ErlDrvSizeT high;
+    erts_smp_atomic_t low;
+    erts_smp_atomic_t size;
+}  ErtsPortTaskBusyPortQ;
 
 typedef struct ErtsPortTask_ ErtsPortTask;
 typedef struct ErtsPortTaskBusyCallerTable_ ErtsPortTaskBusyCallerTable;
@@ -104,6 +117,7 @@ typedef struct {
 	    ErtsPortTask *first;
 	    ErtsPortTask *last;
 	} in;
+	ErtsPortTaskBusyPortQ *bpq;
     } taskq;
     erts_smp_atomic32_t flags;
 #ifdef ERTS_SMP
@@ -113,6 +127,8 @@ typedef struct {
 
 ERTS_GLB_INLINE void erts_port_task_handle_init(ErtsPortTaskHandle *pthp);
 ERTS_GLB_INLINE int erts_port_task_is_scheduled(ErtsPortTaskHandle *pthp);
+ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,
+						   ErtsPortTaskBusyPortQ *bpq);
 ERTS_GLB_INLINE void erts_port_task_init_sched(ErtsPortTaskSched *ptsp,
 					       Eterm id);
 ERTS_GLB_INLINE void erts_port_task_fini_sched(ErtsPortTaskSched *ptsp);
@@ -136,6 +152,18 @@ ERTS_GLB_INLINE int
 erts_port_task_is_scheduled(ErtsPortTaskHandle *pthp)
 {
     return ((void *) erts_smp_atomic_read_nob(pthp)) != NULL;
+}
+
+ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,
+						   ErtsPortTaskBusyPortQ *bpq)
+{
+    if (bpq) {
+	erts_aint_t low = (erts_aint_t) ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_LOW;
+	erts_smp_atomic_init_nob(&bpq->low, low);
+ 	bpq->high = (ErlDrvSizeT) ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_HIGH;
+	erts_smp_atomic_init_nob(&bpq->size, (erts_aint_t) 0);
+    }
+    ptsp->taskq.bpq = bpq;
 }
 
 ERTS_GLB_INLINE void

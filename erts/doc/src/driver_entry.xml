@@ -377,11 +377,11 @@ typedef struct erl_drv_entry {
 
       <tag><marker id="driver_flags"/>int driver_flags</tag>
       <item>
-        <p>This field is used to pass driver capability information to the
-          runtime system. If the <c>extended_marker</c> field equals
-          <c>ERL_DRV_EXTENDED_MARKER</c>, it should contain <c>0</c> or
-          driver flags (<c>ERL_DRV_FLAG_*</c>) ored bitwise. Currently
-          the following driver flags exist:
+        <p>This field is used to pass driver capability and other
+	  information to the runtime system. If the
+	  <c>extended_marker</c> field equals <c>ERL_DRV_EXTENDED_MARKER</c>,
+	  it should contain <c>0</c> or  driver flags (<c>ERL_DRV_FLAG_*</c>)
+	  ored bitwise. Currently the following driver flags exist:
         </p>
         <taglist>
           <tag><c>ERL_DRV_FLAG_USE_PORT_LOCKING</c></tag>
@@ -403,6 +403,12 @@ typedef struct erl_drv_entry {
 	    Since erts version 5.7.4 this flag is required for drivers used
 	    by the Erlang distribution (the behaviour has always been
 	    required by drivers used by the distribution).
+          </item>
+          <tag><c>ERL_DRV_FLAG_NO_BUSY_MSGQ</c></tag>
+          <item>Disable busy port message queue functionality. For
+	  more information, see the documentation of the
+	  <seealso marker="erl_driver#erl_drv_busy_msgq_limits">erl_drv_busy_msgq_limits()</seealso>
+	  function.
           </item>
         </taglist> 
       </item>

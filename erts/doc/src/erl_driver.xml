@@ -1500,16 +1500,81 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
+      <name><ret>void</ret><nametext>erl_drv_busy_msgq_limits(ErlDrvPort port, ErlDrvSizeT *low, ErlDrvSizeT *high)</nametext></name>
+      <fsummary>Set and get limits for busy port message queue</fsummary>
+      <desc>
+        <marker id="erl_drv_busy_msgq_limits"></marker>
+        <p>Sets and gets limits that will be used for controling the
+	busy state of the port message queue.</p>
+	<p>The port message queue will be set into a busy
+	state when the amount of command data queued on the
+	message	queue reaches the <c>high</c> limit. The port
+	message	queue will be set into a not busy state when the
+	amount of command data queued on the message queue falls
+	below the <c>low</c> limit. Command data is in this
+	context data passed to the port using either
+	<c>Port ! {Owner, {command, Data}}</c>, or
+	<c>port_command/[2,3]</c>. Note that these limits
+	only concerns command data that have not yet reached the
+	port. The <seealso marker="#set_busy_port">busy port</seealso>
+	feature can be used for data that has reached the port.</p>
+
+	<p>Valid limits are values in the range
+	<c>[ERL_DRV_BUSY_MSGQ_LIM_MIN, ERL_DRV_BUSY_MSGQ_LIM_MAX]</c>.
+	Limits will be automatically adjusted to be sane. That is,
+	the system will	adjust values so that the low limit used is
+	lower or equal to the high limit used. By default the high
+	limit will be 8 kB and the low limit will be 4 kB.</p>
+
+	<p>By passing a pointer to an integer variable containing
+	the value <c>ERL_DRV_BUSY_MSGQ_READ_ONLY</c>, currently used
+	limit will be read and written back to the integer variable.
+	A new limit can be set by passing a pointer to an integer
+	variable containing a valid limit. The passed value will be
+	written to the internal limit. The internal limit will then
+	be adjusted. After this the adjusted limit will be written
+	back to the integer variable from which the new value was
+	read. Values are in bytes.</p>
+
+	<p>The busy message queue feature can be disabled either
+	by setting the <c>ERL_DRV_FLAG_NO_BUSY_MSGQ</c>
+	<seealso marker="driver_entry#driver_flags">driver flag</seealso>
+	in the <seealso marker="driver_entry">driver_entry</seealso>
+	used by the driver, or by calling this function with
+	<c>ERL_DRV_BUSY_MSGQ_DISABLED</c> as a limit (either low or
+	high). When this feature has been disabled it cannot be
+	enabled again. When reading the limits both of them
+	will be <c>ERL_DRV_BUSY_MSGQ_DISABLED</c>, if this
+	feature has been disabled.</p>
+
+	<p>Processes sending command data to the port will be suspended
+	if either the port is busy or if the port message queue is
+	busy. Suspended processes will be resumed when neither the
+	port is busy, nor the port message queue is busy.</p>
+
+	<p>For information about busy port functionality
+	see the documentation of the
+	<seealso marker="#set_busy_port">set_busy_port()</seealso>
+	function.</p>
+      </desc>
+    </func>
+    <func>
       <name><ret>void</ret><nametext>set_busy_port(ErlDrvPort port, int on)</nametext></name>
       <fsummary>Signal or unsignal port as busy</fsummary>
       <desc>
         <marker id="set_busy_port"></marker>
-        <p>This function set and resets the busy status of the port. If
-          <c>on</c> is 1, the port is set to busy, if it's 0 the port
-          is set to not busy.</p>
-        <p>When the port is busy, sending to it with <c>Port ! Data</c>
-          or <c>port_command/2</c>, will block the port owner process,
-          until the port is signaled as not busy.</p>
+        <p>This function set and unset the busy state of the port. If
+          <c>on</c> is non-zero, the port is set to busy, if it's zero the port
+          is set to not busy. You typically want to combine
+	  this feature with the <seealso marker="#erl_drv_busy_msgq_limits">busy
+	  port message queue</seealso> functionality.</p>
+	<p>Processes sending command data to the port will be suspended
+	if either the port is busy or if the port message queue
+	is busy. Suspended processes will be resumed when neither the
+	port is busy, nor the port message queue is busy. Command data
+	is in this context data passed to the port using either
+	<c>Port ! {Owner, {command, Data}}</c>, or
+	<c>port_command/[2,3]</c>.</p>
 	<p>If the
 	   <seealso marker="driver_entry#driver_flags"><![CDATA[ERL_DRV_FLAG_SOFT_BUSY]]></seealso>
 	   has been set in the
@@ -1518,6 +1583,10 @@ typedef struct ErlIOVec {
 	   <seealso marker="erlang#port_command/3">port_command(Port, Data, [force])</seealso>
 	   even though the driver has signaled that it is busy.
 	</p>
+	<p>For information about busy port message queue functionality
+	see the documentation of the
+	<seealso marker="#erl_drv_busy_msgq_limits">erl_drv_busy_msgq_limits()</seealso>
+	function.</p>
       </desc>
     </func>
     <func>
