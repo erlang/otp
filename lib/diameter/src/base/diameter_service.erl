@@ -2238,6 +2238,9 @@ rc(RC) ->
 
 %% rc/4
 
+rc(#diameter_packet{msg = Rec} = Pkt, RC, Failed, Dict) ->
+    Pkt#diameter_packet{msg = rc(Rec, RC, Failed, Dict)};
+
 rc(Rec, RC, Failed, Dict)
   when is_integer(RC) ->
     set(Rec,
