@@ -981,8 +981,12 @@ handle_info({'DOWN', MonitorRef, _, _, _}, _,
 
 handle_info(allow_renegotiate, StateName, State) ->
     {next_state, StateName, State#state{allow_renegotiate = true}, get_timeout(State)};
-   
-handle_info({cancel_start_or_recv, RecvFrom}, connection = StateName, #state{start_or_recv_from = RecvFrom} = State) ->
+
+handle_info({cancel_start_or_recv, StartFrom}, StateName, #state{renegotiation = {false, first}} = State) when StateName =/= connection ->
+    gen_fsm:reply(StartFrom, {error, timeout}),
+    {stop, {shutdown, user_timeout}, State};
+
+handle_info({cancel_start_or_recv, RecvFrom}, StateName, #state{start_or_recv_from = RecvFrom} = State) ->
     gen_fsm:reply(RecvFrom, {error, timeout}),
     {next_state, StateName, State#state{start_or_recv_from = undefined}, get_timeout(State)};
 
