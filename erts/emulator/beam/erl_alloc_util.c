@@ -1404,6 +1404,7 @@ mbc_alloc_finalize(Allctr_t *allctr,
 	ASSERT(FBLK_TO_MBC(nxt_blk) == crr);
     }
     else {
+	ASSERT(org_blk_sz <= MBC_ABLK_SZ_MASK);
 	blk_sz = org_blk_sz;
 	if (flags & LAST_BLK_HDR_FLG) {
 	    if (valid_blk_info)
@@ -4163,12 +4164,6 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 
     allctr->ramv			= init->ramv;
     allctr->main_carrier_size		= init->mmbcs;
-    allctr->sbc_threshold		= init->sbct;
-#ifndef ARCH_64
-    if (allctr->sbc_threshold > MBC_ABLK_SZ_MASK - ABLK_HDR_SZ) {
-	allctr->sbc_threshold = MBC_ABLK_SZ_MASK - ABLK_HDR_SZ + 1;
-    }
-#endif
 
 #if HAVE_ERTS_MSEG
     allctr->mseg_opt.abs_shrink_th	= init->asbcst;
@@ -4207,6 +4202,23 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	sz = UNIT_CEILING(sz);
 	if (sz > allctr->min_block_size)
 	    allctr->min_block_size = sz;
+    }
+#endif
+
+    allctr->sbc_threshold		= init->sbct;
+#ifndef ARCH_64
+    if (allctr->sbc_threshold > 0) {
+	Uint max_mbc_block_sz = UNIT_CEILING(allctr->sbc_threshold - 1 + ABLK_HDR_SZ); 
+	if (max_mbc_block_sz + UNIT_FLOOR(allctr->min_block_size - 1) > MBC_ABLK_SZ_MASK
+	    || max_mbc_block_sz < allctr->sbc_threshold) { /* wrap around */
+	    /* 
+	     * By limiting sbc_threshold to (hard limit - min_block_size)
+	     * we avoid having to split off free "residue blocks"
+	     * smaller than min_block_size.
+	     */
+	    max_mbc_block_sz = MBC_ABLK_SZ_MASK - UNIT_FLOOR(allctr->min_block_size - 1);
+	    allctr->sbc_threshold = max_mbc_block_sz - ABLK_HDR_SZ + 1;
+	}
     }
 #endif
 
