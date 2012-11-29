@@ -396,6 +396,7 @@ encode_erlang_status(Status) ->
 	eacces -> ?SSH_FX_PERMISSION_DENIED;
 	eisdir -> ?SSH_FX_FILE_IS_A_DIRECTORY;
 	eperm -> ?SSH_FX_CANNOT_DELETE;
+	eexist -> ?SSH_FX_FILE_ALREADY_EXISTS;
 	_ -> ?SSH_FX_FAILURE
     end.
 
