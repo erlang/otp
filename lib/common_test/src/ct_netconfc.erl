@@ -307,7 +307,7 @@
 -type option() :: {ssh,host()} | {port,inet:port_number()} | {user,string()} |
 		  {password,string()} | {user_dir,string()} |
 		  {timeout,timeout()}.
--type host() :: inet:host_name() | inet:ip_address().
+-type host() :: inet:hostname() | inet:ip_address().
 
 -type notification() :: {notification, xml_attributes(), notification_content()}.
 -type notification_content() :: [event_time()|simple_xml()].
