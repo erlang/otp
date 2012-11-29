@@ -270,9 +270,9 @@ ver6_basic(doc) ->
     ["Test some version 6 features"];
 ver6_basic(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
-    NewDir = filename:join(PrivDir, "testdir"),
+    NewDir = filename:join(PrivDir, "testdir2"),
     {Sftp, _} = ?config(sftp, Config),
-    %ok =  ssh_sftp:make_dir(Sftp, NewDir),
+    ok =  ssh_sftp:make_dir(Sftp, NewDir),
     %%Test file_is_a_directory
     {error, file_is_a_directory} = ssh_sftp:delete(Sftp, NewDir).
 %%--------------------------------------------------------------------
