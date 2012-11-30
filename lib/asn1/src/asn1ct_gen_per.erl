@@ -25,6 +25,7 @@
 -include("asn1_records.hrl").
 %-compile(export_all).
 
+-export([gen_dec_imm/2]).
 -export([pgen/4,gen_dec_prim/3,gen_encode_prim/4]).
 -export([gen_obj_code/3,gen_objectset_code/2]).
 -export([gen_decode/2, gen_decode/3]).
@@ -1139,23 +1140,43 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 	    exit({error,{asn1,{unknown,Other}}})
     end.
 
-
-gen_dec_prim(Erules,Att,BytesVar) ->
-    Aligned = case Erules of
+gen_dec_imm(Erule, #type{def=Name,constraint=C}) ->
+    Aligned = case Erule of
 		  uper -> false;
 		  per -> true
 	      end,
-    Typename = Att#type.def,
-    Constraint = Att#type.constraint,
+    gen_dec_imm_1(Name, C, Aligned).
+
+gen_dec_imm_1('BOOLEAN', _Constr, _Aligned) ->
+    asn1ct_imm:per_dec_boolean();
+gen_dec_imm_1({'ENUMERATED',{Base,Ext}}, _Constr, Aligned) ->
+    asn1ct_imm:per_dec_enumerated(Base, Ext, Aligned);
+gen_dec_imm_1({'ENUMERATED',NamedNumberList}, _Constr, Aligned) ->
+    asn1ct_imm:per_dec_enumerated(NamedNumberList, Aligned);
+gen_dec_imm_1('INTEGER', Constr, Aligned) ->
+    asn1ct_imm:per_dec_integer(Constr, Aligned);
+gen_dec_imm_1({'INTEGER',NamedNumberList}, Constraint, Aligned) ->
+    asn1ct_imm:per_dec_named_integer(Constraint,
+				     NamedNumberList,
+				     Aligned);
+gen_dec_imm_1('OCTET STRING', Constraint, Aligned) ->
+    SzConstr = get_constraint(Constraint, 'SizeConstraint'),
+    Imm = asn1ct_imm:per_dec_octet_string(SzConstr, Aligned),
+    {convert,binary_to_list,Imm};
+gen_dec_imm_1(_, _, _) -> no.
+
+gen_dec_prim(Erule, Type, BytesVar) ->
+    case gen_dec_imm(Erule, Type) of
+	no ->
+	    gen_dec_prim_1(Erule, Type, BytesVar);
+	Imm ->
+	    asn1ct_imm:dec_code_gen(Imm, BytesVar)
+    end.
+
+gen_dec_prim_1(Erule,
+	       #type{def=Typename,constraint=Constraint}=Att,
+	       BytesVar) ->
     case Typename of
-	'INTEGER' ->
-	    Imm = asn1ct_imm:per_dec_integer(Constraint, Aligned),
-	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
-	{'INTEGER',NamedNumberList} ->
-	    Imm = asn1ct_imm:per_dec_named_integer(Constraint,
-						   NamedNumberList,
-						   Aligned),
-	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
 	'REAL' ->
 	    emit({"?RT_PER:decode_real(",BytesVar,")"});
 	
@@ -1181,20 +1202,6 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	'ObjectDescriptor' ->
 	    emit({"?RT_PER:decode_ObjectDescriptor(",
 		  BytesVar,")"});
-	{'ENUMERATED',{Base,Ext}} ->
-	    Imm = asn1ct_imm:per_dec_enumerated(Base, Ext, Aligned),
-	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
-	{'ENUMERATED',NamedNumberList} ->
-	    Imm = asn1ct_imm:per_dec_enumerated(NamedNumberList, Aligned),
-	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
-	'BOOLEAN'->
-	    Imm = asn1ct_imm:per_dec_boolean(),
-	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
-	'OCTET STRING' ->
-	    SzConstr = get_constraint(Constraint, 'SizeConstraint'),
-	    Imm0 = asn1ct_imm:per_dec_octet_string(SzConstr, Aligned),
-	    Imm = {convert,binary_to_list,Imm0},
-	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
 	'NumericString' ->
 	    emit({"?RT_PER:decode_NumericString(",BytesVar,",",
 		  {asis,Constraint},")"});
@@ -1233,7 +1240,7 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	'UTF8String' ->
 	    emit({"?RT_PER:decode_UTF8String(",BytesVar,")"});
 	'ANY' ->
-	    case Erules of
+	    case Erule of
 		per ->
 		    emit(["fun() -> {XTerm,YTermXBytes} = ?RT_PER:decode_open_type(",BytesVar,",",{asis,Constraint}, "), {binary_to_list(XTerm),XBytes} end ()"]);
 		_ ->
@@ -1255,7 +1262,7 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 		    emit(["   {YTerm,_} = dec_",Tname,"(XTerm,mandatory),",nl]),
 		    emit(["   {YTerm,XBytes} end(",BytesVar,")"]);
 		_ ->
-		    case Erules of
+		    case Erule of
 			per ->
 			    emit(["fun() -> {XTerm,XBytes} = ?RT_PER:decode_open_type(",BytesVar,", []), {binary_to_list(XTerm),XBytes} end()"]);
 			_ ->
@@ -1263,11 +1270,11 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 		    end
 	    end;
 	#'ObjectClassFieldType'{} ->
-		case asn1ct_gen:get_inner(Att#type.def) of
+		case asn1ct_gen:get_inner(Typename) of
 		    {fixedtypevaluefield,_,InnerType} -> 
-			gen_dec_prim(Erules,InnerType,BytesVar);
+			gen_dec_prim(Erule, InnerType, BytesVar);
 		    T ->
-			gen_dec_prim(Erules,Att#type{def=T},BytesVar)
+			gen_dec_prim(Erule, Att#type{def=T}, BytesVar)
 		end;
 	Other ->
 	    exit({'cant decode' ,Other})

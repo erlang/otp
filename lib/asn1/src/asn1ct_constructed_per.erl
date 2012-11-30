@@ -218,17 +218,39 @@ gen_decode_sequence(Erules,Typename,D) ->
     gen_decode_constructed(Erules,Typename,D).
 
 gen_decode_constructed(Erule, Typename, #type{}=D) ->
-    Imm = gen_dec_constructed_imm(Erule, Typename, #type{}=D),
+    Imm0 = gen_dec_constructed_imm(Erule, Typename, #type{}=D),
+    Imm = opt_imm(Imm0),
     asn1ct_name:start(),
     asn1ct_name:clear(),
     emit_gen_dec_imm(Imm),
     emit([".",nl,nl]).
 
+opt_imm(Imm0) ->
+    {Imm,_} = opt_imm_1(Imm0, unknown, []),
+    Imm.
+
+opt_imm_1([{imm,Imm0,F}|T], Al0, Acc) ->
+    {Imm,Al} = asn1ct_imm:optimize_alignment(Imm0, Al0),
+    opt_imm_1(T, Al, [{imm,Imm,F}|Acc]);
+opt_imm_1([ignore|T], Al, Acc) ->
+    opt_imm_1(T, Al, Acc);
+opt_imm_1([{ignore,_}=H|T], Al, Acc) ->
+    opt_imm_1(T, Al, [H|Acc]);
+opt_imm_1([{safe,ignore}|T], Al, Acc) ->
+    opt_imm_1(T, Al, Acc);
+opt_imm_1([{safe,_}=H|T], Al, Acc) ->
+    opt_imm_1(T, Al, [H|Acc]);
+opt_imm_1([{group,G0}|T], Al0, Acc) ->
+    {G,Al} = opt_imm_1(G0, Al0, []),
+    opt_imm_1(T, Al, [{group,G}|Acc]);
+opt_imm_1([Emit|T], _, Acc) when is_function(Emit, 1) ->
+    opt_imm_1(T, unknown, [Emit|Acc]);
+opt_imm_1([], Al, Acc) ->
+    {lists:reverse(Acc),Al}.
+
 emit_gen_dec_imm(L) ->
     emit_gen_dec_imm(L, "", []).
 
-emit_gen_dec_imm([ignore|T], Sep, St) ->
-    emit_gen_dec_imm(T, Sep, St);
 emit_gen_dec_imm([{ignore,Fun}|T], Sep, St0) ->
     St = Fun(St0),
     emit_gen_dec_imm(T, Sep, St);
@@ -236,6 +258,12 @@ emit_gen_dec_imm([{group,L}|T], Sep, St0) ->
     emit(Sep),
     St = emit_gen_dec_imm_group(L, St0),
     emit_gen_dec_imm(T, [com,nl], St);
+emit_gen_dec_imm([{imm,Imm,Emit}|T], Sep, St0) ->
+    emit(Sep),
+    St = Emit(Imm, St0),
+    emit_gen_dec_imm(T, [com,nl], St);
+emit_gen_dec_imm([{safe,Item}|T], Sep, St) ->
+    emit_gen_dec_imm([Item|T], Sep, St);
 emit_gen_dec_imm([Emit|T], Sep, St0) ->
     emit(Sep),
     St = Emit(St0),
@@ -247,10 +275,12 @@ emit_gen_dec_imm_group([H|T], St0) ->
     emit_gen_dec_imm_group(T, St);
 emit_gen_dec_imm_group([], St) -> St.
 
-emit_gen_dec_group_item(ignore, St) ->
-    St;
 emit_gen_dec_group_item({ignore,Fun}, St) ->
     Fun(St);
+emit_gen_dec_group_item({imm,Imm,Fun}, St) ->
+    Fun(Imm, St);
+emit_gen_dec_group_item({safe,Item}, St) ->
+    emit_gen_dec_group_item(Item, St);
 emit_gen_dec_group_item(Emit, St) ->
     Emit(St).
 
@@ -266,9 +296,7 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
     Ext = extensible_dec(CompList),
     EmitExt = case Ext of
 		  {ext,_Pos,_NumExt} ->
-		      fun(_) ->
-			      gen_dec_extension_value("Bytes")
-		      end;
+		      gen_dec_extension_value();
 		  _ -> ignore
 	      end,
     Optionals = optionals(CompList),
@@ -276,15 +304,7 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
 		  [] ->
 		      ignore;
 		  [_|_] ->
-		      fun(_) ->
-			      Bcurr = asn1ct_name:curr(bytes),
-			      Bnext = asn1ct_name:next(bytes),
-			      GetoptCall = "} = ?RT_PER:getoptionals2(",
-			      emit({"{Opt,",{var,Bnext},GetoptCall,
-				    {var,Bcurr},",",
-				    {asis,length(Optionals)},")"}),
-			      asn1ct_name:new(bytes)
-		      end
+		      gen_dec_optionals(Optionals)
 	      end,
     ObjSetInfo =
 	case TableConsInfo of
@@ -326,7 +346,7 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
 						 ObjSetInfo,
 						 AccTerm, AccBytes)
 	       end,
-    [EmitExt,EmitOpt|EmitComp++[EmitRest]].
+    [EmitExt,EmitOpt|EmitComp++[{safe,EmitRest}]].
 
 gen_dec_constructed_imm_2(Typename, CompList,
 			  ObjSetInfo, AccTerm, AccBytes) ->
@@ -727,10 +747,25 @@ extgrouppos([_|T],ActualPos,VirtualPos,Len,Acc) ->
     extgrouppos(T,ActualPos,VirtualPos,Len+1,Acc).
 
 
+gen_dec_extension_value() ->
+    Imm0 = {get_bits,1,[1]},
+    E = fun(Imm, _) ->
+		emit(["{Ext,",{next,bytes},"} = "]),
+		BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+		asn1ct_imm:dec_code_gen(Imm, BytesVar),
+		asn1ct_name:new(bytes)
+	end,
+    {imm,Imm0,E}.
 
-gen_dec_extension_value(_) ->
-    emit({"{Ext,",{next,bytes},"} = ?RT_PER:getext(",{curr,bytes},")"}),
-    asn1ct_name:new(bytes).
+gen_dec_optionals(Optionals) ->
+    Imm0 = {get_bits,length(Optionals),[1]},
+    E = fun(Imm, _) ->
+		BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+		emit(["{Opt,",{next,bytes},"} = "]),
+		asn1ct_imm:dec_code_gen(Imm, BytesVar),
+		asn1ct_name:new(bytes)
+    end,
+    {imm,Imm0,E}.
 
 gen_fixoptionals([{Pos,Def}|R]) ->
     asn1ct_name:new(fixopt),
@@ -1058,13 +1093,7 @@ gen_dec_components_call(Erule,TopType,CL={Root1,ExtList,Root2},
 	gen_dec_comp_calls(Root1++Root2, Erule, TopType, OptTable,
 			   DecInfObj, noext, NumberOfOptionals,
 			   1, []),
-    EmitGetExt = fun(St) ->
-			 emit(["{Extensions,",{next,bytes},"} = "]),
-			 emit(["?RT_PER:getextension(Ext,",
-			       {curr,bytes},")"]),
-			 asn1ct_name:new(bytes),
-			 St
-		 end,
+    EmitGetExt = gen_dec_get_extension(Erule),
     {extgrouppos,ExtGroupPosLen}  = extgroup_pos_and_length(CL),
     NewExtList = wrap_extensionAdditionGroups(ExtList, ExtGroupPosLen),
     {EmitExts,_} = gen_dec_comp_calls(NewExtList, Erule, TopType, OptTable,
@@ -1087,6 +1116,15 @@ gen_dec_components_call(Erule, TopType, CompList, DecInfObj,
 				DecInfObj, Ext, NumberOfOptionals,
 				1, []),
     [Init|Cs].
+
+gen_dec_get_extension(_Erule) ->
+    fun(St) ->
+	    emit(["{Extensions,",{next,bytes},"} = "]),
+	    emit(["?RT_PER:getextension(Ext,",
+		  {curr,bytes},")"]),
+	    asn1ct_name:new(bytes),
+	    St
+    end.
 
 gen_dec_comp_calls([C|Cs], Erule, TopType, OptTable, DecInfObj,
 		   Ext, NumberOfOptionals, Tpos, Acc) ->
@@ -1231,7 +1269,9 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
 				asn1ct_name:new(bytes),
 				St
 			end},
-    [{group,[Comment,Preamble,OptOrDef|Lines]++[Postamble,AdvBuffer]}].
+    [{group,[{safe,Comment},{safe,Preamble},
+	     {safe,OptOrDef}|Lines]++
+      [{safe,Postamble},{safe,AdvBuffer}]}].
 
 is_mandatory_predef_tab_c(noext, mandatory,
 			  {"got objfun through args","ObjFun"}) ->
@@ -1275,7 +1315,7 @@ gen_dec_line_imm(Erule, TopType, Comp, Pos, DecInfObj, Ext) ->
 		asn1ct_gen:get_inner(Type#type.def)
 	end,
 
-    Pre = gen_dec_line_open_type(Ext, Pos),
+    Pre = gen_dec_line_open_type(Erule, Ext, Pos),
     Decode = gen_dec_line_special(Erule, Atype, TopType, Comp, DecInfObj, Ext),
     Post =
 	fun({SaveBytes,Finish}) ->
@@ -1296,25 +1336,28 @@ gen_dec_line_imm(Erule, TopType, Comp, Pos, DecInfObj, Ext) ->
 			{AccTerm,AccBytes++SaveBytes}
 		end
 	end,
-    [Pre,Decode,Post].
+    [Pre,Decode,{safe,Post}].
 
-gen_dec_line_open_type({ext,Ep,_}, Pos) when Pos >= Ep ->
-    fun(St) ->
-	    emit(["begin",nl,"{TmpVal",Pos,",Trem",Pos,"} = ",
-		  "?RT_PER:decode_open_type(",
-		  {curr,bytes},", []),",nl,
-		  "{TmpValx",Pos,",_}="]),
-	    {"TmpVal" ++ integer_to_list(Pos),
-	     fun() ->
-		     emit([", {TmpValx",Pos,",Trem",Pos,"}",nl,"end"]),
-		     St
-	     end}
-    end;
-gen_dec_line_open_type(_, _) ->
-    fun(St) ->
-	    {asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
-	     fun() -> St end}
-    end.
+gen_dec_line_open_type(Erule, {ext,Ep,_}, Pos) when Pos >= Ep ->
+    Imm = asn1ct_imm:per_dec_open_type(is_aligned(Erule)),
+    {safe,fun(St) ->
+		  emit(["begin",nl]),
+		  BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+		  {Dst,DstBuf} = asn1ct_imm:dec_slim_cg(Imm, BytesVar),
+		  emit([",",nl,"{TmpValx",Pos,",_} = "]),
+		  {Dst,
+		   fun() ->
+			   emit([",",nl,
+				 "{TmpValx",Pos,",",DstBuf,"}",nl,
+				 "end"]),
+			   St
+		   end}
+	  end};
+gen_dec_line_open_type(_, _, _) ->
+    {safe,fun(St) ->
+		  {asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+		   fun() -> St end}
+	  end}.
 
 gen_dec_line_special(_, {typefield,_}, _TopType, Comp,
 		     DecInfObj, Ext) ->
@@ -1413,7 +1456,14 @@ gen_dec_line_special(Erule, Atype, TopType, Comp, DecInfObj, _Ext) ->
 		    Fun(BytesVar),
 		    gen_dec_line_dec_inf(Comp, DecInfObj),
 		    {[],PrevSt}
-	    end
+	    end;
+	Imm0 ->
+	    {imm,Imm0,
+	     fun(Imm, {BytesVar,PrevSt}) ->
+		     asn1ct_imm:dec_code_gen(Imm, BytesVar),
+		     gen_dec_line_dec_inf(Comp, DecInfObj),
+		     {[],PrevSt}
+	     end}
     end.
 
 gen_dec_line_dec_inf(Comp, DecInfObj) ->
@@ -1451,28 +1501,16 @@ gen_dec_line_other(Erule, Atype, TopType, Comp) ->
 	{primitive,bif} ->
 	    case Atype of
 		{fixedtypevaluefield,_,Btype} ->
-		    fun(BytesVar) ->
-			    Ctgenmod:gen_dec_prim(Erule, Btype,
-						  BytesVar)
-		    end;
+		    gen_dec_prim(Ctgenmod, Erule, Btype);
 		_ ->
-		    fun(BytesVar) ->
-			    Ctgenmod:gen_dec_prim(Erule, Type,
-						  BytesVar)
-		    end
+		    gen_dec_prim(Ctgenmod, Erule, Type)
 	    end;
 	'ASN1_OPEN_TYPE' ->
 	    case Type#type.def of
 		#'ObjectClassFieldType'{type=OpenType} ->
-		    fun(BytesVar) ->
-			    Ctgenmod:gen_dec_prim(Erule,#type{def=OpenType},
-						  BytesVar)
-		    end;
+		    gen_dec_prim(Ctgenmod, Erule, #type{def=OpenType});
 		_ ->
-		    fun(BytesVar) ->
-			    Ctgenmod:gen_dec_prim(Erule, Type,
-						  BytesVar)
-		    end
+		    gen_dec_prim(Ctgenmod, Erule, Type)
 	    end;
 	#typereference{val=Dname} ->
 	    fun(BytesVar) ->
@@ -1498,6 +1536,15 @@ gen_dec_line_other(Erule, Atype, TopType, Comp) ->
 	    end
     end.
 
+gen_dec_prim(Ctgenmod, Erule, Type) ->
+    case asn1ct_gen_per:gen_dec_imm(Erule, Type) of
+	no ->
+	    fun(BytesVar) ->
+		    Ctgenmod:gen_dec_prim(Erule, Type, BytesVar)
+	    end;
+	Imm ->
+	    Imm
+    end.
 
 gen_enc_choice(Erule,TopType,CompList,Ext) ->
     gen_enc_choice_tag(CompList, [], Ext),
