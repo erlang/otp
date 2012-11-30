@@ -43,7 +43,6 @@ all() ->
      {group, rsa_pass_key},
      {group, internal_error},
      {group, idle_time},
-     {group, rekey},
      daemon_already_started,
      server_password_option,
      server_userpassword_option,
