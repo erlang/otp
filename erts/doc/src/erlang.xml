@@ -1497,13 +1497,6 @@ os_prompt% </pre>
           applied with <c><anno>Arity</anno></c> number of arguments; otherwise
           returns <c>false</c>.</p>
         <p>Allowed in guard tests.</p>
-        <warning>
-          <p>Currently, <c>is_function/2</c> will also return
-            <c>true</c> if the first argument is a tuple fun (a tuple
-            containing two atoms). In a future release, tuple funs will
-            no longer be supported and <c>is_function/2</c> will return
-            <c>false</c> if given a tuple fun.</p>
-        </warning>
       </desc>
     </func>
     <func>

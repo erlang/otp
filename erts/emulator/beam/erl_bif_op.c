@@ -261,11 +261,6 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2)
 	if (exp->code[2] == (Uint) arity) {
 	    BIF_RET(am_true);
 	}
-    } else if (is_tuple(arg1)) {
-	Eterm* tp = tuple_val(arg1);
-	if (tp[0] == make_arityval(2) && is_atom(tp[1]) && is_atom(tp[2])) {
-	    BIF_RET(am_true);
-	}
     }
     BIF_RET(am_false);
 }

@@ -726,8 +726,8 @@ t_arity(Config) when is_list(Config) ->
     ok.
 
 t_is_function2(Config) when is_list(Config) ->
-    ?line true = is_function({a,b}, 0),
-    ?line true = is_function({a,b}, 234343434333433433),
+    false = is_function(id({a,b}), 0),
+    false = is_function(id({a,b}), 234343434333433433),
     ?line true = is_function(fun() -> ok end, 0),
     ?line true = is_function(fun(_) -> ok end, 1),
     ?line false = is_function(fun(_) -> ok end, 0),
