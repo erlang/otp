@@ -1117,14 +1117,24 @@ gen_dec_components_call(Erule, TopType, CompList, DecInfObj,
 				1, []),
     [Init|Cs].
 
-gen_dec_get_extension(_Erule) ->
-    fun(St) ->
-	    emit(["{Extensions,",{next,bytes},"} = "]),
-	    emit(["?RT_PER:getextension(Ext,",
-		  {curr,bytes},")"]),
-	    asn1ct_name:new(bytes),
-	    St
-    end.
+gen_dec_get_extension(Erule) ->
+    Imm0 = asn1ct_imm:per_dec_extension_map(is_aligned(Erule)),
+    E = fun(Imm, St) ->
+		emit([nl,"%% Extensions",
+		      nl,
+		      "{Extensions,",{next,bytes},"} = ",
+		      "case Ext of",nl,
+		      "0 -> {<<>>,",{curr,bytes},"};",nl,
+		      "1 ->",nl]),
+		BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+		{Dst,DstBuf} = asn1ct_imm:dec_slim_cg(Imm, BytesVar),
+		emit([com,nl,
+		      "{",Dst,",",DstBuf,"}",nl,
+		      "end"]),
+		asn1ct_name:new(bytes),
+		St
+	end,
+    {imm,Imm0,E}.
 
 gen_dec_comp_calls([C|Cs], Erule, TopType, OptTable, DecInfObj,
 		   Ext, NumberOfOptionals, Tpos, Acc) ->
@@ -1204,10 +1214,10 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
 	end,
 
     OptOrDef =
-	case {Ext,Prop,is_optimized(Erule)} of
-	    {noext,mandatory,_} ->
+	case {Ext,Prop} of
+	    {noext,mandatory} ->
 		ignore;
-	    {noext,_,_} -> %% OPTIONAL or DEFAULT
+	    {noext,_} -> %% OPTIONAL or DEFAULT
 		OptPos = get_optionality_pos(TextPos, OptTable),
 		Element = io_lib:format("Opt band (1 bsl ~w)",
 					[NumberOfOptionals - OptPos]),
@@ -1216,18 +1226,10 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
 			emit(["  _Opt",TextPos," when _Opt",TextPos," > 0 ->"]),
 			St
 		end;
-	{_,_,false} -> %% extension element, not bitstring
+	    {{ext,_,_},_} ->			%Extension
 		fun(St) ->
-			emit(["case Extensions of",nl]),
-			emit(["  _ when size(Extensions) >= ",Pos,
-			      ",element(",Pos,",Extensions) == 1 ->",nl]),
-			St
-		end;
-	    _ ->
-		fun(St) ->
-			emit(["case Extensions of",nl]),
-			emit(["  <<_:",Pos-1,",1:1,_/bitstring>> "
-			      "when bit_size(Extensions) >= ",Pos," ->",nl]),
+			emit(["case Extensions of",nl,
+			      "  <<_:",Pos-1,",1:1,_/bitstring>> ->",nl]),
 			St
 		end
 	end,

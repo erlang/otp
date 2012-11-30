@@ -19,6 +19,7 @@
 %%
 -module(asn1ct_imm).
 -export([per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
+	 per_dec_extension_map/1,
 	 per_dec_integer/2,per_dec_length/3,per_dec_named_integer/3,
 	 per_dec_octet_string/2,per_dec_open_type/1]).
 -export([optimize_alignment/1,optimize_alignment/2,
@@ -69,6 +70,10 @@ per_dec_enumerated(BaseNamedList, NamedListExt0, Aligned) ->
 					       [enum_default], 0),
     Ext = {map,per_dec_normally_small_number(Aligned),NamedListExt},
     bit_case(Base, Ext).
+
+per_dec_extension_map(Aligned) ->
+    Len = {add,per_dec_normally_small_number(Aligned),1},
+    {get_bits,Len,[1,bitstring]}.
 
 per_dec_integer(Constraint0, Aligned) ->
     Constraint = effective_constraint(integer, Constraint0),
