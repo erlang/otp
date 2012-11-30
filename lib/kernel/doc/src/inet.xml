@@ -371,7 +371,51 @@ fe80::204:acff:fe17:bf38
         </taglist>
       </desc>
     </func>
-
+    <func>
+      <name name="parse_ipv4_address" arity="1" />
+      <fsummary>Parse an IPv4 address</fsummary>
+      <desc>
+	<p>Parses an IPv4 address string and returns an <a href="#type-ip4_address">ip4_address()</a>.
+	 Accepts a shortened IPv4 shortened address string.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="parse_ipv4strict_address" arity="1" />
+      <fsummary>Parse an IPv4 address strict.</fsummary>
+      <desc>
+	<p>Parses an IPv4 address string containing four fields, i.e <b>not</b> shortened, and returns an <a href="#type-ip4_adress">ip4_address()</a>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="parse_ipv6_address" arity="1" />
+      <fsummary>Parse an IPv6 address</fsummary>
+      <desc>
+	<p>Parses an IPv6 address string and returns an <a href="#type-ip6_address">ip6_address()</a>.
+	 If an IPv4 address string is passed, an IPv4-mapped IPv6 address is returned.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="parse_ipv6strict_address" arity="1" />
+      <fsummary>Parse an IPv6 address strict.</fsummary>
+      <desc>
+	<p>Parses an IPv6 address string and returns an <a href="#type-ip6_address">ip6_address()</a>. 
+	Does <b>not</b> accept IPv4 adresses.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="parse_address" arity="1" />
+      <fsummary>Parse an IPv4 or IPv6 address.</fsummary>
+      <desc>
+	<p>Parses an IPv4 or IPv6 address string and returns an <a href="#type-ip4_address">ip4_address()</a> or <a href="#type-ip6_address">ip6_address()</a>. Accepts a shortened IPv4 address string.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="parse_strict_address" arity="1" />
+      <fsummary>Parse an IPv4 or IPv6 address strict.</fsummary>
+      <desc>
+	<p>Parses an IPv4 or IPv6 address string and returns an <a href="#type-ip4_address">ip4_address()</a> or <a href="#type-ip6_adress">ip6_address()</a>. Does <b>not</b> accept a shortened IPv4 address string.</p>
+      </desc>
+    </func>
     <func>
       <name name="peername" arity="1"/>
       <fsummary>Return the address and port for the other end of a connection</fsummary>
