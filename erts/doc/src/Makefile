@@ -78,6 +78,7 @@ XML_CHAPTER_FILES = \
 	inet_cfg.xml \
 	erl_ext_dist.xml \
 	erl_dist_protocol.xml \
+	communication.xml \
 	notes.xml \
 	notes_history.xml
 
