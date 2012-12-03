@@ -359,7 +359,6 @@ load_code_server_prerequisites() ->
 	      hipe_unified_loader,
 	      lists,
 	      os,
-	      packages,
 	      unicode],
     [M = M:module_info(module) || M <- Needed],
     ok.
@@ -413,7 +412,7 @@ which(Module) when is_atom(Module) ->
     end.
 
 which2(Module) ->
-    Base = to_path(Module),
+    Base = atom_to_list(Module),
     File = filename:basename(Base) ++ objfile_extension(),
     Path = get_path(),
     which(File, filename:dirname(Base), Path).
@@ -546,9 +545,6 @@ has_ext(Ext, Extlen, File) ->
 	Ext -> true;
 	_ -> false
     end.
-
-to_path(X) ->
-    filename:join(packages:split(X)).
 
 -spec load_native_code_for_all_loaded() -> ok.
 load_native_code_for_all_loaded() ->
