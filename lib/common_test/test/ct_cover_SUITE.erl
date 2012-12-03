@@ -77,7 +77,8 @@ all() ->
      slave_start_slave,
      cover_node_option,
      ct_cover_add_remove_nodes,
-     otp_9956
+     otp_9956,
+     cross
     ].
 
 %%--------------------------------------------------------------------
@@ -161,6 +162,43 @@ otp_9956(Config) ->
     check_calls(Events,{?suite,otp_9956,1},1),
     ok.
 
+%% Test cross cover mechanism
+cross(Config) ->
+    {ok,Events1} = run_test(cross1,Config),
+    check_calls(Events1,1),
+
+    CoverFile2 = create_cover_file(cross1,[{cross,[{cross1,[?mod]}]}],Config),
+    {ok,Events2} = run_test(cross2,[{cover,CoverFile2}],Config),
+    check_calls(Events2,1),
+
+    %% Get the log dirs for each test and run cross cover analyse
+    [D11,D12] = lists:sort(get_run_dirs(Events1)),
+    [D21,D22] = lists:sort(get_run_dirs(Events2)),
+
+    ct_cover:cross_cover_analyse(details,[{cross1,D11},{cross2,D21}]),
+    ct_cover:cross_cover_analyse(details,[{cross1,D12},{cross2,D22}]),
+
+    %% Get the cross cover logs and read for each test
+    [C11,C12,C21,C22] =
+	[filename:join(D,"cross_cover.html") || D <- [D11,D12,D21,D22]],
+
+    {ok,CrossData} = file:read_file(C11),
+    {ok,CrossData} = file:read_file(C12),
+
+    {ok,Def} = file:read_file(C21),
+    {ok,Def} = file:read_file(C22),
+
+    %% A simple test: just check that the test module exists in the
+    %% log from cross1 test, and that it does not exist in the log
+    %% from cross2 test.
+    TestMod = list_to_binary(atom_to_list(?mod)),
+    {_,_} = binary:match(CrossData,TestMod),
+    nomatch = binary:match(Def,TestMod),
+    {_,_} = binary:match(Def,
+			 <<"No cross cover modules exist for this application">>),
+
+    ok.
+
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -229,15 +267,18 @@ check_cover(Node) when is_atom(Node) ->
 	    false
     end.
 
+%% Get the log dir "run.<timestamp>" for all (both!) tests
+get_run_dirs(Events) ->
+    [filename:dirname(TCLog) ||
+	{ct_test_support_eh,
+	 {event,tc_logfile,_Node,
+	  {{?suite,init_per_suite},TCLog}}} <- Events].
+
 %% Check that each coverlog includes N calls to ?mod:foo/0
 check_calls(Events,N) ->
     check_calls(Events,{?mod,foo,0},N).
 check_calls(Events,MFA,N) ->
-    CoverLogs =
-	[filename:join(filename:dirname(TCLog),"all.coverdata") ||
-	    {ct_test_support_eh,
-	     {event,tc_logfile,ct@falco,
-	      {{?suite,init_per_suite},TCLog}}} <- Events],
+    CoverLogs = [filename:join(D,"all.coverdata") || D <- get_run_dirs(Events)],
     do_check_logs(CoverLogs,MFA,N).
 
 do_check_logs([CoverLog|CoverLogs],{Mod,_,_} = MFA,N) ->
