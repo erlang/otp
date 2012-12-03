@@ -4080,7 +4080,13 @@ send_recv_result(Socket) ->
 send_recv_result_timeout_client(Socket) ->
     {error, timeout} = ssl:recv(Socket, 11, 500),
     ssl:send(Socket, "Hello world"),
-    {ok, "Hello world"} = ssl:recv(Socket, 11),
+    receive
+	Msg ->
+	    io:format("Msg ~p~n",[Msg])
+    after 500 ->
+	    ok
+    end,
+    {ok, "Hello world"} = ssl:recv(Socket, 11, 500),
     ok.
 send_recv_result_timeout_server(Socket) ->
     ssl:send(Socket, "Hello"),

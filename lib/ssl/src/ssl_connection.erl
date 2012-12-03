@@ -988,7 +988,8 @@ handle_info({cancel_start_or_recv, StartFrom}, StateName, #state{renegotiation =
 
 handle_info({cancel_start_or_recv, RecvFrom}, StateName, #state{start_or_recv_from = RecvFrom} = State) ->
     gen_fsm:reply(RecvFrom, {error, timeout}),
-    {next_state, StateName, State#state{start_or_recv_from = undefined}, get_timeout(State)};
+    {next_state, StateName, State#state{start_or_recv_from = undefined,
+					bytes_to_read = undefined}, get_timeout(State)};
 
 handle_info({cancel_start_or_recv, _RecvFrom}, StateName, State) ->
     {next_state, StateName, State, get_timeout(State)};
@@ -1747,7 +1748,7 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	    SocketOpt = deliver_app_data(SOpts, ClientData, Pid, RecvFrom),
 	    State = State0#state{user_data_buffer = Buffer,
 				 start_or_recv_from = undefined,
-				 bytes_to_read = 0,
+				 bytes_to_read = undefined,
 				 socket_options = SocketOpt 
 				},
 	    if
@@ -1760,6 +1761,8 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	    end;
 	{more, Buffer} -> % no reply, we need more data
 	    next_record(State0#state{user_data_buffer = Buffer});
+	{passive, Buffer} ->
+	    next_record_if_active(State0#state{user_data_buffer = Buffer});
 	{error,_Reason} -> %% Invalid packet in packet mode
 	    deliver_packet_error(SOpts, Buffer1, Pid, RecvFrom),
 	    {stop, normal, State0}
@@ -1801,6 +1804,9 @@ is_time_to_renegotiate(_,_) ->
 %% Picks ClientData 
 get_data(_, _, <<>>) ->
     {more, <<>>};
+%% Recv timed out save buffer data until next recv
+get_data(#socket_options{active=false}, undefined, Buffer) ->
+    {passive, Buffer};
 get_data(#socket_options{active=Active, packet=Raw}, BytesToRead, Buffer) 
   when Raw =:= raw; Raw =:= 0 ->   %% Raw Mode
     if 
@@ -2106,7 +2112,6 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   tls_record_buffer = <<>>,
 	   tls_cipher_texts = [],
 	   user_application = {Monitor, User},
-	   bytes_to_read = 0,
 	   user_data_buffer = <<>>,
 	   log_alert = true,
 	   session_cache_cb = SessionCacheCb,
