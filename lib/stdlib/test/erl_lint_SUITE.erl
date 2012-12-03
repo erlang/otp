@@ -1732,7 +1732,7 @@ otp_5362(Config) when is_list(Config) ->
           {otp_5362_2,
           <<"-export([inline/0]).
 
-             -import(lists.foo, [a/1,b/1]). % b/1 is not used
+             -import(lists, [a/1,b/1]). % b/1 is not used
 
              -compile([{inline,{inl,7}}]).    % undefined
              -compile([{inline,[{inl,17}]}]). % undefined
@@ -1764,7 +1764,7 @@ otp_5362(Config) when is_list(Config) ->
                    {6,erl_lint,{bad_inline,{inl,17}}},
                    {11,erl_lint,{undefined_function,{fipp,0}}},
                    {22,erl_lint,{bad_nowarn_unused_function,{and_not_used,2}}}],
-            [{3,erl_lint,{unused_import,{{b,1},'lists.foo'}}},
+            [{3,erl_lint,{unused_import,{{b,1},lists}}},
              {9,erl_lint,{unused_function,{foop,0}}},
              {19,erl_lint,{unused_function,{not_used,0}}},
              {23,erl_lint,{unused_function,{and_not_used,1}}}]}},
