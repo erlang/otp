@@ -229,6 +229,9 @@ struct ErtsMsegAllctr_t_ {
 #endif
 
     Uint max_cache_size;
+    Uint abs_max_cache_bad_fit;
+    Uint rel_max_cache_bad_fit;
+
     ErtsMsegCalls calls;
 
 #if CAN_PARTLY_DESTROY
@@ -924,6 +927,8 @@ static struct {
     Eterm version;
 
     Eterm options;
+    Eterm amcbf;
+    Eterm rmcbf;
     Eterm mcs;
 
     Eterm memkind;
@@ -982,6 +987,8 @@ init_atoms(ErtsMsegAllctr_t *ma)
 	AM_INIT(name);
 
 	AM_INIT(options);
+	AM_INIT(amcbf);
+	AM_INIT(rmcbf);
 	AM_INIT(mcs);
 
 	AM_INIT(status);
@@ -1079,6 +1086,8 @@ info_options(ErtsMsegAllctr_t *ma,
     if (print_to_p) {
 	int to = *print_to_p;
 	void *arg = print_to_arg;
+	erts_print(to, arg, "%samcbf: %beu\n", prefix, ma->abs_max_cache_bad_fit);
+	erts_print(to, arg, "%srmcbf: %beu\n", prefix, ma->rel_max_cache_bad_fit);
 	erts_print(to, arg, "%smcs: %beu\n", prefix, ma->max_cache_size);
     }
 
@@ -1091,6 +1100,13 @@ info_options(ErtsMsegAllctr_t *ma,
 	add_2tup(hpp, szp, &res,
 		 am.mcs,
 		 bld_uint(hpp, szp, ma->max_cache_size));
+	add_2tup(hpp, szp, &res,
+		 am.rmcbf,
+		 bld_uint(hpp, szp, ma->rel_max_cache_bad_fit));
+	add_2tup(hpp, szp, &res,
+		 am.amcbf,
+		 bld_uint(hpp, szp, ma->abs_max_cache_bad_fit));
+
     }
 
     return res;
@@ -1519,6 +1535,8 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
 	/* Options ... */
 
+	ma->abs_max_cache_bad_fit = init->amcbf;
+	ma->rel_max_cache_bad_fit = init->rmcbf;
 	ma->max_cache_size = init->mcs;
 
 	if (ma->max_cache_size > MAX_CACHE_SIZE)
