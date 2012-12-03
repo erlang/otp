@@ -1454,7 +1454,7 @@ mbc_alloc(Allctr_t *allctr, Uint size)
     if (IS_MBC_BLK(blk))
 	mbc_alloc_finalize(allctr,
 			   blk,
-			   MBC_BLK_SZ(blk),
+			   MBC_FBLK_SZ(blk),
 			   GET_BLK_HDR_FLGS(blk),
 			   FBLK_TO_MBC(blk),
 			   blk_sz,
@@ -1477,7 +1477,7 @@ mbc_free(Allctr_t *allctr, void *p)
     ASSERT(p);
 
     blk = UMEM2BLK(p);
-    blk_sz = MBC_BLK_SZ(blk);
+    blk_sz = MBC_ABLK_SZ(blk);
     if (blk_sz < allctr->sbmbc_threshold)
 	alcu_flgs |= ERTS_ALCU_FLG_SBMBC;
 
@@ -1497,7 +1497,7 @@ mbc_free(Allctr_t *allctr, void *p)
 	blk = PREV_BLK(blk);
 	(*allctr->unlink_free_block)(allctr, blk, alcu_flgs);
 
-	blk_sz += MBC_BLK_SZ(blk);
+	blk_sz += MBC_FBLK_SZ(blk);
 	is_first_blk = IS_MBC_FIRST_FBLK(allctr, blk);
 	SET_MBC_FBLK_SZ(blk, blk_sz);
     }
@@ -1580,7 +1580,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
     ASSERT(size < allctr->sbc_threshold);
 
     blk = (Block_t *) UMEM2BLK(p);
-    old_blk_sz = MBC_BLK_SZ(blk);
+    old_blk_sz = MBC_ABLK_SZ(blk);
 
     ASSERT(old_blk_sz >= allctr->min_block_size);
 
@@ -1636,7 +1636,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 	    if (!is_last_blk) {
 		nxt_blk = BLK_AFTER(blk, old_blk_sz);
 		if (IS_FREE_BLK(nxt_blk))
-		    cand_blk_sz += MBC_BLK_SZ(nxt_blk);
+		    cand_blk_sz += MBC_FBLK_SZ(nxt_blk);
 	    }
 
 	    new_blk = (*allctr->get_free_block)(allctr,
@@ -1673,7 +1673,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 	if (!is_last_blk) {
 	    if (IS_FREE_BLK(nxt_nxt_blk)) {
 		/* Coalesce with next free block... */
-		nxt_blk_sz += MBC_BLK_SZ(nxt_nxt_blk);
+		nxt_blk_sz += MBC_FBLK_SZ(nxt_nxt_blk);
 		(*allctr->unlink_free_block)(allctr, nxt_nxt_blk, alcu_flgs);
 
 		is_last_blk = GET_LAST_BLK_HDR_FLG(nxt_nxt_blk);
@@ -1816,7 +1816,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 	if (!is_last_blk) {
 	    nxt_blk = BLK_AFTER(blk, old_blk_sz);
 	    if (IS_FREE_BLK(nxt_blk))
-		cand_blk_sz += MBC_BLK_SZ(nxt_blk);
+		cand_blk_sz += MBC_FBLK_SZ(nxt_blk);
 	}
     }
 
@@ -1852,7 +1852,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 	if (new_blk) {
 	    mbc_alloc_finalize(allctr,
 			       new_blk,
-			       MBC_BLK_SZ(new_blk),
+			       MBC_FBLK_SZ(new_blk),
 			       GET_BLK_HDR_FLGS(new_blk),
 			       FBLK_TO_MBC(new_blk),
 			       blk_sz,
@@ -1888,7 +1888,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 		nxt_blk = BLK_AFTER(blk, old_blk_sz);
 		if (IS_FREE_BLK(nxt_blk)) {
 		    new_blk_flgs |= GET_LAST_BLK_HDR_FLG(nxt_blk);
-		    new_blk_sz += MBC_BLK_SZ(nxt_blk);
+		    new_blk_sz += MBC_FBLK_SZ(nxt_blk);
 		    (*allctr->unlink_free_block)(allctr, nxt_blk, alcu_flgs);
 		}
 	    }
@@ -3884,7 +3884,7 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 		res = BLK2UMEM(new_blk);
 		sys_memcpy((void *) res,
 			   (void *) p,
-			   MIN(MBC_BLK_SZ(blk) - ABLK_HDR_SZ, size));
+			   MIN(MBC_ABLK_SZ(blk) - ABLK_HDR_SZ, size));
 		mbc_free(allctr, p);
 	    }
 	    else
