@@ -107,8 +107,7 @@ attributes(doc) ->
 attributes(suite) -> [];
 attributes(Config) when is_list(Config) ->
     Ts = [
-      <<"-import(erl_expand_records_SUITE).
-         -import(lists, [append/2, reverse/1]).
+      <<"-import(lists, [append/2, reverse/1]).
 
          -record(r, {a,b}).
 
@@ -158,12 +157,12 @@ expr(Config) when is_list(Config) ->
              2 = fun(X) -> X end(One + One),
              3 = fun exprec_test:f/1(3),
              4 = exprec_test:f(4),
-             5 = ''.f(5),
+             5 = f(5),
              L = receive 
                      {a,message,L0} ->
                          L0
                  end,
-             case catch a.b.c:foo(bar) of
+             case catch a:foo(bar) of
                  {'EXIT', _} -> ok
              end,
              _ = receive 			%Suppress warning.
@@ -263,8 +262,7 @@ pattern(doc) ->
 pattern(suite) -> [];
 pattern(Config) when is_list(Config) ->
     Ts = [
-      <<"-import(erl_expand_records_SUITE).
-         -import(lists, [append/2, reverse/1]).
+      <<"-import(lists, [append/2, reverse/1]).
 
          -record(r, {a,b}).
 
@@ -292,10 +290,10 @@ pattern(Config) when is_list(Config) ->
              21 = t(#r{a = #r{}}),
              22 = t(2),
              23 = t(#r{a = #r{}, b = b}),
-             24 = t(a.b.c),
+             24 = t(abc),
              ok.
 
-         t(a.b.c) ->
+         t(abc) ->
              24;
          t($a) ->
              2;
