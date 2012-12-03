@@ -139,16 +139,6 @@ stop_restricted() ->
     application:unset_env(stdlib, restricted_shell),
     exit(restricted_shell_stopped).
 
-default_packages() ->
-    [].
-%%%     ['erl','erl.lang'].
-
-default_modules() ->
-    [].
-%%%     [{pdict, 'erl.lang.proc.pdict'},
-%%%      {keylist, 'erl.lang.list.keylist'},
-%%%      {debug, 'erl.system.debug'}].
-
 -spec server(boolean(), boolean()) -> 'terminated'.
 
 server(NoCtrlG, StartSync) ->
@@ -183,15 +173,7 @@ server(StartSync) ->
 	    end
     end,
     %% Our spawner has fixed the process groups.
-    Bs0 = erl_eval:new_bindings(),
-    Bs = lists:foldl(fun ({K, V}, D) ->
-			     erl_eval:add_binding({module,K}, V, D)
-		     end,
-		     lists:foldl(fun (P, D) ->
-					 import_all(P, D)
-				 end,
-				 Bs0, default_packages()),
-		     default_modules()),
+    Bs = erl_eval:new_bindings(),
 
     %% Use an Ets table for record definitions. It takes too long to
     %% send a huge term to and from the evaluator. Ets makes it
@@ -1032,38 +1014,6 @@ local_func(which, [{atom,_,M}], Bs, _Shell, _RT, _Lf, _Ef) ->
     end;
 local_func(which, [_Other], _Bs, _Shell, _RT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell,which,1}]);
-local_func(import, [M], Bs, _Shell, _RT, _Lf, _Ef) ->
-    case erl_parse:package_segments(M) of
-	error -> erlang:raise(error, function_clause, [{shell,import,1}]);
-	M1 ->
-	    Mod = packages:concat(M1),
-	    case packages:is_valid(Mod) of
-		true ->
-		    Key = list_to_atom(packages:last(Mod)),
-		    Mod1 = list_to_atom(Mod),
-		    {value,ok,erl_eval:add_binding({module,Key}, Mod1, Bs)};
-		false ->
-		    exit({{bad_module_name, Mod}, [{shell,import,1}]})
-	    end
-    end;
-local_func(import_all, [P], Bs0, _Shell, _RT, _Lf, _Ef) ->
-    case erl_parse:package_segments(P) of
-	error -> erlang:raise(error, function_clause, [{shell,import_all,1}]);
-	P1 ->
-	    Name = packages:concat(P1),
-	    case packages:is_valid(Name) of
-		true ->
-		    Bs1 = import_all(Name, Bs0),
-		    {value,ok,Bs1};
-		false ->
-		    exit({{bad_package_name, Name},
-			  [{shell,import_all,1}]})
-	    end
-    end;
-local_func(use, [M], Bs, Shell, RT, Lf, Ef) ->
-    local_func(import, [M], Bs, Shell, RT, Lf, Ef);
-local_func(use_all, [M], Bs, Shell, RT, Lf, Ef) ->
-    local_func(import_all, [M], Bs, Shell, RT, Lf, Ef);
 local_func(history, [{integer,_,N}], Bs, _Shell, _RT, _Lf, _Ef) ->
     {value,history(N),Bs};
 local_func(history, [_Other], _Bs, _Shell, _RT, _Lf, _Ef) ->
@@ -1342,15 +1292,6 @@ record_attrs(Forms) ->
     [A || A = {attribute,_,record,_D} <- Forms].
 
 %%% End of reading record information from file(s)
-
-import_all(P, Bs0) ->
-    Ms = packages:find_modules(P),
-    lists:foldl(fun (M, Bs) ->
-			Key = list_to_atom(M),
-			M1 = list_to_atom(packages:concat(P, M)),
-			erl_eval:add_binding({module,Key}, M1, Bs)
-		end,
-		Bs0, Ms).
 
 shell_req(Shell, Req) ->
     Shell ! {shell_req,self(),Req},
