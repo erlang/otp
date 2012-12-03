@@ -39,12 +39,14 @@
 module(Element, Opts) ->
     SortP = proplists:get_value(sort_functions, Opts, true),
     XML = layout_module(Element, SortP),
-    xmerl:export_simple([XML], docgen_xmerl_xml_cb, []).
+    RootAttributes = root_attributes(Element, Opts),
+    xmerl:export_simple([XML], docgen_xmerl_xml_cb, RootAttributes).
 
 %% CHAPTER
-overview(Element, _Opts) ->
+overview(Element, Opts) ->
     XML = layout_chapter(Element),
-    xmerl:export_simple([XML], docgen_xmerl_xml_cb, []).
+    RootAttributes = root_attributes(Element, Opts),
+    xmerl:export_simple([XML], docgen_xmerl_xml_cb, RootAttributes).
 
 %%--Internal functions--------------------------------------------------
 
@@ -98,6 +100,16 @@ layout_module(#xmlElement{name = module, content = Es}=E, SortP) ->
       ?NL,See,
       ?NL,Authors]
     }.
+
+root_attributes(Element, Opts) ->
+    Encoding = case get_attrval(encoding, Element) of
+                   "" ->
+                       DefaultEncoding = epp:default_encoding(),
+                       proplists:get_value(encoding, Opts, DefaultEncoding);
+                   Enc ->
+                       Enc
+               end,
+    [#xmlAttribute{name=encoding, value=Encoding}].
 
 layout_chapter(#xmlElement{name=overview, content=Es}) ->
     Title = get_text(title, Es),

@@ -35,9 +35,14 @@
 '#xml-inheritance#'() ->
     [xmerl_xml].
 
-'#root#'(Data, _Attrs, [], _E) -> 
+'#root#'(Data, Attrs, [], _E) ->
+    Encoding =
+        case [E || #xmlAttribute{name = encoding, value = E} <- Attrs] of
+            [E] -> E;
+            _ -> atom_to_list(epp:default_encoding())
+        end,
     ["<",DTD,">"] = hd(hd(Data)),
-    ["<?xml version=\"1.0\" encoding=\"latin1\" ?>\n",
+    ["<?xml version=\"1.0\" encoding=\"",Encoding,"\" ?>\n",
      "<!DOCTYPE "++DTD++" SYSTEM \""++DTD++".dtd\">\n",
      Data].
 

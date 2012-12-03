@@ -2,7 +2,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -100,10 +100,12 @@ module(File, Args) ->
 users_guide(File, Args) ->
     case filelib:is_regular(File) of
 	true ->
+            Enc = epp:read_encoding(File, [{in_comment_only, false}]),
+            Encoding = [{encoding, Enc} || Enc =/= none],
 	    Opts = [{def,         Args#args.def},
 		    {app_default, "OTPROOT"},
 		    {file_suffix, Args#args.suffix},
-		    {layout,      Args#args.layout}],
+		    {layout,      Args#args.layout}] ++ Encoding,
 	    
 	    Env = edoc_lib:get_doc_env(Opts),
 	    
@@ -115,7 +117,7 @@ users_guide(File, Args) ->
 	    Text = edoc_lib:run_layout(F, Opts),
 	    
 	    OutFile = "chapter" ++ Args#args.suffix,
-	    edoc_lib:write_file(Text, ".", OutFile);
+	    edoc_lib:write_file(Text, ".", OutFile, '', Encoding);
 	false ->
 	    io:format("~s: not a regular file\n", [File]),
 	    usage()
