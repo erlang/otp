@@ -42,6 +42,163 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>Diameter 1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix faulty handling of Origin-State-Id and faulty config
+	    values.</p>
+          <p>
+	    The former was expected in a list despite the
+	    documentation requiring (correctly) an integer. A bare
+	    value for a list-valued capability was not handled.</p>
+          <p>
+	    Own Id: OTP-10440</p>
+        </item>
+        <item>
+          <p>
+	    Fix timing of up/down events.</p>
+          <p>
+	    Previously, a call to diameter:call/4 following a peer_up
+	    callback might incorrectly return {error, no_connection},
+	    depending on timing. Both events now follow the
+	    corresponding callbacks.</p>
+          <p>
+	    Own Id: OTP-10459</p>
+        </item>
+        <item>
+          <p>
+	    Make diameter:service_info/2 usable in peer_up, peer_down
+	    and pick_peer callbacks.</p>
+          <p>
+	    Except for in pick_peer when {call_mutates_state, false},
+	    it would previously hang indefinitely.</p>
+          <p>
+	    Own Id: OTP-10460</p>
+        </item>
+        <item>
+          <p>
+	    Verify that End-to-End and Hop-by-Hop Identifiers in an
+	    incoming CEA/DPA match those sent in the corresponding
+	    CER/DPR.</p>
+          <p>
+	    The values were previously ignored. Answers whose
+	    identifiers do not match are handled as unexpected.</p>
+          <p>
+	    Own Id: OTP-10565</p>
+        </item>
+        <item>
+          <p>
+	    Fix formatting problems in PDF documentation.</p>
+          <p>
+	    In particular, text corresponding to links in HTML was
+	    omitted in preformatted blocks. There are still issues
+	    with indentation but this is not diameter-specific.</p>
+          <p>
+	    Own Id: OTP-10583</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Let prepare_request, prepare_retransmit and
+	    handle_request callbacks return a function to be invoked
+	    on outgoing messages after encode.</p>
+          <p>
+	    This allows encoded messages to be logged for example.</p>
+          <p>
+	    Own Id: OTP-10441</p>
+        </item>
+        <item>
+          <p>
+	    Add service_opt() 'restrict_connections' to allow
+	    multiple transport connections with the same peer.</p>
+          <p>
+	    Own Id: OTP-10443</p>
+        </item>
+        <item>
+          <p>
+	    Add service_opt() 'sequence' to allow the masking of a
+	    constant onto the topmost bits of End-to-End and
+	    Hop-by-Hop identifiers.</p>
+          <p>
+	    This allows the same service on different nodes to use
+	    distinct values in outgoing request messages.</p>
+          <p>
+	    Own Id: OTP-10445</p>
+        </item>
+        <item>
+          <p>
+	    Add diameter:service_info(PeerRef) to return the
+	    transport_ref() and transport_opt() list of the
+	    corresponding transport.</p>
+          <p>
+	    This allows easy access to these from diameter_app
+	    callbacks that only get peer_ref() as an argument.</p>
+          <p>
+	    Own Id: OTP-10470</p>
+        </item>
+        <item>
+          <p>
+	    Add reference pages diameter_codec(3) and
+	    diameter_make(3).</p>
+          <p>
+	    Own Id: OTP-10471</p>
+        </item>
+        <item>
+          <p>
+	    Add events for service start and stop.</p>
+          <p>
+	    Own Id: OTP-10492</p>
+        </item>
+        <item>
+          <p>
+	    Add transport_opt() 'disconnect_cb' to make the sending
+	    of DPR configurable.</p>
+          <p>
+	    Whether or not DPR should be sent at application stop,
+	    service stop or transport removal is determined by the
+	    value returned by the callback, as is the
+	    Disconnect-Cause and timeout if DPA is not received.</p>
+          <p>
+	    Own Id: OTP-10493</p>
+        </item>
+        <item>
+          <p>
+	    Add transport_opt() 'capx_timeout' for the timeout
+	    associated with non-reception of CER/CEA.</p>
+          <p>
+	    Own Id: OTP-10554</p>
+        </item>
+        <item>
+          <p>
+	    Allow a handle_request callback to return a
+	    #diameter_packet{}.</p>
+          <p>
+	    This allows an answer to set transport_data and header
+	    fields.</p>
+          <p>
+	    Own Id: OTP-10566</p>
+        </item>
+        <item>
+          <p>
+	    Update documentation for RFC 6733.</p>
+          <p>
+	    RFC 3588 is now obsolete.</p>
+          <p>
+	    Own Id: OTP-10568</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Diameter 1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -428,7 +585,7 @@ Known issues or limitations:</p>
 Some agent-related functionality is not entirely complete.
 In particular, support for proxy agents, that advertise specific
 Diameter applications but otherwise relay messages in much the same
-way as relay agents (for which a &handle_request;
+way as relay agents (for which a handle_request
 callback can return a <c>relay</c> tuple), will be completed in an
 upcoming release.
 There may also be more explicit support for redirect agents, although
@@ -460,7 +617,7 @@ could likely be expanded upon.</p>
 
 <item>
 <p>
-The function &service_info;
+The function diameter:service_info/2
 can be used to retrieve information about a started service
 (statistics, information about connected peers, etc) but
 this is not yet documented and both the input and output may change

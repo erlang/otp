@@ -135,7 +135,7 @@ select_encoding(pretty_text) ->
 select_encoding(compact_text) ->
     {megaco_compact_text_encoder, 2944};
 select_encoding(binary) ->
-    {megaco_ber_bin_encoder, 2945};
+    {megaco_ber_encoder, 2945};
 select_encoding(erl_dist) ->
     {megaco_erl_dist_encoder, 2946};
 select_encoding(Encoding) ->

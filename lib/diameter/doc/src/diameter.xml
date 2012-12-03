@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY make_ref
+  '<seealso marker="erts:erlang#make_ref-0">erlang:make_ref/0</seealso>'>
+  <!ENTITY transport_module
+  '<seealso marker="diameter_transport">transport module</seealso>'>
+  <!ENTITY dictionary
+  '<seealso marker="diameter_dict">dictionary</seealso>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -50,7 +56,7 @@ under the License.
 <p>
 This module provides the interface with which a user can
 implement a Diameter node that sends and receives messages using the
-Diameter protocol as defined in RFC 3588.</p>
+Diameter protocol as defined in &the_rfc;.</p>
 
 <p>
 Basic usage consists of creating a representation of a
@@ -67,7 +73,7 @@ Beware the difference between <em>diameter</em> (not capitalised) and
 <em>Diameter</em> (capitalised).
 The former refers to the Erlang application named diameter whose main
 api is defined here, the latter to Diameter protocol in the sense of
-RFC 3588.</p>
+&the_rfc;.</p>
 
 <p>
 The diameter application must be started before calling most functions
@@ -91,7 +97,7 @@ in this module.</p>
 <tag><c>UTF8String()</c></tag>
 <item>
 <p>
-Types corresponding to RFC 3588 AVP Data Formats.
+Types corresponding to &the_rfc; AVP Data Formats.
 Defined in &dict_data_types;.</p>
 
 <marker id="application_alias"/>
@@ -298,7 +304,7 @@ Has one of the following types.</p>
 <item>
 <p>
 An address list is available to the start function of a
-<seealso marker="diameter_transport">transport module</seealso>, which
+&transport_module;, which
 can return a new list for use in the subsequent CER or CEA.
 Host-IP-Address need not be specified if the transport start function
 returns an address list.</p>
@@ -312,7 +318,7 @@ returns an address list.</p>
 Origin-State-Id is optional but will be included in outgoing messages
 sent by diameter itself: CER/CEA, DWR/DWA and DPR/DPA.
 Setting a value of <c>0</c> (zero) is equivalent to not setting a
-value as documented in RFC 3588.
+value as documented in &the_rfc;.
 The function &origin_state_id;
 can be used as to retrieve a value that is computed when the diameter
 application is started.</p>
@@ -464,7 +470,7 @@ that matches no peer.</p>
 <p>
 The <c>host</c> and <c>realm</c> filters examine the
 outgoing request as passed to &call;,
-assuming that this is a record- or list-valued <c>&app_message;</c>,
+assuming that this is a record- or list-valued <c>&codec_message;</c>,
 and that the message contains at most one of each AVP.
 If this is not the case then the <c>{host|realm, &dict_DiameterIdentity;}</c>
 filters must be used to achieve the desired result.
@@ -529,8 +535,7 @@ connectivity.</p>
 
 <p>
 Note that a single <c>up</c>/<c>down</c> event for a given peer
-corresponds to one
-<seealso marker="diameter_app#Mod:peer_up-3">peer_up/peer_down</seealso>
+corresponds to one &app_peer_up;/&app_peer_down;
 callback for each of the Diameter applications negotiated during
 capablilities exchange.
 That is, the event communicates connectivity with the
@@ -677,7 +682,7 @@ info fields of forms other than the above.</p>
 The name of a service as passed to &start_service; and with which the
 service is identified.
 There can be at most one service with a given name on a given node.
-Note that <seealso marker="erts:erlang#make_ref-0">erlang:make_ref/0</seealso>
+Note that &make_ref;
 can be used to generate a service name that is somewhat unique.</p>
 
 <marker id="service_opt"/>
@@ -703,8 +708,7 @@ For an outgoing Diameter request, the relevant <c>&application_alias;</c> is
 passed to &call;, while for an
 incoming request the application identifier in the message
 header determines the application, the identifier being specified in
-the application's <seealso marker="diameter_dict">dictionary</seealso>
-file.</p>
+the application's &dictionary; file.</p>
 </item>
 
 <tag><c>{restrict_connections, false
@@ -749,7 +753,7 @@ as follows.</p>
 (H bsl N) bor (Id band ((1 bsl N) - 1))
 </pre>
 <p>
-Note that RFC 3588 requires that End-to-End identifiers remain unique
+Note that &the_rfc; requires that End-to-End identifiers remain unique
 for a period of at least 4 minutes and that this and the call rate
 places a lower bound on the appropriate values of <c>N</c>:
 at a rate of <c>R</c> requests per second an <c>N</c>-bit counter
@@ -951,7 +955,7 @@ Tc = &dict_Unsigned32;
 </pre>
 
 <p>
-For a connecting transport, the RFC 3588 Tc timer, in milliseconds.
+For a connecting transport, the &the_rfc; Tc timer, in milliseconds.
 Note that this timer determines the frequency with which a transport
 will attempt to establish a connection with its peer only <em>before</em>
 an initial connection is established: once there is an initial
@@ -1125,7 +1129,7 @@ its transports.</p>
 <type>
 <v>SvcName = &service_name;</v>
 <v>App = &application_alias;</v>
-<v>Request = &app_message;</v>
+<v>Request = &codec_message;</v>
 <v>Answer = term()</v>
 <v>Opt = &call_opt;</v>
 </type>
@@ -1618,7 +1622,7 @@ Return the list of started services.</p>
 Return a value for a Session-Id AVP.</p>
 
 <p>
-The value has the form required by section 8.8 of RFC 3588.
+The value has the form required by section 8.8 of &the_rfc;.
 Ident should be the Origin-Host of the peer from which
 the message containing the returned value will be sent.</p>
 

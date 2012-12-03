@@ -50,46 +50,22 @@ ASN1_SPECS = $(ASN1_V1_SPEC) \
 ASN1_FILES = $(ASN1_SPECS:%=%.asn)
 
 V1_SPECS = $(BER_ASN1_V1_SPEC)         \
-           $(BER_BIN_ASN1_V1_SPEC)     \
-           $(BER_BIN_DRV_ASN1_V1_SPEC) \
-           $(PER_ASN1_V1_SPEC)         \
-           $(PER_BIN_ASN1_V1_SPEC)     \
-           $(PER_BIN_DRV_ASN1_V1_SPEC) 
+           $(PER_ASN1_V1_SPEC)
 
 V2_SPECS = $(BER_ASN1_V2_SPEC)         \
-           $(BER_BIN_ASN1_V2_SPEC)     \
-           $(BER_BIN_DRV_ASN1_V2_SPEC) \
-           $(PER_ASN1_V2_SPEC)         \
-           $(PER_BIN_ASN1_V2_SPEC)     \
-           $(PER_BIN_DRV_ASN1_V2_SPEC) 
+           $(PER_ASN1_V2_SPEC)
 
 PREV3A_SPECS = $(BER_ASN1_PREV3A_SPEC)         \
-               $(BER_BIN_ASN1_PREV3A_SPEC)     \
-               $(BER_BIN_DRV_ASN1_PREV3A_SPEC) \
-               $(PER_ASN1_PREV3A_SPEC)         \
-               $(PER_BIN_ASN1_PREV3A_SPEC)     \
-               $(PER_BIN_DRV_ASN1_PREV3A_SPEC) 
+               $(PER_ASN1_PREV3A_SPEC)
 
 PREV3B_SPECS = $(BER_ASN1_PREV3B_SPEC)         \
-               $(BER_BIN_ASN1_PREV3B_SPEC)     \
-               $(BER_BIN_DRV_ASN1_PREV3B_SPEC) \
-               $(PER_ASN1_PREV3B_SPEC)         \
-               $(PER_BIN_ASN1_PREV3B_SPEC)     \
-               $(PER_BIN_DRV_ASN1_PREV3B_SPEC) 
+               $(PER_ASN1_PREV3B_SPEC)
 
 PREV3C_SPECS = $(BER_ASN1_PREV3C_SPEC)         \
-               $(BER_BIN_ASN1_PREV3C_SPEC)     \
-               $(BER_BIN_DRV_ASN1_PREV3C_SPEC) \
-               $(PER_ASN1_PREV3C_SPEC)         \
-               $(PER_BIN_ASN1_PREV3C_SPEC)     \
-               $(PER_BIN_DRV_ASN1_PREV3C_SPEC) 
+               $(PER_ASN1_PREV3C_SPEC)
 
 V3_SPECS = $(BER_ASN1_V3_SPEC)         \
-           $(BER_BIN_ASN1_V3_SPEC)     \
-           $(BER_BIN_DRV_ASN1_V3_SPEC) \
            $(PER_ASN1_V3_SPEC)         \
-           $(PER_BIN_ASN1_V3_SPEC)     \
-           $(PER_BIN_DRV_ASN1_V3_SPEC) \
            $(PREV3A_SPECS) $(PREV3B_SPECS) $(PREV3C_SPECS)
 
 SPECS = $(V1_SPECS) $(V2_SPECS) $(V3_SPECS)

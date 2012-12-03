@@ -6,6 +6,7 @@
 <header>
 <copyright>
 <year>2011</year>
+<year>2012</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -40,7 +41,9 @@ applications on top of the Diameter protocol. </p>
 <xi:include href="diameter.xml"/>
 <xi:include href="diameter_compile.xml"/>
 <xi:include href="diameter_app.xml"/>
+<xi:include href="diameter_codec.xml"/>
 <xi:include href="diameter_dict.xml"/>
+<xi:include href="diameter_make.xml"/>
 <xi:include href="diameter_transport.xml"/>
 <xi:include href="diameter_tcp.xml"/>
 <xi:include href="diameter_sctp.xml"/>

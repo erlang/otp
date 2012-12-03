@@ -1,5 +1,5 @@
 {exclusive_decode,
- {'megaco_ber_bin_drv_media_gateway_control_v2',
+ {'megaco_ber_media_gateway_control_prev3b',
   [
    {decode_message_trans_partial,
     [
@@ -14,7 +14,7 @@
         {actions,parts}
        ]
       },
-      {transactionReply,  
+      {transactionReply,
        [
         {transactionResult, [{actionReplies,parts}]}
        ]

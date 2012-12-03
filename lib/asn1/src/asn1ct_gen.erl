@@ -37,8 +37,7 @@
 	 gen_check_call/7,
 	 get_constraint/2,
 	 insert_once/2,
-	 rt2ct_suffix/1,
-	 rt2ct_suffix/0,
+	 ct_gen_module/1,
 	 index2suffix/1,
 	 get_record_name_prefix/0]).
 -export([pgen/5,
@@ -52,7 +51,7 @@
 %% pgen(Outfile, Erules, Module, TypeOrVal, Options)
 %% Generate Erlang module (.erl) and (.hrl) file corresponding to an ASN.1 module
 %% .hrl file is only generated if necessary
-%% Erules = per | ber | ber_bin | per_bin
+%% Erules = per | ber
 %% Module = atom()
 %% TypeOrVal = {TypeList,ValueList}
 %% TypeList = ValueList = [atom()]
@@ -83,7 +82,7 @@ pgen_module(OutFile,Erules,Module,
     pgen_exports(Erules,Module,TypeOrVal),
     pgen_dispatcher(Erules,Module,TypeOrVal),
     pgen_info(),
-    pgen_typeorval(wrap_ber(Erules),Module,N2nConvEnums,TypeOrVal),
+    pgen_typeorval(Erules,Module,N2nConvEnums,TypeOrVal),
     pgen_partial_incomplete_decode(Erules),
 % gen_vars(asn1_db:mod_to_vars(Module)),
 % gen_tag_table(AllTypes),
@@ -92,8 +91,7 @@ pgen_module(OutFile,Erules,Module,
 
 
 pgen_typeorval(Erules,Module,N2nConvEnums,{Types,Values,_Ptypes,_Classes,Objects,ObjectSets}) ->
-    Rtmod = list_to_atom(lists:concat(["asn1ct_gen_",erule(Erules),
-				       rt2ct_suffix(Erules)])),
+    Rtmod = ct_gen_module(Erules),
     pgen_types(Rtmod,Erules,N2nConvEnums,Module,Types),
     pgen_values(Erules,Module,Values),
     pgen_objects(Rtmod,Erules,Module,Objects),
@@ -196,7 +194,7 @@ pgen_check_defaultval(Erules,Module) ->
     end,
     gen_check_defaultval(Erules,Module,CheckObjects).
 
-pgen_partial_decode(Rtmod,Erule,Module) when Erule == ber_bin_v2 ->
+pgen_partial_decode(Rtmod,Erule,Module) when Erule == ber ->
     pgen_partial_inc_dec(Rtmod,Erule,Module),
     pgen_partial_dec(Rtmod,Erule,Module);
 pgen_partial_decode(_,_,_) ->
@@ -240,7 +238,7 @@ pgen_partial_inc_dec1(Rtmod,Erules,Module,[P|Ps]) ->
 pgen_partial_inc_dec1(_,_,_,[]) ->
     ok.
 
-gen_partial_inc_dec_refed_funcs(Rtmod,Erule) when Erule == ber_bin_v2 ->
+gen_partial_inc_dec_refed_funcs(Rtmod,Erule) when Erule == ber ->
     case asn1ct:next_refed_func() of
 	[] ->
 	    ok;
@@ -296,8 +294,7 @@ pgen_partial_types1(_,undefined) ->
 %% TypeList a decode function will be generated.
 traverse_type_structure(Erules,Type,[],FuncName,TopTypeName) ->
     %% this is the selected type
-    Ctmod = list_to_atom(lists:concat(["asn1ct_gen_",erule(Erules),
-					       rt2ct_suffix(Erules)])),
+    Ctmod = ct_gen_module(Erules),
     TypeDef =
 	case Type of
 	    #type{} ->
@@ -457,7 +454,7 @@ pgen_partial_incomplete_decode(Erule) ->
 	_ ->
 	    ok
     end.
-pgen_partial_incomplete_decode1(ber_bin_v2) ->
+pgen_partial_incomplete_decode1(ber) ->
     case asn1ct:read_config_data(partial_incomplete_decode) of
 	undefined ->
 	    ok;
@@ -552,20 +549,17 @@ gen_part_decode_funcs(WhatKind,_TypeName,{_,Directive,_,_}) ->
 gen_types(Erules,Tname,{RootL1,ExtList,RootL2}) 
   when is_list(RootL1), is_list(RootL2) ->
     gen_types(Erules,Tname,RootL1),
-    Rtmod = list_to_atom(lists:concat(["asn1ct_gen_",erule(Erules),
-				       rt2ct_suffix(Erules)])),
+    Rtmod = ct_gen_module(Erules),
     gen_types(Erules,Tname,Rtmod:extaddgroup2sequence(ExtList)),
     gen_types(Erules,Tname,RootL2);
 gen_types(Erules,Tname,{RootList,ExtList}) when is_list(RootList) ->
     gen_types(Erules,Tname,RootList),
-    Rtmod = list_to_atom(lists:concat(["asn1ct_gen_",erule(Erules),
-				       rt2ct_suffix(Erules)])),
+    Rtmod = ct_gen_module(Erules),
     gen_types(Erules,Tname,Rtmod:extaddgroup2sequence(ExtList));
 gen_types(Erules,Tname,[{'EXTENSIONMARK',_,_}|Rest]) ->
     gen_types(Erules,Tname,Rest);
 gen_types(Erules,Tname,[ComponentType|Rest]) ->
-    Rtmod = list_to_atom(lists:concat(["asn1ct_gen_",erule(Erules),
-				       rt2ct_suffix(Erules)])),
+    Rtmod = ct_gen_module(Erules),
     asn1ct_name:clear(),
     Rtmod:gen_encode(Erules,Tname,ComponentType),
     asn1ct_name:clear(),
@@ -574,8 +568,7 @@ gen_types(Erules,Tname,[ComponentType|Rest]) ->
 gen_types(_,_,[]) ->
     true;
 gen_types(Erules,Tname,Type) when is_record(Type,type) ->
-    Rtmod = list_to_atom(lists:concat(["asn1ct_gen_",erule(Erules),
-				       rt2ct_suffix(Erules)])),
+    Rtmod = ct_gen_module(Erules),
     asn1ct_name:clear(),
     Rtmod:gen_encode(Erules,Tname,Type),
     asn1ct_name:clear(),
@@ -754,8 +747,7 @@ gen_value(Value) when is_record(Value,valuedef) ->
     emit([{asis,V},".",nl,nl]).
 
 gen_encode_constructed(Erules,Typename,InnerType,D) when is_record(D,type) ->
-
-    Rtmod = list_to_atom(lists:concat(["asn1ct_constructed_",erule(Erules)])),
+    Rtmod = ct_constructed_module(Erules),
     case InnerType of
 	'SET' ->
 	    Rtmod:gen_encode_set(Erules,Typename,D),
@@ -787,7 +779,7 @@ gen_encode_constructed(Erules,Typename,InnerType,D)
     gen_encode_constructed(Erules,Typename,InnerType,D#typedef.typespec).
 
 gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,type) ->
-    Rtmod = list_to_atom(lists:concat(["asn1ct_constructed_",erule(Erules)])),
+    Rtmod = ct_constructed_module(Erules),
     asn1ct:step_in_constructed(), %% updates namelist for exclusive decode
     case InnerType of
 	'SET' ->
@@ -818,27 +810,11 @@ pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
 	    case Erules of
 		ber ->
 		    gen_exports1(Types,"enc_",2);
-		ber_bin ->
-		    gen_exports1(Types,"enc_",2);
-		ber_bin_v2 ->
-		    gen_exports1(Types,"enc_",2);
 		_ ->
 		    gen_exports1(Types,"enc_",1)
 	    end,
 	    emit({"-export([",nl}),
-	    gen_exports1(Types,"dec_",2),
-	    case Erules of
-		ber ->
-		    emit({"-export([",nl}),
-		    gen_exports1(Types,"dec_",3);
-		ber_bin ->
-		    emit({"-export([",nl}),
-		    gen_exports1(Types,"dec_",3);
-% 		ber_bin_v2 ->
-% 		    emit({"-export([",nl}),
-% 		    gen_exports1(Types,"dec_",2);
-		_ -> ok
-	    end
+	    gen_exports1(Types,"dec_",2)
     end,
     case [X || {n2n,X} <- get(encoding_options)] of
 	[] -> ok;
@@ -863,16 +839,11 @@ pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
 		    gen_exports1(Objects,"enc_",3),
 		    emit({"-export([",nl}),
 		    gen_exports1(Objects,"dec_",4);
-		ber_bin_v2 ->
+		ber ->
 		    emit({"-export([",nl}),
 		    gen_exports1(Objects,"enc_",3),
 		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"dec_",3);
-		_ -> 
-		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"enc_",4),
-		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"dec_",4)
+		    gen_exports1(Objects,"dec_",3)
 	    end
     end,
     case ObjectSets of
@@ -948,20 +919,17 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     emit(["encoding_rule() ->",nl]),
     emit(["   ",{asis,Erules},".",nl,nl]),
     NoFinalPadding = lists:member(no_final_padding,get(encoding_options)),
-    Call = case Erules of
-	       per -> "?RT_PER:complete(encode_disp(Type,Data))";
-	       per_bin -> ["?RT_PER:complete(encode_disp(Type,Data))"];
-	       ber -> "encode_disp(Type,Data)";
-	       ber_bin -> "encode_disp(Type,Data)";
-	       ber_bin_v2 -> "encode_disp(Type,Data)";
-	       uper_bin when NoFinalPadding == true -> 
-		   "?RT_PER:complete_NFP(encode_disp(Type,Data))";
-	       uper_bin -> ["?RT_PER:complete(encode_disp(Type,Data))"]
-	   end,
-    EncWrap = case Erules of
-	       ber -> "wrap_encode(Bytes)";
-	       _ -> "Bytes"
-	   end,
+    {Call,BytesAsBinary} =
+	case Erules of
+	    per ->
+		{["?RT_PER:complete(encode_disp(Type,Data))"],"Bytes"};
+	    ber ->
+		{"encode_disp(Type,Data)","iolist_to_binary(Bytes)"};
+	    uper when NoFinalPadding == true ->
+		{"?RT_PER:complete_NFP(encode_disp(Type,Data))","Bytes"};
+	    uper ->
+		{["?RT_PER:complete(encode_disp(Type,Data))"],"Bytes"}
+	end,
     emit(["encode(Type,Data) ->",nl,
 	  "case catch ",Call," of",nl,
 	  "  {'EXIT',{error,Reason}} ->",nl,
@@ -969,42 +937,25 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	  "  {'EXIT',Reason} ->",nl,
 	  "    {error,{asn1,Reason}};",nl,
 	  "  {Bytes,_Len} ->",nl,
-	  "    {ok,",EncWrap,"};",nl]),
-    case Erules of
-	per ->
-	    emit(["  Bytes when is_binary(Bytes) ->",nl,
-		  "    {ok,binary_to_list(Bytes)};",nl,
-		  "  Bytes ->",nl,
-		  "    {ok,binary_to_list(list_to_binary(Bytes))}",nl,
-		  "  end.",nl,nl]);
-	_ ->
-	    emit(["  Bytes ->",nl,
-		  "    {ok,",EncWrap,"}",nl,
-		  "end.",nl,nl])
-    end,
-
-%     case Erules of
-% 	ber_bin_v2 ->
-% 	    emit(["decode(Type,Data0) ->",nl]),
-% 	    emit(["{Data,_RestBin} = ?RT_BER:decode(Data0",nif_parameter(),"),",nl]);
-% 	_ ->
-% 	    emit(["decode(Type,Data) ->",nl])
-%     end,
+	  "    {ok,",BytesAsBinary,"};",nl,
+	  "  Bytes ->",nl,
+	  "    {ok,",BytesAsBinary,"}",nl,
+	  "end.",nl,nl]),
 
     Return_rest = lists:member(undec_rest,get(encoding_options)),
     Data = case {Erules,Return_rest} of
-	       {ber_bin_v2,true} -> "Data0";
+	       {ber,true} -> "Data0";
 	       _ -> "Data"
 	   end,
 
     emit(["decode(Type,",Data,") ->",nl]),
     DecAnonymous =
 	case {Erules,Return_rest} of
-	    {ber_bin_v2,false} ->
+	    {ber,false} ->
 		io_lib:format("~s~s~s~n",
 			      ["element(1,?RT_BER:decode(Data",
 			       nif_parameter(),"))"]);
-	    {ber_bin_v2,true} ->
+	    {ber,true} ->
 		emit(["{Data,Rest} = ?RT_BER:decode(Data0",
 		      nif_parameter(),"),",nl]),
 		"Data";
@@ -1012,10 +963,8 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 		"Data"
 	end,
     DecWrap = case Erules of
-		  ber -> "wrap_decode(Data)";
-		  ber_bin_v2 ->
+		  ber ->
 		      DecAnonymous;
-		  per -> "list_to_binary(Data)";
 		  _ -> "Data"
 	      end,
 	    
@@ -1025,32 +974,18 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	  "  {'EXIT',Reason} ->",nl,
 	  "    {error,{asn1,Reason}};",nl]),
     case {Erules,Return_rest} of 
-	{ber_bin_v2,false} ->
+	{ber,false} ->
 	    emit(["  Result ->",nl,
 		  "    {ok,Result}",nl]);
-	{ber_bin_v2,true} ->
+	{ber,true} ->
 	    emit(["  Result ->",nl,
 		  "    {ok,Result,Rest}",nl]);
-	{per,false} ->
-	    emit(["  {X,_Rest} ->",nl,
-		  "    {ok,if_binary2list(X)};",nl,
-		  "  {X,_Rest,_Len} ->",nl,
-		  "    {ok,if_binary2list(X)}",nl]);
 	{_,false} ->
 	    emit(["  {X,_Rest} ->",nl,
 		  "    {ok,X};",nl,
 		  "  {X,_Rest,_Len} ->",nl,
 		  "    {ok,X}",nl]);
-	{per,true}  ->
-	    emit(["  {X,{_,Rest}} ->",nl,
-		  "    {ok,if_binary2list(X),Rest};",nl,
-		  "  {X,{_,Rest},_Len} ->",nl,
-		  "    {ok,if_binary2list(X),Rest};",nl,
-		  "  {X,Rest} ->",nl,
-		  "    {ok,if_binary2list(X),Rest};",nl,
-		  "  {X,Rest,_Len} ->",nl,
-		  "    {ok,if_binary2list(X),Rest}",nl]);
-	{per_bin,true} ->
+	{per,true} ->
 	    emit(["  {X,{_,Rest}} ->",nl,
 		  "    {ok,X,Rest};",nl,
 		  "  {X,{_,Rest},_Len} ->",nl,
@@ -1059,42 +994,22 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 		  "    {ok,X,Rest};",nl,
 		  "  {X,Rest,_Len} ->",nl,
 		  "    {ok,X,Rest}",nl]);
-	{uper_bin,true} ->
+	{uper,true} ->
 	    emit(["  {X,{_,Rest}} ->",nl,
 		  "    {ok,X,Rest};",nl,
 		  "  {X,{_,Rest},_Len} ->",nl,
 		  "    {ok,X,Rest};",nl,
 		  "  {X,Rest} ->",nl,
-		  "    {ok,X,Rest};",nl,
-		  "  {X,Rest,_Len} ->",nl,
-		  "    {ok,X,Rest}",nl]);
-	_ ->
-	    emit(["  {X,Rest} ->",nl,
 		  "    {ok,X,Rest};",nl,
 		  "  {X,Rest,_Len} ->",nl,
 		  "    {ok,X,Rest}",nl])
     end,
     emit(["end.",nl,nl]),
 
-    case Erules of
-	per ->
-	    emit(["if_binary2list(B) when is_binary(B) ->",nl,
-		  "  binary_to_list(B);",nl,
-		  "if_binary2list(L) -> L.",nl,nl]);
-	_ ->
-	    ok
-    end,
-
     gen_decode_partial_incomplete(Erules),
 
     case Erules of
 	ber ->
-	    gen_dispatcher(Types,"encode_disp","enc_",",[]"),
-	    gen_dispatcher(Types,"decode_disp","dec_",",mandatory");
-	ber_bin ->
-	    gen_dispatcher(Types,"encode_disp","enc_",",[]"),
-	    gen_dispatcher(Types,"decode_disp","dec_",",mandatory");
-	ber_bin_v2 ->
 	    gen_dispatcher(Types,"encode_disp","enc_",""),
 	    gen_dispatcher(Types,"decode_disp","dec_",""),
 	    gen_partial_inc_dispatcher();
@@ -1103,17 +1018,10 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	    gen_dispatcher(Types,"decode_disp","dec_",",mandatory")
     end,
     emit([nl]),
-
-    case Erules of
-	ber ->
-	    gen_wrapper();
-	_ -> ok
-    end,
     emit({nl,nl}).
 
 
-gen_decode_partial_incomplete(Erule) when Erule == ber;Erule==ber_bin;
-					   Erule==ber_bin_v2 ->
+gen_decode_partial_incomplete(ber) ->
     case {asn1ct:read_config_data(partial_incomplete_decode),
 	  asn1ct:get_gen_state_field(inc_type_pattern)} of
 	{undefined,_} ->
@@ -1121,34 +1029,35 @@ gen_decode_partial_incomplete(Erule) when Erule == ber;Erule==ber_bin;
 	{_,undefined} ->
 	    ok;
 	_ ->
-	    case Erule of
-		ber_bin_v2 ->
-		    EmitCaseClauses =
-			fun() ->
-				emit(["   {'EXIT',{error,Reason}} ->",nl,
-				      "      {error,Reason};",nl,
-				      "    {'EXIT',Reason} ->",nl,
-				      "      {error,{asn1,Reason}};",nl,
-				      "    Result ->",nl,
-				      "      {ok,Result}",nl,
-				      "  end.",nl,nl])
-			end,
-		    emit(["decode_partial_incomplete(Type,Data0,",
-			  "Pattern) ->",nl]),
-		    emit(["  {Data,_RestBin} =",nl,
-			  "    ?RT_BER:decode_primitive_",
-			  "incomplete(Pattern,Data0),",nl,
-			  "  case catch decode_partial_inc_disp(Type,",
-			  "Data) of",nl]),
-		    EmitCaseClauses(),
-		    emit(["decode_part(Type,Data0) ->",nl]),
-		    emit(["  case catch decode_inc_disp(Type,element(1,"
-			  "?RT_BER:decode(Data0",nif_parameter(),"))) of",nl]),
-% 			  "  {Data,_RestBin} = ?RT_BER:decode(Data0),",nl,
-% 			  "  case catch decode_inc_disp(Type,Data) of",nl]),
-		    EmitCaseClauses();
-		_ -> ok % add later
-	    end
+	    EmitCaseClauses =
+		fun() ->
+			emit(["   {'EXIT',{error,Reason}} ->",nl,
+			      "      {error,Reason};",nl,
+			      "    {'EXIT',Reason} ->",nl,
+			      "      {error,{asn1,Reason}};",nl,
+			      "    Result ->",nl,
+			      "      {ok,Result}",nl,
+			      "  end"])
+		end,
+	    emit(["decode_partial_incomplete(Type,Data0,",
+		  "Pattern) ->",nl]),
+	    emit(["  {Data,_RestBin} =",nl,
+		  "    ?RT_BER:decode_primitive_",
+		  "incomplete(Pattern,Data0),",nl,
+		  "  case catch decode_partial_inc_disp(Type,",
+		  "Data) of",nl]),
+	    EmitCaseClauses(),
+	    emit([".",nl,nl]),
+	    emit(["decode_part(Type, Data0) "
+		  "when is_binary(Data0) ->",nl]),
+	    emit(["  case catch decode_inc_disp(Type,element(1,"
+		  "?RT_BER:decode(Data0",nif_parameter(),"))) of",nl]),
+	    EmitCaseClauses(),
+	    emit([";",nl]),
+	    emit(["decode_part(Type, Data0) ->",nl]),
+	    emit(["  case catch decode_inc_disp(Type, Data0) of",nl]),
+	    EmitCaseClauses(),
+	    emit([".",nl,nl])
     end;
 gen_decode_partial_incomplete(_Erule) ->
     ok.
@@ -1187,23 +1096,8 @@ gen_partial_inc_dispatcher([],_) ->
 	  "  exit({error,{asn1,{undefined_type,Type}}}).",nl]).
 
 nif_parameter() ->
-    Options = get(encoding_options),
-    case {lists:member(driver,Options),lists:member(nif,Options)} of
-	{true,_} -> ",nif";
-	{_,true} -> ",nif";
-	_ ->  ""
-    end.
+    ",nif".
 
-gen_wrapper() ->
-    emit(["wrap_encode(Bytes) when is_list(Bytes) ->",nl,
-	  "   binary_to_list(list_to_binary(Bytes));",nl,
-	  "wrap_encode(Bytes) when is_binary(Bytes) ->",nl,
-	  "   binary_to_list(Bytes);",nl,
-	  "wrap_encode(Bytes) -> Bytes.",nl,nl]),
-    emit(["wrap_decode(Bytes) when is_list(Bytes) ->",nl,
-	  "   list_to_binary(Bytes);",nl,
-	  "wrap_decode(Bytes) -> Bytes.",nl]).
-    
 gen_dispatcher([F1,F2|T],FuncName,Prefix,ExtraArg) ->
 	emit([FuncName,"('",F1,"',Data) -> '",Prefix,F1,"'(Data",ExtraArg,")",";",nl]),
 	gen_dispatcher([F2|T],FuncName,Prefix,ExtraArg);
@@ -1213,19 +1107,16 @@ gen_dispatcher([Flast|_T],FuncName,Prefix,ExtraArg) ->
 
 pgen_info() ->
     emit(["info() ->",nl,
-	  "   case ?MODULE:module_info() of",nl,
-	  "      MI when is_list(MI) ->",nl,
-	  "         case lists:keysearch(attributes,1,MI) of",nl,
-	  "            {value,{_,Attributes}} when is_list(Attributes) ->",nl,
-	  "               case lists:keysearch(asn1_info,1,Attributes) of",nl,
-	  "                  {value,{_,Info}} when is_list(Info) ->",nl,
-	  "                     Info;",nl,
-	  "                  _ ->",nl,
-	  "                     []",nl,
-	  "               end;",nl,
-	  "            _ ->",nl,
-	  "               []",nl,
-	  "         end",nl,
+	  "   case ?MODULE:module_info(attributes) of",nl,
+	  "     Attributes when is_list(Attributes) ->",nl,
+	  "       case lists:keyfind(asn1_info, 1, Attributes) of",nl,
+	  "         {_,Info} when is_list(Info) ->",nl,
+	  "           Info;",nl,
+	  "         _ ->",nl,
+	  "           []",nl,
+	  "       end;",nl,
+	  "     _ ->",nl,
+	  "       []",nl,
 	  "   end.",nl]).
 
 open_hrl(OutFile,Module) ->
@@ -1496,32 +1387,15 @@ gen_head(Erules,Mod,Hrl) ->
     {Rtmac,Rtmod} = case Erules of
 			per ->
 			    emit({"%% Generated by the Erlang ASN.1 PER-"
-				  "compiler version:",asn1ct:vsn(),nl}),
-			    {"RT_PER",?RT_PER_BIN};
+				  "compiler version, utilizing bit-syntax:",
+				  asn1ct:vsn(),nl}),
+			    {"RT_PER","asn1rt_per_bin_rt2ct"};
 			ber ->
-			    emit({"%% Generated by the Erlang ASN.1 BER-"
-				  "compiler version:",asn1ct:vsn(),nl}),
-			    {"RT_BER",?RT_BER_BIN};
-			per_bin ->
-			    emit({"%% Generated by the Erlang ASN.1 BER-"
-				  "compiler version, utilizing bit-syntax:",
-				  asn1ct:vsn(),nl}),
-			    %% temporary code to enable rt2ct optimization
-			    case lists:member(optimize,Options) of
-				true -> {"RT_PER","asn1rt_per_bin_rt2ct"};
-				_ ->    {"RT_PER",?RT_PER_BIN}
-			    end;
-			ber_bin ->
-			    emit({"%% Generated by the Erlang ASN.1 BER-"
-				  "compiler version, utilizing bit-syntax:",
-				  asn1ct:vsn(),nl}),
-			    {"RT_BER",?RT_BER_BIN};
-			ber_bin_v2 ->
 			    emit({"%% Generated by the Erlang ASN.1 BER_V2-"
 				  "compiler version, utilizing bit-syntax:",
 				  asn1ct:vsn(),nl}),
 			    {"RT_BER","asn1rt_ber_bin_v2"};
-			uper_bin ->
+			uper ->
 			    emit(["%% Generated by the Erlang ASN.1 UNALIGNED"
 				  " PER-compiler version, utilizing"
 				  " bit-syntax:",
@@ -1541,7 +1415,7 @@ gen_head(Erules,Mod,Hrl) ->
     emit(["-define('",Rtmac,"',",Rtmod,").",nl]),
     emit(["-asn1_info([{vsn,'",asn1ct:vsn(),"'},",nl,
 	  "            {module,'",Mod,"'},",nl,
-	  "            {options,",io_lib:format("~w",[Options]),"}]).",nl,nl]).
+	  "            {options,",io_lib:format("~p",[Options]),"}]).",nl,nl]).
 			
 
 gen_hrlhead(Mod) ->
@@ -2019,42 +1893,28 @@ constructed_suffix('SEQUENCE OF',_) ->
 constructed_suffix('SET OF',_) -> 
     'SETOF'.
 
-erule(ber) ->
-    ber;
-erule(ber_bin) ->
-    ber;
-erule(ber_bin_v2) ->
-    ber_bin_v2;
-erule(per) ->
-    per;
-erule(per_bin) ->
-    per;
-erule(uper_bin) ->
-    per.
-
-wrap_ber(ber) ->
-    ber_bin;
-wrap_ber(Erule) ->
-    Erule.
-
-rt2ct_suffix() ->
-    Options = get(encoding_options),
-    case {lists:member(optimize,Options),lists:member(per_bin,Options)} of
-	{true,true} -> "_rt2ct";
-	_ -> ""
-    end.
-rt2ct_suffix(per_bin) ->
-    Options = get(encoding_options),
-    case lists:member(optimize,Options) of
-	true -> "_rt2ct";
-	_ -> ""
-    end;
-rt2ct_suffix(_) -> "".
+erule(ber) -> ber;
+erule(per) -> per;
+erule(uper) -> per.
 
 index2suffix(0) ->
     "";
 index2suffix(N) ->
     lists:concat(["_",N]).
+
+ct_gen_module(ber) ->
+    asn1ct_gen_ber_bin_v2;
+ct_gen_module(per) ->
+    asn1ct_gen_per_rt2ct;
+ct_gen_module(uper) ->
+    asn1ct_gen_per.
+
+ct_constructed_module(ber) ->
+    asn1ct_constructed_ber_bin_v2;
+ct_constructed_module(per) ->
+    asn1ct_constructed_per;
+ct_constructed_module(uper) ->
+    asn1ct_constructed_per.
 
 get_constraint(C,Key) ->
     case lists:keysearch(Key,1,C) of

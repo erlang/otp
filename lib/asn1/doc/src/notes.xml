@@ -483,7 +483,7 @@
 	    ENUMERATION type, the compilation will be terminated with an 
 	    error code.<br/>
 	    Below follows an example on how to use the option from the command line with <c>erlc</c>:<br/>
-	    <c>erlc -bper_bin +optimize +driver +"{n2n,'CauseMisc'}" +"{n2n,'CausePcl'}" MyModyle.asn</c>
+	    <c>erlc -bper+"{n2n,'CauseMisc'}" +"{n2n,'CausePcl'}" MyModyle.asn</c>
 	  </p>
           <p>
             Own Id: OTP-8136 Aux Id: seq11347 </p>

@@ -30,6 +30,44 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.15.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ensure 'erl_crash.dump' when asked for it. This will
+	    change erl_crash.dump behaviour.</p>
+          <p>
+	    * Not setting ERL_CRASH_DUMP_SECONDS will now terminate
+	    beam immediately on a crash without writing a crash dump
+	    file.</p>
+          <p>
+	    * Setting ERL_CRASH_DUMP_SECONDS to 0 will also terminate
+	    beam immediately on a crash without writing a crash dump
+	    file, i.e. same as not setting ERL_CRASH_DUMP_SECONDS
+	    environment variable.</p>
+          <p>
+	    * Setting ERL_CRASH_DUMP_SECONDS to a negative value will
+	    let the beam wait indefinitely on the crash dump file
+	    being written.</p>
+          <p>
+	    * Setting ERL_CRASH_DUMP_SECONDS to a positive value will
+	    let the beam wait that many seconds on the crash dump
+	    file being written.</p>
+          <p>
+	    A positive value will set an alarm/timeout for restart
+	    both in beam and in heart if heart is running.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10422 Aux Id: kunagi-250 [161] </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.15.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

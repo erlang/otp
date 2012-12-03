@@ -32,6 +32,47 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.5.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    test_server_h will now recognize info_reports written by
+	    ct connection handlers (according to the description in
+	    cth_conn_log) and ignore them as they will be completely
+	    handled by by ct_conn_log_h.</p>
+          <p>
+	    Earlier test_server_h would print a tag (testcase name)
+	    before forwarding the report to error_logger_tty_h. This
+	    would cause lots of tags in the log with no info report
+	    following (since error_logger_tty_h did not handle them).</p>
+          <p>
+	    Own Id: OTP-10571</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Restore Config data if lost when test case fails.</p>
+          <p>
+	    Own Id: OTP-10070 Aux Id: kunagi-175 [86] </p>
+        </item>
+        <item>
+          <p>
+	    IO server error in test_server.</p>
+          <p>
+	    Own Id: OTP-10125 Aux Id: OTP-10101, kunagi-177 [88] </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -41,6 +41,19 @@
       encode/decode functions. There are also some generic functions which
       can be used in during development of applications which handles ASN.1
       data (encoded as BER or PER).</p>
+      <note>
+	<p>In R16, the options have been simplified. The back-end is chosen
+	using one of the options <c>ber</c>, <c>per</c>, or <c>uper</c>.
+	The options <c>optimize</c>, <c>nif</c>, and <c>driver</c> options
+	are no longer necessary (and the ASN.1 compiler will print a
+	warning if they are used). The options <c>ber_bin</c>, <c>per_bin</c>,
+	and <c>uper_bin</c> options will still work, but will print a warning.
+	</p>
+	<p>Another change in R16 is that the generated <c>encode/2</c>
+	function (and <c>asn1rt:encode/3</c>) always returns a binary.
+	The <c>encode/2</c> function for the BER back-end used to return
+	an iolist.</p>
+      </note>
   </description>
   <funcs>
     <func>
@@ -50,9 +63,9 @@
       <type>
         <v>Asn1module = atom() | string()</v>
         <v>Options = [Option| OldOption]</v>
-        <v>Option = ber_bin | per_bin | uper_bin | der | compact_bit_string |
-	noobj | {n2n, EnumTypeName} |{outdir, Dir} | {i, IncludeDir} | optimize |
-	nif | asn1config | undec_rest | {inline, OutputName} | inline |
+        <v>Option = ber | per | uper | der | compact_bit_string |
+	noobj | {n2n, EnumTypeName} |{outdir, Dir} | {i, IncludeDir} |
+	asn1config | undec_rest | {inline, OutputName} | inline |
 	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose | warnings_as_errors</v>
         <v>OldOption = ber | per</v> 
         <v>Reason = term()</v>
@@ -112,7 +125,7 @@ File3.asn        </pre>
 	  section in users guide</seealso>. Available options are:
 	</p>
 	<taglist>
-          <tag><c>ber | ber_bin | per | per_bin | uper_bin</c></tag>
+          <tag><c>ber | per | uper</c></tag>
           <item>
             <p>
 	      The encoding rule to be used. The supported encoding rules
@@ -120,22 +133,11 @@ File3.asn        </pre>
 	      PER aligned (Packed Encoding Rules) and PER unaligned. 
 	      If the encoding rule option is omitted <c>ber</c> 
 	      is the default.
-	      The <c>per_bin</c> option means the aligned
-	      variant. To use the unaligned variant the <c>uper_bin</c>
-	      option has to be used.
 	    </p>
 	    <p>
 	      The generated Erlang module always gets the same name
 	      as the ASN.1 module and as a consequence of this only one
 	    encoding rule per ASN.1 module can be used at runtime.
-	    </p>
-	    <p>
-	      The <c>ber_bin</c> and <c>per_bin</c> options are
-	      equivalent with the <c>OldOptions</c> <c>ber</c> and <c>per</c>
-	      with the difference that the generated encoding/decoding
-	      functions take advantage of the bit syntax, which in most
-	      cases increases the performance considerably. The result
-	      from encoding is a binary or an iolist.
 	    </p>
           </item>
           <tag><c>der</c></tag>
@@ -144,7 +146,7 @@ File3.asn        </pre>
 	      By this option the Distinguished Encoding Rules (DER) is chosen.
 	      DER is regarded as a specialized variant of the BER encoding 
               rule, therefore the <c>der</c> option only makes sense together
-	      with the <c>ber</c> or <c>ber_bin</c> option. 
+	      with the <c>ber</c> option.
 	      This option
               sometimes adds sorting and value checks when encoding, which
               implies a slower encoding. The decoding routines are the same
@@ -206,28 +208,6 @@ Binary = binary()
               shall be placed. If omitted the files are placed in the 
               current directory.</p>
           </item>
-          <tag><c>optimize</c></tag>
-          <item>
-            <p>This option is only valid together with one of the
-              <c>per_bin</c> 
-              or <c>ber_bin</c> option. It gives time optimized code 
-              generated and it uses another runtime module and 
-              in the <c>per_bin</c> case a nif. The result 
-              in the <c>per_bin</c> case from an encode when compiled
-              with this option will be a binary.</p>
-          </item>
-          <tag><c>driver</c></tag>
-          <item>
-            <p>As of R15B this means the same as the <c>nif</c> option. Kept for
-	    backwards compatability reasons.</p>
-          </item>
-	  <tag><c>nif</c></tag>
-          <item>
-            <p>Option valid together with <c>ber_bin</c> and <c>optimize</c>
-	      options. It enables the use of several nifs that gives faster 
-	      encode and decode. Nifs are only enabled by the explicit use of 
-	      the option <c>nif</c></p>
-          </item>
           <tag><c>asn1config</c></tag>
           <item>
             <p>When one of the specialized decodes, exclusive or
@@ -270,10 +250,6 @@ Binary = binary()
               <c>{export, [atom()]}</c> or <c>{export_all, true}</c> option
               are provided. The list of atoms are names of chosen asn1
               specs from the <c>.set.asn</c> file. </p>
-	      <p>When used together with <c>nif</c> for <c>ber_bin</c>, the
-	      asn1 nifs will be used if the <c>asn1rt_nif</c> module is 
-	      available. If it is not available, a slower erlang fallback
-	      will be used.</p>
           </item>
           <tag><c>inline</c></tag>
           <item>
@@ -327,13 +303,12 @@ Binary = binary()
       <type>
         <v>Module = Type = atom()</v>
         <v>Value = term()</v>
-        <v>Bytes = [Int] when integer(Int), Int >= 0, Int =&lt; 255</v>
+        <v>Bytes = binary()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
         <p>Encodes <c>Value</c> of <c>Type</c> defined in the ASN.1 module 
-          <c>Module</c>. Returns a list of bytes if successful. To get as fast execution as 
-          possible the 
+          <c>Module</c>. To get as fast execution as possible the
           encode function only performs rudimentary tests that the input 
           <c>Value</c>
           is a correct instance of <c>Type</c>. The length of strings is for example
@@ -348,10 +323,10 @@ Binary = binary()
       <type>
         <v>Module = Type = atom()</v>
         <v>Value = Reason = term()</v>
-        <v>Bytes = [Int] when integer(Int), Int >= 0, Int =&lt; 255</v>
+        <v>Bytes = binary()</v>
       </type>
       <desc>
-        <p>Decodes <c>Type</c> from <c>Module</c> from the list of bytes 
+        <p>Decodes <c>Type</c> from <c>Module</c> from the binary
           <c>Bytes</c>. Returns <c>{ok, Value}</c> if successful.</p>
       </desc>
     </func>

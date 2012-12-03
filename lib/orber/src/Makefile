@@ -200,8 +200,7 @@ ERL_COMPILE_FLAGS += $(ERL_IDL_FLAGS) \
 	+'{attribute,insert,app_vsn,"orber_$(ORBER_VSN)"}' \
 	-D'ORBVSN="$(ORBER_VSN)"'
 
-ASN_FLAGS = -bber_bin +der +compact_bit_string +optimize \
-	+nowarn_unused_record
+ASN_FLAGS = -bber +der +compact_bit_string +nowarn_unused_record
 
 # ----------------------------------------------------
 # Targets

@@ -117,14 +117,8 @@ ct_master_test(Config) when is_list(Config) ->
 			       reformat(Events, ?eh),
 			       PrivDir, []),
 
-    find_events(NodeNames, [{tc_start,{master_SUITE,init_per_suite}},
-			    {tc_start,{master_SUITE,first_testcase}},
-			    {tc_start,{master_SUITE,second_testcase}},
-			    {tc_start,{master_SUITE,third_testcase}},
-			    {tc_start,{master_SUITE,end_per_suite}}],
-	       Events),
-    
-    ok.
+    TestEvents = events_to_check(ct_master_test),
+    ok = find_events(NodeNames, TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -153,13 +147,15 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config) ->
     
     CM = [{config,master,filename:join(DataDir,"master/config.txt")}],
 
+    Env = [{"THIS_MUST_BE_SET","yes"},
+	   {"SO_MUST_THIS","value"}],
     NS = lists:map(
 	   fun(NodeName) ->
 		   {init,NodeName,[
 				   {node_start,[{startup_functions,[]},
-						{monitor_master,true}]},
-				   {eval,{erlang,nodes,[]}}
-				  ]
+						{monitor_master,true},
+						{env,Env}]},
+				   {eval,{erlang,nodes,[]}}]
 		   }
 	   end,
 	   NodeNames),
@@ -199,7 +195,6 @@ run_test(_Name, FileName, Config) ->
     [{FileName,ok}] = ct_test_support:run({ct_master,run,[FileName]},
 					  [{ct_master,basic_html,[true]}],
 					  Config),
-    timer:sleep(5000),
     [{FileName,ok}] = ct_test_support:run({ct_master,run,[FileName]},
 					  [{ct_master,basic_html,[false]}],
 					  Config).
@@ -210,28 +205,26 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
-find_events([], _CheckEvents, _) ->
-    ok;
-find_events([NodeName|NodeNames],CheckEvents,AllEvents) ->
-    find_events(NodeNames, CheckEvents,
-		remove_events(add_host(NodeName),CheckEvents, AllEvents, [])).
 
-remove_events(Node,[{Name,Data} | RestChecks],
-	      [{?eh,#event{ name = Name, node = Node, data = Data }}|RestEvs],
-	       Acc) ->
-    remove_events(Node, RestChecks, RestEvs, Acc);
-remove_events(Node, Checks, [Event|RestEvs], Acc) ->
-    remove_events(Node, Checks, RestEvs, [Event | Acc]);
-remove_events(_Node, [], [], Acc) ->
-    lists:reverse(Acc);
-remove_events(Node, Events, [], Acc) ->
-    test_server:format("Could not find events: ~p in ~p for node ~p",
-	   [Events, lists:reverse(Acc), Node]),
-    exit(event_not_found).
+find_events(NodeNames, TestEvents, Events, Config) ->
+    [begin
+	 Node = add_host(Node0),
+	 io:format("Searching for events for node: ~s", [Node]),
+	 ok = ct_test_support:verify_events(TestEvents, Events, Node, Config),
+	 io:nl()
+     end || Node0 <- NodeNames],
+    ok.
 
 add_host(NodeName) ->
     {ok, HostName} = inet:gethostname(),
     list_to_atom(atom_to_list(NodeName)++"@"++HostName).
     
-expected_events(_) ->
-    [].
+events_to_check(_) ->
+    [{?eh,tc_start,{master_SUITE,first_testcase}},
+     {?eh,tc_done,{master_SUITE,first_testcase,ok}},
+     {?eh,tc_start,{master_SUITE,second_testcase}},
+     {?eh,tc_done,{master_SUITE,second_testcase,ok}},
+     {?eh,tc_start,{master_SUITE,third_testcase}},
+     {?eh,tc_done,{master_SUITE,third_testcase,ok}},
+     {?eh,tc_start,{master_SUITE,env_vars}},
+     {?eh,tc_done,{master_SUITE,env_vars,ok}}].

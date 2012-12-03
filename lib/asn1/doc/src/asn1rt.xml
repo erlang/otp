@@ -47,35 +47,34 @@
       <type>
         <v>Module = Type = atom()</v>
         <v>Value = Reason = term()</v>
-        <v>Bytes = binary | [Int] when integer(Int), Int >= 0, Int =&lt; 255 | binary</v>
+        <v>Bytes = binary</v>
       </type>
       <desc>
-        <p>Decodes <c>Type</c> from <c>Module</c> from the list of bytes or
-          binary <c>Bytes</c>. If the module is compiled with <c>ber_bin</c>
-          or <c>per_bin</c> option <c>Bytes</c> must be a binary. 
+        <p>Decodes <c>Type</c> from <c>Module</c> from the binary <c>Bytes</c>.
           Returns <c>{ok,Value}</c> if successful.</p>
       </desc>
     </func>
 
     <func>
-      <name>encode(Module,Type,Value)-> {ok,BinOrList} | {error,Reason}</name>
+      <name>encode(Module,Type,Value)-> {ok,Bytes} | {error,Reason}</name>
       <fsummary>Encode an ASN.1 value.</fsummary>
       <type>
         <v>Module = Type = atom()</v>
         <v>Value = term()</v>
-        <v>BinOrList = Bytes | binary()</v>
-        <v>Bytes = [Int|binary|Bytes] when integer(Int), Int >= 0, Int =&lt; 255</v>
+        <v>Bytes = binary</v>
         <v>Reason = term()</v>
       </type>
       <desc>
         <p>Encodes <c>Value</c> of <c>Type</c> defined in the ASN.1 module 
           <c>Module</c>. Returns a possibly nested list of bytes and or binaries 
-          if successful. If <c>Module</c> was compiled with the options <c>per_bin</c> and <c>optimize</c> the result is a binary. To get as 
-          fast execution as possible the 
+          if successful. To get as fast execution as possible the
           encode function only performs rudimentary tests that the input 
           <c>Value</c>
           is a correct instance of <c>Type</c>. The length of strings is for example
           not always checked. </p>
+	  <note>
+	  <p>Starting in R16, <c>Bytes</c> is always a binary.</p>
+	  </note>
       </desc>
     </func>
 
@@ -91,28 +90,6 @@
         <p><c>info/1</c> returns the version of the asn1 compiler that was
           used to compile the module. It also returns the compiler options
           that was used.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>load_driver() ->  ok | {error,Reason}</name>
-      <fsummary>Loads the linked-in driver. (deprecated)</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-	<p>This function is obsolete and will be removed in R16A</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>unload_driver() ->  ok | {error,Reason}</name>
-      <fsummary>Unloads the linked-in driver. (deprecated)</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-	<p>This function is obsolete and will be removed in R16A</p>
       </desc>
     </func>
 

@@ -87,14 +87,14 @@ ticket_7407_compile(Config,Option) ->
     ?line OutDir = ?config(priv_dir,Config),
 
     ?line ok = asn1ct:compile(DataDir ++ "EUTRA-extract-7407",
-			      [uper_bin, {outdir,OutDir}]++Option).
+			      [uper, {outdir,OutDir}]++Option).
 
 ticket_7708(Config,Option) ->
     ?line DataDir = ?config(data_dir,Config),
     ?line OutDir = ?config(priv_dir,Config),
     
     ?line ok = asn1ct:compile(DataDir ++ "EUTRA-extract-55",
-			      [uper_bin, {outdir,OutDir}]++Option).
+			      [uper, {outdir,OutDir}]++Option).
     
 
 ticket_7407_code(FinalPadding) ->
@@ -154,7 +154,7 @@ ticket_7678(Config, Option) ->
     ?line OutDir = ?config(priv_dir,Config),
 
     ?line ok = asn1ct:compile(DataDir ++ "UPERDefault",
-			      [uper_bin, {outdir,OutDir}]++Option),
+			      [uper, {outdir,OutDir}]++Option),
     
     ?line Val = 'UPERDefault':seq(),
     ?line {ok,<<0,6,0>>} = 'UPERDefault':encode('Seq',Val),
@@ -167,12 +167,12 @@ ticket_7763(Config) ->
     ?line OutDir = ?config(priv_dir,Config),
 
     ?line ok = asn1ct:compile(DataDir ++ "EUTRA-extract-55",
-			      [uper_bin, {outdir,OutDir}]),
+			      [uper, {outdir,OutDir}]),
     Val = {'Seq',15,lists:duplicate(8,0),[0],lists:duplicate(28,0),15,true},
     ?line {ok,Bin} = 'EUTRA-extract-55':encode('Seq',Val),
 
     ?line ok = asn1ct:compile(DataDir ++ "EUTRA-extract-55",
-			      [uper_bin,compact_bit_string,{outdir,OutDir}]),
+			      [uper,compact_bit_string,{outdir,OutDir}]),
     CompactVal = {'Seq',15,{0,<<0>>},{7,<<0>>},{4,<<0,0,0,0>>},15,true},
     {ok,CompactBin} = 'EUTRA-extract-55':encode('Seq',CompactVal),
 

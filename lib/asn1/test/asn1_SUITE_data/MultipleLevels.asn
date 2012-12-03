@@ -1,0 +1,19 @@
+MultipleLevels DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+Top ::= SEQUENCE {
+   country CountryName,
+   region Name
+}
+
+CountryName ::= CountryName0
+
+CountryName0 ::= Name
+
+Name ::= CHOICE {
+    short PrintableString (SIZE (0..10)),
+    long PrintableString
+}
+
+END

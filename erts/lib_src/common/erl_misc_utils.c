@@ -28,8 +28,6 @@
 #include "erl_misc_utils.h"
 
 #if defined(__WIN32__)
-#elif defined(VXWORKS)
-#  include <selectLib.h>
 #else /* UNIX */
 #  include <stdio.h>
 #  include <sys/types.h>
@@ -122,6 +120,12 @@
 #ifdef __FreeBSD__
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#endif
+
+/* Simplify include for static functions */
+
+#if defined(__linux__) || defined(HAVE_KSTAT) || defined(__WIN32__) || defined(__FreeBSD__)
+#  define ERTS_CPU_TOPOLOGY_ENABLED (1)
 #endif
 
 static int read_topology(erts_cpu_info_t *cpuinfo);
@@ -669,6 +673,7 @@ erts_unbind_from_cpu_str(char *str)
 }
 
 
+#if defined(ERTS_CPU_TOPOLOGY_ENABLED)
 static int
 pn_cmp(const void *vx, const void *vy)
 {
@@ -759,6 +764,7 @@ adjust_processor_nodes(erts_cpu_info_t *cpuinfo, int no_nodes)
 	}
     }
 }
+#endif
 
 
 #ifdef __linux__

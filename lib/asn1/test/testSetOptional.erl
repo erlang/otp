@@ -181,7 +181,7 @@ main(_Rules) ->
     ok.
 
 
-ticket_7533(Ber) when Ber == ber; Ber == ber_bin ->
+ticket_7533(Ber) when Ber == ber ->
     Val = #'SetOpt1'{bool1 = true,int1=12,set1=#'SetIn'{boolIn=false,intIn=13}},
     ?line {ok,B} = asn1_wrapper:encode('SetOptional','SetOpt1',Val),
     ?line {ok,Val} = asn1_wrapper:decode('SetOptional','SetOpt1',B),

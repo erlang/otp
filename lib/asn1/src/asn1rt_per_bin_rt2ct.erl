@@ -22,7 +22,7 @@
 
 -include("asn1_records.hrl").
 
--export([dec_fixup/3, cindex/3, list_to_record/2]).
+-export([dec_fixup/3]).
 -export([setchoiceext/1, setext/1, fixoptionals/3, fixextensions/2, 
 	 getext/1, getextension/2, skipextensions/3, getbit/1, getchoice/3 ]).
 -export([getoptionals/2, getoptionals2/2, 
@@ -86,18 +86,6 @@ dec_fixup([H|T],[Hc|Tc],RemBytes,Acc) ->
     dec_fixup(T,Tc,RemBytes,[{Hc,H}|Acc]);
 dec_fixup([],_Cnames,RemBytes,Acc) ->
     {lists:reverse(Acc),RemBytes}.
-
-cindex(Ix,Val,Cname) ->
-    case element(Ix,Val) of
-	{Cname,Val2} -> Val2;
-	X -> X
-    end.
-
-%% converts a list to a record if necessary
-list_to_record(_,Tuple) when is_tuple(Tuple) ->
-    Tuple;
-list_to_record(Name,List) when is_list(List) ->
-    list_to_tuple([Name|List]).
 
 %%--------------------------------------------------------
 %% setchoiceext(InRootSet) -> [{bit,X}]
@@ -609,7 +597,7 @@ encode_constrained_number({Lb,Ub},Val) when Val >= Lb, Ub >= Val ->
             RangeOcts = binary:encode_unsigned(Range - 1),
             OctsLen = erlang:byte_size(Octs),
             RangeOctsLen = erlang:byte_size(RangeOcts),
-            LengthBitsNeeded = asn1rt_per_bin:minimum_bits(RangeOctsLen - 1),
+            LengthBitsNeeded = minimum_bits(RangeOctsLen - 1),
             [10,LengthBitsNeeded,OctsLen-1,20,OctsLen,Octs];
 	true  ->
 	    exit({not_supported,{integer_range,Range}})
@@ -664,6 +652,16 @@ decode_constrained_number(Buffer,{Lb,_Ub},Range) ->
 		exit({not_supported,{integer_range,Range}})
 	end,
     {Val+Lb,Remain}.
+
+%% For some reason the minimum bits needed in the length field in
+%% the encoding of constrained whole numbers must always be at least 2?
+minimum_bits(N) when N < 4 -> 2;
+minimum_bits(N) when N < 8 -> 3;
+minimum_bits(N) when N < 16 -> 4;
+minimum_bits(N) when N < 32 -> 5;
+minimum_bits(N) when N < 64 -> 6;
+minimum_bits(N) when N < 128 -> 7;
+minimum_bits(_N) -> 8.
 
 %% X.691:10.8 Encoding of an unconstrained whole number
 

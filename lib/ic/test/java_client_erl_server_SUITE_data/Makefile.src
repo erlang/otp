@@ -68,7 +68,7 @@ EBINS = $(ERL_FILES:.erl=.@EMULATOR@)
 
 @IFEQ@ (@jinterface_classpath@,)
 all:
-@ELSE
+@ELSE@
 all: $(CLASS_FILES) $(EBINS)
 @ENDIF@
 

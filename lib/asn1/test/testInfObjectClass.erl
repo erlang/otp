@@ -37,15 +37,12 @@ main(Rule) ->
 			{component,'ArgumentType'},
 			{value,_},_}}} = asn1_wrapper:encode('InfClass','Seq',
 						      {'Seq',12,13,1}),
-    Bytes2 =
-	if
-	    Rule==per;Rule==per_bin ->
-		[1,12,1,11,1,1];
-	    Rule == uper_bin ->
-		<<1,12,1,11,1,1>>;
-	    true ->
-		[48,9,2,1,12,2,1,11,2,1,1]
-	end,
+    Bytes2 = case Rule of
+		 ber ->
+		     <<48,9,2,1,12,2,1,11,2,1,1>>;
+		 _ ->
+		 <<1,12,1,11,1,1>>
+	     end,
     ?line {error,{asn1,{'Type not compatible with table constraint',
 			{{component,_},
 			 {value,_B},_}}}} = 

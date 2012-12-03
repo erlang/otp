@@ -42,7 +42,6 @@ all() ->
      {group, dsa_pass_key},
      {group, rsa_pass_key},
      {group, internal_error},
-     {group, idle_time},
      daemon_already_started,
      server_password_option,
      server_userpassword_option,
@@ -247,7 +246,8 @@ idle_time(Config) ->
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
-					  {user_interaction, false}]),
+					  {user_interaction, false},
+					  {idle_time, 2000}]),
     {ok, Id} = ssh_connection:session_channel(ConnectionRef, 1000),
     ssh_connection:close(ConnectionRef, Id),
     receive

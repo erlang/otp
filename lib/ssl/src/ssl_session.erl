@@ -72,15 +72,12 @@ valid_session(#session{time_stamp = TimeStamp}, LifeTime) ->
 
 server_id(Port, <<>>, _SslOpts, _Cert, _, _) ->
     {ssl_manager:new_session_id(Port), undefined};
-server_id(Port, SuggestedId,
-	  #ssl_options{reuse_sessions = ReuseEnabled,
-		       reuse_session = ReuseFun},
-	  Cert, Cache, CacheCb) ->
+server_id(Port, SuggestedId, Options, Cert, Cache, CacheCb) ->
     LifeTime = case application:get_env(ssl, session_lifetime) of
 		   {ok, Time} when is_integer(Time) -> Time;
 		   _ -> ?'24H_in_sec'
 	       end,
-    case is_resumable(SuggestedId, Port, ReuseEnabled,ReuseFun,
+    case is_resumable(SuggestedId, Port, Options,
 		      Cache, CacheCb, LifeTime, Cert)
     of
 	{true, Resumed} ->
@@ -112,9 +109,9 @@ select_session(Sessions, #ssl_options{ciphers = Ciphers}, OwnCert) ->
 	[[Id, _]|_] -> Id
     end.
 
-is_resumable(_, _, false, _, _, _, _, _) ->
+is_resumable(_, _, #ssl_options{reuse_sessions = false}, _, _, _, _) ->
     {false, undefined};
-is_resumable(SuggestedSessionId, Port, true, ReuseFun, Cache,
+is_resumable(SuggestedSessionId, Port, #ssl_options{reuse_session = ReuseFun} = Options, Cache,
 	     CacheCb, SecondLifeTime, OwnCert) ->
     case CacheCb:lookup(Cache, {Port, SuggestedSessionId}) of
 	#session{cipher_suite = CipherSuite,
@@ -125,6 +122,7 @@ is_resumable(SuggestedSessionId, Port, true, ReuseFun, Cache,
 	    case resumable(IsResumable)
 		andalso (OwnCert == SessionOwnCert)
 		andalso valid_session(Session, SecondLifeTime)
+		andalso reusable_options(Options, Session)
 		andalso ReuseFun(SuggestedSessionId, PeerCert,
 				 Compression, CipherSuite)
 	    of
@@ -139,3 +137,9 @@ resumable(new) ->
     false;
 resumable(IsResumable) ->
     IsResumable.
+
+reusable_options(#ssl_options{fail_if_no_peer_cert = true,
+			   verify = verify_peer}, Session) ->
+    (Session#session.peer_certificate =/= undefined);
+reusable_options(_,_) ->
+    true.

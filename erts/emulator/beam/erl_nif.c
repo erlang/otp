@@ -1396,6 +1396,44 @@ size_t enif_sizeof_resource(void* obj)
     return ERTS_MAGIC_BIN_DATA_SIZE(bin) - offsetof(ErlNifResource,data);
 }
 
+
+void* enif_dlopen(const char* lib,
+		  void (*err_handler)(void*,const char*), void* err_arg)
+{
+    ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
+    void* handle;
+    void* init_func;
+    if (erts_sys_ddll_open2(lib, &handle, &errdesc) == ERL_DE_NO_ERROR) {
+	if (erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) == ERL_DE_NO_ERROR) {
+	    erts_sys_ddll_call_nif_init(init_func);
+	}
+    }
+    else {
+	if (err_handler != NULL) {
+	    (*err_handler)(err_arg, errdesc.str);
+	}
+	handle = NULL;
+    }
+    erts_sys_ddll_free_error(&errdesc);
+    return handle;
+}
+
+void* enif_dlsym(void* handle, const char* symbol,
+		 void (*err_handler)(void*,const char*), void* err_arg)
+{
+    ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
+    void* ret;
+    if (erts_sys_ddll_sym2(handle, symbol, &ret, &errdesc) != ERL_DE_NO_ERROR) {
+	if (err_handler != NULL) {
+	    (*err_handler)(err_arg, errdesc.str);
+	}
+	erts_sys_ddll_free_error(&errdesc);
+	return NULL;
+    }
+    return ret;
+}
+
+
 /***************************************************************************
  **                              load_nif/2                               **
  ***************************************************************************/

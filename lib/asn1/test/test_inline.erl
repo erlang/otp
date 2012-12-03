@@ -41,16 +41,16 @@ inline1(Config, Rule, Opt) ->
     asn1_test_lib:compile("P-Record", Config, [{inline, 'inlined_P_Record'}|Opt]),
     test_inline1(),
 
-    ok=remove_inlined_files2(CaseDir, ber_bin_v2),
+    ok=remove_inlined_files2(CaseDir, ber),
 
     case Rule of
-        ber_bin_v2 ->
+        ber ->
             asn1_test_lib:compile("P-Record", Config,
-                                  [ber_bin, inline, asn1config, optimize|Opt]),
+                                  [ber, inline, asn1config|Opt]),
             test_inline2(Rule, 'P-Record'),
             remove_inlined_files3(CaseDir, Rule),
             asn1_test_lib:compile("p_record.set.asn", Config,
-                                  [ber_bin, inline, asn1config, optimize|Opt]),
+                                  [ber, inline, asn1config|Opt]),
             test_inline2(Rule, 'p_record'),
             remove_inlined_files4(CaseDir, Rule);
         _ ->
@@ -71,12 +71,12 @@ test_inline1() ->
     ?line {ok,_}=asn1_wrapper:decode('inlined_P_Record',
 				     'PersonnelRecord',Bytes).
 
-test_inline2(ber_bin_v2,Mod) ->
+test_inline2(ber,Mod) ->
     PRecMsg = {'PersonnelRecord',{'Name',"Sven","S","Svensson"},
 	       "manager",123,"20000202",{'Name',"Inga","K","Svensson"},
 	       asn1_DEFAULT},
     ?line {ok,Bytes} = Mod:encode('PersonnelRecord',PRecMsg),
-    ?line {ok,_} = Mod:sel_dec(list_to_binary(Bytes));
+    {ok,_} = Mod:sel_dec(Bytes);
 test_inline2(_,_) ->
     ok.
 
@@ -243,7 +243,7 @@ remove_inlined_files2(Dir,Rule) ->
 			  ?line ok=file:delete(X)
 		  end,[TargetErl,TargetBeam]),
     ok.
-remove_inlined_files3(Dir,ber_bin_v2) ->
+remove_inlined_files3(Dir,ber) ->
     Erl=filename:join([Dir,"P-Record.erl"]),
     Beam=filename:join([Dir,"P-Record.beam"]),
     Asn1DB=filename:join([Dir,"P-Record.asn1db"]),
@@ -255,7 +255,7 @@ remove_inlined_files3(Dir,ber_bin_v2) ->
 remove_inlined_files3(_,_) ->
     ok.
 
-remove_inlined_files4(Dir,ber_bin_v2) ->
+remove_inlined_files4(Dir,ber) ->
     Erl=filename:join([Dir,"p_record.erl"]),
     Beam=filename:join([Dir,"p_record.beam"]),
     Asn1DB=filename:join([Dir,"p_record.asn1db"]),

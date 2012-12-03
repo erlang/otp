@@ -21,27 +21,17 @@
 -module(asn1_SUITE).
 
 -define(only_per(Func),
-    if  Rule == per orelse Rule == per_bin -> Func;
-        true                               -> ok
+    if Rule =:= per -> Func;
+       true -> ok
     end).
 -define(only_ber(Func),
-    if  Rule == ber orelse Rule == ber_bin orelse Rule == ber_bin_v2 -> Func;
-        true                                                         -> ok
+    if Rule =:= ber -> Func;
+       true -> ok
     end).
 -define(only_uper(Func),
     case Rule of
-        uper_bin -> Func;
-        _        -> ok
-    end).
--define(only_per_nif(Func),
-    case {Rule, lists:member(optimize, Opts)} of
-        {per_bin, true} -> Func;
-        _               -> ok
-    end).
--define(only_ber_nif(Func),
-    case {Rule, lists:member(nif, Opts)} of
-        {ber_bin_v2, true} -> Func;
-        _               -> ok
+        uper -> Func;
+        _ -> ok
     end).
 
 -compile(export_all).
@@ -55,7 +45,8 @@
 suite() -> [{ct_hooks, [ts_install_cth]}].
 
 all() ->
-    [{group, parallel},
+    [{group, compile},
+     {group, parallel},
      {group, app_test},
      {group, appup_test},
 
@@ -76,16 +67,14 @@ groups() ->
      {ber, parallel([]),
       [ber_choiceinseq,
        % Uses 'SOpttest'
-       {group, [], [ber_optional,
-                    ber_optional_keyed_list]}]},
+       ber_optional]},
 
      {app_test, [], [{asn1_app_test, all}]},
 
      {appup_test, [], [{asn1_appup_test, all}]},
 
      {parallel, parallel([]),
-      [{group, compile},
-       {group, ber},
+      [{group, ber},
        % Uses 'P-Record', 'Constraints', 'MEDIA-GATEWAY-CONTROL'...
        {group, [], [parse,
                     test_driver_load,
@@ -116,6 +105,7 @@ groups() ->
        testChoTypeRefPrim,
        testChoTypeRefSeq,
        testChoTypeRefSet,
+       testMultipleLevels,
        testDef,
        testOpt,
        testSeqDefault,
@@ -203,13 +193,8 @@ groups() ->
 
      {performance, [],
       [testTimer_ber,
-       testTimer_ber_bin,
-       testTimer_ber_bin_opt,
-       testTimer_ber_bin_opt_driver,
        testTimer_per,
-       testTimer_per_bin,
-       testTimer_per_bin_opt,
-       testTimer_uper_bin,
+       testTimer_uper,
        smp]}].
 
 parallel(Options) ->
@@ -257,14 +242,8 @@ end_per_testcase(_Func, Config) ->
 
 test(Config, TestF) ->
     test(Config, TestF, [per,
-                         per_bin,
-                         {per_bin, [optimize]},
-                         uper_bin,
-                         ber,
-                         ber_bin,
-                         ber_bin_v2,
-                         % TODO: {ber_bin_v2, [optimize, nif]} ?
-                         {ber_bin_v2, [nif]}]).
+                         uper,
+                         ber]).
 
 test(Config, TestF, Rules) ->
     Fun = fun(C, R, O) ->
@@ -344,10 +323,10 @@ testCompactBitString(Config, Rule, Opts) ->
     testCompactBitString:compact_bit_string(Rule),
     ?only_uper(testCompactBitString:bit_string_unnamed(Rule)),
     ?only_per(testCompactBitString:bit_string_unnamed(Rule)),
-    ?only_per_nif(testCompactBitString:ticket_7734(Rule)),
-    ?only_per_nif(asn1_test_lib:compile("Constraints", Config,
+    ?only_per(testCompactBitString:ticket_7734(Rule)),
+    ?only_per(asn1_test_lib:compile("Constraints", Config,
                                         [Rule, compact_bit_string|Opts])),
-    ?only_per_nif(testCompactBitString:otp_4869(Rule)).
+    ?only_per(testCompactBitString:otp_4869(Rule)).
 
 testPrimStrings(Config) -> test(Config, fun testPrimStrings/3).
 testPrimStrings(Config, Rule, Opts) ->
@@ -371,10 +350,10 @@ testPrimExternal(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["External", "PrimExternal"], Config,
                               [Rule|Opts]),
     testPrimExternal:external(Rule),
-    ?only_ber_nif(asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
+    ?only_ber(asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
                                             [Rule|Opts])),
-    ?only_ber_nif(testPrimStrings_cases(Rule)),
-    ?only_ber_nif(testPrimStrings:more_strings(Rule)).
+    ?only_ber(testPrimStrings_cases(Rule)),
+    ?only_ber(testPrimStrings:more_strings(Rule)).
 
 testChoPrim(Config) -> test(Config, fun testChoPrim/3).
 testChoPrim(Config, Rule, Opts) ->
@@ -399,7 +378,7 @@ testChoOptional(Config, Rule, Opts) ->
 
 testChoOptionalImplicitTag(Config) ->
     test(Config, fun testChoOptionalImplicitTag/3,
-             [ber, ber_bin, ber_bin_v2]).
+	 [ber]).
 testChoOptionalImplicitTag(Config, Rule, Opts) ->
     %% Only meaningful for ber & co
     asn1_test_lib:compile("ChoOptionalImplicitTag", Config, [Rule|Opts]),
@@ -429,6 +408,11 @@ testChoTypeRefSet(Config) -> test(Config, fun testChoTypeRefSet/3).
 testChoTypeRefSet(Config, Rule, Opts) ->
     asn1_test_lib:compile("ChoTypeRefSet", Config, [Rule|Opts]),
     testChoTypeRefSet:set(Rule).
+
+testMultipleLevels(Config) -> test(Config, fun testMultipleLevels/3).
+testMultipleLevels(Config, Rule, Opts) ->
+    asn1_test_lib:compile("MultipleLevels", Config, [Rule|Opts]),
+    testMultipleLevels:main(Rule).
 
 testDef(Config) -> test(Config, fun testDef/3).
 testDef(Config, Rule, Opts) ->
@@ -515,8 +499,7 @@ testSeqOfCho(Config, Rule, Opts) ->
     testSeqOfCho:main(Rule).
 
 testSeqOfIndefinite(Config) ->
-    test(Config, fun testSeqOfIndefinite/3,
-             [ber, ber_bin, ber_bin_v2, {ber_bin_v2, [nif]}]).
+    test(Config, fun testSeqOfIndefinite/3, [ber]).
 testSeqOfIndefinite(Config, Rule, Opts) ->
     Files = ["Mvrasn-Constants-1", "Mvrasn-DataTypes-1", "Mvrasn-21-4",
              "Mvrasn-20-4", "Mvrasn-19-4", "Mvrasn-18-4", "Mvrasn-17-4",
@@ -632,13 +615,12 @@ c_syntax(Config) ->
              "SeqBadComma"]].
 
 c_string(Config) ->
-    test(Config, fun c_string/3, [per, per_bin, ber, ber_bin, ber_bin_v2]).
+    test(Config, fun c_string/3, [per, ber]).
 c_string(Config, Rule, Opts) ->
     asn1_test_lib:compile("String", Config, [Rule|Opts]).
 
 c_implicit_before_choice(Config) ->
-    test(Config, fun c_implicit_before_choice/3,
-             [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun c_implicit_before_choice/3, [ber]).
 c_implicit_before_choice(Config, Rule, Opts) ->
     DataDir = ?config(data_dir, Config),
     CaseDir = ?config(case_dir, Config),
@@ -649,12 +631,13 @@ parse(Config) ->
     [asn1_test_lib:compile(M, Config, [abs]) || M <- test_modules()].
 
 per(Config) ->
-    test(Config, fun per/3, [per, per_bin, {per_bin, [optimize]}]).
+    test(Config, fun per/3, [per]).
 per(Config, Rule, Opts) ->
     [module_test(M, Config, Rule, Opts) || M <- per_modules()].
 
 ber_other(Config) ->
-    test(Config, fun ber_other/3, [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun ber_other/3, [ber]).
+
 ber_other(Config, Rule, Opts) ->
     [module_test(M, Config, Rule, Opts) || M <- ber_modules()].
 
@@ -669,12 +652,12 @@ module_test(M, Config, Rule, Opts) ->
 
 
 ber_choiceinseq(Config) ->
-    test(Config, fun ber_choiceinseq/3, [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun ber_choiceinseq/3, [ber]).
 ber_choiceinseq(Config, Rule, Opts) ->
     asn1_test_lib:compile("ChoiceInSeq", Config, [Rule|Opts]).
 
 ber_optional(Config) ->
-    test(Config, fun ber_optional/3, [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun ber_optional/3, [ber]).
 ber_optional(Config, Rule, Opts) ->
     asn1_test_lib:compile("SOpttest", Config, [Rule|Opts]),
     V = {'S', {'A', 10, asn1_NOVALUE, asn1_NOVALUE},
@@ -684,21 +667,6 @@ ber_optional(Config, Rule, Opts) ->
     Bytes = lists:flatten(B),
     V2 = asn1_wrapper:decode('SOpttest', 'S', Bytes),
     V = element(2, V2).
-
-ber_optional_keyed_list(Config) ->
-    test(Config, fun ber_optional_keyed_list/3, [ber, ber_bin]).
-ber_optional_keyed_list(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SOpttest", Config, [Rule, keyed_list|Opts]),
-    Vrecord = {'S', {'A', 10,           asn1_NOVALUE, asn1_NOVALUE},
-        {'B', asn1_NOVALUE, asn1_NOVALUE, asn1_NOVALUE},
-        {'C', asn1_NOVALUE, 111,          asn1_NOVALUE}},
-    V = [{a, [{scriptKey, 10}]},
-        {b, []},
-        {c, [{callingPartysCategory, 111}]}],
-    {ok, B} = asn1_wrapper:encode('SOpttest', 'S', V),
-    Bytes = lists:flatten(B),
-    V2 = asn1_wrapper:decode('SOpttest', 'S', Bytes),
-    Vrecord = element(2, V2).
 
 %% records used by test-case default
 -record('Def1', {bool0,
@@ -734,7 +702,7 @@ value_bad_enum_test(Config) ->
     end.
 
 constructed(Config) ->
-    test(Config, fun constructed/3, [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun constructed/3, [ber]).
 constructed(Config, Rule, Opts) ->
     asn1_test_lib:compile("Constructed", Config, [Rule|Opts]),
     {ok, B} = asn1_wrapper:encode('Constructed', 'S', {'S', false}),
@@ -745,7 +713,7 @@ constructed(Config, Rule, Opts) ->
     [136, 1, 10] = lists:flatten(B2).
 
 ber_decode_error(Config) ->
-    test(Config, fun ber_decode_error/3, [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun ber_decode_error/3, [ber]).
 ber_decode_error(Config, Rule, Opts) ->
     asn1_test_lib:compile("Constructed", Config, [Rule|Opts]),
     ber_decode_error:run(Opts).
@@ -758,14 +726,14 @@ h323test(Config, Rule, Opts) ->
     h323test:run(Rule).
 
 per_GeneralString(Config) ->
-    test(Config, fun per_GeneralString/3, [per, per_bin]).
+    test(Config, fun per_GeneralString/3, [per]).
 per_GeneralString(Config, Rule, Opts) ->
     asn1_test_lib:compile("MULTIMEDIA-SYSTEM-CONTROL", Config, [Rule|Opts]),
     UI = [109, 64, 1, 57],
     {ok, _V} = asn1_wrapper:decode('MULTIMEDIA-SYSTEM-CONTROL',
                                    'MultimediaSystemControlMessage', UI).
 
-per_open_type(Config) -> test(Config, fun per_open_type/3, [per, per_bin]).
+per_open_type(Config) -> test(Config, fun per_open_type/3, [per]).
 per_open_type(Config, Rule, Opts) ->
     asn1_test_lib:compile("OpenType", Config, [Rule|Opts]),
     {ok, _} = asn1ct:test('OpenType', 'Ot', {'Stype', 10, true}).
@@ -778,24 +746,24 @@ testConstraints(Config, Rule, Opts) ->
 
 
 testSeqIndefinite(Config) ->
-    test(Config, fun testSeqIndefinite/3, [ber, ber_bin, ber_bin_v2,
-                                               {ber_bin_v2, [nif]}]).
+    test(Config, fun testSeqIndefinite/3, [ber]).
+
 testSeqIndefinite(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqSetIndefinite", Config, [Rule|Opts]),
     testSeqIndefinite:main(Rule).
 
 
 testSetIndefinite(Config) ->
-    test(Config, fun testSetIndefinite/3, [ber, ber_bin, ber_bin_v2,
-                                               {ber_bin_v2, [nif]}]).
+    test(Config, fun testSetIndefinite/3, [ber]).
+
 testSetIndefinite(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqSetIndefinite", Config, [Rule|Opts]),
     testSetIndefinite:main(Rule).
 
 
 testChoiceIndefinite(Config) ->
-    test(Config, fun testChoiceIndefinite/3, [ber, ber_bin, ber_bin_v2,
-                                                  {ber_bin_v2, [nif]}]).
+    test(Config, fun testChoiceIndefinite/3, [ber]).
+
 testChoiceIndefinite(Config, Rule, Opts) ->
     asn1_test_lib:compile("ChoiceIndef", Config, [Rule|Opts]),
     testChoiceIndefinite:main(Rule).
@@ -857,7 +825,7 @@ testExport(Config) ->
     end.
 
 testImport(Config) ->
-    test(Config, fun testImport/3, [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun testImport/3, [ber]).
 testImport(Config, Rule, Opts) ->
     {error, _} = asn1ct:compile(filename:join(?config(data_dir, Config),
                                               "ImportsFrom"),
@@ -906,8 +874,7 @@ duplicate_tags(Config) ->
             {skip, "Runs in asn1_SUITE only"}
     end.
 
-rtUI(Config) -> test(Config, fun rtUI/3, [per, per_bin, ber,
-            ber_bin, ber_bin_v2]).
+rtUI(Config) -> test(Config, fun rtUI/3, [per,ber]).
 rtUI(Config, Rule, Opts) ->
     asn1_test_lib:compile("Prim", Config, [Rule|Opts]),
     {ok, _} = asn1rt:info('Prim').
@@ -923,19 +890,19 @@ testINSTANCE_OF(Config, Rule, Opts) ->
     testINSTANCE_OF:main(Rule).
 
 testTCAP(Config) ->
-    test(Config, fun testTCAP/3,
-             [ber, ber_bin, ber_bin_v2, {ber_bin_v2, [nif]}]).
+    test(Config, fun testTCAP/3, [ber]).
 testTCAP(Config, Rule, Opts) ->
     testTCAP:compile(Config, [Rule|Opts]),
     testTCAP:test(Rule, Config),
     case Rule of
-        ber_bin_v2 -> testTCAP:compile_asn1config(Config, [Rule, asn1config]),
-                      testTCAP:test_asn1config();
-        _          -> ok
+        ber ->
+	    testTCAP:compile_asn1config(Config, [Rule, asn1config]),
+	    testTCAP:test_asn1config();
+        _ -> ok
     end.
 
 testDER(Config) ->
-    test(Config, fun testDER/3, [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun testDER/3, [ber]).
 testDER(Config, Rule, Opts) ->
     asn1_test_lib:compile("DERSpec", Config, [Rule, der|Opts]),
     testDER:test(),
@@ -945,7 +912,7 @@ testDER(Config, Rule, Opts) ->
     testSeqSetDefaultVal:main(Rule).
 
 specialized_decodes(Config) ->
-    test(Config, fun specialized_decodes/3, [ber_bin_v2]).
+    test(Config, fun specialized_decodes/3, [ber]).
 specialized_decodes(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["PartialDecSeq.asn",
                                "PartialDecSeq2.asn",
@@ -953,13 +920,12 @@ specialized_decodes(Config, Rule, Opts) ->
                                "PartialDecMyHTTP.asn",
                                "MEDIA-GATEWAY-CONTROL.asn",
                                "P-Record"],
-                              Config, [Rule, optimize, asn1config|Opts]),
+                              Config, [Rule, asn1config|Opts]),
     test_partial_incomplete_decode:test(Config),
     test_selective_decode:test().
 
 special_decode_performance(Config) ->
-    test(Config, fun special_decode_performance/3,
-             [{ber_bin, [optimize]}, {ber_bin_v2, [optimize, nif]}]).
+    test(Config, fun special_decode_performance/3, [ber]).
 special_decode_performance(Config, Rule, Opts) ->
     Files = ["MEDIA-GATEWAY-CONTROL", "PartialDecSeq"],
     asn1_test_lib:compile_all(Files, Config, [Rule, asn1config|Opts]),
@@ -967,19 +933,19 @@ special_decode_performance(Config, Rule, Opts) ->
 
 
 test_driver_load(Config) ->
-    test(Config, fun test_driver_load/3, [{per_bin, [optimize]}]).
+    test(Config, fun test_driver_load/3, [per]).
 test_driver_load(Config, Rule, Opts) ->
     asn1_test_lib:compile("P-Record", Config, [Rule|Opts]),
     test_driver_load:test(5).
 
 test_ParamTypeInfObj(Config) ->
-    asn1_test_lib:compile("IN-CS-1-Datatypes", Config, [ber_bin]).
+    asn1_test_lib:compile("IN-CS-1-Datatypes", Config, [ber]).
 
 test_WS_ParamClass(Config) ->
-    asn1_test_lib:compile("InformationFramework", Config, [ber_bin]).
+    asn1_test_lib:compile("InformationFramework", Config, [ber]).
 
 test_Defed_ObjectIdentifier(Config) ->
-    asn1_test_lib:compile("UsefulDefinitions", Config, [ber_bin]).
+    asn1_test_lib:compile("UsefulDefinitions", Config, [ber]).
 
 testSelectionType(Config) -> test(Config, fun testSelectionType/3).
 testSelectionType(Config, Rule, Opts) ->
@@ -987,7 +953,7 @@ testSelectionType(Config, Rule, Opts) ->
     {ok, _}  = testSelectionTypes:test().
 
 testSSLspecs(Config) ->
-    test(Config, fun testSSLspecs/3, [ber, ber_bin, ber_bin_v2, {ber_bin_v2, [optimize]}]).
+    test(Config, fun testSSLspecs/3, [ber]).
 testSSLspecs(Config, Rule, Opts) ->
     ok = testSSLspecs:compile(Config,
                               [Rule, compact_bit_string, der|Opts]),
@@ -1011,12 +977,12 @@ test_undecoded_rest(Config, Rule, Opts) ->
     ok = test_undecoded_rest:test([], Config),
     asn1_test_lib:compile("P-Record", Config, [Rule,undec_rest|Opts]),
     case Rule of
-        ber_bin_v2 -> ok;
+        ber -> ok;
         _ -> test_undecoded_rest:test(undec_rest, Config)
     end.
 
 test_inline(Config) ->
-    test(Config, fun test_inline/3, [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun test_inline/3, [ber]).
 test_inline(Config, Rule, Opts) ->
     case code:which(asn1ct) of
         cover_compiled ->
@@ -1029,12 +995,11 @@ test_inline(Config, Rule, Opts) ->
     end.
 
 testTcapsystem(Config) ->
-    test(Config, fun testTcapsystem/3, [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun testTcapsystem/3, [ber]).
 testTcapsystem(Config, Rule, Opts) ->
     testTcapsystem:compile(Config, [Rule|Opts]).
 
-testNBAPsystem(Config) -> test(Config, fun testNBAPsystem/3,
-        [per, per_bin, {per_bin, [optimize]}]).
+testNBAPsystem(Config) -> test(Config, fun testNBAPsystem/3, [per]).
 testNBAPsystem(Config, Rule, Opts) ->
     testNBAPsystem:compile(Config, [Rule|Opts]),
     testNBAPsystem:test(Rule, Config).
@@ -1068,20 +1033,19 @@ test_modified_x420(Config) ->
 testX420() ->
     [{timetrap,{minutes,90}}].
 testX420(Config) ->
-    test(Config, fun testX420/3, [ber, ber_bin, ber_bin_v2]).
+    test(Config, fun testX420/3, [ber]).
 testX420(Config, Rule, Opts) ->
     testX420:compile(Rule, [der|Opts], Config),
     ok = testX420:ticket7759(Rule, Config),
     testX420:compile(Rule, Opts, Config).
 
 test_x691(Config) ->
-    test(Config, fun test_x691/3,
-             [per, per_bin, uper_bin, {per_bin, [optimize]}]).
+    test(Config, fun test_x691/3, [per, uper]).
 test_x691(Config, Rule, Opts) ->
     Files = ["P-RecordA1", "P-RecordA2", "P-RecordA3"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     test_x691:cases(Rule, case Rule of
-                              uper_bin -> unaligned;
+                              uper -> unaligned;
                               _ -> aligned
                           end),
     asn1_test_lib:ticket_7708(Config, []),
@@ -1092,8 +1056,7 @@ ticket_6143(Config) ->
 
 testExtensionAdditionGroup(Config) ->
     %% FIXME problems with automatic tags [ber_bin], [ber_bin, optimize]
-    test(Config, fun testExtensionAdditionGroup/3,
-             [per_bin, {per_bin, [optimize]}, uper_bin]).
+    test(Config, fun testExtensionAdditionGroup/3, [per, uper]).
 testExtensionAdditionGroup(Config, Rule, Opts) ->
     asn1_test_lib:compile("Extension-Addition-Group", Config, [Rule|Opts]),
     asn1_test_lib:compile_erlang("extensionAdditionGroup", Config,
@@ -1182,46 +1145,17 @@ timer_compile(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["H235-SECURITY-MESSAGES", "H323-MESSAGES"],
                               Config, [Rule|Opts]).
 
-testTimer_ber(suite) -> [];
 testTimer_ber(Config) ->
     timer_compile(Config,ber,[]),
     testTimer:go(Config,ber).
 
-testTimer_ber_bin(suite) -> [];
-testTimer_ber_bin(Config) ->
-    timer_compile(Config,ber_bin,[]),
-    testTimer:go(Config,ber_bin).
-
-testTimer_ber_bin_opt(suite) -> [];
-testTimer_ber_bin_opt(Config) ->
-    timer_compile(Config,ber_bin,[optimize]),
-    testTimer:go(Config,ber_bin).
-
-testTimer_ber_bin_opt_driver(suite) -> [];
-testTimer_ber_bin_opt_driver(Config) ->
-    timer_compile(Config,ber_bin,[optimize,driver]),
-    testTimer:go(Config,ber_bin).
-
-testTimer_per(suite) -> [];
 testTimer_per(Config) ->
     timer_compile(Config,per,[]),
     testTimer:go(Config,per).
 
-testTimer_per_bin(suite) -> [];
-testTimer_per_bin(Config) ->
-    timer_compile(Config,per_bin,[]),
-    testTimer:go(Config,per_bin).
-
-testTimer_per_bin_opt(suite) -> [];
-testTimer_per_bin_opt(Config) ->
-    timer_compile(Config,per_bin,[optimize]),
-    testTimer:go(Config,per_bin).
-
-
-testTimer_uper_bin(suite) -> [];
-testTimer_uper_bin(Config) ->
-    timer_compile(Config,uper_bin,[]),
-    {comment,_} = testTimer:go(Config,uper_bin).
+testTimer_uper(Config) ->
+    timer_compile(Config,uper,[]),
+    {comment,_} = testTimer:go(Config,uper).
 
 %% Test of multiple-line comment, OTP-8043
 testComment(suite) -> [];
@@ -1264,11 +1198,11 @@ testName2Number(Config) ->
     ok.
 
 ticket_7407(Config) ->
-    asn1_test_lib:compile("EUTRA-extract-7407", Config, [uper_bin]),
+    asn1_test_lib:compile("EUTRA-extract-7407", Config, [uper]),
     asn1_test_lib:ticket_7407_code(true),
 
     asn1_test_lib:compile("EUTRA-extract-7407", Config,
-                          [uper_bin, no_final_padding]),
+                          [uper, no_final_padding]),
     asn1_test_lib:ticket_7407_code(false).
 
 smp(suite) -> [];
@@ -1279,7 +1213,7 @@ smp(Config)  ->
             io:format("smp starting ~p workers\n",[NumOfProcs]),
 
             Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-            ok = testNBAPsystem:compile(Config, [per_bin, optimize]),
+            ok = testNBAPsystem:compile(Config, [per]),
 
             enc_dec(NumOfProcs,Msg,2),
 
@@ -1288,7 +1222,7 @@ smp(Config)  ->
             {Time1,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
             {Time1S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
 
-            ok = testNBAPsystem:compile(Config, [ber_bin, optimize, nif]),
+            ok = testNBAPsystem:compile(Config, [ber]),
             {Time3,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
 
             {Time3S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
@@ -1309,10 +1243,8 @@ per_performance(Config) ->
     file:make_dir(NifDir),file:make_dir(ErlDir),
 
     Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-    ok = testNBAPsystem:compile([{priv_dir,NifDir}|Config],
-                                      [per_bin, optimize]),
-    ok = testNBAPsystem:compile([{priv_dir,ErlDir}|Config],
-                                      [per_bin]),
+    ok = testNBAPsystem:compile([{priv_dir,NifDir}|Config], [per]),
+    ok = testNBAPsystem:compile([{priv_dir,ErlDir}|Config], [per]),
 
     Modules = ['NBAP-CommonDataTypes',
                'NBAP-Constants',
@@ -1350,7 +1282,7 @@ per_performance(Config) ->
 ber_performance(Config) ->
 
     Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-    ok = testNBAPsystem:compile(Config, [ber_bin, optimize, nif]),
+    ok = testNBAPsystem:compile(Config, [ber]),
 
 
     BerFun = fun() ->
@@ -1524,7 +1456,7 @@ pforeach(_Fun,[],[]) ->
 -record('Iu-ReleaseCommand',{first,second}).
 
 ticket7904(Config) ->
-    asn1_test_lib:compile("RANAPextract1", Config, [per_bin, optimize]),
+    asn1_test_lib:compile("RANAPextract1", Config, [per]),
 
     Val1 = #'InitiatingMessage'{procedureCode=1,
                                 criticality=ignore,

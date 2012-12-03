@@ -138,6 +138,8 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_uint64,(ErlNifEnv*, ErlNifUInt64));
 ERL_NIF_API_FUNC_DECL(int,enif_is_exception,(ErlNifEnv*, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(int,enif_make_reverse_list,(ErlNifEnv*, ERL_NIF_TERM term, ERL_NIF_TERM *list));
 ERL_NIF_API_FUNC_DECL(int,enif_is_number,(ErlNifEnv*, ERL_NIF_TERM term));
+ERL_NIF_API_FUNC_DECL(void*,enif_dlopen,(const char* lib, void (*err_handler)(void*,const char*), void* err_arg));
+ERL_NIF_API_FUNC_DECL(void*,enif_dlsym,(void* handle, const char* symbol, void (*err_handler)(void*,const char*), void* err_arg));
 
 /*
 ** Add new entries here to keep compatibility on Windows!!!
@@ -260,6 +262,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_number,(ErlNifEnv*, ERL_NIF_TERM term));
 #  define enif_is_exception ERL_NIF_API_FUNC_MACRO(enif_is_exception)
 #  define enif_make_reverse_list ERL_NIF_API_FUNC_MACRO(enif_make_reverse_list)
 #  define enif_is_number ERL_NIF_API_FUNC_MACRO(enif_is_number)
+#  define enif_dlopen ERL_NIF_API_FUNC_MACRO(enif_dlopen)
+#  define enif_dlsym ERL_NIF_API_FUNC_MACRO(enif_dlsym)
 
 /*
 ** Add new entries here

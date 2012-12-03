@@ -34,6 +34,41 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ssh_decode now handles comments, at the end of the line,
+	    containing withe spaces correctly</p>
+          <p>
+	    Own Id: OTP-9361</p>
+        </item>
+        <item>
+          <p>
+	    Add missing references to sha224 and sha384</p>
+          <p>
+	    Own Id: OTP-9362 Aux Id: seq12116 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    public_key now supports PKCS-10 and includes exprimental
+	    support for PKCS-7</p>
+          <p>
+	    Own Id: OTP-10509 Aux Id: kunagi-291 [202] </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.16</title>
 
     <section><title>Improvements and New Features</title>

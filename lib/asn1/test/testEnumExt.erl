@@ -23,8 +23,8 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
-main(Rules) when Rules == per; Rules == per_bin; Rules == uper_bin ->
-    io:format("main(~p)~n",[Rules]),
+main(Rule) when Rule =:= per; Rule =:= uper ->
+    io:format("main(~p)~n",[Rule]),
     B32=[32],B64=[64],
     %% ENUMERATED with extensionmark (value is in root set)
     ?line {ok,B32} = asn1_wrapper:encode('EnumExt','Ext',red),
@@ -42,10 +42,6 @@ main(Rules) when Rules == per; Rules == per_bin; Rules == uper_bin ->
     ?line {ok,red} = asn1_wrapper:decode('EnumExt','Noext',B64),
     ok;
 
-main(ber_bin_v2) ->
-    main(ber);
-main(ber_bin) ->
-    main(ber);
 main(ber) ->
     io:format("main(ber)~n",[]),
     %% ENUMERATED with extensionmark (value is in root set)

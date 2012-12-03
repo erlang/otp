@@ -30,6 +30,157 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix linking in OpenBSD. (Thanks to Matthew Dempsky)</p>
+          <p>
+	    Own Id: OTP-10395</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing fallback atomics to be used even though
+	    healthy gcc atomics or libatomic_ops was detected.</p>
+          <p>
+	    Own Id: OTP-10418</p>
+        </item>
+        <item>
+          <p>
+	    Ensure 'erl_crash.dump' when asked for it. This will
+	    change erl_crash.dump behaviour.</p>
+          <p>
+	    * Not setting ERL_CRASH_DUMP_SECONDS will now terminate
+	    beam immediately on a crash without writing a crash dump
+	    file.</p>
+          <p>
+	    * Setting ERL_CRASH_DUMP_SECONDS to 0 will also terminate
+	    beam immediately on a crash without writing a crash dump
+	    file, i.e. same as not setting ERL_CRASH_DUMP_SECONDS
+	    environment variable.</p>
+          <p>
+	    * Setting ERL_CRASH_DUMP_SECONDS to a negative value will
+	    let the beam wait indefinitely on the crash dump file
+	    being written.</p>
+          <p>
+	    * Setting ERL_CRASH_DUMP_SECONDS to a positive value will
+	    let the beam wait that many seconds on the crash dump
+	    file being written.</p>
+          <p>
+	    A positive value will set an alarm/timeout for restart
+	    both in beam and in heart if heart is running.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10422 Aux Id: kunagi-250 [161] </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where MSVRT100.dll was not included in the
+	    windows installer.</p>
+          <p>
+	    Own Id: OTP-10481</p>
+        </item>
+        <item>
+	    <p>In the expression
+	    <c>&lt;&lt;Bin/binary,...&gt;&gt;</c>, if <c>Bin</c> was
+	    a bitstring with a size not a multiple of 8, either no
+	    exception was generated or an incorrect exception was
+	    generated. (Thanks to Adam Rutkowski for reporting this
+	    bug.)</p>
+          <p>
+	    Own Id: OTP-10524</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system could crash while scheduling a port
+	    task. The port task was scheduled either due to an
+	    external I/O event being triggered, a driver timeout
+	    being triggered, or data being sent over a distribution
+	    channel.</p>
+          <p>
+	    Own Id: OTP-10556</p>
+        </item>
+        <item>
+          <p>
+	    <c>erlang:memory(ets)</c> erroneously included the size
+	    of each ETS-table main structure twice.</p>
+          <p>
+	    Own Id: OTP-10558</p>
+        </item>
+        <item>
+          <p>
+	    Fix compile error in generated file hipe_amd64_bifs.S for
+	    Solaris.</p>
+          <p>
+	    Own Id: OTP-10577</p>
+        </item>
+        <item>
+          <p>
+	    A faulty spec for process_info/2 could cause false
+	    dialyzer warnings. The spec is corrected.</p>
+          <p>
+	    Own Id: OTP-10584</p>
+        </item>
+        <item>
+          <p>
+	    In very rare cases, the VM could crash if a garbage
+	    collector was called while executing an appending bit
+	    syntax instruction. The symptom was a core when
+	    reallocating memory in the function erts_bs_append. The
+	    garbage collector bug is now corrected.</p>
+          <p>
+	    Own Id: OTP-10590</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve support for building and testing in embedded ppc
+	    environments.</p>
+          <p>
+	    Own Id: OTP-10265 Aux Id: kunagi-159
+	    [daf97f67-5724-4812-a5b6-7e86990133d2-1] </p>
+        </item>
+        <item>
+          <p>
+	    Due to a race condition on Windows, sometimes when
+	    printing to standard output and then immediately
+	    terminating erlang all data would not be printed. The
+	    emulator now waits for all data to be printed before
+	    exiting.</p>
+          <p>
+	    Own Id: OTP-10325 Aux Id: kunagi-166
+	    [dd72d0e2-3e76-4a51-8b56-7564e24eecae] </p>
+        </item>
+        <item>
+          <p>
+	    The frequency with which sleeping schedulers are woken
+	    due to outstanding memory deallocation jobs has been
+	    reduced.</p>
+          <p>
+	    Own Id: OTP-10476 Aux Id: OTP-10162 </p>
+        </item>
+        <item>
+          <p>
+	    Clearer warnings about the dangers of misuse of <seealso
+	    marker="erl_nif#WARNING">native functions</seealso> and
+	    <seealso marker="erl_driver#WARNING">drivers</seealso>
+	    have been added to the documentation.</p>
+          <p>
+	    Own Id: OTP-10557</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

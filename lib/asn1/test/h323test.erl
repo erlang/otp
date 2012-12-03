@@ -22,7 +22,6 @@
 -export([run/1]).
 -include_lib("test_server/include/test_server.hrl").
 
-run(per_bin) -> run();
 run(per)     -> run();
 run(_Rules)  -> ok.
 

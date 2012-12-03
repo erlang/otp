@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.18.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor test updates</p>
+          <p>
+	    Own Id: OTP-10591</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.18.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

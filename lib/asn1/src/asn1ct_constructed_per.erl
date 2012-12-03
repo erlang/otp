@@ -80,9 +80,7 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 		  "compiler warning for unused vars!",nl,
 		  "_Val = ",{curr,val},",",nl]);
 	{[],_,_} ->
-	    emit([{next,val}," = ?RT_PER:list_to_record("]),
-	    emit(["'",asn1ct_gen:list2rname(Typename),"'"]),
-	    emit([", ",{curr,val},"),",nl]);
+	    emit([{next,val}," = ",{curr,val},",",nl]);
 	{_,_,true} ->
 	    gen_fixoptionals(Optionals),
 	    FixOpts = param_map(fun(Var) ->
@@ -155,7 +153,7 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 			emit([ObjectEncode," = ",nl]),
 			emit(["  ",ObjSetMod,":'getenc_",ObjSetName,"'(",
 			      {asis,UniqueFieldName},", ",nl]),
-			El = make_element(N+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),AttrN),
+			El = make_element(N+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
 
 			Length = fun(X,_LFun) when is_atom(X) -> 
 					 length(atom_to_list(X));
@@ -583,8 +581,7 @@ gen_encode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
     
     Conttype = asn1ct_gen:get_inner(Cont#type.def),
     Currmod = get(currmod),
-    Ctgenmod = list_to_atom(lists:concat(["asn1ct_gen_",per,
-					  asn1ct_gen:rt2ct_suffix()])),
+    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     case asn1ct_gen:type(Conttype) of
 	{primitive,bif} ->
 	    gen_encode_prim_wrapper(Ctgenmod,Erule,Cont,false,"H");
@@ -622,8 +619,7 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
     Constructed_Suffix = asn1ct_gen:constructed_suffix(SeqOrSetOf,
 						       Cont#type.def),
     Conttype = asn1ct_gen:get_inner(Cont#type.def),
-    Ctgenmod = list_to_atom(lists:concat(["asn1ct_gen_",per,
-					  asn1ct_gen:rt2ct_suffix()])),
+    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     CurrMod = get(currmod),
     case asn1ct_gen:type(Conttype) of
 	{primitive,bif} ->
@@ -889,7 +885,7 @@ gen_enc_components_call1(_Erule,_TopType,[],Pos,_,_,_) ->
 	Pos.
 
 gen_enc_component_default(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext,DefaultVal) ->
-    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),Cname),
+    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
     emit({"case ",Element," of",nl}),
 %    emit({"asn1_DEFAULT -> [];",nl}),
     emit({"DFLT when DFLT == asn1_DEFAULT; DFLT == ",{asis,DefaultVal}," -> [];",nl}),
@@ -909,7 +905,7 @@ gen_enc_component_optional(Erule,TopType,Cname,
 					components=_ExtGroupCompList}},
 			   Pos,DynamicEnc,Ext) when is_integer(Number) ->
 
-    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),Cname),
+    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
     emit({"case ",Element," of",nl}),
 
     emit({"asn1_NOVALUE -> [];",nl}),
@@ -922,7 +918,7 @@ gen_enc_component_optional(Erule,TopType,Cname,
     gen_enc_line(Erule,TopType,Cname,Type,NextElement, Pos,DynamicEnc,Ext),
     emit({nl,"end"});
 gen_enc_component_optional(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext) ->
-    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),Cname),
+    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
     emit({"case ",Element," of",nl}),
 
     emit({"asn1_NOVALUE -> [];",nl}),
@@ -942,11 +938,10 @@ gen_enc_component_mandatory(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext) ->
     gen_enc_line(Erule,TopType,Cname,Type,[],Pos,DynamicEnc,Ext).
 
 gen_enc_line(Erule,TopType, Cname, Type, [], Pos,DynamicEnc,Ext) ->
-    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),Cname),
+    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
     gen_enc_line(Erule,TopType,Cname,Type,Element, Pos,DynamicEnc,Ext);
 gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
-    Ctgenmod = list_to_atom(lists:concat(["asn1ct_gen_",per,
-					  asn1ct_gen:rt2ct_suffix()])),
+    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     Atype = 
 	case Type of
 	    #type{def=#'ObjectClassFieldType'{type=InnerType}} ->
@@ -1214,8 +1209,7 @@ gen_dec_component_no_val({ext,_,_},mandatory) ->
     
 
 gen_dec_line(Erule,TopType,Cname,Type,Pos,DecInfObj,Ext,Prop)  ->
-    Ctgenmod = list_to_atom(lists:concat(["asn1ct_gen_",per,
-					  asn1ct_gen:rt2ct_suffix()])),
+    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     Atype = 
 	case Type of
 	    #type{def=#'ObjectClassFieldType'{type=InnerType}} ->
@@ -1578,22 +1572,17 @@ gen_encode_prim_wrapper(CtgenMod,Erule,Cont,DoTag,Value) ->
 make_elements(I,Val,ExtCnames) ->
     make_elements(I,Val,ExtCnames,[]).
 
-make_elements(I,Val,[ExtCname],Acc)-> % the last one, no comma needed
-    Element = make_element(I,Val,ExtCname),
+make_elements(I,Val,[_ExtCname],Acc)-> % the last one, no comma needed
+    Element = make_element(I, Val),
     make_elements(I+1,Val,[],[Element|Acc]);
-make_elements(I,Val,[ExtCname|Rest],Acc)->
-    Element = make_element(I,Val,ExtCname),
+make_elements(I,Val,[_ExtCname|Rest],Acc)->
+    Element = make_element(I, Val),
     make_elements(I+1,Val,Rest,[", ",Element|Acc]);
 make_elements(_I,_,[],Acc) ->
     lists:reverse(Acc).
 
-make_element(I,Val,Cname) ->
-    case tuple_notation_allowed() of
-	true ->
-	    io_lib:format("?RT_PER:cindex(~w,~s,~w)",[I,Val,Cname]);
-	_ ->
-	    io_lib:format("element(~w,~s)",[I,Val])
-    end.
+make_element(I, Val) ->
+    io_lib:format("element(~w,~s)", [I,Val]).
 
 emit_extaddgroupTerms(VarSeries,[_]) ->
     asn1ct_name:new(VarSeries),
@@ -1651,10 +1640,6 @@ wrap_extensionAdditionGroups([],_,Acc,_,_) ->
     lists:reverse(Acc).
 
 
-tuple_notation_allowed() ->
-    Options = get(encoding_options),
-    not (lists:member(optimize,Options) orelse lists:member(uper_bin,Options)).
-
 wrap_gen_dec_line(Erule,C,TopType,Cname,Type,Pos,DIO,Ext) ->
     put(component_type,{true,C}),
     gen_dec_line(Erule,TopType,Cname,Type,Pos,DIO,Ext,mandatory),
@@ -1683,7 +1668,5 @@ notice_value_match() ->
     Module = get(currmod),
     put(value_match,{true,Module}).
     
-is_optimized(per_bin) ->
-    lists:member(optimize,get(encoding_options));
-is_optimized(_Erule) ->
-    false.
+is_optimized(per) -> true;
+is_optimized(uper) -> false.
