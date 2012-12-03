@@ -375,6 +375,8 @@ write_module(Tree, Name, Opts) ->
                    end,
                    filename(filename:join(Dir, Name1))
            end,
+    Encoding = [{encoding,Enc} || Enc <- [epp:read_encoding(Name)],
+                                 Enc =/= none],
     case proplists:get_bool(backups, Opts) of
         true ->
             backup_file(File, Opts);
@@ -382,9 +384,9 @@ write_module(Tree, Name, Opts) ->
             ok
     end,
     Printer = proplists:get_value(printer, Opts),
-    FD = open_output_file(File),
+    FD = open_output_file(File, Encoding),
     verbose("writing to file `~s'.", [File], Opts),
-    V = (catch {ok, output(FD, Printer, Tree, Opts)}),
+    V = (catch {ok, output(FD, Printer, Tree, Opts++Encoding)}),
     ok = file:close(FD),
     case V of
         {ok, _} ->
@@ -432,8 +434,9 @@ file_type(Name, Links) ->
             throw(R)
     end.
 
-open_output_file(FName) ->
-    case catch file:open(FName, [write]) of
+open_output_file(FName, Options) ->
+io:format("Options ~p~n", [Options]),
+    case catch file:open(FName, [write]++Options) of
         {ok, FD} ->
             FD;
         {error, R} ->

@@ -186,6 +186,7 @@ quick_parse_file(File, Options) ->
 parse_file(File, Parser, Options) ->
     case file:open(File, [read]) of
         {ok, Dev} ->
+            _ = epp:set_encoding(Dev),
             try Parser(Dev, 1, Options)
             after ok = file:close(Dev)
 	    end;
@@ -400,7 +401,7 @@ quick_parse_form(Dev, L0, Options) ->
 parse_form(Dev, L0, Parser, Options) ->
     NoFail = proplists:get_bool(no_fail, Options),
     Opt = #opt{clever = proplists:get_bool(clever, Options)},
-    case io:scan_erl_form(Dev, "", L0) of
+    case io:scan_erl_form(Dev, "", L0, [unicode]) of
         {ok, Ts, L1} ->
             case catch {ok, Parser(Ts, Opt)} of
                 {'EXIT', Term} ->
@@ -419,6 +420,7 @@ parse_form(Dev, L0, Parser, Options) ->
                     {ok, F, L1}
             end;
         {error, _IoErr, _L1} = Err -> Err;
+        {error, _Reason} -> {eof, L0}; % This is probably encoding problem
         {eof, _L1} = Eof -> Eof
     end.
 

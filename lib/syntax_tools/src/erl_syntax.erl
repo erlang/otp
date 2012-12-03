@@ -161,6 +161,7 @@
 	 is_char/2,
 	 char_value/1,
 	 char_literal/1,
+	 char_literal/2,
 	 clause/2,
 	 clause/3,
 	 clause_body/1,
@@ -271,6 +272,7 @@
 	 is_string/2,
 	 string_value/1,
 	 string_literal/1,
+	 string_literal/2,
 	 text/1,
 	 text_string/1,
 	 try_expr/2,
@@ -1628,6 +1630,7 @@ float_literal(Node) ->
 %%
 %% @see char_value/1
 %% @see char_literal/1
+%% @see char_literal/2
 %% @see is_char/2
 
 %% type(Node) = char
@@ -1687,13 +1690,34 @@ char_value(Node) ->
 %% =====================================================================
 %% @doc Returns the literal string represented by a `char'
 %% node. This includes the leading "`$'" character.
+%% Characters beyond 255 will be escaped.
 %%
 %% @see char/1
 
 -spec char_literal(syntaxTree()) -> nonempty_string().
 
 char_literal(Node) ->
-    io_lib:write_char(char_value(Node)).
+    char_literal(Node, latin1).
+
+
+%% =====================================================================
+%% @doc Returns the literal string represented by a `char'
+%% node. This includes the leading "`$'" character.
+%% Depending on the encoding a character beyond 255 will be escaped
+%% ('latin1') or copied as is ('utf8').
+%%
+%% @see char/1
+
+-type encoding() :: 'utf8' | 'unicode' | 'latin1'.
+
+-spec char_literal(syntaxTree(), encoding()) -> nonempty_string().
+
+char_literal(Node, unicode) ->
+    io_lib:write_unicode_char(char_value(Node));
+char_literal(Node, utf8) ->
+    io_lib:write_unicode_char(char_value(Node));
+char_literal(Node, latin1) ->
+    io_lib:write_unicode_char_as_latin1(char_value(Node)).
 
 
 %% =====================================================================
@@ -1708,6 +1732,7 @@ char_literal(Node) ->
 %%
 %% @see string_value/1
 %% @see string_literal/1
+%% @see string_literal/2
 %% @see is_string/2
 %% @see char/1
 
@@ -1768,13 +1793,32 @@ string_value(Node) ->
 %% =====================================================================
 %% @doc Returns the literal string represented by a `string'
 %% node. This includes surrounding double-quote characters.
+%% Characters beyond 255 will be escaped.
 %%
 %% @see string/1
 
 -spec string_literal(syntaxTree()) -> nonempty_string().
 
 string_literal(Node) ->
-    io_lib:write_string(string_value(Node)).
+    string_literal(Node, latin1).
+
+
+%% =====================================================================
+%% @doc Returns the literal string represented by a `string'
+%% node. This includes surrounding double-quote characters.
+%% Depending on the encoding characters beyond 255 will be escaped
+%% ('latin1') or copied as is ('utf8').
+%%
+%% @see string/1
+
+-spec string_literal(syntaxTree(), encoding()) -> nonempty_string().
+
+string_literal(Node, utf8) ->
+    io_lib:write_unicode_string(string_value(Node));
+string_literal(Node, unicode) ->
+    io_lib:write_unicode_string(string_value(Node));
+string_literal(Node, latin1) ->
+    io_lib:write_unicode_string_as_latin1(string_value(Node)).
 
 
 %% =====================================================================

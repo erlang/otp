@@ -341,10 +341,12 @@ merge(Name, Files) ->
 
 merge(Name, Files, Opts) ->
     Opts1 = Opts ++ ?DEFAULT_MERGE_OPTS,
-    {Tree, Stubs} = merge_files(Name, Files, Opts1),
+    {Sources, Enc} = merge_files1(Files, Opts1),
+    {Tree, Stubs} = merge_sources(Name, Sources, Opts1),
     Dir = proplists:get_value(dir, Opts1, ""),
     Filename = proplists:get_value(outfile, Opts1, Name),
-    File = write_module(Tree, Filename, Dir, Opts1),
+    Encoding = [{encoding, Enc} || Enc =/= none],
+    File = write_module(Tree, Filename, Dir, Encoding ++ Opts1),
     [File | maybe_create_stubs(Stubs, Opts1)].
 
 
@@ -459,16 +461,21 @@ merge_files(Name, Files, Options) ->
 -spec merge_files(atom(), erl_syntax:forms(), [file:filename()], [option()]) ->
         {erl_syntax:syntaxTree(), [stubDescriptor()]}.
 
-merge_files(_, _Trees, [], _) ->
+merge_files(Name, Trees, Files, Opts) ->
+    {Sources, _Encoding} = merge_files1(Files, Opts),
+    merge_sources(Name, Trees ++ Sources, Opts).
+
+merge_files1([], _) ->
     report_error("no files to merge."),
     exit(badarg);
-merge_files(Name, Trees, Files, Opts) ->
+merge_files1(Files, Opts) ->
     Opts1 = Opts ++ [{includes, ?DEFAULT_INCLUDES},
 		     {macros, ?DEFAULT_MACROS},
 		     {preprocess, false},
 		     comments],
-    Sources = [read_module(F, Opts1) || F <- Files],
-    merge_sources(Name, Trees ++ Sources, Opts1).
+    SourceEncodings = [read_module(F, Opts1) || F <- Files],
+    {Sources, [Encoding | _]} = lists:unzip(SourceEncodings),
+    {Sources, Encoding}.
 
 
 %% =====================================================================
@@ -2512,7 +2519,11 @@ rename(Files, Renamings, Opts) ->
     lists:flatmap(fun (F) -> rename_file(F, Dict, Opts1) end, Files).
 
 rename_file(File, Dict, Opts) ->
-    S = read_module(File, Opts),
+    {S, Enc} = read_module(File, Opts),
+    %% Try to avoid *two* coding: comments:
+    Encoding = [{encoding, Enc} ||
+                   Enc =/= none,
+                   not proplists:get_bool(comments, Opts)],
     M = get_module_info(S),
     Name = M#module.name,
     Name1 = case dict:find(Name, Dict) of
@@ -2526,10 +2537,10 @@ rename_file(File, Dict, Opts) ->
     Opts1 = [no_headers,
 	     {export, [Name]},
 	     {static, [Name]},
-	     {redirect, dict:to_list(Dict1)}] ++ Opts,
+	     {redirect, dict:to_list(Dict1)}] ++ Encoding ++ Opts,
     {Tree, Stubs} = merge_sources(Name1, [S], Opts1),
     Dir = filename:dirname(filename(File)),
-    File1 = write_module(Tree, Name1, Dir, Opts),
+    File1 = write_module(Tree, Name1, Dir, Opts++Encoding),
 
     %% We create the stub file in the same directory as the source file
     %% and the target file.
@@ -2648,7 +2659,7 @@ error_text(D, Name) ->
 	{L, M, E} when is_integer(L), is_atom(M) ->
 	    case catch M:format_error(E) of
 		S when is_list(S) ->
-		    io_lib:fwrite("`~w', line ~w: ~s.",
+		    io_lib:fwrite("`~w', line ~w: ~ts.",
 				  [Name, L, S]);
 		_ ->
 		    error_text_1(D, Name)
@@ -2706,7 +2717,17 @@ open_output_file(FName) ->
 	    exit(R)
     end.
 
-%% read_module(Name, Options) -> syntaxTree()
+output_encoding(FD, Opts) ->
+    case proplists:get_value(encoding, Opts) of
+        undefined ->
+            ok = io:setopts(FD, [{encoding, epp:default_encoding()}]);
+        Encoding ->
+            ok = io:setopts(FD, [{encoding, Encoding}]),
+            EncS = epp:encoding_to_string(Encoding),
+            ok = io:fwrite(FD, <<"%% ~s\n">>, [EncS])
+    end.
+
+%% read_module(Name, Options) -> {syntaxTree(), epp:source_encoding()}
 %%
 %% This also tries to locate the real source file, if "Name" does not
 %% point directly to a particular file.
@@ -2729,20 +2750,21 @@ read_module(Name, Options) ->
 
 read_module_1(Name, Options) ->
     verbose("reading module `~s'.", [filename(Name)], Options),
-    Forms = read_module_2(Name, Options),
+    {Forms, Enc} = read_module_2(Name, Options),
     case proplists:get_bool(comments, Options) of
 	false ->
-	    Forms;
+	    {Forms, Enc};
 	true ->
 	    Comments = erl_comment_scan:file(Name),
-	    erl_recomment:recomment_forms(Forms, Comments)
+	    {erl_recomment:recomment_forms(Forms, Comments), Enc}
     end.
 
 read_module_2(Name, Options) ->
     case read_module_3(Name, Options) of
 	{ok, Forms} ->
 	    check_forms(Forms, Name), 
-	    Forms;
+            Enc = epp:read_encoding(Name),
+	    {Forms, Enc};
 	{error, _} = Error ->
 	    error_read_file(Name),
 	    exit(Error)
@@ -2772,7 +2794,7 @@ check_forms([F | Fs], File) ->
 		    _ ->
 			"unknown error"
 		end,
-	    report_error("in file `~s' at line ~w:\n  ~s",
+	    report_error("in file `~s' at line ~w:\n  ~ts",
 			 [filename(File), erl_syntax:get_pos(F), S]),
 	    exit(error);
 	_ ->
@@ -2847,6 +2869,7 @@ write_module(Tree, Name, Dir, Opts) ->
     end,
     Printer = proplists:get_value(printer, Opts),
     FD = open_output_file(File),
+    ok = output_encoding(FD, Opts),
     verbose("writing to file `~s'.", [File], Opts),
     V = (catch {ok, output(FD, Printer, Tree, Opts)}),
     ok = file:close(FD),
