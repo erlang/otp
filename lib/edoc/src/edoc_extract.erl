@@ -226,7 +226,7 @@ add_macro_defs(Defs0, Opts, Env) ->
 %% lines of text before the first tag are ignored. `Env' is an
 %% environment created by {@link edoc_lib:get_doc_env/4}. Upon error,
 %% `Reason' is an atom returned from the call to {@link
-%% //kernel/file:read_file/1}.
+%% //kernel/file:read_file/1} or the atom 'invalid_unicode'.
 %%
 %% See {@link text/4} for options.
 
@@ -235,7 +235,13 @@ add_macro_defs(Defs0, Opts, Env) ->
 file(File, Context, Env, Opts) ->
     case file:read_file(File) of
 	{ok, Bin} ->
-	    {ok, text(binary_to_list(Bin), Context, Env, Opts, File)};
+            Enc = edoc_lib:read_encoding(File,[{in_comment_only, false}]),
+            case catch unicode:characters_to_list(Bin, Enc) of
+                String when is_list(String) ->
+                    {ok, text(String, Context, Env, Opts, File)};
+                _ ->
+                    {error, invalid_unicode}
+            end;
         {error, _} = Error ->
             Error
     end.
@@ -306,12 +312,14 @@ get_module_info(Forms, File) ->
     Exports = ordsets:from_list(get_list_keyval(exports, L)),
     Attributes = ordsets:from_list(get_list_keyval(attributes, L)),
     Records = get_list_keyval(records, L),
+    Encoding = edoc_lib:read_encoding(File, []),
     #module{name = Name,
 	    parameters = Vars,
 	    functions = Functions,
 	    exports = ordsets:intersection(Exports, Functions),
 	    attributes = Attributes,
-	    records = Records}.
+	    records = Records,
+	    encoding = Encoding}.
 
 get_list_keyval(Key, L) ->
     case lists:keyfind(Key, 1, L) of

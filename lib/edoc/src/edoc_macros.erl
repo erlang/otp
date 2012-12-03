@@ -88,13 +88,13 @@ link_macro(S, Line, Env) ->
 		 true -> " target=\"_top\""; % note the initial space
 		 false -> ""
 	     end,
-    lists:flatten(io_lib:fwrite("<a href=\"~s\"~s>~s</a>",
+    lists:flatten(io_lib:fwrite("<a href=\"~s\"~s>~ts</a>",
 				[URI, Target, Txt])).
 
 section_macro(S, _Line, _Env) ->
     S1 = lists:reverse(edoc_lib:strip_space(
 			 lists:reverse(edoc_lib:strip_space(S)))),
-    lists:flatten(io_lib:format("<a href=\"#~s\">~s</a>",
+    lists:flatten(io_lib:format("<a href=\"#~ts\">~ts</a>",
 				[edoc_lib:to_label(S1), S1])).
 
 type_macro(S, Line, Env) ->

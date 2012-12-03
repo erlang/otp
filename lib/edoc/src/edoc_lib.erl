@@ -30,10 +30,10 @@
 	 parse_contact/2, escape_uri/1, join_uri/2, is_relative_uri/1,
 	 is_name/1, to_label/1, find_doc_dirs/0, find_sources/2,
 	 find_sources/3, find_file/3, try_subdir/2, unique/1,
-	 write_file/3, write_file/4, write_info_file/4,
+	 write_file/3, write_file/4, write_file/5, write_info_file/4,
 	 read_info_file/1, get_doc_env/1, get_doc_env/4, copy_file/2,
 	 uri_get/1, run_doclet/2, run_layout/2,
-	 simplify_path/1, timestr/1, datestr/1]).
+	 simplify_path/1, timestr/1, datestr/1, read_encoding/2]).
 
 -import(edoc_report, [report/2, warning/2]).
 
@@ -55,6 +55,13 @@ datestr({Y,M,D}) ->
     Ms = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
 	  "Oct", "Nov", "Dec"],
     lists:flatten(io_lib:fwrite("~s ~w ~w",[lists:nth(M, Ms),D,Y])).
+
+%% @private
+read_encoding(File, Options) ->
+    case epp:read_encoding(File, Options) of
+        none -> epp:default_encoding();
+        Encoding -> Encoding
+    end.
 
 %% @private
 count(X, Xs) ->
@@ -677,7 +684,6 @@ try_subdir(Dir, Subdir) ->
 write_file(Text, Dir, Name) ->
     write_file(Text, Dir, Name, '').
 
-
 %% @spec (Text::deep_string(), Dir::edoc:filename(),
 %%        Name::edoc:filename(), Package::atom()|string()) -> ok
 %% @doc Like {@link write_file/3}, but adds path components to the target
@@ -685,10 +691,13 @@ write_file(Text, Dir, Name) ->
 %% @private
 
 write_file(Text, Dir, Name, Package) ->
+    write_file(Text, Dir, Name, Package, [{encoding,latin1}]).
+
+write_file(Text, Dir, Name, Package, Options) ->
     Dir1 = filename:join([Dir | packages:split(Package)]),
     File = filename:join(Dir1, Name),
     ok = filelib:ensure_dir(File),
-    case file:open(File, [write]) of
+    case file:open(File, [write] ++ Options) of
 	{ok, FD} ->
 	    io:put_chars(FD, Text),
 	    ok = file:close(FD);
@@ -705,8 +714,9 @@ write_info_file(App, Packages, Modules, Dir) ->
     Ts1 = if App =:= ?NO_APP -> Ts;
 	     true -> [{application, App} | Ts]
 	  end,
-    S = [io_lib:fwrite("~p.\n", [T]) || T <- Ts1],
-    write_file(S, Dir, ?INFO_FILE).
+    S0 = [io_lib:fwrite("~p.\n", [T]) || T <- Ts1],
+    S = ["%% encoding: UTF-8\n" | S0],
+    write_file(S, Dir, ?INFO_FILE, '', [{encoding,unicode}]).
 
 %% @spec (Name::edoc:filename()) -> {ok, string()} | {error, Reason}
 %%
@@ -714,7 +724,14 @@ write_info_file(App, Packages, Modules, Dir) ->
 
 read_file(File) ->
     case file:read_file(File) of
-	{ok, Bin} -> {ok, binary_to_list(Bin)};
+	{ok, Bin} ->
+            Enc = edoc_lib:read_encoding(File, []),
+            case catch unicode:characters_to_list(Bin, Enc) of
+                String when is_list(String) ->
+                    {ok, String};
+                _ ->
+                    {error, invalid_unicode}
+            end;
 	{error, Reason} -> {error, Reason}
     end.
 

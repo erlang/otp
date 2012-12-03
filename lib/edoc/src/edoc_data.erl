@@ -83,7 +83,8 @@ module(Module, Entries, Env, Opts) ->
     AllTags = get_all_tags(Entries),
     Functions = function_filter(Entries, Opts),
     Out = {module, ([{name, Name},
-		     {root, Env#env.root}]
+		     {root, Env#env.root},
+                     {encoding, Module#module.encoding}]
 		    ++ case is_private(HeaderTags) of
 			   true -> [{private, "yes"}];
 			   false -> []

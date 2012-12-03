@@ -210,7 +210,8 @@ layout_module(#xmlElement{name = module, content = Es}=E, Opts) ->
 	    ++ [hr, ?NL]
 	    ++ navigation("bottom")
 	    ++ timestamp()),
-    xhtml(Title, stylesheet(Opts), Body).
+    Encoding = get_attrval(encoding, E),
+    xhtml(Title, stylesheet(Opts), Body, Encoding).
 
 module_params(Es) ->
     As = [{get_text(argName, Es1),
@@ -956,10 +957,17 @@ local_label(R) ->
     "#" ++ R.
 
 xhtml(Title, CSS, Body) ->
+    xhtml(Title, CSS, Body, "latin1").
+
+xhtml(Title, CSS, Body, Encoding) ->
+    EncString = case Encoding of
+                    "latin1" -> "ISO-8859-1";
+                    _ -> "UTF-8"
+                end,
     [{html, [?NL,
 	     {head, [?NL,
 		     {meta, [{'http-equiv',"Content-Type"},
-			     {content, "text/html; charset=ISO-8859-1"}],
+			     {content, "text/html; charset="++EncString}],
 		      []},
 		     ?NL,
 		     {title, Title},
@@ -1021,7 +1029,8 @@ overview(E=#xmlElement{name = overview, content = Es}, Options) ->
 	    ++ [?NL, hr]
 	    ++ navigation("bottom")
 	    ++ timestamp()),
-    XML = xhtml(Title, stylesheet(Opts), Body),
+    Encoding = get_attrval(encoding, E),
+    XML = xhtml(Title, stylesheet(Opts), Body, Encoding),
     xmerl:export_simple(XML, ?HTML_EXPORT, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% NYTT

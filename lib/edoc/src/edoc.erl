@@ -120,7 +120,8 @@ file(Name, Options) ->
     Suffix = proplists:get_value(file_suffix, Options,
 				 ?DEFAULT_FILE_SUFFIX),
     Dir = proplists:get_value(dir, Options, filename:dirname(Name)),
-    edoc_lib:write_file(Text, Dir, BaseName ++ Suffix).
+    Encoding = [{encoding, edoc_lib:read_encoding(Name, [])}],
+    edoc_lib:write_file(Text, Dir, BaseName ++ Suffix, '', Encoding).
 
 
 %% TODO: better documentation of files/1/2, packages/1/2, application/1/2/3

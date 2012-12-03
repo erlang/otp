@@ -48,7 +48,8 @@
 %%                          functions = ordset(function_name()),
 %%                          exports = ordset(function_name()),
 %%                          attributes = ordset({atom(), term()}),
-%%                          records = [{atom(), [{atom(), term()}]}]}
+%%                          records = [{atom(), [{atom(), term()}]}],
+%%                          encoding = epp:source_encoding()}
 %%  ordset(T) = sets:ordset(T)
 %%  function_name(T) = {atom(), integer()}
 
@@ -57,7 +58,8 @@
 		 functions = [],
 		 exports = [],
 		 attributes = [],
-		 records = []
+		 records = [],
+		 encoding = latin1
 		}).
 
 %% Environment for generating documentation data

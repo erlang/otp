@@ -4,7 +4,8 @@
 <!ELEMENT overview (title, description?, author*, copyright?, version?,
                     since?, see*, reference*, todo?, packages, modules)>
 <!ATTLIST overview
-  root CDATA #IMPLIED>
+  root CDATA #IMPLIED
+  encoding CDATA #IMPLIED>
 
 <!ELEMENT title (#PCDATA)>
 
@@ -25,6 +26,7 @@
   name CDATA #REQUIRED
   private (yes | no) #IMPLIED
   hidden (yes | no) #IMPLIED
+  encoding CDATA #IMPLIED
   root CDATA #IMPLIED>
 
 <!ELEMENT description (briefDescription, fullDescription?)>

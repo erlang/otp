@@ -80,6 +80,7 @@ parse_xml(Data, Line) ->
 
 parse_xml_1(Text, Line) ->
     Text1 = "<doc>" ++ Text ++ "</doc>",
+    %% Any coding except "utf-8".
     Opts = [{line, Line}, {encoding, 'iso-8859-1'}],
     case catch {ok, xmerl_scan:string(Text1, Opts)} of
 	{ok, {E, _}} ->
@@ -174,7 +175,7 @@ expand_heading_1(Cs, N, L, As) ->
 
 expand_heading_2(Ts, Cs, N, L, As) ->
     H = ?BASE_HEADING + N,
-    Ts1 = io_lib:format("<h~w><a name=\"~s\">~s</a></h~w>\n",
+    Ts1 = io_lib:format("<h~w><a name=\"~ts\">~ts</a></h~w>\n",
 			[H, make_label(Ts), Ts, H]),
     expand_new_line(Cs, L + 1, lists:reverse(lists:flatten(Ts1), As)).
 
