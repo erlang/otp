@@ -108,8 +108,8 @@
       specifications</seealso>).</p>
   </section>
 
+  <marker id="cover_stop"></marker>
   <section>
-    <marker id="cover_stop"></marker>
     <title>Stopping the cover tool when tests are completed</title>
     <p>By default the Cover tool is automatically stopped when the
       tests are completed. This causes the original (non cover
@@ -175,6 +175,11 @@
 
       %% Specific modules to exclude in cover.
       {excl_mods, Mods}.
+
+      %% Cross cover compilation
+      %% Tag = atom(), an identifier for a test run
+      %% Mod = [atom()], modules to compile for accumulated analysis
+      {cross,[{Tag,Mods}]}.
     </pre>
 
     <p>The <c>incl_dirs_r</c> and <c>excl_dirs_r</c> terms tell Common
@@ -190,6 +195,81 @@
        specification file for Common Test).</p>
   </section>
 
+  <marker id="cross_cover"/>
+  <section>
+    <title>Cross cover analysis</title>
+    <p>The cross cover mechanism allows cover analysis of modules
+    across multiple tests. It is useful if some code, e.g. a library
+    module, is used by many different tests and the accumulated cover
+    result is desirable.</p>
+
+    <p>This can of course also be achieved in a more customized way by
+    using the <c>export</c> parameter in the cover specification and
+    analysing the result off line, but the cross cover mechanism is a
+    build in solution which also provides the logging.</p>
+
+    <p>The mechanism is easiest explained via an example:</p>
+
+    <p>Let's say that there are two systems, <c>s1</c> and <c>s2</c>,
+    which are tested in separate test runs. System <c>s1</c> contains
+    a library module <c>m1</c> which is tested by the <c>s1</c> test
+    run and is included in <c>s1</c>'s cover specification:</p>
+
+<code type="none">
+s1.cover:
+  {incl_mods,[m1]}.</code>
+
+    <p>When analysing code coverage, the result for <c>m1</c> can be
+    seen in the cover log in the <c>s1</c> test result.</p>
+
+    <p>Now, let's imagine that since <c>m1</c> is a library module, it
+    is also used quite a bit by system <c>s2</c>. The <c>s2</c> test
+    run does not specifically test <c>m1</c>, but it might still be
+    interesting to see which parts of <c>m1</c> is actually covered by
+    the <c>s2</c> tests. To do this, <c>m1</c> could be included also
+    in <c>s2</c>'s cover specification:</p>
+
+<code type="none">
+s2.cover:
+  {incl_mods,[m1]}.</code>
+
+    <p>This would give an entry for <c>m1</c> also in the cover log
+    for the <c>s2</c> test run. The problem is that this would only
+    reflect the coverage by <c>s2</c> tests, not the accumulated
+    result over <c>s1</c> and <c>s2</c>. And this is where the cross
+    cover mechanism comes in handy.</p>
+
+    <p>If instead the cover specification for <c>s2</c> was like
+    this:</p>
+
+<code type="none">
+s2.cover:
+  {cross,[{s1,[m1]}]}.</code>
+
+    <p>then <c>m1</c> would be cover compiled in the <c>s2</c> test
+    run, but not shown in the coverage log. Instead, if
+    <c>ct_cover:cross_cover_analyse/2</c> is called after both
+    <c>s1</c> and <c>s2</c> test runs are completed, the accumulated
+    result for <c>m1</c> would be available in the cross cover log for
+    the <c>s1</c> test run.</p>
+
+    <p>The call to the analyse function must be like this:</p>
+
+<code type="none">
+ct_cover:cross_cover_analyse(Level, [{s1,S1LogDir},{s2,S2LogDir}]).</code>
+
+    <p>where <c>S1LogDir</c> and <c>S2LogDir</c> are the directories
+    named <c>&lt;TestName&gt;.logs</c> for each test respectively.</p>
+
+    <p>Note the tags <c>s1</c> and <c>s2</c> which are used in the
+    cover specification file and in the call to
+    <c>ct_cover:cross_cover_analyse/2</c>. The point of these are only
+    to map the modules specified in the cover specification to the log
+    directory specified in the call to the analyse function. The name
+    of the tag has no meaning beyond this.</p>
+
+  </section>
+
   <section>
     <title>Logging</title>
     <p>To view the result of a code coverage test, follow the
@@ -197,6 +277,11 @@
       takes you to the code coverage overview page. If you have 
       successfully performed a detailed coverage analysis, you 
       find links to each individual module coverage page here.</p>
+
+    <p>If cross cover analysis has been performed, and there are
+      accumulated coverage results for the current test, then the -
+      "Coverdata collected over all tests" link will take you to these
+      results.</p>
   </section>
 
 </chapter>
