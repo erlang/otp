@@ -18,13 +18,13 @@ benchmarks you have to [install the tests][]. To get a listing of all
 benchmarks you have available call `ts:benchmarks()`.
 
 To run all benchmarks call `ts:bench()`. This will run all benchmarks using 
-the emulator which is in you `$PATH` (Note that this does not have to be the
+the emulator which is in your `$PATH` (Note that this does not have to be the
 same as from which the benchmarks were built from). All the results of the 
 benchmarks are put in a folder in `$TESTROOT/test_server/` called 
 `YYYY_MO_DDTHH_MI_SS`. 
 
 Each benchmark is run multiple times and the data for all runs is collected in
-the files within the benchmark folder. All benchmarks are written so that a 
+the files within the benchmark folder. All benchmarks are written so that 
 higher values are better. 
 
 Writing benchmarks
