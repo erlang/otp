@@ -39,7 +39,8 @@
 #endif
 
 #if HAVE_SUPER_ALIGNED_MB_CARRIERS
-#  define MSEG_ALIGN_BITS       (17)
+#  define MSEG_ALIGN_BITS (18)
+   /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
 #else
 /* If we don't use super aligned multiblock carriers
  * we will mmap with page size alignment (and thus use corresponding

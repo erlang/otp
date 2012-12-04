@@ -226,7 +226,8 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #  ifdef ARCH_64 
 #    define MBC_ABLK_OFFSET_BITS   24
 #  elif HAVE_SUPER_ALIGNED_MB_CARRIERS
-#    define MBC_ABLK_OFFSET_BITS   13
+#    define MBC_ABLK_OFFSET_BITS   9
+     /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
 #  endif
 #endif
 #ifndef MBC_ABLK_OFFSET_BITS
