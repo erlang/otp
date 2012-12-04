@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1457,7 +1457,7 @@ make_prepare_packet(Mask, #diameter_packet{header = Hdr} = Pkt) ->
 make_prepare_packet(Mask, Msg) ->
     make_prepare_packet(Mask, #diameter_packet{msg = Msg}).
 
-%% make_prepare_header/1
+%% make_prepare_header/2
 
 make_prepare_header(Mask, undefined) ->
     Seq = diameter_session:sequence(Mask),
@@ -1465,10 +1465,11 @@ make_prepare_header(Mask, undefined) ->
                                          hop_by_hop_id = Seq});
 
 make_prepare_header(Mask, #diameter_header{end_to_end_id = undefined,
-                                           hop_by_hop_id = undefined}) ->
+                                           hop_by_hop_id = undefined}
+                          = H) ->
     Seq = diameter_session:sequence(Mask),
-    make_prepare_header(#diameter_header{end_to_end_id = Seq,
-                                         hop_by_hop_id = Seq});
+    make_prepare_header(H#diameter_header{end_to_end_id = Seq,
+                                          hop_by_hop_id = Seq});
 
 make_prepare_header(Mask, #diameter_header{end_to_end_id = undefined} = H) ->
     Seq = diameter_session:sequence(Mask),
