@@ -348,37 +348,32 @@ schedule_cache_check(ErtsMsegAllctr_t *ma) {
 static ERTS_INLINE void *
 mmap_align(ErtsMsegAllctr_t *ma, void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
 
-    void *seg, *aseg;
-    unsigned long diff;
+    void *p, *q;
+    UWord d;
 
-    seg = mmap(addr, length, prot, flags, fd, offset);
+    p = mmap(addr, length, prot, flags, fd, offset);
 
-    if (MAP_IS_ALIGNED(seg) || seg == MAP_FAILED) {
-	return seg;
-    }
+    if (MAP_IS_ALIGNED(p) || p == MAP_FAILED)
+	return p;
 
     if (ma)
 	INC_CC(ma, create_resize);
 
-    munmap(seg, length);
+    munmap(p, length);
 
-    if ((seg = mmap(addr, length + MSEG_ALIGNED_SIZE, prot, flags, fd, offset)) == MAP_FAILED) {
-	return seg;
-    }
+    if ((p = mmap(addr, length + MSEG_ALIGNED_SIZE, prot, flags, fd, offset)) == MAP_FAILED)
+	return MAP_FAILED;
 
-    /* ceil to aligned pointer */
-    aseg = (void *)(((unsigned long)(seg + MSEG_ALIGNED_SIZE)) & (~(MSEG_ALIGNED_SIZE - 1)));
-    diff = aseg - seg;
+    q = (void *)ALIGNED_CEILING(p);
+    d = q - p;
 
-    if (diff > 0) {
-	munmap(seg, diff);
-    }
+    if (d > 0)
+	munmap(p, d);
 
-    if (MSEG_ALIGNED_SIZE - diff > 0) {
-	munmap((void *) (aseg + length), MSEG_ALIGNED_SIZE - diff);
-    }
+    if (MSEG_ALIGNED_SIZE - d > 0)
+	munmap((void *) (q + length), MSEG_ALIGNED_SIZE - d);
 
-    return aseg;
+    return q;
 }
 
 static ERTS_INLINE void *
@@ -394,8 +389,7 @@ mseg_create(ErtsMsegAllctr_t *ma, MemKind* mk, Uint size)
 	    erts_fprintf(stderr,"Pointer mask failure (0x%08lx)\n",(unsigned long) seg);
 	    return NULL;
 	}
-    }
-    else
+    } else
 #endif
     {
 #if HAVE_MMAP
@@ -404,6 +398,8 @@ mseg_create(ErtsMsegAllctr_t *ma, MemKind* mk, Uint size)
 				MMAP_PROT, MMAP_FLAGS, MMAP_FD, 0);
 	    if (seg == (void *) MAP_FAILED)
 		seg = NULL;
+
+	    ASSERT(MAP_IS_ALIGNED(seg) || !seg);
 	}
 #else
 # error "Missing mseg_create() implementation"
@@ -441,6 +437,28 @@ mseg_destroy(ErtsMsegAllctr_t *ma, MemKind* mk, void *seg, Uint size) {
 }
 
 #if HAVE_MSEG_RECREATE
+#if defined(__NetBsd__)
+#define MREMAP_FLAGS  (0)
+#else
+#define MREMAP_FLAGS  (MREMAP_MAYMOVE)
+#endif
+
+
+/* mseg_recreate
+ * May return *unaligned* segments as in address not aligned to MSEG_ALIGNMENT
+ * it is still page aligned
+ *
+ * This is fine for single block carriers as long as we don't cache misaligned
+ * segments (since multiblock carriers may use them)
+ *
+ * For multiblock carriers we *need* MSEG_ALIGNMENT but mbc's will never be
+ * reallocated.
+ *
+ * This should probably be fixed the following way:
+ * 1) Use an option to segment allocation - NEED_ALIGNMENT
+ * 2) Add mremap_align which takes care of aligning a new a mremaped area
+ * 3) Fix the cache to handle of aligned and unaligned segments
+ */
 
 static ERTS_INLINE void *
 mseg_recreate(ErtsMsegAllctr_t *ma, MemKind* mk, void *old_seg, Uint old_size, Uint new_size)
@@ -460,19 +478,11 @@ mseg_recreate(ErtsMsegAllctr_t *ma, MemKind* mk, void *old_seg, Uint old_size, U
 #endif
     {
 #if HAVE_MREMAP
-
-    #if defined(__NetBSD__)
-	new_seg = (void *) mremap((void *) old_seg,
-				  (size_t) old_size,
-				  NULL,
-				  (size_t) new_size,
-				  0);
-    #else
-	new_seg = (void *) mremap((void *) old_seg,
-				  (size_t) old_size,
-				  (size_t) new_size,
-				  MREMAP_MAYMOVE);
-    #endif
+#if defined(__NetBSD__)
+	new_seg = mremap(old_seg, (size_t)old_size, NULL, new_size, MREMAP_FLAGS);
+#else
+	new_seg = mremap(old_seg, (size_t)old_size, (size_t)new_size, MREMAP_FLAGS);
+#endif
 	if (new_seg == (void *) MAP_FAILED)
 	    new_seg = NULL;
 #else
@@ -533,7 +543,7 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size) {
     cache_t *c;
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
 
-    if (mk->cache_free) {
+    if (mk->cache_free && MAP_IS_ALIGNED(seg)) {
 	if (IS_2POW(size)) {
 	    int ix = SIZE_TO_CACHE_AREA_IDX(size);
 
@@ -636,8 +646,7 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p) {
 		if (csize >= size && (csize - size) < bad_max_abs ) {
 
 		/* unlink from cache area */
-		seg   = c->seg;
-
+		seg = c->seg;
 
 		if (pc == c) {
 		    mk->cache_unpowered = c->next;
@@ -907,12 +916,15 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
     void *new_seg;
     Uint new_size;
 
+    /* Just allocate a new segment if we didn't have one before */
     if (!seg || !old_size) {
 	new_seg = mseg_alloc(ma, atype, new_size_p, flags, opt);
 	DEC_CC(ma, alloc);
 	return new_seg;
     }
 
+
+    /* Dealloc old segment if new segment is of size 0 */
     if (!(*new_size_p)) {
 	mseg_dealloc(ma, atype, seg, old_size, opt);
 	DEC_CC(ma, dealloc);
@@ -955,8 +967,10 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 #elif HAVE_MSEG_RECREATE
 	    goto do_recreate;
 #else
-
 	    new_seg = mseg_alloc(ma, atype, &new_size, flags, opt);
+
+	    ASSERT(MAP_IS_ALIGNED(new_seg) || !new_seg);
+
 	    if (!new_seg)
 		new_size = old_size;
 	    else {
@@ -965,9 +979,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 			   MIN(new_size, old_size));
 		mseg_dealloc(ma, atype, seg, old_size, opt);
 	    }
-
 #endif
-
 	}
     }
     else {
@@ -975,6 +987,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 	if (!opt->preserv) {
 	    mseg_dealloc(ma, atype, seg, old_size, opt);
 	    new_seg = mseg_alloc(ma, atype, &new_size, flags, opt);
+	    ASSERT(MAP_IS_ALIGNED(new_seg) || !new_seg);
 	}
 	else {
 #if HAVE_MSEG_RECREATE
@@ -982,12 +995,19 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 	do_recreate:
 #endif
 	    new_seg = mseg_recreate(ma, mk, (void *) seg, old_size, new_size);
+	    /* ASSERT(MAP_IS_ALIGNED(new_seg) || !new_seg);
+	     * will not always be aligned and it ok for now
+	     */
+
 	    if (erts_mtrace_enabled)
 		erts_mtrace_crr_realloc(new_seg, atype, SEGTYPE, seg, new_size);
 	    if (!new_seg)
 		new_size = old_size;
 #else
 	    new_seg = mseg_alloc(ma, atype, &new_size, flags, opt);
+
+	    ASSERT(MAP_IS_ALIGNED(new_seg) || !new_seg);
+
 	    if (!new_seg)
 		new_size = old_size;
 	    else {
