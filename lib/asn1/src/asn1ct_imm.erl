@@ -20,6 +20,7 @@
 -module(asn1ct_imm).
 -export([per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
 	 per_dec_integer/2,per_dec_length/3,per_dec_named_integer/3,
+	 per_dec_octet_string/2,
 	 dec_slim_cg/2,dec_code_gen/2]).
 -export([effective_constraint/2]).
 -import(asn1ct_gen, [emit/1]).
@@ -85,9 +86,46 @@ per_dec_named_integer(Constraint, NamedList0, Aligned) ->
     NamedList = [{K,V} || {V,K} <- NamedList0] ++ [integer_default],
     {map,Int,NamedList}.
 
+per_dec_octet_string(Constraint, Aligned) ->
+    dec_string(Constraint, 8, Aligned).
+
 %%%
 %%% Local functions.
 %%%
+
+
+dec_string(Sv, U, _Aligned) when is_integer(Sv), U*Sv =< 16 ->
+    {get_bits,Sv,[U,binary]};
+dec_string(Sv, U, Aligned) when is_integer(Sv), Sv < 16#10000 ->
+    {get_bits,Sv,[U,binary,{align,Aligned}]};
+dec_string(C, U, Aligned) when is_list(C) ->
+    dec_string({hd(C),lists:max(C)}, U, Aligned);
+dec_string({Sv,Sv}, U, Aligned) ->
+    dec_string(Sv, U, Aligned);
+dec_string({{_,_}=C,_}, U, Aligned) ->
+    bit_case(dec_string(C, U, Aligned),
+	     dec_string(no, U, Aligned));
+dec_string({Lb,Ub}, U, Aligned) when Ub < 16#10000 ->
+    Len = per_dec_constrained(Lb, Ub, Aligned),
+    {get_bits,Len,[U,binary,{align,Aligned}]};
+dec_string(_, U, Aligned) ->
+    Al = [{align,Aligned}],
+    DecRest = fun(V, Buf) ->
+		      emit(["?RT_PER:decode_fragmented(",V,", ",
+			    Buf,", ",U,")"])
+	      end,
+    {'case',[{test,{get_bits,1,[1|Al]},0,
+	      {value,{get_bits,
+		      {get_bits,7,[1]},
+		      [U,binary]}}},
+	     {test,{get_bits,1,[1|Al]},1,
+	      {test,{get_bits,1,[1]},0,
+	       {value,{get_bits,
+		       {get_bits,14,[1]},
+		       [U,binary]}}}},
+	     {test,{get_bits,1,[1|Al]},1,
+	      {test,{get_bits,1,[1]},1,
+	       {value,{call,DecRest,{get_bits,6,[1]}}}}}]}.
 
 per_dec_enumerated_fix_list([{V,_}|T], Tail, N) ->
     [{N,V}|per_dec_enumerated_fix_list(T, Tail, N+1)];
@@ -208,7 +246,15 @@ flatten({map,E0,Cs0}, Buf0, St0) ->
 flatten({value,V0}, Buf0, St0) when is_integer(V0) ->
     {{V0,Buf0},[],St0};
 flatten({value,V0}, Buf0, St0) ->
-    flatten(V0, Buf0, St0).
+    flatten(V0, Buf0, St0);
+flatten({convert,Op,E0}, Buf0, St0) ->
+    {{E,Buf},Pre,St1} = flatten(E0, Buf0, St0),
+    {Dst,St2} = new_var("Conv", St1),
+    {{Dst,Buf},Pre++[{convert,Op,E,Dst}],St2};
+flatten({call,Fun,E0}, Buf0, St0) ->
+    {Src,Pre,St1} = flatten(E0, Buf0, St0),
+    {Dst,St2} = new_var_pair(St1),
+    {Dst,Pre++[{call,Fun,Src,Dst}],St2}.
 
 flatten_cs([C0|Cs0], Buf, St0) ->
     {C,Pre,St1} = flatten(C0, Buf, St0),
@@ -294,6 +340,13 @@ dcg_list_outside([{add,S1,S2,Dst}|T]) ->
     iter_dcg_list_outside(T);
 dcg_list_outside([{return,{V,Buf}}|T]) ->
     emit(["{",V,",",Buf,"}"]),
+    iter_dcg_list_outside(T);
+dcg_list_outside([{call,Fun,{V,Buf},{Dst,DstBuf}}|T]) ->
+    emit(["{",Dst,",",DstBuf,"}  = "]),
+    Fun(V, Buf),
+    iter_dcg_list_outside(T);
+dcg_list_outside([{convert,Op,V,Dst}|T]) ->
+    emit([Dst," = ",Op,"(",V,")"]),
     iter_dcg_list_outside(T);
 dcg_list_outside([{get_bits,{_,Buf0},_,_}|_]=L0) ->
     emit("<<"),

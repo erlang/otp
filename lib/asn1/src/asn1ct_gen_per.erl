@@ -297,6 +297,16 @@ emit_enc_enumerated_case(_Per,C, {0,EnumName}, Count) ->
 emit_enc_enumerated_case(_Erule, C, EnumName, Count) ->
     emit(["'",EnumName,"' -> ?RT_PER:encode_integer(",{asis,C},", ",Count,")"]).
 
+get_constraint([{Key,V}], Key) ->
+    V;
+get_constraint([], _) ->
+    no;
+get_constraint(C, Key) ->
+    case lists:keyfind(Key, 1, C) of
+	false -> no;
+	{Key,V} -> V
+    end.
+
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------
 
@@ -1181,8 +1191,10 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	    Imm = asn1ct_imm:per_dec_boolean(),
 	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
 	'OCTET STRING' ->
-	    emit({"?RT_PER:decode_octet_string(",BytesVar,",",
-		  {asis,Constraint},")"});
+	    SzConstr = get_constraint(Constraint, 'SizeConstraint'),
+	    Imm0 = asn1ct_imm:per_dec_octet_string(SzConstr, Aligned),
+	    Imm = {convert,binary_to_list,Imm0},
+	    asn1ct_imm:dec_code_gen(Imm, BytesVar);
 	'NumericString' ->
 	    emit({"?RT_PER:decode_NumericString(",BytesVar,",",
 		  {asis,Constraint},")"});

@@ -450,17 +450,6 @@ emit_enc_octet_string(_Erules,Constraint,Value) ->
 	    emit({"  ?RT_PER:encode_octet_string(",{asis,C},",false,",Value,")",nl})
     end.
 
-emit_dec_octet_string(Constraint,BytesVar) ->
-    case get_constraint(Constraint,'SizeConstraint') of
-	0 ->
-	    emit({"  {[],",BytesVar,"}",nl});
-	{_,0} ->
-	    emit({"  {[],",BytesVar,"}",nl});
-	C ->
-	    emit({"  ?RT_PER:decode_octet_string(",BytesVar,",",
-		  {asis,C},",false)",nl})
-    end.
-
 emit_enc_integer_case(Value) ->
     case get(component_type) of
 	{true,#'ComponentType'{prop=Prop}} ->
@@ -1543,7 +1532,7 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 
 	'OCTET STRING' ->
-	    emit_dec_octet_string(Constraint,BytesVar);
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 
 	'NumericString' ->
 	    emit_dec_known_multiplier_string('NumericString',

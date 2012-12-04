@@ -25,6 +25,7 @@
 
 %%-compile(export_all).
 
+-export([decode_fragmented/3]).
  -export([setext/1, fixoptionals/3, 
  	 fixextensions/2, 
  	 getext/1, getextension/2, skipextensions/3, getbit/1, getchoice/3 ]).
@@ -1119,6 +1120,24 @@ decode_octet_string1(Bytes,no) ->
     {Len,Bytes2} = decode_length(Bytes,undefined),
     getoctets_as_list(Bytes2,Len).
 
+decode_fragmented(SegSz0, Buf0, Unit) ->
+    SegSz = SegSz0 * Unit * ?'16K',
+    <<Res:SegSz/bitstring,Buf/bitstring>> = Buf0,
+    decode_fragmented_1(Buf, Unit, Res).
+
+decode_fragmented_1(<<0:1,N:7,Buf0/bitstring>>, Unit, Res) ->
+    Sz = N*Unit,
+    <<S:Sz/bitstring,Buf/bitstring>> = Buf0,
+    {<<Res/bitstring,S/bitstring>>,Buf};
+decode_fragmented_1(<<1:1,0:1,N:14,Buf0/bitstring>>, Unit, Res) ->
+    Sz = N*Unit,
+    <<S:Sz/bitstring,Buf/bitstring>> = Buf0,
+    {<<Res/bitstring,S/bitstring>>,Buf};
+decode_fragmented_1(<<1:1,1:1,SegSz0:6,Buf0/bitstring>>, Unit, Res0) ->
+    SegSz = SegSz0 * Unit * ?'16K',
+    <<Frag:SegSz/bitstring,Buf/bitstring>> = Buf0,
+    Res = <<Res0/bitstring,Frag/bitstring>>,
+    decode_fragmented_1(Buf, Unit, Res).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

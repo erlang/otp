@@ -22,6 +22,7 @@
 
 -include("asn1_records.hrl").
 
+-export([decode_fragmented/3]).
 -export([dec_fixup/3]).
 -export([setchoiceext/1, setext/1, fixoptionals/3, fixextensions/2, 
 	 getext/1, getextension/2, skipextensions/3, getbit/1, getchoice/3 ]).
@@ -38,7 +39,6 @@
 	 encode_real/1, decode_real/1,
 	 encode_relative_oid/1, decode_relative_oid/1,
 	 complete/1]).
-
 
 -export([encode_open_type/2, decode_open_type/2]).
 
@@ -1391,6 +1391,25 @@ decode_octet_string(Bytes,no,false) ->
     {Len,Bytes2} = decode_length(Bytes,undefined),
 %%    Bytes3 = align(Bytes2),
     getoctets_as_list(Bytes2,Len).
+
+decode_fragmented(SegSz0, Buf0, Unit) ->
+    SegSz = SegSz0 * Unit * ?'16K',
+    <<Res:SegSz/bitstring,Buf/bitstring>> = Buf0,
+    decode_fragmented_1(Buf, Unit, Res).
+
+decode_fragmented_1(<<0:1,N:7,Buf0/bitstring>>, Unit, Res) ->
+    Sz = N*Unit,
+    <<S:Sz/bitstring,Buf/bitstring>> = Buf0,
+    {<<Res/bitstring,S/bitstring>>,Buf};
+decode_fragmented_1(<<1:1,0:1,N:14,Buf0/bitstring>>, Unit, Res) ->
+    Sz = N*Unit,
+    <<S:Sz/bitstring,Buf/bitstring>> = Buf0,
+    {<<Res/bitstring,S/bitstring>>,Buf};
+decode_fragmented_1(<<1:1,1:1,SegSz0:6,Buf0/bitstring>>, Unit, Res0) ->
+    SegSz = SegSz0 * Unit * ?'16K',
+    <<Frag:SegSz/bitstring,Buf/bitstring>> = Buf0,
+    Res = <<Res0/bitstring,Frag/bitstring>>,
+    decode_fragmented_1(Buf, Unit, Res).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

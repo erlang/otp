@@ -371,13 +371,78 @@ octet_string(Rules) ->
 		  ok
 	  end,
 
-
+    fragmented_octet_string(Rules),
     ok.
     
+fragmented_octet_string(Erules) ->
+    K16 = 1 bsl 14,
+    K32 = K16 + K16,
+    K48 = K32 + K16,
+    K64 = K48 + K16,
+    Lens = [0,1,14,15,16,17,127,128,
+	    K16-1,K16,K16+1,K16+(1 bsl 7)-1,K16+(1 bsl 7),K16+(1 bsl 7)+1,
+	    K32-1,K32,K32+1,K32+(1 bsl 7)-1,K32+(1 bsl 7),K32+(1 bsl 7)+1,
+	    K48-1,K48,K48+1,K48+(1 bsl 7)-1,K48+(1 bsl 7),K48+(1 bsl 7)+1,
+	    K64-1,K64,K64+1,K64+(1 bsl 7)-1,K64+(1 bsl 7),K64+(1 bsl 7)+1,
+	    K64+K16-1,K64+K16,K64+K16+1],
+    Types = ['Os','OsFrag'],
+    [fragmented_octet_string(Erules, Types, L) || L <- Lens],
+    fragmented_octet_string(Erules, ['FixedOs65536'], 65536),
+    fragmented_octet_string(Erules, ['FixedOs65537'], 65537),
+
+    %% Make sure that octet alignment works.
+    roundtrip('OsAlignment',
+	      {'OsAlignment',false,make_value(70000),true,make_value(66666),
+	       false,make_value(65536),42}),
+    roundtrip('OsAlignment',
+	      {'OsAlignment',false,make_value(0),true,make_value(0),
+	       false,make_value(65536),42}),
+    ok.
+
+fragmented_octet_string(Erules, Types, L) ->
+    Value = make_value(L),
+    [begin
+	 Encoded = enc_frag(Erules, Type, Value),
+	 {ok,Value} = 'PrimStrings':decode(Type, Encoded)
+     end || Type <- Types],
+    ok.
+
+enc_frag(Erules, Type, Value) ->
+    {ok,Encoded} = 'PrimStrings':encode(Type, Value),
+    case Erules of
+	ber ->
+	    Encoded;
+	_ ->
+	    %% Validate encoding with our own encoder.
+	    Encoded = enc_frag_1(<<>>, list_to_binary(Value))
+    end.
+
+enc_frag_1(Res, Bin0) ->
+    K16 = 1 bsl 14,
+    Sz = byte_size(Bin0),
+    if
+	Sz >= K16 ->
+	    F = min(Sz div K16, 4),
+	    FragSize = F * K16,
+	    <<Frag:FragSize/binary-unit:8,Bin/binary>> = Bin0,
+	    enc_frag_1(<<Res/binary,3:2,F:6,Frag/binary>>, Bin);
+	Sz >= 128 ->
+	    <<Res/binary,1:1,0:1,Sz:14,Bin0/binary>>;
+	true ->
+	    <<Res/binary,0:1,Sz:7,Bin0/binary>>
+    end.
+
+make_value(L) ->
+    make_value(L, 0, []).
+
+make_value(0, _, Acc) ->
+    Acc;
+make_value(N, Byte, Acc) when Byte =< 255 ->
+    make_value(N-1, Byte+7, [Byte|Acc]);
+make_value(N, Byte, Acc) ->
+    make_value(N, Byte band 16#FF, Acc).
 
 
-
-		       
 numeric_string(Rules) ->
 
     %%==========================================================

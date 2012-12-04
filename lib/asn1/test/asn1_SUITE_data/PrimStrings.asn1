@@ -55,6 +55,19 @@ BS1024 ::= BIT STRING (SIZE (1024))
   OsExpCon ::= [60] EXPLICIT OCTET STRING
   OsExpPri ::= [PRIVATE 61] EXPLICIT  OCTET STRING
   OsExpApp ::= [APPLICATION 62] EXPLICIT OCTET STRING
+  OsFrag ::= OCTET STRING (SIZE (0..100000))
+  FixedOs65536 ::= OCTET STRING (SIZE (65536))
+  FixedOs65537 ::= OCTET STRING (SIZE (65537))
+
+  OsAlignment ::= SEQUENCE {
+    b1 BOOLEAN,
+    s1 Os,
+    b2 BOOLEAN,
+    s2 OsFrag,
+    b3 BOOLEAN,
+    s3 FixedOs65536,
+    i INTEGER (0..63)
+  }
 
   Ns ::= NumericString
   NsCon ::= [70] NumericString
