@@ -104,7 +104,7 @@ endif
 
 ERL_COMPILE_FLAGS += \
 	+'{parse_transform,sys_pre_attributes}' \
-	+'{attribute,insert,app_vsn,$(APP_VSN)}' \
+	+'{attribute,insert,app_vsn,"$(APP_VSN)"}' \
 	+warn_export_vars \
 	+warn_unused_vars \
 	-pa $(ABS_EBIN) \
@@ -122,6 +122,12 @@ gen/diameter_gen_%.erl gen/diameter_gen_%.hrl: dict/%.dia
 	$(dia_verbose)../bin/diameterc -o gen -i $(EBIN) $<
 
 opt: $(TARGET_FILES)
+
+# Build unofficial patches with some degree of traceability. Refuse to
+# build if there are diffs from HEAD since that defeats the purpose.
+patch:
+	git diff --exit-code HEAD
+	$(MAKE) opt PRE_VSN="-$(shell git rev-list --max-count=1 HEAD | cut -c 1-8)"
 
 debug:
 	@$(MAKE) TYPE=debug opt
@@ -267,7 +273,7 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 .PHONY: debug opt release_docs_spec release_spec
 .PHONY: $(TARGET_DIRS:%/=%) $(TARGET_DIRS:%/=release_src_%)
 .PHONY: $(EXAMPLE_DIRS:%/=release_examples_%)
-.PHONY: plt dialyze
+.PHONY: plt dialyze patch
 
 # Keep intermediate files.
 .SECONDARY: $(DICT_ERLS) $(DICT_HRLS) gen/$(DICT_YRL:%=%.erl)
