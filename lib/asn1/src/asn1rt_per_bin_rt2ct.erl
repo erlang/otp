@@ -1312,19 +1312,55 @@ encode_octet_string(SZ={_,_},false,Val) ->
 %    [encode_length(SZ,length(Val)),align,
 %	     {octets,Val}];
     Len = length(Val),
-    [encode_length(SZ,Len),2,
-     octets_to_complete(Len,Val)];
+    try
+	[encode_length(SZ,Len),2,
+	 octets_to_complete(Len,Val)]
+    catch
+	exit:{error,{asn1,{encode_length,_}}} ->
+	    encode_fragmented_octet_string(Val)
+    end;
 encode_octet_string(SZ,false,Val) when is_list(SZ) ->
     Len = length(Val),
-    [encode_length({hd(SZ),lists:max(SZ)},Len),2,
-     octets_to_complete(Len,Val)];
+    try
+	[encode_length({hd(SZ),lists:max(SZ)},Len),2,
+	 octets_to_complete(Len,Val)]
+    catch
+	exit:{error,{asn1,{encode_length,_}}} ->
+	    encode_fragmented_octet_string(Val)
+    end;
+encode_octet_string(Sv,false,Val) when is_integer(Sv) ->
+    encode_fragmented_octet_string(Val);
 encode_octet_string(no,false,Val) ->
     Len = length(Val),
-    [encode_length(undefined,Len),2,
-     octets_to_complete(Len,Val)];
+    try
+	[encode_length(undefined,Len),2,
+	 octets_to_complete(Len,Val)]
+    catch
+	exit:{error,{asn1,{encode_length,_}}} ->
+	    encode_fragmented_octet_string(Val)
+    end;
 encode_octet_string(C,_,_) ->
     exit({error,{not_implemented,C}}).
 
+encode_fragmented_octet_string(Val) ->
+    Bin = iolist_to_binary(Val),
+    efos_1(Bin).
+
+efos_1(<<B1:16#C000/binary,B2:16#4000/binary,T/binary>>) ->
+    [20,1,<<3:2,4:6>>,
+     octets_to_complete(16#C000, B1),
+     octets_to_complete(16#4000, B2)|efos_1(T)];
+efos_1(<<B:16#C000/binary,T/binary>>) ->
+    [20,1,<<3:2,3:6>>,octets_to_complete(16#C000, B)|efos_1(T)];
+efos_1(<<B:16#8000/binary,T/binary>>) ->
+    [20,1,<<3:2,2:6>>,octets_to_complete(16#8000, B)|efos_1(T)];
+efos_1(<<B:16#4000/binary,T/binary>>) ->
+    [20,1,<<3:2,1:6>>,octets_to_complete(16#4000, B)|efos_1(T)];
+efos_1(<<>>) ->
+    [20,1,0];
+efos_1(<<B/bitstring>>) ->
+    Len = byte_size(B),
+    [encode_length(undefined, Len),octets_to_complete(Len, B)].
 
 decode_octet_string(Bytes,Range) ->
     decode_octet_string(Bytes,Range,false).

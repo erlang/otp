@@ -582,7 +582,7 @@ encode_length(undefined,Len) -> % un-constrained
 	Len < 16384 ->
 	    <<2:2,Len:14>>;
 	true  -> % should be able to endode length >= 16384
-	    exit({error,{asn1,{encode_length,{nyi,above_16k}}}})
+	    error({error,{asn1,{encode_length,{nyi,above_16k}}}})
     end;
 
 encode_length({0,'MAX'},Len) ->
@@ -1052,15 +1052,52 @@ encode_octet_string(C,Val) ->
 	    list_to_binary(Val);
 	2 ->
 	    list_to_binary(Val);
-	Sv when Sv =<65535, Sv == length(Val) -> % fixed length
-	    list_to_binary(Val);
-	VR = {_,_}  ->
-	    [encode_length(VR,length(Val)),list_to_binary(Val)];
+	{_,_}=VR  ->
+	    try
+		[encode_length(VR, length(Val)),list_to_binary(Val)]
+	    catch
+		error:{error,{asn1,{encode_length,_}}} ->
+		    encode_fragmented_octet_string(Val)
+	    end;
+	Sv when is_integer(Sv), Sv =:= length(Val) -> % fixed length
+	    if
+		Sv =< 65535 ->
+		    list_to_binary(Val);
+		true ->
+		    encode_fragmented_octet_string(Val)
+	    end;
 	Sv when is_list(Sv) ->
-	    [encode_length({hd(Sv),lists:max(Sv)},length(Val)),list_to_binary(Val)];
+	    try
+		[encode_length({hd(Sv),lists:max(Sv)},
+			       length(Val)),list_to_binary(Val)]
+	    catch
+		error:{error,{asn1,{encode_length,_}}} ->
+		    encode_fragmented_octet_string(Val)
+	    end;
 	no  ->
-	    [encode_length(undefined,length(Val)),list_to_binary(Val)]
+	    try
+		[encode_length(undefined, length(Val)),list_to_binary(Val)]
+	    catch
+		error:{error,{asn1,{encode_length,_}}} ->
+		    encode_fragmented_octet_string(Val)
+	    end
     end.
+
+encode_fragmented_octet_string(Val) ->
+    Bin = list_to_binary(Val),
+    efos_1(Bin).
+
+efos_1(<<B:16#10000/binary,T/binary>>) ->
+    [<<3:2,4:6>>,B|efos_1(T)];
+efos_1(<<B:16#C000/binary,T/binary>>) ->
+    [<<3:2,3:6>>,B|efos_1(T)];
+efos_1(<<B:16#8000/binary,T/binary>>) ->
+    [<<3:2,2:6>>,B|efos_1(T)];
+efos_1(<<B:16#4000/binary,T/binary>>) ->
+    [<<3:2,1:6>>,B|efos_1(T)];
+efos_1(<<B/bitstring>>) ->
+    Len = byte_size(B),
+    [encode_length(undefined, Len),B].
 
 decode_octet_string(Bytes,C) ->
     decode_octet_string1(Bytes,get_constraint(C,'SizeConstraint')).
