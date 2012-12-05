@@ -118,15 +118,15 @@ fun_spawn(Fun) ->
 %% (unclear if this test case will actually prove anything on
 %% a modern computer with lots of memory).
 spawn_with_binaries(Config) when is_list(Config) ->
-    ?line L = lists:duplicate(2048, 42),
-    ?line TwoMeg = lists:duplicate(1024, L),
-    ?line Fun = fun() -> spawn(?MODULE, binary_owner, [list_to_binary(TwoMeg)]),
+    L = lists:duplicate(2048, 42),
+    TwoMeg = lists:duplicate(1024, L),
+    Fun = fun() -> spawn(?MODULE, binary_owner, [list_to_binary(TwoMeg)]),
 			 receive after 1 -> ok end end,
-    ?line Iter = case test_server:purify_is_running() of
+    Iter = case test_server:purify_is_running() of
 		     true -> 10;
 		     false -> 150
 		 end,
-    ?line test_server:do_times(Iter, Fun),
+    test_server:do_times(Iter, Fun),
     ok.
 
 binary_owner(Bin) when is_binary(Bin) ->
@@ -134,87 +134,87 @@ binary_owner(Bin) when is_binary(Bin) ->
 
 %% Tests exit/1 with a big message.
 t_exit_1(Config) when is_list(Config) ->
-    ?line start_spawner(),
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
-    ?line process_flag(trap_exit, true),
-    ?line test_server:do_times(10, fun t_exit_1/0),
-    ?line test_server:timetrap_cancel(Dog),
-    ?line stop_spawner(),
+    start_spawner(),
+    Dog = test_server:timetrap(test_server:seconds(20)),
+    process_flag(trap_exit, true),
+    test_server:do_times(10, fun t_exit_1/0),
+    test_server:timetrap_cancel(Dog),
+    stop_spawner(),
     ok.
 
 t_exit_1() ->
-    ?line Pid = fun_spawn(fun() -> exit(kb_128()) end),
-    ?line Garbage = kb_128(),
-    ?line receive
+    Pid = fun_spawn(fun() -> exit(kb_128()) end),
+    Garbage = kb_128(),
+    receive
 	      {'EXIT', Pid, Garbage} -> ok
 	  end.
 
 
 %% Tests exit/2 with a lot of data in the exit message.
 t_exit_2_other(Config) when is_list(Config) ->
-    ?line start_spawner(),
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
-    ?line process_flag(trap_exit, true),
-    ?line test_server:do_times(10, fun t_exit_2_other/0),
-    ?line test_server:timetrap_cancel(Dog),
-    ?line stop_spawner(),
+    start_spawner(),
+    Dog = test_server:timetrap(test_server:seconds(20)),
+    process_flag(trap_exit, true),
+    test_server:do_times(10, fun t_exit_2_other/0),
+    test_server:timetrap_cancel(Dog),
+    stop_spawner(),
     ok.
 
 t_exit_2_other() ->
-    ?line Pid = fun_spawn(fun() -> receive x -> ok end end),
-    ?line Garbage = kb_128(),
-    ?line exit(Pid, Garbage),
-    ?line receive
+    Pid = fun_spawn(fun() -> receive x -> ok end end),
+    Garbage = kb_128(),
+    exit(Pid, Garbage),
+    receive
 	      {'EXIT', Pid, Garbage} -> ok
 	  end.
 
 %% Tests that exit(Pid, normal) does not kill another process.;
 t_exit_2_other_normal(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
-    ?line process_flag(trap_exit, true),
-    ?line Pid = fun_spawn(fun() -> receive x -> ok end end),
-    ?line exit(Pid, normal),
-    ?line receive
+    Dog = test_server:timetrap(test_server:seconds(20)),
+    process_flag(trap_exit, true),
+    Pid = fun_spawn(fun() -> receive x -> ok end end),
+    exit(Pid, normal),
+    receive
 	      {'EXIT', Pid, Reason} ->
-		  ?line test_server:fail({process_died, Reason})
+		  test_server:fail({process_died, Reason})
 	  after 1000 ->
 		  ok
 	  end,
-    ?line case process_info(Pid) of
+    case process_info(Pid) of
 	      undefined ->
 		  test_server:fail(process_died_on_normal);
 	      List when is_list(List) ->
 		  ok
 	  end,
     exit(Pid, kill),
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that we can trap an exit message sent with exit/2 from
 %% the same process.
 self_exit(Config) when is_list(Config) ->
-    ?line start_spawner(),
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line process_flag(trap_exit, true),
-    ?line test_server:do_times(200, fun self_exit/0),
-    ?line test_server:timetrap_cancel(Dog),
-    ?line stop_spawner(),
+    start_spawner(),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    process_flag(trap_exit, true),
+    test_server:do_times(200, fun self_exit/0),
+    test_server:timetrap_cancel(Dog),
+    stop_spawner(),
     ok.
 
 self_exit() ->
-    ?line Garbage = eight_kb(),
-    ?line P = self(),
-    ?line true = exit(P, Garbage),
-    ?line receive
+    Garbage = eight_kb(),
+    P = self(),
+    true = exit(P, Garbage),
+    receive
 	      {'EXIT', P, Garbage} -> ok
 	  end.
 
 %% Tests exit(self(), normal) is equivalent to exit(normal) for a process
 %% that doesn't trap exits.
 normal_suicide_exit(Config) when is_list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line Pid = fun_spawn(fun() -> exit(self(), normal) end),
-    ?line receive
+    process_flag(trap_exit, true),
+    Pid = fun_spawn(fun() -> exit(self(), normal) end),
+    receive
 	      {'EXIT', Pid, normal} -> ok;
 	      Other -> test_server:fail({bad_message, Other})
 	  end.
@@ -222,19 +222,19 @@ normal_suicide_exit(Config) when is_list(Config) ->
 %% Tests exit(self(), Term) is equivalent to exit(Term) for a process
 %% that doesn't trap exits.";
 abnormal_suicide_exit(Config) when is_list(Config) ->
-    ?line Garbage = eight_kb(),
-    ?line process_flag(trap_exit, true),
-    ?line Pid = fun_spawn(fun() -> exit(self(), Garbage) end),
-    ?line receive
+    Garbage = eight_kb(),
+    process_flag(trap_exit, true),
+    Pid = fun_spawn(fun() -> exit(self(), Garbage) end),
+    receive
 	      {'EXIT', Pid, Garbage} -> ok;
 	      Other -> test_server:fail({bad_message, Other})
 	  end.
 
 %% Tests that exit(self(), die) cannot be catched.
 t_exit_2_catch(Config) when is_list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line Pid = fun_spawn(fun() -> catch exit(self(), die) end),
-    ?line receive
+    process_flag(trap_exit, true),
+    Pid = fun_spawn(fun() -> catch exit(self(), die) end),
+    receive
 	      {'EXIT', Pid, normal} ->
 		  test_server:fail(catch_worked);
 	      {'EXIT', Pid, die} ->
@@ -246,29 +246,29 @@ t_exit_2_catch(Config) when is_list(Config) ->
 %% Tests trapping of an 'EXIT' message generated by a bad argument to
 %% the abs/1 bif.  The 'EXIT' message will intentionally be very big.
 trap_exit_badarg(Config) when is_list(Config) ->
-    ?line start_spawner(),
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line process_flag(trap_exit, true),
-    ?line test_server:do_times(10, fun trap_exit_badarg/0),
-    ?line test_server:timetrap_cancel(Dog),
-    ?line stop_spawner(),
+    start_spawner(),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    process_flag(trap_exit, true),
+    test_server:do_times(10, fun trap_exit_badarg/0),
+    test_server:timetrap_cancel(Dog),
+    stop_spawner(),
     ok.
 
 trap_exit_badarg() ->
-    ?line Pid = fun_spawn(fun() -> bad_guy(kb_128()) end),
-    ?line Garbage = kb_128(),
-    ?line receive
+    Pid = fun_spawn(fun() -> bad_guy(kb_128()) end),
+    Garbage = kb_128(),
+    receive
 	      {'EXIT',Pid,{badarg,[{erlang,abs,[Garbage],Loc1},
 				   {?MODULE,bad_guy,1,Loc2}|_]}}
 	      when is_list(Loc1), is_list(Loc2) ->
 		  ok;
 	      Other ->
-		  ?line ok = io:format("Bad EXIT message: ~P", [Other, 30]),
-		  ?line test_server:fail(bad_exit_message)
+		  ok = io:format("Bad EXIT message: ~P", [Other, 30]),
+		  test_server:fail(bad_exit_message)
 	  end.
 
 bad_guy(Arg) ->
-    ?line abs(Arg).
+    abs(Arg).
 
 
 kb_128() ->
@@ -281,11 +281,11 @@ kb_128() ->
 
 eight_kb() ->
     B64 = lists:seq(1, 64),
-    ?line B512 = {<<1>>,B64,<<2,3>>,B64,make_unaligned_sub_binary(<<4,5,6,7,8,9>>),
+    B512 = {<<1>>,B64,<<2,3>>,B64,make_unaligned_sub_binary(<<4,5,6,7,8,9>>),
 		  B64,make_sub_binary([1,2,3,4,5,6]),
 		  B64,make_sub_binary(lists:seq(1, ?heap_binary_size+1)),
 		  B64,B64,B64,B64,big_binary()},
-    ?line lists:duplicate(8, {B512,B512}).
+    lists:duplicate(8, {B512,B512}).
 
 big_binary() ->
     big_binary(10, [42]).
@@ -296,19 +296,19 @@ big_binary(N, Acc) ->
 
 %% Test receiving an EXIT message when spawning a BIF with bad arguments.
 trap_exit_badarg_in_bif(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line process_flag(trap_exit, true),
-    ?line test_server:do_times(10, fun trap_exit_badarg_bif/0),
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    process_flag(trap_exit, true),
+    test_server:do_times(10, fun trap_exit_badarg_bif/0),
+    test_server:timetrap_cancel(Dog),
     ok.
     
 trap_exit_badarg_bif() ->
-    ?line Pid = spawn_link(erlang, node, [1]),
-    ?line receive
+    Pid = spawn_link(erlang, node, [1]),
+    receive
 	      {'EXIT', Pid, {badarg, _}} ->
 		  ok;
 	      Other ->
-		  ?line test_server:fail({unexpected, Other})
+		  test_server:fail({unexpected, Other})
 	  end.
 
 %% The following sequences of events have crasched Beam.
@@ -321,27 +321,27 @@ trap_exit_badarg_bif() ->
 %% 3) The process will crash the next time it executes 'receive'.
 
 exit_and_timeout(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
+    Dog = test_server:timetrap(test_server:seconds(20)),
 
-    ?line process_flag(trap_exit, true),
-    ?line Parent = self(),
-    ?line Low = fun_spawn(fun() -> eat_low(Parent) end),
-    ?line High = fun_spawn(fun() -> eat_high(Low) end),
-    ?line eat_wait_for(Low, High),
+    process_flag(trap_exit, true),
+    Parent = self(),
+    Low = fun_spawn(fun() -> eat_low(Parent) end),
+    High = fun_spawn(fun() -> eat_high(Low) end),
+    eat_wait_for(Low, High),
 
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 
 eat_wait_for(Low, High) ->
-    ?line receive
-	      {'EXIT', Low, {you, are, dead}} ->
-		  ok;
-	      {'EXIT', High, normal} ->
-		  eat_wait_for(Low, High);
-	      Other ->
-		  test_server:fail({bad_message, Other})
-	  end.
+    receive
+	{'EXIT', Low, {you, are, dead}} ->
+	    ok;
+	{'EXIT', High, normal} ->
+	    eat_wait_for(Low, High);
+	Other ->
+	    test_server:fail({bad_message, Other})
+    end.
 
 eat_low(_Parent) ->
     receive
@@ -374,27 +374,27 @@ loop(_, _) ->
 %% Tries to send two different exit messages to a process.
 %% (The second one should be ignored.)
 exit_twice(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
+    Dog = test_server:timetrap(test_server:seconds(20)),
 
-    ?line process_flag(trap_exit, true),
-    ?line Low = fun_spawn(fun etwice_low/0),
-    ?line High = fun_spawn(fun() -> etwice_high(Low) end),
-    ?line etwice_wait_for(Low, High),
+    process_flag(trap_exit, true),
+    Low = fun_spawn(fun etwice_low/0),
+    High = fun_spawn(fun() -> etwice_high(Low) end),
+    etwice_wait_for(Low, High),
 
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 etwice_wait_for(Low, High) ->
-    ?line receive
-	      {'EXIT', Low, first} ->
-		  ok;
-	      {'EXIT', Low, Other} ->
-		  test_server:fail({wrong_exit_reason, Other});
-	      {'EXIT', High, normal} ->
-		  etwice_wait_for(Low, High);
-	      Other ->
-		  test_server:fail({bad_message, Other})
-	  end.
+    receive
+	{'EXIT', Low, first} ->
+	    ok;
+	{'EXIT', Low, Other} ->
+	    test_server:fail({wrong_exit_reason, Other});
+	{'EXIT', High, normal} ->
+	    etwice_wait_for(Low, High);
+	Other ->
+	    test_server:fail({bad_message, Other})
+    end.
 
 etwice_low() ->
     etwice_low().
@@ -406,15 +406,15 @@ etwice_high(Low) ->
 
 %% Tests the process_info/2 BIF.
 t_process_info(Config) when is_list(Config) ->
-    ?line [] = process_info(self(), registered_name),
-    ?line register(my_name, self()),
-    ?line {registered_name, my_name} = process_info(self(), registered_name),
-    ?line {status, running} = process_info(self(), status),
-    ?line {min_heap_size, 233} = process_info(self(), min_heap_size),
+    [] = process_info(self(), registered_name),
+    register(my_name, self()),
+    {registered_name, my_name} = process_info(self(), registered_name),
+    {status, running} = process_info(self(), status),
+    {min_heap_size, 233} = process_info(self(), min_heap_size),
     {min_bin_vheap_size,46422} = process_info(self(), min_bin_vheap_size),
-    ?line {current_function,{?MODULE,t_process_info,1}} =
+    {current_function,{?MODULE,t_process_info,1}} =
 	process_info(self(), current_function),
-    ?line {current_function,{?MODULE,t_process_info,1}} =
+    {current_function,{?MODULE,t_process_info,1}} =
 	apply(erlang, process_info, [self(),current_function]),
 
     %% current_location and current_stacktrace
@@ -425,9 +425,9 @@ t_process_info(Config) when is_list(Config) ->
     verify_loc(Line2, Res2),
     pi_stacktrace([{?MODULE,t_process_info,1,?LINE}]),
 
-    ?line Gleader = group_leader(),
-    ?line {group_leader, Gleader} = process_info(self(), group_leader),
-    ?line {'EXIT',{badarg,_Info}} = (catch process_info('not_a_pid')),
+    Gleader = group_leader(),
+    {group_leader, Gleader} = process_info(self(), group_leader),
+    {'EXIT',{badarg,_Info}} = (catch process_info('not_a_pid')),
     ok.
 
 pi_stacktrace(Expected0) ->
@@ -509,50 +509,50 @@ process_info_looper(Parent) ->
 %% Tests the process_info/1 BIF on another process with messages.
 process_info_other_msg(Config) when is_list(Config) ->
     Self = self(),
-    ?line Pid = spawn_link(fun() -> other_process(Self) end),
+    Pid = spawn_link(fun() -> other_process(Self) end),
     receive
 	{go_ahead,Pid} -> ok
     end,
 
-    ?line Own = {my,own,message},
+    Own = {my,own,message},
 
-    ?line {messages,[Own]} = process_info(Pid, messages),
+    {messages,[Own]} = process_info(Pid, messages),
     
-    ?line Garbage = kb_128(),
-    ?line MsgA = {a,Garbage},
-    ?line MsgB = {b,Garbage},
-    ?line MsgC = {c,Garbage},
-    ?line MsgD = {d,Garbage},
-    ?line MsgE = {e,Garbage},
+    Garbage = kb_128(),
+    MsgA = {a,Garbage},
+    MsgB = {b,Garbage},
+    MsgC = {c,Garbage},
+    MsgD = {d,Garbage},
+    MsgE = {e,Garbage},
 
-    ?line Pid ! MsgA,
-    ?line {messages,[Own,MsgA]} = process_info(Pid, messages),
-    ?line Pid ! MsgB,
-    ?line {messages,[Own,MsgA,MsgB]} = process_info(Pid, messages),
-    ?line Pid ! MsgC,
-    ?line {messages,[Own,MsgA,MsgB,MsgC]} = process_info(Pid, messages),
-    ?line Pid ! MsgD,
-    ?line {messages,[Own,MsgA,MsgB,MsgC,MsgD]} = process_info(Pid, messages),
-    ?line Pid ! MsgE,
-    ?line {messages,[Own,MsgA,MsgB,MsgC,MsgD,MsgE]=All} = process_info(Pid, messages),
-    ?line {memory,BytesOther} = process_info(Pid, memory),
-    ?line {memory,BytesSelf} = process_info(self(), memory),
+    Pid ! MsgA,
+    {messages,[Own,MsgA]} = process_info(Pid, messages),
+    Pid ! MsgB,
+    {messages,[Own,MsgA,MsgB]} = process_info(Pid, messages),
+    Pid ! MsgC,
+    {messages,[Own,MsgA,MsgB,MsgC]} = process_info(Pid, messages),
+    Pid ! MsgD,
+    {messages,[Own,MsgA,MsgB,MsgC,MsgD]} = process_info(Pid, messages),
+    Pid ! MsgE,
+    {messages,[Own,MsgA,MsgB,MsgC,MsgD,MsgE]=All} = process_info(Pid, messages),
+    {memory,BytesOther} = process_info(Pid, memory),
+    {memory,BytesSelf} = process_info(self(), memory),
 
     io:format("Memory ~p: ~p\n", [Pid,BytesOther]),
     io:format("Memory ~p (self): ~p\n", [self(),BytesSelf]),
 
     [Own,MsgA,MsgB,MsgC,MsgD,MsgE] = All,
 
-    ?line Pid ! {self(),empty},
-    ?line receive
+    Pid ! {self(),empty},
+    receive
 	      empty -> ok
 	  end,
-    ?line {messages,[]} = process_info(Pid, messages),
+    {messages,[]} = process_info(Pid, messages),
 
-    ?line {min_heap_size, 233} = process_info(Pid, min_heap_size),
-    ?line {min_bin_vheap_size, 46368} = process_info(Pid, min_bin_vheap_size),
+    {min_heap_size, 233} = process_info(Pid, min_heap_size),
+    {min_bin_vheap_size, 46368} = process_info(Pid, min_bin_vheap_size),
 
-    ?line Pid ! stop,
+    Pid ! stop,
     ok.
 
 process_info_other_dist_msg(Config) when is_list(Config) ->
@@ -560,52 +560,51 @@ process_info_other_dist_msg(Config) when is_list(Config) ->
     %% Check that process_info can handle messages that have not been
     %% decoded yet.
     %%
-    ?line {ok, Node} = start_node(Config),
-    ?line Self = self(),
-    ?line Pid = spawn_link(fun() -> other_process(Self) end),
-    ?line receive {go_ahead,Pid} -> ok end,
+    {ok, Node} = start_node(Config),
+    Self = self(),
+    Pid = spawn_link(fun() -> other_process(Self) end),
+    receive {go_ahead,Pid} -> ok end,
 
-    ?line Own = {my,own,message},
+    Own = {my,own,message},
 
-    ?line {messages,[Own]} = process_info(Pid, messages),
-    ?line Garbage = kb_128(),
-    ?line MsgA = {a,self(),Garbage},
-    ?line MsgB = {b,self(),Garbage},
-    ?line MsgC = {c,self(),Garbage},
-    ?line MsgD = {d,self(),Garbage},
-    ?line MsgE = {e,self(),Garbage},
+    {messages,[Own]} = process_info(Pid, messages),
+    Garbage = kb_128(),
+    MsgA = {a,self(),Garbage},
+    MsgB = {b,self(),Garbage},
+    MsgC = {c,self(),Garbage},
+    MsgD = {d,self(),Garbage},
+    MsgE = {e,self(),Garbage},
 
     %% We don't want the other process to decode messages itself
     %% therefore we suspend it.
-    ?line true =  erlang:suspend_process(Pid),
-    ?line spawn_link(Node, fun () ->
-				   Pid ! MsgA,
-				   Pid ! MsgB,
-				   Pid ! MsgC,
-				   Self ! check_abc
-			   end),
-    ?line receive check_abc -> ok end,
-    ?line [{status,suspended},
-	   {messages,[Own,MsgA,MsgB,MsgC]},
-	   {status,suspended}]= process_info(Pid, [status,messages,status]),
-    ?line spawn_link(Node, fun () ->
-				   Pid ! MsgD,
-				   Pid ! MsgE,
-				   Self ! check_de
-			   end),
-    ?line receive check_de -> ok end,
-    ?line {messages,[Own,MsgA,MsgB,MsgC,MsgD,MsgE]=All}
-	= process_info(Pid, messages),
-    ?line true = erlang:resume_process(Pid),
-    ?line Pid ! {self(), get_all_messages},
-    ?line receive
+    true =  erlang:suspend_process(Pid),
+    spawn_link(Node, fun () ->
+		Pid  ! MsgA,
+		Pid  ! MsgB,
+		Pid  ! MsgC,
+		Self ! check_abc
+	end),
+    receive check_abc -> ok end,
+    [{status,suspended},
+	{messages,[Own,MsgA,MsgB,MsgC]},
+	{status,suspended}]= process_info(Pid, [status,messages,status]),
+    spawn_link(Node, fun () ->
+		Pid  ! MsgD,
+		Pid  ! MsgE,
+		Self ! check_de
+	end),
+    receive check_de -> ok end,
+    {messages,[Own,MsgA,MsgB,MsgC,MsgD,MsgE]=All} = process_info(Pid, messages),
+    true = erlang:resume_process(Pid),
+    Pid ! {self(), get_all_messages},
+    receive
 	      {all_messages, AllMsgs} ->
-		  ?line All = AllMsgs
+		  All = AllMsgs
 	  end,
-    ?line {messages,[]} = process_info(Pid, messages),
-    ?line Pid ! stop,
-    ?line stop_node(Node),
-    ?line ok.
+    {messages,[]} = process_info(Pid, messages),
+    Pid ! stop,
+    stop_node(Node),
+    ok.
     
 
 other_process(Parent) ->
@@ -652,38 +651,36 @@ process_info_2_list(doc) ->
 process_info_2_list(suite) ->
     [];
 process_info_2_list(Config) when is_list(Config) ->
-    ?line Proc = spawn(fun () ->
-			       receive after infinity -> ok end end),
+    Proc = spawn(fun () -> receive after infinity -> ok end end),
     register(process_SUITE_process_info_2_list1, self()),
     register(process_SUITE_process_info_2_list2, Proc),
-    ?line erts_debug:set_internal_state(available_internal_state,true),
-    ?line AllArgs = erts_debug:get_internal_state(process_info_args),
-    ?line A1 = lists:sort(AllArgs) ++ [status] ++ lists:reverse(AllArgs),
+    erts_debug:set_internal_state(available_internal_state,true),
+    AllArgs = erts_debug:get_internal_state(process_info_args),
+    A1 = lists:sort(AllArgs) ++ [status] ++ lists:reverse(AllArgs),
 
     %% Verify that argument is accepted as single atom
-    ?line lists:foreach(fun (A) ->
-				?line {A, _} = process_info(Proc, A),
-				?line {A, _} = process_info(self(), A)
-			end,
-			A1),
+    lists:foreach(fun (A) ->
+		{A, _} = process_info(Proc, A),
+		{A, _} = process_info(self(), A)
+	end, A1),
 
     %% Verify that order is preserved
-    ?line ok = chk_pi_order(process_info(self(), A1), A1),
-    ?line ok = chk_pi_order(process_info(Proc, A1), A1),
+    ok = chk_pi_order(process_info(self(), A1), A1),
+    ok = chk_pi_order(process_info(Proc, A1), A1),
 
     %% Small arg list
-    ?line A2 = [status, stack_size, trap_exit, priority],
-    ?line [{status, _}, {stack_size, _}, {trap_exit, _}, {priority, _}]
+    A2 = [status, stack_size, trap_exit, priority],
+    [{status, _}, {stack_size, _}, {trap_exit, _}, {priority, _}]
 	= process_info(Proc, A2),
-    ?line [{status, _}, {stack_size, _}, {trap_exit, _}, {priority, _}]
+    [{status, _}, {stack_size, _}, {trap_exit, _}, {priority, _}]
 	= process_info(self(), A2),
 
     %% Huge arg list (note values are shared)
-    ?line A3 = lists:duplicate(5000,backtrace),
-    ?line V3 = process_info(Proc, A3),
-    ?line 5000 = length(V3),
-    ?line lists:foreach(fun ({backtrace, _}) -> ok end, V3),
-    ?line ok.
+    A3 = lists:duplicate(5000,backtrace),
+    V3 = process_info(Proc, A3),
+    5000 = length(V3),
+    lists:foreach(fun ({backtrace, _}) -> ok end, V3),
+    ok.
     
 process_info_lock_reschedule(doc) ->
     [];
@@ -692,43 +689,37 @@ process_info_lock_reschedule(suite) ->
 process_info_lock_reschedule(Config) when is_list(Config) ->
     %% We need a process that is running and an item that requires
     %% process_info to take the main process lock.
-    ?line Target1 = spawn_link(fun tok_loop/0),
-    ?line Name1 = process_info_lock_reschedule_running,
-    ?line register(Name1, Target1),
-    ?line Target2 = spawn_link(fun () -> receive after infinity -> ok end end),
-    ?line Name2 = process_info_lock_reschedule_waiting,
-    ?line register(Name2, Target2),
-    ?line PI = fun(_) ->
-		       ?line erlang:yield(),
-		       ?line [{registered_name, Name1}]
-			   = process_info(Target1, [registered_name]),
-		       ?line [{registered_name, Name2}]
-			   = process_info(Target2, [registered_name]),
-		       ?line erlang:yield(),
-		       ?line {registered_name, Name1}
-			   = process_info(Target1, registered_name),
-		       ?line {registered_name, Name2}
-			   = process_info(Target2, registered_name),
-		       ?line erlang:yield(),
-		       ?line [{registered_name, Name1}| _]
-			   = process_info(Target1),
-		       ?line [{registered_name, Name2}| _]
-			   = process_info(Target2)
-	       end,
-    ?line lists:foreach(PI, lists:seq(1,1000)),
+    Target1 = spawn_link(fun tok_loop/0),
+    Name1 = process_info_lock_reschedule_running,
+    register(Name1, Target1),
+    Target2 = spawn_link(fun () -> receive after infinity -> ok end end),
+    Name2 = process_info_lock_reschedule_waiting,
+    register(Name2, Target2),
+    PI = fun(_) ->
+	    erlang:yield(),
+	    [{registered_name, Name1}] = process_info(Target1, [registered_name]),
+	    [{registered_name, Name2}] = process_info(Target2, [registered_name]),
+	    erlang:yield(),
+	    {registered_name, Name1} = process_info(Target1, registered_name),
+	    {registered_name, Name2} = process_info(Target2, registered_name),
+	    erlang:yield(),
+	    [{registered_name, Name1}| _] = process_info(Target1),
+	    [{registered_name, Name2}| _] = process_info(Target2)
+    end,
+    lists:foreach(PI, lists:seq(1,1000)),
     %% Make sure Target1 still is willing to "tok loop"
-    ?line case process_info(Target1, status) of
-	      {status, OkStatus} when OkStatus == runnable;
-				      OkStatus == running;
-				      OkStatus == garbage_collecting ->
-		  ?line unlink(Target1),
-		  ?line unlink(Target2),
-		  ?line exit(Target1, bang),
-		  ?line exit(Target2, bang),
-		  ?line OkStatus;
-	      {status, BadStatus} ->
-		  ?line ?t:fail(BadStatus)
-	  end.
+    case process_info(Target1, status) of
+	{status, OkStatus} when OkStatus == runnable;
+				OkStatus == running;
+				OkStatus == garbage_collecting ->
+	    unlink(Target1),
+	    unlink(Target2),
+	    exit(Target1, bang),
+	    exit(Target2, bang),
+	    OkStatus;
+	{status, BadStatus} ->
+	    ?t:fail(BadStatus)
+    end.
 
 pi_loop(_Name, _Pid, 0) ->
     ok;
@@ -741,50 +732,50 @@ process_info_lock_reschedule2(doc) ->
 process_info_lock_reschedule2(suite) ->
     [];
 process_info_lock_reschedule2(Config) when is_list(Config) ->
-    ?line Parent = self(),
-    ?line Fun = fun () ->
-			receive {go, Name, Pid} -> ok end,
-			pi_loop(Name, Pid, 10000),
-			Parent ! {done, self()},
-			receive after infinity -> ok end
-		end,
-    ?line P1 = spawn_link(Fun),
-    ?line N1 = process_info_lock_reschedule2_1,
-    ?line true = register(N1, P1),
-    ?line P2 = spawn_link(Fun),
-    ?line N2 = process_info_lock_reschedule2_2,
-    ?line true = register(N2, P2),
-    ?line P3 = spawn_link(Fun),
-    ?line N3 = process_info_lock_reschedule2_3,
-    ?line true = register(N3, P3),
-    ?line P4 = spawn_link(Fun),
-    ?line N4 = process_info_lock_reschedule2_4,
-    ?line true = register(N4, P4),
-    ?line P5 = spawn_link(Fun),
-    ?line N5 = process_info_lock_reschedule2_5,
-    ?line true = register(N5, P5),
-    ?line P6 = spawn_link(Fun),
-    ?line N6 = process_info_lock_reschedule2_6,
-    ?line true = register(N6, P6),
-    ?line P1 ! {go, N2, P2},
-    ?line P2 ! {go, N1, P1},
-    ?line P3 ! {go, N1, P1},
-    ?line P4 ! {go, N1, P1},
-    ?line P5 ! {go, N6, P6},
-    ?line P6 ! {go, N5, P5},
-    ?line receive {done, P1} -> ok end,
-    ?line receive {done, P2} -> ok end,
-    ?line receive {done, P3} -> ok end,
-    ?line receive {done, P4} -> ok end,
-    ?line receive {done, P5} -> ok end,
-    ?line receive {done, P6} -> ok end,
-    ?line unlink(P1), exit(P1, bang),
-    ?line unlink(P2), exit(P2, bang),
-    ?line unlink(P3), exit(P3, bang),
-    ?line unlink(P4), exit(P4, bang),
-    ?line unlink(P5), exit(P5, bang),
-    ?line unlink(P6), exit(P6, bang),
-    ?line ok.
+    Parent = self(),
+    Fun = fun () ->
+	    receive {go, Name, Pid} -> ok end,
+	    pi_loop(Name, Pid, 10000),
+	    Parent ! {done, self()},
+	    receive after infinity -> ok end
+    end,
+    P1 = spawn_link(Fun),
+    N1 = process_info_lock_reschedule2_1,
+    true = register(N1, P1),
+    P2 = spawn_link(Fun),
+    N2 = process_info_lock_reschedule2_2,
+    true = register(N2, P2),
+    P3 = spawn_link(Fun),
+    N3 = process_info_lock_reschedule2_3,
+    true = register(N3, P3),
+    P4 = spawn_link(Fun),
+    N4 = process_info_lock_reschedule2_4,
+    true = register(N4, P4),
+    P5 = spawn_link(Fun),
+    N5 = process_info_lock_reschedule2_5,
+    true = register(N5, P5),
+    P6 = spawn_link(Fun),
+    N6 = process_info_lock_reschedule2_6,
+    true = register(N6, P6),
+    P1 ! {go, N2, P2},
+    P2 ! {go, N1, P1},
+    P3 ! {go, N1, P1},
+    P4 ! {go, N1, P1},
+    P5 ! {go, N6, P6},
+    P6 ! {go, N5, P5},
+    receive {done, P1} -> ok end,
+    receive {done, P2} -> ok end,
+    receive {done, P3} -> ok end,
+    receive {done, P4} -> ok end,
+    receive {done, P5} -> ok end,
+    receive {done, P6} -> ok end,
+    unlink(P1), exit(P1, bang),
+    unlink(P2), exit(P2, bang),
+    unlink(P3), exit(P3, bang),
+    unlink(P4), exit(P4, bang),
+    unlink(P5), exit(P5, bang),
+    unlink(P6), exit(P6, bang),
+    ok.
 
 many_args(0,_B,_C,_D,_E,_F,_G,_H,_I,_J) ->
     ok;
@@ -802,120 +793,115 @@ process_info_lock_reschedule3(suite) ->
 process_info_lock_reschedule3(Config) when is_list(Config) ->
     %% We need a process that is running and an item that requires
     %% process_info to take the main process lock.
-    ?line Target1 = spawn_link(fun tok_loop/0),
-    ?line Name1 = process_info_lock_reschedule_running,
-    ?line register(Name1, Target1),
-    ?line Target2 = spawn_link(fun () -> receive after infinity -> ok end end),
-    ?line Name2 = process_info_lock_reschedule_waiting,
-    ?line register(Name2, Target2),
-    ?line PI = fun(N) ->
-		       case N rem 10 of
-			   0 -> erlang:yield();
-			   _ -> ok
-		       end,
-		       ?line do_pi_msg_len({proc, Target1},
-					   {arg, message_queue_len})
-	       end,
-    ?line many_args(100000,1,2,3,4,5,6,7,8,9),
-    ?line lists:foreach(PI, lists:seq(1,1000000)),
+    Target1 = spawn_link(fun tok_loop/0),
+    Name1 = process_info_lock_reschedule_running,
+    register(Name1, Target1),
+    Target2 = spawn_link(fun () -> receive after infinity -> ok end end),
+    Name2 = process_info_lock_reschedule_waiting,
+    register(Name2, Target2),
+    PI = fun(N) ->
+	    case N rem 10 of
+		0 -> erlang:yield();
+		_ -> ok
+	    end,
+	    do_pi_msg_len({proc, Target1},
+		{arg, message_queue_len})
+    end,
+    many_args(100000,1,2,3,4,5,6,7,8,9),
+    lists:foreach(PI, lists:seq(1,1000000)),
     %% Make sure Target1 still is willing to "tok loop"
-    ?line case process_info(Target1, status) of
+    case process_info(Target1, status) of
 	      {status, OkStatus} when OkStatus == runnable;
 				      OkStatus == running;
 				      OkStatus == garbage_collecting ->
-		  ?line unlink(Target1),
-		  ?line unlink(Target2),
-		  ?line exit(Target1, bang),
-		  ?line exit(Target2, bang),
-		  ?line OkStatus;
+		  unlink(Target1),
+		  unlink(Target2),
+		  exit(Target1, bang),
+		  exit(Target2, bang),
+		  OkStatus;
 	      {status, BadStatus} ->
-		  ?line ?t:fail(BadStatus)
+		  ?t:fail(BadStatus)
 	  end.
 
 process_status_exiting(Config) when is_list(Config) ->
     %% Make sure that erts_debug:get_internal_state({process_status,P})
     %% returns exiting if it is in status P_EXITING.
-    ?line erts_debug:set_internal_state(available_internal_state,true),
-    ?line Prio = process_flag(priority, max),
-    ?line P = spawn_opt(fun () -> receive after infinity -> ok end end,
+    erts_debug:set_internal_state(available_internal_state,true),
+    Prio = process_flag(priority, max),
+    P = spawn_opt(fun () -> receive after infinity -> ok end end,
 			[{priority, normal}]),
-    ?line erlang:yield(),
+    erlang:yield(),
     %% The tok_loop processes are here to make it hard for the exiting
     %% process to be scheduled in for exit...
-    ?line TokLoops = lists:map(fun (_) ->
-				       spawn_opt(fun tok_loop/0,
-						 [link,{priority, high}])
-			       end,
-			       lists:seq(1, erlang:system_info(schedulers_online))),
-    ?line exit(P, boom),
-    ?line wait_until(
-	    fun () ->
-		    exiting =:= erts_debug:get_internal_state({process_status,P})
-	    end),
-    ?line lists:foreach(fun (Tok) -> unlink(Tok), exit(Tok,bang) end, TokLoops),
-    ?line process_flag(priority, Prio),
-    ?line ok.
+    TokLoops = lists:map(fun (_) ->
+		spawn_opt(fun tok_loop/0,
+		    [link,{priority, high}])
+	end, lists:seq(1, erlang:system_info(schedulers_online))),
+    exit(P, boom),
+    wait_until(fun() ->
+		exiting =:= erts_debug:get_internal_state({process_status,P})
+	end),
+    lists:foreach(fun (Tok) -> unlink(Tok), exit(Tok,bang) end, TokLoops),
+    process_flag(priority, Prio),
+    ok.
 
 otp_4725(Config) when is_list(Config) ->
-    ?line Tester = self(),
-    ?line Ref1 = make_ref(),
-    ?line Pid1 = spawn_opt(fun () ->
-				   Tester ! {Ref1, process_info(self())},
-				   receive
-				       Ref1 -> bye
-				   end
-			   end,
-			   [link,
-			    {priority, max},
-			    {fullsweep_after, 600}]),
-    ?line receive
-	      {Ref1, ProcInfo1A} ->
-		  ?line ProcInfo1B = process_info(Pid1),
-		  ?line Pid1 ! Ref1,
-		  ?line check_proc_infos(ProcInfo1A, ProcInfo1B)
-	  end,
-    ?line Ref2 = make_ref(),
-    ?line Pid2 = spawn_opt(fun () ->
-				   Tester ! {Ref2, process_info(self())},
-				   receive
-				       Ref2 -> bye
-				   end
-			   end,
-			   []),
-    ?line receive
-	      {Ref2, ProcInfo2A} ->
-		  ?line ProcInfo2B = process_info(Pid2),
-		  ?line Pid2 ! Ref2,
-		  ?line check_proc_infos(ProcInfo2A, ProcInfo2B)
-	  end,
-    ?line ok.
+    Tester = self(),
+    Ref1 = make_ref(),
+    Pid1 = spawn_opt(fun () ->
+		Tester ! {Ref1, process_info(self())},
+		receive
+		    Ref1 -> bye
+		end
+	end, [link, {priority, max}, {fullsweep_after, 600}]),
+    receive
+	{Ref1, ProcInfo1A} ->
+	    ProcInfo1B = process_info(Pid1),
+	    Pid1 ! Ref1,
+	    check_proc_infos(ProcInfo1A, ProcInfo1B)
+    end,
+    Ref2 = make_ref(),
+    Pid2 = spawn_opt(fun () ->
+		Tester ! {Ref2, process_info(self())},
+		receive
+		    Ref2 -> bye
+		end
+	end,
+	[]),
+    receive
+	{Ref2, ProcInfo2A} ->
+	    ProcInfo2B = process_info(Pid2),
+	    Pid2 ! Ref2,
+	    check_proc_infos(ProcInfo2A, ProcInfo2B)
+    end,
+    ok.
 
 check_proc_infos(A, B) ->
-    ?line IC = lists:keysearch(initial_call, 1, A),
-    ?line IC = lists:keysearch(initial_call, 1, B),
+    IC = lists:keysearch(initial_call, 1, A),
+    IC = lists:keysearch(initial_call, 1, B),
 
-    ?line L = lists:keysearch(links, 1, A),
-    ?line L = lists:keysearch(links, 1, B),
+    L = lists:keysearch(links, 1, A),
+    L = lists:keysearch(links, 1, B),
 
-    ?line D = lists:keysearch(dictionary, 1, A),
-    ?line D = lists:keysearch(dictionary, 1, B),
+    D = lists:keysearch(dictionary, 1, A),
+    D = lists:keysearch(dictionary, 1, B),
 
-    ?line TE = lists:keysearch(trap_exit, 1, A),
-    ?line TE = lists:keysearch(trap_exit, 1, B),
+    TE = lists:keysearch(trap_exit, 1, A),
+    TE = lists:keysearch(trap_exit, 1, B),
 
-    ?line EH = lists:keysearch(error_handler, 1, A),
-    ?line EH = lists:keysearch(error_handler, 1, B),
+    EH = lists:keysearch(error_handler, 1, A),
+    EH = lists:keysearch(error_handler, 1, B),
 
-    ?line P = lists:keysearch(priority, 1, A),
-    ?line P = lists:keysearch(priority, 1, B),
+    P = lists:keysearch(priority, 1, A),
+    P = lists:keysearch(priority, 1, B),
 
-    ?line GL = lists:keysearch(group_leader, 1, A),
-    ?line GL = lists:keysearch(group_leader, 1, B),
+    GL = lists:keysearch(group_leader, 1, A),
+    GL = lists:keysearch(group_leader, 1, B),
 
-    ?line GC = lists:keysearch(garbage_collection, 1, A),
-    ?line GC = lists:keysearch(garbage_collection, 1, B),
+    GC = lists:keysearch(garbage_collection, 1, A),
+    GC = lists:keysearch(garbage_collection, 1, B),
 
-    ?line ok.
+    ok.
 
 
 %% Dummies.
@@ -928,18 +914,18 @@ stop_spawner() ->
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->
-    ?line erlang:garbage_collect(),
-    ?line receive after 1 -> ok end,		% Clear reductions.
-    ?line {reductions,R1} = process_info(self(), reductions),
-    ?line true = erlang:bump_reductions(100),
-    ?line {reductions,R2} = process_info(self(), reductions),
-    ?line case R2-R1 of
+    erlang:garbage_collect(),
+    receive after 1 -> ok end,		% Clear reductions.
+    {reductions,R1} = process_info(self(), reductions),
+    true = erlang:bump_reductions(100),
+    {reductions,R2} = process_info(self(), reductions),
+    case R2-R1 of
 	      Diff when Diff < 100 ->
-		  ?line ok = io:format("R1 = ~w, R2 = ~w", [R1, R2]),
-		  ?line test_server:fail({small_diff, Diff});
+		  ok = io:format("R1 = ~w, R2 = ~w", [R1, R2]),
+		  test_server:fail({small_diff, Diff});
 	      Diff when Diff > 110 ->
-		  ?line ok = io:format("R1 = ~w, R2 = ~w", [R1, R2]),
-		  ?line test_server:fail({big_diff, Diff});
+		  ok = io:format("R1 = ~w, R2 = ~w", [R1, R2]),
+		  test_server:fail({big_diff, Diff});
 	      Diff ->
 		  io:format("~p\n", [Diff]),
 		  ok
@@ -949,11 +935,11 @@ bump_reductions(Config) when is_list(Config) ->
     bump_big(R2, 16#08000000).
 
 bump_big(Prev, Limit) ->
-    ?line true = erlang:bump_reductions(100000), %Limited to CONTEXT_REDUCTIONS.
-    ?line case process_info(self(), reductions) of
+    true = erlang:bump_reductions(100000), %Limited to CONTEXT_REDUCTIONS.
+    case process_info(self(), reductions) of
 	      {reductions,Big} when is_integer(Big), Big > Limit ->
-		  ?line erlang:garbage_collect(),
-		  ?line io:format("~p\n", [Big]);
+		  erlang:garbage_collect(),
+		  io:format("~p\n", [Big]);
 	      {reductions,R} when is_integer(R), R > Prev ->
 		  bump_big(R, Limit)
 	  end,
@@ -964,34 +950,34 @@ bump_big(Prev, Limit) ->
 low_prio(Config) when is_list(Config) ->
     case erlang:system_info(schedulers_online) of
 	1 ->
-	    ?line ok = low_prio_test(Config);
+	    ok = low_prio_test(Config);
 	_ -> 
-	    ?line erlang:system_flag(multi_scheduling, block),
-	    ?line ok = low_prio_test(Config),
-	    ?line erlang:system_flag(multi_scheduling, unblock),
-	    ?line {comment,
+	    erlang:system_flag(multi_scheduling, block),
+	    ok = low_prio_test(Config),
+	    erlang:system_flag(multi_scheduling, unblock),
+	    {comment,
 		   "Test not written for SMP runtime system. "
 		   "Multi scheduling blocked during test."}
     end.
 
 low_prio_test(Config) when is_list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line S = spawn_link(?MODULE, prio_server, [0, 0]),
-    ?line PCs = spawn_prio_clients(S, erlang:system_info(schedulers_online)),
-    ?line timer:sleep(2000),
-    ?line lists:foreach(fun (P) -> exit(P, kill) end, PCs),
-    ?line S ! exit,
-    ?line receive {'EXIT', S, {A, B}} -> check_prio(A, B) end,
+    process_flag(trap_exit, true),
+    S = spawn_link(?MODULE, prio_server, [0, 0]),
+    PCs = spawn_prio_clients(S, erlang:system_info(schedulers_online)),
+    timer:sleep(2000),
+    lists:foreach(fun (P) -> exit(P, kill) end, PCs),
+    S ! exit,
+    receive {'EXIT', S, {A, B}} -> check_prio(A, B) end,
     ok.
 
 check_prio(A, B) ->
-    ?line Prop = A/B,
-    ?line ok = io:format("Low=~p, High=~p, Prop=~p\n", [A, B, Prop]),
+    Prop = A/B,
+    ok = io:format("Low=~p, High=~p, Prop=~p\n", [A, B, Prop]),
 
     %% It isn't 1/8, it's more like 0.3, but let's check that
     %% the low-prio processes get some little chance to run at all.
-    ?line true = (Prop < 1.0),
-    ?line true = (Prop > 1/32).
+    true = (Prop < 1.0),
+    true = (Prop > 1/32).
 
 prio_server(A, B) ->
     receive
@@ -1051,25 +1037,25 @@ yield(Config) when is_list(Config) ->
     end.
 
 yield_test() ->
-    ?line erlang:garbage_collect(),
-    ?line receive after 1 -> ok end,		% Clear reductions.
-    ?line SC = schedcnt(start),
-    ?line {reductions, R1} = process_info(self(), reductions),
-    ?line {ok, true} = call_yield(middle),
-    ?line true = call_yield(final),
-    ?line true = call_yield(),
-    ?line true = apply(erlang, yield, []),
-    ?line {reductions, R2} = process_info(self(), reductions),
-    ?line Schedcnt = schedcnt(stop, SC),
-    ?line case {R2-R1, Schedcnt} of
-	      {Diff, 4} when Diff < 30 ->
-		  ?line ok = io:format("R1 = ~w, R2 = ~w, Schedcnt = ~w", 
-				       [R1, R2, Schedcnt]);
-	      {Diff, _} ->
-		  ?line ok = io:format("R1 = ~w, R2 = ~w, Schedcnt = ~w", 
-				       [R1, R2, Schedcnt]),
-		  ?line test_server:fail({measurement_error, Diff, Schedcnt})
-	  end.
+    erlang:garbage_collect(),
+    receive after 1 -> ok end,		% Clear reductions.
+    SC = schedcnt(start),
+    {reductions, R1} = process_info(self(), reductions),
+    {ok, true} = call_yield(middle),
+    true = call_yield(final),
+    true = call_yield(),
+    true = apply(erlang, yield, []),
+    {reductions, R2} = process_info(self(), reductions),
+    Schedcnt = schedcnt(stop, SC),
+    case {R2-R1, Schedcnt} of
+	{Diff, 4} when Diff < 30 ->
+	    ok = io:format("R1 = ~w, R2 = ~w, Schedcnt = ~w", 
+		[R1, R2, Schedcnt]);
+	{Diff, _} ->
+	    ok = io:format("R1 = ~w, R2 = ~w, Schedcnt = ~w", 
+		[R1, R2, Schedcnt]),
+	    test_server:fail({measurement_error, Diff, Schedcnt})
+    end.
 
 call_yield() ->
     erlang:yield().
@@ -1108,61 +1094,61 @@ schedcnt(stop, {Ref, Pid}) when is_reference(Ref), is_pid(Pid) ->
 yield2(doc) -> [];
 yield2(suite) -> [];
 yield2(Config) when is_list(Config) ->
-    ?line Me = self(),
-    ?line Go = make_ref(),
-    ?line RedDiff = make_ref(),
-    ?line Done = make_ref(),
-    ?line P = spawn(fun () ->
-			    receive Go -> ok end,
-			    {reductions, R1} = process_info(self(), reductions),
-			    {ok, true} = call_yield(middle),
-			    true = call_yield(final),
-			    true = call_yield(),
-			    true = apply(erlang, yield, []),
-			    {reductions, R2} = process_info(self(), reductions),
-			    Me ! {RedDiff, R2 - R1},
-			    exit(Done)
-		    end),
-    ?line erlang:yield(),
+    Me = self(),
+    Go = make_ref(),
+    RedDiff = make_ref(),
+    Done = make_ref(),
+    P = spawn(fun () ->
+		receive Go -> ok end,
+		{reductions, R1} = process_info(self(), reductions),
+		{ok, true} = call_yield(middle),
+		true = call_yield(final),
+		true = call_yield(),
+		true = apply(erlang, yield, []),
+		{reductions, R2} = process_info(self(), reductions),
+		Me ! {RedDiff, R2 - R1},
+		exit(Done)
+	end),
+    erlang:yield(),
 
-    ?line 1 = erlang:trace(P, true, [running, procs, {tracer, self()}]),
+    1 = erlang:trace(P, true, [running, procs, {tracer, self()}]),
 
-    ?line P ! Go,
+    P ! Go,
 
     %% receive Go -> ok end,
-    ?line {trace, P, in, _} = next_tmsg(P),
+    {trace, P, in, _} = next_tmsg(P),
 
     %% {ok, true} = call_yield(middle),
-    ?line {trace, P, out, _} = next_tmsg(P),
-    ?line {trace, P, in, _} = next_tmsg(P),
+    {trace, P, out, _} = next_tmsg(P),
+    {trace, P, in, _} = next_tmsg(P),
 
     %% true = call_yield(final),
-    ?line {trace, P, out, _} = next_tmsg(P),
-    ?line {trace, P, in, _} = next_tmsg(P),
+    {trace, P, out, _} = next_tmsg(P),
+    {trace, P, in, _} = next_tmsg(P),
 
     %% true = call_yield(),
-    ?line {trace, P, out, _} = next_tmsg(P),
-    ?line {trace, P, in, _} = next_tmsg(P),
+    {trace, P, out, _} = next_tmsg(P),
+    {trace, P, in, _} = next_tmsg(P),
 
     %% true = apply(erlang, yield, []),
-    ?line {trace, P, out, _} = next_tmsg(P),
-    ?line {trace, P, in, _} = next_tmsg(P),
+    {trace, P, out, _} = next_tmsg(P),
+    {trace, P, in, _} = next_tmsg(P),
 
     %% exit(Done)
-    ?line {trace, P, exit, Done} = next_tmsg(P),
+    {trace, P, exit, Done} = next_tmsg(P),
 
 
-    ?line receive
+    receive
 	      {RedDiff, Reductions} when Reductions < 30, Reductions > 0 ->
 		  io:format("Reductions = ~p~n", [Reductions]),
-		  ?line ok;
+		  ok;
 	      {RedDiff, Reductions} ->
-		  ?line ?t:fail({unexpected_reduction_count, Reductions})
+		  ?t:fail({unexpected_reduction_count, Reductions})
 	  end,
 
-    ?line none = next_tmsg(P),
+    none = next_tmsg(P),
 
-    ?line ok.
+    ok.
 
 next_tmsg(Pid) ->
     receive
@@ -1178,19 +1164,19 @@ next_tmsg(Pid) ->
 bad_register(Config) when is_list(Config) ->
     Name = a_long_and_unused_name,
 
-    ?line {'EXIT',{badarg,_}} = (catch register({bad,name}, self())),
-    ?line fail_register(undefined, self()),
-    ?line fail_register([bad,name], self()),
+    {'EXIT',{badarg,_}} = (catch register({bad,name}, self())),
+    fail_register(undefined, self()),
+    fail_register([bad,name], self()),
 
-    ?line {Dead,Mref} = spawn_monitor(fun() -> true end),
+    {Dead,Mref} = spawn_monitor(fun() -> true end),
     receive
 	{'DOWN',Mref,process,Dead,_} -> ok
     end,
-    ?line fail_register(Name, Dead),
-    ?line fail_register(Name, make_ref()),
-    ?line fail_register(Name, []),
-    ?line fail_register(Name, {bad,process}),
-    ?line fail_register(Name, <<>>),
+    fail_register(Name, Dead),
+    fail_register(Name, make_ref()),
+    fail_register(Name, []),
+    fail_register(Name, {bad,process}),
+    fail_register(Name, <<>>),
     ok.
 
 fail_register(Name, Process) ->
@@ -1201,50 +1187,50 @@ fail_register(Name, Process) ->
 garbage_collect(doc) -> [];
 garbage_collect(suite) -> [];
 garbage_collect(Config) when is_list(Config) ->
-    ?line Prio = process_flag(priority, high),
-    ?line true = erlang:garbage_collect(),
-    ?line TokLoopers = lists:map(fun (_) ->
-					 spawn_opt(fun tok_loop/0,
-						   [{priority, low}, link])
-				 end,
-				 lists:seq(1, 10)),
-    ?line lists:foreach(fun (Pid) ->
-				?line Mon = erlang:monitor(process, Pid),
-				?line DownBefore = receive
-						       {'DOWN', Mon, _, _, _} ->
-							   ?line true
-						   after 0 ->
-							   ?line false
-						   end,
-				?line GC = erlang:garbage_collect(Pid),
-				?line DownAfter = receive
-						      {'DOWN', Mon, _, _, _} ->
-							  ?line true
-						  after 0 ->
-							  ?line false
-						  end,
-				?line true = erlang:demonitor(Mon),
-				?line case {DownBefore, DownAfter} of
-					  {true, _} -> ?line false = GC;
-					  {false, false} -> ?line true = GC;
-					  _ -> ?line GC
-				      end
-			end,
-			processes()),
-    ?line lists:foreach(fun (Pid) ->
-				unlink(Pid),
-				exit(Pid, bang)
-			end, TokLoopers),
-    ?line process_flag(priority, Prio),
-    ?line ok.
+    Prio = process_flag(priority, high),
+    true = erlang:garbage_collect(),
+    
+    TokLoopers = lists:map(fun (_) ->
+		spawn_opt(fun tok_loop/0, [{priority, low}, link])
+	end, lists:seq(1, 10)),
+
+    lists:foreach(fun (Pid) ->
+		Mon = erlang:monitor(process, Pid),
+		DownBefore = receive
+		    {'DOWN', Mon, _, _, _} ->
+			true
+		after 0 ->
+			false
+		end,
+		GC = erlang:garbage_collect(Pid),
+		DownAfter = receive
+		    {'DOWN', Mon, _, _, _} ->
+			true
+		after 0 ->
+			false
+		end,
+		true = erlang:demonitor(Mon),
+		case {DownBefore, DownAfter} of
+		    {true, _} -> false = GC;
+		    {false, false} -> true = GC;
+		    _ -> GC
+		end
+	end, processes()),
+
+    lists:foreach(fun (Pid) ->
+		unlink(Pid),
+		exit(Pid, bang)
+	end, TokLoopers),
+    process_flag(priority, Prio),
+    ok.
 
 process_info_messages(doc) ->
     ["This used to cause the nofrag emulator to dump core"];
 process_info_messages(suite) ->
     [];
 process_info_messages(Config) when is_list(Config) ->
-    ?line process_info_messages_test(),
-    ?line ok.
+    process_info_messages_test(),
+    ok.
 
 process_info_messages_loop(0) -> ok;
 process_info_messages_loop(N) -> process_info_messages_loop(N-1).
@@ -1259,43 +1245,42 @@ process_info_messages_send_my_msgs_to(Rcvr) ->
     end.
 
 process_info_messages_test() ->
-    ?line Go = make_ref(),
-    ?line Done = make_ref(),
-    ?line Rcvr = self(),
-    ?line Rcvr2 = spawn_link(fun () ->
-				     receive {Go, Rcvr} -> ok end,
-				     garbage_collect(),
-				     Rcvr ! {Done, self()}
-			     end),
-    ?line Sndrs = lists:map(
-		    fun (_) ->
-			    spawn_link(fun () ->
-					       Rcvr ! {Go, self()},
-					       receive {Go, Rcvr} -> ok end,
-					       BigData = lists:seq(1, 1000),
-					       Rcvr ! BigData,
-					       Rcvr ! BigData,
-					       Rcvr ! BigData,
-					       Rcvr ! {Done, self()}
-				       end)
-		    end,
-		    lists:seq(1, 10)),
-    ?line lists:foreach(fun (Sndr) -> receive {Go, Sndr} -> ok end end,
+    Go = make_ref(),
+    Done = make_ref(),
+    Rcvr = self(),
+    Rcvr2 = spawn_link(fun () ->
+		receive {Go, Rcvr} -> ok end,
+		garbage_collect(),
+		Rcvr ! {Done, self()}
+	end),
+    Sndrs = lists:map(
+	fun (_) ->
+		spawn_link(fun () ->
+			    Rcvr ! {Go, self()},
+			    receive {Go, Rcvr} -> ok end,
+			    BigData = lists:seq(1, 1000),
+			    Rcvr ! BigData,
+			    Rcvr ! BigData,
+			    Rcvr ! BigData,
+			    Rcvr ! {Done, self()}
+		    end)
+	end, lists:seq(1, 10)),
+    lists:foreach(fun (Sndr) -> receive {Go, Sndr} -> ok end end,
 			Sndrs),
-    ?line garbage_collect(),
-    ?line erlang:yield(),
-    ?line lists:foreach(fun (Sndr) -> Sndr ! {Go, self()} end, Sndrs),
-    ?line process_info_messages_loop(100000000),
-    ?line Msgs = process_info(self(), messages),
-    ?line lists:foreach(fun (Sndr) -> receive {Done, Sndr} -> ok end end,
+    garbage_collect(),
+    erlang:yield(),
+    lists:foreach(fun (Sndr) -> Sndr ! {Go, self()} end, Sndrs),
+    process_info_messages_loop(100000000),
+    Msgs = process_info(self(), messages),
+    lists:foreach(fun (Sndr) -> receive {Done, Sndr} -> ok end end,
 			Sndrs),
-    ?line garbage_collect(),
-    ?line Rcvr2 ! Msgs,
-    ?line process_info_messages_send_my_msgs_to(Rcvr2),
-    ?line Rcvr2 ! {Go, self()},
-    ?line garbage_collect(),
-    ?line receive {Done, Rcvr2} -> ok end,
-    ?line Msgs.
+    garbage_collect(),
+    Rcvr2 ! Msgs,
+    process_info_messages_send_my_msgs_to(Rcvr2),
+    Rcvr2 ! {Go, self()},
+    garbage_collect(),
+    receive {Done, Rcvr2} -> ok end,
+    Msgs.
 
 chk_badarg(Fun) ->
     try Fun(), exit(no_badarg) catch error:badarg -> ok end.
@@ -1305,82 +1290,77 @@ process_flag_badarg(doc) ->
 process_flag_badarg(suite) ->
     [];
 process_flag_badarg(Config) when is_list(Config) ->
-    ?line chk_badarg(fun () -> process_flag(gurka, banan) end),
-    ?line chk_badarg(fun () -> process_flag(trap_exit, gurka) end),
-    ?line chk_badarg(fun () -> process_flag(error_handler, 1) end),
-    ?line chk_badarg(fun () -> process_flag(min_heap_size, gurka) end),
-    ?line chk_badarg(fun () -> process_flag(min_bin_vheap_size, gurka) end),
-    ?line chk_badarg(fun () -> process_flag(min_bin_vheap_size, -1) end),
-    ?line chk_badarg(fun () -> process_flag(priority, 4711) end),
-    ?line chk_badarg(fun () -> process_flag(save_calls, hmmm) end),
-    ?line P= spawn_link(fun () -> receive die -> ok end end),
-    ?line chk_badarg(fun () -> process_flag(P, save_calls, hmmm) end),
-    ?line chk_badarg(fun () -> process_flag(gurka, save_calls, hmmm) end),
-    ?line P ! die,
-    ?line ok.
+    chk_badarg(fun () -> process_flag(gurka, banan) end),
+    chk_badarg(fun () -> process_flag(trap_exit, gurka) end),
+    chk_badarg(fun () -> process_flag(error_handler, 1) end),
+    chk_badarg(fun () -> process_flag(min_heap_size, gurka) end),
+    chk_badarg(fun () -> process_flag(min_bin_vheap_size, gurka) end),
+    chk_badarg(fun () -> process_flag(min_bin_vheap_size, -1) end),
+    chk_badarg(fun () -> process_flag(priority, 4711) end),
+    chk_badarg(fun () -> process_flag(save_calls, hmmm) end),
+    P= spawn_link(fun () -> receive die -> ok end end),
+    chk_badarg(fun () -> process_flag(P, save_calls, hmmm) end),
+    chk_badarg(fun () -> process_flag(gurka, save_calls, hmmm) end),
+    P ! die,
+    ok.
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
 otp_6237(doc) -> [];
 otp_6237(suite) -> [];
 otp_6237(Config) when is_list(Config) ->
-    ?line Slctrs = lists:map(fun (_) ->
-				     spawn_link(fun () ->
-							otp_6237_select_loop()
-						end)
-			     end,
-			     lists:seq(1,5)),
-    ?line lists:foreach(fun (_) -> otp_6237_test() end, lists:seq(1, 100)),
-    ?line lists:foreach(fun (S) -> unlink(S),exit(S, kill) end, Slctrs), 
-    ?line ok.
+    Slctrs = lists:map(fun (_) ->
+		spawn_link(fun () ->
+			    otp_6237_select_loop()
+		    end)
+	end,
+	lists:seq(1,5)),
+    lists:foreach(fun (_) -> otp_6237_test() end, lists:seq(1, 100)),
+    lists:foreach(fun (S) -> unlink(S),exit(S, kill) end, Slctrs), 
+    ok.
 				
 otp_6237_test() ->
-    ?line Parent = self(),
-    ?line Inited = make_ref(),
-    ?line Die = make_ref(),
-    ?line Pid = spawn_link(fun () ->
-				   register(otp_6237,self()),
-				   otp_6237 = ets:new(otp_6237,
-						      [named_table,
-						       ordered_set]),
-				   ets:insert(otp_6237,
-					      [{I,I}
-					       || I <- lists:seq(1, 100)]),
-				   %% Inserting a lot of bif timers
-				   %% increase the possibility that
-				   %% the test will fail when the
-				   %% original cleanup order is used
-				   lists:foreach(
-				     fun (_) ->
-					     erlang:send_after(1000000,
-							       self(),
-							       {a,b,c})
-				     end,
-				     lists:seq(1,1000)),
-				   Parent ! Inited,
-				   receive Die -> bye end
-			   end),
-    ?line receive
-	      Inited -> ?line ok
-	  end,
-    ?line Pid ! Die,
+    Parent = self(),
+    Inited = make_ref(),
+    Die = make_ref(),
+    Pid = spawn_link(fun () ->
+		register(otp_6237,self()),
+		otp_6237 = ets:new(otp_6237,
+		    [named_table,
+			ordered_set]),
+		ets:insert(otp_6237,
+		    [{I,I}
+			|| I <- lists:seq(1, 100)]),
+		%% Inserting a lot of bif timers
+		%% increase the possibility that
+		%% the test will fail when the
+		%% original cleanup order is used
+		lists:foreach( fun (_) ->
+			    erlang:send_after(1000000, self(), {a,b,c})
+		    end, lists:seq(1,1000)),
+		Parent ! Inited,
+		receive Die -> bye end
+	end),
+    receive
+	Inited -> ok
+    end,
+    Pid ! Die,
     otp_6237_whereis_loop().
 
 otp_6237_whereis_loop() ->
-    ?line case whereis(otp_6237) of
+    case whereis(otp_6237) of
 	      undefined ->
-		  ?line otp_6237 = ets:new(otp_6237,
+		  otp_6237 = ets:new(otp_6237,
 					   [named_table,ordered_set]),
-		  ?line ets:delete(otp_6237),
-		  ?line ok;
+		  ets:delete(otp_6237),
+		  ok;
 	      _ ->
-		  ?line otp_6237_whereis_loop()
+		  otp_6237_whereis_loop()
 	  end.
 	     
 otp_6237_select_loop() ->
     catch ets:select(otp_6237, ets:fun2ms(fun({K, does_not_exist}) -> K end)),
     otp_6237_select_loop().
-
 
 
 -define(NoTestProcs, 10000).
@@ -1399,42 +1379,42 @@ processes_large_tab(doc) ->
 processes_large_tab(suite) ->
     [];
 processes_large_tab(Config) when is_list(Config) ->
-    ?line enable_internal_state(),
-    ?line MaxDbgLvl = 20,
-    ?line MinProcTabSize = 2*(1 bsl 15),
-    ?line ProcTabSize0 = 1000000,
-    ?line ProcTabSize1 = case {erlang:system_info(schedulers_online),
-			       erlang:system_info(logical_processors)} of
-			     {Schdlrs, Cpus} when is_integer(Cpus),
-			                          Schdlrs =< Cpus ->
-				 ProcTabSize0;
-			     _ ->
-				 ProcTabSize0 div 4
-			 end,
-    ?line ProcTabSize2 = case erlang:system_info(debug_compiled) of
-		     true -> ProcTabSize1 - 500000;
-		     false -> ProcTabSize1
-		 end,
+    enable_internal_state(),
+    MaxDbgLvl = 20,
+    MinProcTabSize = 2*(1 bsl 15),
+    ProcTabSize0 = 1000000,
+    ProcTabSize1 = case {erlang:system_info(schedulers_online),
+	    erlang:system_info(logical_processors)} of
+	{Schdlrs, Cpus} when is_integer(Cpus),
+	Schdlrs =< Cpus ->
+	    ProcTabSize0;
+	_ ->
+	    ProcTabSize0 div 4
+    end,
+    ProcTabSize2 = case erlang:system_info(debug_compiled) of
+	true -> ProcTabSize1 - 500000;
+	false -> ProcTabSize1
+    end,
     %% With high debug levels this test takes so long time that
     %% the connection times out; therefore, shrink the test on
     %% high debug levels.
-    ?line DbgLvl = case erts_debug:get_internal_state(processes_bif_info) of
+    DbgLvl = case erts_debug:get_internal_state(processes_bif_info) of
 		       #processes_bif_info{debug_level = Lvl} when Lvl > MaxDbgLvl ->
 			   20;
 		       #processes_bif_info{debug_level = Lvl} when Lvl < 0 ->
-			   ?line ?t:fail({debug_level, Lvl});
+			   ?t:fail({debug_level, Lvl});
 		       #processes_bif_info{debug_level = Lvl} ->
 			   Lvl
 		   end,
-    ?line ProcTabSize3 = ProcTabSize2 - (1300000 * DbgLvl div MaxDbgLvl),
-    ?line ProcTabSize = case ProcTabSize3 < MinProcTabSize of
+    ProcTabSize3 = ProcTabSize2 - (1300000 * DbgLvl div MaxDbgLvl),
+    ProcTabSize = case ProcTabSize3 < MinProcTabSize of
 			    true -> MinProcTabSize;
 			    false -> ProcTabSize3
 			end,
-    ?line {ok, LargeNode} = start_node(Config,
+    {ok, LargeNode} = start_node(Config,
 				       "+P " ++ integer_to_list(ProcTabSize)),
-    ?line Res = rpc:call(LargeNode, ?MODULE, processes_bif_test, []),
-    ?line case rpc:call(LargeNode,
+    Res = rpc:call(LargeNode, ?MODULE, processes_bif_test, []),
+    case rpc:call(LargeNode,
 			erts_debug,
 			get_internal_state,
 			[processes_bif_info]) of
@@ -1442,40 +1422,40 @@ processes_large_tab(Config) when is_list(Config) ->
 							    Chunks > 1 -> ok;
 	      PBInfo -> ?t:fail(PBInfo)
 	  end,
-    ?line stop_node(LargeNode),
-    ?line chk_processes_bif_test_res(Res).
+    stop_node(LargeNode),
+    chk_processes_bif_test_res(Res).
 
 processes_default_tab(doc) ->
     [];
 processes_default_tab(suite) ->
     [];
 processes_default_tab(Config) when is_list(Config) ->
-    ?line {ok, DefaultNode} = start_node(Config, ""),
-    ?line Res = rpc:call(DefaultNode, ?MODULE, processes_bif_test, []),
-    ?line stop_node(DefaultNode),
-    ?line chk_processes_bif_test_res(Res).
+    {ok, DefaultNode} = start_node(Config, ""),
+    Res = rpc:call(DefaultNode, ?MODULE, processes_bif_test, []),
+    stop_node(DefaultNode),
+    chk_processes_bif_test_res(Res).
 
 processes_small_tab(doc) ->
     [];
 processes_small_tab(suite) ->
     [];
 processes_small_tab(Config) when is_list(Config) ->
-    ?line {ok, SmallNode} = start_node(Config, "+P 500"),
-    ?line Res = rpc:call(SmallNode, ?MODULE, processes_bif_test, []),
-    ?line PBInfo = rpc:call(SmallNode,
+    {ok, SmallNode} = start_node(Config, "+P 500"),
+    Res = rpc:call(SmallNode, ?MODULE, processes_bif_test, []),
+    PBInfo = rpc:call(SmallNode,
 			    erts_debug,
 			    get_internal_state,
 			    [processes_bif_info]),
-    ?line stop_node(SmallNode),
-    ?line 1 = PBInfo#processes_bif_info.tab_chunks,
-    ?line chk_processes_bif_test_res(Res).
+    stop_node(SmallNode),
+    1 = PBInfo#processes_bif_info.tab_chunks,
+    chk_processes_bif_test_res(Res).
 
 processes_this_tab(doc) ->
     [];
 processes_this_tab(suite) ->
     [];
 processes_this_tab(Config) when is_list(Config) ->
-    ?line chk_processes_bif_test_res(processes_bif_test()).
+    chk_processes_bif_test_res(processes_bif_test()).
 
 chk_processes_bif_test_res(ok) -> ok;
 chk_processes_bif_test_res({comment, _} = Comment) -> Comment;
@@ -1575,26 +1555,26 @@ do_processes(WantReds) ->
     processes().
 
 processes_bif_test() ->
-    ?line Tester = self(),
-    ?line enable_internal_state(),
-    ?line PBInfo = erts_debug:get_internal_state(processes_bif_info),
-    ?line print_processes_bif_info(PBInfo),
-    ?line WantReds = PBInfo#processes_bif_info.min_start_reds + 10,
-    ?line WillTrap = case PBInfo of
-			#processes_bif_info{tab_chunks = 1} ->
-			    false;
-			#processes_bif_info{tab_chunks = Chunks,
-					    tab_chunks_size = ChunksSize,
-					    tab_indices_per_red = IndiciesPerRed
-					   } ->
-			    Chunks*ChunksSize >= IndiciesPerRed*WantReds
-		    end,
-    ?line Processes = fun () ->
-			      erts_debug:set_internal_state(reds_left,WantReds),
-			      processes()
-		      end,
+    Tester = self(),
+    enable_internal_state(),
+    PBInfo = erts_debug:get_internal_state(processes_bif_info),
+    print_processes_bif_info(PBInfo),
+    WantReds = PBInfo#processes_bif_info.min_start_reds + 10,
+    WillTrap = case PBInfo of
+	#processes_bif_info{tab_chunks = 1} ->
+	    false;
+	#processes_bif_info{tab_chunks = Chunks,
+	    tab_chunks_size = ChunksSize,
+	    tab_indices_per_red = IndiciesPerRed
+	} ->
+	    Chunks*ChunksSize >= IndiciesPerRed*WantReds
+    end,
+    Processes = fun () ->
+	    erts_debug:set_internal_state(reds_left,WantReds),
+	    processes()
+    end,
 
-    ?line ok = do_processes_bif_test(WantReds, WillTrap, Processes),
+    ok = do_processes_bif_test(WantReds, WillTrap, Processes),
 
     case WillTrap of
 	false ->
@@ -1602,8 +1582,8 @@ processes_bif_test() ->
 	true ->
 	    %% Do it again with a process suspended while
 	    %% in the processes/0 bif.
-	    ?line erlang:system_flag(multi_scheduling, block),
-	    ?line Suspendee = spawn_link(fun () ->
+	    erlang:system_flag(multi_scheduling, block),
+	    Suspendee = spawn_link(fun () ->
 						 Tester ! {suspend_me, self()},
 						 Tester ! {self(),
 							   done,
@@ -1613,175 +1593,157 @@ processes_bif_test() ->
 							 ok
 						 end
 					 end),
-	    ?line receive {suspend_me, Suspendee} -> ok end,
-	    ?line erlang:suspend_process(Suspendee),
-	    ?line erlang:system_flag(multi_scheduling, unblock),
+	    receive {suspend_me, Suspendee} -> ok end,
+	    erlang:suspend_process(Suspendee),
+	    erlang:system_flag(multi_scheduling, unblock),
 	    
-	    ?line [{status,suspended},
+	    [{status,suspended},
 		   {current_function,{erlang,processes_trap,2}}]
 		= process_info(Suspendee, [status, current_function]),
 
-	    ?line ok = do_processes_bif_test(WantReds, WillTrap, Processes),
+	    ok = do_processes_bif_test(WantReds, WillTrap, Processes),
 	    
-	    ?line erlang:resume_process(Suspendee),
-	    ?line receive {Suspendee, done, _} -> ok end,
-	    ?line unlink(Suspendee),
-	    ?line exit(Suspendee, bang)
+	    erlang:resume_process(Suspendee),
+	    receive {Suspendee, done, _} -> ok end,
+	    unlink(Suspendee),
+	    exit(Suspendee, bang)
     end,
     case get(processes_bif_testcase_comment) of
-	undefined -> ?line ok;
-	Comment -> ?line {comment, Comment}
+	undefined -> ok;
+	Comment -> {comment, Comment}
     end.
     
 do_processes_bif_test(WantReds, DieTest, Processes) ->
-    ?line Tester = self(),
-    ?line SpawnProcesses = fun (Prio) ->
-				   spawn_opt(?MODULE,
-					     do_processes,
-					     [WantReds],
-					     [link, {priority, Prio}])
-			   end,
-    ?line Cleaner = spawn_link(fun () ->
-				       process_flag(trap_exit, true),
-				       Tester ! {cleaner_alive, self()},
-				       processes_bif_cleaner()
-			       end),
-    ?line receive {cleaner_alive, Cleaner} -> ok end,
+    Tester = self(),
+    SpawnProcesses = fun (Prio) ->
+	    spawn_opt(?MODULE, do_processes, [WantReds], [link, {priority, Prio}])
+    end,
+    Cleaner = spawn_link(fun () ->
+		process_flag(trap_exit, true),
+		Tester ! {cleaner_alive, self()},
+		processes_bif_cleaner()
+	end),
+    receive {cleaner_alive, Cleaner} -> ok end,
     try
-	?line DoIt = make_ref(),
-	?line GetGoing = make_ref(),
-	?line {NoTestProcs, TestProcs} = spawn_initial_hangarounds(Cleaner),
-	?line ?t:format("Testing with ~p processes~n", [NoTestProcs]),
-	?line SpawnHangAround = fun () ->
-					spawn(?MODULE,
-					      hangaround,
-					      [Cleaner, new_hangaround])
-				end,
-	?line Killer = spawn_opt(fun () ->
-					 Splt = NoTestProcs div 10,
-					 {TP1, TP23} = lists:split(Splt,
-								   TestProcs),
-					 {TP2, TP3} = lists:split(Splt, TP23),
-					 erlang:system_flag(multi_scheduling,
-							    block),
-					 Tester ! DoIt,
-					 receive GetGoing -> ok end,
-					 erlang:system_flag(multi_scheduling,
-							    unblock),
-					 SpawnProcesses(high),
-					 lists:foreach(
-					   fun (P) ->
-						   SpawnHangAround(),
-						   exit(P, bang)
-					   end,
-					   TP1),
-					 SpawnProcesses(high),
-					 erlang:yield(),
-					 lists:foreach(
-					   fun (P) ->
-						   SpawnHangAround(),
-						   exit(P, bang)
-					   end,
-					   TP2),
-					 SpawnProcesses(high),
-					 lists:foreach(
-					   fun (P) ->
-						   SpawnHangAround(),
-						   exit(P, bang)
-					   end,
-					   TP3)
-				 end,
-				 [{priority, high}, link]),
-	?line receive DoIt -> ok end,
-	?line process_flag(priority, low),
-	?line SpawnProcesses(low),
-	?line erlang:yield(),
-	?line process_flag(priority, normal),
-	?line CorrectProcs0 = erts_debug:get_internal_state(processes),
-	?line Killer ! GetGoing,
-	?line erts_debug:set_internal_state(reds_left, WantReds),
-	?line Procs0 = processes(),
-	?line Procs = lists:sort(Procs0),
-	?line CorrectProcs = lists:sort(CorrectProcs0),
-	?line LengthCorrectProcs = length(CorrectProcs),
-	?line ?t:format("~p = length(CorrectProcs)~n", [LengthCorrectProcs]),
-	?line true = LengthCorrectProcs > NoTestProcs,
-	?line case CorrectProcs =:= Procs of
-		  true ->
-		      ?line ok;
-		  false ->
-		      ?line processes_unexpected_result(CorrectProcs, Procs)
-	      end,
-	?line unlink(Killer),
-	?line exit(Killer, bang)
+	DoIt = make_ref(),
+	GetGoing = make_ref(),
+	{NoTestProcs, TestProcs} = spawn_initial_hangarounds(Cleaner),
+	?t:format("Testing with ~p processes~n", [NoTestProcs]),
+	SpawnHangAround = fun () ->
+		spawn(?MODULE, hangaround, [Cleaner, new_hangaround])
+	end,
+	Killer = spawn_opt(fun () ->
+		    Splt = NoTestProcs div 10,
+		    {TP1, TP23} = lists:split(Splt, TestProcs),
+		    {TP2, TP3} = lists:split(Splt, TP23),
+		    erlang:system_flag(multi_scheduling, block),
+		    Tester ! DoIt,
+		    receive GetGoing -> ok end,
+		    erlang:system_flag(multi_scheduling, unblock),
+		    SpawnProcesses(high),
+		    lists:foreach( fun (P) ->
+				SpawnHangAround(),
+				exit(P, bang)
+			end, TP1),
+		    SpawnProcesses(high),
+		    erlang:yield(),
+		    lists:foreach( fun (P) ->
+				SpawnHangAround(),
+				exit(P, bang)
+			end, TP2),
+		    SpawnProcesses(high),
+		    lists:foreach(
+			fun (P) ->
+				SpawnHangAround(),
+				exit(P, bang)
+			end, TP3)
+	    end, [{priority, high}, link]),
+	receive DoIt -> ok end,
+	process_flag(priority, low),
+	SpawnProcesses(low),
+	erlang:yield(),
+	process_flag(priority, normal),
+	CorrectProcs0 = erts_debug:get_internal_state(processes),
+	Killer ! GetGoing,
+	erts_debug:set_internal_state(reds_left, WantReds),
+	Procs0 = processes(),
+	Procs = lists:sort(Procs0),
+	CorrectProcs = lists:sort(CorrectProcs0),
+	LengthCorrectProcs = length(CorrectProcs),
+	?t:format("~p = length(CorrectProcs)~n", [LengthCorrectProcs]),
+	true = LengthCorrectProcs > NoTestProcs,
+	case CorrectProcs =:= Procs of
+	    true ->
+		ok;
+	    false ->
+		processes_unexpected_result(CorrectProcs, Procs)
+	end,
+	unlink(Killer),
+	exit(Killer, bang)
     after
 	unlink(Cleaner),
         exit(Cleaner, kill),
         %% Wait for the system to recover to a normal state...
 	wait_until_system_recover()
     end,
-    ?line do_processes_bif_die_test(DieTest, Processes),
-    ?line ok.
+    do_processes_bif_die_test(DieTest, Processes),
+    ok.
 
 
 do_processes_bif_die_test(false, _Processes) ->
-    ?line ?t:format("Skipping test killing process executing processes/0~n",[]),
-    ?line ok;
+    ?t:format("Skipping test killing process executing processes/0~n",[]),
+    ok;
 do_processes_bif_die_test(true, Processes) ->
-    ?line do_processes_bif_die_test(5, Processes);
+    do_processes_bif_die_test(5, Processes);
 do_processes_bif_die_test(N, Processes) ->
-    ?line ?t:format("Doing test killing process executing processes/0~n",[]),
+    ?t:format("Doing test killing process executing processes/0~n",[]),
     try
-	?line Tester = self(),
-	?line Oooh_Nooooooo = make_ref(),
-	?line {_, DieWhileDoingMon} = erlang:spawn_monitor(
-					fun () ->
-						Victim = self(),
-						spawn_opt(
-						  fun () ->
-							  exit(Victim, got_him)
-						  end,
-						  [link,
-						   {priority, max}]),
-						Tester ! {Oooh_Nooooooo,
-							  hd(Processes())},
-						exit(ohhhh_nooooo)
-					end),
-	?line receive
-		  {'DOWN', DieWhileDoingMon, _, _, Reason} ->
-		      case Reason of
-			  got_him -> ok;
-			  _ -> throw({kill_in_trap, Reason})
-		      end
-	      end,
-	?line receive
-		  {Oooh_Nooooooo, _} ->
-		      ?line throw({kill_in_trap, 'Oooh_Nooooooo'})
-	      after 0 ->
-		      ?line ok
-	      end,
-	?line PrcsCllrsSeqLen = 2*erlang:system_info(schedulers_online),
-	?line PrcsCllrsSeq = lists:seq(1, PrcsCllrsSeqLen),
-	?line ProcsCallers = lists:map(
-			       fun (_) ->
-				       spawn_link(
-					 fun () ->
-						 Tester ! hd(Processes())
-					 end)
-			       end,
-			       PrcsCllrsSeq),
-	?line erlang:yield(),
+	Tester = self(),
+	Oooh_Nooooooo = make_ref(),
+	{_, DieWhileDoingMon} = erlang:spawn_monitor( fun () ->
+		    Victim = self(),
+		    spawn_opt(
+			fun () ->
+				exit(Victim, got_him)
+			end,
+			[link, {priority, max}]),
+		    Tester ! {Oooh_Nooooooo,
+			hd(Processes())},
+		    exit(ohhhh_nooooo)
+	    end),
+	receive
+	    {'DOWN', DieWhileDoingMon, _, _, Reason} ->
+		case Reason of
+		    got_him -> ok;
+		    _ -> throw({kill_in_trap, Reason})
+		end
+	end,
+	receive
+	    {Oooh_Nooooooo, _} ->
+		throw({kill_in_trap, 'Oooh_Nooooooo'})
+	after 0 ->
+		ok
+	end,
+	PrcsCllrsSeqLen = 2*erlang:system_info(schedulers_online),
+	PrcsCllrsSeq = lists:seq(1, PrcsCllrsSeqLen),
+	ProcsCallers = lists:map( fun (_) ->
+		    spawn_link(
+			fun () ->
+				Tester ! hd(Processes())
+			end)
+	    end, PrcsCllrsSeq),
+	erlang:yield(),
 	{ProcsCallers1, ProcsCallers2} = lists:split(PrcsCllrsSeqLen div 2,
 						     ProcsCallers),
-	?line process_flag(priority, high),
-	?line lists:foreach(
+	process_flag(priority, high),
+	lists:foreach(
 		fun (P) ->
 			unlink(P),
 			exit(P, bang)
 		end,
 		lists:reverse(ProcsCallers2) ++ ProcsCallers1),
-	?line process_flag(priority, normal),
-	?line ok
+	process_flag(priority, normal),
+	ok
     catch
 	throw:{kill_in_trap, R} when N > 0 ->
 	    ?t:format("Failed to kill in trap: ~p~n", [R]),
@@ -1844,19 +1806,19 @@ processes_last_call_trap(doc) ->
 processes_last_call_trap(suite) ->
     [];
 processes_last_call_trap(Config) when is_list(Config) ->
-    ?line enable_internal_state(),
-    ?line Processes = fun () -> processes() end,
-    ?line PBInfo = erts_debug:get_internal_state(processes_bif_info),
-    ?line print_processes_bif_info(PBInfo),
-    ?line WantReds = case PBInfo#processes_bif_info.min_start_reds of
+    enable_internal_state(),
+    Processes = fun () -> processes() end,
+    PBInfo = erts_debug:get_internal_state(processes_bif_info),
+    print_processes_bif_info(PBInfo),
+    WantReds = case PBInfo#processes_bif_info.min_start_reds of
 			 R when R > 10 -> R - 1;
 			 _R -> 9
 		     end,
-    ?line lists:foreach(fun (_) ->
-				?line erts_debug:set_internal_state(reds_left,
+    lists:foreach(fun (_) ->
+				erts_debug:set_internal_state(reds_left,
 								    WantReds),
 				Processes(),
-				?line erts_debug:set_internal_state(reds_left,
+				erts_debug:set_internal_state(reds_left,
 								    WantReds),
 				my_processes()
 			end,
@@ -1870,17 +1832,17 @@ processes_apply_trap(doc) ->
 processes_apply_trap(suite) ->
     [];
 processes_apply_trap(Config) when is_list(Config) ->
-    ?line enable_internal_state(),
-    ?line PBInfo = erts_debug:get_internal_state(processes_bif_info),
-    ?line print_processes_bif_info(PBInfo),
-    ?line WantReds = case PBInfo#processes_bif_info.min_start_reds of
+    enable_internal_state(),
+    PBInfo = erts_debug:get_internal_state(processes_bif_info),
+    print_processes_bif_info(PBInfo),
+    WantReds = case PBInfo#processes_bif_info.min_start_reds of
 			 R when R > 10 -> R - 1;
 			 _R -> 9
 		     end,
-    ?line lists:foreach(fun (_) ->
-				?line erts_debug:set_internal_state(reds_left,
+    lists:foreach(fun (_) ->
+				erts_debug:set_internal_state(reds_left,
 								    WantReds),
-				?line apply(erlang, processes, [])
+				apply(erlang, processes, [])
 			end,
 			lists:seq(1,100)).
 
@@ -1889,42 +1851,42 @@ processes_gc_trap(doc) ->
 processes_gc_trap(suite) ->
     [];
 processes_gc_trap(Config) when is_list(Config) ->
-    ?line Tester = self(),
-    ?line enable_internal_state(),
-    ?line PBInfo = erts_debug:get_internal_state(processes_bif_info),
-    ?line print_processes_bif_info(PBInfo),
-    ?line WantReds = PBInfo#processes_bif_info.min_start_reds + 10,
-    ?line Processes = fun () ->
+    Tester = self(),
+    enable_internal_state(),
+    PBInfo = erts_debug:get_internal_state(processes_bif_info),
+    print_processes_bif_info(PBInfo),
+    WantReds = PBInfo#processes_bif_info.min_start_reds + 10,
+    Processes = fun () ->
 			      erts_debug:set_internal_state(reds_left,WantReds),
 			      processes()
 		      end,
 
-    ?line erlang:system_flag(multi_scheduling, block),
-    ?line Suspendee = spawn_link(fun () ->
+    erlang:system_flag(multi_scheduling, block),
+    Suspendee = spawn_link(fun () ->
 					 Tester ! {suspend_me, self()},
 					 Tester ! {self(),
 						   done,
 						   hd(Processes())},
 					 receive after infinity -> ok end
 				 end),
-    ?line receive {suspend_me, Suspendee} -> ok end,
-    ?line erlang:suspend_process(Suspendee),
-    ?line erlang:system_flag(multi_scheduling, unblock),
+    receive {suspend_me, Suspendee} -> ok end,
+    erlang:suspend_process(Suspendee),
+    erlang:system_flag(multi_scheduling, unblock),
 	    
-    ?line [{status,suspended}, {current_function,{erlang,processes_trap,2}}]
+    [{status,suspended}, {current_function,{erlang,processes_trap,2}}]
 	= process_info(Suspendee, [status, current_function]),
 
-    ?line erlang:garbage_collect(Suspendee),
-    ?line erlang:garbage_collect(Suspendee),
+    erlang:garbage_collect(Suspendee),
+    erlang:garbage_collect(Suspendee),
 	    
-    ?line erlang:resume_process(Suspendee),
-    ?line receive {Suspendee, done, _} -> ok end,
-    ?line erlang:garbage_collect(Suspendee),
-    ?line erlang:garbage_collect(Suspendee),
+    erlang:resume_process(Suspendee),
+    receive {Suspendee, done, _} -> ok end,
+    erlang:garbage_collect(Suspendee),
+    erlang:garbage_collect(Suspendee),
 
-    ?line unlink(Suspendee),
-    ?line exit(Suspendee, bang),
-    ?line ok.
+    unlink(Suspendee),
+    exit(Suspendee, bang),
+    ok.
 
 process_flag_heap_size(doc) ->
     [];
@@ -1933,13 +1895,13 @@ process_flag_heap_size(suite) ->
 process_flag_heap_size(Config) when is_list(Config) ->
     HSize  = 2584,   % must be gc fib number
     VHSize = 317811, % must be gc fib number
-    ?line OldHmin = erlang:process_flag(min_heap_size, HSize),
-    ?line {min_heap_size, HSize} = erlang:process_info(self(), min_heap_size),
-    ?line OldVHmin = erlang:process_flag(min_bin_vheap_size, VHSize),
-    ?line {min_bin_vheap_size, VHSize} = erlang:process_info(self(), min_bin_vheap_size),
-    ?line HSize = erlang:process_flag(min_heap_size, OldHmin),
-    ?line VHSize = erlang:process_flag(min_bin_vheap_size, OldVHmin),
-    ?line ok.
+    OldHmin = erlang:process_flag(min_heap_size, HSize),
+    {min_heap_size, HSize} = erlang:process_info(self(), min_heap_size),
+    OldVHmin = erlang:process_flag(min_bin_vheap_size, VHSize),
+    {min_bin_vheap_size, VHSize} = erlang:process_info(self(), min_bin_vheap_size),
+    HSize = erlang:process_flag(min_heap_size, OldHmin),
+    VHSize = erlang:process_flag(min_bin_vheap_size, OldVHmin),
+    ok.
 
 spawn_opt_heap_size(doc) ->
     [];
@@ -1948,30 +1910,29 @@ spawn_opt_heap_size(suite) ->
 spawn_opt_heap_size(Config) when is_list(Config) ->
     HSize  = 987,   % must be gc fib number
     VHSize = 46368, % must be gc fib number
-    ?line Pid  = spawn_opt(fun () -> receive stop -> ok end end,
+    Pid  = spawn_opt(fun () -> receive stop -> ok end end,
 	[{min_heap_size, HSize},{ min_bin_vheap_size, VHSize}]),
-    ?line {min_heap_size, HSize} = process_info(Pid, min_heap_size),
-    ?line {min_bin_vheap_size, VHSize} = process_info(Pid, min_bin_vheap_size),
-    ?line Pid ! stop,
-    ?line ok.
+    {min_heap_size, HSize} = process_info(Pid, min_heap_size),
+    {min_bin_vheap_size, VHSize} = process_info(Pid, min_bin_vheap_size),
+    Pid ! stop,
+    ok.
 
 processes_term_proc_list(doc) ->
     [];
 processes_term_proc_list(suite) ->
     [];
 processes_term_proc_list(Config) when is_list(Config) ->
-    ?line Tester = self(),
-    ?line as_expected = processes_term_proc_list_test(false),
-    ?line {ok, Node} = start_node(Config, "+Mis true"),
-    ?line RT = spawn_link(Node,
-			  fun () ->
-				  receive after 1000 -> ok end,
-				  processes_term_proc_list_test(false),
-				  Tester ! {it_worked, self()}
-			  end),
-    ?line receive {it_worked, RT} -> ok end,
-    ?line stop_node(Node),
-    ?line ok.
+    Tester = self(),
+    as_expected = processes_term_proc_list_test(false),
+    {ok, Node} = start_node(Config, "+Mis true"),
+    RT = spawn_link(Node, fun () ->
+		receive after 1000 -> ok end,
+		processes_term_proc_list_test(false),
+		Tester ! {it_worked, self()}
+	end),
+    receive {it_worked, RT} -> ok end,
+    stop_node(Node),
+    ok.
     
 -define(CHK_TERM_PROC_LIST(MC, XB),
 	chk_term_proc_list(?LINE, MC, XB)).
@@ -1997,35 +1958,34 @@ chk_term_proc_list(Line, MustChk, ExpectBlks) ->
     ok.
 
 processes_term_proc_list_test(MustChk) ->
-    ?line Tester = self(),
-    ?line enable_internal_state(),
-    ?line PBInfo = erts_debug:get_internal_state(processes_bif_info),
-    ?line print_processes_bif_info(PBInfo),
-    ?line WantReds = PBInfo#processes_bif_info.min_start_reds + 10,
-    ?line #processes_bif_info{tab_chunks = Chunks,
+    Tester = self(),
+    enable_internal_state(),
+    PBInfo = erts_debug:get_internal_state(processes_bif_info),
+    print_processes_bif_info(PBInfo),
+    WantReds = PBInfo#processes_bif_info.min_start_reds + 10,
+    #processes_bif_info{tab_chunks = Chunks,
 			      tab_chunks_size = ChunksSize,
 			      tab_indices_per_red = IndiciesPerRed
 			     } = PBInfo,
-    ?line true = Chunks > 1,
-    ?line true = Chunks*ChunksSize >= IndiciesPerRed*WantReds,
-    ?line Processes = fun () ->
-			      erts_debug:set_internal_state(reds_left,
-							    WantReds),
-			      processes()
-		      end,
-    ?line Exit = fun (P) ->
-			 unlink(P),
-			 exit(P, bang),
-			 wait_until(
-			   fun () ->
-				   not lists:member(
-					 P,
-					 erts_debug:get_internal_state(
-					   processes))
-			   end)
-		 end,
-    ?line SpawnSuspendProcessesProc
-	= fun () ->
+    true = Chunks > 1,
+    true = Chunks*ChunksSize >= IndiciesPerRed*WantReds,
+    Processes = fun () ->
+	    erts_debug:set_internal_state(reds_left,
+		WantReds),
+	    processes()
+    end,
+    Exit = fun (P) ->
+	    unlink(P),
+	    exit(P, bang),
+	    wait_until(
+		fun () ->
+			not lists:member(
+			    P,
+			    erts_debug:get_internal_state(
+				processes))
+		end)
+    end,
+    SpawnSuspendProcessesProc = fun () ->
 		  erlang:system_flag(multi_scheduling, block),
 		  P = spawn_link(fun () ->
 					 Tester ! {suspend_me, self()},
@@ -2042,72 +2002,72 @@ processes_term_proc_list_test(MustChk) ->
 		      = process_info(P, [status, current_function]),
 		  P
 	  end,
-    ?line ResumeProcessesProc = fun (P) ->
+    ResumeProcessesProc = fun (P) ->
 					erlang:resume_process(P),
 					receive {P, done, _} -> ok end
 				end,
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 0),
-    ?line HangAround = fun () -> receive after infinity -> ok end end,
-    ?line HA1 = spawn_link(HangAround),
-    ?line HA2 = spawn_link(HangAround),
-    ?line HA3 = spawn_link(HangAround),
-    ?line S1 = SpawnSuspendProcessesProc(),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 1),
-    ?line Exit(HA1),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 2),
-    ?line S2 = SpawnSuspendProcessesProc(),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 3),
-    ?line S3 = SpawnSuspendProcessesProc(),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 4),
-    ?line Exit(HA2),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 5),
-    ?line S4 = SpawnSuspendProcessesProc(),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 6),
-    ?line Exit(HA3),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 7),
-    ?line ResumeProcessesProc(S1),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 5),
-    ?line ResumeProcessesProc(S3),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 4),
-    ?line ResumeProcessesProc(S4),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 3),
-    ?line ResumeProcessesProc(S2),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 0),
-    ?line Exit(S1),
-    ?line Exit(S2),
-    ?line Exit(S3),
-    ?line Exit(S4),
+    ?CHK_TERM_PROC_LIST(MustChk, 0),
+    HangAround = fun () -> receive after infinity -> ok end end,
+    HA1 = spawn_link(HangAround),
+    HA2 = spawn_link(HangAround),
+    HA3 = spawn_link(HangAround),
+    S1 = SpawnSuspendProcessesProc(),
+    ?CHK_TERM_PROC_LIST(MustChk, 1),
+    Exit(HA1),
+    ?CHK_TERM_PROC_LIST(MustChk, 2),
+    S2 = SpawnSuspendProcessesProc(),
+    ?CHK_TERM_PROC_LIST(MustChk, 3),
+    S3 = SpawnSuspendProcessesProc(),
+    ?CHK_TERM_PROC_LIST(MustChk, 4),
+    Exit(HA2),
+    ?CHK_TERM_PROC_LIST(MustChk, 5),
+    S4 = SpawnSuspendProcessesProc(),
+    ?CHK_TERM_PROC_LIST(MustChk, 6),
+    Exit(HA3),
+    ?CHK_TERM_PROC_LIST(MustChk, 7),
+    ResumeProcessesProc(S1),
+    ?CHK_TERM_PROC_LIST(MustChk, 5),
+    ResumeProcessesProc(S3),
+    ?CHK_TERM_PROC_LIST(MustChk, 4),
+    ResumeProcessesProc(S4),
+    ?CHK_TERM_PROC_LIST(MustChk, 3),
+    ResumeProcessesProc(S2),
+    ?CHK_TERM_PROC_LIST(MustChk, 0),
+    Exit(S1),
+    Exit(S2),
+    Exit(S3),
+    Exit(S4),
 
 
-    ?line HA4 = spawn_link(HangAround),
-    ?line HA5 = spawn_link(HangAround),
-    ?line HA6 = spawn_link(HangAround),
-    ?line S5 = SpawnSuspendProcessesProc(),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 1),
-    ?line Exit(HA4),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 2),
-    ?line S6 = SpawnSuspendProcessesProc(),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 3),
-    ?line Exit(HA5),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 4),
-    ?line S7 = SpawnSuspendProcessesProc(),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 5),
-    ?line Exit(HA6),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 6),
-    ?line S8 = SpawnSuspendProcessesProc(),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 7),
+    HA4 = spawn_link(HangAround),
+    HA5 = spawn_link(HangAround),
+    HA6 = spawn_link(HangAround),
+    S5 = SpawnSuspendProcessesProc(),
+    ?CHK_TERM_PROC_LIST(MustChk, 1),
+    Exit(HA4),
+    ?CHK_TERM_PROC_LIST(MustChk, 2),
+    S6 = SpawnSuspendProcessesProc(),
+    ?CHK_TERM_PROC_LIST(MustChk, 3),
+    Exit(HA5),
+    ?CHK_TERM_PROC_LIST(MustChk, 4),
+    S7 = SpawnSuspendProcessesProc(),
+    ?CHK_TERM_PROC_LIST(MustChk, 5),
+    Exit(HA6),
+    ?CHK_TERM_PROC_LIST(MustChk, 6),
+    S8 = SpawnSuspendProcessesProc(),
+    ?CHK_TERM_PROC_LIST(MustChk, 7),
 
-    ?line erlang:system_flag(multi_scheduling, block),
-    ?line Exit(S8),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 7),
-    ?line Exit(S5),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 6),
-    ?line Exit(S7),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 6),
-    ?line Exit(S6),
-    ?line ?CHK_TERM_PROC_LIST(MustChk, 0),
-    ?line erlang:system_flag(multi_scheduling, unblock),
-    ?line as_expected.
+    erlang:system_flag(multi_scheduling, block),
+    Exit(S8),
+    ?CHK_TERM_PROC_LIST(MustChk, 7),
+    Exit(S5),
+    ?CHK_TERM_PROC_LIST(MustChk, 6),
+    Exit(S7),
+    ?CHK_TERM_PROC_LIST(MustChk, 6),
+    Exit(S6),
+    ?CHK_TERM_PROC_LIST(MustChk, 0),
+    erlang:system_flag(multi_scheduling, unblock),
+    as_expected.
 
 
 otp_7738_waiting(doc) ->
@@ -2115,88 +2075,88 @@ otp_7738_waiting(doc) ->
 otp_7738_waiting(suite) ->
     [];
 otp_7738_waiting(Config) when is_list(Config) ->
-    ?line otp_7738_test(waiting).
+    otp_7738_test(waiting).
 
 otp_7738_suspended(doc) ->
     [];
 otp_7738_suspended(suite) ->
     [];
 otp_7738_suspended(Config) when is_list(Config) ->
-    ?line otp_7738_test(suspended).
+    otp_7738_test(suspended).
 
 otp_7738_resume(doc) ->
     [];
 otp_7738_resume(suite) ->
     [];
 otp_7738_resume(Config) when is_list(Config) ->
-    ?line otp_7738_test(resume).
+    otp_7738_test(resume).
 
 otp_7738_test(Type) ->
-    ?line T = self(),
-    ?line S = spawn_link(fun () ->
-			   receive
-			       {suspend, Suspendee} ->
-				   erlang:suspend_process(Suspendee),
-				   T ! {suspended, Suspendee},
-				   receive
-				   after 10 ->
-					   erlang:resume_process(Suspendee),
-					   Suspendee ! wake_up
-				   end;
-			       {send, To, Msg} ->
-				   receive after 10 -> ok end,
-				   To ! Msg
-			   end
-			 end),
-    ?line R = spawn_link(fun () ->
-				 X = lists:seq(1, 20000000),
-				 T ! {initialized, self()},
-				 ?line case Type of
-					   _ when Type == suspended;
-						  Type == waiting ->
-					       receive _ -> ok end;
-					   _ when Type == resume ->
-					       Receive = fun (F) ->
-								 receive
-								     _ ->
-									 ok
-								 after 0 ->
-									 F(F)
-								 end
-							 end,
-					       Receive(Receive)
-				       end,
-				 T ! {woke_up, self()},
-				 id(X)
-			 end),
-    ?line receive {initialized, R} -> ok end,
-    ?line receive after 10 -> ok end,
-    ?line case Type of
+    T = self(),
+    S = spawn_link(fun () ->
+		receive
+		    {suspend, Suspendee} ->
+			erlang:suspend_process(Suspendee),
+			T ! {suspended, Suspendee},
+			receive
+			after 10 ->
+				erlang:resume_process(Suspendee),
+				Suspendee ! wake_up
+			end;
+		    {send, To, Msg} ->
+			receive after 10 -> ok end,
+			To ! Msg
+		end
+	end),
+    R = spawn_link(fun () ->
+		X = lists:seq(1, 20000000),
+		T ! {initialized, self()},
+		case Type of
+		    _ when Type == suspended;
+		Type == waiting ->
+		    receive _ -> ok end;
+		_ when Type == resume ->
+		    Receive = fun (F) ->
+			    receive
+				_ ->
+				    ok
+			    after 0 ->
+				    F(F)
+			    end
+		    end,
+		    Receive(Receive)
+	    end,
+	    T ! {woke_up, self()},
+	    id(X)
+    end),
+    receive {initialized, R} -> ok end,
+    receive after 10 -> ok end,
+    case Type of
 	      suspended ->
-		  ?line erlang:suspend_process(R),
-		  ?line S ! {send, R, wake_up};
+		  erlang:suspend_process(R),
+		  S ! {send, R, wake_up};
 	      waiting ->
-		  ?line S ! {send, R, wake_up};
+		  S ! {send, R, wake_up};
 	      resume ->
-		  ?line S ! {suspend, R},
-		  ?line receive {suspended, R} -> ok end
+		  S ! {suspend, R},
+		  receive {suspended, R} -> ok end
 	  end,
-    ?line erlang:garbage_collect(R),
-    ?line case Type of
+    erlang:garbage_collect(R),
+    case Type of
 	      suspended ->
-		  ?line erlang:resume_process(R);
+		  erlang:resume_process(R);
 	      _ ->
-		  ?line ok
+		  ok
 	  end,
-    ?line receive
+    receive
 	      {woke_up, R} ->
-		  ?line ok
+		  ok
 	  after 2000 ->
-		  ?line I = process_info(R, [status, message_queue_len]),
-		  ?line ?t:format("~p~n", [I]),
-		  ?line ?t:fail(no_progress)
+		  I = process_info(R, [status, message_queue_len]),
+		  ?t:format("~p~n", [I]),
+		  ?t:fail(no_progress)
 	  end,
-    ?line ok.
+    ok.
 
 gor(Reds, Stop) ->
     receive
@@ -2210,28 +2170,28 @@ gor(Reds, Stop) ->
     end.
 
 garb_other_running(Config) when is_list(Config) ->
-    ?line Stop = make_ref(),
-    ?line {Pid, Mon} = spawn_monitor(fun () -> gor(0, Stop) end),
-    ?line Reds = lists:foldl(fun (_, OldReds) ->
-				     ?line erlang:garbage_collect(Pid),
-				     ?line receive after 1 -> ok end,
-				     ?line Pid ! {self(), reds},
-				     ?line receive
+    Stop = make_ref(),
+    {Pid, Mon} = spawn_monitor(fun () -> gor(0, Stop) end),
+    Reds = lists:foldl(fun (_, OldReds) ->
+				     erlang:garbage_collect(Pid),
+				     receive after 1 -> ok end,
+				     Pid ! {self(), reds},
+				     receive
 					       {reds, NewReds, Pid} ->
-						   ?line true = (NewReds > OldReds),
-						   ?line NewReds
+						   true = (NewReds > OldReds),
+						   NewReds
 					   end
 			     end,
 			     0,
 			     lists:seq(1, 10000)),
-    ?line receive after 1 -> ok end,
-    ?line Pid ! {self(), Stop},
-    ?line receive
+    receive after 1 -> ok end,
+    Pid ! {self(), Stop},
+    receive
 	      {stopped, Stop, StopReds, Pid} ->
-		  ?line true = (StopReds > Reds)
+		  true = (StopReds > Reds)
 	  end,
-    ?line receive {'DOWN', Mon, process, Pid, normal} -> ok end,
-    ?line ok.
+    receive {'DOWN', Mon, process, Pid, normal} -> ok end,
+    ok.
 
 %% Internal functions
 
@@ -2255,9 +2215,9 @@ start_node(Config) ->
     start_node(Config, "").
 
 start_node(Config, Args) when is_list(Config) ->
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {A, B, C} = now(),
-    ?line Name = list_to_atom(atom_to_list(?MODULE)
+    Pa = filename:dirname(code:which(?MODULE)),
+    {A, B, C} = now(),
+    Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-"
 			      ++ atom_to_list(?config(testcase, Config))
 			      ++ "-"
@@ -2266,7 +2226,7 @@ start_node(Config, Args) when is_list(Config) ->
 			      ++ integer_to_list(B)
 			      ++ "-"
 			      ++ integer_to_list(C)),
-    ?line ?t:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
+    ?t:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
 
 stop_node(Node) ->
     ?t:stop_node(Node).
