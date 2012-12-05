@@ -115,6 +115,12 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 > <input>info_lib().</input>
 [{&lt;&lt;"OpenSSL"&gt;&gt;,9469983,&lt;&lt;"OpenSSL 0.9.8a 11 Oct 2005"&gt;&gt;}]
         </pre>
+	<note><p>
+	  From OTP R16 the <em>numeric version</em> represents the version of the OpenSSL
+	  <em>header files</em> (<c>openssl/opensslv.h</c>) used when crypto was compiled.
+	  The text variant represents the OpenSSL library used at runtime.
+	  In earlier OTP versions both numeric and text was taken from the library.
+	</p></note>
       </desc>
     </func>
     <func>
@@ -265,6 +271,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </type>
       <desc>
         <p>Computes a message digest of type <c>Type</c> from <c>Data</c>.</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
     <func>
@@ -277,6 +285,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         <p>Initializes the context for streaming hash operations. <c>Type</c> determines
         which digest to use. The returned context should be used as argument
 	to <seealso marker="#hash_update/2">hash_update</seealso>.</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
     <func>
@@ -548,6 +558,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           keys, and <c>IVec</c> is an arbitrary initializing
           vector. The lengths of each of <c>Key1</c>, <c>Key2</c>,
           <c>Key3</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
+	<p>May throw exception <c>notsup</c> for old OpenSSL
+	  versions (0.9.7) that does not support this encryption mode.</p>
       </desc>
     </func>
     <func>
@@ -565,6 +577,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           and <c>IVec</c> must have the same values as those used when
           encrypting.  The lengths of <c>Key1</c>, <c>Key2</c>,
           <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
+	<p>May throw exception <c>notsup</c> for old OpenSSL
+	  versions (0.9.7) that does not support this encryption mode.</p>
       </desc>
     </func>
 

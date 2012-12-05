@@ -87,10 +87,12 @@ groups() ->
      {rest, [],
       [md5, md5_update, md4, md4_update, md5_mac,
        md5_mac_io, sha, sha_update,
+       sha256, sha256_update, sha512, sha512_update,
        hmac_update_sha, hmac_update_sha_n, hmac_update_sha256, hmac_update_sha512,
        hmac_update_md5_n, hmac_update_md5_io, hmac_update_md5,
        hmac_rfc4231,
        des_cbc, aes_cfb, aes_cbc,
+       des_cfb, des_cfb_iter, des3_cbc, des3_cfb, rc2_cbc,
        aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
        rand_uniform_test, strong_rand_test,
        rsa_verify_test, dsa_verify_test, rsa_sign_test,
@@ -192,7 +194,16 @@ info(Config) when is_list(Config) ->
 	    {skip,"Missing crypto application"};
 	{_,_} ->
 	    ?line crypto:start(),
-	    ?line crypto:info(),
+	    ?line Info = crypto:info(),
+	    ?line Exports = lists:usort([F || {F,_} <- crypto:module_info(exports)]),
+	    ?line [] = Info -- Exports,
+	    ?line NotInInfo = Exports -- Info,
+	    io:format("NotInInfo = ~p\n", [NotInInfo]),
+	    BlackList = lists:sort([des_ede3_cbc_decrypt, des_ede3_cbc_encrypt,
+				    dh_check, dh_generate_parameters,
+				    module_info, start, stop, version]),
+	    ?line BlackList = NotInInfo,
+
 	    ?line InfoLib = crypto:info_lib(),
 	    ?line [_|_] = InfoLib,
 	    F = fun([{Name,VerN,VerS}|T],Me) ->
@@ -349,12 +360,8 @@ hmac_update_sha256(doc) ->
 hmac_update_sha256(suite) ->
     [];
 hmac_update_sha256(Config) when is_list(Config) ->
-    case openssl_version() of
-	V when V < 16#908000 ->
-	    {skipped,"OpenSSL version too old"};
-	_ ->
-	    hmac_update_sha256_do()
-    end.
+    if_098(fun() -> hmac_update_sha256_do() end).
+
 
 hmac_update_sha256_do() ->
     ?line Key = hexstr2bin("00010203101112132021222330313233"
@@ -376,12 +383,7 @@ hmac_update_sha512(doc) ->
 hmac_update_sha512(suite) ->
     [];
 hmac_update_sha512(Config) when is_list(Config) ->
-    case openssl_version() of
-	V when V < 16#908000 ->
-	    {skipped,"OpenSSL version too old"};
-	_ ->
-	    hmac_update_sha512_do()
-    end.
+    if_098(fun() -> hmac_update_sha512_do() end).
 
 hmac_update_sha512_do() ->
     ?line Key = hexstr2bin("00010203101112132021222330313233"
@@ -422,12 +424,7 @@ hmac_rfc4231(doc) ->
 hmac_rfc4231(suite) ->
     [];
 hmac_rfc4231(Config) when is_list(Config) ->
-    case openssl_version() of
-	V when V < 16#908000 ->
-	    {skipped,"OpenSSL version too old"};
-	_ ->
-	    hmac_rfc4231_do()
-    end.
+    if_098(fun() -> hmac_rfc4231_do() end).
 
 hmac_rfc4231_do() ->
     %% Test Case 1
@@ -746,6 +743,9 @@ sha256(doc) ->
 sha256(suite) ->
     [];
 sha256(Config) when is_list(Config) ->
+    if_098(fun() -> sha256_do() end).
+
+sha256_do() ->
     ?line m(crypto:sha256("abc"),
 	    hexstr2bin("BA7816BF8F01CFEA4141"
 		       "40DE5DAE2223B00361A396177A9CB410FF61F20015AD")),
@@ -762,6 +762,9 @@ sha256_update(doc) ->
 sha256_update(suite) ->
     [];
 sha256_update(Config) when is_list(Config) ->
+    if_098(fun() -> sha256_update_do() end).
+
+sha256_update_do() ->
     ?line Ctx = crypto:sha256_init(),
     ?line Ctx1 = crypto:sha256_update(Ctx, "abcdbcdecdefdefgefghfghighi"),
     ?line Ctx2 = crypto:sha256_update(Ctx1, "jhijkijkljklmklmnlmnomnopnopq"),
@@ -778,6 +781,9 @@ sha512(doc) ->
 sha512(suite) ->
     [];
 sha512(Config) when is_list(Config) ->
+    if_098(fun() -> sha512_do() end).
+
+sha512_do() ->
     ?line m(crypto:sha512("abc"),
 	    hexstr2bin("DDAF35A193617ABACC417349AE20413112E6FA4E89A97EA2"
 		       "0A9EEEE64B55D39A2192992A274FC1A836BA3C23A3FEEBBD"
@@ -796,6 +802,9 @@ sha512_update(doc) ->
 sha512_update(suite) ->
     [];
 sha512_update(Config) when is_list(Config) ->
+    if_098(fun() -> sha512_update_do() end).
+
+sha512_update_do() ->
     ?line Ctx = crypto:sha512_init(),
     ?line Ctx1 = crypto:sha512_update(Ctx, "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn"),
     ?line Ctx2 = crypto:sha512_update(Ctx1, "hijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"),
@@ -996,6 +1005,12 @@ des3_cfb(doc) ->
 des3_cfb(suite) ->
     [];
 des3_cfb(Config) when is_list(Config) ->
+    case openssl_version() of
+	V when V < 16#90705F -> {skipped,"OpenSSL version too old"};
+	_ -> des3_cfb_do()
+    end.
+
+des3_cfb_do() ->
     ?line Key1 = hexstr2bin("0123456789abcdef"),
     ?line Key2 = hexstr2bin("fedcba9876543210"),
     ?line Key3 = hexstr2bin("0f2d4b6987a5c3e1"),
@@ -1959,3 +1974,10 @@ openssl_version() ->
 	    undefined
     end.
 
+if_098(Fun) ->
+    case openssl_version() of
+	V when V < 16#908000 ->
+	    {skipped,"OpenSSL version too old"};
+	_ ->
+	    Fun()
+    end.

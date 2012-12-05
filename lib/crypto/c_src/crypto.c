@@ -69,6 +69,9 @@
 #if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
 # define HAVE_SHA512
 #endif
+#if OPENSSL_VERSION_NUMBER >= 0x0090705FL
+# define HAVE_DES_ede3_cfb_encrypt
+#endif
 
 #ifdef VALGRIND
     #  include <valgrind/memcheck.h>
@@ -173,7 +176,7 @@ static ERL_NIF_TERM des_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 static ERL_NIF_TERM des_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_ede3_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM des_ede3_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM des_ede3_cfb_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -281,7 +284,7 @@ static ErlNifFunc nif_funcs[] = {
     {"des_cfb_crypt", 4, des_cfb_crypt},
     {"des_ecb_crypt", 3, des_ecb_crypt},
     {"des_ede3_cbc_crypt", 6, des_ede3_cbc_crypt},
-    {"des_ede3_cfb_crypt", 6, des_ede3_cfb_crypt},
+    {"des_ede3_cfb_crypt_nif", 6, des_ede3_cfb_crypt_nif},
     {"aes_cfb_128_crypt", 4, aes_cfb_128_crypt},
     {"aes_ctr_encrypt", 3, aes_ctr_encrypt},
     {"aes_ctr_decrypt", 3, aes_ctr_encrypt},
@@ -533,12 +536,21 @@ static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     const char* ver = SSLeay_version(SSLEAY_VERSION);
     unsigned ver_sz = strlen(ver);
     ERL_NIF_TERM name_term, ver_term;
+    int ver_num = OPENSSL_VERSION_NUMBER;
+    /* R16:
+     * Ignore library version number from SSLeay() and instead show header
+     * version. Otherwise user might try to call a function that is implemented
+     * by a newer library but not supported by the headers used at compile time.
+     * Example: DES_ede3_cfb_encrypt in 0.9.7i but not in 0.9.7d.
+     *
+     * Version string is still from library though.
+     */
 
     memcpy(enif_make_new_binary(env, name_sz, &name_term), libname, name_sz);    
     memcpy(enif_make_new_binary(env, ver_sz, &ver_term), ver, ver_sz);
 
     return enif_make_list1(env, enif_make_tuple3(env, name_term,
-						 enif_make_int(env, SSLeay()),
+						 enif_make_int(env, ver_num),						 
 						 ver_term));
 }
 
@@ -1218,8 +1230,9 @@ static ERL_NIF_TERM des_ede3_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_T
     return ret;
 }
 
-static ERL_NIF_TERM des_ede3_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM des_ede3_cfb_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key1, Key2, Key3, IVec, Text/Cipher, IsEncrypt) */
+#ifdef HAVE_DES_ede3_cfb_encrypt
     ErlNifBinary key1, key2, key3, ivec, text;
     DES_key_schedule schedule1, schedule2, schedule3;
     DES_cblock ivec_clone; /* writable copy */
@@ -1241,6 +1254,9 @@ static ERL_NIF_TERM des_ede3_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_T
 			 8, text.size, &schedule1, &schedule2, &schedule3,
 			 &ivec_clone, (argv[5] == atom_true));
     return ret;
+#else
+    return atom_notsup;
+#endif
 }
 
 static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
