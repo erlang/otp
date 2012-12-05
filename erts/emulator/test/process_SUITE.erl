@@ -411,7 +411,7 @@ t_process_info(Config) when is_list(Config) ->
     ?line {registered_name, my_name} = process_info(self(), registered_name),
     ?line {status, running} = process_info(self(), status),
     ?line {min_heap_size, 233} = process_info(self(), min_heap_size),
-    ?line {min_bin_vheap_size, 46368} = process_info(self(), min_bin_vheap_size),
+    {min_bin_vheap_size,46422} = process_info(self(), min_bin_vheap_size),
     ?line {current_function,{?MODULE,t_process_info,1}} =
 	process_info(self(), current_function),
     ?line {current_function,{?MODULE,t_process_info,1}} =
