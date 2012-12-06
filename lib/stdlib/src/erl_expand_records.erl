@@ -381,9 +381,6 @@ expr({call,Line,{record_field,_,_,_}=M,As0}, St0) ->
 expr({call,Line,{remote,Lr,M,F},As0}, St0) ->
     {[M1,F1 | As1],St1} = expr_list([M,F | As0], St0),
     {{call,Line,{remote,Lr,M1,F1},As1},St1};
-expr({call,Line,{tuple,Lt,[{atom,_,_}=M,{atom,_,_}=F]},As0}, St0) ->
-    {As,St1} = expr_list(As0, St0),
-    {{call,Line,{tuple,Lt,[M,F]},As},St1};
 expr({call,Line,F,As0}, St0) ->
     {[Fun1 | As1],St1} = expr_list([F | As0], St0),
     {{call,Line,Fun1,As1},St1};
