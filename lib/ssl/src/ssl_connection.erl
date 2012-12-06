@@ -89,6 +89,7 @@
 	  log_alert,           % boolean() 
 	  renegotiation,       % {boolean(), From | internal | peer}
 	  start_or_recv_from,  % "gen_fsm From"
+	  timer,               % start_or_recv_timer
 	  send_queue,          % queue()
 	  terminated = false,  %
 	  allow_renegotiate = true,
@@ -775,8 +776,9 @@ handle_sync_event({application_data, Data}, From, StateName,
      get_timeout(State)};
 
 handle_sync_event({start, Timeout}, StartFrom, hello, State) ->
-    start_or_recv_cancel_timer(Timeout, StartFrom),
-    hello(start, State#state{start_or_recv_from = StartFrom});
+    Timer = start_or_recv_cancel_timer(Timeout, StartFrom),
+    hello(start, State#state{start_or_recv_from = StartFrom,
+			     timer = Timer});
 
 %% The two clauses below could happen if a server upgrades a socket in
 %% active mode. Note that in this case we are lucky that
@@ -792,8 +794,9 @@ handle_sync_event({start,_}, _From, error, {Error, State = #state{}}) ->
     {stop, {shutdown, Error}, {error, Error}, State};
 
 handle_sync_event({start, Timeout}, StartFrom, StateName, State) ->
-    start_or_recv_cancel_timer(Timeout, StartFrom),
-    {next_state, StateName, State#state{start_or_recv_from = StartFrom}, get_timeout(State)};
+    Timer = start_or_recv_cancel_timer(Timeout, StartFrom),
+    {next_state, StateName, State#state{start_or_recv_from = StartFrom,
+					timer = Timer}, get_timeout(State)};
 
 handle_sync_event(close, _, StateName, State) ->
     %% Run terminate before returning
@@ -825,14 +828,16 @@ handle_sync_event({shutdown, How0}, _, StateName,
     end;
     
 handle_sync_event({recv, N, Timeout}, RecvFrom, connection = StateName, State0) ->
-    start_or_recv_cancel_timer(Timeout, RecvFrom),
-    passive_receive(State0#state{bytes_to_read = N, start_or_recv_from = RecvFrom}, StateName);
+    Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
+    passive_receive(State0#state{bytes_to_read = N,
+				 start_or_recv_from = RecvFrom, timer = Timer}, StateName);
 
 %% Doing renegotiate wait with handling request until renegotiate is
 %% finished. Will be handled by next_state_is_connection/2.
 handle_sync_event({recv, N, Timeout}, RecvFrom, StateName, State) ->
-    start_or_recv_cancel_timer(Timeout, RecvFrom),
-    {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom},
+    Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
+    {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom,
+					timer = Timer},
      get_timeout(State)};
 
 handle_sync_event({new_user, User}, _From, StateName, 
@@ -996,13 +1001,20 @@ handle_info({'DOWN', MonitorRef, _, _, _}, _,
 
 handle_info(allow_renegotiate, StateName, State) ->
     {next_state, StateName, State#state{allow_renegotiate = true}, get_timeout(State)};
-   
-handle_info({cancel_start_or_recv, RecvFrom}, connection = StateName, #state{start_or_recv_from = RecvFrom} = State) ->
+
+handle_info({cancel_start_or_recv, StartFrom}, StateName,
+	    #state{renegotiation = {false, first}} = State) when StateName =/= connection ->
+    gen_fsm:reply(StartFrom, {error, timeout}),
+    {stop, {shutdown, user_timeout}, State#state{timer = undefined}};
+
+handle_info({cancel_start_or_recv, RecvFrom}, StateName, #state{start_or_recv_from = RecvFrom} = State) ->
     gen_fsm:reply(RecvFrom, {error, timeout}),
-    {next_state, StateName, State#state{start_or_recv_from = undefined}, get_timeout(State)};
+    {next_state, StateName, State#state{start_or_recv_from = undefined,
+					bytes_to_read = undefined,
+					timer = undefined}, get_timeout(State)};
 
 handle_info({cancel_start_or_recv, _RecvFrom}, StateName, State) ->
-    {next_state, StateName, State, get_timeout(State)};
+    {next_state, StateName, State#state{timer = undefined}, get_timeout(State)};
 
 handle_info(Msg, StateName, State) ->
     Report = io_lib:format("SSL: Got unexpected info: ~p ~n", [Msg]),
@@ -1770,6 +1782,7 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 				   socket_options = SOpts,
 				   bytes_to_read = BytesToRead,
 				   start_or_recv_from = RecvFrom,
+				   timer = Timer,
 				   user_data_buffer = Buffer0} = State0) ->
     Buffer1 = if 
 		  Buffer0 =:= <<>> -> Data;
@@ -1779,9 +1792,11 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
     case get_data(SOpts, BytesToRead, Buffer1) of
 	{ok, ClientData, Buffer} -> % Send data
 	    SocketOpt = deliver_app_data(Socket, SOpts, ClientData, Pid, RecvFrom),
+	    cancel_timer(Timer),
 	    State = State0#state{user_data_buffer = Buffer,
 				 start_or_recv_from = undefined,
-				 bytes_to_read = 0,
+				 timer = undefined,
+				 bytes_to_read = undefined,
 				 socket_options = SocketOpt 
 				},
 	    if
@@ -1794,6 +1809,8 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	    end;
 	{more, Buffer} -> % no reply, we need more data
 	    next_record(State0#state{user_data_buffer = Buffer});
+	{passive, Buffer} ->
+	    next_record_if_active(State0#state{user_data_buffer = Buffer});
 	{error,_Reason} -> %% Invalid packet in packet mode
 	    deliver_packet_error(Socket, SOpts, Buffer1, Pid, RecvFrom),
 	    {stop, normal, State0}
@@ -1835,6 +1852,9 @@ is_time_to_renegotiate(_,_) ->
 %% Picks ClientData 
 get_data(_, _, <<>>) ->
     {more, <<>>};
+%% Recv timed out save buffer data until next recv
+get_data(#socket_options{active=false}, undefined, Buffer) ->
+    {passive, Buffer};
 get_data(#socket_options{active=Active, packet=Raw}, BytesToRead, Buffer) 
   when Raw =:= raw; Raw =:= 0 ->   %% Raw Mode
     if 
@@ -2140,7 +2160,6 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   tls_record_buffer = <<>>,
 	   tls_cipher_texts = [],
 	   user_application = {Monitor, User},
-	   bytes_to_read = 0,
 	   user_data_buffer = <<>>,
 	   log_alert = true,
 	   session_cache_cb = SessionCacheCb,
@@ -2363,9 +2382,11 @@ ack_connection(#state{renegotiation = {true, From}} = State) ->
     gen_fsm:reply(From, ok),
     State#state{renegotiation = undefined};
 ack_connection(#state{renegotiation = {false, first}, 
-		      start_or_recv_from = StartFrom} = State) when StartFrom =/= undefined ->
+		      start_or_recv_from = StartFrom,
+		      timer = Timer} = State) when StartFrom =/= undefined ->
     gen_fsm:reply(StartFrom, connected),
-    State#state{renegotiation = undefined, start_or_recv_from = undefined};
+    cancel_timer(Timer),
+    State#state{renegotiation = undefined, start_or_recv_from = undefined, timer = undefined};
 ack_connection(State) ->
     State.
 
@@ -2503,9 +2524,14 @@ default_hashsign(_Version, KeyExchange)
     {null, anon}.
 
 start_or_recv_cancel_timer(infinity, _RecvFrom) ->
-    ok;
+    undefined;
 start_or_recv_cancel_timer(Timeout, RecvFrom) ->
     erlang:send_after(Timeout, self(), {cancel_start_or_recv, RecvFrom}).    
+
+cancel_timer(undefined) ->
+    ok;
+cancel_timer(Timer) ->
+    erlang:cancel_timer(Timer).
 
 handle_unrecv_data(StateName, #state{socket = Socket, transport_cb = Transport} = State) ->
     inet:setopts(Socket, [{active, false}]),

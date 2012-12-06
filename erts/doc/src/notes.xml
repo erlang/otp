@@ -30,6 +30,28 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.9.3.1</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Create an erl_crash.dump if no heart exists and no
+	    ERL_CRASH_DUMP_SECONDS is set (behaviour changed).</p>
+          <p>
+	    Don't create an erl_crash.dump if heart do exists and no
+	    ERL_CRASH_DUMP_SECONDS is set (behaviour not changed).</p>
+          <p>
+	    This changes the behaviour back to the R15B02 default
+	    considering if a beam was running with no heart.</p>
+          <p>
+	    Own Id: OTP-10602</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.9.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

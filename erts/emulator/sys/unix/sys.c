@@ -686,7 +686,7 @@ static RETSIGTYPE break_handler(int sig)
 }
 #endif /* 0 */
 
-static ERTS_INLINE void
+static ERTS_INLINE int
 prepare_crash_dump(int secs)
 {
 #define NUFBUF (3)
@@ -698,19 +698,35 @@ prepare_crash_dump(int secs)
     Eterm *hp = heap;
     Eterm list = NIL;
     int heart_fd[2] = {-1,-1};
+    int has_heart = 0;
 
     UseTmpHeapNoproc(NUFBUF);
 
     if (ERTS_PREPARED_CRASH_DUMP)
-	return; /* We have already been called */
+	return 0; /* We have already been called */
 
     heart_port = erts_get_heart_port();
+
+    /* Positive secs means an alarm must be set
+     * 0 or negative means no alarm
+     *
+     * Set alarm before we try to write to a port
+     * we don't want to hang on a port write with
+     * no alarm.
+     *
+     */
+
+    if (secs >= 0) {
+	alarm((unsigned int)secs);
+    }
+
     if (heart_port) {
 	/* hearts input fd
 	 * We "know" drv_data is the in_fd since the port is started with read|write
 	 */
 	heart_fd[0] = (int)heart_port->drv_data;
 	heart_fd[1] = (int)driver_data[heart_fd[0]].ofd;
+	has_heart   = 1;
 
 	list = CONS(hp, make_small(8), list); hp += 2;
 
@@ -752,20 +768,14 @@ prepare_crash_dump(int secs)
 	erts_silence_warn_unused_result(nice(nice_val));
     }
 
-    /* Positive secs means an alarm must be set
-     * 0 or negative means no alarm
-     */
-    if (secs > 0) {
-	alarm((unsigned int)secs);
-    }
     UnUseTmpHeapNoproc(NUFBUF);
 #undef NUFBUF
+    return has_heart;
 }
 
-void
-erts_sys_prepare_crash_dump(int secs)
+int erts_sys_prepare_crash_dump(int secs)
 {
-    prepare_crash_dump(secs);
+    return prepare_crash_dump(secs);
 }
 
 static ERTS_INLINE void
@@ -802,12 +812,22 @@ static RETSIGTYPE request_break(int signum)
 static ERTS_INLINE void
 sigusr1_exit(void)
 {
-   /* We do this at interrupt level, since the main reason for
-      wanting to generate a crash dump in this way is that the emulator
-      is hung somewhere, so it won't be able to poll any flag we set here.
-      */
+    char env[21]; /* enough to hold any 64-bit integer */
+    size_t envsz;
+    int i, secs = -1;
+
+    /* We do this at interrupt level, since the main reason for
+     * wanting to generate a crash dump in this way is that the emulator
+     * is hung somewhere, so it won't be able to poll any flag we set here.
+     */
     ERTS_SET_GOT_SIGUSR1;
-    prepare_crash_dump((int)0);
+
+    envsz = sizeof(env);
+    if ((i = erts_sys_getenv_raw("ERL_CRASH_DUMP_SECONDS", env, &envsz)) >= 0) {
+	secs = i != 0 ? 0 : atoi(env);
+    }
+
+    prepare_crash_dump(secs);
     erl_exit(1, "Received SIGUSR1\n");
 }
 

@@ -30,7 +30,22 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
   
-  <section><title>SSL 5.1.1</title>
+  <section><title>SSL 5.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ssl:ssl_accept/2 timeout is no longer ignored</p>
+          <p>
+	    Own Id: OTP-10600</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

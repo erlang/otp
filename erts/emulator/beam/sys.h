@@ -644,7 +644,7 @@ void erts_sys_schedule_interrupt_timed(int set, erts_short_time_t msec);
 void erts_sys_main_thread(void);
 #endif
 
-extern void erts_sys_prepare_crash_dump(int secs);
+extern int erts_sys_prepare_crash_dump(int secs);
 extern void erts_sys_pre_init(void);
 extern void erl_sys_init(void);
 extern void erl_sys_args(int *argc, char **argv);
