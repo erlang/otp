@@ -148,9 +148,9 @@ message_order(Config) when is_list(Config) ->
 
 send_to_busy_1(Parent) ->
     {Owner, Slave} = get_slave(),
-    Slave ! {Owner, {command, "set_me_busy"}},
-    Slave ! {Owner, {command, "hello"}},
-    Slave ! {Owner, {command, "hello again"}},
+    (catch port_command(Slave, "set_me_busy")),
+    (catch port_command(Slave, "hello")),
+    (catch port_command(Slave, "hello again")),
     receive
 	Message ->
 	    Parent ! {self(), Message}
@@ -193,10 +193,10 @@ system_monitor(Config) when is_list(Config) ->
     ?line Busy = 
 	spawn_link(
 	  fun() ->
-		  Slave ! {Owner,{command,"set busy"}},
+		  (catch port_command(Slave, "set busy")),
 		  receive {Parent,alpha} -> ok end,
-		  Slave ! {Owner,{command,"busy"}},
-		  Slave ! {Owner,{command,"free"}},
+		  (catch port_command(Slave, "busy")),
+		  (catch port_command(Slave, "free")),
 		  Parent ! {self(),alpha},
 		  command(lock),
 		  receive {Parent,beta} -> ok end,
@@ -212,7 +212,7 @@ system_monitor(Config) when is_list(Config) ->
     ?line Void = rec(Void),
     ?line Busy ! {self(), beta},
     ?line {monitor,Owner,busy_port,Slave} = rec(Void),
-    ?line Master ! {Owner, {command, "u"}},
+    ?line port_command(Master, "u"),
     ?line {Busy,beta} = rec(Void),
     ?line Void = rec(Void),
     ?line _NewMonitor = erlang:system_monitor(OldMonitor),
@@ -296,9 +296,9 @@ no_trap_exit_process(ResultTo, Link, Config) ->
 	      linked -> ok;
 	      unlink -> unlink(Slave)
 	  end,
-    ?line Slave ! {self(), {command, "lock port"}},
+    ?line (catch port_command(Slave, "lock port")),
     ?line ResultTo ! {self(), port_created, Slave},
-    ?line Slave ! {self(), {command, "suspend me"}},
+    ?line (catch port_command(Slave, "suspend me")),
     ok.
 
 %% Assuming the following scenario,
@@ -339,9 +339,9 @@ busy_port_exit_process(ResultTo, Config) ->
     ?line load_busy_driver(Config),
     ?line _Master = open_port({spawn, "busy_drv master"}, [eof]),
     ?line Slave = open_port({spawn, "busy_drv slave"}, [eof]),
-    ?line Slave ! {self(), {command, "lock port"}},
+    ?line (catch port_command(Slave, "lock port")),
     ?line ResultTo ! {self(), port_created, Slave},
-    ?line Slave ! {self(), {command, "suspend me"}},
+    ?line (catch port_command(Slave, "suspend me")),
     receive
 	{'EXIT', Slave, die} ->
 	    ResultTo ! {self(), ok};
@@ -383,8 +383,8 @@ multiple_writers(Config) when is_list(Config) ->
 
 quick_writer() ->
     {Owner, Port} = get_slave(),
-    Port ! {Owner, {command, "port to busy"}},
-    Port ! {Owner, {command, "lock me"}},
+    (catch port_command(Port, "port to busy")),
+    (catch port_command(Port, "lock me")),
     ok.
 
 hard_busy_driver(Config) when is_list(Config) ->
@@ -644,11 +644,11 @@ loop(Master, Slave) ->
 	    Pid ! {busy_drv_reply, {self(), Slave}},
 	    loop(Master, Slave);
 	{Pid, unlock} ->
-	    Master ! {self(), {command, "u"}},
+	    port_command(Master, "u"),
 	    Pid ! {busy_drv_reply, ok},
 	    loop(Master, Slave);
 	{Pid, lock} ->
-	    Master ! {self(), {command, "l"}},
+	    port_command(Master, "l"),
 	    Pid ! {busy_drv_reply, ok},
 	    loop(Master, Slave);
 	{Pid, {port_command,Data}} ->

@@ -438,8 +438,7 @@ check_process_code_2(BIF_ALIST_2)
     if (is_internal_pid(BIF_ARG_1)) {
 	Eterm res;
 	ErtsCodeIndex code_ix;
-	if (internal_pid_index(BIF_ARG_1) >= erts_max_processes)
-	    goto error;
+
 	code_ix = erts_active_code_ix();
 	modp = erts_get_module(BIF_ARG_2, code_ix);
 	if (modp == NULL) {		/* Doesn't exist. */

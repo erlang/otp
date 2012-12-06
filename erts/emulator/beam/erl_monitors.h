@@ -137,8 +137,6 @@ typedef struct erts_suspend_monitor {
 #define ERTS_LINK_ROOT(Linkp) ((Linkp)->shared.root)
 #define ERTS_LINK_REFC(Linkp) ((Linkp)->shared.refc) 
 
-#define ERTS_LINK_ROOT_AS_UINT(Linkp) (*((Uint *) &((Linkp)->root)))
-
 Uint erts_tot_link_lh_size(void);
 
 

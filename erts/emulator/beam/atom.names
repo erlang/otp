@@ -94,6 +94,7 @@ atom asynchronous
 atom atom
 atom atom_used
 atom attributes
+atom await_port_send_result
 atom await_proc_exit
 atom await_sched_wall_time_modifications
 atom awaiting_load
@@ -152,6 +153,7 @@ atom connection_closed
 atom cons
 atom const
 atom context_switches
+atom control
 atom copy
 atom cpu
 atom cpu_timestamp
@@ -204,6 +206,7 @@ atom erlang
 atom ERROR='ERROR'
 atom error_handler
 atom error_logger
+atom erts_internal
 atom ets
 atom ETS_TRANSFER='ETS-TRANSFER'
 atom event
@@ -237,6 +240,7 @@ atom gc_end
 atom gc_start
 atom Ge='>='
 atom generational
+atom get_data
 atom get_seq_token
 atom get_tcw
 atom getenv
@@ -408,6 +412,7 @@ atom overlapped_io
 atom owner
 atom packet
 atom packet_size
+atom parallelism
 atom Plus='+'
 atom pause
 atom pending
@@ -419,12 +424,12 @@ atom pid
 atom port
 atom ports
 atom port_count
+atom port_limit
 atom print
 atom priority
 atom private
 atom process
 atom processes
-atom processes_trap
 atom processes_used
 atom process_count
 atom process_display
@@ -434,6 +439,7 @@ atom procs
 atom profile
 atom protected
 atom protection
+atom ptab_list_continue
 atom public
 atom purify
 atom quantify
@@ -481,6 +487,7 @@ atom sequential_trace_token
 atom serial
 atom set
 atom set_cpu_topology
+atom set_data
 atom set_on_first_link
 atom set_on_first_spawn
 atom set_on_link

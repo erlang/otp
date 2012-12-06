@@ -2128,6 +2128,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
 
     if (want_tot_or_sys || want.processes || want.processes_used) {
+	int max_processes = erts_ptab_max(&erts_proc);
 	UWord tmp;
 
 	if (ERTS_MEM_NEED_ALL_ALCU)
@@ -2137,7 +2138,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		      fi, ERTS_ALC_NO_FIXED_SIZES);
 	    tmp = alcu_size(ERTS_ALC_A_EHEAP, NULL, 0);
 	}
-	tmp += erts_max_processes*sizeof(Process*);
+	tmp += max_processes*sizeof(erts_smp_atomic_t);
 	tmp += erts_bif_timer_memory_size();
 	tmp += erts_tot_link_lh_size();
 
@@ -2268,6 +2269,8 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
     Eterm res = THE_NON_VALUE;
     int i, length;
     Uint reserved_atom_space, atom_space;
+    int max_processes = erts_ptab_max(&erts_proc);
+    int max_ports = erts_ptab_max(&erts_port);
 
     if (proc) {
 	ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN
@@ -2299,7 +2302,7 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
     values[i].arity = 2;
     values[i].name = "static";
     values[i].ui[0] = 
-	erts_max_ports*sizeof(Port)		/* Port table */
+	max_ports*sizeof(erts_smp_atomic_t)	/* Port table */
 	+ erts_timer_wheel_memory_size();	/* Timer wheel */
     i++;
 
@@ -2378,7 +2381,7 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
 
     values[i].arity = 2;
     values[i].name = "process_table";
-    values[i].ui[0] = erts_max_processes*sizeof(Process*);
+    values[i].ui[0] = max_processes*sizeof(Process*);
     i++;
 
     values[i].arity = 2;

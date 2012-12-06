@@ -53,9 +53,22 @@ typedef Uint64 ErtsThrPrgrVal;
 #define ERTS_THR_PRGR_WAKEUP_DATA_SIZE 4 /* Need to be an even power of 2. */
 
 typedef struct {
+    ErtsThrPrgrVal next;
+    ErtsThrPrgrVal current;
+    int chk_next_ix;
+    struct {
+	int current;
+	int waiting;
+    } umrefc_ix;
+} ErtsThrPrgrLeaderState;
+
+typedef struct {
     int id;
     int is_managed;
     int is_blocking;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    int is_delaying; /* managed is always delaying */
+#endif
     int is_temporary;
 
     /* --- Part below only for registered threads --- */
@@ -66,11 +79,8 @@ typedef struct {
 
     int leader; /* Needs to be first in the managed threads part */
     int active;
-    struct {
-	ErtsThrPrgrVal local;
-	ErtsThrPrgrVal next;
-	ErtsThrPrgrVal current;
-    } previous;
+    ErtsThrPrgrVal confirmed;
+    ErtsThrPrgrLeaderState leader_state;
 } ErtsThrPrgrData;
 
 void erts_thr_progress_fatal_error_block(SWord timeout,
@@ -121,6 +131,11 @@ typedef struct {
     ERTS_THR_PRGR_ATOMIC current;
 } ErtsThrPrgr;
 
+typedef int ErtsThrPrgrDelayHandle;
+#define ERTS_THR_PRGR_DHANDLE_MANAGED ((ErtsThrPrgrDelayHandle) -1)
+/* ERTS_THR_PRGR_DHANDLE_MANAGED implies managed thread */
+#define ERTS_THR_PRGR_DHANDLE_INVALID ((ErtsThrPrgrDelayHandle) -2)
+
 extern ErtsThrPrgr erts_thr_prgr__;
 
 void erts_thr_progress_pre_init(void);
@@ -136,6 +151,8 @@ int erts_thr_progress_update(ErtsSchedulerData *esdp);
 int erts_thr_progress_leader_update(ErtsSchedulerData *esdp);
 void erts_thr_progress_prepare_wait(ErtsSchedulerData *esdp);
 void erts_thr_progress_finalize_wait(ErtsSchedulerData *esdp);
+ErtsThrPrgrDelayHandle erts_thr_progress_unmanaged_delay__(void);
+void erts_thr_progress_unmanaged_continue__(int umrefc_ix);
 
 void erts_thr_progress_dbg_print_state(void);
 
@@ -148,6 +165,11 @@ ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_acqb__(ERTS_THR_PRGR_ATOMIC *a
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_mb__(ERTS_THR_PRGR_ATOMIC *atmc);
 
 ERTS_GLB_INLINE int erts_thr_progress_is_managed_thread(void);
+ERTS_GLB_INLINE ErtsThrPrgrDelayHandle erts_thr_progress_unmanaged_delay(void);
+ERTS_GLB_INLINE void erts_thr_progress_unmanaged_continue(ErtsThrPrgrDelayHandle handle);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+ERTS_GLB_INLINE int erts_thr_progress_lc_is_delaying(void);
+#endif
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_current_to_later__(ErtsThrPrgrVal val);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_later(ErtsSchedulerData *);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_current(void);
@@ -229,6 +251,35 @@ erts_thr_progress_is_managed_thread(void)
     return tpd && tpd->is_managed;
 }
 
+ERTS_GLB_INLINE ErtsThrPrgrDelayHandle
+erts_thr_progress_unmanaged_delay(void)
+{
+    if (erts_thr_progress_is_managed_thread())
+	return ERTS_THR_PRGR_DHANDLE_MANAGED; /* Nothing to do */
+    else
+	return erts_thr_progress_unmanaged_delay__();
+}
+
+ERTS_GLB_INLINE void
+erts_thr_progress_unmanaged_continue(ErtsThrPrgrDelayHandle handle)
+{
+    ASSERT(handle != ERTS_THR_PRGR_DHANDLE_MANAGED
+	   || erts_thr_progress_is_managed_thread());
+    if (handle != ERTS_THR_PRGR_DHANDLE_MANAGED)
+	erts_thr_progress_unmanaged_continue__(handle);
+}
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+
+ERTS_GLB_INLINE int
+erts_thr_progress_lc_is_delaying(void)
+{
+    ErtsThrPrgrData *tpd = erts_tsd_get(erts_thr_prgr_data_key__);
+    return tpd && tpd->is_delaying;
+}
+
+#endif
+
 ERTS_GLB_INLINE ErtsThrPrgrVal
 erts_thr_progress_current_to_later__(ErtsThrPrgrVal val)
 {
@@ -248,7 +299,7 @@ erts_thr_progress_later(ErtsSchedulerData *esdp)
     if (esdp) {
 	tpd = &esdp->thr_progress_data;
     managed_thread:
-	val = tpd->previous.local;
+	val = tpd->confirmed;
 	ERTS_THR_MEMORY_BARRIER;
     }
     else {

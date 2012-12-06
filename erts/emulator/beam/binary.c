@@ -355,10 +355,10 @@ BIF_RETTYPE bitstring_to_list_1(BIF_ALIST_1)
 BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg)
 {
     Eterm bin;
-    Uint size;
+    ErlDrvSizeT size;
     byte* bytes;
 #ifdef DEBUG
-    int offset;
+    ErlDrvSizeT offset;
 #endif
 
     if (is_nil(arg)) {
@@ -377,7 +377,7 @@ BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg)
 #ifdef DEBUG
     offset = 
 #endif
-	io_list_to_buf(arg, (char*) bytes, size);
+	erts_iolist_to_buf(arg, (char*) bytes, size);
 
     ASSERT(offset == 0);
     BIF_RET(bin);

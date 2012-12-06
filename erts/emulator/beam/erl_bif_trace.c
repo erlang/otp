@@ -124,7 +124,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     struct trace_pattern_flags flags = erts_trace_pattern_flags_off;
     int is_global;
     Process *meta_tracer_proc = p;
-    Eterm meta_tracer_pid = p->id;
+    Eterm meta_tracer_pid = p->common.id;
 
     if (!erts_try_seize_code_write_permission(p)) {
 	ERTS_BIF_YIELD3(bif_export[BIF_trace_pattern_3], p, MFA, Pattern, flaglist);
@@ -171,14 +171,12 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 		}
 	    } else if (is_internal_port(meta_tracer_pid)) {
 		Port *meta_tracer_port;
-		meta_tracer_proc = NULL;		
-		if (internal_port_index(meta_tracer_pid) >= erts_max_ports)
+		meta_tracer_proc = NULL;
+		meta_tracer_port = (erts_port_lookup(
+					meta_tracer_pid,
+					ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP));
+		if (!meta_tracer_port)
 		    goto error;
-		meta_tracer_port = 
-		    &erts_port[internal_port_index(meta_tracer_pid)];
-		if (INVALID_TRACER_PORT(meta_tracer_port, meta_tracer_pid)) {
-		    goto error;
-		}
 	    } else {
 		goto error;
 	    }
@@ -254,7 +252,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	    MatchSetRef(erts_default_meta_match_spec);
 	    erts_default_meta_tracer_pid = meta_tracer_pid;
 	    if (meta_tracer_proc) {
-		meta_tracer_proc->trace_flags |= F_TRACER;
+		ERTS_TRACE_FLAGS(meta_tracer_proc) |= F_TRACER;
 	    }
 	} else if (! flags.breakpoint) {
 	    MatchSetUnref(erts_default_meta_match_spec);
@@ -342,7 +340,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	}
     
 	if (meta_tracer_proc) {
-	    meta_tracer_proc->trace_flags |= F_TRACER;
+	    ERTS_TRACE_FLAGS(meta_tracer_proc) |= F_TRACER;
 	}
 
 	matches = erts_set_trace_pattern(p, mfa, specified,
@@ -526,24 +524,24 @@ Eterm trace_3(BIF_ALIST_3)
     if (is_nil(tracer) || is_internal_pid(tracer)) {
 	Process *tracer_proc = erts_pid2proc(p,
 					     ERTS_PROC_LOCK_MAIN,
-					     is_nil(tracer) ? p->id : tracer,
+					     is_nil(tracer) ? p->common.id : tracer,
 					     ERTS_PROC_LOCKS_ALL);
 	if (!tracer_proc)
 	    goto error;
-	tracer_proc->trace_flags |= F_TRACER;
+	ERTS_TRACE_FLAGS(tracer_proc) |= F_TRACER;
 	erts_smp_proc_unlock(tracer_proc,
 			     (tracer_proc == p
 			      ? ERTS_PROC_LOCKS_ALL_MINOR
 			      : ERTS_PROC_LOCKS_ALL));
     } else if (is_internal_port(tracer)) {
-	Port *tracer_port = erts_id2port(tracer, p, ERTS_PROC_LOCK_MAIN);
-	if (!erts_is_valid_tracer_port(tracer)) {
-	    if (tracer_port)
-		erts_smp_port_unlock(tracer_port);
+	Port *tracer_port = erts_id2port_sflgs(tracer,
+					       p,
+					       ERTS_PROC_LOCK_MAIN,
+					       ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP);
+	if (!tracer_port)
 	    goto error;
-	}
-	tracer_port->trace_flags |= F_TRACER;
-	erts_smp_port_unlock(tracer_port);
+	ERTS_TRACE_FLAGS(tracer_port) |= F_TRACER;
+	erts_port_release(tracer_port);
     } else
 	goto error;
 
@@ -554,7 +552,7 @@ Eterm trace_3(BIF_ALIST_3)
     case am_true: 
 	on = 1;
 	if (is_nil(tracer))
-	    tracer = p->id;
+	    tracer = p->common.id;
 	break;
     default: 
 	goto error;
@@ -576,26 +574,29 @@ Eterm trace_3(BIF_ALIST_3)
 	if (pid_spec == tracer)
 	    goto error;
 
-	tracee_port = erts_id2port(pid_spec, p, ERTS_PROC_LOCK_MAIN);
+	tracee_port = erts_id2port_sflgs(pid_spec,
+					 p,
+					 ERTS_PROC_LOCK_MAIN,
+					 ERTS_PORT_SFLGS_INVALID_LOOKUP);
 	if (!tracee_port)
 	    goto error;
 	
 	if (tracer != NIL && port_already_traced(p, tracee_port, tracer)) {
-	    erts_smp_port_unlock(tracee_port);
+	    erts_port_release(tracee_port);
 	    goto already_traced;
 	}
 
 	if (on)
-	    tracee_port->trace_flags |= mask;
+	    ERTS_TRACE_FLAGS(tracee_port) |= mask;
 	else
-	    tracee_port->trace_flags &= ~mask;
+	    ERTS_TRACE_FLAGS(tracee_port) &= ~mask;
 	
-	if (!tracee_port->trace_flags)
-	    tracee_port->tracer_proc = NIL;
+	if (!ERTS_TRACE_FLAGS(tracee_port))
+	    ERTS_TRACER_PROC(tracee_port) = NIL;
 	else if (tracer != NIL)
-	    tracee_port->tracer_proc = tracer;
+	    ERTS_TRACER_PROC(tracee_port) = tracer;
 
-	erts_smp_port_unlock(tracee_port);
+	erts_port_release(tracee_port);
 
 	matches = 1;
     } else if (is_pid(pid_spec)) {
@@ -627,14 +628,14 @@ Eterm trace_3(BIF_ALIST_3)
 	}
 
 	if (on)
-	    tracee_p->trace_flags |= mask;
+	    ERTS_TRACE_FLAGS(tracee_p) |= mask;
 	else
-	    tracee_p->trace_flags &= ~mask;
+	    ERTS_TRACE_FLAGS(tracee_p) &= ~mask;
 
-	if ((tracee_p->trace_flags & TRACEE_FLAGS) == 0)
-	    tracee_p->tracer_proc = NIL;
+	if ((ERTS_TRACE_FLAGS(tracee_p) & TRACEE_FLAGS) == 0)
+	    ERTS_TRACER_PROC(tracee_p) = NIL;
 	else if (tracer != NIL)
-	    tracee_p->tracer_proc = tracer;
+	    ERTS_TRACER_PROC(tracee_p) = tracer;
 
 	erts_smp_proc_unlock(tracee_p,
 			     (tracee_p == p
@@ -708,47 +709,56 @@ Eterm trace_3(BIF_ALIST_3)
 
 	    ok = 1;
 	    if (procs || mods) {
+		int max = erts_ptab_max(&erts_proc);
 		/* tracing of processes */
-		for (i = 0; i < erts_max_processes; i++) {
+		for (i = 0; i < max; i++) {
 		    Process* tracee_p = erts_pix2proc(i);
 		    if (! tracee_p) 
 			continue;
 		    if (tracer != NIL) {
-			if (tracee_p->id == tracer)
+			if (tracee_p->common.id == tracer)
 			    continue;
 			if (already_traced(NULL, tracee_p, tracer))
 			    continue;
 		    }
 		    if (on) {
-			tracee_p->trace_flags |= mask;
+			ERTS_TRACE_FLAGS(tracee_p) |= mask;
 		    } else {
-			tracee_p->trace_flags &= ~mask;
+			ERTS_TRACE_FLAGS(tracee_p) &= ~mask;
 		    }
-		    if(!(tracee_p->trace_flags & TRACEE_FLAGS)) {
-			tracee_p->tracer_proc = NIL;
+		    if(!(ERTS_TRACE_FLAGS(tracee_p) & TRACEE_FLAGS)) {
+			ERTS_TRACER_PROC(tracee_p) = NIL;
 		    } else if (tracer != NIL) {
-			tracee_p->tracer_proc = tracer;
+			ERTS_TRACER_PROC(tracee_p) = tracer;
 		    }
 		    matches++;
 		}
 	    }
 	    if (ports || mods) {
+		int max = erts_ptab_max(&erts_port);
 		/* tracing of ports */
-		for (i = 0; i < erts_max_ports; i++) {
-		    Port *tracee_port = &erts_port[i];
-		    if (tracee_port->status & ERTS_PORT_SFLGS_DEAD) continue;
+		for (i = 0; i < max; i++) {
+		    erts_aint32_t state;
+		    Port *tracee_port = erts_pix2port(i);
+		    if (!tracee_port)
+			continue;
+		    state = erts_atomic32_read_nob(&tracee_port->state);
+		    if (state & ERTS_PORT_SFLGS_DEAD)
+			continue;
 		    if (tracer != NIL) {
-			if (tracee_port->id == tracer) continue;
-			if (port_already_traced(NULL, tracee_port, tracer)) continue;
+			if (tracee_port->common.id == tracer)
+			    continue;
+			if (port_already_traced(NULL, tracee_port, tracer))
+			    continue;
 		    }
 
-		    if (on) tracee_port->trace_flags |= mask;
-		    else tracee_port->trace_flags &= ~mask;
+		    if (on) ERTS_TRACE_FLAGS(tracee_port) |= mask;
+		    else ERTS_TRACE_FLAGS(tracee_port) &= ~mask;
 		
-		    if (!(tracee_port->trace_flags & TRACEE_FLAGS)) {
-			tracee_port->tracer_proc = NIL;
+		    if (!(ERTS_TRACE_FLAGS(tracee_port) & TRACEE_FLAGS)) {
+			ERTS_TRACER_PROC(tracee_port) = NIL;
 		    } else if (tracer != NIL) {
-			tracee_port->tracer_proc = tracer;
+			ERTS_TRACER_PROC(tracee_port) = tracer;
 		    }
 		    /* matches are not counted for ports since it would violate compatibility */
 		    /* This could be a reason to modify this function or make a new one. */
@@ -817,20 +827,20 @@ static int port_already_traced(Process *c_p, Port *tracee_port, Eterm tracer)
      * * main lock is held on c_p
      * * all locks are held on port tracee_p
      */
-    if ((tracee_port->trace_flags & TRACEE_FLAGS)
-	&& tracee_port->tracer_proc != tracer) {
+    if ((ERTS_TRACE_FLAGS(tracee_port) & TRACEE_FLAGS)
+	&& ERTS_TRACER_PROC(tracee_port) != tracer) {
 	/* This tracee is already being traced, and not by the 
 	 * tracer to be */
-	if (is_internal_port(tracee_port->tracer_proc)) {
-	    if (!erts_is_valid_tracer_port(tracee_port->tracer_proc)) {
+	if (is_internal_port(ERTS_TRACER_PROC(tracee_port))) {
+	    if (!erts_is_valid_tracer_port(ERTS_TRACER_PROC(tracee_port))) {
 		/* Current trace port now invalid 
 		 * - discard it and approve the new. */
 		goto remove_tracer;
 	    } else
 		return 1;
 	}
-	else if(is_internal_pid(tracee_port->tracer_proc)) {
-	    Process *tracer_p = erts_proc_lookup(tracee_port->tracer_proc);
+	else if(is_internal_pid(ERTS_TRACER_PROC(tracee_port))) {
+	    Process *tracer_p = erts_proc_lookup(ERTS_TRACER_PROC(tracee_port));
 	    if (!tracer_p) {
 		/* Current trace process now invalid
 		 * - discard it and approve the new. */
@@ -840,8 +850,8 @@ static int port_already_traced(Process *c_p, Port *tracee_port, Eterm tracer)
 	}
 	else {
 	remove_tracer:
-	    tracee_port->trace_flags &= ~TRACEE_FLAGS;
-	    tracee_port->tracer_proc = NIL;
+	    ERTS_TRACE_FLAGS(tracee_port) &= ~TRACEE_FLAGS;
+	    ERTS_TRACER_PROC(tracee_port) = NIL;
 	}
     }
     return 0;
@@ -857,20 +867,22 @@ static int already_traced(Process *c_p, Process *tracee_p, Eterm tracer)
      * * main lock is held on c_p
      * * all locks multiple are held on tracee_p
      */
-    if ((tracee_p->trace_flags & TRACEE_FLAGS)
-	&& tracee_p->tracer_proc != tracer) {
+    if ((ERTS_TRACE_FLAGS(tracee_p) & TRACEE_FLAGS)
+	&& ERTS_TRACER_PROC(tracee_p) != tracer) {
 	/* This tracee is already being traced, and not by the 
 	 * tracer to be */
-	if (is_internal_port(tracee_p->tracer_proc)) {
-	    if (!erts_is_valid_tracer_port(tracee_p->tracer_proc)) {
+	if (is_internal_port(ERTS_TRACER_PROC(tracee_p))) {
+	    if (!erts_is_valid_tracer_port(ERTS_TRACER_PROC(tracee_p))) {
 		/* Current trace port now invalid 
 		 * - discard it and approve the new. */
 		goto remove_tracer;
 	    } else
 		return 1;
 	}
-	else if(is_internal_pid(tracee_p->tracer_proc)) {
-	    Process *tracer_p = erts_proc_lookup(tracee_p->tracer_proc);
+	else if(is_internal_pid(ERTS_TRACER_PROC(tracee_p))) {
+	    Process *tracer_p;
+
+	    tracer_p = erts_proc_lookup(ERTS_TRACER_PROC(tracee_p));
 	    if (!tracer_p) {
 		/* Current trace process now invalid
 		 * - discard it and approve the new. */
@@ -880,8 +892,8 @@ static int already_traced(Process *c_p, Process *tracee_p, Eterm tracer)
 	}
 	else {
 	remove_tracer:
-	    tracee_p->trace_flags &= ~TRACEE_FLAGS;
-	    tracee_p->tracer_proc = NIL;
+	    ERTS_TRACE_FLAGS(tracee_p) &= ~TRACEE_FLAGS;
+	    ERTS_TRACER_PROC(tracee_p) = NIL;
 	}
     }
     return 0;
@@ -925,8 +937,7 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
 
     if (pid_spec == am_new) {
 	erts_get_default_tracing(&trace_flags, &tracer);
-    } else if (is_internal_pid(pid_spec)
-	       && internal_pid_index(pid_spec) < erts_max_processes) {
+    } else if (is_internal_pid(pid_spec)) {
 	Process *tracee;
 	tracee = erts_pid2proc(p, ERTS_PROC_LOCK_MAIN,
 			       pid_spec, ERTS_PROC_LOCKS_ALL);
@@ -934,16 +945,16 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
 	if (!tracee) {
 	    return am_undefined;
 	} else {
-	    tracer = tracee->tracer_proc;
-	    trace_flags = tracee->trace_flags;
+	    tracer = ERTS_TRACER_PROC(tracee);
+	    trace_flags = ERTS_TRACE_FLAGS(tracee);
 	}
 
 	if (is_internal_pid(tracer)) {
 	    if (!erts_proc_lookup(tracer)) {
 	    reset_tracer:
-		tracee->trace_flags &= ~TRACEE_FLAGS;
-		trace_flags = tracee->trace_flags;
-		tracer = tracee->tracer_proc = NIL;
+		ERTS_TRACE_FLAGS(tracee) &= ~TRACEE_FLAGS;
+		trace_flags = ERTS_TRACE_FLAGS(tracee);
+		tracer = ERTS_TRACER_PROC(tracee) = NIL;
 	    }
 	}
 	else if (is_internal_port(tracer)) {
@@ -1877,7 +1888,7 @@ new_seq_trace_token(Process* p)
 	SEQ_TRACE_TOKEN(p) = TUPLE5(hp, make_small(0),		/* Flags  */ 
 				    make_small(0),		/* Label  */
 				    make_small(0),		/* Serial */
-				    p->id, /* Internal pid */	/* From   */
+				    p->common.id, /* Internal pid */	/* From   */
 				    make_small(p->seq_trace_lastcnt));
     }
 }
@@ -2247,9 +2258,11 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 	    if (!profiler_p)
 		goto error;
 	} else if (is_internal_port(profiler)) {
-	    if (internal_port_index(profiler) >= erts_max_ports) goto error;
-	    profiler_port = &erts_port[internal_port_index(profiler)];
-	    if (INVALID_TRACER_PORT(profiler_port, profiler)) goto error;
+	    profiler_port = (erts_port_lookup(
+				 profiler,
+				 ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP));
+	    if (!profiler_port)
+		goto error;
 	} else {
 	    goto error;
 	}
@@ -2313,8 +2326,7 @@ trace_delivered_1(BIF_ALIST_1)
 	p = NULL;
     } else if (! (p = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
 				    BIF_ARG_1, ERTS_PROC_LOCKS_ALL))) {
-	if (is_not_internal_pid(BIF_ARG_1)
-	    || internal_pid_index(BIF_ARG_1) >= erts_max_processes) {
+	if (is_not_internal_pid(BIF_ARG_1)) {
 	    BIF_ERROR(BIF_P, BADARG);
 	}
     }
@@ -2333,7 +2345,7 @@ trace_delivered_1(BIF_ALIST_1)
     msg = TUPLE3(hp, AM_trace_delivered, BIF_ARG_1, msg_ref);
 
 #ifdef ERTS_SMP
-    erts_send_sys_msg_proc(BIF_P->id, BIF_P->id, msg, bp);
+    erts_send_sys_msg_proc(BIF_P->common.id, BIF_P->common.id, msg, bp);
     if (p)
 	erts_smp_proc_unlock(p,
 			     (BIF_P == p

@@ -320,10 +320,10 @@ ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b)
 #define DB_INFO  (DB_PROTECTED|DB_PUBLIC|DB_PRIVATE)
 
 #define ONLY_WRITER(P,T) (((T)->common.status & (DB_PRIVATE|DB_PROTECTED)) \
-			  && (T)->common.owner == (P)->id)
+			  && (T)->common.owner == (P)->common.id)
 
 #define ONLY_READER(P,T) (((T)->common.status & DB_PRIVATE) && \
-(T)->common.owner == (P)->id)
+(T)->common.owner == (P)->common.id)
 
 /* Function prototypes */
 BIF_RETTYPE db_get_trace_control_word(Process* p);

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2012</year><year>2012</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>Communication in Erlang</title>
+    <prepared>Rickard Green</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2012-12-03</date>
+    <rev>PA1</rev>
+    <file>communication.xml</file>
+  </header>
+  <p>Communication in Erlang is conceptually performed using
+     asynchronous signaling. All different executing entities
+     such as processes, and ports communicate via asynchronous
+     signals. The most commonly used signal is a message. Other
+     common signals are exit, link, unlink, monitor, demonitor
+     signals.</p>
+  <section>
+    <title>Passing of Signals</title>
+    <p>The amount of time that passes between a signal being sent
+    and the arrival of the signal at the destination is unspecified
+    but positive. If the receiver has terminated, the signal will
+    not arrive, but it is possible that it triggers another signal.
+    For example, a link signal sent to a non-existing process will
+    trigger an exit signal which will be sent back to where the link
+    signal originated from. When communicating over the distribution,
+    signals may be lost if the distribution channel goes down.</p>
+    <p>The only signal ordering guarantee given is the following. If
+    an entity sends multiple signals to the same destination entity,
+    the order will be preserved. That is, if <c>A</c> send
+    a signal <c>S1</c> to <c>B</c>, and later sends
+    the signal <c>S2</c> to <c>B</c>, <c>S1</c> is guaranteed not to
+    arrive after <c>S2</c>.</p>
+  </section>
+  <section>
+    <title>Synchronous Communication</title>
+    <p>Some communication is synchronous. If broken down into pieces,
+    a synchronous communication operation, consists of two asynchronous
+    signals. One request signal and one reply signal. An example of 
+    such a synchronous communication is a call to <c>process_info/2</c>
+    when the first argument is not <c>self()</c>. The caller will send
+    an asynchronous signal requesting information, and will then
+    wait for the reply signal containing the requested information. When
+    the request signal reaches its destination the destination process
+    replies with the requested information.</p>
+  </section>
+  <section>
+    <title>Implementation</title>
+    <p>The implementation of different asynchronous signals in the
+    VM may vary over time, but the behavior will always respect this
+    concept of asynchronous signals being passed between entities
+    as described above.</p>
+    <p>By inspecting the implementation you might notice that some
+    specific signal actually gives a stricter guarantee than described
+    above. It is of vital importance that such knowledge about the
+    implementation is <em>not</em> used by Erlang code, since the
+    implementation might change at any time without prior notice.</p>
+    <p>Some example of major implementation changes:</p>
+    <list type="bulleted">
+      <item>As of ERTS version 5.5.2 exit signals to processes are truly
+      asynchronously delivered.</item>
+      <item>As of ERTS version 5.10 all signals from processes to ports
+      are truly asynchronously delivered.</item>
+    </list>
+  </section>
+</chapter>
+

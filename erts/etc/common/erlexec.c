@@ -127,6 +127,7 @@ static char *pluss_val_switches[] = {
     "wt",
     "ws",
     "ss",
+    "pp",
     NULL
 };
 /* +h arguments with values */
@@ -799,7 +800,9 @@ int main(int argc, char **argv)
 		  case 'A':
 		  case 'b':
 		  case 'i':
+		  case 'n':
 		  case 'P':
+		  case 'Q':
 		  case 'S':
 		  case 't':
 		  case 'T':
@@ -1103,7 +1106,8 @@ usage_aux(void)
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] "
 	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c] "
 	  "[+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
-	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+R COMPAT_REL] "
+	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
+	  "[+R COMPAT_REL] "
 	  "[+r] [+rg READER_GROUPS_LIMIT] [+s SCHEDULER_OPTION] "
 	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] [+T LEVEL] [+V] [+v] "
 	  "[+W<i|w>] [+z MISC_OPTION] [args ...]\n");

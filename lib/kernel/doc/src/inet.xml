@@ -556,13 +556,37 @@ fe80::204:acff:fe17:bf38
               <c>[Byte1,Byte2|Binary]</c>.</p>
           </item>
 
-		  <tag><c>{high_watermark, Size}</c></tag>
-		  <item> <p>
-				  Sender is forced busy if sent and enqueued data
-				  reaches the highwater mark.
-				  <br /> Default: 8192 kB. 
-			  </p>
-		  </item>
+          <tag><c>{high_msgq_watermark, Size}</c> (TCP/IP sockets)</tag>
+          <item>
+	    <p>The socket message queue will be set into a busy
+	    state when the amount of data queued on the message
+	    queue reaches this limit. Note that this limit only
+	    concerns data that have not yet reached the ERTS internal
+	    socket implementation. Default value used is 8 kB.</p>
+	    <p>Senders of data to the socket will be suspended if
+	    either the socket message queue is busy, or the socket
+	    itself is busy.</p>
+	    <p>For more information see the <c>low_msgq_watermark</c>,
+	    <c>high_watermark</c>, and <c>low_watermark</c> options.</p>
+	    <p>Note that distribution sockets will disable the use of
+	    <c>high_msgq_watermark</c> and <c>low_msgq_watermark</c>,
+	    and will instead use the
+	    <seealso marker="erts:erlang#system_info_dist_buf_busy_limit">distribution
+	    buffer busy limit</seealso> which is a similar feature.</p>
+          </item>
+
+          <tag><c>{high_watermark, Size}</c> (TCP/IP sockets)</tag>
+          <item>
+	    <p>The socket will be set into a busy state when the amount
+	    of data queued internally by the ERTS socket implementation
+	    reaches this limit. Default value used is 8 kB.</p>
+	    <p>Senders of data to the socket will be suspended if
+	    either the socket message queue is busy, or the socket
+	    itself is busy.</p>
+	    <p>For more information see the <c>low_watermark</c>,
+	    <c>high_msgq_watermark</c>, and <c>low_msqg_watermark</c>
+	    options.</p>
+          </item>
 
 	  <tag><c>{ipv6_v6only, Boolean}</c></tag>
 	  <item>
@@ -647,14 +671,41 @@ fe80::204:acff:fe17:bf38
 				  the flushing time-out in seconds.</p>
 		  </item>
 
-		  <tag><c>{low_watermark, Size}</c></tag>
-		  <item> <p>
-				  If the port has reached its <c>high_watermark</c> it will
-				  force busy onto senders. When the port data queue reaches the
-				  <c>low_watermark</c> callers are no longer forced busy.
-				  <br /> Default: 4096 kB. 
-			  </p>
-		  </item>
+          <tag><c>{low_msgq_watermark, Size}</c> (TCP/IP sockets)</tag>
+          <item>
+	    <p>If the socket message queue is in a busy state, the
+	    socket message queue will be set in a not busy state when
+	    the amount of data queued in the message queue falls
+	    below this limit. Note that this limit only concerns data
+	    that have not yet reached the ERTS internal socket
+	    implementation. Default value used is 4 kB.</p>
+	    <p>Senders that have been suspended due to either a
+	    busy message queue or a busy socket, will be resumed
+	    when neither the socket message queue, nor the socket
+	    are busy.</p>
+	    <p>For more information see the <c>high_msgq_watermark</c>,
+	    <c>high_watermark</c>, and <c>low_watermark</c> options.</p>
+	    <p>Note that distribution sockets will disable the use of
+	    <c>high_msgq_watermark</c> and <c>low_msgq_watermark</c>,
+	    and will instead use the
+	    <seealso marker="erts:erlang#system_info_dist_buf_busy_limit">distribution
+	    buffer busy limit</seealso> which is a similar feature.</p>
+          </item>
+
+          <tag><c>{low_watermark, Size}</c> (TCP/IP sockets)</tag>
+          <item>
+	    <p>If the socket is in a busy state, the socket will
+	    be set in a not busy state when the amount of data
+	    queued internally by the ERTS socket implementation
+	    falls below this limit. Default value used is 4 kB.</p>
+	    <p>Senders that have been suspended due to either a
+	    busy message queue or a busy socket, will be resumed
+	    when neither the socket message queue, nor the socket
+	    are busy.</p>
+	    <p>For more information see the <c>high_watermark</c>,
+	    <c>high_msgq_watermark</c>, and <c>low_msgq_watermark</c>
+	    options.</p>
+          </item>
 
 		  <tag><c>{mode, Mode :: binary | list}</c></tag>
           <item>

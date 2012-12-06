@@ -766,37 +766,6 @@ type(erlang, node, 0, _) -> t_node();
 type(erlang, node, 1, Xs) ->
   strict(arg_types(erlang, node, 1), Xs, fun (_) -> t_node() end);
 type(erlang, nodes, 0, _) -> t_list(t_node());
-type(erlang, port_call, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
-  strict(arg_types(erlang, port_call, Arity), Xs, fun (_) -> t_any() end);
-type(erlang, port_info, 1, Xs) ->
-  strict(arg_types(erlang, port_info, 1), Xs,
-	 fun (_) -> t_sup(t_atom('undefined'), t_list()) end);
-type(erlang, port_info, 2, Xs) ->
-  strict(arg_types(erlang, port_info, 2), Xs,
-	 fun ([_Port, Item]) ->
-	     t_sup(t_atom('undefined'),
-		   case t_atom_vals(Item) of
-		     ['connected'] -> t_tuple([Item, t_pid()]);
-		     ['id'] -> t_tuple([Item, t_integer()]);
-		     ['input'] -> t_tuple([Item, t_integer()]);
-		     ['links'] -> t_tuple([Item, t_list(t_pid())]);
-		     ['name'] -> t_tuple([Item, t_string()]);
-		     ['output'] -> t_tuple([Item, t_integer()]);
-		     ['os_pid'] -> t_tuple([Item, t_sup(t_non_neg_integer(),t_atom('undefined'))]);
-		     ['registered_name'] -> t_tuple([Item, t_atom()]);
-		     List when is_list(List) ->
-		       t_tuple([t_sup([t_atom(A) || A <- List]),
-				t_sup([t_atom(), t_integer(),
-				       t_pid(), t_list(t_pid()),
-				       t_string()])]);
-		     unknown ->
-		       [_, PosItem] = arg_types(erlang, port_info, 2),
-		       t_tuple([PosItem,
-				t_sup([t_atom(), t_integer(),
-				       t_pid(), t_list(t_pid()),
-				       t_string()])])		       
-		   end)
-	 end);
 %% Guard bif, needs to be here.
 type(erlang, round, 1, Xs) ->
   strict(arg_types(erlang, round, 1), Xs, fun (_) -> t_integer() end);
@@ -922,6 +891,14 @@ type(erlang, system_info, 1, Xs) ->
 				    t_non_neg_fixnum(),
 				    t_non_neg_fixnum()]),
 			   t_string());
+                   ['otp_release'] ->
+                     t_string();
+		   ['port_parallelism'] ->
+		     t_boolean();
+		   ['port_count'] ->
+		     t_non_neg_fixnum();
+		   ['port_limit'] ->
+		     t_non_neg_fixnum();
 		   ['process_count'] ->
 		     t_non_neg_fixnum();
 		   ['process_limit'] ->
@@ -2275,16 +2252,6 @@ arg_types(erlang, node, 1) ->
   [t_identifier()];
 arg_types(erlang, nodes, 0) ->
   [];
-arg_types(erlang, port_call, 2) ->
-  [t_sup(t_port(), t_atom()), t_any()];
-arg_types(erlang, port_call, 3) ->
-  [t_sup(t_port(), t_atom()), t_integer(), t_any()];
-arg_types(erlang, port_info, 1) ->
-  [t_sup(t_port(), t_atom())];
-arg_types(erlang, port_info, 2) ->
-  [t_sup(t_port(), t_atom()),
-   t_atoms(['registered_name', 'id', 'connected',
-	    'links', 'name', 'input', 'output', 'os_pid'])];
 %% Guard bif, needs to be here.
 arg_types(erlang, round, 1) ->
   [t_number()];

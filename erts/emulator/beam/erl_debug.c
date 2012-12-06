@@ -252,16 +252,16 @@ void erts_check_stack(Process *p)
     if (p->stop > stack_start)
 	erl_exit(1,
 		 "<%lu.%lu.%lu>: Stack underflow\n",
-		 internal_pid_channel_no(p->id),
-		 internal_pid_number(p->id),
-		 internal_pid_serial(p->id));
+		 internal_pid_channel_no(p->common.id),
+		 internal_pid_number(p->common.id),
+		 internal_pid_serial(p->common.id));
 
     if (p->stop < stack_end)
 	erl_exit(1,
 		 "<%lu.%lu.%lu>: Stack overflow\n",
-		 internal_pid_channel_no(p->id),
-		 internal_pid_number(p->id),
-		 internal_pid_serial(p->id));
+		 internal_pid_channel_no(p->common.id),
+		 internal_pid_number(p->common.id),
+		 internal_pid_serial(p->common.id));
 
     for (elemp = p->stop; elemp < stack_start; elemp++) {
 	int in_mbuf = 0;
@@ -284,9 +284,9 @@ void erts_check_stack(Process *p)
 
 	erl_exit(1,
 		 "<%lu.%lu.%lu>: Wild stack pointer\n",
-		 internal_pid_channel_no(p->id),
-		 internal_pid_number(p->id),
-		 internal_pid_serial(p->id));
+		 internal_pid_channel_no(p->common.id),
+		 internal_pid_number(p->common.id),
+		 internal_pid_serial(p->common.id));
     }
 
 }
@@ -387,16 +387,16 @@ void verify_process(Process *p)
 #define VERIFY_AREA(name,ptr,sz) {                                      \
     int n = (sz);							\
     while (n--) if(!verify_eterm(p,*(ptr+n)))				\
-        erl_exit(1,"Wild pointer found in " name " of %T!\n",p->id); }
+        erl_exit(1,"Wild pointer found in " name " of %T!\n",p->common.id); }
 
 #define VERIFY_ETERM(name,eterm) {                                      \
     if(!verify_eterm(p,eterm))                                          \
-        erl_exit(1,"Wild pointer found in " name " of %T!\n",p->id); }
+        erl_exit(1,"Wild pointer found in " name " of %T!\n",p->common.id); }
 
 
     ErlMessage* mp = p->msg.first;
 
-    VERBOSE(DEBUG_MEMORY,("Verify process: %T...\n",p->id));
+    VERBOSE(DEBUG_MEMORY,("Verify process: %T...\n",p->common.id));
 
     while (mp != NULL) {
         VERIFY_ETERM("message term",ERL_MESSAGE_TERM(mp));
@@ -516,7 +516,7 @@ static void print_process_memory(Process *p)
     ErlHeapFragment* bp = MBUF(p);
 
     erts_printf("==============================\n");
-    erts_printf("|| Memory info for %T ||\n",p->id);
+    erts_printf("|| Memory info for %T ||\n",p->common.id);
     erts_printf("==============================\n");
 
     erts_printf("-- %-*s ---%s-%s-%s-%s--\n",
@@ -601,7 +601,7 @@ void print_memory_info(Process *p)
 {
     if (p != NULL) {
         erts_printf("======================================\n");
-        erts_printf("|| Memory info for %-12T ||\n",p->id);
+        erts_printf("|| Memory info for %-12T ||\n",p->common.id);
         erts_printf("======================================\n");
         erts_printf("+- local heap ----%s-%s-%s-%s-+\n",
                     dashes,dashes,dashes,dashes);

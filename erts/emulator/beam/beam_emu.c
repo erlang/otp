@@ -516,7 +516,7 @@ extern int count_instructions;
 #  define Dispatchfun() DispatchMacroFun()
 #endif
 
-#define Self(R) R = c_p->id
+#define Self(R) R = c_p->common.id
 #define Node(R) R = erts_this_node->sysname
 
 #define Arg(N)       I[(N)+1]
@@ -1074,11 +1074,11 @@ init_emulator(void)
 void
 dtrace_drvport_str(ErlDrvPort drvport, char *port_buf)
 {
-    Port *port = erts_drvport2port(drvport);
+    Port *port = erts_drvport2port(drvport, NULL);
 
     erts_snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%lu>",
-                  port_channel_no(port->id),
-                  port_number(port->id));
+                  port_channel_no(port->common.id),
+                  port_number(port->common.id));
 }
 #endif
 /*
@@ -1195,7 +1195,7 @@ void process_main(void)
     c_p = schedule(c_p, reds_used);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 #ifdef DEBUG
-    pid = c_p->id; /* Save for debugging purpouses */
+    pid = c_p->common.id; /* Save for debugging purpouses */
 #endif
     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -1227,7 +1227,7 @@ void process_main(void)
 
 	reds = c_p->fcalls;
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)
-	    && (c_p->trace_flags & F_SENSITIVE) == 0) {
+	    && (ERTS_TRACE_FLAGS(c_p) & F_SENSITIVE) == 0) {
 	    neg_o_reds = -reds;
 	    FCALLS = REDS_IN(c_p) = 0;
 	} else {
@@ -1591,6 +1591,7 @@ void process_main(void)
      reg[0] = r(0);
      result = erl_send(c_p, r(0), x(1));
      PreFetch(0, next);
+     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
      ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
      if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
@@ -1866,14 +1867,14 @@ void process_main(void)
 		     erts_fprintf(stderr,
 				  "Dtrace -> (%T) stop spreading "
 				  "tag %T with message %T\r\n",
-				  c_p->id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
+				  c_p->common.id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
 #endif
 	     } else {
 #ifdef DTRACE_TAG_HARDDEBUG
 		 erts_fprintf(stderr,
 			      "Dtrace -> (%T) kill tag %T with "
 			      "message %T\r\n",
-			      c_p->id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
+			      c_p->common.id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
 #endif
 		 DT_UTAG(c_p) = NIL;
 		 SEQ_TRACE_TOKEN(c_p) = NIL;
@@ -1898,7 +1899,7 @@ void process_main(void)
 	     erts_fprintf(stderr,
 			  "Dtrace -> (%T) receive tag (%T) "
 			  "with message %T\r\n",
-			  c_p->id, DT_UTAG(c_p), ERL_MESSAGE_TERM(msgp));
+			  c_p->common.id, DT_UTAG(c_p), ERL_MESSAGE_TERM(msgp));
 #endif
 	 } else {
 #endif
@@ -1914,7 +1915,7 @@ void process_main(void)
 	     }
 	     msg = ERL_MESSAGE_TERM(msgp);
 	     seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE, 
-			      c_p->id, c_p);
+			      c_p->common.id, c_p);
 #ifdef USE_VM_PROBES
 	 }
 #endif
@@ -2567,6 +2568,7 @@ void process_main(void)
 	reg[0] = r(0);
 	result = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -3301,7 +3303,6 @@ void process_main(void)
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    bif_nif_arity = I[-1];
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	    {
@@ -3346,7 +3347,6 @@ void process_main(void)
 	    bif_nif_arity = I[-1];
 	    ASSERT(bif_nif_arity <= 3);
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    reg[0] = r(0);
 	    {
 		Eterm (*bf)(Process*, Eterm*, BeamInstr*) = vbf;
@@ -5257,7 +5257,7 @@ terminate_proc(Process* c_p, Eterm Value)
     /* EXF_LOG is a primary exception flag */
     if (c_p->freason & EXF_LOG) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp, "Error in process %T ", c_p->id);
+	erts_dsprintf(dsbufp, "Error in process %T ", c_p->common.id);
 	if (erts_is_alive)
 	    erts_dsprintf(dsbufp, "on node %T ", erts_this_node->sysname);
 	erts_dsprintf(dsbufp,"with exit value: %0.*T\n", display_items, Value);
@@ -6186,7 +6186,7 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     MSO(p).first = (struct erl_off_heap_header*) funp;
     funp->fe = fe;
     funp->num_free = num_free;
-    funp->creator = p->id;
+    funp->creator = p->common.id;
 #ifdef HIPE
     funp->native_address = fe->native_address;
 #endif

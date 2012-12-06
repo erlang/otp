@@ -46,6 +46,7 @@
 #include "erl_thr_queue.h"
 #include "erl_sched_spec_pre_alloc.h"
 #include "beam_bp.h"
+#include "erl_ptab.h"
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD
@@ -3016,12 +3017,13 @@ buf_to_intlist(Eterm** hpp, char *buf, size_t len, Eterm tail)
 **        ;
 ** 
 ** Return remaining bytes in buffer on success
-**        -1 on overflow
-**        -2 on type error (including that result would not be a whole number of bytes)
+**        ERTS_IOLIST_TO_BUF_OVERFLOW on overflow
+**        ERTS_IOLIST_TO_BUF_TYPE_ERROR on type error (including that result would not be a whole number of bytes)
 */
 
-int io_list_to_buf(Eterm obj, char* buf, int len)
+ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
 {
+    ErlDrvSizeT len = (ErlDrvSizeT) alloced_len;
     Eterm* objp;
     DECLARE_ESTACK(s);
     goto L_again;
@@ -3114,20 +3116,20 @@ int io_list_to_buf(Eterm obj, char* buf, int len)
 
  L_type_error:
     DESTROY_ESTACK(s);
-    return -2;
+    return ERTS_IOLIST_TO_BUF_TYPE_ERROR;
 
  L_overflow:
     DESTROY_ESTACK(s);
-    return -1;
+    return ERTS_IOLIST_TO_BUF_OVERFLOW;
 }
 
 /*
  * Return 0 if successful, and non-zero if unsuccessful.
  */
-int erts_iolist_size(Eterm obj, Uint* sizep)
+int erts_iolist_size(Eterm obj, ErlDrvSizeT* sizep)
 {
     Eterm* objp;
-    Uint size = 0;
+    Uint size = 0; /* Intentionally Uint due to halfword heap */
     DECLARE_ESTACK(s);
     goto L_again;
 
@@ -3179,7 +3181,7 @@ int erts_iolist_size(Eterm obj, Uint* sizep)
 #undef SAFE_ADD
 
     DESTROY_ESTACK(s);
-    *sizep = size;
+    *sizep = (ErlDrvSizeT) size;
     return ERTS_IOLIST_OK;
 
  L_overflow_error:

@@ -176,8 +176,8 @@ typedef struct erts_proc_lock_t_ {
  *   on multiple processes, locks on processes with low process ids
  *   have to be locked before locks on processes with high process
  *   ids. E.g., if the main and the message queue locks are to be
- *   locked on processes p1 and p2 and p1->id < p2->id, then locks
- *   should be locked in the following order:
+ *   locked on processes p1 and p2 and p1->common.id < p2->common.id,
+ *   then locks should be locked in the following order:
  *     1. main lock on p1
  *     2. main lock on p2
  *     3. message queue lock on p1
@@ -203,7 +203,7 @@ typedef struct erts_proc_lock_t_ {
 					 & ~ERTS_PROC_LOCK_MAIN)
 
 
-#define ERTS_PIX_LOCKS_BITS		8
+#define ERTS_PIX_LOCKS_BITS		10
 #define ERTS_NO_OF_PIX_LOCKS		(1 << ERTS_PIX_LOCKS_BITS)
 
 
@@ -767,7 +767,7 @@ erts_smp_proc_lock(Process *p, ErtsProcLocks locks)
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 			 NULL,
 #else
-			 ERTS_PID2PIXLOCK(p->id),
+			 ERTS_PID2PIXLOCK(p->common.id),
 #endif /*ERTS_PROC_LOCK_ATOMIC_IMPL*/
 			 locks, file, line);
 #elif defined(ERTS_SMP)
@@ -775,7 +775,7 @@ erts_smp_proc_lock(Process *p, ErtsProcLocks locks)
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 			 NULL,
 #else
-			 ERTS_PID2PIXLOCK(p->id),
+			 ERTS_PID2PIXLOCK(p->common.id),
 #endif /*ERTS_PROC_LOCK_ATOMIC_IMPL*/
 			 locks);
 #endif /*ERTS_SMP*/
@@ -789,7 +789,7 @@ erts_smp_proc_unlock(Process *p, ErtsProcLocks locks)
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 			   NULL,
 #else
-			   ERTS_PID2PIXLOCK(p->id),
+			   ERTS_PID2PIXLOCK(p->common.id),
 #endif
 			   locks);
 #endif
@@ -805,7 +805,7 @@ erts_smp_proc_trylock(Process *p, ErtsProcLocks locks)
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 				   NULL,
 #else
-				   ERTS_PID2PIXLOCK(p->id),
+				   ERTS_PID2PIXLOCK(p->common.id),
 #endif
 				   locks);
 #endif
@@ -814,21 +814,15 @@ erts_smp_proc_trylock(Process *p, ErtsProcLocks locks)
 ERTS_GLB_INLINE void erts_smp_proc_inc_refc(Process *p)
 {
 #ifdef ERTS_SMP
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_aint32_t refc = erts_atomic32_inc_read_nob(&p->lock.refc);
-    ERTS_SMP_LC_ASSERT(refc > 1);
-#else
-    erts_atomic32_inc_nob(&p->lock.refc);
-#endif
+    erts_ptab_inc_refc(&p->common);
 #endif
 }
 
 ERTS_GLB_INLINE void erts_smp_proc_dec_refc(Process *p)
 {
 #ifdef ERTS_SMP
-    erts_aint32_t refc = erts_atomic32_dec_read_nob(&p->lock.refc);
-    ERTS_SMP_LC_ASSERT(refc >= 0);
-    if (refc == 0)
+    int referred = erts_ptab_dec_test_refc(&p->common);
+    if (!referred)
 	erts_free_proc(p);
 #endif
 }
@@ -836,10 +830,8 @@ ERTS_GLB_INLINE void erts_smp_proc_dec_refc(Process *p)
 ERTS_GLB_INLINE void erts_smp_proc_add_refc(Process *p, Sint32 add_refc)
 {
 #ifdef ERTS_SMP
-    erts_aint32_t refc = erts_atomic32_add_read_nob(&p->lock.refc,
-						    (erts_aint32_t) add_refc);
-    ERTS_SMP_LC_ASSERT(refc >= 0);
-    if (refc == 0)
+    int referred = erts_ptab_add_test_refc(&p->common, add_refc);
+    if (!referred)
 	erts_free_proc(p);
 #endif
 }
@@ -875,8 +867,7 @@ void erts_proc_safelock(Process *a_proc,
 #define ERTS_P2P_FLG_TRY_LOCK		(1 <<  1)
 #define ERTS_P2P_FLG_SMP_INC_REFC	(1 <<  2)
 
-#define ERTS_PROC_LOCK_BUSY ((Process *) &erts_proc_lock_busy)
-extern const Process erts_proc_lock_busy;
+#define ERTS_PROC_LOCK_BUSY ((Process *) &erts_invalid_process)
 
 #define erts_pid2proc(PROC, HL, PID, NL) \
   erts_pid2proc_opt((PROC), (HL), (PID), (NL), 0)
@@ -896,33 +887,24 @@ Process *erts_pid2proc_opt(Process *, ErtsProcLocks, Eterm, ErtsProcLocks, int);
 ERTS_GLB_INLINE Process *erts_pix2proc(int ix)
 {
     Process *proc;
-    ASSERT(0 <= ix && ix < erts_proc.max);
-    proc = (Process *) erts_smp_atomic_read_nob(&erts_proc.tab[ix]);
+    ASSERT(0 <= ix && ix < erts_ptab_max(&erts_proc));
+    proc = (Process *) erts_ptab_pix2intptr_nob(&erts_proc, ix);
     return proc == ERTS_PROC_LOCK_BUSY ? NULL : proc;
 }
 
 ERTS_GLB_INLINE Process *erts_proc_lookup_raw(Eterm pid)
 {
     Process *proc;
-    int pix;
 
-    /*
-     * In SMP case: Only scheduler threads are allowed
-     * to use this function. Other threads need to
-     * atomicaly increment refc at lookup, i.e., use
-     * erts_pid2proc_opt() with ERTS_P2P_FLG_SMP_INC_REFC.
-     */
-    ERTS_SMP_LC_ASSERT(erts_get_scheduler_id());
+    ERTS_SMP_LC_ASSERT(erts_thr_progress_lc_is_delaying());
 
     if (is_not_internal_pid(pid))
 	return NULL;
-    pix = internal_pid_index(pid);
 
-    proc = (Process *) erts_smp_atomic_read_ddrb(&erts_proc.tab[pix]);
-
-    if (proc && proc->id != pid)
+    proc = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						 internal_pid_index(pid));
+    if (proc && proc->common.id != pid)
 	return NULL;
-
     return proc;
 }
 

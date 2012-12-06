@@ -1384,7 +1384,7 @@ otp_6237_select_loop() ->
 
 
 -define(NoTestProcs, 10000).
--record(processes_bif_info, {min_start_reds,
+-record(ptab_list_bif_info, {min_start_reds,
 			     tab_chunks,
 			     tab_chunks_size,
 			     tab_indices_per_red,
@@ -1419,11 +1419,11 @@ processes_large_tab(Config) when is_list(Config) ->
     %% the connection times out; therefore, shrink the test on
     %% high debug levels.
     ?line DbgLvl = case erts_debug:get_internal_state(processes_bif_info) of
-		       #processes_bif_info{debug_level = Lvl} when Lvl > MaxDbgLvl ->
+		       #ptab_list_bif_info{debug_level = Lvl} when Lvl > MaxDbgLvl ->
 			   20;
-		       #processes_bif_info{debug_level = Lvl} when Lvl < 0 ->
+		       #ptab_list_bif_info{debug_level = Lvl} when Lvl < 0 ->
 			   ?line ?t:fail({debug_level, Lvl});
-		       #processes_bif_info{debug_level = Lvl} ->
+		       #ptab_list_bif_info{debug_level = Lvl} ->
 			   Lvl
 		   end,
     ?line ProcTabSize3 = ProcTabSize2 - (1300000 * DbgLvl div MaxDbgLvl),
@@ -1438,7 +1438,7 @@ processes_large_tab(Config) when is_list(Config) ->
 			erts_debug,
 			get_internal_state,
 			[processes_bif_info]) of
-	      #processes_bif_info{tab_chunks = Chunks} when is_integer(Chunks),
+	      #ptab_list_bif_info{tab_chunks = Chunks} when is_integer(Chunks),
 							    Chunks > 1 -> ok;
 	      PBInfo -> ?t:fail(PBInfo)
 	  end,
@@ -1460,14 +1460,14 @@ processes_small_tab(doc) ->
 processes_small_tab(suite) ->
     [];
 processes_small_tab(Config) when is_list(Config) ->
-    ?line {ok, SmallNode} = start_node(Config, "+P 500"),
+    ?line {ok, SmallNode} = start_node(Config, "+P 1024"),
     ?line Res = rpc:call(SmallNode, ?MODULE, processes_bif_test, []),
     ?line PBInfo = rpc:call(SmallNode,
 			    erts_debug,
 			    get_internal_state,
 			    [processes_bif_info]),
     ?line stop_node(SmallNode),
-    ?line 1 = PBInfo#processes_bif_info.tab_chunks,
+    ?line true = PBInfo#ptab_list_bif_info.tab_chunks < 10,
     ?line chk_processes_bif_test_res(Res).
 
 processes_this_tab(doc) ->
@@ -1481,7 +1481,7 @@ chk_processes_bif_test_res(ok) -> ok;
 chk_processes_bif_test_res({comment, _} = Comment) -> Comment;
 chk_processes_bif_test_res(Failure) -> ?t:fail(Failure).
 
-print_processes_bif_info(#processes_bif_info{min_start_reds = MinStartReds,
+print_processes_bif_info(#ptab_list_bif_info{min_start_reds = MinStartReds,
 					     tab_chunks = TabChunks,
 					     tab_chunks_size = TabChunksSize,
 					     tab_indices_per_red = TabIndPerRed,
@@ -1579,11 +1579,11 @@ processes_bif_test() ->
     ?line enable_internal_state(),
     ?line PBInfo = erts_debug:get_internal_state(processes_bif_info),
     ?line print_processes_bif_info(PBInfo),
-    ?line WantReds = PBInfo#processes_bif_info.min_start_reds + 10,
+    ?line WantReds = PBInfo#ptab_list_bif_info.min_start_reds + 10,
     ?line WillTrap = case PBInfo of
-			#processes_bif_info{tab_chunks = 1} ->
-			    false;
-			#processes_bif_info{tab_chunks = Chunks,
+			#ptab_list_bif_info{tab_chunks = Chunks} when Chunks < 10 ->
+			    false; %% Skip for small tables
+			#ptab_list_bif_info{tab_chunks = Chunks,
 					    tab_chunks_size = ChunksSize,
 					    tab_indices_per_red = IndiciesPerRed
 					   } ->
@@ -1618,7 +1618,7 @@ processes_bif_test() ->
 	    ?line erlang:system_flag(multi_scheduling, unblock),
 	    
 	    ?line [{status,suspended},
-		   {current_function,{erlang,processes_trap,2}}]
+		   {current_function,{erlang,ptab_list_continue,2}}]
 		= process_info(Suspendee, [status, current_function]),
 
 	    ?line ok = do_processes_bif_test(WantReds, WillTrap, Processes),
@@ -1785,7 +1785,7 @@ do_processes_bif_die_test(N, Processes) ->
     catch
 	throw:{kill_in_trap, R} when N > 0 ->
 	    ?t:format("Failed to kill in trap: ~p~n", [R]),
-	    ?t:format("Trying again~p~n", []),
+	    ?t:format("Trying again~n", []),
 	    do_processes_bif_die_test(N-1, Processes)
     end.
 	    
@@ -1848,7 +1848,7 @@ processes_last_call_trap(Config) when is_list(Config) ->
     ?line Processes = fun () -> processes() end,
     ?line PBInfo = erts_debug:get_internal_state(processes_bif_info),
     ?line print_processes_bif_info(PBInfo),
-    ?line WantReds = case PBInfo#processes_bif_info.min_start_reds of
+    ?line WantReds = case PBInfo#ptab_list_bif_info.min_start_reds of
 			 R when R > 10 -> R - 1;
 			 _R -> 9
 		     end,
@@ -1873,7 +1873,7 @@ processes_apply_trap(Config) when is_list(Config) ->
     ?line enable_internal_state(),
     ?line PBInfo = erts_debug:get_internal_state(processes_bif_info),
     ?line print_processes_bif_info(PBInfo),
-    ?line WantReds = case PBInfo#processes_bif_info.min_start_reds of
+    ?line WantReds = case PBInfo#ptab_list_bif_info.min_start_reds of
 			 R when R > 10 -> R - 1;
 			 _R -> 9
 		     end,
@@ -1893,7 +1893,7 @@ processes_gc_trap(Config) when is_list(Config) ->
     ?line enable_internal_state(),
     ?line PBInfo = erts_debug:get_internal_state(processes_bif_info),
     ?line print_processes_bif_info(PBInfo),
-    ?line WantReds = PBInfo#processes_bif_info.min_start_reds + 10,
+    ?line WantReds = PBInfo#ptab_list_bif_info.min_start_reds + 10,
     ?line Processes = fun () ->
 			      erts_debug:set_internal_state(reds_left,WantReds),
 			      processes()
@@ -1911,7 +1911,7 @@ processes_gc_trap(Config) when is_list(Config) ->
     ?line erlang:suspend_process(Suspendee),
     ?line erlang:system_flag(multi_scheduling, unblock),
 	    
-    ?line [{status,suspended}, {current_function,{erlang,processes_trap,2}}]
+    ?line [{status,suspended}, {current_function,{erlang,ptab_list_continue,2}}]
 	= process_info(Suspendee, [status, current_function]),
 
     ?line erlang:garbage_collect(Suspendee),
@@ -1982,8 +1982,8 @@ chk_term_proc_list(Line, MustChk, ExpectBlks) ->
 	    not_enabled;
 	{_, MS} ->
 	    {value,
-	     {processes_term_proc_el,
-	      DL}} = lists:keysearch(processes_term_proc_el, 1, MS),
+	     {ptab_list_deleted_el,
+	      DL}} = lists:keysearch(ptab_list_deleted_el, 1, MS),
 	    case lists:keysearch(blocks, 1, DL) of
 		{value, {blocks, ExpectBlks, _, _}} ->
 		    ok;
@@ -2001,8 +2001,8 @@ processes_term_proc_list_test(MustChk) ->
     ?line enable_internal_state(),
     ?line PBInfo = erts_debug:get_internal_state(processes_bif_info),
     ?line print_processes_bif_info(PBInfo),
-    ?line WantReds = PBInfo#processes_bif_info.min_start_reds + 10,
-    ?line #processes_bif_info{tab_chunks = Chunks,
+    ?line WantReds = PBInfo#ptab_list_bif_info.min_start_reds + 10,
+    ?line #ptab_list_bif_info{tab_chunks = Chunks,
 			      tab_chunks_size = ChunksSize,
 			      tab_indices_per_red = IndiciesPerRed
 			     } = PBInfo,
@@ -2038,7 +2038,7 @@ processes_term_proc_list_test(MustChk) ->
 		  erlang:suspend_process(P),
 		  erlang:system_flag(multi_scheduling, unblock),
 		  [{status,suspended},
-		   {current_function,{erlang,processes_trap,2}}]
+		   {current_function,{erlang,ptab_list_continue,2}}]
 		      = process_info(P, [status, current_function]),
 		  P
 	  end,

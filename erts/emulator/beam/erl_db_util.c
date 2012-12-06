@@ -138,21 +138,23 @@ set_tracee_flags(Process *tracee_p, Eterm tracer, Uint d_flags, Uint e_flags) {
     Uint flags;
 
     if (tracer == NIL) {
-	flags = tracee_p->trace_flags & ~TRACEE_FLAGS;
+	flags = ERTS_TRACE_FLAGS(tracee_p) & ~TRACEE_FLAGS;
     }  else {
-	flags = ((tracee_p->trace_flags & ~d_flags) | e_flags);
+	flags = ((ERTS_TRACE_FLAGS(tracee_p) & ~d_flags) | e_flags);
 	if (! flags) tracer = NIL;
     }
-    ret = tracee_p->tracer_proc != tracer || tracee_p->trace_flags != flags
-	? am_true : am_false;
-    tracee_p->tracer_proc = tracer;
-    tracee_p->trace_flags = flags;
+    ret = ((ERTS_TRACER_PROC(tracee_p) != tracer
+	    || ERTS_TRACE_FLAGS(tracee_p) != flags)
+	   ? am_true
+	   : am_false);
+    ERTS_TRACER_PROC(tracee_p) = tracer;
+    ERTS_TRACE_FLAGS(tracee_p) = flags;
     return ret;
 }
 /*
 ** Assuming all locks on tracee_p on entry
 **
-** Changes tracee_p->trace_flags and tracee_p->tracer_proc
+** Changes ERTS_TRACE_FLAGS(tracee_p) and ERTS_TRACER_PROC(tracee_p)
 ** according to input disable/enable flags and tracer.
 **
 ** Returns am_true|am_false on success, am_true if value changed,
@@ -173,17 +175,20 @@ set_match_trace(Process *tracee_p, Eterm fail_term, Eterm tracer,
 			  tracer, ERTS_PROC_LOCKS_ALL))) {
 	if (tracee_p != tracer_p) {
 	    ret = set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
-	    tracer_p->trace_flags |= tracee_p->trace_flags ? F_TRACER : 0;
+	    ERTS_TRACE_FLAGS(tracer_p) |= (ERTS_TRACE_FLAGS(tracee_p)
+					   ? F_TRACER
+					   : 0);
 	    erts_smp_proc_unlock(tracer_p, ERTS_PROC_LOCKS_ALL);
 	}
     } else if (is_internal_port(tracer)) {
 	Port *tracer_port = 
-	    erts_id2port(tracer, tracee_p, ERTS_PROC_LOCKS_ALL);
+	    erts_id2port_sflgs(tracer,
+			       tracee_p,
+			       ERTS_PROC_LOCKS_ALL,
+			       ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP);
 	if (tracer_port) {
-	    if (! INVALID_TRACER_PORT(tracer_port, tracer)) {
-		ret = set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
-	    }
-	    erts_smp_port_unlock(tracer_port);
+	    ret = set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
+	    erts_port_release(tracer_port);
 	}
     } else {
 	ASSERT(is_nil(tracer));
@@ -2174,7 +2179,7 @@ restart:
 	    pc += n;
 	    break;
 	case matchSelf:
-	    *esp++ = c_p->id;
+	    *esp++ = c_p->common.id;
 	    break;
 	case matchWaste:
 	    --esp;
@@ -2261,7 +2266,7 @@ restart:
 	case matchEnableTrace:
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
 		BEGIN_ATOMIC_TRACE(c_p);
-		set_tracee_flags(c_p, c_p->tracer_proc, 0, n);
+		set_tracee_flags(c_p, ERTS_TRACER_PROC(c_p), 0, n);
 		esp[-1] = am_true;
 	    } else {
 		esp[-1] = FAIL_TERM;
@@ -2274,7 +2279,7 @@ restart:
 		BEGIN_ATOMIC_TRACE(c_p);
 		if ( (tmpp = get_proc(c_p, 0, esp[0], 0))) {
 		    /* Always take over the tracer of the current process */
-		    set_tracee_flags(tmpp, c_p->tracer_proc, 0, n);
+		    set_tracee_flags(tmpp, ERTS_TRACER_PROC(c_p), 0, n);
 		    esp[-1] = am_true;
 		}
 	    }
@@ -2282,7 +2287,7 @@ restart:
 	case matchDisableTrace:
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
 		BEGIN_ATOMIC_TRACE(c_p);
-		set_tracee_flags(c_p, c_p->tracer_proc, n, 0);
+		set_tracee_flags(c_p, ERTS_TRACER_PROC(c_p), n, 0);
 		esp[-1] = am_true;
 	    } else {
 		esp[-1] = FAIL_TERM;
@@ -2295,7 +2300,7 @@ restart:
 		BEGIN_ATOMIC_TRACE(c_p);
 		if ( (tmpp = get_proc(c_p, 0, esp[0], 0))) {
 		    /* Always take over the tracer of the current process */
-		    set_tracee_flags(tmpp, c_p->tracer_proc, n, 0);
+		    set_tracee_flags(tmpp, ERTS_TRACER_PROC(c_p), n, 0);
 		    esp[-1] = am_true;
 		}
 	    }
@@ -2316,12 +2321,12 @@ restart:
 	    --esp;
 	    if (*esp == am_true) {
 		erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-		c_p->trace_flags |= F_TRACE_SILENT;
+		ERTS_TRACE_FLAGS(c_p) |= F_TRACE_SILENT;
 		erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
 	    else if (*esp == am_false) {
 		erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-		c_p->trace_flags &= ~F_TRACE_SILENT;
+		ERTS_TRACE_FLAGS(c_p) &= ~F_TRACE_SILENT;
 		erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
 	    break;
@@ -2329,11 +2334,11 @@ restart:
 	    {
 		/*    disable         enable                                */
 		Uint  d_flags  = 0,   e_flags  = 0;  /* process trace flags */
-		Eterm tracer = c_p->tracer_proc;
+		Eterm tracer = ERTS_TRACER_PROC(c_p);
 		/* XXX Atomicity note: Not fully atomic. Default tracer
 		 * is sampled from current process but applied to
 		 * tracee and tracer later after releasing main
-		 * locks on current process, so c_p->tracer_proc
+		 * locks on current process, so ERTS_TRACER_PROC(c_p)
 		 * may actually have changed when tracee and tracer
 		 * gets updated. I do not think nobody will notice.
 		 * It is just the default value that is not fully atomic.
@@ -2358,7 +2363,7 @@ restart:
 	    {
 		/*    disable         enable                                */
 		Uint  d_flags  = 0,   e_flags  = 0;  /* process trace flags */
-		Eterm tracer = c_p->tracer_proc;
+		Eterm tracer = ERTS_TRACER_PROC(c_p);
 		/* XXX Atomicity note. Not fully atomic. See above. 
 		 * Above it could possibly be solved, but not here.
 		 */

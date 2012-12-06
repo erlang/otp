@@ -3821,7 +3821,7 @@ start_node_rel(Name0, Rel, Config) ->
     Name = node_name(Name0, Config),
     {Release, Compat} = case Rel of
                             this ->
-                                {[this], "+R8"};
+                                {[this], ""};
                             Rel when is_atom(Rel) ->
                                 {[{release, atom_to_list(Rel)}], ""};
                             RelList ->

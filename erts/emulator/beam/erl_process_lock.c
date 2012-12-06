@@ -66,8 +66,7 @@
 #endif
 
 #include "erl_process.h"
-
-const Process erts_proc_lock_busy = {ERTS_INVALID_PID};
+#include "erl_thr_progress.h"
 
 #ifdef ERTS_SMP
 
@@ -399,7 +398,7 @@ wait_for_locks(Process *p,
                ErtsProcLocks need_locks,
                ErtsProcLocks olflgs)
 {
-    erts_pix_lock_t *pix_lock = pixlck ? pixlck : ERTS_PID2PIXLOCK(p->id);
+    erts_pix_lock_t *pix_lock = pixlck ? pixlck : ERTS_PID2PIXLOCK(p->common.id);
     erts_tse_t *wtr;
 
     /* Acquire a waiter object on which this thread can wait. */
@@ -553,7 +552,7 @@ erts_proc_unlock_failed(Process *p,
 			erts_pix_lock_t *pixlck,
 			ErtsProcLocks wait_locks)
 {
-    erts_pix_lock_t *pix_lock = pixlck ? pixlck : ERTS_PID2PIXLOCK(p->id);
+    erts_pix_lock_t *pix_lock = pixlck ? pixlck : ERTS_PID2PIXLOCK(p->common.id);
 
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
     erts_pix_lock(pix_lock);
@@ -580,7 +579,7 @@ erts_proc_lock_prepare_proc_lock_waiter(void)
  */
 
 static void
-proc_safelock(int is_sched,
+proc_safelock(int is_managed,
 	      Process *a_proc,
 	      ErtsProcLocks a_have_locks,
 	      ErtsProcLocks a_need_locks,
@@ -603,40 +602,40 @@ proc_safelock(int is_sched,
      * Locks with the same lock order should be locked on p1 before p2.
      */
     if (a_proc) {
-	if (a_proc->id < b_proc->id) {
+	if (a_proc->common.id < b_proc->common.id) {
 	    p1 = a_proc;
 #ifdef ERTS_ENABLE_LOCK_CHECK
-	    pid1 = a_proc->id;
+	    pid1 = a_proc->common.id;
 #endif
 	    need_locks1 = a_need_locks;
 	    have_locks1 = a_have_locks;
 	    p2 = b_proc;
 #ifdef ERTS_ENABLE_LOCK_CHECK
-	    pid2 = b_proc->id;
+	    pid2 = b_proc->common.id;
 #endif
 	    need_locks2 = b_need_locks;
 	    have_locks2 = b_have_locks;
 	}
-	else if (a_proc->id > b_proc->id) {
+	else if (a_proc->common.id > b_proc->common.id) {
 	    p1 = b_proc;
 #ifdef ERTS_ENABLE_LOCK_CHECK
-	    pid1 = b_proc->id;
+	    pid1 = b_proc->common.id;
 #endif
 	    need_locks1 = b_need_locks;
 	    have_locks1 = b_have_locks;
 	    p2 = a_proc;
 #ifdef ERTS_ENABLE_LOCK_CHECK
-	    pid2 = a_proc->id;
+	    pid2 = a_proc->common.id;
 #endif
 	    need_locks2 = a_need_locks;
 	    have_locks2 = a_have_locks;
 	}
 	else {
 	    ERTS_LC_ASSERT(a_proc == b_proc);
-	    ERTS_LC_ASSERT(a_proc->id == b_proc->id);
+	    ERTS_LC_ASSERT(a_proc->common.id == b_proc->common.id);
 	    p1 = a_proc;
 #ifdef ERTS_ENABLE_LOCK_CHECK
-	    pid1 = a_proc->id;
+	    pid1 = a_proc->common.id;
 #endif
 	    need_locks1 = a_need_locks | b_need_locks;
 	    have_locks1 = a_have_locks | b_have_locks;
@@ -651,7 +650,7 @@ proc_safelock(int is_sched,
     else {
 	p1 = b_proc;
 #ifdef ERTS_ENABLE_LOCK_CHECK
-	pid1 = b_proc->id;
+	pid1 = b_proc->common.id;
 #endif
 	need_locks1 = b_need_locks;
 	have_locks1 = b_have_locks;
@@ -706,7 +705,7 @@ proc_safelock(int is_sched,
 	if (unlock_locks) {
 	    have_locks1 &= ~unlock_locks;
 	    need_locks1 |= unlock_locks;
-	    if (!is_sched && !have_locks1) {
+	    if (!is_managed && !have_locks1) {
 		refc1 = 1;
 		erts_smp_proc_inc_refc(p1);
 	    }
@@ -716,7 +715,7 @@ proc_safelock(int is_sched,
 	if (unlock_locks) {
 	    have_locks2 &= ~unlock_locks;
 	    need_locks2 |= unlock_locks;
-	    if (!is_sched && !have_locks2) {
+	    if (!is_managed && !have_locks2) {
 		refc2 = 1;
 		erts_smp_proc_inc_refc(p2);
 	    }
@@ -797,7 +796,7 @@ proc_safelock(int is_sched,
     }
 #endif
 
-    if (!is_sched) {
+    if (!is_managed) {
 	if (refc1)
 	    erts_smp_proc_dec_refc(p1);
 	if (refc2)
@@ -830,7 +829,7 @@ erts_pid2proc_opt(Process *c_p,
 		  int flags)
 {
     Process *dec_refc_proc = NULL;
-    int need_ptl;
+    ErtsThrPrgrDelayHandle dhndl;
     ErtsProcLocks need_locks;
     Uint pix;
     Process *proc;
@@ -853,8 +852,8 @@ erts_pid2proc_opt(Process *c_p,
     ERTS_LC_ASSERT((pid_need_locks & ERTS_PROC_LOCKS_ALL) == pid_need_locks);
     need_locks = pid_need_locks;
 
-    if (c_p && c_p->id == pid) {
-	ASSERT(c_p->id != ERTS_INVALID_PID);
+    if (c_p && c_p->common.id == pid) {
+	ASSERT(c_p->common.id != ERTS_INVALID_PID);
 	ASSERT(c_p == erts_pix2proc(pix));
 
 	if (!(flags & ERTS_P2P_FLG_ALLOW_OTHER_X)
@@ -868,15 +867,12 @@ erts_pid2proc_opt(Process *c_p,
 	}
     }
 
-    need_ptl = !erts_get_scheduler_id();
+    dhndl = erts_thr_progress_unmanaged_delay();
 
-    if (need_ptl)
-	erts_smp_rwmtx_rwlock(&erts_proc_tab_rwmtx);
-
-    proc = (Process *) erts_smp_atomic_read_ddrb(&erts_proc.tab[pix]);
+    proc = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc, pix);
 
     if (proc) {
-	if (proc->id != pid)
+	if (proc->common.id != pid)
 	    proc = NULL;
 	else if (!need_locks) {
 	    if (flags & ERTS_P2P_FLG_SMP_INC_REFC)
@@ -935,6 +931,7 @@ erts_pid2proc_opt(Process *c_p,
 		if (flags & ERTS_P2P_FLG_TRY_LOCK)
 		    proc = ERTS_PROC_LOCK_BUSY;
 		else {
+		    int managed;
 		    if (flags & ERTS_P2P_FLG_SMP_INC_REFC)
 			erts_smp_proc_inc_refc(proc);
 
@@ -942,14 +939,21 @@ erts_pid2proc_opt(Process *c_p,
 		    erts_lcnt_proc_lock_unaquire(&proc->lock, lcnt_locks);
 #endif
 
-		    if (need_ptl) {
+		    managed = dhndl == ERTS_THR_PRGR_DHANDLE_MANAGED;
+		    if (!managed) {
 			erts_smp_proc_inc_refc(proc);
+			erts_thr_progress_unmanaged_continue(dhndl);
 			dec_refc_proc = proc;
-			erts_smp_rwmtx_rwunlock(&erts_proc_tab_rwmtx);
-			need_ptl = 0;
+
+			/*
+			 * We don't want to call
+			 * erts_thr_progress_unmanaged_continue()
+			 * again.
+			 */
+			dhndl = ERTS_THR_PRGR_DHANDLE_MANAGED;
 		    }
 
-		    proc_safelock(!need_ptl,
+		    proc_safelock(managed,
 				  c_p,
 				  c_p_have_locks,
 				  c_p_have_locks,
@@ -961,8 +965,8 @@ erts_pid2proc_opt(Process *c_p,
         }
     }
 
-    if (need_ptl)
-	erts_smp_rwmtx_rwunlock(&erts_proc_tab_rwmtx);
+    if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
+	erts_thr_progress_unmanaged_continue(dhndl);
 
     if (need_locks
 	&& proc
@@ -970,7 +974,7 @@ erts_pid2proc_opt(Process *c_p,
 	&& (!(flags & ERTS_P2P_FLG_ALLOW_OTHER_X)
 	    ? ERTS_PROC_IS_EXITING(proc)
 	    : (proc
-	       != (Process *) erts_smp_atomic_read_nob(&erts_proc.tab[pix])))) {
+	       != (Process *) erts_ptab_pix2intptr_nob(&erts_proc, pix)))) {
 
 	erts_smp_proc_unlock(proc, need_locks);
 
@@ -1012,22 +1016,22 @@ erts_proc_lock_init(Process *p)
     erts_proc_lc_trylock(p, ERTS_PROC_LOCKS_ALL, 1);
 #endif
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
-    erts_mtx_init_x(&p->lock.main, "proc_main", p->id);
+    erts_mtx_init_x(&p->lock.main, "proc_main", p->common.id);
     ethr_mutex_lock(&p->lock.main.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.main.lc);
 #endif
-    erts_mtx_init_x(&p->lock.link, "proc_link", p->id);
+    erts_mtx_init_x(&p->lock.link, "proc_link", p->common.id);
     ethr_mutex_lock(&p->lock.link.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.link.lc);
 #endif
-    erts_mtx_init_x(&p->lock.msgq, "proc_msgq", p->id);
+    erts_mtx_init_x(&p->lock.msgq, "proc_msgq", p->common.id);
     ethr_mutex_lock(&p->lock.msgq.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.msgq.lc);
 #endif
-    erts_mtx_init_x(&p->lock.status, "proc_status", p->id);
+    erts_mtx_init_x(&p->lock.status, "proc_status", p->common.id);
     ethr_mutex_lock(&p->lock.status.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.status.lc);
@@ -1064,11 +1068,11 @@ erts_proc_lock_fin(Process *p)
 #if ERTS_PROC_LOCK_OWN_IMPL && defined(ERTS_ENABLE_LOCK_COUNT)
 void erts_lcnt_proc_lock_init(Process *p) {
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_PROCLOCK) {
-    if (p->id != ERTS_INVALID_PID) {
-	erts_lcnt_init_lock_x(&(p->lock.lcnt_main),   "proc_main",   ERTS_LCNT_LT_PROCLOCK, p->id);
-	erts_lcnt_init_lock_x(&(p->lock.lcnt_msgq),   "proc_msgq",   ERTS_LCNT_LT_PROCLOCK, p->id);
-	erts_lcnt_init_lock_x(&(p->lock.lcnt_link),   "proc_link",   ERTS_LCNT_LT_PROCLOCK, p->id);
-	erts_lcnt_init_lock_x(&(p->lock.lcnt_status), "proc_status", ERTS_LCNT_LT_PROCLOCK, p->id);
+    if (p->common.id != ERTS_INVALID_PID) {
+	erts_lcnt_init_lock_x(&(p->lock.lcnt_main),   "proc_main",   ERTS_LCNT_LT_PROCLOCK, p->common.id);
+	erts_lcnt_init_lock_x(&(p->lock.lcnt_msgq),   "proc_msgq",   ERTS_LCNT_LT_PROCLOCK, p->common.id);
+	erts_lcnt_init_lock_x(&(p->lock.lcnt_link),   "proc_link",   ERTS_LCNT_LT_PROCLOCK, p->common.id);
+	erts_lcnt_init_lock_x(&(p->lock.lcnt_status), "proc_status", ERTS_LCNT_LT_PROCLOCK, p->common.id);
     } else {
 	erts_lcnt_init_lock(&(p->lock.lcnt_main),   "proc_main",   ERTS_LCNT_LT_PROCLOCK);
 	erts_lcnt_init_lock(&(p->lock.lcnt_msgq),   "proc_msgq",   ERTS_LCNT_LT_PROCLOCK);
@@ -1176,10 +1180,11 @@ void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res
 }
 
 
-void erts_lcnt_enable_proc_lock_count(int enable) {
-    int i;
+void erts_lcnt_enable_proc_lock_count(int enable)
+{
+    int i, max = erts_ptab_max(&erts_proc);
 
-    for (i = 0; i < erts_max_processes; ++i) {
+    for (i = 0; i < max; ++i) {
 	Process* p = erts_pix2proc(i);
 	if (p) {
 	    if (enable) {
@@ -1208,7 +1213,7 @@ void
 erts_proc_lc_lock(Process *p, ErtsProcLocks locks)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
-					   p->id,
+					   p->common.id,
 					   ERTS_LC_FLG_LT_PROCLOCK);
     if (locks & ERTS_PROC_LOCK_MAIN) {
 	lck.id = lc_id.proc_lock_main;
@@ -1232,7 +1237,7 @@ void
 erts_proc_lc_trylock(Process *p, ErtsProcLocks locks, int locked)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
-					   p->id,
+					   p->common.id,
 					   ERTS_LC_FLG_LT_PROCLOCK);
     if (locks & ERTS_PROC_LOCK_MAIN) {
 	lck.id = lc_id.proc_lock_main;
@@ -1256,7 +1261,7 @@ void
 erts_proc_lc_unlock(Process *p, ErtsProcLocks locks)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
-					   p->id,
+					   p->common.id,
 					   ERTS_LC_FLG_LT_PROCLOCK);
     if (locks & ERTS_PROC_LOCK_STATUS) {
 	lck.id = lc_id.proc_lock_status;
@@ -1283,7 +1288,7 @@ erts_proc_lc_might_unlock(Process *p, ErtsProcLocks locks)
 {
 #if ERTS_PROC_LOCK_OWN_IMPL
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
-					   p->id,
+					   p->common.id,
 					   ERTS_LC_FLG_LT_PROCLOCK);
     if (locks & ERTS_PROC_LOCK_STATUS) {
 	lck.id = lc_id.proc_lock_status;
@@ -1318,7 +1323,7 @@ erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks)
 {
 #if ERTS_PROC_LOCK_OWN_IMPL
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
-					   p->id,
+					   p->common.id,
 					   ERTS_LC_FLG_LT_PROCLOCK);
     if (locks & ERTS_PROC_LOCK_MAIN) {
 	lck.id = lc_id.proc_lock_main;
@@ -1353,7 +1358,7 @@ erts_proc_lc_unrequire_lock(Process *p, ErtsProcLocks locks)
 {
 #if ERTS_PROC_LOCK_OWN_IMPL
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
-					   p->id,
+					   p->common.id,
 					   ERTS_LC_FLG_LT_PROCLOCK);
     if (locks & ERTS_PROC_LOCK_STATUS) {
 	lck.id = lc_id.proc_lock_status;
@@ -1390,7 +1395,7 @@ erts_proc_lc_trylock_force_busy(Process *p, ErtsProcLocks locks)
 {
     if (locks & ERTS_PROC_LOCKS_ALL) {
 	erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
-					       p->id,
+					       p->common.id,
 					       ERTS_LC_FLG_LT_PROCLOCK);
 
 	if (locks & ERTS_PROC_LOCK_MAIN)
@@ -1415,7 +1420,7 @@ void erts_proc_lc_chk_only_proc_main(Process *p)
 {
 #if ERTS_PROC_LOCK_OWN_IMPL
     erts_lc_lock_t proc_main = ERTS_LC_LOCK_INIT(lc_id.proc_lock_main,
-						 p->id,
+						 p->common.id,
 						 ERTS_LC_FLG_LT_PROCLOCK);
     erts_lc_check_exact(&proc_main, 1);
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
@@ -1439,19 +1444,19 @@ erts_proc_lc_chk_have_proc_locks(Process *p, ErtsProcLocks locks)
 				    ERTS_PROC_LC_EMPTY_LOCK_INIT};
     if (locks & ERTS_PROC_LOCK_MAIN) {
 	have_locks[have_locks_len].id = lc_id.proc_lock_main;
-	have_locks[have_locks_len++].extra = p->id;
+	have_locks[have_locks_len++].extra = p->common.id;
     }
     if (locks & ERTS_PROC_LOCK_LINK) {
 	have_locks[have_locks_len].id = lc_id.proc_lock_link;
-	have_locks[have_locks_len++].extra = p->id;
+	have_locks[have_locks_len++].extra = p->common.id;
     }
     if (locks & ERTS_PROC_LOCK_MSGQ) {
 	have_locks[have_locks_len].id = lc_id.proc_lock_msgq;
-	have_locks[have_locks_len++].extra = p->id;
+	have_locks[have_locks_len++].extra = p->common.id;
     }
     if (locks & ERTS_PROC_LOCK_STATUS) {
 	have_locks[have_locks_len].id = lc_id.proc_lock_status;
-	have_locks[have_locks_len++].extra = p->id;
+	have_locks[have_locks_len++].extra = p->common.id;
     }
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
     erts_lc_lock_t have_locks[4];
@@ -1484,35 +1489,35 @@ erts_proc_lc_chk_proc_locks(Process *p, ErtsProcLocks locks)
 
     if (locks & ERTS_PROC_LOCK_MAIN) {
 	have_locks[have_locks_len].id = lc_id.proc_lock_main;
-	have_locks[have_locks_len++].extra = p->id;
+	have_locks[have_locks_len++].extra = p->common.id;
     }
     else {
 	have_not_locks[have_not_locks_len].id = lc_id.proc_lock_main;
-	have_not_locks[have_not_locks_len++].extra = p->id;
+	have_not_locks[have_not_locks_len++].extra = p->common.id;
     }
     if (locks & ERTS_PROC_LOCK_LINK) {
 	have_locks[have_locks_len].id = lc_id.proc_lock_link;
-	have_locks[have_locks_len++].extra = p->id;
+	have_locks[have_locks_len++].extra = p->common.id;
     }
     else {
 	have_not_locks[have_not_locks_len].id = lc_id.proc_lock_link;
-	have_not_locks[have_not_locks_len++].extra = p->id;
+	have_not_locks[have_not_locks_len++].extra = p->common.id;
     }
     if (locks & ERTS_PROC_LOCK_MSGQ) {
 	have_locks[have_locks_len].id = lc_id.proc_lock_msgq;
-	have_locks[have_locks_len++].extra = p->id;
+	have_locks[have_locks_len++].extra = p->common.id;
     }
     else {
 	have_not_locks[have_not_locks_len].id = lc_id.proc_lock_msgq;
-	have_not_locks[have_not_locks_len++].extra = p->id;
+	have_not_locks[have_not_locks_len++].extra = p->common.id;
     }
     if (locks & ERTS_PROC_LOCK_STATUS) {
 	have_locks[have_locks_len].id = lc_id.proc_lock_status;
-	have_locks[have_locks_len++].extra = p->id;
+	have_locks[have_locks_len++].extra = p->common.id;
     }
     else {
 	have_not_locks[have_not_locks_len].id = lc_id.proc_lock_status;
-	have_not_locks[have_not_locks_len++].extra = p->id;
+	have_not_locks[have_not_locks_len++].extra = p->common.id;
     }
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
     erts_lc_lock_t have_locks[4];
@@ -1547,16 +1552,16 @@ erts_proc_lc_my_proc_locks(Process *p)
     ErtsProcLocks res = 0;
 #if ERTS_PROC_LOCK_OWN_IMPL
     erts_lc_lock_t locks[4] = {ERTS_LC_LOCK_INIT(lc_id.proc_lock_main,
-						 p->id,
+						 p->common.id,
 						 ERTS_LC_FLG_LT_PROCLOCK),
 			       ERTS_LC_LOCK_INIT(lc_id.proc_lock_link,
-						 p->id,
+						 p->common.id,
 						 ERTS_LC_FLG_LT_PROCLOCK),
 			       ERTS_LC_LOCK_INIT(lc_id.proc_lock_msgq,
-						 p->id,
+						 p->common.id,
 						 ERTS_LC_FLG_LT_PROCLOCK),
 			       ERTS_LC_LOCK_INIT(lc_id.proc_lock_status,
-						 p->id,
+						 p->common.id,
 						 ERTS_LC_FLG_LT_PROCLOCK)};
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
     erts_lc_lock_t locks[4] = {p->lock.main.lc,
