@@ -215,11 +215,18 @@ heap_sizes(Config) when is_list(Config) ->
 				   (E, []) -> E
 				end, [], Sizes),
 
-    %% Verify that the largest heap size consists of 31 or 63 bits.
-    ?line
-	case Largest bsr (erlang:system_info(wordsize)*8-2) of
-	    R when R > 0 -> ok
-	end,
+    %% Verify that the largest heap size consists of
+    %%  - 31 bits of bytes on 32 bits arch
+    %%  - atleast 52 bits of bytes (48 is the maximum virtual address)
+    %%    and at the most 63 bits on 64 bit archs
+    %% heap sizes are in words
+    case erlang:system_info(wordsize) of
+	8 ->
+	    0    = (Largest*8) bsr 63,
+	    true = (Largest*8) > (1 bsl 52);
+	4 ->
+	    1 = (Largest*4) bsr 31
+    end,
     ok.
 
 %% Thanks to Igor Goryachev.

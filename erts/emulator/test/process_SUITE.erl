@@ -550,7 +550,7 @@ process_info_other_msg(Config) when is_list(Config) ->
     {messages,[]} = process_info(Pid, messages),
 
     {min_heap_size, 233} = process_info(Pid, min_heap_size),
-    {min_bin_vheap_size, 46368} = process_info(Pid, min_bin_vheap_size),
+    {min_bin_vheap_size, 46422} = process_info(Pid, min_bin_vheap_size),
 
     Pid ! stop,
     ok.
@@ -1893,8 +1893,8 @@ process_flag_heap_size(doc) ->
 process_flag_heap_size(suite) ->
     [];
 process_flag_heap_size(Config) when is_list(Config) ->
-    HSize  = 2584,   % must be gc fib number
-    VHSize = 317811, % must be gc fib number
+    HSize  = 2586,   % must be gc fib+ number
+    VHSize = 318187, % must be gc fib+ number
     OldHmin = erlang:process_flag(min_heap_size, HSize),
     {min_heap_size, HSize} = erlang:process_info(self(), min_heap_size),
     OldVHmin = erlang:process_flag(min_bin_vheap_size, VHSize),
@@ -1908,8 +1908,8 @@ spawn_opt_heap_size(doc) ->
 spawn_opt_heap_size(suite) ->
     [];
 spawn_opt_heap_size(Config) when is_list(Config) ->
-    HSize  = 987,   % must be gc fib number
-    VHSize = 46368, % must be gc fib number
+    HSize  = 987,   % must be gc fib+ number
+    VHSize = 46422, % must be gc fib+ number
     Pid  = spawn_opt(fun () -> receive stop -> ok end end,
 	[{min_heap_size, HSize},{ min_bin_vheap_size, VHSize}]),
     {min_heap_size, HSize} = process_info(Pid, min_heap_size),
