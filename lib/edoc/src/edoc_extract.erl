@@ -121,7 +121,7 @@ source1(Tree, File0, Env, Opts, TypeDocs) ->
     Module = get_module_info(Tree, File),
     {Header, Footer, Entries} = collect(Forms, Module),
     Name = Module#module.name,
-    Package = list_to_atom(packages:strip_last(Name)),
+    Package = '',
     Env1 = Env#env{module = Name,
 		   package = Package,
 		   root = edoc_refs:relative_package_path('', Package)},

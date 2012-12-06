@@ -318,10 +318,7 @@ tok_val(T) -> element(3, T).
 
 tok_line(T) -> element(2, T).
 
-qname([A]) ->
-    A;    % avoid unnecessary call to packages:concat/1.
-qname(List) ->
-    list_to_atom(packages:concat(lists:reverse(List))).
+qname([A]) -> A.
 
 union(Ts) ->
     case Ts of
