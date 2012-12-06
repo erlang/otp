@@ -255,8 +255,7 @@ void erl_sys_args(int* argc, char** argv)
 #endif
 }
 
-void
-erts_sys_prepare_crash_dump(int secs)
+int erts_sys_prepare_crash_dump(int secs)
 {
     Port *heart_port;
     Eterm heap[3];
@@ -271,10 +270,14 @@ erts_sys_prepare_crash_dump(int secs)
 
 	/* send to heart port, CMD = 8, i.e. prepare crash dump =o */
 	erts_write_to_port(NIL, heart_port, list);
+
+	return 1;
     }
 
     /* Windows - free file descriptors are hopefully available */
     /* Alarm not used on windows */
+
+    return 0;
 }
 
 static void
