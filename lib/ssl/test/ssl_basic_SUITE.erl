@@ -257,7 +257,9 @@ api_tests() ->
      shutdown_write,
      shutdown_both,
      shutdown_error,
-     hibernate
+     hibernate,
+     ssl_accept_timeout,
+     ssl_recv_timeout
     ].
 
 certificate_verify_tests() ->
@@ -3777,6 +3779,62 @@ hibernate(Config) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+ssl_accept_timeout(doc) ->
+    ["Test ssl:ssl_accept timeout"];
+ssl_accept_timeout(suite) ->
+    [];
+ssl_accept_timeout(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{timeout, 5000},
+					{mfa, {ssl_test_lib,
+					       no_result_msg, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, CSocket} = gen_tcp:connect(Hostname, Port, [binary, {active, true}]),
+
+    receive
+	{tcp_closed, CSocket} ->
+	    ssl_test_lib:check_result(Server, {error, timeout}),
+	    receive
+		{'EXIT', Server, _} ->
+		    [] = supervisor:which_children(ssl_connection_sup)
+	    end
+    end.
+
+%%--------------------------------------------------------------------
+ssl_recv_timeout(doc) ->
+    ["Test ssl:ssl_accept timeout"];
+ssl_recv_timeout(suite) ->
+    [];
+ssl_recv_timeout(Config) ->
+    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {?MODULE, send_recv_result_timeout_server, []}},
+				   {options, [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE,
+					       send_recv_result_timeout_client, []}},
+					{options, [{active, false} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Client, ok, Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
 
 connect_twice(doc) ->
     [""];
@@ -4017,6 +4075,23 @@ client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == dss orelse KeyAlgo == 
 send_recv_result(Socket) ->
     ssl:send(Socket, "Hello world"),
     {ok,"Hello world"} = ssl:recv(Socket, 11),
+    ok.
+
+send_recv_result_timeout_client(Socket) ->
+    {error, timeout} = ssl:recv(Socket, 11, 500),
+    ssl:send(Socket, "Hello world"),
+    receive
+	Msg ->
+	    io:format("Msg ~p~n",[Msg])
+    after 500 ->
+	    ok
+    end,
+    {ok, "Hello world"} = ssl:recv(Socket, 11, 500),
+    ok.
+send_recv_result_timeout_server(Socket) ->
+    ssl:send(Socket, "Hello"),
+    {ok, "Hello world"} = ssl:recv(Socket, 11),
+    ssl:send(Socket, " world"),
     ok.
 
 recv_close(Socket) ->
