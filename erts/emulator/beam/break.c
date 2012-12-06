@@ -657,6 +657,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     char dumpnamebuf[MAXPATHLEN];
     char* dumpname;
     int secs;
+    int env_erl_crash_dump_seconds_set = 1;
 
     if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
@@ -681,6 +682,8 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 
     envsz = sizeof(env);
     /* ERL_CRASH_DUMP_SECONDS not set
+     * if we have a heart port, break immediately
+     * otherwise dump crash indefinitely (until crash is complete)
      * same as ERL_CRASH_DUMP_SECONDS = 0
      * - do not write dump
      * - do not set an alarm
@@ -702,8 +705,10 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
      */
 	
     if (erts_sys_getenv__("ERL_CRASH_DUMP_SECONDS", env, &envsz) != 0) {
-	return; /* break immediately */
+	env_erl_crash_dump_seconds_set = 0;
+	secs = -1;
     } else {
+	env_erl_crash_dump_seconds_set = 1;
 	secs = atoi(env);
     }
 
@@ -711,7 +716,16 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 	return;
     }
 
-    erts_sys_prepare_crash_dump(secs);
+    /* erts_sys_prepare_crash_dump returns 1 if heart port is found, otherwise 0
+     * If we don't find heart (0) and we don't have ERL_CRASH_DUMP_SECONDS set
+     * we should continue writing a dump
+     *
+     * beware: secs -1 means no alarm
+     */
+
+    if (erts_sys_prepare_crash_dump(secs) && !env_erl_crash_dump_seconds_set ) {
+	return;
+    }
 
     if (erts_sys_getenv__("ERL_CRASH_DUMP",&dumpnamebuf[0],&dumpnamebufsize) != 0)
 	dumpname = "erl_crash.dump";

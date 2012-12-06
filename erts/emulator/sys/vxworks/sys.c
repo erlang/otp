@@ -296,10 +296,10 @@ void sys_sigrelease(int sig)
   sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)NULL);
 }
 
-void
+int
 erts_sys_prepare_crash_dump(void)
 {
-    
+    return 0;
 }
 
 /* register signal handlers XXX - they don't work, need to find out why... */
