@@ -58,7 +58,7 @@
 
 -spec init(Id, HookOpts) -> Result when
       Id :: term(),
-      HookOpts :: ct:hook_options(),
+      HookOpts :: ct_netconfc:hook_options(),
       Result :: {ok,[{ct_netconfc:conn_mod(),
 		      {ct_netconfc:log_type(),[ct_netconfc:key_or_name()]}}]}.
 init(_Id, HookOpts) ->
