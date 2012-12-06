@@ -308,6 +308,18 @@
 	  <item>
 	    <p>Determines if SSH shall use IPv6 or not (only used when 
                HostAddress is set to any).</p></item>
+	  <tag><c><![CDATA[{failfun, fun()}]]></c></tag>
+	  <item>
+	    <p>Provide a fun() to implement your own logging when a user fails to authenticate.</p>
+	  </item>
+	  <tag><c><![CDATA[{connectfun, fun()}]]></c></tag>
+	  <item>
+	    <p>Provide a fun() to implement your own logging when a user authenticates to the server.</p>
+	  </item>
+	  <tag><c><![CDATA[{disconnectfun, fun()}]]></c></tag>
+	  <item>
+	    <p>Provide a fun() to implement your own logging when a user disconnects from the server.</p>
+	  </item>
         </taglist>
       </desc>
     </func>
