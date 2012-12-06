@@ -235,8 +235,6 @@
 	 prefix_expr/2,
 	 prefix_expr_argument/1,
 	 prefix_expr_operator/1,
-	 qualified_name/1,
-	 qualified_name_segments/1,
 	 query_expr/1,
 	 query_expr_body/1,
 	 receive_expr/1,
@@ -451,7 +449,6 @@
 %%   <td>parentheses</td>
 %%   <td>prefix_expr</td>
 %%  </tr><tr>
-%%   <td>qualified_name</td>
 %%   <td>query_expr</td>
 %%   <td>receive_expr</td>
 %%   <td>record_access</td>
@@ -516,7 +513,6 @@
 %% @see operator/1
 %% @see parentheses/1
 %% @see prefix_expr/2
-%% @see qualified_name/1
 %% @see query_expr/1
 %% @see receive_expr/3
 %% @see record_access/3
@@ -586,11 +582,7 @@ type(Node) ->
 	{record, _, _, _, _} -> record_expr;
 	{record, _, _, _} -> record_expr;
 	{record_field, _, _, _, _} -> record_access;
-	{record_field, _, _, _} ->
-	    case is_qualified_name(Node) of
-		true -> qualified_name;
-		false -> record_access
-	    end;
+	{record_field, _, _, _} -> record_access;
 	{record_index, _, _, _} -> record_index_expr;
 	{remote, _, _, _} -> module_qualifier;
 	{rule, _, _, _, _} -> rule;
@@ -3047,9 +3039,6 @@ revert_module_name(A) ->
     case type(A) of
 	atom ->
 	    {ok, concrete(A)};
-	qualified_name ->
-	    Ss = qualified_name_segments(A),
-	    {ok, [concrete(S) || S <- Ss]};
 	_ ->
 	    error
     end.
@@ -3095,11 +3084,7 @@ attribute_arguments(Node) ->
 			    M0 ->
 				{M0, none}
 			end,
-		    M2 = if is_list(M1) ->
-				 qualified_name([atom(A) || A <- M1]);
-			    true ->
-				 atom(M1)
-			 end,
+		    M2 = atom(M1),
 		    M = set_pos(M2, Pos),
 		    if Vs == none -> [M];
 		       true -> [M, set_pos(list(Vs), Pos)]
@@ -3109,20 +3094,11 @@ attribute_arguments(Node) ->
 		       list(unfold_function_names(Data, Pos)),
 		       Pos)];
 		import ->
-		    case Data of
-			{Module, Imports} ->
-			    [if is_list(Module) ->
-				     qualified_name([atom(A)
-						     || A <- Module]);
-				true ->
-				     set_pos(atom(Module), Pos)
-			     end,
-			     set_pos(
-			       list(unfold_function_names(Imports, Pos)),
-			       Pos)];
-			_ ->
-			    [qualified_name([atom(A) || A <- Data])]
-		    end;
+		    {Module, Imports} = Data,
+		    [set_pos(atom(Module), Pos),
+		     set_pos(
+		       list(unfold_function_names(Imports, Pos)),
+		       Pos)];
 		file ->
 		    {File, Line} = Data,
 		    [set_pos(string(File), Pos),
@@ -3250,53 +3226,6 @@ module_qualifier_body(Node) ->
 	    Body;
 	Node1 ->
 	    (data(Node1))#module_qualifier.body
-    end.
-
-
-%% =====================================================================
-%% @doc Creates an abstract qualified name. The result represents
-%% "<code><em>S1</em>.<em>S2</em>. ... .<em>Sn</em></code>", if
-%% `Segments' is `[S1, S2, ..., Sn]'.
-%%
-%% @see qualified_name_segments/1
-
-%% type(Node) = qualified_name
-%% data(Node) = [syntaxTree()]
-%%
-%% `erl_parse' representation:
-%%
-%% {record_field, Pos, Node, Node}
-%%
-%%	Node = {atom, Pos, Value} | {record_field, Pos, Node, Node}
-%%
-%% Note that if not all leaf subnodes are (abstract) atoms, then Node
-%% represents a Mnemosyne query record field access ('record_access');
-%% see type/1 for details.
-
--spec qualified_name([syntaxTree()]) -> syntaxTree().
-
-qualified_name(Segments) ->
-    tree(qualified_name, Segments).
-
-revert_qualified_name(Node) ->
-    Pos = get_pos(Node),
-    fold_qualified_name(qualified_name_segments(Node), Pos).
-
-
-%% =====================================================================
-%% @doc Returns the list of name segments of a
-%% `qualified_name' node.
-%%
-%% @see qualified_name/1
-
--spec qualified_name_segments(syntaxTree()) -> [syntaxTree()].
-
-qualified_name_segments(Node) ->
-    case unwrap(Node) of
-	{record_field, _, _, _} = Node1 ->
-	    unfold_qualified_name(Node1);
-	Node1 ->
-	    data(Node1)
     end.
 
 
@@ -6112,8 +6041,6 @@ revert_root(Node) ->
 	    revert_parentheses(Node);
 	prefix_expr ->
 	    revert_prefix_expr(Node);
-	qualified_name ->
-	    revert_qualified_name(Node);
 	query_expr ->
 	    revert_query_expr(Node);
 	receive_expr ->
@@ -6356,8 +6283,6 @@ subtrees(T) ->
 		prefix_expr ->
 		    [[prefix_expr_operator(T)],
 		     [prefix_expr_argument(T)]];
-		qualified_name ->
-		    [qualified_name_segments(T)];
 		query_expr ->
 		    [[query_expr_body(T)]];
 		receive_expr ->
@@ -6488,7 +6413,6 @@ make_tree(match_expr, [[P], [E]]) -> match_expr(P, E);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
 make_tree(parentheses, [[E]]) -> parentheses(E);
 make_tree(prefix_expr, [[F], [A]]) -> prefix_expr(F, A);
-make_tree(qualified_name, [S]) -> qualified_name(S);
 make_tree(query_expr, [[B]]) -> query_expr(B);
 make_tree(receive_expr, [C]) -> receive_expr(C);
 make_tree(receive_expr, [C, [E], A]) -> receive_expr(C, E, A);
@@ -6831,32 +6755,6 @@ fold_variable_names(Vs) ->
 
 unfold_variable_names(Vs, Pos) ->
     [set_pos(variable(V), Pos) || V <- Vs].
-
-%% Support functions for qualified names ("foo.bar.baz",
-%% "erl.lang.lists", etc.). The representation overlaps with the weird
-%% "Mnesia query record access" operators. The '.' operator is left
-%% associative, so folding should nest on the left.
-
-is_qualified_name({record_field, _, L, R}) ->
-    is_qualified_name(L) andalso is_qualified_name(R);
-is_qualified_name({atom, _, _}) -> true;
-is_qualified_name(_) -> false.
-
-unfold_qualified_name(Node) ->
-    lists:reverse(unfold_qualified_name(Node, [])).
-
-unfold_qualified_name({record_field, _, L, R}, Ss) ->
-    unfold_qualified_name(R, unfold_qualified_name(L, Ss));
-unfold_qualified_name(S, Ss) -> [S | Ss].
-
-fold_qualified_name([S | Ss], Pos) ->
-    fold_qualified_name(Ss, Pos, {atom, Pos, atom_value(S)}).
-
-fold_qualified_name([S | Ss], Pos, Ack) ->
-    fold_qualified_name(Ss, Pos, {record_field, Pos, Ack,
-				  {atom, Pos, atom_value(S)}});
-fold_qualified_name([], _Pos, Ack) ->
-    Ack.
 
 %% Support functions for transforming lists of record field definitions.
 %%
