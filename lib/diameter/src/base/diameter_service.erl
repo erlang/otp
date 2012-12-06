@@ -1703,16 +1703,20 @@ send(Pid, Pkt) ->
 %% retransmit/4
 
 retransmit({TPid, Caps, #diameter_app{alias = Alias} = App} = T,
-           #request{app = Alias, packet = Pkt}
+           #request{app = Alias, packet = Pkt0}
            = Req,
            SvcName,
            Timeout) ->
-    have_request(Pkt, TPid)      %% Don't failover to a peer we've
+    have_request(Pkt0, TPid)      %% Don't failover to a peer we've
         andalso ?THROW(timeout), %% already sent to.
+
+    #diameter_packet{header = Hdr0} = Pkt0,
+    Hdr = Hdr0#diameter_header{is_retransmitted = true},
+    Pkt = Pkt0#diameter_packet{header = Hdr},
 
     resend_req(cb(App, prepare_retransmit, [Pkt, SvcName, {TPid, Caps}]),
                T,
-               Req,
+               Req#request{packet = Pkt},
                Timeout,
                []).
 
