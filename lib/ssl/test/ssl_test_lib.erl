@@ -72,7 +72,13 @@ run_server(Opts) ->
     run_server(ListenSocket, Opts).
 
 run_server(ListenSocket, Opts) ->
-    AcceptSocket = connect(ListenSocket, Opts),
+    do_run_server(ListenSocket, connect(ListenSocket, Opts), Opts).
+
+do_run_server(_, {error, timeout} = Result, Opts)  ->
+    Pid = proplists:get_value(from, Opts),
+    Pid ! {self(), Result};
+
+do_run_server(ListenSocket, AcceptSocket, Opts) ->
     Node = proplists:get_value(node, Opts),
     Pid = proplists:get_value(from, Opts),
     {Module, Function, Args} = proplists:get_value(mfa, Opts),
@@ -102,7 +108,8 @@ run_server(ListenSocket, Opts) ->
 connect(ListenSocket, Opts) ->
     Node = proplists:get_value(node, Opts),
     ReconnectTimes =  proplists:get_value(reconnect_times, Opts, 0),
-    AcceptSocket = connect(ListenSocket, Node, 1 + ReconnectTimes, dummy),
+    Timeout = proplists:get_value(timeout, Opts, infinity),
+    AcceptSocket = connect(ListenSocket, Node, 1 + ReconnectTimes, dummy, Timeout),
     case ReconnectTimes of
 	0 ->
 	    AcceptSocket;
@@ -111,15 +118,21 @@ connect(ListenSocket, Opts) ->
 	  AcceptSocket
     end.
     
-connect(_, _, 0, AcceptSocket) ->
+connect(_, _, 0, AcceptSocket, _) ->
     AcceptSocket;
-connect(ListenSocket, Node, N, _) ->
+connect(ListenSocket, Node, N, _, Timeout) ->
     test_server:format("ssl:transport_accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
 				  [ListenSocket]),    
-    test_server:format("ssl:ssl_accept(~p)~n", [AcceptSocket]),
-    ok = rpc:call(Node, ssl, ssl_accept, [AcceptSocket]),
-    connect(ListenSocket, Node, N-1, AcceptSocket).
+    test_server:format("ssl:ssl_accept(~p, ~p)~n", [AcceptSocket, Timeout]),
+
+    case rpc:call(Node, ssl, ssl_accept, [AcceptSocket, Timeout]) of
+	ok ->
+	    connect(ListenSocket, Node, N-1, AcceptSocket, Timeout);
+	Result ->
+	    Result
+    end.
+
   
 remove_close_msg(0) ->
     ok;

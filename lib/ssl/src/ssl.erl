@@ -45,7 +45,7 @@
 -export_type([connect_option/0, listen_option/0, ssl_option/0, transport_option/0,
 	      erl_cipher_suite/0, %% From ssl_cipher.hrl 
 	      tls_atom_version/0, %% From ssl_internal.hrl
-	      prf_random/0]).
+	      prf_random/0, sslsocket/0]).
 
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
@@ -53,6 +53,8 @@
 		 inet_ssl,          %% inet options for internal ssl socket 
 		 cb                 %% Callback info
 		}).
+
+-type sslsocket()                :: #sslsocket{}.
 -type connect_option()           :: socket_connect_option() | ssl_option() | transport_option().
 -type socket_connect_option()    :: gen_tcp:connect_option().
 -type listen_option()            :: socket_listen_option() | ssl_option() | transport_option().
