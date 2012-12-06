@@ -116,7 +116,7 @@ machine_load(Mod, File, Opts) ->
     File2 = filename:join(Dir, filename:basename(File, ".erl")),
     case compile:output_generated(Opts) of
 	true ->
-	    Base = packages:last(Mod),
+	    Base = atom_to_list(Mod),
 	    case filename:basename(File, ".erl") of
 		Base ->
 		    code:purge(Mod),
