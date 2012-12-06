@@ -482,33 +482,12 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn},
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-load_app_mods(#app{mods = Mods} = App, Mand, PathFlag, Variables) ->
+load_app_mods(#app{mods = Mods0} = App, Mand, PathFlag, Variables) ->
     Path = cr_path(App, PathFlag, Variables),
-    PartNames =
-        lists:sort([{packages:split(M),M} ||
-                       #mod{name = M, is_included=true} <- Mods,
-                       not lists:member(M, Mand)]),
-    SplitMods =
-        lists:foldl(
-          fun({Parts,M}, [{Last, Acc}|Rest]) ->
-                  [_|Tail] = lists:reverse(Parts),
-                  case lists:reverse(Tail) of
-                      Subs when Subs == Last ->
-                          [{Last,[M|Acc]}|Rest];
-                      Subs ->
-                          [{Subs, [M]}|[{Last,Acc}|Rest]]
-                  end
-          end,
-          [{[],
-            []}],
-          PartNames),
-    lists:foldl(
-      fun({Subs,Ms}, Cmds) ->
-              [{path, [filename:join([Path | Subs])]},
-               {primLoad, lists:sort(Ms)} | Cmds]
-      end,
-      [],
-      SplitMods).
+    Mods = [M || #mod{name = M, is_included=true} <- Mods0,
+		 not lists:member(M, Mand)],
+    [{path, [filename:join([Path])]},
+     {primLoad, lists:sort(Mods)}].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% sort_used_and_incl_apps(Apps, OrderedApps) -> Apps
