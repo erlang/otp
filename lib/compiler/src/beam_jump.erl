@@ -220,6 +220,8 @@ extract_seq([{line,_}=Line|Is], Acc) ->
     extract_seq(Is, [Line|Acc]);
 extract_seq([{block,_}=Bl|Is], Acc) ->
     extract_seq_1(Is, [Bl|Acc]);
+extract_seq([{bs_context_to_binary,_}=I|Is], Acc) ->
+    extract_seq_1(Is, [I|Acc]);
 extract_seq([{label,_}|_]=Is, Acc) ->
     extract_seq_1(Is, Acc);
 extract_seq(_, _) -> no.

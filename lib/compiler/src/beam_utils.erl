@@ -263,19 +263,11 @@ check_liveness(R, [{test,_,{f,Fail},As}|Is], St0) ->
 		{_,_}=Other -> Other
 	    end
     end;
-check_liveness(R, [{test,_,{f,Fail},Live,Ss,_}|Is], St0) ->
-    case R of
-	{x,X} ->
-	    case X < Live orelse member(R, Ss) of
-		true -> {used,St0};
-		false -> check_liveness_at(R, Fail, St0)
-	    end;
-	{y,_} ->
-	    case check_liveness_at(R, Fail, St0) of
-		{killed,St} -> check_liveness(R, Is, St);
-		{_,_}=Other -> Other
-	    end
-    end;
+check_liveness(R, [{test,Op,Fail,Live,Ss,Dst}|Is], St) ->
+    %% Check this instruction as a block to get a less conservative
+    %% result if the caller is is_not_used/3.
+    Block = [{set,[Dst],Ss,{alloc,Live,{bif,Op,Fail}}}],
+    check_liveness(R, [{block,Block}|Is], St);
 check_liveness(R, [{select,_,R,_,_}|_], St) ->
     {used,St};
 check_liveness(R, [{select,_,_,Fail,Branches}|_], St) ->

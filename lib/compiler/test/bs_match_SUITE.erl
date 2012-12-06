@@ -33,7 +33,7 @@
 	 matching_meets_construction/1,simon/1,matching_and_andalso/1,
 	 otp_7188/1,otp_7233/1,otp_7240/1,otp_7498/1,
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
-	 cover_beam_bool/1,matched_out_size/1]).
+	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -57,7 +57,7 @@ groups() ->
        matching_meets_construction,simon,
        matching_and_andalso,otp_7188,otp_7233,otp_7240,
        otp_7498,match_string,zero_width,bad_size,haystack,
-       cover_beam_bool,matched_out_size]}].
+       cover_beam_bool,matched_out_size,follow_fail_branch]}].
 
 
 init_per_suite(Config) ->
@@ -1107,6 +1107,32 @@ mos_bin(<<L,Bin:L/binary,X:8,L,Y:8>>) ->
 mos_bin(<<L,Bin:L/binary,"abcdefghij">>) ->
     L = byte_size(Bin),
     Bin.
+
+follow_fail_branch(_) ->
+    42 = ffb_1(<<0,1>>, <<0>>),
+    8 = ffb_1(<<0,1>>, [a]),
+    42 = ffb_2(<<0,1>>, <<0>>, 17),
+    8 = ffb_2(<<0,1>>, [a], 0),
+    ok.
+
+ffb_1(<<_,T/bitstring>>, List) ->
+    case List of
+	<<_>> ->
+	    42;
+	[_|_] ->
+	    %% The fail branch of the bs_start_match2 instruction
+	    %% pointing to here would be ignored, making the compiler
+	    %% incorrectly assume that the delayed sub-binary
+	    %% optimization was safe.
+	    bit_size(T)
+    end.
+
+ffb_2(<<_,T/bitstring>>, List, A) ->
+    case List of
+	<<_>> when A =:= 17 -> 42;
+	[_|_] -> bit_size(T)
+    end.
+
 
 check(F, R) ->
     R = F().
