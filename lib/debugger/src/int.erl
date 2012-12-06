@@ -626,18 +626,18 @@ find_src(Beam) ->
 
 find_beam(Mod, Src) ->
     SrcDir = filename:dirname(Src),
-    BeamFile = packages:last(Mod) ++ code:objfile_extension(),
+    BeamFile = atom_to_list(Mod) ++ code:objfile_extension(),
     File = filename:join(SrcDir, BeamFile),
     case is_file(File) of
 	true -> File;
-	false -> find_beam_1(Mod, SrcDir)
+	false -> find_beam_1(Mod, BeamFile, SrcDir)
     end.
 
-find_beam_1(Mod, SrcDir) ->
-    RootDir = find_root_dir(SrcDir, packages:first(Mod)),
+find_beam_1(Mod, BeamFile, SrcDir) ->
+    RootDir = filename:dirname(SrcDir),
     EbinDir = filename:join(RootDir, "ebin"),
     CodePath = [EbinDir | code:get_path()],
-    BeamFile = to_path(Mod) ++ code:objfile_extension(),
+    BeamFile = atom_to_list(Mod) ++ code:objfile_extension(),
     lists:foldl(fun(_, Beam) when is_list(Beam) -> Beam;
 		   (Dir, error) ->
 			File = filename:join(Dir, BeamFile),
@@ -648,14 +648,6 @@ find_beam_1(Mod, SrcDir) ->
 		end,
 		error,
 		CodePath).
-
-to_path(X) ->
-    filename:join(packages:split(X)).
-
-find_root_dir(Dir, [_|Ss]) ->
-    find_root_dir(filename:dirname(Dir), Ss);
-find_root_dir(Dir, []) ->
-    filename:dirname(Dir).
 
 check_beam(BeamBin) when is_binary(BeamBin) ->
     case beam_lib:chunks(BeamBin, [abstract_code,exports]) of
@@ -711,13 +703,10 @@ scan_module_name_2(_, _) ->
 
 scan_module_name_3(Ts) ->
     case erl_parse:parse_form(Ts) of
-	{ok, {attribute,_,module,{M,_}}} -> module_atom(M);
-	{ok, {attribute,_,module,M}} -> module_atom(M);
+	{ok, {attribute,_,module,{M,_}}} -> M;
+	{ok, {attribute,_,module,M}} -> M;
 	_ -> error
     end.
-
-module_atom(A) when is_atom(A) -> A;
-module_atom(L) when is_list(L) -> list_to_atom(packages:concat(L)).
 
 %%--Stop interpreting modules-----------------------------------------
 
