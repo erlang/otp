@@ -98,7 +98,6 @@
 -define(cross_cover_file, "cross.cover").
 -define(now, erlang:now()).
 
--define(pl2a(M), test_server_sup:package_atom(M)).
 -define(void_fun, fun() -> ok end).
 -define(mod_result(X), if X == skip -> skipped;
 			  X == auto_skip -> skipped;
@@ -2277,7 +2276,7 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    set_io_buffering(undefined),
 		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, false, SkipMode),
 		    test_server_sup:framework_call(report, [tc_auto_skip,
-							    {?pl2a(Mod),Func,Comment}]),
+							    {Mod,Func,Comment}]),
 		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
 					delete_status(Ref, Status));
 		_ ->
@@ -2286,7 +2285,7 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    wait_for_cases(Ref),
 		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, true, SkipMode),
 		    test_server_sup:framework_call(report, [tc_auto_skip,
-							    {?pl2a(Mod),Func,Comment}]),
+							    {Mod,Func,Comment}]),
 		    case CurrIOHandler of
 			{Ref,_} ->
 			    %% current_io_handler was set by start conf of this
@@ -2303,7 +2302,7 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    %% this is a skipped end conf for a non-parallel group that's not
 	    %% nested under a parallel group
 	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, false, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
+	    test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
 
 	    %% Check if this group is auto skipped because of error in the init conf.
 	    %% If so, check if the parent group is a sequence, and if it is, skip
@@ -2334,7 +2333,7 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    %% this is a skipped end conf for a non-parallel group nested under
 	    %% a parallel group (io buffering is active)
 	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, true, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
+	    test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
 	    case CurrIOHandler of
 		{Ref,_} ->
 		    %% current_io_handler was set by start conf of this
@@ -2350,7 +2349,7 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    %% this is a skipped start conf for a group which is not nested
 	    %% under a parallel group
 	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, false, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
+	    test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
 	    run_test_cases_loop(Cases, Config, TimetrapData, [conf(Ref,[])|Mode], Status);
 	{_,Ref0} when is_reference(Ref0) ->
 	    %% this is a skipped start conf for a group nested under a parallel group
@@ -2361,7 +2360,7 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    ok
 	    end,
 	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, true, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
+	    test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
 	    run_test_cases_loop(Cases, Config, TimetrapData, [conf(Ref,[])|Mode], Status)
     end;
 
@@ -2369,7 +2368,7 @@ run_test_cases_loop([{auto_skip_case,{Case,Comment},SkipMode}|Cases],
 		    Config, TimetrapData, Mode, Status) ->
     {Mod,Func} = skip_case(auto, undefined, get(test_server_case_num)+1,
 			   Case, Comment, is_io_buffered(), SkipMode),
-    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
+    test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
 
@@ -2385,7 +2384,7 @@ run_test_cases_loop([{skip_case,{conf,Ref,Case,Comment}}|Cases0],
 		%% skipped start conf
 		{skip_cases_upto(Ref, Cases0, Comment, conf, Mode),Config}
 	end,
-    test_server_sup:framework_call(report, [tc_user_skip,{?pl2a(Mod),Func,Comment}]),
+    test_server_sup:framework_call(report, [tc_user_skip,{Mod,Func,Comment}]),
     run_test_cases_loop(Cases, Config1, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
 
@@ -2393,7 +2392,7 @@ run_test_cases_loop([{skip_case,{Case,Comment}}|Cases],
 		    Config, TimetrapData, Mode, Status) ->
     {Mod,Func} = skip_case(user, undefined, get(test_server_case_num)+1,
 			   Case, Comment, is_io_buffered()),
-    test_server_sup:framework_call(report, [tc_user_skip,{?pl2a(Mod),Func,Comment}]),
+    test_server_sup:framework_call(report, [tc_user_skip,{Mod,Func,Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
 
@@ -3571,7 +3570,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	end,
 
     test_server_sup:framework_call(report,
-				   [tc_start,{{?pl2a(Mod),Func},MinorName}]),
+				   [tc_start,{{Mod,Func},MinorName}]),
 
     print_props((RunInit==skip_init), get_props(Mode)),
     GroupName =	case get_name(Mode) of
@@ -3756,7 +3755,7 @@ progress(skip, CaseNum, Mod, Func, Loc, Reason, Time,
     print(major, "=result        skipped", []),
     print(1, "*** SKIPPED *** ~s",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
-    test_server_sup:framework_call(report, [tc_done,{?pl2a(Mod),Func,
+    test_server_sup:framework_call(report, [tc_done,{Mod,Func,
 						     {skipped,Reason1}}]),
     ReasonStr = reason_to_string(Reason1),
     ReasonStr1 = lists:flatten([string:strip(S,left) ||
@@ -3787,7 +3786,7 @@ progress(failed, CaseNum, Mod, Func, Loc, timetrap_timeout, T,
     print(1, "*** FAILED *** ~s",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
-				   [tc_done,{?pl2a(Mod),Func,
+				   [tc_done,{Mod,Func,
 					     {failed,timetrap_timeout}}]),
     FormatLastLoc = test_server_sup:format_loc(get_last_loc(Loc)),
     ErrorReason = io_lib:format("{timetrap_timeout,~s}", [FormatLastLoc]),
@@ -3813,7 +3812,7 @@ progress(failed, CaseNum, Mod, Func, Loc, {testcase_aborted,Reason}, _T,
     print(1, "*** FAILED *** ~s",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
-				   [tc_done,{?pl2a(Mod),Func,
+				   [tc_done,{Mod,Func,
 					     {failed,testcase_aborted}}]),
     FormatLastLoc = test_server_sup:format_loc(get_last_loc(Loc)),
     ErrorReason = io_lib:format("{testcase_aborted,~s}", [FormatLastLoc]),
@@ -3838,7 +3837,7 @@ progress(failed, CaseNum, Mod, Func, unknown, Reason, Time,
     print(major, "=result        failed: ~p, ~p", [Reason,unknown]),
     print(1, "*** FAILED *** ~s",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
-    test_server_sup:framework_call(report, [tc_done,{?pl2a(Mod),Func,
+    test_server_sup:framework_call(report, [tc_done,{Mod,Func,
 						     {failed,Reason}}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
 			       true -> "~w"
@@ -3874,7 +3873,7 @@ progress(failed, CaseNum, Mod, Func, Loc, Reason, Time,
     print(major, "=result        failed: ~p, ~p", [Reason,Loc]),
     print(1, "*** FAILED *** ~s",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
-    test_server_sup:framework_call(report, [tc_done,{?pl2a(Mod),Func,
+    test_server_sup:framework_call(report, [tc_done,{Mod,Func,
 						     {failed,Reason}}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
 			       true -> "~w"
@@ -3899,7 +3898,7 @@ progress(failed, CaseNum, Mod, Func, Loc, Reason, Time,
 progress(ok, _CaseNum, Mod, Func, _Loc, RetVal, Time,
 	 Comment0, {St0,St1}) ->
     print(minor, "successfully completed test case", []),
-    test_server_sup:framework_call(report, [tc_done,{?pl2a(Mod),Func,ok}]),
+    test_server_sup:framework_call(report, [tc_done,{Mod,Func,ok}]),
     Comment =
 	case RetVal of
 	    {comment,RetComment} ->
@@ -4546,7 +4545,7 @@ collect_case_invoke(Mod, Case, MFA, St) ->
 	    end;
 	_ ->
 	    Suite = test_server_sup:framework_call(get_suite,
-						   [?pl2a(Mod),Case],
+						   [Mod,Case],
 						   []),
 	    collect_subcases(Mod, Case, MFA, St, Suite)
     end.
