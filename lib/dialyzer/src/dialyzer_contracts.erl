@@ -254,13 +254,34 @@ check_extraneous([C|Cs], SuccType) ->
   end.
 
 check_extraneous_1(Contract, SuccType) ->
-  CRngs = erl_types:t_elements(erl_types:t_fun_range(Contract)),
+  CRng = erl_types:t_fun_range(Contract),
+  CRngs = erl_types:t_elements(CRng),
   STRng = erl_types:t_fun_range(SuccType),
   ?debug("CR = ~p\nSR = ~p\n", [CRngs, STRng]),
-  case [CR || CR <- CRngs, erl_types:t_is_none(erl_types:t_inf(CR, STRng, opaque))] of
-    [] -> ok;
+  case [CR || CR <- CRngs,
+              erl_types:t_is_none(erl_types:t_inf(CR, STRng, opaque))] of
+    [] ->
+      CRngList = list_part(CRng),
+      STRngList = list_part(STRng),
+      case is_not_nil_list(CRngList) andalso is_not_nil_list(STRngList) of
+        false -> ok;
+        true ->
+          CRngElements = erl_types:t_list_elements(CRngList),
+          STRngElements = erl_types:t_list_elements(STRngList),
+          Inf = erl_types:t_inf(CRngElements, STRngElements, opaque),
+          case erl_types:t_is_none(Inf) of
+            true -> {error, invalid_contract};
+            false -> ok
+          end
+      end;
     CRs -> {error, {extra_range, erl_types:t_sup(CRs), STRng}}
   end.
+
+list_part(Type) ->
+  erl_types:t_inf(erl_types:t_list(), Type, opaque).
+
+is_not_nil_list(Type) ->
+  erl_types:t_is_list(Type) andalso not erl_types:t_is_nil(Type).
 
 %% This is the heart of the "range function"
 -spec process_contracts([contract_pair()], [erl_types:erl_type()]) -> erl_types:erl_type().
