@@ -37,9 +37,11 @@
         {dontroute,       boolean()} |
         {exit_on_close,   boolean()} |
         {header,          non_neg_integer()} |
+        {high_msgq_watermark, pos_integer()} |
         {high_watermark,  non_neg_integer()} |
         {keepalive,       boolean()} |
         {linger,          {boolean(), non_neg_integer()}} |
+        {low_msgq_watermark, pos_integer()} |
         {low_watermark,   non_neg_integer()} |
         {mode,            list | binary} | list | binary |
         {nodelay,         boolean()} |
@@ -67,9 +69,11 @@
         dontroute |
         exit_on_close |
         header |
+        high_msgq_watermark |
         high_watermark |
         keepalive |
         linger |
+        low_msgq_watermark |
         low_watermark |
         mode |
         nodelay |

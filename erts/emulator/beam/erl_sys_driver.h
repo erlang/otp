@@ -31,7 +31,6 @@
 #define ERL_SYS_DRV
 
 typedef long ErlDrvEvent; /* An event to be selected on. */
-typedef long ErlDrvPort; /* A port descriptor. */
 
 /* typedef struct _SysDriverOpts SysDriverOpts; defined in sys.h */
 

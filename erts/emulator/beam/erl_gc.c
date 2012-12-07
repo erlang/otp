@@ -59,7 +59,7 @@ static Uint reclaimed;			/* no of words reclaimed in GCs */
         erts_fprintf(stderr, "htop=%p\n", (p)->htop); \
         erts_fprintf(stderr, "heap=%p\n", (p)->heap); \
         erl_exit(ERTS_ABORT_EXIT, "%s, line %d: %T: Overrun stack and heap\n", \
-		 __FILE__,__LINE__,(P)->id); \
+		 __FILE__,__LINE__,(P)->common.id); \
     }
 
 #ifdef DEBUG
@@ -1946,9 +1946,9 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	n++;
     }
 #endif
-    ASSERT(is_nil(p->tracer_proc) ||
-	   is_internal_pid(p->tracer_proc) ||
-	   is_internal_port(p->tracer_proc));
+    ASSERT(is_nil(ERTS_TRACER_PROC(p)) ||
+	   is_internal_pid(ERTS_TRACER_PROC(p)) ||
+	   is_internal_port(ERTS_TRACER_PROC(p)));
 
     ASSERT(is_pid(follow_moved(p->group_leader)));
     if (is_not_immed(p->group_leader)) {

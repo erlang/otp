@@ -714,7 +714,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	IS_TRACED_FL(p, F_TRACE_CALLS)) {
 	int local = !!(bp_flags & ERTS_BPF_LOCAL_TRACE);
 	flags = erts_call_trace(p, ep->code, bp->local_ms, args,
-				local, &p->tracer_proc);
+				local, &ERTS_TRACER_PROC(p));
     }
     if (bp_flags & ERTS_BPF_META_TRACE) {
 	Eterm tpid1, tpid2;
@@ -800,7 +800,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	    }
 	    if (flags & MATCH_SET_EXCEPTION_TRACE) {
 		erts_trace_exception(p, ep->code, class, value,
-				     &p->tracer_proc);
+				     &ERTS_TRACER_PROC(p));
 	    }
 	    if ((flags & MATCH_SET_RETURN_TO_TRACE) && p->catches > 0) {
 		/* can only happen if(local)*/
@@ -825,7 +825,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	    UnUseTmpHeapNoproc(3);
 	    if ((flags_meta|flags) & MATCH_SET_EXCEPTION_TRACE) {
 		erts_smp_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
-		p->trace_flags |= F_EXCEPTION_TRACE;
+		ERTS_TRACE_FLAGS(p) |= F_EXCEPTION_TRACE;
 		erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
 	}
@@ -835,7 +835,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	}
 	/* MATCH_SET_RETURN_TO_TRACE cannot occur if(meta) */
 	if (flags & MATCH_SET_RX_TRACE) {
-	    erts_trace_return(p, ep->code, result, &p->tracer_proc);
+	    erts_trace_return(p, ep->code, result, &ERTS_TRACER_PROC(p));
 	}
 	if (flags & MATCH_SET_RETURN_TO_TRACE) {
 	    /* can only happen if(local)*/
@@ -935,7 +935,7 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
 	c_p->cp = (flags & MATCH_SET_EXCEPTION_TRACE) ?
 	    beam_exception_trace : beam_return_trace;
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-	c_p->trace_flags |= F_EXCEPTION_TRACE;
+	ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
     }
     c_p->stop = E;
@@ -974,7 +974,7 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
 	ASSERT(pbt->pc);
 	/* add time to previous code */
 	bp_time_diff(&sitem, pbt, ms, s, us);
-	sitem.pid = c_p->id;
+	sitem.pid = c_p->common.id;
 	sitem.count = 0;
 
 	/* previous breakpoint */
@@ -997,7 +997,7 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
     }
 
     /* Add count to this code */
-    sitem.pid     = c_p->id;
+    sitem.pid     = c_p->common.id;
     sitem.count   = 1;
     sitem.s_time  = 0;
     sitem.us_time = 0;
@@ -1055,7 +1055,7 @@ erts_trace_time_return(Process *p, BeamInstr *pc)
 	ASSERT(pbt->pc);
 
 	bp_time_diff(&sitem, pbt, ms, s, us);
-	sitem.pid   = p->id;
+	sitem.pid   = p->common.id;
 	sitem.count = 0;
 
 	/* previous breakpoint */
@@ -1386,7 +1386,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 	    if (pbdt) {
 		get_sys_now(&ms,&s,&us);
 		bp_time_diff(&sitem, pbt, ms, s, us);
-		sitem.pid   = p->id;
+		sitem.pid   = p->common.id;
 		sitem.count = 0;
 
 		h = &(pbdt->hash[bp_sched2ix_proc(p)]);

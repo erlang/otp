@@ -31,6 +31,7 @@
   <description>
     <p>The Erlang Runtime System Application <em>ERTS</em>.</p>
   </description>
+  <xi:include href="communication.xml"/>
   <xi:include href="match_spec.xml"/>
   <xi:include href="crash_dump.xml"/>
   <xi:include href="alt_dist.xml"/>

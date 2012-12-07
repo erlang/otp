@@ -263,7 +263,7 @@ ErlNifEnv* enif_alloc_env(void)
     HEAP_LIMIT(&msg_env->phony_proc) = phony_heap;
     HEAP_END(&msg_env->phony_proc) = phony_heap;
     MBUF(&msg_env->phony_proc) = NULL;
-    msg_env->phony_proc.id = ERTS_INVALID_PID;
+    msg_env->phony_proc.common.id = ERTS_INVALID_PID;
 #ifdef FORCE_HEAP_FRAGS
     msg_env->phony_proc.space_verified = 0;
     msg_env->phony_proc.space_verified_from = NULL;
@@ -287,7 +287,7 @@ void enif_clear_env(ErlNifEnv* env)
     struct enif_msg_environment_t* menv = (struct enif_msg_environment_t*)env;
     Process* p = &menv->phony_proc;
     ASSERT(p == menv->env.proc);
-    ASSERT(p->id == ERTS_INVALID_PID);
+    ASSERT(p->common.id == ERTS_INVALID_PID);
     ASSERT(MBUF(p) == menv->env.heap_frag);
     if (MBUF(p) != NULL) {
 	erts_cleanup_offheap(&MSO(p));
@@ -319,7 +319,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
     if (env != NULL) {
 	c_p = env->proc;
-	if (receiver == c_p->id) {
+	if (receiver == c_p->common.id) {
 	    rp_locks = ERTS_PROC_LOCK_MAIN;
 	    flush_me = 1;
 	}
@@ -341,7 +341,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	  : erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
 			      receiver, rp_locks, ERTS_P2P_FLG_SMP_INC_REFC));
     if (rp == NULL) {
-	ASSERT(env == NULL || receiver != c_p->id);
+	ASSERT(env == NULL || receiver != c_p->common.id);
 	return 0;
     }
     flush_env(msg_env);
@@ -397,7 +397,7 @@ static int is_offheap(const ErlOffHeap* oh)
 
 ErlNifPid* enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)
 {
-    pid->pid = caller_env->proc->id;
+    pid->pid = caller_env->proc->common.id;
     return pid;
 }
 int enif_get_local_pid(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPid* pid)
@@ -505,7 +505,7 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
 {
     struct enif_tmp_obj_t* tobj;
     ErtsAlcType_t allocator;
-    Uint sz;
+    ErlDrvSizeT sz;
     if (is_binary(term)) {
 	return enif_inspect_binary(env,term,bin);
     }
@@ -531,7 +531,7 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
     bin->size = sz;
     bin->bin_term = THE_NON_VALUE;
     bin->ref_bin = NULL;
-    io_list_to_buf(term, (char*) bin->data, sz);
+    erts_iolist_to_buf(term, (char*) bin->data, sz);
     ADD_READONLY_CHECK(env, bin->data, bin->size); 
     return 1;
 }
@@ -1844,7 +1844,7 @@ void erl_nif_init()
 #ifdef USE_VM_PROBES
 void dtrace_nifenv_str(ErlNifEnv *env, char *process_buf)
 {
-    dtrace_pid_str(env->proc->id, process_buf);
+    dtrace_pid_str(env->proc->common.id, process_buf);
 }
 #endif
 

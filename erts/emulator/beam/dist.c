@@ -124,6 +124,13 @@ static void send_nodes_mon_msgs(Process *, Eterm, Eterm, Eterm, Eterm);
 static void init_nodes_monitors(void);
 
 static erts_smp_atomic_t no_caches;
+static erts_smp_atomic_t no_nodes;
+
+struct {
+    Eterm reason;
+    ErlHeapFragment *bp;
+} nodedown;
+
 
 static void
 delete_cache(ErtsAtomCache *cache)
@@ -144,7 +151,7 @@ create_cache(DistEntry *dep)
 
     ERTS_SMP_LC_ASSERT(
 	is_internal_port(dep->cid)
-	&& erts_lc_is_port_locked(&erts_port[internal_port_index(dep->cid)]));
+	&& erts_lc_is_port_locked(erts_port_lookup_raw(dep->cid)));
     ASSERT(!dep->cache);
 
     dep->cache = cp = (ErtsAtomCache*) erts_alloc(ERTS_ALC_T_DCACHE,
@@ -171,11 +178,10 @@ get_suspended_on_de(DistEntry *dep, Uint32 unset_qflgs)
 	return NULL;
     }
     else {
-	ErtsProcList *plp;
-	plp = dep->suspended.first;
-	dep->suspended.first = NULL;
-	dep->suspended.last = NULL;
-	return plp;
+	ErtsProcList *suspended = dep->suspended;
+	dep->suspended = NULL;
+	erts_proclist_fetch(&suspended, NULL);
+	return suspended;
     }
 }
 
@@ -252,7 +258,7 @@ static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
 
     if (mon->type == MON_ORIGIN) {
 	/* local pid is beeing monitored */
-	rmon = erts_remove_monitor(&(rp->monitors),mon->ref);
+	rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
 	/* ASSERT(rmon != NULL); nope, can happen during process exit */
 	if (rmon != NULL) {
 	    erts_destroy_monitor(rmon);
@@ -262,7 +268,7 @@ static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
 	Eterm watched;
 	UseTmpHeapNoproc(3);
 	ASSERT(mon->type == MON_TARGET);
-	rmon = erts_remove_monitor(&(rp->monitors),mon->ref);
+	rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
 	/* ASSERT(rmon != NULL); can happen during process exit */
 	if (rmon != NULL) {
 	    ASSERT(is_atom(rmon->name) || is_nil(rmon->name));
@@ -311,7 +317,7 @@ static void doit_link_net_exits_sub(ErtsLink *sublnk, void *vlnecp)
 	    goto done;
 	}
 
-	rlnk = erts_remove_link(&(rp->nlinks), sublnk->pid);
+	rlnk = erts_remove_link(&ERTS_P_LINKS(rp), sublnk->pid);
 	xres = erts_send_exit_signal(NULL,
 				     sublnk->pid,
 				     rp,
@@ -370,7 +376,7 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
 	if (!rp) {
 	    goto done;
 	}
-	rlnk = erts_remove_link(&(rp->nlinks), name);
+	rlnk = erts_remove_link(&ERTS_P_LINKS(rp), name);
 	if (rlnk != NULL) {
 	    ASSERT(is_atom(rlnk->pid) && (rlnk->type == LINK_NODE));
 	    erts_destroy_link(rlnk);
@@ -394,6 +400,47 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
     erts_destroy_link(lnk);
 }
 
+static void
+set_node_not_alive(void *unused)
+{
+    ErlHeapFragment *bp;
+    Eterm nodename = erts_this_dist_entry->sysname;
+
+    ASSERT(erts_smp_atomic_read_nob(&no_nodes) == 0);
+
+    erts_smp_thr_progress_block();
+    erts_set_this_node(am_Noname, 0);
+    erts_is_alive = 0;
+    send_nodes_mon_msgs(NULL, am_nodedown, nodename, am_visible, nodedown.reason);
+    nodedown.reason = NIL;
+    bp = nodedown.bp;
+    nodedown.bp = NULL;
+    erts_smp_thr_progress_unblock();
+    if (bp)
+	free_message_buffer(bp);
+}
+
+static ERTS_INLINE void
+dec_no_nodes(void)
+{
+    erts_aint_t no = erts_smp_atomic_dec_read_mb(&no_nodes);
+    ASSERT(no >= 0);
+    ASSERT(erts_get_scheduler_id()); /* Need to be a scheduler */
+    if (no == 0)
+	erts_schedule_misc_aux_work(erts_get_scheduler_id(),
+				    set_node_not_alive,
+				    NULL);
+}
+
+static ERTS_INLINE void
+inc_no_nodes(void)
+{
+#ifdef DEBUG
+    erts_aint_t no = erts_smp_atomic_read_nob(&no_nodes);
+    ASSERT(erts_is_alive ? no > 0 : no == 0);
+#endif
+    erts_smp_atomic_inc_mb(&no_nodes);
+}
 	
 /*
  * proc is currently running or exiting process.
@@ -403,47 +450,76 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
     Eterm nodename;
 
     if (dep == erts_this_dist_entry) {  /* Net kernel has died (clean up!!) */
+	DistEntry *tdep;
+	int no_dist_port = 0;
 	Eterm nd_reason = (reason == am_no_network
 			   ? am_no_network
 			   : am_net_kernel_terminated);
 	erts_smp_rwmtx_rwlock(&erts_dist_table_rwmtx);
 
+	for (tdep = erts_hidden_dist_entries; tdep; tdep = tdep->next)
+	    no_dist_port++;
+	for (tdep = erts_visible_dist_entries; tdep; tdep = tdep->next)
+	    no_dist_port++;
+
 	/* KILL all port controllers */
-	while(erts_visible_dist_entries || erts_hidden_dist_entries) {
-	    DistEntry *tdep;
-	    Eterm prt_id;
-	    Port *prt;
-	    if(erts_hidden_dist_entries)
-		tdep = erts_hidden_dist_entries;
+	if (no_dist_port == 0)
+	    erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
+	else {
+	    Eterm def_buf[128];
+	    int i = 0;
+	    Eterm *dist_port;
+
+	    if (no_dist_port <= sizeof(def_buf)/sizeof(def_buf[0]))
+		dist_port = &def_buf[0];
 	    else
-		tdep = erts_visible_dist_entries;
-	    prt_id = tdep->cid;
-	    ASSERT(is_internal_port(prt_id));
+		dist_port = erts_alloc(ERTS_ALC_T_TMP,
+				       sizeof(Eterm)*no_dist_port);
+	    for (tdep = erts_hidden_dist_entries; tdep; tdep = tdep->next) {
+		ASSERT(is_internal_port(tdep->cid));
+		dist_port[i++] = tdep->cid;
+	    }
+	    for (tdep = erts_visible_dist_entries; tdep; tdep = tdep->next) {
+		ASSERT(is_internal_port(tdep->cid));
+		dist_port[i++] = tdep->cid;
+	    }
 	    erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
 
-	    prt = erts_id2port(prt_id, NULL, 0);
-	    if (prt) {
-		ASSERT(prt->status & ERTS_PORT_SFLG_DISTRIBUTION);
-		ASSERT(prt->dist_entry);
-		/* will call do_net_exists !!! */
-		erts_do_exit_port(prt, prt_id, nd_reason);
-		erts_port_release(prt);
+	    for (i = 0; i < no_dist_port; i++) {
+		Port *prt = erts_port_lookup(dist_port[i],
+					     ERTS_PORT_SFLGS_INVALID_LOOKUP);
+		if (!prt)
+		    continue;
+		ASSERT(erts_atomic32_read_nob(&prt->state)
+		       & ERTS_PORT_SFLG_DISTRIBUTION);
+
+		erts_port_exit(NULL, ERTS_PORT_SIG_FLG_FORCE_SCHED,
+			       prt, dist_port[i], nd_reason, NULL);
 	    }
 
-	    erts_smp_rwmtx_rwlock(&erts_dist_table_rwmtx);
+	    if (dist_port != &def_buf[0])
+		erts_free(ERTS_ALC_T_TMP, dist_port);
 	}
 
-	erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
-
-	nodename = erts_this_dist_entry->sysname;
-	erts_smp_thr_progress_block();
-	erts_set_this_node(am_Noname, 0);
-	erts_is_alive = 0;
-	send_nodes_mon_msgs(NULL, am_nodedown, nodename, am_visible, nd_reason);
-	erts_smp_thr_progress_unblock();
-
+	/*
+	 * When last dist port exits, node will be taken
+	 * from alive to not alive.
+	 */
+	ASSERT(is_nil(nodedown.reason) && !nodedown.bp);
+	if (is_immed(nd_reason))
+	    nodedown.reason = nd_reason;
+	else {
+	    Eterm *hp;
+	    Uint sz = size_object(nd_reason);
+	    nodedown.bp = new_message_buffer(sz);
+	    hp = nodedown.bp->mem;
+	    nodedown.reason = copy_struct(nd_reason,
+					  sz,
+					  &hp,
+					  &nodedown.bp->off_heap);
+	}
     }
-    else { /* recursive call via erts_do_exit_port() will end up here */
+    else { /* Call from distribution port */
 	NetExitsContext nec = {dep};
 	ErtsLink *nlinks;
 	ErtsLink *node_links;
@@ -454,10 +530,10 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 	erts_smp_de_rwlock(dep);
 
 	ERTS_SMP_LC_ASSERT(is_internal_port(dep->cid)
-			   && erts_lc_is_port_locked(&erts_port[internal_port_index(dep->cid)]));
+			   && erts_lc_is_port_locked(erts_port_lookup_raw(dep->cid)));
 
 	if (erts_port_task_is_scheduled(&dep->dist_cmd))
-	    erts_port_task_abort(dep->cid, &dep->dist_cmd);
+	    erts_port_task_abort(&dep->dist_cmd);
 
 	if (dep->status & ERTS_DE_SFLG_EXITING) {
 #ifdef DEBUG
@@ -503,6 +579,9 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 	clear_dist_entry(dep);
 
     }
+
+    dec_no_nodes();
+
     return 1;
 }
 
@@ -516,6 +595,10 @@ void init_dist(void)
 {
     init_nodes_monitors();
 
+    nodedown.reason = NIL;
+    nodedown.bp = NULL;
+
+    erts_smp_atomic_init_nob(&no_nodes, 0);
     erts_smp_atomic_init_nob(&no_caches, 0);
 
     /* Lookup/Install all references to trap functions */
@@ -769,7 +852,7 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
     *node_name = *sender_name = *receiver_name = '\0';
     if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
         erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
-        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
+        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->common.id);
         erts_snprintf(receiver_name, sizeof(receiver_name), "%T", remote);
         msize = size_object(message);
         if (token != NIL && token != am_have_dt_utag) {
@@ -826,7 +909,7 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
     *node_name = *sender_name = *receiver_name = '\0';
     if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
         erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
-        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
+        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->common.id);
         erts_snprintf(receiver_name, sizeof(receiver_name),
                       "{%T,%s}", remote_name, node_name);
         msize = size_object(message);
@@ -840,10 +923,10 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
 
     if (token != NIL)
 	ctl = TUPLE5(&ctl_heap[0], make_small(DOP_REG_SEND_TT),
-		     sender->id, am_Cookie, remote_name, token);
+		     sender->common.id, am_Cookie, remote_name, token);
     else
 	ctl = TUPLE4(&ctl_heap[0], make_small(DOP_REG_SEND),
-		     sender->id, am_Cookie, remote_name);
+		     sender->common.id, am_Cookie, remote_name);
     DTRACE6(message_send, sender_name, receiver_name,
             msize, tok_label, tok_lastcnt, tok_serial);
     DTRACE7(message_send_remote, sender_name, node_name, receiver_name,
@@ -889,7 +972,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
     *node_name = *sender_name = *remote_name = '\0';
     if (DTRACE_ENABLED(process_exit_signal_remote)) {
         erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
-        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
+        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->common.id);
         erts_snprintf(remote_name, sizeof(remote_name),
                       "{%T,%s}", remote, node_name);
         erts_snprintf(reason_str, sizeof(reason), "%T", reason);
@@ -1141,7 +1224,7 @@ int erts_net_message(Port *prt,
 	}
 
 	erts_smp_de_links_lock(dep);
-	res = erts_add_link(&(rp->nlinks), LINK_PID, from);
+	res = erts_add_link(&ERTS_P_LINKS(rp), LINK_PID, from);
 
 	if (res < 0) {
 	    /* It was already there! Lets skip the rest... */
@@ -1149,7 +1232,7 @@ int erts_net_message(Port *prt,
 	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 	    break;
 	}
-	lnk = erts_add_or_lookup_link(&(dep->nlinks), LINK_PID, rp->id);
+	lnk = erts_add_or_lookup_link(&(dep->nlinks), LINK_PID, rp->common.id);
 	erts_add_link(&(ERTS_LINK_ROOT(lnk)), LINK_PID, from);
 	erts_smp_de_links_unlock(dep);
 
@@ -1176,7 +1259,7 @@ int erts_net_message(Port *prt,
 	if (!rp)
 	    break;
 
-	lnk = erts_remove_link(&(rp->nlinks), from);
+	lnk = erts_remove_link(&ERTS_P_LINKS(rp), from);
 
 	if (IS_TRACED_FL(rp, F_TRACE_PROCS) && lnk != NULL) {
 	    trace_proc(NULL, rp, am_getting_unlinked, from);
@@ -1233,10 +1316,10 @@ int erts_net_message(Port *prt,
 	}
 	else {
 	    if (is_atom(watched))
-		watched = rp->id;
+		watched = rp->common.id;
 	    erts_smp_de_links_lock(dep);
 	    erts_add_monitor(&(dep->monitors), MON_ORIGIN, ref, watched, name);
-	    erts_add_monitor(&(rp->monitors), MON_TARGET, ref, watcher, name);
+	    erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, ref, watcher, name);
 	    erts_smp_de_links_unlock(dep);
 	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 	}
@@ -1275,7 +1358,7 @@ int erts_net_message(Port *prt,
 	if (!rp) {
 	    break;
 	}
-	mon = erts_remove_monitor(&(rp->monitors),ref);
+	mon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 	ASSERT(mon != NULL);
 	if (mon == NULL) {
@@ -1432,7 +1515,7 @@ int erts_net_message(Port *prt,
 
 	erts_destroy_monitor(mon);
 
-	mon = erts_remove_monitor(&(rp->monitors),ref);
+	mon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
 
 	if (mon == NULL) {
 	    erts_smp_proc_unlock(rp, rp_locks);
@@ -1483,7 +1566,7 @@ int erts_net_message(Port *prt,
 	if (!rp)
 	    lnk = NULL;
 	else {
-	    lnk = erts_remove_link(&(rp->nlinks), from);
+	    lnk = erts_remove_link(&ERTS_P_LINKS(rp), from);
 
 	    /* If lnk == NULL, we have unlinked on this side, i.e.
 	     * ignore exit.
@@ -1597,7 +1680,7 @@ int erts_net_message(Port *prt,
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
-    erts_do_exit_port(prt, dep->cid, am_killed);
+    erts_deliver_port_exit(prt, dep->cid, am_killed, 0);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return -1;
 }
@@ -1693,7 +1776,6 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 	    erts_smp_mtx_unlock(&dep->qlock);
 
 	    plp = erts_proclist_create(c_p);
-	    plp->next = NULL;
 	    erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 	    suspended = 1;
 	    erts_smp_mtx_lock(&dep->qlock);
@@ -1726,11 +1808,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 	    else {
 		/* Enqueue suspended process on dist entry */
 		ASSERT(plp);
-		if (dep->suspended.last)
-		    dep->suspended.last->next = plp;
-		else
-		    dep->suspended.first = plp;
-		dep->suspended.last = plp;
+		erts_proclist_store_last(&dep->suspended, plp);
 	    }
 	}
 
@@ -1779,7 +1857,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 
             erts_snprintf(port_str, sizeof(port_str), "%T", cid);
             erts_snprintf(remote_str, sizeof(remote_str), "%T", dep->sysname);
-            erts_snprintf(pid_str, sizeof(pid_str), "%T", c_p->id);
+            erts_snprintf(pid_str, sizeof(pid_str), "%T", c_p->common.id);
             DTRACE4(dist_port_busy, erts_this_node_sysname,
                     port_str, remote_str, pid_str);
         }
@@ -1812,7 +1890,7 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
+        erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
         erts_snprintf(remote_str, sizeof(remote_str),
                       "%T", prt->dist_entry->sysname);
         DTRACE4(dist_output, erts_this_node_sysname, port_str,
@@ -1866,7 +1944,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
+        erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
         erts_snprintf(remote_str, sizeof(remote_str),
                       "%T", prt->dist_entry->sysname);
         DTRACE4(dist_outputv, erts_this_node_sysname, port_str,
@@ -1903,13 +1981,13 @@ int
 erts_dist_command(Port *prt, int reds_limit)
 {
     Sint reds = ERTS_PORT_REDS_DIST_CMD_START;
-    int prt_busy;
     Uint32 status;
     Uint32 flags;
     Sint obufsize = 0;
     ErtsDistOutputQueue oq, foq;
     DistEntry *dep = prt->dist_entry;
     Uint (*send)(Port *prt, ErtsDistOutputBuf *obuf);
+    erts_aint32_t sched_flags;
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
@@ -1925,7 +2003,7 @@ erts_dist_command(Port *prt, int reds_limit)
     erts_smp_de_runlock(dep);
 
     if (status & ERTS_DE_SFLG_EXITING) {
-	erts_do_exit_port(prt, prt->id, am_killed);
+	erts_deliver_port_exit(prt, prt->common.id, am_killed, 0);
 	erts_deref_dist_entry(dep);
 	return reds + ERTS_PORT_REDS_DIST_CMD_EXIT;
     }
@@ -1952,12 +2030,12 @@ erts_dist_command(Port *prt, int reds_limit)
     dep->finalized_out_queue.first = NULL;
     dep->finalized_out_queue.last = NULL;
 
+    sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
+
     if (reds > reds_limit)
 	goto preempted;
 
-    prt_busy = (int) (prt->status & ERTS_PORT_SFLG_PORT_BUSY);
-
-    if (!prt_busy && foq.first) {
+    if (!(sched_flags & ERTS_PTS_FLG_BUSY_PORT) && foq.first) {
 	int preempt = 0;
 	do {
 	    Uint size;
@@ -1974,11 +2052,10 @@ erts_dist_command(Port *prt, int reds_limit)
 	    obufsize += size_obuf(fob);
 	    foq.first = foq.first->next;
 	    free_dist_obuf(fob);
-	    preempt = reds > reds_limit || (prt->status & ERTS_PORT_SFLGS_DEAD);
-	    if (prt->status & ERTS_PORT_SFLG_PORT_BUSY) {
-		prt_busy = 1;
+	    sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
+	    preempt = reds > reds_limit || (sched_flags & ERTS_PTS_FLG_EXIT);
+	    if (sched_flags & ERTS_PTS_FLG_BUSY_PORT)
 		break;
-	    }
 	} while (foq.first && !preempt);
 	if (!foq.first)
 	    foq.last = NULL;
@@ -1986,7 +2063,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	    goto preempted;
     }
 
-    if (prt_busy) {
+    if (sched_flags & ERTS_PTS_FLG_BUSY_PORT) {
 	if (oq.first) {
 	    ErtsDistOutputBuf *ob;
 	    int preempt;
@@ -2058,12 +2135,10 @@ erts_dist_command(Port *prt, int reds_limit)
 	    obufsize += size_obuf(fob);
 	    oq.first = oq.first->next;
 	    free_dist_obuf(fob);
-	    preempt = reds > reds_limit || (prt->status & ERTS_PORT_SFLGS_DEAD);
-	    if (prt->status & ERTS_PORT_SFLG_PORT_BUSY) {
-		prt_busy = 1;
-		if (oq.first && !preempt)
-		    goto finalize_only;
-	    }
+	    sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
+	    preempt = reds > reds_limit || (sched_flags & ERTS_PTS_FLG_EXIT);
+	    if ((sched_flags & ERTS_PTS_FLG_BUSY_PORT) && oq.first && !preempt)
+		goto finalize_only;
 	}
 
 	ASSERT(!oq.first || preempt);
@@ -2091,7 +2166,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	ASSERT(dep->qsize >= obufsize);
 	dep->qsize -= obufsize;
 	obufsize = 0;
-	if (!prt_busy
+	if (!(sched_flags & ERTS_PTS_FLG_BUSY_PORT)
 	    && (dep->qflgs & ERTS_DE_QFLG_BUSY)
 	    && dep->qsize < erts_dist_buf_busy_limit) {
 	    ErtsProcList *suspendees;
@@ -2137,11 +2212,15 @@ erts_dist_command(Port *prt, int reds_limit)
     return reds;
 
  preempted:
+    /*
+     * Here we assume that state has been read
+     * since last call to driver.
+     */
 
     ASSERT(oq.first || !oq.last);
     ASSERT(!oq.first || oq.last);
 
-    if (prt->status & ERTS_PORT_SFLGS_DEAD) {
+    if (sched_flags & ERTS_PTS_FLG_EXIT) {
 	/*
 	 * Port died during port command; clean up 'oq'
 	 * and 'foq'. Things buffered in dist entry after
@@ -2199,7 +2278,7 @@ erts_dist_port_not_busy(Port *prt)
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
+        erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
         erts_snprintf(remote_str, sizeof(remote_str),
                       "%T", prt->dist_entry->sysname);
         DTRACE3(dist_port_not_busy, erts_this_node_sysname,
@@ -2241,7 +2320,7 @@ static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
     Process *rp;
     ErtsMonitor *rmon;
     rp = erts_proc_lookup(mon->pid);
-    if (!rp || (rmon = erts_lookup_monitor(rp->monitors, mon->ref)) == NULL) {
+    if (!rp || (rmon = erts_lookup_monitor(ERTS_P_MONITORS(rp), mon->ref)) == NULL) {
 	erts_print(to, arg, "Warning, stray monitor for: %T\n", mon->pid);
     } else if (mon->type == MON_ORIGIN) {
 	/* Local pid is being monitored */
@@ -2486,6 +2565,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
+    inc_no_nodes();
     erts_set_this_node(BIF_ARG_1, (Uint32) creation);
     erts_is_alive = 1;
     send_nodes_mon_msgs(NULL, am_nodeup, BIF_ARG_1, am_visible, NIL);
@@ -2554,9 +2634,9 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     /* DFLAG_EXTENDED_REFERENCES is compulsory from R9 and forward */
     if (!(DFLAG_EXTENDED_REFERENCES & flags)) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp, "%T", BIF_P->id);
-	if (BIF_P->reg)
-	    erts_dsprintf(dsbufp, " (%T)", BIF_P->reg->name);
+	erts_dsprintf(dsbufp, "%T", BIF_P->common.id);
+	if (BIF_P->common.u.alive.reg)
+	    erts_dsprintf(dsbufp, " (%T)", BIF_P->common.u.alive.reg->name);
 	erts_dsprintf(dsbufp,
 		      " attempted to enable connection to node %T "
 		      "which is not able to handle extended references.\n",
@@ -2576,10 +2656,14 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     else if (!dep)
 	goto system_limit; /* Should never happen!!! */
 
-    pp = erts_id2port(BIF_ARG_2, BIF_P, ERTS_PROC_LOCK_MAIN);
+    pp = erts_id2port_sflgs(BIF_ARG_2,
+			    BIF_P,
+			    ERTS_PROC_LOCK_MAIN,
+			    ERTS_PORT_SFLGS_INVALID_LOOKUP);
     erts_smp_de_rwlock(dep);
 
-    if (!pp || (pp->status & ERTS_PORT_SFLG_EXITING))
+    if (!pp || (erts_atomic32_read_nob(&pp->state)
+		& ERTS_PORT_SFLG_EXITING))
 	goto badarg;
 
     if ((pp->drv_ptr->flags & ERL_DRV_FLAG_SOFT_BUSY) == 0)
@@ -2594,11 +2678,7 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
 	plp->next = NULL;
 	erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
 	erts_smp_mtx_lock(&dep->qlock);
-	if (dep->suspended.last)
-	    dep->suspended.last->next = plp;
-	else
-	    dep->suspended.first = plp;
-	dep->suspended.last = plp;
+	erts_proclist_store_last(&dep->suspended, plp);
 	erts_smp_mtx_unlock(&dep->qlock);
 	goto yield;
     }
@@ -2608,7 +2688,16 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     if (pp->dist_entry || is_not_nil(dep->cid))
 	goto badarg;
 
-    erts_port_status_bor_set(pp, ERTS_PORT_SFLG_DISTRIBUTION);
+    erts_atomic32_read_bor_nob(&pp->state, ERTS_PORT_SFLG_DISTRIBUTION);
+
+    /*
+     * Dist-ports do not use the "busy port message queue" functionality, but
+     * instead use "busy dist entry" functionality.
+     */
+    {
+	ErlDrvSizeT disable = ERL_DRV_BUSY_MSGQ_DISABLED;
+	erl_drv_busy_msgq_limits((ErlDrvPort) pp, &disable, NULL);
+    }
 
     pp->dist_entry = dep;
 
@@ -2640,6 +2729,8 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     erts_smp_de_rwunlock(dep);
     dep = NULL; /* inc of refc transferred to port (dist_entry field) */
 
+    inc_no_nodes();
+
     send_nodes_mon_msgs(BIF_P,
 			am_nodeup,
 			BIF_ARG_1,
@@ -2653,7 +2744,7 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     }
 
     if (pp)
-	erts_smp_port_unlock(pp);
+	erts_port_release(pp);
 
     return ret;
 
@@ -2697,7 +2788,7 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
     if (is_internal_pid(local)) {
 	Process *lp;
 	ErtsProcLocks lp_locks;
-	if (BIF_P->id == local) {
+	if (BIF_P->common.id == local) {
 	    lp_locks = ERTS_PROC_LOCKS_ALL;
 	    lp = BIF_P;
 	    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
@@ -2725,11 +2816,17 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
 #endif
 	erts_smp_proc_unlock(lp, lp_locks);
 	if (lp == BIF_P) {
+	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&BIF_P->state);
 	    /*
 	     * We may have exited current process and may have to take action.
 	     */
-	    ERTS_BIF_CHK_EXITED(BIF_P);
-	    ERTS_SMP_BIF_CHK_PENDING_EXIT(BIF_P, ERTS_PROC_LOCK_MAIN);
+	    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
+#ifdef ERTS_SMP
+		if (state & ERTS_PSFLG_PENDING_EXIT)
+		    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
+#endif
+		ERTS_BIF_EXITED(BIF_P);
+	    }
 	}
     }
     else if (is_external_pid(local)
@@ -2927,23 +3024,23 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
     if (Bool == am_true) {
 	ASSERT(dep->cid != NIL);
 	lnk = erts_add_or_lookup_link(&(dep->node_links), LINK_NODE, 
-				      p->id);
+				      p->common.id);
 	++ERTS_LINK_REFC(lnk);
-	lnk = erts_add_or_lookup_link(&(p->nlinks), LINK_NODE, Node);
+	lnk = erts_add_or_lookup_link(&ERTS_P_LINKS(p), LINK_NODE, Node);
 	++ERTS_LINK_REFC(lnk);
     }
     else  {
-	lnk = erts_lookup_link(dep->node_links, p->id);
+	lnk = erts_lookup_link(dep->node_links, p->common.id);
 	if (lnk != NULL) {
 	    if ((--ERTS_LINK_REFC(lnk)) == 0) {
 		erts_destroy_link(erts_remove_link(&(dep->node_links), 
-						   p->id));
+						   p->common.id));
 	    }
 	}
-	lnk = erts_lookup_link(p->nlinks, Node);
+	lnk = erts_lookup_link(ERTS_P_LINKS(p), Node);
 	if (lnk != NULL) {
 	    if ((--ERTS_LINK_REFC(lnk)) == 0) {
-		erts_destroy_link(erts_remove_link(&(p->nlinks),
+		erts_destroy_link(erts_remove_link(&ERTS_P_LINKS(p),
 						   Node));
 	    }
 	}
@@ -3505,7 +3602,7 @@ erts_processes_monitoring_nodes(Process *c_p)
 		olist = erts_bld_cons(hpp, szp, am_nodedown_reason, olist);
 	    res = erts_bld_cons(hpp, szp,
 				erts_bld_tuple(hpp, szp, 2,
-					       nmp->proc->id,
+					       nmp->proc->common.id,
 					       olist),
 				res);
 	}

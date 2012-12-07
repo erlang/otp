@@ -146,6 +146,7 @@ class	SYSTEM		system_data
 
 type	SBMBC		SBMBC		SYSTEM		small_block_mbc
 type	PROC		FIXED_SIZE	PROCESSES	proc
+type	PORT		DRIVER		SYSTEM		port
 type	ATOM		LONG_LIVED	ATOM		atom_entry
 type	MODULE		LONG_LIVED	CODE		module_entry
 type	REG_PROC	STANDARD	PROCESSES	reg_proc
@@ -189,7 +190,10 @@ type	PORT_TABLE	LONG_LIVED	SYSTEM		port_tab
 type	TIMER_WHEEL	LONG_LIVED	SYSTEM		timer_wheel
 type	DRV		DRIVER		SYSTEM		drv_internal
 type	DRV_BINARY	BINARY		BINARIES	drv_binary
-type	DRIVER		STANDARD	SYSTEM		driver
+type	DRIVER		DRIVER		SYSTEM		driver
+type	DRV_CMD_DATA	DRIVER		SYSTEM		driver_command_data
+type	DRV_CTRL_DATA	DRIVER		SYSTEM		driver_control_data
+type	DRV_CALL_DATA	DRIVER		SYSTEM		driver_call_data
 type	NIF		DRIVER		SYSTEM		nif_internal
 type	BINARY		BINARY		BINARIES	binary
 type	NBIF_TABLE	SYSTEM		SYSTEM		nbif_tab
@@ -197,14 +201,12 @@ type	ARG_REG		STANDARD	PROCESSES	arg_reg
 type	PROC_DICT	STANDARD	PROCESSES	proc_dict
 type	CALLS_BUF	STANDARD	PROCESSES	calls_buf
 type	BPD		STANDARD	SYSTEM		bpd
-type	PORT_NAME	STANDARD	SYSTEM		port_name
 type	LINEBUF		STANDARD	SYSTEM		line_buf
 type	IOQ		STANDARD	SYSTEM		io_queue
 type	BITS_BUF	STANDARD	SYSTEM		bits_buf
 type	TMP_DIST_BUF	TEMPORARY	SYSTEM		tmp_dist_buf
 type	ASYNC_DATA	LONG_LIVED	SYSTEM		internal_async_data
 type	ESTACK		TEMPORARY	SYSTEM		estack
-type	PORT_CALL_BUF	TEMPORARY	SYSTEM		port_call_buf
 type	DB_TABLE	ETS		ETS		db_tab
 type	DB_FIXATION	SHORT_LIVED	ETS		db_fixation
 type	DB_FIX_DEL	SHORT_LIVED	ETS		fixed_del
@@ -234,14 +236,14 @@ type	DDLL_HANDLE	STANDARD	SYSTEM		ddll_handle
 type	DDLL_ERRCODES	LONG_LIVED	SYSTEM		ddll_errcodes
 type	DDLL_TMP_BUF	TEMPORARY	SYSTEM		ddll_tmp_buf
 type	PORT_TASK	SHORT_LIVED	SYSTEM		port_task
-type	PORT_TASKQ	SHORT_LIVED	SYSTEM		port_task_queue
+type	PT_HNDL_LIST	SHORT_LIVED	SYSTEM		port_task_handle_list
 type	MISC_OP_LIST	SHORT_LIVED	SYSTEM		misc_op_list
 type	PORT_NAMES	SHORT_LIVED	SYSTEM		port_names
-type	PORT_DATA_LOCK	STANDARD	SYSTEM		port_data_lock
+type	PORT_DATA_LOCK	DRIVER		SYSTEM		port_data_lock
 type	NODES_MON	STANDARD	PROCESSES	nodes_monitor
-type	PROCS_TPROC_EL	SHORT_LIVED	PROCESSES	processes_term_proc_el
-type	PROCS_CNKINF	SHORT_LIVED	PROCESSES	processes_chunk_info
-type	PROCS_PIDS	SHORT_LIVED	PROCESSES	processes_pids
+type	PTAB_LIST_DEL	SHORT_LIVED	PROCESSES	ptab_list_deleted_el
+type	PTAB_LIST_CNKI	SHORT_LIVED	PROCESSES	ptab_list_chunk_info
+type	PTAB_LIST_PIDS	SHORT_LIVED	PROCESSES	ptab_list_pids
 type	RE_TMP_BUF	TEMPORARY	SYSTEM		re_tmp_buf
 type    RE_SUBJECT      SHORT_LIVED     SYSTEM          re_subject
 type  	RE_HEAP 	STANDARD	SYSTEM		re_heap
@@ -266,6 +268,8 @@ type	AUX_WORK_TMO	LONG_LIVED	SYSTEM		aux_work_timeouts
 type	MISC_AUX_WORK_Q	LONG_LIVED	SYSTEM		misc_aux_work_q
 type	CODE_IX_LOCK_Q  SHORT_LIVED	SYSTEM		code_ix_lock_q
 type	PROC_INTERVAL	LONG_LIVED	SYSTEM		process_interval
+type    BUSY_CALLER_TAB	SHORT_LIVED	SYSTEM		busy_caller_table
+type    BUSY_CALLER	SHORT_LIVED	SYSTEM		busy_caller
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;

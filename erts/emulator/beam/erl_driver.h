@@ -133,7 +133,7 @@ typedef struct {
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
 #define ERL_DRV_EXTENDED_MAJOR_VERSION	2
-#define ERL_DRV_EXTENDED_MINOR_VERSION	0
+#define ERL_DRV_EXTENDED_MINOR_VERSION	1
 
 /*
  * The emulator will refuse to load a driver with different major
@@ -154,6 +154,7 @@ typedef struct {
 
 #define ERL_DRV_FLAG_USE_PORT_LOCKING	(1 << 0)
 #define ERL_DRV_FLAG_SOFT_BUSY		(1 << 1)
+#define ERL_DRV_FLAG_NO_BUSY_MSGQ	(1 << 2)
 
 /*
  * Integer types
@@ -207,8 +208,8 @@ typedef struct erl_drv_binary {
 typedef struct _erl_drv_data* ErlDrvData; /* Data to be used by the driver itself. */
 #ifndef ERL_SYS_DRV
 typedef struct _erl_drv_event* ErlDrvEvent; /* An event to be selected on. */
-typedef struct _erl_drv_port* ErlDrvPort; /* A port descriptor. */
 #endif
+typedef struct _erl_drv_port* ErlDrvPort; /* A port descriptor. */
 typedef struct _erl_drv_port* ErlDrvThreadData; /* Thread data. */
 
 #if !defined(__WIN32__) && !defined(_WIN32) && !defined(_WIN32_) && !defined(USE_SELECT)
@@ -377,9 +378,18 @@ typedef struct erl_drv_entry {
     ErlDrvEntry* driver_init(void)
 #endif
 
+#define ERL_DRV_BUSY_MSGQ_DISABLED	(~((ErlDrvSizeT) 0))
+#define ERL_DRV_BUSY_MSGQ_READ_ONLY	((ErlDrvSizeT) 0)
+#define ERL_DRV_BUSY_MSGQ_LIM_MAX	(ERL_DRV_BUSY_MSGQ_DISABLED - 1)
+#define ERL_DRV_BUSY_MSGQ_LIM_MIN	((ErlDrvSizeT) 1)
+
 /*
  * These are the functions available for driver writers.
  */
+EXTERN void erl_drv_busy_msgq_limits(ErlDrvPort port,
+				     ErlDrvSizeT *low,
+				     ErlDrvSizeT *high);
+
 EXTERN int driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on);
 EXTERN int driver_event(ErlDrvPort port, ErlDrvEvent event, 
 			ErlDrvEventData event_data);
@@ -594,11 +604,33 @@ EXTERN ErlDrvPort driver_create_port(ErlDrvPort creator_port,
 				     ErlDrvData drv_data);
 					 
 
+/*
+ * driver_output_term() is deprecated, and scheduled for removal in
+ * OTP-R17. Use erl_drv_output_term() instead. For more information
+ * see the erl_driver(3) documentation.
+ */
+EXTERN int driver_output_term(ErlDrvPort ix,
+			      ErlDrvTermData* data,
+			      int len) ERL_DRV_DEPRECATED_FUNC;
+/*
+ * driver_send_term() is deprecated, and scheduled for removal in
+ * OTP-R17. Use erl_drv_send_term() instead. For more information
+ * see the erl_driver(3) documentation.
+ */
+EXTERN int driver_send_term(ErlDrvPort ix,
+			    ErlDrvTermData to,
+			    ErlDrvTermData* data,
+			    int len) ERL_DRV_DEPRECATED_FUNC;
+
 /* output term data to the port owner */
-EXTERN int driver_output_term(ErlDrvPort ix, ErlDrvTermData* data, int len);
+EXTERN int erl_drv_output_term(ErlDrvTermData port,
+			       ErlDrvTermData* data,
+			       int len);
 /* output term data to a specific process */
-EXTERN int driver_send_term(ErlDrvPort ix, ErlDrvTermData to,
-			    ErlDrvTermData* data, int len);
+EXTERN int erl_drv_send_term(ErlDrvTermData port,
+			     ErlDrvTermData to,
+			     ErlDrvTermData* data,
+			     int len);
 
 /* Async IO functions */
 EXTERN long driver_async(ErlDrvPort ix,

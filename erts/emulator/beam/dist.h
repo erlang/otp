@@ -187,11 +187,12 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
 
     if (prt) {
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-	ASSERT((erts_port_status_get(prt) & ERTS_PORT_SFLGS_DEAD) == 0);
+	ASSERT((erts_atomic32_read_nob(&prt->state)
+		& ERTS_PORT_SFLGS_DEAD) == 0);
 	ASSERT(prt->dist_entry);
 
 	dep = prt->dist_entry;
-	id = prt->id;
+	id = prt->common.id;
     }
     else {
 	ASSERT(dist_entry);
@@ -203,13 +204,8 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
 	id = dep->cid;
     }
 
-    if (!erts_smp_atomic_xchg_mb(&dep->dist_cmd_scheduled, 1)) {
-	(void) erts_port_task_schedule(id,
-				       &dep->dist_cmd,
-				       ERTS_PORT_TASK_DIST_CMD,
-				       (ErlDrvEvent) -1,
-				       NULL);
-    }
+    if (!erts_smp_atomic_xchg_mb(&dep->dist_cmd_scheduled, 1))
+	erts_port_task_schedule(id, &dep->dist_cmd, ERTS_PORT_TASK_DIST_CMD);
 }
 
 #endif

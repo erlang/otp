@@ -304,10 +304,17 @@ else
 	    ;;
     esac
 
-    # Set annotation level for gdb in emacs 22 and higher.
-    emacs_major=`$EMACS --version | head -1 | sed 's,^[^0-9]*\([0-9]*\).*,\1,g'`
-    if [ '!' -z "$emacs_major" -a $emacs_major -gt 21 ]; then
-	GDBARGS="--annotate=1 "
+    if [ "$EMACS_ANNOTATE_LEVEL" != "" ]; then
+	GDBARGS="--annotate=$EMACS_ANNOTATE_LEVEL"
+    else
+        # Set annotation level for gdb in emacs 22 and higher. Seems to
+        # be working with level 1 for emacs 22 and level 3 for emacs 23...
+	emacs_major=`$EMACS --version | head -1 | sed 's,^[^0-9]*\([0-9]*\).*,\1,g'`
+	if [ '!' -z "$emacs_major" -a $emacs_major -gt 22 ]; then
+	    GDBARGS="--annotate=3 "
+	elif [ '!' -z "$emacs_major" -a $emacs_major -gt 21 ]; then
+	    GDBARGS="--annotate=1 "
+	fi
     fi
     gdbcmd="$gdbcmd $GDBBP \
             (insert-string \"source $ROOTDIR/erts/etc/unix/etp-commands\") \

@@ -1075,57 +1075,6 @@ phash2(_Term, _Range) ->
 pid_to_list(_Pid) ->
     erlang:nif_error(undefined).
 
-%% port_close/1
--spec port_close(Port) -> true when
-      Port :: port() | atom().
-port_close(_Port) ->
-    erlang:nif_error(undefined).
-
-%% port_command/2
--spec port_command(Port, Data) -> true when
-      Port :: port() | atom(),
-      Data :: iodata().
-port_command(_Port, _Data) ->
-    erlang:nif_error(undefined).
-
-%% port_command/3
--spec port_command(Port, Data, OptionList) -> boolean() when
-      Port :: port() | atom(),
-      Data :: iodata(),
-      OptionList :: [Option],
-      Option :: force | nosuspend.
-port_command(_Port, _Data, _OptionList) ->
-    erlang:nif_error(undefined).
-
-%% port_connect/2
--spec port_connect(Port, Pid) -> true when
-      Port :: port() | atom(),
-      Pid :: pid().
-port_connect(_Port, _Pid) ->
-    erlang:nif_error(undefined).
-
-%% port_control/3
--spec port_control(Port, Operation, Data) -> Res when
-      Port :: port() | atom(),
-      Operation :: integer(),
-      Data :: iodata(),
-      Res :: string() | binary().
-port_control(_Port, _Operation, _Data) ->
-    erlang:nif_error(undefined).
-
-%% port_get_data/1
--spec erlang:port_get_data(P1) -> term() when
-      P1 :: port() | atom().
-port_get_data(_P1) ->
-    erlang:nif_error(undefined).
-
-%% port_set_data/2
--spec erlang:port_set_data(P1, P2) -> true when
-      P1 :: port() | atom(),
-      P2 :: term().
-port_set_data(_P1, _P2) ->
-    erlang:nif_error(undefined).
-
 %% port_to_list/1
 -spec erlang:port_to_list(Port) -> string() when
       Port :: port().
@@ -1700,58 +1649,9 @@ nodes(_Arg) ->
            | out
            | binary
            | eof
+	   | {parallelism, Boolean :: boolean()}
 	   | hide.
 open_port(_PortName,_PortSettings) ->
-    erlang:nif_error(undefined).
-
-%% Shadowed by erl_bif_types: erlang:port_call/2
--spec erlang:port_call(Port, Data) -> term() when
-      Port :: port() | atom(),
-      Data :: term().
-port_call(_Port, _Data) ->
-    erlang:nif_error(undefined).
-
-%% Shadowed by erl_bif_types: erlang:port_call/3
--spec erlang:port_call(Port, Operation, Data) -> term() when
-      Port :: port() | atom(),
-      Operation :: integer(),
-      Data :: term().
-port_call(_Port, _Operation, _Data) ->
-    erlang:nif_error(undefined).
-
--type port_info_item() ::
-      registered_name |
-      id |
-      connected |
-      links |
-      name |
-      input |
-      output |
-      os_pid.
-
--type port_info_result_item() ::
-      {registered_name, RegName :: atom()} |
-      {id, Index :: non_neg_integer()} |
-      {connected, Pid :: pid()} |
-      {links, Pids :: [pid()]} |
-      {name, String :: string()} |
-      {input, Bytes :: non_neg_integer()} |
-      {output, Bytes :: non_neg_integer()} |
-      {os_pid, OsPid :: non_neg_integer() | 'undefined'}.
-
-%% Shadowed by erl_bif_types: erlang:port_info/1
--spec erlang:port_info(Port) -> Result when
-      Port :: port() | atom(),
-      Result :: [port_info_result_item()] | undefined.
-port_info(_Result) ->
-    erlang:nif_error(undefined).
-
-%% Shadowed by erl_bif_types: erlang:port_info/2
--spec erlang:port_info(Port, Item) -> Result when
-      Port :: port() | atom(),
-      Item :: port_info_item(),
-      Result :: port_info_result_item() | undefined.
-port_info(_Result, _Item) ->
     erlang:nif_error(undefined).
 
 -type priority_level() ::
@@ -2528,6 +2428,216 @@ suspend_process(P) ->
 	{'EXIT', {Reason, _}} -> erlang:error(Reason, [P]);
 	{'EXIT', Reason} -> erlang:error(Reason, [P]);
 	Res -> Res
+    end.
+
+%%
+%% Port BIFs
+%%
+%%       Currently all port BIFs calls the corresponding
+%%       erts_internal:port_*() native function which perform
+%%       most of the actual work. These native functions should
+%%       *never* be called directly by other functionality. The
+%%       native functions may be changed, or removed without any
+%%       notice whatsoever!
+%%
+%% IMPORTANT NOTE:
+%%       When the erts_internal:port_*() native functions return
+%%       a reference, they have also internally prepared the
+%%       message queue of the caller for a receive that will
+%%       unconditionally wait for a message containing this
+%%       reference. If the erlang code calling these native
+%%       functions do not do this, subsequent receives will not
+%%       work as expected! That is, it is of *vital importance*
+%%       that the receive is performed as described above!
+%%
+
+-spec port_command(Port, Data) -> 'true' when
+      Port :: port() | atom(),
+      Data :: iodata().
+
+port_command(Port, Data) ->
+    case case erts_internal:port_command(Port, Data, []) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	true -> true;
+	Error -> erlang:error(Error, [Port, Data])
+    end.
+
+-spec port_command(Port, Data, OptionList) -> boolean() when
+      Port :: port() | atom(),
+      Data :: iodata(),
+      Option :: force | nosuspend,
+      OptionList :: [Option].
+
+port_command(Port, Data, Flags) ->
+    case case erts_internal:port_command(Port, Data, Flags) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	Bool when Bool == true; Bool == false -> Bool;
+	Error -> erlang:error(Error, [Port, Data, Flags])
+    end.
+
+-spec port_connect(Port, Pid) -> 'true' when
+      Port :: port() | atom(),
+      Pid :: pid().
+
+port_connect(Port, Pid) ->
+    case case erts_internal:port_connect(Port, Pid) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	true -> true;
+	Error -> erlang:error(Error, [Port, Pid])
+    end.
+
+-spec port_close(Port) -> 'true' when
+      Port :: port() | atom().
+
+port_close(Port) ->
+    case case erts_internal:port_close(Port) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	true -> true;
+	Error -> erlang:error(Error, [Port])
+    end.
+
+-spec port_control(Port, Operation, Data) -> iodata() | binary() when
+      Port :: port() | atom(),
+      Operation :: integer(),
+      Data :: iodata().
+
+port_control(Port, Operation, Data) ->
+    case case erts_internal:port_control(Port, Operation, Data) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	badarg -> erlang:error(badarg, [Port, Operation, Data]);
+	Result -> Result
+    end.
+
+-spec erlang:port_call(Port, Data) -> term() when
+      Port :: port() | atom(),
+      Data :: term().
+
+port_call(Port, Data) ->
+    case case erts_internal:port_call(Port, 0, Data) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	{ok, Result} -> Result;
+	Error -> erlang:error(Error, [Port, Data])
+    end.
+
+-spec erlang:port_call(Port, Operation, Data) -> term() when
+      Port :: port() | atom(),
+      Operation :: integer(),
+      Data :: term().
+
+port_call(Port, Operation, Data) ->
+    case case erts_internal:port_call(Port, Operation, Data) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	{ok, Result} -> Result;
+	Error -> erlang:error(Error, [Port, Operation, Data])
+    end.
+
+-spec erlang:port_info(Port) -> Result when
+      Port :: port() | atom(),
+      ResultItem :: {registered_name, RegisteredName :: atom()}
+		  | {id, Index :: non_neg_integer()}
+		  | {connected, Pid :: pid()}
+		  | {links, Pids :: [pid()]}
+		  | {name, String :: string()}
+		  | {input, Bytes :: non_neg_integer()}
+		  | {output, Bytes :: non_neg_integer()}
+		  | {os_pid, OsPid :: non_neg_integer() | 'undefined'},
+      Result :: [ResultItem] | 'undefined'.
+
+port_info(Port) ->
+    case case erts_internal:port_info(Port) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	badarg -> erlang:error(badarg, [Port]);
+	Result -> Result
+    end.
+
+-spec erlang:port_info(Port, connected) -> {connected, Pid} | 'undefined' when
+      Port :: port() | atom(),
+      Pid :: pid();
+		      (Port, id) -> {id, Index} | 'undefined' when
+      Port :: port() | atom(),
+      Index :: non_neg_integer();
+		      (Port, input) -> {input, Bytes} | 'undefined' when
+      Port :: port() | atom(),
+      Bytes :: non_neg_integer();
+		      (Port, links) -> {links, Pids} | 'undefined' when
+      Port :: port() | atom(),
+      Pids :: [pid()];
+		      (Port, locking) -> {locking, Locking} | 'undefined' when
+      Port :: port() | atom(),
+      Locking :: 'false' | 'port_level' | 'driver_level';
+		      (Port, memory) -> {memory, Bytes} | 'undefined' when
+      Port :: port() | atom(),
+      Bytes :: non_neg_integer();
+		      (Port, monitors) -> {monitors, Monitors} | 'undefined' when
+      Port :: port() | atom(),
+      Monitors :: [{process, pid()}];
+		      (Port, name) -> {name, Name} | 'undefined' when
+      Port :: port() | atom(),
+      Name :: string();
+		      (Port, os_pid) -> {os_pid, OsPid} | 'undefined' when
+      Port :: port() | atom(),
+      OsPid :: non_neg_integer() | 'undefined';
+		      (Port, output) -> {output, Bytes} | 'undefined' when
+      Port :: port() | atom(),
+      Bytes :: non_neg_integer();
+		      (Port, parallelism) -> {parallelism, Boolean} | 'undefined' when
+      Port :: port() | atom(),
+      Boolean :: boolean();
+		      (Port, queue_size) -> {queue_size, Bytes} | 'undefined' when
+      Port :: port() | atom(),
+      Bytes :: non_neg_integer();
+		      (Port, registered_name) -> {registered_name, RegisteredName} | [] | 'undefined' when
+      Port :: port() | atom(),
+      RegisteredName :: atom().
+
+port_info(Port, Item) ->
+    case case erts_internal:port_info(Port, Item) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	badarg -> erlang:error(badarg, [Port, Item]);
+	Result -> Result
+    end.
+
+-spec erlang:port_set_data(Port, Data) -> 'true' when
+      Port :: port() | atom(),
+      Data :: term().
+    
+port_set_data(Port, Data) ->
+    case case erts_internal:port_set_data(Port, Data) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	badarg -> erlang:error(badarg, [Port, Data]);
+	Result -> Result
+    end.
+
+-spec erlang:port_get_data(Port) -> term() when
+      Port :: port() | atom().
+
+port_get_data(Port) ->
+    case case erts_internal:port_get_data(Port) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	{ok, Data} -> Data;
+	Error -> erlang:error(Error, [Port])
     end.
 
 %%

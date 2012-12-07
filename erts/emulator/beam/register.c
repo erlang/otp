@@ -175,14 +175,14 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
     if (is_not_atom(name) || name == am_undefined)
 	return res;
 
-    if (c_p->id == id) /* A very common case I think... */
+    if (c_p->common.id == id) /* A very common case I think... */
 	proc = c_p;
     else {
 	if (is_not_internal_pid(id) && is_not_internal_port(id))
 	    return res;
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 	if (is_internal_port(id)) {
-	    port = erts_id2port(id, NULL, 0);
+	    port = erts_id2port(id);
 	    if (!port)
 		goto done;
 	}
@@ -204,7 +204,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
 	r.p = proc;
 	if (!proc)
 	    goto done;
-	if (proc->reg)
+	if (proc->common.u.alive.reg)
 	    goto done;
 	r.pt = NULL;
     }
@@ -212,7 +212,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
 	ASSERT(!INVALID_PORT(port, id));
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
 	r.pt = port;
-	if (r.pt->reg)
+	if (r.pt->common.u.alive.reg)
 	    goto done;
 	r.p = NULL;
     }
@@ -224,23 +224,24 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
 	if (IS_TRACED_FL(proc, F_TRACE_PROCS)) {
 	    trace_proc(c_p, proc, am_register, name);
 	}
-	proc->reg = rp;
+	proc->common.u.alive.reg = rp;
     }
     else if (port && rp->pt == port) {
     	if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
 		trace_port(port, am_register, name);
 	}
-	port->reg = rp;
+	port->common.u.alive.reg = rp;
     }
 
-    if ((rp->p && rp->p->id == id) || (rp->pt && rp->pt->id == id)) {
+    if ((rp->p && rp->p->common.id == id)
+	|| (rp->pt && rp->pt->common.id == id)) {
 	res = 1;
     }
 
  done:
     reg_write_unlock();
     if (port)
-	erts_smp_port_unlock(port);
+	erts_port_release(port);
     if (c_p != proc) {
 	if (proc)
 	    erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
@@ -291,9 +292,9 @@ erts_whereis_name_to_id(Process *c_p, Eterm name)
 	     * is read only.
 	     */
 	    if (rp->p)
-		res = rp->p->id;
+		res = rp->p->common.id;
 	    else if (rp->pt)
-		res = rp->pt->id;
+		res = rp->pt->common.id;
 	    break;
 	}
 	b = b->next;
@@ -396,28 +397,26 @@ erts_whereis_name(Process *c_p,
 	if (!rp || !rp->pt)
 	    *port = NULL;
 	else {
-#ifndef ERTS_SMP
-	    erts_smp_atomic_inc_nob(&rp->pt->refc);
-#else
+#ifdef ERTS_SMP
 	    if (pending_port == rp->pt)
 		pending_port = NULL;
 	    else {
 		if (pending_port) {
 		    /* Ahh! Registered port changed while reg lock
 		       was unlocked... */
-		    erts_smp_port_unlock(pending_port);
+		    erts_port_release(pending_port);
 		    pending_port = NULL;
 		}
 		    
 		if (erts_smp_port_trylock(rp->pt) == EBUSY) {
-		    Eterm id = rp->pt->id; /* id read only... */
+		    Eterm id = rp->pt->common.id; /* id read only... */
 		    /* Unlock all locks, acquire port lock, and restart... */
 		    if (current_c_p_locks) {
 			erts_smp_proc_unlock(c_p, current_c_p_locks);
 			current_c_p_locks = 0;
 		    }
 		    reg_read_unlock();
-		    pending_port = erts_id2port(id, NULL, 0);
+		    pending_port = erts_id2port(id);
 		    goto restart;
 		}
 	    }
@@ -431,7 +430,7 @@ erts_whereis_name(Process *c_p,
     if (c_p && !current_c_p_locks)
 	erts_smp_proc_lock(c_p, c_p_locks);
     if (pending_port)
-	erts_smp_port_unlock(pending_port);
+	erts_port_release(pending_port);
 #endif
 
     reg_read_unlock();
@@ -493,8 +492,8 @@ int erts_unregister_name(Process *c_p,
 	    current_c_p_locks = c_p_locks;
 	}
 #endif
-	if (c_p->reg) {
-	    r.name = c_p->reg->name;
+	if (c_p->common.u.alive.reg) {
+	    r.name = c_p->common.u.alive.reg->name;
 	} else {
 	    /* Name got unregistered while main lock was released */
 	    res = 0;
@@ -505,24 +504,22 @@ int erts_unregister_name(Process *c_p,
     if ((rp = (RegProc*) hash_get(&process_reg, (void*) &r)) != NULL) {
 	if (rp->pt) {
 	    if (port != rp->pt) {
-#ifndef ERTS_SMP
-		erts_smp_atomic_inc_nob(&rp->pt->refc);
-#else
+#ifdef ERTS_SMP
 		if (port) {
 		    ASSERT(port != c_prt);
-		    erts_smp_port_unlock(port);
+		    erts_port_release(port);
 		    port = NULL;
 		}
 
 		if (erts_smp_port_trylock(rp->pt) == EBUSY) {
-		    Eterm id = rp->pt->id; /* id read only... */
+		    Eterm id = rp->pt->common.id; /* id read only... */
 		    /* Unlock all locks, acquire port lock, and restart... */
 		    if (current_c_p_locks) {
 			erts_smp_proc_unlock(c_p, current_c_p_locks);
 			current_c_p_locks = 0;
 		    }
 		    reg_write_unlock();
-		    port = erts_id2port(id, NULL, 0);
+		    port = erts_id2port(id);
 		    goto restart;
 		}
 #endif
@@ -532,7 +529,7 @@ int erts_unregister_name(Process *c_p,
 	    ASSERT(rp->pt == port);
 	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
 
-	    rp->pt->reg = NULL;
+	    rp->pt->common.u.alive.reg = NULL;
 	    
 	    if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
 		trace_port(port, am_unregister, r.name);
@@ -549,7 +546,7 @@ int erts_unregister_name(Process *c_p,
 			       ERTS_PROC_LOCK_MAIN);
 	    current_c_p_locks = c_p_locks;
 #endif
-	    rp->p->reg = NULL;
+	    rp->p->common.u.alive.reg = NULL;
 	    if (IS_TRACED_FL(rp->p, F_TRACE_PROCS)) {
 		trace_proc(c_p, rp->p, am_unregister, r.name);
 	    }
@@ -568,7 +565,7 @@ int erts_unregister_name(Process *c_p,
     reg_write_unlock();
     if (c_prt != port) {
 	if (port) {
-	    erts_smp_port_unlock(port);
+	    erts_port_release(port);
 	}
 	if (c_prt) {
 	    erts_smp_port_lock(c_prt);

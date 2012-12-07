@@ -77,7 +77,8 @@
 	 thread_mseg_alloc_cache_clean/1,
 	 otp_9302/1,
 	 thr_free_drv/1,
-	 async_blast/1]).
+	 async_blast/1,
+	 thr_msg_blast/1]).
 
 -export([bin_prefix/2]).
 
@@ -147,7 +148,8 @@ all() ->
      thread_mseg_alloc_cache_clean,
      otp_9302,
      thr_free_drv,
-     async_blast].
+     async_blast,
+     thr_msg_blast].
 
 groups() -> 
     [{timer, [],
@@ -1136,7 +1138,9 @@ check_driver_system_info_result(Result) ->
 	      {{1, 1}, _} ->
 		  ?line ExpNs = lists:sort(?EXPECTED_SYSTEM_INFO_NAMES
 					   -- ?EXPECTED_SYSTEM_INFO_NAMES2),
-		  ?line ExpNs = lists:sort(Ns)
+		  ?line ExpNs = lists:sort(Ns);
+	      {{2, 0}, _} ->
+		  ?line [] = Ns
 	  end.
 
 chk_sis(SIs, Ns) ->
@@ -2010,7 +2014,64 @@ async_blast(Config) when is_list(Config) ->
     ?line erlang:display({async_blast_time, AsyncBlastTime}),
     ?line ok.
 
+thr_msg_blast_receiver(_Port, N, N) ->
+    ok;
+thr_msg_blast_receiver(Port, N, Max) ->
+    receive
+	{Port, hi} ->
+	    thr_msg_blast_receiver(Port, N+1, Max)
+    end.
 
+thr_msg_blast_receiver_proc(Port, Max, Parent, Done) ->
+    case port_control(Port, 0, "") of
+	"receiver" ->
+	    spawn(fun () ->
+			  thr_msg_blast_receiver_proc(Port, Max+1, Parent, Done)
+		  end),
+	    thr_msg_blast_receiver(Port, 0, Max);
+	"done" ->
+	    Parent ! Done
+    end.
+
+thr_msg_blast(Config) when is_list(Config) ->
+    case erlang:system_info(smp_support) of
+	false ->
+	    {skipped, "Non-SMP emulator; nothing to test..."};
+	true ->
+	    Path = ?config(data_dir, Config),
+	    erl_ddll:start(),
+	    ok = load_driver(Path, thr_msg_blast_drv),
+	    MemBefore = driver_alloc_size(),
+	    Start = os:timestamp(),
+	    Port = open_port({spawn, thr_msg_blast_drv}, []),
+	    true = is_port(Port),
+	    Done = make_ref(),
+	    Me = self(),
+	    spawn(fun () ->
+			  thr_msg_blast_receiver_proc(Port, 1, Me, Done)
+		  end),
+	    receive
+		Done -> ok
+	    end,
+	    ok = thr_msg_blast_receiver(Port, 0, 32*10000),
+	    port_close(Port),
+	    End = os:timestamp(),
+	    receive
+		Garbage ->
+		    ?t:fail({received_garbage, Port, Garbage})
+	    after 2000 ->
+		    ok
+	    end,
+	    MemAfter = driver_alloc_size(),
+	    io:format("MemBefore=~p, MemAfter=~p~n",
+		      [MemBefore, MemAfter]),
+	    ThrMsgBlastTime = timer:now_diff(End,Start)/1000000,
+	    io:format("ThrMsgBlastTime=~p~n", [ThrMsgBlastTime]),
+	    MemBefore = MemAfter,
+	    Res = {thr_msg_blast_time, ThrMsgBlastTime},
+	    erlang:display(Res),
+	    Res
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 		Utilities

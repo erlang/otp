@@ -425,7 +425,8 @@ DbTable* db_get_table_aux(Process *p,
     if (tb) {
 	db_lock(tb, kind);
 	if (tb->common.id != id
-	    || ((tb->common.status & what) == 0 && p->id != tb->common.owner)) {
+	    || ((tb->common.status & what) == 0
+		&& p->common.id != tb->common.owner)) {
 	    db_unlock(tb, kind);
 	    tb = NULL;
 	}
@@ -615,7 +616,7 @@ BIF_RETTYPE ets_safe_fixtable_2(BIF_ALIST_2)
 #ifdef HARDDEBUG
     erts_fprintf(stderr,
 		"ets:safe_fixtable(%T,%T); Process: %T, initial: %T:%T/%bpu\n",
-		BIF_ARG_1, BIF_ARG_2, BIF_P->id,
+		BIF_ARG_1, BIF_ARG_2, BIF_P->common.id,
 		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
 #endif
     kind = (BIF_ARG_2 == am_true) ? LCK_READ : LCK_WRITE_REC; 
@@ -1194,7 +1195,7 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
 #ifdef HARDDEBUG
     erts_fprintf(stderr,
 		"ets:rename(%T,%T); Process: %T, initial: %T:%T/%bpu\n",
-		BIF_ARG_1, BIF_ARG_2, BIF_P->id,
+		BIF_ARG_1, BIF_ARG_2, BIF_P->common.id,
 		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
 #endif
 
@@ -1437,7 +1438,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     db_init_lock(tb, status & (DB_FINE_LOCKED|DB_FREQ_READ),
 		 "db_tab", "db_tab_fix");
     tb->common.keypos = keypos;
-    tb->common.owner = BIF_P->id;
+    tb->common.owner = BIF_P->common.id;
     set_heir(BIF_P, tb, heir, heir_data);
 
     erts_smp_atomic_init_nob(&tb->common.nitems, 0);
@@ -1506,7 +1507,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 #ifdef HARDDEBUG
     erts_fprintf(stderr,
 		"ets:new(%T,%T)=%T; Process: %T, initial: %T:%T/%bpu\n",
-		 BIF_ARG_1, BIF_ARG_2, ret, BIF_P->id,
+		 BIF_ARG_1, BIF_ARG_2, ret, BIF_P->common.id,
 		 BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
 	erts_fprintf(stderr, "ets: new: meta_pid_to_tab common.memory_size = %ld\n",
 		     erts_smp_atomic_read_nob(&meta_pid_to_tab->common.memory_size));
@@ -1518,7 +1519,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 
     db_meta_lock(meta_pid_to_tab, LCK_WRITE_REC);
     if (db_put_hash(meta_pid_to_tab,
-		    TUPLE2(meta_tuple, BIF_P->id, make_small(slot)),
+		    TUPLE2(meta_tuple,
+			   BIF_P->common.id,
+			   make_small(slot)),
 		    0) != DB_ERROR_NONE) {
 	erl_exit(1,"Could not update ets metadata.");
     }
@@ -1637,7 +1640,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 #ifdef HARDDEBUG
     erts_fprintf(stderr,
 		"ets:delete(%T); Process: %T, initial: %T:%T/%bpu\n",
-		BIF_ARG_1, BIF_P->id,
+		BIF_ARG_1, BIF_P->common.id,
 		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
 #endif
 
@@ -1654,7 +1657,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
     tb->common.status &= ~(DB_PROTECTED|DB_PUBLIC|DB_PRIVATE);
     tb->common.status |= DB_DELETE;
 
-    if (tb->common.owner != BIF_P->id) {
+    if (tb->common.owner != BIF_P->common.id) {
 	DeclareTmpHeap(meta_tuple,3,BIF_P);
 
 	/*
@@ -1669,10 +1672,12 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 			    make_small(tb->common.slot));
 
 	BIF_P->flags |= F_USING_DB;
-	tb->common.owner = BIF_P->id;
+	tb->common.owner = BIF_P->common.id;
 
 	db_put_hash(meta_pid_to_tab,
-		    TUPLE2(meta_tuple,BIF_P->id,make_small(tb->common.slot)),
+		    TUPLE2(meta_tuple,
+			   BIF_P->common.id,
+			   make_small(tb->common.slot)),
 		    0);
 	db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
 	UnUseTmpHeap(3,BIF_P);
@@ -1748,7 +1753,7 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
     }
 
     if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE)) == NULL
-	|| tb->common.owner != BIF_P->id) {
+	|| tb->common.owner != BIF_P->common.id) {
 	goto badarg;
     }
     from_pid = tb->common.owner;
@@ -1771,7 +1776,10 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
 
     db_unlock(tb,LCK_WRITE);
     erts_send_message(BIF_P, to_proc, &to_locks,
-		      TUPLE4(buf, am_ETS_TRANSFER, tb->common.id, from_pid, BIF_ARG_3), 
+		      TUPLE4(buf, am_ETS_TRANSFER,
+			     tb->common.id,
+			     from_pid,
+			     BIF_ARG_3), 
 		      0);
     erts_smp_proc_unlock(to_proc, to_locks);
     UnUseTmpHeap(5,BIF_P);
@@ -1833,7 +1841,7 @@ BIF_RETTYPE ets_setopts_2(BIF_ALIST_2)
 
     if (tail != NIL
 	|| (tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE)) == NULL
-	|| tb->common.owner != BIF_P->id) {
+	|| tb->common.owner != BIF_P->common.id) {
 	goto badarg;
     }
 
@@ -2647,7 +2655,7 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
     */
 
     /* If/when we implement lockless private tables:
-    if ((tb->common.status & DB_PRIVATE) && owner != BIF_P->id) {
+    if ((tb->common.status & DB_PRIVATE) && owner != BIF_P->common.id) {
 	db_unlock(tb, LCK_READ);
 	rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
 				       owner, ERTS_PROC_LOCK_MAIN);
@@ -3039,9 +3047,9 @@ static int give_away_to_heir(Process* p, DbTable* tb)
     Eterm to_pid;
     UWord heir_data;
 
-    ASSERT(tb->common.owner == p->id);
+    ASSERT(tb->common.owner == p->common.id);
     ASSERT(is_internal_pid(tb->common.heir));
-    ASSERT(tb->common.heir != p->id);
+    ASSERT(tb->common.heir != p->common.id);
 retry:
     to_pid = tb->common.heir;
     to_proc = erts_pid2proc_opt(p, ERTS_PROC_LOCK_MAIN,
@@ -3054,7 +3062,7 @@ retry:
 	db_lock(tb,LCK_WRITE);
 	ASSERT(tb != NULL);
     
-	if (tb->common.owner != p->id) {
+	if (tb->common.owner != p->common.id) {
 	    if (to_proc != NULL ) {
 		erts_smp_proc_unlock(to_proc, to_locks);
 	    }
@@ -3065,7 +3073,7 @@ retry:
 	    if (to_proc != NULL ) {
 		erts_smp_proc_unlock(to_proc, to_locks);
 	    }
-	    if (to_pid == p->id || to_pid == am_none) {
+	    if (to_pid == p->common.id || to_pid == am_none) {
 		return 0; /* no real heir, table still mine */
 	    }
 	    goto retry;
@@ -3074,7 +3082,8 @@ retry:
     if (to_proc == NULL) {
 	return 0; /* heir not alive, table still mine */
     }
-    if (to_proc->started_interval != tb->common.heir_started_interval) {
+    if (to_proc->common.u.alive.started_interval
+	!= tb->common.heir_started_interval) {
 	erts_smp_proc_unlock(to_proc, to_locks);
 	return 0; /* heir dead and pid reused, table still mine */
     }
@@ -3099,7 +3108,11 @@ retry:
 	heir_data = tpv[1];
     }
     erts_send_message(p, to_proc, &to_locks,
-		      TUPLE4(buf, am_ETS_TRANSFER, tb->common.id, p->id, heir_data), 
+		      TUPLE4(buf,
+			     am_ETS_TRANSFER,
+			     tb->common.id,
+			     p->common.id,
+			     heir_data), 
 		      0);
     erts_smp_proc_unlock(to_proc, to_locks);
     return !0;
@@ -3108,7 +3121,7 @@ retry:
 /*
  * erts_db_process_exiting() is called when a process terminates.
  * It returns 0 when completely done, and !0 when it wants to
- * yield. c_p->u.exit_data can hold a pointer to a state while
+ * yield. c_p->u.terminate can hold a pointer to a state while
  * yielding.
  */
 #define ERTS_DB_INTERNAL_ERROR(LSTR) \
@@ -3118,8 +3131,8 @@ retry:
 int
 erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 {
-    ErtsDbProcCleanupState *state = (ErtsDbProcCleanupState *) c_p->u.exit_data;
-    Eterm pid = c_p->id;
+    ErtsDbProcCleanupState *state = (ErtsDbProcCleanupState *) c_p->u.terminate;
+    Eterm pid = c_p->common.id;
     ErtsDbProcCleanupState default_state;
     int ret;
 
@@ -3300,7 +3313,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 
 	    if (state != &default_state)
 		erts_free(ERTS_ALC_T_DB_PROC_CLEANUP, state);
-	    c_p->u.exit_data = NULL;
+	    c_p->u.terminate = NULL;
 	    return 0;
 
 	default:
@@ -3321,13 +3334,13 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 	break;
     }
 
-    ASSERT(c_p->u.exit_data == (void *) state
+    ASSERT(c_p->u.terminate == (void *) state
 	   || state == &default_state);
 
     if (state == &default_state) {
-	c_p->u.exit_data = erts_alloc(ERTS_ALC_T_DB_PROC_CLEANUP,
+	c_p->u.terminate = erts_alloc(ERTS_ALC_T_DB_PROC_CLEANUP,
 				      sizeof(ErtsDbProcCleanupState));
-	sys_memcpy(c_p->u.exit_data,
+	sys_memcpy(c_p->u.terminate,
 		   (void*) state,
 		   sizeof(ErtsDbProcCleanupState));
     }
@@ -3353,7 +3366,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
     }
     else {
 	for (; fix != NULL; fix = fix->next) {
-	    if (fix->pid == p->id) {
+	    if (fix->pid == p->common.id) {
 		++(fix->counter);
 #ifdef ERTS_SMP
 		erts_smp_mtx_unlock(&tb->common.fixlock);
@@ -3365,7 +3378,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
     fix = (DbFixation *) erts_db_alloc(ERTS_ALC_T_DB_FIXATION,
 				       tb, sizeof(DbFixation));
     ERTS_ETS_MISC_MEM_ADD(sizeof(DbFixation));
-    fix->pid = p->id;
+    fix->pid = p->common.id;
     fix->counter = 1;
     fix->next = tb->common.fixations;
     tb->common.fixations = fix;
@@ -3376,7 +3389,9 @@ static void fix_table_locked(Process* p, DbTable* tb)
     UseTmpHeap(3,p);
     db_meta_lock(meta_pid_to_fixed_tab, LCK_WRITE_REC);
     if (db_put_hash(meta_pid_to_fixed_tab,
-		    TUPLE2(meta_tuple, p->id, make_small(tb->common.slot)),
+		    TUPLE2(meta_tuple,
+			   p->common.id,
+			   make_small(tb->common.slot)),
 		    0) != DB_ERROR_NONE) {
 	UnUseTmpHeap(3,p);
 	erl_exit(1,"Could not insert ets metadata in safe_fixtable.");
@@ -3396,7 +3411,7 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
     erts_smp_mtx_lock(&tb->common.fixlock);
 #endif
     for (pp = &tb->common.fixations; *pp != NULL; pp = &(*pp)->next) {
-	if ((*pp)->pid == p->id) {
+	if ((*pp)->pid == p->common.id) {
 	    DbFixation* fix = *pp;
 	    erts_refc_dec(&tb->common.ref,0);
 	    --(fix->counter);
@@ -3410,7 +3425,7 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 #endif
 	    db_meta_lock(meta_pid_to_fixed_tab, LCK_WRITE_REC);
 	    db_erase_bag_exact2(meta_pid_to_fixed_tab,
-				p->id, make_small(tb->common.slot));
+				p->common.id, make_small(tb->common.slot));
 	    db_meta_unlock(meta_pid_to_fixed_tab, LCK_WRITE_REC);
 	    erts_db_free(ERTS_ALC_T_DB_FIXATION,
 			 tb, (void *) fix, sizeof(DbFixation));
@@ -3469,15 +3484,15 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
     if (heir == am_none) {
 	return;
     }
-    if (heir == me->id) {
-	erts_ensure_later_proc_interval(me->started_interval);
-	tb->common.heir_started_interval = me->started_interval;
+    if (heir == me->common.id) {
+	erts_ensure_later_proc_interval(me->common.u.alive.started_interval);
+	tb->common.heir_started_interval = me->common.u.alive.started_interval;
     }
     else {
 	Process* heir_proc= erts_proc_lookup(heir);
 	if (heir_proc != NULL) {
-	    erts_ensure_later_proc_interval(heir_proc->started_interval);
-	    tb->common.heir_started_interval = heir_proc->started_interval;
+	    erts_ensure_later_proc_interval(heir_proc->common.u.alive.started_interval);
+	    tb->common.heir_started_interval = heir_proc->common.u.alive.started_interval;
 	} else {
 	    tb->common.heir = am_none;
 	}

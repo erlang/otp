@@ -267,6 +267,8 @@ typedef void (*erts_alloc_verify_func_t)(Allctr_t *);
 erts_alloc_verify_func_t
 erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
 
+#define ERTS_ALC_DATA_ALIGN_SIZE(SZ) \
+  (((((SZ) - 1) / 8) + 1) * 8)
 
 #define ERTS_ALC_CACHE_LINE_ALIGN_SIZE(SZ) \
   (((((SZ) - 1) / ERTS_CACHE_LINE_SIZE) + 1) * ERTS_CACHE_LINE_SIZE)

@@ -102,6 +102,7 @@ void erts_lc_unrequire_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags);
 void erts_lc_require_lock(erts_lc_lock_t *lck);
 void erts_lc_unrequire_lock(erts_lc_lock_t *lck);
 
+int erts_lc_is_emu_thr(void);
 
 #define ERTS_LC_ASSERT(A) \
     ((void) (((A) || ERTS_SOMEONE_IS_CRASH_DUMPING) ? 1 : erts_lc_assert_failed(__FILE__, __LINE__, #A)))

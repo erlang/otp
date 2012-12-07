@@ -560,7 +560,8 @@ $(PRELOAD_SRC): $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam
+			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam
 	LANG=C $(PERL) utils/make_preload $(MAKE_PRELOAD_EXTRA) -rc $^ > $@
 else
 PRELOAD_OBJ = $(OBJDIR)/preload.o
@@ -572,7 +573,8 @@ $(PRELOAD_SRC): $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam
+			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam
 	LANG=C $(PERL) utils/make_preload -old $^ > $@
 endif
 
@@ -735,7 +737,8 @@ RUN_OBJS = \
 	$(OBJDIR)/packet_parser.o	$(OBJDIR)/safe_hash.o \
 	$(OBJDIR)/erl_zlib.o		$(OBJDIR)/erl_nif.o \
 	$(OBJDIR)/erl_bif_binary.o      $(OBJDIR)/erl_ao_firstfit_alloc.o \
-	$(OBJDIR)/erl_thr_queue.o	$(OBJDIR)/erl_sched_spec_pre_alloc.o
+	$(OBJDIR)/erl_thr_queue.o	$(OBJDIR)/erl_sched_spec_pre_alloc.o \
+	$(OBJDIR)/erl_ptab.o
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \

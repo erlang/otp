@@ -60,11 +60,11 @@ extern BeamInstr beam_continue_exit[];
 void
 erts_deep_process_dump(int to, void *to_arg)
 {
-    int i;
+    int i, max = erts_ptab_max(&erts_proc);
 
     all_binaries = NULL;
     
-    for (i = 0; i < erts_max_processes; i++) {
+    for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
 	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
@@ -85,8 +85,8 @@ dump_process_info(int to, void *to_arg, Process *p)
 
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
 
-    if ((p->trace_flags & F_SENSITIVE) == 0 && p->msg.first) {
-	erts_print(to, to_arg, "=proc_messages:%T\n", p->id);
+    if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0 && p->msg.first) {
+	erts_print(to, to_arg, "=proc_messages:%T\n", p->common.id);
 	for (mp = p->msg.first; mp != NULL; mp = mp->next) {
 	    Eterm mesg = ERL_MESSAGE_TERM(mp);
 	    if (is_value(mesg))
@@ -100,21 +100,21 @@ dump_process_info(int to, void *to_arg, Process *p)
 	}
     }
 
-    if ((p->trace_flags & F_SENSITIVE) == 0) {
+    if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0) {
 	if (p->dictionary) {
-	    erts_print(to, to_arg, "=proc_dictionary:%T\n", p->id);
+	    erts_print(to, to_arg, "=proc_dictionary:%T\n", p->common.id);
 	    erts_deep_dictionary_dump(to, to_arg,
 				      p->dictionary, dump_element_nl);
 	}
     }
 
-    if ((p->trace_flags & F_SENSITIVE) == 0) {
-	erts_print(to, to_arg, "=proc_stack:%T\n", p->id);
+    if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0) {
+	erts_print(to, to_arg, "=proc_stack:%T\n", p->common.id);
 	for (sp = p->stop; sp < STACK_START(p); sp++) {
 	    yreg = stack_element_dump(to, to_arg, p, sp, yreg);
 	}
 
-	erts_print(to, to_arg, "=proc_heap:%T\n", p->id);
+	erts_print(to, to_arg, "=proc_heap:%T\n", p->common.id);
 	for (sp = p->stop; sp < STACK_START(p); sp++) {
 	    Eterm term = *sp;
 	    
