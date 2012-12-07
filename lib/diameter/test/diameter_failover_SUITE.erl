@@ -50,6 +50,7 @@
 %% diameter callbacks
 -export([pick_peer/4,
          prepare_request/3,
+         prepare_retransmit/3,
          handle_answer/4,
          handle_request/3]).
 
@@ -90,7 +91,6 @@
                                   {peer_up = false,
                                    peer_down = false,
                                    handle_error = false,
-                                   prepare_retransmit = false,
                                    default = ?MODULE}},
                         {answer_errors, callback}]}]).
 
@@ -209,6 +209,13 @@ prepare(#diameter_packet{msg = Req}, Caps) ->
               {'Origin-Host',  OH},
               {'Origin-Realm', OR}]).
 
+%% prepare_retransmit/3
+
+prepare_retransmit(Pkt, ?CLIENT, {_, _}) ->
+    #diameter_packet{header = #diameter_header{is_retransmitted = true}}
+        = Pkt,
+    {send, Pkt}.
+
 %% handle_answer/4
 
 handle_answer(Pkt, _Req, ?CLIENT, _Peer) ->
@@ -219,7 +226,8 @@ handle_answer(Pkt, _Req, ?CLIENT, _Peer) ->
 
 %% Only SERVER3 actually answers.
 handle_request(Pkt, ?SERVER3, {_, Caps}) ->
-    #diameter_packet{msg = #diameter_base_STR{'Session-Id' = SId,
+    #diameter_packet{header = #diameter_header{is_retransmitted = true},
+                     msg = #diameter_base_STR{'Session-Id' = SId,
                                               'Origin-Host' = ?CLIENT}}
         = Pkt,
     #diameter_caps{origin_host  = {OH, _},
