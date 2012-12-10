@@ -475,6 +475,9 @@ erts_thr_progress_init(int no_schedulers, int managed, int unmanaged)
     intrnl->misc.data.umrefc_ix.waiting = -1;
     erts_atomic32_init_nob(&intrnl->misc.data.umrefc_ix.current, 0);
 
+    erts_atomic_init_nob(&intrnl->umrefc[0].refc, (erts_aint_t) 0);
+    erts_atomic_init_nob(&intrnl->umrefc[1].refc, (erts_aint_t) 0);
+
     intrnl->thr = (ErtsThrPrgrArray *) ptr;
     ptr += thr_arr_sz;
     for (i = 0; i < managed; i++)
