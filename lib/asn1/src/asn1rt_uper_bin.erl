@@ -120,14 +120,15 @@ fixextensions(Pos,ExtPos,Val,Acc) ->
 	  end,
     fixextensions(Pos+1,ExtPos,Val,(Acc bsl 1)+Bit).
 
-skipextensions(Bytes,Nr,ExtensionBitPattern) -> 
-    case (catch element(Nr,ExtensionBitPattern)) of
-	1 ->
+skipextensions(Bytes,Nr,ExtensionBitstr) when is_bitstring(ExtensionBitstr) ->
+    Prev = Nr - 1,
+    case ExtensionBitstr of
+	<<_:Prev,1:1,_/bitstring>> ->
 	    {_,Bytes2} = decode_open_type(Bytes,[]),
-	    skipextensions(Bytes2, Nr+1, ExtensionBitPattern);
-	0 ->
-	    skipextensions(Bytes, Nr+1, ExtensionBitPattern);
-	{'EXIT',_} -> % badarg, no more extensions
+	    skipextensions(Bytes2, Nr+1, ExtensionBitstr);
+	<<_:Prev,0:1,_/bitstring>> ->
+	    skipextensions(Bytes, Nr+1, ExtensionBitstr);
+	_ ->
 	    Bytes
     end.
 
