@@ -31,7 +31,35 @@ SeqExt4 ::= SEQUENCE
   int  INTEGER
 }
 
+SeqExt5 ::= SEQUENCE
+{
+  ...,
+  [[ name OCTET STRING (SIZE (1..8)),
+     shoesize INTEGER ]]
+}
+
+SeqExt6 ::= SEQUENCE
+{
+  -- The spaces between the ellipsis and the comma will prevent them
+  -- from being removed.
+  ...     ,
+  [[ i1 [100] INTEGER, i2 [101] INTEGER, i3 [102] INTEGER ]],
+  [[ i4 [104] INTEGER, i5 [105] INTEGER ]],
+  [[ i6 [106] INTEGER, i7 [107] INTEGER ]]
+}
+
 SeqExt1X ::= XSeqExt1 
 SeqExt2X ::= XSeqExt2 
+
+SuperSeq ::= SEQUENCE
+{
+  s1 SeqExt1,
+  s2 SeqExt2,
+  s3 SeqExt3,
+  s4 SeqExt4,
+  s5 SeqExt5,
+  s6 SeqExt6,
+  i INTEGER
+}
 
 END

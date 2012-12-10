@@ -429,7 +429,8 @@ testSeqExtension(Config) -> test(Config, fun testSeqExtension/3).
 testSeqExtension(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["External", "SeqExtension"], Config,
                               [Rule|Opts]),
-    testSeqExtension:main(Rule).
+    DataDir = ?config(data_dir, Config),
+    testSeqExtension:main(DataDir, [Rule|Opts]).
 
 testSeqExternal(Config) -> test(Config, fun testSeqExternal/3).
 testSeqExternal(Config, Rule, Opts) ->

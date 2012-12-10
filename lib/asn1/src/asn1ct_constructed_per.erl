@@ -1099,10 +1099,11 @@ gen_dec_components_call(Erule,TopType,CL={Root1,ExtList,Root2},
     {EmitExts,_} = gen_dec_comp_calls(NewExtList, Erule, TopType, OptTable,
 				      DecInfObj, Ext, NumberOfOptionals,
 				      Tpos, []),
+    NumExtsToSkip = ext_length(ExtList),
     Finish =
 	fun(St) ->
 		emit([{next,bytes},"= ?RT_PER:skipextensions(",{curr,bytes},",",
-		      length(ExtList)+1,",Extensions)"]),
+		      NumExtsToSkip+1,",Extensions)"]),
 		asn1ct_name:new(bytes),
 		St
 	end,
