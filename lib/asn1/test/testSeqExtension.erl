@@ -31,67 +31,20 @@
 
 
 main(_Rules) ->
-    
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SeqExtension','SeqExt1',#'SeqExt1'{}), 
-    ?line {ok,{'SeqExt1'}} = 
-	asn1_wrapper:decode('SeqExtension','SeqExt1',lists:flatten(Bytes11)),
+    roundtrip('SeqExt1', #'SeqExt1'{}),
 
-    ?line {ok,Bytes21} = 
-	asn1_wrapper:encode('SeqExtension','SeqExt2',#'SeqExt2'{bool = true,int = 99}), 
-    ?line {ok,{'SeqExt2',true,99}} = 
-	asn1_wrapper:decode('SeqExtension','SeqExt2',lists:flatten(Bytes21)),
+    roundtrip('SeqExt2', #'SeqExt2'{bool=true,int=99}),
+    roundtrip('SeqExt2', #'SeqExt2'{bool=false,int=42}),
 
-    ?line {ok,Bytes22} = 
-	asn1_wrapper:encode('SeqExtension','SeqExt2',#'SeqExt2'{int = 99,bool = true}), 
-    ?line {ok,{'SeqExt2',true,99}} = 
-	asn1_wrapper:decode('SeqExtension','SeqExt2',lists:flatten(Bytes22)),
+    roundtrip('SeqExt3', #'SeqExt3'{bool=true,int=-77777}),
+    roundtrip('SeqExt3', #'SeqExt3'{bool=false,int=-42000}),
 
-    ?line {ok,Bytes31} = 
-	asn1_wrapper:encode('SeqExtension','SeqExt3',#'SeqExt3'{bool = true,int = 99}), 
-    ?line {ok,{'SeqExt3',true,99}} = 
-	asn1_wrapper:decode('SeqExtension','SeqExt3',lists:flatten(Bytes31)),
-
-    ?line {ok,Bytes32} = 
-	asn1_wrapper:encode('SeqExtension','SeqExt3',#'SeqExt3'{int = 99,bool = true}), 
-    ?line {ok,{'SeqExt3',true,99}} = 
-	asn1_wrapper:decode('SeqExtension','SeqExt3',lists:flatten(Bytes32)),
-
-    ?line {ok,Bytes41} = 
-	asn1_wrapper:encode('SeqExtension','SeqExt4',#'SeqExt4'{bool = true,int = 99}), 
-    ?line {ok,{'SeqExt4',true,99}} = 
-	asn1_wrapper:decode('SeqExtension','SeqExt4',lists:flatten(Bytes41)),
-
-    ?line {ok,Bytes42} = 
-	asn1_wrapper:encode('SeqExtension','SeqExt4',#'SeqExt4'{int = 99,bool = true}), 
-    ?line {ok,{'SeqExt4',true,99}} = 
-	asn1_wrapper:decode('SeqExtension','SeqExt4',lists:flatten(Bytes42)),
-
-
-    % test of extension , not ready
-    
-     ?line {ok,BytesX11} = 
-	asn1_wrapper:encode('SeqExtension','SeqExt1',#'SeqExt1'{}), 
-    ?line {ok,{'SeqExt1'}} = 
-	asn1_wrapper:decode('SeqExtension','SeqExt1',lists:flatten(BytesX11)),
-
-    ?line {ok,BytesX21} = 
-	asn1_wrapper:encode('SeqExtension','SeqExt2',#'SeqExt2'{bool = true,int = 99}), 
-    ?line {ok,{'SeqExt2',true,99}} = 
-	asn1_wrapper:decode('SeqExtension','SeqExt2',lists:flatten(BytesX21)),
-
-    ?line {ok,BytesX22} = 
-	asn1_wrapper:encode('SeqExtension','SeqExt2',#'SeqExt2'{int = 99,bool = true}), 
-    ?line {ok,{'SeqExt2',true,99}} = 
-	asn1_wrapper:decode('SeqExtension','SeqExt2',lists:flatten(BytesX22)),
-
-   
-    
-     
+    roundtrip('SeqExt4', #'SeqExt4'{bool=true,int=12345}),
+    roundtrip('SeqExt4', #'SeqExt4'{bool=false,int=123456}),
 
     ok.
 
-
-
-
-
+roundtrip(Type, Value) ->
+    {ok,Encoded} = 'SeqExtension':encode(Type, Value),
+    {ok,Value} = 'SeqExtension':decode(Type, Encoded),
+    ok.
