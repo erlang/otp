@@ -338,69 +338,24 @@ octet_string(Rules) ->
 		  ok
 	  end,
 
+    roundtrip('Os', [47,23,99,255,1]),
+    roundtrip('OsCon', [47,23,99,255,1]),
+    roundtrip('OsPri', [47,23,99,255,1]),
+    roundtrip('OsApp', [47,23,99,255,1]),
 
-    
-    ?line {ok,Bytes4} = 
-	asn1_wrapper:encode('PrimStrings','Os',[47,23,99,255,1]),
-    ?line {ok,[47,23,99,255,1]} = asn1_wrapper:decode('PrimStrings','Os',lists:flatten(Bytes4)),
+    roundtrip('OsExpCon', [47,23,99,255,1]),
+    roundtrip('OsExpPri', [47,23,99,255,1]),
+    roundtrip('OsExpApp', [47,23,99,255,1]),
 
-    ?line {ok,Bytes5} = 
-	asn1_wrapper:encode('PrimStrings','OsCon',[47,23,99,255,1]),
-    ?line {ok,[47,23,99,255,1]} = asn1_wrapper:decode('PrimStrings','OsCon',lists:flatten(Bytes5)),
-
-    ?line {ok,Bytes6} = 
-	asn1_wrapper:encode('PrimStrings','OsPri',[47,23,99,255,1]),
-    ?line {ok,[47,23,99,255,1]} = asn1_wrapper:decode('PrimStrings','OsPri',lists:flatten(Bytes6)),
-
-    ?line {ok,Bytes7} = 
-	asn1_wrapper:encode('PrimStrings','OsApp',[47,23,99,255,1]),
-    ?line {ok,[47,23,99,255,1]} = asn1_wrapper:decode('PrimStrings','OsApp',lists:flatten(Bytes7)),
-
-    ?line {ok,Bytes8} = 
-	asn1_wrapper:encode('PrimStrings','OsExpCon',[47,23,99,255,1]),
-    ?line {ok,[47,23,99,255,1]} = asn1_wrapper:decode('PrimStrings','OsExpCon',lists:flatten(Bytes8)),
-
-    ?line {ok,Bytes9} = 
-	asn1_wrapper:encode('PrimStrings','OsExpPri',[47,23,99,255,1]),
-    ?line {ok,[47,23,99,255,1]} = asn1_wrapper:decode('PrimStrings','OsExpPri',lists:flatten(Bytes9)),
-
-    ?line {ok,Bytes10} = 
-	asn1_wrapper:encode('PrimStrings','OsExpApp',[47,23,99,255,1]),
-    ?line {ok,[47,23,99,255,1]} = asn1_wrapper:decode('PrimStrings','OsExpApp',lists:flatten(Bytes10)),
-
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('PrimStrings','Os',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','Os',lists:flatten(Bytes11)),
-
-    ?line {ok,Bytes12} = 
-	asn1_wrapper:encode('PrimStrings','OsApp',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','OsApp',lists:flatten(Bytes12)),
-
-    ?line {ok,Bytes13} = 
-	asn1_wrapper:encode('PrimStrings','OsExpApp',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','OsExpApp',lists:flatten(Bytes13)),
-
-
-
-
-
-
+    roundtrip('Os', []),
+    roundtrip('OsApp', []),
+    roundtrip('OsExpApp',[]),
     
     OsR = "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
 
-    ?line {ok,Bytes21} = 
-	asn1_wrapper:encode('PrimStrings','Os',OsR),
-    ?line {ok,Os1} = asn1_wrapper:decode('PrimStrings','Os',lists:flatten(Bytes21)),
-    ?line Os1 = OsR,
-    ?line {ok,Bytes22} = 
-	asn1_wrapper:encode('PrimStrings','OsCon',OsR),
-    ?line {ok,Os2} = asn1_wrapper:decode('PrimStrings','OsCon',lists:flatten(Bytes22)),
-    ?line Os2 = OsR,
-    ?line {ok,Bytes23} = 
-	asn1_wrapper:encode('PrimStrings','OsExpApp',OsR),
-    ?line {ok,Os3} = asn1_wrapper:decode('PrimStrings','OsExpApp',lists:flatten(Bytes23)),
-    ?line Os3 = OsR,
-    
+    roundtrip('Os', OsR),
+    roundtrip('OsCon', OsR),
+    roundtrip('OsExpApp', OsR),
 
 
     ?line case asn1_wrapper:erule(Rules) of
@@ -416,21 +371,85 @@ octet_string(Rules) ->
 		  ok
 	  end,
 
-
+    fragmented_octet_string(Rules),
     ok.
     
+fragmented_octet_string(Erules) ->
+    K16 = 1 bsl 14,
+    K32 = K16 + K16,
+    K48 = K32 + K16,
+    K64 = K48 + K16,
+    Lens = [0,1,14,15,16,17,127,128,
+	    K16-1,K16,K16+1,K16+(1 bsl 7)-1,K16+(1 bsl 7),K16+(1 bsl 7)+1,
+	    K32-1,K32,K32+1,K32+(1 bsl 7)-1,K32+(1 bsl 7),K32+(1 bsl 7)+1,
+	    K48-1,K48,K48+1,K48+(1 bsl 7)-1,K48+(1 bsl 7),K48+(1 bsl 7)+1,
+	    K64-1,K64,K64+1,K64+(1 bsl 7)-1,K64+(1 bsl 7),K64+(1 bsl 7)+1,
+	    K64+K16-1,K64+K16,K64+K16+1],
+    Types = ['Os','OsFrag'],
+    [fragmented_octet_string(Erules, Types, L) || L <- Lens],
+    fragmented_octet_string(Erules, ['FixedOs65536'], 65536),
+    fragmented_octet_string(Erules, ['FixedOs65537'], 65537),
+
+    %% Make sure that octet alignment works.
+    roundtrip('OsAlignment',
+	      {'OsAlignment',false,make_value(70000),true,make_value(66666),
+	       false,make_value(65536),42}),
+    roundtrip('OsAlignment',
+	      {'OsAlignment',false,make_value(0),true,make_value(0),
+	       false,make_value(65536),42}),
+    ok.
+
+fragmented_octet_string(Erules, Types, L) ->
+    Value = make_value(L),
+    [begin
+	 Encoded = enc_frag(Erules, Type, Value),
+	 {ok,Value} = 'PrimStrings':decode(Type, Encoded)
+     end || Type <- Types],
+    ok.
+
+enc_frag(Erules, Type, Value) ->
+    {ok,Encoded} = 'PrimStrings':encode(Type, Value),
+    case Erules of
+	ber ->
+	    Encoded;
+	_ ->
+	    %% Validate encoding with our own encoder.
+	    Encoded = enc_frag_1(<<>>, list_to_binary(Value))
+    end.
+
+enc_frag_1(Res, Bin0) ->
+    K16 = 1 bsl 14,
+    Sz = byte_size(Bin0),
+    if
+	Sz >= K16 ->
+	    F = min(Sz div K16, 4),
+	    FragSize = F * K16,
+	    <<Frag:FragSize/binary-unit:8,Bin/binary>> = Bin0,
+	    enc_frag_1(<<Res/binary,3:2,F:6,Frag/binary>>, Bin);
+	Sz >= 128 ->
+	    <<Res/binary,1:1,0:1,Sz:14,Bin0/binary>>;
+	true ->
+	    <<Res/binary,0:1,Sz:7,Bin0/binary>>
+    end.
+
+make_value(L) ->
+    make_value(L, 0, []).
+
+make_value(0, _, Acc) ->
+    Acc;
+make_value(N, Byte, Acc) when Byte =< 255 ->
+    make_value(N-1, Byte+7, [Byte|Acc]);
+make_value(N, Byte, Acc) ->
+    make_value(N, Byte band 16#FF, Acc).
 
 
-
-		       
 numeric_string(Rules) ->
 
     %%==========================================================
     %% Ns ::= NumericString
     %%==========================================================
 
-    ?line {ok,BytesNs2} = asn1_wrapper:encode('PrimStrings','Ns',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','Ns',lists:flatten(BytesNs2)),
+    roundtrip('Ns', []),
 
     ?line case asn1_wrapper:erule(Rules) of
 	      ber -> 
@@ -455,10 +474,7 @@ numeric_string(Rules) ->
     %% NsCon ::= [70] NumericString
     %%==========================================================
 
-    ?line {ok,BytesNs12} = asn1_wrapper:encode('PrimStrings','NsCon',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','NsCon',lists:flatten(BytesNs12)),
-
-    
+    roundtrip('NsCon', []),
 
     ?line case asn1_wrapper:erule(Rules) of
 	      ber -> 
@@ -482,10 +498,7 @@ numeric_string(Rules) ->
     %% NsExpCon ::= [71] EXPLICIT NumericString
     %%==========================================================
 
-    ?line {ok,BytesNs22} = asn1_wrapper:encode('PrimStrings','NsExpCon',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','NsExpCon',lists:flatten(BytesNs22)),
-
-    
+    roundtrip('NsExpCon', []),
 
     ?line case asn1_wrapper:erule(Rules) of
 	      ber -> 
@@ -507,9 +520,6 @@ numeric_string(Rules) ->
 
     ok.
 
-
-
-
 		       
 other_strings(_Rules) ->
 
@@ -517,49 +527,27 @@ other_strings(_Rules) ->
     %% Ps ::= PrintableString
     %%==========================================================
 
-    ?line {ok,BytesPs1} = asn1_wrapper:encode('PrimStrings','Ps',[47,23,99,75,47]),
-    ?line {ok,[47,23,99,75,47]} = 
-	asn1_wrapper:decode('PrimStrings','Ps',lists:flatten(BytesPs1)),
-
-    ?line {ok,BytesPs2} = asn1_wrapper:encode('PrimStrings','Ps',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','Ps',lists:flatten(BytesPs2)),
-
+    roundtrip('Ps', [47,23,99,75,47]),
+    roundtrip('Ps', []),
     
 		       
     %%==========================================================
     %% Vis ::= VisibleString
     %%==========================================================
 
-    ?line {ok,BytesVis1} = asn1_wrapper:encode('PrimStrings','Vis',[47,23,99,75,47]),
-    ?line {ok,[47,23,99,75,47]} = 
-	asn1_wrapper:decode('PrimStrings','Vis',lists:flatten(BytesVis1)),
-
-    ?line {ok,BytesVis2} = asn1_wrapper:encode('PrimStrings','Vis',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','Vis',lists:flatten(BytesVis2)),
-    
+    roundtrip('Vis', [47,23,99,75,47]),
+    roundtrip('Vis', []),
 
 		       
     %%==========================================================
     %% IA5 ::= IA5String
     %%==========================================================
 
-    ?line {ok,BytesIA51} = asn1_wrapper:encode('PrimStrings','IA5',[47,23,99,75,47]),
-    ?line {ok,[47,23,99,75,47]} = 
-	asn1_wrapper:decode('PrimStrings','IA5',lists:flatten(BytesIA51)),
+    roundtrip('IA5', [47,23,99,75,47]),
+    roundtrip('IA5', []),
 
-    ?line {ok,BytesIA52} = asn1_wrapper:encode('PrimStrings','IA5',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','IA5',lists:flatten(BytesIA52)),
-
-    
     IA5_1 = "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
-
-    ?line {ok,BytesIA53} = asn1_wrapper:encode('PrimStrings','IA5',IA5_1),
-    ?line {ok,IA5_1r} = asn1_wrapper:decode('PrimStrings','IA5',lists:flatten(BytesIA53)),
-    ?line IA5_1 = IA5_1r,
-
-		       
-    
-
+    roundtrip('IA5', IA5_1),
     ok.
 
 
@@ -568,94 +556,60 @@ more_strings(_Rules) ->
     %% Ts ::= TeletexString
     %%==========================================================
 
-    ?line {ok,BytesTs1} = asn1_wrapper:encode('PrimStrings','Ts',[47,23,99,75,47]),
-    ?line {ok,[47,23,99,75,47]} = 
-	asn1_wrapper:decode('PrimStrings','Ts',lists:flatten(BytesTs1)),
-    
-    ?line {ok,BytesTs2} = asn1_wrapper:encode('PrimStrings','Ts',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','Ts',lists:flatten(BytesTs2)),
-
+    roundtrip('Ts', [47,23,99,75,47]),
+    roundtrip('Ts', []),
 
 		       
     %%==========================================================
     %% Vxs ::= VideotexString
     %%==========================================================
 
-    ?line {ok,BytesVxs1} = asn1_wrapper:encode('PrimStrings','Vxs',[47,23,99,75,47]),
-    ?line {ok,[47,23,99,75,47]} = 
-	asn1_wrapper:decode('PrimStrings','Vxs',lists:flatten(BytesVxs1)),
-    
-    ?line {ok,BytesVxs2} = asn1_wrapper:encode('PrimStrings','Vxs',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','Vxs',lists:flatten(BytesVxs2)),
-
+    roundtrip('Vxs', [47,23,99,75,47]),
+    roundtrip('Vxs', []),
 
     
     %%==========================================================
     %% Grs ::= GraphicString
     %%==========================================================
 
-    ?line {ok,BytesGrs1} = asn1_wrapper:encode('PrimStrings','Grs',[47,23,99,75,47]),
-    ?line {ok,[47,23,99,75,47]} = 
-	asn1_wrapper:decode('PrimStrings','Grs',lists:flatten(BytesGrs1)),
-		  
-    ?line {ok,BytesGrs2} = asn1_wrapper:encode('PrimStrings','Grs',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','Grs',lists:flatten(BytesGrs2)),
+    roundtrip('Grs',[47,23,99,75,47]),
+    roundtrip('Grs', []),
     
 
     %%==========================================================
     %% ODesc ::= ObjectDescriptor, test case for OTP-4161
     %%==========================================================
 
-    ?line {ok,BytesODesc1} = asn1_wrapper:encode('PrimStrings','ODesc',[79,98,106,101,99,116,68,101,115,99,114,105,112,116,111,114]),
-    ?line {ok,[79,98,106,101,99,116,68,101,115,99,114,105,112,116,111,114]} = 
-	asn1_wrapper:decode('PrimStrings','ODesc',lists:flatten(BytesODesc1)),
-		  
-    ?line {ok,BytesODesc2} = asn1_wrapper:encode('PrimStrings','ODesc',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','ODesc',lists:flatten(BytesODesc2)),
+    roundtrip('ODesc', [79,98,106,101,99,116,68,101,115,99,114,
+			105,112,116,111,114]),
+    roundtrip('ODesc', []),
 		       
     %%==========================================================
     %% Ges ::= GeneralString
     %%==========================================================
 
-    ?line {ok,BytesGes1} = asn1_wrapper:encode('PrimStrings','Ges',[47,23,99,75,47]),
-    ?line {ok,[47,23,99,75,47]} = 
-	asn1_wrapper:decode('PrimStrings','Ges',lists:flatten(BytesGes1)),
-    
-    ?line {ok,BytesGes2} = asn1_wrapper:encode('PrimStrings','Ges',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','Ges',lists:flatten(BytesGes2)),
-    
-    ok.
+    roundtrip('Ges', [47,23,99,75,47]),
+    roundtrip('Ges', []),
 
+    ok.
 
 		       
 universal_string(Rules) ->
-    
     
     %%==========================================================
     %% Us ::= UniversalString
     %%==========================================================
     
-    ?line {ok,Bytes1} = 
-	asn1_wrapper:encode('PrimStrings','Us',[{47,23,99,47},{0,0,55,66}]),
-    ?line {ok,[{47,23,99,47},{0,0,55,66}]} = 
-	asn1_wrapper:decode('PrimStrings','Us',lists:flatten(Bytes1)),
+    roundtrip('Us', [{47,23,99,47},{0,0,55,66}]),
     
     ?line {ok,Bytes2} = 
 	asn1_wrapper:encode('PrimStrings','Us',[{47,23,99,255},{0,0,0,201}]),
     ?line {ok,[{47,23,99,255},201]} = 
 	asn1_wrapper:decode('PrimStrings','Us',lists:flatten(Bytes2)),
     
-    ?line {ok,Bytes3} = asn1_wrapper:encode('PrimStrings','Us',"Universal String"),
-    ?line {ok,"Universal String"} = 
-	asn1_wrapper:decode('PrimStrings','Us',lists:flatten(Bytes3)),
-    
-    ?line {ok,Bytes4} = asn1_wrapper:encode('PrimStrings','Us',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','Us',lists:flatten(Bytes4)),
-    
-    ?line {ok,Bytes5} = asn1_wrapper:encode('PrimStrings','Us',[{47,23,99,47}]),
-    ?line {ok,[{47,23,99,47}]} = 
-	asn1_wrapper:decode('PrimStrings','Us',lists:flatten(Bytes5)),
-
+    roundtrip('Us', "Universal String"),
+    roundtrip('Us', []),
+    roundtrip('Us', [{47,23,99,47}]),
     
     ?line case asn1_wrapper:erule(Rules) of
 	      ber -> 
@@ -670,32 +624,22 @@ universal_string(Rules) ->
 
 
     Us1 = "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
-    ?line {ok,Bytes15} = asn1_wrapper:encode('PrimStrings','IA5',Us1),
-    ?line {ok,Us1r} = asn1_wrapper:decode('PrimStrings','IA5',lists:flatten(Bytes15)),
-    ?line Us1 = Us1r,
-
+    roundtrip('IA5', Us1),
 
 
 %%==========================================================
 %% UsCon ::= [70] UniversalString
 %%==========================================================
 
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('PrimStrings','UsCon',[{47,23,99,255},{0,0,2,201}]),
-    ?line {ok,[{47,23,99,255},{0,0,2,201}]} = 
-	asn1_wrapper:decode('PrimStrings','UsCon',lists:flatten(Bytes11)),
+    roundtrip('UsCon', [{47,23,99,255},{0,0,2,201}]),
     
     ?line {ok,Bytes12} = 
 	asn1_wrapper:encode('PrimStrings','UsCon',[{47,23,99,255},{0,0,0,201}]),
     ?line {ok,[{47,23,99,255},201]} = 
 	asn1_wrapper:decode('PrimStrings','UsCon',lists:flatten(Bytes12)),
     
-    ?line {ok,Bytes13} = asn1_wrapper:encode('PrimStrings','UsCon',"Universal String"),
-    ?line {ok,"Universal String"} = 
-	asn1_wrapper:decode('PrimStrings','UsCon',lists:flatten(Bytes13)),
-    
-    ?line {ok,Bytes14} = asn1_wrapper:encode('PrimStrings','UsCon',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','UsCon',lists:flatten(Bytes14)),
+    roundtrip('UsCon', "Universal String"),
+    roundtrip('UsCon', []),
     
     ?line case asn1_wrapper:erule(Rules) of
 	      ber -> 
@@ -712,25 +656,15 @@ universal_string(Rules) ->
 %% UsExpCon ::= [71] EXPLICIT UniversalString
 %%==========================================================
 
-    ?line {ok,Bytes21} = 
-	asn1_wrapper:encode('PrimStrings','UsExpCon',[{47,23,99,255},{0,0,2,201}]),
-    ?line {ok,[{47,23,99,255},{0,0,2,201}]} = 
-	asn1_wrapper:decode('PrimStrings','UsExpCon',lists:flatten(Bytes21)),
+    roundtrip('UsExpCon', [{47,23,99,255},{0,0,2,201}]),
     
     ?line {ok,Bytes22} = 
 	asn1_wrapper:encode('PrimStrings','UsExpCon',[{47,23,99,255},{0,0,0,201}]),
     ?line {ok,[{47,23,99,255},201]} = 
 	asn1_wrapper:decode('PrimStrings','UsExpCon',lists:flatten(Bytes22)),
     
-    ?line {ok,Bytes23} = 
-	asn1_wrapper:encode('PrimStrings','UsExpCon',"Universal String"),
-    ?line {ok,"Universal String"} = 
-	asn1_wrapper:decode('PrimStrings','UsExpCon',lists:flatten(Bytes23)),
-    
-    ?line {ok,Bytes24} = 
-	asn1_wrapper:encode('PrimStrings','UsExpCon',[]),
-    ?line {ok,[]} = 
-	asn1_wrapper:decode('PrimStrings','UsExpCon',lists:flatten(Bytes24)),
+    roundtrip('UsExpCon', "Universal String"),
+    roundtrip('UsExpCon', []),
     
     ?line case asn1_wrapper:erule(Rules) of
 	      ber ->     
@@ -740,12 +674,8 @@ universal_string(Rules) ->
 		      asn1_wrapper:decode('PrimStrings','UsExpCon',lists:flatten([16#BF,16#47,16,60,16#80,28,4,47,23,99,255,28,4,0,0,2,201,0,0]));
 	      _ -> ok
 	  end,
-    
 
-ok.
-
-
-
+    ok.
 
 		       
 bmp_string(_Rules) ->
@@ -754,29 +684,18 @@ bmp_string(_Rules) ->
     %% BMP ::= BMPString
     %%==========================================================
 
-    ?line {ok,Bytes1} = 
-	asn1_wrapper:encode('PrimStrings','BMP',[{0,0,99,48},{0,0,2,201}]),
-    ?line {ok,[{0,0,99,48},{0,0,2,201}]} = 
-	asn1_wrapper:decode('PrimStrings','BMP',lists:flatten(Bytes1)),
+    roundtrip('BMP', [{0,0,99,48},{0,0,2,201}]),
     
     ?line {ok,Bytes2} = 
 	asn1_wrapper:encode('PrimStrings','BMP',[{0,0,0,48},{0,0,2,201}]),
     ?line {ok,[48,{0,0,2,201}]} = 
 	asn1_wrapper:decode('PrimStrings','BMP',lists:flatten(Bytes2)),
-    
-    ?line {ok,Bytes3} = asn1_wrapper:encode('PrimStrings','BMP',"BMP String"),
-    ?line {ok,"BMP String"} = 
-	asn1_wrapper:decode('PrimStrings','BMP',lists:flatten(Bytes3)),
-    
-    ?line {ok,Bytes4} = asn1_wrapper:encode('PrimStrings','BMP',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','BMP',lists:flatten(Bytes4)),
 
+    roundtrip('BMP', "BMP String"),
+    roundtrip('BMP', []),
 
     BMP1 = "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
-    ?line {ok,Bytes5} = asn1_wrapper:encode('PrimStrings','BMP',BMP1),
-    ?line {ok,BMP1r} = asn1_wrapper:decode('PrimStrings','BMP',lists:flatten(Bytes5)),
-    ?line BMP1 = BMP1r,
-		       
+    roundtrip('BMP', BMP1),
 		     
     ok.
 
@@ -790,35 +709,17 @@ times(_Rules) ->
     %% Gt ::= GeneralizedTime
     %%==========================================================
 
-    ?line {ok,Bytes1} = asn1_wrapper:encode('PrimStrings','Gt',"19970923110723.2"),
-    ?line {ok,"19970923110723.2"} = 
-	asn1_wrapper:decode('PrimStrings','Gt',lists:flatten(Bytes1)),
+    roundtrip('Gt', "19970923110723.2"),
+    roundtrip('Gt', "19970923110723.2Z"),
+    roundtrip('Gt', "19970923110723.2-0500"),
 
-    ?line {ok,Bytes2} = asn1_wrapper:encode('PrimStrings','Gt',"19970923110723.2Z"),
-    ?line {ok,"19970923110723.2Z"} = 
-	asn1_wrapper:decode('PrimStrings','Gt',lists:flatten(Bytes2)),
-
-    ?line {ok,Bytes3} = asn1_wrapper:encode('PrimStrings','Gt',"19970923110723.2-0500"),
-    ?line {ok,"19970923110723.2-0500"} = 
-	asn1_wrapper:decode('PrimStrings','Gt',lists:flatten(Bytes3)),
-
-
-    
-    
-
-		       
 
     %%==========================================================
     %% UTC ::= UTCTime
     %%==========================================================
 
-    ?line {ok,Bytes11} = asn1_wrapper:encode('PrimStrings','UTC',"9709211107Z"),
-    ?line {ok,"9709211107Z"} = 
-	asn1_wrapper:decode('PrimStrings','UTC',lists:flatten(Bytes11)),
-
-    ?line {ok,Bytes12} = asn1_wrapper:encode('PrimStrings','UTC',"9709211107-0500"),
-    ?line {ok,"9709211107-0500"} = 
-	asn1_wrapper:decode('PrimStrings','UTC',lists:flatten(Bytes12)),    
+    roundtrip('UTC', "9709211107Z"),
+    roundtrip('UTC', "9709211107-0500"),
 
     ok.
 
@@ -917,3 +818,8 @@ wrapper_utf8_binary_to_list(L) when is_list(L) ->
     asn1rt:utf8_binary_to_list(list_to_binary(L));
 wrapper_utf8_binary_to_list(B) ->
     asn1rt:utf8_binary_to_list(B).
+
+roundtrip(Type, Value) ->
+    {ok,Encoded} = 'PrimStrings':encode(Type, Value),
+    {ok,Value} = 'PrimStrings':decode(Type, Encoded),
+    ok.

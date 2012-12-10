@@ -1405,7 +1405,7 @@ gen_head(Erules,Mod,Hrl) ->
     emit({"%% Purpose: encoder and decoder to the types in mod ",Mod,nl,nl}),
     emit({"-module('",Mod,"').",nl}),
     put(currmod,Mod),
-    %emit({"-compile(export_all).",nl}),
+    emit({"-compile(nowarn_unused_vars).",nl}),
     case {Hrl,lists:member(inline,get(encoding_options))} of
 	{0,_} -> true;
 	{_,true} -> true;

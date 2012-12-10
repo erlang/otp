@@ -138,7 +138,8 @@ check_asn1ct_modules(Extra) ->
 		  asn1ct_name,asn1ct_constructed_per,asn1ct_constructed_ber,
 		  asn1ct_gen_ber,asn1ct_constructed_ber_bin_v2,
 		  asn1ct_gen_ber_bin_v2,asn1ct_value,
-		  asn1ct_tok,asn1ct_parser2,asn1ct_table],
+		  asn1ct_tok,asn1ct_parser2,asn1ct_table,
+		  asn1ct_imm],
     case Extra -- ASN1CTMods of
 	[] ->
 	    ok;

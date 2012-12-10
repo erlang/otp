@@ -436,11 +436,8 @@ get_encoding_rule(M) ->
 
 open_type_value(ber) ->
     <<4,9,111,112,101,110,95,116,121,112,101>>;
-open_type_value(per) ->
-    <<"\n\topen_type">>;	       %octet string value "open_type"
-%    <<10,9,111,112,101,110,95,116,121,112,101>>;
 open_type_value(_) ->
-    [4,9,111,112,101,110,95,116,121,112,101].
+    <<"\n\topen_type">>.	       %octet string value "open_type"
 
 to_textual_order({Root,Ext}) ->
     {to_textual_order(Root),Ext};

@@ -54,6 +54,7 @@ CT_MODULES= \
 	asn1ct_constructed_per \
 	asn1ct_constructed_ber_bin_v2 \
 	asn1ct_gen_ber_bin_v2 \
+	asn1ct_imm \
 	asn1ct_value \
 	asn1ct_tok \
 	asn1ct_parser2 \
@@ -163,11 +164,32 @@ release_spec: opt
 
 release_docs_spec:
 
+#
+# Dependencies
+#
 
-
-
-
-
-
-
-
+$(EBIN)/asn1_app.beam: asn1_app.erl
+$(EBIN)/asn1_db.beam: asn1_db.erl
+$(EBIN)/asn1ct.beam: asn1ct.erl asn1_records.hrl
+$(EBIN)/asn1ct_check.beam: asn1ct_check.erl asn1_records.hrl
+$(EBIN)/asn1ct_constructed_ber_bin_v2.beam: asn1ct_constructed_ber_bin_v2.erl \
+  asn1_records.hrl
+$(EBIN)/asn1ct_constructed_per.beam: asn1ct_constructed_per.erl asn1_records.hrl
+$(EBIN)/asn1ct_gen.beam: asn1ct_gen.erl asn1_records.hrl
+$(EBIN)/asn1ct_gen_ber_bin_v2.beam: asn1ct_gen_ber_bin_v2.erl asn1_records.hrl
+$(EBIN)/asn1ct_gen_per.beam: asn1ct_gen_per.erl asn1_records.hrl
+$(EBIN)/asn1ct_gen_per_rt2ct.beam: asn1ct_gen_per_rt2ct.erl asn1_records.hrl
+$(EBIN)/asn1ct_imm.beam: asn1ct_imm.erl
+$(EBIN)/asn1ct_name.beam: asn1ct_name.erl
+$(EBIN)/asn1ct_parser2.beam: asn1ct_parser2.erl asn1_records.hrl
+$(EBIN)/asn1ct_pretty_format.beam: asn1ct_pretty_format.erl
+$(EBIN)/asn1ct_table.beam: asn1ct_table.erl
+$(EBIN)/asn1ct_tok.beam: asn1ct_tok.erl
+$(EBIN)/asn1ct_value.beam: asn1ct_value.erl asn1_records.hrl
+$(EBIN)/asn1rt.beam: asn1rt.erl
+$(EBIN)/asn1rt_ber_bin.beam: asn1rt_ber_bin.erl asn1_records.hrl
+$(EBIN)/asn1rt_ber_bin_v2.beam: asn1rt_ber_bin_v2.erl
+$(EBIN)/asn1rt_check.beam: asn1rt_check.erl
+$(EBIN)/asn1rt_nif.beam: asn1rt_nif.erl
+$(EBIN)/asn1rt_per_bin_rt2ct.beam: asn1rt_per_bin_rt2ct.erl asn1_records.hrl
+$(EBIN)/asn1rt_uper_bin.beam: asn1rt_uper_bin.erl asn1_records.hrl
