@@ -576,9 +576,9 @@ transition({reconnect, Pid}, S) ->
     ok;
 
 %% Watchdog is sending notification of a state transition. Note that
-%% the connection_up/down messages are pre-date this message and are
-%% still used. A watchdog message will follow these and communicate
-%% the same state as was set in handling connection_up/down.
+%% the connection_up/down messages pre-date this message and are still
+%% used. A watchdog message will follow these and communicate the same
+%% state as was set in handling connection_up/down.
 transition({watchdog, Pid, {TPid, From, To}}, #state{service_name = SvcName,
                                                      peerT = PeerT}) ->
     #peer{ref = Ref, type = T, options = Opts, op_state = {OS,_}}
