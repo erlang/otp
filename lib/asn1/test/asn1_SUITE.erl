@@ -188,7 +188,6 @@ groups() ->
        testDoubleEllipses,
        test_x691,
        ticket_6143,
-       testExtensionAdditionGroup,
        test_OTP_9688]},
 
      {performance, [],
