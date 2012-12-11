@@ -4340,11 +4340,33 @@ permitted_alphabet_merge([C1|Rest],UorI,Acc) ->
 %% there will be no extension if the last constraint is without extension.
 %% The rootset of all constraints are considered in the "outermoust 
 %% intersection". See section 13.1.2 in Dubuisson.
-constraint_merge(_S,C=[H])when is_tuple(H) ->
+constraint_merge(St, Cs0) ->
+    Cs = constraint_merge_1(St, Cs0),
+    normalize_cs(Cs).
+
+normalize_cs([{'SingleValue',[V]}|Cs]) ->
+    [{'SingleValue',V}|normalize_cs(Cs)];
+normalize_cs([{'SingleValue',[_|_]=L0}|Cs]) ->
+    [H|T] = L = lists:usort(L0),
+    [case is_range(H, T) of
+	 false -> {'SingleValue',L};
+	 true -> {'ValueRange',{H,lists:last(T)}}
+     end|normalize_cs(Cs)];
+normalize_cs([{'ValueRange',{Sv,Sv}}|Cs]) ->
+    [{'SingleValue',Sv}|normalize_cs(Cs)];
+normalize_cs([{'ValueRange',{'MIN','MAX'}}|Cs]) ->
+    normalize_cs(Cs);
+normalize_cs(Other) -> Other.
+
+is_range(Prev, [H|T]) when Prev =:= H - 1 -> is_range(H, T);
+is_range(_, [_|_]) -> false;
+is_range(_, []) -> true.
+
+constraint_merge_1(_S, [H]=C) when is_tuple(H) ->
     C;
-constraint_merge(_S,[]) ->
+constraint_merge_1(_S, []) ->
     [];
-constraint_merge(S,C) ->
+constraint_merge_1(S, C) ->
     %% skip all extension but the last extension
     C1 = filter_extensions(C),
     %% perform all internal level intersections, intersections first
@@ -4367,17 +4389,16 @@ constraint_merge(S,C) ->
     %% get the least common size constraint
     SZs = get_constraints(C3,'SizeConstraint'),
     CombSZ = intersection_of_size(S,SZs),
-    CminusSVs=ordsets:subtract(ordsets:from_list(C3),ordsets:from_list(SVs)),
-    % CminusSVsVRs = ordsets:subtract(ordsets:from_list(CminusSVs),
-% 				    ordsets:from_list(VRs)),
-    RestC = ordsets:subtract(ordsets:from_list(CminusSVs),
-			     ordsets:from_list(SZs)),
+    RestC = ordsets:subtract(ordsets:from_list(C3),
+			     ordsets:from_list(SZs ++ VRs ++ SVs)),
     %% get the least common combined constraint. That is the union of each
-    %% deep costraint and merge of single value and value range constraints
-    NewCs = combine_constraints(S,CombSV,CombVR,CombSZ++RestC),
-    [X||X <- lists:flatten(NewCs),
-	X /= intersection,
-	X /= union].
+    %% deep constraint and merge of single value and value range constraints.
+    %% FIXME: Removing 'intersection' from the flattened list essentially
+    %% means that intersections are converted to unions!
+    Cs = combine_constraints(S, CombSV, CombVR, CombSZ++RestC),
+    [X || X <- lists:flatten(Cs),
+	  X =/= intersection,
+	  X =/= union].
 
 %% constraint_union(S,C) takes a list of constraints as input and
 %% merge them to a union. Unions are performed when two
@@ -4407,16 +4428,16 @@ constraint_union(_S,C) ->
 
 constraint_union1(S,[A={'ValueRange',_},union,B={'ValueRange',_}|Rest],Acc) ->
     AunionB = constraint_union_vr([A,B]),
-    constraint_union1(S,Rest,Acc ++ AunionB);
+    constraint_union1(S, AunionB++Rest, Acc);
 constraint_union1(S,[A={'SingleValue',_},union,B={'SingleValue',_}|Rest],Acc) ->
     AunionB = constraint_union_sv(S,[A,B]),
     constraint_union1(S,Rest,Acc ++ AunionB);
 constraint_union1(S,[A={'SingleValue',_},union,B={'ValueRange',_}|Rest],Acc) ->
     AunionB = union_sv_vr(S,A,B),
-    constraint_union1(S,Rest,Acc ++ AunionB);
+    constraint_union1(S, AunionB++Rest, Acc);
 constraint_union1(S,[A={'ValueRange',_},union,B={'SingleValue',_}|Rest],Acc) ->
     AunionB = union_sv_vr(S,B,A),
-    constraint_union1(S,Rest,Acc ++ AunionB);
+    constraint_union1(S, AunionB++Rest, Acc);
 constraint_union1(S,[union|Rest],Acc) -> %skip when unsupported constraints
     constraint_union1(S,Rest,Acc);
 constraint_union1(S,[A|Rest],Acc) ->
@@ -4449,15 +4470,8 @@ constraint_union_vr(VR) ->
 	   ({_,{A1,_B1}},{_,{A2,_B2}}) when is_integer(A1),is_integer(A2),A1<A2 -> true;
 	   ({_,{A,B1}},{_,{A,B2}}) when B1=<B2->true;
 	   (_,_)->false end,
-    % sort and remove duplicates
-    SortedVR = lists:sort(Fun,VR),
-    RemoveDup = fun([],_) ->[];
-		   ([H],_) -> [H];
-		   ([H,H|T],F) -> F([H|T],F);
-		   ([H|T],F) -> [H|F(T,F)]
-		end,
-    
-    constraint_union_vr(RemoveDup(SortedVR,RemoveDup),[]).
+    SortedVR = lists:usort(Fun,VR),
+    constraint_union_vr(SortedVR, []).
 
 constraint_union_vr([],Acc) ->
     lists:reverse(Acc);
@@ -4467,8 +4481,8 @@ constraint_union_vr([{_,{Lb,Ub2}}|Rest],[{_,{Lb,_Ub1}}|Acc]) -> %Ub2 > Ub1
     constraint_union_vr(Rest,[{'ValueRange',{Lb,Ub2}}|Acc]);
 constraint_union_vr([{_,{_,Ub}}|Rest],A=[{_,{_,Ub}}|_Acc]) ->
     constraint_union_vr(Rest,A);
-constraint_union_vr([{_,{Lb2,Ub2}}|Rest],[{_,{Lb1,Ub1}}|Acc]) when Lb2=<Ub1,
-								   Ub2>Ub1->
+constraint_union_vr([{_,{Lb2,Ub2}}|Rest], [{_,{Lb1,Ub1}}|Acc])
+  when Ub1 =< Lb2, Ub1 < Ub2 ->
     constraint_union_vr(Rest,[{'ValueRange',{Lb1,Ub2}}|Acc]);
 constraint_union_vr([{_,{_,Ub2}}|Rest],A=[{_,{_,Ub1}}|_Acc]) when Ub2=<Ub1->
     constraint_union_vr(Rest,A);
@@ -4589,9 +4603,11 @@ constraint_intersection(_S,C) ->
 
 constraint_intersection1(S,[A,intersection,B|Rest],Acc) ->
     AisecB = c_intersect(S,A,B),
-    constraint_intersection1(S,Rest,AisecB++Acc);
+    constraint_intersection1(S, AisecB++Rest, Acc);
 constraint_intersection1(S,[A|Rest],Acc) ->
     constraint_intersection1(S,Rest,[A|Acc]);
+constraint_intersection1(_, [], [C]) ->
+    C;
 constraint_intersection1(_,[],Acc) ->
     lists:reverse(Acc).
 
