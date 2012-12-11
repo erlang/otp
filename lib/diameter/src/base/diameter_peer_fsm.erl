@@ -388,8 +388,9 @@ transition({diameter, {recv, Pkt}}, S) ->
     recv(Pkt, S);
 
 %% Timeout when still in the same state ...
-transition({timeout, PS}, #state{state = PS}) ->
-    {stop, {capx(PS), timeout}};
+transition({timeout = T, PS}, #state{state = PS} = S) ->
+    close({capx(PS), T}, S),
+    stop;
 
 %% ... or not.
 transition({timeout, _}, _) ->
