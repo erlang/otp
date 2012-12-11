@@ -719,6 +719,15 @@ passed to &call;, while for an
 incoming request the application identifier in the message
 header determines the application, the identifier being specified in
 the application's &dictionary; file.</p>
+
+<warning>
+<p>
+The capabilities advertised by a node must match its configured
+applications. In particular, <c>application</c> configuration must
+be matched by corresponding &capability; configuration, of
+Application-Id AVP's in particular.</p>
+</warning>
+
 </item>
 
 <tag><c>{restrict_connections, false
@@ -797,6 +806,16 @@ The list of Diameter applications to which the transport should be
 restricted.
 Defaults to all applications configured on the service in question.
 Applications not configured on the service in question are ignored.</p>
+
+<warning>
+<p>
+The capabilities advertised by a node must match its configured
+applications.
+In particular, setting <c>applications</c> on a transport typically
+implies having to set matching Application-Id AVP's in a
+&capabilities; tuple.</p>
+</warning>
+
 </item>
 
 <marker id="capabilities"/>
