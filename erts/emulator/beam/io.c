@@ -434,7 +434,7 @@ erts_port_cleanup(Port *prt)
 void
 erts_port_free(Port *prt)
 {
-#if defined(ERTS_SMP) || defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_SMP) || defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
     erts_aint32_t state = erts_atomic32_read_nob(&prt->state);
 #endif
     ERTS_LC_ASSERT(state & (ERTS_PORT_SFLG_INITIALIZING
