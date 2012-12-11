@@ -1288,35 +1288,35 @@ pretty2(Module,AbsFile) ->
     {ok,F} = file:open(AbsFile,[write]),
     M = asn1_db:dbget(Module,'MODULE'),
     io:format(F,"%%%%%%%%%%%%%%%%%%%   ~p  %%%%%%%%%%%%%%%%%%%~n",[Module]),
-    io:format(F,"~s\n",[asn1ct_pretty_format:term(M#module.defid)]),
-    io:format(F,"~s\n",[asn1ct_pretty_format:term(M#module.tagdefault)]),
-    io:format(F,"~s\n",[asn1ct_pretty_format:term(M#module.exports)]),
-    io:format(F,"~s\n",[asn1ct_pretty_format:term(M#module.imports)]),
-    io:format(F,"~s\n\n",[asn1ct_pretty_format:term(M#module.extensiondefault)]),
+    io:format(F,"~s.\n",[asn1ct_pretty_format:term(M#module.defid)]),
+    io:format(F,"~s.\n",[asn1ct_pretty_format:term(M#module.tagdefault)]),
+    io:format(F,"~s.\n",[asn1ct_pretty_format:term(M#module.exports)]),
+    io:format(F,"~s.\n",[asn1ct_pretty_format:term(M#module.imports)]),
+    io:format(F,"~s.\n\n",[asn1ct_pretty_format:term(M#module.extensiondefault)]),
 
     {Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets} = M#module.typeorval,
     io:format(F,"%%%%%%%%%%%%%%%%%%% TYPES in ~p  %%%%%%%%%%%%%%%%%%%~n",[Module]),
-    lists:foreach(fun(T)-> io:format(F,"~s\n",
+    lists:foreach(fun(T)-> io:format(F,"~s.\n",
 				     [asn1ct_pretty_format:term(asn1_db:dbget(Module,T))])
 		  end,Types),
     io:format(F,"%%%%%%%%%%%%%%%%%%% VALUES in ~p  %%%%%%%%%%%%%%%%%%%~n",[Module]),
-    lists:foreach(fun(T)-> io:format(F,"~s\n",
+    lists:foreach(fun(T)-> io:format(F,"~s.\n",
 				     [asn1ct_pretty_format:term(asn1_db:dbget(Module,T))])
 		  end,Values),
     io:format(F,"%%%%%%%%%%%%%%%%%%% Parameterized Types in ~p  %%%%%%%%%%%%%%%%%%%~n",[Module]),
-    lists:foreach(fun(T)-> io:format(F,"~s\n",
+    lists:foreach(fun(T)-> io:format(F,"~s.\n",
 				     [asn1ct_pretty_format:term(asn1_db:dbget(Module,T))])			   
 		  end,ParameterizedTypes),
     io:format(F,"%%%%%%%%%%%%%%%%%%% Classes in ~p  %%%%%%%%%%%%%%%%%%%~n",[Module]),
-    lists:foreach(fun(T)-> io:format(F,"~s\n",
+    lists:foreach(fun(T)-> io:format(F,"~s.\n",
 				     [asn1ct_pretty_format:term(asn1_db:dbget(Module,T))])			   
 		  end,Classes),
     io:format(F,"%%%%%%%%%%%%%%%%%%% Objects in ~p  %%%%%%%%%%%%%%%%%%%~n",[Module]),
-    lists:foreach(fun(T)-> io:format(F,"~s\n",
+    lists:foreach(fun(T)-> io:format(F,"~s.\n",
 				     [asn1ct_pretty_format:term(asn1_db:dbget(Module,T))])			   
 		  end,Objects),
     io:format(F,"%%%%%%%%%%%%%%%%%%% Object Sets in ~p  %%%%%%%%%%%%%%%%%%%~n",[Module]),
-    lists:foreach(fun(T)-> io:format(F,"~s\n",
+    lists:foreach(fun(T)-> io:format(F,"~s.\n",
 				     [asn1ct_pretty_format:term(asn1_db:dbget(Module,T))])			   
 		  end,ObjectSets).
 start() ->
