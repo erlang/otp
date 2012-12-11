@@ -2138,6 +2138,7 @@ erts_no_atomic_read_bset(erts_no_atomic_t *var,
 			 erts_aint_t set)
 {
     erts_aint_t old = *var;
+    *var &= ~mask;
     *var |= (mask & set);
     return old;
 }
@@ -2235,6 +2236,7 @@ erts_no_atomic32_read_bset(erts_no_atomic32_t *var,
 			   erts_aint32_t set)
 {
     erts_aint32_t old = *var;
+    *var &= ~mask;
     *var |= (mask & set);
     return old;
 }
