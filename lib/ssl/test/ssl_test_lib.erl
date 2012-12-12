@@ -65,8 +65,9 @@ run_server(Opts) ->
     Port = proplists:get_value(port, Opts),
     Options = proplists:get_value(options, Opts),
     Pid = proplists:get_value(from, Opts),
-    test_server:format("ssl:listen(~p, ~p)~n", [Port, Options]),
-    {ok, ListenSocket} = rpc:call(Node, ssl, listen, [Port, Options]),
+    Transport =  proplists:get_value(transport, Opts, ssl),
+    test_server:format("~p:listen(~p, ~p)~n", [Transport, Port, Options]),
+    {ok, ListenSocket} = rpc:call(Node, Transport, listen, [Port, Options]),
     Pid ! {listen, up},
     send_selected_port(Pid, Port, ListenSocket),
     run_server(ListenSocket, Opts).
@@ -81,6 +82,7 @@ do_run_server(_, {error, timeout} = Result, Opts)  ->
 do_run_server(ListenSocket, AcceptSocket, Opts) ->
     Node = proplists:get_value(node, Opts),
     Pid = proplists:get_value(from, Opts),
+    Transport = proplists:get_value(transport, Opts, ssl),
     {Module, Function, Args} = proplists:get_value(mfa, Opts),
     test_server:format("Server: apply(~p,~p,~p)~n", 
 		       [Module, Function, [AcceptSocket | Args]]),
@@ -98,14 +100,17 @@ do_run_server(ListenSocket, AcceptSocket, Opts) ->
 	    run_server(ListenSocket, [MFA | proplists:delete(mfa, Opts)]);
 	close ->
 	    test_server:format("Server closing  ~p ~n", [self()]),
-	    Result = rpc:call(Node, ssl, close, [AcceptSocket], 500),
-	    test_server:format("Result ~p ~n", [Result]);
+	    test_server:format("~p:close(~p) ~n", [Transport, AcceptSocket]),
+	    test_server:format("~p:close(~p) ~n", [Transport, ListenSocket]),
+	    Result = rpc:call(Node, Transport, close, [AcceptSocket], 500),
+	    Result1 = rpc:call(Node, Transport, close, [ListenSocket], 500),
+	    test_server:format("close result 1 ~p  close result 2  ~p ~n", [Result, Result1]);
 	{ssl_closed, _} ->
 	    ok
     end.
 
 %%% To enable to test with s_client -reconnect
-connect(ListenSocket, Opts) ->
+connect(#sslsocket{} = ListenSocket, Opts) ->
     Node = proplists:get_value(node, Opts),
     ReconnectTimes =  proplists:get_value(reconnect_times, Opts, 0),
     Timeout = proplists:get_value(timeout, Opts, infinity),
@@ -116,8 +121,14 @@ connect(ListenSocket, Opts) ->
 	_ ->
 	  remove_close_msg(ReconnectTimes),
 	  AcceptSocket
-    end.
-    
+    end;
+connect(ListenSocket, Opts) ->
+    Node = proplists:get_value(node, Opts),
+    test_server:format("gen_tcp:accept(~p)~n", [ListenSocket]),
+    {ok, AcceptSocket} = rpc:call(Node, gen_tcp, accept, 
+				  [ListenSocket]),
+    AcceptSocket.
+
 connect(_, _, 0, AcceptSocket, _) ->
     AcceptSocket;
 connect(ListenSocket, Node, N, _, Timeout) ->
@@ -157,9 +168,10 @@ run_client(Opts) ->
     Host = proplists:get_value(host, Opts),
     Port = proplists:get_value(port, Opts),
     Pid = proplists:get_value(from, Opts),
+    Transport =  proplists:get_value(transport, Opts, ssl),
     Options = proplists:get_value(options, Opts),
-    test_server:format("ssl:connect(~p, ~p, ~p)~n", [Host, Port, Options]),
-    case rpc:call(Node, ssl, connect, [Host, Port, Options]) of
+    test_server:format("~p:connect(~p, ~p, ~p)~n", [Transport, Host, Port, Options]),
+    case rpc:call(Node, Transport, connect, [Host, Port, Options]) of
 	{ok, Socket} ->
 	    Pid ! { connected, Socket },
 	    test_server:format("Client: connected~n", []), 
@@ -179,8 +191,10 @@ run_client(Opts) ->
 	    receive
 		close ->
 		    test_server:format("Client closing~n", []),
-		    rpc:call(Node, ssl, close, [Socket]);
+		    rpc:call(Node, Transport, close, [Socket]);
 		{ssl_closed, Socket} ->
+		    ok;
+		{gen_tcp, closed} ->
 		    ok
 	    end;
 	{error, Reason} ->
@@ -517,15 +531,16 @@ run_server_error(Opts) ->
     Port = proplists:get_value(port, Opts),
     Options = proplists:get_value(options, Opts),
     Pid = proplists:get_value(from, Opts),
-    test_server:format("ssl:listen(~p, ~p)~n", [Port, Options]),
-    case rpc:call(Node, ssl, listen, [Port, Options]) of
-	{ok, ListenSocket} ->
+    Transport =  proplists:get_value(transport, Opts, ssl),
+    test_server:format("~p:listen(~p, ~p)~n", [Transport, Port, Options]),
+    case rpc:call(Node, Transport, listen, [Port, Options]) of
+	{ok, #sslsocket{} = ListenSocket} ->
 	    %% To make sure error_client will
 	    %% get {error, closed} and not {error, connection_refused}
 	    Pid ! {listen, up},
 	    send_selected_port(Pid, Port, ListenSocket),
-	    test_server:format("ssl:transport_accept(~p)~n", [ListenSocket]),
-	    case rpc:call(Node, ssl, transport_accept, [ListenSocket]) of
+	    test_server:format("~p:transport_accept(~p)~n", [Transport, ListenSocket]),
+	    case rpc:call(Node, Transport, transport_accept, [ListenSocket]) of
 		{error, _} = Error ->
 		    Pid ! {self(), Error};
 		{ok, AcceptSocket} ->
@@ -533,6 +548,14 @@ run_server_error(Opts) ->
 		    Error = rpc:call(Node, ssl, ssl_accept, [AcceptSocket]),
 		    Pid ! {self(), Error}
 	    end;
+	{ok, ListenSocket} ->
+	    Pid ! {listen, up},
+	    send_selected_port(Pid, Port, ListenSocket),
+	    test_server:format("~p:accept(~p)~n", [Transport, ListenSocket]),
+	     case rpc:call(Node, Transport, accept, [ListenSocket]) of
+		{error, _} = Error ->
+		     Pid ! {self(), Error}
+	     end;
 	Error ->
 	    %% Not really true but as this is an error test 
 	    %% this is what we want.
@@ -548,9 +571,10 @@ run_client_error(Opts) ->
     Host = proplists:get_value(host, Opts),
     Port = proplists:get_value(port, Opts),
     Pid = proplists:get_value(from, Opts),
+    Transport = proplists:get_value(transport, Opts, ssl),
     Options = proplists:get_value(options, Opts),
-    test_server:format("ssl:connect(~p, ~p, ~p)~n", [Host, Port, Options]),
-    Error = rpc:call(Node, ssl, connect, [Host, Port, Options]),
+    test_server:format("~p:connect(~p, ~p, ~p)~n", [Transport, Host, Port, Options]),
+    Error = rpc:call(Node, Transport, connect, [Host, Port, Options]),
     Pid ! {self(), Error}.
 
 inet_port(Pid) when is_pid(Pid)->
