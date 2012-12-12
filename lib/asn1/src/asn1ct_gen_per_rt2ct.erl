@@ -405,35 +405,46 @@ emit_enc_octet_string(_Erules,Constraint,Value) ->
 	    asn1ct_name:new(tmpval),
 	    emit({"  begin",nl}),
 	    emit({"    [",{curr,tmpval},"] = ",Value,",",nl}),
-	    emit({"    [10,8,",{curr,tmpval},"]",nl}),
+	    emit(["    [[10,8],",{curr,tmpval},"]",nl]),
 	    emit("  end");
 	2 ->
 	    asn1ct_name:new(tmpval),
-	    emit({"  begin",nl}),
-	    emit({"    [",{curr,tmpval},",",{next,tmpval},"] = ",
-		  Value,",",nl}),
-	    emit({"    [[10,8,",{curr,tmpval},"],[10,8,",
-		  {next,tmpval},"]]",nl}),
-	    emit("  end"),
-	    asn1ct_name:new(tmpval);
-	Sv when is_integer(Sv),Sv < 256  ->
+	    emit(["  begin",nl,
+		  "    ",{curr,tmpval}," = ",Value,",",nl,
+		  "    case length(",{curr,tmpval},") of",nl,
+		  "      2 ->",nl,
+		  "        [[45,16,2]|",{curr,tmpval},"];",nl,
+		  "      _ ->",nl,
+		  "        exit({error,{value_out_of_bounds,",
+		  {curr,tmpval},"}})",nl,
+		  "    end",nl,
+		  "  end"]);
+	Sv when is_integer(Sv), Sv < 256  ->
 	    asn1ct_name:new(tmpval),
-	    emit({"  begin",nl}),
-	    emit({"    case length(",Value,") of",nl}),
-	    emit(["      ",{curr,tmpval}," when ",{curr,tmpval}," == ",Sv," ->"]),
-	    emit([" [2,20,",{curr,tmpval},",",Value,"];",nl]),
-	    emit({"      _ -> exit({error,{value_out_of_bounds,",
-		  Value,"}})", nl,"    end",nl}),
-	    emit("  end");
+	    asn1ct_name:new(tmplen),
+	    emit(["  begin",nl,
+		  "    ",{curr,tmpval}," = ",Value,",",nl,
+		  "    case length(",{curr,tmpval},") of",nl,
+		  "      ",Sv,"=",{curr,tmplen}," ->",nl,
+		  "       [20,",{curr,tmplen},"|",{curr,tmpval},"];",nl,
+		  "      _ ->",nl,
+		  "       exit({error,{value_out_of_bounds,",
+		  {curr,tmpval},"}})",nl,
+		  "    end",nl,
+		  "  end"]);
 	Sv when is_integer(Sv),Sv =< 65535  ->
 	    asn1ct_name:new(tmpval),
-	    emit({"  begin",nl}),
-	    emit({"    case length(",Value,") of",nl}),
-	    emit(["      ",{curr,tmpval}," when ",{curr,tmpval}," == ",Sv," ->"]),
-	    emit([" [<<21,",{curr,tmpval},":16>>|",Value,"];",nl]),
-	    emit({"      _ -> exit({error,{value_out_of_bounds,",
-		  Value,"}})",nl,"    end",nl}),
-	    emit("  end");
+	    asn1ct_name:new(tmplen),
+	    emit(["  begin",nl,
+		  "    ",{curr,tmpval}," = ",Value,",",nl,
+		  "    case length(",{curr,tmpval},") of",nl,
+		  "      ",Sv,"=",{curr,tmplen}," ->",nl,
+		  "        [<<21,",{curr,tmplen},":16>>|",Value,"];",nl,
+		  "      _ ->",nl,
+		  "        exit({error,{value_out_of_bounds,",
+		  {curr,tmpval},"}})",nl,
+		  "    end",nl,
+		  "  end"]);
 	C ->
 	    emit({"  ?RT_PER:encode_octet_string(",{asis,C},",false,",Value,")",nl})
     end.
