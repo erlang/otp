@@ -416,7 +416,7 @@ emit_enc_octet_string(_Erules,Constraint,Value) ->
 		  {next,tmpval},"]]",nl}),
 	    emit("  end"),
 	    asn1ct_name:new(tmpval);
-	Sv when is_integer(Sv),Sv =< 256  ->
+	Sv when is_integer(Sv),Sv < 256  ->
 	    asn1ct_name:new(tmpval),
 	    emit({"  begin",nl}),
 	    emit({"    case length(",Value,") of",nl}),
@@ -430,7 +430,7 @@ emit_enc_octet_string(_Erules,Constraint,Value) ->
 	    emit({"  begin",nl}),
 	    emit({"    case length(",Value,") of",nl}),
 	    emit(["      ",{curr,tmpval}," when ",{curr,tmpval}," == ",Sv," ->"]),
-	    emit([" [2,21,",{curr,tmpval},",",Value,"];",nl]),
+	    emit([" [<<21,",{curr,tmpval},":16>>|",Value,"];",nl]),
 	    emit({"      _ -> exit({error,{value_out_of_bounds,",
 		  Value,"}})",nl,"    end",nl}),
 	    emit("  end");

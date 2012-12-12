@@ -372,6 +372,11 @@ octet_string(Rules) ->
 	  end,
 
     fragmented_octet_string(Rules),
+
+    S255 = lists:seq(1, 255),
+    FixedStrings = {'OsFixedStrings',true,"","1","12","345",true,
+		    S255,[$a|S255],[$a,$b|S255],397},
+    roundtrip('OsFixedStrings', FixedStrings),
     ok.
     
 fragmented_octet_string(Erules) ->
