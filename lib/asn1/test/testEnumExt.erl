@@ -25,58 +25,41 @@
 
 main(Rule) when Rule =:= per; Rule =:= uper ->
     io:format("main(~p)~n",[Rule]),
-    B32=[32],B64=[64],
+
     %% ENUMERATED with extensionmark (value is in root set)
-    ?line {ok,B32} = asn1_wrapper:encode('EnumExt','Ext',red),
-    ?line {ok,red} = asn1_wrapper:decode('EnumExt','Ext',B32),
+    B32 = <<32>>,
+    B32 = roundtrip('Ext', red),
 
     %% ENUMERATED with extensionmark (value is an extensionvalue)
-    ?line {ok,Or} = asn1_wrapper:encode('EnumExt','Ext1',orange),
-    ?line {ok,orange} = asn1_wrapper:decode('EnumExt','Ext1',Or),
+    Or = roundtrip('Ext1', orange),
     %% unknown extensionvalue
-    ?line {ok,{asn1_enum,0}} = asn1_wrapper:decode('EnumExt','Ext',Or),
-
+    {ok,{asn1_enum,0}} = asn1_wrapper:decode('EnumExt','Ext',Or),
 
     %% ENUMERATED no extensionmark 
-    ?line {ok,B64} = asn1_wrapper:encode('EnumExt','Noext',red),
-    ?line {ok,red} = asn1_wrapper:decode('EnumExt','Noext',B64),
+    B64 = <<64>>,
+    B64 = roundtrip('Noext', red),
     ok;
 
 main(ber) ->
     io:format("main(ber)~n",[]),
     %% ENUMERATED with extensionmark (value is in root set)
-    ?line {ok,Bytes1} = asn1_wrapper:encode('EnumExt','Ext',red),
-    ?line {ok,red} = asn1_wrapper:decode('EnumExt','Ext',lists:flatten(Bytes1)),
+    roundtrip('Ext', red),
 
     %% value is an extensionvalue
-    ?line {ok,Bytes1_1} = asn1_wrapper:encode('EnumExt','Ext1',orange),
-    ?line {ok,{asn1_enum,7}} = asn1_wrapper:decode('EnumExt','Ext',lists:flatten(Bytes1_1)),
-%%    ?line {ok,Bytes1_1} = asn1_wrapper:encode('EnumExt','Ext',{asn1_enum,7}),
+    {ok,Bytes1_1} = asn1_wrapper:encode('EnumExt','Ext1',orange),
+    {ok,{asn1_enum,7}} = asn1_wrapper:decode('EnumExt','Ext',lists:flatten(Bytes1_1)),
 
-    %% ENUMERATED no extensionmark 
-    ?line {ok,Bytes2} = asn1_wrapper:encode('EnumExt','Noext',red),
-    ?line {ok,red} = asn1_wrapper:decode('EnumExt','Noext',lists:flatten(Bytes2)),
+    %% ENUMERATED no extensionmark
+    roundtrip('Noext', red),
     ?line {error,{asn1,_}} = (catch asn1_wrapper:encode('EnumExt','Noext',orange)),
-%%    ?line {error,{asn1,_}} = (catch asn1_wrapper:encode('EnumExt','Noext',{asn1_enum,7})),
-    ok,
     
     %% ENUMERATED with atom 'com'
-    ?line {ok,Bytes3} = asn1_wrapper:encode('EnumExt','Globalstate',{'Globalstate',preop}),
-    ?line {ok,preop} = asn1_wrapper:decode('EnumExt','Globalstate',
-					   lists:flatten(Bytes3)),
-    ?line {ok,Bytes4} = asn1_wrapper:encode('EnumExt','Globalstate',{'Globalstate',com}),
-    ?line {ok,com} = asn1_wrapper:decode('EnumExt','Globalstate',
-					   lists:flatten(Bytes4)).
+    roundtrip('Globalstate', preop),
+    roundtrip('Globalstate', com),
 
+    ok.
 
-
-
-
-
-
-
-
-
-
-
-
+roundtrip(Type, Value) ->
+    {ok,Encoded} = 'EnumExt':encode(Type, Value),
+    {ok,Value} = 'EnumExt':decode(Type, Encoded),
+    Encoded.
