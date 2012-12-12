@@ -636,14 +636,16 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p) {
 	cache_t *c, *pc;
 	Uint csize;
 	Uint bad_max_abs = mk->ma->abs_max_cache_bad_fit;
-	/* Uint bad_max_rel = mk->ma->rel_max_cache_bad_fit; */
+	Uint bad_max_rel = mk->ma->rel_max_cache_bad_fit;
 
 	c = mk->cache_unpowered;
 	pc = c;
 
 	while (c) {
 	    csize = c->size;
-		if (csize >= size && (csize - size) < bad_max_abs ) {
+		if (csize >= size &&
+			((csize - size)*100 < bad_max_rel*size) &&
+			(csize - size) < bad_max_abs ) {
 
 		/* unlink from cache area */
 		seg = c->seg;
@@ -700,10 +702,10 @@ static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, cache_t **
     return mk->cache_size;
 }
 
-static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, int ix) {
+static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, cache_t **head) {
     cache_t *c = NULL, *next = NULL;
 
-    c = mk->cache_area[ix];
+    c = *head;
     ASSERT( c != NULL );
 
     while (c) {
@@ -722,7 +724,7 @@ static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, int ix) {
 	c = next;
     }
 
-    mk->cache_area[ix] = NULL;
+    *head = NULL;
 
     ASSERT( mk->cache_size >= 0 );
 
@@ -740,13 +742,13 @@ static Uint mseg_check_memkind_cache(MemKind *mk) {
 
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
 
-    if (mk->cache_unpowered)
-	return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_unpowered));
-
     for (i = 0; i < CACHE_AREAS; i++) {
 	if (mk->cache_area[i] != NULL)
 	    return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_area[i]));
     }
+
+    if (mk->cache_unpowered)
+	return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_unpowered));
 
     return 0;
 }
@@ -800,13 +802,19 @@ void erts_mseg_cache_check(void) {
 static void mseg_clear_memkind_cache(MemKind *mk) {
     int i;
 
+    /* drop pow2 caches */
     for (i = 0; i < CACHE_AREAS; i++) {
 	if (mk->cache_area[i] == NULL)
 	    continue;
 
-	mseg_drop_memkind_cache_size(mk, i);
+	mseg_drop_memkind_cache_size(mk, &(mk->cache_area[i]));
+	ASSERT(mk->cache_area[i] == NULL);
     }
+    /* drop varied caches */
+    if(mk->cache_unpowered)
+	mseg_drop_memkind_cache_size(mk, &(mk->cache_unpowered));
 
+    ASSERT(mk->cache_unpowered == NULL);
     ASSERT(mk->cache_size == 0);
 }
 
