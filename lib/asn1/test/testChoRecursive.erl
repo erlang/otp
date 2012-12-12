@@ -28,38 +28,21 @@
 -record('ChoRec2_something',{a, b, c}).
 
 recursive(_Rules) ->
-    
-    ?line {ok,Bytes11} = asn1_wrapper:encode('ChoRecursive','ChoRec',{'ChoRec',{something,
-				      #'ChoRec_something'{a = 77,
-							  b = "some octets here",
-							  c = {'ChoRec',{nothing,'NULL'}}}}}),
-    ?line {ok,{something,{'ChoRec_something',77,"some octets here",{nothing,'NULL'}}}} = 
-	   asn1_wrapper:decode('ChoRecursive','ChoRec',lists:flatten(Bytes11)),
-	   
-	   
-    ?line {ok,Bytes12} = asn1_wrapper:encode('ChoRecursive','ChoRec',{'ChoRec',{nothing,'NULL'}}),
-    ?line {ok,{nothing,'NULL'}} = 
-	asn1_wrapper:decode('ChoRecursive','ChoRec',lists:flatten(Bytes12)),
-	   
-	   
-	   
-    ?line {ok,Bytes21} = 
-	asn1_wrapper:encode('ChoRecursive','ChoRec2',{'ChoRec2',
-					       {something,
-						#'ChoRec2_something'{a = 77,
-								     b = "some octets here",
-								     c = {'ChoRec2',
-									  {nothing,'NULL'}}}}}),
-    ?line {ok,{something,{'ChoRec2_something',77,"some octets here",{nothing,'NULL'}}}} = 
-	   asn1_wrapper:decode('ChoRecursive','ChoRec2',lists:flatten(Bytes21)),
-		  
-		  
-    ?line {ok,Bytes22} = 
-	asn1_wrapper:encode('ChoRecursive','ChoRec2',{'ChoRec2',{nothing,'NULL'}}),
-    ?line {ok,{nothing,'NULL'}} = 
-	asn1_wrapper:decode('ChoRecursive','ChoRec2',lists:flatten(Bytes22)),
-		  
-		  
-		  
-		  
+    roundtrip('ChoRec',
+	      {something,
+	       #'ChoRec_something'{a = 77,
+				   b = "some octets here",
+				   c = {nothing,'NULL'}}}),
+    roundtrip('ChoRec', {nothing,'NULL'}),
+    roundtrip('ChoRec2',
+	      {something,
+	       #'ChoRec2_something'{a = 77,
+				    b = "some octets here",
+				    c = {nothing,'NULL'}}}),
+    roundtrip('ChoRec2', {nothing,'NULL'}),
+    ok.
+
+roundtrip(Type, Value) ->
+    {ok,Encoded} = 'ChoRecursive':encode(Type, Value),
+    {ok,Value} = 'ChoRecursive':decode(Type, Encoded),
     ok.
