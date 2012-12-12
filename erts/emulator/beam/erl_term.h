@@ -300,8 +300,17 @@ _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define header_arity(x)	_ET_APPLY(header_arity,(x))
 
 /* arityval access methods */
+/* Erlang Spec. 4.7.3 defines max arity to 65535
+ * we will however enforce max arity of 16777215 (24 bits)
+ * (checked in bifs and asserted in debug)
+ */
+#define MAX_ARITYVAL            ((((Uint)1) << 24) - 1)
+#define ERTS_MAX_TUPLE_SIZE     MAX_ARITYVAL
+
 #define make_arityval(sz)	_make_header((sz),_TAG_HEADER_ARITYVAL)
 #define is_arity_value(x)	(((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL)
+#define is_sane_arity_value(x)	((((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL) && \
+				 (((x) >> _HEADER_ARITY_OFFS) <= MAX_ARITYVAL))
 #define is_not_arity_value(x)	(!is_arity_value((x)))
 #define _unchecked_arityval(x)	_unchecked_header_arity((x))
 _ET_DECLARE_CHECKED(Uint,arityval,Eterm)

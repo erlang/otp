@@ -133,7 +133,7 @@ ET_DEFINE_CHECKED(Uint,unsigned_val,Eterm,is_small);
 ET_DEFINE_CHECKED(Sint,signed_val,Eterm,is_small);
 ET_DEFINE_CHECKED(Uint,atom_val,Eterm,is_atom);
 ET_DEFINE_CHECKED(Uint,header_arity,Eterm,is_header);
-ET_DEFINE_CHECKED(Uint,arityval,Eterm,is_arity_value);
+ET_DEFINE_CHECKED(Uint,arityval,Eterm,is_sane_arity_value);
 ET_DEFINE_CHECKED(Uint,thing_arityval,Eterm,is_thing);
 ET_DEFINE_CHECKED(Uint,thing_subtag,Eterm,is_thing);
 ET_DEFINE_CHECKED(Eterm*,binary_val,Wterm,is_binary);

@@ -2421,9 +2421,7 @@ BIF_RETTYPE setelement_3(BIF_ALIST_3)
 
     /* copy the tuple */
     resp = hp;
-    while (size--) {		/* XXX use memcpy? */
-	*hp++ = *ptr++;
-    }
+    sys_memcpy(hp, ptr, sizeof(Eterm)*size);
     resp[ix] = BIF_ARG_3;
     BIF_RET(make_tuple(resp));
 }
@@ -2436,7 +2434,7 @@ BIF_RETTYPE make_tuple_2(BIF_ALIST_2)
     Eterm* hp;
     Eterm res;
 
-    if (is_not_small(BIF_ARG_1) || (n = signed_val(BIF_ARG_1)) < 0) {
+    if (is_not_small(BIF_ARG_1) || (n = signed_val(BIF_ARG_1)) < 0 || n > ERTS_MAX_TUPLE_SIZE) {
 	BIF_ERROR(BIF_P, BADARG);
     }
     hp = HAlloc(BIF_P, n+1);
@@ -2457,7 +2455,7 @@ BIF_RETTYPE make_tuple_3(BIF_ALIST_3)
     Eterm list = BIF_ARG_3;
     Eterm* tup;
 
-    if (is_not_small(BIF_ARG_1) || (n = signed_val(BIF_ARG_1)) < 0) {
+    if (is_not_small(BIF_ARG_1) || (n = signed_val(BIF_ARG_1)) < 0 || n > ERTS_MAX_TUPLE_SIZE) {
     error:
 	BIF_ERROR(BIF_P, BADARG);
     }
@@ -2509,11 +2507,16 @@ BIF_RETTYPE append_element_2(BIF_ALIST_2)
     Eterm res;
 
     if (is_not_tuple(BIF_ARG_1)) {
+    error:
 	BIF_ERROR(BIF_P, BADARG);
     }
-    ptr = tuple_val(BIF_ARG_1);
+    ptr   = tuple_val(BIF_ARG_1);
     arity = arityval(*ptr);
-    hp = HAlloc(BIF_P, arity + 2);
+
+    if (arity + 1 > ERTS_MAX_TUPLE_SIZE)
+	goto error;
+
+    hp  = HAlloc(BIF_P, arity + 2);
     res = make_tuple(hp);
     *hp = make_arityval(arity+1);
     while (arity--) {
@@ -3097,7 +3100,7 @@ BIF_RETTYPE list_to_tuple_1(BIF_ALIST_1)
     Eterm* hp;
     int len;
 
-    if ((len = list_length(list)) < 0) {
+    if ((len = list_length(list)) < 0 || len > ERTS_MAX_TUPLE_SIZE) {
 	BIF_ERROR(BIF_P, BADARG);
     }
 
