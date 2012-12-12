@@ -320,7 +320,7 @@ present(Attribute) when is_list(Attribute) ->
 %%% will match entries containing:  'sn: Tornkvist'
 %%%
 substrings(Type, SubStr) when is_list(Type), is_list(SubStr) ->
-    Ss = {'SubstringFilter_substrings',v_substr(SubStr)},
+    Ss = v_substr(SubStr),
     {substrings,#'SubstringFilter'{type = Type,
 				   substrings = Ss}}.
 

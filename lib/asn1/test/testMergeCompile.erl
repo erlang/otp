@@ -37,7 +37,7 @@ main(Erule) ->
 
     %% test of RANAP.set.asn1
     ?line _PIEVal = [{'ProtocolIE-Field',4,ignore,{'Cause',{radioNetwork,{'CauseRadioNetwork','rab-pre-empted'}}}}],
-    ?line PIEVal2 = [{'ProtocolIE-Field',4,ignore,{'Cause',{radioNetwork,'rab-pre-empted'}}}],
+    PIEVal2 = [{'ProtocolIE-Field',4,ignore,{radioNetwork,'rab-pre-empted'}}],
     ?line _PEVal = [{'ProtocolExtensionField',[0]}],
 %%    ?line EncVal = asn1rt_per_v1:encode_integer([],100),
     ?line EncVal = 

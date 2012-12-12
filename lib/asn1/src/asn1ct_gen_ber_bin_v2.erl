@@ -114,16 +114,6 @@ gen_encode(Erules,Typename,Type) when is_record(Type,type) ->
 		_ -> % embedded type with constructed name
 		    true
 	    end,
-	    case lists:member(InnerType,['SET','SEQUENCE']) of
-		true -> 
-		    true;
-		_ ->
-		    emit([nl,"'enc_",asn1ct_gen:list2name(Typename),
-			  "'({'",asn1ct_gen:list2name(Typename),
-			  "',Val}, TagIn",ObjFun,") ->",nl]),
-		    emit(["   'enc_",asn1ct_gen:list2name(Typename),
-			  "'(Val, TagIn",ObjFun,");",nl,nl])
-	    end,
 	    emit(["'enc_",asn1ct_gen:list2name(Typename),
 		  "'(Val, TagIn",ObjFun,") ->",nl,"   "]),
 	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,Type);
@@ -157,15 +147,6 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
 	  "'(Val",") ->",nl]),
     emit(["    'enc_",asn1ct_gen:list2name(Typename),
 	  "'(Val, ", {asis,lists:reverse(Tag)},").",nl,nl]),
-
-    case lists:member(InnerType,['SET','SEQUENCE']) of
-	true -> 
-	    true;
-	_ ->
-	    emit({nl,"'enc_",asn1ct_gen:list2name(Typename),
-		  "'({'",asn1ct_gen:list2name(Typename),"',Val}, TagIn) ->",nl}),
-	    emit({"   'enc_",asn1ct_gen:list2name(Typename),"'(Val, TagIn);",nl,nl})
-    end,
     emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val, TagIn) ->",nl}),
     CurrentMod = get(currmod),
     case asn1ct_gen:type(InnerType) of

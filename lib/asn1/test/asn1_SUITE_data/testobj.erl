@@ -883,7 +883,7 @@ initial_ue_ies() ->
 
 
 cn_domain_indicator() ->
-    {'CN-DomainIndicator', 'ps-domain'}.
+    'ps-domain'.
     
 init_lai() ->
   #'ProtocolIE-Field'{
@@ -1279,11 +1279,11 @@ reset() ->
        protocolIEs = reset_ies()
       }.
 reset_ies() ->
-    {'Reset_protocolIEs', % this identifier is very unneccesary here 
-     [reset_cause(),
-      cn_domain_ind(),     % Se initial Ue
-      init_global_rnc_id() %  ---- " ----
-			     ]}.
+    [reset_cause(),
+     cn_domain_ind(),     % Se initial Ue
+     init_global_rnc_id() %  ---- " ----
+    ].
+
 init_global_rnc_id() ->
   #'ProtocolIE-Field'{
     id = 86,                              % 86 = id-GlobalRNC-ID 
@@ -1323,8 +1323,7 @@ reset_ack() ->
 	   protocolIEs = reset_ack_ies()
 	  }.
 reset_ack_ies() ->
-    {'ResetAcknowledge_protocolIEs', % very unneccesary 
-     [cn_domain_ind()]}.    % Se initial Ue
+    [cn_domain_ind()].    % Se initial Ue
 
 
 
@@ -1336,13 +1335,12 @@ reset_res(IuSCId) ->
 	  }.
 
 reset_res_ies(IuSCId) ->
-    {'ResetResource_protocolIEs', % very unneccesary
-     [
-      cn_domain_ind()       % Se initial Ue
-      ,reset_cause()        % Se reset
-      ,reset_res_list(IuSCId)
-      ,init_global_rnc_id_reset_res() %  ---- " ----
-     ]}.
+    [
+     cn_domain_ind()       % Se initial Ue
+     ,reset_cause()        % Se reset
+     ,reset_res_list(IuSCId)
+     ,init_global_rnc_id_reset_res() %  ---- " ----
+    ].
 
 init_global_rnc_id_reset_res() ->
   #'ProtocolIE-Field'{
