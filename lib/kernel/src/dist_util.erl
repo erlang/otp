@@ -757,7 +757,8 @@ setup_timer(Pid, Timeout) ->
     end.
 
 reset_timer(Timer) ->
-    Timer ! {self(), reset}.
+    Timer ! {self(), reset},
+    ok.
 
 cancel_timer(Timer) ->
     unlink(Timer),
