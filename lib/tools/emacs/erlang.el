@@ -997,6 +997,22 @@ behaviour.")
 	 1 'font-lock-function-name-face t))
   "Font lock keyword highlighting a function header.")
 
+(defface erlang-font-lock-exported-function-name-face
+  '((default (:inherit font-lock-function-name-face)))
+  "Face used for highlighting exported functions.")
+
+(defvar erlang-font-lock-exported-function-name-face
+  'erlang-font-lock-exported-function-name-face)
+
+(defvar erlang-inhibit-exported-function-name-face nil
+  "Inhibit separate face for exported functions")
+
+(defvar erlang-font-lock-keywords-exported-function-header
+  (list
+   (list #'erlang-match-next-exported-function
+	 1 'erlang-font-lock-exported-function-name-face t))
+  "Font lock keyword highlighting an exported function header.")
+
 (defvar erlang-font-lock-keywords-int-bifs
   (list
    (list (concat erlang-int-bif-regexp "\\s-*(")
@@ -1132,7 +1148,8 @@ There exists three levels of Font Lock keywords for Erlang:
   `erlang-font-lock-keywords-1' - Function headers and reserved keywords.
   `erlang-font-lock-keywords-2' - Bifs, guards and `single quotes'.
   `erlang-font-lock-keywords-3' - Variables, macros and records.
-  `erlang-font-lock-keywords-4' - Function names, Funs, LCs (not Atoms)
+  `erlang-font-lock-keywords-4' - Exported functions, Function names,
+                                  Funs, LCs (not Atoms).
 
 To use a specific level, please set the variable
 `font-lock-maximum-decoration' to the appropriate level.  Note that the
@@ -1174,6 +1191,7 @@ Example:
 
 (defvar erlang-font-lock-keywords-4
   (append erlang-font-lock-keywords-3
+          erlang-font-lock-keywords-exported-function-header
           erlang-font-lock-keywords-int-function-calls
 	  erlang-font-lock-keywords-ext-function-calls
 	  erlang-font-lock-keywords-fun-n
@@ -3661,6 +3679,38 @@ In the future the list may contain more elements."
 	    (substring str 1 -1)
 	  str)
       (store-match-data md))))
+
+(defun erlang-match-next-exported-function (max)
+  "Returns non-nil if there is an exported function in the current
+buffer between point and MAX."
+  (block nil
+    (while (and (not erlang-inhibit-exported-function-name-face)
+                (erlang-match-next-function max))
+      (when (erlang-last-match-exported-p)
+        (return (match-data))))))
+
+(defun erlang-match-next-function (max)
+  "Searches forward in current buffer for the next erlang function,
+bounded by position MAX."
+  (re-search-forward erlang-defun-prompt-regexp max 'move-point))
+
+(defun erlang-last-match-exported-p ()
+  "Returns non-nil if match-data describes the name and arity of an
+exported function."
+  (save-excursion
+    (save-match-data
+      (goto-char (match-beginning 1))
+      (erlang-function-exported-p
+       (erlang-remove-quotes (erlang-get-function-name))
+       (erlang-get-function-arity)))))
+
+(defun erlang-function-exported-p (name arity)
+  "Returns non-nil if function of name and arity is exported in current buffer."
+  (save-excursion
+    (let* ((old-match-data (match-data))
+           (exports        (erlang-get-export)))
+      (store-match-data old-match-data)
+      (member (cons name arity) exports))))
 
 
 ;;; Check module name
