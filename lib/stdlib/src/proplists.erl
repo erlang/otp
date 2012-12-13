@@ -51,7 +51,7 @@
 
 -export_type([property/0, proplist/0]).
 
--type property()   :: atom() | tuple().
+-type property()  :: atom() | tuple().
 -type proplist()  :: [property()].
 
 %% ---------------------------------------------------------------------
@@ -63,8 +63,9 @@
 %%
 %% @see property/2
 
--spec property(Property) -> Property when
-      Property :: property().
+-spec property(PropertyIn) -> PropertyOut when
+      PropertyIn :: property(),
+      PropertyOut :: property().
 
 property({Key, true}) when is_atom(Key) ->
     Key;
@@ -97,8 +98,9 @@ property(Key, Value) ->
 %%
 %% @see compact/1
 
--spec unfold(List) -> List when
-      List :: [term()].
+-spec unfold(ListIn) -> ListOut when
+      ListIn :: [term()],
+      ListOut :: [term()].
 
 unfold([P | Ps]) ->
     if is_atom(P) ->
@@ -115,8 +117,9 @@ unfold([]) ->
 %% @see unfold/1
 %% @see property/1
 
--spec compact(List) -> List when
-      List :: [property()].
+-spec compact(ListIn) -> ListOut when
+      ListIn :: [property()],
+      ListOut :: [property()].
 
 compact(List) ->
     [property(P) || P <- List].
@@ -199,7 +202,7 @@ is_defined(_Key, []) ->
 
 -spec get_value(Key, List) -> term() when
       Key :: term(),
-      List :: List::[term()].
+      List :: [term()].
 
 get_value(Key, List) ->
     get_value(Key, List, undefined).
@@ -272,9 +275,10 @@ get_all_values(_Key, []) ->
 %%
 %% @see get_all_values/2
 
--spec append_values(Key, List) -> List when
+-spec append_values(Key, ListIn) -> ListOut when
       Key :: term(),
-      List :: [term()].
+      ListIn :: [term()],
+      ListOut :: [term()].
 
 append_values(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -357,7 +361,7 @@ get_keys([], Keys) ->
 
 -spec delete(Key, List) -> List when
       Key :: term(),
-      List::[term()].
+      List :: [term()].
 
 delete(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -388,10 +392,11 @@ delete(_, []) ->
 %% @see substitute_negations/2
 %% @see normalize/2
 
--spec substitute_aliases(Aliases, List) -> List when
+-spec substitute_aliases(Aliases, ListIn) -> ListOut when
       Aliases :: [{Key, Key}],
       Key :: term(),
-      List::[term()].
+      ListIn :: [term()],
+      ListOut :: [term()].
 
 substitute_aliases(As, Props) ->
     [substitute_aliases_1(As, P) || P <- Props].
@@ -431,10 +436,11 @@ substitute_aliases_1([], P) ->
 %% @see substitute_aliases/2
 %% @see normalize/2
 
--spec substitute_negations(Negations, List) -> List when
+-spec substitute_negations(Negations, ListIn) -> ListOut when
       Negations :: [{Key, Key}],
       Key :: term(),
-      List :: [term()].
+      ListIn :: [term()],
+      ListOut :: [term()].
 
 substitute_negations(As, Props) ->
     [substitute_negations_1(As, P) || P <- Props].
@@ -497,9 +503,10 @@ substitute_negations_1([], P) ->
 %%
 %% @see normalize/2
 
--spec expand(Expansions, List) -> List when
+-spec expand(Expansions, ListIn) -> ListOut when
       Expansions :: [{Property :: property(), Expansion :: [term()]}],
-      List :: [term()].
+      ListIn :: [term()],
+      ListOut :: [term()].
 
 expand(Es, Ps) when is_list(Ps) ->
     Es1 = [{property(P), V} || {P, V} <- Es],
@@ -599,15 +606,16 @@ flatten([]) ->
 %% @see expand/2
 %% @see compact/1
 
--spec normalize(List, Stages) -> List when
-      List :: [term()],
+-spec normalize(ListIn, Stages) -> ListOut when
+      ListIn :: [term()],
       Stages :: [Operation],
       Operation :: {'aliases', Aliases}
                  | {'negations', Negations}
                  | {'expand', Expansions},
       Aliases :: [{Key, Key}],
       Negations :: [{Key, Key}],
-      Expansions :: [{Property :: property(), Expansion :: [term()]}].
+      Expansions :: [{Property :: property(), Expansion :: [term()]}],
+      ListOut :: [term()].
 
 normalize(L, [{aliases, As} | Xs]) ->
     normalize(substitute_aliases(As, L), Xs);
