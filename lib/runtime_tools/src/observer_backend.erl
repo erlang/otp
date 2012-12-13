@@ -83,7 +83,7 @@ get_table2(Parent, Table, Type) ->
 	       ets -> ets:info(Table, size);
 	       mnesia -> mnesia:table_info(Table, size)
 	   end,
-    case Size > 0 of
+    case Size =/= undefined andalso Size > 0 of
 	false ->
 	    Parent ! {self(), '$end_of_table'},
 	    normal;
