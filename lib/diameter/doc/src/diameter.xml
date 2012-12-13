@@ -69,8 +69,8 @@ Incoming Diameter requests are communicated as callbacks to a
 specified in the service configuration.</p>
 
 <p>
-Beware the difference between <em>diameter</em> (not capitalised) and
-<em>Diameter</em> (capitalised).
+Beware the difference between <em>diameter</em> (not capitalized) and
+<em>Diameter</em> (capitalized).
 The former refers to the Erlang application named diameter whose main
 api is defined here, the latter to Diameter protocol in the sense of
 &the_rfc;.</p>
@@ -488,16 +488,23 @@ candidates list.</p>
 
 <marker id="service_event"/>
 </item>
-
-<tag><c>service_event() = #diameter_event{}</c></tag>
+<tag><c>service_event() = #diameter_event{service = &service_name;,
+                                          info = &service_event_info;}</c></tag>
 <item>
 <p>
 An event message sent to processes that have subscribed to these using
 &subscribe;.</p>
 
+<marker id="service_event_info"/>
+</item>
+
+<tag><c>service_event_info() = term()</c></tag>
+
+<item>
+
 <p>
-The <c>info</c> field of the event record can have one of the
-following types.</p>
+The <c>info</c> field of a &service_event; record.
+Can have one of the following types.</p>
 
 <taglist>
 
@@ -534,9 +541,9 @@ Otherwise a connection has reestablished without the loss or
 connectivity.</p>
 
 <p>
-Note that a single <c>up</c>/<c>down</c> event for a given peer
-corresponds to one &app_peer_up;/&app_peer_down;
-callback for each of the Diameter applications negotiated during
+Note that a single <c>up</c> or <c>down</c> event for a given peer
+corresponds to multiple &app_peer_up; or &app_peer_down;
+callbacks, one for each of the Diameter applications negotiated during
 capablilities exchange.
 That is, the event communicates connectivity with the
 peer as a whole while the callbacks communicate connectivity with
@@ -582,7 +589,7 @@ CB = &evaluable;
 <p>
 An incoming CER has been answered with the indicated result code or
 discarded.
-<c>Caps</c> contains pairs of values for the the local node and remote
+<c>Caps</c> contains pairs of values for the local node and remote
 peer.
 <c>Pkt</c> contains the CER in question.
 In the case of rejection by a capabilities callback, the tuple
@@ -600,7 +607,7 @@ Pkt  = #diameter_packet{}
 <p>
 An incoming CER contained errors and has been answered with the
 indicated result code.
-<c>Caps</c> contains only values for the the local node.
+<c>Caps</c> contains only values for the local node.
 <c>Pkt</c> contains the CER in question.</p>
 </item>
 
@@ -624,7 +631,7 @@ ResultCode = integer()
 An incoming CEA has been rejected for the indicated reason.
 An integer-valued <c>Result</c> indicates the result code sent
 by the peer.
-<c>Caps</c> contains pairs of values for the the local node and remote
+<c>Caps</c> contains pairs of values for the local node and remote
 peer.
 <c>Pkt</c> contains the CEA in question.
 In the case of rejection by a capabilities callback, the tuple
@@ -640,7 +647,7 @@ Pkt  = #diameter_packet{}
 
 <p>
 An incoming CEA contained errors and has been rejected.
-<c>Caps</c> contains only values for the the local node.
+<c>Caps</c> contains only values for the local node.
 <c>Pkt</c> contains the CEA in question.</p>
 </item>
 
@@ -667,11 +674,14 @@ Config = {connect|listen, [transport_opt()]}
 An RFC 3539 watchdog state machine has changed state.</p>
 </item>
 
-</taglist>
-
+<tag><c>any()</c></tag>
+<item>
 <p>
 For forward compatibility, a subscriber should be prepared to receive
 info fields of forms other than the above.</p>
+</item>
+
+</taglist>
 
 <marker id="service_name"/>
 </item>
@@ -858,9 +868,8 @@ case the corresponding callbacks are applied until either all return
 The number of milliseconds after which a transport process having an
 established transport connection will be terminated if the expected
 capabilities exchange message (CER or CEA) is not received from the peer.
-For a connecting transport, the timing reconnection attempts is
-governed by &watchdog_timer; or
-&reconnect_timer; expiry.
+For a connecting transport, the timing of reconnection attempts is
+governed by &watchdog_timer; or &reconnect_timer; expiry.
 For a listening transport, the peer determines the timing.</p>
 
 <p>
@@ -877,7 +886,7 @@ transport connection having watchdog state <c>OKAY</c>.
 Applied to <c>Reason=transport|service|application</c> and the
 <c>&transport_ref;</c> and
 <c>&app_peer;</c>
-in question, <c>Reason</c> indicating whether the the diameter
+in question, <c>Reason</c> indicating whether the diameter
 application is being stopped, the service in question is being stopped
 at &stop_service; or
 the transport in question is being removed at &remove_transport;,
@@ -1733,7 +1742,7 @@ a service.</p>
 It is not an error to subscribe to events from a service
 that does not yet exist.
 Doing so before adding transports is required to guarantee the
-reception of all related events.</p>
+reception of all transport-related events.</p>
 
 </desc>
 </func>

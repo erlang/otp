@@ -26,7 +26,7 @@
 <erlref>
 <header>
 <copyright>
-<year>2011</year><year>2012</year>
+<year>2011</year><year>2013</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -65,9 +65,8 @@ It can be specified as the value of a <c>transport_module</c> option to
 &mod_add_transport;
 and implements the behaviour documented in
 &man_transport;.
-TLS security is supported, both as an upgrade following
-capabilities exchange as specified by &the_rfc; and
-at connection establishment as in the current draft standard.</p>
+TLS security is supported, either as an upgrade following
+capabilities exchange or at connection establishment.</p>
 
 <p>
 Note that the ssl application is required for TLS and must be started
