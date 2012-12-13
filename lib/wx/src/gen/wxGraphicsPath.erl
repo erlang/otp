@@ -197,13 +197,14 @@ contains(This,C={CX,CY})
 %% <br /> Also:<br />
 %% contains(This, C, [Option]) -> boolean() when<br />
 %% 	This::wxGraphicsPath(), C::{X::float(), Y::float()},<br />
-%% 	Option :: {fillStyle, integer()}.<br />
+%% 	Option :: {fillStyle, wx:wx_enum()}.<br />
 %% 
+%%<br /> FillStyle = integer
 -spec contains(This, X, Y) -> boolean() when
 	This::wxGraphicsPath(), X::number(), Y::number();
       (This, C, [Option]) -> boolean() when
 	This::wxGraphicsPath(), C::{X::float(), Y::float()},
-	Option :: {fillStyle, integer()}.
+	Option :: {fillStyle, wx:wx_enum()}.
 
 contains(This,X,Y)
  when is_record(This, wx_ref),is_number(X),is_number(Y) ->
@@ -218,9 +219,10 @@ contains(#wx_ref{type=ThisT,ref=ThisRef},{CX,CY}, Options)
   <<ThisRef:32/?UI,0:32,CX:64/?F,CY:64/?F, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicspath.html#wxgraphicspathcontains">external documentation</a>.
+%%<br /> FillStyle = integer
 -spec contains(This, X, Y, [Option]) -> boolean() when
 	This::wxGraphicsPath(), X::number(), Y::number(),
-	Option :: {fillStyle, integer()}.
+	Option :: {fillStyle, wx:wx_enum()}.
 contains(#wx_ref{type=ThisT,ref=ThisRef},X,Y, Options)
  when is_number(X),is_number(Y),is_list(Options) ->
   ?CLASS(ThisT,wxGraphicsPath),

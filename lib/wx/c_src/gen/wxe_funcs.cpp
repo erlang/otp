@@ -27,6 +27,15 @@
 #include "wxe_macros.h"
 #include "wxe_derived_dest.h"
 
+#if !wxCHECK_VERSION(2,9,0)
+#define wxPenJoin int
+#define wxPenCap int
+#define wxImageResizeQuality int
+#define wxPolygonFillMode int
+#define wxMappingMode int
+#define wxRasterOperationMode int
+#define wxFloodFillStyle int
+#endif
 void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
 {
  char * bp = Ecmd.buffer;
@@ -4896,7 +4905,7 @@ case wxGridCellAttr_SetDefAttr: { // wxGridCellAttr::SetDefAttr
  break;
 }
 case wxDC_Blit: { // wxDC::Blit
- int rop=wxCOPY;
+ wxRasterOperationMode rop=wxCOPY;
  bool useMask=false;
  wxPoint srcPtMask= wxDefaultPosition;
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
@@ -4912,7 +4921,7 @@ case wxDC_Blit: { // wxDC::Blit
  wxPoint srcPt = wxPoint(*srcPtX,*srcPtY);
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
- rop = (int)*(int *) bp; bp += 4;
+rop = *(wxRasterOperationMode *) bp; bp += 4;;
   } break;
   case 2: {bp += 4;
  useMask = *(bool *) bp; bp += 4;
@@ -4925,7 +4934,7 @@ case wxDC_Blit: { // wxDC::Blit
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- bool Result = This->Blit(destPt,sz,source,srcPt,rop,useMask,srcPtMask);
+ bool Result = This->Blit(destPt,sz,source,srcPt,(wxRasterOperationMode) rop,useMask,srcPtMask);
  rt.addBool(Result);
  break;
 }
@@ -5161,7 +5170,7 @@ case wxDC_DrawLines: { // wxDC::DrawLines
 case wxDC_DrawPolygon: { // wxDC::DrawPolygon
  wxCoord xoffset=0;
  wxCoord yoffset=0;
- int fillStyle=wxODDEVEN_RULE;
+ wxPolygonFillMode fillStyle=wxODDEVEN_RULE;
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
  int * pointsLen = (int *) bp; bp += 4;
  wxPoint *points;
@@ -5178,11 +5187,11 @@ case wxDC_DrawPolygon: { // wxDC::DrawPolygon
  yoffset = (wxCoord)*(int *) bp; bp += 4;
   } break;
   case 3: {bp += 4;
- fillStyle = (int)*(int *) bp; bp += 4;
+fillStyle = *(wxPolygonFillMode *) bp; bp += 4;;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- This->DrawPolygon(*pointsLen,points,xoffset,yoffset,fillStyle);
+ This->DrawPolygon(*pointsLen,points,xoffset,yoffset,(wxPolygonFillMode) fillStyle);
  driver_free(points);
  break;
 }
@@ -5283,7 +5292,7 @@ case wxDC_EndPage: { // wxDC::EndPage
  break;
 }
 case wxDC_FloodFill: { // wxDC::FloodFill
- int style=wxFLOOD_SURFACE;
+ wxFloodFillStyle style=wxFLOOD_SURFACE;
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
  int * ptX = (int *) bp; bp += 4;
  int * ptY = (int *) bp; bp += 4;
@@ -5296,11 +5305,11 @@ case wxDC_FloodFill: { // wxDC::FloodFill
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
- style = (int)*(int *) bp; bp += 4;
+style = *(wxFloodFillStyle *) bp; bp += 4;;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- bool Result = This->FloodFill(pt,col,style);
+ bool Result = This->FloodFill(pt,col,(wxFloodFillStyle) style);
  rt.addBool(Result);
  break;
 }
@@ -5756,16 +5765,16 @@ case wxDC_SetLayoutDirection: { // wxDC::SetLayoutDirection
 }
 case wxDC_SetLogicalFunction: { // wxDC::SetLogicalFunction
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
- int * function = (int *) bp; bp += 4;
+ wxRasterOperationMode function = *(wxRasterOperationMode *) bp; bp += 4;;
  if(!This) throw wxe_badarg(0);
- This->SetLogicalFunction((int) *function);
+ This->SetLogicalFunction((wxRasterOperationMode) function);
  break;
 }
 case wxDC_SetMapMode: { // wxDC::SetMapMode
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
- int * mode = (int *) bp; bp += 4;
+ wxMappingMode mode = *(wxMappingMode *) bp; bp += 4;;
  if(!This) throw wxe_badarg(0);
- This->SetMapMode((int) *mode);
+ This->SetMapMode((wxMappingMode) mode);
  break;
 }
 case wxDC_SetPalette: { // wxDC::SetPalette
@@ -6274,7 +6283,7 @@ case wxGraphicsContext_DrawIcon: { // wxGraphicsContext::DrawIcon
  break;
 }
 case wxGraphicsContext_DrawLines: { // wxGraphicsContext::DrawLines
- int fillStyle=wxODDEVEN_RULE;
+ wxPolygonFillMode fillStyle=wxODDEVEN_RULE;
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  int * pointsLen = (int *) bp; bp += 4;
  wxPoint2DDouble *points;
@@ -6285,25 +6294,25 @@ case wxGraphicsContext_DrawLines: { // wxGraphicsContext::DrawLines
    points[i] = wxPoint2DDouble(x,y);}
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
- fillStyle = (int)*(int *) bp; bp += 4;
+fillStyle = *(wxPolygonFillMode *) bp; bp += 4;;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- This->DrawLines(*pointsLen,points,fillStyle);
+ This->DrawLines(*pointsLen,points,(wxPolygonFillMode) fillStyle);
  driver_free(points);
  break;
 }
 case wxGraphicsContext_DrawPath: { // wxGraphicsContext::DrawPath
- int fillStyle=wxODDEVEN_RULE;
+ wxPolygonFillMode fillStyle=wxODDEVEN_RULE;
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  wxGraphicsPath *path = (wxGraphicsPath *) getPtr(bp,memenv); bp += 4;
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
- fillStyle = (int)*(int *) bp; bp += 4;
+fillStyle = *(wxPolygonFillMode *) bp; bp += 4;;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- This->DrawPath(*path,fillStyle);
+ This->DrawPath(*path,(wxPolygonFillMode) fillStyle);
  break;
 }
 case wxGraphicsContext_DrawRectangle: { // wxGraphicsContext::DrawRectangle
@@ -6378,16 +6387,16 @@ case wxGraphicsContext_DrawText_5: { // wxGraphicsContext::DrawText
  break;
 }
 case wxGraphicsContext_FillPath: { // wxGraphicsContext::FillPath
- int fillStyle=wxODDEVEN_RULE;
+ wxPolygonFillMode fillStyle=wxODDEVEN_RULE;
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  wxGraphicsPath *path = (wxGraphicsPath *) getPtr(bp,memenv); bp += 4;
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
- fillStyle = (int)*(int *) bp; bp += 4;
+fillStyle = *(wxPolygonFillMode *) bp; bp += 4;;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- This->FillPath(*path,fillStyle);
+ This->FillPath(*path,(wxPolygonFillMode) fillStyle);
  break;
 }
 case wxGraphicsContext_StrokePath: { // wxGraphicsContext::StrokePath
@@ -6858,23 +6867,23 @@ case wxGraphicsPath_CloseSubpath: { // wxGraphicsPath::CloseSubpath
  break;
 }
 case wxGraphicsPath_Contains_3: { // wxGraphicsPath::Contains
- int fillStyle=wxODDEVEN_RULE;
+ wxPolygonFillMode fillStyle=wxODDEVEN_RULE;
  wxGraphicsPath *This = (wxGraphicsPath *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
  wxDouble * x = (wxDouble *) bp; bp += 8;
  wxDouble * y = (wxDouble *) bp; bp += 8;
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
- fillStyle = (int)*(int *) bp; bp += 4;
+fillStyle = *(wxPolygonFillMode *) bp; bp += 4;;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- bool Result = This->Contains((wxDouble) *x,(wxDouble) *y,fillStyle);
+ bool Result = This->Contains((wxDouble) *x,(wxDouble) *y,(wxPolygonFillMode) fillStyle);
  rt.addBool(Result);
  break;
 }
 case wxGraphicsPath_Contains_2: { // wxGraphicsPath::Contains
- int fillStyle=wxODDEVEN_RULE;
+ wxPolygonFillMode fillStyle=wxODDEVEN_RULE;
  wxGraphicsPath *This = (wxGraphicsPath *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
  wxDouble * cX = (wxDouble *) bp; bp += 8;
@@ -6882,11 +6891,11 @@ case wxGraphicsPath_Contains_2: { // wxGraphicsPath::Contains
  wxPoint2DDouble c = wxPoint2DDouble(*cX,*cY);
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
- fillStyle = (int)*(int *) bp; bp += 4;
+fillStyle = *(wxPolygonFillMode *) bp; bp += 4;;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- bool Result = This->Contains(c,fillStyle);
+ bool Result = This->Contains(c,(wxPolygonFillMode) fillStyle);
  rt.addBool(Result);
  break;
 }
@@ -9312,6 +9321,7 @@ case wxCursor_new_1_1: { // wxCursor::wxCursor
  rt.addRef(getRef((void *)Result,memenv), "wxCursor");
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxCursor_new_4: { // wxCursor::wxCursor
  int hotSpotX=-1;
  int hotSpotY=-1;
@@ -9331,6 +9341,7 @@ case wxCursor_new_4: { // wxCursor::wxCursor
  rt.addRef(getRef((void *)Result,memenv), "wxCursor");
  break;
 }
+#endif
 case wxCursor_Ok: { // wxCursor::Ok
  wxCursor *This = (wxCursor *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
@@ -9710,16 +9721,16 @@ case wxImage_GetGreen: { // wxImage::GetGreen
  break;
 }
 case wxImage_GetImageCount: { // wxImage::GetImageCount
- long type=wxBITMAP_TYPE_ANY;
+ wxBitmapType type=wxBITMAP_TYPE_ANY;
  int * nameLen = (int *) bp; bp += 4;
  wxString name = wxString(bp, wxConvUTF8);
  bp += *nameLen+((8-((4+ *nameLen) & 7)) & 7);
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
- type = (long)*(int *) bp; bp += 4;
+type = *(wxBitmapType *) bp; bp += 4;;
   } break;
  }};
- int Result = wxImage::GetImageCount(name,type);
+ int Result = wxImage::GetImageCount(name,(wxBitmapType) type);
  rt.addInt(Result);
  break;
 }
@@ -9951,18 +9962,18 @@ case wxImage_Replace: { // wxImage::Replace
  break;
 }
 case wxImage_Rescale: { // wxImage::Rescale
- int quality=wxIMAGE_QUALITY_NORMAL;
+ wxImageResizeQuality quality=wxIMAGE_QUALITY_NORMAL;
  wxImage *This = (wxImage *) getPtr(bp,memenv); bp += 4;
  int * width = (int *) bp; bp += 4;
  int * height = (int *) bp; bp += 4;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
- quality = (int)*(int *) bp; bp += 4;
+quality = *(wxImageResizeQuality *) bp; bp += 4;;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- wxImage * Result = &This->Rescale((int) *width,(int) *height,quality);
+ wxImage * Result = &This->Rescale((int) *width,(int) *height,(wxImageResizeQuality) quality);
  rt.addRef(getRef((void *)Result,memenv), "wxImage");
  break;
 }
@@ -10076,18 +10087,18 @@ case wxImage_SaveFile_2_1: { // wxImage::SaveFile
  break;
 }
 case wxImage_Scale: { // wxImage::Scale
- int quality=wxIMAGE_QUALITY_NORMAL;
+ wxImageResizeQuality quality=wxIMAGE_QUALITY_NORMAL;
  wxImage *This = (wxImage *) getPtr(bp,memenv); bp += 4;
  int * width = (int *) bp; bp += 4;
  int * height = (int *) bp; bp += 4;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
- quality = (int)*(int *) bp; bp += 4;
+quality = *(wxImageResizeQuality *) bp; bp += 4;;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- wxImage * Result = new wxImage(This->Scale((int) *width,(int) *height,quality)); newPtr((void *) Result,3, memenv);;
+ wxImage * Result = new wxImage(This->Scale((int) *width,(int) *height,(wxImageResizeQuality) quality)); newPtr((void *) Result,3, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxImage");
  break;
 }
@@ -10432,9 +10443,9 @@ case wxPen_IsOk: { // wxPen::IsOk
 }
 case wxPen_SetCap: { // wxPen::SetCap
  wxPen *This = (wxPen *) getPtr(bp,memenv); bp += 4;
- int * capStyle = (int *) bp; bp += 4;
+ wxPenCap capStyle = *(wxPenCap *) bp; bp += 4;;
  if(!This) throw wxe_badarg(0);
- This->SetCap((int) *capStyle);
+ This->SetCap((wxPenCap) capStyle);
  break;
 }
 case wxPen_SetColour_1: { // wxPen::SetColour
@@ -10459,9 +10470,9 @@ case wxPen_SetColour_3: { // wxPen::SetColour
 }
 case wxPen_SetJoin: { // wxPen::SetJoin
  wxPen *This = (wxPen *) getPtr(bp,memenv); bp += 4;
- int * joinStyle = (int *) bp; bp += 4;
+ wxPenJoin joinStyle = *(wxPenJoin *) bp; bp += 4;;
  if(!This) throw wxe_badarg(0);
- This->SetJoin((int) *joinStyle);
+ This->SetJoin((wxPenJoin) joinStyle);
  break;
 }
 case wxPen_SetStyle: { // wxPen::SetStyle

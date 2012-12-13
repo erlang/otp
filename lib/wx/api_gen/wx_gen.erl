@@ -103,7 +103,12 @@ mangle_info({class,CN,P,O,FL}) ->
     Event  = get_value(event,O, false),
     Acc    = get_value(acc, O, []),
     {Fs,Fopts} = foldr(fun(FWO={F,FO},{Fl,Fopt}) when is_list(FO) ->
-			       {[F|Fl],[FWO|Fopt]};
+			       Opt = case F of
+					 {Name, ArgLen} when is_integer(ArgLen) ->
+					     {Name, FO};
+					 _ -> FWO
+				     end,
+			       {[F|Fl],[Opt|Fopt]};
 			  (F,{Fl,Fopt}) ->
 			       {[F|Fl], Fopt}
 		       end, {[],[]}, FL),
@@ -568,6 +573,7 @@ handle_param_opt(both, P) -> P#param{in=both};
 handle_param_opt({def,Def},P) -> P#param{def=Def};
 handle_param_opt({type,Type}, P=#param{type=T})  ->  P#param{type=T#type{name=Type}};
 handle_param_opt({single,Opt}, P=#param{type=T}) ->  P#param{type=T#type{single=Opt}};
+handle_param_opt({base,Enum={enum,Type}},  P=#param{type=T}) ->   P#param{type=T#type{base=Enum, name=Type}};
 handle_param_opt({base,Opt},  P=#param{type=T}) ->   P#param{type=T#type{base=Opt}};
 handle_param_opt({c_only,Opt},P) -> P#param{where=c, alt=Opt};
 handle_param_opt({ref, pointer}, P=#param{type=T}) ->   

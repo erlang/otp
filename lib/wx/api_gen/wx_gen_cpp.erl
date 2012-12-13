@@ -170,6 +170,14 @@ gen_funcs(Defs) ->
     w("#include \"wxe_macros.h\"~n"),
     w("#include \"wxe_derived_dest.h\"~n~n"),
 
+    w("#if !wxCHECK_VERSION(2,9,0)~n", []),
+    [w("#define ~p int~n", [Enum]) ||
+	Enum <- [wxPenJoin, wxPenCap, wxImageResizeQuality, %%wxBitmapType,
+		 wxPolygonFillMode, wxMappingMode, wxRasterOperationMode,
+		 wxFloodFillStyle
+		]],
+    w("#endif~n",[]),
+
     w("void WxeApp::wxe_dispatch(wxeCommand& Ecmd)~n{~n"),
     w(" char * bp = Ecmd.buffer;~n"),
     w(" wxeMemEnv *memenv = getMemEnv(Ecmd.port);~n"),
@@ -812,12 +820,12 @@ call_arg(#param{where=c, alt={size,Id}}) when is_integer(Id) ->
 call_arg(#param{name=N,def=Def,type=#type{name=Type,by_val=true,single=true,base=Base}})
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double; Base =:= bool ->
     case Def of
-	none -> "(" ++ to_string(Type) ++ ") *" ++ N;
+	none -> "(" ++ to_string(Type) ++ ") *" ++ N; %% Remove
 	_ ->  N
     end;
 
 call_arg(#param{name=N,type=#type{base={enum,Type}, by_val=true,single=true}}) ->
-    "(" ++ enum_type(Type) ++") " ++ N;
+    "(" ++ enum_type(Type) ++") " ++ N;  %% Remove
 call_arg(#param{name=N,type=#type{base={class,_},by_val=true,single=true}}) -> "*" ++ N;
 call_arg(#param{name=N,type=#type{base={class,_},ref=reference,single=true}}) -> "*" ++ N;
 call_arg(#param{name=N,type=#type{base=eventType}}) ->

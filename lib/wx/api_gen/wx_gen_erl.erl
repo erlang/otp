@@ -842,15 +842,20 @@ doc_enum(_,Ps) ->
     [doc_enum_type(Type,Name) || #param{name=Name, type=#type{base={enum,Type}}} <- Ps].
 
 doc_enum_type(Type, Name) ->
-    {Enum0, #enum{vals=Vals}} = wx_gen:get_enum(Type),
-    Enum = case Enum0 of {_, E} -> E; E -> E end,
-    Consts = get(consts),
-    Format = fun({N,_What}) ->
-		     #const{name=N} = gb_trees:get(N, Consts),
-		     "?" ++ enum_name(N)
-	     end,
-    Vs = args(Format, " | ", Vals),
-    {uppercase(Enum),Name, Vs}.
+    try
+	{Enum0, #enum{vals=Vals}} = wx_gen:get_enum(Type),
+	Enum = case Enum0 of {_, E} -> E; E -> E end,
+	Consts = get(consts),
+	Format = fun({N,_What}) ->
+			 #const{name=N} = gb_trees:get(N, Consts),
+			 "?" ++ enum_name(N)
+		 end,
+	Vs = args(Format, " | ", Vals),
+	{uppercase(Enum),Name, Vs}
+    catch _:_ ->
+	    io:format("Warning missing enum type ~p~n", [Type]),
+	    {uppercase(Type),Name,"integer"}
+    end.
 
 doc_enum_desc([]) -> ok;
 doc_enum_desc([{_Enum,Name,Vs}|R]) ->
