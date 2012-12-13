@@ -593,6 +593,12 @@ multicall(Nodes, Msg) ->
     {PatchedGood, Bad}.  %% Make the replies look like rpc:multicalls..
 %%    rpc:multicall(Nodes, ?MODULE, call, [Msg]).
 
+next_async_dump_log() ->
+    Interval = mnesia_monitor:get_env(dump_log_time_threshold),
+    Msg = {next_async_dump_log, time_threshold},
+    Ref = erlang:send_after(Interval, self(), Msg),
+    Ref.
+
 %%%----------------------------------------------------------------------
 %%% Callback functions from gen_server
 %%%----------------------------------------------------------------------
@@ -614,9 +620,7 @@ init([Parent]) ->
     mnesia_lib:unset(original_nodes),
     mnesia_recover:connect_nodes(Diff),
 
-    Interval = mnesia_monitor:get_env(dump_log_time_threshold),
-    Msg = {async_dump_log, time_threshold},
-    {ok, Ref} = timer:send_interval(Interval, Msg),
+    Ref = next_async_dump_log(),
     mnesia_dumper:start_regulator(),
 
     Empty = gb_trees:empty(),
@@ -1120,6 +1124,11 @@ handle_sync_tabs([], _From) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
+
+handle_info({next_async_dump_log, InitBy}, State) ->
+    async_dump_log(InitBy),
+    Ref = next_async_dump_log(),
+    noreply(State#state{dump_log_timer_ref=Ref});
 
 handle_info({async_dump_log, InitBy}, State) ->
     Worker = #dump_log{initiated_by = InitBy},
