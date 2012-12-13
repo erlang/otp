@@ -5098,7 +5098,7 @@ cross_cover_analyse(Analyse, TagDirs0) ->
     TagDirMods = add_cross_modules(TagMods,TagDirs),
     CoverdataFiles = get_coverdata_files(TagDirMods),
     lists:foreach(fun(CDF) -> cover:import(CDF) end, CoverdataFiles),
-    print(stdout, "Cover analysing...\n", []),
+    io:fwrite("Cover analysing...\n", []),
     DetailsFun =
 	case Analyse of
 	    details ->
