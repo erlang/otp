@@ -1307,77 +1307,42 @@ emit_default_getdec(ObjSetName,UniqueName) ->
     emit([indent(2), "fun(C,V,_,_) -> exit({{component,C},{value,V},{unique_name_and_value,",{asis,UniqueName},",ErrV}}) end"]).
 
 
-gen_inlined_dec_funs(Fields,[{typefield,Name,_}|Rest],
-		     ObjSetName,NthObj) ->
-    CurrMod = get(currmod),
-    InternalDefFunName = [NthObj,Name,ObjSetName],
-    case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when is_record(Type,type) ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    N=emit_inner_of_decfun(Type,InternalDefFunName),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-	{value,{_,Type}} when is_record(Type,typedef) ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    N=emit_inner_of_decfun(Type,InternalDefFunName),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-	{value,{_,#'Externaltypereference'{module=CurrMod,type=T}}} ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    emit([indent(12),"'dec_",T,"'(Val, telltype)"]),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-	{value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    emit([indent(12),"'",M,"':'dec_",T,"'(Val, telltype)"]),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-	false ->
-	    emit([indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl,
-		  indent(9),{asis,Name}," -> {Val,Type}"]),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj)
-    end;
-gen_inlined_dec_funs(Fields,[_|Rest],ObjSetName,NthObj) ->
-    gen_inlined_dec_funs(Fields,Rest,ObjSetName,NthObj);
-gen_inlined_dec_funs(_,[],_,NthObj) ->
+gen_inlined_dec_funs(Fields, List, ObjSetName, NthObj0) ->
+    emit([indent(3),"fun(Type, Val, _, _) ->",nl,
+	  indent(6),"case Type of",nl]),
+    NthObj = gen_inlined_dec_funs1(Fields, List, ObjSetName, "", NthObj0),
+    emit([nl,indent(6),"end",nl,
+	  indent(3),"end"]),
     NthObj.
 
-gen_inlined_dec_funs1(Fields,[{typefield,Name,_}|Rest],
-		     ObjSetName,NthObj) ->
+gen_inlined_dec_funs1(Fields, [{typefield,Name,_}|Rest],
+		      ObjSetName, Sep0, NthObj) ->
     CurrentMod = get(currmod),
     InternalDefFunName = [NthObj,Name,ObjSetName],
-    N=
-    case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when is_record(Type,type) ->
-	    emit({";",nl}),
-	    emit_inner_of_decfun(Type,InternalDefFunName);
-	{value,{_,Type}} when is_record(Type,typedef) ->
-	    emit({";",nl,indent(9),{asis,Name}," ->",nl}),
-	    emit_inner_of_decfun(Type,InternalDefFunName);
-	{value,{_,#'Externaltypereference'{module=CurrentMod,type=T}}} ->
-	    emit([";",nl,indent(9),{asis,Name}," ->",nl]),
-	    emit([indent(12),"'dec_",T,"'(Val,telltype)"]),
-	    0;
-	{value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-	    emit([";",nl,indent(9),{asis,Name}," ->",nl]),
-	    emit([indent(12),"'",M,"':'dec_",T,"'(Val,telltype)"]),
-	    0;
-	false ->
-	    emit([";",nl,
-		  indent(9),{asis,Name}," -> {Val,Type}"]),
-	    0
-    end,
-    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-gen_inlined_dec_funs1(Fields,[_|Rest],ObjSetName,NthObj)->
-    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-gen_inlined_dec_funs1(_,[],_,NthObj) ->
-    emit({nl,indent(6),"end",nl}),
-    emit({indent(3),"end"}),
-    NthObj.
+    emit(Sep0),
+    Sep = [";",nl],
+    N = case lists:keyfind(Name, 1, Fields) of
+	    {_,#type{}=Type} ->
+		emit_inner_of_decfun(Type, InternalDefFunName);
+	    {_,#typedef{}=Type} ->
+		emit([indent(9),{asis,Name}," ->",nl]),
+		emit_inner_of_decfun(Type, InternalDefFunName);
+	    {_,#'Externaltypereference'{module=CurrentMod,type=T}} ->
+		emit([indent(9),{asis,Name}," ->",nl,
+		      indent(12),"'dec_",T,"'(Val,telltype)"]),
+		0;
+	    {_,#'Externaltypereference'{module=M,type=T}} ->
+		emit([indent(9),{asis,Name}," ->",nl,
+		      indent(12),"'",M,"':'dec_",T,"'(Val,telltype)"]),
+		0;
+	    false ->
+		emit([indent(9),{asis,Name}," -> {Val,Type}"]),
+		0
+	end,
+    gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj+N);
+gen_inlined_dec_funs1(Fields, [_|Rest], ObjSetName, Sep, NthObj) ->
+    gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj);
+gen_inlined_dec_funs1(_, [], _, _, NthObj) -> NthObj.
 
 emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},
 		     InternalDefFunName) ->
