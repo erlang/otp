@@ -1,8 +1,8 @@
-%% -*- erlang-indent-level: 2 -*-
+%% -*- coding: utf-8; erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,8 +20,8 @@
 %%-----------------------------------------------------------------------
 %% File    : hipe_coalescing_regalloc.erl
 %% Authors : Andreas Wallin <d96awa@it.uu.se>
-%%           Thorild Selén <d95ths@.it.uu.se>
-%%           Ingemar Åberg <d95ina@it.uu.se>
+%%           Thorild SelÃ©n <d95ths@.it.uu.se>
+%%           Ingemar Ã…berg <d95ina@it.uu.se>
 %% Purpose : Play paintball with registers on a target machine.  We win
 %%           if they are all colored.  This is an iterated coalescing
 %%           register allocator.

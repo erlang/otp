@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -204,7 +204,7 @@ decode_name(_Config, Scope, Item) ->
 %%            to command requests from the MGC that audit 
 %%            ObservedEventsDescriptor, and found in the 
 %%            ObservedEventsDescriptor. See 12.2. If there are no parameters 
-%%            for the ObservedEvents Descriptor, then ÈnoneÉ shall be specified.
+%%            for the ObservedEvents Descriptor, then 'none' shall be specified.
 %% 
 %% 
 %% 12.1.4	Signals
@@ -225,7 +225,7 @@ decode_name(_Config, Scope, Item) ->
 %% 
 %%            BR (Brief)
 %% 
-%% 	   NOTE - SignalType may be defined such that it is dependent on 
+%% 	   NOTE - SignalType may be defined such that it is dependent on
 %%            the value of one or more parameters. The package MUST specify a 
 %%            default signal type. If the default type is TO, the package MUST 
 %%            specify a default duration which may be provisioned. A default 

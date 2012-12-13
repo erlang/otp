@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %% This library is free software; you can redistribute it and/or modify
 %% it under the terms of the GNU Lesser General Public License as
 %% published by the Free Software Foundation; either version 2 of the
@@ -13,8 +14,8 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% @copyright 2004-2007 Mickaël Rémond, Richard Carlsson
-%% @author Mickaël Rémond <mickael.remond@process-one.net>
+%% @copyright 2004-2007 MickaÃ«l RÃ©mond, Richard Carlsson
+%% @author MickaÃ«l RÃ©mond <mickael.remond@process-one.net>
 %%   [http://www.process-one.net/]
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @private

@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -204,15 +205,15 @@ test_ei_decode_misc(Config) when is_list(Config) ->
 
     ?line send_term_as_binary(P,foo),
     ?line send_term_as_binary(P,''),
-    ?line send_term_as_binary(P,'ÅÄÖåäö'),
+    ?line send_term_as_binary(P,'Ã…Ã„Ã–Ã¥Ã¤Ã¶'),
 
     ?line send_term_as_binary(P,"foo"),
     ?line send_term_as_binary(P,""),
-    ?line send_term_as_binary(P,"ÅÄÖåäö"),
+    ?line send_term_as_binary(P,"Ã…Ã„Ã–Ã¥Ã¤Ã¶"),
 
     ?line send_term_as_binary(P,<<"foo">>),
     ?line send_term_as_binary(P,<<>>),
-    ?line send_term_as_binary(P,<<"ÅÄÖåäö">>),
+    ?line send_term_as_binary(P,<<"Ã…Ã„Ã–Ã¥Ã¤Ã¶">>),
 
 %    ?line send_term_as_binary(P,{}),
 %    ?line send_term_as_binary(P,[]),

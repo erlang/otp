@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -894,7 +895,7 @@ otp_6354(Config) when is_list(Config) ->
     ?line "\"\\b\\t\\n\\v\\f\\r\\e\250\"" = 
               p([8,9,10,11,12,13,27,168], 1, 40, -1),
     % ?line "\"\\b\\t\\n\"\n \"\\v\\f\\r\"\n \"\\e\250\"" =
-    ?line "\"\\b\\t\\n\\v\\f\\r\\e¨\"" = 
+    ?line "\"\\b\\t\\n\\v\\f\\r\\eÂ¨\"" =
               p([8,9,10,11,12,13,27,168], 1, 10, -1),
     ?line "\"\\b\\t\\n\\v\\f\\r\\e\250\"" = 
               p([8,9,10,11,12,13,27,168], 1, 40, 100),
@@ -2042,12 +2043,12 @@ otp_10302(Suite) when is_list(Suite) ->
     "<<\"\x{400}\"/utf8>>" = pretty(<<"\x{400}"/utf8>>, -1),
 
     "<<\"\x{400}foo\"/utf8>>" = pretty(<<"\x{400}foo"/utf8>>, 2),
-    "<<\"äppl\"/utf8>>" = pretty(<<"äppl"/utf8>>, 2),
-    "<<\"äppl\"/utf8...>>" = pretty(<<"äpple"/utf8>>, 2),
+    "<<\"Ã¤ppl\"/utf8>>" = pretty(<<"Ã¤ppl"/utf8>>, 2),
+    "<<\"Ã¤ppl\"/utf8...>>" = pretty(<<"Ã¤pple"/utf8>>, 2),
     "<<\"apel\">>" = pretty(<<"apel">>, 2),
     "<<\"apel\"...>>" = pretty(<<"apelsin">>, 2),
-    "<<228,112,112,108>>" = fmt("~tp", [<<"äppl">>]),
-    "<<228,...>>" = fmt("~tP", [<<"äppl">>, 2]),
+    "<<228,112,112,108>>" = fmt("~tp", [<<"Ã¤ppl">>]),
+    "<<228,...>>" = fmt("~tP", [<<"Ã¤ppl">>, 2]),
 
     Chars = lists:seq(0, 512), % just a few...
     [] = [C || C <- Chars, S <- io_lib:write_unicode_char_as_latin1(C),

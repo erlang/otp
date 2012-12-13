@@ -496,7 +496,7 @@ verify_vacmSecurityToGroupTable_col(_, Val) ->
 %%
 %%-----------------------------------------------------------------
 vacmAccessTable(print) ->
-    %% Måste jag göra om alla entrien till {RowIdx, Row}?
+    %% Do I need to turn all entries into {RowIdx, Row}?
     TableInfo = get_table(vacmAccessTable), 
     PrintRow = 
 	fun(Prefix, Row) ->

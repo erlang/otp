@@ -1,8 +1,8 @@
-%%% -*- erlang-indent-level: 2 -*-
+%%% -*- coding: utf-8; erlang-indent-level: 2 -*-
 %%%
 %%% %CopyrightBegin%
 %%% 
-%%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%% 
 %%% The contents of this file are subject to the Erlang Public License,
 %%% Version 1.1, (the "License"); you may not use this file except in
@@ -19,9 +19,9 @@
 %%%
 %%%----------------------------------------------------------------------
 %%% File    : hipe_x86_postpass.erl
-%%% Author  : Christoffer Vikström <chvi3471@student.uu.se>
+%%% Author  : Christoffer VikstrÃ¶m <chvi3471@student.uu.se>
 %%% Purpose : Contain postpass optimisations for x86-assembler code.
-%%% Created : 5 Aug 2003 by Christoffer Vikström <chvi3471@student.uu.se>
+%%% Created : 5 Aug 2003 by Christoffer VikstrÃ¶m <chvi3471@student.uu.se>
 %%%----------------------------------------------------------------------
 
 -ifndef(HIPE_X86_POSTPASS).

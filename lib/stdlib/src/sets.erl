@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
-%% We use the dynamic hashing techniques by Per-Åke Larsson as
+%% We use the dynamic hashing techniques by Per-Ã…ke Larsson as
 %% described in "The Design and Implementation of Dynamic Hashing for
 %% Sets and Tables in Icon" by Griswold and Townsend.  Much of the
 %% terminology comes from that paper as well.

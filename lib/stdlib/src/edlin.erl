@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -317,9 +318,9 @@ over_non_word([], Stack, N) ->
     {[],Stack,N}.
 
 word_char(C) when C >= $A, C =< $Z -> true;
-word_char(C) when C >= $À, C =< $Þ, C =/= $× -> true;
+word_char(C) when C >= $Ã€, C =< $Ãž, C =/= $Ã— -> true;
 word_char(C) when C >= $a, C =< $z -> true;
-word_char(C) when C >= $ß, C =< $ÿ, C =/= $÷ -> true;
+word_char(C) when C >= $ÃŸ, C =< $Ã¿, C =/= $Ã· -> true;
 word_char(C) when C >= $0, C =< $9 -> true;
 word_char(C) when C =:= $_ -> true;
 word_char(C) when C =:= $. -> true;    % accept dot-separated names

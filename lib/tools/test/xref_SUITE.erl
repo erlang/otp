@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -2521,7 +2522,7 @@ otp_10192(doc) ->
 otp_10192(Conf) when is_list(Conf) ->
     PrivDir = ?privdir,
     {ok, _Pid} = xref:start(s),
-    Dir = filename:join(PrivDir, "ä"),
+    Dir = filename:join(PrivDir, "Ã¤"),
     ok = file:make_dir(Dir),
     {ok, []} = xref:add_directory(s, Dir),
     xref:stop(s),

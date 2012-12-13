@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +26,7 @@
 	 format_status/2]).
 
 %%%-----------------------------------------------------------------
-%%% This is a rewrite of overload from BS.3, by Peter Högfeldt.
+%%% This is a rewrite of overload from BS.3, by Peter HÃ¶gfeldt.
 %%%
 %%% DESCRIPTION
 %%%

@@ -4599,7 +4599,7 @@ get_simple_table_info1(S,#'ComponentType'{typespec=TS},[],Path) ->
     %% o.w. the asn1 code is wrong.
     #type{def=OCFT,constraint=Cnstr} = TS,
     case Cnstr of
-	[{simpletable,_OSRef}] ->
+	[{simpletable,_OSRef}] ->
 	    #'ObjectClassFieldType'{classname=ClRef,
 				    class=ObjectClass,
 				    fieldname=FieldName} = OCFT,

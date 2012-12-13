@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1248,7 +1248,7 @@ if_clauses([], Bs, Ieval) ->
     exception(error, if_clause, Bs, Ieval).
 
 %% case_clauses(Value, Clauses, Bindings, Error, Ieval)
-%%   Error = try_clause ¦ case_clause
+%%   Error = try_clause | case_clause
 case_clauses(Val, [{clause,_,[P],G,B}|Cs], Bs0, Error, Ieval) ->
     case match(P, Val, Bs0) of
 	{match,Bs} ->

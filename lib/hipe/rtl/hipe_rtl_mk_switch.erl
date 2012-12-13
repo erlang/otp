@@ -1,8 +1,8 @@
-%% -*- erlang-indent-level: 2 -*-
+%% -*- coding: utf-8; erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,7 @@
 %%  History  :	* 2001-02-28 Erik Johansson (happi@it.uu.se): 
 %%                Created.
 %%              * 2001-04-01 Erik Trulsson (ertr1013@csd.uu.se):
-%%                           Stefan Lindström (stli3993@csd.uu.se):
+%%                           Stefan LindstrÃ¶m (stli3993@csd.uu.se):
 %%                Added clustering and inlined binary search trees.
 %%              * 2001-07-30 EJ (happi@it.uu.se):
 %%                Fixed some bugs and started cleanup.

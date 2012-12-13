@@ -1198,7 +1198,7 @@ encode_bin_bit_string(C,UnusedAndBin={_,_},NamedBitList) ->
 %    case get_constraint(C,'SizeConstraint') of
 
 % 	0 ->
-% 	    []; % borde avgöras i compile-time
+% 	    []; % should be dont in compile time
 % 	V when integer(V),V=<16 ->
 % 	    {Unused2,Bin2} = pad_list(V,UnusedAndBin1),
 % 	    <<BitVal:V,_:Unused2>> = Bin2,

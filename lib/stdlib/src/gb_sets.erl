@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -165,7 +166,7 @@
 -export([new/0, is_element/2, add_element/2, del_element/2,
 	 subtract/2]).
 
-%% GB-trees adapted from Sven-Olof Nyström's implementation for
+%% GB-trees adapted from Sven-Olof NystrÃ¶m's implementation for
 %% representation of sets.
 %%
 %% Data structures:

@@ -1,8 +1,8 @@
-%% -*- erlang-indent-level: 2 -*-
+%% -*- coding: utf-8; erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 %%
 %%------------------------------------------------------------------------
 %% File    : hipe_dominators.erl
-%% Author  : Christoffer Vikström <chvi3471@student.uu.se>
+%% Author  : Christoffer VikstrÃ¶m <chvi3471@student.uu.se>
 %%           Daniel Deogun        <dade4543@student.uu.se>
 %%           Jesper Bengtsson     <jebe8371@student.uu.se>
 %% Created : 18 Mar 2002

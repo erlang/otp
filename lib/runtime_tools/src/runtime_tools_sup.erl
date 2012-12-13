@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -18,7 +19,7 @@
 %%
 %% ------------------------------------------------------------------------------
 %% File    : runtime_tools_sup.erl
-%% Author  : Lennart Öhman <lennart.ohman@st.se>
+%% Author  : Lennart Ã–hman <lennart.ohman@st.se>
 
 -module(runtime_tools_sup).
 -behaviour(supervisor).

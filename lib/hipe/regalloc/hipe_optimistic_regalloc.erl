@@ -1,8 +1,8 @@
-%% -*- erlang-indent-level: 2 -*-
+%% -*- coding: utf-8; erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1657,9 +1657,9 @@ findPrimitiveNodes(Node, N, Alias, PrimitiveNodes) ->
 %  %?debug_msg("Node ~p~n", [Node]),
 %  NextNode = Node - 1,
 %  Coalesced_to = hipe_reg_worklists:member_coalesced_to(NextNode, Worklists),
-%  ?debug_msg("³³-- member coalesced: ~p~n", [Coalesced_to]),
+%  ?debug_msg("Â³Â³-- member coalesced: ~p~n", [Coalesced_to]),
 %  {Primitives, Alias1} = undoCoalescing(NextNode, No_temporaries, Alias),
-%  ?debug_msg("½½-- primitivenodes ~w\n", [Primitives]),
+%  ?debug_msg("Â½Â½-- primitivenodes ~w\n", [Primitives]),
 %  case (Coalesced_to) of
 %    true -> printAlias(Alias1);
 %    _ -> true
@@ -1683,9 +1683,9 @@ findPrimitiveNodes(Node, N, Alias, PrimitiveNodes) ->
 fixAdj(N, SavedAdj, IG, Target) ->
   %Saved = hipe_vectors:get(SavedAdj, N),
   Saved = hipe_adj_list:edges(N, SavedAdj),
-  ?debug_msg("§§--adj to ~p: ~p~n", [N, Saved]),
+  ?debug_msg("Â§Â§--adj to ~p: ~p~n", [N, Saved]),
   Adj = hipe_ig:node_adj_list(N, IG),
-  ?debug_msg("««--adj to ~p: ~p~n", [N, Adj]),
+  ?debug_msg("Â«Â«--adj to ~p: ~p~n", [N, Adj]),
   New = findNew(Adj, Saved),
   ?debug_msg("++--new adj to ~p: ~p~n", [N, New]),
   removeAdj(New, N, IG, Target),

@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -461,7 +462,7 @@ hook(X, State) ->
 event(_X, S) ->
     S.
 
-%% The acc/3 function can return either {Acc´, S'} or {Acc', Pos', S'},
+%% The acc/3 function can return either {AccÂ´, S'} or {Acc', Pos', S'},
 %% where Pos' can be derived from X#xmlElement.pos, X#xmlText.pos, or
 %% X#xmlAttribute.pos (whichever is the current object type.)
 %% The acc/3 function is not allowed to redefine the type of object

@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %% This library is free software; you can redistribute it and/or modify
 %% it under the terms of the GNU Lesser General Public License as
 %% published by the Free Software Foundation; either version 2 of the
@@ -13,8 +14,8 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% @author Mickaël Rémond <mickael.remond@process-one.net>
-%% @copyright 2009 Mickaël Rémond, Paul Guyot
+%% @author MickaÃ«l RÃ©mond <mickael.remond@process-one.net>
+%% @copyright 2009 MickaÃ«l RÃ©mond, Paul Guyot
 %% @see eunit
 %% @doc Surefire reports for EUnit (Format used by Maven and Atlassian
 %% Bamboo for example to integrate test results). Based on initial code

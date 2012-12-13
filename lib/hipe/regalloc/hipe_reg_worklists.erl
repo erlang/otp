@@ -1,8 +1,8 @@
-%%% -*- erlang-indent-level: 2 -*-
+%%% -*- coding: utf-8; erlang-indent-level: 2 -*-
 %%%
 %%% %CopyrightBegin%
 %%% 
-%%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%% 
 %%% The contents of this file are subject to the Erlang Public License,
 %%% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,7 @@
 %%%----------------------------------------------------------------------
 
 -module(hipe_reg_worklists).
--author(['Andreas Wallin',  'Thorild Selén']).
+-author(['Andreas Wallin',  'Thorild SelÃ©n']).
 -export([new/5,			% only used by optimistic allocator
          new/6,
 	 simplify/1,

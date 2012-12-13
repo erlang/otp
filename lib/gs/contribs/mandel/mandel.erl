@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -34,7 +35,7 @@
 %%%-----------------------------------------------------------------
 %%% Distributed Mandelbrot program.
 %%% Originally written i C++/rpc/lwp/interviews by Klas Eriksson.(1200 lines)
-%%% Rewritten in Erlang by Klas Eriksson and Martin Björklund.
+%%% Rewritten in Erlang by Klas Eriksson and Martin BjÃ¶rklund.
 %%%-----------------------------------------------------------------
 
 %% unix>erl -sname foo            (all nodes will get the same name)

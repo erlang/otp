@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -310,7 +310,7 @@ nice_stop_node(Name) ->
 	{nodedown,Name} -> ok
     end.
 
-%rensa rd() före varje rapport-test så man bara får en fil...
+%clean out rd() before each report test in order to get only one file...
 clean_rd() ->
     {ok,L} = file:list_dir(rd()),
     lists:foreach(fun(F) ->

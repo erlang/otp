@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -213,19 +214,19 @@ test_ei_encode_misc(Config) when is_list(Config) ->
     ?line {<<100,0,3,"foo">>,foo}         = get_buf_and_term(P),
     ?line {<<100,0,0,"">>,''}             = get_buf_and_term(P),
     ?line {<<100,0,0,"">>,''}             = get_buf_and_term(P),
-    ?line {<<100,0,6,"ÅÄÖåäö">>,'ÅÄÖåäö'} = get_buf_and_term(P),
-    ?line {<<100,0,6,"ÅÄÖåäö">>,'ÅÄÖåäö'} = get_buf_and_term(P),
+    ?line {<<100,0,6,"Ã…Ã„Ã–Ã¥Ã¤Ã¶">>,'Ã…Ã„Ã–Ã¥Ã¤Ã¶'} = get_buf_and_term(P),
+    ?line {<<100,0,6,"Ã…Ã„Ã–Ã¥Ã¤Ã¶">>,'Ã…Ã„Ã–Ã¥Ã¤Ã¶'} = get_buf_and_term(P),
 
     ?line {<<107,0,3,"foo">>,"foo"}       = get_buf_and_term(P),
     ?line {<<107,0,3,"foo">>,"foo"}       = get_buf_and_term(P),
     ?line {<<106>>,""}                    = get_buf_and_term(P),
     ?line {<<106>>,""}                    = get_buf_and_term(P),
-    ?line {<<107,0,6,"ÅÄÖåäö">>,"ÅÄÖåäö"} = get_buf_and_term(P),
-    ?line {<<107,0,6,"ÅÄÖåäö">>,"ÅÄÖåäö"} = get_buf_and_term(P),
+    ?line {<<107,0,6,"Ã…Ã„Ã–Ã¥Ã¤Ã¶">>,"Ã…Ã„Ã–Ã¥Ã¤Ã¶"} = get_buf_and_term(P),
+    ?line {<<107,0,6,"Ã…Ã„Ã–Ã¥Ã¤Ã¶">>,"Ã…Ã„Ã–Ã¥Ã¤Ã¶"} = get_buf_and_term(P),
 
     ?line {<<109,0,0,0,3,"foo">>,<<"foo">>}       = get_buf_and_term(P),
     ?line {<<109,0,0,0,0,"">>,<<>>}               = get_buf_and_term(P),
-    ?line {<<109,0,0,0,6,"ÅÄÖåäö">>,<<"ÅÄÖåäö">>} = get_buf_and_term(P),
+    ?line {<<109,0,0,0,6,"Ã…Ã„Ã–Ã¥Ã¤Ã¶">>,<<"Ã…Ã„Ã–Ã¥Ã¤Ã¶">>} = get_buf_and_term(P),
 
     ?line {<<104,0>>,{}}       = get_buf_and_term(P),	% Tuple header for {}
     ?line {<<106>>,[]}         = get_buf_and_term(P),	% Empty list []

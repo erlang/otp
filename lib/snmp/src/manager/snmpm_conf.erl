@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -365,7 +366,7 @@ do_write_usm_conf(Fd,
 do_write_usm_conf(Fd, 
 		  {EngineID, UserName, SecName, 
 		   AuthP, AuthKey, PrivP, PrivKey}) ->
-    io:format(Fd, "{\"~s\", \"~s\", \"~s\", í~w, ~w, ~w, ~w}.~n", 
+    io:format(Fd, "{\"~s\", \"~s\", \"~s\", Ã­~w, ~w, ~w, ~w}.~n",
 	      [EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey]);
 do_write_usm_conf(_Fd, Crap) ->
     error({bad_usm_conf, Crap}).

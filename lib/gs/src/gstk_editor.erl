@@ -90,9 +90,9 @@
 %%	type
 %%
 
-%.t tag names 2.7 -> red blue (blue är färgen)
-%.t tag add blue 2.1 2.10    tagga text
-%.t tag configure blue -foregr blue skapa tag
+%.t tag names 2.7 -> red blue (blue is the colour)
+%.t tag add blue 2.1 2.10    tag the text
+%.t tag configure blue -foregr blue create tag
 % .t index end -> MaxRows.cols
 % .t yview moveto (Row-1)/MaxRows
 
