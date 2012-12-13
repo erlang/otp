@@ -1151,7 +1151,7 @@ fi
 
 AC_SUBST(ERTS_BUILD_SMP_EMU)
 
-AC_CHECK_FUNCS([posix_fadvise])
+AC_CHECK_FUNCS([posix_fadvise closefrom])
 AC_CHECK_HEADERS([linux/falloc.h])
 dnl * Old glibcs have broken fallocate64(). Make sure not to use it.
 AC_CACHE_CHECK([whether fallocate() works],i_cv_fallocate_works,[
