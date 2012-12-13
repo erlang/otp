@@ -21,7 +21,7 @@
 
 -include("External.hrl").
 -export([main/1]).
--export([ticket_7533/1,decoder/4]).
+-export([ticket_7533/1]).
 -include_lib("test_server/include/test_server.hrl").
 
 -record('SetOpt1',{bool1 = asn1_NOVALUE, int1, set1 = asn1_NOVALUE}).
@@ -186,21 +186,8 @@ ticket_7533(Ber) when Ber == ber ->
     ?line {ok,B} = asn1_wrapper:encode('SetOptional','SetOpt1',Val),
     ?line {ok,Val} = asn1_wrapper:decode('SetOptional','SetOpt1',B),
     
-    CorruptVal = [49,14,1,1,255,2,1,12] ++ lists:duplicate(8,0),
-    Pid = spawn(?MODULE,decoder,[self(),'SetOptional','SetOpt1',CorruptVal]),
-    receive
-	{ok,Pid,Result} ->
-	    io:format("Decode result: ~p~n",[Result]),
-	    ok
-    after 10000 ->
-	    io:format("Decode timeout~n",[]),
-	    exit(Pid,normal)
-    end;
+    CorruptVal = <<49,14,1,1,255,2,1,12,0:8/unit:8>>,
+    {error,_} = 'SetOptional':decode('SetOpt1', CorruptVal),
+    ok;
 ticket_7533(_) ->
     ok.
-
-decoder(Parent,Module,Type,Val) ->
-    io:format("Decoding~n",[]),
-    ?line {ok,Res} = asn1_wrapper:decode(Module,Type,Val),
-    io:format("Decode res: ~p~n",[Res]),
-    Parent ! {ok,self(),Res}.
