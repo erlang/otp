@@ -726,11 +726,9 @@ parse_type2([N="wxTextPos"|R],Info,Opts,T) ->        %%long
     parse_type2(R,Info,Opts,T#type{name=N,base=int});
 parse_type2([N="wxPrintQuality"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name=N,base=int});
-parse_type2([N="wxPaperSize"|R],Info,Opts,T) ->
-    parse_type2(R,Info,Opts,T#type{name=N,base=int});
 parse_type2(["wxDataFormat"|_R],_Info,_Opts,T) ->
     %% Hack Hack
-    T#type{name="wxDataFormatId",base=int};
+    T#type{name="wxDataFormatId",base={enum,"wxDataFormatId"}};
 parse_type2([N="wxArrayInt"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name=N,base=int,single=array});
 parse_type2([N="wxArrayDouble"|R],Info,Opts,T) -> 

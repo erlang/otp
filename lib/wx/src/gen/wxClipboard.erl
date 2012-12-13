@@ -130,8 +130,9 @@ usePrimarySelection(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxclipboard.html#wxclipboardissupported">external documentation</a>.
+%%<br /> Format = ?wxDF_INVALID | ?wxDF_TEXT | ?wxDF_BITMAP | ?wxDF_METAFILE | ?wxDF_SYLK | ?wxDF_DIF | ?wxDF_TIFF | ?wxDF_OEMTEXT | ?wxDF_DIB | ?wxDF_PALETTE | ?wxDF_PENDATA | ?wxDF_RIFF | ?wxDF_WAVE | ?wxDF_UNICODETEXT | ?wxDF_ENHMETAFILE | ?wxDF_FILENAME | ?wxDF_LOCALE | ?wxDF_PRIVATE | ?wxDF_HTML | ?wxDF_MAX
 -spec isSupported(This, Format) -> boolean() when
-	This::wxClipboard(), Format::integer().
+	This::wxClipboard(), Format::wx:wx_enum().
 isSupported(#wx_ref{type=ThisT,ref=ThisRef},Format)
  when is_integer(Format) ->
   ?CLASS(ThisT,wxClipboard),

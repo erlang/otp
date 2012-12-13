@@ -781,7 +781,7 @@ return_res1(#type{name=Type,base={class,_},single=list,ref=reference}) ->
 return_res1(#type{name=Type,base={comp,_,_},single=array,by_val=true}) ->
     {Type ++ " Result = ", ""};
 return_res1(#type{name=Type,single=true,by_val=true, base={class, _}}) ->
-    %% Memory leak !!!!!!   XXXX BUGBUG FIXME or doument!!
+    %% Temporary memory leak !!!!!!
     case Type of
 	"wxImage" ->  ok;
 	"wxFont"  ->  ok;
@@ -792,13 +792,7 @@ return_res1(#type{name=Type,single=true,by_val=true, base={class, _}}) ->
 	    io:format("~s::~s Building return value of temp ~s~n",
 		      [get(current_class),get(current_func),Type])
     end,
-    %% ClassDef = get({class,Type}),
-    %% Class = case is_derived(ClassDef) of
-    %% 		true ->  "E" ++ Type;
-    %% 		false -> Type
-    %% 	    end,
-    Class = Type, %% Remove
-    {Class ++ " * Result = new " ++ Class ++ "(", "); newPtr((void *) Result,"
+    {Type ++ " * Result = new " ++ Type ++ "(", "); newPtr((void *) Result,"
      ++ "3, memenv);"};
 return_res1(#type{base={enum,_Type},single=true,by_val=true}) ->
     {"int Result = " , ""};
@@ -822,15 +816,14 @@ call_arg(#param{where=c, alt={length,Alt}}) when is_list(Alt) ->
 call_arg(#param{where=c, alt={size,Id}}) when is_integer(Id) ->
     %% It's a binary
     "Ecmd.bin["++ integer_to_list(Id) ++ "]->size";
-call_arg(#param{name=N,def=Def,type=#type{name=Type,by_val=true,single=true,base=Base}})
+call_arg(#param{name=N,def=Def,type=#type{by_val=true,single=true,base=Base}})
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double; Base =:= bool ->
     case Def of
-	none -> "(" ++ to_string(Type) ++ ") *" ++ N; %% Remove
+	none -> "*" ++ N;
 	_ ->  N
     end;
-
-call_arg(#param{name=N,type=#type{base={enum,Type}, by_val=true,single=true}}) ->
-    "(" ++ enum_type(Type) ++") " ++ N;  %% Remove
+call_arg(#param{name=N,type=#type{base={enum,_Type}, by_val=true,single=true}}) ->
+    N;
 call_arg(#param{name=N,type=#type{base={class,_},by_val=true,single=true}}) -> "*" ++ N;
 call_arg(#param{name=N,type=#type{base={class,_},ref=reference,single=true}}) -> "*" ++ N;
 call_arg(#param{name=N,type=#type{base=eventType}}) ->
