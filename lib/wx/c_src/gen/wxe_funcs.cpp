@@ -1670,7 +1670,7 @@ case wxWindow_WarpPointer: { // wxWindow::WarpPointer
 case wxTopLevelWindow_GetIcon: { // wxTopLevelWindow::GetIcon
  wxTopLevelWindow *This = (wxTopLevelWindow *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- const wxIcon * Result = &This->GetIcon();
+ const wxIcon * Result = new wxIcon(This->GetIcon()); newPtr((void *) Result,3, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxIcon");
  break;
 }
@@ -9283,7 +9283,7 @@ case wxIconBundle_GetIcon_1_1: { // wxIconBundle::GetIcon
  int * sizeH = (int *) bp; bp += 4;
  wxSize size = wxSize(*sizeW,*sizeH);
  if(!This) throw wxe_badarg(0);
- const wxIcon * Result = &This->GetIcon(size);
+ const wxIcon * Result = new wxIcon(This->GetIcon(size)); newPtr((void *) Result,3, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxIcon");
  break;
 }
@@ -9297,7 +9297,7 @@ case wxIconBundle_GetIcon_1_0: { // wxIconBundle::GetIcon
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- const wxIcon * Result = &This->GetIcon(size);
+ const wxIcon * Result = new wxIcon(This->GetIcon(size)); newPtr((void *) Result,3, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxIcon");
  break;
 }
@@ -10306,8 +10306,8 @@ case wxBrush_new_1: { // wxBrush::wxBrush
 case wxBrush_GetColour: { // wxBrush::GetColour
  wxBrush *This = (wxBrush *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxColour * Result = &This->GetColour();
- rt.add((*Result));
+ wxColour Result = This->GetColour();
+ rt.add(Result);
  break;
 }
 case wxBrush_GetStipple: { // wxBrush::GetStipple
@@ -10409,8 +10409,8 @@ case wxPen_GetCap: { // wxPen::GetCap
 case wxPen_GetColour: { // wxPen::GetColour
  wxPen *This = (wxPen *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxColour * Result = &This->GetColour();
- rt.add((*Result));
+ wxColour Result = This->GetColour();
+ rt.add(Result);
  break;
 }
 case wxPen_GetJoin: { // wxPen::GetJoin
@@ -13313,28 +13313,28 @@ validator = (wxValidator *) getPtr(bp,memenv); bp += 4;
 case wxBitmapButton_GetBitmapDisabled: { // wxBitmapButton::GetBitmapDisabled
  wxBitmapButton *This = (wxBitmapButton *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- const wxBitmap * Result = &This->GetBitmapDisabled();
+ const wxBitmap * Result = new wxBitmap(This->GetBitmapDisabled()); newPtr((void *) Result,3, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxBitmap");
  break;
 }
 case wxBitmapButton_GetBitmapFocus: { // wxBitmapButton::GetBitmapFocus
  wxBitmapButton *This = (wxBitmapButton *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- const wxBitmap * Result = &This->GetBitmapFocus();
+ const wxBitmap * Result = new wxBitmap(This->GetBitmapFocus()); newPtr((void *) Result,3, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxBitmap");
  break;
 }
 case wxBitmapButton_GetBitmapLabel: { // wxBitmapButton::GetBitmapLabel
  wxBitmapButton *This = (wxBitmapButton *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- const wxBitmap * Result = &This->GetBitmapLabel();
+ const wxBitmap * Result = new wxBitmap(This->GetBitmapLabel()); newPtr((void *) Result,3, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxBitmap");
  break;
 }
 case wxBitmapButton_GetBitmapSelected: { // wxBitmapButton::GetBitmapSelected
  wxBitmapButton *This = (wxBitmapButton *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- const wxBitmap * Result = &This->GetBitmapSelected();
+ const wxBitmap * Result = new wxBitmap(This->GetBitmapSelected()); newPtr((void *) Result,3, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxBitmap");
  break;
 }
@@ -13560,8 +13560,8 @@ case wxCalendarCtrl_SetDate: { // wxCalendarCtrl::SetDate
 case wxCalendarCtrl_GetDate: { // wxCalendarCtrl::GetDate
  wxCalendarCtrl *This = (wxCalendarCtrl *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- const wxDateTime * Result = &This->GetDate();
- rt.add((*Result));
+ const wxDateTime Result = This->GetDate();
+ rt.add(Result);
  break;
 }
 #if !wxCHECK_VERSION(2,9,0)
@@ -16464,7 +16464,7 @@ case wxTextAttr_GetBackgroundColour: { // wxTextAttr::GetBackgroundColour
 case wxTextAttr_GetFont: { // wxTextAttr::GetFont
  wxTextAttr *This = (wxTextAttr *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- const wxFont * Result = &This->GetFont();
+ const wxFont * Result = new wxFont(This->GetFont()); newPtr((void *) Result,3, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxFont");
  break;
 }

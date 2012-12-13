@@ -769,7 +769,7 @@ return_res1(#type{name=Type,ref={pointer,_}, base={term,_}}) ->
     {Type ++ " * Result = (" ++ Type ++ "*)", ""};
 return_res1(#type{name=Type,ref={pointer,_}}) ->
     {Type ++ " * Result = (" ++ Type ++ "*)", ""};
-return_res1(#type{name=Type,single=true,ref=reference}) ->
+return_res1(#type{name=Type,single=true,by_val=false,ref=reference}) ->
     {Type ++ " * Result = &", ""};
 return_res1(#type{name=Type,single=true,by_val=true})
   when is_atom(Type) ->
@@ -792,8 +792,13 @@ return_res1(#type{name=Type,single=true,by_val=true, base={class, _}}) ->
 	    io:format("~s::~s Building return value of temp ~s~n",
 		      [get(current_class),get(current_func),Type])
     end,
-    %% #class{id=Id} = get({class,Type}),
-    {Type ++ " * Result = new " ++ Type ++ "(", "); newPtr((void *) Result,"
+    %% ClassDef = get({class,Type}),
+    %% Class = case is_derived(ClassDef) of
+    %% 		true ->  "E" ++ Type;
+    %% 		false -> Type
+    %% 	    end,
+    Class = Type, %% Remove
+    {Class ++ " * Result = new " ++ Class ++ "(", "); newPtr((void *) Result,"
      ++ "3, memenv);"};
 return_res1(#type{base={enum,_Type},single=true,by_val=true}) ->
     {"int Result = " , ""};
@@ -955,6 +960,8 @@ build_ret(Name,_,#type{base={enum,_Type},single=true}) ->
     w(" rt.addInt(~s);~n",[Name]);
 build_ret(Name,_,#type{base={comp,_,{record, _}},single=true}) ->
     w(" rt.add(~s);~n", [Name]);
+build_ret(Name,{ret,_},#type{base={comp,_,_},single=true, by_val=true}) ->
+    w(" rt.add(~s);~n",[Name]);
 build_ret(Name,{ret,_},#type{base={comp,_,_},single=true, ref=reference}) ->
     w(" rt.add((*~s));~n",[Name]);
 build_ret(Name,_,#type{base={comp,_,_},single=true}) ->

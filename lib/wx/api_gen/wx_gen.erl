@@ -576,9 +576,11 @@ handle_param_opt({single,Opt}, P=#param{type=T}) ->  P#param{type=T#type{single=
 handle_param_opt({base,Enum={enum,Type}},  P=#param{type=T}) ->   P#param{type=T#type{base=Enum, name=Type}};
 handle_param_opt({base,Opt},  P=#param{type=T}) ->   P#param{type=T#type{base=Opt}};
 handle_param_opt({c_only,Opt},P) -> P#param{where=c, alt=Opt};
-handle_param_opt({ref, pointer}, P=#param{type=T}) ->   
+handle_param_opt({ref, pointer}, P=#param{type=T}) ->
     P#param{type=T#type{by_val=false,ref={pointer, 1}}};
-handle_param_opt({mod,Mods}, P=#param{type=T=#type{mod=Mods0}}) ->  
+handle_param_opt({by_val, true}, P=#param{type=T}) ->
+    P#param{type=T#type{by_val=true}};
+handle_param_opt({mod,Mods}, P=#param{type=T=#type{mod=Mods0}}) ->
     P#param{type=T#type{mod=Mods++Mods0}}.
 
 get_opt(Opt, Method, Sz, Opts) -> 
