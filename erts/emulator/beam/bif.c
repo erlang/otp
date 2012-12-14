@@ -2536,9 +2536,11 @@ BIF_RETTYPE append_element_2(BIF_ALIST_2)
 
 BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
 {
-    Uint need;
-    Eterm* hp;
+    Eterm do_utf8_to_list(Process*, Uint num, byte *bytes, Uint sz, Uint left,
+			  Uint *num_built, Uint *num_eaten, Eterm tail); /*SVERK */
     Atom* ap;
+    Uint num_chars, num_built, num_eaten;
+    Eterm res;
 
     if (is_not_atom(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
@@ -2547,9 +2549,19 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
     ap = atom_tab(atom_val(BIF_ARG_1));
     if (ap->len == 0)
 	BIF_RET(NIL);	/* the empty atom */
-    need = ap->len*2;
-    hp = HAlloc(BIF_P, need);
-    BIF_RET(buf_to_intlist(&hp,(char*)ap->name,ap->len, NIL));
+    {
+	byte* err_pos;
+	if (erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL)
+	    != ERTS_UTF8_OK) {
+	    BIF_ERROR(BIF_P, BADARG);
+	}
+    }
+    
+    res = do_utf8_to_list(BIF_P, num_chars, ap->name, ap->len, ap->len,
+			  &num_built, &num_eaten, NIL);
+    ASSERT(num_built == num_chars);
+    ASSERT(num_eaten == ap->len);
+    BIF_RET(res);
 }
 
 /**********************************************************************/
@@ -2559,18 +2571,18 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
 BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 {
     Eterm res;
-    char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_LENGTH);
-    int i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_LENGTH);
+    char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_CHARACTERS);
+    int i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
 
     if (i < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	i = list_length(BIF_ARG_1);
-	if (i > MAX_ATOM_LENGTH) {
+	if (i > MAX_ATOM_CHARACTERS) {
 	    BIF_ERROR(BIF_P, SYSTEM_LIMIT);
 	}
 	BIF_ERROR(BIF_P, BADARG);
     }
-    res = am_atom_put(buf, i);
+    res = am_atom_put2((byte*)buf, i, 1);
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_RET(res);
 }
@@ -2580,16 +2592,16 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 {
     int i;
-    char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_LENGTH);
+    char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_CHARACTERS);
 
-    if ((i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_LENGTH)) < 0) {
+    if ((i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS)) < 0) {
     error:
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	BIF_ERROR(BIF_P, BADARG);
     } else {
 	Eterm a;
 	
-	if (erts_atom_get(buf, i, &a)) {
+	if (erts_atom_get(buf, i, &a, 1)) {
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(a);
 	} else {

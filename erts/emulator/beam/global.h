@@ -1525,6 +1525,7 @@ char *erts_convert_filename_to_native(Eterm name, char *statbuf,
 				      int allow_empty, int allow_atom,
 				      Sint *used /* out */);
 Eterm erts_convert_native_to_filename(Process *p, byte *bytes);
+int erts_utf8_to_latin1(byte* dest, const byte* source, unsigned slen);
 #define ERTS_UTF8_OK 0
 #define ERTS_UTF8_INCOMPLETE 1
 #define ERTS_UTF8_ERROR 2

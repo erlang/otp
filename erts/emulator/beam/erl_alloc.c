@@ -3045,13 +3045,13 @@ erts_request_alloc_info(struct process *c_p,
 	Eterm alloc = CAR(consp);
 
 	for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++)
-	    if (erts_is_atom_str((char *) erts_alc_a2ad[ai], alloc))
+	    if (erts_is_atom_str(erts_alc_a2ad[ai], alloc, 0))
 		goto save_alloc;
-	if (erts_is_atom_str("mseg_alloc", alloc)) {
+	if (erts_is_atom_str("mseg_alloc", alloc, 0)) {
 	    ai = ERTS_ALC_INFO_A_MSEG_ALLOC;
 	    goto save_alloc;
 	}
-	if (erts_is_atom_str("alloc_util", alloc)) {
+	if (erts_is_atom_str("alloc_util", alloc, 0)) {
 	    ai = ERTS_ALC_INFO_A_ALLOC_UTIL;
 	save_alloc:
 	    if (req_ai[ai])

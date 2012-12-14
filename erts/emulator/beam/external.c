@@ -707,7 +707,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 		    if (cix >= ERTS_ATOM_CACHE_SIZE)
 			ERTS_EXT_HDR_FAIL;
 		    ep++;
-#if MAX_ATOM_LENGTH > 255
+#if MAX_ATOM_CHARACTERS > 255
 		    if (long_atoms) {
 			CHKSIZE(2);
 			len = get_int16(ep);
@@ -720,7 +720,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 			len = get_int8(ep);
 			ep++;
 		    }
-		    if (len > MAX_ATOM_LENGTH)
+		    if (len > MAX_ATOM_CHARACTERS)
 			ERTS_EXT_HDR_FAIL; /* Too long atom */
 		    CHKSIZE(len);
 		    atom = am_atom_put((char *) ep, len);
@@ -1431,18 +1431,33 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
     if (iix < 0) { 
 	i = atom_val(atom);
 	j = atom_tab(i)->len;
-	if ((MAX_ATOM_LENGTH <= 255 || j <= 255)
-	    && (dflags & DFLAG_SMALL_ATOM_TAGS)) {
-	    *ep++ = SMALL_ATOM_EXT;
-	    put_int8(j, ep);
-	    ep++;
+	if (dflags & DFLAG_UTF8_ATOMS) {
+	    if (j <= 255) {
+		*ep++ = ATOM_UTF8_EXT;
+		put_int16(j, ep);
+		ep += 2;
+	    }
+	    else {
+		*ep++ = SMALL_ATOM_UTF8_EXT;
+		put_int8(j, ep);
+		ep += 2;
+	    }
+	    sys_memcpy((char *) ep, (char*)atom_tab(i)->name, (int) j);
 	}
 	else {
-	    *ep++ = ATOM_EXT;
-	    put_int16(j, ep);
-	    ep += 2;
+	    if (j <= 255 && (dflags & DFLAG_SMALL_ATOM_TAGS)) {
+		*ep++ = SMALL_ATOM_EXT;
+		j = erts_utf8_to_latin1(ep+1, atom_tab(i)->name, j);
+		put_int8(j, ep);
+		ep++;
+	    }
+	    else {
+		*ep++ = ATOM_EXT;
+		j = erts_utf8_to_latin1(ep+2, atom_tab(i)->name, j);
+		put_int16(j, ep);
+		ep += 2;
+	    }	    
 	}
-	sys_memcpy((char *) ep, (char*)atom_tab(i)->name, (int) j);
 	ep += j;
 	return ep;
     }
@@ -1482,7 +1497,7 @@ static byte*
 dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
 {
     Uint len;
-    int n;
+    int n, is_latin1;
 
     switch (*ep++) {
     case ATOM_CACHE_REF:
@@ -1498,17 +1513,29 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
     case ATOM_EXT:
 	len = get_int16(ep),
 	ep += 2;
+	is_latin1 = 1;
         goto dec_atom_common;
     case SMALL_ATOM_EXT:
 	len = get_int8(ep);
 	ep++;
+	is_latin1 = 1;
+	goto dec_atom_common;
+    case ATOM_UTF8_EXT:
+	len = get_int16(ep),
+	ep += 2;
+	is_latin1 = 0;
+	goto dec_atom_common;
+    case SMALL_ATOM_UTF8_EXT:
+	len = get_int8(ep),
+	ep++;
+	is_latin1 = 0;
     dec_atom_common:
         if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
-	    if (!erts_atom_get((char*)ep, len, objp)) {
+	    if (!erts_atom_get((char*)ep, len, objp, is_latin1)) {
                 goto error;
 	    }
         } else {
-            *objp = am_atom_put((char*)ep, len);
+            *objp = am_atom_put2(ep, len, is_latin1);
         }
 	ep += len;
 	break;
@@ -2113,7 +2140,7 @@ static byte*
 dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Eterm* objp)
 {
     Eterm* hp_saved = *hpp;
-    int n;
+    int n, is_latin1;
     register Eterm* hp = *hpp;	/* Please don't take the address of hp */
     Eterm* next = objp;
 
@@ -2199,17 +2226,29 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Et
 	case ATOM_EXT:
 	    n = get_int16(ep);
 	    ep += 2;
-            goto dec_term_atom_common;
+	    is_latin1 = 1;
+	    goto dec_term_atom_common;
 	case SMALL_ATOM_EXT:
 	    n = get_int8(ep);
 	    ep++;
+	    is_latin1 = 1;
+	    goto dec_term_atom_common;
+	case ATOM_UTF8_EXT:
+	    n = get_int16(ep);
+	    ep += 2;
+	    is_latin1 = 0;
+	    goto dec_term_atom_common;
+	case SMALL_ATOM_UTF8_EXT:
+	    n = get_int8(ep);
+	    ep++;
+	    is_latin1 = 0;
 dec_term_atom_common:
 	    if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
-		if (!erts_atom_get((char*)ep, n, objp)) {
+		if (!erts_atom_get((char*)ep, n, objp, is_latin1)) {
 		    goto error;
 		}
 	    } else {
-	        *objp = am_atom_put((char*)ep, n);
+	        *objp = am_atom_put2(ep, n, is_latin1);
 	    }
 	    ep += n;
 	    break;
@@ -2879,14 +2918,15 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 	    }
 	    else {
 		int alen = atom_tab(atom_val(obj))->len;
-		if ((MAX_ATOM_LENGTH <= 255 || alen <= 255)
-		    && (dflags & DFLAG_SMALL_ATOM_TAGS)) {
-		    /* Make sure a SMALL_ATOM_EXT fits: SMALL_ATOM_EXT l t1 t2... */
-			result += 1 + 1 + alen;
-		}
-		else {
-		    /* Make sure an ATOM_EXT fits: ATOM_EXT l1 l0 t1 t2... */
-			result += 1 + 2 + alen;
+		result += 1 + 1 + alen;
+		if (dflags & DFLAG_UTF8_ATOMS) {
+		    if (alen > 255) {
+			result++; /* ATOM_UTF8_EXT (not small) */
+		    }
+		    /*SVERK we use utf8 length which is an over estimation */
+		}		    
+		else if (alen > 255 || !(dflags & DFLAG_SMALL_ATOM_TAGS)) {
+		    result++; /* ATOM_EXT (not small) */
 		}
 		insert_acache_map(acmp, obj);
 	    }
@@ -3058,6 +3098,17 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
     return result;
 }
 
+static int is_valid_utf8_atom(byte* bytes, Uint nbytes)
+{
+    byte* err_pos;
+    Uint num_chars;
+
+    /*SVERK Do we really need to validate correct utf8? */
+    return nbytes <= MAX_ATOM_SZ_LIMIT
+	&& erts_analyze_utf8(bytes, nbytes, &err_pos, &num_chars, NULL) == ERTS_UTF8_OK
+	&& num_chars <= MAX_ATOM_CHARACTERS; 
+}
+
 static Sint
 decoded_size(byte *ep, byte* endp, int internal_tags)
 {
@@ -3125,19 +3176,39 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 	case ATOM_EXT:
 	    CHKSIZE(2);
 	    n = get_int16(ep);
-	    if (n > MAX_ATOM_LENGTH) {
+	    if (n > MAX_ATOM_CHARACTERS) {
 		return -1;
 	    }
 	    SKIP(n+2+atom_extra_skip);
 	    atom_extra_skip = 0;
 	    break;
+	case ATOM_UTF8_EXT:
+	    CHKSIZE(2);
+	    n = get_int16(ep);
+	    ep += 2;
+	    if (!is_valid_utf8_atom(ep, n)) {
+		return -1;
+	    }
+	    SKIP(n+atom_extra_skip);
+	    atom_extra_skip = 0;
+	    break;
 	case SMALL_ATOM_EXT:
 	    CHKSIZE(1);
 	    n = get_int8(ep);
-	    if (n > MAX_ATOM_LENGTH) {
+	    if (n > MAX_ATOM_CHARACTERS) {
 		return -1;
 	    }
 	    SKIP(n+1+atom_extra_skip);
+	    atom_extra_skip = 0;
+	    break;
+	case SMALL_ATOM_UTF8_EXT:
+	    CHKSIZE(1);
+	    n = get_int8(ep);
+	    ep++;
+	    if (!is_valid_utf8_atom(ep, n)) {
+		return -1;
+	    }
+	    SKIP(n+atom_extra_skip);
 	    atom_extra_skip = 0;
 	    break;
 	case ATOM_CACHE_REF:

@@ -974,7 +974,7 @@ int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len,
 				ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)
 {
     ASSERT(encoding == ERL_NIF_LATIN1);
-    return erts_atom_get(name, len, atom);
+    return erts_atom_get(name, len, atom, 1);
 }
 
 ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)
@@ -1633,7 +1633,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 			     "this vm variant (%s).",
 			     entry->vm_variant, ERL_NIF_VM_VARIANT);
     }
-    else if (!erts_is_atom_str((char*)entry->name, mod_atom)) {
+    else if (!erts_is_atom_str((char*)entry->name, mod_atom, 1)) {
 	ret = load_nif_error(BIF_P, bad_lib, "Library module name '%s' does not"
 			     " match calling module '%T'", entry->name, mod_atom);
     }
@@ -1643,7 +1643,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
 	    BeamInstr** code_pp;
 	    ErlNifFunc* f = &entry->funcs[i];
-	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom)
+	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, 1)
 		|| (code_pp = get_func_pp(mod->curr.code, f_atom, f->arity))==NULL) {
 		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
@@ -1746,7 +1746,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	for (i=0; i < entry->num_of_funcs; i++)
 	{
 	    BeamInstr* code_ptr;
-	    erts_atom_get(entry->funcs[i].name, sys_strlen(entry->funcs[i].name), &f_atom); 
+	    erts_atom_get(entry->funcs[i].name, sys_strlen(entry->funcs[i].name), &f_atom, 1); 
 	    code_ptr = *get_func_pp(mod->curr.code, f_atom, entry->funcs[i].arity);
 	    
 	    if (code_ptr[1] == 0) {

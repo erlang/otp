@@ -26,7 +26,9 @@
 
 #include "erl_atom_table.h"
 
-#define MAX_ATOM_LENGTH 255
+#define MAX_ATOM_CHARACTERS 255
+#define MAX_ATOM_SZ_FROM_LATIN1 (2*MAX_ATOM_CHARACTERS)
+#define MAX_ATOM_SZ_LIMIT (4*MAX_ATOM_CHARACTERS) /* theoretical byte limit */
 #define ATOM_LIMIT (1024*1024)
 #define MIN_ATOM_TABLE_SIZE 8192
 
@@ -53,8 +55,8 @@ typedef struct atom {
 extern IndexTable erts_atom_table;
 
 ERTS_GLB_INLINE Atom* atom_tab(Uint i);
-ERTS_GLB_INLINE int erts_is_atom_bytes(byte *text, size_t len, Eterm term);
-ERTS_GLB_INLINE int erts_is_atom_str(char *str, Eterm term);
+ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term);
+ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE Atom*
@@ -63,7 +65,7 @@ atom_tab(Uint i)
     return (Atom *) erts_index_lookup(&erts_atom_table, i);
 }
 
-ERTS_GLB_INLINE int erts_is_atom_bytes(byte *text, size_t len, Eterm term)
+ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term)
 {
     Atom *a;
     if (!is_atom(term))
@@ -73,30 +75,50 @@ ERTS_GLB_INLINE int erts_is_atom_bytes(byte *text, size_t len, Eterm term)
 	    && sys_memcmp((void *) a->name, (void *) text, len) == 0);
 }
 
-ERTS_GLB_INLINE int erts_is_atom_str(char *str, Eterm term)
+ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1)
 {
     Atom *a;
     int i, len;
-    char *aname;
+    const byte* aname;
+    const byte* s = (const byte*) str;
+
     if (!is_atom(term))
 	return 0;
     a = atom_tab(atom_val(term));
     len = a->len;
-    aname = (char *) a->name;
-    for (i = 0; i < len; i++)
-	if (aname[i] != str[i] || str[i] == '\0')
-	    return 0;
-    return str[len] == '\0';
+    aname = a->name;
+    if (is_latin1) {
+	for (i = 0; i < len; s++) {
+	    if (aname[i] < 0x80) {
+		if (aname[i] != *s || *s == '\0')
+		    return 0;
+		i++;
+	    }
+	    else {
+		if (aname[i]   != (0xC0 | (*s >> 6)) || 
+		    aname[i+1] != (0x80 | (*s & 0x3F))) {
+		    return 0;
+		}
+		i += 2;
+	    }
+	}
+    }
+    else {
+	for (i = 0; i < len; i++, s++)
+	    if (aname[i] != *s || *s == '\0')
+		return 0;
+    }
+    return *s == '\0';
 }
 
 #endif
 
 /*
  * Note, ERTS_IS_ATOM_STR() expects the first argument to be a
- * string literal.
+ * 7-bit ASCII string literal.
  */
 #define ERTS_IS_ATOM_STR(LSTR, TERM) \
-  (erts_is_atom_bytes((byte *) LSTR, sizeof(LSTR) - 1, (TERM)))
+  (erts_is_atom_utf8_bytes((byte *) LSTR, sizeof(LSTR) - 1, (TERM)))
 #define ERTS_DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 #define ERTS_INIT_AM(S) AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
@@ -104,12 +126,13 @@ int atom_table_size(void);	/* number of elements */
 int atom_table_sz(void);	/* table size in bytes, excluding stored objects */
 
 Eterm am_atom_put(const char*, int); /* most callers pass plain char*'s */
+Eterm am_atom_put2(const byte*, int, int is_latin1);
 int atom_erase(byte*, int);
 int atom_static_put(byte*, int);
 void init_atom_table(void);
 void atom_info(int, void *);
 void dump_atoms(int, void *);
-int erts_atom_get(const char* name, int len, Eterm* ap);
+int erts_atom_get(const char* name, int len, Eterm* ap, int is_latin1);
 void erts_atom_get_text_space_sizes(Uint *reserved, Uint *used);
 #endif
 

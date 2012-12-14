@@ -111,7 +111,7 @@ atom_text_alloc(int bytes)
 {
     byte *res;
 
-    ASSERT(bytes <= MAX_ATOM_LENGTH);
+    ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
     if (atom_text_pos + bytes >= atom_text_end) {
 	more_atom_space();
     }
@@ -198,7 +198,11 @@ am_atom_put(const char* name, int len)
     Atom a;
     Eterm ret;
     int aix;
-
+#ifdef DEBUG
+    byte* err_pos;
+    Uint num_chars;
+    ASSERT(erts_analyze_utf8(name, len, &err_pos, &num_chars, NULL) == ERTS_UTF8_OK);
+#endif
     /*
      * Silently truncate the atom if it is too long. Overlong atoms
      * could occur in situations where we have no good way to return
@@ -209,8 +213,8 @@ am_atom_put(const char* name, int len)
      * list_to_atom/1), the caller should check the length before
      * calling this function.
      */
-    if (len > MAX_ATOM_LENGTH) {
-	len = MAX_ATOM_LENGTH;
+    if (len > MAX_ATOM_SZ_LIMIT) {
+	len = MAX_ATOM_SZ_LIMIT;  /*SVERK Urk... */
     }
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_smp_atomic_inc_nob(&atom_put_ops);
@@ -229,6 +233,49 @@ am_atom_put(const char* name, int len)
     }
     return ret;
 }
+
+static void latin1_to_utf8(byte* conv_buf, const byte** srcp, int* lenp)
+{
+    byte* dst;
+    const byte* src = *srcp;
+    int i, len = *lenp;
+
+    for (i=0 ; i < len; ++i) {
+	if (src[i] & 0x80) {
+	    goto need_convertion;
+	}
+    }
+    return;
+
+need_convertion:
+    sys_memcpy(conv_buf, src, i);
+    dst = conv_buf + i;
+    for ( ; i < len; ++i) {
+	unsigned char chr = src[i];
+	if (!(chr & 0x80)) {
+	    *dst++ = chr;
+	}
+	else {
+	    *dst++ = 0xC0 | (chr >> 6);
+	    *dst++ = 0x80 | (chr & 0x3F);
+	}
+    }
+    *srcp = conv_buf;	
+    *lenp = dst - conv_buf;
+}
+
+
+Eterm
+am_atom_put2(const byte* name, int len, int is_latin1)
+{
+    byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
+
+    if (is_latin1) {
+	latin1_to_utf8(utf8_copy, &name, &len);
+    }
+    return am_atom_put((const char*)name, len);
+}
+
 
 
 int atom_table_size(void)
@@ -264,14 +311,18 @@ int atom_table_sz(void)
 }
 
 int
-erts_atom_get(const char *name, int len, Eterm* ap)
+erts_atom_get(const char *name, int len, Eterm* ap, int is_latin1)
 {
+    byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     Atom a;
     int i;
     int res;
 
     a.len = len;
     a.name = (byte *)name;
+    if (is_latin1) {
+	latin1_to_utf8(utf8_copy, (const byte**)&a.name, &a.len);
+    }
     atom_read_lock();
     i = index_get(&erts_atom_table, (void*) &a);
     res = i < 0 ? 0 : (*ap = make_atom(i), 1);

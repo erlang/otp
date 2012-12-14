@@ -1155,7 +1155,7 @@ BIF_RETTYPE unicode_characters_to_list_2(BIF_ALIST_2)
  * a faster analyze and size count with this function.
  */
 int erts_analyze_utf8(byte *source, Uint size, 
-			byte **err_pos, Uint *num_chars, int *left)
+		      byte **err_pos, Uint *num_chars, int *left)
 {
     *err_pos = source;
     *num_chars = 0;
@@ -1210,7 +1210,7 @@ int erts_analyze_utf8(byte *source, Uint size,
 	}
 	++(*num_chars);
 	*err_pos = source;
-	if (left && --(*left) <= 0) {
+	if (left && --(*left) <= 0 && size) {
 	    return ERTS_UTF8_ANALYZE_MORE;
 	}
     }
@@ -1220,7 +1220,7 @@ int erts_analyze_utf8(byte *source, Uint size,
 /*
  * No errors should be able to occur - no overlongs, no malformed, no nothing
  */    
-static Eterm do_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, 
+Eterm do_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, 
 			     Uint left,
 			     Uint *num_built, Uint *num_eaten, Eterm tail)
 {
@@ -1812,31 +1812,36 @@ BIF_RETTYPE atom_to_binary_2(BIF_ALIST_2)
     ap = atom_tab(atom_val(BIF_ARG_1));
 
     if (BIF_ARG_2 == am_latin1) {
-	BIF_RET(new_binary(BIF_P, ap->name, ap->len));
-    } else if (BIF_ARG_2 == am_utf8 || BIF_ARG_2 == am_unicode) {
-	int bin_size = 0;
 	int i;
 	Eterm bin_term;
-	byte* bin_p;
+	int bin_size = ap->len;
 
-	for (i = 0; i < ap->len; i++) {
-	    bin_size += (ap->name[i] >= 0x80) ? 2 : 1;
-	}
-	if (bin_size == ap->len) {
-	    BIF_RET(new_binary(BIF_P, ap->name, ap->len));
-	}
-	bin_term = new_binary(BIF_P, 0, bin_size);
-	bin_p = binary_bytes(bin_term);
-	for (i = 0; i < ap->len; i++) {
-	    byte b = ap->name[i];
-	    if (b < 0x80) {
-		*bin_p++ = b;
-	    } else {
-		*bin_p++ = 0xC0 | (b >> 6);
-		*bin_p++ = 0x80 | (b & 0x3F);
+	for (i = 0; i < ap->len; ) {  
+	    if (ap->name[i] < 0x80) i++;
+	    else {
+		ASSERT(ap->name[i] >= 0xC0);
+		if (ap->name[i] < 0xE0) {
+		    ASSERT(i+1 < ap->len && (ap->name[i+1] & 0xC0) == 0x80);
+		    i += 2;
+		    bin_size -= 1;
+		}
+		else goto error;
 	    }
 	}
+	if (bin_size == ap->len) {
+	    bin_term = new_binary(BIF_P, ap->name, ap->len);
+	}
+	else {
+	    byte* bin_p;
+	    int dbg_sz;
+	    bin_term = new_binary(BIF_P, 0, bin_size);
+	    bin_p = binary_bytes(bin_term);
+	    dbg_sz = erts_utf8_to_latin1(bin_p, ap->name, ap->len);
+	    ASSERT(dbg_sz == bin_size); (void)dbg_sz; 
+	}
 	BIF_RET(bin_term);
+    } else if (BIF_ARG_2 == am_utf8 || BIF_ARG_2 == am_unicode) {
+	BIF_RET(new_binary(BIF_P, ap->name, ap->len));
     } else {
     error:
 	BIF_ERROR(BIF_P, BADARG);
@@ -1856,102 +1861,52 @@ binary_to_atom(Process* p, Eterm bin, Eterm enc, int must_exist)
     bin_size = binary_size(bin);
     if (enc == am_latin1) {
 	Eterm a;
-	if (bin_size > MAX_ATOM_LENGTH) {
+	if (bin_size > MAX_ATOM_CHARACTERS) {
 	system_limit:
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BIF_ERROR(p, SYSTEM_LIMIT);
 	}
 	if (!must_exist) {
-	    a = am_atom_put((char *)bytes, bin_size);
+	    a = am_atom_put2(bytes, bin_size, 1);
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BIF_RET(a);
-	} else if (erts_atom_get((char *)bytes, bin_size, &a)) {
+	} else if (erts_atom_get((char *)bytes, bin_size, &a, 1)) {
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BIF_RET(a);
 	} else {
 	    goto badarg;
 	}
     } else if (enc == am_utf8 || enc == am_unicode) {
-	char *buf;
-	char *dst;
-	int i;
-	int num_chars;
 	Eterm res;
+	Uint num_chars = 0;
+	const byte* p = bytes;
+	Uint left = bin_size;
 
-	if (bin_size > 2*MAX_ATOM_LENGTH) {
-	    byte* err_pos;
-	    Uint n;
-	    int reds_left = bin_size+1; /* Number of reductions left. */
-
-	    if (erts_analyze_utf8(bytes, bin_size, &err_pos,
-			     &n, &reds_left) == ERTS_UTF8_OK) {
-		/* 
-		 * Correct UTF-8 encoding, but too many characters to
-		 * fit in an atom.
-		 */
+	while (left) {
+	    if (++num_chars > MAX_ATOM_CHARACTERS) {
 		goto system_limit;
-	    } else {
-		/*
-		 * Something wrong in the UTF-8 encoding or Unicode code
-		 * points > 255.
-		 */
-		goto badarg;
 	    }
+	    if ((p[0] & 0x80) == 0) {
+		++p;
+		--left;
+	    }
+	    else if (left >= 2
+		     && (p[0] & 0xFE) == 0xC2 /* only allow latin1 subset */
+		     && (p[1] & 0xC0) == 0x80) {
+		p += 2;
+		left -= 2;
+	    }
+	    else goto badarg;
 	}
 
-	/*
-	 * Allocate a temporary buffer the same size as the binary,
-	 * so that we don't need an extra overflow test.
-	 */
-	buf = (char *) erts_alloc(ERTS_ALC_T_TMP, bin_size);
-	dst = buf;
-	for (i = 0; i < bin_size; i++) {
-	    int c = bytes[i];
-	    if (c < 0x80) {
-		*dst++ = c;
-	    } else if (i < bin_size-1) {
-		int c2;
-		if ((c & 0xE0) != 0xC0) {
-		    goto free_badarg;
-		}
-		i++;
-		c = (c & 0x3F) << 6;
-		c2 = bytes[i];
-		if ((c2 & 0xC0) != 0x80) {
-		    goto free_badarg;
-		}
-		c = c | (c2 & 0x3F);
-		if (0x80 <= c && c < 256) {
-		    *dst++ = c;
-		} else {
-		    goto free_badarg;
-		}
-	    } else {
-	    free_badarg:
-		erts_free(ERTS_ALC_T_TMP, (void *) buf);
-		goto badarg;
-	    }
-	}
-	num_chars = dst - buf;
-	if (num_chars > MAX_ATOM_LENGTH) {
-	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	    goto system_limit;
-	}
 	if (!must_exist) {
-	    res = am_atom_put(buf, num_chars);
-	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BIF_RET(res);
-	} else {
-	    int exists = erts_atom_get(buf, num_chars, &res);
-	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	    if (exists) {
-		erts_free_aligned_binary_bytes(temp_alloc);
-		BIF_RET(res);
-	    } else {
-		goto badarg;
-	    }
+	    res = am_atom_put((char*)bytes, bin_size);
 	}
+	else if (!erts_atom_get((char*)bytes, bin_size, &res, 0)) {
+	    goto badarg;
+	}
+	erts_free_aligned_binary_bytes(temp_alloc);
+	BIF_RET(res);
     } else {
     badarg:
 	erts_free_aligned_binary_bytes(temp_alloc);
@@ -2668,5 +2623,32 @@ BIF_RETTYPE file_native_name_encoding_0(BIF_ALIST_0)
     default:
 	BIF_RET(am_undefined);
     }
+}
+
+/* Assumes 'dest' has enough room.
+ */
+int erts_utf8_to_latin1(byte* dest, const byte* source, unsigned slen)
+{
+    byte* dp = dest;
+    while (slen > 0) {
+	if ((source[0] & 0x80) == 0) {
+	    *dp++ = *source++;
+	    --slen;
+	}
+	else if (slen > 1 &&
+		 (source[0] & 0xFE) == 0xC2 &&
+		 (source[1] & 0xC0) == 0x80) {
+	    *dp++ = (char) ((source[0] << 6) | (source[1] & 0x3F));
+	    source += 2;
+	    slen -= 2;
+	}
+	else {
+	    /* Just let unconvertable octets through. This should not happen
+	       in a correctly upgraded system */
+	    *dp++ = *source++;
+	    --slen;
+	}
+    }
+    return dp - dest;
 }
 

@@ -51,6 +51,8 @@
 #define NEW_FUN_EXT       'p'
 #define EXPORT_EXT        'q'
 #define FUN_EXT           'u'
+#define ATOM_UTF8_EXT     'v'
+#define SMALL_ATOM_UTF8_EXT 'w'
 
 #define DIST_HEADER       'D'
 #define ATOM_CACHE_REF    'R'

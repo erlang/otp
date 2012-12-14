@@ -481,8 +481,6 @@ binary_to_atom(Config) when is_list(Config) ->
     %% Bad UTF8 sequences.
     ?line ?BADARG(binary_to_atom(id(<<255>>), utf8)),
     ?line ?BADARG(binary_to_atom(id(<<255,0>>), utf8)),
-    ?line ?BADARG(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),
-    ?line ?BADARG(binary_to_atom(id(<<0:512/unit:8,255,0>>), utf8)),
     ?line ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
     ?line [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) ||
 	      C <- lists:seq(256, 16#D7FF)],
@@ -494,6 +492,8 @@ binary_to_atom(Config) when is_list(Config) ->
 	      C <- lists:seq(16#90000, 16#10FFFF)],
 
     %% system_limit failures.
+    ?line ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),
+    ?line ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255,0>>), utf8)),
     ?line ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, latin1)),
     ?line ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, latin1)),
     ?line ?SYS_LIMIT(binary_to_atom(<<0:512/unit:8>>, latin1)),
