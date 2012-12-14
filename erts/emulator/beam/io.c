@@ -2534,6 +2534,8 @@ port_link_failure(Eterm port_id, Eterm linker)
 		if (IS_TRACED_FL(rp, F_TRACE_PROCS))
 		    trace_proc(NULL, rp, am_getting_unlinked, port_id);
 	    }
+	    if (rp_locks)
+		erts_smp_proc_unlock(rp, rp_locks);
 	}
     }
 }
