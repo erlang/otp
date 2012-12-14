@@ -173,7 +173,11 @@ release_docs_spec:
 # Run-time library template files.
 #
 
-RT_TEMPLATES = asn1rtt_per_common
+RT_TEMPLATES = asn1rtt_per_common \
+               asn1rtt_real_common \
+	       asn1rtt_ber \
+	       asn1rtt_per \
+	       asn1rtt_uper
 
 RT_TEMPLATES_ERL = $(RT_TEMPLATES:%=%.erl)
 RT_TEMPLATES_TARGET = $(RT_TEMPLATES:%=%.$(EMULATOR))

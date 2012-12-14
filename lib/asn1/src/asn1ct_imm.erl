@@ -21,7 +21,7 @@
 -export([per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
 	 per_dec_extension_map/1,
 	 per_dec_integer/2,per_dec_length/3,per_dec_named_integer/3,
-	 per_dec_octet_string/2,per_dec_open_type/1]).
+	 per_dec_octet_string/2,per_dec_open_type/1,per_dec_real/1]).
 -export([optimize_alignment/1,optimize_alignment/2,
 	 dec_slim_cg/2,dec_code_gen/2]).
 -export([effective_constraint/2]).
@@ -107,6 +107,14 @@ per_dec_open_type(Aligned) ->
     {get_bits,decode_unconstrained_length(true, Aligned),
      [8,binary,{align,Aligned}]}.
 
+per_dec_real(Aligned) ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,real_common,decode_real,[V]},
+			com,Buf,"}"])
+	  end,
+    {call,Dec,
+     {get_bits,decode_unconstrained_length(true, Aligned),
+      [8,binary,{align,Aligned}]}}.
 
 %%%
 %%% Local functions.

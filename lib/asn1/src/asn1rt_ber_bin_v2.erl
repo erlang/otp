@@ -24,6 +24,7 @@
 -export([decode/1, decode/2, match_tags/2, encode/1, encode/2]). 
 -export([fixoptionals/2,
 	 encode_tag_val/1,
+	 encode_tags/2,
 	 encode_tags/3,
 	 skip_ExtensionAdditions/2]).
 -export([encode_boolean/2,decode_boolean/2,

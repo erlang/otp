@@ -115,13 +115,11 @@ compile1(File,Options) when is_list(Options) ->
     DbFile = outfile(Base,"asn1db",Options),
     Includes = [I || {i,I} <- Options],
     EncodingRule = get_rule(Options),
-    asn1ct_table:new(asn1_functab),
     Continue1 = scan(File,Options),
     Continue2 = parse(Continue1,File,Options),
     Continue3 = check(Continue2,File,OutFile,Includes,EncodingRule,
 		      DbFile,Options,[]),
     Continue4 = generate(Continue3,OutFile,EncodingRule,Options),
-    asn1ct_table:delete(asn1_functab),
     Ret = compile_erl(Continue4,OutFile,Options),
     case inline(is_inline(Options),
 		inline_output(Options,filename:rootname(File)),
@@ -183,7 +181,6 @@ compile_set(SetBase,Files,Options)
     DbFile = outfile(SetBase,"asn1db",Options),
     Includes = [I || {i,I} <- Options],
     EncodingRule = get_rule(Options),
-    asn1ct_table:new(asn1_functab),
     ScanRes = scan_set(Files,Options),
     ParseRes = parse_set(ScanRes,Options),
     Result = 
@@ -208,7 +205,6 @@ compile_set(SetBase,Files,Options)
 		{error,{'unexpected error in scan/parse phase',
 			lists:map(fun(X)->element(3,X) end,Other)}}
 	end,
-    asn1ct_table:delete(asn1_functab),
     Result.
 
 check_set(ParseRes,SetBase,OutFile,Includes,EncRule,DbFile,
