@@ -37,20 +37,29 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF3_FILES = \
-	ssh.xml \
+XML_REF3_FILES = ssh.xml \
 	ssh_channel.xml \
-	ssh_connection.xml\
+	ssh_connection.xml \
+	ssh_client_key_api.xml \
+	ssh_server_key_api.xml \
 	ssh_sftp.xml \
 	ssh_sftpd.xml \
 
-XML_PART_FILES = part_notes.xml
-XML_CHAPTER_FILES = notes.xml
+XML_REF6_FILES = ssh_app.xml
+
+XML_PART_FILES = part_notes.xml \
+		 usersguide.xml
+XML_CHAPTER_FILES = notes.xml \
+	introduction.xml \
+	ssh_protocol.xml \
+	using_ssh.xml
 
 BOOK_FILES = book.xml
 
-XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
+XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES)  $(XML_REF6_FILES)\
             $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+
+IMAGE_FILES = SSH_protocols.png
 
 # ----------------------------------------------------
 
@@ -62,10 +71,12 @@ EXTRA_FILES = \
 	$(DEFAULT_GIF_FILES) \
 	$(DEFAULT_HTML_FILES) \
 	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
+        $(XML_REF6_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
 
 
 MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
+MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
 
 HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
@@ -80,16 +91,19 @@ DVIPS_FLAGS +=
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
+$(HTMLDIR)/%.png: %.png
 	$(INSTALL_DATA) $< $@
 
 docs: pdf html man
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
+images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
+
 pdf: $(TOP_PDF_FILE)
 
-html: $(HTML_REF_MAN_FILE)
+html: images $(HTML_REF_MAN_FILE)
+
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
@@ -97,7 +111,7 @@ clean clean_docs:
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~
 
-man: $(MAN3_FILES)
+man: $(MAN3_FILES) $(MAN6_FILES)
 
 
 debug opt: 
@@ -117,5 +131,8 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
 	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man6"
+	$(INSTALL_DATA) $(MAN6_FILES) "$(RELEASE_PATH)/man/man6"
+
 
 release_spec:

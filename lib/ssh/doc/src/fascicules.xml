@@ -1,7 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE fascicules SYSTEM "fascicules.dtd">
 
 <fascicules>
+  <fascicule file="usersguide" href="usersguide_frame.html" entry="no">
+    User's Guide
+  </fascicule>
   <fascicule file="ref_man" href="ref_man_frame.html" entry="yes">
     Reference Manual
   </fascicule>

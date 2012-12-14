@@ -41,7 +41,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssh-$(VSN)
 BEHAVIOUR_MODULES= \
 	ssh_sftpd_file_api \
         ssh_channel \
-	ssh_key_api
+	ssh_subsystem \
+	ssh_client_key_api \
+	ssh_server_key_api
 
 MODULES= \
 	ssh \

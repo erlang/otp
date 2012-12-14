@@ -48,17 +48,18 @@ publickey_msg([Alg, #ssh{user = User,
 
     case KeyCb:user_key(Alg, Opts) of
 	{ok, Key} ->
+	    StrAlgo = algorithm_string(Alg),
 	    PubKeyBlob = encode_public_key(Key),
 	    SigData = build_sig_data(SessionId, 
-				     User, Service, PubKeyBlob, Alg),
+				     User, Service, PubKeyBlob, StrAlgo),
 	    Sig = ssh_transport:sign(SigData, Hash, Key),
-	    SigBlob = list_to_binary([?string(Alg), ?binary(Sig)]),
+	    SigBlob = list_to_binary([?string(StrAlgo), ?binary(Sig)]),
 	    ssh_transport:ssh_packet(
 	      #ssh_msg_userauth_request{user = User,
 					service = Service,
 					method = "publickey",
 					data = [?TRUE,
-						?string(Alg),
+						?string(StrAlgo),
 						?binary(PubKeyBlob),
 						?binary(SigBlob)]},
 	      Ssh);
@@ -120,8 +121,7 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 					    data = <<>>},
 	    case proplists:get_value(pref_public_key_algs, Opts, false) of
 		false ->
-		    FirstAlg = algorithm(proplists:get_value(public_key_alg, Opts,
-							     ?PREFERRED_PK_ALG)),
+		    FirstAlg = proplists:get_value(public_key_alg, Opts, ?PREFERRED_PK_ALG),
 		    SecondAlg = other_alg(FirstAlg),
 		    AllowUserInt =  proplists:get_value(user_interaction, Opts, true),
 		    Prefs = method_preference(FirstAlg, SecondAlg, AllowUserInt),
@@ -130,7 +130,7 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 							  userauth_methods = none,
 							  service = "ssh-connection"});
 		Algs ->
-		    FirstAlg = algorithm(lists:nth(1, Algs)),
+		    FirstAlg = lists:nth(1, Algs),
 		    case length(Algs) =:= 2 of
 			true ->
 			    SecondAlg = other_alg(FirstAlg),
@@ -358,7 +358,7 @@ verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
     {ok, Key} = decode_public_key_v2(KeyBlob, Alg),
     KeyCb =  proplists:get_value(key_cb, Opts, ssh_file),
 
-    case KeyCb:is_auth_key(Key, User, Alg, Opts) of
+    case KeyCb:is_auth_key(Key, User, Opts) of
 	true ->
 	    PlainText = build_sig_data(SessionId, User,
 				       Service, KeyBlob, Alg),
@@ -381,9 +381,9 @@ build_sig_data(SessionId, User, Service, KeyBlob, Alg) ->
 	   ?binary(KeyBlob)],
     list_to_binary(Sig).
 
-algorithm(ssh_rsa) ->
+algorithm_string('ssh-rsa') ->
     "ssh-rsa";
-algorithm(ssh_dsa) ->
+algorithm_string('ssh-dss') ->
      "ssh-dss".
 
 decode_keyboard_interactive_prompts(NumPrompts, Data) ->
@@ -457,10 +457,10 @@ userauth_pk_messages() ->
 	binary]} % key blob
      ].
 
-other_alg("ssh-rsa") ->
-    "ssh-dss";
-other_alg("ssh-dss") ->
-    "ssh-rsa".
+other_alg('ssh-rsa') ->
+    'ssh-dss';
+other_alg('ssh-dss') ->
+    'ssh-rsa'.
 decode_public_key_v2(K_S, "ssh-rsa") ->
     case ssh_bits:decode(K_S,[string,mpint,mpint]) of
 	["ssh-rsa", E, N] ->

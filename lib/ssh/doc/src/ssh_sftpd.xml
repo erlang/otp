@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2005</year><year>2010</year>
+      <year>2005</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,23 +22,17 @@
     </legalnotice>
 
     <title>ssh_sftpd</title>
-    <prepared>Ingela Anderton Andin</prepared>
-    <responsible></responsible>
-    <docno>1</docno>
-    <approved></approved>
-    <checked></checked>
     <date>2005-09-22</date>
-    <rev>PA1</rev>
     <file>ssh_sftpd.sgml</file>
   </header>
   <module>ssh_sftpd</module>
-  <modulesummary>Specifies a channel process to handle a sftp subsystem.</modulesummary>
+  <modulesummary>Specifies the channel process to handle an sftp subsystem.</modulesummary>
   <description>
     <p>Specifies a channel process to handle a sftp subsystem.</p>
   </description>
 
   <section>
-    <title>COMMON DATA TYPES </title>
+    <title>DATA TYPES </title>
     <p><c>subsystem_spec() = {subsystem_name(), {channel_callback(), channel_init_args()}} </c></p>
     <p><c>subsystem_name() =  "sftp"</c></p>
     <p><c>channel_callback() = atom()</c> - Name of the erlang module implementing the
@@ -65,28 +59,28 @@
           </item>
           <tag><c><![CDATA[{file_handler, CallbackModule}]]></c></tag>
           <item>
-            <p>Determines which module to call for communicating with
-              the file server. Default value is <c>ssh_sftpd_file</c> that uses the
-              file and filelib API:s to access the standard OTP file
-              server. This option may be used to plug in the use of
-              other file servers.</p>
-          </item>
-          <tag><c><![CDATA[{max_files, Integer}]]></c></tag>
-          <item>
-            <p>The default value is <c>0</c>, which means that there is no upper limit.
-               If supplied, the number of filenames returned to the sftp client per <c>READDIR</c>
-               request, is limited to at most the given value.</p>
-          </item>
+	    <p>Determines which module to call for accessing
+	    the file server. The default value is <c>ssh_sftpd_file</c> that uses the
+	    <seealso marker="kernel#file">file</seealso> and <seealso marker="kernel#filelib">filelib</seealso> API:s to access the standard OTP file
+	    server. This option may be used to plug in
+	    other file servers.</p>
+	  </item>
+	  <tag><c><![CDATA[{max_files, Integer}]]></c></tag>
+	  <item>
+	    <p>The default value is <c>0</c>, which means that there is no upper limit.
+	    If supplied, the number of filenames returned to the sftp client per <c>READDIR</c>
+	    request is limited to at most the given value.</p>
+	  </item>
 	  <tag><c><![CDATA[{root, String}]]></c></tag>
 	  <item>
 	    <p>Sets the sftp root directory. The user will then not be
-	      able to see any files above this root. If for instance
-	      the root is set to <c>/tmp</c> the user will see this
-	      directory as <c>/</c> and if the user does cd <c>/etc</c>
-	      the user will end up in <c>/tmp/etc</c>.
+	    able to see any files above this root. If for instance
+	    the root is set to <c>/tmp</c> the user will see this
+	    directory as <c>/</c> and if the user does cd <c>/etc</c>
+	    the user will end up in <c>/tmp/etc</c>.
 	    </p>
 	  </item>
-        </taglist>
+	</taglist>
       </desc>
     </func>
   </funcs>  

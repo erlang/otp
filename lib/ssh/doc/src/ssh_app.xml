@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>2012</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>SSH</title>
+    <file>ssh_app.xml</file>
+  </header>
+  <app>SSH</app>
+  <appsummary>The ssh application implements the SSH (Secure Shell) protocol and
+  provides an SFTP (SSH File Transfer Protocol) client and server. </appsummary>
+
+  <section>
+    <title>DEPENDENCIES</title>
+    <p>The ssh application uses the Erlang applications public_key and
+    crypto to handle public keys and encryption, hence these
+    applications needs to be loaded for the ssh application to work. In
+    an embedded environment that means they need to be started with
+    application:start/[1,2] before the ssh application is started.
+    </p>
+  </section>
+
+  <section>
+    <title>CONFIGURATION</title>
+
+    <p>The ssh application does not currently have an application
+    specific configuration file as described in application(3),
+    however it will by default use the following configuration files
+    from openssh: known_hosts, authorized_keys, authorized_keys2,
+    id_dsa and id_rsa, ssh_host_dsa_key and ssh_host_rsa_key.  By
+    default Erlang SSH will look for id_dsa, id_rsa, known_hosts
+    and authorized_keys in ~/.ssh, and the host key files in /etc/ssh
+    . These locations may be changed by the options user_dir and
+    system_dir.  Public key handling may also be customized by
+    providing a callback module implementing the behaviors
+    <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and
+    <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
+    </p>
+
+    <section>
+      <title>PUBLIC KEYS</title>
+      <p>
+	id_dsa and id_rsa are the users private key files, note that
+	the public key is part of the private key so the ssh
+	application will not use the id_&lt;*>.pub files. These are
+	for the users convenience when he/she needs to convey their
+	public key.
+      </p>
+    </section>
+
+    <section>
+      <title>KNOW HOSTS</title>
+      <p>The known_hosts file contains a list of approved servers and
+      their public keys.  Once a server is listed, it can be verified
+      without user interaction.
+      </p>
+     </section>
+
+     <section>
+      <title>AUTHORIZED KEYS</title>
+      <p>The authorized key file keeps track of the user's authorized
+      public keys. The most common use of this file is to let users
+      log in without entering their password which is supported by the
+      Erlang SSH daemon.
+      </p>
+     </section>
+
+     <section>
+       <title>HOST KEYS</title>
+       <p>Currently rsa and dsa host keys are supported and are
+       expected to be found in files named ssh_host_rsa_key and
+       ssh_host_dsa_key.
+       </p>
+     </section>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p>application(3)</p>
+  </section>
+
+</appref>

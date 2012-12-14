@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2005</year><year>2010</year>
+      <year>2005</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,25 +22,20 @@
     </legalnotice>
 
     <title>ssh_sftp</title>
-    <prepared>Jakob Cederlund</prepared>
-    <responsible></responsible>
-    <docno>1</docno>
-    <approved></approved>
-    <checked></checked>
+    <prepared>OTP</prepared>
     <date>2005-09-22</date>
-    <rev>PA1</rev>
     <file>ssh_sftp.sgml</file>
   </header>
   <module>ssh_sftp</module>
   <modulesummary>SFTP client.</modulesummary>
   <description>
     <p>This module implements an SFTP (SSH FTP) client. SFTP is a
-      secure, encrypted file transfer service available for
-      SSH.</p>
+    secure, encrypted file transfer service available for
+    SSH.</p>
   </description>
   
  <section>
-    <title>COMMON DATA TYPES </title>
+    <title>DATA TYPES </title>
     <p>Type definitions that are used more than once in this module
     and/or abstractions to indicate the intended use of the data type:
     </p>
@@ -51,8 +46,8 @@
 
  <section>
     <title>TIMEOUTS </title>
-    <p>If the request functions for the sftp channel return {error, timeout}
-    it does not mean that the request did not reach the server and was
+    <p>If the request functions for the SFTP channel return {error, timeout}
+    it does not guarantee that the request did not reach the server and was
     not performed, it only means that we did not receive an answer from the
     server within the time that was expected.</p>
    </section>
@@ -64,7 +59,7 @@
       <name>start_channel(Host, Options) -></name>
       <name>start_channel(Host, Port, Options) -> {ok, Pid} | {ok, Pid, ConnectionRef} |
       {error, Reason}</name>
-      <fsummary>Starts a sftp client</fsummary>
+      <fsummary>Starts a SFTP client</fsummary>
       <type>
         <v>Host = string()</v>
         <v>ConnectionRef = ssh_connection_ref()</v>
@@ -73,11 +68,11 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-	<p>If not provided, setups a ssh connection in this case a
-	connection reference will be returned too. A ssh channel
-	process is started to handle the communication with the SFTP
-	server, the returned pid for this process should be used as
-	input to all other API functions in this module.</p>
+	<p>If no connection reference is provided, a connection is set
+	up and the new connection is returned.  An SSH channel process
+	is started to handle the communication with the SFTP server.
+	The returned pid for this process should be used as input to
+	all other API functions in this module.</p>
 
 	<p>Options are:</p>
 	<taglist>
@@ -95,13 +90,13 @@
 
     <func>
       <name>stop_channel(ChannelPid) -> ok</name>
-      <fsummary>Stops the sftp client channel.</fsummary>
+      <fsummary>Stops the SFTP client channel.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
       </type>
       <desc>
-	<p>Stops a sftp channel. If the ssh connection should be closed
-	call <seealso marker="ssh">ssh:close/1</seealso>.</p>
+	<p>Stops an SFTP channel. Does not close the SSH connetion.
+	Use <seealso marker="ssh">ssh:close/1</seealso> to close it.</p>
       </desc>
     </func>
   
@@ -133,8 +128,9 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Writes a file to the server, like <c><![CDATA[file:write_file/2]]></c>.
-          The file is created if it's not there.</p>
+        <p>Writes a file to the server, like
+        <c><![CDATA[file:write_file/2]]></c>.  The file is created if
+        it does not exist or is owerwritten if it does.</p>
       </desc>
     </func>
     <func>
@@ -169,7 +165,7 @@
       </type>
       <desc>
         <p>Opens a file on the server, and returns a handle that
-          is used for reading or writing.</p>
+          can be used for reading or writing.</p>
       </desc>
     </func>
     <func>
@@ -184,7 +180,7 @@
       </type>
       <desc>
         <p>Opens a handle to a directory on the server, the handle
-          is used for reading directory contents.</p>
+          can be used for reading directory contents.</p>
       </desc>
     </func>
     <func>
@@ -218,7 +214,7 @@
       </type>
       <desc>
         <p>Reads <c><![CDATA[Len]]></c> bytes from the file referenced by
-          <c><![CDATA[Handle]]></c>. Returns <c><![CDATA[{ok, Data}]]></c>, or <c><![CDATA[eof]]></c>, or
+          <c><![CDATA[Handle]]></c>. Returns <c><![CDATA[{ok, Data}]]></c>, <c><![CDATA[eof]]></c>, or
           <c><![CDATA[{error, Reason}]]></c>. If the file is opened with <c><![CDATA[binary]]></c>,
           <c><![CDATA[Data]]></c> is a binary, otherwise it is a string.</p>
         <p>If the file is read past eof, only the remaining bytes
@@ -267,9 +263,9 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Write <c><![CDATA[data]]></c> to the file referenced by <c><![CDATA[Handle]]></c>.
+        <p>Writes<c><![CDATA[data]]></c> to the file referenced by <c><![CDATA[Handle]]></c>.
           The file should be opened with <c><![CDATA[write]]></c> or <c><![CDATA[append]]></c>
-          flag. Returns <c><![CDATA[ok]]></c> if successful and <c><![CDATA[{error, Reason}]]></c>
+          flag. Returns <c><![CDATA[ok]]></c> if successful or S<c><![CDATA[{error, Reason}]]></c>
           otherwise.</p>
         <p>Typical error reasons are:</p>
         <taglist>
@@ -317,14 +313,14 @@
         <v>ChannelPid = pid()</v>
         <v>Handle = term()</v>
         <v>Location = Offset | {bof, Offset} | {cur, Offset} | {eof, Offset} | bof | cur | eof</v>
-        <v>Offset = int()</v>
+        <v>Offset = integer()</v>
 	<v>Timeout = timeout()</v>
         <v>NewPosition = integer()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
         <p>Sets the file position of the file referenced by <c><![CDATA[Handle]]></c>.
-          Returns <c><![CDATA[{ok, NewPosition]]></c> (as an absolute offset) if
+          Returns <c><![CDATA[{ok, NewPosition}]]></c> (as an absolute offset) if
           successful, otherwise <c><![CDATA[{error, Reason}]]></c>. <c><![CDATA[Location]]></c> is
           one of the following:</p>
         <taglist>
@@ -413,7 +409,7 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Read the link target from the symbolic link specified
+        <p>Reads the link target from the symbolic link specified
           by <c><![CDATA[name]]></c>, like <c><![CDATA[file:read_link/1]]></c>.</p>
       </desc>
     </func>
@@ -490,8 +486,9 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Deletes a directory specified by <c><![CDATA[Name]]></c>. The directory
-          should be empty.</p>
+	<p>Deletes a directory specified by <c><![CDATA[Name]]></c>.
+	Note that the directory must be empty before it can be successfully deleted
+	</p>
       </desc>
     </func>
   

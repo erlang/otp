@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE application SYSTEM "application.dtd">
 
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,19 +22,22 @@
     </legalnotice>
 
     <title>SSH Reference Manual</title>
-    <prepared>Jakob Cederlund</prepared>
-    <docno></docno>
+    <prepared>OTP</prepared>
     <date>2007-10-06</date>
     <rev>%VSN%</rev>
-    <file>application.sgml</file>
+    <file>ref_man.xml</file>
   </header>
   <description>
     <p>The SSH application is an erlang implementation of the
-      secure shell protocol.</p>
+      secure shell protocol (SSH) as defined by RFC 4250 - 4254</p>
+
   </description>
+  <xi:include href="ssh_app.xml"/>
   <xi:include href="ssh.xml"/>
   <xi:include href="ssh_channel.xml"/>
   <xi:include href="ssh_connection.xml"/>
+  <xi:include href="ssh_client_key_api.xml"/>
+  <xi:include href="ssh_server_key_api.xml"/>
   <xi:include href="ssh_sftp.xml"/>
   <xi:include href="ssh_sftpd.xml"/>
 </application>

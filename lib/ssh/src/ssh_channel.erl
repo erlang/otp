@@ -23,14 +23,35 @@
 
 -include("ssh_connect.hrl").
 
-%%% Optional callbacks handle_call/3, handle_cast/2, handle_msg/2,
-%%% code_change/3
-%% Should be further specified later
--callback init(Options::list()) ->
-    {ok, State::term()} | {ok, State::term(), Timeout::timeout()} | 
-    {stop, Reason ::term()}. 
+-callback init(Args :: term()) ->
+    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
+    {stop, Reason :: term()} | ignore.
+-callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+                      State :: term()) ->
+    {reply, Reply :: term(), NewState :: term()} |
+    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_cast(Request :: term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: term()}.
 
--callback terminate(term(), term()) -> term().
+-callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
+                               term()),
+                    State :: term()) ->
+    term().
+-callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
+                      Extra :: term()) ->
+    {ok, NewState :: term()} | {error, Reason :: term()}.
+
+-callback handle_msg(Msg ::term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: term()}.
+
 
 -callback handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()}, 
  			 State::term()) -> {ok, State::term()} | 

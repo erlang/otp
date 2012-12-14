@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="iso-8859-1" ?>
-<!DOCTYPE book SYSTEM "book.dtd">
+<!DOCTYPE part SYSTEM "part.dtd">
 
-<book xmlns:xi="http://www.w3.org/2001/XInclude">
-  <header titlestyle="normal">
+<part xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
     <copyright>
-      <year>2005</year><year>2012</year>
+      <year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,29 +21,17 @@
 
     </legalnotice>
 
-    <title>SSH</title>
+    <title>SSH User's Guide</title>
     <prepared>OTP Team</prepared>
-    <docno></docno>
-    <date>2007-10-06</date>
-    <rev>%VSN%</rev>
-    <file>book.sgml</file>
+    <date>2012-10-11</date>
+    <file>usersguide.xml</file>
   </header>
-  <insidecover>
-  </insidecover>
-  <pagetext>SSH</pagetext>
-  <preamble>
-    <contents level="2"></contents>
-  </preamble>
-  <parts lift="yes">
-    <xi:include href="usersguide.xml"/>
-  </parts>
-  <applications>
-    <xi:include href="ref_man.xml"/>
-  </applications>
-  <releasenotes>
-    <xi:include href="notes.xml"/>
-  </releasenotes>
-  <listofterms></listofterms>
-  <index></index>
-</book>
-
+  <description>
+    <p>The <em>SSH</em> application implements the SSH (Secure Shell) protocol and
+    provides an SFTP (Secret File Transfer Protocol) client and server.
+    </p>
+  </description>
+  <xi:include href="introduction.xml"/>
+  <xi:include href="ssh_protocol.xml"/>
+  <xi:include href="using_ssh.xml"/>
+</part>

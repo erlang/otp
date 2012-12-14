@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2012</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+      The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+    <title>ssh_server_key_api</title>
+  </header>
+  <module>ssh_server_key_api</module>
+  <modulesummary>
+    -behaviour(ssh_server_key_api).
+  </modulesummary>
+  <description>
+    <p>  Behaviour describing the API for an SSH server's public key handling.By implementing the callbacks defined
+    in this behavior it is possible to customize the SSH server's public key
+    handling. By default the SSH application implements this behavior
+    with help of the standard openssh files, see <seealso marker="SSH_app"> ssh(6)</seealso>.</p>
+  </description>
+
+  <section>
+    <title>DATA TYPES </title>
+
+    <p>Type definitions that are used more than once in this module
+    and/or abstractions to indicate the intended use of the data
+    type:</p>
+
+    <p> boolean() = true | false</p>
+    <p> string() = [byte()]</p>
+    <p> public_key() =  #'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term()</p>
+    <p> private_key() =  #'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term()</p>
+    <p> public_key_algorithm() =  'ssh-rsa'| 'ssh-dss' | atom()</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name>Module:host_key(Algorithm, DaemonOptions) ->
+      {ok, Key} | {error, Reason}</name>
+      <fsummary>Fetches the hosts private key </fsummary>
+      <type>
+	<v>Algorithm = public_key_algorithm()</v>
+	<d> Host key algorithm. Should support 'ssh-rsa'| 'ssh-dss' but additional algorithms
+	can be handled.</d>
+	<v> DaemonOptions = proplists:proplist() </v>
+	<d>Options provided to  <seealso marker="ssh#daemon">ssh:daemon/[2,3]</seealso></d>
+	<v> Key = private_key()</v>
+	<d> The private key of the host matching the <c>Algorithm</c></d>
+	<v>Reason = term() </v>
+      </type>
+      <desc>
+	  <p>Fetches the hosts private key</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>Module:is_auth_key(Key, User, DaemonOptions) -> Result</name>
+      <fsummary> Checks if the user key is authorized</fsummary>
+      <type>
+	<v> Key = public_key() </v>
+	<d> Normally an RSA or DSA public key but handling of other public keys can be added</d>
+	<v> User = string()</v>
+	<d> The user owning the public key</d>
+	<v> DaemonOptions = proplists:proplist() </v>
+	<d> Options provided to  <seealso marker="ssh#daemon">ssh:daemon/[2,3]</seealso></d>
+	<v> Result = boolean()</v>
+      </type>
+      <desc>
+	 <p> Checks if the user key is authorized </p>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
