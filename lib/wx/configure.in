@@ -416,12 +416,12 @@ else
     else
 	CWXWIN_PROG=`cygpath -d "$PROGRAMFILES" | cygpath -f - 2>/dev/null`
     fi
-    CWXWIN3=$CWXWIN_PROG/wxWidgets-2.8
-    CWXWIN4=$CWXWIN_PROG/wxMSW-2.8
-    CWX_DOCUMENTED="/opt/local/pgm/wxMSW-2.8.* /opt/local/pgm/wxWidgets-2.8.*"
+    CWXWIN3=$CWXWIN_PROG/wxWidgets-2.*.*
+    CWXWIN4=$CWXWIN_PROG/wxMSW-2.*.*
+    CWX_DOCUMENTED="/opt/local/pgm/wxMSW-2.*.* /opt/local/pgm/wxWidgets-2.*.*"
     case $ac_cv_sizeof_void_p in
     	 8)
-		CWX_DOCUMENTED="/opt/local64/pgm/wxMSW-2.8.* /opt/local64/pgm/wxWidgets-2.8.* $CWX_DOCUMENTED"
+		CWX_DOCUMENTED="/opt/local64/pgm/wxMSW-2.*.* /opt/local64/pgm/wxWidgets-2.*.* $CWX_DOCUMENTED"
 		;;
          *)
 		true
@@ -463,6 +463,7 @@ else
 	    fi
 	fi
     done
+
     if test -z "$WX_LIBS_STATIC"; then
 	AC_MSG_RESULT([failed])
         if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then

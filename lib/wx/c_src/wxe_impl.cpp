@@ -30,6 +30,11 @@
 // Ok ugly but needed for wxBufferedDC crash workaround
 #define private public
 #include <wx/dcbuffer.h>
+
+#if defined(__WXMSW__)
+    #include <wx/msw/private.h> // for wxSetInstance
+#endif
+
 #undef private
 
 #include "wxe_impl.h"
@@ -222,6 +227,11 @@ void *wxe_main_loop(void *vpdl)
   // This should be done in emulator but it's not in yet.
 #ifndef _WIN32
   erts_thread_disable_fpe();
+#else 
+  // Setup that wxWidgets should look for cursors and icons in 
+  // this dll and not in werl.exe (which is the default)
+  HMODULE WXEHandle = GetModuleHandle(_T("wxe_driver"));
+  wxSetInstance((HINSTANCE) WXEHandle);
 #endif
 
   result = wxEntry(argc, argv);
