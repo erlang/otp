@@ -205,7 +205,6 @@ erts_gfalc_start(GFAllctr_t *gfallctr,
 
     init->sbmbct = 0; /* Small mbc not yet supported by goodfit */
 
-    allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= sizeof(GFFreeBlock_t);
@@ -363,7 +362,7 @@ search_bucket(Allctr_t *allctr, int ix, Uint size)
 	 blk && i < max_blk_search;
 	 blk = blk->next, i++) {
 
-	blk_sz = BLK_SZ(blk);
+	blk_sz = MBC_FBLK_SZ(&blk->block_head);
 	blk_on_lambc = (((char *) blk) < gfallctr->last_aux_mbc_end
 			&& gfallctr->last_aux_mbc_start <= ((char *) blk));
 
@@ -402,7 +401,7 @@ get_free_block(Allctr_t *allctr, Uint size,
     if (min_bi == unsafe_bi) {
 	blk = search_bucket(allctr, min_bi, size);
 	if (blk) {
-	    if (cand_blk && cand_size <= BLK_SZ(blk))
+	    if (cand_blk && cand_size <= MBC_FBLK_SZ(blk))
 		return NULL; /* cand_blk was better */
 	    unlink_free_block(allctr, blk, flags);
 	    return blk;
@@ -422,7 +421,7 @@ get_free_block(Allctr_t *allctr, Uint size,
     /* We are guaranteed to find a block that fits in this bucket */
     blk = search_bucket(allctr, min_bi, size);
     ASSERT(blk);
-    if (cand_blk && cand_size <= BLK_SZ(blk))
+    if (cand_blk && cand_size <= MBC_FBLK_SZ(blk))
 	return NULL; /* cand_blk was better */
     unlink_free_block(allctr, blk, flags);
     return blk;
@@ -435,7 +434,7 @@ link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
     GFFreeBlock_t *blk = (GFFreeBlock_t *) block;
-    Uint sz = BLK_SZ(blk);
+    Uint sz = MBC_FBLK_SZ(&blk->block_head);
     int i = BKT_IX(gfallctr, sz);
 
     ASSERT(sz >= MIN_BLK_SZ);
@@ -456,7 +455,7 @@ unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
     GFFreeBlock_t *blk = (GFFreeBlock_t *) block;
-    Uint sz = BLK_SZ(blk);
+    Uint sz = MBC_FBLK_SZ(&blk->block_head);
     int i = BKT_IX(gfallctr, sz);
 
     if (!blk->prev) {
@@ -618,7 +617,7 @@ check_block(Allctr_t *allctr, Block_t * blk, int free_block)
     GFFreeBlock_t *fblk;
 
     if(free_block) {
-	Uint blk_sz = BLK_SZ(blk);
+	Uint blk_sz = is_sbc_blk(blk) ? SBC_BLK_SZ(blk) : MBC_BLK_SZ(blk);
 	bi = BKT_IX(gfallctr, blk_sz);
 
 	ASSERT(gfallctr->bucket_mask.main & (((UWord) 1) << IX2SMIX(bi)));

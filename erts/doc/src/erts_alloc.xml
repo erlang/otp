@@ -341,7 +341,8 @@
        Largest (<c>mseg_alloc</c>) multiblock carrier size (in
        kilobytes).  See <seealso marker="#mseg_mbc_sizes">the description
        on how sizes for mseg_alloc multiblock carriers are decided</seealso>
-       in "the <c>alloc_util</c> framework" section.</item>
+       in "the <c>alloc_util</c> framework" section. On 32-bit Unix style OS
+       this limit can not be set higher than 128 megabyte.</item>
       <tag><marker id="M_mbcgs"><c><![CDATA[+M<S>mbcgs <ratio>]]></c></marker></tag>
       <item>
        (<c>mseg_alloc</c>) multiblock carrier growth stages. See
@@ -413,7 +414,8 @@
        Singleblock carrier threshold. Blocks larger than this
        threshold will be placed in singleblock carriers. Blocks
        smaller than this threshold will be placed in multiblock
-       carriers.</item>
+       carriers. On 32-bit Unix style OS this threshold can not be set higher
+       than 8 megabytes.</item>
       <tag><marker id="M_sbmbcs"><c><![CDATA[+M<S>sbmbcs <size>]]></c></marker></tag>
       <item>
 	Small block multiblock carrier size (in bytes). Memory blocks smaller

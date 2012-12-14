@@ -54,7 +54,7 @@ end_per_group(_GroupName, Config) ->
 
 %% Verify that apply(M, F, A) is really tail recursive.
 apply_last(Config) when is_list(Config) ->
-    Pid=spawn(?MODULE, applied, [self(), 10000]),
+    Pid  = spawn(?MODULE, applied, [self(), 10000]),
     Size =
 	receive
 	    {Pid, finished} ->
@@ -94,32 +94,32 @@ apply_last_bif(Config) when is_list(Config) ->
 %% Test three high register numbers in a put_list instruction
 %% (to test whether packing works properly).
 packed_registers(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Mod = packed_regs,
-    ?line Name = filename:join(PrivDir, atom_to_list(Mod) ++ ".erl"),
+    PrivDir = ?config(priv_dir, Config),
+    Mod = packed_regs,
+    Name = filename:join(PrivDir, atom_to_list(Mod) ++ ".erl"),
 
     %% Generate a module which generates a list of tuples.
     %% put_list(A) -> [{A, 600}, {A, 999}, ... {A, 0}].
-    ?line Code = gen_packed_regs(600, ["-module("++atom_to_list(Mod)++").\n",
+    Code = gen_packed_regs(600, ["-module("++atom_to_list(Mod)++").\n",
 				       "-export([put_list/1]).\n",
 				       "put_list(A) ->\n["]),
-    ?line ok = file:write_file(Name, Code),
+    ok = file:write_file(Name, Code),
 
     %% Compile the module.
-    ?line io:format("Compiling: ~s\n", [Name]),
-    ?line CompRc = compile:file(Name, [{outdir, PrivDir}, report]),
-    ?line io:format("Result: ~p\n",[CompRc]),
-    ?line {ok, Mod} = CompRc,
+    io:format("Compiling: ~s\n", [Name]),
+    CompRc = compile:file(Name, [{outdir, PrivDir}, report]),
+    io:format("Result: ~p\n",[CompRc]),
+    {ok, Mod} = CompRc,
 
     %% Load it.
-    ?line io:format("Loading...\n",[]),
-    ?line LoadRc = code:load_abs(filename:join(PrivDir, atom_to_list(Mod))),
-    ?line {module,_Module} = LoadRc,
+    io:format("Loading...\n",[]),
+    LoadRc = code:load_abs(filename:join(PrivDir, atom_to_list(Mod))),
+    {module,_Module} = LoadRc,
 
     %% Call it and verify result.
-    ?line Term = {a, b},
-    ?line L = Mod:put_list(Term),
-    ?line verify_packed_regs(L, Term, 600),
+    Term = {a, b},
+    L = Mod:put_list(Term),
+    verify_packed_regs(L, Term, 600),
     ok.
 
 gen_packed_regs(0, Acc) ->
@@ -131,11 +131,11 @@ verify_packed_regs([], _, -1) -> ok;
 verify_packed_regs([{Term, N}| T], Term, N) ->
     verify_packed_regs(T, Term, N-1);
 verify_packed_regs(L, Term, N) ->
-    ?line ok = io:format("Expected [{~p, ~p}|T]; got\n~p\n", [Term, N, L]),
-    ?line test_server:fail().
+    ok = io:format("Expected [{~p, ~p}|T]; got\n~p\n", [Term, N, L]),
+    test_server:fail().
 
 buildo_mucho(Config) when is_list(Config) ->
-    ?line buildo_mucho_1(),
+    buildo_mucho_1(),
     ok.
 
 buildo_mucho_1() ->
@@ -206,20 +206,27 @@ buildo_mucho_1() ->
      {<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1},{<<>>,1}].
 
 heap_sizes(Config) when is_list(Config) ->
-    ?line Sizes = erlang:system_info(heap_sizes),
-    ?line io:format("~p heap sizes\n", [length(Sizes)]),
-    ?line io:format("~p\n", [Sizes]),
+    Sizes = erlang:system_info(heap_sizes),
+    io:format("~p heap sizes\n", [length(Sizes)]),
+    io:format("~p\n", [Sizes]),
 
     %% Verify that heap sizes increase monotonically.
-    ?line Largest = lists:foldl(fun(E, P) when is_integer(P), E > P -> E;
+    Largest = lists:foldl(fun(E, P) when is_integer(P), E > P -> E;
 				   (E, []) -> E
 				end, [], Sizes),
 
-    %% Verify that the largest heap size consists of 31 or 63 bits.
-    ?line
-	case Largest bsr (erlang:system_info(wordsize)*8-2) of
-	    R when R > 0 -> ok
-	end,
+    %% Verify that the largest heap size consists of
+    %%  - 31 bits of bytes on 32 bits arch
+    %%  - atleast 52 bits of bytes (48 is the maximum virtual address)
+    %%    and at the most 63 bits on 64 bit archs
+    %% heap sizes are in words
+    case erlang:system_info(wordsize) of
+	8 ->
+	    0    = (Largest*8) bsr 63,
+	    true = (Largest*8) > (1 bsl 52);
+	4 ->
+	    1 = (Largest*4) bsr 31
+    end,
     ok.
 
 %% Thanks to Igor Goryachev.
@@ -302,10 +309,10 @@ b() ->
     end.
 
 fconv(Config) when is_list(Config) ->
-    ?line do_fconv(atom),
-    ?line do_fconv(nil),
-    ?line do_fconv(tuple_literal),
-    ?line 3.0 = do_fconv(1.0, 2.0),
+    do_fconv(atom),
+    do_fconv(nil),
+    do_fconv(tuple_literal),
+    3.0 = do_fconv(1.0, 2.0),
     ok.
 
 do_fconv(Type) ->
@@ -325,9 +332,9 @@ do_fconv(tuple_literal, Float) when is_float(Float) ->
     Float + {a,b}.
 
 select_val(Config) when is_list(Config) ->
-    ?line zero = do_select_val(0),
-    ?line big = do_select_val(1 bsl 64),
-    ?line integer = do_select_val(42),
+    zero = do_select_val(0),
+    big = do_select_val(1 bsl 64),
+    integer = do_select_val(42),
     ok.
 
 do_select_val(X) ->

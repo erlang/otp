@@ -32,11 +32,34 @@
 
 #if HAVE_MMAP
 #  define HAVE_ERTS_MSEG 1
+#  define HAVE_SUPER_ALIGNED_MB_CARRIERS 1
 #else
 #  define HAVE_ERTS_MSEG 0
+#  define HAVE_SUPER_ALIGNED_MB_CARRIERS 0
+#endif
+
+#if HAVE_SUPER_ALIGNED_MB_CARRIERS
+#  define MSEG_ALIGN_BITS (18)
+   /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
+#else
+/* If we don't use super aligned multiblock carriers
+ * we will mmap with page size alignment (and thus use corresponding
+ * align bits).
+ *
+ * Current implementation needs this to be a constant and
+ * only uses this for user dev testing so setting page size
+ * to 4096 (12 bits) is fine.
+ */
+#  define MSEG_ALIGN_BITS       (12)
 #endif
 
 #if HAVE_ERTS_MSEG
+
+#define MSEG_ALIGNED_SIZE     (1 << MSEG_ALIGN_BITS)
+
+#define ERTS_MSEG_FLG_NONE    ((Uint)(0))
+#define ERTS_MSEG_FLG_2POW    ((Uint)(1 << 0))
+
 
 #define ERTS_MSEG_VSN_STR "0.9"
 
@@ -68,13 +91,13 @@ typedef struct {
 
 extern const ErtsMsegOpt_t erts_mseg_default_opt;
 
-void *erts_mseg_alloc(ErtsAlcType_t, Uint *);
-void *erts_mseg_alloc_opt(ErtsAlcType_t, Uint *, const ErtsMsegOpt_t *);
+void *erts_mseg_alloc(ErtsAlcType_t, Uint *, Uint);
+void *erts_mseg_alloc_opt(ErtsAlcType_t, Uint *, Uint, const ErtsMsegOpt_t *);
 void  erts_mseg_dealloc(ErtsAlcType_t, void *, Uint);
 void  erts_mseg_dealloc_opt(ErtsAlcType_t, void *, Uint, const ErtsMsegOpt_t *);
-void *erts_mseg_realloc(ErtsAlcType_t, void *, Uint, Uint *);
+void *erts_mseg_realloc(ErtsAlcType_t, void *, Uint, Uint *, Uint);
 void *erts_mseg_realloc_opt(ErtsAlcType_t, void *, Uint, Uint *,
-			    const ErtsMsegOpt_t *);
+			    Uint, const ErtsMsegOpt_t *);
 void  erts_mseg_clear_cache(void);
 void  erts_mseg_cache_check(void);
 Uint  erts_mseg_no( const ErtsMsegOpt_t *);

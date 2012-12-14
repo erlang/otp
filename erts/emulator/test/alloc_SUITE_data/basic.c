@@ -44,7 +44,7 @@ testcase_run(TestCaseState_t *tcs)
 
     c = FIRST_MBC(a);
     ASSERT(tcs, !NEXT_C(c));
-    blk = MBC2FBLK(a, c);
+    blk = MBC_TO_FIRST_BLK(a, c);
     ASSERT(tcs, IS_LAST_BLK(blk));
     ASSERT(tcs, IS_FREE_BLK(blk));
 

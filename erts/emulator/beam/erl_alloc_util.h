@@ -216,16 +216,40 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #define UNIT_FLOOR(X)	((X) & UNIT_MASK)
 #define UNIT_CEILING(X)	UNIT_FLOOR((X) + INV_UNIT_MASK)
 
+#define FLG_MASK		INV_UNIT_MASK
+#define SBC_BLK_SZ_MASK         UNIT_MASK
+#define MBC_FBLK_SZ_MASK        UNIT_MASK
+#define CARRIER_SZ_MASK         UNIT_MASK
 
-#define SZ_MASK			(~((UWord) 0) << 3)
-#define FLG_MASK		(~(SZ_MASK))
 
+#if HAVE_ERTS_MSEG
+#  ifdef ARCH_64 
+#    define MBC_ABLK_OFFSET_BITS   24
+#  elif HAVE_SUPER_ALIGNED_MB_CARRIERS
+#    define MBC_ABLK_OFFSET_BITS   9
+     /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
+#  endif
+#endif
+#ifndef MBC_ABLK_OFFSET_BITS
+#  define MBC_ABLK_OFFSET_BITS   0 /* no carrier offset in block header */
+#endif
 
-#define BLK_SZ(B) \
-  (*((Block_t *) (B)) & SZ_MASK)
+#if MBC_ABLK_OFFSET_BITS
+#  define MBC_ABLK_OFFSET_SHIFT  (sizeof(UWord)*8 - MBC_ABLK_OFFSET_BITS)
+#  define MBC_ABLK_OFFSET_MASK   (~((UWord)0) << MBC_ABLK_OFFSET_SHIFT)
+#  define MBC_ABLK_SZ_MASK	(~MBC_ABLK_OFFSET_MASK & ~FLG_MASK)
+#  define HAVE_ERTS_SBMBC 0
+#else
+#  define MBC_ABLK_SZ_MASK	(~FLG_MASK)
+#  define HAVE_ERTS_SBMBC 1
+#endif
+
+#define MBC_ABLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_ABLK_SZ_MASK)
+#define MBC_FBLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_FBLK_SZ_MASK)
+#define SBC_BLK_SZ(B) (ASSERT_EXPR(is_sbc_blk(B)), (B)->bhdr & SBC_BLK_SZ_MASK)
 
 #define CARRIER_SZ(C) \
-  ((C)->chdr & SZ_MASK)
+  ((C)->chdr & CARRIER_SZ_MASK)
 
 extern int erts_have_sbmbc_alloc;
 
@@ -236,6 +260,7 @@ struct Carrier_t_ {
     UWord chdr;
     Carrier_t *next;
     Carrier_t *prev;
+    Allctr_t  *allctr;
 };
 
 typedef struct {
@@ -243,8 +268,19 @@ typedef struct {
     Carrier_t *last;
 } CarrierList_t;
 
-typedef UWord Block_t;
-typedef UWord FreeBlkFtr_t;
+typedef struct {
+    UWord bhdr;
+#if !MBC_ABLK_OFFSET_BITS
+    Carrier_t *carrier;
+#else
+    union {
+	Carrier_t *carrier;     /* if free */
+	char       udata__[1];  /* if allocated */
+    }u;
+#endif
+} Block_t;
+
+typedef UWord FreeBlkFtr_t; /* Footer of a free block */
 
 typedef struct {
     UWord giga_no;
@@ -381,8 +417,6 @@ struct Allctr_t_ {
 #endif
 
     /* */
-    Uint		mbc_header_size;
-    Uint		sbc_header_size;
     Uint		min_mbc_size;
     Uint		min_mbc_first_free_size;
     Uint		min_block_size;
@@ -469,6 +503,9 @@ void	erts_alcu_verify_unused_ts(Allctr_t *allctr);
 
 unsigned long	erts_alcu_test(unsigned long, unsigned long, unsigned long);
 
+#ifdef DEBUG
+int is_sbc_blk(Block_t*);
+#endif
 
 
 #endif /* #if defined(GET_ERL_ALLOC_UTIL_IMPL)

@@ -65,10 +65,10 @@
 
 #define ERTS_BPF_ALL               0xFF
 
-extern Eterm beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
-extern Eterm beam_return_trace[1];      /* OpCode(i_return_trace) */
-extern Eterm beam_exception_trace[1];   /* OpCode(i_exception_trace) */
-extern Eterm beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
+extern BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
+extern BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
+extern BeamInstr beam_exception_trace[1];   /* OpCode(i_exception_trace) */
+extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
 erts_smp_atomic32_t erts_active_bp_index;
 erts_smp_atomic32_t erts_staging_bp_index;
@@ -161,7 +161,7 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
     for (current = 0; current < num_modules; current++) {
 	BeamInstr** code_base = (BeamInstr **) module[current]->curr.code;
 	BeamInstr* code;
-	Uint num_functions = (Uint) code_base[MI_NUM_FUNCTIONS];
+	Uint num_functions = (Uint)(UWord) code_base[MI_NUM_FUNCTIONS];
 	Uint fi;
 
 	if (specified > 0) {
@@ -172,7 +172,7 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
 	}
 
 	for (fi = 0; fi < num_functions; fi++) {
-	    Eterm* pc;
+	    BeamInstr* pc;
 	    int wi;
 
 	    code = code_base[MI_FUNCTIONS+fi];
@@ -555,7 +555,7 @@ erts_clear_module_break(Module *modp) {
     if (code_base == NULL) {
 	return 0;
     }
-    n = (Uint) code_base[MI_NUM_FUNCTIONS];
+    n = (Uint)(UWord) code_base[MI_NUM_FUNCTIONS];
     for (i = 0; i < n; ++i) {
 	BeamInstr* pc;
 
@@ -919,7 +919,7 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
 	E -= 1;
 	ASSERT(c_p->htop <= E && E <= c_p->hend);
 	E[0] = make_cp(c_p->cp);
-	c_p->cp = (BeamInstr *) beam_return_to_trace;
+	c_p->cp = beam_return_to_trace;
     }
     if (flags & MATCH_SET_RX_TRACE) {
 	E -= 3;

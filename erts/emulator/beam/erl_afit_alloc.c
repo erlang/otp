@@ -37,6 +37,12 @@
 #define GET_ERL_AF_ALLOC_IMPL
 #include "erl_afit_alloc.h"
 
+struct AFFreeBlock_t_ {
+    Block_t block_head;
+    AFFreeBlock_t *prev;
+    AFFreeBlock_t *next;
+};
+#define AF_BLK_SZ(B) MBC_FBLK_SZ(&(B)->block_head)
 
 #define MIN_MBC_SZ		(16*1024)
 #define MIN_MBC_FIRST_FREE_SZ	(4*1024)
@@ -80,7 +86,6 @@ erts_afalc_start(AFAllctr_t *afallctr,
 
     init->sbmbct = 0; /* Small mbc not supported by afit */
 
-    allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= sizeof(AFFreeBlock_t);
@@ -118,7 +123,7 @@ get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size,
 
     ASSERT(!cand_blk || cand_size >= size);
 
-    if (afallctr->free_list && BLK_SZ(afallctr->free_list) >= size) {
+    if (afallctr->free_list && AF_BLK_SZ(afallctr->free_list) >= size) {
 	AFFreeBlock_t *res = afallctr->free_list;	
 	afallctr->free_list = res->next;
 	if (res->next)
@@ -135,7 +140,7 @@ link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
     AFFreeBlock_t *blk = (AFFreeBlock_t *) block;
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;
 
-    if (afallctr->free_list && BLK_SZ(afallctr->free_list) > BLK_SZ(blk)) {
+    if (afallctr->free_list && AF_BLK_SZ(afallctr->free_list) > AF_BLK_SZ(blk)) {
 	blk->next = afallctr->free_list->next;
 	blk->prev = afallctr->free_list;
 	afallctr->free_list->next = blk;

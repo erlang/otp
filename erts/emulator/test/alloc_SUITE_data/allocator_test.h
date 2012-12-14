@@ -60,9 +60,9 @@ typedef void* erts_cond;
 #define IS_MMAP_C(C)		((Ulong)	ALC_TEST1(0x00a, (C)))
 #define C_SZ(C)			((Ulong)	ALC_TEST1(0x00b, (C)))
 #define SBC2BLK(A, C)		((Block_t *)	ALC_TEST2(0x00c, (A), (C)))
-#define BLK2SBC(A, B)		((Carrier_t *)	ALC_TEST2(0x00d, (A), (B)))
-#define MBC2FBLK(A, C)		((Block_t *)	ALC_TEST2(0x00e, (A), (C)))
-#define FBLK2MBC(A, B)		((Carrier_t *)	ALC_TEST2(0x00f, (A), (B)))
+#define BLK_TO_SBC(A, B)	((Carrier_t *)	ALC_TEST2(0x00d, (A), (B)))
+#define MBC_TO_FIRST_BLK(A, C)	((Block_t *)	ALC_TEST2(0x00e, (A), (C)))
+#define FIRST_BLK_TO_MBC(A, B)	((Carrier_t *)	ALC_TEST2(0x00f, (A), (B)))
 #define FIRST_MBC(A)		((Carrier_t *)	ALC_TEST1(0x010, (A)))
 #define LAST_MBC(A)		((Carrier_t *)	ALC_TEST1(0x011, (A)))
 #define FIRST_SBC(A)		((Carrier_t *)	ALC_TEST1(0x012, (A)))
@@ -73,7 +73,7 @@ typedef void* erts_cond;
 #define MIN_BLK_SZ(A)		((Ulong)	ALC_TEST1(0x017, (A)))
 #define NXT_BLK(B)		((Block_t *)	ALC_TEST1(0x018, (B)))
 #define PREV_BLK(B)		((Block_t *)	ALC_TEST1(0x019, (B)))
-#define IS_FIRST_BLK(B)		((Ulong)	ALC_TEST1(0x01a, (B)))
+#define IS_MBC_FIRST_BLK(A,B)	((Ulong)	ALC_TEST2(0x01a, (A), (B)))
 #define UNIT_SZ			((Ulong)	ALC_TEST0(0x01b))
 
 /* From erl_goodfit_alloc.c */

@@ -129,7 +129,7 @@ static void disallow_heap_frag_ref(Process* p, Eterm* n_htop, Eterm* objv, int n
 #if defined(ARCH_64) && !HALFWORD_HEAP
 # define MAX_HEAP_SIZES 154
 #else
-# define MAX_HEAP_SIZES 55
+# define MAX_HEAP_SIZES 59
 #endif
 
 static Sint heap_sizes[MAX_HEAP_SIZES];	/* Suitable heap sizes. */
@@ -144,6 +144,7 @@ void
 erts_init_gc(void)
 {
     int i = 0;
+    Sint max_heap_size = 0;
 
     ASSERT(offsetof(ProcBin,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
     ASSERT(offsetof(ProcBin,thing_word) == offsetof(ErlFunThing,thing_word));
@@ -168,16 +169,30 @@ erts_init_gc(void)
      * we really don't want that growth when the heaps are that big.
      */
 	    
-    heap_sizes[0] = 34;
-    heap_sizes[1] = 55;
-    for (i = 2; i < 23; i++) {
-	heap_sizes[i] = heap_sizes[i-1] + heap_sizes[i-2];
+    /* Growth stage 1 - Fibonacci + 1*/
+    /* 12,38 will hit size 233, the old default */
+
+    heap_sizes[0] = 12;
+    heap_sizes[1] = 38;
+
+    for(i = 2; i < 23; i++) {
+        /* one extra word for block header */
+        heap_sizes[i] = heap_sizes[i-1] + heap_sizes[i-2] + 1;
     }
 
+
+    /* for 32 bit we want max_heap_size to be MAX(32bit) / 4 [words] (and halfword)
+     * for 64 bit we want max_heap_size to be MAX(52bit) / 8 [words]
+     */
+
+    max_heap_size = sizeof(Eterm) < 8 ? (Sint)((~(Uint)0)/(sizeof(Eterm))) : 
+					(Sint)(((Uint64)1 << 53)/sizeof(Eterm));
+
+    /* Growth stage 2 - 20% growth */
     /* At 1.3 mega words heap, we start to slow down. */
     for (i = 23; i < ALENGTH(heap_sizes); i++) {
-	heap_sizes[i] = 5*(heap_sizes[i-1]/4);
-	if (heap_sizes[i] < 0) {
+	heap_sizes[i] = heap_sizes[i-1] + heap_sizes[i-1]/5;
+	if ((heap_sizes[i] < 0) || heap_sizes[i] > max_heap_size) {
 	    /* Size turned negative. Discard this last size. */
 	    i--;
 	    break;
@@ -868,14 +883,12 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		}
 	    }
 
-            if (wanted < MIN_HEAP_SIZE(p)) {
-                wanted = MIN_HEAP_SIZE(p);
-            } else {
-                wanted = next_heap_size(p, wanted, 0);
-            }
+	    wanted = wanted < MIN_HEAP_SIZE(p) ? MIN_HEAP_SIZE(p)
+					       : next_heap_size(p, wanted, 0);
             if (wanted < HEAP_SIZE(p)) {
                 shrink_new_heap(p, wanted, objv, nobj);
             }
+
             ASSERT(HEAP_SIZE(p) == next_heap_size(p, HEAP_SIZE(p), 0));
 	    return 1;		/* We are done. */
         }
@@ -1434,11 +1447,10 @@ adjust_after_fullsweep(Process *p, Uint size_before, int need, Eterm *objv, int 
            I think this is better as fullsweep is used mainly on
            small memory systems, but I could be wrong... */
         wanted = 2 * need_after;
-        if (wanted < p->min_heap_size) {
-            sz = p->min_heap_size;
-        } else {
-            sz = next_heap_size(p, wanted, 0);
-        }
+	
+	sz = wanted < p->min_heap_size ? p->min_heap_size
+				       : next_heap_size(p, wanted, 0);
+
         if (sz < HEAP_SIZE(p)) {
             shrink_new_heap(p, sz, objv, nobj);
         }
