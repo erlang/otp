@@ -129,8 +129,9 @@ dec_string({Lb,Ub}, U, Aligned) when Ub < 16#10000 ->
 dec_string(_, U, Aligned) ->
     Al = [{align,Aligned}],
     DecRest = fun(V, Buf) ->
-		      emit(["?RT_PER:decode_fragmented(",V,", ",
-			    Buf,", ",U,")"])
+		      asn1ct_func:call(per_common,
+				       decode_fragmented,
+				       [V,Buf,U])
 	      end,
     {'case',[{test,{get_bits,1,[1|Al]},0,
 	      {value,{get_bits,

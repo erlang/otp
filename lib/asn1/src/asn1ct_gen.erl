@@ -78,6 +78,7 @@ pgen_module(OutFile,Erules,Module,
     ErlFile = lists:concat([OutFile,".erl"]),
     Fid = fopen(ErlFile,[write]),
     put(gen_file_out,Fid),
+    asn1ct_func:start_link(),
     gen_head(Erules,Module,HrlGenerated),
     pgen_exports(Erules,Module,TypeOrVal),
     pgen_dispatcher(Erules,Module,TypeOrVal),
@@ -86,6 +87,11 @@ pgen_module(OutFile,Erules,Module,
     pgen_partial_incomplete_decode(Erules),
 % gen_vars(asn1_db:mod_to_vars(Module)),
 % gen_tag_table(AllTypes),
+    emit([nl,
+	  "%%%",nl,
+	  "%%% Run-time functions.",nl,
+	  "%%%",nl]),
+    asn1ct_func:generate(Fid),
     file:close(Fid),
     asn1ct:verbose("--~p--~n",[{generated,ErlFile}],Options).
 
@@ -1159,6 +1165,9 @@ emit({var,Variable}) ->
 
 emit({asis,What}) ->
     format(get(gen_file_out),"~w",[What]);
+
+emit({call,M,F,A}) ->
+    asn1ct_func:call(M, F, A);
 
 emit(nl) ->
     nl(get(gen_file_out));

@@ -47,6 +47,7 @@ CT_MODULES= \
 	asn1ct_check \
 	asn1_db \
 	asn1ct_pretty_format \
+	asn1ct_func \
 	asn1ct_gen \
 	asn1ct_gen_per \
 	asn1ct_gen_per_rt2ct \
@@ -55,6 +56,7 @@ CT_MODULES= \
 	asn1ct_constructed_ber_bin_v2 \
 	asn1ct_gen_ber_bin_v2 \
 	asn1ct_imm \
+	asn1ct_rtt \
 	asn1ct_value \
 	asn1ct_tok \
 	asn1ct_parser2 \
@@ -138,6 +140,9 @@ info:
 $(EBIN)/asn1ct.$(EMULATOR):asn1ct.erl
 	 $(V_ERLC) -b$(EMULATOR) -o$(EBIN) $(ERL_COMPILE_FLAGS) -Dvsn=\"$(VSN)\" $<
 
+$(EBIN)/asn1ct_func.$(EMULATOR): asn1ct_func.erl
+	 $(ERLC) -o$(EBIN) $(ERL_COMPILE_FLAGS) -I../rt_templates $<
+
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
@@ -165,6 +170,25 @@ release_spec: opt
 release_docs_spec:
 
 #
+# Run-time library template files.
+#
+
+RT_TEMPLATES = asn1rtt_per_common
+
+RT_TEMPLATES_ERL = $(RT_TEMPLATES:%=%.erl)
+RT_TEMPLATES_TARGET = $(RT_TEMPLATES:%=%.$(EMULATOR))
+
+asn1ct_rtt.erl: prepare_templates.$(EMULATOR) $(RT_TEMPLATES_TARGET)
+	erl -noshell -noinput -run prepare_templates gen_asn1ct_rtt \
+           $(RT_TEMPLATES_TARGET) >asn1ct_rtt.erl
+
+prepare_templates.$(EMULATOR): prepare_templates.erl
+	erlc prepare_templates.erl
+
+asn1rtt_%.$(EMULATOR): asn1rtt_%.erl
+	erlc +debug_info $<
+
+#
 # Dependencies
 #
 
@@ -175,6 +199,7 @@ $(EBIN)/asn1ct_check.beam: asn1ct_check.erl asn1_records.hrl
 $(EBIN)/asn1ct_constructed_ber_bin_v2.beam: asn1ct_constructed_ber_bin_v2.erl \
   asn1_records.hrl
 $(EBIN)/asn1ct_constructed_per.beam: asn1ct_constructed_per.erl asn1_records.hrl
+$(EBIN)/asn1ct_func.beam: asn1ct_func.erl
 $(EBIN)/asn1ct_gen.beam: asn1ct_gen.erl asn1_records.hrl
 $(EBIN)/asn1ct_gen_ber_bin_v2.beam: asn1ct_gen_ber_bin_v2.erl asn1_records.hrl
 $(EBIN)/asn1ct_gen_per.beam: asn1ct_gen_per.erl asn1_records.hrl
