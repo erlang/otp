@@ -87,6 +87,12 @@ handle_info(Msg, State) ->
     demo:format(State#state.config, "Got Info ~p\n", [Msg]),
     {noreply, State}.
 
+handle_call(shutdown, _From, State=#state{parent=Panel, aui=Manager}) ->
+    wxAuiManager:unInit(Manager),
+    wxAuiManager:destroy(Manager),
+    wxPanel:destroy(Panel),
+    {stop, normal, ok, State};
+
 handle_call(Msg, _From, State) ->
     demo:format(State#state.config, "Got Call ~p\n", [Msg]),
     {reply,{error, nyi}, State}.
@@ -136,10 +142,7 @@ handle_event(Ev = #wx{}, State) ->
 code_change(_, _, State) ->
     {stop, ignore, State}.
 
-terminate(_Reason, #state{aui=Manager, parent=Panel}) ->
-    wxAuiManager:unInit(Manager),
-    wxAuiManager:destroy(Manager),
-    wxPanel:destroy(Panel),
+terminate(_Reason, _) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

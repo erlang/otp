@@ -25,8 +25,8 @@
 
 %% wx_object callbacks
 -export([init/1, terminate/2,  code_change/3,
-	 handle_info/2, handle_call/3,
-handle_cast/2, 	 handle_event/2, handle_sync_event/3]).
+	 handle_info/2, handle_call/3,handle_cast/2, 	 
+	 handle_event/2, handle_sync_event/3]).
 
 -include_lib("wx/include/wx.hrl").
 
@@ -57,11 +57,9 @@ do_init(Config) ->
 				 [{label, "wxGrapicsContext"}]),
 
     Win = wxPanel:new(Panel, []),
-    Pen = wxPen:new(),
+    Pen = ?wxBLACK_PEN,
     Brush = wxBrush:new({30, 175, 23, 127}),
-    Font = wxFont:new(),
-    wxFont:setWeight(Font, ?wxBOLD),
-
+    Font = ?wxITALIC_FONT,
     wxPanel:connect(Win, paint, [callback]),
 
     %% Add to sizers
@@ -94,6 +92,10 @@ handle_info(Msg, State) ->
     demo:format(State#state.config, "Got Info ~p\n", [Msg]),
     {noreply, State}.
 
+handle_call(shutdown, _From, State=#state{parent=Panel}) ->
+    wxPanel:destroy(Panel),
+    {stop, normal, ok, State};
+
 handle_call(Msg, _From, State) ->
     demo:format(State#state.config, "Got Call ~p\n", [Msg]),
     {reply,{error, nyi}, State}.
@@ -112,13 +114,12 @@ terminate(_Reason, _State) ->
 %% Local functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-draw(Win, Pen, Brush, Font0) ->
+draw(Win, Pen, Brush, Font) ->
     try
 	Canvas = wxGraphicsContext:create(Win),
 	wxGraphicsContext:setPen(Canvas, Pen),
 	wxGraphicsContext:setBrush(Canvas, Brush),
-	Font  = wxGraphicsContext:createFont(Canvas, Font0),
-	wxGraphicsContext:setFont(Canvas, Font),
+	wxGraphicsContext:setFont(Canvas, Font, {0, 0, 50}),
 	
 	wxGraphicsContext:drawRoundedRectangle(Canvas, 35.0,35.0, 100.0, 50.0, 10.0),
 	wxGraphicsContext:drawText(Canvas, "This text should be antialised", 60.0, 55.0),

@@ -113,7 +113,13 @@ handle_info(stop, State) ->
     timer:cancel(State#state.timer),
     catch wxGLCanvas:destroy(State#state.canvas),
     {stop, normal, State}.
-    
+
+handle_call(shutdown, _From, State=#state{parent=Panel}) ->
+    catch wxGLCanvas:destroy(State#state.canvas),
+    timer:cancel(State#state.timer),
+    wxPanel:destroy(Panel),
+    {stop, normal, ok, State};
+
 handle_call(Msg, _From, State) ->
     io:format("Got Call ~p~n",[Msg]),
     {reply,ok,State}.
@@ -125,11 +131,8 @@ handle_cast(Msg, State) ->
 code_change(_, _, State) ->
     {stop, not_yet_implemented, State}.
 
-terminate(_Reason, State) ->
-    catch wxGLCanvas:destroy(State#state.canvas),
-    timer:cancel(State#state.timer),
-    timer:sleep(300).
-
+terminate(_Reason, _State) ->
+    ok.
 
 
 -define(VS, {{-0.5, -0.5, -0.5},  %1

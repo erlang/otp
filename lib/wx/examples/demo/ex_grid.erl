@@ -78,6 +78,10 @@ handle_event(#wx{event = #wxGrid{type = grid_cell_change,
 handle_info(_Msg, State) ->
     {noreply, State}.
 
+handle_call(shutdown, _From, State=#state{parent=Panel}) ->
+    wxPanel:destroy(Panel),
+    {stop, normal, ok, State};
+
 handle_call(_Msg, _From, State) ->
     {reply,{error, nyi}, State}.
 

@@ -204,7 +204,7 @@ handle_event(#wx{event=#wxCommand{type=command_listbox_selected, cmdString=Ex}},
 	    {noreply, State};
 	_  ->
 	    wxSizer:detach(DemoSz, Example),
-	    exit(wx_object:get_pid(Example), shutdown),
+	    wx_object:call(Example, shutdown),
 	    unload_code(Code),
 	    NewExample = load_example(Ex, State),
 	    wxSizer:add(DemoSz, NewExample, [{proportion,1}, {flag, ?wxEXPAND}]),
@@ -252,8 +252,7 @@ handle_event(#wx{id = Id,
 							   {caption, "About"}])),
 	    {noreply, State};
 	?wxID_EXIT ->
-	    exit(wx_object:get_pid(State#state.example), shutdown),
-	    timer:sleep(100), %% Give the example process some time to cleanup.
+	    wx_object:call(State#state.example, shutdown),
 	    {stop, normal, State};
 	_ ->
 	    {noreply, State}
@@ -270,8 +269,7 @@ code_change(_, _, State) ->
     {stop, not_yet_implemented, State}.
 
 terminate(_Reason, State) ->
-    exit(wx_object:get_pid(State#state.example), shutdown),
-    timer:sleep(100), %% Give the example process some time to cleanup.
+    catch wx_object:call(State#state.example, shutdown),
     wx:destroy().
 
 %%%%%%%%%%%%%%%%% Internals %%%%%%%%%%
@@ -279,8 +277,6 @@ terminate(_Reason, State) ->
 load_example(Ex, #state{demo={DemoPanel,DemoSz}, log=EvCtrl, code=Code}) ->
     ModStr = "ex_" ++ Ex,
     Mod = list_to_atom(ModStr),
-%%     WxDir = code:lib_dir(wx),
-%%     ModFile = filename:join([WxDir, "examples","demo", ModStr ++ ".erl"]),
     ModFile = ModStr ++ ".erl",
     load_code(Code, file:read_file(ModFile)),
     find(Code),
