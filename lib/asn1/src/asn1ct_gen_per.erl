@@ -931,7 +931,6 @@ gen_objset_dec(ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,_ClFields,
 	      _NthObj) ->
     emit({"'getdec_",ObjSetName,"'(_, _) ->",nl}),
     emit({indent(3),"fun(Attr1, Bytes, _,_) ->",nl}),
-%%    emit({indent(6),"?RT_PER:decode_open_type(Bytes,[])",nl}),
     emit({indent(6),"{Bytes,Attr1}",nl}),
     emit({indent(3),"end.",nl,nl}),
     ok;
@@ -1101,6 +1100,10 @@ gen_dec_imm(Erule, #type{def=Name,constraint=C}) ->
 	      end,
     gen_dec_imm_1(Name, C, Aligned).
 
+gen_dec_imm_1('ASN1_OPEN_TYPE', Constraint, Aligned) ->
+    imm_decode_open_type(Constraint, Aligned);
+gen_dec_imm_1('ANY', _Constraint, Aligned) ->
+    imm_decode_open_type([], Aligned);
 gen_dec_imm_1('BOOLEAN', _Constr, _Aligned) ->
     asn1ct_imm:per_dec_boolean();
 gen_dec_imm_1({'ENUMERATED',{Base,Ext}}, _Constr, Aligned) ->
@@ -1193,36 +1196,6 @@ gen_dec_prim_1(Erule,
 		  ",",{asis,Constraint},")"});
 	'UTF8String' ->
 	    emit({"?RT_PER:decode_UTF8String(",BytesVar,")"});
-	'ANY' ->
-	    case Erule of
-		per ->
-		    emit(["fun() -> {XTerm,YTermXBytes} = ?RT_PER:decode_open_type(",BytesVar,",",{asis,Constraint}, "), {binary_to_list(XTerm),XBytes} end ()"]);
-		_ ->
-		    emit(["?RT_PER:decode_open_type(",BytesVar,",", 
-			  {asis,Constraint}, ")"])
-	    end;
-	'ASN1_OPEN_TYPE' ->
-	    case Constraint of
-		[#'Externaltypereference'{type=Tname}] ->
-		    emit(["fun(FBytes) ->",nl,
-			  "   {XTerm,XBytes} = "]),
-		    emit(["?RT_PER:decode_open_type(FBytes,[]),",nl]),
-		    emit(["   {YTerm,_} = dec_",Tname,"(XTerm,mandatory),",nl]),
-		    emit(["   {YTerm,XBytes} end(",BytesVar,")"]);
-		[#type{def=#'Externaltypereference'{type=Tname}}] ->
-		    emit(["fun(FBytes) ->",nl,
-			  "   {XTerm,XBytes} = "]),
-		    emit(["?RT_PER:decode_open_type(FBytes,[]),",nl]),
-		    emit(["   {YTerm,_} = dec_",Tname,"(XTerm,mandatory),",nl]),
-		    emit(["   {YTerm,XBytes} end(",BytesVar,")"]);
-		_ ->
-		    case Erule of
-			per ->
-			    emit(["fun() -> {XTerm,XBytes} = ?RT_PER:decode_open_type(",BytesVar,", []), {binary_to_list(XTerm),XBytes} end()"]);
-			_ ->
-			    emit(["?RT_PER:decode_open_type(",BytesVar,",[])"])
-		    end
-	    end;
 	#'ObjectClassFieldType'{} ->
 		case asn1ct_gen:get_inner(Typename) of
 		    {fixedtypevaluefield,_,InnerType} -> 
@@ -1288,3 +1261,22 @@ extaddgroup2sequence([C|T],ExtNum,Acc) ->
     extaddgroup2sequence(T,ExtNum,[C|Acc]);
 extaddgroup2sequence([],_,Acc) ->
     lists:reverse(Acc).
+
+imm_decode_open_type([#'Externaltypereference'{type=Tname}], Aligned) ->
+    imm_dec_open_type_1(Tname, Aligned);
+imm_decode_open_type([#type{def=#'Externaltypereference'{type=Tname}}],
+		     Aligned) ->
+    imm_dec_open_type_1(Tname, Aligned);
+imm_decode_open_type(_, Aligned) ->
+    asn1ct_imm:per_dec_open_type(Aligned).
+
+imm_dec_open_type_1(Type, Aligned) ->
+    D = fun(OpenType, Buf) ->
+		asn1ct_name:new(tmpval),
+		emit(["begin",nl,
+		      "{",{curr,tmpval},",_} = ",
+		      "dec_",Type,"(",OpenType,", mandatory),",nl,
+		      "{",{curr,tmpval},com,Buf,"}",nl,
+		      "end"])
+	end,
+    {call,D,asn1ct_imm:per_dec_open_type(Aligned)}.

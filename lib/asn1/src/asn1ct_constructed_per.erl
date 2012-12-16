@@ -1362,7 +1362,7 @@ gen_dec_line_open_type(_, _, _) ->
 		   fun() -> St end}
 	  end}.
 
-gen_dec_line_special(_, {typefield,_}, _TopType, Comp,
+gen_dec_line_special(Erule, {typefield,_}, _TopType, Comp,
 		     DecInfObj, Ext) ->
     #'ComponentType'{name=Cname,typespec=Type,prop=Prop} = Comp,
     fun({_BytesVar,PrevSt}) ->
@@ -1371,13 +1371,14 @@ gen_dec_line_special(_, {typefield,_}, _TopType, Comp,
 		    {Name,RestFieldNames} =
 			(Type#type.def)#'ObjectClassFieldType'.fieldname,
 
-		    asn1ct_name:new(tmpterm),
 		    asn1ct_name:new(reason),
-		    emit([indent(2),"{",{curr,tmpterm},", ",{next,bytes},
-			  "} = ?RT_PER:decode_open_type(",{curr,bytes},
-			  ", []),",nl]),
-		    emit([indent(2),"case (catch ObjFun(",
-			  {asis,Name},",",{curr,tmpterm},",telltype,",
+		    Imm = asn1ct_imm:per_dec_open_type(is_aligned(Erule)),
+		    BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+		    {TmpTerm,TempBuf} = asn1ct_imm:dec_slim_cg(Imm, BytesVar),
+		    emit([com,nl,
+			  {next,bytes}," = ",TempBuf,com,nl,
+			  indent(2),"case (catch ObjFun(",
+			  {asis,Name},",",TmpTerm,",telltype,",
 			  {asis,RestFieldNames},")) of", nl]),
 		    emit([indent(4),"{'EXIT',",{curr,reason},"} ->",nl]),
 		    emit([indent(6),"exit({'Type not ",
@@ -1403,8 +1404,10 @@ gen_dec_line_special(_, {typefield,_}, _TopType, Comp,
 		    end,
 		    {Name,RestFieldNames} =
 			(Type#type.def)#'ObjectClassFieldType'.fieldname,
-		    emit(["?RT_PER:decode_open_type(",{curr,bytes},
-			  ", []),",nl]),
+		    Imm = asn1ct_imm:per_dec_open_type(is_aligned(Erule)),
+		    BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+		    asn1ct_imm:dec_code_gen(Imm, BytesVar),
+		    emit([com,nl]),
 		    if
 			Ext == noext andalso Prop == mandatory ->
 			    emit([{curr,term}," =",nl,"      "]);
@@ -1430,8 +1433,9 @@ gen_dec_line_special(_, {typefield,_}, _TopType, Comp,
 		    end,
 		    {[],PrevSt};
 		_ ->
-		    emit(["?RT_PER:decode_open_type(",{curr,bytes},
-			  ", [])"]),
+		    Imm = asn1ct_imm:per_dec_open_type(is_aligned(Erule)),
+		    BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+		    asn1ct_imm:dec_code_gen(Imm, BytesVar),
 		    RefedFieldName =
 			(Type#type.def)#'ObjectClassFieldType'.fieldname,
 
@@ -1441,10 +1445,12 @@ gen_dec_line_special(_, {typefield,_}, _TopType, Comp,
 		       Prop}],PrevSt}
 	    end
     end;
-gen_dec_line_special(_, {objectfield,PrimFieldName1,PFNList}, _TopType,
+gen_dec_line_special(Erule, {objectfield,PrimFieldName1,PFNList}, _TopType,
 		     Comp, _DecInfObj, _Ext) ->
     fun({_BytesVar,PrevSt}) ->
-	    emit(["?RT_PER:decode_open_type(",{curr,bytes},", [])"]),
+	    Imm = asn1ct_imm:per_dec_open_type(is_aligned(Erule)),
+	    BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+	    asn1ct_imm:dec_code_gen(Imm, BytesVar),
 	    #'ComponentType'{name=Cname,prop=Prop} = Comp,
 	    SaveBytes = [{Cname,{PrimFieldName1,PFNList},
 			  asn1ct_gen:mk_var(asn1ct_name:curr(term)),
@@ -1667,20 +1673,15 @@ gen_dec_choice1(Erule,TopType,CompList,{ext,ExtPos,ExtNum}) ->
 	  length(CompList)-ExtNum,",Ext ),",nl}),
     emit({"{Cname,{Val,NewBytes}} = case Choice + Ext*",ExtPos-1," of",nl}),
     gen_dec_choice2(Erule,TopType,CompList,{ext,ExtPos,ExtNum}),
-    case Erule of
-	per ->
-	    emit([";",nl,"_ -> {asn1_ExtAlt,",nl,
-		  "      fun() -> ",nl,
-		  "          {XTerm,XBytes} = ?RT_PER:decode_open_type(",
-		  {curr,bytes},",[]),",nl,
-		  "          {binary_to_list(XTerm),XBytes}",nl,
-		  "      end()}"]);
-	_ ->
-	    emit([";",nl,"_ -> {asn1_ExtAlt, ?RT_PER:decode_open_type(",
-		  {curr,bytes},",[])}"])
-    end,
-    emit({nl,"end,",nl}),
-    emit({nl,"{{Cname,Val},NewBytes}"}).
+    Imm = asn1ct_imm:per_dec_open_type(is_aligned(Erule)),
+    BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+    emit([";",nl,
+	  "_ ->",nl]),
+    {TmpTerm,TmpBuf} = asn1ct_imm:dec_slim_cg(Imm, BytesVar),
+    emit([com,nl,
+	  "{asn1_ExtAlt,{",TmpTerm,com,TmpBuf,"}}",nl,
+	  "end,",nl,nl,
+	  "{{Cname,Val},NewBytes}"]).
 
 
 gen_dec_choice2(Erule,TopType,L,Ext) ->

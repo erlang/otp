@@ -1291,7 +1291,6 @@ gen_objset_dec(ObjSetName,_,['EXTENSIONMARK'],_ClName,_ClFields,
 	       _NthObj) ->
     emit({"'getdec_",ObjSetName,"'(_, _) ->",nl}),
     emit({indent(3),"fun(Attr1, Bytes, _, _) ->",nl}),
-    %%    emit({indent(6),"?RT_PER:decode_open_type(Bytes,[])",nl}),
     emit({indent(6),"{Bytes,Attr1}",nl}),
     emit({indent(3),"end.",nl,nl}),
     ok;
@@ -1543,25 +1542,9 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	'UTF8String' ->
 	    emit({"?RT_PER:decode_UTF8String(",BytesVar,")"});
 	'ANY' ->
-	    emit(["?RT_PER:decode_open_type(",BytesVar,",", 
-		  {asis,Constraint}, ")"]); 
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 	'ASN1_OPEN_TYPE' ->
-	    case Constraint of
-		[#'Externaltypereference'{type=Tname}] ->
-		    emit(["fun(FBytes) ->",nl,
-			  "   {XTerm,XBytes} = "]),
-		    emit(["?RT_PER:decode_open_type(FBytes,[]),",nl]),
-		    emit(["   {YTerm,_} = dec_",Tname,"(XTerm,mandatory),",nl]),
-		    emit(["   {YTerm,XBytes} end(",BytesVar,")"]);
-		[#type{def=#'Externaltypereference'{type=Tname}}] ->
-		    emit(["fun(FBytes) ->",nl,
-			  "   {XTerm,XBytes} = "]),
-		    emit(["?RT_PER:decode_open_type(FBytes,[]),",nl]),
-		    emit(["   {YTerm,_} = dec_",Tname,"(XTerm,mandatory),",nl]),
-		    emit(["   {YTerm,XBytes} end(",BytesVar,")"]);
-		_ ->
-		    emit(["?RT_PER:decode_open_type(",BytesVar,",[])"])
-	    end;
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 	#'ObjectClassFieldType'{} ->
 		case asn1ct_gen:get_inner(Att#type.def) of
 		    {fixedtypevaluefield,_,InnerType} -> 
