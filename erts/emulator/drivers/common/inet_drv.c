@@ -7885,7 +7885,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 static void inet_output_count(inet_descriptor* desc, ErlDrvSizeT len)
 {
     unsigned long n = desc->send_cnt + 1;
-    unsigned long t = desc->send_oct[0] + len;
+    unsigned long t = (desc->send_oct[0] + len) & 0xFFFFFFFFUL;
     int c = (t < desc->send_oct[0]);
     double avg = desc->send_avg;
 
@@ -7905,7 +7905,7 @@ static void inet_output_count(inet_descriptor* desc, ErlDrvSizeT len)
 static void inet_input_count(inet_descriptor* desc, ErlDrvSizeT len)
 {
     unsigned long n = desc->recv_cnt + 1;
-    unsigned long t = desc->recv_oct[0] + len;
+    unsigned long t = (desc->recv_oct[0] + len) & 0xFFFFFFFFUL;
     int c = (t < desc->recv_oct[0]);
     double avg = desc->recv_avg;
     double dvi;
