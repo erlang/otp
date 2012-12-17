@@ -79,6 +79,7 @@
 -export([bump_reductions/1, byte_size/1, call_on_load_function/1]).
 -export([cancel_timer/1, check_old_code/1, check_process_code/2, crc32/1]).
 -export([crc32/2, crc32_combine/3, date/0, decode_packet/3]).
+-export([delete_element/2]).
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
 -export([display_nl/0, display_string/1, dist_exit/3, erase/0, erase/1]).
 -export([error/1, error/2, exit/1, exit/2, external_size/1]).
@@ -88,6 +89,7 @@
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/1]).
 -export([get_module_info/1, get_stacktrace/0, group_leader/0]).
 -export([group_leader/2, halt/0, halt/1, halt/2, hash/2, hibernate/3]).
+-export([insert_element/3]).
 -export([integer_to_list/1, iolist_size/1, iolist_to_binary/1]).
 -export([is_alive/0, is_builtin/3, is_process_alive/1, length/1, link/1]).
 -export([list_to_atom/1, list_to_binary/1, list_to_bitstr/1]).
@@ -529,6 +531,14 @@ date() ->
 decode_packet(_Type, _Bin, _Options) ->
     erlang:nif_error(undefined).
 
+%% delete_element/2
+-spec erlang:delete_element(Index, Tuple1) -> Tuple2 when
+      Index  :: pos_integer(),
+      Tuple1 :: tuple(),
+      Tuple2 :: tuple().
+delete_element(_Index, _Tuple1) ->
+    erlang:nif_error(undefined).
+
 %% delete_module/1
 -spec delete_module(Module) -> true | undefined when
       Module :: module().
@@ -818,6 +828,15 @@ hash(_Term, _Range) ->
       Function :: atom(),
       Args :: [term()].
 hibernate(_Module, _Function, _Args) ->
+    erlang:nif_error(undefined).
+
+%% insert_element/3
+-spec erlang:insert_element(Index, Tuple1, Term) -> Tuple2 when
+      Index  :: pos_integer(),
+      Tuple1 :: tuple(),
+      Tuple2 :: tuple(),
+      Term   :: term().
+insert_element(_Index, _Tuple1, _Term) ->
     erlang:nif_error(undefined).
 
 %% integer_to_list/1

@@ -626,6 +626,22 @@ false</pre>
 {more,6}</pre>
       </desc>
     </func>
+
+    <func>
+      <name name="delete_element" arity="2"/>
+      <fsummary>Delete element at index in a tuple</fsummary>
+      <type_desc variable="Index">1..tuple_size(<anno>Tuple1</anno>)</type_desc>
+      <desc>
+		  <p>
+			  Returns a new tuple with element at <c><anno>Index</anno></c> removed from
+			  tuple <c><anno>Tuple1</anno></c>.
+		  </p>
+        <pre>
+> <input>erlang:delete_element(2, {one, two, three}).</input>
+{one,three}</pre>
+      </desc>
+    </func>
+
     <func>
       <name name="delete_module" arity="1"/>
       <fsummary>Make the current code for a module old</fsummary>
@@ -1361,6 +1377,24 @@ os_prompt% </pre>
           when the process wakes up.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="insert_element" arity="3"/>
+      <fsummary>Insert an element at index in a tuple</fsummary>
+      <type_desc variable="Index">1..tuple_size(<anno>Tuple1</anno>) + 1</type_desc>
+      <desc>
+		  <p>
+			  Returns a new tuple with element <c><anno>Term</anno></c> insert at position
+			  <c><anno>Index</anno></c> in tuple <c><anno>Tuple1</anno></c>.
+			  All elements from position <c><anno>Index</anno></c> and upwards are subsequently
+			  pushed one step higher in the new tuple <c><anno>Tuple2</anno></c>.
+		  </p>
+        <pre>
+> <input>erlang:insert_element(2, {one, two, three}, new).</input>
+{one,new,two,three}</pre>
+      </desc>
+    </func>
+
     <func>
       <name name="integer_to_list" arity="1"/>
       <fsummary>Text representation of an integer</fsummary>

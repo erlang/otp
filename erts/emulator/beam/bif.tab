@@ -821,6 +821,8 @@ bif erlang:dt_append_vm_tag_data/1
 #
 bif erlang:prepare_loading/2
 bif erlang:finish_loading/1
+bif erlang:insert_element/3
+bif erlang:delete_element/2
 
 #
 # Obsolete

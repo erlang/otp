@@ -2526,6 +2526,78 @@ BIF_RETTYPE append_element_2(BIF_ALIST_2)
     BIF_RET(res);
 }
 
+BIF_RETTYPE insert_element_3(BIF_ALIST_3)
+{
+    Eterm* ptr;
+    Eterm* hp;
+    Uint arity;
+    Eterm res;
+    Sint ix;
+
+    if (is_not_tuple(BIF_ARG_2) || is_not_small(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    ptr   = tuple_val(BIF_ARG_2);
+    arity = arityval(*ptr);
+    ix    = signed_val(BIF_ARG_1);
+
+    if ((ix < 1) || (ix > (arity + 1))) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    hp  = HAlloc(BIF_P, arity + 1 + 1);
+    res = make_tuple(hp);
+    *hp = make_arityval(arity + 1);
+
+    ix--;
+    arity -= ix;
+
+    while (ix--) { *++hp = *++ptr; }
+
+    *++hp = BIF_ARG_3;
+
+    while(arity--) { *++hp = *++ptr; }
+
+    BIF_RET(res);
+}
+
+BIF_RETTYPE delete_element_2(BIF_ALIST_3)
+{
+    Eterm* ptr;
+    Eterm* hp;
+    Uint arity;
+    Eterm res;
+    Sint ix;
+
+    if (is_not_tuple(BIF_ARG_2) || is_not_small(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    ptr   = tuple_val(BIF_ARG_2);
+    arity = arityval(*ptr);
+    ix    = signed_val(BIF_ARG_1);
+
+    if ((ix < 1) || (ix > arity) || (arity == 0)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    hp  = HAlloc(BIF_P, arity + 1 - 1);
+    res = make_tuple(hp);
+    *hp = make_arityval(arity - 1);
+
+    ix--;
+    arity -= ix;
+
+    while (ix--) { *++hp = *++ptr; }
+
+    ++ptr;
+
+    while(arity--) { *++hp = *++ptr; }
+
+    BIF_RET(res);
+}
+
 /**********************************************************************/
 
 /* convert an atom to a list of ascii integer */

@@ -20,6 +20,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 t_size/1, t_tuple_size/1, t_element/1, t_setelement/1,
+	 t_insert_element/1, t_delete_element/1,
 	 t_list_to_tuple/1, t_tuple_to_list/1,
 	 t_make_tuple_2/1, t_make_tuple_3/1, t_append_element/1,
 	 build_and_match/1, tuple_with_case/1, tuple_in_guard/1]).
@@ -41,6 +42,7 @@ all() ->
     [build_and_match, t_size, t_tuple_size, t_list_to_tuple,
      t_tuple_to_list, t_element, t_setelement,
      t_make_tuple_2, t_make_tuple_3, t_append_element,
+     t_insert_element, t_delete_element,
      tuple_with_case, tuple_in_guard].
 
 groups() -> 
@@ -261,6 +263,49 @@ t_make_tuple_3(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch erlang:make_tuple(1 bsl 24, def, [{5,e},{1,a},{3,c}])),
 
     ok.
+
+%% Tests the erlang:insert_element/3 BIF.
+t_insert_element(Config) when is_list(Config) ->
+    {a}       = erlang:insert_element(1, {}, a),
+    {{b,b},a} = erlang:insert_element(1, {a}, {b,b}),
+    {a,b}     = erlang:insert_element(2, {a}, b),
+    [b,def|_] = tuple_to_list(erlang:insert_element(1, erlang:make_tuple(1 bsl 20, def), b)),
+    [def,b|_] = tuple_to_list(erlang:insert_element(2, erlang:make_tuple(1 bsl 20, def), b)),
+    [def,b|_] = lists:reverse(tuple_to_list(erlang:insert_element(1 bsl 20, erlang:make_tuple(1 bsl 20, def), b))),
+    [b,def|_] = lists:reverse(tuple_to_list(erlang:insert_element((1 bsl 20) + 1, erlang:make_tuple(1 bsl 20, def), b))),
+
+    %% Error cases.
+    {'EXIT',{badarg,_}} = (catch erlang:insert_element(1, [], a)),
+    {'EXIT',{badarg,_}} = (catch erlang:insert_element(1, a, a)),
+    {'EXIT',{badarg,_}} = (catch erlang:insert_element(0, {}, a)),
+    {'EXIT',{badarg,_}} = (catch erlang:insert_element(0, {b,b,b,b,b}, a)),
+    {'EXIT',{badarg,_}} = (catch erlang:insert_element(-1, {}, a)),
+    {'EXIT',{badarg,_}} = (catch erlang:insert_element(2, {}, a)),
+    {'EXIT',{badarg,_}} = (catch erlang:insert_element(6, {b,b,b,b}, a)),
+    {'EXIT',{badarg,_}} = (catch erlang:insert_element(1 bsl 20, {b,b,b,b}, a)),
+    ok.
+
+%% Tests the erlang:delete_element/3 BIF.
+t_delete_element(Config) when is_list(Config) ->
+    {}        = erlang:delete_element(1, {a}),
+    {{b,b},c} = erlang:delete_element(1, {a,{b,b},c}),
+    {a,b}     = erlang:delete_element(2, {a,c,b}),
+    [2,3|_]   = tuple_to_list(erlang:delete_element(1, list_to_tuple(lists:seq(1, 1 bsl 20)))),
+    [1,3|_]   = tuple_to_list(erlang:delete_element(2, list_to_tuple(lists:seq(1, 1 bsl 20)))),
+    [(1 bsl 20) - 1, (1 bsl 20) - 2 |_] = lists:reverse(tuple_to_list(erlang:delete_element(1 bsl 20, list_to_tuple(lists:seq(1, 1 bsl 20))))),
+    [(1 bsl 20), (1 bsl 20) - 2 |_] = lists:reverse(tuple_to_list(erlang:delete_element((1 bsl 20) - 1, list_to_tuple(lists:seq(1, 1 bsl 20))))),
+
+    %% Error cases.
+    {'EXIT',{badarg,_}} = (catch erlang:delete_element(1, [])),
+    {'EXIT',{badarg,_}} = (catch erlang:delete_element(1, a)),
+    {'EXIT',{badarg,_}} = (catch erlang:delete_element(0, {})),
+    {'EXIT',{badarg,_}} = (catch erlang:delete_element(-1, {})),
+    {'EXIT',{badarg,_}} = (catch erlang:delete_element(1, {})),
+    {'EXIT',{badarg,_}} = (catch erlang:delete_element(0, {b,b,b,b,b})),
+    {'EXIT',{badarg,_}} = (catch erlang:delete_element(5, {b,b,b,b})),
+    {'EXIT',{badarg,_}} = (catch erlang:delete_element(1 bsl 20, {b,c,b,b,b})),
+    ok.
+
 
 %% Tests the append_element/2 BIF.
 t_append_element(Config) when is_list(Config) ->
