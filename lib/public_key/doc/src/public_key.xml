@@ -58,7 +58,9 @@
     
     <p><code>boolean() = true | false</code></p>
 
-    <p><code>string = [bytes()]</code></p>
+    <p><code>string() = [bytes()]</code></p>
+
+    <p><code>der_encoded() = binary()</code></p>
    
     <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey' |
     'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo' |
@@ -86,6 +88,9 @@
     <p><code> rsa_digest_type()  = 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512' </code></p>
 
     <p><code> dss_digest_type()  = 'sha' </code></p>
+
+    <p><code> crl_reason()  = unspecified | keyCompromise | cACompromise | affiliationChanged | superseded | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise
+    </code></p>
 
     <p><code> ssh_file()  = openssh_public_key | rfc4716_public_key |
     known_hosts | auth_keys </code></p>
@@ -357,18 +362,104 @@
   </desc> 
   </func>
    
-  <!-- <func> -->
-  <!--   <name>pkix_path_validation()</name> -->
-  <!--   <fsummary> Performs a basic path validation according to RFC 5280.</fsummary> -->
-  <!--   <type> -->
-  <!--     <v></v>  -->
-  <!--   </type>  -->
-  <!--   <desc>  -->
-  <!--     <p> Performs a basic path validation according to RFC 5280.</p>  -->
-  <!--   </desc>  -->
-  <!-- </func> -->
+  <func>
+    <name>pkix_path_validation(TrustedCert, CertChain, Options) -> {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}} </name>
+    <fsummary> Performs a basic path validation according to RFC 5280.</fsummary>
+     <type>
+       <v> TrustedCert =  #'OTPCertificate'{} | der_encode() | unknown_ca | selfsigned_peer  </v>
+       <d>Normally a trusted certificate but it can also be one of the path validation
+       errors <c>unknown_ca </c> or <c>selfsigned_peer </c> that can be discovered while
+       constructing the input to this function and that should be run through the <c>verify_fun</c>.</d>
+       <v> CertChain = [der_encode()]</v>
+       <d>A list of DER encoded certificates in trust order ending with the peer certificate.</d>
+       <v> Options = proplists:proplists()</v>
+       <v>PublicKeyInfo = {?'rsaEncryption' | ?'id-dsa',
+       rsa_public_key() | integer(), 'NULL' | 'Dss-Parms'{}}</v>
+       <v> PolicyTree = term() </v>
+       <d>At the moment this will always be an empty list as Policies are not currently supported</d>
+       <v> Reason = cert_expired | invalid_issuer | invalid_signature | unknown_ca |
+       selfsigned_peer | name_not_permitted | missing_basic_constraint | invalid_key_usage | crl_reason()
+       </v>
+     </type>
+     <desc>
+       <p>
+	 Performs a basic path validation according to
+	 <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280.</url>
+	 However CRL validation is done separately by <seealso
+	 marker="public_key#pkix_crls_validate-3">pkix_crls_validate/3 </seealso> and should be called
+	 from the supplied <c>verify_fun</c>
+       </p>
 
-  
+       <taglist>
+	 <p> Available options are: </p>
+
+	<tag>{verify_fun, fun()}</tag>
+	<item>
+	  <p>The fun should be defined as:</p>
+
+	  <code>
+fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
+	                                     {extension, #'Extension'{}},
+    InitialUserState :: term()) ->
+	{valid, UserState :: term()} | {valid_peer, UserState :: term()} |
+	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+	  </code>
+
+	<p>If the verify callback fun returns {fail, Reason}, the
+	verification process is immediately stopped. If the verify
+	callback fun returns {valid, UserState}, the verification
+	process is continued, this can be used to accept specific path
+	validation errors such as <c>selfsigned_peer</c> as well as
+	verifying application specific extensions.  If called with an
+	extension unknown to the user application the return value
+	{unknown, UserState} should be used.</p>
+
+	</item>
+	<tag>{max_path_length, integer()}</tag>
+	<item>
+	  The <c>max_path_length</c> is the maximum number of non-self-issued
+	  intermediate certificates that may follow the peer certificate
+	  in a valid certification path.  So if <c>max_path_length</c> is 0 the PEER must
+	  be signed by the trusted ROOT-CA directly, if 1 the path can
+	  be PEER, CA, ROOT-CA, if it is 2 PEER, CA, CA, ROOT-CA and so
+	  on.
+	</item>
+      </taglist>
+    </desc>
+   </func>
+
+   <func>
+     <name>pkix_crls_validate(OTPCertificate, DPAndCRLs, Options) -> CRLStatus()</name>
+     <fsummary> Performs CRL validation.</fsummary>
+     <type>
+       <v> OTPCertificate =  #'OTPCertificate'{}</v>
+       <v> DPAndCRLs  = [{DP::#'DistributionPoint'{} ,CRL::#'CertificateList'{}}] </v>
+       <v> Options = proplists:proplists()</v>
+       <v> CRLStatus() =  valid | {bad_cert, revocation_status_undetermined} |
+       {bad_cert, {revoked, crl_reason()}}</v>
+     </type>
+     <desc>
+      <p> Performs CRL validation. It is intended to be called from
+      the verify fun of  <seealso marker="public_key#pkix_path_validation-3"> pkix_path_validation/3
+       </seealso></p>
+      <taglist>
+	<p> Available options are: </p>
+	<tag>{update_crl, fun()}</tag>
+	<item>
+	  <p>The fun has the following type spec:</p>
+
+	  <code> fun(#'DistributionPoint'{}, #'CertificateList'{}) -> #'CertificateList'{}</code>
+
+	  <p>The fun should use the information in the distribution point to acesses
+	  the lates possible version of the CRL. If this fun is not specified
+	  public_key will use the default implementation:
+	  </p>
+	  <code> fun(_DP, CRL) -> CRL end</code>
+	</item>
+      </taglist>
+    </desc>
+   </func>
+
   <func>
     <name>pkix_sign(#'OTPTBSCertificate'{}, Key) -> der_encode()</name>
     <fsummary>Signs certificate.</fsummary>

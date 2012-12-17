@@ -119,7 +119,7 @@
 	  
 #'AlgorithmIdentifier'{
 	  algorithm,  % oid() 
-	  parameters  % asn1_der_encoded()
+	  parameters  % der_encoded()
 	 }.
 </code>
 
@@ -290,7 +290,7 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
 #'Extension'{
 	  extnID,    % id_extensions() | oid() 
 	  critical,  % boolean()
-	  extnValue  % asn1_der_encoded() 
+	  extnValue  % der_encoded()
 	 }.
 </code>
 
@@ -461,7 +461,7 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
 
 #'Attribute'{
           type,  % oid()
-	  values % [asn1_der_encoded()]
+	  values % [der_encoded()]
 	  }).
 
 #'BasicConstraints'{
@@ -660,12 +660,12 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
 
 #'CertificationRequestInfo_subjectPKInfo_algorithm'{
      algorithm = oid(),
-     parameters = asn1_der_encoded()
+     parameters = der_encoded()
 }	  
 
 #'CertificationRequest_signatureAlgorithm'{
      algorithm = oid(),
-     parameters = asn1_der_encoded()
+     parameters = der_encoded()
      }  
    </code> 
  </section>

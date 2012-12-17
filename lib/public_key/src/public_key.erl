@@ -51,6 +51,8 @@
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
 -type rsa_digest_type()      :: 'md5' | 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type()      :: 'none' | 'sha'. %% None is for backwards compatibility
+-type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
+			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
 
 -define(UINT32(X), X:32/unsigned-big-integer).
 -define(DER_NULL, <<5, 0>>).
@@ -507,7 +509,7 @@ pkix_normalize_name(Issuer) ->
 %%-------------------------------------------------------------------- 
 -spec pkix_path_validation(Cert::binary()| #'OTPCertificate'{} | atom(),
 			   CertChain :: [binary()] ,
-			   Options :: list()) ->  
+			   Options :: proplist:proplist()) ->
 				  {ok, {PublicKeyInfo :: term(), 
 					PolicyTree :: term()}} |
 				  {error, {bad_cert, Reason :: term()}}.
@@ -542,7 +544,14 @@ pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
 							Options),
     path_validation(CertChain, ValidationState).
 
+%--------------------------------------------------------------------
+-spec pkix_crls_validate(#'OTPCertificate'{},
+			 [{DP::#'DistributionPoint'{} ,CRL::#'CertificateList'{}}],
+			 Options :: proplist:proplist()) -> valid | {bad_cert, revocation_status_undetermined}
+								| {bad_cert, {revoked, crl_reason()}}.
 
+%% Description: Performs a basic path validation according to RFC 5280.
+%%--------------------------------------------------------------------
 pkix_crls_validate(OtpCert, [{_,_,_} |_] = DPAndCRLs, Options) ->
     pkix_crls_validate(OtpCert, DPAndCRLs, DPAndCRLs,
 		       Options, pubkey_crl:init_revokation_state());
