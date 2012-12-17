@@ -86,10 +86,14 @@ compile(File) ->
     compile(File,[]).
 
 compile(File, Options0) when is_list(Options0) ->
-    Options1 = translate_options(Options0),
-    Options2 = includes(File,Options1),
-    Includes = strip_includes(Options2),
-    in_process(fun() -> compile_proc(File, Includes, Options2) end).
+    try translate_options(Options0) of
+	Options1 ->
+	    Options2 = includes(File,Options1),
+	    Includes = strip_includes(Options2),
+	    in_process(fun() -> compile_proc(File, Includes, Options2) end)
+    catch throw:Error ->
+	    Error
+    end.
 
 compile_proc(File, Includes, Options) ->
     case input_file_type(File, Includes) of
@@ -120,55 +124,12 @@ compile1(File,Options) when is_list(Options) ->
     Continue3 = check(Continue2,File,OutFile,Includes,EncodingRule,
 		      DbFile,Options,[]),
     Continue4 = generate(Continue3,OutFile,EncodingRule,Options),
-    Ret = compile_erl(Continue4,OutFile,Options),
-    case inline(is_inline(Options),
-		inline_output(Options,filename:rootname(File)),
-		lists:concat([OutFile,".erl"]),Options) of
-	false ->
-	    Ret;
-	InlineRet ->
-	    InlineRet
-    end.
+    compile_erl(Continue4, OutFile, Options).
 
 			  
 %%****************************************************************************%%
 %% functions dealing with compiling of several input files to one output file %%
 %%****************************************************************************%%
-
-%%%
-%% inline/4
-%% merges the resulting erlang modules with
-%% the appropriate run-time modules so the resulting module contains all
-%% run-time asn1 functionality. Then compiles the resulting file to beam code.
-%% The merging is done by the igor module. If this function is used in older
-%% versions than R10B the igor module, part of user contribution syntax_tools,
-%% must be provided. It is possible to pass options for the ASN1 compiler
-%% Types:
-%%     Name -> atom()
-%%     Modules -> [filename()]
-%%     Options -> [term()]
-%%     filename() -> file:filename()
-inline(true,Name,Module,Options) ->
-    RTmodule = get_runtime_mod(Options),
-    IgorOptions = igorify_options(remove_asn_flags(Options)),
-    IgorName = list_to_atom(filename:rootname(filename:basename(Name))),
-%    io:format("*****~nName: ~p~nModules: ~p~nIgorOptions: ~p~n*****~n",
-%	      [IgorName,Modules++RTmodule,IgorOptions]),
-    verbose("Inlining modules: ~p in ~p~n",[[Module]++RTmodule,IgorName],Options),
-    case catch igor:merge(IgorName,[Module]++RTmodule,[{preprocess,true},{stubs,false},{backups,false}]++IgorOptions) of
-	{'EXIT',{undef,Reason}} -> %% module igor first in R10B
-	    error("Module igor in syntax_tools must be available:~n~p~n",
-		  [Reason],Options),
-	    {error,'no_compilation'};
-	{'EXIT',Reason} ->
-	    error("Merge by igor module failed due to ~p~n",[Reason],Options),
-	    {error,'no_compilation'};
-	_ ->
-%%	    io:format("compiling output module: ~p~n",[generated_file(Name,IgorOptions)]),
-	    erl_compile(generated_file(Name,IgorOptions),Options)
-    end;
-inline(_,_,_,_) ->
-    false.
 
 %% compile_set/3 merges and compiles a number of asn1 modules
 %% specified in a .set.asn file to one .erl file.
@@ -218,15 +179,7 @@ check_set(ParseRes,SetBase,OutFile,Includes,EncRule,DbFile,
 
     asn1ct_table:delete([renamed_defs, original_imports, automatic_tags]),
 
-    Ret = compile_erl(Continue2,OutFile,Options),
-    case inline(is_inline(Options),
-		inline_output(Options,filename:rootname(OutFile)),
-		lists:concat([OutFile,".erl"]),Options) of
-	false ->
-	    Ret;
-	InlineRet ->
-	    InlineRet
-    end.
+    compile_erl(Continue2, OutFile, Options).
 
 %% merge_modules/2 -> returns a module record where the typeorval lists are merged,
 %% the exports lists are merged, the imports lists are merged when the 
@@ -1065,18 +1018,8 @@ get_rule(Options) ->
 	    ber
     end.
 
-get_runtime_mod(Options) ->
-    RtMod1=
-	case get_rule(Options) of
-	    per -> "asn1rt_per_bin_rt2ct.erl";
-	    ber -> ["asn1rt_ber_bin_v2.erl"];
-	    uper -> ["asn1rt_uper_bin.erl"]
-	end,
-    RtMod1++["asn1rt_check.erl","asn1rt.erl"].
-
 %% translate_options(NewOptions) -> OldOptions
 %%  Translate the new option names to the old option name.
-%%  FIXME. We should rewrite all code to handle the new option names.
 
 translate_options([ber_bin|T]) ->
     io:format("Warning: The option 'ber_bin' is now called 'ber'.\n"),
@@ -1093,6 +1036,12 @@ translate_options([nif|T]) ->
 translate_options([optimize|T]) ->
     io:format("Warning: The option 'optimize' is no longer needed.\n"),
     translate_options(T);
+translate_options([inline|T]) ->
+    io:format("Warning: The option 'inline' is no longer needed.\n"),
+    translate_options(T);
+translate_options([{inline,_}|_]) ->
+    io:format("ERROR: The option {inline,OutputFilename} is no longer supported.\n"),
+    throw({error,{unsupported_option,inline}});
 translate_options([H|T]) ->
     [H|translate_options(T)];
 translate_options([]) -> [].
@@ -1128,23 +1077,6 @@ debug_on(Options) ->
 	    put(asndebug,true);
 	_ ->
 	    true
-    end.
-
-igorify_options(Options) ->
-    case lists:keysearch(outdir,1,Options) of
-	{value,{_,Dir}} ->
-	    Options1 = lists:keydelete(outdir,1,Options),
-	    [{dir,Dir}|Options1];
-	_ ->
-	    Options
-    end.
-
-generated_file(Name,Options) ->
-    case lists:keysearch(dir,1,Options) of
-	{value,{_,Dir}} ->
-	    filename:join([Dir,filename:basename(Name)]);
-	_ ->
-	    Name
     end.
 
 debug_off(_Options) ->
@@ -1187,21 +1119,6 @@ option_add(Option, Options, Fun) ->
 strip_includes(Includes) ->
     [I || {i, I} <- Includes].
 
-is_inline(Options) ->
-    case lists:member(inline,Options) of
-	true -> true;
-	_ ->
-	    lists:keymember(inline,1,Options)
-    end.
-
-inline_output(Options,Default) ->
-    case [X||{inline,X}<-Options] of
-	[OutputName] ->
-	    OutputName;
-	_ -> 
-	    Default
-    end.
-		    
 		    
 %% compile(AbsFileName, Options)
 %%   Compile entry point for erl_compile.

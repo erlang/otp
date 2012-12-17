@@ -352,22 +352,6 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
             list or a binary. Earlier versions of the compiler ignored
             those following bytes.</p>
         </item>
-        <tag><c>{inline,OutputName}</c></tag>
-        <item>
-          <p>Compiling with this option gives one output module
-            containing all asn1 run-time functionality. The asn1 specs
-            are provided in a target module <c>Module.set.asn</c> as
-            described in the <seealso marker="asn1ct#asn1set">reference manual</seealso>. The name of the resulting module
-            containing generated encode/decode functions and inlined
-            run-time functions will be <c>OutputName.erl</c>. The
-            merging/inlining of code is done by the <c>igor</c> module
-            of <c>syntax_tools</c>. By default the functions generated
-            from the first asn1 spec in the <c>.set.asn</c> are
-            exported, unless a <c>{export,[atom()]}</c> or
-            <c>{export_all,true}</c> option are provided. The list of
-            atoms are names of choosen asn1 specs from the
-            <c>.set.asn</c> file. See further examples of usage <seealso marker="#inlineExamples">below</seealso></p>
-        </item>
         <tag><c>+'Any Erlc Option'</c></tag>
         <item>
           <p>You may add any option to the Erlang compiler when
@@ -454,21 +438,8 @@ asn1rt:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
        any reason. Maybe you need to compile the same specs for
        different encoding/decoding standards.</item>
       <item>You want only one resulting module.</item>
-      <item>If it is crucial to have a minimal system. Using
-      <c>{inline,OutputModule}</c> includes all necessary run-time
-       functions of the asn1 application, but skips those modules not
-       used.</item>
-      <item>Upgrading issues: Even if you upgrade your Erlang system
-       you may want to continue running the old asn1 run-time
-       functionality.</item>
-      <item>Performance issues: If you have an asn1 system with a lot
-       of cross references you may gain in performance. Measurements
-       must be done for each case.</item>
     </list>
-    <p>You may choose either the plain multi file compilation that just
-      merges the chosen asn1 specs or the <c>{inline,OutputModule}</c>
-      that also includes the used asn1 run-time functionality.</p>
-    <p>For both cases you need to specify which asn1 specs you will
+    <p>You need to specify which asn1 specs you will
       compile in a module that must have the extension
       <c>.set.asn</c>. You chose name of the module and provide the
       names of the asn1 specs. For instance, if you have the specs
@@ -482,17 +453,7 @@ File3.asn    </pre>
     <code type="none">
 ~> erlc MyModule.set.asn    </code>
     <p>the result will be one merged module <c>MyModule.erl</c> with
-      the generated code from the three asn1 specs. But if you compile
-      with:</p>
-    <code type="none">
-~> erlc +"{inline,'OutputModule'}" MyModule.set.asn    </code>
-    <p>the result will be a module <c>OutputModule.erl</c> that
-      contains all encode/decode functions for the three asn1 specs and
-      all used functions from the asn1 run-time modules, in this case
-      <c>asn1rt_ber_bin</c>. In the former case all encode/decode
-      functions are exported but in the latter only the encode/decode
-      functions of the first spec in the <c>.set.asn</c>, i.e. those
-      from <c>File1.asn</c>.
+      the generated code from the three asn1 specs.
       </p>
   </section>
 

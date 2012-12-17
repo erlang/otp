@@ -71,7 +71,6 @@ groups() ->
        {group, [], [parse,
                     test_driver_load,
                     test_undecoded_rest,
-                    test_inline,
                     specialized_decodes,
                     special_decode_performance,
                     testMegaco,
@@ -978,14 +977,8 @@ testSSLspecs(Config, Rule, Opts) ->
     ok = testSSLspecs:compile(Config,
                               [Rule, compact_bit_string, der|Opts]),
     testSSLspecs:run(Rule),
-
-    case code:which(asn1ct) of
-       cover_compiled ->
-           ok;
-       _ ->
-           ok = testSSLspecs:compile_inline(Config, Rule),
-           ok = testSSLspecs:run_inline(Rule)
-    end.
+    ok = testSSLspecs:compile_combined(Config, Rule),
+    ok = testSSLspecs:run_combined(Rule).
 
 testNortel(Config) -> test(Config, fun testNortel/3).
 testNortel(Config, Rule, Opts) ->
@@ -1001,19 +994,6 @@ test_undecoded_rest(Config, Rule, Opts) ->
         _ -> test_undecoded_rest:test(undec_rest, Config)
     end.
 
-test_inline(Config) ->
-    test(Config, fun test_inline/3, [ber]).
-test_inline(Config, Rule, Opts) ->
-    case code:which(asn1ct) of
-        cover_compiled ->
-            {skip, "Not runnable when cover compiled"};
-        _  ->
-            test_inline:compile(Config, Opts),
-            test_inline:main(Config, Rule),
-            test_inline:inline1(Config, Rule, Opts),
-            test_inline:performance2()
-    end.
-
 testTcapsystem(Config) ->
     test(Config, fun testTcapsystem/3, [ber]).
 testTcapsystem(Config, Rule, Opts) ->
@@ -1025,17 +1005,12 @@ testNBAPsystem(Config, Rule, Opts) ->
     testNBAPsystem:test(Rule, Config).
 
 test_compile_options(Config) ->
-    case code:which(asn1ct) of
-        cover_compiled ->
-            {skip, "Not runnable when cover compiled"};
-        _  ->
-            ok = test_compile_options:wrong_path(Config),
-            ok = test_compile_options:path(Config),
-            ok = test_compile_options:noobj(Config),
-            ok = test_compile_options:record_name_prefix(Config),
-            ok = test_compile_options:verbose(Config),
-            ok = test_compile_options:warnings_as_errors(Config)
-    end.
+    ok = test_compile_options:wrong_path(Config),
+    ok = test_compile_options:path(Config),
+    ok = test_compile_options:noobj(Config),
+    ok = test_compile_options:record_name_prefix(Config),
+    ok = test_compile_options:verbose(Config),
+    ok = test_compile_options:warnings_as_errors(Config).
 
 testDoubleEllipses(Config) -> test(Config, fun testDoubleEllipses/3).
 testDoubleEllipses(Config, Rule, Opts) ->

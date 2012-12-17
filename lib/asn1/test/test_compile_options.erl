@@ -51,14 +51,13 @@ path(Config) ->
     {ok,CWD} = file:get_cwd(),
     ?line file:set_cwd(filename:join([DataDir,subdir])),
 
-    %%?line ok=asn1ct:compile(filename:join([DataDir,"../MyMerge.set.asn"]),[{inline,mymerge},{outdir,OutDir}]),
-    ?line ok=asn1ct:compile("../MyMerge.set.asn",[{inline,mymerge},{outdir,OutDir}]),
+    ok = asn1ct:compile("../MyMerge.set.asn",[{outdir,OutDir}]),
 
     ?line ok=outfiles_check(OutDir),
     ?line outfiles_remove(OutDir),
 
     file:set_cwd(filename:join([DataDir,subdir,subsubdir])),
-    ?line ok = asn1ct:compile('../../MyMerge.set.asn',[{inline,mymerge},{i,'..'},{outdir,OutDir}]),
+    ok = asn1ct:compile('../../MyMerge.set.asn',[{i,'..'},{outdir,OutDir}]),
 
     ?line ok=outfiles_check(OutDir,outfiles2()),
     file:set_cwd(CWD),
@@ -182,11 +181,10 @@ outfiles_check(OutDir,[H|T]) ->
     outfiles_check(OutDir,T).
 
 outfiles1() ->
-    ["mymerge.erl","mymerge.beam","MyMerge.asn1db","MyMerge.beam",
+    ["MyMerge.asn1db","MyMerge.beam",
      "MyMerge.erl","MyMerge.hrl"].
 outfiles2() ->
-    ["MyMerge.beam","mymerge.erl","MyMerge.asn1db","MyMerge.erl",
-     "mymerge.beam"].
+    ["MyMerge.beam","MyMerge.asn1db","MyMerge.erl"].
 
 outfiles_remove(OutDir) ->
     lists:foreach(fun(F)-> file:delete(filename:join([OutDir,F])) end,

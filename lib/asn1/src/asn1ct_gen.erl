@@ -1410,11 +1410,9 @@ gen_head(Erules,Mod,Hrl) ->
     emit({"-module('",Mod,"').",nl}),
     put(currmod,Mod),
     emit({"-compile(nowarn_unused_vars).",nl}),
-    case {Hrl,lists:member(inline,get(encoding_options))} of
-	{0,_} -> true;
-	{_,true} -> true;
-	_ -> 
-	    emit({"-include(\"",Mod,".hrl\").",nl})
+    case Hrl of
+	0 -> ok;
+	_ -> emit({"-include(\"",Mod,".hrl\").",nl})
     end,
     emit(["-asn1_info([{vsn,'",asn1ct:vsn(),"'},",nl,
 	  "            {module,'",Mod,"'},",nl,
