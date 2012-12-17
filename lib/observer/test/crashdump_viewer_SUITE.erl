@@ -732,6 +732,12 @@ dump_with_strange_module_name(DataDir,Rel,DumpName) ->
     CD.
 
 dump(Node,DataDir,Rel,DumpName) ->
+    case Rel of
+	_ when Rel<r15b, Rel=/=current ->
+	    rpc:call(Node,os,putenv,["ERL_CRASH_DUMP_SECONDS","600"]);
+	_ ->
+	    ok
+    end,
     rpc:call(Node,erlang,halt,[DumpName]),
     Crashdump0 = filename:join(filename:dirname(code:which(?t)),
 			       "erl_crash_dump.n1"),
