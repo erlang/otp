@@ -32,6 +32,56 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.6.3.1</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    The following corrections/changes are done in the
+	    cth_surefire hook:</p>
+          <p>
+	    <list> <item> Earlier there would always be a
+	    'properties' element under the 'testsuites' element. This
+	    would exist even if there were no 'property' element
+	    inside it. This has been changed so if there are no
+	    'property' elements to display, then there will not be a
+	    'properties' element either. </item> <item> The XML file
+	    will now (unless other is specified) be stored in the top
+	    log directory. Earlier, the default directory would be
+	    the current working directory for the erlang node, which
+	    would mostly, but not always, be the top log directory.
+	    </item> <item> The 'hostname' attribute in the
+	    'testsuite' element would earlier never have the correct
+	    value. This has been corrected. </item> <item> The
+	    'errors' attribute in the 'testsuite' element would
+	    earlier display the number of failed testcases. This has
+	    been changed and will now always have the value 0, while
+	    the 'failures' attribute will show the number of failed
+	    testcases. </item> <item> A new attribute 'skipped' is
+	    added to the 'testsuite' element. This will display the
+	    number of skipped testcases. These would earlier be
+	    included in the number of failed test cases. </item>
+	    <item> The total number of tests displayed by the 'tests'
+	    attribute in the 'testsuite' element would earlier
+	    include init/end_per_suite and init/end_per_group. This
+	    is no longer the case. The 'tests' attribute will now
+	    only count "real" test cases. </item> <item> Earlier,
+	    auto skipped test cases would have no value in the 'log'
+	    attribute. This is now corrected. </item> <item> A new
+	    attributes 'log' is added to the 'testsuite' element.
+	    </item> <item> A new option named 'url_base' is added for
+	    this hook. If this option is used, a new attribute named
+	    'url' will be added to the 'testcase' and 'testsuite'
+	    elements. </item> </list></p>
+          <p>
+	    Own Id: OTP-10589</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
