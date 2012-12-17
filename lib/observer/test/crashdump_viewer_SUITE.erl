@@ -34,6 +34,7 @@
 
 -define(default_timeout, ?t:minutes(30)).
 -define(sl_alloc_vsns,[r9b]).
+-define(failed_file,"failed-cases.txt").
 
 init_per_testcase(_Case, Config) ->
     DataDir = ?config(data_dir,Config),
@@ -42,9 +43,18 @@ init_per_testcase(_Case, Config) ->
     catch crashdump_viewer:stop(),
     Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
+end_per_testcase(Case, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
+    case ?config(tc_status,Config) of
+	ok ->
+	    ok;
+	_Fail ->
+	    File = filename:join(?config(data_dir,Config),?failed_file),
+	    {ok,Fd}=file:open(File,[append]),
+	    file:write(Fd,io_lib:format("~w.~n",[Case])),
+	    file:close(Fd)
+    end,
     ok.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -67,14 +77,25 @@ init_per_suite(doc) ->
     ["Create a lot of crashdumps which can be used in the testcases below"];
 init_per_suite(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?default_timeout),
+    delete_saved(Config),
     application:start(inets), % will be using the http client later
     httpc:set_options([{ipfamily,inet6fb4}]),
     DataDir = ?config(data_dir,Config),
-    Rels = [R || R <- [r13b,r14b], ?t:is_release_available(R)] ++ [current],
+    Rels = [R || R <- [r14b,r15b], ?t:is_release_available(R)] ++ [current],
     io:format("Creating crash dumps for the following releases: ~p", [Rels]),
     AllDumps = create_dumps(DataDir,Rels),
     ?t:timetrap_cancel(Dog),
     [{dumps,AllDumps}|Config].
+
+delete_saved(Config) ->
+    DataDir = ?config(data_dir,Config),
+    file:delete(filename:join(DataDir,?failed_file)),
+    SaveDir = filename:join(DataDir,"save"),
+    Dumps = filelib:wildcard(filename:join(SaveDir,"*")),
+    lists:foreach(fun(F) -> file:delete(F) end, Dumps),
+    file:del_dir(SaveDir),
+    ok.
+
 
 translate(suite) ->
     [];
@@ -196,6 +217,23 @@ end_per_suite(doc) ->
     ["Remove generated crashdumps"];
 end_per_suite(Config) when is_list(Config) ->
     Dumps = ?config(dumps,Config),
+    DataDir = ?config(data_dir,Config),
+    FailedFile = filename:join(DataDir,?failed_file),
+    case filelib:is_file(FailedFile) of
+	true ->
+	    SaveDir = filename:join(DataDir,"save"),
+	    file:make_dir(SaveDir),
+	    file:copy(FailedFile,filename:join(SaveDir,?failed_file)),
+	    lists:foreach(
+	      fun(CD) ->
+		      File = filename:basename(CD),
+		      New = filename:join(SaveDir,File),
+		      file:copy(CD,New)
+	      end, Dumps);
+	false ->
+	    ok
+    end,
+    file:delete(FailedFile),
     lists:foreach(fun(CD) -> ok = file:delete(CD) end,Dumps),
     lists:keydelete(dumps,1,Config).
 
@@ -568,11 +606,14 @@ expand_link(Html) ->
 
 
 port_details(Port) ->
-    Port1 = contents(Port,"port?port=Port<0.1>"),
-    "#Port<0.1>" = title(Port1),
-    
     Port0 = contents(Port,"port?port=Port<0.0>"),
-    "Could not find port: #Port<0.0>" = title(Port0).
+    Port1 = contents(Port,"port?port=Port<0.1>"),
+    case title(Port0) of
+	"#Port<0.0>" -> % R16 or later
+	    "Could not find port: #Port<0.1>" = title(Port1);
+	"Could not find port: #Port<0.0>" -> % R15 or earlier
+	    "#Port<0.1>" = title(Port1)
+    end.
 
 is_truncated(File) ->
     case filename:extension(filename:rootname(File)) of
@@ -752,6 +793,7 @@ rel_opt(Rel) ->
 	r12b -> [{erl,[{release,"r12b_patched"}]}];
 	r13b -> [{erl,[{release,"r13b_patched"}]}];
 	r14b -> [{erl,[{release,"r14b_latest"}]}]; %naming convention changed
+	r15b -> [{erl,[{release,"r15b_latest"}]}];
 	current -> []
     end.
 
@@ -764,7 +806,8 @@ dump_prefix(Rel) ->
 	r12b -> "r12b_dump.";
 	r13b -> "r13b_dump.";
 	r14b -> "r14b_dump.";
-	current -> "r15b_dump."
+	r15b -> "r15b_dump.";
+	current -> "r16b_dump."
     end.
 
 compat_rel(Rel) ->
@@ -776,5 +819,6 @@ compat_rel(Rel) ->
 	r12b -> "+R12 ";
 	r13b -> "+R13 ";
 	r14b -> "+R14 ";
+	r15b -> "+R15 ";
 	current -> ""
     end.
