@@ -252,6 +252,7 @@ XSLTPROC = @XSLTPROC@
 FOP = @FOP@
 
 DOCGEN=$(ERL_TOP)/lib/erl_docgen
+FOP_CONFIG = $(DOCGEN)/priv/fop.xconf
 
 ifneq (,$(findstring $(origin SPECS_ESRC),$(DUBIOUS_ORIGINS)))
 SPECS_ESRC = ../../src
@@ -308,5 +309,5 @@ $(MAN9DIR)/%.9: %.xml
 	 escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $< $@
 
 .fo.pdf:
-	$(FOP) -fo $< -pdf $@
+	$(FOP) -c $(FOP_CONFIG) -fo $< -pdf $@
 
