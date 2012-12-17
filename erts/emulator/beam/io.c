@@ -82,9 +82,11 @@ static void pdl_init(void);
 #ifdef ERTS_SMP
 static void driver_monitor_lock_pdl(Port *p);
 static void driver_monitor_unlock_pdl(Port *p);
+#define DRV_MONITOR_LOOKUP_PORT_LOCK_PDL(Port) erts_thr_drvport2port_raw((Port), 1)
 #define DRV_MONITOR_LOCK_PDL(Port) driver_monitor_lock_pdl(Port)
 #define DRV_MONITOR_UNLOCK_PDL(Port) driver_monitor_unlock_pdl(Port)
 #else
+#define DRV_MONITOR_LOOKUP_PORT_LOCK_PDL(Port) erts_thr_drvport2port_raw((Port), 0)
 #define DRV_MONITOR_LOCK_PDL(Port) /* nothing */
 #define DRV_MONITOR_UNLOCK_PDL(Port) /* nothing */
 #endif
@@ -95,7 +97,7 @@ static void driver_monitor_unlock_pdl(Port *p);
 static ERTS_INLINE ErlIOQueue*
 drvport2ioq(ErlDrvPort drvport)
 {
-    Port *prt = erts_thr_drvport2port_raw(drvport);
+    Port *prt = erts_thr_drvport2port_raw(drvport, 0);
     erts_aint32_t state = erts_atomic32_read_nob(&prt->state);
     if (state & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
 	return NULL;
@@ -6739,9 +6741,7 @@ int driver_monitor_process(ErlDrvPort drvport,
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
-    prt = erts_thr_drvport2port_raw(drvport);
-
-    DRV_MONITOR_LOCK_PDL(prt);
+    prt = DRV_MONITOR_LOOKUP_PORT_LOCK_PDL(drvport);
 
     state = erts_atomic32_read_nob(&prt->state);
 
@@ -6820,9 +6820,7 @@ int driver_demonitor_process(ErlDrvPort drvport,
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
-    prt = erts_thr_drvport2port_raw(drvport);
-
-    DRV_MONITOR_LOCK_PDL(prt);
+    prt = DRV_MONITOR_LOOKUP_PORT_LOCK_PDL(drvport);
 
     state = erts_atomic32_read_nob(&prt->state);
 
@@ -6883,9 +6881,7 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort drvport,
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
-    prt = erts_thr_drvport2port_raw(drvport);
-
-    DRV_MONITOR_LOCK_PDL(prt);
+    prt = DRV_MONITOR_LOOKUP_PORT_LOCK_PDL(drvport);
 
     state = erts_atomic32_read_nob(&prt->state);
     if (state & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP) {
