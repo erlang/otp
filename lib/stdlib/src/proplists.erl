@@ -57,9 +57,9 @@
 %% ---------------------------------------------------------------------
 
 %% @doc Creates a normal form (minimal) representation of a property. If
-%% <code>P</code> is <code>{Key, true}</code> where <code>Key</code> is
-%% an atom, this returns <code>Key</code>, otherwise the whole term
-%% <code>P</code> is returned.
+%% <code>PropertyIn</code> is <code>{Key, true}</code> where
+%% <code>Key</code> is an atom, this returns <code>Key</code>, otherwise
+%% the whole term <code>PropertyIn</code> is returned.
 %%
 %% @see property/2
 
@@ -93,7 +93,7 @@ property(Key, Value) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc Unfolds all occurences of atoms in <code>List</code> to tuples
+%% @doc Unfolds all occurences of atoms in <code>ListIn</code> to tuples
 %% <code>{Atom, true}</code>.
 %%
 %% @see compact/1
@@ -112,7 +112,7 @@ unfold([]) ->
     [].
 
 %% @doc Minimizes the representation of all entries in the list. This is
-%% equivalent to <code>[property(P) || P &lt;- List]</code>.
+%% equivalent to <code>[property(P) || P &lt;- ListIn]</code>.
 %%
 %% @see unfold/1
 %% @see property/1
@@ -121,8 +121,8 @@ unfold([]) ->
       ListIn :: [property()],
       ListOut :: [property()].
 
-compact(List) ->
-    [property(P) || P <- List].
+compact(ListIn) ->
+    [property(P) || P <- ListIn].
 
 
 %% ---------------------------------------------------------------------
@@ -378,7 +378,7 @@ delete(_, []) ->
 %% ---------------------------------------------------------------------
 
 %% @doc Substitutes keys of properties. For each entry in
-%% <code>List</code>, if it is associated with some key <code>K1</code>
+%% <code>ListIn</code>, if it is associated with some key <code>K1</code>
 %% such that <code>{K1, K2}</code> occurs in <code>Aliases</code>, the
 %% key of the entry is changed to <code>Key2</code>. If the same
 %% <code>K1</code> occurs more than once in <code>Aliases</code>, only
@@ -416,13 +416,13 @@ substitute_aliases_1([], P) ->
 %% ---------------------------------------------------------------------
 
 %% @doc Substitutes keys of boolean-valued properties and simultaneously
-%% negates their values. For each entry in <code>List</code>, if it is
+%% negates their values. For each entry in <code>ListIn</code>, if it is
 %% associated with some key <code>K1</code> such that <code>{K1,
 %% K2}</code> occurs in <code>Negations</code>, then if the entry was
 %% <code>{K1, true}</code> it will be replaced with <code>{K2,
 %% false}</code>, otherwise it will be replaced with <code>{K2,
 %% true}</code>, thus changing the name of the option and simultaneously
-%% negating the value given by <code>get_bool(List)</code>. If the same
+%% negating the value given by <code>get_bool(ListIn)</code>. If the same
 %% <code>K1</code> occurs more than once in <code>Negations</code>, only
 %% the first occurrence is used.
 %%
@@ -472,11 +472,11 @@ substitute_negations_1([], P) ->
 %% @doc Expands particular properties to corresponding sets of
 %% properties (or other terms). For each pair <code>{Property,
 %% Expansion}</code> in <code>Expansions</code>, if <code>E</code> is
-%% the first entry in <code>List</code> with the same key as
+%% the first entry in <code>ListIn</code> with the same key as
 %% <code>Property</code>, and <code>E</code> and <code>Property</code>
 %% have equivalent normal forms, then <code>E</code> is replaced with
 %% the terms in <code>Expansion</code>, and any following entries with
-%% the same key are deleted from <code>List</code>.
+%% the same key are deleted from <code>ListIn</code>.
 %%
 %% <p>For example, the following expressions all return <code>[fie, bar,
 %% baz, fum]</code>:
