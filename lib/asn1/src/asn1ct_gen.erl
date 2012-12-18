@@ -1496,49 +1496,40 @@ gen_check_call(TopType,Cname,Type,InnerType,WhatKind,DefaultValue,Element) ->
 	    emit(["fun() -> true end ()"])
     end.
 
-gen_prim_check_call(PrimType,DefaultValue,Element,Type) ->
+gen_prim_check_call(PrimType, Default, Element, Type) ->
     case unify_if_string(PrimType) of
 	'BOOLEAN' ->
-	    emit({"asn1rt_check:check_bool(",DefaultValue,", ",
-		  Element,")"});
+	    check_call(check_bool, [Default,Element]);
 	'INTEGER' ->
-	    NNL =
-		case Type#type.def of
-		    {_,NamedNumberList} -> NamedNumberList;
-		    _ -> []
-		end,
-	    emit({"asn1rt_check:check_int(",DefaultValue,", ",
-		  Element,", ",{asis,NNL},")"});
+	    NNL = case Type#type.def of
+		      {_,NamedNumberList} -> NamedNumberList;
+		      _ -> []
+		  end,
+	    check_call(check_int, [Default,Element,{asis,NNL}]);
 	'BIT STRING' ->
 	    {_,NBL} = Type#type.def,
-	    emit({"asn1rt_check:check_bitstring(",DefaultValue,", ",
-		  Element,", ",{asis,NBL},")"});
+	    check_call(check_bitstring, [Default,Element,{asis,NBL}]);
 	'OCTET STRING' ->
-	    emit({"asn1rt_check:check_octetstring(",DefaultValue,", ",
-		  Element,")"});
+	    check_call(check_octetstring, [Default,Element]);
 	'NULL' ->
-	    emit({"asn1rt_check:check_null(",DefaultValue,", ",
-		  Element,")"});
+	    check_call(check_null, [Default,Element]);
 	'OBJECT IDENTIFIER' ->
-	    emit({"asn1rt_check:check_objectidentifier(",DefaultValue,
-		  ", ",Element,")"});
+	    check_call(check_objectidentifier, [Default,Element]);
 	'RELATIVE-OID' ->
-	    emit({"asn1rt_check:check_objectidentifier(",DefaultValue,
-		  ", ",Element,")"});
+	    check_call(check_objectidentifier, [Default,Element]);
 	'ObjectDescriptor' ->
-	    emit({"asn1rt_check:check_objectdescriptor(",DefaultValue,
-		  ", ",Element,")"});
+	    check_call(check_objectdescriptor, [Default,Element]);
 	'REAL' ->
-	    emit({"asn1rt_check:check_real(",DefaultValue,
-		  ", ",Element,")"});
+	    check_call(check_real, [Default,Element]);
 	'ENUMERATED' ->
 	    {_,Enumerations} = Type#type.def,
-	    emit({"asn1rt_check:check_enum(",DefaultValue,
-		  ", ",Element,", ",{asis,Enumerations},")"});
+	    check_call(check_enum, [Default,Element,{asis,Enumerations}]);
 	restrictedstring ->
-	    emit({"asn1rt_check:check_restrictedstring(",DefaultValue,
-		  ", ",Element,")"})
+	    check_call(check_restrictedstring, [Default,Element])
     end.
+
+check_call(F, Args) ->
+    asn1ct_func:call(check, F, Args).
 
 %% lokahead_innertype/3 traverses Type and checks if check functions
 %% have to be generated, i.e. for all constructed or referenced types.
