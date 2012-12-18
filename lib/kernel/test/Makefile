@@ -73,6 +73,7 @@ MODULES= \
 	seq_trace_SUITE \
 	wrap_log_reader_SUITE \
 	cleanup \
+	ignore_cores \
 	zlib_SUITE \
 	loose_node \
 	sendfile_SUITE

@@ -83,10 +83,10 @@ init_per_suite(Config) when is_list(Config) ->
 	{win32, windows} ->
 	    {skipped, "No use to run on Windows 95/98"};
 	_ ->
-	    Config
+	    ignore_cores:init(Config)
     end.
 end_per_suite(Config) when is_list(Config) ->
-    Config.
+    ignore_cores:fini(Config).
 
 
 start_check(Type, Name) ->
@@ -188,8 +188,20 @@ reboot(Config) when is_list(Config) ->
 %%   Check that a node is up and running after a crash.
 %%   This test exhausts the atom table on the remote node.
 %%   ERL_CRASH_DUMP_SECONDS=0 will force beam not to dump an erl_crash.dump.
+%% May currently dump core in beam debug build due to lock-order violation
+%% This should be removed when a non-lockad information retriever is implemented
+%% for crash dumps
 node_start_immediately_after_crash(suite) -> {req, [{time, 10}]};
 node_start_immediately_after_crash(Config) when is_list(Config) ->
+    Config2 = ignore_cores:setup(?MODULE, node_start_immediately_after_crash, Config, true),
+    try
+	node_start_immediately_after_crash_test(Config2)
+    after
+	ignore_cores:restore(Config2)
+    end.
+ 
+
+node_start_immediately_after_crash_test(Config) when is_list(Config) ->
     {ok, Node} = start_check(loose, heart_test_imm, [{"ERL_CRASH_DUMP_SECONDS", "0"}]),
 
     ok = rpc:call(Node, heart, set_cmd,
@@ -228,8 +240,19 @@ node_start_immediately_after_crash(Config) when is_list(Config) ->
 %%   This test exhausts the atom table on the remote node.
 %%   ERL_CRASH_DUMP_SECONDS=10 will force beam
 %%   to only dump an erl_crash.dump for 10 seconds.
+%% May currently dump core in beam debug build due to lock-order violation
+%% This should be removed when a non-lockad information retriever is implemented
+%% for crash dumps
 node_start_soon_after_crash(suite) -> {req, [{time, 10}]};
 node_start_soon_after_crash(Config) when is_list(Config) ->
+    Config2 = ignore_cores:setup(?MODULE, node_start_soon_after_crash, Config, true),
+    try
+	node_start_soon_after_crash_test(Config2)
+    after
+	ignore_cores:restore(Config2)
+    end.
+ 
+node_start_soon_after_crash_test(Config) when is_list(Config) ->
     {ok, Node} = start_check(loose, heart_test_soon, [{"ERL_CRASH_DUMP_SECONDS", "10"}]),
 
     ok = rpc:call(Node, heart, set_cmd,
