@@ -120,9 +120,7 @@ File3.asn        </pre>
 	  <c>Options</c> is a list with options specific for the asn1
 	  compiler and options that are applied to the Erlang compiler.
 	  The latter are those that not is recognized as asn1 specific.
-	  For <em>preferred option use</em> see <seealso
-	  marker="asn1_ug#preferred option use">Preferred Option Use
-	  section in users guide</seealso>. Available options are:
+	  Available options are:
 	</p>
 	<taglist>
           <tag><c>ber | per | uper</c></tag>
