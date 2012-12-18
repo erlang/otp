@@ -457,12 +457,26 @@ terminate(State) ->
       <row>
 	<cell>cth_surefire</cell>
 	<cell>no</cell>
-	<cell>Captures all test results and outputs them as surefire XML into
-	a file. The file which is created is by default called junit_report.xml.
-	The name can be by setting the path option for this hook. e.g.
+	<cell><p>Captures all test results and outputs them as surefire
+	XML into a file. The file which is created is by default
+	called junit_report.xml. The file name can be changed by
+	setting the <c>path</c> option for this hook, e.g.</p>
+
 	<code>-ct_hooks cth_surefire [{path,"/tmp/report.xml"}]</code>
-	Surefire XML can forinstance be used by Jenkins to display test
-	results.</cell>
+
+	<p>If the <c>url_base</c> option is set, an additional
+	attribute named <c>url</c> will be added to each
+	<c>testsuite</c> and <c>testcase</c> XML element. The value will
+	be a constructed from the <c>url_base</c> and a relative path
+	to the test suite or test case log respectively, e.g.</p>
+
+	<code>-ct_hooks cth_surefire [{url_base,"http://myserver.com/"}]</code>
+	<p>will give a url attribute value similar to</p>
+
+	<code>"http://myserver.com/ct_run.ct@myhost.2012-12-12_11.19.39/x86_64-unknown-linux-gnu.my_test.logs/run.2012-12-12_11.19.39/suite.log.html"</code>
+
+	<p>Surefire XML can for instance be used by Jenkins to display test
+	results.</p></cell>
       </row>
     </table>
 
