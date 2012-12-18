@@ -430,7 +430,7 @@ ERTS_GLB_INLINE void erts_port_release(Port *);
 ERTS_GLB_INLINE Port *erts_thr_id2port_sflgs(Eterm id, Uint32 invalid_sflgs);
 ERTS_GLB_INLINE void erts_thr_port_release(Port *prt);
 #endif
-ERTS_GLB_INLINE Port *erts_thr_drvport2port_raw(ErlDrvPort);
+ERTS_GLB_INLINE Port *erts_thr_drvport2port_raw(ErlDrvPort, int);
 ERTS_GLB_INLINE Port *erts_drvport2port_raw(ErlDrvPort drvport);
 ERTS_GLB_INLINE Port *erts_drvport2port(ErlDrvPort, erts_aint32_t *);
 ERTS_GLB_INLINE Port *erts_drvportid2port(Eterm);
@@ -622,7 +622,7 @@ erts_thr_port_release(Port *prt)
 #endif
 
 ERTS_GLB_INLINE Port*
-erts_thr_drvport2port_raw(ErlDrvPort drvport)
+erts_thr_drvport2port_raw(ErlDrvPort drvport, int lock_pdl)
 {
 #if ERTS_ENABLE_LOCK_CHECK
     int emu_thread = erts_lc_is_emu_thr();
@@ -631,6 +631,8 @@ erts_thr_drvport2port_raw(ErlDrvPort drvport)
 	return NULL;
     else {
 	Port *prt = (Port *) drvport;
+	if (lock_pdl && prt->port_data_lock)
+	    driver_pdl_lock(prt->port_data_lock);
 #if ERTS_ENABLE_LOCK_CHECK
 	if (!ERTS_IS_CRASH_DUMPING) {
 	    if (emu_thread) {
