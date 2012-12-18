@@ -39,6 +39,8 @@
          hmac_update_md5_io/1,
          hmac_update_md5_n/1,
 	 hmac_rfc4231/1,
+   ripemd160/1,
+   ripemd160_update/1,
 	 sha256/1,
 	 sha256_update/1,
 	 sha512/1,
@@ -86,7 +88,7 @@ groups() ->
     [{info, [sequence],[info, {group, rest}]},
      {rest, [],
       [md5, md5_update, md4, md4_update, md5_mac,
-       md5_mac_io, sha, sha_update,
+       md5_mac_io, ripemd160, ripemd160_update, sha, sha_update,
        sha256, sha256_update, sha512, sha512_update,
        hmac_update_sha, hmac_update_sha_n, hmac_update_sha256, hmac_update_sha512,
        hmac_update_md5_n, hmac_update_md5_io, hmac_update_md5,
@@ -719,7 +721,33 @@ hmac_update_md5_n(Config) when is_list(Config) ->
     ?line Mac = crypto:hmac_final_n(Ctx3, 12),
     ?line Exp = crypto:md5_mac_96(Key, lists:flatten([Data, Data2])), 
     ?line m(Exp, Mac).
-    
+%%
+%%
+ripemd160(doc) ->
+    ["Generate RIPEMD160 message digests and check the result."];
+ripemd160(suite) ->
+    [];
+ripemd160(Config) when is_list(Config) ->
+    ?line m(crypto:ripemd160("abc"),
+	    hexstr2bin("8EB208F7E05D987A9B044A8E98C6B087F15A0BFC")),
+    ?line m(crypto:ripemd160("abcdbcdecdefdefgefghfghighijhijkijkljklmklm"
+			  "nlmnomnopnopq"), 
+	    hexstr2bin("12A053384A9C0C88E405A06C27DCF49ADA62EB2B")).
+
+   
+%%
+%%
+ripemd160_update(doc) ->
+    ["Generate RIPEMD160 message digests by using ripemd160_init,"
+     "ripemd160_update, and ripemd160_final and check the result."];
+ripemd160_update(suite) ->
+    [];
+ripemd160_update(Config) when is_list(Config) ->
+    ?line Ctx = crypto:ripemd160_init(),
+    ?line Ctx1 = crypto:ripemd160_update(Ctx, "abcdbcdecdefdefgefghfghighi"),
+    ?line Ctx2 = crypto:ripemd160_update(Ctx1, "jhijkijkljklmklmnlmnomnopnopq"),
+    ?line m(crypto:ripemd160_final(Ctx2), 
+      hexstr2bin("12A053384A9C0C88E405A06C27DCF49ADA62EB2B")).
 
 %%
 %%
