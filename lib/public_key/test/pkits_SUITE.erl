@@ -23,10 +23,10 @@
 
 -module(pkits_SUITE).
 
+-include_lib("public_key/include/public_key.hrl").
+
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
-
--include_lib("public_key/include/public_key.hrl").
 
 -define(error(Format,Args), error(Format,Args,?FILE,?LINE)).
 -define(warning(Format,Args), warning(Format,Args,?FILE,?LINE)).
@@ -47,6 +47,9 @@
 	  crls,
 	  crl_paths,
 	  revoke_state}).
+%%--------------------------------------------------------------------
+%% Common Test interface functions -----------------------------------
+%%--------------------------------------------------------------------
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -63,17 +66,6 @@ all() ->
      {group, key_usage},
      {group, name_constraints},
      {group, private_certificate_extensions}].
-
-init_per_suite(Config) ->
-    try crypto:start() of
-	ok ->
-	    crypto_support_check(Config)
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
-    end.
-
-end_per_suite(_Config) ->
-    application:stop(crypto).
 
 groups() -> 
     [{signature_verification, [], [valid_rsa_signature,
@@ -117,12 +109,25 @@ groups() ->
       [unknown_critical_extension, unknown_not_critical_extension]}
     ].
 
+%%--------------------------------------------------------------------
+init_per_suite(Config) ->
+    try crypto:start() of
+	ok ->
+	    crypto_support_check(Config)
+    catch _:_ ->
+	    {skip, "Crypto did not start"}
+    end.
+
+end_per_suite(_Config) ->
+    application:stop(crypto).
+
+%%--------------------------------------------------------------------
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
-
+%%--------------------------------------------------------------------
 init_per_testcase(_Func, Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     put(datadir, Datadir),
@@ -131,134 +136,105 @@ init_per_testcase(_Func, Config) ->
 end_per_testcase(_Func, Config) ->
     Config.
 
+%%--------------------------------------------------------------------
+%% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
 
 %%--------------------------- signature_verification--------------------------------------------------
-valid_rsa_signature(doc) ->
-    ["Test rsa signatur verification"];
-valid_rsa_signature(suite) ->
-    [];
+valid_rsa_signature() ->
+    [{doc, "Test rsa signatur verification"}].
 valid_rsa_signature(Config) when is_list(Config) ->
     run([{ "4.1.1", "Valid Certificate Path Test1 EE", ok}]).
 
-invalid_rsa_signature(doc) ->
-    ["Test rsa signatur verification"];
-invalid_rsa_signature(suite) ->
-    [];
+invalid_rsa_signature() ->
+    [{doc,"Test rsa signatur verification"}].
 invalid_rsa_signature(Config) when is_list(Config) ->
     run([{ "4.1.2", "Invalid CA Signature Test2 EE", {bad_cert,invalid_signature}},
 	 { "4.1.3", "Invalid EE Signature Test3 EE", {bad_cert,invalid_signature}}]).
 
-valid_dsa_signature(doc) ->
-    ["Test dsa signatur verification"];
-valid_dsa_signature(suite) ->
-    [];
+valid_dsa_signature() ->
+    [{doc,"Test dsa signatur verification"}].
 valid_dsa_signature(Config) when is_list(Config) ->
     run([{ "4.1.4", "Valid DSA Signatures Test4 EE", ok},
 	 { "4.1.5", "Valid DSA Parameter Inheritance Test5 EE", ok}]).
 
-invalid_dsa_signature(doc) ->
-    ["Test dsa signatur verification"];
-invalid_dsa_signature(suite) ->
-    [];
+invalid_dsa_signature() ->
+    [{doc,"Test dsa signatur verification"}].
 invalid_dsa_signature(Config) when is_list(Config) ->
     run([{ "4.1.6", "Invalid DSA Signature Test6 EE",{bad_cert,invalid_signature}}]).
 
 %%-----------------------------validity_periods------------------------------------------------
-not_before_invalid(doc) ->
-    ["Test valid periods"];
-not_before_invalid(suite) ->
-    [];
+not_before_invalid() ->
+    [{doc,"Test valid periods"}].
 not_before_invalid(Config) when is_list(Config) ->
     run([{ "4.2.1", "Invalid CA notBefore Date Test1 EE",{bad_cert, cert_expired}},
 	 { "4.2.2", "Invalid EE notBefore Date Test2 EE",{bad_cert, cert_expired}}]).
 
-not_before_valid(doc) ->
-    ["Test valid periods"];
-not_before_valid(suite) ->
-    [];
+not_before_valid() ->
+    [{doc,"Test valid periods"}].
 not_before_valid(Config) when is_list(Config) ->
     run([{ "4.2.3", "Valid pre2000 UTC notBefore Date Test3 EE", ok},
 	 { "4.2.4", "Valid GeneralizedTime notBefore Date Test4 EE", ok}]).
 
-not_after_invalid(doc) ->
-    ["Test valid periods"];
-not_after_invalid(suite) ->
-    [];
+not_after_invalid() ->
+    [{doc,"Test valid periods"}].
 not_after_invalid(Config) when is_list(Config) ->
     run([{ "4.2.5", "Invalid CA notAfter Date Test5 EE", {bad_cert, cert_expired}},
 	 { "4.2.6", "Invalid EE notAfter Date Test6 EE", {bad_cert, cert_expired}},
 	 { "4.2.7", "Invalid pre2000 UTC EE notAfter Date Test7 EE",{bad_cert, cert_expired}}]).
 
-not_after_valid(doc) ->
-    ["Test valid periods"];
-not_after_valid(suite) ->
-    [];
+not_after_valid() ->
+    [{doc,"Test valid periods"}].
 not_after_valid(Config) when is_list(Config) ->
     run([{ "4.2.8", "Valid GeneralizedTime notAfter Date Test8 EE", ok}]).
 
 %%----------------------------verifying_name_chaining-------------------------------------------------
-invalid_name_chain(doc) ->
-    ["Test name chaining"];
-invalid_name_chain(suite) ->
-    [];
+invalid_name_chain() ->
+    [{doc,"Test name chaining"}].
 invalid_name_chain(Config) when is_list(Config) ->
     run([{ "4.3.1", "Invalid Name Chaining Test1 EE", {bad_cert, invalid_issuer}},
 	 { "4.3.2", "Invalid Name Chaining Order Test2 EE", {bad_cert, invalid_issuer}}]).
 
-whitespace_name_chain(doc) ->
-    ["Test name chaining"];
-whitespace_name_chain(suite) ->
-    [];
+whitespace_name_chain() ->
+    [{doc,"Test name chaining"}].
 whitespace_name_chain(Config) when is_list(Config) ->
     run([{ "4.3.3", "Valid Name Chaining Whitespace Test3 EE", ok},
 	 { "4.3.4", "Valid Name Chaining Whitespace Test4 EE", ok}]).
 
-capitalization_name_chain(doc) ->
-    ["Test name chaining"];
-capitalization_name_chain(suite) ->
-    [];
+capitalization_name_chain() ->
+    [{doc,"Test name chaining"}].
 capitalization_name_chain(Config) when is_list(Config) ->
     run([{ "4.3.5", "Valid Name Chaining Capitalization Test5 EE",ok}]).
 
-uid_name_chain(doc) ->
-    ["Test name chaining"];
-uid_name_chain(suite) ->
-    [];
+uid_name_chain() ->
+    [{doc,"Test name chaining"}].
 uid_name_chain(Config) when is_list(Config) ->
     run([{ "4.3.6", "Valid Name UIDs Test6 EE",ok}]).
 
-attrib_name_chain(doc) ->
-    ["Test name chaining"];
-attrib_name_chain(suite) ->
-    [];
+attrib_name_chain() ->
+    [{doc,"Test name chaining"}].
 attrib_name_chain(Config) when is_list(Config) ->
     run([{ "4.3.7", "Valid RFC3280 Mandatory Attribute Types Test7 EE", ok},
 	 { "4.3.8", "Valid RFC3280 Optional Attribute Types Test8 EE",  ok}]).
 
-string_name_chain(doc) ->
-    ["Test name chaining"];
-string_name_chain(suite) ->
-    [];
+string_name_chain() ->
+    [{doc,"Test name chaining"}].
 string_name_chain(Config) when is_list(Config) ->
     run([{ "4.3.9", "Valid UTF8String Encoded Names Test9 EE", ok},
 	 %%{ "4.3.10", "Valid Rollover from PrintableString to UTF8String Test10 EE", ok},
 	 { "4.3.11", "Valid UTF8String Case Insensitive Match Test11 EE", ok}]).
 
 %%----------------------------verifying_paths_with_self_issued_certificates-------------------------------------------------
-basic_valid(doc) ->
-    ["Test self issued certificates"];
-basic_valid(suite) ->
-    [];
+basic_valid() ->
+    [{doc,"Test self issued certificates"}].
 basic_valid(Config) when is_list(Config) ->
     run([{ "4.5.1",  "Valid Basic Self-Issued Old With New Test1 EE", ok},
 	 { "4.5.3",  "Valid Basic Self-Issued New With Old Test3 EE", ok},
 	 { "4.5.4",  "Valid Basic Self-Issued New With Old Test4 EE", ok}
 	]).
 
-basic_invalid(doc) ->
-    ["Test self issued certificates"];
-basic_invalid(suite) ->
-    [];
+basic_invalid() ->
+    [{doc,"Test self issued certificates"}].
 basic_invalid(Config) when is_list(Config) ->
     run([{"4.5.2",  "Invalid Basic Self-Issued Old With New Test2 EE",
 	  {bad_cert, {revoked, keyCompromise}}},
@@ -266,17 +242,13 @@ basic_invalid(Config) when is_list(Config) ->
 	  {bad_cert, {revoked, keyCompromise}}}
 	]).
 
-crl_signing_valid(doc) ->
-    ["Test self issued certificates"];
-crl_signing_valid(suite) ->
-    [];
+crl_signing_valid() ->
+    [{doc,"Test self issued certificates"}].
 crl_signing_valid(Config) when is_list(Config) ->
     run([{ "4.5.6",  "Valid Basic Self-Issued CRL Signing Key Test6 EE", ok}]).
 
-crl_signing_invalid(doc) ->
-    ["Test self issued certificates"];
-crl_signing_invalid(suite) ->
-    [];
+crl_signing_invalid() ->
+    [{doc,"Test self issued certificates"}].
 crl_signing_invalid(Config) when is_list(Config) ->
     run([{ "4.5.7",  "Invalid Basic Self-Issued CRL Signing Key Test7 EE",
 	   {bad_cert, {revoked, keyCompromise}}},
@@ -285,64 +257,48 @@ crl_signing_invalid(Config) when is_list(Config) ->
 	]).
 
 %%-----------------------------basic_certificate_revocation_tests------------------------------------------------
-missing_CRL(doc) ->
-    ["Test basic CRL handling"];
-missing_CRL(suite) ->
-    [];
+missing_CRL() ->
+    [{doc,"Test basic CRL handling"}].
 missing_CRL(Config) when is_list(Config) ->
     run([{ "4.4.1", "Invalid Missing CRL Test1 EE",{bad_cert,
     revocation_status_undetermined}}]).
 
-revoked_CA(doc) ->
-    ["Test basic CRL handling"];
-revoked_CA(suite) ->
-    [];
+revoked_CA() ->
+    [{doc,"Test basic CRL handling"}].
 revoked_CA(Config) when is_list(Config) ->
     run([{ "4.4.2", "Invalid Revoked CA Test2 EE", {bad_cert,
     {revoked, keyCompromise}}}]).
 
-revoked_peer(doc) ->
-    ["Test basic CRL handling"];
-revoked_peer(suite) ->
-    [];
+revoked_peer() ->
+    [{doc,"Test basic CRL handling"}].
 revoked_peer(Config) when is_list(Config) ->
     run([{ "4.4.3", "Invalid Revoked EE Test3 EE",
 	   {bad_cert, {revoked, keyCompromise}}}]).
 
-invalid_CRL_signature(doc) ->
-    ["Test basic CRL handling"];
-invalid_CRL_signature(suite) ->
-    [];
+invalid_CRL_signature() ->
+    [{doc,"Test basic CRL handling"}].
 invalid_CRL_signature(Config) when is_list(Config) ->
     run([{ "4.4.4", "Invalid Bad CRL Signature Test4 EE",
 		   {bad_cert, revocation_status_undetermined}}]).
-invalid_CRL_issuer(doc) ->
-    ["Test basic CRL handling"];
-invalid_CRL_issuer(suite) ->
-    [];
+invalid_CRL_issuer() ->
+    [{doc,"Test basic CRL handling"}].
 invalid_CRL_issuer(Config) when is_list(Config) ->
     run({ "4.4.5", "Invalid Bad CRL Issuer Name Test5 EE",
 	  {bad_cert, revocation_status_undetermined}}).
 
-invalid_CRL(doc) ->
-    ["Test basic CRL handling"];
-invalid_CRL(suite) ->
-    [];
+invalid_CRL() ->
+    [{doc,"Test basic CRL handling"}].
 invalid_CRL(Config) when is_list(Config) ->
     run([{ "4.4.6", "Invalid Wrong CRL Test6 EE",
 	   {bad_cert, revocation_status_undetermined}}]).
 
-valid_CRL(doc) ->
-    ["Test basic CRL handling"];
-valid_CRL(suite) ->
-    [];
+valid_CRL() ->
+    [{doc,"Test basic CRL handling"}].
 valid_CRL(Config) when is_list(Config) ->
     run([{ "4.4.7", "Valid Two CRLs Test7 EE", ok}]).
 
-unknown_CRL_extension(doc) ->
-    ["Test basic CRL handling"];
-unknown_CRL_extension(suite) ->
-    [];
+unknown_CRL_extension() ->
+    [{doc,"Test basic CRL handling"}].
 unknown_CRL_extension(Config) when is_list(Config) ->
     run([{ "4.4.8", "Invalid Unknown CRL Entry Extension Test8 EE",
 	   {bad_cert, {revoked, keyCompromise}}},
@@ -351,27 +307,21 @@ unknown_CRL_extension(Config) when is_list(Config) ->
 	 { "4.4.10", "Invalid Unknown CRL Extension Test10 EE",
 	   {bad_cert, revocation_status_undetermined}}]).
 
-old_CRL(doc) ->
-    ["Test basic CRL handling"];
-old_CRL(suite) ->
-    [];
+old_CRL() ->
+    [{doc,"Test basic CRL handling"}].
 old_CRL(Config) when is_list(Config) ->
     run([{ "4.4.11", "Invalid Old CRL nextUpdate Test11 EE",
 	   {bad_cert, revocation_status_undetermined}},
 	 { "4.4.12", "Invalid pre2000 CRL nextUpdate Test12 EE",
 	   {bad_cert, revocation_status_undetermined}}]).
 
-fresh_CRL(doc) ->
-    ["Test basic CRL handling"];
-fresh_CRL(suite) ->
-    [];
+fresh_CRL() ->
+    [{doc,"Test basic CRL handling"}].
 fresh_CRL(Config) when is_list(Config) ->
     run([{ "4.4.13", "Valid GeneralizedTime CRL nextUpdate Test13 EE", ok}]).
 
-valid_serial(doc) ->
-    ["Test basic CRL handling"];
-valid_serial(suite) ->
-    [];
+valid_serial() ->
+    [{doc,"Test basic CRL handling"}].
 valid_serial(Config) when is_list(Config) ->
     run([
 	 { "4.4.14", "Valid Negative Serial Number Test14 EE",ok},
@@ -379,27 +329,21 @@ valid_serial(Config) when is_list(Config) ->
 	 { "4.4.17", "Valid Long Serial Number Test17 EE", ok}
 	]).
 
-invalid_serial(doc) ->
-    ["Test basic CRL handling"];
-invalid_serial(suite) ->
-    [];
+invalid_serial() ->
+    [{doc,"Test basic CRL handling"}].
 invalid_serial(Config) when is_list(Config) ->
     run([{ "4.4.15", "Invalid Negative Serial Number Test15 EE",
 	   {bad_cert, {revoked, keyCompromise}}},
 	 { "4.4.18", "Invalid Long Serial Number Test18 EE",
 	   {bad_cert, {revoked, keyCompromise}}}]).
 
-valid_seperate_keys(doc) ->
-    ["Test basic CRL handling"];
-valid_seperate_keys(suite) ->
-    [];
+valid_seperate_keys() ->
+    [{doc,"Test basic CRL handling"}].
 valid_seperate_keys(Config) when is_list(Config) ->
     run([{ "4.4.19", "Valid Separate Certificate and CRL Keys Test19 EE",   ok}]).
 
-invalid_separate_keys(doc) ->
-    ["Test basic CRL handling"];
-invalid_separate_keys(suite) ->
-    [];
+invalid_separate_keys() ->
+    [{doc,"Test basic CRL handling"}].
 invalid_separate_keys(Config) when is_list(Config) ->
     run([{ "4.4.20", "Invalid Separate Certificate and CRL Keys Test20 EE",
 	   {bad_cert, {revoked, keyCompromise}}},
@@ -407,10 +351,8 @@ invalid_separate_keys(Config) when is_list(Config) ->
 	   {bad_cert, revocation_status_undetermined}}
 	]).
 %%----------------------------verifying_basic_constraints-------------------------------------------------
-missing_basic_constraints(doc) ->
-    ["Basic constraint tests"];
-missing_basic_constraints(suite) ->
-    [];
+missing_basic_constraints() ->
+    [{doc,"Basic constraint tests"}].
 missing_basic_constraints(Config) when is_list(Config) ->
     run([{ "4.6.1",  "Invalid Missing basicConstraints Test1 EE",
 	   {bad_cert, missing_basic_constraint}},
@@ -419,17 +361,13 @@ missing_basic_constraints(Config) when is_list(Config) ->
 	 { "4.6.3",  "Invalid cA False Test3 EE",
 	   {bad_cert, missing_basic_constraint}}]).
 
-valid_basic_constraint(doc) ->
-    ["Basic constraint tests"];
-valid_basic_constraint(suite) ->
-    [];
+valid_basic_constraint() ->
+    [{doc,"Basic constraint tests"}].
 valid_basic_constraint(Config) when is_list(Config) ->
     run([{"4.6.4", "Valid basicConstraints Not Critical Test4 EE", ok}]).
 
-invalid_path_constraints(doc) ->
-    ["Basic constraint tests"];
-invalid_path_constraints(suite) ->
-    [];
+invalid_path_constraints() ->
+    [{doc,"Basic constraint tests"}].
 invalid_path_constraints(Config) when is_list(Config) ->
     run([{ "4.6.5", "Invalid pathLenConstraint Test5 EE", {bad_cert, max_path_length_reached}},
 	 { "4.6.6", "Invalid pathLenConstraint Test6 EE", {bad_cert, max_path_length_reached}},
@@ -440,10 +378,8 @@ invalid_path_constraints(Config) when is_list(Config) ->
 	 { "4.6.16", "Invalid Self-Issued pathLenConstraint Test16 EE",
 	   {bad_cert, max_path_length_reached}}]).
 
-valid_path_constraints(doc) ->
-    ["Basic constraint tests"];
-valid_path_constraints(suite) ->
-    [];
+valid_path_constraints() ->
+    [{doc,"Basic constraint tests"}].
 valid_path_constraints(Config) when is_list(Config) ->
     run([{ "4.6.7",  "Valid pathLenConstraint Test7 EE", ok},
 	 { "4.6.8",  "Valid pathLenConstraint Test8 EE", ok},
@@ -453,10 +389,8 @@ valid_path_constraints(Config) when is_list(Config) ->
 	 { "4.6.17", "Valid Self-Issued pathLenConstraint Test17 EE", ok}]).
 
 %%-----------------------------key_usage------------------------------------------------
-invalid_key_usage(doc) ->
-    ["Key usage tests"];
-invalid_key_usage(suite) ->
-    [];
+invalid_key_usage() ->
+    [{doc,"Key usage tests"}].
 invalid_key_usage(Config) when is_list(Config) ->
     run([{ "4.7.1",  "Invalid keyUsage Critical keyCertSign False Test1 EE",
 	   {bad_cert,invalid_key_usage} },
@@ -468,44 +402,40 @@ invalid_key_usage(Config) when is_list(Config) ->
 	   {bad_cert, invalid_key_usage}}
 	]).
 
-valid_key_usage(doc) ->
-    ["Key usage tests"];
-valid_key_usage(suite) ->
-    [];
+valid_key_usage() ->
+    [{doc,"Key usage tests"}].
 valid_key_usage(Config) when is_list(Config) ->
     run([{ "4.7.3",  "Valid keyUsage Not Critical Test3 EE", ok}]).
 
 %%-----------------------------------------------------------------------------
-certificate_policies(doc) ->    ["Not supported yet"];
-certificate_policies(suite) -> [];
+certificate_policies() ->
+    [{doc,"Not supported yet"}].
 certificate_policies(Config) when is_list(Config) ->
-    run(certificate_policies()).
+    run(certificate_policies_tests()).
 %%-----------------------------------------------------------------------------
-require_explicit_policy(doc) ->    ["Not supported yet"];
-require_explicit_policy(suite) -> [];
+require_explicit_policy() ->
+    [{doc,"Not supported yet"}].
 require_explicit_policy(Config) when is_list(Config) ->
-    run(require_explicit_policy()).
+    run(require_explicit_policy_tests()).
 %%-----------------------------------------------------------------------------
-policy_mappings(doc) ->     ["Not supported yet"];
-policy_mappings(suite) -> [];
+policy_mappings() ->
+    [{doc,"Not supported yet"}].
 policy_mappings(Config) when is_list(Config) ->
-    run(policy_mappings()).
+    run(policy_mappings_tests()).
 %%-----------------------------------------------------------------------------
-inhibit_policy_mapping(doc) ->    ["Not supported yet"];
-inhibit_policy_mapping(suite) -> [];
+inhibit_policy_mapping() ->
+    [{doc,"Not supported yet"}].
 inhibit_policy_mapping(Config) when is_list(Config) ->
-    run(inhibit_policy_mapping()).
+    run(inhibit_policy_mapping_tests()).
 %%-----------------------------------------------------------------------------
-inhibit_any_policy(doc) ->    ["Not supported yet"];
-inhibit_any_policy(suite) -> [];
+inhibit_any_policy() ->
+    [{doc,"Not supported yet"}].
 inhibit_any_policy(Config) when is_list(Config) ->
-    run(inhibit_any_policy()).
+    run(inhibit_any_policy_tests()).
 %%-------------------------------name_constraints----------------------------------------------
 
-valid_DN_name_constraints(doc) ->
-    ["Name constraints tests"];
-valid_DN_name_constraints(suite) ->
-    [];
+valid_DN_name_constraints() ->
+    [{doc, "Name constraints tests"}].
 valid_DN_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.1",  "Valid DN nameConstraints Test1 EE", ok},
 	 { "4.13.4",  "Valid DN nameConstraints Test4 EE", ok},
@@ -516,10 +446,8 @@ valid_DN_name_constraints(Config) when is_list(Config) ->
 	 { "4.13.18", "Valid DN nameConstraints Test18 EE", ok},
 	 { "4.13.19", "Valid DN nameConstraints Test19 EE", ok}]).
 
-invalid_DN_name_constraints(doc) ->
-    ["Name constraints tests"];
-invalid_DN_name_constraints(suite) ->
-    [];
+invalid_DN_name_constraints() ->
+    [{doc,"Name constraints tests"}].
 invalid_DN_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.2", "Invalid DN nameConstraints Test2 EE", {bad_cert, name_not_permitted}},
 	 { "4.13.3",  "Invalid DN nameConstraints Test3 EE", {bad_cert, name_not_permitted}},
@@ -535,19 +463,15 @@ invalid_DN_name_constraints(Config) when is_list(Config) ->
 	 { "4.13.20", "Invalid DN nameConstraints Test20 EE",
 	   {bad_cert, name_not_permitted}}]).
 
-valid_rfc822_name_constraints(doc) ->
-    ["Name constraints tests"];
-valid_rfc822_name_constraints(suite) ->
-    [];
+valid_rfc822_name_constraints() ->
+    [{doc,"Name constraints tests"}].
 valid_rfc822_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.21", "Valid RFC822 nameConstraints Test21 EE", ok},
 	 { "4.13.23", "Valid RFC822 nameConstraints Test23 EE", ok},
 	 { "4.13.25", "Valid RFC822 nameConstraints Test25 EE", ok}]).
 
-invalid_rfc822_name_constraints(doc) ->
-    ["Name constraints tests"];
-invalid_rfc822_name_constraints(suite) ->
-    [];
+invalid_rfc822_name_constraints() ->
+    [{doc,"Name constraints tests"}].
 invalid_rfc822_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.22", "Invalid RFC822 nameConstraints Test22 EE",
 	   {bad_cert, name_not_permitted}},
@@ -556,70 +480,54 @@ invalid_rfc822_name_constraints(Config) when is_list(Config) ->
 	 { "4.13.26", "Invalid RFC822 nameConstraints Test26 EE",
 	   {bad_cert, name_not_permitted}}]).
 
-valid_DN_and_rfc822_name_constraints(doc) ->
-    ["Name constraints tests"];
-valid_DN_and_rfc822_name_constraints(suite) ->
-    [];
+valid_DN_and_rfc822_name_constraints() ->
+    [{doc,"Name constraints tests"}].
 valid_DN_and_rfc822_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.27", "Valid DN and RFC822 nameConstraints Test27 EE", ok}]).
 
-invalid_DN_and_rfc822_name_constraints(doc) ->
-    ["Name constraints tests"];
-invalid_DN_and_rfc822_name_constraints(suite) ->
-    [];
+invalid_DN_and_rfc822_name_constraints() ->
+    [{doc,"Name constraints tests"}].
 invalid_DN_and_rfc822_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.28", "Invalid DN and RFC822 nameConstraints Test28 EE",
 	   {bad_cert, name_not_permitted}},
 	 { "4.13.29", "Invalid DN and RFC822 nameConstraints Test29 EE",
 	   {bad_cert, name_not_permitted}}]).
 
-valid_dns_name_constraints(doc) ->
-    ["Name constraints tests"];
-valid_dns_name_constraints(suite) ->
-    [];
+valid_dns_name_constraints() ->
+    [{doc,"Name constraints tests"}].
 valid_dns_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.30", "Valid DNS nameConstraints Test30 EE", ok},
 	 { "4.13.32", "Valid DNS nameConstraints Test32 EE", ok}]).
 
-invalid_dns_name_constraints(doc) ->
-    ["Name constraints tests"];
-invalid_dns_name_constraints(suite) ->
-    [];
+invalid_dns_name_constraints() ->
+    [{doc,"Name constraints tests"}].
 invalid_dns_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.31", "Invalid DNS nameConstraints Test31 EE", {bad_cert, name_not_permitted}},
 	 { "4.13.33", "Invalid DNS nameConstraints Test33 EE", {bad_cert, name_not_permitted}},
 	 { "4.13.38", "Invalid DNS nameConstraints Test38 EE", {bad_cert, name_not_permitted}}]).
 
-valid_uri_name_constraints(doc) ->
-    ["Name constraints tests"];
-valid_uri_name_constraints(suite) ->
-    [];
+valid_uri_name_constraints() ->
+    [{doc,"Name constraints tests"}].
 valid_uri_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.34", "Valid URI nameConstraints Test34 EE", ok},
 	 { "4.13.36", "Valid URI nameConstraints Test36 EE", ok}]).
 
-invalid_uri_name_constraints(doc) ->
-    ["Name constraints tests"];
-invalid_uri_name_constraints(suite) ->
-    [];
+invalid_uri_name_constraints() ->
+    [{doc,"Name constraints tests"}].
 invalid_uri_name_constraints(Config) when is_list(Config) ->
     run([{ "4.13.35", "Invalid URI nameConstraints Test35 EE",{bad_cert, name_not_permitted}},
 	 { "4.13.37", "Invalid URI nameConstraints Test37 EE",{bad_cert, name_not_permitted}}]).
 
 %%------------------------------delta_crls-----------------------------------------------
-delta_without_crl(doc) ->
-    ["Delta CRL tests"];
-delta_without_crl(suite) ->
-    [];
+delta_without_crl() ->
+    [{doc,"Delta CRL tests"}].
 delta_without_crl(Config) when is_list(Config) ->
   run([{ "4.15.1",  "Invalid deltaCRLIndicator No Base Test1 EE",{bad_cert,
 							       revocation_status_undetermined}},
        {"4.15.10", "Invalid delta-CRL Test10 EE", {bad_cert,
 						   revocation_status_undetermined}}]).
-valid_delta_crls(doc) ->
-    ["Delta CRL tests"];
-valid_delta_crls(suite) ->
-    [];
+valid_delta_crls() ->
+    [{doc,"Delta CRL tests"}].
 valid_delta_crls(Config) when is_list(Config) ->
     run([{ "4.15.2",  "Valid delta-CRL Test2 EE", ok},
 	 { "4.15.5",  "Valid delta-CRL Test5 EE", ok},
@@ -627,10 +535,8 @@ valid_delta_crls(Config) when is_list(Config) ->
 	 { "4.15.8",  "Valid delta-CRL Test8 EE", ok}
 	]).
 
-invalid_delta_crls(doc) ->
-    ["Delta CRL tests"];
-invalid_delta_crls(suite) ->
-    [];
+invalid_delta_crls() ->
+    [{doc,"Delta CRL tests"}].
 invalid_delta_crls(Config) when is_list(Config) ->
     run([{ "4.15.3",  "Invalid delta-CRL Test3 EE", {bad_cert,{revoked, keyCompromise}}},
 	 { "4.15.4",  "Invalid delta-CRL Test4 EE", {bad_cert,{revoked, keyCompromise}}},
@@ -638,10 +544,8 @@ invalid_delta_crls(Config) when is_list(Config) ->
 	 { "4.15.9",  "Invalid delta-CRL Test9 EE", {bad_cert,{revoked, keyCompromise}}}]).
 
 %%---------------------------distribution_points--------------------------------------------------
-valid_distribution_points(doc) ->
-    ["CRL Distribution Point tests"];
-valid_distribution_points(suite) ->
-    [];
+valid_distribution_points() ->
+    [{doc,"CRL Distribution Point tests"}].
 valid_distribution_points(Config) when is_list(Config) ->
     run([{ "4.14.1",  "Valid distributionPoint Test1 EE", ok},
 	 { "4.14.4",  "Valid distributionPoint Test4 EE", ok},
@@ -649,18 +553,14 @@ valid_distribution_points(Config) when is_list(Config) ->
 	 { "4.14.7",  "Valid distributionPoint Test7 EE", ok}
 	]).
 
-valid_distribution_points_no_issuing_distribution_point(doc) ->
-    ["CRL Distribution Point tests"];
-valid_distribution_points_no_issuing_distribution_point(suite) ->
-    [];
+valid_distribution_points_no_issuing_distribution_point() ->
+    [{doc,"CRL Distribution Point tests"}].
 valid_distribution_points_no_issuing_distribution_point(Config) when is_list(Config) ->
     run([{ "4.14.10", "Valid No issuingDistributionPoint Test10 EE", ok}
 	]).
 
-invalid_distribution_points(doc) ->
-    ["CRL Distribution Point tests"];
-invalid_distribution_points(suite) ->
-    [];
+invalid_distribution_points() ->
+    [{doc,"CRL Distribution Point tests"}].
 invalid_distribution_points(Config) when is_list(Config) ->
     run([{ "4.14.2",  "Invalid distributionPoint Test2 EE", {bad_cert,{revoked, keyCompromise}}},
 	 { "4.14.3",  "Invalid distributionPoint Test3 EE", {bad_cert,
@@ -672,17 +572,13 @@ invalid_distribution_points(Config) when is_list(Config) ->
 							  revocation_status_undetermined}}
 	]).
 
-valid_only_contains(doc) ->
-    ["CRL Distribution Point tests"];
-valid_only_contains(suite) ->
-    [];
+valid_only_contains() ->
+    [{doc,"CRL Distribution Point tests"}].
 valid_only_contains(Config) when is_list(Config) ->
     run([{ "4.14.13", "Valid only Contains CA Certs Test13 EE", ok}]).
 
-invalid_only_contains(doc) ->
-    ["CRL Distribution Point tests"];
-invalid_only_contains(suite) ->
-    [];
+invalid_only_contains() ->
+    [{doc,"CRL Distribution Point tests"}].
 invalid_only_contains(Config) when is_list(Config) ->
     run([{ "4.14.11", "Invalid onlyContainsUserCerts Test11 EE",
 	   {bad_cert, revocation_status_undetermined}},
@@ -692,19 +588,15 @@ invalid_only_contains(Config) when is_list(Config) ->
 	   {bad_cert, revocation_status_undetermined}}
 	]).
 
-valid_only_some_reasons(doc) ->
-    ["CRL Distribution Point tests"];
-valid_only_some_reasons(suite) ->
-    [];
+valid_only_some_reasons() ->
+    [{doc,"CRL Distribution Point tests"}].
 valid_only_some_reasons(Config) when is_list(Config) ->
     run([{ "4.14.18", "Valid onlySomeReasons Test18 EE", ok},
 	 { "4.14.19", "Valid onlySomeReasons Test19 EE", ok}
 	]).
 
-invalid_only_some_reasons(doc) ->
-    ["CRL Distribution Point tests"];
-invalid_only_some_reasons(suite) ->
-    [];
+invalid_only_some_reasons() ->
+    [{doc,"CRL Distribution Point tests"}].
 invalid_only_some_reasons(Config) when is_list(Config) ->
     run([{ "4.14.15", "Invalid onlySomeReasons Test15 EE",
 	   {bad_cert,{revoked, keyCompromise}}},
@@ -718,20 +610,16 @@ invalid_only_some_reasons(Config) when is_list(Config) ->
 	   {bad_cert,{revoked, affiliationChanged}}}
 	]).
 
-valid_indirect_crl(doc) ->
-    ["CRL Distribution Point tests"];
-valid_indirect_crl(suite) ->
-    [];
+valid_indirect_crl() ->
+    [{doc,"CRL Distribution Point tests"}].
 valid_indirect_crl(Config) when is_list(Config) ->
     run([{ "4.14.22", "Valid IDP with indirectCRL Test22 EE", ok},
 	 { "4.14.24", "Valid IDP with indirectCRL Test24 EE", ok},
 	 { "4.14.25", "Valid IDP with indirectCRL Test25 EE", ok}
 	]).
 
-invalid_indirect_crl(doc) ->
-    ["CRL Distribution Point tests"];
-invalid_indirect_crl(suite) ->
-    [];
+invalid_indirect_crl() ->
+    [{doc,"CRL Distribution Point tests"}].
 invalid_indirect_crl(Config) when is_list(Config) ->
     run([{ "4.14.23", "Invalid IDP with indirectCRL Test23 EE",
 	   {bad_cert,{revoked, keyCompromise}}},
@@ -739,20 +627,16 @@ invalid_indirect_crl(Config) when is_list(Config) ->
 	   {bad_cert, revocation_status_undetermined}}
 	]).
 
-valid_crl_issuer(doc) ->
-    ["CRL Distribution Point tests"];
-valid_crl_issuer(suite) ->
-    [];
+valid_crl_issuer() ->
+    [{doc,"CRL Distribution Point tests"}].
 valid_crl_issuer(Config) when is_list(Config) ->
     run([{ "4.14.28", "Valid cRLIssuer Test28 EE", ok},
 	 { "4.14.29", "Valid cRLIssuer Test29 EE", ok},
 	 { "4.14.33", "Valid cRLIssuer Test33 EE", ok}
 	]).
 
-invalid_crl_issuer(doc) ->
-    ["CRL Distribution Point tests"];
-invalid_crl_issuer(suite) ->
-    [];
+invalid_crl_issuer() ->
+    [{doc,"CRL Distribution Point tests"}].
 invalid_crl_issuer(Config) when is_list(Config) ->
     run([
 	 { "4.14.27", "Invalid cRLIssuer Test27 EE", {bad_cert, revocation_status_undetermined}},
@@ -771,25 +655,21 @@ invalid_crl_issuer(Config) when is_list(Config) ->
 
 %%-------------------------------private_certificate_extensions----------------------------------------------
 
-unknown_critical_extension(doc) ->
-    ["Test that a cert with an unknown critical extension is recjected"];
-unknown_critical_extension(suite) ->
-    [];
+unknown_critical_extension() ->
+    [{doc,"Test that a cert with an unknown critical extension is recjected"}].
 unknown_critical_extension(Config) when is_list(Config) ->
     run([{ "4.16.2",  "Invalid Unknown Critical Certificate Extension Test2 EE",
 	   {bad_cert,unknown_critical_extension}}]).
 
-unknown_not_critical_extension(doc) ->
-    ["Test that a not critical unknown extension is ignored"];
-unknown_not_critical_extension(suite) ->
-    [];
+unknown_not_critical_extension() ->
+    [{doc,"Test that a not critical unknown extension is ignored"}].
 unknown_not_critical_extension(Config) when is_list(Config) ->
     run([{ "4.16.1",  "Valid Unknown Not Critical Certificate Extension Test1 EE", ok}]).
 
-%%-----------------------------------------------------------------------------
-%% Internal functions
-%%-----------------------------------------------------------------------------
-%%
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
+%%--------------------------------------------------------------------
+
 run(Tests) ->    
     [TA] = read_certs("Trust Anchor Root Certificate"),
     run(Tests, TA).
@@ -906,7 +786,7 @@ crl_options(_TA, Chap, _Test) ->
     CRLs = crls(CRLNames),
     Paths = lists:map(fun(CRLName) -> crl_path(CRLName) end, CRLNames),
 
-    test_server:format("Paths ~p ~n  Names ~p ~n", [Paths, CRLNames]),
+    ct:print("Paths ~p ~n  Names ~p ~n", [Paths, CRLNames]),
     Fun =
 	fun(_,{bad_cert, _} = Reason, _) ->
 		{fail, Reason};
@@ -955,7 +835,7 @@ crl_path_db([{_, CRL} |CRLs], [Path | Paths], Acc) ->
     CertPath = lists:flatten(lists:map(fun([]) ->
 					       [];
 					  (CertFile) ->
-					       test_server:format("Certfile ~p", [CertFile]),
+					       ct:print("Certfile ~p", [CertFile]),
 					       read_certs(CertFile)
 				       end, Path)),
     crl_path_db(CRLs, Paths, [{CRL, CertPath}| Acc]).
@@ -1620,7 +1500,7 @@ crls(CRLS) ->
 %% Certificate policy tests need special handling. They can have several
 %% sub tests and we need to check the outputs are correct.
 
-certificate_policies() ->
+certificate_policies_tests() ->
     %%{ "4.8", "Certificate Policies" },
     [{"4.8.1.1", "All Certificates Same Policy Test1", "-policy anyPolicy -explicit_policy", "True", ?NIST1, ?NIST1, 0},
      {"4.8.1.2", "All Certificates Same Policy Test1", "-policy ?NIST1BasicSelfIssuedCRLSigningKeyCACert.pem -explicit_policy", "True", ?NIST1, ?NIST1, 0},
@@ -1657,7 +1537,7 @@ certificate_policies() ->
      {"4.8.18.2", "User Notice Qualifier Test18", "-policy ?NIST2", "True", "?NIST1:?NIST2", "?NIST2", 0},
      {"4.8.19", "User Notice Qualifier Test19", "-policy anyPolicy", "False", "?NIST1", "?NIST1", 0},
      {"4.8.20", "CPS Pointer Qualifier Test20", "-policy anyPolicy -explicit_policy", "True", "?NIST1", "?NIST1", 0}].
-require_explicit_policy() ->
+require_explicit_policy_tests() ->
     %%{ "4.9", "Require Explicit Policy" },
     [{"4.9.1", "Valid RequireExplicitPolicy Test1", "-policy anyPolicy", "False", "<empty>", "<empty>", 0},
      {"4.9.2", "Valid RequireExplicitPolicy Test2", "-policy anyPolicy", "False", "<empty>", "<empty>", 0},
@@ -1667,7 +1547,7 @@ require_explicit_policy() ->
      {"4.9.6", "Valid Self-Issued requireExplicitPolicy Test6", "-policy anyPolicy", "False", "<empty>", "<empty>", 0},
      {"4.9.7", "Invalid Self-Issued requireExplicitPolicy Test7", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
      {"4.9.8", "Invalid Self-Issued requireExplicitPolicy Test8", "-policy anyPolicy", "True", "<empty>", "<empty>", 43}].
-policy_mappings() ->
+policy_mappings_tests() ->
     %%{ "4.10", "Policy Mappings" },
     [{"4.10.1.1", "Valid Policy Mapping Test1", "-policy ?NIST1", "True", "?NIST1", "?NIST1", 0},
      {"4.10.1.2", "Valid Policy Mapping Test1", "-policy ?NIST2", "True", "?NIST1", "<empty>", 43},
@@ -1697,7 +1577,7 @@ policy_mappings() ->
      %% TODO: check notice display
      {"4.10.14", "Valid Policy Mapping Test14", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0}].
 
-inhibit_policy_mapping() ->
+inhibit_policy_mapping_tests() ->
     %%{ "4.11", "Inhibit Policy Mapping" },
     [{"4.11.1", "Invalid inhibitPolicyMapping Test1", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
      {"4.11.2", "Valid inhibitPolicyMapping Test2", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0},
@@ -1710,7 +1590,7 @@ inhibit_policy_mapping() ->
      {"4.11.9", "Invalid Self-Issued inhibitPolicyMapping Test9", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
      {"4.11.10", "Invalid Self-Issued inhibitPolicyMapping Test10", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
      {"4.11.11", "Invalid Self-Issued inhibitPolicyMapping Test11", "-policy anyPolicy", "True", "<empty>", "<empty>", 43}].
-inhibit_any_policy() ->
+inhibit_any_policy_tests() ->
     %%{ "4.12", "Inhibit Any Policy" },
     [{"4.12.1", "Invalid inhibitAnyPolicy Test1", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
      {"4.12.2", "Valid inhibitAnyPolicy Test2", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0},
