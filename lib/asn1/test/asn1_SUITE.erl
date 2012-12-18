@@ -20,18 +20,9 @@
 
 -module(asn1_SUITE).
 
--define(only_per(Func),
-    if Rule =:= per -> Func;
-       true -> ok
-    end).
 -define(only_ber(Func),
     if Rule =:= ber -> Func;
        true -> ok
-    end).
--define(only_uper(Func),
-    case Rule of
-        uper -> Func;
-        _ -> ok
     end).
 
 -compile(export_all).
@@ -320,12 +311,12 @@ testCompactBitString(Config, Rule, Opts) ->
     asn1_test_lib:compile("PrimStrings", Config,
                           [Rule, compact_bit_string|Opts]),
     testCompactBitString:compact_bit_string(Rule),
-    ?only_uper(testCompactBitString:bit_string_unnamed(Rule)),
-    ?only_per(testCompactBitString:bit_string_unnamed(Rule)),
-    ?only_per(testCompactBitString:ticket_7734(Rule)),
-    ?only_per(asn1_test_lib:compile("Constraints", Config,
-                                        [Rule, compact_bit_string|Opts])),
-    ?only_per(testCompactBitString:otp_4869(Rule)).
+    testCompactBitString:bit_string_unnamed(Rule),
+    testCompactBitString:bit_string_unnamed(Rule),
+    testCompactBitString:ticket_7734(Rule),
+    asn1_test_lib:compile("Constraints", Config,
+			  [Rule, compact_bit_string|Opts]),
+    testCompactBitString:otp_4869(Rule).
 
 testPrimStrings(Config) -> test(Config, fun testPrimStrings/3).
 testPrimStrings(Config, Rule, Opts) ->
