@@ -792,8 +792,15 @@ main_process_loop(State) ->
 	
 	{'DOWN', _MRef, process, {?SERVER,Node}, _Info} ->
 	    %% A remote cover_server is down, mark as lost
-	    Nodes = State#main_state.nodes--[Node],
-	    Lost = [Node|State#main_state.lost_nodes],
+	    {Nodes,Lost} =
+		case lists:member(Node,State#main_state.nodes) of
+		    true ->
+			N = State#main_state.nodes--[Node],
+			L = [Node|State#main_state.lost_nodes],
+			{N,L};
+		    false -> % node stopped
+			{State#main_state.nodes,State#main_state.lost_nodes}
+		end,
 	    main_process_loop(State#main_state{nodes=Nodes,lost_nodes=Lost});
 
 	{nodeup,Node} ->

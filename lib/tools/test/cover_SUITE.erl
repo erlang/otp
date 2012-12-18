@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([start/1, compile/1, analyse/1, misc/1, stop/1, 
-	 distribution/1, reconnect/1, die_and_reconnect/1, export_import/1,
+	 distribution/1, reconnect/1, die_and_reconnect/1,
+	 dont_reconnect_after_stop/1, export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1]).
 
@@ -47,6 +48,7 @@ all() ->
 	undefined ->
 	    [start, compile, analyse, misc, stop,
 	     distribution, reconnect, die_and_reconnect,
+	     dont_reconnect_after_stop,
 	     export_import, otp_5031, eif, otp_5305, otp_5418,
 	     otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
 	     otp_8340];
@@ -515,6 +517,49 @@ die_and_reconnect(Config) ->
 
     %% Ensure that no more calls are counted
     check_f_calls(2,0),
+
+    cover:stop(),
+    ?t:stop_node(N1),
+    ok.
+
+%% Test that a stopped node is not marked as lost, i.e. that it is not
+%% reconnected if it is restarted (OTP-10638)
+dont_reconnect_after_stop(Config) ->
+    DataDir = ?config(data_dir, Config),
+    ok = file:set_cwd(DataDir),
+
+    {ok,f} = compile:file(f),
+
+    NodeName = cover_SUITE_dont_reconnect_after_stop,
+    {ok,N1} = ?t:start_node(NodeName,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,f} = cover:compile(f),
+    {ok,[N1]} = cover:start(nodes()),
+
+    %% A call to check later
+    rpc:call(N1,f,f1,[]),
+
+    %% Stop cover on the node, then terminate the node
+    cover:stop(N1),
+    rpc:call(N1,erlang,halt,[]),
+    [] = cover:which_nodes(),
+
+    check_f_calls(1,0),
+
+    %% Restart the node and check that cover does not reconnect
+    {ok,N1} = ?t:start_node(NodeName,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    timer:sleep(300),
+    [] = cover:which_nodes(),
+    Beam = rpc:call(N1,code,which,[f]),
+    false = (Beam==cover_compiled),
+
+    %% One more call...
+    rpc:call(N1,f,f1,[]),
+    cover:flush(N1),
+
+    %% Ensure that the last call is not counted
+    check_f_calls(1,0),
 
     cover:stop(),
     ?t:stop_node(N1),
