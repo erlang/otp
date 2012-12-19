@@ -450,8 +450,8 @@ reconnect(Config) ->
 
     %% Disconnect and check that node is removed from main cover node
     net_kernel:disconnect(N1),
+    timer:sleep(500), % allow some to detect disconnect and for f:f2() call
     [] = cover:which_nodes(),
-    timer:sleep(500), % allow some time for the f:f2() call
 
     %% Do some add one module (b) and remove one module (a)
     code:purge(a),
