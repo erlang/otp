@@ -36,8 +36,8 @@
 
     <list type="bulleted">
       <item>ssl requires the crypto and public_key applications.</item>
-      <item>Supported SSL/TLS-versions are SSL-3.0 and TLS-1.0, experimental
-      support for TLS-1.1 and TLS-1.2 is also available (no support for elliptic curve cipher suites yet).</item>
+      <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
+      TLS-1.1 and TLS-1.2 (no support for elliptic curve cipher suites yet).</item>
       <item>For security reasons sslv2 is not supported.</item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported
       but not Diffie Hellman Certificates cipher suites.</item>

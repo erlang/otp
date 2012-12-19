@@ -463,10 +463,9 @@ supported_protocol_versions() ->
 supported_protocol_versions([]) ->
     Vsns = case sufficient_tlsv1_2_crypto_support() of
 	       true ->
-		   %%?ALL_SUPPORTED_VERSIONS; %% Add TlS-1.2 as default in R16
-		   ?DEFAULT_SUPPORTED_VERSIONS;
+		   ?ALL_SUPPORTED_VERSIONS;
 	       false ->
-		   ?DEFAULT_SUPPORTED_VERSIONS
+		   ?MIN_SUPPORTED_VERSIONS
 	   end,
     application:set_env(ssl, protocol_version, Vsns),
     Vsns;

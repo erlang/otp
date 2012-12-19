@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE appref SYSTEM "appref.dtd">
 
 <appref>
@@ -29,7 +29,17 @@
   sockets.</appsummary>
 
   <section>
-    <title>Environment</title>
+    <title>DEPENDENCIES</title>
+    <p>The ssl application uses the Erlang applications public_key and
+    crypto to handle public keys and encryption, hence these
+    applications needs to be loaded for the ssl application to work. In
+    an embedded environment that means they need to be started with
+    application:start/[1,2] before the ssl application is started.
+    </p>
+  </section>
+
+  <section>
+    <title>ENVIRONMENT</title>
     <p>The following application environment configuration parameters
       are defined for the SSL application. Refer to application(3) for
       more information about configuration parameters.
