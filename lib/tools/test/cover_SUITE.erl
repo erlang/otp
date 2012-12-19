@@ -24,7 +24,8 @@
 
 -export([start/1, compile/1, analyse/1, misc/1, stop/1, 
 	 distribution/1, reconnect/1, die_and_reconnect/1,
-	 dont_reconnect_after_stop/1, export_import/1,
+	 dont_reconnect_after_stop/1, stop_node_after_disconnect/1,
+	 export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1]).
 
@@ -48,7 +49,7 @@ all() ->
 	undefined ->
 	    [start, compile, analyse, misc, stop,
 	     distribution, reconnect, die_and_reconnect,
-	     dont_reconnect_after_stop,
+	     dont_reconnect_after_stop, stop_node_after_disconnect,
 	     export_import, otp_5031, eif, otp_5305, otp_5418,
 	     otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
 	     otp_8340];
@@ -545,6 +546,51 @@ dont_reconnect_after_stop(Config) ->
     [] = cover:which_nodes(),
 
     check_f_calls(1,0),
+
+    %% Restart the node and check that cover does not reconnect
+    {ok,N1} = ?t:start_node(NodeName,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    timer:sleep(300),
+    [] = cover:which_nodes(),
+    Beam = rpc:call(N1,code,which,[f]),
+    false = (Beam==cover_compiled),
+
+    %% One more call...
+    rpc:call(N1,f,f1,[]),
+    cover:flush(N1),
+
+    %% Ensure that the last call is not counted
+    check_f_calls(1,0),
+
+    cover:stop(),
+    ?t:stop_node(N1),
+    ok.
+
+%% Test that a node which is stopped while it is marked as lost is not
+%% reconnected if it is restarted (OTP-10638)
+stop_node_after_disconnect(Config) ->
+    DataDir = ?config(data_dir, Config),
+    ok = file:set_cwd(DataDir),
+
+    {ok,f} = compile:file(f),
+
+    NodeName = cover_SUITE_stop_node_after_disconnect,
+    {ok,N1} = ?t:start_node(NodeName,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,f} = cover:compile(f),
+    {ok,[N1]} = cover:start(nodes()),
+
+    %% A call to check later
+    rpc:call(N1,f,f1,[]),
+
+    %% Flush the node, then terminate the node to make it marked as lost
+    cover:flush(N1),
+    rpc:call(N1,erlang,halt,[]),
+
+    check_f_calls(1,0),
+
+    %% Stop cover on node
+    cover:stop(N1),
 
     %% Restart the node and check that cover does not reconnect
     {ok,N1} = ?t:start_node(NodeName,peer,

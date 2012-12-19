@@ -705,7 +705,9 @@ main_process_loop(State) ->
 	    remote_collect('_',Nodes,true),
 	    reply(From, ok),
 	    Nodes1 = State#main_state.nodes--Nodes,
-	    main_process_loop(State#main_state{nodes=Nodes1});
+	    LostNodes1 = State#main_state.lost_nodes--Nodes,
+	    main_process_loop(State#main_state{nodes=Nodes1,
+					       lost_nodes=LostNodes1});
 
 	{From, {flush,Nodes}} ->
 	    remote_collect('_',Nodes,false),
