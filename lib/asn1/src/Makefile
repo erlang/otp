@@ -69,20 +69,7 @@ CT_MODULES= \
 
 RT_MODULES= \
 	asn1rt \
-	asn1rt_ber_bin \
-	asn1rt_ber_bin_v2 \
-	asn1rt_per_bin_rt2ct \
-	asn1rt_uper_bin \
-	asn1rt_check \
 	asn1rt_nif
-#	asn1_sup \
-#	asn1_app \
-#	asn1_server
-
-
-# the rt module to use is defined in asn1_records.hrl
-# and must be updated when an incompatible change is done in the rt modules
-
 
 MODULES= $(CT_MODULES) $(RT_MODULES) 
 
