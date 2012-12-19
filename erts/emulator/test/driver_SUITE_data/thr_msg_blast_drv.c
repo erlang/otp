@@ -168,8 +168,8 @@ static void *thread(void *varg)
 
     for (s = 0; s < THR_MSG_BLAST_NO_SENDS_PER_PROC; s++) {
 	for (p = 0; p < THR_MSG_BLAST_NO_PROCS; p++) {
-	    int res = driver_send_term(tmbd->port, tmbd->proc[p],
-				       spec, sizeof(spec)/sizeof(spec[0]));
+	    int res = erl_drv_send_term(tmbd->td_port, tmbd->proc[p],
+					spec, sizeof(spec)/sizeof(spec[0]));
 	    if (p == 0 && res <= 0)
 		abort(); /* Could not send to creator */
 	}

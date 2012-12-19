@@ -42,6 +42,7 @@
 typedef struct {
     TestCaseState_t visible;
     ErlDrvPort port;
+    ErlDrvTermData port_id;
     int result;
     jmp_buf done_jmp_buf;
     char *comment;
@@ -98,6 +99,7 @@ testcase_drv_start(ErlDrvPort port, char *command)
     itcs->visible.testcase_name = testcase_name();
     itcs->visible.extra = NULL;
     itcs->port = port;
+    itcs->port_id = driver_mk_port(port);
     itcs->result = TESTCASE_FAILED;
     itcs->comment = "";
 
@@ -143,7 +145,7 @@ testcase_drv_run(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
     msg[1] = (ErlDrvTermData) result_atom;
 
     msg[2] = ERL_DRV_PORT;
-    msg[3] = driver_mk_port(itcs->port);
+    msg[3] = itcs->port_id;
 
     msg[4] = ERL_DRV_ATOM;
     msg[5] = driver_mk_atom(itcs->visible.testcase_name);
@@ -155,7 +157,7 @@ testcase_drv_run(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
     msg[9] = ERL_DRV_TUPLE;
     msg[10] = (ErlDrvTermData) 4;
 
-    driver_output_term(itcs->port, msg, 11);
+    erl_drv_output_term(itcs->port_id, msg, 11);
 }
 
 int
@@ -185,7 +187,7 @@ testcase_printf(TestCaseState_t *tcs, char *frmt, ...)
     msg[1] = (ErlDrvTermData) driver_mk_atom("print");
 
     msg[2] = ERL_DRV_PORT;
-    msg[3] = driver_mk_port(itcs->port);
+    msg[3] = itcs->port_id;
 
     msg[4] = ERL_DRV_ATOM;
     msg[5] = driver_mk_atom(itcs->visible.testcase_name);
@@ -197,7 +199,7 @@ testcase_printf(TestCaseState_t *tcs, char *frmt, ...)
     msg[9] = ERL_DRV_TUPLE;
     msg[10] = (ErlDrvTermData) 4;
 
-    driver_output_term(itcs->port, msg, 11);
+    erl_drv_output_term(itcs->port_id, msg, 11);
 }
 
 

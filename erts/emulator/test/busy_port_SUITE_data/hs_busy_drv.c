@@ -71,9 +71,9 @@ void output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
 	ERL_DRV_PID,	driver_caller(port),
 	ERL_DRV_TUPLE,	(ErlDrvTermData) 3
     };
-    res = driver_output_term(port, msg, sizeof(msg)/sizeof(ErlDrvTermData));
+    res = erl_drv_output_term(driver_mk_port(port), msg, sizeof(msg)/sizeof(ErlDrvTermData));
     if (res <= 0)
-	driver_failure_atom(port, "driver_output_term failed");
+	driver_failure_atom(port, "erl_drv_output_term failed");
 }
 
 ErlDrvSSizeT control(ErlDrvData drv_data, unsigned int command, char *buf,
