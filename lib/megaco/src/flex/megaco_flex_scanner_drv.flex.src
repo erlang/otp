@@ -76,6 +76,7 @@
 
 typedef struct {
     ErlDrvPort      port;
+    ErlDrvTermData  port_id;
     char*           digit_map_name_ptr;
     int             digit_map_name_len;
     char*           digit_map_value_ptr;
@@ -1497,6 +1498,7 @@ static ErlDrvData mfs_start(ErlDrvPort port, char *buf)
   DBG( ("mfs_start -> entry\n") );
 
   dataP->port                   = port;
+  dataP->port_id                = driver_mk_port(port);
   dataP->digit_map_name_ptr     = NULL;
   dataP->digit_map_name_len     = 0;
   dataP->digit_map_value_ptr    = NULL;
@@ -1841,10 +1843,10 @@ static ErlDrvSSizeT mfs_control(ErlDrvData          handle,
 	  "\n   term_spec_size:  %d\n", 
 	  dataP->term_spec_index, dataP->term_spec_size) );
 
-    driver_send_term(dataP->port, 
-                     driver_caller(dataP->port),
-                     dataP->term_spec, 
-                     dataP->term_spec_index);
+    erl_drv_send_term(dataP->port_id, 
+                      driver_caller(dataP->port),
+                      dataP->term_spec, 
+                      dataP->term_spec_index);
     
     if (dataP->text_buf  != NULL) FREE(dataP->text_buf);
     if (dataP->term_spec != NULL) FREE(dataP->term_spec);
