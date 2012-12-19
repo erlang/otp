@@ -603,7 +603,7 @@ emit_enc_enumerated_case(Erule,_C, {1,EnumName}, Count) ->
 emit_enc_enumerated_case(_Erule,C, {0,EnumName}, Count) ->
     %% ENUMERATED with extensionmark
     %% values within extension root
-    emit(["'",EnumName,"' -> ",{asis,[0|asn1rt_per_bin_rt2ct:encode_integer(C,Count)]}]);
+    emit(["'",EnumName,"' -> ",{asis,[0|asn1ct_eval_per:encode_integer(C, Count)]}]);
 emit_enc_enumerated_case(_Erule, _C, 'EXT_MARK', _Count) ->
     true.
 %% %% This clause is invoked in case of an ENUMERATED without extension mark

@@ -66,7 +66,8 @@ groups() ->
      {appup_test, [], [{asn1_appup_test, all}]},
 
      {parallel, parallel([]),
-      [{group, ber},
+      [cover,
+       {group, ber},
        % Uses 'P-Record', 'Constraints', 'MEDIA-GATEWAY-CONTROL'...
        {group, [], [parse,
                     test_driver_load,
@@ -294,6 +295,28 @@ case_dir([C|Config], Opt) ->
 %%------------------------------------------------------------------------------
 %% Test cases
 %%------------------------------------------------------------------------------
+
+%% Cover run-time functions that are only called by the ASN.1 compiler
+%% (if any).
+cover(_) ->
+    Wc = filename:join([code:lib_dir(asn1),"ebin","asn1ct_eval_*.beam"]),
+    Beams = filelib:wildcard(Wc),
+    true = Beams =/= [],
+    [begin
+	 M0 = filename:basename(Beam),
+	 M1 = filename:rootname(M0),
+	 M = list_to_atom(M1),
+	 "asn1ct_eval_" ++ Group0 = M1,
+	 Group = list_to_atom(Group0),
+	 io:format("%%\n"
+		   "%% ~s\n"
+		   "%%\n", [M]),
+	 asn1ct_func:start_link(),
+	 [asn1ct_func:need({Group,F,A}) ||
+	     {F,A} <- M:module_info(exports), F =/= module_info],
+	 asn1ct_func:generate(group_leader())
+     end || Beam <- Beams],
+    ok.
 
 testPrim(Config) -> test(Config, fun testPrim/3).
 testPrim(Config, Rule, Opts) ->

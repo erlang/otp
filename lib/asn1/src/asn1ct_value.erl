@@ -65,7 +65,7 @@ from_type(M,Typename,Type) when is_record(Type,type) ->
 	    end;
 	{constructed,bif} when Typename == ['EXTERNAL'] ->
 	    Val=from_type_constructed(M,Typename,InnerType,Type),
-	    asn1rt_check:transform_to_EXTERNAL1994(Val);
+	    asn1ct_eval_ext:transform_to_EXTERNAL1994(Val);
 	{constructed,bif} ->
 	    from_type_constructed(M,Typename,InnerType,Type)
     end;
