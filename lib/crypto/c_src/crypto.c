@@ -335,6 +335,8 @@ ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 #define MD5_LEN_96      12
 #define MD4_CTX_LEN     (sizeof(MD4_CTX))
 #define MD4_LEN         16
+#define RIPEMD160_CTX_LEN (sizeof(RIPEMD160_CTX))
+#define RIPEMD160_LEN   20
 #define SHA_CTX_LEN     (sizeof(SHA_CTX))
 #define SHA_LEN         20
 #define SHA_LEN_96      12
