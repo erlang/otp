@@ -317,9 +317,9 @@
           minor version used by the driver is greater than the one used
           by the runtime system.</p>
 	<p>The emulator will refuse to load a driver that does not use
-	  the extended driver interface since,
+	  the extended driver interface,
 	  to allow for 64-bit capable drivers,
-	  incompatible type changes for the callbacks
+	  since incompatible type changes for the callbacks
 	  <seealso marker="driver_entry#output">output</seealso>,
 	  <seealso marker="driver_entry#control">control</seealso> and
 	  <seealso marker="driver_entry#call">call</seealso>
@@ -1560,7 +1560,7 @@ typedef struct ErlIOVec {
 	<c>[ERL_DRV_BUSY_MSGQ_LIM_MIN, ERL_DRV_BUSY_MSGQ_LIM_MAX]</c>.
 	Limits will be automatically adjusted to be sane. That is,
 	the system will	adjust values so that the low limit used is
-	lower or equal to the high limit used. By default the high
+	lower than or equal to the high limit used. By default the high
 	limit will be 8 kB and the low limit will be 4 kB.</p>
 
 	<p>By passing a pointer to an integer variable containing

@@ -582,7 +582,7 @@
           <seealso marker="erts_alloc">erts_alloc(3)</seealso> for
           further information.</p>
       </item>
-      <tag><c><![CDATA[+n Behavior]]></c></tag>
+      <tag><marker id="+n"/><c><![CDATA[+n Behavior]]></c></tag>
       <item>
 	<p>Control behavior of signals to ports.</p>
 	<p>As of OTP-R16 signals to ports are truly asynchronously
@@ -615,7 +615,7 @@
 	     debugging.</item>
 	   </taglist>
       </item>
-      <tag><marker id="max_processes"><c><![CDATA[+P Number]]></c></marker></tag>
+      <tag><marker id="+P"/><marker id="max_processes"><c><![CDATA[+P Number]]></c></marker></tag>
       <item>
 	<p>Sets the maximum number of simultaneously existing processes for this
           system. Valid range for <c>Number</c> is <c>[1024-134217727]</c></p>
@@ -627,7 +627,7 @@
 	<seealso marker="erlang#system_info_process_limit">erlang:system_info(process_limit)</seealso>.</p>
 	<p>The default value is <c>262144</c></p>
       </item>
-      <tag><marker id="max_ports"><c><![CDATA[+Q Number]]></c></marker></tag>
+      <tag><marker id="+Q"/><marker id="max_ports"><c><![CDATA[+Q Number]]></c></marker></tag>
       <item>
 	<p>Sets the maximum number of simultaneously existing ports for this
           system. Valid range for <c>Number</c> is <c>[1024-134217727]</c></p>

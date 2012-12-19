@@ -5644,35 +5644,35 @@ ok
 	  For more information see the
 	  <seealso marker="erl#+spp">+spp</seealso> command line argument
 	  of <seealso marker="erl">erl(1)</seealso>.</p></item>
-          <tag><c>process_count</c></tag>
+          <tag><marker id="system_info_port_count"/><c>port_count</c></tag>
           <item>
             <p>Returns the number of ports currently existing at
               the local node as an integer. The same value as
-              <c>length(erlang:ports())</c> returns.</p>
+              <c>length(erlang:ports())</c> returns, but more efficient.</p>
           </item>
           <tag><marker id="system_info_port_limit"><c>port_limit</c></marker></tag>
           <item>
             <p>Returns the maximum number of simultaneously existing
               ports at the local node as an integer. This limit
               can be configured at startup by using the
-              <seealso marker="erl#max_ports"><c>+Q</c></seealso>
+              <seealso marker="erl#+Q">+Q</seealso>
 	      command line flag of
-	      <seealso marker="erl"><c>erl(1)</c></seealso>.</p>
+	      <seealso marker="erl">erl(1)</seealso>.</p>
           </item>
-          <tag><c>process_count</c></tag>
+          <tag><marker id="system_info_process_count"/><c>process_count</c></tag>
           <item>
             <p>Returns the number of processes currently existing at
               the local node as an integer. The same value as
-              <c>length(processes())</c> returns.</p>
+              <c>length(processes())</c> returns, but more efficient.</p>
           </item>
           <tag><marker id="system_info_process_limit"><c>process_limit</c></marker></tag>
           <item>
             <p>Returns the maximum number of simultaneously existing
               processes at the local node as an integer. This limit
               can be configured at startup by using the
-              <seealso marker="erl#max_processes"><c>+P</c></seealso>
+              <seealso marker="erl#+P">+P</seealso>
 	      command line flag of
-	      <seealso marker="erl"><c>erl(1)</c></seealso>.</p>
+	      <seealso marker="erl">erl(1)</seealso>.</p>
           </item>
           <tag><c>procs</c></tag>
           <item>
