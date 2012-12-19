@@ -67,9 +67,9 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 	       end,
     case Typename of
 	['EXTERNAL'] ->
-	    emit({{next,val},
-		  " = asn1rt_check:transform_to_EXTERNAL1990(",
-		  {curr,val},"),",nl}),
+	    emit([{next,val}," = ",
+		  {call,ext,transform_to_EXTERNAL1990,
+		   [{curr,val}]},com,nl]),
 	    asn1ct_name:new(val);
 	_ ->
 	    ok
@@ -386,9 +386,10 @@ gen_dec_constructed_imm_2(Typename, CompList,
 		  "'"}),
 	    mkvlist(asn1ct_name:all(term)),
 	    emit({"},",nl}),
-	    emit({"   ASN11994Format =",nl,
-		  "      asn1rt_check:transform_to_EXTERNAL1994",
-		  "(OldFormat),",nl}),
+	    emit(["   ASN11994Format =",nl,
+		  "      ",
+		  {call,ext,transform_to_EXTERNAL1994,
+		   ["OldFormat"]},com,nl]),
 	    emit("   {ASN11994Format,");
 	_ ->
 	    emit(["{{'",RecordName,"'"]),

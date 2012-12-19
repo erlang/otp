@@ -66,9 +66,9 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
     ValName = 
 	case Typename of
 	    ['EXTERNAL'] ->
-		emit([indent(4),
-		      "NewVal = asn1rt_check:transform_to_EXTERNAL1990(Val),",
-		      nl]),
+		emit([indent(4),"NewVal = ",
+		      {call,ext,transform_to_EXTERNAL1990,["Val"]},
+		      com,nl]),
 		"NewVal";
 	    _ ->
 	    "Val"
@@ -289,8 +289,9 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
 			  "', "]),
 		    mkvlist(asn1ct_name:all(term)),
 		    emit(["},",nl]),
-		    emit(["    asn1rt_check:transform_to_EXTERNAL1994",
-			  "(OldFormat).",nl]);
+		    emit(["    ",
+			  {call,ext,transform_to_EXTERNAL1994,
+			   ["OldFormat"]},".",nl]);
 		_ ->
 		    emit(["   {'",RecordName,"', "]),
 		    mkvlist(asn1ct_name:all(term)),

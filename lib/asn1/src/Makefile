@@ -174,6 +174,7 @@ release_docs_spec:
 #
 
 RT_TEMPLATES = asn1rtt_check \
+	       asn1rtt_ext \
 	       asn1rtt_per_common \
                asn1rtt_real_common \
 	       asn1rtt_ber \
