@@ -83,14 +83,21 @@ start_slave(Config,_Level) ->
 
 post_end_per_testcase(_TC, Config, Return, State) ->
     Node = proplists:get_value(node, Config),
-    case test_server:is_cover() of
-	true ->
-	    cover:flush(Node);
-	false ->
-	    ok
+    Cover = test_server:is_cover(),
+    if Cover-> cover:flush(Node);
+       true -> ok
     end,
+    erlang:monitor_node(Node, true),
     slave:stop(Node),
-
+    receive
+	{nodedown, Node} ->
+	    if Cover -> cover:stop(Node);
+	       true -> ok
+	    end
+    after 5000 ->
+	    erlang:monitor_node(Node, false),
+	    receive {nodedown, Node} -> ok after 0 -> ok end %flush
+    end,
     {Return, State}.
 
 %% Parse an .suite log file

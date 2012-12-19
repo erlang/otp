@@ -317,14 +317,21 @@ pmap(Fun,List) ->
 
 
 do_cover_for_node(Node,CoverFunc) ->
+    do_cover_for_node(Node,CoverFunc,true).
+do_cover_for_node(Node,CoverFunc,StickUnstick) ->
     %% In case a slave node is starting another slave node! I.e. this
     %% function is executed on a slave node - then the cover function
     %% must be executed on the master node. This is for instance the
     %% case in test_server's own tests.
     MainCoverNode = cover:get_main_node(),
-    Sticky = unstick_all_sticky(MainCoverNode,Node),
+    Sticky =
+	if StickUnstick -> unstick_all_sticky(MainCoverNode,Node);
+	   true -> ok
+	end,
     rpc:call(MainCoverNode,cover,CoverFunc,[Node]),
-    stick_all_sticky(Node,Sticky).
+    if StickUnstick -> stick_all_sticky(Node,Sticky);
+       true -> ok
+    end.
 
 unstick_all_sticky(Node) ->
     unstick_all_sticky(node(),Node).
@@ -2186,12 +2193,9 @@ start_node(Name, Type, Options) ->
 
             %% Cannot run cover on shielded node or on a node started
             %% by a shielded node.
-            Cover = case is_cover() of
+            Cover = case is_cover(Node) of
                         true ->
-                            not is_shielded(Name)
-				andalso same_version(Node)
-				andalso proplists:get_value(start_cover,Options,
-							    true);
+			    proplists:get_value(start_cover,Options,true);
                         false ->
                             false
                     end,
@@ -2230,15 +2234,8 @@ wait_for_node(Slave) ->
     Result = receive {sync_result,R} -> R end,
     case Result of
 	ok ->
-	    Cover = case is_cover() of
-			true ->
-			    not is_shielded(Slave) andalso same_version(Slave);
-			false ->
-			    false
-		    end,
-
 	    net_adm:ping(Slave),
-	    case Cover of
+	    case is_cover(Slave) of
 		true ->
 		    do_cover_for_node(Slave,start);
 		_ ->
@@ -2256,12 +2253,9 @@ wait_for_node(Slave) ->
 %% Kills a (remote) node.
 %% Also inform test_server_ctrl so it can clean up!
 stop_node(Slave) ->
-    Nocover = is_shielded(Slave) orelse not same_version(Slave),
-    case is_cover() of
-	true when not Nocover ->
-	    do_cover_for_node(Slave,flush);
-	_ ->
-	    ok
+    Cover = is_cover(Slave),
+    if Cover -> do_cover_for_node(Slave,flush,false);
+       true -> ok
     end,
     group_leader() ! {sync_apply,self(),{test_server_ctrl,stop_node,[Slave]}},
     Result = receive {sync_result,R} -> R end,
@@ -2273,10 +2267,15 @@ stop_node(Slave) ->
 		{nodedown, Slave} ->
 		    format(minor, "Stopped slave node: ~p", [Slave]),
 		    format(major, "=node_stop     ~p", [Slave]),
+		    if Cover -> do_cover_for_node(Slave,stop,false);
+		       true -> ok
+		    end,
 		    true
 	    after 30000 ->
 		    format("=== WARNING: Node ~p does not seem to terminate.",
 			   [Slave]),
+		    erlang:monitor_node(Slave, false),
+		    receive {nodedown, Slave} -> ok after 0 -> ok end,
 		    false
 	    end;
 	{error, _Reason} ->
@@ -2288,9 +2287,27 @@ stop_node(Slave) ->
 		   [Slave]),
 	    case net_adm:ping(Slave)of
 		pong ->
+		    erlang:monitor_node(Slave, true),
 		    slave:stop(Slave),
-		    true;
+		    receive
+			{nodedown, Slave} ->
+			    format(minor, "Stopped slave node: ~p", [Slave]),
+			    format(major, "=node_stop     ~p", [Slave]),
+			    if Cover -> do_cover_for_node(Slave,stop,false);
+			       true -> ok
+			    end,
+			    true
+		    after 30000 ->
+			    format("=== WARNING: Node ~p does not seem to terminate.",
+				   [Slave]),
+			    erlang:monitor_node(Slave, false),
+			    receive {nodedown, Slave} -> ok after 0 -> ok end,
+			    false
+		    end;
 		pang ->
+		    if Cover -> do_cover_for_node(Slave,stop,false);
+		       true -> ok
+		    end,
 		    false
 	    end
     end.
@@ -2376,6 +2393,14 @@ same_version(Name) ->
     ThisVersion = erlang:system_info(version),
     OtherVersion = rpc:call(Name, erlang, system_info, [version]),
     ThisVersion =:= OtherVersion.
+
+is_cover(Name) ->
+    case is_cover() of
+	true ->
+	    not is_shielded(Name) andalso same_version(Name);
+	false ->
+	    false
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% temp_name(Stem) -> string()
