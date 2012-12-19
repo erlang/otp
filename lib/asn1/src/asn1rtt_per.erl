@@ -22,6 +22,7 @@
 	 skipextensions/3, getbit/1, getchoice/3,
 	 set_choice/3,encode_integer/2,
 	 encode_small_number/1,
+	 encode_constrained_number/2,
 	 encode_length/1,
 	 encode_length/2,
 	 decode_compact_bit_string/3,

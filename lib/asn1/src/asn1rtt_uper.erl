@@ -23,7 +23,8 @@
 	 fixextensions/2,
 	 skipextensions/3, getbit/1, getchoice/3 ]).
 -export([set_choice/3, encode_integer/2, encode_integer/3]).
--export([encode_small_number/1, encode_boolean/1,
+-export([encode_small_number/1, encode_constrained_number/2,
+	 encode_boolean/1,
 	 encode_length/1, encode_length/2,
 	 decode_compact_bit_string/3]).
 -export([encode_bit_string/3, decode_bit_string/3]).

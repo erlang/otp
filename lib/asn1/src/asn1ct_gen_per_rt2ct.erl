@@ -138,20 +138,8 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    emit(["  %%INTEGER with effective constraint: ",
 		  {asis,EffectiveConstr},nl]),
 	    emit_enc_integer_NNL(Erules,EffectiveConstr,Value,NamedNumberList);
-	{'ENUMERATED',{Nlist1,Nlist2}} ->
-	    NewList = lists:append([[{0,X}||{X,_} <- Nlist1],['EXT_MARK'],[{1,X}||{X,_} <- Nlist2]]),
-	    NewC = [{'ValueRange',{0,length(Nlist1)-1}}],
-	    emit(["case ",Value," of",nl]),
-%%	    emit_enc_enumerated_cases(Erules,NewC, NewList++[{asn1_enum,length(Nlist1)-1}], 0);
-	    emit_enc_enumerated_cases(Erules,NewC, NewList, 0);
-	{'ENUMERATED',NamedNumberList} ->
-	    NewList = [X||{X,_} <- NamedNumberList],
-	    NewC = effective_constraint(integer,
-					[{'ValueRange',
-					  {0,length(NewList)-1}}]),
-	    NewVal = enc_enum_cases(Value,NewList),
-	    emit_enc_integer(Erules,NewC,NewVal);
-
+	{'ENUMERATED',_} ->
+	    asn1ct_gen_per:gen_encode_prim(Erules, D, DoTag, Value);
 	'REAL' ->
 	    emit_enc_real(Erules, Value);
 
@@ -549,66 +537,6 @@ emit_enc_integer(_Erule,[{_,{Lb,Ub},Range,_}],Value) when Range =< 65536 ->
 
 emit_enc_integer(Erule, C, Value) ->
     call(Erule, encode_integer, [{asis,C},Value]).
-
-
-
-enc_enum_cases(Value,NewList) ->
-    asn1ct_name:new(tmpval),
-    TmpVal = asn1ct_gen:mk_var(asn1ct_name:curr(tmpval)),
-    Cases=enc_enum_cases1(NewList),
-    lists:flatten(io_lib:format("(case ~s of "++Cases++
-				"~s ->exit({error,"
-				"{asn1,{enumerated,~s}}})"
-				" end)",
-				[Value,TmpVal,TmpVal])).
-enc_enum_cases1(NNL) ->
-    enc_enum_cases1(NNL,0).
-enc_enum_cases1([H|T],Index) ->
-    io_lib:format("~w->~w;",[H,Index])++enc_enum_cases1(T,Index+1);
-enc_enum_cases1([],_) ->
-    "".
-
-
-emit_enc_enumerated_cases(Erule, C, [H], Count) ->
-    emit_enc_enumerated_case(Erule, C, H, Count),
-    case H of
-	'EXT_MARK' ->
-	    ok;
-	_ ->
-	    emit([";",nl])
-    end,
-    emit([nl,"EnumVal -> exit({error,{asn1, {enumerated_not_in_range, EnumVal}}})"]),
-    emit([nl,"end"]);
-emit_enc_enumerated_cases(Erule, C, ['EXT_MARK'|T], _Count) ->
-    emit_enc_enumerated_cases(Erule, C, T, 0);
-emit_enc_enumerated_cases(Erule, C, [H1,H2|T], Count) ->
-    emit_enc_enumerated_case(Erule, C, H1, Count),
-    emit([";",nl]),
-    emit_enc_enumerated_cases(Erule, C, [H2|T], Count+1).
-
-
-%% The function clauses matching on tuples with first element 
-%% asn1_enum, 1 or 0 and the atom 'EXT_MARK' are for ENUMERATED
-%% with extension mark.
-%% emit_enc_enumerated_case(_Erule,_C, {asn1_enum,High}, _) -> 
-%%     %% ENUMERATED with extensionmark
-%%     %% value higher than the extension base and not 
-%%     %% present in the extension range.
-emit_enc_enumerated_case(Erule,_C, {1,EnumName}, Count) ->
-    %% ENUMERATED with extensionmark
-    %% values higher than extension root
-    emit(["'",EnumName,"' -> [1,"]),
-    call(Erule, encode_small_number, [Count]),
-    emit("]");
-emit_enc_enumerated_case(_Erule,C, {0,EnumName}, Count) ->
-    %% ENUMERATED with extensionmark
-    %% values within extension root
-    emit(["'",EnumName,"' -> ",{asis,[0|asn1ct_eval_per:encode_integer(C, Count)]}]);
-emit_enc_enumerated_case(_Erule, _C, 'EXT_MARK', _Count) ->
-    true.
-%% %% This clause is invoked in case of an ENUMERATED without extension mark
-%% emit_enc_enumerated_case(_Erule,_C, EnumName, Count) ->
-%%     emit(["'",EnumName,"' -> ",Count]).
 
 
 get_constraint([{Key,V}],Key) ->

@@ -143,28 +143,16 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 		    Value,{asis,NamedNumberList}],
 	    call(Erules, encode_integer, Args);
 	{'ENUMERATED',{Nlist1,Nlist2}} ->
-	    NewList = lists:concat([[{0,X}||{X,_} <- Nlist1],['EXT_MARK'],[{1,X}||{X,_} <- Nlist2]]),
-	    NewC = [{'ValueRange',{0,length(Nlist1)-1}}],
-	    case Erules of
-		uper ->
-		    emit(["case ",Value," of",nl]);
-		_ ->
-		    emit(["case (case ",Value," of {_,",{curr,enumval},"}-> ",
-			  {curr,enumval},";_->", Value," end) of",nl]),
-		    asn1ct_name:new(enumval)
-	    end,
-	    emit_enc_enumerated_cases(Erules,NewC, NewList, 0);
+	    NewList = [{0,X} || {X,_} <- Nlist1] ++ ['EXT_MARK'] ++
+		[{1,X} || {X,_} <- Nlist2],
+	    NewC = {0,length(Nlist1)-1},
+	    emit(["case ",Value," of",nl]),
+	    emit_enc_enumerated_cases(Erules, NewC, NewList, 0);
 	{'ENUMERATED',NamedNumberList} ->
-	    NewList = [X||{X,_} <- NamedNumberList],
-	    NewC = [{'ValueRange',{0,length(NewList)-1}}],
-	    case Erules of
-		uper ->
-		    emit(["case ",Value," of",nl]);
-		_ ->
-		    emit(["case (case ",Value," of {_,",{curr,enumval},
-			  "}->",{curr,enumval},";_->",Value," end) of",nl])
-	    end,
-	    emit_enc_enumerated_cases(Erules,NewC, NewList, 0);
+	    NewList = [X || {X,_} <- NamedNumberList],
+	    NewC = {0,length(NewList)-1},
+	    emit(["case ",Value," of",nl]),
+	    emit_enc_enumerated_cases(Erules, NewC, NewList, 0);
 	
 	'REAL' ->
 	    emit_enc_real(Erules, Value);
@@ -250,34 +238,37 @@ emit_enc_real(Erules, Real) ->
 	  {curr,tmpval},"]",nl,
 	  "end"]).
 
-emit_enc_enumerated_cases(Erule,C, [H], Count) ->
-    emit_enc_enumerated_case(Erule,C, H, Count),
-    case H of
-	'EXT_MARK' -> ok;
-	_ ->
-	    emit([";",nl])
-    end,
-    emit([nl,"EnumVal -> exit({error,{asn1, {enumerated_not_in_range, EnumVal}}})"]),
-    emit([nl,"end"]);
-emit_enc_enumerated_cases(Erule, C, ['EXT_MARK'|T], _Count) ->
-    emit_enc_enumerated_cases(Erule, C, T, 0);
-emit_enc_enumerated_cases(Erule, C, [H1,H2|T], Count) ->
-    emit_enc_enumerated_case(Erule, C, H1, Count),
+emit_enc_enumerated_cases(Erules, C, ['EXT_MARK'|T], _Count) ->
+    %% Reset enumeration counter.
+    emit_enc_enumerated_cases(Erules, C, T, 0);
+emit_enc_enumerated_cases(Erules, C, [H|T], Count) ->
+    emit_enc_enumerated_case(Erules, C, H, Count),
     emit([";",nl]),
-    emit_enc_enumerated_cases(Erule, C, [H2|T], Count+1).
+    emit_enc_enumerated_cases(Erules, C, T, Count+1);
+emit_enc_enumerated_cases(_Erules, _, [], _Count) ->
+    emit(["EnumVal -> "
+	  "exit({error,{asn1,{enumerated_not_in_range, EnumVal}}})",nl,
+	  "end"]).
     
-
-emit_enc_enumerated_case(_Erule, _C, 'EXT_MARK', _Count) ->
-    true;
-emit_enc_enumerated_case(uper=Erules,_C, {1,EnumName}, Count) ->
-    emit(["'",EnumName,"' -> [<<1:1>>,",
-	  {call,Erules,encode_small_number,[Count]},"]"]);
-emit_enc_enumerated_case(uper=Erules, C, {0,EnumName}, Count) ->
-    emit(["'",EnumName,"' -> [<<0:1>>,",
-	  {call,Erules,encode_integer,[{asis,C},Count]},"]"]);
+emit_enc_enumerated_case(Erules, C, {0,EnumName}, Count) ->
+    %% ENUMERATED with extensionmark; the value lies within then extension root
+    Enc = enc_ext_and_val(Erules, 0, encode_constrained_number, [C,Count]),
+    emit(["'",EnumName,"' -> ",{asis,Enc}]);
+emit_enc_enumerated_case(Erules, _C, {1,EnumName}, Count) ->
+    %% ENUMERATED with extensionmark; the value is higher than extension root
+    Enc = enc_ext_and_val(Erules, 1, encode_small_number, [Count]),
+    emit(["'",EnumName,"' -> ",{asis,Enc}]);
 emit_enc_enumerated_case(Erules, C, EnumName, Count) ->
+    %% ENUMERATED without extension
+    EvalMod = eval_module(Erules),
     emit(["'",EnumName,"' -> ",
-	  {call,Erules,encode_integer,[{asis,C},Count]}]).
+	  {asis,EvalMod:encode_constrained_number(C, Count)}]).
+
+enc_ext_and_val(per, E, F, Args) ->
+    [E|apply(asn1ct_eval_per, F, Args)];
+enc_ext_and_val(uper, E, F, Args) ->
+    <<E:1,(apply(asn1ct_eval_uper, F, Args))/bitstring>>.
+
 
 get_constraint([{Key,V}], Key) ->
     V;
@@ -1262,3 +1253,6 @@ imm_dec_open_type_1(Type, Aligned) ->
 		      "end"])
 	end,
     {call,D,asn1ct_imm:per_dec_open_type(Aligned)}.
+
+eval_module(per) -> asn1ct_eval_per;
+eval_module(uper) -> asn1ct_eval_uper.
