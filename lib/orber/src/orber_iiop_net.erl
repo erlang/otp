@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -415,11 +415,10 @@ handle_info({'EXIT', Pid, _Reason}, State) when is_pid(Pid) ->
 		 ref = Ref, options = Options, proxy_options = POpts}] ->
 	    ets:delete(?CONNECTION_DB, Pid),
 	    unlink(Pid),
-	    NewListen = new_listen_socket(Type, Listen, Port, Options),
-	    {ok, NewPid} = orber_iiop_socketsup:start_accept(Type, NewListen, 
+	    {ok, NewPid} = orber_iiop_socketsup:start_accept(Type, Listen, 
 							     Ref, POpts),
 	    link(NewPid),
-	    ets:insert(?CONNECTION_DB, #listen{pid = NewPid, socket = NewListen, 
+	    ets:insert(?CONNECTION_DB, #listen{pid = NewPid, socket = Listen, 
 					       port = Port, type = Type, 
 					       ref = Ref, options = Options, 
 					       proxy_options = POpts}),
@@ -444,23 +443,6 @@ handle_info({'EXIT', Pid, _Reason}, State) when is_pid(Pid) ->
     end;
 handle_info(_, State) ->
     {noreply,  State}.
-
-new_listen_socket(normal, ListenFd, _Port, _Options) ->
-    ListenFd;
-new_listen_socket(ssl, ListenFd, Port, Options) ->
-    Generation = orber_env:ssl_generation(),
-    if
-	Generation > 2 ->
-	    ListenFd;
-	true ->
-	    case is_process_alive(ssl:pid(ListenFd)) of
-		true ->
-		    ListenFd;
-		_ ->
-		    {ok, Listen, _NP} = orber_socket:listen(ssl, Port, Options, true),
-		    Listen
-	    end
-    end.
 
 from_list(List) ->
     from_list(List, queue:new()).
