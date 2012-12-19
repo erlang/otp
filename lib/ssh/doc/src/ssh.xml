@@ -181,10 +181,13 @@
 	  (simply passed on to the transport protocol).</p></item>
 	  <tag><c><![CDATA[{ipv6_disabled, boolean()}]]></c></tag>
 	  <item>
-	  <p>Determines if SSH shall use IPv6 or not.</p></item>
-	  <tag><c><![CDATA[{idle_time, timeout()}]]></c></tag>
+	    <p>Determines if SSH shall use IPv6 or not.</p>
+	  </item>
+	  <tag><c><![CDATA[{rekey_limit, integer()}]]></c></tag>
 	  <item>
-	  <p>Sets a timeout on connection when no channels are active, default is infinity</p></item>
+	    <p>Provide, in bytes, when rekeying should be initiated, 
+	    defaults to one time each GB and one time per hour.</p>
+	  </item>
 	</taglist>
       </desc>   
     </func>

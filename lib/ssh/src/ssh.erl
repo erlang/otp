@@ -369,6 +369,8 @@ handle_option([{quiet_mode, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{idle_time, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{rekey_limit, _} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
@@ -448,6 +450,8 @@ handle_ssh_option({quiet_mode, Value} = Opt) when Value == true;
 						  Value == false -> 
     Opt;
 handle_ssh_option({idle_time, Value} = Opt) when is_integer(Value), Value > 0 ->
+    Opt;
+handle_ssh_option({rekey_limit, Value} = Opt) when is_integer(Value) -> 
     Opt;
 handle_ssh_option(Opt) ->
     throw({error, {eoptions, Opt}}).
