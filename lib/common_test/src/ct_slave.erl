@@ -449,15 +449,29 @@ wait_for_node_alive(Node, N) ->
 
 % call init:stop on a remote node
 do_stop(ENode) ->
-    case test_server:is_cover() of
-	true ->
-	    MainCoverNode = cover:get_main_node(),
-	    rpc:call(MainCoverNode,cover,flush,[ENode]);
-	false ->
-	    ok
+    {Cover,MainCoverNode} =
+	case test_server:is_cover() of
+	    true ->
+		Main = cover:get_main_node(),
+		rpc:call(Main,cover,flush,[ENode]),
+		{true,Main};
+	    false ->
+		{false,undefined}
     end,
     spawn(ENode, init, stop, []),
-    wait_for_node_dead(ENode, 5).
+    case wait_for_node_dead(ENode, 5) of
+	{ok,ENode} ->
+	    if Cover ->
+		    %% To avoid that cover is started again if a node
+		    %% with the same name is started later.
+		    rpc:call(MainCoverNode,cover,stop,[ENode]);
+	       true ->
+		    ok
+	    end,
+	    {ok,ENode};
+	Error ->
+	    Error
+    end.
 
 % wait N seconds until node is disconnected
 wait_for_node_dead(Node, 0) ->
