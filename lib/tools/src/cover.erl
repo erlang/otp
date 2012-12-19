@@ -2087,30 +2087,40 @@ do_analyse_to_file(Module, OutFile, ErlFile, HTML) ->
 	    case file:open(OutFile, [write]) of
 		{ok, OutFd} ->
 		    if HTML -> 
-			    io:format(OutFd,
-				      "<html>\n"
-				      "<head><title>~s</title></head>"
-				      "<body bgcolor=white text=black>\n"
-				      "<pre>\n",
-				      [OutFile]);
+                           Encoding = encoding(ErlFile),
+                           Header =
+                               ["<!DOCTYPE HTML PUBLIC "
+                                "\"-//W3C//DTD HTML 3.2 Final//EN\">\n"
+                                "<html>\n"
+                                "<head>\n"
+                                "<meta http-equiv=\"Content-Type\""
+                                " content=\"text/html; charset=",
+                                Encoding,"\"/>\n"
+                                "<title>",OutFile,"</title>\n"
+                                "</head>"
+                                "<body style='background-color: white;"
+                                " color: black'>\n"
+                                "<pre>\n"],
+                           file:write(OutFd,Header);
 		       true -> ok
 		    end,
 		    
 		    %% Write some initial information to the output file
 		    {{Y,Mo,D},{H,Mi,S}} = calendar:local_time(),
-		    io:format(OutFd, "File generated from ~s by COVER "
-			             "~p-~s-~s at ~s:~s:~s~n",
-			      [ErlFile,
-			       Y,
-			       string:right(integer_to_list(Mo), 2, $0),
-			       string:right(integer_to_list(D),  2, $0),
-			       string:right(integer_to_list(H),  2, $0),
-			       string:right(integer_to_list(Mi), 2, $0),
-			       string:right(integer_to_list(S),  2, $0)]),
-		    io:format(OutFd, "~n"
-			             "**************************************"
-			             "**************************************"
-			             "~n~n", []),
+                   Timestamp =
+                       io_lib:format("~p-~s-~s at ~s:~s:~s",
+                                     [Y,
+                                      string:right(integer_to_list(Mo), 2, $0),
+                                      string:right(integer_to_list(D),  2, $0),
+                                      string:right(integer_to_list(H),  2, $0),
+                                      string:right(integer_to_list(Mi), 2, $0),
+                                      string:right(integer_to_list(S),  2, $0)]),
+                    file:write(OutFd,
+                               ["File generated from ",ErlFile," by COVER ",
+                                Timestamp,"\n\n"
+                                "**************************************"
+                                "**************************************"
+                                "\n\n"]),
 
 		    print_lines(Module, InFd, OutFd, 1, HTML),
 		    
@@ -2405,3 +2415,20 @@ pmap(Fun, [], [], Limit, Cnt, Acc) ->
 	{'DOWN', _Ref, process, X, _} when is_pid(X) ->
 	    pmap(Fun, [], [], Limit, Cnt - 1, Acc)
     end.
+
+%%%-----------------------------------------------------------------
+%%% Read encoding from source file
+encoding(File) ->
+    Encoding =
+       case epp:read_encoding(File) of
+           none ->
+               epp:default_encoding();
+           E ->
+               E
+       end,
+    html_encoding(Encoding).
+
+html_encoding(latin1) ->
+    "iso-8859-1";
+html_encoding(utf8) ->
+    "utf-8".
