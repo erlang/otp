@@ -28,7 +28,7 @@
 	 unary_plus/1, unary_minus/1, moving_labels/1]).
 -export([fpe/1]).
 -export([otp_9422/1]).
-
+-export([faulty_seq_trace/1, do_faulty_seq_trace/0]).
 -export([runner/2, loop_runner/3]).
 -export([f1/1, f2/2, f3/2, fn/1, fn/2, fn/3]).
 -export([do_boxed_and_small/0]).
@@ -59,6 +59,7 @@ all() ->
 	     ms_trace3, boxed_and_small, destructive_in_test_bif,
 	     guard_exceptions, unary_plus, unary_minus, fpe,
 	     moving_labels,
+	     faulty_seq_trace,
 	     otp_9422];
 	true -> [not_run]
     end.
@@ -724,6 +725,19 @@ do_boxed_and_small() ->
     {ok, false, _, _} = erlang:match_spec_test({0,3},[{{12345678901234567890,'_'},[],['$_']}],table),
     {ok, false, _, _} = erlang:match_spec_test({0,3},[{{<<1,2,3,4>>,'_'},[],['$_']}],table),
     {ok, false, _, _} = erlang:match_spec_test({0,3},[{{make_ref(),'_'},[],['$_']}],table),
+    ok.
+
+faulty_seq_trace(doc) ->
+    ["Test that faulty seq_trace_call does not crash emulator"];
+faulty_seq_trace(suite) -> [];
+faulty_seq_trace(Config) when is_list(Config) ->
+    ?line {ok, Node} = start_node(match_spec_suite_other),
+    ?line ok = rpc:call(Node,?MODULE,do_faulty_seq_trace,[]),
+    ?line stop_node(Node),
+    ok.
+
+do_faulty_seq_trace() ->
+    {ok,'EXIT',_,_} = erlang:match_spec_test([],[{'_',[],[{message,{set_seq_token,yxa,true}}]}],trace),
     ok.
 
 errchk(Pat) ->

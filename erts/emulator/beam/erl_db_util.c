@@ -5009,7 +5009,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 static Eterm seq_trace_fake(Process *p, Eterm arg1)
 {
     Eterm result = erl_seq_trace_info(p, arg1);
-    if (is_tuple(result) && *tuple_val(result) == 2) {
+    if (!is_non_value(result) && is_tuple(result) && *tuple_val(result) == 2) {
 	return (tuple_val(result))[2];
     }
     return result;
