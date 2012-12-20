@@ -989,6 +989,7 @@ erl_start(int argc, char **argv)
 		    break;
 		case 'a':
 		    erts_set_user_requested_filename_encoding(ERL_FILENAME_UNKNOWN);
+		    break;
 		default:
 		    erts_fprintf(stderr, "bad filename encoding %s, can be (l,u or a)\n", arg);
 		    erts_usage();
