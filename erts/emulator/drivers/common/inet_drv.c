@@ -9711,7 +9711,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
     else if (IS_CONNECTED(INETP(desc))) {
 	for (;;) {
 	    int vsize;
-	    ssize_t n,res;
+	    ssize_t n;
 	    SysIOVec* iov;
 
 	    if ((iov = driver_peekq(ix, &vsize)) == NULL) {
@@ -9722,7 +9722,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 	    vsize = vsize > MAX_VSIZE ? MAX_VSIZE : vsize;
 	    DEBUGF(("tcp_inet_output(%ld): s=%d, About to send %d items\r\n", 
 		    (long)desc->inet.port, desc->inet.s, vsize));
-	    if (IS_SOCKET_ERROR(res = sock_sendv(desc->inet.s, iov, vsize, &n, 0))) {
+	    if (IS_SOCKET_ERROR(sock_sendv(desc->inet.s, iov, vsize, &n, 0))) {
 	    write_error:
 		if ((sock_errno() != ERRNO_BLOCK) && (sock_errno() != EINTR)) {
 		    DEBUGF(("tcp_inet_output(%ld): sock_sendv(%d) errno = %d\r\n",
@@ -9734,8 +9734,10 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 		desc->inet.send_would_block = 1;
 #endif
 		goto done;
-	    } else if (res == 0) { /* Workaround for redhat/CentOS bug */
-	      size_t howmuch = 0x7FFFFFFF; /* max signed 32bit */
+	    } else if (n == 0) { /* Workaround for redhat/CentOS 6.3 returning 
+				    0 when sending packets with 
+				    sizes > (max 32 bit signed int) */
+	      size_t howmuch = 0x7FFFFFFF; /* max signed 32 bit */
 	      int x;
 	      for(x = 0; x < vsize && iov[x].iov_len == 0; ++x)
 		;
