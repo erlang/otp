@@ -107,10 +107,20 @@ unregister_agent(Addr, Port) ->
     snmpm:unregister_agent(?USER_ID, Addr, Port).
 
 agent_info(Addr, Port, Item) ->
-    snmpm:agent_info(?USER_ID, Addr, Port, Item).
+    case snmpm:target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    snmpm:agent_info(TargetName, Item);
+	Error ->
+	    Error
+    end.
 
 update_agent_info(Addr, Port, Item, Val) ->
-    snmpm:update_agent_info(?USER_ID, Addr, Port, Item, Val).
+    case snmpm:target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    snmpm:update_agent_info(?USER_ID, TargetName, Item, Val);
+	Error ->
+	    Error
+    end.
 
 which_agents() ->
     snmpm:which_agents().
@@ -128,73 +138,153 @@ unload_mib(Mib) ->
 %% -- 
 
 sync_get(Addr, Oids) ->
-    snmpm:g(?USER_ID, Addr, Oids).
+    case snmpm:target_name(Addr) of
+	{ok, TargetName} ->
+	    snmpm:sync_get2(?USER_ID, TargetName, Oids);
+	Error ->
+	    Error
+    end.
 
 sync_get(Addr, Port, Oids) ->
-    snmpm:g(?USER_ID, Addr, Port, Oids).
+    case snmpm:target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    snmpm:sync_get2(?USER_ID, TargetName, Oids);
+	Error ->
+	    Error
+    end.
 
 
 %% --
 
 async_get(Addr, Oids) ->
-    snmpm:ag(?USER_ID, Addr, Oids).
+    case snmpm:target_name(Addr) of
+	{ok, TargetName} ->
+	    snmpm:async_get2(?USER_ID, TargetName, Oids);
+	Error ->
+	    Error
+    end.
 
 async_get(Addr, Port, Oids) ->
-    snmpm:ag(?USER_ID, Addr, Port, Oids).
+    case snmpm:target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    snmpm:async_get2(?USER_ID, TargetName, Oids);
+	Error ->
+	    Error
+    end.
 
 
 %% --
 
 sync_get_next(Addr, Oids) ->
-    snmpm:gn(?USER_ID, Addr, Oids).
+    case snmpm:target_name(Addr) of
+	{ok, TargetName} ->
+	    snmpm:sync_get_next2(?USER_ID, TargetName, Oids);
+	Error ->
+	    Error
+    end.
 
 sync_get_next(Addr, Port, Oids) ->
-    snmpm:gn(?USER_ID, Addr, Port, Oids).
+    case snmpm:target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    snmpm:sync_get_next2(?USER_ID, TargetName, Oids);
+	Error ->
+	    Error
+    end.
 
 
 %% --
 
 async_get_next(Addr, Oids) ->
-    snmpm:agn(?USER_ID, Addr, Oids).
+    case snmpm:target_name(Addr) of
+	{ok, TargetName} ->
+	    snmpm:async_get_next2(?USER_ID, TargetName, Oids);
+	Error ->
+	    Error
+    end.
 
 async_get_next(Addr, Port, Oids) ->
-    snmpm:agn(?USER_ID, Addr, Port, Oids).
+    case snmpm:target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    snmpm:async_get_next2(?USER_ID, TargetName, Oids);
+	Error ->
+	    Error
+    end.
 
 
 %% --
 
 sync_set(Addr, VAV) ->
-    snmpm:s(?USER_ID, Addr, VAV).
+    case snmpm:target_name(Addr) of
+	{ok, TargetName} ->
+	    snmpm:sync_set2(?USER_ID, TargetName, VAV);
+	Error ->
+	    Error
+    end.
 
 sync_set(Addr, Port, VAV) ->
-    snmpm:s(?USER_ID, Addr, Port, VAV).
+    case snmpm:target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    snmpm:sync_set2(?USER_ID, TargetName, VAV);
+	Error ->
+	    Error
+    end.
 
 
 %% --
 
 async_set(Addr, VAV) ->
-    snmpm:as(?USER_ID, Addr, VAV).
+    case snmpm:target_name(Addr) of
+	{ok, TargetName} ->
+	    snmpm:async_set2(?USER_ID, TargetName, VAV);
+	Error ->
+	    Error
+    end.
 
 async_set(Addr, Port, VAV) ->
-    snmpm:as(?USER_ID, Addr, Port, VAV).
+    case snmpm:target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    snmpm:async_set2(?USER_ID, TargetName, VAV);
+	Error ->
+	    Error
+    end.
 
 
 %% --
 
 sync_get_bulk(Addr, NonRep, MaxRep, Oids) ->
-    snmpm:gb(?USER_ID, Addr, NonRep, MaxRep, Oids).
+    case snmpm:target_name(Addr) of
+	{ok, TargetName} ->
+	    snmpm:sync_get_bulk2(?USER_ID, TargetName, NonRep, MaxRep, Oids);
+	Error ->
+	    Error
+    end.
 
 sync_get_bulk(Addr, Port, NonRep, MaxRep, Oids) ->
-    snmpm:gb(?USER_ID, Addr, Port, NonRep, MaxRep, Oids).
+    case snmpm:target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    snmpm:sync_get_bulk2(?USER_ID, TargetName, NonRep, MaxRep, Oids);
+	Error ->
+	    Error
+    end.
 
 
 %% --
 
 async_get_bulk(Addr, NonRep, MaxRep, Oids) ->
-    snmpm:agb(?USER_ID, Addr, NonRep, MaxRep, Oids).
+    case snmpm:target_name(Addr) of
+	{ok, TargetName} ->
+	    snmpm:async_get_bulk2(?USER_ID, TargetName, NonRep, MaxRep, Oids);
+	Error ->
+	    Error
+    end.
 
 async_get_bulk(Addr, Port, NonRep, MaxRep, Oids) ->
-    snmpm:agb(?USER_ID, Addr, Port, NonRep, MaxRep, Oids).
+    case snmpm:target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    snmpm:async_get_bulk2(?USER_ID, TargetName, NonRep, MaxRep, Oids);
+	Error ->
+	    Error
+    end.
 
 
 %% -- 
