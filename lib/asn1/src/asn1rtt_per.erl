@@ -25,8 +25,7 @@
 	 encode_constrained_number/2,
 	 encode_length/1,
 	 encode_length/2,
-	 decode_compact_bit_string/3,
-	 encode_bit_string/3, decode_bit_string/3,
+	 encode_bit_string/3,
 	 encode_object_identifier/1, decode_object_identifier/1,
 	 encode_relative_oid/1, decode_relative_oid/1,
 	 complete/1,
@@ -97,20 +96,6 @@ getchoice(Bytes, _, 1) ->
     decode_small_number(Bytes);
 getchoice(Bytes, NumChoices, 0) ->
     decode_constrained_number(Bytes, {0,NumChoices-1}).
-
-
-%% getbits_as_binary(Num,Bytes) -> {Bin,Rest}
-%% Num = integer(),
-%% Bytes = bitstring(),
-%% Bin = bitstring(),
-%% Rest = bitstring()
-getbits_as_binary(Num,Bytes) when is_bitstring(Bytes) ->
-    <<BS:Num/bitstring,Rest/bitstring>> = Bytes,
-    {BS,Rest}.
-
-getbits_as_list(Num,Bytes) when is_bitstring(Bytes) ->
-    <<BitStr:Num/bitstring,Rest/bitstring>> = Bytes,
-    {[ B || <<B:1>> <= BitStr],Rest}.
 
 
 getbit(Buffer) ->
@@ -200,42 +185,6 @@ set_choice_tag(Alt,[_H|Rest],Tag) ->
     set_choice_tag(Alt,Rest,Tag+1);
 set_choice_tag(_Alt,[],_Tag) ->
     false.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% decode_fragmented_XXX; decode of values encoded fragmented according
-%% to ITU-T X.691 clause 10.9.3.8. The unit (XXX) is either bits, octets,
-%% characters or number of components (in a choice,sequence or similar).
-%% Buffer is a buffer binary().
-%% C is the constrained length.
-%% If the buffer is not aligned, this function does that.
-decode_fragmented_bits(Buffer, C) when is_binary(Buffer) ->
-    decode_fragmented_bits(Buffer, C, []);
-decode_fragmented_bits(Buffer,C) when is_bitstring(Buffer) ->
-    AlignBits = bit_size(Buffer) rem 8,
-    <<_:AlignBits,Rest/binary>> = Buffer,
-    decode_fragmented_bits(Rest,C,[]).
-
-decode_fragmented_bits(<<3:2,Len:6,Bin/binary>>, C, Acc) ->
-    {Value,Bin2} = split_binary(Bin, Len * ?'16K'), % Len = 1 | 2 | 3 | 4
-    decode_fragmented_bits(Bin2,C,[Value|Acc]);
-decode_fragmented_bits(<<0:1,0:7,Bin/binary>>, C, Acc) ->
-    BinBits = erlang:list_to_bitstring(lists:reverse(Acc)),
-    case C of
-	Int when is_integer(Int), C =:= bit_size(BinBits) ->
-	    {BinBits,Bin};
-	Int when is_integer(Int) ->
-	    exit({error,{asn1,{illegal_value,C,BinBits}}})
-    end;
-decode_fragmented_bits(<<0:1,Len:7,Bin/binary>>, C, Acc) ->
-    <<Value:Len/bitstring,Rest/bitstring>> = Bin,
-    BinBits = erlang:list_to_bitstring([Value|Acc]),
-    case C of
-	Int when is_integer(Int), C =:= bit_size(BinBits) ->
-	    {BinBits,Rest};
-	Int when is_integer(Int) ->
-	    exit({error,{asn1,{illegal_value,C,BinBits}}})
-    end.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% encode_open_type(Constraint, Value) -> CompleteList
@@ -793,138 +742,6 @@ trailingZeroesInNibble(14) ->
 trailingZeroesInNibble(15) ->
     0.
 
-%%%%%%%%%%%%%%%
-%% The result is presented as a list of named bits (if possible)
-%% else as a tuple {Unused,Bits}. Unused is the number of unused
-%% bits, least significant bits in the last byte of Bits. Bits is
-%% the BIT STRING represented as a binary.
-%%
-decode_compact_bit_string(Buffer, C, NamedNumberList) ->
-    case get_constraint(C,'SizeConstraint') of
-	0 -> % fixed length
-	    {{8,0},Buffer};
-	V when is_integer(V),V=<16 -> %fixed length 16 bits or less
-	    compact_bit_string(Buffer,V,NamedNumberList);
-	V when is_integer(V),V=<65536 -> %fixed length > 16 bits
-	    Bytes2 = align(Buffer),
-	    compact_bit_string(Bytes2,V,NamedNumberList);
-	V when is_integer(V) -> % V > 65536 => fragmented value
-	    {BitStr,Buffer2} = decode_fragmented_bits(Buffer,V),
-	    case bit_size(BitStr) band 7 of
-		0 -> {{0,BitStr},Buffer2};
-		N -> {{8-N,<<BitStr/bitstring,0:(8-N)>>},Buffer2}
-	    end;
-	{Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
-	    %% This case may demand decoding of fragmented length/value
-	    {Len,Bytes2} = decode_length(Buffer, {Lb,Ub}),
-	    Bytes3 = align(Bytes2),
-	    compact_bit_string(Bytes3,Len,NamedNumberList);
-	no ->
-	    %% This case may demand decoding of fragmented length/value
-	    {Len,Bytes2} = decode_length(Buffer, undefined),
-	    Bytes3 = align(Bytes2),
-	    compact_bit_string(Bytes3,Len,NamedNumberList);
-	{{Fix,Fix},Ext} = Sc when is_integer(Fix), is_list(Ext) ->
-	    case decode_length(Buffer,Sc) of
-		{Len,Bytes2} when Len > Fix ->
-		    Bytes3 = align(Bytes2),
-		    compact_bit_string(Bytes3,Len,NamedNumberList);
-		{Len,Bytes2} when Len > 16 ->
-		    Bytes3 = align(Bytes2),
-		    compact_bit_string(Bytes3,Len,NamedNumberList);
-		{Len,Bytes2} ->
-		    compact_bit_string(Bytes2,Len,NamedNumberList)
-	    end;
-	Sc ->
-	    {Len,Bytes2} = decode_length(Buffer,Sc),
-	    Bytes3 = align(Bytes2),
-	    compact_bit_string(Bytes3,Len,NamedNumberList)
-    end.
-
-
-%%%%%%%%%%%%%%%
-%% The result is presented as a list of named bits (if possible)
-%% else as a list of 0 and 1.
-%%
-decode_bit_string(Buffer, C, NamedNumberList) ->
-    case get_constraint(C,'SizeConstraint') of
-	{Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
-	    {Len,Bytes2} = decode_length(Buffer,{Lb,Ub}),
-	    Bytes3 = align(Bytes2),
-	    bit_list_or_named(Bytes3,Len,NamedNumberList);
-	no ->
-	    {Len,Bytes2} = decode_length(Buffer,undefined),
-	    Bytes3 = align(Bytes2),
-	    bit_list_or_named(Bytes3,Len,NamedNumberList);
-	0 -> % fixed length
-	    {[],Buffer}; % nothing to encode
-	V when is_integer(V),V=<16 -> % fixed length 16 bits or less
-	    bit_list_or_named(Buffer,V,NamedNumberList);
-	V when is_integer(V),V=<65536 ->
-	    Bytes2 = align(Buffer),
-	    bit_list_or_named(Bytes2,V,NamedNumberList);
-	V when is_integer(V) ->
-	    Bytes2 = align(Buffer),
-	    {BinBits,_Bytes3} = decode_fragmented_bits(Bytes2,V),
-	    bit_list_or_named(BinBits,V,NamedNumberList);
-	{{Fix,Fix},Ext} =Sc when is_integer(Fix), is_list(Ext) ->
-	    case decode_length(Buffer,Sc) of
-		{Len,Bytes2} when Len > Fix ->
-		    Bytes3 = align(Bytes2),
-		    bit_list_or_named(Bytes3,Len,NamedNumberList);
-		{Len,Bytes2} when Len > 16 ->
-		    Bytes3 = align(Bytes2),
-		    bit_list_or_named(Bytes3,Len,NamedNumberList);
-		{Len,Bytes2} ->
-		    bit_list_or_named(Bytes2,Len,NamedNumberList)
-	    end;
-	Sc -> % extension marker
-	    {Len,Bytes2} = decode_length(Buffer,Sc),
-	    Bytes3 = align(Bytes2),
-	    bit_list_or_named(Bytes3,Len,NamedNumberList)
-    end.
-
-
-%% if no named bits are declared we will return a
-%% {Unused,Bits}. Unused = integer(),
-%% Bits = binary().
-compact_bit_string(Buffer,Len,[]) ->
-    {BitStr,Rest} = getbits_as_binary(Len,Buffer), % {{Unused,BinBits},NewBuffer}
-    PadLen = (8 - (bit_size(BitStr) rem 8)) rem 8,
-    {{PadLen,<<BitStr/bitstring,0:PadLen>>},Rest};
-compact_bit_string(Buffer,Len,NamedNumberList) ->
-    bit_list_or_named(Buffer,Len,NamedNumberList).
-
-
-%% if no named bits are declared we will return a
-%% BitList = [0 | 1]
-
-bit_list_or_named(Buffer,Len,[]) ->
-    getbits_as_list(Len,Buffer);
-
-%% if there are named bits declared we will return a named
-%% BitList where the names are atoms and unnamed bits represented
-%% as {bit,Pos}
-%% BitList = [atom() | {bit,Pos}]
-%% Pos = integer()
-
-bit_list_or_named(Buffer,Len,NamedNumberList) ->
-    {BitList,Rest} = getbits_as_list(Len,Buffer),
-    {bit_list_or_named1(0,BitList,NamedNumberList,[]), Rest}.
-
-bit_list_or_named1(Pos,[0|Bt],Names,Acc) ->
-    bit_list_or_named1(Pos+1,Bt,Names,Acc);
-bit_list_or_named1(Pos,[1|Bt],Names,Acc) ->
-    case lists:keyfind(Pos, 2, Names) of
-	{Name,_} ->
-	    bit_list_or_named1(Pos+1,Bt,Names,[Name|Acc]);
-	false ->
-	    bit_list_or_named1(Pos+1,Bt,Names,[{bit,Pos}|Acc])
-    end;
-bit_list_or_named1(_Pos,[],_Names,Acc) ->
-    lists:reverse(Acc).
-
-
 
 %%%%%%%%%%%%%%%
 %%
@@ -1290,19 +1107,6 @@ decode_relative_oid(Bytes) ->
     {Octs,Bytes3} = getoctets_as_list(Bytes2,Len),
     ObjVals = dec_subidentifiers(Octs,0,[]),
     {list_to_tuple(ObjVals),Bytes3}.
-
-
-get_constraint([{Key,V}],Key) ->
-    V;
-get_constraint([],_) ->
-    no;
-get_constraint(C,Key) ->
-    case lists:keyfind(Key, 1, C) of
-	false ->
-	    no;
-	{_,V} ->
-	    V
-    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

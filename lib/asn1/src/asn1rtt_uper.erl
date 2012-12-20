@@ -26,8 +26,7 @@
 -export([encode_small_number/1, encode_constrained_number/2,
 	 encode_boolean/1,
 	 encode_length/1, encode_length/2,
-	 decode_compact_bit_string/3]).
--export([encode_bit_string/3, decode_bit_string/3]).
+	 encode_bit_string/3]).
 -export([encode_octet_string/2,
 	 encode_relative_oid/1, decode_relative_oid/1,
 	 encode_object_identifier/1, decode_object_identifier/1,
@@ -132,20 +131,6 @@ getchoice(Bytes,NumChoices,0) ->
     decode_constrained_number(Bytes,{0,NumChoices-1}).
 
 
-%% getbits_as_binary(Num,Bytes) -> {{Unused,BinBits},RestBytes},
-%% Num = integer(),
-%% Bytes = list() | tuple(),
-%% Unused = integer(),
-%% BinBits = binary(),
-%% RestBytes = tuple()
-getbits_as_binary(Num,Bytes) when is_bitstring(Bytes) ->
-    <<BS:Num/bitstring,Rest/bitstring>> = Bytes,
-    {BS,Rest}.
-
-getbits_as_list(Num, Bytes) when is_bitstring(Bytes) ->
-    <<BitStr:Num/bitstring,Rest/bitstring>> = Bytes,
-    {[B || <<B:1>> <= BitStr],Rest}.
-
 getbit(Buffer) ->
     <<B:1,Rest/bitstring>> = Buffer,
     {B,Rest}.
@@ -216,37 +201,6 @@ set_choice_tag(Alt,[_H|Rest],Tag) ->
     set_choice_tag(Alt,Rest,Tag+1);
 set_choice_tag(_Alt,[],_Tag) ->
     false.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% decode_fragmented_XXX; decode of values encoded fragmented according
-%% to ITU-T X.691 clause 10.9.3.8. The unit (XXX) is either bits, octets,
-%% characters or number of components (in a choice,sequence or similar).
-%% Buffer is a buffer {Used, Bin}.
-%% C is the constrained length.
-%% If the buffer is not aligned, this function does that.
-decode_fragmented_bits(Buffer,C) ->
-    decode_fragmented_bits(Buffer,C,[]).
-decode_fragmented_bits(<<3:2,Len:6,BitStr/bitstring>>,C,Acc) ->
-    FragLen = (Len*?'16K') div 8,
-    <<Value:FragLen/binary,BitStr2/bitstring>> = BitStr,
-    decode_fragmented_bits(BitStr2,C,[Value|Acc]);
-decode_fragmented_bits(<<0:1,0:7,BitStr/bitstring>>,C,Acc) ->
-    BinBits = list_to_binary(lists:reverse(Acc)),
-    case C of
-	Int when is_integer(Int),C =:= byte_size(BinBits) ->
-	    {BinBits,BitStr};
-	Int when is_integer(Int) ->
-	    exit({error,{asn1,{illegal_value,C,BinBits}}})
-    end;
-decode_fragmented_bits(<<0:1,Len:7,BitStr/bitstring>>,C,Acc) ->
-    <<Val:Len/bitstring,Rest/bitstring>> = BitStr,
-    ResBitStr = list_to_bitstring(lists:reverse([Val|Acc])),
-    case C of
-	Int when is_integer(Int),C == bit_size(ResBitStr) ->
-	    {ResBitStr,Rest};
-	Int when is_integer(Int) ->
-	    exit({error,{asn1,{illegal_value,C,ResBitStr}}})
-    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -707,105 +661,6 @@ trailingZeroesInNibble(14) ->
     1;
 trailingZeroesInNibble(15) ->
     0.
-
-%%%%%%%%%%%%%%%
-%% The result is presented as a list of named bits (if possible)
-%% else as a tuple {Unused,Bits}. Unused is the number of unused
-%% bits, least significant bits in the last byte of Bits. Bits is
-%% the BIT STRING represented as a binary.
-%%
-decode_compact_bit_string(Buffer, C, NamedNumberList) ->
-    case get_constraint(C, 'SizeConstraint') of
-	0 -> % fixed length
-	    {{8,0},Buffer};
-	V when is_integer(V),V=<16 -> %fixed length 16 bits or less
-	    compact_bit_string(Buffer,V,NamedNumberList);
-	V when is_integer(V),V=<65536 -> %fixed length > 16 bits
-	    compact_bit_string(Buffer,V,NamedNumberList);
-	V when is_integer(V) -> % V > 65536 => fragmented value
-	    {Bin,Buffer2} = decode_fragmented_bits(Buffer,V),
-	    PadLen = (8 - (bit_size(Bin) rem 8)) rem 8,
-	    {{PadLen,<<Bin/bitstring,0:PadLen>>},Buffer2};
-	{Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
-	    %% This case may demand decoding of fragmented length/value
-	    {Len,Bytes2} = decode_length(Buffer,{Lb,Ub}),
-	    compact_bit_string(Bytes2,Len,NamedNumberList);
-	no ->
-	    %% This case may demand decoding of fragmented length/value
-	    {Len,Bytes2} = decode_length(Buffer,undefined),
-	    compact_bit_string(Bytes2,Len,NamedNumberList);
-	Sc ->
-	    {Len,Bytes2} = decode_length(Buffer,Sc),
-	    compact_bit_string(Bytes2,Len,NamedNumberList)
-    end.
-
-
-%%%%%%%%%%%%%%%
-%% The result is presented as a list of named bits (if possible)
-%% else as a list of 0 and 1.
-%%
-decode_bit_string(Buffer, C, NamedNumberList) ->
-    case get_constraint(C,'SizeConstraint') of
-	{Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
-	    {Len,Bytes2} = decode_length(Buffer,{Lb,Ub}),
-	    bit_list_or_named(Bytes2,Len,NamedNumberList);
-	no ->
-	    {Len,Bytes2} = decode_length(Buffer,undefined),
-	    bit_list_or_named(Bytes2,Len,NamedNumberList);
-	0 -> % fixed length
-	    {[],Buffer}; % nothing to encode
-	V when is_integer(V),V=<16 -> % fixed length 16 bits or less
-	    bit_list_or_named(Buffer,V,NamedNumberList);
-	V when is_integer(V),V=<65536 ->
-	    bit_list_or_named(Buffer,V,NamedNumberList);
-	V when is_integer(V) ->
-	    {BinBits,_} = decode_fragmented_bits(Buffer,V),
-	    bit_list_or_named(BinBits,V,NamedNumberList);
-	Sc -> % extension marker
-	    {Len,Bytes2} = decode_length(Buffer,Sc),
-	    bit_list_or_named(Bytes2,Len,NamedNumberList)
-    end.
-
-
-%% if no named bits are declared we will return a
-%% {Unused,Bits}. Unused = integer(),
-%% Bits = binary().
-compact_bit_string(Buffer, Len, []) ->
-    {BitStr,Rest} = getbits_as_binary(Len,Buffer), % {{Unused,BinBits},NewBuffer}
-    PadLen = (8 - (bit_size(BitStr) rem 8)) rem 8,
-    {{PadLen,<<BitStr/bitstring,0:PadLen>>},Rest};
-compact_bit_string(Buffer, Len, NamedNumberList) ->
-    bit_list_or_named(Buffer, Len, NamedNumberList).
-
-
-%% if no named bits are declared we will return a
-%% BitList = [0 | 1]
-
-bit_list_or_named(Buffer,Len,[]) ->
-    getbits_as_list(Len,Buffer);
-
-%% if there are named bits declared we will return a named
-%% BitList where the names are atoms and unnamed bits represented
-%% as {bit,Pos}
-%% BitList = [atom() | {bit,Pos}]
-%% Pos = integer()
-
-bit_list_or_named(Buffer,Len,NamedNumberList) ->
-    {BitList,Rest} = getbits_as_list(Len,Buffer),
-    {bit_list_or_named1(0,BitList,NamedNumberList,[]), Rest}.
-
-bit_list_or_named1(Pos,[0|Bt],Names,Acc) ->
-    bit_list_or_named1(Pos+1,Bt,Names,Acc);
-bit_list_or_named1(Pos,[1|Bt],Names,Acc) ->
-    case lists:keyfind(Pos, 2, Names) of
-	{Name,_} ->
-	    bit_list_or_named1(Pos+1,Bt,Names,[Name|Acc]);
-	false  ->
-	    bit_list_or_named1(Pos+1,Bt,Names,[{bit,Pos}|Acc])
-    end;
-bit_list_or_named1(_,[],_,Acc) ->
-    lists:reverse(Acc).
-
 
 
 %%%%%%%%%%%%%%%

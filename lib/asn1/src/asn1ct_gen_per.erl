@@ -1088,6 +1088,28 @@ gen_dec_imm_1('ASN1_OPEN_TYPE', Constraint, Aligned) ->
     imm_decode_open_type(Constraint, Aligned);
 gen_dec_imm_1('ANY', _Constraint, Aligned) ->
     imm_decode_open_type([], Aligned);
+gen_dec_imm_1({'BIT STRING',NNL}, Constr0, Aligned) ->
+    Constr = get_constraint(Constr0, 'SizeConstraint'),
+    Imm = asn1ct_imm:per_dec_raw_bitstring(Constr, Aligned),
+    {F,A} = case NNL of
+		[] ->
+		    case get(compact_bit_string) of
+			true ->
+			    {decode_compact_bit_string,1};
+			_ ->
+			    {decode_legacy_bit_string,1}
+		    end;
+		[_|_] ->
+		    {decode_named_bit_string,2}
+	    end,
+    Dec = fun(V, Buf) ->
+		  As = case A of
+			   1 -> [V];
+			   2 -> [V,{asis,NNL}]
+		       end,
+		  emit(["{",{call,per_common,F,As},com,Buf,"}"])
+	  end,
+    {call,Dec,Imm};
 gen_dec_imm_1('BOOLEAN', _Constr, _Aligned) ->
     asn1ct_imm:per_dec_boolean();
 gen_dec_imm_1({'ENUMERATED',{Base,Ext}}, _Constr, Aligned) ->
@@ -1120,14 +1142,6 @@ gen_dec_prim_1(Erule,
 	       #type{def=Typename,constraint=Constraint}=Att,
 	       BytesVar) ->
     case Typename of
-	{'BIT STRING',NamedNumberList} ->
-	    Func = case get(compact_bit_string) of
-		       true -> decode_compact_bit_string;
-		       _ -> decode_bit_string
-		   end,
-	    call(Erule, Func,
-		 [BytesVar,{asis,Constraint},
-		  {asis,NamedNumberList}]);
 	'NULL' ->
 	    emit({"{'NULL',",BytesVar,"}"});
 	'OBJECT IDENTIFIER' ->

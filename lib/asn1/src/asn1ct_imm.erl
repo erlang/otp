@@ -18,7 +18,8 @@
 %%
 %%
 -module(asn1ct_imm).
--export([per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
+-export([per_dec_raw_bitstring/2,
+	 per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
 	 per_dec_extension_map/1,
 	 per_dec_integer/2,per_dec_length/3,per_dec_named_integer/3,
 	 per_dec_octet_string/2,per_dec_open_type/1,per_dec_real/1]).
@@ -103,6 +104,9 @@ per_dec_named_integer(Constraint, NamedList0, Aligned) ->
 per_dec_octet_string(Constraint, Aligned) ->
     dec_string(Constraint, 8, Aligned).
 
+per_dec_raw_bitstring(Constraint, Aligned) ->
+    dec_string(Constraint, 1, Aligned).
+
 per_dec_open_type(Aligned) ->
     {get_bits,decode_unconstrained_length(true, Aligned),
      [8,binary,{align,Aligned}]}.
@@ -124,7 +128,7 @@ dec_string(Sv, U, _Aligned) when is_integer(Sv), U*Sv =< 16 ->
     {get_bits,Sv,[U,binary]};
 dec_string(Sv, U, Aligned) when is_integer(Sv), Sv < 16#10000 ->
     {get_bits,Sv,[U,binary,{align,Aligned}]};
-dec_string(C, U, Aligned) when is_list(C) ->
+dec_string([_|_]=C, U, Aligned) when is_list(C) ->
     dec_string({hd(C),lists:max(C)}, U, Aligned);
 dec_string({Sv,Sv}, U, Aligned) ->
     dec_string(Sv, U, Aligned);
@@ -524,8 +528,6 @@ dcg_list_inside([{get_bits,{Sz,_},Fl0,{Dst,DstBuf}}|T], _) ->
     dcg_list_inside(T, DstBuf);
 dcg_list_inside(L, Dst) -> {L,Dst}.
 
-bit_flags([1|T], Acc) ->
-    bit_flags(T, Acc);
 bit_flags([{align,_}|T], Acc) ->
     bit_flags(T, Acc);
 bit_flags([non_zero|T], Acc) ->
@@ -537,7 +539,11 @@ bit_flags([H|T], Acc) ->
 bit_flags([], []) ->
     "";
 bit_flags([], Acc) ->
-    "/" ++ bit_flags_1(Acc, "").
+    case "/" ++ bit_flags_1(Acc, "") of
+	"/unit:1" -> [];
+	Opts -> Opts
+    end.
+
 
 bit_flags_1([H|T], Sep) ->
     Sep ++ H ++ bit_flags_1(T, "-");

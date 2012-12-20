@@ -29,8 +29,10 @@
 	 encode_integer/2,encode_integer/3,
 	 decode_integer/3,decode_integer/4,
 	 encode_enumerated/2,decode_enumerated/3,
-	 encode_bit_string/4,decode_bit_string/4,
-	 decode_compact_bit_string/4,
+	 encode_bit_string/4,
+	 decode_named_bit_string/3,
+	 decode_compact_bit_string/3,
+	 decode_legacy_bit_string/3,
 	 decode_octet_string/3,
 	 encode_null/2,decode_null/2,
 	 encode_relative_oid/2,decode_relative_oid/2,
@@ -1041,35 +1043,32 @@ unused_bitlist([Bit | Rest], Trail, Ack) ->
 
 %%============================================================================
 %% decode bitstring value
-%%    (Buffer, Range, NamedNumberList, HasTag, TotalLen) -> {Integer, Remain, RemovedBytes}
 %%============================================================================
 
-decode_compact_bit_string(Buffer, Range, NamedNumberList, Tags) ->
-    decode_restricted_string(Buffer, Range, ?N_BIT_STRING, Tags,
-			     NamedNumberList, bin).
+decode_compact_bit_string(Buffer, Range, Tags) ->
+    case match_and_collect(Buffer, Tags) of
+	<<0>> ->
+	    check_restricted_string({0,<<>>}, 0, Range);
+	<<Unused,Bits/binary>> ->
+	    Val = {Unused,Bits},
+	    Len = bit_size(Bits) - Unused,
+	    check_restricted_string(Val, Len, Range)
+    end.
 
-decode_bit_string(Buffer, Range, NamedNumberList, Tags) ->
-    decode_restricted_string(Buffer, Range, ?N_BIT_STRING, Tags,
-			     NamedNumberList, old).
+decode_legacy_bit_string(Buffer, Range, Tags) ->
+    Val = case match_and_collect(Buffer, Tags) of
+	      <<0>> ->
+		  [];
+	      <<Unused,Bits/binary>> ->
+		  decode_bitstring2(byte_size(Bits), Unused, Bits)
+	  end,
+    check_restricted_string(Val, length(Val), Range).
 
-
-decode_bit_string2(<<0>>, _NamedNumberList, BinOrOld) ->
-    case BinOrOld of
-	bin ->
-	    {0,<<>>};
-	_ ->
-	    []
-    end;
-decode_bit_string2(<<Unused,Bits/binary>>, NamedNumberList, BinOrOld) ->
-    case NamedNumberList of
-	[] ->
-	    case BinOrOld of
-		bin ->
-		    {Unused,Bits};
-		_ ->
-		    decode_bitstring2(byte_size(Bits), Unused, Bits)
-	    end;
-	_ ->
+decode_named_bit_string(Buffer, NamedNumberList, Tags) ->
+    case match_and_collect(Buffer, Tags) of
+	<<0>> ->
+	    [];
+	<<Unused,Bits/binary>> ->
 	    BitString = decode_bitstring2(byte_size(Bits), Unused, Bits),
 	    decode_bitstring_NNL(BitString, NamedNumberList)
     end.
@@ -1114,8 +1113,7 @@ decode_bitstring_NNL([0|BitList],NamedNumberList,No,Result) ->
 %% Octet string is decoded as a restricted string
 %%============================================================================
 decode_octet_string(Buffer, Range, Tags) ->
-    decode_restricted_string(Buffer, Range, ?N_OCTET_STRING,
-			     Tags, [], old).
+    decode_restricted_string(Buffer, Range, ?N_OCTET_STRING, Tags).
 
 %%============================================================================
 %% Null value, ITU_T X.690 Chapter 8.8
@@ -1252,33 +1250,15 @@ encode_restricted_string(OctetList, TagIn) when is_list(OctetList) ->
 
 %%============================================================================
 %% decode Numeric Printable Teletex Videotex Visible IA5 Graphic General strings
-%%    (Buffer, Range, StringType, HasTag, TotalLen) ->
-%%                                  {String, Remain, RemovedBytes}
 %%============================================================================
 
-decode_restricted_string(Buffer, Range, StringType, Tags) ->
-    decode_restricted_string(Buffer, Range, StringType, Tags, [], old).
+decode_restricted_string(Tlv, Range, StringType, TagsIn) ->
+    Bin = match_and_collect(Tlv, TagsIn),
+    Val = decode_restricted(Bin, StringType),
+    check_and_convert_restricted_string(Val, Range).
 
-decode_restricted_string(Tlv, Range, StringType, TagsIn,
-			 NamedNumberList, BinOrOld) ->
-    Val = match_tags(Tlv, TagsIn),
-    Val2 =
-	case Val of
-	    [_|_]=PartList ->			% constructed val
-		Bin = collect_parts(PartList),
-		decode_restricted(Bin, StringType,
-				  NamedNumberList, BinOrOld);
-	    Bin ->
-		decode_restricted(Bin, StringType,
-				  NamedNumberList, BinOrOld)
-	end,
-    check_and_convert_restricted_string(Val2, StringType, Range,
-					NamedNumberList, BinOrOld).
-
-decode_restricted(Bin, StringType, NamedNumberList, BinOrOld) ->
+decode_restricted(Bin, StringType) ->
     case StringType of
-	?N_BIT_STRING ->
-	    decode_bit_string2(Bin, NamedNumberList, BinOrOld);
 	?N_UniversalString ->
 	    mk_universal_string(binary_to_list(Bin));
 	?N_BMPString ->
@@ -1287,42 +1267,35 @@ decode_restricted(Bin, StringType, NamedNumberList, BinOrOld) ->
 	    Bin
     end.
 
+check_and_convert_restricted_string(Val0, Range) ->
+    {Len,Val} = if is_binary(Val0) ->
+			{byte_size(Val0),binary_to_list(Val0)};
+		   is_list(Val0) ->
+			{length(Val0),Val0}
+		end,
+    check_restricted_string(Val, Len, Range).
 
-check_and_convert_restricted_string(Val,StringType,Range,NamedNumberList,_BinOrOld) ->
-    {StrLen,NewVal} = case StringType of
-			  ?N_BIT_STRING when NamedNumberList =/= [] ->
-			      {no_check,Val};
-			  ?N_BIT_STRING when is_list(Val) ->
-			      {length(Val),Val};
-			  ?N_BIT_STRING when is_tuple(Val) ->
-			      {(byte_size(element(2,Val))*8) - element(1,Val),Val};
-			  _ when is_binary(Val) ->
-			      {byte_size(Val),binary_to_list(Val)};
-			  _ when is_list(Val) ->
-			      {length(Val), Val}
-		      end,
+check_restricted_string(Val, StrLen, Range) ->
     case Range of
-	_ when StrLen =:= no_check ->
-	    NewVal;
-	[] -> % No length constraint
-	    NewVal;
+	[] ->					% No length constraint
+	    Val;
 	{Lb,Ub} when StrLen >= Lb, Ub >= StrLen -> % variable length constraint
-	    NewVal;
+	    Val;
 	{{Lb,_Ub},[]} when StrLen >= Lb ->
-	    NewVal;
+	    Val;
 	{{Lb,_Ub},_Ext=[Min|_]} when StrLen >= Lb; StrLen >= Min ->
-	    NewVal;
+	    Val;
 	{{Lb1,Ub1},{Lb2,Ub2}} when StrLen >= Lb1, StrLen =< Ub1;
 				   StrLen =< Ub2, StrLen >= Lb2 ->
-	    NewVal;
+	    Val;
 	StrLen -> % fixed length constraint
-	    NewVal;
+	    Val;
 	{_,_} ->
 	    exit({error,{asn1,{length,Range,Val}}});
 	_Len when is_integer(_Len) ->
 	    exit({error,{asn1,{length,Range,Val}}});
 	_ -> % some strange constraint that we don't support yet
-	    NewVal
+	    Val
     end.
 
 
@@ -1351,8 +1324,7 @@ mk_uni_list([H|T],List) ->
 %%===========================================================================
 
 decode_universal_string(Buffer, Range, Tags) ->
-    decode_restricted_string(Buffer, Range, ?N_UniversalString,
-			     Tags, [], old).
+    decode_restricted_string(Buffer, Range, ?N_UniversalString, Tags).
 
 
 mk_universal_string(In) ->
@@ -1414,8 +1386,7 @@ mk_BMP_list([H|T], List) ->
 %%                               {String, Remain, RemovedBytes}
 %%============================================================================
 decode_BMP_string(Buffer, Range, Tags) ->
-    decode_restricted_string(Buffer, Range, ?N_BMPString,
-			     Tags, [], old).
+    decode_restricted_string(Buffer, Range, ?N_BMPString, Tags).
 
 mk_BMP_string(In) ->
     mk_BMP_string(In,[]).
@@ -1562,6 +1533,15 @@ dynsort_decode_tag(<<_:1,PartialTag:7,Buffer/binary>>, TagAcc0) ->
 %%-------------------------------------------------------------------------
 %% INTERNAL HELPER FUNCTIONS (not exported)
 %%-------------------------------------------------------------------------
+
+match_and_collect(Tlv, TagsIn) ->
+    Val = match_tags(Tlv, TagsIn),
+    case Val of
+	[_|_]=PartList ->			% constructed val
+	    collect_parts(PartList);
+	Bin when is_binary(Bin) ->
+	    Bin
+    end.
 
 get_constraint(C, Key) ->
     case lists:keyfind(Key, 1, C) of

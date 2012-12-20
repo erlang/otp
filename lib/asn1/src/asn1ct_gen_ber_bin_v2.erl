@@ -518,19 +518,8 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	    need(decode_enumerated, 3);
 	'REAL' ->
 	    ok;
-	{'BIT STRING',NamedNumberList} ->
-	    case get(compact_bit_string) of
-		true ->
-		    emit(["decode_compact_bit_string(",
-			  BytesVar,",",{asis,Constraint},",",
-			  {asis,NamedNumberList},","]),
-		    need(decode_compact_bit_string, 4);
-		_ ->
-		    emit(["decode_bit_string(",BytesVar,",",
-			  {asis,Constraint},",",
-			  {asis,NamedNumberList},","]),
-		    need(decode_bit_string, 4)
-	    end;
+	{'BIT STRING',_NamedNumberList} ->
+	    ok;
 	'NULL' ->
 	    emit(["decode_null(",BytesVar,","]),
 	    need(decode_null, 2);
@@ -634,6 +623,8 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 		 _ when is_list(DoTag) -> {asis,DoTag}
 	     end,
     case NewTypeName of
+	{'BIT STRING',NNL} ->
+	    gen_dec_bit_string(BytesVar, Constraint, NNL, TagStr);
 	'REAL' ->
 	    asn1ct_name:new(tmpbuf),
 	    emit(["begin",nl,
@@ -660,6 +651,20 @@ int_constr(SingleValue,[]) ->
     SingleValue;
 int_constr(SV,VR) ->
     [SV,VR].
+
+gen_dec_bit_string(BytesVar, _Constraint, [_|_]=NNL, TagStr) ->
+    call(decode_named_bit_string,
+	 [BytesVar,{asis,NNL},TagStr]);
+gen_dec_bit_string(BytesVar, Constraint, [], TagStr) ->
+    case get(compact_bit_string) of
+	true ->
+	    call(decode_compact_bit_string,
+		 [BytesVar,{asis,Constraint},TagStr]);
+	_ ->
+	    call(decode_legacy_bit_string,
+		 [BytesVar,{asis,Constraint},TagStr])
+    end.
+
     
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------
