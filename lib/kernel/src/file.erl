@@ -397,9 +397,10 @@ raw_write_file_info(Name, #file_info{} = Info) ->
 
 %% Contemporary mode specification - list of options
 
--spec open(Filename, Modes) -> {ok, IoDevice} | {error, Reason} when
+-spec open(File, Modes) -> {ok, IoDevice} | {error, Reason} when
+      File :: Filename | iodata(),
       Filename :: name(),
-      Modes :: [mode()],
+      Modes :: [mode() | ram],
       IoDevice :: io_device(),
       Reason :: posix() | badarg | system_limit.
 

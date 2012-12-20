@@ -610,7 +610,7 @@
       <name name="open" arity="2"/>
       <fsummary>Open a file</fsummary>
       <desc>
-        <p>Opens the file <c><anno>Filename</anno></c> in the mode determined
+        <p>Opens the file <c><anno>File</anno></c> in the mode determined
           by <c><anno>Modes</anno></c>, which may contain one or more of the
           following items:</p>
         <taglist>
@@ -766,6 +766,10 @@
 	    </taglist>
 	    <p>The Encoding can be changed for a file "on the fly" by using the <seealso marker="stdlib:io#setopts/2">io:setopts/2</seealso> function, why a file can be analyzed in latin1 encoding for i.e. a BOM, positioned beyond the BOM and then be set for the right encoding before further reading.See the <seealso marker="stdlib:unicode">unicode(3)</seealso> module for functions identifying BOM's.</p>
 	    <p>This option is not allowed on <c>raw</c> files.</p>
+          </item>
+          <tag><c>ram</c></tag>
+          <item>
+            <p><c>File</c> must be <c>iodata()</c>. Returns an <c>fd()</c> which lets the <c>file</c> module operate on the data in-memory as if it is a file.</p>
           </item>
         </taglist>
         <p>Returns:</p>
