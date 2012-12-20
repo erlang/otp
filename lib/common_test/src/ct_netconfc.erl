@@ -1073,7 +1073,8 @@ handle_msg({get_event_streams=Op,Streams,Timeout}, From, State) ->
     SimpleXml = encode_rpc_operation(get,[Filter]),
     do_send_rpc(Op, SimpleXml, Timeout, From, State).
 
-handle_msg({ssh_cm, _CM, {data, _Ch, _Type, Data}}, State) ->
+handle_msg({ssh_cm, CM, {data, Ch, _Type, Data}}, State) ->
+    ssh_connection:adjust_window(CM,Ch,size(Data)),
     handle_data(Data, State);
 handle_msg({ssh_cm, _CM, _SshCloseMsg}, State) ->
     %% _SshCloseMsg can probably be one of
@@ -1805,7 +1806,8 @@ get_tag([]) ->
 %%% SSH stuff
 ssh_receive_data() ->
     receive
-	{ssh_cm, _CM, {data, _Ch, _Type, Data}} ->
+	{ssh_cm, CM, {data, Ch, _Type, Data}} ->
+	    ssh_connection:adjust_window(CM,Ch,size(Data)),
 	    {ok, Data};
         {ssh_cm, _CM, {Closed, _Ch}} = X when Closed == closed; Closed == eof ->
             {error,X};
