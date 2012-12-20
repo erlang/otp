@@ -67,7 +67,7 @@ dist_msg_dbg(ErtsDistExternal *edep, char *what, byte *buf, int sz)
 {
     byte *extp = edep->extp;
     Eterm msg;
-    Sint size = erts_decode_dist_ext_size(edep, 0);
+    Sint size = erts_decode_dist_ext_size(edep);
     if (size < 0) {
 	erts_fprintf(stderr,
 		     "DIST MSG DEBUG: erts_decode_dist_ext_size(%s) failed:\n",
