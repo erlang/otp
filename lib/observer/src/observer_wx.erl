@@ -543,28 +543,36 @@ clean_menus(Menus, MenuBar) ->
     remove_menu_items(Menus, MenuBar).
 
 remove_menu_items([{MenuStr = "File", Menus}|Rest], MenuBar) ->
-    MenuId = wxMenuBar:findMenu(MenuBar, MenuStr),
-    Menu = wxMenuBar:getMenu(MenuBar, MenuId),
-    Items = [wxMenu:findItem(Menu, Tag) || #create_menu{text=Tag} <- Menus],
-    [wxMenu:delete(Menu, MItem) || MItem <- Items],
-    case os:type() =:= {unix, darwin} of
-	true ->
-	    wxMenuBar:remove(MenuBar, MenuId),
-	    wxMenu:destroy(Menu);
-	false ->
-	    ignore
-    end,
-    remove_menu_items(Rest, MenuBar);
+    case wxMenuBar:findMenu(MenuBar, MenuStr) of
+	?wxNOT_FOUND ->
+	    remove_menu_items(Rest, MenuBar);
+	MenuId ->
+	    Menu = wxMenuBar:getMenu(MenuBar, MenuId),
+	    Items = [wxMenu:findItem(Menu, Tag) || #create_menu{text=Tag} <- Menus],
+	    [wxMenu:delete(Menu, MItem) || MItem <- Items],
+	    case os:type() =:= {unix, darwin} of
+	    	true ->
+	    	    wxMenuBar:remove(MenuBar, MenuId),
+	    	    wxMenu:destroy(Menu);
+	    	false ->
+	    	    ignore
+	    end,
+	    remove_menu_items(Rest, MenuBar)
+    end;
 remove_menu_items([{"Nodes", _}|_], _MB) ->
     ok;
 remove_menu_items([{Tag, _Menus}|Rest], MenuBar) ->
-    MenuId = wxMenuBar:findMenu(MenuBar, Tag),
-    Menu = wxMenuBar:getMenu(MenuBar, MenuId),
-    wxMenuBar:remove(MenuBar, MenuId),
-    Items = wxMenu:getMenuItems(Menu),
-    [wxMenu:'Destroy'(Menu, Item) || Item <- Items],
-    wxMenu:destroy(Menu),
-    remove_menu_items(Rest, MenuBar);
+    case wxMenuBar:findMenu(MenuBar, Tag) of
+	?wxNOT_FOUND ->
+	    remove_menu_items(Rest, MenuBar);
+	MenuId ->    
+	    Menu = wxMenuBar:getMenu(MenuBar, MenuId),
+	    wxMenuBar:remove(MenuBar, MenuId),
+	    Items = wxMenu:getMenuItems(Menu),
+	    [wxMenu:'Destroy'(Menu, Item) || Item <- Items],
+	    wxMenu:destroy(Menu),
+	    remove_menu_items(Rest, MenuBar)
+    end;
 remove_menu_items([], _MB) ->
     ok.
 
@@ -592,15 +600,22 @@ epmd_nodes(Names) ->
 
 update_node_list(State = #state{menubar=MenuBar}) ->
     {Nodes, NodesMenuItems} = get_nodes(),
-    NodeMenuId = wxMenuBar:findMenu(MenuBar, "Nodes"),
-    NodeMenu = wxMenuBar:getMenu(MenuBar, NodeMenuId),
-    wx:foreach(fun(Item) -> wxMenu:'Destroy'(NodeMenu, Item) end,
-	       wxMenu:getMenuItems(NodeMenu)),
-
+    NodeMenu = case wxMenuBar:findMenu(MenuBar, "Nodes") of
+		   ?wxNOT_FOUND -> 
+		       Menu = wxMenu:new(),
+		       wxMenuBar:append(MenuBar, Menu, "Nodes"),
+		       Menu;
+		   NodeMenuId ->
+		       Menu = wxMenuBar:getMenu(MenuBar, NodeMenuId),
+		       wx:foreach(fun(Item) -> wxMenu:'Destroy'(Menu, Item) end,
+				  wxMenu:getMenuItems(Menu)),
+		       Menu
+	       end,
+	
     Index = wx:foldl(fun(Record, Index) ->
 			     observer_lib:create_menu_item(Record, NodeMenu, Index)
 		     end, 0, NodesMenuItems),
-
+    
     Dist = case erlang:is_alive() of
 	       true  -> #create_menu{id = ?ID_PING, text = "Connect node"};
 	       false -> #create_menu{id = ?ID_CONNECT, text = "Enable distribution"}
