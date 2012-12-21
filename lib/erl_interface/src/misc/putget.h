@@ -105,6 +105,9 @@
        ((EI_ULONGLONG)((unsigned char *)(s))[-2] << 8)  | \
         (EI_ULONGLONG)((unsigned char *)(s))[-1]))
 
+int ei_internal_get_atom(const char** bufp, char* p);
+#define get_atom ei_internal_get_atom
+
 typedef union float_ext {
     double d;
     EI_ULONGLONG val;

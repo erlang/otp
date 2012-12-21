@@ -26,32 +26,20 @@ int ei_decode_boolean(const char *buf, int *index, int *p)
 {
   const char *s = buf + *index;
   const char *s0 = s;
-  int len;
+  char tbuf[MAXATOMLEN+1];
   int t;
 
-  if (get8(s) != ERL_ATOM_EXT) return -1;
+  if (get_atom(&s, tbuf) < 0) return -1;
 
-  len = get16be(s);
-
-  switch (len) {
-  case 4:
-    /* typecast makes ansi happy */
-    if (strncmp((char*)s,"true",4)) return -1;
-    t = 1;
-    break;
-
-  case 5:
-    if (strncmp((char*)s,"false",5)) return -1;
-    t = 0;
-    break;
-    
-  default:
-    return -1;
-  }
-  
-  s += len;
+  if (memcmp(tbuf, "true", 5) == 0)
+      t = 1;
+  else if (memcmp(tbuf, "false", 6) == 0)
+      t = 0;
+  else
+      return -1;
+      
   if (p) *p = t;
   *index += s-s0;
-
   return 0; 
 }
+

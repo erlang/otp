@@ -51,7 +51,13 @@ static void erl_long_to_fp(long l, unsigned *d);
 
 #define CMP_ARRAY_SIZE 256
 /* FIXME problem for threaded ? */
-static char cmp_array[CMP_ARRAY_SIZE]; 
+
+static enum
+{
+    ERL_NUM_CMP=1, ERL_ATOM_CMP, ERL_REF_CMP, ERL_FUN_CMP, ERL_PORT_CMP,
+    ERL_PID_CMP, ERL_TUPLE_CMP, ERL_NIL_CMP, ERL_LIST_CMP, ERL_BIN_CMP
+}cmp_array[CMP_ARRAY_SIZE];
+
 static int init_cmp_array_p=1; /* initialize array, the first time */
 
 #if defined(VXWORKS) && CPU == PPC860
@@ -69,10 +75,8 @@ static int init_cmp_array_p=1; /* initialize array, the first time */
 static int cmp_floats(double f1, double f2);
 static INLINE double to_float(long l);
 
-#define ERL_NUM_CMP 1
-#define ERL_REF_CMP 3
-
 #define IS_ERL_NUM(t) (cmp_array[t]==ERL_NUM_CMP)
+#define IS_ERL_ATOM(t) (cmp_array[t]==ERL_ATOM_CMP)
 
 #define CMP_NUM_CLASS_SIZE 256
 static unsigned char cmp_num_class[CMP_NUM_CLASS_SIZE]; 
@@ -100,25 +104,27 @@ void erl_init_marshal(void)
 {
   if (init_cmp_array_p) {
     memset(cmp_array, 0, CMP_ARRAY_SIZE);
-    cmp_array[ERL_SMALL_INTEGER_EXT] = 1;
-    cmp_array[ERL_INTEGER_EXT]       = 1;
-    cmp_array[ERL_FLOAT_EXT]         = 1;
-    cmp_array[NEW_FLOAT_EXT]         = 1;
-    cmp_array[ERL_SMALL_BIG_EXT]     = 1;
-    cmp_array[ERL_LARGE_BIG_EXT]     = 1;
-    cmp_array[ERL_ATOM_EXT]          = 2;
-    cmp_array[ERL_REFERENCE_EXT]     = 3;
-    cmp_array[ERL_NEW_REFERENCE_EXT] = 3;
-    cmp_array[ERL_FUN_EXT]           = 4;
-    cmp_array[ERL_NEW_FUN_EXT]       = 4;
-    cmp_array[ERL_PORT_EXT]          = 5;
-    cmp_array[ERL_PID_EXT]           = 6;
-    cmp_array[ERL_SMALL_TUPLE_EXT]   = 7;
-    cmp_array[ERL_LARGE_TUPLE_EXT]   = 7;
-    cmp_array[ERL_NIL_EXT]           = 8;
-    cmp_array[ERL_STRING_EXT]        = 9;
-    cmp_array[ERL_LIST_EXT]          = 9;
-    cmp_array[ERL_BINARY_EXT]        = 10;
+    cmp_array[ERL_SMALL_INTEGER_EXT] = ERL_NUM_CMP;
+    cmp_array[ERL_INTEGER_EXT]       = ERL_NUM_CMP;
+    cmp_array[ERL_FLOAT_EXT]         = ERL_NUM_CMP;
+    cmp_array[NEW_FLOAT_EXT]         = ERL_NUM_CMP;
+    cmp_array[ERL_SMALL_BIG_EXT]     = ERL_NUM_CMP;
+    cmp_array[ERL_LARGE_BIG_EXT]     = ERL_NUM_CMP;
+    cmp_array[ERL_ATOM_EXT]          = ERL_ATOM_CMP;
+    cmp_array[ERL_SMALL_ATOM_EXT]    = ERL_ATOM_CMP;
+    cmp_array[ERL_UNICODE_ATOM_EXT]  = ERL_ATOM_CMP;
+    cmp_array[ERL_REFERENCE_EXT]     = ERL_REF_CMP;
+    cmp_array[ERL_NEW_REFERENCE_EXT] = ERL_REF_CMP;
+    cmp_array[ERL_FUN_EXT]           = ERL_FUN_CMP;
+    cmp_array[ERL_NEW_FUN_EXT]       = ERL_FUN_CMP;
+    cmp_array[ERL_PORT_EXT]          = ERL_PORT_CMP;
+    cmp_array[ERL_PID_EXT]           = ERL_PID_CMP;
+    cmp_array[ERL_SMALL_TUPLE_EXT]   = ERL_TUPLE_CMP;
+    cmp_array[ERL_LARGE_TUPLE_EXT]   = ERL_TUPLE_CMP;
+    cmp_array[ERL_NIL_EXT]           = ERL_NIL_CMP;
+    cmp_array[ERL_STRING_EXT]        = ERL_LIST_CMP;
+    cmp_array[ERL_LIST_EXT]          = ERL_LIST_CMP;
+    cmp_array[ERL_BINARY_EXT]        = ERL_BIN_CMP;
     init_cmp_array_p = 0;
   }
   if (init_cmp_num_class_p) {
@@ -644,31 +650,14 @@ int erl_encode_buf(ETERM *ep, unsigned char **ext)
 
 } /* erl_encode_buf */
 
-/*
- * A nice macro to make it look cleaner in the 
- * cases of PID's,PORT's and REF's below. 
- * It reads the NODE name from a buffer.
- */
-#define READ_THE_NODE(ext,cp,len,i) \
-/* eat first atom, repr. the node */ \
-if (**ext != ERL_ATOM_EXT) \
-  return (ETERM *) NULL; \
-*ext += 1; \
-i = (**ext << 8) | (*ext)[1]; \
-cp = (char *) *(ext) + 2; \
-*ext += (i + 2); \
-len = i
 
-#define STATIC_NODE_BUF_SZ 30
-
-#define SET_NODE(node,node_buf,cp,len) \
-if (len >= STATIC_NODE_BUF_SZ) node = erl_malloc(len+1); \
-else node = node_buf; \
-memcpy(node, cp, len); \
-node[len] = '\0'
-
-#define RESET_NODE(node,len) \
-if (len >= STATIC_NODE_BUF_SZ) free(node)
+static int read_atom(unsigned char** ext, char* dst)
+{
+    int offs = 0;
+    int ret = ei_decode_atom((char*)*ext, &offs, dst);
+    *ext += offs;
+    return ret;
+}
 
 /*
  * The actual DECODE engine.
@@ -676,16 +665,17 @@ if (len >= STATIC_NODE_BUF_SZ) free(node)
  */
 static ETERM *erl_decode_it(unsigned char **ext)
 {
+    char atom_buf[MAXATOMLEN+1];
     char *cp;
     ETERM *ep,*tp,*np;
     unsigned int u,sign;
-    int i,j,len,arity;
+    int i,j,arity;
     double ff;
     
     /* Assume we are going to decode an integer */
     ep = erl_alloc_eterm(ERL_INTEGER);
     ERL_COUNT(ep) = 1;
-    
+
     switch (*(*ext)++) 
     {
     case ERL_INTEGER_EXT:
@@ -774,27 +764,27 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	return ep;
       
     case ERL_ATOM_EXT:
+    case ERL_SMALL_ATOM_EXT:
+    case ERL_UNICODE_ATOM_EXT:
 	ERL_TYPE(ep) = ERL_ATOM;
-	i = (**ext << 8) | (*ext)[1];
-	cp = (char *) *(ext) + 2;
-	*ext += (i + 2);
+	--(*ext);
+	if (read_atom(ext, atom_buf) < 0) return NULL;
+
+	i = strlen(atom_buf);
 	ep->uval.aval.len = i;
 	ep->uval.aval.a = (char *) erl_malloc(i+1);
-	memcpy(ep->uval.aval.a, cp, i);
-	ep->uval.aval.a[i]='\0';
+	memcpy(ep->uval.aval.a, atom_buf, i+1);
 	return ep;
       
     case ERL_PID_EXT:
 	erl_free_term(ep);
 	{			/* Why not use the constructors? */
-	    char *node;
-	    char node_buf[STATIC_NODE_BUF_SZ];
+	    char* node = atom_buf;
 	    unsigned int number, serial;
 	    unsigned char creation;
 	    ETERM *eterm_p;
 
-	    READ_THE_NODE(ext,cp,len,i);
-	    SET_NODE(node,node_buf,cp,len);
+	    if (read_atom(ext, node) < 0) return NULL;
 
 	    /* get the integers */
 #if 0
@@ -816,20 +806,17 @@ static ETERM *erl_decode_it(unsigned char **ext)
 #endif
 	    creation =  *(*ext)++; 
 	    eterm_p = erl_mk_pid(node, number, serial, creation);
-	    RESET_NODE(node,len);
 	    return eterm_p;
 	}
     case ERL_REFERENCE_EXT:
 	erl_free_term(ep);
 	{
-	    char *node;
-	    char node_buf[STATIC_NODE_BUF_SZ];
+	    char* node = atom_buf;
 	    unsigned int number;
 	    unsigned char creation;
 	    ETERM *eterm_p;
 
-	    READ_THE_NODE(ext,cp,len,i);
-	    SET_NODE(node,node_buf,cp,len);
+	    if (read_atom(ext, node) < 0) return NULL;
 
 	    /* get the integers */
 #if 0
@@ -841,15 +828,13 @@ static ETERM *erl_decode_it(unsigned char **ext)
 #endif
 	    creation =  *(*ext)++; 
 	    eterm_p = erl_mk_ref(node, number, creation);
-	    RESET_NODE(node,len);
 	    return eterm_p;
 	}
 
     case ERL_NEW_REFERENCE_EXT: 
 	erl_free_term(ep);
 	{
-	    char *node;
-	    char node_buf[STATIC_NODE_BUF_SZ];
+	    char* node = atom_buf;
 	    size_t cnt, i;
 	    unsigned int n[3];
 	    unsigned char creation;
@@ -862,8 +847,7 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    *ext += 2;
 #endif
 
-	    READ_THE_NODE(ext,cp,len,i);
-	    SET_NODE(node,node_buf,cp,len);
+	    if (read_atom(ext, node) < 0) return NULL;
 
 	    /* get the integers */
 	    creation =  *(*ext)++; 
@@ -878,21 +862,18 @@ static ETERM *erl_decode_it(unsigned char **ext)
 #endif
 	    }
 	    eterm_p = __erl_mk_reference(node, cnt, n, creation);
-	    RESET_NODE(node,len);
 	    return eterm_p;
 	}
 
     case ERL_PORT_EXT:
 	erl_free_term(ep);
 	{
-	    char *node;
-	    char node_buf[STATIC_NODE_BUF_SZ];
+	    char* node = atom_buf;
 	    unsigned int number;
 	    unsigned char creation;
 	    ETERM *eterm_p;
 
-	    READ_THE_NODE(ext,cp,len,i);
-	    SET_NODE(node,node_buf,cp,len);
+	    if (read_atom(ext, node) < 0) return NULL;
 
 	    /* get the integers */
 #if 0
@@ -904,7 +885,6 @@ static ETERM *erl_decode_it(unsigned char **ext)
 #endif
 	    creation =  *(*ext)++; 
 	    eterm_p = erl_mk_port(node, number, creation);
-	    RESET_NODE(node,len);
 	    return eterm_p;
 	}
 
@@ -1140,6 +1120,8 @@ unsigned char erl_ext_type(unsigned char *ext)
     case ERL_INTEGER_EXT:
 	return ERL_INTEGER;
     case ERL_ATOM_EXT:
+    case ERL_SMALL_ATOM_EXT:
+    case ERL_UNICODE_ATOM_EXT:
 	return ERL_ATOM;
     case ERL_PID_EXT:
 	return ERL_PID;
@@ -1191,6 +1173,8 @@ int erl_ext_size(unsigned char *t)
     case ERL_SMALL_INTEGER_EXT:
     case ERL_INTEGER_EXT:
     case ERL_ATOM_EXT:
+    case ERL_SMALL_ATOM_EXT:
+    case ERL_UNICODE_ATOM_EXT:
     case ERL_PID_EXT:
     case ERL_PORT_EXT:
     case ERL_REFERENCE_EXT:
@@ -1229,15 +1213,31 @@ int erl_ext_size(unsigned char *t)
 
 } /* ext_size */
 
-/*
- * A nice macro that eats up the atom pointed to.
- */
-#define JUMP_ATOM(ext,i) \
-if (**ext != ERL_ATOM_EXT) \
-  return 0; \
-*ext += 1; \
-i = (**ext << 8) | (*ext)[1]; \
-*ext += (i + 2)
+
+static int jump_atom(unsigned char** ext)
+{
+    unsigned char* e = *ext;
+    int len;
+
+    switch (*e++) {
+    case ERL_ATOM_EXT:
+    case ERL_UNICODE_ATOM_EXT:
+	len = (e[0] << 8) | e[1];
+	e += (len + 2);
+	break;
+
+    case ERL_SMALL_ATOM_EXT:
+	len = e[0];
+	e += (len + 1);
+	break;
+
+    default:
+	return 0;
+    }
+    *ext = e;
+    return 1;
+}
+
 
 /*
  * MOVE the POINTER PAST the ENCODED ETERM we
@@ -1259,25 +1259,26 @@ static int jump(unsigned char **ext)
 	*ext += 1;
 	break;
     case ERL_ATOM_EXT:
-	i = (**ext << 8) | (*ext)[1];
-	*ext += (i + 2);
+    case ERL_SMALL_ATOM_EXT:
+    case ERL_UNICODE_ATOM_EXT:
+	jump_atom(ext);
 	break;
     case ERL_PID_EXT:
 	/* eat first atom */
-	JUMP_ATOM(ext,i);
+	if (!jump_atom(ext)) return 0;
 	*ext += 9;		/* Two int's and the creation field */
 	break;
     case ERL_REFERENCE_EXT:
     case ERL_PORT_EXT:
 	/* first field is an atom */
-	JUMP_ATOM(ext,i);
+	if (!jump_atom(ext)) return 0;
 	*ext += 5;		/* One int and the creation field */
 	break;
     case ERL_NEW_REFERENCE_EXT:
 	n = (**ext << 8) | (*ext)[1];
 	*ext += 2;
 	/* first field is an atom */
-	JUMP_ATOM(ext,i);
+	if (!jump_atom(ext)) return 0;
 	*ext += 4*n+1;
 	break;
     case ERL_NIL_EXT:
@@ -1437,9 +1438,8 @@ do {								\
 
 #define CMP_EXT_SKIP_ATOM(EP)					\
 do {								\
-    if ((EP)[0] != ERL_ATOM_EXT)				\
+    if (!jump_atom(&(EP)))					\
 	return CMP_EXT_ERROR_CODE;				\
-    (EP) += 3 + ((EP)[1] << 8 | (EP)[2]);			\
 } while (0)
 
 /* 
@@ -1569,6 +1569,7 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
   }
 
   *e2 += 1;
+  i = j = 0;
   switch (*(*e1)++) 
     {
     case ERL_SMALL_INTEGER_EXT:
@@ -1589,11 +1590,16 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
       *e1 += 4; *e2 += 4;
       return ret;
     case ERL_ATOM_EXT:
-      i = (**e1 << 8) | (*e1)[1];
-      j = (**e2 << 8) | (*e2)[1];
-      ret = cmpbytes(*e1 +2, i, *e2 +2, j);
-      *e1 += (i + 2);
-      *e2 += (j + 2);
+    case ERL_UNICODE_ATOM_EXT:
+      i = (**e1) << 8; (*e1)++;
+      j = (**e2) << 8; (*e2)++;
+      /*fall through*/
+    case ERL_SMALL_ATOM_EXT:
+      i |= (**e1); (*e1)++;
+      j |= (**e2); (*e2)++;
+      ret = cmpbytes(*e1, i, *e2, j);
+      *e1 += i;
+      *e2 += j;
       return ret;
     case ERL_PID_EXT: {
       unsigned char *n1 = *e1;
@@ -1622,7 +1628,7 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
     }
     case ERL_PORT_EXT:
       /* First compare node names ... */
-      if (**e1 != ERL_ATOM_EXT || **e2 != ERL_ATOM_EXT)
+      if (!IS_ERL_ATOM(**e1) || !IS_ERL_ATOM(**e2))
 	  return CMP_EXT_ERROR_CODE;
       ret = cmp_exe2(e1, e2);
       *e1 += 5; *e2 += 5;

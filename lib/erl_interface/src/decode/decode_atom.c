@@ -21,24 +21,76 @@
 #include "eiext.h"
 #include "putget.h"
 
+static int utf8_to_latin1(char* dest, const char* source, unsigned len);
+
 int ei_decode_atom(const char *buf, int *index, char *p)
 {
   const char *s = buf + *index;
   const char *s0 = s;
   int len;
 
-  if (get8(s) != ERL_ATOM_EXT) return -1;
+  switch (get8(s)) {
+  case ERL_ATOM_EXT:
+      len = get16be(s);
+      if (len > MAXATOMLEN) return -1;
+      if (p) {
+	  memmove(p,s,len); 
+	  p[len] = (char)0;
+      }
+      break;
 
-  len = get16be(s);
+  case ERL_SMALL_ATOM_EXT:
+      len = get8(s);
+      if (p) {
+	  memmove(p,s,len); 
+	  p[len] = (char)0;
+      }
+      break;
 
-  if (len > MAXATOMLEN) return -1;
+  case ERL_UNICODE_ATOM_EXT:
+      len = get16be(s);
 
-  if (p) {
-    memmove(p,s,len); 
-    p[len] = (char)0;
+      if (len > 2*MAXATOMLEN) return -1;
+
+      if (p && utf8_to_latin1(p, s, len) < 0) return -1;
+      break;
+
+  default:
+      return -1;
   }
+
   s += len;
   *index += s-s0;
-  
-  return 0; 
+  return 0;
 }
+
+int ei_internal_get_atom(const char** bufp, char* p)
+{
+    int ix = 0;
+    if (ei_decode_atom(*bufp, &ix, p) < 0) return -1;
+    *bufp += ix;
+    return 0;
+}
+
+static int utf8_to_latin1(char* dest, const char* source, unsigned slen)
+{
+    const char* dest_end = dest + MAXATOMLEN - 1;
+
+    while (slen > 0 && dest < dest_end) {
+	if ((source[0] & 0x80) == 0) {
+	    *dest++ = *source++;
+	    --slen;
+	}
+	else if (slen > 1 &&
+		 (source[0] & 0xFE) == 0xC2 &&
+		 (source[1] & 0xC0) == 0x80) {
+	    *dest++ = (char) ((source[0] << 6) | (source[1] & 0x3F));
+	    source += 2;
+	    slen -= 2;
+	}
+	else return -1;
+    }
+    *dest = 0;
+    return 0;
+}
+

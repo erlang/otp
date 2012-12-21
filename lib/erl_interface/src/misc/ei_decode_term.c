@@ -48,20 +48,12 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
     case NEW_FLOAT_EXT:
         return ei_decode_double(buf, index, &term->value.d_val);
     case ERL_ATOM_EXT:
-	len = get16be(s);
-	if (len > MAXATOMLEN) return -1;
-	memcpy(term->value.atom_name, s, len); 
-	term->value.atom_name[len] = '\0';
-	s += len;
-	break;
+    case ERL_SMALL_ATOM_EXT:
+    case ERL_UNICODE_ATOM_EXT:
+	return ei_decode_atom(buf, index, term->value.atom_name);
     case ERL_REFERENCE_EXT:
 	/* first the nodename */
-	if (get8(s) != ERL_ATOM_EXT) return -1;
-	len = get16be(s);
-	if (len > MAXATOMLEN) return -1;
-	memcpy(term->value.ref.node, s, len);
-	term->value.ref.node[len] = '\0';
-	s += len;
+	if (get_atom(&s, term->value.ref.node) < 0) return -1;
         /* now the numbers: num (4), creation (1) */
 	term->value.ref.n[0] = get32be(s);
 	term->value.ref.len = 1;
@@ -71,12 +63,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	/* first the integer count */
 	term->value.ref.len = get16be(s);
 	/* then the nodename */
-	if (get8(s) != ERL_ATOM_EXT) return -1;
-	len = get16be(s);
-	if (len > MAXATOMLEN) return -1;
-	memcpy(term->value.ref.node, s, len);
-	term->value.ref.node[len] = '\0';
-	s += len;
+	if (get_atom(&s, term->value.ref.node) < 0) return -1;
 	/* creation */
 	term->value.ref.creation = get8(s) & 0x03;
 	/* finally the id integers */
@@ -88,22 +75,12 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	}
 	break;
     case ERL_PORT_EXT:
-	if (get8(s) != ERL_ATOM_EXT) return -1;
-	len = get16be(s);
-	if (len > MAXATOMLEN) return -1;
-	memcpy(term->value.port.node, s, len);
-	term->value.port.node[len] = '\0';
+	if (get_atom(&s, term->value.port.node) < 0) return -1;
 	term->value.port.id = get32be(s) & 0x0fffffff; /* 28 bits */;
 	term->value.port.creation = get8(s) & 0x03;
 	break;
     case ERL_PID_EXT:
-	if (get8(s) != ERL_ATOM_EXT) return -1;
-	/* name first */
-	len = get16be(s); 
-	if (len > MAXATOMLEN) return -1;
-	memcpy(term->value.pid.node, s, len);
-	term->value.pid.node[len] = '\0';
-	s += len;
+	if (get_atom(&s, term->value.pid.node) < 0) return -1;
 	/* now the numbers: num (4), serial (4), creation (1) */
 	term->value.pid.num = get32be(s) & 0x7fff; /* 15 bits */
 	term->value.pid.serial = get32be(s) & 0x1fff; /* 13 bits */

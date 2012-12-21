@@ -115,6 +115,8 @@
 #define ERL_FLOAT_EXT         'c'
 #define NEW_FLOAT_EXT         'F'
 #define ERL_ATOM_EXT          'd'
+#define ERL_SMALL_ATOM_EXT    's'
+#define ERL_UNICODE_ATOM_EXT  'v'
 #define ERL_REFERENCE_EXT     'e'
 #define ERL_NEW_REFERENCE_EXT 'r'
 #define ERL_PORT_EXT          'f'

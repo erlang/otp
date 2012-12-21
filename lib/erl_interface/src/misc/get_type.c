@@ -55,10 +55,12 @@ int ei_get_type(const char *buf, const int *index, int *type, int *len)
 	break;
 
     case ERL_SMALL_TUPLE_EXT:
+    case ERL_SMALL_ATOM_EXT:
 	*len  = get8(s);
 	break;
     
     case ERL_ATOM_EXT:
+    case ERL_UNICODE_ATOM_EXT:
     case ERL_STRING_EXT:
 	*len  = get16be(s);
 	break;
@@ -114,10 +116,14 @@ int ei_get_type_internal(const char *buf, const int *index,
   *type = get8(s);
   
   switch (*type) {
+  case ERL_SMALL_ATOM_EXT:
+    *type = ERL_ATOM_EXT;
   case ERL_SMALL_TUPLE_EXT:
     *len = get8(s);
     break;
-    
+
+  case ERL_UNICODE_ATOM_EXT:
+    *type = ERL_ATOM_EXT;
   case ERL_ATOM_EXT:
   case ERL_STRING_EXT:
     *len = get16be(s);

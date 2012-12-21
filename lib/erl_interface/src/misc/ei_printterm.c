@@ -133,6 +133,8 @@ static int print_term(FILE* fp, ei_x_buff* x,
     ei_get_type_internal(buf, index, &ty, &n);
     switch (ty) {
     case ERL_ATOM_EXT:
+    case ERL_SMALL_ATOM_EXT:
+    case ERL_UNICODE_ATOM_EXT:
 	if (ei_decode_atom(buf, index, a) < 0)
 	   goto err;
 	doquote = !islower((int)a[0]);
