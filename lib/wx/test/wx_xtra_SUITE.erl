@@ -192,8 +192,12 @@ menu_item_debug(Config) ->
     wxFrame:connect(Frame, close_window),
 
     wxPanel:new(Frame),
-    create_menus(Frame),
+    MenuBar = create_menus(Frame),
     wxWindow:show(Frame),
+    N = wxMenuBar:getMenuCount(MenuBar),
+    io:format("No of menus ~p~n",[N]),
+    [io:format("Menu ~p ~p~n",[Id, wxMenuBar:getLabelTop(MenuBar, Id)]) 
+     || Id <- lists:seq(0, N-1)],
     wx_test_lib:wx_destroy(Frame,Config).
 
 
@@ -225,14 +229,15 @@ create_menus(Frame) ->
      || Id <- lists:seq(600, 620)],
 
     ?m(ok,wxFrame:connect(Frame, command_menu_selected)),
-    ?m(true, wxMenuBar:append(MenuBar, File, "&File")),
-    ?m(true, wxMenuBar:append(MenuBar, Help, "&Help")),
-    ?m(true, wxMenuBar:append(MenuBar, T1, "T1")),
-    ?m(true, wxMenuBar:append(MenuBar, T2, "T2")),
-    ?m(true, wxMenuBar:append(MenuBar, T3, "T3")),
-    ?m(true, wxMenuBar:append(MenuBar, T4, "T4")),
-    ?m(true, wxMenuBar:append(MenuBar, T5, "T5")),
-    ?m(true, wxMenuBar:append(MenuBar, T6, "T6")),
 
+    ?m(true, wxMenuBar:insert(MenuBar, 0,File, "&File")),
+    ?m(true, wxMenuBar:insert(MenuBar, 1,Help, "&Help")),
+    ?m(true, wxMenuBar:insert(MenuBar, 2,T1, "T1")),
+    ?m(true, wxMenuBar:insert(MenuBar, 3,T2, "T2")),
+    ?m(true, wxMenuBar:insert(MenuBar, 4,T3, "T3")),
+    ?m(true, wxMenuBar:insert(MenuBar, 5,T4, "T4")),
+    ?m(true, wxMenuBar:insert(MenuBar, 6,T5, "T5")),
+    ?m(true, wxMenuBar:insert(MenuBar, 7,T6, "T6")),
 
-    ?m(ok, wxFrame:setMenuBar(Frame,MenuBar)).
+    ?m(ok, wxFrame:setMenuBar(Frame,MenuBar)),
+    MenuBar.

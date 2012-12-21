@@ -98,7 +98,8 @@ canvas(Config) ->
 			   ?WX_GL_MIN_GREEN,8,
 			   ?WX_GL_MIN_BLUE,8,
 			   ?WX_GL_DEPTH_SIZE,24,0]}],
-    Canvas = ?mt(wxGLCanvas, wxGLCanvas:new(Frame, Attrs)),
+    Canvas = ?mt(wxGLCanvas, wxGLCanvas:new(Frame, [{style,?wxFULL_REPAINT_ON_RESIZE}|
+						    Attrs])),
     
     wxFrame:connect(Frame, show),
     ?m(true, wxWindow:show(Frame)),
@@ -142,11 +143,20 @@ canvas(Config) ->
 		       %% This may fail when window is deleted
 		       catch draw_loop(2,Data,Canvas)
 	       end),
+    %% Needed on mac with wx-2.9
+    wxGLCanvas:connect(Canvas, paint, 
+    		       [{callback, fun(_,_) ->
+    					   wxGLCanvas:setCurrent(Canvas),
+    					   DC= wxPaintDC:new(Canvas),
+    					   wxPaintDC:destroy(DC)
+    				   end}]),
+
+
     ?m_receive(works),
     ?m([], flush()),
     io:format("Undef func ~p ~n", [catch gl:uniform1d(2, 0.75)]),
     timer:sleep(500),
-    ?m([], flush()),
+    flush(),
     wx_test_lib:wx_destroy(Frame, Config).
 
 flush() ->
@@ -161,6 +171,8 @@ flush(Collected) ->
     	  
 draw_loop(Deg,Data,Canvas) ->
     timer:sleep(15),
+    {NW,NH} = wxGLCanvas:getClientSize(Canvas),
+    gl:viewport(0,0,NW,NH),
     drawBox(Deg,Data),
     ?m(ok, wxGLCanvas:swapBuffers(Canvas)),
     draw_loop(Deg+1, Data,Canvas).
