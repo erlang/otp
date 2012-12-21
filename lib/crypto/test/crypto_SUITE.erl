@@ -728,9 +728,9 @@ ripemd160(doc) ->
 ripemd160(suite) ->
     [];
 ripemd160(Config) when is_list(Config) ->
-    ?line m(crypto:ripemd160("abc"),
+    ?line m(crypto:hash(ripemd160,"abc"),
 	    hexstr2bin("8EB208F7E05D987A9B044A8E98C6B087F15A0BFC")),
-    ?line m(crypto:ripemd160("abcdbcdecdefdefgefghfghighijhijkijkljklmklm"
+    ?line m(crypto:hash(ripemd160,"abcdbcdecdefdefgefghfghighijhijkijkljklmklm"
 			  "nlmnomnopnopq"), 
 	    hexstr2bin("12A053384A9C0C88E405A06C27DCF49ADA62EB2B")).
 
@@ -743,10 +743,10 @@ ripemd160_update(doc) ->
 ripemd160_update(suite) ->
     [];
 ripemd160_update(Config) when is_list(Config) ->
-    ?line Ctx = crypto:ripemd160_init(),
-    ?line Ctx1 = crypto:ripemd160_update(Ctx, "abcdbcdecdefdefgefghfghighi"),
-    ?line Ctx2 = crypto:ripemd160_update(Ctx1, "jhijkijkljklmklmnlmnomnopnopq"),
-    ?line m(crypto:ripemd160_final(Ctx2), 
+    ?line Ctx = crypto:hash_init(ripemd160),
+    ?line Ctx1 = crypto:hash_update(Ctx, "abcdbcdecdefdefgefghfghighi"),
+    ?line Ctx2 = crypto:hash_update(Ctx1, "jhijkijkljklmklmnlmnomnopnopq"),
+    ?line m(crypto:hash_final(Ctx2), 
       hexstr2bin("12A053384A9C0C88E405A06C27DCF49ADA62EB2B")).
 
 %%
