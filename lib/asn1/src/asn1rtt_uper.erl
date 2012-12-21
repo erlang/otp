@@ -27,7 +27,7 @@
 	 encode_boolean/1,
 	 encode_length/1, encode_length/2,
 	 encode_bit_string/3]).
--export([encode_octet_string/2,
+-export([encode_octet_string/1,encode_octet_string/2,
 	 encode_relative_oid/1, decode_relative_oid/1,
 	 encode_object_identifier/1, decode_object_identifier/1,
 	 complete/1, complete_NFP/1]).
@@ -496,10 +496,10 @@ encode_boolean(Val) ->
 
 encode_bit_string(C, {Unused,BinBits}=Bin, NamedBitList)
   when is_integer(Unused), is_binary(BinBits) ->
-    encode_bin_bit_string(get_constraint(C,'SizeConstraint'),Bin,NamedBitList);
+    encode_bin_bit_string(C, Bin, NamedBitList);
 
 encode_bit_string(C, BitListVal, NamedBitList) ->
-    encode_bit_string1(get_constraint(C, 'SizeConstraint'), BitListVal, NamedBitList).
+    encode_bit_string1(C, BitListVal, NamedBitList).
 
 %% when the value is a list of named bits
 encode_bit_string1(C, [FirstVal|_RestVal]=LoNB, NamedBitList)
@@ -704,13 +704,20 @@ make_and_set_list([], _) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% X.691:16
-%% encode_octet_string(Constraint,Val)
+%% encode_octet_string(Val)
+%% encode_octet_string(Constraint, Val)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-encode_octet_string(C,Val) ->
-    case get_constraint(C,'SizeConstraint') of
-	0 ->
-	    <<>>;
+encode_octet_string(Val) ->
+    try
+	[encode_length(length(Val)),list_to_binary(Val)]
+    catch
+	error:{error,{asn1,{encode_length,_}}} ->
+	    encode_fragmented_octet_string(Val)
+    end.
+
+encode_octet_string(C, Val) ->
+    case C of
 	1 ->
 	    list_to_binary(Val);
 	2 ->
@@ -736,15 +743,9 @@ encode_octet_string(C,Val) ->
 	    catch
 		error:{error,{asn1,{encode_length,_}}} ->
 		    encode_fragmented_octet_string(Val)
-	    end;
-	no  ->
-	    try
-		[encode_length(length(Val)),list_to_binary(Val)]
-	    catch
-		error:{error,{asn1,{encode_length,_}}} ->
-		    encode_fragmented_octet_string(Val)
 	    end
     end.
+
 
 encode_fragmented_octet_string(Val) ->
     Bin = list_to_binary(Val),

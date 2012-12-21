@@ -158,8 +158,9 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    emit_enc_real(Erules, Value);
 
 	{'BIT STRING',NamedNumberList} ->
+	    SizeConstr = get_constraint(Constraint, 'SizeConstraint'),
 	    call(Erules, encode_bit_string,
-		 [{asis,Constraint},Value,
+		 [{asis,SizeConstr},Value,
 		  {asis,NamedNumberList}]);
 	'NULL' ->
 	    emit("[]");
@@ -173,7 +174,14 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	'BOOLEAN' ->
 	    call(Erules, encode_boolean, [Value]);
 	'OCTET STRING' ->
-	    call(Erules, encode_octet_string, [{asis,Constraint},Value]);
+	    case get_constraint(Constraint, 'SizeConstraint') of
+		0 ->
+		    emit("[]");
+		no ->
+		    call(Erules, encode_octet_string, [Value]);
+		C ->
+		    call(Erules, encode_octet_string, [{asis,C},Value])
+	    end;
 	'NumericString' ->
 	    call(Erules, encode_NumericString, [{asis,Constraint},Value]);
 	TString when TString == 'TeletexString';
