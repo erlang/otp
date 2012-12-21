@@ -89,8 +89,11 @@ init_per_testcase(TC, Config) when TC =:= misc;
 init_per_testcase(_TestCase, Config) ->
     Config.
 
-end_per_testcase(_TestCase, _Config) ->
-    %cover:stop(),
+end_per_testcase(TestCase, _Config) ->
+    case lists:member(TestCase,[start,compile,analyse,misc]) of
+	true -> ok;
+	false -> cover:stop()
+    end,
     ok.
 
 start(suite) -> [];
@@ -999,7 +1002,7 @@ otp_8270(Config) when is_list(Config) ->
     ok.
 
 otp_8273(doc) ->
-    ["OTP-8270. Bug."];
+    ["OTP-8273. Bug."];
 otp_8273(suite) -> [];
 otp_8273(Config) when is_list(Config) ->
     Test = <<"-module(t).
