@@ -535,6 +535,10 @@ emit_enc_integer(_Erule,[{_,{Lb,Ub},Range,_}],Value) when Range =< 65536 ->
 	  nl,"  end",nl]),
     emit_enc_integer_end_case();
 
+emit_enc_integer(Erule, [{'ValueRange',{Lb,Ub}=VR}], Value)
+  when is_integer(Lb), is_integer(Ub) ->
+    call(Erule, encode_constrained_number, [{asis,VR},Value]);
+
 emit_enc_integer(Erule, C, Value) ->
     call(Erule, encode_integer, [{asis,C},Value]).
 
