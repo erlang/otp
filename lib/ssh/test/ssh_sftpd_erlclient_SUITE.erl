@@ -42,7 +42,8 @@ all() ->
      quit, 
      file_cb,
      root_dir, 
-     list_dir_limited].
+     list_dir_limited,
+     ver6_basic].
 
 groups() -> 
     [].
@@ -112,7 +113,12 @@ init_per_testcase(TestCase, Config) ->
 		[{system_dir, SystemDir},
 		 {user_dir, PrivDir},
 		 {subsystems, [Spec]}];
-
+	    "ver6_basic" ->
+		Spec =
+		    ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}]),
+		[{system_dir, SystemDir},
+		 {user_dir, PrivDir},
+		 {subsystems, [Spec]}];
 	    _ ->
 		[{user_dir, PrivDir},
 		 {system_dir, SystemDir}]
@@ -232,7 +238,7 @@ file_cb(Config) when is_list(Config) ->
     NewDir = filename:join(PrivDir, "testdir"),
     ok =  ssh_sftp:make_dir(Sftp, NewDir),
     alt_file_handler_check(alt_make_dir),
-
+	
     ok = ssh_sftp:del_dir(Sftp, NewDir),
     alt_file_handler_check(alt_read_link_info),
     alt_file_handler_check(alt_write_file_info),
@@ -260,6 +266,15 @@ list_dir_limited(Config) when is_list(Config) ->
 	ssh_sftp:list_dir(Sftp, "."),
     ct:pal("Listing: ~p~n", [Listing]).
 
+ver6_basic(doc) ->
+    ["Test some version 6 features"];
+ver6_basic(Config) when is_list(Config) ->
+    PrivDir =  ?config(priv_dir, Config),
+    NewDir = filename:join(PrivDir, "testdir2"),
+    {Sftp, _} = ?config(sftp, Config),
+    ok =  ssh_sftp:make_dir(Sftp, NewDir),
+    %%Test file_is_a_directory
+    {error, file_is_a_directory} = ssh_sftp:delete(Sftp, NewDir).
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------

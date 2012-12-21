@@ -383,6 +383,8 @@ decode_status(Status) ->
 	?SSH_FX_UNKNOWN_PRINCIPLE -> unknown_principle;
 	?SSH_FX_LOCK_CONFlICT -> lock_conflict;
 	?SSH_FX_NOT_A_DIRECTORY -> not_a_directory;
+	?SSH_FX_FILE_IS_A_DIRECTORY -> file_is_a_directory;
+	?SSH_FX_CANNOT_DELETE -> cannot_delete;
 	_ -> {error,Status}
     end.
 
@@ -392,6 +394,9 @@ encode_erlang_status(Status) ->
 	eof -> ?SSH_FX_EOF;
 	enoent -> ?SSH_FX_NO_SUCH_FILE;
 	eacces -> ?SSH_FX_PERMISSION_DENIED;
+	eisdir -> ?SSH_FX_FILE_IS_A_DIRECTORY;
+	eperm -> ?SSH_FX_CANNOT_DELETE;
+	eexist -> ?SSH_FX_FILE_ALREADY_EXISTS;
 	_ -> ?SSH_FX_FAILURE
     end.
 

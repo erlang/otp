@@ -58,7 +58,8 @@ all() ->
      links,
      ver3_rename, 
      relpath, 
-     sshd_read_file].
+     sshd_read_file,
+     ver6_basic].
 
 groups() -> 
     [].
@@ -106,12 +107,18 @@ init_per_testcase(TestCase, Config) ->
     SystemDir = filename:join(?config(priv_dir, Config), system),
 
     Port = ssh_test_lib:inet_port(node()),
-
-    {ok, Sftpd} =
-	ssh_sftpd:listen(Port, [{system_dir, SystemDir},
-				      {user_dir, PrivDir},
-				      {user_passwords,[{?USER, ?PASSWD}]},
-				      {pwdfun, fun(_,_) -> true end}]),
+    Options = [{system_dir, SystemDir},
+	       {user_dir, PrivDir},
+	       {user_passwords,[{?USER, ?PASSWD}]},
+	       {pwdfun, fun(_,_) -> true end}],
+    {ok, Sftpd} = case TestCase of
+		      ver6_basic ->
+			  SubSystems = [ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}])],
+			  ssh:daemon(Port, [{subsystems, SubSystems}|Options]);
+		      _ ->
+			  SubSystems = [ssh_sftpd:subsystem_spec([])],
+			  ssh:daemon(Port, [{subsystems, SubSystems}|Options])
+		  end,
     
     Cm = ssh_test_lib:connect(Port,
 			      [{user_dir, ClientUserDir},
@@ -341,7 +348,7 @@ mk_rm_dir(Config) when is_list(Config) ->
 	  _/binary>>, _} = mkdir(DirName, Cm, Channel, ReqId),
 
     NewReqId = 1,
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId), ?UINT32(?SSH_FX_FAILURE),
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId), ?UINT32(?SSH_FX_FILE_ALREADY_EXISTS),
 	  _/binary>>, _} = mkdir(DirName, Cm, Channel, NewReqId),
 
     NewReqId1 = 2,
@@ -591,7 +598,18 @@ sshd_read_file(Config) when is_list(Config) ->
 	read_file(Handle, 100, 0, Cm, Channel, NewReqId),
 
     {ok, Data} = file:read_file(FileName).
-
+ver6_basic(doc) ->
+    ["Test SFTP Version 6"];
+ver6_basic(Config) when is_list(Config) ->
+    PrivDir =  ?config(priv_dir, Config),
+    %FileName = filename:join(PrivDir, "test.txt"),
+    {Cm, Channel} = ?config(sftp, Config),
+    ReqId = 0,
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),  % Ver 6 we have 5
+	   ?UINT32(?SSH_FX_FILE_IS_A_DIRECTORY), _/binary>>, _} =
+	open_file(PrivDir, Cm, Channel, ReqId,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING).
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------

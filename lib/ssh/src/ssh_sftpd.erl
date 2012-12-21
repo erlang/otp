@@ -119,9 +119,7 @@ init(Options) ->
 		{Root0, State0}
 	end,
     MaxLength = proplists:get_value(max_files, Options, 0),
-
-    Vsn = proplists:get_value(vsn, Options, 5),
-
+    Vsn = proplists:get_value(sftpd_vsn, Options, 5),
     {ok,  State#state{cwd = CWD, root = Root, max_files = MaxLength,
 		      handles = [], pending = <<>>,
 		      xf = #ssh_xfer{vsn = Vsn, ext = []}}}.
@@ -361,17 +359,21 @@ handle_op(?SSH_FXP_FSETSTAT, ReqId, <<?UINT32(HLen), BinHandle:HLen/binary,
 	    State0
     end;
 handle_op(?SSH_FXP_REMOVE, ReqId, <<?UINT32(PLen), BPath:PLen/binary>>, 
-	  State0 = #state{file_handler = FileMod, file_state = FS0}) ->
+	  State0 = #state{file_handler = FileMod, file_state = FS0, xf = #ssh_xfer{vsn = Vsn}}) ->
     Path = relate_file_name(BPath, State0),
-    %%  case FileMod:is_dir(Path) of %% This version 6 we still have ver 5
-    %% 	true ->
-    %% 	    ssh_xfer:xf_send_status(State#state.xf, ReqId,
-    %% 				    ?SSH_FX_FILE_IS_A_DIRECTORY); 
-    %% 	false ->
-    {Status, FS1} = FileMod:delete(Path, FS0),
-    State1 = State0#state{file_state = FS1},
-    send_status(Status, ReqId, State1);
-    %%end;
+    {IsDir, _FS1} = FileMod:is_dir(Path, FS0),
+    case IsDir of %% This version 6 we still have ver 5
+	true when Vsn > 5 ->
+	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
+				    ?SSH_FX_FILE_IS_A_DIRECTORY, "File is a directory"); 
+	true ->
+	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
+				    ?SSH_FX_FAILURE, "File is a directory"); 
+	false ->
+	    {Status, FS1} = FileMod:delete(Path, FS0),
+	    State1 = State0#state{file_state = FS1},
+	    send_status(Status, ReqId, State1)
+    end;
 handle_op(?SSH_FXP_RMDIR, ReqId, <<?UINT32(PLen), BPath:PLen/binary>>, 
 	  State0 = #state{file_handler = FileMod, file_state = FS0}) ->
     Path = relate_file_name(BPath, State0),
@@ -629,31 +631,34 @@ open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     do_open(ReqId, State, Path, Flags).
 
 do_open(ReqId, State0, Path, Flags) ->
-    #state{file_handler = FileMod, file_state = FS0, root = Root} = State0,
+    #state{file_handler = FileMod, file_state = FS0, root = Root, xf = #ssh_xfer{vsn = Vsn}} = State0,
     XF = State0#state.xf,
     F = [binary | Flags],
-    %%   case FileMod:is_dir(Path) of %% This is version 6 we still have 5
-    %% 	true ->
-    %% 	    ssh_xfer:xf_send_status(State#state.xf, ReqId,
-    %% 				    ?SSH_FX_FILE_IS_A_DIRECTORY);
-    %% 	false ->
-    
-    AbsPath = case Root of
-		  "" ->
-		      Path;
-		  _ ->
-		      relate_file_name(Path, State0)  
-	      end,
-
-    {Res, FS1} = FileMod:open(AbsPath, F, FS0),
-    State1 = State0#state{file_state = FS1},
-    case Res of
-	{ok, IoDevice} ->
-	    add_handle(State1, XF, ReqId, file, {Path,IoDevice});
-	{error, Error} ->
-	    ssh_xfer:xf_send_status(State1#state.xf, ReqId,
-				    ssh_xfer:encode_erlang_status(Error)),
-	    State1
+    {IsDir, _FS1} = FileMod:is_dir(Path, FS0),
+    case IsDir of 
+	true when Vsn > 5 ->
+	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
+    				    ?SSH_FX_FILE_IS_A_DIRECTORY, "File is a directory");
+	true ->
+	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
+    				    ?SSH_FX_FAILURE, "File is a directory");
+	false ->
+	    AbsPath = case Root of
+			  "" ->
+			      Path;
+			  _ ->
+			      relate_file_name(Path, State0)  
+		      end,
+	    {Res, FS1} = FileMod:open(AbsPath, F, FS0),
+	    State1 = State0#state{file_state = FS1},
+	    case Res of
+		{ok, IoDevice} ->
+		    add_handle(State1, XF, ReqId, file, {Path,IoDevice});
+		{error, Error} ->
+		    ssh_xfer:xf_send_status(State1#state.xf, ReqId,
+					    ssh_xfer:encode_erlang_status(Error)),
+		    State1
+	    end
     end.
 
 %% resolve all symlinks in a path
