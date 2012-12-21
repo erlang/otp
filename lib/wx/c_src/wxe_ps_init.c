@@ -25,12 +25,17 @@
 #include <Cocoa/Cocoa.h>
 #include <objc/objc-runtime.h>
 
+extern OSErr  CPSSetProcessName (ProcessSerialNumber *psn, char *processname);
+
 void * wxe_ps_init() 
 {
    ProcessSerialNumber psn;
    NSAutoreleasePool *pool;
    // Enable GUI 
    GetCurrentProcess(&psn);
+   char *app_title = getenv("WX_APP_TITLE");
+   // Undocumented function (but no documented way of doing this exists)
+   CPSSetProcessName(&psn, app_title?app_title:"Erlang");
    TransformProcessType(&psn, kProcessTransformToForegroundApplication);
    SetFrontProcess(&psn);
    // Enable Cocoa calls from Carbon app

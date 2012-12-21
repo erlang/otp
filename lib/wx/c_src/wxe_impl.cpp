@@ -258,19 +258,29 @@ wxFrame * dummy_window;
 
 void create_dummy_window() {
   dummy_window = new wxFrame(NULL,-1, wxT("wx driver"),
-			     wxDefaultPosition, wxSize(5,5),
+			     wxPoint(0,0), wxSize(5,5),
 			     wxFRAME_NO_TASKBAR);
+
+  wxMenuBar * menubar = new wxMenuBar();
+  dummy_window->SetMenuBar(menubar);
+  // wx-2.9 Don't delete the app menubar correctly
   dummy_window->Connect(wxID_ANY, wxEVT_CLOSE_WINDOW,
 			(wxObjectEventFunction) (wxEventFunction) &WxeApp::dummy_close);
+  dummy_window->Connect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED,
+			(wxObjectEventFunction) (wxEventFunction) &WxeApp::dummy_close);
+  dummy_window->Show(true);
+  // dummy_window->Show(false);
 }
 
 // wxMac really wants a top level window which command-q quits if there are no
 // windows open, and this will kill the thread, so restart the dummy_window each
 // time a we receive a close.
 void WxeApp::dummy_close(wxEvent& Ev) {
-  // fprintf(stderr, "Tried to close dummy window\r\n"); fflush(stderr);
-  create_dummy_window();
+  if(Ev.GetEventType() == wxEVT_CLOSE_WINDOW) {
+    create_dummy_window();
+  }
 }
+
 
 // Init wx-widgets thread
 bool WxeApp::OnInit()
@@ -300,7 +310,11 @@ bool WxeApp::OnInit()
 
   /* Create a dummy window so wxWidgets don't automagicly quits the main loop
      after the last window */
+#ifdef __DARWIN__
   create_dummy_window();
+#else
+  SetExitOnFrameDelete(false);
+#endif
 
   init_nonconsts(global_me, init_caller);
   erl_drv_mutex_lock(wxe_status_m);
@@ -311,7 +325,9 @@ bool WxeApp::OnInit()
 }
 
 void WxeApp::shutdown(wxeMetaCommand& Ecmd) {
+#ifdef __DARWIN__
   delete dummy_window;
+#endif
   ExitMainLoop();
 }
 
