@@ -265,7 +265,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       <name>hash(Type, Data) -> Digest</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = md4 | md5 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<v>Type = md4 | md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</v>
 	<v>Data = iodata()</v>
 	<v>Digest = binary()</v>
       </type>
@@ -279,7 +279,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       <name>hash_init(Type) -> Context</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = md4 | md5 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<v>Type = md4 | md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</v>
       </type>
       <desc>
         <p>Initializes the context for streaming hash operations. <c>Type</c> determines
