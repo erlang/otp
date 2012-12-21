@@ -60,9 +60,17 @@ per_dec_boolean() ->
     {map,{get_bits,1,[1]},[{0,false},{1,true}]}.
 
 per_dec_enumerated(NamedList0, Aligned) ->
-    Constraint = [{'ValueRange',{0,length(NamedList0)-1}}],
-    NamedList = per_dec_enumerated_fix_list(NamedList0, [enum_error], 0),
+    Ub = length(NamedList0) - 1,
+    Constraint = [{'ValueRange',{0,Ub}}],
     Int = per_dec_integer(Constraint, Aligned),
+    EnumTail = case matched_range(Int) of
+		   {0,Ub} ->
+		       %% The error case can never happen.
+		       [];
+		   _ ->
+		       [enum_error]
+	       end,
+    NamedList = per_dec_enumerated_fix_list(NamedList0, EnumTail, 0),
     {map,Int,NamedList}.
 
 per_dec_enumerated(BaseNamedList, NamedListExt0, Aligned) ->
@@ -240,6 +248,16 @@ per_num_bits(N) when N =< 32 -> 5;
 per_num_bits(N) when N =< 64 -> 6;
 per_num_bits(N) when N =< 128 -> 7;
 per_num_bits(N) when N =< 255 -> 8.
+
+matched_range({get_bits,Bits0,[U|Flags]}) when is_integer(U) ->
+    case lists:member(signed, Flags) of
+	false ->
+	    Bits = U*Bits0,
+	    {0,(1 bsl Bits) - 1};
+	true ->
+	    unknown
+    end;
+matched_range(_Op) -> unknown.
 
 %%%
 %%% Remove unnecessary aligning to octet boundaries.
