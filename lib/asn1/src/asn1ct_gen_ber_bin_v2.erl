@@ -495,10 +495,19 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 		_ -> ""
 	    end,
     NewTypeName = case Typename of
-		      'ANY' -> 'ASN1_OPEN_TYPE';
-		      _ -> Typename
+		      'ANY'             -> 'ASN1_OPEN_TYPE';
+		      'OCTET STRING'    -> restricted_string;
+		      'NumericString'   -> restricted_string;
+		      'TeletexString'   -> restricted_string;
+		      'T61String'       -> restricted_string;
+		      'VideotexString'  -> restricted_string;
+		      'GraphicString'   -> restricted_string;
+		      'VisibleString'   -> restricted_string;
+		      'GeneralString'   -> restricted_string;
+		      'PrintableString' -> restricted_string;
+		      'IA5String'       -> restricted_string;
+		      _                 -> Typename
 		  end,
-%    DoLength = 
     case NewTypeName of
 	'BOOLEAN'->
 	    emit(["decode_boolean(",BytesVar,","]),
@@ -531,54 +540,17 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	    need(decode_relative_oid, 2);
 	'ObjectDescriptor' ->
 	    emit(["decode_restricted_string(",
-		  BytesVar,",",{asis,Constraint},",",
-		  {asis,?T_ObjectDescriptor},","]),
-	    need(decode_restricted_string, 4);
-	'OCTET STRING' ->
-	    emit(["decode_octet_string",AsBin,"(",BytesVar,",",
-		  {asis,Constraint},","]),
-	    need(decode_octet_string, 3);
-	'NumericString' ->
-	    emit(["decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",
-		  {asis,?T_NumericString},","]),
-	    need(decode_restricted_string, 4);
-	TString when TString == 'TeletexString';
-		     TString == 'T61String' ->
-	    emit(["decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",
-		  {asis,?T_TeletexString},","]),
-	    need(decode_restricted_string, 4);
-	'VideotexString' ->
-	    emit(["decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",
-		  {asis,?T_VideotexString},","]),
-	    need(decode_restricted_string, 4);
-	'GraphicString' ->
-	    emit(["decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",
-		  {asis,?T_GraphicString},","]),
-	    need(decode_restricted_string, 4);
-	'VisibleString' ->
-	    emit(["decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",
-		  {asis,?T_VisibleString},","]),
-	    need(decode_restricted_string, 4);
-	'GeneralString' ->
-	    emit(["decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",
-		  {asis,?T_GeneralString},","]),
-	    need(decode_restricted_string, 4);
-	'PrintableString' ->
-	    emit(["decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",
-		  {asis,?T_PrintableString},","]),
-	    need(decode_restricted_string, 4);
-	'IA5String' ->
-	    emit(["decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",
-		  {asis,?T_IA5String},","]),
-	    need(decode_restricted_string, 4);
+		  BytesVar,",",{asis,Constraint},","]),
+	    need(decode_restricted_string, 3);
+	restricted_string ->
+	    emit(["decode_restricted_string",AsBin,"(",BytesVar,","]),
+	    case Constraint of
+		[] ->
+		    need(decode_restricted_string, 2);
+		_ ->
+		    emit([{asis,Constraint},","]),
+		    need(decode_restricted_string, 3)
+	    end;
 	'UniversalString' ->
 	    emit(["decode_universal_string",AsBin,"(",
 		  BytesVar,",",{asis,Constraint},","]),

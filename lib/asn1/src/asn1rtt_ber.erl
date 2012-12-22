@@ -33,11 +33,11 @@
 	 decode_named_bit_string/3,
 	 decode_compact_bit_string/3,
 	 decode_legacy_bit_string/3,
-	 decode_octet_string/3,
 	 encode_null/2,decode_null/2,
 	 encode_relative_oid/2,decode_relative_oid/2,
 	 encode_object_identifier/2,decode_object_identifier/2,
-	 encode_restricted_string/2,decode_restricted_string/4,
+	 encode_restricted_string/2,
+	 decode_restricted_string/2,decode_restricted_string/3,
 	 encode_universal_string/2,decode_universal_string/3,
 	 encode_UTF8_string/2,decode_UTF8_string/2,
 	 encode_BMP_string/2,decode_BMP_string/3,
@@ -1107,15 +1107,6 @@ decode_bitstring_NNL([0|BitList],NamedNumberList,No,Result) ->
     decode_bitstring_NNL(BitList,NamedNumberList,No+1,Result).
 
 %%============================================================================
-%% decode octet string
-%%    (Buffer, Range, HasTag, TotalLen) -> {String, Remain, RemovedBytes}
-%%
-%% Octet string is decoded as a restricted string
-%%============================================================================
-decode_octet_string(Buffer, Range, Tags) ->
-    decode_restricted_string(Buffer, Range, ?N_OCTET_STRING, Tags).
-
-%%============================================================================
 %% Null value, ITU_T X.690 Chapter 8.8
 %%
 %% encode NULL value
@@ -1252,33 +1243,16 @@ encode_restricted_string(OctetList, TagIn) when is_list(OctetList) ->
 %% decode Numeric Printable Teletex Videotex Visible IA5 Graphic General strings
 %%============================================================================
 
-decode_restricted_string(Tlv, Range, StringType, TagsIn) ->
+decode_restricted_string(Tlv, TagsIn) ->
     Bin = match_and_collect(Tlv, TagsIn),
-    Val = decode_restricted(Bin, StringType),
-    check_and_convert_restricted_string(Val, Range).
+    binary_to_list(Bin).
 
-decode_restricted(Bin, StringType) ->
-    case StringType of
-	?N_UniversalString ->
-	    mk_universal_string(binary_to_list(Bin));
-	?N_BMPString ->
-	    mk_BMP_string(binary_to_list(Bin));
-	_ ->
-	    Bin
-    end.
-
-check_and_convert_restricted_string(Val0, Range) ->
-    {Len,Val} = if is_binary(Val0) ->
-			{byte_size(Val0),binary_to_list(Val0)};
-		   is_list(Val0) ->
-			{length(Val0),Val0}
-		end,
-    check_restricted_string(Val, Len, Range).
+decode_restricted_string(Tlv, Range, TagsIn) ->
+    Bin = match_and_collect(Tlv, TagsIn),
+    check_restricted_string(binary_to_list(Bin), byte_size(Bin), Range).
 
 check_restricted_string(Val, StrLen, Range) ->
     case Range of
-	[] ->					% No length constraint
-	    Val;
 	{Lb,Ub} when StrLen >= Lb, Ub >= StrLen -> % variable length constraint
 	    Val;
 	{{Lb,_Ub},[]} when StrLen >= Lb ->
@@ -1324,8 +1298,9 @@ mk_uni_list([H|T],List) ->
 %%===========================================================================
 
 decode_universal_string(Buffer, Range, Tags) ->
-    decode_restricted_string(Buffer, Range, ?N_UniversalString, Tags).
-
+    Bin = match_and_collect(Buffer, Tags),
+    Val = mk_universal_string(binary_to_list(Bin)),
+    check_restricted_string(Val, length(Val), Range).
 
 mk_universal_string(In) ->
     mk_universal_string(In, []).
@@ -1386,7 +1361,9 @@ mk_BMP_list([H|T], List) ->
 %%                               {String, Remain, RemovedBytes}
 %%============================================================================
 decode_BMP_string(Buffer, Range, Tags) ->
-    decode_restricted_string(Buffer, Range, ?N_BMPString, Tags).
+    Bin = match_and_collect(Buffer, Tags),
+    Val = mk_BMP_string(binary_to_list(Bin)),
+    check_restricted_string(Val, length(Val), Range).
 
 mk_BMP_string(In) ->
     mk_BMP_string(In,[]).
