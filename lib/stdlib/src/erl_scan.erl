@@ -201,15 +201,14 @@ token_info(Token) ->
     Items = [category,column,length,line,symbol,text], % undefined order
     token_info(Token, Items).
 
--spec token_info(Token, TokenItem) -> TokenInfo | 'undefined' when
-      Token :: token(),
-      TokenItem :: token_item(),
-      TokenInfo :: TokenInfoTuple :: token_info();
-                (Token, TokenItems) -> [TokenInfo] when
-      Token :: token(),
-      TokenItems :: [TokenItem],
-      TokenItem :: token_item(),
-      TokenInfo :: [TokenInfoTuple :: token_info()].
+-spec token_info(Token, TokenItem) -> TokenInfoTuple | 'undefined' when
+                     Token :: token(),
+                     TokenItem :: token_item(),
+                     TokenInfoTuple :: token_info();
+                (Token, TokenItems) -> TokenInfo when
+                     Token :: token(),
+                     TokenItems :: [TokenItem :: token_item()],
+                     TokenInfo :: [TokenInfoTuple :: token_info()].
 token_info(_Token, []) ->
     [];
 token_info(Token, [Item|Items]) when is_atom(Item) ->
@@ -239,16 +238,15 @@ attributes_info(Attributes) ->
     Items = [column,length,line,text], % undefined order
     attributes_info(Attributes, Items).
 
--spec attributes_info(Attributes, AttributeItem) ->
-                        AttributeInfo | 'undefined' when
-      Attributes :: attributes(),
-      AttributeItem :: attribute_item(),
-      AttributeInfo :: AttributeInfoTuple :: attribute_info();
-                     (Attributes, AttributeItems) -> [AttributeInfo] when
-      Attributes :: attributes(),
-      AttributeItems :: [AttributeItem],
-      AttributeItem :: attribute_item(),
-      AttributeInfo :: [AttributeInfoTuple :: attribute_info()].
+-spec attributes_info
+        (Attributes, AttributeItem) -> AttributeInfoTuple | 'undefined' when
+             Attributes :: attributes(),
+             AttributeItem :: attribute_item(),
+             AttributeInfoTuple :: attribute_info();
+        (Attributes, AttributeItems) -> AttributeInfo when
+             Attributes :: attributes(),
+             AttributeItems :: [AttributeItem :: attribute_item()],
+             AttributeInfo :: [AttributeInfoTuple :: attribute_info()].
 attributes_info(_Attrs, []) ->
     [];
 attributes_info(Attrs, [A|As]) when is_atom(A) ->
