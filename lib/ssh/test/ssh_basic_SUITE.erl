@@ -187,7 +187,7 @@ app_test(Config) when is_list(Config) ->
 misc_ssh_options(doc) ->
     ["Test that we can set some misc options not tested elsewhere, "
      "some options not yet present are not decided if we should support or "
-     "if they need thier own test case."];
+     "if they need their own test case."];
 misc_ssh_options(suite) ->
     [];
 misc_ssh_options(Config) when is_list(Config) ->  
