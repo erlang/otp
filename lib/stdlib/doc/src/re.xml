@@ -96,12 +96,12 @@
       subjects during the program's lifetime. Compiling once and
       executing many times is far more efficient than compiling each
       time one wants to match.</p>
-      <p>When the unicode option is given, the regular expression should be given as a valid unicode <c>charlist()</c>, otherwise as any valid <c>iodata()</c>.</p>
+      <p>When the unicode option is given, the regular expression should be given as a valid Unicode <c>charlist()</c>, otherwise as any valid <c>iodata()</c>.</p>
 
       <p><marker id="compile_options"/>The options have the following meanings:</p>
       <taglist>
       <tag><c>unicode</c></tag>
-      <item>The regular expression is given as a unicode <c>charlist()</c> and the resulting regular expression code is to be run against a valid unicode <c>charlist()</c> subject.</item>
+      <item>The regular expression is given as a Unicode <c>charlist()</c> and the resulting regular expression code is to be run against a valid Unicode <c>charlist()</c> subject.</item>
       <tag><c>anchored</c></tag>
       <item>The pattern is forced to be "anchored", that is, it is constrained to match only at the first matching point in the string that is being searched (the "subject string"). This effect can also be achieved by appropriate constructs in the pattern itself.</item>
       <tag><c>caseless</c></tag>
@@ -478,7 +478,7 @@ This option makes it possible to include comments inside complicated patterns. N
       <p>Replaces the matched part of the <c><anno>Subject</anno></c> string with the contents of <c><anno>Replacement</anno></c>.</p>
       <p>The permissible options are the same as for <c>re:run/3</c>, except that the <c>capture</c> option is not allowed.
       Instead a <c>{return, <anno>ReturnType</anno>}</c> is present. The default return type is <c>iodata</c>, constructed in a
-      way to minimize copying. The <c>iodata</c> result can be used directly in many i/o-operations. If a flat <c>list()</c> is
+      way to minimize copying. The <c>iodata</c> result can be used directly in many I/O-operations. If a flat <c>list()</c> is
       desired, specify <c>{return, list}</c> and if a binary is preferred, specify <c>{return, binary}</c>.</p>
 
       <p>As in the <c>re:run/3</c> function, an <c>mp()</c> compiled

@@ -110,7 +110,7 @@
       <desc>
         <p>As returned by
           <seealso marker="#open/2">file:open/2</seealso>,
-          a process handling IO protocols.</p>
+          a process handling I/O-protocols.</p>
       </desc>
     </datatype>
     <datatype>
