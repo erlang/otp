@@ -77,53 +77,52 @@ all() ->
 %%%-----------------------------------------------------------------
 %%%
 default(Config) when is_list(Config) ->
-    run(default,[cth_surefire],Config),
-    PrivDir = ?config(priv_dir,Config),
-    XmlRe = filename:join([PrivDir,"*","junit_report.xml"]),
-    check_xml(default,XmlRe).
+    run(default,[cth_surefire],"junit_report.xml",Config).
 
 absolute_path(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir,Config),
     Path = filename:join(PrivDir,"abspath.xml"),
-    run(absolute_path,[{cth_surefire,[{path,Path}]}],Config),
-    check_xml(absolute_path,Path).
+    run(absolute_path,[{cth_surefire,[{path,Path}]}],Path,Config).
 
 relative_path(Config) when is_list(Config) ->
     Path = "relpath.xml",
-    run(relative_path,[{cth_surefire,[{path,Path}]}],Config),
-    PrivDir = ?config(priv_dir,Config),
-    XmlRe = filename:join([PrivDir,"*",Path]),
-    check_xml(relative_path,XmlRe).
+    run(relative_path,[{cth_surefire,[{path,Path}]}],Path,Config).
 
 url(Config) when is_list(Config) ->
     Path = "url.xml",
-    run(url,[{cth_surefire,[{url_base,?url_base},
-			    {path,Path}]}],Config),
-    PrivDir = ?config(priv_dir,Config),
-    XmlRe = filename:join([PrivDir,"*",Path]),
-    check_xml(url,XmlRe).
+    run(url,[{cth_surefire,[{url_base,?url_base},{path,Path}]}],
+	Path,Config).
 
 logdir(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir,Config),
-    LogDir = filename:join(PrivDir,"specific_logdir"),
-    file:make_dir(LogDir),
+    Opts = ct_test_support:get_opts(Config),
+    LogDir =
+	case lists:keyfind(logdir,1,Opts) of
+	    {logdir,LD} -> LD;
+	    false -> ?config(priv_dir,Config)
+	end,
+    MyLogDir = filename:join(LogDir,"specific_logdir"),
+    file:make_dir(MyLogDir),
     Path = "logdir.xml",
-    run(logdir,[{cth_surefire,[{path,Path}]}],Config,[{logdir,LogDir}]),
-    PrivDir = ?config(priv_dir,Config),
-    XmlRe = filename:join([LogDir,"*",Path]),
-    check_xml(logdir,XmlRe).
+    run(logdir,[{cth_surefire,[{path,Path}]}],Path,Config,[{logdir,MyLogDir}]).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
-run(Case,CTHs,Config) ->
-    run(Case,CTHs,Config,[]).
-run(Case,CTHs,Config,ExtraOpts) ->
+run(Case,CTHs,Report,Config) ->
+    run(Case,CTHs,Report,Config,[]).
+run(Case,CTHs,Report,Config,ExtraOpts) ->
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "surefire_SUITE"),
     {Opts,ERPid} = setup([{suite,Suite},{ct_hooks,CTHs},{label,Case}|ExtraOpts],
 			 Config),
-    ok = execute(Case, Opts, ERPid, Config).
+    ok = execute(Case, Opts, ERPid, Config),
+    LogDir =
+	case lists:keyfind(logdir,1,Opts) of
+	    {logdir,LD} -> LD;
+	    false -> ?config(priv_dir,Config)
+	end,
+    Re = filename:join([LogDir,"*",Report]),
+    check_xml(Case,Re).
 
 setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
