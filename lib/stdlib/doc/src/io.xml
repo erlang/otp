@@ -38,7 +38,7 @@
       process which handles the IO protocols. Normally, it is the
       <c>IoDevice</c> returned by
       <seealso marker="kernel:file#open/2">file:open/2</seealso>.</p>
-    <p>For a description of the IO protocols refer to the STDLIB Users Guide.</p>
+    <p>For a description of the IO protocols refer to the <seealso marker="io_protocol">STDLIB User's Guide</seealso>.</p>
     <warning>
 
     <p>As of R13A, data supplied to the <seealso
@@ -88,17 +88,14 @@
       <name name="format"/>
     </datatype>
     <datatype>
-      <name name="line"/>
+      <name name="location"/>
     </datatype>
     <datatype>
       <name name="prompt"/>
     </datatype>
     <datatype>
-      <name name="request_error"/>
-    </datatype>
-    <datatype>
-      <name name="error_description"/>
-      <desc><p>Whatever the I/O-server sends.</p></desc>
+      <name name="server_no_data"/>
+      <desc><p>What the I/O-server sends when there is no data.</p></desc>
     </datatype>
   </datatypes>
 
@@ -134,6 +131,7 @@
     <func>
       <name name="get_chars" arity="2"/>
       <name name="get_chars" arity="3"/>
+      <type name="server_no_data"/>
       <fsummary>Read a specified number of characters</fsummary>
       <desc>
         <p>Reads <c><anno>Count</anno></c> characters from standard input
@@ -152,9 +150,9 @@
           <item>
             <p>End of file was encountered.</p>
           </item>
-	  <tag><c>{error,<anno>Reason</anno>}</c></tag>
+	  <tag><c>{error, <anno>ErrorDescription</anno>}</c></tag>
 	  <item>
-	    <p>Other (rare) error condition, for instance <c>{error,estale}</c>
+	    <p>Other (rare) error condition, for instance <c>{error, estale}</c>
 	    if reading from an NFS file system.</p>
 	  </item>
         </taglist>
@@ -163,6 +161,7 @@
     <func>
       <name name="get_line" arity="1"/>
       <name name="get_line" arity="2"/>
+      <type name="server_no_data"/>
       <fsummary>Read a line</fsummary>
       <desc>
         <p>Reads a line from the standard input (<c><anno>IoDevice</anno></c>),
@@ -181,9 +180,9 @@
           <item>
             <p>End of file was encountered.</p>
           </item>
-	  <tag><c>{error,<anno>Reason</anno>}</c></tag>
+	  <tag><c>{error, <anno>ErrorDescription</anno>}</c></tag>
 	  <item>
-	    <p>Other (rare) error condition, for instance <c>{error,estale}</c>
+	    <p>Other (rare) error condition, for instance <c>{error, estale}</c>
 	    if reading from an NFS file system.</p>
 	  </item>
         </taglist>
@@ -227,19 +226,19 @@
         <taglist>
           <tag><c>binary, list or {binary, boolean()}</c></tag>
           <item>
-            <p>If set in binary mode (binary or {binary,true}), the I/O server sends binary data (encoded in UTF-8) as answers to the get_line, get_chars and, if possible, get_until requests (see the I/O protocol description in STDLIB User's Guide for details). The immediate effect is that <c>get_chars/2,3</c> and <c>get_line/1,2</c> return UTF-8 binaries instead of lists of chars for the affected IO device.</p>
-	    <p>By default, all IO devices in OTP are set in list mode, but the io functions can handle any of these modes and so should other, user written, modules behaving as clients to I/O-servers.</p>
-	    <p>This option is supported by the standard shell (group.erl), the 'oldshell' (user.erl) and the file I/O servers.</p>
+            <p>If set in binary mode (<c>binary</c> or <c>{binary, true}</c>), the I/O server sends binary data (encoded in UTF-8) as answers to the <c>get_line</c>, <c>get_chars</c> and, if possible, <c>get_until</c> requests (see the I/O protocol description in <seealso marker="io_protocol">STDLIB User's Guide</seealso> for details). The immediate effect is that <c>get_chars/2,3</c> and <c>get_line/1,2</c> return UTF-8 binaries instead of lists of chars for the affected IO device.</p>
+	    <p>By default, all IO devices in OTP are set in list mode, but the I/O functions can handle any of these modes and so should other, user written, modules behaving as clients to I/O-servers.</p>
+	    <p>This option is supported by the standard shell (<c>group.erl</c>), the 'oldshell' (<c>user.erl</c>) and the file I/O servers.</p>
           </item>
           <tag><c>{echo, boolean()}</c></tag>
 	  <item>
-	  <p>Denotes if the terminal should echo input. Only supported for the standard shell I/O-server (group.erl)</p>
+	  <p>Denotes if the terminal should echo input. Only supported for the standard shell I/O-server (<c>group.erl</c>)</p>
 	  </item>
           <tag><c>{expand_fun, expand_fun()}</c></tag>
           <item>
             <p>Provide a function for tab-completion (expansion)
-              like the erlang shell. This function is called
-              when the user presses the Tab key. The expansion is
+              like the Erlang shell. This function is called
+              when the user presses the TAB key. The expansion is
               active when calling line-reading functions such as
               <c>get_line/1,2</c>.</p>
             <p>The function is called with the current line, upto
@@ -252,25 +251,25 @@
               will be printed and the current input line will be written
               once again.</p>
             <p>Trivial example (beep on anything except empty line, which
-              is expanded to "quit"):</p>
+              is expanded to <c>"quit"</c>):</p>
             <code type="none">
  fun("") -> {yes, "quit", []};
     (_) -> {no, "", ["quit"]} end</code>
-            <p>This option is supported by the standard shell only (group.erl).</p>
+            <p>This option is supported by the standard shell only (<c>group.erl</c>).</p>
           </item>
           <tag><c>{encoding, latin1 | unicode}</c></tag>
 	  <item>
 	  <p>Specifies how characters are input or output from or to the actual IO device, implying that i.e. a terminal is set to handle Unicode input and output or a file is set to handle UTF-8 data encoding.</p>
-	  <p>The option <em>does not</em> affect how data is returned from the io-functions or how it is sent in the I/O-protocol, it only affects how the IO device is to handle Unicode characters towards the &quot;physical&quot; device.</p>
-	  <p>The standard shell will be set for either unicode or latin1 encoding when the system is started. The actual encoding is set with the help of the "LANG" or "LC_CTYPE" environment variables on Unix-like system or by other means on other systems. The bottom line is that the user can input Unicode characters and the IO device will be in {encoding, unicode} mode if the IO device supports it. The mode can be changed, if the assumption of the runtime system is wrong, by setting this option.</p>
+	  <p>The option <em>does not</em> affect how data is returned from the I/O functions or how it is sent in the I/O-protocol, it only affects how the IO device is to handle Unicode characters towards the &quot;physical&quot; device.</p>
+	  <p>The standard shell will be set for either Unicode or latin1 encoding when the system is started. The actual encoding is set with the help of the <c>LANG</c> or <c>LC_CTYPE</c> environment variables on Unix-like system or by other means on other systems. The bottom line is that the user can input Unicode characters and the IO device will be in <c>{encoding, unicode}</c> mode if the IO device supports it. The mode can be changed, if the assumption of the runtime system is wrong, by setting this option.</p>
 	  <p>The IO device used when Erlang is started with the "-oldshell" or "-noshell" flags is by default set to latin1 encoding, meaning that any characters beyond codepoint 255 will be escaped and that input is expected to be plain 8-bit ISO-latin-1. If the encoding is changed to Unicode, input and output from the standard file descriptors will be in UTF-8 (regardless of operating system).</p>
-	  <p>Files can also be set in {encoding, unicode}, meaning that data is written and read as UTF-8. More encodings are possible for files, see below.</p>
-	  <p>{encoding, unicode | latin1} is supported by both the standard shell (group.erl including werl on windows), the 'oldshell' (user.erl) and the file I/O servers.</p>
+	  <p>Files can also be set in <c>{encoding, unicode}</c>, meaning that data is written and read as UTF-8. More encodings are possible for files, see below.</p>
+	  <p><c>{encoding, unicode | latin1}</c> is supported by both the standard shell (<c>group.erl</c> including <c>werl</c> on Windows&reg;), the 'oldshell' (<c>user.erl</c>) and the file I/O servers.</p>
  	  </item>
           <tag><c>{encoding, utf8 | utf16 | utf32 | {utf16,big} | {utf16,little} | {utf32,big} | {utf32,little}}</c></tag>
 	  <item>
 	  <p>For disk files, the encoding can be set to various UTF variants. This will have the effect that data is expected to be read as the specified encoding from the file and the data will be written in the specified encoding to the disk file.</p>
-	  <p>{encoding, utf8} will have the same effect as {encoding,unicode} on files.</p>
+	  <p><c>{encoding, utf8}</c> will have the same effect as <c>{encoding, unicode}</c> on files.</p>
 	  <p>The extended encodings are only supported on disk files (opened by the <seealso marker="kernel:file#open/2">file:open/2</seealso> function)</p>
  	  </item>
         </taglist>
@@ -288,6 +287,7 @@
     <func>
       <name name="read" arity="1"/>
       <name name="read" arity="2"/>
+      <type name="server_no_data"/>
       <fsummary>Read a term</fsummary>
       <desc>
         <p>Reads a term <c><anno>Term</anno></c> from the standard input
@@ -312,23 +312,24 @@
     <func>
       <name name="read" arity="3"/>
       <name name="read" arity="4"/>
+      <type name="server_no_data"/>
       <fsummary>Read a term</fsummary>
       <desc>
         <p>Reads a term <c><anno>Term</anno></c> from <c><anno>IoDevice</anno></c>, prompting it
-          with <c><anno>Prompt</anno></c>. Reading starts at line number
-          <c><anno>StartLine</anno></c>. The argument
+          with <c><anno>Prompt</anno></c>. Reading starts at location
+          <c><anno>StartLocation</anno></c>. The argument
           <c><anno>Options</anno></c> is passed on as the <c>Options</c>
           argument of the <c>erl_scan:tokens/4</c> function. It returns:</p>
         <taglist>
-          <tag><c>{ok, Term, <anno>EndLine</anno>}</c></tag>
+          <tag><c>{ok, Term, <anno>EndLocation</anno>}</c></tag>
           <item>
             <p>The parsing was successful.</p>
           </item>
-          <tag><c>{eof, <anno>EndLine</anno>}</c></tag>
+          <tag><c>{eof, <anno>EndLocation</anno>}</c></tag>
           <item>
             <p>End of file was encountered.</p>
           </item>
-          <tag><c>{error, <anno>ErrorInfo</anno>, <anno>ErrorLine</anno>}</c></tag>
+          <tag><c>{error, <anno>ErrorInfo</anno>, <anno>ErrorLocation</anno>}</c></tag>
           <item>
             <p>The parsing failed.</p>
           </item>
@@ -657,6 +658,7 @@ ok
     <func>
       <name name="fread" arity="2"/>
       <name name="fread" arity="3"/>
+      <type name="server_no_data"/>
       <fsummary>Read formatted input</fsummary>
       <desc>
         <p>Reads characters from the standard input (<c><anno>IoDevice</anno></c>),
@@ -730,7 +732,7 @@ ok
                   characters are stripped. An Erlang string (list of
                   characters) is returned.</p>
 
-		  <p>If Unicode translation is in effect (~ts),
+		  <p>If Unicode translation is in effect (<c>~ts</c>),
 		  characters larger than 255 are accepted, otherwise
 		  not. With the translation modifier, the list
 		  returned may as a consequence also contain
@@ -786,10 +788,15 @@ Prompt> <input>&lt;Character beyond latin1 range not printable in this medium&gt
               <item>
                 <p>End of file was encountered.</p>
               </item>
-              <tag><c>{error, <anno>What</anno>}</c></tag>
+              <tag><c>{error, <anno>FreadError</anno>}</c></tag>
+              <item>
+                <p>The reading failed and <c>FreadError</c> gives a
+                  hint about the error.</p>
+              </item>
+              <tag><c>{error, <anno>ErrorDescription</anno>}</c></tag>
               <item>
                 <p>The read operation failed and the parameter
-                  <c><anno>What</anno></c> gives a hint about the error.</p>
+                  <c><anno>ErrorDescription</anno></c> gives a hint about the error.</p>
               </item>
             </taglist>
           </item>
@@ -823,26 +830,27 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
       <name name="scan_erl_exprs" arity="2"/>
       <name name="scan_erl_exprs" arity="3"/>
       <name name="scan_erl_exprs" arity="4"/>
+      <type name="server_no_data"/>
       <fsummary>Read and tokenize Erlang expressions</fsummary>
       <desc>
         <p>Reads data from the standard input (<c>IoDevice</c>),
-          prompting it with <c>Prompt</c>. Reading starts at line number
-          <c>StartLine</c> (1). The argument <c><anno>Options</anno></c>
+          prompting it with <c>Prompt</c>. Reading starts at location
+          <c>StartLocation</c> (<c>1</c>). The argument <c><anno>Options</anno></c>
           is passed on as the <c>Options</c> argument of the
           <c>erl_scan:tokens/4</c> function. The data is tokenized as if
           it were a
           sequence of Erlang expressions until a final dot (<c>.</c>) is
           reached. This token is also returned. It returns:</p>
         <taglist>
-          <tag><c>{ok, Tokens, EndLine}</c></tag>
+          <tag><c>{ok, Tokens, EndLocation}</c></tag>
           <item>
             <p>The tokenization succeeded.</p>
           </item>
-          <tag><c>{eof, EndLine}</c></tag>
+          <tag><c>{eof, EndLocation}</c></tag>
           <item>
             <p>End of file was encountered.</p>
           </item>
-          <tag><c>{error, ErrorInfo, ErrorLine}</c></tag>
+          <tag><c>{error, ErrorInfo, ErrorLocation}</c></tag>
           <item>
             <p>An error occurred.</p>
           </item>
@@ -862,11 +870,12 @@ enter><input>1.0er.</input>
       <name name="scan_erl_form" arity="2"/>
       <name name="scan_erl_form" arity="3"/>
       <name name="scan_erl_form" arity="4"/>
+      <type name="server_no_data"/>
       <fsummary>Read and tokenize an Erlang form</fsummary>
       <desc>
         <p>Reads data from the standard input (<c><anno>IoDevice</anno></c>),
           prompting it with <c><anno>Prompt</anno></c>. Starts reading
-          at line number <c><anno>StartLine</anno></c> (1). The
+          at location <c><anno>StartLocation</anno></c> (<c>1</c>). The
           argument <c><anno>Options</anno></c> is passed on as the
           <c>Options</c> argument of the <c>erl_scan:tokens/4</c>
           function. The data is tokenized as if it were an
@@ -882,27 +891,28 @@ enter><input>1.0er.</input>
       <name name="parse_erl_exprs" arity="3"/>
       <name name="parse_erl_exprs" arity="4"/>
       <type name="parse_ret"/>
+      <type name="server_no_data"/>
       <fsummary>Read, tokenize and parse Erlang expressions</fsummary>
       <desc>
         <p>Reads data from the standard input
           (<c><anno>IoDevice</anno></c>), prompting it with
-          <c><anno>Prompt</anno></c>. Starts reading at line number
-          <c><anno>StartLine</anno></c> (1). The argument
+          <c><anno>Prompt</anno></c>. Starts reading at location
+          <c><anno>StartLocation</anno></c> (<c>1</c>). The argument
           <c><anno>Options</anno></c> is passed on as the
           <c>Options</c> argument of the <c>erl_scan:tokens/4</c>
           function. The data is tokenized and parsed as if it were a
           sequence of Erlang expressions until a final dot (<c>.</c>) is reached.
           It returns:</p>
         <taglist>
-          <tag><c>{ok, ExprList, EndLine}</c></tag>
+          <tag><c>{ok, ExprList, EndLocation}</c></tag>
           <item>
             <p>The parsing was successful.</p>
           </item>
-          <tag><c>{eof, EndLine}</c></tag>
+          <tag><c>{eof, EndLocation}</c></tag>
           <item>
             <p>End of file was encountered.</p>
           </item>
-          <tag><c>{error, ErrorInfo, ErrorLine}</c></tag>
+          <tag><c>{error, ErrorInfo, ErrorLocation}</c></tag>
           <item>
             <p>An error occurred.</p>
           </item>
@@ -923,11 +933,12 @@ enter><input>abc("hey".</input>
       <name name="parse_erl_form" arity="3"/>
       <name name="parse_erl_form" arity="4"/>
       <type name="parse_form_ret"/>
+      <type name="server_no_data"/>
       <fsummary>Read, tokenize and parse an Erlang form</fsummary>
       <desc>
         <p>Reads data from the standard input (<c><anno>IoDevice</anno></c>),
           prompting it with <c><anno>Prompt</anno></c>. Starts reading at
-          line number <c><anno>StartLine</anno></c> (1). The argument
+          location <c><anno>StartLocation</anno></c> (<c>1</c>). The argument
           <c><anno>Options</anno></c> is passed on as the
           <c>Options</c> argument of the <c>erl_scan:tokens/4</c>
           function. The data is tokenized and parsed as if
@@ -935,15 +946,15 @@ enter><input>abc("hey".</input>
           in an Erlang source file - until a final dot (<c>.</c>) is reached. It
           returns:</p>
         <taglist>
-          <tag><c>{ok, AbsForm, EndLine}</c></tag>
+          <tag><c>{ok, AbsForm, EndLocation}</c></tag>
           <item>
             <p>The parsing was successful.</p>
           </item>
-          <tag><c>{eof, EndLine}</c></tag>
+          <tag><c>{eof, EndLocation}</c></tag>
           <item>
             <p>End of file was encountered.</p>
           </item>
-          <tag><c>{error, ErrorInfo, ErrorLine}</c></tag>
+          <tag><c>{error, ErrorInfo, ErrorLocation}</c></tag>
           <item>
             <p>An error occurred.</p>
           </item>
@@ -990,7 +1001,7 @@ Error: error 11</pre>
       <c>ErrorInfo</c> structure which is returned from all IO modules.
       It has the format:</p>
     <code type="none">
-{ErrorLine, Module, ErrorDescriptor}</code>
+{ErrorLocation, Module, ErrorDescriptor}</code>
     <p>A string which describes the error is obtained with the following
       call:</p>
     <code type="none">

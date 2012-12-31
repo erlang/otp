@@ -33,18 +33,17 @@
          parse_erl_form/3,parse_erl_form/4]).
 -export([request/1,request/2,requests/1,requests/2]).
 
--export_type([device/0, format/0]).
+-export_type([device/0, format/0, server_no_data/0]).
 
 %%-------------------------------------------------------------------------
 
 -type device() :: atom() | pid().
 -type prompt() :: atom() | string().
 
--type error_description() :: term(). % Whatever the io-server sends.
--type request_error() :: {'error',error_description()}.
+%% ErrorDescription is whatever the I/O-server sends.
+-type server_no_data() :: {'error', ErrorDescription :: term()} | 'eof'.
 
-%% XXX: Some uses of line() in this file may need to read erl_scan:location()
--type line()   :: pos_integer().
+-type location() :: erl_scan:location().
 
 %%-------------------------------------------------------------------------
 
@@ -125,7 +124,7 @@ rows(Io) ->
 	    {error,enotsup}
     end.    
 
--spec get_chars(Prompt, Count) -> Data | 'eof' when
+-spec get_chars(Prompt, Count) -> Data | server_no_data() when
       Prompt :: prompt(),
       Count :: non_neg_integer(),
       Data :: [unicode:unicode_char()] | unicode:unicode_binary().
@@ -133,25 +132,23 @@ rows(Io) ->
 get_chars(Prompt, N) ->
     get_chars(default_input(), Prompt, N).
 
--spec get_chars(IoDevice, Prompt, Count) -> Data | 'eof' | {error, Reason} when
+-spec get_chars(IoDevice, Prompt, Count) -> Data | server_no_data() when
       IoDevice :: device(),
       Prompt :: prompt(),
       Count :: non_neg_integer(),
-      Reason :: term(),
       Data :: [unicode:unicode_char()] | unicode:unicode_binary().
 
 get_chars(Io, Prompt, N) when is_integer(N), N >= 0 ->
     request(Io, {get_chars,unicode,Prompt,N}).
 
--spec get_line(Prompt) -> Data | 'eof' | {'error', Reason} when
+-spec get_line(Prompt) -> Data | server_no_data() when
       Prompt :: prompt(),
-      Reason :: term(),
       Data :: [unicode:unicode_char()] | unicode:unicode_binary().
 
 get_line(Prompt) ->
     get_line(default_input(), Prompt).
 
--spec get_line(IoDevice, Prompt) -> Data | 'eof' | {'error', term()} when
+-spec get_line(IoDevice, Prompt) -> Data | server_no_data() when
       IoDevice :: device(),
       Prompt :: prompt(),
       Data :: [unicode:unicode_char()] | unicode:unicode_binary().
@@ -220,8 +217,9 @@ write(Io, Term) ->
 -spec read(Prompt) -> Result when
       Prompt :: prompt(),
       Result :: {'ok', Term :: term()}
-              | 'eof'
-              | {'error', ErrorInfo :: erl_scan:error_info()}.
+              | server_no_data()
+              | {'error', ErrorInfo},
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
 % Read does not use get_until as erl_scan does not work with unicode
 % XXX:PaN fixme?
@@ -232,8 +230,9 @@ read(Prompt) ->
       IoDevice :: device(),
       Prompt :: prompt(),
       Result :: {'ok', Term :: term()}
-              | 'eof'
-              | {'error', ErrorInfo :: erl_scan:error_info()}.
+              | server_no_data()
+              | {'error', ErrorInfo},
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
 read(Io, Prompt) ->
     case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[1]}) of
@@ -249,37 +248,41 @@ read(Io, Prompt) ->
 	    Other
     end.
 
--spec read(IoDevice, Prompt, StartLine) -> Result when
+-spec read(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLine :: line(),
-      Result :: {'ok', Term :: term(), EndLine :: line()}
-              | {'eof', EndLine :: line()}
-              | {'error', ErrorInfo :: erl_scan:error_info(), ErrorLine :: line()}.
+      StartLocation :: location(),
+      Result :: {'ok', Term :: term(), EndLocation :: location()}
+              | {'eof', EndLocation :: location()}
+              | server_no_data()
+              | {'error', ErrorInfo, ErrorLocation :: location()},
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
 read(Io, Prompt, Pos0) ->
     read(Io, Prompt, Pos0, []).
 
--spec read(IoDevice, Prompt, StartLine, Options) -> Result when
+-spec read(IoDevice, Prompt, StartLocation, Options) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLine :: line(),
+      StartLocation :: location(),
       Options :: erl_scan:options(),
-      Result :: {'ok', Term :: term(), EndLine :: line()}
-              | {'eof', EndLine :: line()}
-              | {'error', ErrorInfo :: erl_scan:error_info(), ErrorLine :: line()}.
+      Result :: {'ok', Term :: term(), EndLocation :: location()}
+              | {'eof', EndLocation :: location()}
+              | server_no_data()
+              | {'error', ErrorInfo, ErrorLocation :: location()},
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
-read(Io, Prompt, Pos0, Options) when is_integer(Pos0), is_list(Options) ->
+read(Io, Prompt, Pos0, Options) ->
     Args = [Pos0,Options],
     case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,Args}) of
-	{ok,Toks,EndLine} ->
+	{ok,Toks,EndLocation} ->
             case erl_parse:parse_term(Toks) of
-                {ok,Term} -> {ok,Term,EndLine};
-                {error,ErrorInfo} -> {error,ErrorInfo,EndLine}
+                {ok,Term} -> {ok,Term,EndLocation};
+                {error,ErrorInfo} -> {error,ErrorInfo,EndLocation}
             end;
-	{error,_E,_EndLine} = Error ->
+	{error,_E,_EndLocation} = Error ->
 	    Error;
-	{eof,_EndLine} = Eof ->
+	{eof,_EndLocation} = Eof ->
 	    Eof;
 	Other ->
 	    Other
@@ -327,7 +330,9 @@ fread(Prompt, Format) ->
       IoDevice :: device(),
       Prompt :: prompt(),
       Format :: format(),
-      Result :: {'ok', Terms :: [term()]} | 'eof' | {'error', What :: term()}.
+      Result :: {'ok', Terms :: [term()]}
+              | {'error', FreadError :: io_lib:fread_error()}
+              | server_no_data().
 
 fread(Io, Prompt, Format) ->
     case request(Io, {fread,Prompt,Format}) of
@@ -362,7 +367,7 @@ format(Io, Format, Args) ->
 
 -spec scan_erl_exprs(Prompt) -> Result when
       Prompt :: prompt(),
-      Result :: erl_scan:tokens_result() | request_error().
+      Result :: erl_scan:tokens_result() | server_no_data().
  
 scan_erl_exprs(Prompt) ->
     scan_erl_exprs(default_input(), Prompt, 1).
@@ -370,33 +375,33 @@ scan_erl_exprs(Prompt) ->
 -spec scan_erl_exprs(Device, Prompt) -> Result when
       Device :: device(),
       Prompt :: prompt(),
-      Result :: erl_scan:tokens_result() | request_error().
+      Result :: erl_scan:tokens_result() | server_no_data().
 
 scan_erl_exprs(Io, Prompt) ->
     scan_erl_exprs(Io, Prompt, 1).
 
--spec scan_erl_exprs(Device, Prompt, StartLine) -> Result when
+-spec scan_erl_exprs(Device, Prompt, StartLocation) -> Result when
       Device :: device(),
       Prompt :: prompt(),
-      StartLine :: line(),
-      Result :: erl_scan:tokens_result() | request_error().
+      StartLocation :: location(),
+      Result :: erl_scan:tokens_result() | server_no_data().
 
 scan_erl_exprs(Io, Prompt, Pos0) ->
     scan_erl_exprs(Io, Prompt, Pos0, []).
 
--spec scan_erl_exprs(Device, Prompt, StartLine, Options) -> Result when
+-spec scan_erl_exprs(Device, Prompt, StartLocation, Options) -> Result when
       Device :: device(),
       Prompt :: prompt(),
-      StartLine :: line(),
+      StartLocation :: location(),
       Options :: erl_scan:options(),
-      Result :: erl_scan:tokens_result() | request_error().
+      Result :: erl_scan:tokens_result() | server_no_data().
 
 scan_erl_exprs(Io, Prompt, Pos0, Options) ->
     request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0,Options]}).
 
 -spec scan_erl_form(Prompt) -> Result when
       Prompt :: prompt(),
-      Result :: erl_scan:tokens_result() | request_error().
+      Result :: erl_scan:tokens_result() | server_no_data().
 
 scan_erl_form(Prompt) ->
     scan_erl_form(default_input(), Prompt, 1).
@@ -404,36 +409,41 @@ scan_erl_form(Prompt) ->
 -spec scan_erl_form(IoDevice, Prompt) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      Result :: erl_scan:tokens_result() | request_error().
+      Result :: erl_scan:tokens_result() | server_no_data().
 
 scan_erl_form(Io, Prompt) ->
     scan_erl_form(Io, Prompt, 1).
 
--spec scan_erl_form(IoDevice, Prompt, StartLine) -> Result when
+-spec scan_erl_form(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLine :: line(),
-      Result :: erl_scan:tokens_result() | request_error().
+      StartLocation :: location(),
+      Result :: erl_scan:tokens_result() | server_no_data().
 
 scan_erl_form(Io, Prompt, Pos0) ->
     scan_erl_form(Io, Prompt, Pos0, []).
 
--spec scan_erl_form(IoDevice, Prompt, StartLine, Options) -> Result when
+-spec scan_erl_form(IoDevice, Prompt, StartLocation, Options) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLine :: line(),
+      StartLocation :: location(),
       Options :: erl_scan:options(),
-      Result :: erl_scan:tokens_result() | request_error().
+      Result :: erl_scan:tokens_result() | server_no_data().
 
 scan_erl_form(Io, Prompt, Pos0, Options) ->
     request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0,Options]}).
 
 %% Parsing Erlang code.
 
--type parse_ret() :: {'ok', ExprList :: erl_parse:abstract_expr(), EndLine :: line()}
-                   | {'eof', EndLine :: line()}
-                   | {'error', ErrorInfo :: erl_scan:error_info(), ErrorLine :: line()}
-                   | request_error().
+-type parse_ret() :: {'ok',
+                      ExprList :: erl_parse:abstract_expr(),
+                      EndLocation :: location()}
+                   | {'eof', EndLocation :: location()}
+                   | {'error',
+                      ErrorInfo :: erl_scan:error_info()
+                                 | erl_parse:error_info(),
+                      ErrorLocation :: location()}
+                   | server_no_data().
 
 -spec parse_erl_exprs(Prompt) -> Result when
       Prompt :: prompt(),
@@ -450,19 +460,19 @@ parse_erl_exprs(Prompt) ->
 parse_erl_exprs(Io, Prompt) ->
     parse_erl_exprs(Io, Prompt, 1).
 
--spec parse_erl_exprs(IoDevice, Prompt, StartLine) -> Result when
+-spec parse_erl_exprs(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLine :: line(),
+      StartLocation :: location(),
       Result :: parse_ret().
 
 parse_erl_exprs(Io, Prompt, Pos0) ->
     parse_erl_exprs(Io, Prompt, Pos0, []).
 
--spec parse_erl_exprs(IoDevice, Prompt, StartLine, Options) -> Result when
+-spec parse_erl_exprs(IoDevice, Prompt, StartLocation, Options) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLine :: line(),
+      StartLocation :: location(),
       Options :: erl_scan:options(),
       Result :: parse_ret().
 
@@ -477,10 +487,15 @@ parse_erl_exprs(Io, Prompt, Pos0, Options) ->
 	    Other
     end.
 
--type parse_form_ret() :: {'ok', AbsForm :: erl_parse:abstract_form(), EndLine :: line()}
-                        | {'eof', EndLine :: line()}
-                        | {'error', ErrorInfo :: erl_scan:error_info(), ErrorLine :: line()}
-                        | request_error().
+-type parse_form_ret() :: {'ok',
+                           AbsForm :: erl_parse:abstract_form(),
+                           EndLocation :: location()}
+                        | {'eof', EndLocation :: location()}
+                        | {'error',
+                           ErrorInfo :: erl_scan:error_info()
+                                      | erl_parse:error_info(),
+                           ErrorLocation :: location()}
+                        | server_no_data().
 
 -spec parse_erl_form(Prompt) -> Result when
       Prompt :: prompt(),
@@ -497,19 +512,19 @@ parse_erl_form(Prompt) ->
 parse_erl_form(Io, Prompt) ->
     parse_erl_form(Io, Prompt, 1).
 
--spec parse_erl_form(IoDevice, Prompt, StartLine) -> Result when
+-spec parse_erl_form(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLine :: line(),
+      StartLocation :: location(),
       Result :: parse_form_ret().
 
 parse_erl_form(Io, Prompt, Pos0) ->
     parse_erl_form(Io, Prompt, Pos0, []).
 
--spec parse_erl_form(IoDevice, Prompt, StartLine, Options) -> Result when
+-spec parse_erl_form(IoDevice, Prompt, StartLocation, Options) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLine :: line(),
+      StartLocation :: location(),
       Options :: erl_scan:options(),
       Result :: parse_form_ret().
 

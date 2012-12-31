@@ -78,7 +78,8 @@
 	 collect_line/2, collect_line/3, collect_line/4,
 	 get_until/3, get_until/4]).
 
--export_type([chars/0, unicode_chars/0, unicode_string/0, continuation/0]).
+-export_type([chars/0, unicode_chars/0, unicode_string/0, continuation/0,
+              fread_error/0]).
 
 %%----------------------------------------------------------------------
 
@@ -91,6 +92,16 @@
                            Stack :: chars(),
                            Nchars :: non_neg_integer(),
                            Results :: [term()]}.
+
+-type fread_error() :: 'atom'
+                     | 'based'
+                     | 'character'
+                     | 'float'
+                     | 'format'
+                     | 'input'
+                     | 'integer'
+                     | 'string'
+                     | 'unsigned'.
 
 %%----------------------------------------------------------------------
 
@@ -112,7 +123,7 @@ fwrite(Format, Args) ->
               | {'more', RestFormat :: string(),
                  Nchars :: non_neg_integer(),
                  InputStack :: chars()}
-              | {'error', What :: term()}.
+              | {'error', What :: fread_error()}.
 
 fread(Chars, Format) ->
     io_lib_fread:fread(Chars, Format).
@@ -125,7 +136,7 @@ fread(Chars, Format) ->
               | {'done', Result, LeftOverChars :: string()},
       Result :: {'ok', InputList :: [term()]}
               | 'eof'
-              | {'error', What :: term()}.
+              | {'error', What :: fread_error()}.
 
 fread(Cont, Chars, Format) ->
     io_lib_fread:fread(Cont, Chars, Format).

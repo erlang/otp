@@ -43,7 +43,7 @@
               | {'done', Result, LeftOverChars :: string()},
       Result :: {'ok', InputList :: io_lib:chars()}
               | 'eof'
-              | {'error', What :: term()}.
+              | {'error', What :: io_lib:fread_error()}.
 
 fread([], Chars, Format) ->
     %%io:format("FREAD: ~w `~s'~n", [Format,Chars]),
