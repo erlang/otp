@@ -424,7 +424,7 @@ get_password_chars(Drv,Buf) ->
     end.
 
 get_chars(Prompt, M, F, Xa, Drv, Buf, Encoding) ->
-    Pbs = prompt_bytes(Prompt),
+    Pbs = prompt_bytes(Prompt, Encoding),
     get_chars_loop(Pbs, M, F, Xa, Drv, Buf, start, Encoding).
 
 get_chars_loop(Pbs, M, F, Xa, Drv, Buf0, State, Encoding) ->
@@ -688,9 +688,9 @@ edit_password([Char|Cs],Chars) ->
     edit_password(Cs,[Char|Chars]).
 
 %% prompt_bytes(Prompt)
-%%  Return a flat list of bytes for the Prompt.
-prompt_bytes(Prompt) ->
-    lists:flatten(io_lib:format_prompt(Prompt)).
+%%  Return a flat list of characters for the Prompt.
+prompt_bytes(Prompt, Encoding) ->
+    lists:flatten(io_lib:format_prompt(Prompt, Encoding)).
 
 cast(L, binary,latin1) when is_list(L) ->
     list_to_binary(L);

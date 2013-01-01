@@ -73,9 +73,9 @@ o_request(Io, Request, Func) ->
 put_chars(Chars) ->
     put_chars(default_output(), Chars).
 
--spec put_chars(IoDevice, IoData) -> 'ok' when
+-spec put_chars(IoDevice, CharData) -> 'ok' when
       IoDevice :: device(),
-      IoData :: unicode:chardata().
+      CharData :: unicode:chardata().
 
 put_chars(Io, Chars) ->
     o_request(Io, {put_chars,unicode,Chars}, put_chars).

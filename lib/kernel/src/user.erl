@@ -673,8 +673,9 @@ get_chars_more(State, M, F, Xa, Port, Q, Enc) ->
 prompt(_Port, '') -> ok;
 
 prompt(Port, Prompt) ->
-    put_port(wrap_characters_to_binary(io_lib:format_prompt(Prompt),
-                                       unicode, get(encoding)),
+    Encoding = get(encoding),
+    put_port(wrap_characters_to_binary(io_lib:format_prompt(Prompt, Encoding),
+                                       unicode, Encoding),
              Port).
 
 %% Convert error code to make it look as before

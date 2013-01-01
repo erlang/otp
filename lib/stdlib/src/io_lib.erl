@@ -62,7 +62,7 @@
 -export([fwrite/2,fread/2,fread/3,format/2]).
 -export([print/1,print/4,indentation/2]).
 
--export([write/1,write/2,write/3,nl/0,format_prompt/1]).
+-export([write/1,write/2,write/3,nl/0,format_prompt/1,format_prompt/2]).
 -export([write_atom/1,write_string/1,write_string/2,write_unicode_string/1,
          write_unicode_string/2, write_char/1, write_unicode_char/1]).
 
@@ -178,27 +178,34 @@ indentation(Chars, Current) ->
 
 
 %% Format an IO-request prompt (handles formatting errors safely).
-%% Atoms, binaries, and iolists can be used as-is, and will be
-%% printed without any additional quotes.
-%% Note that the output is a deep string, and not an iolist (i.e.,
-%% it may be deep, but never contains binaries, due to the "~s").
+%% Atoms, binaries, and iolists (or unicode:charlist()) can be used
+%% as-is, and will be printed without any additional quotes.
 
 -spec format_prompt(term()) -> chars().
 
-format_prompt({format,Format,Args}) ->
-    format_prompt(Format,Args);
-format_prompt(Prompt)
-  when is_list(Prompt); is_atom(Prompt); is_binary(Prompt) ->
-    format_prompt("~ts", [Prompt]);
 format_prompt(Prompt) ->
-    format_prompt("~tp", [Prompt]).
+    format_prompt(Prompt, latin1).
 
-format_prompt(Format, Args) ->
+-spec format_prompt(term(), atom()) -> chars().
+
+format_prompt({format,Format,Args}, _Encoding) ->
+    do_format_prompt(Format, Args);
+format_prompt(Prompt, Encoding)
+  when is_list(Prompt); is_atom(Prompt); is_binary(Prompt) ->
+    do_format_prompt(add_modifier(Encoding, "s"), [Prompt]);
+format_prompt(Prompt, Encoding) ->
+    do_format_prompt(add_modifier(Encoding, "p"), [Prompt]).
+
+do_format_prompt(Format, Args) ->
     case catch io_lib:format(Format, Args) of
 	{'EXIT',_} -> "???";
 	List -> List
     end.
 
+add_modifier(latin1, C) ->
+    "~"++C;
+add_modifier(_, C) ->
+    "~t"++C.
 
 %% write(Term)
 %% write(Term, Depth)
