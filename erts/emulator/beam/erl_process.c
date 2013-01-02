@@ -4080,11 +4080,11 @@ typedef enum {
 } ErtsSchedWakeupOtherThreshold;
 
 typedef enum {
-    ERTS_SCHED_WAKEUP_OTHER_TYPE_PROPOSAL,
+    ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT,
     ERTS_SCHED_WAKEUP_OTHER_TYPE_LEGACY
 } ErtsSchedWakeupOtherType;
 
-/* First proposal */
+/* Default */
 
 #define ERTS_WAKEUP_OTHER_LIMIT_VERY_HIGH (200*CONTEXT_REDS)
 #define ERTS_WAKEUP_OTHER_LIMIT_HIGH (50*CONTEXT_REDS)
@@ -4101,7 +4101,7 @@ typedef enum {
 #define ERTS_WAKEUP_OTHER_DEC_SHIFT 2
 #define ERTS_WAKEUP_OTHER_FIXED_INC (CONTEXT_REDS/10)
 
-/* To be legacy */
+/* Legacy */
 
 #define ERTS_WAKEUP_OTHER_LIMIT_VERY_HIGH_LEGACY (200*CONTEXT_REDS)
 #define ERTS_WAKEUP_OTHER_LIMIT_HIGH_LEGACY (50*CONTEXT_REDS)
@@ -4239,7 +4239,7 @@ static void
 set_wakeup_other_data(void)
 {
     switch (wakeup_other.type) {
-    case ERTS_SCHED_WAKEUP_OTHER_TYPE_PROPOSAL:
+    case ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT:
 	wakeup_other.check = wakeup_other_check;
 	wakeup_other_set_limit();
 	break;
@@ -4258,7 +4258,7 @@ erts_early_init_scheduling(int no_schedulers)
     aux_work_timeout_early_init(no_schedulers);
 #ifdef ERTS_SMP
     wakeup_other.threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_MEDIUM;
-    wakeup_other.type = ERTS_SCHED_WAKEUP_OTHER_TYPE_LEGACY;
+    wakeup_other.type = ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT;
 #endif
     sched_busy_wait.sys_schedule = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM;
     sched_busy_wait.tse = (ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM
@@ -4294,10 +4294,8 @@ int
 erts_sched_set_wakeup_other_type(char *str)
 {
     ErtsSchedWakeupOtherType type;
-    if (sys_strcmp(str, "proposal") == 0)
-	type = ERTS_SCHED_WAKEUP_OTHER_TYPE_PROPOSAL;
-    else if (sys_strcmp(str, "default") == 0)
-	type = ERTS_SCHED_WAKEUP_OTHER_TYPE_LEGACY;
+    if (sys_strcmp(str, "default") == 0)
+	type = ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT;
     else if (sys_strcmp(str, "legacy") == 0)
 	type = ERTS_SCHED_WAKEUP_OTHER_TYPE_LEGACY;
     else

@@ -529,7 +529,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "-sct cput   set cpu topology,\n");
     erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-sws val    set scheduler wakeup strategy, valid values are:\n");
-    erts_fprintf(stderr, "            default|legacy|proposal.\n");
+    erts_fprintf(stderr, "            default|legacy.\n");
     erts_fprintf(stderr, "-swt val    set scheduler wakeup threshold, valid values are:\n");
     erts_fprintf(stderr, "            very_low|low|medium|high|very_high.\n");
     erts_fprintf(stderr, "-sss size   suggested stack size in kilo words for scheduler threads,\n");
