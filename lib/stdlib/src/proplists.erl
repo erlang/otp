@@ -51,20 +51,21 @@
 
 -export_type([property/0, proplist/0]).
 
--type property()   :: atom() | tuple().
+-type property()  :: atom() | tuple().
 -type proplist()  :: [property()].
 
 %% ---------------------------------------------------------------------
 
 %% @doc Creates a normal form (minimal) representation of a property. If
-%% <code>P</code> is <code>{Key, true}</code> where <code>Key</code> is
-%% an atom, this returns <code>Key</code>, otherwise the whole term
-%% <code>P</code> is returned.
+%% <code>PropertyIn</code> is <code>{Key, true}</code> where
+%% <code>Key</code> is an atom, this returns <code>Key</code>, otherwise
+%% the whole term <code>PropertyIn</code> is returned.
 %%
 %% @see property/2
 
--spec property(Property) -> Property when
-      Property :: property().
+-spec property(PropertyIn) -> PropertyOut when
+      PropertyIn :: property(),
+      PropertyOut :: property().
 
 property({Key, true}) when is_atom(Key) ->
     Key;
@@ -92,13 +93,14 @@ property(Key, Value) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc Unfolds all occurences of atoms in <code>List</code> to tuples
+%% @doc Unfolds all occurences of atoms in <code>ListIn</code> to tuples
 %% <code>{Atom, true}</code>.
 %%
 %% @see compact/1
 
--spec unfold(List) -> List when
-      List :: [term()].
+-spec unfold(ListIn) -> ListOut when
+      ListIn :: [term()],
+      ListOut :: [term()].
 
 unfold([P | Ps]) ->
     if is_atom(P) ->
@@ -110,16 +112,17 @@ unfold([]) ->
     [].
 
 %% @doc Minimizes the representation of all entries in the list. This is
-%% equivalent to <code>[property(P) || P &lt;- List]</code>.
+%% equivalent to <code>[property(P) || P &lt;- ListIn]</code>.
 %%
 %% @see unfold/1
 %% @see property/1
 
--spec compact(List) -> List when
-      List :: [property()].
+-spec compact(ListIn) -> ListOut when
+      ListIn :: [property()],
+      ListOut :: [property()].
 
-compact(List) ->
-    [property(P) || P <- List].
+compact(ListIn) ->
+    [property(P) || P <- ListIn].
 
 
 %% ---------------------------------------------------------------------
@@ -199,7 +202,7 @@ is_defined(_Key, []) ->
 
 -spec get_value(Key, List) -> term() when
       Key :: term(),
-      List :: List::[term()].
+      List :: [term()].
 
 get_value(Key, List) ->
     get_value(Key, List, undefined).
@@ -272,9 +275,10 @@ get_all_values(_Key, []) ->
 %%
 %% @see get_all_values/2
 
--spec append_values(Key, List) -> List when
+-spec append_values(Key, ListIn) -> ListOut when
       Key :: term(),
-      List :: [term()].
+      ListIn :: [term()],
+      ListOut :: [term()].
 
 append_values(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -357,7 +361,7 @@ get_keys([], Keys) ->
 
 -spec delete(Key, List) -> List when
       Key :: term(),
-      List::[term()].
+      List :: [term()].
 
 delete(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -374,7 +378,7 @@ delete(_, []) ->
 %% ---------------------------------------------------------------------
 
 %% @doc Substitutes keys of properties. For each entry in
-%% <code>List</code>, if it is associated with some key <code>K1</code>
+%% <code>ListIn</code>, if it is associated with some key <code>K1</code>
 %% such that <code>{K1, K2}</code> occurs in <code>Aliases</code>, the
 %% key of the entry is changed to <code>Key2</code>. If the same
 %% <code>K1</code> occurs more than once in <code>Aliases</code>, only
@@ -388,10 +392,11 @@ delete(_, []) ->
 %% @see substitute_negations/2
 %% @see normalize/2
 
--spec substitute_aliases(Aliases, List) -> List when
+-spec substitute_aliases(Aliases, ListIn) -> ListOut when
       Aliases :: [{Key, Key}],
       Key :: term(),
-      List::[term()].
+      ListIn :: [term()],
+      ListOut :: [term()].
 
 substitute_aliases(As, Props) ->
     [substitute_aliases_1(As, P) || P <- Props].
@@ -411,13 +416,13 @@ substitute_aliases_1([], P) ->
 %% ---------------------------------------------------------------------
 
 %% @doc Substitutes keys of boolean-valued properties and simultaneously
-%% negates their values. For each entry in <code>List</code>, if it is
+%% negates their values. For each entry in <code>ListIn</code>, if it is
 %% associated with some key <code>K1</code> such that <code>{K1,
 %% K2}</code> occurs in <code>Negations</code>, then if the entry was
 %% <code>{K1, true}</code> it will be replaced with <code>{K2,
 %% false}</code>, otherwise it will be replaced with <code>{K2,
 %% true}</code>, thus changing the name of the option and simultaneously
-%% negating the value given by <code>get_bool(List)</code>. If the same
+%% negating the value given by <code>get_bool(ListIn)</code>. If the same
 %% <code>K1</code> occurs more than once in <code>Negations</code>, only
 %% the first occurrence is used.
 %%
@@ -431,10 +436,11 @@ substitute_aliases_1([], P) ->
 %% @see substitute_aliases/2
 %% @see normalize/2
 
--spec substitute_negations(Negations, List) -> List when
+-spec substitute_negations(Negations, ListIn) -> ListOut when
       Negations :: [{Key, Key}],
       Key :: term(),
-      List :: [term()].
+      ListIn :: [term()],
+      ListOut :: [term()].
 
 substitute_negations(As, Props) ->
     [substitute_negations_1(As, P) || P <- Props].
@@ -466,11 +472,11 @@ substitute_negations_1([], P) ->
 %% @doc Expands particular properties to corresponding sets of
 %% properties (or other terms). For each pair <code>{Property,
 %% Expansion}</code> in <code>Expansions</code>, if <code>E</code> is
-%% the first entry in <code>List</code> with the same key as
+%% the first entry in <code>ListIn</code> with the same key as
 %% <code>Property</code>, and <code>E</code> and <code>Property</code>
 %% have equivalent normal forms, then <code>E</code> is replaced with
 %% the terms in <code>Expansion</code>, and any following entries with
-%% the same key are deleted from <code>List</code>.
+%% the same key are deleted from <code>ListIn</code>.
 %%
 %% <p>For example, the following expressions all return <code>[fie, bar,
 %% baz, fum]</code>:
@@ -497,9 +503,10 @@ substitute_negations_1([], P) ->
 %%
 %% @see normalize/2
 
--spec expand(Expansions, List) -> List when
+-spec expand(Expansions, ListIn) -> ListOut when
       Expansions :: [{Property :: property(), Expansion :: [term()]}],
-      List :: [term()].
+      ListIn :: [term()],
+      ListOut :: [term()].
 
 expand(Es, Ps) when is_list(Ps) ->
     Es1 = [{property(P), V} || {P, V} <- Es],
@@ -599,15 +606,16 @@ flatten([]) ->
 %% @see expand/2
 %% @see compact/1
 
--spec normalize(List, Stages) -> List when
-      List :: [term()],
+-spec normalize(ListIn, Stages) -> ListOut when
+      ListIn :: [term()],
       Stages :: [Operation],
       Operation :: {'aliases', Aliases}
                  | {'negations', Negations}
                  | {'expand', Expansions},
       Aliases :: [{Key, Key}],
       Negations :: [{Key, Key}],
-      Expansions :: [{Property :: property(), Expansion :: [term()]}].
+      Expansions :: [{Property :: property(), Expansion :: [term()]}],
+      ListOut :: [term()].
 
 normalize(L, [{aliases, As} | Xs]) ->
     normalize(substitute_aliases(As, L), Xs);

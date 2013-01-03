@@ -70,7 +70,7 @@
       <fsummary></fsummary>
       <desc>
         <p>Minimizes the representation of all entries in the list. This is
-          equivalent to <c><![CDATA[[property(P) || P <- List]]]></c>.</p>
+          equivalent to <c><![CDATA[[property(P) || P <- ListIn]]]></c>.</p>
         <p>See also: <c>property/1</c>, <c>unfold/1</c>.</p>
       </desc>
     </func>
@@ -88,11 +88,11 @@
       <desc>
         <p>Expands particular properties to corresponding sets of
           properties (or other terms). For each pair <c>{<anno>Property</anno>, <anno>Expansion</anno>}</c> in <c><anno>Expansions</anno></c>, if <c>E</c> is
-          the first entry in <c><anno>List</anno></c> with the same key as
+          the first entry in <c><anno>ListIn</anno></c> with the same key as
           <c><anno>Property</anno></c>, and <c>E</c> and <c><anno>Property</anno></c>
           have equivalent normal forms, then <c>E</c> is replaced with
           the terms in <c><anno>Expansion</anno></c>, and any following entries with
-          the same key are deleted from <c><anno>List</anno></c>.</p>
+          the same key are deleted from <c><anno>ListIn</anno></c>.</p>
         <p>For example, the following expressions all return <c>[fie, bar, baz, fum]</c>:</p>
         <code type="none">
           expand([{foo, [bar, baz]}],
@@ -198,7 +198,7 @@
       <name name="normalize" arity="2"/>
       <fsummary></fsummary>
       <desc>
-        <p>Passes <c><anno>List</anno></c> through a sequence of
+        <p>Passes <c><anno>ListIn</anno></c> through a sequence of
           substitution/expansion stages. For an <c>aliases</c> operation,
           the function <c>substitute_aliases/2</c> is applied using the
           given list of aliases; for a <c>negations</c> operation,
@@ -221,9 +221,9 @@
       <fsummary></fsummary>
       <desc>
         <p>Creates a normal form (minimal) representation of a property. If
-          <c><anno>Property</anno></c> is <c>{Key, true}</c> where <c>Key</c> is
-          an atom, this returns <c>Key</c>, otherwise the whole term
-          <c><anno>Property</anno></c> is returned.</p>
+          <c><anno>PropertyIn</anno></c> is <c>{Key, true}</c> where
+	  <c>Key</c> is an atom, this returns <c>Key</c>, otherwise
+	  the whole term <c><anno>PropertyIn</anno></c> is returned.</p>
         <p>See also: <c>property/2</c>.</p>
       </desc>
     </func>
@@ -260,7 +260,7 @@
       <fsummary></fsummary>
       <desc>
         <p>Substitutes keys of properties. For each entry in
-          <c><anno>List</anno></c>, if it is associated with some key <c>K1</c>
+          <c><anno>ListIn</anno></c>, if it is associated with some key <c>K1</c>
           such that <c>{K1, K2}</c> occurs in <c><anno>Aliases</anno></c>, the
           key of the entry is changed to <c>K2</c>. If the same
           <c>K1</c> occurs more than once in <c><anno>Aliases</anno></c>, only
@@ -278,13 +278,13 @@
       <desc>
         <p>Substitutes keys of boolean-valued properties and
           simultaneously negates their values. For each entry in
-          <c><anno>List</anno></c>, if it is associated with some key <c>K1</c>
+          <c><anno>ListIn</anno></c>, if it is associated with some key <c>K1</c>
           such that <c>{K1, K2}</c> occurs in <c><anno>Negations</anno></c>, then
           if the entry was <c>{K1, true}</c> it will be replaced with
           <c>{K2, false}</c>, otherwise it will be replaced with
           <c>{K2, true}</c>, thus changing the name of the option and
           simultaneously negating the value given by
-          <c>get_bool(List)</c>. If the same <c>K1</c> occurs more
+          <c>get_bool(ListIn)</c>. If the same <c>K1</c> occurs more
           than once in <c><anno>Negations</anno></c>, only the first occurrence is
           used.</p>
         <p>Example: <c>substitute_negations([{no_foo, foo}], L)</c>
@@ -300,7 +300,7 @@
       <name name="unfold" arity="1"/>
       <fsummary></fsummary>
       <desc>
-        <p>Unfolds all occurrences of atoms in <c><anno>List</anno></c> to tuples
+        <p>Unfolds all occurrences of atoms in <c><anno>ListIn</anno></c> to tuples
           <c>{Atom, true}</c>.</p>
       </desc>
     </func>
