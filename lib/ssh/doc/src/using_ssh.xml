@@ -5,6 +5,7 @@
   <header>
     <copyright>
       <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -102,7 +103,8 @@
     <p>Use the openssh client from a shell to connect to the Erlang ssh daemon.</p>
 
     <code>
-      $bash> ssh tarlop -p 8989  -i /tmp/otptest_user/.ssh/id_rsa -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts
+      $bash> ssh tarlop -p 8989  -i /tmp/otptest_user/.ssh/id_rsa\
+             -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts
       The authenticity of host 'tarlop' can't be established.
       RSA key fingerprint is 14:81:80:50:b1:1f:57:dd:93:a8:2d:2f:dd:90:ae:a8.
       Are you sure you want to continue connecting (yes/no)? yes
@@ -174,8 +176,9 @@
     <code type="erl" >
       1> ssh:start().
       ok
-      2> ssh:daemon(8989,  [{system_dir, "/tmp/ssh_daemon"}, {user_dir, "/tmp/otptest_user/.ssh"},
-      {subsystems, [ssh_sftpd:subsystem_spec([{cwd, "/tmp/sftp/example"}])]}]).
+      2> ssh:daemon(8989,  [{system_dir, "/tmp/ssh_daemon"},
+         {user_dir, "/tmp/otptest_user/.ssh"},
+         {subsystems, [ssh_sftpd:subsystem_spec([{cwd, "/tmp/sftp/example"}])]}]).
       {ok,&lt;0.54.0>}
       3>
     </code>
@@ -183,7 +186,8 @@
     <p> Run the openssh sftp client</p>
 
     <code type="erl">
-      $bash>  sftp -oPort=8989 -o IdentityFile=/tmp/otptest_user/.ssh/id_rsa -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts tarlop
+      $bash> sftp -oPort=8989 -o IdentityFile=/tmp/otptest_user/.ssh/id_rsa\
+             -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts tarlop
       Connecting to tarlop...
       sftp> pwd
       Remote working directory: /tmp/sftp/example

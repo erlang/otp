@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2012</year><year>2012</year>
+      <year>2012</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -55,7 +55,8 @@ string()  = list of ASCII characters
     <p>For more information about URI, see RFC 3986. </p>
 
     <code type="none"><![CDATA[
-uri()       = string() - Syntax according to the URI definition in rfc 3986, ex: "http://www.erlang.org/"
+uri()       = string() - Syntax according to the URI definition in rfc 3986,
+                         e.g.: "http://www.erlang.org/"
 user_info() = string()
 scheme()    = atom()   - Example: http, https
 host()      = string()

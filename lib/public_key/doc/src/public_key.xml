@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -60,8 +60,9 @@
 
     <p><code>string = [bytes()]</code></p>
    
-    <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey'
-    'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo'| 'PrivateKeyInfo' | 'CertificationRequest'</code></p>
+    <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey' |
+    'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo' |
+    'PrivateKeyInfo' | 'CertificationRequest'</code></p>
     
     <p><code>pem_entry () = {pki_asn1_type(), binary(), %% DER or encrypted DER
           not_encrypted | cipher_info()} </code></p>

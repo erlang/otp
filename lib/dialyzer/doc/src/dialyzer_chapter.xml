@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2009</year>
+      <year>2006</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -140,7 +140,9 @@
 
     <code type="none">
 
-    dialyzer --build_plt -r $ERL_TOP/lib/stdlib/ebin $ERL_TOP/lib/kernel/ebin $ERL_TOP/lib/mnesia/ebin
+    dialyzer --build_plt -r $ERL_TOP/lib/stdlib/ebin\
+                            $ERL_TOP/lib/kernel/ebin \
+                            $ERL_TOP/lib/mnesia/ebin
     </code>
 
     <p>Dialyzer will look if there is an environment variable called

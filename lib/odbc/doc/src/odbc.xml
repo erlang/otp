@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2011</year>
+      <year>1999</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -105,8 +105,14 @@
  odbc_data_type() = sql_integer | sql_smallint | sql_tinyint |
       {sql_decimal, precision(), scale()} |
       {sql_numeric, precision(), scale()} |
-      {sql_char, size()} | {sql_wchar, size()} | {sql_varchar, size()} | {sql_wvarchar, size()}| {sql_float, precision()} |
-      {sql_wlongvarchar, size()} | {sql_float, precision()} | sql_real | sql_double | sql_bit | atom()
+      {sql_char, size()} |
+      {sql_wchar, size()} |
+      {sql_varchar, size()} |
+      {sql_wvarchar, size()}|
+      {sql_float, precision()} |
+      {sql_wlongvarchar, size()} |
+      {sql_float, precision()} |
+      sql_real | sql_double | sql_bit | atom()
     </code>
     <code type="none">
  precision() = integer()    </code>

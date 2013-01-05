@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2012</year>
+      <year>2003</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -982,38 +982,36 @@
 
     <p>Example:</p>
     <pre>
+   Some printouts during test case execution:
 
-      Some printouts during test case execution:
+     io:format("1. Standard IO, importance = ~w~n", [?STD_IMPORTANCE]),
+     ct:log("2. Uncategorized, importance = ~w", [?STD_IMPORTANCE]),
+     ct:log(info, "3. Categorized info, importance = ~w", [?STD_IMPORTANCE]]),
+     ct:log(info, ?LOW_IMPORTANCE, "4. Categorized info, importance = ~w", [?LOW_IMPORTANCE]),
+     ct:log(error, "5. Categorized error, importance = ~w", [?HI_IMPORTANCE]),
+     ct:log(error, ?HI_IMPORTANCE, "6. Categorized error, importance = ~w", [?MAX_IMPORTANCE]),
 
-        io:format("1. Standard IO, importance = ~w~n", [?STD_IMPORTANCE]),
-        ct:log("2. Uncategorized, importance = ~w", [?STD_IMPORTANCE]),
-        ct:log(info, "3. Categorized info, importance = ~w", [?STD_IMPORTANCE]]),
-        ct:log(info, ?LOW_IMPORTANCE, "4. Categorized info, importance = ~w", [?LOW_IMPORTANCE]),
-        ct:log(error, "5. Categorized error, importance = ~w", [?HI_IMPORTANCE]),
-        ct:log(error, ?HI_IMPORTANCE, "6. Categorized error, importance = ~w", [?MAX_IMPORTANCE]),
+   If starting the test without specifying any verbosity levels:
 
-      If starting the test without specifying any verbosity levels:
+     $ ct_run ...
 
-        $ ct_run ...
+   the following gets printed:
 
-      the following gets printed:
-      
-        1. Standard IO, importance = 50
-        2. Uncategorized, importance = 50
-        3. Categorized info, importance = 50
-        5. Categorized error, importance = 75
-        6. Categorized error, importance = 99
+     1. Standard IO, importance = 50
+     2. Uncategorized, importance = 50
+     3. Categorized info, importance = 50
+     5. Categorized error, importance = 75
+     6. Categorized error, importance = 99
 
-      If starting the test with:
-        
-        $ ct_run -verbosity 1 and info 75
-      
-      the following gets printed:
+   If starting the test with:
 
-        3. Categorized info, importance = 50
-	4. Categorized info, importance = 25
-        6. Categorized error, importance = 99
-    </pre>
+     $ ct_run -verbosity 1 and info 75
+
+   the following gets printed:
+
+     3. Categorized info, importance = 50
+     4. Categorized info, importance = 25
+     6. Categorized error, importance = 99</pre>
 
     <p>How categories can be mapped to CSS tags is documented in the 
     <seealso marker="run_test_chapter#html_stylesheet">Running Tests</seealso>

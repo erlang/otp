@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2011</year>
+      <year>2006</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -288,7 +288,11 @@ Option   :: {files,          [Filename :: string()]}
           | {include_dirs,   [DirName :: string()]}
           | {output_file,    FileName :: string()}
           | {output_plt,     FileName :: string()}
-          | {analysis_type,  'succ_typings' | 'plt_add' | 'plt_build' | 'plt_check' | 'plt_remove'}
+          | {analysis_type,  'succ_typings' |
+                             'plt_add' |
+                             'plt_build' |
+                             'plt_check' |
+                             'plt_remove'}
           | {warnings,       [WarnOpts]}
           | {get_warnings,   bool()}
 

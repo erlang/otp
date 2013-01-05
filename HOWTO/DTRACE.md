@@ -69,7 +69,8 @@ following may be executed in a different Pthread:
 Example output from `lib/runtime_tools/examples/efile_drv.d` while executing
 `file:rename("old-name", "new-name")`:
 
-    efile_drv enter tag={3,84} user tag some-user-tag | RENAME (12) | args: old-name new-name , 0 0 (port #Port<0.59>)
+    efile_drv enter tag={3,84} user tag some-user-tag | RENAME (12) | args: old-name new-name ,\
+          0 0 (port #Port<0.59>)
     async I/O worker tag={3,83} | RENAME (12) | efile_drv-int_entry
     async I/O worker tag={3,83} | RENAME (12) | efile_drv-int_return
     efile_drv return tag={3,83} user tag  | RENAME (12) | errno 2

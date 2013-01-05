@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1142,7 +1142,8 @@ handle_info(_Info, State) ->
       module, and <c>lookup</c> in <c>DB_Administrator_impl.erl</c><em>and</em><c>DB_CommonUser_impl.erl</c>. But wait, is that really necessary? Actually,
       it is not. We simple use the IC compile option <em>impl</em>:</p>
     <pre>
-$ <input>erlc +'{{impl, "DB::CommonUser"}, "DBUser_impl"}'  +'{{impl, "DB::Administrator"}, "DBUser_impl"}' DB.idl</input>
+$ <input>erlc +'{{impl, "DB::CommonUser"}, "DBUser_impl"}'\
+ +'{{impl, "DB::Administrator"}, "DBUser_impl"}' DB.idl</input>
 $ <input>erlc *.erl</input>
     </pre>
     <p>Instead of creating, and not the least, maintaining two call-back modules,

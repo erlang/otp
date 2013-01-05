@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -101,7 +101,8 @@
           allowed:</p>
         <pre>
 4> <input>dbg:fun2ms(fun([M,N]) when N > X, is_atomm(M)  -> return_trace() end).</input>
-Error: fun containing local erlang function calls ('is_atomm' called in guard) cannot be translated into match_spec
+Error: fun containing local erlang function calls ('is_atomm' called in guard)\
+ cannot be translated into match_spec
 {error,transform_error}
 5> <input>dbg:fun2ms(fun([M,N]) when N > X, is_atom(M)  -> return_trace() end).</input>
 [{['$1','$2'],[{'>','$2',{const,3}},{is_atom,'$1'}],[{return_trace}]}]</pre>
