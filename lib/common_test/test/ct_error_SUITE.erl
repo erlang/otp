@@ -44,8 +44,12 @@
 %% there will be clashes with logging processes etc).
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config1 = ct_test_support:init_per_suite(Config),
-    Config1.
+    DataDir = ?config(data_dir, Config),
+    TestDir = filename:join(DataDir, "error/test/"),
+    CTH = filename:join(TestDir, "verify_config.erl"),
+    ct:pal("Compiling ~p: ~p",
+	   [CTH,compile:file(CTH,[{outdir,TestDir},debug_info])]),
+    ct_test_support:init_per_suite([{path_dirs,[TestDir]} | Config]).
 
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
@@ -61,7 +65,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [cfg_error, lib_error, no_compile, timetrap_end_conf,
      timetrap_normal, timetrap_extended, timetrap_parallel,
-     timetrap_fun, timetrap_fun_group, misc_errors].
+     timetrap_fun, timetrap_fun_group, misc_errors,
+     config_restored].
 
 groups() -> 
     [].
@@ -285,6 +290,24 @@ misc_errors(Config) when is_list(Config) ->
     TestEvents = events_to_check(misc_errors),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
+%%%-----------------------------------------------------------------
+%%%
+config_restored(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "error/test/config_restored_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite},
+			  {ct_hooks,[verify_config]}], 
+			 Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(config_restored,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
+
+    TestEvents = events_to_check(config_restored),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -1439,4 +1462,8 @@ test_events(misc_errors) ->
      {?eh,test_stats,{2,7,{0,0}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
-    ].
+    ];
+
+test_events(config_restored) ->
+    [].
+
