@@ -73,8 +73,6 @@
 -spec init(Id :: term(), Opts :: proplists:proplist()) ->
     {ok, State :: #state{}}.
 init(Id, Opts) ->
-    gen_event:notify(?CT_EVMGR_REF, #event{ name = cth, node = node(),
-					    data = {?MODULE, init, [Id, Opts]}}),
     {ok,Opts}.
 
 %% @doc The ID is used to uniquly identify an CTH instance, if two CTH's 
@@ -83,8 +81,6 @@ init(Id, Opts) ->
 -spec id(Opts :: proplists:proplist()) ->
     Id :: term().
 id(Opts) ->
-    gen_event:notify(?CT_EVMGR_REF, #event{ name = cth, node = node(),
-					    data = {?MODULE, id, [Opts]}}),
     now().
 
 %% @doc Called before init_per_suite is called. Note that this callback is
@@ -96,10 +92,6 @@ id(Opts) ->
 		     State :: #state{}) ->
     {config() | skip_or_fail(), NewState :: #state{}}.
 pre_init_per_suite(Suite,Config,State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, pre_init_per_suite,
-				     [Suite,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after init_per_suite.
@@ -110,10 +102,6 @@ pre_init_per_suite(Suite,Config,State) ->
 			  State :: #state{}) ->
     {config() | skip_or_fail(), NewState :: #state{}}.
 post_init_per_suite(Suite,Config,Return,State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, post_init_per_suite,
-				     [Suite,Config,Return,State]}}),
     {Return, State}.
 
 %% @doc Called before end_per_suite. The config/state can be changed here,
@@ -123,10 +111,6 @@ post_init_per_suite(Suite,Config,Return,State) ->
 		    State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
 pre_end_per_suite(Suite,Config,State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, pre_end_per_suite,
-				     [Suite,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after end_per_suite. Note that the config cannot be
@@ -137,10 +121,6 @@ pre_end_per_suite(Suite,Config,State) ->
 			 State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
 post_end_per_suite(Suite,Config,Return,State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, post_end_per_suite,
-				     [Suite,Config,Return,State]}}),
     {Return, State}.
 
 %% @doc Called before each init_per_group.
@@ -150,10 +130,6 @@ post_end_per_suite(Suite,Config,Return,State) ->
 		     State :: #state{}) ->
     {config() | skip_or_fail(), NewState :: #state{}}.
 pre_init_per_group(Group,Config,State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, pre_init_per_group,
-				     [Group,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after each init_per_group.
@@ -164,10 +140,6 @@ pre_init_per_group(Group,Config,State) ->
 			  State :: #state{}) ->
     {config() | skip_or_fail(), NewState :: #state{}}.
 post_init_per_group(Group,Config,Return,State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, post_init_per_group,
-				     [Group,Config,Return,State]}}),
     {Return, State}.
 
 %% @doc Called after each end_per_group. The config/state can be changed here,
@@ -177,10 +149,6 @@ post_init_per_group(Group,Config,Return,State) ->
 			State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
 pre_end_per_group(Group,Config,State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, pre_end_per_group,
-				     [Group,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after each end_per_group. Note that the config cannot be
@@ -191,11 +159,7 @@ pre_end_per_group(Group,Config,State) ->
 			 State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
 post_end_per_group(Group,Config,Return,State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, post_end_per_group,
-				     [Group,Config,Return,State]}}),
-    {Return, State}.
+     {Return, State}.
 
 %% @doc Called before each test case.
 %% You can change the config in this function.
@@ -204,11 +168,7 @@ post_end_per_group(Group,Config,Return,State) ->
 		  State :: #state{}) ->
     {config() | skip_or_fail(), NewState :: #state{}}.
 pre_init_per_testcase(TC,Config,State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, pre_init_per_testcase,
-				     [TC,Config,State]}}),
-    {Config, State}.
+     {Config, State}.
 
 %% @doc Called after each test case. Note that the config cannot be
 %% changed here, only the status of the test case.
@@ -218,17 +178,23 @@ pre_init_per_testcase(TC,Config,State) ->
 			    State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
 post_end_per_testcase(TC,Config,Return,State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, post_end_per_testcase,
-				     [TC,Config,Return,State]}}),
-
     %% check that config has been restored
     ct:pal("Config in verify_config:post_end_per_testcase(~w) = ~p",
 	   [TC,Config]),
     [{_,MemConfig}] = ets:lookup(config_restored_SUITE, config), 
-    config_restored_SUITE:diff_config(Config, MemConfig, [tc_status]),
-
+    try config_restored_SUITE:diff_config(Config, MemConfig, [tc_status]) of
+	ok ->
+	    gen_event:notify(
+	      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
+				     data = {?MODULE, post_end_per_testcase,
+					     {TC,diff_ok}}})
+    catch
+	_:_ ->
+	    gen_event:notify(
+	      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
+				     data = {?MODULE, post_end_per_testcase,
+					     {TC,diff_failed}}})
+    end,
     {Return, State}.
 
 %% @doc Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
@@ -240,10 +206,6 @@ post_end_per_testcase(TC,Config,Return,State) ->
 		 Reason :: term(), State :: #state{}) ->
     NewState :: #state{}.
 on_tc_fail(TC, Reason, State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, on_tc_fail,
-				     [TC,Reason,State]}}),
     State.
 
 %% @doc Called when a test case is skipped by either user action
@@ -256,10 +218,6 @@ on_tc_fail(TC, Reason, State) ->
           State :: #state{}) ->
     NewState :: #state{}.
 on_tc_skip(TC, Reason, State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, on_tc_skip,
-				     [TC,Reason,State]}}),
     State.
 
 %% @doc Called when the scope of the CTH is done, this depends on
@@ -278,7 +236,4 @@ on_tc_skip(TC, Reason, State) ->
 -spec terminate(State :: #state{}) ->
     term().
 terminate(State) ->
-    gen_event:notify(
-      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
-			     data = {?MODULE, terminate, [State]}}),
     ok.

@@ -1465,5 +1465,37 @@ test_events(misc_errors) ->
     ];
 
 test_events(config_restored) ->
-    [].
-
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,4}},
+     {?eh,tc_start,{config_restored_SUITE,init_per_suite}},
+     {?eh,tc_done,{config_restored_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{config_restored_SUITE,to_tc}},
+     {?eh,cth,{verify_config,post_end_per_testcase,{to_tc,diff_ok}}},
+     {?eh,tc_done,
+      {config_restored_SUITE,to_tc,{failed,{timetrap_timeout,1000}}}},
+     {?eh,test_stats,{0,1,{0,0}}},
+     {?eh,tc_start,{config_restored_SUITE,exit_tc}},
+     {?eh,cth,{verify_config,post_end_per_testcase,{exit_tc,diff_ok}}},
+     {?eh,tc_done,{config_restored_SUITE,exit_tc,
+		   {failed,{error,{test_case_failed,"Goodbye!"}}}}},
+     {?eh,test_stats,{0,2,{0,0}}},
+     [{?eh,tc_start,{config_restored_SUITE,{init_per_group,g1,[]}}},
+      {?eh,tc_start,{config_restored_SUITE,to_tc}},
+      {?eh,cth,{verify_config,post_end_per_testcase,{to_tc,diff_ok}}},
+      {?eh,tc_done,
+       {config_restored_SUITE,to_tc,{failed,{timetrap_timeout,1000}}}},
+      {?eh,test_stats,{0,3,{0,0}}},
+      {?eh,tc_start,{config_restored_SUITE,exit_tc}},
+      {?eh,cth,{verify_config,post_end_per_testcase,{exit_tc,diff_ok}}},
+      {?eh,tc_done,{config_restored_SUITE,exit_tc,
+		    {failed,{error,{test_case_failed,"Goodbye!"}}}}},
+      {?eh,test_stats,{0,4,{0,0}}},
+      {?eh,tc_start,{config_restored_SUITE,{end_per_group,g1,[]}}},
+      {?eh,tc_done,{config_restored_SUITE,{end_per_group,g1,[]},ok}}],
+     {?eh,tc_start,{config_restored_SUITE,end_per_suite}},
+     {?eh,tc_done,{config_restored_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ].
