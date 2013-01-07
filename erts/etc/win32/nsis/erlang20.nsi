@@ -35,6 +35,7 @@
 
 	!include "MUI.nsh"
 	!include "WordFunc.nsh"
+	!include "WinVer.nsh"
 ;--------------------------------
 ;Configuration
 
@@ -341,6 +342,9 @@ FunctionEnd
 Function .onInit
    Var /GLOBAL archprefix
    Var /GLOBAL sysnativedir
+   Var /GLOBAL winvermajor
+   Var /GLOBAL winverminor
+
    SectionGetFlags 0 $MYTEMP
    StrCmpS ${WINTYPE} "win64" +1 +4
 	StrCpy $archprefix "amd64"
@@ -348,9 +352,16 @@ Function .onInit
    Goto +3
 	StrCpy $archprefix "x86"
 	StrCpy $sysnativedir $SYSDIR
-   ;MessageBox MB_YESNO "Found $sysnativedir\${REDIST_DLL_NAME}" IDYES FoundLbl
+   ${WinVerGetMajor} $0
+   ${WinVerGetMinor} $1
+   StrCpy $winvermajor $0
+   StrCpy $winverminor $1
    IfFileExists $sysnativedir\${REDIST_DLL_NAME} MaybeFoundInSystemLbl
    SearchSxSLbl:	
+        IntCmp $winvermajor 6 WVCheckMinorLbl WVCheckDoneLbl NotFoundLbl
+   WVCheckMinorLbl:
+	IntCmp $winverminor 1 WVCheckDoneLbl WVCheckDoneLbl NotFoundLbl
+   WVCheckDoneLbl:
         FindFirst $0 $1 $WINDIR\WinSxS\$archprefix*
         LoopLbl:
 	    StrCmp $1 "" NotFoundLbl

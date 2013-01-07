@@ -62,9 +62,15 @@ else
 endif
 
 REDIST_FILE=$(shell (sh ./find_redist.sh || echo ""))
+ifeq ($(MSYSTEM),MINGW32)
+	NICEREDISTFILE=$(shell (msys2win_path.sh -m "$(REDIST_FILE)" 2>/dev/null || echo ""))
+else
+	NICEREDISTFILE=$(shell (cygpath -d -m "$(REDIST_FILE)" 2>/dev/null || echo ""))
+endif
+
 REDIST_TARGET=$(shell (sh ./find_redist.sh -n || echo ""))
-REDIST_DLL_VERSION=$(shell (sh ./dll_version_helper.sh || echo ""))
-REDIST_DLL_NAME=$(shell (sh ./dll_version_helper.sh -n || echo ""))
+REDIST_DLL_VERSION=$(shell (sh ./dll_version_helper.sh $(NICEREDISTFILE) || echo ""))
+REDIST_DLL_NAME=$(shell (sh ./dll_version_helper.sh -n $(NICEREDISTFILE) || echo ""))
 
 release_spec:
 	@NSIS_VER=`makensis /hdrinfo | head -1 | awk '{print $$2}'`; \

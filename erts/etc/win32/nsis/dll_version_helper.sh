@@ -25,6 +25,13 @@
 # echo "8.0.50727.763"
 # exit 0
 
+if [ "$1" = "-n" ]; then
+    SWITCH=$1
+    shift
+else
+    SWITCH=""
+fi
+
 cat > hello.c <<EOF
 #include <windows.h>
 #include <stdio.h>
@@ -42,11 +49,16 @@ if [ '!' -f hello.exe.manifest ]; then
     # need another way of getting the version
     DLLNAME=`dumpbin.exe -imports hello.exe | egrep MSVCR.*dll`
     DLLNAME=`echo $DLLNAME`
+    if [ '!' -z "$1" ]; then
+	FILETOLOOKIN=$1
+    else
+	FILETOLOOKIN=$DLLNAME
+    fi
     cat > helper.c <<EOF
 #include <windows.h>
 #include <stdio.h>
 
-#define REQ_MODULE "$DLLNAME"
+#define REQ_MODULE "$FILETOLOOKIN"
 
 int main(void)
 {
@@ -100,7 +112,7 @@ else
     NAME=`grep '<assemblyIdentity' hello.exe.manifest | sed 's,.*name=.[A-Za-z\.]*\([0-9]*\).*,msvcr\1.dll,g' | grep -v '<'`
 fi
 #rm -f hello.c hello.obj hello.exe hello.exe.manifest helper.c helper.obj helper.exe helper.exe.manifest
-if [ "$1" = "-n" ]; then
+if [ "$SWITCH" = "-n" ]; then
     ASKEDFOR=$NAME
 else
     ASKEDFOR=$VERSION
