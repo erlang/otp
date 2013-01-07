@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,6 +32,7 @@
 -include_lib("common_test/include/ct_event.hrl").
 
 -include_lib("xmerl/include/xmerl.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -define(eh, ct_test_support_eh).
 
@@ -101,7 +102,7 @@ logdir(Config) when is_list(Config) ->
 	    false -> ?config(priv_dir,Config)
 	end,
     MyLogDir = filename:join(LogDir,"specific_logdir"),
-    file:make_dir(MyLogDir),
+    ensure_exists_empty(MyLogDir),
     Path = "logdir.xml",
     run(logdir,[{cth_surefire,[{path,Path}]}],Path,Config,[{logdir,MyLogDir}]).
 
@@ -348,3 +349,26 @@ get_numbers_from_attrs([_|A],T,E,F,S) ->
     get_numbers_from_attrs(A,T,E,F,S);
 get_numbers_from_attrs([],T,E,F,S) ->
     {T,E,F,S}.
+
+ensure_exists_empty(Dir) ->
+    case file:list_dir(Dir) of
+	{error,enoent} ->
+	    file:make_dir(Dir);
+	{ok,Files} ->
+	    del_files(Dir,Files)
+    end.
+
+del_files(Dir,[F0|Fs] ) ->
+    F = filename:join(Dir,F0),
+    case file:read_file_info(F) of
+	{ok,#file_info{type=directory}} ->
+	    {ok,Files} = file:list_dir(F),
+	    del_files(F,Files),
+	    file:del_dir(F),
+	    del_files(Dir,Fs);
+	_ ->
+	    file:delete(F),
+	    del_files(Dir,Fs)
+    end;
+del_files(_,[]) ->
+    ok.
