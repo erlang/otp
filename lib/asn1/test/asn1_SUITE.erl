@@ -1096,6 +1096,7 @@ testExtensionAdditionGroup(Config, Rule, Opts) ->
                                  [debug_info]),
     extensionAdditionGroup:run([Rule|Opts]),
     extensionAdditionGroup:run2([Rule|Opts]),
+    extensionAdditionGroup:run3(),
     asn1_test_lib:compile("EUTRA-RRC-Definitions", Config, [Rule, {record_name_prefix, "RRC-"}|Opts]),
     extensionAdditionGroup:run3([Rule|Opts]).
 
