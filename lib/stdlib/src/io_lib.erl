@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -124,7 +124,7 @@ fwrite(Format, Args) ->
               | {'more', RestFormat :: string(),
                  Nchars :: non_neg_integer(),
                  InputStack :: chars()}
-              | {'error', What :: fread_error()}.
+              | {'error', {'fread', What :: fread_error()}}.
 
 fread(Chars, Format) ->
     io_lib_fread:fread(Chars, Format).
@@ -137,7 +137,7 @@ fread(Chars, Format) ->
               | {'done', Result, LeftOverChars :: string()},
       Result :: {'ok', InputList :: [term()]}
               | 'eof'
-              | {'error', What :: fread_error()}.
+              | {'error', {'fread', What :: fread_error()}}.
 
 fread(Cont, Chars, Format) ->
     io_lib_fread:fread(Cont, Chars, Format).

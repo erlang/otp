@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2012</year>
+      <year>1996</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -306,6 +306,11 @@
           <item>
             <p>The parsing failed.</p>
           </item>
+	  <tag><c>{error, <anno>ErrorDescription</anno>}</c></tag>
+	  <item>
+	    <p>Other (rare) error condition, for instance <c>{error, estale}</c>
+	    if reading from an NFS file system.</p>
+	  </item>
         </taglist>
       </desc>
     </func>
@@ -333,6 +338,11 @@
           <item>
             <p>The parsing failed.</p>
           </item>
+	  <tag><c>{error, <anno>ErrorDescription</anno>}</c></tag>
+	  <item>
+	    <p>Other (rare) error condition, for instance <c>{error, estale}</c>
+	    if reading from an NFS file system.</p>
+	  </item>
         </taglist>
       </desc>
     </func>
@@ -851,12 +861,21 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
           </item>
           <tag><c>{eof, EndLocation}</c></tag>
           <item>
-            <p>End of file was encountered.</p>
+            <p>End of file was encountered by the tokenizer.</p>
+          </item>
+          <tag><c>eof</c></tag>
+          <item>
+            <p>End of file was encountered by the I/O-server.</p>
           </item>
           <tag><c>{error, ErrorInfo, ErrorLocation}</c></tag>
           <item>
-            <p>An error occurred.</p>
+            <p>An error occurred while tokenizing.</p>
           </item>
+	  <tag><c>{error, <anno>ErrorDescription</anno>}</c></tag>
+	  <item>
+	    <p>Other (rare) error condition, for instance <c>{error, estale}</c>
+	    if reading from an NFS file system.</p>
+	  </item>
         </taglist>
         <p>Example:</p>
         <pre>
@@ -913,12 +932,21 @@ enter><input>1.0er.</input>
           </item>
           <tag><c>{eof, EndLocation}</c></tag>
           <item>
-            <p>End of file was encountered.</p>
+            <p>End of file was encountered by the tokenizer.</p>
+          </item>
+          <tag><c>eof</c></tag>
+          <item>
+            <p>End of file was encountered by the I/O-server.</p>
           </item>
           <tag><c>{error, ErrorInfo, ErrorLocation}</c></tag>
           <item>
-            <p>An error occurred.</p>
+            <p>An error occurred while tokenizing or parsing.</p>
           </item>
+	  <tag><c>{error, <anno>ErrorDescription</anno>}</c></tag>
+	  <item>
+	    <p>Other (rare) error condition, for instance <c>{error, estale}</c>
+	    if reading from an NFS file system.</p>
+	  </item>
         </taglist>
         <p>Example:</p>
         <pre>
@@ -955,12 +983,21 @@ enter><input>abc("hey".</input>
           </item>
           <tag><c>{eof, EndLocation}</c></tag>
           <item>
-            <p>End of file was encountered.</p>
+            <p>End of file was encountered by the tokenizer.</p>
+          </item>
+          <tag><c>eof</c></tag>
+          <item>
+            <p>End of file was encountered by the I/O-server.</p>
           </item>
           <tag><c>{error, ErrorInfo, ErrorLocation}</c></tag>
           <item>
-            <p>An error occurred.</p>
+            <p>An error occurred while tokenizing or parsing.</p>
           </item>
+	  <tag><c>{error, <anno>ErrorDescription</anno>}</c></tag>
+	  <item>
+	    <p>Other (rare) error condition, for instance <c>{error, estale}</c>
+	    if reading from an NFS file system.</p>
+	  </item>
         </taglist>
       </desc>
     </func>
