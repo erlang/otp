@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -392,6 +392,10 @@ obsolete_1(wxMDIClientWindow, new, 2) ->
 obsolete_1(wxPostScriptDC, getResolution, 0) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
 obsolete_1(wxPostScriptDC, setResolution, 1) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxCursor, new, 3) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxCursor, new, 4) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
 
 obsolete_1(_, _, _) ->
