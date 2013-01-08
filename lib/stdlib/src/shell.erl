@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -244,7 +244,7 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
     {Eval_1,Bs0,Ds0,Prompt} = prompt(N, Eval_0, Bs00, RT, Ds00),
     {Res,Eval0} = get_command(Prompt, Eval_1, Bs0, RT, Ds0),
     case Res of 
-	{ok,Es0,_EndLine} ->
+	{ok,Es0} ->
             case expand_hist(Es0, N) of
                 {ok,Es} ->
                     {V,Eval,Bs,Ds} = shell_cmd(Es, Eval0, Bs0, RT, Ds0, cmd),
@@ -266,7 +266,7 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
                     fwrite_severity(benign, <<"~ts">>, [E]),
                     server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0)
             end;
-	{error,{Line,Mod,What},_EndLine} ->
+	{error,{Line,Mod,What}} ->
             fwrite_severity(benign, <<"~w: ~ts">>,
                             [Line, Mod:format_error(What)]),
 	    server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0);
@@ -281,9 +281,6 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
             fwrite_severity(benign, <<"~w: Invalid tokens.">>, 
                             [N]),
 	    server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0);
-	{eof,_EndLine} ->
-            fwrite_severity(fatal, <<"Terminating erlang (~w)">>, [node()]),
-	    halt();
 	eof ->
             fwrite_severity(fatal, <<"Terminating erlang (~w)">>, [node()]),
 	    halt()
@@ -292,7 +289,22 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
 get_command(Prompt, Eval, Bs, RT, Ds) ->
     Parse =
         fun() ->
-                exit(io:parse_erl_exprs(group_leader(), Prompt, 1, [unicode]))
+                exit(
+                  case
+                      io:scan_erl_exprs(group_leader(), Prompt, 1, [unicode])
+                  of
+                      {ok,Toks,_EndPos} ->
+                          erl_parse:parse_exprs(Toks);
+                      {eof,_EndPos} ->
+                          eof;
+                      {error,ErrorInfo,_EndPos} ->
+                          %% Skip the rest of the line:
+                          _ = io:get_line(''),
+                          {error,ErrorInfo};
+                      Else ->
+                          Else
+                  end
+                )
         end,
     Pid = spawn_link(Parse),
     get_command1(Pid, Eval, Bs, RT, Ds).
@@ -1469,6 +1481,7 @@ enc() ->
 garb(Shell) ->
     erlang:garbage_collect(Shell),
     catch erlang:garbage_collect(whereis(user)),
+    catch erlang:garbage_collect(whereis(group)),
     catch erlang:garbage_collect(group_leader()),
     erlang:garbage_collect().
 
