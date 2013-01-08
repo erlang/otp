@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2011</year>
+      <year>2003</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -25,9 +25,8 @@
     <file>ssl_protocol.xml</file>
   </header>
   
-  <p>The erlang SSL application currently supports SSL 3.0 and TLS 1.0
-  RFC 2246, and will in the future also support later versions of TLS.
-  SSL 2.0 is not supported.
+  <p>The erlang SSL application currently implements the protocol SSL/TLS
+  for currently supported versions see <seealso marker="ssl">ssl(3)</seealso>
   </p>
 
   <p>By default erlang SSL is run over the TCP/IP protocol even
