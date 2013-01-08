@@ -467,7 +467,7 @@ Uint erts_encode_ext_size_2(Eterm term, unsigned dflags)
 
 Uint erts_encode_ext_size_ets(Eterm term)
 {
-    return encode_size_struct2(NULL, term, TERM_TO_BINARY_DFLAGS|DFLAGS_INTERNAL_TAGS);
+    return encode_size_struct2(NULL, term, TERM_TO_BINARY_DFLAGS|DFLAG_INTERNAL_TAGS);
 }
 
 
@@ -500,7 +500,7 @@ void erts_encode_ext(Eterm term, byte **ext)
 
 byte* erts_encode_ext_ets(Eterm term, byte *ep, struct erl_off_heap_header** off_heap)
 {
-    return enc_term(NULL, term, ep, TERM_TO_BINARY_DFLAGS|DFLAGS_INTERNAL_TAGS,
+    return enc_term(NULL, term, ep, TERM_TO_BINARY_DFLAGS|DFLAG_INTERNAL_TAGS,
 		    off_heap);
 }
 
@@ -1408,7 +1408,7 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
 
     ASSERT(is_atom(atom));
 
-    if (dflags & DFLAGS_INTERNAL_TAGS) {
+    if (dflags & DFLAG_INTERNAL_TAGS) {
 	Uint aval = atom_val(atom);
 	ASSERT(aval < (1<<24));
 	if (aval >= (1 << 16)) {
@@ -1472,7 +1472,7 @@ enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
     ep += 4;
     put_int32(os, ep);
     ep += 4;
-    *ep++ = (is_internal_pid(pid) && (dflags & DFLAGS_INTERNAL_TAGS)) ?
+    *ep++ = (is_internal_pid(pid) && (dflags & DFLAG_INTERNAL_TAGS)) ?
 	INTERNAL_CREATION : pid_creation(pid);
     return ep;
 }
@@ -1770,7 +1770,7 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 	    put_int16(i, ep);
 	    ep += 2;
 	    ep = enc_atom(acmp,ref_node_name(obj),ep,dflags);
-	    *ep++ = ((dflags & DFLAGS_INTERNAL_TAGS) && is_internal_ref(obj)) ?
+	    *ep++ = ((dflags & DFLAG_INTERNAL_TAGS) && is_internal_ref(obj)) ?
 		INTERNAL_CREATION : ref_creation(obj);
 	    ref_num = ref_numbers(obj);
 	    for (j = 0; j < i; j++) {
@@ -1787,7 +1787,7 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 	    j = port_number(obj);
 	    put_int32(j, ep);
 	    ep += 4;
-	    *ep++ = ((dflags & DFLAGS_INTERNAL_TAGS) && is_internal_port(obj)) ?
+	    *ep++ = ((dflags & DFLAG_INTERNAL_TAGS) && is_internal_port(obj)) ?
 		INTERNAL_CREATION : port_creation(obj);
 	    break;
 
@@ -1868,7 +1868,7 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 		byte* bytes;
 
 		ERTS_GET_BINARY_BYTES(obj, bytes, bitoffs, bitsize);
-		if (dflags & DFLAGS_INTERNAL_TAGS) {
+		if (dflags & DFLAG_INTERNAL_TAGS) {
 		    ProcBin* pb = (ProcBin*) binary_val(obj);
 		    Uint bytesize = pb->size;
 		    if (pb->thing_word == HEADER_SUB_BIN) {
@@ -2869,7 +2869,7 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 	    result++;
 	    break;
 	case ATOM_DEF:
-	    if (dflags & DFLAGS_INTERNAL_TAGS) {
+	    if (dflags & DFLAG_INTERNAL_TAGS) {
 		if (atom_val(obj) >= (1<<16)) {
 		    result += 1 + 3;
 		}
@@ -2969,7 +2969,7 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 	    }
 	    break;
 	case BINARY_DEF:
-	    if (dflags & DFLAGS_INTERNAL_TAGS) {
+	    if (dflags & DFLAG_INTERNAL_TAGS) {
 		ProcBin* pb = (ProcBin*) binary_val(obj);
 		Uint sub_extra = 0;
 		Uint tot_bytes = pb->size;
