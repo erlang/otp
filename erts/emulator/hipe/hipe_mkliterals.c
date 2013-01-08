@@ -262,47 +262,6 @@ static const struct literal {
     const char *name;
     int value;
 } literals[] = {
-    /* Field offsets in a process struct */
-    { "P_HP", offsetof(struct process, htop) },
-    { "P_HP_LIMIT", offsetof(struct process, stop) },
-    { "P_OFF_HEAP_FIRST", offsetof(struct process, off_heap.first) },
-    { "P_MBUF", offsetof(struct process, mbuf) },
-    { "P_ID", offsetof(struct process, common.id) },
-    { "P_FLAGS", offsetof(struct process, flags) },
-    { "P_FVALUE", offsetof(struct process, fvalue) },
-    { "P_FREASON", offsetof(struct process, freason) },
-    { "P_FTRACE", offsetof(struct process, ftrace) },
-    { "P_FCALLS", offsetof(struct process, fcalls) },
-    { "P_BEAM_IP", offsetof(struct process, i) },
-    { "P_ARITY", offsetof(struct process, arity) },
-    { "P_ARG0", offsetof(struct process, def_arg_reg[0]) },
-    { "P_ARG1", offsetof(struct process, def_arg_reg[1]) },
-    { "P_ARG2", offsetof(struct process, def_arg_reg[2]) },
-    { "P_ARG3", offsetof(struct process, def_arg_reg[3]) },
-    { "P_ARG4", offsetof(struct process, def_arg_reg[4]) },
-    { "P_ARG5", offsetof(struct process, def_arg_reg[5]) },
-#ifdef HIPE
-    { "P_NSP", offsetof(struct process, hipe.nsp) },
-    { "P_NCALLEE", offsetof(struct process, hipe.ncallee) },
-    { "P_CLOSURE", offsetof(struct process, hipe.closure) },
-#if defined(__i386__) || defined(__x86_64__)
-    { "P_NSP_LIMIT", offsetof(struct process, hipe.nstack) },
-    { "P_CSP", offsetof(struct process, hipe.ncsp) },
-#elif defined(__sparc__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__) || defined(__arm__)
-    { "P_NSP_LIMIT", offsetof(struct process, hipe.nstack) },
-    { "P_NRA", offsetof(struct process, hipe.nra) },
-#endif
-    { "P_NARITY", offsetof(struct process, hipe.narity) },
-    { "P_FLOAT_RESULT",
-# ifdef NO_FPE_SIGNALS
-	offsetof(struct process, hipe.float_result)
-# endif
-    },
-# if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-    { "P_BIF_CALLEE", offsetof(struct process, hipe.bif_callee) },
-# endif
-#endif /* HIPE */
-
     /* process flags bits */
     {  "F_TIMO", F_TIMO },
 
@@ -380,8 +339,6 @@ static const struct literal {
     { "MS_SAVEOFFSET_SIZE", field_sizeof(struct erl_bin_match_struct, save_offset)},
 
     /* messages */
-    { "P_MSG_FIRST", offsetof(struct process, msg.first) },
-    { "P_MSG_SAVE", offsetof(struct process, msg.save) },
     { "MSG_NEXT", offsetof(struct erl_mesg, next) },
 
     /* ARM */
@@ -460,12 +417,14 @@ static const struct atom_literal {
  * These depend on configuration options such as heap architecture.
  * The compiler accesses these through hipe_bifs:get_rts_param/1.
  */
-static const struct rts_param {
+struct rts_param {
     unsigned int nr;
     const char *name;
     unsigned int is_defined;
     int value;
-} rts_params[] = {
+};
+
+static const struct rts_param rts_params[] = {
     { 1, "P_OFF_HEAP_FUNS",
       1, offsetof(struct process, off_heap.first)
     },
@@ -518,7 +477,53 @@ static const struct rts_param {
     { 19, "MSG_MESSAGE",
       1, offsetof(struct erl_mesg, m[0])
     },
-    /* highest entry ever used == 21 */
+
+    /* Field offsets in a process struct */
+    { 22, "P_HP", 1, offsetof(struct process, htop) },
+    { 23, "P_HP_LIMIT", 1, offsetof(struct process, stop) },
+    { 24, "P_OFF_HEAP_FIRST", 1, offsetof(struct process, off_heap.first) },
+    { 25, "P_MBUF", 1, offsetof(struct process, mbuf) },
+    { 26, "P_ID", 1, offsetof(struct process, common.id) },
+    { 27, "P_FLAGS", 1, offsetof(struct process, flags) },
+    { 28, "P_FVALUE", 1, offsetof(struct process, fvalue) },
+    { 29, "P_FREASON", 1, offsetof(struct process, freason) },
+    { 30, "P_FTRACE", 1, offsetof(struct process, ftrace) },
+    { 31, "P_FCALLS", 1, offsetof(struct process, fcalls) },
+    { 32, "P_BEAM_IP", 1, offsetof(struct process, i) },
+    { 33, "P_ARITY", 1, offsetof(struct process, arity) },
+    { 34, "P_ARG0", 1, offsetof(struct process, def_arg_reg[0]) },
+    { 35, "P_ARG1", 1, offsetof(struct process, def_arg_reg[1]) },
+    { 36, "P_ARG2", 1, offsetof(struct process, def_arg_reg[2]) },
+    { 37, "P_ARG3", 1, offsetof(struct process, def_arg_reg[3]) },
+    { 38, "P_ARG4", 1, offsetof(struct process, def_arg_reg[4]) },
+    { 39, "P_ARG5", 1, offsetof(struct process, def_arg_reg[5]) },
+    { 40, "P_NSP", 1, offsetof(struct process, hipe.nsp) },
+    { 41, "P_NCALLEE", 1, offsetof(struct process, hipe.ncallee) },
+    { 42, "P_CLOSURE", 1, offsetof(struct process, hipe.closure) },
+    { 43, "P_NSP_LIMIT", 1, offsetof(struct process, hipe.nstack) },
+    { 44, "P_CSP",
+#if defined(__i386__) || defined(__x86_64__)
+	1, offsetof(struct process, hipe.ncsp)
+#endif
+    },
+    { 45, "P_NRA",
+#if defined(__sparc__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__) || defined(__arm__)
+	1, offsetof(struct process, hipe.nra)
+#endif
+    },
+    { 46, "P_NARITY", 1, offsetof(struct process, hipe.narity) },
+    { 47, "P_FLOAT_RESULT",
+#ifdef NO_FPE_SIGNALS
+	1, offsetof(struct process, hipe.float_result)
+#endif
+    },
+    { 48, "P_BIF_CALLEE",
+#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+	1, offsetof(struct process, hipe.bif_callee)
+#endif
+    },
+    { 49, "P_MSG_FIRST", 1, offsetof(struct process, msg.first) },
+    { 50, "P_MSG_SAVE", 1, offsetof(struct process, msg.save) },
 };
 
 #define NR_PARAMS	ARRAY_SIZE(rts_params)
