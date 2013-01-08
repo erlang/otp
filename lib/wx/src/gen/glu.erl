@@ -1,7 +1,9 @@
+%% -*- coding: utf-8 -*-
+
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -91,19 +93,19 @@ tesselate({Nx,Ny,Nz}, Vs) ->
 %% ). 
 %%
 %%  A series of mipmap levels from  `Base'  to  `Max'  is built by decimating   `Data' 
-%%  in half  until size   1*1 is reached. At each level, each texel in the halved mipmap
+%%  in half  until size   1×1 is reached. At each level, each texel in the halved mipmap
 %% level is an average of the corresponding two texels in the larger mipmap level.   {@link gl:texImage1D/8} 
 %%  is called to load these mipmap levels from  `Base'  to  `Max' . If  `Max'  is
 %% larger than the highest mipmap level for the texture of the specified size, then a GLU
 %% error code is returned (see  {@link glu:errorString/1} ) and nothing is loaded. 
 %%
 %%  For example, if  `Level'  is 2 and  `Width'  is 16, the following levels are possible:
-%%   16*1,   8*1,   4*1,  2*1,   1*1. These correspond to levels 2 through 6 respectively.
-%% If  `Base'  is 3 and  `Max'  is 5, then only mipmap levels   8*1,  4*1 and   2*1
+%%   16×1,   8×1,   4×1,  2×1,   1×1. These correspond to levels 2 through 6 respectively.
+%% If  `Base'  is 3 and  `Max'  is 5, then only mipmap levels   8×1,  4×1 and   2×1
 %% are loaded. However, if  `Max'  is 7, then an error is returned and nothing is loaded
 %% since  `Max'  is larger than the highest mipmap level which is, in  this case, 6. 
 %%
-%%  The highest mipmap level can be derived from the formula  log 2(width*2 level). 
+%%  The highest mipmap level can be derived from the formula  log 2(width×2 level). 
 %%
 %%  See the  {@link gl:texImage1D/8}  reference page for a description of the acceptable values
 %% for  `Type'  parameter. See the  {@link gl:drawPixels/5}   reference page for a description
@@ -134,13 +136,13 @@ build1DMipmapLevels(Target,InternalFormat,Width,Format,Type,Level,Base,Max,Data)
 %% can fit the requested texture. If not,  `Width'  is continually halved until it fits. 
 %%
 %%  Next, a series of mipmap levels is built by decimating a copy of  `Data'  in half
-%% until size   1*1 is reached. At each level, each texel in the halved mipmap level is an
+%% until size   1×1 is reached. At each level, each texel in the halved mipmap level is an
 %% average of the corresponding two texels in the larger mipmap level. 
 %%
 %%  {@link gl:texImage1D/8}  is called to load each of these mipmap levels. Level 0 is a copy
 %% of  `Data' .  The highest level is  (log 2)(width). For example, if  `Width'  is 64 and the implementation
-%% can store a texture of this size, the following mipmap levels are built:   64*1,   32*1,
-%%   16*1,   8*1,  4*1,   2*1, and   1*1. These correspond to  levels 0 through 6, respectively.
+%% can store a texture of this size, the following mipmap levels are built:   64×1,   32×1,
+%%   16×1,   8×1,  4×1,   2×1, and   1×1. These correspond to  levels 0 through 6, respectively.
 %% 
 %%
 %%  See the  {@link gl:texImage1D/8}  reference page for a description of the acceptable values
@@ -163,22 +165,22 @@ build1DMipmaps(Target,InternalFormat,Width,Format,Type,Data) ->
 %% ). 
 %%
 %%  A series of mipmap levels from  `Base'  to  `Max'  is built by decimating   `Data' 
-%%  in half along both dimensions until size   1*1 is reached. At each level, each texel
+%%  in half along both dimensions until size   1×1 is reached. At each level, each texel
 %% in the halved mipmap level is an average of the corresponding four texels in the larger
 %% mipmap level. (In the case of rectangular images, the decimation will ultimately  reach
-%% an   N*1 or   1*N configuration. Here, two texels are averaged instead.)  {@link gl:texImage2D/9} 
+%% an   N×1 or   1×N configuration. Here, two texels are averaged instead.)  {@link gl:texImage2D/9} 
 %%  is called to load these mipmap levels from  `Base'  to  `Max' . If  `Max'  is
 %% larger than the highest mipmap level for the texture of the specified size, then a GLU
 %% error code is returned (see  {@link glu:errorString/1} ) and nothing is loaded. 
 %%
 %%  For example, if  `Level'  is 2 and  `Width'  is 16 and  `Height'  is 8, the
-%% following levels are possible:   16*8,   8*4,   4*2,  2*1,   1*1. These correspond to
+%% following levels are possible:   16×8,   8×4,   4×2,  2×1,   1×1. These correspond to
 %% levels 2 through 6 respectively. If  `Base'  is 3 and  `Max'  is 5, then only mipmap
-%% levels  8*4,   4*2, and   2*1 are loaded. However, if  `Max'  is 7, then an error is
+%% levels  8×4,   4×2, and   2×1 are loaded. However, if  `Max'  is 7, then an error is
 %% returned and nothing is loaded since  `Max'  is larger than the highest mipmap level
 %% which is, in this case, 6. 
 %%
-%%  The highest mipmap level can be derived from the formula  log 2(max(width height)*2 level). 
+%%  The highest mipmap level can be derived from the formula  log 2(max(width height)×2 level). 
 %%
 %%  See the  {@link gl:texImage1D/8}  reference page for a description of the acceptable values
 %% for  `Format'  parameter. See the  {@link gl:drawPixels/5}   reference page for a description
@@ -214,15 +216,15 @@ build2DMipmapLevels(Target,InternalFormat,Width,Height,Format,Type,Level,Base,Ma
 %% .) 
 %%
 %%  Next, a series of mipmap levels is built by decimating a copy of  `Data'  in half
-%% along both dimensions until size   1*1 is reached. At each level, each texel in the halved
+%% along both dimensions until size   1×1 is reached. At each level, each texel in the halved
 %% mipmap level is an average of the corresponding four texels in the larger mipmap level.
-%% (In the case of rectangular images, the decimation will ultimately reach an   N*1 or  1*N
+%% (In the case of rectangular images, the decimation will ultimately reach an   N×1 or  1×N
 %% configuration. Here, two texels are averaged instead.) 
 %%
 %%  {@link gl:texImage2D/9}  is called to load each of these mipmap levels. Level 0 is a copy
 %% of  `Data' . The highest level is (log 2)(max(width height)). For example, if  `Width'  is 64 and  `Height' 
 %%  is 16 and the implementation can store a texture of this size, the following mipmap levels
-%% are built:   64*16,   32*8,   16*4,  8*2,   4*1,   2*1, and   1*1 These correspond to
+%% are built:   64×16,   32×8,   16×4,  8×2,   4×1,   2×1, and   1×1 These correspond to
 %% levels 0 through 6, respectively. 
 %%
 %%  See the  {@link gl:texImage1D/8}  reference page for a description of the acceptable values
@@ -245,7 +247,7 @@ build2DMipmaps(Target,InternalFormat,Width,Height,Format,Type,Data) ->
 %% ). 
 %%
 %%  A series of mipmap levels from  `Base'  to  `Max'  is built by decimating  `Data' 
-%%  in half along both dimensions until size  1*1*1 is reached. At each level, each texel
+%%  in half along both dimensions until size  1×1×1 is reached. At each level, each texel
 %% in the halved mipmap level is an average of the corresponding eight texels in the larger
 %% mipmap level. (If exactly one of the dimensions is 1, four texels are averaged. If exactly
 %% two of the dimensions are 1, two texels are averaged.)  {@link gl:texImage3D/10}  is called
@@ -254,13 +256,13 @@ build2DMipmaps(Target,InternalFormat,Width,Height,Format,Type,Data) ->
 %% is returned (see  {@link glu:errorString/1} ) and nothing is loaded. 
 %%
 %%  For example, if  `Level'  is 2 and  `Width'  is 16,  `Height'  is 8 and  `Depth' 
-%%  is 4, the following levels are possible:   16*8*4,   8*4*2,  4*2*1,   2*1*1,  1*1*1.
+%%  is 4, the following levels are possible:   16×8×4,   8×4×2,  4×2×1,   2×1×1,  1×1×1.
 %% These correspond to levels 2 through 6 respectively. If  `Base'  is 3 and  `Max' 
-%% is 5, then only mipmap levels   8*4*2,  4*2*1, and   2*1*1 are loaded. However, if  `Max' 
+%% is 5, then only mipmap levels   8×4×2,  4×2×1, and   2×1×1 are loaded. However, if  `Max' 
 %%  is 7, then an error is returned and nothing is loaded, since  `Max'  is larger than
 %% the highest mipmap level which is, in this case, 6. 
 %%
-%%  The highest mipmap level can be derived from the formula  log 2(max(width height depth)*2 level). 
+%%  The highest mipmap level can be derived from the formula  log 2(max(width height depth)×2 level). 
 %%
 %%  See the  {@link gl:texImage1D/8}  reference page for a description of the acceptable values
 %% for  `Format'  parameter. See the  {@link gl:drawPixels/5}   reference page for a description
@@ -295,7 +297,7 @@ build3DMipmapLevels(Target,InternalFormat,Width,Height,Depth,Format,Type,Level,B
 %% it fits.  
 %%
 %%  Next, a series of mipmap levels is built by decimating a copy of  `Data'  in half
-%% along all three dimensions until size   1*1*1 is reached. At each level, each texel in
+%% along all three dimensions until size   1×1×1 is reached. At each level, each texel in
 %% the halved mipmap level is an average of the corresponding eight texels in the larger
 %% mipmap level. (If exactly one of the dimensions is 1, four texels are averaged. If exactly
 %% two of the dimensions are 1, two texels are averaged.) 
@@ -303,8 +305,8 @@ build3DMipmapLevels(Target,InternalFormat,Width,Height,Depth,Format,Type,Level,B
 %%  {@link gl:texImage3D/10}  is called to load each of these mipmap levels. Level 0 is a copy
 %% of  `Data' . The highest level is (log 2)(max(width height depth)). For example, if  `Width'  is 64,  `Height' 
 %% is 16, and  `Depth'  is 32, and the implementation can store a texture of this size,
-%% the following mipmap levels are built:   64*16*32,  32*8*16,   16*4*8,  8*2*4,   4*1*2, 
-%% 2*1*1, and   1*1*1. These correspond to levels 0 through 6, respectively. 
+%% the following mipmap levels are built:   64×16×32,  32×8×16,   16×4×8,  8×2×4,   4×1×2, 
+%% 2×1×1, and   1×1×1. These correspond to levels 0 through 6, respectively. 
 %%
 %%  See the  {@link gl:texImage1D/8}  reference page for a description of the acceptable values
 %% for  `Format'  parameter. See the  {@link gl:drawPixels/5}   reference page for a description
@@ -334,7 +336,7 @@ checkExtension(ExtName,ExtString) ->
 %% @doc Draw a cylinder
 %%
 %% ``glu:cylinder'' draws a cylinder oriented along the `z' axis. The base of the
-%% cylinder is placed at `z' = 0 and the top at   z= height. Like a sphere, a cylinder
+%% cylinder is placed at `z' = 0 and the top at   z=height. Like a sphere, a cylinder
 %% is subdivided around the `z' axis into slices and along the  `z' axis into stacks.
 %% 
 %%
@@ -380,7 +382,7 @@ deleteQuadric(Quad) ->
 %% the -`z'  axis. 
 %%
 %%  If texturing has been turned on (with  {@link glu:quadricTexture/2} ),  texture coordinates
-%% are generated linearly such that where   r= outer, the value at (`r', 0, 0) is  (1,
+%% are generated linearly such that where   r=outer, the value at (`r', 0, 0) is  (1,
 %% 0.5), at (0, `r', 0) it is (0.5, 1), at (-`r', 0, 0)  it is (0, 0.5), and  at
 %% (0, -`r', 0) it is (0.5, 0). 
 %%
@@ -451,11 +453,11 @@ getString(Name) ->
 %%
 %%  Let `UP' be the vector  (upX upY upZ).  
 %%
-%%  Then normalize as follows:   f= F/(||F||)
+%%  Then normalize as follows:   f=F/(||F||)
 %%
-%%  UP"= UP/(||UP||)
+%%  UP"=UP/(||UP||)
 %%
-%%  Finally, let   s= f*UP", and   u= s*f. 
+%%  Finally, let   s=f×UP", and   u=s×f. 
 %%
 %%  M is then constructed as follows:  M=(s[0] s[1] s[2] 0 u[0] u[1] u[2] 0-f[0]-f[1]-f[2] 0 0 0 0 1)
 %%
@@ -481,7 +483,7 @@ newQuadric() ->
 %% @doc Define a 2D orthographic projection matrix
 %%
 %% ``glu:ortho2D'' sets up a two-dimensional orthographic viewing region.  This is equivalent
-%% to calling  {@link gl:ortho/6}  with   near= -1 and   far= 1. 
+%% to calling  {@link gl:ortho/6}  with   near=-1 and   far=1. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluOrtho2D.xml">external</a> documentation.
 -spec ortho2D(Left, Right, Bottom, Top) -> ok when Left :: float(),Right :: float(),Bottom :: float(),Top :: float().
@@ -490,7 +492,7 @@ ortho2D(Left,Right,Bottom,Top) ->
 
 %% @doc Draw an arc of a disk
 %%
-%% ``glu:partialDisk'' renders a partial disk on the   z= 0 plane. A partial disk is  similar
+%% ``glu:partialDisk'' renders a partial disk on the   z=0 plane. A partial disk is  similar
 %% to a full disk, except that only the subset of the disk from  `Start'  through  `Start' 
 %%  +  `Sweep'  is included (where 0 degrees is along the  +f2yf axis, 90 degrees along
 %% the +`x' axis, 180 degrees along the -`y' axis, and  270 degrees along the -`x'
@@ -508,7 +510,7 @@ ortho2D(Left,Right,Bottom,Top) ->
 %% Otherwise, they point along the -`z'  axis. 
 %%
 %%  If texturing is turned on (with  {@link glu:quadricTexture/2} ), texture coordinates are
-%% generated linearly such that where   r= outer, the value at (`r', 0, 0) is  (1.0,
+%% generated linearly such that where   r=outer, the value at (`r', 0, 0) is  (1.0,
 %% 0.5), at (0, `r', 0) it is (0.5, 1.0), at (-`r', 0, 0)  it is (0.0, 0.5), and
 %%  at (0, -`r', 0) it is (0.5, 0.0). 
 %%
@@ -521,7 +523,7 @@ partialDisk(Quad,Inner,Outer,Slices,Loops,Start,Sweep) ->
 %%
 %% ``glu:perspective'' specifies a viewing frustum into the world coordinate system. In
 %% general, the aspect ratio in ``glu:perspective'' should match the aspect ratio of the
-%% associated viewport. For example,   aspect= 2.0 means  the viewer's angle of view is twice
+%% associated viewport. For example,   aspect=2.0 means  the viewer's angle of view is twice
 %% as wide in `x' as it is in `y'. If the viewport is twice as wide as it is tall,
 %% it displays the image without distortion. 
 %%
@@ -532,9 +534,9 @@ partialDisk(Quad,Inner,Outer,Slices,Loops,Start,Sweep) ->
 %%
 %%  Given `f' defined as follows: 
 %%
-%%  f= cotangent(fovy/2) The generated matrix is 
+%%  f=cotangent(fovy/2) The generated matrix is 
 %%
-%% (f/aspect 0 0 0 0 f 0 0 0 0(zFar+zNear)/(zNear-zFar)(2*zFar*zNear)/(zNear-zFar) 0 0 -1 0)
+%% (f/aspect 0 0 0 0 f 0 0 0 0(zFar+zNear)/(zNear-zFar)(2×zFar×zNear)/(zNear-zFar) 0 0 -1 0)
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluPerspective.xml">external</a> documentation.
 -spec perspective(Fovy, Aspect, ZNear, ZFar) -> ok when Fovy :: float(),Aspect :: float(),ZNear :: float(),ZFar :: float().
@@ -577,16 +579,16 @@ pickMatrix(X,Y,DelX,DelY,{V1,V2,V3,V4}) ->
 %%  To compute the coordinates, let   v=(objX objY objZ 1.0) represented as a matrix with 4 rows and 1 column.
 %% Then ``glu:project'' computes   v" as follows:  
 %%
-%%  v"= P*M*v
+%%  v"=P×M×v
 %%
 %%  where   P is the current projection matrix  `Proj'  and   M is the current modelview
-%% matrix  `Model'  (both represented as  4*4 matrices in column-major order). 
+%% matrix  `Model'  (both represented as  4×4 matrices in column-major order). 
 %%
 %%  The window coordinates are then computed as follows:  
 %%
-%%  winX= view(0)+view(2)*(v"(0)+1)/2
+%%  winX=view(0)+view(2)×(v"(0)+1)/2
 %%
-%%  winY= view(1)+view(3)*(v"(1)+1)/2
+%%  winY=view(1)+view(3)×(v"(1)+1)/2
 %%
 %%  winZ=(v"(2)+1)/2
 %%
@@ -703,7 +705,7 @@ scaleImage(Format,WIn,HIn,TypeIn,DataIn,WOut,HOut,TypeOut,DataOut) ->
 %% point toward the center of the sphere. 
 %%
 %%  If texturing is turned on (with  {@link glu:quadricTexture/2} ), then texture  coordinates
-%% are  generated so that `t' ranges from 0.0 at   z=-radius to 1.0 at   z= radius (`t'
+%% are  generated so that `t' ranges from 0.0 at   z=-radius to 1.0 at   z=radius (`t'
 %%  increases linearly along longitudinal lines), and `s' ranges from 0.0 at the +`y'
 %%  axis, to 0.25 at the  +`x' axis,  to 0.5 at the -`y' axis, to 0.75 at the -`x'
 %%  axis, and back to 1.0  at the +`y' axis. 
@@ -723,7 +725,7 @@ sphere(Quad,Radius,Slices,Stacks) ->
 %%  To compute the coordinates  (objX objY objZ), ``glu:unProject'' multiplies the normalized device coordinates
 %% by the inverse of  `Model'  *  `Proj'  as follows: 
 %%
-%% (objX objY objZ W)= INV(P  M) ((2(winX-view[0]))/(view[2])-1(2(winY-view[1]))/(view[3])-1 2(winZ)-1 1) INV denotes matrix inversion.  W is an unused variable, included for consistent
+%% (objX objY objZ W)=INV(P  M) ((2(winX-view[0]))/(view[2])-1(2(winY-view[1]))/(view[3])-1 2(winZ)-1 1) INV denotes matrix inversion.  W is an unused variable, included for consistent
 %% matrix notation. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluUnProject.xml">external</a> documentation.

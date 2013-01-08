@@ -1,7 +1,9 @@
+%% -*- coding: utf-8 -*-
+
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -460,7 +462,7 @@ alphaFunc(Func,Ref) ->
 %% as (R s0 G s0 B s0 A s0), (R s1 G s1 B s1 A s1) and (R d G d B d A d), respectively. The color specified by  {@link gl:blendColor/4}  is referred to
 %% as (R c G c B c A c). They are understood to have integer values between 0 and (k R k G k B k A), where 
 %%
-%%  k c= 2(m c)-1
+%%  k c=2(m c)-1
 %%
 %%  and (m R m G m B m A) is the number of red, green, blue, and alpha bitplanes. 
 %%
@@ -489,12 +491,12 @@ alphaFunc(Func,Ref) ->
 %%
 %%  In the table, 
 %%
-%%  i= min(A s k A-A d) k/A
+%%  i=min(A s k A-A d) k/A
 %%
 %%  To determine the blended RGBA values of a pixel, the system uses the following equations:
 %% 
 %%
-%%  R d= min(k R R s  s R+R d  d R) G d= min(k G G s  s G+G d  d G) B d= min(k B B s  s B+B d  d B) A d= min(k A A s  s A+A d  d A)
+%%  R d=min(k R R s  s R+R d  d R) G d=min(k G G s  s G+G d  d G) B d=min(k B B s  s B+B d  d B) A d=min(k A A s  s A+A d  d A)
 %%
 %%  Despite the apparent precision of the above equations, blending arithmetic is not exactly
 %% specified, because blending operates with imprecise integer color values. However, a blend
@@ -503,7 +505,7 @@ alphaFunc(Func,Ref) ->
 %% ,  `Dfactor'  is `?GL_ONE_MINUS_SRC_ALPHA', and   A s is equal to   k A, the equations
 %% reduce to simple replacement: 
 %%
-%%  R d= R s G d= G s B d= B s A d= A s
+%%  R d=R s G d=G s B d=B s A d=A s
 %%
 %% 
 %%
@@ -643,7 +645,7 @@ lineWidth(Width) ->
 %%  is 0, otherwise these fragments are sent to the frame buffer. Bit zero of  `Pattern' 
 %% is the least significant bit. 
 %%
-%%  Antialiased lines are treated as a sequence of   1*width rectangles for purposes of stippling.
+%%  Antialiased lines are treated as a sequence of   1×width rectangles for purposes of stippling.
 %% Whether rectangle   s is rasterized or not depends on the fragment rule described for
 %% aliased lines, counting rectangles rather than groups of fragments. 
 %%
@@ -690,7 +692,7 @@ polygonMode(Face,Mode) ->
 %%  When `?GL_POLYGON_OFFSET_FILL', `?GL_POLYGON_OFFSET_LINE', or `?GL_POLYGON_OFFSET_POINT'
 %%  is enabled, each fragment's `depth' value will be offset after it is interpolated
 %% from the `depth' values of the appropriate vertices. The value of the offset is  
-%% factor*DZ+r*units, where   DZ is a measurement of the change in depth relative to the
+%% factor×DZ+r×units, where   DZ is a measurement of the change in depth relative to the
 %% screen area of the polygon, and   r is the smallest value that is guaranteed to produce
 %% a resolvable offset for a given implementation. The offset is added before the depth test
 %% is performed and before the value is written into the depth buffer. 
@@ -709,10 +711,10 @@ polygonOffset(Factor,Units) ->
 %% fragments produced by rasterization, creating a pattern. Stippling is independent of polygon
 %% antialiasing. 
 %%
-%%  `Pattern'  is a pointer to a   32*32 stipple pattern that is stored in memory just
+%%  `Pattern'  is a pointer to a   32×32 stipple pattern that is stored in memory just
 %% like the pixel data supplied to a  {@link gl:drawPixels/5}  call with  height and `width'
 %%  both equal to 32, a pixel format of `?GL_COLOR_INDEX', and data type of `?GL_BITMAP'
-%% . That is, the stipple pattern is represented as a   32*32 array of 1-bit color indices
+%% . That is, the stipple pattern is represented as a   32×32 array of 1-bit color indices
 %% packed in unsigned bytes.  {@link gl:pixelStoref/2}  parameters like `?GL_UNPACK_SWAP_BYTES'
 %%  and `?GL_UNPACK_LSB_FIRST' affect the assembling of the bits into a stipple pattern.
 %% Pixel transfer operations (shift, offset, pixel map) are not applied to the stipple image,
@@ -737,10 +739,10 @@ polygonStipple(Mask) ->
 
 %% @doc Return the polygon stipple pattern
 %%
-%% ``gl:getPolygonStipple'' returns to  `Pattern'  a   32*32 polygon stipple pattern.
+%% ``gl:getPolygonStipple'' returns to  `Pattern'  a   32×32 polygon stipple pattern.
 %% The pattern is packed into memory as if  {@link gl:readPixels/7}  with both `height'
 %% and `width' of 32, `type' of `?GL_BITMAP', and `format' of `?GL_COLOR_INDEX'
-%%  were called, and the stipple pattern were stored in an internal   32*32 color index buffer.
+%%  were called, and the stipple pattern were stored in an internal   32×32 color index buffer.
 %% Unlike  {@link gl:readPixels/7} , however, pixel transfer operations (shift, offset, pixel
 %% map) are not applied to the returned stipple image. 
 %%
@@ -2635,7 +2637,7 @@ loadIdentity() ->
 %% and  `M'  points to an array of   16 single- or double-precision floating-point values
 %%   m={m[0] m[1] ... m[15]}, then the modelview transformation   M(v) does the following: 
 %%
-%%  M(v)=(m[0] m[4] m[8] m[12] m[1] m[5] m[9] m[13] m[2] m[6] m[10] m[14] m[3] m[7] m[11] m[15])*(v[0] v[1] v[2] v[3])
+%%  M(v)=(m[0] m[4] m[8] m[12] m[1] m[5] m[9] m[13] m[2] m[6] m[10] m[14] m[3] m[7] m[11] m[15])×(v[0] v[1] v[2] v[3])
 %%
 %%  Projection and texture transformations are similarly defined. 
 %%
@@ -2687,7 +2689,7 @@ multMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% (x 2(1-c)+c x  y(1-c)-z  s x  z(1-c)+y  s 0 y  x(1-c)+z  s y 2(1-c)+c y  z(1-c)-x  s 0 x  z(1-c)-y  s y  z(1-c)+x  s z 2(1-c)+c 0 0 0 0
 %% 1)
 %%
-%%  Where   c= cos(angle),   s= sin(angle), and ||(x y z)||= 1 (if not, the GL will normalize this vector). 
+%%  Where   c=cos(angle),   s=sin(angle), and ||(x y z)||=1 (if not, the GL will normalize this vector). 
 %%
 %%  If the matrix mode is either `?GL_MODELVIEW' or `?GL_PROJECTION', all objects
 %% drawn after ``gl:rotate'' is called are rotated. Use  {@link gl:pushMatrix/0}  and  {@link gl:pushMatrix/0} 
@@ -3814,7 +3816,7 @@ rasterPos4sv({X,Y,Z,W}) ->  rasterPos4s(X,Y,Z,W).
 %% ``gl:rect'' supports efficient specification of rectangles as two corner points. Each
 %% rectangle command takes four arguments, organized either as two consecutive pairs of  (x y)
 %% coordinates or as two pointers to arrays, each containing an  (x y) pair. The resulting rectangle
-%% is defined in the   z= 0 plane. 
+%% is defined in the   z=0 plane. 
 %%
 %% ``gl:rect''( `X1' ,  `Y1' ,  `X2' ,  `Y2' ) is exactly equivalent to the
 %% following sequence:  glBegin(`?GL_POLYGON'); glVertex2( `X1' ,  `Y1' ); glVertex2(
@@ -4684,9 +4686,9 @@ pixelZoom(Xfactor,Yfactor) ->
 %% is the number of pixels in a row (`?GL_PACK_ROW_LENGTH' if it is greater than 0,
 %% the   width argument to the pixel routine otherwise),  a is the value of `?GL_PACK_ALIGNMENT'
 %% , and  s is the size, in bytes, of a single component (if   a&lt; s, then it is as if   a=
-%%  s). In the case of 1-bit values, the location of the next row is obtained by skipping 
+%% s). In the case of 1-bit values, the location of the next row is obtained by skipping 
 %%
-%%  k= 8  a |(n  l)/(8  a)|
+%%  k=8  a |(n  l)/(8  a)|
 %%
 %%  components or indices. 
 %%
@@ -4708,7 +4710,7 @@ pixelZoom(Xfactor,Yfactor) ->
 %% a pixel image (`?GL_PACK_IMAGE_HEIGHT' if it is greater than 0, the   height argument
 %% to the  {@link gl:texImage3D/10}  routine otherwise),  a is the value of `?GL_PACK_ALIGNMENT'
 %% , and   s is the size, in bytes, of a single component (if   a&lt; s, then it is as if  
-%% a= s). 
+%% a=s). 
 %%
 %%  The word `component' in this description refers to the nonindex values red, green,
 %% blue, alpha, and depth. Storage format `?GL_RGB', for example, has three components
@@ -4758,9 +4760,9 @@ pixelZoom(Xfactor,Yfactor) ->
 %% is the number of pixels in a row (`?GL_UNPACK_ROW_LENGTH' if it is greater than 0,
 %% the   width argument to the pixel routine otherwise),  a is the value of `?GL_UNPACK_ALIGNMENT'
 %% , and  s is the size, in bytes, of a single component (if   a&lt; s, then it is as if   a=
-%%  s). In the case of 1-bit values, the location of the next row is obtained by skipping 
+%% s). In the case of 1-bit values, the location of the next row is obtained by skipping 
 %%
-%%  k= 8  a |(n  l)/(8  a)|
+%%  k=8  a |(n  l)/(8  a)|
 %%
 %%  components or indices. 
 %%
@@ -4781,8 +4783,8 @@ pixelZoom(Xfactor,Yfactor) ->
 %% the   width argument to  {@link gl:texImage3D/10}  otherwise),  h is the number of rows in
 %% an image (`?GL_UNPACK_IMAGE_HEIGHT' if it is greater than 0, the   height argument
 %% to  {@link gl:texImage3D/10}  otherwise),  a is the value of `?GL_UNPACK_ALIGNMENT',
-%% and  s is the size, in bytes, of a single component (if   a&lt; s, then it is as if   a=
-%% s). 
+%% and  s is the size, in bytes, of a single component (if   a&lt; s, then it is as if   a=s).
+%% 
 %%
 %%  The word `component' in this description refers to the nonindex values red, green,
 %% blue, alpha, and depth. Storage format `?GL_RGB', for example, has three components
@@ -5327,7 +5329,7 @@ readPixels(X,Y,Width,Height,Format,Type,Pixels) ->
 %%  or `?GL_STENCIL_INDEX'. Each unsigned byte is treated as eight 1-bit pixels, with
 %% bit ordering determined by `?GL_UNPACK_LSB_FIRST' (see  {@link gl:pixelStoref/2} ). 
 %%
-%%  width*height pixels are read from memory, starting at location  `Data' . By default,
+%%  width×height pixels are read from memory, starting at location  `Data' . By default,
 %% these pixels are taken from adjacent memory locations, except that after all  `Width' 
 %% pixels are read, the read pointer is advanced to the next four-byte boundary. The four-byte
 %% row alignment is specified by  {@link gl:pixelStoref/2}  with argument `?GL_UNPACK_ALIGNMENT'
@@ -5340,7 +5342,7 @@ readPixels(X,Y,Width,Height,Format,Type,Pixels) ->
 %%  (see  {@link gl:bindBuffer/2} ) while a block of pixels is specified,  `Data'  is treated
 %% as a byte offset into the buffer object's data store. 
 %%
-%%  The   width*height pixels that are read from memory are each operated on in the same
+%%  The   width×height pixels that are read from memory are each operated on in the same
 %% way, based on the values of several parameters specified by  {@link gl:pixelTransferf/2} 
 %% and  {@link gl:pixelMapfv/3} . The details of these operations, as well as the target buffer
 %% into which the pixels are drawn, are specific to the format of the pixels, as specified
@@ -5366,10 +5368,10 @@ readPixels(X,Y,Width,Height,Format,Type,Pixels) ->
 %%
 %%  The GL then converts the resulting indices or RGBA colors to fragments by attaching the
 %% current raster position `z' coordinate and texture coordinates to each pixel, then
-%% assigning   x and   y window coordinates to the   nth fragment such that  x n= x r+n%
-%% width
+%% assigning   x and   y window coordinates to the   nth fragment such that  x n=x r+n% width
+%% 
 %%
-%%  y n= y r+|n/width|
+%%  y n=y r+|n/width|
 %%
 %%  where  (x r y r) is the current raster position. These pixel fragments are then treated just like
 %% the fragments generated by rasterizing points, lines, or polygons. Texture mapping, fog,
@@ -5391,9 +5393,9 @@ readPixels(X,Y,Width,Height,Format,Type,Pixels) ->
 %% the number of bits in the stencil buffer. The resulting stencil indices are then written
 %% to the stencil buffer such that the   nth index is written to location 
 %%
-%%  x n= x r+n% width
+%%  x n=x r+n% width
 %%
-%%  y n= y r+|n/width|
+%%  y n=y r+|n/width|
 %%
 %%  where  (x r y r) is the current raster position. Only the pixel ownership test, the scissor test,
 %% and the stencil writemask affect these write operations. 
@@ -5411,9 +5413,9 @@ readPixels(X,Y,Width,Height,Format,Type,Pixels) ->
 %% raster position color or color index and texture coordinates to each pixel, then assigning
 %%   x and   y window coordinates to the   nth fragment such that 
 %%
-%%  x n= x r+n% width
+%%  x n=x r+n% width
 %%
-%%  y n= y r+|n/width|
+%%  y n=y r+|n/width|
 %%
 %%  where  (x r y r) is the current raster position. These pixel fragments are then treated just like
 %% the fragments generated by rasterizing points, lines, or polygons. Texture mapping, fog,
@@ -5442,9 +5444,9 @@ readPixels(X,Y,Width,Height,Format,Type,Pixels) ->
 %% raster position `z' coordinate and texture coordinates to each pixel, then assigning
 %%   x and   y window coordinates to the   nth fragment such that 
 %%
-%%  x n= x r+n% width
+%%  x n=x r+n% width
 %%
-%%  y n= y r+|n/width|
+%%  y n=y r+|n/width|
 %%
 %%  where  (x r y r) is the current raster position. These pixel fragments are then treated just like
 %% the fragments generated by rasterizing points, lines, or polygons. Texture mapping, fog,
@@ -5810,7 +5812,7 @@ clearStencil(S) ->
 %%
 %%  If the texture generation function is `?GL_OBJECT_LINEAR', the function 
 %%
-%%  g= p 1*x o+p 2*y o+p 3*z o+p 4*w o
+%%  g=p 1×x o+p 2×y o+p 3×z o+p 4×w o
 %%
 %%  is used, where   g is the value computed for the coordinate named in  `Coord' ,  p 1,
 %%  p 2,  p 3, and  p 4 are the four values supplied in  `Params' , and  x o,  y o,  z o,
@@ -5823,7 +5825,7 @@ clearStencil(S) ->
 %%
 %%  If the texture generation function is `?GL_EYE_LINEAR', the function 
 %%
-%%  g=(p 1)"*x e+(p 2)"*y e+(p 3)"*z e+(p 4)"*w e
+%%  g=(p 1)"×x e+(p 2)"×y e+(p 3)"×z e+(p 4)"×w e
 %%
 %%  is used, where 
 %%
@@ -5847,14 +5849,14 @@ clearStencil(S) ->
 %%
 %%  f=(f x  f y  f z) T be the reflection vector such that 
 %%
-%%  f= u-2  n" (n") T  u
+%%  f=u-2  n" (n") T  u
 %%
-%%  Finally, let   m= 2 ((f x) 2+(f y) 2+(f z+1) 2). Then the values assigned to the   s and   t texture coordinates
+%%  Finally, let   m=2 ((f x) 2+(f y) 2+(f z+1) 2). Then the values assigned to the   s and   t texture coordinates
 %% are 
 %%
-%%  s= f x/m+1/2
+%%  s=f x/m+1/2
 %%
-%%  t= f y/m+1/2
+%%  t=f y/m+1/2
 %%
 %%  To enable or disable a texture-coordinate generation function, call  {@link gl:enable/1} 
 %% or  {@link gl:enable/1}  with one of the symbolic texture-coordinate names (`?GL_TEXTURE_GEN_S'
@@ -6002,7 +6004,7 @@ texEnvi(Target,Pname,Param) ->
 %% `?GL_BLEND' Function </td><td>`?GL_ADD' Function </td></tr></tbody><tbody><tr><td>
 %% `?GL_ALPHA'</td><td> C v=</td><td> C p</td><td> C p</td><td> undefined </td><td> C p</td>
 %% <td> C p</td></tr><tr><td></td><td> A v=</td><td> A s</td><td> A p  A s</td><td></td><td>
-%% A v= A p  A s</td><td> A p  A s</td></tr><tr><td>`?GL_LUMINANCE'</td><td> C v=</td><td>
+%% A v=A p  A s</td><td> A p  A s</td></tr><tr><td>`?GL_LUMINANCE'</td><td> C v=</td><td>
 %%  C s</td><td> C p  C s</td><td> undefined </td><td> C p (1-C s)+C c  C s</td><td> C p+C s</td></tr>
 %% <tr><td> (or 1) </td><td> A v=</td><td> A p</td><td> A p</td><td></td><td> A p</td><td> A
 %% p</td></tr><tr><td>`?GL_LUMINANCE_ALPHA'</td><td> C v=</td><td> C s</td><td> C p  C
@@ -6034,11 +6036,11 @@ texEnvi(Target,Pname,Param) ->
 %%
 %% <table><tbody><tr><td>`?GL_COMBINE_RGB'</td><td>` Texture Function '</td></tr></tbody>
 %% <tbody><tr><td>`?GL_REPLACE'</td><td> Arg0</td></tr><tr><td>`?GL_MODULATE'</td><td>
-%%  Arg0*Arg1</td></tr><tr><td>`?GL_ADD'</td><td> Arg0+Arg1</td></tr><tr><td>`?GL_ADD_SIGNED'
-%% </td><td> Arg0+Arg1-0.5</td></tr><tr><td>`?GL_INTERPOLATE'</td><td> Arg0*Arg2+Arg1*(1-
+%%  Arg0×Arg1</td></tr><tr><td>`?GL_ADD'</td><td> Arg0+Arg1</td></tr><tr><td>`?GL_ADD_SIGNED'
+%% </td><td> Arg0+Arg1-0.5</td></tr><tr><td>`?GL_INTERPOLATE'</td><td> Arg0×Arg2+Arg1×(1-
 %% Arg2)</td>
 %% </tr><tr><td>`?GL_SUBTRACT'</td><td> Arg0-Arg1</td></tr><tr><td>`?GL_DOT3_RGB'
-%% or `?GL_DOT3_RGBA'</td><td> 4*((((Arg0 r)-0.5)*((Arg1 r)-0.5))+(((Arg0 g)-0.5)*((Arg1 g)-0.5))+(((Arg0 b)-0.5)*((Arg1 b)-0.5)))</td></tr></tbody></table>
+%% or `?GL_DOT3_RGBA'</td><td> 4×((((Arg0 r)-0.5)×((Arg1 r)-0.5))+(((Arg0 g)-0.5)×((Arg1 g)-0.5))+(((Arg0 b)-0.5)×((Arg1 b)-0.5)))</td></tr></tbody></table>
 %%
 %%  The scalar results for `?GL_DOT3_RGB' and `?GL_DOT3_RGBA' are placed into each
 %% of the 3 (RGB) or 4 (RGBA) components on output. 
@@ -6049,8 +6051,8 @@ texEnvi(Target,Pname,Param) ->
 %%
 %% <table><tbody><tr><td>`?GL_COMBINE_ALPHA'</td><td>` Texture Function '</td></tr>
 %% </tbody><tbody><tr><td>`?GL_REPLACE'</td><td> Arg0</td></tr><tr><td>`?GL_MODULATE'
-%% </td><td> Arg0*Arg1</td></tr><tr><td>`?GL_ADD'</td><td> Arg0+Arg1</td></tr><tr><td>`?GL_ADD_SIGNED'
-%% </td><td> Arg0+Arg1-0.5</td></tr><tr><td>`?GL_INTERPOLATE'</td><td> Arg0*Arg2+Arg1*(1-
+%% </td><td> Arg0×Arg1</td></tr><tr><td>`?GL_ADD'</td><td> Arg0+Arg1</td></tr><tr><td>`?GL_ADD_SIGNED'
+%% </td><td> Arg0+Arg1-0.5</td></tr><tr><td>`?GL_INTERPOLATE'</td><td> Arg0×Arg2+Arg1×(1-
 %% Arg2)</td>
 %% </tr><tr><td>`?GL_SUBTRACT'</td><td> Arg0-Arg1</td></tr></tbody></table>
 %%
@@ -6245,19 +6247,18 @@ getTexEnviv(Target,Pname) ->
 %%  If the values for `?GL_TEXTURE_BORDER_COLOR' are specified with ``gl:texParameterIiv''
 %%  or ``gl:texParameterIuiv'', the values are stored unmodified with an internal data
 %% type of integer. If specified with ``gl:texParameteriv'', they are converted to floating
-%% point with the following equation:  f= 2 c+1 2 b-/1. If specified with ``gl:texParameterfv''
+%% point with the following equation:  f=2 c+1 2 b-/1. If specified with ``gl:texParameterfv''
 %% , they are stored unmodified as floating-point values. 
 %%
 %% `?GL_TEXTURE_COMPARE_FUNC':  Specifies the comparison operator used when `?GL_TEXTURE_COMPARE_MODE'
 %%  is set to `?GL_COMPARE_REF_TO_TEXTURE'. Permissible values are: <table><tbody><tr><td>
 %% ` Texture Comparison Function '</td><td>` Computed result  '</td></tr></tbody><tbody>
-%% <tr><td>`?GL_LEQUAL'</td><td> result={1.0 0.0 &amp;nbsp;&amp;nbsp; r&lt;=(D t) r&gt;(D t))</td></tr><tr><td>`?GL_GEQUAL'</td><td>
-%% result={1.0 0.0 &amp;nbsp;&amp;nbsp; r&gt;=(D t) r&lt;(D t))</td></tr><tr><td>`?GL_LESS'</td><td> result={1.0 0.0 &amp;nbsp;&amp;nbsp; r&lt;
-%% (D t) r&gt;=(D t))</td></tr><tr><td>`?GL_GREATER'
-%% </td><td> result={1.0 0.0 &amp;nbsp;&amp;nbsp; r&gt;(D t) r&lt;=(D t))</td></tr><tr><td>`?GL_EQUAL'</td><td> result={1.0 0.0 &amp;nbsp;&amp;nbsp;
-%%  r=(D t) r&amp;ne;(D t))</td></tr><tr><td>`?GL_NOTEQUAL'
-%% </td><td> result={1.0 0.0 &amp;nbsp;&amp;nbsp; r&amp;ne;(D t) r=(D t))</td></tr><tr><td>`?GL_ALWAYS'</td><td> result= 1.0</td></tr><tr><td>
-%% `?GL_NEVER'</td><td> result= 0.0</td></tr></tbody></table> where  r is the current
+%% <tr><td>`?GL_LEQUAL'</td><td> result={1.0 0.0    r&lt;=(D t) r&gt;(D t))</td></tr><tr><td>`?GL_GEQUAL'</td><td>
+%% result={1.0 0.0    r&gt;=(D t) r&lt;(D t))</td></tr><tr><td>`?GL_LESS'</td><td> result={1.0 0.0    r&lt;(D t) r&gt;=(D t))</td></tr><tr><td>`?GL_GREATER'
+%% </td><td> result={1.0 0.0    r&gt;(D t) r&lt;=(D t))</td></tr><tr><td>`?GL_EQUAL'</td><td> result={1.0 0.0    r=(D t) r&amp;ne;
+%% (D t))</td></tr><tr><td>`?GL_NOTEQUAL'
+%% </td><td> result={1.0 0.0    r&amp;ne;(D t) r=(D t))</td></tr><tr><td>`?GL_ALWAYS'</td><td> result=1.0</td></tr><tr><td>
+%% `?GL_NEVER'</td><td> result=0.0</td></tr></tbody></table> where  r is the current
 %% interpolated texture coordinate, and   D t is the depth texture value sampled from the
 %% currently bound depth texture.  result is assigned to the the red channel. 
 %%
@@ -6286,14 +6287,14 @@ getTexEnviv(Target,Pname) ->
 %% The other four use mipmaps. 
 %%
 %%  A mipmap is an ordered set of arrays representing the same image at progressively lower
-%% resolutions. If the texture has dimensions   2 n*2 m, there are  max(n m)+1 mipmaps. The first
-%% mipmap is the original texture, with dimensions   2 n*2 m. Each subsequent mipmap has
-%% dimensions   2(k-1)*2(l-1), where   2 k*2 l are the dimensions of the previous mipmap, until either
-%%   k= 0 or   l= 0. At that point, subsequent mipmaps have dimension   1*2(l-1) or   2(k-1)*1 until
-%% the final mipmap, which has dimension   1*1. To define the mipmaps, call  {@link gl:texImage1D/8} 
+%% resolutions. If the texture has dimensions   2 n×2 m, there are  max(n m)+1 mipmaps. The first
+%% mipmap is the original texture, with dimensions   2 n×2 m. Each subsequent mipmap has
+%% dimensions   2(k-1)×2(l-1), where   2 k×2 l are the dimensions of the previous mipmap, until either
+%%   k=0 or   l=0. At that point, subsequent mipmaps have dimension   1×2(l-1) or   2(k-1)×1 until
+%% the final mipmap, which has dimension   1×1. To define the mipmaps, call  {@link gl:texImage1D/8} 
 %% ,  {@link gl:texImage2D/9} ,  {@link gl:texImage3D/10} ,  {@link gl:copyTexImage1D/7} , or  {@link gl:copyTexImage2D/8} 
 %%  with the `level' argument indicating the order of the mipmaps. Level 0 is the original
-%% texture; level   max(n m) is the final   1*1 mipmap. 
+%% texture; level   max(n m) is the final   1×1 mipmap. 
 %%
 %%  `Params'  supplies a function for minifying the texture as one of the following: 
 %%
@@ -7255,7 +7256,7 @@ map2f(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) ->
 %%  `Query'  can assume the following values: 
 %%
 %% `?GL_COEFF':  `V'  returns the control points for the evaluator function. One-dimensional
-%% evaluators return   order control points, and two-dimensional evaluators return   uorder*vorder
+%% evaluators return   order control points, and two-dimensional evaluators return   uorder×vorder
 %%  control points. Each control point consists of one, two, three, or four integer, single-precision
 %% floating-point, or double-precision floating-point values, depending on the type of the
 %% evaluator. The GL returns two-dimensional control points in row-major order, incrementing
@@ -7330,9 +7331,9 @@ getMapiv(Target,Query,V) ->
 %% `?GL_AUTO_NORMAL', ``gl:evalCoord2'' generates surface normals analytically, regardless
 %% of the contents or enabling of the `?GL_MAP2_NORMAL' map. Let 
 %%
-%%  m=((&amp;PartialD; p)/(&amp;PartialD; u))*((&amp;PartialD; p)/(&amp;PartialD; v))
+%%  m=((&amp;PartialD; p)/(&amp;PartialD; u))×((&amp;PartialD; p)/(&amp;PartialD; v))
 %%
-%%  Then the generated normal   n is  n= m/(||m||)
+%%  Then the generated normal   n is  n=m/(||m||)
 %%
 %%  If automatic normal generation is disabled, the corresponding normal map `?GL_MAP2_NORMAL'
 %% , if enabled, is used to produce a normal. If neither automatic normal generation nor
@@ -7393,17 +7394,17 @@ evalCoord2fv({U,V}) ->  evalCoord2f(U,V).
 %% 0 maps exactly to  `U1' , and integer grid coordinate  `Un'  maps exactly to  `U2' 
 %% . All other integer grid coordinates   i are mapped so that 
 %%
-%%  u= i(u2-u1)/un+u1
+%%  u=i(u2-u1)/un+u1
 %%
 %% ``gl:mapGrid2'' specifies two such linear mappings. One maps integer grid coordinate  
-%% i= 0 exactly to  `U1' , and integer grid coordinate   i= un exactly to  `U2' . The
-%% other maps integer grid coordinate   j= 0 exactly to  `V1' , and integer grid coordinate
-%%   j= vn exactly to  `V2' . Other integer grid coordinates   i and   j are mapped such
+%% i=0 exactly to  `U1' , and integer grid coordinate   i=un exactly to  `U2' . The
+%% other maps integer grid coordinate   j=0 exactly to  `V1' , and integer grid coordinate
+%%   j=vn exactly to  `V2' . Other integer grid coordinates   i and   j are mapped such
 %% that 
 %%
-%%  u= i(u2-u1)/un+u1
+%%  u=i(u2-u1)/un+u1
 %%
-%%  v= j(v2-v1)/vn+v1
+%%  v=j(v2-v1)/vn+v1
 %%
 %%  The mappings specified by ``gl:mapGrid'' are used identically by  {@link gl:evalMesh1/3} 
 %% and  {@link gl:evalPoint1/1} . 
@@ -7440,7 +7441,7 @@ mapGrid2f(Un,U1,U2,Vn,V1,V2) ->
 %% 1 );  where &amp;Delta; u=(u 2-u 1)/n
 %%
 %%  and   n,   u 1, and   u 2 are the arguments to the most recent  {@link gl:mapGrid1d/3}  command.
-%% The one absolute numeric requirement is that if   i= n, then the value computed from  i.&amp;Delta;
+%% The one absolute numeric requirement is that if   i=n, then the value computed from  i.&amp;Delta;
 %%  u+u 1 is exactly   u 2. 
 %%
 %%  In the two-dimensional case, ``gl:evalPoint2'', let 
@@ -7452,8 +7453,8 @@ mapGrid2f(Un,U1,U2,Vn,V1,V2) ->
 %%  where   n,   u 1,   u 2,   m,   v 1, and   v 2 are the arguments to the most recent  {@link gl:mapGrid1d/3} 
 %%  command. Then the ``gl:evalPoint2'' command is equivalent to calling  glEvalCoord2(  i.
 %% &amp;Delta; u+u 1, j.&amp;Delta; v+v 1 );  The only absolute numeric requirements are
-%% that if   i= n, then the value computed from  i.&amp;Delta; u+u 1 is exactly   u 2, and
-%% if   j= m, then the value computed from  j.&amp;Delta; v+v 1 is exactly   v 2. 
+%% that if   i=n, then the value computed from  i.&amp;Delta; u+u 1 is exactly   u 2, and
+%% if   j=m, then the value computed from  j.&amp;Delta; v+v 1 is exactly   v 2. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEvalPoint.xml">external</a> documentation.
 -spec evalPoint1(I) -> ok when I :: integer().
@@ -7486,8 +7487,8 @@ evalPoint2(I,J) ->
 %% `type' is `?GL_POINTS' if  `Mode'  is `?GL_POINT', or `?GL_LINES'
 %% if  `Mode'  is `?GL_LINE'. 
 %%
-%%  The one absolute numeric requirement is that if   i= n, then the value computed from   i.
-%% &amp;Delta; u+u 1 is exactly   u 2. 
+%%  The one absolute numeric requirement is that if   i=n, then the value computed from   i.&amp;Delta;
+%%  u+u 1 is exactly   u 2. 
 %%
 %%  In the two-dimensional case, ``gl:evalMesh2'', let .cp &amp;Delta; u=(u 2-u 1)/n
 %%
@@ -7516,8 +7517,8 @@ evalPoint2(I,J) ->
 %% ; i &lt;=  `I2' ; i += 1 ) glEvalCoord2(  i.&amp;Delta; u+u 1, j.&amp;Delta; v+v 1
 %% ); glEnd(); 
 %%
-%%  In all three cases, the only absolute numeric requirements are that if   i= n, then the
-%% value computed from   i.&amp;Delta; u+u 1 is exactly  u 2, and if   j= m, then the value
+%%  In all three cases, the only absolute numeric requirements are that if   i=n, then the
+%% value computed from   i.&amp;Delta; u+u 1 is exactly  u 2, and if   j=m, then the value
 %% computed from  j.&amp;Delta; v+v 1 is exactly   v 2. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEvalMesh.xml">external</a> documentation.
@@ -7578,21 +7579,21 @@ evalMesh2(Mode,I1,I2,J1,J2) ->
 %% (in the case that `?GL_FOG_COORD_SRC' is `?GL_FOG_COORD'). The equation for `?GL_LINEAR'
 %%  fog is  f=(end-c)/(end-start)
 %%
-%%  The equation for `?GL_EXP' fog is  f= e(-(density. c))
+%%  The equation for `?GL_EXP' fog is  f=e(-(density. c))
 %%
-%%  The equation for `?GL_EXP2' fog is  f= e(-(density. c)) 2
+%%  The equation for `?GL_EXP2' fog is  f=e(-(density. c)) 2
 %%
 %%  Regardless of the fog mode,  f is clamped to the range  [0 1] after it is computed. Then,
 %% if the GL is in RGBA color mode, the fragment's red, green, and blue colors, represented
 %% by   C r, are replaced by 
 %%
-%% (C r)"= f*C r+(1-f)*C f
+%% (C r)"=f×C r+(1-f)×C f
 %%
 %%  Fog does not affect a fragment's alpha component. 
 %%
 %%  In color index mode, the fragment's color index   i r is replaced by 
 %%
-%% (i r)"= i r+(1-f)*i f
+%% (i r)"=i r+(1-f)×i f
 %%
 %% 
 %%
@@ -7664,44 +7665,45 @@ fogiv(Pname,Params) ->
 %% is fed back as some number of floating-point values, as determined by  `Type' . Colors
 %% are fed back as four values in RGBA mode and one value in color index mode. 
 %%
-%%  feedbackList  feedbackItem feedbackList | feedbackItem 
+%%  feedbackList  ← feedbackItem feedbackList | feedbackItem 
 %%
-%%  feedbackItem  point | lineSegment | polygon | bitmap | pixelRectangle | passThru 
+%%  feedbackItem  ← point | lineSegment | polygon | bitmap | pixelRectangle | passThru 
 %%
-%%  point `?GL_POINT_TOKEN' vertex 
+%%  point  ←`?GL_POINT_TOKEN' vertex 
 %%
-%%  lineSegment `?GL_LINE_TOKEN' vertex vertex | `?GL_LINE_RESET_TOKEN' vertex
+%%  lineSegment  ←`?GL_LINE_TOKEN' vertex vertex | `?GL_LINE_RESET_TOKEN' vertex
 %% vertex 
 %%
-%%  polygon `?GL_POLYGON_TOKEN' n polySpec 
+%%  polygon  ←`?GL_POLYGON_TOKEN' n polySpec 
 %%
-%%  polySpec  polySpec vertex | vertex vertex vertex 
+%%  polySpec  ← polySpec vertex | vertex vertex vertex 
 %%
-%%  bitmap `?GL_BITMAP_TOKEN' vertex 
+%%  bitmap  ←`?GL_BITMAP_TOKEN' vertex 
 %%
-%%  pixelRectangle `?GL_DRAW_PIXEL_TOKEN' vertex | `?GL_COPY_PIXEL_TOKEN' vertex 
+%%  pixelRectangle  ←`?GL_DRAW_PIXEL_TOKEN' vertex | `?GL_COPY_PIXEL_TOKEN' vertex
+%% 
 %%
-%%  passThru `?GL_PASS_THROUGH_TOKEN' value 
+%%  passThru  ←`?GL_PASS_THROUGH_TOKEN' value 
 %%
-%%  vertex  2d | 3d | 3dColor | 3dColorTexture | 4dColorTexture 
+%%  vertex  ← 2d | 3d | 3dColor | 3dColorTexture | 4dColorTexture 
 %%
-%%  2d  value value 
+%%  2d  ← value value 
 %%
-%%  3d  value value value 
+%%  3d  ← value value value 
 %%
-%%  3dColor  value value value color 
+%%  3dColor  ← value value value color 
 %%
-%%  3dColorTexture  value value value color tex 
+%%  3dColorTexture  ← value value value color tex 
 %%
-%%  4dColorTexture  value value value value color tex 
+%%  4dColorTexture  ← value value value value color tex 
 %%
-%%  color  rgba | index 
+%%  color  ← rgba | index 
 %%
-%%  rgba  value value value value 
+%%  rgba  ← value value value value 
 %%
-%%  index  value 
+%%  index  ← value 
 %%
-%%  tex  value value value value 
+%%  tex  ← value value value value 
 %%
 %% `value' is a floating-point number, and `n' is a floating-point integer giving
 %% the number of vertices in the polygon. `?GL_POINT_TOKEN', `?GL_LINE_TOKEN', `?GL_LINE_RESET_TOKEN'
@@ -7886,13 +7888,13 @@ blendColor(Red,Green,Blue,Alpha) ->
 %% blend factors are denoted (s R s G s B s A) and (d R d G d B d A), respectively. For these equations all color components
 %% are understood to have values in the range  [0 1].  <table><tbody><tr><td>` Mode '</td><td>
 %% ` RGB Components '</td><td>` Alpha Component '</td></tr></tbody><tbody><tr><td>`?GL_FUNC_ADD'
-%% </td><td> Rr= R s  s R+R d  d R Gr= G s  s G+G d  d G Br= B s  s B+B d  d B</td><td> Ar=
-%% A s  s A+A d  d A</td></tr><tr><td>`?GL_FUNC_SUBTRACT'</td><td> Rr= R s  s R-R d  d
-%% R Gr= G s  s G-G d  d G Br= B s  s B-B d  d B</td><td> Ar= A s  s A-A d  d A</td></tr><tr>
-%% <td>`?GL_FUNC_REVERSE_SUBTRACT'</td><td> Rr= R d  d R-R s  s R Gr= G d  d G-G s  s G
-%% Br= B d  d B-B s  s B</td><td> Ar= A d  d A-A s  s A</td></tr><tr><td>`?GL_MIN'</td><td>
-%%  Rr= min(R s R d) Gr= min(G s G d) Br= min(B s B d)</td><td> Ar= min(A s A d)</td></tr><tr><td>`?GL_MAX'</td><td> Rr=
-%% max(R s R d) Gr= max(G s G d) Br= max(B s B d)</td><td> Ar= max(A s A d)</td></tr></tbody></table>
+%% </td><td> Rr=R s  s R+R d  d R Gr=G s  s G+G d  d G Br=B s  s B+B d  d B</td><td> Ar=A s 
+%% s A+A d  d A</td></tr><tr><td>`?GL_FUNC_SUBTRACT'</td><td> Rr=R s  s R-R d  d R Gr=G
+%% s  s G-G d  d G Br=B s  s B-B d  d B</td><td> Ar=A s  s A-A d  d A</td></tr><tr><td>`?GL_FUNC_REVERSE_SUBTRACT'
+%% </td><td> Rr=R d  d R-R s  s R Gr=G d  d G-G s  s G Br=B d  d B-B s  s B</td><td> Ar=A d 
+%% d A-A s  s A</td></tr><tr><td>`?GL_MIN'</td><td> Rr=min(R s R d) Gr=min(G s G d) Br=min(B s B d)</td><td> Ar=min
+%% (A s A d)</td></tr><tr><td>`?GL_MAX'</td><td> Rr=max(R s R d) Gr=max(G s G d) Br=max(B s B d)</td><td> Ar=max(A s A d)</td></tr></tbody>
+%% </table>
 %%
 %%  The results of these equations are clamped to the range  [0 1]. 
 %%
@@ -9062,7 +9064,7 @@ sampleCoverage(Value,Invert) ->
 %%
 %%  `ImageSize'  must be equal to: 
 %%
-%%  b s*|width b/w|*|height b/h|*|depth b/d|
+%%  b s×|width b/w|×|height b/h|×|depth b/d|
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexImage3D.xml">external</a> documentation.
 -spec compressedTexImage3D(Target, Level, Internalformat, Width, Height, Depth, Border, ImageSize, Data) -> ok when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Depth :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
@@ -9124,7 +9126,7 @@ compressedTexImage3D(Target,Level,Internalformat,Width,Height,Depth,Border,Image
 %%
 %%  `ImageSize'  must be equal to: 
 %%
-%%  b s*|width b/w|*|height b/h|
+%%  b s×|width b/w|×|height b/h|
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexImage2D.xml">external</a> documentation.
 -spec compressedTexImage2D(Target, Level, Internalformat, Width, Height, Border, ImageSize, Data) -> ok when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
@@ -9181,7 +9183,7 @@ compressedTexImage2D(Target,Level,Internalformat,Width,Height,Border,ImageSize,D
 %%
 %%  `ImageSize'  must be equal to: 
 %%
-%%  b s*|width b/w|
+%%  b s×|width b/w|
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexImage1D.xml">external</a> documentation.
 -spec compressedTexImage1D(Target, Level, Internalformat, Width, Border, ImageSize, Data) -> ok when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
@@ -9502,7 +9504,7 @@ multiTexCoord4sv(Target,{S,T,R,Q}) ->  multiTexCoord4s(Target,S,T,R,Q).
 %% and  `M'  points to an array of   16 single- or double-precision floating-point values
 %%   m={m[0] m[1] ... m[15]}, then the modelview transformation   M(v) does the following: 
 %%
-%%  M(v)=(m[0] m[1] m[2] m[3] m[4] m[5] m[6] m[7] m[8] m[9] m[10] m[11] m[12] m[13] m[14] m[15])*(v[0] v[1] v[2] v[3])
+%%  M(v)=(m[0] m[1] m[2] m[3] m[4] m[5] m[6] m[7] m[8] m[9] m[10] m[11] m[12] m[13] m[14] m[15])×(v[0] v[1] v[2] v[3])
 %%
 %%  Projection and texture transformations are similarly defined. 
 %%
@@ -9569,7 +9571,7 @@ multTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %%  is referred to as (R c G c B c A c). They are understood to have integer values between 0 and (k R k G k B
 %% k A), where 
 %%
-%%  k c= 2(m c)-1
+%%  k c=2(m c)-1
 %%
 %%  and (m R m G m B m A) is the number of red, green, blue, and alpha bitplanes. 
 %%
@@ -9601,12 +9603,12 @@ multTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %%
 %%  In the table, 
 %%
-%%  i= min(A s 1-(A d))
+%%  i=min(A s 1-(A d))
 %%
 %%  To determine the blended RGBA values of a pixel, the system uses the following equations:
 %% 
 %%
-%%  R d= min(k R R s  s R+R d  d R) G d= min(k G G s  s G+G d  d G) B d= min(k B B s  s B+B d  d B) A d= min(k A A s  s A+A d  d A)
+%%  R d=min(k R R s  s R+R d  d R) G d=min(k G G s  s G+G d  d G) B d=min(k B B s  s B+B d  d B) A d=min(k A A s  s A+A d  d A)
 %%
 %%  Despite the apparent precision of the above equations, blending arithmetic is not exactly
 %% specified, because blending operates with imprecise integer color values. However, a blend
@@ -9615,7 +9617,7 @@ multTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% ,  `DstRGB'  is `?GL_ONE_MINUS_SRC_ALPHA', and   A s is equal to   k A, the equations
 %% reduce to simple replacement: 
 %%
-%%  R d= R s G d= G s B d= B s A d= A s
+%%  R d=R s G d=G s B d=B s A d=A s
 %%
 %% 
 %%
@@ -9899,7 +9901,7 @@ secondaryColorPointer(Size,Type,Stride,Pointer) ->
 %% current modelview and projection matrices, nor by the viewport-to-window transform. The  
 %% z coordinate of the current raster position is updated in the following manner: 
 %%
-%%  z={n f(n+z*(f-n))  if  z&lt;= 0 if  z&gt;= 1(otherwise))
+%%  z={n f(n+z×(f-n))  if  z&lt;= 0 if  z&gt;= 1(otherwise))
 %%
 %%  where   n is `?GL_DEPTH_RANGE''s near value, and   f is `?GL_DEPTH_RANGE''s
 %% far value. See  {@link gl:depthRange/2} . 
@@ -10397,13 +10399,13 @@ getBufferParameteriv(Target,Pname) ->
 %% blend factors are denoted (s R s G s B s A) and (d R d G d B d A), respectively. For these equations all color components
 %% are understood to have values in the range  [0 1].  <table><tbody><tr><td>` Mode '</td><td>
 %% ` RGB Components '</td><td>` Alpha Component '</td></tr></tbody><tbody><tr><td>`?GL_FUNC_ADD'
-%% </td><td> Rr= R s  s R+R d  d R Gr= G s  s G+G d  d G Br= B s  s B+B d  d B</td><td> Ar=
-%% A s  s A+A d  d A</td></tr><tr><td>`?GL_FUNC_SUBTRACT'</td><td> Rr= R s  s R-R d  d
-%% R Gr= G s  s G-G d  d G Br= B s  s B-B d  d B</td><td> Ar= A s  s A-A d  d A</td></tr><tr>
-%% <td>`?GL_FUNC_REVERSE_SUBTRACT'</td><td> Rr= R d  d R-R s  s R Gr= G d  d G-G s  s G
-%% Br= B d  d B-B s  s B</td><td> Ar= A d  d A-A s  s A</td></tr><tr><td>`?GL_MIN'</td><td>
-%%  Rr= min(R s R d) Gr= min(G s G d) Br= min(B s B d)</td><td> Ar= min(A s A d)</td></tr><tr><td>`?GL_MAX'</td><td> Rr=
-%% max(R s R d) Gr= max(G s G d) Br= max(B s B d)</td><td> Ar= max(A s A d)</td></tr></tbody></table>
+%% </td><td> Rr=R s  s R+R d  d R Gr=G s  s G+G d  d G Br=B s  s B+B d  d B</td><td> Ar=A s 
+%% s A+A d  d A</td></tr><tr><td>`?GL_FUNC_SUBTRACT'</td><td> Rr=R s  s R-R d  d R Gr=G
+%% s  s G-G d  d G Br=B s  s B-B d  d B</td><td> Ar=A s  s A-A d  d A</td></tr><tr><td>`?GL_FUNC_REVERSE_SUBTRACT'
+%% </td><td> Rr=R d  d R-R s  s R Gr=G d  d G-G s  s G Br=B d  d B-B s  s B</td><td> Ar=A d 
+%% d A-A s  s A</td></tr><tr><td>`?GL_MIN'</td><td> Rr=min(R s R d) Gr=min(G s G d) Br=min(B s B d)</td><td> Ar=min
+%% (A s A d)</td></tr><tr><td>`?GL_MAX'</td><td> Rr=max(R s R d) Gr=max(G s G d) Br=max(B s B d)</td><td> Ar=max(A s A d)</td></tr></tbody>
+%% </table>
 %%
 %%  The results of these equations are clamped to the range  [0 1]. 
 %%
@@ -11626,11 +11628,11 @@ useProgram(Program) ->
 %%
 %% The commands ``gl:uniformMatrix{2|3|4|2x3|3x2|2x4|4x2|3x4|4x3}fv''  are used to modify
 %% a matrix or an array of matrices. The numbers in the command name are interpreted as the
-%% dimensionality of the matrix. The number `2' indicates a 2 � 2 matrix (i.e., 4 values),
-%% the number `3' indicates a 3 � 3 matrix (i.e., 9 values), and the number `4'
-%% indicates a 4 � 4 matrix (i.e., 16 values). Non-square matrix dimensionality is explicit,
+%% dimensionality of the matrix. The number `2' indicates a 2 × 2 matrix (i.e., 4 values),
+%% the number `3' indicates a 3 × 3 matrix (i.e., 9 values), and the number `4'
+%% indicates a 4 × 4 matrix (i.e., 16 values). Non-square matrix dimensionality is explicit,
 %% with the first number representing the number of columns and the second number representing
-%% the number of rows. For example,  `2x4' indicates a 2 � 4 matrix with 2 columns and
+%% the number of rows. For example,  `2x4' indicates a 2 × 4 matrix with 2 columns and
 %% 4 rows (i.e., 8 values). If  `Transpose'  is `?GL_FALSE', each matrix is assumed
 %% to be supplied in column major order. If  `Transpose'  is `?GL_TRUE', each matrix
 %% is assumed to be supplied in row major order. The  `Count'  argument indicates the
@@ -12753,7 +12755,7 @@ drawElementsInstanced(Mode,Count,Type,Indices,Primcount) ->
 %%
 %%  When a buffer object is attached to a buffer texture, the buffer object's data store
 %% is taken as the texture's texel array. The number of texels in the buffer texture's texel
-%% array is given by  buffer_size components� sizeof( base_type/)
+%% array is given by  buffer_size components×sizeof( base_type/)
 %%
 %%  where `buffer_size' is the size of the buffer object, in basic machine units and
 %% components and base type are the element count and base data type for elements, as specified
@@ -14576,14 +14578,14 @@ bindSampler(Unit,Sampler) ->
 %% to compute the texture value. The other four use mipmaps. 
 %%
 %%  A mipmap is an ordered set of arrays representing the same image at progressively lower
-%% resolutions. If the texture has dimensions   2 n*2 m, there are  max(n m)+1 mipmaps. The first
-%% mipmap is the original texture, with dimensions   2 n*2 m. Each subsequent mipmap has
-%% dimensions   2(k-1)*2(l-1), where   2 k*2 l are the dimensions of the previous mipmap, until either
-%%   k= 0 or   l= 0. At that point, subsequent mipmaps have dimension   1*2(l-1) or   2(k-1)*1 until
-%% the final mipmap, which has dimension   1*1. To define the mipmaps, call  {@link gl:texImage1D/8} 
+%% resolutions. If the texture has dimensions   2 n×2 m, there are  max(n m)+1 mipmaps. The first
+%% mipmap is the original texture, with dimensions   2 n×2 m. Each subsequent mipmap has
+%% dimensions   2(k-1)×2(l-1), where   2 k×2 l are the dimensions of the previous mipmap, until either
+%%   k=0 or   l=0. At that point, subsequent mipmaps have dimension   1×2(l-1) or   2(k-1)×1 until
+%% the final mipmap, which has dimension   1×1. To define the mipmaps, call  {@link gl:texImage1D/8} 
 %% ,  {@link gl:texImage2D/9} ,  {@link gl:texImage3D/10} ,  {@link gl:copyTexImage1D/7} , or  {@link gl:copyTexImage2D/8} 
 %%  with the `level' argument indicating the order of the mipmaps. Level 0 is the original
-%% texture; level   max(n m) is the final   1*1 mipmap. 
+%% texture; level   max(n m) is the final   1×1 mipmap. 
 %%
 %%  `Params'  supplies a function for minifying the texture as one of the following: 
 %%
@@ -14695,13 +14697,12 @@ bindSampler(Unit,Sampler) ->
 %% `?GL_TEXTURE_COMPARE_FUNC':  Specifies the comparison operator used when `?GL_TEXTURE_COMPARE_MODE'
 %%  is set to `?GL_COMPARE_REF_TO_TEXTURE'. Permissible values are: <table><tbody><tr><td>
 %% ` Texture Comparison Function '</td><td>` Computed result  '</td></tr></tbody><tbody>
-%% <tr><td>`?GL_LEQUAL'</td><td> result={1.0 0.0 &amp;nbsp;&amp;nbsp; r&lt;=(D t) r&gt;(D t))</td></tr><tr><td>`?GL_GEQUAL'</td><td>
-%% result={1.0 0.0 &amp;nbsp;&amp;nbsp; r&gt;=(D t) r&lt;(D t))</td></tr><tr><td>`?GL_LESS'</td><td> result={1.0 0.0 &amp;nbsp;&amp;nbsp; r&lt;
-%% (D t) r&gt;=(D t))</td></tr><tr><td>`?GL_GREATER'
-%% </td><td> result={1.0 0.0 &amp;nbsp;&amp;nbsp; r&gt;(D t) r&lt;=(D t))</td></tr><tr><td>`?GL_EQUAL'</td><td> result={1.0 0.0 &amp;nbsp;&amp;nbsp;
-%%  r=(D t) r&amp;ne;(D t))</td></tr><tr><td>`?GL_NOTEQUAL'
-%% </td><td> result={1.0 0.0 &amp;nbsp;&amp;nbsp; r&amp;ne;(D t) r=(D t))</td></tr><tr><td>`?GL_ALWAYS'</td><td> result= 1.0</td></tr><tr><td>
-%% `?GL_NEVER'</td><td> result= 0.0</td></tr></tbody></table> where  r is the current
+%% <tr><td>`?GL_LEQUAL'</td><td> result={1.0 0.0    r&lt;=(D t) r&gt;(D t))</td></tr><tr><td>`?GL_GEQUAL'</td><td>
+%% result={1.0 0.0    r&gt;=(D t) r&lt;(D t))</td></tr><tr><td>`?GL_LESS'</td><td> result={1.0 0.0    r&lt;(D t) r&gt;=(D t))</td></tr><tr><td>`?GL_GREATER'
+%% </td><td> result={1.0 0.0    r&gt;(D t) r&lt;=(D t))</td></tr><tr><td>`?GL_EQUAL'</td><td> result={1.0 0.0    r=(D t) r&amp;ne;
+%% (D t))</td></tr><tr><td>`?GL_NOTEQUAL'
+%% </td><td> result={1.0 0.0    r&amp;ne;(D t) r=(D t))</td></tr><tr><td>`?GL_ALWAYS'</td><td> result=1.0</td></tr><tr><td>
+%% `?GL_NEVER'</td><td> result=0.0</td></tr></tbody></table> where  r is the current
 %% interpolated texture coordinate, and   D t is the texture value sampled from the currently
 %% bound texture.  result is assigned to  R t. 
 %%
@@ -15774,11 +15775,11 @@ getProgramPipelineiv(Pipeline,Pname) ->
 %%
 %% The commands ``gl:programUniformMatrix{2|3|4|2x3|3x2|2x4|4x2|3x4|4x3}fv''  are used
 %% to modify a matrix or an array of matrices. The numbers in the command name are interpreted
-%% as the dimensionality of the matrix. The number `2' indicates a 2 � 2 matrix (i.e.,
-%% 4 values), the number `3' indicates a 3 � 3 matrix (i.e., 9 values), and the number `4'
-%%  indicates a 4 � 4 matrix (i.e., 16 values). Non-square matrix dimensionality is explicit,
+%% as the dimensionality of the matrix. The number `2' indicates a 2 × 2 matrix (i.e.,
+%% 4 values), the number `3' indicates a 3 × 3 matrix (i.e., 9 values), and the number `4'
+%%  indicates a 4 × 4 matrix (i.e., 16 values). Non-square matrix dimensionality is explicit,
 %% with the first number representing the number of columns and the second number representing
-%% the number of rows. For example,  `2x4' indicates a 2 � 4 matrix with 2 columns and
+%% the number of rows. For example,  `2x4' indicates a 2 × 4 matrix with 2 columns and
 %% 4 rows (i.e., 8 values). If  `Transpose'  is `?GL_FALSE', each matrix is assumed
 %% to be supplied in column major order. If  `Transpose'  is `?GL_TRUE', each matrix
 %% is assumed to be supplied in row major order. The  `Count'  argument indicates the
