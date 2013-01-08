@@ -124,6 +124,7 @@ static char *pluss_val_switches[] = {
     "bwt",
     "cl",
     "ct",
+    "tbt",
     "wt",
     "ws",
     "ss",
