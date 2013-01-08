@@ -1099,25 +1099,26 @@ gen_dec_imm_1('ANY', _Constraint, Aligned) ->
 gen_dec_imm_1({'BIT STRING',NNL}, Constr0, Aligned) ->
     Constr = get_constraint(Constr0, 'SizeConstraint'),
     Imm = asn1ct_imm:per_dec_raw_bitstring(Constr, Aligned),
-    {F,A} = case NNL of
-		[] ->
-		    case get(compact_bit_string) of
-			true ->
-			    {decode_compact_bit_string,1};
-			_ ->
-			    {decode_legacy_bit_string,1}
-		    end;
-		[_|_] ->
-		    {decode_named_bit_string,2}
-	    end,
-    Dec = fun(V, Buf) ->
-		  As = case A of
-			   1 -> [V];
-			   2 -> [V,{asis,NNL}]
-		       end,
-		  emit(["{",{call,per_common,F,As},com,Buf,"}"])
-	  end,
-    {call,Dec,Imm};
+    case NNL of
+	[] ->
+	    case asn1ct:get_bit_string_format() of
+		compact ->
+		    gen_dec_bit_string(decode_compact_bit_string,
+				       Imm);
+		legacy ->
+		    gen_dec_bit_string(decode_legacy_bit_string,
+				       Imm);
+		bitstring ->
+		    gen_dec_copy_bitstring(Imm)
+	    end;
+	[_|_] ->
+	    D = fun(V, Buf) ->
+			As = [V,{asis,NNL}],
+			Call = {call,per_common,decode_named_bit_string,As},
+			emit(["{",Call,com,Buf,"}"])
+		end,
+	    {call,D,Imm}
+    end;
 gen_dec_imm_1('BOOLEAN', _Constr, _Aligned) ->
     asn1ct_imm:per_dec_boolean();
 gen_dec_imm_1({'ENUMERATED',{Base,Ext}}, _Constr, Aligned) ->
@@ -1137,6 +1138,18 @@ gen_dec_imm_1('OCTET STRING', Constraint, Aligned) ->
 gen_dec_imm_1('REAL', _Constraint, Aligned) ->
     asn1ct_imm:per_dec_real(Aligned);
 gen_dec_imm_1(_, _, _) -> no.
+
+gen_dec_bit_string(F, Imm) ->
+    D = fun(V, Buf) ->
+		emit(["{",{call,per_common,F,[V]},com,Buf,"}"])
+	end,
+    {call,D,Imm}.
+
+gen_dec_copy_bitstring(Imm) ->
+    D = fun(V, Buf) ->
+		emit(["{list_to_bitstring([",V,"]),",Buf,"}"])
+	end,
+    {call,D,Imm}.
 
 gen_dec_prim(Erule, Type, BytesVar) ->
     case gen_dec_imm(Erule, Type) of

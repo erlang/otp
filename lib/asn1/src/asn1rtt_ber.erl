@@ -33,6 +33,7 @@
 	 decode_named_bit_string/3,
 	 decode_compact_bit_string/3,
 	 decode_legacy_bit_string/3,
+	 decode_native_bit_string/3,
 	 encode_null/2,decode_null/2,
 	 encode_relative_oid/2,decode_relative_oid/2,
 	 encode_object_identifier/2,decode_object_identifier/2,
@@ -1067,6 +1068,16 @@ decode_legacy_bit_string(Buffer, Range, Tags) ->
 		  decode_bitstring2(byte_size(Bits), Unused, Bits)
 	  end,
     check_restricted_string(Val, length(Val), Range).
+
+decode_native_bit_string(Buffer, Range, Tags) ->
+    case match_and_collect(Buffer, Tags) of
+	<<0>> ->
+	    check_restricted_string(<<>>, 0, Range);
+	<<Unused,Bits/binary>> ->
+	    Size = bit_size(Bits) - Unused,
+	    <<Val:Size/bitstring,_:Unused/bitstring>> = Bits,
+	    check_restricted_string(Val, Size, Range)
+    end.
 
 decode_named_bit_string(Buffer, NamedNumberList, Tags) ->
     case match_and_collect(Buffer, Tags) of

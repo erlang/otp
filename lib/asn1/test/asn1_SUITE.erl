@@ -345,11 +345,16 @@ testPrimStrings(Config) -> test(Config, fun testPrimStrings/3).
 testPrimStrings(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config, [Rule|Opts]),
     testPrimStrings_cases(Rule),
+    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
+			      [legacy_bit_string,Rule|Opts]),
+    testPrimStrings:bit_string(Rule),
+    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
+			      [compact_bit_string,Rule|Opts]),
+    testPrimStrings:bit_string(Rule),
     ?only_ber(testPrimStrings:more_strings(Rule)).
 
 testPrimStrings_cases(Rule) ->
     testPrimStrings:bit_string(Rule),
-    testPrimStrings:bit_string_unnamed(Rule),
     testPrimStrings:octet_string(Rule),
     testPrimStrings:numeric_string(Rule),
     testPrimStrings:other_strings(Rule),

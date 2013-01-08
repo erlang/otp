@@ -134,7 +134,7 @@ main(_Rules) ->
 				     c={5,<<64>>},
 				     d=0}),
 
-    ?line {ok,{'SeqBS',[1,0,1,0,1,1,0],2698,[second],[]}} =
+    {ok,{'SeqBS',[1,0,1,0,1,1,0],2698,[second],<<>>}} =
 	asn1_wrapper:decode('Default','SeqBS',[48,3,131,1,0]),
 
     ?line {ok,{'SeqBS',[1,0,1,0,1,1,0],2698,[second],[1,0,0,1]}} =
@@ -161,7 +161,7 @@ main(_Rules) ->
 				     c={5,<<64>>},
 				     d=0}),
 
-    ?line {ok,{'SetBS',[1,0,1,0,1,1,0],2698,[second],[]}} =
+    {ok,{'SetBS',[1,0,1,0,1,1,0],2698,[second],<<>>}} =
 	asn1_wrapper:decode('Default','SetBS',[49,3,131,1,0]),
 
     ?line {ok,{'SetBS',[1,0,1,0,1,1,0],2698,[second],[1,0,0,1]}} =

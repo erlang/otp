@@ -324,13 +324,6 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
             are several places to search in.  The compiler will always
             search the current directory first.</p>
         </item>
-        <tag><c>+compact_bit_string</c></tag>
-        <item>
-          <p>Gives the user the option to use a compact format of the BIT
-            STRING type to save memory space, typing space and
-            increase encode/decode performance, for details see 
-            <seealso marker="#BIT STRING">BIT STRING </seealso>type section.</p>
-        </item>
         <tag><c>+der</c></tag>
         <item>
           <p>DER encoding rule. Only when using <c>-ber</c> option.</p>
@@ -649,7 +642,7 @@ Day1 = saturday,
 
     <section>
       <marker id="BIT STRING"></marker>
-      <title>BIT STRING </title>
+      <title>BIT STRING</title>
       <p>The BIT STRING type can be used to model information which
         is made up of  arbitrary length series of bits. It is intended
         to be used for a selection of flags, not for binary files.        <br></br>
@@ -660,56 +653,66 @@ Day1 = saturday,
 Bits1 ::= BIT STRING
 Bits2 ::= BIT STRING {foo(0),bar(1),gnu(2),gnome(3),punk(14)}
       </pre>
-      <p>There are four different notations available for representation of
+      <p>There are five different notations available for representation of
         BIT STRING values in Erlang and as input to the encode functions.</p>
       <list type="ordered">
-        <item>A list of binary digits (0 or 1).</item>
-        <item>A hexadecimal number (or an integer). This format should be 
-         avoided, since it is easy to misinterpret a <c>BIT STRING</c> 
-         value in this format. This format may be withdrawn in a future 
-         release.</item>
+	<item>A bitstring. By default, a BIT STRING with no
+	  symbolic names will be decoded to an Erlang bitstring.</item>
         <item>A list of atoms corresponding to atoms in the <c>NamedBitList</c> 
-         in the BIT STRING definition.</item>
+         in the BIT STRING definition. A BIT STRING with symbolic
+	 names will always be decoded to this format.</item>
+        <item>A list of binary digits (0 or 1). This format is always
+	  accepted as input to the encode functions. A BIT STRING will
+	  be decoded to this format if <em>legacy_bit_string</em> option
+	  has been given. <em>This format may be withdrawn in a future
+         release.</em>
+	</item>
         <item>As <c>{Unused,Binary}</c> where <c>Unused</c> denotes how
-         many trailing zero-bits 0 to 7 that are unused in the least
-         significant byte in <c>Binary</c>. This notation is only
-         available when the ASN.1 files have been compiled with the
-        <em>+compact_bit_string</em> flag in the option list. In
-         this case it is possible to use all kinds of notation when
-         encoding. But the result when decoding is always in the
-         compact form. The benefit from this notation is a more
-         compact notation when one has large BIT STRINGs. The
-         encode/decode performance is also much better in the case of
-         large BIT STRINGs. </item>
+          many trailing zero-bits 0 to 7 that are unused in the least
+          significant byte in <c>Binary</c>. This format is always
+	  accepted as input to the encode functions. A BIT STRING will
+	  be decoded to this format if <em>compact_bit_string</em> has
+	  been given. <em>This format may be withdrawn in a future
+          release.</em>
+	</item>
+        <item>A hexadecimal number (or an integer). This format should be
+         avoided, since it is easy to misinterpret a <c>BIT STRING</c>
+         value in this format. <em>This format may be withdrawn in a future
+         release.</em>
+	</item>
       </list>
       <note>
-        <p>Note that it is advised not to use the integer format of a
-          BIT STRING, see the second point above.</p>
+        <p>It is recommended to either use the bitstring format (for
+	  BIT STRINGs with no symbolic names) or a list of symbolic
+	  names (for BIT STRINGs with symbolic names). The other formats
+	  should be avoided since they may be withdrawn in a future
+	  release.
+	</p>
       </note>
       <pre>
-Bits1Val1 = [0,1,0,1,1],
+Bits1Val1 = &lt;&lt;0:1,1:1,0:1,1:1,1:1&gt;&gt;,
 Bits1Val2 = 16#1A,
-Bits1Val3 = {3,&lt;&lt;0:1,1:1,0:1,1:1,1:1,0:3&gt;&gt;}
+Bits1Val3 = {3,&lt;&lt;0:1,1:1,0:1,1:1,1:1,0:3&gt;&gt;},
+Bits1Val4 = [0,1,0,1,1]
       </pre>
-      <p>Note that <c>Bits1Val1</c>, <c>Bits1Val2</c> and <c>Bits1Val3</c>
-        denote the same value.</p>
+      <p>Note that <c>Bits1Val1</c>, <c>Bits1Val2</c>, <c>Bits1Val3</c>,
+	and <c>Bits1Val1</c> denote the same value.</p>
       <pre>
 Bits2Val1 = [gnu,punk],
-Bits2Val2 = 2#1110,
+Bits2Val2 = &lt;&lt;2#1110:4&gt;&gt;,
 Bits2Val3 = [bar,gnu,gnome],
-Bits2Val4 = [0,1,1,1]
       </pre>
-      <p>The above <c>Bits2Val2</c>, <c>Bits2Val3</c> and <c>Bits2Val4</c> 
-        also all denote the same value.</p>
+      <p><c>Bits2Val2</c> and <c>Bits2Val3</c> above denote the same value.</p>
       <p><c>Bits2Val1</c> is assigned symbolic values. The assignment means 
         that the bits corresponding to <c>gnu</c> and <c>punk</c> i.e. bits
         2 and 14 are set to 1 and the rest set to 0. The symbolic values
         appear as a list of values. If a named value appears, which is not
         specified in the type definition, a run-time error will occur.</p>
       <p>The compact notation equivalent to the empty BIT STRING is
-        <c><![CDATA[{0,<<>>}]]></c>, which in the other notations is <c>[]</c> or
+        <c><![CDATA[{0,<<>>}]]></c>, which in the other notations is
+	<c><![CDATA[<<>>]]></c>, <c>[]</c>, or
         <c>0</c>.</p>
-      <p>BIT STRINGS may also be sub-typed with for example a SIZE
+      <p>BIT STRINGS may also be sub-typed with, for example, a SIZE
         specification:</p>
       <pre>
 Bits3 ::= BIT STRING (SIZE(0..31))      </pre>

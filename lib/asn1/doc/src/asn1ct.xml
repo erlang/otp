@@ -64,6 +64,7 @@
         <v>Asn1module = atom() | string()</v>
         <v>Options = [Option| OldOption]</v>
         <v>Option = ber | per | uper | der | compact_bit_string |
+	legacy_bit_string |
 	noobj | {n2n, EnumTypeName} |{outdir, Dir} | {i, IncludeDir} |
 	asn1config | undec_rest |
 	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose | warnings_as_errors</v>
@@ -154,22 +155,26 @@ File3.asn        </pre>
           <tag><c>compact_bit_string</c></tag>
           <item>
             <p>
-	      Makes it possible to use a compact notation for values
-              of the BIT STRING type in Erlang. The notation: 
+	      The BIT STRING type will be decoded to the "compact notation".
+	      <em>This option is not recommended for new code.</em>
 	    </p>
-            <pre>
-BitString = {Unused, Binary},
-Unused = integer(),
-Binary = binary()            
-	    </pre>
-            <p>
-	      <c>Unused</c> must be a number in the range 0 to 7. It
-	      tells how many bits in the least significant byte in
-	      <c>Binary</c> that is unused. 
-	      For details see 
+	    <p>For details see
 	      <seealso marker="asn1_ug#BIT STRING">
-		BIT STRING type section in users guide
-		</seealso>.
+		BIT STRING type section in the Users Guide
+	      </seealso>.
+	    </p>
+	  </item>
+          <tag><c>legacy_bit_string</c></tag>
+          <item>
+            <p>
+	      The BIT STRING type will be decoded to the legacy
+	      format, i.e. a list of zeroes and ones.
+	      <em>This option is not recommended for new code.</em>
+	    </p>
+	    <p>For details see
+	      <seealso marker="asn1_ug#BIT STRING">
+		BIT STRING type section in the Users Guide
+	      </seealso>.
 	    </p>
 	  </item>
           <tag><c>{n2n, EnumTypeName}</c></tag>

@@ -51,7 +51,7 @@ main(_Rules) ->
 				      b = [1,0,1,0], e = true,
 				      c = false, f = 14, g = 16}),
     ?line {ok,#'SeqAltV2'{a = 10, d = 12, 
-			  b = [1,0,1,0], e = true,
+			  b = <<2#1010:4>>, e = true,
 			  h = asn1_NOVALUE, i = asn1_NOVALUE,
 			  c = false, f = 14, g = 16}} =
 	asn1_wrapper:decode('DoubleEllipses','SeqAltV2',Bytes3),
@@ -62,7 +62,7 @@ main(_Rules) ->
 				      h = "PS", i = 13,
 				      c = false, f = 14, g = 16}),
      ?line {ok,#'SeqAlt'{a = 10, d = 12, 
-			 b = [1,0,1,0], e = true,
+			 b = <<2#1010:4>>, e = true,
 			 c = false, f = 14, g = 16}} =
 	asn1_wrapper:decode('DoubleEllipses','SeqAlt',Bytes4),
     
@@ -83,7 +83,7 @@ main(_Rules) ->
 				      b = [1,0,1,0], e = true,
 				      c = false, f = 14, g = 16}),
     ?line {ok,#'SetAltV2'{a = 10, d = 12, 
-			  b = [1,0,1,0], e = true,
+			  b = <<2#1010:4>>, e = true,
 			  h = asn1_NOVALUE, i = asn1_NOVALUE,
 			  c = false, f = 14, g = 16}} =
 	asn1_wrapper:decode('DoubleEllipses','SetAltV2',Bytes7),
@@ -94,7 +94,7 @@ main(_Rules) ->
 				      h = "PS", i = 13,
 				      c = false, f = 14, g = 16}),
      ?line {ok,#'SetAlt'{a = 10, d = 12, 
-			 b = [1,0,1,0], e = true,
+			 b = <<2#1010:4>>, e = true,
 			 c = false, f = 14, g = 16}} =
 	asn1_wrapper:decode('DoubleEllipses','SetAlt',Bytes8),
     ok.

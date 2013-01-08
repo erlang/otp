@@ -41,6 +41,7 @@
 	 maybe_rename_function/3,latest_sindex/0,current_sindex/0,
 	 set_current_sindex/1,next_sindex/0,maybe_saved_sindex/2,
 	 parse_and_save/2,verbose/3,warning/3,warning/4,error/3]).
+-export([get_bit_string_format/0]).
 
 -include("asn1_records.hrl").
 -include_lib("stdlib/include/erl_compile.hrl").
@@ -766,12 +767,9 @@ check({true,M},File,OutFile,Includes,EncodingRule,DbFile,Options,InputMods) ->
 check({false,M},_,_,_,_,_,_,_) ->
     {false,M}.
 
-generate({true,{M,_Module,GenTOrV}},OutFile,EncodingRule,Options) ->
+generate({true,{M,_Module,GenTOrV}}, OutFile, EncodingRule, Options) ->
     debug_on(Options),
-    case lists:member(compact_bit_string,Options) of
-	true -> put(compact_bit_string,true);
-	_ -> ok
-    end,
+    setup_bit_string_format(Options),
     put(encoding_options,Options),
     asn1ct_table:new(check_functions),
 
@@ -793,8 +791,8 @@ generate({true,{M,_Module,GenTOrV}},OutFile,EncodingRule,Options) ->
 		ok
 	end,
     debug_off(Options),
-    put(compact_bit_string,false),
     erase(encoding_options),
+    cleanup_bit_string_format(),
     erase(tlv_format), % used in ber
     erase(class_default_type),% used in ber
     asn1ct_table:delete(check_functions),
@@ -811,6 +809,26 @@ generate({true,{M,_Module,GenTOrV}},OutFile,EncodingRule,Options) ->
     end;
 generate({false,M},_,_,_) ->
     {false,M}.
+
+setup_bit_string_format(Opts) ->
+    Format = case {lists:member(compact_bit_string, Opts),
+		   lists:member(legacy_bit_string, Opts)} of
+		 {false,false} -> bitstring;
+		 {true,false} -> compact;
+		 {false,true} -> legacy;
+		 {true,true} ->
+		     Message = "Contradicting options given: "
+			 "compact_bit_string and legacy_bit_string",
+		     exit({error,{asn1,Message}})
+	     end,
+    put(bit_string_format, Format).
+
+cleanup_bit_string_format() ->
+    erase(bit_string_format).
+
+get_bit_string_format() ->
+    get(bit_string_format).
+
 
 %% parse_and_save parses an asn1 spec and saves the unchecked parse
 %% tree in a data base file.
@@ -1067,6 +1085,7 @@ remove_asn_flags(Options) ->
 	  X /= get_rule(Options),
 	  X /= optimize,
 	  X /= compact_bit_string,
+	  X /= legacy_bit_string,
 	  X /= debug,
 	  X /= asn1config,
 	  X /= record_name_prefix].

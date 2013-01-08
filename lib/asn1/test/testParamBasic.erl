@@ -40,8 +40,8 @@ main(Rules) ->
     ?line {ok,Bytes12} = 
 	asn1_wrapper:encode('ParamBasic','T12',
 			    #'T12'{number = 11,
-				   string = [1,0,1,0,1]}),
-    ?line {ok,{'T12',11,[1,0,1,0,1]}} =
+				   string = <<2#10101:5>>}),
+    {ok,{'T12',11,<<2#10101:5>>}} =
 	asn1_wrapper:decode('ParamBasic','T12',Bytes12),
     
     ?line {ok,Bytes13} = 
@@ -54,8 +54,8 @@ main(Rules) ->
     ?line {ok,Bytes14} = 
 	asn1_wrapper:encode('ParamBasic','T22',
 			    #'T22'{number = 11,
-				   string = [1,0,1,0,1]}),
-    ?line {ok,{'T22',11,[1,0,1,0,1]}} =
+				   string = <<2#10101:5>>}),
+    {ok,{'T22',11,<<2#10101:5>>}} =
 	asn1_wrapper:decode('ParamBasic','T22',Bytes14),
 
     case Rules of

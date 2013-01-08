@@ -20,7 +20,6 @@
 -module(testPrimStrings).
 
 -export([bit_string/1]).
--export([bit_string_unnamed/1]).
 -export([octet_string/1]).
 -export([numeric_string/1]).
 -export([other_strings/1]).
@@ -37,93 +36,35 @@ bit_string(Rules) ->
     %%==========================================================
     %% Bs1 ::= BIT STRING
     %%==========================================================
+
+    bs_roundtrip('Bs1', 0, <<>>),
+    bs_roundtrip('Bs1', 4, <<1:3>>),
+    bs_roundtrip('Bs1', 15, <<15:4>>),
+    bs_roundtrip('Bs1', 255, <<255:8>>),
+
+    bs_roundtrip('Bs1', 256, [0,0,0,0,0,0,0,0,1]),
+    bs_roundtrip('Bs1', 257, [1,0,0,0,0,0,0,0,1]),
+    bs_roundtrip('Bs1', 444, [0,0,1,1,1,1,0,1,1]),
     
-    ?line {ok,Bytes1} = asn1_wrapper:encode('PrimStrings','Bs1',0),
-    ?line {ok,[]} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes1)),
+    {ok,Enc1} = 'PrimStrings':encode('Bs1', 12345678901234567890),
+    {ok,_} = 'PrimStrings':decode('Bs1', Enc1),
+
+    bs_roundtrip('Bs1', [1,1,1,1,1,1,1,1]),
+    bs_roundtrip('Bs1', [0,1,0,0,1,0]),
+    bs_roundtrip('Bs1', [1,0,0,0,0,0,0,0,0]),
+    bs_roundtrip('Bs1', [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]),
     
-    ?line {ok,Bytes2} = asn1_wrapper:encode('PrimStrings','Bs1',4),
-    ?line {ok,[0,0,1]} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes2)),
-    
-    ?line {ok,Bytes3} = asn1_wrapper:encode('PrimStrings','Bs1',15),
-    ?line {ok,[1,1,1,1]} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes3)),
-    
-    ?line {ok,Bytes4} = asn1_wrapper:encode('PrimStrings','Bs1',255),
-    ?line {ok,[1,1,1,1,1,1,1,1]} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes4)),
-    
-    ?line {ok,Bytes5} = asn1_wrapper:encode('PrimStrings','Bs1',256),
-    ?line {ok,[0,0,0,0,0,0,0,0,1]} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes5)),
-    
-    ?line {ok,Bytes6} = asn1_wrapper:encode('PrimStrings','Bs1',257),
-    ?line {ok,[1,0,0,0,0,0,0,0,1]} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes6)),
-    
-    ?line {ok,Bytes7} = asn1_wrapper:encode('PrimStrings','Bs1',444),
-    ?line {ok,[0,0,1,1,1,1,0,1,1]} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes7)),
-    
-    ?line {ok,Bytes8} = asn1_wrapper:encode('PrimStrings','Bs1',12345678901234567890),
-    ?line {ok,_} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes8)),
-    
-%% Removed due to beam cannot handle this big integers    
-%%    Bs1_1 = 123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890,
-%%    ?line {ok,Bytes9} = asn1_wrapper:encode('PrimStrings','Bs1',Bs1_1),
-%%    ?line {ok,_} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes9)),
-    
-%%    Bs1_2 = 12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890,
-%%    ?line {ok,Bytes10} = asn1_wrapper:encode('PrimStrings','Bs1',Bs1_2),
-%%    ?line {ok,_} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes10)),
-    
-    ?line {ok,Bytes11} = asn1_wrapper:encode('PrimStrings','Bs1',[1,1,1,1,1,1,1,1]),
-    ?line {ok,[1,1,1,1,1,1,1,1]} = asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes11)),
-    
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-		  ?line {ok,Bytes12} = asn1_wrapper:encode('PrimStrings','Bs1',[0,1,0,0,1,0]),
-		  ?line {ok,[0,1,0,0,1,0]} = 
-		      asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes12)),
-		  
-		  ?line {ok,Bytes13} = asn1_wrapper:encode('PrimStrings','Bs1',[1,0,0,0,0,0,0,0,0]),
-		  ?line {ok,[1,0,0,0,0,0,0,0,0]} = 
-		      asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes13)),
-		  ok;
-	      per ->
-		  ?line {ok,Bytes12} = asn1_wrapper:encode('PrimStrings','Bs1',[0,1,0,0,1,0]),
-		  ?line {ok,[0,1,0,0,1,0]} = 
-		      asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes12)),
-		  
-		  ?line {ok,Bytes13} = asn1_wrapper:encode('PrimStrings','Bs1',[1,0,0,0,0,0,0,0,0]),
-		  ?line {ok,[1,0,0,0,0,0,0,0,0]} = 
-		      asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes13)),
-		  ok
-	  end,
-    
-    ?line {ok,Bytes14} = 
-	asn1_wrapper:encode('PrimStrings','Bs1',[0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]),
-    ?line {ok,[0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]} = 
-	asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes14)),
-    
-    
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-		  ?line Bytes15 = [35,8,3,2,0,73,3,2,4,32],
-		  ?line {ok,[0,1,0,0,1,0,0,1,0,0,1,0]} = 
-		      asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes15)),
-		  
-		  ?line Bytes16 = [35,9,3,2,0,234,3,3,7,156,0],
-		  ?line {ok,[1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,0]} = 
-		      asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes16)),
-		  
-		  ?line Bytes17 = [35,128,3,2,0,73,3,2,4,32,0,0],
-		  ?line {ok,[0,1,0,0,1,0,0,1,0,0,1,0]} = 
-		      asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes17)),
-		  
-		  ?line Bytes18 = [35,128,3,2,0,234,3,3,7,156,0,0,0],
-		  ?line {ok,[1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,0]} = 
-		      asn1_wrapper:decode('PrimStrings','Bs1',lists:flatten(Bytes18)),
-		  ok;
-	      
-	      per ->
-		  ok
-	  end,
-    
+    case asn1_wrapper:erule(Rules) of
+	ber ->
+	    bs_decode('Bs1', <<35,8,3,2,0,73,3,2,4,32>>,
+		      [0,1,0,0,1,0,0,1,0,0,1,0]),
+	    bs_decode('Bs1', <<35,9,3,2,0,234,3,3,7,156,0>>,
+		      [1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,0]),
+	    bs_decode('Bs1', <<35,128,3,2,0,234,3,3,7,156,0,0,0>>,
+		      [1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,0]);
+	per ->
+	    ok
+    end,
 
     
     %%==========================================================
@@ -156,77 +97,55 @@ bit_string(Rules) ->
     %% Bs3 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (1..7))
     %%==========================================================
     
-    ?line {ok,Bytes31} = asn1_wrapper:encode('PrimStrings','Bs3',[mo,tu,fr]),
-    ?line {ok,[mo,tu,fr]} = asn1_wrapper:decode('PrimStrings','Bs3',lists:flatten(Bytes31)),
-    
-    ?line {ok,Bytes32} = asn1_wrapper:encode('PrimStrings','Bs3',[0,1,1,0,0,1,0]),
-    ?line {ok,[mo,tu,fr]} = asn1_wrapper:decode('PrimStrings','Bs3',lists:flatten(Bytes32)),
-    
+    roundtrip('Bs3', [mo,tu,fr]),
+    bs_roundtrip('Bs3', [0,1,1,0,0,1,0], [mo,tu,fr]),
     
     %%==========================================================
     %% Bs7 ::= BIT STRING (SIZE (24))
     %%==========================================================
 
-    ?line {ok,Bytes33} = asn1_wrapper:encode('PrimStrings','Bs7',53245),
-    ?line {ok,[1,0,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0]} =
-	asn1_wrapper:decode('PrimStrings','Bs7',Bytes33),
-
-    ?line {ok,Bytes34} = asn1_wrapper:encode('PrimStrings','Bs7',[1,0,1,0]),
-    ?line {ok,[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]} =
-	asn1_wrapper:decode('PrimStrings','Bs7',Bytes34),
+    bs_roundtrip('Bs7', 53245,
+		 [1,0,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0]),
+    bs_roundtrip('Bs7', [1,0,1,0],
+		 [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]),
     
     %%==========================================================
     %% BsPri ::= [PRIVATE 61] BIT STRING
     %%==========================================================
     
-    ?line {ok,Bytes41} = asn1_wrapper:encode('PrimStrings','BsPri',45),
-    ?line {ok,[1,0,1,1,0,1]} = asn1_wrapper:decode('PrimStrings','BsPri',lists:flatten(Bytes41)),
+    bs_roundtrip('BsPri', 45, [1,0,1,1,0,1]),
     
-    ?line {ok,Bytes42} = asn1_wrapper:encode('PrimStrings','BsPri',211),
-    ?line {ok,[1,1,0,0,1,0,1,1]} = asn1_wrapper:decode('PrimStrings','BsPri',lists:flatten(Bytes42)),
+    bs_roundtrip('BsPri', 211, [1,1,0,0,1,0,1,1]),
     
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-		  ?line {ok,[0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]} = 
-		      asn1_wrapper:decode('PrimStrings','BsPri',[223,61,4,5,75,226,96]),
-		  
-		  ?line {ok,[0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]} = 
-		      asn1_wrapper:decode('PrimStrings','BsPri',[255,61,128,3,4,5,75,226,96,0,0]),
-		  
-		  ?line {ok,[0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]} = 
-		      asn1_wrapper:decode('PrimStrings','BsPri',[255,61,9,3,2,0,75,3,3,5,226,96]),
-		  
-		  ?line {ok,[0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]} = 
-		      asn1_wrapper:decode('PrimStrings','BsPri',[255,61,128,3,2,0,75,3,3,5,226,96,0,0]),
-		  ok;
-	      
-	      per ->
-		  ok
-	  end,
-    
+    case asn1_wrapper:erule(Rules) of
+	ber ->
+	    bs_decode('BsPri', <<223,61,4,5,75,226,96>>,
+		      [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]),
+	    bs_decode('BsPri', <<255,61,128,3,4,5,75,226,96,0,0>>,
+		      [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]),
+	    bs_decode('BsPri', <<255,61,9,3,2,0,75,3,3,5,226,96>>,
+		      [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]),
+	    bs_decode('BsPri', <<255,61,128,3,2,0,75,3,3,5,226,96,0,0>>,
+		      [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]);
+	per ->
+	    ok
+    end,
     
     
     %%==========================================================
     %% BsExpPri ::= [PRIVATE 61] EXPLICIT BIT STRING
     %%==========================================================
     
-    ?line {ok,Bytes51} = asn1_wrapper:encode('PrimStrings','BsExpPri',45),
-    ?line {ok,[1,0,1,1,0,1]} = 
-	asn1_wrapper:decode('PrimStrings','BsExpPri',lists:flatten(Bytes51)),
+    bs_roundtrip('BsExpPri', 45, [1,0,1,1,0,1]),
+    bs_roundtrip('BsExpPri', 211, [1,1,0,0,1,0,1,1]),
     
-    ?line {ok,Bytes52} = asn1_wrapper:encode('PrimStrings','BsExpPri',211),
-    ?line {ok,[1,1,0,0,1,0,1,1]} = 
-	asn1_wrapper:decode('PrimStrings','BsExpPri',lists:flatten(Bytes52)),
-    
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-		  ?line {ok,[0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]} = 
-		      asn1_wrapper:decode('PrimStrings','BsExpPri',[255,61,6,3,4,5,75,226,96]),
-		  ok;
-	      
-	      per ->
-		  ok
-	  end,
+    case asn1_wrapper:erule(Rules) of
+	ber ->
+	    bs_decode('BsExpPri', <<255,61,6,3,4,5,75,226,96>>,
+		      [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]);
+	per ->
+	    ok
+    end,
     
     %%==========================================================
     %% TestS ::= BIT STRING {a(0),b(1)} (SIZE (3..8)), test case for OTP-4353
@@ -248,14 +167,10 @@ bit_string(Rules) ->
     %% BS5932 ::= BIT STRING (SIZE (5..MAX))
     %% test case for OTP-5932
     %%==========================================================
+    bs_roundtrip('BSMAX', [1,0,1,0,1]),
     case asn1_wrapper:erule(Rules) of
 	ber ->
-	    ?line {error,_} = asn1_wrapper:encode('PrimStrings','BSMAX',
-						  [1,0,1]),
-	    ?line {ok,Bytes55} = 
-		asn1_wrapper:encode('PrimStrings','BSMAX',[1,0,1,0,1]),
-	    ?line {ok,[1,0,1,0,1]} = 
-		asn1_wrapper:decode('PrimStrings','BSMAX',Bytes55);
+	    {error,_} = 'PrimStrings':encode('BSMAX', [1,0,1]);
 	_ ->
 	    ok
     end,
@@ -274,47 +189,13 @@ bit_string(Rules) ->
 	end,
     
     BSList255 = BSmaker(BSmaker,0,255,{1,0},[]),
+    bs_roundtrip('BS255', BSList255),
     BSList256 = BSmaker(BSmaker,0,256,{1,0},[]),
+    bs_roundtrip('BS256', BSList256),
     BSList1024 = BSmaker(BSmaker,0,1024,{1,0},[]),
-    ?line {ok,Bytes56} = 
-	asn1_wrapper:encode('PrimStrings','BS255',BSList255),
-    ?line {ok,BSList255} = 
-	asn1_wrapper:decode('PrimStrings','BS255',Bytes56),
-    ?line {ok,Bytes57} = 
-	asn1_wrapper:encode('PrimStrings','BS256',BSList256),
-    ?line {ok,BSList256} = 
-	asn1_wrapper:decode('PrimStrings','BS256',Bytes57),
-    ?line {ok,Bytes58} = 
-	asn1_wrapper:encode('PrimStrings','BS1024',BSList1024),
-    ?line {ok,BSList1024} = 
-	asn1_wrapper:decode('PrimStrings','BS1024',Bytes58).
-    
-	    
+    bs_roundtrip('BS1024', BSList1024),
 
-bit_string_unnamed(Rules) ->
-    case asn1_wrapper:erule(Rules) of
-	ber ->
-	    ok;
-	per ->
-	    ?line {ok,Bytes1} = 
-		case catch asn1_wrapper:encode('PrimStrings','TransportLayerAddress',[0,1,1,0]) of
-		    Ret = {ok,_} -> Ret;
-		    Err ->
-			Config = file:consult(test_config),
-			?line OutDir = ?config(priv_dir,Config),
-			MyOut = "/home/bertil/daily_build",
-			file:copy(filename:join([OutDir,"PrimStrings.erl"]),
-				  filename:join([MyOut,"PrimStrings.erl"])),
-			file:copy(filename:join([OutDir,"PrimStrings.beam"]),
-				  filename:join([MyOut,"PrimStrings.beam"])),
-			file:copy(code:which(asn1rt_per_v1),
-				  filename:join([MyOut,"asn1rt_per_v1.beam"])),
-			file:copy(filename:join([code:lib_dir(asn1),src,"asn1rt_per_v1.erl"]),filename:join([MyOut,"asn1rt_per_v1.erl"])),
-			io:format("Err: ~p~n",[Err]),
-			Err
-		end,
-	    ?line {ok,[0,1,1,0]} = asn1_wrapper:decode('PrimStrings','TransportLayerAddress',lists:flatten(Bytes1))
-    end.
+    bs_roundtrip('TransportLayerAddress', [0,1,1,0]).
 
 octet_string(Rules) ->
 
@@ -828,3 +709,39 @@ roundtrip(Type, Value) ->
     {ok,Encoded} = 'PrimStrings':encode(Type, Value),
     {ok,Value} = 'PrimStrings':decode(Type, Encoded),
     ok.
+
+bs_roundtrip(Type, Value) ->
+    bs_roundtrip(Type, Value, Value).
+
+bs_roundtrip(Type, Value, Expected) ->
+    M = 'PrimStrings',
+    {ok,Encoded} = M:encode(Type, Value),
+    case M:decode(Type, Encoded) of
+	{ok,Expected} ->
+	    ok;
+	{ok,Other} ->
+	    Expected = convert(Other, Expected)
+    end.
+
+bs_decode(Type, Encoded, Expected) ->
+    M = 'PrimStrings',
+    case M:decode(Type, Encoded) of
+	{ok,Expected} ->
+	    ok;
+	{ok,Other} ->
+	    Expected = convert(Other, Expected)
+    end.
+
+convert(Val, E) when is_bitstring(Val) ->
+    convert_1(Val, E);
+convert({Unused,Bin}, E) ->
+    Sz = bit_size(Bin) - Unused,
+    <<Val:Sz/bitstring,_:Unused>> = Bin,
+    convert_1(Val, E);
+convert(List, E) when is_list(List) ->
+    Val = << <<B:1>> || B <- List >>,
+    convert_1(Val, E).
+
+convert_1(Val, E) when is_list(E) ->
+    [B || <<B:1>> <= Val];
+convert_1(Val, E) when is_bitstring(E) -> Val.

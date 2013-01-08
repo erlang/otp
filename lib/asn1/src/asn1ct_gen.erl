@@ -808,7 +808,7 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
 
 
 pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
-    emit({"-export([encoding_rule/0]).",nl}),
+    emit(["-export([encoding_rule/0,bit_string_format/0]).",nl]),
     case Types of
 	[] -> ok;
 	_ ->
@@ -918,12 +918,10 @@ gen_selected_decode_exports1([{FuncName,_}|Rest]) ->
     gen_selected_decode_exports1(Rest).
 
 pgen_dispatcher(Erules,_Module,{[],_Values,_,_,_Objects,_ObjectSets}) ->
-    emit(["encoding_rule() ->",nl]),
-    emit([{asis,Erules},".",nl,nl]);
+    gen_info_functions(Erules);
 pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     emit(["-export([encode/2,decode/2,encode_disp/2,decode_disp/2]).",nl,nl]),
-    emit(["encoding_rule() ->",nl]),
-    emit(["   ",{asis,Erules},".",nl,nl]),
+    gen_info_functions(Erules),
     NoFinalPadding = lists:member(no_final_padding,get(encoding_options)),
     {Call,BytesAsBinary} =
 	case Erules of
@@ -1028,6 +1026,11 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     emit([nl]),
     emit({nl,nl}).
 
+gen_info_functions(Erules) ->
+    emit(["encoding_rule() -> ",
+	  {asis,Erules},".",nl,nl,
+	  "bit_string_format() -> ",
+	  {asis,asn1ct:get_bit_string_format()},".",nl,nl]).
 
 gen_decode_partial_incomplete(ber) ->
     case {asn1ct:read_config_data(partial_incomplete_decode),

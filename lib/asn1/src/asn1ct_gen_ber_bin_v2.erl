@@ -628,12 +628,15 @@ gen_dec_bit_string(BytesVar, _Constraint, [_|_]=NNL, TagStr) ->
     call(decode_named_bit_string,
 	 [BytesVar,{asis,NNL},TagStr]);
 gen_dec_bit_string(BytesVar, Constraint, [], TagStr) ->
-    case get(compact_bit_string) of
-	true ->
+    case asn1ct:get_bit_string_format() of
+	compact ->
 	    call(decode_compact_bit_string,
 		 [BytesVar,{asis,Constraint},TagStr]);
-	_ ->
+	legacy ->
 	    call(decode_legacy_bit_string,
+		 [BytesVar,{asis,Constraint},TagStr]);
+	bitstring ->
+	    call(decode_native_bit_string,
 		 [BytesVar,{asis,Constraint},TagStr])
     end.
 
