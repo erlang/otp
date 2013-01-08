@@ -799,6 +799,10 @@ decode_enumerated1(Val, NamedNumberList) ->
 %% C is constrint Len, only valid when identifiers
 %%============================================================================
 
+encode_bit_string(C, Bits, NamedBitList, TagIn) when is_bitstring(Bits) ->
+    PadLen = (8 - (bit_size(Bits) band 7)) band 7,
+    Compact = {PadLen,<<Bits/bitstring,0:PadLen>>},
+    encode_bin_bit_string(C, Compact, NamedBitList, TagIn);
 encode_bit_string(C,Bin={Unused,BinBits},NamedBitList,TagIn) when is_integer(Unused), is_binary(BinBits) ->
     encode_bin_bit_string(C,Bin,NamedBitList,TagIn);
 encode_bit_string(C, [FirstVal | RestVal], NamedBitList, TagIn) when is_atom(FirstVal) ->

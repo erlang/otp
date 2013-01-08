@@ -528,6 +528,10 @@ decode_length(Buffer, SingleValue) when is_integer(SingleValue) ->
 %% Unused = integer(),
 %% BinBits = binary().
 
+encode_bit_string(C, Bits, NamedBitList) when is_bitstring(Bits) ->
+    PadLen = (8 - (bit_size(Bits) band 7)) band 7,
+    Compact = {PadLen,<<Bits/bitstring,0:PadLen>>},
+    encode_bin_bit_string(C, Compact, NamedBitList);
 encode_bit_string(C, {Unused,BinBits}=Bin, NamedBitList)
   when is_integer(Unused), is_binary(BinBits) ->
     encode_bin_bit_string(C,Bin,NamedBitList);
