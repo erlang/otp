@@ -28,13 +28,10 @@
 	 cipher_suites/0, cipher_suites/1, suite_definition/1,
 	 close/1, shutdown/2,
 	 connect/3, connect/2, connect/4, connection_info/1,
-	 controlling_process/2, listen/2, pid/1, peername/1, peercert/1,
+	 controlling_process/2, listen/2, peername/1, peercert/1,
 	 recv/2, recv/3, send/2, getopts/2, setopts/2, sockname/1,
 	 versions/0, session_info/1, format_error/1,
 	 renegotiate/1, prf/5, clear_pem_cache/0, random_bytes/1, negotiated_next_protocol/1]).
-
-
--deprecated({pid, 1, next_major_release}).
 
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
@@ -956,12 +953,3 @@ make_next_protocol_selector({server, AllProtocols, DefaultProtocol}) ->
             PreferredProtocol -> PreferredProtocol
         end
     end.
-                                
-%% Only used to remove exit messages from old ssl
-%% First is a nonsense clause to provide some
-%% backward compatibility for orber that uses this
-%% function in a none recommended way, but will
-%% work correctly if a valid pid is returned.
-%% Deprcated to be removed in r16
-pid(#sslsocket{})->
-    whereis(ssl_connection_sup).
