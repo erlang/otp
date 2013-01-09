@@ -117,11 +117,7 @@ end_per_suite(Config) ->
     CTNode = proplists:get_value(ct_node, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     true = rpc:call(CTNode, code, del_path, [filename:join(PrivDir,"")]),
-    case test_server:is_cover() of
-	true -> cover:flush(CTNode);
-	false -> ok
-    end,
-    slave:stop(CTNode),
+    slave_stop(CTNode),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -152,11 +148,7 @@ end_per_testcase(_TestCase, Config) ->
     case wait_for_ct_stop(CTNode) of
 	%% Common test was not stopped to we restart node.
 	false ->
-	    case test_server:is_cover() of
-		true -> cover:flush(CTNode);
-		false -> ok
-	    end,
-	    slave:stop(CTNode),
+	    slave_stop(CTNode),
 	    start_slave(Config,proplists:get_value(trace_level,Config)),
 	    {fail, "Could not stop common_test"};
 	true ->
@@ -1274,3 +1266,22 @@ rm_files([F | Fs]) ->
 rm_files([]) ->
     ok.
     
+%%%-----------------------------------------------------------------
+%%%
+slave_stop(Node) ->
+    Cover = test_server:is_cover(),
+    if Cover-> cover:flush(Node);
+       true -> ok
+    end,
+    erlang:monitor_node(Node, true),
+    slave:stop(Node),
+    receive
+	{nodedown, Node} ->
+	    if Cover -> cover:stop(Node);
+	       true -> ok
+	    end
+    after 5000 ->
+	    erlang:monitor_node(Node, false),
+	    receive {nodedown, Node} -> ok after 0 -> ok end %flush
+    end,
+    ok.

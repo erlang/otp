@@ -23,7 +23,9 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([start/1, compile/1, analyse/1, misc/1, stop/1, 
-	 distribution/1, reconnect/1, die_and_reconnect/1, export_import/1,
+	 distribution/1, reconnect/1, die_and_reconnect/1,
+	 dont_reconnect_after_stop/1, stop_node_after_disconnect/1,
+	 export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1]).
 
@@ -47,6 +49,7 @@ all() ->
 	undefined ->
 	    [start, compile, analyse, misc, stop,
 	     distribution, reconnect, die_and_reconnect,
+	     dont_reconnect_after_stop, stop_node_after_disconnect,
 	     export_import, otp_5031, eif, otp_5305, otp_5418,
 	     otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
 	     otp_8340];
@@ -86,8 +89,11 @@ init_per_testcase(TC, Config) when TC =:= misc;
 init_per_testcase(_TestCase, Config) ->
     Config.
 
-end_per_testcase(_TestCase, _Config) ->
-    %cover:stop(),
+end_per_testcase(TestCase, _Config) ->
+    case lists:member(TestCase,[start,compile,analyse,misc]) of
+	true -> ok;
+	false -> cover:stop()
+    end,
     ok.
 
 start(suite) -> [];
@@ -447,8 +453,8 @@ reconnect(Config) ->
 
     %% Disconnect and check that node is removed from main cover node
     net_kernel:disconnect(N1),
+    timer:sleep(500), % allow some to detect disconnect and for f:f2() call
     [] = cover:which_nodes(),
-    timer:sleep(500), % allow some time for the f:f2() call
 
     %% Do some add one module (b) and remove one module (a)
     code:purge(a),
@@ -515,6 +521,94 @@ die_and_reconnect(Config) ->
 
     %% Ensure that no more calls are counted
     check_f_calls(2,0),
+
+    cover:stop(),
+    ?t:stop_node(N1),
+    ok.
+
+%% Test that a stopped node is not marked as lost, i.e. that it is not
+%% reconnected if it is restarted (OTP-10638)
+dont_reconnect_after_stop(Config) ->
+    DataDir = ?config(data_dir, Config),
+    ok = file:set_cwd(DataDir),
+
+    {ok,f} = compile:file(f),
+
+    NodeName = cover_SUITE_dont_reconnect_after_stop,
+    {ok,N1} = ?t:start_node(NodeName,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,f} = cover:compile(f),
+    {ok,[N1]} = cover:start(nodes()),
+
+    %% A call to check later
+    rpc:call(N1,f,f1,[]),
+
+    %% Stop cover on the node, then terminate the node
+    cover:stop(N1),
+    rpc:call(N1,erlang,halt,[]),
+    [] = cover:which_nodes(),
+
+    check_f_calls(1,0),
+
+    %% Restart the node and check that cover does not reconnect
+    {ok,N1} = ?t:start_node(NodeName,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    timer:sleep(300),
+    [] = cover:which_nodes(),
+    Beam = rpc:call(N1,code,which,[f]),
+    false = (Beam==cover_compiled),
+
+    %% One more call...
+    rpc:call(N1,f,f1,[]),
+    cover:flush(N1),
+
+    %% Ensure that the last call is not counted
+    check_f_calls(1,0),
+
+    cover:stop(),
+    ?t:stop_node(N1),
+    ok.
+
+%% Test that a node which is stopped while it is marked as lost is not
+%% reconnected if it is restarted (OTP-10638)
+stop_node_after_disconnect(Config) ->
+    DataDir = ?config(data_dir, Config),
+    ok = file:set_cwd(DataDir),
+
+    {ok,f} = compile:file(f),
+
+    NodeName = cover_SUITE_stop_node_after_disconnect,
+    {ok,N1} = ?t:start_node(NodeName,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,f} = cover:compile(f),
+    {ok,[N1]} = cover:start(nodes()),
+
+    %% A call to check later
+    rpc:call(N1,f,f1,[]),
+
+    %% Flush the node, then terminate the node to make it marked as lost
+    cover:flush(N1),
+    rpc:call(N1,erlang,halt,[]),
+
+    check_f_calls(1,0),
+
+    %% Stop cover on node
+    cover:stop(N1),
+
+    %% Restart the node and check that cover does not reconnect
+    {ok,N1} = ?t:start_node(NodeName,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    timer:sleep(300),
+    [] = cover:which_nodes(),
+    Beam = rpc:call(N1,code,which,[f]),
+    false = (Beam==cover_compiled),
+
+    %% One more call...
+    rpc:call(N1,f,f1,[]),
+    cover:flush(N1),
+
+    %% Ensure that the last call is not counted
+    check_f_calls(1,0),
 
     cover:stop(),
     ?t:stop_node(N1),
@@ -908,7 +1002,7 @@ otp_8270(Config) when is_list(Config) ->
     ok.
 
 otp_8273(doc) ->
-    ["OTP-8270. Bug."];
+    ["OTP-8273. Bug."];
 otp_8273(suite) -> [];
 otp_8273(Config) when is_list(Config) ->
     Test = <<"-module(t).
