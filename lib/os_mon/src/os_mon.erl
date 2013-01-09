@@ -176,9 +176,7 @@ services({unix, sunos}) ->
 services({unix, _}) -> % Other unix.
     [cpu_sup, disksup, memsup];
 services({win32, _}) ->
-    [disksup, memsup, os_sup, sysinfo];
-services(_) ->
-    [].
+    [disksup, memsup, os_sup, sysinfo].
 
 server_name(cpu_sup) -> cpu_sup;
 server_name(disksup) -> disksup;
