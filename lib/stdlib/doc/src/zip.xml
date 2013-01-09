@@ -217,7 +217,7 @@
           <tag><c>{uncompress, <anno>What</anno>}</c></tag>
           <item>
             <p>Controls what types of files will be uncompressed. It is by
-            default set to <c>[".Z",".zip",".zoo",".arc",".lzh",".arj"]</c>.
+            default set to <c>[".Z", ".zip", ".zoo", ".arc", ".lzh", ".arj"]</c>.
 	    The following values of <c>What</c> are allowed:</p>
 	      <taglist>
 	            <tag><c>all</c></tag>
@@ -355,7 +355,7 @@
 {ok,{"dummy.zip",
      &lt;&lt;80,75,3,4,20,0,0,0,0,0,74,152,97,60,171,39,212,26,3,0,
        0,0,3,0,0,...&gt;&gt;}}
-&gt; <input>catch zip:foldl(fun("foo", _, B, _) -> throw(B()); (_, _, _, Acc) -> Acc end, [], {Name, Bin}). </input>
+&gt; <input>catch zip:foldl(fun("foo", _, B, _) -> throw(B()); (_,_,_,Acc) -> Acc end, [], {Name, Bin}). </input>
 &lt;&lt;"FOO"&gt;&gt;
 </pre>
       </desc>

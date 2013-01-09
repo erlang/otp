@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -274,7 +274,8 @@
 	</taglist>
 
 	<p>Example:</p>
-	<p><code>erl -sasl releases_dir \"mytarget/releases\" -boot mytarget/releases/1.0/myrel -boot_var RELTOOL_EXT_LIB mytarget/lib</code></p>
+	<p><code>erl -sasl releases_dir \"mytarget/releases\" -boot mytarget/releases/1.0/myrel\
+ -boot_var RELTOOL_EXT_LIB mytarget/lib</code></p>
       </item>
 
       <tag><c>incl_sys_filters</c></tag>

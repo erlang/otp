@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2012</year>
+      <year>2003</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -752,7 +752,9 @@
       PrivDirOption   = auto_per_run | auto_per_tc | manual_per_tc
       EventHandlers   = atom() | [atom()]
       InitArgs        = [term()]
-      CTHModules      = [CTHModule | {CTHModule, CTHInitArgs} | {CTHModule, CTHInitArgs, CTHPriority}]
+      CTHModules      = [CTHModule |
+                         {CTHModule, CTHInitArgs} |
+                         {CTHModule, CTHInitArgs, CTHPriority}]
       CTHModule       = atom()
       CTHInitArgs     = term()
       Dir             = string()

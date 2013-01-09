@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2012</year>
+      <year>2003</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -170,7 +170,9 @@
 	<v> UserData = term()</v>
 	<v> Conns = [atom()]</v>
 	<v> CSSFile = string()</v>
-	<v> CTHs = [CTHModule | {CTHModule, CTHInitArgs} | {CTHModule, CTHInitArgs, CTHPriority}]</v>
+	<v> CTHs = [CTHModule |</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs} |</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs, CTHPriority}]</v>
 	<v> CTHModule = atom()</v>
 	<v> CTHInitArgs = term()</v>
 	</type>
@@ -297,8 +299,9 @@
 	<v> UserData = term()</v>
 	<v> Conns = [atom()]</v>
 	<v> CSSFile = string()</v>
-	<v> CTHs = [CTHModule | {CTHModule, CTHInitArgs} |
-	  {CTHModule, CTHInitArgs, CTHPriority}]</v>
+	<v> CTHs = [CTHModule |</v>
+        <v> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs} |</v>
+	<v> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs, CTHPriority}]</v>
 	<v> CTHModule = atom()</v>
 	<v> CTHInitArgs = term()</v>
 	</type>

@@ -323,8 +323,11 @@ fe80::204:acff:fe17:bf38
       <type name="stat_option"/>
       <desc>
         <p>Gets one or more statistic options for a socket.</p>
+
 	<p><c>getstat(<anno>Socket</anno>)</c> is equivalent to
-	<c>getstat(<anno>Socket</anno>,&nbsp;[recv_avg,&nbsp;recv_cnt,&nbsp;recv_dvi,&nbsp;recv_max,&nbsp;recv_oct,&nbsp;send_avg,&nbsp;send_cnt,&nbsp;send_dvi,&nbsp;send_max,&nbsp;send_oct])</c></p>
+	  <c>getstat(<anno>Socket</anno>, [recv_avg, recv_cnt, recv_dvi,
+	  recv_max, recv_oct, send_avg, send_cnt, send_dvi, send_max,
+	  send_oct])</c>.</p>
 	  <p>The following options are available:</p>
         <taglist>
 	  <tag><c>recv_avg</c></tag>

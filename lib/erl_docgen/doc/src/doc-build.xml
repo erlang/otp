@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2011</year>
+      <year>1997</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -56,7 +56,8 @@
       </p>
       <code>
 
-	1> escript $(ERL_TOP)/lib/erl_docgen/priv/bin/codeline_preprocessing.escript ex1.xmlsrc ex1.xml
+	1> escript $(ERL_TOP)/lib/erl_docgen/priv/bin/codeline_preprocessing.escript \
+	   ex1.xmlsrc ex1.xml
       </code>
     </section>
   </section>
