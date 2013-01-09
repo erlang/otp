@@ -44,6 +44,7 @@
 #include <openssl/md5.h>
 #include <openssl/md4.h>
 #include <openssl/sha.h>
+#include <openssl/ripemd.h>
 #include <openssl/bn.h>
 #include <openssl/objects.h>
 #include <openssl/rc4.h>
@@ -139,6 +140,10 @@ static ERL_NIF_TERM md5(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md5_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md5_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md5_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM ripemd160(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM ripemd160_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM ripemd160_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM ripemd160_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -246,6 +251,10 @@ static ErlNifFunc nif_funcs[] = {
     {"md5_init", 0, md5_init},
     {"md5_update", 2, md5_update},
     {"md5_final", 1, md5_final},
+    {"ripemd160", 1, ripemd160},
+    {"ripemd160_init", 0, ripemd160_init},
+    {"ripemd160_update", 2, ripemd160_update},
+    {"ripemd160_final", 1, ripemd160_final},
     {"sha", 1, sha},
     {"sha_init", 0, sha_init},
     {"sha_update", 2, sha_update},
@@ -326,6 +335,8 @@ ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 #define MD5_LEN_96      12
 #define MD4_CTX_LEN     (sizeof(MD4_CTX))
 #define MD4_LEN         16
+#define RIPEMD160_CTX_LEN (sizeof(RIPEMD160_CTX))
+#define RIPEMD160_LEN   20
 #define SHA_CTX_LEN     (sizeof(SHA_CTX))
 #define SHA_LEN         20
 #define SHA_LEN_96      12
@@ -599,6 +610,53 @@ static ERL_NIF_TERM md5_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     MD5_Final(enif_make_new_binary(env, MD5_LEN, &ret), &ctx_clone);
     return ret;
 }
+
+static ERL_NIF_TERM ripemd160(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Data) */
+    ErlNifBinary ibin;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
+  return enif_make_badarg(env);
+    }
+    RIPEMD160((unsigned char *) ibin.data, ibin.size,
+  enif_make_new_binary(env,RIPEMD160_LEN, &ret));
+    return ret;
+}
+static ERL_NIF_TERM ripemd160_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* () */
+    ERL_NIF_TERM ret;
+    RIPEMD160_Init((RIPEMD160_CTX *) enif_make_new_binary(env, RIPEMD160_CTX_LEN, &ret));
+    return ret;
+}
+static ERL_NIF_TERM ripemd160_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context, Data) */
+    RIPEMD160_CTX* new_ctx;
+    ErlNifBinary ctx_bin, data_bin;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin)
+  || ctx_bin.size != RIPEMD160_CTX_LEN
+  || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
+  return enif_make_badarg(env);
+    }
+    new_ctx = (RIPEMD160_CTX*) enif_make_new_binary(env,RIPEMD160_CTX_LEN, &ret);
+    memcpy(new_ctx, ctx_bin.data, RIPEMD160_CTX_LEN);
+    RIPEMD160_Update(new_ctx, data_bin.data, data_bin.size);
+    return ret;
+}
+static ERL_NIF_TERM ripemd160_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context) */
+    ErlNifBinary ctx_bin;
+    RIPEMD160_CTX ctx_clone;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != RIPEMD160_CTX_LEN) {
+  return enif_make_badarg(env);
+    }
+    memcpy(&ctx_clone, ctx_bin.data, RIPEMD160_CTX_LEN); /* writable */
+    RIPEMD160_Final(enif_make_new_binary(env, RIPEMD160_LEN, &ret), &ctx_clone);
+    return ret;
+}
+
 
 static ERL_NIF_TERM sha(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Data) */    
