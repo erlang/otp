@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2012</year>
+      <year>1996</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,73 @@
     <rev></rev>
     <file>notes.xml</file>
   </header>
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.23</title>
+<!--
+    <p>Version 4.23 supports code replacement in runtime from/to
+    version 4.22.1, 
+    4.22, 4.21.7 4.21.6 4.21.5, 4.21.4, 4.21.3, 4.21.2, 4.21.1 and 4.21. </p>
+-->
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Remove runtime warning in snmpa_agent because of 
+	  tuple fun usage. </p>
+	  <p>Luca Favatella</p>
+	  <p>Own Id: OTP-10672</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+      <!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Simultaneous 
+          <seealso marker="snmpa#backup">snmpa:backup/1,2</seealso> 
+          calls can interfere.
+          The master agent did not check if a backup was already in 
+          progress when a backup request was accepted. </p>
+          <p>Own Id: OTP-9884</p>
+          <p>Aux Id: Seq 11995</p>
+        </item>
+
+      </list>
+      -->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 4.23 -->
 
 
   <section>
@@ -123,70 +190,6 @@
     </section>
 
   </section> <!-- 4.22.1 -->
-
-
-  <section>
-    <title>SNMP Development Toolkit 4.23</title>
-    <p>Version 4.23 supports code replacement in runtime from/to
-    version 4.22, 
-    4.21.7 4.21.6 4.21.5, 4.21.4, 4.21.3, 4.21.2, 4.21.1 and 4.21. </p>
-
-    <section>
-      <title>Improvements and new features</title>
-      <p>-</p>
-
-<!--
-      <list type="bulleted">
-        <item>
-          <p>[agent] Documenting previously existing but undocumented function, 
-	  <seealso marker="snmp_generic#get_table_info">snmp_generic:get_table_info/2</seealso>. </p>
-	  <p>Own Id: OTP-9942</p>
-        </item>
-
-      </list>
--->
-
-    </section>
-
-    <section>
-      <title>Fixed Bugs and Malfunctions</title>
-      <p>-</p>
-
-      <!--
-      <list type="bulleted">
-        <item>
-          <p>[agent] Simultaneous 
-          <seealso marker="snmpa#backup">snmpa:backup/1,2</seealso> 
-          calls can interfere.
-          The master agent did not check if a backup was already in 
-          progress when a backup request was accepted. </p>
-          <p>Own Id: OTP-9884</p>
-          <p>Aux Id: Seq 11995</p>
-        </item>
-
-      </list>
-      -->
-
-    </section>
-
-    <section>
-      <title>Incompatibilities</title>
-<!--
-      <p>-</p>
--->
-
-      <list type="bulleted">
-        <item>
-          <p>[manager] The old Addr-and-Port based API functions, previously
-	  long deprecated and marked for deletion in R16B, has now been
-	  removed. </p>
-          <p>Own Id: OTP-10027</p>
-        </item>
-
-      </list>
-    </section>
-
-  </section> <!-- 4.23 -->
 
 
   <section>
