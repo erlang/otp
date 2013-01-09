@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -32,19 +33,19 @@
 %% 173 - 176    { - ~           punctuation
 %% 177          DEL             control
 %% 200 - 237                    control
-%% 240 - 277    NBSP - ¿        punctuation
-%% 300 - 326    À - Ö           uppercase
-%% 327          ×               punctuation
-%% 330 - 336    Ø - Þ           uppercase
-%% 337 - 366    ß - ö           lowercase
-%% 367          ÷               punctuation
-%% 370 - 377    ø - ÿ           lowercase
+%% 240 - 277    NBSP - Â¿        punctuation
+%% 300 - 326    Ã€ - Ã–           uppercase
+%% 327          Ã—               punctuation
+%% 330 - 336    Ã˜ - Ãž           uppercase
+%% 337 - 366    ÃŸ - Ã¶           lowercase
+%% 367          Ã·               punctuation
+%% 370 - 377    Ã¸ - Ã¿           lowercase
 %%
 %% Many punctuation characters have special meaning:
 %%  $\s, $_, $", $$, $%, $', $.
 %% DEL is a punctuation.
 %%
-%% Must watch using × \327, very close to x \170.
+%% Must watch using Ã— \327, very close to x \170.
 
 -module(erl_scan).
 
@@ -535,9 +536,9 @@ scan1([$$|Cs], St, Line, Col, Toks) ->
     scan_char(Cs, St, Line, Col, Toks);
 scan1([$\r|Cs], St, Line, Col, Toks) when St#erl_scan.ws ->
     white_space_end(Cs, St, Line, Col, Toks, 1, "\r");
-scan1([C|Cs], St, Line, Col, Toks) when C >= $ß, C =< $ÿ, C =/= $÷ ->
+scan1([C|Cs], St, Line, Col, Toks) when C >= $ÃŸ, C =< $Ã¿, C =/= $Ã· ->
     scan_atom(Cs, St, Line, Col, Toks, [C]);
-scan1([C|Cs], St, Line, Col, Toks) when C >= $À, C =< $Þ, C /= $× ->
+scan1([C|Cs], St, Line, Col, Toks) when C >= $Ã€, C =< $Ãž, C /= $Ã— ->
     scan_variable(Cs, St, Line, Col, Toks, [C]);
 scan1([$\t|Cs], St, Line, Col, Toks) when St#erl_scan.ws ->
     scan_tabs(Cs, St, Line, Col, Toks, 1);
@@ -704,9 +705,9 @@ scan_name([C|Cs], Ncs) when ?DIGIT(C) ->
     scan_name(Cs, [C|Ncs]);
 scan_name([$@=C|Cs], Ncs) ->
     scan_name(Cs, [C|Ncs]);
-scan_name([C|Cs], Ncs) when C >= $ß, C =< $ÿ, C =/= $÷ ->
+scan_name([C|Cs], Ncs) when C >= $ÃŸ, C =< $Ã¿, C =/= $Ã· ->
     scan_name(Cs, [C|Ncs]);
-scan_name([C|Cs], Ncs) when C >= $À, C =< $Þ, C =/= $× ->
+scan_name([C|Cs], Ncs) when C >= $Ã€, C =< $Ãž, C =/= $Ã— ->
     scan_name(Cs, [C|Ncs]);
 scan_name([], Ncs) ->
     {more,Ncs};

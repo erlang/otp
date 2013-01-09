@@ -1,7 +1,7 @@
 %%%
 %%% %CopyrightBegin%
 %%% 
-%%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%% 
 %%% The contents of this file are subject to the Erlang Public License,
 %%% Version 1.1, (the "License"); you may not use this file except in
@@ -373,16 +373,16 @@ sse2_arith_binop_encode(Prefix, Opcode, {{xmm, XMM64}, {rm64fp, RM64}}) ->
     [Prefix, 16#0F, Opcode | encode_rm(RM64, XMM64, [])].
 
 sse2_cvtsi2sd_encode({{xmm,XMM64}, {rm64,RM64}}) ->
-    [rex([{w, 1}]), 16#F2, 16#0F, 16#2A | encode_rm(RM64, XMM64, [])].
+    [rex([{w, 1}]), 16#F2, 16#0F, 16#2A | encode_rm(RM64, XMM64, [])].
 
 sse2_mov_encode(Opnds) ->
     case Opnds of
         {{xmm, XMM64}, {rm64fp, RM64}} -> % movsd
-            [16#F2, 16#0F, 16#10 | encode_rm(RM64, XMM64, [])];
+            [16#F2, 16#0F, 16#10 | encode_rm(RM64, XMM64, [])];
         {{rm64fp, RM64}, {xmm, XMM64}} -> % movsd
-            [16#F2, 16#0F, 16#11 | encode_rm(RM64, XMM64, [])]
+            [16#F2, 16#0F, 16#11 | encode_rm(RM64, XMM64, [])]
 %        {{xmm, XMM64}, {rm64, RM64}} -> % cvtsi2sd
-%            [rex([{w, 1}]), 16#F2, 16#0F, 16#2A | encode_rm(RM64, XMM64, [])]
+%            [rex([{w, 1}]), 16#F2, 16#0F, 16#2A | encode_rm(RM64, XMM64, [])]
     end.
 
 %% arith_binop_sizeof(Opnds) ->

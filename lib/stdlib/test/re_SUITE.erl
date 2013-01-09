@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -291,10 +292,10 @@ global_capture(Config) when is_list(Config) ->
     ?line match = re:run("ABCabcdABCabcdA","a(?<FOO>bcd)",[global,{capture,none,index}]),
     ?line match = re:run("ABCabcdABCabcdA","a(?<FOO>bcd)",[global,{capture,none,binary}]),
     ?line match = re:run("ABCabcdABCabcdA","a(?<FOO>bcd)",[global,{capture,none,list}]),
-    ?line {match,[[<<195,133,98,99,100>>,<<"bcd">>],[<<"abcd">>,<<"bcd">>]]} = re:run("ABCÅbcdABCabcdA",".(?<FOO>bcd)",[global,{capture,all,binary},unicode]),
-    ?line {match,[["Åbcd","bcd"],["abcd","bcd"]]} = re:run(<<"ABC",8#303,8#205,"bcdABCabcdA">>,".(?<FOO>bcd)",[global,{capture,all,list},unicode]),
-    ?line {match,[["Åbcd","bcd"],["abcd","bcd"]]} = re:run("ABCÅbcdABCabcdA",".(?<FOO>bcd)",[global,{capture,all,list},unicode]),
-    ?line {match,[[{3,5},{5,3}],[{11,4},{12,3}]]} = re:run("ABCÅbcdABCabcdA",".(?<FOO>bcd)",[global,{capture,all,index},unicode]),
+    ?line {match,[[<<195,133,98,99,100>>,<<"bcd">>],[<<"abcd">>,<<"bcd">>]]} = re:run("ABCÃ…bcdABCabcdA",".(?<FOO>bcd)",[global,{capture,all,binary},unicode]),
+    ?line {match,[["Ã…bcd","bcd"],["abcd","bcd"]]} = re:run(<<"ABC",8#303,8#205,"bcdABCabcdA">>,".(?<FOO>bcd)",[global,{capture,all,list},unicode]),
+    ?line {match,[["Ã…bcd","bcd"],["abcd","bcd"]]} = re:run("ABCÃ…bcdABCabcdA",".(?<FOO>bcd)",[global,{capture,all,list},unicode]),
+    ?line {match,[[{3,5},{5,3}],[{11,4},{12,3}]]} = re:run("ABCÃ…bcdABCabcdA",".(?<FOO>bcd)",[global,{capture,all,index},unicode]),
     ?t:timetrap_cancel(Dog),
     ok.
 
@@ -314,17 +315,17 @@ replace_return(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
     ?line {'EXIT',{badarg,_}} = (catch re:replace("na","(a","")),
     ?line <<"nasse">> = re:replace(<<"nisse">>,"i","a",[{return,binary}]),
-    ?line <<"ABCÅXABCXA">> = re:replace("ABC\305abcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,binary}]),
+    ?line <<"ABCÃ…XABCXA">> = re:replace("ABC\305abcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,binary}]),
     
-    ?line [<<"ABCÅ">>,
+    ?line [<<"ABCÃ…">>,
 	   <<"X">>,
 	   <<"ABC">>,
 	   <<"X">> | 
 	   <<"A">> ] = 
-	re:replace("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,iodata}]),
-    ?line "ABCÅXABCXA" = re:replace("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,list},unicode]),
-    ?line <<65,66,67,195,133,88,65,66,67,88,65>> = re:replace("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,binary},unicode]),
-    ?line <<65,66,67,195,133,88,65,66,67,97,98,99,100,65>> = re:replace("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[{return,binary},unicode]),
+	re:replace("ABCÃ…abcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,iodata}]),
+    ?line "ABCÃ…XABCXA" = re:replace("ABCÃ…abcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,list},unicode]),
+    ?line <<65,66,67,195,133,88,65,66,67,88,65>> = re:replace("ABCÃ…abcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,binary},unicode]),
+    ?line <<65,66,67,195,133,88,65,66,67,97,98,99,100,65>> = re:replace("ABCÃ…abcdABCabcdA","a(?<FOO>bcd)","X",[{return,binary},unicode]),
     ?line <<"iXk">> = re:replace("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\9X",[{return,binary}]),
     ?line <<"jXk">> = re:replace("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\10X",[{return,binary}]),
     ?line <<"Xk">> = re:replace("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\11X",[{return,binary}]),

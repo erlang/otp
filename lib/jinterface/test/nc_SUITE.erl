@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -361,8 +362,8 @@ unicode(doc) -> [];
 unicode(suite) -> [];
 unicode(Config) when is_list(Config) ->
     S1 = "plain ascii",
-    S2 = "iso-latin едц с",
-    S3 = "Codepoints... едц \x{1000}",
+    S2 = "iso-latin ГҐГ¤Г¶ Г±",
+    S3 = "Codepoints... ГҐГ¤Г¶ \x{1000}",
     S4 = [0,1,31,32,63,64,127,128,255],
     S5 = [0,1,127,128,255,256,16#d7ff,
 	  16#e000,16#fffd,16#10000,16#10ffff],

@@ -418,8 +418,8 @@ clear_breaks(WinInfo, Mod) ->
 %%--------------------------------------------------------------------
 %% display(Arg)
 %%   Arg = idle | {Status,Mod,Line} | {running,Mod}
-%%       ¦ {exit,Where,Reason} | {text,Text}
-%%     Status = break | wait ¦ Level
+%%       | {exit,Where,Reason} | {text,Text}
+%%     Status = break | wait | Level
 %%       Level = int()
 %%     Mod = atom()
 %%     Line = integer()

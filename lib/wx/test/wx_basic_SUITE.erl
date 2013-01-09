@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -128,7 +129,7 @@ wx_api(Config) ->
     ?m(true, wx:is_null(Wx)),
     Null = ?mr(wx_ref, wx:null()),
     ?m(true, wx:is_null(Null)),
-    Frame = ?mt(wxFrame, wxFrame:new(Wx, 1, "WX API: " ++ unicode:characters_to_list("Â‰ˆ≈ƒ÷"))),
+    Frame = ?mt(wxFrame, wxFrame:new(Wx, 1, "WX API: " ++ unicode:characters_to_list("√•√§√∂√Ö√Ñ√ñ"))),
     ?m(false, wx:is_null(Frame)),
     ?m(wxFrame, wx:getObjectType(Frame)),
     Env = ?mr(wx_env, wx:get_env()),

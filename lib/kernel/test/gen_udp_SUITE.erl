@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -442,7 +443,7 @@ open_fd(suite) ->
 open_fd(doc) ->
     ["Test that the 'fd' option works"];
 open_fd(Config) when is_list(Config) ->
-    Msg = "Det gör ont när knoppar brista. Varför skulle annars våren tveka?",
+    Msg = "Det gÃ¶r ont nÃ¤r knoppar brista. VarfÃ¶r skulle annars vÃ¥ren tveka?",
     Addr = {127,0,0,1},
     {ok,S1}   = gen_udp:open(0),
     {ok,P2} = inet:port(S1),

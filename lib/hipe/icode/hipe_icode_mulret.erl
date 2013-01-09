@@ -1,8 +1,8 @@
-%% -*- erlang-indent-level: 2 -*-
+%% -*- coding: utf-8; erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,9 +19,9 @@
 %%
 %%----------------------------------------------------------------------
 %% File    : hipe_icode_mulret.erl
-%% Author  : Christoffer Vikström <chvi3471@it.uu.se>
+%% Author  : Christoffer VikstrÃ¶m <chvi3471@it.uu.se>
 %% Purpose : 
-%% Created : 23 Jun 2004 by Christoffer Vikström <chvi3471@it.uu.se>
+%% Created : 23 Jun 2004 by Christoffer VikstrÃ¶m <chvi3471@it.uu.se>
 %%----------------------------------------------------------------------
 
 -module(hipe_icode_mulret).
@@ -890,7 +890,7 @@ removeUnElems([I|Code], [OldVar] = OldVars, DstLst, Res, Def, Lab)  ->
 	      %%			  [I|Res], Def, Lab)
 	      %% end;
 	    false ->
-	      io:format("Borde aldrig kunna hamna här!", []),
+	      io:format("Borde aldrig kunna hamna hÃ¤r!", []),
 	      removeUnElems(Code, OldVars, DstLst, [I|Res], Def, Lab)
 	  end
       end;
@@ -1159,8 +1159,8 @@ printCallList([]) -> io:format("~n").
 %% %  Purpose   : 
 %% %  Arguments : 
 %% %  Return    : 
-%% %  Notes     : Fixa så att funktionen använder defines(I) istället och 
-%% %              selektorer istället för att matcha på #call{}. Lätt gjort.  
+%% %  Notes     : Fixa sÃ¥ att funktionen anvÃ¤nder defines(I) istÃ¤llet och
+%% %              selektorer istÃ¤llet fÃ¶r att matcha pÃ¥ #call{}. LÃ¤tt gjort.
 %% %%>----------------------------------------------------------------------<
 %% removeUnElems(List, Var) -> removeUnElems(List, Var, []).
 %% removeUnElems([#icode_call{'fun'={unsafe_element,_}, args=Var}|List], Var, Res) ->

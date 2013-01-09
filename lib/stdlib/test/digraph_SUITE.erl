@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -400,7 +400,7 @@ sane1(G) ->
     lists:foreach(
       fun(V) ->
               InEs = digraph:in_edges(G, V),
-              %% Nu har man *alla* inkanter för V
+              %% *All* in-edoges of V
               lists:foreach(
                 fun(E) ->
                         case digraph:edge(G, E) of

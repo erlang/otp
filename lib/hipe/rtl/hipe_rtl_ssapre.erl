@@ -1,8 +1,8 @@
-%% -*- erlang-indent-level: 2 -*-
+%% -*- coding: utf-8; erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% File        : hipe_rtl_ssapre.erl
-%% Author      : He Bingwen and Frédéric Haziza
+%% Author      : He Bingwen and FrÃ©dÃ©ric Haziza
 %% Description : Performs Partial Redundancy Elimination on SSA form.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% @doc
@@ -552,7 +552,7 @@ emend_with_processed_xsis(E, [I|Rest], Pred, XsiGraph) ->
  	    true -> %% It's a computation of E!
  	      case xsi_arg(Xsi,Pred) of
  		undetermined_operand ->
- 		  exit({?MODULE,check_operand_sharing,"######## Ôh Dear, we trusted Kostis !!!!!!!!! #############"});
+                  exit({?MODULE,check_operand_sharing,"######## Ã”h Dear, we trusted Kostis !!!!!!!!! #############"});
  		XsiOp ->
  		  {sharing_operand,XsiOp} %% They share operands
  	      end;
@@ -571,7 +571,7 @@ emend_with_processed_xsis(E, [I|Rest], Pred, XsiGraph) ->
               NewE = emend(E,Def,A#eop.var),
   	      emend_with_processed_xsis(NewE,Rest,Pred,XsiGraph);
             undetermined_operand ->
- 	      exit({?MODULE,emend_with_processed_xsis,"######## Ôh Dear, we trusted Kostis, again !!!!!!!!! #############"});
+              exit({?MODULE,emend_with_processed_xsis,"######## Ã”h Dear, we trusted Kostis, again !!!!!!!!! #############"});
  	    XsiOp ->
  	      NewE = emend(E,Def,XsiOp),
  	      emend_with_processed_xsis(NewE,Rest,Pred,XsiGraph)

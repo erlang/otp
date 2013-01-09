@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -257,7 +258,7 @@ chars(C, N, Tail) when N > 0 ->
 chars(C, 0, Tail) when is_integer(C) ->
     Tail.
 
-%% Torbjörn's bit.
+%% TorbjÃ¶rn's bit.
 
 %%% COPIES %%%
 

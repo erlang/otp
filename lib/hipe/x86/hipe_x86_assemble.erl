@@ -2,7 +2,7 @@
 %%%
 %%% %CopyrightBegin%
 %%% 
-%%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%% 
 %%% The contents of this file are subject to the Erlang Public License,
 %%% Version 1.1, (the "License"); you may not use this file except in
@@ -698,7 +698,7 @@ mem_to_ea_common(#x86_mem{base=#x86_temp{reg=Base}, off=#x86_imm{value=Off}}) ->
 
 %% jmp_switch
 -ifdef(HIPE_AMD64).
-resolve_jmp_switch_arg(I, _Context) ->
+resolve_jmp_switch_arg(I, _Context) ->
   Base = hipe_x86:temp_reg(hipe_x86:jmp_switch_jtab(I)),
   Index = hipe_x86:temp_reg(hipe_x86:jmp_switch_temp(I)),
   SINDEX = hipe_amd64_encode:sindex(3, Index),

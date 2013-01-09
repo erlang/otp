@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1469,7 +1470,7 @@ utf8(Config) when is_list(Config) ->
     
     odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ "(FIELD text)"),
 
-    Latin1Data = ["ÖÄÅÄÖÅäöå",
+    Latin1Data = ["Ã–Ã„Ã…Ã„Ã–Ã…Ã¤Ã¶Ã¥",
                   "testasdf",
                   "Row 3",
                   "Row 4",
@@ -1564,7 +1565,7 @@ timestamp(Config) when is_list(Config) ->
 %%------------------------------------------------------------------------
 
 w_char_support(Ref, Table, CharType, Size) ->
-    Latin1Data = ["ÖÄÅÄÖÅäöå",
+    Latin1Data = ["Ã–Ã„Ã…Ã„Ã–Ã…Ã¤Ã¶Ã¥",
                   "testasdf",
                   "Row 3",
                   "Row 4",

@@ -375,9 +375,9 @@ log_to_io1(Config) when is_list(Config) ->
 
 
 %%======================================================================
-%% Starta en logger-process som med ett visst intervall loggar
-%% meddelanden. Starta en reader-process som vid ett viss tillfälle
-%% läser från loggen.
+%% Start a logger-process that logs messages with a certain interval.
+%% Start a reader-process that reads messages from the log at a certain
+%% point of time.
 
 log_to_io2(suite) -> [];
 log_to_io2(doc) -> "Log to io from a different process than which "
@@ -578,9 +578,9 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
 
 
 %%======================================================================
-%% Starta en logger-process som med ett visst intervall loggar
-%% meddelanden. Starta en reader-process som vid ett viss tillfälle
-%% läser från loggen.
+%% Start a logger-process that logs messages with a certain interval.
+%% Start a reader-process that reads messages from the log at a certain
+%% point of time.
 %%
 %% Test: ts:run(snmp, snmp_log_test, log_to_txt2, [batch]).
 

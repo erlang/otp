@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -224,7 +224,7 @@ do_byte_move(Src0, Dst0, TempMap, Strategy) ->
 
 do_move64(I, TempMap, Strategy) ->
   #move64{dst=Dst} = I,
-  case is_spilled(Dst, TempMap) of
+  case is_spilled(Dst, TempMap) of
     false ->
       {[I], false};
     true ->

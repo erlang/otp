@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -849,7 +850,7 @@ element_content({import,S=#xsd_state{schema_name=ThisSchema,
     SchemaLocation = get_attribute_value(schemaLocation,I,absent),
     %% If SchemaLocation is absent, the identification of that schema
     %% is leaved to the instance, application or user, via the
-    %% mechanisms described ง4.3 in XML Schema Part 1.
+    %% mechanisms described ยยง4.3 in XML Schema Part 1.
     
     S2 = process_external_schema_once(SchemaLocation,Namespace,S),
     {{import,[]},S2#xsd_state{schema_name=ThisSchema,

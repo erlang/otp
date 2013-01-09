@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -473,8 +474,8 @@ to_upper_to_lower(suite) ->
 to_upper_to_lower(doc) ->
     [];
 to_upper_to_lower(Config) when is_list(Config) ->
-    ?line "1234ABCDEFÅÄÖ=" = string:to_upper("1234abcdefåäö="),
-    ?line "éèíúùòóåäöabc()" = string:to_lower("ÉÈÍÚÙÒÓÅÄÖabc()"),
+    ?line "1234ABCDEFÃ…Ã„Ã–=" = string:to_upper("1234abcdefÃ¥Ã¤Ã¶="),
+    ?line "Ã©Ã¨Ã­ÃºÃ¹Ã²Ã³Ã¥Ã¤Ã¶abc()" = string:to_lower("Ã‰ÃˆÃÃšÃ™Ã’Ã“Ã…Ã„Ã–abc()"),
     ?line All = lists:seq(0, 255),
 
     ?line UC = string:to_upper(All),

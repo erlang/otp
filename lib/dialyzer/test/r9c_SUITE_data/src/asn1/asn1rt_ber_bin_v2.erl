@@ -531,7 +531,7 @@ encode_tag_val({Class, Form, TagNo}) ->
     <<(Class bsr 6):2, (Form bsr 5):1, 31:5,BinOct/binary>>;
 
 %% asumes whole correct tag bitpattern, multiple of 8
-encode_tag_val(Tag) when (Tag =< 255) -> Tag;  %% används denna funktion??!!
+encode_tag_val(Tag) when (Tag =< 255) -> Tag;  %% is this function used??!!
 %% asumes correct bitpattern of 0-5
 encode_tag_val(Tag) -> encode_tag_val2(Tag,[]).
 

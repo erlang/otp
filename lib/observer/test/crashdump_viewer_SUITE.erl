@@ -426,7 +426,7 @@ special(Port,File) ->
 
 	    %% I registered a process as aaaaaaaa in the full_dist dumps 
 	    %% to make sure it will be the first in the list when sorted
-	    %% on names. There are some special data here, så I'll thoroughly
+	    %% on names. There are some special data here, so I'll thoroughly
 	    %% read the process details for this process. Other processes
 	    %% are just briefly traversed.
 	    {Pid,Rest1} = get_first_process(AllProcs),

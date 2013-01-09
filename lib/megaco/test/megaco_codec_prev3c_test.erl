@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2679,7 +2679,7 @@ pretty_otp5068_msg1() ->
       190,
       asn1_NOVALUE,
       {actionReplies,
-       [{'ActionReply',  %% Comments: Detta upprepas många gånger
+       [{'ActionReply',  %% Comments: This is repeated many times.
 	 0,
 	 asn1_NOVALUE,
 	 asn1_NOVALUE,

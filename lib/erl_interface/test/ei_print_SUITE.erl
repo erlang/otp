@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -136,7 +136,7 @@ lists(Config) when is_list(Config) ->
 
 %%    ?line {term, "[{name, 'Madonna'}, {age, 21}, {data, [{addr, "E-street", 42}]}]"} = 
 %%	get_term(P),
-    %% kanske regexp i stället?
+    %% maybe regexp instead?
     ?line {term, "[{pi, 3.141500}, {'cos(70)', 0.342020}]"} = get_term(P),
     ?line {term, "[[pi, 3.141500], ['cos(70)', 0.342020]]"} = get_term(P),
 

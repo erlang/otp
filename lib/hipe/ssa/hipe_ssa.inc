@@ -1,8 +1,8 @@
-%% -*- erlang-indent-level: 2 -*-
+%% -*- coding: utf-8; erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 %%
 %%----------------------------------------------------------------------
 %% File    : hipe_ssa.inc
-%% Authors : Christoffer Vikström, Daniel Deogun, and Jesper Bengtsson
+%% Authors : Christoffer VikstrÃ¶m, Daniel Deogun, and Jesper Bengtsson
 %% Created : March 2002
 %% Purpose : Provides code which converts the code of a CFG into SSA
 %%           (Static Single Assignment) form and back.

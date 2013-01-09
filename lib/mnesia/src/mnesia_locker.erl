@@ -1177,9 +1177,9 @@ system_code_change(State, _Module, _OldVsn, _Extra) ->
 %% AXD301 patch sort pids according to R9B sort order
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Om R9B == true, görs jämförelsen som i R9B plain.
-%% Om R9B == false, görs jämförelsen som i alla andra releaser.
-%% cmp_tid(T1, T2) returnerar -1 om T1 < T2, 0 om T1 = T2 och 1 om T1 > T2.
+%% Om R9B == true, the comparison is done as in R9B plain.
+%% Om R9B == false, the comparison is done as in any other release.
+%% cmp_tid(T1, T2) returns -1 if T1 < T2, 0 if T1 = T2 and 1 if T1 > T2.
 
 -define(VERSION_MAGIC,       131).
 -define(ATOM_EXT,            100).

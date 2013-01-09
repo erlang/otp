@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -531,8 +532,8 @@ ticket_7430(Config) ->
 		   {xmlElement,a,a,[],
 		    {xmlNamespace,[],[]},
 		    [],1,[],
-		    [{xmlText,[{a,1}],1,[],"é",text},
-		     {xmlText,[{a,1}],2,[],"\né",text}],
+		    [{xmlText,[{a,1}],1,[],"Ã©",text},
+		     {xmlText,[{a,1}],2,[],"\nÃ©",text}],
 		    [],_,undeclared} ->
 		       ok;
 		   _ ->

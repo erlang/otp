@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %% 
 %% %CopyrightBegin%
 %%
@@ -5752,14 +5753,14 @@ otp_4394_config(AgentConfDir, MgrDir, Ip0) ->
     ?line write_community_conf(AgentConfDir, [C1, C2]),
     ?line update_vacm(Vsn, AgentConfDir),
     Ta1 = {"shelob v1", 
-	   [134,138,177,177], 5000, 1500, 3, %% Använd Ip och modda
+	   [134,138,177,177], 5000, 1500, 3, %% Use Ip and modify
 	   "pc1", 
 	   "target_v1", "", 
 	   %% [255,255,255,255,0,0], 
 	   [],
 	   2048},
     Ta2 = {"bifur v1", 
-	   [134,138,177,75], 5000, 1500, 3, %% Använd Ip
+	   [134,138,177,75], 5000, 1500, 3, %% Use Ip
 	   "pc2", 
 	   "target_v1", "", 
 	   %% [255,255,255,255,0,0],

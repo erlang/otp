@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -167,7 +168,7 @@ pread_pwrite(suite) ->
 pread_pwrite(doc) ->
     ["Test that pread/2,3 and pwrite/2,3 works."];
 pread_pwrite(Config) when is_list(Config) ->
-    ?line Str = "Flygande bäckaziner söka hwila på mjuqa tuvor x",
+    ?line Str = "Flygande bÃ¤ckaziner sÃ¶ka hwila pÃ¥ mjuqa tuvor x",
     ?line Bin = list_to_binary(Str),
     %%
     pread_pwrite_test(?FILE_MODULE, Str, [ram, read, write]),
@@ -206,7 +207,7 @@ position(suite) ->
 position(doc) ->
     ["Test that position/2 works."];
 position(Config) when is_list(Config) ->
-    ?line Str = "Att vara eller icke vara, det är frågan. ",
+    ?line Str = "Att vara eller icke vara, det Ã¤r frÃ¥gan. ",
     ?line Bin = list_to_binary(Str),
     %%
     position_test(?FILE_MODULE, Str, [ram, read]),
@@ -287,8 +288,8 @@ truncate(suite) ->
 truncate(doc) ->
     ["Test that truncate/1 works."];
 truncate(Config) when is_list(Config) ->
-    ?line Str = "Mån ädlare att lida och fördraga " 
-	++ "ett bittert ödes stygn av pilar, ",
+    ?line Str = "MÃ¥n Ã¤dlare att lida och fÃ¶rdraga "
+	++ "ett bittert Ã¶des stygn av pilar, ",
     ?line Bin = list_to_binary(Str),
     %%
     ok = truncate_test(?FILE_MODULE, Str, [ram, read, write]),
@@ -331,7 +332,7 @@ sync(suite) ->
 sync(doc) ->
     ["Test that sync/1 at least does not crash."];
 sync(Config) when is_list(Config) ->
-    ?line Str = "än att ta till vapen mot ett hav av kval. ",
+    ?line Str = "Ã¤n att ta till vapen mot ett hav av kval. ",
     ?line Bin = list_to_binary(Str),
     %%
     sync_test(?FILE_MODULE, Str, [ram, read, write]),
@@ -365,8 +366,8 @@ get_set_file(doc) ->
     ["Tests get_file/1, set_file/2, get_file_close/1 and get_size/1."];
 get_set_file(Config) when is_list(Config) ->
     %% These two strings should not be of equal length.
-    ?line Str  = "När högan nord blir snöbetäckt, ",
-    ?line Str2 = "får alla harar byta dräkt. ",
+    ?line Str  = "NÃ¤r hÃ¶gan nord blir snÃ¶betÃ¤ckt, ",
+    ?line Str2 = "fÃ¥r alla harar byta drÃ¤kt. ",
     ?line Bin  = list_to_binary(Str),
     ?line Bin2 = list_to_binary(Str2),
     %%

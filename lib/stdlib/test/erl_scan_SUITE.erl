@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -131,10 +132,10 @@ iso88591(Config) when is_list(Config) ->
     ?line ok =
      case catch begin
 		   %% Some atom and variable names
-		   V1s = [$Á,$á,$é,$ë],
-		   V2s = [$N,$ä,$r],
-		   A1s = [$h,$ä,$r],
-		   A2s = [$ö,$r,$e],
+		   V1s = [$Ã,$Ã¡,$Ã©,$Ã«],
+		   V2s = [$N,$Ã¤,$r],
+		   A1s = [$h,$Ã¤,$r],
+		   A2s = [$Ã¶,$r,$e],
 		   %% Test parsing atom and variable characters.
 		   {ok,Ts1,_} = erl_scan:string(V1s ++ " " ++ V2s ++
 					       "\327" ++
@@ -214,8 +215,8 @@ atoms() ->
     ?line test_string("'a b'", [{atom,1,'a b'}]),
     ?line test_string("a", [{atom,1,a}]),
     ?line test_string("a@2", [{atom,1,a@2}]),
-    ?line test_string([39,65,200,39], [{atom,1,'AÈ'}]),
-    ?line test_string("ärlig östen", [{atom,1,ärlig},{atom,1,östen}]),
+    ?line test_string([39,65,200,39], [{atom,1,'AÃˆ'}]),
+    ?line test_string("Ã¤rlig Ã¶sten", [{atom,1,Ã¤rlig},{atom,1,Ã¶sten}]),
     ?line {ok,[{atom,_,'$a'}],{1,6}} =
         erl_scan:string("'$\\a'", {1,1}),
     ?line test("'$\\a'"),
@@ -289,7 +290,7 @@ errors() ->
     ?line {error,{1,erl_scan,{string,$","str"}},1} = %"
         erl_scan:string("\"str"), %"
     ?line {error,{1,erl_scan,char},1} = erl_scan:string("$"),
-    ?line test_string([34,65,200,34], [{string,1,"AÈ"}]),
+    ?line test_string([34,65,200,34], [{string,1,"AÃˆ"}]),
     ?line test_string("\\", [{'\\',1}]),
     ?line {'EXIT',_} =
         (catch {foo, erl_scan:string('$\\a', {1,1})}), % type error
@@ -354,7 +355,7 @@ dots() ->
            {".\n",  {ok,[{dot,1}],2}},
            {".%",   {ok,[{dot,1}],1}},
            {".\210",{ok,[{dot,1}],1}},
-           {".% öh",{ok,[{dot,1}],1}},
+           {".% Ã¶h",{ok,[{dot,1}],1}},
            {".%\n", {ok,[{dot,1}],2}},
            {".$",   {error,{1,erl_scan,char},1}},
            {".$\\", {error,{1,erl_scan,char},1}},
@@ -369,7 +370,7 @@ dots() ->
     ?line [{column,1},{length,1},{line,1},{text,"."}] =
         erl_scan:token_info(T2, [column, length, line, text]),
     ?line {ok,[{dot,_}=T3],{1,6}} =
-        erl_scan:string(".% öh", {1,1}, text),
+        erl_scan:string(".% Ã¶h", {1,1}, text),
     ?line [{column,1},{length,1},{line,1},{text,"."}] =
         erl_scan:token_info(T3, [column, length, line, text]),
     ?line {error,{{1,2},erl_scan,char},{1,3}} =
@@ -472,11 +473,11 @@ chars() ->
 
 
 variables() ->
-    ?line test_string("     \237_Aouåeiyäö", [{var,1,'_Aouåeiyäö'}]),
+    ?line test_string("     \237_AouÃ¥eiyÃ¤Ã¶", [{var,1,'_AouÃ¥eiyÃ¤Ã¶'}]),
     ?line test_string("A_b_c@", [{var,1,'A_b_c@'}]),
     ?line test_string("V@2", [{var,1,'V@2'}]),
-    ?line test_string("ABDÀ", [{var,1,'ABDÀ'}]),
-    ?line test_string("Ärlig Östen", [{var,1,'Ärlig'},{var,1,'Östen'}]),
+    ?line test_string("ABDÃ€", [{var,1,'ABDÃ€'}]),
+    ?line test_string("Ã„rlig Ã–sten", [{var,1,'Ã„rlig'},{var,1,'Ã–sten'}]),
     ok.
 
 eof() ->

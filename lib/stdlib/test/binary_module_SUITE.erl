@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1331,9 +1332,9 @@ one_random_number(N) ->
 one_random(N) ->
     M = ((N - 1) rem 68) + 1,
     element(M,{$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o,$p,$q,$r,$s,$t,
-	       $u,$v,$w,$x,$y,$z,$å,$ä,$ö,$A,$B,$C,$D,$E,$F,$G,$H,
-	       $I,$J,$K,$L,$M,$N,$O,$P,$Q,$R,$S,$T,$U,$V,$W,$X,$Y,$Z,$Å,
-	       $Ä,$Ö,$0,$1,$2,$3,$4,$5,$6,$7,$8,$9}).
+	       $u,$v,$w,$x,$y,$z,$Ã¥,$Ã¤,$Ã¶,$A,$B,$C,$D,$E,$F,$G,$H,
+	       $I,$J,$K,$L,$M,$N,$O,$P,$Q,$R,$S,$T,$U,$V,$W,$X,$Y,$Z,$Ã…,
+	       $Ã„,$Ã–,$0,$1,$2,$3,$4,$5,$6,$7,$8,$9}).
 
 random_number({Min,Max}) -> % Min and Max are *length* of number in
                             % decimal positions

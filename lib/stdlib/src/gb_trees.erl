@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -19,7 +20,7 @@
 %% =====================================================================
 %% General Balanced Trees - highly efficient dictionaries.
 %%
-%% Copyright (C) 1999-2001 Sven-Olof Nyström, Richard Carlsson
+%% Copyright (C) 1999-2001 Sven-Olof NystrÃ¶m, Richard Carlsson
 %%
 %% An efficient implementation of Prof. Arne Andersson's General
 %% Balanced Trees. These have no storage overhead compared to plain

@@ -591,8 +591,8 @@ sec_engine_id(TargetName) ->
 
 
 %% BMK BMK BMK
-%% Denna verkar väldigt lik generate_v1_v2c_response_msg!
-%% Gemensam? Borde det finnas olikheter?
+%% This one looks very similar to lik generate_v1_v2c_response_msg!
+%% Common/shared? Should there be differences?
 %% 
 generate_v1_v2c_msg(Vsn, Pdu, Community, Log) ->
     ?vdebug("generate_v1_v2c_msg -> encode pdu", []),
