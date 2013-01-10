@@ -176,7 +176,7 @@ stored_proc(doc)->
 stored_proc(suite) -> [];
 stored_proc(Config) when is_list(Config) ->
     case ?RDBMS of
-        oracle ->
+        X when X == oracle; X == postgres->
             Ref = ?config(connection_ref, Config),
             {updated, _} =
                 odbc:sql_query(Ref,
