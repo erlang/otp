@@ -293,3 +293,25 @@ describe_dec_num() ->
 
 describe_timestamp() ->
     {ok, [{"field", sql_timestamp}]}.
+
+drop_proc() ->
+    "drop function test_proc1(OUT integer, OUT integer);".
+
+stored_proc_integer_out() ->
+    "create or replace FUNCTION test_proc1(" ++
+        "OUT int_a INTEGER, " ++
+        "OUT int_b INTEGER) " ++
+        "AS $$ " ++
+        "BEGIN " ++
+        " int_a := 123; " ++
+        " int_b := 456; " ++
+        "END " ++
+        "$$ LANGUAGE plpgsql ".
+
+param_query(Ref) ->
+    odbc:param_query(Ref, "select * from test_proc1(?, ?)",
+                     [{sql_integer, out, [123]},
+                      {sql_integer, out, [456]}]).
+
+query_result() ->
+    {executed, 2, [{123, 456}]}.
