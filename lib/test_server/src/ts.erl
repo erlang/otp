@@ -160,8 +160,8 @@ help(installed) ->
 	 "                      the given run options\n",
 	 "  ts:cross_cover_analyse(Level)\n"
 	 "                    - Used after ts:run with option cover or \n"
-	 "                      cover_details. Analyses modules specified in\n"
-	 "                      cross.cover.\n"
+	 "                      cover_details. Analyses modules specified with\n"
+	 "                      a 'cross' statement in the cover spec file.\n"
 	 "                      Level can be 'overview' or 'details'.\n",
 	 "  ts:compile_testcases()~n"
 	 "  ts:compile_testcases(Apps)~n"
@@ -528,8 +528,7 @@ cross_cover_analyse([Level]) ->
     cross_cover_analyse(Level);
 cross_cover_analyse(Level) ->
     Apps = get_last_app_tests(),
-    Modules = get_cross_modules(Apps,[]),
-    test_server_ctrl:cross_cover_analyse(Level,Apps,Modules).
+    test_server_ctrl:cross_cover_analyse(Level,Apps).
 
 get_last_app_tests() ->
     AllTests = filelib:wildcard(filename:join(["*","*_test.logs"])),
@@ -557,30 +556,6 @@ get_last_app_tests([Dir|Dirs],RE,Acc) ->
     get_last_app_tests(Dirs,RE,NewAcc);
 get_last_app_tests([],_,Acc) ->
     Acc.
-
-get_cross_modules([{App,_}|Apps],Acc) ->
-    Mods = cross_modules(App),
-    get_cross_modules(Apps,lists:umerge(Mods,Acc));
-get_cross_modules([],Acc) ->
-    Acc.
-
-cross_modules(App) ->
-    case default_coverfile(App) of
-	none ->
-	    [];
-	File ->
-	    case catch file:consult(File) of
-		{ok,CoverSpec} ->
-		    case lists:keyfind(cross_apps,1,CoverSpec) of
-			false ->
-			    [];
-			{cross_apps,App,Modules} ->
-			    lists:usort(Modules)
-		    end;
-		_ ->
-		    []
-	    end
-    end.
 
 %%% Implementation.
 

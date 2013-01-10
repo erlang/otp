@@ -80,7 +80,7 @@ all() ->
     [test_server_SUITE, test_server_parallel01_SUITE,
      test_server_conf02_SUITE, test_server_conf01_SUITE,
      test_server_skip_SUITE, test_server_shuffle01_SUITE,
-     test_server_break_SUITE].
+     test_server_break_SUITE, test_server_cover_SUITE].
 
 
 %%--------------------------------------------------------------------
@@ -93,37 +93,95 @@ test_server_SUITE(Config) ->
 %    rpc:call(Node,dbg, tracer,[]),
 %    rpc:call(Node,dbg, p,[all,c]),
 %    rpc:call(Node,dbg, tpl,[test_server_ctrl,x]),
-    run_test_server_tests("test_server_SUITE", 38, 1, 30,
-			  19, 9, 1, 11, 2, 25, Config).
+    run_test_server_tests("test_server_SUITE",
+			  [{test_server_SUITE,skip_case7,"SKIPPED!"}],
+			  38, 1, 30, 19, 9, 1, 11, 2, 25, Config).
 
 test_server_parallel01_SUITE(Config) ->
-    run_test_server_tests("test_server_parallel01_SUITE", 37, 0, 19, 
-			  19, 0, 0, 0, 0, 37, Config).
+    run_test_server_tests("test_server_parallel01_SUITE", [],
+			  37, 0, 19, 19, 0, 0, 0, 0, 37, Config).
 
 test_server_shuffle01_SUITE(Config) ->
-    run_test_server_tests("test_server_shuffle01_SUITE", 130, 0, 0, 
-			  76, 0, 0, 0, 0, 130, Config).
+    run_test_server_tests("test_server_shuffle01_SUITE", [],
+			  130, 0, 0, 76, 0, 0, 0, 0, 130, Config).
 
 test_server_skip_SUITE(Config) ->
-    run_test_server_tests("test_server_skip_SUITE", 3, 0, 1, 
-			  0, 0, 1, 3, 0, 0, Config).
+    run_test_server_tests("test_server_skip_SUITE", [],
+			  3, 0, 1, 0, 0, 1, 3, 0, 0, Config).
 
 test_server_conf01_SUITE(Config) ->
-    run_test_server_tests("test_server_conf01_SUITE", 24, 0, 12, 
-			  12, 0, 0, 0, 0, 24, Config).
+    run_test_server_tests("test_server_conf01_SUITE", [],
+			  24, 0, 12, 12, 0, 0, 0, 0, 24, Config).
 
 test_server_conf02_SUITE(Config) ->
-    run_test_server_tests("test_server_conf02_SUITE", 26, 0, 12, 
-			  12, 0, 0, 0, 0, 26, Config).
+    run_test_server_tests("test_server_conf02_SUITE", [],
+			  26, 0, 12, 12, 0, 0, 0, 0, 26, Config).
 
 test_server_break_SUITE(Config) ->
-    D = run_test_server_tests("test_server_break_SUITE", 8, 2, 6,
-			  4, 0, 0, 0, 2, 6, Config),
-    D.
+    run_test_server_tests("test_server_break_SUITE", [],
+			  8, 2, 6, 4, 0, 0, 0, 2, 6, Config).
 
-run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc, 
+test_server_cover_SUITE(Config) ->
+    case test_server:is_cover() of
+	true ->
+	    {skip, "Cover already running"};
+	false ->
+	    PrivDir = ?config(priv_dir,Config),
+
+	    %% Test suite has two test cases
+	    %%   tc1 calls cover_helper:foo/0
+	    %%   tc2 calls cover_helper:bar/0
+	    %% Each function in cover_helper is one line.
+	    %%
+	    %% First test run skips tc2, so only cover_helper:foo/0 is executed.
+	    %% Cover file specifies to include cover_helper in this test run.
+	    CoverFile1 = filename:join(PrivDir,"t1.cover"),
+	    CoverSpec1 = {include,[cover_helper]},
+	    file:write_file(CoverFile1,io_lib:format("~p.~n",[CoverSpec1])),
+	    run_test_server_tests("test_server_cover_SUITE",
+				  [{test_server_cover_SUITE,tc2,"SKIPPED!"}],
+				  4, 0, 2, 1, 1, 0, 1, 0, 3,
+				  CoverFile1, Config),
+
+	    %% Next test run skips tc1, so only cover_helper:bar/0 is executed.
+	    %% Cover file specifies cross compilation of cover_helper
+	    CoverFile2 = filename:join(PrivDir,"t2.cover"),
+	    CoverSpec2 = {cross,[{t1,[cover_helper]}]},
+	    file:write_file(CoverFile2,io_lib:format("~p.~n",[CoverSpec2])),
+	    run_test_server_tests("test_server_cover_SUITE",
+				  [{test_server_cover_SUITE,tc1,"SKIPPED!"}],
+				  4, 0, 2, 1, 1, 0, 1, 0, 3, CoverFile2, Config),
+
+	    %% Cross cover analyse
+	    WorkDir = ?config(work_dir,Config),
+	    WC = filename:join([WorkDir,"test_server_cover_SUITE.logs","run.*"]),
+	    [D2,D1|_] = lists:reverse(lists:sort(filelib:wildcard(WC))),
+	    TagDirs = [{t1,D1},{t2,D2}],
+	    test_server_ctrl:cross_cover_analyse(details,TagDirs),
+
+	    %% Check that cover log shows only what is really included
+	    %% in the test and cross cover log show the accumulated
+	    %% result.
+	    {ok,Cover1} = file:read_file(filename:join(D1,"cover.log")),
+	    [{cover_helper,{1,1,_}}] = binary_to_term(Cover1),
+	    {ok,Cover2} = file:read_file(filename:join(D2,"cover.log")),
+	    [] = binary_to_term(Cover2),
+	    {ok,Cross} = file:read_file(filename:join(D1,"cross_cover.log")),
+	    [{cover_helper,{2,0,_}}] = binary_to_term(Cross),
+	    ok
+    end.
+
+
+run_test_server_tests(SuiteName, Skip, NCases, NFail, NExpected, NSucc,
 		      NUsrSkip, NAutoSkip, 
 		      NActualSkip, NActualFail, NActualSucc, Config) ->
+    run_test_server_tests(SuiteName, Skip, NCases, NFail, NExpected, NSucc,
+			  NUsrSkip, NAutoSkip,
+			  NActualSkip, NActualFail, NActualSucc, false, Config).
+
+run_test_server_tests(SuiteName, Skip, NCases, NFail, NExpected, NSucc,
+		      NUsrSkip, NAutoSkip,
+		      NActualSkip, NActualFail, NActualSucc, Cover, Config) ->
 
     WorkDir = proplists:get_value(work_dir, Config),
     ct:log("<a href=\"file://~s\">Test case log files</a>\n",
@@ -131,11 +189,17 @@ run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc,
 
     Node = proplists:get_value(node, Config),
     {ok,_Pid} = rpc:call(Node,test_server_ctrl, start, []),
+    case Cover of
+	false ->
+	    ok;
+	_ ->
+	    rpc:call(Node,test_server_ctrl,cover,[Cover,details])
+    end,
     rpc:call(Node,
 	     test_server_ctrl,add_dir_with_skip,
 	     [SuiteName, 
 	      [proplists:get_value(data_dir,Config)],SuiteName,
-	      [{test_server_SUITE,skip_case7,"SKIPPED!"}]]),
+	      Skip]),
 
     until(fun() ->
 		  rpc:call(Node,test_server_ctrl,jobs,[]) =:= []

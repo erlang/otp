@@ -427,11 +427,21 @@ Optional, if not given the test server controller node
         <p>A <c>CoverFile</c> can have the following entries:</p>
         <code type="none">
 {exclude, all | ExcludeModuleList}.
-{include, IncludeModuleList}.        </code>
+{include, IncludeModuleList}.
+{cross, CrossCoverInfo}.</code>
         <p>Note that each line must end with a full
           stop. <c>ExcludeModuleList</c> and <c>IncludeModuleList</c>
           are lists of atoms, where each atom is a module name.
           </p>
+
+	<p><c>CrossCoverInfo</c> is used when collecting cover data
+	  over multiple tests. Modules listed here are compiled, but
+	  they will not be analysed when the test is finished. See
+	  <seealso
+	  marker="#cross_cover_analyse-2">cross_cover_analyse/2</seealso>
+	  for more information about the cross cover mechanism and the
+	  format of <c>CrossCoverInfo</c>.
+	  </p>
         <p>If both an <c>Application</c> and a <c>CoverFile</c> is
           given, all modules in the application are cover compiled,
           except for the modules listed in <c>ExcludeModuleList</c>. The
@@ -467,30 +477,71 @@ Optional, if not given the test server controller node
       </desc>
     </func>
     <func>
-      <name>cross_cover_analyse(Level) -> ok</name>
-      <fsummary>Analyse cover data collected from all tests</fsummary>
+      <name>cross_cover_analyse(Level, Tests) -> ok</name>
+      <fsummary>Analyse cover data collected from multiple tests</fsummary>
       <type>
         <v>Level = details | overview</v>
+        <v>Tests = [{Tag,LogDir}]</v>
+	<v>Tag = atom()</v>
+	<d>Test identifier.</d>
+	<v>LogDir = string()</v>
+	<d>Log directory for the test identified by <c>Tag</c>. This
+	  can either be the <c>run.&lt;timestamp&gt;</c> directory or
+	  the parent directory of this (in which case the latest
+	  <c>run.&lt;timestamp&gt;</c> directory is chosen.</d>
       </type>
       <desc>
-        <p>Analyse cover data collected from all tests. The modules
-          analysed are the ones listed in the cross cover file
-          <c>cross.cover</c> in the current directory of the test
-          server.</p>
-        <p>The modules listed in the <c>cross.cover</c> file are
-          modules that are heavily used by other applications than the
-          one they belong to. This function should be run after all
-          tests are completed, and the result will be stored in a file
-          called cross_cover.html in the run.&lt;timestamp&gt;
-          directory of the application the modules belong to.
-          </p>
-        <p>The <c>cross.cover</c> file contains elements like this:</p>
-        <pre>
-{App,Modules}.        </pre>
-        <p>where <c>App</c> can be an application name or the atom
-          <c>all</c>. The application (or all applications) will cover
-          compile the listed <c>Modules</c>.
-          </p>
+        <p>Analyse cover data collected from multiple tests. The modules
+          analysed are the ones listed in <c>cross</c> statements in
+          the cover files. These are modules that are heavily used by
+          other tests than the one where they belong or are explicitly
+          tested. They should then be listed as cross modules in the
+          cover file for the test where they are used but do not
+          belong. Se example below.</p>
+        <p>This function should be run after all tests are completed,
+          and the result will be stored in a file called
+          <c>cross_cover.html</c> in the <c>run.&lt;timestamp&gt;</c>
+          directory of the test the modules belong to.</p>
+	<p>Note that the function can be executed on any node, and it
+	  does not require <c>test_server_ctrl</c> to be started first.</p>
+        <p>The <c>cross</c> statement in the cover file must be like this:</p>
+        <code type="none">
+{cross,[{Tag,Modules}]}.</code>
+        <p>where <c>Tag</c> is the same as <c>Tag</c> in the
+          <c>Tests</c> parameter to this function and <c>Modules</c> is a
+          list of module names (atoms).</p>
+	<p><em>Example:</em></p>
+	<p>If the module <c>m1</c> belongs to system <c>s1</c> but is
+	  heavily used also in the tests for another system <c>s2</c>,
+	  then the cover files for the two systems' tests could be like
+	  this:</p>
+<code type="none">
+s1.cover:
+  {include,[m1]}.
+
+s2.cover:
+  {include,[....]}. % modules belonging to system s2
+  {cross,[{s1,[m1]}]}.</code>
+        <p>When the tests for both <c>s1</c> and <c>s2</c> are completed, run</p>
+<code type="none">
+test_server_ctrl:cross_cover_analyse(Level,[{s1,S1LogDir},{s2,S2LogDir}])
+</code>
+
+        <p>and the accumulated cover data for <c>m1</c> will be written to
+	  <c>S1LogDir/[run.&lt;timestamp&gt;/]cross_cover.html</c>.</p>
+	<p>Note that the <c>m1</c> module will also be presented in the
+	  normal coverage log for <c>s1</c> (due to the include statement in
+	  <c>s1.cover</c>), but that only includes the coverage achieved by the
+	  <c>s1</c> test itself.</p>
+	<p>The Tag in the <c>cross</c> statement in the cover file has
+	  no other purpose than mapping the list of modules
+	  (<c>[m1]</c> in the example above) to the correct log
+	  directory where it should be included in the
+	  <c>cross_cover.html</c> file (<c>S1LogDir</c> in the example
+	  above). I.e. the value of <c>Tag</c> has no meaning, it
+	  could be <c>foo</c> as well as <c>s1</c> above, as long as
+	  the same <c>Tag</c> is used in the cover file and in the
+	  call to this function.</p>
       </desc>
     </func>
     <func>

@@ -53,8 +53,7 @@
 -export([reject_io_reqs/1, get_levels/0, set_levels/3]).
 -export([multiply_timetraps/1, scale_timetraps/1, get_timetrap_parameters/0]).
 -export([create_priv_dir/1]).
--export([cover/2, cover/3, cover/8,
-	 cross_cover_analyse/2, cross_cover_analyse/3, trc/1, stop_trace/0]).
+-export([cover/2, cover/3, cover/8, cross_cover_analyse/2, trc/1, stop_trace/0]).
 -export([testcase_callback/1]).
 -export([set_random_seed/1]).
 -export([kill_slavenodes/0]).
@@ -88,14 +87,16 @@
 -define(data_dir_suffix, "_data/").
 -define(suitelog_name, "suite.log").
 -define(coverlog_name, "cover.html").
+-define(raw_coverlog_name, "cover.log").
 -define(cross_coverlog_name, "cross_cover.html").
+-define(raw_cross_coverlog_name, "cross_cover.log").
+-define(cross_cover_info, "cross_cover.info").
 -define(cover_total, "total_cover.log").
 -define(unexpected_io_log, "unexpected_io.log").
 -define(last_file, "last_name").
 -define(last_link, "last_link").
 -define(last_test, "last_test").
 -define(html_ext, ".html").
--define(cross_cover_file, "cross.cover").
 -define(now, erlang:now()).
 
 -define(void_fun, fun() -> ok end).
@@ -408,7 +409,9 @@ cover(CoverFile, Analyse) ->
 cover(App, CoverFile, Analyse) ->
     controller_call({cover,{App,CoverFile},Analyse,true}).
 cover(App, CoverFile, Exclude, Include, Cross, Export, Analyse, Stop) ->
-    controller_call({cover,{App,{CoverFile,Exclude,Include,Cross,Export}},Analyse,Stop}).
+    controller_call({cover,
+		     {App,{CoverFile,Exclude,Include,Cross,Export}},
+		     Analyse,Stop}).
 
 testcase_callback(ModFunc) ->
     controller_call({testcase_callback,ModFunc}).
@@ -4897,33 +4900,52 @@ pinfo(P) ->
 %% - it does not belong to the application, but is listed in the
 %%   {include,List} part of the App.cover file
 %% - it does not belong to the application, but is listed in the
-%%   cross.cover file (in the test_server application) under 'all'
-%%   or under the tested application.
+%%   {cross,[{Tag,List}]} part of the App.cover file
 %%
-%% The modules listed in the cross.cover file are modules that are
-%% hevily used by other applications than the one they belong
-%% to. After all tests are completed, these modules can be analysed
-%% with coverage data from all tests - see cross_cover_analyse/1. The
-%% result is stored in a file called cross_cover.html in the
-%% run.<timestamp> directory of the application the modules belong
-%% to.
+%% The modules listed in the 'cross' part of the cover file are
+%% modules that are heavily used by other tests than the one where
+%% they are explicitly tested. They should then be listed as 'cross'
+%% in the cover file for the test where they are used but do not
+%% belong.
 %%
-%% For example, the lists module is listed in cross.cover to be
-%% included in all tests. lists belongs to the stdlib
-%% application. cross_cover_analyse/1 will create a file named
-%% cross_cover.html under the newest stdlib.logs/run.xxx directory,
-%% where the coverage result for the lists module from all tests is
-%% presented.
+%% After all tests are completed, the these modules can be analysed
+%% with coverage data from all tests where they are compiled - see
+%% cross_cover_analyse/2. The result is stored in a file called
+%% cross_cover.html in the run.<timestamp> directory of the
+%% test the modules belong to.
 %%
-%% The lists module is also presented in the normal coverage log
-%% for stdlib, but that only includes the coverage achieved by
-%% the stdlib tests themselves.
+%% Example:
+%% If the module m1 belongs to system s1 but is heavily used also in
+%% the tests for another system s2, then the cover files for the two
+%% systems could be like this:
 %%
-%% The Cross cover file cross.cover contains elements like this:
-%% {App,Modules}.
-%% where App can be an application name or the atom all. The
-%% application (or all applications) shall cover compile the listed
-%% Modules.
+%% s1.cover:
+%%  {include,[m1]}.
+%%
+%% s2.cover:
+%%  {include,[....]}. % modules belonging to system s2
+%%  {cross,[{s1,[m1]}]}.
+%%
+%% When the tests for both s1 and s2 are completed, run
+%% cross_cover_analyse(Level,[{s1,S1LogDir},{s2,S2LogDir}]), and
+%% the accumulated cover data for m1 will be written to
+%% S1LogDir/[run.<timestamp>/]cross_cover.html
+%%
+%% S1LogDir and S2LogDir are either the run.<timestamp> directories
+%% for the two tests, or the parent directory of these, in which case
+%% the latest run.<timestamp> directory will be chosen.
+%%
+%% Note that the m1 module will also be presented in the normal
+%% coverage log for s1 (due to the include statement in s1.cover), but
+%% that only includes the coverage achieved by the s1 test itself.
+%%
+%% The Tag in the 'cross' statement in the cover file has no other
+%% purpose than mapping the list of modules ([m1] in the example
+%% above) to the correct log directory where it should be included in
+%% the cross_cover.html file (S1LogDir in the example above).
+%% I.e. the value of the Tag has no meaning, it could be foo as well
+%% as s1 above, as long as the same Tag is used in the cover file and
+%% in the call to cross_cover_analyse/2.
 
 
 %% Cover compilation
@@ -4932,8 +4954,7 @@ cover_compile({App,{_File,Exclude,Include,Cross,_Export}}) ->
     cover_compile1({App,Exclude,Include,Cross});
 
 cover_compile({App,CoverFile}) ->
-    Cross = get_cross_modules(App),
-    {Exclude,Include} = read_cover_file(CoverFile),
+    {Exclude,Include,Cross} = read_cover_file(CoverFile),
     cover_compile1({App,Exclude,Include,Cross}).
 
 cover_compile1(What) ->
@@ -4944,41 +4965,57 @@ cover_compile1(What) ->
 %% (Exclude), and a list of modules that are not members of the
 %% application but shall be compiled (Include).
 read_cover_file(none) ->
-    {[],[]};
+    {[],[],[]};
 read_cover_file(CoverFile) ->
     case file:consult(CoverFile) of
 	{ok,List} ->
-	    case check_cover_file(List, [], []) of
-		{ok,Exclude,Include} -> {Exclude,Include};
+	    case check_cover_file(List, [], [], []) of
+		{ok,Exclude,Include,Cross} -> {Exclude,Include,Cross};
 		error ->
 		    io:fwrite("Faulty format of CoverFile ~p\n", [CoverFile]),
-		    {[],[]}
+		    {[],[],[]}
 	    end;
 	{error,Reason} ->
 	    io:fwrite("Can't read CoverFile ~p\nReason: ~p\n",
 		      [CoverFile,Reason]),
-	    {[],[]}
+	    {[],[],[]}
     end.
 
-check_cover_file([{exclude,all}|Rest], _, Include) ->
-    check_cover_file(Rest, all, Include);
-check_cover_file([{exclude,Exclude}|Rest], _, Include) ->
+check_cover_file([{exclude,all}|Rest], _, Include, Cross) ->
+    check_cover_file(Rest, all, Include, Cross);
+check_cover_file([{exclude,Exclude}|Rest], _, Include, Cross) ->
     case lists:all(fun(M) -> is_atom(M) end, Exclude) of
 	true ->
-	    check_cover_file(Rest, Exclude, Include);
+	    check_cover_file(Rest, Exclude, Include, Cross);
 	false ->
 	    error
     end;
-check_cover_file([{include,Include}|Rest], Exclude, _) ->
+check_cover_file([{include,Include}|Rest], Exclude, _, Cross) ->
     case lists:all(fun(M) -> is_atom(M) end, Include) of
 	true ->
-	    check_cover_file(Rest, Exclude, Include);
+	    check_cover_file(Rest, Exclude, Include, Cross);
 	false ->
 	    error
     end;
-check_cover_file([], Exclude, Include) ->
-    {ok,Exclude,Include}.
+check_cover_file([{cross,Cross}|Rest], Exclude, Include, _) ->
+    case check_cross(Cross) of
+	true ->
+	    check_cover_file(Rest, Exclude, Include, Cross);
+	false ->
+	    error
+    end;
+check_cover_file([], Exclude, Include, Cross) ->
+    {ok,Exclude,Include,Cross}.
 
+check_cross([{Tag,Modules}|Rest]) ->
+    case lists:all(fun(M) -> is_atom(M) end, [Tag|Modules]) of
+	true ->
+	    check_cross(Rest);
+	false ->
+	    false
+    end;
+check_cross([]) ->
+    true.
 
 
 %% Cover analysis, per application
@@ -4999,16 +5036,17 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
 	      "<p><a href=\"~s\">Coverdata collected over all tests</a></p>",
 	      [?cross_coverlog_name]),
 
-    {CoverFile,_Included,Excluded} =
+    {CoverFile,_Included,Excluded,Cross} =
 	case CoverInfo of
-	    {File,Excl,Incl,_Cross,Export} ->
+	    {File,Excl,Incl,Cr,Export} ->
 		cover:export(Export),
-		{File,Incl,Excl};
+		{File,Incl,Excl,Cr};
 	    File ->
-		{Excl,Incl} = read_cover_file(File),
-		{File,Incl,Excl}
+		{Excl,Incl,Cr} = read_cover_file(File),
+		{File,Incl,Excl,Cr}
 	end,
     io:fwrite(CoverLog, "<p>CoverFile: <code>~p</code>\n", [CoverFile]),
+    write_cross_cover_info(TestDir,Cross),
 
     case length(cover:imported_modules()) of
 	Imps when Imps > 0 ->
@@ -5021,6 +5059,8 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
     io:fwrite(CoverLog, "<p>Excluded module(s): <code>~p</code>\n", [Excluded]),
 
     Coverage = cover_analyse(Analyse, AnalyseMods, Stop),
+    file:write_file(filename:join(TestDir,?raw_coverlog_name),
+		    term_to_binary(Coverage)),
 
     case lists:filter(fun({_M,{_,_,_}}) -> false;
 			 (_) -> true
@@ -5042,20 +5082,20 @@ cover_analyse(Analyse, AnalyseMods, Stop) ->
     test_server:cover_analyse({Analyse,TestDir}, AnalyseMods, Stop).
 
 
-%% Cover analysis, cross application
+%% Cover analysis - accumulated over multiple tests
 %% This can be executed on any node after all tests are finished.
-%% Apps = [{App,Dir}]
-%%   App = atom(), application name
-%%   Dir = string(), the log directory for App, normally where
-%%                   run.<timestamp> is found.
-%%   Modules = [atom()], modules that have been cover compiled during tests
-%%                       of other apps than the one they belong to.
-cross_cover_analyse(Analyse, Apps) ->
-    cross_cover_analyse(Analyse, Apps, get_cross_modules()).
-cross_cover_analyse(Analyse, Apps, Modules) ->
-    Apps1 = get_latest_run_dirs(Apps),
-    Apps2 = add_cross_modules(Modules,Apps1),
-    CoverdataFiles = get_coverdata_files(Apps2),
+%% Analyse = overview | details
+%% TagDirs = [{Tag,Dir}]
+%%   Tag = atom(), identifier
+%%   Dir = string(), the log directory for Tag, it can be a
+%%         run.<timestamp> directory or the parent directory of
+%%         such (in which case the latest run.<timestamp> directory
+%%         is used)
+cross_cover_analyse(Analyse, TagDirs0) ->
+    TagDirs = get_latest_run_dirs(TagDirs0),
+    TagMods = get_all_cross_info(TagDirs,[]),
+    TagDirMods = add_cross_modules(TagMods,TagDirs),
+    CoverdataFiles = get_coverdata_files(TagDirMods),
     lists:foreach(fun(CDF) -> cover:import(CDF) end, CoverdataFiles),
     io:fwrite("Cover analysing...\n", []),
     DetailsFun =
@@ -5065,39 +5105,52 @@ cross_cover_analyse(Analyse, Apps, Modules) ->
 			OutFile = filename:join(Dir,
 						atom_to_list(M) ++
 						".CROSS_COVER.html"),
-			cover:analyse_to_file(M, OutFile, [html]),
-			{file,OutFile}
+			case cover:analyse_to_file(M, OutFile, [html]) of
+			    {ok,_} ->
+				{file,OutFile};
+			    Error ->
+				Error
+			end
 		end;
 	    _ ->
 		fun(_,_) -> undefined end
 	end,
-    Coverage = analyse_apps(Apps2, DetailsFun, []),
+    Coverage = analyse_tests(TagDirMods, DetailsFun, []),
     cover:stop(),
-    write_cross_cover_logs(Coverage,Apps2).
+    write_cross_cover_logs(Coverage,TagDirMods).
 
-%% For each application from which there are cross cover analysed
+write_cross_cover_info(_Dir,[]) ->
+    ok;
+write_cross_cover_info(Dir,Cross) ->
+    {ok,Fd} = file:open(filename:join(Dir,?cross_cover_info),[write]),
+    lists:foreach(fun(C) -> io:format(Fd,"~p.~n",[C]) end, Cross),
+    file:close(Fd).
+
+%% For each test from which there are cross cover analysed
 %% modules, write a cross cover log (cross_cover.html).
-write_cross_cover_logs([{App,Coverage}|T],Apps) ->
-    case lists:keyfind(App,1,Apps) of
+write_cross_cover_logs([{Tag,Coverage}|T],TagDirMods) ->
+    case lists:keyfind(Tag,1,TagDirMods) of
 	{_,Dir,Mods} when Mods=/=[] ->
+	    file:write_file(filename:join(Dir,?raw_cross_coverlog_name),
+			    term_to_binary(Coverage)),
 	    CoverLogName = filename:join(Dir,?cross_coverlog_name),
 	    {ok,CoverLog} = file:open(CoverLogName, [write]),
 	    write_coverlog_header(CoverLog),
 	    io:fwrite(CoverLog,
 		      "<h1>Coverage results for \'~w\' from all tests</h1>\n",
-		      [App]),
+		      [Tag]),
 	    write_cover_result_table(CoverLog, Coverage),
 	    io:fwrite("Written file ~p\n", [CoverLogName]);
 	_ ->
 	    ok
     end,
-    write_cross_cover_logs(T,Apps);
+    write_cross_cover_logs(T,TagDirMods);
 write_cross_cover_logs([],_) ->
     io:fwrite("done\n", []).
 
 %% Get the latest run.<timestamp> directories
-get_latest_run_dirs([{App,Dir}|Apps]) ->
-    [{App,get_latest_run_dir(Dir)} | get_latest_run_dirs(Apps)];
+get_latest_run_dirs([{Tag,Dir}|Rest]) ->
+    [{Tag,get_latest_run_dir(Dir)} | get_latest_run_dirs(Rest)];
 get_latest_run_dirs([]) ->
     [].
 
@@ -5116,44 +5169,47 @@ get_latest_dir([_|T],Latest) ->
 get_latest_dir([],Latest) ->
     Latest.
 
-%% Associate the cross cover modules with their applications.
-add_cross_modules(Mods,Apps)->
-    do_add_cross_modules(Mods,[{App,Dir,[]} || {App,Dir} <- Apps]).
-do_add_cross_modules([Mod|Mods],Apps)->
-    App = get_app(Mod),
-    NewApps =
-	case lists:keytake(App,1,Apps) of
-	    {value,{App,Dir,AppMods},Rest} ->
-		[{App,Dir,lists:umerge([Mod],AppMods)}|Rest];
-	    false ->
-		Apps
-	end,
-    do_add_cross_modules(Mods,NewApps);
-do_add_cross_modules([],Apps) ->
-    %% Just to get the modules in the same order as app-only cover log
-    [{App,Dir,lists:reverse(Mods)} || {App,Dir,Mods} <- Apps].
+get_all_cross_info([{_Tag,Dir}|Rest],Acc) ->
+    case file:consult(filename:join(Dir,?cross_cover_info)) of
+	{ok,TagMods} ->
+	    get_all_cross_info(Rest,TagMods++Acc);
+	_ ->
+	    get_all_cross_info(Rest,Acc)
+    end;
+get_all_cross_info([],Acc) ->
+    Acc.
 
-get_app(Module) ->
-    Beam = code:which(Module),
-    AppDir = filename:basename(filename:dirname(filename:dirname(Beam))),
-    [AppStr|_] = string:tokens(AppDir,"-"),
-    list_to_atom(AppStr).
+%% Associate the cross cover modules with their log directories
+add_cross_modules(TagMods,TagDirs)->
+    do_add_cross_modules(TagMods,[{Tag,Dir,[]} || {Tag,Dir} <- TagDirs]).
+do_add_cross_modules([{Tag,Mods1}|TagMods],TagDirMods)->
+    NewTagDirMods =
+	case lists:keytake(Tag,1,TagDirMods) of
+	    {value,{Tag,Dir,Mods},Rest} ->
+		[{Tag,Dir,lists:umerge(lists:sort(Mods1),Mods)}|Rest];
+	    false ->
+		TagDirMods
+	end,
+    do_add_cross_modules(TagMods,NewTagDirMods);
+do_add_cross_modules([],TagDirMods) ->
+    %% Just to get the modules in the same order as in the normal cover log
+    [{Tag,Dir,lists:reverse(Mods)} || {Tag,Dir,Mods} <- TagDirMods].
 
 %% Find all exported coverdata files.
-get_coverdata_files(Apps) ->
+get_coverdata_files(TagDirMods) ->
     lists:flatmap(
-      fun({_,LatestAppDir,_}) ->
-	      filelib:wildcard(filename:join(LatestAppDir,"all.coverdata"))
+      fun({_,LatestDir,_}) ->
+	      filelib:wildcard(filename:join(LatestDir,"all.coverdata"))
       end,
-      Apps).
+      TagDirMods).
 
 
-%% For each application, analyse all modules
+%% For each test, analyse all modules
 %% Used for cross cover analysis.
-analyse_apps([{App,LastTest,Modules}|T], DetailsFun, Acc) ->
+analyse_tests([{Tag,LastTest,Modules}|T], DetailsFun, Acc) ->
     Cov = analyse_modules(LastTest, Modules, DetailsFun, []),
-    analyse_apps(T, DetailsFun, [{App,Cov}|Acc]);
-analyse_apps([], _DetailsFun, Acc) ->
+    analyse_tests(T, DetailsFun, [{Tag,Cov}|Acc]);
+analyse_tests([], _DetailsFun, Acc) ->
     Acc.
 
 %% Analyse each module
@@ -5163,27 +5219,6 @@ analyse_modules(Dir, [M|Modules], DetailsFun, Acc) ->
     Acc1 = [{M,{Cov,NotCov,DetailsFun(Dir,M)}}|Acc],
     analyse_modules(Dir, Modules, DetailsFun, Acc1);
 analyse_modules(_Dir, [], _DetailsFun, Acc) ->
-    Acc.
-
-
-%% Read the cross cover file (cross.cover)
-get_cross_modules() ->
-    get_cross_modules(all).
-get_cross_modules(App) ->
-    case file:consult(?cross_cover_file) of
-	{ok,List} ->
-	    get_cross_modules(App, List, []);
-	_X ->
-	    []
-    end.
-
-get_cross_modules(App, [{_To,Modules}|T], Acc) when App==all->
-    get_cross_modules(App, T, Acc ++ Modules);
-get_cross_modules(App, [{To,Modules}|T], Acc) when To==App; To==all->
-    get_cross_modules(App, T, Acc ++ Modules);
-get_cross_modules(App, [_H|T], Acc) ->
-    get_cross_modules(App, T, Acc);
-get_cross_modules(_App, [], Acc) ->
     Acc.
 
 

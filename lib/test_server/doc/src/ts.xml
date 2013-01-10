@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -450,7 +450,7 @@ This option is mandatory for remote targets
       <desc>
         <p>Analyse cover data collected from all tests.
           </p>
-        <p>See test_server_ctrl:cross_cover_analyse/1
+        <p>See test_server_ctrl:cross_cover_analyse/2
           </p>
       </desc>
     </func>
