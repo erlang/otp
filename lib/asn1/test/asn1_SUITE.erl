@@ -1012,10 +1012,7 @@ test_undecoded_rest(Config, Rule, Opts) ->
     asn1_test_lib:compile("P-Record", Config, [Rule|Opts]),
     ok = test_undecoded_rest:test([], Config),
     asn1_test_lib:compile("P-Record", Config, [Rule,undec_rest|Opts]),
-    case Rule of
-        ber -> ok;
-        _ -> test_undecoded_rest:test(undec_rest, Config)
-    end.
+    test_undecoded_rest:test(undec_rest, Config).
 
 testTcapsystem(Config) ->
     test(Config, fun testTcapsystem/3, [ber]).

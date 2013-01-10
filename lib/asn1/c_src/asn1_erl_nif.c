@@ -850,11 +850,8 @@ int ber_decode_begin(ErlNifEnv* env, ERL_NIF_TERM *term, unsigned char *in_buf,
     };
 
     // The remaining binary after one ASN1 segment has been decoded
-    if ((rest_data = enif_make_new_binary(env, in_buf_len - ib_index, &rest))
-	    == NULL) {
-	*term = enif_make_atom(env, "could_not_alloc_binary");
-	return ASN1_ERROR;
-    }
+    rest_data = enif_make_new_binary(env, in_buf_len - ib_index, &rest);
+    memcpy(rest_data, in_buf+ib_index, in_buf_len - ib_index);
 
     *term = enif_make_tuple2(env, decoded_term, rest);
     return ASN1_OK;
