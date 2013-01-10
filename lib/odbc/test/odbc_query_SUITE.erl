@@ -185,6 +185,8 @@ stored_proc(Config) when is_list(Config) ->
             Result = ?RDBMS:query_result(),
             Result =
                 ?RDBMS:param_query(Ref),
+            {updated, _} =
+                odbc:sql_query(Ref, ?RDBMS:drop_proc()),
             ok;
         _ ->
 	    {skip, "stored proc not yet supported"}
