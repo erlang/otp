@@ -137,7 +137,7 @@
 	  issuer,               % {rdnSequence, [#AttributeTypeAndValue'{}]} 
 	  validity,             % #'Validity'{}
 	  subject,              % {rdnSequence, [#AttributeTypeAndValue'{}]} 
-	  subjectPublicKeyInfo, % #'SubjectPublicKeyInfo'{}
+	  subjectPublicKeyInfo, % #'OTPSubjectPublicKeyInfo'{}
 	  issuerUniqueID,       % binary() | asn1_novalue
 	  subjectUniqueID,      % binary() | asn1_novalue
 	  extensions            % [#'Extension'{}] 
