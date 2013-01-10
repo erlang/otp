@@ -912,11 +912,15 @@ static int insert_buf(byte *s, int n)
 		lbuf[lpos++] = (CONTROL_TAG | ((Uint32) ch));
 		ch = 0;
 	    } while (lpos % 8);
-	} else if (ch == '\n' || ch == '\r') {
+	} else if (ch == '\e' || ch == '\n' || ch == '\r') {
 	    write_buf(lbuf + buffpos, lpos - buffpos);
-	    outc('\r');
-	    if (ch == '\n')
-		outc('\n');
+            if (ch == '\e') {
+                outc('\e');
+            } else {
+                outc('\r');
+                if (ch == '\n')
+                    outc('\n');
+            }
 	    if (llen > lpos) {
 		memcpy(lbuf, lbuf + lpos, llen - lpos);
 	    }
