@@ -241,6 +241,9 @@ describe_floating() ->
 describe_dec_num() ->
     {ok,[{"MYDEC",{sql_decimal,9,3}},{"MYNUM",{sql_decimal,9,2}}]}.
 
+drop_proc() ->
+    "drop procedure test_proc1;".
+
 stored_proc_integer_out() ->
     "create or replace PROCEDURE  test_proc1(" ++
         "int_a OUT NUMBER, " ++
