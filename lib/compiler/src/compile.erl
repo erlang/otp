@@ -1342,16 +1342,12 @@ save_binary(#compile{code=none}=St) -> {ok,St};
 save_binary(#compile{module=Mod,ofile=Outfile,
 		     options=Opts}=St) ->
     %% Test that the module name and output file name match.
-    %% We must take care to not completely break a packaged module
-    %% (even though packages still is as an experimental, unsupported
-    %% feature) - so we will extract the last part of a packaged
-    %% module name and compare only that.
     case member(no_error_module_mismatch, Opts) of
 	true ->
 	    save_binary_1(St);
 	false ->
 	    Base = filename:rootname(filename:basename(Outfile)),
-	    case lists:last(packages:split(Mod)) of
+	    case atom_to_list(Mod) of
 		Base ->
 		    save_binary_1(St);
 		_ ->

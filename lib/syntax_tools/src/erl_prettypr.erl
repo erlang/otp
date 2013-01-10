@@ -645,10 +645,6 @@ lay_2(Node, Ctxt) ->
 		     set_prec(Ctxt, PrecR)),
 	    beside(D1, beside(text(":"), D2));
 
-	qualified_name ->
-	    Ss = erl_syntax:qualified_name_segments(Node),
-	    lay_qualified_name(Ss, Ctxt);
-
 	%%
 	%% The rest is in alphabetical order
 	%%
@@ -971,26 +967,6 @@ maybe_parentheses(D, Prec, Ctxt) ->
 	_ ->
 	    D
     end.
-
-lay_qualified_name([S | Ss1] = Ss, Ctxt) ->
-    case erl_syntax:type(S) of
-	atom ->
-	    case erl_syntax:atom_value(S) of
-		'' ->
-		    beside(text("."),
-			   lay_qualified_name_1(Ss1, Ctxt));
-		_ ->
-		    lay_qualified_name_1(Ss, Ctxt)
-	    end;
-	_ ->
-	    lay_qualified_name_1(Ss, Ctxt)
-    end.
-
-lay_qualified_name_1([S], Ctxt) ->
-    lay(S, Ctxt);
-lay_qualified_name_1([S | Ss], Ctxt) ->
-    beside(lay(S, Ctxt), beside(text("."),
-				lay_qualified_name_1(Ss, Ctxt))).
 
 lay_string(S, Ctxt) ->
     %% S includes leading/trailing double-quote characters. The segment

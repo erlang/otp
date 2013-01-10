@@ -6062,21 +6062,6 @@ otp_6673(Config) when is_list(Config) ->
     ],
     ?line run(Config, Ts_RT),
 
-    %% Ulf Wiger provided a patch that makes QLC work with packages:
-    Dir = filename:join(?privdir, "p"),
-    ?line ok = filelib:ensure_dir(filename:join(Dir, ".")),
-    File = filename:join(Dir, "p.erl"),
-    ?line ok = file:write_file(File, 
-        <<"-module(p.p).\n"
-          "-export([q/0]).\n"
-          "-include_lib(\"stdlib/include/qlc.hrl\").\n"
-          "q() ->\n"
-          "    .qlc:q([X || X <- [1,2]]).">>),
-    ?line {ok, 'p.p'} = compile:file(File, [{outdir,Dir}]),
-    ?line code:purge('p.p'),
-    ?line {module, 'p.p'} = code:load_abs(filename:rootname(File), 'p.p'),
-    ?line [1,2] = qlc:e(p.p:q()),
-
     ok.
 
 otp_6964(doc) ->

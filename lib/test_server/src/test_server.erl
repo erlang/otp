@@ -60,8 +60,6 @@
 -include("test_server_internal.hrl").
 -include_lib("kernel/include/file.hrl").
 
--define(pl2a(M), test_server_sup:package_atom(M)).
-
 init_target_info() ->
     [$.|Emu] = code:objfile_extension(),
     {_, OTPRel} = init:script_id(),
@@ -918,7 +916,7 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
     put(test_server_logopts, LogOpts),
     Where = [{Mod,Func}],
     put(test_server_loc, Where),
-    FWInitResult = test_server_sup:framework_call(init_tc,[?pl2a(Mod),Func,Args0],
+    FWInitResult = test_server_sup:framework_call(init_tc,[Mod,Func,Args0],
 						  {ok,Args0}),
     set_tc_state(running),
     {{Time,Value},Loc,Opts} =
@@ -1052,7 +1050,7 @@ do_end_tc_call(Mod, Func, Res, Return) ->
     Ref = make_ref(),
     if FwMod == "ct_framework" ; FwMod == "undefined"; FwMod == false ->
 	    case test_server_sup:framework_call(
-		   end_tc, [?pl2a(Mod),Func,Res, Return], ok) of
+		   end_tc, [Mod,Func,Res, Return], ok) of
 		{fail,FWReason} ->
 		    {failed,FWReason};
 		ok ->
@@ -1067,7 +1065,7 @@ do_end_tc_call(Mod, Func, Res, Return) ->
 	    end;
        true ->
 	    case test_server_sup:framework_call(FwMod, end_tc,
-						[?pl2a(Mod),Func,Res], Ref) of
+						[Mod,Func,Res], Ref) of
 		{fail,FWReason} ->
 		    {failed,FWReason};
 		_Else ->
@@ -1301,11 +1299,11 @@ get_loc(Pid) ->
 
 fw_error_notify(Mod, Func, Args, Error) ->
     test_server_sup:framework_call(error_notification,
-				   [?pl2a(Mod),Func,[Args],
+				   [Mod,Func,[Args],
 				    {Error,unknown}]).
 fw_error_notify(Mod, Func, Args, Error, Loc) ->
     test_server_sup:framework_call(error_notification,
-				   [?pl2a(Mod),Func,[Args],
+				   [Mod,Func,[Args],
 				    {Error,Loc}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

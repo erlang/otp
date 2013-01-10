@@ -28,7 +28,6 @@
 	     application_starter,
 	     auth,
 	     code,
-	     packages,
 	     code_server,
 	     dist_util,
 	     erl_boot_server,

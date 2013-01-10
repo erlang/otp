@@ -40,7 +40,7 @@
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([ func/1, call/1, recs/1, try_catch/1, if_then/1,
-	  receive_after/1, bits/1, head_tail/1, package/1,
+	  receive_after/1, bits/1, head_tail/1,
 	  cond1/1, block/1, case1/1, ops/1, messages/1,
 	  old_mnemosyne_syntax/1,
 	  import_export/1, misc_attrs/1,
@@ -75,7 +75,7 @@ all() ->
 groups() -> 
     [{expr, [],
       [func, call, recs, try_catch, if_then, receive_after,
-       bits, head_tail, package, cond1, block, case1, ops,
+       bits, head_tail, cond1, block, case1, ops,
        messages, old_mnemosyne_syntax]},
      {attributes, [], [misc_attrs, import_export]},
      {tickets, [],
@@ -439,9 +439,6 @@ bits(Config) when is_list(Config) ->
     ?line ok = pp_expr(<<"<<{a,b}/binary>>">>),
     ?line ok = pp_expr(<<"<<{foo:bar(),b}/binary>>">>),
     ?line ok = pp_expr(<<"<<(foo:bar()):(foo:bar())/binary>>">>),
-    ?line ok = pp_expr(<<"<<(foo.bar)/binary>>">>),
-    ?line ok = pp_expr(<<"<<(foo.bar):all/binary>>">>),
-    ?line ok = pp_expr(<<"<<(foo.bar):(foo.bar)/binary>>">>),
     ok.
 
 head_tail(suite) ->
@@ -459,17 +456,6 @@ head_tail(Config) when is_list(Config) ->
            <<"t() ->
                [foo:bar(lkjljlskdfj, klsdajflds, sdafkljsdlfkjdas, kjlsdadjl),
                bar:foo(kljlkjsdf, lkjsdlfj, [kljsfj, sdfdsfsad])].">>}
-          ],
-    ?line compile(Config, Ts),
-    ok.
-
-package(suite) ->
-    [];
-package(Config) when is_list(Config) ->
-    Ts = [{package_1,
-           <<"t() -> a.b:foo().">>},
-          {package_2,
-           <<"t() -> .lists:sort([]).">>}
           ],
     ?line compile(Config, Ts),
     ok.
@@ -615,13 +601,11 @@ misc_attrs(suite) ->
     [];
 misc_attrs(Config) when is_list(Config) ->
     ?line ok = pp_forms(<<"-module(m). ">>),
-    ?line ok = pp_forms(<<"-module(m.p, [A,B]). ">>),
     ?line ok = pp_forms(<<"-module(m, [Aafjlksfjdlsjflsdfjlsdjflkdsfjlk,"
                           "Blsjfdlslfjsdf]). ">>),
     ?line ok = pp_forms(<<"-export([]). ">>),
     ?line ok = pp_forms(<<"-export([foo/2, bar/0]). ">>),
     ?line ok = pp_forms(<<"-export([bar/0]). ">>),
-    ?line ok = pp_forms(<<"-import(.lists). ">>),
     ?line ok = pp_forms(<<"-import(lists, []). ">>),
     ?line ok = pp_forms(<<"-import(lists, [map/2]). ">>),
     ?line ok = pp_forms(<<"-import(lists, [map/2, foreach/2]). ">>),

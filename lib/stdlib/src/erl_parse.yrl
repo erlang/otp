@@ -26,7 +26,7 @@ attribute attr_val
 function function_clauses function_clause
 clause_args clause_guard clause_body
 expr expr_100 expr_150 expr_160 expr_200 expr_300 expr_400 expr_500
-expr_600 expr_700 expr_800 expr_900
+expr_600 expr_700 expr_800
 expr_max
 list tail
 list_comprehension lc_expr lc_exprs
@@ -253,15 +253,9 @@ expr_700 -> function_call : '$1'.
 expr_700 -> record_expr : '$1'.
 expr_700 -> expr_800 : '$1'.
 
-expr_800 -> expr_900 ':' expr_max :
+expr_800 -> expr_max ':' expr_max :
 	{remote,?line('$2'),'$1','$3'}.
-expr_800 -> expr_900 : '$1'.
-
-expr_900 -> '.' atom :
-	{record_field,?line('$1'),{atom,?line('$1'),''},'$2'}.
-expr_900 -> expr_900 '.' atom :
-	{record_field,?line('$2'),'$1','$3'}.
-expr_900 -> expr_max : '$1'.
+expr_800 -> expr_max : '$1'.
 
 expr_max -> var : '$1'.
 expr_max -> atomic : '$1'.
@@ -510,7 +504,7 @@ Erlang code.
 
 -export([parse_form/1,parse_exprs/1,parse_term/1]).
 -export([normalise/1,abstract/1,tokens/1,tokens/2]).
--export([abstract/2, package_segments/1]).
+-export([abstract/2]).
 -export([inop_prec/1,preop_prec/1,func_prec/0,max_prec/0]).
 -export([set_line/2,get_attribute/2,get_attributes/1]).
 
@@ -679,20 +673,6 @@ build_attribute({atom,La,module}, Val) ->
 	    {attribute,La,module,Module};
 	[{atom,_Lm,Module},ExpList] ->
 	    {attribute,La,module,{Module,var_list(ExpList)}};
-	[Name] ->
-	    case package_segments(Name) of
-		error ->
-		    error_bad_decl(La, module);
-		Module ->
-		    {attribute,La,module,Module}
-	    end;
-	[Name,ExpList] ->
-	    case package_segments(Name) of
-		error ->
-		    error_bad_decl(La, module);
-		Module ->
-		    {attribute,La,module,{Module,var_list(ExpList)}}
-	    end;
 	_Other ->
 	    error_bad_decl(La, module)
     end;
@@ -704,22 +684,8 @@ build_attribute({atom,La,export}, Val) ->
     end;
 build_attribute({atom,La,import}, Val) ->
     case Val of
-	[Name] ->
-	    case package_segments(Name) of
-		error ->
-		    error_bad_decl(La, import);
-		Module ->
-		    {attribute,La,import,Module}
-	    end;
 	[{atom,_Lm,Mod},ImpList] ->
 	    {attribute,La,import,{Mod,farity_list(ImpList)}};
-	[Name, ImpList] ->
-	    case package_segments(Name) of
-		error ->
-		    error_bad_decl(La, import);
-		Module ->
-		    {attribute,La,import,{Module,farity_list(ImpList)}}
-	    end;
 	_Other -> error_bad_decl(La, import)
     end;
 build_attribute({atom,La,record}, Val) ->
@@ -820,18 +786,6 @@ term(Expr) ->
     catch _:_R -> ret_err(?line(Expr), "bad attribute")
     end.
 
-package_segments(Name) ->
-    package_segments(Name, [], []).
-
-package_segments({record_field, _, F1, F2}, Fs, As) ->
-    package_segments(F1, [F2 | Fs], As);
-package_segments({atom, _, A}, [F | Fs], As) ->
-    package_segments(F, Fs, [A | As]);
-package_segments({atom, _, A}, [], As) ->
-    lists:reverse([A | As]);
-package_segments(_, _, _) ->
-    error.
-
 %% build_function([Clause]) -> {function,Line,Name,Arity,[Clause]}
 
 build_function(Cs) ->
@@ -900,12 +854,6 @@ normalise({cons,_,Head,Tail}) ->
     [normalise(Head)|normalise(Tail)];
 normalise({tuple,_,Args}) ->
     list_to_tuple(normalise_list(Args));
-%% Atom dot-notation, as in 'foo.bar.baz'
-normalise({record_field,_,_,_}=A) ->
-    case package_segments(A) of
-	error -> erlang:error({badarg, A});
-	As -> list_to_atom(packages:concat(As))
-    end;
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;
@@ -1083,9 +1031,9 @@ preop_prec('#') -> {700,800}.
 
 func_prec() -> {800,700}.
 
--spec max_prec() -> 1000.
+-spec max_prec() -> 900.
 
-max_prec() -> 1000.
+max_prec() -> 900.
 
 %%% [Experimental]. The parser just copies the attributes of the
 %%% scanner tokens to the abstract format. This design decision has

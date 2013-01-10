@@ -878,7 +878,7 @@ filter_options(_Base, [], Result) ->
 %% Gets the source file given path of object code and module name.
 
 get_source_file(Obj, Mod, Rules) ->
-    source_by_rules(dirname(Obj), packages:last(Mod), Rules).
+    source_by_rules(dirname(Obj), atom_to_list(Mod), Rules).
 
 source_by_rules(Dir, Base, [{From, To}|Rest]) ->
     case try_rule(Dir, Base, From, To) of

@@ -44,7 +44,7 @@ groups() ->
        {group,vsn},otp_2380,otp_2141,otp_2173,otp_4790,
        const_list_256,bin_syntax_1,bin_syntax_2,
        bin_syntax_3,bin_syntax_4,bin_syntax_5,bin_syntax_6,
-       live_var,convopts,bad_functional_value,
+       live_var,convopts,
        catch_in_catch,redundant_case,long_string,otp_5076,
        complex_guard,otp_5092,otp_5151,otp_5235,otp_5244,
        trycatch_4,opt_crash,otp_5404,otp_5436,otp_5481,
@@ -143,7 +143,6 @@ split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
 ?comp(live_var).
 
 ?comp(trycatch_4).
-?comp(bad_functional_value).
 
 ?comp(catch_in_catch).
 

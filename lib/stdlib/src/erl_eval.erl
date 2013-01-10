@@ -227,13 +227,6 @@ expr({bc,_,E,Qs}, Bs, Lf, Ef, RBs) ->
 expr({tuple,_,Es}, Bs0, Lf, Ef, RBs) ->
     {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef),
     ret_expr(list_to_tuple(Vs), Bs, RBs);
-expr({record_field,_,_,_}=Mod, Bs, _Lf, _Ef, RBs) ->
-    case expand_module_name(Mod, Bs) of
-	{atom,_,A} ->
-	    ret_expr(A, Bs, RBs);    %% This is the "x.y" syntax
-	_ ->
-	    erlang:raise(error, {badexpr, '.'}, stacktrace())
-    end;
 expr({record_field,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
     erlang:raise(error, {undef_record,Name}, stacktrace());
 expr({record_index,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
@@ -332,8 +325,7 @@ expr({call,L1,{remote,L2,{record_field,_,{atom,_,''},{atom,_,qlc}=Mod},
      Bs, Lf, Ef, RBs) when length(As0) =< 1 ->
     expr({call,L1,{remote,L2,Mod,Func},As}, Bs, Lf, Ef, RBs);
 expr({call,_,{remote,_,Mod,Func},As0}, Bs0, Lf, Ef, RBs) ->
-    Mod1 = expand_module_name(Mod, Bs0),
-    {value,M,Bs1} = expr(Mod1, Bs0, Lf, Ef, none),
+    {value,M,Bs1} = expr(Mod, Bs0, Lf, Ef, none),
     {value,F,Bs2} = expr(Func, Bs0, Lf, Ef, none),
     {As,Bs3} = expr_list(As0, merge_bindings(Bs1, Bs2), Lf, Ef),
     %% M could be a parameterized module (not an atom).
@@ -1209,41 +1201,6 @@ ret_expr(_Old, New) ->
     New.
 
 line(Expr) -> element(2, Expr).
-
-%% In syntax trees, module/package names are atoms or lists of atoms.
-
-expand_module_name({atom,L,A} = M, Bs) ->
-    case binding({module,A}, Bs) of
-	{value, A1} ->
-	    {atom,L,A1};
-	unbound ->
-	    case packages:is_segmented(A) of
-		true ->
-		    M;
-		false ->
-%%% 		    P = case binding({module,'$package'}, Bs) of
-%%% 			    {value, P1} -> P1;
-%%% 			    unbound -> ""
-%%% 			end,
-%%% 		    A1 = list_to_atom(packages:concat(P, A)),
-%%% 		    {atom,L,list_to_atom(A1)}
-		    {atom,L,A}
-	    end
-    end;
-expand_module_name(M, _) ->
-    case erl_parse:package_segments(M) of
-	error ->
-	    M;
-	M1 ->
-	    L = element(2,M),
-	    Mod = packages:concat(M1),
-	    case packages:is_valid(Mod) of
-		true ->
-		    {atom,L,list_to_atom(Mod)};
-		false ->
-		    erlang:raise(error, {bad_module_name, Mod}, stacktrace())
-	    end
-    end.
 
 %% {?MODULE,expr,3} is still the stacktrace, despite the
 %% fact that expr() now takes two, three or four arguments...

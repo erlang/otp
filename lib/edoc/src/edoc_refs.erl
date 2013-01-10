@@ -126,7 +126,7 @@ abs_uri({package, P}, Env) ->
 module_ref(M, Env) ->
     case (Env#env.modules)(M) of
 	"" ->
-	    File = packages:last(M) ++ Env#env.file_suffix,
+	    File = atom_to_list(M) ++ Env#env.file_suffix,
 	    Path = relative_module_path(M, Env#env.package),
 	    join_uri(Path, escape_uri(File));
 	Base ->
@@ -134,8 +134,7 @@ module_ref(M, Env) ->
     end.
 
 module_absref(M, Env) ->
-    join_segments(packages:split(M))
-	++ escape_uri(Env#env.file_suffix).
+    escape_uri(atom_to_list(M)) ++ escape_uri(Env#env.file_suffix).
 
 package_ref(P, Env) ->
     case (Env#env.packages)(P) of
@@ -147,7 +146,7 @@ package_ref(P, Env) ->
     end.
 
 package_absref(P, Env) ->
-    join_uri(join_segments(packages:split(P)),
+    join_uri(escape_uri(atom_to_list(P)),
 	     escape_uri(Env#env.package_summary)).
 
 app_ref(A, Env) ->
@@ -179,14 +178,11 @@ join_segments([S | Ss]) ->
 %% The empty string is returned if the To module has only one segment,
 %% implying a local reference.
 
-relative_module_path(To, From) ->
-    case first(packages:split(To)) of
-	[] -> "";
-	P -> relative_path(P, packages:split(From))
-    end.
+relative_module_path(_To, _From) ->
+    "".
 
 relative_package_path(To, From) ->
-    relative_path(packages:split(To), packages:split(From)).
+    relative_path([atom_to_list(To)], [atom_to_list(From)]).
 
 %% This takes two lists of path segments (From, To). Note that an empty
 %% string will be returned if the paths are the same. Empty leading
@@ -210,6 +206,3 @@ relative_path_2([], []) ->
     "";
 relative_path_2([], Ts) ->
     join_segments(Ts).
-
-first([H | T]) when T /= [] -> [H | first(T)];
-first(_) -> [].

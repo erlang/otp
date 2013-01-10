@@ -1229,7 +1229,7 @@ load_abs(File, Mod0, Caller, St) ->
     end.
 
 try_load_module(Mod, Dir, Caller, St) ->
-    File = filename:append(Dir, to_path(Mod) ++ 
+    File = filename:append(Dir, to_list(Mod) ++
 			   objfile_extension()),
     case erl_prim_loader:get_file(File) of
 	error -> 
@@ -1347,7 +1347,7 @@ load_file_1(Mod, Caller, #state{cache=Cache}=St0) ->
     end.
 
 mod_to_bin([Dir|Tail], Mod) ->
-    File = filename:append(Dir, to_path(Mod) ++ objfile_extension()),
+    File = filename:append(Dir, to_list(Mod) ++ objfile_extension()),
     case erl_prim_loader:get_file(File) of
 	error -> 
 	    mod_to_bin(Tail, Mod);
@@ -1356,7 +1356,7 @@ mod_to_bin([Dir|Tail], Mod) ->
     end;
 mod_to_bin([], Mod) ->
     %% At last, try also erl_prim_loader's own method
-    File = to_path(Mod) ++ objfile_extension(),
+    File = to_list(Mod) ++ objfile_extension(),
     case erl_prim_loader:get_file(File) of
 	error -> 
 	    error;     % No more alternatives !
@@ -1570,6 +1570,3 @@ to_list(X) when is_atom(X) -> atom_to_list(X).
 
 to_atom(X) when is_atom(X) -> X;
 to_atom(X) when is_list(X) -> list_to_atom(X).
-
-to_path(X) ->
-    filename:join(packages:split(X)).

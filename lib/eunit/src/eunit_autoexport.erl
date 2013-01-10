@@ -80,10 +80,9 @@ rewrite([F | Fs], As, Module, Test) ->
     rewrite(Fs, [F | As], Module, Test);
 rewrite([], As, Module, Test) ->
     {if Test ->
-	     EUnit = {record_field,0,{atom,0,''},{atom,0,eunit}},
 	     [{function,0,test,0,
 	       [{clause,0,[],[],
-		 [{call,0,{remote,0,EUnit,{atom,0,test}},
+		 [{call,0,{remote,0,{atom,0,eunit},{atom,0,test}},
 		   [{atom,0,Module}]}]}]}
 	      | As];
 	true ->
@@ -92,9 +91,7 @@ rewrite([], As, Module, Test) ->
      Test}.
 
 module_decl(Name, M, Fs, Exports) ->
-    Module = if is_atom(Name) -> Name;
-		true -> list_to_atom(packages:concat(Name))
-	     end,
+    Module = Name,
     {Fs1, Test} = rewrite(Fs, [], Module, true),
     Es = if Test -> [{test,0} | Exports];
 	    true -> Exports

@@ -135,8 +135,6 @@ pattern({tuple,Line,Ps}, St0) ->
 %%pattern({struct,Line,Tag,Ps}, St0) ->
 %%    {TPs,TPsvs,St1} = pattern_list(Ps, St0),
 %%    {{struct,Line,Tag,TPs},TPsvs,St1};
-pattern({record_field,_,_,_}=M, St) ->
-    {M,St};  % must be a package name
 pattern({record_index,Line,Name,Field}, St) ->
     {index_expr(Line, Field, Name, record_fields(Name, St)),St};
 pattern({record,Line,Name,Pfs}, St0) ->
@@ -306,8 +304,6 @@ expr({tuple,Line,Es0}, St0) ->
 %%expr({struct,Line,Tag,Es0}, Vs, St0) ->
 %%    {Es1,Esvs,Esus,St1} = expr_list(Es0, Vs, St0),
 %%    {{struct,Line,Tag,Es1},Esvs,Esus,St1};
-expr({record_field,_,_,_}=M, St) ->
-    {M,St};  % must be a package name
 expr({record_index,Line,Name,F}, St) ->
     I = index_expr(Line, F, Name, record_fields(Name, St)),
     expr(I, St);
@@ -375,9 +371,6 @@ expr({call,Line,{atom,_La,N}=Atom,As0}, St0) ->
                     end
             end
     end;
-expr({call,Line,{record_field,_,_,_}=M,As0}, St0) ->
-    {As,St1} = expr_list(As0, St0),
-    {{call,Line,M,As},St1};
 expr({call,Line,{remote,Lr,M,F},As0}, St0) ->
     {[M1,F1 | As1],St1} = expr_list([M,F | As0], St0),
     {{call,Line,{remote,Lr,M1,F1},As1},St1};

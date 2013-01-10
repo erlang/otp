@@ -27,7 +27,7 @@
 	 app_test/1,
 	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
-	 other_output/1, package_forms/1, encrypted_abstr/1,
+	 other_output/1, encrypted_abstr/1,
 	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
 	 missing_testheap/1, cover/1, env/1, core/1, asm/1,
 	 sys_pre_attributes/1]).
@@ -44,7 +44,7 @@ all() ->
     test_lib:recompile(?MODULE),
     [app_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
-     other_output, package_forms, encrypted_abstr,
+     other_output, encrypted_abstr,
      {group, bad_record_use}, strict_record,
      missing_testheap, cover, env, core, asm,
      sys_pre_attributes].
@@ -408,32 +408,6 @@ other_output(Config) when is_list(Config) ->
     ?line {ok,simple,Asm} = compile:forms(PP, [to_asm,binary,time]),
 
     ?line test_server:timetrap_cancel(Dog),
-    ok.
-
-package_forms(Config) when is_list(Config) ->
-    Fs = [{attribute,1,file,{"./p.erl",1}},
-	  {attribute,1,module,[p,p]},
-	  {attribute,3,compile,export_all},
-	  {attribute,1,file,
-	   {"/clearcase/otp/erts/lib/stdlib/include/qlc.hrl",1}},
-	  {attribute,6,file,{"./p.erl",6}},
-	  {function,7,q,0,
-	   [{clause,7,[],[],
-	     [{call,8,
-	       {remote,8,{atom,8,qlc},{atom,8,q}},
-	       [{tuple,-8,
-		 [{atom,-8,qlc_lc},
-		  {'fun',-8,
-		   {clauses,
-		    [{clause,-8,[],[],
-		      [{tuple,-8,
-			[{atom,-8,simple_v1},
-			 {atom,-8,'X'},
-			 {'fun',-8,{clauses,[{clause,-8,[],[],[{nil,8}]}]}},
-			 {integer,-8,8}]}]}]}},
-		  {atom,-8,undefined}]}]}]}]},
-	  {eof,9}],
-    {ok,'p.p',_} = compile:forms(Fs, ['S',report]),
     ok.
 
 encrypted_abstr(Config) when is_list(Config) ->

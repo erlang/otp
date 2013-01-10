@@ -2223,11 +2223,6 @@ module_name_to_atom(M) ->
     case erl_syntax:type(M) of
 	atom ->
 	    erl_syntax:atom_value(M);
-	qualified_name ->
-	    list_to_atom(packages:concat(
-			   [erl_syntax:atom_value(A)
-			    || A <- erl_syntax:qualified_name_segments(M)])
-			);
 	_ ->
 	    throw(syntax_error)
     end.

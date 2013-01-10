@@ -1067,11 +1067,10 @@ check_mod(Mod,App,Dir,Ext,IncPath) ->
     end.
 
 mod_to_filename(Dir, Mod, Ext) ->
-    Parts = packages:split(Mod),
-    filename:join([Dir | Parts]) ++ Ext.
+    filename:join(Dir, atom_to_list(Mod) ++ Ext).
 
 check_module(Mod, Dir, ObjModTime, IncPath) ->
-    {SrcDirs,_IncDirs}= smart_guess(Mod, Dir,IncPath),
+    {SrcDirs,_IncDirs}= smart_guess(Dir,IncPath),
     case locate_src(Mod,SrcDirs) of
 	{ok,_FDir,_File,LastModTime} ->
 	    if
@@ -1085,7 +1084,7 @@ check_module(Mod, Dir, ObjModTime, IncPath) ->
     end.
 
 locate_src(Mod,[Dir|Dirs]) ->
-    File = filename:join(Dir, mod_to_fname(Mod) ++ ".erl"),
+    File = mod_to_filename(Dir, Mod, ".erl"),
     case file:read_file_info(File) of
 	{ok,FileInfo} ->
 	    LastModTime = FileInfo#file_info.mtime,
@@ -1096,9 +1095,6 @@ locate_src(Mod,[Dir|Dirs]) ->
 locate_src(_,[]) ->
     false.
 
-mod_to_fname(Mod) ->
-    hd(lists:reverse(packages:split(Mod))).
-
 
 %%______________________________________________________________________
 %% smart_guess(Mod, Dir,IncludePath) -> {[Dirs],[IncDirs]}
@@ -1106,17 +1102,12 @@ mod_to_fname(Mod) ->
 %% src-dir should be one of .../src or .../src/e_src
 %% If dir does not contain .../ebin set dir to the same directory.
 
-smart_guess(Mod, Dir,IncPath) ->
+smart_guess(Dir,IncPath) ->
     case reverse(filename:split(Dir)) of
 	["ebin"|D] ->
-	    Subdirs = case packages:split(Mod) of
-			  [_] -> [];
-			  [_|_] = Parts ->
-			      lists:reverse(tl(lists:reverse(Parts)))
-		      end,
 	    D1 = reverse(D),
-	    Dirs = [filename:join(D1 ++ ["src" | Subdirs]),
-		    filename:join(D1 ++ ["src", "e_src" | Subdirs])],
+	    Dirs = [filename:join(D1 ++ ["src"]),
+		    filename:join(D1 ++ ["src", "e_src"])],
 	    {Dirs,Dirs ++ IncPath};
 	_ ->
 	    {[Dir],[Dir] ++ IncPath}
@@ -1423,23 +1414,8 @@ load_appl_mods([], _, _, _) ->
     [{progress, modules_loaded}].
 
 load_commands(Mods, Path) ->
-    SplitMods = lists:foldl(
-		  fun({Parts,M}, [{Last, Acc}|Rest]) ->
-			  [_|Tail] = lists:reverse(Parts),
-			  case lists:reverse(Tail) of
-			      Subs when Subs == Last ->
-				  [{Last,[M|Acc]}|Rest];
-			      Subs ->
-				  [{Subs, [M]}|[{Last,Acc}|Rest]]
-			  end
-		  end, [{[],[]}],
-		  lists:sort([{packages:split(M),M} || M <- Mods])),
-    lists:foldl(
-      fun({Subs,Ms}, Cmds) ->
-	      [{path, [filename:join([Path | Subs])]},
-	       {primLoad,lists:sort(Ms)} | Cmds]
-      end, [], SplitMods).
-
+    [{path, [filename:join([Path])]},
+     {primLoad,lists:sort(Mods)}].
 
 %%______________________________________________________________________
 %% Pack an application to an application term.
