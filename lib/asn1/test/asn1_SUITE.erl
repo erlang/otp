@@ -20,18 +20,9 @@
 
 -module(asn1_SUITE).
 
--define(only_per(Func),
-    if Rule =:= per -> Func;
-       true -> ok
-    end).
 -define(only_ber(Func),
     if Rule =:= ber -> Func;
        true -> ok
-    end).
--define(only_uper(Func),
-    case Rule of
-        uper -> Func;
-        _ -> ok
     end).
 
 -compile(export_all).
@@ -62,7 +53,8 @@ groups() ->
     [{compile, parallel([]),
       [c_syntax,
        c_string,
-       c_implicit_before_choice]},
+       c_implicit_before_choice,
+       constraint_equivalence]},
 
      {ber, parallel([]),
       [ber_choiceinseq,
@@ -188,7 +180,6 @@ groups() ->
        testDoubleEllipses,
        test_x691,
        ticket_6143,
-       testExtensionAdditionGroup,
        test_OTP_9688]},
 
      {performance, [],
@@ -321,12 +312,12 @@ testCompactBitString(Config, Rule, Opts) ->
     asn1_test_lib:compile("PrimStrings", Config,
                           [Rule, compact_bit_string|Opts]),
     testCompactBitString:compact_bit_string(Rule),
-    ?only_uper(testCompactBitString:bit_string_unnamed(Rule)),
-    ?only_per(testCompactBitString:bit_string_unnamed(Rule)),
-    ?only_per(testCompactBitString:ticket_7734(Rule)),
-    ?only_per(asn1_test_lib:compile("Constraints", Config,
-                                        [Rule, compact_bit_string|Opts])),
-    ?only_per(testCompactBitString:otp_4869(Rule)).
+    testCompactBitString:bit_string_unnamed(Rule),
+    testCompactBitString:bit_string_unnamed(Rule),
+    testCompactBitString:ticket_7734(Rule),
+    asn1_test_lib:compile("Constraints", Config,
+			  [Rule, compact_bit_string|Opts]),
+    testCompactBitString:otp_4869(Rule).
 
 testPrimStrings(Config) -> test(Config, fun testPrimStrings/3).
 testPrimStrings(Config, Rule, Opts) ->
@@ -439,7 +430,8 @@ testSeqExtension(Config) -> test(Config, fun testSeqExtension/3).
 testSeqExtension(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["External", "SeqExtension"], Config,
                               [Rule|Opts]),
-    testSeqExtension:main(Rule).
+    DataDir = ?config(data_dir, Config),
+    testSeqExtension:main(DataDir, [Rule|Opts]).
 
 testSeqExternal(Config) -> test(Config, fun testSeqExternal/3).
 testSeqExternal(Config, Rule, Opts) ->
@@ -626,6 +618,34 @@ c_implicit_before_choice(Config, Rule, Opts) ->
     CaseDir = ?config(case_dir, Config),
     {error, _R2} = asn1ct:compile(filename:join(DataDir, "CCSNARG3"),
                                   [Rule, {outdir, CaseDir}|Opts]).
+
+constraint_equivalence(Config) ->
+    DataDir = ?config(data_dir, Config),
+    CaseDir = ?config(case_dir, Config),
+    Asn1Spec = "ConstraintEquivalence",
+    Asn1Src = filename:join(DataDir, Asn1Spec),
+    ok = asn1ct:compile(Asn1Src, [abs,{outdir,CaseDir}]),
+    AbsFile = filename:join(CaseDir, Asn1Spec++".abs"),
+    {ok,Terms} = file:consult(AbsFile),
+    Cs = [begin
+	      'INTEGER' = element(3, Type),	%Assertion.
+	      Constraints = element(4, Type),
+	      Name1 = atom_to_list(Name0),
+	      {Name,_} = lists:splitwith(fun(C) -> C =/= $X end, Name1),
+	      {Name,Constraints}
+	  end || {typedef,_,_,Name0,Type} <- Terms],
+    R = sofs:relation(Cs, [{name,constraint}]),
+    F0 = sofs:relation_to_family(R),
+    F = sofs:to_external(F0),
+    Diff = [E || {_,L}=E <- F, length(L) > 1],
+    case Diff of
+	[] ->
+	    ok;
+	[_|_] ->
+	    io:put_chars("Not equivalent:\n"),
+	    [io:format("~s: ~p\n", [N,D]) || {N,D} <- Diff],
+	    test_server:fail(length(Diff))
+    end.
 
 parse(Config) ->
     [asn1_test_lib:compile(M, Config, [abs]) || M <- test_modules()].

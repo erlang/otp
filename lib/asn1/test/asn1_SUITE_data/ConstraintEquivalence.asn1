@@ -1,0 +1,42 @@
+ConstraintEquivalence DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+ SingleValueX42 ::= INTEGER (42)
+ SingleValueX1 ::= INTEGER ((42) ^ (42))
+ SingleValueX2 ::= INTEGER ((42) INTERSECTION (42))
+ SingleValueX3 ::= INTEGER ((42) | (42))
+ SingleValueX4 ::= INTEGER ((42) UNION (42))
+ SingleValueX5 ::= INTEGER ((42) INTERSECTION (MIN..MAX))
+ SingleValueX6 ::= INTEGER ((42) INTERSECTION (40..49))
+ SingleValueX7 ::= INTEGER (42..42)
+
+ UnconstrainedX0 ::= INTEGER
+ UnconstrainedX1 ::= INTEGER (MIN..MAX)
+ UnconstrainedX2 ::= INTEGER (1|(MIN..MAX))
+ UnconstrainedX3 ::= INTEGER (1..10|(MIN..MAX))
+ UnconstrainedX4 ::= INTEGER ((MIN..MAX)|9|10)
+ UnconstrainedX5 ::= INTEGER ((MIN..MAX)|10..20)
+ UnconstrainedX6 ::= INTEGER ((MIN..MAX) UNION (10..20))
+
+ RangeX00 ::= INTEGER (5..10)
+ RangeX01 ::= INTEGER (4<..<11)
+ RangeX02 ::= INTEGER (5..<11)
+ RangeX03 ::= INTEGER (4<..10)
+ RangeX04 ::= INTEGER (5|6|7|8|9|10)
+ RangeX05 ::= INTEGER (10|9|8|7|6|5)
+ RangeX06 ::= INTEGER (5|6|7..10)
+
+ RangeX10 ::= INTEGER ((5..6) UNION (7..8) UNION (9|10))
+ RangeX11 ::= INTEGER ((5|6) UNION (7..8) UNION (9|10))
+ RangeX12 ::= INTEGER ((5|6) UNION (7|8) UNION (9|10))
+ RangeX13 ::= INTEGER ((5|6) UNION (7) UNION (8..10))
+ RangeX14 ::= INTEGER ((5|6) UNION (7) UNION (8..10))
+ RangeX15 ::= INTEGER ((5|6) UNION (7) UNION ((8..8)|(9..9)|(10)))
+ RangeX16 ::= INTEGER ((5|6) UNION (7) UNION (7<..<11))
+
+ RangeX20 ::= INTEGER (0..20) (5..10)
+ RangeX21 ::= INTEGER (0..10) (5..20)
+ RangeX22 ::= INTEGER (0..10) (5..20) (MIN..MAX)
+ RangeX23 ::= INTEGER ((0..10) INTERSECTION (5..20) ^ (MIN..MAX))
+ RangeX24 ::= INTEGER ((5|6|7|8|9|10) INTERSECTION (5..20) ^ (MIN..MAX))
+
+END

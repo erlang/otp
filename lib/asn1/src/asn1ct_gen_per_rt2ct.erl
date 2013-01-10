@@ -69,18 +69,6 @@ gen_encode(Erules,Typename,Type) when is_record(Type,type) ->
 	end,
     case asn1ct_gen:type(InnerType) of
 	{constructed,bif} ->
-	    case InnerType of
-		'SET' ->
-		    true;
-		'SEQUENCE' ->
-		    true;
-		_ ->
-		    emit({nl,"'enc_",asn1ct_gen:list2name(Typename),
-			  "'({'",asn1ct_gen:list2name(Typename),
-			  "',Val}",ObjFun,") ->",nl}),
-		    emit({"'enc_",asn1ct_gen:list2name(Typename),
-			  "'(Val",ObjFun,");",nl,nl})
-	    end,
 	    emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val",ObjFun,
 		  ") ->",nl}),
 	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,Type);
@@ -417,35 +405,46 @@ emit_enc_octet_string(_Erules,Constraint,Value) ->
 	    asn1ct_name:new(tmpval),
 	    emit({"  begin",nl}),
 	    emit({"    [",{curr,tmpval},"] = ",Value,",",nl}),
-	    emit({"    [10,8,",{curr,tmpval},"]",nl}),
+	    emit(["    [[10,8],",{curr,tmpval},"]",nl]),
 	    emit("  end");
 	2 ->
 	    asn1ct_name:new(tmpval),
-	    emit({"  begin",nl}),
-	    emit({"    [",{curr,tmpval},",",{next,tmpval},"] = ",
-		  Value,",",nl}),
-	    emit({"    [[10,8,",{curr,tmpval},"],[10,8,",
-		  {next,tmpval},"]]",nl}),
-	    emit("  end"),
-	    asn1ct_name:new(tmpval);
-	Sv when is_integer(Sv),Sv =< 256  ->
+	    emit(["  begin",nl,
+		  "    ",{curr,tmpval}," = ",Value,",",nl,
+		  "    case length(",{curr,tmpval},") of",nl,
+		  "      2 ->",nl,
+		  "        [[45,16,2]|",{curr,tmpval},"];",nl,
+		  "      _ ->",nl,
+		  "        exit({error,{value_out_of_bounds,",
+		  {curr,tmpval},"}})",nl,
+		  "    end",nl,
+		  "  end"]);
+	Sv when is_integer(Sv), Sv < 256  ->
 	    asn1ct_name:new(tmpval),
-	    emit({"  begin",nl}),
-	    emit({"    case length(",Value,") of",nl}),
-	    emit(["      ",{curr,tmpval}," when ",{curr,tmpval}," == ",Sv," ->"]),
-	    emit([" [2,20,",{curr,tmpval},",",Value,"];",nl]),
-	    emit({"      _ -> exit({error,{value_out_of_bounds,",
-		  Value,"}})", nl,"    end",nl}),
-	    emit("  end");
+	    asn1ct_name:new(tmplen),
+	    emit(["  begin",nl,
+		  "    ",{curr,tmpval}," = ",Value,",",nl,
+		  "    case length(",{curr,tmpval},") of",nl,
+		  "      ",Sv,"=",{curr,tmplen}," ->",nl,
+		  "       [20,",{curr,tmplen},"|",{curr,tmpval},"];",nl,
+		  "      _ ->",nl,
+		  "       exit({error,{value_out_of_bounds,",
+		  {curr,tmpval},"}})",nl,
+		  "    end",nl,
+		  "  end"]);
 	Sv when is_integer(Sv),Sv =< 65535  ->
 	    asn1ct_name:new(tmpval),
-	    emit({"  begin",nl}),
-	    emit({"    case length(",Value,") of",nl}),
-	    emit(["      ",{curr,tmpval}," when ",{curr,tmpval}," == ",Sv," ->"]),
-	    emit([" [2,21,",{curr,tmpval},",",Value,"];",nl]),
-	    emit({"      _ -> exit({error,{value_out_of_bounds,",
-		  Value,"}})",nl,"    end",nl}),
-	    emit("  end");
+	    asn1ct_name:new(tmplen),
+	    emit(["  begin",nl,
+		  "    ",{curr,tmpval}," = ",Value,",",nl,
+		  "    case length(",{curr,tmpval},") of",nl,
+		  "      ",Sv,"=",{curr,tmplen}," ->",nl,
+		  "        [<<21,",{curr,tmplen},":16>>|",Value,"];",nl,
+		  "      _ ->",nl,
+		  "        exit({error,{value_out_of_bounds,",
+		  {curr,tmpval},"}})",nl,
+		  "    end",nl,
+		  "  end"]);
 	C ->
 	    emit({"  ?RT_PER:encode_octet_string(",{asis,C},",false,",Value,")",nl})
     end.
@@ -1292,7 +1291,6 @@ gen_objset_dec(ObjSetName,_,['EXTENSIONMARK'],_ClName,_ClFields,
 	       _NthObj) ->
     emit({"'getdec_",ObjSetName,"'(_, _) ->",nl}),
     emit({indent(3),"fun(Attr1, Bytes, _, _) ->",nl}),
-    %%    emit({indent(6),"?RT_PER:decode_open_type(Bytes,[])",nl}),
     emit({indent(6),"{Bytes,Attr1}",nl}),
     emit({indent(3),"end.",nl,nl}),
     ok;
@@ -1308,77 +1306,42 @@ emit_default_getdec(ObjSetName,UniqueName) ->
     emit([indent(2), "fun(C,V,_,_) -> exit({{component,C},{value,V},{unique_name_and_value,",{asis,UniqueName},",ErrV}}) end"]).
 
 
-gen_inlined_dec_funs(Fields,[{typefield,Name,_}|Rest],
-		     ObjSetName,NthObj) ->
-    CurrMod = get(currmod),
-    InternalDefFunName = [NthObj,Name,ObjSetName],
-    case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when is_record(Type,type) ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    N=emit_inner_of_decfun(Type,InternalDefFunName),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-	{value,{_,Type}} when is_record(Type,typedef) ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    N=emit_inner_of_decfun(Type,InternalDefFunName),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-	{value,{_,#'Externaltypereference'{module=CurrMod,type=T}}} ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    emit([indent(12),"'dec_",T,"'(Val, telltype)"]),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-	{value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    emit([indent(12),"'",M,"':'dec_",T,"'(Val, telltype)"]),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-	false ->
-	    emit([indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl,
-		  indent(9),{asis,Name}," -> {Val,Type}"]),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj)
-    end;
-gen_inlined_dec_funs(Fields,[_|Rest],ObjSetName,NthObj) ->
-    gen_inlined_dec_funs(Fields,Rest,ObjSetName,NthObj);
-gen_inlined_dec_funs(_,[],_,NthObj) ->
+gen_inlined_dec_funs(Fields, List, ObjSetName, NthObj0) ->
+    emit([indent(3),"fun(Type, Val, _, _) ->",nl,
+	  indent(6),"case Type of",nl]),
+    NthObj = gen_inlined_dec_funs1(Fields, List, ObjSetName, "", NthObj0),
+    emit([nl,indent(6),"end",nl,
+	  indent(3),"end"]),
     NthObj.
 
-gen_inlined_dec_funs1(Fields,[{typefield,Name,_}|Rest],
-		     ObjSetName,NthObj) ->
+gen_inlined_dec_funs1(Fields, [{typefield,Name,_}|Rest],
+		      ObjSetName, Sep0, NthObj) ->
     CurrentMod = get(currmod),
     InternalDefFunName = [NthObj,Name,ObjSetName],
-    N=
-    case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when is_record(Type,type) ->
-	    emit({";",nl}),
-	    emit_inner_of_decfun(Type,InternalDefFunName);
-	{value,{_,Type}} when is_record(Type,typedef) ->
-	    emit({";",nl,indent(9),{asis,Name}," ->",nl}),
-	    emit_inner_of_decfun(Type,InternalDefFunName);
-	{value,{_,#'Externaltypereference'{module=CurrentMod,type=T}}} ->
-	    emit([";",nl,indent(9),{asis,Name}," ->",nl]),
-	    emit([indent(12),"'dec_",T,"'(Val,telltype)"]),
-	    0;
-	{value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-	    emit([";",nl,indent(9),{asis,Name}," ->",nl]),
-	    emit([indent(12),"'",M,"':'dec_",T,"'(Val,telltype)"]),
-	    0;
-	false ->
-	    emit([";",nl,
-		  indent(9),{asis,Name}," -> {Val,Type}"]),
-	    0
-    end,
-    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-gen_inlined_dec_funs1(Fields,[_|Rest],ObjSetName,NthObj)->
-    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-gen_inlined_dec_funs1(_,[],_,NthObj) ->
-    emit({nl,indent(6),"end",nl}),
-    emit({indent(3),"end"}),
-    NthObj.
+    emit(Sep0),
+    Sep = [";",nl],
+    N = case lists:keyfind(Name, 1, Fields) of
+	    {_,#type{}=Type} ->
+		emit_inner_of_decfun(Type, InternalDefFunName);
+	    {_,#typedef{}=Type} ->
+		emit([indent(9),{asis,Name}," ->",nl]),
+		emit_inner_of_decfun(Type, InternalDefFunName);
+	    {_,#'Externaltypereference'{module=CurrentMod,type=T}} ->
+		emit([indent(9),{asis,Name}," ->",nl,
+		      indent(12),"'dec_",T,"'(Val,telltype)"]),
+		0;
+	    {_,#'Externaltypereference'{module=M,type=T}} ->
+		emit([indent(9),{asis,Name}," ->",nl,
+		      indent(12),"'",M,"':'dec_",T,"'(Val,telltype)"]),
+		0;
+	    false ->
+		emit([indent(9),{asis,Name}," -> {Val,Type}"]),
+		0
+	end,
+    gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj+N);
+gen_inlined_dec_funs1(Fields, [_|Rest], ObjSetName, Sep, NthObj) ->
+    gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj);
+gen_inlined_dec_funs1(_, [], _, _, NthObj) -> NthObj.
 
 emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},
 		     InternalDefFunName) ->
@@ -1579,25 +1542,9 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	'UTF8String' ->
 	    emit({"?RT_PER:decode_UTF8String(",BytesVar,")"});
 	'ANY' ->
-	    emit(["?RT_PER:decode_open_type(",BytesVar,",", 
-		  {asis,Constraint}, ")"]); 
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 	'ASN1_OPEN_TYPE' ->
-	    case Constraint of
-		[#'Externaltypereference'{type=Tname}] ->
-		    emit(["fun(FBytes) ->",nl,
-			  "   {XTerm,XBytes} = "]),
-		    emit(["?RT_PER:decode_open_type(FBytes,[]),",nl]),
-		    emit(["   {YTerm,_} = dec_",Tname,"(XTerm,mandatory),",nl]),
-		    emit(["   {YTerm,XBytes} end(",BytesVar,")"]);
-		[#type{def=#'Externaltypereference'{type=Tname}}] ->
-		    emit(["fun(FBytes) ->",nl,
-			  "   {XTerm,XBytes} = "]),
-		    emit(["?RT_PER:decode_open_type(FBytes,[]),",nl]),
-		    emit(["   {YTerm,_} = dec_",Tname,"(XTerm,mandatory),",nl]),
-		    emit(["   {YTerm,XBytes} end(",BytesVar,")"]);
-		_ ->
-		    emit(["?RT_PER:decode_open_type(",BytesVar,",[])"])
-	    end;
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 	#'ObjectClassFieldType'{} ->
 		case asn1ct_gen:get_inner(Att#type.def) of
 		    {fixedtypevaluefield,_,InnerType} -> 

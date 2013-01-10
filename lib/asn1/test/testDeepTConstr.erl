@@ -26,21 +26,19 @@
 -include_lib("test_server/include/test_server.hrl").
 
 main(_Erule) ->
-    Val1 = {'FilterItem',
-	    {substrings,
-	     {'FilterItem_substrings',
-	      {2,6},
-	      [{initial,"SE"},
-	       {any,"DK"},
-	       {final,"N"}]}}},
+    Val1 = {substrings,
+	    {'FilterItem_substrings',
+	     {2,6},
+	     [{initial,"SE"},
+	      {any,"DK"},
+	      {final,"N"}]}},
 
-    Val2 = {'FilterItem',
-	    {substrings,
-	     {'FilterItem_substrings',
-	      {2,6},
-	      [{initial,"SE"},
-	       {any,"DK"},
-	       {final,"NO"}]}}},
+    Val2 = {substrings,
+	    {'FilterItem_substrings',
+	     {2,6},
+	     [{initial,"SE"},
+	      {any,"DK"},
+	      {final,"NO"}]}},
 
     ?line {ok,Bytes1} = 
 	asn1_wrapper:encode('TConstrChoice','FilterItem',Val1),

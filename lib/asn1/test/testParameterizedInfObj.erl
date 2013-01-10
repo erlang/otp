@@ -86,7 +86,7 @@ main(Erule) ->
 
 
 ranap(_Erule) ->    
-    ?line PIEVal2 = [{'ProtocolIE-Field',4,ignore,{'Cause',{radioNetwork,'rab-pre-empted'}}}],
+    PIEVal2 = [{'ProtocolIE-Field',4,ignore,{radioNetwork,'rab-pre-empted'}}],
     ?line Val2 = 
 	#'InitiatingMessage'{procedureCode=1,
 			     criticality=ignore,

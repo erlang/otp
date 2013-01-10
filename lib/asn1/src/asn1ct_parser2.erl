@@ -924,19 +924,8 @@ parse_UnionsRec([{'|',_}|Rest]) ->
 	{V1,V2} ->
 	    {[V1,union,V2],Rest3}
 	end;
-parse_UnionsRec([{'UNION',_}|Rest]) ->
-    {InterSec,Rest2} = parse_Intersections(Rest),
-    {URec,Rest3} = parse_UnionsRec(Rest2),
-    case {InterSec,URec} of
-	{V1,[]} ->
-	    {V1,Rest3};
-	{{'SingleValue',V1},{'SingleValue',V2}} ->
-	    {{'SingleValue',ordsets:union(to_set(V1),to_set(V2))},Rest3};
-	{V1,V2} when is_list(V2) ->
-	    {[V1] ++ [union|V2],Rest3};
-	{V1,V2} ->
-	    {[V1,union,V2],Rest3}
-	end;
+parse_UnionsRec([{'UNION',Info}|Rest]) ->
+    parse_UnionsRec([{'|',Info}|Rest]);
 parse_UnionsRec(Tokens) ->
     {[],Tokens}.
 
@@ -971,20 +960,8 @@ parse_IElemsRec([{'^',_}|Rest]) ->
 	{V1,V2} ->
 	    {[V1,intersection,V2],Rest3}
     end;
-parse_IElemsRec([{'INTERSECTION',_}|Rest]) ->
-    {InterSec,Rest2} = parse_IntersectionElements(Rest),
-    {IRec,Rest3} = parse_IElemsRec(Rest2),
-    case {InterSec,IRec} of
-	{{'SingleValue',V1},{'SingleValue',V2}} ->
-	    {{'SingleValue',
-	      ordsets:intersection(to_set(V1),to_set(V2))},Rest3};
-	{V1,[]} ->
-	    {V1,Rest3};
-	{V1,V2} when is_list(V2) ->
-	    {[V1] ++ [intersection|V2],Rest3};
-	{V1,V2} ->
-	    {[V1,intersection,V2],Rest3}
-    end;
+parse_IElemsRec([{'INTERSECTION',Info}|Rest]) ->
+    parse_IElemsRec([{'^',Info}|Rest]);
 parse_IElemsRec(Tokens) ->
     {[],Tokens}.
 

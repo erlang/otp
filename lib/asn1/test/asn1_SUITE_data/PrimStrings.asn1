@@ -59,6 +59,19 @@ BS1024 ::= BIT STRING (SIZE (1024))
   FixedOs65536 ::= OCTET STRING (SIZE (65536))
   FixedOs65537 ::= OCTET STRING (SIZE (65537))
 
+  OsFixedStrings ::= SEQUENCE {
+    b1 BOOLEAN,  -- Unalign
+    s0 OCTET STRING (SIZE (0)),
+    s1 OCTET STRING (SIZE (1)),
+    s2 OCTET STRING (SIZE (2)),
+    s3 OCTET STRING (SIZE (3)),
+    b2 BOOLEAN,  -- Unalign
+    s255 OCTET STRING (SIZE (255)),
+    s256 OCTET STRING (SIZE (256)),
+    s257 OCTET STRING (SIZE (257)),
+    i INTEGER (0..1024)
+  }
+
   OsAlignment ::= SEQUENCE {
     b1 BOOLEAN,
     s1 Os,

@@ -79,18 +79,6 @@ gen_encode(Erules,Typename,Type) when is_record(Type,type) ->
 	end,
     case asn1ct_gen:type(InnerType) of
 	{constructed,bif} ->
-	    case InnerType of
-		'SET' ->
-		    true;
-		'SEQUENCE' ->
-		    true;
-		_ ->
-		    emit({nl,"'enc_",asn1ct_gen:list2name(Typename),
-			  "'({'",asn1ct_gen:list2name(Typename),
-			  "',Val}",ObjFun,") ->",nl}),
-		    emit({"'enc_",asn1ct_gen:list2name(Typename),
-			  "'(Val",ObjFun,");",nl,nl})
-	    end,
 	    emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val",ObjFun,
 		  ") ->",nl}),
 	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,Type);
@@ -943,7 +931,6 @@ gen_objset_dec(ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,_ClFields,
 	      _NthObj) ->
     emit({"'getdec_",ObjSetName,"'(_, _) ->",nl}),
     emit({indent(3),"fun(Attr1, Bytes, _,_) ->",nl}),
-%%    emit({indent(6),"?RT_PER:decode_open_type(Bytes,[])",nl}),
     emit({indent(6),"{Bytes,Attr1}",nl}),
     emit({indent(3),"end.",nl,nl}),
     ok;
@@ -959,76 +946,42 @@ emit_default_getdec(ObjSetName,UniqueName) ->
     emit([indent(2), "fun(C,V,_,_) -> exit({{component,C},{value,V},{unique_name_and_value,",{asis,UniqueName},",ErrV}}) end"]).
 
 
-gen_inlined_dec_funs(Fields,[{typefield,Name,_}|Rest],
-		    ObjSetName,NthObj) ->
-    CurrMod = get(currmod),
-    InternalDefFunName = [NthObj,Name,ObjSetName],
-    case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when is_record(Type,type) ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    N=emit_inner_of_decfun(Type,InternalDefFunName),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-	{value,{_,Type}} when is_record(Type,typedef) ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    N=emit_inner_of_decfun(Type,InternalDefFunName),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-	{value,{_,#'Externaltypereference'{module=CurrMod,type=T}}} ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    emit([indent(12),"'dec_",T,"'(Val, telltype)"]),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-	{value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    emit([indent(12),"'",M,"':'dec_",T,"'(Val, telltype)"]),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-	false ->
-	    emit([indent(3),"fun(Type, Val, _, _) ->",nl,
-		  indent(6),"case Type of",nl,
-		  indent(9),{asis,Name}," ->{Val,Type}"]),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj)
-    end;
-gen_inlined_dec_funs(Fields,[_|Rest],ObjSetName,NthObj) ->
-    gen_inlined_dec_funs(Fields,Rest,ObjSetName,NthObj);
-gen_inlined_dec_funs(_,[],_,NthObj) ->
+gen_inlined_dec_funs(Fields, List, ObjSetName, NthObj0) ->
+    emit([indent(3),"fun(Type, Val, _, _) ->",nl,
+	  indent(6),"case Type of",nl]),
+    NthObj = gen_inlined_dec_funs1(Fields, List, ObjSetName, "", NthObj0),
+    emit([nl,indent(6),"end",nl,
+	  indent(3),"end"]),
     NthObj.
 
-gen_inlined_dec_funs1(Fields,[{typefield,Name,_}|Rest],
-		      ObjSetName,NthObj) ->
+gen_inlined_dec_funs1(Fields, [{typefield,Name,_}|Rest],
+		      ObjSetName, Sep0, NthObj) ->
     CurrentMod = get(currmod),
     InternalDefFunName = [NthObj,Name,ObjSetName],
-    N=case lists:keysearch(Name,1,Fields) of
-	  {value,{_,Type}} when is_record(Type,type) ->
-	      emit({";",nl}),
-	      emit_inner_of_decfun(Type,InternalDefFunName);
-	  {value,{_,Type}} when is_record(Type,typedef) ->
-	      emit({";",nl,indent(9),{asis,Name}," ->",nl}),
-	      emit_inner_of_decfun(Type,InternalDefFunName);
-	  {value,{_,#'Externaltypereference'{module=CurrentMod,type=T}}} ->
-	      emit([";",nl,indent(9),{asis,Name}," ->",nl]),
-	      emit([indent(12),"'dec_",T,"'(Val,telltype)"]),
-	      0;
-	  {value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-	      emit([";",nl,indent(9),{asis,Name}," ->",nl]),
-	      emit([indent(12),"'",M,"'",":'dec_",T,"'(Val,telltype)"]),
-	      0;
-	  false ->
-	      emit([";",nl,
-		    indent(9),{asis,Name}," ->{Val,Type}"]),
-	      0
-      end,
-    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-gen_inlined_dec_funs1(Fields,[_|Rest],ObjSetName,NthObj)->
-    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-gen_inlined_dec_funs1(_,[],_,NthObj) ->
-    emit({nl,indent(6),"end",nl}),
-    emit({indent(3),"end"}),
-    NthObj.
+    emit(Sep0),
+    Sep = [";",nl],
+    N = case lists:keyfind(Name, 1, Fields) of
+	    {_,#type{}=Type} ->
+		emit_inner_of_decfun(Type, InternalDefFunName);
+	    {_,#typedef{}=Type} ->
+		emit([indent(9),{asis,Name}," ->",nl]),
+		emit_inner_of_decfun(Type, InternalDefFunName);
+	    {_,#'Externaltypereference'{module=CurrentMod,type=T}} ->
+		emit([indent(9),{asis,Name}," ->",nl,
+		      indent(12),"'dec_",T,"'(Val,telltype)"]),
+		0;
+	    {_,#'Externaltypereference'{module=M,type=T}} ->
+		emit([indent(9),{asis,Name}," ->",nl,
+		      indent(12),"'",M,"':'dec_",T,"'(Val,telltype)"]),
+		0;
+	    false ->
+		emit([indent(9),{asis,Name}," -> {Val,Type}"]),
+		0
+	end,
+    gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj+N);
+gen_inlined_dec_funs1(Fields, [_|Rest], ObjSetName, Sep, NthObj) ->
+    gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj);
+gen_inlined_dec_funs1(_, [], _, _, NthObj) -> NthObj.
 
 emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},
 		     InternalDefFunName) ->
@@ -1147,6 +1100,10 @@ gen_dec_imm(Erule, #type{def=Name,constraint=C}) ->
 	      end,
     gen_dec_imm_1(Name, C, Aligned).
 
+gen_dec_imm_1('ASN1_OPEN_TYPE', Constraint, Aligned) ->
+    imm_decode_open_type(Constraint, Aligned);
+gen_dec_imm_1('ANY', _Constraint, Aligned) ->
+    imm_decode_open_type([], Aligned);
 gen_dec_imm_1('BOOLEAN', _Constr, _Aligned) ->
     asn1ct_imm:per_dec_boolean();
 gen_dec_imm_1({'ENUMERATED',{Base,Ext}}, _Constr, Aligned) ->
@@ -1239,36 +1196,6 @@ gen_dec_prim_1(Erule,
 		  ",",{asis,Constraint},")"});
 	'UTF8String' ->
 	    emit({"?RT_PER:decode_UTF8String(",BytesVar,")"});
-	'ANY' ->
-	    case Erule of
-		per ->
-		    emit(["fun() -> {XTerm,YTermXBytes} = ?RT_PER:decode_open_type(",BytesVar,",",{asis,Constraint}, "), {binary_to_list(XTerm),XBytes} end ()"]);
-		_ ->
-		    emit(["?RT_PER:decode_open_type(",BytesVar,",", 
-			  {asis,Constraint}, ")"])
-	    end;
-	'ASN1_OPEN_TYPE' ->
-	    case Constraint of
-		[#'Externaltypereference'{type=Tname}] ->
-		    emit(["fun(FBytes) ->",nl,
-			  "   {XTerm,XBytes} = "]),
-		    emit(["?RT_PER:decode_open_type(FBytes,[]),",nl]),
-		    emit(["   {YTerm,_} = dec_",Tname,"(XTerm,mandatory),",nl]),
-		    emit(["   {YTerm,XBytes} end(",BytesVar,")"]);
-		[#type{def=#'Externaltypereference'{type=Tname}}] ->
-		    emit(["fun(FBytes) ->",nl,
-			  "   {XTerm,XBytes} = "]),
-		    emit(["?RT_PER:decode_open_type(FBytes,[]),",nl]),
-		    emit(["   {YTerm,_} = dec_",Tname,"(XTerm,mandatory),",nl]),
-		    emit(["   {YTerm,XBytes} end(",BytesVar,")"]);
-		_ ->
-		    case Erule of
-			per ->
-			    emit(["fun() -> {XTerm,XBytes} = ?RT_PER:decode_open_type(",BytesVar,", []), {binary_to_list(XTerm),XBytes} end()"]);
-			_ ->
-			    emit(["?RT_PER:decode_open_type(",BytesVar,",[])"])
-		    end
-	    end;
 	#'ObjectClassFieldType'{} ->
 		case asn1ct_gen:get_inner(Typename) of
 		    {fixedtypevaluefield,_,InnerType} -> 
@@ -1334,3 +1261,22 @@ extaddgroup2sequence([C|T],ExtNum,Acc) ->
     extaddgroup2sequence(T,ExtNum,[C|Acc]);
 extaddgroup2sequence([],_,Acc) ->
     lists:reverse(Acc).
+
+imm_decode_open_type([#'Externaltypereference'{type=Tname}], Aligned) ->
+    imm_dec_open_type_1(Tname, Aligned);
+imm_decode_open_type([#type{def=#'Externaltypereference'{type=Tname}}],
+		     Aligned) ->
+    imm_dec_open_type_1(Tname, Aligned);
+imm_decode_open_type(_, Aligned) ->
+    asn1ct_imm:per_dec_open_type(Aligned).
+
+imm_dec_open_type_1(Type, Aligned) ->
+    D = fun(OpenType, Buf) ->
+		asn1ct_name:new(tmpval),
+		emit(["begin",nl,
+		      "{",{curr,tmpval},",_} = ",
+		      "dec_",Type,"(",OpenType,", mandatory),",nl,
+		      "{",{curr,tmpval},com,Buf,"}",nl,
+		      "end"])
+	end,
+    {call,D,asn1ct_imm:per_dec_open_type(Aligned)}.
