@@ -79,12 +79,7 @@ strict(_,_) ->
     ok.
 
 platform_options() ->
-    case ?RDBMS of
-        oracle ->
-            [{scrollable_cursors, off}];
-        _ ->
-            []
-    end.
+    [].
 
 skip() ->
     case os:type() of
