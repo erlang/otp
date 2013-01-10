@@ -694,28 +694,12 @@ do_recv(S, #eldap{use_tls=true, timeout=Timeout}, Len) ->
 recv_response(S, Data) ->
     case do_recv(S, Data, 0) of
 	{ok, Packet} ->
-	    check_tag(Packet),
 	    case asn1rt:decode('ELDAPv3', 'LDAPMessage', Packet) of
 		{ok,Resp} -> {ok,Resp};
 		Error     -> throw(Error)
 	    end;
 	{error,Reason} ->
 	    throw({gen_tcp_error, Reason})
-    end.
-
-%%% Sanity check of received packet
-check_tag(Data) ->
-    try
-	{_Tag, Data1, _Rb} = asn1rt_ber_bin:decode_tag(l2b(Data)),
-	try
-	    {{_Len, _Data2}, _Rb2} = asn1rt_ber_bin:decode_length(l2b(Data1)),
-	    ok
-	catch
-	    _ -> throw({error,decoded_tag_length})
-	end
-    catch
-	_ ->
-	    throw({error, decoded_tag})
     end.
 
 %%% Check for expected kind of reply
@@ -1110,7 +1094,3 @@ get_head(Str,Tail) ->
 %%% Should always succeed !
 get_head([H|Tail],Tail,Rhead) -> lists:reverse([H|Rhead]);
 get_head([H|Rest],Tail,Rhead) -> get_head(Rest,Tail,[H|Rhead]).
-
-l2b(B) when is_binary(B) -> B;
-l2b(L) when is_list(L)   -> list_to_binary(L).
-
