@@ -242,7 +242,8 @@ options_tests() ->
      protocol_versions,
      empty_protocol_versions,
      ipv6,
-     reuseaddr].
+     reuseaddr,
+     tcp_reuseaddr].
 
 api_tests() ->
     [connection_info,
@@ -3765,13 +3766,8 @@ reuseaddr(Config) when is_list(Config) ->
 				   {from, self()},
 				   {mfa, {ssl_test_lib, no_result, []}},
 				   {options, [{active, false} | ClientOpts]}]),
-    Monitor = erlang:monitor(process, Server),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
-    receive
-	{'DOWN', Monitor, _, _, _} ->
-	    ok
-    end,
     
     Server1 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
@@ -3784,6 +3780,51 @@ reuseaddr(Config) when is_list(Config) ->
 				   {from, self()},
 				   {mfa, {?MODULE, send_recv_result, []}},
 				   {options, [{active, false} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server1, ok, Client1, ok),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client1).
+
+%%--------------------------------------------------------------------
+
+tcp_reuseaddr(doc) ->
+    [""];
+
+tcp_reuseaddr(suite) ->
+    [];
+
+tcp_reuseaddr(Config) when is_list(Config) ->
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {transport, gen_tcp},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {options,  [{active, false}, {reuseaddr, true}]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+				   {host, Hostname},
+                                   {transport, gen_tcp},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {options, [{active, false}]}]),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    
+    Server1 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
+				   {from, self()},
+				   {transport, gen_tcp},
+				   {mfa, {?MODULE, tcp_send_recv_result, []}},
+				   {options,  [{active, false}, {reuseaddr, true}]}]),
+    Client1 =
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+				   {host, Hostname},
+				   {from, self()},
+                                   {transport, gen_tcp}, 
+				   {mfa, {?MODULE, tcp_send_recv_result, []}},
+				   {options, [{active, false}]}]),
 
     ssl_test_lib:check_result(Server1, ok, Client1, ok),
     ssl_test_lib:close(Server1),
@@ -4206,13 +4247,16 @@ new_server_wants_peer_cert(Config) when is_list(Config) ->
     ssl_test_lib:close(Client),
     ssl_test_lib:close(Client1).
 
-
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 send_recv_result(Socket) ->
     ssl:send(Socket, "Hello world"),
     {ok,"Hello world"} = ssl:recv(Socket, 11),
+    ok.
+tcp_send_recv_result(Socket) ->
+    gen_tcp:send(Socket, "Hello world"),
+    {ok,"Hello world"} = gen_tcp:recv(Socket, 11),
     ok.
 
 send_recv_result_timeout_client(Socket) ->
