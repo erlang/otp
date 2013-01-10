@@ -646,8 +646,11 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     
     if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
 	trace_port_open(port,
-		pid,		
-		am_atom_put(port->name, strlen(port->name)));
+			pid,
+			erts_atom_put((byte *) port->name,
+				      strlen(port->name),
+				      ERTS_ATOM_ENC_LATIN1,
+				      1));
     }
     
     if (driver->start) {
@@ -4765,7 +4768,8 @@ int driver_exit(ErlDrvPort ix, int err)
         return driver_failure_term(ix, am_normal, 0);
     else {
         char* err_str = erl_errno_id(err);
-        Eterm am_err = am_atom_put(err_str, sys_strlen(err_str));
+        Eterm am_err = erts_atom_put((byte *) err_str, sys_strlen(err_str),
+				     ERTS_ATOM_ENC_LATIN1, 1);
         return driver_failure_term(ix, am_err, 0);
     }
 }
@@ -4778,8 +4782,12 @@ int driver_failure(ErlDrvPort ix, int code)
 
 int driver_failure_atom(ErlDrvPort ix, char* string)
 {
-    Eterm am = am_atom_put(string, strlen(string));
-    return driver_failure_term(ix, am, 0);
+    return driver_failure_term(ix,
+			       erts_atom_put((byte *) string,
+					     strlen(string),
+					     ERTS_ATOM_ENC_LATIN1,
+					     1),
+			       0);
 }
 
 int driver_failure_posix(ErlDrvPort ix, int err)
@@ -4796,7 +4804,10 @@ int driver_failure_eof(ErlDrvPort ix)
 
 ErlDrvTermData driver_mk_atom(char* string)
 {
-    Eterm am = am_atom_put(string, sys_strlen(string));
+    Eterm am = erts_atom_put((byte *) string,
+			     sys_strlen(string),
+			     ERTS_ATOM_ENC_LATIN1,
+			     1);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return (ErlDrvTermData) am;
 }
@@ -5091,7 +5102,10 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 	erts_smp_mtx_init_x(drv->lock,
 			    "driver_lock",
 #if defined(ERTS_ENABLE_LOCK_CHECK) || defined(ERTS_ENABLE_LOCK_COUNT)
-			    am_atom_put(drv->name, sys_strlen(drv->name))
+			    erts_atom_put((byte *) drv->name,
+					  sys_strlen(drv->name),
+					  ERTS_ATOM_ENC_LATIN1,
+					  1)
 #else
 			    NIL
 #endif

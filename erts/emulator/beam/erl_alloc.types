@@ -49,6 +49,8 @@
 #   true after a "+enable X" statement or if it has been passed as a
 #   command line argument to make_alloc_types. The variable X is false
 #   after a "+disable X" statement or if it has never been mentioned.
+#
+# IMPORTANT! Only use 7-bit ascii text in this file!
 
 +if smp
 +disable threads_no_smp

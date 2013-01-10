@@ -2296,8 +2296,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	for (i = num_instructions-1; i >= 0; i--) {
 	    res = erts_bld_cons(hpp, hszp,
 				erts_bld_tuple(hpp, hszp, 2,
-					       am_atom_put(opc[i].name,
-							   strlen(opc[i].name)),
+					       erts_atom_put(opc[i].name,
+							     strlen(opc[i].name),
+							     ERTS_ATOM_ENC_LATIN1,
+							     1),
 					       erts_bld_uint(hpp, hszp,
 							     opc[i].count)),
 				res);
@@ -3901,7 +3903,7 @@ static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_s
     timer_ns = stats->timer.ns;
     timer_n  = stats->timer_n;
    
-    af    = am_atom_put(stats->file, strlen(stats->file)); 
+    af    = erts_atom_put(stats->file, strlen(stats->file), ERTS_ATOM_ENC_LATIN1, 1); 
     uil   = erts_bld_uint( hpp, szp, line);
     tloc  = erts_bld_tuple(hpp, szp, 2, af, uil);
     
@@ -3938,13 +3940,13 @@ static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_t *lock
     
     ASSERT(ltype);
     
-    type  = am_atom_put(ltype, strlen(ltype));           
-    name  = am_atom_put(lock->name, strlen(lock->name)); 
+    type  = erts_atom_put(ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);           
+    name  = erts_atom_put(lock->name, strlen(lock->name), ERTS_ATOM_ENC_LATIN1, 1); 
 
     if (lock->flag & ERTS_LCNT_LT_ALLOC) {
 	/* use allocator types names as id's for allocator locks */
 	ltype = (char *) ERTS_ALC_A2AD(signed_val(lock->id));
-	id    = am_atom_put(ltype, strlen(ltype));
+	id    = erts_atom_put(ltype, strlen(ltype), ERTS_ATOM_ENC_LATIN1, 1);
     } else if (lock->flag & ERTS_LCNT_LT_PROCLOCK) {
 	/* use registered names as id's for process locks if available */
 	proc  = erts_proc_lookup(lock->id);
@@ -3984,12 +3986,12 @@ static Eterm lcnt_build_result_term(Eterm **hpp, Uint *szp, erts_lcnt_data_t *da
     dtns = erts_bld_uint( hpp, szp, data->duration.ns);
     tdt  = erts_bld_tuple(hpp, szp, 2, dts, dtns);
     
-    adur = am_atom_put(str_duration, strlen(str_duration));
+    adur = erts_atom_put(str_duration, strlen(str_duration), ERTS_ATOM_ENC_LATIN1, 1);
     tdur = erts_bld_tuple(hpp, szp, 2, adur, tdt);
    
     /* lock tuple */
     
-    aloc = am_atom_put(str_locks, strlen(str_locks));
+    aloc = erts_atom_put(str_locks, strlen(str_locks), ERTS_ATOM_ENC_LATIN1, 1);
     	
     for (lock = data->current_locks->head; lock != NULL ; lock = lock->next ) {
 	lloc = lcnt_build_lock_term(hpp, szp, lock, lloc);
@@ -4125,14 +4127,14 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 
 static void os_info_init(void)
 {
-    Eterm type = am_atom_put(os_type, strlen(os_type));
+    Eterm type = erts_atom_put((byte *) os_type, strlen(os_type), ERTS_ATOM_ENC_LATIN1, 1);
     Eterm flav;
     int major, minor, build;
     char* buf = erts_alloc(ERTS_ALC_T_TMP, 1024); /* More than enough */
     Eterm* hp;
 
     os_flavor(buf, 1024);
-    flav = am_atom_put(buf, strlen(buf));
+    flav = erts_atom_put((byte *) buf, strlen(buf), ERTS_ATOM_ENC_LATIN1, 1);
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     hp = erts_alloc(ERTS_ALC_T_LL_TEMP_TERM, (3+4)*sizeof(Eterm));
     os_type_tuple = TUPLE2(hp, type, flav);

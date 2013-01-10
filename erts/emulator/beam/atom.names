@@ -18,6 +18,8 @@
 #
 
 #
+# IMPORTANT! All atoms defined here *need* to be in 7-bit ascii!
+#
 # File format:
 #
 # Lines starting with '#' are ignored.

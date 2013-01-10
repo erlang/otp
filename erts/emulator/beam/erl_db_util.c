@@ -4768,7 +4768,8 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info)
 	    ASSERT(j < x);
 	    erts_snprintf(buff+1, sizeof(buff) - 1, "%u", (unsigned) j);
 	    /* Yes, writing directly into terms, they ARE off heap */
-	    *p = am_atom_put(buff, strlen(buff));
+	    *p = erts_atom_put((byte *) buff, strlen(buff),
+			       ERTS_ATOM_ENC_LATIN1, 1);
 	}
 	++p;
     }

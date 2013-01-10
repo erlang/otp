@@ -1869,7 +1869,10 @@ static Eterm build_load_error_hp(Eterm *hp, int code)
 
 static Eterm mkatom(char *str)
 {
-    return am_atom_put(str, sys_strlen(str));
+    return erts_atom_put((byte *) str,
+			 sys_strlen(str),
+			 ERTS_ATOM_ENC_LATIN1,
+			 1);
 }
 
 static char *pick_list_or_atom(Eterm name_term)

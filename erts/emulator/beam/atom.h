@@ -47,7 +47,8 @@
  */
 typedef struct atom {
     IndexSlot slot;  /* MUST BE LOCATED AT TOP OF STRUCT!!! */
-    int len;         /* length of atom name */
+    Sint16 len;      /* length of atom name (UTF-8 encoded) */
+    Sint16 latin1_chars; /* 0-255 if atom can be encoded in latin1; otherwise, -1 */
     int ord0;        /* ordinal value of first 3 bytes + 7 bits */
     byte* name;      /* name of atom */
 } Atom;
@@ -113,6 +114,12 @@ ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1)
 
 #endif
 
+typedef enum {
+    ERTS_ATOM_ENC_7BIT_ASCII,
+    ERTS_ATOM_ENC_LATIN1,
+    ERTS_ATOM_ENC_UTF8
+} ErtsAtomEncoding;
+
 /*
  * Note, ERTS_IS_ATOM_STR() expects the first argument to be a
  * 7-bit ASCII string literal.
@@ -125,8 +132,8 @@ ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1)
 int atom_table_size(void);	/* number of elements */
 int atom_table_sz(void);	/* table size in bytes, excluding stored objects */
 
-Eterm am_atom_put(const char*, int); /* most callers pass plain char*'s */
-Eterm am_atom_put2(const byte*, int, int is_latin1);
+Eterm am_atom_put(const char*, int); /* ONLY 7-bit ascii! */
+Eterm erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc);
 int atom_erase(byte*, int);
 int atom_static_put(byte*, int);
 void init_atom_table(void);

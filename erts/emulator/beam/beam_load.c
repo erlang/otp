@@ -1230,7 +1230,7 @@ load_atom_table(LoaderState* stp)
 
 	GetByte(stp, n);
 	GetString(stp, atom, n);
-	stp->atom[i] = am_atom_put2(atom, n, 1);
+	stp->atom[i] = erts_atom_put(atom, n, ERTS_ATOM_ENC_LATIN1, 1);
     }
 
     /*
@@ -1620,7 +1620,7 @@ read_line_table(LoaderState* stp)
 
 	    GetInt(stp, 2, n);
 	    GetString(stp, fname, n);
-	    stp->fname[i] = am_atom_put((char*)fname, n); /*SVERK ? */
+	    stp->fname[i] = erts_atom_put(fname, n, ERTS_ATOM_ENC_LATIN1, 1);
 	}
     }
 
