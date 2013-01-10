@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2012</year>
+      <year>1997</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,20 @@
     <file>notes.xml</file>
   </header>
 
+  <section><title>Orber 3.6.24.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in corbaloc/corbaname over ssl.</p>
+          <p>
+	    Own Id: OTP-10675</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
   <section><title>Orber 3.6.24</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
