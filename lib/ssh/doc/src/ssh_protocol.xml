@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -110,8 +110,7 @@
 	read-eval-print loop. It is also possible, but much more work,
 	to provide your own CLI (Command Line Interface) implementation.
 	</item>
-	<item><em>Exec</em> - one-time remote execution (like
-	SCP). See <seealso
+	<item><em>Exec</em> - one-time remote execution of commands. See <seealso
 	marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso></item>
       </list>
     </section>
