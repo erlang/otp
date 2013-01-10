@@ -95,6 +95,27 @@ AS-Config ::=				SEQUENCE {
 	]]
 }
 
+SystemInformationBlockType2 ::= SEQUENCE {
+  timeAlignmentTimerCommon TimeAlignmentTimer,
+  ...,
+  lateNonCriticalExtension OCTET STRING OPTIONAL,
+  [[ ssac-BarringForMMTEL-Voice-r9 AC-BarringConfig OPTIONAL,
+     ssac-BarringForMMTEL-Video-r9 AC-BarringConfig OPTIONAL
+  ]],
+  [[ ac-BarringForCSFB-r10 AC-BarringConfig OPTIONAL
+  ]]
+}
 
+TimeAlignmentTimer ::= ENUMERATED {
+  sf500, sf750, sf1280, sf1920, sf2560, sf5120,
+  sf10240, infinity}
+
+AC-BarringConfig ::= SEQUENCE {
+  ac-BarringFactor ENUMERATED {
+    p00, p05, p10, p15, p20, p25, p30, p40,
+    p50, p60, p70, p75, p80, p85, p90, p95},
+  ac-BarringTime ENUMERATED {s4, s8, s16, s32, s64, s128, s256, s512},
+  ac-BarringForSpecialAC BIT STRING (SIZE(5))
+}
 
 END
