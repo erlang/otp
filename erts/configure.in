@@ -1107,6 +1107,8 @@ AC_CACHE_CHECK([whether posix_fallocate() works],i_cv_posix_fallocate_works,[
         i_cv_posix_fallocate_works=yes
     ], [
         i_cv_posix_fallocate_works=no
+    ], [
+        i_cv_posix_fallocate_works=no
     ])
 ])
 if test $i_cv_posix_fallocate_works = yes; then
