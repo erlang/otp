@@ -27,7 +27,7 @@
 	 otp_1586/1, otp_2078/1, otp_2012/1, otp_2718/1, otp_2973/1,
 	 otp_3002/1, otp_3184/1, otp_4066/1, otp_4227/1, otp_5363/1,
 	 otp_5606/1,
-	 start_phases/1, get_key/1, 
+	 start_phases/1, get_key/1, get_env/1,
 	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1, 
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1]).
 
@@ -49,7 +49,7 @@ all() ->
     [failover, failover_comp, permissions, load,
      load_use_cache, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
-     permit_false_start_dist, get_key,
+     permit_false_start_dist, get_key, get_env,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout].
 
 groups() -> 
@@ -1503,6 +1503,15 @@ loop5606(Pid) ->
 	    Pid ! {self(), Res}
     end.
 	    
+get_env(suite) -> [];
+get_env(doc) ->
+    ["Tests get_env/* functions"];
+get_env(Conf) when is_list(Conf) ->
+    ?line {ok, _}   = application:get_env(kernel, error_logger),
+    ?line undefined = application:get_env(undefined_app, a),
+    ?line undefined = application:get_env(kernel, error_logger_xyz),
+    ?line default   = application:get_env(kernel, error_logger_xyz, default),
+    ok.
 
 %%-----------------------------------------------------------------
 %% Should be started in a CC view with:
