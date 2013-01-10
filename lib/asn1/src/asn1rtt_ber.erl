@@ -123,42 +123,12 @@ ber_encode(Tlv) ->
     asn1rt_nif:encode_ber_tlv(Tlv).
 
 ber_decode_nif(B) ->
-    case asn1rt_nif:decode_ber_tlv(B) of
-	{error, Reason} -> handle_error(Reason, B);
-	Else -> Else
-    end.
+    asn1rt_nif:decode_ber_tlv(B).
 
 ber_decode_erlang(B) when is_binary(B) ->
     decode_primitive(B);
 ber_decode_erlang(Tlv) ->
     {Tlv,<<>>}.
-
-handle_error([],_)->
-    exit({error,{asn1,{"memory allocation problem"}}});
-handle_error({$1,_},L) -> % error in nif
-    exit({error,{asn1,L}});
-handle_error({$2,T},L) -> % error in nif due to wrong tag
-    exit({error,{asn1,{"bad tag after byte:",error_pos(T),L}}});
-handle_error({$3,T},L) -> % error in driver due to length error
-    exit({error,{asn1,{"bad length field after byte:",
-			     error_pos(T),L}}});
-handle_error({$4,T},L) -> % error in driver due to indefinite length error
-    exit({error,{asn1,
-		 {"indefinite length without end bytes after byte:",
-		  error_pos(T),L}}});
-handle_error({$5,T},L) -> % error in driver due to indefinite length error
-    exit({error,{asn1,{"bad encoded value after byte:",
-			     error_pos(T),L}}});
-handle_error(ErrL,L) ->
-    exit({error,{asn1,ErrL,L}}).
-
-error_pos([]) ->
-    "unknown position";
-error_pos([B])->
-    B;
-error_pos([B|Bs]) ->
-    BS = 8 * length(Bs),
-    B bsl BS + error_pos(Bs).
 
 decode_primitive(Bin) ->
     {Form,TagNo,V,Rest} = decode_tag_and_length(Bin),

@@ -1311,17 +1311,7 @@ get_constraint(C,Key) ->
 %%
 
 complete(L) ->
-    case asn1rt_nif:encode_per_complete(L) of
-	{error, Reason} -> handle_error(Reason, L);
-	Else when is_binary(Else) -> Else
-    end.
-
-handle_error([],_)->
-    exit({error,{asn1,{"memory allocation problem in driver"}}});
-handle_error($1,L) -> % error in complete in driver
-    exit({error,{asn1,L}});
-handle_error(ErrL,L) ->
-    exit({error,{asn1,ErrL,L}}).
+    asn1rt_nif:encode_per_complete(L).
 
 octets_to_complete(Len,Val) when Len < 256 ->
     [20,Len,Val];
