@@ -62,8 +62,11 @@ transform_to_EXTERNAL1994({'EXTERNAL',DRef,IndRef,Data_v_desc,Encoding}=V) ->
 		 {'EXTERNAL_identification_context-negotiation',IndRef,DRef}}
 	end,
     case Encoding of
-	{_,Val} when is_list(Val); is_binary(Val) ->
+	{'octet-aligned',Val} when is_list(Val); is_binary(Val) ->
+	    %% Transform to the EXTERNAL 1994 definition.
 	    {'EXTERNAL',Identification,Data_v_desc,Val};
 	_  ->
+	    %% Keep the EXTERNAL 1990 definition to avoid losing
+	    %% information.
 	    V
     end.

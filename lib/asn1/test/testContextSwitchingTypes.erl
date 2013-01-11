@@ -52,22 +52,36 @@ test(Config) ->
 
 
 check_EXTERNAL({'EXTERNAL',Identif,DVD,DV})->
-    ?line ok=check_EXTERNAL_Idef(Identif),
-    ?line ok = check_EXTERNAL_DVD(DVD),
-    ?line ok = check_EXTERNAL_DV(DV).
-check_EXTERNAL_Idef({Alt,_}) when Alt=='context-negotiation';
-				  Alt=='presentation-context-id';
-				  Alt==syntax ->
-    ok;
-check_EXTERNAL_Idef(I) ->
-    {error,"failed on identification alternative",I}.
-check_EXTERNAL_DVD(DVD) when is_list(DVD) ->
-    ok;
-check_EXTERNAL_DVD(asn1_NOVALUE) ->
-    ok;
-check_EXTERNAL_DVD(DVD) ->
-    {error,"failed on data-value-descriptor alternative",DVD}.
-check_EXTERNAL_DV(DV) when is_list(DV);is_binary(DV) ->
-    ok;
-check_EXTERNAL_DV(DV) ->
-    {error,"failed on data-value alternative",DV}.
+    %% EXTERNAL in the 1994 format.
+    case Identif of
+	{'context-negotiation',_} ->
+	    ok;
+	{'presentation-context-id',Id} ->
+	    true = is_integer(Id);
+	{syntax,ObjId} ->
+	    check_object_identifier(ObjId)
+    end,
+    check_EXTERNAL_DVD(DVD),
+    check_EXTERNAL_DV(DV);
+check_EXTERNAL({'EXTERNAL',ObjId,IndirectRef,Descriptor,Enc})->
+    %% EXTERNAL in the 1990 format.
+    check_object_identifier(ObjId),
+    true = is_integer(IndirectRef),
+    true = is_binary(Descriptor) orelse is_list(Descriptor),
+    case Enc of
+	{arbitrary,_} -> ok;
+	{'single-ASN1-type',_} -> ok;
+	{'octet-aligned',_} -> ok
+    end.
+
+check_EXTERNAL_DVD(DVD) when is_list(DVD) -> ok;
+check_EXTERNAL_DVD(asn1_NOVALUE) -> ok.
+
+check_EXTERNAL_DV(DV) when is_list(DV); is_binary(DV) -> ok.
+
+check_object_identifier(Tuple) when is_tuple(Tuple) ->
+    %% An OBJECT IDENTIFIER is a tuple with integer elements.
+    case [E || E <- tuple_to_list(Tuple),
+	       not is_integer(E)] of
+	[] -> ok
+    end.
