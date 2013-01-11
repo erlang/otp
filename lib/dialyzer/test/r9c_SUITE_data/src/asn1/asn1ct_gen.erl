@@ -295,7 +295,7 @@ gen_part_decode_funcs([_H|T],N) ->
 gen_part_decode_funcs([],N) ->
     if
 	N > 0 ->
-	    .emit([".",nl]);
+	    emit([".",nl]);
 	true ->
 	    ok
     end.
