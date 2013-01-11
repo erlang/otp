@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,18 +37,22 @@
 -export([init/1, terminate/1, lookup/2, update/3,
 	 delete/2, foldl/3, select_session/2]).
 
-%% Test server callback functions
 %%--------------------------------------------------------------------
-%% Function: init_per_suite(Config) -> Config
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Initialization before the whole suite
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
+%% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
+
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() ->
+    [session_cleanup,
+     session_cache_process_list,
+     session_cache_process_mnesia].
+
+groups() ->
+    [].
+
 init_per_suite(Config0) ->
-    Dog = ssl_test_lib:timetrap(?LONG_TIMEOUT *2),
+    Dog = ct:timetrap(?LONG_TIMEOUT *2),
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
@@ -59,7 +63,7 @@ init_per_suite(Config0) ->
 	    Result =
 		(catch make_certs:all(?config(data_dir, Config0),
 				      ?config(priv_dir, Config0))),
-	    test_server:format("Make certs  ~p~n", [Result]),
+	    ct:print("Make certs  ~p~n", [Result]),
 
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 	    Config = ssl_test_lib:cert_options(Config1),
@@ -68,29 +72,16 @@ init_per_suite(Config0) ->
 	    {skip, "Crypto did not start"}
     end.
 
-%%--------------------------------------------------------------------
-%% Function: end_per_suite(Config) -> _
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after the whole suite
-%%--------------------------------------------------------------------
 end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-%%--------------------------------------------------------------------
-%% Function: init_per_testcase(TestCase, Config) -> Config
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%%
-%% Description: Initialization before each test case
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
-%% Description: Initialization before each test case
-%%--------------------------------------------------------------------
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 init_per_testcase(session_cache_process_list, Config) ->
     init_customized_session_cache(list, Config);
 
@@ -100,7 +91,7 @@ init_per_testcase(session_cache_process_mnesia, Config) ->
 
 init_per_testcase(session_cleanup, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = test_server:timetrap(?TIMEOUT),
+    Dog = ct:timetrap(?TIMEOUT),
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_lifetime, 5),
@@ -110,12 +101,12 @@ init_per_testcase(session_cleanup, Config0) ->
 
 init_per_testcase(_TestCase, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = test_server:timetrap(?TIMEOUT),
+    Dog = ct:timetrap(?TIMEOUT),
    [{watchdog, Dog} | Config].
 
 init_customized_session_cache(Type, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = test_server:timetrap(?TIMEOUT),
+    Dog = ct:timetrap(?TIMEOUT),
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_cb, ?MODULE),
@@ -123,14 +114,6 @@ init_customized_session_cache(Type, Config0) ->
     ssl:start(),
     [{watchdog, Dog} | Config].
 
-%%--------------------------------------------------------------------
-%% Function: end_per_testcase(TestCase, Config) -> _
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after each test case
-%%--------------------------------------------------------------------
 end_per_testcase(session_cache_process_list, Config) ->
     application:unset_env(ssl, session_cb),
     end_per_testcase(default_action, Config);
@@ -146,43 +129,14 @@ end_per_testcase(session_cleanup, Config) ->
     application:unset_env(ssl, session_lifetime),
     end_per_testcase(default_action, Config);
 end_per_testcase(_TestCase, Config) ->
-    Dog = ?config(watchdog, Config),
-    case Dog of
-	undefined ->
-	    ok;
-	_ ->
-	    test_server:timetrap_cancel(Dog)
-    end.
-
-%%--------------------------------------------------------------------
-%% Function: all(Clause) -> TestCases
-%% Clause - atom() - suite | doc
-%% TestCases - [Case]
-%% Case - atom()
-%%   Name of a test case.
-%% Description: Returns a list of all test cases in this test suite
-%%--------------------------------------------------------------------
-suite() -> [{ct_hooks,[ts_install_cth]}].
-
-all() -> 
-    [session_cleanup,
-     session_cache_process_list,
-     session_cache_process_mnesia].
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_group(_GroupName, Config) ->
-    Config.
 %%--------------------------------------------------------------------
-session_cleanup(doc) ->
-    ["Test that sessions are cleand up eventually, so that the session table "
-     "does not grow and grow ..."];
-session_cleanup(suite) ->
-    [];
+%% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+session_cleanup() ->
+    [{doc, "Test that sessions are cleand up eventually, so that the session table "
+     "does not grow and grow ..."}].
 session_cleanup(Config)when is_list(Config) ->
     process_flag(trap_exit, true),
     ClientOpts = ?config(client_opts, Config),
@@ -207,7 +161,7 @@ session_cleanup(Config)when is_list(Config) ->
 	end,
 
     %% Make sure session is registered
-    test_server:sleep(?SLEEP),
+    ct:sleep(?SLEEP),
 
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
@@ -224,14 +178,14 @@ session_cleanup(Config)when is_list(Config) ->
 
     %% Make sure session has expired and been cleaned up
     check_timer(SessionTimer),
-    test_server:sleep(?DELAY *2),  %% Delay time + some extra time
+    ct:sleep(?DELAY *2),  %% Delay time + some extra time
 
     {ServerDelayTimer, ClientDelayTimer} = get_delay_timers(),
 
     check_timer(ServerDelayTimer),
     check_timer(ClientDelayTimer),
 
-    test_server:sleep(?SLEEP),  %% Make sure clean has had time to run
+    ct:sleep(?SLEEP),  %% Make sure clean has had time to run
 
     undefined = ssl_session_cache:lookup(Cache, {{Hostname, Port}, Id}),
     undefined = ssl_session_cache:lookup(Cache, {Port, Id}),
@@ -248,7 +202,7 @@ check_timer(Timer) ->
 	    {status, _, _, _} = sys:get_status(whereis(ssl_manager)),
 	    ok;
 	Int ->
-	    test_server:sleep(Int),
+	    ct:sleep(Int),
 	    check_timer(Timer)
     end.
 
@@ -258,31 +212,25 @@ get_delay_timers() ->
     State = ssl_test_lib:state(Prop),
     case element(7, State) of
 	{undefined, undefined} ->
-	    test_server:sleep(?SLEEP),
+	    ct:sleep(?SLEEP),
 	    get_delay_timers();
 	{undefined, _} ->
-	    test_server:sleep(?SLEEP),
+	    ct:sleep(?SLEEP),
 	    get_delay_timers();
 	{_, undefined} ->
-	    test_server:sleep(?SLEEP),
+	    ct:sleep(?SLEEP),
 	    get_delay_timers();
 	DelayTimers ->
 	    DelayTimers
     end.
 %%--------------------------------------------------------------------
-session_cache_process_list(doc) ->
-    ["Test reuse of sessions (short handshake)"];
-
-session_cache_process_list(suite) ->
-    [];
+session_cache_process_list() ->
+    [{doc,"Test reuse of sessions (short handshake)"}].
 session_cache_process_list(Config) when is_list(Config) ->
     session_cache_process(list,Config).
 %%--------------------------------------------------------------------
-session_cache_process_mnesia(doc) ->
-    ["Test reuse of sessions (short handshake)"];
-
-session_cache_process_mnesia(suite) ->
-    [];
+session_cache_process_mnesia() ->
+    [{doc,"Test reuse of sessions (short handshake)"}].
 session_cache_process_mnesia(Config) when is_list(Config) ->
     session_cache_process(mnesia,Config).
 

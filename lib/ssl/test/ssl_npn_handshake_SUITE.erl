@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,6 +23,10 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 -include_lib("common_test/include/ct.hrl").
+
+%%--------------------------------------------------------------------
+%% Common Test interface functions -----------------------------------
+%%--------------------------------------------------------------------
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -68,7 +72,7 @@ init_per_suite(Config) ->
 	    Result =
 		(catch make_certs:all(?config(data_dir, Config),
 				      ?config(priv_dir, Config))),
-	    test_server:format("Make certs  ~p~n", [Result]),
+	    ct:print("Make certs  ~p~n", [Result]),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -94,12 +98,11 @@ init_per_group(GroupName, Config) ->
 	    Config
     end.
 
-
 end_per_group(_GroupName, Config) ->
     Config.
 
-
-%% Test cases starts here.
+%%--------------------------------------------------------------------
+%% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 
 validate_empty_protocols_are_not_allowed(Config) when is_list(Config) ->
@@ -229,9 +232,8 @@ npn_not_supported_server(Config) when is_list(Config)->
     {error, {eoptions, {not_supported_in_sslv3, AdvProtocols}}} = ssl:listen(0, ServerOpts).
 
 %%--------------------------------------------------------------------
-%%% Internal functions
+%% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-
 run_npn_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
     Data = "hello world",
 
@@ -257,13 +259,13 @@ run_npn_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
 
 
 assert_npn(Socket, Protocol) ->
-    test_server:format("Negotiated Protocol ~p, Expecting: ~p ~n",
+    ct:print("Negotiated Protocol ~p, Expecting: ~p ~n",
 		       [ssl:negotiated_next_protocol(Socket), Protocol]),
     Protocol = ssl:negotiated_next_protocol(Socket).
 
 assert_npn_and_renegotiate_and_send_data(Socket, Protocol, Data) ->
     assert_npn(Socket, Protocol),
-    test_server:format("Renegotiating ~n", []),
+    ct:print("Renegotiating ~n", []),
     ok = ssl:renegotiate(Socket),
     ssl:send(Socket, Data),
     assert_npn(Socket, Protocol),
@@ -278,7 +280,7 @@ ssl_receive_and_assert_npn(Socket, Protocol, Data) ->
     ssl_receive(Socket, Data).
 
 ssl_send(Socket, Data) ->
-    test_server:format("Connection info: ~p~n",
+    ct:print("Connection info: ~p~n",
                [ssl:connection_info(Socket)]),
     ssl:send(Socket, Data).
 
@@ -286,11 +288,11 @@ ssl_receive(Socket, Data) ->
     ssl_receive(Socket, Data, []).
 
 ssl_receive(Socket, Data, Buffer) ->
-    test_server:format("Connection info: ~p~n",
+    ct:print("Connection info: ~p~n",
                [ssl:connection_info(Socket)]),
     receive
     {ssl, Socket, MoreData} ->
-        test_server:format("Received ~p~n",[MoreData]),
+        ct:print("Received ~p~n",[MoreData]),
         NewBuffer = Buffer ++ MoreData,
         case NewBuffer of
             Data ->
@@ -300,9 +302,9 @@ ssl_receive(Socket, Data, Buffer) ->
                 ssl_receive(Socket, Data, NewBuffer)
         end;
     Other ->
-        test_server:fail({unexpected_message, Other})
+        ct:fail({unexpected_message, Other})
     after 4000 ->
-        test_server:fail({did_not_get, Data})
+        ct:fail({did_not_get, Data})
     end.
 
 
