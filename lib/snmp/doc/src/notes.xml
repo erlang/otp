@@ -55,6 +55,13 @@
 	  <p>Own Id: OTP-10671</p>
         </item>
 
+        <item>
+          <p>[agent] Remove runtime warning in snmpa_agent because of 
+	  tuple fun usage. </p>
+	  <p>Luca Favatella</p>
+	  <p>Own Id: OTP-10672</p>
+        </item>
+
       </list>
 
     </section>
