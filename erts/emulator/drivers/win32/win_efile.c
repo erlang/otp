@@ -1558,3 +1558,13 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
     errno = ERROR_SUCCESS;
     return check_error(0, errInfo);
 }
+
+int
+efile_fallocate(Efile_error* errInfo, int fd, Sint64 offset, Sint64 length)
+{
+    /* No file preallocation method available in Windows. */
+    errno = errno_map(ERROR_NOT_SUPPORTED);
+    SetLastError(ERROR_NOT_SUPPORTED);
+
+    return check_error(-1, errInfo);
+}

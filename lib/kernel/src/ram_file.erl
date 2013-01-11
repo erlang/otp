@@ -29,6 +29,7 @@
 %% Specialized file operations
 -export([get_size/1, get_file/1, set_file/2, get_file_close/1]).
 -export([compress/1, uncompress/1, uuencode/1, uudecode/1, advise/4]).
+-export([allocate/3]).
 
 -export([open_mode/1]).  %% used by ftp-file
 
@@ -72,6 +73,7 @@
 -define(RAM_FILE_UUDECODE,       36).
 -define(RAM_FILE_SIZE,           37).
 -define(RAM_FILE_ADVISE,         38).
+-define(RAM_FILE_ALLOCATE,       39).
 
 %% Open modes for RAM_FILE_OPEN
 -define(RAM_FILE_MODE_READ,       1).
@@ -381,6 +383,11 @@ advise(#file_descriptor{module = ?MODULE, data = Port}, Offset,
         {error, einval}
     end;
 advise(#file_descriptor{}, _Offset, _Length, _Advise) ->
+    {error, enotsup}.
+
+allocate(#file_descriptor{module = ?MODULE, data = Port}, Offset, Length) ->
+    call_port(Port, <<?RAM_FILE_ALLOCATE, Offset:64/signed, Length:64/signed>>);
+allocate(#file_descriptor{}, _Offset, _Length) ->
     {error, enotsup}.
 
 

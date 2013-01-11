@@ -48,6 +48,7 @@
 #define RAM_FILE_SIZE          37  /* get file size */
 #define RAM_FILE_ADVISE        38  /* predeclare the access
                                     * pattern for file data */
+#define RAM_FILE_ALLOCATE      39  /* allocate space for a file */
 /* possible new operations include:
    DES_ENCRYPT
    DES_DECRYPT
@@ -715,6 +716,13 @@ static void rfile_command(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	break;
 
     case RAM_FILE_ADVISE:
+	if (f->flags == 0)
+	    error_reply(f, EBADF);
+	else
+	    reply(f, 1, 0);
+	break;
+
+    case RAM_FILE_ALLOCATE:
 	if (f->flags == 0)
 	    error_reply(f, EBADF);
 	else

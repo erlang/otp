@@ -22,6 +22,12 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
+#if defined(HAVE_POSIX_FALLOCATE) && !defined(__sun) && !defined(__sun__)
+#define _XOPEN_SOURCE 600
+#endif
+#if !defined(_GNU_SOURCE) && defined(HAVE_LINUX_FALLOC_H)
+#define _GNU_SOURCE
+#endif
 #include "sys.h"
 #include "erl_driver.h"
 #include "erl_efile.h"
@@ -41,9 +47,13 @@
 #define DARWIN 1
 #endif
 
-#ifdef DARWIN
+#if defined(DARWIN) || defined(HAVE_LINUX_FALLOC_H) || defined(HAVE_POSIX_FALLOCATE)
 #include <fcntl.h>
-#endif /* DARWIN */
+#endif
+
+#ifdef HAVE_LINUX_FALLOC_H
+#include <linux/falloc.h>
+#endif
 
 #ifdef SUNOS4
 #  define getcwd(buf, size) getwd(buf)
@@ -967,3 +977,81 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
     return check_error(retval, errInfo);
 }
 #endif /* HAVE_SENDFILE */
+
+#ifdef HAVE_POSIX_FALLOCATE
+static int
+call_posix_fallocate(int fd, Sint64 offset, Sint64 length)
+{
+    int ret;
+
+    /*
+     * On Linux and Solaris for example, posix_fallocate() returns
+     * a positive error number on error and it does not set errno.
+     * On FreeBSD however (9.0 at least), it returns -1 on error
+     * and it sets errno.
+     */
+    do {
+        ret = posix_fallocate(fd, (off_t) offset, (off_t) length);
+        if (ret > 0) {
+            errno = ret;
+            ret = -1;
+        }
+    } while (ret != 0 && errno == EINTR);
+
+    return ret;
+}
+#endif /* HAVE_POSIX_FALLOCATE */
+
+int
+efile_fallocate(Efile_error* errInfo, int fd, Sint64 offset, Sint64 length)
+{
+#if defined HAVE_FALLOCATE
+    /* Linux specific, more efficient than posix_fallocate. */
+    int ret;
+
+    do {
+        ret = fallocate(fd, FALLOC_FL_KEEP_SIZE, (off_t) offset, (off_t) length);
+    } while (ret != 0 && errno == EINTR);
+
+#if defined HAVE_POSIX_FALLOCATE
+    /* Fallback to posix_fallocate if available. */
+    if (ret != 0) {
+        ret = call_posix_fallocate(fd, offset, length);
+    }
+#endif
+
+    return check_error(ret, errInfo);
+#elif defined F_PREALLOCATE
+    /* Mac OS X specific, equivalent to posix_fallocate. */
+    int ret;
+    fstore_t fs;
+
+    memset(&fs, 0, sizeof(fs));
+    fs.fst_flags = F_ALLOCATECONTIG;
+    fs.fst_posmode = F_VOLPOSMODE;
+    fs.fst_offset = (off_t) offset;
+    fs.fst_length = (off_t) length;
+
+    ret = fcntl(fd, F_PREALLOCATE, &fs);
+
+    if (-1 == ret) {
+        fs.fst_flags = F_ALLOCATEALL;
+        ret = fcntl(fd, F_PREALLOCATE, &fs);
+
+#if defined HAVE_POSIX_FALLOCATE
+        /* Fallback to posix_fallocate if available. */
+        if (-1 == ret) {
+            ret = call_posix_fallocate(fd, offset, length);
+        }
+#endif
+    }
+
+    return check_error(ret, errInfo);
+#elif defined HAVE_POSIX_FALLOCATE
+    /* Other Unixes, use posix_fallocate if available. */
+    return check_error(call_posix_fallocate(fd, offset, length), errInfo);
+#else
+    errno = ENOTSUP;
+    return check_error(-1, errInfo);
+#endif
+}
