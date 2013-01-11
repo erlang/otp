@@ -118,6 +118,9 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     ?line send_rec(P, OXPort),
     ?line send_rec(P, OXRef),
 
+    %% Unicode atoms
+    [send_rec(P, Atom) || Atom <- unicode_atom_data()],
+
     ?line runner:recv_eot(P),
     ok.
 
@@ -127,7 +130,7 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 % We read two packets for each test, the ei_decode_encode and ei_x_decode_encode  version....
 
 send_rec(P, Term) when is_port(P) ->
-    ?t:format("Testing: ~p~n", [Term]),
+    %%?t:format("Testing: ~p~n", [Term]),
     P ! {self(), {command, term_to_binary(Term)}},
     {_B,Term} = get_buf_and_term(P).
     
@@ -146,7 +149,7 @@ get_buf_and_term(P) ->
 	_ ->
 	    B1 = list_to_binary([131,B]),	% No magic, add
 	    T = binary_to_term(B1),
-	    io:format("~w\n~w\n(got no magic)\n",[B,T]),
+	    %io:format("~w\n~w\n(got no magic)\n",[B,T]),
 	    {B,T}
     end.
     
@@ -160,7 +163,7 @@ get_binary(P) ->
     case runner:get_term(P) of
 	{bytes,L} ->
 	    B = list_to_binary(L),
-	    io:format("~w\n",[L]),
+	    %%io:format("~w\n",[L]),
 % For strange reasons <<131>> show up as <>....
 %	    io:format("~w\n",[B]),
 	    B;
@@ -305,3 +308,60 @@ mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
 	    exit({unexpected_binary_to_term_result, Other})
     end.
 
+
+
+unicode_atom_data() ->
+    [uc_atup(lists:seq(16#1f600, 16#1f600+254)),
+     uc_atup(lists:seq(16#1f600, 16#1f600+63)),
+     uc_atup(lists:seq(1, 255)),
+     uc_atup(lists:seq(100, 163)),
+     uc_atup(lists:seq(200, 354)),
+     uc_atup(lists:seq(200, 263)),
+     uc_atup(lists:seq(2000, 2254)),
+     uc_atup(lists:seq(2000, 2063)),
+     uc_atup(lists:seq(65500, 65754)),
+     uc_atup(lists:seq(65500, 65563))
+     | lists:map(fun (N) ->
+			 uc_atup(lists:seq(64000+N, 64254+N))
+		 end,
+		 lists:seq(1, 2000))].
+
+uc_atup(ATxt) ->
+    string_to_atom(ATxt).
+
+string_to_atom(String) ->
+    Utf8List = string_to_utf8_list(String),
+    Len = length(Utf8List),
+    TagLen = case Len < 256 of
+		 true -> [119, Len];
+		 false -> [118, Len bsr 8, Len band 16#ff]
+	     end,
+    binary_to_term(list_to_binary([131, TagLen, Utf8List])).
+
+string_to_utf8_list([]) ->
+    [];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   0 =< CP,
+				   CP =< 16#7F ->
+    [CP | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#80 =< CP,
+				   CP =< 16#7FF ->
+    [16#C0 bor (CP bsr 6),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#800 =< CP,
+				   CP =< 16#FFFF ->
+    [16#E0 bor (CP bsr 12),
+     16#80 bor (16#3F band (CP bsr 6)),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#10000 =< CP,
+				   CP =< 16#10FFFF ->
+    [16#F0 bor (CP bsr 18),
+     16#80 bor (16#3F band (CP bsr 12)),
+     16#80 bor (16#3F band (CP bsr 6)),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)].

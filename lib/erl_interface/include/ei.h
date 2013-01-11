@@ -116,7 +116,8 @@
 #define NEW_FLOAT_EXT         'F'
 #define ERL_ATOM_EXT          'd'
 #define ERL_SMALL_ATOM_EXT    's'
-#define ERL_UNICODE_ATOM_EXT  'v'
+#define ERL_ATOM_UTF8_EXT     'v'
+#define ERL_SMALL_ATOM_UTF8_EXT 'w'
 #define ERL_REFERENCE_EXT     'e'
 #define ERL_NEW_REFERENCE_EXT 'r'
 #define ERL_PORT_EXT          'f'
@@ -185,12 +186,16 @@ extern volatile int __erl_errno;
 #define EI_MAXHOSTNAMELEN 64
 #define EI_MAXALIVELEN 63
 #define EI_MAX_COOKIE_SIZE 512
-#define MAXATOMLEN 255
+#define MAXATOMLEN (255 + 1)
+#define MAXATOMLEN_UTF8 (255*4 + 1)
 #define MAXNODELEN EI_MAXALIVELEN+1+EI_MAXHOSTNAMELEN
+
+enum erlang_char_encoding { ERLANG_ASCII, ERLANG_LATIN1, ERLANG_UTF8, ERLANG_WHATEVER };
 
 /* a pid */
 typedef struct {
-  char node[MAXATOMLEN+1];
+  char node[MAXATOMLEN_UTF8];
+  enum erlang_char_encoding node_org_enc;
   unsigned int num;
   unsigned int serial;
   unsigned int creation;
@@ -198,14 +203,16 @@ typedef struct {
 
 /* a port */
 typedef struct {
-  char node[MAXATOMLEN+1];
+  char node[MAXATOMLEN_UTF8];
+  enum erlang_char_encoding node_org_enc;
   unsigned int id;
   unsigned int creation;
 } erlang_port;
 
 /* a ref */
 typedef struct {
-  char node[MAXATOMLEN+1];
+  char node[MAXATOMLEN_UTF8];
+  enum erlang_char_encoding node_org_enc;  
   int len;
   unsigned int n[3];
   unsigned int creation;
@@ -225,15 +232,16 @@ typedef struct {
   long msgtype;
   erlang_pid from;
   erlang_pid to;
-  char toname[MAXATOMLEN+1];
-  char cookie[MAXATOMLEN+1];
+  char toname[MAXATOMLEN_UTF8];
+  char cookie[MAXATOMLEN_UTF8];
   erlang_trace token;
 } erlang_msg;
 
 /* a fun */
 typedef struct {
     long arity;
-    char module[MAXATOMLEN+1];
+    char module[MAXATOMLEN_UTF8];
+    enum erlang_char_encoding module_org_enc;
     char md5[16];
     long index;
     long old_index;
@@ -258,7 +266,7 @@ typedef struct {
     union {
 	long i_val;
 	double d_val;
-	char atom_name[MAXATOMLEN+1];
+	char atom_name[MAXATOMLEN_UTF8];
 	erlang_pid pid;
 	erlang_port port;
 	erlang_ref ref;
@@ -427,9 +435,17 @@ int ei_encode_string_len(char *buf, int *index, const char *p, int len);
 int ei_x_encode_string(ei_x_buff* x, const char* s);
 int ei_x_encode_string_len(ei_x_buff* x, const char* s, int len);
 int ei_encode_atom(char *buf, int *index, const char *p);
+int ei_encode_atom_as(char *buf, int *index, const char *p,
+		    enum erlang_char_encoding from, enum erlang_char_encoding to);
 int ei_encode_atom_len(char *buf, int *index, const char *p, int len);
+int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
+			enum erlang_char_encoding from, enum erlang_char_encoding to);
 int ei_x_encode_atom(ei_x_buff* x, const char* s);
+int ei_x_encode_atom_as(ei_x_buff* x, const char* s,
+		      enum erlang_char_encoding from, enum erlang_char_encoding to);
 int ei_x_encode_atom_len(ei_x_buff* x, const char* s, int len);
+int ei_x_encode_atom_len_as(ei_x_buff* x, const char* s, int len,
+			  enum erlang_char_encoding from, enum erlang_char_encoding to);
 int ei_encode_binary(char *buf, int *index, const void *p, long len);
 int ei_x_encode_binary(ei_x_buff* x, const void* s, int len);
 int ei_encode_pid(char *buf, int *index, const erlang_pid *p);
@@ -479,6 +495,7 @@ int ei_decode_boolean(const char *buf, int *index, int *p);
 int ei_decode_char(const char *buf, int *index, char *p);
 int ei_decode_string(const char *buf, int *index, char *p);
 int ei_decode_atom(const char *buf, int *index, char *p);
+int ei_decode_atom_as(const char *buf, int *index, char *p, int destlen, enum erlang_char_encoding want, enum erlang_char_encoding* was, enum erlang_char_encoding* result);
 int ei_decode_binary(const char *buf, int *index, void *p, long *len);
 int ei_decode_fun(const char* buf, int* index, erlang_fun* p);
 void free_fun(erlang_fun* f);

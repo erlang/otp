@@ -24,12 +24,11 @@
 /* c non-zero -> erlang "true" atom, otherwise "false" */
 int ei_decode_boolean(const char *buf, int *index, int *p)
 {
-  const char *s = buf + *index;
-  const char *s0 = s;
-  char tbuf[MAXATOMLEN+1];
+  char tbuf[6];
   int t;
 
-  if (get_atom(&s, tbuf) < 0) return -1;
+  if (ei_decode_atom_as(buf, index, tbuf, sizeof(tbuf), ERLANG_ASCII, NULL, NULL) < 0)
+      return -1;
 
   if (memcmp(tbuf, "true", 5) == 0)
       t = 1;
@@ -39,7 +38,6 @@ int ei_decode_boolean(const char *buf, int *index, int *p)
       return -1;
       
   if (p) *p = t;
-  *index += s-s0;
   return 0; 
 }
 

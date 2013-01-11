@@ -459,6 +459,7 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
 /*    memmove(&ec->this_ipaddr, thisipaddr, sizeof(ec->this_ipaddr)); */
     
     strcpy(ec->self.node,thisnodename);
+    ec->self.node_org_enc = ERLANG_LATIN1;
     ec->self.num = 0;
     ec->self.serial = 0;
     ec->self.creation = creation;
@@ -1332,7 +1333,9 @@ static int send_name_or_challenge(int fd, char *nodename,
 		| DFLAG_EXTENDED_PIDS_PORTS
 		| DFLAG_FUN_TAGS
 		| DFLAG_NEW_FUN_TAGS
-                | DFLAG_NEW_FLOATS));
+                | DFLAG_NEW_FLOATS
+		| DFLAG_SMALL_ATOM_TAGS
+		| DFLAG_UTF8_ATOMS));
     if (f_chall)
 	put32be(s, challenge);
     memcpy(s, nodename, strlen(nodename));

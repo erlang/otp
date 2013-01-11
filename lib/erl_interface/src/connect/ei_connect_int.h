@@ -102,6 +102,8 @@ extern int h_errno;
 #define DFLAG_NEW_FUN_TAGS        0x80
 #define DFLAG_EXTENDED_PIDS_PORTS 0x100
 #define DFLAG_NEW_FLOATS          0x800
+#define DFLAG_SMALL_ATOM_TAGS     0x4000
+#define DFLAG_UTF8_ATOMS          0x10000
 
 ei_cnode   *ei_fd_to_cnode(int fd);
 int         ei_distversion(int fd);

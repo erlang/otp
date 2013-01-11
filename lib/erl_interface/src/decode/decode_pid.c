@@ -26,12 +26,11 @@ int ei_decode_pid(const char *buf, int *index, erlang_pid *p)
 {
   const char *s = buf + *index;
   const char *s0 = s;
-  int len;
   
   if (get8(s) != ERL_PID_EXT) return -1;
 
   /* first the nodename */
-  if (get_atom(&s, p->node) < 0) return -1;
+  if (get_atom(&s, p->node, &p->node_org_enc) < 0) return -1;
   
   /* now the numbers: num (4), serial (4), creation (1) */
   if (p) {

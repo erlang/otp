@@ -32,7 +32,7 @@
 int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 {
     const char* s = buf + *index, * s0 = s;
-    int len, i, n, sign;
+    int i, n, sign;
     char c;
 
     if (term == NULL) return -1;
@@ -48,12 +48,13 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
     case NEW_FLOAT_EXT:
         return ei_decode_double(buf, index, &term->value.d_val);
     case ERL_ATOM_EXT:
+    case ERL_ATOM_UTF8_EXT:
     case ERL_SMALL_ATOM_EXT:
-    case ERL_UNICODE_ATOM_EXT:
+    case ERL_SMALL_ATOM_UTF8_EXT:
 	return ei_decode_atom(buf, index, term->value.atom_name);
     case ERL_REFERENCE_EXT:
 	/* first the nodename */
-	if (get_atom(&s, term->value.ref.node) < 0) return -1;
+	if (get_atom(&s, term->value.ref.node, &term->value.ref.node_org_enc) < 0) return -1;
         /* now the numbers: num (4), creation (1) */
 	term->value.ref.n[0] = get32be(s);
 	term->value.ref.len = 1;
@@ -63,7 +64,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	/* first the integer count */
 	term->value.ref.len = get16be(s);
 	/* then the nodename */
-	if (get_atom(&s, term->value.ref.node) < 0) return -1;
+	if (get_atom(&s, term->value.ref.node, &term->value.ref.node_org_enc) < 0) return -1;
 	/* creation */
 	term->value.ref.creation = get8(s) & 0x03;
 	/* finally the id integers */
@@ -75,12 +76,12 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	}
 	break;
     case ERL_PORT_EXT:
-	if (get_atom(&s, term->value.port.node) < 0) return -1;
+	if (get_atom(&s, term->value.port.node, &term->value.port.node_org_enc) < 0) return -1;
 	term->value.port.id = get32be(s) & 0x0fffffff; /* 28 bits */;
 	term->value.port.creation = get8(s) & 0x03;
 	break;
     case ERL_PID_EXT:
-	if (get_atom(&s, term->value.pid.node) < 0) return -1;
+	if (get_atom(&s, term->value.pid.node, &term->value.port.node_org_enc) < 0) return -1;
 	/* now the numbers: num (4), serial (4), creation (1) */
 	term->value.pid.num = get32be(s) & 0x7fff; /* 15 bits */
 	term->value.pid.serial = get32be(s) & 0x1fff; /* 13 bits */

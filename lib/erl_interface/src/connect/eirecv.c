@@ -108,7 +108,7 @@ ei_recv_internal (int fd,
   switch (msg->msgtype) {
   case ERL_SEND:          /* { SEND, Cookie, ToPid } */
     if (ei_tracelevel >= 4) show_this_msg = 1;
-    if (ei_decode_atom(header,&index,msg->cookie) 
+    if (ei_decode_atom_as(header,&index,msg->cookie,sizeof(msg->cookie),ERLANG_UTF8,NULL,NULL) 
 	|| ei_decode_pid(header,&index,&msg->to))
     {
 	erl_errno = EIO;
@@ -120,8 +120,8 @@ ei_recv_internal (int fd,
   case ERL_REG_SEND:     /* { REG_SEND, From, Cookie, ToName } */
     if (ei_tracelevel >= 4) show_this_msg = 1;
     if (ei_decode_pid(header,&index,&msg->from) 
-	|| ei_decode_atom(header,&index,msg->cookie) 
-	|| ei_decode_atom(header,&index,msg->toname))
+	|| ei_decode_atom_as(header,&index,msg->cookie,sizeof(msg->cookie),ERLANG_UTF8,NULL,NULL) 
+	|| ei_decode_atom_as(header,&index,msg->toname,sizeof(msg->toname),ERLANG_UTF8,NULL,NULL))
     {
 	erl_errno = EIO;
 	return -1;
@@ -157,7 +157,7 @@ ei_recv_internal (int fd,
     
   case ERL_SEND_TT:      /* { SEND_TT, Cookie, ToPid, TraceToken } */
     if (ei_tracelevel >= 4) show_this_msg = 1;
-    if (ei_decode_atom(header,&index,msg->cookie) 
+    if (ei_decode_atom_as(header,&index,msg->cookie,sizeof(msg->cookie),ERLANG_UTF8,NULL,NULL) 
 	|| ei_decode_pid(header,&index,&msg->to)
 	|| ei_decode_trace(header,&index,&msg->token))
     {
@@ -171,8 +171,8 @@ ei_recv_internal (int fd,
   case ERL_REG_SEND_TT: /* { REG_SEND_TT, From, Cookie, ToName, TraceToken } */
     if (ei_tracelevel >= 4) show_this_msg = 1;
     if (ei_decode_pid(header,&index,&msg->from) 
-	|| ei_decode_atom(header,&index,msg->cookie) 
-	|| ei_decode_atom(header,&index,msg->toname)
+	|| ei_decode_atom_as(header,&index,msg->cookie,sizeof(msg->cookie),ERLANG_UTF8,NULL,NULL) 
+	|| ei_decode_atom_as(header,&index,msg->toname,sizeof(msg->toname),ERLANG_UTF8,NULL,NULL)
 	|| ei_decode_trace(header,&index,&msg->token))
     {
 	erl_errno = EIO;

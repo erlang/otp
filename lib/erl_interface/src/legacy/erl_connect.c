@@ -247,9 +247,15 @@ int erl_send(int fd, ETERM *to ,ETERM *msg)
 	erl_errno = EINVAL;
 	return -1;
     }
-    
-    strncpy(topid.node, (char *)ERL_PID_NODE(to), sizeof(topid.node));
-    topid.node[sizeof(topid.node)-1] = '\0';
+
+    if (to->uval.pidval.node.latin1) {
+	strcpy(topid.node, to->uval.pidval.node.latin1);
+	topid.node_org_enc = ERLANG_LATIN1;
+    }
+    else {
+	strcpy(topid.node, to->uval.pidval.node.utf8);
+	topid.node_org_enc = ERLANG_UTF8;
+    }    
     topid.num = ERL_PID_NUMBER(to);
     topid.serial = ERL_PID_SERIAL(to);
     topid.creation = ERL_PID_CREATION(to);
@@ -263,7 +269,7 @@ static int erl_do_receive_msg(int fd, ei_x_buff* x, ErlMessage* emsg)
     erlang_msg msg;
 
     int r;
-    msg.from.node[0] = msg.to.node[0] = '\0';
+    msg.from.node[0] = msg.to.node[0] = msg.toname[0] = '\0';
     r = ei_do_receive_msg(fd, 0, &msg, x, 0);
 
     if (r == ERL_MSG) {
@@ -299,7 +305,7 @@ static int erl_do_receive_msg(int fd, ei_x_buff* x, ErlMessage* emsg)
 	emsg->to = erl_mk_pid(msg.to.node, msg.to.num, msg.to.serial, msg.to.creation);
     else
 	emsg->to = NULL;
-    memcpy(emsg->to_name, msg.toname, MAXATOMLEN+1);
+    strcpy(emsg->to_name, msg.toname);
     return r;
 }
 
