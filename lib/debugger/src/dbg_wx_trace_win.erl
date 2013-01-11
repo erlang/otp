@@ -567,7 +567,7 @@ update_bindings(#winInfo{bind=#sub{out=BA}}, Bs) ->
     wx:foldl(fun({Var,Val},Row) ->
 		     wxListCtrl:insertItem(BA, Row, ""), 
 		     wxListCtrl:setItem(BA, Row, 0, dbg_wx_win:to_string(Var)),
-		     wxListCtrl:setItem(BA, Row, 1, dbg_wx_win:to_string("~500P",[Val, 80])),
+		     wxListCtrl:setItem(BA, Row, 1, dbg_wx_win:to_string("~99999tP",[Val, 20])),
 		     Row+1
 	     end, 0, Bs),
     put(bindings,Bs),
