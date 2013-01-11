@@ -247,7 +247,8 @@ gbody(E, Def, Rt, St0) ->
 	false -> St1
     end.
 
-gexpr(#c_var{name=N}, Def, _Rt, St) -> expr_var(N, Def, St);
+gexpr(#c_var{name=N}, Def, _Rt, St) when is_atom(N); is_integer(N) ->
+    expr_var(N, Def, St);
 gexpr(#c_literal{}, _Def, _Rt, St) -> St;
 gexpr(#c_cons{hd=H,tl=T}, Def, _Rt, St) ->
     gexpr_list([H,T], Def, St);
