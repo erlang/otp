@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -52,19 +52,10 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="unicode_char"/>
-      <desc>
-        <p>An <c>integer()</c> representing a valid Unicode codepoint.</p>
-      </desc>
-    </datatype>
-    <datatype>
       <name name="chardata"/>
     </datatype>
     <datatype>
       <name name="charlist"/>
-      <desc>
-        <p>A <c>unicode_binary()</c> is allowed as the tail of the list.</p>
-      </desc>
     </datatype>
     <datatype>
       <name name="external_unicode_binary"/>
@@ -78,10 +69,6 @@
     </datatype>
     <datatype>
       <name name="external_charlist"/>
-      <desc>
-        <p>An <c>external_unicode_binary()</c> is allowed as the tail
-           of the list.</p>
-      </desc>
     </datatype>
     <datatype>
       <name name="latin1_binary"/>
@@ -96,11 +83,12 @@
     </datatype>
     <datatype>
       <name name="latin1_chardata"/>
+      <desc><p>The same as <c>iodata()</c>.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="latin1_charlist"/>
-      <desc><p>A <c>latin1_binary()</c> is allowed as the tail of
-        the list.</p>
+      <desc><p>The same as <c>iolist()</c>.</p>
       </desc>
     </datatype>
   </datatypes>

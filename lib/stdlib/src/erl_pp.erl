@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -179,12 +179,12 @@ state(_Hook) ->
     state().
 
 state() ->
-    #pp{string_fun = fun io_lib:write_unicode_string_as_latin1/1,
-        char_fun   = fun io_lib:write_unicode_char_as_latin1/1}.
+    #pp{string_fun = fun io_lib:write_string_as_latin1/1,
+        char_fun   = fun io_lib:write_char_as_latin1/1}.
 
 unicode_state() ->
-    #pp{string_fun = fun io_lib:write_unicode_string/1,
-        char_fun   = fun io_lib:write_unicode_char/1}.
+    #pp{string_fun = fun io_lib:write_string/1,
+        char_fun   = fun io_lib:write_char/1}.
 
 encoding(Options) ->
     case proplists:get_value(encoding, Options, epp:default_encoding()) of

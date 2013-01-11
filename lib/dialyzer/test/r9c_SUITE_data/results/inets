@@ -35,7 +35,7 @@ mod_auth_plain.erl:159: The variable _ can never match since previous clauses co
 mod_auth_plain.erl:83: The variable O can never match since previous clauses completely covered the type [[any()]]
 mod_cgi.erl:372: The pattern {'http_response', NewAccResponse} can never match the type 'ok'
 mod_dir.erl:101: The call lists:flatten(nonempty_improper_list(atom() | [any()] | char(),atom())) will never return since it differs in the 1st argument from the success typing arguments: ([any()])
-mod_dir.erl:72: The pattern {'error', Reason} can never match the type {'ok',[[[any()] | non_neg_integer()],...]}
+mod_dir.erl:72: The pattern {'error', Reason} can never match the type {'ok',[[[any()] | char()],...]}
 mod_get.erl:135: The pattern <{'enfile', _}, _Info, Path> can never match the type <atom(),#mod{},atom() | binary() | [atom() | [any()] | char()]>
 mod_head.erl:80: The pattern <{'enfile', _}, _Info, Path> can never match the type <atom(),#mod{},atom() | binary() | [atom() | [any()] | char()]>
 mod_htaccess.erl:460: The pattern {'error', BadData} can never match the type {'ok',_}

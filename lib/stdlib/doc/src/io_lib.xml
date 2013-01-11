@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2012</year>
+      <year>1996</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -52,6 +52,9 @@
     </datatype>
     <datatype>
       <name name="fread_error"/>
+    </datatype>
+    <datatype>
+      <name name="latin1_string"/>
     </datatype>
   </datatypes>
   <funcs>
@@ -207,13 +210,47 @@
       <name name="write_string" arity="1"/>
       <fsummary>Write a string</fsummary>
       <desc>
-        <p>Returns the list of characters needed to print <c><anno>String</anno></c>
-          as a string.</p>
+        <p>Returns the list of characters needed to print
+          <c><anno>String</anno></c> as a string.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="write_string_as_latin1" arity="1"/>
+      <fsummary>Write a string</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print
+          <c><anno>String</anno></c> as a string. Non-Latin-1
+          characters are escaped.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="write_latin1_string" arity="1"/>
+      <fsummary>Write an ISO-latin-1 string</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print
+          <c><anno>Latin1String</anno></c> as a string.</p>
       </desc>
     </func>
     <func>
       <name name="write_char" arity="1"/>
       <fsummary>Write a character</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print a character
+          constant in the Unicode character set.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="write_char_as_latin1" arity="1"/>
+      <fsummary>Write a character</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print a character
+          constant in the Unicode character set. Non-Latin-1 characters
+          are escaped.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="write_latin1_char" arity="1"/>
+      <fsummary>Write an ISO-latin-1 character</fsummary>
       <desc>
         <p>Returns the list of characters needed to print a character
           constant in the ISO-latin-1 character set.</p>
@@ -232,6 +269,14 @@
       <fsummary>Test for a list of characters</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
+          characters in the Unicode range, otherwise it returns <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="latin1_char_list" arity="1"/>
+      <fsummary>Test for a list of ISO-latin-1 characters</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
           characters in the ISO-latin-1 range, otherwise it returns <c>false</c>.</p>
       </desc>
     </func>
@@ -240,11 +285,27 @@
       <fsummary>Test for a deep list of characters</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a, possibly deep, list
+          of characters in the Unicode range, otherwise it returns <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="deep_latin1_char_list" arity="1"/>
+      <fsummary>Test for a deep list of characters</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a, possibly deep, list
           of characters in the ISO-latin-1 range, otherwise it returns <c>false</c>.</p>
       </desc>
     </func>
     <func>
       <name name="printable_list" arity="1"/>
+      <fsummary>Test for a list of printable characters</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
+          printable Unicode characters, otherwise it returns <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="printable_latin1_list" arity="1"/>
       <fsummary>Test for a list of printable ISO-latin-1 characters</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of

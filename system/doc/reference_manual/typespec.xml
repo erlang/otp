@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2011</year>
+      <year>2003</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -196,7 +196,7 @@ TList :: Type
       <cell><c>nonempty_string()</c></cell><cell><c>[char(),...]</c></cell>
     </row>
     <row> 
-      <cell><c>iolist()</c></cell><cell><c>maybe_improper_list(char() | binary() | iolist(), binary() | [])</c></cell>
+      <cell><c>iolist()</c></cell><cell><c>maybe_improper_list(byte() | binary() | iolist(), binary() | [])</c></cell>
     </row>
     <row>
       <cell><c>module()</c></cell><cell><c>atom()</c></cell>

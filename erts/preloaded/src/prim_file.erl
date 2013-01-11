@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -154,8 +154,7 @@
          internal_native2name/1,
          internal_normalize_utf8/1]).
 
--type unicode_string() :: [unicode:unicode_char()].
--type prim_file_name() :: unicode_string() | unicode:unicode_binary().
+-type prim_file_name() :: string() | unicode:unicode_binary().
 
 -spec internal_name2native(prim_file_name()) -> binary().
 
@@ -167,7 +166,7 @@ internal_name2native(_) ->
 internal_native2name(_) ->
     erlang:nif_error(undefined).
 
--spec internal_normalize_utf8(unicode:unicode_binary()) -> unicode_string().
+-spec internal_normalize_utf8(unicode:unicode_binary()) -> string().
 
 internal_normalize_utf8(_) ->
     erlang:nif_error(undefined).

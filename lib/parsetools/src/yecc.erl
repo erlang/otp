@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2494,8 +2494,8 @@ pp_tokens1([T | Ts], Line0, Enc, T0) ->
 
 pp_symbol({var,_,Var}, _Enc) -> Var;
 pp_symbol({string,_,String}, latin1) ->
-    io_lib:write_unicode_string_as_latin1(String);
-pp_symbol({string,_,String}, _Enc) -> io_lib:write_unicode_string(String);
+    io_lib:write_string_as_latin1(String);
+pp_symbol({string,_,String}, _Enc) -> io_lib:write_string(String);
 pp_symbol({_,_,Symbol}, latin1) -> io_lib:fwrite(<<"~p">>, [Symbol]);
 pp_symbol({_,_,Symbol}, _Enc) -> io_lib:fwrite(<<"~tp">>, [Symbol]);
 pp_symbol({Symbol, _}, _Enc) -> Symbol.

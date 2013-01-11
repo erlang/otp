@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -115,7 +115,7 @@
 format_error({string,Quote,Head}) ->
     lists:flatten(["unterminated " ++ string_thing(Quote) ++
                    " starting with " ++
-                   io_lib:write_unicode_string(Head, Quote)]);
+                   io_lib:write_string(Head, Quote)]);
 format_error({illegal,Type}) ->
     lists:flatten(io_lib:fwrite("illegal ~w", [Type]));
 format_error(char) -> "unterminated character";

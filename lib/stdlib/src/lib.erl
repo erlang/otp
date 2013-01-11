@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -426,9 +426,9 @@ brackets_to_parens(S, Enc) ->
     [$(,R,$)].
 
 printable_list(latin1, As) ->
-    io_lib:printable_list(As);
+    io_lib:printable_latin1_list(As);
 printable_list(_, As) ->
-    io_lib:printable_unicode_list(As).
+    io_lib:printable_list(As).
 
 mfa_to_string(M, F, A) ->
     io_lib:fwrite(<<"~s/~w">>, [mf_to_string({M, F}, A), A]).

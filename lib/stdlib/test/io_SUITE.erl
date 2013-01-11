@@ -2051,15 +2051,15 @@ otp_10302(Suite) when is_list(Suite) ->
     "<<228,...>>" = fmt("~tP", [<<"äppl">>, 2]),
 
     Chars = lists:seq(0, 512), % just a few...
-    [] = [C || C <- Chars, S <- io_lib:write_unicode_char_as_latin1(C),
+    [] = [C || C <- Chars, S <- io_lib:write_char_as_latin1(C),
                not is_latin1(S)],
-    L1 = [S || C <- Chars, S <- io_lib:write_unicode_char(C),
+    L1 = [S || C <- Chars, S <- io_lib:write_char(C),
                not is_latin1(S)],
     L1 = lists:seq(256, 512),
 
-    [] = [C || C <- Chars, S <- io_lib:write_unicode_string_as_latin1([C]),
+    [] = [C || C <- Chars, S <- io_lib:write_string_as_latin1([C]),
                not is_latin1(S)],
-    L2 = [S || C <- Chars, S <- io_lib:write_unicode_string([C]),
+    L2 = [S || C <- Chars, S <- io_lib:write_string([C]),
                not is_latin1(S)],
     L2 = lists:seq(256, 512),
 

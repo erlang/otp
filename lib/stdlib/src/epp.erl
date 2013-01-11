@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1276,9 +1276,9 @@ token_src({X, _}) when is_atom(X) ->
 token_src({var, _, X}) ->
     atom_to_list(X);
 token_src({char,_,C}) ->
-    io_lib:write_unicode_char(C);
+    io_lib:write_char(C);
 token_src({string, _, X}) ->
-    io_lib:write_unicode_string(X);
+    io_lib:write_string(X);
 token_src({_, _, X}) ->
     io_lib:format("~w", [X]).
 

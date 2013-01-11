@@ -127,7 +127,7 @@ rows(Io) ->
 -spec get_chars(Prompt, Count) -> Data | server_no_data() when
       Prompt :: prompt(),
       Count :: non_neg_integer(),
-      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
+      Data :: string() | unicode:unicode_binary().
 
 get_chars(Prompt, N) ->
     get_chars(default_input(), Prompt, N).
@@ -136,14 +136,14 @@ get_chars(Prompt, N) ->
       IoDevice :: device(),
       Prompt :: prompt(),
       Count :: non_neg_integer(),
-      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
+      Data :: string() | unicode:unicode_binary().
 
 get_chars(Io, Prompt, N) when is_integer(N), N >= 0 ->
     request(Io, {get_chars,unicode,Prompt,N}).
 
 -spec get_line(Prompt) -> Data | server_no_data() when
       Prompt :: prompt(),
-      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
+      Data :: string() | unicode:unicode_binary().
 
 get_line(Prompt) ->
     get_line(default_input(), Prompt).
@@ -151,7 +151,7 @@ get_line(Prompt) ->
 -spec get_line(IoDevice, Prompt) -> Data | server_no_data() when
       IoDevice :: device(),
       Prompt :: prompt(),
-      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
+      Data :: string() | unicode:unicode_binary().
 
 get_line(Io, Prompt) ->
     request(Io, {get_line,unicode,Prompt}).
