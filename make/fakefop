@@ -22,14 +22,14 @@
 # Author: Tuncer Ayaz
 #
 
-if [ $# -lt 4 ]
+if [ $# -lt 6 ]
 then
-  echo "Usage: fakefop -fo IGNORED -pdf OUTFILE"
+  echo "Usage: fakefop -c IGNORED -fo IGNORED -pdf OUTFILE"
   exit 1
 fi
 
-OUTFILE=$4
-NAME=`basename $4 .pdf`
+OUTFILE=$6
+NAME=`basename $6 .pdf`
 
 echo Write $OUTFILE
 cat > $OUTFILE <<EndOfFile
