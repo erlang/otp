@@ -33,10 +33,28 @@
   <module>public_key</module>
   <modulesummary> API module for public key infrastructure.</modulesummary>
   <description>
-    <p>This module provides functions to handle public key infrastructure
-    from <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280</url>- X.509 certificates and some parts of the PKCS-standard.
+    <p>This module provides functions to handle public key infrastructure. It can
+    encode/decode different file formats (PEM, openssh), sign and verify digital signatures and vlidate
+    certificate paths and certificate revokation lists.
     </p>
   </description>
+
+  <section>
+    <title>public_key</title>
+
+    <list type="bulleted">
+      <item>public_key requires the crypto application.</item>
+
+      <item>Supports <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280 </url> -
+      Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile </item>
+      <item>Supports <url href="http://www.rsa.com/rsalabs/node.asp?id=2125"> PKCS-1 </url> - RSA Cryptography Standard </item>
+      <item>Supports <url href="http://csrc.nist.gov/publications/fips/fips186-3/fips_186-3.pdf"> DSA</url>- Digital Signature Algorithm</item>
+      <item>Supports <url href="http://www.rsa.com/rsalabs/node.asp?id=2126"> PKCS-3 </url> - Diffie-Hellman Key Agreement Standard </item>
+      <item>Supports <url href="http://www.rsa.com/rsalabs/node.asp?id=2127"> PKCS-5</url> - Password-Based Cryptography Standard </item>
+      <item>Supports <url href="http://www.rsa.com/rsalabs/node.asp?id=2130"> PKCS-8</url> - Private-Key Information Syntax Standard</item>
+      <item>Supports <url href="http://www.rsa.com/rsalabs/node.asp?id=2132"> PKCS-10</url> - Certification Request Syntax Standard</item>
+    </list>
+  </section>
 
   <section>
     <title>COMMON DATA TYPES </title> 
@@ -156,7 +174,7 @@
 
   <func>
     <name>der_decode(Asn1type, Der) -> term()</name>
-    <fsummary> Decodes a public key asn1 der encoded entity.</fsummary>
+    <fsummary> Decodes a public key ASN.1 DER encoded entity.</fsummary>
     <type>
       <v>Asn1Type = atom()</v>
       <d> ASN.1 type present in the public_key applications
@@ -164,7 +182,7 @@
       <v>Der = der_encoded()</v>
     </type> 
     <desc> 
-      <p> Decodes a public key ASN.1 der encoded entity.</p>
+      <p> Decodes a public key ASN.1 DER encoded entity.</p>
     </desc> 
   </func>
     
@@ -186,14 +204,14 @@
   <func>
     <name>pem_decode(PemBin) -> [pem_entry()]</name>
     <fsummary>Decode PEM binary data and return
-    entries as ASN.1 der encoded entities. </fsummary>
+    entries as ASN.1 DER encoded entities. </fsummary>
     <type>
       <v>PemBin = binary()</v>
       <d>Example {ok, PemBin} = file:read_file("cert.pem").</d>
     </type> 
   <desc> 
     <p>Decode PEM binary data and return
-    entries as ASN.1 der encoded entities.</p>
+    entries as ASN.1 DER encoded entities.</p>
   </desc> 
   </func> 
     
@@ -217,8 +235,8 @@
       <v> Password = string() </v> 
   </type> 
   <desc> 
-    <p>Decodes a pem entry. pem_decode/1 returns a list of pem
-    entries. Note that if the pem entry is of type
+    <p>Decodes a PEM entry. pem_decode/1 returns a list of PEM
+    entries. Note that if the PEM entry is of type
     'SubjectPublickeyInfo' it will be further decoded to an
     rsa_public_key() or dsa_public_key().</p>
   </desc> 
@@ -227,7 +245,7 @@
    <func>
     <name>pem_entry_encode(Asn1Type, Entity) -> pem_entry()</name>
     <name>pem_entry_encode(Asn1Type, Entity, {CipherInfo, Password}) -> pem_entry()</name>
-    <fsummary> Creates a pem entry that can be fed to pem_encode/1.</fsummary>
+    <fsummary> Creates a PEM entry that can be fed to pem_encode/1.</fsummary>
     <type>
       <v>Asn1Type = pki_asn1_type()</v>
       <v>Entity = term()</v>
@@ -241,7 +259,7 @@
       <v>Password = string()</v> 
   </type> 
   <desc> 
-    <p> Creates a pem entry that can be feed to pem_encode/1.</p> 
+    <p> Creates a PEM entry that can be feed to pem_encode/1.</p>
   </desc> 
   </func>
 
@@ -271,12 +289,12 @@
   
   <func>
     <name>pkix_decode_cert(Cert, otp|plain) ->  #'Certificate'{} | #'OTPCertificate'{}</name>
-    <fsummary> Decodes an ASN.1 der encoded pkix x509 certificate.</fsummary>
+    <fsummary> Decodes an ASN.1 DER encoded PKIX x509 certificate.</fsummary>
     <type>
       <v>Cert = der_encoded()</v> 
   </type> 
   <desc> 
-    <p>Decodes an ASN.1 der encoded pkix certificate.  The otp option
+    <p>Decodes an ASN.1 DER encoded PKIX certificate.  The otp option
     will use the customized ASN.1 specification OTP-PKIX.asn1 for
     decoding and also recursively decode most of the standard
     parts.</p>
@@ -285,14 +303,15 @@
 
   <func>
     <name>pkix_encode(Asn1Type, Entity, otp | plain) -> der_encoded()</name>
-    <fsummary>Der encodes a pkix x509 certificate or part of such a
+    <fsummary>DER encodes a PKIX x509 certificate or part of such a
     certificate.</fsummary>
     <type>
       <v>Asn1Type = atom()</v>
       <d>The ASN.1 type can be 'Certificate', 'OTPCertificate' or a subtype of either .</d>
+      <v>Entity = #'Certificate'{} | #'OTPCertificate'{} | a valid subtype</v>
   </type> 
   <desc> 
-    <p>Der encodes a pkix x509 certificate or part of such a
+    <p>DER encodes a PKIX x509 certificate or part of such a
     certificate. This function must be used for encoding certificates or parts of certificates
     that are decoded/created in the otp format, whereas for the plain format this
     function will directly call der_encode/2. </p> 
@@ -480,7 +499,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <v>Key = rsa_public_key() | dsa_public_key()</v> 
     </type> 
   <desc> 
-    <p> Verify pkix x.509 certificate signature.</p> 
+    <p> Verify PKIX x.509 certificate signature.</p>
   </desc> 
   </func> 
 
