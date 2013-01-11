@@ -246,22 +246,40 @@ collect_tests_from_file(Specs, Relaxed) ->
 
 collect_tests_from_file(Specs,Nodes,Relaxed) when is_list(Nodes) ->
     NodeRefs = lists:map(fun(N) -> {undefined,N} end, Nodes),
-    catch collect_tests_from_file1(Specs,#testspec{nodes=NodeRefs},Relaxed).
+    %% [Spec1,Spec2,...] means create one testpec record per Spec file
+    %% [[Spec1,Spec2,...]] means merge all specs into one testspec record
+    {MergeSpecs,Specs1} = if is_list(hd(hd(Specs))) -> {true,hd(Specs)};
+		    true -> {false,Specs}
+		 end,
+    catch create_specs(Specs1,Specs1,#testspec{nodes=NodeRefs},
+		       Relaxed,MergeSpecs,[]).
 
-collect_tests_from_file1([Spec|Specs],TestSpec,Relaxed) ->
+create_specs([Spec|Ss],Specs,TestSpec,Relaxed,MergeSpecs,Saved) ->
     SpecDir = filename:dirname(filename:absname(Spec)),
     case file:consult(Spec) of
 	{ok,Terms} ->	    
 	    case collect_tests(Terms,
 			       TestSpec#testspec{spec_dir=SpecDir},
 			       Relaxed) of
-		TS = #testspec{tests=Tests, logdir=LogDirs} when Specs == [] ->
+		TS = #testspec{tests=Tests, logdir=LogDirs} when
+		      Ss == [], MergeSpecs == true ->
 		    LogDirs1 = lists:delete(".",LogDirs) ++ ["."],
-		    TS#testspec{tests=lists:flatten(Tests), logdir=LogDirs1};  
-		TS = #testspec{alias = As, nodes = Ns} ->
+		    [{Specs,TS#testspec{tests=lists:flatten(Tests),
+					logdir=LogDirs1}}];
+		TS = #testspec{tests=Tests, logdir=LogDirs} when
+		      Ss == [], MergeSpecs == false ->
+		    LogDirs1 = lists:delete(".",LogDirs) ++ ["."],
+		    TSRet = {[Spec],TS#testspec{tests=lists:flatten(Tests),
+						logdir=LogDirs1}},
+		    lists:reverse([TSRet|Saved]);
+		TS = #testspec{alias = As, nodes = Ns} when
+		      MergeSpecs == true ->
 		    TS1 = TS#testspec{alias = lists:reverse(As),
 				      nodes = lists:reverse(Ns)},
-		    collect_tests_from_file1(Specs,TS1,Relaxed)
+		    create_specs(Ss,Specs,TS1,Relaxed,MergeSpecs,[]);
+		TS when MergeSpecs == false ->
+		    create_specs(Ss,Specs,TestSpec,Relaxed,MergeSpecs,
+				[{[Spec],TS}|Saved])
 	    end;
 	{error,Reason} ->
 	    ReasonStr =
