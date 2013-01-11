@@ -74,7 +74,7 @@ stream
   BT
     /F1 24 Tf
     10 350 Td
-    (\(placeholder PDF generated without FOP\)) Tj
+    (\(placeholder PDF generated with fakefop\)) Tj
   ET
 endstream
 endobj
