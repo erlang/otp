@@ -30,7 +30,6 @@ fi
 OUTFILE=$6
 NAME=`basename $6 .pdf`
 
-echo Write $OUTFILE
 cat > $OUTFILE <<EndOfFile
 %PDF-1.4
 1 0 obj
