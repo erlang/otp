@@ -242,6 +242,8 @@ JAVADOC-GENERATED
 
 # hipe
 
+/lib/hipe/boot_ebin/hipe.app
+/lib/hipe/boot_ebin/hipe.appup
 /lib/hipe/main/hipe.hrl
 /lib/hipe/rtl/hipe_literals.hrl
 
