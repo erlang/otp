@@ -56,6 +56,7 @@ print(Term) ->
                 | {depth, depth()}
                 | {max_chars, max_chars()}
                 | {record_print_fun, rec_print_fun()}
+                | {strings, io_lib:pretty_lists()}
                 | {encoding, latin1 | utf8 | unicode}.
 -type options() :: [option()].
 
@@ -69,7 +70,8 @@ print(Term, Options) when is_list(Options) ->
     M = proplists:get_value(max_chars, Options, -1),
     RecDefFun = proplists:get_value(record_print_fun, Options, no_fun),
     Encoding = proplists:get_value(encoding, Options, epp:default_encoding()),
-    print(Term, Col, Ll, D, M, RecDefFun, Encoding);
+    Strings = proplists:get_value(strings, Options, true),
+    print(Term, Col, Ll, D, M, RecDefFun, Encoding, Strings);
 print(Term, RecDefFun) ->
     print(Term, -1, RecDefFun).
 
@@ -81,7 +83,7 @@ print(Term, Depth, RecDefFun) ->
 -spec print(term(), column(), line_length(), depth()) -> chars().
 
 print(Term, Col, Ll, D) ->
-    print(Term, Col, Ll, D, _M=-1, no_fun, latin1).
+    print(Term, Col, Ll, D, _M=-1, no_fun, latin1, true).
 
 -spec print(term(), column(), line_length(), depth(), rec_print_fun()) ->
                    chars().
@@ -92,15 +94,15 @@ print(Term, Col, Ll, D, RecDefFun) ->
             rec_print_fun()) -> chars().
 
 print(Term, Col, Ll, D, M, RecDefFun) ->
-    print(Term, Col, Ll, D, M, RecDefFun, latin1).
+    print(Term, Col, Ll, D, M, RecDefFun, latin1, true).
 
-print(_, _, _, 0, _M, _RF, _Enc) -> "...";
-print(Term, Col, Ll, D, M, RecDefFun, Enc) when Col =< 0 ->
-    print(Term, 1, Ll, D, M, RecDefFun, Enc);
-print(Term, Col, Ll, D, M0, RecDefFun, Enc) when is_tuple(Term);
-                                                 is_list(Term);
-                                                 is_bitstring(Term) ->
-    If = {_S, Len} = print_length(Term, D, RecDefFun, Enc),
+print(_, _, _, 0, _M, _RF, _Enc, _Str) -> "...";
+print(Term, Col, Ll, D, M, RecDefFun, Enc, Str) when Col =< 0 ->
+    print(Term, 1, Ll, D, M, RecDefFun, Enc, Str);
+print(Term, Col, Ll, D, M0, RecDefFun, Enc, Str) when is_tuple(Term);
+                                                      is_list(Term);
+                                                      is_bitstring(Term) ->
+    If = {_S, Len} = print_length(Term, D, RecDefFun, Enc, Str),
     M = max_cs(M0, Len),
     if
         Len < Ll - Col, Len =< M ->
@@ -111,7 +113,7 @@ print(Term, Col, Ll, D, M0, RecDefFun, Enc) when is_tuple(Term);
                               1),
             pp(If, Col, Ll, M, TInd, indent(Col), 0, 0)
     end;
-print(Term, _Col, _Ll, _D, _M, _RF, _Enc) ->
+print(Term, _Col, _Ll, _D, _M, _RF, _Enc, _Str) ->
     io_lib:write(Term).
 
 %%%
@@ -325,12 +327,12 @@ write_tail(E, S) ->
 %% counted but need to be added later.
 
 %% D =/= 0
-print_length([], _D, _RF, _Enc) ->
+print_length([], _D, _RF, _Enc, _Str) ->
     {"[]", 2};
-print_length({}, _D, _RF, _Enc) ->
+print_length({}, _D, _RF, _Enc, _Str) ->
     {"{}", 2};
-print_length(List, D, RF, Enc) when is_list(List) ->
-    case printable_list(List, D, Enc) of
+print_length(List, D, RF, Enc, Str) when is_list(List) ->
+    case Str =:= unicode andalso printable_list(List, D, Enc) of
         true ->
             S = write_string(List, Enc),
             {S, length(S)};
@@ -339,30 +341,30 @@ print_length(List, D, RF, Enc) when is_list(List) ->
         %    S = write_string(Prefix, Enc),
         %    {[S | "..."], 3 + length(S)};
         false ->
-            print_length_list(List, D, RF, Enc)
+            print_length_list(List, D, RF, Enc, Str)
     end;
-print_length(Fun, _D, _RF, _Enc) when is_function(Fun) ->
+print_length(Fun, _D, _RF, _Enc, _Str) when is_function(Fun) ->
     S = io_lib:write(Fun),
     {S, iolist_size(S)};
-print_length(R, D, RF, Enc) when is_atom(element(1, R)),
-                                 is_function(RF) ->
+print_length(R, D, RF, Enc, Str) when is_atom(element(1, R)),
+                                      is_function(RF) ->
     case RF(element(1, R), tuple_size(R) - 1) of
         no -> 
-            print_length_tuple(R, D, RF, Enc);
+            print_length_tuple(R, D, RF, Enc, Str);
         RDefs ->
-            print_length_record(R, D, RF, RDefs, Enc)
+            print_length_record(R, D, RF, RDefs, Enc, Str)
     end;
-print_length(Tuple, D, RF, Enc) when is_tuple(Tuple) ->
-    print_length_tuple(Tuple, D, RF, Enc);
-print_length(<<>>, _D, _RF, _Enc) ->
+print_length(Tuple, D, RF, Enc, Str) when is_tuple(Tuple) ->
+    print_length_tuple(Tuple, D, RF, Enc, Str);
+print_length(<<>>, _D, _RF, _Enc, _Str) ->
     {"<<>>", 4};
-print_length(<<_/bitstring>>, 1, _RF, _Enc) ->
+print_length(<<_/bitstring>>, 1, _RF, _Enc, _Str) ->
     {"<<...>>", 7};
-print_length(<<_/bitstring>>=Bin, D, _RF, Enc) ->
+print_length(<<_/bitstring>>=Bin, D, _RF, Enc, Str) ->
     case bit_size(Bin) rem 8 of
         0 ->
 	    D1 = D - 1, 
-	    case printable_bin(Bin, D1, Enc) of
+	    case Str =:= unicode andalso printable_bin(Bin, D1, Enc) of
                 {true, List} when is_list(List) ->
                     S = io_lib:write_string(List, $"), %"
 	            {[$<,$<,S,$>,$>], 4 + length(S)};
@@ -383,51 +385,53 @@ print_length(<<_/bitstring>>=Bin, D, _RF, Enc) ->
            S = io_lib:write(Bin, D),
 	   {{bin,S}, iolist_size(S)}
     end;    
-print_length(Term, _D, _RF, _Enc) ->
+print_length(Term, _D, _RF, _Enc, _Str) ->
     S = io_lib:write(Term),
     {S, lists:flatlength(S)}.
 
-print_length_tuple(_Tuple, 1, _RF, _Enc) ->
+print_length_tuple(_Tuple, 1, _RF, _Enc, _Str) ->
     {"{...}", 5};
-print_length_tuple(Tuple, D, RF, Enc) ->
-    L = print_length_list1(tuple_to_list(Tuple), D, RF, Enc),
+print_length_tuple(Tuple, D, RF, Enc, Str) ->
+    L = print_length_list1(tuple_to_list(Tuple), D, RF, Enc, Str),
     IsTagged = is_atom(element(1, Tuple)) and (tuple_size(Tuple) > 1),
     {{tuple,IsTagged,L}, list_length(L, 2)}.
 
-print_length_record(_Tuple, 1, _RF, _RDefs, _Enc) ->
+print_length_record(_Tuple, 1, _RF, _RDefs, _Enc, _Str) ->
     {"{...}", 5};
-print_length_record(Tuple, D, RF, RDefs, Enc) ->
+print_length_record(Tuple, D, RF, RDefs, Enc, Str) ->
     Name = [$# | io_lib:write_atom(element(1, Tuple))],
     NameL = length(Name),
-    L = print_length_fields(RDefs, D - 1, tl(tuple_to_list(Tuple)), RF, Enc),
+    Elements = tl(tuple_to_list(Tuple)),
+    L = print_length_fields(RDefs, D - 1, Elements, RF, Enc, Str),
     {{record, [{Name,NameL} | L]}, list_length(L, NameL + 2)}.
 
-print_length_fields([], _D, [], _RF, _Enc) ->
+print_length_fields([], _D, [], _RF, _Enc, _Str) ->
     [];
-print_length_fields(_, 1, _, _RF, _Enc) ->
+print_length_fields(_, 1, _, _RF, _Enc, _Str) ->
     {dots, 3};
-print_length_fields([Def | Defs], D, [E | Es], RF, Enc) ->
-    [print_length_field(Def, D - 1, E, RF, Enc) |
-     print_length_fields(Defs, D - 1, Es, RF, Enc)].
+print_length_fields([Def | Defs], D, [E | Es], RF, Enc, Str) ->
+    [print_length_field(Def, D - 1, E, RF, Enc, Str) |
+     print_length_fields(Defs, D - 1, Es, RF, Enc, Str)].
 
-print_length_field(Def, D, E, RF, Enc) ->
+print_length_field(Def, D, E, RF, Enc, Str) ->
     Name = io_lib:write_atom(Def),
-    {S, L} = print_length(E, D, RF, Enc),
+    {S, L} = print_length(E, D, RF, Enc, Str),
     NameL = length(Name) + 3,
     {{field, Name, NameL, {S, L}}, NameL + L}.
 
-print_length_list(List, D, RF, Enc) ->
-    L = print_length_list1(List, D, RF, Enc),
+print_length_list(List, D, RF, Enc, Str) ->
+    L = print_length_list1(List, D, RF, Enc, Str),
     {{list, L}, list_length(L, 2)}.
 
-print_length_list1([], _D, _RF, _Enc) ->
+print_length_list1([], _D, _RF, _Enc, _Str) ->
     [];
-print_length_list1(_, 1, _RF, _Enc) ->
+print_length_list1(_, 1, _RF, _Enc, _Str) ->
     {dots, 3};
-print_length_list1([E | Es], D, RF, Enc) ->
-    [print_length(E, D - 1, RF, Enc) | print_length_list1(Es, D - 1, RF, Enc)];
-print_length_list1(E, D, RF, Enc) ->
-    print_length(E, D - 1, RF, Enc).
+print_length_list1([E | Es], D, RF, Enc, Str) ->
+    [print_length(E, D - 1, RF, Enc, Str) |
+     print_length_list1(Es, D - 1, RF, Enc, Str)];
+print_length_list1(E, D, RF, Enc, Str) ->
+    print_length(E, D - 1, RF, Enc, Str).
 
 list_length([], Acc) ->
     Acc;
