@@ -23,10 +23,12 @@
 %% "error_handler: add no_native compiler directive"
 -compile(no_native).
 
-%% A simple error handler.
+%% Callbacks called from the run-time system.
+-export([undefined_function/3,undefined_lambda/3,breakpoint/3]).
 
--export([undefined_function/3, undefined_lambda/3, stub_function/3,
-	 breakpoint/3]).
+%% Exported utility functions.
+-export([raise_undef_exception/3]).
+-export([stub_function/3]).
 
 -spec undefined_function(Module, Function, Args) ->
 	any() when
@@ -41,12 +43,7 @@ undefined_function(Module, Func, Args) ->
 		true ->
 		    apply(Module, Func, Args);
 		false ->
-		    case check_inheritance(Module, Args) of
-			{value, Base, Args1} ->
-			    apply(Base, Func, Args1);
-			none ->
-			    crash(Module, Func, Args)
-		    end
+		    call_undefined_function_handler(Module, Func, Args)
 	    end;
 	{module, _} ->
 	    crash(Module, Func, Args);
@@ -76,6 +73,14 @@ undefined_lambda(Module, Fun, Args) ->
 
 breakpoint(Module, Func, Args) ->
     (int()):eval(Module, Func, Args).
+
+-spec raise_undef_exception(Module, Function, Args) -> no_return() when
+      Module :: atom(),
+      Function :: atom(),
+      Args :: list().
+
+raise_undef_exception(Module, Func, Args) ->
+    crash({Module,Func,Args,[]}).
 
 %% Used to make the call to the 'int' module a "weak" one, to avoid
 %% building strong components in xref or dialyzer.
@@ -130,27 +135,11 @@ ensure_loaded(Module) ->
 stub_function(Mod, Func, Args) ->
     exit({undef,[{Mod,Func,Args,[]}]}).
 
-check_inheritance(Module, Args) ->
-    Attrs = erlang:get_module_info(Module, attributes),
-    case lists:keyfind(extends, 1, Attrs) of
-	{extends, [Base]} when is_atom(Base), Base =/= Module ->
-	    %% This is just a heuristic for detecting abstract modules
-	    %% with inheritance so they can be handled; it would be
-	    %% much better to do it in the emulator runtime
-	    case lists:keyfind(abstract, 1, Attrs) of
-		{abstract, [true]} ->
-		    case lists:reverse(Args) of
-			[M|Rs] when tuple_size(M) > 1,
-			element(1,M) =:= Module,
-			tuple_size(element(2,M)) > 0,
-			is_atom(element(1,element(2,M))) ->
-			    {value, Base, lists:reverse(Rs, [element(2,M)])};
-			_ ->
-			    {value, Base, Args}
-		    end;
-		_ ->
-		    {value, Base, Args}
-	    end;
-	_ ->
-	    none
+call_undefined_function_handler(Module, Func, Args) ->
+    Handler = '$handle_undefined_function',
+    case erlang:function_exported(Module, Handler, 2) of
+	false ->
+	    crash(Module, Func, Args);
+	true ->
+	    Module:Handler(Func, Args)
     end.

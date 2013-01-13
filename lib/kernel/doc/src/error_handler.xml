@@ -43,19 +43,39 @@
         A (possibly empty) list of arguments <c>Arg1,..,ArgN</c>
       </type_desc>
       <desc>
-        <p>This function is evaluated if a call is made to
+        <p>This function is called by the run-time system if a call is made to
           <c><anno>Module</anno>:<anno>Function</anno>(Arg1,.., ArgN)</c> and
           <c><anno>Module</anno>:<anno>Function</anno>/N</c> is undefined. Note that
           <c>undefined_function/3</c> is evaluated inside the process
           making the original call.</p>
-        <p>If <c><anno>Module</anno></c> is interpreted, the interpreter is invoked
-          and the return value of the interpreted
-          <c><anno>Function</anno>(Arg1,.., ArgN)</c> call is returned.</p>
-        <p>Otherwise, it returns, if possible, the value of
-          <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>)</c> after an attempt has been
-          made to autoload <c><anno>Module</anno></c>. If this is not possible, the
-          call to <c><anno>Module</anno>:<anno>Function</anno>(Arg1,.., ArgN)</c> fails with
-          exit reason <c>undef</c>.</p>
+
+	<p>This function will first attempt to autoload
+	  <c><anno>Module</anno></c>. If that is not possible,
+	  an <c>undef</c> exception will be raised.</p>
+
+	<p>If it was possible to load <c><anno>Module</anno></c>
+	  and the function <c><anno>Function</anno>/N</c> is exported,
+	  it will be called.</p>
+
+	<p>Otherwise, if the function <c>'$handle_undefined_function'/2</c>
+	  is exported, it will be called as
+          <c>'$handle_undefined_function'(</c><anno>Function</anno>,
+	  <anno>Args</anno>).
+	</p>
+	<p>Otherwise an <c>undef</c> exception will be raised.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="raise_undef_exception" arity="3"/>
+      <fsummary>Raise an undef exception</fsummary>
+      <type_desc variable="Args">
+        A (possibly empty) list of arguments <c>Arg1,..,ArgN</c>
+      </type_desc>
+      <desc>
+	<p>Raise an <c>undef</c> exception with a stacktrace indicating
+	that <c><anno>Module</anno>:<anno>Function</anno>/N</c> is
+	undefined.
+	</p>
       </desc>
     </func>
     <func>

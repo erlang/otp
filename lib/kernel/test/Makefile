@@ -48,6 +48,7 @@ MODULES= \
 	erl_distribution_SUITE \
 	erl_distribution_wb_SUITE \
 	erl_prim_loader_SUITE \
+	error_handler_SUITE \
 	error_logger_SUITE \
 	error_logger_warn_SUITE \
 	file_SUITE \
