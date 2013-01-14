@@ -343,10 +343,27 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
+      <name>hmac(Type, Key, Data) -> Mac</name>
+      <name>hmac(Type, Key, Data, MacLength) -> Mac</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Type = md5 | sha | sha224 | sha256 | sha384 | sha512</v>
+        <v>Key = iodata()</v>
+	<v>Data = iodata()</v>
+        <v>MacLength = integer()</v>
+	<v>Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Computes a HMAC of type <c>Type</c> from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p> <c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.
+      </desc>
+    </func>
+    <func>
       <name>hmac_init(Type, Key) -> Context</name>
       <fsummary></fsummary>
       <type>
-        <v>Type = sha | md5 | ripemd160</v>
+        <v>Type = md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</v>
         <v>Key = iolist() | binary()</v>
         <v>Context = binary()</v>
       </type>
