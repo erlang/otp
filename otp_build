@@ -295,7 +295,7 @@ chk_eq()
 check_config_helpers ()
 {
 
-    aclocals="./aclocal.m4 ./lib/erl_interface/aclocal.m4 ./lib/odbc/aclocal.m4 ./lib/wx/aclocal.m4"
+    aclocals="./aclocal.m4 ./lib/erl_interface/aclocal.m4 ./lib/odbc/aclocal.m4 ./lib/wx/aclocal.m4 ./lib/megaco/aclocal.m4"
     install_shs="./lib/common_test/priv/auxdir/install-sh ./lib/erl_interface/src/auxdir/install-sh ./lib/test_server/src/install-sh"
     config_guesses="./lib/common_test/priv/auxdir/config.guess ./lib/erl_interface/src/auxdir/config.guess ./lib/test_server/src/config.guess"
     config_subs="./lib/common_test/priv/auxdir/config.sub ./lib/erl_interface/src/auxdir/config.sub ./lib/test_server/src/config.sub"

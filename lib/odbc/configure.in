@@ -212,4 +212,9 @@ AC_SUBST(ODBC_INCLUDE)
 
 fi dnl "$with_odbc" != "no"
 
+if test "x$GCC" = xyes; then
+    # Treat certain GCC warnings as errors
+    LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
+fi
+
 AC_OUTPUT(c_src/$host/Makefile:c_src/Makefile.in)
