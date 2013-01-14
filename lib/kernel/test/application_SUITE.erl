@@ -1507,10 +1507,10 @@ get_env(suite) -> [];
 get_env(doc) ->
     ["Tests get_env/* functions"];
 get_env(Conf) when is_list(Conf) ->
-    ?line {ok, _}   = application:get_env(kernel, error_logger),
-    ?line undefined = application:get_env(undefined_app, a),
-    ?line undefined = application:get_env(kernel, error_logger_xyz),
-    ?line default   = application:get_env(kernel, error_logger_xyz, default),
+    {ok, _}   = application:get_env(kernel, error_logger),
+    undefined = application:get_env(undefined_app, a),
+    undefined = application:get_env(kernel, error_logger_xyz),
+    default   = application:get_env(kernel, error_logger_xyz, default),
     ok.
 
 %%-----------------------------------------------------------------
