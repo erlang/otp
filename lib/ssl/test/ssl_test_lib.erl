@@ -115,7 +115,7 @@ connect(#sslsocket{} = ListenSocket, Opts) ->
     end;
 connect(ListenSocket, Opts) ->
     Node = proplists:get_value(node, Opts),
-    ct:format("gen_tcp:accept(~p)~n", [ListenSocket]),
+    ct:print("gen_tcp:accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = rpc:call(Node, gen_tcp, accept, 
 				  [ListenSocket]),
     AcceptSocket.
@@ -542,7 +542,7 @@ run_server_error(Opts) ->
 	{ok, ListenSocket} ->
 	    Pid ! {listen, up},
 	    send_selected_port(Pid, Port, ListenSocket),
-	    ct:format("~p:accept(~p)~n", [Transport, ListenSocket]),
+	    ct:print("~p:accept(~p)~n", [Transport, ListenSocket]),
 	     case rpc:call(Node, Transport, accept, [ListenSocket]) of
 		{error, _} = Error ->
 		     Pid ! {self(), Error}
