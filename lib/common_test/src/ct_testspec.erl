@@ -241,45 +241,71 @@ get_skipped_cases1(_,_,_,[]) ->
 
 %%% collect_tests_from_file reads a testspec file and returns a record
 %%% containing the data found.
-collect_tests_from_file(Specs, Relaxed) ->
+collect_tests_from_file(Specs,Relaxed) ->
     collect_tests_from_file(Specs,[node()],Relaxed).
 
 collect_tests_from_file(Specs,Nodes,Relaxed) when is_list(Nodes) ->
     NodeRefs = lists:map(fun(N) -> {undefined,N} end, Nodes),
     %% [Spec1,Spec2,...] means create one testpec record per Spec file
     %% [[Spec1,Spec2,...]] means merge all specs into one testspec record
-    {MergeSpecs,Specs1} = if is_list(hd(hd(Specs))) -> {true,hd(Specs)};
+    {JoinSpecs,Specs1} = if is_list(hd(hd(Specs))) -> {true,hd(Specs)};
 		    true -> {false,Specs}
 		 end,
-    catch create_specs(Specs1,Specs1,#testspec{nodes=NodeRefs},
-		       Relaxed,MergeSpecs,[]).
+    TS0 = #testspec{nodes=NodeRefs},
+    %% remove specs without tests
+    Filter = fun({_,#testspec{tests=[]}}) -> false;
+		(_)                       -> true
+	     end,
+    try create_specs(Specs1,TS0,Relaxed,JoinSpecs,{[],TS0},[]) of
+	{{[],_},AdditionalTestSpecs} ->
+	    lists:filter(Filter,AdditionalTestSpecs);
+	{{_,#testspec{tests=[]}},AdditionalTestSpecs} ->
+	    lists:filter(Filter,AdditionalTestSpecs);
+	{{JoinedSpecs,JoinedTestSpec},AdditionalTestSpecs} ->
+	    [{JoinedSpecs,JoinedTestSpec} |
+	     lists:filter(Filter,AdditionalTestSpecs)]
+    catch
+	_:Error ->
+	    Error
+    end.
 
-create_specs([Spec|Ss],Specs,TestSpec,Relaxed,MergeSpecs,Saved) ->
+create_specs([],_,_,_,Joined,Additional) ->
+    {Joined,Additional};
+create_specs([Spec|Ss],TestSpec,Relaxed,JoinSpecs,
+	     Joined={JSpecs,_},Additional) ->
     SpecDir = filename:dirname(filename:absname(Spec)),
+    TestSpec1 = TestSpec#testspec{spec_dir=SpecDir},
     case file:consult(Spec) of
-	{ok,Terms} ->	    
-	    case collect_tests(Terms,
-			       TestSpec#testspec{spec_dir=SpecDir},
-			       Relaxed) of
-		TS = #testspec{tests=Tests, logdir=LogDirs} when
-		      Ss == [], MergeSpecs == true ->
-		    LogDirs1 = lists:delete(".",LogDirs) ++ ["."],
-		    [{Specs,TS#testspec{tests=lists:flatten(Tests),
-					logdir=LogDirs1}}];
-		TS = #testspec{tests=Tests, logdir=LogDirs} when
-		      Ss == [], MergeSpecs == false ->
-		    LogDirs1 = lists:delete(".",LogDirs) ++ ["."],
-		    TSRet = {[Spec],TS#testspec{tests=lists:flatten(Tests),
-						logdir=LogDirs1}},
-		    lists:reverse([TSRet|Saved]);
-		TS = #testspec{alias = As, nodes = Ns} when
-		      MergeSpecs == true ->
-		    TS1 = TS#testspec{alias = lists:reverse(As),
-				      nodes = lists:reverse(Ns)},
-		    create_specs(Ss,Specs,TS1,Relaxed,MergeSpecs,[]);
-		TS when MergeSpecs == false ->
-		    create_specs(Ss,Specs,TestSpec,Relaxed,MergeSpecs,
-				[{[Spec],TS}|Saved])
+	{ok,Terms} ->
+	    Terms1 = replace_names(Terms),
+	    {Specs2Join,Specs2Add} = get_included_specs(Terms1,TestSpec1),
+	    TestSpec2 = create_spec(Terms1,TestSpec1,
+				    Relaxed,JoinSpecs),
+	    case {JoinSpecs,Specs2Join,Specs2Add} of
+		{true,[],[]} ->
+		    create_specs(Ss,TestSpec2,Relaxed,JoinSpecs,
+				 {JSpecs++[get_absdir(Spec,TestSpec2)],
+				  TestSpec2},Additional);
+		{false,[],[]} ->
+		    create_specs(Ss,TestSpec,Relaxed,JoinSpecs,Joined,
+				 Additional++[{[get_absdir(Spec,TestSpec2)],
+					       TestSpec2}]);
+		_ ->
+		    {{JSpecs1,JTS1},Additional1} = 
+			create_specs(Specs2Join,TestSpec2,Relaxed,true,
+				     {[get_absdir(Spec,TestSpec2)],
+				      TestSpec2},[]),
+		    {Joined2,Additional2} =
+			create_specs(Specs2Add,TestSpec,Relaxed,false,
+				     {[],TestSpec1},[]),
+		    NewJoined = {JSpecs++JSpecs1,JTS1},
+		    NewAdditional = Additional++Additional1++
+			[Joined2 | Additional2],
+		    NextTestSpec = if not JoinSpecs -> TestSpec;
+				      true -> JTS1
+				   end,
+		    create_specs(Ss,NextTestSpec,Relaxed,JoinSpecs,
+				 NewJoined,NewAdditional)
 	    end;
 	{error,Reason} ->
 	    ReasonStr =
@@ -287,6 +313,14 @@ create_specs([Spec|Ss],Specs,TestSpec,Relaxed,MergeSpecs,Saved) ->
 					    [file:format_error(Reason)])),
 	    throw({error,{Spec,ReasonStr}})
     end.
+		
+create_spec(Terms,TestSpec,Relaxed,JoinSpecs) ->
+    TS = #testspec{tests=Tests, logdir=LogDirs} =
+	collect_tests({false,Terms},TestSpec,Relaxed),
+
+    LogDirs1 = lists:delete(".",LogDirs) ++ ["."],
+    TS#testspec{tests=lists:flatten(Tests),
+		logdir=LogDirs1}.
 
 collect_tests_from_list(Terms,Relaxed) ->
     collect_tests_from_list(Terms,[node()],Relaxed).
@@ -294,8 +328,8 @@ collect_tests_from_list(Terms,Relaxed) ->
 collect_tests_from_list(Terms,Nodes,Relaxed) when is_list(Nodes) ->
     {ok,Cwd} = file:get_cwd(),
     NodeRefs = lists:map(fun(N) -> {undefined,N} end, Nodes),
-    case catch collect_tests(Terms,#testspec{nodes=NodeRefs,
-					     spec_dir=Cwd},
+    case catch collect_tests({true,Terms},#testspec{nodes=NodeRefs,
+						    spec_dir=Cwd},
 			     Relaxed) of
 	E = {error,_} ->
 	    E;
@@ -305,10 +339,15 @@ collect_tests_from_list(Terms,Nodes,Relaxed) when is_list(Nodes) ->
 	    TS#testspec{tests=lists:flatten(Tests), logdir=LogDirs1}
     end.
     
-collect_tests(Terms,TestSpec,Relaxed) ->
+collect_tests({Replace,Terms},TestSpec=#testspec{alias=As,nodes=Ns},Relaxed) ->
     put(relaxed,Relaxed),
-    Terms1 = replace_names(Terms),
-    TestSpec1 = get_global(Terms1,TestSpec),
+    Terms1 = if Replace -> replace_names(Terms);
+		true    -> Terms
+	     end,
+    %% reverse nodes and aliases initially to get the order of them right
+    %% in case this spec is being joined with a previous one
+    TestSpec1 = get_global(Terms1,TestSpec#testspec{alias = lists:reverse(As),
+						    nodes = lists:reverse(Ns)}),
     TestSpec2 = get_all_nodes(Terms1,TestSpec1),
     {Terms2, TestSpec3} = filter_init_terms(Terms1, [], TestSpec2),
     add_tests(Terms2,TestSpec3).
@@ -438,9 +477,30 @@ replace_names_in_node1(NodeStr,Defs=[{Name,Replacement}|Ds]) ->
 replace_names_in_node1(NodeStr,[]) ->
     NodeStr.
 
+%% look for other specification files, either to join with the
+%% current spec, or execute as additional test runs
+get_included_specs(Terms,TestSpec) ->
+    get_included_specs(Terms,TestSpec,[],[]).
+
+get_included_specs([{specs,How,SpecOrSpecs}|Ts],TestSpec,Join,Add) ->
+    Specs = case SpecOrSpecs of
+		[File|_] when is_list(File) ->
+		    [get_absdir(Spec,TestSpec) || Spec <- SpecOrSpecs];
+		[Ch|_] when is_integer(Ch) ->
+		    [get_absdir(SpecOrSpecs,TestSpec)]
+	    end,
+    if How == join ->
+	    get_included_specs(Ts,TestSpec,Join++Specs,Add);
+       true ->
+	    get_included_specs(Ts,TestSpec,Join,Add++Specs)
+    end;
+get_included_specs([_|Ts],TestSpec,Join,Add) ->
+    get_included_specs(Ts,TestSpec,Join,Add);
+get_included_specs([],_,Join,Add) ->
+    {Join,Add}.
 
 %% global terms that will be used for analysing all other terms in the spec
-get_global([{merge_tests,Bool} | Ts], Spec) ->
+get_global([{merge_tests,Bool}|Ts],Spec) ->
     get_global(Ts,Spec#testspec{merge_tests=Bool});
 
 %% the 'define' term replaces the 'alias' and 'node' terms, but we need to keep
@@ -810,7 +870,10 @@ add_tests([{alias,_,_}|Ts],Spec) ->		% handled
 add_tests([{node,_,_}|Ts],Spec) ->		% handled
     add_tests(Ts,Spec);
 
-add_tests([{merge_tests, _} | Ts], Spec) ->     % handled
+add_tests([{merge_tests,_} | Ts], Spec) ->     % handled
+    add_tests(Ts,Spec);
+
+add_tests([{specs,_,_} | Ts], Spec) ->     % handled
     add_tests(Ts,Spec);
 
 %%     --------------------------------------------------
@@ -1279,6 +1342,7 @@ is_node([],_) ->
 valid_terms() ->
     [
      {define,3},
+     {specs,3},
      {node,3},
      {cover,2},
      {cover,3},

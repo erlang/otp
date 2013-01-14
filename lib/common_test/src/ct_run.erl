@@ -330,33 +330,33 @@ script_start1(Parent, Args) ->
 			true
 		end,
 
-   StartOpts = #opts{label = Label, profile = Profile,
-		     vts = Vts, shell = Shell,
-		     cover = Cover, cover_stop = CoverStop,
-		     logdir = LogDir, logopts = LogOpts,
-		     basic_html = BasicHtml,
-		     verbosity = Verbosity,
-		     event_handlers = EvHandlers,
-		     ct_hooks = CTHooks,
-		     enable_builtin_hooks = EnableBuiltinHooks,
-		     auto_compile = AutoCompile,
-		     include = IncludeDirs,
-		     silent_connections = SilentConns,
-		     stylesheet = Stylesheet,
-		     multiply_timetraps = MultTT,
-		     scale_timetraps = ScaleTT,
-		     create_priv_dir = CreatePrivDir,
-		     starter = script},
-
+    Opts = #opts{label = Label, profile = Profile,
+		 vts = Vts, shell = Shell,
+		 cover = Cover, cover_stop = CoverStop,
+		 logdir = LogDir, logopts = LogOpts,
+		 basic_html = BasicHtml,
+		 verbosity = Verbosity,
+		 event_handlers = EvHandlers,
+		 ct_hooks = CTHooks,
+		 enable_builtin_hooks = EnableBuiltinHooks,
+		 auto_compile = AutoCompile,
+		 include = IncludeDirs,
+		 silent_connections = SilentConns,
+		 stylesheet = Stylesheet,
+		 multiply_timetraps = MultTT,
+		 scale_timetraps = ScaleTT,
+		 create_priv_dir = CreatePrivDir,
+		 starter = script},
+    
     %% check if log files should be refreshed or go on to run tests...
-    Result = run_or_refresh(StartOpts, Args),
+    Result = run_or_refresh(Opts, Args),
     %% send final results to starting process waiting in script_start/0
     Parent ! {self(), Result}.
 
-run_or_refresh(StartOpts = #opts{logdir = LogDir}, Args) ->
+run_or_refresh(Opts = #opts{logdir = LogDir}, Args) ->
     case proplists:get_value(refresh_logs, Args) of
 	undefined ->
-	    script_start2(StartOpts, Args);
+	    script_start2(Opts, Args);
 	Refresh ->
 	    LogDir1 = case Refresh of
 			  [] -> which(logdir,LogDir);
@@ -386,8 +386,8 @@ run_or_refresh(StartOpts = #opts{logdir = LogDir}, Args) ->
 	    end
     end.
 
-script_start2(StartOpts = #opts{vts = undefined,
-				shell = undefined}, Args) ->
+script_start2(Opts = #opts{vts = undefined,
+			   shell = undefined}, Args) ->
     case proplists:get_value(spec, Args) of
 	Specs when Specs =/= [], Specs =/= undefined ->
 	    Specs1 = get_start_opt(join_specs, [Specs], Specs, Args),
@@ -397,38 +397,38 @@ script_start2(StartOpts = #opts{vts = undefined,
 		{E,Reason} when E == error ; E == 'EXIT' ->
 		    {error,Reason};
 		TestSpecData ->
-		    execute_testspecs(TestSpecData, StartOpts, Args, [])
+		    execute_all_specs(TestSpecData, Opts, Args, [])
 	    end;
 	[] ->
 	    {error,no_testspec_specified};
 	_ ->	    % no testspec used
 	    %% read config/userconfig from start flags
 	    InitConfig = ct_config:prepare_config_list(Args),
-	    TheLogDir = which(logdir, StartOpts#opts.logdir),
+	    TheLogDir = which(logdir, Opts#opts.logdir),
 	    case check_and_install_configfiles(InitConfig,
 					       TheLogDir,
-					       StartOpts) of
+					       Opts) of
 		ok ->      % go on read tests from start flags
-		    script_start3(StartOpts#opts{config=InitConfig,
-						 logdir=TheLogDir}, Args);
+		    script_start3(Opts#opts{config=InitConfig,
+					    logdir=TheLogDir}, Args);
 		Error ->
 		    Error
 	    end
     end;
 
-script_start2(StartOpts, Args) ->
+script_start2(Opts, Args) ->
     %% read config/userconfig from start flags
     InitConfig = ct_config:prepare_config_list(Args),
-    LogDir = which(logdir, StartOpts#opts.logdir),
-    case check_and_install_configfiles(InitConfig, LogDir, StartOpts) of
+    LogDir = which(logdir, Opts#opts.logdir),
+    case check_and_install_configfiles(InitConfig, LogDir, Opts) of
 	ok ->      % go on read tests from start flags
-	    script_start3(StartOpts#opts{config=InitConfig,
-					 logdir=LogDir}, Args);
+	    script_start3(Opts#opts{config=InitConfig,
+				    logdir=LogDir}, Args);
 	Error ->
 	    Error
     end.
 
-execute_testspecs([], _, _, Result) ->
+execute_all_specs([], _, _, Result) ->
     Result1 = lists:reverse(Result),
     case lists:keysearch('EXIT', 1, Result1) of
 	{value,{_,_,ExitReason}} ->
@@ -447,119 +447,18 @@ execute_testspecs([], _, _, Result) ->
 	    end
     end;
 
-execute_testspecs([{Specs,TS} | TSs], StartOpts, Args, Result) ->    
-    SpecStartOpts = get_data_for_node(TS, node()),
-    
-    Label = choose_val(StartOpts#opts.label,
-		       SpecStartOpts#opts.label),
-    
-    Profile = choose_val(StartOpts#opts.profile,
-			 SpecStartOpts#opts.profile),
-    
-    LogDir = choose_val(StartOpts#opts.logdir,
-			SpecStartOpts#opts.logdir),
-    
-    AllLogOpts = merge_vals([StartOpts#opts.logopts,
-			     SpecStartOpts#opts.logopts]),
-    AllVerbosity =
-	merge_keyvals([StartOpts#opts.verbosity,
-		       SpecStartOpts#opts.verbosity]),
-    AllSilentConns =
-	merge_vals([StartOpts#opts.silent_connections,
-		    SpecStartOpts#opts.silent_connections]),
-    Cover =
-	choose_val(StartOpts#opts.cover,
-		   SpecStartOpts#opts.cover),
-    CoverStop =
-	choose_val(StartOpts#opts.cover_stop,
-		   SpecStartOpts#opts.cover_stop),
-    MultTT =
-	choose_val(StartOpts#opts.multiply_timetraps,
-		   SpecStartOpts#opts.multiply_timetraps),
-    ScaleTT =
-	choose_val(StartOpts#opts.scale_timetraps,
-		   SpecStartOpts#opts.scale_timetraps),
-    
-    CreatePrivDir =
-	choose_val(StartOpts#opts.create_priv_dir,
-		   SpecStartOpts#opts.create_priv_dir),
-    
-    AllEvHs = 
-	merge_vals([StartOpts#opts.event_handlers,
-		    SpecStartOpts#opts.event_handlers]),
-    
-    AllCTHooks = merge_vals(
-		   [StartOpts#opts.ct_hooks,
-		    SpecStartOpts#opts.ct_hooks]),
-    
-    EnableBuiltinHooks =
-	choose_val(
-	  StartOpts#opts.enable_builtin_hooks,
-	  SpecStartOpts#opts.enable_builtin_hooks),
-    
-    Stylesheet =
-	choose_val(StartOpts#opts.stylesheet,
-		   SpecStartOpts#opts.stylesheet),
-    
-    AllInclude = merge_vals([StartOpts#opts.include,
-			     SpecStartOpts#opts.include]),
-    application:set_env(common_test, include, AllInclude),
-    
-    AutoCompile =
-	case choose_val(StartOpts#opts.auto_compile,
-			SpecStartOpts#opts.auto_compile) of
-	    undefined ->
-		true;
-	    ACBool ->
-		application:set_env(common_test,
-				    auto_compile,
-				    ACBool),
-		ACBool
-	end,
-
-    BasicHtml =
-	case choose_val(StartOpts#opts.basic_html,
-			SpecStartOpts#opts.basic_html) of
-	    undefined ->
-		false;
-	    BHBool ->
-		application:set_env(common_test, basic_html, 
-				    BHBool),
-		BHBool
-	end,
-    
-    Opts = StartOpts#opts{label = Label,
-			  profile = Profile,
-			  testspecs = Specs,
-			  cover = Cover,
-			  cover_stop = CoverStop,
-			  logdir = LogDir,
-			  logopts = AllLogOpts,
-			  basic_html = BasicHtml,
-			  verbosity = AllVerbosity,
-			  silent_connections = AllSilentConns,
-			  config = SpecStartOpts#opts.config,
-			  event_handlers = AllEvHs,
-			  ct_hooks = AllCTHooks,
-			  enable_builtin_hooks =
-			      EnableBuiltinHooks,
-			  stylesheet = Stylesheet,
-			  auto_compile = AutoCompile,
-			  include = AllInclude,
-			  multiply_timetraps = MultTT,
-			  scale_timetraps = ScaleTT,
-			  create_priv_dir = CreatePrivDir},
-
-    try execute_testspec(TS, Opts, Args) of
+execute_all_specs([{Specs,TS} | TSs], Opts, Args, Result) ->    
+    CombinedOpts = combine_test_opts(TS, Specs, Opts),
+    try execute_one_spec(TS, CombinedOpts, Args) of
 	ExecResult ->
-	    execute_testspecs(TSs, StartOpts, Args, [ExecResult | Result])
+	    execute_all_specs(TSs, Opts, Args, [ExecResult|Result])
     catch
 	_ : ExitReason ->
-	    execute_testspecs(TSs, StartOpts, Args,
-			      [{'EXIT',self(),ExitReason} | Result])
+	    execute_all_specs(TSs, Opts, Args,
+			      [{'EXIT',self(),ExitReason}|Result])
     end.
-	
-execute_testspec(TS, Opts, Args) ->
+
+execute_one_spec(TS, Opts, Args) ->
     %% read config/userconfig from start flags
     InitConfig = ct_config:prepare_config_list(Args),
     TheLogDir = which(logdir, Opts#opts.logdir),
@@ -573,6 +472,108 @@ execute_testspec(TS, Opts, Args) ->
 	Error ->
 	    Error
     end.
+
+combine_test_opts(TS, Specs, Opts) ->
+    TSOpts = get_data_for_node(TS, node()),
+
+    Label = choose_val(Opts#opts.label,
+		       TSOpts#opts.label),
+
+    Profile = choose_val(Opts#opts.profile,
+			 TSOpts#opts.profile),
+
+    LogDir = choose_val(Opts#opts.logdir,
+			TSOpts#opts.logdir),
+
+    AllLogOpts = merge_vals([Opts#opts.logopts,
+			     TSOpts#opts.logopts]),
+    AllVerbosity =
+	merge_keyvals([Opts#opts.verbosity,
+		       TSOpts#opts.verbosity]),
+    AllSilentConns =
+	merge_vals([Opts#opts.silent_connections,
+		    TSOpts#opts.silent_connections]),
+    Cover =
+	choose_val(Opts#opts.cover,
+		   TSOpts#opts.cover),
+    CoverStop =
+	choose_val(Opts#opts.cover_stop,
+		   TSOpts#opts.cover_stop),
+    MultTT =
+	choose_val(Opts#opts.multiply_timetraps,
+		   TSOpts#opts.multiply_timetraps),
+    ScaleTT =
+	choose_val(Opts#opts.scale_timetraps,
+		   TSOpts#opts.scale_timetraps),
+
+    CreatePrivDir =
+	choose_val(Opts#opts.create_priv_dir,
+		   TSOpts#opts.create_priv_dir),
+
+    AllEvHs = 
+	merge_vals([Opts#opts.event_handlers,
+		    TSOpts#opts.event_handlers]),
+
+    AllCTHooks = merge_vals(
+		   [Opts#opts.ct_hooks,
+		    TSOpts#opts.ct_hooks]),
+
+    EnableBuiltinHooks =
+	choose_val(
+	  Opts#opts.enable_builtin_hooks,
+	  TSOpts#opts.enable_builtin_hooks),
+
+    Stylesheet =
+	choose_val(Opts#opts.stylesheet,
+		   TSOpts#opts.stylesheet),
+
+    AllInclude = merge_vals([Opts#opts.include,
+			     TSOpts#opts.include]),
+    application:set_env(common_test, include, AllInclude),
+
+    AutoCompile =
+	case choose_val(Opts#opts.auto_compile,
+			TSOpts#opts.auto_compile) of
+	    undefined ->
+		true;
+	    ACBool ->
+		application:set_env(common_test,
+				    auto_compile,
+				    ACBool),
+		ACBool
+	end,
+
+    BasicHtml =
+	case choose_val(Opts#opts.basic_html,
+			TSOpts#opts.basic_html) of
+	    undefined ->
+		false;
+	    BHBool ->
+		application:set_env(common_test, basic_html, 
+				    BHBool),
+		BHBool
+	end,
+
+    Opts#opts{label = Label,
+	      profile = Profile,
+	      testspecs = Specs,
+	      cover = Cover,
+	      cover_stop = CoverStop,
+	      logdir = which(logdir, LogDir),
+	      logopts = AllLogOpts,
+	      basic_html = BasicHtml,
+	      verbosity = AllVerbosity,
+	      silent_connections = AllSilentConns,
+	      config = TSOpts#opts.config,
+	      event_handlers = AllEvHs,
+	      ct_hooks = AllCTHooks,
+	      enable_builtin_hooks = EnableBuiltinHooks,
+	      stylesheet = Stylesheet,
+	      auto_compile = AutoCompile,
+	      include = AllInclude,
+	      multiply_timetraps = MultTT,
+	      scale_timetraps = ScaleTT,
+	      create_priv_dir = CreatePrivDir}.
 
 check_and_install_configfiles(
   Configs, LogDir, #opts{
@@ -593,12 +594,12 @@ check_and_install_configfiles(
 	    {error,{cant_load_callback_module,Info}}
     end.
 
-script_start3(StartOpts, Args) ->
-    StartOpts1 = get_start_opt(step,
-			       fun(Step) ->
-				       StartOpts#opts{step = Step,
-						      cover = undefined}
-			       end, StartOpts, Args),
+script_start3(Opts, Args) ->
+    Opts1 = get_start_opt(step,
+			  fun(Step) ->
+				  Opts#opts{step = Step,
+					    cover = undefined}
+			  end, Opts, Args),
     case {proplists:get_value(dir, Args),
 	  proplists:get_value(suite, Args),
 	  groups_and_cases(proplists:get_value(group, Args),
@@ -612,17 +613,17 @@ script_start3(StartOpts, Args) ->
 	    {error,no_dir_specified};
 
 	{Dirs,undefined,[]} when is_list(Dirs) ->
-	    script_start4(StartOpts#opts{tests = tests(Dirs)}, Args);
+	    script_start4(Opts#opts{tests = tests(Dirs)}, Args);
 
 	{undefined,Suites,[]} when is_list(Suites) ->
 	    Ts = tests([suite_to_test(S) || S <- Suites]),
-	    script_start4(StartOpts1#opts{tests = Ts}, Args);
+	    script_start4(Opts1#opts{tests = Ts}, Args);
 
 	{undefined,Suite,GsAndCs} when is_list(Suite) ->
 	    case [suite_to_test(S) || S <- Suite] of
 		DirMods = [_] ->
 		    Ts = tests(DirMods, GsAndCs),
-		    script_start4(StartOpts1#opts{tests = Ts}, Args);
+		    script_start4(Opts1#opts{tests = Ts}, Args);
 		[_,_|_] ->
 		    {error,multiple_suites_and_cases};
 		_ ->
@@ -636,10 +637,10 @@ script_start3(StartOpts, Args) ->
 	    case [suite_to_test(Dir,S) || S <- Suite] of
 		DirMods when GsAndCs == [] ->
 		    Ts = tests(DirMods),
-		    script_start4(StartOpts1#opts{tests = Ts}, Args);
+		    script_start4(Opts1#opts{tests = Ts}, Args);
 		DirMods = [_] when GsAndCs /= [] ->
 		    Ts = tests(DirMods, GsAndCs),
-		    script_start4(StartOpts1#opts{tests = Ts}, Args);
+		    script_start4(Opts1#opts{tests = Ts}, Args);
 		[_,_|_] when GsAndCs /= [] ->
 		    {error,multiple_suites_and_cases};
 		_ ->
@@ -650,8 +651,8 @@ script_start3(StartOpts, Args) ->
 	    {error,incorrect_start_options};
 
 	{undefined,undefined,_} ->
-	    if StartOpts#opts.vts ; StartOpts#opts.shell ->
-		    script_start4(StartOpts#opts{tests = []}, Args);
+	    if Opts#opts.vts ; Opts#opts.shell ->
+		    script_start4(Opts#opts{tests = []}, Args);
 	       true ->
 		    script_usage(),
 		    {error,missing_start_options}
@@ -781,6 +782,7 @@ script_usage() ->
 	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
 	      "\n\t[-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
 	      "\n\t[-allow_user_terms]"
+	      "\n\t[-join_specs]"
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
@@ -1075,105 +1077,60 @@ run_test2(StartOpts) ->
     end.
 
 run_spec_file(Relaxed,
-	      Opts = #opts{testspecs = Specs, config = CfgFiles},
+	      Opts = #opts{testspecs = Specs},
 	      StartOpts) ->
     Specs1 = case Specs of
 		 [X|_] when is_integer(X) -> [Specs];
 		 _ -> Specs
 	     end,
     AbsSpecs = lists:map(fun(SF) -> ?abs(SF) end, Specs1),
-    log_ts_names(AbsSpecs),
-    case catch ct_testspec:collect_tests_from_file(AbsSpecs, Relaxed) of
+    AbsSpecs1 = get_start_opt(join_specs, [AbsSpecs], AbsSpecs, StartOpts),
+    case catch ct_testspec:collect_tests_from_file(AbsSpecs1, Relaxed) of
 	{Error,CTReason} when Error == error ; Error == 'EXIT' ->
 	    exit({error,CTReason});
-	TS ->
-	    SpecOpts = get_data_for_node(TS, node()),
-	    Label = choose_val(Opts#opts.label,
-			       SpecOpts#opts.label),
-	    Profile = choose_val(Opts#opts.profile,
-			       SpecOpts#opts.profile),
-	    LogDir = choose_val(Opts#opts.logdir,
-				SpecOpts#opts.logdir),
-	    AllLogOpts = merge_vals([Opts#opts.logopts,
-				     SpecOpts#opts.logopts]),
-	    Stylesheet = choose_val(Opts#opts.stylesheet,
-				    SpecOpts#opts.stylesheet),
-	    AllVerbosity = merge_keyvals([Opts#opts.verbosity,
-					  SpecOpts#opts.verbosity]),
-	    AllSilentConns = merge_vals([Opts#opts.silent_connections,
-					 SpecOpts#opts.silent_connections]),
-	    AllConfig = merge_vals([CfgFiles, SpecOpts#opts.config]),
-	    Cover = choose_val(Opts#opts.cover,
-			       SpecOpts#opts.cover),
-	    CoverStop = choose_val(Opts#opts.cover_stop,
-				   SpecOpts#opts.cover_stop),
-	    MultTT = choose_val(Opts#opts.multiply_timetraps,
-				SpecOpts#opts.multiply_timetraps),
-	    ScaleTT = choose_val(Opts#opts.scale_timetraps,
-				 SpecOpts#opts.scale_timetraps),
-	    CreatePrivDir = choose_val(Opts#opts.create_priv_dir,
-				       SpecOpts#opts.create_priv_dir),
-	    AllEvHs = merge_vals([Opts#opts.event_handlers,
-				  SpecOpts#opts.event_handlers]),
-	    AllInclude = merge_vals([Opts#opts.include,
-				     SpecOpts#opts.include]),
-	    AllCTHooks = merge_vals([Opts#opts.ct_hooks,
-				     SpecOpts#opts.ct_hooks]),
-	    EnableBuiltinHooks = choose_val(Opts#opts.enable_builtin_hooks,
-					    SpecOpts#opts.enable_builtin_hooks),
-	    
-	    application:set_env(common_test, include, AllInclude),
+	TestSpecData ->
+	    run_all_specs(TestSpecData, Opts, StartOpts, [])
+    end.
 
-	    AutoCompile = case choose_val(Opts#opts.auto_compile,
-					  SpecOpts#opts.auto_compile) of
-			      undefined ->
-				  true;
-			      ACBool ->
-				  application:set_env(common_test, auto_compile,
-						      ACBool),
-				  ACBool
-			  end,
-
-	    BasicHtml =	case choose_val(Opts#opts.basic_html,
-					SpecOpts#opts.basic_html) of
-			    undefined ->
-				false;
-			    BHBool ->
-				application:set_env(common_test, basic_html,
-						    BHBool),
-				BHBool
-			end,
-
-	    Opts1 = Opts#opts{label = Label,
-			      profile = Profile,
-			      cover = Cover,
-			      cover_stop = CoverStop,
-			      logdir = which(logdir, LogDir),
-			      logopts = AllLogOpts,
-			      stylesheet = Stylesheet,
-			      basic_html = BasicHtml,
-			      verbosity = AllVerbosity,
-			      silent_connections = AllSilentConns,
-			      config = AllConfig,
-			      event_handlers = AllEvHs,
-			      auto_compile = AutoCompile,
-			      include = AllInclude,
-			      testspecs = AbsSpecs,
-			      multiply_timetraps = MultTT,
-			      scale_timetraps = ScaleTT,
-			      create_priv_dir = CreatePrivDir,
-			      ct_hooks = AllCTHooks,
-			      enable_builtin_hooks = EnableBuiltinHooks
-			     },
-
-	    case check_and_install_configfiles(AllConfig,Opts1#opts.logdir,
-					       Opts1) of
-		ok ->
-		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
-		    reformat_result(catch do_run(Run, Skip, Opts1, StartOpts));
-		{error,GCFReason} ->
-		    exit({error,GCFReason})
+run_all_specs([], _, _, TotResult) ->
+    TotResult1 = lists:reverse(TotResult),
+    case lists:keysearch('EXIT', 1, TotResult1) of
+	{value,{_,_,ExitReason}} ->
+	    exit(ExitReason);
+	false ->
+	    case lists:keysearch(error, 1, TotResult1) of
+		{value,Error} ->
+		    Error;
+		false ->
+		    lists:foldl(fun({Ok,Fail,{UserSkip,AutoSkip}},
+				    {Ok1,Fail1,{UserSkip1,AutoSkip1}}) ->
+					{Ok1+Ok,Fail1+Fail,
+					 {UserSkip1+UserSkip,
+					  AutoSkip1+AutoSkip}}
+				end, {0,0,{0,0}}, TotResult1)
 	    end
+    end;
+
+run_all_specs([{Specs,TS} | TSs], Opts, StartOpts, TotResult) ->
+    log_ts_names(Specs),
+    Combined = #opts{config = TSConfig} = combine_test_opts(TS, Specs, Opts),
+    AllConfig = merge_vals([Opts#opts.config, TSConfig]),
+    try run_one_spec(TS, Combined#opts{config = AllConfig}, StartOpts) of
+	Result ->
+	    run_all_specs(TSs, Opts, StartOpts, [Result | TotResult])		
+    catch
+	_ : Reason ->
+	    run_all_specs(TSs, Opts, StartOpts, [{error,Reason} | TotResult])
+    end.
+
+run_one_spec(TS, CombinedOpts, StartOpts) ->
+    #opts{logdir = Logdir, config = Config} = CombinedOpts,
+    case check_and_install_configfiles(Config, Logdir, CombinedOpts) of
+	ok ->
+	    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
+	    reformat_result(catch do_run(Run, Skip, CombinedOpts, StartOpts));
+	Error ->
+	    Error
     end.
 
 run_prepared(Run, Skip, Opts = #opts{logdir = LogDir,
@@ -2926,6 +2883,10 @@ opts2args(EnvStartOpts) ->
 		     ({allow_user_terms,true}) ->
 			  [{allow_user_terms,[]}];
 		     ({allow_user_terms,false}) ->
+			  [];
+		     ({join_specs,true}) ->
+			  [{join_specs,[]}];
+		     ({join_specs,false}) ->
 			  [];
 		     ({auto_compile,false}) ->
 			  [{no_auto_compile,[]}];
