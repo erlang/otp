@@ -79,6 +79,7 @@
       {keyfile, path()} | {password, string()} |
       {cacerts, [der_encoded()]} | {cacertfile, path()} |
       |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
+      {user_lookup_fun, {fun(), term()}}, {psk_identity, string()}, {srp_identity, {string(), string()}} |
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
       {next_protocols_advertised, list(binary()} |
       {client_preferred_next_protocols, binary(), client | server, list(binary())}
@@ -123,6 +124,7 @@
       {key_exchange(), cipher(), hash()}</c></p>
     
     <p><c>key_exchange() =  rsa | dhe_dss | dhe_rsa | dh_anon
+       | psk | dhe_psk | rsa_psk | srp_anon | srp_dss | srp_rsa
     </c></p>
 
    <p><c>cipher() = rc4_128 | des_cbc | '3des_ede_cbc'
@@ -133,6 +135,9 @@
 
     <p><c>prf_random() =  client_random | server_random
     </c></p>
+
+   <p><c>srp_param_type() = srp_1024 | srp_1536 | srp_2048 | srp_3072
+      | srp_4096 | srp_6144 | srp_8192</c></p>
 
   </section>
 
@@ -292,6 +297,35 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
             <c>undefined</c> is specified (this is the default), the process
             will never go into hibernation.
       </item>
+
+      <tag>{user_lookup_fun, {Lookupfun :: fun(), UserState :: term()}}</tag>
+      <item>
+	<p>The lookup fun should be defined as:</p>
+	<code>
+fun(psk, PSKIdentity, UserState :: term()) ->
+	{ok, SharedSecret :: binary()} | error;
+fun(srp, Username, UserState :: term()) ->
+	{ok, {SRPParams :: srp_param_type(), Salt :: binary(), UserPassHash :: binary()}} | error.
+	</code>
+
+	<p>For PSK cipher suites, the lookup fun will be called in the client and server the find
+	 the shared secret. On the client, PSKIdentity will be set to hint presented by the server
+	 or undefined. On the server, PSKIdentity is the identity presented by the client.
+	 For SRP cipher suites, the fun will only be used by the server to find the SRP values.
+	</p>
+
+	<p>For SRP, the required values on a server will usually be precalculated and kept in a passwd
+	like file. A sample SRP lookup fun that calculates the values on the fly for a single user entry
+	with a static password could be:</p>
+	<code><![CDATA[
+user_lookup(srp, Username, _UserState) ->
+    Salt = ssl:random_bytes(16),
+    UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, <<"secret">>])]),
+    {ok, {srp_1024, Salt, UserPassHash}}.
+	]]></code>
+
+      </item>
+
     </taglist>
 
   </section>
@@ -334,6 +368,14 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	   server does not support next protocol renegotiation the
 	   connection will be aborted if no default protocol is supplied.</p>
 	   </item>
+
+      <tag>{psk_identity, string()}</tag>
+      <item>Specifies the identity the client presents to the server. The matching secret is
+      found by calling the user_look_fun.
+      </item>
+      <tag>{srp_identity, {Username :: string(), Password :: string()}</tag>
+      <item>Specifies the Username and Password to use to authenticate to the server.
+      </item>
     </taglist>
    </section>
 
@@ -394,6 +436,10 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       that is not on this list. The list of protocols must not contain an empty
       binary. If the server negotiates a Next Protocol it can be accessed
       using <c>negotiated_next_protocol/1</c> method.
+      </item>
+
+      <tag>{psk_identity, string()}</tag>
+      <item>Specifies the server identity hint the server presents to the client.
       </item>
 
     </taglist>
