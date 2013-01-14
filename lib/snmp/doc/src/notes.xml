@@ -62,6 +62,12 @@
 	  <p>Own Id: OTP-10672</p>
         </item>
 
+        <item>
+          <p>[manager] SNMP manager performance optimization. </p>
+	  <p>Ivan Dubovik</p>
+	  <p>Own Id: OTP-10673</p>
+        </item>
+
       </list>
 
     </section>
