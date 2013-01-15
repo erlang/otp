@@ -108,18 +108,25 @@
     <func>
       <name name="get_env" arity="1"/>
       <name name="get_env" arity="2"/>
-      <name name="get_env" arity="3"/>
       <fsummary>Get the value of a configuration parameter</fsummary>
       <desc>
         <p>Returns the value of the configuration parameter <c><anno>Par</anno></c>
           for <c><anno>Application</anno></c>. If the application argument is
           omitted, it defaults to the application of the calling
-          process. If <c><anno>Def</anno></c> value is provided, it is returned
-          when no configuration parameter <c><anno>Par</anno></c> is defined.</p>
+          process.</p>
         <p>If the specified application is not loaded, or
           the configuration parameter does not exist, or if the process
           executing the call does not belong to any application,
           the function returns <c>undefined</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_env" arity="3"/>
+      <fsummary>Get the value of a configuration parameter using a default</fsummary>
+      <desc>
+        <p>Works like <seealso marker="#get_env/2">get_env/2</seealso> but returns
+          <c><anno>Def</anno></c> value when configuration parameter
+          <c><anno>Par</anno></c> does not exist.</p>
       </desc>
     </func>
     <func>
