@@ -71,8 +71,7 @@ WX_OBJECTS  = $(GENERAL_O) $(GENERATED_O) $(RC_FILE)
 
 OBJECTS = $(WX_OBJECTS) $(GL_OBJECTS)
 
-TARGET_APIS = wxe_driver erl_gl
-TARGET_DIR = ../priv
+TARGET_DIR = ../priv/$(SYS_TYPE)
 
 # -O2 -funroll-loops  -ffast-math -fomit-frame-pointer 
 
@@ -121,7 +120,7 @@ debug:
 
 clean:  
 	rm -f $(OBJECTS) 
-	rm -f ../priv/$(TARGET_DIR)/$(TARGET_API)$(SO_EXT)
+	rm -f $(TARGET_DIR)/*$(SO_EXT)
 	rm -f *~ erl_crash.dump
 
 complete_clean: 
