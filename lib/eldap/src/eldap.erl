@@ -42,7 +42,8 @@
 		log,                 % User provided log function
 		timeout = infinity,  % Request timeout
 		anon_auth = false,   % Allow anonymous authentication
-		use_tls = false      % LDAP/LDAPS
+		use_tls = false,      % LDAP/LDAPS
+		tls_opts = [] % ssl:ssloptsion()
 	       }).
 
 %%% For debug purposes
@@ -353,6 +354,10 @@ parse_args([{ssl, true}|T], Cpid, Data) ->
     parse_args(T, Cpid, Data#eldap{use_tls = true});
 parse_args([{ssl, _}|T], Cpid, Data) ->
     parse_args(T, Cpid, Data);
+parse_args([{sslopts, Opts}|T], Cpid, Data) when is_list(Opts) ->
+    parse_args(T, Cpid, Data#eldap{use_tls = true, tls_opts = Opts ++ Data#eldap.tls_opts});
+parse_args([{sslopts, _}|T], Cpid, Data) ->
+    parse_args(T, Cpid, Data);
 parse_args([{log, F}|T], Cpid, Data) when is_function(F) ->
     parse_args(T, Cpid, Data#eldap{log = F});
 parse_args([{log, _}|T], Cpid, Data) ->
@@ -384,8 +389,8 @@ try_connect([],_) ->
 do_connect(Host, Data, Opts) when Data#eldap.use_tls == false ->
     gen_tcp:connect(Host, Data#eldap.port, Opts, Data#eldap.timeout);
 do_connect(Host, Data, Opts) when Data#eldap.use_tls == true ->
-    ssl:connect(Host, Data#eldap.port, [{verify,0}|Opts]).
-
+    SslOpts = [{verify,0} | Opts ++ Data#eldap.tls_opts],
+    ssl:connect(Host, Data#eldap.port, SslOpts).
 
 loop(Cpid, Data) ->
     receive
