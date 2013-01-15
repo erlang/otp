@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -184,12 +184,16 @@ prepare_run_args({run, [M,F|Args]}) ->
     [b2a(M), b2a(F) | bs2ss(Args)].
 
 b2a(Bin) when is_binary(Bin) ->
-    list_to_atom(binary_to_list(Bin));
+    list_to_atom(b2s(Bin));
 b2a(A) when is_atom(A) ->
     A.
 
 b2s(Bin) when is_binary(Bin) ->
-    binary_to_list(Bin);
+    try
+	unicode:characters_to_list(Bin,file:native_name_encoding())
+    catch
+	_:_ -> binary_to_list(Bin)
+    end;
 b2s(L) when is_list(L) ->
     L.
 
@@ -1260,11 +1264,7 @@ get_arguments([]) ->
     [].
 
 to_strings([H|T]) when is_atom(H) -> [atom_to_list(H)|to_strings(T)];
-to_strings([H|T]) when is_binary(H) -> [try
-					    unicode:characters_to_list(H,file:native_name_encoding())
-					catch
-					    _:_ -> binary_to_list(H)
-					end|to_strings(T)];
+to_strings([H|T]) when is_binary(H) -> [b2s(H)|to_strings(T)];
 to_strings([])    -> [].
 
 get_argument(Arg,Flags) ->
