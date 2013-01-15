@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,6 +38,7 @@
          result_codes/1,
          send_ok/1,
          send_nok/1,
+         send_eval/1,
          send_bad_answer/1,
          send_arbitrary/1,
          send_unknown/1,
@@ -209,6 +210,7 @@ end_per_testcase(_, _) ->
 tc() ->
     [send_ok,
      send_nok,
+     send_eval,
      send_bad_answer,
      send_arbitrary,
      send_unknown,
@@ -308,6 +310,14 @@ send_nok(Config) ->
                   {'Accounting-Record-Number', 0}],
     
     #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS}
+        = call(Config, Req).
+
+%% Send an ACR and expect success.
+send_eval(Config) ->
+    Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
+                  {'Accounting-Record-Number', 3}],
+
+    #diameter_base_accounting_ACA{'Result-Code' = ?SUCCESS}
         = call(Config, Req).
 
 %% Send an accounting ACR that the server tries to answer with an
@@ -781,6 +791,19 @@ request(#diameter_base_accounting_ACR{'Session-Id' = SId,
 
     {reply, #diameter_packet{header = #diameter_header{is_error = true},%% not
                              msg = Ans}};
+
+request(#diameter_base_accounting_ACR{'Session-Id' = SId,
+                                      'Accounting-Record-Type' = RT,
+                                      'Accounting-Record-Number' = 3 = RN},
+        #diameter_caps{origin_host = {OH, _},
+                       origin_realm = {OR, _}}) ->
+    Ans = ['ACA', {'Result-Code', ?SUCCESS},
+                  {'Session-Id', SId},
+                  {'Origin-Host', OH},
+                  {'Origin-Realm', OR},
+                  {'Accounting-Record-Type', RT},
+                  {'Accounting-Record-Number', RN}],
+    {eval, {reply, Ans}, {erlang, now, []}};
 
 request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                                       'Accounting-Record-Type' = RT,
