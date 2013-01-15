@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2012</year>
+      <year>1996</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -100,7 +100,11 @@
       <name name="deep_list"/>
     </datatype>
     <datatype>
-      <name name="fd"/>
+      <name><marker id="type-fd">fd()</marker></name>
+      <desc>
+        <p>A file descriptor representing a file opened in <seealso
+          marker="#raw">raw</seealso> mode.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="filename"/>
@@ -109,8 +113,8 @@
       <name name="io_device"/>
       <desc>
         <p>As returned by
-          <seealso marker="#open/2">file:open/2</seealso>,
-          a process handling I/O-protocols.</p>
+          <seealso marker="#open/2">file:open/2</seealso>;
+          <c>pid()</c> is a process handling I/O-protocols.</p>
       </desc>
     </datatype>
     <datatype>
@@ -662,7 +666,8 @@
           </item>
           <tag><c>raw</c></tag>
           <item>
-            <p>The <c>raw</c> option allows faster access to a file,
+            <p><marker id="raw"/>
+              The <c>raw</c> option allows faster access to a file,
               because no Erlang process is needed to handle the file.
               However, a file opened in this way has the following
               limitations:</p>
@@ -1251,11 +1256,11 @@
         
         <p>The record <c>file_info</c> contains the following fields.</p>
         <taglist>
-          <tag><c>size = integer()</c></tag>
+          <tag><c>size = integer() >= 0</c></tag>
           <item>
             <p>Size of file in bytes.</p>
           </item>
-          <tag><c>type = device | directory | regular | other</c></tag>
+          <tag><c>type = device | directory | other | regular | symlink</c></tag>
           <item>
             <p>The type of the file.</p>
           </item>
@@ -1263,22 +1268,22 @@
           <item>
             <p>The current system access to the file.</p>
           </item>
-          <tag><c>atime = <seealso marker="#type-date_time">date_time()</seealso> | integer() </c></tag> 
+          <tag><c>atime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >= 0</c></tag>
           <item>
             <p>The last time the file was read.</p>
           </item>
-          <tag><c>mtime = <seealso marker="#type-date_time">date_time()</seealso> | integer() </c></tag> 
+          <tag><c>mtime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >= 0</c></tag>
           <item>
             <p>The last time the file was written.</p>
           </item>
-          <tag><c>ctime = <seealso marker="#type-date_time">date_time()</seealso> | integer() </c></tag> 
+          <tag><c>ctime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >=0</c></tag>
           <item>
             <p>The interpretation of this time field depends on
               the operating system. On Unix, it is the last time
               the file or the inode was changed. In Windows, it is
               the create time.</p>
           </item>
-          <tag><c>mode = integer()</c></tag>
+          <tag><c>mode = integer() >= 0</c></tag>
           <item>
             <p>The file permissions as the sum of the following bit
               values:</p>
@@ -1309,33 +1314,33 @@
             <p>On Unix platforms, other bits than those listed above
               may be set.</p>
           </item>
-          <tag><c>links = integer()</c></tag>
+          <tag><c>links = integer() >= 0</c></tag>
           <item>
             <p>Number of links to the file (this will always be 1 for
               file systems which have no concept of links).</p>
           </item>
-          <tag><c>major_device = integer()</c></tag>
+          <tag><c>major_device = integer() >= 0</c></tag>
           <item>
             <p>Identifies the file system where the file is located.
               In Windows, the number indicates a drive as follows:
               0 means A:, 1 means B:, and so on.</p>
           </item>
-          <tag><c>minor_device = integer()</c></tag>
+          <tag><c>minor_device = integer() >= 0</c></tag>
           <item>
             <p>Only valid for character devices on Unix. In all other
               cases, this field is zero.</p>
           </item>
-          <tag><c>inode = integer()</c></tag>
+          <tag><c>inode = integer() >= 0</c></tag>
           <item>
             <p>Gives the <c>inode</c> number. On non-Unix file systems,
               this field will be zero.</p>
           </item>
-          <tag><c>uid = integer()</c></tag>
+          <tag><c>uid = integer() >= 0</c></tag>
           <item>
             <p>Indicates the owner of the file. Will be zero for
               non-Unix file systems.</p>
           </item>
-          <tag><c>gid = integer()</c></tag>
+          <tag><c>gid = integer() >= 0</c></tag>
           <item>
             <p>Gives the group that the owner of the file belongs to.
               Will be zero for non-Unix file systems.</p>
@@ -1766,22 +1771,22 @@
         <p>The following fields are used from the record, if they are
           given.</p>
         <taglist>
-          <tag><c>atime = <seealso marker="#type-date_time">date_time()</seealso> | integer()</c></tag>
+          <tag><c>atime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >= 0</c></tag>
           <item>
             <p>The last time the file was read.</p>
           </item>
-          <tag><c>mtime = <seealso marker="#type-date_time">date_time()</seealso> | integer()</c></tag>
+          <tag><c>mtime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >= 0</c></tag>
           <item>
             <p>The last time the file was written.</p>
           </item>
-          <tag><c>ctime = <seealso marker="#type-date_time">date_time()</seealso> | integer()</c></tag>
+          <tag><c>ctime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >= 0</c></tag>
           <item>
             <p>On Unix, any value give for this field will be ignored
               (the "ctime" for the file will be set to the current
               time). On Windows, this field is the new creation time to
               set for the file.</p>
           </item>
-          <tag><c>mode = integer()</c></tag>
+          <tag><c>mode = integer() >= 0</c></tag>
           <item>
             <p>The file permissions as the sum of the following bit
               values:</p>
@@ -1812,15 +1817,15 @@
             <p>On Unix platforms, other bits than those listed above
               may be set.</p>
           </item>
-          <tag><c>uid = integer()</c></tag>
+          <tag><c>uid = integer() >= 0</c></tag>
           <item>
             <p>Indicates the owner of the file. Ignored for non-Unix
               file systems.</p>
           </item>
-          <tag><c>gid = integer()</c></tag>
+          <tag><c>gid = integer() >= 0</c></tag>
           <item>
             <p>Gives the group that the owner of the file belongs to.
-              Ignored non-Unix file systems.</p>
+              Ignored for non-Unix file systems.</p>
           </item>
         </taglist>
         <p>Typical error reasons:</p>
