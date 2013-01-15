@@ -40,6 +40,8 @@
 -export([getRenderer/1,isNull/1,parent_class/1]).
 
 -export_type([wxGraphicsContext/0]).
+-deprecated([createLinearGradientBrush/7,createRadialGradientBrush/8]).
+
 %% @hidden
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
@@ -225,9 +227,10 @@ drawLines(This,Points)
   drawLines(This,Points, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextdrawlines">external documentation</a>.
+%%<br /> FillStyle = integer
 -spec drawLines(This, Points, [Option]) -> ok when
 	This::wxGraphicsContext(), Points::[{X::float(), Y::float()}],
-	Option :: {fillStyle, integer()}.
+	Option :: {fillStyle, wx:wx_enum()}.
 drawLines(#wx_ref{type=ThisT,ref=ThisRef},Points, Options)
  when is_list(Points),is_list(Options) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -247,9 +250,10 @@ drawPath(This,Path)
   drawPath(This,Path, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextdrawpath">external documentation</a>.
+%%<br /> FillStyle = integer
 -spec drawPath(This, Path, [Option]) -> ok when
 	This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath(),
-	Option :: {fillStyle, integer()}.
+	Option :: {fillStyle, wx:wx_enum()}.
 drawPath(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PathT,ref=PathRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -331,9 +335,10 @@ fillPath(This,Path)
   fillPath(This,Path, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextfillpath">external documentation</a>.
+%%<br /> FillStyle = integer
 -spec fillPath(This, Path, [Option]) -> ok when
 	This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath(),
-	Option :: {fillStyle, integer()}.
+	Option :: {fillStyle, wx:wx_enum()}.
 fillPath(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PathT,ref=PathRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxGraphicsContext),

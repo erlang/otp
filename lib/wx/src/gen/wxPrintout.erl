@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -61,7 +61,8 @@ new(Title, OnPrintPage) ->
 %%   <pre>OnBeginDocument(This,StartPage,EndPage) -> boolean()  </pre>
 %%   <pre>OnEndDocument(This) -> term()  </pre>
 %%   <pre>HasPage(This,Page)} -> boolean()   </pre>
-%%   <pre>GetPageInfo(This) -> {MinPage:.integer(), MaxPage::integer(), PageFrom::integer(), PageTo::integer()}  </pre>
+%%   <pre>GetPageInfo(This) -> {MinPage::integer(), MaxPage::integer(),
+%%                              PageFrom::integer(), PageTo::integer()}  </pre>
 %%  The <b>This</b> argument is the wxPrintout object reference to this object
 %%  <br /> NOTE: The callbacks may not call other processes. 
 new(Title, OnPrintPage, Opts) when is_list(Title), is_function(OnPrintPage), is_list(Opts) ->

@@ -70,8 +70,7 @@ gen_class1(C=#class{name=Name,parent="static",methods=Ms,options=_Opts}) ->
 
     Exp = fun(M) -> gen_export(C,M) end,
     ExportList = lists:usort(lists:append(lists:map(Exp,reverse(Ms)))),
-    w("-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
-
+    w("-export([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", ExportList, 60)]),
 
     Gen = fun(M) -> gen_method(Name,M) end,
     NewMs = lists:map(Gen,reverse(Ms)),
@@ -134,7 +133,7 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    w("-include(\"wxe.hrl\").~n",[]),
 	    Exp = fun(M) -> gen_export(C,M) end,
 	    ExportList = lists:usort(lists:append(lists:map(Exp,reverse(Ms)))),
-	    w("-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
+	    w("-export([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", ExportList, 60)]),
 	    w("%% inherited exports~n",[]),
 	    Done0 = ["Destroy", "New", "Create", "destroy", "new", "create"],
 	    Done  = gb_sets:from_list(Done0 ++ [M|| #method{name=M} <- lists:append(Ms)]),
@@ -143,6 +142,10 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 					  lists:usort(["parent_class/1"|InExported]),
 					  60)]),
 	    w("-export_type([~s/0]).~n", [Name]),
+	    case lists:filter(fun({_F,Depr}) -> Depr end, ExportList) of
+		[] -> ok;
+		Depr -> w("-deprecated([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", Depr, 60)])
+	    end,
 	    w("%% @hidden~n", []),
 	    parents_check(Parents),
 	    w("-type ~s() :: wx:wx_object().~n", [Name]),
@@ -218,33 +221,40 @@ gen_export(#class{name=Class,abstract=Abs},Ms0) ->
     case Res of
 	[] -> [];
 	[M=#method{where=taylormade}|_] ->
-	    [taylormade_export(Class, M)];
+	    [deprecated(M, taylormade_export(Class, M))];
 	Ms ->
-	    GetF = fun(#method{method_type=constructor,where=W,params=Ps}) ->
+	    GetF = fun(M=#method{method_type=constructor,where=W,params=Ps}) ->
 			   {Args,Opts} = split_optional(Ps),
 			   OptLen = case Opts of
 					[] -> 0;
 					_ when W =:= erl_no_opt -> 0;
 					_ -> 1
 				    end,
-			   "new/" ++ integer_to_list(length(Args)+OptLen);
-		      (#method{method_type=destructor}) ->
+			   deprecated(M, "new" ++ "/" ++ integer_to_list(length(Args)+OptLen));
+		      (M=#method{method_type=destructor}) ->
 			   case Abs of
 			       true -> [];
-			       _ -> "destroy/1"
+			       _ -> deprecated(M, "destroy/1")
 			   end;
-		      (#method{name=N,alias=A,where=W, params=Ps}) ->
+		      (M=#method{name=N,alias=A,where=W, params=Ps}) ->
 			   {Args,Opts} = split_optional(Ps),
 			   OptLen = case Opts of
 					[] -> 0;
 					_ when W =:= erl_no_opt -> 0;
 					_ -> 1
 				    end,
-			   erl_func_name(N,A) ++ "/" ++ integer_to_list(length(Args) + OptLen)
+			   deprecated(M, erl_func_name(N,A) ++ "/" ++ integer_to_list(length(Args) + OptLen))
 		   end,
 	    lists:map(GetF, Ms)
     end.
 
+deprecated(#method{opts=FOpts}, FA) ->
+    case lists:keysearch(deprecated, 1, FOpts) of
+	{value, {deprecated, _}} ->
+	    {FA,true};
+	_ ->
+	    {FA,false}
+    end.
 
 gen_method(Class,Ms0) ->
     RemoveC = fun(#method{where=merged_c}) -> false;(_Other) -> true end,
@@ -832,15 +842,20 @@ doc_enum(_,Ps) ->
     [doc_enum_type(Type,Name) || #param{name=Name, type=#type{base={enum,Type}}} <- Ps].
 
 doc_enum_type(Type, Name) ->
-    {Enum0, #enum{vals=Vals}} = wx_gen:get_enum(Type),
-    Enum = case Enum0 of {_, E} -> E; E -> E end,
-    Consts = get(consts),
-    Format = fun({N,_What}) ->
-		     #const{name=N} = gb_trees:get(N, Consts),
-		     "?" ++ enum_name(N)
-	     end,
-    Vs = args(Format, " | ", Vals),
-    {uppercase(Enum),Name, Vs}.
+    try
+	{Enum0, #enum{vals=Vals}} = wx_gen:get_enum(Type),
+	Enum = case Enum0 of {_, E} -> E; E -> E end,
+	Consts = get(consts),
+	Format = fun({N,_What}) ->
+			 #const{name=N} = gb_trees:get(N, Consts),
+			 "?" ++ enum_name(N)
+		 end,
+	Vs = args(Format, " | ", Vals),
+	{uppercase(Enum),Name, Vs}
+    catch _:_ ->
+	    io:format("Warning missing enum type ~p~n", [Type]),
+	    {uppercase(Type),Name,"integer"}
+    end.
 
 doc_enum_desc([]) -> ok;
 doc_enum_desc([{_Enum,Name,Vs}|R]) ->
@@ -1014,10 +1029,22 @@ align(64, 1, Str) -> {"0:32," ++ Str,0};
 align(Sz, W, Str) -> align(Sz, W rem 2, Str).
 
 enum_name(Name) ->
-    case string:tokens(Name, ":") of
-	[Name] -> Name;
-	[C,N] ->  C ++ "_" ++ N
+    case enum_split(Name) of
+	{undefined, _} -> Name;
+	{_C, ErlName} -> ErlName
     end.
+
+enum_split(Name) ->
+    case string:tokens(Name, ":") of
+	[Name] -> {undefined, Name};
+	[C,N] ->  {C, enum_name(C,N)}
+    end.
+
+enum_name(undefined, Name) -> Name;
+enum_name(Enum, Name) -> Enum ++ "_" ++ Name.
+
+enum_name_c(undefined, Name) -> Name;
+enum_name_c(Enum, Name) -> Enum ++ "::" ++ Name.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1058,6 +1085,14 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 	    w("% From class ~s::~s~n",[Class, Name])
     end,
 
+    Consts = get(consts),
+    Ignore = fun(Name) ->
+		     case gb_trees:lookup(Name, Consts) of
+			 {value, Const} -> Const;
+			 none -> true
+		     end
+	     end,
+
     Format = fun(#const{name="wxEVT_" ++ _}) ->
 		     ignore; %% Ignore event macros they are not valid in our event model
 		(#const{name=Name,val=Value,is_const=true}) when is_number(Value) ->
@@ -1065,44 +1100,57 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 		(#const{name=Name,val=Value,is_const=false}) when is_number(Value) ->
 		     w("-define(~s, wxe_util:get_const(~s)).~n", [enum_name(Name),enum_name(Name)]);
 		(#const{name=Name,val={Str,0}}) ->
+		     {EnumClass, EnumName} = enum_split(Name),
 		     case string:tokens(Str, " |()") of
 			 [Token] ->
-			     w("-define(~s, ~s).~n", [enum_name(Name),const_value(Token)]);
+			     w("-define(~s, ~s).~n", [EnumName,const_value(Token, EnumClass, Ignore)]);
 			 Tokens ->
-			     Def = args(fun(T) -> const_value(T) end, " bor ", Tokens),
-			     w("-define(~s, (~s)).~n", [enum_name(Name),Def])
+			     Def = args(fun(T) -> const_value(T, EnumClass, Ignore) end, " bor ", Tokens),
+			     w("-define(~s, (~s)).~n", [EnumName, Def])
 		     end;
 		(#const{name=Name,val={Str,N}}) ->
+		     {EnumClass, EnumName} = enum_split(Name),
 		     case string:tokens(Str, " |()") of
 			 [Token] ->
-			     w("-define(~s, (?~s+~p)).~n", [enum_name(Name),Token,N])
+			     w("-define(~s, (~s+~p)).~n", [EnumName,const_value(Token, EnumClass, Ignore),N])
 		     end
 	     end,
-    Consts = get(consts),
+
     Write = fun({Name,_What}, Skip) ->
-		    case gb_sets:is_member(Name,Skip) of
-			true ->
-			    Skip;
-			false ->
-			    case gb_trees:lookup(Name, Consts) of
-				{value, Const} ->
-				    Format(Const),
-				    gb_sets:add(Name,Skip);
-				none -> Skip
-			    end
+		    case gb_sets:is_member(Name,Skip) orelse Ignore(Name) of
+			true -> Skip;
+			Const ->
+			    try Format(Const)
+			    catch {unknown_value, _Error} ->
+				    %% io:format("Const ~s uses unknown define ~p ignoring~n", [Name, _Error]),
+				    ok
+			    end,
+			    gb_sets:add(Name,Skip)
 		    end
 	    end,
     lists:foldl(Write, Done, Vals).
 
-const_value(V) when is_integer(V) -> integer_to_list(V);
-const_value(V = "16#" ++ IntList) ->
+const_value(V,_,_) when is_integer(V) -> integer_to_list(V);
+const_value(V = "16#" ++ IntList,_,_) ->
     _ = http_util:hexlist_to_integer(IntList), %% ASSERT
     V;
-const_value(V0) ->
+const_value(V0, EnumClass, Ignore) ->
     try
 	_ = list_to_integer(V0),
 	V0
-    catch _:_ -> [$?|V0]
+    catch _:_ ->
+	    EEnum = enum_name(EnumClass, V0),
+	    CEnum = enum_name_c(EnumClass, V0),
+	    case Ignore(CEnum) of
+		true when CEnum == V0 ->
+		    throw({unknown_value, EEnum});
+		true ->
+		    case Ignore(V0) of
+			true -> throw({unknown_value, EEnum});
+			_ -> [$?|V0]
+		    end;
+		_ -> [$?|EEnum]
+	    end
     end.
 
 gen_event_recs() ->

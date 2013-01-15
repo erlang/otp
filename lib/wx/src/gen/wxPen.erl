@@ -113,8 +113,9 @@ isOk(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpen.html#wxpensetcap">external documentation</a>.
+%%<br /> CapStyle = integer
 -spec setCap(This, CapStyle) -> ok when
-	This::wxPen(), CapStyle::integer().
+	This::wxPen(), CapStyle::wx:wx_enum().
 setCap(#wx_ref{type=ThisT,ref=ThisRef},CapStyle)
  when is_integer(CapStyle) ->
   ?CLASS(ThisT,wxPen),
@@ -140,8 +141,9 @@ setColour(#wx_ref{type=ThisT,ref=ThisRef},Red,Green,Blue)
   <<ThisRef:32/?UI,Red:32/?UI,Green:32/?UI,Blue:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpen.html#wxpensetjoin">external documentation</a>.
+%%<br /> JoinStyle = integer
 -spec setJoin(This, JoinStyle) -> ok when
-	This::wxPen(), JoinStyle::integer().
+	This::wxPen(), JoinStyle::wx:wx_enum().
 setJoin(#wx_ref{type=ThisT,ref=ThisRef},JoinStyle)
  when is_integer(JoinStyle) ->
   ?CLASS(ThisT,wxPen),

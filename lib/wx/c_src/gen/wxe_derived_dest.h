@@ -94,19 +94,25 @@ class EwxPostScriptDC : public wxPostScriptDC {
 class EwxWindowDC : public wxWindowDC {
  public: ~EwxWindowDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxWindowDC(wxWindow * win) : wxWindowDC(win) {};
+#if !wxCHECK_VERSION(2,9,0)
  EwxWindowDC() : wxWindowDC() {};
+#endif
 };
 
 class EwxClientDC : public wxClientDC {
  public: ~EwxClientDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxClientDC(wxWindow * win) : wxClientDC(win) {};
+#if !wxCHECK_VERSION(2,9,0)
  EwxClientDC() : wxClientDC() {};
+#endif
 };
 
 class EwxPaintDC : public wxPaintDC {
  public: ~EwxPaintDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxPaintDC(wxWindow * win) : wxPaintDC(win) {};
+#if !wxCHECK_VERSION(2,9,0)
  EwxPaintDC() : wxPaintDC() {};
+#endif
 };
 
 class EwxMemoryDC : public wxMemoryDC {
@@ -182,7 +188,9 @@ class EwxIcon : public wxIcon {
 
 class EwxCursor : public wxCursor {
  public: ~EwxCursor() {((WxeApp *)wxTheApp)->clearPtr(this);};
+#if !wxCHECK_VERSION(2,9,0)
  EwxCursor(const char * bits,int width,int height,int hotSpotX,int hotSpotY) : wxCursor(bits,width,height,hotSpotX,hotSpotY) {};
+#endif
  EwxCursor(int cursorId) : wxCursor(cursorId) {};
  EwxCursor(const wxImage& image) : wxCursor(image) {};
  EwxCursor() : wxCursor() {};
@@ -286,7 +294,7 @@ class EwxStdDialogButtonSizer : public wxStdDialogButtonSizer {
 
 class EwxFont : public wxFont {
  public: ~EwxFont() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxFont(int size,int family,int style,int weight,bool underlined,const wxString& face,wxFontEncoding encoding) : wxFont(size,family,style,weight,underlined,face,encoding) {};
+ EwxFont(int size,wxFontFamily family,wxFontStyle style,int weight,bool underlined,const wxString& face,wxFontEncoding encoding) : wxFont(size,family,style,weight,underlined,face,encoding) {};
  EwxFont(const wxString& fontname) : wxFont(fontname) {};
  EwxFont() : wxFont() {};
 };
@@ -712,7 +720,9 @@ class EwxMDIChildFrame : public wxMDIChildFrame {
 
 class EwxMDIClientWindow : public wxMDIClientWindow {
  public: ~EwxMDIClientWindow() {((WxeApp *)wxTheApp)->clearPtr(this);};
+#if !wxCHECK_VERSION(2,9,0)
  EwxMDIClientWindow(wxMDIParentFrame * parent,long style) : wxMDIClientWindow(parent,style) {};
+#endif
  EwxMDIClientWindow() : wxMDIClientWindow() {};
 };
 

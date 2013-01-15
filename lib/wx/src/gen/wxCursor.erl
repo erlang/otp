@@ -35,6 +35,8 @@
   saveFile/4,setDepth/2,setHeight/2,setMask/2,setPalette/2,setWidth/2]).
 
 -export_type([wxCursor/0]).
+-deprecated([new/3,new/4]).
+
 %% @hidden
 parent_class(wxBitmap) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).

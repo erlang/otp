@@ -25,7 +25,8 @@
 -include_lib("wx/include/wx.hrl").
 
 -behaviour(wx_object).
--export([start/1, init/1, terminate/2,  code_change/3,
+-export([start/1, init/1,
+	 terminate/2,  code_change/3,
 	 handle_info/2, handle_call/3, handle_cast/2, handle_event/2]).
 
 -record(state, 
@@ -120,6 +121,7 @@ do_init(Config) ->
     wxWindow:connect(Panel, command_button_clicked),
     wxWindow:setSizer(Panel, Sz),
     wxSizer:layout(Sz),
+    wxWindow:refresh(Panel),
     wxScrolledWindow:setScrollRate(Panel, 5, 5),
     {Panel, #state{parent=Panel, config=Config}}.
 
@@ -149,6 +151,10 @@ handle_info(Msg, State) ->
     demo:format(State#state.config, "Got Info ~p~n",[Msg]),
     {noreply,State}.
 
+handle_call(shutdown, _From, State=#state{parent=Panel}) ->
+    wxPanel:destroy(Panel),
+    {stop, normal, ok, State};
+
 handle_call(Msg, _From, State) ->
     demo:format(State#state.config,"Got Call ~p~n",[Msg]),
     {reply,ok,State}.
@@ -160,7 +166,7 @@ handle_cast(Msg, State) ->
 code_change(_, _, State) ->
     {stop, ignore, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, _) ->
     ok.
 
 %%%%%  a copy from wxwidgets samples.

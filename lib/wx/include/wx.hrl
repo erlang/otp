@@ -131,7 +131,7 @@
 -type wxScrollWin() :: #wxScrollWin{}. %% Callback event: {@link wxScrollWinEvent}
 
 -record(wxPaint, {type :: wxPaintEventType()}). %% Callback event: {@link wxPaintEvent}
--type wxPaintEventType() :: paint | paint_icon.
+-type wxPaintEventType() :: paint.
 -type wxPaint() :: #wxPaint{}. %% Callback event: {@link wxPaintEvent}
 
 -record(wxChildFocus, {type :: wxChildFocusEventType()}). %% Callback event: {@link wxChildFocusEvent}
@@ -252,7 +252,7 @@
 	wheelRotation :: integer(),
 	wheelDelta :: integer(),
 	linesPerAction :: integer()}).
--type wxMouseEventType() :: left_down | left_up | middle_down | middle_up | right_down | right_up | motion | enter_window | leave_window | left_dclick | middle_dclick | right_dclick | mousewheel | nc_left_down | nc_left_up | nc_middle_down | nc_middle_up | nc_right_down | nc_right_up | nc_motion | nc_enter_window | nc_leave_window | nc_left_dclick | nc_middle_dclick | nc_right_dclick.
+-type wxMouseEventType() :: left_down | left_up | middle_down | middle_up | right_down | right_up | motion | enter_window | leave_window | left_dclick | middle_dclick | right_dclick | mousewheel.
 -type wxMouse() :: #wxMouse{}. %% Callback event: {@link wxMouseEvent}
 
 -record(wxWindowCreate, {type :: wxWindowCreateEventType()}). %% Callback event: {@link wxWindowCreateEvent}
@@ -292,10 +292,6 @@
 -type wxIdleEventType() :: idle.
 -type wxIdle() :: #wxIdle{}. %% Callback event: {@link wxIdleEvent}
 
--record(wxNcPaint, {type :: wxNcPaintEventType()}). %% Callback event: {@link wxNcPaintEvent}
--type wxNcPaintEventType() :: nc_paint.
--type wxNcPaint() :: #wxNcPaint{}. %% Callback event: {@link wxNcPaintEvent}
-
 -record(wxColourPicker,{type :: wxColourPickerEventType(), %% Callback event: {@link wxColourPickerEvent}
 	colour :: wx:wx_colour()}).
 -type wxColourPickerEventType() :: command_colourpicker_changed.
@@ -312,8 +308,8 @@
 -type wxTreeEventType() :: command_tree_begin_drag | command_tree_begin_rdrag | command_tree_begin_label_edit | command_tree_end_label_edit | command_tree_delete_item | command_tree_get_info | command_tree_set_info | command_tree_item_expanded | command_tree_item_expanding | command_tree_item_collapsed | command_tree_item_collapsing | command_tree_sel_changed | command_tree_sel_changing | command_tree_key_down | command_tree_item_activated | command_tree_item_right_click | command_tree_item_middle_click | command_tree_end_drag | command_tree_state_image_click | command_tree_item_gettooltip | command_tree_item_menu.
 -type wxTree() :: #wxTree{}. %% Callback event: {@link wxTreeEvent}
 
--type event() :: wxAuiManager() | wxAuiNotebook() | wxCalendar() | wxChildFocus() | wxClose() | wxColourPicker() | wxCommand() | wxContextMenu() | wxDate() | wxDisplayChanged() | wxErase() | wxFileDirPicker() | wxFocus() | wxFontPicker() | wxGrid() | wxHelp() | wxHtmlLink() | wxIconize() | wxIdle() | wxJoystick() | wxKey() | wxList() | wxMaximize() | wxMenu() | wxMouse() | wxMouseCaptureChanged() | wxMove() | wxNavigationKey() | wxNcPaint() | wxNotebook() | wxPaint() | wxPaletteChanged() | wxQueryNewPalette() | wxSash() | wxScroll() | wxScrollWin() | wxSetCursor() | wxShow() | wxSize() | wxSpin() | wxSplitter() | wxStyledText() | wxSysColourChanged() | wxTaskBarIcon() | wxTree() | wxUpdateUI() | wxWindowCreate() | wxWindowDestroy().
--type wxEventType() :: wxAuiManagerEventType() | wxAuiNotebookEventType() | wxCalendarEventType() | wxChildFocusEventType() | wxCloseEventType() | wxColourPickerEventType() | wxCommandEventType() | wxContextMenuEventType() | wxDateEventType() | wxDisplayChangedEventType() | wxEraseEventType() | wxFileDirPickerEventType() | wxFocusEventType() | wxFontPickerEventType() | wxGridEventType() | wxHelpEventType() | wxHtmlLinkEventType() | wxIconizeEventType() | wxIdleEventType() | wxJoystickEventType() | wxKeyEventType() | wxListEventType() | wxMaximizeEventType() | wxMenuEventType() | wxMouseCaptureChangedEventType() | wxMouseEventType() | wxMoveEventType() | wxNavigationKeyEventType() | wxNcPaintEventType() | wxNotebookEventType() | wxPaintEventType() | wxPaletteChangedEventType() | wxQueryNewPaletteEventType() | wxSashEventType() | wxScrollEventType() | wxScrollWinEventType() | wxSetCursorEventType() | wxShowEventType() | wxSizeEventType() | wxSpinEventType() | wxSplitterEventType() | wxStyledTextEventType() | wxSysColourChangedEventType() | wxTaskBarIconEventType() | wxTreeEventType() | wxUpdateUIEventType() | wxWindowCreateEventType() | wxWindowDestroyEventType().
+-type event() :: wxAuiManager() | wxAuiNotebook() | wxCalendar() | wxChildFocus() | wxClose() | wxColourPicker() | wxCommand() | wxContextMenu() | wxDate() | wxDisplayChanged() | wxErase() | wxFileDirPicker() | wxFocus() | wxFontPicker() | wxGrid() | wxHelp() | wxHtmlLink() | wxIconize() | wxIdle() | wxJoystick() | wxKey() | wxList() | wxMaximize() | wxMenu() | wxMouse() | wxMouseCaptureChanged() | wxMove() | wxNavigationKey() | wxNotebook() | wxPaint() | wxPaletteChanged() | wxQueryNewPalette() | wxSash() | wxScroll() | wxScrollWin() | wxSetCursor() | wxShow() | wxSize() | wxSpin() | wxSplitter() | wxStyledText() | wxSysColourChanged() | wxTaskBarIcon() | wxTree() | wxUpdateUI() | wxWindowCreate() | wxWindowDestroy().
+-type wxEventType() :: wxAuiManagerEventType() | wxAuiNotebookEventType() | wxCalendarEventType() | wxChildFocusEventType() | wxCloseEventType() | wxColourPickerEventType() | wxCommandEventType() | wxContextMenuEventType() | wxDateEventType() | wxDisplayChangedEventType() | wxEraseEventType() | wxFileDirPickerEventType() | wxFocusEventType() | wxFontPickerEventType() | wxGridEventType() | wxHelpEventType() | wxHtmlLinkEventType() | wxIconizeEventType() | wxIdleEventType() | wxJoystickEventType() | wxKeyEventType() | wxListEventType() | wxMaximizeEventType() | wxMenuEventType() | wxMouseCaptureChangedEventType() | wxMouseEventType() | wxMoveEventType() | wxNavigationKeyEventType() | wxNotebookEventType() | wxPaintEventType() | wxPaletteChangedEventType() | wxQueryNewPaletteEventType() | wxSashEventType() | wxScrollEventType() | wxScrollWinEventType() | wxSetCursorEventType() | wxShowEventType() | wxSizeEventType() | wxSpinEventType() | wxSplitterEventType() | wxStyledTextEventType() | wxSysColourChangedEventType() | wxTaskBarIconEventType() | wxTreeEventType() | wxUpdateUIEventType() | wxWindowCreateEventType() | wxWindowDestroyEventType().
 
 %% Hardcoded Records
 -record(wxMouseState, {x :: integer(), y :: integer(),
@@ -420,78 +416,78 @@
 -define(wxDateTime_Country_Unknown, 0).
 -define(wxDateTime_Country_Default, 1).
 -define(wxDateTime_Country_WesternEurope_Start, 2).
--define(wxDateTime_Country_EEC, ?Country_WesternEurope_Start).
--define(wxDateTime_France, (?Country_WesternEurope_Start+1)).
--define(wxDateTime_Germany, (?Country_WesternEurope_Start+2)).
--define(wxDateTime_UK, (?Country_WesternEurope_Start+3)).
--define(wxDateTime_Country_WesternEurope_End, ?UK).
--define(wxDateTime_Russia, (?UK+1)).
--define(wxDateTime_USA, (?UK+2)).
+-define(wxDateTime_Country_EEC, ?wxDateTime_Country_WesternEurope_Start).
+-define(wxDateTime_France, (?wxDateTime_Country_WesternEurope_Start+1)).
+-define(wxDateTime_Germany, (?wxDateTime_Country_WesternEurope_Start+2)).
+-define(wxDateTime_UK, (?wxDateTime_Country_WesternEurope_Start+3)).
+-define(wxDateTime_Country_WesternEurope_End, ?wxDateTime_UK).
+-define(wxDateTime_Russia, (?wxDateTime_UK+1)).
+-define(wxDateTime_USA, (?wxDateTime_UK+2)).
 % From class wxDateTime::GregorianAdoption
 -define(wxDateTime_Gr_Unknown, 0).
 -define(wxDateTime_Gr_Standard, 1).
 -define(wxDateTime_Gr_Alaska, 2).
 -define(wxDateTime_Gr_Albania, 3).
--define(wxDateTime_Gr_Austria, ?Gr_Unknown).
--define(wxDateTime_Gr_Austria_Brixen, (?Gr_Unknown+1)).
--define(wxDateTime_Gr_Austria_Salzburg, ?Gr_Austria_Brixen).
--define(wxDateTime_Gr_Austria_Tyrol, ?Gr_Austria_Brixen).
--define(wxDateTime_Gr_Austria_Carinthia, (?Gr_Austria_Brixen+1)).
--define(wxDateTime_Gr_Austria_Styria, ?Gr_Austria_Carinthia).
--define(wxDateTime_Gr_Belgium, (?Gr_Austria_Carinthia+1)).
--define(wxDateTime_Gr_Bulgaria, ?Gr_Unknown).
--define(wxDateTime_Gr_Bulgaria_1, (?Gr_Unknown+1)).
--define(wxDateTime_Gr_Bulgaria_2, (?Gr_Unknown+2)).
--define(wxDateTime_Gr_Bulgaria_3, (?Gr_Unknown+3)).
--define(wxDateTime_Gr_Canada, ?Gr_Unknown).
--define(wxDateTime_Gr_China, ?Gr_Unknown).
--define(wxDateTime_Gr_China_1, (?Gr_Unknown+1)).
--define(wxDateTime_Gr_China_2, (?Gr_Unknown+2)).
--define(wxDateTime_Gr_Czechoslovakia, (?Gr_Unknown+3)).
--define(wxDateTime_Gr_Denmark, (?Gr_Unknown+4)).
--define(wxDateTime_Gr_Egypt, (?Gr_Unknown+5)).
--define(wxDateTime_Gr_Estonia, (?Gr_Unknown+6)).
--define(wxDateTime_Gr_Finland, (?Gr_Unknown+7)).
--define(wxDateTime_Gr_France, (?Gr_Unknown+8)).
--define(wxDateTime_Gr_France_Alsace, (?Gr_Unknown+9)).
--define(wxDateTime_Gr_France_Lorraine, (?Gr_Unknown+10)).
--define(wxDateTime_Gr_France_Strasbourg, (?Gr_Unknown+11)).
--define(wxDateTime_Gr_Germany, ?Gr_Unknown).
--define(wxDateTime_Gr_Germany_Catholic, (?Gr_Unknown+1)).
--define(wxDateTime_Gr_Germany_Prussia, (?Gr_Unknown+2)).
--define(wxDateTime_Gr_Germany_Protestant, (?Gr_Unknown+3)).
--define(wxDateTime_Gr_GreatBritain, (?Gr_Unknown+4)).
--define(wxDateTime_Gr_Greece, (?Gr_Unknown+5)).
--define(wxDateTime_Gr_Hungary, (?Gr_Unknown+6)).
--define(wxDateTime_Gr_Ireland, ?Gr_GreatBritain).
--define(wxDateTime_Gr_Italy, ?Gr_Standard).
--define(wxDateTime_Gr_Japan, ?Gr_Unknown).
--define(wxDateTime_Gr_Japan_1, (?Gr_Unknown+1)).
--define(wxDateTime_Gr_Japan_2, (?Gr_Unknown+2)).
--define(wxDateTime_Gr_Japan_3, (?Gr_Unknown+3)).
--define(wxDateTime_Gr_Latvia, (?Gr_Unknown+4)).
--define(wxDateTime_Gr_Lithuania, (?Gr_Unknown+5)).
--define(wxDateTime_Gr_Luxemburg, (?Gr_Unknown+6)).
--define(wxDateTime_Gr_Netherlands, ?Gr_Belgium).
--define(wxDateTime_Gr_Netherlands_Groningen, (?Gr_Belgium+1)).
--define(wxDateTime_Gr_Netherlands_Gelderland, (?Gr_Belgium+2)).
--define(wxDateTime_Gr_Netherlands_Utrecht, (?Gr_Belgium+3)).
--define(wxDateTime_Gr_Netherlands_Friesland, (?Gr_Belgium+4)).
--define(wxDateTime_Gr_Norway, ?Gr_Denmark).
--define(wxDateTime_Gr_Poland, ?Gr_Standard).
--define(wxDateTime_Gr_Portugal, ?Gr_Standard).
--define(wxDateTime_Gr_Romania, (?Gr_Standard+1)).
--define(wxDateTime_Gr_Russia, (?Gr_Standard+2)).
--define(wxDateTime_Gr_Scotland, ?Gr_GreatBritain).
--define(wxDateTime_Gr_Spain, ?Gr_Standard).
--define(wxDateTime_Gr_Sweden, ?Gr_Finland).
--define(wxDateTime_Gr_Switzerland, ?Gr_Unknown).
--define(wxDateTime_Gr_Switzerland_Catholic, (?Gr_Unknown+1)).
--define(wxDateTime_Gr_Switzerland_Protestant, (?Gr_Unknown+2)).
--define(wxDateTime_Gr_Turkey, (?Gr_Unknown+3)).
--define(wxDateTime_Gr_USA, ?Gr_GreatBritain).
--define(wxDateTime_Gr_Wales, ?Gr_GreatBritain).
--define(wxDateTime_Gr_Yugoslavia, (?Gr_GreatBritain+1)).
+-define(wxDateTime_Gr_Austria, ?wxDateTime_Gr_Unknown).
+-define(wxDateTime_Gr_Austria_Brixen, (?wxDateTime_Gr_Unknown+1)).
+-define(wxDateTime_Gr_Austria_Salzburg, ?wxDateTime_Gr_Austria_Brixen).
+-define(wxDateTime_Gr_Austria_Tyrol, ?wxDateTime_Gr_Austria_Brixen).
+-define(wxDateTime_Gr_Austria_Carinthia, (?wxDateTime_Gr_Austria_Brixen+1)).
+-define(wxDateTime_Gr_Austria_Styria, ?wxDateTime_Gr_Austria_Carinthia).
+-define(wxDateTime_Gr_Belgium, (?wxDateTime_Gr_Austria_Carinthia+1)).
+-define(wxDateTime_Gr_Bulgaria, ?wxDateTime_Gr_Unknown).
+-define(wxDateTime_Gr_Bulgaria_1, (?wxDateTime_Gr_Unknown+1)).
+-define(wxDateTime_Gr_Bulgaria_2, (?wxDateTime_Gr_Unknown+2)).
+-define(wxDateTime_Gr_Bulgaria_3, (?wxDateTime_Gr_Unknown+3)).
+-define(wxDateTime_Gr_Canada, ?wxDateTime_Gr_Unknown).
+-define(wxDateTime_Gr_China, ?wxDateTime_Gr_Unknown).
+-define(wxDateTime_Gr_China_1, (?wxDateTime_Gr_Unknown+1)).
+-define(wxDateTime_Gr_China_2, (?wxDateTime_Gr_Unknown+2)).
+-define(wxDateTime_Gr_Czechoslovakia, (?wxDateTime_Gr_Unknown+3)).
+-define(wxDateTime_Gr_Denmark, (?wxDateTime_Gr_Unknown+4)).
+-define(wxDateTime_Gr_Egypt, (?wxDateTime_Gr_Unknown+5)).
+-define(wxDateTime_Gr_Estonia, (?wxDateTime_Gr_Unknown+6)).
+-define(wxDateTime_Gr_Finland, (?wxDateTime_Gr_Unknown+7)).
+-define(wxDateTime_Gr_France, (?wxDateTime_Gr_Unknown+8)).
+-define(wxDateTime_Gr_France_Alsace, (?wxDateTime_Gr_Unknown+9)).
+-define(wxDateTime_Gr_France_Lorraine, (?wxDateTime_Gr_Unknown+10)).
+-define(wxDateTime_Gr_France_Strasbourg, (?wxDateTime_Gr_Unknown+11)).
+-define(wxDateTime_Gr_Germany, ?wxDateTime_Gr_Unknown).
+-define(wxDateTime_Gr_Germany_Catholic, (?wxDateTime_Gr_Unknown+1)).
+-define(wxDateTime_Gr_Germany_Prussia, (?wxDateTime_Gr_Unknown+2)).
+-define(wxDateTime_Gr_Germany_Protestant, (?wxDateTime_Gr_Unknown+3)).
+-define(wxDateTime_Gr_GreatBritain, (?wxDateTime_Gr_Unknown+4)).
+-define(wxDateTime_Gr_Greece, (?wxDateTime_Gr_Unknown+5)).
+-define(wxDateTime_Gr_Hungary, (?wxDateTime_Gr_Unknown+6)).
+-define(wxDateTime_Gr_Ireland, ?wxDateTime_Gr_GreatBritain).
+-define(wxDateTime_Gr_Italy, ?wxDateTime_Gr_Standard).
+-define(wxDateTime_Gr_Japan, ?wxDateTime_Gr_Unknown).
+-define(wxDateTime_Gr_Japan_1, (?wxDateTime_Gr_Unknown+1)).
+-define(wxDateTime_Gr_Japan_2, (?wxDateTime_Gr_Unknown+2)).
+-define(wxDateTime_Gr_Japan_3, (?wxDateTime_Gr_Unknown+3)).
+-define(wxDateTime_Gr_Latvia, (?wxDateTime_Gr_Unknown+4)).
+-define(wxDateTime_Gr_Lithuania, (?wxDateTime_Gr_Unknown+5)).
+-define(wxDateTime_Gr_Luxemburg, (?wxDateTime_Gr_Unknown+6)).
+-define(wxDateTime_Gr_Netherlands, ?wxDateTime_Gr_Belgium).
+-define(wxDateTime_Gr_Netherlands_Groningen, (?wxDateTime_Gr_Belgium+1)).
+-define(wxDateTime_Gr_Netherlands_Gelderland, (?wxDateTime_Gr_Belgium+2)).
+-define(wxDateTime_Gr_Netherlands_Utrecht, (?wxDateTime_Gr_Belgium+3)).
+-define(wxDateTime_Gr_Netherlands_Friesland, (?wxDateTime_Gr_Belgium+4)).
+-define(wxDateTime_Gr_Norway, ?wxDateTime_Gr_Denmark).
+-define(wxDateTime_Gr_Poland, ?wxDateTime_Gr_Standard).
+-define(wxDateTime_Gr_Portugal, ?wxDateTime_Gr_Standard).
+-define(wxDateTime_Gr_Romania, (?wxDateTime_Gr_Standard+1)).
+-define(wxDateTime_Gr_Russia, (?wxDateTime_Gr_Standard+2)).
+-define(wxDateTime_Gr_Scotland, ?wxDateTime_Gr_GreatBritain).
+-define(wxDateTime_Gr_Spain, ?wxDateTime_Gr_Standard).
+-define(wxDateTime_Gr_Sweden, ?wxDateTime_Gr_Finland).
+-define(wxDateTime_Gr_Switzerland, ?wxDateTime_Gr_Unknown).
+-define(wxDateTime_Gr_Switzerland_Catholic, (?wxDateTime_Gr_Unknown+1)).
+-define(wxDateTime_Gr_Switzerland_Protestant, (?wxDateTime_Gr_Unknown+2)).
+-define(wxDateTime_Gr_Turkey, (?wxDateTime_Gr_Unknown+3)).
+-define(wxDateTime_Gr_USA, ?wxDateTime_Gr_GreatBritain).
+-define(wxDateTime_Gr_Wales, ?wxDateTime_Gr_GreatBritain).
+-define(wxDateTime_Gr_Yugoslavia, (?wxDateTime_Gr_GreatBritain+1)).
 % From class wxDateTime::Month
 -define(wxDateTime_Jan, 0).
 -define(wxDateTime_Feb, 1).
@@ -537,34 +533,34 @@
 -define(wxDateTime_GMT11, 24).
 -define(wxDateTime_GMT12, 25).
 -define(wxDateTime_GMT13, 26).
--define(wxDateTime_WET, ?GMT0).
--define(wxDateTime_WEST, ?GMT1).
--define(wxDateTime_CET, ?GMT1).
--define(wxDateTime_CEST, ?GMT2).
--define(wxDateTime_EET, ?GMT2).
--define(wxDateTime_EEST, ?GMT3).
--define(wxDateTime_MSK, ?GMT3).
--define(wxDateTime_MSD, ?GMT4).
--define(wxDateTime_AST, ?GMT_4).
--define(wxDateTime_ADT, ?GMT_3).
--define(wxDateTime_EST, ?GMT_5).
--define(wxDateTime_EDT, ?GMT_4).
--define(wxDateTime_CST, ?GMT_6).
--define(wxDateTime_CDT, ?GMT_5).
--define(wxDateTime_MST, ?GMT_7).
--define(wxDateTime_MDT, ?GMT_6).
--define(wxDateTime_PST, ?GMT_8).
--define(wxDateTime_PDT, ?GMT_7).
--define(wxDateTime_HST, ?GMT_10).
--define(wxDateTime_AKST, ?GMT_9).
--define(wxDateTime_AKDT, ?GMT_8).
--define(wxDateTime_A_WST, ?GMT8).
--define(wxDateTime_A_CST, ?GMT13+1).
--define(wxDateTime_A_EST, ?GMT10).
--define(wxDateTime_A_ESST, ?GMT11).
--define(wxDateTime_NZST, ?GMT12).
--define(wxDateTime_NZDT, ?GMT13).
--define(wxDateTime_UTC, ?GMT0).
+-define(wxDateTime_WET, ?wxDateTime_GMT0).
+-define(wxDateTime_WEST, ?wxDateTime_GMT1).
+-define(wxDateTime_CET, ?wxDateTime_GMT1).
+-define(wxDateTime_CEST, ?wxDateTime_GMT2).
+-define(wxDateTime_EET, ?wxDateTime_GMT2).
+-define(wxDateTime_EEST, ?wxDateTime_GMT3).
+-define(wxDateTime_MSK, ?wxDateTime_GMT3).
+-define(wxDateTime_MSD, ?wxDateTime_GMT4).
+-define(wxDateTime_AST, ?wxDateTime_GMT_4).
+-define(wxDateTime_ADT, ?wxDateTime_GMT_3).
+-define(wxDateTime_EST, ?wxDateTime_GMT_5).
+-define(wxDateTime_EDT, ?wxDateTime_GMT_4).
+-define(wxDateTime_CST, ?wxDateTime_GMT_6).
+-define(wxDateTime_CDT, ?wxDateTime_GMT_5).
+-define(wxDateTime_MST, ?wxDateTime_GMT_7).
+-define(wxDateTime_MDT, ?wxDateTime_GMT_6).
+-define(wxDateTime_PST, ?wxDateTime_GMT_8).
+-define(wxDateTime_PDT, ?wxDateTime_GMT_7).
+-define(wxDateTime_HST, ?wxDateTime_GMT_10).
+-define(wxDateTime_AKST, ?wxDateTime_GMT_9).
+-define(wxDateTime_AKDT, ?wxDateTime_GMT_8).
+-define(wxDateTime_A_WST, ?wxDateTime_GMT8).
+-define(wxDateTime_A_CST, (?wxDateTime_GMT13+1)).
+-define(wxDateTime_A_EST, ?wxDateTime_GMT10).
+-define(wxDateTime_A_ESST, ?wxDateTime_GMT11).
+-define(wxDateTime_NZST, ?wxDateTime_GMT12).
+-define(wxDateTime_NZDT, ?wxDateTime_GMT13).
+-define(wxDateTime_UTC, ?wxDateTime_GMT0).
 % From class wxDateTime::WeekDay
 -define(wxDateTime_Sun, 0).
 -define(wxDateTime_Mon, 1).
@@ -579,7 +575,6 @@
 -define(wxDateTime_Monday_First, 1).
 -define(wxDateTime_Sunday_First, 2).
 % From class wxDateTime::Year
--define(wxDateTime_Inv_Year, ?SHRT_MIN).
 % From class wxDialog
 -define(wxDialog_ButtonSizerFlags, (?wxOK bor ?wxCANCEL bor ?wxYES bor ?wxNO bor ?wxHELP bor ?wxNO_DEFAULT)).
 % From class wxGrid
@@ -760,6 +755,7 @@
 -define(wxCLRP_DEFAULT_STYLE, 0).
 -define(wxCLRP_USE_TEXTCTRL, ?wxPB_USE_TEXTCTRL).
 -define(wxCLRP_SHOW_LABEL, 8).
+% From "cmndata.h"
 % From "cmndata.h": wxPrintBin
 -define(wxPRINTBIN_DEFAULT, 0).
 -define(wxPRINTBIN_ONLYONE, 1).
@@ -782,6 +778,8 @@
 -define(wxC2S_NAME, 1).
 % From "confbase.h"
 -define(wxCONFIG_CASE_SENSITIVE, 0).
+% From "cpp.h"
+-define(wxEMPTY_PARAMETER_VALUE, ()).
 % From "datectrl.h"
 -define(wxDP_DEFAULT, 0).
 -define(wxDP_SPIN, 1).
@@ -789,7 +787,6 @@
 -define(wxDP_SHOWCENTURY, 4).
 -define(wxDP_ALLOWNONE, 8).
 % From "datetime.h"
--define(wxInvalidDateTime, ?wxDefaultDateTime).
 % From "dcbuffer.h"
 -define(wxBUFFER_CLIENT_AREA, 2).
 -define(wxBUFFER_VIRTUAL_AREA, 1).
@@ -1560,13 +1557,13 @@
 % From "event.h"
 % From "event.h": Propagation_state
 -define(wxEVENT_PROPAGATE_NONE, 0).
--define(wxEVENT_PROPAGATE_MAX, ?INT_MAX).
 % From "event.h": wxIdleMode
 -define(wxIDLE_PROCESS_ALL, 0).
 -define(wxIDLE_PROCESS_SPECIFIED, 1).
 % From "event.h": wxUpdateUIMode
 -define(wxUPDATE_UI_PROCESS_ALL, 0).
 -define(wxUPDATE_UI_PROCESS_SPECIFIED, 1).
+% From "fdrepdlg.h"
 % From "fdrepdlg.h": wxFindReplaceDialogStyles
 -define(wxFR_REPLACEDIALOG, 1).
 -define(wxFR_NOUPDOWN, 2).
@@ -1810,7 +1807,6 @@
 -define(wxGA_VERTICAL, ?wxVERTICAL).
 -define(wxGA_HORIZONTAL, ?wxHORIZONTAL).
 % From "gdicmn.h"
--define(wxGetDisplayDepth, ?wxDisplayDepth).
 % From "gdicmn.h": wxBitmapType
 -define(wxBITMAP_TYPE_INVALID, 0).
 -define(wxBITMAP_TYPE_BMP, 1).
@@ -2091,7 +2087,6 @@
 -define(wxLB_TOP, ?wxBK_TOP).
 -define(wxLB_DEFAULT, ?wxBK_DEFAULT).
 % From "log.h"
--define(wxTRACE_OleCalls, ?wxEmptyString).
 -define(wxTraceRefCount, 8).
 -define(wxTraceResAlloc, 4).
 -define(wxTraceMessages, 2).
@@ -2195,7 +2190,8 @@
 -define(wxSYS_COLOUR_MENUHILIGHT, (?wxSYS_COLOUR_BTNHIGHLIGHT+9)).
 -define(wxSYS_COLOUR_MENUBAR, (?wxSYS_COLOUR_BTNHIGHLIGHT+10)).
 -define(wxSYS_COLOUR_LISTBOXTEXT, (?wxSYS_COLOUR_BTNHIGHLIGHT+11)).
--define(wxSYS_COLOUR_MAX, (?wxSYS_COLOUR_BTNHIGHLIGHT+12)).
+-define(wxSYS_COLOUR_LISTBOXHIGHLIGHTTEXT, (?wxSYS_COLOUR_BTNHIGHLIGHT+12)).
+-define(wxSYS_COLOUR_MAX, (?wxSYS_COLOUR_BTNHIGHLIGHT+13)).
 % From "settings.h": wxSystemFeature
 -define(wxSYS_CAN_DRAW_FRAME_DECORATIONS, 1).
 -define(wxSYS_CAN_ICONIZE_FRAME, 2).
@@ -3797,6 +3793,7 @@
 -define(wxRELEASE_NUMBER, wxe_util:get_const(wxRELEASE_NUMBER)).
 -define(wxMINOR_VERSION, wxe_util:get_const(wxMINOR_VERSION)).
 -define(wxMAJOR_VERSION, wxe_util:get_const(wxMAJOR_VERSION)).
+% From "window.h"
 % From "window.h": wxWindowVariant
 -define(wxWINDOW_VARIANT_NORMAL, 0).
 -define(wxWINDOW_VARIANT_SMALL, 1).

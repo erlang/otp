@@ -95,18 +95,18 @@
   redo/1,registerImage/3,replaceSelection/2,replaceTarget/2,saveFile/2,
   scrollToColumn/2,scrollToLine/2,searchAnchor/1,searchInTarget/2,searchNext/3,
   searchPrev/3,selectAll/1,selectionDuplicate/1,selectionIsRectangle/1,
-  sendMsg/2,sendMsg/3,setAnchor/2,setBackSpaceUnIndents/2,setBufferedDraw/2,
-  setCaretForeground/2,setCaretLineBackAlpha/2,setCaretLineBackground/2,
-  setCaretLineVisible/2,setCaretPeriod/2,setCaretSticky/2,setCaretWidth/2,
-  setCharsDefault/1,setCodePage/2,setControlCharSymbol/2,setCurrentPos/2,
-  setEOLMode/2,setEdgeColour/2,setEdgeColumn/2,setEdgeMode/2,setFoldExpanded/3,
-  setFoldFlags/2,setFoldLevel/3,setFoldMarginColour/3,setFoldMarginHiColour/3,
-  setHScrollBar/2,setHighlightGuide/2,setHotspotActiveBackground/3,
-  setHotspotActiveForeground/3,setHotspotActiveUnderline/2,setHotspotSingleLine/2,
-  setIndent/2,setIndentationGuides/2,setKeyWords/3,setLastKeydownProcessed/2,
-  setLayoutCache/2,setLexer/2,setLexerLanguage/2,setLineIndentation/3,
-  setLineState/3,setMarginLeft/2,setMarginMask/3,setMarginRight/2,setMarginSensitive/3,
-  setMarginType/3,setMarginWidth/3,setMargins/3,setModEventMask/2,setMouseDownCaptures/2,
+  setAnchor/2,setBackSpaceUnIndents/2,setBufferedDraw/2,setCaretForeground/2,
+  setCaretLineBackAlpha/2,setCaretLineBackground/2,setCaretLineVisible/2,
+  setCaretPeriod/2,setCaretSticky/2,setCaretWidth/2,setCharsDefault/1,
+  setCodePage/2,setControlCharSymbol/2,setCurrentPos/2,setEOLMode/2,
+  setEdgeColour/2,setEdgeColumn/2,setEdgeMode/2,setFoldExpanded/3,setFoldFlags/2,
+  setFoldLevel/3,setFoldMarginColour/3,setFoldMarginHiColour/3,setHScrollBar/2,
+  setHighlightGuide/2,setHotspotActiveBackground/3,setHotspotActiveForeground/3,
+  setHotspotActiveUnderline/2,setHotspotSingleLine/2,setIndent/2,setIndentationGuides/2,
+  setKeyWords/3,setLastKeydownProcessed/2,setLayoutCache/2,setLexer/2,
+  setLexerLanguage/2,setLineIndentation/3,setLineState/3,setMarginLeft/2,
+  setMarginMask/3,setMarginRight/2,setMarginSensitive/3,setMarginType/3,
+  setMarginWidth/3,setMargins/3,setModEventMask/2,setMouseDownCaptures/2,
   setMouseDwellTime/2,setPasteConvertEndings/2,setPrintColourMode/2,
   setPrintMagnification/2,setProperty/3,setReadOnly/2,setSTCCursor/2,
   setSTCFocus/2,setSavePoint/1,setScrollWidth/2,setSearchFlags/2,setSelAlpha/2,
@@ -3896,29 +3896,6 @@ scrollToColumn(#wx_ref{type=ThisT,ref=ThisRef},Column)
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:cast(?wxStyledTextCtrl_ScrollToColumn,
   <<ThisRef:32/?UI,Column:32/?UI>>).
-
-%% @equiv sendMsg(This,Msg, [])
--spec sendMsg(This, Msg) -> integer() when
-	This::wxStyledTextCtrl(), Msg::integer().
-
-sendMsg(This,Msg)
- when is_record(This, wx_ref),is_integer(Msg) ->
-  sendMsg(This,Msg, []).
-
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlsendmsg">external documentation</a>.
--spec sendMsg(This, Msg, [Option]) -> integer() when
-	This::wxStyledTextCtrl(), Msg::integer(),
-	Option :: {wp, integer()}
-		 | {lp, integer()}.
-sendMsg(#wx_ref{type=ThisT,ref=ThisRef},Msg, Options)
- when is_integer(Msg),is_list(Options) ->
-  ?CLASS(ThisT,wxStyledTextCtrl),
-  MOpts = fun({wp, Wp}, Acc) -> [<<1:32/?UI,Wp:32/?UI>>|Acc];
-          ({lp, Lp}, Acc) -> [<<2:32/?UI,Lp:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:call(?wxStyledTextCtrl_SendMsg,
-  <<ThisRef:32/?UI,Msg:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlsetvscrollbar">external documentation</a>.
 -spec setVScrollBar(This, Bar) -> ok when

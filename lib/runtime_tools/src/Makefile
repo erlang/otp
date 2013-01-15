@@ -35,6 +35,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/runtime_tools-$(VSN)
 # ----------------------------------------------------
 
 MODULES= \
+	appmon_info \
 	erts_alloc_config \
 	runtime_tools \
 	runtime_tools_sup \

@@ -49,7 +49,6 @@
 	 rel_book,
          lib_tree,
          status_bar,
-         popup_menu,
          source,
          whitelist,
          blacklist,
@@ -136,6 +135,7 @@ init(Options) ->
 	do_init(Options)
     catch
 	error:Reason ->
+	    io:format("~p: ~p~n",[Reason, erlang:get_stacktrace()]),
 	    exit({Reason, erlang:get_stacktrace()})
     end.
 
@@ -403,8 +403,6 @@ create_menubar(Frame) ->
     wxEvtHandler:connect(Frame,
                          command_menu_selected,
                          [{userData, main_window}]),
-    wxEvtHandler:connect(File, menu_close),
-    wxEvtHandler:connect(Help, menu_close),
     MenuBar.
 
 create_app_page(#state{book = Book} = S) ->
@@ -780,15 +778,12 @@ root_popup(S, Root, Tree, Item) ->
     wxMenu:appendSeparator(PopupMenu),
     wxMenu:append(PopupMenu, 1, "Edit"),
     Choices = [edit],
-    wxEvtHandler:connect(PopupMenu, command_menu_selected),
-    wxEvtHandler:connect(PopupMenu, menu_close),
+    Popup = #root_popup{dir = Root, choices = Choices,
+			tree = Tree, item = Item},
+    wxEvtHandler:connect(PopupMenu, command_menu_selected, [{userData, {popup, Popup}}]),
     wxWindow:popupMenu(S#state.frame, PopupMenu),
 
-    Popup = #root_popup{dir = Root,
-			choices = Choices,
-			tree = Tree,
-			item = Item},
-    S#state{popup_menu = Popup}.
+    S.
 
 lib_popup(S, Lib, Tree, Item) ->
     PopupMenu = wxMenu:new(),
@@ -804,12 +799,10 @@ lib_popup(S, Lib, Tree, Item) ->
                 wxMenu:append(PopupMenu, 3, "Delete"),
                 [add, edit, delete]
         end,
-    wxEvtHandler:connect(PopupMenu, command_menu_selected),
-    wxEvtHandler:connect(PopupMenu, menu_close),
-    wxWindow:popupMenu(S#state.frame, PopupMenu),
-
     Popup = #lib_popup{dir = Lib, choices = Choices, tree = Tree, item = Item},
-    S#state{popup_menu = Popup}.
+    wxEvtHandler:connect(PopupMenu, command_menu_selected, [{userData, {popup, Popup}}]),
+    wxWindow:popupMenu(S#state.frame, PopupMenu),
+    S.
 
 escript_popup(S, File, Tree, Item) ->
     PopupMenu = wxMenu:new(),
@@ -825,15 +818,11 @@ escript_popup(S, File, Tree, Item) ->
                 wxMenu:append(PopupMenu, 3, "Delete"),
                 [add, edit, delete]
         end,
-    wxEvtHandler:connect(PopupMenu, command_menu_selected),
-    wxEvtHandler:connect(PopupMenu, menu_close),
+    Popup = #escript_popup{file = File, choices = Choices,
+			   tree = Tree, item = Item},
+    wxEvtHandler:connect(PopupMenu, command_menu_selected, [{userData, {popup, Popup}}]),
     wxWindow:popupMenu(S#state.frame, PopupMenu),
-
-    Popup = #escript_popup{file = File,
-			   choices = Choices,
-			   tree = Tree,
-			   item = Item},
-    S#state{popup_menu = Popup}.
+    S.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -903,11 +892,13 @@ handle_event(S, #wx{id = Id, obj= ObjRef, userData = UserData, event = Event} = 
 	    wxMessageDialog:showModal(MD),
 	    wxMessageDialog:destroy(MD),
             S;
-        #wxMenu{type = menu_close} ->
-            S#state{popup_menu = undefined};
-        #wxCommand{type = command_menu_selected = Type, cmdString = Str}
-        when S#state.popup_menu =/= undefined ->
-            handle_popup_event(S, Type, Id, ObjRef, UserData, Str);
+        #wxCommand{type = command_menu_selected = Type, cmdString = Str} ->
+	    case UserData of
+		{popup, Popup} ->
+		    handle_popup_event(S, Type, Id, ObjRef, Popup, Str);
+		true ->
+		    S
+	    end;
 	#wxMouse{type = enter_window} ->
 	    %% The following is commented out because it raises the
 	    %% main system window on top of popup windows.
@@ -1028,11 +1019,9 @@ warning_popup_position(#state{frame=MF,warning_list=WL},{WFW,WFH}) ->
     {X,Y}.
 
 handle_popup_event(S, _Type, 0, _ObjRef, _UserData, _Str) ->
-    S#state{popup_menu = undefined};
-handle_popup_event(#state{popup_menu = #root_popup{dir = OldDir,
-						   choices = Choices},
-                          sys = Sys} = S,
-                   _Type, Pos, _ObjRef, _UserData, _Str) ->
+    S;
+handle_popup_event(#state{sys = Sys} = S, _Type, Pos, _ObjRef,
+		   #root_popup{dir = OldDir, choices = Choices}, _Str) ->
     case lists:nth(Pos, Choices) of
         edit ->
             Style = ?wxFD_OPEN bor ?wxFD_FILE_MUST_EXIST,
@@ -1042,18 +1031,16 @@ handle_popup_event(#state{popup_menu = #root_popup{dir = OldDir,
 			    Style) of
 		{ok, NewDir} when NewDir =:= OldDir ->
 		    %% Same dir.Ignore.
-		    S#state{popup_menu = undefined};
+		    S;
 		{ok, NewDir} ->
                     Sys2 = Sys#sys{root_dir = NewDir},
-                    do_set_sys(S#state{popup_menu = undefined, sys = Sys2});
+                    do_set_sys(S#state{sys = Sys2});
                 cancel ->
-                    S#state{popup_menu = undefined}
+                    S
             end
     end;
-handle_popup_event(#state{popup_menu = #lib_popup{dir = OldDir,
-						  choices = Choices},
-                          sys = Sys} = S,
-                   _Type, Pos, _ObjRef, _UserData, _Str) ->
+handle_popup_event(#state{sys = Sys} = S, _Type, Pos, _ObjRef,
+		   #lib_popup{dir = OldDir, choices = Choices}, _Str) ->
     case lists:nth(Pos, Choices) of
         add ->
             {ok, Cwd} = file:get_cwd(),
@@ -1063,15 +1050,14 @@ handle_popup_event(#state{popup_menu = #lib_popup{dir = OldDir,
                     case lists:member(NewDir, Sys#sys.lib_dirs) of
                         true ->
                             %% Ignore duplicate. Keep old.
-                            S#state{popup_menu = undefined};
+                            S;
                         false ->
                             LibDirs = Sys#sys.lib_dirs ++ [NewDir],
                             Sys2 = Sys#sys{lib_dirs = LibDirs},
-                            do_set_sys(S#state{popup_menu = undefined,
-					       sys = Sys2})
+                            do_set_sys(S#state{sys = Sys2})
                     end;
                 cancel ->
-                    S#state{popup_menu = undefined}
+                    S
                 end;
         edit ->
             Style = ?wxFD_OPEN bor ?wxFD_FILE_MUST_EXIST,
@@ -1083,28 +1069,25 @@ handle_popup_event(#state{popup_menu = #lib_popup{dir = OldDir,
                     case lists:member(NewDir, Sys#sys.lib_dirs) of
                         true ->
                             %% Ignore duplicate. Keep old.
-                            S#state{popup_menu = undefined};
+                            S;
                         false ->
                             Pred = fun(E) -> E =/= OldDir end,
                             {Before, [_| After]} =
                                 lists:splitwith(Pred, Sys#sys.lib_dirs),
                             LibDirs2 = Before ++ [NewDir | After],
                             Sys2 = Sys#sys{lib_dirs = LibDirs2},
-                            do_set_sys(S#state{popup_menu = undefined,
-					       sys = Sys2})
+                            do_set_sys(S#state{sys = Sys2})
                     end;
                 cancel ->
-                    S#state{popup_menu = undefined}
+                    S
             end;
         delete ->
             LibDirs = Sys#sys.lib_dirs -- [OldDir],
             Sys2 = Sys#sys{lib_dirs = LibDirs},
-            do_set_sys(S#state{popup_menu = undefined, sys = Sys2})
+            do_set_sys(S#state{sys = Sys2})
     end;
-handle_popup_event(#state{popup_menu = #escript_popup{file = OldFile,
-						      choices = Choices},
-                          sys = Sys} = S,
-                   _Type, Pos, _ObjRef, _UserData, _Str) ->
+handle_popup_event(#state{sys = Sys} = S, _Type, Pos, _ObjRef,
+		   #escript_popup{file = OldFile, choices = Choices}, _Str) ->
     case lists:nth(Pos, Choices) of
         add ->
             OldFile2 =
@@ -1124,14 +1107,14 @@ handle_popup_event(#state{popup_menu = #escript_popup{file = OldFile,
                     case lists:member(NewFile, Sys#sys.escripts) of
                         true ->
                             %% Ignore duplicate. Keep old.
-                            S#state{popup_menu = undefined};
+                            S;
                         false ->
                             Escripts = Sys#sys.escripts ++ [NewFile],
                             Sys2 = Sys#sys{escripts = Escripts},
-                            do_set_sys(S#state{popup_menu = undefined, sys = Sys2})
+                            do_set_sys(S#state{sys = Sys2})
                     end;
                 cancel ->
-                    S#state{popup_menu = undefined}
+                    S
             end;
         edit ->
             Style = ?wxFD_OPEN bor ?wxFD_FILE_MUST_EXIST,
@@ -1143,23 +1126,22 @@ handle_popup_event(#state{popup_menu = #escript_popup{file = OldFile,
                     case lists:member(NewFile, Sys#sys.escripts) of
                         true ->
                             %% Ignore duplicate. Keep old.
-                            S#state{popup_menu = undefined};
+                            S;
                         false ->
                             Pred = fun(E) -> E =/= OldFile end,
                             {Before, [_| After]} =
 				lists:splitwith(Pred, Sys#sys.escripts),
                             Escripts2 = Before ++ [NewFile | After],
                             Sys2 = Sys#sys{escripts = Escripts2},
-                            do_set_sys(S#state{popup_menu = undefined,
-					       sys = Sys2})
+                            do_set_sys(S#state{sys = Sys2})
                     end;
                 cancel ->
-                    S#state{popup_menu = undefined}
+                    S
             end;
         delete ->
             Escripts = Sys#sys.escripts -- [OldFile],
             Sys2 = Sys#sys{escripts = Escripts},
-            do_set_sys(S#state{popup_menu = undefined, sys = Sys2})
+            do_set_sys(S#state{sys = Sys2})
     end.
 
 handle_system_event(#state{sys = Sys} = S,

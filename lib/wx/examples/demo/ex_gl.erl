@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,8 @@
 
 -behaviour(wx_object).
 
--export([init/1, code_change/3, handle_info/2, handle_event/2,
+-export([init/1, code_change/3, handle_info/2, 
+	 handle_sync_event/3, handle_event/2,
 	 handle_call/3, handle_cast/2, terminate/2,
 	 start/1]).
 
@@ -34,6 +35,7 @@
 	  config,
 	  gl,
 	  canvas,
+	  image, 
 	  timer,
 	  time
 	 }).
@@ -58,7 +60,7 @@ do_init(Config) ->
     %% Setup sizer
     Sizer = wxStaticBoxSizer:new(?wxHORIZONTAL, Panel, [{label, "wxGLCanvas"}]),
 
-    Opts = [{size, {300,300}}, {style, ?wxSUNKEN_BORDER}],
+    Opts = [{style, ?wxFULL_REPAINT_ON_RESIZE}],
     GLAttrib = [{attribList, [?WX_GL_RGBA,
 			      ?WX_GL_DOUBLEBUFFER,
 			      ?WX_GL_MIN_RED,8,
@@ -67,34 +69,48 @@ do_init(Config) ->
 			      ?WX_GL_DEPTH_SIZE,24,0]}],
     Canvas = wxGLCanvas:new(Panel,Opts ++ GLAttrib),
     wxGLCanvas:connect(Canvas, size),
+    wxGLCanvas:connect(Canvas, paint, [callback]),
 
-    wxGLCanvas:setCurrent(Canvas),
     Image   = wxImage:scale(wxImage:new("image.jpg"), 128,128),
-    GL = setup_gl(Canvas,Image),
-    Timer = timer:send_interval(20, self(), update),
 
     %% Add to sizers
     wxSizer:add(Sizer, Canvas, [{flag, ?wxEXPAND},{proportion, 1}]), 
     wxWindow:setSizer(Panel,Sizer),
     wxSizer:layout(Sizer),
+    Timer = timer:send_interval(20, self(), update),
     {Panel, #state{parent = Panel, config = Config,
-		   canvas = Canvas,
-		   gl = GL, timer = Timer}}.
+		   canvas = Canvas, image=Image,
+		   timer = Timer}}.
 
 %% Event handling
-handle_event(#wx{event = #wxSize{size = {W,H}}}, State) ->
-    case W =:= 0 orelse H =:= 0 of
-	true -> skip;
-	_ -> 
+handle_sync_event(_PaintEvent, _, #state{canvas=Canvas}) ->
+    %% Sync events are called from a temporary process,
+    %% we need to setup the gl canvas on cocoa for some reason
+    %% We do not really have to do anything, the timer event will refresh the painting
+    wxGLCanvas:setCurrent(Canvas),
+    DC= wxPaintDC:new(Canvas),
+    wxPaintDC:destroy(DC),
+    ok.
+
+handle_event(#wx{event = #wxSize{size = {W,H}}}, State = #state{gl=GL}) ->
+    if 
+	GL =:= undefined ->
+	    #state{canvas=Canvas, image=Image} = State,
+	    wxGLCanvas:setCurrent(Canvas),
+	    {noreply, State#state{gl=setup_gl(Canvas,Image)}};
+	W =:= 0, H =:= 0 -> {noreply, State};
+	true -> 
 	    gl:viewport(0,0,W,H),
 	    gl:matrixMode(?GL_PROJECTION),
 	    gl:loadIdentity(),
 	    gl:ortho( -2.0, 2.0, -2.0*H/W, 2.0*H/W, -20.0, 20.0),
 	    gl:matrixMode(?GL_MODELVIEW),
-	    gl:loadIdentity()
-    end,
-    {noreply, State}.
+	    gl:loadIdentity(),
+	    {noreply, State}
+    end.
 
+handle_info(update, State=#state{gl=undefined}) -> 
+    {noreply, State};
 handle_info(update, State) ->
     S1 = update_rotation(State),
     GL = S1#state.gl,
@@ -113,7 +129,13 @@ handle_info(stop, State) ->
     timer:cancel(State#state.timer),
     catch wxGLCanvas:destroy(State#state.canvas),
     {stop, normal, State}.
-    
+
+handle_call(shutdown, _From, State=#state{parent=Panel}) ->
+    catch wxGLCanvas:destroy(State#state.canvas),
+    timer:cancel(State#state.timer),
+    wxPanel:destroy(Panel),
+    {stop, normal, ok, State};
+
 handle_call(Msg, _From, State) ->
     io:format("Got Call ~p~n",[Msg]),
     {reply,ok,State}.
@@ -125,11 +147,8 @@ handle_cast(Msg, State) ->
 code_change(_, _, State) ->
     {stop, not_yet_implemented, State}.
 
-terminate(_Reason, State) ->
-    catch wxGLCanvas:destroy(State#state.canvas),
-    timer:cancel(State#state.timer),
-    timer:sleep(300).
-
+terminate(_Reason, _State) ->
+    ok.
 
 
 -define(VS, {{-0.5, -0.5, -0.5},  %1

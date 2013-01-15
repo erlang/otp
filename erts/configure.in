@@ -740,12 +740,8 @@ esac
 
 AC_MSG_CHECKING(if VM has to be linked with Carbon framework)
 case $ARCH-$OPSYS in
-	amd64-darwin*)
-		LIBCARBON=
-		AC_MSG_RESULT([no])
-		;;
 	*-darwin*)
-		LIBCARBON="-framework Carbon "
+  		LIBCARBON="-framework Carbon -framework Cocoa"
 		AC_MSG_RESULT([yes])
 		;;
 	*)

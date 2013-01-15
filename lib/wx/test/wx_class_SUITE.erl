@@ -82,13 +82,14 @@ calendarCtrl(Config) ->
 	true ->
 	    ?log("DateAttr is null~n",[]);
 	false ->
-	    ?log("DateAttr is useable~n",[])
+	    ?log("DateAttr is useable~n",[]),
+	    DateAttr = ?mt(wxCalendarDateAttr, wxCalendarDateAttr:new()),
+	    wxCalendarDateAttr:setBackgroundColour(DateAttr, {0,243,0}),
+	    wxCalendarCtrl:setAttr(Cal, Day, DateAttr),
+	    DateAttr1 = ?mt(wxCalendarDateAttr, wxCalendarCtrl:getAttr(Cal,Day)),
+	    io:format("DateAttr ~p~n",[DateAttr1]),
+	    ?m({0,243,0,255}, wxCalendarDateAttr:getBackgroundColour(DateAttr1))
     end,
-    DateAttr = ?mt(wxCalendarDateAttr, wxCalendarDateAttr:new()),
-    wxCalendarDateAttr:setBackgroundColour(DateAttr, {0,243,0}),
-    wxCalendarCtrl:setAttr(Cal, Day, DateAttr),
-    DateAttr1 = ?mt(wxCalendarDateAttr, wxCalendarCtrl:getAttr(Cal,Day)),
-    ?m({0,243,0,255}, wxCalendarDateAttr:getBackgroundColour(DateAttr1)),
 
     ?m({YMD, _},wxCalendarCtrl:getDate(Cal)),
 
@@ -476,7 +477,9 @@ taskBarIcon(Config) ->
     Wx = wx:new(),
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
     TBI = wxTaskBarIcon:new(),
-    Icon = wxIcon:new(filename:join(code:priv_dir(debugger), "erlang_bug.png")),
+    Image = wxImage:new(filename:join(code:priv_dir(debugger), "erlang_bug.png")),
+    io:format("Image ~p~n",[wxImage:ok(Image)]),
+    Icon = wxIcon:new(filename:join(code:priv_dir(debugger), "erlang_bug.png"), [{type, ?wxBITMAP_TYPE_PNG}]),
     wxTaskBarIcon:setIcon(TBI, Icon, [{tooltip, "Testing wxTaskBarIcon"}]),
     wxWindow:show(Frame),
     wxTaskBarIcon:connect(TBI, taskbar_left_down, [{callback, fun(Ev,_) -> io:format("Left clicked: ~p~n",[Ev]) end}]),

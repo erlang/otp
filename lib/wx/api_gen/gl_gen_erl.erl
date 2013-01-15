@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,7 @@
 
 -import(lists, [foldl/3,foldr/3,reverse/1, keysearch/3, map/2, filter/2, max/1]).
 -import(gen_util, [lowercase/1, lowercase_all/1, uppercase/1, uppercase_all/1,
-		   open_write/1, close/0, erl_copyright/0, w/2,
+		   open_write/1, open_write/2, close/0, erl_copyright/0, w/2,
 		   args/3, args/4, strip_name/2]).
 
 gl_defines(Defs) ->
@@ -90,7 +90,8 @@ types() ->
     ].
 
 gl_api(Fs) ->
-    open_write("../src/gen/gl.erl"),
+    open_write("../src/gen/gl.erl", [{encoding,utf8}]),
+    w("%% -*- coding: utf-8 -*-~n~n", []),
     erl_copyright(),
     w("~n%% OPENGL API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
@@ -148,7 +149,8 @@ gl_api(Fs) ->
     ok.
 
 glu_api(Fs) ->
-    open_write("../src/gen/glu.erl"),
+    open_write("../src/gen/glu.erl", [{encoding,utf8}]),
+    w("%% -*- coding: utf-8 -*-~n~n", []),
     erl_copyright(),
     w("~n%% OPENGL UTILITY API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
@@ -330,7 +332,7 @@ format_doc([{constant, Const}|Rest], Count) ->
     w("`?~s'", [Const]),
     format_doc(Rest, Count-length(Const)-8);
 format_doc([{emphasis, Const}|Rest], Count) ->
-    w("`~s'", [Const]),
+    w("`~ts'", [Const]),
     format_doc(Rest, Count-length(Const)-7);
 format_doc([{function, Func}|Rest], Count) ->
     case Func of
@@ -377,7 +379,7 @@ format_doc([{fenced, Open, Close, Eq}|Rest], Count) ->
     format_doc(Rest, Count);
 
 format_doc([{code, Code}|Rest], Count) ->
-    w("``~s''", [Code]),
+    w("``~ts''", [Code]),
     format_doc(Rest, Count-length(Code)-7);
 
 format_doc([para|Rest], _Count) ->
@@ -387,10 +389,10 @@ format_doc([break|Rest], _Count) ->
     w("<br />~n%% ", []),
     format_doc(Rest, ?LINE_LEN);
 format_doc([{purpose, Purpose}, para | Doc], _Count) ->
-    w("%% @doc ~s~n%%~n%% ", [uppercase(Purpose)]),
+    w("%% @doc ~ts~n%%~n%% ", [uppercase(Purpose)]),
     format_doc(Doc, ?LINE_LEN);
 format_doc([{purpose, Purpose} | Doc], _Count) ->
-    w("%% @doc ~s~n%%~n%% ", [Purpose]),
+    w("%% @doc ~ts~n%%~n%% ", [Purpose]),
     format_doc(Doc, ?LINE_LEN);
 format_doc([listentry|Rest], _Count) ->
     w("~n%%~n%% ", []),
@@ -398,11 +400,11 @@ format_doc([listentry|Rest], _Count) ->
 format_doc([Str|Rest], Count) ->
     case length(Str) of
 	Len when Len < Count ->
-	    w("~s", [Str]),
+	    w("~ts", [Str]),
 	    format_doc(Rest, Count-Len);
 	_ ->
 	    {Str1, Str2} = split(Str, Count, []),
-	    w("~s~n%% ", [Str1]),
+	    w("~ts~n%% ", [Str1]),
 	    format_doc([Str2|Rest], ?LINE_LEN)
     end;
 format_doc([], _) -> ok.

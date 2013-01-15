@@ -403,7 +403,7 @@ handle_info({new_cols, New}, State = #state{grid=Grid, columns=Cols0}) ->
     {noreply, State#state{columns=Cols}};
 
 handle_info({refresh, Min, Max}, State = #state{grid=Grid}) ->
-    wxListCtrl:refreshItems(Grid, Min, Max),
+    Max > 0 andalso wxListCtrl:refreshItems(Grid, Min, Max),
     {noreply, State};
 
 handle_info(refresh_interval, State = #state{pid=Pid}) ->

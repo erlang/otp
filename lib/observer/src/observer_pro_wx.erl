@@ -225,7 +225,7 @@ handle_info({holder_updated, Count}, State0=#state{grid=Grid}) ->
     State = update_selection(State0),
 
     wxListCtrl:setItemCount(Grid, Count),
-    wxListCtrl:refreshItems(Grid, 0, Count-1),
+    Count > 0 andalso wxListCtrl:refreshItems(Grid, 0, Count-1),
 
     {noreply, State};
 

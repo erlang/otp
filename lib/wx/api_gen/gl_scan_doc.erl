@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -56,8 +56,10 @@ gen_output({characters, String0}, #state{gen_output=true, type=Type, str=Str} = 
 		      mi -> case hd(Str) of
 				"/" -> String;
 				"*" -> String;
+				[215] -> String;
 				"+" -> String;
 				"-" -> String;
+				"=" -> String;
 				{fenced,_,_} -> String;
 				_ ->
 				    [$ |String]
@@ -268,7 +270,9 @@ fix_str([$<|Str]) ->
 fix_str([$>|Str]) ->
     [$&,$g,$t,$;|fix_str(Str)];
 fix_str("&times;"++Str) ->
-    [$*|fix_str(Str)];
+    [215|fix_str(Str)];
+%% fix_str([215|Str]) ->
+%%     [$*|fix_str(Str)];
 fix_str("&Prime;"++Str) ->
     [$"|fix_str(Str)];
 fix_str("&CenterDot;"++Str) ->
@@ -277,10 +281,12 @@ fix_str("&af;"++Str) ->
     fix_str(Str);
 fix_str("&it;"++Str) ->
     [$ |fix_str(Str)];
+fix_str("&nbsp;"++Str) ->
+    [$ |fix_str(Str)];
 fix_str([$&|Str]) ->
     [$&,$a,$m,$p,$; |fix_str(Str)];
-fix_str([C|Str]) when C > 255 ->
-    fix_str(Str);
+%% fix_str([C|Str]) when C > 255 ->
+%%     fix_str(Str);
 fix_str([C|Str]) ->
     [C|fix_str(Str)];
 fix_str([]) -> [].

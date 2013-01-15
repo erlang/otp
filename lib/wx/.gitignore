@@ -1,4 +1,5 @@
 test_log_*
 wx_test_case_info
-api_gen/gl_man?
 doc/html/*
+%% Don't delete links to man src when git clean -dfX
+%% api_gen/gl_man?

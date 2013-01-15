@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,6 +31,21 @@
 
 
 -record(state, {win, demo, example, selector, log, code}).
+
+%% For wx-2.9 usage
+-ifndef(wxSTC_ERLANG_COMMENT_FUNCTION).
+-define(wxSTC_ERLANG_COMMENT_FUNCTION, 14).
+-define(wxSTC_ERLANG_COMMENT_MODULE, 15).
+-define(wxSTC_ERLANG_COMMENT_DOC, 16).
+-define(wxSTC_ERLANG_COMMENT_DOC_MACRO, 17).
+-define(wxSTC_ERLANG_ATOM_QUOTED, 18).
+-define(wxSTC_ERLANG_MACRO_QUOTED, 19).
+-define(wxSTC_ERLANG_RECORD_QUOTED, 20).
+-define(wxSTC_ERLANG_NODE_NAME_QUOTED, 21).
+-define(wxSTC_ERLANG_BIFS, 22).
+-define(wxSTC_ERLANG_MODULES, 23).
+-define(wxSTC_ERLANG_MODULES_ATT, 24).
+-endif.
 
 start() ->
     start([]).
@@ -78,6 +93,7 @@ init(Options) ->
     wxFrame:setMenuBar(Frame,MB),
 
     wxFrame:connect(Frame, command_menu_selected),
+    wxFrame:connect(Frame, close_window),
 
     _SB = wxFrame:createStatusBar(Frame,[]),
     
@@ -179,6 +195,8 @@ create_subwindow(Parent, BoxLabel, Funs) ->
 %% Handled as in normal gen_server callbacks
 handle_info({'EXIT',_, wx_deleted}, State) ->
     {noreply,State};
+handle_info({'EXIT',_, shutdown}, State) ->
+    {noreply,State};
 handle_info({'EXIT',_, normal}, State) ->
     {noreply,State};
 handle_info(Msg, State) ->
@@ -197,13 +215,13 @@ handle_cast(Msg, State) ->
 handle_event(#wx{event=#wxCommand{type=command_listbox_selected, cmdString=Ex}}, 
 	     State = #state{demo={_,DemoSz}, example=Example, code=Code}) ->
     case Ex of
-	[] -> 
+	[] ->
 	    {noreply, State};
 	_  ->
 	    wxSizer:detach(DemoSz, Example),
-	    wxWindow:destroy(Example),
+	    wx_object:call(Example, shutdown),
 	    unload_code(Code),
-	    NewExample = load_example(Ex, State), 
+	    NewExample = load_example(Ex, State),
 	    wxSizer:add(DemoSz, NewExample, [{proportion,1}, {flag, ?wxEXPAND}]),
 	    wxSizer:layout(DemoSz),
 	    {noreply, State#state{example=NewExample}}
@@ -247,9 +265,9 @@ handle_event(#wx{id = Id,
 							    ?wxICON_INFORMATION bor
 							    ?wxSTAY_ON_TOP},
 							   {caption, "About"}])),
-	    {noreply, State};		    
+	    {noreply, State};
 	?wxID_EXIT ->
-	    wx_object:get_pid(State#state.example) ! stop,
+	    wx_object:call(State#state.example, shutdown),
 	    {stop, normal, State};
 	_ ->
 	    {noreply, State}
@@ -265,9 +283,9 @@ handle_event(Ev,State) ->
 code_change(_, _, State) ->
     {stop, not_yet_implemented, State}.
 
-terminate(_Reason, State) ->
-    wx_object:get_pid(State#state.example) ! stop,
-    timer:sleep(200), %% Give the example process some time to cleanup.
+terminate(_Reason, State = #state{win=Frame}) ->
+    catch wx_object:call(State#state.example, shutdown),
+    wxFrame:destroy(Frame),
     wx:destroy().
 
 %%%%%%%%%%%%%%%%% Internals %%%%%%%%%%
@@ -275,8 +293,6 @@ terminate(_Reason, State) ->
 load_example(Ex, #state{demo={DemoPanel,DemoSz}, log=EvCtrl, code=Code}) ->
     ModStr = "ex_" ++ Ex,
     Mod = list_to_atom(ModStr),
-%%     WxDir = code:lib_dir(wx),
-%%     ModFile = filename:join([WxDir, "examples","demo", ModStr ++ ".erl"]),
     ModFile = ModStr ++ ".erl",
     load_code(Code, file:read_file(ModFile)),
     find(Code),
@@ -312,7 +328,20 @@ code_area(Parent) ->
 	       {?wxSTC_ERLANG_MACRO,    {40,144,170}},
 	       {?wxSTC_ERLANG_RECORD,   {40,100,20}},
 	       {?wxSTC_ERLANG_SEPARATOR,{0,0,0}},
-	       {?wxSTC_ERLANG_NODE_NAME,{0,0,0}}],
+	       {?wxSTC_ERLANG_NODE_NAME,{0,0,0}},
+	       %% Optional 2.9 stuff
+	       {?wxSTC_ERLANG_COMMENT_FUNCTION, {160,53,35}},
+	       {?wxSTC_ERLANG_COMMENT_MODULE, {160,53,35}},
+	       {?wxSTC_ERLANG_COMMENT_DOC, {160,53,35}},
+	       {?wxSTC_ERLANG_COMMENT_DOC_MACRO, {160,53,35}},
+	       {?wxSTC_ERLANG_ATOM_QUOTED, {0,0,0}},
+	       {?wxSTC_ERLANG_MACRO_QUOTED, {40,144,170}},
+	       {?wxSTC_ERLANG_RECORD_QUOTED, {40,100,20}},
+	       {?wxSTC_ERLANG_NODE_NAME_QUOTED, {0,0,0}},
+	       {?wxSTC_ERLANG_BIFS, {130,40,172}},
+	       {?wxSTC_ERLANG_MODULES, {64,102,244}},
+	       {?wxSTC_ERLANG_MODULES_ATT, {64,102,244}}
+	      ],
     SetStyle = fun({Style, Color}) ->
 		       ?stc:styleSetFont(Ed, Style, FixedFont),
 		       ?stc:styleSetForeground(Ed, Style, Color)

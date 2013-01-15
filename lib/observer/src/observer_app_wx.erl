@@ -28,7 +28,7 @@
 -include("observer_defs.hrl").
 
 %% Import drawing wrappers
--import(observer_perf_wx, [haveGC/1,
+-import(observer_perf_wx, [haveGC/0,
 			   setPen/2, setFont/3, setBrush/2,
 			   strokeLine/5, strokeLines/2, drawRoundedRectangle/6,
 			   drawText/4, getTextExtent/2]).
@@ -114,9 +114,10 @@ init([Notebook, Parent]) ->
 	_ -> ok
     end,
 
-    UseGC = haveGC(DrawingArea),
+    UseGC = haveGC(),
+    Version28 = ?wxMAJOR_VERSION =:= 2 andalso ?wxMINOR_VERSION =:= 8,
     Font = case os:type() of
-	       {unix,_} when UseGC -> 
+	       {unix,_} when UseGC, Version28 ->
 		   wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_NORMAL);
 	       _ ->
 		   wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT)

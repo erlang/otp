@@ -50,6 +50,8 @@
 -export([parent_class/1]).
 
 -export_type([wxDC/0]).
+-deprecated([computeScaleAndOrigin/1]).
+
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
@@ -63,9 +65,10 @@ blit(This,DestPt={DestPtX,DestPtY},Sz={SzW,SzH},Source,SrcPt={SrcPtX,SrcPtY})
   blit(This,DestPt,Sz,Source,SrcPt, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcblit">external documentation</a>.
+%%<br /> Rop = integer
 -spec blit(This, DestPt, Sz, Source, SrcPt, [Option]) -> boolean() when
 	This::wxDC(), DestPt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Source::wxDC(), SrcPt::{X::integer(), Y::integer()},
-	Option :: {rop, integer()}
+	Option :: {rop, wx:wx_enum()}
 		 | {useMask, boolean()}
 		 | {srcPtMask, {X::integer(), Y::integer()}}.
 blit(#wx_ref{type=ThisT,ref=ThisRef},{DestPtX,DestPtY},{SzW,SzH},#wx_ref{type=SourceT,ref=SourceRef},{SrcPtX,SrcPtY}, Options)
@@ -310,11 +313,12 @@ drawPolygon(This,Points)
   drawPolygon(This,Points, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawpolygon">external documentation</a>.
+%%<br /> FillStyle = integer
 -spec drawPolygon(This, Points, [Option]) -> ok when
 	This::wxDC(), Points::[{X::integer(), Y::integer()}],
 	Option :: {xoffset, integer()}
 		 | {yoffset, integer()}
-		 | {fillStyle, integer()}.
+		 | {fillStyle, wx:wx_enum()}.
 drawPolygon(#wx_ref{type=ThisT,ref=ThisRef},Points, Options)
  when is_list(Points),is_list(Options) ->
   ?CLASS(ThisT,wxDC),
@@ -417,9 +421,10 @@ floodFill(This,Pt={PtX,PtY},Col)
   floodFill(This,Pt,Col, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcfloodfill">external documentation</a>.
+%%<br /> Style = integer
 -spec floodFill(This, Pt, Col, [Option]) -> boolean() when
 	This::wxDC(), Pt::{X::integer(), Y::integer()}, Col::wx:wx_colour(),
-	Option :: {style, integer()}.
+	Option :: {style, wx:wx_enum()}.
 floodFill(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},Col, Options)
  when is_integer(PtX),is_integer(PtY),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4,is_list(Options) ->
   ?CLASS(ThisT,wxDC),
@@ -855,8 +860,9 @@ setLayoutDirection(#wx_ref{type=ThisT,ref=ThisRef},Dir)
   <<ThisRef:32/?UI,Dir:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcsetlogicalfunction">external documentation</a>.
+%%<br /> Function = integer
 -spec setLogicalFunction(This, Function) -> ok when
-	This::wxDC(), Function::integer().
+	This::wxDC(), Function::wx:wx_enum().
 setLogicalFunction(#wx_ref{type=ThisT,ref=ThisRef},Function)
  when is_integer(Function) ->
   ?CLASS(ThisT,wxDC),
@@ -864,8 +870,9 @@ setLogicalFunction(#wx_ref{type=ThisT,ref=ThisRef},Function)
   <<ThisRef:32/?UI,Function:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcsetmapmode">external documentation</a>.
+%%<br /> Mode = integer
 -spec setMapMode(This, Mode) -> ok when
-	This::wxDC(), Mode::integer().
+	This::wxDC(), Mode::wx:wx_enum().
 setMapMode(#wx_ref{type=ThisT,ref=ThisRef},Mode)
  when is_integer(Mode) ->
   ?CLASS(ThisT,wxDC),

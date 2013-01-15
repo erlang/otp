@@ -185,11 +185,11 @@ parse_define([#xmlElement{name=name,content=[#xmlText{value="WINGDIAPI"++_}]}|_]
     throw(skip);
 parse_define([#xmlElement{name=name,content=[#xmlText{value=Name}]}|R], Def, Os) ->
     parse_define(R, Def#def{name=Name}, Os);
-parse_define([#xmlElement{name=initializer,content=[#xmlText{value=V}]}|_],Def,_Os) ->
-    Val0 = string:strip(V),
-    try 
+parse_define([#xmlElement{name=initializer,content=Contents}|_R],Def,_Os) ->
+    Val0 = extract_def2(Contents),
+    try
 	case Val0 of
-	    "0x" ++ Val1 -> 
+	    "0x" ++ Val1 ->
 		_ = http_util:hexlist_to_integer(Val1),
 		Def#def{val=Val1, type=hex};
 	    _ ->
@@ -206,6 +206,23 @@ parse_define([_|R], D, Opts) ->
     parse_define(R, D, Opts);
 parse_define([], D, _Opts) ->
     D.
+
+extract_def2([#xmlText{value=Val}|R]) ->
+    strip_comment(string:strip(Val)) ++ extract_def2(R);
+extract_def2([#xmlElement{content=Cs}|R]) ->
+    extract_def2(Cs) ++ extract_def2(R);
+extract_def2([]) -> [].
+
+strip_comment("/*" ++ Rest) ->
+    strip_comment_until_end(Rest);
+strip_comment("//" ++ _) -> [];
+strip_comment([H|R]) -> [H | strip_comment(R)];
+strip_comment([]) -> [].
+
+strip_comment_until_end("*/" ++ Rest) ->
+    strip_comment(Rest);
+strip_comment_until_end([_|R]) ->
+    strip_comment_until_end(R).
 
 parse_func(Xml, Opts) ->
     {Func,_} = foldl(fun(X,Acc) -> parse_func(X,Acc,Opts) end, {#func{},1}, Xml),

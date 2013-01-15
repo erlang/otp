@@ -114,6 +114,10 @@ handle_info(pulse, State=#state{undeterminate_gauge = Gauge=#gauge{obj = Obj}}) 
     Timer = erlang:send_after(300, self(), pulse),
     {noreply, State#state{undeterminate_gauge = Gauge#gauge{timer = Timer}}}.
 
+handle_call(shutdown, _From, State=#state{parent=Panel}) ->
+    wxPanel:destroy(Panel),
+    {stop, normal, ok, State};
+
 handle_call(Msg, _From, State) ->
     demo:format(State#state.config,"Got Call ~p\n",[Msg]),
     {reply,ok, State}.
