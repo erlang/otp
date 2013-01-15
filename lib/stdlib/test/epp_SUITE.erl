@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1342,6 +1342,8 @@ encoding(Enc, File) ->
     E = encoding_nocom(Enc, File).
 
 encoding_com(Enc, File) ->
+    B = list_to_binary(Enc),
+    E = epp:read_encoding_from_binary(B),
     ok = file:write_file(File, Enc),
     {ok, Fd} = file:open(File, [read]),
     E = epp:set_encoding(Fd),
@@ -1349,10 +1351,13 @@ encoding_com(Enc, File) ->
     E = epp:read_encoding(File).
 
 encoding_nocom(Enc, File) ->
+    Options = [{in_comment_only, false}],
+    B = list_to_binary(Enc),
+    E = epp:read_encoding_from_binary(B, Options),
     ok = file:write_file(File, Enc),
     {ok, Fd} = file:open(File, [read]),
     ok = file:close(Fd),
-    epp:read_encoding(File, [{in_comment_only, false}]).
+    E = epp:read_encoding(File, Options).
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).
