@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2049,7 +2049,7 @@ request_cb({eval_packet, RC, F}, App, Mask, T, TC, Fs, Pkt) ->
     request_cb(RC, App, Mask, T, TC, [F|Fs], Pkt);
 
 request_cb({eval, RC, F}, App, Mask, T, TC, Fs, Pkt) ->
-    request_cb(RC, App, Mask, T, TC, Pkt, Fs),
+    request_cb(RC, App, Mask, T, TC, Fs, Pkt),
     diameter_lib:eval(F).
 
 %% protocol_error/5
