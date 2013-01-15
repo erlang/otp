@@ -162,6 +162,11 @@ else
 fi
 AC_SUBST(OTP_EXTRA_FLAGS)
 
+if test "x$GCC" = xyes; then
+  # Treat certain GCC warnings as errors
+  LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
+fi
+
 dnl
 dnl If ${ERL_TOP}/make/otp_ded.mk.in exists and contains DED_MK_VSN > 0,
 dnl every thing releted to compiling Dynamic Erlang Drivers can be found
@@ -271,11 +276,6 @@ AC_SUBST(DED_LDFLAGS)
 AC_CHECK_PROG(PERL, perl, perl, no_perl)
 if test "$PERL" = no_perl; then
   AC_MSG_ERROR([Perl is required to build the flex scanner!])
-fi
-
-if test "x$GCC" = xyes; then
-  # Treat certain GCC warnings as errors
-  LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
 fi
 
 AC_OUTPUT(examples/meas/Makefile:examples/meas/Makefile.in)

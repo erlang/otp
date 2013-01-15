@@ -1861,17 +1861,16 @@ dnl Usage example LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
 dnl
 dnl
 AC_DEFUN([LM_TRY_ENABLE_CFLAG], [
-    AC_MSG_CHECKING([if we can add $1 to CFLAGS])
+    AC_MSG_CHECKING([if we can add $1 to $2 (via CFLAGS)])
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="$1 $CFLAGS";
+    CFLAGS="$1 $$2";
     AC_TRY_COMPILE([],[return 0;],can_enable_flag=true,can_enable_flag=false)
     CFLAGS=$saved_CFLAGS;
     if test "X$can_enable_flag" = "Xtrue"; then
         AC_MSG_RESULT([yes])
-        AS_VAR_SET($2, "$1 $CFLAGS")
+        AS_VAR_SET($2, "$1 $$2")
     else
         AC_MSG_RESULT([no])
-        AS_VAR_SET($2, "$CFLAGS")
     fi
 ])
 
