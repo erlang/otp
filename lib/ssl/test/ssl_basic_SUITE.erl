@@ -84,7 +84,8 @@ basic_tests() ->
      alerts,
      send_close,
      connect_twice,
-     connect_dist
+     connect_dist,
+     clear_pem_cache
     ].
 
 options_tests() ->
@@ -534,6 +535,33 @@ connect_dist(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+clear_pem_cache() ->
+    [{doc,"Test that internal reference tabel is cleaned properly even when "
+     " the PEM cache is cleared" }].
+clear_pem_cache(Config) when is_list(Config) -> 
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    [_,FilRefDb, _] = element(5, State),
+    {Server, Client} = basic_verify_test_no_close(Config),
+    2 = ets:info(FilRefDb, size), 
+    ssl:clear_pem_cache(),
+    _ = sys:get_status(whereis(ssl_manager)),
+    {Server1, Client1} = basic_verify_test_no_close(Config),
+    4 = ets:info(FilRefDb, size), 
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    ct:sleep(5000),
+    _ = sys:get_status(whereis(ssl_manager)),
+    2 = ets:info(FilRefDb, size),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client1),
+    ct:sleep(5000),
+    _ = sys:get_status(whereis(ssl_manager)),
+    0 = ets:info(FilRefDb, size).
 
 %%--------------------------------------------------------------------
 peername() ->
@@ -2641,6 +2669,26 @@ tcp_send_recv_result(Socket) ->
     {ok,"Hello world"} = gen_tcp:recv(Socket, 11),
     ok.
 
+basic_verify_test_no_close(Config) ->
+    ClientOpts = ?config(client_verification_opts, Config),
+    ServerOpts = ?config(server_verification_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    {Server, Client}.
+
 basic_test(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
@@ -2659,7 +2707,6 @@ basic_test(Config) ->
 					{options, ClientOpts}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
-
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
