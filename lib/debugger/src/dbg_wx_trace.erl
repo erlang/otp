@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -513,7 +513,7 @@ gui_cmd({edit, {Var, Val}}, State) ->
 	cancel ->
 	    State;
 	{Var, Term} ->
-	    Cmd = atom_to_list(Var)++"="++io_lib:format("~p", [Term]),
+	    Cmd = atom_to_list(Var)++"="++io_lib:format("~w", [Term]),
 	    gui_cmd({user_command, lists:flatten(Cmd)}, State)
     end.
 

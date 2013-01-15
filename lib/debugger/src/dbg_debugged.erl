@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -104,7 +104,8 @@ handle_command(Command) ->
 reply({apply,M,F,As}) ->
     {value, erlang:apply(M,F,As)};
 reply({eval,Expr,Bs}) ->
-    erl_eval:expr(Expr, Bs). % {value, Value, Bs2}
+    %% Bindings is an orddict (sort them)
+    erl_eval:expr(Expr, lists:sort(Bs)). % {value, Value, Bs2}
 
 %% Demonitor and delete message from inbox
 %%

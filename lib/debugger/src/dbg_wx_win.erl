@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -252,9 +252,9 @@ notify(Win,Message) ->
 %%--------------------------------------------------------------------
 
 entry(Parent, Title, Prompt, {Type, Value}) ->
-    Ted = wxTextEntryDialog:new(Parent, to_string(Prompt), 
-				[{caption, to_string(Title)}, 
-				 {value, to_string(Value)}]),
+    Ted = wxTextEntryDialog:new(Parent, to_string(Prompt),
+				[{caption, to_string(Title)},
+				 {value, to_string("~999999tp",Value)}]),
 
     case wxDialog:showModal(Ted) of
 	?wxID_OK ->
@@ -306,7 +306,7 @@ to_string([]) -> "";
 to_string(List) when is_list(List) ->
     List;
 to_string(Term) ->
-    io_lib:format("~p",[Term]).
+    io_lib:format("~tp",[Term]).
 
 to_string(Format,Args) ->
     io_lib:format(Format, Args).

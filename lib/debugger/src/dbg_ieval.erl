@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -249,7 +249,7 @@ meta_loop(Debugged, Bs, #ieval{level=Le} = Ieval) ->
 	{sys, Debugged, {value,Val}} ->
 	    {value, Val, Bs};
 	{sys, Debugged, {value,Val,Bs2}} ->
-	    {value, Val, Bs2};
+	    {value, Val, merge_bindings(Bs2, Bs, Ieval)};
 	{sys, Debugged, {exception,{Class,Reason,Stk}}} ->
 	    case get(exit_info) of
 
