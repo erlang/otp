@@ -3432,7 +3432,7 @@ record_field_diffs_to_string(?tuple([_|Fs], Arity, Tag), RecDict) ->
 
 field_diffs([F|Fs], [{FName, DefType}|FDefs], RecDict, Acc) ->
   NewAcc =
-    case t_is_subtype(F, DefType) of
+    case not t_is_none(t_inf(F, DefType)) of
       true -> Acc;
       false ->
 	Str = atom_to_string(FName) ++ "::" ++ t_to_string(DefType, RecDict),
