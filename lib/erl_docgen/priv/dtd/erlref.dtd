@@ -29,3 +29,6 @@
 <!-- `name' is used in common.refs.dtd and must therefore 
       be defined in each *ref. dtd -->
 <!ELEMENT name                (#PCDATA) >
+<!ATTLIST name                 name CDATA #IMPLIED
+                               arity CDATA #IMPLIED
+	                       clause_i CDATA #IMPLIED>
