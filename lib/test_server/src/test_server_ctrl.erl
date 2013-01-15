@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,6 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_ctrl).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                  %%
 %%                      The Erlang Test Server                      %%
@@ -65,6 +64,7 @@
 -export([get_target_info/0]).
 -export([get_hosts/0]).
 -export([node_started/1]).
+-export([uri_encode/1,uri_encode/2]).
 
 %%% DEBUGGER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([i/0, p/1, p/3, pi/2, pi/4, t/0, t/1]).
@@ -229,12 +229,12 @@ parse_cmd_line(['SPEC',Spec|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
 	    parse_cmd_line(Cmds, TermList++SpecList, [Name|Names], Param,
 			   Trc, Cov, TCCB);
 	{error,Reason} ->
-	    io:format("Can't open ~s: ~p\n",
-		      [cast_to_list(Spec), file:format_error(Reason)]),
+	    io:format("Can't open ~w: ~tp\n",[Spec, file:format_error(Reason)]),
 	    parse_cmd_line(Cmds, SpecList, Names, Param, Trc, Cov, TCCB)
     end;
 parse_cmd_line(['NAME',Name|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
-    parse_cmd_line(Cmds, SpecList, [{name,Name}|Names], Param, Trc, Cov, TCCB);
+    parse_cmd_line(Cmds, SpecList, [{name,atom_to_list(Name)}|Names],
+		   Param, Trc, Cov, TCCB);
 parse_cmd_line(['SKIPMOD',Mod|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
     parse_cmd_line(Cmds, [{skip,{Mod,"by command line"}}|SpecList], Names,
 		   Param, Trc, Cov, TCCB);
@@ -242,14 +242,14 @@ parse_cmd_line(['SKIPCASE',Mod,Case|Cmds], SpecList, Names, Param, Trc, Cov, TCC
     parse_cmd_line(Cmds, [{skip,{Mod,Case,"by command line"}}|SpecList], Names,
 		   Param, Trc, Cov, TCCB);
 parse_cmd_line(['DIR',Dir|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
-    Name = cast_to_list(filename:basename(Dir)),
+    Name = filename:basename(Dir),
     parse_cmd_line(Cmds, [{topcase,{dir,Name}}|SpecList], [Name|Names],
 		   Param, Trc, Cov, TCCB);
 parse_cmd_line(['MODULE',Mod|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
-    parse_cmd_line(Cmds, [{topcase,{Mod,all}}|SpecList], [Mod|Names],
+    parse_cmd_line(Cmds,[{topcase,{Mod,all}}|SpecList],[atom_to_list(Mod)|Names],
 		   Param, Trc, Cov, TCCB);
 parse_cmd_line(['CASE',Mod,Case|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
-    parse_cmd_line(Cmds, [{topcase,{Mod,Case}}|SpecList], [Mod|Names],
+    parse_cmd_line(Cmds,[{topcase,{Mod,Case}}|SpecList],[atom_to_list(Mod)|Names],
 		   Param, Trc, Cov, TCCB);
 parse_cmd_line(['PARAMETERS',Param|Cmds], SpecList, Names, _Param, Trc, Cov, TCCB) ->
     parse_cmd_line(Cmds, SpecList, Names, Param, Trc, Cov, TCCB);
@@ -260,17 +260,17 @@ parse_cmd_line(['COVER',App,CF,Analyse|Cmds], SpecList, Names, Param, Trc, _Cov,
 parse_cmd_line(['TESTCASE_CALLBACK',Mod,Func|Cmds], SpecList, Names, Param, Trc, Cov, _) ->
     parse_cmd_line(Cmds, SpecList, Names, Param, Trc, Cov, {Mod,Func});
 parse_cmd_line([Obj|_Cmds], _SpecList, _Names, _Param, _Trc, _Cov, _TCCB) ->
-    io:format("~p: Bad argument: ~p\n", [?MODULE,Obj]),
+    io:format("~w: Bad argument: ~w\n", [?MODULE,Obj]),
     io:format(" Use the `ts' module to start tests.\n", []),
     io:format(" (If you ARE using `ts', there is a bug in `ts'.)\n", []),
     halt(1);
 parse_cmd_line([], SpecList, Names, Param, Trc, Cov, TCCB) ->
-    NameList = lists:reverse(Names, [suite]),
+    NameList = lists:reverse(Names, ["suite"]),
     Name = case lists:keysearch(name, 1, NameList) of
 	       {value,{name,N}} -> N;
 	       false -> hd(NameList)
 	   end,
-    {lists:reverse(SpecList), cast_to_list(Name), Param, Trc, Cov, TCCB}.
+    {lists:reverse(SpecList), Name, Param, Trc, Cov, TCCB}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% cast_to_list(X) -> string()
@@ -1011,9 +1011,9 @@ handle_info({'EXIT',Pid,Reason}, State) ->
 		normal ->
 		    fine;
 		killed ->
-		    io:format("Suite ~s was killed\n", [Name]);
+		    io:format("Suite ~ts was killed\n", [Name]);
 		_Other ->
-		    io:format("Suite ~s was killed with reason ~p\n",
+		    io:format("Suite ~ts was killed with reason ~tp\n",
 			      [Name,Reason])
 	    end,
 	    State2 = State#state{jobs=NewJobs},
@@ -1057,8 +1057,8 @@ handle_info({tcp,_MainSock,<<1,Request/binary>>}, State) ->
 	    %% The local job proc will soon be killed by the closed socket or
 	    %% because the job is finished. Then the above clause ('EXIT') will
 	    %% handle the problem.
-	    io:format("Suite ~s was killed on remote target with reason"
-		      " ~p\n", [Name,Reason]);
+	    io:format("Suite ~ts was killed on remote target with reason"
+		      " ~tp\n", [Name,Reason]);
 	_ ->
 	    ignore
     end,
@@ -1192,10 +1192,10 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	{'EXIT',test_suites_done} ->
 	    ok;
 	{'EXIT',_Pid,Reason} ->
-	    print(1, "EXIT, reason ~p", [Reason]);
+	    print(1, "EXIT, reason ~tp", [Reason]);
 	{'EXIT',Reason} ->
 	    report_severe_error(Reason),
-	    print(1, "EXIT, reason ~p", [Reason])
+	    print(1, "EXIT, reason ~tp", [Reason])
     end,
     Time = TimeMy/1000000,
     SuccessStr =
@@ -1206,13 +1206,13 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
     {SkippedN,SkipStr} =
 	case get(test_server_skipped) of
 	    {0,_} -> {0,""};
-	    {Skipped,_} -> {Skipped,io_lib:format(", ~p Skipped", [Skipped])}
+	    {Skipped,_} -> {Skipped,io_lib:format(", ~w Skipped", [Skipped])}
 	end,
     OkN = get(test_server_ok),
     FailedN = get(test_server_failed),
     print(html,"\n</tbody>\n<tfoot>\n"
 	  "<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td>"
-	  "<td>~.3fs</td><td><b>~s</b></td><td>~p Ok, ~p Failed~s of ~p</td></tr>\n"
+	  "<td>~.3fs</td><td><b>~ts</b></td><td>~w Ok, ~w Failed~ts of ~w</td></tr>\n"
 	  "</tfoot>\n",
 	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]),
     test_server_io:stop().
@@ -1285,7 +1285,7 @@ do_spec(SpecName, TimetrapSpec) when is_list(SpecName) ->
 	{ok,TermList} ->
 	    do_spec_list(TermList,TimetrapSpec);
 	{error,Reason} ->
-	    io:format("Can't open ~s: ~p\n", [SpecName,Reason]),
+	    io:format("Can't open ~ts: ~tp\n", [SpecName,Reason]),
 	    {error,{cant_open_spec,Reason}}
     end.
 
@@ -1368,7 +1368,7 @@ do_spec_terms([{require_nodenames,NumNames}|Terms], TopCases, SkipList, Config) 
     do_spec_terms(Terms, TopCases, SkipList,
 		  update_config(Config, {nodenames,NodeNames}));
 do_spec_terms([Other|Terms], TopCases, SkipList, Config) ->
-    io:format("** WARNING: Spec file contains unknown directive ~p\n",
+    io:format("** WARNING: Spec file contains unknown directive ~tp\n",
 	      [Other]),
     do_spec_terms(Terms, TopCases, SkipList, Config).
 
@@ -1387,7 +1387,7 @@ generate_nodenames(Num) ->
 generate_nodenames2(0, _Hosts, Acc) ->
     Acc;
 generate_nodenames2(N, Hosts, Acc) ->
-    Host=cast_to_list(lists:nth((N rem (length(Hosts)))+1, Hosts)),
+    Host=lists:nth((N rem (length(Hosts)))+1, Hosts),
     Name=list_to_atom(temp_nodename("nod", []) ++ "@" ++ Host),
     generate_nodenames2(N-1, Hosts, [Name|Acc]).
 
@@ -1507,7 +1507,7 @@ do_test_cases(TopCases, SkipCases,
     FwMod = get_fw_mod(?MODULE),
     case collect_all_cases(TopCases, SkipCases) of
 	{error,Why} ->
-	    print(1, "Error starting: ~p", [Why]),
+	    print(1, "Error starting: ~tp", [Why]),
 	    exit(test_suites_done);
 	TestSpec0 ->
 	    N = case remove_conf(TestSpec0) of
@@ -1519,32 +1519,25 @@ do_test_cases(TopCases, SkipCases,
 	    TestSpec =
 		add_init_and_end_per_suite(TestSpec0, undefined, undefined, FwMod),
 	    TI = get_target_info(),
-	    print(1, "Starting test~s",
+	    print(1, "Starting test~ts",
 		  [print_if_known(N, {", ~w test cases",[N]},
 				  {" (with repeated test cases)",[]})]),
 	    Test = get(test_server_name),
 	    TestName = 	if is_list(Test) -> 
-				lists:flatten(io_lib:format("~s", [Test]));
+				lists:flatten(io_lib:format("~ts", [Test]));
 			   true ->
-				lists:flatten(io_lib:format("~p", [Test]))
+				lists:flatten(io_lib:format("~tp", [Test]))
 			end,			  
 	    TestDescr = "Test " ++ TestName ++ " results",
 
 	    test_server_sup:framework_call(report, [tests_start,{Test,N}]),
 	    {Header,Footer} =
-		case test_server_sup:framework_call(get_html_wrapper, 
+		case test_server_sup:framework_call(get_html_wrapper,
 						    [TestDescr,true,TestDir,
 						    {[],[2,3,4,7,8],[1,6]}], "") of
 		    Empty when (Empty == "") ; (element(2,Empty) == "")  ->
 			put(basic_html, true),
-			{["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
-			  "<!-- autogenerated by '", atom_to_list(?MODULE), "'. -->\n",
-			  "<html>\n",
-			  "<head><title>", TestDescr, "</title>\n",
-			  "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
-			  "</head>\n",
-			  "<body bgcolor=\"white\" text=\"black\" ",
-			  "link=\"blue\" vlink=\"purple\" alink=\"red\">",
+			{[html_header(TestDescr),
 			  "<h2>Results for test ", TestName, "</h2>\n"],
 			 "\n</body>\n</html>\n"};
 		    {basic_html,Html0,Html1} ->
@@ -1566,16 +1559,16 @@ do_test_cases(TopCases, SkipCases,
 	    print(html, xhtml("\n<p><b>Host info:</b><br>\n",
 			      "\n<p><b>Host info:</b><br />\n")),
 	    print_who(test_server_sup:hoststr(), test_server_sup:get_username()),
-	    print(html, xhtml("<br>Used Erlang v~s in <tt>~s</tt></p>\n",
-			      "<br />Used Erlang v~s in \"~s\"</p>\n"),
+	    print(html, xhtml("<br>Used Erlang v~ts in <tt>~ts</tt></p>\n",
+			      "<br />Used Erlang v~ts in \"~ts\"</p>\n"),
 		  [erlang:system_info(version), code:root_dir()]),
 	    
 	    if FwMod == ?MODULE ->
 		    print(html, xhtml("\n<p><b>Target Info:</b><br>\n",
 				      "\n<p><b>Target Info:</b><br />\n")),
 		    print_who(TI#target_info.host, TI#target_info.username),
-		    print(html, xhtml("<br>Used Erlang v~s in <tt>~s</tt></p>\n",
-				      "<br />Used Erlang v~s in \"~s\"</p>\n"),
+		    print(html,xhtml("<br>Used Erlang v~ts in <tt>~ts</tt></p>\n",
+				     "<br />Used Erlang v~ts in \"~ts\"</p>\n"),
 			  [TI#target_info.version, TI#target_info.root_dir]);
 	       true ->
 		    case test_server_sup:framework_call(target_info, []) of
@@ -1583,7 +1576,7 @@ do_test_cases(TopCases, SkipCases,
 			                length(TargetInfo) > 0 ->
 			    print(html, xhtml("\n<p><b>Target info:</b><br>\n",
 					      "\n<p><b>Target info:</b><br />\n")),
-			    print(html, "~s</p>\n", [TargetInfo]);
+			    print(html, "~ts</p>\n", [TargetInfo]);
 			_ ->
 			    ok
 		    end
@@ -1591,39 +1584,39 @@ do_test_cases(TopCases, SkipCases,
 	    
 	    print(html,
 		  "<p><ul>\n"
-		  "<li><a href=\"~s\">Full textual log</a></li>\n"
-		  "<li><a href=\"~s\">Coverage log</a></li>\n"
-		  "<li><a href=\"~s\">Unexpected I/O log</a></li>\n</ul></p>\n",
+		  "<li><a href=\"~ts\">Full textual log</a></li>\n"
+		  "<li><a href=\"~ts\">Coverage log</a></li>\n"
+		  "<li><a href=\"~ts\">Unexpected I/O log</a></li>\n</ul></p>\n",
 		  [?suitelog_name,?coverlog_name,?unexpected_io_log]),
 	    print(html,
-		  "<p>~s</p>\n" ++
+		  "<p>~ts</p>\n" ++
 		  xhtml("<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">",
 			["<table id=\"",?sortable_table_name,"\">\n",
 			 "<thead>\n"]) ++
 		      "<tr><th>Num</th><th>Module</th><th>Group</th>" ++
 		      "<th>Case</th><th>Log</th><th>Time</th><th>Result</th>" ++
 		      "<th>Comment</th></tr>\n</thead>\n<tbody>\n",
-		  [print_if_known(N, {"<i>Executing <b>~p</b> test cases...</i>" ++
-				      xhtml("\n<br>\n", "\n<br />\n"),[N]},
+		  [print_if_known(N, {"<i>Executing <b>~w</b> test cases...</i>"
+				      ++ xhtml("\n<br>\n", "\n<br />\n"),[N]},
 				  {"",[]})]),
 
-	    print(major, "=cases         ~p", [get(test_server_cases)]),
-	    print(major, "=user          ~s", [TI#target_info.username]),
-	    print(major, "=host          ~s", [TI#target_info.host]),
+	    print(major, "=cases         ~w", [get(test_server_cases)]),
+	    print(major, "=user          ~ts", [TI#target_info.username]),
+	    print(major, "=host          ~ts", [TI#target_info.host]),
 
 	    %% If there are no hosts specified,use only the local host
 	    case controller_call(get_hosts) of
 		[] ->
-		    print(major, "=hosts         ~s", [TI#target_info.host]),
+		    print(major, "=hosts         ~ts", [TI#target_info.host]),
 		    controller_call({set_hosts, [TI#target_info.host]});
 		Hosts ->
 		    Str = lists:flatten(lists:map(fun(X) -> [X," "] end, Hosts)),
-		    print(major, "=hosts         ~s", [Str])
+		    print(major, "=hosts         ~ts", [Str])
 	    end,
-	    print(major, "=emulator_vsn  ~s", [TI#target_info.version]),
-	    print(major, "=emulator      ~s", [TI#target_info.emulator]),
-	    print(major, "=otp_release   ~s", [TI#target_info.otp_release]),
-	    print(major, "=started       ~s",
+	    print(major, "=emulator_vsn  ~ts", [TI#target_info.version]),
+	    print(major, "=emulator      ~ts", [TI#target_info.emulator]),
+	    print(major, "=otp_release   ~ts", [TI#target_info.otp_release]),
+	    print(major, "=started       ~ts",
 		   [lists:flatten(timestamp_get(""))]),
 
 	    put(test_server_html_footer, Footer),
@@ -1674,21 +1667,18 @@ start_log_file() ->
 	    MkDirError2 ->
 		log_file_error(MkDirError2, TestDir)
 	end,
-    ok = file:write_file(filename:join(Dir, ?last_file), TestDir1 ++ "\n"),
-    ok = file:write_file(?last_file, TestDir1 ++ "\n"),
+    ok = write_file(filename:join(Dir, ?last_file), TestDir1 ++ "\n"),
+    ok = write_file(?last_file, TestDir1 ++ "\n"),
     put(test_server_log_dir_base,TestDir1),
     MajorName = filename:join(TestDir1, ?suitelog_name),
     HtmlName = MajorName ++ ?html_ext,
     UnexpectedName = filename:join(TestDir1, ?unexpected_io_log),
-    {ok,Major} = file:open(MajorName, [write]),
-    {ok,Html}  = file:open(HtmlName,  [write]),
-    {ok,Unexpected}  = file:open(UnexpectedName,  [write]),
+    {ok,Major} = open_file(MajorName),
+    {ok,Html}  = open_html_file(HtmlName),
+    {ok,Unexpected}  = open_file(UnexpectedName),
     test_server_io:set_fd(major, Major),
     test_server_io:set_fd(html, Html),
     test_server_io:set_fd(unexpected_io, Unexpected),
-    put(test_server_major_fd,Major),
-    put(test_server_html_fd,Html),
-    put(test_server_unexpected_io, Unexpected),
 
     make_html_link(filename:absname(?last_test ++ ?html_ext),
 		   HtmlName, filename:basename(Dir)),
@@ -1714,21 +1704,15 @@ make_html_link(LinkName, Target, Explanation) ->
     PwdL = filename:split(filename:dirname(LinkName)),
     Href = case lists:prefix(PwdL, TargetL) of
 	       true ->
-		   filename:join(lists:nthtail(length(PwdL), TargetL));
+		   uri_encode(filename:join(lists:nthtail(length(PwdL),TargetL)));
 	       false ->
-		   "file:" ++ Target
+		   "file:" ++ uri_encode(Target)
 	   end,
-    H = io_lib:format("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n"
-		      "<!-- autogenerated by '"++atom_to_list(?MODULE)++"'. -->\n"
-		      "<html>\n"
-		      "<head><title>~s</title></head>\n"
-		      "<body bgcolor=\"white\" text=\"black\""
-		      " link=\"blue\" vlink=\"purple\" alink=\"red\">\n"
-		      "<h1>Last test</h1>\n"
-		      "<a href=\"~s\">~s</a>~n"
-		      "</body>\n</html>\n",
-		      [Explanation,Href,Explanation]),
-    ok = file:write_file(LinkName, H).
+    H = [html_header(Explanation),
+	 "<h1>Last test</h1>\n"
+	 "<a href=\"",Href,"\">",Explanation,"</a>\n"
+	 "</body>\n</html>\n"],
+    ok = write_html_file(LinkName, H).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% start_minor_log_file(Mod, Func) -> AbsName
@@ -1743,7 +1727,7 @@ make_html_link(LinkName, Target, Explanation) ->
 start_minor_log_file(Mod, Func) ->
     MFA = {Mod,Func,1},
     LogDir = get(test_server_log_dir_base),
-    Name0 = lists:flatten(io_lib:format("~s.~s~s", [Mod,Func,?html_ext])),
+    Name0 = lists:flatten(io_lib:format("~w.~w~ts", [Mod,Func,?html_ext])),
     Name = downcase(Name0),
     AbsName = filename:join(LogDir, Name),
     case file:read_file_info(AbsName) of
@@ -1752,37 +1736,29 @@ start_minor_log_file(Mod, Func) ->
 	{ok,_} ->                            %% special case, duplicate names
 	    {_,S,Us} = now(),
 	    Name1_0 =
-		lists:flatten(io_lib:format("~s.~s.~w.~w~s", [Mod,Func,S,
-							     trunc(Us/1000),
-							     ?html_ext])),
+		lists:flatten(io_lib:format("~w.~w.~w.~w~ts", [Mod,Func,S,
+							       trunc(Us/1000),
+							       ?html_ext])),
 	    Name1 = downcase(Name1_0),
 	    AbsName1 = filename:join(LogDir, Name1),
 	    start_minor_log_file1(Mod, Func, LogDir, AbsName1, MFA)
     end.
 
 start_minor_log_file1(Mod, Func, LogDir, AbsName, MFA) ->
-    {ok,Fd} = file:open(AbsName, [write]),
+    {ok,Fd} = open_html_file(AbsName),
     Lev = get(test_server_minor_level)+1000, %% far down in the minor levels
     put(test_server_minor_fd, Fd),
     test_server_gl:set_minor_fd(group_leader(), Fd, MFA),
 
-    TestDescr = io_lib:format("Test ~p:~p result", [Mod,Func]),
+    TestDescr = io_lib:format("Test ~w:~w result", [Mod,Func]),
     {Header,Footer} =
-	case test_server_sup:framework_call(get_html_wrapper, 
+	case test_server_sup:framework_call(get_html_wrapper,
 					    [TestDescr,false,
 					     filename:dirname(AbsName),
 					     undefined], "") of
 	    Empty when (Empty == "") ; (element(2,Empty) == "")  ->
 		put(basic_html, true),
-		{["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
-		 "<!-- autogenerated by '", atom_to_list(?MODULE), "'. -->\n",
-		 "<html>\n",
-		 "<head><title>", TestDescr, "</title>\n",
-		 "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
-		 "</head>\n",
-		 "<body bgcolor=\"white\" text=\"black\" ",
-		 "link=\"blue\" vlink=\"purple\" alink=\"red\">\n"],
-		 "\n</body>\n</html>\n"};
+		{html_header(TestDescr), "\n</body>\n</html>\n"};
 	    {basic_html,Html0,Html1} ->
 		put(basic_html, true),
 		{Html0,Html1};
@@ -1791,24 +1767,21 @@ start_minor_log_file1(Mod, Func, LogDir, AbsName, MFA) ->
 		{Html0,Html1}
 	end,
     put(test_server_minor_footer, Footer),
-    io:fwrite(Fd, Header, []),
+    io:put_chars(Fd, Header),
 
-    SrcListing = downcase(cast_to_list(Mod)) ++ ?src_listing_ext,
+    SrcListing = downcase(atom_to_list(Mod)) ++ ?src_listing_ext,
     case {filelib:is_file(filename:join(LogDir, SrcListing)),
 	  lists:member(no_src, get(test_server_logopts))} of
 	{true,false} ->
-	    print(Lev, "<a href=\"~s#~s\">source code for ~p:~p/1</a>\n",
-		  [SrcListing,atom_to_list(Func)++"-1",Mod,Func]);
-	_ -> ok
+	    print(Lev, "<a href=\"~ts#~ts\">source code for ~w:~w/1</a>\n",
+		  [uri_encode(SrcListing),
+		   uri_encode(atom_to_list(Func)++"-1",utf8),
+		   Mod,Func]);
+	_ ->
+	    ok
     end,
 
-    io:fwrite(Fd, "<pre>\n", []),
-
-% Stupid BUG!
-%    case catch apply(Mod, Func, [doc]) of
-%	{'EXIT', _Why} -> ok;
-%	Comment -> print(Lev, "Comment: ~s~n<br>", [Comment])
-%    end,
+    io:put_chars(Fd, "<pre>\n"),
 
     AbsName.
 
@@ -1816,8 +1789,8 @@ stop_minor_log_file() ->
     test_server_gl:unset_minor_fd(group_leader()),
     Fd = get(test_server_minor_fd),
     Footer = get(test_server_minor_footer),
-    io:fwrite(Fd, "</pre>\n" ++ Footer, []),
-    file:close(Fd),
+    io:put_chars(Fd, "</pre>\n" ++ Footer),
+    ok = file:close(Fd),
     put(test_server_minor_fd, undefined).
 
 downcase(S) -> downcase(S, []).
@@ -1899,25 +1872,14 @@ html_possibly_convert(Src, SrcInfo, Dest) ->
 	    ok;					% dest file up to date
 	_ ->
 	    OutDir = get(test_server_log_dir_base),
-	    Header =
-		case test_server_sup:framework_call(get_html_wrapper, 
-						    ["Module "++Src,false,
-						     OutDir,undefined], "") of
-		    Empty when (Empty == "") ; (element(2,Empty) == "")  ->
-			["<!DOCTYPE HTML PUBLIC",
-			 "\"-//W3C//DTD HTML 3.2 Final//EN\">\n",
-			 "<!-- autogenerated by 'erl2html2' -->\n",
-			 "<html>\n",
-			 "<head><title>Module ", Src, "</title>\n",
-			 "<meta http-equiv=\"cache-control\" ",
-			 "content=\"no-cache\">\n",
-			 "</head>\n",
-			 "<body bgcolor=\"white\" text=\"black\" ",
-			 "link=\"blue\" vlink=\"purple\" alink=\"red\">\n"];
-		    {_,Html,_} ->
-			Html
-		end,
-	    erl2html2:convert(Src, Dest, Header)
+	    case test_server_sup:framework_call(get_html_wrapper,
+						["Module "++Src,false,
+						 OutDir,undefined], "") of
+		Empty when (Empty == "") ; (element(2,Empty) == "")  ->
+		    erl2html2:convert(Src, Dest);
+		{_,Header,_} ->
+		    erl2html2:convert(Src, Dest, Header)
+	    end
     end.
 
 %% Copy all HTML files in InDir to OutDir.
@@ -1929,9 +1891,9 @@ copy_html_file(Src, DestDir) ->
     Dest = filename:join(DestDir, filename:basename(Src)),
     case file:read_file(Src) of
 	{ok,Bin} ->
-	    ok = file:write_file(Dest, Bin);
+	    ok = write_file(Dest, Bin);
 	{error,_Reason} ->
-	    io:format("File ~p: read failed\n", [Src])
+	    io:format("File ~tp: read failed\n", [Src])
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2106,15 +2068,15 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 	end,
     OkN = get(test_server_ok),
     FailedN = get(test_server_failed),
-    print(1, "TEST COMPLETE, ~w ok, ~w failed~s of ~w test cases\n",
+    print(1, "TEST COMPLETE, ~w ok, ~w failed~ts of ~w test cases\n",
 	  [OkN,FailedN,SkipStr,OkN+FailedN+AllSkippedN]),
     test_server_sup:framework_call(report, [tests_done,
 					    {OkN,FailedN,{UserSkipN,AutoSkipN}}]),
-    print(major, "=finished      ~s", [lists:flatten(timestamp_get(""))]),
-    print(major, "=failed        ~p", [FailedN]),
-    print(major, "=successful    ~p", [OkN]),
-    print(major, "=user_skipped  ~p", [UserSkipN]),
-    print(major, "=auto_skipped  ~p", [AutoSkipN]),
+    print(major, "=finished      ~ts", [lists:flatten(timestamp_get(""))]),
+    print(major, "=failed        ~w", [FailedN]),
+    print(major, "=successful    ~w", [OkN]),
+    print(major, "=user_skipped  ~w", [UserSkipN]),
+    print(major, "=auto_skipped  ~w", [AutoSkipN]),
     exit(test_suites_done).
 
 
@@ -2645,7 +2607,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		    run_test_cases_loop(Cases, [NewCfg|Config],
 					TimetrapData, Mode, Status2);
 		Bad ->
-		    print(minor, "~n*** ~p returned bad elements in Config: ~p.~n",
+		    print(minor,
+			  "~n*** ~w returned bad elements in Config: ~tp.~n",
 			  [Func,Bad]),
 		    Reason = {failed,{Mod,init_per_suite,bad_return}},
 		    Cases2 = skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),
@@ -2660,8 +2623,9 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    stop_minor_log_file(),
 	    run_test_cases_loop(Cases, [NewCfg|Config], TimetrapData, Mode, Status2);
 	{_,{framework_error,{FwMod,FwFunc},Reason},_} ->
-	    print(minor, "~n*** ~p failed in ~p. Reason: ~p~n", [FwMod,FwFunc,Reason]),
-	    print(1, "~p failed in ~p. Reason: ~p~n", [FwMod,FwFunc,Reason]),
+	    print(minor, "~n*** ~w failed in ~w. Reason: ~tp~n",
+		  [FwMod,FwFunc,Reason]),
+	    print(1, "~w failed in ~w. Reason: ~tp~n", [FwMod,FwFunc,Reason]),
 	    exit(framework_error);
 	{_,Fail,_} when element(1,Fail) == 'EXIT';
 			element(1,Fail) == timetrap_timeout;
@@ -2670,7 +2634,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    {Cases2,Config1,Status3} =
 		if StartConf ->
 			ReportAbortRepeat(failed),
-			print(minor, "~n*** ~p failed.~n"
+			print(minor, "~n*** ~w failed.~n"
 			      "    Skipping all cases.", [Func]),
 			Reason = {failed,{Mod,Func,Fail}},
 			{skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),
@@ -2687,7 +2651,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode, Status3);
 	{_,{Skip,Reason},_} when StartConf and ((Skip==skip) or (Skip==skipped)) ->
 	    ReportAbortRepeat(skipped),
-	    print(minor, "~n*** ~p skipped.~n"
+	    print(minor, "~n*** ~w skipped.~n"
 		  "    Skipping all cases.", [Func]),
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
@@ -2696,7 +2660,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 				delete_status(Ref, Status2));
 	{_,{skip_and_save,Reason,_SavedConfig},_} when StartConf ->
 	    ReportAbortRepeat(skipped),
-	    print(minor, "~n*** ~p skipped.~n"
+	    print(minor, "~n*** ~w skipped.~n"
 		  "    Skipping all cases.", [Func]),
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
@@ -2757,7 +2721,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 run_test_cases_loop([{make,Ref,{Mod,Func,Args}}|Cases0], Config, TimetrapData, Mode, Status) ->
     case run_test_case(Ref, 0, Mod, Func, Args, skip_init, TimetrapData) of
 	{_,Why={'EXIT',_},_} ->
- 	    print(minor, "~n*** ~p failed.~n"
+	    print(minor, "~n*** ~w failed.~n"
  		  "    Skipping all cases.", [Func]),
 	    Reason = {failed,{Mod,Func,Why}},
 	    Cases = skip_cases_upto(Ref, Cases0, Reason, conf, Mode),
@@ -2803,8 +2767,9 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
 		       run_init, TimetrapData, Mode) of
 	%% callback to framework module failed, exit immediately
 	{_,{framework_error,{FwMod,FwFunc},Reason},_} ->
-	    print(minor, "~n*** ~p failed in ~p. Reason: ~p~n", [FwMod,FwFunc,Reason]),
-	    print(1, "~p failed in ~p. Reason: ~p~n", [FwMod,FwFunc,Reason]),
+	    print(minor, "~n*** ~w failed in ~w. Reason: ~tp~n",
+		  [FwMod,FwFunc,Reason]),
+	    print(1, "~w failed in ~w. Reason: ~tp~n", [FwMod,FwFunc,Reason]),
 	    stop_minor_log_file(),
 	    exit(framework_error);
 	%% sequential execution of test case finished
@@ -2836,8 +2801,9 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
 			    stop_minor_log_file(),
 			    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status1);
 		       true ->	              % skip rest of cases in sequence
-			    print(minor, "~n*** ~p failed.~n"
-				  "    Skipping all other cases in sequence.", [Func]),
+			    print(minor, "~n*** ~w failed.~n"
+				  "    Skipping all other cases in sequence.",
+				  [Func]),
 			    Reason = {failed,{Mod,Func}},
 			    Cases2 = skip_cases_upto(Ref, Cases, Reason, tc, Mode),
 			    stop_minor_log_file(),
@@ -2953,7 +2919,7 @@ get_data_dir(Mod, Suite) ->
 	     end,
     case code:which(UseMod) of
 	non_existing ->
-	    print(12, "The module ~p is not loaded", [Mod]),
+	    print(12, "The module ~w is not loaded", [Mod]),
 	    [];
 	cover_compiled ->
 	    MainCoverNode = cover:get_main_node(),
@@ -2964,7 +2930,7 @@ get_data_dir(Mod, Suite) ->
     end.
 
 do_get_data_dir(Mod,File) ->
-    filename:dirname(File) ++ "/" ++ cast_to_list(Mod) ++ ?data_dir_suffix.
+    filename:dirname(File) ++ "/" ++ atom_to_list(Mod) ++ ?data_dir_suffix.
 
 print_conf_time(0) ->
     ok;
@@ -2975,8 +2941,8 @@ print_conf_time(ConfTime) ->
 print_props(_, []) ->
     ok;
 print_props(true, Props) ->
-    print(major, "=group_props   ~p", [Props]),
-    print(minor, "Group properties: ~p~n", [Props]);
+    print(major, "=group_props   ~tp", [Props]),
+    print(minor, "Group properties: ~tp~n", [Props]);
 print_props(_, _) ->
     ok.
 
@@ -3126,24 +3092,24 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
 
     Comment1 = reason_to_string(Comment),
 
-    print(major, "~n=case          ~p:~p", [Mod,Func]),
-    print(major, "=started         ~s", [lists:flatten(timestamp_get(""))]),
-    print(major, "=result          skipped: ~s", [Comment1]),
-    print(2,"*** Skipping test case #~w ~p ***", [CaseNum,{Mod,Func}]),
+    print(major, "~n=case          ~w:~w", [Mod,Func]),
+    print(major, "=started         ~ts", [lists:flatten(timestamp_get(""))]),
+    print(major, "=result          skipped: ~ts", [Comment1]),
+    print(2,"*** Skipping test case #~w ~w ***", [CaseNum,{Mod,Func}]),
     TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),	       
     GroupName =	case get_name(Mode) of
 		    undefined -> "";
 		    Name      -> cast_to_list(Name)
 		end,
     print(html,
-	  TR ++ "<td>" ++ Col0 ++ "~s" ++ Col1 ++ "</td>"
-	  "<td>" ++ Col0 ++ "~p" ++ Col1 ++ "</td>"
-	  "<td>" ++ Col0 ++ "~s" ++ Col1 ++ "</td>"
-	  "<td>" ++ Col0 ++ "~p" ++ Col1 ++ "</td>"
+	  TR ++ "<td>" ++ Col0 ++ "~ts" ++ Col1 ++ "</td>"
+	  "<td>" ++ Col0 ++ "~w" ++ Col1 ++ "</td>"
+	  "<td>" ++ Col0 ++ "~ts" ++ Col1 ++ "</td>"
+	  "<td>" ++ Col0 ++ "~w" ++ Col1 ++ "</td>"
 	  "<td>" ++ Col0 ++ "< >" ++ Col1 ++ "</td>"
 	  "<td>" ++ Col0 ++ "0.000s" ++ Col1 ++ "</td>"
-	  "<td><font color=\"~s\">SKIPPED</font></td>"
-	  "<td>~s</td></tr>\n",
+	  "<td><font color=\"~ts\">SKIPPED</font></td>"
+	  "<td>~ts</td></tr>\n",
 	  [num2str(CaseNum),fw_name(Mod),GroupName,Func,ResultCol,Comment1]),
     if CaseNum > 0 ->
 	    {US,AS} = get(test_server_skipped),
@@ -3325,7 +3291,7 @@ wait_and_resend(Ref, [{_,CurrPid,CaseNum,Mod,Func}|Ps] = Cases, Ok,Skip,Fail) ->
 	{'EXIT',CurrPid,Reason} when Reason /= normal ->
 	    %% unexpected termination of test case process
 	    {value,{_,_,CaseNum,Mod,Func}} = lists:keysearch(CurrPid, 2, Cases),
-	    print(1, "Error! Process for test case #~p (~p:~p) died! Reason: ~p",
+	    print(1, "Error! Process for test case #~w (~w:~w) died! Reason: ~tp",
 		  [CaseNum, Mod, Func, Reason]),
 	    exit({unexpected_termination,{CaseNum,Mod,Func},{CurrPid,Reason}})
     end;
@@ -3464,7 +3430,7 @@ handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
 	{'EXIT',TCPid,Reason} when Reason /= normal ->
 	    test_server_io:print_buffered(CurrPid),
 	    {value,{_,_,Num,M,F}} = lists:keysearch(TCPid, 2, Cases),
-	    print(1, "Error! Process for test case #~p (~p:~p) died! Reason: ~p",
+	    print(1, "Error! Process for test case #~w (~w:~w) died! Reason: ~tp",
 		  [Num, M, F, Reason]),
 	    exit({unexpected_termination,{Num,M,F},{TCPid,Reason}})
     end.
@@ -3540,11 +3506,11 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     end,
     TSDir = get(test_server_dir),
 
-    print(major, "=case          ~p:~p", [Mod, Func]),
+    print(major, "=case          ~w:~w", [Mod, Func]),
     MinorName = start_minor_log_file(Mod, Func),
     print(minor, "<a name=\"top\"></a>", [], internal_raw),
     MinorBase = filename:basename(MinorName),
-    print(major, "=logfile       ~s", [filename:basename(MinorName)]),
+    print(major, "=logfile       ~ts", [filename:basename(MinorName)]),
 
     UpdatedArgs =
 	%% maybe create unique private directory for test case or config func
@@ -3552,14 +3518,13 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	    auto_per_run ->
 		update_config(hd(Args), [{tc_logfile,MinorName}]);
 	    PrivDirMode ->
+		%% create unique private directory for test case
 		RunDir = filename:dirname(MinorName),
 		Ext =
 		    if Num == 0 ->
 			    {_,S,Us} = now(),
 			    lists:flatten(io_lib:format(".~w.~w", [S,Us]));
 		       true ->
-			    %% create unique private directory for test case
-			    RunDir = filename:dirname(MinorName),
 			    lists:flatten(io_lib:format(".~w", [Num]))
 		    end,
 		PrivDir = filename:join(RunDir, ?priv_dir) ++ Ext,
@@ -3580,16 +3545,17 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		    undefined -> "";
 		    Name      -> cast_to_list(Name)
 		end,
-    print(major, "=started       ~s", [lists:flatten(timestamp_get(""))]),
+    print(major, "=started       ~ts", [lists:flatten(timestamp_get(""))]),
     {{Col0,Col1},Style} = get_font_style((RunInit==run_init), Mode),
     TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),
-    print(html,	TR ++ "<td>" ++ Col0 ++ "~s" ++ Col1 ++ "</td>"
-	  "<td>" ++ Col0 ++ "~p" ++ Col1 ++ "</td>"
-	  "<td>" ++ Col0 ++ "~s" ++ Col1 ++ "</td>"
-	  "<td><a href=\"~s\">~p</a></td>"
-	  "<td><a href=\"~s#top\"><</a> <a href=\"~s#end\">></a></td>",
-	  [num2str(Num),fw_name(Mod),GroupName,MinorBase,Func,
-	   MinorBase,MinorBase]),
+    EncMinorBase = uri_encode(MinorBase),
+    print(html,	TR ++ "<td>" ++ Col0 ++ "~ts" ++ Col1 ++ "</td>"
+	  "<td>" ++ Col0 ++ "~w" ++ Col1 ++ "</td>"
+	  "<td>" ++ Col0 ++ "~ts" ++ Col1 ++ "</td>"
+	  "<td><a href=\"~ts\">~w</a></td>"
+	  "<td><a href=\"~ts#top\"><</a> <a href=\"~ts#end\">></a></td>",
+	  [num2str(Num),fw_name(Mod),GroupName,EncMinorBase,Func,
+	   EncMinorBase,EncMinorBase]),
 
     do_unless_parallel(Main, fun erlang:yield/0),
 
@@ -3606,7 +3572,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     print(minor, "<a name=\"end\"></a>", [], internal_raw),
     print(minor, "\n", [], internal_raw),
     print_timestamp(minor, "Ended at "),
-    print(major, "=ended         ~s", [lists:flatten(timestamp_get(""))]),
+    print(major, "=ended         ~ts", [lists:flatten(timestamp_get(""))]),
 
     do_unless_parallel(Main, fun() -> file:set_cwd(filename:dirname(TSDir)) end),
 
@@ -3690,13 +3656,13 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 			{'EXIT',_} = Exit ->
 			    print(minor,
 				  "WARNING: There might be slavenodes left in the"
-				  " system. I tried to kill them, but I failed: ~p\n",
+				  " system. I tried to kill them, but I failed: ~tp\n",
 				  [Exit]);
 			[] -> ok;
 			List ->
 			    print(minor, "WARNING: ~w slave nodes in system after test"++
 				  "case. Tried to killed them.~n"++
-				  "         Names:~p",
+				  "         Names:~tp",
 				  [length(List),List])
 		    end;
 		false ->
@@ -3756,7 +3722,7 @@ progress(skip, CaseNum, Mod, Func, Loc, Reason, Time,
 		     fun() -> {?auto_skip_color,auto_skip} end,
 		     fun() -> {?user_skip_color,skip} end),
     print(major, "=result        skipped", []),
-    print(1, "*** SKIPPED *** ~s",
+    print(1, "*** SKIPPED *** ~ts",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,Func,
 						     {skipped,Reason1}}]),
@@ -3775,24 +3741,24 @@ progress(skip, CaseNum, Mod, Func, Loc, Reason, Time,
 	       end,
     print(html,
 	  "<td>" ++ St0 ++ "~.3fs" ++ St1 ++ "</td>"
-	  "<td><font color=\"~s\">SKIPPED</font></td>"
-	  "<td>~s~s</td></tr>\n",
+	  "<td><font color=\"~ts\">SKIPPED</font></td>"
+	  "<td>~ts~ts</td></tr>\n",
 	  [Time,Color,ReasonStr2,Comment1]),
     FormatLoc = test_server_sup:format_loc(Loc),
-    print(minor, "=== location ~s", [FormatLoc]),
-    print(minor, "=== reason = ~s", [ReasonStr1]),
+    print(minor, "=== location ~ts", [FormatLoc]),
+    print(minor, "=== reason = ~ts", [ReasonStr1]),
     Ret;
 
 progress(failed, CaseNum, Mod, Func, Loc, timetrap_timeout, T,
 	 Comment0, {St0,St1}) ->
-    print(major, "=result        failed: timeout, ~p", [Loc]),
-    print(1, "*** FAILED *** ~s",
+    print(major, "=result        failed: timeout, ~tp", [Loc]),
+    print(1, "*** FAILED *** ~ts",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
 				   [tc_done,{Mod,Func,
 					     {failed,timetrap_timeout}}]),
     FormatLastLoc = test_server_sup:format_loc(get_last_loc(Loc)),
-    ErrorReason = io_lib:format("{timetrap_timeout,~s}", [FormatLastLoc]),
+    ErrorReason = io_lib:format("{timetrap_timeout,~ts}", [FormatLastLoc]),
     Comment =
 	case Comment0 of
 	    "" -> "<font color=\"red\">" ++ ErrorReason ++ "</font>";
@@ -3802,23 +3768,23 @@ progress(failed, CaseNum, Mod, Func, Loc, timetrap_timeout, T,
     print(html,
 	  "<td>" ++ St0 ++ "~.3fs" ++ St1 ++ "</td>"
 	  "<td><font color=\"red\">FAILED</font></td>"
-	  "<td>~s</td></tr>\n",
+	  "<td>~ts</td></tr>\n",
 	  [T/1000,Comment]),
     FormatLoc = test_server_sup:format_loc(Loc),
-    print(minor, "=== location ~s", [FormatLoc]),
+    print(minor, "=== location ~ts", [FormatLoc]),
     print(minor, "=== reason = timetrap timeout", []),
     failed;
 
 progress(failed, CaseNum, Mod, Func, Loc, {testcase_aborted,Reason}, _T,
 	 Comment0, {St0,St1}) ->
-    print(major, "=result        failed: testcase_aborted, ~p", [Loc]),
-    print(1, "*** FAILED *** ~s",
+    print(major, "=result        failed: testcase_aborted, ~tp", [Loc]),
+    print(1, "*** FAILED *** ~ts",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
 				   [tc_done,{Mod,Func,
 					     {failed,testcase_aborted}}]),
     FormatLastLoc = test_server_sup:format_loc(get_last_loc(Loc)),
-    ErrorReason = io_lib:format("{testcase_aborted,~s}", [FormatLastLoc]),
+    ErrorReason = io_lib:format("{testcase_aborted,~ts}", [FormatLastLoc]),
     Comment =
 	case Comment0 of
 	    "" -> "<font color=\"red\">" ++ ErrorReason ++ "</font>";
@@ -3828,24 +3794,24 @@ progress(failed, CaseNum, Mod, Func, Loc, {testcase_aborted,Reason}, _T,
     print(html,
 	  "<td>" ++ St0 ++ "died" ++ St1 ++ "</td>"
 	  "<td><font color=\"red\">FAILED</font></td>"
-	  "<td>~s</td></tr>\n",
+	  "<td>~ts</td></tr>\n",
 	  [Comment]),
     FormatLoc = test_server_sup:format_loc(Loc),
-    print(minor, "=== location ~s", [FormatLoc]),
-    print(minor, "=== reason = {testcase_aborted,~p}", [Reason]),
+    print(minor, "=== location ~ts", [FormatLoc]),
+    print(minor, "=== reason = {testcase_aborted,~tp}", [Reason]),
     failed;
 
 progress(failed, CaseNum, Mod, Func, unknown, Reason, Time,
 	 Comment0, {St0,St1}) ->
-    print(major, "=result        failed: ~p, ~p", [Reason,unknown]),
-    print(1, "*** FAILED *** ~s",
+    print(major, "=result        failed: ~tp, ~w", [Reason,unknown]),
+    print(1, "*** FAILED *** ~ts",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,Func,
 						     {failed,Reason}}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
 			       true -> "~w"
 			    end, [Time]),
-    ErrorReason = lists:flatten(io_lib:format("~p", [Reason])),
+    ErrorReason = lists:flatten(io_lib:format("~tp", [Reason])),
     ErrorReason1 = lists:flatten([string:strip(S,left) ||
 				  S <- string:tokens(ErrorReason,[$\n])]),
     ErrorReason2 =
@@ -3862,19 +3828,19 @@ progress(failed, CaseNum, Mod, Func, unknown, Reason, Time,
 		 to_string(Comment0)
 	end,
     print(html,
-	  "<td>" ++ St0 ++ "~s" ++ St1 ++ "</td>"
+	  "<td>" ++ St0 ++ "~ts" ++ St1 ++ "</td>"
 	  "<td><font color=\"red\">FAILED</font></td>"
-	  "<td>~s</td></tr>\n",
+	  "<td>~ts</td></tr>\n",
 	  [TimeStr,Comment]),
-    print(minor, "=== location ~s", [unknown]),
+    print(minor, "=== location ~w", [unknown]),
     {FStr,FormattedReason} = format_exception(Reason),
     print(minor, "=== reason = " ++ FStr, [FormattedReason]),
     failed;
 
 progress(failed, CaseNum, Mod, Func, Loc, Reason, Time,
 	 Comment0, {St0,St1}) ->
-    print(major, "=result        failed: ~p, ~p", [Reason,Loc]),
-    print(1, "*** FAILED *** ~s",
+    print(major, "=result        failed: ~tp, ~tp", [Reason,Loc]),
+    print(1, "*** FAILED *** ~ts",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,Func,
 						     {failed,Reason}}]),
@@ -3888,12 +3854,12 @@ progress(failed, CaseNum, Mod, Func, Loc, Reason, Time,
 	end,
     FormatLastLoc = test_server_sup:format_loc(get_last_loc(Loc)),
     print(html,
-	  "<td>" ++ St0 ++ "~s" ++ St1 ++ "</td>"
+	  "<td>" ++ St0 ++ "~ts" ++ St1 ++ "</td>"
 	  "<td><font color=\"red\">FAILED</font></td>"
-	  "<td><font color=\"red\">~s</font>~s</td></tr>\n",
+	  "<td><font color=\"red\">~ts</font>~ts</td></tr>\n",
 	  [TimeStr,FormatLastLoc,Comment]),
     FormatLoc = test_server_sup:format_loc(Loc),
-    print(minor, "=== location ~s", [FormatLoc]),
+    print(minor, "=== location ~ts", [FormatLoc]),
     {FStr,FormattedReason} = format_exception(Reason),
     print(minor, "=== reason = " ++ FStr, [FormattedReason]),
     failed;
@@ -3909,7 +3875,7 @@ progress(ok, _CaseNum, Mod, Func, _Loc, RetVal, Time,
 		HtmlCmt = test_server_sup:framework_call(format_comment,
 							 [String],
 							 String),
-		print(major, "=result        ok: ~s", [String]),
+		print(major, "=result        ok: ~ts", [String]),
 		"<td>" ++ HtmlCmt ++ "</td>";
 	    _ ->
 		print(major, "=result        ok", []),
@@ -3918,13 +3884,13 @@ progress(ok, _CaseNum, Mod, Func, _Loc, RetVal, Time,
 		    _ -> "<td>" ++ to_string(Comment0) ++ "</td>"
 		end
 	end,
-    print(major, "=elapsed       ~p", [Time]),
+    print(major, "=elapsed       ~tp", [Time]),
     print(html,
 	  "<td>" ++ St0 ++ "~.3fs" ++ St1 ++ "</td>"
 	  "<td><font color=\"green\">Ok</font></td>"
-	  "~s</tr>\n",
+	  "~ts</tr>\n",
 	  [Time,Comment]),
-    print(minor, "=== returned value = ~p", [RetVal]),
+    print(minor, "=== returned value = ~tp", [RetVal]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -4000,12 +3966,12 @@ print_if_known(Known, {SK,AK}, {SU,AU}) ->
     io_lib:format(S, A).
 
 to_string(Term) when is_list(Term) ->
-    case (catch io_lib:format("~s", [Term])) of
-	{'EXIT',_} -> io_lib:format("~p", [Term]);
+    case (catch io_lib:format("~ts", [Term])) of
+	{'EXIT',_} -> lists:flatten(io_lib:format("~tp", [Term]));
 	String     -> lists:flatten(String)
     end;
 to_string(Term) ->
-    lists:flatten(io_lib:format("~p", [Term])).
+    lists:flatten(io_lib:format("~tp", [Term])).
 
 get_last_loc(Loc) when is_tuple(Loc) ->
     Loc;
@@ -4077,14 +4043,14 @@ format_exception(Reason={_Error,Stack}) when is_list(Stack) ->
 	undefined ->
 	    case application:get_env(test_server, format_exception) of
 		{ok,false} ->
-		    {"~p",Reason};
+		    {"~tp",Reason};
 		_ ->
 		    do_format_exception(Reason)
 	    end;
 	FW ->
 	    case application:get_env(FW, format_exception) of
 		{ok,false} ->
-		    {"~p",Reason};
+		    {"~tp",Reason};
 		_ ->
 		    do_format_exception(Reason)
 	    end
@@ -4099,10 +4065,10 @@ do_format_exception(Reason={Error,Stack}) ->
 	 end,
     case catch lib:format_exception(1, error, Error, Stack, StackFun, PF) of
 	{'EXIT',_} ->
-	    {"~p",Reason};
+	    {"~tp",Reason};
 	Formatted  ->
 	    Formatted1 = re:replace(Formatted, "exception error: ", "", [{return,list}]),
-	    {"~s",lists:flatten(Formatted1)}
+	    {"~ts",lists:flatten(Formatted1)}
     end.
 
 
@@ -4173,7 +4139,7 @@ print_who(Host, User) ->
 		  "" -> "";
 		  _ -> " by " ++ User
 	      end,
-    print(html, "Run~s on ~s", [UserStr,Host]).
+    print(html, "Run~ts on ~ts", [UserStr,Host]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% format(Format) -> IoLibReturn
@@ -4208,7 +4174,7 @@ format(Detail, Format, Args) ->
     Str =
 	case catch io_lib:format(Format, Args) of
 	    {'EXIT',_} ->
-		io_lib:format("illegal format; ~p with args ~p.\n",
+		io_lib:format("illegal format; ~tp with args ~tp.\n",
 			      [Format,Args]);
 	    Valid -> Valid
 	end,
@@ -4244,7 +4210,7 @@ odd_or_even() ->
 %% date and time. The resulting string is suitable as a filename.
 timestamp_filename_get(Leader) ->
     timestamp_get_internal(Leader,
-			   "~s~w-~2.2.0w-~2.2.0w_~2.2.0w.~2.2.0w.~2.2.0w").
+			   "~ts~w-~2.2.0w-~2.2.0w_~2.2.0w.~2.2.0w.~2.2.0w").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% timestamp_get(Leader) -> string()
@@ -4254,7 +4220,7 @@ timestamp_filename_get(Leader) ->
 %% date and time. The resulting string is suitable for display.
 timestamp_get(Leader) ->
     timestamp_get_internal(Leader,
-			   "~s~w-~2.2.0w-~2.2.0w ~2.2.0w:~2.2.0w:~2.2.0w").
+			   "~ts~w-~2.2.0w-~2.2.0w ~2.2.0w:~2.2.0w:~2.2.0w").
 
 timestamp_get_internal(Leader, Format) ->
     {YY,MM,DD,H,M,S} = time_get(),
@@ -4588,14 +4554,18 @@ collect_files(Dir, Pattern, St) ->
     Wc = filename:join([Dir1,Pattern++code:objfile_extension()]),
     case catch filelib:wildcard(Wc) of
 	{'EXIT', Reason} ->
-	    io:format("Could not collect files: ~p~n", [Reason]),
+	    io:format("Could not collect files: ~tp~n", [Reason]),
 	    {error,{collect_fail,Dir,Pattern}};
 	Mods0 ->
 	    Mods = [{path_to_module(Mod),all} || Mod <- lists:sort(Mods0)],
 	    collect_cases(Mods, St)
     end.
 
-path_to_module(Path) ->
+path_to_module(Path) when is_list(Path) ->
+    %% If this is called with a binary, then we are probably in +fnu
+    %% mode and have found a beam file with name encoded as latin1. We
+    %% will let this crash since it can not work to load such a module
+    %% anyway. It should be removed or renamed!
     list_to_atom(filename:rootname(filename:basename(Path))).
 
 collect_case_deny(Mod, Case, MFA, ReqList, SubCases, St) ->
@@ -4617,16 +4587,16 @@ check_deny([], _DenyList) -> granted;
 check_deny(Req, DenyList) -> check_deny([Req], DenyList).
 
 check_deny_req({Req,Val}, DenyList) ->
-    %%io:format("ValCheck ~p=~p in ~p\n", [Req,Val,DenyList]),
+    %%io:format("ValCheck ~tp=~tp in ~tp\n", [Req,Val,DenyList]),
     case lists:keysearch(Req, 1, DenyList) of
 	{value,{_Req,DenyVal}} when Val >= DenyVal ->
-	    {denied,io_lib:format("Requirement ~p=~p", [Req,Val])};
+	    {denied,io_lib:format("Requirement ~tp=~tp", [Req,Val])};
 	_ ->
 	    check_deny_req(Req, DenyList)
     end;
 check_deny_req(Req, DenyList) ->
     case lists:member(Req, DenyList) of
-	true -> {denied,io_lib:format("Requirement ~p", [Req])};
+	true -> {denied,io_lib:format("Requirement ~tp", [Req])};
 	false -> granted
     end.
 
@@ -4727,14 +4697,14 @@ get_target_info() ->
 
 start_node(Name, Type, Options) ->
     T = 10 * ?ACCEPT_TIMEOUT * test_server:timetrap_scale_factor(),
-    format(minor, "Attempt to start ~w node ~p with options ~p",
+    format(minor, "Attempt to start ~w node ~tp with options ~tp",
 	   [Type, Name, Options]),
     case controller_call({start_node,Name,Type,Options}, T) of
 	{{ok,Nodename}, Host, Cmd, Info, Warning} ->
 	    format(minor,
-		   "Successfully started node ~p on ~p with command: ~p",
+		   "Successfully started node ~w on ~tp with command: ~tp",
 		   [Nodename, Host, Cmd]),
-	    format(major, "=node_start    ~p", [Nodename]),
+	    format(major, "=node_start    ~w", [Nodename]),
 	    case Info of
 		[] -> ok;
 		_ -> format(minor, Info)
@@ -4748,17 +4718,17 @@ start_node(Name, Type, Options) ->
 	    {ok, Nodename};
 	{fail,{Ret, Host, Cmd}}  ->
 	    format(minor,
-		   "Failed to start node ~p on ~p with command: ~p~n"
-		   "Reason: ~p",
+		   "Failed to start node ~tp on ~tp with command: ~tp~n"
+		   "Reason: ~tp",
 		   [Name, Host, Cmd, Ret]),
 	    {fail,Ret};
 	{Ret, undefined, undefined} ->
-	    format(minor, "Failed to start node ~p: ~p", [Name,Ret]),
+	    format(minor, "Failed to start node ~tp: ~tp", [Name,Ret]),
 	    Ret;
 	{Ret, Host, Cmd} ->
 	    format(minor,
-		   "Failed to start node ~p on ~p with command: ~p~n"
-		   "Reason: ~p",
+		   "Failed to start node ~tp on ~tp with command: ~tp~n"
+		   "Reason: ~tp",
 		   [Name, Host, Cmd, Ret]),
 	    Ret
     end.
@@ -4972,11 +4942,11 @@ read_cover_file(CoverFile) ->
 	    case check_cover_file(List, [], [], []) of
 		{ok,Exclude,Include,Cross} -> {Exclude,Include,Cross};
 		error ->
-		    io:fwrite("Faulty format of CoverFile ~p\n", [CoverFile]),
+		    io:fwrite("Faulty format of CoverFile ~tp\n", [CoverFile]),
 		    {[],[],[]}
 	    end;
 	{error,Reason} ->
-	    io:fwrite("Can't read CoverFile ~p\nReason: ~p\n",
+	    io:fwrite("Can't read CoverFile ~ts\nReason: ~tp\n",
 		      [CoverFile,Reason]),
 	    {[],[],[]}
     end.
@@ -5029,11 +4999,11 @@ check_cross([]) ->
 cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
     write_default_cross_coverlog(TestDir),
 
-    {ok,CoverLog} = file:open(filename:join(TestDir, ?coverlog_name), [write]),
+    {ok,CoverLog} = open_html_file(filename:join(TestDir, ?coverlog_name)),
     write_coverlog_header(CoverLog),
     io:fwrite(CoverLog, "<h1>Coverage for application '~w'</h1>\n", [App]),
     io:fwrite(CoverLog,
-	      "<p><a href=\"~s\">Coverdata collected over all tests</a></p>",
+	      "<p><a href=\"~ts\">Coverdata collected over all tests</a></p>",
 	      [?cross_coverlog_name]),
 
     {CoverFile,_Included,Excluded,Cross} =
@@ -5045,7 +5015,7 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
 		{Excl,Incl,Cr} = read_cover_file(File),
 		{File,Incl,Excl,Cr}
 	end,
-    io:fwrite(CoverLog, "<p>CoverFile: <code>~p</code>\n", [CoverFile]),
+    io:fwrite(CoverLog, "<p>CoverFile: <code>~tp</code>\n", [CoverFile]),
     write_cross_cover_info(TestDir,Cross),
 
     case length(cover:imported_modules()) of
@@ -5056,11 +5026,11 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
 	    ok
     end,
 
-    io:fwrite(CoverLog, "<p>Excluded module(s): <code>~p</code>\n", [Excluded]),
+    io:fwrite(CoverLog, "<p>Excluded module(s): <code>~tp</code>\n", [Excluded]),
 
     Coverage = cover_analyse(Analyse, AnalyseMods, Stop),
-    file:write_file(filename:join(TestDir,?raw_coverlog_name),
-		    term_to_binary(Coverage)),
+    write_file(filename:join(TestDir,?raw_coverlog_name),
+	       term_to_binary(Coverage)),
 
     case lists:filter(fun({_M,{_,_,_}}) -> false;
 			 (_) -> true
@@ -5074,8 +5044,7 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
     end,
 
     TotPercent = write_cover_result_table(CoverLog, Coverage),
-    file:write_file(filename:join(TestDir, ?cover_total),
-		    term_to_binary(TotPercent)).
+    write_file(filename:join(TestDir, ?cover_total),term_to_binary(TotPercent)).
 
 cover_analyse(Analyse, AnalyseMods, Stop) ->
     TestDir = get(test_server_log_dir_base),
@@ -5122,25 +5091,25 @@ cross_cover_analyse(Analyse, TagDirs0) ->
 write_cross_cover_info(_Dir,[]) ->
     ok;
 write_cross_cover_info(Dir,Cross) ->
-    {ok,Fd} = file:open(filename:join(Dir,?cross_cover_info),[write]),
-    lists:foreach(fun(C) -> io:format(Fd,"~p.~n",[C]) end, Cross),
-    file:close(Fd).
+    {ok,Fd} = open_file(filename:join(Dir,?cross_cover_info)),
+    lists:foreach(fun(C) -> io:format(Fd,"~tp.~n",[C]) end, Cross),
+    ok = file:close(Fd).
 
 %% For each test from which there are cross cover analysed
 %% modules, write a cross cover log (cross_cover.html).
 write_cross_cover_logs([{Tag,Coverage}|T],TagDirMods) ->
     case lists:keyfind(Tag,1,TagDirMods) of
 	{_,Dir,Mods} when Mods=/=[] ->
-	    file:write_file(filename:join(Dir,?raw_cross_coverlog_name),
-			    term_to_binary(Coverage)),
+	    write_file(filename:join(Dir,?raw_cross_coverlog_name),
+		       term_to_binary(Coverage)),
 	    CoverLogName = filename:join(Dir,?cross_coverlog_name),
-	    {ok,CoverLog} = file:open(CoverLogName, [write]),
+	    {ok,CoverLog} = open_html_file(CoverLogName),
 	    write_coverlog_header(CoverLog),
 	    io:fwrite(CoverLog,
 		      "<h1>Coverage results for \'~w\' from all tests</h1>\n",
 		      [Tag]),
 	    write_cover_result_table(CoverLog, Coverage),
-	    io:fwrite("Written file ~p\n", [CoverLogName]);
+	    io:fwrite("Written file ~tp\n", [CoverLogName]);
 	_ ->
 	    ok
     end,
@@ -5224,19 +5193,11 @@ analyse_modules(_Dir, [], _DetailsFun, Acc) ->
 
 %% Support functions for writing the cover logs (both cross and normal)
 write_coverlog_header(CoverLog) ->
-    case catch
-	io:fwrite(CoverLog,
-		  "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n"
-		  "<!-- autogenerated by '~w'. -->\n"
-		  "<html>\n"
-		  "<head><title>Coverage results</title></head>\n"
-		  "<body bgcolor=\"white\" text=\"black\" "
-		  "link=\"blue\" vlink=\"purple\" alink=\"red\">",
-		  [?MODULE]) of
+    case catch io:put_chars(CoverLog,html_header("Coverage results")) of
 	{'EXIT',Reason} ->
 	    io:format("\n\nERROR: Could not write normal heading in coverlog.\n"
 		      "CoverLog: ~w\n"
-		      "Reason: ~p\n",
+		      "Reason: ~tp\n",
 		      [CoverLog,Reason]),
 	    io:format(CoverLog,"<html><body>\n", []);
 	_ ->
@@ -5251,20 +5212,22 @@ format_analyse(M,Cov,NotCov,undefined) ->
 		  "<td align=right>~w</td></tr>\n",
 		  [M,pc(Cov,NotCov),Cov,NotCov]);
 format_analyse(M,Cov,NotCov,{file,File}) ->
-    io_lib:fwrite("<tr><td><a href=\"~s\">~w</a></td>"
+    io_lib:fwrite("<tr><td><a href=\"~ts\">~w</a></td>"
 		  "<td align=right>~w %</td>"
 		  "<td align=right>~w</td>"
 		  "<td align=right>~w</td></tr>\n",
-		  [filename:basename(File),M,pc(Cov,NotCov),Cov,NotCov]);
+		  [uri_encode(filename:basename(File)),
+		   M,pc(Cov,NotCov),Cov,NotCov]);
 format_analyse(M,Cov,NotCov,{lines,Lines}) ->
     CoverOutName = atom_to_list(M)++".COVER.html",
-    {ok,CoverOut} = file:open(CoverOutName, [write]),
+    {ok,CoverOut} = open_html_file(CoverOutName),
     write_not_covered(CoverOut,M,Lines),
-    io_lib:fwrite("<tr><td><a href=\"~s\">~w</a></td>"
+    ok = file:close(CoverOut),
+    io_lib:fwrite("<tr><td><a href=\"~ts\">~w</a></td>"
 		  "<td align=right>~w %</td>"
 		  "<td align=right>~w</td>"
 		  "<td align=right>~w</td></tr>\n",
-		  [CoverOutName,M,pc(Cov,NotCov),Cov,NotCov]);
+		  [uri_encode(CoverOutName),M,pc(Cov,NotCov),Cov,NotCov]);
 format_analyse(M,Cov,NotCov,{error,_}) ->
     io_lib:fwrite("<tr><td>~w</td>"
 		  "<td align=right>~w %</td>"
@@ -5280,8 +5243,8 @@ pc(Cov,NotCov) ->
 
 
 write_not_covered(CoverOut,M,Lines) ->
+    io:put_chars(CoverOut,html_header("Coverage results for "++atom_to_list(M))),
     io:fwrite(CoverOut,
-	      "<html>\n"
 	      "The following lines in module ~w are not covered:\n"
 	      "<table border=3 cellpadding=5>\n"
 	      "<th>Line Number</th>\n",
@@ -5292,25 +5255,25 @@ write_not_covered(CoverOut,M,Lines) ->
 			  ok
 		  end,
 		  Lines),
-    io:fwrite(CoverOut,"</table>\n</html>\n", []).
+    io:put_chars(CoverOut,"</table>\n</body>\n</html>\n").
 
 
 write_default_coverlog(TestDir) ->
-    {ok,CoverLog} = file:open(filename:join(TestDir,?coverlog_name), [write]),
+    {ok,CoverLog} = open_html_file(filename:join(TestDir,?coverlog_name)),
     write_coverlog_header(CoverLog),
-    io:fwrite(CoverLog,"Cover tool is not used\n</body></html>\n", []),
-    file:close(CoverLog).
+    io:put_chars(CoverLog,"Cover tool is not used\n</body></html>\n"),
+    ok = file:close(CoverLog).
 
 write_default_cross_coverlog(TestDir) ->
     {ok,CrossCoverLog} =
-	file:open(filename:join(TestDir,?cross_coverlog_name), [write]),
+	open_html_file(filename:join(TestDir,?cross_coverlog_name)),
     write_coverlog_header(CrossCoverLog),
     io:put_chars(CrossCoverLog,
 		 ["No cross cover modules exist for this application,",
 		  xhtml("<br>","<br />"),
 		  "or cross cover analysis is not completed.\n"
 		  "</body></html>\n"]),
-    file:close(CrossCoverLog).
+    ok = file:close(CrossCoverLog).
 
 write_cover_result_table(CoverLog,Coverage) ->
     io:fwrite(CoverLog,
@@ -5321,7 +5284,7 @@ write_cover_result_table(CoverLog,Coverage) ->
     {TotCov,TotNotCov} =
 	lists:foldl(fun({M,{Cov,NotCov,Details}},{AccCov,AccNotCov}) ->
 			    Str = format_analyse(M,Cov,NotCov,Details),
-			    io:fwrite(CoverLog,"~s", [Str]),
+			    io:fwrite(CoverLog,"~ts", [Str]),
 			    {AccCov+Cov,AccNotCov+NotCov};
 		       ({_M,{error,_Reason}},{AccCov,AccNotCov}) ->
 			    {AccCov,AccNotCov}
@@ -5336,5 +5299,72 @@ write_cover_result_table(CoverLog,Coverage) ->
 	      "</body>\n"
 	      "</html>\n",
 	      [TotPercent,TotCov,TotNotCov]),
-    file:close(CoverLog),
+    ok = file:close(CoverLog),
     TotPercent.
+
+
+%%%-----------------------------------------------------------------
+%%% Support functions for writing files
+
+%% HTML files are always written with utf8 encoding
+html_header(Title) ->
+    ["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n"
+     "<!-- autogenerated by '", atom_to_list(?MODULE), "'. -->\n"
+     "<html>\n"
+     "<head>\n"
+     "<title>", Title, "</title>\n"
+     "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n"
+     "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n"
+     "</head>\n"
+     "<body bgcolor=\"white\" text=\"black\" "
+     "link=\"blue\" vlink=\"purple\" alink=\"red\">\n"].
+
+open_html_file(File) ->
+    file:open(File,[write,{encoding,utf8}]).
+
+write_html_file(File,Content) ->
+    file:write_file(File,unicode:characters_to_binary(Content)).
+
+
+%% Text files are written with default encoding
+open_file(File) ->
+    file:open(File,[write]).
+
+write_file(File,Content) ->
+    file:write_file(File,Content).
+
+%% Encoding of hyperlinks in HTML files
+uri_encode(File) ->
+    Encoding = file:native_name_encoding(),
+    uri_encode(File,Encoding).
+
+uri_encode(File,Encoding) ->
+    Components = filename:split(File),
+    filename:join([uri_encode_comp(C,Encoding) || C <- Components]).
+
+uri_encode_comp("/",_) ->
+    "/";
+uri_encode_comp(Chars,utf8) ->
+    http_uri:encode(Chars);
+uri_encode_comp(Chars,latin1) ->
+    do_uri_encode(Chars).
+
+%% Encode a file reference to a latin1 filename so it can be inserted
+%% in a utf8 encoded HTML file.
+%% This does the same as http_uri:encode/1, except it also encodes all
+%% characters >127 - i.e. latin1 but not ASCII.
+do_uri_encode([Char|Chars]) ->
+    case Char>127 orelse sets:is_element(Char, reserved()) of
+	true ->
+	    [ $% | http_util:integer_to_hexlist(Char)] ++ do_uri_encode(Chars);
+	false ->
+	    [Char | do_uri_encode(Chars)]
+    end;
+do_uri_encode([]) ->
+    [].
+
+%% Copied from http_uri.erl
+reserved() ->
+    sets:from_list([$;, $:, $@, $&, $=, $+, $,, $/, $?,
+		    $#, $[, $], $<, $>, $\", ${, $}, $|,
+			       $\\, $', $^, $%, $ ]).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -249,7 +249,7 @@ print_trc(Out,{trace_ts,P,call,{M,F,A},C,Ts},N) ->
 	      "~w: ~s~n"
 	      "Process   : ~w~n"
 	      "Call      : ~w:~w/~w~n"
-	      "Arguments : ~p~n"
+	      "Arguments : ~tp~n"
 	      "Caller    : ~w~n~n",
 	      [N,ts(Ts),P,M,F,length(A),A,C]);
 print_trc(Out,{trace_ts,P,call,{M,F,A},Ts},N) ->
@@ -257,14 +257,14 @@ print_trc(Out,{trace_ts,P,call,{M,F,A},Ts},N) ->
 	      "~w: ~s~n"
 	      "Process   : ~w~n"
 	      "Call      : ~w:~w/~w~n"
-	      "Arguments : ~p~n~n",
+	      "Arguments : ~tp~n~n",
 	      [N,ts(Ts),P,M,F,length(A),A]);
 print_trc(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
     io:format(Out,
 	      "~w: ~s~n"
 	      "Process      : ~w~n"
 	      "Return from  : ~w:~w/~w~n"
-	      "Return value : ~p~n~n",
+	      "Return value : ~tp~n~n",
 	      [N,ts(Ts),P,M,F,A,R]);
 print_trc(Out,{drop,X},N) ->
     io:format(Out,
@@ -274,7 +274,7 @@ print_trc(Out,Trace,N) ->
     Ts = element(size(Trace),Trace),
     io:format(Out,
 	      "~w: ~s~n"
-	      "Trace        : ~p~n~n",
+	      "Trace        : ~tp~n~n",
 	      [N,ts(Ts),Trace]).
 ts({_, _, Micro} = Now) ->
     {{Y,M,D},{H,Min,S}} = calendar:now_to_local_time(Now),
@@ -465,8 +465,8 @@ handle_start_node_return(Version,VsnStr,{started, Node, OVersion, OVsnStr}) ->
     Str = io_lib:format("WARNING: Started node "
 			"reports different system "
 			"version than current node! "
-			"Current node version: ~p, ~p "
-			"Started node version: ~p, ~p",
+			"Current node version: ~tp, ~tp "
+			"Started node version: ~tp, ~tp",
 			[Version, VsnStr, 
 			 OVersion, OVsnStr]),
     Str1 = lists:flatten(Str),

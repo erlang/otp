@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -223,19 +223,11 @@ do_set_props([{reject_io_reqs,Bool}|Ps], St) ->
 do_set_props([], St) -> St.
 
 io_req({put_chars,Enc,Bytes}, _, _) when Enc =:= latin1; Enc =:= unicode  ->
-    to_latin1(Enc, Bytes);
+    unicode:characters_to_list(Bytes, Enc);
 io_req({put_chars,Encoding,Mod,Func,[Format,Args]}, _, _) ->
     Str = Mod:Func(Format, Args),
-    to_latin1(Encoding, Str);
+    unicode:characters_to_list(Str, Encoding);
 io_req(_, _, _) -> passthrough.
-
-to_latin1(unicode, Str) ->
-    [if C > 255 ->
-	     io_lib:format("\\{~.8B}", [C]);
-	true ->
-	     C
-     end || C <- unicode:characters_to_list(Str, unicode)];
-to_latin1(latin1, Str) -> Str.
 
 output(Level, Str, Sender, From, St) when is_integer(Level) ->
     case selected_by_level(Level, stdout, St) of
@@ -258,7 +250,7 @@ output(Level, Str, Sender, From, St) when is_atom(Level) ->
     output_to_file(Level, dress_output(Str, Sender, St), From, St).
 
 output_to_file(minor, Data0, From, #st{tc={M,F,A},minor=none}) ->
-    Data = [io_lib:format("=== ~p:~p/~p\n", [M,F,A]),Data0],
+    Data = [io_lib:format("=== ~w:~w/~w\n", [M,F,A]),Data0],
     test_server_io:print(From, unexpected_io, Data),
     ok;
 output_to_file(minor, Data, From, #st{minor=Fd}) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1364,6 +1364,7 @@ header1(Title, SubTitle, TableCols) ->
      "<head>\n",
      "<title>" ++ Title ++ " " ++ SubTitle ++ "</title>\n",
      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
+     "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n",
      xhtml("",
 	   ["<link rel=\"stylesheet\" href=\"",CSSFile,"\" type=\"text/css\">\n"]),
      xhtml("",
@@ -2319,6 +2320,7 @@ get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols) ->
 	      "<html>\n",
 	      "<head><title>", TestName1, "</title>\n",
 	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
+	      "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n",
 	      "</head>\n",
 	      "<body", Bgr, " bgcolor=\"white\" text=\"black\" ",
 	      "link=\"blue\" vlink=\"purple\" alink=\"red\">\n",
@@ -2363,6 +2365,7 @@ get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols) ->
 	      "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n",
 	      "<head>\n<title>", TestName1, "</title>\n",
 	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
+	      "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n",
 	      "<link rel=\"stylesheet\" href=\"", CSSFile, "\" type=\"text/css\">\n",
 	      "<script type=\"text/javascript\" src=\"", JQueryFile, "\"></script>\n",
 	      "<script type=\"text/javascript\" src=\"", TableSorterFile, "\"></script>\n"] ++
