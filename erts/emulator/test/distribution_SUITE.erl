@@ -37,8 +37,10 @@
 	 dist_auto_connect_never/1, dist_auto_connect_once/1,
 	 dist_parallel_send/1,
 	 atom_roundtrip/1,
-	 atom_roundtrip_r13b/1,
+	 unicode_atom_roundtrip/1,
+	 atom_roundtrip_r15b/1,
 	 contended_atom_cache_entry/1,
+	 contended_unicode_atom_cache_entry/1,
 	 bad_dist_structure/1,
 	 bad_dist_ext_receive/1,
 	 bad_dist_ext_process_info/1,
@@ -62,8 +64,9 @@ all() ->
      link_to_dead_new_node, applied_monitor_node,
      ref_port_roundtrip, nil_roundtrip, stop_dist,
      {group, trap_bif}, {group, dist_auto_connect},
-     dist_parallel_send, atom_roundtrip, atom_roundtrip_r13b,
-     contended_atom_cache_entry, bad_dist_structure, {group, bad_dist_ext}].
+     dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip, atom_roundtrip_r15b,
+     contended_atom_cache_entry, contended_unicode_atom_cache_entry,
+     bad_dist_structure, {group, bad_dist_ext}].
 
 groups() -> 
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -1085,18 +1088,26 @@ atom_roundtrip(Config) when is_list(Config) ->
     ?line stop_node(Node),
     ?line ok.
 
-atom_roundtrip_r13b(Config) when is_list(Config) ->
-    case ?t:is_release_available("r13b") of
+atom_roundtrip_r15b(Config) when is_list(Config) ->
+    case ?t:is_release_available("r15b") of
 	true ->
 	    ?line AtomData = atom_data(),
 	    ?line verify_atom_data(AtomData),
-	    ?line {ok, Node} = start_node(Config, [], "r13b"),
+	    ?line {ok, Node} = start_node(Config, [], "r15b"),
 	    ?line do_atom_roundtrip(Node, AtomData),
 	    ?line stop_node(Node),
 	    ?line ok;
 	false ->
-	    ?line {skip,"No OTP R13B available"}
+	    ?line {skip,"No OTP R15B available"}
     end.
+
+unicode_atom_roundtrip(Config) when is_list(Config) ->
+    ?line AtomData = unicode_atom_data(),
+    ?line verify_atom_data(AtomData),
+    ?line {ok, Node} = start_node(Config),
+    ?line do_atom_roundtrip(Node, AtomData),
+    ?line stop_node(Node),
+    ?line ok.
 
 do_atom_roundtrip(Node, AtomData) ->
     ?line Parent = self(),
@@ -1133,7 +1144,32 @@ verify_atom_data(AtomData) ->
 		  end,
 		  AtomData).
 
+uc_atup(ATxt) ->
+    {string_to_atom(ATxt), ATxt}.
+
+unicode_atom_data() ->
+    [uc_atup(lists:seq(16#1f600, 16#1f600+254)),
+     uc_atup(lists:seq(16#1f600, 16#1f600+63)),
+     uc_atup(lists:seq(0, 254)),
+     uc_atup(lists:seq(100, 163)),
+     uc_atup(lists:seq(200, 354)),
+     uc_atup(lists:seq(200, 263)),
+     uc_atup(lists:seq(2000, 2254)),
+     uc_atup(lists:seq(2000, 2063)),
+     uc_atup(lists:seq(65500, 65754)),
+     uc_atup(lists:seq(65500, 65563))
+     | lists:map(fun (N) ->
+			 uc_atup(lists:seq(64000+N, 64254+N))
+		 end,
+		 lists:seq(1, 2000))].
+
 contended_atom_cache_entry(Config) when is_list(Config) ->
+    contended_atom_cache_entry_test(Config, latin1).
+
+contended_unicode_atom_cache_entry(Config) when is_list(Config) ->
+    contended_atom_cache_entry_test(Config, unicode).
+
+contended_atom_cache_entry_test(Config, Type) ->
     ?line TestServer = self(),
     ?line ProcessPairs = 10,
     ?line Msgs = 100000,
@@ -1147,7 +1183,14 @@ contended_atom_cache_entry(Config) when is_list(Config) ->
 						  true),
 		    Master = self(),
 		    CIX = get_cix(),
-		    TestAtoms = get_conflicting_atoms(CIX, ProcessPairs),
+		    TestAtoms = case Type of
+				    latin1 ->
+					get_conflicting_atoms(CIX,
+							      ProcessPairs);
+				    unicode ->
+					get_conflicting_unicode_atoms(CIX,
+								      ProcessPairs)
+				end,
 		    io:format("Testing with the following atoms all using "
 			      "cache index ~p:~n ~p~n",
 			      [CIX, TestAtoms]),
@@ -1159,8 +1202,12 @@ contended_atom_cache_entry(Config) when is_list(Config) ->
 					 fun () ->
 						 Atom = receive
 							    {Ref, txt, ATxt} ->
-								list_to_atom(
-								  ATxt)
+								case Type of
+								    latin1 ->
+									list_to_atom(ATxt);
+								    unicode ->
+									string_to_atom(ATxt)
+								end
 							end,
 						 receive_ref_atom(Ref,
 								  Atom,
@@ -1250,6 +1297,20 @@ get_conflicting_atoms(CIX, N) ->
 	    [Atom|get_conflicting_atoms(CIX, N-1)];
 	_ ->
 	    get_conflicting_atoms(CIX, N)
+    end.
+
+get_conflicting_unicode_atoms(_CIX, 0) ->
+    [];
+get_conflicting_unicode_atoms(CIX, N) ->
+    {A, B, C} = now(),
+    Atom = string_to_atom([16#1f608] ++ "atom" ++ integer_to_list(A*1000000000000
+								  + B*1000000
+								  + C)),
+    case erts_debug:get_internal_state({atom_out_cache_index, Atom}) of
+	CIX ->
+	    [Atom|get_conflicting_unicode_atoms(CIX, N-1)];
+	_ ->
+	    get_conflicting_unicode_atoms(CIX, N)
     end.
 
 -define(COOKIE, '').
@@ -2131,3 +2192,86 @@ repeat(_Fun, 0) ->
 repeat(Fun, N) ->
     Fun(),
     repeat(Fun, N-1).
+
+string_to_atom(String) ->
+    Utf8List = string_to_utf8_list(String),
+    Len = length(Utf8List),
+    TagLen = case Len < 256 of
+		 true -> [119, Len];
+		 false -> [118, Len bsr 8, Len band 16#ff]
+	     end,
+    binary_to_term(list_to_binary([131, TagLen, Utf8List])).
+
+string_to_utf8_list([]) ->
+    [];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   0 =< CP,
+				   CP =< 16#7F ->
+    [CP | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#80 =< CP,
+				   CP =< 16#7FF ->
+    [16#C0 bor (CP bsr 6),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#800 =< CP,
+				   CP =< 16#FFFF ->
+    [16#E0 bor (CP bsr 12),
+     16#80 bor (16#3F band (CP bsr 6)),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#10000 =< CP,
+				   CP =< 16#10FFFF ->
+    [16#F0 bor (CP bsr 18),
+     16#80 bor (16#3F band (CP bsr 12)),
+     16#80 bor (16#3F band (CP bsr 6)),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)].
+
+utf8_list_to_string([]) ->
+    [];
+utf8_list_to_string([B|Bs]) when is_integer(B),
+				 0 =< B,
+				 B =< 16#7F ->
+    [B | utf8_list_to_string(Bs)];
+utf8_list_to_string([B0, B1 | Bs]) when is_integer(B0),
+					16#C0 =< B0,
+					B0 =< 16#DF,
+					is_integer(B1),
+					16#80 =< B1,
+					B1 =< 16#BF ->
+    [(((B0 band 16#1F) bsl 6)
+	  bor (B1 band 16#3F))
+     | utf8_list_to_string(Bs)];
+utf8_list_to_string([B0, B1, B2 | Bs]) when is_integer(B0),
+					    16#E0 =< B0,
+					    B0 =< 16#EF,
+					    is_integer(B1),
+					    16#80 =< B1,
+					    B1 =< 16#BF,
+					    is_integer(B2),
+					    16#80 =< B2,
+					    B2 =< 16#BF ->
+    [(((B0 band 16#F) bsl 12)
+	  bor ((B1 band 16#3F) bsl 6)
+	  bor (B2 band 16#3F))
+     | utf8_list_to_string(Bs)];
+utf8_list_to_string([B0, B1, B2, B3 | Bs]) when is_integer(B0),
+						16#F0 =< B0,
+						B0 =< 16#F7,
+						is_integer(B1),
+						16#80 =< B1,
+						B1 =< 16#BF,
+						is_integer(B2),
+						16#80 =< B2,
+						B2 =< 16#BF,
+						is_integer(B3),
+						16#80 =< B3,
+						B3 =< 16#BF ->
+    [(((B0 band 16#7) bsl 18)
+	  bor ((B1 band 16#3F) bsl 12)
+	  bor ((B2 band 16#3F) bsl 6)
+	  bor (B3 band 16#3F))
+     | utf8_list_to_string(Bs)].
