@@ -64,6 +64,5 @@
   <xi:include href="zlib_stub.xml"/>
   <xi:include href="app.xml"/>
   <xi:include href="config.xml"/>
-  <xi:include href="packages.xml"/>
 </application>
 
