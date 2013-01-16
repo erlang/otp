@@ -1853,32 +1853,21 @@ BIF_RETTYPE atom_to_binary_2(BIF_ALIST_2)
     ap = atom_tab(atom_val(BIF_ARG_1));
 
     if (BIF_ARG_2 == am_latin1) {
-	int i;
 	Eterm bin_term;
-	int bin_size = ap->len;
 
-	for (i = 0; i < ap->len; ) {  
-	    if (ap->name[i] < 0x80) i++;
-	    else {
-		ASSERT(ap->name[i] >= 0xC0);
-		if (ap->name[i] < 0xE0) {
-		    ASSERT(i+1 < ap->len && (ap->name[i+1] & 0xC0) == 0x80);
-		    i += 2;
-		    bin_size -= 1;
-		}
-		else goto error;
-	    }
+	if (ap->latin1_chars < 0) {
+	    goto error;
 	}
-	if (bin_size == ap->len) {
+	if (ap->latin1_chars == ap->len) {
 	    bin_term = new_binary(BIF_P, ap->name, ap->len);
 	}
 	else {
 	    byte* bin_p;
 	    int dbg_sz;
-	    bin_term = new_binary(BIF_P, 0, bin_size);
+	    bin_term = new_binary(BIF_P, 0, ap->latin1_chars);
 	    bin_p = binary_bytes(bin_term);
 	    dbg_sz = erts_utf8_to_latin1(bin_p, ap->name, ap->len);
-	    ASSERT(dbg_sz == bin_size); (void)dbg_sz; 
+	    ASSERT(dbg_sz == ap->latin1_chars); (void)dbg_sz; 
 	}
 	BIF_RET(bin_term);
     } else if (BIF_ARG_2 == am_utf8 || BIF_ARG_2 == am_unicode) {
@@ -2676,23 +2665,6 @@ BIF_RETTYPE file_native_name_encoding_0(BIF_ALIST_0)
     }
 }
 
-int erts_utf8_is_latin1_string(const byte *string, int len)
-{
-    /* Assumes string is encoded in valid UTF-8 */
-    int i;
-    while (i < len) {
-	if ((string[i] & 0x80) == 0)
-	    i++;
-	else if (i+1 < len
-		 && (string[i] & 0xFE) == 0xC2
-		 && (string[i+1] & 0xC0) == 0x80)
-	    i +=2;
-	else
-	    return 0;
-    }
-    return 1;
-}
-
 int erts_utf8_to_latin1(byte* dest, const byte* source, int slen)
 {
     /*
@@ -2700,6 +2672,7 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen)
      * and that dest has enough room.
      */
     byte* dp = dest;
+
     while (slen > 0) {
 	if ((source[0] & 0x80) == 0) {
 	    *dp++ = *source++;
@@ -2717,29 +2690,3 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen)
     return dp - dest;
 }
 
-int erts_utf8_to_latin1_backwards(byte *dest, const byte *source, int slen)
-{
-    /*
-     * Assumes source contains valid utf8 that can be encoded as latin1,
-     * and that dest has enough room.
-     */
-    int dix = 0;
-    int six = slen;
-    while (six > 0) {
-	six--;
-	dix--;
-	if ((source[six] & 0x80) == 0)
-	    dest[dix] = source[six];
-	else {
-	    byte c;
-	    ASSERT(six > 0);
-	    ASSERT((source[six] & 0xC0) == 0x80);
-	    ASSERT((source[six-1] & 0xFE) == 0xC2);
- 	    c = source[six] & 0x3F;
-	    six--;
-	    c |= source[six] << 6;
-	    dest[dix] = c;
-	}
-    }
-    return -dix;
-}

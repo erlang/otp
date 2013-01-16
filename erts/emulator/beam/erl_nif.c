@@ -743,16 +743,23 @@ int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
 {
     Atom* ap;
     ASSERT(encoding == ERL_NIF_LATIN1);
-    if (is_not_atom(atom)) {
+    if (is_not_atom(atom) || len==0) {
 	return 0;
     }
     ap = atom_tab(atom_val(atom));
-    if (ap->len+1 > len) {
+
+    if (ap->latin1_chars < 0 || ap->latin1_chars >= len) {
 	return 0;
     }
-    sys_memcpy(buf, ap->name, ap->len);
-    buf[ap->len] = '\0';
-    return ap->len + 1;
+    if (ap->latin1_chars == ap->len) {
+	sys_memcpy(buf, ap->name, ap->len);
+    }
+    else {
+	int dlen = erts_utf8_to_latin1((byte*)buf, ap->name, ap->len);
+	ASSERT(dlen == ap->latin1_chars); (void)dlen;
+    }
+    buf[ap->latin1_chars] = '\0';
+    return ap->latin1_chars + 1;
 }
 
 int enif_get_int(ErlNifEnv* env, Eterm term, int* ip)
@@ -854,7 +861,10 @@ int enif_get_atom_length(ErlNifEnv* env, Eterm atom, unsigned* len,
     ASSERT(enc == ERL_NIF_LATIN1);
     if (is_not_atom(atom)) return 0;
     ap = atom_tab(atom_val(atom));
-    *len = ap->len;
+    if (ap->latin1_chars < 0) {
+	return 0;
+    }
+    *len = ap->latin1_chars;
     return 1;
 }
 
@@ -961,7 +971,7 @@ ERL_NIF_TERM enif_make_atom(ErlNifEnv* env, const char* name)
 
 ERL_NIF_TERM enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)
 {
-    return am_atom_put(name, len);
+    return erts_atom_put((byte*)name, len, ERTS_ATOM_ENC_LATIN1, 1);
 }
 
 int enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom,
