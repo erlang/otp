@@ -24,7 +24,7 @@
 	 bom_to_encoding/1, encoding_to_bom/1]).
 
 -export_type([chardata/0, charlist/0, encoding/0, external_chardata/0,
-              external_charlist/0, latin1_chardata/0,
+              external_charlist/0, latin1_char/0, latin1_chardata/0,
               latin1_charlist/0, unicode_binary/0]).
 
 -type encoding()  :: 'latin1' | 'unicode' | 'utf8'

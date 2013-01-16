@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -248,7 +248,7 @@ format_error({module_name,Mod,Filename}) ->
 		  abstract_code=[],		%Abstract code for debugger.
 		  options=[]  :: [option()],	%Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
-                  encoding=none :: none | epp:source_coding(),
+                  encoding=none :: none | epp:source_encoding(),
 		  errors=[],
 		  warnings=[]}).
 
