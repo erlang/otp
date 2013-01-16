@@ -167,6 +167,8 @@ split_lines(Bin) ->
 %% Ignore white space at end of line
 join_entry([<<"-----END ", _/binary>>| Lines], Entry) ->
     {lists:reverse(Entry), Lines};
+join_entry([<<"-----END X509 CRL-----", _/binary>>| Lines], Entry) ->
+    {lists:reverse(Entry), Lines};
 join_entry([Line | Lines], Entry) ->
     join_entry(Lines, [Line | Entry]).
 
@@ -198,7 +200,9 @@ pem_start('DHParameter') ->
 pem_start('CertificationRequest') ->
     <<"-----BEGIN CERTIFICATE REQUEST-----">>;
 pem_start('ContentInfo') ->
-    <<"-----BEGIN PKCS7-----">>.
+    <<"-----BEGIN PKCS7-----">>;
+pem_start('CertificateList') ->
+     <<"-----BEGIN X509 CRL-----">>.
 
 pem_end(<<"-----BEGIN CERTIFICATE-----">>) ->
     <<"-----END CERTIFICATE-----">>;
@@ -220,6 +224,8 @@ pem_end(<<"-----BEGIN CERTIFICATE REQUEST-----">>) ->
     <<"-----END CERTIFICATE REQUEST-----">>;
 pem_end(<<"-----BEGIN PKCS7-----">>) ->
     <<"-----END PKCS7-----">>;
+pem_end(<<"-----BEGIN X509 CRL-----">>) ->
+    <<"-----END X509 CRL-----">>;
 pem_end(_) ->
     undefined.
 
@@ -242,7 +248,9 @@ asn1_type(<<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>) ->
 asn1_type(<<"-----BEGIN CERTIFICATE REQUEST-----">>) ->
     'CertificationRequest';
 asn1_type(<<"-----BEGIN PKCS7-----">>) ->
-    'ContentInfo'.
+    'ContentInfo';
+asn1_type(<<"-----BEGIN X509 CRL-----">>) ->
+    'CertificateList'.
 
 pem_decrypt() ->
     <<"Proc-Type: 4,ENCRYPTED">>.

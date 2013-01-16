@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
       <year>2008</year>
-      <year>2011</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -34,7 +34,7 @@
     <file>public_key_records.xml</file>
   </header>
     
-  <p>This chapter briefly describes Erlang records derived from asn1
+  <p>This chapter briefly describes Erlang records derived from ASN1
   specifications used to handle public and private keys. The intent
   is to describe the data types and not to specify the meaning of
   each component for this we refer you to the relevant standards and RFCs.</p>
@@ -67,9 +67,9 @@
 	 }.
 
 #'OtherPrimeInfo'{
-         prime,           % integer() 
- 	 exponent,        % integer()
-         coefficient      % integer() 
+	prime,           % integer()
+	exponent,        % integer()
+	coefficient      % integer()
  	 }.	 
     </code>
 

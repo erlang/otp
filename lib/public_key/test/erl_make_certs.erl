@@ -234,7 +234,7 @@ extensions(Opts) ->
     end.
 
 default_extensions(Exts) ->
-    Def = [{key_usage,undefined}, 
+    Def = [{key_usage, default},
 	   {subject_altname, undefined},
 	   {issuer_altname, undefined},
 	   {basic_constraints, default},
@@ -265,6 +265,11 @@ extension({basic_constraints, Data}) ->
 	    #'Extension'{extnID = ?'id-ce-basicConstraints',
 			 extnValue = Data}
     end;
+
+extension({key_usage, default}) ->
+    #'Extension'{extnID = ?'id-ce-keyUsage',
+		 extnValue = [keyCertSign], critical = true};
+
 extension({Id, Data, Critical}) ->
     #'Extension'{extnID = Id, extnValue = Data, critical = Critical}.
 

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -36,11 +36,13 @@
 
   <section>
     <title>Purpose</title>
-    <p> This application provides an API to public key infrastructure
-    from <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC
-    5280</url> (X.509 certificates) and public key formats defined by
-    the <url href="http://www.rsa.com/rsalabs/node.asp?id=2124">
-    PKCS-standard</url></p>
+    <p> public_key deals with public key related file formats, digital
+    signatures and <url href="http://www.ietf.org/rfc/rfc5280.txt">
+    X-509 certificates</url>. It is a library application that
+    provides encode/decode, sign/verify, encrypt/decrypt and similar
+    functionality, it does not read or write files it expects or returns
+    file contents or partial file contents as binaries.
+    </p>
   </section>
 
   <section>
@@ -51,9 +53,9 @@
 
   <section>
     <title>Performance tips</title>
-    <p>The public_key decode and encode functions will try to use the nifs
-    which are in the asn1 compilers runtime modules if they can be found.
-    So for the best  performance you want to have the asn1 application in the
+    <p>The public_key decode and encode functions will try to use the NIFs
+    which are in the ASN1 compilers runtime modules if they can be found.
+    So for the best  performance you want to have the ASN1 application in the
     path of your system. </p>
   </section>
 

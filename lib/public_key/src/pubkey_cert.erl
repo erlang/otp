@@ -26,10 +26,11 @@
 -export([init_validation_state/3, prepare_for_next_cert/2,
  	 validate_time/3, validate_signature/6,
  	 validate_issuer/4, validate_names/6,
-	 validate_revoked_status/3, validate_extensions/4,
+	 validate_extensions/4,
 	 normalize_general_name/1, digest_type/1, is_self_signed/1,
 	 is_issuer/2, issuer_id/2, is_fixed_dh_cert/1,
-	 verify_data/1, verify_fun/4]).
+	 verify_data/1, verify_fun/4, select_extension/2, match_name/3,
+	 extensions_list/1, cert_auth_key_id/1, time_str_2_gregorian_sec/1]).
 
 -define(NULL, 0).
  
@@ -204,17 +205,6 @@ validate_names(OtpCert, Permit, Exclude, Last, UserState, VerifyFun) ->
     end.
 
 %%--------------------------------------------------------------------
--spec validate_revoked_status(#'OTPCertificate'{}, term(), fun()) ->
-				      term().
-%%
-%% Description: Check if certificate has been revoked.
-%%--------------------------------------------------------------------	
-validate_revoked_status(_OtpCert, UserState, _VerifyFun) ->
-    %% TODO: Implement or leave for application?!
-    %% valid |
-    %% throw({bad_cert, cert_revoked})
-    UserState.
-%%--------------------------------------------------------------------
 -spec validate_extensions(#'OTPCertificate'{}, #path_validation_state{},
 			  term(), fun())->
 				 {#path_validation_state{}, UserState :: term()}.
@@ -256,8 +246,10 @@ is_self_signed(#'OTPCertificate'{tbsCertificate=
 %%
 %% Description:  Checks if <Issuer> issued <Candidate>.
 %%--------------------------------------------------------------------	
-is_issuer({rdnSequence, Issuer}, {rdnSequence, Candidate}) ->
-    is_dir_name(Issuer, Candidate, true).
+is_issuer({rdnSequence, _} = Issuer, {rdnSequence, _} = Candidate) ->
+    {rdnSequence, IssuerDirName} = normalize_general_name(Issuer),
+    {rdnSequence, CandidateDirName} = normalize_general_name(Candidate),
+    is_dir_name(IssuerDirName, CandidateDirName, true).
 %%--------------------------------------------------------------------
 -spec issuer_id(#'OTPCertificate'{}, self | other) -> 
 		       {ok, {integer(), term()}}  | {error, issuer_not_found}.
@@ -307,9 +299,9 @@ verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
 	{valid,UserState} ->
 	    UserState;
 	{fail, Reason} ->
-	    case Result of
+	    case Reason of
 		{bad_cert, _} ->
-		    throw(Result);
+		    throw(Reason);
 		_ ->
 		    throw({bad_cert, Reason})
 	    end;
@@ -320,6 +312,91 @@ verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
 		_ ->
 		    UserState
 	    end
+    end.
+%%--------------------------------------------------------------------
+-spec select_extension(Oid ::tuple(),[#'Extension'{}]) ->
+			      #'Extension'{} | undefined.
+%%
+%% Description: Extracts a specific extension from a list of extensions.
+%%--------------------------------------------------------------------
+select_extension(_, []) ->
+    undefined;
+select_extension(Id, [#'Extension'{extnID = Id} = Extension | _]) ->
+    Extension;
+select_extension(Id, [_ | Extensions]) ->
+    select_extension(Id, Extensions).
+
+%%--------------------------------------------------------------------
+%% TODO:
+%%
+%% Description:
+%%--------------------------------------------------------------------
+match_name(rfc822Name, Name, [PermittedName | Rest]) ->
+    match_name(fun is_valid_host_or_domain/2, Name, PermittedName, Rest);
+
+match_name(directoryName, DirName,  [PermittedName | Rest]) ->
+    match_name(fun is_rdnSeq/2, DirName, PermittedName, Rest);
+
+match_name(uniformResourceIdentifier, URI,  [PermittedName | Rest]) ->
+    case split_uri(URI) of
+	incomplete ->
+	    false;
+	{_, _, Host, _, _} ->
+	    match_name(fun is_valid_host_or_domain/2, Host,
+		       PermittedName, Rest)
+    end;
+
+match_name(emailAddress, Name, [PermittedName | Rest]) ->
+    Fun = fun(Email, PermittedEmail) ->
+		  is_valid_email_address(Email, PermittedEmail,
+				   string:tokens(PermittedEmail,"@"))
+	  end,
+     match_name(Fun, Name, PermittedName, Rest);
+
+match_name(dNSName, Name, [PermittedName | Rest]) ->
+    Fun = fun(Domain, [$.|Domain]) -> true;
+	     (Name1,Name2) ->
+		  lists:suffix(string:to_lower(Name2),
+			       string:to_lower(Name1))
+	  end,
+    match_name(Fun, Name, [$.|PermittedName], Rest);
+
+match_name(x400Address, OrAddress, [PermittedAddr | Rest]) ->
+    match_name(fun is_or_address/2, OrAddress, PermittedAddr, Rest);
+
+match_name(ipAdress, IP, [PermittedIP | Rest]) ->
+    Fun = fun([IP1, IP2, IP3, IP4],
+	      [IP5, IP6, IP7, IP8, M1, M2, M3, M4]) ->
+		  is_permitted_ip([IP1, IP2, IP3, IP4],
+				  [IP5, IP6, IP7, IP8],
+				  [M1, M2, M3, M4]);
+	     ([IP1, IP2, IP3, IP4, IP5, IP6, IP7, IP8,
+	       IP9, IP10, IP11, IP12, IP13, IP14, IP15, IP16],
+	      [IP17, IP18, IP19, IP20, IP21, IP22, IP23, IP24,
+	       IP25, IP26, IP27, IP28, IP29, IP30, IP31, IP32,
+	       M1, M2, M3, M4, M5, M6, M7, M8,
+	       M9, M10, M11, M12, M13, M14, M15, M16]) ->
+		  is_permitted_ip([IP1, IP2, IP3, IP4, IP5, IP6, IP7, IP8,
+				   IP9, IP10, IP11, IP12, IP13,
+				   IP14, IP15, IP16],
+				  [IP17, IP18, IP19, IP20, IP21, IP22, IP23,
+				   IP24,IP25, IP26, IP27, IP28, IP29, IP30,
+				   IP31, IP32],
+				    [M1, M2, M3, M4, M5, M6, M7, M8, M9, M10,
+				     M11, M12, M13, M14, M15, M16]);
+	     (_,_) ->
+		  false
+	  end,
+    match_name(Fun, IP, PermittedIP, Rest).
+
+match_name(Fun, Name, PermittedName, []) ->
+    Fun(Name, PermittedName);
+match_name(Fun, Name, PermittedName, [Head | Tail]) ->
+    case Fun(Name, PermittedName) of
+	true ->
+	    true;
+	false ->
+	    match_name(Fun, Name, Head, Tail)
     end.
 
 %%--------------------------------------------------------------------
@@ -332,7 +409,7 @@ do_normalize_general_name(Issuer) ->
 		   (Atter)  ->
 			Atter
 		end,
-    lists:sort(lists:map(Normalize, Issuer)).
+    lists:map(Normalize, Issuer).
 
 %% See rfc3280 4.1.2.6 Subject: regarding emails.
 extract_email({rdnSequence, List}) ->
@@ -477,13 +554,6 @@ strip_spaces(String) ->
 		    string:tokens(String, " ")),
     string:strip(NewString).
 
-select_extension(_, []) ->
-    undefined;
-select_extension(Id, [#'Extension'{extnID = Id} = Extension | _]) ->
-    Extension;
-select_extension(Id, [_ | Extensions]) ->
-    select_extension(Id, Extensions).
-
 %% No extensions present
 validate_extensions(OtpCert, asn1_NOVALUE, ValidationState, ExistBasicCon,
 		    SelfSigned, UserState, VerifyFun) ->
@@ -503,18 +573,16 @@ validate_extensions(OtpCert, [], ValidationState =
 	true  ->
 	    {ValidationState#path_validation_state{max_path_length = Len - 1},
 	     UserState0};
-	%% basic_constraint must appear in certs used for digital sign
-	%% see 4.2.1.10 in rfc 3280
 	false ->
-	    UserState = verify_fun(OtpCert, {bad_cert, missing_basic_constraint},
-				   UserState0, VerifyFun),
-	    case SelfSigned of
+	    %% basic_constraint must appear in certs used for digital sign
+	    %% see 4.2.1.10 in rfc 3280
+	    case is_digitally_sign_cert(OtpCert) of
 		true ->
-		    {ValidationState, UserState};
-		false ->
-		    {ValidationState#path_validation_state{max_path_length = 
-							       Len - 1},
-		     UserState}
+		    missing_basic_constraints(OtpCert, SelfSigned,
+					      ValidationState, VerifyFun,
+					      UserState0, Len);
+		false -> %% Example CRL signer only
+		    {ValidationState, UserState0}
 	    end
     end;
 
@@ -861,74 +929,6 @@ type_subtree_names(Type, SubTrees) ->
     [Name || #'GeneralSubtree'{base = {TreeType, Name}} <- SubTrees,
 	     TreeType =:= Type].
 
-match_name(rfc822Name, Name, [PermittedName | Rest]) ->
-    match_name(fun is_valid_host_or_domain/2, Name, PermittedName, Rest);
-	
-match_name(directoryName, DirName,  [PermittedName | Rest]) ->
-    match_name(fun is_rdnSeq/2, DirName, PermittedName, Rest);
-
-match_name(uniformResourceIdentifier, URI,  [PermittedName | Rest]) ->
-    case split_uri(URI) of
-	incomplete ->
-	    false;
-	{_, _, Host, _, _} ->
-	    match_name(fun is_valid_host_or_domain/2, Host, 
-		       PermittedName, Rest)
-    end;
-
-match_name(emailAddress, Name, [PermittedName | Rest]) ->
-    Fun = fun(Email, PermittedEmail) -> 
-		  is_valid_email_address(Email, PermittedEmail,
-				   string:tokens(PermittedEmail,"@"))
-	  end,
-     match_name(Fun, Name, PermittedName, Rest);
-
-match_name(dNSName, Name, [PermittedName | Rest]) ->
-    Fun = fun(Domain, [$.|Domain]) -> true;
-	     (Name1,Name2) ->
-		  lists:suffix(string:to_lower(Name2), 
-			       string:to_lower(Name1))
-	  end,
-    match_name(Fun, Name, [$.|PermittedName], Rest);	  
-	     
-match_name(x400Address, OrAddress, [PermittedAddr | Rest]) ->
-    match_name(fun is_or_address/2, OrAddress, PermittedAddr, Rest);
-
-match_name(ipAdress, IP, [PermittedIP | Rest]) ->
-    Fun = fun([IP1, IP2, IP3, IP4],
-	      [IP5, IP6, IP7, IP8, M1, M2, M3, M4]) ->
-		  is_permitted_ip([IP1, IP2, IP3, IP4],
-				  [IP5, IP6, IP7, IP8],
-				  [M1, M2, M3, M4]);
-	     ([IP1, IP2, IP3, IP4, IP5, IP6, IP7, IP8,
-	       IP9, IP10, IP11, IP12, IP13, IP14, IP15, IP16],
-	      [IP17, IP18, IP19, IP20, IP21, IP22, IP23, IP24,
-	       IP25, IP26, IP27, IP28, IP29, IP30, IP31, IP32,
-	       M1, M2, M3, M4, M5, M6, M7, M8,
-	       M9, M10, M11, M12, M13, M14, M15, M16]) ->
-		  is_permitted_ip([IP1, IP2, IP3, IP4, IP5, IP6, IP7, IP8,
-				   IP9, IP10, IP11, IP12, IP13,
-				   IP14, IP15, IP16],
-				  [IP17, IP18, IP19, IP20, IP21, IP22, IP23, 
-				   IP24,IP25, IP26, IP27, IP28, IP29, IP30, 
-				   IP31, IP32],
-				    [M1, M2, M3, M4, M5, M6, M7, M8, M9, M10, 
-				     M11, M12, M13, M14, M15, M16]);
-	     (_,_) ->
-		  false
-	  end,
-    match_name(Fun, IP, PermittedIP, Rest).
-    
-match_name(Fun, Name, PermittedName, []) ->
-    Fun(Name, PermittedName);
-match_name(Fun, Name, PermittedName, [Head | Tail]) ->
-    case Fun(Name, PermittedName) of
-	true ->
-	    true;
-	false ->
-	    match_name(Fun, Name, Head, Tail)
-    end.
-
 is_permitted_ip([], [], []) ->
     true;
 is_permitted_ip([CandidatIp | CandidatIpRest], 
@@ -1037,3 +1037,25 @@ is_dh(?'dhpublicnumber')->
     true;
 is_dh(_) ->
     false.
+
+is_digitally_sign_cert(OtpCert) ->
+    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    case pubkey_cert:select_extension(?'id-ce-keyUsage', Extensions) of
+	undefined ->
+	     false;
+	#'Extension'{extnValue = KeyUse} ->
+	    lists:member(keyCertSign, KeyUse)
+    end.
+
+missing_basic_constraints(OtpCert, SelfSigned, ValidationState, VerifyFun, UserState0,Len) ->
+    UserState = verify_fun(OtpCert, {bad_cert, missing_basic_constraint},
+			   UserState0, VerifyFun),
+    case SelfSigned of
+	true ->
+	    {ValidationState, UserState};
+	false ->
+	    {ValidationState#path_validation_state{max_path_length =
+						       Len - 1},
+	     UserState}
+    end.

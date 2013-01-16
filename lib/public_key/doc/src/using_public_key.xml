@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2011</year><year>2011</year>
+      <year>2011</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,7 +21,7 @@
     
     </legalnotice>
 
-    <title>Using the public_key API</title>
+    <title>Getting Started</title>
     <file>using_public_key.xml</file>
   </header>
 
@@ -40,7 +40,7 @@
     
   <section>
     <title>PEM files</title>
-    <p> Pulic key data (keys, certificates etc) may be stored in PEM format. PEM files
+    <p> Public key data (keys, certificates etc) may be stored in PEM format. PEM files
     comes from the Private Enhanced Mail Internet standard and has a
     structure that looks like this:</p>
 
@@ -63,7 +63,7 @@
       <code>1> {ok, PemBin} = file:read_file("dsa.pem").
 {ok,&lt;&lt;"-----BEGIN DSA PRIVATE KEY-----\nMIIBuw"...&gt;&gt;}</code>
       
-      <p>This PEM file only has one entry a private DSA key.</p>
+      <p>This PEM file only has one entry, a private DSA key.</p>
       <code>2> [DSAEntry] =  public_key:pem_decode(PemBin).
 [{'DSAPrivateKey',&lt;&lt;48,130,1,187,2,1,0,2,129,129,0,183,
                     179,230,217,37,99,144,157,21,228,204,
