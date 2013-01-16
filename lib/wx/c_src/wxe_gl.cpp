@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2013. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -141,7 +141,7 @@ void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
 	 ERL_DRV_INT,  op,
 	 ERL_DRV_ATOM, driver_mk_atom((char *) "no_gl_context"),
 	 ERL_DRV_TUPLE,3};
-      driver_send_term(WXE_DRV_PORT,caller,rt,8);
+      erl_drv_send_term(WXE_DRV_PORT,caller,rt,8);
       return ;
     }
   };
@@ -155,6 +155,6 @@ void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
     else 
       bs[i] = NULL;
   }
-  wxe_gl_dispatch(op, bp, WXE_DRV_PORT, caller, bs, bs_sz);
+  wxe_gl_dispatch(op, bp, WXE_DRV_PORT_HANDLE, caller, bs, bs_sz);
 }
 

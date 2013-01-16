@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -34,7 +34,7 @@ class wxeMetaCommand : public wxEvent
  public: 
  wxeMetaCommand(wxe_data *sd, int EvId) 
     : wxEvent(EvId, wxeEVT_META_COMMAND)
-   {  caller = driver_caller(sd->port);  port = sd->port; pdl = sd->pdl; } ;
+   {  caller = driver_caller(sd->port_handle);  port = sd->port; pdl = sd->pdl; } ;
  wxeMetaCommand(const wxeMetaCommand& event)  
     : wxEvent(event) 
    {  caller = event.caller; port = event.port; pdl = event.pdl; };
@@ -42,7 +42,7 @@ class wxeMetaCommand : public wxEvent
    virtual wxEvent *Clone() const { return new wxeMetaCommand(*this); }
    
    ErlDrvTermData   caller;
-   ErlDrvPort       port; 
+   ErlDrvTermData   port;
    ErlDrvPDL        pdl;
 };
 
@@ -51,9 +51,9 @@ class wxeCommand : public wxObject
  public: 
    wxeCommand(int fc,char * cbuf,int buflen, wxe_data *);
    virtual ~wxeCommand();
-   
+
    ErlDrvTermData   caller;
-   ErlDrvPort       port; 
+   ErlDrvTermData   port;
    WXEBinRef *      bin[3];
    char *           buffer;
    int              len;
@@ -161,7 +161,7 @@ public:
   // MemEnv handling 
   void newMemEnv(wxeMetaCommand& event);
   void destroyMemEnv(wxeMetaCommand& event);
-  wxeMemEnv * getMemEnv(ErlDrvPort port);
+  wxeMemEnv * getMemEnv(ErlDrvTermData port);
   
   int  newPtr(void * ptr, int type, wxeMemEnv *memenv);
   int  getRef(void * ptr, wxeMemEnv *memenv);
@@ -193,7 +193,7 @@ class wxETreeItemData : public wxTreeItemData
    char * bin;
 };
 
-bool sendevent(wxEvent * event, ErlDrvPort port);
+bool sendevent(wxEvent * event, ErlDrvTermData port);
 void pre_callback();
 void handle_event_callback(ErlDrvPort port, ErlDrvTermData process);
 
@@ -208,10 +208,10 @@ extern wxeGLC glc;
 class wxEPrintout : public wxPrintout
 {
  public: 
-   wxEPrintout(wxString Title, int onPrintP, int onPrepareP, 
+   wxEPrintout(wxString Title, int onPrintP, int onPrepareP,
 	       int onBeginP, int onEndP,
 	       int onBeginD, int onEndD,
-	       int hasP, int getPageI, ErlDrvPort Port) : 
+	       int hasP, int getPageI, ErlDrvTermData Port) :
       wxPrintout(Title),
       onPrintPage(onPrintP), onPreparePrinting(onPrepareP), 
       onBeginPrinting(onBeginP), onEndPrinting(onEndP),
@@ -241,15 +241,15 @@ class wxEPrintout : public wxPrintout
    int hasPage; 
    int getPageInfo;
 
-   ErlDrvPort port;
+   ErlDrvTermData port;
 };
 
-void clear_cb(ErlDrvPort port, int callback);
+void clear_cb(ErlDrvTermData port, int callback);
 
 
 // Implementation of wxListCtrlCompare
 struct callbackInfo {
-   ErlDrvPort port;
+   ErlDrvTermData port;
    int callbackID;
 };
 

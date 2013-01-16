@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -328,7 +328,7 @@ int getRef(void* ptr, wxeMemEnv* memenv)
   return app->getRef(ptr,memenv);
 }
 
-bool sendevent(wxEvent *event, ErlDrvPort port)
+bool sendevent(wxEvent *event, ErlDrvTermData port)
 {
  int send_res ;
  char * evClass = NULL;
@@ -815,7 +815,7 @@ case 226: {// wxTaskBarIconEvent
    rt.addTupleCount(3);
    pre_callback();
    send_res =  rt.send();
-   if(send_res) handle_event_callback(port, cb->listener);
+   if(send_res) handle_event_callback(WXE_DRV_PORT_HANDLE, cb->listener);
    app->clearPtr((void *) event);
  } else {
    send_res =  rt.send();

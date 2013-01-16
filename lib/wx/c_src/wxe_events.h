@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2013. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,7 @@ public:
 class wxeEvtListener : public wxEvtHandler
 {
 public:
-   wxeEvtListener(ErlDrvPort Thisport) : port(Thisport) 
+   wxeEvtListener(ErlDrvTermData Thisport) : port(Thisport)
       {} 
    // {fprintf(stderr, "Creating %x\r\n", (unsigned int) this); fflush(stderr);}
    void forward(wxEvent& event);
@@ -62,7 +62,7 @@ public:
       ((WxeApp *)wxTheApp)->clearPtr(this);
       // fprintf(stderr, "Deleteing %x\r\n", (unsigned int) this); fflush(stderr);
    };
-   ErlDrvPort port;
+   ErlDrvTermData port;
 };
 
 #endif

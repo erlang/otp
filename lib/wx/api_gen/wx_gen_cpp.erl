@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1210,7 +1210,7 @@ encode_events(Evs) ->
       "  WxeApp * app = (WxeApp *) wxTheApp;~n"
       "  return app->getRef(ptr,memenv);~n"
       "}~n~n"),
-    w("bool sendevent(wxEvent *event, ErlDrvPort port)~n{~n"
+    w("bool sendevent(wxEvent *event, ErlDrvTermData port)~n{~n"
       " int send_res ;~n"
       " char * evClass = NULL;~n"
       " wxMBConvUTF32 UTFconverter;~n"
@@ -1239,7 +1239,7 @@ encode_events(Evs) ->
     w("   rt.addTupleCount(3);~n"),
     w("   pre_callback();~n"),
     w("   send_res =  rt.send();~n"),
-    w("   if(send_res) handle_event_callback(port, cb->listener);~n"),
+    w("   if(send_res) handle_event_callback(WXE_DRV_PORT_HANDLE, cb->listener);~n"),
     w("   app->clearPtr((void *) event);~n"),
     w(" } else {~n"),
     w("   send_res =  rt.send();~n"),
