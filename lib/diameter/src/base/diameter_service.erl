@@ -2060,9 +2060,15 @@ request_cb({eval, RC, F}, App, Mask, T, TC, Fs, Pkt) ->
 %% protocol_error/5
 
 protocol_error(RC, {_, OH, OR}, TPid, Fs, Pkt) ->
-    #diameter_packet{avps = Avps} = Pkt,
+    #diameter_packet{avps = Avps, errors = Es} = Pkt,
     ?LOG({error, RC}, Pkt),
-    reply(answer_message({OH, OR, RC}, Avps), ?BASE, TPid, Fs, Pkt).
+    reply(answer_message({OH, OR, RC}, Avps),
+          ?BASE,
+          TPid,
+          Fs,
+          Pkt#diameter_packet{errors = [RC | Es]}).
+%% Note that reply/5 may set the result code once more. It's set in
+%% answer_message/2 in case reply/5 doesn't.
 
 %% protocol_error/4
 
@@ -2175,7 +2181,8 @@ is_loop(Code, Vid, OH, Avps) ->
 %%
 %% Send a locally originating reply.
 
-%% Skip the setting of Result-Code and Failed-AVP's below.
+%% Skip the setting of Result-Code and Failed-AVP's below. This is
+%% currently undocumented.
 reply([Msg], Dict, TPid, Fs, Pkt)
   when is_list(Msg);
        is_tuple(Msg) ->
