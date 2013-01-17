@@ -18,7 +18,17 @@
 %%
 
 -module(distribution_SUITE).
--compile(r13).
+-compile(r15).
+
+-define(VERSION_MAGIC,       131).
+
+-define(ATOM_EXT,            100).
+-define(REFERENCE_EXT,       101).
+-define(PORT_EXT,            102).
+-define(PID_EXT,             103).
+-define(NEW_REFERENCE_EXT,   114).
+-define(ATOM_UTF8_EXT,       118).
+-define(SMALL_ATOM_UTF8_EXT, 119).
 
 %% Tests distribution and the tcp driver.
 
@@ -1139,27 +1149,66 @@ atom_data() ->
 	      lists:seq(1, 2000)).
 
 verify_atom_data(AtomData) ->
-    lists:foreach(fun ({Atom, AtomTxt}) ->
-			  AtomTxt = atom_to_list(Atom)
+    lists:foreach(fun ({Atom, AtomTxt}) when is_atom(Atom) ->
+			  AtomTxt = atom_to_list(Atom);
+		      ({PPR, AtomTxt}) ->
+			  % Pid, Port, or Ref
+			  AtomTxt = atom_to_list(node(PPR))
 		  end,
 		  AtomData).
 
-uc_atup(ATxt) ->
-    {string_to_atom(ATxt), ATxt}.
+uc_atom_tup(ATxt) ->
+    Atom = string_to_atom(ATxt),
+    ATxt = atom_to_list(Atom),
+    {Atom, ATxt}.
+
+uc_pid_tup(ATxt) ->
+    ATxtExt = string_to_atom_ext(ATxt),
+    Pid = mk_pid({ATxtExt, 1}, 4711,17),
+    true = is_pid(Pid),
+    Atom = node(Pid),
+    true = is_atom(Atom),
+    ATxt = atom_to_list(Atom),
+    {Pid, ATxt}.
+
+uc_port_tup(ATxt) ->
+    ATxtExt = string_to_atom_ext(ATxt),
+    Port = mk_port({ATxtExt, 2}, 4711),
+    true = is_port(Port),
+    Atom = node(Port),
+    true = is_atom(Atom),
+    ATxt = atom_to_list(Atom),
+    {Port, ATxt}.
+
+uc_ref_tup(ATxt) ->
+    ATxtExt = string_to_atom_ext(ATxt),
+    Ref = mk_ref({ATxtExt, 3}, [4711,17, 4711]),
+    true = is_reference(Ref),
+    Atom = node(Ref),
+    true = is_atom(Atom),
+    ATxt = atom_to_list(Atom),
+    {Ref, ATxt}.
+
 
 unicode_atom_data() ->
-    [uc_atup(lists:seq(16#1f600, 16#1f600+254)),
-     uc_atup(lists:seq(16#1f600, 16#1f600+63)),
-     uc_atup(lists:seq(0, 254)),
-     uc_atup(lists:seq(100, 163)),
-     uc_atup(lists:seq(200, 354)),
-     uc_atup(lists:seq(200, 263)),
-     uc_atup(lists:seq(2000, 2254)),
-     uc_atup(lists:seq(2000, 2063)),
-     uc_atup(lists:seq(65500, 65754)),
-     uc_atup(lists:seq(65500, 65563))
+    [uc_pid_tup(lists:seq(16#1f600, 16#1f600+249) ++ "@host"),
+     uc_pid_tup(lists:seq(16#1f600, 16#1f600+30) ++ "@host"),
+     uc_port_tup(lists:seq(16#1f600, 16#1f600+249) ++ "@host"),
+     uc_port_tup(lists:seq(16#1f600, 16#1f600+30) ++ "@host"),
+     uc_ref_tup(lists:seq(16#1f600, 16#1f600+249) ++ "@host"),
+     uc_ref_tup(lists:seq(16#1f600, 16#1f600+30) ++ "@host"),
+     uc_atom_tup(lists:seq(16#1f600, 16#1f600+254)),
+     uc_atom_tup(lists:seq(16#1f600, 16#1f600+63)),
+     uc_atom_tup(lists:seq(0, 254)),
+     uc_atom_tup(lists:seq(100, 163)),
+     uc_atom_tup(lists:seq(200, 354)),
+     uc_atom_tup(lists:seq(200, 263)),
+     uc_atom_tup(lists:seq(2000, 2254)),
+     uc_atom_tup(lists:seq(2000, 2063)),
+     uc_atom_tup(lists:seq(65500, 65754)),
+     uc_atom_tup(lists:seq(65500, 65563))
      | lists:map(fun (N) ->
-			 uc_atup(lists:seq(64000+N, 64254+N))
+			 uc_atom_tup(lists:seq(64000+N, 64254+N))
 		 end,
 		 lists:seq(1, 2000))].
 
@@ -2193,14 +2242,19 @@ repeat(Fun, N) ->
     Fun(),
     repeat(Fun, N-1).
 
-string_to_atom(String) ->
+string_to_atom_ext(String) ->
     Utf8List = string_to_utf8_list(String),
     Len = length(Utf8List),
-    TagLen = case Len < 256 of
-		 true -> [119, Len];
-		 false -> [118, Len bsr 8, Len band 16#ff]
-	     end,
-    binary_to_term(list_to_binary([131, TagLen, Utf8List])).
+    case Len < 256 of
+	true ->
+	    [?SMALL_ATOM_UTF8_EXT, Len | Utf8List];
+	false ->
+	    [?ATOM_UTF8_EXT, Len bsr 8, Len band 16#ff | Utf8List]
+    end.
+
+string_to_atom(String) ->
+    binary_to_term(list_to_binary([?VERSION_MAGIC
+				   | string_to_atom_ext(String)])).
 
 string_to_utf8_list([]) ->
     [];
@@ -2275,3 +2329,102 @@ utf8_list_to_string([B0, B1, B2, B3 | Bs]) when is_integer(B0),
 	  bor ((B2 band 16#3F) bsl 6)
 	  bor (B3 band 16#3F))
      | utf8_list_to_string(Bs)].
+
+mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_pid({NodeNameExt, Creation}, Number, Serial);
+mk_pid({NodeNameExt, Creation}, Number, Serial) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					      ?PID_EXT,
+					      NodeNameExt,
+					      uint32_be(Number),
+					      uint32_be(Serial),
+					      uint8(Creation)])) of
+	Pid when is_pid(Pid) ->
+	    Pid;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_pid, [{NodeNameExt, Creation}, Number, Serial]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end.
+
+mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_port({NodeNameExt, Creation}, Number);
+mk_port({NodeNameExt, Creation}, Number) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					      ?PORT_EXT,
+					      NodeNameExt,
+					      uint32_be(Number),
+					      uint8(Creation)])) of
+	Port when is_port(Port) ->
+	    Port;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_port, [{NodeNameExt, Creation}, Number]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end.
+
+mk_ref({NodeName, Creation}, [Number] = NL) when is_atom(NodeName),
+						 is_integer(Creation),
+						 is_integer(Number) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_ref({NodeNameExt, Creation}, NL);
+mk_ref({NodeNameExt, Creation}, [Number]) when is_integer(Creation),
+					       is_integer(Number) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					      ?REFERENCE_EXT,
+					      NodeNameExt,
+					      uint32_be(Number),
+					      uint8(Creation)])) of
+	Ref when is_reference(Ref) ->
+	    Ref;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, [Number]]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end;
+mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
+					   is_integer(Creation),
+					   is_list(Numbers) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_ref({NodeNameExt, Creation}, Numbers);
+mk_ref({NodeNameExt, Creation}, Numbers) when is_integer(Creation),
+					      is_list(Numbers) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					      ?NEW_REFERENCE_EXT,
+					      uint16_be(length(Numbers)),
+					      NodeNameExt,
+					      uint8(Creation),
+					      lists:map(fun (N) ->
+								uint32_be(N)
+							end,
+							Numbers)])) of
+	Ref when is_reference(Ref) ->
+	    Ref;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, Numbers]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end.
+
+
+uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
+    [(Uint bsr 24) band 16#ff,
+     (Uint bsr 16) band 16#ff,
+     (Uint bsr 8) band 16#ff,
+     Uint band 16#ff];
+uint32_be(Uint) ->
+    exit({badarg, uint32_be, [Uint]}).
+
+
+uint16_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 16 ->
+    [(Uint bsr 8) band 16#ff,
+     Uint band 16#ff];
+uint16_be(Uint) ->
+    exit({badarg, uint16_be, [Uint]}).
+
+uint8(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 8 ->
+    Uint band 16#ff;
+uint8(Uint) ->
+    exit({badarg, uint8, [Uint]}).
