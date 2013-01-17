@@ -38,6 +38,7 @@
          result_codes/1,
          send_ok/1,
          send_nok/1,
+         send_eval/1,
          send_bad_answer/1,
          send_arbitrary/1,
          send_unknown/1,
@@ -212,6 +213,7 @@ end_per_testcase(_, _) ->
 tc() ->
     [send_ok,
      send_nok,
+     send_eval,
      send_bad_answer,
      send_arbitrary,
      send_unknown,
@@ -311,6 +313,14 @@ send_nok(Config) ->
                   {'Accounting-Record-Number', 0}],
     
     #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS}
+        = call(Config, Req).
+
+%% Send an ACR and expect success.
+send_eval(Config) ->
+    Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
+                  {'Accounting-Record-Number', 3}],
+
+    #diameter_base_accounting_ACA{'Result-Code' = ?SUCCESS}
         = call(Config, Req).
 
 %% Send an accounting ACR that the server tries to answer with an
@@ -778,10 +788,12 @@ handle_request(#diameter_packet{header = H, msg = M}, ?SERVER, {_Ref, Caps}) ->
     V = HI bsr B,  %%
     request(M, Caps).
 
+%% send_nok
 request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 0},
         _) ->
     {eval_packet, {protocol_error, ?INVALID_AVP_BITS}, [fun log/2, invalid]};
 
+%% send_bad_answer
 request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                                       'Accounting-Record-Type' = RT,
                                       'Accounting-Record-Number' = 2 = RN},
@@ -797,9 +809,24 @@ request(#diameter_base_accounting_ACR{'Session-Id' = SId,
     {reply, #diameter_packet{header = #diameter_header{is_error = true},%% not
                              msg = Ans}};
 
+%% send_eval
 request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                                       'Accounting-Record-Type' = RT,
-                                      'Accounting-Record-Number' = RN},
+                                      'Accounting-Record-Number' = 3 = RN},
+        #diameter_caps{origin_host = {OH, _},
+                       origin_realm = {OR, _}}) ->
+    Ans = ['ACA', {'Result-Code', ?SUCCESS},
+                  {'Session-Id', SId},
+                  {'Origin-Host', OH},
+                  {'Origin-Realm', OR},
+                  {'Accounting-Record-Type', RT},
+                  {'Accounting-Record-Number', RN}],
+    {eval, {reply, Ans}, {erlang, now, []}};
+
+%% send_ok
+request(#diameter_base_accounting_ACR{'Session-Id' = SId,
+                                      'Accounting-Record-Type' = RT,
+                                      'Accounting-Record-Number' = 1 = RN},
         #diameter_caps{origin_host = {OH, _},
                        origin_realm = {OR, _}}) ->
     {reply, ['ACA', {'Result-Code', ?SUCCESS},
@@ -819,16 +846,19 @@ request(#diameter_base_ASR{'Session-Id' = SId,
                                'Origin-Realm' = OR,
                                'AVP' = Avps}};
 
+%% send_noreply
 request(#diameter_base_STR{'Termination-Cause' = T},
         _Caps)
   when T /= ?LOGOUT ->
     discard;
 
+%% send_destination_5
 request(#diameter_base_STR{'Destination-Realm'= R},
         #diameter_caps{origin_realm = {OR, _}})
   when R /= undefined, R /= OR ->
     {protocol_error, ?REALM_NOT_SERVED};
 
+%% send_destination_6
 request(#diameter_base_STR{'Destination-Host'= [H]},
         #diameter_caps{origin_host = {OH, _}})
   when H /= OH ->
@@ -842,6 +872,7 @@ request(#diameter_base_STR{'Session-Id' = SId},
                                'Origin-Host' = OH,
                                'Origin-Realm' = OR}};
 
+%% send_error
 request(#diameter_base_RAR{}, _Caps) ->
     receive after 2000 -> ok end,
     {protocol_error, ?TOO_BUSY}.

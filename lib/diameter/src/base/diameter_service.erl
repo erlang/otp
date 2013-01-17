@@ -2054,7 +2054,7 @@ request_cb({eval_packet, RC, F}, App, Mask, T, TC, Fs, Pkt) ->
     request_cb(RC, App, Mask, T, TC, [F|Fs], Pkt);
 
 request_cb({eval, RC, F}, App, Mask, T, TC, Fs, Pkt) ->
-    request_cb(RC, App, Mask, T, TC, Pkt, Fs),
+    request_cb(RC, App, Mask, T, TC, Fs, Pkt),
     diameter_lib:eval(F).
 
 %% protocol_error/5
