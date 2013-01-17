@@ -264,7 +264,7 @@ append_shebang_args(char* scriptname)
 	static char linebuf[LINEBUFSZ];
 	char* ptr = fgets(linebuf, LINEBUFSZ, fd);
 
-	if (ptr != NULL && linebuf[0] == '#' && linebuf[1] == '!') {
+	if (ptr != NULL) {
 	    /* Try to find args on second or third line */
 	    ptr = fgets(linebuf, LINEBUFSZ, fd);
 	    if (ptr != NULL && linebuf[0] == '%' && linebuf[1] == '%' && linebuf[2] == '!') {
