@@ -34,8 +34,8 @@
   <modulesummary> API module for public key infrastructure.</modulesummary>
   <description>
     <p>This module provides functions to handle public key infrastructure. It can
-    encode/decode different file formats (PEM, openssh), sign and verify digital signatures and vlidate
-    certificate paths and certificate revokation lists.
+    encode/decode different file formats (PEM, openssh), sign and verify digital signatures and validate
+    certificate paths and certificate revocation lists.
     </p>
   </description>
 
