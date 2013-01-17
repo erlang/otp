@@ -907,11 +907,8 @@ add_default_base(St, Forms) ->
     F = St#compile.filename,
     case F of
 	"" ->
- 	    M = case get_module(Forms) of
- 		    PackageModule when is_list(PackageModule) -> last(PackageModule);
-		    M0 -> M0
- 		end,
-	    St#compile{base = atom_to_list(M)};
+ 	    M = get_module(Forms),
+	    St#compile{base=atom_to_list(M)};
 	_ ->
 	    St
     end.
