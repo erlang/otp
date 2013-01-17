@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,6 +31,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include("test_server_test_lib.hrl").
+-include_lib("kernel/include/file.hrl").
 
 %%--------------------------------------------------------------------
 %% COMMON TEST CALLBACK FUNCTIONS
@@ -68,6 +69,13 @@ init_per_testcase(_TestCase, Config) ->
 
 %% @spec end_per_testcase(TestCase, Config0) ->
 %%               void() | {save_config,Config1} | {fail,Reason}
+end_per_testcase(test_server_unicode, _Config) ->
+    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    N1 = list_to_atom("test_server_tester_latin1" ++ "@" ++ Host),
+    N2 = list_to_atom("test_server_tester_utf8" ++ "@" ++ Host),
+    test_server:stop_node(N1),
+    test_server:stop_node(N2),
+    ok;
 end_per_testcase(_TestCase, _Config) ->
     ok.
 
@@ -80,7 +88,8 @@ all() ->
     [test_server_SUITE, test_server_parallel01_SUITE,
      test_server_conf02_SUITE, test_server_conf01_SUITE,
      test_server_skip_SUITE, test_server_shuffle01_SUITE,
-     test_server_break_SUITE, test_server_cover_SUITE].
+     test_server_break_SUITE, test_server_cover_SUITE,
+     test_server_unicode].
 
 
 %%--------------------------------------------------------------------
@@ -171,7 +180,23 @@ test_server_cover_SUITE(Config) ->
 	    ok
     end.
 
+test_server_unicode(Config) ->
+    run_test_server_tests("test_server_unicode_SUITE", [],
+			  5, 0, 3, 3, 0, 0, 0, 0, 5, Config),
 
+    %% Create and run two test suites - one with filename and content
+    %% in latin1 (not on windows) and one with filename and content in
+    %% utf8.  Both have name and content including letters дце.  Check
+    %% that all logs are generated with utf8 encoded filenames.
+    case os:type() of
+	{win32,_} ->
+	    ok;
+	_ ->
+	    generate_and_run_unicode_test(Config,latin1)
+    end,
+    generate_and_run_unicode_test(Config,utf8).
+
+%%%-----------------------------------------------------------------
 run_test_server_tests(SuiteName, Skip, NCases, NFail, NExpected, NSucc,
 		      NUsrSkip, NAutoSkip, 
 		      NActualSkip, NActualFail, NActualSucc, Config) ->
@@ -182,12 +207,13 @@ run_test_server_tests(SuiteName, Skip, NCases, NFail, NExpected, NSucc,
 run_test_server_tests(SuiteName, Skip, NCases, NFail, NExpected, NSucc,
 		      NUsrSkip, NAutoSkip,
 		      NActualSkip, NActualFail, NActualSucc, Cover, Config) ->
-
-    WorkDir = proplists:get_value(work_dir, Config),
-    ct:log("<a href=\"file://~s\">Test case log files</a>\n",
-	   [filename:join(WorkDir, SuiteName++".logs")]),
-
     Node = proplists:get_value(node, Config),
+    Encoding = rpc:call(Node,file,native_name_encoding,[]),
+    WorkDir = proplists:get_value(work_dir, Config),
+    LogDir = filename:join(WorkDir, SuiteName++".logs"),
+    LogDirUri = test_server_ctrl:uri_encode(LogDir, Encoding),
+    ct:log("<a href=\"file://~s\">Test case log files</a>\n", [LogDirUri]),
+
     {ok,_Pid} = rpc:call(Node,test_server_ctrl, start, []),
     case Cover of
 	false ->
@@ -207,12 +233,10 @@ run_test_server_tests(SuiteName, Skip, NCases, NFail, NExpected, NSucc,
     
     rpc:call(Node,test_server_ctrl, stop, []),
 
-    {ok,Data} =	test_server_test_lib:parse_suite(
-		  lists:last(
-		    lists:sort(
-		      filelib:wildcard(
-			filename:join([WorkDir,SuiteName++".logs",
-				       "run*","suite.log"]))))),
+    LogDir1 = translate_filename(LogDir,Encoding),
+    LastRunDir = get_latest_run_dir(LogDir1),
+    LastSuiteLog = filename:join(LastRunDir,"suite.log"),
+    {ok,Data} =	test_server_test_lib:parse_suite(LastSuiteLog),
     check([{"Number of cases",NCases,Data#suite.n_cases},
 	   {"Number failed",NFail,Data#suite.n_cases_failed},
 	   {"Number expected",NExpected,Data#suite.n_cases_expected},
@@ -228,6 +252,47 @@ run_test_server_tests(SuiteName, Skip, NCases, NFail, NExpected, NSucc,
 			     {S,F+1,Su}
 			  end,{0,0,0},Data#suite.cases),
     Data.
+
+translate_filename(Filename,EncodingOnTestNode) ->
+    case {file:native_name_encoding(),EncodingOnTestNode} of
+	{X,X} -> Filename;
+	{utf8,latin1} -> list_to_binary(Filename);
+	{latin1,utf8} -> unicode:characters_to_binary(Filename)
+    end.
+
+get_latest_run_dir(Dir) ->
+    %% For the time being, filelib:wildcard can not take a binary
+    %% argument, so we avoid using this here.
+    case file:list_dir(Dir) of
+	{ok,Files} ->
+	    {ok,RE} = re:compile(<<"^run.[1-2][-_\.0-9]*$">>),
+	    RunDirs = lists:filter(
+			fun(F) ->
+				L = l(F),
+				case re:run(F,RE) of
+				    {match,[{0,L}]} -> true;
+				    _ -> false
+				end
+			end, Files),
+	    case RunDirs of
+		[] ->
+		    Dir;
+		[H|T] ->
+		    filename:join(Dir,get_latest_dir(T,H))
+	    end;
+	_ ->
+	    Dir
+    end.
+
+l(X) when is_binary(X) -> size(X);
+l(X) when is_list(X) -> length(X).
+
+get_latest_dir([H|T],Latest) when H>Latest ->
+    get_latest_dir(T,H);
+get_latest_dir([_|T],Latest) ->
+    get_latest_dir(T,Latest);
+get_latest_dir([],Latest) ->
+    Latest.
 
 check([{Str,Same,Same}|T], Status) ->
     io:format("~s: ~p\n", [Str,Same]),
@@ -246,4 +311,139 @@ until(Fun) ->
 	    timer:sleep(100),
 	    until(Fun)
     end.
-	  
+
+generate_and_run_unicode_test(Config0,Encoding) ->
+    DataDir = ?config(data_dir,Config0),
+    Suite = create_unicode_test_suite(DataDir,Encoding),
+
+    %% We can not run this test on default node since it must be
+    %% started with correct file name mode (+fnu/+fnl).
+    %% OBS: the node are stopped by end_per_testcase/2
+    Config1 = lists:keydelete(node,1,Config0),
+    Config2 = lists:keydelete(work_dir,1,Config1),
+    NodeName = list_to_atom("test_server_tester_" ++ atom_to_list(Encoding)),
+    ErtsSwitch = case Encoding of
+		     latin1 -> "+fnl";
+		     utf8 -> "+fnu"
+		 end,
+    Config = start_node(Config2,NodeName,ErtsSwitch),
+
+    %% Compile the suite
+    Node = proplists:get_value(node,Config),
+    {ok,Mod} = rpc:call(Node,compile,file,[Suite,[{outdir,DataDir}]]),
+    ModStr = atom_to_list(Mod),
+
+    %% Clean logdir
+    LogDir0 = filename:join(DataDir,ModStr++".logs"),
+    LogDir = translate_filename(LogDir0,Encoding),
+    rm_dir(LogDir),
+
+    %% Run the test
+    run_test_server_tests(ModStr, [], 3, 0, 1, 1, 0, 0, 0, 0, 3, Config),
+
+    %% Check that all logs are created with utf8 encoded filenames
+    true = filelib:is_dir(LogDir),
+
+    RunDir = get_latest_run_dir(LogDir),
+    true = filelib:is_dir(RunDir),
+
+    LowerModStr = string:to_lower(ModStr),
+    SuiteHtml = translate_filename(LowerModStr++".src.html",Encoding),
+    true = filelib:is_regular(filename:join(RunDir,SuiteHtml)),
+
+    TCLog = translate_filename(LowerModStr++".tc_дце.html",Encoding),
+    true = filelib:is_regular(filename:join(RunDir,TCLog)),
+    ok.
+
+%% Same as test_server_test_lib:start_slave, but starts a peer with
+%% additional arguments.
+%% The reason for this is that we need to start nodes with +fnu/+fnl,
+%% and that will not work well with a slave node since slave nodes run
+%% remote file system on master - i.e. they will use same file name
+%% mode as the master.
+start_node(Config,Name,Args) ->
+    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    ct:log("Trying to start ~w@~s~n",[Name,Host]),
+    case test_server:start_node(Name, peer, [{args,Args}]) of
+	{error,Reason} ->
+	    test_server:fail(Reason);
+	{ok,Node} ->
+	    ct:log("Node ~p started~n", [Node]),
+	    test_server_test_lib:prepare_tester_node(Node,Config)
+    end.
+
+create_unicode_test_suite(Dir,Encoding) ->
+    ModStr = "test_server_"++atom_to_list(Encoding)++"_дце_SUITE",
+    File = filename:join(Dir,ModStr++".erl"),
+    Suite =
+	["%% -*- ",epp:encoding_to_string(Encoding)," -*-\n",
+	 "-module(",ModStr,").\n"
+	 "\n"
+	 "-export([all/1, init_per_suite/1, end_per_suite/1]).\n"
+	 "-export([init_per_testcase/2, end_per_testcase/2]).\n"
+	 "-export([tc_дце/1]).\n"
+	 "\n"
+	 "-include_lib(\"test_server/include/test_server.hrl\").\n"
+	 "\n"
+	 "all(suite) ->\n"
+	 "    [tc_дце].\n"
+	 "\n"
+	 "init_per_suite(Config) ->\n"
+	 "    Config.\n"
+	 "\n"
+	 "end_per_suite(_Config) ->\n"
+	 "    ok.\n"
+	 "\n"
+	 "init_per_testcase(_Case,Config) ->\n"
+	 "    init_timetrap(500,Config).\n"
+	 "\n"
+	 "init_timetrap(T,Config) ->\n"
+	 "    Dog = ?t:timetrap(T),\n"
+	 "    [{watchdog, Dog}|Config].\n"
+	 "\n"
+	 "end_per_testcase(_Case,Config) ->\n"
+	 "    cancel_timetrap(Config).\n"
+	 "\n"
+	 "cancel_timetrap(Config) ->\n"
+	 "    Dog=?config(watchdog, Config),\n"
+	 "    ?t:timetrap_cancel(Dog),\n"
+	 "    ok.\n"
+	 "\n"
+	 "tc_дце(Config) when is_list(Config) ->\n"
+	 "    true = filelib:is_dir(?config(priv_dir,Config)),\n"
+	 "    ok.\n"],
+    {ok,Fd} = file:open(raw_filename(File,Encoding),[write,{encoding,Encoding}]),
+    io:put_chars(Fd,Suite),
+    ok = file:close(Fd),
+    File.
+
+raw_filename(Name,latin1) -> list_to_binary(Name);
+raw_filename(Name,utf8)   -> unicode:characters_to_binary(Name).
+
+rm_dir(Dir) ->
+    case file:list_dir(Dir) of
+	{error,enoent} ->
+	    ok;
+	{ok,Files} ->
+	    rm_files([filename:join(Dir, F) || F <- Files]),
+	    file:del_dir(Dir)
+    end.
+
+rm_files([F | Fs]) ->
+    case file:read_file_info(F) of
+	{ok,#file_info{type=directory}} ->
+	    rm_dir(F),
+	    rm_files(Fs);
+	{ok,_Regular} ->
+	    case file:delete(F) of
+		ok ->
+		    rm_files(Fs);
+		{error,Errno} ->
+		    exit({del_failed,F,Errno})
+	    end
+    end;
+rm_files([]) ->
+    ok.
+
+erts_switch(latin1) -> "+fnl";
+erts_switch(utf8)   -> "+fnu".
