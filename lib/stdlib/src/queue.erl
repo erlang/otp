@@ -472,22 +472,24 @@ init(Q) -> drop_r(Q).
 
 -compile({inline, [{r2f,1},{f2r,1}]}).
 
-%% Move all but two from R to F, if there are at least three
+%% Move half of elements from R to F, if there are at least three
 r2f([]) ->
     {[],[]};
 r2f([_]=R) ->
     {[],R};
 r2f([X,Y]) ->
     {[X],[Y]};
-r2f([X,Y|R]) ->
-    {[X,Y],lists:reverse(R, [])}.
+r2f(List) ->
+    {FF,RR} = lists:split(length(List) div 2 + 1, List),
+    {FF,lists:reverse(RR, [])}.
 
-%% Move all but two from F to R, if there are enough
+%% Move half of elements from F to R, if there are enough
 f2r([]) ->
     {[],[]};
 f2r([_]=F) ->
     {F,[]};
 f2r([X,Y]) ->
     {[Y],[X]};
-f2r([X,Y|F]) ->
-    {lists:reverse(F, []),[X,Y]}.
+f2r(List) ->
+    {FF,RR} = lists:split(length(List) div 2 + 1, List),
+    {lists:reverse(RR, []),FF}.
