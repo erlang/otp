@@ -23,7 +23,7 @@
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, permit/2]).
 -export([set_env/3, set_env/4, unset_env/2, unset_env/3]).
--export([get_env/1, get_env/2, get_all_env/0, get_all_env/1]).
+-export([get_env/1, get_env/2, get_env/3, get_all_env/0, get_all_env/1]).
 -export([get_key/1, get_key/2, get_all_key/0, get_all_key/1]).
 -export([get_application/0, get_application/1, info/0]).
 -export([start_type/0]).
@@ -263,6 +263,20 @@ get_env(Key) ->
 
 get_env(Application, Key) -> 
     application_controller:get_env(Application, Key).
+
+-spec get_env(Application, Par, Def) -> Val when
+      Application :: atom(),
+      Par :: atom(),
+      Def :: term(),
+      Val :: term().
+
+get_env(Application, Key, Def) ->
+    case get_env(Application, Key) of
+    {ok, Val} ->
+        Val;
+    undefined ->
+        Def
+    end.
 
 -spec get_all_env() -> Env when
       Env :: [{Par :: atom(), Val :: term()}].

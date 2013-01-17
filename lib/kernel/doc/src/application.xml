@@ -121,6 +121,15 @@
       </desc>
     </func>
     <func>
+      <name name="get_env" arity="3"/>
+      <fsummary>Get the value of a configuration parameter using a default</fsummary>
+      <desc>
+        <p>Works like <seealso marker="#get_env/2">get_env/2</seealso> but returns
+          <c><anno>Def</anno></c> value when configuration parameter
+          <c><anno>Par</anno></c> does not exist.</p>
+      </desc>
+    </func>
+    <func>
       <name name="get_key" arity="1"/>
       <name name="get_key" arity="2"/>
       <fsummary>Get the value of an application specification key</fsummary>
