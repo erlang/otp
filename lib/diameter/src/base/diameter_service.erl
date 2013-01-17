@@ -859,10 +859,10 @@ i(SvcName) ->
     true = ets:insert_new(?STATE_TABLE, S),
 
     %% Start fsms for each transport.
+    send_event(SvcName, start),
     lists:foreach(fun(T) -> start_fsm(T,S) end, CL),
 
     init_shared(S),
-    send_event(SvcName, start),
     S.
 
 cfg_acc({SvcName, #diameter_service{applications = Apps} = Rec, Opts},
