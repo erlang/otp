@@ -193,9 +193,11 @@ encode_avps(Avps) ->
 
 msg_header(Mod, 'answer-message' = MsgName, Header) ->
     ?BASE = Mod,
-    #diameter_header{cmd_code = Code} = Header,
-    {_, Flags, ApplId} = ?BASE:msg_header(MsgName),
-    {Code, Flags, ApplId};
+    #diameter_header{application_id = Aid,
+                     cmd_code = Code}
+        = Header,
+    {-1, Flags, ?DIAMETER_APP_ID_COMMON} = ?BASE:msg_header(MsgName),
+    {Code, Flags, Aid};
 
 msg_header(Mod, MsgName, _) ->
     Mod:msg_header(MsgName).

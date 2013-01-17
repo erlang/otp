@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -122,6 +122,9 @@
 %% Not really what we should be setting unless the message is sent in
 %% the common application but diameter doesn't care.
 -define(APP_ID, ?DIAMETER_APP_ID_COMMON).
+
+%% An Application-ID the server doesn't support.
+-define(BAD_APP, 42).
 
 %% Config for diameter:start_service/2.
 -define(SERVICE(Name),
@@ -574,6 +577,8 @@ req(T, _) ->
 
 dict(['ACR' | _]) ->
     ?ACCT;
+dict(#diameter_base_accounting_ACR{}) ->
+    ?ACCT;
 dict(_) ->
     ?BASE.
 
@@ -659,7 +664,7 @@ prepare(Pkt, Caps, send_unsupported_app) ->
     #diameter_packet{bin = <<H:8/binary, _ApplId:4/binary, T/binary>>}
         = E
         = diameter_codec:encode(?BASE, Pkt#diameter_packet{msg = Req}),
-    E#diameter_packet{bin = <<H/binary, 42:32/integer, T/binary>>};
+    E#diameter_packet{bin = <<H/binary, ?BAD_APP:32/integer, T/binary>>};
 
 prepare(Pkt, Caps, send_error_bit) ->
     #diameter_packet{header = Hdr} = Pkt,
@@ -741,8 +746,18 @@ handle_answer(Pkt, Req, ?CLIENT, Peer, Name, _Id) ->
 handle_answer(Pkt, _Req, ?CLIENT, _Peer, send_detach, _Id, {Pid, Ref}) ->
     Pid ! {Ref, Pkt}.
 
-answer(#diameter_packet{msg = Rec, errors = []}, _Req, _Peer, _) ->
+answer(Pkt, Req, _Peer, Name) ->
+    #diameter_packet{header = H, msg = Rec, errors = []} = Pkt,
+    ApplId = app(Req, Name),
+    #diameter_header{application_id = ApplId} = H,  %% assert
+
     Rec.
+
+app(_, send_unsupported_app) ->
+    ?BAD_APP;
+app(Req, _) ->
+    Dict = dict(Req),
+    Dict:id().
 
 %% handle_error/6
 
