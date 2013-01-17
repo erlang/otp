@@ -241,6 +241,7 @@ describe_floating() ->
 describe_dec_num() ->
     {ok,[{"MYDEC",{sql_decimal,9,3}},{"MYNUM",{sql_decimal,9,2}}]}.
 
+%-------------------------------------------------------------------------
 drop_proc() ->
     "drop procedure test_proc1;".
 
