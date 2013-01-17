@@ -1326,24 +1326,42 @@ http_redirect(Config) when is_list(Config) ->
  		= httpc:request(post, {URL302, [],"text/plain", "foobar"},
 			       [], []),
    
-	    URL307 = ?URL_START ++ integer_to_list(Port) ++ "/307.html",
+	    URL303 = ?URL_START ++ integer_to_list(Port) ++ "/303.html",
 
 	    tsp("http_redirect -> issue request 9: "
+		"~n   ~p", [URL303]),
+	    {ok, {{_,200,_}, [_ | _], [_|_]}}
+                = httpc:request(get, {URL303, []}, [], []),
+
+	    tsp("http_redirect -> issue request 10: "
+		"~n   ~p", [URL303]),
+	    {ok, {{_,200,_}, [_ | _], []}}
+                = httpc:request(head, {URL303, []}, [], []),
+
+	    tsp("http_redirect -> issue request 11: "
+		"~n   ~p", [URL303]),
+	    {ok, {{_,200,_}, [_ | _], [_|_]}}
+                = httpc:request(post, {URL303, [],"text/plain", "foobar"},
+			       [], []),
+
+	    URL307 = ?URL_START ++ integer_to_list(Port) ++ "/307.html",
+
+	    tsp("http_redirect -> issue request 12: "
 		"~n   ~p", [URL307]),
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} 
  		= httpc:request(get, {URL307, []}, [], []),
 	
-	    tsp("http_redirect -> issue request 10: "
+	    tsp("http_redirect -> issue request 13: "
 		"~n   ~p", [URL307]),
 	    {ok, {{_,200,_}, [_ | _], []}} 
  		= httpc:request(head, {URL307, []}, [], []),
 	    
-	    tsp("http_redirect -> issue request 11: "
+	    tsp("http_redirect -> issue request 14: "
 		"~n   ~p", [URL307]),
 	    {ok, {{_,307,_}, [_ | _], [_|_]}} 
  		= httpc:request(post, {URL307, [],"text/plain", "foobar"},
 			       [], []),
-	    
+
 	    tsp("http_redirect -> stop dummy server"),
 	    DummyServerPid ! stop,
 	    tsp("http_redirect -> reset ipfamily option (to inet6fb4)"),
@@ -3294,6 +3312,14 @@ handle_http_msg({_, RelUri, _, {_, Headers}, Body}, Socket, Close, Send) ->
 		NewUri = ?URL_START ++
 		    integer_to_list(?IP_PORT) ++ "/dummy.html",
 		"HTTP/1.1 302 Found \r\n" ++
+		    "Location:" ++ NewUri ++  "\r\n" ++
+		    "Content-Length:80\r\n\r\n" ++
+		    "<HTML><BODY><a href=" ++ NewUri ++
+		    ">New place</a></BODY></HTML>";
+	    "/303.html" ->
+		NewUri = ?URL_START ++
+		    integer_to_list(?IP_PORT) ++ "/dummy.html",
+		"HTTP/1.1 303 See Other \r\n" ++
 		    "Location:" ++ NewUri ++  "\r\n" ++
 		    "Content-Length:80\r\n\r\n" ++
 		    "<HTML><BODY><a href=" ++ NewUri ++
