@@ -40,7 +40,8 @@ MODULES = \
 	diameter_relay_SUITE \
 	diameter_tls_SUITE \
 	diameter_failover_SUITE \
-	diameter_dpr_SUITE
+	diameter_dpr_SUITE \
+	diameter_event_SUITE
 
 HRL_FILES = \
 	diameter_ct.hrl
