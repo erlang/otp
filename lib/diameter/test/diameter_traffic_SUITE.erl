@@ -113,12 +113,15 @@
 %% Sequence mask for End-to-End and Hop-by-Hop identifiers.
 -define(CLIENT_MASK, {1,26}).  %% 1 in top 6 bits
 
-%% Run tests cases in different encoding variants. Send outgoing
-%% messages as lists or records.
+%% How to construct messages, as record or list.
 -define(ENCODINGS, [list, record]).
 
-%% Identifers for client connections.
--define(CONNECTIONS, [c1,c2,c3]).
+%% How to send answers, in a diameter_packet or not.
+-define(CONTAINERS, [pkt, msg]).
+
+%% Send over multiple connections that are mapped onto
+%% [{E,P} || E <- ?ENCODINGS, P <- ?CONTAINERS].
+-define(CONNECTIONS, [c0,c1,c2,c3]).
 
 %% Not really what we should be setting unless the message is sent in
 %% the common application but diameter doesn't care.
@@ -187,14 +190,17 @@ suite() ->
 
 all() ->
     [start, start_services, add_transports, result_codes]
-        ++ [{group, ?util:name([E,C]), P} || E <- ?ENCODINGS,
-                                             C <- ?CONNECTIONS,
-                                             P <- [[], [parallel]]]
+        ++ [{group, ?util:name([R,C,A]), P} || R <- ?ENCODINGS,
+                                               C <- ?CONTAINERS,
+                                               A <- ?ENCODINGS,
+                                               P <- [[], [parallel]]]
         ++ [remove_transports, stop_services, stop].
 
 groups() ->
     Ts = tc(),
-    [{?util:name([E,C]), [], Ts} || E <- ?ENCODINGS, C <- ?CONNECTIONS].
+    [{?util:name([R,C,A]), [], Ts} || R <- ?ENCODINGS,
+                                      C <- ?CONTAINERS,
+                                      A <- ?ENCODINGS].
 
 init_per_group(Name, Config) ->
     [{group, Name} | Config].
@@ -265,7 +271,9 @@ start_services(_Config) ->
 
 add_transports(Config) ->
     LRef = ?util:listen(?SERVER, tcp, [{capabilities_cb, fun capx/2}]),
-    Cs = [?util:connect(?CLIENT, tcp, LRef, [{id, C}]) || C <- ?CONNECTIONS],
+    Cs = [?util:connect(?CLIENT, tcp, LRef, [{id, C},
+                                             {capabilities, [osi(C)]}])
+          || C <- ?CONNECTIONS],
     ?util:write_priv(Config, "transport", [LRef | Cs]).
 
 remove_transports(Config) ->
@@ -282,6 +290,10 @@ stop(_Config) ->
 capx(_, #diameter_caps{origin_host = {OH,DH}}) ->
     io:format("connection: ~p -> ~p~n", [DH,OH]),
     ok.
+
+osi(Id) ->
+    [$c,N] = atom_to_list(Id),
+    {'Origin-State-Id', N - $0}.
 
 %% ===========================================================================
 
@@ -572,17 +584,38 @@ call(Config, Req) ->
 
 call(Config, Req, Opts) ->
     Name = proplists:get_value(testcase, Config),
-    [Encoding, Client] = ?util:name(proplists:get_value(group, Config)),
+    [Encoding, C, E] = ?util:name(proplists:get_value(group, Config)),
     diameter:call(?CLIENT,
                   dict(Req),
-                  req(Req, Encoding),
-                  [{extra, [Name, Client]} | Opts]).
+                  msg(Req, Encoding),
+                  [{extra, [Name, client(E,C)]} | Opts]).
 
-req(['ACR' = H | T], record) ->
+client(E, C) ->
+    list_to_atom([$c, $0 + 2*codec(E) + container(C)]).
+
+client(N) ->
+    {codec(N bsr 1), container(N rem 2)}.
+
+codec(record) -> 0;
+codec(list) -> 1;
+codec(0) -> record;
+codec(1) -> list.
+
+%% Here we're just mapping booleans but the readable atoms are part of
+%% (constructed) group names, so it's good that they're readable.
+
+container(pkt) -> 0;
+container(msg) -> 1;
+container(0) -> pkt;
+container(1) -> msg.
+
+msg([H|T], record)
+  when H == 'ACR';
+       H == 'ACA' ->
     ?ACCT:'#new-'(?ACCT:msg2rec(H), T);
-req([H|T], record) ->
+msg([H|T], record) ->
     ?BASE:'#new-'(?BASE:msg2rec(H), T);
-req(T, _) ->
+msg(T, _) ->
     T.
 
 dict(['ACR' | _]) ->
@@ -786,7 +819,17 @@ handle_request(#diameter_packet{header = H, msg = M}, ?SERVER, {_Ref, Caps}) ->
     {V,B} = ?CLIENT_MASK,
     V = EI bsr B,  %% assert
     V = HI bsr B,  %%
-    request(M, Caps).
+    #diameter_caps{origin_state_id = {_,[N]}} = Caps,
+    answer(client(N), request(M, Caps)).
+
+answer(T, {Tag, Action, Post}) ->
+    {Tag, answer(T, Action), Post};
+answer({E,C}, {reply, Ans}) ->
+    answer(C, {reply, msg(Ans, E)});
+answer(pkt, {reply, Ans}) ->
+    {reply, #diameter_packet{msg = Ans}};
+answer(_, T) ->
+    T.
 
 %% send_nok
 request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 0},
@@ -806,7 +849,7 @@ request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                   {'Accounting-Record-Type', RT},
                   {'Accounting-Record-Number', RN}],
 
-    {reply, #diameter_packet{header = #diameter_header{is_error = true},%% not
+    {reply, #diameter_packet{header = #diameter_header{is_error = true},%% NOT
                              msg = Ans}};
 
 %% send_eval
@@ -840,11 +883,11 @@ request(#diameter_base_ASR{'Session-Id' = SId,
                            'AVP' = Avps},
         #diameter_caps{origin_host = {OH, _},
                        origin_realm = {OR, _}}) ->
-    {reply, #diameter_base_ASA{'Result-Code' = ?SUCCESS,
-                               'Session-Id' = SId,
-                               'Origin-Host' = OH,
-                               'Origin-Realm' = OR,
-                               'AVP' = Avps}};
+    {reply, ['ASA', {'Result-Code', ?SUCCESS},
+                    {'Session-Id', SId},
+                    {'Origin-Host', OH},
+                    {'Origin-Realm', OR},
+                    {'AVP', Avps}]};
 
 %% send_noreply
 request(#diameter_base_STR{'Termination-Cause' = T},
@@ -867,10 +910,10 @@ request(#diameter_base_STR{'Destination-Host'= [H]},
 request(#diameter_base_STR{'Session-Id' = SId},
         #diameter_caps{origin_host  = {OH, _},
                        origin_realm = {OR, _}}) ->
-    {reply, #diameter_base_STA{'Result-Code' = ?SUCCESS,
-                               'Session-Id' = SId,
-                               'Origin-Host' = OH,
-                               'Origin-Realm' = OR}};
+    {reply, ['STA', {'Result-Code', ?SUCCESS},
+                    {'Session-Id', SId},
+                    {'Origin-Host', OH},
+                    {'Origin-Realm', OR}]};
 
 %% send_error
 request(#diameter_base_RAR{}, _Caps) ->
