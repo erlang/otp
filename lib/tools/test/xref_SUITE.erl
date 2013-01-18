@@ -47,7 +47,7 @@
 -export([
 	 add/1, default/1, info/1, lib/1, read/1, read2/1, remove/1,
 	 replace/1, update/1, deprecated/1, trycatch/1,
-         abstract_modules/1, fun_mfa/1, fun_mfa_r14/1,
+         fun_mfa/1, fun_mfa_r14/1,
 	 fun_mfa_vars/1, qlc/1]).
 
 -export([
@@ -83,7 +83,7 @@ groups() ->
        modules]},
      {files, [],
       [add, default, info, lib, read, read2, remove, replace,
-       update, deprecated, trycatch, abstract_modules, fun_mfa,
+       update, deprecated, trycatch, fun_mfa,
        fun_mfa_r14, fun_mfa_vars, qlc]},
      {analyses, [],
       [analyze, basic, md, q, variables, unused_locals]},
@@ -1668,64 +1668,6 @@ trycatch(Conf) when is_list(Conf) ->
     ?line ok = file:delete(Beam),
     ok.
 
-
-abstract_modules(suite) -> [];
-abstract_modules(doc) -> ["OTP-5520: Abstract (parameterized) modules."];
-abstract_modules(Conf) when is_list(Conf) ->
-    Dir = ?copydir,
-    File = fname(Dir, "absmod.erl"),
-    MFile = fname(Dir, "absmod"),
-    Beam = fname(Dir, "absmod.beam"),
-    Test = <<"-module(param, [A, B]).
-
-              -export([args/1]).
-
-              args(C) ->
-                  X = local(C),
-                  Y = THIS:new(), % undef
-                  Z = new(A, B),
-                  {X, Y, Z}.
-
-              local(C) ->
-                  module_info(C).
-             ">>,
-
-    ?line ok = file:write_file(File, Test),
-
-    %% The compiler will no longer allow us to have a mismatch between
-    %% the module name and the output file, so we must use a trick.
-    ?line {ok, param, BeamCode} = compile:file(File, [binary,debug_info]),
-    ?line ok = file:write_file(Beam, BeamCode),
-
-    ?line {ok, _} = xref:start(s),
-    ?line {ok, param} = xref:add_module(s, MFile, {warnings,false}),
-    A = param,
-    ?line {ok, [{{{A,args,1},{'$M_EXPR',new,0}},[7]},
-                {{{A,args,1},{A,local,1}},[6]},
-                {{{A,args,1},{A,new,2}},[8]},
-                {{{A,local,1},{A,module_info,1}},[12]},
-                {{{param,new,2},{param,instance,2}},[0]}]} =
-        xref:q(s, "(Lin) E"),
-    ?line {ok,[{param,args,1},
-               {param,instance,2},
-               {param,local,1},
-               {param,module_info,1},
-               {param,new,2}]} = xref:q(s, "F"),
-
-    ?line ok = check_state(s),
-    ?line xref:stop(s),
-
-    ?line {ok, _} = xref:start(s, {xref_mode, modules}),
-    ?line {ok, param} = xref:add_module(s, MFile),
-    ?line {ok,[{param,args,1},
-               {param,instance,2},
-               {param,new,2}]} = xref:q(s, "X"),
-    ?line ok = check_state(s),
-    ?line xref:stop(s),
-
-    ?line ok = file:delete(File),
-    ?line ok = file:delete(Beam),
-    ok.
 
 fun_mfa(suite) -> [];
 fun_mfa(doc) -> ["OTP-5653: fun M:F/A."];

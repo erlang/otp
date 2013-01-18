@@ -895,7 +895,6 @@ foldl_core_transforms(St, []) -> {ok,St}.
 
 %%% Fetches the module name from a list of forms. The module attribute must
 %%% be present.
-get_module([{attribute,_,module,{M,_As}} | _]) -> M;
 get_module([{attribute,_,module,M} | _]) -> M;
 get_module([_ | Rest]) ->
     get_module(Rest).

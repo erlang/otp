@@ -1160,24 +1160,6 @@ do_funs(LFH, EFH) ->
                 concat(["begin F = fun(F, N) -> [", M, 
                        ":count_down(F,N) || X <-[1]] end, F(F,2) end."]),
                 [[[0]]], ['F'], LFH, EFH),
-
-    %% Tests for a bug found by the Dialyzer - used to crash.
-    case test_server:is_native(erl_eval) of
-	true ->
-	    %% Parameterized modules are not supported by HiPE.
-	    ok;
-	false ->
-	    check(fun() -> Pmod = erl_eval_helper:new(42), Pmod:add(5) end,
-		  "begin Pmod = erl_eval_helper:new(42), Pmod:add(5) end.",
-		  47,
-		  ['Pmod'], LFH, EFH),
-	    check(fun() -> Pmod = erl_eval_helper:new(42),
-			   B = Pmod:add(7), B end,
-		  "begin Pmod = erl_eval_helper:new(42), "
-		  "B = Pmod:add(7), B end.",
-		  49,
-		  ['B','Pmod'], LFH, EFH)
-    end,
     ok.
 
 count_down(F, N) when N > 0 ->

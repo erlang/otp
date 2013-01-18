@@ -28,13 +28,12 @@
 %% Main entry point.
 -export([module/2]).
 
--import(ordsets, [from_list/1,add_element/2,union/2]).
+-import(ordsets, [from_list/1,union/2]).
 -import(lists,   [member/2,foldl/3,foldr/3]).
 
 -include("../include/erl_bits.hrl").
 
 -record(expand, {module=[],                     %Module name
-                 parameters=undefined,          %Module parameters
                  exports=[],                    %Exports
                  imports=[],                    %Imports
                  compile=[],                    %Compile flags
@@ -74,88 +73,20 @@ module(Fs0, Opts0) ->
                  },
     %% Expand the functions.
     {Tfs,St1} = forms(Fs, define_functions(Fs, St0)),
-    {Efs,St2} = expand_pmod(Tfs, St1),
     %% Get the correct list of exported functions.
-    Exports = case member(export_all, St2#expand.compile) of
-                  true -> gb_sets:to_list(St2#expand.defined);
-                  false -> St2#expand.exports
+    Exports = case member(export_all, St1#expand.compile) of
+                  true -> gb_sets:to_list(St1#expand.defined);
+                  false -> St1#expand.exports
               end,
     %% Generate all functions from stored info.
-    {Ats,St3} = module_attrs(St2#expand{exports = Exports}),
+    {Ats,St3} = module_attrs(St1#expand{exports = Exports}),
     {Mfs,St4} = module_predef_funcs(St3),
-    {St4#expand.module, St4#expand.exports, Ats ++ Efs ++ Mfs,
+    {St4#expand.module, St4#expand.exports, Ats ++ Tfs ++ Mfs,
      St4#expand.compile}.
 
 compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
     
-expand_pmod(Fs0, St0) ->
-    case St0#expand.parameters of
-        undefined ->
-            {Fs0,St0};
-        Ps0 ->
-	    Base = get_base(St0#expand.attributes),
-	    Ps = if is_atom(Base) ->
-			 ['BASE' | Ps0];
-		    true ->
-			 Ps0
-		 end,
-	    Def = gb_sets:to_list(St0#expand.defined),
-            {Fs1,Xs,Ds} = sys_expand_pmod:forms(Fs0, Ps,
-                                                St0#expand.exports,
-						Def),
-	    St1 = St0#expand{exports=Xs,defined=gb_sets:from_list(Ds)},
-	    {Fs2,St2} = add_instance(Ps, Fs1, St1),
-	    {Fs3,St3} = ensure_new(Base, Ps0, Fs2, St2),
-            {Fs3,St3#expand{attributes = [{abstract, 0, [true]}
-					  | St3#expand.attributes]}}
-    end.
-
-get_base(As) ->
-    case lists:keyfind(extends, 1, As) of
-	{extends,_,[Base]} when is_atom(Base) ->
-	    Base;
-	_ ->
-	    []
-    end.
-
-ensure_new(Base, Ps, Fs, St) ->
-    case has_new(Fs) of
-	true ->
-	    {Fs, St};
-	false ->
-	    add_new(Base, Ps, Fs, St)
-    end.
-
-has_new([{function,_L,new,_A,_Cs} | _Fs]) ->
-    true;
-has_new([_ | Fs]) ->
-    has_new(Fs);
-has_new([]) ->
-    false.
-
-add_new(Base, Ps, Fs, St) ->
-    Vs = [{var,0,V} || V <- Ps],
-    As = if is_atom(Base) ->
-		 [{call,0,{remote,0,{atom,0,Base},{atom,0,new}},Vs} | Vs];
-	    true ->
-		 Vs
-	 end,
-    Body = [{call,0,{atom,0,instance},As}],
-    add_func(new, Vs, Body, Fs, St).
-
-add_instance(Ps, Fs, St) ->
-    Vs = [{var,0,V} || V <- Ps],
-    AbsMod = [{tuple,0,[{atom,0,St#expand.module}|Vs]}],
-    add_func(instance, Vs, AbsMod, Fs, St).
-
-add_func(Name, Args, Body, Fs, St) ->
-    A = length(Args), 
-    F = {function,0,Name,A,[{clause,0,Args,[],Body}]},
-    NA = {Name,A},
-    {[F|Fs],St#expand{exports=add_element(NA, St#expand.exports),
-		      defined=gb_sets:add_element(NA, St#expand.defined)}}.
-
 %% define_function(Form, State) -> State.
 %%  Add function to defined if form is a function.
 
@@ -235,10 +166,6 @@ forms([], St) -> {[],St}.
 %% attribute(Attribute, Value, Line, State) -> State'.
 %%  Process an attribute, this just affects the state.
 
-attribute(module, {Module, As}, _L, St) ->
-    true = is_atom(Module),
-    St#expand{module=Module,
-              parameters=As};
 attribute(module, Module, _L, St) ->
     true = is_atom(Module),
     St#expand{module=Module};

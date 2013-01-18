@@ -94,7 +94,6 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 %% the other function collections contain {Function, Arity}.
 -record(lint, {state=start		:: 'start' | 'attribute' | 'function',
                module=[],                       %Module
-               extends=[],                      %Extends
                behaviour=[],                    %Behaviour
                exports=gb_sets:empty()	:: gb_set(),	%Exports
                imports=[],                      %Imports
@@ -112,7 +111,6 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 	       enabled_warnings=[],		%All enabled warnings (ordset).
                errors=[],                       %Current errors
                warnings=[],                     %Current warnings
-	       global_vt=[],                    %The global VarTable
                file = ""        :: string(),	%From last file attribute
                recdef_top=false :: boolean(),	%true in record initialisation
 						%outside any fun or lc
@@ -142,10 +140,8 @@ format_error({bad_module_name, M}) ->
     io_lib:format("bad module name '~s'", [M]);
 format_error(redefine_module) ->
     "redefining module";
-format_error(redefine_extends) ->
-    "redefining extends attribute";
-format_error(extends_self) ->
-    "cannot extend from self";
+format_error(pmod_unsupported) ->
+    "parameterized modules are no longer supported";
 %% format_error({redefine_mod_import, M, P}) ->
 %%     io_lib:format("module '~s' already imported from package '~s'", [M, P]);
 
@@ -166,10 +162,6 @@ format_error({bad_inline,{F,A}}) ->
     io_lib:format("inlined function ~w/~w undefined", [F,A]);
 format_error({invalid_deprecated,D}) ->
     io_lib:format("badly formed deprecated attribute ~w", [D]);
-format_error(invalid_extends) ->
-    "badly formed extends attribute";
-format_error(define_instance) ->
-    "defining instance function not allowed in abstract module";
 format_error({bad_deprecated,{F,A}}) ->
     io_lib:format("deprecated function ~w/~w undefined or not exported", [F,A]);
 format_error({bad_nowarn_unused_function,{F,A}}) ->
@@ -622,8 +614,6 @@ forms(Forms0, St0) ->
 
 pre_scan([{function,_L,new,_A,_Cs} | Fs], St) ->
     pre_scan(Fs, St#lint{new=true});
-pre_scan([{attribute,_L,extends,M} | Fs], St) when is_atom(M) ->
-    pre_scan(Fs, St#lint{extends=true});
 pre_scan([{attribute,L,compile,C} | Fs], St) ->
     case is_warn_enabled(export_all, St) andalso
 	member(export_all, lists:flatten([C])) of
@@ -678,41 +668,15 @@ form(Form, #lint{state=State}=St) ->
 
 %% start_state(Form, State) -> State'
 
-start_state({attribute,_,module,{M,Ps}}, St0) ->
-    St1 = St0#lint{module=M},
-    Arity = length(Ps),
-    Ps1 = if is_atom(St1#lint.extends) ->
-		  ['BASE', 'THIS' | Ps];
-	     true ->
-		  ['THIS' | Ps]
-	  end,
-    Vt = orddict:from_list([{V, {bound, used, []}} || V <- Ps1]),
-    St2 = add_instance(Arity, St1),
-    St3 = ensure_new(Arity, St2),
-    St3#lint{state=attribute, extends=[], global_vt=Vt};
+start_state({attribute,Line,module,{_,_}}=Form, St0) ->
+    St1 = add_error(Line, pmod_unsupported, St0),
+    attribute_state(Form, St1#lint{state=attribute});
 start_state({attribute,_,module,M}, St0) ->
     St1 = St0#lint{module=M},
-    St1#lint{state=attribute, extends=[]};
+    St1#lint{state=attribute};
 start_state(Form, St) ->
     St1 = add_error(element(2, Form), undefined_module, St),
-    attribute_state(Form, St1#lint{state=attribute, extends=[]}).
-
-ensure_new(Arity, St) ->
-    case St#lint.new of
-	true ->
-	    St;
-	false ->
-	    add_func(new, Arity, St)
-    end.
-
-add_instance(Arity, St) ->
-    A = Arity + (if is_atom(St#lint.extends) -> 1; true -> 0 end),
-    add_func(instance, A, St).
-
-add_func(Name, Arity, St) ->
-    F = {Name, Arity},
-    St#lint{exports = gb_sets:add_element(F, St#lint.exports),
-	    defined = gb_sets:add_element(F, St#lint.defined)}.
+    attribute_state(Form, St1#lint{state=attribute}).
 
 %% attribute_state(Form, State) ->
 %%      State'
@@ -721,15 +685,6 @@ attribute_state({attribute,_L,module,_M}, #lint{module=[]}=St) ->
     St;
 attribute_state({attribute,L,module,_M}, St) ->
     add_error(L, redefine_module, St);
-attribute_state({attribute,L,extends,M}, #lint{module=M}=St) when is_atom(M) ->
-    add_error(L, extends_self, St);
-attribute_state({attribute,_L,extends,M}, #lint{extends=[]}=St)
-  when is_atom(M) ->
-    St#lint{extends=M};
-attribute_state({attribute,L,extends,M}, St) when is_atom(M) ->
-    add_error(L, redefine_extends, St);
-attribute_state({attribute,L,extends,_M}, St) ->
-    add_error(L, invalid_extends, St);
 attribute_state({attribute,L,export,Es}, St) ->
     export(L, Es, St);
 attribute_state({attribute,L,export_type,Es}, St) ->
@@ -1322,11 +1277,9 @@ call_function(Line, F, A, #lint{usage=Usage0,called=Cd,func=Func}=St) ->
 
 %% function(Line, Name, Arity, Clauses, State) -> State.
 
-function(Line, instance, _Arity, _Cs, St) when St#lint.global_vt =/= [] ->
-    add_error(Line, define_instance, St);
 function(Line, Name, Arity, Cs, St0) ->
     St1 = define_function(Line, Name, Arity, St0#lint{func={Name,Arity}}),
-    clauses(Cs, St1#lint.global_vt, St1).
+    clauses(Cs, St1).
 
 -spec define_function(line(), atom(), arity(), lint_state()) -> lint_state().
 
@@ -1349,15 +1302,16 @@ function_check_max_args(Line, Arity, St) when Arity > ?MAX_ARGUMENTS ->
     add_error(Line, {too_many_arguments,Arity}, St);
 function_check_max_args(_, _, St) -> St.
 
-%% clauses([Clause], VarTable, State) -> {VarTable, State}.
+%% clauses([Clause], State) -> {VarTable, State}.
 
-clauses(Cs, Vt, St) ->
+clauses(Cs, St) ->
     foldl(fun (C, St0) ->
-                  {_,St1} = clause(C, Vt, St0),
+                  {_,St1} = clause(C, St0),
                   St1
           end, St, Cs).
 
-clause({clause,_Line,H,G,B}, Vt0, St0) ->
+clause({clause,_Line,H,G,B}, St0) ->
+    Vt0 = [],
     {Hvt,Binvt,St1} = head(H, Vt0, St0),
     %% Cannot ignore BinVt since "binsize variables" may have been used.
     Vt1 = vtupdate(Hvt, vtupdate(Binvt, Vt0)),

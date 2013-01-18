@@ -2187,27 +2187,9 @@ otp_5878(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
 
     Abstr = <<"-module(lint_test, [A, B]).
-
-               -export([args/1]).
-
-               -record(r, {a = A, b = THIS}). % A and THIS are unbound
-
-               %% param:args(compile,param:new(1,2)).
-
-               args(C) ->
-                   X = local(C),
-                   Z = new(A, B),
-                   F = fun(THIS) -> {x, A} end, % THIS unused and shadowed
-                   {X, Z, THIS, F, #r{}}.
-
-               local(C) ->
-                   module_info(C).
             ">>,
-    ?line {error,[{5,erl_lint,{unbound_var,'A'}},
-                  {5,erl_lint,{unbound_var,'THIS'}}],
-           [{12,erl_lint,{unused_var,'THIS'}},
-            {12,erl_lint,{shadowed_var,'THIS','fun'}}]}
-        = run_test2(Config, Abstr, [warn_unused_record]),
+    {errors,[{1,erl_lint,pmod_unsupported}],[]} =
+        run_test2(Config, Abstr, [warn_unused_record]),
 
     QLC1 = <<"-module(lint_test).
               -include_lib(\"stdlib/include/qlc.hrl\").
