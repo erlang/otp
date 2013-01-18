@@ -151,10 +151,10 @@ clean:
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 docs:
 
@@ -162,9 +162,9 @@ docs:
 # Special Build Targets
 # ----------------------------------------------------
 IDL-GENERATED: CosProperty.idl
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosProperty.cfg"}' CosProperty.idl
-	mv $(LOCAL_HRL_FILES) $(EXTERNAL_INC_PATH)
-	>IDL-GENERATED
+	$(gen_verbose)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosProperty.cfg"}' CosProperty.idl
+	$(V_at)mv $(LOCAL_HRL_FILES) $(EXTERNAL_INC_PATH)
+	$(V_at)>IDL-GENERATED
 
 $(GEN_FILES): IDL-GENERATED
 

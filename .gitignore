@@ -129,6 +129,7 @@ JAVADOC-GENERATED
 
 /release
 
+/make/output.mk
 /make/emd2exml
 
 # Created by "out_build update_primary"

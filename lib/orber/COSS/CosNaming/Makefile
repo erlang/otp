@@ -117,7 +117,7 @@ clean:
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)
-	sed -e 's;%VSN%;$(VSN);' $(APP_SRC) > $(APP_TARGET)
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $(APP_SRC) > $(APP_TARGET)
 
 docs:
 
@@ -125,10 +125,10 @@ docs:
 # Special Build Targets
 # ----------------------------------------------------
 IDL-GENERATED: cos_naming_ext.idl cos_naming.idl
-	erlc $(ERL_IDL_FLAGS) +'{this,"CosNaming::NamingContext"}' \
+	$(gen_verbose)erlc $(ERL_IDL_FLAGS) +'{this,"CosNaming::NamingContext"}' \
 	+'{this,"CosNaming::NamingContextExt"}' cos_naming_ext.idl
-	erlc $(ERL_IDL_FLAGS) +'{this,"CosNaming::NamingContext"}' cos_naming.idl
-	>IDL-GENERATED
+	$(V_at)erlc $(ERL_IDL_FLAGS) +'{this,"CosNaming::NamingContext"}' cos_naming.idl
+	$(V_at)>IDL-GENERATED
 
 $(GEN_FILES): IDL-GENERATED
 

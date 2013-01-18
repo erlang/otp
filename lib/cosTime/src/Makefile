@@ -166,10 +166,10 @@ clean:
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 docs:
 
@@ -177,13 +177,13 @@ docs:
 # Special Build Targets
 # ----------------------------------------------------
 IDL-GENERATED: TimeBase.idl CosTime.idl CosTimerEvent.idl
-	erlc $(ERL_IDL_FLAGS) TimeBase.idl
-	mv $(GEN_TIMEBASE_HRL_FILES) $(EXTERNAL_INC_PATH)
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosTime.cfg"}' CosTime.idl
-	mv $(GEN_COSTIME_HRL_FILES) $(EXTERNAL_INC_PATH)
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosTimerEvent.cfg"}' CosTimerEvent.idl
-	mv $(GEN_COSTIMEREVENT_HRL_FILES) $(EXTERNAL_INC_PATH)
-	>IDL-GENERATED
+	$(gen_verbose)erlc $(ERL_IDL_FLAGS) TimeBase.idl
+	$(V_at)mv $(GEN_TIMEBASE_HRL_FILES) $(EXTERNAL_INC_PATH)
+	$(V_at)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosTime.cfg"}' CosTime.idl
+	$(V_at)mv $(GEN_COSTIME_HRL_FILES) $(EXTERNAL_INC_PATH)
+	$(V_at)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosTimerEvent.cfg"}' CosTimerEvent.idl
+	$(V_at)mv $(GEN_COSTIMEREVENT_HRL_FILES) $(EXTERNAL_INC_PATH)
+	$(V_at)>IDL-GENERATED
 
 $(GEN_FILES): IDL-GENERATED
 

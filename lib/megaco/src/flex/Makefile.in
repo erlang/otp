@@ -319,16 +319,16 @@ release_docs_spec:
 
 $(STD_DRV).flex: megaco_flex_scanner_drv.flex.src
 ifeq ($(ENABLE_MEGACO_FLEX_SCANNER_LINENO),true)
-	@printf "std [flex] scanner - lineno enabled\n"
-	$(PERL) -p -e \
+	$(V_colon)@printf "std [flex] scanner - lineno enabled\n"
+	$(gen_verbose)$(PERL) -p -e \
           's/%FLEX_VERSION%/$(FLEX_VSN)/ ;  \
            s/%MEGACO_YY_LINENO_OPTION%/%option yylineno/ ;  \
            s/%MEGACO_YY_REENTRANT_OPTION%/\/\* %option reentrant \*\// ; \
            s/%MEGACO_DUMMY_DECL_YY_LINENO%/\/* static int yylineno = 1; *\//' \
            < $< > $@
 else
-	@printf "std [flex] scanner - lineno disabled\n"
-	$(PERL) -p -e \
+	$(V_colon)@printf "std [flex] scanner - lineno disabled\n"
+	$(gen_verbose)$(PERL) -p -e \
           's/%FLEX_VERSION%/$(FLEX_VSN)/ ;  \
            s/%MEGACO_YY_LINENO_OPTION%/\/\* %option yylineno \*\// ; \
            s/%MEGACO_YY_REENTRANT_OPTION%/\/\* %option reentrant \*\// ; \
@@ -339,16 +339,16 @@ endif
 $(MT_DRV).flex: megaco_flex_scanner_drv.flex.src
 ifeq ($(ENABLE_MEGACO_FLEX_SCANNER_LINENO),true)
 ifeq ($(ENABLE_REENTRANT_MEGACO_FLEX_SCANNER),true)
-	@printf "multi-threaded reentrant [flex] scanner - lineno enabled\n"
-	$(PERL) -p -e \
+	$(V_colon)@printf "multi-threaded reentrant [flex] scanner - lineno enabled\n"
+	$(gen_verbose)$(PERL) -p -e \
           's/%FLEX_VERSION%/$(FLEX_VSN)/ ;  \
            s/%MEGACO_YY_LINENO_OPTION%/%option yylineno/ ;  \
            s/%MEGACO_YY_REENTRANT_OPTION%/%option reentrant/ ;  \
            s/%MEGACO_DUMMY_DECL_YY_LINENO%/\/* static int yylineno = 1; *\//' \
            < $< > $@
 else
-	@printf "multi-threaded non-reentrant [flex] scanner - lineno enabled\n"
-	$(PERL) -p -e \
+	$(V_colon)@printf "multi-threaded non-reentrant [flex] scanner - lineno enabled\n"
+	$(gen_verbose)$(PERL) -p -e \
           's/%FLEX_VERSION%/$(FLEX_VSN)/ ;  \
            s/%MEGACO_YY_LINENO_OPTION%/%option yylineno/ ;  \
            s/%MEGACO_YY_REENTRANT_OPTION%/\/\* %option reentrant \*\// ; \
@@ -357,16 +357,16 @@ else
 endif
 else
 ifeq ($(ENABLE_REENTRANT_MEGACO_FLEX_SCANNER),true)
-	@printf "multi-threaded reentrant [flex] scanner - lineno disabled\n"
-	$(PERL) -p -e \
+	$(V_colon)@printf "multi-threaded reentrant [flex] scanner - lineno disabled\n"
+	$(gen_verbose)$(PERL) -p -e \
           's/%FLEX_VERSION%/$(FLEX_VSN)/ ;  \
            s/%MEGACO_YY_LINENO_OPTION%/\/\* %option yylineno \*\// ; \
            s/%MEGACO_YY_REENTRANT_OPTION%/%option reentrant/ ;  \
            s/%MEGACO_DUMMY_DECL_YY_LINENO%/\/* static int yylineno = 1; - REENTRANT SCANNER*\//' \
            < $< > $@
 else
-	@printf "multi-threaded non-reentrant [flex] scanner - lineno disabled\n"
-	$(PERL) -p -e \
+	$(V_colon)@printf "multi-threaded non-reentrant [flex] scanner - lineno disabled\n"
+	$(gen_verbose)$(PERL) -p -e \
           's/%FLEX_VERSION%/$(FLEX_VSN)/ ;  \
            s/%MEGACO_YY_LINENO_OPTION%/\/\* %option yylineno \*\// ; \
            s/%MEGACO_YY_REENTRANT_OPTION%/\/\* %option reentrant \*\// ; \
@@ -376,31 +376,31 @@ endif
 endif
 
 # megaco_flex_scanner_drv.c: megaco_flex_scanner_drv.flex
-# 	$(LEX) $(LEX_FLAGS) -P$* -o$@ $< 
+# 	$(V_LEX) $(LEX_FLAGS) -P$* -o$@ $<
 $(STD_DRV).c: $(STD_DRV).flex
-	$(LEX) $(STD_LEX_FLAGS) -P$* -o$@ $< 
+	$(V_LEX) $(STD_LEX_FLAGS) -P$* -o$@ $<
 $(MT_DRV).c: $(MT_DRV).flex
-	$(LEX) $(MT_LEX_FLAGS) -P$* -o$@ $< 
+	$(V_LEX) $(MT_LEX_FLAGS) -P$* -o$@ $<
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
 solibs: $(SOLIBS) 
 
 $(OBJDIR)/$(STD_DRV).o: $(STD_DRV).c 
-	@echo "compiling std driver:"
-	$(CC) -c $(STD_DRV_NAME) $(CFLAGS) -o $@ $< 
+	$(V_colon)@echo "compiling std driver:"
+	$(V_CC) -c $(STD_DRV_NAME) $(CFLAGS) -o $@ $<
 
 $(OBJDIR)/$(MT_DRV).o: $(MT_DRV).c 
-	@echo "compiling multi-threaded driver:"
-	$(CC) -c $(MT_DRV_NAME) $(CFLAGS_MT) -o $@ $<
+	$(V_colon)@echo "compiling multi-threaded driver:"
+	$(V_CC) -c $(MT_DRV_NAME) $(CFLAGS_MT) -o $@ $<
 
 
 # No need to link with -lfl as we have also defined %option noyywrap - 
 # and having -lfl doesn't work under Darwin for some reason. - Sean
 $(LIBDIR)/$(STD_DRV).$(DED_EXT): $(OBJDIR)/$(STD_DRV).o
-	@echo "linking std driver:"
-	$(LD) $(LDFLAGS) -o $@ $< 
+	$(V_colon)@echo "linking std driver:"
+	$(V_LD) $(LDFLAGS) -o $@ $<
 
 $(LIBDIR)/$(MT_DRV).$(DED_EXT): $(OBJDIR)/$(MT_DRV).o
-	@echo "linking multi-threaded driver:"
-	$(LD) $(LDFLAGS) -o $@ $< 
+	$(V_colon)@echo "linking multi-threaded driver:"
+	$(V_LD) $(LDFLAGS) -o $@ $<

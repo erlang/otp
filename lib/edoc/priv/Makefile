@@ -27,8 +27,11 @@ GEN_SCRIPT_SRC = edoc_generate.src
 GEN_SCRIPT = edoc_generate
 PRIV_FILES = stylesheet.css erlang.png edoc.dtd
 
-debug opt:
-	sed -e "s/%EDOC_VSN%/$(EDOC_VSN)/g" \
+debug opt: $(GEN_SCRIPT)
+
+$(GEN_SCRIPT): ../vsn.mk ../../xmerl/vsn.mk ../../syntax_tools/vsn.mk \
+		$(GEN_SCRIPT_SRC)
+	$(vsn_verbose)sed -e "s/%EDOC_VSN%/$(EDOC_VSN)/g" \
 	    -e "s/%XMERL_VSN%/$(XMERL_VSN)/g" \
 	    -e "s/%SYNTAX_TOOLS_VSN%/$(SYNTAX_TOOLS_VSN)/g" \
 		$(GEN_SCRIPT_SRC) > $(GEN_SCRIPT)

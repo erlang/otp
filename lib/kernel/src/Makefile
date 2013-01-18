@@ -170,13 +170,13 @@ docs:
 # ----------------------------------------------------
 
 ../../hipe/main/hipe.hrl: ../../hipe/vsn.mk ../../hipe/main/hipe.hrl.src
-	sed -e "s;%VSN%;$(HIPE_VSN);" ../../hipe/main/hipe.hrl.src > ../../hipe/main/hipe.hrl
+	$(vsn_verbose)sed -e "s;%VSN%;$(HIPE_VSN);" ../../hipe/main/hipe.hrl.src > ../../hipe/main/hipe.hrl
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(KERNEL_VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(KERNEL_VSN);' $< > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(KERNEL_VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(KERNEL_VSN);' $< > $@
 
 
 EPMD_FLAGS = -Depmd_port_no=$(EPMD_PORT_NO)	\
@@ -186,10 +186,10 @@ EPMD_FLAGS = -Depmd_port_no=$(EPMD_PORT_NO)	\
              -Derlang_daemon_port=$(EPMD_PORT_NO)
 
 $(ESRC)/inet_dns_record_adts.hrl: $(ESRC)/inet_dns_record_adts.pl
-	LANG=C $(PERL) $< > $@
+	$(gen_verbose)LANG=C $(PERL) $< > $@
 
 $(EBIN)/erl_epmd.beam: $(ESRC)/erl_epmd.erl
-	$(ERLC) $(ERL_COMPILE_FLAGS) $(EPMD_FLAGS) -o$(EBIN) $<
+	$(V_ERLC) $(ERL_COMPILE_FLAGS) $(EPMD_FLAGS) -o$(EBIN) $<
 
 # ----------------------------------------------------
 # Release Target

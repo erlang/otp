@@ -332,10 +332,10 @@ clean:
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 docs:
 
@@ -344,16 +344,16 @@ docs:
 # ----------------------------------------------------
 IDL-GENERATED: CosNotification.idl CosNotifyChannelAdmin.idl \
   CosNotifyFilter.idl cosNotificationAppComm.idl CosNotifyComm.idl
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotification.cfg"}' CosNotification.idl
-	mv $(GEN_NOTIFICATION_HRL_FILES) $(EXTERNAL_INC_PATH)
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotifyChannelAdmin.cfg"}' CosNotifyChannelAdmin.idl
-	mv $(GEN_CHANNELADMIN_HRL_FILES) $(EXTERNAL_INC_PATH)
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotifyFilter.cfg"}' CosNotifyFilter.idl
-	mv $(GEN_NOTIFYFILTER_HRL_FILES) $(EXTERNAL_INC_PATH)
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"cosNotificationComm.cfg"}' cosNotificationAppComm.idl
-	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotifyComm.cfg"}' CosNotifyComm.idl
-	mv $(GEN_NOTIFYCOMM_HRL_FILES) $(EXTERNAL_INC_PATH)
-	>IDL-GENERATED
+	$(gen_verbose)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotification.cfg"}' CosNotification.idl
+	$(V_at)mv $(GEN_NOTIFICATION_HRL_FILES) $(EXTERNAL_INC_PATH)
+	$(V_at)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotifyChannelAdmin.cfg"}' CosNotifyChannelAdmin.idl
+	$(V_at)mv $(GEN_CHANNELADMIN_HRL_FILES) $(EXTERNAL_INC_PATH)
+	$(V_at)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotifyFilter.cfg"}' CosNotifyFilter.idl
+	$(V_at)mv $(GEN_NOTIFYFILTER_HRL_FILES) $(EXTERNAL_INC_PATH)
+	$(V_at)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"cosNotificationComm.cfg"}' cosNotificationAppComm.idl
+	$(V_at)erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotifyComm.cfg"}' CosNotifyComm.idl
+	$(V_at)mv $(GEN_NOTIFYCOMM_HRL_FILES) $(EXTERNAL_INC_PATH)
+	$(V_at)>IDL-GENERATED
 
 $(IDL_GEN_ERL_FILES) $(IDL_GEN_HRL_FILES): IDL-GENERATED
 

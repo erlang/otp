@@ -35,6 +35,9 @@ OTP = OTP-@OTP_REL@
 # erts (Erlang RunTime System) version
 ERTS = erts-@ERTS_VSN@
 
+# Include verbose output variables
+include $(ERL_TOP)/make/output.mk
+
 # ----------------------------------------------------------------------
 
 #
@@ -426,57 +429,58 @@ BOOTSTRAP_COMPILER  =  $(BOOTSTRAP_TOP)/primary_compiler
 .PHONY: emulator libs kernel stdlib compiler hipe typer syntax_tools preloaded
 
 emulator:
-	cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR)
+	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR)
 
 libs:
 ifeq ($(OTP_SMALL_BUILD),true)
-	cd lib && \
+	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt
 else
-	cd lib && \
+	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
 endif
 kernel:
-	cd lib/kernel && \
+	$(make_verbose)cd lib/kernel && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
 
 stdlib:
-	cd lib/stdlib && \
+	$(make_verbose)cd lib/stdlib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
 
 compiler:
-	cd lib/compiler && \
+	$(make_verbose)cd lib/compiler && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
 
 hipe:
-	cd lib/hipe && \
+	$(make_verbose)cd lib/hipe && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
 
 typer:
-	cd lib/typer && \
+	$(make_verbose)cd lib/typer && \
 	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 	    $(MAKE) opt BUILD_ALL=true
 
 syntax_tools:
-	cd lib/syntax_tools && \
+	$(make_verbose)cd lib/syntax_tools && \
 	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 	    $(MAKE) opt BUILD_ALL=true
 
 preloaded:
-	cd erts/preloaded/src && \
+	$(make_verbose)cd erts/preloaded/src && \
 	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true	
 
 dep depend:
-	test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) generate)
-	test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) depend)
-	test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/lib_src && ERL_TOP=$(ERL_TOP) $(MAKE) depend)
+	$(make_verbose)
+	$(V_at)test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) generate)
+	$(V_at)test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) depend)
+	$(V_at)test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/lib_src && ERL_TOP=$(ERL_TOP) $(MAKE) depend)
 
 # Creates "erl" and "erlc" in bootstrap/bin which uses the precompiled 
 # libraries in the bootstrap directory
@@ -530,14 +534,15 @@ bootstrap_setup_target:
 	 echo $(TARGET) > $(BOOTSTRAP_ROOT)/bootstrap/target
 
 secondary_bootstrap_build:
-	cd lib && \
+	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt SECONDARY_BOOTSTRAP=true
 
 secondary_bootstrap_copy:
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin ; fi
-	for x in lib/hipe/$(HIPE_BOOTSTRAP_EBIN)/*.beam; do \
+	$(make_verbose)
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin ; fi
+	$(V_at)for x in lib/hipe/$(HIPE_BOOTSTRAP_EBIN)/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin/$$BN; \
 		test -f  $$TF && \
@@ -547,12 +552,12 @@ secondary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/orber ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/orber ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/orber/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/orber/include ; fi
-	for x in lib/parsetools/ebin/*.beam; do \
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/orber ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/orber ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/orber/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/orber/include ; fi
+	$(V_at)for x in lib/parsetools/ebin/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin/$$BN; \
 		test -f  $$TF && \
@@ -562,8 +567,8 @@ secondary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-#	cp lib/parsetools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin
-	for x in lib/parsetools/include/*.hrl; do \
+#	$(V_at)cp lib/parsetools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin
+	$(V_at)for x in lib/parsetools/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include/$$BN; \
 		test -f  $$TF && \
@@ -573,11 +578,11 @@ secondary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-#	cp -f lib/parsetools/include/*.hrl $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1 ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1 ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src ; fi
-	for x in lib/asn1/ebin/*.beam; do \
+#	$(V_at)cp -f lib/parsetools/include/*.hrl $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1 ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1 ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src ; fi
+	$(V_at)for x in lib/asn1/ebin/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin/$$BN; \
 		test -f  $$TF && \
@@ -587,8 +592,8 @@ secondary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-#	cp lib/asn1/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin
-	for x in lib/asn1/src/*.[eh]rl; do \
+#	$(V_at)cp lib/asn1/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin
+	$(V_at)for x in lib/asn1/src/*.[eh]rl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src/$$BN; \
 		test -f  $$TF && \
@@ -598,8 +603,8 @@ secondary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-#	cp -f lib/asn1/src/*.erl lib/asn1/src/*.hrl $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src
-	for x in lib/orber/include/*.hrl; do \
+#	$(V_at)cp -f lib/asn1/src/*.erl lib/asn1/src/*.hrl $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src
+	$(V_at)for x in lib/orber/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/orber/include/$$BN; \
 		test -f  $$TF && \
@@ -609,9 +614,9 @@ secondary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/include ; fi
-	for x in lib/xmerl/include/*.hrl; do \
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/include ; fi
+	$(V_at)for x in lib/xmerl/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/include/$$BN; \
 		test -f  $$TF && \
@@ -623,15 +628,16 @@ secondary_bootstrap_copy:
 	done
 
 tertiary_bootstrap_build:
-	cd lib && \
+	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt TERTIARY_BOOTSTRAP=true
 
 tertiary_bootstrap_copy:
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/include ; fi
-	for x in lib/snmp/ebin/*.beam; do \
+	$(make_verbose)
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/include ; fi
+	$(V_at)for x in lib/snmp/ebin/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin/$$BN; \
 		test -f  $$TF && \
@@ -641,21 +647,21 @@ tertiary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-#	cp lib/snmp/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/ic ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/ic ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; fi
-	for x in lib/ic/ebin/*.beam; do \
+#	$(V_at)cp lib/snmp/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/ic ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/ic ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; fi
+	$(V_at)for x in lib/ic/ebin/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin/$$BN; \
 		test -f  $$TF && \
@@ -665,8 +671,8 @@ tertiary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-#	cp lib/ic/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin
-	for x in lib/ic/include/*.idl; do \
+#	$(V_at)cp lib/ic/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin
+	$(V_at)for x in lib/ic/include/*.idl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include/$$BN; \
 		test -f  $$TF && \
@@ -676,7 +682,7 @@ tertiary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-	for x in lib/ic/include/*.h; do \
+	$(V_at)for x in lib/ic/include/*.h; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include/$$BN; \
 		test -f  $$TF && \
@@ -686,8 +692,8 @@ tertiary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-#	cp -f lib/ic/include/*.idl lib/ic/include/*.h $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include
-	for x in lib/sasl/ebin/*.beam; do \
+#	$(V_at)cp -f lib/ic/include/*.idl lib/ic/include/*.h $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include
+	$(V_at)for x in lib/sasl/ebin/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin/$$BN; \
 		test -f  $$TF && \
@@ -697,10 +703,10 @@ tertiary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-#	cp lib/sasl/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools ; fi
-	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin ; fi
-	for x in lib/syntax_tools/ebin/*.beam; do \
+#	$(V_at)cp lib/sasl/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin ; fi
+	$(V_at)for x in lib/syntax_tools/ebin/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin/$$BN; \
 		test -f  $$TF && \
@@ -710,7 +716,7 @@ tertiary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-	for x in lib/wx/include/*.hrl; do \
+	$(V_at)for x in lib/wx/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include/$$BN; \
 		test -f  $$TF && \
@@ -721,7 +727,7 @@ tertiary_bootstrap_copy:
 		true; \
 	done
 #       copy wx_object to remove undef behaviour warnings
-	for x in lib/wx/ebin/wx_object.beam; do \
+	$(V_at)for x in lib/wx/ebin/wx_object.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin/$$BN; \
 		test -f  $$TF && \
@@ -733,7 +739,7 @@ tertiary_bootstrap_copy:
 	done
 
 #	copy test includes to be able to compile tests with bootstrap compiler
-	for x in lib/test_server/include/*.hrl; do \
+	$(V_at)for x in lib/test_server/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include/$$BN; \
 		test -f  $$TF && \
@@ -744,7 +750,7 @@ tertiary_bootstrap_copy:
 		true; \
 	done
 
-	for x in lib/common_test/include/*.hrl; do \
+	$(V_at)for x in lib/common_test/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include/$$BN; \
 		test -f  $$TF && \
@@ -754,7 +760,7 @@ tertiary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-#	cp lib/syntax_tools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin
+#	$(V_at)cp lib/syntax_tools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin
 
 .PHONY: check_recreate_primary_bootstrap recreate_primary_bootstrap
 
@@ -783,7 +789,7 @@ check_recreate_primary_bootstrap:
 # directories of all applications part of the primary bootstrap.
 #
 recreate_primary_bootstrap:
-	$(ERL_TOP)/otp_build save_bootstrap
+	$(V_at)$(ERL_TOP)/otp_build save_bootstrap
 
 # The first bootstrap build is rarely (never) used in open source, it's
 # used to build the shipped bootstrap directory. The Open source bootstrap 
@@ -802,21 +808,21 @@ recreate_primary_bootstrap:
 
 primary_bootstrap:
 	@echo "=== Building a bootstrap compiler in $(BOOTSTRAP_ROOT)/bootstrap"
-	$(MAKE) BOOTSTRAP_ROOT=$(BOOTSTRAP_ROOT) \
+	$(V_at)$(MAKE) BOOTSTRAP_ROOT=$(BOOTSTRAP_ROOT) \
 		ERL_TOP=$(ERL_TOP) \
 		bootstrap_clean
-	cd $(ERL_TOP) && \
+	$(V_at)cd $(ERL_TOP) && \
 		$(MAKE) TESTROOT=$(BOOTSTRAP_TOP) \
 		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) \
 		primary_bootstrap_build
-	cd $(ERL_TOP) && \
+	$(V_at)cd $(ERL_TOP) && \
 		$(MAKE) TESTROOT=$(BOOTSTRAP_TOP) \
 		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) \
 		primary_bootstrap_copy
-	cd $(ERL_TOP)/erts/start_scripts && \
+	$(V_at)cd $(ERL_TOP)/erts/start_scripts && \
 		$(MAKE) TESTROOT=$(BOOTSTRAP_TOP) \
 		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) bootstrap_scripts
-	test $(BOOTSTRAP_ROOT) = $(ERL_TOP) \
+	$(V_at)test $(BOOTSTRAP_ROOT) = $(ERL_TOP) \
 		|| $(ERL_TOP)/otp_build \
 			copy_primary_bootstrap \
 			$(BOOTSTRAP_TOP) \
@@ -824,50 +830,52 @@ primary_bootstrap:
 
 primary_bootstrap_build: primary_bootstrap_mkdirs primary_bootstrap_compiler \
   primary_bootstrap_stdlib
-	cd lib && $(MAKE) ERLC_FLAGS='-pa $(BOOTSTRAP_COMPILER)/ebin' \
+	$(make_verbose)cd lib && $(MAKE) ERLC_FLAGS='-pa $(BOOTSTRAP_COMPILER)/ebin' \
 		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) \
 		BOOTSTRAP=1 opt
 
 primary_bootstrap_compiler: 
-	cd lib/compiler && $(MAKE) \
+	$(make_verbose)cd lib/compiler && $(MAKE) \
 		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) \
 		BOOTSTRAP_COMPILER=$(BOOTSTRAP_COMPILER) \
 		BOOTSTRAP=1 \
 		opt
 
 primary_bootstrap_stdlib: 
-	cd lib/stdlib/src && $(MAKE) \
+	$(make_verbose)cd lib/stdlib/src && $(MAKE) \
 		BOOTSTRAP_COMPILER=$(BOOTSTRAP_COMPILER) \
 		primary_bootstrap_compiler
 
 primary_bootstrap_mkdirs:
-	test -d $(BOOTSTRAP_COMPILER)/egen \
+	$(make_verbose)
+	$(V_at)test -d $(BOOTSTRAP_COMPILER)/egen \
 		|| mkdir -p $(BOOTSTRAP_COMPILER)/egen
-	test -d $(BOOTSTRAP_COMPILER)/ebin \
+	$(V_at)test -d $(BOOTSTRAP_COMPILER)/ebin \
 		|| mkdir -p $(BOOTSTRAP_COMPILER)/ebin
-	test -d $(BOOTSTRAP_TOP)/lib/kernel/egen \
+	$(V_at)test -d $(BOOTSTRAP_TOP)/lib/kernel/egen \
 		|| mkdir -p $(BOOTSTRAP_TOP)/lib/kernel/egen 
-	test -d $(BOOTSTRAP_TOP)/lib/kernel/ebin \
+	$(V_at)test -d $(BOOTSTRAP_TOP)/lib/kernel/ebin \
 		|| mkdir -p $(BOOTSTRAP_TOP)/lib/kernel/ebin 
-	test -d $(BOOTSTRAP_TOP)/lib/kernel/include \
+	$(V_at)test -d $(BOOTSTRAP_TOP)/lib/kernel/include \
 		|| mkdir -p $(BOOTSTRAP_TOP)/lib/kernel/include 
-	test -d $(BOOTSTRAP_TOP)/lib/stdlib/egen \
+	$(V_at)test -d $(BOOTSTRAP_TOP)/lib/stdlib/egen \
 		|| mkdir -p $(BOOTSTRAP_TOP)/lib/stdlib/egen 
-	test -d $(BOOTSTRAP_TOP)/lib/stdlib/ebin \
+	$(V_at)test -d $(BOOTSTRAP_TOP)/lib/stdlib/ebin \
 		|| mkdir -p $(BOOTSTRAP_TOP)/lib/stdlib/ebin 
-	test -d $(BOOTSTRAP_TOP)/lib/stdlib/include \
+	$(V_at)test -d $(BOOTSTRAP_TOP)/lib/stdlib/include \
 		|| mkdir -p $(BOOTSTRAP_TOP)/lib/stdlib/include 
-	test -d $(BOOTSTRAP_TOP)/lib/compiler/egen \
+	$(V_at)test -d $(BOOTSTRAP_TOP)/lib/compiler/egen \
 		|| mkdir -p $(BOOTSTRAP_TOP)/lib/compiler/egen 
-	test -d $(BOOTSTRAP_TOP)/lib/compiler/ebin \
+	$(V_at)test -d $(BOOTSTRAP_TOP)/lib/compiler/ebin \
 		|| mkdir -p $(BOOTSTRAP_TOP)/lib/compiler/ebin 
-	test -d $(BOOTSTRAP_TOP)/lib/orber/include \
+	$(V_at)test -d $(BOOTSTRAP_TOP)/lib/orber/include \
 		|| mkdir -p $(BOOTSTRAP_TOP)/lib/orber/include
 
 primary_bootstrap_copy:
-	cp -f lib/kernel/include/*.hrl $(BOOTSTRAP_TOP)/lib/kernel/include
-	cp -f lib/stdlib/include/*.hrl $(BOOTSTRAP_TOP)/lib/stdlib/include
-	cp -f lib/orber/include/* $(BOOTSTRAP_TOP)/lib/orber/include
+	$(make_verbose)
+	$(V_at)cp -f lib/kernel/include/*.hrl $(BOOTSTRAP_TOP)/lib/kernel/include
+	$(V_at)cp -f lib/stdlib/include/*.hrl $(BOOTSTRAP_TOP)/lib/stdlib/include
+	$(V_at)cp -f lib/orber/include/* $(BOOTSTRAP_TOP)/lib/orber/include
 
 # To remove modules left by the bootstrap building, but leave (restore)
 # the modules in kernel which are needed for an emulator build
@@ -1000,9 +1008,10 @@ eclean:
 #
 
 bootstrap_root_clean:
-	rm -f $(BOOTSTRAP_ROOT)/bootstrap/lib/*/ebin/*.beam
-	rm -f $(BOOTSTRAP_ROOT)/bootstrap/lib/*/include/*.hrl
-	rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/*.*
+	$(make_verbose)
+	$(V_at)rm -f $(BOOTSTRAP_ROOT)/bootstrap/lib/*/ebin/*.beam
+	$(V_at)rm -f $(BOOTSTRAP_ROOT)/bootstrap/lib/*/include/*.hrl
+	$(V_at)rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/*.*
 
 # $(ERL_TOP)/bootstrap *should* equal $(BOOTSTRAP_TOP)
 #
@@ -1010,15 +1019,16 @@ bootstrap_root_clean:
 # extra safety precaution (we would really make a mess if
 # $(BOOTSTRAP_TOP) for some reason should be empty).
 bootstrap_clean:
-	rm -f $(ERL_TOP)/bootstrap/lib/*/ebin/*.beam
-	rm -f $(ERL_TOP)/bootstrap/lib/*/ebin/*.app
-	rm -f $(ERL_TOP)/bootstrap/lib/*/egen/*
-	rm -f $(ERL_TOP)/bootstrap/lib/*/include/*.hrl
-	rm -f $(ERL_TOP)/bootstrap/primary_compiler/ebin/*
-	rm -f $(ERL_TOP)/bootstrap/primary_compiler/egen/*
-	rm -f $(ERL_TOP)/bootstrap/bin/*.*
-	rm -f $(KERNEL_PRELOAD:%=$(ERL_TOP)/lib/kernel/ebin/%.beam)
-	test $(BOOTSTRAP_ROOT) = $(ERL_TOP) \
+	$(make_verbose)
+	$(V_at)rm -f $(ERL_TOP)/bootstrap/lib/*/ebin/*.beam
+	$(V_at)rm -f $(ERL_TOP)/bootstrap/lib/*/ebin/*.app
+	$(V_at)rm -f $(ERL_TOP)/bootstrap/lib/*/egen/*
+	$(V_at)rm -f $(ERL_TOP)/bootstrap/lib/*/include/*.hrl
+	$(V_at)rm -f $(ERL_TOP)/bootstrap/primary_compiler/ebin/*
+	$(V_at)rm -f $(ERL_TOP)/bootstrap/primary_compiler/egen/*
+	$(V_at)rm -f $(ERL_TOP)/bootstrap/bin/*.*
+	$(V_at)rm -f $(KERNEL_PRELOAD:%=$(ERL_TOP)/lib/kernel/ebin/%.beam)
+	$(V_at)test $(BOOTSTRAP_ROOT) = $(ERL_TOP) \
 		|| $(MAKE) BOOTSTRAP_ROOT=$(BOOTSTRAP_ROOT) bootstrap_root_clean
 
 # ----------------------------------------------------------------------

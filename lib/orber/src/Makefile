@@ -215,10 +215,10 @@ clean:
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(ORBER_VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(ORBER_VSN);' $< > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(ORBER_VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(ORBER_VSN);' $< > $@
 
 docs:
 
@@ -227,17 +227,17 @@ docs:
 # ----------------------------------------------------
 
 IDL-GENERATED:  $(ERL_TOP)/lib/ic/include/erlang.idl CORBA.idl OrberIFR.idl
-	erlc $(ERL_IDL_FLAGS) $(ERL_TOP)/lib/ic/include/erlang.idl
-	erlc $(ERL_IDL_FLAGS) CORBA.idl
-	erlc $(ERL_IDL_FLAGS) +'{this,"Orber::IFR"}' OrberIFR.idl
-	>IDL-GENERATED
+	$(gen_verbose)erlc $(ERL_IDL_FLAGS) $(ERL_TOP)/lib/ic/include/erlang.idl
+	$(V_at)erlc $(ERL_IDL_FLAGS) CORBA.idl
+	$(V_at)erlc $(ERL_IDL_FLAGS) +'{this,"Orber::IFR"}' OrberIFR.idl
+	$(V_at)>IDL-GENERATED
 
 $(GEN_ERL_FILES): IDL-GENERATED
 $(TARGET_FILES): IDL-GENERATED
 
 $(GEN_ASN_ERL) $(GEN_ASN_HRL): OrberCSIv2.asn1 OrberCSIv2.set.asn
-	erlc $(ERL_COMPILE_FLAGS) $(ASN_FLAGS) +'{inline,"OrberCSIv2"}' OrberCSIv2.set.asn
-	rm -f $(GEN_ASN_ERL:%.erl=%.beam)
+	$(asn_verbose)erlc $(ERL_COMPILE_FLAGS) $(ASN_FLAGS) +'{inline,"OrberCSIv2"}' OrberCSIv2.set.asn
+	$(V_at)rm -f $(GEN_ASN_ERL:%.erl=%.beam)
 
 #	erlc $(ERL_COMPILE_FLAGS) $(ASN_FLAGS) OrberCSIv2.asn1 ;\
 #	erlc $(GEN_ASN_ERL) 

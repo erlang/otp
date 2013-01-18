@@ -17,6 +17,7 @@
 # %CopyrightEnd%
 #
 
+include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/erts/include/internal/$(TARGET)/ethread.mk
 
@@ -150,7 +151,7 @@ _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
 all: $(PROGS) $(DRIVERS)
 
 $(ERTS_LIB):
-	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
+	$(make_verbose)cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
 
 
 docs:
@@ -167,7 +168,7 @@ clean:
 #
 
 $(EMEM_OBJ_DIR)/%.o: %.c
-	$(CC) $(EMEM_CFLAGS) -o $@ -c $<
+	$(V_CC) $(EMEM_CFLAGS) -o $@ -c $<
 
 #
 # Driver targets
@@ -178,7 +179,7 @@ $(EMEM_OBJ_DIR)/%.o: %.c
 #
 
 $(BIN_DIR)/emem$(TYPEMARKER)@EXEEXT@: $(EMEM_OBJS) $(ERTS_LIB)
-	$(PRE_LD) $(LD) $(EMEM_LDFLAGS) -o $@ $(EMEM_OBJS) $(EMEM_LIBS)
+	$(ld_verbose)$(PRE_LD) $(LD) $(EMEM_LDFLAGS) -o $@ $(EMEM_OBJS) $(EMEM_LIBS)
 
 #
 # Release targets
@@ -221,7 +222,8 @@ SED_DEPEND=sed '$(SED_REPL_OBJ_DIR);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET);$(SED_
 DEPEND_MK=depend.mk
 
 dep depend:
-	@echo "Generating dependency file $(DEPEND_MK)..."
+	[ $(v_p) == 0 ] && echo " GEN	"$(DEPEND_MK)
+	$(V_colon)@echo "Generating dependency file $(DEPEND_MK)..."
 	@echo "# Generated dependency rules." > $(DEPEND_MK);
 	@echo "# Do *not* edit this file; instead, run 'make depend'." \
 		>> $(DEPEND_MK);

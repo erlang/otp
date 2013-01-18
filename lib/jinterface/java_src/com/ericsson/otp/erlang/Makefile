@@ -61,7 +61,10 @@ CLASSPATH = $(JAVA_SRC_ROOT)
 
 JAVADOCFLAGS=-d $(DOCDIR)
 JAVAFLAGS=-d $(JAVA_DEST_ROOT) 
-JARFLAGS=-cvf
+JARFLAGS=-cf
+ifneq ($(V),0)
+JARFLAGS=-cfv
+endif
 
 JAVA_OPTIONS = 
 
@@ -79,13 +82,13 @@ endif
 debug opt: make_dirs $(JAVA_DEST_ROOT)$(JARFILE)
 
 make_dirs:
-	if [ ! -d "$(JAVA_DEST_ROOT)" ];then mkdir "$(JAVA_DEST_ROOT)"; fi
+	$(V_at)if [ ! -d "$(JAVA_DEST_ROOT)" ];then mkdir "$(JAVA_DEST_ROOT)"; fi
 
 $(JAVA_DEST_ROOT)$(JARFILE): $(TARGET_FILES)
 	@(cd $(JAVA_DEST_ROOT) ; $(JAR) $(JARFLAGS) $(JARFILE) $(JAVA_CLASS_SUBDIR))
 
 clean:
-	rm -f $(TARGET_FILES) *~
+	$(V_at)rm -f $(TARGET_FILES) *~
 
 docs:
 
@@ -96,13 +99,13 @@ docs:
 # include $(ERL_TOP)/make/otp_release_targets.mk
 
 release release_docs release_tests release_html:
-	$(MAKE) $(MFLAGS) RELEASE_PATH="$(RELEASE_PATH)" $(TARGET_MAKEFILE)  $@_spec
+	$(V_at)$(MAKE) $(MFLAGS) RELEASE_PATH="$(RELEASE_PATH)" $(TARGET_MAKEFILE)  $@_spec
 
 release_spec: opt
-	$(INSTALL_DIR) "$(RELSYSDIR)/java_src/com/ericsson/otp/erlang"
-	$(INSTALL_DATA) $(JAVA_SRC) "$(RELSYSDIR)/java_src/com/ericsson/otp/erlang"
-	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
-	$(INSTALL_DATA) $(JAVA_DEST_ROOT)$(JARFILE) "$(RELSYSDIR)/priv"
+	$(V_at)$(INSTALL_DIR) "$(RELSYSDIR)/java_src/com/ericsson/otp/erlang"
+	$(V_at)$(INSTALL_DATA) $(JAVA_SRC) "$(RELSYSDIR)/java_src/com/ericsson/otp/erlang"
+	$(V_at)$(INSTALL_DIR) "$(RELSYSDIR)/priv"
+	$(V_at)$(INSTALL_DATA) $(JAVA_DEST_ROOT)$(JARFILE) "$(RELSYSDIR)/priv"
 
 release_docs_spec:
 

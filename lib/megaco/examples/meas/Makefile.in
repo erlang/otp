@@ -147,12 +147,12 @@ release_docs_spec:
 # ----------------------------------------------------
 
 meas.sh.skel: meas.sh.skel.src
-	@echo "transforming $< to $@"
-	$(PERL) -p -e 's?%VSN%?$(VSN)? ' < $< > $@
+	$(V_colon)@echo "transforming $< to $@"
+	$(vsn_verbose)$(PERL) -p -e 's?%VSN%?$(VSN)? ' < $< > $@
 
 mstone1.sh.skel: mstone1.sh.skel.src
-	@echo "transforming $< to $@"
-	$(PERL) -p -e 's?%VSN%?$(VSN)? ' < $< > $@
+	$(V_colon)@echo "transforming $< to $@"
+	$(vsn_verbose)$(PERL) -p -e 's?%VSN%?$(VSN)? ' < $< > $@
 
 megaco_codec_transform.$(EMULATOR): megaco_codec_transform.erl
 

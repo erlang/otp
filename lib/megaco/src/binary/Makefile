@@ -129,12 +129,13 @@ opt: prebuild $(TARGET_FILES)
 prebuild: prebuild.skip
 
 prebuild.skip: 
-	@echo "Building prebuild.skip\c"
+	$(gen_verbose)
+	$(V_colon)@echo "Building prebuild.skip\c"
 	@touch prebuild.skip
 	@for a in $(SPEC_ASN1DB); do \
 		echo $$a >> prebuild.skip; \
 	done
-	@echo ""
+	$(V_colon)@echo ""
 
 v1: $(V2_SPEC_BINS)
 

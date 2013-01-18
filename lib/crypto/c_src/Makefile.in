@@ -108,16 +108,16 @@ _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 debug opt valgrind: $(NIF_LIB) $(CALLBACK_LIB)
 
 $(OBJDIR)/%$(TYPEMARKER).o: %.c
-	$(INSTALL_DIR) $(OBJDIR)
-	$(CC) -c -o $@ $(ALL_CFLAGS) $<
+	$(V_at)$(INSTALL_DIR) $(OBJDIR)
+	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
 
 $(LIBDIR)/crypto$(TYPEMARKER).so: $(CRYPTO_OBJS)
-	$(INSTALL_DIR) $(LIBDIR)
-	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
+	$(V_at)$(INSTALL_DIR) $(LIBDIR)
+	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
 
 $(LIBDIR)/crypto$(TYPEMARKER).dll: $(CRYPTO_OBJS)
-	$(INSTALL_DIR) $(LIBDIR)
-	$(LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(CRYPTO_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME)
+	$(V_at)$(INSTALL_DIR) $(LIBDIR)
+	$(V_LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(CRYPTO_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME)
 
 ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
 $(LIBDIR)/crypto_callback$(TYPEMARKER).so: $(CALLBACK_OBJS)

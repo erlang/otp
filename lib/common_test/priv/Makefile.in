@@ -68,15 +68,15 @@ JS = jquery-latest.js jquery.tablesorter.min.js
 
 include ../../test_server/vsn.mk
 debug opt:
-	sed -e 's;@CT_VSN@;$(VSN);' \
+	$(V_at)sed -e 's;@CT_VSN@;$(VSN);' \
             -e 's;@TS_VSN@;$(TEST_SERVER_VSN);' \
             ../install.sh.in > install.sh
-	chmod 775 install.sh
+	$(V_at)chmod 775 install.sh
 
 docs:
 
 clean:
-	rm -f $(SCRIPTS)
+	$(V_at)rm -f $(SCRIPTS)
 
 
 # ----------------------------------------------------

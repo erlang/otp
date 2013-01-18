@@ -68,7 +68,7 @@ docs:
 # ----------------------------------------------------
 
 v1/%.mib.v1: %.mib
-	$(ERL_TOP)/lib/snmp/bin/snmp-v2tov1 -o $@ $<
+	$(gen_verbose)$(ERL_TOP)/lib/snmp/bin/snmp-v2tov1 -o $@ $<
 
 # ----------------------------------------------------
 # Release Target

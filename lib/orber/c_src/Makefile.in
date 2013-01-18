@@ -56,10 +56,10 @@ debug opt: $(OBJDIR) orber
 
 ifeq ($(findstring win32,$(TARGET)),win32)
 orber: 
-	echo "Nothing to build on NT"
+	$(V_colon)echo "Nothing to build on NT"
 else
 orber: 
-	echo "Nothing to build"	
+	$(V_colon)echo "Nothing to build"
 endif
 
 clean:
@@ -74,7 +74,7 @@ $(OBJDIR):
 	-mkdir -p $(OBJDIR)
 
 $(OBJDIR)/%.o: %.c
-	$(CC) -c -o $@ $(ALL_CFLAGS) $<
+	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
 
 # ----------------------------------------------------
 # Release Target

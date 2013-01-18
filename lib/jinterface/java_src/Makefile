@@ -47,7 +47,7 @@ POM_SRC= $(POM_FILE).src
 # ----------------------------------------------------
 
 $(POM_TARGET): $(POM_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 
 include $(ERL_TOP)/make/otp_subdir.mk

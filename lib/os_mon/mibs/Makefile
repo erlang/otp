@@ -67,16 +67,16 @@ OTP_MIBDIR = $(shell if test -d ../../otp_mibs; then echo otp_mibs; \
 		      else echo sasl; fi)
 
 $(SNMP_BIN_TARGET_DIR)/OTP-REG.bin:     $(ERL_TOP)/lib/$(OTP_MIBDIR)/mibs/OTP-REG.mib
-	$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
+	$(snmp_verbose)$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
 
 $(SNMP_BIN_TARGET_DIR)/OTP-TC.bin:     $(ERL_TOP)/lib/$(OTP_MIBDIR)/mibs/OTP-TC.mib
-	$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
+	$(snmp_verbose)$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
 
 $(SNMP_BIN_TARGET_DIR)/OTP-MIB.bin:     $(ERL_TOP)/lib/$(OTP_MIBDIR)/mibs/OTP-MIB.mib
-	$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
+	$(snmp_verbose)$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
 
 v1/%.mib.v1: %.mib
-	$(ERL_TOP)/lib/snmp/bin/snmp-v2tov1 -o $@ $<
+	$(gen_verbose)$(ERL_TOP)/lib/snmp/bin/snmp-v2tov1 -o $@ $<
 
 $(SNMP_BIN_TARGET_DIR)/OTP-OS-MON-MIB.bin: \
 	$(SNMP_BIN_TARGET_DIR)/OTP-REG.bin \

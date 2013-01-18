@@ -119,7 +119,7 @@ ERL_COMPILE_FLAGS += \
 
 # erl/hrl from dictionary file.
 gen/diameter_gen_%.erl gen/diameter_gen_%.hrl: dict/%.dia
-	../bin/diameterc -o gen -i $(EBIN) $<
+	$(dia_verbose)../bin/diameterc -o gen -i $(EBIN) $<
 
 opt: $(TARGET_FILES)
 
@@ -128,17 +128,17 @@ debug:
 
 # The dictionary parser.
 gen/$(DICT_YRL).erl: compiler/$(DICT_YRL).yrl
-	$(ERLC) -Werror -o $(@D) $<
+	$(yecc_verbose)$(ERLC) -Werror -o $(@D) $<
 
 # Generate the app file.
 $(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk
-	M=`echo $(notdir $(APP_MODULES)) | tr ' ' ,`; \
+	$(gen_verbose)M=`echo $(notdir $(APP_MODULES)) | tr ' ' ,`; \
 	sed -e 's;%VSN%;$(VSN);' \
 	    -e "s;%MODULES%;$$M;" \
 	  $< > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 app:  $(APP_TARGET) $(APPUP_TARGET)
 dict: $(DICT_ERLS)
@@ -254,7 +254,7 @@ depend: depend.mk
 
 # Generate dependencies makefile.
 depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
-	(for f in $(MODULES); do \
+	$(gen_verbose)(for f in $(MODULES); do \
 	     (echo $$f; cat $$f.erl) | sed -f $<; \
 	 done) \
 	> $@

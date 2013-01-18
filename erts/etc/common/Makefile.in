@@ -17,6 +17,7 @@
 # %CopyrightEnd%
 #
 
+include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 
 ERTS_LIB_TYPEMARKER=.$(TYPE)
@@ -191,7 +192,7 @@ etc:	$(ENTRY_OBJ) $(INSTALL_PROGS) $(INSTALL_LIBS) $(TEXTFILES) $(INSTALL_TOP_BI
 
 # erlexec needs the erts_internal library...
 $(ERTS_LIB):
-	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
+	$(V_at)cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
 
 .PHONY: docs
 docs:
@@ -249,23 +250,23 @@ endif
 ifeq ($(TARGET),win32)
 
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/erlexec.o $(OBJDIR)/win_erlexec.o $(OBJDIR)/init_file.o  $(OBJDIR)/$(ERLRES_OBJ) $(ERTS_LIB)
-	$(LD) -dll $(LDFLAGS) -o $@ $(OBJDIR)/erlexec.o $(OBJDIR)/win_erlexec.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) $(ERTS_INTERNAL_LIBS)
+	$(V_LD) -dll $(LDFLAGS) -o $@ $(OBJDIR)/erlexec.o $(OBJDIR)/win_erlexec.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) $(ERTS_INTERNAL_LIBS)
 
 $(BINDIR)/erl@EXEEXT@: $(OBJDIR)/erl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ)
-	$(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) 
+	$(V_LD) $(LDFLAGS) -o $@ $(OBJDIR)/erl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) 
 
 $(BINDIR)/werl@EXEEXT@: $(OBJDIR)/werl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ)
-	$(LD) $(LDFLAGS) -o $@  $(OBJDIR)/werl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) 
+	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/werl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) 
 
 $(BINDIR)/start_erl@EXEEXT@: $(OBJDIR)/start_erl.o 
-	$(LD) $(LDFLAGS) -o $@  $(OBJDIR)/start_erl.o
+	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/start_erl.o
 
 $(BINDIR)/Install@EXEEXT@: $(OBJDIR)/Install.o  $(OBJDIR)/init_file.o 
-	$(LD) $(LDFLAGS) -o $@  $(OBJDIR)/Install.o  $(OBJDIR)/init_file.o
+	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/Install.o  $(OBJDIR)/init_file.o
 
 # The service expects to be compiled with $(MT_FLAG) flag.
 $(BINDIR)/erlsrv@EXEEXT@: $(ERLSRV_OBJECTS)
-	$(LD) $(LDFLAGS) $(MT_FLAG) -o $@ $(ERLSRV_OBJECTS)
+	$(V_LD) $(LDFLAGS) $(MT_FLAG) -o $@ $(ERLSRV_OBJECTS)
 
 # To fix a spooky parallel make build problem on Windows there are some
 # false dependencies on the $(MC), $(RC) and .o rules. The theory behind
@@ -280,62 +281,62 @@ $(BINDIR)/erlsrv@EXEEXT@: $(ERLSRV_OBJECTS)
 LOGMESS_GENERATED = $(OBJDIR)/LOGMESS-GENERATED
 $(MC_OUTPUTS): $(LOGMESS_GENERATED)
 $(LOGMESS_GENERATED): $(WINETC)/erlsrv/erlsrv_logmess.mc
-	$(MC) -o $(OBJDIR) $(WINETC)/erlsrv/erlsrv_logmess.mc && \
+	$(V_MC) -o $(OBJDIR) $(WINETC)/erlsrv/erlsrv_logmess.mc && \
 		echo $? >$(LOGMESS_GENERATED)
 
 $(OBJDIR)/$(ERLRES_OBJ): $(WINETC)/erl.rc $(WINETC)/erlang.ico \
 		$(WINETC)/erl_icon.ico $(WINETC)/hrl_icon.ico \
 		$(WINETC)/beam_icon.ico $(LOGMESS_GENERATED)
-	$(RC) -o $@ -I$(WINETC) $(WINETC)/erl.rc
+	$(V_RC) -o $@ -I$(WINETC) $(WINETC)/erl.rc
 
 ifeq ($(USING_VC), yes)
 RC_GENERATED = $(OBJDIR)/erlsrv_logmess.res
 $(RC_GENERATED): $(OBJDIR)/erlsrv_logmess.rc $(OBJDIR)/$(ERLRES_OBJ)
-	$(RC) -o $(OBJDIR)/erlsrv_logmess.res -I$(OBJDIR) $(OBJDIR)/erlsrv_logmess.rc
+	$(V_RC) -o $(OBJDIR)/erlsrv_logmess.res -I$(OBJDIR) $(OBJDIR)/erlsrv_logmess.rc
 else
 RC_GENERATED = $(OBJDIR)/erlsrv_logmess.o
 $(RC_GENERATED): $(OBJDIR)/erlsrv_logmess.res $(OBJDIR)/$(ERLRES_OBJ)
-	$(RC) -o $(OBJDIR)/erlsrv_logmess.o -I$(OBJDIR) $(OBJDIR)/erlsrv_logmess.res
+	$(V_RC) -o $(OBJDIR)/erlsrv_logmess.o -I$(OBJDIR) $(OBJDIR)/erlsrv_logmess.res
 endif
 
 # The service expects to be compiled with $(MT_FLAG) flag.
 $(OBJDIR)/%.o: $(WINETC)/erlsrv/%.c $(ERLSRV_HEADERS) $(RC_GENERATED)
-	$(CC) $(CFLAGS) $(MT_FLAG) -o $@ -c $<
+	$(V_CC) $(CFLAGS) $(MT_FLAG) -o $@ -c $<
 
 $(OBJDIR)/erlsrv_util.o: $(WINETC)/erlsrv/erlsrv_util.c $(ERLSRV_HEADERS) \
 		$(OBJDIR)/erlsrv_logmess.h $(RC_GENERATED)
-	$(CC) $(CFLAGS) -I$(OBJDIR) $(MT_FLAG) -o $@ -c $<
+	$(V_CC) $(CFLAGS) -I$(OBJDIR) $(MT_FLAG) -o $@ -c $<
 
 $(OBJDIR)/werl.o: $(WINETC)/erl.c $(WINETC)/init_file.h $(RC_GENERATED)
-	$(CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
+	$(V_CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
 	-DWIN32_WERL -o $@ -c $(WINETC)/erl.c
 
 $(OBJDIR)/erl.o: $(WINETC)/erl.c $(WINETC)/init_file.h $(RC_GENERATED)
-	$(CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
+	$(V_CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
 	-o $@ -c $(WINETC)/erl.c
 
 $(OBJDIR)/erlexec.o: $(ERLEXECDIR)/erlexec.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
+	$(V_CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
 	-o $@ -c $(ERLEXECDIR)/erlexec.c
 
 $(OBJDIR)/win_erlexec.o: $(WINETC)/win_erlexec.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
+	$(V_CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
 	-o $@ -c $(WINETC)/win_erlexec.c
 
 $(OBJDIR)/init_file.o: $(WINETC)/init_file.c $(WINETC)/init_file.h $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c $(WINETC)/init_file.c
+	$(V_CC) $(CFLAGS) -o $@ -c $(WINETC)/init_file.c
 
 $(OBJDIR)/Install.o: $(WINETC)/Install.c $(WINETC)/init_file.h $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c $(WINETC)/Install.c
+	$(V_CC) $(CFLAGS) -o $@ -c $(WINETC)/Install.c
 
 $(OBJDIR)/start_erl.o: $(WINETC)/start_erl.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c $(WINETC)/start_erl.c
+	$(V_CC) $(CFLAGS) -o $@ -c $(WINETC)/start_erl.c
 
 $(ENTRY_OBJ): $(ENTRY_SRC) $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c $(ENTRY_SRC)
+	$(V_CC) $(CFLAGS) -o $@ -c $(ENTRY_SRC)
 
 Install.ini:	../$(TARGET)/Install.src ../../vsn.mk $(TARGET)/Makefile
-	sed -e 's;%I_VSN%;$(VSN);' \
+	$(vsn_verbose)sed -e 's;%I_VSN%;$(VSN);' \
 	    -e 's;%I_SYSTEM_VSN%;$(SYSTEM_VSN);' \
           ../$(TARGET)/Install.src > Install.ini
 
@@ -348,99 +349,99 @@ endif
 #---------------------------------------------------------
 
 $(BINDIR)/heart@EXEEXT@: $(OBJDIR)/heart.o $(ENTRY_OBJ)
-	$(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/heart.o \
+	$(V_LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/heart.o \
 		$(RTLIBS) $(ENTRY_OBJ) $(WINDSOCK)
 
 $(OBJDIR)/heart.o: heart.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c heart.c
+	$(V_CC) $(CFLAGS) -o $@ -c heart.c
 
 #
 # Objects & executables
 #
 #$(OBJDIR)/%.o: %.c
-#	$(CC) $(CFLAGS) -o $@ -c $<
+#	$(V_CC) $(CFLAGS) -o $@ -c $<
 #
 #$(OBJDIR)/%.o: ../unix/%.c
-#	$(CC) $(CFLAGS) -o $@ -c $<
+#	$(V_CC) $(CFLAGS) -o $@ -c $<
 #
 #$(BINDIR)/%: $(OBJDIR)/%.o
-#	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $< $(LIBS)
+#	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $< $(LIBS)
 
 $(OBJDIR)/inet_gethost.o: inet_gethost.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c inet_gethost.c
+	$(V_CC) $(CFLAGS) -o $@ -c inet_gethost.c
 
 $(BINDIR)/inet_gethost@EXEEXT@: $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(ERTS_LIB)
-	$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o
-	$(LD) $(LDFLAGS) -o $@ $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(LIBS)
+	$(V_LD) $(LDFLAGS) -o $@ $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(LIBS)
 
 $(OBJDIR)/run_erl.o: ../unix/run_erl.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c ../unix/run_erl.c
+	$(V_CC) $(CFLAGS) -o $@ -c ../unix/run_erl.c
 
 $(BINDIR)/to_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
-	$(LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
+	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
 
 $(OBJDIR)/to_erl.o: ../unix/to_erl.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c ../unix/to_erl.c
+	$(V_CC) $(CFLAGS) -o $@ -c ../unix/to_erl.c
 
 $(BINDIR)/dyn_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
-	$(LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
+	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
 
 $(OBJDIR)/dyn_erl.o: ../unix/dyn_erl.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c ../unix/dyn_erl.c
+	$(V_CC) $(CFLAGS) -o $@ -c ../unix/dyn_erl.c
 
 $(OBJDIR)/safe_string.o: ../unix/safe_string.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c ../unix/safe_string.c
+	$(V_CC) $(CFLAGS) -o $@ -c ../unix/safe_string.c
 
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/$(ERLEXEC).o $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/$(ERLEXEC).o $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c $(RC_GENERATED)
-	$(CC) -I$(EMUDIR) $(CFLAGS) -o $@ -c $(ERLEXECDIR)/$(ERLEXEC).c
+	$(V_CC) -I$(EMUDIR) $(CFLAGS) -o $@ -c $(ERLEXECDIR)/$(ERLEXEC).c
 endif
 $(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o $(ERTS_LIB)
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/erlc.o: erlc.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c erlc.c
+	$(V_CC) $(CFLAGS) -o $@ -c erlc.c
 
 $(BINDIR)/dialyzer@EXEEXT@: $(OBJDIR)/dialyzer.o $(ERTS_LIB)
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/dialyzer.o: dialyzer.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c dialyzer.c
+	$(V_CC) $(CFLAGS) -o $@ -c dialyzer.c
 
 $(BINDIR)/typer@EXEEXT@: $(OBJDIR)/typer.o $(ERTS_LIB)
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/typer.o: typer.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c typer.c
+	$(V_CC) $(CFLAGS) -o $@ -c typer.c
 
 $(BINDIR)/escript@EXEEXT@: $(OBJDIR)/escript.o $(ERTS_LIB)
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/escript.o: escript.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c escript.c
+	$(V_CC) $(CFLAGS) -o $@ -c escript.c
 
 $(BINDIR)/ct_run@EXEEXT@: $(OBJDIR)/ct_run.o $(ERTS_LIB)
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/ct_run.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/ct_run.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/ct_run.o: ct_run.c $(RC_GENERATED)
-	$(CC) $(CFLAGS) -o $@ -c ct_run.c
+	$(V_CC) $(CFLAGS) -o $@ -c ct_run.c
 
 
 
 Install:	../unix/Install.src ../../vsn.mk $(TARGET)/Makefile
-	sed -e 's;%I_VSN%;$(VSN);' \
+	$(vsn_verbose)sed -e 's;%I_VSN%;$(VSN);' \
 	    -e 's;%EMULATOR%;$(EMULATOR);' \
             -e 's;%EMULATOR_NUMBER%;$(EMULATOR_NUMBER);' \
 	    -e 's;%I_SYSTEM_VSN%;$(SYSTEM_VSN);' \
           ../unix/Install.src > Install
 
 erl.src: ../unix/erl.src.src ../../vsn.mk $(TARGET)/Makefile
-	sed -e 's;%EMULATOR%;$(EMULATOR);' \
+	$(vsn_verbose)sed -e 's;%EMULATOR%;$(EMULATOR);' \
             -e 's;%EMULATOR_NUMBER%;$(EMULATOR_NUMBER);' \
             -e 's;%VSN%;$(VSN);' \
                   ../unix/erl.src.src > erl.src

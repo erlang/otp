@@ -25,6 +25,11 @@
 	.3 .1 .fig .dvi .tex .class .java .pdf .fo .psframe .pscrop .el .elc
 
 # ----------------------------------------------------
+#	Output
+# ----------------------------------------------------
+include $(ERL_TOP)/make/output.mk
+
+# ----------------------------------------------------
 #	Cross Compiling
 # ----------------------------------------------------
 CROSS_COMPILING = @CROSS_COMPILING@
@@ -104,19 +109,19 @@ ESRC = .
 endif
 
 $(EBIN)/%.beam: $(EGEN)/%.erl
-	$(ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 $(EBIN)/%.beam: $(ESRC)/%.erl
-	$(ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 ifeq ($(NATIVE_LIBS_ENABLED),yes)
 # Special rule for the HIPE bootstrap w/ native libs
 ../boot_ebin/%.beam: $(ESRC)/%.erl
-	$(ERLC) $(ERL_COMPILE_FLAGS) -o../boot_ebin $<
+	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o../boot_ebin $<
 endif
 
 .erl.beam:
-	$(ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) $<
+	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) $<
 
 #
 # When .erl files are automatically created GNU make removes them if
@@ -131,10 +136,10 @@ endif
 ##	$(ERLC) $(IDL_FLAGS) $<
 
 $(EGEN)/%.erl: $(ESRC)/%.yrl
-	$(ERLC) $(YRL_FLAGS) -o$(EGEN) $<
+	$(yecc_verbose)$(ERLC) $(YRL_FLAGS) -o$(EGEN) $<
 
 $(EGEN)/%.erl: $(ESRC)/%.xrl
-	$(ERLC) $(XRL_FLAGS) -o$(EGEN) $<
+	$(leex_verbose)$(ERLC) $(XRL_FLAGS) -o$(EGEN) $<
 
 # ----------------------------------------------------
 #	SNMP language section
@@ -149,16 +154,16 @@ endif
 
 
 $(SNMP_BIN_TARGET_DIR)/%.bin: %.mib
-	$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
+	$(snmp_verbose)$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
 
 $(SNMP_HRL_TARGET_DIR)/%.hrl: $(SNMP_BIN_TARGET_DIR)/%.bin
-	$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -o $(SNMP_HRL_TARGET_DIR) $<
+	$(snmp_verbose)$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -o $(SNMP_HRL_TARGET_DIR) $<
 
 .mib.bin:
-	$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) $<
+	$(snmp_verbose)$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) $<
 
 .bin.hrl:
-	$(ERLC) -pa $(SNMP_TOOLKIT)/ebin $<
+	$(snmp_verbose)$(ERLC) -pa $(SNMP_TOOLKIT)/ebin $<
 
 # ----------------------------------------------------
 #	Java language section
@@ -170,11 +175,11 @@ JAVA_DEST_ROOT = ../priv/
 endif
 
 .java.class:
-	CLASSPATH=$(CLASSPATH) $(JAVA) $(JAVA_OPTIONS) $<
+	$(javac_verbose)CLASSPATH=$(CLASSPATH) $(JAVA) $(JAVA_OPTIONS) $<
 
 
 $(JAVA_DEST_ROOT)$(JAVA_CLASS_SUBDIR)%.class: %.java
-	CLASSPATH=$(CLASSPATH) $(JAVA) $(JAVA_OPTIONS) -d $(JAVA_DEST_ROOT) $<
+	$(javac_verbose)CLASSPATH=$(CLASSPATH) $(JAVA) $(JAVA_OPTIONS) -d $(JAVA_DEST_ROOT) $<
 
 # ----------------------------------------------------
 #	Emacs byte code compiling
@@ -183,7 +188,7 @@ EMACS_COMPILER=emacs-20
 EMACS_COMPILE_OPTIONS=-q --no-site-file -batch -f batch-byte-compile
 
 .el.elc:
-	$(EMACS_COMPILER) $(EMACS_COMPILE_OPTIONS) $<
+	$(emacs_verbose)$(EMACS_COMPILER) $(EMACS_COMPILE_OPTIONS) $<
 
 # ----------------------------------------------------
 #	Documentation section
