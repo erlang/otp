@@ -276,7 +276,7 @@ write_atom(Atom) ->
     Chars = atom_to_list(Atom),
     case quote_atom(Atom, Chars) of
 	true ->
-	    write_unicode_string(Chars, $');   %'
+	    write_string(Chars, $');   %'
 	false ->
 	    Chars
     end.
