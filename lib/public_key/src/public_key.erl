@@ -509,7 +509,7 @@ pkix_normalize_name(Issuer) ->
 %%-------------------------------------------------------------------- 
 -spec pkix_path_validation(Cert::binary()| #'OTPCertificate'{} | atom(),
 			   CertChain :: [binary()] ,
-			   Options :: proplist:proplist()) ->
+			   Options :: proplists:proplist()) ->
 				  {ok, {PublicKeyInfo :: term(), 
 					PolicyTree :: term()}} |
 				  {error, {bad_cert, Reason :: term()}}.
@@ -547,7 +547,7 @@ pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
 %--------------------------------------------------------------------
 -spec pkix_crls_validate(#'OTPCertificate'{},
 			 [{DP::#'DistributionPoint'{} ,CRL::#'CertificateList'{}}],
-			 Options :: proplist:proplist()) -> valid | {bad_cert, revocation_status_undetermined}
+			 Options :: proplists:proplist()) -> valid | {bad_cert, revocation_status_undetermined}
 								| {bad_cert, {revoked, crl_reason()}}.
 
 %% Description: Performs a basic path validation according to RFC 5280.
