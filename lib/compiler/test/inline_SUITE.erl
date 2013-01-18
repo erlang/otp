@@ -258,6 +258,49 @@ lists(Config) when is_list(Config) ->
 
     %% Cleanup.
     erase(?MODULE),
+
+    {'EXIT',{function_clause,[{?MODULE,_,[_,not_a_list],_}|_]}} =
+        (catch lists:map(fun (X) -> X end, not_a_list)),
+    {'EXIT',{function_clause,[{?MODULE,_,[_,not_a_list],_}|_]}} =
+        (catch lists:flatmap(fun (X) -> X end, not_a_list)),
+    {'EXIT',{function_clause,[{?MODULE,_,[_,not_a_list],_}|_]}} =
+        (catch lists:foreach(fun (X) -> X end, not_a_list)),
+    {'EXIT',{function_clause,[{?MODULE,_,[_,not_a_list],_}|_]}} =
+        (catch lists:filter(fun (_) -> true end, not_a_list)),
+    {'EXIT',{function_clause,[{?MODULE,_,[_,not_a_list],_}|_]}} =
+        (catch lists:any(fun (_) -> false end, not_a_list)),
+    {'EXIT',{function_clause,[{?MODULE,_,[_,not_a_list],_}|_]}} =
+        (catch lists:all(fun (_) -> true end, not_a_list)),
+    {'EXIT',{function_clause,[{?MODULE,_,[_,acc,not_a_list],_}|_]}} =
+        (catch lists:foldl(fun (X, Acc) -> {X,Acc} end, acc, not_a_list)),
+    {'EXIT',{function_clause,[{?MODULE,_,[_,acc,not_a_list],_}|_]}} =
+        (catch lists:foldr(fun (X, Acc) -> {X,Acc} end, acc, not_a_list)),
+    {'EXIT',{function_clause,[{?MODULE,_,[_,acc,not_a_list],_}|_]}} =
+        (catch lists:mapfoldl(fun (X, Acc) -> {X,Acc} end, acc, not_a_list)),
+    {'EXIT',{function_clause,[{?MODULE,_,[_,acc,not_a_list],_}|_]}} =
+        (catch lists:mapfoldr(fun (X, Acc) -> {X,Acc} end, acc, not_a_list)),
+
+    {'EXIT',{function_clause,[{?MODULE,_,[not_a_function,[]],_}|_]}} =
+        (catch lists:map(not_a_function, [])),
+    {'EXIT',{function_clause,[{?MODULE,_,[not_a_function,[]],_}|_]}} =
+        (catch lists:flatmap(not_a_function, [])),
+    {'EXIT',{function_clause,[{?MODULE,_,[not_a_function,[]],_}|_]}} =
+        (catch lists:foreach(not_a_function, [])),
+    {'EXIT',{function_clause,[{?MODULE,_,[not_a_function,[]],_}|_]}} =
+        (catch lists:filter(not_a_function, [])),
+    {'EXIT',{function_clause,[{?MODULE,_,[not_a_function,[]],_}|_]}} =
+        (catch lists:any(not_a_function, [])),
+    {'EXIT',{function_clause,[{?MODULE,_,[not_a_function,[]],_}|_]}} =
+        (catch lists:all(not_a_function, [])),
+    {'EXIT',{function_clause,[{?MODULE,_,[not_a_function,acc,[]],_}|_]}} =
+        (catch lists:foldl(not_a_function, acc, [])),
+    {'EXIT',{function_clause,[{?MODULE,_,[not_a_function,acc,[]],_}|_]}} =
+        (catch lists:foldr(not_a_function, acc, [])),
+    {'EXIT',{function_clause,[{?MODULE,_,[not_a_function,acc,[]],_}|_]}} =
+        (catch lists:mapfoldl(not_a_function, acc, [])),
+    {'EXIT',{function_clause,[{?MODULE,_,[not_a_function,acc,[]],_}|_]}} =
+        (catch lists:mapfoldr(not_a_function, acc, [])),
+
     ok.
 		       
 my_apply(M, F, A, Init) ->

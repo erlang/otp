@@ -816,6 +816,32 @@ pi() -> 3.1416.
   </section>
 
   <section>
+    <title>Inlining of list functions</title>
+    <p>The compiler can also inline a variety of list manipulation functions
+      from the stdlib's lists module.</p>
+
+    <p>This feature must be explicitly enabled with a compiler option or a
+      <c>-compile()</c> attribute in the source module.</p>
+
+    <p>To enable inlining of list functions, use the <c>inline_list_funcs</c>
+    option.</p>
+
+    <p>The following functions are inlined:</p>
+    <list type="bulleted">
+      <item><seealso marker="stdlib:lists#all/2">lists:all/2</seealso></item>
+      <item><seealso marker="stdlib:lists#any/2">lists:any/2</seealso></item>
+      <item><seealso marker="stdlib:lists#foreach/2">lists:foreach/2</seealso></item>
+      <item><seealso marker="stdlib:lists#map/2">lists:map/2</seealso></item>
+      <item><seealso marker="stdlib:lists#flatmap/2">lists:flatmap/2</seealso></item>
+      <item><seealso marker="stdlib:lists#filter/2">lists:filter/2</seealso></item>
+      <item><seealso marker="stdlib:lists#foldl/3">lists:foldl/3</seealso></item>
+      <item><seealso marker="stdlib:lists#foldr/3">lists:foldr/3</seealso></item>
+      <item><seealso marker="stdlib:lists#mapfoldl/3">lists:mapfoldl/3</seealso></item>
+      <item><seealso marker="stdlib:lists#mapfoldr/3">lists:mapfoldr/3</seealso></item>
+    </list>
+  </section>
+
+  <section>
     <title>Parse Transformations</title>
 
     <p>Parse transformations are used when a programmer wants to use
