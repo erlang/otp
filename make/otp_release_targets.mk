@@ -107,7 +107,7 @@ $(HTMLDIR)/$(APPLICATION).eix: $(XML_FILES) $(SPECS_FILES)
 docs: $(HTMLDIR)/$(APPLICATION).eix
 
 xmllint: $(XML_FILES)
-	$(XMLLINT) --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/dtd_html_entities  $(XML_FILES)
+	$(XMLLINT) --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities  $(XML_FILES)
 
 # ----------------------------------------------------
 # Local documentation target for testing 
