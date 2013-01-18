@@ -119,10 +119,39 @@
 	<cell align="center">Data</cell>
       </row>
     <tcaption></tcaption></table>
+    <marker id="utf8_atoms"/>
+    <note>
+    <p>As of ERTS version 5.10 (OTP-R16) support
+    for UTF-8 encoded atoms has been introduced in the external format.
+    However, only characters that can be encoded using Latin1 (ISO-8859-1)
+    are currently supported in atoms. The support for UTF-8 encoded atoms
+    in the external format has been implemented in order to be able to support
+    all Unicode characters in atoms in <em>some future release</em>. Full
+    support for Unicode atoms will not happen before OTP-R18, and might
+    be introduced even later than that. Until full Unicode support for
+    atoms has been introduced, it is an <em>error</em> to pass atoms containing
+    characters that cannot be encoded in Latin1, and <em>the behavior is
+    undefined</em>.</p>
+    <p>When the
+    <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_UTF8_ATOMS</c></seealso>
+    distribution flag has been exchanged between both nodes in the
+    <seealso marker="erl_dist_protocol#distribution_handshake">distribution handshake</seealso>,
+    all atoms in the distribution header will be encoded in UTF-8; otherwise,
+    all atoms in the distribution header will be encoded in Latin1. The two
+    new tags <seealso marker="#ATOM_UTF8_EXT">ATOM_UTF8_EXT</seealso>, and
+    <seealso marker="#SMALL_ATOM_UTF8_EXT">SMALL_ATOM_UTF8_EXT</seealso>
+    will only be used if the <c>DFLAG_UTF8_ATOMS</c> distribution flag has
+    been exchanged between nodes, or if an atom containing characters
+    that cannot be encoded in Latin1 is encountered.
+    </p>
+    <p>The maximum number of allowed characters in an atom is 255. In the
+    UTF-8 case each character may need 4 bytes to be encoded.
+    </p>
+    </note>
   </section>
 
-  <section>
-    <marker id="distribution_header"/>
+  <marker id="distribution_header"/>
+  <section>  
     <title>Distribution header</title>
     <p>
       As of erts version 5.7.2 the old atom cache protocol was
@@ -219,8 +248,7 @@
     <p>
       The least significant bit in that half byte is the <c>LongAtoms</c>
       flag. If it is set, 2 bytes are used for atom lengths instead of
-      1 byte in the distribution header. However, the current emulator
-      cannot handle long atoms, so it will currently always be 0.
+      1 byte in the distribution header.
     </p>
     <p>
       After the <c>Flags</c> field follow the <c>AtomCacheRefs</c>. The
@@ -247,14 +275,24 @@
     <p>
       <c>InternalSegmentIndex</c> together with the <c>SegmentIndex</c>
       completely identify the location of an atom cache entry in the
-      atom cache. <c>Length</c> is number of one byte characters that
-      the atom text consists of. Length is a two byte big endian integer
+      atom cache. <c>Length</c> is number of bytes that <c>AtomText</c>
+      consists of. Length is a two byte big endian integer
       if the <c>LongAtoms</c> flag has been set, otherwise a one byte
-      integer. Subsequent <c>CachedAtomRef</c>s with the same
+      integer. When the
+      <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_UTF8_ATOMS</c></seealso>
+      distribution flag has been exchanged between both nodes in the
+      <seealso marker="erl_dist_protocol#distribution_handshake">distribution handshake</seealso>,
+      characters in <c>AtomText</c> is encoded in UTF-8; otherwise,
+      encoded in Latin1. Subsequent <c>CachedAtomRef</c>s with the same
       <c>SegmentIndex</c> and <c>InternalSegmentIndex</c> as this
       <c>NewAtomCacheRef</c> will refer to this atom until a new
       <c>NewAtomCacheRef</c> with the same <c>SegmentIndex</c>
       and <c>InternalSegmentIndex</c> appear.
+    </p>
+    <p>
+      For more information on encoding of atoms, see
+      <seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+      in the beginning of this document.
     </p>
     <p>
       If the <c>NewCacheEntryFlag</c> for the next <c>AtomCacheRef</c>
@@ -383,9 +421,9 @@
 	<tcaption></tcaption></table>
       <p>
 	An atom is stored with a 2 byte unsigned length in big-endian order, 
-	followed by <c>Len</c> numbers of 8 bit characters that forms the 
-	<c>AtomName</c>.
-	Note: The maximum allowed value for <c>Len</c> is 255.
+	followed by <c>Len</c> numbers of 8 bit Latin1 characters that forms
+	the <c>AtomName</c>.
+	<em>Note</em>: The maximum allowed value for <c>Len</c> is 255.
       </p>
     </section>
 
@@ -754,12 +792,14 @@
 	<tcaption></tcaption></table>
       <p>
 	An atom is stored with a 1 byte unsigned length, 
-	followed by <c>Len</c> numbers of 8 bit characters that
+	followed by <c>Len</c> numbers of 8 bit Latin1 characters that
 	forms the <c>AtomName</c>. Longer atoms can be represented
 	by <seealso marker="#ATOM_EXT">ATOM_EXT</seealso>. <em>Note</em>
 	the <c>SMALL_ATOM_EXT</c> was introduced in erts version 5.7.2 and
-	require a small atom distribution flag exchanged in the distribution
-	handshake.
+	require an exchange of the
+	<seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SMALL_ATOM_TAGS</c></seealso>
+	distribution flag in the
+	<seealso marker="erl_dist_protocol#distribution_handshake">distribution handshake</seealso>.
       </p>
     </section>
 
@@ -1007,7 +1047,62 @@
 	  This term is used in minor version 1 of the external format.
 	</p>
     </section>
+    <section>
+      <marker id="ATOM_UTF8_EXT"/>
+      <title>ATOM_UTF8_EXT</title>
 
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">Len</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>118</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>AtomName</c></cell>
+	  </row>
+	<tcaption></tcaption></table>
+      <p>
+	An atom is stored with a 2 byte unsigned length in big-endian order,
+	followed by <c>Len</c> bytes containing the <c>AtomName</c> encoded
+	in UTF-8.
+      </p>
+      <p>
+	For more information on encoding of atoms, see
+	<seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+	in the beginning of this document.
+      </p>
+    </section>
+
+    <section>
+      <marker id="SMALL_ATOM_UTF8_EXT"/>
+      <title>SMALL_ATOM_UTF8_EXT</title>
+
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">Len</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>119</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>AtomName</c></cell>
+	  </row>
+	<tcaption></tcaption></table>
+      <p>
+	An atom is stored with a 1 byte unsigned length, 
+	followed by <c>Len</c> bytes containing the <c>AtomName</c> encoded
+	in UTF-8. Longer atoms encoded in UTF-8 can be represented using
+	<seealso marker="#ATOM_UTF8_EXT">ATOM_UTF8_EXT</seealso>.
+      </p>
+      <p>
+	For more information on encoding of atoms, see
+	<seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+	in the beginning of this document.
+      </p>
+    </section>
 
   </chapter>
   
