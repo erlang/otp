@@ -624,7 +624,7 @@ parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
             ok = file:close(Fd),
 	    check_source(S3, CheckOnly);
 	{error, Reason} ->
-	    io:format("escript: ~p\n", [Reason]),
+	    io:format("escript: ~tp\n", [Reason]),
 	    fatal("Preprocessor error")
     end.
 
@@ -694,7 +694,7 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                             epp_parse_file(Epp, S2, [Form | Forms]);
                         true ->
                             Args = lists:flatten(io_lib:format("illegal mode attribute: ~p", [NewMode])),
-                            io:format("~s:~w ~s\n", [S#state.file,Ln,Args]),
+                            io:format("~ts:~w ~s\n", [S#state.file,Ln,Args]),
                             Error = {error,{Ln,erl_parse,Args}},
                             Nerrs= S#state.n_errors + 1,
                             epp_parse_file(Epp, S2#state{n_errors = Nerrs}, [Error | Forms])
@@ -710,7 +710,7 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                     epp_parse_file(Epp, S, [Form | Forms])
             end;
         {error,{Ln,Mod,Args}} = Form ->
-            io:format("~s:~w: ~ts\n",
+            io:format("~ts:~w: ~ts\n",
                       [S#state.file,Ln,Mod:format_error(Args)]),
             epp_parse_file(Epp, S#state{n_errors = S#state.n_errors + 1}, [Form | Forms]);
         {eof, _LastLine} = Eof ->
@@ -780,10 +780,10 @@ report_errors(Errors) ->
                   Errors).
 
 list_errors(F, [{Line,Mod,E}|Es]) ->
-    io:fwrite("~s:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
+    io:fwrite("~ts:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(F, [{Mod,E}|Es]) ->
-    io:fwrite("~s: ~ts\n", [F,Mod:format_error(E)]),
+    io:fwrite("~ts: ~ts\n", [F,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(_F, []) -> ok.
 
@@ -795,10 +795,10 @@ report_warnings(Ws0) ->
     lists:foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws).
 
 format_message(F, [{Line,Mod,E}|Es]) ->
-    M = {{F,Line},io_lib:format("~s:~w: Warning: ~ts\n", [F,Line,Mod:format_error(E)])},
+    M = {{F,Line},io_lib:format("~ts:~w: Warning: ~ts\n", [F,Line,Mod:format_error(E)])},
     [M|format_message(F, Es)];
 format_message(F, [{Mod,E}|Es]) ->
-    M = {none,io_lib:format("~s: Warning: ~ts\n", [F,Mod:format_error(E)])},
+    M = {none,io_lib:format("~ts: Warning: ~ts\n", [F,Mod:format_error(E)])},
     [M|format_message(F, Es)];
 format_message(_, []) -> [].
 

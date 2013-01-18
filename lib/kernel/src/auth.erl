@@ -384,7 +384,7 @@ create_cookie(Name) ->
 		{{error,Reason}, _} ->
 		    {error,
 		     lists:flatten(
-		       io_lib:format("Failed to write to cookie file '~s': ~p", [Name, Reason]))};
+		       io_lib:format("Failed to write to cookie file '~ts': ~p", [Name, Reason]))};
 		{ok, {error, Reason}} ->
 		    {error, "Failed to change mode: " ++ atom_to_list(Reason)}
 	    end;

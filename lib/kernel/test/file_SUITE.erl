@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -232,7 +232,7 @@ mini_server(Parent) ->
     receive
 	die ->
 	    ok;
-	{io_request,From,To,{put_chars,Data}} ->
+	{io_request,From,To,{put_chars,_Encoding,Data}} ->
 	    Parent ! {io_request,From,To,{put_chars,Data}},
 	    From ! {io_reply, To, ok},
 	    mini_server(Parent);

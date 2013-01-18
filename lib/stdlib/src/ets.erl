@@ -501,7 +501,7 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
             case ms_transform:transform_from_shell(
                    ?MODULE,Clauses,ImportList) of
                 {error,[{_,[{_,_,Code}|_]}|_],_} ->
-                    io:format("Error: ~s~n",
+                    io:format("Error: ~ts~n",
                               [ms_transform:format_error(Code)]),
                     {error,transform_error};
                 Else ->
@@ -1586,7 +1586,7 @@ choice(Height, Width, P, Mode, Tab, Key, Turn, Opos) ->
 		{ok,Re} ->
 		    re_search(Height, Width, Tab, ets:first(Tab), Re, 1, 1);
 		{error,{ErrorString,_Pos}} ->
-		    io:format("~s\n", [ErrorString]),
+		    io:format("~ts\n", [ErrorString]),
 		    choice(Height, Width, P, Mode, Tab, Key, Turn, Opos)
 	    end;
 	_  ->

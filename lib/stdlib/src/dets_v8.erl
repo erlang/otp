@@ -1492,7 +1492,7 @@ scan_next_allocated(Bin, From0, _To, <<From:32, To:32, L/binary>>, Ts, R) ->
 %% Read term from file at position Pos
 prterm(Head, Pos, ReadAhead) ->
     Res = dets_utils:pread(Head, Pos, ?OHDSZ, ReadAhead),
-    ?DEBUGF("file:pread(~p, ~p, ?) -> ~p~n", [Head#head.filename, Pos, Res]),
+    ?DEBUGF("file:pread(~tp, ~p, ?) -> ~p~n", [Head#head.filename, Pos, Res]),
     {ok, <<Next:32, Sz:32, _Status:32, Bin0/binary>>} = Res,
     ?DEBUGF("{Next, Sz} = ~p~n", [{Next, Sz}]),
     Bin = case byte_size(Bin0) of

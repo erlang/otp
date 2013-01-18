@@ -1527,48 +1527,48 @@ do_format_error({size_mismatch, OldSize, ArgSize}) ->
     io_lib:format("The given size ~p does not match the size ~p found on "
 		  "the disk log size file~n", [ArgSize, OldSize]);
 do_format_error({read_only_mode, Log}) ->
-    io_lib:format("The disk log ~p has been opened read-only, but the "
+    io_lib:format("The disk log ~tp has been opened read-only, but the "
 		  "requested operation needs read-write access~n", [Log]);
 do_format_error({format_external, Log}) ->
     io_lib:format("The requested operation can only be applied on internally "
-		  "formatted disk logs, but ~p is externally formatted~n",
+		  "formatted disk logs, but ~tp is externally formatted~n",
 		  [Log]);
 do_format_error({blocked_log, Log}) ->
-    io_lib:format("The blocked disk log ~p does not queue requests, or "
+    io_lib:format("The blocked disk log ~tp does not queue requests, or "
 		  "the log has been blocked by the calling process~n", [Log]);
 do_format_error({full, Log}) ->
-    io_lib:format("The halt log ~p is full~n", [Log]);
+    io_lib:format("The halt log ~tp is full~n", [Log]);
 do_format_error({not_blocked, Log}) ->
-    io_lib:format("The disk log ~p is not blocked~n", [Log]);
+    io_lib:format("The disk log ~tp is not blocked~n", [Log]);
 do_format_error({not_owner, Pid}) ->
-    io_lib:format("The pid ~p is not an owner of the disk log~n", [Pid]);
+    io_lib:format("The pid ~tp is not an owner of the disk log~n", [Pid]);
 do_format_error({not_blocked_by_pid, Log}) ->
-    io_lib:format("The disk log ~p is blocked, but only the blocking pid "
+    io_lib:format("The disk log ~tp is blocked, but only the blocking pid "
 		  "can unblock a disk log~n", [Log]);
 do_format_error({new_size_too_small, Log, CurrentSize}) ->
-    io_lib:format("The current size ~p of the halt log ~p is greater than the "
+    io_lib:format("The current size ~p of the halt log ~tp is greater than the "
 		  "requested new size~n", [CurrentSize, Log]);
 do_format_error({halt_log, Log}) ->
-    io_lib:format("The halt log ~p cannot be wrapped~n", [Log]);
+    io_lib:format("The halt log ~tp cannot be wrapped~n", [Log]);
 do_format_error({same_file_name, Log}) ->
-    io_lib:format("Current and new file name of the disk log ~p "
+    io_lib:format("Current and new file name of the disk log ~tp "
 		  "are the same~n", [Log]);
 do_format_error({arg_mismatch, Option, FirstValue, ArgValue}) ->
-    io_lib:format("The value ~p of the disk log option ~p does not match "
-		  "the current value ~p~n", [ArgValue, Option, FirstValue]);
+    io_lib:format("The value ~tp of the disk log option ~p does not match "
+		  "the current value ~tp~n", [ArgValue, Option, FirstValue]);
 do_format_error({name_already_open, Log}) ->
-    io_lib:format("The disk log ~p has already opened another file~n", [Log]);
+    io_lib:format("The disk log ~tp has already opened another file~n", [Log]);
 do_format_error({node_already_open, Log}) ->
-    io_lib:format("The distribution option of the disk log ~p does not match "
+    io_lib:format("The distribution option of the disk log ~tp does not match "
 		  "already open log~n", [Log]);
 do_format_error({open_read_write, Log}) ->
-    io_lib:format("The disk log ~p has already been opened read-write~n", 
+    io_lib:format("The disk log ~tp has already been opened read-write~n", 
 		  [Log]);
 do_format_error({open_read_only, Log}) ->
-    io_lib:format("The disk log ~p has already been opened read-only~n", 
+    io_lib:format("The disk log ~tp has already been opened read-only~n", 
 		  [Log]);
 do_format_error({not_internal_wrap, Log}) ->
-    io_lib:format("The requested operation cannot be applied since ~p is not "
+    io_lib:format("The requested operation cannot be applied since ~tp is not "
 		  "an internally formatted disk log~n", [Log]);
 do_format_error(no_such_log) ->
     io_lib:format("There is no disk log with the given name~n", []);
@@ -1579,13 +1579,13 @@ do_format_error(nodedown) ->
     io_lib:format("There seems to be no node up that can handle "
 		  "the request~n", []);
 do_format_error({corrupt_log_file, FileName}) ->
-    io_lib:format("The disk log file \"~s\" contains corrupt data~n", 
+    io_lib:format("The disk log file \"~ts\" contains corrupt data~n", 
                   [FileName]);
 do_format_error({need_repair, FileName}) ->
-    io_lib:format("The disk log file \"~s\" has not been closed properly and "
+    io_lib:format("The disk log file \"~ts\" has not been closed properly and "
 		  "needs repair~n", [FileName]);
 do_format_error({not_a_log_file, FileName}) ->
-    io_lib:format("The file \"~s\" is not a wrap log file~n", [FileName]);
+    io_lib:format("The file \"~ts\" is not a wrap log file~n", [FileName]);
 do_format_error({invalid_header, InvalidHeader}) ->
     io_lib:format("The disk log header is not wellformed: ~p~n", 
 		  [InvalidHeader]);
@@ -1593,14 +1593,14 @@ do_format_error(end_of_log) ->
     io_lib:format("An attempt was made to step outside a not yet "
 		  "full wrap log~n", []);
 do_format_error({invalid_index_file, FileName}) ->
-    io_lib:format("The wrap log index file \"~s\" cannot be used~n",
+    io_lib:format("The wrap log index file \"~ts\" cannot be used~n",
 		  [FileName]);
 do_format_error({no_continuation, BadCont}) ->
     io_lib:format("The term ~p is not a chunk continuation~n", [BadCont]);
 do_format_error({file_error, FileName, Reason}) ->
-    io_lib:format("\"~s\": ~p~n", [FileName, file:format_error(Reason)]);
+    io_lib:format("\"~ts\": ~tp~n", [FileName, file:format_error(Reason)]);
 do_format_error(E) ->
-    io_lib:format("~p~n", [E]).
+    io_lib:format("~tp~n", [E]).
 
 do_info(L, Cnt) ->
     #log{name = Name, type = Type, mode = Mode, filename = File, 

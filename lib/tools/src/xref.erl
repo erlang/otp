@@ -297,7 +297,7 @@ set_default(Name, Option, Value) ->
 format_error({error, Module, Error}) ->
     Module:format_error(Error);
 format_error(E) ->
-    io_lib:format("~p~n", [E]).
+    io_lib:format("~tp~n", [E]).
 
 %%%----------------------------------------------------------------------
 %%%Callback functions from gen_server

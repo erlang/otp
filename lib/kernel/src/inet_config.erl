@@ -104,7 +104,7 @@ init() ->
     %% Add inetrc config entries
     case inet_db:add_rc_list(CfgList) of
 	ok -> ok;
-	_  -> error("syntax error in ~s~n", [RcFile])
+	_  -> error("syntax error in ~ts~n", [RcFile])
     end,
 
     %% Set up a resolver configuration file for inet_res,
@@ -266,10 +266,10 @@ load_resolv(File, Func) ->
 		{ok, Ls} ->
 		    inet_db:add_rc_list(Ls);
 		{error, Reason} ->
-		    error("parse error in file ~s: ~p", [File, Reason])
+		    error("parse error in file ~ts: ~p", [File, Reason])
 	    end;
 	Error ->
-	    warning("file not found ~s: ~p~n", [File, Error])
+	    warning("file not found ~ts: ~p~n", [File, Error])
     end.
 
 %%
@@ -285,12 +285,12 @@ load_hosts(File,Os) ->
 			      inet_db:add_host(IP, [Name|Aliases]) end,
 		      Ls);
 		{error, Reason} ->
-		    error("parse error in file ~s: ~p", [File, Reason])
+		    error("parse error in file ~ts: ~p", [File, Reason])
 	    end;
 	Error ->
 	    case Os of
 		unix ->
-		    error("file not found ~s: ~p~n", [File, Error]);
+		    error("file not found ~ts: ~p~n", [File, Error]);
 		_ -> 
 		    %% for windows or nt the hosts file is not always there
 		    %% and we don't require it
@@ -462,11 +462,11 @@ get_rc(File) ->
 		{ok,Ls} -> 
 		    Ls;
 		_Error -> 
-		    error("parse error in ~s~n", [File]),
+		    error("parse error in ~ts~n", [File]),
 		    error
 	    end;
 	_Error -> 
-	    error("file ~s not found~n", [File]),
+	    error("file ~ts not found~n", [File]),
 	    error
     end.
 
@@ -495,8 +495,12 @@ warning(Fmt, Args) ->
 %% Ignore leading whitespace before a token (due to bug in erl_scan) !
 %% 
 parse_inetrc(Bin) ->
-    Str = binary_to_list(Bin) ++ "\n", 
-    parse_inetrc(Str, 1, []).
+    case file_binary_to_list(Bin) of
+        {ok, String} ->
+            parse_inetrc(String ++ "\n", 1, []);
+        error ->
+            {error, 'bad_encoding'}
+    end.
 
 parse_inetrc_skip_line([], _Line, Ack) ->
     {ok, reverse(Ack)};
@@ -535,3 +539,16 @@ parse_inetrc(Str, Line, Ack) ->
 	{more, _} -> %% Bug in erl_scan !!
 	    {error, {'scan_inetrc', {eof, Line}}}
     end.
+
+file_binary_to_list(Bin) ->
+    Enc = case epp:read_encoding_from_binary(Bin) of
+              none -> epp:default_encoding();
+              Encoding -> Encoding
+          end,
+    case catch unicode:characters_to_list(Bin, Enc) of
+        String when is_list(String) ->
+            {ok, String};
+        _ ->
+            error
+    end.
+

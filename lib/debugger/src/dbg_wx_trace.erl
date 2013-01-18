@@ -331,7 +331,7 @@ gui_cmd('Messages', State) ->
 	      fun(Msg, N) ->
 		      Str1 = io_lib:format(" ~w:", [N]),
 		      dbg_wx_trace_win:eval_output(State#state.win,Str1, bold),
-		      Str2 = io_lib:format(" ~s~n",[io_lib:print(Msg)]),
+		      Str2 = io_lib:format(" ~ts~n",[io_lib:print(Msg)]),
 		      dbg_wx_trace_win:eval_output(State#state.win,Str2, normal),
 		      N+1
 	      end,

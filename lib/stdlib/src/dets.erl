@@ -2504,7 +2504,7 @@ fopen2(Fname, Tab) ->
                  end,
             case Do of
 		{repair, Mess} ->
-                    io:format(user, "dets: file ~p~s~n", [Fname, Mess]),
+                    io:format(user, "dets: file ~tp~s~n", [Fname, Mess]),
                     Version = default,
                     case fsck(Fd, Tab, Fname, FH, default, default, Version) of
                         ok ->
@@ -2599,7 +2599,7 @@ fopen_existing_file(Tab, OpenArgs) ->
 	_ when FH#fileheader.keypos =/= Kp ->
 	    throw({error, {keypos_mismatch, Fname}});
 	{compact, SourceHead} ->
-	    io:format(user, "dets: file ~p is now compacted ...~n", [Fname]),
+	    io:format(user, "dets: file ~tp is now compacted ...~n", [Fname]),
 	    {ok, NewSourceHead} = open_final(SourceHead, Fname, read, false,
 					     ?DEFAULT_CACHE, Tab, Debug),
 	    case catch compact(NewSourceHead) of
@@ -2609,14 +2609,14 @@ fopen_existing_file(Tab, OpenArgs) ->
 		_Err ->
                     _ = file:close(Fd),
                     dets_utils:stop_disk_map(),
-		    io:format(user, "dets: compaction of file ~p failed, "
+		    io:format(user, "dets: compaction of file ~tp failed, "
 			      "now repairing ...~n", [Fname]),
                     {ok, Fd2, _FH} = read_file_header(Fname, Acc, Ram),
                     do_repair(Fd2, Tab, Fname, FH, MinSlots, MaxSlots, 
 			      Version, OpenArgs)
 	    end;
 	{repair, Mess} ->
-	    io:format(user, "dets: file ~p~s~n", [Fname, Mess]),
+	    io:format(user, "dets: file ~tp~s~n", [Fname, Mess]),
             do_repair(Fd, Tab, Fname, FH, MinSlots, MaxSlots, 
 		      Version, OpenArgs);
 	_ when FH#fileheader.version =/= Version, Version =/= default ->

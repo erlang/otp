@@ -511,7 +511,7 @@ search([{Dir, File} | Tail]) ->
 	false -> 
 	    search(Tail);
 	{Dir2, File} ->
-	    io:format("** ~s hides ~s~n",
+	    io:format("** ~ts hides ~ts~n",
 		      [filename:join(Dir, File),
 		       filename:join(Dir2, File)]),
 	    [clash | search(Tail)]
@@ -528,7 +528,7 @@ decorate([File|Tail], Dir) ->
     [{Dir, File} | decorate(Tail, Dir)].
 
 filter(_Ext, Dir, error) ->
-    io:format("** Bad path can't read ~s~n", [Dir]), [];
+    io:format("** Bad path can't read ~ts~n", [Dir]), [];
 filter(Ext, _, {ok,Files}) -> 
     filter2(Ext, length(Ext), Files).
 

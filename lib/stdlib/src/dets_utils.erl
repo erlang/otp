@@ -395,7 +395,7 @@ corrupt_reason(Head, Reason0) ->
 corrupt(Head, Error) ->
     case get(verbose) of
 	yes -> 
-	    error_logger:format("** dets: Corrupt table ~p: ~p\n", 
+	    error_logger:format("** dets: Corrupt table ~p: ~tp\n", 
 				[Head#head.name, Error]);
 	_ -> ok
     end,

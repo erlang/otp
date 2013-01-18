@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -148,7 +148,7 @@ format_error({Line, ?MODULE, {Reason, Stacktrace}}) ->
     io_lib:format("~w: evaluation failed with reason ~w and stacktrace ~w", 
                   [Line, Reason, Stacktrace]);
 format_error({Line, Mod, Reason}) ->
-    io_lib:format("~w: ~s", [Line, Mod:format_error(Reason)]);
+    io_lib:format("~w: ~ts", [Line, Mod:format_error(Reason)]);
 format_error(badarg) ->
     "bad argument";
 format_error(system_limit) ->
@@ -591,7 +591,7 @@ pread(_, _, _) ->
 write(File, Bytes) when (is_pid(File) orelse is_atom(File)) ->
     case make_binary(Bytes) of
 	Bin when is_binary(Bin) ->
-	    io:request(File, {put_chars,Bin});
+	    io:request(File, {put_chars,latin1,Bin});
 	Error ->
 	    Error
     end;
@@ -1345,7 +1345,7 @@ eval_stream(Fd, Handling, Bs) ->
     eval_stream(Fd, Handling, 1, undefined, [], Bs).
 
 eval_stream(Fd, H, Line, Last, E, Bs) ->
-    eval_stream2(io:parse_erl_exprs(Fd, '', Line), Fd, H, Last, E, Bs).
+    eval_stream2(io:parse_erl_exprs(Fd, '', Line, [unicode]), Fd, H, Last, E, Bs).
 
 eval_stream2({ok,Form,EndLine}, Fd, H, Last, E, Bs0) ->
     try erl_eval:exprs(Form, Bs0) of

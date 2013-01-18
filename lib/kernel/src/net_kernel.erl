@@ -1340,20 +1340,20 @@ start_protos(Name, [Proto | Ps], Node, Ls) ->
 		    start_protos(Name, Ps, Node, Ls)
 	    end;
 	{'EXIT', {undef,_}} ->
-	    error_logger:info_msg("Protocol: ~p: not supported~n", [Proto]),
+	    error_logger:info_msg("Protocol: ~tp: not supported~n", [Proto]),
 	    start_protos(Name,Ps, Node, Ls);
 	{'EXIT', Reason} ->
-	    error_logger:info_msg("Protocol: ~p: register error: ~p~n",
+	    error_logger:info_msg("Protocol: ~tp: register error: ~tp~n",
 				  [Proto, Reason]),
 	    start_protos(Name,Ps, Node, Ls);
 	{error, duplicate_name} ->
-	    error_logger:info_msg("Protocol: ~p: the name " ++
+	    error_logger:info_msg("Protocol: ~tp: the name " ++
 				  atom_to_list(Node) ++
 				  " seems to be in use by another Erlang node",
 				  [Proto]),
 	    start_protos(Name,Ps, Node, Ls);
 	{error, Reason} ->
-	    error_logger:info_msg("Protocol: ~p: register/listen error: ~p~n",
+	    error_logger:info_msg("Protocol: ~tp: register/listen error: ~tp~n",
 				  [Proto, Reason]),
 	    start_protos(Name,Ps, Node, Ls)
     end;

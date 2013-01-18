@@ -83,19 +83,19 @@ format_error({error, Module, Error}) ->
 format_error({parse_error, Line, Error}) ->
     format_parse_error(Error, format_line(Line));
 format_error({variable_reassigned, Expr}) ->
-    io_lib:format("Variable assigned more than once: ~s~n", [Expr]);
+    io_lib:format("Variable assigned more than once: ~ts~n", [Expr]);
 format_error({unknown_variable, Name}) ->
-    io_lib:format("Variable ~p used before set~n", [Name]);
+    io_lib:format("Variable ~tp used before set~n", [Name]);
 format_error({type_error, Expr}) ->
     io_lib:format("Operator applied to argument(s) of different or "
-		  "invalid type(s): ~s~n", [Expr]);
+		  "invalid type(s): ~ts~n", [Expr]);
 format_error({type_mismatch, Expr1, Expr2}) ->
-    io_lib:format("Constants of different types: ~s, ~s~n",
+    io_lib:format("Constants of different types: ~ts, ~ts~n",
 		  [Expr1, Expr2]);
 format_error({unknown_constant, Constant}) ->
-    io_lib:format("Unknown constant ~s~n", [Constant]);
+    io_lib:format("Unknown constant ~ts~n", [Constant]);
 format_error(E) ->
-    io_lib:format("~p~n", [E]).
+    io_lib:format("~tp~n", [E]).
 
 %%
 %%  Local functions
@@ -908,21 +908,21 @@ fetch_value(V, D) ->
     Value.
 
 format_parse_error(["invalid_regexp", String, Error], Line) ->
-    io_lib:format("Invalid regular expression \"~s\"~s: ~s~n",
+    io_lib:format("Invalid regular expression \"~ts\"~s: ~ts~n",
 		  [String, Line, lists:flatten(Error)]);
 format_parse_error(["invalid_regexp_variable", Var], Line) ->
-    io_lib:format("Invalid wildcard variable ~p~s "
+    io_lib:format("Invalid wildcard variable ~tp~s "
 		  "(only '_' is allowed)~n", [Var, Line]);
 format_parse_error(["missing_type", Expr], Line) ->
-    io_lib:format("Missing type of regular expression ~s~s~n",
+    io_lib:format("Missing type of regular expression ~ts~s~n",
 		  [Expr, Line]);
 format_parse_error(["type_mismatch", Expr], Line) ->
-    io_lib:format("Type does not match structure of constant~s: ~s~n",
+    io_lib:format("Type does not match structure of constant~s: ~ts~n",
 		  [Line, Expr]);
 format_parse_error(["invalid_operator", Op], Line) ->
-    io_lib:format("Invalid operator ~p~s~n", [Op, Line]);
+    io_lib:format("Invalid operator ~tp~s~n", [Op, Line]);
 format_parse_error(Error, Line) ->
-    io_lib:format("Parse error~s: ~s~n", [Line, lists:flatten(Error)]).
+    io_lib:format("Parse error~s: ~ts~n", [Line, lists:flatten(Error)]).
 
 format_line(-1) ->
     " at end of string";

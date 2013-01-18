@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -197,7 +197,7 @@ get_file(Mod) ->
     end.
 
 ilformat(A1, A2) ->
-    format("~-20s     ~s\n", [A1,A2]).
+    format("~-20s     ~ts\n", [A1,A2]).
 
 %% -------------------------------------------
 %% Print all break points in modules.

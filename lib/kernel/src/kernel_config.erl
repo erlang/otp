@@ -93,7 +93,7 @@ code_change(_OldVsn, State, _Extra) ->
 sync_nodes() ->
     case catch get_sync_data() of
 	{error, Reason} = Error ->
-	    error_logger:format("~p", [Reason]),
+	    error_logger:format("~tp", [Reason]),
 	    Error;
 	{infinity, MandatoryNodes, OptionalNodes} ->
 	    case wait_nodes(MandatoryNodes, OptionalNodes) of

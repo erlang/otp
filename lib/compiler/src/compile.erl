@@ -202,38 +202,38 @@ format_error(bad_crypto_key) ->
 format_error(no_crypto_key) ->
     "no crypto key supplied.";
 format_error({native, E}) ->
-    io_lib:fwrite("native-code compilation failed with reason: ~P.",
+    io_lib:fwrite("native-code compilation failed with reason: ~tP.",
 		  [E, 25]);
 format_error({native_crash,E,Stk}) ->
-    io_lib:fwrite("native-code compilation crashed with reason: ~P.\n~P\n",
+    io_lib:fwrite("native-code compilation crashed with reason: ~tP.\n~tP\n",
 		  [E,25,Stk,25]);
 format_error({open,E}) ->
-    io_lib:format("open error '~s'", [file:format_error(E)]);
+    io_lib:format("open error '~ts'", [file:format_error(E)]);
 format_error({epp,E}) ->
     epp:format_error(E);
 format_error(write_error) ->
     "error writing file";
 format_error({rename,From,To,Error}) ->
-    io_lib:format("failed to rename ~s to ~s: ~s",
+    io_lib:format("failed to rename ~ts to ~ts: ~ts",
 		  [From,To,file:format_error(Error)]);
 format_error({delete,File,Error}) ->
-    io_lib:format("failed to delete file ~s: ~s",
+    io_lib:format("failed to delete file ~ts: ~ts",
 		  [File,file:format_error(Error)]);
 format_error({delete_temp,File,Error}) ->
-    io_lib:format("failed to delete temporary file ~s: ~s",
+    io_lib:format("failed to delete temporary file ~ts: ~ts",
 		  [File,file:format_error(Error)]);
 format_error({parse_transform,M,R}) ->
-    io_lib:format("error in parse transform '~s': ~p", [M, R]);
+    io_lib:format("error in parse transform '~s': ~tp", [M, R]);
 format_error({undef_parse_transform,M}) ->
     io_lib:format("undefined parse transform '~s'", [M]);
 format_error({core_transform,M,R}) ->
-    io_lib:format("error in core transform '~s': ~p", [M, R]);
+    io_lib:format("error in core transform '~s': ~tp", [M, R]);
 format_error({crash,Pass,Reason}) ->
-    io_lib:format("internal error in ~p;\ncrash reason: ~p", [Pass,Reason]);
+    io_lib:format("internal error in ~p;\ncrash reason: ~tp", [Pass,Reason]);
 format_error({bad_return,Pass,Reason}) ->
-    io_lib:format("internal error in ~p;\nbad return value: ~p", [Pass,Reason]);
+    io_lib:format("internal error in ~p;\nbad return value: ~tp", [Pass,Reason]);
 format_error({module_name,Mod,Filename}) ->
-    io_lib:format("Module name '~s' does not match file name '~s'",
+    io_lib:format("Module name '~s' does not match file name '~ts'",
 		  [Mod,Filename]).
 
 %% The compile state record.
@@ -271,7 +271,7 @@ internal_comp(Passes, File, Suffix, St0) ->
 		      ofile=objfile(Base, St0)},
     Run = case member(time, St1#compile.options) of
 	      true  ->
-		  io:format("Compiling ~p\n", [File]),
+		  io:format("Compiling ~tp\n", [File]),
 		  fun run_tc/2;
 	      false -> fun({_Name,Fun}, St) -> catch Fun(St) end
 	  end,
@@ -1089,7 +1089,7 @@ makedep_output(#compile{code=Code,options=Opts,ofile=Ofile}=St) ->
 	{ok,Output1,CloseOutput} ->
 	    try
 		%% Write the Makefile.
-		io:fwrite(Output1, "~s", [Code]),
+		io:fwrite(Output1, "~ts", [Code]),
 		%% Close the file if relevant.
 		if
 		    CloseOutput -> file:close(Output1);
@@ -1419,28 +1419,28 @@ report_warnings(#compile{options=Opts,warnings=Ws0}) ->
     end.
 
 format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
-    M = {{F,Loc},io_lib:format("~s:~w:~w ~s~ts\n",
+    M = {{F,Loc},io_lib:format("~ts:~w:~w ~s~ts\n",
                                 [F,Line,Column,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(F, P, [{Line,Mod,E}|Es]) ->
-    M = {{F,{Line,0}},io_lib:format("~s:~w: ~s~ts\n",
+    M = {{F,{Line,0}},io_lib:format("~ts:~w: ~s~ts\n",
                                 [F,Line,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(F, P, [{Mod,E}|Es]) ->
-    M = {none,io_lib:format("~s: ~s~ts\n", [F,P,Mod:format_error(E)])},
+    M = {none,io_lib:format("~ts: ~s~ts\n", [F,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(_, _, []) -> [].
 
 %% list_errors(File, ErrorDescriptors) -> ok
 
 list_errors(F, [{{Line,Column},Mod,E}|Es]) ->
-    io:fwrite("~s:~w:~w: ~ts\n", [F,Line,Column,Mod:format_error(E)]),
+    io:fwrite("~ts:~w:~w: ~ts\n", [F,Line,Column,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(F, [{Line,Mod,E}|Es]) ->
-    io:fwrite("~s:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
+    io:fwrite("~ts:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(F, [{Mod,E}|Es]) ->
-    io:fwrite("~s: ~ts\n", [F,Mod:format_error(E)]),
+    io:fwrite("~ts: ~ts\n", [F,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(_F, []) -> ok.
 

@@ -214,7 +214,7 @@ compile_messages(Forms, FormsNoShadows, Options, State) ->
             end,
     {_,BGens} = qual_fold(BGenF, [], [], FormsNoShadows, State),
     GenForm = used_genvar_check(FormsNoShadows, State),
-    ?DEBUG("GenForm = ~s~n", [catch erl_pp:form(GenForm)]),
+    ?DEBUG("GenForm = ~ts~n", [catch erl_pp:form(GenForm)]),
     WarnFun = fun(Id, LC, A) -> {tag_lines(LC, get_lcid_no(Id)), A} end,
     {WForms,ok} = qlc_mapfold(WarnFun, ok, Forms, State),
     {Es,Ws} = compile_forms(WForms ++ [GenForm], Options),
@@ -337,7 +337,7 @@ compile_errors(FormsNoShadows) ->
         {[], _Warnings} ->
             [];
         {Errors, _Warnings} ->
-            ?DEBUG("got errors ~p~n", [Errors]),
+            ?DEBUG("got errors ~tp~n", [Errors]),
             lists:flatmap(fun({_File,Es}) -> Es end, Errors)
     end.
 
@@ -2742,7 +2742,7 @@ family(L) ->
 display_forms(Forms) ->
     io:format("Forms ***~n"),
     lists:foreach(fun(Form) ->
-                          io:format("~s~n", [catch erl_pp:form(Form)])
+                          io:format("~ts~n", [catch erl_pp:form(Form)])
                   end, Forms),
     io:format("End Forms ***~n").
 -else.

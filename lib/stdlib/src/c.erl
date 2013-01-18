@@ -122,7 +122,7 @@ machine_load(Mod, File, Opts) ->
 		    code:purge(Mod),
 		    check_load(code:load_abs(File2,Mod), Mod);
 		_OtherMod ->
-		    format("** Module name '~p' does not match file name '~p' **~n",
+		    format("** Module name '~p' does not match file name '~tp' **~n",
 			   [Mod,File]),
 		    {error, badfile}
 	    end;
@@ -203,11 +203,11 @@ make_term(Str) ->
 	    case erl_parse:parse_term(Tokens ++ [{dot, 1}]) of
 		{ok, Term} -> Term;
 		{error, {_,_,Reason}} ->
-		    io:format("~s: ~s~n", [Reason, Str]),
+		    io:format("~ts: ~ts~n", [Reason, Str]),
 		    throw(error)
 	    end;
 	{error, {_,_,Reason}, _} ->
-	    io:format("~s: ~s~n", [Reason, Str]),
+	    io:format("~ts: ~ts~n", [Reason, Str]),
 	    throw(error)
     end.
 
@@ -475,11 +475,11 @@ f_p_e(P, F) ->
 	{error, enoent} = Enoent ->
 	    Enoent;
 	{error, E={Line, _Mod, _Term}} ->
-	    error("file:path_eval(~p,~p): error on line ~p: ~s~n",
+	    error("file:path_eval(~tp,~tp): error on line ~p: ~ts~n",
 		  [P, F, Line, file:format_error(E)]),
 	    ok;
 	{error, E} ->
-	    error("file:path_eval(~p,~p): ~s~n",
+	    error("file:path_eval(~tp,~tp): ~ts~n",
 		  [P, F, file:format_error(E)]),
 	    ok;
 	Other ->
@@ -588,7 +588,12 @@ month(12) -> "December".
 flush() ->
     receive
 	X ->
-	    format("Shell got ~p~n",[X]),
+            case lists:keyfind(encoding, 1, io:getopts()) of
+                {encoding,unicode} ->
+                    format("Shell got ~tp~n",[X]);
+                _ ->
+                    format("Shell got ~p~n",[X])
+            end,
 	    flush()
     after 0 ->
 	    ok

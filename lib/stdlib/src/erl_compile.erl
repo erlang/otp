@@ -68,7 +68,7 @@ compile(List) ->
 	{'EXIT', Pid, {compiler_result, Result}} ->
 	    Result;
 	{'EXIT', Pid, Reason} ->
-	    io:format("Runtime error: ~p~n", [Reason]),
+	    io:format("Runtime error: ~tp~n", [Reason]),
 	    error
     end.
 
@@ -170,12 +170,12 @@ compile3([], _Cwd, _Options) -> ok.
 %% Invokes the appropriate compiler, depending on the file extension.
 
 compile_file("", Input, _Output, _Options) ->
-    io:format("File has no extension: ~s~n", [Input]),
+    io:format("File has no extension: ~ts~n", [Input]),
     error;
 compile_file(Ext, Input, Output, Options) ->
     case compiler(Ext) of
 	no ->
-	    io:format("Unknown extension: '~s'\n", [Ext]),
+	    io:format("Unknown extension: '~ts'\n", [Ext]),
 	    error;
 	{M, F} ->
 	    case catch M:F(Input, Output, Options) of
@@ -215,10 +215,10 @@ make_term(Str) ->
 	    case erl_parse:parse_term(Tokens ++ [{dot, 1}]) of
 		{ok, Term} -> Term;
 		{error, {_,_,Reason}} ->
-		    io:format("~s: ~s~n", [Reason, Str]),
+		    io:format("~ts: ~ts~n", [Reason, Str]),
 		    throw(error)
 	    end;
 	{error, {_,_,Reason}, _} ->
-	    io:format("~s: ~s~n", [Reason, Str]),
+	    io:format("~ts: ~ts~n", [Reason, Str]),
 	    throw(error)
     end.

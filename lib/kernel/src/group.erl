@@ -227,7 +227,7 @@ io_request({put_chars,latin1,Chars}, Drv, Buf) ->
 	    send_drv(Drv, {put_chars, unicode,Binary}),
 	    {ok,ok,Buf};
 	_ ->
-	    {error,{error,{put_chars,Chars}},Buf}
+	    {error,{error,{put_chars,latin1,Chars}},Buf}
     end;
 io_request({put_chars,latin1,M,F,As}, Drv, Buf) ->
     case catch apply(M, F, As) of

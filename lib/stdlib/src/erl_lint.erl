@@ -3436,7 +3436,7 @@ check_format_3(Fmt, As) ->
                 _Len -> {warn,1,"wrong number of arguments in format call",[]}
             end;
         {error,S} ->
-            {warn,1,"format string invalid (~s)",[S]}
+            {warn,1,"format string invalid (~ts)",[S]}
     end.
 
 args_list({cons,_L,_H,T}) -> args_list(T);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -517,7 +517,7 @@ int_mod(AbsMod, Dist) when is_atom(AbsMod); is_list(AbsMod) ->
 		      [App, AbsMod]),
 	    error;
 	_Error ->
-	    io:format("** Invalid beam file or no abstract code: ~p\n",
+	    io:format("** Invalid beam file or no abstract code: ~tp\n",
 		      [AbsMod]),
 	    error
     end.
@@ -674,38 +674,50 @@ everywhere(local, Fun) ->
     Fun().
 
 scan_module_name(File) ->
-    case erl_prim_loader:get_file(filename:absname(File)) of
-	{ok, Bin, _FullPath} ->
-	    Chars = binary_to_list(Bin),
-	    R = (catch {ok, scan_module_name_1(Chars)}),
-	    case R of
-		{ok, A} when is_atom(A) -> A;
-		_ -> error
-	    end;
-	_ ->
-	    error
+    try
+        {ok, Bin, _FullPath} =
+            erl_prim_loader:get_file(filename:absname(File)),
+        scan_module_name_1([], <<>>, Bin, enc(Bin))
+    catch
+        _:_ ->
+            throw({error, no_beam})
     end.
 
-scan_module_name_1(Chars) ->
-    case erl_scan:tokens("", Chars, 1) of
-	{done, {ok, Ts, _}, Rest} ->
-	    scan_module_name_2(Ts, Rest);
-	_ ->
-	    error
+scan_module_name_1(Cont0, B0, Bin0, Enc) ->
+    N = min(100, byte_size(Bin0)),
+    {Bin1, Bin} = erlang:split_binary(Bin0, N),
+    {Chars, B1} =
+        case unicode:characters_to_list(list_to_binary([B0, Bin1]), Enc) of
+            {incomplete, List, Binary} ->
+                {List, Binary};
+            List when is_list(List), List =/= [] ->
+                {List, <<>>}
+        end,
+    scan_module_name_2(Cont0, Chars, B1, Bin, Enc).
+
+scan_module_name_2(Cont0, Chars, B1, Bin, Enc) ->
+    case erl_scan:tokens(Cont0, Chars, _AnyLine = 1) of
+        {done, {ok, Ts, _}, Rest} ->
+            scan_module_name_3(Ts, Rest, B1, Bin, Enc);
+        {more, Cont} ->
+            scan_module_name_1(Cont, B1, Bin, Enc)
     end.
 
-scan_module_name_2([{'-',_},{atom,_,module},{'(',_} | _]=Ts, _Chars) ->
-    scan_module_name_3(Ts);
-scan_module_name_2([{'-',_},{atom,_,_} | _], Chars) ->
-    scan_module_name_1(Chars);
-scan_module_name_2(_, _) ->
-    error.
+scan_module_name_3([{'-',_},{atom,_,module},{'(',_} | _]=Ts,
+                   _Chars, _B1, _Bin, _Enc) ->
+    scan_module_name_4(Ts);
+scan_module_name_3([{'-',_},{atom,_,_} | _], Chars, B1, Bin, Enc) ->
+    scan_module_name_2("", Chars, B1, Bin, Enc).
 
-scan_module_name_3(Ts) ->
-    case erl_parse:parse_form(Ts) of
-	{ok, {attribute,_,module,{M,_}}} -> M;
-	{ok, {attribute,_,module,M}} -> M;
-	_ -> error
+scan_module_name_4(Ts) ->
+    {ok, {attribute,_,module,M}} = erl_parse:parse_form(Ts),
+    true = is_atom(M),
+    M.
+
+enc(Bin) ->
+    case epp:read_encoding_from_binary(Bin) of
+        none -> epp:default_encoding();
+        Encoding -> Encoding
     end.
 
 %%--Stop interpreting modules-----------------------------------------

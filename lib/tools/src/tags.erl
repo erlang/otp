@@ -157,7 +157,7 @@ files_loop([F | Fs], Os) ->
 	ok ->
 	    ok;
 	error ->
-	    %% io:format("Could not open ~s~n", [F]),
+	    %% io:format("Could not open ~ts~n", [F]),
 	    error
     end,
     files_loop(Fs, Os).
@@ -315,11 +315,11 @@ close_out(Os) ->
     
 
 pfnote(Str, {LineNo, CharNo}) ->
-    io_lib:format("~s\177~w,~w~n", [flatrev(Str), LineNo, CharNo]).
+    io_lib:format("~ts\177~w,~w~n", [flatrev(Str), LineNo, CharNo]).
 
 
 genout(Os, Name, Entries) ->
-    io:format(Os, "\^l~n~s,~w~n", [Name, reclength(Entries)]),
+    io:format(Os, "\^l~n~ts,~w~n", [Name, reclength(Entries)]),
     io:put_chars(Os, lists:reverse(Entries)).
 
 

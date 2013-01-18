@@ -484,8 +484,8 @@ to_upper_char(C) ->
     C.
 
 -spec to_lower(String) -> Result when
-                  String :: string(),
-                  Result :: string()
+                  String :: io_lib:latin1_string(),
+                  Result :: io_lib:latin1_string()
 	    ; (Char) -> CharResult when
                   Char :: char(),
                   CharResult :: char().
@@ -496,8 +496,8 @@ to_lower(C) when is_integer(C) ->
     to_lower_char(C).
 
 -spec to_upper(String) -> Result when
-                  String :: string(),
-                  Result :: string()
+                  String :: io_lib:latin1_string(),
+                  Result :: io_lib:latin1_string()
 	    ; (Char) -> CharResult when
                   Char :: char(),
                   CharResult :: char().

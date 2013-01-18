@@ -44,7 +44,7 @@ flush_receive() ->
       Args :: [term()].
 
 error_message(Format, Args) ->
-    io:format(<<"** ~s **\n">>, [io_lib:format(Format, Args)]).
+    io:format(<<"** ~ts **\n">>, [io_lib:format(Format, Args)]).
 
 %% Return the name of the script that starts (this) erlang 
 %%
@@ -84,10 +84,14 @@ sendw(To, Msg) ->
 
 %% eval_str(InStr) -> {ok, OutStr} | {error, ErrStr'}
 %%   InStr must represent a body
+%%   Note: If InStr is a binary it has to be a Latin-1 string.
+%%   If you have a UTF-8 encoded binary you have to call
+%%   unicode:characters_to_list/1 before the call to eval_str().
 
 -define(result(F,D), lists:flatten(io_lib:format(F, D))).
 
--spec eval_str(string() | binary()) -> {'ok', string()} | {'error', string()}.
+-spec eval_str(string() | unicode:latin1_binary()) ->
+                      {'ok', string()} | {'error', string()}.
 
 eval_str(Str) when is_list(Str) ->
     case erl_scan:tokens([], Str, 0) of
@@ -105,12 +109,12 @@ eval_str(Str) when is_list(Str) ->
 				    {error, ?result("*** eval: ~p", [Other])}
 			    end;
 			{error, {_Line, Mod, Args}} ->
-                            Msg = ?result("*** ~s",[Mod:format_error(Args)]),
+                            Msg = ?result("*** ~ts",[Mod:format_error(Args)]),
                             {error, Msg}
 		    end;
 		false ->
 		    {error, ?result("Non-white space found after "
-				    "end-of-form :~s", [Rest])}
+				    "end-of-form :~ts", [Rest])}
 		end
     end;
 eval_str(Bin) when is_binary(Bin) ->

@@ -334,7 +334,7 @@ mk_cmd(Cmd) when is_atom(Cmd) ->		% backward comp.
 mk_cmd(Cmd) ->
     %% We insert a new line after the command, in case the command
     %% contains a comment character.
-    io_lib:format("(~s\n) </dev/null; echo  \"\^D\"\n", [Cmd]).
+    io_lib:format("(~ts\n) </dev/null; echo  \"\^D\"\n", [Cmd]).
 
 
 validate(Atom) when is_atom(Atom) ->
