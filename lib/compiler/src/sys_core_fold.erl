@@ -2672,16 +2672,19 @@ bsm_nonempty([#c_clause{pats=Ps}|Cs], Pos) ->
 bsm_nonempty([], _ ) -> false.
 
 %% bsm_ensure_no_partition(Cs, Pos) -> ok     (exception if problem)
-%%  We must make sure that binary matching is not partitioned between
+%%  We must make sure that matching is not partitioned between
 %%  variables like this:
 %%             foo(<<...>>) -> ...
-%%             foo(Var) when ... -> ...
-%%             foo(<<...>>) ->
+%%             foo(<Variable>) when ... -> ...
+%%             foo(<Any non-variable pattern>) ->
 %%  If there is such partition, we are not allowed to reuse the binary variable
-%%  for the match context. Also, arguments to the left of the argument that
-%%  is matched against a binary, are only allowed to be simple variables, not
-%%  used in guards. The reason is that we must know that the binary is only
-%%  matched in one place.
+%%  for the match context.
+%%
+%%  Also, arguments to the left of the argument that is matched
+%%  against a binary, are only allowed to be simple variables, not
+%%  used in guards. The reason is that we must know that the binary is
+%%  only matched in one place (i.e. there must be only one bs_start_match2
+%%  instruction emitted).
 
 bsm_ensure_no_partition(Cs, Pos) ->
     bsm_ensure_no_partition_1(Cs, Pos, before).
@@ -2689,6 +2692,12 @@ bsm_ensure_no_partition(Cs, Pos) ->
 %% Loop through each clause.
 bsm_ensure_no_partition_1([#c_clause{pats=Ps,guard=G}|Cs], Pos, State0) ->
     State = bsm_ensure_no_partition_2(Ps, Pos, G, simple_vars, State0),
+    case State of
+	'after' ->
+	    bsm_ensure_no_partition_after(Cs, Pos);
+	_ ->
+	    ok
+    end,
     bsm_ensure_no_partition_1(Cs, Pos, State);
 bsm_ensure_no_partition_1([], _, _) -> ok.
 
@@ -2698,8 +2707,7 @@ bsm_ensure_no_partition_2([#c_binary{}=Where|_], 1, _, Vstate, State) ->
 	before when Vstate =:= simple_vars -> within;
 	before -> bsm_problem(Where, Vstate);
 	within when Vstate =:= simple_vars -> within;
-	within -> bsm_problem(Where, Vstate);
-	'after' -> bsm_problem(Where, bin_partition)
+	within -> bsm_problem(Where, Vstate)
     end;
 bsm_ensure_no_partition_2([#c_alias{}=Alias|_], 1, N, Vstate, State) ->
     %% Retrieve the real pattern that the alias refers to and check that.
@@ -2748,6 +2756,15 @@ bsm_ensure_no_partition_2([#c_var{name=V}|Ps], N, G, Vstate, S) ->
 bsm_ensure_no_partition_2([_|Ps], N, G, _, S) ->
     bsm_ensure_no_partition_2(Ps, N-1, G, bin_argument_order, S).
 
+bsm_ensure_no_partition_after([#c_clause{pats=Ps}|Cs], Pos) ->
+    case nth(Pos, Ps) of
+	#c_var{} ->
+	    bsm_ensure_no_partition_after(Cs, Pos);
+	P ->
+	    bsm_problem(P, bin_partition)
+    end;
+bsm_ensure_no_partition_after([], _) -> ok.
+    
 bsm_could_match_binary(#c_alias{pat=P}) -> bsm_could_match_binary(P);
 bsm_could_match_binary(#c_cons{}) -> false;
 bsm_could_match_binary(#c_tuple{}) -> false;
@@ -2872,7 +2889,7 @@ format_error(useless_building) ->
 format_error(bin_opt_alias) ->
     "INFO: the '=' operator will prevent delayed sub binary optimization";
 format_error(bin_partition) ->
-    "INFO: non-consecutive clauses that match binaries "
+    "INFO: matching non-variables after a previous clause matching a variable "
 	"will prevent delayed sub binary optimization";
 format_error(bin_left_var_used_in_guard) ->
     "INFO: a variable to the left of the binary pattern is used in a guard; "
