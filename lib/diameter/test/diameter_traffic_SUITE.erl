@@ -40,6 +40,7 @@
          send_nok/1,
          send_eval/1,
          send_bad_answer/1,
+         send_protocol_error/1,
          send_arbitrary/1,
          send_unknown/1,
          send_unknown_mandatory/1,
@@ -48,6 +49,9 @@
          send_unsupported_app/1,
          send_error_bit/1,
          send_unsupported_version/1,
+         send_invalid_avp_bits/1,
+         send_invalid_avp_length/1,
+         send_invalid_reject/1,
          send_long/1,
          send_nopeer/1,
          send_noapp/1,
@@ -165,6 +169,8 @@
         ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_REALM_NOT_SERVED').
 -define(UNABLE_TO_DELIVER,
         ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_UNABLE_TO_DELIVER').
+-define(INVALID_AVP_LENGTH,
+        ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_INVALID_AVP_LENGTH').
 
 -define(EVENT_RECORD,
         ?'DIAMETER_BASE_ACCOUNTING-RECORD-TYPE_EVENT_RECORD').
@@ -177,6 +183,8 @@
         ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_LOGOUT').
 -define(BAD_ANSWER,
         ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_BAD_ANSWER').
+-define(USER_MOVED,
+        ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_USER_MOVED').
 
 -define(A, list_to_atom).
 -define(L, atom_to_list).
@@ -221,6 +229,7 @@ tc() ->
      send_nok,
      send_eval,
      send_bad_answer,
+     send_protocol_error,
      send_arbitrary,
      send_unknown,
      send_unknown_mandatory,
@@ -229,6 +238,9 @@ tc() ->
      send_unsupported_app,
      send_error_bit,
      send_unsupported_version,
+     send_invalid_avp_bits,
+     send_invalid_avp_length,
+     send_invalid_reject,
      send_long,
      send_nopeer,
      send_noapp,
@@ -299,7 +311,7 @@ osi(Id) ->
 
 %% Ensure that result codes have the expected values.
 result_codes(_Config) ->
-    {2001, 3001, 3002, 3003, 3004, 3007, 3008, 3009, 5001, 5011}
+    {2001, 3001, 3002, 3003, 3004, 3007, 3008, 3009, 5001, 5011, 5014}
         = {?SUCCESS,
            ?COMMAND_UNSUPPORTED,
            ?UNABLE_TO_DELIVER,
@@ -309,13 +321,14 @@ result_codes(_Config) ->
            ?INVALID_HDR_BITS,
            ?INVALID_AVP_BITS,
            ?AVP_UNSUPPORTED,
-           ?UNSUPPORTED_VERSION}.
+           ?UNSUPPORTED_VERSION,
+           ?INVALID_AVP_LENGTH}.
 
 %% Send an ACR and expect success.
 send_ok(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 1}],
-    
+
     #diameter_base_accounting_ACA{'Result-Code' = ?SUCCESS}
         = call(Config, Req).
 
@@ -323,7 +336,7 @@ send_ok(Config) ->
 send_nok(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 0}],
-    
+
     #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS}
         = call(Config, Req).
 
@@ -342,6 +355,15 @@ send_bad_answer(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 2}],
     {error, timeout} = call(Config, Req).
+
+%% Send an ACR that the server callback answers explicitly with a
+%% protocol error.
+send_protocol_error(Config) ->
+    Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
+                  {'Accounting-Record-Number', 4}],
+
+    #'diameter_base_answer-message'{'Result-Code' = ?TOO_BUSY}
+        = call(Config, Req).
 
 %% Send an ASR with an arbitrary AVP and expect success and the same
 %% AVP in the reply.
@@ -408,6 +430,29 @@ send_error_bit(Config) ->
 send_unsupported_version(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
     #diameter_base_STA{'Result-Code' = ?UNSUPPORTED_VERSION}
+        = call(Config, Req).
+
+%% Send a request containing an incorrect AVP length.
+send_invalid_avp_bits(Config) ->
+    Req = ['STR', {'Termination-Cause', ?LOGOUT}],
+
+    #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS}
+        = call(Config, Req).
+
+%% Send a request containing an AVP length that doesn't match the
+%% AVP's type.
+send_invalid_avp_length(Config) ->
+    Req = ['STR', {'Termination-Cause', ?LOGOUT}],
+
+    #'diameter_base_STA'{'Result-Code' = ?INVALID_AVP_LENGTH}
+        = call(Config, Req).
+
+%% Send a request containing 5xxx errors that the server rejects with
+%% 3xxx.
+send_invalid_reject(Config) ->
+    Req = ['STR', {'Termination-Cause', ?USER_MOVED}],
+
+    #'diameter_base_answer-message'{'Result-Code' = ?TOO_BUSY}
         = call(Config, Req).
 
 %% Send something long that will be fragmented by TCP.
@@ -695,6 +740,40 @@ prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, send_detach, _, _) ->
 log(#diameter_packet{} = P, T) ->
     io:format("~p: ~p~n", [T,P]).
 
+%% prepare/3
+
+prepare(Pkt, Caps, send_invalid_avp_bits) ->
+    Req = prepare(Pkt, Caps),
+    %% Last AVP in our STR is Termination-Cause of type Unsigned32:
+    %% set its length improperly.
+    #diameter_packet{header = #diameter_header{length = L},
+                     bin = B}
+        = E
+        = diameter_codec:encode(?BASE, Pkt#diameter_packet{msg = Req}),
+    Offset = L - 7,  %% to AVP Length
+    <<H:Offset/binary, 12:24/integer, T:4/binary>> = B,
+    E#diameter_packet{bin = <<H/binary, 13:24/integer, T/binary>>};
+
+prepare(Pkt, Caps, N)
+  when N == send_invalid_avp_length;
+       N == send_invalid_reject ->
+    Req = prepare(Pkt, Caps),
+    %% Second last AVP in our STR is Auth-Application-Id of type
+    %% Unsigned32: Send a value of length 8.
+    #diameter_packet{header = #diameter_header{length = L},
+                     bin = B0}
+        = E
+        = diameter_codec:encode(?BASE, Pkt#diameter_packet{msg = Req}),
+    Offset = L - 7 - 12,  %% to AVP Length
+    <<H0:Offset/binary, 12:24/integer, T:16/binary>> = B0,
+    <<V, L:24/integer, H/binary>> = H0,  %% assert
+    E#diameter_packet{bin = <<V,
+                              (L+4):24/integer,
+                              H/binary,
+                              16:24/integer,
+                              0:32/integer,
+                              T/binary>>};
+
 prepare(Pkt, Caps, send_unsupported) ->
     Req = prepare(Pkt, Caps),
     #diameter_packet{bin = <<H:5/binary, _CmdCode:3/binary, T/binary>>}
@@ -725,6 +804,8 @@ prepare(Pkt, Caps, send_anything) ->
 
 prepare(Pkt, Caps, _Name) ->
     prepare(Pkt, Caps).
+
+%% prepare/2
 
 prepare(#diameter_packet{msg = Req}, Caps)
   when is_record(Req, diameter_base_accounting_ACR);
@@ -790,10 +871,17 @@ handle_answer(Pkt, _Req, ?CLIENT, _Peer, send_detach, _Id, {Pid, Ref}) ->
     Pid ! {Ref, Pkt}.
 
 answer(Pkt, Req, _Peer, Name) ->
-    #diameter_packet{header = H, msg = Rec, errors = []} = Pkt,
+    #diameter_packet{header = H, msg = Rec, errors = Es} = Pkt,
     ApplId = app(Req, Name),
     #diameter_header{application_id = ApplId} = H,  %% assert
+    answer(Rec, Es, Name).
 
+answer(Rec, [_|_], N)
+  when N == send_invalid_avp_bits;
+       N == send_invalid_avp_length;
+       N == send_invalid_reject ->
+    Rec;
+answer(Rec, [], _) ->
     Rec.
 
 app(_, send_unsupported_app) ->
@@ -879,6 +967,15 @@ request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                     {'Accounting-Record-Type', RT},
                     {'Accounting-Record-Number', RN}]};
 
+%% send_protocol_error
+request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 4},
+        #diameter_caps{origin_host = {OH, _},
+                       origin_realm = {OR, _}}) ->
+    Ans = ['answer-message', {'Result-Code', ?TOO_BUSY},
+                             {'Origin-Host', OH},
+                             {'Origin-Realm', OR}],
+    {reply, Ans};
+
 request(#diameter_base_ASR{'Session-Id' = SId,
                            'AVP' = Avps},
         #diameter_caps{origin_host = {OH, _},
@@ -888,6 +985,10 @@ request(#diameter_base_ASR{'Session-Id' = SId,
                     {'Origin-Host', OH},
                     {'Origin-Realm', OR},
                     {'AVP', Avps}]};
+
+%% send_invalid_reject
+request(#diameter_base_STR{'Termination-Cause' = ?USER_MOVED}, _Caps) ->
+    {protocol_error, ?TOO_BUSY};
 
 %% send_noreply
 request(#diameter_base_STR{'Termination-Cause' = T},
