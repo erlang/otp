@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,8 @@
 	 specs/1, suites/2,
 	 subst_file/3, subst/2, print_data/1,
 	 make_non_erlang/2,
-	 maybe_atom_to_list/1, progress/4
+	 maybe_atom_to_list/1, progress/4,
+	 b2s/1
 	]).
 
 error(Reason) ->
@@ -155,7 +156,7 @@ suite_order(_) -> 200.
 subst_file(In, Out, Vars) ->
     case file:read_file(In) of
 	{ok, Bin} ->
-	    Subst = subst(binary_to_list(Bin), Vars, []),
+	    Subst = subst(b2s(Bin), Vars, []),
 	    case file:write_file(Out, Subst) of
 		ok ->
 		    ok;
@@ -333,4 +334,12 @@ make_non_erlang_do(DataDir, Variables) ->
 	end
     after
 	timer:sleep(100)  %% maybe unnecessary now when we don't do set_cwd anymore
+    end.
+
+b2s(Bin) ->
+    unicode:characters_to_list(Bin,default_encoding()).
+
+default_encoding() ->
+    try epp:default_encoding()
+    catch error:undef -> latin1
     end.
