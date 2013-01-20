@@ -579,7 +579,7 @@ ifeq ($(USING_VC),yes)
 		| $(SED_MDd_DEPEND) >> $(DEPEND_MK)
 else
 	$(V_at)$(DEP_CC) -MM $(THR_DEFS) $(DEP_FLAGS) $(ETHREAD_LIB_SRC) \
-		| $(SED_r_DEPEND) >$(V_at)> $(DEPEND_MK)
+		| $(SED_r_DEPEND) >> $(DEPEND_MK)
 endif
 endif
 ifneq ($(strip $(ERTS_INTERNAL_LIB_SRCS)),)
