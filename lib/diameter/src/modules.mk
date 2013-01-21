@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2012. All Rights Reserved.
+# Copyright Ericsson AB 2010-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -17,11 +17,13 @@
 #
 # %CopyrightEnd%
 
-# Runtime dictionary files in ./dict. Modules will be generated from
-# these are included in the app file.
+# Runtime dictionary files in ./dict. Modules generated from these are
+# included in the app file.
 DICTS = \
 	base_rfc3588 \
+	base_rfc6733 \
 	base_accounting \
+	acct_rfc6733 \
 	relay
 
 # The yecc grammar for the dictionary parser.

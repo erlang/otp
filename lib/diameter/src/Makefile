@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2010-2012. All Rights Reserved.
+# Copyright Ericsson AB 2010-2013. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -255,7 +255,11 @@ gen/diameter_gen_base_accounting.erl gen/diameter_gen_relay.erl \
 gen/diameter_gen_base_accounting.hrl gen/diameter_gen_relay.hrl: \
 	$(EBIN)/diameter_gen_base_rfc3588.$(EMULATOR)
 
-gen/diameter_gen_base_rfc3588.erl gen/diameter_gen_base_rfc3588.hrl: \
+gen/diameter_gen_acct_rfc6733.erl gen/diameter_gen_acct_rfc6733.hrl: \
+	$(EBIN)/diameter_gen_base_rfc6733.$(EMULATOR)
+
+gen/diameter_gen_base_rfc3588.erl gen/diameter_gen_base_rfc3588.hrl \
+gen/diameter_gen_base_rfc6733.erl gen/diameter_gen_base_rfc6733.hrl: \
 	$(COMPILER_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 $(DICT_MODULES:gen/%=$(EBIN)/%.$(EMULATOR)): \
