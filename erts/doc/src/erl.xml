@@ -672,7 +672,7 @@
       <item>
         <p>Limits the amount of reader groups used by read/write locks
 	   optimized for read operations in the Erlang runtime system. By
-	   default the reader groups limit equals 8.</p>
+	   default the reader groups limit equals 64.</p>
 	<p>When the amount of schedulers is less than or equal to the reader
 	   groups limit, each scheduler has its own reader group. When the
 	   amount of schedulers is larger than the reader groups limit,
