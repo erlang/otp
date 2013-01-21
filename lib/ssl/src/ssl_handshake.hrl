@@ -141,9 +141,14 @@
 	 }).
   
 -record(server_key_exchange, {
+	  exchange_keys
+	 }).
+
+-record(server_key_params, {
 	  params, %% #server_rsa_params{} | #server_dh_params{}
-	  signed_params, %% #signature{}
-	  hashsign %% term(atom(), atom())
+	  params_bin,
+	  hashsign, %% term(atom(), atom())
+	  signature %% #signature{}
 	 }).
 	
 %% enum { anonymous, rsa, dsa } SignatureAlgorithm;
