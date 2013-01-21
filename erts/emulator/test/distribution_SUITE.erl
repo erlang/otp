@@ -1240,9 +1240,9 @@ contended_atom_cache_entry_test(Config, Type) ->
 					get_conflicting_unicode_atoms(CIX,
 								      ProcessPairs)
 				end,
-		    io:format("Testing with the following atoms all using "
-			      "cache index ~p:~n ~p~n",
-			      [CIX, TestAtoms]),
+%		    io:format("Testing with the following atoms all using "
+%			      "cache index ~p:~n ~p~n",
+%			      [CIX, TestAtoms]),
 		    Ps = lists:map(
 			   fun (A) ->
 				   Ref = make_ref(),
