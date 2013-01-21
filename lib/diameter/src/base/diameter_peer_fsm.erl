@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -95,10 +95,8 @@
 
 -record(state,
         {state %% of RFC 3588 Peer State Machine
-              :: 'Wait-Conn-Ack'  %% old code
-               | {'Wait-Conn-Ack', uint32()}
+              :: {'Wait-Conn-Ack', uint32()}
                | recv_CER
-               | 'Wait-CEA' %% old code
                | {'Wait-CEA', uint32(), uint32()}
                | 'Open',
          mode :: accept | connect | {connect, reference()},
@@ -142,8 +140,7 @@
 %%% Output: Pid
 %%% ---------------------------------------------------------------------------
 
--spec start(T, [Opt], #diameter_service{}  %% from old code
-                    | {diameter:sequence(),
+-spec start(T, [Opt], {diameter:sequence(),
                        diameter:restriction(),
                        #diameter_service{}})
    -> pid()
@@ -174,9 +171,6 @@ start_link(T) ->
 init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
-
-i({WPid, Type, Opts, #diameter_service{} = Svc}) ->  %% from old code
-    i({WPid, Type, Opts, {?NOMASK, [node() | nodes()], Svc}});
 
 i({WPid, T, Opts, {Mask, Nodes, #diameter_service{applications = Apps,
                                                   capabilities = LCaps}
@@ -334,10 +328,6 @@ eraser(Key) ->
 
 %% transition/2
 
-%% Started in old code.
-transition(T, #state{state = 'Wait-Conn-Ack' = PS} = S) ->
-    transition(T, S#state{state = {PS, ?EVENT_TIMEOUT}});
-
 %% Connection to peer.
 transition({diameter, {TPid, connected, Remote}},
            #state{transport = TPid,
@@ -400,10 +390,6 @@ transition({timeout, _}, _) ->
 transition({send, Msg}, #state{transport = TPid}) ->
     send(TPid, Msg),
     ok;
-
-%% Messages from old (diameter_service) code.
-transition(shutdown = T, #state{parent = Pid} = S) ->
-    transition({T, Pid, service}, S); %% Reason irrelevant: old code has no cb
 
 %% Request for graceful shutdown at remove_transport, stop_service of
 %% application shutdown.
@@ -508,21 +494,12 @@ build_CER(#state{service = #diameter_service{capabilities = LCaps}}) ->
 %% encode/1
 
 encode(Rec) ->
-    Seq = diameter_session:sequence(sequence()),
+    Seq = diameter_session:sequence({_,_} = getr(?SEQUENCE_KEY)),
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
                            end_to_end_id = Seq,
                            hop_by_hop_id = Seq},
     diameter_codec:encode(?BASE, #diameter_packet{header = Hdr,
                                                   msg = Rec}).
-
-sequence() ->
-    case getr(?SEQUENCE_KEY) of
-        {_,_} = Mask ->
-            Mask;
-        undefined ->  %% started in old code
-            putr(?SEQUENCE_KEY, ?NOMASK),
-            ?NOMASK
-    end.
 
 %% recv/2
 
@@ -585,10 +562,8 @@ rcv('CEA',
     #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
                                                hop_by_hop_id = Hid}}
     = Pkt,
-    #state{state = {'Wait-CEA' = T, Hid, Eid}}
+    #state{state = {'Wait-CEA', Hid, Eid}}
     = S) ->
-    handle_CEA(Pkt, S#state{state = T});
-rcv('CEA', Pkt, #state{state = 'Wait-CEA'} = S) ->  %% old code
     handle_CEA(Pkt, S);
 
 %% Incoming CER
@@ -1021,14 +996,10 @@ dpr(Reason, #state{state = 'Open',
                    dpr = false,
                    service = #diameter_service{capabilities = Caps}}
             = S) ->
-    case getr(?DPR_KEY) of
-        CBs when is_list(CBs) ->
-            Ref = getr(?REF_KEY),
-            Peer = {self(), Caps},
-            dpr(CBs, [Reason, Ref, Peer], S);
-        undefined ->  %% started in old code
-            send_dpr(Reason, [], S)
-    end;
+    CBs = getr(?DPR_KEY),
+    Ref = getr(?REF_KEY),
+    Peer = {self(), Caps},
+    dpr(CBs, [Reason, Ref, Peer], S);
 
 %% Connection is open, DPR already sent.
 dpr(_, #state{state = 'Open'}) ->

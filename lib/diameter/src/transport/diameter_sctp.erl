@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -188,8 +188,6 @@ i({connect, Pid, Opts, Addrs, Ref}) ->
     #transport{parent = Pid,
                mode = {connect, connect(Sock, RAs, RP, [])},
                socket = Sock};
-i({connect, _, _, _} = T) ->  %% from old code
-    x(T);
 
 %% An accepting transport spawned by diameter.
 i({accept, Pid, LPid, Sock, Ref})
@@ -201,8 +199,6 @@ i({accept, Pid, LPid, Sock, Ref})
     #transport{parent = Pid,
                mode = {accept, LPid},
                socket = Sock};
-i({accept, _, _, _} = T) ->  %% from old code
-    x(T);
 
 %% An accepting transport spawned at association establishment.
 i({accept, Ref, LPid, Sock, Id}) ->

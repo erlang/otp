@@ -361,9 +361,6 @@ find_state(SvcName) ->
 fs([#state{} = S]) ->
     S;
 
-fs([S]) ->  %% inserted from old code
-    upgrade(S);
-
 fs([]) ->
     false.
 
@@ -462,10 +459,6 @@ i(_, false) ->
 %%% # handle_call(Req, From, State)
 %%% ---------------------------------------------------------------------------
 
-handle_call(T, From, S)
-  when not is_record(S, state) ->
-    handle_call(T, From, upgrade(S));
-
 handle_call(state, _, S) ->
     {reply, S, S};
 
@@ -489,24 +482,12 @@ handle_call({pick_peer, Local, Remote, App}, _From, S) ->
 handle_call({call_module, AppMod, Req}, From, S) ->
     call_module(AppMod, Req, From, S);
 
-%% Call from old code.
-handle_call({info, Item}, _From, S) ->
-    {reply, service_info(Item, S), S};
-
 handle_call(stop, _From, S) ->
     shutdown(service, S),
     {stop, normal, ok, S};
 %% The server currently isn't guaranteed to be dead when the caller
 %% gets the reply. We deal with this in the call to the server,
 %% stating a monitor that waits for DOWN before returning.
-
-%% Watchdog is asking for the sequence mask.
-handle_call(sequence, _From, #state{options = [{_, Mask} | _]} = S) ->
-    {reply, Mask, S};
-
-%% Watchdog is asking for the nodes restriction.
-handle_call(restriction, _From, #state{options = [_,_,_,{_,R} | _]} = S) ->
-    {reply, R, S};
 
 handle_call(Req, From, S) ->
     unexpected(handle_call, [Req, From], S),
@@ -530,10 +511,7 @@ handle_info(T, #state{} = S) ->
             {noreply, S};
         {stop, Reason} ->
             {stop, {shutdown, Reason}, S}
-    end;
-
-handle_info(T, S) ->
-    handle_info(T, upgrade(S)).
+    end.
 
 %% transition/2
 
@@ -643,38 +621,9 @@ transition({failover, TRef, Seqs}, S) ->
     failover(TRef, Seqs, S),
     ok;
 
-%% Ensure upgraded state is stored in state table.
-transition(upgrade, _) ->
-    ok;
-
 transition(Req, S) ->
     unexpected(handle_info, [Req], S),
     ok.
-
-%% upgrade/1
-
-upgrade({state, Id, Svc, Name, Svc, PT, CT, SB, UB, SD, LD, MPid}) ->
-    S = #state{id = Id,
-               service_name = Name,
-               service = Svc,
-               peerT = PT,
-               connT = CT,
-               shared_peers = SD,
-               local_peers = LD,
-               monitor = MPid,
-               options = [{sequence, ?NOMASK},
-                          {share_peers, SB},
-                          {use_shared_peers, UB},
-                          {restrict_connections, ?RESTRICT}]},
-    upgrade_insert(S),
-    S.
-
-upgrade_insert(#state{service = #diameter_service{pid = Pid}} = S) ->
-    if Pid == self() ->
-            ets:insert(?STATE_TABLE, S);
-       true ->
-            Pid ! upgrade
-    end.
 
 %%% ---------------------------------------------------------------------------
 %%% # terminate(Reason, State)
@@ -944,6 +893,7 @@ type(connect = T) -> T.
 
 start(Ref, Type, Opts, #state{peerT = PeerT,
                               connT = ConnT,
+                              options = SvcOpts,
                               service_name = SvcName,
                               service = Svc})
   when Type == connect;
@@ -951,6 +901,7 @@ start(Ref, Type, Opts, #state{peerT = PeerT,
     Pid = s(Type, Ref, {ConnT,
                         Opts,
                         SvcName,
+                        SvcOpts,
                         merge_service(Opts, Svc)}),
     insert(PeerT, #peer{pid = Pid,
                         type = Type,
@@ -963,13 +914,8 @@ start(Ref, Type, Opts, #state{peerT = PeerT,
 %% record is what is passed back into application callbacks.
 
 s(Type, Ref, T) ->
-    case diameter_watchdog:start({Type, Ref}, T) of
-        {_MRef, Pid} ->
-            Pid;
-        Pid when is_pid(Pid) ->  %% from old code
-            erlang:monitor(process, Pid),
-            Pid
-    end.
+    {_MRef, Pid} = diameter_watchdog:start({Type, Ref}, T),
+    Pid.
 
 %% merge_service/2
 
@@ -1116,12 +1062,7 @@ init_conn(Id, Alias, {TPid, _} = TC, {SvcName, Apps}) ->
 %% find_app/2
 
 find_app(Alias, Apps) ->
-    case lists:keyfind(Alias, #diameter_app.alias, Apps) of
-        #diameter_app{options = E} = A when is_atom(E) ->  %% upgrade
-            A#diameter_app{options = [{answer_errors, E}]};
-        A ->
-            A
-    end.
+    lists:keyfind(Alias, #diameter_app.alias, Apps).
 
 %% Don't bring down the service (and all associated connections)
 %% regardless of what happens.
@@ -1818,9 +1759,6 @@ request_peer_down(TPid, S) ->
 %%% ---------------------------------------------------------------------------
 %%% recv_request/3
 %%% ---------------------------------------------------------------------------
-
-recv_request(TPid, Pkt, {ConnT, SvcName, Apps}) ->  %% upgrade
-    recv_request(TPid, Pkt, {ConnT, SvcName, Apps, ?NOMASK});
 
 recv_request(TPid, Pkt, {ConnT, SvcName, Apps, Mask}) ->
     try ets:lookup(ConnT, TPid) of
