@@ -68,7 +68,7 @@ filter()    See present/1, substrings/2,
       <fsummary>Open a connection to an LDAP server.</fsummary>
       <type>
 	<v>Handle = handle()</v>
-	<v>Option = {port, integer()} | {log, function()} | {timeout, integer()} | {ssl, boolean()}</v>
+	<v>Option = {port, integer()} | {log, function()} | {timeout, integer()} | {ssl, boolean()} | {sslopts, list()}</v>
       </type>
       <desc>
         <p>Setup a connection to an LDAP server, the <c>HOST</c>'s are tried in order.</p>
