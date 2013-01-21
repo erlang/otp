@@ -278,7 +278,9 @@ do_start_daemon(Host, Port, Options, SocketOptions) ->
 		{ok, SysSup} ->
 		    {ok, SysSup};
 		{error, {already_started, _}} ->
-		    {error, eaddrinuse}
+		    {error, eaddrinuse};
+		{error, R} ->
+		    {error, R}
 	    catch
 		exit:{noproc, _} ->
 		    {error, ssh_not_started}
