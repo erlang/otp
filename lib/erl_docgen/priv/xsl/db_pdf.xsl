@@ -1102,11 +1102,13 @@
 
   <xsl:template match="taglist/item">
     <xsl:param name="partnum"/>
-    <fo:block xsl:use-attribute-sets="tagitem">
-      <xsl:apply-templates>
-        <xsl:with-param name="partnum" select="$partnum"/>
-      </xsl:apply-templates>
-    </fo:block>
+    <fo:block-container>
+      <fo:block xsl:use-attribute-sets="tagitem">
+	<xsl:apply-templates>
+	  <xsl:with-param name="partnum" select="$partnum"/>
+	</xsl:apply-templates>
+      </fo:block>
+    </fo:block-container>
   </xsl:template>
 
 

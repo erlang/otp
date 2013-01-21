@@ -26,10 +26,12 @@
 
 <!ELEMENT description         (%block;|quote|br|marker|warning|note)* >
 <!ELEMENT funcs               (func)+ >
-<!ELEMENT func                (name+,type_desc+,fsummary,type?,desc?) >
+<!ELEMENT func                (name+,type_desc*,fsummary,type?,desc?) >
 <!-- ELEMENT name is defined in each ref dtd -->
 <!ELEMENT fsummary            (#PCDATA|c|em)* >
-<!ELEMENT type                (v,d?)+ >
+<!ELEMENT type                (v,d?)* >
+<!ATTLIST type                 variable CDATA #IMPLIED
+                               name_i CDATA #IMPLIED>
 <!ELEMENT v                   (#PCDATA) >
 <!ELEMENT d                   (#PCDATA|c|em)* >
 <!ELEMENT desc                (%block;|quote|br|marker|warning|note|anno)* >
@@ -41,3 +43,4 @@
 <!ELEMENT datatypes           (datatype)+ >
 <!ELEMENT datatype            (name+,desc?) >
 <!ELEMENT type_desc           (#PCDATA) >
+<!ATTLIST type_desc            variable CDATA #REQUIRED>

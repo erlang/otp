@@ -827,6 +827,12 @@ if test -z "$FOP"; then
   AC_MSG_WARN([No 'fop' command found: going to generate placeholder PDF files])
 fi
 
+AC_CHECK_PROGS(XMLLINT, xmllint)
+if test -z "$XMLLINT"; then
+  echo "xmllint" >> doc/CONF_INFO
+  AC_MSG_WARN([No 'xmllint' command found: can't run the xmllint target for the documentation])
+fi
+
 dnl
 dnl We can live with Solaris /usr/ucb/install
 dnl

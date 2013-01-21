@@ -255,6 +255,7 @@ DEFAULT_GIF_FILES = $(HTMLDIR)/min_head.gif
 #
 XSLTPROC = @XSLTPROC@
 FOP = @FOP@
+XMLLINT = @XMLLINT@
 
 DOCGEN=$(ERL_TOP)/lib/erl_docgen
 FOP_CONFIG = $(DOCGEN)/priv/fop.xconf
