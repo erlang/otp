@@ -71,7 +71,7 @@ nstack_walk_init_sdesc(const Process *p, struct nstack_walk_state *state)
     state->sdesc0[0].livebits[0] = 0;
 # ifdef DEBUG
     state->sdesc0[0].dbg_M = 0;
-    state->sdesc0[0].dbg_F = am_init;
+    state->sdesc0[0].dbg_F = am_undefined;
     state->sdesc0[0].dbg_A = 0;
 # endif
     /* XXX: this appears to prevent a gcc-4.1.1 bug on x86 */
