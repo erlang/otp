@@ -144,6 +144,7 @@ atom close
 atom closed
 atom code
 atom command
+atom compact
 atom compat_rel
 atom compile
 atom compressed
@@ -165,6 +166,7 @@ atom current_location
 atom current_stacktrace
 atom data
 atom debug_flags
+atom decimals
 atom delay_trap
 atom dexit
 atom depth
@@ -480,6 +482,7 @@ atom scheduler
 atom scheduler_id
 atom schedulers_online
 atom scheme
+atom scientific
 atom scope
 atom sensitive
 atom sequential_tracer

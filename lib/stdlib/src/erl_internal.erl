@@ -278,6 +278,7 @@ bif(exit, 1) -> true;
 bif(exit, 2) -> true;
 bif(float, 1) -> true;
 bif(float_to_list, 1) -> true;
+bif(float_to_list, 2) -> true;
 bif(garbage_collect, 0) -> true;
 bif(garbage_collect, 1) -> true;
 bif(get, 0) -> true;

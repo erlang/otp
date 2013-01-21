@@ -2917,7 +2917,73 @@ BIF_RETTYPE float_to_list_1(BIF_ALIST_1)
      need = i*2;
      hp = HAlloc(BIF_P, need);
      BIF_RET(buf_to_intlist(&hp, fbuf, i, NIL));
- }
+}
+
+BIF_RETTYPE float_to_list_2(BIF_ALIST_2)
+{
+    const static int arity_two = make_arityval(2);
+    int decimals = SYS_DEFAULT_FLOAT_DECIMALS;
+    int compact = 0;
+    enum fmt_type_ {
+        FMT_LEGACY,
+        FMT_FIXED,
+        FMT_SCIENTIFIC
+    } fmt_type = FMT_LEGACY;
+    Eterm list = BIF_ARG_2;
+    Eterm arg;
+    int i;
+    Uint need;
+    Eterm* hp;
+    FloatDef f;
+    char fbuf[256];
+
+    /* check the arguments */
+    if (is_not_float(BIF_ARG_1))
+        goto badarg;
+
+    for(; is_list(list); list = CDR(list_val(list))) {
+        arg = CAR(list_val(list));
+        if (arg == am_compact) {
+            compact = 1;
+            continue;
+        } else if (is_tuple(arg)) {
+            Eterm* tp = tuple_val(arg);
+            if (*tp == arity_two && is_small(tp[2])) {
+                decimals = signed_val(tp[2]);
+                if (decimals > 0 && decimals < sizeof(fbuf) - 6 /* "X." ++ "e+YY" */)
+                    switch (tp[1]) {
+                        case am_decimals:
+                            fmt_type = FMT_FIXED;
+                            continue;
+                        case am_scientific:
+                            fmt_type = FMT_SCIENTIFIC;
+                            continue;
+                    }
+            }
+        }
+        goto badarg;
+    }
+    if (is_not_nil(list)) {
+        goto badarg;
+    }
+
+    GET_DOUBLE(BIF_ARG_1, f);
+
+    if (fmt_type == FMT_FIXED) {
+        if ((i = sys_double_to_chars_fast(f.fd, fbuf, sizeof(fbuf),
+                decimals, compact)) <= 0)
+            goto badarg;
+    } else {
+        if ((i = sys_double_to_chars_ext(f.fd, fbuf, sizeof(fbuf), decimals)) <= 0)
+            goto badarg;
+    }
+
+    need = i*2;
+    hp = HAlloc(BIF_P, need);
+    BIF_RET(buf_to_intlist(&hp, fbuf, i, NIL));
+badarg:
+    BIF_ERROR(BIF_P, BADARG);
+}
 
 /**********************************************************************/
 

@@ -84,7 +84,8 @@
 -export([display_nl/0, display_string/1, dist_exit/3, erase/0, erase/1]).
 -export([error/1, error/2, exit/1, exit/2, external_size/1]).
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
--export([float_to_list/1, fun_info/2, fun_to_list/1, function_exported/3]).
+-export([float_to_list/1, float_to_list/2]).
+-export([fun_info/2, fun_to_list/1, function_exported/3]).
 -export([garbage_collect/0, garbage_collect/1]).
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/1]).
 -export([get_module_info/1, get_stacktrace/0, group_leader/0]).
@@ -709,6 +710,16 @@ float(_Number) ->
 -spec float_to_list(Float) -> string() when
       Float :: float().
 float_to_list(_Float) ->
+    erlang:nif_error(undefined).
+
+%% float_to_list/2
+-spec float_to_list(Float, Options) -> string() when
+      Float :: float(),
+      Options :: [Option],
+      Option  :: {decimals, non_neg_integer()} |
+                 {scientific, non_neg_integer()} |
+                 compact.
+float_to_list(_Float, _Options) ->
     erlang:nif_error(undefined).
 
 %% fun_info/2
