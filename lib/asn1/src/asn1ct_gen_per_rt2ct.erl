@@ -263,54 +263,26 @@ emit_enc_k_m_string(SizeC, NumBits, CharOutTab, Value) ->
     call(per, encode_known_multiplier_string,
 	 [{asis,SizeC},NumBits,{asis,CharOutTab},Value]).
 
-emit_dec_known_multiplier_string(StringType,C,BytesVar) ->
-    SizeC = get_constraint(C,'SizeConstraint'),
-    PAlphabC = get_constraint(C,'PermittedAlphabet'),
-    case {StringType,PAlphabC} of
-	{'BMPString',{_,_}} ->
-	    exit({error,{asn1,
-			 {'not implemented',
-			  "BMPString with PermittedAlphabet "
-			  "constraint"}}});
-	_ ->
-	    ok
-    end,
-    NumBits = get_NumBits(C,StringType),
-    CharInTab = get_CharInTab(C,StringType),
-    case SizeC of
-	0 ->
-	    emit({"{[],",BytesVar,"}"});
-	_ ->
-	    call(per, decode_known_multiplier_string,
-		 [{asis,StringType},{asis,SizeC},NumBits,
-		  {asis,CharInTab},BytesVar])
-    end.
-
 
 %% copied from run time module
 
-get_CharOutTab(C,StringType) ->
-    get_CharTab(C,StringType,out).
-
-get_CharInTab(C,StringType) ->
-    get_CharTab(C,StringType,in).
-
-get_CharTab(C,StringType,InOut) ->
+get_CharOutTab(C, StringType) ->
     case get_constraint(C,'PermittedAlphabet') of
 	{'SingleValue',Sv} ->
-	    get_CharTab2(C,StringType,hd(Sv),lists:max(Sv),Sv,InOut);
+	    get_CharTab2(C, StringType, hd(Sv), lists:max(Sv), Sv);
 	no ->
 	    case StringType of
 		'IA5String' ->
 		    {0,16#7F,notab};
 		'VisibleString' ->
-		    get_CharTab2(C,StringType,16#20,16#7F,notab,InOut);
+		    get_CharTab2(C, StringType, 16#20, 16#7F, notab);
 		'PrintableString' ->
 		    Chars = lists:sort(
 			      " '()+,-./0123456789:=?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"),
-		    get_CharTab2(C,StringType,hd(Chars),lists:max(Chars),Chars,InOut);
+		    get_CharTab2(C, StringType, hd(Chars),
+				 lists:max(Chars), Chars);
 		'NumericString' ->
-		    get_CharTab2(C,StringType,16#20,$9," 0123456789",InOut);
+		    get_CharTab2(C, StringType, 16#20, $9, " 0123456789");
 		'UniversalString' ->
 		    {0,16#FFFFFFFF,notab};
 		'BMPString' ->
@@ -318,18 +290,13 @@ get_CharTab(C,StringType,InOut) ->
 	    end
     end.
 
-get_CharTab2(C,StringType,Min,Max,Chars,InOut) ->
+get_CharTab2(C, StringType, Min, Max, Chars) ->
     BitValMax = (1 bsl get_NumBits(C,StringType))-1,
     if
 	Max =< BitValMax ->
 	    {0,Max,notab};
 	true ->
-	    case InOut of
-		out ->
-		    {Min,Max,create_char_tab(Min,Chars)};
-		in  ->
-		    {Min,Max,list_to_tuple(Chars)}
-	    end
+	    {Min,Max,create_char_tab(Min,Chars)}
     end.
 
 create_char_tab(Min,L) ->
@@ -1401,7 +1368,6 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 
 gen_dec_prim(Erules,Att,BytesVar) ->
     Typename = Att#type.def,
-    Constraint = Att#type.constraint,
     case Typename of
 	'INTEGER' ->
 	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
@@ -1429,8 +1395,7 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 
 	'NumericString' ->
-	    emit_dec_known_multiplier_string('NumericString',
-					     Constraint,BytesVar);
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 	TString when TString == 'TeletexString';
 		     TString == 'T61String' ->
 	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
@@ -1439,32 +1404,30 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 
 	'UTCTime' ->
-	    emit_dec_known_multiplier_string('VisibleString',
-					     Constraint,BytesVar);
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
+
 	'GeneralizedTime' ->
-	    emit_dec_known_multiplier_string('VisibleString',
-					     Constraint,BytesVar);
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
+
 	'GraphicString' ->
 	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 
 	'VisibleString' ->
-	    emit_dec_known_multiplier_string('VisibleString',
-					     Constraint,BytesVar);
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
+
 	'GeneralString' ->
 	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 
 	'PrintableString' ->
-	    emit_dec_known_multiplier_string('PrintableString',
-					     Constraint,BytesVar);
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 	'IA5String' ->
-	    emit_dec_known_multiplier_string('IA5String',Constraint,BytesVar);
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 
 	'BMPString' ->
-	    emit_dec_known_multiplier_string('BMPString',Constraint,BytesVar);
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 
 	'UniversalString' ->
-	    emit_dec_known_multiplier_string('UniversalString',
-					     Constraint,BytesVar);
+	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
 
 	'UTF8String' ->
 	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);

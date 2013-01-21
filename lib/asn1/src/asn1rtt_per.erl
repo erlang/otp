@@ -38,7 +38,6 @@
 	 encode_UTF8String/1,decode_UTF8String/1,
 	 encode_octet_string/3,
 	 encode_known_multiplier_string/4,
-	 decode_known_multiplier_string/5,
 	 octets_to_complete/2]).
 
 -define('16K',16384).
@@ -871,27 +870,6 @@ decode_restricted_string(Bytes,aligned) ->
     {Len,Bytes2} = decode_length(Bytes,undefined),
     getoctets_as_list(Bytes2,Len).
 
-decode_known_multiplier_string(StringType,SizeC,NumBits,CharInTab,Bytes) ->
-    case SizeC of
-	Ub when is_integer(Ub), Ub*NumBits =< 16  ->
-	    chars_decode(Bytes,NumBits,StringType,CharInTab,Ub);
-	Ub when is_integer(Ub),Ub =<65535 -> % fixed length
-	    Bytes1 = align(Bytes),
-	    chars_decode(Bytes1,NumBits,StringType,CharInTab,Ub);
-	Vl when is_list(Vl) ->
-	    {Len,Bytes1} = decode_length(Bytes,{hd(Vl),lists:max(Vl)}),
-	    Bytes2 = align(Bytes1),
-	    chars_decode(Bytes2,NumBits,StringType,CharInTab,Len);
-	no  ->
-	    {Len,Bytes1} = decode_length(Bytes,undefined),
-	    Bytes2 = align(Bytes1),
-	    chars_decode(Bytes2,NumBits,StringType,CharInTab,Len);
-	{Lb,Ub}->
-	    {Len,Bytes1} = decode_length(Bytes,{Lb,Ub}),
-	    Bytes2 = align(Bytes1),
-	    chars_decode(Bytes2,NumBits,StringType,CharInTab,Len)
-    end.
-
 encode_GeneralString(_C,Val) ->
     encode_restricted_string(Val).
 decode_GeneralString(Bytes,_C) ->
@@ -917,18 +895,6 @@ encode_VideotexString(_C,Val) ->
 decode_VideotexString(Bytes,_C) ->
     decode_restricted_string(Bytes,aligned).
 
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% getBMPChars(Bytes,Len) ->{BMPcharList,RemainingBytes}
-%%
-getBMPChars(<<T/binary>>, 0, Acc) ->
-    {lists:reverse(Acc),T};
-getBMPChars(<<0,O2,Bytes1/bitstring>>, Len, Acc) ->
-    getBMPChars(Bytes1,Len-1,[O2|Acc]);
-getBMPChars(<<O1,O2,Bytes1/bitstring>>, Len, Acc) ->
-    getBMPChars(Bytes1,Len-1,[{0,0,O1,O2}|Acc]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% chars_encode(C,StringType,Value) -> ValueList
@@ -968,36 +934,6 @@ pre_complete_bits(NumBits,Val) when NumBits =< 2040 -> % 255 * 8
     Unused = (8 - (NumBits rem 8)) rem 8,
     Len = NumBits + Unused,
     [30,Unused,Len div 8,<<(Val bsl Unused):Len>>].
-
-
-chars_decode(Bytes,_,'BMPString',_,Len) ->
-    getBMPChars(Bytes,Len,[]);
-chars_decode(Bytes,NumBits,_StringType,CharInTab,Len) ->
-    chars_decode2(Bytes,CharInTab,NumBits,Len).
-
-
-chars_decode2(Bytes,CharInTab,NumBits,Len) ->
-    chars_decode2(Bytes,CharInTab,NumBits,Len,[]).
-
-chars_decode2(Bytes,_CharInTab,_NumBits,0,Acc) ->
-    {lists:reverse(Acc),Bytes};
-chars_decode2(Bytes,{Min,Max,notab},NumBits,Len,Acc) when NumBits > 8 ->
-    {Char,Bytes2} = getbits(Bytes,NumBits),
-    Result =
-	if
-	    Char < 256 -> Char;
-	    true ->
-		list_to_tuple(binary_to_list(<<Char:32>>))
-	end,
-    chars_decode2(Bytes2,{Min,Max,notab},NumBits,Len -1,[Result|Acc]);
-chars_decode2(Bytes,{Min,Max,notab},NumBits,Len,Acc) ->
-    {Char,Bytes2} = getbits(Bytes,NumBits),
-    chars_decode2(Bytes2,{Min,Max,notab},NumBits,Len -1,[Char+Min|Acc]);
-
-%% BMPString and UniversalString with PermittedAlphabet is currently not supported
-chars_decode2(Bytes,{Min,Max,CharInTab},NumBits,Len,Acc) ->
-    {Char,Bytes2} = getbits(Bytes,NumBits),
-    chars_decode2(Bytes2,{Min,Max,CharInTab},NumBits,Len -1,[element(Char+1,CharInTab)|Acc]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

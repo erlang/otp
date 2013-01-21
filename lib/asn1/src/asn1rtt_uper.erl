@@ -34,17 +34,17 @@
 
  -export([encode_open_type/1]).
 
- -export([encode_UniversalString/2, decode_UniversalString/2,
-	 encode_PrintableString/2, decode_PrintableString/2,
+ -export([encode_UniversalString/2,
+	 encode_PrintableString/2,
 	 encode_GeneralString/2, decode_GeneralString/2,
 	 encode_GraphicString/2, decode_GraphicString/2,
 	 encode_TeletexString/2, decode_TeletexString/2,
 	 encode_VideotexString/2, decode_VideotexString/2,
-	 encode_VisibleString/2, decode_VisibleString/2,
+	 encode_VisibleString/2,
 	 encode_UTF8String/1, decode_UTF8String/1,
-	 encode_BMPString/2, decode_BMPString/2,
-	 encode_IA5String/2, decode_IA5String/2,
-	 encode_NumericString/2, decode_NumericString/2,
+	 encode_BMPString/2,
+	 encode_IA5String/2,
+	 encode_NumericString/2,
 	 encode_ObjectDescriptor/2, decode_ObjectDescriptor/1
 	]).
 
@@ -799,56 +799,23 @@ decode_restricted_string(Bytes) ->
     {Len,Bytes2} = decode_length(Bytes, undefined),
     getoctets_as_list(Bytes2,Len).
 
-decode_known_multiplier_string(Bytes, StringType, C, _Ext) ->
-    NumBits = get_NumBits(C, StringType),
-    case get_constraint(C, 'SizeConstraint') of
-	Ub when is_integer(Ub), Ub*NumBits =< 16  ->
-	    chars_decode(Bytes, NumBits, StringType, C, Ub);
-	Ub when is_integer(Ub), Ub =<65535 -> % fixed length
-	    chars_decode(Bytes,NumBits,StringType,C,Ub);
-	0 ->
-	    {[],Bytes};
-	Vl when is_list(Vl) ->
-	    {Len,Bytes1} = decode_length(Bytes,{hd(Vl),lists:max(Vl)}),
-	    chars_decode(Bytes1,NumBits,StringType,C,Len);
-	no  ->
-	    {Len,Bytes1} = decode_length(Bytes,undefined),
-	    chars_decode(Bytes1,NumBits,StringType,C,Len);
-	{Lb,Ub}->
-	    {Len,Bytes1} = decode_length(Bytes,{Lb,Ub}),
-	    chars_decode(Bytes1,NumBits,StringType,C,Len)
-    end.
-
-
 encode_NumericString(C,Val) ->
     encode_known_multiplier_string('NumericString',C,Val).
-decode_NumericString(Bytes,C) ->
-    decode_known_multiplier_string(Bytes,'NumericString',C,false).
 
 encode_PrintableString(C,Val) ->
     encode_known_multiplier_string('PrintableString',C,Val).
-decode_PrintableString(Bytes,C) ->
-    decode_known_multiplier_string(Bytes,'PrintableString',C,false).
 
 encode_VisibleString(C,Val) -> % equivalent with ISO646String
     encode_known_multiplier_string('VisibleString',C,Val).
-decode_VisibleString(Bytes,C) ->
-    decode_known_multiplier_string(Bytes,'VisibleString',C,false).
 
 encode_IA5String(C,Val) ->
     encode_known_multiplier_string('IA5String',C,Val).
-decode_IA5String(Bytes,C) ->
-    decode_known_multiplier_string(Bytes,'IA5String',C,false).
 
 encode_BMPString(C,Val) ->
     encode_known_multiplier_string('BMPString',C,Val).
-decode_BMPString(Bytes,C) ->
-    decode_known_multiplier_string(Bytes,'BMPString',C,false).
 
 encode_UniversalString(C,Val) ->
     encode_known_multiplier_string('UniversalString',C,Val).
-decode_UniversalString(Bytes,C) ->
-    decode_known_multiplier_string(Bytes,'UniversalString',C,false).
 
 
 %% end of known-multiplier strings for which PER visible constraints are
@@ -878,33 +845,6 @@ encode_VideotexString(_C,Val) ->
     encode_restricted_string(Val).
 decode_VideotexString(Bytes,_C) ->
     decode_restricted_string(Bytes).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% getBMPChars(Bytes, Len) -> {BMPcharList,RemainingBytes}
-%%
-getBMPChars(Bytes, 1) ->
-    {O1,Bytes2} = getbits(Bytes, 8),
-    {O2,Bytes3} = getbits(Bytes2, 8),
-    if
-	O1 == 0 ->
-	    {[O2],Bytes3};
-	true ->
-	    {[{0,0,O1,O2}],Bytes3}
-    end;
-getBMPChars(Bytes, Len) ->
-    getBMPChars(Bytes, Len, []).
-
-getBMPChars(Bytes, 0, Acc) ->
-    {lists:reverse(Acc),Bytes};
-getBMPChars(Bytes, Len, Acc) ->
-    {Octs,Bytes1} = getoctets_as_list(Bytes,2),
-    case Octs of
-	[0,O2] ->
-	    getBMPChars(Bytes1, Len-1, [O2|Acc]);
-	[O1,O2]->
-	    getBMPChars(Bytes1, Len-1, [{0,0,O1,O2}|Acc])
-    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -970,27 +910,21 @@ get_NumBits(C,StringType) ->
     end.
 
 get_CharOutTab(C,StringType) ->
-    get_CharTab(C,StringType,out).
-
-get_CharInTab(C,StringType) ->
-    get_CharTab(C,StringType,in).
-
-get_CharTab(C,StringType,InOut) ->
     case get_constraint(C,'PermittedAlphabet') of
 	{'SingleValue',Sv} ->
-	    get_CharTab2(C,StringType,hd(Sv),lists:max(Sv),Sv,InOut);
+	    get_CharTab2(C,StringType,hd(Sv),lists:max(Sv),Sv);
 	no ->
 	    case StringType of
 		'IA5String' ->
 		    {0,16#7F,notab};
 		'VisibleString' ->
-		    get_CharTab2(C,StringType,16#20,16#7F,notab,InOut);
+		    get_CharTab2(C,StringType,16#20,16#7F,notab);
 		'PrintableString' ->
 		    Chars = lists:sort(
 			      " '()+,-./0123456789:=?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"),
-		    get_CharTab2(C,StringType,hd(Chars),lists:max(Chars),Chars,InOut);
+		    get_CharTab2(C,StringType,hd(Chars),lists:max(Chars),Chars);
 		'NumericString' ->
-		    get_CharTab2(C,StringType,16#20,$9," 0123456789",InOut);
+		    get_CharTab2(C,StringType,16#20,$9," 0123456789");
 		'UniversalString' ->
 		    {0,16#FFFFFFFF,notab};
 		'BMPString' ->
@@ -998,18 +932,13 @@ get_CharTab(C,StringType,InOut) ->
 	    end
     end.
 
-get_CharTab2(C,StringType,Min,Max,Chars,InOut) ->
+get_CharTab2(C,StringType,Min,Max,Chars) ->
     BitValMax = (1 bsl get_NumBits(C,StringType))-1,
     if
 	Max =< BitValMax ->
 	    {0,Max,notab};
 	true ->
-	    case InOut of
-		out ->
-		    {Min,Max,create_char_tab(Min,Chars)};
-		in  ->
-		    {Min,Max,list_to_tuple(Chars)}
-	    end
+	    {Min,Max,create_char_tab(Min,Chars)}
     end.
 
 create_char_tab(Min,L) ->
@@ -1045,44 +974,6 @@ charbits1(0) ->
     0;
 charbits1(NumOfChars) ->
     1 + charbits1(NumOfChars bsr 1).
-
-
-chars_decode(Bytes,_,'BMPString',C,Len) ->
-    case get_constraint(C,'PermittedAlphabet') of
-	no ->
-	    getBMPChars(Bytes,Len);
-	_ ->
-	    exit({error,{asn1,
-			 {'not implemented',
-			  "BMPString with PermittedAlphabet constraint"}}})
-    end;
-chars_decode(Bytes,NumBits,StringType,C,Len) ->
-    CharInTab = get_CharInTab(C,StringType),
-    chars_decode2(Bytes,CharInTab,NumBits,Len).
-
-
-chars_decode2(Bytes,CharInTab,NumBits,Len) ->
-    chars_decode2(Bytes,CharInTab,NumBits,Len,[]).
-
-chars_decode2(Bytes,_CharInTab,_NumBits,0,Acc) ->
-    {lists:reverse(Acc),Bytes};
-chars_decode2(Bytes,{Min,Max,notab},NumBits,Len,Acc) when NumBits > 8 ->
-    {Char,Bytes2} = getbits(Bytes,NumBits),
-    Result =
-	if
-	    Char < 256 -> Char;
-	    true ->
-		list_to_tuple(binary_to_list(<<Char:32>>))
-	end,
-    chars_decode2(Bytes2,{Min,Max,notab},NumBits,Len -1,[Result|Acc]);
-chars_decode2(Bytes,{Min,Max,notab},NumBits,Len,Acc) ->
-    {Char,Bytes2} = getbits(Bytes,NumBits),
-    chars_decode2(Bytes2,{Min,Max,notab},NumBits,Len -1,[Char+Min|Acc]);
-
-%% BMPString and UniversalString with PermittedAlphabet is currently not supported
-chars_decode2(Bytes,{Min,Max,CharInTab},NumBits,Len,Acc) ->
-    {Char,Bytes2} = getbits(Bytes,NumBits),
-    chars_decode2(Bytes2,{Min,Max,CharInTab},NumBits,Len -1,[element(Char+1,CharInTab)|Acc]).
 
 
 %% UTF8String

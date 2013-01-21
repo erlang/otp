@@ -21,7 +21,8 @@
 -export([per_dec_raw_bitstring/2,
 	 per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
 	 per_dec_extension_map/1,
-	 per_dec_integer/2,per_dec_length/3,per_dec_named_integer/3,
+	 per_dec_integer/2,per_dec_k_m_string/3,
+	 per_dec_length/3,per_dec_named_integer/3,
 	 per_dec_octet_string/2,per_dec_open_type/1,per_dec_real/1]).
 -export([optimize_alignment/1,optimize_alignment/2,
 	 dec_slim_cg/2,dec_code_gen/2]).
@@ -108,6 +109,13 @@ per_dec_named_integer(Constraint, NamedList0, Aligned) ->
     Int = per_dec_integer(Constraint, Aligned),
     NamedList = [{K,V} || {V,K} <- NamedList0] ++ [integer_default],
     {map,Int,NamedList}.
+
+per_dec_k_m_string(StringType, Constraint, Aligned) ->
+    SzConstr = get_constraint(Constraint, 'SizeConstraint'),
+    N = string_num_bits(StringType, Constraint, Aligned),
+    Imm = dec_string(SzConstr, N, Aligned),
+    Chars = char_tab(Constraint, StringType, N),
+    convert_string(N, Chars, Imm).
 
 per_dec_octet_string(Constraint, Aligned) ->
     dec_string(Constraint, 8, Aligned).
@@ -258,6 +266,93 @@ matched_range({get_bits,Bits0,[U|Flags]}) when is_integer(U) ->
 	    unknown
     end;
 matched_range(_Op) -> unknown.
+
+string_num_bits(StringType, Constraint, Aligned) ->
+    case get_constraint(Constraint, 'PermittedAlphabet') of
+	{'SingleValue',Sv} ->
+	    charbits(length(Sv), Aligned);
+	no ->
+	    case StringType of
+		'IA5String' ->
+		    charbits(128, Aligned);
+		'VisibleString' ->
+		    charbits(95, Aligned);
+		'PrintableString' ->
+		    charbits(74, Aligned);
+		'NumericString' ->
+		    charbits(11, Aligned);
+		'UniversalString' ->
+		    32;
+		'BMPString' ->
+		    16
+	    end
+    end.
+
+charbits(NumChars, false) ->
+    uper_num_bits(NumChars);
+charbits(NumChars, true) ->
+    1 bsl uper_num_bits(uper_num_bits(NumChars)).
+
+convert_string(8, notab, Imm) ->
+    {convert,binary_to_list,Imm};
+convert_string(NumBits, notab, Imm) when NumBits < 8 ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,per_common,decode_chars,
+			     [V,NumBits]},com,Buf,"}"])
+	  end,
+    {call,Dec,Imm};
+convert_string(NumBits, notab, Imm) when NumBits =:= 16 ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,per_common,decode_chars_16bit,
+			     [V]},com,Buf,"}"])
+	  end,
+    {call,Dec,Imm};
+convert_string(NumBits, notab, Imm) ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,per_common,decode_big_chars,
+			     [V,NumBits]},com,Buf,"}"])
+	  end,
+    {call,Dec,Imm};
+convert_string(NumBits, Chars, Imm) ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,per_common,decode_chars,
+			     [V,NumBits,{asis,Chars}]},com,Buf,"}"])
+	  end,
+    {call,Dec,Imm}.
+
+char_tab(C, StringType, NumBits) ->
+    case get_constraint(C, 'PermittedAlphabet') of
+	{'SingleValue',Sv} ->
+	    char_tab_1(Sv, NumBits);
+	no ->
+	    case StringType of
+		'IA5String' ->
+		    notab;
+		'VisibleString' ->
+		    notab;
+		'PrintableString' ->
+		    Chars = " '()+,-./0123456789:=?"
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+			"abcdefghijklmnopqrstuvwxyz",
+		    char_tab_1(Chars, NumBits);
+		'NumericString' ->
+		    char_tab_1(" 0123456789", NumBits);
+		'UniversalString' ->
+		    notab;
+		'BMPString' ->
+		    notab
+	    end
+    end.
+
+char_tab_1(Chars, NumBits) ->
+    Max = lists:max(Chars),
+    BitValMax = (1 bsl NumBits) - 1,
+    if
+	Max =< BitValMax ->
+	    notab;
+	true ->
+	    list_to_tuple(lists:sort(Chars))
+    end.
 
 %%%
 %%% Remove unnecessary aligning to octet boundaries.

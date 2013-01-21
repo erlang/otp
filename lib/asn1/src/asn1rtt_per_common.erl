@@ -24,7 +24,10 @@
 -export([decode_fragmented/3,
 	 decode_compact_bit_string/1,
 	 decode_legacy_bit_string/1,
-	 decode_named_bit_string/2]).
+	 decode_named_bit_string/2,
+	 decode_chars/2,decode_chars/3,
+	 decode_chars_16bit/1,
+	 decode_big_chars/2]).
 
 -define('16K',16384).
 
@@ -58,6 +61,20 @@ decode_compact_bit_string(Val) ->
     PadLen = (8 - (bit_size(Val) band 7)) band 7,
     {PadLen,<<Val/bitstring,0:PadLen>>}.
 
+decode_chars(Val, N) ->
+    [C || <<C:N>> <= Val].
+
+decode_chars(Val, N, Chars) ->
+    [element(C+1, Chars) || <<C:N>> <= Val].
+
+decode_chars_16bit(Val) ->
+    Cs = [C || <<C:16>> <= Val],
+    decode_chars_16bit_1(Cs).
+
+decode_big_chars(Val, N) ->
+    decode_big_chars_1(decode_chars(Val, N)).
+
+
 %%%
 %%% Internal functions.
 %%%
@@ -73,3 +90,15 @@ decode_named_bit_string_1(Pos, [1|Bt], Names, Acc) ->
     end;
 decode_named_bit_string_1(_Pos, [], _Names, Acc) ->
     lists:reverse(Acc).
+
+decode_chars_16bit_1([H|T]) when H < 256 ->
+    [H|decode_chars_16bit_1(T)];
+decode_chars_16bit_1([H|T]) ->
+    [{0,0,H bsr 8,H band 255}|decode_chars_16bit_1(T)];
+decode_chars_16bit_1([]) -> [].
+
+decode_big_chars_1([H|T]) when H < 256 ->
+    [H|decode_big_chars_1(T)];
+decode_big_chars_1([H|T]) ->
+    [list_to_tuple(binary_to_list(<<H:32>>))|decode_big_chars_1(T)];
+decode_big_chars_1([]) -> [].

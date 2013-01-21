@@ -1131,6 +1131,22 @@ gen_dec_imm_1({'INTEGER',NamedNumberList}, Constraint, Aligned) ->
     asn1ct_imm:per_dec_named_integer(Constraint,
 				     NamedNumberList,
 				     Aligned);
+gen_dec_imm_1('BMPString'=Type, Constraint, Aligned) ->
+    gen_dec_k_m_string(Type, Constraint, Aligned);
+gen_dec_imm_1('NumericString'=Type, Constraint, Aligned) ->
+    gen_dec_k_m_string(Type, Constraint, Aligned);
+gen_dec_imm_1('PrintableString'=Type, Constraint, Aligned) ->
+    gen_dec_k_m_string(Type, Constraint, Aligned);
+gen_dec_imm_1('VisibleString'=Type, Constraint, Aligned) ->
+    gen_dec_k_m_string(Type, Constraint, Aligned);
+gen_dec_imm_1('IA5String'=Type, Constraint, Aligned) ->
+    gen_dec_k_m_string(Type, Constraint, Aligned);
+gen_dec_imm_1('UniversalString'=Type, Constraint, Aligned) ->
+    gen_dec_k_m_string(Type, Constraint, Aligned);
+gen_dec_imm_1('UTCTime', Constraint, Aligned) ->
+    gen_dec_k_m_string('VisibleString', Constraint, Aligned);
+gen_dec_imm_1('GeneralizedTime', Constraint, Aligned) ->
+    gen_dec_k_m_string('VisibleString', Constraint, Aligned);
 gen_dec_imm_1('OCTET STRING', Constraint, Aligned) ->
     SzConstr = get_constraint(Constraint, 'SizeConstraint'),
     Imm = asn1ct_imm:per_dec_octet_string(SzConstr, Aligned),
@@ -1150,6 +1166,9 @@ gen_dec_copy_bitstring(Imm) ->
 		emit(["{list_to_bitstring([",V,"]),",Buf,"}"])
 	end,
     {call,D,Imm}.
+
+gen_dec_k_m_string(Type, Constraint, Aligned) ->
+    asn1ct_imm:per_dec_k_m_string(Type, Constraint, Aligned).
 
 gen_dec_prim(Erule, Type, BytesVar) ->
     case gen_dec_imm(Erule, Type) of
@@ -1171,9 +1190,6 @@ gen_dec_prim_1(Erule,
 	    call(Erule, decode_relative_oid, [BytesVar]);
 	'ObjectDescriptor' ->
 	    call(Erule, decode_ObjectDescriptor, [BytesVar]);
-	'NumericString' ->
-	    call(Erule, decode_NumericString,
-		 [BytesVar,{asis,Constraint}]);
 	TString when TString == 'TeletexString';
 		     TString == 'T61String' ->
 	    call(Erule, decode_TeletexString,
@@ -1181,27 +1197,10 @@ gen_dec_prim_1(Erule,
 	'VideotexString' ->
 	    call(Erule, decode_VideotexString,
 		 [BytesVar,{asis,Constraint}]);
-	'UTCTime' ->
-	    call(Erule, decode_VisibleString, [BytesVar,{asis,Constraint}]);
-	'GeneralizedTime' ->
-	    call(Erule, decode_VisibleString, [BytesVar,{asis,Constraint}]);
 	'GraphicString' ->
 	    call(Erule, decode_GraphicString,[BytesVar,{asis,Constraint}]);
-	'VisibleString' ->
-	    call(Erule, decode_VisibleString, [BytesVar,{asis,Constraint}]);
 	'GeneralString' ->
 	    call(Erule, decode_GeneralString, [BytesVar,{asis,Constraint}]);
-	'PrintableString' ->
-	    call(Erule, decode_PrintableString,
-		 [BytesVar,{asis,Constraint}]);
-	'IA5String' ->
-	    call(Erule, decode_IA5String, [BytesVar,{asis,Constraint}]);
-	'BMPString' ->
-	    call(Erule, decode_BMPString,
-		 [BytesVar,{asis,Constraint}]);
-	'UniversalString' ->
-	    call(Erule, decode_UniversalString,
-		 [BytesVar,{asis,Constraint}]);
 	'UTF8String' ->
 	    call(Erule, decode_UTF8String, [BytesVar]);
 	#'ObjectClassFieldType'{} ->
