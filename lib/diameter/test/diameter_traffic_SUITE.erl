@@ -40,6 +40,7 @@
          send_nok/1,
          send_eval/1,
          send_bad_answer/1,
+         send_protocol_error/1,
          send_arbitrary/1,
          send_unknown/1,
          send_unknown_mandatory/1,
@@ -48,6 +49,9 @@
          send_unsupported_app/1,
          send_error_bit/1,
          send_unsupported_version/1,
+         send_invalid_avp_bits/1,
+         send_invalid_avp_length/1,
+         send_invalid_reject/1,
          send_long/1,
          send_nopeer/1,
          send_noapp/1,
@@ -113,12 +117,15 @@
 %% Sequence mask for End-to-End and Hop-by-Hop identifiers.
 -define(CLIENT_MASK, {1,26}).  %% 1 in top 6 bits
 
-%% Run tests cases in different encoding variants. Send outgoing
-%% messages as lists or records.
+%% How to construct messages, as record or list.
 -define(ENCODINGS, [list, record]).
 
-%% Identifers for client connections.
--define(CONNECTIONS, [c1,c2,c3]).
+%% How to send answers, in a diameter_packet or not.
+-define(CONTAINERS, [pkt, msg]).
+
+%% Send over multiple connections that are mapped onto
+%% [{E,P} || E <- ?ENCODINGS, P <- ?CONTAINERS].
+-define(CONNECTIONS, [c0,c1,c2,c3]).
 
 %% Not really what we should be setting unless the message is sent in
 %% the common application but diameter doesn't care.
@@ -162,6 +169,8 @@
         ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_REALM_NOT_SERVED').
 -define(UNABLE_TO_DELIVER,
         ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_UNABLE_TO_DELIVER').
+-define(INVALID_AVP_LENGTH,
+        ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_INVALID_AVP_LENGTH').
 
 -define(EVENT_RECORD,
         ?'DIAMETER_BASE_ACCOUNTING-RECORD-TYPE_EVENT_RECORD').
@@ -174,6 +183,8 @@
         ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_LOGOUT').
 -define(BAD_ANSWER,
         ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_BAD_ANSWER').
+-define(USER_MOVED,
+        ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_USER_MOVED').
 
 -define(A, list_to_atom).
 -define(L, atom_to_list).
@@ -187,14 +198,17 @@ suite() ->
 
 all() ->
     [start, start_services, add_transports, result_codes]
-        ++ [{group, ?util:name([E,C]), P} || E <- ?ENCODINGS,
-                                             C <- ?CONNECTIONS,
-                                             P <- [[], [parallel]]]
+        ++ [{group, ?util:name([R,C,A]), P} || R <- ?ENCODINGS,
+                                               C <- ?CONTAINERS,
+                                               A <- ?ENCODINGS,
+                                               P <- [[], [parallel]]]
         ++ [remove_transports, stop_services, stop].
 
 groups() ->
     Ts = tc(),
-    [{?util:name([E,C]), [], Ts} || E <- ?ENCODINGS, C <- ?CONNECTIONS].
+    [{?util:name([R,C,A]), [], Ts} || R <- ?ENCODINGS,
+                                      C <- ?CONTAINERS,
+                                      A <- ?ENCODINGS].
 
 init_per_group(Name, Config) ->
     [{group, Name} | Config].
@@ -215,6 +229,7 @@ tc() ->
      send_nok,
      send_eval,
      send_bad_answer,
+     send_protocol_error,
      send_arbitrary,
      send_unknown,
      send_unknown_mandatory,
@@ -223,6 +238,9 @@ tc() ->
      send_unsupported_app,
      send_error_bit,
      send_unsupported_version,
+     send_invalid_avp_bits,
+     send_invalid_avp_length,
+     send_invalid_reject,
      send_long,
      send_nopeer,
      send_noapp,
@@ -265,7 +283,9 @@ start_services(_Config) ->
 
 add_transports(Config) ->
     LRef = ?util:listen(?SERVER, tcp, [{capabilities_cb, fun capx/2}]),
-    Cs = [?util:connect(?CLIENT, tcp, LRef, [{id, C}]) || C <- ?CONNECTIONS],
+    Cs = [?util:connect(?CLIENT, tcp, LRef, [{id, C},
+                                             {capabilities, [osi(C)]}])
+          || C <- ?CONNECTIONS],
     ?util:write_priv(Config, "transport", [LRef | Cs]).
 
 remove_transports(Config) ->
@@ -283,11 +303,15 @@ capx(_, #diameter_caps{origin_host = {OH,DH}}) ->
     io:format("connection: ~p -> ~p~n", [DH,OH]),
     ok.
 
+osi(Id) ->
+    [$c,N] = atom_to_list(Id),
+    {'Origin-State-Id', N - $0}.
+
 %% ===========================================================================
 
 %% Ensure that result codes have the expected values.
 result_codes(_Config) ->
-    {2001, 3001, 3002, 3003, 3004, 3007, 3008, 3009, 5001, 5011}
+    {2001, 3001, 3002, 3003, 3004, 3007, 3008, 3009, 5001, 5011, 5014}
         = {?SUCCESS,
            ?COMMAND_UNSUPPORTED,
            ?UNABLE_TO_DELIVER,
@@ -297,13 +321,14 @@ result_codes(_Config) ->
            ?INVALID_HDR_BITS,
            ?INVALID_AVP_BITS,
            ?AVP_UNSUPPORTED,
-           ?UNSUPPORTED_VERSION}.
+           ?UNSUPPORTED_VERSION,
+           ?INVALID_AVP_LENGTH}.
 
 %% Send an ACR and expect success.
 send_ok(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 1}],
-    
+
     #diameter_base_accounting_ACA{'Result-Code' = ?SUCCESS}
         = call(Config, Req).
 
@@ -311,7 +336,7 @@ send_ok(Config) ->
 send_nok(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 0}],
-    
+
     #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS}
         = call(Config, Req).
 
@@ -330,6 +355,15 @@ send_bad_answer(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 2}],
     {error, timeout} = call(Config, Req).
+
+%% Send an ACR that the server callback answers explicitly with a
+%% protocol error.
+send_protocol_error(Config) ->
+    Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
+                  {'Accounting-Record-Number', 4}],
+
+    #'diameter_base_answer-message'{'Result-Code' = ?TOO_BUSY}
+        = call(Config, Req).
 
 %% Send an ASR with an arbitrary AVP and expect success and the same
 %% AVP in the reply.
@@ -396,6 +430,29 @@ send_error_bit(Config) ->
 send_unsupported_version(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
     #diameter_base_STA{'Result-Code' = ?UNSUPPORTED_VERSION}
+        = call(Config, Req).
+
+%% Send a request containing an incorrect AVP length.
+send_invalid_avp_bits(Config) ->
+    Req = ['STR', {'Termination-Cause', ?LOGOUT}],
+
+    #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS}
+        = call(Config, Req).
+
+%% Send a request containing an AVP length that doesn't match the
+%% AVP's type.
+send_invalid_avp_length(Config) ->
+    Req = ['STR', {'Termination-Cause', ?LOGOUT}],
+
+    #'diameter_base_STA'{'Result-Code' = ?INVALID_AVP_LENGTH}
+        = call(Config, Req).
+
+%% Send a request containing 5xxx errors that the server rejects with
+%% 3xxx.
+send_invalid_reject(Config) ->
+    Req = ['STR', {'Termination-Cause', ?USER_MOVED}],
+
+    #'diameter_base_answer-message'{'Result-Code' = ?TOO_BUSY}
         = call(Config, Req).
 
 %% Send something long that will be fragmented by TCP.
@@ -572,17 +629,38 @@ call(Config, Req) ->
 
 call(Config, Req, Opts) ->
     Name = proplists:get_value(testcase, Config),
-    [Encoding, Client] = ?util:name(proplists:get_value(group, Config)),
+    [Encoding, C, E] = ?util:name(proplists:get_value(group, Config)),
     diameter:call(?CLIENT,
                   dict(Req),
-                  req(Req, Encoding),
-                  [{extra, [Name, Client]} | Opts]).
+                  msg(Req, Encoding),
+                  [{extra, [Name, client(E,C)]} | Opts]).
 
-req(['ACR' = H | T], record) ->
+client(E, C) ->
+    list_to_atom([$c, $0 + 2*codec(E) + container(C)]).
+
+client(N) ->
+    {codec(N bsr 1), container(N rem 2)}.
+
+codec(record) -> 0;
+codec(list) -> 1;
+codec(0) -> record;
+codec(1) -> list.
+
+%% Here we're just mapping booleans but the readable atoms are part of
+%% (constructed) group names, so it's good that they're readable.
+
+container(pkt) -> 0;
+container(msg) -> 1;
+container(0) -> pkt;
+container(1) -> msg.
+
+msg([H|T], record)
+  when H == 'ACR';
+       H == 'ACA' ->
     ?ACCT:'#new-'(?ACCT:msg2rec(H), T);
-req([H|T], record) ->
+msg([H|T], record) ->
     ?BASE:'#new-'(?BASE:msg2rec(H), T);
-req(T, _) ->
+msg(T, _) ->
     T.
 
 dict(['ACR' | _]) ->
@@ -662,6 +740,40 @@ prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, send_detach, _, _) ->
 log(#diameter_packet{} = P, T) ->
     io:format("~p: ~p~n", [T,P]).
 
+%% prepare/3
+
+prepare(Pkt, Caps, send_invalid_avp_bits) ->
+    Req = prepare(Pkt, Caps),
+    %% Last AVP in our STR is Termination-Cause of type Unsigned32:
+    %% set its length improperly.
+    #diameter_packet{header = #diameter_header{length = L},
+                     bin = B}
+        = E
+        = diameter_codec:encode(?BASE, Pkt#diameter_packet{msg = Req}),
+    Offset = L - 7,  %% to AVP Length
+    <<H:Offset/binary, 12:24/integer, T:4/binary>> = B,
+    E#diameter_packet{bin = <<H/binary, 13:24/integer, T/binary>>};
+
+prepare(Pkt, Caps, N)
+  when N == send_invalid_avp_length;
+       N == send_invalid_reject ->
+    Req = prepare(Pkt, Caps),
+    %% Second last AVP in our STR is Auth-Application-Id of type
+    %% Unsigned32: Send a value of length 8.
+    #diameter_packet{header = #diameter_header{length = L},
+                     bin = B0}
+        = E
+        = diameter_codec:encode(?BASE, Pkt#diameter_packet{msg = Req}),
+    Offset = L - 7 - 12,  %% to AVP Length
+    <<H0:Offset/binary, 12:24/integer, T:16/binary>> = B0,
+    <<V, L:24/integer, H/binary>> = H0,  %% assert
+    E#diameter_packet{bin = <<V,
+                              (L+4):24/integer,
+                              H/binary,
+                              16:24/integer,
+                              0:32/integer,
+                              T/binary>>};
+
 prepare(Pkt, Caps, send_unsupported) ->
     Req = prepare(Pkt, Caps),
     #diameter_packet{bin = <<H:5/binary, _CmdCode:3/binary, T/binary>>}
@@ -692,6 +804,8 @@ prepare(Pkt, Caps, send_anything) ->
 
 prepare(Pkt, Caps, _Name) ->
     prepare(Pkt, Caps).
+
+%% prepare/2
 
 prepare(#diameter_packet{msg = Req}, Caps)
   when is_record(Req, diameter_base_accounting_ACR);
@@ -757,10 +871,17 @@ handle_answer(Pkt, _Req, ?CLIENT, _Peer, send_detach, _Id, {Pid, Ref}) ->
     Pid ! {Ref, Pkt}.
 
 answer(Pkt, Req, _Peer, Name) ->
-    #diameter_packet{header = H, msg = Rec, errors = []} = Pkt,
+    #diameter_packet{header = H, msg = Rec, errors = Es} = Pkt,
     ApplId = app(Req, Name),
     #diameter_header{application_id = ApplId} = H,  %% assert
+    answer(Rec, Es, Name).
 
+answer(Rec, [_|_], N)
+  when N == send_invalid_avp_bits;
+       N == send_invalid_avp_length;
+       N == send_invalid_reject ->
+    Rec;
+answer(Rec, [], _) ->
     Rec.
 
 app(_, send_unsupported_app) ->
@@ -786,7 +907,17 @@ handle_request(#diameter_packet{header = H, msg = M}, ?SERVER, {_Ref, Caps}) ->
     {V,B} = ?CLIENT_MASK,
     V = EI bsr B,  %% assert
     V = HI bsr B,  %%
-    request(M, Caps).
+    #diameter_caps{origin_state_id = {_,[N]}} = Caps,
+    answer(client(N), request(M, Caps)).
+
+answer(T, {Tag, Action, Post}) ->
+    {Tag, answer(T, Action), Post};
+answer({E,C}, {reply, Ans}) ->
+    answer(C, {reply, msg(Ans, E)});
+answer(pkt, {reply, Ans}) ->
+    {reply, #diameter_packet{msg = Ans}};
+answer(_, T) ->
+    T.
 
 %% send_nok
 request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 0},
@@ -806,7 +937,7 @@ request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                   {'Accounting-Record-Type', RT},
                   {'Accounting-Record-Number', RN}],
 
-    {reply, #diameter_packet{header = #diameter_header{is_error = true},%% not
+    {reply, #diameter_packet{header = #diameter_header{is_error = true},%% NOT
                              msg = Ans}};
 
 %% send_eval
@@ -836,15 +967,28 @@ request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                     {'Accounting-Record-Type', RT},
                     {'Accounting-Record-Number', RN}]};
 
+%% send_protocol_error
+request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 4},
+        #diameter_caps{origin_host = {OH, _},
+                       origin_realm = {OR, _}}) ->
+    Ans = ['answer-message', {'Result-Code', ?TOO_BUSY},
+                             {'Origin-Host', OH},
+                             {'Origin-Realm', OR}],
+    {reply, Ans};
+
 request(#diameter_base_ASR{'Session-Id' = SId,
                            'AVP' = Avps},
         #diameter_caps{origin_host = {OH, _},
                        origin_realm = {OR, _}}) ->
-    {reply, #diameter_base_ASA{'Result-Code' = ?SUCCESS,
-                               'Session-Id' = SId,
-                               'Origin-Host' = OH,
-                               'Origin-Realm' = OR,
-                               'AVP' = Avps}};
+    {reply, ['ASA', {'Result-Code', ?SUCCESS},
+                    {'Session-Id', SId},
+                    {'Origin-Host', OH},
+                    {'Origin-Realm', OR},
+                    {'AVP', Avps}]};
+
+%% send_invalid_reject
+request(#diameter_base_STR{'Termination-Cause' = ?USER_MOVED}, _Caps) ->
+    {protocol_error, ?TOO_BUSY};
 
 %% send_noreply
 request(#diameter_base_STR{'Termination-Cause' = T},
@@ -867,10 +1011,10 @@ request(#diameter_base_STR{'Destination-Host'= [H]},
 request(#diameter_base_STR{'Session-Id' = SId},
         #diameter_caps{origin_host  = {OH, _},
                        origin_realm = {OR, _}}) ->
-    {reply, #diameter_base_STA{'Result-Code' = ?SUCCESS,
-                               'Session-Id' = SId,
-                               'Origin-Host' = OH,
-                               'Origin-Realm' = OR}};
+    {reply, ['STA', {'Result-Code', ?SUCCESS},
+                    {'Session-Id', SId},
+                    {'Origin-Host', OH},
+                    {'Origin-Realm', OR}]};
 
 %% send_error
 request(#diameter_base_RAR{}, _Caps) ->
