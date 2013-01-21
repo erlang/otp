@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1134,7 +1134,7 @@ handle_call({get, Vars, Context}, _From, S) ->
 	  "~n   Vars:    ~p"
 	  "~n   Context: ~p", [Vars, Context]),
     put_pdu_data({undefined, undefined, undefined, undefined, Context}),
-    case catch mapfoldl({?MODULE, tr_var}, [], 1, Vars) of
+    case catch mapfoldl(fun ?MODULE:tr_var/2, [], 1, Vars) of
 	{error, Reason} -> {reply, {error, Reason}, S};
 	{_, Varbinds} ->
 	    ?vdebug("Varbinds: ~p",[Varbinds]),
@@ -1155,7 +1155,7 @@ handle_call({get_next, Vars, Context}, _From, S) ->
           "~n   Vars:    ~p"
           "~n   Context: ~p",[Vars, Context]),
     put_pdu_data({undefined, undefined, undefined, undefined, Context}),
-    case catch mapfoldl({?MODULE, tr_var}, [], 1, Vars) of
+    case catch mapfoldl(fun ?MODULE:tr_var/2, [], 1, Vars) of
         {error, Reason} -> {reply, {error, Reason}, S};
         {_, Varbinds} ->
             ?vdebug("Varbinds: ~p",[Varbinds]),
