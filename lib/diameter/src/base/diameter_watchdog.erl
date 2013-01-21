@@ -45,6 +45,8 @@
 -define(DEFAULT_TW_INIT, 30000). %% RFC 3539 ch 3.4.1
 -define(NOMASK, {0,32}).  %% default sequence mask
 
+-define(BASE, ?DIAMETER_DICT_COMMON).
+
 -record(watchdog,
         {%% PCB - Peer Control Block; see RFC 3539, Appendix A
          status = initial :: initial | okay | suspect | down | reopen,
@@ -56,8 +58,10 @@
          %% end PCB
          parent = self() :: pid(),              %% service process
          transport       :: pid() | undefined,  %% peer_fsm process
-         tref :: reference(), %% reference for current watchdog timer
-         message_data,      %% term passed into diameter_service with message
+         tref :: reference(),     %% reference for current watchdog timer
+         dictionary :: module(),  %% common dictionary
+         receive_data :: term(),
+                 %% term passed into diameter_service with incoming message
          sequence :: diameter:sequence(),     %% mask
          restrict :: {diameter:restriction(), boolean()},
          shutdown = false :: boolean()}).
@@ -70,13 +74,12 @@
 %% reason.
 %% ---------------------------------------------------------------------------
 
--spec start(Type, {RecvData, [Opt], SvcName, SvcOpts, #diameter_service{}})
+-spec start(Type, {RecvData, [Opt], SvcOpts, #diameter_service{}})
    -> {reference(), pid()}
  when Type :: {connect|accept, diameter:transport_ref()},
       RecvData :: term(),
       Opt :: diameter:transport_opt(),
-      SvcOpts :: [diameter:service_opt()],
-      SvcName :: diameter:service_name().
+      SvcOpts :: [diameter:service_opt()].
 
 start({_,_} = Type, T) ->
     Ack = make_ref(),
@@ -105,7 +108,6 @@ init(T) ->
 
 i({Ack, T, Pid, {RecvData,
                  Opts,
-                 SvcName,
                  SvcOpts,
                  #diameter_service{applications = Apps,
                                    capabilities = Caps}
@@ -118,12 +120,14 @@ i({Ack, T, Pid, {RecvData,
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
     Restrict = proplists:get_value(restrict_connections, SvcOpts),
     Nodes = restrict_nodes(Restrict),
+    Dict0 = common_dictionary(Apps),
     #watchdog{parent = Pid,
-              transport = start(T, Opts, Mask, Nodes, Svc),
+              transport = start(T, Opts, Mask, Nodes, Dict0, Svc),
               tw = proplists:get_value(watchdog_timer,
                                        Opts,
                                        ?DEFAULT_TW_INIT),
-              message_data = {RecvData, SvcName, Apps, Mask},
+              receive_data = RecvData,
+              dictionary = Dict0,
               sequence = Mask,
               restrict = {Restrict, lists:member(node(), Nodes)}}.
 
@@ -137,10 +141,59 @@ wait(Ref, Pid) ->
 
 %% start/5
 
-start(T, Opts, Mask, Nodes, Svc) ->
+start(T, Opts, Mask, Nodes, Dict0, Svc) ->
     {_MRef, Pid}
-        = diameter_peer_fsm:start(T, Opts, {Mask, Nodes, Svc}),
+        = diameter_peer_fsm:start(T, Opts, {Mask, Nodes, Dict0, Svc}),
     Pid.
+
+%% common_dictionary/1
+%%
+%% Determine the dictionary of the Diameter common application with
+%% Application Id 0. Fail on config errors.
+
+common_dictionary(Apps) ->
+    case
+        orddict:fold(fun dict0/3,
+                     false,
+                     lists:foldl(fun(#diameter_app{dictionary = M}, D) ->
+                                         orddict:append(M:id(), M, D)
+                                 end,
+                                 orddict:new(),
+                                 Apps))
+    of
+        {value, Mod} ->
+            Mod;
+        false ->
+            %% A transport should configure a common dictionary but
+            %% don't require it. Not configuring a common dictionary
+            %% means a user won't be able either send of receive
+            %% messages in the common dictionary: incoming request
+            %% will be answered with 3007 and outgoing requests cannot
+            %% be sent. The dictionary returned here is oly used for
+            %% messages diameter sends and receives: CER/CEA, DPR/DPA
+            %% and DWR/DWA.
+            ?BASE
+    end.
+
+%% Each application should be represented by a single dictionary.
+dict0(Id, [_,_|_] = Ms, _) ->
+    config_error({multiple_dictionaries, Ms, {application_id, Id}});
+
+%% An explicit common dictionary.
+dict0(?APP_ID_COMMON, [Mod], _) ->
+    {value, Mod};
+
+%% A pure relay, in which case the common application is implicit.
+%% This uses the fact that the common application will already have
+%% been folded.
+dict0(?APP_ID_RELAY, _, false) ->
+    {value, ?BASE};
+
+dict0(_, _, Acc) ->
+    Acc.
+
+config_error(T) ->
+    ?ERROR({configuration_error, T}).
 
 %% handle_call/3
 
@@ -353,16 +406,16 @@ getr(Key) ->
 eraser(Key) ->
     erase({?MODULE, Key}).
 
-%% encode/2
+%% encode/3
 
-encode(Msg, Mask) ->
+encode(Msg, Mask, Dict) ->
     Seq = diameter_session:sequence(Mask),
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
                            end_to_end_id = Seq,
                            hop_by_hop_id = Seq},
     Pkt = #diameter_packet{header = Hdr,
                            msg = Msg},
-    #diameter_packet{bin = Bin} = diameter_codec:encode(?BASE, Pkt),
+    #diameter_packet{bin = Bin} = diameter_codec:encode(Dict, Pkt),
     Bin.
 
 %% okay/3
@@ -416,9 +469,10 @@ tw({M,F,A}) ->
 
 send_watchdog(#watchdog{pending = false,
                         transport = TPid,
+                        dictionary = Dict0,
                         sequence = Mask}
               = S) ->
-    send(TPid, {send, encode(getr(dwr), Mask)}),
+    send(TPid, {send, encode(getr(dwr), Mask, Dict0)}),
     ?LOG(send, 'DWR'),
     S#watchdog{pending = true}.
 
@@ -446,8 +500,9 @@ rcv(N, _, _)
     false;
 
 rcv(_, Pkt, #watchdog{transport = TPid,
-                      message_data = T}) ->
-    diameter_service:receive_message(TPid, Pkt, T).
+                      dictionary = Dict0,
+                      receive_data = T}) ->
+    diameter_service:receive_message(TPid, Pkt, Dict0, T).
 
 throwaway(S) ->
     throw({?MODULE, throwaway, S}).
@@ -627,13 +682,15 @@ restart(S) ->
 %% state down rather then initial when receiving notification of an
 %% open connection.
 
-restart({{connect, _} = T, Opts, Svc}, #watchdog{parent = Pid,
-                                                 sequence = Mask,
-                                                 restrict = {R,_}}
-                                       = S) ->
+restart({{connect, _} = T, Opts, Svc},
+        #watchdog{parent = Pid,
+                  sequence = Mask,
+                  restrict = {R,_},
+                  dictionary = Dict0}
+        = S) ->
     send(Pid, {reconnect, self()}),
     Nodes = restrict_nodes(R),
-    S#watchdog{transport = start(T, Opts, Mask, Nodes, Svc),
+    S#watchdog{transport = start(T, Opts, Mask, Nodes, Dict0, Svc),
                restrict = {R, lists:member(node(), Nodes)}};
 
 %% No restriction on the number of connections to the same peer: just

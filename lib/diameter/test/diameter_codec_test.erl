@@ -27,7 +27,8 @@
 
 -include("diameter.hrl").
 
--define(BASE, diameter_gen_base_rfc3588).
+-define(RFC3588, diameter_gen_base_rfc3588).
+-define(RFC6733, diameter_gen_base_rfc6733).
 -define(BOOL, [true, false]).
 
 -define(A, list_to_atom).
@@ -158,7 +159,8 @@ gen(M, messages, {Name, Code, Flags, _, _}) ->
     Name = case M:msg_name(Code, lists:member('REQ', Flags)) of
                N when Name /= 'answer-message' ->
                    N;
-               '' when Name == 'answer-message', M == ?BASE ->
+               '' when Name == 'answer-message', (M == ?RFC3588
+                                                  orelse M == ?RFC6733) ->
                    Name
            end,
     [] = arity(M, Name, Rname);

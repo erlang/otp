@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,11 @@
 -define(DIAMETER_APP_ID_ACCOUNTING, 3).
 -define(DIAMETER_APP_ID_RELAY,      16#FFFFFFFF).
 
-%% Corresponding dictionaries:
+%% Corresponding dictionaries. These macros are deprecated now that
+%% there is an RFC6733 whose dictionaries are not strictly backwards
+%% compatible. The RFC 6733 common and accounting dictionaries are
+%% diameter_gen_base_rfc6733 and diameter_gen_acct_rfc6733
+%% respectively.
 -define(DIAMETER_DICT_COMMON,       diameter_gen_base_rfc3588).
 -define(DIAMETER_DICT_ACCOUNTING,   diameter_gen_base_accounting).
 -define(DIAMETER_DICT_RELAY,        diameter_gen_relay).
