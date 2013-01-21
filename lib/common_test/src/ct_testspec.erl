@@ -257,55 +257,54 @@ collect_tests_from_file(Specs,Nodes,Relaxed) when is_list(Nodes) ->
 		(_)                       -> true
 	     end,
     try create_specs(Specs1,TS0,Relaxed,JoinSpecs,{[],TS0},[]) of
-	{{[],_},AdditionalTestSpecs} ->
-	    lists:filter(Filter,AdditionalTestSpecs);
-	{{_,#testspec{tests=[]}},AdditionalTestSpecs} ->
-	    lists:filter(Filter,AdditionalTestSpecs);
-	{{JoinedSpecs,JoinedTestSpec},AdditionalTestSpecs} ->
+	{{[],_},SeparateTestSpecs} ->
+	    lists:filter(Filter,SeparateTestSpecs);
+	{{_,#testspec{tests=[]}},SeparateTestSpecs} ->
+	    lists:filter(Filter,SeparateTestSpecs);
+	{{JoinedSpecs,JoinedTestSpec},SeparateTestSpecs} ->
 	    [{JoinedSpecs,JoinedTestSpec} |
-	     lists:filter(Filter,AdditionalTestSpecs)]
+	     lists:filter(Filter,SeparateTestSpecs)]
     catch
 	_:Error ->
 	    Error
     end.
 
-create_specs([],_,_,_,Joined,Additional) ->
-    {Joined,Additional};
+create_specs([],_,_,_,Joined,Separate) ->
+    {Joined,Separate};
 create_specs([Spec|Ss],TestSpec,Relaxed,JoinSpecs,
-	     Joined={JSpecs,_},Additional) ->
+	     Joined={JSpecs,_},Separate) ->
     SpecDir = filename:dirname(filename:absname(Spec)),
     TestSpec1 = TestSpec#testspec{spec_dir=SpecDir},
     case file:consult(Spec) of
 	{ok,Terms} ->
 	    Terms1 = replace_names(Terms),
-	    {Specs2Join,Specs2Add} = get_included_specs(Terms1,TestSpec1),
-	    TestSpec2 = create_spec(Terms1,TestSpec1,
-				    Relaxed,JoinSpecs),
-	    case {JoinSpecs,Specs2Join,Specs2Add} of
+	    {Specs2Join,SepSpecs} = get_included_specs(Terms1,TestSpec1),
+	    TestSpec2 = create_spec(Terms1,TestSpec1,Relaxed),
+	    case {JoinSpecs,Specs2Join,SepSpecs} of
 		{true,[],[]} ->
 		    create_specs(Ss,TestSpec2,Relaxed,JoinSpecs,
 				 {JSpecs++[get_absdir(Spec,TestSpec2)],
-				  TestSpec2},Additional);
+				  TestSpec2},Separate);
 		{false,[],[]} ->
 		    create_specs(Ss,TestSpec,Relaxed,JoinSpecs,Joined,
-				 Additional++[{[get_absdir(Spec,TestSpec2)],
+				 Separate++[{[get_absdir(Spec,TestSpec2)],
 					       TestSpec2}]);
 		_ ->
-		    {{JSpecs1,JTS1},Additional1} = 
+		    {{JSpecs1,JTS1},Separate1} = 
 			create_specs(Specs2Join,TestSpec2,Relaxed,true,
 				     {[get_absdir(Spec,TestSpec2)],
 				      TestSpec2},[]),
-		    {Joined2,Additional2} =
-			create_specs(Specs2Add,TestSpec,Relaxed,false,
+		    {Joined2,Separate2} =
+			create_specs(SepSpecs,TestSpec,Relaxed,false,
 				     {[],TestSpec1},[]),
 		    NewJoined = {JSpecs++JSpecs1,JTS1},
-		    NewAdditional = Additional++Additional1++
-			[Joined2 | Additional2],
+		    NewSeparate = Separate++Separate1++
+			[Joined2 | Separate2],
 		    NextTestSpec = if not JoinSpecs -> TestSpec;
 				      true -> JTS1
 				   end,
 		    create_specs(Ss,NextTestSpec,Relaxed,JoinSpecs,
-				 NewJoined,NewAdditional)
+				 NewJoined,NewSeparate)
 	    end;
 	{error,Reason} ->
 	    ReasonStr =
@@ -314,10 +313,9 @@ create_specs([Spec|Ss],TestSpec,Relaxed,JoinSpecs,
 	    throw({error,{Spec,ReasonStr}})
     end.
 		
-create_spec(Terms,TestSpec,Relaxed,JoinSpecs) ->
+create_spec(Terms,TestSpec,Relaxed) ->
     TS = #testspec{tests=Tests, logdir=LogDirs} =
 	collect_tests({false,Terms},TestSpec,Relaxed),
-
     LogDirs1 = lists:delete(".",LogDirs) ++ ["."],
     TS#testspec{tests=lists:flatten(Tests),
 		logdir=LogDirs1}.
@@ -478,11 +476,11 @@ replace_names_in_node1(NodeStr,[]) ->
     NodeStr.
 
 %% look for other specification files, either to join with the
-%% current spec, or execute as additional test runs
+%% current spec, or execute as separate test runs
 get_included_specs(Terms,TestSpec) ->
     get_included_specs(Terms,TestSpec,[],[]).
 
-get_included_specs([{specs,How,SpecOrSpecs}|Ts],TestSpec,Join,Add) ->
+get_included_specs([{specs,How,SpecOrSpecs}|Ts],TestSpec,Join,Sep) ->
     Specs = case SpecOrSpecs of
 		[File|_] when is_list(File) ->
 		    [get_absdir(Spec,TestSpec) || Spec <- SpecOrSpecs];
@@ -490,14 +488,14 @@ get_included_specs([{specs,How,SpecOrSpecs}|Ts],TestSpec,Join,Add) ->
 		    [get_absdir(SpecOrSpecs,TestSpec)]
 	    end,
     if How == join ->
-	    get_included_specs(Ts,TestSpec,Join++Specs,Add);
+	    get_included_specs(Ts,TestSpec,Join++Specs,Sep);
        true ->
-	    get_included_specs(Ts,TestSpec,Join,Add++Specs)
+	    get_included_specs(Ts,TestSpec,Join,Sep++Specs)
     end;
-get_included_specs([_|Ts],TestSpec,Join,Add) ->
-    get_included_specs(Ts,TestSpec,Join,Add);
-get_included_specs([],_,Join,Add) ->
-    {Join,Add}.
+get_included_specs([_|Ts],TestSpec,Join,Sep) ->
+    get_included_specs(Ts,TestSpec,Join,Sep);
+get_included_specs([],_,Join,Sep) ->
+    {Join,Sep}.
 
 %% global terms that will be used for analysing all other terms in the spec
 get_global([{merge_tests,Bool}|Ts],Spec) ->
@@ -715,7 +713,7 @@ add_tests([{suites,all_nodes,Dir,Ss}|Ts],Spec) ->
 add_tests([{suites,Dir,Ss}|Ts],Spec) ->
     add_tests([{suites,all_nodes,Dir,Ss}|Ts],Spec);
 add_tests([{suites,Nodes,Dir,Ss}|Ts],Spec) when is_list(Nodes) ->
-    Ts1 = separate(Nodes,suites,[Dir,Ss],Ts,Spec#testspec.nodes),
+    Ts1 = per_node(Nodes,suites,[Dir,Ss],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);
 add_tests([{suites,Node,Dir,Ss}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
@@ -738,11 +736,11 @@ add_tests([{groups,Dir,Suite,Gs}|Ts],Spec) ->
 add_tests([{groups,Dir,Suite,Gs,{cases,TCs}}|Ts],Spec) ->
     add_tests([{groups,all_nodes,Dir,Suite,Gs,{cases,TCs}}|Ts],Spec);
 add_tests([{groups,Nodes,Dir,Suite,Gs}|Ts],Spec) when is_list(Nodes) ->
-    Ts1 = separate(Nodes,groups,[Dir,Suite,Gs],Ts,Spec#testspec.nodes),
+    Ts1 = per_node(Nodes,groups,[Dir,Suite,Gs],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);
 add_tests([{groups,Nodes,Dir,Suite,Gs,{cases,TCs}}|Ts],
 	  Spec) when is_list(Nodes) ->
-    Ts1 = separate(Nodes,groups,[Dir,Suite,Gs,{cases,TCs}],Ts,
+    Ts1 = per_node(Nodes,groups,[Dir,Suite,Gs,{cases,TCs}],Ts,
 		   Spec#testspec.nodes),
     add_tests(Ts1,Spec);
 add_tests([{groups,Node,Dir,Suite,Gs}|Ts],Spec) ->
@@ -766,7 +764,7 @@ add_tests([{cases,all_nodes,Dir,Suite,Cs}|Ts],Spec) ->
 add_tests([{cases,Dir,Suite,Cs}|Ts],Spec) ->
     add_tests([{cases,all_nodes,Dir,Suite,Cs}|Ts],Spec);
 add_tests([{cases,Nodes,Dir,Suite,Cs}|Ts],Spec) when is_list(Nodes) ->
-    Ts1 = separate(Nodes,cases,[Dir,Suite,Cs],Ts,Spec#testspec.nodes),
+    Ts1 = per_node(Nodes,cases,[Dir,Suite,Cs],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);
 add_tests([{cases,Node,Dir,Suite,Cs}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
@@ -781,7 +779,7 @@ add_tests([{skip_suites,all_nodes,Dir,Ss,Cmt}|Ts],Spec) ->
 add_tests([{skip_suites,Dir,Ss,Cmt}|Ts],Spec) ->
     add_tests([{skip_suites,all_nodes,Dir,Ss,Cmt}|Ts],Spec);
 add_tests([{skip_suites,Nodes,Dir,Ss,Cmt}|Ts],Spec) when is_list(Nodes) ->
-    Ts1 = separate(Nodes,skip_suites,[Dir,Ss,Cmt],Ts,Spec#testspec.nodes),
+    Ts1 = per_node(Nodes,skip_suites,[Dir,Ss,Cmt],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);
 add_tests([{skip_suites,Node,Dir,Ss,Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
@@ -802,11 +800,11 @@ add_tests([{skip_groups,Dir,Suite,Gs,Cmt}|Ts],Spec) ->
 add_tests([{skip_groups,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],Spec) ->
     add_tests([{skip_groups,all_nodes,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],Spec);
 add_tests([{skip_groups,Nodes,Dir,Suite,Gs,Cmt}|Ts],Spec) when is_list(Nodes) ->
-    Ts1 = separate(Nodes,skip_groups,[Dir,Suite,Gs,Cmt],Ts,Spec#testspec.nodes),
+    Ts1 = per_node(Nodes,skip_groups,[Dir,Suite,Gs,Cmt],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);
 add_tests([{skip_groups,Nodes,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],
 	  Spec) when is_list(Nodes) ->
-    Ts1 = separate(Nodes,skip_groups,[Dir,Suite,Gs,{cases,TCs},Cmt],Ts,
+    Ts1 = per_node(Nodes,skip_groups,[Dir,Suite,Gs,{cases,TCs},Cmt],Ts,
 		   Spec#testspec.nodes),
     add_tests(Ts1,Spec);
 add_tests([{skip_groups,Node,Dir,Suite,Gs,Cmt}|Ts],Spec) ->
@@ -830,7 +828,7 @@ add_tests([{skip_cases,all_nodes,Dir,Suite,Cs,Cmt}|Ts],Spec) ->
 add_tests([{skip_cases,Dir,Suite,Cs,Cmt}|Ts],Spec) ->
     add_tests([{skip_cases,all_nodes,Dir,Suite,Cs,Cmt}|Ts],Spec);
 add_tests([{skip_cases,Nodes,Dir,Suite,Cs,Cmt}|Ts],Spec) when is_list(Nodes) ->
-    Ts1 = separate(Nodes,skip_cases,[Dir,Suite,Cs,Cmt],Ts,Spec#testspec.nodes),
+    Ts1 = per_node(Nodes,skip_cases,[Dir,Suite,Cs,Cmt],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);
 add_tests([{skip_cases,Node,Dir,Suite,Cs,Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
@@ -902,7 +900,7 @@ add_tests([{Tag,NodesOrOther,Data}|Ts],Spec) when is_list(NodesOrOther) ->
     case lists:all(fun(Test) -> is_node(Test,Spec#testspec.nodes)
 		   end, NodesOrOther) of
 	true ->
-	    Ts1 = separate(NodesOrOther,Tag,[Data],Ts,Spec#testspec.nodes),
+	    Ts1 = per_node(NodesOrOther,Tag,[Data],Ts,Spec#testspec.nodes),
 	    add_tests(Ts1,Spec);
 	false ->
 	    add_tests([{Tag,all_nodes,{NodesOrOther,Data}}|Ts],Spec)
@@ -1058,12 +1056,12 @@ update_recorded(Tag,Node,Spec) ->
     end.
 
 %% create one test term per node
-separate(Nodes,Tag,Data,Tests,Refs) ->
-    Separated = separate(Nodes,Tag,Data,Refs),
+per_node(Nodes,Tag,Data,Tests,Refs) ->
+    Separated = per_node(Nodes,Tag,Data,Refs),
     Separated ++ Tests.
-separate([N|Ns],Tag,Data,Refs) ->
-    [list_to_tuple([Tag,ref2node(N,Refs)|Data])|separate(Ns,Tag,Data,Refs)];
-separate([],_,_,_) ->
+per_node([N|Ns],Tag,Data,Refs) ->
+    [list_to_tuple([Tag,ref2node(N,Refs)|Data])|per_node(Ns,Tag,Data,Refs)];
+per_node([],_,_,_) ->
     [].
 
 %% read the value for FieldName in record Rec#testspec
