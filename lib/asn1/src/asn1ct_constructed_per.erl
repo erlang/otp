@@ -1276,8 +1276,8 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
 				St
 			end},
     [{group,[{safe,Comment},{safe,Preamble},
-	     {safe,OptOrDef}|Lines]++
-      [{safe,Postamble},{safe,AdvBuffer}]}].
+	     OptOrDef|Lines]++
+      [Postamble,{safe,AdvBuffer}]}].
 
 is_mandatory_predef_tab_c(noext, mandatory,
 			  {"got objfun through args","ObjFun"}) ->
