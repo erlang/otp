@@ -26,7 +26,7 @@
 		      Algorithm :: 'ssh-rsa'| 'ssh-dss'| atom(), ConnectOptions :: proplists:proplist()) ->
     boolean().
 
--callback user_key(Algorithm ::  'ssh-rsa'| 'ssh-dss'| atom(), ConnectOptions :: proplists:proplists()) ->
+-callback user_key(Algorithm ::  'ssh-rsa'| 'ssh-dss'| atom(), ConnectOptions :: proplists:proplist()) ->
     {ok,  PrivateKey :: #'RSAPrivateKey'{}| #'DSAPrivateKey'{} |  term()} | {error, string()}.
 
 
