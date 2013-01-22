@@ -73,13 +73,120 @@ static int conn_open(EpmdVars*,int);
 static int conn_close_fd(EpmdVars*,int);
 
 static void node_init(EpmdVars*);
-static Node *node_reg2(EpmdVars*,char*, int, int, unsigned char, unsigned char, int, int, int, char*);
+static Node *node_reg2(EpmdVars*, int, char*, int, int, unsigned char, unsigned char, int, int, int, char*);
 static int node_unreg(EpmdVars*,char*);
 static int node_unreg_sock(EpmdVars*,int);
 
 static int reply(EpmdVars*,int,char *,int);
 static void dbg_print_buf(EpmdVars*,char *,int);
 static void print_names(EpmdVars*);
+
+static int is_same_str(char *x, char *y)
+{
+    int i = 0;
+    /*
+     * Using strcmp() == 0 is probably ok, but just to be sure,
+     * since we got UTF-8 strings, we do it ourselves.
+     *
+     * We assume null-terminated correctly encoded UTF-8.
+     */
+    while (x[i] == y[i]) {
+	if (x[i] == '\0')
+	    return 1;
+	i++;
+    }
+    return 0;
+}
+
+static int copy_str(char *x, char *y)
+{
+    int i = 0;
+    /*
+     * Using strcpy() is probably ok, but just to be sure,
+     * since we got UTF-8 strings, we do it ourselves.
+     *
+     * We assume null-terminated correctly encoded UTF-8.
+     */
+    while (1) {
+	x[i] = y[i];
+	if (y[i] == '\0')
+	    return i;
+	i++;
+    }
+}
+
+static int length_str(char *x)
+{
+    int i = 0;
+    /*
+     * Using strlen is probably ok, but just to be sure,
+     * since we got UTF-8 strings, we do it ourselves.
+     *
+     * We assume null-terminated correctly encoded UTF-8.
+     */
+    while (x[i])
+	i++;
+    return i;
+}
+
+static int verify_utf8(const char *src, int sz, int null_term)
+{
+    unsigned char *source = (unsigned char *) src;
+    int size = sz;
+    int num_chars = 0;
+    while (size) {
+	if (null_term && (*source) == 0)
+	    return num_chars;
+	if (((*source) & ((unsigned char) 0x80)) == 0) {
+	    source++;
+	    --size;
+	} else if (((*source) & ((unsigned char) 0xE0)) == 0xC0) {
+	    if (size < 2)
+		return -1;
+	    if (((source[1] & ((unsigned char) 0xC0)) != 0x80) ||
+		((*source) < 0xC2) /* overlong */) {
+		return -1;
+	    }
+	    source += 2;
+	    size -= 2;
+	} else if (((*source) & ((unsigned char) 0xF0)) == 0xE0) {
+	    if (size < 3)
+		return -1;
+	    if (((source[1] & ((unsigned char) 0xC0)) != 0x80) ||
+		((source[2] & ((unsigned char) 0xC0)) != 0x80) ||
+		(((*source) == 0xE0) && (source[1] < 0xA0)) /* overlong */ ) {
+		return -1;
+	    }
+	    if ((((*source) & ((unsigned char) 0xF)) == 0xD) && 
+		((source[1] & 0x20) != 0)) {
+		return -1;
+	    }
+	    source += 3;
+	    size -= 3;
+	} else if (((*source) & ((unsigned char) 0xF8)) == 0xF0) {
+	    if (size < 4)
+		return -1;
+	    if (((source[1] & ((unsigned char) 0xC0)) != 0x80) ||
+		((source[2] & ((unsigned char) 0xC0)) != 0x80) ||
+		((source[3] & ((unsigned char) 0xC0)) != 0x80) ||
+		(((*source) == 0xF0) && (source[1] < 0x90)) /* overlong */) {
+		return -1;
+	    }
+	    if ((((*source) & ((unsigned char)0x7)) > 0x4U) ||
+		((((*source) & ((unsigned char)0x7)) == 0x4U) && 
+		 ((source[1] & ((unsigned char)0x3F)) > 0xFU))) {
+		return -1;
+	    }
+	    source += 4;
+	    size -= 4; 
+	} else {
+	    return -1;
+	}
+	++num_chars;
+    }
+    return num_chars;
+}
+
 
 static EPMD_INLINE void select_fd_set(EpmdVars* g, int fd)
 {
@@ -525,10 +632,11 @@ static void do_request(g, fd, s, buf, bsize)
 	    }
 	name = &buf[11];
 	name[namelen]='\000';
+
 	extra = &buf[11+namelen+2];
 	extra[extralen]='\000';
 	wbuf[0] = EPMD_ALIVE2_RESP;
-	if ((node = node_reg2(g, name, fd, eport, nodetype, protocol,
+	if ((node = node_reg2(g, namelen, name, fd, eport, nodetype, protocol,
 			      highvsn, lowvsn, extralen, extra)) == NULL) {
 	    wbuf[1] = 1; /* error */
 	    put_int16(99, wbuf+2);
@@ -573,22 +681,28 @@ static void do_request(g, fd, s, buf, bsize)
 
       {
 	char *name = &buf[1]; /* Points to node name */
+	int nsz;
 	Node *node;
-	
+
+	nsz = verify_utf8(name, bsize, 0);
+	if (nsz < 1 || 255 < nsz) {
+	    dbg_printf(g,0,"invalid node name in PORT2_REQ");
+	    return;
+	}
+
 	wbuf[0] = EPMD_PORT2_RESP;
 	for (node = g->nodes.reg; node; node = node->next) {
 	    int offset;
-	    if (strcmp(node->symname, name) == 0) {
+	    if (is_same_str(node->symname, name)) {
 		wbuf[1] = 0; /* ok */
 		put_int16(node->port,wbuf+2);
 		wbuf[4] = node->nodetype;
 		wbuf[5] = node->protocol;
 		put_int16(node->highvsn,wbuf+6);
 		put_int16(node->lowvsn,wbuf+8);
-		put_int16(strlen(node->symname),wbuf+10);
+		put_int16(length_str(node->symname),wbuf+10);
 		offset = 12;
-		strcpy(wbuf + offset,node->symname);
-		offset += strlen(node->symname);
+		offset += copy_str(wbuf + offset,node->symname);
 		put_int16(node->extralen,wbuf + offset);
 		offset += 2;
 		memcpy(wbuf + offset,node->extra,node->extralen);
@@ -629,15 +743,22 @@ static void do_request(g, fd, s, buf, bsize)
 
 	for (node = g->nodes.reg; node; node = node->next)
 	  {
-	    int len;
+	    int len = 0;
+	    int r;
 
 	    /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
 	       change in syntax will break < OTP R3A */
 
-	    erts_snprintf(wbuf, sizeof(wbuf), "name %s at port %d\n",node->symname, node->port);
-	    len = strlen(wbuf);
+	    len += copy_str(&wbuf[len], "name ");
+	    len += copy_str(&wbuf[len], node->symname);
+	    r = erts_snprintf(&wbuf[len], sizeof(wbuf)-len,
+			      " at port %d\n", node->port);
+	    if (r < 0)
+		goto failed_names_resp;
+	    len += r;
 	    if (reply(g, fd, wbuf, len) != len)
 	      {
+	      failed_names_resp:
 		dbg_tty_printf(g,1,"failed to send NAMES_RESP");
 		return;
 	      }
@@ -665,16 +786,22 @@ static void do_request(g, fd, s, buf, bsize)
 
 	for (node = g->nodes.reg; node; node = node->next)
 	  {
-	    int len;
+	      int len = 0, r;
 
 	    /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
 	       change in syntax will break < OTP R3A */
 
-	    erts_snprintf(wbuf, sizeof(wbuf), "active name     <%s> at port %d, fd = %d\n",
-		    node->symname, node->port, node->fd);
-	    len = strlen(wbuf) + 1;
-	    if (reply(g, fd,wbuf,len) != len)
+	      len += copy_str(&wbuf[len], "active name     <");
+	      len += copy_str(&wbuf[len], node->symname);
+	      r = erts_snprintf(&wbuf[len], sizeof(wbuf)-len,
+				"> at port %d, fd = %d\n",
+				node->port, node->fd);
+	      if (r < 0)
+		  goto failed_dump_resp;
+	      len += r + 1;
+	      if (reply(g, fd,wbuf,len) != len)
 	      {
+	      failed_dump_resp:
 		dbg_tty_printf(g,1,"failed to send DUMP_RESP");
 		return;
 	      }
@@ -682,16 +809,22 @@ static void do_request(g, fd, s, buf, bsize)
 
 	for (node = g->nodes.unreg; node; node = node->next)
 	  {
-	    int len;
+	      int len = 0, r;
 
 	    /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
 	       change in syntax will break < OTP R3A */
 
-	    erts_snprintf(wbuf, sizeof(wbuf), "old/unused name <%s>, port = %d, fd = %d \n",
-		    node->symname,node->port, node->fd);
-	    len = strlen(wbuf) + 1;
-	    if (reply(g, fd,wbuf,len) != len)
+	      len += copy_str(&wbuf[len], "old/unused name <");
+	      len += copy_str(&wbuf[len], node->symname);
+	      r = erts_snprintf(&wbuf[len], sizeof(wbuf)-len,
+				">, port = %d, fd = %d \n",
+				node->port, node->fd);
+	      if (r < 0)
+		  goto failed_dump_resp2;
+	      len += r + 1;
+	      if (reply(g, fd,wbuf,len) != len)
 	      {
+	      failed_dump_resp2:
 		dbg_tty_printf(g,1,"failed to send DUMP_RESP");
 		return;
 	      }
@@ -933,7 +1066,7 @@ static int node_unreg(EpmdVars *g,char *name)
   Node *node  = g->nodes.reg;	/* Point to first node */
 
   for (; node; prev = &node->next, node = node->next)
-    if (strcmp(node->symname, name) == 0)
+    if (is_same_str(node->symname, name))
       {
 	dbg_tty_printf(g,1,"unregistering '%s:%d', port %d",
 		       node->symname, node->creation, node->port);
@@ -1013,6 +1146,7 @@ static int node_unreg_sock(EpmdVars *g,int fd)
  */
 
 static Node *node_reg2(EpmdVars *g,
+		       int namelen,
 		       char* name,
 		       int fd,
 		       int port,
@@ -1025,6 +1159,7 @@ static Node *node_reg2(EpmdVars *g,
 {
   Node *prev;			/* Point to previous node or NULL */
   Node *node;			/* Point to first node */
+  int sz;
 
   /* Can be NULL; means old style */
   if (extra == NULL)
@@ -1032,21 +1167,47 @@ static Node *node_reg2(EpmdVars *g,
 
   /* Fail if node name is too long */
 
-  if (strlen(name) > MAXSYMLEN)
+
+  if (namelen > MAXSYMLEN)
     {
-      dbg_printf(g,0,"node name is too long (%d) %s", strlen(name), name);
+    too_long_name:
+      dbg_printf(g,0,"node name is too long (%d) %s", namelen, name);
       return NULL;
     }
+
+  sz = verify_utf8(name, namelen, 0);
+  if (sz > 255)
+      goto too_long_name;
+
+  if (sz < 0) {
+      dbg_printf(g,0,"invalid node name encoding");
+      return NULL;
+  }
+
   if (extralen > MAXSYMLEN)
     {
-      dbg_printf(g,0,"extra data is too long (%d) %s", strlen(name), name);
+#if 0
+    too_long_extra:
+#endif
+      dbg_printf(g,0,"extra data is too long (%d) %s", extralen, extra);
       return NULL;
     }
+
+#if 0 /* Should we require valid utf8 here? */
+  sz = verify_utf8(extra, extralen, 0);
+  if (sz > 255)
+      goto too_long_extra;
+
+  if (sz < 0) {
+      dbg_printf(g,0,"invalid extra data encoding");
+      return NULL;
+  }
+#endif
 
   /* Fail if it is already registered */
 
   for (node = g->nodes.reg; node; node = node->next)
-    if (strcmp(node->symname, name) == 0)
+    if (is_same_str(node->symname, name))
       {
 	dbg_printf(g,0,"node name already occupied %s", name);
 	return NULL;
@@ -1058,7 +1219,7 @@ static Node *node_reg2(EpmdVars *g,
   prev = NULL;
 
   for (node = g->nodes.unreg; node; prev = node, node = node->next)
-    if (strcmp(node->symname, name) == 0)
+    if (is_same_str(node->symname, name))
       {
 	dbg_tty_printf(g,1,"reusing slot with same name '%s'", node->symname);
 
@@ -1126,7 +1287,7 @@ static Node *node_reg2(EpmdVars *g,
   node->lowvsn   = lowvsn;
   node->extralen = extralen;
   memcpy(node->extra,extra,extralen);
-  strcpy(node->symname,name);
+  copy_str(node->symname,name);
   select_fd_set(g, fd);
 
   if (highvsn == 0) {

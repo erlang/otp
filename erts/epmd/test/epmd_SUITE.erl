@@ -45,6 +45,8 @@
     register_names_1/1,
     register_names_2/1,
     register_duplicate_name/1,
+    unicode_name/1,
+    long_unicode_name/1,
     get_port_nr/1,
     slow_get_port_nr/1,
     unregister_others_name_1/1,
@@ -107,7 +109,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [register_name, register_names_1, register_names_2,
-     register_duplicate_name, get_port_nr, slow_get_port_nr,
+     register_duplicate_name, unicode_name, long_unicode_name,
+     get_port_nr, slow_get_port_nr,
      unregister_others_name_1, unregister_others_name_2,
      register_overflow, name_with_null_inside,
      name_null_terminated, stupid_names_req, no_data,
@@ -197,6 +200,37 @@ register_duplicate_name(Config) when is_list(Config) ->
     ?line ok = close(Sock),			% Unregister
     ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+unicode_name(doc) ->
+    ["Check that we can register and lookup a unicode name"];
+unicode_name(suite) ->
+    [];
+unicode_name(Config) when is_list(Config) ->
+    ok = epmdrun(),
+    NodeName = [16#1f608],
+    {ok,Sock} = register_node_v2(4711, 72, 0, 5, 5, NodeName, []),
+    {ok,NodeInfo} = port_please_v2(NodeName),
+    NodeName = NodeInfo#node_info.node_name,
+    ok = close(Sock),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+long_unicode_name(doc) ->
+    ["Check that we can register and lookup a long unicode name"];
+long_unicode_name(suite) ->
+    [];
+long_unicode_name(Config) when is_list(Config) ->
+    ok = epmdrun(),
+    BaseChar = 16#1f600,
+    NodeName = lists:seq(BaseChar, BaseChar+200), % will be 800 bytes long
+    {ok,Sock} = register_node_v2(4711, 72, 0, 5, 5, NodeName, []),
+    {ok,NodeInfo} = port_please_v2(NodeName),
+    NodeName = NodeInfo#node_info.node_name,
+    ok = close(Sock),
+    ok.
+
 % Internal function to register a node name, no close, i.e. unregister
 
 register_node(Name) ->
@@ -205,9 +239,10 @@ register_node(Name,Port) ->
     register_node_v2(Port,$M,0,5,5,Name,"").
 
 register_node_v2(Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
+    Utf8Name = unicode:characters_to_binary(Name),
     Req = [?EPMD_ALIVE2_REQ, put16(Port), NodeType, Prot,
 	   put16(HVsn), put16(LVsn),
-	   size16(Name), Name,
+	   put16(size(Utf8Name)), binary_to_list(Utf8Name),
 	   size16(Extra), Extra],
     case send_req(Req) of
 	{ok,Sock} ->
@@ -226,7 +261,8 @@ register_node_v2(Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
 % Internal function to fetch information about a node
 
 port_please_v2(Name) ->
-    case send_req([?EPMD_PORT_PLEASE2_REQ, Name]) of
+    case send_req([?EPMD_PORT_PLEASE2_REQ,
+		   binary_to_list(unicode:characters_to_binary(Name))]) of
 	{ok,Sock} ->
 	    case recv_until_sock_closes(Sock) of
 		{ok, Resp} ->
@@ -247,7 +283,7 @@ parse_port2_resp(Resp) ->
 	  ELen:16,Extra:ELen/binary>> when Res =:= 0 ->
 	    {ok, #node_info{port=Port,node_type=NodeType,prot=Prot,
 			    hvsn=HVsn,lvsn=LVsn,
-			    node_name=binary_to_list(NodeName),
+			    node_name=unicode:characters_to_list(NodeName),
 			    extra=binary_to_list(Extra)}};
 	_Other ->
 	    test_server:format("invalid port2 resp: ~p~n",
@@ -737,7 +773,7 @@ buffer_overrun_2(doc) ->
     ["Test security vulnerability in fake extra lengths in alive2_req"];
 buffer_overrun_2(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
-    ?line [false | Rest] = [hostile2(N) || N <- lists:seq(255,10000)],
+    ?line [false | Rest] = [hostile2(N) || N <- lists:seq(255*4,10000)],
     ?line true = alltrue(Rest),
     ok.
 hostile(N) ->
@@ -879,6 +915,7 @@ no_live_killing(Config) when is_list(Config) ->
     ?line {ok,"OK"} = recv(Sock3,2),
     ?line close(Sock3),
     ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Terminate all tests with killing epmd.
