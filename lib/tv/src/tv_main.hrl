@@ -131,7 +131,6 @@
 			ir_WstringDef,
 			lmcounter,
 			locks, 
-			mnemosyne_tmp,
 			pg2_table,
 			queue,
 			snmp_agent_table,

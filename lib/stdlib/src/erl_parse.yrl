@@ -36,7 +36,7 @@ tuple
 record_expr record_tuple record_field record_fields
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
-try_expr try_catch try_clause try_clauses query_expr
+try_expr try_catch try_clause try_clauses
 function_call argument_list
 exprs guard
 atomic strings
@@ -54,7 +54,7 @@ char integer float atom string var
 
 '(' ')' ',' '->' ':-' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
-'andalso' 'orelse' 'query'
+'andalso' 'orelse'
 'bnot' 'not'
 '*' '/' 'div' 'rem' 'band' 'and'
 '+' '-' 'bor' 'bxor' 'bsl' 'bsr' 'or' 'xor'
@@ -272,7 +272,6 @@ expr_max -> case_expr : '$1'.
 expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
 expr_max -> try_expr : '$1'.
-expr_max -> query_expr : '$1'.
 
 
 list -> '[' ']' : {nil,?line('$1')}.
@@ -431,9 +430,6 @@ try_clause -> atom ':' expr clause_guard clause_body :
 try_clause -> var ':' expr clause_guard clause_body :
 	L = ?line('$1'),
 	{clause,L,[{tuple,L,['$1','$3',{var,L,'_'}]}],'$4','$5'}.
-
-query_expr -> 'query' list_comprehension 'end' :
-	{'query',?line('$1'),'$2'}.
 
 
 argument_list -> '(' ')' : {[],?line('$1')}.

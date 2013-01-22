@@ -794,13 +794,6 @@ The queue of not yet received messages that are in the mailbox of a process.    
     <resp>olin</resp>
   </term>
   <term>
-    <id>Mnemosyne</id>
-    <shortdef>Mnemosyne</shortdef>
-    <def>
-Mnemosyne was the query language of Mnesia up to the R11B release. Supersed by QLC.</def>
-    <resp>hakan</resp>
-  </term>
-  <term>
     <id>Mnesia</id>
     <shortdef>Mnesia</shortdef>
     <def>

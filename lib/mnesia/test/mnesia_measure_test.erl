@@ -72,8 +72,7 @@ groups() ->
        resource_consumption_at_full_load]},
      {benchmarks, [],
       [{group, meter}, cost, dbn_meters,
-       measure_all_api_functions, {group, tpcb},
-       mnemosyne_vs_mnesia_kernel]},
+       measure_all_api_functions, {group, tpcb}]},
      {tpcb, [], [ram_tpcb, disc_tpcb, disc_only_tpcb]},
      {meter, [], [ram_meter, disc_meter, disc_only_meter]}].
 

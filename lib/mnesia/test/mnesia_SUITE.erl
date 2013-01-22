@@ -105,7 +105,6 @@ groups() ->
      {otp_r4b, [],
       [{mnesia_config_test, access_module},
        {mnesia_config_test, dump_log_load_regulation},
-       {mnesia_config_test, embedded_mnemosyne},
        {mnesia_config_test, ignore_fallback_at_startup},
        {mnesia_config_test, max_wait_for_decision},
        {mnesia_consistency_test, consistency_after_restore},

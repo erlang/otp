@@ -235,8 +235,6 @@
 	 prefix_expr/2,
 	 prefix_expr_argument/1,
 	 prefix_expr_operator/1,
-	 query_expr/1,
-	 query_expr_body/1,
 	 receive_expr/1,
 	 receive_expr/3,
 	 receive_expr_action/1,
@@ -449,7 +447,6 @@
 %%   <td>parentheses</td>
 %%   <td>prefix_expr</td>
 %%  </tr><tr>
-%%   <td>query_expr</td>
 %%   <td>receive_expr</td>
 %%   <td>record_access</td>
 %%  </tr><tr>
@@ -513,7 +510,6 @@
 %% @see operator/1
 %% @see parentheses/1
 %% @see prefix_expr/2
-%% @see query_expr/1
 %% @see receive_expr/3
 %% @see record_access/3
 %% @see record_expr/2
@@ -578,7 +574,6 @@ type(Node) ->
 	{match, _, _, _} -> match_expr;
 	{op, _, _, _, _} -> infix_expr;
 	{op, _, _, _} -> prefix_expr;
-	{'query', _, _} -> query_expr;
 	{record, _, _, _, _} -> record_expr;
 	{record, _, _, _} -> record_expr;
 	{record_field, _, _, _, _} -> record_access;
@@ -4097,7 +4092,6 @@ record_access(Argument, Field) ->
 %% @see record_access_type/1
 %% @see record_access_field/1
 %% @see record_expr/3
-%% @see query_expr/1
 
 -record(record_access, {argument :: syntaxTree(),
 			type     :: 'none' | syntaxTree(),
@@ -4570,50 +4564,6 @@ binary_comp_body(Node) ->
 	    Body;
 	Node1 ->
 	    (data(Node1))#binary_comp.body
-    end.
-
-
-%% =====================================================================
-%% @doc Creates an abstract Mnemosyne query expression. The result
-%% represents "<code>query <em>Body</em> end</code>".
-%%
-%% @see query_expr_body/1
-%% @see record_access/2
-%% @see rule/2
-
-%% type(Node) = query_expr
-%% data(Node) = syntaxTree()
-%%
-%% `erl_parse' representation:
-%%
-%% {'query', Pos, Body}
-%%
-%%	Body = erl_parse()
-
--spec query_expr(syntaxTree()) -> syntaxTree().
-
-query_expr(Body) ->
-    tree(query_expr, Body).
-
-revert_query_expr(Node) ->
-    Pos = get_pos(Node),
-    Body = list_comp_body(Node),
-    {'query', Pos, Body}.
-
-
-%% =====================================================================
-%% @doc Returns the body subtree of a `query_expr' node.
-%%
-%% @see query_expr/1
-
--spec query_expr_body(syntaxTree()) -> syntaxTree().
-
-query_expr_body(Node) ->
-    case unwrap(Node) of
-	{'query', _, Body} ->
-	    Body;
-	Node1 ->
-	    data(Node1)
     end.
 
 
@@ -6041,8 +5991,6 @@ revert_root(Node) ->
 	    revert_parentheses(Node);
 	prefix_expr ->
 	    revert_prefix_expr(Node);
-	query_expr ->
-	    revert_query_expr(Node);
 	receive_expr ->
 	    revert_receive_expr(Node);
 	record_access ->
@@ -6283,8 +6231,6 @@ subtrees(T) ->
 		prefix_expr ->
 		    [[prefix_expr_operator(T)],
 		     [prefix_expr_argument(T)]];
-		query_expr ->
-		    [[query_expr_body(T)]];
 		receive_expr ->
 		    case receive_expr_timeout(T) of
 			none ->
@@ -6413,7 +6359,6 @@ make_tree(match_expr, [[P], [E]]) -> match_expr(P, E);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
 make_tree(parentheses, [[E]]) -> parentheses(E);
 make_tree(prefix_expr, [[F], [A]]) -> prefix_expr(F, A);
-make_tree(query_expr, [[B]]) -> query_expr(B);
 make_tree(receive_expr, [C]) -> receive_expr(C);
 make_tree(receive_expr, [C, [E], A]) -> receive_expr(C, E, A);
 make_tree(record_access, [[E], [F]]) ->

@@ -1224,8 +1224,6 @@ macro_arg([{'try',Lr}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'try',Lr}|Arg]);
 macro_arg([{'cond',Lr}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'cond',Lr}|Arg]);
-macro_arg([{'query',Lr}|Toks], E, Arg) ->
-    macro_arg(Toks, ['end'|E], [{'query',Lr}|Arg]);
 macro_arg([{Rb,Lrb}|Toks], [Rb|E], Arg) ->	%Found matching close
     macro_arg(Toks, E, [{Rb,Lrb}|Arg]);
 macro_arg([T|Toks], E, Arg) ->

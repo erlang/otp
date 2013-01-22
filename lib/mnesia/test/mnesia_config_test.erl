@@ -36,7 +36,6 @@
 	 dump_log_load_regulation/1,
 	
 	 dump_log_update_in_place/1,
-	 embedded_mnemosyne/1,
 	 event_module/1,
 	 ignore_fallback_at_startup/1,
 	 inconsistent_database/1,
@@ -104,7 +103,7 @@ end_per_testcase(Func, Conf) ->
 all() -> 
     [access_module, auto_repair, backup_module, debug, dir,
      dump_log_load_regulation, {group, dump_log_thresholds},
-     dump_log_update_in_place, embedded_mnemosyne,
+     dump_log_update_in_place,
      event_module, ignore_fallback_at_startup,
      inconsistent_database, max_wait_for_decision,
      send_compressed, app_test, {group, schema_config},
@@ -605,45 +604,6 @@ dump_log_load_regulation(Config) when is_list(Config) ->
     ?match({ok, _}, mnesia_tpcb:start(Args)),
     
     ?verify_mnesia(Nodes, []),
-    ?cleanup(1, Config),
-    ok.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-embedded_mnemosyne(doc) ->
-    ["Start Mnemosyne as an embedded part of Mnesia",
-     "on some of the nodes"];
-embedded_mnemosyne(suite) ->
-    [];
-embedded_mnemosyne(Config) when is_list(Config) ->
-    Nodes = ?acquire_nodes(1, Config),
-    Param = embedded_mnemosyne,
-
-    %% Normal 
-    NoMnem = false,
-    ?match(NoMnem, mnesia:system_info(Param)),
-    ?match(undefined, whereis(mnemosyne_catalog)),
-    ?match([], mnesia_test_lib:stop_mnesia(Nodes)),
-
-    %% Bad
-    Bad = arne_anka,
-    ?match({error, {bad_type, Param, Bad}},
-	   mnesia:start([{Param, Bad}])),
-
-    case code:priv_dir(mnemosyne) of
-	{error, _} -> %% No mnemosyne on later systems
-	    ok;
-	_ ->
-	    %% Mnemosyne as embedded application
-	    Mnem = true,
-	    ?match(undefined, whereis(mnemosyne_catalog)),
-	    ?match(ok,mnesia:start([{Param, Mnem}])),
-	    ?match(Mnem, mnesia:system_info(Param)),
-	    ?match(Pid when is_pid(Pid), whereis(mnemosyne_catalog)),
-	    ?match([], mnesia_test_lib:stop_mnesia(Nodes)),
-	    ?match(undefined, whereis(mnemosyne_catalog))
-    end,
-    ?verify_mnesia([], Nodes),
     ?cleanup(1, Config),
     ok.
 

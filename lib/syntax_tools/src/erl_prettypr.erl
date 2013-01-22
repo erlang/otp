@@ -813,13 +813,6 @@ lay_2(Node, Ctxt) ->
 		    reset_prec(Ctxt)),
 	    lay_parentheses(D, Ctxt);
 
-	query_expr ->
-	    Ctxt1 = reset_prec(Ctxt),
-	    D = lay(erl_syntax:query_expr_body(Node), Ctxt1),
-	    sep([text("query"),
-		 nest(Ctxt1#ctxt.sub_indent, D),
-		 text("end")]);
-
 	receive_expr ->
 	    Ctxt1 = reset_prec(Ctxt),
 	    D1 = lay_clauses(erl_syntax:receive_expr_clauses(Node),

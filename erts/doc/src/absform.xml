@@ -290,13 +290,6 @@
       <item>If E is <c><![CDATA[fun Fc_1 ; ... ; Fc_k end]]></c> 
        where each <c><![CDATA[Fc_i]]></c> is a function clause then Rep(E) =
       <c><![CDATA[{'fun',LINE,{clauses,[Rep(Fc_1), ..., Rep(Fc_k)]}}]]></c>.</item>
-      <item>If E is <c><![CDATA[query [E_0 || W_1, ..., W_k] end]]></c>,
-       where each <c><![CDATA[W_i]]></c> is a generator or a filter, then
-       Rep(E) = <c><![CDATA[{'query',LINE,{lc,LINE,Rep(E_0),[Rep(W_1), ..., Rep(W_k)]}}]]></c>.
-       For Rep(W), see below.</item>
-      <item>If E is <c><![CDATA[E_0.Field]]></c>, a Mnesia record access
-       inside a query, then
-       Rep(E) = <c><![CDATA[{record_field,LINE,Rep(E_0),Rep(Field)}]]></c>.</item>
       <item>If E is <c><![CDATA[( E_0 )]]></c>, then
        Rep(E) = <c><![CDATA[Rep(E_0)]]></c>,
        i.e., parenthesized expressions cannot be distinguished from their bodies.</item>

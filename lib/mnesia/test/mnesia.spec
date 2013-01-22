@@ -42,9 +42,6 @@
 {skip_cases,"../mnesia_test",mnesia_measure_test,
             [measure_all_api_functions],
             "Not yet implemented"}.
-{skip_cases,"../mnesia_test",mnesia_measure_test,
-            [mnemosyne_vs_mnesia_kernel],
-            "Not yet implemented"}.
 {skip_cases,"../mnesia_test",mnesia_examples_test,
             [company],
             "Not yet implemented"}.

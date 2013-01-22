@@ -143,7 +143,6 @@ suite_order(inets) -> 28;
 suite_order(asn1) -> 30;
 suite_order(os_mon) -> 32;
 suite_order(snmp) -> 38;
-suite_order(mnemosyne) -> 40;
 suite_order(mnesia_session) -> 42;
 suite_order(mnesia) -> 44;
 suite_order(system) -> 999; %% IMPORTANT: system SHOULD always be last!
