@@ -1180,13 +1180,13 @@ analyze_utf8(byte *source, Uint size, byte **err_pos, Uint *num_chars, int *left
 		((*source) < 0xC2) /* overlong */) {
 		return ERTS_UTF8_ERROR;
 	    }
-	    source += 2;
-	    size -= 2;
 	    if (num_latin1_chars) {
 		latin1_count++;
 		if ((source[0] & ((byte) 0xFC)) != ((byte) 0xC0))
 		    is_latin1 = 0;
 	    }
+	    source += 2;
+	    size -= 2;
 	} else if (((*source) & ((byte) 0xF0)) == 0xE0) {
 	    if (size < 3) {
 		return ERTS_UTF8_INCOMPLETE;
