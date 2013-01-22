@@ -203,6 +203,67 @@ close(Pid) ->
 	    ct:print("Pid: ~p down due to:~p ~n", [Pid, Reason])
     end.
 
+
+check_result(Server, {error, SReason} = ServerMsg, Client,  {error, closed} = ClientMsg) -> 
+    receive 
+	{Server, {error, {SReason, _}}} -> 
+	    receive 
+		{Client, ClientMsg} ->
+		    ok;
+		Unexpected ->
+		    Reason = {{expected, {Client, ClientMsg}}, 
+			      {got, Unexpected}},
+		    ct:fail(Reason)
+	    end;
+	{Client, ClientMsg} -> 
+	    receive 
+		{Server, {error, {SReason, _}}} ->
+		    ok;
+		Unexpected ->
+		    Reason = {{expected, {Server,{error, {SReason, 'term()'}}}, 
+			      {got, Unexpected}}},
+		    ct:fail(Reason)
+	    end;
+	{Port, {data,Debug}} when is_port(Port) ->
+	    io:format("openssl ~s~n",[Debug]),
+	    check_result(Server, ServerMsg, Client, ClientMsg);
+
+	Unexpected ->
+	    Reason = {{expected, {Client, ClientMsg}},
+		      {expected, {Server, {error, {SReason, 'term()'}}}, {got, Unexpected}}},
+	    ct:fail(Reason)
+    end;
+
+check_result(Server, {error, closed} = ServerMsg, Client,  {error, CReson} = ClientMsg) -> 
+    receive 
+	{Server, ServerMsg} -> 
+	    receive 
+		{Client, {error, {CReson, _}}} ->
+		    ok;
+		Unexpected ->
+		    Reason = {{expected, {Client, {error, {CReson, 'term()'}}}, 
+			      {got, Unexpected}}},
+		    ct:fail(Reason)
+	    end;
+	{Client, {error, {CReson, _}}} -> 
+	    receive 
+		{Server, ServerMsg} ->
+		    ok;
+		Unexpected ->
+		    Reason = {{expected, {Server, ServerMsg}}, 
+			      {got, Unexpected}},
+		    ct:fail(Reason)
+	    end;
+	{Port, {data,Debug}} when is_port(Port) ->
+	    io:format("openssl ~s~n",[Debug]),
+	    check_result(Server, ServerMsg, Client, ClientMsg);
+
+	Unexpected ->
+	    Reason = {{expected, {Client, {error, {CReson, 'term()'}}},
+		      {expected, {Server, ServerMsg}}, {got, Unexpected}}},
+	    ct:fail(Reason)
+    end;
+
 check_result(Server, ServerMsg, Client, ClientMsg) -> 
     receive 
 	{Server, ServerMsg} -> 
@@ -232,6 +293,22 @@ check_result(Server, ServerMsg, Client, ClientMsg) ->
 		      {expected, {Server, ServerMsg}}, {got, Unexpected}},
 	    ct:fail(Reason)
     end.
+
+check_result(Pid, {error, Reason} = Err) when Reason == ecertfile;
+					      Reason == ecacertfile;
+					      Reason == ekeyfile;
+					      Reason == edhfile ->
+    receive 
+	{Pid, {error, {Reason, Str}}} when is_list(Str) -> 
+	    ok;
+	{Port, {data,Debug}} when is_port(Port) ->
+	    io:format("openssl ~s~n",[Debug]),
+	    check_result(Pid, Err);
+	Unexpected ->
+	    Reason = {{expected, {Pid, {error, {Reason, "'appropriate error string'"}}}}, 
+		      {got, Unexpected}},
+	    ct:fail(Reason)
+    end;
 
 check_result(Pid, Msg) -> 
     receive 

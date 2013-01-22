@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1135,7 +1135,7 @@ init_certificates(#ssl_options{cacerts = CaCerts,
 	    {ok, _, _, _, _, _} = ssl_manager:connection_init(Certs, Role)
 	catch
 	    Error:Reason ->
-		handle_file_error(?LINE, Error, Reason, CACertFile, ecacertfile,
+		handle_file_error(?LINE, Error, Reason, CACertFile, {ecacertfile, Reason},
 				  erlang:get_stacktrace())
 	end,
     init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CertFile, Role).
@@ -1157,7 +1157,7 @@ init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHan
 	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, OwnCert}
     catch
 	Error:Reason ->
-	    handle_file_error(?LINE, Error, Reason, CertFile, ecertfile,
+	    handle_file_error(?LINE, Error, Reason, CertFile, {ecertfile, Reason},
 			      erlang:get_stacktrace())
     end;
 init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, _, _) ->
@@ -1176,7 +1176,7 @@ init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
 	private_key(public_key:pem_entry_decode(PemEntry, Password))
     catch 
 	Error:Reason ->
-	    handle_file_error(?LINE, Error, Reason, KeyFile, ekeyfile,
+	    handle_file_error(?LINE, Error, Reason, KeyFile, {ekeyfile, Reason},
 			      erlang:get_stacktrace()) 
     end;
 
@@ -1234,7 +1234,7 @@ init_diffie_hellman(DbHandle,_, DHParamFile, server) ->
     catch
 	Error:Reason ->
 	    handle_file_error(?LINE, Error, Reason, 
-			      DHParamFile, edhfile,  erlang:get_stacktrace()) 
+			      DHParamFile, {edhfile, Reason},  erlang:get_stacktrace()) 
     end.
 
 sync_send_all_state_event(FsmPid, Event) ->

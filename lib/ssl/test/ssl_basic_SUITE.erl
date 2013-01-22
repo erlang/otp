@@ -1595,8 +1595,8 @@ default_reject_anonymous(Config) when is_list(Config) ->
 			    [{ciphers,[Cipher]} |
 			     ClientOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error, "insufficient security"},
-			      Client, {error, "insufficient security"}).
+    ssl_test_lib:check_result(Server, {error, {essl, "insufficient security"}},
+			      Client, {error, {essl, "insufficient security"}}).
 
 %%--------------------------------------------------------------------
 reuse_session() ->

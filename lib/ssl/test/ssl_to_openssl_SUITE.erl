@@ -902,7 +902,7 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
 	    ok
 
     end,
-    ssl_test_lib:check_result(Server, {error,"protocol version"}),
+    ssl_test_lib:check_result(Server, {error, {essl, "protocol version"}}),
     process_flag(trap_exit, false).
 
 %%--------------------------------------------------------------------

@@ -252,8 +252,8 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, [{active, false} | BadClientOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error, esslaccept},
-			      Client, {error, esslconnect}).
+    ssl_test_lib:check_result(Server, {error, {essl, "handshake failure"}},
+			      Client, {error, {essl, "handshake failure"}}).
 
 
 %%--------------------------------------------------------------------
@@ -293,14 +293,14 @@ verify_fun_always_run_client(Config) when is_list(Config) ->
 					       [{verify, verify_peer},
 						{verify_fun, FunAndState}
 						| ClientOpts]}]),
-    %% Server error may be esslaccept or closed depending on timing
+    %% Server error may be {essl,"handshake failure"} or closed depending on timing
     %% this is not a bug it is a circumstance of how tcp works!
     receive
 	{Server, ServerError} ->
 	    ct:print("Server Error ~p~n", [ServerError])
     end,
 
-    ssl_test_lib:check_result(Client, {error, esslconnect}).
+    ssl_test_lib:check_result(Client, {error, {essl, "handshake failure"}}).
 
 %%--------------------------------------------------------------------
 verify_fun_always_run_server() ->
@@ -342,14 +342,14 @@ verify_fun_always_run_server(Config) when is_list(Config) ->
 					       [{verify, verify_peer}
 						| ClientOpts]}]),
 
-    %% Client error may be esslconnect or closed depending on timing
+    %% Client error may be {essl, "handshake failure" } or closed depending on timing
     %% this is not a bug it is a circumstance of how tcp works!
     receive
 	{Client, ClientError} ->
 	    ct:print("Client Error ~p~n", [ClientError])
     end,
 
-    ssl_test_lib:check_result(Server, {error, esslaccept}).
+    ssl_test_lib:check_result(Server, {error, {essl, "handshake failure"}}).
 
 %%--------------------------------------------------------------------
 
@@ -380,7 +380,7 @@ client_verify_none_passive(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
 cert_expired() ->
-    [{doc,"Test server with invalid signature"}].
+    [{doc,"Test server with expired certificate"}].
 
 cert_expired(Config) when is_list(Config) ->
     ClientOpts = ?config(client_verification_opts, Config),
@@ -432,8 +432,8 @@ cert_expired(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, [{verify, verify_peer} | ClientOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error, "certificate expired"},
-			      Client, {error, "certificate expired"}).
+    ssl_test_lib:check_result(Server, {error, {essl, "certificate expired"}},
+			      Client, {error, {essl, "certificate expired"}}).
 
 two_digits_str(N) when N < 10 ->
     lists:flatten(io_lib:format("0~p", [N]));
@@ -679,7 +679,7 @@ delete_authority_key_extension([Head | Rest], Acc) ->
 %%--------------------------------------------------------------------
 
 invalid_signature_server() ->
-    [{doc,"Test server with invalid signature"}].
+    [{doc,"Test client with invalid signature"}].
 
 invalid_signature_server(Config) when is_list(Config) ->
     ClientOpts = ?config(client_verification_opts, Config),
@@ -710,8 +710,8 @@ invalid_signature_server(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, [{verify, verify_peer} | ClientOpts]}]),
 
-    tcp_delivery_workaround(Server, {error, "bad certificate"},
-			    Client, {error,"bad certificate"}).
+    tcp_delivery_workaround(Server, {error, {essl, "bad certificate"}},
+			    Client, {error, {essl, "bad certificate"}}).
 
 %%--------------------------------------------------------------------
 
@@ -747,8 +747,8 @@ invalid_signature_client(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, NewClientOpts}]),
 
-    tcp_delivery_workaround(Server, {error, "bad certificate"},
-			    Client, {error,"bad certificate"}).
+    tcp_delivery_workaround(Server, {error, {essl, "bad certificate"}},
+			    Client, {error, {essl, "bad certificate"}}).
 
 
 %%--------------------------------------------------------------------
@@ -829,8 +829,8 @@ unknown_server_ca_fail(Config) when is_list(Config) ->
 						{verify_fun, FunAndState}
 						| ClientOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error,"unknown ca"},
-			      Client, {error, "unknown ca"}).
+    ssl_test_lib:check_result(Server, {error, {essl, "unknown ca"}},
+			      Client, {error, {essl, "unknown ca"}}).
 
 %%--------------------------------------------------------------------
 unknown_server_ca_accept_verify_none() ->
@@ -947,10 +947,6 @@ tcp_delivery_workaround(Server, ServerMsg, Client, ClientMsg) ->
 	{Client, {error,closed}} ->
 	    server_msg(Server, ServerMsg);
 	{Server, {error,closed}} ->
-	    client_msg(Client, ClientMsg);
-	{Client, {error, esslconnect}} ->
-	    server_msg(Server, ServerMsg);
-	{Server, {error, esslaccept}} ->
 	    client_msg(Client, ClientMsg)
     end.
 
@@ -961,8 +957,8 @@ client_msg(Client, ClientMsg) ->
 	{Client, {error,closed}} ->
 	    ct:print("client got close"),
 	    ok;
-	{Client, {error, esslconnect}} ->
-	    ct:print("client got econnaborted"),
+	{Client, {error, Reason}} ->
+	    ct:print("client got econnaborted: ~p", [Reason]),
 	    ok;
 	Unexpected ->
 	    ct:fail(Unexpected)
@@ -974,8 +970,8 @@ server_msg(Server, ServerMsg) ->
 	{Server, {error,closed}} ->
 	    ct:print("server got close"),
 	    ok;
-	{Server, {error, esslaccept}} ->
-	    ct:print("server got econnaborted"),
+	{Server, {error, Reason}} ->
+	    ct:print("server got econnaborted: ~p", [Reason]),
 	    ok;
 	Unexpected ->
 	    ct:fail(Unexpected)
