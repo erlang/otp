@@ -1151,6 +1151,20 @@ gen_dec_imm_1('OCTET STRING', Constraint, Aligned) ->
     SzConstr = get_constraint(Constraint, 'SizeConstraint'),
     Imm = asn1ct_imm:per_dec_octet_string(SzConstr, Aligned),
     {convert,binary_to_list,Imm};
+gen_dec_imm_1('TeletexString', _Constraint, Aligned) ->
+    gen_dec_restricted_string(Aligned);
+gen_dec_imm_1('T61String', _Constraint, Aligned) ->
+    gen_dec_restricted_string(Aligned);
+gen_dec_imm_1('VideotexString', _Constraint, Aligned) ->
+    gen_dec_restricted_string(Aligned);
+gen_dec_imm_1('GraphicString', _Constraint, Aligned) ->
+    gen_dec_restricted_string(Aligned);
+gen_dec_imm_1('GeneralString', _Constraint, Aligned) ->
+    gen_dec_restricted_string(Aligned);
+gen_dec_imm_1('ObjectDescriptor', _Constraint, Aligned) ->
+    gen_dec_restricted_string(Aligned);
+gen_dec_imm_1('UTF8String', _Constraint, Aligned) ->
+    asn1ct_imm:per_dec_restricted_string(Aligned);
 gen_dec_imm_1('REAL', _Constraint, Aligned) ->
     asn1ct_imm:per_dec_real(Aligned);
 gen_dec_imm_1(_, _, _) -> no.
@@ -1170,6 +1184,10 @@ gen_dec_copy_bitstring(Imm) ->
 gen_dec_k_m_string(Type, Constraint, Aligned) ->
     asn1ct_imm:per_dec_k_m_string(Type, Constraint, Aligned).
 
+gen_dec_restricted_string(Aligned) ->
+    Imm = asn1ct_imm:per_dec_restricted_string(Aligned),
+    {convert,binary_to_list,Imm}.
+
 gen_dec_prim(Erule, Type, BytesVar) ->
     case gen_dec_imm(Erule, Type) of
 	no ->
@@ -1179,7 +1197,7 @@ gen_dec_prim(Erule, Type, BytesVar) ->
     end.
 
 gen_dec_prim_1(Erule,
-	       #type{def=Typename,constraint=Constraint}=Att,
+	       #type{def=Typename}=Att,
 	       BytesVar) ->
     case Typename of
 	'NULL' ->
@@ -1188,21 +1206,6 @@ gen_dec_prim_1(Erule,
 	    call(Erule, decode_object_identifier, [BytesVar]);
 	'RELATIVE-OID' ->
 	    call(Erule, decode_relative_oid, [BytesVar]);
-	'ObjectDescriptor' ->
-	    call(Erule, decode_ObjectDescriptor, [BytesVar]);
-	TString when TString == 'TeletexString';
-		     TString == 'T61String' ->
-	    call(Erule, decode_TeletexString,
-		 [BytesVar,{asis,Constraint}]);
-	'VideotexString' ->
-	    call(Erule, decode_VideotexString,
-		 [BytesVar,{asis,Constraint}]);
-	'GraphicString' ->
-	    call(Erule, decode_GraphicString,[BytesVar,{asis,Constraint}]);
-	'GeneralString' ->
-	    call(Erule, decode_GeneralString, [BytesVar,{asis,Constraint}]);
-	'UTF8String' ->
-	    call(Erule, decode_UTF8String, [BytesVar]);
 	#'ObjectClassFieldType'{} ->
 		case asn1ct_gen:get_inner(Typename) of
 		    {fixedtypevaluefield,_,InnerType} -> 

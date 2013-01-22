@@ -30,12 +30,12 @@
 	 encode_relative_oid/1, decode_relative_oid/1,
 	 complete/1,
 	 encode_open_type/1,
-	 encode_GeneralString/2, decode_GeneralString/2,
-	 encode_GraphicString/2, decode_GraphicString/2,
-	 encode_TeletexString/2, decode_TeletexString/2,
-	 encode_VideotexString/2, decode_VideotexString/2,
-	 encode_ObjectDescriptor/2, decode_ObjectDescriptor/1,
-	 encode_UTF8String/1,decode_UTF8String/1,
+	 encode_GeneralString/2,
+	 encode_GraphicString/2,
+	 encode_TeletexString/2,
+	 encode_VideotexString/2,
+	 encode_ObjectDescriptor/2,
+	 encode_UTF8String/1,
 	 encode_octet_string/3,
 	 encode_known_multiplier_string/4,
 	 octets_to_complete/2]).
@@ -866,34 +866,20 @@ encode_known_multiplier_string(SizeC, NumBits, CharOutTab, Val) ->
 	    [encode_length(length(Val)),2,Result]
     end.
 
-decode_restricted_string(Bytes,aligned) ->
-    {Len,Bytes2} = decode_length(Bytes,undefined),
-    getoctets_as_list(Bytes2,Len).
-
 encode_GeneralString(_C,Val) ->
     encode_restricted_string(Val).
-decode_GeneralString(Bytes,_C) ->
-    decode_restricted_string(Bytes,aligned).
 
 encode_GraphicString(_C,Val) ->
     encode_restricted_string(Val).
-decode_GraphicString(Bytes,_C) ->
-    decode_restricted_string(Bytes,aligned).
 
 encode_ObjectDescriptor(_C,Val) ->
     encode_restricted_string(Val).
-decode_ObjectDescriptor(Bytes) ->
-    decode_restricted_string(Bytes,aligned).
 
 encode_TeletexString(_C,Val) -> % equivalent with T61String
     encode_restricted_string(Val).
-decode_TeletexString(Bytes,_C) ->
-    decode_restricted_string(Bytes,aligned).
 
 encode_VideotexString(_C,Val) ->
     encode_restricted_string(Val).
-decode_VideotexString(Bytes,_C) ->
-    decode_restricted_string(Bytes,aligned).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -946,17 +932,6 @@ encode_UTF8String(Val) when is_binary(Val) ->
     [encode_length(Sz),octets_to_complete(Sz, Val)];
 encode_UTF8String(Val) ->
     encode_UTF8String(list_to_binary(Val)).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% decode_UTF8String(Bytes) -> {Utf8Binary,RemainingBytes}
-%% Utf8Binary -> <<utf8 encoded binary>>
-%% RemainingBytes -> <<buffer>>
-decode_UTF8String(Bytes) ->
-    {Len,Bytes2} = decode_length(Bytes, undefined),
-    {_Bin,_Bytes3} = getoctets_as_bin(Bytes2, Len).
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
