@@ -31,11 +31,6 @@
 	 stop_listener/1, stop_listener/2, stop_daemon/1, stop_daemon/2,
 	 shell/1, shell/2, shell/3]).
 
--deprecated({sign_data, 2, next_major_release}).
--deprecated({verify_data, 3, next_major_release}).
-
--export([sign_data/2, verify_data/3]).
-
 %%--------------------------------------------------------------------
 %% Function: start([, Type]) -> ok
 %%
@@ -503,38 +498,3 @@ inetopt(false) ->
 %%%
 %% Deprecated
 %%%
-
-%%--------------------------------------------------------------------
-%% Function: sign_data(Data, Algorithm) -> binary() |
-%%                                         {error, Reason}
-%%
-%%   Data = binary()
-%%   Algorithm = "ssh-rsa"
-%%
-%% Description: Use SSH key to sign data.
-%%--------------------------------------------------------------------
-sign_data(Data, Algorithm) when is_binary(Data) ->
-    case ssh_file:user_key(Algorithm,[]) of
-	{ok, Key} when Algorithm == "ssh-rsa" ->
-	    public_key:sign(Data, sha, Key);
-	Error ->
-	    Error
-    end.
-
-%%--------------------------------------------------------------------
-%% Function: verify_data(Data, Signature, Algorithm) -> ok |
-%%                                                      {error, Reason}
-%%
-%%   Data = binary()
-%%   Signature = binary()
-%%   Algorithm = "ssh-rsa"
-%%
-%% Description: Use SSH signature to verify data.
-%%--------------------------------------------------------------------
-verify_data(Data, Signature, Algorithm) when is_binary(Data), is_binary(Signature) ->
-    case ssh_file:user_key(Algorithm, []) of
-	{ok, #'RSAPrivateKey'{publicExponent = E, modulus = N}} when Algorithm == "ssh-rsa" ->
-	    public_key:verify(Data, sha, Signature, #'RSAPublicKey'{publicExponent = E, modulus = N});
-	Error ->
-	    Error
-    end.
