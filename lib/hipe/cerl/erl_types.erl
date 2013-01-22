@@ -3566,7 +3566,7 @@ t_from_form({type, _L, function, []}, _TypeNames, _InOpaque, _RecDict,
 t_from_form({type, _L, 'fun', []}, _TypeNames, _InOpaque, _RecDict,
             _VarDict) ->
   {t_fun(), []};
-t_from_form({type, _L, 'fun', [{type, _, any, []}, Range]}, TypeNames,
+t_from_form({type, _L, 'fun', [{type, _, any}, Range]}, TypeNames,
             InOpaque, RecDict, VarDict) ->
   {T, R} = t_from_form(Range, TypeNames, InOpaque, RecDict, VarDict),
   {t_fun(T), R};
@@ -3909,7 +3909,7 @@ t_form_to_string({type, _L, binary, [Base, Unit]} = Type) ->
     _ -> io_lib:format("Badly formed bitstr type ~w", [Type])
   end;
 t_form_to_string({type, _L, 'fun', []}) -> "fun()";
-t_form_to_string({type, _L, 'fun', [{type, _, any, []}, Range]}) -> 
+t_form_to_string({type, _L, 'fun', [{type, _, any}, Range]}) -> 
   "fun(...) -> " ++ t_form_to_string(Range);
 t_form_to_string({type, _L, 'fun', [{type, _, product, Domain}, Range]}) ->
   "fun((" ++ string:join(t_form_to_string_list(Domain), ",") ++ ") -> "
