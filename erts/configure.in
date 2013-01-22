@@ -838,6 +838,16 @@ else
 	AC_MSG_RESULT([no])
 fi
 
+dnl Check if we should/can build a sharing-preserving emulator
+
+AC_MSG_CHECKING(if we are building a sharing-preserving emulator)
+if test "$enable_sharing_preserving" = "yes"; then
+        AC_DEFINE(SHCOPY, [1],
+		  [Define if building a sharing-preserving emulator])
+	AC_MSG_RESULT([yes])
+else
+	AC_MSG_RESULT([no])
+fi
 
 
 

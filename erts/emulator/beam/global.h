@@ -795,12 +795,9 @@ void erl_error(char*, va_list);
 
 /* This controls whether sharing-preserving copy is used by Erlang */
 
+#ifdef SHCOPY
 #define SHCOPY_SEND
 #define SHCOPY_SPAWN
-
-#if defined(SHCOPY_SEND) \
- || defined(SHCOPY_SPAWN)
-#define SHCOPY
 /* Use this if you want sharing-preserving copy to be initially disabled */
 #undef SHCOPY_DISABLE
 #endif
