@@ -1366,85 +1366,8 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 
 
 
-gen_dec_prim(Erules,Att,BytesVar) ->
-    Typename = Att#type.def,
-    case Typename of
-	'INTEGER' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	{'INTEGER',_NamedNumberList} ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'REAL' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	{'BIT STRING',_} ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'NULL' ->
-	    emit({"{'NULL',",BytesVar,"}"});
-	'OBJECT IDENTIFIER' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'RELATIVE-OID' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'ObjectDescriptor' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	{'ENUMERATED',_} ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'BOOLEAN'->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'OCTET STRING' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'NumericString' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	TString when TString == 'TeletexString';
-		     TString == 'T61String' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'VideotexString' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'UTCTime' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'GeneralizedTime' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'GraphicString' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'VisibleString' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'GeneralString' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'PrintableString' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'IA5String' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'BMPString' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'UniversalString' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'UTF8String' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'ANY' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'ASN1_OPEN_TYPE' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	#'ObjectClassFieldType'{} ->
-		case asn1ct_gen:get_inner(Att#type.def) of
-		    {fixedtypevaluefield,_,InnerType} -> 
-			gen_dec_prim(Erules,InnerType,BytesVar);
-		    T ->
-			gen_dec_prim(Erules,Att#type{def=T},BytesVar)
-		end;
-	Other ->
-	    exit({'cant decode' ,Other})
-    end.
+gen_dec_prim(Erules, Att, BytesVar) ->
+    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar).
 
 %% For PER the ExtensionAdditionGroup notation has significance for the encoding and decoding
 %% the components within the ExtensionAdditionGroup is treated in a similar way as if they
