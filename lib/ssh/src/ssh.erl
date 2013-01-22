@@ -394,8 +394,8 @@ handle_ssh_option({public_key_alg, Value} = Opt) when Value == 'ssh-rsa'; Value 
     Opt;
 handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), length(Value) >= 1 ->
     case handle_pref_algs(Value, []) of
-	true ->
-	    Opt;
+	{true, NewOpts} ->
+	    NewOpts;
 	_ ->
 	    throw({error, {eoptions, Opt}})
     end;
