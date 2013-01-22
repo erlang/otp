@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -516,7 +516,7 @@ Erlang code.
 -type abstract_form() :: term().
 -type error_description() :: term().
 -type error_info() :: {erl_scan:line(), module(), error_description()}.
--type token() :: {Tag :: atom(), Line :: erl_scan:line()}.
+-type token() :: erl_scan:token().
 
 %% mkop(Op, Arg) -> {op,Line,Op,Arg}.
 %% mkop(Left, Op, Right) -> {op,Line,Op,Left,Right}.
