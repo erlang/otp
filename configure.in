@@ -278,6 +278,10 @@ AC_ARG_ENABLE(builtin-zlib,
 AS_HELP_STRING([--enable-builtin-zlib],
                [force use of our own built-in zlib]))
 
+AC_ARG_ENABLE(sharing-preserving,
+AS_HELP_STRING([--enable-sharing-preserving],
+               [enable copying of terms without destroying sharing]))
+
 dnl This functionality has been lost along the way... :(
 dnl It could perhaps be nice to reintroduce some day; therefore,
 dnl it is not removed just commented out.
