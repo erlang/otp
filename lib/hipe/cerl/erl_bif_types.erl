@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -765,7 +765,6 @@ type(erlang, node, 0, _) -> t_node();
 %% Guard bif, needs to be here.
 type(erlang, node, 1, Xs) ->
   strict(arg_types(erlang, node, 1), Xs, fun (_) -> t_node() end);
-type(erlang, nodes, 0, _) -> t_list(t_node());
 %% Guard bif, needs to be here.
 type(erlang, round, 1, Xs) ->
   strict(arg_types(erlang, round, 1), Xs, fun (_) -> t_integer() end);
@@ -2250,8 +2249,6 @@ arg_types(erlang, node, 0) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, node, 1) ->
   [t_identifier()];
-arg_types(erlang, nodes, 0) ->
-  [];
 %% Guard bif, needs to be here.
 arg_types(erlang, round, 1) ->
   [t_number()];

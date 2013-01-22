@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,7 @@
 %% of (some) functions of this module.
 %%-------------------------------------------------------------------------
 
--type ascii_string() :: [1..255].
+-type ascii_string() :: [1..127].
 
 %%-------------------------------------------------------------------------
 %% encode_to_string(ASCII) -> Base64String
