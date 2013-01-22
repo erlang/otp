@@ -22,6 +22,11 @@
 #include "eiext.h"
 #include "putget.h"
 
+
+static int copy_ascii_atom(char* dst, const char* src, int slen);
+static int copy_utf8_atom(char* dst, const char* src, int slen);
+
+
 int ei_encode_atom(char *buf, int *index, const char *p)
 {
     size_t len = strlen(p);
@@ -54,7 +59,8 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
   char *s0 = s;
   int offs;
 
-  if (from_enc == ERLANG_LATIN1 && len >= MAXATOMLEN) {
+  if (len >= MAXATOMLEN && (from_enc == ERLANG_LATIN1 ||
+			    from_enc == ERLANG_ASCII)) {
       return -1;
   }
 
@@ -68,6 +74,8 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
 	      if (len < 0) return -1;
 	      break;
 	  case ERLANG_ASCII:
+	      if (copy_ascii_atom(s+2, p, len) < 0) return -1;
+	      break;
 	  case ERLANG_LATIN1:
 	      memcpy(s+2, p, len);
 	      break;
@@ -93,9 +101,11 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
 	  len = latin1_to_utf8((buf ? s+offs : NULL), p, len, MAXATOMLEN_UTF8-1, NULL);
 	  break;
       case ERLANG_ASCII:
+	  if (buf && copy_ascii_atom(s+offs, p, len) < 0) return -1;
+	  break;
       case ERLANG_UTF8:
 	  if (len >= 256) offs++;
-	  if (buf) memcpy(s+offs, p, len);
+	  if (buf && copy_utf8_atom(s+offs, p, len) < 0) return -1;
 	  break;
       default:
 	  return -1;
@@ -133,3 +143,48 @@ ei_internal_put_atom(char** bufp, const char* p, int slen,
     *bufp += ix;
     return 0;
 }
+
+
+int copy_ascii_atom(char* dst, const char* src, int slen)
+{
+    while (slen > 0) {
+	if ((src[0] & 0x80) != 0) return -1;
+	*dst++ = *src++;
+	slen--;
+    }
+    return 0;
+}
+
+int copy_utf8_atom(char* dst, const char* src, int slen)
+{
+    int num_chars = 0;
+
+    while (slen > 0) {
+	if (++num_chars >= MAXATOMLEN) return -1;
+	if ((src[0] & 0x80) != 0) {
+	    if ((src[0] & 0xE0) == 0xC0) {
+		if (slen < 2 || (src[1] & 0xC0) != 0x80) return -1;
+		*dst++ = *src++;
+		slen--;
+	    }
+	    else if ((src[0] & 0xF0) == 0xE0) {
+		if (slen < 3 || (src[1] & 0xC0) != 0x80 || (src[2] & 0xC0) != 0x80) return -1;
+		*dst++ = *src++;
+		*dst++ = *src++;
+		slen -= 2;
+	    }
+	    else if ((src[0] & 0xF8) == 0xF0) {
+		if (slen < 4 || (src[1] & 0xC0) != 0x80 || (src[2] & 0xC0) != 0x80 || (src[3] & 0xC0) != 0x80) return -1;
+		*dst++ = *src++;
+		*dst++ = *src++;
+		*dst++ = *src++;
+		slen -= 3;
+	    }
+	    else return -1;
+	}
+	*dst++ = *src++;
+	slen--;
+    }
+    return 0;
+}
+

@@ -115,7 +115,7 @@ static int print_term(FILE* fp, ei_x_buff* x,
 			       const char* buf, int* index)
 {
     int i, doquote, n, m, ty, r;
-    char a[MAXATOMLEN+1], *p;
+    char a[MAXATOMLEN], *p;
     int ch_written = 0;		/* counter of written chars */
     erlang_pid pid;
     erlang_port port;

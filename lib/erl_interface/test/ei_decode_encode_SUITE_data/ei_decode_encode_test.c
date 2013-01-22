@@ -63,10 +63,12 @@ int ei_x_encode_my_atom(ei_x_buff* x, my_atom* a)
     return ei_x_encode_atom_as(x, a->name, ERLANG_UTF8, a->enc);
 }
 
+#define BUFSZ 2000
+
 void decode_encode(struct Type* t, void* obj)
 {
     char *buf;
-    char buf2[1024];
+    char buf2[BUFSZ];
     int size1 = 0;
     int size2 = 0;
     int size3 = 0;
@@ -86,6 +88,11 @@ void decode_encode(struct Type* t, void* obj)
     }
     if (size1 < 1) {
 	fail("size is < 1");
+	return;
+    }
+
+    if (size1 > BUFSZ) {
+	fail("size is > BUFSZ");
 	return;
     }
 
@@ -277,8 +284,11 @@ TESTCASE(test_ei_decode_encode)
     EI_DECODE_ENCODE(ref  , erlang_ref);
 
     /* Unicode atoms */
-    for (i=0; i<2010; i++) {
-	EI_DECODE_ENCODE(my_atom , my_atom);
+    for (i=0; i<24; i++) {
+	EI_DECODE_ENCODE(my_atom, my_atom);
+	EI_DECODE_ENCODE(pid, erlang_pid);
+	EI_DECODE_ENCODE(port, erlang_port);
+	EI_DECODE_ENCODE(ref, erlang_ref);
     }
 
     report(1);

@@ -125,7 +125,7 @@ static ei_cnode erl_if_ec;
 
 int erl_connect_init(int this_node_number, char *cookie, short creation)
 {
-    char nn[MAXATOMLEN+1];
+    char nn[MAXATOMLEN];
 
     sprintf(nn, "c%d", this_node_number);
 

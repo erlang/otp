@@ -1071,7 +1071,7 @@ int ei_rpc(ei_cnode* ec, int fd, char *mod, char *fun,
     int i, index;
     ei_term t;
     erlang_msg msg;
-    char rex[MAXATOMLEN+1];
+    char rex[MAXATOMLEN];
 
     if (ei_rpc_to(ec, fd, mod, fun, inbuf, inbuflen) < 0) {
 	return -1;

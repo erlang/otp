@@ -119,8 +119,12 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     ?line send_rec(P, OXRef),
 
     %% Unicode atoms
-    [send_rec(P, Atom) || Atom <- unicode_atom_data()],
-
+    [begin send_rec(P, Atom),
+	   send_rec(P, mk_pid({Atom,1}, 23434, 3434)),
+	   send_rec(P, mk_port({Atom,1}, 2343434)),
+	   send_rec(P, mk_ref({Atom,1}, [262143, 8723648, 24097245])),
+	   void
+     end || Atom <- unicode_atom_data()],
     ?line runner:recv_eot(P),
     ok.
 
@@ -229,38 +233,36 @@ uint8(Uint) ->
 
 
 mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
-    mk_pid({atom_to_list(NodeName), Creation}, Number, Serial);
-mk_pid({NodeName, Creation}, Number, Serial) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_pid({NodeNameExt, Creation}, Number, Serial);
+mk_pid({NodeNameExt, Creation}, Number, Serial) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					?PID_EXT,
-					?ATOM_EXT,
-					uint16_be(length(NodeName)),
-					NodeName,
+					NodeNameExt,
 					uint32_be(Number),
 					uint32_be(Serial),
 					uint8(Creation)])) of
 	Pid when is_pid(Pid) ->
 	    Pid;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_pid, [{NodeName, Creation}, Number, Serial]});
+	    exit({badarg, mk_pid, [{NodeNameExt, Creation}, Number, Serial]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
 
 mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
-    mk_port({atom_to_list(NodeName), Creation}, Number);
-mk_port({NodeName, Creation}, Number) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_port({NodeNameExt, Creation}, Number);
+mk_port({NodeNameExt, Creation}, Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					      ?PORT_EXT,
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
+					      NodeNameExt,
 					      uint32_be(Number),
 					      uint8(Creation)])) of
 	Port when is_port(Port) ->
 	    Port;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_port, [{NodeName, Creation}, Number]});
+	    exit({badarg, mk_port, [{NodeNameExt, Creation}, Number]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
@@ -268,33 +270,30 @@ mk_port({NodeName, Creation}, Number) ->
 mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
 					   is_integer(Creation),
 					   is_list(Numbers) ->
-    mk_ref({atom_to_list(NodeName), Creation}, Numbers);
-mk_ref({NodeName, Creation}, [Number]) when is_list(NodeName),
-					    is_integer(Creation),
-					    is_integer(Number) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_ref({NodeNameExt, Creation}, Numbers);
+mk_ref({NodeNameExt, Creation}, [Number]) when is_binary(NodeNameExt),
+					       is_integer(Creation),
+					       is_integer(Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					      ?REFERENCE_EXT,
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
+					      NodeNameExt,
 					      uint32_be(Number),
 					      uint8(Creation)])) of
 	Ref when is_reference(Ref) ->
 	    Ref;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_ref, [{NodeName, Creation}, [Number]]});
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, [Number]]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end;
-mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
-					   is_integer(Creation),
-					   is_list(Numbers) ->
+mk_ref({NodeNameExt, Creation}, Numbers) when is_binary(NodeNameExt),
+					      is_integer(Creation),
+					      is_list(Numbers) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					      ?NEW_REFERENCE_EXT,
 					      uint16_be(length(Numbers)),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
+					      NodeNameExt,
 					      uint8(Creation),
 					      lists:map(fun (N) ->
 								uint32_be(N)
@@ -303,7 +302,7 @@ mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
 	Ref when is_reference(Ref) ->
 	    Ref;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_ref, [{NodeName, Creation}, Numbers]});
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, Numbers]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
@@ -322,9 +321,11 @@ unicode_atom_data() ->
      uc_atup(lists:seq(65500, 65754)),
      uc_atup(lists:seq(65500, 65563))
      | lists:map(fun (N) ->
-			 uc_atup(lists:seq(64000+N, 64254+N))
+			 Pow2 = (1 bsl N),
+			 uc_atup(lists:seq(Pow2 - 127, Pow2 + 127))
 		 end,
-		 lists:seq(1, 2000))].
+		 lists:seq(7, 20))
+    ].
 
 uc_atup(ATxt) ->
     string_to_atom(ATxt).

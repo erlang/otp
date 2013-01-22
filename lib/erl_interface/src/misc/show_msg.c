@@ -457,7 +457,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
 	break;
     
     case ERL_FUN_EXT: {
-	char atom[MAXATOMLEN+1];
+	char atom[MAXATOMLEN];
 	long idx;
 	long uniq;
 	const char* s = termbuf + *index, * s0 = s;
