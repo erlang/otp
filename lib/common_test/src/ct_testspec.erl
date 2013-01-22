@@ -93,7 +93,7 @@ prepare_tests(TestSpec) when is_record(TestSpec,testspec) ->
 %% run_per_node/2 takes the Run list as input and returns a list
 %% of {Node,RunPerNode,[]} tuples where the tests have been sorted
 %% on a per node basis.
-run_per_node([{{Node,Dir},Test}|Ts],Result, MergeTests) ->
+run_per_node([{{Node,Dir},Test}|Ts],Result,MergeTests) ->
     {value,{Node,{Run,Skip}}} = lists:keysearch(Node,1,Result),
     Run1 = case MergeTests of
 	       false ->
@@ -190,7 +190,7 @@ prepare_suites(_Node,_Dir,[],Run,Skip) ->
 
 prepare_cases(Node,Dir,Suite,Cases) ->
     case get_skipped_cases(Node,Dir,Suite,Cases) of
-	SkipAll=[{{Node,Dir},{Suite,_Cmt}}] ->		% all cases to be skipped
+	SkipAll=[{{Node,Dir},{Suite,_Cmt}}] ->	      % all cases to be skipped
 	    %% note: this adds an 'all' test even if only skip is specified
 	    {[{{Node,Dir},{Suite,all}}],SkipAll};
 	Skipped ->
@@ -248,70 +248,125 @@ collect_tests_from_file(Specs,Nodes,Relaxed) when is_list(Nodes) ->
     NodeRefs = lists:map(fun(N) -> {undefined,N} end, Nodes),
     %% [Spec1,Spec2,...] means create one testpec record per Spec file
     %% [[Spec1,Spec2,...]] means merge all specs into one testspec record
-    {JoinSpecs,Specs1} = if is_list(hd(hd(Specs))) -> {true,hd(Specs)};
+    {Join,Specs1} = if is_list(hd(hd(Specs))) -> {true,hd(Specs)};
 		    true -> {false,Specs}
 		 end,
+    Specs2 = [filename:absname(S) || S <- Specs1],
     TS0 = #testspec{nodes=NodeRefs},
-    %% remove specs without tests
-    Filter = fun({_,#testspec{tests=[]}}) -> false;
-		(_)                       -> true
-	     end,
-    try create_specs(Specs1,TS0,Relaxed,JoinSpecs,{[],TS0},[]) of
+
+    try create_specs(Specs2,TS0,Relaxed,Join) of
 	{{[],_},SeparateTestSpecs} ->
-	    lists:filter(Filter,SeparateTestSpecs);
+	    filter_and_convert(SeparateTestSpecs);
 	{{_,#testspec{tests=[]}},SeparateTestSpecs} ->
-	    lists:filter(Filter,SeparateTestSpecs);
-	{{JoinedSpecs,JoinedTestSpec},SeparateTestSpecs} ->
-	    [{JoinedSpecs,JoinedTestSpec} |
-	     lists:filter(Filter,SeparateTestSpecs)]
+	    filter_and_convert(SeparateTestSpecs);
+	{Joined,SeparateTestSpecs} ->
+	    [filter_and_convert(Joined) |
+	     filter_and_convert(SeparateTestSpecs)]
     catch
 	_:Error ->
 	    Error
     end.
 
-create_specs([],_,_,_,Joined,Separate) ->
-    {Joined,Separate};
-create_specs([Spec|Ss],TestSpec,Relaxed,JoinSpecs,
-	     Joined={JSpecs,_},Separate) ->
+filter_and_convert(Joined) when is_tuple(Joined) ->
+    hd(filter_and_convert([Joined]));
+filter_and_convert([{_,#testspec{tests=[]}}|TSs]) ->
+    filter_and_convert(TSs);
+filter_and_convert([{[{SpecFile,MergeTests}|SMs],TestSpec}|TSs]) ->
+    #testspec{config = CfgFiles} = TestSpec,
+    TestSpec1 = TestSpec#testspec{config = delete_dups(CfgFiles),
+				  merge_tests = MergeTests},
+    %% set the merge_tests value for the testspec to the value
+    %% of the first test spec in the set
+    [{[SpecFile | [SF || {SF,_} <- SMs]], TestSpec1} | filter_and_convert(TSs)];
+filter_and_convert([]) ->
+    [].
+
+delete_dups(Elems) ->
+    delete_dups1(lists:reverse(Elems),[]).
+
+delete_dups1([E|Es],Keep) ->
+    case lists:member(E,Es) of
+	true ->
+	    delete_dups1(Es,Keep);
+	false ->
+	    delete_dups1(Es,[E|Keep])
+    end;
+delete_dups1([],Keep) ->
+    Keep.
+
+create_specs(Specs,TestSpec,Relaxed,Join) ->
+    SpecsTree = create_spec_tree(Specs,TestSpec,Join,[]),    
+    create_specs(SpecsTree,TestSpec,Relaxed).
+
+create_spec_tree([Spec|Specs],TS,JoinWithNext,Known) ->
     SpecDir = filename:dirname(filename:absname(Spec)),
-    TestSpec1 = TestSpec#testspec{spec_dir=SpecDir},
-    case file:consult(Spec) of
-	{ok,Terms} ->
-	    Terms1 = replace_names(Terms),
-	    {Specs2Join,SepSpecs} = get_included_specs(Terms1,TestSpec1),
-	    TestSpec2 = create_spec(Terms1,TestSpec1,Relaxed),
-	    case {JoinSpecs,Specs2Join,SepSpecs} of
-		{true,[],[]} ->
-		    create_specs(Ss,TestSpec2,Relaxed,JoinSpecs,
-				 {JSpecs++[get_absdir(Spec,TestSpec2)],
-				  TestSpec2},Separate);
-		{false,[],[]} ->
-		    create_specs(Ss,TestSpec,Relaxed,JoinSpecs,Joined,
-				 Separate++[{[get_absdir(Spec,TestSpec2)],
-					       TestSpec2}]);
-		_ ->
-		    {{JSpecs1,JTS1},Separate1} = 
-			create_specs(Specs2Join,TestSpec2,Relaxed,true,
-				     {[get_absdir(Spec,TestSpec2)],
-				      TestSpec2},[]),
-		    {Joined2,Separate2} =
-			create_specs(SepSpecs,TestSpec,Relaxed,false,
-				     {[],TestSpec1},[]),
-		    NewJoined = {JSpecs++JSpecs1,JTS1},
-		    NewSeparate = Separate++Separate1++
-			[Joined2 | Separate2],
-		    NextTestSpec = if not JoinSpecs -> TestSpec;
-				      true -> JTS1
-				   end,
-		    create_specs(Ss,NextTestSpec,Relaxed,JoinSpecs,
-				 NewJoined,NewSeparate)
-	    end;
-	{error,Reason} ->
-	    ReasonStr =
-		lists:flatten(io_lib:format("~s",
-					    [file:format_error(Reason)])),
-	    throw({error,{Spec,ReasonStr}})
-    end.
+    TS1 = TS#testspec{spec_dir=SpecDir},
+    SpecAbsName = get_absfile(Spec,TS1),
+    case lists:member(SpecAbsName,Known) of
+	true ->
+	    throw({error,{cyclic_reference,SpecAbsName}});
+	false ->
+	    case file:consult(SpecAbsName) of
+		{ok,Terms} ->
+		    Terms1 = replace_names(Terms),
+		    {InclJoin,InclSep} = get_included_specs(Terms1,TS1),
+		    {SpecAbsName,Terms1,
+		     create_spec_tree(InclJoin,TS,true,[SpecAbsName|Known]),
+		     create_spec_tree(InclSep,TS,false,[SpecAbsName|Known]),
+		     JoinWithNext,
+		     create_spec_tree(Specs,TS,JoinWithNext,Known)};	
+		{error,Reason} ->
+		    ReasonStr =
+			lists:flatten(io_lib:format("~s",
+						    [file:format_error(Reason)])),
+		    throw({error,{SpecAbsName,ReasonStr}})
+	    end
+    end;
+create_spec_tree([],_TS,_JoinWithNext,_Known) ->
+    [].
+
+create_specs({Spec,Terms,InclJoin,InclSep,JoinWithNext,NextSpec},
+	     TestSpec,Relaxed) ->
+    SpecDir = filename:dirname(filename:absname(Spec)),
+    TestSpec1 = create_spec(Terms,TestSpec#testspec{spec_dir=SpecDir},Relaxed),
+
+    {{JoinSpecs1,JoinTS1},Separate1} = create_specs(InclJoin,TestSpec1,Relaxed),
+    {{JoinSpecs2,JoinTS2},Separate2} =
+	case JoinWithNext of
+	    true ->
+		create_specs(NextSpec,JoinTS1,Relaxed);
+	    false ->
+		{{[],JoinTS1},[]}
+	end,
+    {SepJoinSpecs,Separate3} = create_specs(InclSep,TestSpec,Relaxed),
+    {SepJoinSpecs1,Separate4} =
+	case JoinWithNext of
+	    true ->
+		{{[],TestSpec},[]};
+	    false ->
+		create_specs(NextSpec,TestSpec,Relaxed)
+	end,            
+
+    SpecInfo = {Spec,TestSpec1#testspec.merge_tests},
+    AllSeparate =
+	[TSData || TSData = {Ss,_TS} <- Separate3++Separate1++
+		                        [SepJoinSpecs]++Separate2++
+		                        Separate4++[SepJoinSpecs1],
+		   Ss /= []],
+
+    case {JoinWithNext,JoinSpecs1} of
+	{true,_} ->
+	    {{[SpecInfo|(JoinSpecs1++JoinSpecs2)],JoinTS2},
+	     AllSeparate};
+	{false,[]} ->
+	    {{[],TestSpec},
+	     [{[SpecInfo],TestSpec1}|AllSeparate]};
+	{false,_} ->
+	    {{[SpecInfo|(JoinSpecs1++JoinSpecs2)],JoinTS2},
+	     AllSeparate}
+    end;
+create_specs([],TestSpec,_Relaxed) ->
+    {{[],TestSpec},[]}.
 		
 create_spec(Terms,TestSpec,Relaxed) ->
     TS = #testspec{tests=Tests, logdir=LogDirs} =
@@ -345,7 +400,8 @@ collect_tests({Replace,Terms},TestSpec=#testspec{alias=As,nodes=Ns},Relaxed) ->
     %% reverse nodes and aliases initially to get the order of them right
     %% in case this spec is being joined with a previous one
     TestSpec1 = get_global(Terms1,TestSpec#testspec{alias = lists:reverse(As),
-						    nodes = lists:reverse(Ns)}),
+						    nodes = lists:reverse(Ns),
+						    merge_tests = true}),
     TestSpec2 = get_all_nodes(Terms1,TestSpec1),
     {Terms2, TestSpec3} = filter_init_terms(Terms1, [], TestSpec2),
     add_tests(Terms2,TestSpec3).
@@ -483,9 +539,9 @@ get_included_specs(Terms,TestSpec) ->
 get_included_specs([{specs,How,SpecOrSpecs}|Ts],TestSpec,Join,Sep) ->
     Specs = case SpecOrSpecs of
 		[File|_] when is_list(File) ->
-		    [get_absdir(Spec,TestSpec) || Spec <- SpecOrSpecs];
+		    [get_absfile(Spec,TestSpec) || Spec <- SpecOrSpecs];
 		[Ch|_] when is_integer(Ch) ->
-		    [get_absdir(SpecOrSpecs,TestSpec)]
+		    [get_absfile(SpecOrSpecs,TestSpec)]
 	    end,
     if How == join ->
 	    get_included_specs(Ts,TestSpec,Join++Specs,Sep);
@@ -1118,14 +1174,21 @@ insert_groups(Node,Dir,Suite,Groups,Cases,Tests,true) when
 		       {[Gr],Cases};
 		  true ->
 		       {Gr,Cases} end || Gr <- Groups],
-    case lists:keysearch({Node,Dir},1,Tests) of
-	{value,{{Node,Dir},[{all,_}]}} ->
-	    Tests;
-	{value,{{Node,Dir},Suites0}} ->
-	    Suites1 = insert_groups1(Suite,Groups1,Suites0),
-	    insert_in_order({{Node,Dir},Suites1},Tests);
-	false ->
-	    insert_in_order({{Node,Dir},[{Suite,Groups1}]},Tests)
+    {Tests1,Done} =
+	lists:foldr(fun(All={{N,D},[{all,_}]},{Replaced,_}) when N == Node,
+								 D == Dir ->
+			    {[All|Replaced],true};
+		       ({{N,D},Suites0},{Replaced,_}) when N == Node,
+							   D == Dir ->
+			    Suites1 = insert_groups1(Suite,Groups1,Suites0),
+			    {[{{N,D},Suites1}|Replaced],true};
+		       (T,{Replaced,Match}) ->
+			    {[T|Replaced],Match}
+		    end, {[],false}, Tests),
+    if not Done ->
+	    Tests ++ [{{Node,Dir},[{Suite,Groups1}]}];
+       true ->
+	    Tests1
     end;
 insert_groups(Node,Dir,Suite,Groups,Case,Tests, MergeTests) 
   when is_atom(Case) ->
@@ -1163,14 +1226,21 @@ insert_groups2([],GrAndCases) ->
 insert_cases(Node,Dir,Suite,Cases,Tests,false) when is_list(Cases) ->
     append({{Node,Dir},[{Suite,Cases}]},Tests);
 insert_cases(Node,Dir,Suite,Cases,Tests,true) when is_list(Cases) ->
-    case lists:keysearch({Node,Dir},1,Tests) of
-	{value,{{Node,Dir},[{all,_}]}} ->
-	    Tests;
-	{value,{{Node,Dir},Suites0}} ->
-	    Suites1 = insert_cases1(Suite,Cases,Suites0),
-	    insert_in_order({{Node,Dir},Suites1},Tests);
-	false ->
-	    insert_in_order({{Node,Dir},[{Suite,Cases}]},Tests)
+    {Tests1,Done} =
+	lists:foldr(fun(All={{N,D},[{all,_}]},{Replaced,_}) when N == Node,
+								 D == Dir ->
+			    {[All|Replaced],true};
+		       ({{N,D},Suites0},{Replaced,_}) when N == Node,
+							   D == Dir ->
+			    Suites1 = insert_cases1(Suite,Cases,Suites0),
+			    {[{{N,D},Suites1}|Replaced],true};
+		       (T,{Replaced,Match}) ->
+			    {[T|Replaced],Match}
+		    end, {[],false}, Tests),
+    if not Done ->
+	    Tests ++ [{{Node,Dir},[{Suite,Cases}]}];
+       true ->
+	    Tests1
     end;
 insert_cases(Node,Dir,Suite,Case,Tests,MergeTests) when is_atom(Case) ->
     insert_cases(Node,Dir,Suite,[Case],Tests,MergeTests).
@@ -1211,15 +1281,23 @@ skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests,false) when
     append({{Node,Dir},Suites1},Tests);
 skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests,true) when
       ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
-    Suites =
-	case lists:keysearch({Node,Dir},1,Tests) of
-	    {value,{{Node,Dir},Suites0}} ->
-		Suites0;
-	    false ->
-		[]
-	end,
-    Suites1 = skip_groups1(Suite,[{Gr,Cases} || Gr <- Groups],Cmt,Suites),
-    insert_in_order({{Node,Dir},Suites1},Tests);
+    {Tests1,Done} =
+	lists:foldr(fun({{N,D},Suites0},{Replaced,_}) when N == Node,
+							   D == Dir ->
+			    Suites1 = skip_groups1(Suite,
+						   [{Gr,Cases} || Gr <- Groups],
+						   Cmt,Suites0),
+			    {[{{N,D},Suites1}|Replaced],true};
+		       (T,{Replaced,Match}) ->
+			    {[T|Replaced],Match}
+		    end, {[],false}, Tests),
+    if not Done ->
+	    Tests ++ [{{Node,Dir},skip_groups1(Suite,
+					      [{Gr,Cases} || Gr <- Groups],
+					      Cmt,[])}];
+       true ->
+	    Tests1
+    end;
 skip_groups(Node,Dir,Suite,Groups,Case,Cmt,Tests,MergeTests) 
   when is_atom(Case) ->
     Cases = if Case == all -> all; true -> [Case] end,
@@ -1241,15 +1319,19 @@ skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,false) when is_list(Cases) ->
     Suites1 = skip_cases1(Suite,Cases,Cmt,[]),
     append({{Node,Dir},Suites1},Tests);
 skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,true) when is_list(Cases) ->
-    Suites =
-	case lists:keysearch({Node,Dir},1,Tests) of
-	    {value,{{Node,Dir},Suites0}} ->
-		Suites0;
-	    false ->
-		[]
-	end,
-    Suites1 = skip_cases1(Suite,Cases,Cmt,Suites),
-    insert_in_order({{Node,Dir},Suites1},Tests);
+    {Tests1,Done} =
+	lists:foldr(fun({{N,D},Suites0},{Replaced,_}) when N == Node,
+							   D == Dir ->
+			    Suites1 = skip_cases1(Suite,Cases,Cmt,Suites0),
+			    {[{{N,D},Suites1}|Replaced],true};
+		       (T,{Replaced,Match}) ->
+			    {[T|Replaced],Match}
+		    end, {[],false}, Tests),
+    if not Done ->
+	    Tests ++ [{{Node,Dir},skip_cases1(Suite,Cases,Cmt,[])}];
+       true ->
+	    Tests1
+    end;
 skip_cases(Node,Dir,Suite,Case,Cmt,Tests,MergeTests) when is_atom(Case) ->
     skip_cases(Node,Dir,Suite,[Case],Cmt,Tests,MergeTests).
 

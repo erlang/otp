@@ -1132,6 +1132,8 @@ reformat([{_EH,#event{name=test_start,data=_}} | Events], EH) ->
     [{EH,test_start,{'DEF',{'START_TIME','LOGDIR'}}} | reformat(Events, EH)];
 reformat([{_EH,#event{name=test_done,data=_}} | Events], EH) ->
     [{EH,test_done,{'DEF','STOP_TIME'}} | reformat(Events, EH)];
+reformat([{_EH,#event{name=tc_logfile,data=_}} | Events], EH) ->
+    reformat(Events, EH);
 reformat([{_EH,#event{name=test_stats,data=Data}} | Events], EH) ->
     [{EH,test_stats,Data} | reformat(Events, EH)];
 %% use this to only print the last test_stats event:

@@ -1,0 +1,5 @@
+{specs,separate,"spec_join2"}.
+{specs,separate,"../specs1/spec_join1"}.
+
+{config, "../config1/cfg13"}.
+{suites, "../tests2", t23_SUITE}.

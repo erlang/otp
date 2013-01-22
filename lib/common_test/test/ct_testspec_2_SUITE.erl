@@ -490,7 +490,7 @@ multiple_specs(_Config) ->
 	    [{Node2,get_absdir(filename:join(SpecDir,CfgDir))} || CfgDir <- CfgDir2]],
     LogDirV = get_absdir(filename:join(SpecDir,"../logs")),
 
-    Verify = #testspec{merge_tests = false,
+    Verify = #testspec{merge_tests = true,
 		       spec_dir = SpecDir,
 		       nodes = [{undefined,Node},{n1,Node1},{n2,Node2}],
 		       alias = [{to1,TO1V},{to2,TO2V}],

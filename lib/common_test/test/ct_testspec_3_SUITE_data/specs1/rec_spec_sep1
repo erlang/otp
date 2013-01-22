@@ -1,0 +1,2 @@
+{specs,separate,"spec_sep1"}.
+{specs,separate,"../specs2/spec_sep2"}.
