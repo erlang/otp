@@ -26,8 +26,8 @@
 	 encode_length/1,
 	 encode_length/2,
 	 encode_bit_string/3,
-	 encode_object_identifier/1, decode_object_identifier/1,
-	 encode_relative_oid/1, decode_relative_oid/1,
+	 encode_object_identifier/1,
+	 encode_relative_oid/1,
 	 complete/1,
 	 encode_open_type/1,
 	 encode_GeneralString/2,
@@ -133,12 +133,6 @@ getoctets_as_bin(Bin,Num) when is_bitstring(Bin) ->
     AlignBits = bit_size(Bin) rem 8,
     <<_:AlignBits,Val:Num/binary,RestBin/binary>> = Bin,
     {Val,RestBin}.
-
-
-%% same as above but returns octets as a List
-getoctets_as_list(Buffer,Num) ->
-    {Bin,Buffer2} = getoctets_as_bin(Buffer,Num),
-    {binary_to_list(Bin),Buffer2}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% set_choice(Alt,Choices,Altnum) -> ListofBitSettings
@@ -977,33 +971,6 @@ e_o_e(Num) when Num < 128 ->
 e_o_e(Num) ->
     [e_o_e(Num bsr 7)|[(Num band 2#1111111) bor 2#10000000]].
 
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% decode_object_identifier(Bytes) -> {ObjId,RemainingBytes}
-%% ObjId -> {integer(),integer(),...} % at least 2 integers
-%% RemainingBytes -> [integer()] when integer() (0..255)
-decode_object_identifier(Bytes) ->
-    {Len,Bytes2} = decode_length(Bytes,undefined),
-    {Octs,Bytes3} = getoctets_as_list(Bytes2,Len),
-    [First|Rest] = dec_subidentifiers(Octs,0,[]),
-    Idlist = if
-		 First < 40 ->
-		     [0,First|Rest];
-		 First < 80 ->
-		     [1,First - 40|Rest];
-		 true ->
-		     [2,First - 80|Rest]
-	     end,
-    {list_to_tuple(Idlist),Bytes3}.
-
-dec_subidentifiers([H|T],Av,Al) when H >=16#80 ->
-    dec_subidentifiers(T,(Av bsl 7) + (H band 16#7F),Al);
-dec_subidentifiers([H|T],Av,Al) ->
-    dec_subidentifiers(T,0,[(Av bsl 7) + H |Al]);
-dec_subidentifiers([],_Av,Al) ->
-    lists:reverse(Al).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% encode_relative_oid(Val) -> CompleteList
 %% encode_relative_oid({Name,Val}) -> CompleteList
@@ -1013,16 +980,6 @@ encode_relative_oid(Val) when is_list(Val) ->
     Octets = list_to_binary([e_object_element(X)||X <- Val]),
     Sz = byte_size(Octets),
     [encode_length(Sz)|octets_to_complete(Sz, Octets)].
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% decode_relative_oid(Val) -> CompleteList
-%% decode_relative_oid({Name,Val}) -> CompleteList
-decode_relative_oid(Bytes) ->
-    {Len,Bytes2} = decode_length(Bytes,undefined),
-    {Octs,Bytes3} = getoctets_as_list(Bytes2,Len),
-    ObjVals = dec_subidentifiers(Octs,0,[]),
-    {list_to_tuple(ObjVals),Bytes3}.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% complete(InList) -> ByteList

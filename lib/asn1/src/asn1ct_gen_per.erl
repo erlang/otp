@@ -1119,6 +1119,8 @@ gen_dec_imm_1({'BIT STRING',NNL}, Constr0, Aligned) ->
 		end,
 	    {call,D,Imm}
     end;
+gen_dec_imm_1('NULL', _Constr, _Aligned) ->
+    {value,'NULL'};
 gen_dec_imm_1('BOOLEAN', _Constr, _Aligned) ->
     asn1ct_imm:per_dec_boolean();
 gen_dec_imm_1({'ENUMERATED',{Base,Ext}}, _Constr, Aligned) ->
@@ -1163,11 +1165,29 @@ gen_dec_imm_1('GeneralString', _Constraint, Aligned) ->
     gen_dec_restricted_string(Aligned);
 gen_dec_imm_1('ObjectDescriptor', _Constraint, Aligned) ->
     gen_dec_restricted_string(Aligned);
+gen_dec_imm_1('OBJECT IDENTIFIER', _Constraint, Aligned) ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,per_common,decode_oid,[V]},com,
+			Buf,"}"])
+	  end,
+    {call,Dec,gen_dec_restricted_string(Aligned)};
+gen_dec_imm_1('RELATIVE-OID', _Constraint, Aligned) ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,per_common,decode_relative_oid,[V]},com,
+			Buf,"}"])
+	  end,
+    {call,Dec,gen_dec_restricted_string(Aligned)};
 gen_dec_imm_1('UTF8String', _Constraint, Aligned) ->
     asn1ct_imm:per_dec_restricted_string(Aligned);
 gen_dec_imm_1('REAL', _Constraint, Aligned) ->
     asn1ct_imm:per_dec_real(Aligned);
-gen_dec_imm_1(_, _, _) -> no.
+gen_dec_imm_1(#'ObjectClassFieldType'{}=TypeName, Constraint, Aligned) ->
+    case asn1ct_gen:get_inner(TypeName) of
+	{fixedtypevaluefield,_,InnerType} ->
+	    gen_dec_imm_1(InnerType, Constraint, Aligned);
+	T ->
+	    gen_dec_imm_1(T, Constraint, Aligned)
+    end.
 
 gen_dec_bit_string(F, Imm) ->
     D = fun(V, Buf) ->
@@ -1189,34 +1209,8 @@ gen_dec_restricted_string(Aligned) ->
     {convert,binary_to_list,Imm}.
 
 gen_dec_prim(Erule, Type, BytesVar) ->
-    case gen_dec_imm(Erule, Type) of
-	no ->
-	    gen_dec_prim_1(Erule, Type, BytesVar);
-	Imm ->
-	    asn1ct_imm:dec_code_gen(Imm, BytesVar)
-    end.
-
-gen_dec_prim_1(Erule,
-	       #type{def=Typename}=Att,
-	       BytesVar) ->
-    case Typename of
-	'NULL' ->
-	    emit({"{'NULL',",BytesVar,"}"});
-	'OBJECT IDENTIFIER' ->
-	    call(Erule, decode_object_identifier, [BytesVar]);
-	'RELATIVE-OID' ->
-	    call(Erule, decode_relative_oid, [BytesVar]);
-	#'ObjectClassFieldType'{} ->
-		case asn1ct_gen:get_inner(Typename) of
-		    {fixedtypevaluefield,_,InnerType} -> 
-			gen_dec_prim(Erule, InnerType, BytesVar);
-		    T ->
-			gen_dec_prim(Erule, Att#type{def=T}, BytesVar)
-		end;
-	Other ->
-	    exit({'cant decode' ,Other})
-    end.
-
+    Imm = gen_dec_imm(Erule, Type),
+    asn1ct_imm:dec_code_gen(Imm, BytesVar).
 
 is_already_generated(Operation,Name) ->
     case get(class_default_type) of

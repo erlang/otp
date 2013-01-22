@@ -391,6 +391,8 @@ opt_al({'case',Cs0}, A0) ->
 opt_al({map,E0,Cs}, A0) ->
     {E,A} = opt_al(E0, A0),
     {{map,E,Cs},A};
+opt_al('NULL'=Null, A) ->
+    {Null,A};
 opt_al(I, A) when is_integer(I) ->
     {I,A}.
 
@@ -478,6 +480,8 @@ flatten({map,E0,Cs0}, Buf0, St0) ->
     {Dst,St2} = new_var("Int", St1),
     Cs = flatten_map_cs(Cs0, E),
     {{Dst,DstBuf},Pre++[{'map',E,Cs,{Dst,DstBuf}}],St2};
+flatten({value,'NULL'}, Buf0, St0) ->
+    {{"'NULL'",Buf0},[],St0};
 flatten({value,V0}, Buf0, St0) when is_integer(V0) ->
     {{V0,Buf0},[],St0};
 flatten({value,V0}, Buf0, St0) ->

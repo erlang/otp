@@ -27,7 +27,8 @@
 	 decode_named_bit_string/2,
 	 decode_chars/2,decode_chars/3,
 	 decode_chars_16bit/1,
-	 decode_big_chars/2]).
+	 decode_big_chars/2,
+	 decode_oid/1,decode_relative_oid/1]).
 
 -define('16K',16384).
 
@@ -74,6 +75,20 @@ decode_chars_16bit(Val) ->
 decode_big_chars(Val, N) ->
     decode_big_chars_1(decode_chars(Val, N)).
 
+decode_oid(Octets) ->
+    [First|Rest] = dec_subidentifiers(Octets, 0, []),
+    Idlist = if
+		 First < 40 ->
+		     [0,First|Rest];
+		 First < 80 ->
+		     [1,First - 40|Rest];
+		 true ->
+		     [2,First - 80|Rest]
+	     end,
+    list_to_tuple(Idlist).
+
+decode_relative_oid(Octets) ->
+    list_to_tuple(dec_subidentifiers(Octets, 0, [])).
 
 %%%
 %%% Internal functions.
@@ -102,3 +117,10 @@ decode_big_chars_1([H|T]) when H < 256 ->
 decode_big_chars_1([H|T]) ->
     [list_to_tuple(binary_to_list(<<H:32>>))|decode_big_chars_1(T)];
 decode_big_chars_1([]) -> [].
+
+dec_subidentifiers([H|T], Av, Al) when H >=16#80 ->
+    dec_subidentifiers(T, (Av bsl 7) bor (H band 16#7F), Al);
+dec_subidentifiers([H|T], Av, Al) ->
+    dec_subidentifiers(T, 0, [(Av bsl 7) bor H|Al]);
+dec_subidentifiers([], _Av, Al) ->
+    lists:reverse(Al).

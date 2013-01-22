@@ -1518,7 +1518,6 @@ gen_dec_line_dec_inf(Comp, DecInfObj) ->
 gen_dec_line_other(Erule, Atype, TopType, Comp) ->
     #'ComponentType'{name=Cname,typespec=Type} = Comp,
     CurrMod = get(currmod),
-    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     case asn1ct_gen:type(Atype) of
 	#'Externaltypereference'{module=CurrMod,type=EType} ->
 	    fun(BytesVar) ->
@@ -1532,16 +1531,16 @@ gen_dec_line_other(Erule, Atype, TopType, Comp) ->
 	{primitive,bif} ->
 	    case Atype of
 		{fixedtypevaluefield,_,Btype} ->
-		    gen_dec_prim(Ctgenmod, Erule, Btype);
+		    asn1ct_gen_per:gen_dec_imm(Erule, Btype);
 		_ ->
-		    gen_dec_prim(Ctgenmod, Erule, Type)
+		    asn1ct_gen_per:gen_dec_imm(Erule, Type)
 	    end;
 	'ASN1_OPEN_TYPE' ->
 	    case Type#type.def of
 		#'ObjectClassFieldType'{type=OpenType} ->
-		    gen_dec_prim(Ctgenmod, Erule, #type{def=OpenType});
+		    asn1ct_gen_per:gen_dec_imm(Erule, #type{def=OpenType});
 		_ ->
-		    gen_dec_prim(Ctgenmod, Erule, Type)
+		    asn1ct_gen_per:gen_dec_imm(Erule, Type)
 	    end;
 	#typereference{val=Dname} ->
 	    fun(BytesVar) ->
@@ -1565,16 +1564,6 @@ gen_dec_line_other(Erule, Atype, TopType, Comp) ->
 				  "'(",BytesVar,", telltype)"})
 		    end
 	    end
-    end.
-
-gen_dec_prim(Ctgenmod, Erule, Type) ->
-    case asn1ct_gen_per:gen_dec_imm(Erule, Type) of
-	no ->
-	    fun(BytesVar) ->
-		    Ctgenmod:gen_dec_prim(Erule, Type, BytesVar)
-	    end;
-	Imm ->
-	    Imm
     end.
 
 gen_enc_choice(Erule,TopType,CompList,Ext) ->
