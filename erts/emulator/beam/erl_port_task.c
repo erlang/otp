@@ -35,6 +35,11 @@
 #include "dtrace-wrapper.h"
 #include <stdarg.h>
 
+/*
+ * ERTS_PORT_CALLBACK_VREDS: Limit the amount of callback calls we do...
+ */
+#define ERTS_PORT_CALLBACK_VREDS (CONTEXT_REDS/5)
+
 #if defined(DEBUG) && 0
 #define ERTS_HARD_DEBUG_TASK_QUEUES
 #else
@@ -1544,6 +1549,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     ErtsPortTask *execq;
     int processing_busy_q;
     int res = 0;
+    int vreds = 0;
     int reds = ERTS_PORT_REDS_EXECUTE;
     erts_aint_t io_tasks_executed = 0;
     int fpe_was_unmasked;
@@ -1688,6 +1694,9 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    break;
 	}
 
+	vreds += ERTS_PORT_CALLBACK_VREDS;
+	reds += ERTS_PORT_CALLBACK_VREDS;
+
 	if (reds >= CONTEXT_REDS)
 	    break;
     }
@@ -1757,6 +1766,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     res = (erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
 	   != (erts_aint_t) 0);
 
+    reds -= vreds;
     runq->scheduler->reductions += reds;
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));

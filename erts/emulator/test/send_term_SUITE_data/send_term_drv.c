@@ -664,7 +664,7 @@ static void send_term_drv_run(ErlDrvData port, char *buf, ErlDrvSizeT count)
 
 	    /* Signal end of test case */
 	    msg[0] = ERL_DRV_NIL;
-	    driver_output_term(erlang_port, msg, 1);
+	    erl_drv_output_term(driver_mk_port(erlang_port), msg, 1);
 	    return;
 	}
 	break;
@@ -687,14 +687,14 @@ static void send_term_drv_run(ErlDrvData port, char *buf, ErlDrvSizeT count)
 
 static void output_term(ErlDrvTermData* msg, int len)
 {
-    if (driver_output_term(erlang_port, msg, len) <= 0) {
-	driver_failure_atom(erlang_port, "driver_output_term_failed");
+    if (erl_drv_output_term(driver_mk_port(erlang_port), msg, len) <= 0) {
+	driver_failure_atom(erlang_port, "erl_drv_output_term_failed");
     }
 }
 
 static void fail_term(ErlDrvTermData* msg, int len, int line)
 {
-    int status = driver_output_term(erlang_port, msg, len);
+    int status = erl_drv_output_term(driver_mk_port(erlang_port), msg, len);
 
     if (status == 1) {
 	char buf[1024];

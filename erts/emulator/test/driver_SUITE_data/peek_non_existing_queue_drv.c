@@ -177,15 +177,16 @@ static void ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data)
 {
     PeekNonXQDrvData *dp = (PeekNonXQDrvData *) drv_data;
     if (dp->cmd == PEEK_NONXQ_WAIT) {
+	ErlDrvTermData port_id = driver_mk_port(dp->port);
 	ErlDrvTermData spec[] = {
-	    ERL_DRV_PORT, driver_mk_port(dp->port),
+	    ERL_DRV_PORT, port_id,
 	    ERL_DRV_ATOM, driver_mk_atom("test_successful"),
 	    ERL_DRV_TUPLE, 2
 	};
-	driver_send_term(dp->port,
-			 dp->caller,
-			 spec,
-			 sizeof(spec) / sizeof(spec[0]));
+	erl_drv_send_term(port_id,
+			  dp->caller,
+			  spec,
+			  sizeof(spec) / sizeof(spec[0]));
     }
     if (thread_data)
 	driver_free(thread_data);

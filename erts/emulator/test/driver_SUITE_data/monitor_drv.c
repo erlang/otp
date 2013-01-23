@@ -117,7 +117,7 @@ static void handle_monitor(ErlDrvData drv_data, ErlDrvMonitor *monitor)
 	    o->next = p->next;
 	}
 	driver_free(p);
-	driver_send_term(data->port, data->ipid, spec, sizeof(spec)/sizeof(ErlDrvTermData));
+	erl_drv_send_term(driver_mk_port(data->port), data->ipid, spec, sizeof(spec)/sizeof(ErlDrvTermData));
     }
     
     return;

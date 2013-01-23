@@ -56,6 +56,7 @@ static ErlDrvEntry async_blast_drv_entry = {
 
 typedef struct {
     ErlDrvPort port;
+    ErlDrvTermData port_id;
     ErlDrvTermData caller;    
     int counter;
 } async_blast_data_t;
@@ -81,6 +82,7 @@ static ErlDrvData start(ErlDrvPort port,
 	return ERL_DRV_ERROR_GENERAL;
 
     abd->port = port;
+    abd->port_id = driver_mk_port(port);
     abd->counter = 0;
     return (ErlDrvData) abd;
 }
@@ -97,12 +99,12 @@ static void ready_async(ErlDrvData drv_data,
     async_blast_data_t *abd = (async_blast_data_t *) drv_data;
     if (--abd->counter == 0) {
 	ErlDrvTermData spec[] = {
-	    ERL_DRV_PORT, driver_mk_port(abd->port),
+	    ERL_DRV_PORT, abd->port_id,
 	    ERL_DRV_ATOM, driver_mk_atom("done"),
 	    ERL_DRV_TUPLE, 2
 	};
-	driver_send_term(abd->port, abd->caller,
-			 spec, sizeof(spec)/sizeof(spec[0]));
+	erl_drv_send_term(abd->port_id, abd->caller,
+			  spec, sizeof(spec)/sizeof(spec[0]));
     }
 }
 

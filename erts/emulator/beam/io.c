@@ -1573,6 +1573,8 @@ bad_port_signal(Process *c_p,
 			try_call_state.state,
 			flags & ERTS_PORT_SIG_FLG_BAD_OUTPUT);
 	finalize_imm_drv_call(&try_call_state);
+	if (c_p)
+	    BUMP_REDS(c_p, ERTS_PORT_REDS_BADSIG);
 	return ERTS_PORT_OP_BADARG;
     case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
 	return ERTS_PORT_OP_DROPPED;
@@ -1950,10 +1952,11 @@ erts_port_output(Process *c_p,
 		driver_free_binary(cbin);
 		if (evp != &ev)
 		    erts_free(ERTS_ALC_T_TMP, evp);
-		if (try_call_res == ERTS_TRY_IMM_DRV_CALL_OK)
-		    return ERTS_PORT_OP_DONE;
-		else
+		if (try_call_res != ERTS_TRY_IMM_DRV_CALL_OK)
 		    return ERTS_PORT_OP_DROPPED;
+		if (c_p)
+		    BUMP_REDS(c_p, ERTS_PORT_REDS_CMD_OUTPUTV);
+		return ERTS_PORT_OP_DONE;
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS:
 		sched_flags = try_call_state.sched_flags;
 	    case ERTS_TRY_IMM_DRV_CALL_BUSY_LOCK:
@@ -2096,10 +2099,11 @@ erts_port_output(Process *c_p,
 		/* Fall through... */
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
 		erts_free(ERTS_ALC_T_TMP, buf);
-		if (try_call_res == ERTS_TRY_IMM_DRV_CALL_OK)
-		    return ERTS_PORT_OP_DONE;
-		else
+		if (try_call_res != ERTS_TRY_IMM_DRV_CALL_OK)
 		    return ERTS_PORT_OP_DROPPED;
+		if (c_p)
+		    BUMP_REDS(c_p, ERTS_PORT_REDS_CMD_OUTPUT);
+		return ERTS_PORT_OP_DONE;
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS:
 		sched_flags = try_call_state.sched_flags;
 	    case ERTS_TRY_IMM_DRV_CALL_BUSY_LOCK:
@@ -2267,6 +2271,8 @@ erts_port_exit(Process *c_p,
 					 reason,
 					 flags & ERTS_PORT_SIG_FLG_BROKEN_LINK);
 	    finalize_imm_drv_call(&try_call_state);
+	    if (res == ERTS_PORT_OP_DONE && c_p)
+		BUMP_REDS(c_p, ERTS_PORT_REDS_EXIT);
 	    return res;
 	}
 	case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
@@ -2434,6 +2440,8 @@ erts_port_connect(Process *c_p,
 				 try_call_state.state,
 				 connect_id);
 	finalize_imm_drv_call(&try_call_state);
+	if (res == ERTS_PORT_OP_DONE)
+	    BUMP_REDS(c_p, ERTS_PORT_REDS_CONNECT);
 	return res;
     }
     case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
@@ -2492,6 +2500,7 @@ erts_port_unlink(Process *c_p, Port *prt, Eterm from, Eterm *refp)
     case ERTS_TRY_IMM_DRV_CALL_OK:
 	port_unlink(prt, from);
 	finalize_imm_drv_call(&try_call_state);
+	BUMP_REDS(c_p, ERTS_PORT_REDS_UNLINK);
 	return ERTS_PORT_OP_DONE;
     case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
 	return ERTS_PORT_OP_DROPPED;
@@ -2579,6 +2588,7 @@ erts_port_link(Process *c_p, Port *prt, Eterm to, Eterm *refp)
     case ERTS_TRY_IMM_DRV_CALL_OK:
 	port_link(prt, try_call_state.state, to);
 	finalize_imm_drv_call(&try_call_state);
+	BUMP_REDS(c_p, ERTS_PORT_REDS_LINK);
 	return ERTS_PORT_OP_DONE;
     case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
 	return ERTS_PORT_OP_BADARG;
@@ -3944,6 +3954,7 @@ erts_port_control(Process* c_p,
 						 &hp,
 						 NULL,
 						 &c_p->off_heap);
+	    BUMP_REDS(c_p, ERTS_PORT_REDS_CONTROL);
 	    return ERTS_PORT_OP_DONE;
 	}
 	case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
@@ -4244,6 +4255,7 @@ erts_port_call(Process* c_p,
 	    if (resp_buf != &resp_buf[0]
 		&& !(ret_flags & DRIVER_CALL_KEEP_BUFFER))
 		driver_free(resp_buf);
+	    BUMP_REDS(c_p, ERTS_PORT_REDS_CALL);
 	    return ERTS_PORT_OP_DONE;
 	}
 	case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
@@ -4423,6 +4435,7 @@ erts_port_info(Process* c_p,
 	    *retvalp = copy_struct(value, used_h_size, &hp, &MSO(c_p));
 	    free_message_buffer(bp);
 	}
+	BUMP_REDS(c_p, ERTS_PORT_REDS_INFO);
 	return ERTS_PORT_OP_DONE;
     }
     case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
@@ -4509,6 +4522,7 @@ erts_port_set_data(Process* c_p,
 	prt->bp = bp;
 	prt->data = set_data;
 	finalize_imm_drv_call(&try_call_state);
+	BUMP_REDS(c_p, ERTS_PORT_REDS_SET_DATA);
 	return ERTS_PORT_OP_DONE;
     case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
 	return ERTS_PORT_OP_DROPPED;
@@ -4641,6 +4655,7 @@ erts_port_get_data(Process* c_p,
 	    free_message_buffer(bp);
 	}
 	*retvalp = TUPLE2(hp, am_ok, data);
+	BUMP_REDS(c_p, ERTS_PORT_REDS_GET_DATA);
 	return ERTS_PORT_OP_DONE;
     }
     case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:

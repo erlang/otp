@@ -134,8 +134,8 @@ static void send_reply(Otp9302AsyncData *adata)
 	ERL_DRV_ATOM, adata->term_data.msg,
 	ERL_DRV_TUPLE, 2
     };
-    driver_send_term(adata->port, adata->term_data.receiver,
-		     spec, sizeof(spec)/sizeof(spec[0]));
+    erl_drv_send_term(adata->term_data.port, adata->term_data.receiver,
+		      spec, sizeof(spec)/sizeof(spec[0]));
 }
 
 static void enqueue_reply(Otp9302AsyncData *adata)

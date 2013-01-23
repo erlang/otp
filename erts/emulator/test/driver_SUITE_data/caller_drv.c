@@ -85,9 +85,9 @@ send_caller(ErlDrvData drv_data, char *func)
 	ERL_DRV_PID,	driver_caller(port),
 	ERL_DRV_TUPLE,	(ErlDrvTermData) 4
     };
-    res = driver_output_term(port, msg, sizeof(msg)/sizeof(ErlDrvTermData));
+    res = erl_drv_output_term(driver_mk_port(port), msg, sizeof(msg)/sizeof(ErlDrvTermData));
     if (res <= 0)
-	driver_failure_atom(port, "driver_output_term failed");
+	driver_failure_atom(port, "erl_drv_output_term failed");
 }
 
 static ErlDrvData
