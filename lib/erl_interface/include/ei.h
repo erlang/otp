@@ -190,7 +190,12 @@ extern volatile int __erl_errno;
 #define MAXATOMLEN_UTF8 (255*4 + 1)
 #define MAXNODELEN EI_MAXALIVELEN+1+EI_MAXHOSTNAMELEN
 
-enum erlang_char_encoding { ERLANG_ASCII, ERLANG_LATIN1, ERLANG_UTF8, ERLANG_WHATEVER };
+enum erlang_char_encoding { 
+    ERLANG_ASCII = 1,
+    ERLANG_LATIN1 = 2,
+    ERLANG_UTF8 = 4,
+    ERLANG_ANY = ERLANG_ASCII|ERLANG_LATIN1|ERLANG_UTF8
+};
 
 /* a pid */
 typedef struct {

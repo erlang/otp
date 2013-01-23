@@ -59,8 +59,7 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
   char *s0 = s;
   int offs;
 
-  if (len >= MAXATOMLEN && (from_enc == ERLANG_LATIN1 ||
-			    from_enc == ERLANG_ASCII)) {
+  if (len >= MAXATOMLEN && (from_enc & (ERLANG_LATIN1|ERLANG_ASCII))) {
       return -1;
   }
 

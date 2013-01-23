@@ -58,7 +58,7 @@ int ei_decode_atom_as(const char *buf, int *index, char* p, int destlen,
 	return -1;
     }
     
-    if (want_enc == got_enc || want_enc == ERLANG_WHATEVER || want_enc == ERLANG_ASCII) {
+    if ((want_enc & got_enc) || want_enc == ERLANG_ASCII) {
 	int i, found_non_ascii = 0;
 	if (len >= destlen)
 	    return -1;

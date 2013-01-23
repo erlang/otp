@@ -662,7 +662,7 @@ static int read_atom(unsigned char** ext, Erl_Atom_data* a)
     int offs = 0;
     enum erlang_char_encoding enc;
     int ret = ei_decode_atom_as((char*)*ext, &offs, buf, MAXATOMLEN_UTF8,
-				ERLANG_WHATEVER, NULL, &enc);
+				ERLANG_LATIN1|ERLANG_UTF8, NULL, &enc);
     *ext += offs;
 
     if (ret == 0) {
@@ -674,11 +674,11 @@ static int read_atom(unsigned char** ext, Erl_Atom_data* a)
 	a->lenL = 0;
 	a->utf8 = NULL;
 	a->lenU = 0;
-	if (enc == ERLANG_LATIN1 || enc == ERLANG_ASCII) {
+	if (enc & (ERLANG_LATIN1 | ERLANG_ASCII)) {
 	    a->latin1 = clone; 	    
 	    a->lenL = i;
 	}
-	if (enc == ERLANG_UTF8 || enc == ERLANG_ASCII) {
+	if (enc & (ERLANG_UTF8 | ERLANG_ASCII)) {
 	    a->utf8 = clone;
 	    a->lenU = i;
 	}
