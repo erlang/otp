@@ -25,6 +25,7 @@
 %% 	abs/1
 %%	float/1
 %%	float_to_list/1
+%%  float_to_list/2
 %%	integer_to_list/1
 %%	list_to_float/1
 %%	list_to_integer/1
@@ -114,14 +115,46 @@ t_float(Config) when is_list(Config) ->
     ok.
 
 
-%% Tests float_to_list/1.
+%% Tests float_to_list/1, float_to_list/2.
 
 t_float_to_list(Config) when is_list(Config) ->
-    ?line test_ftl("0.0e+0", 0.0),
-    ?line test_ftl("2.5e+1", 25.0),
-    ?line test_ftl("2.5e+0", 2.5),
-    ?line test_ftl("2.5e-1", 0.25),
-    ?line test_ftl("-3.5e+17", -350.0e15),
+    test_ftl("0.0e+0", 0.0),
+    test_ftl("2.5e+1", 25.0),
+    test_ftl("2.5e+0", 2.5),
+    test_ftl("2.5e-1", 0.25),
+    test_ftl("-3.5e+17", -350.0e15),
+    "1.00000000000000000000e+00"  = float_to_list(1.0),
+    "1.00000000000000000000e+00"  = float_to_list(1.0,  []),
+    "-1.00000000000000000000e+00" = float_to_list(-1.0, []),
+    "-1.00000000000000000000"     = float_to_list(-1.0, [{decimals, 20}]),
+    {'EXIT', {badarg, _}}         = (catch float_to_list(1.0,  [{decimals, -1}])),
+    {'EXIT', {badarg, _}}         = (catch float_to_list(1.0,  [{decimals, 250}])),
+    {'EXIT', {badarg, _}}         = (catch float_to_list(1.0e+300, [{decimals, 1}])),
+    "1.0e+300"                    = float_to_list(1.0e+300, [{scientific, 1}]),
+    "1.0"                         = float_to_list(1.0,  [{decimals,   249}, compact]),
+    Expected = "1." ++ string:copies("0", 249) ++ "e+00",
+    Expected = float_to_list(1.0,  [{scientific, 249}, compact]),
+
+    X1 = float_to_list(1.0),
+    X2 = float_to_list(1.0, [{scientific, 20}]),
+    X1 = X2,
+    "1.000e+00" = float_to_list(1.0,   [{scientific, 3}]),
+    "1.000"     = float_to_list(1.0,   [{decimals,   3}]),
+    "1.0"       = float_to_list(1.0,   [{decimals, 3}, compact]),
+    "1.12"      = float_to_list(1.123, [{decimals, 2}]),
+    "1.123"     = float_to_list(1.123, [{decimals, 3}]),
+    "1.123"     = float_to_list(1.123, [{decimals, 3}, compact]),
+    "1.1230"    = float_to_list(1.123, [{decimals, 4}]),
+    "1.12300"   = float_to_list(1.123, [{decimals, 5}]),
+    "1.123"     = float_to_list(1.123, [{decimals, 5}, compact]),
+    "1.1234"    = float_to_list(1.1234,[{decimals, 6}, compact]),
+    "2.333333"  = erlang:float_to_list(7/3, [{decimals, 6}, compact]),
+    "2.333333"  = erlang:float_to_list(7/3, [{decimals, 6}]),
+    "0.00000000000000000000e+00" = float_to_list(0.0, [compact]),
+    "0.0"       = float_to_list(0.0,   [{decimals, 10}, compact]),
+    "123000000000000000000.0"    = float_to_list(1.23e20, [{decimals,   10}, compact]),
+    "1.2300000000e+20"           = float_to_list(1.23e20, [{scientific, 10}, compact]),
+    "1.23000000000000000000e+20" = float_to_list(1.23e20, []),
     ok.
     
 test_ftl(Expect, Float) ->

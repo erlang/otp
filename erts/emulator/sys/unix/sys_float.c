@@ -735,7 +735,7 @@ void erts_sys_unblock_fpe(int unmasked)
 
 /* 
  ** Convert a double to ascii format 0.dddde[+|-]ddd
- ** return number of characters converted
+ ** return number of characters converted or -1 if error.
  **
  ** These two functions should maybe use localeconv() to pick up
  ** the current radix character, but since it is uncertain how
@@ -745,11 +745,12 @@ void erts_sys_unblock_fpe(int unmasked)
  */
 
 int
-sys_double_to_chars(double fp, char *buffer, size_t buffer_size)
+sys_double_to_chars_ext(double fp, char *buffer, size_t buffer_size, size_t decimals)
 {
     char *s = buffer;
-    
-    (void) erts_snprintf(buffer, buffer_size, "%.20e", fp);
+
+    if (erts_snprintf(buffer, buffer_size, "%.*e", decimals, fp) >= buffer_size)
+        return -1;
     /* Search upto decimal point */
     if (*s == '+' || *s == '-') s++;
     while (ISDIGIT(*s)) s++;

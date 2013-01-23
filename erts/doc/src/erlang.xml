@@ -968,6 +968,37 @@ true
       </desc>
     </func>
     <func>
+      <name>float_to_list(Float, Options) -> string()</name>
+      <fsummary>Text representation of a float formatted using given options</fsummary>
+      <type>
+        <v>Float = float()</v>
+        <v>Options = [Option]</v>
+        <v>Option = {decimals, Decimals::0..249} |
+                    {scientific, Decimals::0..249} |
+                    compact</v>
+      </type>
+      <desc>
+        <p>Returns a string which corresponds to the text
+          representation of <c>Float</c> using fixed decimal point formatting.
+          When <c>decimals</c> option is specified
+          the returned value will contain at most <c>Decimals</c> number of
+          digits past the decimal point.  If the number doesn't fit in the
+          internal static buffer of 256 bytes, the function throws <c>badarg</c>.
+          When <c>compact</c> option is provided
+          the trailing zeros at the end of the list are truncated (this option is
+          only meaningful together with the <c>decimals</c> option). When
+          <c>scientific</c> option is provided, the float will be formatted using
+          scientific notation with <c>Decimals</c> digits of precision. If
+          <c>Options</c> is <c>[]</c> the function behaves like <c>float_to_list/1</c>.
+          </p>
+        <pre>
+> <input>float_to_list(7.12, [{decimals, 4}]).</input>
+"7.1200"
+> <input>float_to_list(7.12, [{decimals, 4}, compact]).</input>
+"7.12"</pre>
+      </desc>
+    </func>
+    <func>
       <name name="fun_info" arity="1"/>
       <fsummary>Information about a fun</fsummary>
       <desc>
