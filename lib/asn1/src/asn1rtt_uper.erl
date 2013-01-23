@@ -113,7 +113,7 @@ skipextensions(Bytes0, Nr, ExtensionBitstr) when is_bitstring(ExtensionBitstr) -
     Prev = Nr - 1,
     case ExtensionBitstr of
 	<<_:Prev,1:1,_/bitstring>> ->
-	    {Len,Bytes1} = decode_length(Bytes0, undefined),
+	    {Len,Bytes1} = decode_length(Bytes0),
 	    <<_:Len/binary,Bytes2/bitstring>> = Bytes1,
 	    skipextensions(Bytes2, Nr+1, ExtensionBitstr);
 	<<_:Prev,0:1,_/bitstring>> ->
@@ -290,7 +290,7 @@ encode_semi_constrained_number(Lb, Val) ->
     end.
 
 decode_semi_constrained_number(Bytes) ->
-    {Len,Bytes2} = decode_length(Bytes, undefined),
+    {Len,Bytes2} = decode_length(Bytes),
     {V,Bytes3} = getoctets(Bytes2,Len),
     {V,Bytes3}.
 
@@ -416,36 +416,12 @@ encode_small_length(Len) ->
 
 
 %% un-constrained
-decode_length(<<0:1,Oct:7,Rest/bitstring>>,undefined)  ->
+decode_length(<<0:1,Oct:7,Rest/bitstring>>)  ->
     {Oct,Rest};
-decode_length(<<2:2,Val:14,Rest/bitstring>>,undefined)  ->
+decode_length(<<2:2,Val:14,Rest/bitstring>>)  ->
     {Val,Rest};
-decode_length(<<3:2,_:14,_Rest/bitstring>>,undefined)  ->
-    exit({error,{asn1,{decode_length,{nyi,above_16k}}}});
-
-decode_length(Buffer,{Lb,Ub}) when Ub =< 65535, Lb >= 0 -> % constrained
-    decode_constrained_number(Buffer,{Lb,Ub});
-decode_length(Buffer,{Lb,_}) when is_integer(Lb), Lb >= 0 -> % Ub > 65535
-    decode_length(Buffer,undefined);
-decode_length(Buffer,{VR={_Lb,_Ub},Ext}) when is_list(Ext) ->
-    {0,Buffer2} = getbit(Buffer),
-    decode_length(Buffer2, VR);
-
-
-%When does this case occur with {_,_Lb,Ub} ??
-% X.691:10.9.3.5
-decode_length(Bin,{_,_Lb,_Ub}) -> %when Len =< 127 -> % Unconstrained or large Ub NOTE! this case does not cover case when Ub > 65535
-    case Bin of
-	<<0:1,Val:7,Rest/bitstring>> ->
-	    {Val,Rest};
-	<<2:2,Val:14,Rest/bitstring>> ->
-	    {Val,Rest};
-	<<3:2,_:14,_Rest/bitstring>> ->
-	    exit({error,{asn1,{decode_length,{nyi,length_above_64K}}}})
-    end;
-decode_length(Buffer,SingleValue) when is_integer(SingleValue) ->
-    {SingleValue,Buffer}.
-
+decode_length(<<3:2,_:14,_Rest/bitstring>>)  ->
+    exit({error,{asn1,{decode_length,{nyi,above_16k}}}}).
 
 						% X.691:11
 encode_boolean(true) ->

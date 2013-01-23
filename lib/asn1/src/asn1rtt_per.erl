@@ -79,7 +79,7 @@ skipextensions(Bytes0, Nr, ExtensionBitstr) when is_bitstring(ExtensionBitstr) -
     Prev = Nr - 1,
     case ExtensionBitstr of
 	<<_:Prev,1:1,_/bitstring>> ->
-	    {Len,Bytes1} = decode_length(Bytes0, undefined),
+	    {Len,Bytes1} = decode_length(Bytes0),
 	    <<_:Len/binary,Bytes2/bitstring>> = Bytes1,
 	    skipextensions(Bytes2, Nr+1, ExtensionBitstr);
 	<<_:Prev,0:1,_/bitstring>> ->
@@ -262,7 +262,7 @@ encode_semi_constrained_number(Lb, Val) ->
     end.
 
 decode_semi_constrained_number(Bytes) ->
-    {Len,Bytes2} = decode_length(Bytes, undefined),
+    {Len,Bytes2} = decode_length(Bytes),
     getoctets(Bytes2, Len).
 
 encode_constrained_number({Lb,_Ub},_Range,{bits,N},Val) ->
@@ -465,7 +465,7 @@ encode_small_length(Len) ->
     [1,encode_length(Len)].
 
 
-decode_length(Buffer, undefined)  -> % un-constrained
+decode_length(Buffer)  -> % un-constrained
     case align(Buffer) of
 	<<0:1,Oct:7,Rest/binary>> ->
 	    {Oct,Rest};
@@ -474,37 +474,12 @@ decode_length(Buffer, undefined)  -> % un-constrained
 	<<3:2,_Val:14,_Rest/binary>> ->
 	    %% this case should be fixed
 	    exit({error,{asn1,{decode_length,{nyi,above_16k}}}})
-    end;
+    end.
 
-decode_length(Buffer, {Lb,Ub}) when Ub =< 65535 ,Lb >= 0 -> % constrained
+decode_length(Buffer, {Lb,Ub}) when Ub =< 65535, Lb >= 0 -> % constrained
     decode_constrained_number(Buffer, {Lb,Ub});
 decode_length(Buffer, {Lb,_Ub}) when is_integer(Lb), Lb >= 0 -> % Ub > 65535
-    decode_length(Buffer,undefined);
-decode_length(Buffer, {{Lb,Ub},Ext}) when is_list(Ext) ->
-    case getbit(Buffer) of
-	{0,Buffer2} ->
-	    decode_length(Buffer2, {Lb,Ub});
-	{1,Buffer2} ->
-	    decode_length(Buffer2, undefined)
-    end;
-
-%When does this case occur with {_,_Lb,Ub} ??
-% X.691:10.9.3.5
-decode_length(Bin, {_,_Lb,_Ub}) -> % Unconstrained or large Ub NOTE! this case does not cover case when Ub > 65535
-    case Bin of
-	<<0:1,Val:7,Rest/bitstring>> ->
-	    {Val,Rest};
-	_ ->
-	    case align(Bin) of
-		<<2:2,Val:14,Rest/binary>> ->
-		    {Val,Rest};
-		<<3:2,_:14,_Rest/binary>> ->
-		    exit({error,{asn1,{decode_length,{nyi,length_above_64K}}}})
-	    end
-    end;
-decode_length(Buffer, SingleValue) when is_integer(SingleValue) ->
-    {SingleValue,Buffer}.
-
+    decode_length(Buffer).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% bitstring NamedBitList
