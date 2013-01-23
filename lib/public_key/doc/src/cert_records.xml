@@ -649,7 +649,7 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
 	  version       atom(),
 	  subject       {rdnSequence, [#AttributeTypeAndValue'{}]} ,
 	  subjectPKInfo #'CertificationRequestInfo_subjectPKInfo'{},
-	  attributes    [#AttributeTypeAndValue'{}]
+	  attributes    [#'AttributePKCS-10' {}]
 	  }
 
 #'CertificationRequestInfo_subjectPKInfo'{
@@ -665,7 +665,12 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
 #'CertificationRequest_signatureAlgorithm'{
      algorithm = oid(),
      parameters = der_encoded()
-     }  
+     }
+
+#'AttributePKCS-10'{
+    type = oid(),
+    values = [der_encoded()]
+}  
    </code> 
  </section>
 
