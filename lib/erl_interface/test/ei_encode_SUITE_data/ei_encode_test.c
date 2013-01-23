@@ -208,6 +208,196 @@
     ei_x_free(&arg); \
   }
 
+#define EI_ENCODE_3(FUNC,ARG1,ARG2,ARG3)	\
+  { \
+    char buf[1024]; \
+    int size1 = 0; \
+    int size2 = 0; \
+    int err; \
+    message("ei_" #FUNC " " #ARG1 " " #ARG2 " " #ARG3 " encoded as "); \
+    err = ei_ ## FUNC(NULL, &size1, ARG1, ARG2, ARG3);	     \
+    if (err != 0) { \
+      if (err != -1) { \
+	fail("size calculation returned non zero but not -1"); \
+	return; \
+      } else { \
+	fail("size calculation returned non zero"); \
+	return; \
+      } \
+    } \
+    err = ei_ ## FUNC(buf, &size2, ARG1, ARG2, ARG3); \
+    if (err != 0) { \
+      if (err != -1) { \
+	fail("returned non zero but not -1"); \
+      } else { \
+	fail("returned non zero"); \
+      } \
+      return; \
+    } \
+    if (size1 != size2) { \
+      fail("size differs when arg is NULL or buf"); \
+      return; \
+    } \
+    if (size1 < 1) { \
+      fail("size is < 1"); \
+      return; \
+    } \
+    send_buffer(buf, size1); \
+  } \
+  { \
+    ei_x_buff arg; \
+    int err; \
+    message("ei_x_" #FUNC " " #ARG1 " " #ARG2 " " #ARG3 " encoded as "); \
+    ei_x_new(&arg); \
+    err = ei_x_ ## FUNC(&arg, ARG1, ARG2, ARG3); \
+    if (err != 0) { \
+      if (err != -1) { \
+	fail("returned non zero but not -1"); \
+      } else { \
+	fail("returned non zero"); \
+      } \
+      ei_x_free(&arg); \
+      return; \
+    } \
+    if (arg.index < 1) { \
+      fail("size is < 1"); \
+      ei_x_free(&arg); \
+      return; \
+    } \
+    send_buffer(arg.buff, arg.index); \
+    ei_x_free(&arg); \
+  }
+
+#define EI_ENCODE_3_FAIL(FUNC,ARG1,ARG2,ARG3)	\
+  { \
+    char buf[1024]; \
+    int size1 = 0; \
+    int size2 = 0; \
+    int err; \
+    message("ei_" #FUNC " " #ARG1 " " #ARG2 " " #ARG3 " encoded as "); \
+    err = ei_ ## FUNC(NULL, &size1, ARG1, ARG2, ARG3);	     \
+    if (err != -1) { \
+      fail("size calculation returned non -1");	\
+      return;					\
+    } \
+    err = ei_ ## FUNC(buf, &size2, ARG1, ARG2, ARG3); \
+    if (err != -1) {					    \
+      fail("returned non -1");				    \
+    }							    \
+    if (size1 != size2) { \
+      fail("size differs when arg is NULL or buf"); \
+      return; \
+    } \
+  } \
+  { \
+    ei_x_buff arg; \
+    int err; \
+    message("ei_x_" #FUNC " " #ARG1 " " #ARG2 " " #ARG3 " encoded as "); \
+    ei_x_new(&arg); \
+    err = ei_x_ ## FUNC(&arg, ARG1, ARG2, ARG3); \
+    if (err != -1) {				       \
+      fail("returned non -1");			       \
+      ei_x_free(&arg);				       \
+      return;					       \
+    }						       \
+    ei_x_free(&arg); \
+  }
+
+#define EI_ENCODE_4(FUNC,ARG1,ARG2,ARG3,ARG4)	\
+  { \
+    char buf[1024]; \
+    int size1 = 0; \
+    int size2 = 0; \
+    int err; \
+    message("ei_" #FUNC " " #ARG1 " " #ARG2 " " #ARG3 " " #ARG4 " encoded as "); \
+    err = ei_ ## FUNC(NULL, &size1, ARG1, ARG2, ARG3, ARG4);	     \
+    if (err != 0) { \
+      if (err != -1) { \
+	fail("size calculation returned non zero but not -1"); \
+	return; \
+      } else { \
+	fail("size calculation returned non zero"); \
+	return; \
+      } \
+    } \
+    err = ei_ ## FUNC(buf, &size2, ARG1, ARG2, ARG3, ARG4); \
+    if (err != 0) { \
+      if (err != -1) { \
+	fail("returned non zero but not -1"); \
+      } else { \
+	fail("returned non zero"); \
+      } \
+      return; \
+    } \
+    if (size1 != size2) { \
+      fail("size differs when arg is NULL or buf"); \
+      return; \
+    } \
+    if (size1 < 1) { \
+      fail("size is < 1"); \
+      return; \
+    } \
+    send_buffer(buf, size1); \
+  } \
+  { \
+    ei_x_buff arg; \
+    int err; \
+    message("ei_x_" #FUNC " " #ARG1 " " #ARG2 " " #ARG3 " " #ARG4 " encoded as "); \
+    ei_x_new(&arg); \
+    err = ei_x_ ## FUNC(&arg, ARG1, ARG2, ARG3, ARG4); \
+    if (err != 0) { \
+      if (err != -1) { \
+	fail("returned non zero but not -1"); \
+      } else { \
+	fail("returned non zero"); \
+      } \
+      ei_x_free(&arg); \
+      return; \
+    } \
+    if (arg.index < 1) { \
+      fail("size is < 1"); \
+      ei_x_free(&arg); \
+      return; \
+    } \
+    send_buffer(arg.buff, arg.index); \
+    ei_x_free(&arg); \
+  }
+
+#define EI_ENCODE_4_FAIL(FUNC,ARG1,ARG2,ARG3,ARG4)	\
+  { \
+    char buf[1024]; \
+    int size1 = 0; \
+    int size2 = 0; \
+    int err; \
+    message("ei_" #FUNC " " #ARG1 " " #ARG2 " " #ARG3 " " #ARG4 " encoded as "); \
+    err = ei_ ## FUNC(NULL, &size1, ARG1, ARG2, ARG3, ARG4);	     \
+    if (err != -1) { \
+      fail("size calculation returned non -1");	\
+      return;					\
+    } \
+    err = ei_ ## FUNC(buf, &size2, ARG1, ARG2, ARG3, ARG4); \
+    if (err != -1) {					    \
+      fail("returned non -1");				    \
+    }							    \
+    if (size1 != size2) { \
+      fail("size differs when arg is NULL or buf"); \
+      return; \
+    } \
+  } \
+  { \
+    ei_x_buff arg; \
+    int err; \
+    message("ei_x_" #FUNC " " #ARG1 " " #ARG2 " " #ARG3 " " #ARG4 " encoded as "); \
+    ei_x_new(&arg); \
+    err = ei_x_ ## FUNC(&arg, ARG1, ARG2, ARG3, ARG4); \
+    if (err != -1) {				       \
+      fail("returned non -1");			       \
+      ei_x_free(&arg);				       \
+      return;					       \
+    }						       \
+    ei_x_free(&arg); \
+  }
+
 /* ******************************************************************** */
 
 TESTCASE(test_ei_encode_long)
@@ -463,4 +653,58 @@ TESTCASE(test_ei_encode_fails)
     send_buffer(buf, index);
 
     report(1);
+}
+
+/* ******************************************************************** */
+
+TESTCASE(test_ei_encode_utf8_atom)
+{
+
+  EI_ENCODE_3(encode_atom_as, "Å", ERLANG_LATIN1, ERLANG_UTF8);
+  EI_ENCODE_3(encode_atom_as, "Å", ERLANG_LATIN1, ERLANG_LATIN1);
+  EI_ENCODE_3(encode_atom_as, "\303\205",
+	      ERLANG_UTF8, ERLANG_LATIN1);
+  EI_ENCODE_3(encode_atom_as, "\303\205",
+	      ERLANG_UTF8, ERLANG_UTF8);
+
+  EI_ENCODE_3(encode_atom_as, "A", ERLANG_ASCII, ERLANG_UTF8);
+  EI_ENCODE_3(encode_atom_as, "A", ERLANG_ASCII, ERLANG_LATIN1);
+
+  EI_ENCODE_3_FAIL(encode_atom_as, "Å", ERLANG_UTF8, ERLANG_UTF8);
+  EI_ENCODE_3_FAIL(encode_atom_as, "Å", ERLANG_UTF8, ERLANG_LATIN1);
+  EI_ENCODE_3_FAIL(encode_atom_as, "Å", ERLANG_ASCII, ERLANG_UTF8);
+  EI_ENCODE_3_FAIL(encode_atom_as, "Å", ERLANG_ASCII, ERLANG_LATIN1);
+
+  EI_ENCODE_3_FAIL(encode_atom_as, "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy", ERLANG_ASCII, ERLANG_LATIN1);
+  EI_ENCODE_3_FAIL(encode_atom_as, "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy", ERLANG_LATIN1, ERLANG_LATIN1);
+
+  EI_ENCODE_3_FAIL(encode_atom_as, "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy", ERLANG_UTF8, ERLANG_LATIN1);
+
+  report(1);
+}
+
+TESTCASE(test_ei_encode_utf8_atom_len)
+{
+
+  EI_ENCODE_4(encode_atom_len_as, "ÅÄÖ", 1, ERLANG_LATIN1, ERLANG_UTF8);
+  EI_ENCODE_4(encode_atom_len_as, "ÅÄÖ", 2, ERLANG_LATIN1, ERLANG_LATIN1);
+  EI_ENCODE_4(encode_atom_len_as, "\303\205\303\204\303\226", 2,
+	      ERLANG_UTF8, ERLANG_LATIN1);
+  EI_ENCODE_4(encode_atom_len_as, "\303\205\303\204\303\226", 4,
+	      ERLANG_UTF8, ERLANG_UTF8);
+
+  EI_ENCODE_4(encode_atom_len_as, "ABC", 1, ERLANG_ASCII, ERLANG_UTF8);
+  EI_ENCODE_4(encode_atom_len_as, "ABC", 2, ERLANG_ASCII, ERLANG_LATIN1);
+
+  EI_ENCODE_4_FAIL(encode_atom_len_as, "ÅÄÖ", 1, ERLANG_UTF8, ERLANG_UTF8);
+  EI_ENCODE_4_FAIL(encode_atom_len_as, "ÅÄÖ", 2, ERLANG_UTF8, ERLANG_LATIN1);
+  EI_ENCODE_4_FAIL(encode_atom_len_as, "ÅÄÖ", 3, ERLANG_ASCII, ERLANG_UTF8);
+  EI_ENCODE_4_FAIL(encode_atom_len_as, "ÅÄÖ", 4, ERLANG_ASCII, ERLANG_LATIN1);
+
+  EI_ENCODE_4(encode_atom_len_as, "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy", 255, ERLANG_ASCII, ERLANG_LATIN1);
+
+  EI_ENCODE_4_FAIL(encode_atom_len_as, "\303\205\303\204\303\226", 1,
+		   ERLANG_UTF8, ERLANG_LATIN1);
+
+  report(1);
 }

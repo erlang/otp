@@ -27,14 +27,16 @@
 -export(
    [
     all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-    init_per_group/2,end_per_group/2,
+    init_per_group/2,end_per_group/2, init_per_testcase/2,
+    end_per_testcase/2,
     test_ei_decode_long/1,
     test_ei_decode_ulong/1,
     test_ei_decode_longlong/1,
     test_ei_decode_ulonglong/1,
     test_ei_decode_char/1,
     test_ei_decode_nonoptimal/1,
-    test_ei_decode_misc/1
+    test_ei_decode_misc/1,
+    test_ei_decode_utf8_atom/1
    ]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -43,7 +45,7 @@ all() ->
     [test_ei_decode_long, test_ei_decode_ulong,
      test_ei_decode_longlong, test_ei_decode_ulonglong,
      test_ei_decode_char, test_ei_decode_nonoptimal,
-     test_ei_decode_misc].
+     test_ei_decode_misc, test_ei_decode_utf8_atom].
 
 groups() -> 
     [].
@@ -60,6 +62,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(_TC, Config) ->
+    Config.
+
+end_per_testcase(_RC, Config) ->
+    Config.
 
 %% ---------------------------------------------------------------------------
 
@@ -221,6 +228,29 @@ test_ei_decode_misc(Config) when is_list(Config) ->
     ?line runner:recv_eot(P),
     ok.
 
+%% ######################################################################## %%
+
+test_ei_decode_utf8_atom(Config) ->
+    ?line P = runner:start(?test_ei_decode_utf8_atom),
+
+    send_utf8_atom_as_binary(P,"å"),
+    send_utf8_atom_as_binary(P,"ä"),
+    send_term_as_binary(P,'ö'),
+    send_term_as_binary(P,'õ'),
+    
+    ?line send_utf8_atom_as_binary(P,[1758]),
+    ?line send_utf8_atom_as_binary(P,[1758,1758]),
+    ?line send_utf8_atom_as_binary(P,[1758,1758,1758]),
+    ?line send_utf8_atom_as_binary(P,[1758,1758,1758,1758]),
+
+    send_utf8_atom_as_binary(P,"a"),
+    send_utf8_atom_as_binary(P,"b"),
+    send_term_as_binary(P,'c'),
+    send_term_as_binary(P,'d'),
+
+    ?line runner:recv_eot(P),
+    ok.
+
 
 %% ######################################################################## %%
 
@@ -230,6 +260,8 @@ send_term_as_binary(Port, Term) when is_port(Port) ->
 send_raw(Port, Bin) when is_port(Port) ->
     Port ! {self(), {command, Bin}}.
 
+send_utf8_atom_as_binary(Port, String) ->
+    Port ! {self(), {command, term_to_binary(uc_atup(String))}}.
 
 send_integers(P) ->
     ?line send_term_as_binary(P,0),		% SMALL_INTEGER_EXT smallest
@@ -304,3 +336,43 @@ send_integers2(P) ->
     ?line send_term_as_binary(P, 16#ffffffffffffffff), % largest  u64
     ?line send_term_as_binary(P, []), % illegal type
     ok.
+
+uc_atup(ATxt) ->
+    string_to_atom(ATxt).
+
+string_to_atom(String) ->
+    Utf8List = string_to_utf8_list(String),
+    Len = length(Utf8List),
+    TagLen = case Len < 256 of
+		 true -> [119, Len];
+		 false -> [118, Len bsr 8, Len band 16#ff]
+	     end,
+    binary_to_term(list_to_binary([131, TagLen, Utf8List])).
+
+string_to_utf8_list([]) ->
+    [];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   0 =< CP,
+				   CP =< 16#7F ->
+    [CP | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#80 =< CP,
+				   CP =< 16#7FF ->
+    [16#C0 bor (CP bsr 6),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#800 =< CP,
+				   CP =< 16#FFFF ->
+    [16#E0 bor (CP bsr 12),
+     16#80 bor (16#3F band (CP bsr 6)),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#10000 =< CP,
+				   CP =< 16#10FFFF ->
+    [16#F0 bor (CP bsr 18),
+     16#80 bor (16#3F band (CP bsr 12)),
+     16#80 bor (16#3F band (CP bsr 6)),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)].
