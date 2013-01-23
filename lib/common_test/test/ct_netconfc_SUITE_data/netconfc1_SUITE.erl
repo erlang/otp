@@ -1044,12 +1044,9 @@ gen_dsa(LSize,NSize) when is_integer(LSize), is_integer(NSize) ->
     Key = gen_dsa2(LSize, NSize),
     {Key, encode_key(Key)}.
 
-encode_key(Key = #'RSAPrivateKey'{}) ->
-    {ok, Der} = 'OTP-PUB-KEY':encode('RSAPrivateKey', Key),
-    {'RSAPrivateKey', list_to_binary(Der), not_encrypted};
 encode_key(Key = #'DSAPrivateKey'{}) ->
-    {ok, Der} = 'OTP-PUB-KEY':encode('DSAPrivateKey', Key),
-    {'DSAPrivateKey', list_to_binary(Der), not_encrypted}.
+    Der = public_key:der_encode('DSAPrivateKey', Key),
+    {'DSAPrivateKey', Der, not_encrypted}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

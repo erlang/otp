@@ -43,12 +43,11 @@
 %% there will be clashes with logging processes etc).
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config1 = ct_test_support:init_per_suite(Config),
     case application:load(crypto) of
-	{error,Reason} ->
+	{error,Reason} when Reason=/={already_loaded,crypto} ->
 	    {skip, Reason};
 	_ ->
-	    Config1
+	    ct_test_support:init_per_suite(Config)
     end.
 
 end_per_suite(Config) ->
