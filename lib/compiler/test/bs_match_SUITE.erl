@@ -33,7 +33,8 @@
 	 matching_meets_construction/1,simon/1,matching_and_andalso/1,
 	 otp_7188/1,otp_7233/1,otp_7240/1,otp_7498/1,
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
-	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1]).
+	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1,
+	 no_partition/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -57,7 +58,8 @@ groups() ->
        matching_meets_construction,simon,
        matching_and_andalso,otp_7188,otp_7233,otp_7240,
        otp_7498,match_string,zero_width,bad_size,haystack,
-       cover_beam_bool,matched_out_size,follow_fail_branch]}].
+       cover_beam_bool,matched_out_size,follow_fail_branch,
+       no_partition]}].
 
 
 init_per_suite(Config) ->
@@ -1133,6 +1135,48 @@ ffb_2(<<_,T/bitstring>>, List, A) ->
 	[_|_] -> bit_size(T)
     end.
 
+no_partition(_) ->
+    one = no_partition_1(<<"string">>, a1),
+    {two,<<"string">>} = no_partition_1(<<"string">>, a2),
+    {two,<<>>} = no_partition_1(<<>>, a2),
+    {two,a} = no_partition_1(a, a2),
+    three = no_partition_1(undefined, a3),
+    {four,a,[]} = no_partition_1([a], a4),
+    {five,a,b} = no_partition_1({a,b}, a5),
+
+    one = no_partition_2(<<"string">>, a1),
+    two = no_partition_2(<<"string">>, a2),
+    two = no_partition_2(<<>>, a2),
+    two = no_partition_2(a, a2),
+    three = no_partition_2(undefined, a3),
+    four = no_partition_2(42, a4),
+    five = no_partition_2([], a5),
+    six = no_partition_2(42.0, a6),
+    ok.
+
+no_partition_1(<<"string">>, a1) ->
+    one;
+no_partition_1(V, a2) ->
+    {two,V};
+no_partition_1(undefined, a3) ->
+    three;
+no_partition_1([H|T], a4) ->
+    {four,H,T};
+no_partition_1({A,B}, a5) ->
+    {five,A,B}.
+
+no_partition_2(<<"string">>, a1) ->
+    one;
+no_partition_2(_, a2) ->
+    two;
+no_partition_2(undefined, a3) ->
+    three;
+no_partition_2(42, a4) ->
+    four;
+no_partition_2([], a5) ->
+    five;
+no_partition_2(42.0, a6) ->
+    six.
 
 check(F, R) ->
     R = F().
