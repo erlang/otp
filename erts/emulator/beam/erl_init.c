@@ -55,6 +55,8 @@
 #  include <sys/resource.h>
 #endif
 
+#define ERTS_DEFAULT_NO_ASYNC_THREADS	10
+
 /*
  * The variables below (prefixed with etp_) are for erts/etc/unix/etp-commands
  * only. Do not remove even though they aren't used elsewhere in the emulator!
@@ -631,7 +633,7 @@ early_init(int *argc, char **argv) /*
     erts_disable_tolerant_timeofday = 0;
     display_items = 200;
     erts_backtrace_depth = DEFAULT_BACKTRACE_SIZE;
-    erts_async_max_threads = 0;
+    erts_async_max_threads = ERTS_DEFAULT_NO_ASYNC_THREADS;
     erts_async_thread_suggested_stack_size = ERTS_ASYNC_THREAD_MIN_STACK_SIZE;
     H_MIN_SIZE = H_DEFAULT_SIZE;
     BIN_VH_MIN_SIZE = VH_DEFAULT_SIZE;
@@ -700,7 +702,7 @@ early_init(int *argc, char **argv) /*
     if (erts_sys_getenv__("ERL_THREAD_POOL_SIZE", envbuf, &envbufsz) == 0)
 	erts_async_max_threads = atoi(envbuf);
     else
-	erts_async_max_threads = 0;
+	erts_async_max_threads = ERTS_DEFAULT_NO_ASYNC_THREADS;
     if (erts_async_max_threads > ERTS_MAX_NO_OF_ASYNC_THREADS)
 	erts_async_max_threads = ERTS_MAX_NO_OF_ASYNC_THREADS;
 
