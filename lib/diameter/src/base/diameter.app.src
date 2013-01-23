@@ -21,7 +21,7 @@
  [{description, "Diameter protocol"},
   {vsn, "%VSN%"},
   {modules, [%MODULES%]},
-  {registered, []},
+  {registered, [%REGISTERED%]},
   {applications, [stdlib, kernel]},
   {env, []},
   {mod, {diameter_app, []}}
