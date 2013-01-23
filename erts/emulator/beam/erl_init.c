@@ -1532,6 +1532,14 @@ erl_start(int argc, char **argv)
 	i++;
     }
 
+/* Output format on windows for sprintf defaults to three exponents.
+ * We use two-exponent to mimic normal sprintf behaviour.
+ */
+
+#if defined(__WIN32__) && defined(_TWO_DIGIT_EXPONENT)
+    _set_output_format(_TWO_DIGIT_EXPONENT);
+#endif
+
    /* Restart will not reinstall the break handler */
 #ifdef __WIN32__
     if (ignore_break)
