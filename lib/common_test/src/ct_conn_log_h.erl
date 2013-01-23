@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,7 +52,7 @@ open_files([],State) ->
 
 
 do_open_files([{Tag,File}|Logs],Acc) ->
-    case file:open(File, [write]) of
+    case file:open(File, [write,{encoding,utf8}]) of
 	{ok,Fd} ->
 	    do_open_files(Logs,[{Tag,Fd}|Acc]);
 	{error,Reason} ->
@@ -98,9 +98,9 @@ terminate(_,#state{logs=Logs}) ->
 %%% Writing reports
 write_report(Time,#conn_log{module=ConnMod}=Info,Data,State) ->
     {LogType,Fd} = get_log(Info,State),
-    io:format(Fd,"~n~s~s~s",[format_head(ConnMod,LogType,Time),
-			     format_title(LogType,Info),
-			     format_data(ConnMod,LogType,Data)]).
+    io:format(Fd,"~n~ts~ts~ts",[format_head(ConnMod,LogType,Time),
+				format_title(LogType,Info),
+				format_data(ConnMod,LogType,Data)]).
 
 write_error(Time,#conn_log{module=ConnMod}=Info,Report,State) ->
     case get_log(Info,State) of
@@ -109,9 +109,10 @@ write_error(Time,#conn_log{module=ConnMod}=Info,Report,State) ->
 	    %% sasl error handler, so don't write it again.
 	    ok;
 	{LogType,Fd} ->
-	    io:format(Fd,"~n~s~s~s",[format_head(ConnMod,LogType,Time," ERROR"),
-				     format_title(LogType,Info),
-				     format_error(LogType,Report)])
+	    io:format(Fd,"~n~ts~ts~ts",
+		      [format_head(ConnMod,LogType,Time," ERROR"),
+		       format_title(LogType,Info),
+		       format_error(LogType,Report)])
     end.
 
 get_log(Info,State) ->
@@ -140,16 +141,16 @@ format_head(ConnMod,LogType,Time) ->
     format_head(ConnMod,LogType,Time,"").
 
 format_head(ConnMod,raw,Time,Text) ->
-    io_lib:format("~n~p, ~p~s, ",[now_to_time(Time),ConnMod,Text]);
+    io_lib:format("~n~w, ~w~ts, ",[now_to_time(Time),ConnMod,Text]);
 format_head(ConnMod,_,Time,Text) ->
     Head = pad_char_end(?WIDTH,pretty_head(now_to_time(Time),ConnMod,Text),$=),
-    io_lib:format("~n~s",[Head]).
+    io_lib:format("~n~ts",[Head]).
 
 format_title(raw,#conn_log{client=Client}=Info) ->
-    io_lib:format("Client ~p ~s ~s",[Client,actionstr(Info),serverstr(Info)]);
+    io_lib:format("Client ~w ~s ~ts",[Client,actionstr(Info),serverstr(Info)]);
 format_title(_,Info) ->
     Title = pad_char_end(?WIDTH,pretty_title(Info),$=),
-    io_lib:format("~n~s", [Title]).
+    io_lib:format("~n~ts", [Title]).
 
 format_data(_,_,NoData) when NoData == ""; NoData == <<>> ->
     "";
@@ -160,8 +161,6 @@ format_error(raw,Report) ->
     io_lib:format("~n~p~n",[Report]);
 format_error(pretty,Report) ->
     [io_lib:format("~n    ~p: ~p",[K,V]) || {K,V} <- Report].
-
-
 
 
 %%%-----------------------------------------------------------------
@@ -187,12 +186,12 @@ now_to_time({_,_,MicroS}=Now) ->
 
 pretty_head({{{Y,Mo,D},{H,Mi,S}},MicroS},ConnMod,Text0) ->
     Text = string:to_upper(atom_to_list(ConnMod) ++ Text0),
-    io_lib:format("= ~s ==== ~s-~s-~p::~s:~s:~s,~s ",
+    io_lib:format("= ~s ==== ~s-~s-~w::~s:~s:~s,~s ",
 		  [Text,t(D),month(Mo),Y,t(H),t(Mi),t(S),
 		   micro2milli(MicroS)]).
 
 pretty_title(#conn_log{client=Client}=Info) ->
-    io_lib:format("= Client ~p  ~s  Server ~s ",
+    io_lib:format("= Client ~w  ~s  Server ~ts ",
 		  [Client,actionstr(Info),serverstr(Info)]).
 
 actionstr(#conn_log{action=send}) -> "----->";
@@ -204,7 +203,7 @@ actionstr(_) -> "<---->".
 serverstr(#conn_log{name=undefined,address=Address}) ->
     io_lib:format("~p",[Address]);
 serverstr(#conn_log{name=Alias,address=Address}) ->
-    io_lib:format("~p(~p)",[Alias,Address]).
+    io_lib:format("~w(~p)",[Alias,Address]).
 
 month(1) -> "Jan";
 month(2) -> "Feb";

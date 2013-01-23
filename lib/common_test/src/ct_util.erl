@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -396,14 +396,14 @@ loop(Mode,TestData,StartDir) ->
 		    %% A connection crashed - remove the connection but don't die
 		    ct_logs:tc_log_async(ct_error_notify,
 					 "Connection process died: "
-					 "Pid: ~p, Address: ~p, Callback: ~p\n"
+					 "Pid: ~w, Address: ~p, Callback: ~w\n"
 					 "Reason: ~p\n\n",
 					 [Pid,A,CB,Reason]),
 		    catch CB:close(Pid),
 		    loop(Mode,TestData,StartDir);
 		_ ->
 		    %% Let process crash in case of error, this shouldn't happen!
-		    io:format("\n\nct_util_server got EXIT from ~p: ~p\n\n",
+		    io:format("\n\nct_util_server got EXIT from ~w: ~p\n\n",
 			      [Pid,Reason]),
 		    file:set_cwd(StartDir),
 		    exit(Reason)
@@ -956,7 +956,7 @@ open_url(iexplore, Args, URL) ->
 	    Path = proplists:get_value(default, Paths),
 	    [Cmd | _] = string:tokens(Path, "%"),
 	    Cmd1 = Cmd ++ " " ++ Args ++ " " ++ URL,
-	    io:format(user, "~nOpening ~s with command:~n  ~s~n", [URL,Cmd1]),
+	    io:format(user, "~nOpening ~ts with command:~n  ~ts~n", [URL,Cmd1]),
 	    open_port({spawn,Cmd1}, []);
 	_ ->
 	    io:format("~nNo path to iexplore.exe~n",[])
@@ -969,6 +969,6 @@ open_url(Prog, Args, URL) ->
 		 is_list(Prog) -> Prog
 	      end,
     Cmd = ProgStr ++ " " ++ Args ++ " " ++ URL,
-    io:format(user, "~nOpening ~s with command:~n  ~s~n", [URL,Cmd]),
+    io:format(user, "~nOpening ~ts with command:~n  ~ts~n", [URL,Cmd]),
     open_port({spawn,Cmd},[]),
     ok.

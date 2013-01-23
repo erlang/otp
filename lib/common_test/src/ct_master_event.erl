@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -114,13 +114,13 @@ init(_) ->
 %% each installed event handler to handle the event. 
 %%--------------------------------------------------------------------
 handle_event(#event{name=start_logging,node=Node,data=RunDir},State) ->
-    ct_master_logs:log("CT Master Event Handler","Got ~s from ~p",[RunDir,Node]),
+    ct_master_logs:log("CT Master Event Handler","Got ~ts from ~w",[RunDir,Node]),
     ct_master_logs:nodedir(Node,RunDir),
     {ok,State};
 
 handle_event(#event{name=Name,node=Node,data=Data},State) ->
     print("~n=== ~w ===~n", [?MODULE]),
-    print("~p on ~p: ~p~n", [Name,Node,Data]),
+    print("~w on ~w: ~p~n", [Name,Node,Data]),
     {ok,State}.
 
 %%--------------------------------------------------------------------

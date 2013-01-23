@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -272,7 +272,7 @@ call(Pid, Msg, Timeout) ->
     after Timeout ->
 	    erlang:demonitor(MRef, [flush]),
 	    log("ct_gen_conn",
-		"Connection process ~p not responding. Killing now!",
+		"Connection process ~w not responding. Killing now!",
 		[Pid]),
 	    exit(Pid, kill),
 	    {error,{process_down,Pid,forced_termination}}

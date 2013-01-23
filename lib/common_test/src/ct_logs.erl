@@ -35,9 +35,10 @@
 -export([add_external_logs/1, add_link/3]).
 -export([make_last_run_index/0]).
 -export([make_all_suites_index/1,make_all_runs_index/1]).
--export([get_ts_html_wrapper/4]).
+-export([get_ts_html_wrapper/5]).
 -export([xhtml/2, locate_priv_file/1, make_relative/1]).
 -export([insert_javascript/1]).
+-export([uri/1]).
 
 %% Logging stuff directly from testcase
 -export([tc_log/3, tc_log/4, tc_log_async/3, tc_print/3, tc_print/4,
@@ -307,8 +308,8 @@ end_log() ->
 %%% calling test suite.</p>
 add_external_logs(Logs) ->
     start_log("External Logs"),
-    [cont_log("<a href=~p>~s</a>\n",
-	      [filename:join("log_private",Log),Log]) || Log <- Logs],
+    [cont_log("<a href=\"~ts\">~ts</a>\n",
+	      [uri(filename:join("log_private",Log)),Log]) || Log <- Logs],
     end_log().
 
 %%%-----------------------------------------------------------------
@@ -320,8 +321,8 @@ add_external_logs(Logs) ->
 %%% @doc Print a link to a given file stored in the priv_dir of the
 %%% calling test suite.
 add_link(Heading,File,Type) ->
-    log(Heading,"<a href=~p type=~p>~s</a>\n",
-	[filename:join("log_private",File),Type,File]).
+    log(Heading,"<a href=\"~ts\" type=~p>~ts</a>\n",
+	[uri(filename:join("log_private",File)),Type,File]).
 
 
 %%%-----------------------------------------------------------------
@@ -469,7 +470,7 @@ ct_log(Category,Format,Args) ->
 %%%=================================================================
 %%% Internal functions
 int_header() ->
-    "<div class=\"ct_internal\"><b>*** CT ~s *** ~s</b>".
+    "<div class=\"ct_internal\"><b>*** CT ~s *** ~ts</b>".
 int_footer() ->
     "</div>".
 
@@ -692,7 +693,7 @@ logger_loop(State) ->
 	    logger_loop(State);
 	{set_stylesheet,TC,SSFile} ->
 	    Fd = State#logger_state.ct_log_fd,
-	    io:format(Fd, "~p loading external style sheet: ~s~n",
+	    io:format(Fd, "~p loading external style sheet: ~ts~n",
 		      [TC,SSFile]),
 	    logger_loop(State#logger_state{stylesheet = SSFile});
 	{clear_stylesheet,_} when State#logger_state.stylesheet == undefined ->
@@ -752,7 +753,7 @@ print_to_log(sync, FromPid, TCGL, List, State) ->
     IoProc = if FromPid /= TCGL -> TCGL;
 		true -> State#logger_state.ct_log_fd
 	     end,
-    io:format(IoProc, "~s", [lists:foldl(IoFun, [], List)]),
+    io:format(IoProc, "~ts", [lists:foldl(IoFun, [], List)]),
     State;
 
 print_to_log(async, FromPid, TCGL, List, State) ->
@@ -764,7 +765,7 @@ print_to_log(async, FromPid, TCGL, List, State) ->
 	     end,
     Printer = fun() ->
 		      test_server:permit_io(IoProc, self()),
-		      io:format(IoProc, "~s", [lists:foldl(IoFun, [], List)])
+		      io:format(IoProc, "~ts", [lists:foldl(IoFun, [], List)])
 	      end,
     case State#logger_state.async_print_jobs of
 	[] ->
@@ -868,7 +869,7 @@ set_evmgr_gl(GL) ->
     end.
 
 open_ctlog() ->
-    {ok,Fd} = file:open(?ct_log_name,[write]),
+    {ok,Fd} = file:open(?ct_log_name,[write,{encoding,utf8}]),
     io:format(Fd, header("Common Test Framework Log", {[],[1,2],[]}), []),
     case file:consult(ct_run:variables_file_name("../")) of
 	{ok,Vars} ->
@@ -878,7 +879,7 @@ open_ctlog() ->
 	    Dir = filename:dirname(Cwd),
 	    Variables = ct_run:variables_file_name(Dir),
 	    io:format(Fd,
-		      "Can not read the file \'~s\' Reason: ~w\n"
+		      "Can not read the file \'~ts\' Reason: ~w\n"
 		      "No configuration found for test!!\n",
 		      [Variables,Reason])
     end,
@@ -904,7 +905,7 @@ print_style(Fd,undefined) ->
 print_style(Fd,StyleSheet) ->
     case file:read_file(StyleSheet) of
 	{ok,Bin} ->
-	    Str = binary_to_list(Bin),
+	    Str = b2s(Bin,encoding(StyleSheet)),
 	    Pos0 = case string:str(Str,"<style>") of
 		       0 -> string:str(Str,"<STYLE>");
 		       N0 -> N0
@@ -919,9 +920,9 @@ print_style(Fd,StyleSheet) ->
 		    print_style_error(Fd,StyleSheet,missing_style_end_tag);
 	       Pos0 /= 0 ->
 		    Style = string:sub_string(Str,Pos0,Pos1+7),
-		    io:format(Fd,"~s\n",[Style]);
+		    io:format(Fd,"~ts\n",[Style]);
 	       Pos0 == 0 ->
-		    io:format(Fd,"<style>~s</style>\n",[Str])
+		    io:format(Fd,"<style>~ts</style>\n",[Str])
 	    end;
 	{error,Reason} ->
 	    print_style_error(Fd,StyleSheet,Reason)  
@@ -934,7 +935,7 @@ print_style(Fd,StyleSheet) ->
 %%	      [StyleSheet]).
 
 print_style_error(Fd,StyleSheet,Reason) ->
-    io:format(Fd,"\n<!-- Failed to load stylesheet ~s: ~p -->\n",
+    io:format(Fd,"\n<!-- Failed to load stylesheet ~ts: ~p -->\n",
 	      [StyleSheet,Reason]),
     print_style(Fd,undefined).    
 
@@ -963,7 +964,7 @@ make_last_run_index(StartTime) ->
 %	    io:put_chars("done\n"),
 	    ok;
 	Err ->
-	    io:format("Unknown internal error while updating ~s. "
+	    io:format("Unknown internal error while updating ~ts. "
 		      "Please report.\n(Err: ~p, ID: 1)",
 		      [AbsIndexName,Err]),
 	    {error, Err}
@@ -1001,7 +1002,7 @@ make_last_run_index1(StartTime,IndexName) ->
     %% write current Totals to file, later to be used in all_runs log
     write_totals_file(?totals_name,Label,Logs1,Totals),
     Index = [Index0|index_footer()],
-    case force_write_file(IndexName, Index) of
+    case force_write_file(IndexName, unicode:characters_to_binary(Index)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -1085,7 +1086,7 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 			    CrashDumpName = SuiteName ++ "_erl_crash.dump",
 			    case filelib:is_file(CrashDumpName) of
 				true ->
-				    ["&nbsp;<a href=\"", CrashDumpName,
+				    ["&nbsp;<a href=\"", uri(CrashDumpName),
 				     "\">(CrashDump)</a>"];
 				false ->
 				    ""
@@ -1115,10 +1116,10 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 			[] -> "none";
 			_ ->  "<a href=\""++?all_runs_name++"\">Old Runs</a>"
 		    end,
-		A = xhtml(["<td><font size=\"-1\"><a href=\"",CtLogFile,
+		A = xhtml(["<td><font size=\"-1\"><a href=\"",uri(CtLogFile),
 			   "\">CT Log</a></font></td>\n",
 			   "<td><font size=\"-1\">",OldRunsLink,"</font></td>\n"],
-			  ["<td><a href=\"",CtLogFile,"\">CT Log</a></td>\n",
+			  ["<td><a href=\"",uri(CtLogFile),"\">CT Log</a></td>\n",
 			   "<td>",OldRunsLink,"</td>\n"]),
 		{L,T,N,A};
 	    false ->
@@ -1128,7 +1129,8 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 	if NotBuilt == 0 ->
 		["<td align=right>",integer_to_list(NotBuilt),"</td>\n"];
 	   true ->
-		["<td align=right><a href=\"",filename:join(CtRunDir,?ct_log_name),"\">",
+		["<td align=right><a href=\"",
+		 uri(filename:join(CtRunDir,?ct_log_name)),"\">",
 		integer_to_list(NotBuilt),"</a></td>\n"]
 	end,
     FailStr =
@@ -1151,7 +1153,7 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
     [xhtml("<tr valign=top>\n",
 	   ["<tr class=\"",odd_or_even(),"\">\n"]),
      xhtml("<td><font size=\"-1\"><a href=\"", "<td><a href=\""),
-     LogFile,"\">",SuiteName,"</a>", CrashDumpLink,
+     uri(LogFile),"\">",SuiteName,"</a>", CrashDumpLink,
      xhtml("</font></td>\n", "</td>\n"),
      Lbl, Timestamp,
      "<td align=right>",integer_to_list(Success),"</td>\n",
@@ -1366,7 +1368,7 @@ header1(Title, SubTitle, TableCols) ->
      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
      "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n",
      xhtml("",
-	   ["<link rel=\"stylesheet\" href=\"",CSSFile,"\" type=\"text/css\">\n"]),
+	   ["<link rel=\"stylesheet\" href=\"",uri(CSSFile),"\" type=\"text/css\">\n"]),
      xhtml("",
 	   ["<script type=\"text/javascript\" src=\"",JQueryFile,
 	    "\"></script>\n"]),
@@ -1463,7 +1465,7 @@ count_cases(Dir) ->
 	    LogFile = filename:join(Dir, ?suitelog_name),
 	    case file:read_file(LogFile) of
 		{ok, Bin} ->
-		    case count_cases1(binary_to_list(Bin), 
+		    case count_cases1(b2s(Bin),
 				      {undefined,undefined,undefined,undefined}) of
 			{error,not_complete} ->
 			    %% The test is not complete - dont write summary
@@ -1558,7 +1560,7 @@ config_table1([{Key,Value}|Vars]) ->
 	   "<td><pre>",io_lib:format("~p",[Value]),"</pre></td></tr>\n"],
 	   ["<tr class=\"", odd_or_even(), "\">\n",
 	    "<td>", atom_to_list(Key), "</td>\n",
-	    "<td>", io_lib:format("~p",[Value]), "</td>\n</tr>\n"]) | 
+	    "<td>", io_lib:format("~p",[Value]), "</td>\n</tr>\n"]) |
      config_table1(Vars)];
 config_table1([]) ->
     ["</tbody>\n</table>\n"].
@@ -1575,8 +1577,9 @@ make_all_runs_index(When) ->
     DirsSorted = (catch sort_all_runs(Dirs)),
     Header = all_runs_header(),
     Index = [runentry(Dir) || Dir <- DirsSorted],
-    Result = file:write_file(AbsName,Header++Index++
-				 all_runs_index_footer()),
+    Result = file:write_file(AbsName,
+			     unicode:characters_to_binary(
+			       Header++Index++all_runs_index_footer())),
     if When == start -> ok;
        true -> io:put_chars("done\n")
     end,
@@ -1603,10 +1606,27 @@ sort_all_runs(Dirs) ->
 interactive_link() ->
     [Dir|_] = lists:reverse(filelib:wildcard(logdir_prefix()++"*.*")),
     CtLog = filename:join(Dir,"ctlog.html"),
-    Body = ["Log from last interactive run: <a href=\"",CtLog,"\">",
-	    timestamp(Dir),"</a>"],
-    file:write_file("last_interactive.html",Body),
-    io:format("~n~nUpdated ~s\n"
+    Body =
+	[xhtml(
+	   ["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
+	    "<html>\n"],
+	   ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
+	    "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
+	    "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n"]),
+	 "<!-- autogenerated by '"++atom_to_list(?MODULE)++"' -->\n",
+	 "<head>\n",
+	 "<title>Last interactive run</title>\n",
+	 "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
+	 "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n",
+	 "</head>\n",
+	 "<body>\n",
+	 "Log from last interactive run: <a href=\"",uri(CtLog),"\">",
+	 timestamp(Dir),"</a>",
+	 "</body>\n",
+	 "</html>\n"
+	],
+    file:write_file("last_interactive.html",unicode:characters_to_binary(Body)),
+    io:format("~n~nUpdated ~ts\n"
 	      "Any CT activities will be logged here\n",
 	      [?abs("last_interactive.html")]).
 
@@ -1656,7 +1676,7 @@ runentry(Dir) ->
 			    TestNames;
 		       true ->
 			    Trunc = Polish(string:substr(TestNames,1,?testname_width-3)),
-			    lists:flatten(io_lib:format("~s...",[Trunc]))
+			    lists:flatten(io_lib:format("~ts...",[Trunc]))
 		    end,
 		Total = TotSucc+TotFail+AllSkip,
 		A = xhtml(["<td align=center><font size=\"-1\">",Node,
@@ -1696,7 +1716,7 @@ runentry(Dir) ->
 		     "<td align=right>?</td>\n"],
 		A++B++C
 	end,	    
-    Index = filename:join(Dir,?index_name),
+    Index = uri(filename:join(Dir,?index_name)),
     [xhtml("<tr>\n", ["<tr class=\"",odd_or_even(),"\">\n"]),
      xhtml(["<td><font size=\"-1\"><a href=\"",Index,"\">",timestamp(Dir),"</a>",
 	    TotalsStr,"</font></td>\n"],
@@ -1837,7 +1857,7 @@ make_all_suites_index(NewTestData = {_TestName,DirName}) ->
 	    ok ->
 		ok;
 	    Err ->
-		io:format("Unknown internal error while updating ~s. "
+		io:format("Unknown internal error while updating ~ts. "
 			  "Please report.\n(Err: ~p, ID: 1)",
 			  [AbsIndexName,Err]),
 		{error, Err}
@@ -1901,7 +1921,7 @@ make_all_suites_index1(When, AbsIndexName, AllLogDirs) ->
 		    ok
 	    end;
 	Err ->
-	    io:format("Unknown internal error while updating ~s. "
+	    io:format("Unknown internal error while updating ~ts. "
 		      "Please report.\n(Err: ~p, ID: 1)",
 		      [AbsIndexName,Err]),
 	    {error, Err}
@@ -1913,7 +1933,7 @@ make_all_suites_index2(IndexName, AllTestLogDirs) ->
 			       all_suites_index_header(),
 			       0, 0, 0, 0, 0, [], []),
     Index = [Index0|index_footer()],
-    case force_write_file(IndexName, Index) of
+    case force_write_file(IndexName, unicode:characters_to_binary(Index)) of
 	ok ->
 	    {ok,CacheData};
 	{error, Reason} ->
@@ -1971,7 +1991,7 @@ make_all_suites_ix_cached(AbsIndexName, NewTestData, Label, AllTestLogDirs) ->
 					all_suites_index_header(IndexDir),
 					0, 0, 0, 0, 0),
     Index = [Index0|index_footer()],
-    case force_write_file(AbsIndexName, Index) of
+    case force_write_file(AbsIndexName, unicode:characters_to_binary(Index)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -2117,7 +2137,7 @@ simulate_logger_loop() ->
     receive 
     	{log,_,_,_,_,_,List} ->
 	    S = [[io_lib:format(Str,Args),io_lib:nl()] || {Str,Args} <- List],
-	    io:format("~s",[S]),
+	    io:format("~ts",[S]),
 	    simulate_logger_loop();
 	stop ->
 	    ok
@@ -2274,11 +2294,12 @@ make_relative1(DirTs, CwdTs) ->
     Ups ++ DirTs.
 
 %%%-----------------------------------------------------------------
-%%% @spec get_ts_html_wrapper(TestName, PrintLabel, Cwd) -> {Mode,Header,Footer}
+%%% @spec get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding)
+%%%           -> {Mode,Header,Footer}
 %%%
 %%% @doc
 %%%
-get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols) ->
+get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding) ->
     TestName1 = if is_list(TestName) ->
 			lists:flatten(TestName);
 		   true ->
@@ -2320,15 +2341,16 @@ get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols) ->
 	      "<html>\n",
 	      "<head><title>", TestName1, "</title>\n",
 	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
-	      "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n",
+	      "<meta http-equiv=\"content-type\" content=\"text/html; charset=",
+	      html_encoding(Encoding),"\">\n",
 	      "</head>\n",
 	      "<body", Bgr, " bgcolor=\"white\" text=\"black\" ",
 	      "link=\"blue\" vlink=\"purple\" alink=\"red\">\n",
 	      LabelStr, "\n"],
 	     ["<center>\n<br><hr><p>\n",
-	      "<a href=\"", AllRuns,
+	      "<a href=\"", uri(AllRuns),
 	      "\">Test run history\n</a>  |  ",
-	      "<a href=\"", TestIndex,
+	      "<a href=\"", uri(TestIndex),
 	      "\">Top level test index\n</a>\n</p>\n",
 	      Copyright,"</center>\n</body>\n</html>\n"]};
 	_ ->
@@ -2366,14 +2388,14 @@ get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols) ->
 	      "<head>\n<title>", TestName1, "</title>\n",
 	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
 	      "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n",
-	      "<link rel=\"stylesheet\" href=\"", CSSFile, "\" type=\"text/css\">\n",
+	      "<link rel=\"stylesheet\" href=\"", uri(CSSFile), "\" type=\"text/css\">\n",
 	      "<script type=\"text/javascript\" src=\"", JQueryFile, "\"></script>\n",
 	      "<script type=\"text/javascript\" src=\"", TableSorterFile, "\"></script>\n"] ++
 	      TableSorterScript ++ ["</head>\n","<body>\n", LabelStr, "\n"],
 	     ["<center>\n<br /><hr /><p>\n",
-	      "<a href=\"", AllRuns,
+	      "<a href=\"", uri(AllRuns),
 	      "\">Test run history\n</a>  |  ",
-	      "<a href=\"", TestIndex,
+	      "<a href=\"", uri(TestIndex),
 	      "\">Top level test index\n</a>\n</p>\n",
 	      Copyright,"</center>\n</body>\n</html>\n"]}
     end.
@@ -2463,3 +2485,31 @@ insert_javascript({tablesorter,TableName,
      "  $(\"#",TableName,"\").trigger(\"update\");\n",
      "  $(\"#",TableName,"\").trigger(\"appendCache\");\n",
      "});\n</script>\n"].
+
+uri("") ->
+    "";
+uri(Href) ->
+    test_server_ctrl:uri_encode(Href).
+
+%% Read magic comment to get encoding of text file.
+%% If no magic comment exists, assume default encoding
+encoding(File) ->
+    case epp:read_encoding(File) of
+	none ->
+	    epp:default_encoding();
+	E ->
+	    E
+    end.
+
+%% Convert binary to string using default encoding
+b2s(Bin) ->
+    b2s(Bin,epp:default_encoding()).
+
+%% Convert binary to string using given encoding
+b2s(Bin,Encoding) ->
+    unicode:characters_to_list(Bin,Encoding).
+
+html_encoding(latin1) ->
+    "iso-8859-1";
+html_encoding(utf8) ->
+    "utf-8".

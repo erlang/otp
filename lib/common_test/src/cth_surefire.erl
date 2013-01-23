@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -297,7 +297,7 @@ sanitize([]) ->
 
 now_to_string(Now) ->
     {{YY,MM,DD},{HH,Mi,SS}} = calendar:now_to_local_time(Now),
-    io_lib:format("~p-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B",[YY,MM,DD,HH,Mi,SS]).
+    io_lib:format("~w-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B",[YY,MM,DD,HH,Mi,SS]).
 
 make_url(undefined,_) ->
     undefined;

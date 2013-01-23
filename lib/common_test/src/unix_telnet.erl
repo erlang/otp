@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -110,7 +110,7 @@ connect1(Ip,Port,Timeout,KeepAlive,Username,Password) ->
 		case ct_telnet:silent_teln_expect(Pid,[],[prompt],?prx,[]) of
 		    {ok,{prompt,?username},_} ->
 			ok = ct_telnet_client:send_data(Pid,Username),
-			cont_log("Username: ~s",[Username]),
+			cont_log("Username: ~ts",[Username]),
 			case ct_telnet:silent_teln_expect(Pid,[],prompt,?prx,[]) of
 			    {ok,{prompt,?password},_} ->
 				ok = ct_telnet_client:send_data(Pid,Password),

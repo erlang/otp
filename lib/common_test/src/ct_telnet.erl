@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -201,7 +201,7 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 close(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
-	    log("ct_telnet:close","Handle: ~p",[Pid]),
+	    log("ct_telnet:close","Handle: ~w",[Pid]),
 	    case ct_gen_conn:stop(Pid) of
 		{error,{process_down,Pid,noproc}} ->
 		    {error,already_closed};
@@ -558,7 +558,7 @@ reconnect(Ip,Port,N,State=#state{target_mod=TargetMod,
 	Error when N==0 ->
 	    Error;
 	_Error ->
-	    log("Reconnect failed!","Retries left: ~p",[N]),
+	    log("Reconnect failed!","Retries left: ~w",[N]),
 	    timer:sleep(ReconnInt),
 	    reconnect(Ip,Port,N-1,State)
     end.
@@ -567,7 +567,7 @@ reconnect(Ip,Port,N,State=#state{target_mod=TargetMod,
 %% @hidden
 terminate(TelnPid,State) ->
     log(heading(terminate,State#state.name),
-	"Closing telnet connection.\nId: ~p",
+	"Closing telnet connection.\nId: ~w",
 	[TelnPid]),
     ct_telnet_client:close(TelnPid).
 
@@ -899,7 +899,7 @@ one_expect(Data,Pattern,EO) ->
 		[Prompt] when Prompt==prompt; Prompt=={prompt,PromptType} ->
 		    %% Only searching for prompt
 		    log_lines(UptoPrompt),
-		    try_cont_log("<b>PROMPT:</b> ~s", [PromptType]),
+		    try_cont_log("<b>PROMPT:</b> ~ts", [PromptType]),
 		    {match,{prompt,PromptType},Rest};
 		[{prompt,_OtherPromptType}] ->
 		    %% Only searching for one specific prompt, not thisone
@@ -969,7 +969,7 @@ seq_expect1(Data,[prompt|Patterns],Acc,Rest,EO) ->
 	    {continue,[prompt|Patterns],Acc,LastLine};
 	PromptType ->
 	    log_lines(Data),
-	    try_cont_log("<b>PROMPT:</b> ~s", [PromptType]),
+	    try_cont_log("<b>PROMPT:</b> ~ts", [PromptType]),
 	    seq_expect(Rest,Patterns,[{prompt,PromptType}|Acc],EO)
     end;
 seq_expect1(Data,[{prompt,PromptType}|Patterns],Acc,Rest,EO) ->
@@ -980,7 +980,7 @@ seq_expect1(Data,[{prompt,PromptType}|Patterns],Acc,Rest,EO) ->
 	    {continue,[{prompt,PromptType}|Patterns],Acc,LastLine};
 	PromptType ->
 	    log_lines(Data),
-	    try_cont_log("<b>PROMPT:</b> ~s", [PromptType]),
+	    try_cont_log("<b>PROMPT:</b> ~ts", [PromptType]),
 	    seq_expect(Rest,Patterns,[{prompt,PromptType}|Acc],EO);
 	_OtherPromptType ->
 	    log_lines(Data),
@@ -1032,13 +1032,13 @@ match_line(Line,Patterns,FoundPrompt,EO) ->
 match_line(Line,[prompt|Patterns],false,EO,RetTag) ->
     match_line(Line,Patterns,false,EO,RetTag);
 match_line(Line,[prompt|_Patterns],FoundPrompt,_EO,RetTag) ->
-    try_cont_log("       ~s", [Line]),
-    try_cont_log("<b>PROMPT:</b> ~s", [FoundPrompt]),
+    try_cont_log("       ~ts", [Line]),
+    try_cont_log("<b>PROMPT:</b> ~ts", [FoundPrompt]),
     {RetTag,{prompt,FoundPrompt}};
 match_line(Line,[{prompt,PromptType}|_Patterns],FoundPrompt,_EO,RetTag) 
   when PromptType==FoundPrompt ->
-    try_cont_log("       ~s", [Line]),
-    try_cont_log("<b>PROMPT:</b> ~s", [FoundPrompt]),
+    try_cont_log("       ~ts", [Line]),
+    try_cont_log("<b>PROMPT:</b> ~ts", [FoundPrompt]),
     {RetTag,{prompt,FoundPrompt}};
 match_line(Line,[{prompt,PromptType}|Patterns],FoundPrompt,EO,RetTag) 
   when PromptType=/=FoundPrompt ->
@@ -1048,7 +1048,7 @@ match_line(Line,[{Tag,Pattern}|Patterns],FoundPrompt,EO,RetTag) ->
 	nomatch ->
 	    match_line(Line,Patterns,FoundPrompt,EO,RetTag);
 	{match,Match} ->
-	    try_cont_log("<b>MATCH:</b> ~s", [Line]),
+	    try_cont_log("<b>MATCH:</b> ~ts", [Line]),
 	    {RetTag,{Tag,Match}}
     end;
 match_line(Line,[Pattern|Patterns],FoundPrompt,EO,RetTag) ->
@@ -1056,13 +1056,13 @@ match_line(Line,[Pattern|Patterns],FoundPrompt,EO,RetTag) ->
 	nomatch ->
 	    match_line(Line,Patterns,FoundPrompt,EO,RetTag);
 	{match,Match} ->
-	    try_cont_log("<b>MATCH:</b> ~s", [Line]),
+	    try_cont_log("<b>MATCH:</b> ~ts", [Line]),
 	    {RetTag,Match}
     end;
 match_line(Line,[],FoundPrompt,EO,match) ->
     match_line(Line,EO#eo.haltpatterns,FoundPrompt,EO,halt);
 match_line(Line,[],_FoundPrompt,_EO,halt) ->
-    try_cont_log("       ~s", [Line]),
+    try_cont_log("       ~ts", [Line]),
     nomatch.
 
 one_line([$\n|Rest],Line) ->
@@ -1086,7 +1086,7 @@ log_lines(String) ->
 	[] ->
 	    ok;
 	LastLine ->
-	    try_cont_log("       ~s", [LastLine])
+	    try_cont_log("       ~ts", [LastLine])
     end.
 
 log_lines_not_last(String) ->
@@ -1094,7 +1094,7 @@ log_lines_not_last(String) ->
 	{[],LastLine} ->
 	    LastLine;
 	{String1,LastLine} ->
-	    try_cont_log("~s",[String1]),
+	    try_cont_log("~ts",[String1]),
 	    LastLine
     end.
 
