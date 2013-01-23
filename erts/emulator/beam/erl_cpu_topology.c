@@ -34,7 +34,7 @@
 #include "bif.h"
 #include "erl_cpu_topology.h"
 
-#define ERTS_MAX_READER_GROUPS 8
+#define ERTS_MAX_READER_GROUPS 64
 
 /*
  * Cpu topology hierarchy.
