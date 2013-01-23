@@ -1874,7 +1874,8 @@ html_possibly_convert(Src, SrcInfo, Dest) ->
 	    OutDir = get(test_server_log_dir_base),
 	    case test_server_sup:framework_call(get_html_wrapper,
 						["Module "++Src,false,
-						 OutDir,undefined], "") of
+						 OutDir,undefined,
+						 encoding(Src)], "") of
 		Empty when (Empty == "") ; (element(2,Empty) == "")  ->
 		    erl2html2:convert(Src, Dest);
 		{_,Header,_} ->
@@ -5368,3 +5369,11 @@ reserved() ->
     sets:from_list([$;, $:, $@, $&, $=, $+, $,, $/, $?,
 		    $#, $[, $], $<, $>, $\", ${, $}, $|,
 			       $\\, $', $^, $%, $ ]).
+
+encoding(File) ->
+    case epp:read_encoding(File) of
+	none ->
+	    epp:default_encoding();
+	E ->
+	    E
+    end.
