@@ -17,9 +17,10 @@
 # %CopyrightEnd%
 #
 
-all: busy_drv@dll@ hard_busy_drv@dll@ soft_busy_drv@dll@
+all: busy_drv@dll@ hard_busy_drv@dll@ soft_busy_drv@dll@ scheduling_drv@dll@
 
 @SHLIB_RULES@
 
 hard_busy_drv@obj@: hard_busy_drv.c hs_busy_drv.c
 soft_busy_drv@obj@: soft_busy_drv.c hs_busy_drv.c
+scheduling_drv@obj@: scheduling_drv.c
