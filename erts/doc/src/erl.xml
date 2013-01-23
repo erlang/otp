@@ -710,7 +710,24 @@
         <taglist>
           <tag><marker id="+sbt"><c>+sbt BindType</c></marker></tag>
           <item>
-            <p>Set scheduler bind type. Currently valid <c>BindType</c>s:
+            <p>Set scheduler bind type.</p>
+	    <p>Schedulers can also be bound using the
+	    <seealso marker="#+stbt">+stbt</seealso> flag. The only difference
+	    between these two flags is how the following errors are handled:</p>
+	    <list>
+	      <item>Binding of schedulers is not supported on the specific
+	      platform.</item>
+	      <item>No available CPU topology. That is the runtime system
+	      was not able to automatically detected the CPU topology, and
+	      no <seealso marker="#+sct">user defined CPU topology</seealso>
+	      was set.</item>
+	    </list>
+	    <p>If any of these errors occur when <c>+sbt</c> has been passed,
+	    the runtime system will print an error message, and refuse to
+	    start. If any of these errors occur when <c>+stbt</c> has been
+	    passed, the runtime system will silently ignore the error, and
+	    start up using unbound schedulers.</p>
+	    <p>Currently valid <c>BindType</c>s:
 	    </p>
 	    <taglist>
 	      <tag><c>u</c></tag>
@@ -960,6 +977,14 @@
 	    <p>For more information, see
 	    <seealso marker="erlang#system_info_cpu_topology">erlang:system_info(cpu_topology)</seealso>.</p>
           </item>
+          <tag><marker id="+stbt"><c>+stbt BindType</c></marker></tag>
+          <item>
+            <p>Try to set scheduler bind type. The same as the
+	    <seealso marker="#+sbt">+sbt</seealso> flag with the exception of
+	    how some errors are handled. For more information, see the
+	    documentation of the <seealso marker="#+sbt">+sbt</seealso> flag.
+	    </p>
+	  </item>
 	  <tag><marker id="+sws"><c>+sws default|legacy|proposal</c></marker></tag>
 	  <item>
              <p>Set scheduler wakeup strategy. Default is <c>legacy</c> (has been

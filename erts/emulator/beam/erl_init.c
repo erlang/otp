@@ -521,7 +521,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "-r          force ets memory block to be moved on realloc\n");
     erts_fprintf(stderr, "-rg amount  set reader groups limit\n");
     erts_fprintf(stderr, "-sbt type   set scheduler bind type, valid types are:\n");
-    erts_fprintf(stderr, "            u|ns|ts|ps|s|nnts|nnps|tnnps|db\n");
+    erts_fprintf(stderr, "-stbt type  u|ns|ts|ps|s|nnts|nnps|tnnps|db\n");
     erts_fprintf(stderr, "-sbwt val   set scheduler busy wait threshold, valid values are:\n");
     erts_fprintf(stderr, "            none|very_short|short|medium|long|very_long.\n");
     erts_fprintf(stderr, "-scl bool   enable/disable compaction of scheduler load,\n");
@@ -1238,7 +1238,7 @@ erl_start(int argc, char **argv)
 		    case ERTS_INIT_SCHED_BIND_TYPE_ERROR_NO_CPU_TOPOLOGY:
 			estr = "no cpu topology available";
 			break;
-		    case ERTS_INIT_SCHED_BIND_TYPE_ERROR_NO_BAD_TYPE:
+		    case ERTS_INIT_SCHED_BIND_TYPE_ERROR_BAD_TYPE:
 			estr = "invalid type";
 			break;
 		    default:
@@ -1333,6 +1333,16 @@ erl_start(int argc, char **argv)
 	    }
 	    else if (sys_strcmp("nsp", sub_param) == 0)
 		erts_use_sender_punish = 0;
+	    else if (has_prefix("tbt", sub_param)) {
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+		res = erts_init_scheduler_bind_type_string(arg);
+		if (res == ERTS_INIT_SCHED_BIND_TYPE_ERROR_BAD_TYPE) {
+		    erts_fprintf(stderr,
+				 "setting scheduler bind type '%s' failed: invalid type\n",
+				 arg);
+		    erts_usage();
+		}
+	    }
 	    else if (sys_strcmp("wt", sub_param) == 0) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
 		if (erts_sched_set_wakeup_other_thresold(arg) != 0) {
