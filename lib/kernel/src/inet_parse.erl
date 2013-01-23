@@ -464,7 +464,7 @@ strict_address(Cs) when is_list(Cs) ->
 	_ ->
 	    ipv6strict_address(Cs)
     end;
-strict_address(Cs) ->
+strict_address(_) ->
     {error, einval}.
 
 %%
