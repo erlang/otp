@@ -933,12 +933,20 @@ typedef struct {
     int   bufsz;                /* minimum buffer constraint */
     unsigned int hsz;           /* the list header size, -1 is large !!! */
     /* statistics */
-    unsigned long recv_oct[2];  /* number of received octets >= 64 bits */
+#ifdef ARCH_64
+    Uint64        recv_oct;     /* number of received octets, 64 bits */
+#else
+    Uint32        recv_oct[2];  /* number of received octets, 64 bits */
+#endif
     unsigned long recv_cnt;     /* number of packets received */
     unsigned long recv_max;     /* maximum packet size received */
     double recv_avg;            /* average packet size received */
     double recv_dvi;            /* avarage deviation from avg_size */
-    unsigned long send_oct[2];  /* number of octets sent >= 64 bits */
+#ifdef ARCH_64
+    Uint64        send_oct;     /* number of octets sent, 64 bits */
+#else
+    Uint32        send_oct[2];  /* number of octets sent, 64 bits */
+#endif
     unsigned long send_cnt;     /* number of packets sent */
     unsigned long send_max;     /* maximum packet send */
     double send_avg;            /* average packet size sent */
@@ -7377,13 +7385,21 @@ static ErlDrvSSizeT inet_fill_stat(inet_descriptor* desc,
 	    val = (unsigned long) driver_sizeq(desc->port);
 	    break;
 	case INET_STAT_RECV_OCT:
+#ifdef ARCH_64
+	    put_int64(desc->recv_oct, dst); /* write it all */
+#else
 	    put_int32(desc->recv_oct[1], dst);   /* write high 32bit */
 	    put_int32(desc->recv_oct[0], dst+4); /* write low 32bit */
+#endif
 	    dst += 8;
 	    continue;
 	case INET_STAT_SEND_OCT:
+#ifdef ARCH_64
+	    put_int64(desc->send_oct, dst); /* write it all */
+#else
 	    put_int32(desc->send_oct[1], dst);   /* write high 32bit */
 	    put_int32(desc->send_oct[0], dst+4); /* write low 32bit */
+#endif
 	    dst += 8;
 	    continue;
 	default: return -1; /* invalid argument */
@@ -7491,12 +7507,20 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     desc->peer_ptr = NULL;
     desc->name_ptr = NULL;
 
+#ifdef ARCH_64
+    desc->recv_oct  = 0;
+#else
     desc->recv_oct[0] = desc->recv_oct[1] = 0;
+#endif
     desc->recv_cnt = 0;
     desc->recv_max = 0;    
     desc->recv_avg = 0.0;
     desc->recv_dvi = 0.0;
+#ifdef ARCH_64
+    desc->send_oct = 0;
+#else
     desc->send_oct[0] = desc->send_oct[1] = 0;
+#endif
     desc->send_cnt = 0;
     desc->send_max = 0;
     desc->send_avg = 0.0;
@@ -7885,14 +7909,19 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 static void inet_output_count(inet_descriptor* desc, ErlDrvSizeT len)
 {
     unsigned long n = desc->send_cnt + 1;
-    unsigned long t = desc->send_oct[0] + len;
+#ifndef ARCH_64
+    Uint32 t = desc->send_oct[0] + len;
     int c = (t < desc->send_oct[0]);
+#endif
     double avg = desc->send_avg;
 
-    /* at least 64 bit octet count */
+#ifdef ARCH_64
+    desc->send_oct += len;
+#else
+    /* 64 bit octet count in 32 bit words */
     desc->send_oct[0] = t;
     desc->send_oct[1] += c;
-
+#endif
     if (n == 0) /* WRAP, use old avg as input to a new sequence */
 	n = 1;
     desc->send_avg += (len - avg) / n;
@@ -7905,14 +7934,20 @@ static void inet_output_count(inet_descriptor* desc, ErlDrvSizeT len)
 static void inet_input_count(inet_descriptor* desc, ErlDrvSizeT len)
 {
     unsigned long n = desc->recv_cnt + 1;
-    unsigned long t = desc->recv_oct[0] + len;
+#ifndef ARCH_64
+    Uint32 t = (desc->recv_oct[0] + len);
     int c = (t < desc->recv_oct[0]);
+#endif
     double avg = desc->recv_avg;
     double dvi;
 
-    /* at least 64 bit octet count */
+#ifdef ARCH_64
+    desc->recv_oct += len;
+#else
+    /* 64 bit octet count in 32 bit words */
     desc->recv_oct[0] = t;
     desc->recv_oct[1] += c;
+#endif
 
     if (n == 0) /* WRAP */
 	n = 1;
