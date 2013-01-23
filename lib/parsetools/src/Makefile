@@ -58,7 +58,8 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += +warn_obsolete_guard -I$(ERL_TOP)/lib/stdlib/include
+ERL_COMPILE_FLAGS += +warn_obsolete_guard -I$(ERL_TOP)/lib/stdlib/include \
+  -Werror
 
 # ----------------------------------------------------
 # Targets

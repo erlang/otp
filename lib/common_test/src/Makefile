@@ -97,7 +97,7 @@ DTD_FILES = \
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += -pa ../ebin -I../include -I $(ERL_TOP)/lib/snmp/include/ \
 	-I../../test_server/include -I../../xmerl/inc/ \
-	-I $(ERL_TOP)/lib/kernel/include
+	-I $(ERL_TOP)/lib/kernel/include -Werror
 
 # ----------------------------------------------------
 # Targets

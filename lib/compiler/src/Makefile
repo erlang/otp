@@ -122,7 +122,7 @@ ifeq ($(NATIVE_LIBS_ENABLED),yes)
 ERL_COMPILE_FLAGS += +native
 endif
 ERL_COMPILE_FLAGS += +inline +warn_unused_import \
- +warnings_as_errors \
+ -Werror \
  -I../../stdlib/include -I$(EGEN) -W
 
 # ----------------------------------------------------
