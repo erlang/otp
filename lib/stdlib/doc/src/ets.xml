@@ -932,7 +932,8 @@ ets:select(Table,MatchSpec),</code>
               If set to <c>true</c>, the table is optimized towards concurrent
               write access. Different objects of the same table can be mutated
               (and read) by concurrent processes. This is achieved to some degree
-              at the expense of sequential access and concurrent reader performance.
+              at the expense of memory consumption and the performance of
+	      sequential access and concurrent reading.
 	      The <c>write_concurrency</c> option can be combined with the
 	      <seealso marker="#new_2_read_concurrency">read_concurrency</seealso>
 	      option. You typically want to combine these when large concurrent
@@ -944,8 +945,11 @@ ets:select(Table,MatchSpec),</code>
               <seealso marker="#concurrency">atomicy and isolation</seealso>.
               Functions that makes such promises over several objects (like
               <c>insert/2</c>) will gain less (or nothing) from this option.</p>
-             <p>Table type <c>ordered_set</c> is not affected by this option in current
-              implementation.</p>
+             <p>In current implementation, table type <c>ordered_set</c> is not
+	     affected by this option. Also, the memory consumption inflicted by
+	     both <c>write_concurrency</c> and <c>read_concurrency</c> is a
+	     constant overhead per table. This overhead can be especially large
+	     when both options are combined.</p>
           </item>
           <item>
             <marker id="new_2_read_concurrency"></marker>
