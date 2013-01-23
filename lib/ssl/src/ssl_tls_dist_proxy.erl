@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -89,7 +89,7 @@ handle_call({connect, Ip, Port}, {From, _}, State) ->
 		ok ->
 		    flush_old_controller(From, Socket),
 		    {reply, Res, State}
-        end;
+	    end;
 	{Pid, Error} ->
 	    {reply, Error, State}
     end;
@@ -115,13 +115,13 @@ code_change(_OldVsn, St, _Extra) ->
 get_tcp_address(Socket) ->
     case inet:sockname(Socket) of
 	{ok, Address} ->
-	{ok, Host} = inet:gethostname(),
+	    {ok, Host} = inet:gethostname(),
 	    NetAddress = #net_address{
-		  address = Address,
-		  host = Host,
-		  protocol = proxy,
-		  family = inet
-		},
+			    address = Address,
+			    host = Host,
+			    protocol = proxy,
+			    family = inet
+			   },
 	    {ok, NetAddress};
 	{error, _} = Error -> Error
     end.
@@ -129,17 +129,17 @@ get_tcp_address(Socket) ->
 accept_loop(Proxy, erts = Type, Listen, Extra) ->
     process_flag(priority, max),
     case gen_tcp:accept(Listen) of
-		{ok, Socket} ->
-		    Extra ! {accept,self(),Socket,inet,proxy},
-		    receive 
-			{_Kernel, controller, Pid} ->
-			    ok = gen_tcp:controlling_process(Socket, Pid),
-			    flush_old_controller(Pid, Socket),
-			    Pid ! {self(), controller};
-			{_Kernel, unsupported_protocol} ->
-			    exit(unsupported_protocol)
-		    end;
-		Error ->
+	{ok, Socket} ->
+	    Extra ! {accept,self(),Socket,inet,proxy},
+	    receive 
+		{_Kernel, controller, Pid} ->
+		    ok = gen_tcp:controlling_process(Socket, Pid),
+		    flush_old_controller(Pid, Socket),
+		    Pid ! {self(), controller};
+		{_Kernel, unsupported_protocol} ->
+		    exit(unsupported_protocol)
+	    end;
+	Error ->
 	    exit(Error)
     end,
     accept_loop(Proxy, Type, Listen, Extra);
@@ -242,7 +242,7 @@ loop_conn(World, Erts) ->
 	    ssl:close(World);
 	{ssl_closed,  World} ->
 	    gen_tcp:close(Erts)
-	end.
+    end.
 
 get_ssl_options(Type) ->
     case init:get_argument(ssl_dist_opt) of
@@ -255,7 +255,7 @@ get_ssl_options(Type) ->
 ssl_options(_,[]) ->
     [];
 ssl_options(server, ["client_" ++ _, _Value |T]) ->
-     ssl_options(server,T);
+    ssl_options(server,T);
 ssl_options(client, ["server_" ++ _, _Value|T]) ->
     ssl_options(client,T);
 ssl_options(server, ["server_certfile", Value|T]) ->
@@ -265,7 +265,7 @@ ssl_options(client, ["client_certfile", Value | T]) ->
 ssl_options(server, ["server_cacertfile", Value|T]) ->
     [{cacertfile, Value} | ssl_options(server,T)];
 ssl_options(client, ["client_cacertfile", Value|T]) ->
-     [{cacertfile, Value} | ssl_options(client,T)];
+    [{cacertfile, Value} | ssl_options(client,T)];
 ssl_options(server, ["server_keyfile", Value|T]) ->
     [{keyfile, Value} | ssl_options(server,T)];
 ssl_options(client, ["client_keyfile", Value|T]) ->
@@ -277,7 +277,7 @@ ssl_options(client, ["client_password", Value|T]) ->
 ssl_options(server, ["server_verify", Value|T]) ->
     [{verify, atomize(Value)} | ssl_options(server,T)];
 ssl_options(client, ["client_verify", Value|T]) ->
-     [{verify, atomize(Value)} | ssl_options(client,T)];
+    [{verify, atomize(Value)} | ssl_options(client,T)];
 ssl_options(server, ["server_reuse_sessions", Value|T]) ->
     [{reuse_sessions, atomize(Value)} | ssl_options(server,T)];
 ssl_options(client, ["client_reuse_sessions", Value|T]) ->
@@ -295,11 +295,11 @@ ssl_options(server, ["server_hibernate_after", Value|T]) ->
 ssl_options(client, ["client_hibernate_after", Value|T]) ->
     [{hibernate_after, list_to_integer(Value)} | ssl_options(client,T)];
 ssl_options(server, ["server_ciphers", Value|T]) ->
-     [{ciphers, Value} | ssl_options(server,T)];
+    [{ciphers, Value} | ssl_options(server,T)];
 ssl_options(client, ["client_ciphers", Value|T]) ->
     [{ciphers, Value} | ssl_options(client,T)];
 ssl_options(server, ["server_dhfile", Value|T]) ->
-     [{dhfile, Value} | ssl_options(server,T)];
+    [{dhfile, Value} | ssl_options(server,T)];
 ssl_options(server, ["server_fail_if_no_peer_cert", Value|T]) ->
     [{fail_if_no_peer_cert, atomize(Value)} | ssl_options(server,T)];
 ssl_options(_,_) ->
