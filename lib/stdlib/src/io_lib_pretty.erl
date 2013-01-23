@@ -385,7 +385,7 @@ print_length(<<_/bitstring>>=Bin, D, _RF, Enc) ->
     end;    
 print_length(Term, _D, _RF, _Enc) ->
     S = io_lib:write(Term),
-    {S, iolist_size(S)}.
+    {S, lists:flatlength(S)}.
 
 print_length_tuple(_Tuple, 1, _RF, _Enc) ->
     {"{...}", 5};
