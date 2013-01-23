@@ -22,10 +22,10 @@
 %% A simple Emacs-like line editor.
 %% About Latin-1 characters: see the beginning of erl_scan.erl.
 
--export([init/0,start/1,edit_line/2,prefix_arg/1]).
+-export([init/0,start/1,start/2,edit_line/2,prefix_arg/1]).
 -export([erase_line/1,erase_inp/1,redraw_line/1]).
 -export([length_before/1,length_after/1,prompt/1]).
--export([current_line/1]).
+-export([current_line/1, current_chars/1]).
 %%-export([expand/1]).
 
 -export([edit_line1/2]).
@@ -54,7 +54,12 @@ init() ->
 %%	{undefined,Char,Rest,Cont,Requests}
 
 start(Pbs) ->
-    {more_chars,{line,Pbs,{[],[]},none},[{put_chars,unicode,Pbs}]}.
+    start(Pbs, none).
+
+%% Only two modes used: 'none' and 'search'. Other modes can be
+%% handled inline through specific character handling.
+start(Pbs, Mode) ->
+    {more_chars,{line,Pbs,{[],[]},Mode},[{put_chars,unicode,Pbs}]}.
 
 edit_line(Cs, {line,P,L,{blink,N}}) ->
     edit(Cs, P, L, none, [{move_rel,N}]);
@@ -76,6 +81,10 @@ edit([C|Cs], P, {Bef,Aft}, Prefix, Rs0) ->
 	    edit(Cs, P, {Bef,Aft}, meta, Rs0);
 	meta_left_sq_bracket ->
 	    edit(Cs, P, {Bef,Aft}, meta_left_sq_bracket, Rs0);
+	search_meta ->
+	    edit(Cs, P, {Bef,Aft}, search_meta, Rs0);
+	search_meta_left_sq_bracket ->
+	    edit(Cs, P, {Bef,Aft}, search_meta_left_sq_bracket, Rs0);
 	ctlx ->
 	    edit(Cs, P, {Bef,Aft}, ctlx, Rs0);
 	new_line ->
@@ -115,6 +124,8 @@ edit([C|Cs], P, {Bef,Aft}, Prefix, Rs0) ->
 	    case do_op(Op, Bef, Aft, Rs0) of
 		{blink,N,Line,Rs} ->
 		    edit(Cs, P, Line, {blink,N}, Rs);
+		{Line, Rs, Mode} -> % allow custom modes from do_op
+		    edit(Cs, P, Line, Mode, Rs);
 		{Line,Rs} ->
 		    edit(Cs, P, Line, none, Rs)
 	    end
@@ -168,9 +179,15 @@ key_map($\^], none) -> auto_blink;
 key_map($\^X, none) -> ctlx;
 key_map($\^Y, none) -> yank;
 key_map($\e, none) -> meta;
-key_map($), Prefix) when Prefix =/= meta -> {blink,$),$(};
-key_map($}, Prefix) when Prefix =/= meta -> {blink,$},${};
-key_map($], Prefix) when Prefix =/= meta -> {blink,$],$[};
+key_map($), Prefix) when Prefix =/= meta,
+                         Prefix =/= search,
+                         Prefix =/= search_meta -> {blink,$),$(};
+key_map($}, Prefix) when Prefix =/= meta,
+                         Prefix =/= search,
+                         Prefix =/= search_meta -> {blink,$},${};
+key_map($], Prefix) when Prefix =/= meta,
+                         Prefix =/= search,
+                         Prefix =/= search_meta -> {blink,$],$[};
 key_map($B, meta) -> backward_word;
 key_map($D, meta) -> kill_word;
 key_map($F, meta) -> forward_word;
@@ -188,6 +205,32 @@ key_map($D, meta_left_sq_bracket) -> backward_char;
 key_map($C, meta_left_sq_bracket) -> forward_char;
 key_map(C, none) when C >= $\s ->
     {insert,C};
+%% for search, we need smarter line handling and so
+%% we cheat a bit on the dispatching, and allow to
+%% return a mode.
+key_map($\^H, search) -> {search, backward_delete_char};
+key_map($\177, search) -> {search, backward_delete_char};
+key_map($\^R, search) -> {search, skip_up};
+key_map($\^S, search) -> {search, skip_down};
+key_map($\n, search) -> {search, search_found};
+key_map($\r, search) -> {search, search_found};
+key_map($\^A, search) -> {search, search_quit};
+key_map($\^B, search) -> {search, search_quit};
+key_map($\^D, search) -> {search, search_quit};
+key_map($\^E, search) -> {search, search_quit};
+key_map($\^F, search) -> {search, search_quit};
+key_map($\t,  search) -> {search, search_quit};
+key_map($\^L, search) -> {search, search_quit};
+key_map($\^T, search) -> {search, search_quit};
+key_map($\^U, search) -> {search, search_quit};
+key_map($\^], search) -> {search, search_quit};
+key_map($\^X, search) -> {search, search_quit};
+key_map($\^Y, search) -> {search, search_quit};
+key_map($\e,  search) -> search_meta;
+key_map($[,  search_meta) -> search_meta_left_sq_bracket;
+key_map(_, search_meta) -> {search, search_quit};
+key_map(_C, search_meta_left_sq_bracket) -> {search, search_quit};
+key_map(C, search) -> {insert_search,C};
 key_map(C, _) -> {undefined,C}.
 
 %% do_op(Action, Before, After, Requests)
@@ -196,6 +239,57 @@ do_op({insert,C}, Bef, [], Rs) ->
     {{[C|Bef],[]},[{put_chars, unicode,[C]}|Rs]};
 do_op({insert,C}, Bef, Aft, Rs) ->
     {{[C|Bef],Aft},[{insert_chars, unicode, [C]}|Rs]};
+%% Search mode prompt always looks like (search)`$TERMS': $RESULT.
+%% the {insert_search, _} handlings allow to share this implementation
+%% correctly with group.erl. This module provides $TERMS, and group.erl
+%% is in charge of providing $RESULT.
+%% This require a bit of trickery. Because search disables moving around
+%% on the line (left/right arrow keys and other shortcuts that just exit
+%% search mode), we can use the Bef and Aft variables to hold each
+%% part of the line. Bef takes charge of "(search)`$TERMS" and Aft
+%% takes charge of "': $RESULT".
+do_op({insert_search, C}, Bef, [], Rs) ->
+    Aft="': ",
+    {{[C|Bef],Aft},
+     [{insert_chars, unicode, [C]++Aft}, {delete_chars,-3} | Rs],
+     search};
+do_op({insert_search, C}, Bef, Aft, Rs) ->
+    Offset= length(Aft),
+    NAft = "': ",
+    {{[C|Bef],NAft},
+     [{insert_chars, unicode, [C]++NAft}, {delete_chars,-Offset} | Rs],
+     search};
+do_op({search, backward_delete_char}, [_|Bef], Aft, Rs) ->
+    Offset= length(Aft)+1,
+    NAft = "': ",
+    {{Bef,NAft},
+     [{insert_chars, unicode, NAft}, {delete_chars,-Offset}|Rs],
+     search};
+do_op({search, backward_delete_char}, [], _Aft, Rs) ->
+    Aft="': ",
+    {{[],Aft}, Rs, search};
+do_op({search, skip_up}, Bef, Aft, Rs) ->
+    Offset= length(Aft),
+    NAft = "': ",
+    {{[$\^R|Bef],NAft}, % we insert ^R as a flag to whoever called us
+     [{insert_chars, unicode, NAft}, {delete_chars,-Offset}|Rs],
+     search};
+do_op({search, skip_down}, Bef, Aft, Rs) ->
+    Offset= length(Aft),
+    NAft = "': ",
+    {{[$\^S|Bef],NAft}, % we insert ^S as a flag to whoever called us
+     [{insert_chars, unicode, NAft}, {delete_chars,-Offset}|Rs],
+     search};
+do_op({search, search_found}, _Bef, Aft, Rs) ->
+    "': "++NAft = Aft,
+    {{[],NAft},
+     [{put_chars, unicode, "\n"}, {move_rel,-length(Aft)} | Rs],
+     search_found};
+do_op({search, search_quit}, _Bef, Aft, Rs) ->
+    "': "++NAft = Aft,
+    {{[],NAft},
+     [{put_chars, unicode, "\n"}, {move_rel,-length(Aft)} | Rs],
+     search_quit};
 %% do blink after $$
 do_op({blink,C,M}, Bef=[$$,$$|_], Aft, Rs) ->
     N = over_paren(Bef, C, M),
@@ -452,6 +546,9 @@ prompt({line,Pbs,_,_}) ->
 
 current_line({line,_,{Bef, Aft},_}) ->
     reverse(Bef, Aft ++ "\n").
+
+current_chars({line,_,{Bef,Aft},_}) ->
+    reverse(Bef, Aft).
 
 %% %% expand(CurrentBefore) ->
 %% %%	{yes,Expansion} | no
