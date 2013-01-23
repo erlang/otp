@@ -1,10 +1,9 @@
 #!/bin/sh
 #
-# Copyright Tuncer Ayaz 2010. All Rights Reserved.
-#
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010. All Rights Reserved.
+# Copyright Tuncer Ayaz 2010-2013. All Rights Reserved.
+# Copyright Ericsson AB 2010-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -22,92 +21,85 @@
 # Author: Tuncer Ayaz
 #
 
-if [ $# -lt 4 ]
+if [ $# -lt 6 ]
 then
-  echo "Usage: fakefop -fo IGNORED -pdf OUTFILE"
+  echo "Usage: fakefop -c IGNORED -fo IGNORED -pdf OUTFILE"
   exit 1
 fi
 
-OUTFILE=$4
-NAME=`basename $4 .pdf`
+OUTFILE=$6
 
-echo Write $OUTFILE
-cat > $OUTFILE <<EndOfFile
-%PDF-1.4
+echo -n -e '%PDF-1.4\n%\0342\0343\0317\0323\n\n' > $OUTFILE
+
+cat >> $OUTFILE <<EndOfFile
 1 0 obj
-  << /Type /Catalog
-    /Outlines 2 0 R
-    /Pages 3 0 R
-  >>
+<<
+  /Type /Catalog
+  /Pages 2 0 R
+>>
 endobj
 
 2 0 obj
-  << /Type /Outlines
-    /Count 0
-  >>
+<<
+  /Type /Pages
+  /Kids [ 3 0 R ]
+  /Count 1
+>>
 endobj
 
 3 0 obj
-  << /Type /Pages
-    /Kids [4 0 R]
-    /Count 1
+<<
+  /Type /Page
+  /Parent 2 0 R
+  /MediaBox [ 0 0 612 492 ]
+  /Contents 5 0 R
+  /Resources <<
+    /Font <<
+      /F1 4 0 R
+    >>
   >>
+>>
 endobj
 
 4 0 obj
-  << /Type /Page
-      /Parent 3 0 R
-      /MediaBox [0 0 612 492]
-      /Contents 5 0 R
-      /Resources << /ProcSet 6 0 R
-                    /Font << /F1 7 0 R >>
-                >>
-  >>
+<<
+  /Type /Font
+  /Subtype /Type1
+  /Name /F1
+  /BaseFont /Helvetica
+  /Encoding /StandardEncoding
+>>
 endobj
 
 5 0 obj
-  << /Length 73 >>
+<<
+  /Length 74
+>>
 stream
-  BT
-    /F1 24 Tf
-    10 400 Td
-    ($NAME) Tj
-  ET
-  BT
-    /F1 24 Tf
-    10 350 Td
-    (\(placeholder PDF generated without FOP\)) Tj
-  ET
+BT
+/F1 24 Tf
+10 400 Td
+(\(placeholder PDF generated with fakefop\)) Tj
+ET
 endstream
 endobj
 
-6 0 obj
-  [/PDF /Text]
-endobj
-7 0 obj
-  << /Type /Font
-    /Subtype /Type1
-    /Name /F1
-    /BaseFont /Helvetica
-    /Encoding /MacRomanEncoding
-  >>
-endobj
 xref
-0 8
-0000000000 65535 f
-0000000009 00000 n
-0000000074 00000 n
-0000000120 00000 n
-0000000179 00000 n
-0000000364 00000 n
-0000000466 00000 n
-0000000496 00000 n
+0 6
+0000000000 65536 f 
+0000000016 00000 n 
+0000000070 00000 n 
+0000000136 00000 n 
+0000000291 00000 n 
+0000000410 00000 n 
 
 trailer
-  << /Size 8
-    /Root 1 0 R
-  >>
+<<
+  /Size 6
+  /Root 1 0 R
+>>
+
 startxref
-625
+536
 %%EOF
 EndOfFile
