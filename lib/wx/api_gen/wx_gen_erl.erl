@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -218,33 +218,37 @@ check_class(#type{base={class,Name},xml=Xml}) ->
 gen_export(#class{name=Class,abstract=Abs},Ms0) ->
     RemoveC = fun(#method{where=merged_c}) -> false;(_Other) -> true end,
     Res = filter(RemoveC, Ms0),
+    GetF = fun(M=#method{method_type=constructor,where=W,params=Ps}) ->
+		   {Args,Opts} = split_optional(Ps),
+		   OptLen = case Opts of
+				[] -> 0;
+				_ when W =:= erl_no_opt -> 0;
+				_ -> 1
+			    end,
+		   deprecated(M, "new" ++ "/" ++ integer_to_list(length(Args)+OptLen));
+	      (M=#method{method_type=destructor}) ->
+		   case Abs of
+		       true -> [];
+		       _ -> deprecated(M, "destroy/1")
+		   end;
+	      (M=#method{name=N,alias=A,where=W, params=Ps}) ->
+		   {Args,Opts} = split_optional(Ps),
+		   OptLen = case Opts of
+				[] -> 0;
+				_ when W =:= erl_no_opt -> 0;
+				_ -> 1
+			    end,
+		   deprecated(M, erl_func_name(N,A) ++ "/" ++ integer_to_list(length(Args) + OptLen))
+	   end,
     case Res of
 	[] -> [];
 	[M=#method{where=taylormade}|_] ->
-	    [deprecated(M, taylormade_export(Class, M))];
+	    try
+		[deprecated(M, taylormade_export(Class, M))]
+	    catch error:{badmatch, {error, enoent}} ->
+		    lists:map(GetF, Res)
+	    end;
 	Ms ->
-	    GetF = fun(M=#method{method_type=constructor,where=W,params=Ps}) ->
-			   {Args,Opts} = split_optional(Ps),
-			   OptLen = case Opts of
-					[] -> 0;
-					_ when W =:= erl_no_opt -> 0;
-					_ -> 1
-				    end,
-			   deprecated(M, "new" ++ "/" ++ integer_to_list(length(Args)+OptLen));
-		      (M=#method{method_type=destructor}) ->
-			   case Abs of
-			       true -> [];
-			       _ -> deprecated(M, "destroy/1")
-			   end;
-		      (M=#method{name=N,alias=A,where=W, params=Ps}) ->
-			   {Args,Opts} = split_optional(Ps),
-			   OptLen = case Opts of
-					[] -> 0;
-					_ when W =:= erl_no_opt -> 0;
-					_ -> 1
-				    end,
-			   deprecated(M, erl_func_name(N,A) ++ "/" ++ integer_to_list(length(Args) + OptLen))
-		   end,
 	    lists:map(GetF, Ms)
     end.
 
@@ -262,7 +266,12 @@ gen_method(Class,Ms0) ->
     case Res of
 	[] -> Ms0;
 	[#method{where=taylormade}|_] ->
-	    taylormade_func(Class, Res),
+	    try
+		taylormade_func(Class, Res)
+	    catch error:{badmatch, {error, enoent}} ->
+		    gen_doc(Class,Res),
+		    gen_method1(Res)
+	    end,
 	    Ms0;
 	Ms ->
  	    gen_doc(Class,Ms),

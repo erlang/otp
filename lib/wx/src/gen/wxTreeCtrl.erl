@@ -43,13 +43,14 @@
   getLastChild/2,getNextChild/3,getNextSibling/2,getNextVisible/2,getPrevSibling/2,
   getPrevVisible/2,getRootItem/1,getSelection/1,getSelections/1,getStateImageList/1,
   hitTest/2,insertItem/4,insertItem/5,isBold/2,isExpanded/2,isSelected/2,
-  isVisible/2,itemHasChildren/2,new/0,new/1,new/2,prependItem/3,prependItem/4,
-  scrollTo/2,selectItem/2,selectItem/3,setImageList/2,setIndent/2,setItemBackgroundColour/3,
-  setItemBold/2,setItemBold/3,setItemData/3,setItemDropHighlight/2,
-  setItemDropHighlight/3,setItemFont/3,setItemHasChildren/2,setItemHasChildren/3,
-  setItemImage/3,setItemImage/4,setItemText/3,setItemTextColour/3,setStateImageList/2,
-  setWindowStyle/2,sortChildren/2,toggle/2,toggleItemSelection/2,unselect/1,
-  unselectAll/1,unselectItem/2]).
+  isTreeItemIdOk/1,isVisible/2,itemHasChildren/2,new/0,new/1,new/2,prependItem/3,
+  prependItem/4,scrollTo/2,selectItem/2,selectItem/3,setImageList/2,
+  setIndent/2,setItemBackgroundColour/3,setItemBold/2,setItemBold/3,
+  setItemData/3,setItemDropHighlight/2,setItemDropHighlight/3,setItemFont/3,
+  setItemHasChildren/2,setItemHasChildren/3,setItemImage/3,setItemImage/4,
+  setItemText/3,setItemTextColour/3,setStateImageList/2,setWindowStyle/2,
+  sortChildren/2,toggle/2,toggleItemSelection/2,unselect/1,unselectAll/1,
+  unselectItem/2]).
 
 %% inherited exports
 -export([cacheBestSize/2,captureMouse/1,center/1,center/2,centerOnParent/1,
@@ -642,6 +643,14 @@ itemHasChildren(#wx_ref{type=ThisT,ref=ThisRef},Item)
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_ItemHasChildren,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlistreeitemidok">external documentation</a>.
+-spec isTreeItemIdOk(Id) -> boolean() when
+	Id::integer().
+isTreeItemIdOk(Id)
+ when is_integer(Id) ->
+  wxe_util:call(?wxTreeCtrl_IsTreeItemIdOk,
+  <<Id:64/?UI>>).
 
 %% @equiv prependItem(This,Parent,Text, [])
 -spec prependItem(This, Parent, Text) -> integer() when

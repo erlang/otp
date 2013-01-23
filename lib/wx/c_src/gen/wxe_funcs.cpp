@@ -19020,6 +19020,13 @@ case wxTreeCtrl_ItemHasChildren: { // wxTreeCtrl::ItemHasChildren
  rt.addBool(Result);
  break;
 }
+
+case wxTreeCtrl_IsTreeItemIdOk: { // wxTreeCtrl::IsTreeItemIdOk
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
+ bool Result = item.IsOk();
+ rt.addBool(Result);
+ break;
+}
 case wxTreeCtrl_PrependItem: { // wxTreeCtrl::PrependItem
  int image=-1;
  int selectedImage=-1;
