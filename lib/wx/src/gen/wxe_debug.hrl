@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1877,7 +1877,7 @@ wxdebug_table() ->
  {2050, {wxTreeCtrl, getSelection, 0}},
  {2051, {wxTreeCtrl, getSelections, 1}},
  {2052, {wxTreeCtrl, getStateImageList, 0}},
- {2053, {wxTreeCtrl, hitTest, 1}},
+ {2053, {wxTreeCtrl, hitTest, 2}},
  {2055, {wxTreeCtrl, insertItem, 4}},
  {2056, {wxTreeCtrl, isBold, 1}},
  {2057, {wxTreeCtrl, isExpanded, 1}},

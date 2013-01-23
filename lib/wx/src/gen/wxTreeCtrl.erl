@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,8 +35,8 @@
 -include("wxe.hrl").
 -export([addRoot/2,addRoot/3,appendItem/3,appendItem/4,assignImageList/2,assignStateImageList/2,
   collapse/2,collapseAndReset/2,create/2,create/3,delete/2,deleteAllItems/1,
-  deleteChildren/2,destroy/1,editLabel/2,ensureVisible/2,expand/2,getBoundingRect/3,
-  getBoundingRect/4,getChildrenCount/2,getChildrenCount/3,getCount/1,
+  deleteChildren/2,destroy/1,editLabel/2,ensureVisible/2,expand/2,getBoundingRect/2,
+  getBoundingRect/3,getChildrenCount/2,getChildrenCount/3,getCount/1,
   getEditControl/1,getFirstChild/2,getFirstVisibleItem/1,getImageList/1,
   getIndent/1,getItemBackgroundColour/2,getItemData/2,getItemFont/2,
   getItemImage/2,getItemImage/3,getItemParent/2,getItemText/2,getItemTextColour/2,
@@ -303,26 +303,28 @@ expand(#wx_ref{type=ThisT,ref=ThisRef},Item)
   wxe_util:cast(?wxTreeCtrl_Expand,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @equiv getBoundingRect(This,Item,Rect, [])
--spec getBoundingRect(This, Item, Rect) -> boolean() when
-	This::wxTreeCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+%% @equiv getBoundingRect(This,Item, [])
+-spec getBoundingRect(This, Item) -> Result when
+	Result ::{Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
+	This::wxTreeCtrl(), Item::integer().
 
-getBoundingRect(This,Item,Rect={RectX,RectY,RectW,RectH})
- when is_record(This, wx_ref),is_integer(Item),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
-  getBoundingRect(This,Item,Rect, []).
+getBoundingRect(This,Item)
+ when is_record(This, wx_ref),is_integer(Item) ->
+  getBoundingRect(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetboundingrect">external documentation</a>.
--spec getBoundingRect(This, Item, Rect, [Option]) -> boolean() when
-	This::wxTreeCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()},
+-spec getBoundingRect(This, Item, [Option]) -> Result when
+	Result :: {Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
+	This::wxTreeCtrl(), Item::integer(),
 	Option :: {textOnly, boolean()}.
-getBoundingRect(#wx_ref{type=ThisT,ref=ThisRef},Item,{RectX,RectY,RectW,RectH}, Options)
- when is_integer(Item),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_list(Options) ->
+getBoundingRect(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
+ when is_integer(Item),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
   MOpts = fun({textOnly, TextOnly}, Acc) -> [<<1:32/?UI,(wxe_util:from_bool(TextOnly)):32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
   BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
   wxe_util:call(?wxTreeCtrl_GetBoundingRect,
-  <<ThisRef:32/?UI,0:32,Item:64/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI, BinOpt/binary>>).
+  <<ThisRef:32/?UI,0:32,Item:64/?UI, BinOpt/binary>>).
 
 %% @equiv getChildrenCount(This,Item, [])
 -spec getChildrenCount(This, Item) -> integer() when
@@ -561,7 +563,8 @@ getStateImageList(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlhittest">external documentation</a>.
--spec hitTest(This, Point) -> integer() when
+-spec hitTest(This, Point) -> Result when
+	Result ::{Res ::integer(), Flags::integer()},
 	This::wxTreeCtrl(), Point::{X::integer(), Y::integer()}.
 hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
  when is_integer(PointX),is_integer(PointY) ->
