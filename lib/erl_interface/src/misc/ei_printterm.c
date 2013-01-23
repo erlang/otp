@@ -115,7 +115,7 @@ static int print_term(FILE* fp, ei_x_buff* x,
 			       const char* buf, int* index)
 {
     int i, doquote, n, m, ty, r;
-    char a[MAXATOMLEN+1], *p;
+    char a[MAXATOMLEN], *p;
     int ch_written = 0;		/* counter of written chars */
     erlang_pid pid;
     erlang_port port;
@@ -132,7 +132,10 @@ static int print_term(FILE* fp, ei_x_buff* x,
     doquote = 0;
     ei_get_type_internal(buf, index, &ty, &n);
     switch (ty) {
-    case ERL_ATOM_EXT:
+    case ERL_ATOM_EXT:   
+    case ERL_ATOM_UTF8_EXT:
+    case ERL_SMALL_ATOM_EXT:
+    case ERL_SMALL_ATOM_UTF8_EXT:
 	if (ei_decode_atom(buf, index, a) < 0)
 	   goto err;
 	doquote = !islower((int)a[0]);

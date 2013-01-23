@@ -226,13 +226,25 @@
 #define MAX_UNREG_COUNT 1000
 #define DEBUG_MAX_UNREG_COUNT 5
 
-/* Maximum length of a node name == atom name */
-#define MAXSYMLEN 255
+/*
+ * Maximum length of a node name == atom name
+ *   255 characters; UTF-8 encoded -> max 255*4
+ */
+#define MAXSYMLEN (255*4)
 
 #define MAX_LISTEN_SOCKETS 16
 
-#define INBUF_SIZE 1024
-#define OUTBUF_SIZE 1024
+/*
+ * Largest request: ALIVE2_REQ
+ *  2 + 13 + 2*MAXSYMLEN
+ * Largest response: PORT2_RESP
+ *  2 + 14 + 2*MAXSYMLEN
+ *
+ * That is, 3*MAXSYMLEN should be large enough
+ */
+
+#define INBUF_SIZE (3*MAXSYMLEN)
+#define OUTBUF_SIZE (3*MAXSYMLEN)
 
 #define get_int16(s) ((((unsigned char*)  (s))[0] << 8) | \
                       (((unsigned char*)  (s))[1]))

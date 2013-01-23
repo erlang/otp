@@ -1729,7 +1729,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
     data_size += erts_encode_dist_ext_size(ctl, flags, acmp);
     if (is_value(msg))
 	data_size += erts_encode_dist_ext_size(msg, flags, acmp);
-    erts_finalize_atom_cache_map(acmp);
+    erts_finalize_atom_cache_map(acmp, flags);
 
     dhdr_ext_size = erts_encode_ext_dist_header_size(acmp);
     data_size += dhdr_ext_size;
@@ -2073,7 +2073,8 @@ erts_dist_command(Port *prt, int reds_limit)
 	    ASSERT(ob);
 	    do {
 		ob->extp = erts_encode_ext_dist_header_finalize(ob->extp,
-								dep->cache);
+								dep->cache,
+								flags);
 		if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
 		    *--ob->extp = PASS_THROUGH; /* Old node; 'pass through'
 						   needed */
@@ -2117,7 +2118,8 @@ erts_dist_command(Port *prt, int reds_limit)
 	    Uint size;
 	    oq.first->extp
 		= erts_encode_ext_dist_header_finalize(oq.first->extp,
-						       dep->cache);
+						       dep->cache,
+						       flags);
 	    reds += ERTS_PORT_REDS_DIST_CMD_FINALIZE;
 	    if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
 		*--oq.first->extp = PASS_THROUGH; /* Old node; 'pass through'

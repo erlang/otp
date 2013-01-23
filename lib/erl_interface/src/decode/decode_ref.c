@@ -21,27 +21,18 @@
 #include "eiext.h"
 #include "putget.h"
 
+
 int ei_decode_ref(const char *buf, int *index, erlang_ref *p)
 {
   const char *s = buf + *index;
   const char *s0 = s;
-  int count, len, i;
+  int count, i;
   
   switch (get8(s)) {
     case ERL_REFERENCE_EXT:
 
-      /* first the nodename */
-      if (get8(s) != ERL_ATOM_EXT) return -1;
-
-      len = get16be(s);
-
-      if (len > MAXATOMLEN) return -1;
-
-      if (p) {
-	  memmove(p->node, s, len);
-	  p->node[len] = (char)0;
-      }
-      s += len;
+      /* nodename */
+      if (get_atom(&s, p->node, &p->node_org_enc) < 0) return -1;
   
       /* now the numbers: num (4), creation (1) */
       if (p) {
@@ -62,15 +53,7 @@ int ei_decode_ref(const char *buf, int *index, erlang_ref *p)
       if (p) p->len = count;
 
       /* then the nodename */
-      if (get8(s) != ERL_ATOM_EXT) return -1;
-      len = get16be(s);
-      if (len > MAXATOMLEN) return -1;
-
-      if (p) {
-	  memmove(p->node, s, len);
-	  p->node[len] = (char)0;
-      }
-      s += len;
+      if (get_atom(&s, p->node, &p->node_org_enc) < 0) return -1;
 
       /* creation */
       if (p) {
@@ -95,3 +78,4 @@ int ei_decode_ref(const char *buf, int *index, erlang_ref *p)
       return -1;
   }
 }
+

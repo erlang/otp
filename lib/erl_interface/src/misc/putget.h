@@ -105,6 +105,13 @@
        ((EI_ULONGLONG)((unsigned char *)(s))[-2] << 8)  | \
         (EI_ULONGLONG)((unsigned char *)(s))[-1]))
 
+int utf8_to_latin1(char* dst, const char* src, int slen, int destlen, enum erlang_char_encoding* res_encp);
+int latin1_to_utf8(char* dst, const char* src, int slen, int destlen, enum erlang_char_encoding* res_encp);
+int ei_internal_get_atom(const char** bufp, char* p, enum erlang_char_encoding*);
+int ei_internal_put_atom(char** bufp, const char* p, int slen, enum erlang_char_encoding);
+#define get_atom ei_internal_get_atom
+#define put_atom ei_internal_put_atom
+
 typedef union float_ext {
     double d;
     EI_ULONGLONG val;

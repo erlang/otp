@@ -197,17 +197,32 @@ int ei_x_encode_tuple_header(ei_x_buff* x, long n)
 
 int ei_x_encode_atom(ei_x_buff* x, const char* s)
 {
-    return ei_x_encode_atom_len(x, s, strlen(s));
+    return ei_x_encode_atom_len_as(x, s, strlen(s), ERLANG_LATIN1, ERLANG_LATIN1);
 }
 
 int ei_x_encode_atom_len(ei_x_buff* x, const char* s, int len)
 {
+    return ei_x_encode_atom_len_as(x, s, len, ERLANG_LATIN1, ERLANG_LATIN1);
+}
+
+int ei_x_encode_atom_as(ei_x_buff* x, const char* s,
+			enum erlang_char_encoding from_enc,
+			enum erlang_char_encoding to_enc)
+{
+    return ei_x_encode_atom_len_as(x, s, strlen(s), from_enc, to_enc);
+}
+
+int ei_x_encode_atom_len_as(ei_x_buff* x, const char* s, int len,
+			    enum erlang_char_encoding from_enc,
+			    enum erlang_char_encoding to_enc)
+{
     int i = x->index;
-    ei_encode_atom_len(NULL, &i, s, len);
+    ei_encode_atom_len_as(NULL, &i, s, len, from_enc, to_enc);
     if (!x_fix_buff(x, i))
 	return -1;
-    return ei_encode_atom_len(x->buff, &x->index, s, len);
+    return ei_encode_atom_len_as(x->buff, &x->index, s, len, from_enc, to_enc);
 }
+
 
 int ei_x_encode_pid(ei_x_buff* x, const erlang_pid* pid)
 {

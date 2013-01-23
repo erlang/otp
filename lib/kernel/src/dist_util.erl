@@ -115,7 +115,8 @@ make_this_flags(RequestType, OtherNode) ->
 	 ?DFLAG_NEW_FLOATS bor
 	 ?DFLAG_UNICODE_IO bor
 	 ?DFLAG_DIST_HDR_ATOM_CACHE bor
-	 ?DFLAG_SMALL_ATOM_TAGS).
+	 ?DFLAG_SMALL_ATOM_TAGS bor
+	 ?DFLAG_UTF8_ATOMS).
 
 handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
     {PreOtherFlags,Node,Version} = recv_name(HSData0),

@@ -1230,7 +1230,7 @@ load_atom_table(LoaderState* stp)
 
 	GetByte(stp, n);
 	GetString(stp, atom, n);
-	stp->atom[i] = am_atom_put((char*)atom, n);
+	stp->atom[i] = erts_atom_put(atom, n, ERTS_ATOM_ENC_LATIN1, 1);
     }
 
     /*
@@ -1240,7 +1240,7 @@ load_atom_table(LoaderState* stp)
     if (is_nil(stp->module)) {
 	stp->module = stp->atom[1];
     } else if (stp->atom[1] != stp->module) {
-	char sbuf[256];
+	char sbuf[MAX_ATOM_SZ_FROM_LATIN1];
 	Atom* ap;
 
 	ap = atom_tab(atom_val(stp->atom[1]));
@@ -1620,7 +1620,7 @@ read_line_table(LoaderState* stp)
 
 	    GetInt(stp, 2, n);
 	    GetString(stp, fname, n);
-	    stp->fname[i] = am_atom_put((char*)fname, n);
+	    stp->fname[i] = erts_atom_put(fname, n, ERTS_ATOM_ENC_LATIN1, 1);
 	}
     }
 

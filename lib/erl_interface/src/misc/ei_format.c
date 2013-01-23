@@ -139,8 +139,8 @@ static int patom(const char** fmt, ei_x_buff* x)
     --(*fmt);
     len = *fmt - start;
     /* FIXME why truncate atom name and not fail?! */
-    if (len > MAXATOMLEN)
-	len = MAXATOMLEN;
+    if (len >= MAXATOMLEN)
+	len = MAXATOMLEN-1;
     return ei_x_encode_atom_len(x, start, len);
 }
 

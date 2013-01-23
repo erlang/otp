@@ -132,13 +132,13 @@ int ei_show_sendmsg(FILE *stream, const char *header, const char *msgbuf)
 
     switch (msg.msgtype) {
     case ERL_SEND:
-	if (ei_decode_atom(header,&index,msg.cookie) 
+	if (ei_decode_atom_as(header,&index,msg.cookie,sizeof(msg.cookie),ERLANG_UTF8,NULL,NULL) 
 	    || ei_decode_pid(header,&index,&msg.to)) return -1;
 	mbuf = msgbuf;
 	break;
 
     case ERL_SEND_TT:
-	if (ei_decode_atom(header,&index,msg.cookie) 
+	if (ei_decode_atom_as(header,&index,msg.cookie,sizeof(msg.cookie),ERLANG_UTF8,NULL,NULL) 
 	    || ei_decode_pid(header,&index,&msg.to)
 	    || ei_decode_trace(header,&index,&msg.token)) return -1;
 	mbuf = msgbuf;
@@ -146,15 +146,15 @@ int ei_show_sendmsg(FILE *stream, const char *header, const char *msgbuf)
     
     case ERL_REG_SEND:
 	if (ei_decode_pid(header,&index,&msg.from) 
-	    || ei_decode_atom(header,&index,msg.cookie) 
-	    || ei_decode_atom(header,&index,msg.toname)) return -1;
+	    || ei_decode_atom_as(header,&index,msg.cookie,sizeof(msg.cookie),ERLANG_UTF8,NULL,NULL) 
+	    || ei_decode_atom_as(header,&index,msg.toname,sizeof(msg.toname),ERLANG_UTF8,NULL,NULL)) return -1;
 	mbuf = msgbuf;
 	break;
     
     case ERL_REG_SEND_TT:
 	if (ei_decode_pid(header,&index,&msg.from) 
-	    || ei_decode_atom(header,&index,msg.cookie) 
-	    || ei_decode_atom(header,&index,msg.toname)
+	    || ei_decode_atom_as(header,&index,msg.cookie,sizeof(msg.cookie),ERLANG_UTF8,NULL,NULL) 
+	    || ei_decode_atom_as(header,&index,msg.toname,sizeof(msg.toname),ERLANG_UTF8,NULL,NULL)
 	    || ei_decode_trace(header,&index,&msg.token)) return -1;
 	mbuf = msgbuf;
 	break;
@@ -457,7 +457,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
 	break;
     
     case ERL_FUN_EXT: {
-	char atom[MAXATOMLEN+1];
+	char atom[MAXATOMLEN];
 	long idx;
 	long uniq;
 	const char* s = termbuf + *index, * s0 = s;

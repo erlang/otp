@@ -111,7 +111,7 @@ atom_text_alloc(int bytes)
 {
     byte *res;
 
-    ASSERT(bytes <= MAX_ATOM_LENGTH);
+    ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
     if (atom_text_pos + bytes >= atom_text_end) {
 	more_atom_space();
     }
@@ -162,6 +162,7 @@ atom_alloc(Atom* tmpl)
     obj->name = atom_text_alloc(tmpl->len);
     sys_memcpy(obj->name, tmpl->name, tmpl->len);
     obj->len = tmpl->len;
+    obj->latin1_chars = tmpl->latin1_chars;
     obj->slot.index = -1;
 
     /*
@@ -192,44 +193,146 @@ atom_free(Atom* obj)
     erts_free(ERTS_ALC_T_ATOM, (void*) obj);
 }
 
-Eterm
-am_atom_put(const char* name, int len)
+static void latin1_to_utf8(byte* conv_buf, const byte** srcp, int* lenp)
 {
+    byte* dst;
+    const byte* src = *srcp;
+    int i, len = *lenp;
+
+    for (i=0 ; i < len; ++i) {
+	if (src[i] & 0x80) {
+	    goto need_convertion;
+	}
+    }
+    return;
+
+need_convertion:
+    sys_memcpy(conv_buf, src, i);
+    dst = conv_buf + i;
+    for ( ; i < len; ++i) {
+	unsigned char chr = src[i];
+	if (!(chr & 0x80)) {
+	    *dst++ = chr;
+	}
+	else {
+	    *dst++ = 0xC0 | (chr >> 6);
+	    *dst++ = 0x80 | (chr & 0x3F);
+	}
+    }
+    *srcp = conv_buf;	
+    *lenp = dst - conv_buf;
+}
+
+/*
+ * erts_atom_put() may fail. If it fails THE_NON_VALUE is returned!
+ */
+Eterm
+erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
+{
+    byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
+    const byte *text = name;
+    int tlen = len;
+    Sint no_latin1_chars;
     Atom a;
-    Eterm ret;
     int aix;
 
-    /*
-     * Silently truncate the atom if it is too long. Overlong atoms
-     * could occur in situations where we have no good way to return
-     * an error, such as in the I/O system. (Unfortunately, many
-     * drivers don't check for errors.)
-     *
-     * If an error should be produced for overlong atoms (such in
-     * list_to_atom/1), the caller should check the length before
-     * calling this function.
-     */
-    if (len > MAX_ATOM_LENGTH) {
-	len = MAX_ATOM_LENGTH;
-    }
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_smp_atomic_inc_nob(&atom_put_ops);
 #endif
-    a.len = len;
-    a.name = (byte*)name;
+
+    if (tlen < 0) {
+	if (trunc)
+	    tlen = 0;
+	else
+	    return THE_NON_VALUE;
+    }
+
+    switch (enc) {
+    case ERTS_ATOM_ENC_7BIT_ASCII:
+	if (tlen > MAX_ATOM_CHARACTERS) {
+	    if (trunc)
+		tlen = MAX_ATOM_CHARACTERS;
+	    else
+		return THE_NON_VALUE;
+	}
+#ifdef DEBUG
+	for (aix = 0; aix < len; aix++) {
+	    ASSERT((name[aix] & 0x80) == 0);
+	}
+#endif
+	no_latin1_chars = tlen;
+	break;
+    case ERTS_ATOM_ENC_LATIN1:
+	if (tlen > MAX_ATOM_CHARACTERS) {
+	    if (trunc)
+		tlen = MAX_ATOM_CHARACTERS;
+	    else
+		return THE_NON_VALUE;
+	}
+	no_latin1_chars = tlen;
+	latin1_to_utf8(utf8_copy, &text, &tlen);
+	break;
+    case ERTS_ATOM_ENC_UTF8:
+	/* First sanity check; need to verify later */
+	if (tlen > MAX_ATOM_SZ_LIMIT && !trunc)
+	    return THE_NON_VALUE;
+	break;
+    }
+
+    a.len = tlen;
+    a.name = (byte *) text;
     atom_read_lock();
     aix = index_get(&erts_atom_table, (void*) &a);
     atom_read_unlock();
-    if (aix >= 0)
-	ret = make_atom(aix);
-    else {
-	atom_write_lock();
-	ret = make_atom(index_put(&erts_atom_table, (void*) &a));
-	atom_write_unlock();
+    if (aix >= 0) {
+	/* Already in table no need to verify it */
+	return make_atom(aix);
     }
-    return ret;
+
+    if (enc == ERTS_ATOM_ENC_UTF8) {
+	/* Need to verify encoding and length */
+	byte *err_pos;
+	Uint no_chars;
+	switch (erts_analyze_utf8_x((byte *) text,
+				    (Uint) tlen,
+				    &err_pos,
+				    &no_chars, NULL,
+				    &no_latin1_chars,
+				    MAX_ATOM_CHARACTERS)) {
+	case ERTS_UTF8_OK:
+	    ASSERT(no_chars <= MAX_ATOM_CHARACTERS);
+	    break;
+	case ERTS_UTF8_OK_MAX_CHARS:
+	    /* Truncated... */
+	    if (!trunc)
+		return THE_NON_VALUE;
+	    ASSERT(no_chars == MAX_ATOM_CHARACTERS);
+	    tlen = err_pos - text;
+	    break;
+	default:
+	    /* Bad utf8... */
+	    return THE_NON_VALUE;
+	}
+    }
+
+    ASSERT(tlen <= MAX_ATOM_SZ_LIMIT);
+    ASSERT(-1 <= no_latin1_chars && no_latin1_chars <= MAX_ATOM_CHARACTERS);
+
+    a.len = tlen;
+    a.latin1_chars = (Sint16) no_latin1_chars;
+    a.name = (byte *) text;
+    atom_write_lock();
+    aix = index_put(&erts_atom_table, (void*) &a);
+    atom_write_unlock();
+    return make_atom(aix);
 }
 
+Eterm
+am_atom_put(const char* name, int len)
+{
+    /* Assumes 7-bit ascii; use erts_atom_put() for other encodings... */
+    return erts_atom_put((byte *) name, len, ERTS_ATOM_ENC_7BIT_ASCII, 1);
+}
 
 int atom_table_size(void)
 {
@@ -264,14 +367,19 @@ int atom_table_sz(void)
 }
 
 int
-erts_atom_get(const char *name, int len, Eterm* ap)
+erts_atom_get(const char *name, int len, Eterm* ap, int is_latin1)
 {
+    byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     Atom a;
     int i;
     int res;
 
-    a.len = len;
+    a.len = (Sint16) len;
     a.name = (byte *)name;
+    if (is_latin1) {
+	latin1_to_utf8(utf8_copy, (const byte**)&a.name, &len);
+	a.len = (Sint16) len;
+    }
     atom_read_lock();
     i = index_get(&erts_atom_table, (void*) &a);
     res = i < 0 ? 0 : (*ap = make_atom(i), 1);
@@ -333,8 +441,15 @@ init_atom_table(void)
     for (i = 0; erl_atom_names[i] != 0; i++) {
 	int ix;
 	a.len = strlen(erl_atom_names[i]);
+	a.latin1_chars = a.len;
 	a.name = (byte*)erl_atom_names[i];
 	a.slot.index = i;
+#ifdef DEBUG
+	/* Verify 7-bit ascii */
+	for (ix = 0; ix < a.len; ix++) {
+	    ASSERT((a.name[ix] & 0x80) == 0);
+	}
+#endif
 	ix = index_put(&erts_atom_table, (void*) &a);
 	atom_text_pos -= a.len;
 	atom_space -= a.len;

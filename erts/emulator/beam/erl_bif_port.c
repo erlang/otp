@@ -66,7 +66,7 @@ BIF_RETTYPE open_port_2(BIF_ALIST_2)
 	} else {
 	    str = "einval";
 	}
-	BIF_P->fvalue = am_atom_put(str, strlen(str));
+	BIF_P->fvalue = erts_atom_put((byte *) str, strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
 	BIF_ERROR(BIF_P, EXC_ERROR);
     }
 

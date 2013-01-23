@@ -96,6 +96,7 @@ int main(void)
   EI_ULONGLONG *ulonglongp = (EI_ULONGLONG*)NULL;
   EI_ULONGLONG ulonglongx = 0;
 #endif
+  enum erlang_char_encoding enc;
 
   intx = erl_errno;
 
@@ -148,9 +149,13 @@ int main(void)
   ei_x_encode_string(&eix, charp);
   ei_x_encode_string_len(&eix, charp, intx);
   ei_encode_atom(charp, intp, charp);
+  ei_encode_atom_as(charp, intp, charp, ERLANG_LATIN1, ERLANG_UTF8);
   ei_encode_atom_len(charp, intp, charp, intx);
+  ei_encode_atom_len_as(charp, intp, charp, intx, ERLANG_ASCII, ERLANG_LATIN1);
   ei_x_encode_atom(&eix, charp);
+  ei_x_encode_atom_as(&eix, charp, ERLANG_LATIN1, ERLANG_UTF8);
   ei_x_encode_atom_len(&eix, charp, intx);
+  ei_x_encode_atom_len_as(&eix, charp, intx, ERLANG_LATIN1, ERLANG_UTF8);
   ei_encode_binary(charp, intp, (void *)0, longx);
   ei_x_encode_binary(&eix, (void*)0, intx);
   ei_encode_pid(charp, intp, &epid);
@@ -181,6 +186,7 @@ int main(void)
   ei_decode_char(charp, intp, charp);
   ei_decode_string(charp, intp, charp);
   ei_decode_atom(charp, intp, charp);
+  ei_decode_atom_as(charp, intp, charp, MAXATOMLEN_UTF8, ERLANG_WHATEVER, &enc, &enc);
   ei_decode_binary(charp, intp, (void *)0, longp);
   ei_decode_fun(charp, intp, &efun);
   free_fun(&efun);

@@ -18,7 +18,17 @@
 %%
 
 -module(distribution_SUITE).
--compile(r13).
+-compile(r15).
+
+-define(VERSION_MAGIC,       131).
+
+-define(ATOM_EXT,            100).
+-define(REFERENCE_EXT,       101).
+-define(PORT_EXT,            102).
+-define(PID_EXT,             103).
+-define(NEW_REFERENCE_EXT,   114).
+-define(ATOM_UTF8_EXT,       118).
+-define(SMALL_ATOM_UTF8_EXT, 119).
 
 %% Tests distribution and the tcp driver.
 
@@ -37,8 +47,10 @@
 	 dist_auto_connect_never/1, dist_auto_connect_once/1,
 	 dist_parallel_send/1,
 	 atom_roundtrip/1,
-	 atom_roundtrip_r13b/1,
+	 unicode_atom_roundtrip/1,
+	 atom_roundtrip_r15b/1,
 	 contended_atom_cache_entry/1,
+	 contended_unicode_atom_cache_entry/1,
 	 bad_dist_structure/1,
 	 bad_dist_ext_receive/1,
 	 bad_dist_ext_process_info/1,
@@ -62,8 +74,9 @@ all() ->
      link_to_dead_new_node, applied_monitor_node,
      ref_port_roundtrip, nil_roundtrip, stop_dist,
      {group, trap_bif}, {group, dist_auto_connect},
-     dist_parallel_send, atom_roundtrip, atom_roundtrip_r13b,
-     contended_atom_cache_entry, bad_dist_structure, {group, bad_dist_ext}].
+     dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip, atom_roundtrip_r15b,
+     contended_atom_cache_entry, contended_unicode_atom_cache_entry,
+     bad_dist_structure, {group, bad_dist_ext}].
 
 groups() -> 
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -1085,18 +1098,26 @@ atom_roundtrip(Config) when is_list(Config) ->
     ?line stop_node(Node),
     ?line ok.
 
-atom_roundtrip_r13b(Config) when is_list(Config) ->
-    case ?t:is_release_available("r13b") of
+atom_roundtrip_r15b(Config) when is_list(Config) ->
+    case ?t:is_release_available("r15b") of
 	true ->
 	    ?line AtomData = atom_data(),
 	    ?line verify_atom_data(AtomData),
-	    ?line {ok, Node} = start_node(Config, [], "r13b"),
+	    ?line {ok, Node} = start_node(Config, [], "r15b"),
 	    ?line do_atom_roundtrip(Node, AtomData),
 	    ?line stop_node(Node),
 	    ?line ok;
 	false ->
-	    ?line {skip,"No OTP R13B available"}
+	    ?line {skip,"No OTP R15B available"}
     end.
+
+unicode_atom_roundtrip(Config) when is_list(Config) ->
+    ?line AtomData = unicode_atom_data(),
+    ?line verify_atom_data(AtomData),
+    ?line {ok, Node} = start_node(Config),
+    ?line do_atom_roundtrip(Node, AtomData),
+    ?line stop_node(Node),
+    ?line ok.
 
 do_atom_roundtrip(Node, AtomData) ->
     ?line Parent = self(),
@@ -1128,12 +1149,76 @@ atom_data() ->
 	      lists:seq(1, 2000)).
 
 verify_atom_data(AtomData) ->
-    lists:foreach(fun ({Atom, AtomTxt}) ->
-			  AtomTxt = atom_to_list(Atom)
+    lists:foreach(fun ({Atom, AtomTxt}) when is_atom(Atom) ->
+			  AtomTxt = atom_to_list(Atom);
+		      ({PPR, AtomTxt}) ->
+			  % Pid, Port, or Ref
+			  AtomTxt = atom_to_list(node(PPR))
 		  end,
 		  AtomData).
 
+uc_atom_tup(ATxt) ->
+    Atom = string_to_atom(ATxt),
+    ATxt = atom_to_list(Atom),
+    {Atom, ATxt}.
+
+uc_pid_tup(ATxt) ->
+    ATxtExt = string_to_atom_ext(ATxt),
+    Pid = mk_pid({ATxtExt, 1}, 4711,17),
+    true = is_pid(Pid),
+    Atom = node(Pid),
+    true = is_atom(Atom),
+    ATxt = atom_to_list(Atom),
+    {Pid, ATxt}.
+
+uc_port_tup(ATxt) ->
+    ATxtExt = string_to_atom_ext(ATxt),
+    Port = mk_port({ATxtExt, 2}, 4711),
+    true = is_port(Port),
+    Atom = node(Port),
+    true = is_atom(Atom),
+    ATxt = atom_to_list(Atom),
+    {Port, ATxt}.
+
+uc_ref_tup(ATxt) ->
+    ATxtExt = string_to_atom_ext(ATxt),
+    Ref = mk_ref({ATxtExt, 3}, [4711,17, 4711]),
+    true = is_reference(Ref),
+    Atom = node(Ref),
+    true = is_atom(Atom),
+    ATxt = atom_to_list(Atom),
+    {Ref, ATxt}.
+
+
+unicode_atom_data() ->
+    [uc_pid_tup(lists:seq(16#1f600, 16#1f600+249) ++ "@host"),
+     uc_pid_tup(lists:seq(16#1f600, 16#1f600+30) ++ "@host"),
+     uc_port_tup(lists:seq(16#1f600, 16#1f600+249) ++ "@host"),
+     uc_port_tup(lists:seq(16#1f600, 16#1f600+30) ++ "@host"),
+     uc_ref_tup(lists:seq(16#1f600, 16#1f600+249) ++ "@host"),
+     uc_ref_tup(lists:seq(16#1f600, 16#1f600+30) ++ "@host"),
+     uc_atom_tup(lists:seq(16#1f600, 16#1f600+254)),
+     uc_atom_tup(lists:seq(16#1f600, 16#1f600+63)),
+     uc_atom_tup(lists:seq(0, 254)),
+     uc_atom_tup(lists:seq(100, 163)),
+     uc_atom_tup(lists:seq(200, 354)),
+     uc_atom_tup(lists:seq(200, 263)),
+     uc_atom_tup(lists:seq(2000, 2254)),
+     uc_atom_tup(lists:seq(2000, 2063)),
+     uc_atom_tup(lists:seq(65500, 65754)),
+     uc_atom_tup(lists:seq(65500, 65563))
+     | lists:map(fun (N) ->
+			 uc_atom_tup(lists:seq(64000+N, 64254+N))
+		 end,
+		 lists:seq(1, 2000))].
+
 contended_atom_cache_entry(Config) when is_list(Config) ->
+    contended_atom_cache_entry_test(Config, latin1).
+
+contended_unicode_atom_cache_entry(Config) when is_list(Config) ->
+    contended_atom_cache_entry_test(Config, unicode).
+
+contended_atom_cache_entry_test(Config, Type) ->
     ?line TestServer = self(),
     ?line ProcessPairs = 10,
     ?line Msgs = 100000,
@@ -1147,9 +1232,16 @@ contended_atom_cache_entry(Config) when is_list(Config) ->
 						  true),
 		    Master = self(),
 		    CIX = get_cix(),
-		    TestAtoms = get_conflicting_atoms(CIX, ProcessPairs),
+		    TestAtoms = case Type of
+				    latin1 ->
+					get_conflicting_atoms(CIX,
+							      ProcessPairs);
+				    unicode ->
+					get_conflicting_unicode_atoms(CIX,
+								      ProcessPairs)
+				end,
 		    io:format("Testing with the following atoms all using "
-			      "cache index ~p:~n ~p~n",
+			      "cache index ~p:~n ~w~n",
 			      [CIX, TestAtoms]),
 		    Ps = lists:map(
 			   fun (A) ->
@@ -1159,8 +1251,12 @@ contended_atom_cache_entry(Config) when is_list(Config) ->
 					 fun () ->
 						 Atom = receive
 							    {Ref, txt, ATxt} ->
-								list_to_atom(
-								  ATxt)
+								case Type of
+								    latin1 ->
+									list_to_atom(ATxt);
+								    unicode ->
+									string_to_atom(ATxt)
+								end
 							end,
 						 receive_ref_atom(Ref,
 								  Atom,
@@ -1250,6 +1346,20 @@ get_conflicting_atoms(CIX, N) ->
 	    [Atom|get_conflicting_atoms(CIX, N-1)];
 	_ ->
 	    get_conflicting_atoms(CIX, N)
+    end.
+
+get_conflicting_unicode_atoms(_CIX, 0) ->
+    [];
+get_conflicting_unicode_atoms(CIX, N) ->
+    {A, B, C} = now(),
+    Atom = string_to_atom([16#1f608] ++ "atom" ++ integer_to_list(A*1000000000000
+								  + B*1000000
+								  + C)),
+    case erts_debug:get_internal_state({atom_out_cache_index, Atom}) of
+	CIX ->
+	    [Atom|get_conflicting_unicode_atoms(CIX, N-1)];
+	_ ->
+	    get_conflicting_unicode_atoms(CIX, N)
     end.
 
 -define(COOKIE, '').
@@ -2131,3 +2241,190 @@ repeat(_Fun, 0) ->
 repeat(Fun, N) ->
     Fun(),
     repeat(Fun, N-1).
+
+string_to_atom_ext(String) ->
+    Utf8List = string_to_utf8_list(String),
+    Len = length(Utf8List),
+    case Len < 256 of
+	true ->
+	    [?SMALL_ATOM_UTF8_EXT, Len | Utf8List];
+	false ->
+	    [?ATOM_UTF8_EXT, Len bsr 8, Len band 16#ff | Utf8List]
+    end.
+
+string_to_atom(String) ->
+    binary_to_term(list_to_binary([?VERSION_MAGIC
+				   | string_to_atom_ext(String)])).
+
+string_to_utf8_list([]) ->
+    [];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   0 =< CP,
+				   CP =< 16#7F ->
+    [CP | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#80 =< CP,
+				   CP =< 16#7FF ->
+    [16#C0 bor (CP bsr 6),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#800 =< CP,
+				   CP =< 16#FFFF ->
+    [16#E0 bor (CP bsr 12),
+     16#80 bor (16#3F band (CP bsr 6)),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#10000 =< CP,
+				   CP =< 16#10FFFF ->
+    [16#F0 bor (CP bsr 18),
+     16#80 bor (16#3F band (CP bsr 12)),
+     16#80 bor (16#3F band (CP bsr 6)),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)].
+
+utf8_list_to_string([]) ->
+    [];
+utf8_list_to_string([B|Bs]) when is_integer(B),
+				 0 =< B,
+				 B =< 16#7F ->
+    [B | utf8_list_to_string(Bs)];
+utf8_list_to_string([B0, B1 | Bs]) when is_integer(B0),
+					16#C0 =< B0,
+					B0 =< 16#DF,
+					is_integer(B1),
+					16#80 =< B1,
+					B1 =< 16#BF ->
+    [(((B0 band 16#1F) bsl 6)
+	  bor (B1 band 16#3F))
+     | utf8_list_to_string(Bs)];
+utf8_list_to_string([B0, B1, B2 | Bs]) when is_integer(B0),
+					    16#E0 =< B0,
+					    B0 =< 16#EF,
+					    is_integer(B1),
+					    16#80 =< B1,
+					    B1 =< 16#BF,
+					    is_integer(B2),
+					    16#80 =< B2,
+					    B2 =< 16#BF ->
+    [(((B0 band 16#F) bsl 12)
+	  bor ((B1 band 16#3F) bsl 6)
+	  bor (B2 band 16#3F))
+     | utf8_list_to_string(Bs)];
+utf8_list_to_string([B0, B1, B2, B3 | Bs]) when is_integer(B0),
+						16#F0 =< B0,
+						B0 =< 16#F7,
+						is_integer(B1),
+						16#80 =< B1,
+						B1 =< 16#BF,
+						is_integer(B2),
+						16#80 =< B2,
+						B2 =< 16#BF,
+						is_integer(B3),
+						16#80 =< B3,
+						B3 =< 16#BF ->
+    [(((B0 band 16#7) bsl 18)
+	  bor ((B1 band 16#3F) bsl 12)
+	  bor ((B2 band 16#3F) bsl 6)
+	  bor (B3 band 16#3F))
+     | utf8_list_to_string(Bs)].
+
+mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_pid({NodeNameExt, Creation}, Number, Serial);
+mk_pid({NodeNameExt, Creation}, Number, Serial) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					      ?PID_EXT,
+					      NodeNameExt,
+					      uint32_be(Number),
+					      uint32_be(Serial),
+					      uint8(Creation)])) of
+	Pid when is_pid(Pid) ->
+	    Pid;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_pid, [{NodeNameExt, Creation}, Number, Serial]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end.
+
+mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_port({NodeNameExt, Creation}, Number);
+mk_port({NodeNameExt, Creation}, Number) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					      ?PORT_EXT,
+					      NodeNameExt,
+					      uint32_be(Number),
+					      uint8(Creation)])) of
+	Port when is_port(Port) ->
+	    Port;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_port, [{NodeNameExt, Creation}, Number]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end.
+
+mk_ref({NodeName, Creation}, [Number] = NL) when is_atom(NodeName),
+						 is_integer(Creation),
+						 is_integer(Number) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_ref({NodeNameExt, Creation}, NL);
+mk_ref({NodeNameExt, Creation}, [Number]) when is_integer(Creation),
+					       is_integer(Number) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					      ?REFERENCE_EXT,
+					      NodeNameExt,
+					      uint32_be(Number),
+					      uint8(Creation)])) of
+	Ref when is_reference(Ref) ->
+	    Ref;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, [Number]]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end;
+mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
+					   is_integer(Creation),
+					   is_list(Numbers) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_ref({NodeNameExt, Creation}, Numbers);
+mk_ref({NodeNameExt, Creation}, Numbers) when is_integer(Creation),
+					      is_list(Numbers) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					      ?NEW_REFERENCE_EXT,
+					      uint16_be(length(Numbers)),
+					      NodeNameExt,
+					      uint8(Creation),
+					      lists:map(fun (N) ->
+								uint32_be(N)
+							end,
+							Numbers)])) of
+	Ref when is_reference(Ref) ->
+	    Ref;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, Numbers]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end.
+
+
+uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
+    [(Uint bsr 24) band 16#ff,
+     (Uint bsr 16) band 16#ff,
+     (Uint bsr 8) band 16#ff,
+     Uint band 16#ff];
+uint32_be(Uint) ->
+    exit({badarg, uint32_be, [Uint]}).
+
+
+uint16_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 16 ->
+    [(Uint bsr 8) band 16#ff,
+     Uint band 16#ff];
+uint16_be(Uint) ->
+    exit({badarg, uint16_be, [Uint]}).
+
+uint8(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 8 ->
+    Uint band 16#ff;
+uint8(Uint) ->
+    exit({badarg, uint8, [Uint]}).

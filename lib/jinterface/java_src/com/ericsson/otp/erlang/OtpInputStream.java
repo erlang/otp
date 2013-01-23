@@ -351,26 +351,64 @@ public class OtpInputStream extends ByteArrayInputStream {
      */
     public String read_atom() throws OtpErlangDecodeException {
 	int tag;
-	int len;
+	int len = -1;
 	byte[] strbuf;
 	String atom;
 
 	tag = read1skip_version();
 
-	if (tag != OtpExternal.atomTag) {
+	switch (tag) {
+
+	case OtpExternal.atomTag:
+	    len = read2BE();
+	    strbuf = new byte[len];
+	    this.readN(strbuf);
+	    try {
+		atom = new String(strbuf, "ISO-8859-1");
+	    } catch (final java.io.UnsupportedEncodingException e) {
+		throw new OtpErlangDecodeException(
+		    "Failed to decode ISO-8859-1 atom");
+	    }
+	    if (atom.length() > OtpExternal.maxAtomLength) {
+		/*
+		 * Throwing an exception would be better I think,
+		 * but truncation seems to be the way it has
+		 * been done in other parts of OTP...
+		 */
+		atom = atom.substring(0, OtpExternal.maxAtomLength);
+	    }
+	    break;
+
+	case OtpExternal.smallAtomUtf8Tag:
+	    len = read1();
+	    /* fall through */
+	case OtpExternal.atomUtf8Tag:
+	    if (len < 0) {
+		len = read2BE();
+	    }
+	    strbuf = new byte[len];
+	    this.readN(strbuf);
+	    try {
+		atom = new String(strbuf, "UTF-8");
+	    } catch (final java.io.UnsupportedEncodingException e) {
+		throw new OtpErlangDecodeException(
+		    "Failed to decode UTF-8 atom");
+	    }
+	    if (atom.codePointCount(0, atom.length()) > OtpExternal.maxAtomLength) {
+		/*
+		 * Throwing an exception would be better I think,
+		 * but truncation seems to be the way it has
+		 * been done in other parts of OTP...
+		 */
+		final int[] cps = OtpErlangString.stringToCodePoints(atom);
+		atom = new String(cps, 0, OtpExternal.maxAtomLength);
+	    }
+	    break;
+
+	default:
 	    throw new OtpErlangDecodeException(
-		    "wrong tag encountered, expected " + OtpExternal.atomTag
-			    + ", got " + tag);
-	}
-
-	len = read2BE();
-
-	strbuf = new byte[len];
-	this.readN(strbuf);
-	atom = OtpErlangString.newString(strbuf);
-
-	if (atom.length() > OtpExternal.maxAtomLength) {
-	    atom = atom.substring(0, OtpExternal.maxAtomLength);
+		"wrong tag encountered, expected " + OtpExternal.atomTag
+		+ ", or "  + OtpExternal.atomUtf8Tag + ", got " + tag);
 	}
 
 	return atom;
@@ -1152,6 +1190,8 @@ public class OtpInputStream extends ByteArrayInputStream {
 	    return new OtpErlangLong(this);
 
 	case OtpExternal.atomTag:
+	case OtpExternal.smallAtomUtf8Tag:
+	case OtpExternal.atomUtf8Tag:
 	    return new OtpErlangAtom(this);
 
 	case OtpExternal.floatTag:

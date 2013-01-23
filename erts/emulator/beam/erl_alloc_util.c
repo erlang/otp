@@ -2906,10 +2906,10 @@ make_name_atoms(Allctr_t *allctr)
     char alloc[] = "alloc";
     char realloc[] = "realloc";
     char free[] = "free";
-    char buf[MAX_ATOM_LENGTH];
+    char buf[MAX_ATOM_CHARACTERS];
     size_t prefix_len = strlen(allctr->name_prefix);
 
-    if (prefix_len > MAX_ATOM_LENGTH + sizeof(realloc) - 1)
+    if (prefix_len > MAX_ATOM_CHARACTERS + sizeof(realloc) - 1)
 	erl_exit(1,"Too long allocator name: %salloc\n",allctr->name_prefix);
 
     memcpy((void *) buf, (void *) allctr->name_prefix, prefix_len);

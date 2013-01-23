@@ -118,6 +118,13 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     ?line send_rec(P, OXPort),
     ?line send_rec(P, OXRef),
 
+    %% Unicode atoms
+    [begin send_rec(P, Atom),
+	   send_rec(P, mk_pid({Atom,1}, 23434, 3434)),
+	   send_rec(P, mk_port({Atom,1}, 2343434)),
+	   send_rec(P, mk_ref({Atom,1}, [262143, 8723648, 24097245])),
+	   void
+     end || Atom <- unicode_atom_data()],
     ?line runner:recv_eot(P),
     ok.
 
@@ -127,7 +134,7 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 % We read two packets for each test, the ei_decode_encode and ei_x_decode_encode  version....
 
 send_rec(P, Term) when is_port(P) ->
-    ?t:format("Testing: ~p~n", [Term]),
+    %%?t:format("Testing: ~p~n", [Term]),
     P ! {self(), {command, term_to_binary(Term)}},
     {_B,Term} = get_buf_and_term(P).
     
@@ -146,7 +153,7 @@ get_buf_and_term(P) ->
 	_ ->
 	    B1 = list_to_binary([131,B]),	% No magic, add
 	    T = binary_to_term(B1),
-	    io:format("~w\n~w\n(got no magic)\n",[B,T]),
+	    %io:format("~w\n~w\n(got no magic)\n",[B,T]),
 	    {B,T}
     end.
     
@@ -160,7 +167,7 @@ get_binary(P) ->
     case runner:get_term(P) of
 	{bytes,L} ->
 	    B = list_to_binary(L),
-	    io:format("~w\n",[L]),
+	    %%io:format("~w\n",[L]),
 % For strange reasons <<131>> show up as <>....
 %	    io:format("~w\n",[B]),
 	    B;
@@ -226,38 +233,36 @@ uint8(Uint) ->
 
 
 mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
-    mk_pid({atom_to_list(NodeName), Creation}, Number, Serial);
-mk_pid({NodeName, Creation}, Number, Serial) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_pid({NodeNameExt, Creation}, Number, Serial);
+mk_pid({NodeNameExt, Creation}, Number, Serial) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					?PID_EXT,
-					?ATOM_EXT,
-					uint16_be(length(NodeName)),
-					NodeName,
+					NodeNameExt,
 					uint32_be(Number),
 					uint32_be(Serial),
 					uint8(Creation)])) of
 	Pid when is_pid(Pid) ->
 	    Pid;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_pid, [{NodeName, Creation}, Number, Serial]});
+	    exit({badarg, mk_pid, [{NodeNameExt, Creation}, Number, Serial]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
 
 mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
-    mk_port({atom_to_list(NodeName), Creation}, Number);
-mk_port({NodeName, Creation}, Number) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_port({NodeNameExt, Creation}, Number);
+mk_port({NodeNameExt, Creation}, Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					      ?PORT_EXT,
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
+					      NodeNameExt,
 					      uint32_be(Number),
 					      uint8(Creation)])) of
 	Port when is_port(Port) ->
 	    Port;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_port, [{NodeName, Creation}, Number]});
+	    exit({badarg, mk_port, [{NodeNameExt, Creation}, Number]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
@@ -265,33 +270,30 @@ mk_port({NodeName, Creation}, Number) ->
 mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
 					   is_integer(Creation),
 					   is_list(Numbers) ->
-    mk_ref({atom_to_list(NodeName), Creation}, Numbers);
-mk_ref({NodeName, Creation}, [Number]) when is_list(NodeName),
-					    is_integer(Creation),
-					    is_integer(Number) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_ref({NodeNameExt, Creation}, Numbers);
+mk_ref({NodeNameExt, Creation}, [Number]) when is_binary(NodeNameExt),
+					       is_integer(Creation),
+					       is_integer(Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					      ?REFERENCE_EXT,
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
+					      NodeNameExt,
 					      uint32_be(Number),
 					      uint8(Creation)])) of
 	Ref when is_reference(Ref) ->
 	    Ref;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_ref, [{NodeName, Creation}, [Number]]});
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, [Number]]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end;
-mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
-					   is_integer(Creation),
-					   is_list(Numbers) ->
+mk_ref({NodeNameExt, Creation}, Numbers) when is_binary(NodeNameExt),
+					      is_integer(Creation),
+					      is_list(Numbers) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					      ?NEW_REFERENCE_EXT,
 					      uint16_be(length(Numbers)),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
+					      NodeNameExt,
 					      uint8(Creation),
 					      lists:map(fun (N) ->
 								uint32_be(N)
@@ -300,8 +302,67 @@ mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
 	Ref when is_reference(Ref) ->
 	    Ref;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_ref, [{NodeName, Creation}, Numbers]});
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, Numbers]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
 
+
+
+unicode_atom_data() ->
+    [uc_atup(lists:seq(16#1f600, 16#1f600+254)),
+     uc_atup(lists:seq(16#1f600, 16#1f600+63)),
+     uc_atup(lists:seq(1, 255)),
+     uc_atup(lists:seq(100, 163)),
+     uc_atup(lists:seq(200, 354)),
+     uc_atup(lists:seq(200, 263)),
+     uc_atup(lists:seq(2000, 2254)),
+     uc_atup(lists:seq(2000, 2063)),
+     uc_atup(lists:seq(65500, 65754)),
+     uc_atup(lists:seq(65500, 65563))
+     | lists:map(fun (N) ->
+			 Pow2 = (1 bsl N),
+			 uc_atup(lists:seq(Pow2 - 127, Pow2 + 127))
+		 end,
+		 lists:seq(7, 20))
+    ].
+
+uc_atup(ATxt) ->
+    string_to_atom(ATxt).
+
+string_to_atom(String) ->
+    Utf8List = string_to_utf8_list(String),
+    Len = length(Utf8List),
+    TagLen = case Len < 256 of
+		 true -> [119, Len];
+		 false -> [118, Len bsr 8, Len band 16#ff]
+	     end,
+    binary_to_term(list_to_binary([131, TagLen, Utf8List])).
+
+string_to_utf8_list([]) ->
+    [];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   0 =< CP,
+				   CP =< 16#7F ->
+    [CP | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#80 =< CP,
+				   CP =< 16#7FF ->
+    [16#C0 bor (CP bsr 6),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#800 =< CP,
+				   CP =< 16#FFFF ->
+    [16#E0 bor (CP bsr 12),
+     16#80 bor (16#3F band (CP bsr 6)),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)];
+string_to_utf8_list([CP|CPs]) when is_integer(CP),
+				   16#10000 =< CP,
+				   CP =< 16#10FFFF ->
+    [16#F0 bor (CP bsr 18),
+     16#80 bor (16#3F band (CP bsr 12)),
+     16#80 bor (16#3F band (CP bsr 6)),
+     16#80 bor (16#3F band CP)
+     | string_to_utf8_list(CPs)].

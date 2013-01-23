@@ -22,6 +22,7 @@
 #endif
 #include "epmd.h"     /* Renamed from 'epmd_r4.h' */
 #include "epmd_int.h"
+#include "erl_printf.h" /* erts_snprintf */
 
 /* forward declarations */
 
@@ -114,16 +115,18 @@ void epmd_call(EpmdVars *g,int what)
 	epmd_cleanup_exit(g,1);
     }
     j = ntohl(i);
-    if (!g->silent)
-	printf("epmd: up and running on port %d with data:\n", j);
+    if (!g->silent) {
+	rval = erts_snprintf(buf, OUTBUF_SIZE,
+			     "epmd: up and running on port %d with data:\n", j);
+	write(1, buf, rval);
+    }
     while(1) {
-	if ((rval = read(fd,buf,1)) <= 0)  {
+	if ((rval = read(fd,buf,OUTBUF_SIZE)) <= 0)  {
 	    close(fd);
 	    epmd_cleanup_exit(g,0);
 	}
-	buf[rval] = '\0';
 	if (!g->silent)
-	    printf("%s",buf);
+	    write(1, buf, rval); /* Potentially UTF-8 encoded */
     }
 }
 

@@ -25,22 +25,11 @@ int ei_decode_port(const char *buf, int *index, erlang_port *p)
 {
   const char *s = buf + *index;
   const char *s0 = s;
-  int len;
   
   if (get8(s) != ERL_PORT_EXT) return -1;
 
   /* first the nodename */
-  if (get8(s) != ERL_ATOM_EXT) return -1;
-
-  len = get16be(s);
-
-  if (len > MAXATOMLEN) return -1;
-
-  if (p) {
-    memmove(p->node, s, len);
-    p->node[len] = (char)0;
-  }
-  s += len;
+  if (get_atom(&s, p->node, &p->node_org_enc) < 0) return -1;
   
   /* now the numbers: num (4), creation (1) */
   if (p) {

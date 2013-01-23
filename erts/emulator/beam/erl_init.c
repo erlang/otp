@@ -358,7 +358,7 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
     ErlSpawnOpts so;
     Eterm env;
     
-    start_mod = am_atom_put(modname, sys_strlen(modname));
+    start_mod = erts_atom_put((byte *) modname, sys_strlen(modname), ERTS_ATOM_ENC_LATIN1, 1);
     if (erts_find_function(start_mod, am_start, 2,
 			   erts_active_code_ix()) == NULL) {
 	erl_exit(5, "No function %s:start/2\n", modname);
@@ -455,7 +455,7 @@ load_preloaded(void)
     i = 0;
     while ((name = preload_p[i].name) != NULL) {
 	length = preload_p[i].size;
-	module_name = am_atom_put(name, sys_strlen(name));
+	module_name = erts_atom_put((byte *) name, sys_strlen(name), ERTS_ATOM_ENC_LATIN1, 1);
 	if ((code = sys_preload_begin(&preload_p[i])) == 0)
 	    erl_exit(1, "Failed to find preloaded code for module %s\n", 
 		     name);

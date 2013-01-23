@@ -277,7 +277,9 @@
 	the binary contains Unicode characters greater than 16#FF.
 	In a future release, such Unicode characters might be allowed
 	and <c>binary_to_atom(<anno>Binary</anno>, utf8)</c>
-	will not fail in that case.</p></note>
+	will not fail in that case. For more information on Unicode support in atoms
+	see <seealso marker="erl_ext_dist#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+	in the chapter about the external term format in the ERTS User's Guide.</p></note>
 
         <pre>
 > <input>binary_to_atom(&lt;&lt;"Erlang"&gt;&gt;, latin1).</input>
@@ -1712,9 +1714,11 @@ os_prompt% </pre>
       <desc>
         <p>Returns the atom whose text representation is <c><anno>String</anno></c>.</p>
 	<p><c><anno>String</anno></c> may only contain ISO-latin-1
-	characterns (i.e. numbers below 256) as the current
+	characters (i.e. numbers below 256) as the current
 	implementation does not allow unicode characters >= 256 in
-	atoms.</p>
+	atoms. For more information on Unicode support in atoms
+	see <seealso marker="erl_ext_dist#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+	in the chapter about the external term format in the ERTS User's Guide.</p>
         <pre>
 > <input>list_to_atom("Erlang").</input>
 'Erlang'</pre>

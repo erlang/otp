@@ -88,6 +88,12 @@ public class OtpExternal {
     /** The tag used for old Funs */
     public static final int funTag = 117;
 
+    /** The tag used for unicode atoms */
+    public static final int atomUtf8Tag = 118;
+
+    /** The tag used for small unicode atoms */
+    public static final int smallAtomUtf8Tag = 119;
+
     /** The tag used for compressed terms */
     public static final int compressedTag = 80;
 

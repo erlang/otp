@@ -371,7 +371,7 @@ Eterm
 erts_bld_atom(Uint **hpp, Uint *szp, char *str)
 {
     if (hpp)
-	return am_atom_put(str, sys_strlen(str));
+	return erts_atom_put((byte *) str, sys_strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
     else
 	return THE_NON_VALUE;
 }

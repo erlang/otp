@@ -85,7 +85,16 @@ ETERM *erl_global_whereis(int fd, const char *name, char *node)
   opid = erl_decode((unsigned char*)buf);
 
   /* extract the nodename for the caller */
-  if (node) strcpy(node,epid.node);
+  if (node) {
+      char* node_str = ERL_PID_NODE(opid);
+      if (node_str) {
+	  strcpy(node, node_str);
+      }
+      else {
+	  erl_free_term(opid);
+	  return NULL;
+      }
+  }
 
   return opid;
 }

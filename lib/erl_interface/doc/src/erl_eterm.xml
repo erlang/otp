@@ -77,10 +77,12 @@
       </p>
     <taglist>
       <tag><c><![CDATA[char *ERL_ATOM_PTR(t)]]></c></tag>
+      <tag><c><![CDATA[char *ERL_ATOM_PTR_UTF8(t)]]></c></tag>
       <item>A string representing atom <c><![CDATA[t]]></c>.
       </item>
       <tag><c><![CDATA[int ERL_ATOM_SIZE(t)]]></c></tag>
-      <item>The length (in characters) of atom t.</item>
+      <tag><c><![CDATA[int ERL_ATOM_SIZE_UTF8(t)]]></c></tag>
+      <item>The length (in bytes) of atom t.</item>
       <tag><c><![CDATA[void *ERL_BIN_PTR(t)]]></c></tag>
       <item>A pointer to the contents of <c><![CDATA[t]]></c></item>
       <tag><c><![CDATA[int ERL_BIN_SIZE(t)]]></c></tag>
@@ -92,6 +94,7 @@
       <tag><c><![CDATA[double ERL_FLOAT_VALUE(t)]]></c></tag>
       <item>The floating point value of <c><![CDATA[t]]></c>.</item>
       <tag><c><![CDATA[ETERM *ERL_PID_NODE(t)]]></c></tag>
+      <tag><c><![CDATA[ETERM *ERL_PID_NODE_UTF8(t)]]></c></tag>
       <item>The Node in pid <c><![CDATA[t]]></c>.</item>
       <tag><c><![CDATA[int ERL_PID_NUMBER(t)]]></c></tag>
       <item>The sequence number in pid <c><![CDATA[t]]></c>.</item>
@@ -104,6 +107,7 @@
       <tag><c><![CDATA[int ERL_PORT_CREATION(t)]]></c></tag>
       <item>The creation number in port <c><![CDATA[t]]></c>.</item>
       <tag><c><![CDATA[ETERM *ERL_PORT_NODE(t)]]></c></tag>
+      <tag><c><![CDATA[ETERM *ERL_PORT_NODE_UTF8(t)]]></c></tag>
       <item>The node in port <c><![CDATA[t]]></c>.</item>
       <tag><c><![CDATA[int ERL_REF_NUMBER(t)]]></c></tag>
       <item>The first part of the reference number in ref <c><![CDATA[t]]></c>. Use
@@ -296,7 +300,7 @@ iohead ::= Binary
       <name><ret>ETERM *</ret><nametext>erl_mk_atom(string)</nametext></name>
       <fsummary>Creates an atom</fsummary>
       <type>
-        <v>char *string;</v>
+        <v>const char *string;</v>
       </type>
       <desc>
         <p>Creates an atom.</p>
@@ -305,10 +309,12 @@ iohead ::= Binary
         <p>Returns an Erlang term containing an atom. Note that it is
           the callers responsibility to make sure that <c><![CDATA[string]]></c>
           contains a valid name for an atom.</p>
-        <p><c><![CDATA[ERL_ATOM_PTR(atom)]]></c> can be used to retrieve the 
-          atom name (as a string). Note that the string is not
-          0-terminated in the atom. <c><![CDATA[ERL_ATOM_SIZE(atom)]]></c>returns
-          the length of the atom name.</p>
+        <p><c><![CDATA[ERL_ATOM_PTR(atom)]]></c> and <c><![CDATA[ERL_ATOM_PTR_UTF8(atom)]]></c>
+	can be used to retrieve the atom name (as a null terminated string). <c><![CDATA[ERL_ATOM_SIZE(atom)]]></c>
+	and <c><![CDATA[ERL_ATOM_SIZE_UTF8(atom)]]></c> returns the length of the atom name.</p>
+	<note><p>Note that the UTF8 variants were introduced in Erlang/OTP releases R16
+	and the string returned by <c>ERL_ATOM_PTR(atom)</c> was not null terminated on older releases.</p>
+	</note>
       </desc>
     </func>
     <func>

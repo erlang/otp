@@ -82,6 +82,25 @@
       function returns the size required (note that for strings an
       extra byte is needed for the 0 string terminator).</p>
   </description>
+  <section>
+    <title>DATA TYPES</title>
+
+    <taglist>
+      <tag><marker id="erlang_char_encoding"/>enum erlang_char_encoding</tag>
+       <item>
+	 <p/>
+	 <code type="none">
+enum erlang_char_encoding {
+    ERLANG_ASCII, ERLANG_LATIN1, ERLANG_UTF8
+};
+</code>
+         <p>The character encoding used for atoms. <c>ERLANG_ASCII</c> represents 7-bit ASCII.
+	 Latin1 and UTF8 are different extensions of 7-bit ASCII. All 7-bit ASCII characters
+	 are valid Latin1 and UTF8 characters. ASCII and Latin1 both represent each character
+	 by one byte. A UTF8 character can consist of one to four bytes.</p>
+      </item>
+    </taglist>
+  </section>
   <funcs>
     <func>
       <name><ret>void</ret><nametext>ei_set_compat_rel(release_number)</nametext></name>
@@ -225,9 +244,29 @@
       <fsummary>Encode an atom</fsummary>
       <desc>
         <p>Encodes an atom in the binary format. The <c><![CDATA[p]]></c> parameter
-          is the name of the atom. Only upto <c><![CDATA[MAXATOMLEN]]></c> bytes
+          is the name of the atom in latin1 encoding. Only upto <c>MAXATOMLEN-1</c> bytes
           are encoded. The name should be zero-terminated, except for
           the <c><![CDATA[ei_x_encode_atom_len()]]></c> function.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_atom_as(char *buf, int *index, const char *p, enum erlang_char_encoding from_enc, enum erlang_char_encoding to_enc)</nametext></name>
+      <name><ret>int</ret><nametext>ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, enum erlang_char_encoding from_enc, enum erlang_char_encoding to_enc)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_atom_as(ei_x_buff* x, const char *p, enum erlang_char_encoding from_enc, enum erlang_char_encoding to_enc)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, enum erlang_char_encoding from_enc, enum erlang_char_encoding to_enc)</nametext></name>
+      <fsummary>Encode an atom</fsummary>
+      <desc>
+        <p>Encodes an atom in the binary format with character encoding
+	<c><seealso marker="#erlang_char_encoding">to_enc</seealso></c> (latin1 or utf8).
+	The <c>p</c> parameter is the name of the atom with character encoding
+	<c><seealso marker="#erlang_char_encoding">from_enc</seealso></c>  (ascii, latin1 or utf8).
+	The name must either be zero-terminated or a function variant with a <c>len</c>
+	parameter must be used.</p>
+	<p>The encoding will fail if <c>p</c> is not a valid string in encoding <c>from_enc</c>,
+	if the string is too long or if it can not be represented with character encoding <c>to_enc</c>.</p>
+	<p>These functions were introduced in R16 release of Erlang/OTP as part of a first step
+	to support UTF8 atoms. Atoms encoded with <c>ERLANG_UTF8</c>
+	can not be decoded by earlier releases than R16.</p>
       </desc>
     </func>
     <func>
@@ -490,8 +529,29 @@ ei_x_encode_empty_list(&amp;x);
       <fsummary>Decode an atom</fsummary>
       <desc>
         <p>This function decodes an atom from the binary format.  The
-          name of the atom is placed at <c><![CDATA[p]]></c>. There can be at most
+	null terminated name of the atom is placed at <c><![CDATA[p]]></c>. There can be at most
           <c><![CDATA[MAXATOMLEN]]></c> bytes placed in the buffer.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_atom_as(const char *buf, int *index, char *p, int plen, enum erlang_char_encoding want, enum erlang_char_encoding* was, enum erlang_char_encoding* result)</nametext></name>
+      <fsummary>Decode an atom</fsummary>
+      <desc>
+        <p>This function decodes an atom from the binary format. The
+	null terminated name of the atom is placed in buffer at <c>p</c> of length
+	<c>plen</c> bytes.</p>
+	<p>The wanted string encoding is specified by <c><seealso marker="#erlang_char_encoding">
+	want</seealso></c>. The original encoding used in the
+	binary format (latin1 or utf8) can be obtained from <c>*was</c>. The actual encoding of the resulting string
+	(7-bit ascii, latin1 or utf8) can be obtained from <c>*result</c>. Both <c>was</c> and <c>result</c> can be <c>NULL</c>.
+	
+	<c>*result</c> may differ from <c>want</c> if <c>want</c> is a bitwise-or'd combination like
+	<c>ERLANG_LATIN1|ERLANG_UTF8</c> or if <c>*result</c> turn out to be pure 7-bit ascii
+	(compatible with both latin1 and utf8).</p>
+	<p>This function fails if the atom is too long for the buffer
+	or if it can not be represented with encoding <c>want</c>.</p>
+	<p>This function was introduced in R16 release of Erlang/OTP as part of a first step
+	to support UTF8 atoms.</p>
       </desc>
     </func>
     <func>

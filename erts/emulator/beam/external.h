@@ -51,6 +51,8 @@
 #define NEW_FUN_EXT       'p'
 #define EXPORT_EXT        'q'
 #define FUN_EXT           'u'
+#define ATOM_UTF8_EXT     'v'
+#define SMALL_ATOM_UTF8_EXT 'w'
 
 #define DIST_HEADER       'D'
 #define ATOM_CACHE_REF    'R'
@@ -90,6 +92,7 @@ typedef struct cache {
 typedef struct {
     int hdr_sz;
     int sz;
+    int long_atoms;
     int cix[ERTS_ATOM_CACHE_SIZE];
     struct {
 	Eterm atom;
@@ -150,12 +153,12 @@ typedef struct {
 void erts_init_atom_cache_map(ErtsAtomCacheMap *);
 void erts_reset_atom_cache_map(ErtsAtomCacheMap *);
 void erts_destroy_atom_cache_map(ErtsAtomCacheMap *);
-void erts_finalize_atom_cache_map(ErtsAtomCacheMap *);
+void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
 Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
 
 Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
 byte *erts_encode_ext_dist_header_setup(byte *, ErtsAtomCacheMap *);
-byte *erts_encode_ext_dist_header_finalize(byte *, ErtsAtomCache *);
+byte *erts_encode_ext_dist_header_finalize(byte *, ErtsAtomCache *, Uint32);
 Uint erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap *);
 void erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *);
 

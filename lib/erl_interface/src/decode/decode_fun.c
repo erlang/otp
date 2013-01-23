@@ -42,7 +42,8 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 	if (ei_decode_pid(s, &ix, (p == NULL ? (erlang_pid*)NULL : &p->pid)) < 0)
 	    return -1;
 	/* then the module (atom) */
-	if (ei_decode_atom(s, &ix, (p == NULL ? (char*)NULL : p->module)) < 0)
+	if (ei_decode_atom_as(s, &ix, (p == NULL ? (char*)NULL : p->module),
+			      MAXATOMLEN_UTF8, ERLANG_UTF8, &p->module_org_enc, NULL) < 0)
 	    return -1;
 	/* then the index */
 	if (ei_decode_long(s, &ix, (p == NULL ? (long*)NULL : &p->index)) < 0)
@@ -84,7 +85,8 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 	if (p != NULL) p->n_free_vars = i;
 	/* then the module (atom) */
 	ix = 0;
-	if (ei_decode_atom(s, &ix, (p == NULL ? (char*)NULL : p->module)) < 0)
+	if (ei_decode_atom_as(s, &ix, (p == NULL ? (char*)NULL : p->module),
+			      MAXATOMLEN_UTF8, ERLANG_UTF8, &p->module_org_enc, NULL) < 0)
 	    return -1;
 	/* then the old_index */
 	if (ei_decode_long(s, &ix, (p == NULL ? (long*)NULL : &p->old_index)) < 0)

@@ -23,6 +23,15 @@
 -include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
+-define(VERSION_MAGIC,       131).
+
+-define(ATOM_EXT,            100).
+-define(REFERENCE_EXT,       101).
+-define(PORT_EXT,            102).
+-define(PID_EXT,             103).
+-define(NEW_REFERENCE_EXT,   114).
+-define(ATOM_UTF8_EXT,       118).
+-define(SMALL_ATOM_UTF8_EXT, 119).
 
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_suite/1,
@@ -46,6 +55,10 @@
 	 unicode/1,
 	 unicode_list_to_string/1,
 	 unicode_string_to_list/1,
+	 utf8_atom/1,
+	 utf8_pid/1,
+	 utf8_port/1,
+	 utf8_ref/1,
 	 connect/1]).
 
 
@@ -59,7 +72,9 @@ all() ->
      decompress_roundtrip, compress_roundtrip,
      integer_roundtrip, fun_roundtrip, lists_roundtrip,
      lists_roundtrip_2, lists_iterator, unicode,
-     unicode_list_to_string, unicode_string_to_list, connect].
+     unicode_list_to_string, unicode_string_to_list,
+     utf8_atom, utf8_pid, utf8_port, utf8_ref,
+     connect].
 
 groups() -> 
     [].
@@ -449,6 +464,71 @@ unicode_string_to_list(Config) when is_list(Config) ->
 	    end, ["unicode"]).
 
 
+evil_smiley() ->
+    <<240,159,152,136>>.
+
+evil_smileys(0) ->
+    [];
+evil_smileys(N) ->
+    [evil_smiley() | evil_smileys(N-1)].
+
+utf8_atom(Config) when is_list(Config) ->
+    ES = evil_smiley(),
+    SmallUA = binary_to_term(list_to_binary([?VERSION_MAGIC,
+					     ?SMALL_ATOM_UTF8_EXT,
+					     size(ES),
+					     ES])),
+    true = is_atom(SmallUA),
+    NoESs = 300 div size(ES),
+    ESs = evil_smileys(NoESs),
+    LargeUA = binary_to_term(list_to_binary([?VERSION_MAGIC,
+					     ?ATOM_UTF8_EXT,
+					     uint16_be(NoESs*size(ES)),
+					     ESs])),
+    true = is_atom(LargeUA),
+    erlang:display({atom, SmallUA, LargeUA}),
+    do_echo([SmallUA, LargeUA], Config).
+
+utf8_nodenames_ext() ->
+    H = "@host",
+    ES = evil_smiley(),
+    SmallUANodeExt = list_to_binary([?SMALL_ATOM_UTF8_EXT,
+				     size(ES)+length(H),
+				     ES,
+				     H]),
+    NoESs = 300 div size(ES),
+    ESs = evil_smileys(NoESs),
+    LargeUANodeExt = list_to_binary([?ATOM_UTF8_EXT,
+				     uint16_be(NoESs*size(ES)+length(H)),
+				     ESs,
+				     H]),
+    {SmallUANodeExt, LargeUANodeExt}.
+
+utf8_pid(Config) when is_list(Config) ->
+    {SmallUANodeExt, LargeUANodeExt} = utf8_nodenames_ext(),
+    SmallPid = mk_pid({SmallUANodeExt, 2}, 4711, 4711),
+    LargePid = mk_pid({LargeUANodeExt, 2}, 4711, 4711),
+    erlang:display({pid, SmallPid, node(SmallPid)}),
+    erlang:display({pid, LargePid, node(LargePid)}),
+    do_echo([SmallPid, LargePid], Config).
+
+utf8_port(Config) when is_list(Config) ->
+    {SmallUANodeExt, LargeUANodeExt} = utf8_nodenames_ext(),
+    SmallPort = mk_port({SmallUANodeExt, 2}, 4711),
+    erlang:display({port, SmallPort, node(SmallPort)}),
+    LargePort = mk_port({LargeUANodeExt, 2}, 4711),
+    erlang:display({port, LargePort, node(LargePort)}),
+    do_echo([SmallPort, LargePort], Config).
+
+utf8_ref(Config) when is_list(Config) ->
+    {SmallUANodeExt, LargeUANodeExt} = utf8_nodenames_ext(),
+    SmallRef = mk_ref({SmallUANodeExt, 2}, [4711, 4711, 4711]),
+    erlang:display({ref, SmallRef, node(SmallRef)}),
+    LargeRef = mk_ref({LargeUANodeExt, 2}, [4711, 4711, 4711]),
+    erlang:display({ref, LargeRef, node(LargeRef)}),
+    do_echo([SmallRef, LargeRef], Config).
+    
+
 %% Lazy list
 cp_gen(N) ->
     cp_gen(N, -1, 16#110000).
@@ -647,16 +727,6 @@ make_name() ->
 		 ++ "-" ++ integer_to_list(B)
 		 ++ "-" ++ integer_to_list(C)).
 
-
-
--define(VERSION_MAGIC,       131).
-
--define(ATOM_EXT,            100).
--define(REFERENCE_EXT,       101).
--define(PORT_EXT,            102).
--define(PID_EXT,             103).
--define(NEW_REFERENCE_EXT,   114).
-
 uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
     [(Uint bsr 24) band 16#ff,
      (Uint bsr 16) band 16#ff,
@@ -680,72 +750,70 @@ uint8(Uint) ->
 
 
 mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
-    mk_pid({atom_to_list(NodeName), Creation}, Number, Serial);
-mk_pid({NodeName, Creation}, Number, Serial) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_pid({NodeNameExt, Creation}, Number, Serial);
+mk_pid({NodeNameExt, Creation}, Number, Serial) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					      ?PID_EXT,
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
+					      NodeNameExt,
 					      uint32_be(Number),
 					      uint32_be(Serial),
 					      uint8(Creation)])) of
 	Pid when is_pid(Pid) ->
 	    Pid;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_pid, [{NodeName, Creation}, Number, Serial]});
+	    exit({badarg, mk_pid, [{NodeNameExt, Creation}, Number, Serial]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
 
 mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
-    mk_port({atom_to_list(NodeName), Creation}, Number);
-mk_port({NodeName, Creation}, Number) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_port({NodeNameExt, Creation}, Number);
+mk_port({NodeNameExt, Creation}, Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					      ?PORT_EXT,
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
+					      NodeNameExt,
 					      uint32_be(Number),
 					      uint8(Creation)])) of
 	Port when is_port(Port) ->
 	    Port;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_port, [{NodeName, Creation}, Number]});
+	    exit({badarg, mk_port, [{NodeNameExt, Creation}, Number]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
 
-mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
-					   is_integer(Creation),
-					   is_list(Numbers) ->
-    mk_ref({atom_to_list(NodeName), Creation}, Numbers);
-mk_ref({NodeName, Creation}, [Number]) when is_list(NodeName),
-					    is_integer(Creation),
-					    is_integer(Number) ->
+mk_ref({NodeName, Creation}, [Number] = NL) when is_atom(NodeName),
+						 is_integer(Creation),
+						 is_integer(Number) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_ref({NodeNameExt, Creation}, NL);
+mk_ref({NodeNameExt, Creation}, [Number]) when is_integer(Creation),
+					       is_integer(Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					      ?REFERENCE_EXT,
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
+					      NodeNameExt,
 					      uint32_be(Number),
 					      uint8(Creation)])) of
 	Ref when is_reference(Ref) ->
 	    Ref;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_ref, [{NodeName, Creation}, [Number]]});
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, [Number]]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end;
-mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
+mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
 					   is_integer(Creation),
 					   is_list(Numbers) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_ref({NodeNameExt, Creation}, Numbers);
+mk_ref({NodeNameExt, Creation}, Numbers) when is_integer(Creation),
+					      is_list(Numbers) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
 					      ?NEW_REFERENCE_EXT,
 					      uint16_be(length(Numbers)),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
+					      NodeNameExt,
 					      uint8(Creation),
 					      lists:map(fun (N) ->
 								uint32_be(N)
@@ -754,7 +822,7 @@ mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
 	Ref when is_reference(Ref) ->
 	    Ref;
 	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_ref, [{NodeName, Creation}, Numbers]});
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, Numbers]});
 	Other ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
