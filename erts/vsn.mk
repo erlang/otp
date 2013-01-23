@@ -18,7 +18,7 @@
 # 
 
 VSN = 5.10
-SYSTEM_VSN = R16B
+SYSTEM_VSN = R16A
 
 # Port number 4365 in 4.2
 # Port number 4366 in 4.3
