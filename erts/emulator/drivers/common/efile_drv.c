@@ -57,7 +57,7 @@
 #define FILE_FADVISE            31
 #define FILE_SENDFILE           32
 #define FILE_FALLOCATE          33
-
+#define FILE_CLOSE_ON_PORT_EXIT 34
 /* Return codes */
 
 #define FILE_RESP_OK         0
@@ -178,6 +178,7 @@ dt_private *get_dt_private(int);
 #define MUTEX_LOCK(m)    do { IF_THRDS { TRACE_DRIVER; driver_pdl_lock(m);   } } while (0)
 #define MUTEX_UNLOCK(m)  do { IF_THRDS { TRACE_DRIVER; driver_pdl_unlock(m); } } while (0)
 #else
+#define IF_THRDS if (0)
 #define MUTEX_INIT(m, p)
 #define MUTEX_LOCK(m)
 #define MUTEX_UNLOCK(m)
@@ -429,6 +430,7 @@ struct t_data
     int            level;
     void         (*invoke)(void *);
     void         (*free)(void *);
+    void           *data_to_free; /* used by FILE_CLOSE_ON_PORT_EXIT only */
     int            again;
     int            reply;
 #ifdef  USE_VM_PROBES
@@ -808,32 +810,23 @@ static void free_data(void *data)
 {
     struct t_data *d = (struct t_data *) data;
 
-    if (d->command == FILE_OPEN && d->is_fd_unused && d->fd != FILE_FD_INVALID) {
-        do_close(d->flags, d->fd);
+    switch (d->command) {
+    case FILE_OPEN:
+        if (d->is_fd_unused && d->fd != FILE_FD_INVALID) {
+            /* This is OK to do in scheduler thread because there can be no async op
+               ongoing for this fd here, as we exited during async open.
+               Ideally, this close should happen in an async thread too, but that would
+               require a substantial rewrite, as we are here because of a dead port and
+               cannot schedule async jobs for that port any more... */
+            do_close(d->flags, d->fd);
+        }
+        break;
+    case FILE_CLOSE_ON_PORT_EXIT:
+        EF_FREE(d->data_to_free);
+        break;
     }
 
     EF_FREE(data);
-}
-
-/*********************************************************************
- * Driver entry point -> stop
- */
-static void 
-file_stop(ErlDrvData e)
-{
-    file_descriptor* desc = (file_descriptor*)e;
-
-    TRACE_C('p');
-
-    if (desc->fd != FILE_FD_INVALID) {
-	do_close(desc->flags, desc->fd);
-	desc->fd = FILE_FD_INVALID;
-	desc->flags = 0;
-    }
-    if (desc->read_binp) {
-	driver_free_binary(desc->read_binp);
-    }
-    EF_FREE(desc);
 }
 
 
@@ -2242,6 +2235,47 @@ static int lseek_flush_read(file_descriptor *desc, int *errp
 }
 
 
+/*********************************************************************
+ * Driver entry point -> stop
+ * The close has to be scheduled on async thread, so that currently active
+ * async operation does not suddenly have the ground disappearing under their feet...
+ */
+static void 
+file_stop(ErlDrvData e)
+{
+    file_descriptor* desc = (file_descriptor*)e;
+
+    TRACE_C('p');
+
+    IF_THRDS {
+	flush_read(desc);
+	if (desc->fd != FILE_FD_INVALID) {
+	    struct t_data *d = EF_SAFE_ALLOC(sizeof(struct t_data));
+	    d->command = FILE_CLOSE_ON_PORT_EXIT;
+	    d->reply = !0;
+	    d->fd = desc->fd;
+	    d->flags = desc->flags;
+	    d->invoke = invoke_close;
+	    d->free = free_data;
+	    d->level = 2;
+	    d->data_to_free = (void *) desc;
+	    cq_enq(desc, d);
+	    desc->fd = FILE_FD_INVALID;
+	    desc->flags = 0;
+	    cq_execute(desc);
+	}
+    } else {
+	if (desc->fd != FILE_FD_INVALID) {
+	    do_close(desc->flags, desc->fd);
+	    desc->fd = FILE_FD_INVALID;
+	    desc->flags = 0;
+	}
+	if (desc->read_binp) {
+	    driver_free_binary(desc->read_binp);
+	}
+	EF_FREE(desc);
+    }
+}
 
 /*********************************************************************
  * Driver entry point -> ready_async
@@ -2465,7 +2499,6 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	}
 	free_readdir(data);
 	break;
-	/* See file_stop */
       case FILE_CLOSE:
 	  if (d->reply) {
 	      TRACE_C('K');
@@ -2525,6 +2558,15 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  }
 	  break;
 #endif
+      case FILE_CLOSE_ON_PORT_EXIT:
+	  /* See file_stop. However this is never invoked after the port is killed. */
+	  free_data(data);
+	  EF_FREE(desc);
+	  desc = NULL;
+	  /* This is it for this port, so just send dtrace and return, avoid doing anything to the freed data */
+	  DTRACE6(efile_drv_return, sched_i1, sched_i2, sched_utag,
+		  command, result_ok, posix_errno);
+	  return;
       default:
 	abort();
     }
@@ -2535,6 +2577,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	driver_set_timer(desc->port, desc->write_delay);
     }
     cq_execute(desc);
+
 }
 
 
