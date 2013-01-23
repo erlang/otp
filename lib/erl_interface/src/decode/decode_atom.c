@@ -76,8 +76,8 @@ int ei_decode_atom_as(const char *buf, int *index, char* p, int destlen,
     }
     else {
 	int plen = (got_enc == ERLANG_LATIN1) ?
-	    utf8_to_latin1(p, s, len, destlen-1, res_encp) :
-	    latin1_to_utf8(p, s, len, destlen-1, res_encp);
+	  latin1_to_utf8(p, s, len, destlen-1, res_encp) :
+	  utf8_to_latin1(p, s, len, destlen-1, res_encp);
 	if (plen < 0) return -1;
 	if (p) p[plen] = 0;
     }
