@@ -1,2 +1,6 @@
 
+<<<<<<< HEAD
 empty_list_infimum.erl:39: Invalid type specification for function empty_list_infimum:list_vhost_permissions/1. The success typing is (_) -> [[{_,_}]]
+=======
+empty_list_infimum.erl:38: Invalid type specification for function empty_list_infimum:list_vhost_permissions/1. The success typing is (_) -> [[{_,_}]]
+>>>>>>> sa/dialyzer-list-spec/OTP-10740
