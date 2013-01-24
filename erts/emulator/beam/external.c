@@ -1455,8 +1455,8 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
     iix = get_iix_acache_map(acmp, atom, dflags);
     if (iix < 0) {
 	Atom *a = atom_tab(atom_val(atom));
+	len = a->len;
 	if (utf8_atoms || a->latin1_chars < 0) {
-	    len = a->len;
 	    if (len > 255) {
 		*ep++ = ATOM_UTF8_EXT;
 		put_int16(len, ep);
@@ -1472,15 +1472,25 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
 	else {
 	    if (a->latin1_chars <= 255 && (dflags & DFLAG_SMALL_ATOM_TAGS)) {
 		*ep++ = SMALL_ATOM_EXT;
-		len = erts_utf8_to_latin1(ep+1, a->name, a->len);
-		ASSERT(len == a->latin1_chars);
+		if (len == a->latin1_chars) {
+		    sys_memcpy(ep+1, a->name, len);
+		}
+		else {
+		    len = erts_utf8_to_latin1(ep+1, a->name, len);
+		    ASSERT(len == a->latin1_chars);
+		}
 		put_int8(len, ep);
 		ep++;
 	    }
 	    else {
 		*ep++ = ATOM_EXT;
-		len = erts_utf8_to_latin1(ep+2, a->name, a->len);
-		ASSERT(len == a->latin1_chars);
+		if (len == a->latin1_chars) {
+		    sys_memcpy(ep+2, a->name, len);
+		}
+		else {
+		    len = erts_utf8_to_latin1(ep+2, a->name, len);
+		    ASSERT(len == a->latin1_chars);
+		}
 		put_int16(len, ep);
 		ep += 2;
 	    }	    
