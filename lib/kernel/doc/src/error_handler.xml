@@ -62,6 +62,19 @@
           <c>'$handle_undefined_function'(</c><anno>Function</anno>,
 	  <anno>Args</anno>).
 	</p>
+	<warning>
+	  <p>Defining <c>'$handle_undefined_function'/2</c> in
+	  ordinary application code is highly discouraged. It is very
+	  easy to make subtle errors that can take a long time to
+	  debug.  Furthermore, none of the tools for static code
+	  analysis (such as Dialyzer and Xref) supports the use of
+	  <c>'$handle_undefined_function'/2</c> and no such support
+	  will be added. Only use this function after having carefully
+	  considered other, less dangerous, solutions.  One example of
+	  potential legitimate use is creating stubs for other
+	  sub-systems during testing and debugging.
+	  </p>
+	</warning>
 	<p>Otherwise an <c>undef</c> exception will be raised.</p>
       </desc>
     </func>
