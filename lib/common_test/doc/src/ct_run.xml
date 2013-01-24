@@ -126,6 +126,7 @@
     <title>Run tests using test specification</title>
     <pre>
 	ct_run -spec TestSpec1 TestSpec2 .. TestSpecN
+	[-join_specs]
 	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
 	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
          ConfigString2 and .. and CallbackModuleN ConfigStringN]
