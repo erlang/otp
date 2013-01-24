@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -127,13 +127,7 @@ end_per_suite(_Config) ->
 %% ===========================================================================
 
 %% Test the watchdog state machine for the required failover, failback
-%% and reopen behaviour. Do this by having the testcase replace
-%% diameter_service and start watchdogs, and having this module
-%% implement a transport process that plays the role of the peer
-%% Diameter node.
-
-%reopen(_) ->
-%    reopen(connect, ?WD(10000), 1, 'DWR');
+%% and reopen behaviour by examining watchdog events.
 
 reopen(_) ->
     [] = run([[reopen, T, Wd, N, M]

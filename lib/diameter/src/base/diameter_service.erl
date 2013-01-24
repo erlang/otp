@@ -711,8 +711,6 @@ cs(undefined, _) ->
 
 %%% ---------------------------------------------------------------------------
 %%% # i/1
-%%%
-%%% Output: #state{}
 %%% ---------------------------------------------------------------------------
 
 %% Intialize the state of a service gen_server.
@@ -890,6 +888,8 @@ fetch(Tid, Key) ->
 
 %%% ---------------------------------------------------------------------------
 %%% # watchdog/6
+%%%
+%%% React to a watchdog state transition.
 %%% ---------------------------------------------------------------------------
 
 %% Watchdog has a new open connection.
@@ -2612,7 +2612,7 @@ rpd(Pid, Alias, PDict) ->
 %%% ---------------------------------------------------------------------------
 %%% find_transport/[34]
 %%%
-%%% Output: {TransportPid, #diameter_caps{}, #diameter_app{}}
+%%% Return: {TransportPid, #diameter_caps{}, #diameter_app{}}
 %%%         | false
 %%%         | {error, Reason}
 %%% ---------------------------------------------------------------------------
@@ -2750,7 +2750,7 @@ avp_decode(_, _, #diameter_avp{value = V}) ->
 %%% ---------------------------------------------------------------------------
 %%% # pick_peer(App, [DestRealm, DestHost], Filter, #state{})
 %%%
-%%% Output: {TransportPid, #diameter_caps{}, App}
+%%% Return: {TransportPid, #diameter_caps{}, App}
 %%%         | false
 %%%         | {error, Reason}
 %%% ---------------------------------------------------------------------------
