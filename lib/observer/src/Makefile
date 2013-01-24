@@ -102,7 +102,8 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 ERL_COMPILE_FLAGS += \
 	-I../include \
 	-I ../../et/include \
-	-I ../../../libraries/et/include
+	-I ../../../libraries/et/include \
+	-Werror
 
 # ----------------------------------------------------
 # Targets

@@ -34,7 +34,7 @@
 %% The runtime tools top most supervisor starts:
 %% -The ttb_autostart component. This is used for tracing at startup
 %%  using observer/ttb.
-init(AutoModArgs) ->
+init(_AutoModArgs) ->
     Flags = {one_for_one, 0, 3600},
     Children = [{ttb_autostart, {ttb_autostart, start_link, []},
                  temporary, 3000, worker, [ttb_autostart]}],

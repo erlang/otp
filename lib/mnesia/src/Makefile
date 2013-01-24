@@ -93,10 +93,9 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # FLAGS
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
-	+warn_unused_vars \
+	-Werror \
 	+'{parse_transform,sys_pre_attributes}' \
-	+'{attribute,insert,vsn,"mnesia_$(MNESIA_VSN)"}' \
-	-W
+	+'{attribute,insert,vsn,"mnesia_$(MNESIA_VSN)"}'
 
 # ----------------------------------------------------
 # Targets

@@ -59,7 +59,7 @@ APP_TARGET = $(EBIN)/$(APP_FILE)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -I../include -I../ebin
+ERL_COMPILE_FLAGS += -I../include -I../ebin -Werror
 
 # ----------------------------------------------------
 # Targets

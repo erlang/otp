@@ -110,7 +110,7 @@ endif
 
 ERL_COMPILE_FLAGS += \
 	-I$(ERL_TOP)/lib/stdlib \
-	+warn_unused_vars
+	-Werror
 
 YRL_FLAGS = 
 
