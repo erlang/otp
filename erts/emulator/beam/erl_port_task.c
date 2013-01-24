@@ -38,7 +38,7 @@
 /*
  * ERTS_PORT_CALLBACK_VREDS: Limit the amount of callback calls we do...
  */
-#define ERTS_PORT_CALLBACK_VREDS (CONTEXT_REDS/5)
+#define ERTS_PORT_CALLBACK_VREDS (CONTEXT_REDS/20)
 
 #if defined(DEBUG) && 0
 #define ERTS_HARD_DEBUG_TASK_QUEUES
