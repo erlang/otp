@@ -273,7 +273,7 @@ ftp_other_status_codes(Config) when is_list(Config) ->
     %% 4XX
     {trans_neg_compl, _ }  = ftp_response:interpret("421 Foobar\r\n"),
     {trans_neg_compl, _ }  = ftp_response:interpret("426 Foobar\r\n"),
-    {trans_neg_compl, _ }  = ftp_response:interpret("450 Foobar\r\n"),
+    {enofile, _ }  = ftp_response:interpret("450 Foobar\r\n"),
     {trans_neg_compl, _ }  = ftp_response:interpret("451 Foobar\r\n"),
     {etnospc, _ }  = ftp_response:interpret("452 Foobar\r\n"),
 
