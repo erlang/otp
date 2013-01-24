@@ -217,7 +217,8 @@ int ei_x_encode_atom_len_as(ei_x_buff* x, const char* s, int len,
 			    enum erlang_char_encoding to_enc)
 {
     int i = x->index;
-    ei_encode_atom_len_as(NULL, &i, s, len, from_enc, to_enc);
+    if (ei_encode_atom_len_as(NULL, &i, s, len, from_enc, to_enc) == -1)
+      return -1;
     if (!x_fix_buff(x, i))
 	return -1;
     return ei_encode_atom_len_as(x->buff, &x->index, s, len, from_enc, to_enc);

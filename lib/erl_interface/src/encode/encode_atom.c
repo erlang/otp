@@ -23,8 +23,8 @@
 #include "putget.h"
 
 
-static int copy_ascii_atom(char* dst, const char* src, int slen);
-static int copy_utf8_atom(char* dst, const char* src, int slen);
+static int verify_ascii_atom(const char* src, int slen);
+static int verify_utf8_atom(const char* src, int slen);
 
 
 int ei_encode_atom(char *buf, int *index, const char *p)
@@ -73,7 +73,8 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
 	      if (len < 0) return -1;
 	      break;
 	  case ERLANG_ASCII:
-	      if (copy_ascii_atom(s+2, p, len) < 0) return -1;
+	      if (verify_ascii_atom(p, len) < 0) return -1;
+	      memcpy(s+2, p, len);
 	      break;
 	  case ERLANG_LATIN1:
 	      memcpy(s+2, p, len);
@@ -88,7 +89,8 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
 	  if (from_enc == ERLANG_UTF8) {
 	      len = utf8_to_latin1(NULL, p, len, MAXATOMLEN-1, NULL);
 	      if (len < 0) return -1;
-	  }
+	  } else if (from_enc == ERLANG_ASCII)
+	    if (verify_ascii_atom(p, len) < 0) return -1;
       }
       break;
       
@@ -100,11 +102,13 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
 	  len = latin1_to_utf8((buf ? s+offs : NULL), p, len, MAXATOMLEN_UTF8-1, NULL);
 	  break;
       case ERLANG_ASCII:
-	  if (buf && copy_ascii_atom(s+offs, p, len) < 0) return -1;
+	  if (verify_ascii_atom(p, len) < 0) return -1;
+	  if (buf) memcpy(s+offs,p,len);
 	  break;
       case ERLANG_UTF8:
 	  if (len >= 256) offs++;
-	  if (buf && copy_utf8_atom(s+offs, p, len) < 0) return -1;
+	  if (verify_utf8_atom(p, len) < 0) return -1;
+	  if (buf) memcpy(s+offs,p,len);
 	  break;
       default:
 	  return -1;
@@ -144,17 +148,17 @@ ei_internal_put_atom(char** bufp, const char* p, int slen,
 }
 
 
-int copy_ascii_atom(char* dst, const char* src, int slen)
+int verify_ascii_atom(const char* src, int slen)
 {
     while (slen > 0) {
 	if ((src[0] & 0x80) != 0) return -1;
-	*dst++ = *src++;
+	src++;
 	slen--;
     }
     return 0;
 }
 
-int copy_utf8_atom(char* dst, const char* src, int slen)
+int verify_utf8_atom(const char* src, int slen)
 {
     int num_chars = 0;
 
@@ -163,25 +167,22 @@ int copy_utf8_atom(char* dst, const char* src, int slen)
 	if ((src[0] & 0x80) != 0) {
 	    if ((src[0] & 0xE0) == 0xC0) {
 		if (slen < 2 || (src[1] & 0xC0) != 0x80) return -1;
-		*dst++ = *src++;
+		src++;
 		slen--;
 	    }
 	    else if ((src[0] & 0xF0) == 0xE0) {
 		if (slen < 3 || (src[1] & 0xC0) != 0x80 || (src[2] & 0xC0) != 0x80) return -1;
-		*dst++ = *src++;
-		*dst++ = *src++;
+		src += 2;
 		slen -= 2;
 	    }
 	    else if ((src[0] & 0xF8) == 0xF0) {
 		if (slen < 4 || (src[1] & 0xC0) != 0x80 || (src[2] & 0xC0) != 0x80 || (src[3] & 0xC0) != 0x80) return -1;
-		*dst++ = *src++;
-		*dst++ = *src++;
-		*dst++ = *src++;
+		src += 3;
 		slen -= 3;
 	    }
 	    else return -1;
 	}
-	*dst++ = *src++;
+	src++;
 	slen--;
     }
     return 0;
