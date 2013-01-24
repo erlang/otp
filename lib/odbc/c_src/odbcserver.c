@@ -431,6 +431,20 @@ static db_result_msg handle_db_request(byte *reqstring, db_state *state)
    <connStrIn>, returns a message indicating the outcome. */
 static db_result_msg db_connect(byte *args, db_state *state)
 {
+    /*
+     * Danil Onishchenko aka RubberCthulhu, alevandal@gmail.com. 2013.01.09.
+     * It's a fix for Oracle ODBC driver for Linux.
+     * The issue: Oracle ODBC driver for Linux ignores setup autocommit mode
+     * during driver initialization before a connection to database has been
+     * established.
+     * Solution: set autocommit mode after a connection to database has been
+     * established.
+     *
+     * BEGIN
+     */
+    SQLLEN auto_commit_mode;
+    /* END */
+
     SQLCHAR connStrOut[MAX_CONN_STR_OUT + 1] = {0};
     SQLRETURN result;
     SQLSMALLINT stringlength2ptr = 0, connlen;
@@ -497,6 +511,42 @@ static db_result_msg db_connect(byte *args, db_state *state)
     
 	return msg;
     }
+
+    /*
+     * Danil Onishchenko aka RubberCthulhu, alevandal@gmail.com. 2013.01.09.
+     * It's a fix for Oracle ODBC driver for Linux.
+     * The issue: Oracle ODBC driver for Linux ignores setup autocommit mode
+     * during driver initialization before a connection to database has been
+     * established.
+     * Solution: set autocommit mode after a connection to database has been
+     * established.
+     *
+     * BEGIN
+     */
+    if(erl_auto_commit_mode == ON) {
+	auto_commit_mode = SQL_AUTOCOMMIT_ON;
+    } else {
+	auto_commit_mode = SQL_AUTOCOMMIT_OFF;
+    }
+
+    if(!sql_success(SQLSetConnectAttr(connection_handle(state),
+				      SQL_ATTR_AUTOCOMMIT,
+				      (SQLPOINTER)auto_commit_mode, 0))) {
+	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state), extended_errors(state));
+	strcat((char *)diagnos.error_msg, " Set autocommit mode failed.");
+
+	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+
+	if(!sql_success(SQLFreeHandle(SQL_HANDLE_DBC,
+				      connection_handle(state))))
+	    DO_EXIT(EXIT_FREE);
+	if(!sql_success(SQLFreeHandle(SQL_HANDLE_ENV,
+				      environment_handle(state))))
+	    DO_EXIT(EXIT_FREE);
+
+	return msg;
+    }
+    /* END */
 
     msg = retrive_scrollable_cursor_support_info(state);
   
