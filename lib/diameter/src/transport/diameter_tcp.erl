@@ -368,8 +368,6 @@ handle_info(T, #monitor{} = S) ->
 %% # code_change/3
 %% ---------------------------------------------------------------------------
 
-code_change(_, {transport, _, _, _, _} = S, _) ->
-    {ok, #transport{} = list_to_tuple(tuple_to_list(S) ++ [false])};
 code_change(_, State, _) ->
     {ok, State}.
 

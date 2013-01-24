@@ -151,7 +151,7 @@
          ref  :: match(reference()),  %% key into diameter_config
          options :: match([diameter:transport_opt()]),%% from start_transport
          op_state = {?STATE_DOWN, ?WD_INITIAL}
-                 :: match(op_state() | {op_state(), wd_state()}),
+                 :: match({op_state(), wd_state()}),
          started = now(),      %% at process start
          conn = false :: match(boolean() | pid())}).
                       %% true at accepted, pid() at connection_up or reopen
@@ -742,11 +742,8 @@ shutdown(Who, Reason, T) ->
                                 [],
                                 T)).
 
-shutdown(conn = Who, #peer{op_state = {OS,_}} = P, Reason, Acc) ->
-    shutdown(Who, P#peer{op_state = OS}, Reason, Acc);
-
 shutdown(conn,
-         #peer{pid = Pid, op_state = ?STATE_UP, conn = TPid},
+         #peer{pid = Pid, op_state = {?STATE_UP, _}, conn = TPid},
          Reason,
          Acc) ->
     TPid ! {shutdown, Pid, Reason},
@@ -962,14 +959,7 @@ accepted(Pid, _TPid, #state{peerT = PeerT} = S) ->
 
 fetch(Tid, Key) ->
     [T] = ets:lookup(Tid, Key),
-    case T of
-        #peer{op_state = ?STATE_UP} = P ->
-            P#peer{op_state = {?STATE_UP, ?WD_OKAY}};
-        #peer{op_state = ?STATE_DOWN} = P ->
-            P#peer{op_state = {?STATE_DOWN, ?WD_DOWN}};
-        _ ->
-            T
-    end.
+    T.
 
 %%% ---------------------------------------------------------------------------
 %%% # connection_up/3
@@ -3173,10 +3163,9 @@ peer_acc(ConnT, Acc, #peer{pid = Pid,
                            type = Type,
                            ref = Ref,
                            options = Opts,
-                           op_state = OS,
+                           op_state = {_, WS},
                            started = T,
                            conn = TPid}) ->
-    WS = wd_state(OS),
     dict:append(Ref,
                 [{type, Type},
                  {options, Opts},
@@ -3209,13 +3198,6 @@ config_acc({Ref, T, Opts}, Dict)
     dict:store(Ref, [[{type, T}, {options, Opts}]], Dict);
 config_acc(_, Dict) ->
     Dict.
-
-wd_state({_,S}) ->
-    S;
-wd_state(?STATE_UP) ->
-    ?WD_OKAY;
-wd_state(?STATE_DOWN) ->
-    ?WD_DOWN.
 
 info_conn([#conn{pid = Pid, apps = SApps, caps = Caps, started = T}]) ->
     [{peer, {Pid, T}},

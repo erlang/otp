@@ -157,14 +157,7 @@ handle_info(T, #watchdog{} = State) ->
             ?LOG(stop, T),
             event(State, State#watchdog{status = down}),
             {stop, {shutdown, T}, State}
-    end;
-
-handle_info(T, S) ->
-    handle_info(T, upgrade(S)).
-
-upgrade(S) ->
-    #watchdog{} = list_to_tuple(tuple_to_list(S)
-                                ++ [?NOMASK, {nodes, true}, false]).
+    end.
 
 event(#watchdog{status = T}, #watchdog{status = T}) ->
     ok;

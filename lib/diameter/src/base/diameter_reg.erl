@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -208,10 +208,6 @@ init(_) ->
 %% # handle_call/3
 %% ----------------------------------------------------------
 
-handle_call(Req, From, S)
-  when not is_record(S, state) ->
-    handle_call(Req, From, upgrade(S));
-
 handle_call({add, Fun, Key, Pid}, _, S) ->
     B = Fun(?TABLE, {Key, Pid}),
     monitor(B andalso no_monitor(Pid), Pid),
@@ -280,9 +276,6 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% ===========================================================================
-
-upgrade(S) ->
-    #state{} = list_to_tuple(tuple_to_list(S) ++ [[]]).
 
 monitor(true, Pid) ->
     ets:insert(?TABLE, ?MONITOR(Pid, erlang:monitor(process, Pid)));
