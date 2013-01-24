@@ -83,13 +83,6 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
     Typename = [D#typedef.name],
     Def = D#typedef.typespec,
     InnerType = asn1ct_gen:get_inner(Def#type.def),
-    case InnerType of
-	'SET' -> true;
-	'SEQUENCE' -> true;
-	_ ->
-	    emit({nl,"'enc_",asn1ct_gen:list2name(Typename),"'({'",asn1ct_gen:list2name(Typename),"',Val}) ->",nl}),
-	    emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val);",nl,nl})
-    end,
     emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val) ->",nl}),
     case asn1ct_gen:type(InnerType) of
 	{primitive,bif} ->
