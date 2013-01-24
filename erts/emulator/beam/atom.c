@@ -367,7 +367,7 @@ int atom_table_sz(void)
 }
 
 int
-erts_atom_get(const char *name, int len, Eterm* ap, int is_latin1)
+erts_atom_get(const char *name, int len, Eterm* ap, ErtsAtomEncoding enc)
 {
     byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     Atom a;
@@ -376,7 +376,7 @@ erts_atom_get(const char *name, int len, Eterm* ap, int is_latin1)
 
     a.len = (Sint16) len;
     a.name = (byte *)name;
-    if (is_latin1) {
+    if (enc == ERTS_ATOM_ENC_LATIN1) {
 	latin1_to_utf8(utf8_copy, (const byte**)&a.name, &len);
 	a.len = (Sint16) len;
     }
