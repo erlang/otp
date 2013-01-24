@@ -417,6 +417,8 @@ public class Any {
 
 	switch (__tag) {
 	case (com.ericsson.otp.erlang.OtpExternal.atomTag):
+	case (com.ericsson.otp.erlang.OtpExternal.atomUtf8Tag):
+	case (com.ericsson.otp.erlang.OtpExternal.smallAtomUtf8Tag):
 	  java.lang.String __elabel = _is.read_atom(); // Enumerant or Boolean
 	  os.write_atom(__elabel);
 

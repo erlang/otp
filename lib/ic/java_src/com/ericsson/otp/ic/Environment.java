@@ -334,6 +334,8 @@ public class Environment {
       
       switch (tag) {
       case com.ericsson.otp.erlang.OtpExternal.atomTag:
+      case com.ericsson.otp.erlang.OtpExternal.atomUtf8Tag:
+      case com.ericsson.otp.erlang.OtpExternal.smallAtomUtf8Tag:
 	operation = is.read_atom();
 	break;
       default:
@@ -344,6 +346,8 @@ public class Environment {
       tag = is.peek();
       switch (tag) {
       case com.ericsson.otp.erlang.OtpExternal.atomTag:
+      case com.ericsson.otp.erlang.OtpExternal.atomUtf8Tag:
+      case com.ericsson.otp.erlang.OtpExternal.smallAtomUtf8Tag:
 	operation = is.read_atom();
 	break;
       default:

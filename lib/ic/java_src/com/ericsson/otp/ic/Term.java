@@ -57,7 +57,10 @@ final public class Term extends Any {
   public boolean isAtom() {
 
     if (ObjV == null) { 
-      if (tag == com.ericsson.otp.erlang.OtpExternal.atomTag)
+      if (tag == com.ericsson.otp.erlang.OtpExternal.atomTag ||
+	  tag == com.ericsson.otp.erlang.OtpExternal.atomUtf8Tag ||
+	  tag == com.ericsson.otp.erlang.OtpExternal.smallAtomUtf8Tag)
+
 	return true;
 
       return false;
