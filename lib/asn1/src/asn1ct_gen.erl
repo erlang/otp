@@ -920,7 +920,7 @@ gen_selected_decode_exports1([{FuncName,_}|Rest]) ->
 pgen_dispatcher(Erules,_Module,{[],_Values,_,_,_Objects,_ObjectSets}) ->
     gen_info_functions(Erules);
 pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
-    emit(["-export([encode/2,decode/2,encode_disp/2,decode_disp/2]).",nl,nl]),
+    emit(["-export([encode/2,decode/2]).",nl,nl]),
     gen_info_functions(Erules),
     NoFinalPadding = lists:member(no_final_padding,get(encoding_options)),
     {Call,BytesAsBinary} =
