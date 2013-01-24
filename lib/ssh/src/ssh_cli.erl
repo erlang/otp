@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 
 -module(ssh_cli).
 
--behaviour(ssh_channel).
+-behaviour(ssh_daemon_channel).
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").

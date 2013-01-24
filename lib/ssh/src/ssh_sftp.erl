@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,7 +47,7 @@
 	 recv_window/2, list_dir/3, read_file/3, write_file/4]).
 
 %% ssh_channel callbacks
--export([init/1, handle_call/3, handle_msg/2, handle_ssh_msg/2, terminate/2]).
+-export([init/1, handle_call/3, handle_cast/2, code_change/3, handle_msg/2, handle_ssh_msg/2, terminate/2]).
 %% TODO: Should be placed elsewhere ssh_sftpd should not call functions in ssh_sftp!
 -export([info_to_attr/1, attr_to_info/1]).
 
@@ -435,6 +435,12 @@ handle_call({{timeout, infinity}, Msg}, From, State) ->
 handle_call({{timeout, Timeout}, Msg}, From,  #state{req_id = Id} = State) ->
     timer:send_after(Timeout, {timeout, Id, From}),
     do_handle_call(Msg, From, State).
+
+handle_cast(_,State) ->
+    {noreply, State}.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
 
 do_handle_call({open, Async,FileName,Mode}, From, #state{xf = XF} = State) ->
     {Access,Flags,Attrs} = open_mode(XF#ssh_xfer.vsn, Mode),

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2012. All Rights Reserved.
+# Copyright Ericsson AB 2004-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssh-$(VSN)
 BEHAVIOUR_MODULES= \
 	ssh_sftpd_file_api \
         ssh_channel \
-	ssh_subsystem \
+	ssh_daemon_channel \
 	ssh_client_key_api \
 	ssh_server_key_api
 

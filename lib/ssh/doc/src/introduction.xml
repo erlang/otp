@@ -5,6 +5,7 @@
   <header>
     <copyright>
       <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -47,7 +48,7 @@
 
   <section>
     <title>Prerequisites</title>
-    <p>It is assumed that the reader is familiar with the concepts of <seealso marker="doc/design_principals:users_guide">OTP</seealso>
+    <p>It is assumed that the reader is familiar with the concepts of <seealso marker="doc/design_principals:des_princ">OTP</seealso>
     and has a basic understanding of <url href="http://en.wikipedia.org/wiki/Public-key_cryptography">public keys</url>.</p>
   </section>
 
