@@ -208,15 +208,15 @@ transition(close, #watchdog{}) ->
     ok;
 
 %% Service is asking for the peer to be taken down gracefully.
-transition({shutdown, Pid}, #watchdog{parent = Pid,
-                                      transport = undefined,
-                                      status = S}) ->
-    down = S,  %% sanity check
+transition({shutdown, Pid, _}, #watchdog{parent = Pid,
+                                         transport = undefined,
+                                         status = S}) ->
+    down = S,  %% assert
     stop;
-transition({shutdown = T, Pid}, #watchdog{parent = Pid,
-                                          transport = TPid}
-                                = S) ->
-    TPid ! {T, self()},
+transition({shutdown = T, Pid, Reason}, #watchdog{parent = Pid,
+                                                  transport = TPid}
+                                        = S) ->
+    TPid ! {T, self(), Reason},
     S#watchdog{shutdown = true};
 
 %% Parent process has died,

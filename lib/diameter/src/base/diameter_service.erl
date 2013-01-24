@@ -716,46 +716,30 @@ mod_state(Alias, ModS) ->
 %%% # shutdown/2
 %%% ---------------------------------------------------------------------------
 
-%% remove_transport: ask watchdogs to terminate their transport.
+%% remove_transport
 shutdown(Refs, #state{peerT = PeerT})
   when is_list(Refs) ->
-    ets:foldl(fun(P,ok) -> sp(P, Refs), ok end, ok, PeerT);
+    ets:foldl(fun(P,ok) -> st(P, Refs), ok end, ok, PeerT);
 
-%% application/service shutdown: ask transports to terminate themselves.
-shutdown(Reason, #state{peerT = PeerT}) ->
-    %% A transport might not be alive to receive the shutdown request
-    %% but give those that are a chance to shutdown gracefully.
-    shutdown(conn, Reason, PeerT),
-    %% Kill the watchdogs explicitly in case there was no transport.
-    shutdown(peer, Reason, PeerT).
-
-%% sp/2
-
-sp(#peer{ref = Ref, pid = Pid}, Refs) ->
-    lists:member(Ref, Refs)
-        andalso (Pid ! {shutdown, self()}).  %% 'DOWN' cleans up
-
-%% shutdown/3
-
-shutdown(Who, Reason, T) ->
-    diameter_lib:wait(ets:foldl(fun(X,A) -> shutdown(Who, X, Reason, A) end,
+%% application/service shutdown
+shutdown(Reason, #state{peerT = PeerT})
+  when Reason == application;
+       Reason == service ->
+    diameter_lib:wait(ets:foldl(fun(P,A) -> st(P, Reason, A) end,
                                 [],
-                                T)).
+                                PeerT)).
 
-shutdown(conn,
-         #peer{pid = Pid, op_state = {?STATE_UP, _}, conn = TPid},
-         Reason,
-         Acc) ->
-    TPid ! {shutdown, Pid, Reason},
-    [TPid | Acc];
+%% st/2
 
-shutdown(peer, #peer{pid = Pid}, _Reason, Acc)
-  when is_pid(Pid) ->
-    exit(Pid, shutdown),
-    [Pid | Acc];
+st(#peer{ref = Ref, pid = Pid}, Refs) ->
+    lists:member(Ref, Refs)
+        andalso (Pid ! {shutdown, self(), transport}).  %% 'DOWN' cleans up
 
-shutdown(_, #peer{}, _, Acc) ->
-    Acc.
+%% st/3
+
+st(#peer{pid = Pid}, Reason, Acc) ->
+    Pid ! {shutdown, self(), Reason},
+    [Pid | Acc].
 
 %%% ---------------------------------------------------------------------------
 %%% # call_service/2

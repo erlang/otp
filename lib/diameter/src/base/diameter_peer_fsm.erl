@@ -393,8 +393,6 @@ transition({send, Msg}, #state{transport = TPid}) ->
 
 %% Request for graceful shutdown at remove_transport, stop_service of
 %% application shutdown.
-transition({shutdown = T, Pid}, S) ->
-    transition({T, Pid, transport}, S);
 transition({shutdown, Pid, Reason}, #state{parent = Pid, dpr = false} = S) ->
     dpr(Reason, S);
 transition({shutdown, Pid, _}, #state{parent = Pid}) ->
