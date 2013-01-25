@@ -789,16 +789,34 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      */
     public void write_compressed(final OtpErlangObject o) {
 	final OtpOutputStream oos = new OtpOutputStream(o);
-	write1(OtpExternal.compressedTag);
-	write4BE(oos.size());
-	final java.util.zip.DeflaterOutputStream dos = new java.util.zip.DeflaterOutputStream(
-		this);
-	try {
-	    oos.writeTo(dos);
-	    dos.close();
-	} catch (final IOException e) {
-	    throw new java.lang.IllegalArgumentException(
-		    "Intermediate stream failed for Erlang object " + o);
+	/*
+	 * similar to erts_term_to_binary() in external.c:
+	 * We don't want to compress if compression actually increases the size.
+	 * Since compression uses 5 extra bytes (COMPRESSED tag + size), don't
+	 * compress if the original term is smaller.
+	 */
+	if (oos.size() < 5) {
+	    try {
+		oos.writeTo(this);
+		// if the term is written as a compressed term, the output
+		// stream is closed, so we do this here, too
+		this.close();
+	    } catch (IOException e) {
+		throw new java.lang.IllegalArgumentException(
+			"Intermediate stream failed for Erlang object " + o);
+	    }
+	} else {
+	    write1(OtpExternal.compressedTag);
+	    write4BE(oos.size());
+	    final java.util.zip.DeflaterOutputStream dos = new java.util.zip.DeflaterOutputStream(
+		    this);
+	    try {
+		oos.writeTo(dos);
+		dos.close(); // note: closes this, too!
+	    } catch (final IOException e) {
+		throw new java.lang.IllegalArgumentException(
+			"Intermediate stream failed for Erlang object " + o);
+	    }
 	}
     }
 
