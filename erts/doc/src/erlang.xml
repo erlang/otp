@@ -975,7 +975,7 @@ true
       <type>
         <v>Float = float()</v>
         <v>Options = [Option]</v>
-        <v>Option = {decimals, Decimals::0..249} |
+        <v>Option = {decimals, Decimals::0..253} |
                     {scientific, Decimals::0..249} |
                     compact</v>
       </type>
