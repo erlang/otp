@@ -66,12 +66,12 @@ groups() ->
      {appup_test, [], [{asn1_appup_test, all}]},
 
      {parallel, parallel([]),
-      [{group, ber},
+      [cover,
+       {group, ber},
        % Uses 'P-Record', 'Constraints', 'MEDIA-GATEWAY-CONTROL'...
        {group, [], [parse,
                     test_driver_load,
                     test_undecoded_rest,
-                    test_inline,
                     specialized_decodes,
                     special_decode_performance,
                     testMegaco,
@@ -296,6 +296,28 @@ case_dir([C|Config], Opt) ->
 %% Test cases
 %%------------------------------------------------------------------------------
 
+%% Cover run-time functions that are only called by the ASN.1 compiler
+%% (if any).
+cover(_) ->
+    Wc = filename:join([code:lib_dir(asn1),"ebin","asn1ct_eval_*.beam"]),
+    Beams = filelib:wildcard(Wc),
+    true = Beams =/= [],
+    [begin
+	 M0 = filename:basename(Beam),
+	 M1 = filename:rootname(M0),
+	 M = list_to_atom(M1),
+	 "asn1ct_eval_" ++ Group0 = M1,
+	 Group = list_to_atom(Group0),
+	 io:format("%%\n"
+		   "%% ~s\n"
+		   "%%\n", [M]),
+	 asn1ct_func:start_link(),
+	 [asn1ct_func:need({Group,F,A}) ||
+	     {F,A} <- M:module_info(exports), F =/= module_info],
+	 asn1ct_func:generate(group_leader())
+     end || Beam <- Beams],
+    ok.
+
 testPrim(Config) -> test(Config, fun testPrim/3).
 testPrim(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["Prim", "Real"], Config, [Rule|Opts]),
@@ -323,11 +345,16 @@ testPrimStrings(Config) -> test(Config, fun testPrimStrings/3).
 testPrimStrings(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config, [Rule|Opts]),
     testPrimStrings_cases(Rule),
+    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
+			      [legacy_bit_string,Rule|Opts]),
+    testPrimStrings:bit_string(Rule),
+    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
+			      [compact_bit_string,Rule|Opts]),
+    testPrimStrings:bit_string(Rule),
     ?only_ber(testPrimStrings:more_strings(Rule)).
 
 testPrimStrings_cases(Rule) ->
     testPrimStrings:bit_string(Rule),
-    testPrimStrings:bit_string_unnamed(Rule),
     testPrimStrings:octet_string(Rule),
     testPrimStrings:numeric_string(Rule),
     testPrimStrings:other_strings(Rule),
@@ -978,14 +1005,8 @@ testSSLspecs(Config, Rule, Opts) ->
     ok = testSSLspecs:compile(Config,
                               [Rule, compact_bit_string, der|Opts]),
     testSSLspecs:run(Rule),
-
-    case code:which(asn1ct) of
-       cover_compiled ->
-           ok;
-       _ ->
-           ok = testSSLspecs:compile_inline(Config, Rule),
-           ok = testSSLspecs:run_inline(Rule)
-    end.
+    ok = testSSLspecs:compile_combined(Config, Rule),
+    ok = testSSLspecs:run_combined(Rule).
 
 testNortel(Config) -> test(Config, fun testNortel/3).
 testNortel(Config, Rule, Opts) ->
@@ -996,23 +1017,7 @@ test_undecoded_rest(Config, Rule, Opts) ->
     asn1_test_lib:compile("P-Record", Config, [Rule|Opts]),
     ok = test_undecoded_rest:test([], Config),
     asn1_test_lib:compile("P-Record", Config, [Rule,undec_rest|Opts]),
-    case Rule of
-        ber -> ok;
-        _ -> test_undecoded_rest:test(undec_rest, Config)
-    end.
-
-test_inline(Config) ->
-    test(Config, fun test_inline/3, [ber]).
-test_inline(Config, Rule, Opts) ->
-    case code:which(asn1ct) of
-        cover_compiled ->
-            {skip, "Not runnable when cover compiled"};
-        _  ->
-            test_inline:compile(Config, Opts),
-            test_inline:main(Config, Rule),
-            test_inline:inline1(Config, Rule, Opts),
-            test_inline:performance2()
-    end.
+    test_undecoded_rest:test(undec_rest, Config).
 
 testTcapsystem(Config) ->
     test(Config, fun testTcapsystem/3, [ber]).
@@ -1025,17 +1030,12 @@ testNBAPsystem(Config, Rule, Opts) ->
     testNBAPsystem:test(Rule, Config).
 
 test_compile_options(Config) ->
-    case code:which(asn1ct) of
-        cover_compiled ->
-            {skip, "Not runnable when cover compiled"};
-        _  ->
-            ok = test_compile_options:wrong_path(Config),
-            ok = test_compile_options:path(Config),
-            ok = test_compile_options:noobj(Config),
-            ok = test_compile_options:record_name_prefix(Config),
-            ok = test_compile_options:verbose(Config),
-            ok = test_compile_options:warnings_as_errors(Config)
-    end.
+    ok = test_compile_options:wrong_path(Config),
+    ok = test_compile_options:path(Config),
+    ok = test_compile_options:noobj(Config),
+    ok = test_compile_options:record_name_prefix(Config),
+    ok = test_compile_options:verbose(Config),
+    ok = test_compile_options:warnings_as_errors(Config).
 
 testDoubleEllipses(Config) -> test(Config, fun testDoubleEllipses/3).
 testDoubleEllipses(Config, Rule, Opts) ->

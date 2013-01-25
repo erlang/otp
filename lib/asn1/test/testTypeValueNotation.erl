@@ -28,7 +28,7 @@ main(_Rule, _Option) ->
                     int = 12,
                     bool = true,
                     enum = a,
-                    bitstr = [1, 0, 1, 0],
+                    bitstr = <<2#1010:4>>,
                     null = 'NULL',
                     oid = {1, 2, 55},
                     vstr = "Hello World"},

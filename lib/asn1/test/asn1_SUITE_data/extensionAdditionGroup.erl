@@ -140,7 +140,7 @@ run3() ->
     Barring = #'AC-BarringConfig'{
                  'ac-BarringFactor' = p00,
                  'ac-BarringTime' = s4,
-                 'ac-BarringForSpecialAC' = [0,0,0,0,0]},
+                 'ac-BarringForSpecialAC' = <<0:5>>},
     roundtrip(SI),
     roundtrip(SI#'SystemInformationBlockType2'{
 		'ssac-BarringForMMTEL-Voice-r9'=Barring}),

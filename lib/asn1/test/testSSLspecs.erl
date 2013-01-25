@@ -20,7 +20,7 @@
 
 -module(testSSLspecs).
 
--export([compile/2,run/1,compile_inline/2,run_inline/1]).
+-export([compile/2,run/1,compile_combined/2,run_combined/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -42,15 +42,13 @@ compile(Config, Options) ->
     asn1_test_lib:compile_all(["PKIX1Explicit93", "PKIX1Implicit93"],
                               Config, NewOptions).
 
-compile_inline(Config, ber=Rule) ->
+compile_combined(Config, ber=Rule) ->
     DataDir = ?config(data_dir, Config),
     CaseDir = ?config(case_dir, Config),
     Options = [{i, CaseDir}, {i, DataDir}, Rule,
-               der, compact_bit_string, asn1config, inline],
-    ok = remove_db_file_inline(CaseDir),
-    asn1_test_lib:compile("OTP-PKIX.set.asn", Config, Options);
-compile_inline(_Config, _Rule) ->
-    ok.
+               der, compact_bit_string, asn1config],
+    ok = remove_db_files_combined(CaseDir),
+    asn1_test_lib:compile("OTP-PKIX.set.asn", Config, Options).
 
 remove_db_files(Dir) ->
     ?line ok = remove_db_file(Dir ++ "PKIX1Explicit93.asn1db"),
@@ -65,7 +63,7 @@ remove_db_file(File) ->
 	    Err
     end.
 
-remove_db_file_inline(Dir) ->
+remove_db_files_combined(Dir) ->
     ?line ok = remove_db_file(Dir ++ "OTP-PKIX.asn1db"),
     ?line ok = remove_db_file(Dir ++ "SSL-PKIX.asn1db"),
     ?line ok = remove_db_file(Dir ++ "PKIXAttributeCertificate.asn1db"),
@@ -74,14 +72,11 @@ remove_db_file_inline(Dir) ->
     ?line ok = remove_db_file(Dir ++ "PKIX1Implicit88.asn1db").
 
 run(ber) ->
-    run1(1);
-run(_) ->
-    ok.
+    run1(1).
 
 run1(6) ->
     ?line f1(6),
     ?line f2(6),
-%%    ?line transform3(ex(7)),
     ?line transform4(ex(7));
 run1(N) ->
     ?line f1(N),
@@ -146,12 +141,10 @@ ex(7) ->
      {1,2,840,113549,1,9,1},
      [[19,5,111,116,112,67,65]]}.
 
-run_inline(ber) ->
+run_combined(ber) ->
     Cert = cert(),
     ?line {ok,{'CertificatePKIX1Explicit88',{Type,UnDec},_,_}} = 'OTP-PKIX':decode_TBSCert_exclusive(Cert),
     ?line {ok,_} = 'OTP-PKIX':decode_part(Type,UnDec),
-    ok;
-run_inline(_) ->
     ok.
 
 cert() ->

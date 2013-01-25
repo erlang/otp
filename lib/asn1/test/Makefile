@@ -102,7 +102,6 @@ MODULES= \
 	test_driver_load \
 	testSelectionTypes \
 	test_undecoded_rest \
-	test_inline \
 	testTcapsystem \
 	testNBAPsystem \
 	test_compile_options \
