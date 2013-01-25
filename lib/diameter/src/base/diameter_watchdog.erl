@@ -151,29 +151,45 @@ handle_info(T, #watchdog{} = State) ->
         ok ->
             {noreply, State};
         #watchdog{} = S ->
-            event(State, S),
+            event(T, State, S),
             {noreply, S};
         stop ->
             ?LOG(stop, T),
-            event(State, State#watchdog{status = down}),
+            event(T, State, State#watchdog{status = down}),
             {stop, {shutdown, T}, State}
     end.
 
-event(#watchdog{status = T}, #watchdog{status = T}) ->
+event(_, #watchdog{status = T}, #watchdog{status = T}) ->
     ok;
 
-event(#watchdog{transport = undefined}, #watchdog{transport = undefined}) ->
+event(_, #watchdog{transport = undefined}, #watchdog{transport = undefined}) ->
     ok;
 
-event(#watchdog{status = From, transport = F, parent = Pid},
+event(Msg,
+      #watchdog{status = From, transport = F, parent = Pid},
       #watchdog{status = To, transport = T}) ->
-    E = {tpid(F,T), From, To},
+    TPid = tpid(F,T),
+    E = {[TPid | data(Msg, TPid, From, To)], From, To},
     notify(Pid, E),
     ?LOG(transition, {self(), E}).
+
+data(Msg, TPid, reopen, okay) ->
+    {recv, TPid, 'DWA', _Pkt} = Msg,  %% assert
+    {TPid, T} = eraser(open),
+    [T];
+
+data({open, TPid, _Hosts, T}, TPid, _From, To)
+  when To == okay;
+       To == reopen ->
+    [T];
+
+data(_, _, _, _) ->
+    [].
 
 tpid(_, Pid)
   when is_pid(Pid) ->
     Pid;
+
 tpid(Pid, _) ->
     Pid.
 
@@ -248,15 +264,13 @@ transition({close, TPid, _Reason}, #watchdog{transport = TPid}) ->
 %% know the identity of the peer (ie. now) that we know that we're in
 %% state down rather than initial.
 
-transition({open, TPid, Hosts, T} = Open,
+transition({open, TPid, Hosts, _} = Open,
            #watchdog{transport = TPid,
                      status = initial,
-                     parent = Pid,
                      restrict = {_, R}}
            = S) ->
     case okay(getr(restart), Hosts, R) of
         okay ->
-            open(Pid, {TPid, T}),
             set_watchdog(S#watchdog{status = okay});
         reopen ->
             transition(Open, S#watchdog{status = down})
@@ -267,17 +281,15 @@ transition({open, TPid, Hosts, T} = Open,
 %%                                      SetWatchdog()
 %%                                      Pending = TRUE       REOPEN
 
-transition({open = P, TPid, _Hosts, T},
+transition({open = Key, TPid, _Hosts, T},
            #watchdog{transport = TPid,
-                     parent = Pid,
                      status = down}
            = S) ->
     %% Store the info we need to notify the parent to reopen the
     %% connection after the requisite DWA's are received, at which
     %% time we eraser(open). The reopen message is a later addition,
     %% to communicate the new capabilities as soon as they're known.
-    putr(P, {TPid, T}),
-    Pid ! {reopen, self(), {TPid, T}},
+    putr(Key, {TPid, T}),
     set_watchdog(send_watchdog(S#watchdog{status = reopen,
                                           num_dwa = 0}));
 
@@ -300,8 +312,6 @@ transition({'DOWN', _, process, TPid, _},
 transition({'DOWN', _, process, TPid, _},
            #watchdog{transport = TPid}
            = S) ->
-    failover(S),
-    close(S),
     set_watchdog(S#watchdog{status = down,
                             pending = false,
                             transport = undefined});
@@ -401,29 +411,6 @@ tw(T)
 tw({M,F,A}) ->
     apply(M,F,A).
 
-%% open/2
-
-open(Pid, {_,_} = T) ->
-    Pid ! {connection_up, self(), T}.
-
-%% failover/1
-
-failover(#watchdog{status = okay,
-                   parent = Pid}) ->
-    Pid ! {connection_down, self()};
-
-failover(_) ->
-    ok.
-
-%% close/1
-
-close(#watchdog{status = down}) ->
-    ok;
-
-close(#watchdog{parent = Pid}) ->
-    {{T, _}, _, _} = getr(restart),
-    T == accept andalso (Pid ! {close, self()}).
-
 %% send_watchdog/1
 
 send_watchdog(#watchdog{pending = false,
@@ -511,12 +498,10 @@ rcv(_, #watchdog{status = okay} = S) ->
 %%                                      SetWatchdog()        OKAY
 
 rcv('DWA', #watchdog{status = suspect} = S) ->
-    failback(S),
     set_watchdog(S#watchdog{status = okay,
                             pending = false});
 
 rcv(_, #watchdog{status = suspect} = S) ->
-    failback(S),
     set_watchdog(S#watchdog{status = okay});
 
 %%   REOPEN        Receive DWA &        Pending = FALSE
@@ -524,10 +509,8 @@ rcv(_, #watchdog{status = suspect} = S) ->
 %%                                      Failback()           OKAY
 
 rcv('DWA', #watchdog{status = reopen,
-                     num_dwa = 2 = N,
-                     parent = Pid}
+                     num_dwa = 2 = N}
            = S) ->
-    open(Pid, eraser(open)),
     S#watchdog{status = okay,
                num_dwa = N+1,
                pending = false};
@@ -545,11 +528,6 @@ rcv('DWA', #watchdog{status = reopen,
 
 rcv(_, #watchdog{status = reopen} = S) ->
     throwaway(S).
-
-%% failback/1
-
-failback(#watchdog{parent = Pid}) ->
-    Pid ! {connection_up, self()}.
 
 %% timeout/1
 %%
@@ -575,7 +553,6 @@ timeout(#watchdog{status = T,
 timeout(#watchdog{status = okay,
                   pending = true}
   = S) ->
-    failover(S),
     S#watchdog{status = suspect};
 
 %%   SUSPECT       Timer expires        CloseConnection()
@@ -592,7 +569,6 @@ timeout(#watchdog{status = T,
   when T == suspect;
        T == reopen, P, N < 0 ->
     exit(TPid, {shutdown, watchdog_timeout}),
-    close(S),
     S#watchdog{status = down};
 
 %%   REOPEN        Timer expires &      NumDWA = -1
