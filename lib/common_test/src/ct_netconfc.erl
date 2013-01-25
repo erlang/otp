@@ -1,7 +1,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1281,10 +1281,11 @@ do_send(Connection, SimpleXml) ->
 
 to_xml_doc(Simple) ->
     Prolog = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-    Xml = list_to_binary(xmerl:export_simple([Simple],
-					     xmerl_xml,
-					     [#xmlAttribute{name=prolog,
-							    value=Prolog}])),
+    Xml = unicode:characters_to_binary(
+	    xmerl:export_simple([Simple],
+				xmerl_xml,
+				[#xmlAttribute{name=prolog,
+					       value=Prolog}])),
     <<Xml/binary,?END_TAG/binary>>.
 
 %%%-----------------------------------------------------------------
@@ -1688,18 +1689,27 @@ log(#connection{host=Host,port=Port,name=Name},Action,Data) ->
 
 
 %% Log callback - called from the error handler process
-format_data(raw,Data) ->
-    io_lib:format("~n~s~n",[hide_password(Data)]);
-format_data(pretty,Data) ->
-    io_lib:format("~n~s~n",[indent(Data)]);
-format_data(html,Data) ->
-    io_lib:format("~n~s~n",[html_format(Data)]).
+format_data(How,Data) ->
+    %% Assuming that the data is encoded as UTF-8.  If it is not, then
+    %% the printout might be wrong, but the format function will not
+    %% crash!
+    %% FIXME: should probably read encoding from the data and do
+    %% unicode:characters_to_binary(Data,InEncoding,utf8) when calling
+    %% log/3 instead of assuming utf8 in as done here!
+    do_format_data(How,unicode:characters_to_binary(Data)).
+
+do_format_data(raw,Data) ->
+    io_lib:format("~n~ts~n",[hide_password(Data)]);
+do_format_data(pretty,Data) ->
+    io_lib:format("~n~ts~n",[indent(Data)]);
+do_format_data(html,Data) ->
+    io_lib:format("~n~ts~n",[html_format(Data)]).
 
 %%%-----------------------------------------------------------------
 %%% Hide password elements from XML data
 hide_password(Bin) ->
     re:replace(Bin,<<"(<password[^>]*>)[^<]*(</password>)">>,<<"\\1*****\\2">>,
-	       [global,{return,binary}]).
+	       [global,{return,binary},unicode]).
 
 %%%-----------------------------------------------------------------
 %%% HTML formatting
@@ -1717,13 +1727,13 @@ indent(Bin) ->
 	    Part ->
 		indent1(lists:reverse(Part)++String,erase(indent))
 	end,
-    list_to_binary(IndentedString).
+    unicode:characters_to_binary(IndentedString).
 
 %% Normalizes the XML document by removing all space and newline
 %% between two XML tags.
 %% Returns a list, no matter if the input was a list or a binary.
-normalize(Str) ->
-    re:replace(Str,<<">[ \r\n\t]+<">>,<<"><">>,[global,{return,list}]).
+normalize(Bin) ->
+    re:replace(Bin,<<">[ \r\n\t]+<">>,<<"><">>,[global,{return,list},unicode]).
 
 
 indent1("<?"++Rest1,Indent1) ->

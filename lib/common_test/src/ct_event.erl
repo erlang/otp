@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -150,7 +150,7 @@ init(RecvPids) ->
 %%--------------------------------------------------------------------
 handle_event(Event,State=#state{receivers=RecvPids}) ->
     print("~n=== ~w ===~n", [?MODULE]),
-    print("~p: ~p~n", [Event#event.name,Event#event.data]),
+    print("~w: ~w~n", [Event#event.name,Event#event.data]),
     lists:foreach(fun(Recv) -> report_event(Recv,Event) end, RecvPids),
     {ok,State}.
 

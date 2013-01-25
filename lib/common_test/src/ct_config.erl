@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -607,7 +607,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, {key,Key}) ->
 	    EncBin = crypto:des3_cbc_encrypt(K1, K2, K3, IVec, Bin2),
 	    case file:write_file(EncryptFileName, EncBin) of
 		ok ->
-		    io:format("~s --(encrypt)--> ~s~n",
+		    io:format("~ts --(encrypt)--> ~ts~n",
 			      [SrcFileName,EncryptFileName]),
 		    ok;
 		{error,Reason} ->
@@ -649,7 +649,7 @@ decrypt_config_file(EncryptFileName, TargetFileName, {key,Key}) ->
 			_ ->
 			    case file:write_file(TargetFileName, SrcBin) of
 				ok ->
-				    io:format("~s --(decrypt)--> ~s~n",
+				    io:format("~ts --(decrypt)--> ~ts~n",
 					      [EncryptFileName,TargetFileName]),
 				    ok;
 				{error,Reason} ->
@@ -700,7 +700,7 @@ get_crypt_key_from_file() ->
 	_ ->
 	    case catch string:tokens(binary_to_list(Result), [$\n,$\r]) of
 		[Key] ->
-		    io:format("~nCrypt key file: ~s~n", [FullName]),
+		    io:format("~nCrypt key file: ~ts~n", [FullName]),
 		    Key;
 		_ ->
 		    {error,{bad_crypt_file,FullName}}

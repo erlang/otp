@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -735,7 +735,7 @@ fail(Format, Args) ->
 %%% overwrites the string set by this function.</p>
 comment(Comment) when is_list(Comment) ->
     Formatted =
-	case (catch io_lib:format("~s",[Comment])) of
+	case (catch io_lib:format("~ts",[Comment])) of
 	    {'EXIT',_} ->  % it's a list not a string
 		io_lib:format("~p",[Comment]);
 	    String ->

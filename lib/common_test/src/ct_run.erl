@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -148,7 +148,7 @@ script_start(Args) ->
 			    _ -> ""
 			end
 		end,
-	    io:format("~nCommon Test~s starting (cwd is ~s)~n~n",
+	    io:format("~nCommon Test~s starting (cwd is ~ts)~n~n",
 	              [CTVsn,Cwd]),
 	    Self = self(),
 	    Pid = spawn_link(fun() -> script_start1(Self, Args) end),
@@ -378,7 +378,7 @@ run_or_refresh(StartOpts = #opts{logdir = LogDir}, Args) ->
 			    {error,{all_suites_index,ASReason}};
 			_ ->
 			    file:set_cwd(Cwd),
-			    io:format("Logs in ~s refreshed!~n~n", [LogDir1]),
+			    io:format("Logs in ~ts refreshed!~n~n", [LogDir1]),
 			    timer:sleep(500), % time to flush io before quitting
 			    ok
 		    end
@@ -848,7 +848,7 @@ run_test1(StartOpts) when is_list(StartOpts) ->
 	undefined ->
 	    Tracing = start_trace(StartOpts),
 	    {ok,Cwd} = file:get_cwd(),
-	    io:format("~nCommon Test starting (cwd is ~s)~n~n", [Cwd]),
+	    io:format("~nCommon Test starting (cwd is ~ts)~n~n", [Cwd]),
 	    Res =
 		case ct_repeat:loop_test(func, StartOpts) of
 		    false ->
@@ -1332,7 +1332,7 @@ run_testspec(TestSpec) ->
 
 run_testspec1(TestSpec) ->
     {ok,Cwd} = file:get_cwd(),
-    io:format("~nCommon Test starting (cwd is ~s)~n~n", [Cwd]),
+    io:format("~nCommon Test starting (cwd is ~ts)~n~n", [Cwd]),
     case catch run_testspec2(TestSpec) of
 	{'EXIT',Reason} ->
 	    file:set_cwd(Cwd),
@@ -1469,7 +1469,7 @@ refresh_logs(LogDir) ->
 			    {error,{all_runs_index,ARReason}};
 			_ ->
 			    file:set_cwd(Cwd),
-			    io:format("Logs in ~s refreshed!~n",[LogDir]),
+			    io:format("Logs in ~ts refreshed!~n",[LogDir]),
 			    ok
 		    end
 	    end
@@ -1792,7 +1792,7 @@ possibly_spawn(true, Tests, Skip, Opts) ->
 	end,
     unlink(CTUtilSrv),
     SupPid = spawn(Supervisor),
-    io:format(user, "~nTest control handed over to process ~p~n~n",
+    io:format(user, "~nTest control handed over to process ~w~n~n",
 	      [SupPid]),
     SupPid.
 
@@ -1880,7 +1880,7 @@ verify_suites(TestSuites) ->
 								    Suite)),
 						io:format(user,
 							  "Suite ~w not found"
-							  "in directory ~s~n",
+							  "in directory ~ts~n",
 							  [Suite,TestDir]),
 						{Found,[{DS,[Name]}|NotFound]}
 					end
@@ -1895,7 +1895,7 @@ verify_suites(TestSuites) ->
 				ActualDir = filename:dirname(SuiteFile),
 				{[{ActualDir,Suite}|Found],NotFound};
 			    false ->
-				io:format(user, "Directory ~s is "
+				io:format(user, "Directory ~ts is "
 					  "invalid~n", [Dir]),
 				Name = filename:join(Dir, atom_to_list(Suite)),
 				{Found,[{DS,[Name]}|NotFound]}
@@ -2135,7 +2135,7 @@ do_run_test(Tests, Skip, Opts) ->
 				cross      = CovCross,
 				src        = _CovSrc}} ->
 		    ct_logs:log("COVER INFO",
-				"Using cover specification file: ~s~n"
+				"Using cover specification file: ~ts~n"
 				"App: ~w~n"
 				"Cross cover: ~w~n"
 				"Including ~w modules~n"
@@ -2150,7 +2150,7 @@ do_run_test(Tests, Skip, Opts) ->
 			    DelResult = file:delete(CovExport),
 			    ct_logs:log("COVER INFO",
 					"Warning! "
-					"Export file ~s already exists. "
+					"Export file ~ts already exists. "
 					"Deleting with result: ~p",
 					[CovExport,DelResult]);
 			false ->
@@ -2632,7 +2632,7 @@ log_ts_names(Specs) ->
     List = lists:map(fun(Name) ->
 			     Name ++ " "
 		     end, Specs),
-    ct_logs:log("Test Specification file(s)", "~s",
+    ct_logs:log("Test Specification file(s)", "~ts",
 		[lists:flatten(List)]).
 
 merge_arguments(Args) ->
@@ -2743,10 +2743,10 @@ event_handler_args2opts(Default, Args) ->
 	    event_handler_init_args2opts(EHs)
     end.
 event_handler_init_args2opts([EH, Arg, "and" | EHs]) ->
-    [{list_to_atom(EH),lists:flatten(io_lib:format("~s",[Arg]))} |
+    [{list_to_atom(EH),lists:flatten(io_lib:format("~ts",[Arg]))} |
      event_handler_init_args2opts(EHs)];
 event_handler_init_args2opts([EH, Arg]) ->
-    [{list_to_atom(EH),lists:flatten(io_lib:format("~s",[Arg]))}];
+    [{list_to_atom(EH),lists:flatten(io_lib:format("~ts",[Arg]))}];
 event_handler_init_args2opts([]) ->
     [].
 
@@ -3064,7 +3064,7 @@ start_trace(Args) ->
 			    false
 		    end;
 		{_,Error} ->
-		    io:format("Warning! Tracing not started. Reason: ~s~n~n",
+		    io:format("Warning! Tracing not started. Reason: ~ts~n~n",
 			      [file:format_error(Error)]),
 		    false
 	    end;

@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -426,7 +426,7 @@ reply(ConnRef,Reply) ->
     send(ConnRef, make_msg(Reply)).
 
 from_simple(Simple) ->
-    list_to_binary(xmerl:export_simple_element(Simple,xmerl_xml)).
+    unicode_c2b(xmerl:export_simple_element(Simple,xmerl_xml)).
 
 xml(Content) ->
     <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
@@ -435,30 +435,30 @@ xml(Content) ->
 rpc_reply(Content) when is_binary(Content) ->
     MsgId = case erase(msg_id) of
 		undefined -> <<>>;
-		Id -> list_to_binary([" message-id=\"",Id,"\""])
+		Id -> unicode_c2b([" message-id=\"",Id,"\""])
 	    end,
     <<"<rpc-reply xmlns=\"",?NETCONF_NAMESPACE,"\"",MsgId/binary,">\n",
       Content/binary,"\n</rpc-reply>">>;
 rpc_reply(Content) ->
-    rpc_reply(list_to_binary(Content)).
+    rpc_reply(unicode_c2b(Content)).
 
 session_id(no_session_id) ->
     <<>>;
 session_id(SessionId0) ->
-    SessionId = list_to_binary(integer_to_list(SessionId0)),
+    SessionId = unicode_c2b(integer_to_list(SessionId0)),
     <<"<session-id>",SessionId/binary,"</session-id>\n">>.
 
 capabilities(undefined) ->
-    CapsXml = list_to_binary([["<capability>",C,"</capability>\n"]
+    CapsXml = unicode_c2b([["<capability>",C,"</capability>\n"]
 			      || C <- ?CAPABILITIES]),
     <<"<capabilities>\n",CapsXml/binary,"</capabilities>\n">>;
 capabilities({base,Vsn}) ->
-    CapsXml = list_to_binary([["<capability>",C,"</capability>\n"]
+    CapsXml = unicode_c2b([["<capability>",C,"</capability>\n"]
 			      || C <- ?CAPABILITIES_VSN(Vsn)]),
     <<"<capabilities>\n",CapsXml/binary,"</capabilities>\n">>;
 capabilities(no_base) ->
     [_|Caps] = ?CAPABILITIES,
-    CapsXml = list_to_binary([["<capability>",C,"</capability>\n"] || C <- Caps]),
+    CapsXml = unicode_c2b([["<capability>",C,"</capability>\n"] || C <- Caps]),
     <<"<capabilities>\n",CapsXml/binary,"</capabilities>\n">>;
 capabilities(no_caps) ->
     <<>>.
@@ -553,3 +553,8 @@ make_msg(Xml) when is_binary(Xml) ->
     xml(Xml);
 make_msg(Simple) when is_tuple(Simple) ->
     xml(from_simple(Simple)).
+
+%%%-----------------------------------------------------------------
+%%% Convert to unicode binary, since we use UTF-8 encoding in XML
+unicode_c2b(Characters) ->
+    unicode:characters_to_binary(Characters).

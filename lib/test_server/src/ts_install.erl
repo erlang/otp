@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,7 +93,7 @@ autoconf1(_,_) ->
     throw(cross_installation_failed).
 
 autoconf2({ok, Bin}) ->
-    get_vars(binary_to_list(Bin), name, [], []);
+    get_vars(ts_lib:b2s(Bin), name, [], []);
 autoconf2(Error) ->
     Error.
 
@@ -170,12 +170,12 @@ parse_xcomp_file(Filepath) ->
 parse_xcomp_file([<<A:8,_/binary>> = Line|R],Envs,Flags)
   when $A =< A, A =< $Z ->
     [Var,Value] = binary:split(Line,<<"=">>),
-    parse_xcomp_file(R,[{binary_to_list(Var),
-			 binary_to_list(Value)}|Envs],Flags);
+    parse_xcomp_file(R,[{ts_lib:b2s(Var),
+			 ts_lib:b2s(Value)}|Envs],Flags);
 parse_xcomp_file([<<"erl_xcomp_",Line/binary>>|R],Envs,Flags) ->
     [Var,Value] = binary:split(Line,<<"=">>),
-    parse_xcomp_file(R,Envs,[{binary_to_list(Var),
-			      binary_to_list(Value)}|Flags]);
+    parse_xcomp_file(R,Envs,[{ts_lib:b2s(Var),
+			      ts_lib:b2s(Value)}|Flags]);
 parse_xcomp_file([_|R],Envs,Flags) ->
     parse_xcomp_file(R,Envs,Flags);
 parse_xcomp_file([],Envs,Flags) ->
@@ -407,4 +407,3 @@ extra_platform_label() ->
 	[_|_]=Label -> "/" ++ Label;
 	false -> ""
     end.
-

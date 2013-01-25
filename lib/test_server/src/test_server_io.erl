@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -235,7 +235,7 @@ handle_info(kill_group_leaders, #st{gls=Gls,stopping=From}=St) ->
     gen_server:reply(From, ok),
     {stop,normal,St};
 handle_info(Other, St) ->
-    io:format("Ignoring: ~p\n", [Other]),
+    io:format("Ignoring: ~tp\n", [Other]),
     {noreply,St}.
 
 terminate(_, _) ->
@@ -256,12 +256,12 @@ output(From, Tag, Str, #st{io_buffering=Buffered,buffered=Buf0}=St) ->
 do_output(stdout, Str, #st{job_name=undefined}) ->
     io:put_chars(Str);
 do_output(stdout, Str0, #st{job_name=Name}) ->
-    Str = io_lib:format("Testing ~s: ~s\n", [Name,Str0]),
+    Str = io_lib:format("Testing ~ts: ~ts\n", [Name,Str0]),
     io:put_chars(Str);
 do_output(Tag, Str, #st{fds=Fds}=St) ->
     case gb_trees:lookup(Tag, Fds) of
 	none ->
-	    S = io_lib:format("\n*** ERROR: ~p, line ~p: No known '~p' log file\n",
+	    S = io_lib:format("\n*** ERROR: ~w, line ~w: No known '~tp' log file\n",
 			      [?MODULE,?LINE,Tag]),
 	    do_output(stdout, [S,Str], St);
 	{value,Fd} ->
@@ -272,8 +272,8 @@ do_output(Tag, Str, #st{fds=Fds}=St) ->
 		    _ -> ok
 		end
 	    catch _:Error ->
-		    S = io_lib:format("\n*** ERROR: ~p, line ~p: Error writing to "
-				      "log file '~p': ~p\n",
+		    S = io_lib:format("\n*** ERROR: ~w, line ~w: Error writing to "
+				      "log file '~tp': ~tp\n",
 				      [?MODULE,?LINE,Tag,Error]),
 		    do_output(stdout, [S,Str], St)
 	    end

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -265,7 +265,7 @@ collect_tests_from_file1([Spec|Specs],TestSpec,Relaxed) ->
 	    end;
 	{error,Reason} ->
 	    ReasonStr =
-		lists:flatten(io_lib:format("~s",
+		lists:flatten(io_lib:format("~ts",
 					    [file:format_error(Reason)])),
 	    throw({error,{Spec,ReasonStr}})
     end.
@@ -588,7 +588,7 @@ add_option({Key,Value},Node,List,WarnIfExists) when is_list(Value) ->
     NewOption = case lists:keyfind(Key,1,OldOptions) of
 	{Key,OldOption} when WarnIfExists,OldOption/=[]->
 	    io:format("There is an option ~w=~w already "
-		      "defined for node ~p, skipping new ~w~n",
+		      "defined for node ~w, skipping new ~w~n",
 		[Key,OldOption,Node,Value]),
 	    OldOption;
 	{Key,OldOption}->

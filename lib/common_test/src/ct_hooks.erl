@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -362,11 +362,11 @@ catch_apply(M,F,A, Default) ->
 		[{M,F,A,_}|_] when Reason == undef ->
 		    Default;
 		Trace ->
-		    ct_logs:log("Suite Hook","Call to CTH failed: ~p:~p",
+		    ct_logs:log("Suite Hook","Call to CTH failed: ~w:~p",
 				[error,{Reason,Trace}]),
 		    throw({error_in_cth_call,
 			   lists:flatten(
-			     io_lib:format("~p:~p/~p CTH call failed",
+			     io_lib:format("~w:~w/~w CTH call failed",
 					   [M,F,length(A)]))})
 	    end
     end.

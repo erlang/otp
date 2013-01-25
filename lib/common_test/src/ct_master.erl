@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -244,7 +244,7 @@ run_all([],AllLogDirs,_,AllEvHs,_AllIncludes,
 		       {value,{_,Dir}} -> Dir;
 		       false -> "."
 		   end,
-    log(tty,"Master Logdir","~s",[MasterLogDir]),
+    log(tty,"Master Logdir","~ts",[MasterLogDir]),
     start_master(lists:reverse(NodeOpts),Handlers,MasterLogDir,LogDirs,InitOptions,Specs),
     ok.
     
@@ -331,7 +331,7 @@ init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,InitOptions,Spec
 	    SpecsStr = lists:map(fun(Name) ->
 					 Name ++ " "
 				 end,Specs), 
-	    ct_master_logs:log("Test Specification file(s)","~s",
+	    ct_master_logs:log("Test Specification file(s)","~ts",
 			       [lists:flatten(SpecsStr)])
     end,
 
@@ -340,7 +340,7 @@ init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,InitOptions,Spec
     ct_master_event:add_handler(),
     %% add user handlers for master event manager
     Add = fun({H,Args}) ->
-		  log(all,"Adding Event Handler","~p",[H]),
+		  log(all,"Adding Event Handler","~w",[H]),
 		  case gen_event:add_handler(?CT_MEVMGR_REF,H,Args) of
 		      ok -> ok;
 		      {'EXIT',Why} -> exit(Why);
@@ -391,7 +391,7 @@ init_master2(Parent,NodeOptsList,LogDirs) ->
     SpawnAndMon = 
 	fun({Node,Opts}) ->
 		monitor_node(Node,true),
-		log(all,"Test Info","Starting test(s) on ~p...",[Node]),
+		log(all,"Test Info","Starting test(s) on ~w...",[Node]),
 		{spawn_link(Node,?MODULE,init_node_ctrl,[self(),Cookie,Opts]),Node}
 	end,
     NodeCtrlPids = lists:map(SpawnAndMon,NodeOptsList),
@@ -404,7 +404,8 @@ master_loop(#state{node_ctrl_pids=[],
 		   results=Finished}) ->
     Str =
 	lists:map(fun({Node,Result}) ->
-			  io_lib:format("~-40.40.*s~p\n",[$_,atom_to_list(Node),Result])
+			  io_lib:format("~-40.40.*ts~p\n",
+					[$_,atom_to_list(Node),Result])
 		  end,lists:reverse(Finished)),
     log(all,"TEST RESULTS",Str,[]),
     log(all,"Info","Updating log files",[]),
@@ -448,7 +449,7 @@ master_loop(State=#state{node_ctrl_pids=NodeCtrlPids,
 		undefined ->
 		    %% ignore (but report) exit from master_logger etc
 		    log(all,"Test Info",
-			"Warning! Process ~p has terminated. Reason: ~p",
+			"Warning! Process ~w has terminated. Reason: ~p",
 			[Pid,Reason]),
 			master_loop(State)
 	    end;
@@ -531,7 +532,7 @@ update_queue(take,Node,From,Lock={Op,Resource},Locks,Blocked) ->
     %% Blocked: [{{Operation,Resource},Node,WaitingPid},...]
     case lists:keysearch(Lock,1,Locks) of
 	{value,{_Lock,Owner}} ->		% other node has lock
-	    log(html,"Lock Info","Node ~p blocked on ~w by ~w. Resource: ~p",
+	    log(html,"Lock Info","Node ~w blocked on ~w by ~w. Resource: ~p",
 		[Node,Op,Owner,Resource]),
 	    Blocked1 = Blocked ++ [{Lock,Node,From}],
 	    {Locks,Blocked1};
@@ -546,7 +547,7 @@ update_queue(release,Node,_From,Lock={Op,Resource},Locks,Blocked) ->
     case lists:keysearch(Lock,1,Blocked) of
 	{value,E={Lock,SomeNode,WaitingPid}} ->
 	    Blocked1 = lists:delete(E,Blocked),
-	    log(html,"Lock Info","Node ~p proceeds with ~w. Resource: ~p",
+	    log(html,"Lock Info","Node ~w proceeds with ~w. Resource: ~p",
 		[SomeNode,Op,Resource]),
 	    reply(ok,WaitingPid),		% waiting process may start
 	    {Locks1,Blocked1};
@@ -625,7 +626,8 @@ refresh_logs([D|Dirs],Refreshed) ->
 refresh_logs([],Refreshed) ->
     Str =
 	lists:map(fun({D,Result}) ->
-			  io_lib:format("Refreshing logs in ~p... ~p",[D,Result])
+			  io_lib:format("Refreshing logs in ~p... ~p",
+					[D,Result])
 		  end,Refreshed),
     log(all,"Info",Str,[]).
 
@@ -638,7 +640,7 @@ init_node_ctrl(MasterPid,Cookie,Opts) ->
     process_flag(trap_exit, true),
     MasterNode = node(MasterPid),
     group_leader(whereis(user),self()),
-    io:format("~n********** node_ctrl process ~p started on ~p **********~n",
+    io:format("~n********** node_ctrl process ~w started on ~w **********~n",
 	      [self(),node()]),
     %% initially this node must have the same cookie as the master node
     %% but now we set it explicitly for the connection so that test suites
@@ -671,7 +673,7 @@ init_node_ctrl(MasterPid,Cookie,Opts) ->
 	pong ->
 	    MasterPid ! {self(),{result,Result}};
 	pang ->
-	    io:format("Warning! Connection to master node ~p is lost. "
+	    io:format("Warning! Connection to master node ~w is lost. "
 		      "Can't report result!~n~n", [MasterNode])
     end.
 
@@ -752,21 +754,21 @@ start_nodes(InitOptions)->
 	IsAlive = lists:member(NodeName, nodes()),
 	case {HasNodeStart, IsAlive} of
 	    {false, false}->
-		io:format("WARNING: Node ~p is not alive but has no node_start option~n", [NodeName]);
+		io:format("WARNING: Node ~w is not alive but has no node_start option~n", [NodeName]);
 	    {false, true}->
-		io:format("Node ~p is alive~n", [NodeName]);
+		io:format("Node ~w is alive~n", [NodeName]);
 	    {true, false}->
 		{node_start, NodeStart} = lists:keyfind(node_start, 1, Options),
 		{value, {callback_module, Callback}, NodeStart2}=
 		    lists:keytake(callback_module, 1, NodeStart),
 		case Callback:start(Host, Node, NodeStart2) of
 		    {ok, NodeName} ->
-			io:format("Node ~p started successfully with callback ~p~n", [NodeName,Callback]);
+			io:format("Node ~w started successfully with callback ~w~n", [NodeName,Callback]);
 		    {error, Reason, _NodeName} ->
-			io:format("Failed to start node ~p with callback ~p! Reason: ~p~n", [NodeName, Callback, Reason])
+			io:format("Failed to start node ~w with callback ~w! Reason: ~p~n", [NodeName, Callback, Reason])
 		end;
 	    {true, true}->
-		io:format("WARNING: Node ~p is alive but has node_start option~n", [NodeName])
+		io:format("WARNING: Node ~w is alive but has node_start option~n", [NodeName])
 	end
     end,
     InitOptions).
@@ -779,7 +781,7 @@ eval_on_nodes(InitOptions)->
 	    {false,_}->
 		ok;
 	    {true,false}->
-		io:format("WARNING: Node ~p is not alive but has eval option ~n", [NodeName]);
+		io:format("WARNING: Node ~w is not alive but has eval option ~n", [NodeName]);
 	    {true,true}->
 		{eval, MFAs} = lists:keyfind(eval, 1, Options),
 		evaluate(NodeName, MFAs)
@@ -790,9 +792,9 @@ eval_on_nodes(InitOptions)->
 evaluate(Node, [{M,F,A}|MFAs])->
     case rpc:call(Node, M, F, A) of
         {badrpc,Reason}->
-	    io:format("WARNING: Failed to call ~p:~p/~p on node ~p due to ~p~n", [M,F,length(A),Node,Reason]);
+	    io:format("WARNING: Failed to call ~w:~w/~w on node ~w due to ~p~n", [M,F,length(A),Node,Reason]);
 	Result->
-	    io:format("Called ~p:~p/~p on node ~p, result: ~p~n", [M,F,length(A),Node,Result])
+	    io:format("Called ~w:~w/~w on node ~w, result: ~p~n", [M,F,length(A),Node,Result])
     end,
     evaluate(Node, MFAs);
 evaluate(_Node, [])->

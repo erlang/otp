@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,10 +72,10 @@ timetrap(Timeout0, ReportTVal, Scale, Pid) ->
 		    after 10000 ->
 			    %% Pid is probably trapping exits, hit it harder...
 			    catch error_logger:warning_msg(
-				    "Testcase process ~p not "
+				    "Testcase process ~w not "
 				    "responding to timetrap "
 				    "timeout:~n"
-				    "  ~p.~n"
+				    "  ~tp.~n"
 				    "Killing testcase...~n",
 				    [Pid, Trap]),
 			    exit(Pid, kill)
@@ -142,11 +142,11 @@ call_crash(Time,Crash,M,F,A) ->
 	    {'EXIT',Pid,_Reason} when Crash==any ->
 		ok;
 	    {'EXIT',Reason} ->
-		test_server:format(12, "Wrong crash reason. Wanted ~p, got ~p.",
+		test_server:format(12, "Wrong crash reason. Wanted ~tp, got ~tp.",
 		      [Crash, Reason]),
 		exit({wrong_crash_reason,Reason});
 	    {'EXIT',Pid,Reason} ->
-		test_server:format(12, "Wrong crash reason. Wanted ~p, got ~p.",
+		test_server:format(12, "Wrong crash reason. Wanted ~tp, got ~tp.",
 		      [Crash, Reason]),
 		exit({wrong_crash_reason,Reason});
 	    {'EXIT',OtherPid,Reason} when OldTrapExit == false ->
@@ -312,7 +312,7 @@ check_dict(Dict, Reason) ->
 	[] ->
 	    1;                         % All ok.
 	List ->
-	    io:format("** ~s (~s) ->~n~p~n",[Reason, Dict, List]),
+	    io:format("** ~ts (~ts) ->~n~tp~n",[Reason, Dict, List]),
 	    0
     end.
 
@@ -321,7 +321,7 @@ check_dict_tolerant(Dict, Reason, Mode) ->
 	[] ->
 	    1;                         % All ok.
 	List ->
-	    io:format("** ~s (~s) ->~n~p~n",[Reason, Dict, List]),
+	    io:format("** ~ts (~ts) ->~n~tp~n",[Reason, Dict, List]),
 	    case Mode of
 		pedantic ->
 		    0;
@@ -377,7 +377,7 @@ check_new_crash_dumps() ->
 	    ok;
 	Num ->
 	    test_server_ctrl:format(minor,
-				    "Found ~p crash dumps:~n", [Num]),
+				    "Found ~w crash dumps:~n", [Num]),
 	    append_files_to_logfile(Dumps),
 	    delete_files(Dumps)
     end.
@@ -385,7 +385,7 @@ check_new_crash_dumps() ->
 append_files_to_logfile([]) -> ok;
 append_files_to_logfile([File|Files]) ->
     NodeName=from($., File),
-    test_server_ctrl:format(minor, "Crash dump from node ~p:~n",[NodeName]),
+    test_server_ctrl:format(minor, "Crash dump from node ~tp:~n",[NodeName]),
     Fd=get(test_server_minor_fd),
     case file:read_file(File) of
 	{ok, Bin} ->
@@ -397,22 +397,22 @@ append_files_to_logfile([File|Files]) ->
 		    %% fail, but in that case it will throw an exception so that
 		    %% we will be aware of the problem.
 		    io:format(Fd, "Unable to write the crash dump "
-			      "to this file: ~p~n", [file:format_error(Error)])
+			      "to this file: ~tp~n", [file:format_error(Error)])
 	    end;
 	_Error ->
-	    io:format(Fd, "Failed to read: ~s\n", [File])
+	    io:format(Fd, "Failed to read: ~ts\n", [File])
     end,
     append_files_to_logfile(Files).
 
 delete_files([]) -> ok;
 delete_files([File|Files]) ->
-    io:format("Deleting file: ~s~n", [File]),
+    io:format("Deleting file: ~ts~n", [File]),
     case file:delete(File) of
 	{error, _} ->
 	    case file:rename(File, File++".old") of
 		{error, Error} ->
 		    io:format("Could neither delete nor rename file "
-			      "~s: ~s.~n", [File, Error]);
+			      "~ts: ~ts.~n", [File, Error]);
 		_ ->
 		    ok
 	    end;
@@ -555,7 +555,7 @@ format_loc([{Mod,LineOrFunc}]) ->
 format_loc({Mod,Func}) when is_atom(Func) -> 
     io_lib:format("{~w,~w}",[Mod,Func]);
 format_loc(Loc) ->
-    io_lib:format("~p",[Loc]).    
+    io_lib:format("~tp",[Loc]).
 
 format_loc1([{Mod,Func,Line}]) ->
     ["              ",format_loc1({Mod,Func,Line}),"]"];
@@ -566,9 +566,10 @@ format_loc1({Mod,Func,Line}) ->
     case {lists:member(no_src, get(test_server_logopts)),
 	  lists:reverse(ModStr)} of
 	{false,[$E,$T,$I,$U,$S,$_|_]}  ->
-	    io_lib:format("{~w,~w,<a href=\"~s~s#~w\">~w</a>}",
-			  [Mod,Func,downcase(ModStr),?src_listing_ext,
-			   Line,Line]);
+	    io_lib:format("{~w,~w,<a href=\"~ts~ts#~w\">~w</a>}",
+			  [Mod,Func,
+			   test_server_ctrl:uri_encode(downcase(ModStr)),
+			   ?src_listing_ext,Line,Line]);
 	_ ->
 	    io_lib:format("{~w,~w,~w}",[Mod,Func,Line])
     end.

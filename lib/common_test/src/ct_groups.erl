@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -462,7 +462,7 @@ make_conf(Mod, Name, Props, TestSpec) ->
 	    false ->
 		ct_logs:log("TEST INFO", "init_per_group/2 and "
 			    "end_per_group/2 missing for group "
-			    "~p in ~p, using default.",
+			    "~w in ~w, using default.",
 			    [Name,Mod]),
 		{{ct_framework,init_per_group},
 		 {ct_framework,end_per_group},

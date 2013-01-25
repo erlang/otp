@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,7 +47,7 @@ read_config(ConfigFile) ->
 		{error,no_crypt_file} ->
 		    {error,{config_file_error,
 			    lists:flatten(
-			      io_lib:format("~s",[file:format_error(Reason)]))}};
+			      io_lib:format("~ts",[file:format_error(Reason)]))}};
 		{error,CryptError} ->
 		    {error,{decrypt_file_error,CryptError}};
 		_ when is_list(Key) ->

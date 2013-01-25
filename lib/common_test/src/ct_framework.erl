@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -750,12 +750,12 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 		     Descr1 = lists:flatten(io_lib:format("~P",[Descr,10])),
 		     if length(Descr1) > 50 ->
 			     Descr2 = string:substr(Descr1,1,50),
-			     io_lib:format("{badmatch,~s...}",[Descr2]);
+			     io_lib:format("{badmatch,~ts...}",[Descr2]);
 			true ->
-			     io_lib:format("{badmatch,~s}",[Descr1])
+			     io_lib:format("{badmatch,~ts}",[Descr1])
 		     end;
 		 {test_case_failed,Reason} ->
-		     case (catch io_lib:format("{test_case_failed,~s}", [Reason])) of
+		     case (catch io_lib:format("{test_case_failed,~ts}", [Reason])) of
 			 {'EXIT',_} ->
 			     io_lib:format("{test_case_failed,~p}", [Reason]);
 			 Result -> Result
@@ -788,7 +788,7 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 			"<font color=\"green\">" ++ "(" ++ "</font>"
 			++ Comment ++ 
 			"<font color=\"green\">" ++ ")" ++ "</font>",
-		    Str = io_lib:format("~s   ~s", [ErrorHtml,CommentHtml]),
+		    Str = io_lib:format("~ts   ~ts", [ErrorHtml,CommentHtml]),
 		    test_server:comment(Str)
 	    end
     end,
@@ -803,24 +803,24 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 	       end,
     case Loc of
 	[{?MODULE,error_in_suite}] ->
-	    PrintErr("Error in suite detected: ~s", [ErrStr]);
+	    PrintErr("Error in suite detected: ~ts", [ErrStr]);
 
 	R when R == unknown; R == undefined ->
-	    PrintErr("Error detected: ~s", [ErrStr]);
+	    PrintErr("Error detected: ~ts", [ErrStr]);
 
 	%% if a function specified by all/0 does not exist, we
 	%% pick up undef here
 	[{LastMod,LastFunc}|_] when ErrStr == "undef" ->
-	    PrintErr("~w:~w could not be executed~nReason: ~s",
+	    PrintErr("~w:~w could not be executed~nReason: ~ts",
 		     [LastMod,LastFunc,ErrStr]);
 
 	[{LastMod,LastFunc}|_] ->
-	    PrintErr("~w:~w failed~nReason: ~s", [LastMod,LastFunc,ErrStr]);
+	    PrintErr("~w:~w failed~nReason: ~ts", [LastMod,LastFunc,ErrStr]);
 	    
 	[{LastMod,LastFunc,LastLine}|_] ->
 	    %% print error to console, we are only
 	    %% interested in the last executed expression
-	    PrintErr("~w:~w failed on line ~w~nReason: ~s",
+	    PrintErr("~w:~w failed on line ~w~nReason: ~ts",
 		     [LastMod,LastFunc,LastLine,ErrStr]),
 	    
 	    case ct_util:read_suite_data({seq,Mod,Func}) of
@@ -1184,7 +1184,7 @@ report(What,Data) ->
 				      ok;
 				  {error,Reason} ->
 				      ct_logs:log("COVER INFO",
-						  "Importing cover data from: ~s fails! "
+						  "Importing cover data from: ~ts fails! "
 						  "Reason: ~p", [Imp,Reason])
 			      end
 		      end, Imps)
@@ -1349,4 +1349,7 @@ format_comment(Comment) ->
 %%%-----------------------------------------------------------------
 %%% @spec get_html_wrapper(TestName, PrintLabel, Cwd) -> Header
 get_html_wrapper(TestName, PrintLabel, Cwd, TableCols) ->
-    ct_logs:get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols).
+    get_html_wrapper(TestName, PrintLabel, Cwd, TableCols, utf8).
+
+get_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding) ->
+    ct_logs:get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding).

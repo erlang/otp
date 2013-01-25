@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,6 +19,9 @@
 -module(test_server_test_lib).
 -export([parse_suite/1]).
 -export([init/2, pre_init_per_testcase/3, post_end_per_testcase/4]).
+
+%% for test_server_SUITE when node can not be started as slave
+-export([prepare_tester_node/2]).
 
 -include("test_server_test_lib.hrl").
 
@@ -49,37 +52,40 @@ start_slave(Config,_Level) ->
 	    ct:log("Node ~p started~n", [Node]),
 	    IsCover = test_server:is_cover(),
 	    if IsCover ->
-		cover:start(Node);
-	    true->
-		ok
+		    cover:start(Node);
+	       true->
+		    ok
 	    end,
-	    DataDir = proplists:get_value(data_dir, Config),
-	    %% We would normally use priv_dir for temporary data,
-	    %% but the pathnames gets too long on Windows.
-	    %% Until the run-time system can support long pathnames,
-	    %% use the data dir.
-	    WorkDir = DataDir,
-
-	    %% WorkDir as well as directory of Test Server suites
-	    %% have to be in code path on Test Server node.
-	    [_ | Parts] = lists:reverse(filename:split(DataDir)),
-	    TSDir = filename:join(lists:reverse(Parts)),
-	    AddPathDirs = case proplists:get_value(path_dirs, Config) of
-			      undefined -> [];
-			      Ds -> Ds
-			  end,
-	    PathDirs = [WorkDir,TSDir | AddPathDirs],
-	    [true = rpc:call(Node, code, add_patha, [D]) || D <- PathDirs],
-	    io:format("Dirs added to code path (on ~w):~n",
-		      [Node]),
-	    [io:format("~s~n", [D]) || D <- PathDirs],
-
-	    true = rpc:call(Node, os, putenv, 
-			    ["TEST_SERVER_FRAMEWORK", "undefined"]),
-
-	    ok = rpc:call(Node, file, set_cwd, [WorkDir]),
-	    [{node,Node}, {work_dir,WorkDir} | Config]
+	    prepare_tester_node(Node,Config)
     end.
+
+prepare_tester_node(Node,Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    %% We would normally use priv_dir for temporary data,
+    %% but the pathnames gets too long on Windows.
+    %% Until the run-time system can support long pathnames,
+    %% use the data dir.
+    WorkDir = DataDir,
+
+    %% WorkDir as well as directory of Test Server suites
+    %% have to be in code path on Test Server node.
+    [_ | Parts] = lists:reverse(filename:split(DataDir)),
+    TSDir = filename:join(lists:reverse(Parts)),
+    AddPathDirs = case proplists:get_value(path_dirs, Config) of
+		      undefined -> [];
+		      Ds -> Ds
+		  end,
+    PathDirs = [WorkDir,TSDir | AddPathDirs],
+    [true = rpc:call(Node, code, add_patha, [D]) || D <- PathDirs],
+    io:format("Dirs added to code path (on ~w):~n",
+	      [Node]),
+    [io:format("~s~n", [D]) || D <- PathDirs],
+
+    true = rpc:call(Node, os, putenv,
+		    ["TEST_SERVER_FRAMEWORK", "undefined"]),
+
+    ok = rpc:call(Node, file, set_cwd, [WorkDir]),
+    [{node,Node}, {work_dir,WorkDir} | Config].
 
 post_end_per_testcase(_TC, Config, Return, State) ->
     Node = proplists:get_value(node, Config),

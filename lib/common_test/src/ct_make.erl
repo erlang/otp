@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -280,13 +280,13 @@ recompile(File, NoExec, Load, Opts) ->
 do_recompile(_File, true, _Load, _Opts) ->
     out_of_date;
 do_recompile(File, false, noload, Opts) ->
-    io:format("Recompile: ~s\n",[File]),
+    io:format("Recompile: ~ts\n",[File]),
     compile:file(File, [report_errors, report_warnings, error_summary |Opts]);
 do_recompile(File, false, load, Opts) ->
-    io:format("Recompile: ~s\n",[File]),
+    io:format("Recompile: ~ts\n",[File]),
     c:c(File, Opts);
 do_recompile(File, false, netload, Opts) ->
-    io:format("Recompile: ~s\n",[File]),
+    io:format("Recompile: ~ts\n",[File]),
     c:nc(File, Opts).
 
 exists(File) ->
