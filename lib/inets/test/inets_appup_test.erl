@@ -257,6 +257,21 @@ check_instruction(_, Instr, _AllInstr, _Modules) ->
 
 check_version(V) when is_list(V) ->
     ok;
+check_version(REBin) when is_binary(REBin) ->
+    try
+	begin
+	    RE = binary_to_list(REBin),
+	    case re:compile(RE) of
+		{ok, _} ->
+		    ok;
+		{error, _} ->
+		    error({bad_version, REBin})
+	    end
+	end
+    catch
+	_T:_E ->
+	    error({bad_version, REBin})
+    end;
 check_version(V) ->
     error({bad_version, V}).
 
