@@ -780,7 +780,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	    dos.close();
 	} catch (final IOException e) {
 	    throw new java.lang.IllegalArgumentException(
-		    "Intremediate stream failed for Erlang object " + o);
+		    "Intermediate stream failed for Erlang object " + o);
 	}
     }
 
