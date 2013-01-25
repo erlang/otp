@@ -34,6 +34,7 @@
 -import(asn1ct_gen, [emit/1,demit/1]).
 -import(asn1ct_gen_per, [is_already_generated/2,more_genfields/1,
 			 get_class_fields/1,get_object_field/2]).
+-import(asn1ct_func, [call/3]).
 
 %% pgen(Erules, Module, TypeOrVal)
 %% Generate Erlang module (.erl) and (.hrl) file corresponding to an ASN.1 module
@@ -82,13 +83,6 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
     Typename = [D#typedef.name],
     Def = D#typedef.typespec,
     InnerType = asn1ct_gen:get_inner(Def#type.def),
-    case InnerType of
-	'SET' -> true;
-	'SEQUENCE' -> true;
-	_ ->
-	    emit({nl,"'enc_",asn1ct_gen:list2name(Typename),"'({'",asn1ct_gen:list2name(Typename),"',Val}) ->",nl}),
-	    emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val);",nl,nl})
-    end,
     emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val) ->",nl}),
     case asn1ct_gen:type(InnerType) of
 	{primitive,bif} ->
@@ -137,41 +131,30 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    emit(["  %%INTEGER with effective constraint: ",
 		  {asis,EffectiveConstr},nl]),
 	    emit_enc_integer_NNL(Erules,EffectiveConstr,Value,NamedNumberList);
-	{'ENUMERATED',{Nlist1,Nlist2}} ->
-	    NewList = lists:append([[{0,X}||{X,_} <- Nlist1],['EXT_MARK'],[{1,X}||{X,_} <- Nlist2]]),
-	    NewC = [{'ValueRange',{0,length(Nlist1)-1}}],
-	    emit(["case ",Value," of",nl]),
-%%	    emit_enc_enumerated_cases(Erules,NewC, NewList++[{asn1_enum,length(Nlist1)-1}], 0);
-	    emit_enc_enumerated_cases(Erules,NewC, NewList, 0);
-	{'ENUMERATED',NamedNumberList} ->
-	    NewList = [X||{X,_} <- NamedNumberList],
-	    NewC = effective_constraint(integer,
-					[{'ValueRange',
-					  {0,length(NewList)-1}}]),
-	    NewVal = enc_enum_cases(Value,NewList),
-	    emit_enc_integer(Erules,NewC,NewVal);
-
+	{'ENUMERATED',_} ->
+	    asn1ct_gen_per:gen_encode_prim(Erules, D, DoTag, Value);
 	'REAL' ->
-	    emit({"?RT_PER:encode_real(",Value,")"});
+	    emit_enc_real(Erules, Value);
 
 	{'BIT STRING',NamedNumberList} ->
 	    EffectiveC = effective_constraint(bitstring,Constraint),
 	    case EffectiveC of
-		0 -> emit({"[]"});
+		0 ->
+		    emit({"[]"});
 		_ ->
-		    emit({"?RT_PER:encode_bit_string(",
-			  {asis,EffectiveC},",",Value,",",
-			  {asis,NamedNumberList},")"})
+		    call(Erules, encode_bit_string,
+			 [{asis,EffectiveC},Value,
+			  {asis,NamedNumberList}])
 	    end;
 	'NULL' ->
 	    emit("[]");
 	'OBJECT IDENTIFIER' ->
-	    emit({"?RT_PER:encode_object_identifier(",Value,")"});
+	    call(Erules, encode_object_identifier, [Value]);
 	'RELATIVE-OID' ->
-	    emit({"?RT_PER:encode_relative_oid(",Value,")"});
+	    call(Erules, encode_relative_oid, [Value]);
 	'ObjectDescriptor' ->
-	    emit({"?RT_PER:encode_ObjectDescriptor(",{asis,Constraint},
-		  ",",Value,")"});
+	    call(Erules, encode_ObjectDescriptor,
+		 [{asis,Constraint},Value]);
 	'BOOLEAN' ->
 	    emit({"case ",Value," of",nl,
 		  "  true -> [1];",nl,
@@ -185,19 +168,19 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    emit_enc_known_multiplier_string('NumericString',Constraint,Value);
 	TString when TString == 'TeletexString';
 		     TString == 'T61String' ->
-	    emit({"?RT_PER:encode_TeletexString(",{asis,Constraint},",",Value,")"});
+	    call(Erules, encode_TeletexString, [{asis,Constraint},Value]);
 	'VideotexString' ->
-	    emit({"?RT_PER:encode_VideotexString(",{asis,Constraint},",",Value,")"});
+	    call(Erules, encode_VideotexString, [{asis,Constraint},Value]);
 	'UTCTime' ->
 	    emit_enc_known_multiplier_string('VisibleString',Constraint,Value);
 	'GeneralizedTime' ->
 	    emit_enc_known_multiplier_string('VisibleString',Constraint,Value);
 	'GraphicString' ->
-	    emit({"?RT_PER:encode_GraphicString(",{asis,Constraint},",",Value,")"});
+	    call(Erules, encode_GraphicString, [{asis,Constraint},Value]);
 	'VisibleString' ->
 	    emit_enc_known_multiplier_string('VisibleString',Constraint,Value);
 	'GeneralString' ->
-	    emit({"?RT_PER:encode_GeneralString(",{asis,Constraint},",",Value,")"});
+	    call(Erules, encode_GeneralString, [{asis,Constraint},Value]);
 	'PrintableString' ->
 	    emit_enc_known_multiplier_string('PrintableString',Constraint,Value);
 	'IA5String' ->
@@ -207,23 +190,23 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	'UniversalString' ->
 	    emit_enc_known_multiplier_string('UniversalString',Constraint,Value);
 	'UTF8String' ->
-	    emit({"?RT_PER:encode_UTF8String(",Value,")"});
+	    call(Erules, encode_UTF8String, [Value]);
 	'ANY' ->
-	    emit(["?RT_PER:encode_open_type(", {asis,Constraint}, ",", 
-		  Value, ")"]);
+	    call(Erules, encode_open_type, [Value]);
 	'ASN1_OPEN_TYPE' ->
 	    NewValue = case Constraint of
 			   [#'Externaltypereference'{type=Tname}] ->
-			     io_lib:format(
-			       "?RT_PER:complete(enc_~s(~s))",[Tname,Value]);
-			   [#type{def=#'Externaltypereference'{type=Tname}}] ->
+			       asn1ct_func:need({Erules,complete,1}),
 			       io_lib:format(
-				 "?RT_PER:complete(enc_~s(~s))",
+				 "complete(enc_~s(~s))",[Tname,Value]);
+			   [#type{def=#'Externaltypereference'{type=Tname}}] ->
+			       asn1ct_func:need({Erules,complete,1}),
+			       io_lib:format(
+				 "complete(enc_~s(~s))",
 				 [Tname,Value]);
 			 _ -> Value
 		     end,
-	    emit(["?RT_PER:encode_open_type(", {asis,Constraint}, ",", 
-		  NewValue, ")"]);
+	    call(Erules, encode_open_type, [NewValue]);
 	#'ObjectClassFieldType'{} ->
 	    case asn1ct_gen:get_inner(D#type.def) of
 		{fixedtypevaluefield,_,InnerType} -> 
@@ -234,6 +217,17 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	XX ->
 	    exit({asn1_error,nyi,XX})
     end.
+
+emit_enc_real(Erules, Real) ->
+    asn1ct_name:new(tmpval),
+    asn1ct_name:new(tmplen),
+    emit(["begin",nl,
+	  "{",{curr,tmpval},com,{curr,tmplen},"} = ",
+	  {call,real_common,encode_real,[Real]},com,nl,
+	  "[",{call,Erules,encode_length,[{curr,tmplen}]},",",nl,
+	  {call,Erules,octets_to_complete,
+	   [{curr,tmplen},{curr,tmpval}]},"]",nl,
+	  "end"]).
 
 emit_enc_known_multiplier_string(StringType,C,Value) ->
     SizeC = 
@@ -254,62 +248,34 @@ emit_enc_known_multiplier_string(StringType,C,Value) ->
     NumBits = get_NumBits(C,StringType),
     CharOutTab = get_CharOutTab(C,StringType),
     %% NunBits and CharOutTab for chars_encode
-    emit_enc_k_m_string(StringType,SizeC,NumBits,CharOutTab,Value).
+    emit_enc_k_m_string(SizeC, NumBits, CharOutTab, Value).
 
-emit_enc_k_m_string(_StringType,0,_NumBits,_CharOutTab,_Value) ->
+emit_enc_k_m_string(0, _NumBits, _CharOutTab, _Value) ->
     emit({"[]"});
-emit_enc_k_m_string(StringType,SizeC,NumBits,CharOutTab,Value) ->
-    emit({"?RT_PER:encode_known_multiplier_string(",{asis,StringType},",",
-	  {asis,SizeC},",",NumBits,",",{asis,CharOutTab},",",Value,")"}).
-
-emit_dec_known_multiplier_string(StringType,C,BytesVar) ->
-    SizeC = get_constraint(C,'SizeConstraint'),
-    PAlphabC = get_constraint(C,'PermittedAlphabet'),
-    case {StringType,PAlphabC} of
-	{'BMPString',{_,_}} ->
-	    exit({error,{asn1,
-			 {'not implemented',
-			  "BMPString with PermittedAlphabet "
-			  "constraint"}}});
-	_ ->
-	    ok
-    end,
-    NumBits = get_NumBits(C,StringType),
-    CharInTab = get_CharInTab(C,StringType),
-    case SizeC of
-	0 ->
-	    emit({"{[],",BytesVar,"}"});
-	_ ->
-	    emit({"?RT_PER:decode_known_multiplier_string(",
-		  {asis,StringType},",",{asis,SizeC},",",NumBits,
-		  ",",{asis,CharInTab},",",BytesVar,")"})
-    end.
+emit_enc_k_m_string(SizeC, NumBits, CharOutTab, Value) ->
+    call(per, encode_known_multiplier_string,
+	 [{asis,SizeC},NumBits,{asis,CharOutTab},Value]).
 
 
 %% copied from run time module
 
-get_CharOutTab(C,StringType) ->
-    get_CharTab(C,StringType,out).
-
-get_CharInTab(C,StringType) ->
-    get_CharTab(C,StringType,in).
-
-get_CharTab(C,StringType,InOut) ->
+get_CharOutTab(C, StringType) ->
     case get_constraint(C,'PermittedAlphabet') of
 	{'SingleValue',Sv} ->
-	    get_CharTab2(C,StringType,hd(Sv),lists:max(Sv),Sv,InOut);
+	    get_CharTab2(C, StringType, hd(Sv), lists:max(Sv), Sv);
 	no ->
 	    case StringType of
 		'IA5String' ->
 		    {0,16#7F,notab};
 		'VisibleString' ->
-		    get_CharTab2(C,StringType,16#20,16#7F,notab,InOut);
+		    get_CharTab2(C, StringType, 16#20, 16#7F, notab);
 		'PrintableString' ->
 		    Chars = lists:sort(
 			      " '()+,-./0123456789:=?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"),
-		    get_CharTab2(C,StringType,hd(Chars),lists:max(Chars),Chars,InOut);
+		    get_CharTab2(C, StringType, hd(Chars),
+				 lists:max(Chars), Chars);
 		'NumericString' ->
-		    get_CharTab2(C,StringType,16#20,$9," 0123456789",InOut);
+		    get_CharTab2(C, StringType, 16#20, $9, " 0123456789");
 		'UniversalString' ->
 		    {0,16#FFFFFFFF,notab};
 		'BMPString' ->
@@ -317,18 +283,13 @@ get_CharTab(C,StringType,InOut) ->
 	    end
     end.
 
-get_CharTab2(C,StringType,Min,Max,Chars,InOut) ->
+get_CharTab2(C, StringType, Min, Max, Chars) ->
     BitValMax = (1 bsl get_NumBits(C,StringType))-1,
     if
 	Max =< BitValMax ->
 	    {0,Max,notab};
 	true ->
-	    case InOut of
-		out ->
-		    {Min,Max,create_char_tab(Min,Chars)};
-		in  ->
-		    {Min,Max,list_to_tuple(Chars)}
-	    end
+	    {Min,Max,create_char_tab(Min,Chars)}
     end.
 
 create_char_tab(Min,L) ->
@@ -397,7 +358,7 @@ charbits1(NumOfChars) ->
 
 %% copied from run time module
 
-emit_enc_octet_string(_Erules,Constraint,Value) ->
+emit_enc_octet_string(Erules, Constraint, Value) ->
     case get_constraint(Constraint,'SizeConstraint') of
 	0 ->
 	    emit({"  []"});
@@ -446,7 +407,8 @@ emit_enc_octet_string(_Erules,Constraint,Value) ->
 		  "    end",nl,
 		  "  end"]);
 	C ->
-	    emit({"  ?RT_PER:encode_octet_string(",{asis,C},",false,",Value,")",nl})
+	    call(Erules, encode_octet_string,
+		 [{asis,C},false,Value])
     end.
 
 emit_enc_integer_case(Value) ->
@@ -533,71 +495,12 @@ emit_enc_integer(_Erule,[{_,{Lb,Ub},Range,_}],Value) when Range =< 65536 ->
 	  nl,"  end",nl]),
     emit_enc_integer_end_case();
 
+emit_enc_integer(Erule, [{'ValueRange',{Lb,Ub}=VR}], Value)
+  when is_integer(Lb), is_integer(Ub) ->
+    call(Erule, encode_constrained_number, [{asis,VR},Value]);
 
-emit_enc_integer(_Erule,C,Value) ->
-    emit({"  ?RT_PER:encode_integer(",{asis,C},",",Value,")"}).
-
-
-
-
-enc_enum_cases(Value,NewList) ->
-    asn1ct_name:new(tmpval),
-    TmpVal = asn1ct_gen:mk_var(asn1ct_name:curr(tmpval)),
-    Cases=enc_enum_cases1(NewList),
-    lists:flatten(io_lib:format("(case ~s of "++Cases++
-				"~s ->exit({error,"
-				"{asn1,{enumerated,~s}}})"
-				" end)",
-				[Value,TmpVal,TmpVal])).
-enc_enum_cases1(NNL) ->
-    enc_enum_cases1(NNL,0).
-enc_enum_cases1([H|T],Index) ->
-    io_lib:format("~w->~w;",[H,Index])++enc_enum_cases1(T,Index+1);
-enc_enum_cases1([],_) ->
-    "".
-
-
-emit_enc_enumerated_cases(Erule, C, [H], Count) ->
-    emit_enc_enumerated_case(Erule, C, H, Count),
-    case H of
-	'EXT_MARK' ->
-	    ok;
-	_ ->
-	    emit([";",nl])
-    end,
-    emit([nl,"EnumVal -> exit({error,{asn1, {enumerated_not_in_range, EnumVal}}})"]),
-    emit([nl,"end"]);
-emit_enc_enumerated_cases(Erule, C, ['EXT_MARK'|T], _Count) ->
-    emit_enc_enumerated_cases(Erule, C, T, 0);
-emit_enc_enumerated_cases(Erule, C, [H1,H2|T], Count) ->
-    emit_enc_enumerated_case(Erule, C, H1, Count),
-    emit([";",nl]),
-    emit_enc_enumerated_cases(Erule, C, [H2|T], Count+1).
-
-
-%% The function clauses matching on tuples with first element 
-%% asn1_enum, 1 or 0 and the atom 'EXT_MARK' are for ENUMERATED
-%% with extension mark.
-%% emit_enc_enumerated_case(_Erule,_C, {asn1_enum,High}, _) -> 
-%%     %% ENUMERATED with extensionmark
-%%     %% value higher than the extension base and not 
-%%     %% present in the extension range.
-%%     emit(["{asn1_enum,EnumV} when is_integer(EnumV), EnumV > ",High," -> ",
-%% 	  "[1,?RT_PER:encode_small_number(EnumV)]"]);
-emit_enc_enumerated_case(_Erule,_C, {1,EnumName}, Count) ->
-    %% ENUMERATED with extensionmark
-    %% values higher than extension root
-    emit(["'",EnumName,"' -> [1,?RT_PER:encode_small_number(",Count,")]"]);
-emit_enc_enumerated_case(_Erule,C, {0,EnumName}, Count) ->
-    %% ENUMERATED with extensionmark
-    %% values within extension root
-%%    emit(["'",EnumName,"' -> [0,?RT_PER:encode_integer(",{asis,C},", ",Count,")]"]);
-    emit(["'",EnumName,"' -> ",{asis,[0|asn1rt_per_bin_rt2ct:encode_integer(C,Count)]}]);
-emit_enc_enumerated_case(_Erule, _C, 'EXT_MARK', _Count) ->
-    true.
-%% %% This clause is invoked in case of an ENUMERATED without extension mark
-%% emit_enc_enumerated_case(_Erule,_C, EnumName, Count) ->
-%%     emit(["'",EnumName,"' -> ",Count]).
+emit_enc_integer(Erule, C, Value) ->
+    call(Erule, encode_integer, [{asis,C},Value]).
 
 
 get_constraint([{Key,V}],Key) ->
@@ -1367,7 +1270,7 @@ emit_inner_of_decfun(Type,_) when is_record(Type,type) ->
     case Type#type.def of
 	Def when is_atom(Def) ->
 	    emit({indent(9),Def," ->",nl,indent(12)}),
-	    gen_dec_prim(erules,Type,"Val");
+	    gen_dec_prim(per, Type, "Val");
 	TRef when is_record(TRef,typereference) ->
 	    T = TRef#typereference.val,
 	    emit({indent(9),T," ->",nl,indent(12),"'dec_",T,"'(Val)"});
@@ -1456,105 +1359,8 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 
 
 
-gen_dec_prim(Erules,Att,BytesVar) ->
-    Typename = Att#type.def,
-    Constraint = Att#type.constraint,
-    case Typename of
-	'INTEGER' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	{'INTEGER',_NamedNumberList} ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'REAL' ->
-	    emit(["?RT_PER:decode_real(",BytesVar,")"]);
-
-	{'BIT STRING',NamedNumberList} ->
-	    case get(compact_bit_string) of
-		true ->
-		    emit({"?RT_PER:decode_compact_bit_string(",
-			  BytesVar,",",{asis,Constraint},",",
-			  {asis,NamedNumberList},")"});
-		_ ->
-		    emit({"?RT_PER:decode_bit_string(",BytesVar,",",
-			  {asis,Constraint},",",
-			  {asis,NamedNumberList},")"})
-	    end;
-	'NULL' ->
-	    emit({"{'NULL',",BytesVar,"}"});
-	'OBJECT IDENTIFIER' ->
-	    emit({"?RT_PER:decode_object_identifier(",
-		  BytesVar,")"});
-	'RELATIVE-OID' ->
-	    emit({"?RT_PER:decode_relative_oid(",
-		  BytesVar,")"});
-	'ObjectDescriptor' ->
-	    emit({"?RT_PER:decode_ObjectDescriptor(",
-		  BytesVar,")"});
-	{'ENUMERATED',_} ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'BOOLEAN'->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'OCTET STRING' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-
-	'NumericString' ->
-	    emit_dec_known_multiplier_string('NumericString',
-					     Constraint,BytesVar);
-	TString when TString == 'TeletexString';
-		     TString == 'T61String' ->
-	    emit({"?RT_PER:decode_TeletexString(",BytesVar,",",
-		  {asis,Constraint},")"});
-
-	'VideotexString' ->
-	    emit({"?RT_PER:decode_VideotexString(",BytesVar,",",
-		  {asis,Constraint},")"});
-
-	'UTCTime' ->
-	    emit_dec_known_multiplier_string('VisibleString',
-					     Constraint,BytesVar);
-	'GeneralizedTime' ->
-	    emit_dec_known_multiplier_string('VisibleString',
-					     Constraint,BytesVar);
-	'GraphicString' ->
-	    emit({"?RT_PER:decode_GraphicString(",BytesVar,",",
-		  {asis,Constraint},")"});
-
-	'VisibleString' ->
-	    emit_dec_known_multiplier_string('VisibleString',
-					     Constraint,BytesVar);
-	'GeneralString' ->
-	    emit({"?RT_PER:decode_GeneralString(",BytesVar,",",
-		  {asis,Constraint},")"});
-
-	'PrintableString' ->
-	    emit_dec_known_multiplier_string('PrintableString',
-					     Constraint,BytesVar);
-	'IA5String' ->
-	    emit_dec_known_multiplier_string('IA5String',Constraint,BytesVar);
-
-	'BMPString' ->
-	    emit_dec_known_multiplier_string('BMPString',Constraint,BytesVar);
-
-	'UniversalString' ->
-	    emit_dec_known_multiplier_string('UniversalString',
-					     Constraint,BytesVar);
-
-	'UTF8String' ->
-	    emit({"?RT_PER:decode_UTF8String(",BytesVar,")"});
-	'ANY' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	'ASN1_OPEN_TYPE' ->
-	    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar);
-	#'ObjectClassFieldType'{} ->
-		case asn1ct_gen:get_inner(Att#type.def) of
-		    {fixedtypevaluefield,_,InnerType} -> 
-			gen_dec_prim(Erules,InnerType,BytesVar);
-		    T ->
-			gen_dec_prim(Erules,Att#type{def=T},BytesVar)
-		end;
-	Other ->
-	    exit({'cant decode' ,Other})
-    end.
+gen_dec_prim(Erules, Att, BytesVar) ->
+    asn1ct_gen_per:gen_dec_prim(Erules, Att, BytesVar).
 
 %% For PER the ExtensionAdditionGroup notation has significance for the encoding and decoding
 %% the components within the ExtensionAdditionGroup is treated in a similar way as if they

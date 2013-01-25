@@ -61,15 +61,12 @@ compile_erlang(Mod, Config, Options) ->
                            [{i, CaseDir}, {outdir, CaseDir}|Options]).
 
 should_load(File, Options) ->
-    should_load(File, lists:member(abs, Options),
-                proplists:lookup(inline, Options)).
-
-should_load(_File, true, _Inline) ->
-    false;
-should_load(_File, _Abs, {inline, Module}) when Module /= true ->
-    {module, Module};
-should_load(File, _Abs, _Inline) ->
-    {module, list_to_atom(strip_extension(filename:basename(File)))}.
+    case lists:member(abs, Options) of
+	true ->
+	    false;
+	false ->
+	    {module,list_to_atom(strip_extension(filename:basename(File)))}
+    end.
 
 strip_extension(File) ->
     strip_extension(File, filename:extension(File)).

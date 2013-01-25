@@ -46,7 +46,6 @@
 	 un_hyphen_var/1]).
 -export([gen_encode_constructed/4,
 	 gen_decode_constructed/4]).
--export([nif_parameter/0]).
 
 %% pgen(Outfile, Erules, Module, TypeOrVal, Options)
 %% Generate Erlang module (.erl) and (.hrl) file corresponding to an ASN.1 module
@@ -78,6 +77,7 @@ pgen_module(OutFile,Erules,Module,
     ErlFile = lists:concat([OutFile,".erl"]),
     Fid = fopen(ErlFile,[write]),
     put(gen_file_out,Fid),
+    asn1ct_func:start_link(),
     gen_head(Erules,Module,HrlGenerated),
     pgen_exports(Erules,Module,TypeOrVal),
     pgen_dispatcher(Erules,Module,TypeOrVal),
@@ -86,6 +86,11 @@ pgen_module(OutFile,Erules,Module,
     pgen_partial_incomplete_decode(Erules),
 % gen_vars(asn1_db:mod_to_vars(Module)),
 % gen_tag_table(AllTypes),
+    emit([nl,
+	  "%%%",nl,
+	  "%%% Run-time functions.",nl,
+	  "%%%",nl]),
+    asn1ct_func:generate(Fid),
     file:close(Fid),
     asn1ct:verbose("--~p--~n",[{generated,ErlFile}],Options).
 
@@ -528,7 +533,8 @@ gen_part_decode_funcs({constructed,bif},TypeName,
 		      {_Name,parts,Tag,_Type}) ->
     emit(["  case Data of",nl,
 	  "    L when is_list(L) ->",nl,
-	  "      'dec_",TypeName,"'(lists:map(fun(X)->element(1,?RT_BER:decode(X)) end,L),",{asis,Tag},");",nl,
+	  "      'dec_",TypeName,"'(lists:map(fun(X) -> element(1, ",
+	  {call,ber,ber_decode_erlang,["X"]},") end, L),",{asis,Tag},");",nl,
 	  "    _ ->",nl,
 	  "      [Res] = 'dec_",TypeName,"'([Data],",{asis,Tag},"),",nl,
 	  "      Res",nl,
@@ -802,7 +808,7 @@ gen_decode_constructed(Erules,Typename,InnerType,D) when is_record(D,typedef) ->
 
 
 pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
-    emit({"-export([encoding_rule/0]).",nl}),
+    emit(["-export([encoding_rule/0,bit_string_format/0]).",nl]),
     case Types of
 	[] -> ok;
 	_ ->
@@ -912,23 +918,24 @@ gen_selected_decode_exports1([{FuncName,_}|Rest]) ->
     gen_selected_decode_exports1(Rest).
 
 pgen_dispatcher(Erules,_Module,{[],_Values,_,_,_Objects,_ObjectSets}) ->
-    emit(["encoding_rule() ->",nl]),
-    emit([{asis,Erules},".",nl,nl]);
+    gen_info_functions(Erules);
 pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
-    emit(["-export([encode/2,decode/2,encode_disp/2,decode_disp/2]).",nl,nl]),
-    emit(["encoding_rule() ->",nl]),
-    emit(["   ",{asis,Erules},".",nl,nl]),
+    emit(["-export([encode/2,decode/2]).",nl,nl]),
+    gen_info_functions(Erules),
     NoFinalPadding = lists:member(no_final_padding,get(encoding_options)),
     {Call,BytesAsBinary} =
 	case Erules of
 	    per ->
-		{["?RT_PER:complete(encode_disp(Type,Data))"],"Bytes"};
+		asn1ct_func:need({Erules,complete,1}),
+		{["complete(encode_disp(Type, Data))"],"Bytes"};
 	    ber ->
 		{"encode_disp(Type,Data)","iolist_to_binary(Bytes)"};
 	    uper when NoFinalPadding == true ->
-		{"?RT_PER:complete_NFP(encode_disp(Type,Data))","Bytes"};
+		asn1ct_func:need({Erules,complete_NFP,1}),
+		{"complete_NFP(encode_disp(Type, Data))","Bytes"};
 	    uper ->
-		{["?RT_PER:complete(encode_disp(Type,Data))"],"Bytes"}
+		asn1ct_func:need({Erules,complete,1}),
+		{["complete(encode_disp(Type, Data))"],"Bytes"}
 	end,
     emit(["encode(Type,Data) ->",nl,
 	  "case catch ",Call," of",nl,
@@ -952,12 +959,11 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     DecAnonymous =
 	case {Erules,Return_rest} of
 	    {ber,false} ->
-		io_lib:format("~s~s~s~n",
-			      ["element(1,?RT_BER:decode(Data",
-			       nif_parameter(),"))"]);
+		asn1ct_func:need({ber,ber_decode_nif,1}),
+		"element(1, ber_decode_nif(Data))";
 	    {ber,true} ->
-		emit(["{Data,Rest} = ?RT_BER:decode(Data0",
-		      nif_parameter(),"),",nl]),
+		asn1ct_func:need({ber,ber_decode_nif,1}),
+		emit(["{Data,Rest} = ber_decode_nif(Data0),",nl]),
 		"Data";
 	    _ ->
 		"Data"
@@ -1020,6 +1026,11 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     emit([nl]),
     emit({nl,nl}).
 
+gen_info_functions(Erules) ->
+    emit(["encoding_rule() -> ",
+	  {asis,Erules},".",nl,nl,
+	  "bit_string_format() -> ",
+	  {asis,asn1ct:get_bit_string_format()},".",nl,nl]).
 
 gen_decode_partial_incomplete(ber) ->
     case {asn1ct:read_config_data(partial_incomplete_decode),
@@ -1042,16 +1053,16 @@ gen_decode_partial_incomplete(ber) ->
 	    emit(["decode_partial_incomplete(Type,Data0,",
 		  "Pattern) ->",nl]),
 	    emit(["  {Data,_RestBin} =",nl,
-		  "    ?RT_BER:decode_primitive_",
-		  "incomplete(Pattern,Data0),",nl,
+		  "    ",{call,ber,decode_primitive_incomplete,
+			  ["Pattern","Data0"]},com,nl,
 		  "  case catch decode_partial_inc_disp(Type,",
 		  "Data) of",nl]),
 	    EmitCaseClauses(),
 	    emit([".",nl,nl]),
 	    emit(["decode_part(Type, Data0) "
 		  "when is_binary(Data0) ->",nl]),
-	    emit(["  case catch decode_inc_disp(Type,element(1,"
-		  "?RT_BER:decode(Data0",nif_parameter(),"))) of",nl]),
+	    emit(["  case catch decode_inc_disp(Type,element(1, ",
+		  {call,ber,ber_decode_nif,["Data0"]},")) of",nl]),
 	    EmitCaseClauses(),
 	    emit([";",nl]),
 	    emit(["decode_part(Type, Data0) ->",nl]),
@@ -1094,9 +1105,6 @@ gen_partial_inc_dispatcher([{FuncName,TopType,_Pattern}|Rest],TypePattern) ->
 gen_partial_inc_dispatcher([],_) ->
     emit(["decode_partial_inc_disp(Type,_Data) ->",nl,
 	  "  exit({error,{asn1,{undefined_type,Type}}}).",nl]).
-
-nif_parameter() ->
-    ",nif".
 
 gen_dispatcher([F1,F2|T],FuncName,Prefix,ExtraArg) ->
 	emit([FuncName,"('",F1,"',Data) -> '",Prefix,F1,"'(Data",ExtraArg,")",";",nl]),
@@ -1159,6 +1167,9 @@ emit({var,Variable}) ->
 
 emit({asis,What}) ->
     format(get(gen_file_out),"~w",[What]);
+
+emit({call,M,F,A}) ->
+    asn1ct_func:call(M, F, A);
 
 emit(nl) ->
     nl(get(gen_file_out));
@@ -1384,35 +1395,28 @@ gen_record(_,_,_,NumRecords) -> % skip CLASS etc for now.
 		    
 gen_head(Erules,Mod,Hrl) ->
     Options = get(encoding_options),
-    {Rtmac,Rtmod} = case Erules of
-			per ->
-			    emit({"%% Generated by the Erlang ASN.1 PER-"
-				  "compiler version, utilizing bit-syntax:",
-				  asn1ct:vsn(),nl}),
-			    {"RT_PER","asn1rt_per_bin_rt2ct"};
-			ber ->
-			    emit({"%% Generated by the Erlang ASN.1 BER_V2-"
-				  "compiler version, utilizing bit-syntax:",
-				  asn1ct:vsn(),nl}),
-			    {"RT_BER","asn1rt_ber_bin_v2"};
-			uper ->
-			    emit(["%% Generated by the Erlang ASN.1 UNALIGNED"
-				  " PER-compiler version, utilizing"
-				  " bit-syntax:",
-				  asn1ct:vsn(),nl]),
-			    {"RT_PER","asn1rt_uper_bin"}
+    case Erules of
+	per ->
+	    emit(["%% Generated by the Erlang ASN.1 PER-"
+		  "compiler version, utilizing bit-syntax:",
+		  asn1ct:vsn(),nl]);
+	ber ->
+	    emit(["%% Generated by the Erlang ASN.1 BER_V2-"
+		  "compiler version, utilizing bit-syntax:",
+		  asn1ct:vsn(),nl]);
+	uper ->
+	    emit(["%% Generated by the Erlang ASN.1 UNALIGNED"
+		  " PER-compiler version, utilizing bit-syntax:",
+		  asn1ct:vsn(),nl])
     end,
     emit({"%% Purpose: encoder and decoder to the types in mod ",Mod,nl,nl}),
     emit({"-module('",Mod,"').",nl}),
     put(currmod,Mod),
     emit({"-compile(nowarn_unused_vars).",nl}),
-    case {Hrl,lists:member(inline,get(encoding_options))} of
-	{0,_} -> true;
-	{_,true} -> true;
-	_ -> 
-	    emit({"-include(\"",Mod,".hrl\").",nl})
+    case Hrl of
+	0 -> ok;
+	_ -> emit({"-include(\"",Mod,".hrl\").",nl})
     end,
-    emit(["-define('",Rtmac,"',",Rtmod,").",nl]),
     emit(["-asn1_info([{vsn,'",asn1ct:vsn(),"'},",nl,
 	  "            {module,'",Mod,"'},",nl,
 	  "            {options,",io_lib:format("~p",[Options]),"}]).",nl,nl]).
@@ -1493,49 +1497,40 @@ gen_check_call(TopType,Cname,Type,InnerType,WhatKind,DefaultValue,Element) ->
 	    emit(["fun() -> true end ()"])
     end.
 
-gen_prim_check_call(PrimType,DefaultValue,Element,Type) ->
+gen_prim_check_call(PrimType, Default, Element, Type) ->
     case unify_if_string(PrimType) of
 	'BOOLEAN' ->
-	    emit({"asn1rt_check:check_bool(",DefaultValue,", ",
-		  Element,")"});
+	    check_call(check_bool, [Default,Element]);
 	'INTEGER' ->
-	    NNL =
-		case Type#type.def of
-		    {_,NamedNumberList} -> NamedNumberList;
-		    _ -> []
-		end,
-	    emit({"asn1rt_check:check_int(",DefaultValue,", ",
-		  Element,", ",{asis,NNL},")"});
+	    NNL = case Type#type.def of
+		      {_,NamedNumberList} -> NamedNumberList;
+		      _ -> []
+		  end,
+	    check_call(check_int, [Default,Element,{asis,NNL}]);
 	'BIT STRING' ->
 	    {_,NBL} = Type#type.def,
-	    emit({"asn1rt_check:check_bitstring(",DefaultValue,", ",
-		  Element,", ",{asis,NBL},")"});
+	    check_call(check_bitstring, [Default,Element,{asis,NBL}]);
 	'OCTET STRING' ->
-	    emit({"asn1rt_check:check_octetstring(",DefaultValue,", ",
-		  Element,")"});
+	    check_call(check_octetstring, [Default,Element]);
 	'NULL' ->
-	    emit({"asn1rt_check:check_null(",DefaultValue,", ",
-		  Element,")"});
+	    check_call(check_null, [Default,Element]);
 	'OBJECT IDENTIFIER' ->
-	    emit({"asn1rt_check:check_objectidentifier(",DefaultValue,
-		  ", ",Element,")"});
+	    check_call(check_objectidentifier, [Default,Element]);
 	'RELATIVE-OID' ->
-	    emit({"asn1rt_check:check_objectidentifier(",DefaultValue,
-		  ", ",Element,")"});
+	    check_call(check_objectidentifier, [Default,Element]);
 	'ObjectDescriptor' ->
-	    emit({"asn1rt_check:check_objectdescriptor(",DefaultValue,
-		  ", ",Element,")"});
+	    check_call(check_objectdescriptor, [Default,Element]);
 	'REAL' ->
-	    emit({"asn1rt_check:check_real(",DefaultValue,
-		  ", ",Element,")"});
+	    check_call(check_real, [Default,Element]);
 	'ENUMERATED' ->
 	    {_,Enumerations} = Type#type.def,
-	    emit({"asn1rt_check:check_enum(",DefaultValue,
-		  ", ",Element,", ",{asis,Enumerations},")"});
+	    check_call(check_enum, [Default,Element,{asis,Enumerations}]);
 	restrictedstring ->
-	    emit({"asn1rt_check:check_restrictedstring(",DefaultValue,
-		  ", ",Element,")"})
+	    check_call(check_restrictedstring, [Default,Element])
     end.
+
+check_call(F, Args) ->
+    asn1ct_func:call(check, F, Args).
 
 %% lokahead_innertype/3 traverses Type and checks if check functions
 %% have to be generated, i.e. for all constructed or referenced types.

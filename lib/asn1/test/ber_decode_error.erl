@@ -21,31 +21,34 @@
 
 -export([run/1]).
 
--include_lib("test_server/include/test_server.hrl").
-
 run([]) ->
-    ?line {ok,B}  = asn1_wrapper:encode('Constructed','S3',{'S3',17}),
-    ?line [T,L|V] = lists:flatten(B),
-    ?line Bytes = [T,L+3|V] ++ [2,1,3],
-    ?line case asn1_wrapper:decode('Constructed','S3',Bytes) of
-	      {error,{asn1,{unexpected,_}}} -> ok
-	  end,
+    {ok,B}  = asn1_wrapper:encode('Constructed','S3',{'S3',17}),
+    [T,L|V] = lists:flatten(B),
+    Bytes = [T,L+3|V] ++ [2,1,3],
+    case asn1_wrapper:decode('Constructed','S3',Bytes) of
+	{error,{asn1,{unexpected,_}}} -> ok
+    end,
+
     %% Unexpected bytes must be accepted if there is an extensionmark
-    ?line {ok,{'S3ext',17}} = asn1_wrapper:decode('Constructed','S3ext',Bytes),
-    ok; 
-run([driver]) ->
-    %% test of OTP-4797, bad indata to driver does not cause an EXIT
-    ?line {error,_Reason} = asn1rt:decode('Constructed','S3',[3,5]),
-    ok;
-run([nif]) ->
-    %% test of OTP-4797, bad indata to driver does not cause an EXIT
-    ?line {error,_Reason} = asn1rt:decode('Constructed','S3',[3,5]),
+    {ok,{'S3ext',17}} = asn1_wrapper:decode('Constructed','S3ext',Bytes),
+
+    %% Truncated tag.
+    {error,{asn1,{invalid_tag,_}}} =
+	(catch 'Constructed':decode('I', <<31,255,255>>)),
+
+    %% Overlong tag.
+    {error,{asn1,{invalid_tag,_}}} =
+	(catch 'Constructed':decode('I', <<31,255,255,255,127>>)),
+
+    %% Invalid length.
+    {error,{asn1,{invalid_length,_}}} =
+	(catch 'Constructed':decode('I', <<8,255>>)),
+
+    %% Other errors.
+    {error,{asn1,{invalid_value,_}}} =
+	(catch 'Constructed':decode('I', <<>>)),
+
+    {error,{asn1,{invalid_value,_}}} =
+	(catch 'Constructed':decode('I', <<8,7>>)),
+
     ok.
-
-
-
-
-
-
-
-

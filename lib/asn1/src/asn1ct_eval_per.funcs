@@ -1,0 +1,2 @@
+{per,encode_constrained_number,2}.
+{per,encode_small_number,1}.

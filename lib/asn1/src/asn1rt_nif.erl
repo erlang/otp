@@ -77,10 +77,31 @@ load_nif() ->
 	    Status
     end.
 
-encode_per_complete(_TagValueList) ->
+decode_ber_tlv(Binary) ->
+    case decode_ber_tlv_raw(Binary) of
+	{error,Reason} ->
+	    exit({error,{asn1,Reason}});
+	Other ->
+	    Other
+    end.
+
+encode_per_complete(TagValueList) ->
+    case encode_per_complete_raw(TagValueList) of
+	{error,Reason} -> handle_error(Reason, TagValueList);
+	Other when is_binary(Other) -> Other
+    end.
+
+handle_error([], _)->
+    exit({error,{asn1,enomem}});
+handle_error($1, L) ->			 % error in complete in driver
+    exit({error,{asn1,L}});
+handle_error(ErrL, L) ->
+    exit({error,{asn1,ErrL,L}}).
+
+encode_per_complete_raw(_TagValueList) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,?LINE}).
 
-decode_ber_tlv(_Binary) ->
+decode_ber_tlv_raw(_Binary) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,?LINE}).
 
 encode_ber_tlv(_TagValueList) ->

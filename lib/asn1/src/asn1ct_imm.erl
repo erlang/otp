@@ -18,10 +18,13 @@
 %%
 %%
 -module(asn1ct_imm).
--export([per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
+-export([per_dec_raw_bitstring/2,
+	 per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
 	 per_dec_extension_map/1,
-	 per_dec_integer/2,per_dec_length/3,per_dec_named_integer/3,
-	 per_dec_octet_string/2,per_dec_open_type/1]).
+	 per_dec_integer/2,per_dec_k_m_string/3,
+	 per_dec_length/3,per_dec_named_integer/3,
+	 per_dec_octet_string/2,per_dec_open_type/1,per_dec_real/1,
+	 per_dec_restricted_string/1]).
 -export([optimize_alignment/1,optimize_alignment/2,
 	 dec_slim_cg/2,dec_code_gen/2]).
 -export([effective_constraint/2]).
@@ -59,9 +62,17 @@ per_dec_boolean() ->
     {map,{get_bits,1,[1]},[{0,false},{1,true}]}.
 
 per_dec_enumerated(NamedList0, Aligned) ->
-    Constraint = [{'ValueRange',{0,length(NamedList0)-1}}],
-    NamedList = per_dec_enumerated_fix_list(NamedList0, [enum_error], 0),
+    Ub = length(NamedList0) - 1,
+    Constraint = [{'ValueRange',{0,Ub}}],
     Int = per_dec_integer(Constraint, Aligned),
+    EnumTail = case matched_range(Int) of
+		   {0,Ub} ->
+		       %% The error case can never happen.
+		       [];
+		   _ ->
+		       [enum_error]
+	       end,
+    NamedList = per_dec_enumerated_fix_list(NamedList0, EnumTail, 0),
     {map,Int,NamedList}.
 
 per_dec_enumerated(BaseNamedList, NamedListExt0, Aligned) ->
@@ -100,12 +111,35 @@ per_dec_named_integer(Constraint, NamedList0, Aligned) ->
     NamedList = [{K,V} || {V,K} <- NamedList0] ++ [integer_default],
     {map,Int,NamedList}.
 
+per_dec_k_m_string(StringType, Constraint, Aligned) ->
+    SzConstr = get_constraint(Constraint, 'SizeConstraint'),
+    N = string_num_bits(StringType, Constraint, Aligned),
+    Imm = dec_string(SzConstr, N, Aligned),
+    Chars = char_tab(Constraint, StringType, N),
+    convert_string(N, Chars, Imm).
+
 per_dec_octet_string(Constraint, Aligned) ->
     dec_string(Constraint, 8, Aligned).
+
+per_dec_raw_bitstring(Constraint, Aligned) ->
+    dec_string(Constraint, 1, Aligned).
 
 per_dec_open_type(Aligned) ->
     {get_bits,decode_unconstrained_length(true, Aligned),
      [8,binary,{align,Aligned}]}.
+
+per_dec_real(Aligned) ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,real_common,decode_real,[V]},
+			com,Buf,"}"])
+	  end,
+    {call,Dec,
+     {get_bits,decode_unconstrained_length(true, Aligned),
+      [8,binary,{align,Aligned}]}}.
+
+per_dec_restricted_string(Aligned) ->
+    DecLen = decode_unconstrained_length(true, Aligned),
+    {get_bits,DecLen,[8,binary]}.
 
 
 %%%
@@ -116,7 +150,7 @@ dec_string(Sv, U, _Aligned) when is_integer(Sv), U*Sv =< 16 ->
     {get_bits,Sv,[U,binary]};
 dec_string(Sv, U, Aligned) when is_integer(Sv), Sv < 16#10000 ->
     {get_bits,Sv,[U,binary,{align,Aligned}]};
-dec_string(C, U, Aligned) when is_list(C) ->
+dec_string([_|_]=C, U, Aligned) when is_list(C) ->
     dec_string({hd(C),lists:max(C)}, U, Aligned);
 dec_string({Sv,Sv}, U, Aligned) ->
     dec_string(Sv, U, Aligned);
@@ -129,8 +163,9 @@ dec_string({Lb,Ub}, U, Aligned) when Ub < 16#10000 ->
 dec_string(_, U, Aligned) ->
     Al = [{align,Aligned}],
     DecRest = fun(V, Buf) ->
-		      emit(["?RT_PER:decode_fragmented(",V,", ",
-			    Buf,", ",U,")"])
+		      asn1ct_func:call(per_common,
+				       decode_fragmented,
+				       [V,Buf,U])
 	      end,
     {'case',[{test,{get_bits,1,[1|Al]},0,
 	      {value,{get_bits,
@@ -228,6 +263,103 @@ per_num_bits(N) when N =< 64 -> 6;
 per_num_bits(N) when N =< 128 -> 7;
 per_num_bits(N) when N =< 255 -> 8.
 
+matched_range({get_bits,Bits0,[U|Flags]}) when is_integer(U) ->
+    case lists:member(signed, Flags) of
+	false ->
+	    Bits = U*Bits0,
+	    {0,(1 bsl Bits) - 1};
+	true ->
+	    unknown
+    end;
+matched_range(_Op) -> unknown.
+
+string_num_bits(StringType, Constraint, Aligned) ->
+    case get_constraint(Constraint, 'PermittedAlphabet') of
+	{'SingleValue',Sv} ->
+	    charbits(length(Sv), Aligned);
+	no ->
+	    case StringType of
+		'IA5String' ->
+		    charbits(128, Aligned);
+		'VisibleString' ->
+		    charbits(95, Aligned);
+		'PrintableString' ->
+		    charbits(74, Aligned);
+		'NumericString' ->
+		    charbits(11, Aligned);
+		'UniversalString' ->
+		    32;
+		'BMPString' ->
+		    16
+	    end
+    end.
+
+charbits(NumChars, false) ->
+    uper_num_bits(NumChars);
+charbits(NumChars, true) ->
+    1 bsl uper_num_bits(uper_num_bits(NumChars)).
+
+convert_string(8, notab, Imm) ->
+    {convert,binary_to_list,Imm};
+convert_string(NumBits, notab, Imm) when NumBits < 8 ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,per_common,decode_chars,
+			     [V,NumBits]},com,Buf,"}"])
+	  end,
+    {call,Dec,Imm};
+convert_string(NumBits, notab, Imm) when NumBits =:= 16 ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,per_common,decode_chars_16bit,
+			     [V]},com,Buf,"}"])
+	  end,
+    {call,Dec,Imm};
+convert_string(NumBits, notab, Imm) ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,per_common,decode_big_chars,
+			     [V,NumBits]},com,Buf,"}"])
+	  end,
+    {call,Dec,Imm};
+convert_string(NumBits, Chars, Imm) ->
+    Dec = fun(V, Buf) ->
+		  emit(["{",{call,per_common,decode_chars,
+			     [V,NumBits,{asis,Chars}]},com,Buf,"}"])
+	  end,
+    {call,Dec,Imm}.
+
+char_tab(C, StringType, NumBits) ->
+    case get_constraint(C, 'PermittedAlphabet') of
+	{'SingleValue',Sv} ->
+	    char_tab_1(Sv, NumBits);
+	no ->
+	    case StringType of
+		'IA5String' ->
+		    notab;
+		'VisibleString' ->
+		    notab;
+		'PrintableString' ->
+		    Chars = " '()+,-./0123456789:=?"
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+			"abcdefghijklmnopqrstuvwxyz",
+		    char_tab_1(Chars, NumBits);
+		'NumericString' ->
+		    char_tab_1(" 0123456789", NumBits);
+		'UniversalString' ->
+		    notab;
+		'BMPString' ->
+		    notab
+	    end
+    end.
+
+char_tab_1(Chars, NumBits) ->
+    Max = lists:max(Chars),
+    BitValMax = (1 bsl NumBits) - 1,
+    if
+	Max =< BitValMax ->
+	    notab;
+	true ->
+	    list_to_tuple(lists:sort(Chars))
+    end.
+
 %%%
 %%% Remove unnecessary aligning to octet boundaries.
 %%%
@@ -259,6 +391,8 @@ opt_al({'case',Cs0}, A0) ->
 opt_al({map,E0,Cs}, A0) ->
     {E,A} = opt_al(E0, A0),
     {{map,E,Cs},A};
+opt_al('NULL'=Null, A) ->
+    {Null,A};
 opt_al(I, A) when is_integer(I) ->
     {I,A}.
 
@@ -346,6 +480,8 @@ flatten({map,E0,Cs0}, Buf0, St0) ->
     {Dst,St2} = new_var("Int", St1),
     Cs = flatten_map_cs(Cs0, E),
     {{Dst,DstBuf},Pre++[{'map',E,Cs,{Dst,DstBuf}}],St2};
+flatten({value,'NULL'}, Buf0, St0) ->
+    {{"'NULL'",Buf0},[],St0};
 flatten({value,V0}, Buf0, St0) when is_integer(V0) ->
     {{V0,Buf0},[],St0};
 flatten({value,V0}, Buf0, St0) ->
@@ -515,8 +651,6 @@ dcg_list_inside([{get_bits,{Sz,_},Fl0,{Dst,DstBuf}}|T], _) ->
     dcg_list_inside(T, DstBuf);
 dcg_list_inside(L, Dst) -> {L,Dst}.
 
-bit_flags([1|T], Acc) ->
-    bit_flags(T, Acc);
 bit_flags([{align,_}|T], Acc) ->
     bit_flags(T, Acc);
 bit_flags([non_zero|T], Acc) ->
@@ -528,7 +662,11 @@ bit_flags([H|T], Acc) ->
 bit_flags([], []) ->
     "";
 bit_flags([], Acc) ->
-    "/" ++ bit_flags_1(Acc, "").
+    case "/" ++ bit_flags_1(Acc, "") of
+	"/unit:1" -> [];
+	Opts -> Opts
+    end.
+
 
 bit_flags_1([H|T], Sep) ->
     Sep ++ H ++ bit_flags_1(T, "-");

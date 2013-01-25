@@ -170,139 +170,84 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
     end.
 
 gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
-    
-%%% Constraint is currently not used for BER (except for BitString) and therefore replaced
-%%% with [] as a placeholder
     BitStringConstraint = D#type.constraint,
-    Constraint = [],
     asn1ct_name:new(enumval),
-    case D#type.def of
+    Type = case D#type.def of
+	       'OCTET STRING'    -> restricted_string;
+	       'ObjectDescriptor'-> restricted_string;
+	       'NumericString'   -> restricted_string;
+	       'TeletexString'   -> restricted_string;
+	       'T61String'       -> restricted_string;
+	       'VideotexString'  -> restricted_string;
+	       'GraphicString'   -> restricted_string;
+	       'VisibleString'   -> restricted_string;
+	       'GeneralString'   -> restricted_string;
+	       'PrintableString' -> restricted_string;
+	       'IA5String'       -> restricted_string;
+	       Other             -> Other
+	   end,
+    case Type of
+	restricted_string ->
+	    call(encode_restricted_string, [Value,DoTag]);
 	'BOOLEAN' ->
-	    emit_encode_func('boolean',Value,DoTag);
+	    call(encode_boolean, [Value,DoTag]);
 	'INTEGER' ->
-	    emit_encode_func('integer',Constraint,Value,DoTag);
+	    call(encode_integer, [Value,DoTag]);
 	{'INTEGER',NamedNumberList} ->
-	    emit_encode_func('integer',Constraint,Value,
-			     NamedNumberList,DoTag);
+	    call(encode_integer, [Value,{asis,NamedNumberList}, DoTag]);
 	{'ENUMERATED',NamedNumberList={_,_}} ->
-	    
 	    emit(["case ",Value," of",nl]),
 	    emit_enc_enumerated_cases(NamedNumberList,DoTag);
 	{'ENUMERATED',NamedNumberList} ->
-	    
 	    emit(["case ",Value," of",nl]),
 	    emit_enc_enumerated_cases(NamedNumberList,DoTag);
-
 	'REAL' ->
-	    emit_encode_func('real',Constraint,Value,DoTag);
-
+	    emit([{call,ber,encode_tags,
+		   [DoTag,{call,real_common,ber_encode_real,[Value]}]}]);
 	{'BIT STRING',NamedNumberList} ->
-	    emit_encode_func('bit_string',BitStringConstraint,Value,
-			     NamedNumberList,DoTag);
+	    call(encode_bit_string,
+		 [{asis,BitStringConstraint},Value,
+		  {asis,NamedNumberList},DoTag]);
 	'ANY' ->
-	    emit_encode_func('open_type', Value,DoTag);
+	    call(encode_open_type, [Value,DoTag]);
 	'NULL' ->
-	    emit_encode_func('null',Value,DoTag);
+	    call(encode_null, [Value,DoTag]);
 	'OBJECT IDENTIFIER' ->
-	    emit_encode_func("object_identifier",Value,DoTag);
+	    call(encode_object_identifier, [Value,DoTag]);
 	'RELATIVE-OID' ->
-	    emit_encode_func("relative_oid",Value,DoTag);
-	'ObjectDescriptor' ->
-	    emit_encode_func('restricted_string',Constraint,Value,
-			     ?T_ObjectDescriptor,DoTag);
-	'OCTET STRING' ->
-	    emit_encode_func('octet_string',Constraint,Value,DoTag);
-	'NumericString' ->
-	    emit_encode_func('restricted_string',Constraint,Value,
-			     ?T_NumericString,DoTag);
-	TString when TString == 'TeletexString';
-		     TString == 'T61String' ->
-	    emit_encode_func('restricted_string',Constraint,Value,
-			     ?T_TeletexString,DoTag);
-	'VideotexString' ->
-	    emit_encode_func('restricted_string',Constraint,Value,
-			     ?T_VideotexString,DoTag);
-	'GraphicString' ->
-	    emit_encode_func('restricted_string',Constraint,Value,
-			     ?T_GraphicString,DoTag);
-	'VisibleString' ->
-	    emit_encode_func('restricted_string',Constraint,Value,
-			     ?T_VisibleString,DoTag);
-	'GeneralString' ->
-	    emit_encode_func('restricted_string',Constraint,Value,
-			     ?T_GeneralString,DoTag);
-	'PrintableString' ->
-	    emit_encode_func('restricted_string',Constraint,Value,
-			     ?T_PrintableString,DoTag);
-	'IA5String' ->
-	    emit_encode_func('restricted_string',Constraint,Value,
-			     ?T_IA5String,DoTag);
+	    call(encode_relative_oid, [Value,DoTag]);
 	'UniversalString' ->
-	    emit_encode_func('universal_string',Constraint,Value,DoTag);
+	    call(encode_universal_string, [Value,DoTag]);
 	'UTF8String' ->
-	    emit_encode_func('UTF8_string',Constraint,Value,DoTag);
+	    call(encode_UTF8_string, [Value,DoTag]);
 	'BMPString' ->
-	    emit_encode_func('BMP_string',Constraint,Value,DoTag);
+	    call(encode_BMP_string, [Value,DoTag]);
 	'UTCTime' ->
-	    emit_encode_func('utc_time',Constraint,Value,DoTag);
+	    call(encode_utc_time, [Value,DoTag]);
 	'GeneralizedTime' ->
-	    emit_encode_func('generalized_time',Constraint,Value,DoTag);
+	    call(encode_generalized_time, [Value,DoTag]);
 	'ASN1_OPEN_TYPE' ->
-	    emit_encode_func('open_type', Value,DoTag);
+	    call(encode_open_type, [Value,DoTag]);
 	#'ObjectClassFieldType'{} ->
 	    case asn1ct_gen:get_inner(D#type.def) of
 		{fixedtypevaluefield,_,InnerType} -> 
 		    gen_encode_prim(Erules,InnerType,DoTag,Value);
 		'ASN1_OPEN_TYPE' ->
-		    emit_encode_func('open_type', Value,DoTag);
-		XX ->
-		    exit({'can not encode' ,XX})
-	    end;
-	XX ->
-	    exit({'can not encode' ,XX})
+		    call(encode_open_type, [Value,DoTag])
+	    end
     end.
 
-
-emit_encode_func(Name,Value,Tags) when is_atom(Name) ->
-    emit_encode_func(atom_to_list(Name),Value,Tags);
-emit_encode_func(Name,Value,Tags) ->
-    Fname = "?RT_BER:encode_" ++ Name,
-    emit([Fname,"(",Value,", ",Tags,")"]).
-
-emit_encode_func(Name,Constraint,Value,Tags) when is_atom(Name) ->
-    emit_encode_func(atom_to_list(Name),Constraint,Value,Tags);
-emit_encode_func(Name,Constraint,Value,Tags) ->
-    Fname = "?RT_BER:encode_" ++ Name,
-    emit([Fname,"(",{asis,Constraint},", ",Value,", ",Tags,")"]).
-
-emit_encode_func(Name,Constraint,Value,Asis,Tags) when is_atom(Name) ->
-    emit_encode_func(atom_to_list(Name),Constraint,Value,Asis,Tags);
-emit_encode_func(Name,Constraint,Value,Asis,Tags) ->
-    Fname = "?RT_BER:encode_" ++ Name,
-    emit([Fname,"(",{asis,Constraint},", ",Value,
-	  ", ",{asis,Asis},
-	  ", ",Tags,")"]).
-    
 emit_enc_enumerated_cases({L1,L2}, Tags) ->
     emit_enc_enumerated_cases(L1++L2, Tags, ext);
 emit_enc_enumerated_cases(L, Tags) ->
     emit_enc_enumerated_cases(L, Tags, noext).
 
-emit_enc_enumerated_cases([{EnumName,EnumVal},H2|T], Tags, Ext) ->
-    emit([{asis,EnumName}," -> ?RT_BER:encode_enumerated(",EnumVal,",",Tags,");",nl]),
-%%    emit(["'",{asis,EnumName},"' -> ?RT_BER:encode_enumerated(",EnumVal,",",Tags,");",nl]),
-    emit_enc_enumerated_cases([H2|T], Tags, Ext);
-emit_enc_enumerated_cases([{EnumName,EnumVal}], Tags, Ext) ->
-    emit([{asis,EnumName}," -> ?RT_BER:encode_enumerated(",EnumVal,",",Tags,")"]),
-%%    emit(["'",{asis,EnumName},"' -> ?RT_BER:encode_enumerated(",EnumVal,",",Tags,")"]),
-    case Ext of
-	noext -> emit([";",nl]);
-	ext -> 
-	    emit([";",nl])
-%% 	    emit([";",nl,"{asn1_enum,",{curr,enumval},"} -> ",
-%% 		     "?RT_BER:encode_enumerated(",{curr,enumval},",",Tags,");",nl]),
-%%	    asn1ct_name:new(enumval)
-    end,
+emit_enc_enumerated_cases([{EnumName,EnumVal}|T], Tags, Ext) ->
+    emit([{asis,EnumName}," -> ",
+	  {call,ber,encode_enumerated,[EnumVal,Tags]},";",nl]),
+    emit_enc_enumerated_cases(T, Tags, Ext);
+emit_enc_enumerated_cases([], _Tags, _Ext) ->
+    %% FIXME: Should extension be handled?
     emit([{curr,enumval}," -> exit({error,{asn1, {enumerated_not_in_range,",{curr, enumval},"}}})"]),
     emit([nl,"end"]).
 
@@ -365,9 +310,10 @@ gen_decode_selected(Erules,Type,FuncName) ->
 	    {value,{_,P}} -> P;
 	    false -> exit({error,{internal,no_pattern_saved}})
 	end,
-    emit(["  case ?RT_BER:decode_selective(",{asis,Pattern},",Bin) of",nl,
+    emit(["  case ",{call,ber,decode_selective,
+		     [{asis,Pattern},"Bin"]}," of",nl,
 	  "    {ok,Bin2} when is_binary(Bin2) ->",nl,
-	  "      {Tlv,_} = ?RT_BER:decode(Bin2",asn1ct_gen:nif_parameter(),"),",nl]),
+	  "      {Tlv,_} = ", {call,ber,ber_decode_nif,["Bin2"]},com,nl]),
     emit("{ok,"),
     gen_decode_selected_type(Erules,Type),
     emit(["};",nl,"    Err -> exit({error,{selective_decode,Err}})",nl,
@@ -549,147 +495,123 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 		_ -> ""
 	    end,
     NewTypeName = case Typename of
-		      'ANY' -> 'ASN1_OPEN_TYPE';
-		      _ -> Typename
+		      'ANY'             -> 'ASN1_OPEN_TYPE';
+		      'OCTET STRING'    -> restricted_string;
+		      'NumericString'   -> restricted_string;
+		      'TeletexString'   -> restricted_string;
+		      'T61String'       -> restricted_string;
+		      'VideotexString'  -> restricted_string;
+		      'GraphicString'   -> restricted_string;
+		      'VisibleString'   -> restricted_string;
+		      'GeneralString'   -> restricted_string;
+		      'PrintableString' -> restricted_string;
+		      'IA5String'       -> restricted_string;
+		      _                 -> Typename
 		  end,
-%    DoLength = 
     case NewTypeName of
 	'BOOLEAN'->
-	    emit({"?RT_BER:decode_boolean(",BytesVar,","}),
-	    add_func({decode_boolean,2});
+	    emit(["decode_boolean(",BytesVar,","]),
+	    need(decode_boolean, 2);
 	'INTEGER' ->
-	    emit({"?RT_BER:decode_integer(",BytesVar,",",
-		  {asis,int_constr(SingleValue,ValueRange)},","}),
-	    add_func({decode_integer,3});
+	    emit(["decode_integer(",BytesVar,",",
+		  {asis,int_constr(SingleValue,ValueRange)},","]),
+	    need(decode_integer, 3);
 	{'INTEGER',NamedNumberList} ->
-	    emit({"?RT_BER:decode_integer(",BytesVar,",",
+	    emit(["decode_integer(",BytesVar,",",
 		  {asis,int_constr(SingleValue,ValueRange)},",",
-		  {asis,NamedNumberList},","}),
-	    add_func({decode_integer,4});
+		  {asis,NamedNumberList},","]),
+	    need(decode_integer, 4);
 	{'ENUMERATED',NamedNumberList} ->
-	    emit({"?RT_BER:decode_enumerated(",BytesVar,",",
-		  {asis,Constraint},",",
-		  {asis,NamedNumberList},","}),
-	    add_func({decode_enumerated,4});
+	    emit(["decode_enumerated(",BytesVar,",",
+		  {asis,NamedNumberList},","]),
+	    need(decode_enumerated, 3);
 	'REAL' ->
-	    emit({"?RT_BER:decode_real(",BytesVar,","}),
-	    add_func({decode_real,3});
-	{'BIT STRING',NamedNumberList} ->
-	    case get(compact_bit_string) of
-		true ->
-		    emit({"?RT_BER:decode_compact_bit_string(",
-			  BytesVar,",",{asis,Constraint},",",
-			  {asis,NamedNumberList},","}),
-		    add_func({decode_compact_bit_string,4});
-		_ ->
-		    emit({"?RT_BER:decode_bit_string(",BytesVar,",",
-			  {asis,Constraint},",",
-			  {asis,NamedNumberList},","}),
-		    add_func({decode_bit_string,4})
-	    end;
+	    ok;
+	{'BIT STRING',_NamedNumberList} ->
+	    ok;
 	'NULL' ->
-	    emit({"?RT_BER:decode_null(",BytesVar,","}),
-	    add_func({decode_null,2});
+	    emit(["decode_null(",BytesVar,","]),
+	    need(decode_null, 2);
 	'OBJECT IDENTIFIER' ->
-	    emit({"?RT_BER:decode_object_identifier(",BytesVar,","}),
-	    add_func({decode_object_identifier,2});
+	    emit(["decode_object_identifier(",BytesVar,","]),
+	    need(decode_object_identifier, 2);
 	'RELATIVE-OID' ->
-	    emit({"?RT_BER:decode_relative_oid(",BytesVar,","}),
-	    add_func({decode_relative_oid,2});
+	    emit(["decode_relative_oid(",BytesVar,","]),
+	    need(decode_relative_oid, 2);
 	'ObjectDescriptor' ->
-	    emit({"?RT_BER:decode_restricted_string(",
-		  BytesVar,",",{asis,Constraint},",",{asis,?T_ObjectDescriptor},","}),
-	    add_func({decode_restricted_string,4});
-	'OCTET STRING' ->
-	    emit({"?RT_BER:decode_octet_string",AsBin,"(",BytesVar,",",{asis,Constraint},","}),
-	    add_func({decode_octet_string,3});
-	'NumericString' ->
-	    emit({"?RT_BER:decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",{asis,?T_NumericString},","}),
-	    add_func({decode_restricted_string,4});
-	TString when TString == 'TeletexString';
-		     TString == 'T61String' ->
-	    emit({"?RT_BER:decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",{asis,?T_TeletexString},","}),
-	    add_func({decode_restricted_string,4});
-	'VideotexString' ->
-	    emit({"?RT_BER:decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",{asis,?T_VideotexString},","}),
-	    add_func({decode_restricted_string,4});
-	'GraphicString' ->
-	    emit({"?RT_BER:decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",{asis,?T_GraphicString},","}),
-	    add_func({decode_restricted_string,4});
-	'VisibleString' ->
-	    emit({"?RT_BER:decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",{asis,?T_VisibleString},","}),
-	    add_func({decode_restricted_string,4});
-	'GeneralString' ->
-	    emit({"?RT_BER:decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",{asis,?T_GeneralString},","}),
-	    add_func({decode_restricted_string,4});
-	'PrintableString' ->
-	    emit({"?RT_BER:decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",{asis,?T_PrintableString},","}),
-	    add_func({decode_restricted_string,4});
-	'IA5String' ->
-	    emit({"?RT_BER:decode_restricted_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},",",{asis,?T_IA5String},","}),
-	    add_func({decode_restricted_string,4}) ;
+	    emit(["decode_restricted_string(",
+		  BytesVar,",",{asis,Constraint},","]),
+	    need(decode_restricted_string, 3);
+	restricted_string ->
+	    emit(["decode_restricted_string",AsBin,"(",BytesVar,","]),
+	    case Constraint of
+		[] ->
+		    need(decode_restricted_string, 2);
+		_ ->
+		    emit([{asis,Constraint},","]),
+		    need(decode_restricted_string, 3)
+	    end;
 	'UniversalString' ->
-	    emit({"?RT_BER:decode_universal_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},","}),
-	    add_func({decode_universal_string,3});
+	    emit(["decode_universal_string",AsBin,"(",
+		  BytesVar,",",{asis,Constraint},","]),
+	    need(decode_universal_string, 3);
 	'UTF8String' ->
-	    emit({"?RT_BER:decode_UTF8_string",AsBin,"(",
-		  BytesVar,","}),
-	    add_func({decode_UTF8_string,2});
-	'BMPString' ->
-	    emit({"?RT_BER:decode_BMP_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},","}),
-	    add_func({decode_BMP_string,3});
-	'UTCTime' ->
-	    emit({"?RT_BER:decode_utc_time",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},","}),
-	    add_func({decode_utc_time,3});
-	'GeneralizedTime' ->
-	    emit({"?RT_BER:decode_generalized_time",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},","}),
-	    add_func({decode_generalized_time,3});
-	'ASN1_OPEN_TYPE' ->
-	    emit(["?RT_BER:decode_open_type_as_binary(",
+	    emit(["decode_UTF8_string",AsBin,"(",
 		  BytesVar,","]),
-	    add_func({decode_open_type_as_binary,3});
+	    need(decode_UTF8_string, 2);
+	'BMPString' ->
+	    emit(["decode_BMP_string",AsBin,"(",
+		  BytesVar,",",{asis,Constraint},","]),
+	    need(decode_BMP_string, 3);
+	'UTCTime' ->
+	    emit(["decode_utc_time",AsBin,"(",
+		  BytesVar,",",{asis,Constraint},","]),
+	    need(decode_utc_time, 3);
+	'GeneralizedTime' ->
+	    emit(["decode_generalized_time",AsBin,"(",
+		  BytesVar,",",{asis,Constraint},","]),
+	    need(decode_generalized_time, 3);
+	'ASN1_OPEN_TYPE' ->
+	    emit(["decode_open_type_as_binary(",
+		  BytesVar,","]),
+	    need(decode_open_type_as_binary, 2);
 	#'ObjectClassFieldType'{} ->
 		case asn1ct_gen:get_inner(Att#type.def) of
 		    {fixedtypevaluefield,_,InnerType} -> 
 			gen_dec_prim(Erules,InnerType,BytesVar,DoTag,TagIn,Form,OptOrMand);
 		    'ASN1_OPEN_TYPE' ->
-			emit(["?RT_BER:decode_open_type_as_binary(",
+			emit(["decode_open_type_as_binary(",
 			      BytesVar,","]),
-			add_func({decode_open_type_as_binary,3});
+			need(decode_open_type_as_binary, 2);
 		    Other ->
-			exit({'can not decode' ,Other})
+			exit({'cannot decode',Other})
 		end;
 	Other ->
-	    exit({'can not decode' ,Other})
+	    exit({'cannot decode',Other})
     end,
 
-    case {DoTag,NewTypeName} of
-	{_,#'ObjectClassFieldType'{}} ->
+    TagStr = case DoTag of
+		 {string,Tag1} -> Tag1;
+		 _ when is_list(DoTag) -> {asis,DoTag}
+	     end,
+    case NewTypeName of
+	{'BIT STRING',NNL} ->
+	    gen_dec_bit_string(BytesVar, Constraint, NNL, TagStr);
+	'REAL' ->
+	    asn1ct_name:new(tmpbuf),
+	    emit(["begin",nl,
+		  {curr,tmpbuf}," = ",
+		  {call,ber,match_tags,[BytesVar,TagStr]},com,nl,
+		  {call,real_common,decode_real,[{curr,tmpbuf}]},nl,
+		  "end",nl]);
+	#'ObjectClassFieldType'{} ->
 	    case asn1ct_gen:get_inner(Att#type.def) of
 		'ASN1_OPEN_TYPE' ->
-		    emit([{asis,DoTag},asn1ct_gen:nif_parameter(),")"]);
+		    emit([TagStr,")"]);
 		_ -> ok
 	    end;
-	{{string,TagStr},'ASN1_OPEN_TYPE'} ->
-	    emit([TagStr,asn1ct_gen:nif_parameter(),")"]);
-	{_,'ASN1_OPEN_TYPE'} ->
-	    emit([{asis,DoTag},asn1ct_gen:nif_parameter(),")"]);
-	{{string,TagStr},_} ->
-	    emit([TagStr,")"]);
-	_ when is_list(DoTag) ->
-	    emit([{asis,DoTag},")"])
+	_ ->
+	    emit([TagStr,")"])
     end.
 
 
@@ -701,6 +623,23 @@ int_constr(SingleValue,[]) ->
     SingleValue;
 int_constr(SV,VR) ->
     [SV,VR].
+
+gen_dec_bit_string(BytesVar, _Constraint, [_|_]=NNL, TagStr) ->
+    call(decode_named_bit_string,
+	 [BytesVar,{asis,NNL},TagStr]);
+gen_dec_bit_string(BytesVar, Constraint, [], TagStr) ->
+    case asn1ct:get_bit_string_format() of
+	compact ->
+	    call(decode_compact_bit_string,
+		 [BytesVar,{asis,Constraint},TagStr]);
+	legacy ->
+	    call(decode_legacy_bit_string,
+		 [BytesVar,{asis,Constraint},TagStr]);
+	bitstring ->
+	    call(decode_native_bit_string,
+		 [BytesVar,{asis,Constraint},TagStr])
+    end.
+
     
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------
@@ -1015,7 +954,7 @@ emit_tlv_format_function() ->
     end.
 emit_tlv_format_function1() ->
     emit(["tlv_format(Bytes) when is_binary(Bytes) ->",nl,
-	  "  {Tlv,_}=?RT_BER:decode(Bytes",asn1ct_gen:nif_parameter(),"),",nl,
+	  "  {Tlv,_} = ",{call,ber,ber_decode_nif,["Bytes"]},com,nl,
 	  "  Tlv;",nl,
 	  "tlv_format(Bytes) ->",nl,
 	  "  Bytes.",nl]).
@@ -1449,37 +1388,21 @@ gen_objset_dec(_,ObjSetName,UniqueName,[{ObjName,Val,Fields}],
     emit_default_getdec(ObjSetName,UniqueName),
     emit([".",nl,nl]),
     ok;
-gen_objset_dec(Erules,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
+gen_objset_dec(_,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
 	       _ClFields,_NthObj) ->
     emit(["'getdec_",ObjSetName,"'(_, _) ->",nl]),
     emit([indent(2),"fun(_,Bytes, _RestPrimFieldName) ->",nl]),
     
-    case Erules of
-	ber ->
-	    emit([indent(4),"case Bytes of",nl,
-		  indent(6),"Bin when is_binary(Bin) -> ",nl,
-		  indent(8),"Bin;",nl,
-		  indent(6),"_ ->",nl,
-		  indent(8),"?RT_BER:encode(Bytes",driver_parameter(),")",nl,
-		  indent(4),"end",nl]);
-	_ ->
-	    emit([indent(6),"Len = case Bytes of",nl,indent(9),
-		  "Bin when is_binary(Bin) -> size(Bin);",nl,indent(9),
-		  "_ -> length(Bytes)",nl,indent(6),"end,"]),
-	    emit([indent(4),"{Bytes,[],Len}",nl])
-    end,
+    emit([indent(4),"case Bytes of",nl,
+	  indent(6),"Bin when is_binary(Bin) -> ",nl,
+	  indent(8),"Bin;",nl,
+	  indent(6),"_ ->",nl,
+	  indent(8),{call,ber,ber_encode,["Bytes"]},nl,
+	  indent(4),"end",nl]),
     emit([indent(2),"end.",nl,nl]),
     ok;
 gen_objset_dec(_,_,_,[],_,_,_) ->
     ok.
-
-driver_parameter() ->
-    Options = get(encoding_options),
-    case {lists:member(driver,Options),lists:member(nif,Options)} of
-	{true,_} -> ",nif";
-	{_,true} -> ",nif";
-	_ ->  ",erlang"
-    end.
 
 emit_default_getdec(ObjSetName,UniqueName) ->
     emit(["'getdec_",ObjSetName,"'(",{asis,UniqueName},", ErrV) ->",nl]),
@@ -1771,9 +1694,6 @@ mk_object_val(0, Ack, Len) ->
 mk_object_val(Val, Ack, Len) -> 
     mk_object_val(Val bsr 7, [((Val band 127) bor 128) | Ack], Len + 1). 
 
-add_func(F={_Func,_Arity}) ->
-    asn1ct_table:insert(asn1_functab, {F}).
-
 %% For BER the ExtensionAdditionGroup notation has no impact on the encoding/decoding
 %% and therefore we only filter away the ExtensionAdditionGroup start and end markers
 extaddgroup2sequence(ExtList) when is_list(ExtList) ->
@@ -1785,4 +1705,8 @@ extaddgroup2sequence(ExtList) when is_list(ExtList) ->
 			 true
 		 end, ExtList).
 
+call(F, Args) ->
+    asn1ct_func:call(ber, F, Args).
 
+need(F, Arity) ->
+    asn1ct_func:need({ber,F,Arity}).

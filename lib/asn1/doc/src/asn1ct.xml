@@ -64,8 +64,9 @@
         <v>Asn1module = atom() | string()</v>
         <v>Options = [Option| OldOption]</v>
         <v>Option = ber | per | uper | der | compact_bit_string |
+	legacy_bit_string |
 	noobj | {n2n, EnumTypeName} |{outdir, Dir} | {i, IncludeDir} |
-	asn1config | undec_rest | {inline, OutputName} | inline |
+	asn1config | undec_rest |
 	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose | warnings_as_errors</v>
         <v>OldOption = ber | per</v> 
         <v>Reason = term()</v>
@@ -154,22 +155,26 @@ File3.asn        </pre>
           <tag><c>compact_bit_string</c></tag>
           <item>
             <p>
-	      Makes it possible to use a compact notation for values
-              of the BIT STRING type in Erlang. The notation: 
+	      The BIT STRING type will be decoded to the "compact notation".
+	      <em>This option is not recommended for new code.</em>
 	    </p>
-            <pre>
-BitString = {Unused, Binary},
-Unused = integer(),
-Binary = binary()            
-	    </pre>
-            <p>
-	      <c>Unused</c> must be a number in the range 0 to 7. It
-	      tells how many bits in the least significant byte in
-	      <c>Binary</c> that is unused. 
-	      For details see 
+	    <p>For details see
 	      <seealso marker="asn1_ug#BIT STRING">
-		BIT STRING type section in users guide
-		</seealso>.
+		BIT STRING type section in the Users Guide
+	      </seealso>.
+	    </p>
+	  </item>
+          <tag><c>legacy_bit_string</c></tag>
+          <item>
+            <p>
+	      The BIT STRING type will be decoded to the legacy
+	      format, i.e. a list of zeroes and ones.
+	      <em>This option is not recommended for new code.</em>
+	    </p>
+	    <p>For details see
+	      <seealso marker="asn1_ug#BIT STRING">
+		BIT STRING type section in the Users Guide
+	      </seealso>.
 	    </p>
 	  </item>
           <tag><c>{n2n, EnumTypeName}</c></tag>
@@ -232,28 +237,6 @@ Binary = binary()
               <c>{ok, Value, Rest}</c> is returned. <c>Rest</c> may be a
               list or a binary. Earlier versions of the compiler ignored
               those following bytes.</p>
-          </item>
-          <tag><c>{inline, OutputName}</c></tag>
-          <item>
-            <p>Compiling with this option gives one output module
-              containing all asn1 run-time functionality. The asn1 specs
-              are provided in a target module Module.set.asn as described
-              <seealso marker="#asn1set">above</seealso>. The name of the
-              resulting module containing generated encode/decode functions
-              and in-lined run-time functions will be
-              <c>OutputName.erl</c>. The merging/in-lining of code is done
-              by the <c>igor</c> module of <c>syntax_tools</c>. By default
-              the functions generated from the first asn1 spec in the
-              <c>.set.asn</c> are exported, unless a
-              <c>{export, [atom()]}</c> or <c>{export_all, true}</c> option
-              are provided. The list of atoms are names of chosen asn1
-              specs from the <c>.set.asn</c> file. </p>
-          </item>
-          <tag><c>inline</c></tag>
-          <item>
-            <p>It is also possible to use the sole argument <c>inline</c>.
-              It is as <c>{inline, OutputName}</c>, but the output file gets the
-              default name of the source <c>.set.asn</c> file.</p>
           </item>
           <tag><c>{macro_name_prefix, Prefix}</c></tag>
           <item>

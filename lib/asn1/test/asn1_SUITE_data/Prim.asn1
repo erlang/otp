@@ -29,4 +29,10 @@ BEGIN
 
   Null ::= NULL
 
+  -- Test that REAL numbers can co-exist with other data types.
+  App-X-Real ::= REAL (WITH COMPONENTS {
+                        mantissa (-16777215..16777215),
+			base (2),
+			exponent (-125..128) } )
+
 END
