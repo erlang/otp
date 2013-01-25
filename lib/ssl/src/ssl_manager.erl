@@ -143,13 +143,14 @@ new_session_id(Port) ->
     call({new_session_id, Port}).
 
 %%--------------------------------------------------------------------
--spec clean_cert_db(reference(), binary()) -> term().
+-spec clean_cert_db(reference(), binary()) -> ok.
 %%
 %% Description: Send clean request of cert db to ssl_manager process should
 %% be called by ssl-connection processes. 
 %%--------------------------------------------------------------------
 clean_cert_db(Ref, File) ->
-    erlang:send_after(?CLEAN_CERT_DB, get(ssl_manager), {clean_cert_db, Ref, File}).
+    erlang:send_after(?CLEAN_CERT_DB, get(ssl_manager), {clean_cert_db, Ref, File}),
+    ok.
 
 %%--------------------------------------------------------------------
 -spec register_session(inet:port_number(), #session{}) -> ok.
@@ -344,7 +345,7 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
--spec terminate(reason(), #state{}) -> term().
+-spec terminate(reason(), #state{}) -> ok.
 %%		       
 %% Description: This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any necessary

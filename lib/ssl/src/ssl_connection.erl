@@ -372,8 +372,7 @@ hello(#server_hello{cipher_suite = CipherSuite,
 	     ssl_options = SslOptions} = State0) ->
     case ssl_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, ReqVersion, hello, State0), 
-            {stop, {shutdown, own_alert}, State0};
+	    handle_own_alert(Alert, ReqVersion, hello, State0);
 	{Version, NewId, ConnectionStates, NextProtocol} ->
 	    {KeyAlgorithm, _, _, _} =
 		ssl_cipher:suite_definition(CipherSuite),
@@ -2510,12 +2509,13 @@ default_hashsign(_Version, KeyExchange)
 start_or_recv_cancel_timer(infinity, _RecvFrom) ->
     undefined;
 start_or_recv_cancel_timer(Timeout, RecvFrom) ->
-    erlang:send_after(Timeout, self(), {cancel_start_or_recv, RecvFrom}).    
+    erlang:send_after(Timeout, self(), {cancel_start_or_recv, RecvFrom}).
 
 cancel_timer(undefined) ->
     ok;
 cancel_timer(Timer) ->
-    erlang:cancel_timer(Timer).
+    erlang:cancel_timer(Timer),
+    ok.
 
 handle_unrecv_data(StateName, #state{socket = Socket, transport_cb = Transport} = State) ->
     inet:setopts(Socket, [{active, false}]),
