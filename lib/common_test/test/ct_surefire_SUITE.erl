@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,6 +32,7 @@
 -include_lib("common_test/include/ct_event.hrl").
 
 -include_lib("xmerl/include/xmerl.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -define(eh, ct_test_support_eh).
 
@@ -77,53 +78,52 @@ all() ->
 %%%-----------------------------------------------------------------
 %%%
 default(Config) when is_list(Config) ->
-    run(default,[cth_surefire],Config),
-    PrivDir = ?config(priv_dir,Config),
-    XmlRe = filename:join([PrivDir,"*","junit_report.xml"]),
-    check_xml(default,XmlRe).
+    run(default,[cth_surefire],"junit_report.xml",Config).
 
 absolute_path(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir,Config),
     Path = filename:join(PrivDir,"abspath.xml"),
-    run(absolute_path,[{cth_surefire,[{path,Path}]}],Config),
-    check_xml(absolute_path,Path).
+    run(absolute_path,[{cth_surefire,[{path,Path}]}],Path,Config).
 
 relative_path(Config) when is_list(Config) ->
     Path = "relpath.xml",
-    run(relative_path,[{cth_surefire,[{path,Path}]}],Config),
-    PrivDir = ?config(priv_dir,Config),
-    XmlRe = filename:join([PrivDir,"*",Path]),
-    check_xml(relative_path,XmlRe).
+    run(relative_path,[{cth_surefire,[{path,Path}]}],Path,Config).
 
 url(Config) when is_list(Config) ->
     Path = "url.xml",
-    run(url,[{cth_surefire,[{url_base,?url_base},
-			    {path,Path}]}],Config),
-    PrivDir = ?config(priv_dir,Config),
-    XmlRe = filename:join([PrivDir,"*",Path]),
-    check_xml(url,XmlRe).
+    run(url,[{cth_surefire,[{url_base,?url_base},{path,Path}]}],
+	Path,Config).
 
 logdir(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir,Config),
-    LogDir = filename:join(PrivDir,"specific_logdir"),
-    file:make_dir(LogDir),
+    Opts = ct_test_support:get_opts(Config),
+    LogDir =
+	case lists:keyfind(logdir,1,Opts) of
+	    {logdir,LD} -> LD;
+	    false -> ?config(priv_dir,Config)
+	end,
+    MyLogDir = filename:join(LogDir,"specific_logdir"),
+    ensure_exists_empty(MyLogDir),
     Path = "logdir.xml",
-    run(logdir,[{cth_surefire,[{path,Path}]}],Config,[{logdir,LogDir}]),
-    PrivDir = ?config(priv_dir,Config),
-    XmlRe = filename:join([LogDir,"*",Path]),
-    check_xml(logdir,XmlRe).
+    run(logdir,[{cth_surefire,[{path,Path}]}],Path,Config,[{logdir,MyLogDir}]).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
-run(Case,CTHs,Config) ->
-    run(Case,CTHs,Config,[]).
-run(Case,CTHs,Config,ExtraOpts) ->
+run(Case,CTHs,Report,Config) ->
+    run(Case,CTHs,Report,Config,[]).
+run(Case,CTHs,Report,Config,ExtraOpts) ->
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "surefire_SUITE"),
     {Opts,ERPid} = setup([{suite,Suite},{ct_hooks,CTHs},{label,Case}|ExtraOpts],
 			 Config),
-    ok = execute(Case, Opts, ERPid, Config).
+    ok = execute(Case, Opts, ERPid, Config),
+    LogDir =
+	case lists:keyfind(logdir,1,Opts) of
+	    {logdir,LD} -> LD;
+	    false -> ?config(priv_dir,Config)
+	end,
+    Re = filename:join([LogDir,"*",Report]),
+    check_xml(Case,Re).
 
 setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
@@ -349,3 +349,26 @@ get_numbers_from_attrs([_|A],T,E,F,S) ->
     get_numbers_from_attrs(A,T,E,F,S);
 get_numbers_from_attrs([],T,E,F,S) ->
     {T,E,F,S}.
+
+ensure_exists_empty(Dir) ->
+    case file:list_dir(Dir) of
+	{error,enoent} ->
+	    file:make_dir(Dir);
+	{ok,Files} ->
+	    del_files(Dir,Files)
+    end.
+
+del_files(Dir,[F0|Fs] ) ->
+    F = filename:join(Dir,F0),
+    case file:read_file_info(F) of
+	{ok,#file_info{type=directory}} ->
+	    {ok,Files} = file:list_dir(F),
+	    del_files(F,Files),
+	    file:del_dir(F),
+	    del_files(Dir,Fs);
+	_ ->
+	    file:delete(F),
+	    del_files(Dir,Fs)
+    end;
+del_files(_,[]) ->
+    ok.
