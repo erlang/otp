@@ -4258,9 +4258,9 @@ erts_port_call(Process* c_p,
 	    *retvalp = TUPLE2(hp, am_ok, term);
 	    hp += 3;
 	    HRelease(c_p, hp_end, hp);
-	    if (resp_buf != &resp_buf[0]
+	    if (resp_bufp != &resp_buf[0]
 		&& !(ret_flags & DRIVER_CALL_KEEP_BUFFER))
-		driver_free(resp_buf);
+		driver_free(resp_bufp);
 	    BUMP_REDS(c_p, ERTS_PORT_REDS_CALL);
 	    return ERTS_PORT_OP_DONE;
 	}
