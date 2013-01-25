@@ -63,7 +63,8 @@ groups() ->
        param_insert_numeric, {group, param_insert_string},
        param_insert_float, param_insert_real,
        param_insert_double, param_insert_mix, param_update,
-       param_delete, param_select]},
+       param_delete, param_select,
+       param_select_empty_params, param_delete_empty_params]},
      {param_integers, [],
       [param_insert_tiny_int, param_insert_small_int,
        param_insert_int, param_insert_integer]},
@@ -1342,6 +1343,70 @@ param_select(Config) when is_list(Config) ->
     SelectResult = odbc:param_query(Ref, "SELECT * FROM " ++ Table ++
 				    " WHERE DATA = ?",
 				    [{{sql_varchar, 10}, ["foo"]}]), 
+    ok.
+
+%%-------------------------------------------------------------------------
+param_select_empty_params(doc) ->
+    ["Test parameterized select query with no parameters."];
+param_select_empty_params(suite) ->
+    [];
+param_select_empty_params(Config) when is_list(Config) ->
+    Ref = ?config(connection_ref, Config),   
+    Table = ?config(tableName, Config),
+
+    {updated, _} = 
+	odbc:sql_query(Ref, 
+		       "CREATE TABLE " ++ Table ++
+		       " (ID INTEGER, DATA CHARACTER VARYING(10),"
+		       " PRIMARY KEY(ID))"),
+
+    {updated, Count}  = odbc:param_query(Ref, "INSERT INTO " ++ Table ++ 
+				    "(ID, DATA) VALUES(?, ?)",
+				    [{sql_integer, [1, 2, 3]}, 
+				     {{sql_varchar, 10}, 
+				      ["foo", "bar", "foo"]}]),
+
+    true = odbc_test_lib:check_row_count(3, Count),
+
+    SelectResult = ?RDBMS:param_select(),
+
+    SelectResult = odbc:param_query(Ref, "SELECT * FROM " ++ Table ++
+				    " WHERE DATA = \'foo\'",
+				    []), 
+    ok.
+
+%%-------------------------------------------------------------------------
+param_delete_empty_params(doc) ->
+    ["Test parameterized delete query with no parameters."];
+param_delete_empty_params(suite) ->
+    [];
+param_delete_empty_params(Config) when is_list(Config) ->
+    Ref = ?config(connection_ref, Config),   
+    Table = ?config(tableName, Config),
+
+    {updated, _} = 
+	odbc:sql_query(Ref, 
+		       "CREATE TABLE " ++ Table ++
+		       " (ID INTEGER, DATA CHARACTER VARYING(10),"
+		       " PRIMARY KEY(ID))"),
+
+    {updated, Count}  = odbc:param_query(Ref, "INSERT INTO " ++ Table ++ 
+				    "(ID, DATA) VALUES(?, ?)",
+				    [{sql_integer, [1, 2, 3]}, 
+				     {{sql_varchar, 10}, 
+				      ["foo", "bar", "baz"]}]),
+    true = odbc_test_lib:check_row_count(3, Count),
+
+    {updated, NewCount}  = odbc:param_query(Ref, "DELETE FROM " ++ Table ++
+				    " WHERE ID = 1 OR ID = 2",
+				    []), 
+
+    true = odbc_test_lib:check_row_count(2, NewCount),
+
+    UpdateResult = ?RDBMS:param_delete(),
+
+    UpdateResult = 
+	odbc:sql_query(Ref, "SELECT * FROM " ++ Table),
     ok.
 
 %%-------------------------------------------------------------------------
