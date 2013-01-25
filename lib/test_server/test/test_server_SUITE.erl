@@ -185,13 +185,14 @@ test_server_unicode(Config) ->
 			  5, 0, 3, 3, 0, 0, 0, 0, 5, Config),
 
     %% Create and run two test suites - one with filename and content
-    %% in latin1 (not on windows) and one with filename and content in
-    %% utf8.  Both have name and content including letters дце.  Check
-    %% that all logs are generated with utf8 encoded filenames.
-    case os:type() of
-	{win32,_} ->
+    %% in latin1 (if the default filename mode is latin1) and one with
+    %% filename and content in utf8.  Both have name and content
+    %% including letters дце.  Check that all logs are generated with
+    %% utf8 encoded filenames.
+    case file:native_name_encoding() of
+	utf8 ->
 	    ok;
-	_ ->
+	latin1 ->
 	    generate_and_run_unicode_test(Config,latin1)
     end,
     generate_and_run_unicode_test(Config,utf8).
