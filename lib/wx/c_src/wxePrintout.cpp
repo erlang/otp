@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,7 @@
   rt.addAtom("_wx_invoke_cb_");						\
   rt.addTupleCount(3);							\
   rt.send();								\
-  handle_event_callback(port, memenv->owner); 			        \
+  handle_event_callback(WXE_DRV_PORT_HANDLE, memenv->owner); 			\
  }
 
 #define INVOKE_CALLBACK(port, callback, class_str)	\
@@ -230,7 +230,7 @@ EwxListCtrl::~EwxListCtrl() {
 }
 // tools
 
-void clear_cb(ErlDrvPort port, int callback)
+void clear_cb(ErlDrvTermData port, int callback)
 {
   if(callback > 0) {
     wxeMemEnv * memenv =  ((WxeApp *) wxTheApp)->getMemEnv(port);

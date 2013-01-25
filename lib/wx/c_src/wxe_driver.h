@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -43,7 +43,8 @@ typedef struct wxe_bin_ref {
 typedef struct wxe_data_def {   
    void * driver_data;
    WXEBinRef * bin;		/* Argument binaries */
-   ErlDrvPort port;
+   ErlDrvPort port_handle;
+   ErlDrvTermData port;
    int is_cbport;
    ErlDrvPDL pdl;
 } wxe_data;
@@ -67,8 +68,9 @@ void meta_command(int what, wxe_data *sd);
 
 void * wxe_ps_init();
 
-extern ErlDrvPort WXE_DRV_PORT; 
-extern int wxe_debug; 
+extern ErlDrvPort WXE_DRV_PORT_HANDLE;
+extern ErlDrvTermData WXE_DRV_PORT;
+extern int wxe_debug;
 
 extern char * erl_wx_privdir;
 

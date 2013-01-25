@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -169,16 +169,66 @@ void gl_error() {
  * ******************************************************************************/
 
 static GLUtesselator* tess;
-static GLdouble* tess_coords;
-static GLdouble* tess_alloc_vertex;
-static int* tess_vertices;
+
+typedef struct {
+  GLdouble * tess_coords;
+  int alloc_n;
+  int alloc_max;
+
+  int * tess_index_list;
+  int index_n;
+  int index_max;
+
+  int error;
+} egl_tess_data;
+
+#define NEED_MORE_ALLOC 1
+#define NEED_MORE_INDEX 2
+
+static egl_tess_data egl_tess;
 
 void CALLBACK
 egl_ogla_vertex(GLdouble* coords)
 {
   /* fprintf(stderr, "%d\r\n", (int) (coords - tess_coords) / 3); */
+  if(egl_tess.index_n < egl_tess.index_max) {
+    egl_tess.tess_index_list[egl_tess.index_n] = (int) (coords - egl_tess.tess_coords) / 3;
+    egl_tess.index_n++;
+  }
+  else
+    egl_tess.error = NEED_MORE_INDEX;
+}
 
-  *tess_vertices++ = (int) (coords - tess_coords) / 3;
+void CALLBACK
+egl_ogla_combine(GLdouble coords[3],
+		 void* vertex_data[4],
+		 GLfloat w[4],
+		 void **dataOut)
+{
+  GLdouble* vertex = &egl_tess.tess_coords[egl_tess.alloc_n];
+  if(egl_tess.alloc_n < egl_tess.alloc_max) {
+    egl_tess.alloc_n += 3;
+    vertex[0] = coords[0];
+    vertex[1] = coords[1];
+    vertex[2] = coords[2];
+    *dataOut = vertex;
+
+#if 0
+    fprintf(stderr, "combine: ");
+    int i;
+    for (i = 0; i < 4; i++) {
+      if (w[i] > 0.0) {
+	fprintf(stderr, "%d(%g) ", (int) vertex_data[i], w[i]);
+      }
+    }
+    fprintf(stderr, "\r\n");
+    fprintf(stderr, "%g %g %g\r\n", vertex[0], vertex[1], vertex[2]);
+#endif
+
+  } else {
+    egl_tess.error = NEED_MORE_ALLOC;
+    *dataOut = NULL;
+  }
 }
 
 void CALLBACK
@@ -189,41 +239,9 @@ egl_ogla_edge_flag(GLboolean flag)
 void CALLBACK
 egl_ogla_error(GLenum errorCode)
 {
-  const GLubyte *err;
-  err = gluErrorString(errorCode);
-  // wxString msg;
-  // msg.Printf(wxT("Tesselation error:  %d: "), (int)errorCode);
-  // msg += wxString::FromAscii((char *) err);
-  // send_msg("error", &msg);
-  fprintf(stderr, "Tesselation error: %d: %s\r\n", (int) errorCode, err);
-}
-
-void CALLBACK
-egl_ogla_combine(GLdouble coords[3],
-		 void* vertex_data[4],
-		 GLfloat w[4],
-		 void **dataOut)
-{
-  GLdouble* vertex = tess_alloc_vertex;
-
-  tess_alloc_vertex += 3;
-
-#if 0
-  fprintf(stderr, "combine: ");
-  int i;
-  for (i = 0; i < 4; i++) {
-    if (w[i] > 0.0) {
-      fprintf(stderr, "%d(%g) ", (int) vertex_data[i], w[i]);
-    }
-  }
-  fprintf(stderr, "\r\n");
-  fprintf(stderr, "%g %g %g\r\n", vertex[0], vertex[1], vertex[2]);
-#endif
-
-  vertex[0] = coords[0];
-  vertex[1] = coords[1];
-  vertex[2] = coords[2];
-  *dataOut = vertex;
+  // const GLubyte *err;
+  // err = gluErrorString(errorCode);
+  // fprintf(stderr, "Tesselation error: %d: %s\r\n", (int) errorCode, err);
 }
 
 void init_tess()
@@ -246,49 +264,46 @@ int erl_tess_impl(char* buff, ErlDrvPort port, ErlDrvTermData caller)
 {
   ErlDrvBinary* bin;
   int i;
-  GLdouble* new_vertices;
-  int *vertices;
   int num_vertices;
   GLdouble *n;
-  int n_pos, AP;
-
+  int AP;
+  int a_max = 2;
+  int i_max = 6;
   num_vertices = * (int *) buff; buff += 8; /* Align */
   n = (double *) buff; buff += 8*3;
 
-  bin = driver_alloc_binary(num_vertices*6*sizeof(GLdouble));
-  new_vertices = tess_coords = (double *) bin->orig_bytes;
-  memcpy(tess_coords,buff,num_vertices*3*sizeof(GLdouble));
-  tess_alloc_vertex = tess_coords + num_vertices*3;
+  egl_tess.alloc_max = a_max*num_vertices*3;
+  bin = driver_alloc_binary(egl_tess.alloc_max*sizeof(GLdouble));
+  egl_tess.error = 0;
+  egl_tess.tess_coords = (double *) bin->orig_bytes;
+  memcpy(egl_tess.tess_coords,buff,num_vertices*3*sizeof(GLdouble));
+  egl_tess.index_max = i_max*3*num_vertices;
+  egl_tess.tess_index_list = (int *) driver_alloc(sizeof(int) * egl_tess.index_max);
 
-#if 0
-  fprintf(stderr, "n=%d\r\n", num_vertices);
-#endif
-  vertices = (int *) driver_alloc(sizeof(int) * 16*num_vertices);
-
-  tess_vertices = vertices;
+  egl_tess.tess_coords = (double *) bin->orig_bytes;
+  egl_tess.index_n = 0;
+  egl_tess.alloc_n = num_vertices*3;
 
   gluTessNormal(tess, n[0], n[1], n[2]);
   gluTessBeginPolygon(tess, 0);
   gluTessBeginContour(tess);
   for (i = 0; i < num_vertices; i++) {
-    gluTessVertex(tess, tess_coords+3*i, tess_coords+3*i);
+    gluTessVertex(tess, egl_tess.tess_coords+3*i, egl_tess.tess_coords+3*i);
   }
   gluTessEndContour(tess);
   gluTessEndPolygon(tess);
 
-  n_pos = (tess_vertices - vertices);
-
   AP = 0; ErlDrvTermData *rt;
-  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData) * (13+n_pos*2));
+  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData) * (13+egl_tess.index_n*2));
   rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
 
-  for(i=0; i < n_pos; i++) {
-    rt[AP++] = ERL_DRV_INT; rt[AP++] = (int) vertices[i];
+  for(i=0; i < egl_tess.index_n; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (int) egl_tess.tess_index_list[i];
   };
-  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = n_pos+1;
+  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = egl_tess.index_n+1;
 
   rt[AP++] = ERL_DRV_BINARY; rt[AP++] = (ErlDrvTermData) bin;
-  rt[AP++] = (tess_alloc_vertex-new_vertices)*sizeof(GLdouble); rt[AP++] = 0;
+  rt[AP++] = egl_tess.alloc_n*sizeof(GLdouble); rt[AP++] = 0;
 
   rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2; // Return tuple {list, Bin}
   rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2; // Result tuple
@@ -300,7 +315,7 @@ int erl_tess_impl(char* buff, ErlDrvPort port, ErlDrvTermData caller)
   /* 	  (tess_alloc_vertex-new_vertices)*sizeof(GLdouble),  */
   /* 	  num_vertices*6*sizeof(GLdouble)); */
   driver_free_binary(bin);
-  driver_free(vertices);
+  driver_free(egl_tess.tess_index_list);
   driver_free(rt);
   return 0;
 }

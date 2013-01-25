@@ -656,40 +656,6 @@ suffix.
 Use the `--enable-darwin-64bit` configure flag to build a 64-bit
 binaries on Mac OS X.
 
-Building universal binaries on Mac OS X (obsolete information)
---------------------------------------------------------------
-
-(This information was written when Mac OS X Leopard was the current
-release. It may no longer work.)
-
-Universal 32bit binaries can be built on an Intel Mac using the
-`--enable-darwin-universal` configure option. There still may occur
-problems with certain applications using this option, but the base
-system should run smoothly.
-
-When building universal binaries on a PowerPC Mac (at least on Tiger),
-you must point out a suitable SDK that contains universal binaries.
-For instance, to build universal binaries for Tiger (10.4):
-
-    $ CFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk" \
-    LDFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk" \
-    ./configure --enable-darwin-universal
-
-Also, if you run Leopard, but want to build for Tiger, you must do by
-setting the `MACOSX_DEPLOYMENT_TARGET` environmental variable.
-
-    $ export MACOSX_DEPLOYMENT_TARGET=10.4
-
-Experimental support for 64bit x86 darwin binaries can be enabled
-using the `--enable-darwin-64bit` configure flag. The 64bit binaries are
-best built and run on Leopard, but most of the system also works on
-Tiger (Tiger's 64bit libraries are, however, limited; therefore e.g. `odbc`,
-`crypto`, `ssl` etc. are not supported in Tiger). 64bit PPC binaries are not
-supported and we have no plans to add such support (no machines to
-test on).
-
-Universal binaries and 64bit binaries are mutually exclusive options.
-
 Building a fast Erlang VM on Mac OS Lion
 ----------------------------------------
 
@@ -722,38 +688,35 @@ Install MacPorts (<http://www.macports.org/>). Then:
 
 ### Building with wxErlang ###
 
-If you want to build the `wx` application, you will need to get wxMac-2.8.12
-(`wxMac-2.8.12.tar.gz` from
-<http://sourceforge.net/projects/wxwindows/files/2.8.12/>) and install it.
+If you want to build the `wx` application, you will need to get wxWidgets-2.9.4 (or later)
+(`wxWidgets-2.9.4.tar.bz2` from <http://sourceforge.net/projects/wxwindows/files/2.9.4/>)
+or get it from github:
+    $ git clone git@github.com:wxWidgets/wxWidgets.git
 
-Export the path for MacOSX10.6.sdk:
+Be aware that the wxWidgets-2.9 branch is a development branch of wxWidgets and the MacOsX
+port still lags behind the other ports.
 
-    $ export SDK=/Developer/SDKs/MacOSX10.6.sdk
+Configure and build wxMac:
 
-In Xcode 4.3 the path has changed so use the following instead,
-
-    $ export SDK=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.6.sdk
-
-Then configure and build wxMac:
-
-    $ arch_flags="-arch i386" ./configure CFLAGS="$arch_flags" CXXFLAGS="$arch_flags" CPPFLAGS="$arch_flags" LDFLAGS="$arch_flags" OBJCFLAGS="$arch_flags" OBJCXXFLAGS="$arch_flags" --prefix=/usr/local --with-macosx-sdk="$SDK" --with-macosx-version-min=10.6 --enable-unicode --with-opengl --disable-shared
+    $ ./configure --with-cocoa --prefix=/usr/local
     $ make
     $ sudo make install
+    $ export PATH=/usr/local/bin:$PATH
 
-To link wx properly you will also need to build and install `wxStyledTextCtrl`:
+Check that you got the correct wx-config
 
-    $ cd contrib/src/stc
-    $ make
-    $ sudo make install
+    $ which wx-config
 
 ### Finish up ###
 
 Build Erlang with the MacPorts GCC as the main compiler (using `clang`
 for the Objective-C Cocoa code in the `wx` application):
 
-    $ PATH=/usr/local/bin:$PATH CC=/opt/local/bin/gcc-mp-4.5 CXX=/opt/local/bin/g++-mp-4.5 ./configure --enable-m32-build make
+    $ export PATH=/usr/local/bin:$PATH
+    $ cd $ERL_TOP
+    $ CC=/opt/local/bin/gcc-mp-4.5 CXX=/opt/local/bin/g++-mp-4.5 ./configure --enable-darwin-64bit
+    $ make
     $ sudo make install
-
 
 How to Build a Debug Enabled Erlang RunTime System
 --------------------------------------------------
@@ -801,7 +764,7 @@ Copyright and License
 
 %CopyrightBegin%
 
-Copyright Ericsson AB 1998-2012. All Rights Reserved.
+Copyright Ericsson AB 1998-2013. All Rights Reserved.
 
 The contents of this file are subject to the Erlang Public License,
 Version 1.1, (the "License"); you may not use this file except in

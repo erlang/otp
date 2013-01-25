@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -117,7 +117,7 @@ int start_native_gui(wxe_data *sd)
 
   wxe_batch_locker_m = erl_drv_mutex_create((char *)"wxe_batch_locker_m");
   wxe_batch_locker_c = erl_drv_cond_create((char *)"wxe_batch_locker_c");
-  init_caller = driver_connected(sd->port);
+  init_caller = driver_connected(sd->port_handle);
 
 #ifdef __DARWIN__
   res = erl_drv_steal_main_thread((char *)"wxwidgets",
@@ -169,7 +169,7 @@ void unload_native_gui()
 
 void push_command(int op,char * buf,int len, wxe_data *sd)
 {
-  // fprintf(stderr, "Op %d %d\r\n", op, (int) driver_caller(sd->port)),fflush(stderr);
+  // fprintf(stderr, "Op %d %d\r\n", op, (int) driver_caller(sd->port_handle)),fflush(stderr);
   wxeCommand *Cmd = new wxeCommand(op, buf, len, sd);
   erl_drv_mutex_lock(wxe_batch_locker_m);
   wxe_batch->Append(Cmd);
@@ -536,18 +536,18 @@ void WxeApp::newMemEnv(wxeMetaCommand& Ecmd) {
     memenv->ref2ptr[i] = global_me->ref2ptr[i];
   }
   memenv->next = global_me->next;
-  refmap[(ErlDrvTermData) Ecmd.port] = memenv;
+  refmap[Ecmd.port] = memenv;
   memenv->owner = Ecmd.caller;
 
   ErlDrvTermData rt[] = {ERL_DRV_ATOM, driver_mk_atom((char *)"wx_port_initiated")};
-  driver_send_term(WXE_DRV_PORT,Ecmd.caller,rt,2);
+  erl_drv_send_term(WXE_DRV_PORT,Ecmd.caller,rt,2);
 }
 
 void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
   // Clear incoming cmd queue first
   // dispatch_cmds();
   wxWindow *parent = NULL;
-  wxeMemEnv * memenv = refmap[(ErlDrvTermData) Ecmd.port];
+  wxeMemEnv * memenv = refmap[Ecmd.port];
 
   if(wxe_debug) {
     wxString msg;
@@ -656,8 +656,8 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
   refmap.erase((ErlDrvTermData) Ecmd.port);
 }
 
-wxeMemEnv * WxeApp::getMemEnv(ErlDrvPort port) {
-  return refmap[(ErlDrvTermData) port];
+wxeMemEnv * WxeApp::getMemEnv(ErlDrvTermData port) {
+  return refmap[port];
 }
 
 int WxeApp::newPtr(void * ptr, int type, wxeMemEnv *memenv) {
@@ -837,7 +837,7 @@ wxeCommand::wxeCommand(int fc,char * cbuf,int buflen, wxe_data *sd)
 {
   WXEBinRef *temp, *start, *prev;
   int n = 0;
-  caller = driver_caller(sd->port);
+  caller = driver_caller(sd->port_handle);
   port   = sd->port;
   op = fc;
   len = buflen;
@@ -940,7 +940,7 @@ int wxCALLBACK wxEListCtrlCompare(long item1, long item2, long callbackInfoPtr)
   rt.addAtom("_wx_invoke_cb_");
   rt.addTupleCount(3);
   rt.send();
-  handle_event_callback(cb->port, memenv->owner);
+  handle_event_callback(WXE_DRV_PORT_HANDLE, memenv->owner);
 
   if(((WxeApp *) wxTheApp)->cb_buff) {
     int res = * (int*) ((WxeApp *) wxTheApp)->cb_buff;
