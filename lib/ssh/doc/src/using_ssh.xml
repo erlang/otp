@@ -29,7 +29,7 @@
   <section>
     <title> General information</title>
     <p>The examples in the following sections use the utility function
-    <seealso marker="ssh:start"> ssh:start/0 </seealso> that starts
+    <seealso marker="#start"> ssh:start/0 </seealso> that starts
     all needed applications (crypto, public_key and ssh). All examples
     are run in an Erlang shell, or in a bash shell using openssh to
     illustrate how the erlang ssh application can be used.  The
@@ -70,7 +70,7 @@
     <p> The option system_dir must be a directory containing a host
     key file and it defaults to /etc/ssh. For details see section
     Configuration Files in <seealso
-    marker="ssh_app#">ssh(6)</seealso>.
+    marker="#ssh_app">ssh(6)</seealso>.
     </p>
 
     <note><p>Normally the /etc/ssh directory is only readable by root. </p>

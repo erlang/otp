@@ -48,7 +48,7 @@
 
   <section>
     <title>Prerequisites</title>
-    <p>It is assumed that the reader is familiar with the concepts of <seealso marker="doc/design_principals:des_princ">OTP</seealso>
+    <p>It is assumed that the reader is familiar with the concepts of <seealso marker="doc/design_principles:des_princ">OTP</seealso>
     and has a basic understanding of <url href="http://en.wikipedia.org/wiki/Public-key_cryptography">public keys</url>.</p>
   </section>
 
