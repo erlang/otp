@@ -99,7 +99,7 @@ PTHR_CFLAGS="-D_THREAD_SAFE -D_REENTRANT"
 
 OBJC_CC=$CC
 OBJC_CFLAGS=""
-
+CXXFLAGS=""
 dnl NOTE: CPPFLAGS will be included in CFLAGS at the end
 case $host_os in
     darwin*)
@@ -111,12 +111,13 @@ case $host_os in
 	   AC_MSG_RESULT([yes])
            C_ONLY_FLAGS="-ObjC"
 	else
-	   dnl We are probebly trying to build with a non-Apple gcc,
+	   dnl We are probably trying to build with a non-Apple gcc,
 	   dnl which is good as long as we do not try to build Cocoa
 	   dnl code. We need an Apple compiler for just that (Objective C)
 	   AC_MSG_RESULT([no])
 	   AC_MSG_CHECKING([for a Cocoa compliant Objective C compiler])
 	   SEARCHFOR=""
+	   SEARCHFORXX=""
 	   save_IFS=$IFS
 	   IFS=:
 	   set $PATH
@@ -124,19 +125,29 @@ case $host_os in
 	   while test X"$1" != X""; do
 	       dnl Add all possible paths to a real apple gcc
 	       SEARCHFOR="$1/gcc-apple-4.2 $SEARCHFOR"
+	       SEARCHFORXX="$1/g++-apple-4.2 $SEARCHFORXX"
 	       shift
 	   done
 	   dnl Add LLVM compilers, they will work in this case
 	   SEARCHFOR="/usr/bin/clang /usr/bin/gcc $SEARCHFOR"	
+	   SEARCHFORXX="/usr/bin/clang /usr/bin/g++ $SEARCHFORXX"	
 	   APPLE_CC=""
+	   APPLE_CXX=""
 	   dnl SEARCHFOR is reversed, so we want to find the last existing
 	   dnl executable in the list
+	   IFS=" "
+	   set $SEARCHFORXX
 	   for x in $SEARCHFOR; do
 	       if test -x $x; then
 	       	  APPLE_CC=$x
 	       fi
+	       if test -x "$1"; then
+	       	  APPLE_CXX="$1"
+	       fi
+	       shift	
 	   done	
-	   if test X$APPLE_CC = X; then
+	   IFS=$save_IFS
+	   if test X$APPLE_CC = X -o X$APPLE_CXX = X; then
 	      AC_MSG_RESULT([no])
 	      dnl Complete failure, we cannot build Cocoa code
 	      if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
@@ -150,7 +161,12 @@ case $host_os in
 	   else
 	      dnl We think we found an Apple compiler and will add 
 	      dnl Apple specific options
-	      AC_MSG_RESULT($APPLE_CC)
+	      AC_MSG_RESULT([$APPLE_CC ($APPLE_CXX)])
+	      dnl We should use this compiler for all of wx - hack...
+	      CC=$APPLE_CC
+	      CXX=$APPLE_CXX
+	      dnl Both clang and gcc accept these flags...
+	      #CXXFLAGS="-x c++ $CXXFLAGS"
 	      OBJC_CC=$APPLE_CC
 	      OBJC_CFLAGS="-ObjC"
 	   fi
@@ -267,10 +283,10 @@ fi
 
 AC_SUBST(GL_LIBS)
 
-CXXFLAGS="$CFLAGS $CPPFLAGS" 
+CXXFLAGS="$CXXFLAGS $CFLAGS $CPPFLAGS" 
 CFLAGS="$CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
 
-DEBUG_CXXFLAGS="$DEBUG_CFLAGS $CPPFLAGS"
+DEBUG_CXXFLAGS="$CXXFLAGS $DEBUG_CFLAGS $CPPFLAGS"
 DEBUG_CFLAGS="$DEBUG_CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
 AC_SUBST(DEBUG_CFLAGS)
 AC_SUBST(DEBUG_CXXFLAGS)
