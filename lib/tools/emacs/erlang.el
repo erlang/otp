@@ -1518,9 +1518,9 @@ Other commands:
           . (("\\(?:^\\|[^$]\\)\"\\(?:[^\"\n]\\|\\\\\"\\)*\\(\\$\\)\"" 1 "w")
 	     ;; Likewise for atoms
 	     ("\\(?:^\\|[^$]\\)'\\(?:[^'\n]\\|\\\\'\\)*\\(\\$\\)'" 1 "w")
-             ;; And the dollar sign in $\" escapes two characters, not
-             ;; just one.
-             ("\\(\\$\\)\\\\\\\"" 1 "'"))))))
+             ;; And the dollar sign in $\" or $\' escapes two
+             ;; characters, not just one.
+             ("\\(\\$\\)\\\\[\"']" 1 "'"))))))
 
 
 
