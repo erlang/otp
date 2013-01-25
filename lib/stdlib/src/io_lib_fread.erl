@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 
 -export([fread/2,fread/3]).
 
--import(lists, [reverse/1,reverse/2]).
+-import(lists, [reverse/1]).
 
 -define(is_whitespace(C),
 	((C) =:= $\s orelse (C) =:= $\t
@@ -43,7 +43,7 @@
               | {'done', Result, LeftOverChars :: string()},
       Result :: {'ok', InputList :: io_lib:chars()}
               | 'eof'
-              | {'error', What :: io_lib:fread_error()}.
+              | {'error', {'read', What :: io_lib:fread_error()}}.
 
 fread([], Chars, Format) ->
     %%io:format("FREAD: ~w `~s'~n", [Format,Chars]),

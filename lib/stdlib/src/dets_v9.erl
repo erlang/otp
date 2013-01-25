@@ -2662,7 +2662,7 @@ v_segment(H, SegNo, SegPos, SegSlot) ->
 	{'EXIT', Reason} -> 
 	    dets_utils:vformat("** dets: Corrupt or truncated dets file~n", 
 			       []), 
-	    io:format("~nERROR ~p~n", [Reason]);
+	    io:format("~nERROR ~tp~n", [Reason]);
 	[] ->  %% don't print empty buckets
 	    true;
 	{Size, CollP, Objects} ->

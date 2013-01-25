@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -51,7 +51,6 @@ print(Term) ->
 -type max_chars() :: integer().
 
 -type chars() :: io_lib:chars().
--type unicode_chars() :: io_lib:unicode_chars().
 -type option() :: {column, column()}
                 | {line_length, line_length()}
                 | {depth, depth()}
@@ -60,8 +59,8 @@ print(Term) ->
                 | {encoding, latin1 | utf8 | unicode}.
 -type options() :: [option()].
 
--spec print(term(), rec_print_fun()) -> chars() | unicode_chars();
-           (term(), options()) -> chars() | unicode_chars().
+-spec print(term(), rec_print_fun()) -> chars();
+           (term(), options()) -> chars().
 
 print(Term, Options) when is_list(Options) ->
     Col = proplists:get_value(column, Options, 1),
@@ -74,24 +73,23 @@ print(Term, Options) when is_list(Options) ->
 print(Term, RecDefFun) ->
     print(Term, -1, RecDefFun).
 
--spec print(term(), depth(), rec_print_fun()) -> chars() | unicode_chars().
+-spec print(term(), depth(), rec_print_fun()) -> chars().
 
 print(Term, Depth, RecDefFun) ->
     print(Term, 1, 80, Depth, RecDefFun).
 
--spec print(term(), column(), line_length(), depth()) ->
-                   chars() | unicode_chars().
+-spec print(term(), column(), line_length(), depth()) -> chars().
 
 print(Term, Col, Ll, D) ->
     print(Term, Col, Ll, D, _M=-1, no_fun, latin1).
 
 -spec print(term(), column(), line_length(), depth(), rec_print_fun()) ->
-                   chars() | unicode_chars().
+                   chars().
 print(Term, Col, Ll, D, RecDefFun) ->
     print(Term, Col, Ll, D, _M=-1, RecDefFun).
 
 -spec print(term(), column(), line_length(), depth(), max_chars(),
-            rec_print_fun()) -> chars() | unicode_chars().
+            rec_print_fun()) -> chars().
 
 print(Term, Col, Ll, D, M, RecDefFun) ->
     print(Term, Col, Ll, D, M, RecDefFun, latin1).
@@ -369,13 +367,13 @@ print_length(<<_/bitstring>>=Bin, D, _RF, Enc) ->
                     S = io_lib:write_string(List, $"), %"
 	            {[$<,$<,S,$>,$>], 4 + length(S)};
                 {false, List} when is_list(List) ->
-                    S = io_lib:write_unicode_string(List, $"), %"
+                    S = io_lib:write_string(List, $"), %"
 	            {[$<,$<,S,"/utf8>>"], 9 + length(S)};
 	        {true, true, Prefix} ->
 	            S = io_lib:write_string(Prefix, $"), %"
 	            {[$<,$<, S | "...>>"], 7 + length(S)};
 	        {false, true, Prefix} ->
-                    S = io_lib:write_unicode_string(Prefix, $"), %"
+                    S = io_lib:write_string(Prefix, $"), %"
 	            {[$<,$<, S | "/utf8...>>"], 12 + length(S)};
 	        false ->
 	            S = io_lib:write(Bin, D),
@@ -387,7 +385,7 @@ print_length(<<_/bitstring>>=Bin, D, _RF, Enc) ->
     end;    
 print_length(Term, _D, _RF, _Enc) ->
     S = io_lib:write(Term),
-    {S, iolist_size(S)}.
+    {S, lists:flatlength(S)}.
 
 print_length_tuple(_Tuple, 1, _RF, _Enc) ->
     {"{...}", 5};
@@ -451,9 +449,9 @@ list_length_tail({_, Len}, Acc) ->
 printable_list(_L, 1, _Enc) ->
     false;
 printable_list(L, _D, latin1) ->
-    io_lib:printable_list(L);
+    io_lib:printable_latin1_list(L);
 printable_list(L, _D, _Uni) ->
-    io_lib:printable_unicode_list(L).
+    io_lib:printable_list(L).
 %% Truncated lists could break some existing code.
 % printable_list(L, D, Enc) when D >= 0 ->
 %     Len = ?CHARS * (D - 1),
@@ -538,9 +536,9 @@ printable_unicode(Bin, I, L) ->
     {I, Bin, lists:reverse(L)}.
 
 write_string(S, latin1) ->
-    io_lib:write_string(S, $"); %"
+    io_lib:write_latin1_string(S, $"); %"
 write_string(S, _Uni) ->
-    io_lib:write_unicode_string(S, $"). %"
+    io_lib:write_string(S, $"). %"
 
 %% Throw 'no_good' if the indentation exceeds half the line length
 %% unless there is room for M characters on the line.

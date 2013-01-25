@@ -345,15 +345,15 @@ trace(What, Args, true) ->
 		  {Called, {Le,Li,M,F,As}} = Args,
 		  case Called of
 		      extern ->
-			  io_lib:format("++ (~w) <~w> ~w:~w~s~n",
+			  io_lib:format("++ (~w) <~w> ~w:~w~ts~n",
 					[Le,Li,M,F,format_args(As)]);
 		      local ->
-			  io_lib:format("++ (~w) <~w> ~w~s~n",
+			  io_lib:format("++ (~w) <~w> ~w~ts~n",
 					[Le,Li,F,format_args(As)])
 		  end;
 	      call_fun ->
 		  {Le,Li,F,As} = Args,
-		  io_lib:format("++ (~w) <~w> ~w~s~n",
+		  io_lib:format("++ (~w) <~w> ~w~ts~n",
 				[Le, Li, F, format_args(As)]);
 	      return ->
 		  {Le,Val} = Args,
@@ -362,7 +362,7 @@ trace(What, Args, true) ->
 		      
 	      bif ->
 		  {Le,Li,M,F,As} = Args,
-		  io_lib:format("++ (~w) <~w> ~w:~w~s~n",
+		  io_lib:format("++ (~w) <~w> ~w:~w~ts~n",
 				[Le, Li, M, F, format_args(As)])
 	  end,
     dbg_icmd:tell_attached({trace_output, Str});

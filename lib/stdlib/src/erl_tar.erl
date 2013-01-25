@@ -154,7 +154,7 @@ table(Name, Opts) ->
 t(Name) ->
     case table(Name) of
 	{ok, List} ->
-	    lists:foreach(fun(N) -> ok = io:format("~s\n", [N]) end, List);
+	    lists:foreach(fun(N) -> ok = io:format("~ts\n", [N]) end, List);
 	Error ->
 	    Error
     end.
@@ -216,11 +216,11 @@ format_error(bad_header) -> "Bad directory header";
 format_error(eof) -> "Unexpected end of file";
 format_error(symbolic_link_too_long) -> "Symbolic link too long";
 format_error({Name,Reason}) ->
-    lists:flatten(io_lib:format("~s: ~s", [Name,format_error(Reason)]));
+    lists:flatten(io_lib:format("~ts: ~ts", [Name,format_error(Reason)]));
 format_error(Atom) when is_atom(Atom) ->
     file:format_error(Atom);
 format_error(Term) ->
-    lists:flatten(io_lib:format("~p", [Term])).
+    lists:flatten(io_lib:format("~tp", [Term])).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -325,13 +325,13 @@ add1(TarFile, Name, NameInArchive, Opts) ->
     end.
 
 add1(Tar, Name, Header, Bin, Options) ->
-    add_verbose(Options, "a ~s~n", [Name]),
+    add_verbose(Options, "a ~ts~n", [Name]),
     file:write(Tar, [Header, Bin, padding(byte_size(Bin), ?record_size)]).
 
 add_directory(TarFile, DirName, NameInArchive, Info, Options) ->
     case file:list_dir(DirName) of
 	{ok, []} ->
-	    add_verbose(Options, "a ~s~n", [DirName]),
+	    add_verbose(Options, "a ~ts~n", [DirName]),
 	    Header = create_header(NameInArchive, Info),
 	    file:write(TarFile, Header);
 	{ok, Files} ->
@@ -731,7 +731,7 @@ write_extracted_element(Header, Bin, Opts) ->
 	    symlink ->
 		create_symlink(Name, Header, Opts);
 	    Other ->				% Ignore.
-		read_verbose(Opts, "x ~s - unsupported type ~p~n",
+		read_verbose(Opts, "x ~ts - unsupported type ~p~n",
 			     [Name, Other]),
 		not_written
 	end,
@@ -757,7 +757,7 @@ create_symlink(Name, #tar_header{linkname=Linkname}=Header, Opts) ->
 	    create_symlink(Name, Header, Opts);
 	{error,eexist} -> not_written;
 	{error,enotsup} ->
-	    read_verbose(Opts, "x ~s - symbolic links not supported~n", [Name]),
+	    read_verbose(Opts, "x ~ts - symbolic links not supported~n", [Name]),
 	    not_written;
 	{error,Reason} -> throw({error, Reason})
     end.
@@ -774,10 +774,10 @@ write_extracted_file(Name, Bin, Opts) ->
 	end,
     case Write of
 	true ->
-	    read_verbose(Opts, "x ~s~n", [Name]),
+	    read_verbose(Opts, "x ~ts~n", [Name]),
 	    write_file(Name, Bin);
 	false ->
-	    read_verbose(Opts, "x ~s - exists, not created~n", [Name]),
+	    read_verbose(Opts, "x ~ts - exists, not created~n", [Name]),
 	    not_written
     end.
 

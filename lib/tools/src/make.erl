@@ -90,7 +90,7 @@ read_emakefile(Emakefile,Opts) ->
 	    Mods = [filename:rootname(F) ||  F <- filelib:wildcard("*.erl")],
 	    [{Mods, Opts}];
 	{error,Other} ->
-	    io:format("make: Trouble reading 'Emakefile':~n~p~n",[Other]),
+	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Other]),
 	    error
     end.
 
@@ -145,7 +145,7 @@ get_opts_from_emakefile(Mods,Emakefile,Opts) ->
 	{error,enoent} ->
 	    [{Mods, Opts}];
 	{error,Other} ->
-	    io:format("make: Trouble reading 'Emakefile':~n~p~n",[Other]),
+	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Other]),
 	    error
     end.
 
@@ -253,15 +253,15 @@ include_opt([]) ->
 %% Where load can be netload | load | noload
 
 recompile(File, true, _Load, _Opts) ->
-    io:format("Out of date: ~s\n",[File]);
+    io:format("Out of date: ~ts\n",[File]);
 recompile(File, false, noload, Opts) ->
-    io:format("Recompile: ~s\n",[File]),
+    io:format("Recompile: ~ts\n",[File]),
     compile:file(File, [report_errors, report_warnings, error_summary |Opts]);
 recompile(File, false, load, Opts) ->
-    io:format("Recompile: ~s\n",[File]),
+    io:format("Recompile: ~ts\n",[File]),
     c:c(File, Opts);
 recompile(File, false, netload, Opts) ->
-    io:format("Recompile: ~s\n",[File]),
+    io:format("Recompile: ~ts\n",[File]),
     c:nc(File, Opts).
 
 exists(File) ->

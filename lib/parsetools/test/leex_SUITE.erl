@@ -1,4 +1,4 @@
-%% -*- coding: latin-1 -*-
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -888,7 +888,7 @@ otp_10302(Config) when is_list(Config) ->
 
     ok = file:write_file(Filename,<<
          "%% coding: UTF-8\n"
-         "�"
+         "ä"
      >>),
     {error,[{_,[{2,leex,cannot_parse}]}],[]} =
         leex:file(Filename, Ret),
@@ -896,7 +896,7 @@ otp_10302(Config) when is_list(Config) ->
     ok = file:write_file(Filename,<<
          "%% coding: UTF-8\n"
          "Definitions.\n"
-         "�"
+         "ä"
      >>),
     {error,[{_,[{3,leex,cannot_parse}]}],[]} = leex:file(Filename, Ret),
 
@@ -907,7 +907,7 @@ otp_10302(Config) when is_list(Config) ->
          "L = [{A}-{Z}]\n"
          "Z = z\n"
          "Rules.\n"
-         "{L}+ : {token,{list_to_atom(TokenChars),H�pp}}.\n"
+         "{L}+ : {token,{list_to_atom(TokenChars),Häpp}}.\n"
      >>),
     {error,[{_,[{7,leex,cannot_parse}]}],[]} = leex:file(Filename, Ret),
 
@@ -922,7 +922,7 @@ otp_10302(Config) when is_list(Config) ->
          "Erlang code.\n"
          "-export([t/0]).\n"
          "t() ->\n"
-         "    H�pp\n"
+         "    Häpp\n"
       >>),
     {error,[{_,[{11,leex,cannot_parse}]}],[]} = leex:file(Filename, Ret),
 
@@ -932,7 +932,7 @@ otp_10302(Config) when is_list(Config) ->
              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
              "Erlang code.\n">>,
     LeexPre = filename:join(Dir, "leexinc.hrl"),
-    ?line ok = file:write_file(LeexPre, <<"%% coding: UTF-8\n �">>),
+    ?line ok = file:write_file(LeexPre, <<"%% coding: UTF-8\n ä">>),
     PreErrors = run_test(Config, Mini, LeexPre),
     {error,[{IncludeFile,[{2,leex,cannot_parse}]}],[]} = PreErrors,
     "leexinc.hrl" = filename:basename(IncludeFile),
@@ -945,16 +945,16 @@ otp_10302(Config) when is_list(Config) ->
          "Z = z\n"
          "Rules.\n"
          "{L}+ : {token,{list_to_atom(TokenChars),\n"
-         "begin Häpp = foo, Häpp end,"
-         " 'Häpp',\"\\x{400}B\",\"örn_Ѐ\"}}.\n"
+         "begin HÃ¤pp = foo, HÃ¤pp end,"
+         " 'HÃ¤pp',\"\\x{400}B\",\"Ã¶rn_Ð\"}}.\n"
          "Erlang code.\n"
          "-export([t/0]).\n"
          "t() ->\n"
-         "    %% Häpp, 'Häpp',\"\\x{400}B\",\"örn_Ѐ\"\n"
+         "    %% HÃ¤pp, 'HÃ¤pp',\"\\x{400}B\",\"Ã¶rn_Ð\"\n"
          "    {ok, [R], 1} = string(\"tip\"),\n"
-         "    {tip,foo,'Häpp',[1024,66],[246,114,110,95,1024]} = R,\n"
-         "    Häpp = foo,\n"
-         "    {tip, Häpp, 'Häpp',\"\\x{400}B\",\"örn_Ѐ\"} = R,\n"
+         "    {tip,foo,'HÃ¤pp',[1024,66],[246,114,110,95,1024]} = R,\n"
+         "    HÃ¤pp = foo,\n"
+         "    {tip, HÃ¤pp, 'HÃ¤pp',\"\\x{400}B\",\"Ã¶rn_Ð\"} = R,\n"
          "    ok.\n">>,
           default,
           ok},
@@ -966,16 +966,16 @@ otp_10302(Config) when is_list(Config) ->
          "Z = z\n"
          "Rules.\n"
          "{L}+ : {token,{list_to_atom(TokenChars),\n"
-         "begin H�pp = foo, H�pp end,"
-         " 'H�pp',\"\\x{400}B\",\"örn_Ѐ\"}}.\n"
+         "begin Häpp = foo, Häpp end,"
+         " 'Häpp',\"\\x{400}B\",\"Ã¶rn_Ð\"}}.\n"
          "Erlang code.\n"
          "-export([t/0]).\n"
          "t() ->\n"
-         "    %% H�pp, 'H�pp',\"\\x{400}B\",\"örn_Ѐ\"\n"
+         "    %% Häpp, 'Häpp',\"\\x{400}B\",\"Ã¶rn_Ð\"\n"
          "    {ok, [R], 1} = string(\"tip\"),\n"
-         "    {tip,foo,'H�pp',[1024,66],[195,182,114,110,95,208,128]} = R,\n"
-         "    H�pp = foo,\n"
-         "    {tip, H�pp, 'H�pp',\"\\x{400}B\",\"örn_Ѐ\"} = R,\n"
+         "    {tip,foo,'Häpp',[1024,66],[195,182,114,110,95,208,128]} = R,\n"
+         "    Häpp = foo,\n"
+         "    {tip, Häpp, 'Häpp',\"\\x{400}B\",\"Ã¶rn_Ð\"} = R,\n"
          "    ok.\n">>,
           default,
           ok}],

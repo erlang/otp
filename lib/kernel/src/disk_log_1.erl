@@ -489,7 +489,7 @@ lh(H, _F) -> % cannot happen
 
 repair(In, File) ->
     FSz = file_size(File),
-    error_logger:info_msg("disk_log: repairing ~p ...\n", [File]),
+    error_logger:info_msg("disk_log: repairing ~tp ...\n", [File]),
     Tmp = add_ext(File, "TMP"),
     {ok, {_Alloc, Out, {0, _}, _FileSize}} = new_int_file(Tmp, none),
     scan_f_read(<<>>, In, Out, File, FSz, Tmp, ?MAX_CHUNK_SIZE, 0, 0).
@@ -758,7 +758,7 @@ mf_int_chunk(Handle, {FileNo, Pos}, Bin, N) ->
     NFileNo = inc(FileNo, Handle#handle.maxF),
     case catch int_open(FName, true, read_only, any) of
 	{error, _Reason} ->
-	   error_logger:info_msg("disk_log: chunk error. File ~p missing.\n\n",
+	   error_logger:info_msg("disk_log: chunk error. File ~tp missing.\n\n",
 				 [FName]),
 	    mf_int_chunk(Handle, {NFileNo, 0}, [], N);
 	{ok, {_Alloc, FdC, _HeadSize, _FileSize}} ->
@@ -786,7 +786,7 @@ mf_int_chunk_read_only(Handle, {FileNo, Pos}, Bin, N) ->
     NFileNo = inc(FileNo, Handle#handle.maxF),
     case catch int_open(FName, true, read_only, any) of
 	{error, _Reason} ->
-	   error_logger:info_msg("disk_log: chunk error. File ~p missing.\n\n",
+	   error_logger:info_msg("disk_log: chunk error. File ~tp missing.\n\n",
 				 [FName]),
 	   mf_int_chunk_read_only(Handle, {NFileNo, 0}, [], N);
 	{ok, {_Alloc, FdC, _HeadSize, _FileSize}} ->

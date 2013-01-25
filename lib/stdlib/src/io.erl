@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -127,7 +127,7 @@ rows(Io) ->
 -spec get_chars(Prompt, Count) -> Data | server_no_data() when
       Prompt :: prompt(),
       Count :: non_neg_integer(),
-      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
+      Data :: string() | unicode:unicode_binary().
 
 get_chars(Prompt, N) ->
     get_chars(default_input(), Prompt, N).
@@ -136,14 +136,14 @@ get_chars(Prompt, N) ->
       IoDevice :: device(),
       Prompt :: prompt(),
       Count :: non_neg_integer(),
-      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
+      Data :: string() | unicode:unicode_binary().
 
 get_chars(Io, Prompt, N) when is_integer(N), N >= 0 ->
     request(Io, {get_chars,unicode,Prompt,N}).
 
 -spec get_line(Prompt) -> Data | server_no_data() when
       Prompt :: prompt(),
-      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
+      Data :: string() | unicode:unicode_binary().
 
 get_line(Prompt) ->
     get_line(default_input(), Prompt).
@@ -151,7 +151,7 @@ get_line(Prompt) ->
 -spec get_line(IoDevice, Prompt) -> Data | server_no_data() when
       IoDevice :: device(),
       Prompt :: prompt(),
-      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
+      Data :: string() | unicode:unicode_binary().
 
 get_line(Io, Prompt) ->
     request(Io, {get_line,unicode,Prompt}).
@@ -221,8 +221,6 @@ write(Io, Term) ->
               | {'error', ErrorInfo},
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
-% Read does not use get_until as erl_scan does not work with unicode
-% XXX:PaN fixme?
 read(Prompt) ->
     read(default_input(), Prompt).
 
@@ -331,7 +329,7 @@ fread(Prompt, Format) ->
       Prompt :: prompt(),
       Format :: format(),
       Result :: {'ok', Terms :: [term()]}
-              | {'error', FreadError :: io_lib:fread_error()}
+              | {'error', {'fread', FreadError :: io_lib:fread_error()}}
               | server_no_data().
 
 fread(Io, Prompt, Format) ->

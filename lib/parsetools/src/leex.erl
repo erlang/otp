@@ -1669,7 +1669,7 @@ quote($\d) -> "\\\\d";
 quote($\\) -> "\\\\";
 quote(C) when is_integer(C) ->
     %% Must remove the $ and get the \'s right.
-    case io_lib:write_unicode_char(C) of
+    case io_lib:write_char(C) of
         [$$,$\\|Cs] -> "\\\\" ++ Cs;
         [$$|Cs] -> Cs
     end;

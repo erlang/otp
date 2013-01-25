@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 
 -export([fwrite/2,fwrite_g/1,indentation/2]).
 
-%% fwrite(Format, ArgList) -> [unicode:unicode:char()].
+%% fwrite(Format, ArgList) -> string().
 %%  Format the arguments in ArgList after string Format. Just generate
 %%  an error if there is an error in the arguments.
 %%
@@ -133,7 +133,7 @@ pcount([{$P,_As,_F,_Ad,_P,_Pad,_Enc}|Cs], Acc) -> pcount(Cs, Acc+1);
 pcount([_|Cs], Acc) -> pcount(Cs, Acc);
 pcount([], Acc) -> Acc.
 
-%% build([Control], Pc, Indentation) -> [unicode:unicode_char()].
+%% build([Control], Pc, Indentation) -> string().
 %%  Interpret the control structures. Count the number of print
 %%  remaining and only calculate indentation when necessary. Must also
 %%  be smart when calculating indentation for characters in format.
@@ -154,7 +154,7 @@ decr_pc($p, Pc) -> Pc - 1;
 decr_pc($P, Pc) -> Pc - 1;
 decr_pc(_, Pc) -> Pc.
 
-%% indentation([unicode:unicode_char()], Indentation) -> Indentation.
+%% indentation(String, Indentation) -> Indentation.
 %%  Calculate the indentation of the end of a string given its start
 %%  indentation. We assume tabs at 8 cols.
 
@@ -167,8 +167,7 @@ indentation([C|Cs], I) ->
 indentation([], I) -> I.
 
 %% control(FormatChar, [Argument], FieldWidth, Adjust, Precision, PadChar,
-%%	   Encoding, Indentation) ->
-%%	[unicode:unicode_char()]
+%%	   Encoding, Indentation) -> String
 %%  This is the main dispatch function for the various formatting commands.
 %%  Field widths and precisions have already been calculated.
 
@@ -613,7 +612,7 @@ prefixed_integer(Int, F, Adj, Base, Pad, Prefix, Lowercase)
 	    term([Prefix|S], F, Adj, none, Pad)
     end.
 
-%% char(Char, Field, Adjust, Precision, PadChar) -> [unicode:unicode_char()].
+%% char(Char, Field, Adjust, Precision, PadChar) -> string().
 
 char(C, none, _Adj, none, _Pad) -> [C];
 char(C, F, _Adj, none, _Pad) -> chars(C, F);

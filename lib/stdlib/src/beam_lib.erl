@@ -240,21 +240,21 @@ format_error({error, Error}) ->
 format_error({error, Module, Error}) ->
     Module:format_error(Error);
 format_error({unknown_chunk, File, ChunkName}) ->
-    io_lib:format("~p: Cannot find chunk ~p~n", [File, ChunkName]);
+    io_lib:format("~tp: Cannot find chunk ~p~n", [File, ChunkName]);
 format_error({invalid_chunk, File, ChunkId}) ->
-    io_lib:format("~p: Invalid contents of chunk ~p~n", [File, ChunkId]);
+    io_lib:format("~tp: Invalid contents of chunk ~p~n", [File, ChunkId]);
 format_error({not_a_beam_file, File}) ->
-    io_lib:format("~p: Not a BEAM file~n", [File]);
+    io_lib:format("~tp: Not a BEAM file~n", [File]);
 format_error({file_error, File, Reason}) ->
-    io_lib:format("~p: ~p~n", [File, file:format_error(Reason)]);
+    io_lib:format("~tp: ~tp~n", [File, file:format_error(Reason)]);
 format_error({missing_chunk, File, ChunkId}) ->
-    io_lib:format("~p: Not a BEAM file: no IFF \"~s\" chunk~n", 
+    io_lib:format("~tp: Not a BEAM file: no IFF \"~s\" chunk~n", 
 		  [File, ChunkId]);
 format_error({invalid_beam_file, File, Pos}) ->
-    io_lib:format("~p: Invalid format of BEAM file near byte number ~p~n", 
+    io_lib:format("~tp: Invalid format of BEAM file near byte number ~p~n", 
 		  [File, Pos]);
 format_error({chunk_too_big, File, ChunkId, Size, Len}) ->
-    io_lib:format("~p: Size of chunk \"~s\" is ~p bytes, "
+    io_lib:format("~tp: Size of chunk \"~s\" is ~p bytes, "
 		  "but only ~p bytes could be read~n",
 		  [File, ChunkId, Size, Len]);
 format_error({chunks_different, Id}) ->
@@ -265,16 +265,16 @@ format_error({modules_different, Module1, Module2}) ->
     io_lib:format("Module names ~p and ~p differ in the two files~n", 
 		  [Module1, Module2]);
 format_error({not_a_directory, Name}) ->
-    io_lib:format("~p: Not a directory~n", [Name]);
+    io_lib:format("~tp: Not a directory~n", [Name]);
 format_error({key_missing_or_invalid, File, abstract_code}) ->
-    io_lib:format("~p: Cannot decrypt abstract code because key is missing or invalid",
+    io_lib:format("~tp: Cannot decrypt abstract code because key is missing or invalid",
 		  [File]);
 format_error(badfun) ->
     "not a fun or the fun has the wrong arity";
 format_error(exists) ->
     "a fun has already been installed";
 format_error(E) ->
-    io_lib:format("~p~n", [E]).
+    io_lib:format("~tp~n", [E]).
 
 %% 
 %% Exported functions for encrypted debug info.
@@ -324,13 +324,13 @@ diff_directories(Dir1, Dir2) ->
     {OnlyDir1, OnlyDir2, Diff} = compare_dirs(Dir1, Dir2),
     diff_only(Dir1, OnlyDir1),
     diff_only(Dir2, OnlyDir2),
-    foreach(fun(D) -> io:format("** different: ~p~n", [D]) end, Diff),
+    foreach(fun(D) -> io:format("** different: ~tp~n", [D]) end, Diff),
     ok.
 
 diff_only(_Dir, []) -> 
     ok;
 diff_only(Dir, Only) ->
-    io:format("Only in ~p: ~p~n", [Dir, Only]).
+    io:format("Only in ~tp: ~tp~n", [Dir, Only]).
 
 %% -> {OnlyInDir1, OnlyInDir2, Different} | throw(Error)
 compare_dirs(Dir1, Dir2) ->
@@ -1030,11 +1030,11 @@ f_p_s(P, F) ->
 	{error, enoent} ->
 	    {error, enoent};
 	{error, {Line, _Mod, _Term}=E} ->
-	    error("file:path_script(~p,~p): error on line ~p: ~s~n",
+	    error("file:path_script(~tp,~tp): error on line ~p: ~ts~n",
 		  [P, F, Line, file:format_error(E)]),
 	    ok;
 	{error, E} when is_atom(E) ->
-	    error("file:path_script(~p,~p): ~s~n",
+	    error("file:path_script(~tp,~tp): ~ts~n",
 		  [P, F, file:format_error(E)]),
 	    ok;
 	Other ->

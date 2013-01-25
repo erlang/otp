@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -321,7 +321,7 @@ gui_cmd('Messages', State) ->
 	      fun(Msg, N) ->
 		      Str1 = io_lib:format(" ~w:", [N]),
 		      dbg_ui_trace_win:eval_output(Str1, bold),
-		      Str2 = io_lib:format(" ~s~n",[io_lib:print(Msg)]),
+		      Str2 = io_lib:format(" ~ts~n",[io_lib:print(Msg)]),
 		      dbg_ui_trace_win:eval_output(Str2, normal),
 		      N+1
 	      end,

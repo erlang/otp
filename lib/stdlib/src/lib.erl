@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -44,7 +44,7 @@ flush_receive() ->
       Args :: [term()].
 
 error_message(Format, Args) ->
-    io:format(<<"** ~s **\n">>, [io_lib:format(Format, Args)]).
+    io:format(<<"** ~ts **\n">>, [io_lib:format(Format, Args)]).
 
 %% Return the name of the script that starts (this) erlang 
 %%
@@ -84,10 +84,14 @@ sendw(To, Msg) ->
 
 %% eval_str(InStr) -> {ok, OutStr} | {error, ErrStr'}
 %%   InStr must represent a body
+%%   Note: If InStr is a binary it has to be a Latin-1 string.
+%%   If you have a UTF-8 encoded binary you have to call
+%%   unicode:characters_to_list/1 before the call to eval_str().
 
 -define(result(F,D), lists:flatten(io_lib:format(F, D))).
 
--spec eval_str(string() | binary()) -> {'ok', string()} | {'error', string()}.
+-spec eval_str(string() | unicode:latin1_binary()) ->
+                      {'ok', string()} | {'error', string()}.
 
 eval_str(Str) when is_list(Str) ->
     case erl_scan:tokens([], Str, 0) of
@@ -105,12 +109,12 @@ eval_str(Str) when is_list(Str) ->
 				    {error, ?result("*** eval: ~p", [Other])}
 			    end;
 			{error, {_Line, Mod, Args}} ->
-                            Msg = ?result("*** ~s",[Mod:format_error(Args)]),
+                            Msg = ?result("*** ~ts",[Mod:format_error(Args)]),
                             {error, Msg}
 		    end;
 		false ->
 		    {error, ?result("Non-white space found after "
-				    "end-of-form :~s", [Rest])}
+				    "end-of-form :~ts", [Rest])}
 		end
     end;
 eval_str(Bin) when is_binary(Bin) ->
@@ -426,9 +430,9 @@ brackets_to_parens(S, Enc) ->
     [$(,R,$)].
 
 printable_list(latin1, As) ->
-    io_lib:printable_list(As);
+    io_lib:printable_latin1_list(As);
 printable_list(_, As) ->
-    io_lib:printable_unicode_list(As).
+    io_lib:printable_list(As).
 
 mfa_to_string(M, F, A) ->
     io_lib:fwrite(<<"~s/~w">>, [mf_to_string({M, F}, A), A]).

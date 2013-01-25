@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -64,6 +64,7 @@
               location/0,
               options/0,
               return_cont/0,
+              token/0,
               tokens_result/0]).
 
 %%%
@@ -106,7 +107,7 @@
          ws          = false               :: boolean(),
          comment     = false               :: boolean(),
          text        = false               :: boolean(),
-         unicode     = false               :: boolean()}).
+         unicode     = true                :: boolean()}).
 
 %%----------------------------------------------------------------------------
 
@@ -115,7 +116,7 @@
 format_error({string,Quote,Head}) ->
     lists:flatten(["unterminated " ++ string_thing(Quote) ++
                    " starting with " ++
-                   io_lib:write_unicode_string(Head, Quote)]);
+                   io_lib:write_string(Head, Quote)]);
 format_error({illegal,Type}) ->
     lists:flatten(io_lib:fwrite("illegal ~w", [Type]));
 format_error(char) -> "unterminated character";
@@ -349,14 +350,14 @@ string_thing(_) -> "string".
 %% erl_scan:string("[98,2730,99]."). This is to protect the caller
 %% from character codes greater than 255. Search for UNI to find code
 %% implementing this "feature". The 'unicode' option is undocumented
-%% and will probably be removed later.
+%% and will be removed later.
 -define(NO_UNICODE, 0).
 -define(UNI255(C), (C =< 16#ff)).
 
 options(Opts0) when is_list(Opts0) ->
     Opts = lists:foldr(fun expand_opt/2, [], Opts0),
-    [RW_fun] =
-        case opts(Opts, [reserved_word_fun], []) of
+    [RW_fun, Unicode] =
+        case opts(Opts, [reserved_word_fun, unicode], []) of
             badarg ->
                 erlang:error(badarg, [Opts0]);
             R ->
@@ -365,7 +366,6 @@ options(Opts0) when is_list(Opts0) ->
     Comment = proplists:get_bool(return_comments, Opts),
     WS = proplists:get_bool(return_white_spaces, Opts),
     Txt = proplists:get_bool(text, Opts),
-    Unicode = proplists:get_bool(unicode, Opts),
     #erl_scan{resword_fun = RW_fun,
               comment     = Comment,
               ws          = WS,
@@ -378,6 +378,8 @@ opts(Options, [Key|Keys], L) ->
     V = case lists:keyfind(Key, 1, Options) of
             {reserved_word_fun,F} when ?RESWORDFUN(F) ->
                 {ok,F};
+            {unicode, Bool} when is_boolean(Bool) ->
+                {ok,Bool};
             {Key,_} ->
                 badarg;
             false ->
@@ -393,7 +395,9 @@ opts(_Options, [], L) ->
     lists:reverse(L).
 
 default_option(reserved_word_fun) ->
-    fun reserved_word/1.
+    fun reserved_word/1;
+default_option(unicode) ->
+    true.
 
 expand_opt(return, Os) ->
     [return_comments,return_white_spaces|Os];

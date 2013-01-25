@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -64,29 +64,31 @@
 -export([print/1,print/4,indentation/2]).
 
 -export([write/1,write/2,write/3,nl/0,format_prompt/1,format_prompt/2]).
--export([write_atom/1,write_string/1,write_string/2,write_unicode_string/1,
-         write_unicode_string/2, write_char/1, write_unicode_char/1]).
+-export([write_atom/1,write_string/1,write_string/2,write_latin1_string/1,
+         write_latin1_string/2, write_char/1, write_latin1_char/1]).
 
--export([write_unicode_string_as_latin1/1, write_unicode_string_as_latin1/2,
-         write_unicode_char_as_latin1/1]).
+-export([write_string_as_latin1/1, write_string_as_latin1/2,
+         write_char_as_latin1/1]).
 
--export([quote_atom/2, char_list/1, unicode_char_list/1,
-	 deep_char_list/1, deep_unicode_char_list/1,
-	 printable_list/1, printable_unicode_list/1]).
+-export([quote_atom/2, char_list/1, latin1_char_list/1,
+	 deep_char_list/1, deep_latin1_char_list/1,
+	 printable_list/1, printable_latin1_list/1]).
 
 %% Utilities for collecting characters.
 -export([collect_chars/3, collect_chars/4,
 	 collect_line/2, collect_line/3, collect_line/4,
 	 get_until/3, get_until/4]).
 
--export_type([chars/0, unicode_chars/0, unicode_string/0, continuation/0,
-              fread_error/0]).
+%% The following functions were used by Yecc's include-file.
+-export([write_unicode_string/1, write_unicode_char/1,
+         deep_unicode_char_list/1]).
+
+-export_type([chars/0, latin1_string/0, continuation/0, fread_error/0]).
 
 %%----------------------------------------------------------------------
 
 -type chars() :: [char() | chars()].
--type unicode_chars() :: [unicode:unicode_char() | unicode_chars()].
--type unicode_string() :: [unicode:unicode_char()].
+-type latin1_string() :: [unicode:latin1_char()].
 -type depth() :: -1 | non_neg_integer().
 
 -opaque continuation() :: {Format :: string(),
@@ -108,10 +110,8 @@
 
 %% Interface calls to sub-modules.
 
--spec fwrite(Format, Data) -> chars() | UnicodeList when
+-spec fwrite(Format, Data) -> chars() when
       Format :: io:format(),
-      Data :: [term()],
-      UnicodeList :: [unicode:unicode_char()],
       Data :: [term()].
 
 fwrite(Format, Args) ->
@@ -124,7 +124,7 @@ fwrite(Format, Args) ->
               | {'more', RestFormat :: string(),
                  Nchars :: non_neg_integer(),
                  InputStack :: chars()}
-              | {'error', What :: fread_error()}.
+              | {'error', {'fread', What :: fread_error()}}.
 
 fread(Chars, Format) ->
     io_lib_fread:fread(Chars, Format).
@@ -137,15 +137,14 @@ fread(Chars, Format) ->
               | {'done', Result, LeftOverChars :: string()},
       Result :: {'ok', InputList :: [term()]}
               | 'eof'
-              | {'error', What :: fread_error()}.
+              | {'error', {'fread', What :: fread_error()}}.
 
 fread(Cont, Chars, Format) ->
     io_lib_fread:fread(Cont, Chars, Format).
 
--spec format(Format, Data) -> chars() | UnicodeList when
+-spec format(Format, Data) -> chars() when
       Format :: io:format(),
-      Data :: [term()],
-      UnicodeList :: [unicode:unicode_char()].
+      Data :: [term()].
 
 format(Format, Args) ->
     case catch io_lib_format:fwrite(Format, Args) of
@@ -340,6 +339,11 @@ name_char($_) -> true;
 name_char($@) -> true;
 name_char(_) -> false.
 
+%%% There are two functions to write Unicode strings:
+%%% - they both escape control characters < 160;
+%%% - write_string() never escapes characters >= 160;
+%%% - write_string_as_latin1() also escapes characters >= 255.
+
 %% write_string([Char]) -> [Char]
 %%  Generate the list of characters needed to print a string.
 
@@ -352,33 +356,32 @@ write_string(S) ->
 -spec write_string(string(), char()) -> chars().
 
 write_string(S, Q) ->
-    [Q|write_string1(latin1, S, Q)].
-
-%%% There are two functions to write Unicode strings:
-%%% - they both escape control characters < 160;
-%%% - write_unicode_string() never escapes characters >= 160;
-%%% - write_unicode_string_as_latin1() also escapes characters >= 255.
-
--spec write_unicode_string(UnicodeString) -> unicode_string() when
-      UnicodeString :: unicode_string().
-
-write_unicode_string(S) ->
-    write_unicode_string(S, $").   %"
-
--spec write_unicode_string(unicode_string(), char()) -> unicode_string().
-
-write_unicode_string(S, Q) ->
     [Q|write_string1(unicode_as_unicode, S, Q)].
 
--spec write_unicode_string_as_latin1(UnicodeString) -> string() when
-      UnicodeString :: unicode_string().
+%% Backwards compatibility.
+write_unicode_string(S) ->
+    write_string(S).
 
-write_unicode_string_as_latin1(S) ->
-    write_unicode_string_as_latin1(S, $").   %"
+-spec write_latin1_string(Latin1String) -> latin1_string() when
+      Latin1String :: latin1_string().
 
--spec write_unicode_string_as_latin1(unicode_string(), char()) -> string().
+write_latin1_string(S) ->
+    write_latin1_string(S, $").   %"
 
-write_unicode_string_as_latin1(S, Q) ->
+-spec write_latin1_string(latin1_string(), char()) -> latin1_string().
+
+write_latin1_string(S, Q) ->
+    [Q|write_string1(latin1, S, Q)].
+
+-spec write_string_as_latin1(String) -> latin1_string() when
+      String :: string().
+
+write_string_as_latin1(S) ->
+    write_string_as_latin1(S, $").   %"
+
+-spec write_string_as_latin1(string(), char()) -> latin1_string().
+
+write_string_as_latin1(S, Q) ->
     [Q|write_string1(unicode_as_latin1, S, Q)].
 
 write_string1(_,[], Q) ->
@@ -412,6 +415,11 @@ string_char(_,C, _, Tail) when C < $\240->	%Other control characters.
     C3 = (C band 7) + $0,
     [$\\,C1,C2,C3|Tail].
 
+%%% There are two functions to write a Unicode character:
+%%% - they both escape control characters < 160;
+%%% - write_char() never escapes characters >= 160;
+%%% - write_char_as_latin1() also escapes characters >= 255.
+
 %% write_char(Char) -> [char()].
 %%  Generate the list of characters needed to print a character constant.
 %%  Must special case SPACE, $\s, here.
@@ -420,48 +428,63 @@ string_char(_,C, _, Tail) when C < $\240->	%Other control characters.
       Char :: char().
 
 write_char($\s) -> "$\\s";			%Must special case this.
-write_char(C) when is_integer(C), C >= $\000, C =< $\377 ->
-    [$$|string_char(latin1,C, -1, [])].
+write_char(C) when is_integer(C), C >= $\000 ->
+    [$$|string_char(unicode_as_unicode, C, -1, [])].
 
-%%% There are two functions to write a Unicode character:
-%%% - they both escape control characters < 160;
-%%% - write_unicode_char() never escapes characters >= 160;
-%%% - write_unicode_char_as_latin1() also escapes characters >= 255.
+%% Backwards compatibility.
+write_unicode_char(C) ->
+    write_char(C).
 
--spec write_unicode_char(UnicodeChar) -> unicode_string() when
-      UnicodeChar :: unicode:unicode_char().
+-spec write_latin1_char(Latin1Char) -> latin1_string() when
+      Latin1Char :: unicode:latin1_char().
 
-write_unicode_char(Uni) when is_integer(Uni), Uni >= $\000 ->
-    [$$|string_char(unicode_as_unicode,Uni, -1, [])].
+write_latin1_char(Lat1) when is_integer(Lat1), Lat1 >= $\000, Lat1 =< $\377  ->
+    [$$|string_char(latin1, Lat1, -1, [])].
 
--spec write_unicode_char_as_latin1(UnicodeChar) -> string() when
-      UnicodeChar :: unicode:unicode_char().
+-spec write_char_as_latin1(Char) -> latin1_string() when
+      Char :: char().
 
-write_unicode_char_as_latin1(Uni) when is_integer(Uni), Uni >= $\000 ->
+write_char_as_latin1(Uni) when is_integer(Uni), Uni >= $\000 ->
     [$$|string_char(unicode_as_latin1,Uni, -1, [])].
 
-%% char_list(CharList)
-%% deep_char_list(CharList)
-%%  Return true if CharList is a (possibly deep) list of characters, else
-%%  false.
+%% latin1_char_list(CharList)
+%% deep_latin1_char_list(CharList)
+%%  Return true if CharList is a (possibly deep) list of Latin-1
+%%  characters, else false.
+
+-spec latin1_char_list(Term) -> boolean() when
+      Term :: term().
+
+latin1_char_list([C|Cs]) when is_integer(C), C >= $\000, C =< $\377 ->
+    latin1_char_list(Cs);
+latin1_char_list([]) -> true;
+latin1_char_list(_) -> false.			%Everything else is false
 
 -spec char_list(Term) -> boolean() when
       Term :: term().
 
-char_list([C|Cs]) when is_integer(C), C >= $\000, C =< $\377 ->
+char_list([C|Cs]) when is_integer(C), C >= 0, C < 16#D800;
+       is_integer(C), C > 16#DFFF, C < 16#FFFE;
+       is_integer(C), C > 16#FFFF, C =< 16#10FFFF ->
     char_list(Cs);
 char_list([]) -> true;
 char_list(_) -> false.			%Everything else is false
 
--spec unicode_char_list(Term) -> boolean() when
+-spec deep_latin1_char_list(Term) -> boolean() when
       Term :: term().
 
-unicode_char_list([C|Cs]) when is_integer(C), C >= 0, C < 16#D800; 
-       is_integer(C), C > 16#DFFF, C < 16#FFFE;
-       is_integer(C), C > 16#FFFF, C =< 16#10FFFF ->
-    unicode_char_list(Cs);
-unicode_char_list([]) -> true;
-unicode_char_list(_) -> false.			%Everything else is false
+deep_latin1_char_list(Cs) ->
+    deep_latin1_char_list(Cs, []).
+
+deep_latin1_char_list([C|Cs], More) when is_list(C) ->
+    deep_latin1_char_list(C, [Cs|More]);
+deep_latin1_char_list([C|Cs], More) when is_integer(C), C >= $\000, C =< $\377 ->
+    deep_latin1_char_list(Cs, More);
+deep_latin1_char_list([], [Cs|More]) ->
+    deep_latin1_char_list(Cs, More);
+deep_latin1_char_list([], []) -> true;
+deep_latin1_char_list(_, _More) ->			%Everything else is false
+    false.
 
 -spec deep_char_list(Term) -> boolean() when
       Term :: term().
@@ -471,43 +494,56 @@ deep_char_list(Cs) ->
 
 deep_char_list([C|Cs], More) when is_list(C) ->
     deep_char_list(C, [Cs|More]);
-deep_char_list([C|Cs], More) when is_integer(C), C >= $\000, C =< $\377 ->
+deep_char_list([C|Cs], More)
+  when is_integer(C), C >= 0, C < 16#D800;
+       is_integer(C), C > 16#DFFF, C < 16#FFFE;
+       is_integer(C), C > 16#FFFF, C =< 16#10FFFF ->
     deep_char_list(Cs, More);
 deep_char_list([], [Cs|More]) ->
     deep_char_list(Cs, More);
 deep_char_list([], []) -> true;
-deep_char_list(_, _More) ->			%Everything else is false
+deep_char_list(_, _More) ->		%Everything else is false
     false.
 
--spec deep_unicode_char_list(Term) -> boolean() when
+deep_unicode_char_list(Term) ->
+    deep_char_list(Term).
+
+%% printable_latin1_list([Char]) -> boolean()
+%%  Return true if CharList is a list of printable Latin1 characters, else
+%%  false.
+
+-spec printable_latin1_list(Term) -> boolean() when
       Term :: term().
 
-deep_unicode_char_list(Cs) ->
-    deep_unicode_char_list(Cs, []).
-
-deep_unicode_char_list([C|Cs], More) when is_list(C) ->
-    deep_unicode_char_list(C, [Cs|More]);
-deep_unicode_char_list([C|Cs], More) 
-  when is_integer(C), C >= 0, C < 16#D800; 
-       is_integer(C), C > 16#DFFF, C < 16#FFFE;
-       is_integer(C), C > 16#FFFF, C =< 16#10FFFF ->
-    deep_unicode_char_list(Cs, More);
-deep_unicode_char_list([], [Cs|More]) ->
-    deep_unicode_char_list(Cs, More);
-deep_unicode_char_list([], []) -> true;
-deep_unicode_char_list(_, _More) ->		%Everything else is false
-    false.
+printable_latin1_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
+    printable_latin1_list(Cs);
+printable_latin1_list([C|Cs]) when is_integer(C), C >= $\240, C =< $\377 ->
+    printable_latin1_list(Cs);
+printable_latin1_list([$\n|Cs]) -> printable_latin1_list(Cs);
+printable_latin1_list([$\r|Cs]) -> printable_latin1_list(Cs);
+printable_latin1_list([$\t|Cs]) -> printable_latin1_list(Cs);
+printable_latin1_list([$\v|Cs]) -> printable_latin1_list(Cs);
+printable_latin1_list([$\b|Cs]) -> printable_latin1_list(Cs);
+printable_latin1_list([$\f|Cs]) -> printable_latin1_list(Cs);
+printable_latin1_list([$\e|Cs]) -> printable_latin1_list(Cs);
+printable_latin1_list([]) -> true;
+printable_latin1_list(_) -> false.			%Everything else is false
 
 %% printable_list([Char]) -> boolean()
 %%  Return true if CharList is a list of printable characters, else
-%%  false.
+%%  false. The notion of printable in Unicode terms is somewhat floating.
+%%  Everything that is not a control character and not invalid unicode
+%%  will be considered printable.
 
 -spec printable_list(Term) -> boolean() when
       Term :: term().
 
 printable_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
     printable_list(Cs);
-printable_list([C|Cs]) when is_integer(C), C >= $\240, C =< $\377 ->
+printable_list([C|Cs])
+  when is_integer(C), C >= 16#A0, C < 16#D800;
+       is_integer(C), C > 16#DFFF, C < 16#FFFE;
+       is_integer(C), C > 16#FFFF, C =< 16#10FFFF ->
     printable_list(Cs);
 printable_list([$\n|Cs]) -> printable_list(Cs);
 printable_list([$\r|Cs]) -> printable_list(Cs);
@@ -517,33 +553,7 @@ printable_list([$\b|Cs]) -> printable_list(Cs);
 printable_list([$\f|Cs]) -> printable_list(Cs);
 printable_list([$\e|Cs]) -> printable_list(Cs);
 printable_list([]) -> true;
-printable_list(_) -> false.			%Everything else is false
-
-%% printable_unicode_list([Char]) -> boolean()
-%%  Return true if CharList is a list of printable characters, else
-%%  false. The notion of printable in Unicode terms is somewhat floating.
-%%  Everything that is not a control character and not invalid unicode 
-%%  will be considered printable.
-
--spec printable_unicode_list(Term) -> boolean() when
-      Term :: term().
-
-printable_unicode_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
-    printable_unicode_list(Cs);
-printable_unicode_list([C|Cs]) 
-  when is_integer(C), C >= 16#A0, C < 16#D800; 
-       is_integer(C), C > 16#DFFF, C < 16#FFFE;
-       is_integer(C), C > 16#FFFF, C =< 16#10FFFF ->
-    printable_unicode_list(Cs);
-printable_unicode_list([$\n|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\r|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\t|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\v|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\b|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\f|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\e|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([]) -> true;
-printable_unicode_list(_) -> false.		%Everything else is false
+printable_list(_) -> false.		%Everything else is false
 
 %% List = nl()
 %%  Return a list of characters to generate a newline.

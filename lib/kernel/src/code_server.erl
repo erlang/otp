@@ -1266,11 +1266,11 @@ try_load_module_1(File, Mod, Bin, Caller, #state{moddb=Db}=St) ->
 			{error,on_load} ->
 			    handle_on_load(Mod, File, Caller, St);
 			{error,What} = Error ->
-			    error_msg("Loading of ~s failed: ~p\n", [File, What]),
+			    error_msg("Loading of ~ts failed: ~p\n", [File, What]),
 			    {reply,Error,St}
 		    end;
 		Error ->
-		    error_msg("Native loading of ~s failed: ~p\n",
+		    error_msg("Native loading of ~ts failed: ~p\n",
 			      [File,Error]),
 		    {reply,ok,St}
 	    end

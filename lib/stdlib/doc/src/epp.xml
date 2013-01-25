@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2012</year>
+      <year>1996</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -109,7 +109,8 @@
       <fsummary>Return a string representation of an encoding</fsummary>
       <desc>
         <p>Returns a string representation of an encoding. The string
-        is recognized by <c>read_encoding/1,2</c> and
+        is recognized by <c>read_encoding/1,2</c>,
+        <c>read_encoding_from_binary/1,2</c>, and
         <c>set_encoding/1</c> as a valid encoding.</p>
       </desc>
     </func>
@@ -120,6 +121,20 @@
       <desc>
         <p>Read the <seealso marker="#encoding">encoding</seealso> from
           a file. Returns the read encoding, or <c>none</c> if no
+          valid encoding was found.</p>
+        <p>The option <c>in_comment_only</c> is <c>true</c> by
+          default, which is correct for Erlang source files. If set to
+          <c>false</c> the encoding string does not necessarily have to
+          occur in a comment.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="read_encoding_from_binary" arity="1"/>
+      <name name="read_encoding_from_binary" arity="2"/>
+      <fsummary>Read the encoding from a binary</fsummary>
+      <desc>
+        <p>Read the <seealso marker="#encoding">encoding</seealso> from
+          a binary. Returns the read encoding, or <c>none</c> if no
           valid encoding was found.</p>
         <p>The option <c>in_comment_only</c> is <c>true</c> by
           default, which is correct for Erlang source files. If set to

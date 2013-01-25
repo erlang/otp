@@ -62,7 +62,7 @@ files([F|Fs]) ->
     case file(F) of
 	ok -> ok;
 	{error,Es} -> 
-	    io:format("~p:~n~s~n", [F,format_error(Es)])
+	    io:format("~tp:~n~ts~n", [F,format_error(Es)])
     end,
     files(Fs);
 files([]) -> ok.

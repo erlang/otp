@@ -480,43 +480,43 @@ set_default(State, Options) ->
 format_error({error, Module, Error}) ->
     Module:format_error(Error);
 format_error({invalid_options, Options}) ->
-    io_lib:format("Unknown option(s) or invalid option value(s): ~p~n",
+    io_lib:format("Unknown option(s) or invalid option value(s): ~tp~n",
 		  [Options]);
 format_error({invalid_filename, Term}) ->
-    io_lib:format("A file name (a string) was expected: ~p~n", [Term]);
+    io_lib:format("A file name (a string) was expected: ~tp~n", [Term]);
 format_error({no_debug_info, FileName}) ->
-    io_lib:format("The BEAM file ~p has no debug info~n", [FileName]);
+    io_lib:format("The BEAM file ~tp has no debug info~n", [FileName]);
 format_error({invalid_path, Term}) ->
-    io_lib:format("A path (a list of strings) was expected: ~p~n", [Term]);
+    io_lib:format("A path (a list of strings) was expected: ~tp~n", [Term]);
 format_error({invalid_query, Term}) ->
-    io_lib:format("A query (a string or an atom) was expected: ~p~n", [Term]);
+    io_lib:format("A query (a string or an atom) was expected: ~tp~n", [Term]);
 format_error({not_user_variable, Variable}) ->
-    io_lib:format("~p is not a user variable~n", [Variable]);
+    io_lib:format("~tp is not a user variable~n", [Variable]);
 format_error({unknown_analysis, Term}) ->
-    io_lib:format("~p is not a predefined analysis~n", [Term]);
+    io_lib:format("~tp is not a predefined analysis~n", [Term]);
 format_error({module_mismatch, Module, ReadModule}) ->
-    io_lib:format("Name of read module ~p does not match analyzed module ~p~n",
+    io_lib:format("Name of read module ~tp does not match analyzed module ~tp~n",
 		  [ReadModule, Module]);
 format_error({release_clash, {Release, Dir, OldDir}}) ->
-    io_lib:format("The release ~p read from ~p clashes with release "
-		  "already read from ~p~n", [Release, Dir, OldDir]);
+    io_lib:format("The release ~tp read from ~tp clashes with release "
+		  "already read from ~tp~n", [Release, Dir, OldDir]);
 format_error({application_clash, {Application, Dir, OldDir}}) ->
-    io_lib:format("The application ~p read from ~p clashes with application "
-		  "already read from ~p~n", [Application, Dir, OldDir]);
+    io_lib:format("The application ~tp read from ~tp clashes with application "
+		  "already read from ~tp~n", [Application, Dir, OldDir]);
 format_error({module_clash, {Module, Dir, OldDir}}) ->
-    io_lib:format("The module ~p read from ~p clashes with module "
-		  "already read from ~p~n", [Module, Dir, OldDir]);
+    io_lib:format("The module ~tp read from ~tp clashes with module "
+		  "already read from ~tp~n", [Module, Dir, OldDir]);
 format_error({no_such_release, Name}) ->
-    io_lib:format("There is no analyzed release ~p~n", [Name]);
+    io_lib:format("There is no analyzed release ~tp~n", [Name]);
 format_error({no_such_application, Name}) ->
-    io_lib:format("There is no analyzed application ~p~n", [Name]);
+    io_lib:format("There is no analyzed application ~tp~n", [Name]);
 format_error({no_such_module, Name}) ->
-    io_lib:format("There is no analyzed module ~p~n", [Name]);
+    io_lib:format("There is no analyzed module ~tp~n", [Name]);
 format_error({no_such_info, Term}) ->
-    io_lib:format("~p is not one of 'modules', 'applications', "
+    io_lib:format("~tp is not one of 'modules', 'applications', "
 		  "'releases' and 'libraries'~n", [Term]);
 format_error(E) ->
-    io_lib:format("~p~n", [E]).
+    io_lib:format("~tp~n", [E]).
 
 %%
 %%  Local functions
@@ -1506,7 +1506,7 @@ do_variables(State) ->
 		      _Else -> {[Name | P], U}
 		  end;
 	     ({{tmp, V}, _}, A) ->
-		  io:format("Bug in ~p: temporary ~p~n", [?MODULE, V]), A;
+		  io:format("Bug in ~tp: temporary ~tp~n", [?MODULE, V]), A;
 	     (_V, A) -> A
 	  end,
     {U,P} = foldl(Fun, {[],[]}, dict:to_list(State#xref.variables)),
@@ -1766,23 +1766,23 @@ tpack(T, I, L) ->
 message(true, What, Arg) ->
     case What of
 	reading_beam ->
-	    io:format("~s... ", Arg);
+	    io:format("~ts... ", Arg);
 	skipped_beam ->
 	    io:format("skipped (no debug information)~n", Arg);
 	no_debug_info ->
-	    io:format("Skipping ~s (no debug information)~n", Arg);
+	    io:format("Skipping ~ts (no debug information)~n", Arg);
 	unresolved_summary1 ->
-	    io:format("~p: 1 unresolved call~n", Arg);
+	    io:format("~tp: 1 unresolved call~n", Arg);
 	unresolved_summary ->
-	    io:format("~p: ~p unresolved calls~n", Arg);
+	    io:format("~tp: ~tp unresolved calls~n", Arg);
 	jam ->
-	    io:format("Skipping ~s (probably JAM file)~n", [Arg]);
+	    io:format("Skipping ~ts (probably JAM file)~n", [Arg]);
 	unreadable ->
-	    io:format("Skipping ~s (unreadable)~n", [Arg]);
+	    io:format("Skipping ~ts (unreadable)~n", [Arg]);
 	xref_attr ->
-	    io:format("~s: Skipping 'xref' attribute ~w~n", Arg);
+	    io:format("~ts: Skipping 'xref' attribute ~w~n", Arg);
         depr_attr ->
-            io:format("~s: Skipping 'deprecated' attribute ~w~n", Arg);
+            io:format("~ts: Skipping 'deprecated' attribute ~w~n", Arg);
 	lib_search ->
 	    io:format("Scanning library path for BEAM files... ", []);
 	lib_check ->
@@ -1794,7 +1794,7 @@ message(true, What, Arg) ->
 	error ->
 	    io:format("error~n", Arg);
 	Else ->
-	    io:format("~p~n", [{Else,Arg}])
+	    io:format("~tp~n", [{Else,Arg}])
     end;
 message(_, _, _) ->
     true.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -247,7 +247,7 @@ start_boot_application(Application, RestartType) ->
 	{{error, {already_loaded, AppName}}, _} ->
 	    gen_server:call(?AC, {start_application, AppName, RestartType}, infinity);
 	{{error,{bad_environment_value,Env}}, permanent} ->
-	    Txt = io_lib:format("Bad environment variable: ~p  Application: ~p",
+	    Txt = io_lib:format("Bad environment variable: ~tp  Application: ~p",
 				[Env, Application]),
 	    exit({error, list_to_atom(lists:flatten(Txt))});
 	{Error, _} ->
@@ -501,13 +501,13 @@ init(Init, Kernel) ->
 						  {local, ?AC})
 		    end;
 		{error, ErrorStr} ->
-		    Str = lists:flatten(io_lib:format("invalid config data: ~s", [ErrorStr])),
+		    Str = lists:flatten(io_lib:format("invalid config data: ~ts", [ErrorStr])),
 		    Init ! {ack, self(), {error, to_string(Str)}}
 	    end;
 	{error, {File, Line, Str}} ->
 	    ReasonStr =
 		lists:flatten(io_lib:format("error in config file "
-					    "~p (~w): ~s",
+					    "~tp (~w): ~ts",
 					    [File, Line, Str])),
 	    Init ! {ack, self(), {error, to_string(ReasonStr)}}
     end.
@@ -537,17 +537,17 @@ check_conf_data(ConfData) when is_list(ConfData) ->
 	    end;
 	{AppName, List} when is_list(List)  ->
 	    ErrMsg = "application: "
-		++ lists:flatten(io_lib:format("~p",[AppName]))
+		++ lists:flatten(io_lib:format("~tp",[AppName]))
 		++ "; application name must be an atom",
 	    {error, ErrMsg};
 	{AppName, _List} ->
 	    ErrMsg = "application: "
-		++ lists:flatten(io_lib:format("~p",[AppName]))
+		++ lists:flatten(io_lib:format("~tp",[AppName]))
 		++ "; parameters must be a list",
 	    {error, ErrMsg};
 	Else ->
 	    ErrMsg = "invalid application name: " ++ 
-		lists:flatten(io_lib:format(" ~p",[Else])),
+		lists:flatten(io_lib:format(" ~tp",[Else])),
 	    {error, ErrMsg}
     end;
 check_conf_data(_ConfData) ->
@@ -570,10 +570,10 @@ check_para_kernel([{Para, _Val} | ParaList]) when is_atom(Para) ->
     check_para_kernel(ParaList);
 check_para_kernel([{Para, _Val} | _ParaList]) ->
     {error, "application: kernel; invalid parameter: " ++ 
-     lists:flatten(io_lib:format("~p",[Para]))};
+     lists:flatten(io_lib:format("~tp",[Para]))};
 check_para_kernel(Else) ->
     {error, "application: kernel; invalid parameter list: " ++ 
-     lists:flatten(io_lib:format("~p",[Else]))}.
+     lists:flatten(io_lib:format("~tp",[Else]))}.
     
 
 check_distributed([]) ->
@@ -594,10 +594,10 @@ check_para([{Para, _Val} | ParaList], AppName) when is_atom(Para) ->
     check_para(ParaList, AppName);
 check_para([{Para, _Val} | _ParaList], AppName) ->
     {error, "application: " ++ AppName ++ "; invalid parameter: " ++ 
-     lists:flatten(io_lib:format("~p",[Para]))};
+     lists:flatten(io_lib:format("~tp",[Para]))};
 check_para([Else | _ParaList], AppName) ->
     {error, "application: " ++ AppName ++ "; invalid parameter: " ++ 
-     lists:flatten(io_lib:format("~p",[Else]))}.
+     lists:flatten(io_lib:format("~tp",[Else]))}.
 
 
 -type calls() :: 'info' | 'prep_config_change' | 'which_applications'
@@ -1434,7 +1434,9 @@ make_appl(Name) when is_atom(Name) ->
 		{ok, [Application]} ->
 		    {ok, make_appl_i(Application)};
 		{error, Reason} -> 
-		    {error, {file:format_error(Reason), FName}}
+		    {error, {file:format_error(Reason), FName}};
+                error ->
+                    {error, "bad encoding"}
 	    end
     end;
 make_appl(Application) ->
@@ -1443,12 +1445,17 @@ make_appl(Application) ->
 prim_consult(FullName) ->
     case erl_prim_loader:get_file(FullName) of
 	{ok, Bin, _} ->
-	    case erl_scan:string(binary_to_list(Bin)) of
-		{ok, Tokens, _EndLine} ->
-		    prim_parse(Tokens, []);
-		{error, Reason, _EndLine} ->
-		    {error, Reason}
-	    end;
+            case file_binary_to_list(Bin) of
+                {ok, String} ->
+                    case erl_scan:string(String, 1, [unicode]) of
+                        {ok, Tokens, _EndLine} ->
+                            prim_parse(Tokens, []);
+                        {error, Reason, _EndLine} ->
+                            {error, Reason}
+                    end;
+                error ->
+                    error
+            end;
 	error ->
 	    {error, enoent}
     end.
@@ -1521,7 +1528,7 @@ do_change_apps(Applications, Config, OldAppls) ->
     %% Report errors, but do not terminate
     %% (backwards compatible behaviour)
     lists:foreach(fun({error, {SysFName, Line, Str}}) ->
-			  Str2 = lists:flatten(io_lib:format("~p: ~w: ~s~n",
+			  Str2 = lists:flatten(io_lib:format("~tp: ~w: ~ts~n",
 							     [SysFName, Line, Str])),
 			  error_logger:format(Str2, [])
 		  end,
@@ -1593,18 +1600,18 @@ conv(_) -> [].
 
 %%% Fix some day: eliminate the duplicated code here
 make_term(Str) -> 
-    case erl_scan:string(Str) of
+    case erl_scan:string(Str, 1, [unicode]) of
 	{ok, Tokens, _} ->		  
 	    case erl_parse:parse_term(Tokens ++ [{dot, 1}]) of
 		{ok, Term} ->
 		    Term;
 		{error, {_,M,Reason}} ->
-		    error_logger:format("application_controller: ~s: ~s~n",
+		    error_logger:format("application_controller: ~ts: ~ts~n",
 					[M:format_error(Reason), Str]),
 		    throw({error, {bad_environment_value, Str}})
 	    end;
 	{error, {_,M,Reason}, _} ->
-	    error_logger:format("application_controller: ~s: ~s~n",
+	    error_logger:format("application_controller: ~ts: ~ts~n",
 				[M:format_error(Reason), Str]),
 	    throw({error, {bad_environment_value, Str}})
     end.
@@ -1828,8 +1835,12 @@ load_file(File) ->
 	{ok, Bin, _FileName} ->
 	    %% Make sure that there is some whitespace at the end of the string
 	    %% (so that reading a file with no NL following the "." will work).
-	    Str = binary_to_list(Bin) ++ " ",
-	    scan_file(Str);
+            case file_binary_to_list(Bin) of
+                {ok, String} ->
+                    scan_file(String ++ " ");
+                error ->
+                    {error, {none, scan_file, "bad encoding"}}
+            end;
 	error ->
 	    {error, {none, open_file, "configuration file not found"}}
     end.
@@ -1946,6 +1957,18 @@ test_make_apps([], Res) ->
     lists:reverse(Res);
 test_make_apps([A|Apps], Res) ->
     test_make_apps(Apps, [make_appl(A) | Res]).
+
+file_binary_to_list(Bin) ->
+    Enc = case epp:read_encoding_from_binary(Bin) of
+              none -> epp:default_encoding();
+              Encoding -> Encoding
+          end,
+    case catch unicode:characters_to_list(Bin, Enc) of
+        String when is_list(String) ->
+            {ok, String};
+        _ ->
+            error
+    end.
 
 %%-----------------------------------------------------------------
 %% String conversion

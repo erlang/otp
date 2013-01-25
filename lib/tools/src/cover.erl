@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -824,7 +824,7 @@ main_process_loop(State) ->
 	    main_process_loop(State);
 
 	get_status ->
-	    io:format("~p~n",[State]),
+	    io:format("~tp~n",[State]),
 	    main_process_loop(State)
     end.
 
@@ -889,7 +889,7 @@ remote_process_loop(State) ->
 	    remote_process_loop(State);
 
 	get_status ->
-	    io:format("~p~n",[State]),
+	    io:format("~tp~n",[State]),
 	    remote_process_loop(State);
 
 	M ->
@@ -1007,7 +1007,7 @@ do_start_nodes(Nodes, State) ->
 			  erlang:monitor(process,{?SERVER,Node}),
 			  [Node|Acc];
 		      Error ->
-			  io:format("Could not start cover on ~w: ~p\n",
+			  io:format("Could not start cover on ~w: ~tp\n",
 				    [Node,Error]),
 			  Acc
 		  end
@@ -1223,7 +1223,7 @@ do_get_all_importfiles([],Acc) ->
 imported_info(Text,Module,Imported) ->
     case lists:keysearch(Module,1,Imported) of
 	{value,{Module,_File,ImportFiles}} ->
-	    io:format("~s includes data from imported files\n~p\n",
+	    io:format("~ts includes data from imported files\n~tp\n",
 		      [Text,ImportFiles]);
 	false ->
 	    ok
@@ -1237,7 +1237,7 @@ add_imported(Module, File, ImportFile, Imported) ->
 add_imported(M, F1, ImportFile, [{M,_F2,ImportFiles}|Imported], Acc) ->
     case lists:member(ImportFile,ImportFiles) of
 	true ->
-	    io:fwrite("WARNING: Module ~w already imported from ~p~n"
+	    io:fwrite("WARNING: Module ~w already imported from ~tp~n"
 		      "Not importing again!~n",[M,ImportFile]),
 	    dont_import;
 	false ->
@@ -1255,7 +1255,7 @@ remove_imported(Module,Imported) ->
     case lists:keysearch(Module,1,Imported) of
 	{value,{Module,_,ImportFiles}} ->
 	    io:fwrite("WARNING: Deleting data for module ~w imported from~n"
-		      "~p~n",[Module,ImportFiles]),
+		      "~tp~n",[Module,ImportFiles]),
 	    lists:keydelete(Module,1,Imported);
 	false ->
 	    Imported

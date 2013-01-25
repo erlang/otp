@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,8 @@
 -export([scan_erl_form/1,parse_erl_form/1,macro_defs/1]).
 -export([parse_file/1, parse_file/3]).
 -export([default_encoding/0, encoding_to_string/1,
-         read_encoding/1, read_encoding/2, set_encoding/1]).
+         read_encoding_from_binary/1, read_encoding_from_binary/2,
+         set_encoding/1, read_encoding/1, read_encoding/2]).
 -export([interpret_file_attribute/1]).
 -export([normalize_typed_record_fields/1,restore_typed_record_fields/1]).
 
@@ -265,12 +266,40 @@ set_encoding(File) ->
     ok = io:setopts(File, [{encoding, Enc}]),
     Encoding.
 
--spec read_encoding_from_file(File, InComment) -> source_encoding() | none when
-      File :: io:device(),
-      InComment :: boolean().
+-spec read_encoding_from_binary(Binary) -> source_encoding() | none when
+      Binary :: binary().
 
 -define(ENC_CHUNK, 32).
 -define(N_ENC_CHUNK, 16). % a total of 512 bytes
+
+read_encoding_from_binary(Binary) ->
+    read_encoding_from_binary(Binary, []).
+
+-spec read_encoding_from_binary(Binary, Options) ->
+                                       source_encoding() | none when
+      Binary :: binary(),
+      Options :: [Option],
+      Option :: {in_comment_only, boolean()}.
+
+read_encoding_from_binary(Binary, Options) ->
+    InComment = proplists:get_value(in_comment_only, Options, true),
+    try
+        com_nl(Binary, fake_reader(0), 0, InComment)
+    catch
+        throw:no ->
+            none
+    end.
+
+fake_reader(N) ->
+    fun() when N =:= ?N_ENC_CHUNK ->
+            throw(no);
+       () ->
+            {<<>>, fake_reader(N+1)}
+    end.
+
+-spec read_encoding_from_file(File, InComment) -> source_encoding() | none when
+      File :: io:device(),
+      InComment :: boolean().
 
 read_encoding_from_file(File, InComment) ->
     {ok, Pos0} = file:position(File, cur),
@@ -1276,9 +1305,9 @@ token_src({X, _}) when is_atom(X) ->
 token_src({var, _, X}) ->
     atom_to_list(X);
 token_src({char,_,C}) ->
-    io_lib:write_unicode_char(C);
+    io_lib:write_char(C);
 token_src({string, _, X}) ->
-    io_lib:write_unicode_string(X);
+    io_lib:write_string(X);
 token_src({_, _, X}) ->
     io_lib:format("~w", [X]).
 

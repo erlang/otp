@@ -1700,11 +1700,11 @@ char_literal(Node) ->
 -spec char_literal(syntaxTree(), encoding()) -> nonempty_string().
 
 char_literal(Node, unicode) ->
-    io_lib:write_unicode_char(char_value(Node));
+    io_lib:write_char(char_value(Node));
 char_literal(Node, utf8) ->
-    io_lib:write_unicode_char(char_value(Node));
+    io_lib:write_char(char_value(Node));
 char_literal(Node, latin1) ->
-    io_lib:write_unicode_char_as_latin1(char_value(Node)).
+    io_lib:write_char_as_latin1(char_value(Node)).
 
 
 %% =====================================================================
@@ -1801,11 +1801,11 @@ string_literal(Node) ->
 -spec string_literal(syntaxTree(), encoding()) -> nonempty_string().
 
 string_literal(Node, utf8) ->
-    io_lib:write_unicode_string(string_value(Node));
+    io_lib:write_string(string_value(Node));
 string_literal(Node, unicode) ->
-    io_lib:write_unicode_string(string_value(Node));
+    io_lib:write_string(string_value(Node));
 string_literal(Node, latin1) ->
-    io_lib:write_unicode_string_as_latin1(string_value(Node)).
+    io_lib:write_string_as_latin1(string_value(Node)).
 
 
 %% =====================================================================

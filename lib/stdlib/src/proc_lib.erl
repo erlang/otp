@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,8 @@
 	 start/3, start/4, start/5, start_link/3, start_link/4, start_link/5,
 	 hibernate/3,
 	 init_ack/1, init_ack/2,
-	 init_p/3,init_p/5,format/1,initial_call/1,translate_initial_call/1]).
+	 init_p/3,init_p/5,format/1,format/2,initial_call/1,
+         translate_initial_call/1]).
 
 %% Internal exports.
 -export([wake_up/3]).
@@ -692,34 +693,41 @@ check(Res)               -> Res.
 
 -spec format(CrashReport) -> string() when
       CrashReport :: [term()].
+format(CrashReport) ->
+    format(CrashReport, latin1).
 
-format([OwnReport,LinkReport]) ->
-    OwnFormat = format_report(OwnReport),
-    LinkFormat = format_report(LinkReport),
-    S = io_lib:format("  crasher:~n~s  neighbours:~n~s",[OwnFormat,LinkFormat]),
-    lists:flatten(S).
+-spec format(CrashReport, Encoding) -> string() when
+      CrashReport :: [term()],
+      Encoding :: latin1 | unicode | utf8.
 
-format_report(Rep) when is_list(Rep) ->
-    format_rep(Rep);
-format_report(Rep) ->
-    io_lib:format("~p~n", [Rep]).
+format([OwnReport,LinkReport], Encoding) ->
+    OwnFormat = format_report(OwnReport, Encoding),
+    LinkFormat = format_report(LinkReport, Encoding),
+    Str = io_lib:format("  crasher:~n~ts  neighbours:~n~ts",
+                        [OwnFormat, LinkFormat]),
+    lists:flatten(Str).
 
-format_rep([{initial_call,InitialCall}|Rep]) ->
-    [format_mfa(InitialCall)|format_rep(Rep)];
-format_rep([{error_info,{Class,Reason,StackTrace}}|Rep]) ->
-    [format_exception(Class, Reason, StackTrace)|format_rep(Rep)];
-format_rep([{Tag,Data}|Rep]) ->
-    [format_tag(Tag, Data)|format_rep(Rep)];
-format_rep(_) ->
+format_report(Rep, Enc) when is_list(Rep) ->
+    format_rep(Rep,Enc);
+format_report(Rep, Enc) ->
+    io_lib:format("~"++modifier(Enc)++"p~n", [Rep]).
+
+format_rep([{initial_call,InitialCall}|Rep], Enc) ->
+    [format_mfa(InitialCall)|format_rep(Rep, Enc)];
+format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Enc) ->
+    [format_exception(Class, Reason, StackTrace, Enc)|format_rep(Rep, Enc)];
+format_rep([{Tag,Data}|Rep], Enc) ->
+    [format_tag(Tag, Data)|format_rep(Rep, Enc)];
+format_rep(_, _Enc) ->
     [].
 
-format_exception(Class, Reason, StackTrace) ->
-    PF = pp_fun(),
+format_exception(Class, Reason, StackTrace, Enc) ->
+    PF = pp_fun(Enc),
     StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
     %% EI = "    exception: ",
     EI = "    ",
     [EI, lib:format_exception(1+length(EI), Class, Reason, 
-                              StackTrace, StackFun, PF), "\n"].
+                              StackTrace, StackFun, PF, Enc), "\n"].
 
 format_mfa({M,F,Args}=StartF) ->
     try
@@ -731,10 +739,14 @@ format_mfa({M,F,Args}=StartF) ->
 	    format_tag(initial_call, StartF)
     end.
 
-pp_fun() ->
+pp_fun(Enc) ->
+    P = modifier(Enc) ++ "p",
     fun(Term, I) -> 
-            io_lib:format("~." ++ integer_to_list(I) ++ "p", [Term]) 
+            io_lib:format("~." ++ integer_to_list(I) ++ P, [Term])
     end.
 
 format_tag(Tag, Data) ->
     io_lib:format("    ~p: ~80.18p~n", [Tag, Data]).
+
+modifier(latin1) -> "";
+modifier(_) -> "t".

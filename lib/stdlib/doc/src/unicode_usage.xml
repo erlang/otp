@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1999</year>
-      <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -163,10 +163,10 @@ Erlang R16B (erts-5.10) [source] [async-threads:0] [hipe] [kernel-poll:false]
 Eshell V5.10  (abort with ^G)
 1> <input>lists:keyfind(encoding, 1, io:getopts()).</input>
 {encoding,unicode}
-2> <input>"уницоде"</input>
-"уницоде"
+2> <input>"Юникод"</input>
+"Юникод"
 3> <input>io:format("~ts~n", [v(2)]).</input>
-уницоде
+Юникод
 ok
 4> </pre>
 <p>While strings can be input as Unicode characters, the language elements are still limited to the ISO-latin-1 character set. Only character constants and strings are allowed to be beyond that range:</p>
@@ -177,7 +177,7 @@ Erlang R16B (erts-5.10) [source] [async-threads:0] [hipe] [kernel-poll:false]
 Eshell V5.10  (abort with ^G)
 1> <input>$ξ</input>
 958
-2> <input>уницоде.</input>
+2> <input>Юникод.</input>
 * 1: illegal character
 2> </pre>
 </section> 
@@ -305,10 +305,10 @@ $ <input>erl</input>
 Erlang R16B (erts-5.10) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
 Eshell V5.10 (abort with ^G)
-1> <input>io_lib:format("~ts~n", ["θνιψοδε"]).</input>
-["θνιψοδε","\n"]
-2> <input>io:put_chars(io_lib:format("~ts~n", ["θνιψοδε"])).</input>
-θνιψοδε
+1> <input>io_lib:format("~ts~n", ["Γιούνικοντ"]).</input>
+["Γιούνικοντ","\n"]
+2> <input>io:put_chars(io_lib:format("~ts~n", ["Γιούνικοντ"])).</input>
+Γιούνικοντ
 ok</pre>
 <p>The Unicode string is returned as a Unicode list, which is recognized as such since the Erlang shell uses the Unicode encoding. The Unicode list is valid input to the <seealso marker="stdlib:io#put_chars/2">io:put_chars/2</seealso> function, so data can be output on any Unicode capable device. If the device is a terminal, characters will be output in the <c>\x{</c>H ...<c>}</c> format if encoding is <c>latin1</c> otherwise in UTF-8 (for the non-interactive terminal - "oldshell" or "noshell") or whatever is suitable to show the character properly (for an interactive terminal - the regular shell). The bottom line is that you can always send Unicode data to the <c>standard_io</c> device. Files will however only accept Unicode codepoints beyond ISO-latin-1 if <c>encoding</c> is set to something else than <c>latin1</c>.</p>
 </section>

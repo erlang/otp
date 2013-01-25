@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -227,7 +227,7 @@ io_request({put_chars,latin1,Chars}, Drv, Buf) ->
 	    send_drv(Drv, {put_chars, unicode,Binary}),
 	    {ok,ok,Buf};
 	_ ->
-	    {error,{error,{put_chars,Chars}},Buf}
+	    {error,{error,{put_chars,latin1,Chars}},Buf}
     end;
 io_request({put_chars,latin1,M,F,As}, Drv, Buf) ->
     case catch apply(M, F, As) of
@@ -446,7 +446,6 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Buf0, State, Encoding) ->
     end.
 
 get_chars_apply(Pbs, M, F, Xa, Drv, Buf, State0, Line, Encoding) ->
-    id(M,F),
     case catch M:F(State0, cast(Line,get(read_mode), Encoding), Encoding, Xa) of
 	{stop,Result,Rest} ->
 	    {ok,Result,append(Rest, Buf, Encoding)};
@@ -456,8 +455,6 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Buf, State0, Line, Encoding) ->
 	    get_chars_loop(Pbs, M, F, Xa, Drv, Buf, State1, Encoding)
     end.
 
-id(M,F) ->
-    {M,F}.
 %% Convert error code to make it look as before
 err_func(io_lib, get_until, {_,F,_}) ->
     F;

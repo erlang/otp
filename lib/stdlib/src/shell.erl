@@ -273,7 +273,7 @@ get_command(Prompt, Eval, Bs, RT, Ds) ->
         fun() ->
                 exit(
                   case
-                      io:scan_erl_exprs(group_leader(), Prompt, 1, [unicode])
+                      io:scan_erl_exprs(group_leader(), Prompt, 1)
                   of
                       {ok,Toks,_EndPos} ->
                           erl_parse:parse_exprs(Toks);

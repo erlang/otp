@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -207,6 +207,13 @@ init(Parent) ->
     </func>
     <func>
       <name name="format" arity="1"/>
+      <fsummary>Format a crash report.</fsummary>
+      <desc>
+        <p>Equivalent to <c>format(<anno>CrashReport</anno>, latin1)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="format" arity="2"/>
       <fsummary>Format a crash report.</fsummary>
       <desc>
         <p>This function can be used by a user defined event handler to
