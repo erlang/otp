@@ -836,16 +836,6 @@ not_restricted(h, []) ->
     true;
 not_restricted(b, []) ->
     true;
-not_restricted(which, [_]) ->
-    true;
-not_restricted(import, [_]) ->
-    true;
-not_restricted(import_all, [_]) ->
-    true;
-not_restricted(use, [_]) ->
-    true;
-not_restricted(use_all, [_]) ->
-    true;
 not_restricted(history, [_]) ->
     true;
 not_restricted(results, [_]) ->
@@ -1005,15 +995,6 @@ local_func(rr, [_,_]=As0, Bs0, _Shell, RT, Lf, Ef) ->
 local_func(rr, [_,_,_]=As0, Bs0, _Shell, RT, Lf, Ef) ->
     {[File,Sel,Options],Bs} = expr_list(As0, Bs0, Lf, Ef),
     {value,read_and_add_records(File, Sel, Options, Bs, RT),Bs};
-local_func(which, [{atom,_,M}], Bs, _Shell, _RT, _Lf, _Ef) ->
-    case erl_eval:binding({module,M}, Bs) of
-	{value, M1} ->
-	    {value,M1,Bs};
-	unbound ->
-	    {value,M,Bs}
-    end;
-local_func(which, [_Other], _Bs, _Shell, _RT, _Lf, _Ef) ->
-    erlang:raise(error, function_clause, [{shell,which,1}]);
 local_func(history, [{integer,_,N}], Bs, _Shell, _RT, _Lf, _Ef) ->
     {value,history(N),Bs};
 local_func(history, [_Other], _Bs, _Shell, _RT, _Lf, _Ef) ->
@@ -1149,18 +1130,13 @@ listify(E) ->
     [E].
 
 check_command(Es, Bs) ->
-    erl_eval:check_command(Es, strip_bindings(Bs)).
+    erl_eval:check_command(Es, Bs).
 
 expr(E, Bs, Lf, Ef) ->
-    erl_eval:expr(E, strip_bindings(Bs), Lf, Ef).
+    erl_eval:expr(E, Bs, Lf, Ef).
 
 expr_list(Es, Bs, Lf, Ef) ->
-    erl_eval:expr_list(Es, strip_bindings(Bs), Lf, Ef).
-
--spec strip_bindings(erl_eval:binding_struct()) -> erl_eval:binding_struct().
-
-strip_bindings(Bs) ->
-    Bs -- [B || {{module,_},_}=B <- Bs].
+    erl_eval:expr_list(Es, Bs, Lf, Ef).
 
 %% Note that a sequence number is used here to make sure that if a
 %% record is used by another record, then the first record is parsed
@@ -1321,9 +1297,6 @@ list_commands([_D|Ds], RT) ->
     list_commands(Ds, RT);
 list_commands([], _RT) -> ok.
 
-list_bindings([{{module,M},Val}|Bs], RT) ->
-    io:fwrite(<<"~w is ~w\n">>, [M,Val]),
-    list_bindings(Bs, RT);
 list_bindings([{Name,Val}|Bs], RT) ->
     case erl_eval:fun_data(Val) of
         {fun_data,_FBs,FCs0} ->
