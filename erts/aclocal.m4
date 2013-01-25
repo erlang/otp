@@ -1,7 +1,7 @@
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2012. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2013. All Rights Reserved.
 dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
