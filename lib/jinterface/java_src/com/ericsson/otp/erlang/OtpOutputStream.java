@@ -142,19 +142,37 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	super.buf[super.count++] = b;
     }
 
-    /**
-     * Write an array of bytes to the stream.
-     * 
-     * @param buf
-     *            the array of bytes to write.
-     * 
+    /* (non-Javadoc)
+     * @see java.io.ByteArrayOutputStream#write(byte[])
      */
-
     @Override
     public void write(final byte[] buf) {
-	ensureCapacity(super.count + buf.length);
-	System.arraycopy(buf, 0, super.buf, super.count, buf.length);
-	super.count += buf.length;
+	// don't assume that super.write(byte[]) calls write(buf, 0, buf.length)
+	write(buf, 0, buf.length);
+    }
+
+    /* (non-Javadoc)
+     * @see java.io.ByteArrayOutputStream#write(int)
+     */
+    @Override
+    public synchronized void write(int b) {
+	ensureCapacity(super.count + 1);
+	super.buf[super.count] = (byte) b;
+	count += 1;
+    }
+
+    /* (non-Javadoc)
+     * @see java.io.ByteArrayOutputStream#write(byte[], int, int)
+     */
+    @Override
+    public synchronized void write(byte[] b, int off, int len) {
+	if ((off < 0) || (off > b.length) || (len < 0)
+		|| ((off + len) - b.length > 0)) {
+	    throw new IndexOutOfBoundsException();
+	}
+	ensureCapacity(super.count + len);
+	System.arraycopy(b, off, super.buf, super.count, len);
+	super.count += len;
     }
 
     /**
