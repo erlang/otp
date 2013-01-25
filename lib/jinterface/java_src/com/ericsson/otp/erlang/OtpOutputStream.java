@@ -773,10 +773,8 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	final OtpOutputStream oos = new OtpOutputStream(o);
 	write1(OtpExternal.compressedTag);
 	write4BE(oos.size());
-	final java.io.FilterOutputStream fos = new java.io.FilterOutputStream(
-		this);
 	final java.util.zip.DeflaterOutputStream dos = new java.util.zip.DeflaterOutputStream(
-		fos);
+		this);
 	try {
 	    oos.writeTo(dos);
 	    dos.close();
