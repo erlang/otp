@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -130,10 +130,18 @@ treeCtrl(Config) ->
     wxWindow:setSizerAndFit(Panel, Sizer),
     wxFrame:show(Frame),
 
+    ok = wxTreeCtrl:expand(Tree, Root),
     ?m([], wxTreeCtrl:getItemData(Tree, Root)),
     ?m({data,item1}, wxTreeCtrl:getItemData(Tree, Item1)),
     ?m({data,item2}, wxTreeCtrl:getItemData(Tree, Item2)),
     ?m({data,item3}, wxTreeCtrl:getItemData(Tree, Item3)),
+
+    {true, {X0,Y0,W0,H0}} = ?m({_,_},wxTreeCtrl:getBoundingRect(Tree, Item1, [{textOnly, true}])),
+    ?m({true, {_,Y1,_,_}} when Y1 > Y0, wxTreeCtrl:getBoundingRect(Tree, Item2)),
+    ?m({Item1, _}, wxTreeCtrl:hitTest(Tree, {X0+W0 div 2, Y0+H0 div 2})),
+    ?m(true, wxTreeCtrl:isTreeItemIdOk(Item1)),
+    ?m({0, _}, wxTreeCtrl:hitTest(Tree, {X0+W0 div 2, Y0+H0+H0})),
+    ?m(false, wxTreeCtrl:isTreeItemIdOk(0)),
 
     wxFrame:connect(Tree, command_tree_item_expanded),
     wxFrame:connect(Tree, command_tree_item_collapsed),

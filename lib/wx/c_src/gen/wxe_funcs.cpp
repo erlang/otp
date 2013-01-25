@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -18687,15 +18687,11 @@ case wxTreeCtrl_Expand: { // wxTreeCtrl::Expand
  break;
 }
 case wxTreeCtrl_GetBoundingRect: { // wxTreeCtrl::GetBoundingRect
+ wxRect rect;
  bool textOnly=false;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
  wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
- int * rectX = (int *) bp; bp += 4;
- int * rectY = (int *) bp; bp += 4;
- int * rectW = (int *) bp; bp += 4;
- int * rectH = (int *) bp; bp += 4;
- wxRect rect = wxRect(*rectX,*rectY,*rectW,*rectH);
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  textOnly = *(bool *) bp; bp += 4;
@@ -18704,6 +18700,8 @@ case wxTreeCtrl_GetBoundingRect: { // wxTreeCtrl::GetBoundingRect
  if(!This) throw wxe_badarg(0);
  bool Result = This->GetBoundingRect(item,rect,textOnly);
  rt.addBool(Result);
+ rt.add(rect);
+ rt.addTupleCount(2);
  break;
 }
 case wxTreeCtrl_GetChildrenCount: { // wxTreeCtrl::GetChildrenCount
@@ -18937,13 +18935,16 @@ case wxTreeCtrl_GetStateImageList: { // wxTreeCtrl::GetStateImageList
  break;
 }
 case wxTreeCtrl_HitTest: { // wxTreeCtrl::HitTest
+ int flags;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
  int * pointX = (int *) bp; bp += 4;
  int * pointY = (int *) bp; bp += 4;
  wxPoint point = wxPoint(*pointX,*pointY);
  if(!This) throw wxe_badarg(0);
- wxTreeItemId Result = This->HitTest(point);
+ wxTreeItemId Result = This->HitTest(point,flags);
  rt.add((wxUIntPtr *) Result.m_pItem);
+ rt.addInt(flags);
+ rt.addTupleCount(2);
  break;
 }
 case wxTreeCtrl_InsertItem: { // wxTreeCtrl::InsertItem
@@ -19016,6 +19017,13 @@ case wxTreeCtrl_ItemHasChildren: { // wxTreeCtrl::ItemHasChildren
  wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  bool Result = This->ItemHasChildren(item);
+ rt.addBool(Result);
+ break;
+}
+
+case wxTreeCtrl_IsTreeItemIdOk: { // wxTreeCtrl::IsTreeItemIdOk
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
+ bool Result = item.IsOk();
  rt.addBool(Result);
  break;
 }
