@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -6663,7 +6663,7 @@ otp_7714(Config) when is_list(Config) ->
                            {A,I1} <- ets:table(E1),
                            {B,I2} <- ets:table(E2),
                            I1 =:= I2],{join,merge}),
-             [{a,1},{a,2},{a,3}] = qlc:e(Q),
+             [{a,1},{a,2},{a,3}] = lists:sort(qlc:e(Q)),
              ets:delete(E1),
              ets:delete(E2)">>],
     ?line run(Config, Ts).
@@ -6728,7 +6728,7 @@ otp_6674(Config) when is_list(Config) ->
                      [{join,lookup}]}}],
             []} = qlc:info(Q, {format,debug}),
           {0,1,0,0} = join_info(Q),
-          [{1.0,1},{2,2}] = qlc:e(Q),
+          [{1.0,1},{2,2}] = lists:sort(qlc:e(Q)),
           ets:delete(E1), 
           ets:delete(E2)">>,
        <<"E1 = ets:new(join, [ordered_set]),
