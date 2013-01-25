@@ -186,6 +186,7 @@ main(int argc, char** argv)
      */
 
     PUSH("+sbtu");
+    PUSH("+A0");
     PUSH("-noinput");
     PUSH2("-mode", "minimal");
     PUSH2("-boot", "start_clean");
