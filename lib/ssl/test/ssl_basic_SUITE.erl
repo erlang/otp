@@ -2955,7 +2955,7 @@ erlang_ssl_receive(Socket, Data) ->
 	    erlang_ssl_receive(Socket, tl(Data));
 	Other ->
 	    ct:fail({unexpected_message, Other})
-    after ?SLEEP * 3 ->
+    after ?SLEEP * 3 *  test_server:timetrap_scale_factor() ->
 	    ct:fail({did_not_get, Data})
     end.
 
