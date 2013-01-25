@@ -5364,11 +5364,12 @@ do_uri_encode([Char|Chars]) ->
 do_uri_encode([]) ->
     [].
 
-%% Copied from http_uri.erl
+%% Copied from http_uri.erl, but slightly modified
+%% (not converting @ and :)
 reserved() ->
-    sets:from_list([$;, $:, $@, $&, $=, $+, $,, $/, $?,
+    sets:from_list([$;, $&, $=, $+, $,, $/, $?,
 		    $#, $[, $], $<, $>, $\", ${, $}, $|,
-			       $\\, $', $^, $%, $ ]).
+                    $\\, $', $^, $%, $ ]).
 
 encoding(File) ->
     case epp:read_encoding(File) of
