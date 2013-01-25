@@ -389,16 +389,16 @@ static void smp_code_ix_commiter(void* null)
     Process* p = commiter_state.stager;
 
     erts_commit_staging_code_ix();
+#ifdef DEBUG
+    commiter_state.stager = NULL;
+#endif
+    erts_release_code_write_permission();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     if (!ERTS_PROC_IS_EXITING(p)) {
 	erts_resume(p, ERTS_PROC_LOCK_STATUS);
     }
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     erts_smp_proc_dec_refc(p);
-#ifdef DEBUG
-    commiter_state.stager = NULL;
-#endif
-    erts_release_code_write_permission();
 }
 #endif /* ERTS_SMP */
 
