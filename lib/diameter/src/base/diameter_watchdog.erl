@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -68,11 +68,12 @@
 %% that a failed capabilities exchange produces the desired exit
 %% reason.
 
--spec start(Type, {RecvData, [Opt], SvcName, #diameter_service{}})
+-spec start(Type, {RecvData, [Opt], SvcName, SvcOpts, #diameter_service{}})
    -> {reference(), pid()}
  when Type :: {connect|accept, diameter:transport_ref()},
       RecvData :: term(),
       Opt :: diameter:transport_opt(),
+      SvcOpts :: [diameter:service_opt()],
       SvcName :: diameter:service_name().
 
 start({_,_} = Type, T) ->
@@ -107,23 +108,20 @@ i({Ref, {_, Pid, _} = T}) ->
             make_state(T);
         {'DOWN', MRef, process, _, _} = D ->
             exit({shutdown, D})
-    end;
-
-i({_, Pid, _} = T) ->  %% from old code
-    erlang:monitor(process, Pid),
-    make_state(T).
+    end.
 
 make_state({T, Pid, {RecvData,
                      Opts,
                      SvcName,
+                     SvcOpts,
                      #diameter_service{applications = Apps,
                                        capabilities = Caps}
                      = Svc}}) ->
     random:seed(now()),
     putr(restart, {T, Opts, Svc}),  %% save seeing it in trace
     putr(dwr, dwr(Caps)),           %%
-    {_,_} = Mask = call(Pid, sequence),
-    Restrict = call(Pid, restriction),
+    {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
+    Restrict = proplists:get_value(restrict_connections, SvcOpts),
     Nodes = restrict_nodes(Restrict),
     #watchdog{parent = Pid,
               transport = monitor(diameter_peer_fsm:start(T,
@@ -135,10 +133,6 @@ make_state({T, Pid, {RecvData,
               message_data = {RecvData, SvcName, Apps, Mask},
               sequence = Mask,
               restrict = {Restrict, lists:member(node(), Nodes)}}.
-
-%% Retrieve the sequence mask from the parent from the parent, rather
-%% than having it passed into init/1, for upgrade reasons: the call to
-%% diameter_service:receive_message/3 passes back the mask.
 
 %% handle_call/3
 
@@ -341,15 +335,6 @@ transition({state, Pid}, #watchdog{status = S}) ->
     ok.
 
 %% ===========================================================================
-
-%% Only call "upwards", to the parent service.
-call(Pid, Req) ->
-    try
-        gen_server:call(Pid, Req, infinity)
-    catch
-        exit: Reason ->
-            exit({shutdown, {Req, Reason}})
-    end.
 
 monitor(Pid) ->
     erlang:monitor(process, Pid),

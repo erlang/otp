@@ -54,6 +54,7 @@ significant.
 <!ENTITY mod_evaluable '<seealso marker="diameter#evaluable">diameter:evaluable()</seealso>'>
 <!ENTITY mod_peer_filter '<seealso marker="diameter#peer_filter">diameter:peer_filter()</seealso>'>
 <!ENTITY mod_service_event '<seealso marker="diameter#service_event">diameter:service_event()</seealso>'>
+<!ENTITY mod_service_event_info '<seealso marker="diameter#service_event_info">diameter:service_event_info()</seealso>'>
 <!ENTITY mod_service_name '<seealso marker="diameter#service_name">diameter:service_name()</seealso>'>
 <!ENTITY mod_service_opt '<seealso marker="diameter#service_opt">diameter:service_opt()</seealso>'>
 <!ENTITY mod_transport_opt '<seealso marker="diameter#transport_opt">diameter:transport_opt()</seealso>'>

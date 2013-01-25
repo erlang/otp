@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,9 +32,6 @@
          close/1,
          abort/1,
          notify/2]).
-
-%% Old interface only called from old code.
--export([start/3]).  %% < diameter-1.2 (R15B02)
 
 %% Server start.
 -export([start_link/0]).
@@ -71,14 +68,6 @@
 
 notify(SvcName, T) ->
     rpc:abcast(nodes(), ?SERVER, {notify, SvcName, T}).
-
-%%% ---------------------------------------------------------------------------
-%%% # start/3
-%%% ---------------------------------------------------------------------------
-
-%% From old code: make it restart.
-start(_T, _Opts, #diameter_service{}) ->
-    {error, restart}.
 
 %%% ---------------------------------------------------------------------------
 %%% # start/1

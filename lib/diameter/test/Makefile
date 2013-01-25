@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2012. All Rights Reserved.
+# Copyright Ericsson AB 2010-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -62,16 +62,14 @@ ERL_COMPILE_FLAGS += +warn_export_vars \
 # Targets
 # ----------------------------------------------------
 
+all debug opt: $(TARGET_FILES)
+
 # Require success ...
-all: opt
+run: $(SUITES)
 
 # ... or not.
 any: opt
 	$(MAKE) -i $(SUITES)
-
-run: $(SUITES)
-
-debug opt: $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES) 
@@ -101,7 +99,10 @@ help:
 	@echo "        Compile all test suites."
 	@echo
 	@echo "    run:"
-	@echo "        Compile and run all test suites."
+	@echo "        Compile and run all test suites, stop on failure."
+	@echo
+	@echo "    any:"
+	@echo "        Compile and run all test suites, ignore any failures."
 	@echo
 	@echo "    $(SUITES):"
 	@echo "        Compile and run a specific test suite."
