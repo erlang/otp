@@ -969,7 +969,7 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
     if (pbt == 0) {
 	/* First call of process to instrumented function */
 	pbt = Alloc(sizeof(process_breakpoint_time_t));
-	(void *) ERTS_PROC_SET_CALL_TIME(c_p, ERTS_PROC_LOCK_MAIN, pbt);
+	(void) ERTS_PROC_SET_CALL_TIME(c_p, ERTS_PROC_LOCK_MAIN, pbt);
     } else {
 	ASSERT(pbt->pc);
 	/* add time to previous code */

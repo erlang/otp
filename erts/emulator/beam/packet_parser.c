@@ -460,11 +460,9 @@ int packet_get_length(enum PacketParseType htype,
         hp = (struct tpkt_head*) ptr;
         if (hp->vrsn == TPKT_VRSN) {
             plen = get_int16(hp->packet_length) - hlen;
-            if (plen < 0)
-                goto error;
-        }
-        else
+        } else {
             goto error;
+	}
         goto remain;
     }
     

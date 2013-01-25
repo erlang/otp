@@ -2550,9 +2550,9 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     /* By setting dist_entry==erts_this_dist_entry and DISTRIBUTION on
        net_kernel do_net_exist will be called when net_kernel
        is terminated !! */
-    (void *) ERTS_PROC_SET_DIST_ENTRY(net_kernel,
-				      ERTS_PROC_LOCK_MAIN,
-				      erts_this_dist_entry);
+    (void) ERTS_PROC_SET_DIST_ENTRY(net_kernel,
+				    ERTS_PROC_LOCK_MAIN,
+				    erts_this_dist_entry);
     erts_refc_inc(&erts_this_dist_entry->refc, 2);
     net_kernel->flags |= F_DISTRIBUTION;
 

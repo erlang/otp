@@ -13,6 +13,7 @@
 #  include "config.h"
 #endif
 #include <stdio.h>
+#include <string.h> /* ssize_t on Mac OS X */
 #include <errno.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -314,7 +315,7 @@ local int get_byte(s)
     if (s->z_eof) return EOF;
     if (s->stream.avail_in == 0) {
 #ifdef UNIX
-	size_t res;
+	ssize_t res;
 	errno = 0;
 	res = ERTS_GZREAD(s->file, s->inbuf, Z_BUFSIZE);
 	if (res == 0) {
@@ -487,7 +488,7 @@ erts_gzread(gzFile file, voidp buf, unsigned len)
 	}
         if (s->stream.avail_in == 0 && !s->z_eof) {
 #ifdef UNIX
-	    size_t res;
+	    ssize_t res;
 	    errno = 0;
 	    res = ERTS_GZREAD(s->file, s->inbuf, Z_BUFSIZE);
 	    if (res == 0) {

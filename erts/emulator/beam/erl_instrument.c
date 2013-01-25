@@ -775,8 +775,8 @@ Eterm erts_instr_get_memory_map(Process *proc)
     ASSERT(hp + 3 == end_hp);
 
     if (mem_anchor) {
-	for (bp = mem_anchor; bp->next; bp = bp->next);
-
+	for (bp = mem_anchor; bp->next; bp = bp->next)
+	    ;
 	ASSERT(org_mem_anchor);
 	org_mem_anchor->prev = bp; 
 	bp->next = org_mem_anchor;

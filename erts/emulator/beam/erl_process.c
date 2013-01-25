@@ -4270,6 +4270,7 @@ erts_early_init_scheduling(int no_schedulers)
 int
 erts_sched_set_wakeup_other_thresold(char *str)
 {
+#ifdef ERTS_SMP
     ErtsSchedWakeupOtherThreshold threshold;
     if (sys_strcmp(str, "very_high") == 0)
 	threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_VERY_HIGH;
@@ -4283,16 +4284,23 @@ erts_sched_set_wakeup_other_thresold(char *str)
 	threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_VERY_LOW;
     else
 	return EINVAL;
-#ifdef ERTS_SMP
     wakeup_other.threshold = threshold;
     set_wakeup_other_data();
-#endif
     return 0;
+#else
+    if (sys_strcmp(str, "very_high") == 0 || sys_strcmp(str, "high") == 0 ||
+	sys_strcmp(str, "medium") == 0 || sys_strcmp(str, "low") == 0 ||
+	sys_strcmp(str, "very_low") == 0) {
+	return 0;
+    } 
+    return EINVAL;
+#endif
 }
 
 int
 erts_sched_set_wakeup_other_type(char *str)
 {
+#ifdef ERTS_SMP
     ErtsSchedWakeupOtherType type;
     if (sys_strcmp(str, "default") == 0)
 	type = ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT;
@@ -4300,10 +4308,15 @@ erts_sched_set_wakeup_other_type(char *str)
 	type = ERTS_SCHED_WAKEUP_OTHER_TYPE_LEGACY;
     else
 	return EINVAL;
-#ifdef ERTS_SMP
     wakeup_other.type = type;
-#endif
     return 0;
+#else
+    if (sys_strcmp(str, "proposal") == 0 || sys_strcmp(str, "default") == 0 ||
+	sys_strcmp(str, "legacy") == 0) {
+	return 0;
+    } 
+    return EINVAL;
+#endif
 }
 
 int

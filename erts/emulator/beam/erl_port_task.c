@@ -282,11 +282,16 @@ busy_wait_move_to_busy_queue(Port *pp, ErtsPortTask *ptp)
     }
     else {
 	int i;
+#ifdef DEBUG
 	erts_aint32_t flags;
-
+#endif
 	pp->sched.taskq.local.busy.first = ptp;
-	flags = erts_smp_atomic32_read_bor_nob(&pp->sched.flags,
-					       ERTS_PTS_FLG_HAVE_BUSY_TASKS);
+
+#ifdef DEBUG
+	flags = 
+#endif
+	    erts_smp_atomic32_read_bor_nob(&pp->sched.flags,
+					   ERTS_PTS_FLG_HAVE_BUSY_TASKS);
 	ASSERT(!(flags & ERTS_PTS_FLG_HAVE_BUSY_TASKS));
 
 	ASSERT(!tabp);
@@ -1220,15 +1225,14 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 void
 erts_port_task_abort_nosuspend_tasks(Port *pp)
 {
-    erts_aint32_t flags;
     ErtsPortTaskHandleList *abort_list;
 #ifdef ERTS_SMP
     ErtsThrPrgrDelayHandle dhndl = ERTS_THR_PRGR_DHANDLE_INVALID;
 #endif
 
     erts_port_task_sched_lock(&pp->sched);
-    flags = erts_smp_atomic32_read_band_nob(&pp->sched.flags,
-					    ~ERTS_PTS_FLG_HAVE_NS_TASKS);
+    erts_smp_atomic32_read_band_nob(&pp->sched.flags,
+				    ~ERTS_PTS_FLG_HAVE_NS_TASKS);
     abort_list = pp->sched.taskq.local.busy.nosuspend;
     pp->sched.taskq.local.busy.nosuspend = NULL;
     erts_port_task_sched_unlock(&pp->sched);
