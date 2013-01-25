@@ -136,8 +136,6 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 
 format_error(undefined_module) ->
     "no module definition";
-format_error({bad_module_name, M}) ->
-    io_lib:format("bad module name '~s'", [M]);
 format_error(redefine_module) ->
     "redefining module";
 format_error(pmod_unsupported) ->
