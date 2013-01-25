@@ -1,2 +1,0 @@
-
-comm_layer.erl:76: Invalid type specification for function 'comm_layer_dir.comm_layer':this/0. The success typing is () -> {_,integer(),pid()}
