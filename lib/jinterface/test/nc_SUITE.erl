@@ -188,7 +188,10 @@ decompress_roundtrip(doc) -> [];
 decompress_roundtrip(suite) -> [];
 decompress_roundtrip(Config) when is_list(Config) ->
     Terms =
-	[0.0,
+	[{},
+	 {a,b,c},
+	 [],
+	 0.0,
 	 math:sqrt(2),
 	 <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,31:5>>,
 	 make_ref()],
@@ -206,7 +209,10 @@ compress_roundtrip(doc) -> [];
 compress_roundtrip(suite) -> [];
 compress_roundtrip(Config) when is_list(Config) ->
     Terms =
-	[0.0,
+	[{},
+	 {a,b,c},
+	 [],
+	 0.0,
 	 math:sqrt(2),
 	 <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,31:5>>,
 	 make_ref()],
