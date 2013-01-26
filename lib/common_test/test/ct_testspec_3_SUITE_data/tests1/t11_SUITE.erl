@@ -50,6 +50,9 @@ init_per_suite(Config) ->
 	{incl_join1,[cfg21,cfg11]} -> ok;
 	{incl_join1,[cfg12,cfg11,cfg21]} -> ok;
 	{incl_join2,[cfg21,cfg11,cfg12]} -> ok;
+	{incl_both1,[cfg11]} -> ok;
+	{incl_both2,[cfg11,cfg12,cfg21]} -> ok;
+	{incl_both2,[cfg11]} -> ok;
 	_ -> ok
 
     end,
