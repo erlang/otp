@@ -236,8 +236,6 @@ format_error({illegal_guard_local_call, {F,A}}) ->
     io_lib:format("call to local/imported function ~w/~w is illegal in guard",
 		  [F,A]);
 format_error(illegal_guard_expr) -> "illegal guard expression";
-format_error(deprecated_tuple_fun) ->
-    "tuple funs are deprecated and will be removed in R16";
 %% --- exports ---
 format_error({explicit_export,F,A}) ->
     io_lib:format("in this release, the call to ~w/~w must be written "
