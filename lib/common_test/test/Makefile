@@ -40,6 +40,7 @@ MODULES= \
 	ct_repeat_1_SUITE \
 	ct_testspec_1_SUITE \
 	ct_testspec_2_SUITE \
+	ct_testspec_3_SUITE \
 	ct_skip_SUITE \
 	ct_error_SUITE \
 	ct_test_server_if_1_SUITE \

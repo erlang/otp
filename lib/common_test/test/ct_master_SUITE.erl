@@ -109,7 +109,7 @@ ct_master_test(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    [{TSFile,ok}] = run_test(ct_master_test, FileName, Config),
+    [{[TSFile],ok}] = run_test(ct_master_test, FileName, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
 
@@ -195,12 +195,12 @@ get_log_dir(_,PrivDir,NodeName) ->
 
 run_test(_Name, FileName, Config) ->
     %% run the test twice, using different html versions
-    [{FileName,ok}] = ct_test_support:run({ct_master,run,[FileName]},
-					  [{ct_master,basic_html,[true]}],
-					  Config),
-    [{FileName,ok}] = ct_test_support:run({ct_master,run,[FileName]},
-					  [{ct_master,basic_html,[false]}],
-					  Config).
+    [{[FileName],ok}] = ct_test_support:run({ct_master,run,[FileName]},
+					    [{ct_master,basic_html,[true]}],
+					    Config),
+    [{[FileName],ok}] = ct_test_support:run({ct_master,run,[FileName]},
+					    [{ct_master,basic_html,[false]}],
+					    Config).
 
 reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).

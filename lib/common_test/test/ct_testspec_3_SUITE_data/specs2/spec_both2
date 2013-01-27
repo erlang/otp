@@ -1,0 +1,4 @@
+{specs, separate, "../specs1/flat_spec1"}.
+{specs, join, "../specs2/flat_spec2"}.
+{config, "../config1/cfg12"}.
+

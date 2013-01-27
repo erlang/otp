@@ -530,374 +530,469 @@
   <marker id="test_specifications"></marker>
   <section>
     <title>Test Specifications</title>
-    
-    <p>The most flexible way to specify what to test, is to use a so
-      called test specification. A test specification is a sequence of
-      Erlang terms. The terms are normally declared in a text file (see
-      <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>), but
-      may also be passed to Common Test on the form of a list (see
-      <c><seealso marker="ct#run_testspec-1">ct:run_testspec/1</seealso></c>).
-      There are two general types of terms: configuration terms and test
-      specification terms.</p>
-    <p>With configuration terms it is possible to e.g. label the test
-      run (similar to <c>ct_run -label</c>), evaluate arbitrary expressions
-      before starting the test, import configuration data (similar to
-      <c>ct_run -config/-userconfig</c>), specify the top level HTML log
-      directory (similar to <c>ct_run -logdir</c>), enable code coverage
-      analysis (similar to <c>ct_run -cover</c>), install Common Test Hooks
-      (similar to <c>ct_run -ch_hooks</c>), install event_handler plugins
-      (similar to <c>ct_run -event_handler</c>), specify include directories
-      that should be passed to the compiler for automatic compilation
-      (similar to <c>ct_run -include</c>), disable the auto compilation
-      feature (similar to <c>ct_run -no_auto_compile</c>), set verbosity
-      levels (similar to <c>ct_run -verbosity</c>), and more.</p>
-    <p>Configuration terms can be combined with <c>ct_run</c> start flags,
-      or <c>ct:run_test/1</c> options. The result will for some flags/options
-      and terms be that the values are merged (e.g. configuration files,
-      include directories, verbosity levels, silent connections), and for
-      others that the start flags/options override the test specification
-      terms (e.g. log directory, label, style sheet, auto compilation).</p>
-    <p>With test specification terms it is possible to state exactly
-      which tests should run and in which order. A test term specifies
-      either one or more suites, one or more test case groups (possibly nested),
-      or one or more test cases in a group (or in multiple groups) or in a suite.</p>
-    <p>An arbitrary number of test terms may be declared in sequence.
-      Common Test will by default compile the terms into one or more tests 
-      to be performed in one resulting test run. Note that a term that
-      specifies a set of test cases will "swallow" one that only
-      specifies a subset of these cases. E.g. the result of merging
-      one term that specifies that all cases in suite S should be
-      executed, with another term specifying only test case X and Y in
-      S, is a test of all cases in S. However, if a term specifying
-      test case X and Y in S is merged with a term specifying case Z
-      in S, the result is a test of X, Y and Z in S. To disable this
-      behaviour, i.e. to instead perform each test sequentially in a "script-like"
-      manner, the term <c>merge_tests</c> can be set to <c>false</c> in
-      the test specification.</p>
-    <p>A test term can also specify one or more test suites, groups,
-      or test cases to be skipped. Skipped suites, groups and cases
-      are not executed and show up in the HTML log files as
-      SKIPPED.</p>
-    <p>When a test case group is specified, the resulting test
-      executes the <c>init_per_group</c> function, followed by all test
-      cases and sub groups (including their configuration functions), and
-      finally the <c>end_per_group</c> function. Also if particular
-      test cases in a group are specified, <c>init_per_group</c>
-      and <c>end_per_group</c> for the group in question are
-      called. If a group which is defined (in <c>Suite:group/0</c>) to
-      be a sub group of another group, is specified (or if particular test
-      cases of a sub group are), Common Test will call the configuration
-      functions for the top level groups as well as for the sub group
-      in question (making it possible to pass configuration data all
-      the way from <c>init_per_suite</c> down to the test cases in the
-      sub group).</p>
-    <p>The test specification utilizes the same mechanism for specifying
-      test case groups by means of names and paths, as explained in the
-      <seealso marker="run_test_chapter#group_execution">Group Execution</seealso>
-      section above, with the addition of the <c>GroupSpec</c> element
-      described next.</p>
-    <p>The <c>GroupSpec</c> element makes it possible to specify
-      group execution properties that will override those in the
-      group definition (i.e. in <c>groups/0</c>). Execution properties for
-      sub-groups may be overridden as well. This feature makes it possible to
-      change properties of groups at the time of execution,
-      without even having to edit the test suite. The very same
-      feature is available for <c>group</c> elements in the <c>Suite:all/0</c>
-      list. Therefore, more detailed documentation, and examples, can be
-      found in the <seealso marker="write_test_chapter#test_case_groups">
-      Test case groups</seealso> chapter.</p>
+    <section>
+	<title>General description</title>
+	<p>The most flexible way to specify what to test, is to use a so
+	called test specification. A test specification is a sequence of
+	Erlang terms. The terms are normally declared in one or more text files
+	(see <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>), but
+	may also be passed to Common Test on the form of a list (see
+	<c><seealso marker="ct#run_testspec-1">ct:run_testspec/1</seealso></c>).
+	There are two general types of terms: configuration terms and test
+	specification terms.</p>
+	<p>With configuration terms it is possible to e.g. label the test
+	run (similar to <c>ct_run -label</c>), evaluate arbitrary expressions
+	before starting the test, import configuration data (similar to
+	<c>ct_run -config/-userconfig</c>), specify the top level HTML log
+	directory (similar to <c>ct_run -logdir</c>), enable code coverage
+	analysis (similar to <c>ct_run -cover</c>), install Common Test Hooks
+	(similar to <c>ct_run -ch_hooks</c>), install event_handler plugins
+	(similar to <c>ct_run -event_handler</c>), specify include directories
+	that should be passed to the compiler for automatic compilation
+	(similar to <c>ct_run -include</c>), disable the auto compilation
+	feature (similar to <c>ct_run -no_auto_compile</c>), set verbosity
+	levels (similar to <c>ct_run -verbosity</c>), and more.</p>
+	<p>Configuration terms can be combined with <c>ct_run</c> start flags,
+	or <c>ct:run_test/1</c> options. The result will for some flags/options
+	and terms be that the values are merged (e.g. configuration files,
+	include directories, verbosity levels, silent connections), and for
+	others that the start flags/options override the test specification
+	terms (e.g. log directory, label, style sheet, auto compilation).</p>
+	<p>With test specification terms it is possible to state exactly
+	which tests should run and in which order. A test term specifies
+	either one or more suites, one or more test case groups (possibly nested),
+	or one or more test cases in a group (or in multiple groups) or in a suite.</p>
+	<p>An arbitrary number of test terms may be declared in sequence.
+	Common Test will by default compile the terms into one or more tests 
+	to be performed in one resulting test run. Note that a term that
+	specifies a set of test cases will "swallow" one that only
+	specifies a subset of these cases. E.g. the result of merging
+	one term that specifies that all cases in suite S should be
+	executed, with another term specifying only test case X and Y in
+	S, is a test of all cases in S. However, if a term specifying
+	test case X and Y in S is merged with a term specifying case Z
+	in S, the result is a test of X, Y and Z in S. To disable this
+	behaviour, i.e. to instead perform each test sequentially in a "script-like"
+	manner, the term <c>merge_tests</c> can be set to <c>false</c> in
+	the test specification.</p>
+	<p>A test term can also specify one or more test suites, groups,
+	or test cases to be skipped. Skipped suites, groups and cases
+	are not executed and show up in the HTML log files as
+	SKIPPED.</p>
+    </section>
+    <section>
+        <title>Using multiple test specification files</title>
+	
+	<p>When multiple test specification files are given at startup (either
+	with <c>ct_run -spec file1 file2 ...</c> or 
+	<c>ct:run_test([{spec, [File1,File2,...]}])</c>), 
+	Common Test will either execute one test run per specification file, or
+	join the files and perform all tests within one single test run. The first
+	behaviour is the default one. The latter requires that the start
+	flag/option <c>join_suites</c> is provided, e.g.
+	<c>run_test -spec ./my_tests1.ts ./my_tests2.ts -join_suites</c>.</p>
+	
+	<p>Joining a number of specifications, or running them separately, can
+	also be accomplished with (and may be combined with) test specification
+	file inclusion, described next.</p>
+    </section>
+    <section>
+      <title>Test specification file inclusion</title>
+        <p>With the <c>specs</c> term (see syntax below), it's possible to have
+	a test specification include other specifications. An included
+	specification may either be joined with the source specification,
+	or used to produce a separate test run (like with the <c>join_specs</c>
+	start flag/option above). Example:</p>
+	<pre>
+	%% In specification file "a.spec"
+	{specs, join, ["b.spec", "c.spec"]}.
+	{specs, separate, ["d.spec", "e.spec"]}.
+	%% Config and test terms follow
+	...</pre>
+	<p>In this example, the test terms defined in files "b.spec" and "c.spec"
+	will be joined with the terms in the source specification "a.spec"
+	(if any). The inclusion of specifications "d.spec" and
+	"e.spec" will result in two separate, and independent, test runs (i.e.
+	one for each included specification).</p>
+	<p>Note that the <c>join</c> option does not imply that the test terms
+	will be merged (see <c>merge_tests</c> above), only that all tests are
+	executed in one single test run.</p>
+	<p>Joined specifications share common configuration settings, such as
+	the list of <c>config</c> files or <c>include</c> directories.
+	For configuration that can not be combined, such as settings for <c>logdir</c>
+	or <c>verbosity</c>, it is up to the user to ensure there are no clashes
+	when the test specifications are joined. Specifications included with
+	the <c>separate</c> option, do not share configuration settings with the
+	source specification. This is useful e.g. if there are clashing
+	configuration settings in included specifications, making it impossible
+	to join them.</p>
+	<p>If <c>{merge_tests,true}</c> is set in the source specification
+	(which is the default setting), terms in joined specifications will be
+	merged with terms in the source specification (according to the
+	description of <c>merge_tests</c> above).</p>
+	<p>Note that it is always the <c>merge_tests</c> setting in the source
+	specification that is used when joined with other specifications.
+	Say e.g. that a source specification A, with tests TA1 and TA2, has
+	<c>{merge_tests,false}</c> set, and it includes another specification,
+	B, with tests TB1 and TB2, that has <c>{merge_tests,true}</c> set.
+	The result will be that the test series: <c>TA1,TA2,merge(TB1,TB2)</c>,
+	is executed. The opposite <c>merge_tests</c> settings would result in the
+	following the test series: <c>merge(merge(TA1,TA2),TB1,TB2)</c>.</p>
+	<p>The <c>specs</c> term may of course be used to nest specifications,
+	i.e. have one specification include other specifications, which in turn
+	include others, etc.</p>
+    </section>
+      <section>
+	<title>Test case groups</title>
 
-    <p>Below is the test specification syntax. Test specifications can
-      be used to run tests both in a single test host environment and
-      in a distributed Common Test environment (Large Scale
-      Testing). The node parameters in the <c>init</c> term are only
-      relevant in the latter (see the
-      <seealso marker="ct_master_chapter#test_specifications">Large
-      Scale Testing</seealso> chapter for information). For more information
-      about the various terms, please see the corresponding sections in the
-      User's Guide, such as e.g. the
-      <seealso marker="run_test_chapter#ct_run"><c>ct_run</c>
-      program</seealso> for an overview of available start flags
-      (since most flags have a corresponding configuration term), and
-      more detailed explanation of e.g.
-      <seealso marker="write_test_chapter#logging">Logging</seealso>
-      (for the <c>verbosity</c>, <c>stylesheet</c> and <c>basic_html</c> terms),
-      <seealso marker="config_file_chapter#top">External Configuration Data</seealso>
-      (for the <c>config</c> and <c>userconfig</c> terms),      
-      <seealso marker="event_handler_chapter#event_handling">Event
-      Handling</seealso> (for the <c>event_handler</c> term),
-      <seealso marker="ct_hooks_chapter#installing">Common Test Hooks</seealso>
-      (for the <c>ct_hooks</c> term), etc.</p>
+	<p>When a test case group is specified, the resulting test
+	executes the <c>init_per_group</c> function, followed by all test
+	cases and sub groups (including their configuration functions), and
+	finally the <c>end_per_group</c> function. Also if particular
+	test cases in a group are specified, <c>init_per_group</c>
+	and <c>end_per_group</c> for the group in question are
+	called. If a group which is defined (in <c>Suite:group/0</c>) to
+	be a sub group of another group, is specified (or if particular test
+	cases of a sub group are), Common Test will call the configuration
+	functions for the top level groups as well as for the sub group
+	in question (making it possible to pass configuration data all
+	the way from <c>init_per_suite</c> down to the test cases in the
+	sub group).</p>
+	<p>The test specification utilizes the same mechanism for specifying
+	test case groups by means of names and paths, as explained in the
+	<seealso marker="run_test_chapter#group_execution">Group Execution</seealso>
+	section above, with the addition of the <c>GroupSpec</c> element
+	described next.</p>
+	<p>The <c>GroupSpec</c> element makes it possible to specify
+	group execution properties that will override those in the
+	group definition (i.e. in <c>groups/0</c>). Execution properties for
+	sub-groups may be overridden as well. This feature makes it possible to
+	change properties of groups at the time of execution,
+	without even having to edit the test suite. The very same
+	feature is available for <c>group</c> elements in the <c>Suite:all/0</c>
+	list. Therefore, more detailed documentation, and examples, can be
+	found in the <seealso marker="write_test_chapter#test_case_groups">
+	Test case groups</seealso> chapter.</p>
+      </section>
+
+      <section>
+	<title>Test specification syntax</title>
+
+	<p>Below is the test specification syntax. Test specifications can
+	be used to run tests both in a single test host environment and
+	in a distributed Common Test environment (Large Scale
+	Testing). The node parameters in the <c>init</c> term are only
+	relevant in the latter (see the
+	<seealso marker="ct_master_chapter#test_specifications">Large
+	Scale Testing</seealso> chapter for information). For more information
+	about the various terms, please see the corresponding sections in the
+	User's Guide, such as e.g. the
+	<seealso marker="run_test_chapter#ct_run"><c>ct_run</c>
+	program</seealso> for an overview of available start flags
+	(since most flags have a corresponding configuration term), and
+	more detailed explanation of e.g.
+	<seealso marker="write_test_chapter#logging">Logging</seealso>
+	(for the <c>verbosity</c>, <c>stylesheet</c> and <c>basic_html</c> terms),
+	<seealso marker="config_file_chapter#top">External Configuration Data</seealso>
+	(for the <c>config</c> and <c>userconfig</c> terms),      
+	<seealso marker="event_handler_chapter#event_handling">Event
+	Handling</seealso> (for the <c>event_handler</c> term),
+	<seealso marker="ct_hooks_chapter#installing">Common Test Hooks</seealso>
+	(for the <c>ct_hooks</c> term), etc.</p>
+      </section>
+
       <p>Config terms:</p>
-    <pre>
-      {merge_tests, Bool}.
-
-      {define, Constant, Value}.
-
-      {node, NodeAlias, Node}.
-
-      {init, InitOptions}.
-      {init, [NodeAlias], InitOptions}.
-
-      {label, Label}.
-      {label, NodeRefs, Label}.
-
-      {verbosity, VerbosityLevels}.
-      {verbosity, NodeRefs, VerbosityLevels}.
-
-      {stylesheet, CSSFile}.
-      {stylesheet, NodeRefs, CSSFile}.
-
-      {silent_connections, ConnTypes}.
-      {silent_connections, NodeRefs, ConnTypes}.
-
-      {multiply_timetraps, N}.
-      {multiply_timetraps, NodeRefs, N}.
-
-      {scale_timetraps, Bool}.
-      {scale_timetraps, NodeRefs, Bool}.
- 
-      {cover, CoverSpecFile}.
-      {cover, NodeRefs, CoverSpecFile}.
-      
-      {cover_stop, Bool}.
-      {cover_stop, NodeRefs, Bool}.
-
-      {include, IncludeDirs}.
-      {include, NodeRefs, IncludeDirs}.
-
-      {auto_compile, Bool},
-      {auto_compile, NodeRefs, Bool},
-
-      {config, ConfigFiles}.
-      {config, ConfigDir, ConfigBaseNames}.
-      {config, NodeRefs, ConfigFiles}.
-      {config, NodeRefs, ConfigDir, ConfigBaseNames}.
-
-      {userconfig, {CallbackModule, ConfigStrings}}.
-      {userconfig, NodeRefs, {CallbackModule, ConfigStrings}}.
-      
-      {logdir, LogDir}.                                        
-      {logdir, NodeRefs, LogDir}.
-
-      {logopts, LogOpts}.
-      {logopts, NodeRefs, LogOpts}.
-
-      {create_priv_dir, PrivDirOption}.
-      {create_priv_dir, NodeRefs, PrivDirOption}.
-      
-      {event_handler, EventHandlers}.
-      {event_handler, NodeRefs, EventHandlers}.
-      {event_handler, EventHandlers, InitArgs}.
-      {event_handler, NodeRefs, EventHandlers, InitArgs}.
-
-      {ct_hooks, CTHModules}.
-      {ct_hooks, NodeRefs, CTHModules}.
-
-      {enable_builtin_hooks, Bool}.
-      
-      {basic_html, Bool}.
-      {basic_html, NodeRefs, Bool}.
-
-      {release_shell, Bool}.</pre>
-
+      <pre>
+	{merge_tests, Bool}.
+	
+	{define, Constant, Value}.
+	
+	{specs, InclSpecsOption, TestSpecs}.
+	
+	{node, NodeAlias, Node}.
+	
+	{init, InitOptions}.
+	{init, [NodeAlias], InitOptions}.
+	
+	{label, Label}.
+	{label, NodeRefs, Label}.
+	
+	{verbosity, VerbosityLevels}.
+	{verbosity, NodeRefs, VerbosityLevels}.
+	
+	{stylesheet, CSSFile}.
+	{stylesheet, NodeRefs, CSSFile}.
+	
+	{silent_connections, ConnTypes}.
+	{silent_connections, NodeRefs, ConnTypes}.
+	
+	{multiply_timetraps, N}.
+	{multiply_timetraps, NodeRefs, N}.
+	
+	{scale_timetraps, Bool}.
+	{scale_timetraps, NodeRefs, Bool}.
+	
+	{cover, CoverSpecFile}.
+	{cover, NodeRefs, CoverSpecFile}.
+	
+	{cover_stop, Bool}.
+	{cover_stop, NodeRefs, Bool}.
+	
+	{include, IncludeDirs}.
+	{include, NodeRefs, IncludeDirs}.
+	
+	{auto_compile, Bool},
+	{auto_compile, NodeRefs, Bool},
+	
+	{config, ConfigFiles}.
+	{config, ConfigDir, ConfigBaseNames}.
+	{config, NodeRefs, ConfigFiles}.
+	{config, NodeRefs, ConfigDir, ConfigBaseNames}.
+	
+	{userconfig, {CallbackModule, ConfigStrings}}.
+	{userconfig, NodeRefs, {CallbackModule, ConfigStrings}}.
+	
+	{logdir, LogDir}.                                        
+	{logdir, NodeRefs, LogDir}.
+	
+	{logopts, LogOpts}.
+	{logopts, NodeRefs, LogOpts}.
+	
+	{create_priv_dir, PrivDirOption}.
+	{create_priv_dir, NodeRefs, PrivDirOption}.
+	
+	{event_handler, EventHandlers}.
+	{event_handler, NodeRefs, EventHandlers}.
+	{event_handler, EventHandlers, InitArgs}.
+	{event_handler, NodeRefs, EventHandlers, InitArgs}.
+	
+	{ct_hooks, CTHModules}.
+	{ct_hooks, NodeRefs, CTHModules}.
+	
+	{enable_builtin_hooks, Bool}.
+	
+	{basic_html, Bool}.
+	{basic_html, NodeRefs, Bool}.
+	
+        {release_shell, Bool}.</pre>
+	
       <p>Test terms:</p>
-    <pre>
-      {suites, Dir, Suites}.                                
-      {suites, NodeRefs, Dir, Suites}.
-      
-      {groups, Dir, Suite, Groups}.
-      {groups, NodeRefs, Dir, Suite, Groups}.
-
-      {groups, Dir, Suite, Groups, {cases,Cases}}.
-      {groups, NodeRefs, Dir, Suite, Groups, {cases,Cases}}.
-
-      {cases, Dir, Suite, Cases}.                           
-      {cases, NodeRefs, Dir, Suite, Cases}.
-
-      {skip_suites, Dir, Suites, Comment}.
-      {skip_suites, NodeRefs, Dir, Suites, Comment}.
-
-      {skip_groups, Dir, Suite, GroupNames, Comment}.
-      {skip_groups, NodeRefs, Dir, Suite, GroupNames, Comment}.
-      
-      {skip_cases, Dir, Suite, Cases, Comment}.
-      {skip_cases, NodeRefs, Dir, Suite, Cases, Comment}.</pre>
-
+      <pre>
+	{suites, Dir, Suites}.                                
+	{suites, NodeRefs, Dir, Suites}.
+	
+	{groups, Dir, Suite, Groups}.
+	{groups, NodeRefs, Dir, Suite, Groups}.
+	
+	{groups, Dir, Suite, Groups, {cases,Cases}}.
+	{groups, NodeRefs, Dir, Suite, Groups, {cases,Cases}}.
+	
+	{cases, Dir, Suite, Cases}.                           
+	{cases, NodeRefs, Dir, Suite, Cases}.
+	
+	{skip_suites, Dir, Suites, Comment}.
+	{skip_suites, NodeRefs, Dir, Suites, Comment}.
+	
+	{skip_groups, Dir, Suite, GroupNames, Comment}.
+	{skip_groups, NodeRefs, Dir, Suite, GroupNames, Comment}.
+	
+	{skip_cases, Dir, Suite, Cases, Comment}.
+        {skip_cases, NodeRefs, Dir, Suite, Cases, Comment}.</pre>
+	
       <p>Types:</p>
-    <pre>
-      Bool            = true | false
-      Constant        = atom()
-      Value           = term()
-      NodeAlias       = atom()
-      Node            = node()
-      NodeRef         = NodeAlias | Node | master
-      NodeRefs        = all_nodes | [NodeRef] | NodeRef
-      InitOptions     = term()
-      Label           = atom() | string()
-      VerbosityLevels = integer() | [{Category,integer()}]
-      Category        = atom()
-      CSSFile         = string()
-      ConnTypes       = all | [atom()]
-      N               = integer()
-      CoverSpecFile   = string()
-      IncludeDirs     = string() | [string()]
-      ConfigFiles     = string() | [string()]
-      ConfigDir       = string()
-      ConfigBaseNames = string() | [string()]
-      CallbackModule  = atom()
-      ConfigStrings   = string() | [string()]
-      LogDir          = string()
-      LogOpts         = [term()]
-      PrivDirOption   = auto_per_run | auto_per_tc | manual_per_tc
-      EventHandlers   = atom() | [atom()]
-      InitArgs        = [term()]
-      CTHModules      = [CTHModule |
-                         {CTHModule, CTHInitArgs} |
-                         {CTHModule, CTHInitArgs, CTHPriority}]
-      CTHModule       = atom()
-      CTHInitArgs     = term()
-      Dir             = string()
-      Suites          = atom() | [atom()] | all
-      Suite           = atom()
-      Groups          = GroupPath | [GroupPath] | GroupSpec | [GroupSpec] | all
-      GroupPath       = [GroupName]
-      GroupSpec       = GroupName | {GroupName,Properties} | {GroupName,Properties,GroupSpec}
-      GroupName       = atom()
-      GroupNames      = GroupName | [GroupName]
-      Cases           = atom() | [atom()] | all
-      Comment         = string() | ""</pre>
+      <pre>
+	Bool            = true | false
+	Constant        = atom()
+	Value           = term()
+	InclSpecsOption = join | separate
+	TestSpecs       = string() | [string()]
+	NodeAlias       = atom()
+	Node            = node()
+	NodeRef         = NodeAlias | Node | master
+	NodeRefs        = all_nodes | [NodeRef] | NodeRef
+	InitOptions     = term()
+	Label           = atom() | string()
+	VerbosityLevels = integer() | [{Category,integer()}]
+	Category        = atom()
+	CSSFile         = string()
+	ConnTypes       = all | [atom()]
+	N               = integer()
+	CoverSpecFile   = string()
+	IncludeDirs     = string() | [string()]
+	ConfigFiles     = string() | [string()]
+	ConfigDir       = string()
+	ConfigBaseNames = string() | [string()]
+	CallbackModule  = atom()
+	ConfigStrings   = string() | [string()]
+	LogDir          = string()
+	LogOpts         = [term()]
+	PrivDirOption   = auto_per_run | auto_per_tc | manual_per_tc
+	EventHandlers   = atom() | [atom()]
+	InitArgs        = [term()]
+	CTHModules      = [CTHModule |
+	                   {CTHModule, CTHInitArgs} |
+	                   {CTHModule, CTHInitArgs, CTHPriority}]
+	CTHModule       = atom()
+	CTHInitArgs     = term()
+	Dir             = string()
+	Suites          = atom() | [atom()] | all
+	Suite           = atom()
+	Groups          = GroupPath | [GroupPath] | GroupSpec | [GroupSpec] | all
+	GroupPath       = [GroupName]
+	GroupSpec       = GroupName | {GroupName,Properties} | {GroupName,Properties,GroupSpec}
+	GroupName       = atom()
+	GroupNames      = GroupName | [GroupName]
+	Cases           = atom() | [atom()] | all
+        Comment         = string() | ""</pre>
 
-    <p>The difference between the <c>config</c> terms above, is that with
-      <c>ConfigDir</c>, <c>ConfigBaseNames</c> is a list of base names,
-      i.e. without directory paths. <c>ConfigFiles</c> must be full names,
-      including paths. E.g, these two terms have the same meaning:</p>
-    <pre>
-      {config, ["/home/testuser/tests/config/nodeA.cfg",
-                "/home/testuser/tests/config/nodeB.cfg"]}.
+       <section>	
+	<p>The difference between the <c>config</c> terms above, is that with
+	<c>ConfigDir</c>, <c>ConfigBaseNames</c> is a list of base names,
+	i.e. without directory paths. <c>ConfigFiles</c> must be full names,
+	including paths. E.g, these two terms have the same meaning:</p>
+	<pre>
+	  {config, ["/home/testuser/tests/config/nodeA.cfg",
+	            "/home/testuser/tests/config/nodeB.cfg"]}.
+	  
+	  {config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.</pre>
 
-      {config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.</pre>
+	  <note><p>Any relative paths specified in the test specification, will be
+	  relative to the directory which contains the test specification file, if
+	  <c>ct_run -spec TestSpecFile ...</c> or
+	  <c>ct:run:test([{spec,TestSpecFile},...])</c>
+	  executes the test. The path will be relative to the top level log directory, if
+	  <c>ct:run:testspec(TestSpec)</c> executes the test.</p></note>	  
+	</section>
 
-    <note><p>Any relative paths specified in the test specification, will be
-	relative to the directory which contains the test specification file, if
-	<c>ct_run -spec TestSpecFile ...</c> or
-	<c>ct:run:test([{spec,TestSpecFile},...])</c>
-	executes the test. The path will be relative to the top level log directory, if
-	<c>ct:run:testspec(TestSpec)</c> executes the test.</p></note>
-      
-    <p>The <c>define</c> term introduces a constant, which is used to
-      replace the name <c>Constant</c> with <c>Value</c>, wherever it's found in
-      the test specification. This replacement happens during an initial iteration
-      through the test specification. Constants may be used anywhere in the test
-      specification, e.g. in arbitrary lists and tuples, and even in strings
-      and inside the value part of other constant definitions! A constant can
-      also be part of a node name, but that is the only place where a constant
-      can be part of an atom.</p>
-    
-    <note><p>For the sake of readability, the name of the constant must always
-	begin with an upper case letter, or a <c>$</c>, <c>?</c>, or <c>_</c>.
-	This also means that it must always be single quoted (obviously, since
-	the constant name is actually an atom, not text).</p></note>
+	<section>
+	  <title>Constants</title>
 
-    <p>The main benefit of constants is that they can be used to reduce the size
-      (and avoid repetition) of long strings, such as file paths. Compare these
-      terms:</p>
+	  <p>The <c>define</c> term introduces a constant, which is used to
+	  replace the name <c>Constant</c> with <c>Value</c>, wherever it's found in
+	  the test specification. This replacement happens during an initial iteration
+	  through the test specification. Constants may be used anywhere in the test
+	  specification, e.g. in arbitrary lists and tuples, and even in strings
+	  and inside the value part of other constant definitions! A constant can
+	  also be part of a node name, but that is the only place where a constant
+	  can be part of an atom.</p>
+	  
+	  <note><p>For the sake of readability, the name of the constant must always
+	  begin with an upper case letter, or a <c>$</c>, <c>?</c>, or <c>_</c>.
+	  This also means that it must always be single quoted (obviously, since
+	  the constant name is actually an atom, not text).</p></note>
+	  
+	  <p>The main benefit of constants is that they can be used to reduce the size
+	  (and avoid repetition) of long strings, such as file paths. Compare these
+	  terms:</p>
+	  
+	  <pre>
+	    %% 1a. no constant
+	    {config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.
+	    {suites, "/home/testuser/tests/suites", all}.
+	    
+	    %% 1b. with constant
+	    {define, 'TESTDIR', "/home/testuser/tests"}.
+	    {config, "'TESTDIR'/config", ["nodeA.cfg","nodeB.cfg"]}.
+	    {suites, "'TESTDIR'/suites", all}.
+	    
+	    %% 2a. no constants
+	    {config, [testnode@host1, testnode@host2], "../config", ["nodeA.cfg","nodeB.cfg"]}.
+	    {suites, [testnode@host1, testnode@host2], "../suites", [x_SUITE, y_SUITE]}.
+	    
+	    %% 2b. with constants
+	    {define, 'NODE', testnode}.
+	    {define, 'NODES', ['NODE'@host1, 'NODE'@host2]}.
+	    {config, 'NODES', "../config", ["nodeA.cfg","nodeB.cfg"]}.
+	    {suites, 'NODES', "../suites", [x_SUITE, y_SUITE]}.</pre>
 
-    <pre>
-      %% 1a. no constant
-      {config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.
-      {suites, "/home/testuser/tests/suites", all}.
-      
-      %% 1b. with constant
-      {define, 'TESTDIR', "/home/testuser/tests"}.
-      {config, "'TESTDIR'/config", ["nodeA.cfg","nodeB.cfg"]}.
-      {suites, "'TESTDIR'/suites", all}.
+	    <p>Constants make the test specification term <c>alias</c>, in previous
+	    versions of Common Test, redundant. This term has been deprecated but will
+	    remain supported in upcoming Common Test releases. Replacing <c>alias</c>
+	    terms with <c>define</c> is strongly recommended though! Here's an example
+	    of such a replacement:</p>
+	    
+	    <pre>
+	      %% using the old alias term
+	      {config, "/home/testuser/tests/config/nodeA.cfg"}.
+	      {alias, suite_dir, "/home/testuser/tests/suites"}.
+	      {groups, suite_dir, x_SUITE, group1}.
+	      
+	      %% replacing with constants
+	      {define, 'TestDir', "/home/testuser/tests"}.
+	      {define, 'CfgDir', "'TestDir'/config"}.
+	      {define, 'SuiteDir', "'TestDir'/suites"}.
+	      {config, 'CfgDir', "nodeA.cfg"}.
+	      {groups, 'SuiteDir', x_SUITE, group1}.</pre>
+	      
+	      <p>Actually, constants could well replace the <c>node</c> term too, but
+	      this still has declarative value, mainly when used in combination
+	      with <c>NodeRefs == all_nodes</c> (see types above).</p>
+	</section>
 
-      %% 2a. no constants
-      {config, [testnode@host1, testnode@host2], "../config", ["nodeA.cfg","nodeB.cfg"]}.
-      {suites, [testnode@host1, testnode@host2], "../suites", [x_SUITE, y_SUITE]}.
+	<section>
+	  <title>Example</title>
+	  
+	  <p>Here follows a simple test specification example:</p>
+	  <pre>
+	    {define, 'Top', "/home/test"}.
+	    {define, 'T1', "'Top'/t1"}.
+	    {define, 'T2', "'Top'/t2"}.
+	    {define, 'T3', "'Top'/t3"}.
+	    {define, 'CfgFile', "config.cfg"}.
+	    
+	    {logdir, "'Top'/logs"}.
+	    
+	    {config, ["'T1'/'CfgFile'", "'T2'/'CfgFile'", "'T3'/'CfgFile'"]}.
+	    
+	    {suites, 'T1', all}.
+	    {skip_suites, 'T1', [t1B_SUITE,t1D_SUITE], "Not implemented"}.
+	    {skip_cases, 'T1', t1A_SUITE, [test3,test4], "Irrelevant"}.
+	    {skip_cases, 'T1', t1C_SUITE, [test1], "Ignore"}.
+	    
+	    {suites, 'T2', [t2B_SUITE,t2C_SUITE]}.
+	    {cases, 'T2', t2A_SUITE, [test4,test1,test7]}.
+	    
+	    {skip_suites, 'T3', all, "Not implemented"}.</pre>
+	  
+	  <p>The example specifies the following:</p>
+	  <list>
+	    <item>The specified logdir directory will be used for storing 
+	    the HTML log files (in subdirectories tagged with node name, 
+	    date and time).</item>
+	    <item>The variables in the specified test system config files will be 
+	    imported for the test.</item>
+	    <item>The first test to run includes all suites for system t1. Excluded from
+	    the test are however the t1B and t1D suites. Also test cases test3 and
+	    test4 in t1A as well as the test1 case in t1C are excluded from
+	    the test.</item>
+	    <item>Secondly, the test for system t2 should run. The included suites are
+	    t2B and t2C. Included are also test cases test4, test1 and test7 in suite
+	    t2A. Note that the test cases will be executed in the specified order.</item>
+	    <item>Lastly, all suites for systems t3 are to be completely skipped and this
+	    should be explicitly noted in the log files.</item>
+	  </list>
+	</section>
 
-      %% 2b. with constants
-      {define, 'NODE', testnode}.
-      {define, 'NODES', ['NODE'@host1, 'NODE'@host2]}.
-      {config, 'NODES', "../config", ["nodeA.cfg","nodeB.cfg"]}.
-      {suites, 'NODES', "../suites", [x_SUITE, y_SUITE]}.</pre>
-
-    <p>Constants make the test specification term <c>alias</c>, in previous
-      versions of Common Test, redundant. This term has been deprecated but will
-      remain supported in upcoming Common Test releases. Replacing <c>alias</c>
-      terms with <c>define</c> is strongly recommended though! Here's an example
-      of such a replacement:</p>
-
-    <pre>
-      %% using the old alias term
-      {config, "/home/testuser/tests/config/nodeA.cfg"}.
-      {alias, suite_dir, "/home/testuser/tests/suites"}.
-      {groups, suite_dir, x_SUITE, group1}.
-
-      %% replacing with constants
-      {define, 'TestDir', "/home/testuser/tests"}.
-      {define, 'CfgDir', "'TestDir'/config"}.
-      {define, 'SuiteDir', "'TestDir'/suites"}.
-      {config, 'CfgDir', "nodeA.cfg"}.
-      {groups, 'SuiteDir', x_SUITE, group1}.</pre>
-
-    <p>Actually, constants could well replace the <c>node</c> term too, but
-      this still has declarative value, mainly when used in combination
-      with <c>NodeRefs == all_nodes</c> (see types above).</p>
-
-    <p>Here follows a simple test specification example:</p>
-    <pre>
-      {define, 'Top', "/home/test"}.
-      {define, 'T1', "'Top'/t1"}.
-      {define, 'T2', "'Top'/t2"}.
-      {define, 'T3', "'Top'/t3"}.
-      {define, 'CfgFile', "config.cfg"}.
-
-      {logdir, "'Top'/logs"}.
-      
-      {config, ["'T1'/'CfgFile'", "'T2'/'CfgFile'", "'T3'/'CfgFile'"]}.
-      
-      {suites, 'T1', all}.
-      {skip_suites, 'T1', [t1B_SUITE,t1D_SUITE], "Not implemented"}.
-      {skip_cases, 'T1', t1A_SUITE, [test3,test4], "Irrelevant"}.
-      {skip_cases, 'T1', t1C_SUITE, [test1], "Ignore"}.
-      
-      {suites, 'T2', [t2B_SUITE,t2C_SUITE]}.
-      {cases, 'T2', t2A_SUITE, [test4,test1,test7]}.
-      
-      {skip_suites, 'T3', all, "Not implemented"}.</pre>
-
-    <p>The example specifies the following:</p>
-    <list>
-      <item>The specified logdir directory will be used for storing 
-	the HTML log files (in subdirectories tagged with node name, 
-	date and time).</item>
-      <item>The variables in the specified test system config files will be 
-	imported for the test.</item>
-      <item>The first test to run includes all suites for system t1. Excluded from
-	the test are however the t1B and t1D suites. Also test cases test3 and
-	test4 in t1A as well as the test1 case in t1C are excluded from
-	the test.</item>
-      <item>Secondly, the test for system t2 should run. The included suites are
-	t2B and t2C. Included are also test cases test4, test1 and test7 in suite
-	t2A. Note that the test cases will be executed in the specified order.</item>
-      <item>Lastly, all suites for systems t3 are to be completely skipped and this
-	should be explicitly noted in the log files.</item>
-    </list>
-    <p>With the <c>init</c> term it's possible to specify initialization options
-      for nodes defined in the test specification. Currently, there are options
-      to start the node and/or to evaluate any function on the node.
-      See the <seealso marker="ct_master_chapter#ct_slave">Automatic startup of
-      the test target nodes</seealso> chapter for details.</p>
-    <p>It is possible for the user to provide a test specification that
-      includes (for Common Test) unrecognizable terms. If this is desired,
-      the <c>-allow_user_terms</c> flag should be used when starting tests with
-      <c>ct_run</c>. This forces Common Test to ignore unrecognizable terms.
-      Note that in this mode, Common Test is not able to check the specification 
-      for errors as efficiently as if the scanner runs in default mode. 
-      If <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c> is used for starting the tests, the relaxed scanner
-      mode is enabled by means of the tuple: <c>{allow_user_terms,true}</c></p>
+	<section>
+	  <title>The init term</title>
+	  <p>With the <c>init</c> term it's possible to specify initialization options
+	  for nodes defined in the test specification. Currently, there are options
+	  to start the node and/or to evaluate any function on the node.
+	  See the <seealso marker="ct_master_chapter#ct_slave">Automatic startup of
+	  the test target nodes</seealso> chapter for details.</p>
+	</section>
+	<section>
+	  <title>User specific terms</title>
+	  <p>It is possible for the user to provide a test specification that
+	  includes (for Common Test) unrecognizable terms. If this is desired,
+	  the <c>-allow_user_terms</c> flag should be used when starting tests with
+	  <c>ct_run</c>. This forces Common Test to ignore unrecognizable terms.
+	  Note that in this mode, Common Test is not able to check the specification 
+	  for errors as efficiently as if the scanner runs in default mode. 
+	  If <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c> is used
+	  for starting the tests, the relaxed scanner
+	  mode is enabled by means of the tuple: <c>{allow_user_terms,true}</c></p>
+	</section>
   </section>
 
   <section>

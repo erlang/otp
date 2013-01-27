@@ -266,7 +266,10 @@ read_config_files_int([{Callback, File}|Files], FunToSave) ->
 read_config_files_int([], _FunToSave) ->
     ok.
 
-store_config(Config, Callback, File) ->
+store_config(Config, Callback, File) when is_tuple(Config) ->
+    store_config([Config], Callback, File);
+
+store_config(Config, Callback, File) when is_list(Config) ->
     [ets:insert(?attr_table,
 		#ct_conf{key=Key,
 			 value=Val,

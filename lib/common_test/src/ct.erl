@@ -144,8 +144,8 @@ run(TestDirs) ->
 %%% @spec run_test(Opts) -> Result
 %%%   Opts = [OptTuples]
 %%%   OptTuples = {dir,TestDirs} | {suite,Suites} | {group,Groups} |
-%%%               {testcase,Cases} | {spec,TestSpecs} | {label,Label} |
-%%%               {config,CfgFiles} | {userconfig, UserConfig} |
+%%%               {testcase,Cases} | {spec,TestSpecs} | {join_specs,Bool} |
+%%%               {label,Label} | {config,CfgFiles} | {userconfig, UserConfig} |
 %%%               {allow_user_terms,Bool} | {logdir,LogDir} |
 %%%               {silent_connections,Conns} | {stylesheet,CSSFile} |
 %%%               {cover,CoverSpecFile} | {cover_stop,Bool} | {step,StepOpts} |
