@@ -28,7 +28,6 @@
 	 collect_tests_from_file/2, collect_tests_from_file/3]).
 
 -include("ct_util.hrl").
-
 -define(testspec_fields, record_info(fields, testspec)).
 
 %%%------------------------------------------------------------------
@@ -295,7 +294,7 @@ delete_dups1([],Keep) ->
     Keep.
 
 create_specs(Specs,TestSpec,Relaxed,Join) ->
-    SpecsTree = create_spec_tree(Specs,TestSpec,Join,[]),    
+    SpecsTree = create_spec_tree(Specs,TestSpec,Join,[]),   
     create_specs(SpecsTree,TestSpec,Relaxed).
 
 create_spec_tree([Spec|Specs],TS,JoinWithNext,Known) ->
@@ -328,9 +327,11 @@ create_spec_tree([],_TS,_JoinWithNext,_Known) ->
 create_specs({Spec,Terms,InclJoin,InclSep,JoinWithNext,NextSpec},
 	     TestSpec,Relaxed) ->
     SpecDir = filename:dirname(filename:absname(Spec)),
-    TestSpec1 = create_spec(Terms,TestSpec#testspec{spec_dir=SpecDir},Relaxed),
+    TestSpec1 = create_spec(Terms,TestSpec#testspec{spec_dir=SpecDir},
+			    JoinWithNext,Relaxed),
 
     {{JoinSpecs1,JoinTS1},Separate1} = create_specs(InclJoin,TestSpec1,Relaxed),
+
     {{JoinSpecs2,JoinTS2},Separate2} =
 	case JoinWithNext of
 	    true ->
@@ -351,7 +352,7 @@ create_specs({Spec,Terms,InclJoin,InclSep,JoinWithNext,NextSpec},
     AllSeparate =
 	[TSData || TSData = {Ss,_TS} <- Separate3++Separate1++
 		                        [SepJoinSpecs]++Separate2++
-		                        Separate4++[SepJoinSpecs1],
+		                        [SepJoinSpecs1]++Separate4,
 		   Ss /= []],
 
     case {JoinWithNext,JoinSpecs1} of
@@ -368,9 +369,15 @@ create_specs({Spec,Terms,InclJoin,InclSep,JoinWithNext,NextSpec},
 create_specs([],TestSpec,_Relaxed) ->
     {{[],TestSpec},[]}.
 		
-create_spec(Terms,TestSpec,Relaxed) ->
+create_spec(Terms,TestSpec,JoinedByPrev,Relaxed) ->
+    %% it's the "includer" that decides the value of merge_tests
+    Terms1 = if not JoinedByPrev ->
+		     [{set_merge_tests,true}|Terms];
+		true ->
+		     [{set_merge_tests,false}|Terms]
+	     end,
     TS = #testspec{tests=Tests, logdir=LogDirs} =
-	collect_tests({false,Terms},TestSpec,Relaxed),
+	collect_tests({false,Terms1},TestSpec,Relaxed),
     LogDirs1 = lists:delete(".",LogDirs) ++ ["."],
     TS#testspec{tests=lists:flatten(Tests),
 		logdir=LogDirs1}.
@@ -397,14 +404,23 @@ collect_tests({Replace,Terms},TestSpec=#testspec{alias=As,nodes=Ns},Relaxed) ->
     Terms1 = if Replace -> replace_names(Terms);
 		true    -> Terms
 	     end,
+    {MergeTestsDef,Terms2} =
+	case proplists:get_value(set_merge_tests,Terms1,true) of
+	    false -> 
+		%% disable merge_tests
+		{TestSpec#testspec.merge_tests,
+		 proplists:delete(merge_tests,Terms1)};
+	    true ->
+		{true,Terms1}
+	end,
     %% reverse nodes and aliases initially to get the order of them right
     %% in case this spec is being joined with a previous one
-    TestSpec1 = get_global(Terms1,TestSpec#testspec{alias = lists:reverse(As),
+    TestSpec1 = get_global(Terms2,TestSpec#testspec{alias = lists:reverse(As),
 						    nodes = lists:reverse(Ns),
-						    merge_tests = true}),
-    TestSpec2 = get_all_nodes(Terms1,TestSpec1),
-    {Terms2, TestSpec3} = filter_init_terms(Terms1, [], TestSpec2),
-    add_tests(Terms2,TestSpec3).
+						    merge_tests = MergeTestsDef}),
+    TestSpec2 = get_all_nodes(Terms2,TestSpec1),
+    {Terms3, TestSpec3} = filter_init_terms(Terms2, [], TestSpec2),
+    add_tests(Terms3,TestSpec3).
 
 %% replace names (atoms) in the testspec matching those in 'define' terms by
 %% searching recursively through tuples and lists
@@ -915,6 +931,9 @@ add_tests([{release_shell,Bool}|Ts],Spec) ->
     add_tests(Ts, Spec#testspec{release_shell = Bool});
 
 %% --- handled/errors ---
+add_tests([{set_merge_tests,_}|Ts],Spec) ->	% internal
+    add_tests(Ts,Spec);
+
 add_tests([{define,_,_}|Ts],Spec) ->		% handled
     add_tests(Ts,Spec);
 
@@ -924,10 +943,10 @@ add_tests([{alias,_,_}|Ts],Spec) ->		% handled
 add_tests([{node,_,_}|Ts],Spec) ->		% handled
     add_tests(Ts,Spec);
 
-add_tests([{merge_tests,_} | Ts], Spec) ->     % handled
+add_tests([{merge_tests,_} | Ts], Spec) ->      % handled
     add_tests(Ts,Spec);
 
-add_tests([{specs,_,_} | Ts], Spec) ->     % handled
+add_tests([{specs,_,_} | Ts], Spec) ->          % handled
     add_tests(Ts,Spec);
 
 %%     --------------------------------------------------
@@ -1001,7 +1020,18 @@ add_tests([],Spec) ->				% done
 %% check if it's a CT term that has bad format or if the user seems to
 %% have added something of his/her own, which we'll let pass if relaxed
 %% mode is enabled.
-check_term(Term) ->
+check_term(Atom) when is_atom(Atom) ->
+    Valid = valid_terms(),
+    case lists:member(Atom,Valid) of
+	true ->
+	    valid;
+	false ->				% ignore
+	    case get(relaxed) of
+		true -> invalid;
+		false -> throw({error,{undefined_term_in_spec,Atom}})
+	    end
+    end;
+check_term(Term) when is_tuple(Term) ->
     Size = size(Term),
     [Name|_] = tuple_to_list(Term),
     Valid = valid_terms(),
@@ -1029,7 +1059,9 @@ check_term(Term) ->
 			    throw({error,{undefined_term_in_spec,Term}})
 		    end
 	    end
-    end.
+    end;
+check_term(Other) ->
+    throw({error,{undefined_term_in_spec,Other}}).
 
 %% specific data handling before saving in testspec record, e.g.
 %% converting relative paths to absolute for directories and files
@@ -1421,6 +1453,7 @@ is_node([],_) ->
 
 valid_terms() ->
     [
+     {set_merge_tests,2},
      {define,3},
      {specs,3},
      {node,3},
