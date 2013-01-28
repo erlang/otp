@@ -48,7 +48,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
     private static final BigDecimal ten = new BigDecimal(10.0);
     private static final BigDecimal one = new BigDecimal(1.0);
 
-    private boolean fixedSize = false;
+    private int fixedSize = Integer.MAX_VALUE;
 
     /**
      * Create a stream with the default initial size (2048 bytes).
@@ -124,16 +124,17 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      * @param   minCapacity   the desired minimum capacity
      */
     public void ensureCapacity(int minCapacity) {
+	if (minCapacity > fixedSize) {
+	    throw new IllegalArgumentException("Trying to increase fixed-size buffer");
+	}
 	int oldCapacity = super.buf.length;
 	if (minCapacity > oldCapacity) {
-	    if (fixedSize) {
-		throw new IllegalArgumentException("Trying to increase fixed-size buffer");
-	    }
 	    int newCapacity = (oldCapacity * 3)/2 + 1;
 	    if (newCapacity < oldCapacity + defaultIncrement)
 		newCapacity = oldCapacity + defaultIncrement;
 	    if (newCapacity < minCapacity)
 		newCapacity = minCapacity;
+	    newCapacity = Math.min(fixedSize, newCapacity);
 	    // minCapacity is usually close to size, so this is a win:
 	    final byte[] tmp = new byte[newCapacity];
 	    System.arraycopy(super.buf, 0, tmp, 0, super.count);
@@ -822,8 +823,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	    // we need destCount bytes for an uncompressed term
 	    // -> if compression uses more, use the uncompressed term!
 	    int destCount = startCount + oos.size();
-	    this.resize(destCount);
-	    this.fixedSize = true;
+	    this.fixedSize = destCount;
 	    final java.util.zip.DeflaterOutputStream dos = new java.util.zip.DeflaterOutputStream(
 		    this);
 	    try {
@@ -848,7 +848,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 		throw new java.lang.IllegalArgumentException(
 			"Intermediate stream failed for Erlang object " + o);
 	    } finally {
-		this.fixedSize = false;
+		this.fixedSize = Integer.MAX_VALUE;
 	    }
 	}
     }
