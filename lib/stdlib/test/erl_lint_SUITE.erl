@@ -1352,7 +1352,17 @@ guard(Config) when is_list(Config) ->
                                         (is_record(X, apa)*2)].
             ">>,
             [],
-            []}],
+            []},
+	   {guard8,
+	    <<"t(A) when erlang:is_foobar(A) -> ok;
+	      t(A) when A ! ok -> ok;
+	      t(A) when A ++ [x] -> ok."
+	    >>,
+	    [],
+	    {errors,[{1,erl_lint,illegal_guard_expr},
+		     {2,erl_lint,illegal_guard_expr},
+		     {3,erl_lint,illegal_guard_expr}],[]}}
+	  ],
     ?line [] = run(Config, Ts1),
     ok.
 
