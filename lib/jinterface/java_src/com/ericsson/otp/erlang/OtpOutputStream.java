@@ -796,11 +796,23 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 
     /**
      * Write an arbitrary Erlang term to the stream in compressed format.
-     * 
+     *
      * @param o
-     *            the Erlang tem to write.
+     *            the Erlang term to write.
      */
     public void write_compressed(final OtpErlangObject o) {
+	write_compressed(o, Deflater.DEFAULT_COMPRESSION);
+    }
+
+    /**
+     * Write an arbitrary Erlang term to the stream in compressed format.
+     *
+     * @param o
+     *            the Erlang term to write.
+     * @param level
+     *            the compression level (<tt>0..9</tt>)
+     */
+    public void write_compressed(final OtpErlangObject o, int level) {
 	final OtpOutputStream oos = new OtpOutputStream(o);
 	/*
 	 * similar to erts_term_to_binary() in external.c:
@@ -825,7 +837,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	    // -> if compression uses more, use the uncompressed term!
 	    int destCount = startCount + oos.size();
 	    this.fixedSize = destCount;
-	    Deflater def = new Deflater();
+	    Deflater def = new Deflater(level);
 	    final java.util.zip.DeflaterOutputStream dos = new java.util.zip.DeflaterOutputStream(
 		    this, def);
 	    try {
