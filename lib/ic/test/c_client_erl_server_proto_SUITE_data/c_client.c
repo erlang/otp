@@ -393,6 +393,7 @@ int main(int argc, char **argv)
     env->_from_pid = &pid;
     
     strcpy(pid.node, this_node);
+    pid.node_org_enc = ERLANG_LATIN1;
     pid.num = fd;
     pid.serial = 0;
     pid.creation = 0;
@@ -1009,7 +1010,7 @@ static int string4_test(IC_Env *env)
 
 static int pid_test(IC_Env *env)
 {
-    erlang_pid pid = {"", 7, 0, 0}, pido, pidr;
+    erlang_pid pid = {"", ERLANG_LATIN1, 7, 0, 0}, pido, pidr;
 
     strcpy(pid.node, this_node), /* this currently running node */
     fprintf(stdout, "\n======== m_i_pid test ======\n\n");
@@ -1033,7 +1034,7 @@ static int pid_test(IC_Env *env)
 
 static int port_test(IC_Env *env)
 {
-    erlang_port porti = {"node", 5, 1}, porto, portr;
+    erlang_port porti = {"node", ERLANG_LATIN1, 5, 1}, porto, portr;
 
     fprintf(stdout, "\n======== m_i_port test ======\n\n");
     portr = m_i_port_test(NULL, &porti, &porto, env);
@@ -1056,7 +1057,7 @@ static int port_test(IC_Env *env)
 
 static int ref_test(IC_Env *env)
 {
-    erlang_ref refi = { "node1", 3, {1, 2, 3}, 1},  
+    erlang_ref refi = { "node1", ERLANG_LATIN1, 3, {1, 2, 3}, 1},  
 	refo, refr;
 
     fprintf(stdout, "\n======== m_i_ref test ======\n\n");
@@ -1114,6 +1115,7 @@ static int typedef_test(IC_Env *env)
     long tl;
 
     strcpy(mbi.node,"node");
+    mbi.node_org_enc = ERLANG_LATIN1;
     mbi.id = 15;
     mbi.creation = 1;
 

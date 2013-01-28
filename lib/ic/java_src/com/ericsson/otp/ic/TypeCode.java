@@ -723,6 +723,8 @@ public class TypeCode {
       
       switch(__tag) {
       case (com.ericsson.otp.erlang.OtpExternal.atomTag):
+      case (com.ericsson.otp.erlang.OtpExternal.atomUtf8Tag):
+      case (com.ericsson.otp.erlang.OtpExternal.smallAtomUtf8Tag):
 	__kind = TypeCode.kind(_is.read_atom());
 	
 	switch(__kind.value()) {
@@ -757,6 +759,8 @@ public class TypeCode {
 	switch(__tag) {
 
 	case (com.ericsson.otp.erlang.OtpExternal.atomTag):
+	case (com.ericsson.otp.erlang.OtpExternal.atomUtf8Tag):
+	case (com.ericsson.otp.erlang.OtpExternal.smallAtomUtf8Tag):
 	  
 	  __kind = TypeCode.kind(_is.read_atom());
 	  _tc = new TypeCode();
@@ -814,6 +818,9 @@ public class TypeCode {
 		__label.insert_string(__enum);
 		break;
 	      case (com.ericsson.otp.erlang.OtpExternal.atomTag):
+	      case (com.ericsson.otp.erlang.OtpExternal.atomUtf8Tag):
+	      case (com.ericsson.otp.erlang.OtpExternal.smallAtomUtf8Tag):
+
 		java.lang.String __default = _is.read_atom();
 		__label.insert_atom(__default);
 		break;
