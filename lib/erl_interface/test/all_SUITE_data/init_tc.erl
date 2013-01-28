@@ -40,7 +40,7 @@ run([]) ->
 run1(Name) ->
     CFile = Name ++ ".c",
     {ok, Bin} = file:read_file(CFile),
-    RE = "\nTESTCASE\\(([_a-zA-Z]*)\\)",
+    RE = "\nTESTCASE\\(([_a-zA-Z0-9]*)\\)",
     {match, Cases0} = re:run(Bin, RE, [{capture,all_but_first,list},global]),
     Cases = lists:concat(Cases0),
     generate(Name, Cases).

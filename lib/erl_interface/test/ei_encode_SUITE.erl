@@ -34,7 +34,9 @@
     test_ei_encode_ulonglong/1,
     test_ei_encode_char/1,
     test_ei_encode_misc/1,
-    test_ei_encode_fails/1
+    test_ei_encode_fails/1,
+    test_ei_encode_utf8_atom/1,
+    test_ei_encode_utf8_atom_len/1
    ]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -43,7 +45,8 @@ all() ->
     [test_ei_encode_long, test_ei_encode_ulong,
      test_ei_encode_longlong, test_ei_encode_ulonglong,
      test_ei_encode_char, test_ei_encode_misc,
-     test_ei_encode_fails].
+     test_ei_encode_fails, test_ei_encode_utf8_atom,
+     test_ei_encode_utf8_atom_len].
 
 groups() -> 
     [].
@@ -254,6 +257,38 @@ test_ei_encode_fails(Config) when is_list(Config) ->
     ?line runner:recv_eot(P),
     ok.
 
+
+%% ######################################################################## %%
+
+test_ei_encode_utf8_atom(Config) ->
+    ?line P = runner:start(?test_ei_encode_utf8_atom),
+    
+    ?line {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
+    ?line {<<100,0,1,197>>,'Å'} = get_buf_and_term(P),
+    ?line {<<100,0,1,197>>,'Å'} = get_buf_and_term(P),
+    ?line {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
+
+    ?line {<<119,1,$A>>,'A'} = get_buf_and_term(P),
+    ?line {<<100,0,1,$A>>,'A'} = get_buf_and_term(P),
+
+    ?line runner:recv_eot(P),
+    ok.
+
+%% ######################################################################## %%
+test_ei_encode_utf8_atom_len(Config) ->
+    ?line P = runner:start(?test_ei_encode_utf8_atom_len),
+    
+    ?line {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
+    ?line {<<100,0,2,197,196>>,'ÅÄ'} = get_buf_and_term(P),
+    ?line {<<100,0,1,197>>,'Å'} = get_buf_and_term(P),
+    ?line {<<119,4,195,133,195,132>>,'ÅÄ'} = get_buf_and_term(P),
+
+    ?line {<<119,1,$A>>,'A'} = get_buf_and_term(P),
+    ?line {<<100,0,2,$A,$B>>,'AB'} = get_buf_and_term(P),
+    ?line {<<100,0,255,_:(255*8)>>,_} = get_buf_and_term(P),
+
+    ?line runner:recv_eot(P),
+    ok.
 
 %% ######################################################################## %%
 

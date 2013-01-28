@@ -17,6 +17,8 @@
  * %CopyrightEnd%
  */
 
+#include <string.h>
+
 #ifdef VXWORKS
 #include "reclaim.h"
 #endif
@@ -37,6 +39,22 @@
     message("err = %d, size2 = %d, expected size = %d, long long val = %lld", \
              err, size1, SIZE, (EI_LONGLONG)p); 
 #endif
+
+struct my_atom {
+  enum erlang_char_encoding from;
+  enum erlang_char_encoding was_check;
+  enum erlang_char_encoding result_check;
+};
+
+/* Allow arrays constants to be part of macro arguments */
+#define P99(...) __VA_ARGS__ 
+
+int ei_decode_my_atom_as(const char *buf, int *index, char *to,
+			 struct my_atom *atom);
+int ei_decode_my_atom(const char *buf, int *index, char *to,
+		      struct my_atom *atom);
+int ei_decode_my_string(const char *buf, int *index, char *to,
+			struct my_atom *atom);
 
 #define EI_DECODE_2(FUNC,SIZE,TYPE,VAL) \
   { \
@@ -129,17 +147,26 @@
     } \
   } \
 
-#define EI_DECODE_STRING(FUNC,SIZE,VAL) \
+#define dump(arr, num) {	    \
+    int i;		    \
+    message("Dumping " #arr ": ");			\
+    for (i = 0; i < num; i++) message("%u, ",(unsigned char)arr[i]);	\
+    message("\n");					\
+  }
+  
+#define EI_DECODE_STRING_4(FUNC,SIZE,VAL,ATOM)	\
   { \
     char p[1024]; \
     char *buf; \
+    unsigned char val[] = VAL; \
     int size1 = 0; \
     int size2 = 0; \
     int err; \
-    message("ei_" #FUNC " should be " #VAL); \
+    struct my_atom atom = ATOM; \
+    message("ei_" #FUNC " should be " #VAL "\n"); \
     buf = read_packet(NULL); \
 \
-    err = ei_ ## FUNC(buf+1, &size1, NULL); \
+    err = ei_ ## FUNC(buf+1, &size1, NULL, &atom); \
     message("err = %d, size = %d, expected size = %d\n",err,size1,SIZE); \
     if (err != 0) { \
       if (err != -1) { \
@@ -150,7 +177,7 @@
       return; \
     } \
 \
-    err = ei_ ## FUNC(buf+1, &size2, p); \
+    err = ei_ ## FUNC(buf+1, &size2, p, &atom);	\
     message("err = %d, size = %d, expected size = %d\n",err,size2,SIZE); \
     if (err != 0) { \
       if (err != -1) { \
@@ -161,7 +188,7 @@
       return; \
     } \
 \
-    if (strcmp(p,VAL) != 0) { \
+    if (strcmp(p,val) != 0) { \
       fail("value is not correct"); \
       return; \
     } \
@@ -176,6 +203,51 @@
       return; \
     } \
   } \
+
+#define EI_DECODE_STRING(FUNC,SIZE,VAL) \
+  EI_DECODE_STRING_4(FUNC,SIZE,VAL, \
+		     P99({ERLANG_ANY,ERLANG_ANY,ERLANG_ANY}))
+
+#define EI_DECODE_STRING_FAIL(FUNC,ATOM) \
+  { \
+    char p[1024]; \
+    char *buf; \
+    int size1 = 0; \
+    int size2 = 0; \
+    int err;					  \
+    struct my_atom atom = ATOM;\
+    message("ei_" #FUNC " should fail\n"); \
+    p[0] = 0;				   \
+    message("p[0] is %d\n",p[0]);		   \
+    buf = read_packet(NULL); \
+\
+    err = ei_ ## FUNC(buf+1, &size1, NULL, &atom);			\
+    if (err != -1) {				\
+      fail("should return -1 if NULL pointer"); \
+      return; \
+    } \
+\
+    err = ei_ ## FUNC(buf+1, &size2, p, &atom);				\
+    if (err != -1) {							\
+      fail("should return -1"); \
+      return; \
+    } \
+    if (p[0] != 0) { \
+      message("p[0] argument was modified to %u\n",(unsigned char)p[0]);	\
+    } \
+\
+    if (size1 != 0) { \
+      fail("size of encoded data should be 0 if NULL"); \
+      return; \
+    } \
+\
+    if (size2 != 0) { \
+      fail("size of encoded data should be 0"); \
+      return; \
+    } \
+  } \
+
+//#define EI_DECODE_UTF8_STRING(FUNC,SIZE,VAL) 
 
 #define EI_DECODE_BIN(FUNC,SIZE,VAL,LEN) \
   { \
@@ -536,13 +608,13 @@ TESTCASE(test_ei_decode_misc)
     EI_DECODE_2(decode_boolean, 8, int, 0);
     EI_DECODE_2(decode_boolean, 7, int, 1);
 
-    EI_DECODE_STRING(decode_atom, 6, "foo");
-    EI_DECODE_STRING(decode_atom, 3, "");
-    EI_DECODE_STRING(decode_atom, 9, "ÅÄÖåäö");
+    EI_DECODE_STRING(decode_my_atom, 6, "foo");
+    EI_DECODE_STRING(decode_my_atom, 3, "");
+    EI_DECODE_STRING(decode_my_atom, 9, "ÅÄÖåäö");
 
-    EI_DECODE_STRING(decode_string, 6, "foo");
-    EI_DECODE_STRING(decode_string, 1, "");
-    EI_DECODE_STRING(decode_string, 9, "ÅÄÖåäö");
+    EI_DECODE_STRING(decode_my_string, 6, "foo");
+    EI_DECODE_STRING(decode_my_string, 1, "");
+    EI_DECODE_STRING(decode_my_string, 9, "ÅÄÖåäö");
 
     EI_DECODE_BIN(decode_binary,  8, "foo", 3);
     EI_DECODE_BIN(decode_binary,  5, "", 0);
@@ -559,3 +631,63 @@ TESTCASE(test_ei_decode_misc)
 
 /* ******************************************************************** */
 
+TESTCASE(test_ei_decode_utf8_atom)
+{
+
+  EI_DECODE_STRING_4(decode_my_atom_as, 4, P99({229,0}), /* LATIN1 "å" */
+		   P99({ERLANG_ANY,ERLANG_LATIN1,ERLANG_LATIN1}));
+  EI_DECODE_STRING_4(decode_my_atom_as, 4, P99({195,164,0}), /* UTF8 "ä" */
+		     P99({ERLANG_UTF8,ERLANG_LATIN1,ERLANG_UTF8}));
+  EI_DECODE_STRING_4(decode_my_atom_as, 4, P99({246,0}), /* LATIN1 "ö" */
+		     P99({ERLANG_LATIN1,ERLANG_LATIN1,ERLANG_LATIN1}));
+  EI_DECODE_STRING_FAIL(decode_my_atom_as, 
+			P99({ERLANG_ASCII,ERLANG_ANY,ERLANG_ANY}));
+
+  EI_DECODE_STRING_4(decode_my_atom_as, 4, P99({219,158,0}),
+		     P99({ERLANG_ANY,ERLANG_UTF8,ERLANG_UTF8}));
+  EI_DECODE_STRING_4(decode_my_atom_as, 6, P99({219,158,219,158,0}),
+		     P99({ERLANG_UTF8,ERLANG_UTF8,ERLANG_UTF8}));
+  EI_DECODE_STRING_FAIL(decode_my_atom_as,
+			P99({ERLANG_LATIN1,ERLANG_ANY,ERLANG_ANY}));
+  EI_DECODE_STRING_FAIL(decode_my_atom_as,
+			P99({ERLANG_ASCII,ERLANG_ANY,ERLANG_ANY}));
+
+  EI_DECODE_STRING_4(decode_my_atom_as, 4, "a",
+		   P99({ERLANG_ANY,ERLANG_LATIN1,ERLANG_ASCII}));
+  EI_DECODE_STRING_4(decode_my_atom_as, 4, "b",
+		     P99({ERLANG_UTF8,ERLANG_LATIN1,ERLANG_ASCII}));
+  EI_DECODE_STRING_4(decode_my_atom_as, 4, "c",
+		     P99({ERLANG_LATIN1,ERLANG_LATIN1,ERLANG_ASCII}));
+  EI_DECODE_STRING_4(decode_my_atom_as, 4, "d",
+		     P99({ERLANG_ASCII,ERLANG_LATIN1,ERLANG_ASCII}));
+
+  report(1);
+}
+
+/* ******************************************************************** */
+
+int ei_decode_my_atom_as(const char *buf, int *index, char *to,
+			 struct my_atom *atom) {
+  enum erlang_char_encoding was,result;
+  int res = ei_decode_atom_as(buf,index,to,1024,atom->from,&was,&result);
+  if (res != 0)
+    return res;
+  if (!(was & atom->was_check)) {
+    message("Original encoding was %d not %d\n",was,atom->was_check);
+    return -1;
+  } else if (!(result & atom->result_check)) {
+    message("Result encoding was %d not %d\n",result,atom->result_check);
+    return -1;
+  }
+  return res;
+}
+
+int ei_decode_my_atom(const char *buf, int *index, char *to, 
+		      struct my_atom *atom) {
+  return ei_decode_atom(buf, index, to);
+}
+
+int ei_decode_my_string(const char *buf, int *index, char *to, 
+			struct my_atom *atom) {
+  return ei_decode_string(buf, index, to);
+}
