@@ -58,8 +58,12 @@
 init_per_suite(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     Lib = filename:join([DataDir, atom_to_list(?MODULE)]),
-    ok = erlang:load_nif(Lib, none),
-    Config.
+    case {erlang:load_nif(Lib, none),erlang:system_info(threads)} of
+	{{error,_},false} ->
+	    {skip, "No thread support"};
+	_ ->
+	    Config
+    end.
 
 end_per_suite(Config) when is_list(Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false),
