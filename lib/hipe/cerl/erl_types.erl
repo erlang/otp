@@ -3898,7 +3898,7 @@ t_form_to_string({type, _L, range, [From, To]} = Type) ->
   case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
     {{integer, _, FromVal}, {integer, _, ToVal}} ->
       io_lib:format("~w..~w", [FromVal, ToVal]);
-    _ -> io_lib:format("Bad formed type ~w",[Type])
+    _ -> io_lib:format("Badly formed type ~w",[Type])
   end;
 t_form_to_string({type, _L, record, [{atom, _, Name}]}) ->
   io_lib:format("#~w{}", [Name]);
