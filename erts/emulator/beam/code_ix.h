@@ -76,7 +76,7 @@ ErtsCodeIndex erts_active_code_ix(void);
 
 /* Return staging code ix.
  * Only used by a process performing code loading/upgrading/deleting/purging.
- * code_ix must be locked.
+ * Code write permission must be seized.
  */
 ERTS_GLB_INLINE
 ErtsCodeIndex erts_staging_code_ix(void);
@@ -84,9 +84,10 @@ ErtsCodeIndex erts_staging_code_ix(void);
 /* Try seize exclusive code write permission. Needed for code staging.
  * Main process lock (only) must be held.
  * System thread progress must not be blocked.
+ * Caller must not already hold the code write permission.
  * Caller is suspended and *must* yield if 0 is returned. 
  */
-int erts_try_seize_code_write_permission(struct process*);
+int erts_try_seize_code_write_permission(struct process* c_p);
 
 /* Release code write permission.
  * Will resume any suspended waiters.

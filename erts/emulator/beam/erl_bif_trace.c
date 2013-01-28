@@ -386,13 +386,13 @@ static void smp_bp_finisher(void* null)
 #ifdef DEBUG
 	finish_bp.stager = NULL;
 #endif
+	erts_release_code_write_permission();
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
 	if (!ERTS_PROC_IS_EXITING(p)) {
 	    erts_resume(p, ERTS_PROC_LOCK_STATUS);
 	}
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 	erts_smp_proc_dec_refc(p);
-	erts_release_code_write_permission();
     }
 }
 #endif /* ERTS_SMP */
