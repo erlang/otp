@@ -63,7 +63,7 @@
       <d> Normally an RSA or DSA public key but handling of other public keys can be added</d>
 
       <v>ConnectOptions = proplists:proplist() </v>
-      <d>Options provided to  <seealso marker="ssh#connect">ssh:connect/[3,4]</seealso></d>
+      <d>Options provided to  <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso></d>
       <v>Reason = term() </v>
       </type>
       <desc>
