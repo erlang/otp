@@ -236,11 +236,6 @@ format_error({illegal_guard_local_call, {F,A}}) ->
     io_lib:format("call to local/imported function ~w/~w is illegal in guard",
 		  [F,A]);
 format_error(illegal_guard_expr) -> "illegal guard expression";
-%% --- exports ---
-format_error({explicit_export,F,A}) ->
-    io_lib:format("in this release, the call to ~w/~w must be written "
-		  "like this: erlang:~w/~w",
-		  [F,A,F,A]);
 %% --- records ---
 format_error({undefined_record,T}) ->
     io_lib:format("record ~w undefined", [T]);
@@ -1798,11 +1793,9 @@ gexpr({call,Line,{atom,_La,F},As}, Vt, St0) ->
     %% BifClash - Function called in guard
     case erl_internal:guard_bif(F, A) andalso no_guard_bif_clash(St1,{F,A}) of
         true ->
-	    %% Also check that it is auto-imported.
-	    case erl_internal:bif(F, A) of
-		true -> {Asvt,St1};
-		false -> {Asvt,add_error(Line, {explicit_export,F,A}, St1)}
-	    end;
+	    %% Assert that it is auto-imported.
+	    true = erl_internal:bif(F, A),
+	    {Asvt,St1};
         false ->
 	    case is_local_function(St1#lint.locals,{F,A}) orelse
 		is_imported_function(St1#lint.imports,{F,A}) of
