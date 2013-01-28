@@ -28,6 +28,8 @@
 #include "erl_misc_utils.h"
 
 #if defined(__WIN32__)
+#elif defined(VXWORKS)
+#  include <selectLib.h>
 #else /* UNIX */
 #  include <stdio.h>
 #  include <sys/types.h>
