@@ -58,7 +58,8 @@
 	  otp_8051/1,
 	  format_warn/1,
 	  on_load_successful/1, on_load_failing/1, 
-	  too_many_arguments/1
+	  too_many_arguments/1,
+	  basic_errors/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -84,7 +85,7 @@ all() ->
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, export_all,
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
-     too_many_arguments].
+     too_many_arguments, basic_errors].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -2968,6 +2969,53 @@ too_many_arguments(Config) when is_list(Config) ->
 	 ],
 	  
     ?line [] = run(Config, Ts),
+    ok.
+
+
+%% Test some basic errors to improve coverage.
+basic_errors(Config) ->
+    Ts = [{redefine_module,
+	   <<"-module(redefine_module).">>,
+	   [],
+	   {errors,[{1,erl_lint,redefine_module}],[]}},
+
+	  {attr_after_function,
+	   <<"f() -> ok.
+               -attr(x).">>,
+	   [],
+	   {errors,[{2,erl_lint,{attribute,attr}}],[]}},
+
+	  {redefine_function,
+	   <<"f() -> ok.
+              f() -> ok.">>,
+	   [],
+	   {errors,[{2,erl_lint,{redefine_function,{f,0}}}],[]}},
+
+	  {redefine_record,
+	   <<"-record(r, {a}).
+              -record(r, {a}).
+	      f(#r{}) -> ok.">>,
+	   [],
+	   {errors,[{2,erl_lint,{redefine_record,r}}],[]}},
+
+	  {illegal_record_info,
+	   <<"f1() -> record_info(42, record).
+	      f2() -> record_info(shoe_size, record).">>,
+	   [],
+	   {errors,[{1,erl_lint,illegal_record_info},
+		    {2,erl_lint,illegal_record_info}],[]}},
+
+	  {illegal_expr,
+	   <<"f() -> a:b.">>,
+	   [],
+	   {errors,[{1,erl_lint,illegal_expr}],[]}},
+
+	  {illegal_pattern,
+	   <<"f(A+B) -> ok.">>,
+	   [],
+	   {errors,[{1,erl_lint,illegal_pattern}],[]}}
+	 ],
+    [] = run(Config, Ts),
     ok.
 
 
