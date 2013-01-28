@@ -82,7 +82,7 @@ start({_,_} = Type, T) ->
     try
         {erlang:monitor(process, Pid), Pid}
     after
-        Pid ! Ref
+        send(Pid, Ref)
     end.
 
 start_link(T) ->
@@ -151,13 +151,22 @@ handle_info(T, #watchdog{} = State) ->
         ok ->
             {noreply, State};
         #watchdog{} = S ->
-            event(T, State, S),
+            close(T, State),     %% service expects 'close' message
+            event(T, State, S),  %%   before 'watchdog'
             {noreply, S};
         stop ->
             ?LOG(stop, T),
             event(T, State, State#watchdog{status = down}),
             {stop, {shutdown, T}, State}
     end.
+
+close({'DOWN', _, process, TPid, {shutdown, Reason}},
+      #watchdog{transport = TPid,
+                parent = Pid}) ->
+    send(Pid, {close, self(), Reason});
+
+close(_, _) ->
+    ok.
 
 event(_, #watchdog{status = T}, #watchdog{status = T}) ->
     ok;
@@ -170,7 +179,7 @@ event(Msg,
       #watchdog{status = To, transport = T}) ->
     TPid = tpid(F,T),
     E = {[TPid | data(Msg, TPid, From, To)], From, To},
-    notify(Pid, E),
+    send(Pid, {watchdog, self(), E}),
     ?LOG(transition, {self(), E}).
 
 data(Msg, TPid, reopen, okay) ->
@@ -193,8 +202,8 @@ tpid(_, Pid)
 tpid(Pid, _) ->
     Pid.
 
-notify(Pid, E) ->
-    Pid ! {watchdog, self(), E}.
+send(Pid, T) ->
+    Pid ! T.
 
 %% terminate/2
 
@@ -232,7 +241,7 @@ transition({shutdown, Pid, _}, #watchdog{parent = Pid,
 transition({shutdown = T, Pid, Reason}, #watchdog{parent = Pid,
                                                   transport = TPid}
                                         = S) ->
-    TPid ! {T, self(), Reason},
+    send(TPid, {T, self(), Reason}),
     S#watchdog{shutdown = true};
 
 %% Parent process has died,
@@ -243,12 +252,8 @@ transition({'DOWN', _, process, Pid, _Reason},
 %% Transport has accepted a connection.
 transition({accepted = T, TPid}, #watchdog{transport = TPid,
                                            parent = Pid}) ->
-    Pid ! {T, self(), TPid},
+    send(Pid, {T, self(), TPid}),
     ok;
-
-%% Transport is telling us that its impending death isn't failure.
-transition({close, TPid, _Reason}, #watchdog{transport = TPid}) ->
-    stop;
 
 %%   STATE         Event                Actions              New State
 %%   =====         ------               -------              ----------
@@ -301,24 +306,17 @@ transition({open = Key, TPid, _Hosts, T},
 %%   REOPEN        Connection down      CloseConnection()
 %%                                      SetWatchdog()        DOWN
 
-transition({'DOWN', _, process, TPid, _},
+transition({'DOWN', _, process, TPid, _Reason},
            #watchdog{transport = TPid,
-                     status = S,
-                     shutdown = D})
-  when S == initial;
-       D ->
+                     shutdown = true}) ->
     stop;
 
-transition({'DOWN', _, process, TPid, _},
+transition({'DOWN', _, process, TPid, _Reason},
            #watchdog{transport = TPid}
            = S) ->
     set_watchdog(S#watchdog{status = down,
                             pending = false,
                             transport = undefined});
-%% Any outstanding pending (or other messages from the transport) will
-%% have arrived before 'DOWN' since the message comes from the same
-%% process. Note that we could also get this message in the initial
-%% state.
 
 %% Incoming message.
 transition({recv, TPid, Name, Pkt}, #watchdog{transport = TPid} = S) ->
@@ -334,7 +332,7 @@ transition({timeout, _, tw}, #watchdog{}) ->
 
 %% State query.
 transition({state, Pid}, #watchdog{status = S}) ->
-    Pid ! {self(), S},
+    send(Pid, {self(), S}),
     ok.
 
 %% ===========================================================================
@@ -389,7 +387,7 @@ okay([{_,P}]) ->
 
 %% ... or it has.
 okay(C) ->
-    [_|_] = [P ! close || {_,P} <- C, self() /= P],
+    [_|_] = [send(P, close) || {_,P} <- C, self() /= P],
     reopen.
 
 %% set_watchdog/1
@@ -417,7 +415,7 @@ send_watchdog(#watchdog{pending = false,
                         transport = TPid,
                         sequence = Mask}
               = S) ->
-    TPid ! {send, encode(getr(dwr), Mask)},
+    send(TPid, {send, encode(getr(dwr), Mask)}),
     ?LOG(send, 'DWR'),
     S#watchdog{pending = true}.
 
@@ -628,7 +626,7 @@ restart({{connect, _} = T, Opts, Svc}, #watchdog{parent = Pid,
                                                  sequence = Mask,
                                                  restrict = {R,_}}
                                        = S) ->
-    Pid ! {reconnect, self()},
+    send(Pid, {reconnect, self()}),
     Nodes = restrict_nodes(R),
     S#watchdog{transport = monitor(diameter_peer_fsm:start(T,
                                                          Opts,

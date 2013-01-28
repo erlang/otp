@@ -509,6 +509,19 @@ transition({reconnect, Pid}, S) ->
     reconnect(Pid, S),
     ok;
 
+%% Watchdog is sending notification of transport death.
+transition({close, Pid, Reason}, #state{service_name = SvcName,
+                                        watchdogT = WatchdogT}) ->
+    #watchdog{state = WS,
+              ref = Ref,
+              type = Type,
+              options = Opts}
+        = fetch(WatchdogT, Pid),
+    WS /= ?WD_OKAY
+        andalso
+        send_event(SvcName, {closed, Ref, Reason, {type(Type), Opts}}),
+    ok;
+
 %% Watchdog is sending notification of a state transition.
 transition({watchdog, Pid, {[TPid | Data], From, To}},
            #state{service_name = SvcName,
@@ -532,9 +545,9 @@ transition({'DOWN', MRef, process, _, Reason}, #state{monitor = MRef}) ->
     {stop, {monitor, Reason}};
 
 %% Local watchdog process has died.
-transition({'DOWN', _, process, Pid, Reason}, S)
+transition({'DOWN', _, process, Pid, _Reason}, S)
   when node(Pid) == node() ->
-    peer_down(Pid, Reason, S),
+    watchdog_down(Pid, S),
     ok;
 
 %% Remote service wants to know about shared peers.
@@ -1065,44 +1078,31 @@ down_conn(Id, Alias, TC, {SvcName, Apps}) ->
     peer_cb({ModX, peer_down, [SvcName, TC]}, Alias).
 
 %%% ---------------------------------------------------------------------------
-%%% # peer_down/3
+%%% # watchdog_down/2
 %%% ---------------------------------------------------------------------------
 
 %% Watchdog process has died.
 
-peer_down(Pid, Reason, #state{watchdogT = WatchdogT} = S) ->
-    P = fetch(WatchdogT, Pid),
-    ets:delete_object(WatchdogT, P),
-    closed(Reason, P, S),
-    restart(P,S),
-    peer_down(P,S).
+watchdog_down(Pid, #state{watchdogT = WatchdogT} = S) ->
+    Wd = fetch(WatchdogT, Pid),
+    ets:delete_object(WatchdogT, Wd),
+    restart(Wd,S),
+    wd_down(Wd,S).
 
-%% Send an event at connection establishment failure.
-closed({shutdown, {close, _TPid, Reason}},
-       #watchdog{state = WS,
-                 ref = Ref,
-                 type = Type,
-                 options = Opts},
-       #state{service_name = SvcName})
-  when WS /= ?WD_OKAY ->
-    send_event(SvcName, {closed, Ref, Reason, {type(Type), Opts}});
-closed(_, _, _) ->
-    ok.
-
-%% The watchdog has never reached OKAY ...
-peer_down(#watchdog{peer = B}, _)
+%% Watchdog has never reached OKAY ...
+wd_down(#watchdog{peer = B}, _)
   when is_boolean(B) ->
     ok;
 
 %% ... or maybe it has.
-peer_down(#watchdog{peer = TPid} = Wd, #state{peerT = PeerT} = S) ->
+wd_down(#watchdog{peer = TPid} = Wd, #state{peerT = PeerT} = S) ->
     connection_down(Wd, ?WD_DOWN, S),
     ets:delete(PeerT, TPid).
 
 %% restart/2
 
-restart(P,S) ->
-    q_restart(restart(P), S).
+restart(Wd, S) ->
+    q_restart(restart(Wd), S).
 
 %% restart/1
 
