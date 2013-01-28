@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.util.Arrays;
+import java.util.zip.Deflater;
 
 /**
  * Provides a stream for encoding Erlang terms to external format, for
@@ -824,14 +825,18 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	    // -> if compression uses more, use the uncompressed term!
 	    int destCount = startCount + oos.size();
 	    this.fixedSize = destCount;
+	    Deflater def = new Deflater();
 	    final java.util.zip.DeflaterOutputStream dos = new java.util.zip.DeflaterOutputStream(
-		    this);
+		    this, def);
 	    try {
 		write1(OtpExternal.compressedTag);
 		write4BE(oos.size());
 		oos.writeTo(dos);
 		dos.close(); // note: closes this, too!
 	    } catch (final IllegalArgumentException e) {
+		// discard further un-compressed data
+		// -> if not called, there may be memory leaks!
+		def.end();
 		// could not make the value smaller than originally
 		// -> reset to starting count, write uncompressed
 		super.count = startCount;
