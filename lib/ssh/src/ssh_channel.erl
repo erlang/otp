@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,10 +48,7 @@
     {ok, NewState :: term()} | {error, Reason :: term()}.
 
 -callback handle_msg(Msg ::term(), State :: term()) ->
-    {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
-    {stop, Reason :: term(), NewState :: term()}.
-
+    {ok, State::term()} | {stop, ChannelId::integer(), State::term()}. 
 
 -callback handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()}, 
  			 State::term()) -> {ok, State::term()} | 

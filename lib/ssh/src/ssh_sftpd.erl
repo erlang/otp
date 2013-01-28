@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,8 +23,7 @@
 
 -module(ssh_sftpd).
 
-%%-behaviour(gen_server).
--behaviour(ssh_subsystem).
+-behaviour(ssh_daemon_channel).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -159,7 +158,7 @@ handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State) ->
     {stop, ChannelId, State}.
 
 %%--------------------------------------------------------------------
-%% Function: handle_ssh_msg(Args) -> {ok, State} | {stop, ChannelId, State}
+%% Function: handle_msg(Args) -> {ok, State} | {stop, ChannelId, State}
 %%                        
 %% Description: Handles other messages
 %%--------------------------------------------------------------------

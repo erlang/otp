@@ -24,7 +24,7 @@
 
 -module(ssh_cli).
 
--behaviour(ssh_channel).
+-behaviour(ssh_daemon_channel).
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -42,7 +42,7 @@
     marker="ssh_channel">ssh_channel</seealso> behavior is used to
     implement the channel process these will be handled by
     <seealso
-	marker="ssh_channel#CallbackModule:handled_ssh_msg-2">handle_ssh_msg/2 </seealso>.</p>
+	marker="ssh_channel#Module:handle_ssh_msg-2">handle_ssh_msg/2 </seealso>.</p>
   </description>
 
   <section>
@@ -69,12 +69,12 @@
 	 <taglist>
 	   <tag><c><![CDATA[{data, ssh_channel_id(), ssh_data_type_code(), binary() = Data}]]></c></tag>
 	   <item> Data has arrived on the channel. This event is sent as
-	   result of calling <seealso marker="#send-3"> ssh_connection:send/[3,4,5] </seealso></item>
+	   result of calling <seealso marker="ssh_connection#send-3"> ssh_connection:send/[3,4,5] </seealso></item>
 
 	   <tag><c><![CDATA[{eof, ssh_channel_id()}]]></c></tag>
 	   <item>Indicates that the other side will not send any more
 	   data. This event is sent as result of calling <seealso
-	   marker="#send_eof-2"> ssh_connection:send_eof/2</seealso>
+	   marker="ssh_connection#send_eof-2"> ssh_connection:send_eof/2</seealso>
 	   </item>
 	 </taglist>
        </item>
@@ -104,12 +104,12 @@
 	following message can be sent to return the exit status of the
 	command. A zero 'exit_status' usually means that the command
 	terminated successfully. This event is sent as result of calling
-	<seealso marker="#exit_status">
+	<seealso marker="ssh_connection#exit_status-3">
 	ssh_connection:exit_status/3</seealso></item>
 
 	<tag><c><![CDATA[{closed, ssh_channel_id()}]]></c></tag>
 	<item> This event is sent as result of calling
-	<seealso marker="#close">ssh_connection:close/2</seealso> Both the handling of this
+	<seealso marker="ssh_connection#close-2">ssh_connection:close/2</seealso> Both the handling of this
 	event and sending of it will be taken care of by the
 	<seealso marker="ssh_channel">ssh_channel</seealso> behavior.</item>
 
@@ -122,17 +122,17 @@
        <p> Channels implementing a shell and command execution on the
        server side should handle the following messages that may be sent by client channel processes. </p>
 
-       <p><note>Events that includes a  <c> WantReply</c> expects the event handling
-       process to call <seealso marker="#reply_request">ssh_connection:reply_request/4</seealso>
+      <note> <p>Events that includes a  <c> WantReply</c> expects the event handling
+       process to call <seealso marker="ssh_connection#reply_request-4">ssh_connection:reply_request/4</seealso>
        with the boolean value of <c> WantReply</c> as the second
-       argument. </note> </p>
+       argument.  </p></note>
 
        <taglist>
 	 <tag><c><![CDATA[{env, ssh_channel_id(), boolean() = WantReply,
 	 string() = Var, string() = Value}]]></c></tag>
 	 <item> Environment variables may be passed to the shell/command
 	 to be started later. This event is sent as result of calling <seealso
-	 marker="#setenv"> ssh_connection:setenv/5</seealso>
+	 marker="ssh_connection#setenv-5"> ssh_connection:setenv/5</seealso>
 	 </item>
 
 	 <tag><c><![CDATA[{pty, ssh_channel_id(),
@@ -157,7 +157,7 @@
 	 <tag><c><![CDATA[{shell, boolean() = WantReply}]]></c></tag>
 	 <item> This message will request that the user's default shell
 	 be started at the other end. This event is sent as result of calling <seealso
-	 marker="#shell"> ssh_connection:shell/2</seealso>
+	 marker="ssh_connection#shell-2"> ssh_connection:shell/2</seealso>
 	 </item>
 
 	 <tag><c><![CDATA[{window_change, ssh_channel_id(), integer() = CharWidth,
@@ -171,7 +171,7 @@
 	 boolean() = WantReply, string() = Cmd}]]></c></tag>
 	 <item> This message will request that the server starts
 	 execution of the given command. This event is sent as result of calling <seealso
-	 marker="#exec">ssh_connection:exec/4 </seealso>
+	 marker="ssh_connection#exec-4">ssh_connection:exec/4 </seealso>
 	 </item>
        </taglist>
      </item>
@@ -194,7 +194,7 @@
 	<note><p>Channels implemented with the <seealso marker="ssh_channel"> ssh_channel
 	behavior</seealso> will normaly not need to call this function as flow control
 	will be handled by the behavior. The behavior will adjust the window every time
-	the callback <seealso marker="ssh_channel#handled_ssh_msg-2">
+	the callback <seealso marker="ssh_channel#Module:handle_ssh_msg-2">
 	handle_ssh_msg/2 </seealso> has returned after processing channel data</p> </note>
       </desc>
    </func>

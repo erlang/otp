@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2005</year><year>2012</year>
+      <year>2005</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -61,7 +61,7 @@
           <item>
 	    <p>Determines which module to call for accessing
 	    the file server. The default value is <c>ssh_sftpd_file</c> that uses the
-	    <seealso marker="kernel#file">file</seealso> and <seealso marker="kernel#filelib">filelib</seealso> API:s to access the standard OTP file
+	    <seealso marker="kernel:file">file</seealso> and <seealso marker="kernel:filelib">filelib</seealso> API:s to access the standard OTP file
 	    server. This option may be used to plug in
 	    other file servers.</p>
 	  </item>
