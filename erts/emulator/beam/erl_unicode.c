@@ -1905,7 +1905,7 @@ binary_to_atom(Process* proc, Eterm bin, Eterm enc, int must_exist)
 	    if (is_non_value(a))
 		goto badarg;
 	    BIF_RET(a);
-	} else if (erts_atom_get((char *)bytes, bin_size, &a, 1)) {
+	} else if (erts_atom_get((char *)bytes, bin_size, &a, ERTS_ATOM_ENC_LATIN1)) {
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BIF_RET(a);
 	} else {
@@ -1940,7 +1940,7 @@ binary_to_atom(Process* proc, Eterm bin, Eterm enc, int must_exist)
 				ERTS_ATOM_ENC_UTF8,
 				0);
 	}
-	else if (!erts_atom_get((char*)bytes, bin_size, &res, 0)) {
+	else if (!erts_atom_get((char*)bytes, bin_size, &res, ERTS_ATOM_ENC_UTF8)) {
 	    goto badarg;
 	}
 	erts_free_aligned_binary_bytes(temp_alloc);

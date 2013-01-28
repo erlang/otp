@@ -2670,7 +2670,7 @@ BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
     } else {
 	Eterm a;
 	
-	if (erts_atom_get(buf, i, &a, 1)) {
+	if (erts_atom_get(buf, i, &a, ERTS_ATOM_ENC_LATIN1)) {
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(a);
 	} else {

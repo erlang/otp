@@ -1455,8 +1455,8 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
     iix = get_iix_acache_map(acmp, atom, dflags);
     if (iix < 0) {
 	Atom *a = atom_tab(atom_val(atom));
+	len = a->len;
 	if (utf8_atoms || a->latin1_chars < 0) {
-	    len = a->len;
 	    if (len > 255) {
 		*ep++ = ATOM_UTF8_EXT;
 		put_int16(len, ep);
@@ -1472,15 +1472,25 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
 	else {
 	    if (a->latin1_chars <= 255 && (dflags & DFLAG_SMALL_ATOM_TAGS)) {
 		*ep++ = SMALL_ATOM_EXT;
-		len = erts_utf8_to_latin1(ep+1, a->name, a->len);
-		ASSERT(len == a->latin1_chars);
+		if (len == a->latin1_chars) {
+		    sys_memcpy(ep+1, a->name, len);
+		}
+		else {
+		    len = erts_utf8_to_latin1(ep+1, a->name, len);
+		    ASSERT(len == a->latin1_chars);
+		}
 		put_int8(len, ep);
 		ep++;
 	    }
 	    else {
 		*ep++ = ATOM_EXT;
-		len = erts_utf8_to_latin1(ep+2, a->name, a->len);
-		ASSERT(len == a->latin1_chars);
+		if (len == a->latin1_chars) {
+		    sys_memcpy(ep+2, a->name, len);
+		}
+		else {
+		    len = erts_utf8_to_latin1(ep+2, a->name, len);
+		    ASSERT(len == a->latin1_chars);
+		}
 		put_int16(len, ep);
 		ep += 2;
 	    }	    
@@ -1524,7 +1534,8 @@ static byte*
 dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
 {
     Uint len;
-    int n, is_latin1;
+    int n;
+    ErtsAtomEncoding char_enc;
 
     switch (*ep++) {
     case ATOM_CACHE_REF:
@@ -1540,34 +1551,29 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
     case ATOM_EXT:
 	len = get_int16(ep),
 	ep += 2;
-	is_latin1 = 1;
+	char_enc = ERTS_ATOM_ENC_LATIN1;
         goto dec_atom_common;
     case SMALL_ATOM_EXT:
 	len = get_int8(ep);
 	ep++;
-	is_latin1 = 1;
+	char_enc = ERTS_ATOM_ENC_LATIN1;
 	goto dec_atom_common;
     case ATOM_UTF8_EXT:
 	len = get_int16(ep),
 	ep += 2;
-	is_latin1 = 0;
+	char_enc = ERTS_ATOM_ENC_UTF8;
 	goto dec_atom_common;
     case SMALL_ATOM_UTF8_EXT:
 	len = get_int8(ep),
 	ep++;
-	is_latin1 = 0;
+	char_enc = ERTS_ATOM_ENC_UTF8;
     dec_atom_common:
         if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
-	    if (!erts_atom_get((char*)ep, len, objp, is_latin1)) {
+	    if (!erts_atom_get((char*)ep, len, objp, char_enc)) {
                 goto error;
 	    }
         } else {
-	    Eterm atom = erts_atom_put(ep,
-				       len,
-				       (is_latin1
-					? ERTS_ATOM_ENC_LATIN1
-					: ERTS_ATOM_ENC_UTF8),
-				       0);
+	    Eterm atom = erts_atom_put(ep, len, char_enc, 0);
 	    if (is_non_value(atom))
 		goto error;
             *objp = atom;
@@ -2175,7 +2181,8 @@ static byte*
 dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Eterm* objp)
 {
     Eterm* hp_saved = *hpp;
-    int n, is_latin1;
+    int n;
+    ErtsAtomEncoding char_enc;
     register Eterm* hp = *hpp;	/* Please don't take the address of hp */
     Eterm* next = objp;
 
@@ -2261,34 +2268,29 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Et
 	case ATOM_EXT:
 	    n = get_int16(ep);
 	    ep += 2;
-	    is_latin1 = 1;
+	    char_enc = ERTS_ATOM_ENC_LATIN1;
 	    goto dec_term_atom_common;
 	case SMALL_ATOM_EXT:
 	    n = get_int8(ep);
 	    ep++;
-	    is_latin1 = 1;
+	    char_enc = ERTS_ATOM_ENC_LATIN1;
 	    goto dec_term_atom_common;
 	case ATOM_UTF8_EXT:
 	    n = get_int16(ep);
 	    ep += 2;
-	    is_latin1 = 0;
+	    char_enc = ERTS_ATOM_ENC_UTF8;
 	    goto dec_term_atom_common;
 	case SMALL_ATOM_UTF8_EXT:
 	    n = get_int8(ep);
 	    ep++;
-	    is_latin1 = 0;
+	    char_enc = ERTS_ATOM_ENC_UTF8;
 dec_term_atom_common:
 	    if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
-		if (!erts_atom_get((char*)ep, n, objp, is_latin1)) {
+		if (!erts_atom_get((char*)ep, n, objp, char_enc)) {
 		    goto error;
 		}
 	    } else {
-		Eterm atom = erts_atom_put(ep,
-					   n,
-					   (is_latin1
-					    ? ERTS_ATOM_ENC_LATIN1
-					    : ERTS_ATOM_ENC_UTF8),
-					   0);
+		Eterm atom = erts_atom_put(ep, n, char_enc, 0);
 		if (is_non_value(atom))
 		    goto error;
 	        *objp = atom;
