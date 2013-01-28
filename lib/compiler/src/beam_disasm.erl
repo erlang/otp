@@ -512,7 +512,12 @@ decode_z_tagged(Tag,B,Bs,Literals) when (B band 16#08) =:= 0 ->
 	    decode_alloc_list(Bs, Literals);
 	4 -> % literal
 	    {{u,LitIndex},RestBs} = decode_arg(Bs),
-	    {{literal,gb_trees:get(LitIndex, Literals)},RestBs};
+	    case gb_trees:get(LitIndex, Literals) of
+		Float when is_float(Float) ->
+		    {{float,Float},RestBs};
+		Literal ->
+		    {{literal,Literal},RestBs}
+	    end;
 	_ ->
 	    ?exit({decode_z_tagged,{invalid_extended_tag,N}})
     end;
