@@ -30,6 +30,65 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    release_handler_SUITE:otp_9864 deleted parts of the
+	    release_handler_SUITE_data directory so the test suite
+	    could not be executed twice without re-installation. This
+	    has been corrected.</p>
+          <p>
+	    Own Id: OTP-10394 Aux Id: kunagi-187 [98] </p>
+        </item>
+        <item>
+          <p>
+	    It is no longer possible to have <c>{Mod,Vsn}</c> in the
+	    'modules' list in a .app file.</p>
+          <p>
+	    This was earlier possible, although never documented in
+	    the .app file reference manual. It was however visible in
+	    the documentation of <c>application:load/[1,2]</c>, where
+	    the same term as in a .app file can be used as the first
+	    argument.</p>
+          <p>
+	    The possibility has been removed since the <c>Vsn</c>
+	    part was never used.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10417</p>
+        </item>
+        <item>
+          <p>
+	    release_handler:upgrade_script and
+	    release_handler:downgrade_script could not read appup
+	    files with regexps. This has been corrected. (Thanks to
+	    Ulf Wiger)</p>
+          <p>
+	    Own Id: OTP-10463</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

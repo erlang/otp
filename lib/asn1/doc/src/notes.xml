@@ -31,6 +31,73 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 2.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Encoding SEQUENCEs with multiple extension addition
+	    groups with optional values could fail (depending both on
+	    the specification and whether all values were provided).</p>
+          <p>
+	    Own Id: OTP-10664</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The options for the ASN.1 compiler has been
+	    drastically simplified. The backend is chosen by using
+	    <c>ber</c>, <c>per</c>, or <c>uper</c>. The options
+	    <c>optimize</c>, <c>nif</c>, and <c>driver</c> are no
+	    longer needed. The old options will still work, but will
+	    issue a warning.</p>
+	    <p>Another change is that generated <c>encode/2</c>
+	    function will always return a binary (some backends used
+	    to return an iolist).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10410 Aux Id: kunagi-254 [165] </p>
+        </item>
+        <item>
+          <p>
+	    The ASN.1 compiler generates faster decode functions for
+	    PER and UPER. Some minor improvements have also been made
+	    for PER/UPER encoding, and to the BER backend.</p>
+          <p>
+	    Own Id: OTP-10519 Aux Id: kunagi-322 [233] </p>
+        </item>
+        <item>
+	    <p>The ASN.1 compiler will now always include necessary
+	    run-time functions in the generated Erlang modules
+	    (except for <c>asn1rt_nif</c> which is still neeeded). If
+	    the option '<c>inline</c>' is used the ASN.1 compiler
+	    will generate a warning. But if
+	    '<c>{inline,OutputFile}</c>' is use, the ASN.1 compiler
+	    will refuse to compile the file. (Use a <c>.set.asn</c>
+	    file if you need to remove the output file.)</p>
+	    <p>The '<c>BIT STRING</c>' type will now be decoded as
+	    Erlang bitstrings by default. Use the new
+	    <c>legacy_bit_string</c> option to encode as lists of
+	    ones and zeroes. (The <c>compact_bit_string</c> option
+	    still works as before.)</p>
+	    <p>Open types are now always returned as binaries (when
+	    there is no information allowing them to be decoded).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10588 Aux Id: kunagi-341 [252] </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

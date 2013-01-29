@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the Toolbar
     application.</p>
 
+<section><title>Toolbar 1.4.2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc build updates</p>
+          <p>
+	    Own Id: OTP-10784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Toolbar 1.4.2.2</title>
 
     <section><title>Improvements and New Features</title>

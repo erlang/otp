@@ -30,7 +30,24 @@
   </header>
   <p>This document describes the changes made to the GS application.</p>
 
-  <section><title>GS 1.5.15.1</title>
+  <section><title>GS 1.5.15.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>GS 1.5.15.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

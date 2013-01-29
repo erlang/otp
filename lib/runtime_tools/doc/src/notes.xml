@@ -31,6 +31,59 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix Table Viewer refresh crash on no more existing ets
+	    tables (Thanks to Peti Gömori)</p>
+          <p>
+	    Own Id: OTP-10635</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    User Guides for the dynamic tracing tools dtrace and
+	    systemtap have been added to the documentation.</p>
+          <p>
+	    Own Id: OTP-10155</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+          <p>
+	    The backend module appmon_info.erl is moved from appmon
+	    application to runtime_tools. This allows appmon to be
+	    run from a remote erlang node towards a target node which
+	    does not have appmon (and its dependencies) installed, as
+	    long as runtime_tools is installed there.</p>
+          <p>
+	    Own Id: OTP-10786</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

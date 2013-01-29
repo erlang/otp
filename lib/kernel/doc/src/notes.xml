@@ -30,6 +30,161 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    It is no longer possible to have <c>{Mod,Vsn}</c> in the
+	    'modules' list in a .app file.</p>
+          <p>
+	    This was earlier possible, although never documented in
+	    the .app file reference manual. It was however visible in
+	    the documentation of <c>application:load/[1,2]</c>, where
+	    the same term as in a .app file can be used as the first
+	    argument.</p>
+          <p>
+	    The possibility has been removed since the <c>Vsn</c>
+	    part was never used.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10417</p>
+        </item>
+        <item>
+	    <p> The contract of <c>erl_ddll:format_error/1</c> has
+	    been corrected. (Thanks to Joseph Wayne Norton.) </p>
+          <p>
+	    Own Id: OTP-10473</p>
+        </item>
+        <item>
+          <p>
+	    Change printout of application crash message on startup
+	    to formated strings (Thanks to Serge Aleynikov)</p>
+          <p>
+	    Own Id: OTP-10620</p>
+        </item>
+        <item>
+	    <p> The type <c>ascii_string()</c> in the <c>base64</c>
+	    module has been corrected. The type
+	    <c>file:file_info()</c> has been cleaned up. The type
+	    <c>file:fd()</c> has been made opaque in the
+	    documentation. </p>
+          <p>
+	    Own Id: OTP-10624 Aux Id: kunagi-352 [263] </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Inet exported functionality</p>
+          <p>
+	    inet:parse_ipv4_address/1,
+	    inet:parse_ipv4strict_address/1,
+	    inet:parse_ipv6_address/1,
+	    inet:parse_ipv6strict_address/1, inet:parse_address/1 and
+	    inet:parse_strict_address is now exported from the inet
+	    module.</p>
+          <p>
+	    Own Id: OTP-8067 Aux Id: kunagi-274 [185] </p>
+        </item>
+        <item>
+          <p>
+	    A boolean socket option 'ipv6_v6only' for IPv6 sockets
+	    has been added. The default value of the option is OS
+	    dependent, so applications aiming to be portable should
+	    consider using <c>{ipv6_v6only,true}</c> when creating an
+	    <c>inet6</c> listening/destination socket, and if
+	    neccesary also create an <c>inet</c> socket on the same
+	    port for IPv4 traffic. See the documentation.</p>
+          <p>
+	    Own Id: OTP-8928 Aux Id: kunagi-193 [104] </p>
+        </item>
+        <item>
+	    <p> Support for Unicode has been implemented. </p>
+          <p>
+	    Own Id: OTP-10302</p>
+        </item>
+        <item>
+          <p>
+	    The documentation for <c>global:register_name/3</c> has
+	    been updated to mention that the use of
+	    <c>{Module,Function}</c> as the method argument (resolve
+	    function) is deprecated.</p>
+          <p>
+	    Own Id: OTP-10419</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug where sendfile on oracle solaris would return
+	    an error when a partial send was done.</p>
+          <p>
+	    Own Id: OTP-10549</p>
+        </item>
+        <item>
+          <p>
+	    The <c>error_handler</c> module will now call
+	    <c>'$handle_undefined_function'/2</c> if an attempt is
+	    made to call a non-existing function in a module that
+	    exists. See the documentation for <c>error_handler</c>
+	    module for details.</p>
+          <p>
+	    Own Id: OTP-10617 Aux Id: kunagi-340 [251] </p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+          <p>
+	    Do not return wrong terms unnecessarily. (Thanks to
+	    Kostis Sagonas.)</p>
+          <p>
+	    Own Id: OTP-10662</p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+	    <p>Add file:allocate/3 operation</p>
+	    <p>This operation allows pre-allocation of space for
+	    files. It succeeds only on systems that support such
+	    operation. (Thanks to Filipe David Manana)</p>
+          <p>
+	    Own Id: OTP-10680</p>
+        </item>
+        <item>
+          <p>
+	    Add application:get_key/3. The new function provides a
+	    default value for a configuration parameter. Thanks to
+	    Serge Aleynikov.</p>
+          <p>
+	    Own Id: OTP-10694</p>
+        </item>
+        <item>
+          <p>
+	    Add search to Erlang shell's history. Thanks to Fred
+	    Herbert.</p>
+          <p>
+	    Own Id: OTP-10739</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.15.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

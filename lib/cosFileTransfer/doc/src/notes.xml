@@ -30,7 +30,22 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>cosFileTransfer 1.1.13</title>
+  <section><title>cosFileTransfer 1.1.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc build updates</p>
+          <p>
+	    Own Id: OTP-10784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>cosFileTransfer 1.1.13</title>
 
     <section><title>Improvements and New Features</title>
       <list>

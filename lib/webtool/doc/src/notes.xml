@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the Webtool
     application.</p>
 
+<section><title>WebTool 0.8.9.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc build updates</p>
+          <p>
+	    Own Id: OTP-10784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>WebTool 0.8.9.1</title>
 
     <section><title>Improvements and New Features</title>

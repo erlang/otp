@@ -30,6 +30,36 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Enable runtime upgrade of crypto including the OpenSSL
+	    library used by crypto.</p>
+          <p>
+	    Own Id: OTP-10596</p>
+        </item>
+        <item>
+          <p>
+	    Improve documentation and tests for hmac functions in
+	    crypto. Thanks to Daniel White</p>
+          <p>
+	    Own Id: OTP-10640</p>
+        </item>
+        <item>
+          <p>
+	    Added ripemd160 support to crypto. Thanks to Michael
+	    Loftis</p>
+          <p>
+	    Own Id: OTP-10667</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

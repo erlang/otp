@@ -30,7 +30,30 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.2.31</title>
+   <section><title>IC 4.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc build updates</p>
+          <p>
+	    Own Id: OTP-10784</p>
+        </item>
+        <item>
+          <p>
+	    Adapt ic for changes in erl_interface and jinterface due
+	    to utf8 atom support. This change makes ic dependent on
+	    erl_interface-3.7.10 (R16) or later in order to build.</p>
+          <p>
+	    Own Id: OTP-10785</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.2.31</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

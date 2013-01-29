@@ -30,6 +30,212 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Wildcards such as "some/path/*" passed to
+	    <c>filelib:wildcard/2</c> would fail to match any file.
+	    (Thanks to Samuel Rivas for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-6874 Aux Id: kunagi-190 [101] </p>
+        </item>
+        <item>
+          <p>
+	    Fixed error handling in proc_lib:start which could hang
+	    if the spawned process died in init.</p>
+          <p>
+	    Own Id: OTP-9803 Aux Id: kunagi-209 [120] </p>
+        </item>
+        <item>
+          <p>
+	    Allow ** in filelib:wildcard</p>
+          <p>
+	    Two adjacent * used as a single pattern will match all
+	    files and zero or more directories and subdirectories.
+	    (Thanks to José Valim)</p>
+          <p>
+	    Own Id: OTP-10431</p>
+        </item>
+        <item>
+          <p>
+	    Add the \gN and \g{N} syntax for back references in
+	    re:replace/3,4 to allow use with numeric replacement
+	    strings. (Thanks to Vance Shipley)</p>
+          <p>
+	    Own Id: OTP-10455</p>
+        </item>
+        <item>
+          <p>
+	    Export ets:match_pattern/0 type (Thanks to Joseph Wayne
+	    Norton)</p>
+          <p>
+	    Own Id: OTP-10472</p>
+        </item>
+        <item>
+          <p>
+	    Fix printing the empty binary at depth 1 with ~W (Thanks
+	    to Andrew Thompson)</p>
+          <p>
+	    Own Id: OTP-10504</p>
+        </item>
+        <item>
+	    <p> The type <c>ascii_string()</c> in the <c>base64</c>
+	    module has been corrected. The type
+	    <c>file:file_info()</c> has been cleaned up. The type
+	    <c>file:fd()</c> has been made opaque in the
+	    documentation. </p>
+          <p>
+	    Own Id: OTP-10624 Aux Id: kunagi-352 [263] </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Dets tables are no longer fixed while traversing with
+	    a bound key (when only the objects with the right key are
+	    matched). This optimization affects the functions
+	    <c>match/2</c>, <c>match_object/2</c>, <c>select/2</c>,
+	    <c>match_delete/2</c>, and <c>select_delete/2</c>. </p>
+          <p>
+	    Own Id: OTP-10097</p>
+        </item>
+        <item>
+	    <p> Support for Unicode has been implemented. </p>
+          <p>
+	    Own Id: OTP-10302</p>
+        </item>
+        <item>
+	    <p> The linter now warns for opaque types that are not
+	    exported, as well as for under-specified opaque types.
+	    </p>
+          <p>
+	    Own Id: OTP-10436</p>
+        </item>
+        <item>
+	    <p> The type <c>file:name()</c> has been substituted for
+	    the type <c>file:filename()</c> in the following
+	    functions in the <c>filename</c> module:
+	    <c>absname/2</c>, <c>absname_join/2</c>, <c>join/1,2</c>,
+	    and <c>split/1</c>. </p>
+          <p>
+	    Own Id: OTP-10474</p>
+        </item>
+        <item>
+          <p>
+	    If a child process fails in its start function, then the
+	    error reason was earlier only reported as an error report
+	    from the error_handler, and supervisor:start_link would
+	    only return <c>{error,shutdown}</c>. This has been
+	    changed so the supervisor will now return
+	    <c>{error,{shutdown,Reason}}</c>, where <c>Reason</c>
+	    identifies the failing child and its error reason.
+	    (Thanks to Tomas Pihl)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10490</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+	    <p> The contracts and types of the modules
+	    <c>erl_scan</c> and <c>sys</c> have been corrected and
+	    improved. (Thanks to Kostis Sagonas.) </p>
+          <p>
+	    Own Id: OTP-10658</p>
+        </item>
+        <item>
+	    <p> The Erlang shell now skips the rest of the line when
+	    it encounters an Erlang scanner error. </p>
+          <p>
+	    Own Id: OTP-10659</p>
+        </item>
+        <item>
+          <p>
+	    Clean up some specs in the proplists module. (Thanks to
+	    Kostis Sagonas.)</p>
+          <p>
+	    Own Id: OTP-10663</p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+          <p>
+	    Enable escript to accept emulator arguments when script
+	    file has no shebang. Thanks to Magnus Henoch</p>
+          <p>
+	    Own Id: OTP-10691</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in queue:out/1, queue:out_r/1 that makes it
+	    O(N^2) in worst case. Thanks to Aleksandr Erofeev.</p>
+          <p>
+	    Own Id: OTP-10722</p>
+        </item>
+        <item>
+	    <p> There are new functions in the <c>epp</c> module
+	    which read the character encoding from files. See
+	    <c>epp(3)</c> for more information. </p>
+          <p>
+	    Own Id: OTP-10742 Aux Id: OTP-10302 </p>
+        </item>
+        <item>
+	    <p> The functions in <c>io_lib</c> have been adjusted for
+	    Unicode. The existing functions <c>write_string()</c> and
+	    so on now take Unicode strings, while the old behavior
+	    has been taken over by new functions
+	    <c>write_latin1_string()</c> and so on. There are also
+	    new functions to write Unicode strings as Latin-1
+	    strings, mainly targetted towards the Erlang pretty
+	    printer (<c>erl_pp</c>). </p>
+          <p>
+	    Own Id: OTP-10745 Aux Id: OTP-10302 </p>
+        </item>
+        <item>
+	    <p> The new functions <c>proc_lib:format/2</c> and
+	    <c>erl_parse:abstract/2</c> accept an encoding as second
+	    argument. </p>
+          <p>
+	    Own Id: OTP-10749 Aux Id: OTP-10302 </p>
+        </item>
+        <item>
+          <p>
+	    Increased potential concurrency in ETS for
+	    <c>write_concurrency</c> option. The number of internal
+	    table locks has increased from 16 to 64. This makes it
+	    four times less likely that two concurrent processes
+	    writing to the same table would collide and thereby
+	    serialized. The cost is an increased constant memory
+	    footprint for tables using write_concurrency. The memory
+	    consumption per inserted record is not affected. The
+	    increased footprint can be particularly large if
+	    <c>write_concurrency</c> is combined with
+	    <c>read_concurrency</c>.</p>
+          <p>
+	    Own Id: OTP-10787</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.18.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

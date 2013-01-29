@@ -32,6 +32,232 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Severe errors detected by <c>test_server</c> (e.g. if log
+	    files directories cannot be created) will now be reported
+	    to <c>common_test</c> and noted in the <c>common_test</c>
+	    logs.</p>
+          <p>
+	    Own Id: OTP-9769 Aux Id: kunagi-202 [113] </p>
+        </item>
+        <item>
+          <p>
+	    The earlier undocumented cross cover feature for
+	    accumulating cover data over multiple tests has now been
+	    fixed and documented.</p>
+          <p>
+	    Own Id: OTP-9870 Aux Id: kunagi-206 [117] </p>
+        </item>
+        <item>
+          <p>
+	    If a busy test case generated lots of error messages,
+	    cth_log_redirect:post_end_per_testcase would crash with a
+	    timeout while waiting for the error logger to finish
+	    handling all error reports. The default timer was 5
+	    seconds. This has now been extended to 5 minutes.</p>
+          <p>
+	    Own Id: OTP-10040 Aux Id: kunagi-173 [84] </p>
+        </item>
+        <item>
+	    <p>When a test case failed because of a timetrap time
+	    out, the <c>Config</c> data for the case was lost in the
+	    following call to <c>end_per_testcase/2</c>, and also in
+	    calls to the CT Hook function
+	    <c>post_end_per_testcase/4</c>. This problem has been
+	    solved and the <c>Config</c> data is now correctly passed
+	    to the above functions after a timetrap timeout
+	    failure.</p>
+          <p>
+	    Own Id: OTP-10070 Aux Id: kunagi-175 [86] </p>
+        </item>
+        <item>
+          <p>
+	    Some calls to deprecated and removed functions in snmp
+	    are removed from ct_snmp.</p>
+          <p>
+	    Own Id: OTP-10088 Aux Id: kunagi-176 [87] </p>
+        </item>
+        <item>
+	    <p>In test_server, the same process would supervise the
+	    currently running test case and be group leader (and IO
+	    server) for the test case. Furthermore, when running
+	    parallel test cases, new temporary supervisor/group
+	    leader processes were spawned and the process that was
+	    group leader for sequential test cases would not be
+	    active. That would lead to several problems:</p>
+	    <p>* Processes started by init_per_suite will inherit the
+	    group leader of the init_per_suite process (and that
+	    group leader would not process IO requests when parallel
+	    test cases was running). If later a parallel test case
+	    caused such a processto print using (for example)
+	    io:format/2, the calling would hang.</p>
+	    <p>* Similarly, if a process was spawned from a parallel
+	    test case, it would inherit the temporary group leader
+	    for that parallel test case. If that spawned process
+	    later - when the group of parallel tests have finished -
+	    attempted to print something, its group leader would be
+	    dead and there would be <c>badarg</c> exception.</p>
+	    <p>Those problems have been solved by having group
+	    leaders separate from the processes that supervises the
+	    test cases, and keeping temporary group leader process
+	    for parallel test cases alive until no more process in
+	    the system use them as group leaders.</p>
+	    <p>Also, a new <c>unexpected_io.log</c> log file
+	    (reachable from the summary page of each test suite) has
+	    been introduced. All unexpected IO will be printed into
+	    it(for example, IO to a group leader for a parallel test
+	    case that has finished).</p>
+          <p>
+	    Own Id: OTP-10101 Aux Id: OTP-10125 </p>
+        </item>
+        <item>
+          <p>
+	    Some bugfixes in <c>ct_snmp:</c></p>
+          <p>
+	    <list> <item> ct_snmp will now use the value of the
+	    'agent_vsns' config variable when setting the 'variables'
+	    parameter to snmp application agent configuration.
+	    Earlier this had to be done separately - i.e. the
+	    supported versions had to be specified twice. </item>
+	    <item> Snmp application failed to write notify.conf since
+	    ct_snmp gave the notify type as a string instead of an
+	    atom. This has been corrected. </item> </list></p>
+          <p>
+	    Own Id: OTP-10432</p>
+        </item>
+        <item>
+          <p>
+	    Some bugfixes in <c>ct_snmp</c>:</p>
+          <p>
+	    <list> <item> Functions <c>register_users/2</c>,
+	    <c>register_agents/2</c> and <c>register_usm_users/2</c>,
+	    and the corresponding <c>unregister_*/1</c> functions
+	    were not executable. These are corrected/rewritten.
+	    </item> <item> Function <c>update_usm_users/2</c> is
+	    removed, and an unregister function is added instead.
+	    Update can now be done with unregister_usm_users and then
+	    register_usm_users. </item> <item> Functions
+	    <c>unregister_*/2</c> are added, so specific
+	    users/agents/usm users can be unregistered. </item>
+	    <item> Function <c>unload_mibs/1</c> is added for
+	    completeness. </item> <item> Overriding configuration
+	    files did not work, since the files were written in
+	    priv_dir instead of in the configuration dir
+	    (priv_dir/conf). This has been corrected. </item> <item>
+	    Arguments to <c>register_usm_users/2</c> were faulty
+	    documented. This has been corrected. </item> </list></p>
+          <p>
+	    Own Id: OTP-10434 Aux Id: kunagi-264 [175] </p>
+        </item>
+        <item>
+          <p>
+	    Faulty exported specs in common test has been corrected
+	    to <c>ct_netconfc:hook_options/0</c> and
+	    <c>inet:hostname/0</c></p>
+          <p>
+	    Own Id: OTP-10601</p>
+        </item>
+        <item>
+          <p>
+	    The netconf client in common_test did not adjust the
+	    window after receiving data. Due to this, the client
+	    stopped receiving data after a while. This has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-10646</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>It is now possible to let a test specification include
+	    other test specifications. Included specs can either be
+	    joined with the source spec (and all other joined specs),
+	    resulting in one single test run, or they can be executed
+	    in separate test runs. Also, a start flag/option,
+	    <c>join_specs</c>, has been introduced, to be used in
+	    combination with the <c>spec</c> option. With
+	    <c>join_specs</c>, Common Test can be told to either join
+	    multiple test specifications, or run them separately.
+	    Without <c>join_specs</c>, the latter behaviour is
+	    default. Note that this is a change compared to earlier
+	    versions of Common Test, where specifications could only
+	    be joined. More information can be found in the Running
+	    Tests chapter in the User's Guide (see the Test
+	    Specifications section).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9881 Aux Id: kunagi-350 [261] </p>
+        </item>
+        <item>
+          <p>
+	    The <c>ct_slave:start/3</c> function now supports an
+	    <c>{env,[{Var,Value}]}</c> option to extend environment
+	    for the slave node.</p>
+          <p>
+	    Own Id: OTP-10469 Aux Id: kunagi-317 [228] </p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+          <p>
+	    Update common test modules to handle unicode <list>
+	    <item> Use UTF-8 encoding for all HTML files, except the
+	    HTML version of the test suite generated with
+	    erl2html2:convert, which will have the same encoding as
+	    the original test suite (.erl) file. </item> <item>
+	    Encode link targets in HTML files with
+	    test_server_ctrl:uri_encode/1. </item> <item> Use unicode
+	    modifier 't' with ~s when appropriate. </item> <item> Use
+	    unicode:characters_to_list and
+	    unicode:characters_to_binary for conversion between
+	    binaries and strings instead of binary_to_list and
+	    list_to_binary. </item> </list></p>
+          <p>
+	    Own Id: OTP-10783</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    CT drops error reason when groups/0 crashes.</p>
+          <p>
+	    Own Id: OTP-10631 Aux Id: kunagi-345 [256] </p>
+        </item>
+        <item>
+          <p>
+	    Event handler on a ct_master node causes hanging.</p>
+          <p>
+	    Own Id: OTP-10634 Aux Id: kunagi-347 [258] </p>
+        </item>
+        <item>
+          <p>
+	    CT fails to open telnet conn after a timetrap timeout.</p>
+          <p>
+	    Own Id: OTP-10648 Aux Id: seq12212 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.6.3.1</title>
 
     <section><title>Known Bugs and Problems</title>

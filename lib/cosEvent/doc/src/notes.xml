@@ -32,7 +32,22 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>cosEvent 2.1.12</title>
+  <section><title>cosEvent 2.1.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc build updates</p>
+          <p>
+	    Own Id: OTP-10784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>cosEvent 2.1.12</title>
 
     <section><title>Improvements and New Features</title>
       <list>

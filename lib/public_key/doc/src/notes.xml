@@ -34,6 +34,55 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix subjectPublicKeyInfo type comment in public_key.
+	    Thanks to Ryosuke Nakai.</p>
+          <p>
+	    Own Id: OTP-10670</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    public_key now supports CRL validation and documents the
+	    function public_key:pkix_path_validation/3</p>
+          <p>
+	    Own Id: OTP-7045</p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+          <p>
+	    Fixed typo's in public_key spec.</p>
+          <p>
+	    Own Id: OTP-10723</p>
+        </item>
+        <item>
+          <p>
+	    Corrected PKCS-10 documentation and added some PKCS-9
+	    support that is fairly commonly used by PKCS-10. Full
+	    support for PKCS-9 will be added later.</p>
+          <p>
+	    Own Id: OTP-10767</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.17</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

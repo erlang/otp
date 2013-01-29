@@ -31,6 +31,52 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add {silent_start, boolean()} option to wx:new/1 in order
+	    to be able to suppress error messages during startup of
+	    wx. (Thanks to Håkan Mattsson)</p>
+          <p>
+	    Own Id: OTP-10585</p>
+        </item>
+        <item>
+          <p>
+	    Fix wxTreeCtrl:getBoundingRect/2 and
+	    wxTreeCtrl:hitTest/1. wxTreeCtrl:hitTest now returns a
+	    tuple not bug compatible with previous releases but
+	    needed.</p>
+          <p>
+	    Own Id: OTP-10743</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The wx application now compiles and is usable with the
+	    unstable development branch of wxWidgets-2.9. Some
+	    functions are currently not available in wxWidgets-2.9
+	    and their erlang counterparts are marked as deprecated.
+	    They will generate an error if called when linked against
+	    wxWidgets-2.9 libraries. This means that wx can now be
+	    built on 64bit MacOsX, but keep in mind that
+	    wxWidgets-2.9 is still a development branch and needs (a
+	    lot) more work before it becomes stable.</p>
+          <p>
+	    Own Id: OTP-10407 Aux Id: kunagi-262 [173] </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 0.99.2</title>
 
     <section><title>Improvements and New Features</title>

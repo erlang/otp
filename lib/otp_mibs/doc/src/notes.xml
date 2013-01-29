@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the OTP_Mibs
     application.</p>
 
+<section><title>Otp_Mibs 1.0.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc build updates</p>
+          <p>
+	    Own Id: OTP-10784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Otp_Mibs 1.0.7</title>
 
     <section><title>Improvements and New Features</title>

@@ -42,6 +42,85 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>Diameter 1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add registered server names to the app file.</p>
+          <p>
+	    Own Id: OTP-10442</p>
+        </item>
+        <item>
+          <p>
+	    Fix #diameter_header{} handling broken by OTP-10445.</p>
+          <p>
+	    The fault caused the the header of a [Header | Avps]
+	    request to be ignored if both end_to_end_id and
+	    hop_by_hop_id were undefined.</p>
+          <p>
+	    Own Id: OTP-10609</p>
+        </item>
+        <item>
+          <p>
+	    Fix error handling for handle_request callback.</p>
+          <p>
+	    A callback that returned a #diameter_packet{} would fail
+	    if the incoming request had decode errors.</p>
+          <p>
+	    Own Id: OTP-10614</p>
+        </item>
+        <item>
+          <p>
+	    Fix timing of service start event.</p>
+          <p>
+	    The event did not necessarily precede other events as
+	    documented.</p>
+          <p>
+	    Own Id: OTP-10618</p>
+        </item>
+        <item>
+          <p>
+	    Fix setting of header T flag at peer failover.</p>
+          <p>
+	    The flag is now set in the diameter_header record passed
+	    to a prepare_retransmit callback.</p>
+          <p>
+	    Own Id: OTP-10619</p>
+        </item>
+        <item>
+          <p>
+	    Fix sending of CER/CEA timeout event at capx_timeout.</p>
+          <p>
+	    The event was not sent as documented.</p>
+          <p>
+	    Own Id: OTP-10628</p>
+        </item>
+        <item>
+          <p>
+	    Fix improper setting of Application-ID in the Diameter
+	    header of an answer message whose E flag is set.</p>
+          <p>
+	    The value should be that of the request in question. The
+	    fault caused it always to be 0.</p>
+          <p>
+	    Own Id: OTP-10655</p>
+        </item>
+        <item>
+          <p>
+	    Fix faulty handling of AVP length errors.</p>
+          <p>
+	    An incorrect AVP length but no other errors caused an
+	    incoming request to fail.</p>
+          <p>
+	    Own Id: OTP-10693</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Diameter 1.3.1</title>
 
     <section><title>Known Bugs and Problems</title>

@@ -29,6 +29,111 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    It is now possible to send an empty binary using
+	    ssh_connection:send/3, this corner case previously caused
+	    ssh_connection:send to hang.</p>
+          <p>
+	    Own Id: OTP-9478 Aux Id: kunagi-226 [137] </p>
+        </item>
+        <item>
+          <p>
+	    Fix typo in keyboard-interactive string. Thanks to Daniel
+	    Goertzen</p>
+          <p>
+	    Own Id: OTP-10456</p>
+        </item>
+        <item>
+          <p>
+	    ssh_connectino:send/3 will not return until all data has
+	    been sent. Previously it could return too early,
+	    resulting in things such premature close of the
+	    connection. Also improved error handling of closed SSH
+	    channels.</p>
+          <p>
+	    Own Id: OTP-10467</p>
+        </item>
+        <item>
+	    <p>Fixed ssh_cli.erl crashes because #state.buf is yet
+	    'undefined'.</p> <p>Fixed Client terminateing connections
+	    due to channel_request message response is sent to the
+	    wrong id.</p> <p>Affected SSH clients: - all clients
+	    based on SSH-2.0-TrileadSSH2Java_213 (problem #1) - SSH
+	    Term Pro (problem #2)</p> <p>Thanks to Stefan Zegenhagen
+	    </p>
+          <p>
+	    Own Id: OTP-10475</p>
+        </item>
+        <item>
+          <p>
+	    Fixed various syntax errors in SSH appup file</p>
+          <p>
+	    Own Id: OTP-10657</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    SSH_FX_FILE_IS_A_DIRECTORY message for sftp implemented</p>
+          <p>
+	    Own Id: OTP-6406 Aux Id: kunagi-218 [129] </p>
+        </item>
+        <item>
+          <p>
+	    SSH Rekeying fixed</p>
+          <p>
+	    Own Id: OTP-7785 Aux Id: kunagi-220 [131] </p>
+        </item>
+        <item>
+          <p>
+	    Added User Guide for the SSH application</p>
+          <p>
+	    Own Id: OTP-7786 Aux Id: kunagi-221 [132] </p>
+        </item>
+        <item>
+          <p>
+	    Documentation regarding failfun, connectfun and
+	    disconnectfun provided</p>
+          <p>
+	    Own Id: OTP-7792 Aux Id: kunagi-222 [133] </p>
+        </item>
+        <item>
+          <p>
+	    SSH connection timer implementation</p>
+          <p>
+	    New option, {idle_time, integer()}, sets a timeout on
+	    connection when no channels are active, defaults to
+	    infinity</p>
+          <p>
+	    Own Id: OTP-10514 Aux Id: seq12020 </p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+          <p>
+	    Fixed internal error on when client and server can not
+	    agree o which authmethod to use.</p>
+          <p>
+	    Own Id: OTP-10731 Aux Id: seq12237 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 2.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

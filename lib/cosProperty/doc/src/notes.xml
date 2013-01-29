@@ -31,7 +31,22 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>cosProperty 1.1.15</title>
+  <section><title>cosProperty 1.1.16</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc build updates</p>
+          <p>
+	    Own Id: OTP-10784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>cosProperty 1.1.15</title>
 
     <section><title>Improvements and New Features</title>
       <list>

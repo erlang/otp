@@ -33,7 +33,36 @@
   </header>
   
   
-  <section><title>Inets 5.9.2</title>
+  <section><title>Inets 5.9.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    httpc: The HTTP client now supports HTTPS through proxies</p>
+          <p>
+	    Own Id: OTP-10256 Aux Id: kunagi-2
+	    [ce2e800e-c99f-4050-a1c4-f47023d9c7aa-1] </p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+          <p>
+	    Fix autoredirect for POST requests responding 303. Thanks
+	    to Hans Svensson.</p>
+          <p>
+	    Own Id: OTP-10765</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>

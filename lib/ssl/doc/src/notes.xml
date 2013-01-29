@@ -26,7 +26,117 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
   
-  <section><title>SSL 5.1.2</title>
+  <section><title>SSL 5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    SSL: TLS 1.2, advertise sha224 support, thanks to Andreas
+	    Schultz.</p>
+          <p>
+	    Own Id: OTP-10586</p>
+        </item>
+        <item>
+          <p>
+	    If an ssl server is restarted with new options and a
+	    client tries to reuse a session the server must make sure
+	    that it complies to the new options before agreeing to
+	    reuse it.</p>
+          <p>
+	    Own Id: OTP-10595</p>
+        </item>
+        <item>
+          <p>
+	    Now handles cleaning of CA-certificate database correctly
+	    so that there will be no memory leek, bug was introduced
+	    in ssl- 5.1 when changing implementation to increase
+	    parallel execution.</p>
+          <p>
+	    Impact: Improved memory usage, especially if you have
+	    many different certificates and upgrade tcp-connections
+	    to TLS-connections.</p>
+          <p>
+	    Own Id: OTP-10710</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support Next Protocol Negotiation in TLS, thanks to Ben
+	    Murphy for the contribution.</p>
+          <p>
+	    Impact: Could give performance benefit if used as it
+	    saves a round trip.</p>
+          <p>
+	    Own Id: OTP-10361 Aux Id: kunagi-214 [125] </p>
+        </item>
+        <item>
+          <p>
+	    TLS 1.2 will now be the default TLS version if sufficient
+	    crypto support is available otherwise TLS 1.1 will be
+	    default.</p>
+          <p>
+	    Impact: A default TLS connection will have higher
+	    security and hence it may be perceived as slower then
+	    before.</p>
+          <p>
+	    Own Id: OTP-10425 Aux Id: kunagi-275 [186] </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to call controlling_process on a
+	    listen socket, same as in gen_tcp.</p>
+          <p>
+	    Own Id: OTP-10447</p>
+        </item>
+        <item>
+          <p>
+	    Remove filter mechanisms that made error messages
+	    backwards compatible with old ssl but hid information
+	    about what actually happened.</p>
+          <p>
+	    This does not break the documented API however other
+	    reason terms may be returned, so code that matches on the
+	    reason part of {error, Reason} may fail.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10451 Aux Id: kunagi-270 [181] </p>
+        </item>
+        <item>
+          <p>
+	    Added missing dependencies to Makefile</p>
+          <p>
+	    Own Id: OTP-10594</p>
+        </item>
+        <item>
+          <p>
+	    Removed deprecated function ssl:pid/0, it has been
+	    pointless since R14 but has been keep for backwards
+	    compatibility.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10613 Aux Id: kunagi-331 [242] </p>
+        </item>
+        <item>
+          <p>
+	    Refactor to simplify addition of key exchange methods,
+	    thanks to Andreas Schultz.</p>
+          <p>
+	    Own Id: OTP-10709</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -30,6 +30,98 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add missing modules in app-file</p>
+          <p>
+	    Own Id: OTP-10439</p>
+        </item>
+        <item>
+          <p>
+	    Make erlang-mode more compatible with package.el (Thanks
+	    to Gleb Peregud)</p>
+          <p>
+	    Own Id: OTP-10465</p>
+        </item>
+        <item>
+          <p>
+	    Fix various typos (thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-10611</p>
+        </item>
+        <item>
+          <p>
+	    Add separate face for exported functions (Thanks to
+	    Thomas Järvstrand)</p>
+          <p>
+	    Own Id: OTP-10637</p>
+        </item>
+        <item>
+          <p>
+	    The BIF highlighting in the emacs mode has been updated
+	    to correspond with the correct BIFs.</p>
+          <p>
+	    Own Id: OTP-10774</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Support for Unicode has been implemented. </p>
+          <p>
+	    Own Id: OTP-10302</p>
+        </item>
+        <item>
+          <p>
+	    A new function, cover:flush(Nodes), is added which will
+	    fetch data from remote nodes without stopping cover on
+	    those nodes. This is used by test_server and common_test
+	    when it is safe to assume that the node will be
+	    terminated after the test anyway. The purpose is to avoid
+	    processes crashing when re-loading the original beam if
+	    the processes is still running old code.</p>
+          <p>
+	    Remote nodes will now continue to count code coverage if
+	    the connection to the main node is broken. Earlier, a
+	    broken connection would cause the cover_server on the
+	    remote node to die and thus any still cover compiled
+	    modules would cause process crash when trying to insert
+	    cover data in ets tables that used to exist on the
+	    cover_server. The new functionality also involves
+	    synchronization with the main node if the nodes are
+	    reconnected.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10523 Aux Id: OTP-10427 </p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+          <p>
+	    Fix syntax highlighting of $\' in Emacs mode. Thanks to
+	    Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-10766</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

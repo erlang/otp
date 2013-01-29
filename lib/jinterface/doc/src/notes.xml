@@ -30,6 +30,53 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.5.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    fix reading compressed binary terms from Java (Thanks to
+	    Nico Kruber)</p>
+          <p>
+	    Own Id: OTP-10505</p>
+        </item>
+        <item>
+          <p>
+	    OtpEpmd.lokupNames() no longer hangs when badly
+	    configured (Thanks to Vlad Dumitrescu)</p>
+          <p>
+	    Own Id: OTP-10579</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+          <p>
+	    Limited support for unicode atoms in the external format
+	    and in the internal representation of the vm. This is a
+	    preparative feature in order to support communication
+	    with future releases of Erlang/OTP that may create
+	    unicode atoms.</p>
+          <p>
+	    Own Id: OTP-10753</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.5.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

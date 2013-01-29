@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed deprecated function calls to snmp</p>
+          <p>
+	    Own Id: OTP-10448</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.2.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the TV application.</p>
 
+<section><title>TV 2.1.4.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc build updates</p>
+          <p>
+	    Own Id: OTP-10784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>TV 2.1.4.9</title>
 
     <section><title>Improvements and New Features</title>

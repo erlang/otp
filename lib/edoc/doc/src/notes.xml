@@ -31,6 +31,42 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Since EDoc 0.7.7 (R14B02) separate values of union
+	    types can be annotated. However, the parser has hitherto
+	    chosen not to add the necessary parentheses due to
+	    backwards compatibility. </p> <p> From this release on
+	    code traversing the output of <c>edoc_parser</c> needs to
+	    take care of parentheses around separate values of union
+	    types. Examples of such code are layout modules and
+	    doclet modules. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10195</p>
+        </item>
+        <item>
+	    <p> Support for Unicode has been implemented. </p>
+          <p>
+	    Own Id: OTP-10302</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

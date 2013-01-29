@@ -1,3 +1,3 @@
 
-ORBER_VSN = 3.6.24
+ORBER_VSN = 3.6.25
 

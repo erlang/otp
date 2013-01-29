@@ -31,6 +31,62 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.5.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Support for Unicode has been implemented. </p>
+          <p>
+	    Own Id: OTP-10302</p>
+        </item>
+        <item>
+	    <p> Dialyzer no longer outputs warnings for unused
+	    anonymous functions ("funs"). Warnings are still output
+	    for unused functions. </p>
+          <p>
+	    Own Id: OTP-10433</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+          <p>
+	    Fix precision of record creation violation warnings.
+	    Thanks to Stavros Aronis</p>
+          <p>
+	    Own Id: OTP-10681</p>
+        </item>
+        <item>
+          <p>
+	    Report spec discrepancy on mismatching lists. Thanks to
+	    Stavros Aronis.</p>
+          <p>
+	    Own Id: OTP-10740</p>
+        </item>
+        <item>
+          <p>
+	    Properly support functions with arbitrary arity in type
+	    specs. Thanks to Stavros Aronis.</p>
+          <p>
+	    Own Id: OTP-10772</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

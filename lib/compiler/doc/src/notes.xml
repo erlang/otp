@@ -31,6 +31,57 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The compiler optimizations have been polished, so that
+	    the code quality will be slightly better in some cases.</p>
+          <p>
+	    Own Id: OTP-10193</p>
+        </item>
+        <item>
+	    <p> Support for Unicode has been implemented. </p>
+          <p>
+	    Own Id: OTP-10302</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+          <p>
+	    Fix some wrong warnings triggered by the option
+	    inline_list_funcs. Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-10690</p>
+        </item>
+        <item>
+          <p>
+	    Forbid local fun variables in Core Erlang guards. Thanks
+	    to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-10706</p>
+        </item>
+        <item>
+          <p>
+	    Binary syntax matches could cause an internal consistency
+	    error in in the compiler. (Thanks to Viktor Sovietov for
+	    reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-10724</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

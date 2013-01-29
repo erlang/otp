@@ -30,7 +30,28 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
-  <section>
+  <section><title>Eldap 1.0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed various dialyzer warnings</p>
+          <p>
+	    Own Id: OTP-10403 Aux Id: kunagi-258 [169] </p>
+        </item>
+        <item>
+          <p>
+	    Configure the SSL options fully in eldap.</p>
+          <p>
+	    Own Id: OTP-10728</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>Eldap 1.0</title>
     <p>New application. </p>
   </section>

@@ -31,7 +31,58 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.13</title>
+  <section><title>ODBC 2.10.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Under Unix enable TCP_NODELAY to disable Nagel's socket
+	    algorithm. Thanks to Andy Richards</p>
+          <p>
+	    Impact: Performance gain on Unix systems</p>
+          <p>
+	    Own Id: OTP-10506</p>
+        </item>
+        <item>
+          <p>
+	    Added extended_errors option to ODBC</p>
+          <p>
+	    When enabled, this option alters the return code of ODBC
+	    operations that produce errors to include the ODBC error
+	    code as well as the native error code, in addition to the
+	    ODBC reason field which is returned by default. Thanks to
+	    Bernard Duggan.</p>
+          <p>
+	    Own Id: OTP-10603</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+	    <p> Some examples overflowing the width of PDF pages have
+	    been corrected. </p>
+          <p>
+	    Own Id: OTP-10665</p>
+        </item>
+        <item>
+          <p>
+	    Fix aotocommit for Oracle ODBC driver in Linux. Thanks to
+	    Danil Onishchenko.</p>
+          <p>
+	    Own Id: OTP-10735</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

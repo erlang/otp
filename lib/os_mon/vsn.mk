@@ -1,1 +1,1 @@
-OS_MON_VSN = 2.2.10
+OS_MON_VSN = 2.2.11

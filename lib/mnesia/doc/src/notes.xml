@@ -38,7 +38,63 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.7.1</title>
+  <section><title>Mnesia 4.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Use chained send_after instead of send_interval, to make
+	    decrease the number of messages sent after a sleep
+	    (Thanks to James Wheare)</p>
+          <p>
+	    Own Id: OTP-10636</p>
+        </item>
+        <item>
+          <p>
+	    Fix format of mnesia overload message (Thanks to Ahmed
+	    Omar)</p>
+          <p>
+	    Own Id: OTP-10639</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added a general framework for executing benchmarks of
+	    Erlang/OTP. Benchmarks for the Erlang VM and mnesia have
+	    been incorporated in the framework. </p>
+          <p>
+	    For details about how to add more benchmarks see
+	    $ERL_TOP/HOWTO/BENCHMARKS.md in the source distribution.</p>
+          <p>
+	    Own Id: OTP-10156</p>
+        </item>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+          <p>
+	    Remove support for the query keyword and query
+	    expressions. Thanks to Loïc Hoguin.</p>
+          <p>
+	    Own Id: OTP-10729</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

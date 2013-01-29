@@ -32,6 +32,152 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Line numbering of erlang files that were not correctly
+	    indented could be wrong after coverting to html with
+	    erl2html2:convert/[2,3] (the source code pointed to from
+	    the test case). This has been corrected.</p>
+          <p>
+	    Also, there are now link targets for each line and not
+	    only for each 10th line, and link targets for functions
+	    now include the arity and not only the function name
+	    (e.g. func/1 has a link target "func-1").</p>
+          <p>
+	    Own Id: OTP-9710 Aux Id: seq11945, kunagi-201 [112] </p>
+        </item>
+        <item>
+          <p>
+	    Severe errors detected by <c>test_server</c> (e.g. if log
+	    files directories cannot be created) will now be reported
+	    to <c>common_test</c> and noted in the <c>common_test</c>
+	    logs.</p>
+          <p>
+	    Own Id: OTP-9769 Aux Id: kunagi-202 [113] </p>
+        </item>
+        <item>
+          <p>
+	    The earlier undocumented cross cover feature for
+	    accumulating cover data over multiple tests has now been
+	    fixed and documented.</p>
+          <p>
+	    Own Id: OTP-9870 Aux Id: kunagi-206 [117] </p>
+        </item>
+        <item>
+          <p>
+	    If the test suite itself was included in code coverage
+	    analysis, then the test_server would not manage to set
+	    data_dir correctly for the test. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9956 Aux Id: kunagi-207 [118] </p>
+        </item>
+        <item>
+          <p>
+	    Any call to test_server:break/1 should cancel all active
+	    timetramps. However, in some cases
+	    Suite:end_per_testcase/2 is executed on a different
+	    process than the test case itself, and if
+	    test_server:break/1 was called from there, the timetraps
+	    were not cancelled. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-10046 Aux Id: kunagi-174 [85] </p>
+        </item>
+        <item>
+	    <p>When a test case failed because of a timetrap time
+	    out, the <c>Config</c> data for the case was lost in the
+	    following call to <c>end_per_testcase/2</c>, and also in
+	    calls to the CT Hook function
+	    <c>post_end_per_testcase/4</c>. This problem has been
+	    solved and the <c>Config</c> data is now correctly passed
+	    to the above functions after a timetrap timeout
+	    failure.</p>
+          <p>
+	    Own Id: OTP-10070 Aux Id: kunagi-175 [86] </p>
+        </item>
+        <item>
+	    <p>In test_server, the same process would supervise the
+	    currently running test case and be group leader (and IO
+	    server) for the test case. Furthermore, when running
+	    parallel test cases, new temporary supervisor/group
+	    leader processes were spawned and the process that was
+	    group leader for sequential test cases would not be
+	    active. That would lead to several problems:</p>
+	    <p>* Processes started by init_per_suite will inherit the
+	    group leader of the init_per_suite process (and that
+	    group leader would not process IO requests when parallel
+	    test cases was running). If later a parallel test case
+	    caused such a processto print using (for example)
+	    io:format/2, the calling would hang.</p>
+	    <p>* Similarly, if a process was spawned from a parallel
+	    test case, it would inherit the temporary group leader
+	    for that parallel test case. If that spawned process
+	    later - when the group of parallel tests have finished -
+	    attempted to print something, its group leader would be
+	    dead and there would be <c>badarg</c> exception.</p>
+	    <p>Those problems have been solved by having group
+	    leaders separate from the processes that supervises the
+	    test cases, and keeping temporary group leader process
+	    for parallel test cases alive until no more process in
+	    the system use them as group leaders.</p>
+	    <p>Also, a new <c>unexpected_io.log</c> log file
+	    (reachable from the summary page of each test suite) has
+	    been introduced. All unexpected IO will be printed into
+	    it(for example, IO to a group leader for a parallel test
+	    case that has finished).</p>
+          <p>
+	    Own Id: OTP-10101 Aux Id: OTP-10125 </p>
+        </item>
+        <item>
+          <p>
+	    The stability of <c>common_test</c> and
+	    <c>test_server</c> when running test cases in parallel
+	    has been improved.</p>
+          <p>
+	    Own Id: OTP-10480 Aux Id: kunagi-318 [229] </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added a general framework for executing benchmarks of
+	    Erlang/OTP. Benchmarks for the Erlang VM and mnesia have
+	    been incorporated in the framework. </p>
+          <p>
+	    For details about how to add more benchmarks see
+	    $ERL_TOP/HOWTO/BENCHMARKS.md in the source distribution.</p>
+          <p>
+	    Own Id: OTP-10156</p>
+        </item>
+        <item>
+          <p>
+	    Update common test modules to handle unicode <list>
+	    <item> Use UTF-8 encoding for all HTML files, except the
+	    HTML version of the test suite generated with
+	    erl2html2:convert, which will have the same encoding as
+	    the original test suite (.erl) file. </item> <item>
+	    Encode link targets in HTML files with
+	    test_server_ctrl:uri_encode/1. </item> <item> Use unicode
+	    modifier 't' with ~s when appropriate. </item> <item> Use
+	    unicode:characters_to_list and
+	    unicode:characters_to_binary for conversion between
+	    binaries and strings instead of binary_to_list and
+	    list_to_binary. </item> </list></p>
+          <p>
+	    Own Id: OTP-10783</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.5.3</title>
 
     <section><title>Improvements and New Features</title>

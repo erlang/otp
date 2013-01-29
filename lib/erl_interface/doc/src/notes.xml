@@ -30,6 +30,33 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Where necessary a comment stating encoding has been
+	    added to Erlang files. The comment is meant to be removed
+	    in Erlang/OTP R17B when UTF-8 becomes the default
+	    encoding. </p>
+          <p>
+	    Own Id: OTP-10630</p>
+        </item>
+        <item>
+          <p>
+	    Limited support for unicode atoms in the external format
+	    and in the internal representation of the vm. This is a
+	    preparative feature in order to support communication
+	    with future releases of Erlang/OTP that may create
+	    unicode atoms.</p>
+          <p>
+	    Own Id: OTP-10753</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7.9</title>
 
     <section><title>Improvements and New Features</title>
