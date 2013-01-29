@@ -222,8 +222,6 @@ format_error({removed, MFA, String}) when is_list(String) ->
     io_lib:format("~s: ~s", [format_mfa(MFA), String]);
 format_error({obsolete_guard, {F, A}}) ->
     io_lib:format("~p/~p obsolete", [F, A]);
-format_error({reserved_for_future,K}) ->
-    io_lib:format("atom ~w: future reserved keyword - rename or quote", [K]);
 format_error({too_many_arguments,Arity}) ->
     io_lib:format("too many arguments (~w) - "
 		  "maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]);
