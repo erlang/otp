@@ -1909,9 +1909,23 @@ otp_5362(Config) when is_list(Config) ->
              warn_deprecated_function,
              warn_bif_clash]},
            {errors,
-            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}}
+            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
-          ],
+	  {call_deprecated_function,
+	   <<"t(X) -> erlang:hash(X, 2000).">>,
+	   [],
+	   {warnings,
+            [{1,erl_lint,{deprecated,{erlang,hash,2},
+			  {erlang,phash2,2},"in a future release"}}]}},
+
+	  {call_removed_function,
+	   <<"t(X) -> regexp:match(X).">>,
+	   [],
+	   {warnings,
+            [{1,erl_lint,{removed,{regexp,match,1},
+			  "removed in R15; use the re module instead"}}]}}
+
+	 ],
 
     ?line [] = run(Config, Ts),
     ok.
