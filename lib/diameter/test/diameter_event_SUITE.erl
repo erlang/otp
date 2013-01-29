@@ -121,7 +121,6 @@ down(Config) ->
                                   {applications, [?DICT_ACCT]},
                                   {reconnect_timer, 5000}]),
     start = event(Svc),
-    {watchdog, Ref, _, {initial, down}, _} = event(Svc),
     {closed, Ref, {'CEA', ?NO_COMMON_APP, _, #diameter_packet{}}, _}
         = event(Svc),
     {reconnect, Ref, _} = event(Svc).
@@ -132,7 +131,6 @@ cea_timeout(Config) ->
     {Svc, Ref} = connect(Config, [{capx_timeout, ?SERVER_CAPX_TMO div 2},
                                   {reconnect_timer, 2*?SERVER_CAPX_TMO}]),
     start = event(Svc),
-    {watchdog, Ref, _, {initial, down}, _} = event(Svc),
     {closed, Ref, {'CEA', timeout}, _} = event(Svc).
 
 stop(_Config) ->
