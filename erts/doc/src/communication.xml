@@ -49,7 +49,7 @@
     signals may be lost if the distribution channel goes down.</p>
     <p>The only signal ordering guarantee given is the following. If
     an entity sends multiple signals to the same destination entity,
-    the order will be preserved. That is, if <c>A</c> send
+    the order will be preserved. That is, if <c>A</c> sends
     a signal <c>S1</c> to <c>B</c>, and later sends
     the signal <c>S2</c> to <c>B</c>, <c>S1</c> is guaranteed not to
     arrive after <c>S2</c>.</p>
@@ -69,7 +69,7 @@
   <section>
     <title>Implementation</title>
     <p>The implementation of different asynchronous signals in the
-    VM may vary over time, but the behavior will always respect this
+    VM may vary over time, but the behaviour will always respect this
     concept of asynchronous signals being passed between entities
     as described above.</p>
     <p>By inspecting the implementation you might notice that some
