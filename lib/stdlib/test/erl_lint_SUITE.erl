@@ -1650,6 +1650,7 @@ otp_5276(Config) when is_list(Config) ->
              -deprecated([{'_','_',never}]).
              -deprecated([{{badly,formed},1}]).
              -deprecated([{'_','_',next_major_release}]).
+             -deprecated([{atom_to_list,1}]).
              -export([t/0]).
              frutt() -> ok.
              t() -> ok.
@@ -1660,8 +1661,9 @@ otp_5276(Config) when is_list(Config) ->
                    {3,erl_lint,{invalid_deprecated,'foo bar'}},
                    {5,erl_lint,{bad_deprecated,{f,'_'}}},
                    {8,erl_lint,{invalid_deprecated,{'_','_',never}}},
-                   {9,erl_lint,{invalid_deprecated,{{badly,formed},1}}}],
-            [{12,erl_lint,{unused_function,{frutt,0}}}]}}],
+                   {9,erl_lint,{invalid_deprecated,{{badly,formed},1}}},
+		   {11,erl_lint,{bad_deprecated,{atom_to_list,1}}}],
+            [{13,erl_lint,{unused_function,{frutt,0}}}]}}],
     ?line [] = run(Config, Ts),
     ok.
 
