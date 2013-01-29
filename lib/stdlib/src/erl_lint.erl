@@ -269,8 +269,6 @@ format_error({variable_in_record_def,V}) ->
 %% --- binaries ---
 format_error({undefined_bittype,Type}) ->
     io_lib:format("bit type ~w undefined", [Type]);
-format_error({bittype_mismatch,T1,T2,What}) ->
-    io_lib:format("bit type mismatch (~s) between ~p and ~p", [What,T1,T2]);
 format_error(bittype_unit) ->
     "a bit unit size must not be specified unless a size is specified too";
 format_error(illegal_bitsize) ->
