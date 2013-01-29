@@ -2573,8 +2573,20 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
     case ERL_FILENAME_UTF8:
 	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
 	if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK) {
+	    Eterm *hp = HAlloc(BIF_P,3);
+	    Eterm warn_type = NIL;
 	    erts_free_aligned_binary_bytes(temp_alloc);
-	    goto noconvert;
+	    switch (erts_get_filename_warning_type()) {
+	    case ERL_FILENAME_WARNING_IGNORE:
+		warn_type = am_ignore;
+		break;
+	    case ERL_FILENAME_WARNING_ERROR:
+		warn_type = am_error;
+		break;
+	    default:
+		warn_type = am_warning;
+	    }
+	    BIF_RET(TUPLE2(hp,am_error,warn_type));
 	}
 	num_built = 0;
 	num_eaten = 0;
@@ -2607,9 +2619,8 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_RET(ret);
     default:
-	goto noconvert;
+	break;
     }
- noconvert:
     BIF_RET(BIF_ARG_1);
 }
 

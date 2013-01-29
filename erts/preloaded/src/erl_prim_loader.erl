@@ -150,7 +150,17 @@ start_it("inet", Id, Pid, Hosts) ->
 start_it("efile", Id, Pid, _Hosts) ->
     process_flag(trap_exit, true),
     {ok, Port} = prim_file:start(),
-    init_ack(Pid),
+    %% Check that we started in a valid directory.
+    case prim_file:get_cwd(Port) of
+	{error, _} ->
+	    %% At this point in the startup, we have no error_logger at all.
+	    Report = "Invalid current directory or invalid filename "
+		"mode: loader cannot read current directory\n",
+	    erlang:display(Report),
+	    exit({error, invalid_current_directory});
+	_ ->
+	    init_ack(Pid)
+    end,
     MultiGet = case erlang:system_info(thread_pool_size) of
                    0 -> false;
                    _ -> true

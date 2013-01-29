@@ -47,19 +47,26 @@
 /* Written once and only once */
 
 static int filename_encoding = ERL_FILENAME_UNKNOWN;
+static int filename_warning = ERL_FILENAME_WARNING_WARNING;
 #if defined(__WIN32__) || defined(__DARWIN__)
 static int user_filename_encoding = ERL_FILENAME_UTF8; /* Default unicode on windows */
 #else
 static int user_filename_encoding = ERL_FILENAME_LATIN1;
 #endif
-void erts_set_user_requested_filename_encoding(int encoding)
+void erts_set_user_requested_filename_encoding(int encoding, int warning)
 {
     user_filename_encoding = encoding;
+    filename_warning = warning;
 }
 
 int erts_get_user_requested_filename_encoding(void)
 {
     return user_filename_encoding;
+}
+
+int erts_get_filename_warning_type(void)
+{
+    return filename_warning;
 }
 
 void erts_init_sys_common_misc(void)

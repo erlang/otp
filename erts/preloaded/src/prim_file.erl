@@ -155,13 +155,15 @@
          internal_normalize_utf8/1]).
 
 -type prim_file_name() :: string() | unicode:unicode_binary().
+-type prim_file_name_error() :: 'error' | 'ignore' | 'warning'.
 
 -spec internal_name2native(prim_file_name()) -> binary().
 
 internal_name2native(_) ->
     erlang:nif_error(undefined).
 
--spec internal_native2name(binary()) -> prim_file_name().
+-spec internal_native2name(binary()) ->
+        prim_file_name() | {'error',prim_file_name_error()}.
 
 internal_native2name(_) ->
     erlang:nif_error(undefined).
@@ -924,7 +926,21 @@ list_dir_response(Port, Acc0) ->
     end.
 
 list_dir_convert([Name|Names]) ->
-    [prim_file:internal_native2name(Name)|list_dir_convert(Names)];
+    %% If the filename cannot be converted, return error or ignore
+    %% with optional error logger warning, depending on +fn{u|a}{i|e|w}
+    %% emulator switches.
+    case prim_file:internal_native2name(Name) of
+	{error, warning} ->
+	    error_logger:warning_msg("Non-unicode filename ~p ignored\n",
+				     [Name]),
+	    list_dir_convert(Names);
+	{error, ignore} ->
+	    list_dir_convert(Names);
+	{error, error} ->
+	    {error, {no_translation, Name}};
+	Converted when is_list(Converted) ->
+	    [Converted|list_dir_convert(Names)]
+    end;
 list_dir_convert([]) -> [].
 
 %%%-----------------------------------------------------------------
@@ -933,7 +949,17 @@ list_dir_convert([]) -> [].
 handle_fname_response(Port) ->
     case drv_get_response(Port) of
 	{fname, Name} ->
-	    {ok, prim_file:internal_native2name(Name)};
+	    case prim_file:internal_native2name(Name) of
+		{error, warning} ->
+		    error_logger:warning_msg("Non-unicode filename ~p "
+					     "ignored when reading link\n",
+					     [Name]),
+		    {error, einval};
+		{error, _} ->
+		    {error, einval};
+		Converted when is_list(Converted) ->
+		    {ok, Converted}
+	    end;
 	Error ->
 	    Error
     end.
