@@ -62,11 +62,13 @@
          restrict :: {diameter:restriction(), boolean()},
          shutdown = false :: boolean()}).
 
+%% ---------------------------------------------------------------------------
 %% start/2
 %%
 %% Start a monitor before the watchdog is allowed to proceed to ensure
 %% that a failed capabilities exchange produces the desired exit
 %% reason.
+%% ---------------------------------------------------------------------------
 
 -spec start(Type, {RecvData, [Opt], SvcName, SvcOpts, #diameter_service{}})
    -> {reference(), pid()}
@@ -77,12 +79,12 @@
       SvcName :: diameter:service_name().
 
 start({_,_} = Type, T) ->
-    Ref = make_ref(),
-    {ok, Pid} = diameter_watchdog_sup:start_child({Ref, {Type, self(), T}}),
+    Ack = make_ref(),
+    {ok, Pid} = diameter_watchdog_sup:start_child({Ack, Type, self(), T}),
     try
         {erlang:monitor(process, Pid), Pid}
     after
-        send(Pid, Ref)
+        send(Pid, Ack)
     end.
 
 start_link(T) ->
@@ -101,22 +103,15 @@ init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
 
-i({Ref, {_, Pid, _} = T}) ->
-    MRef = erlang:monitor(process, Pid),
-    receive
-        Ref ->
-            make_state(T);
-        {'DOWN', MRef, process, _, _} = D ->
-            exit({shutdown, D})
-    end.
-
-make_state({T, Pid, {RecvData,
-                     Opts,
-                     SvcName,
-                     SvcOpts,
-                     #diameter_service{applications = Apps,
-                                       capabilities = Caps}
-                     = Svc}}) ->
+i({Ack, T, Pid, {RecvData,
+                 Opts,
+                 SvcName,
+                 SvcOpts,
+                 #diameter_service{applications = Apps,
+                                   capabilities = Caps}
+                 = Svc}}) ->
+    erlang:monitor(process, Pid),
+    wait(Ack, Pid),
     random:seed(now()),
     putr(restart, {T, Opts, Svc}),  %% save seeing it in trace
     putr(dwr, dwr(Caps)),           %%
@@ -124,15 +119,28 @@ make_state({T, Pid, {RecvData,
     Restrict = proplists:get_value(restrict_connections, SvcOpts),
     Nodes = restrict_nodes(Restrict),
     #watchdog{parent = Pid,
-              transport = monitor(diameter_peer_fsm:start(T,
-                                                        Opts,
-                                                      {Mask, Nodes, Svc})),
+              transport = start(T, Opts, Mask, Nodes, Svc),
               tw = proplists:get_value(watchdog_timer,
                                        Opts,
                                        ?DEFAULT_TW_INIT),
               message_data = {RecvData, SvcName, Apps, Mask},
               sequence = Mask,
               restrict = {Restrict, lists:member(node(), Nodes)}}.
+
+wait(Ref, Pid) ->
+    receive
+        Ref ->
+            ok;
+        {'DOWN', _, process, Pid, _} = D ->
+            exit({shutdown, D})
+    end.
+
+%% start/5
+
+start(T, Opts, Mask, Nodes, Svc) ->
+    {_MRef, Pid}
+        = diameter_peer_fsm:start(T, Opts, {Mask, Nodes, Svc}),
+    Pid.
 
 %% handle_call/3
 
@@ -234,9 +242,7 @@ transition(close, #watchdog{}) ->
 
 %% Service is asking for the peer to be taken down gracefully.
 transition({shutdown, Pid, _}, #watchdog{parent = Pid,
-                                         transport = undefined,
-                                         status = S}) ->
-    down = S,  %% assert
+                                         transport = undefined}) ->
     stop;
 transition({shutdown = T, Pid, Reason}, #watchdog{parent = Pid,
                                                   transport = TPid}
@@ -312,9 +318,10 @@ transition({'DOWN', _, process, TPid, _Reason},
     stop;
 
 transition({'DOWN', _, process, TPid, _Reason},
-           #watchdog{transport = TPid}
+           #watchdog{transport = TPid,
+                     status = T}
            = S) ->
-    set_watchdog(S#watchdog{status = down,
+    set_watchdog(S#watchdog{status = case T of initial -> T; _ -> down end,
                             pending = false,
                             transport = undefined});
 
@@ -336,10 +343,6 @@ transition({state, Pid}, #watchdog{status = S}) ->
     ok.
 
 %% ===========================================================================
-
-monitor(Pid) ->
-    erlang:monitor(process, Pid),
-    Pid.
 
 putr(Key, Val) ->
     put({?MODULE, Key}, Val).
@@ -600,7 +603,9 @@ timeout(#watchdog{status = reopen,
 %% process has died. We only need to handle state down since we start
 %% the first watchdog when transitioning out of initial.
 
-timeout(#watchdog{status = down} = S) ->
+timeout(#watchdog{status = T} = S)
+  when T == initial;
+       T == down ->
     restart(S).
 
 %% restart/1
@@ -628,9 +633,7 @@ restart({{connect, _} = T, Opts, Svc}, #watchdog{parent = Pid,
                                        = S) ->
     send(Pid, {reconnect, self()}),
     Nodes = restrict_nodes(R),
-    S#watchdog{transport = monitor(diameter_peer_fsm:start(T,
-                                                         Opts,
-                                                       {Mask, Nodes, Svc})),
+    S#watchdog{transport = start(T, Opts, Mask, Nodes, Svc),
                restrict = {R, lists:member(node(), Nodes)}};
 
 %% No restriction on the number of connections to the same peer: just

@@ -129,16 +129,14 @@
 %% below to start the process implementing the Peer State Machine.
 %%
 
-%%% ---------------------------------------------------------------------------
-%%% # start({connect|accept, Ref}, Opts, Service)
-%%%
-%%% Output: Pid
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # start/3
+%% ---------------------------------------------------------------------------
 
 -spec start(T, [Opt], {diameter:sequence(),
                        diameter:restriction(),
                        #diameter_service{}})
-   -> pid()
+   -> {reference(), pid()}
  when T   :: {connect|accept, diameter:transport_ref()},
       Opt :: diameter:transport_opt().
 
@@ -147,9 +145,15 @@
 %% specified on the transport in question. Check here that the list is
 %% still non-empty.
 
-start({_,_} = Type, Opts, MS) ->
-    {ok, Pid} = diameter_peer_fsm_sup:start_child({self(), Type, Opts, MS}),
-    Pid.
+start({_,_} = Type, Opts, S) ->
+    Ack = make_ref(),
+    T = {Ack, self(), Type, Opts, S},
+    {ok, Pid} = diameter_peer_fsm_sup:start_child(T),
+    try
+        {erlang:monitor(process, Pid), Pid}
+    after
+        Pid ! Ack
+    end.
 
 start_link(T) ->
     {ok, _} = proc_lib:start_link(?MODULE,
@@ -158,8 +162,8 @@ start_link(T) ->
                                   infinity,
                                   diameter_lib:spawn_opts(server, [])).
 
-%%% ---------------------------------------------------------------------------
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
 
 %% init/1
 
@@ -167,12 +171,13 @@ init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
 
-i({WPid, T, Opts, {Mask, Nodes, #diameter_service{applications = Apps,
-                                                  capabilities = LCaps}
-                                = Svc}}) ->
-    [] /= Apps orelse ?ERROR({no_apps, T, Opts}),
+i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
+                                   Nodes,
+                                   #diameter_service{capabilities = LCaps}
+                                   = Svc}}) ->
+    erlang:monitor(process, WPid),
+    wait(Ack, WPid),
     putr(?DWA_KEY, dwa(LCaps)),
-    {M, Ref} = T,
     diameter_stats:reg(Ref),
     {[Cs,Ds], Rest} = proplists:split(Opts, [capabilities_cb, disconnect_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Cs]}),
@@ -180,7 +185,6 @@ i({WPid, T, Opts, {Mask, Nodes, #diameter_service{applications = Apps,
     putr(?REF_KEY, Ref),
     putr(?SEQUENCE_KEY, Mask),
     putr(?RESTRICT_KEY, Nodes),
-    erlang:monitor(process, WPid),
     {TPid, Addrs} = start_transport(T, Rest, Svc),
     Tmo = proplists:get_value(capx_timeout, Opts, ?EVENT_TIMEOUT),
     ?IS_TIMEOUT(Tmo) orelse ?ERROR({invalid, {capx_timeout, Tmo}}),
@@ -197,6 +201,16 @@ i({WPid, T, Opts, {Mask, Nodes, #diameter_service{applications = Apps,
 %% Invalid transport config may cause us to crash but note that the
 %% watchdog start (start/2) succeeds regardless so as not to crash the
 %% service.
+
+%% Wait for the caller to have a monitor to avoid a race with our
+%% death. (Since the exit reason is used in diameter_service.)
+wait(Ref, Pid) ->
+    receive
+        Ref ->
+            ok;
+        {'DOWN', _, process, Pid, _} = D ->
+            exit({shutdown, D})
+    end.
 
 start_transport(T, Opts, #diameter_service{capabilities = LCaps} = Svc) ->
     Addrs0 = LCaps#diameter_caps.host_ip_address,
@@ -304,8 +318,8 @@ terminate(_, _) ->
 code_change(_, State, _) ->
     {ok, State}.
 
-%%% ---------------------------------------------------------------------------
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
 
 putr(Key, Val) ->
     put({?MODULE, Key}, Val).
