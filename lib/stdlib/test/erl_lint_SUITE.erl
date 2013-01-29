@@ -59,7 +59,7 @@
 	  format_warn/1,
 	  on_load_successful/1, on_load_failing/1, 
 	  too_many_arguments/1,
-	  basic_errors/1
+	  basic_errors/1,bin_syntax_errors/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -85,7 +85,7 @@ all() ->
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, export_all,
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
-     too_many_arguments, basic_errors].
+     too_many_arguments, basic_errors, bin_syntax_errors].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3028,6 +3028,30 @@ basic_errors(Config) ->
     [] = run(Config, Ts),
     ok.
 
+%% Test binary syntax errors
+bin_syntax_errors(Config) ->
+    Ts = [{bin_syntax_errors,
+	   <<"t(<<X:bad_size>>) -> X;
+	      t(<<_:(x ! y)/integer>>) -> ok;
+              t(<<X:all/integer>>) -> X;
+              t(<<X/bad_type>>) -> X;
+	      t(<<X/unit:8>>) -> X;
+	      t(<<X:7/float>>) -> X;
+	      t(<< <<_:8>> >>) -> ok;
+	      t(<<(x ! y):8/integer>>) -> ok.
+	    ">>,
+	   [],
+	   {error,[{1,erl_lint,illegal_bitsize},
+		   {2,erl_lint,illegal_bitsize},
+		   {3,erl_lint,illegal_bitsize},
+		   {4,erl_lint,{undefined_bittype,bad_type}},
+		   {5,erl_lint,bittype_unit},
+		   {7,erl_lint,illegal_pattern},
+		   {8,erl_lint,illegal_pattern}],
+	    [{6,erl_lint,{bad_bitsize,"float"}}]}}
+	 ],
+    [] = run(Config, Ts),
+    ok.
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
