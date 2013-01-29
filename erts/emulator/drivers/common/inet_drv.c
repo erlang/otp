@@ -8789,7 +8789,7 @@ static int tcp_recv_error(tcp_descriptor* desc, int err)
 	    if (desc->inet.exitf)
 		driver_exit(desc->inet.port, err);
 	    else
-		desc_close(INETP(desc));
+		desc_close_read(INETP(desc));
 	}
 	return -1;
     }
