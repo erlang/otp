@@ -797,6 +797,8 @@ leader_update(ErtsThrPrgrData *tpd)
 
 	    ERTS_THR_PROGRESS_STATE_DEBUG_SET_LEADER(tpd->id, 0);
 
+	    intrnl->misc.data.umrefc_ix.waiting
+		= tpd->leader_state.umrefc_ix.waiting;
 	    if (waiting_unmanaged)
 		set_flags |= ERTS_THR_PRGR_LFLG_WAITING_UM;
 
