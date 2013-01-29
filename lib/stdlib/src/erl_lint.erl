@@ -152,8 +152,6 @@ format_error({attribute,A}) ->
     io_lib:format("attribute '~w' after function definitions", [A]);
 format_error({missing_qlc_hrl,A}) ->
     io_lib:format("qlc:q/~w called, but \"qlc.hrl\" not included", [A]);
-format_error({redefine_import,{bif,{F,A},M}}) ->
-    io_lib:format("function ~w/~w already auto-imported from ~w", [F,A,M]);
 format_error({redefine_import,{{F,A},M}}) ->
     io_lib:format("function ~w/~w already imported from ~w", [F,A,M]);
 format_error({bad_inline,{F,A}}) ->
