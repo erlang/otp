@@ -592,7 +592,9 @@ false</pre>
                request, a response, a header or an end of header
                mark. Invalid lines are returned as <c><anno>HttpError</anno></c>.</p>
             <p>Recognized request methods and header fields are returned as atoms.
-               Others are returned as strings.</p>
+               Others are returned as strings. Strings of unrecognized header fields
+	       are formatted with only capital letters first and after hyphen characters
+	       (like <c>"Sec-Websocket-Key"</c>).</p>
             <p>The protocol type <c>http</c> should only be used for
                the first line when a <c><anno>HttpRequest</anno></c> or a
                <c><anno>HttpResponse</anno></c> is expected. The following calls

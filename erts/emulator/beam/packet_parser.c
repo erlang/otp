@@ -67,7 +67,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 
 #define HTTP_HDR_HASH_SIZE  53
 #define HTTP_METH_HASH_SIZE 13
-#define HTTP_MAX_NAME_LEN 20
+#define HTTP_MAX_NAME_LEN 50
 
 static char tspecial[128];
 
