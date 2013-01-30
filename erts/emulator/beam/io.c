@@ -3470,7 +3470,7 @@ erts_deliver_port_exit(Port *p, Eterm from, Eterm reason, int send_closed)
 {
    ErtsLink *lnk;
    Eterm rreason;
-   erts_aint32_t state;
+   erts_aint32_t state, set_state_flags;
 
    ERTS_SMP_CHK_NO_PROC_LOCKS;
    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
@@ -3499,9 +3499,12 @@ erts_deliver_port_exit(Port *p, Eterm from, Eterm reason, int send_closed)
    if (reason == am_normal && from != ERTS_PORT_GET_CONNECTED(p) && from != p->common.id)
        return 0;
 
+   set_state_flags = ERTS_PORT_SFLG_EXITING;
    if (send_closed)
-       erts_atomic32_read_bor_relb(&p->state,
-				   ERTS_PORT_SFLG_SEND_CLOSED);
+       set_state_flags |= ERTS_PORT_SFLG_SEND_CLOSED;
+
+   state = erts_atomic32_read_bor_mb(&p->state, set_state_flags);
+   state |= set_state_flags;
 
    if (IS_TRACED_FL(p, F_TRACE_PORTS)) {
    	trace_port(p, am_closed, reason);
@@ -3509,16 +3512,10 @@ erts_deliver_port_exit(Port *p, Eterm from, Eterm reason, int send_closed)
 
    erts_trace_check_exiting(p->common.id);
 
-   /*
-    * Setting the port to not busy here, frees the list of pending
-    * processes and makes them runnable.
-    */
    set_busy_port((ErlDrvPort) p, 0);
 
    if (p->common.u.alive.reg != NULL)
        (void) erts_unregister_name(NULL, 0, p, p->common.u.alive.reg->name);
-
-   state = erts_atomic32_read_bor_relb(&p->state, ERTS_PORT_SFLG_EXITING);
 
    {
        SweepContext sc = {p->common.id, rreason};
