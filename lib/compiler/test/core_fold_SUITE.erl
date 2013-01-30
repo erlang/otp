@@ -92,6 +92,9 @@ setelement(Config) when is_list(Config) ->
 
     ?line {'EXIT',{badarg,_}} = (catch setelement_crash({a,b,c,d,e,f})),
     ?line error = setelement_crash_2({a,b,c,d,e,f}, <<42>>),
+
+    {'EXIT',{badarg,_}} = (catch setelement(1, not_a_tuple, New)),
+
     ok.
 
 setelement_crash(Tuple) ->
