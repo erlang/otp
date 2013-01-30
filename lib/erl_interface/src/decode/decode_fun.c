@@ -30,6 +30,25 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
     const char *s = buf + *index;
     const char *s0 = s;
     int i, ix, ix0, n;
+    erlang_pid* p_pid;
+    char* p_module;
+    enum erlang_char_encoding* p_module_org_enc;
+    long* p_index;
+    long* p_uniq;
+    long* p_old_index;
+
+    if (p != NULL) {
+	p_pid = &p->pid;
+	p_module = &p->module[0];
+	p_module_org_enc = &p->module_org_enc;
+	p_index = &p->index;
+	p_uniq = &p->uniq;
+	p_old_index = &p->old_index;
+    }
+    else {
+	p_pid = NULL; p_module = NULL; p_module_org_enc = NULL;
+	p_index = NULL; p_uniq = NULL; p_old_index = NULL;
+    }
 
     switch (get8(s)) {
     case ERL_FUN_EXT:
@@ -39,17 +58,17 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 	n = get32be(s);
 	/* then the pid */
 	ix = 0;
-	if (ei_decode_pid(s, &ix, (p == NULL ? (erlang_pid*)NULL : &p->pid)) < 0)
+	if (ei_decode_pid(s, &ix, p_pid) < 0)
 	    return -1;
 	/* then the module (atom) */
-	if (ei_decode_atom_as(s, &ix, (p == NULL ? (char*)NULL : p->module),
-			      MAXATOMLEN_UTF8, ERLANG_UTF8, &p->module_org_enc, NULL) < 0)
+	if (ei_decode_atom_as(s, &ix, p_module, MAXATOMLEN_UTF8, ERLANG_UTF8,
+			      p_module_org_enc, NULL) < 0)
 	    return -1;
 	/* then the index */
-	if (ei_decode_long(s, &ix, (p == NULL ? (long*)NULL : &p->index)) < 0)
+	if (ei_decode_long(s, &ix, p_index) < 0)
 	    return -1;
 	/* then the uniq */
-	if (ei_decode_long(s, &ix, (p == NULL ? (long*)NULL : &p->uniq)) < 0)
+	if (ei_decode_long(s, &ix, p_uniq) < 0)
 	    return -1;
 	/* finally the free vars */
 	ix0 = ix;
@@ -85,17 +104,17 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 	if (p != NULL) p->n_free_vars = i;
 	/* then the module (atom) */
 	ix = 0;
-	if (ei_decode_atom_as(s, &ix, (p == NULL ? (char*)NULL : p->module),
-			      MAXATOMLEN_UTF8, ERLANG_UTF8, &p->module_org_enc, NULL) < 0)
+	if (ei_decode_atom_as(s, &ix, p_module, MAXATOMLEN_UTF8, ERLANG_UTF8,
+			      p_module_org_enc, NULL) < 0)
 	    return -1;
 	/* then the old_index */
-	if (ei_decode_long(s, &ix, (p == NULL ? (long*)NULL : &p->old_index)) < 0)
+	if (ei_decode_long(s, &ix, p_old_index) < 0)
 	    return -1;
 	/* then the old_uniq */
-	if (ei_decode_long(s, &ix, (p == NULL ? (long*)NULL : &p->uniq)) < 0)
+	if (ei_decode_long(s, &ix, p_uniq) < 0)
 	    return -1;
 	/* the the pid */
-	if (ei_decode_pid(s, &ix, (p == NULL ? (erlang_pid*)NULL : &p->pid)) < 0)
+	if (ei_decode_pid(s, &ix, p_pid) < 0)
 	    return -1;
 	/* finally the free vars */
 	s += ix;
