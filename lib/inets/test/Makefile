@@ -184,7 +184,8 @@ MODULES =                 		\
         inets_app_test    		\
         inets_appup_test  		\
         tftp_test_lib			\
-        tftp_SUITE
+        tftp_SUITE                      \
+	uri_SUITE
 
 
 EBIN = .
