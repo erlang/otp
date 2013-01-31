@@ -29,5 +29,4 @@
   <xi:include href="../specs/specs_user.xml"/>
   <xi:include href="../specs/specs_wrap_log_reader.xml"/>
   <xi:include href="../specs/specs_zlib_stub.xml"/>
-  <xi:include href="../specs/specs_packages.xml"/>
 </specs>
