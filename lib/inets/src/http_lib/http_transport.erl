@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -178,7 +178,9 @@ listen({essl, SSLConfig}, Addr, Port) ->
 
 
 listen(ip_comm, Addr, Port, Fd) ->
-    listen_ip_comm(Addr, Port, Fd).
+    listen_ip_comm(Addr, Port, Fd);
+listen({_, SSLConfig}, Addr, Port, _Fd) ->
+    listen_ssl(Addr, Port, SSLConfig).
 
 listen_ip_comm(Addr, Port, Fd) ->
     case (catch do_listen_ip_comm(Addr, Port, Fd)) of

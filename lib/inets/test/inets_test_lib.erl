@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,26 +22,8 @@
 -include("inets_test_lib.hrl").
 -include_lib("inets/src/http_lib/http_internal.hrl").
 
-%% Various small utility functions
--export([start_http_server/1, start_http_server/2]).
--export([start_http_server_ssl/1, start_http_server_ssl/2]).
--export([hostname/0]).
--export([connect_bin/3,  connect_bin/4, 
-	 connect_byte/3, connect_byte/4, 
-	 send/3, close/2]).
--export([copy_file/3, copy_files/2, copy_dirs/2, del_dirs/1]).
--export([info/4, log/4, debug/4, print/4]).
--export([timestamp/0, formated_timestamp/0]).
--export([tsp/1, tsp/2, tsf/1, tss/1]).
--export([check_body/1]).
--export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
--export([oscmd/1, has_ipv6_support/0, has_ipv6_support/1, print_system_info/1]).
--export([run_on_os/2, run_on_windows/1]).
--export([ensure_started/1]).
--export([non_pc_tc_maybe_skip/4, os_based_skip/1, skip/3, fail/3]).
--export([flush/0]).
--export([start_node/1, stop_node/1]).
-
+%% Note: This directive should only be used in test suites.
+-compile(export_all).
 
 %% -- Misc os command and stuff
 
@@ -474,7 +456,7 @@ connect_bin(ssl, Host, Port, Opts0) ->
     Opts = [binary, {packet,0} | Opts0], 
     connect(ssl, Host, Port, Opts);
 connect_bin(essl, Host, Port, Opts0) ->
-    Opts = [{ssl_imp, new}, binary, {packet,0}, {reuseaddr, true} | Opts0], 
+    Opts = [{ssl_imp, new}, binary, {packet,0}| Opts0], 
     connect(ssl, Host, Port, Opts);
 connect_bin(ip_comm, Host, Port, Opts0) ->
     Opts = [binary, {packet, 0} | Opts0],
@@ -494,74 +476,10 @@ connect_byte(ip_comm, Host, Port, Opts0) ->
     Opts = [{packet,0} | Opts0],
     connect(ip_comm, Host, Port, Opts).
 
-
-%% This always falls back on IPV4, but tries IPV6 first.
-connect(Proto, Host, Port, Opts0) ->
-    Opts = Opts0 -- [inet, inet6],
-    connect(Proto, Host, Port, Opts ++ [inet6], inet6).
-
-connect(ssl, Host, Port, Opts, Type) ->
-    tsp("connect(ssl) -> entry with"
-	"~n   Host: ~p"
-	"~n   Port: ~p"
-	"~n   Opts: ~p"
-	"~n   Type: ~p", [Host, Port, Opts, Type]),
-    ssl:start(),
-    %% We ignore this option for ssl... 
-    %% ...maybe we should really treat this in the same way as ip_comm...
-    case ssl:connect(Host, Port, Opts) of
-	{ok, Socket} ->
-	    {ok, Socket};
-	{error, Reason} when Type =:= inet6 ->
-	    tsp("connect(ssl) -> failed connecting with inet6: "
-		"~n   Reason: ~p"
-		"~n   trying inet", [Reason]),
-	    connect(ssl, Host, Port, Opts -- [inet6], inet);
-	{error, Reason} ->
-	    tsp("connect(ssl) -> failed connecting: "
-		"~n   Reason: ~p", [Reason]),
- 	    {error, Reason};
-	Error ->
-	    Error
-    end;
-connect(ip_comm, Host, Port, Opts, Type) ->
-    tsp("connect(ip_comm) -> entry with"
-	"~n   Host: ~p"
-	"~n   Port: ~p"
-	"~n   Opts: ~p"
-	"~n   Type: ~p", [Host, Port, Opts, Type]),
-    
-    case gen_tcp:connect(Host, Port, Opts, timer:seconds(10)) of
-	{ok, Socket} ->
-	    tsp("connect success"),
-	    {ok, Socket};
-
-	{error, Reason} when ((Type =:= inet6) andalso 
-			      ((Reason =:= timeout) orelse 
-			       (Reason =:= nxdomain) orelse 
-			       (Reason =:= eafnosupport) orelse 
-			       (Reason =:= econnreset) orelse 
-			       (Reason =:= enetunreach) orelse 
-			       (Reason =:= econnrefused) orelse 
-			       (Reason =:= ehostunreach))) ->
-	    tsp("connect(ip_comm) -> Connect error: "
-		"~n   Reason: ~p"
-		"~n   Type:   ~p"
-		"~n   Opts:   ~p", [Reason, Type, Opts]),
-	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
-
-	Error ->
-	    tsp("connect(ip_comm) -> Fatal connect error: "
-		"~n   Error: ~p"
-		"~nwhen"
-		"~n   Host:  ~p"
-		"~n   Port:  ~p"
-		"~n   Opts:  ~p"
-		"~n   Type:  ~p"
-		"~n", [Error, Host, Port, Opts, Type]),
-	    Error
-    end.
-			
+connect(ip_comm, Host, Port, Opts) ->
+    gen_tcp:connect(Host, Port, Opts);
+connect(ssl, Host, Port, Opts) ->
+    ssl:connect(Host, Port, Opts).
 
 send(ssl, Socket, Data) ->
     ssl:send(Socket, Data);
@@ -650,4 +568,14 @@ format_timestamp({_N1, _N2, N3} = Now) ->
         io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
                       [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
     lists:flatten(FormatDate).
+
+start_apps(Apps) ->
+    lists:foreach(fun(App) ->
+			  application:stop(App),
+			  application:start(App)
+		  end, Apps).
+stop_apps(Apps) ->
+    lists:foreach(fun(App) ->
+			  application:stop(App)
+		  end, Apps).
 

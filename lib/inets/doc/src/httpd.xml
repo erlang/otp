@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2012</year>
+      <year>1997</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -163,11 +163,9 @@
       </item>
 
       <marker id="prop_socket_type"></marker>
-      <tag>{socket_type, ip_comm | ssl | essl}</tag>
+      <tag>{socket_type, ip_comm | {essl, Config::proplist()}}</tag>
       <item>
-	<p>When using ssl, there are currently only one alternative. 
-	<c>essl</c> specifically uses the Erlang based SSL. 
-	<c>ssl</c> defaults to <c>essl</c>. </p>
+	<p> For ssl configuration options see <seealso marker="ssl:ssl#listen-2">ssl:listen/2</seealso> </p>
 	<p>Defaults to <c>ip_comm</c>. </p> 
       </item>
 
@@ -395,71 +393,7 @@ bytes
       </item>
       
     </taglist>
-    
-    <marker id="props_ssl"></marker>
-    <p><em>ssl properties</em></p>
-    <taglist>
-      <marker id="prop_ssl_ca_cert_file"></marker>
-      <tag>{ssl_ca_certificate_file, path()}</tag>
-      <item> 
-	<p>Used as cacertfile option in ssl:listen/2 see
-	<seealso marker="ssl:ssl">ssl(3)</seealso>. </p> 
-      </item>
-      
-      <marker id="prop_ssl_cert_file"></marker>
-      <tag>{ssl_certificate_file, path()}</tag>
-      <item> 
-	<p>Used as certfile option in ssl:listen/2 see
-	<seealso marker="ssl:ssl">ssl(3)</seealso>. </p> 
-      </item>
-      
-      <marker id="prop_ssl_ciphers"></marker>
-      <tag>{ssl_ciphers, list()}</tag>
-      <item>
-	<p>Used as ciphers option in ssl:listen/2 see
-	<seealso marker="ssl:ssl">ssl(3)</seealso>. </p>
-      </item>
-      
-      <marker id="prop_ssl_verify_client"></marker>
-      <tag>{ssl_verify_client, integer()}</tag>
-      <item>
-	<p>Used as verify option in ssl:listen/2 see
-	<seealso marker="ssl:ssl">ssl(3)</seealso>. </p>
-      </item>
-
-      <marker id="prop_ssl_verify_depth"></marker>
-      <tag>{ssl_verify_depth, integer()}</tag>
-      <item> 
-	<p>Used as depth option in ssl:listen/2 see
-	<seealso marker="ssl:ssl">ssl(3)</seealso>. </p>
-      </item>
-      
-      <marker id="prop_ssl_passwd_callback_funct"></marker>
-      <tag>{ssl_password_callback_function, atom()}</tag>
-      <item> 
-	<p>Used together with ssl_password_callback_module
-	to retrieve a value to use as password option to ssl:listen/2 
-	see <seealso marker="ssl:ssl">ssl(3)</seealso>. </p>
-      </item>
-
-      <marker id="prop_ssl_passwd_callback_args"></marker>
-      <tag>{ssl_password_callback_arguments, list()}</tag>
-      <item> 
-	<p>Used together with ssl_password_callback_function to supply a
-	list of arguments to the callback function. If not specified
-        the callback function will be assumed to have arity 0. </p>
-      </item>
-      
-      <marker id="prop_ssl_passwd_callback_mod"></marker>
-      <tag>{ssl_password_callback_module, atom()}</tag>
-      <item> 
-	<p>Used together with ssl_password_callback_function
-	to retrieve a value to use as password option to ssl:listen/2 
-	see <seealso marker="ssl:ssl">ssl(3)</seealso>. </p>
-      </item>
-
-    </taglist>
-    
+   
     <marker id="props_alias"></marker>
     <p><em>URL aliasing properties - requires mod_alias</em></p>
     <taglist>

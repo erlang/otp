@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -91,7 +91,7 @@ verify_request(SocketType, Host, Port, Node, RequestStr, Options, TimeOut)
   when (is_integer(TimeOut) orelse (TimeOut =:= infinity)) ->
     verify_request(SocketType, Host, Port, [], Node, RequestStr, Options, TimeOut).
 
-verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, TimeOut) ->
+verify_request(SocketType, Host, Port, TranspOpts0, Node, RequestStr, Options, TimeOut) ->
     tsp("verify_request -> entry with"
 	"~n   SocketType: ~p"
 	"~n   Host:       ~p"
@@ -100,7 +100,17 @@ verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, Ti
 	"~n   Node:       ~p"
 	"~n   Options:    ~p"
 	"~n   TimeOut:    ~p", 
-	[SocketType, Host, Port, TranspOpts, Node, Options, TimeOut]),
+	[SocketType, Host, Port, TranspOpts0, Node, Options, TimeOut]),
+    
+    %% For now, until we modernize the httpd tests 
+    TranspOpts =
+	case lists:member(inet6, TranspOpts0) of
+	    true ->
+		TranspOpts0;
+	    false ->
+		[inet | TranspOpts0]
+	end,
+    
     try inets_test_lib:connect_bin(SocketType, Host, Port, TranspOpts) of
 	{ok, Socket} ->
 	    tsp("verify_request -> connected - now send message"),
@@ -293,8 +303,7 @@ validate(RequestStr, #state{status_line = {Version, StatusCode, _},
 	       list_to_integer(Headers#http_response_h.'content-length'),
 	       Body).
 
-
-%%--------------------------------------------------------------------
+%--------------------------------------------------------------------
 %% Internal functions
 %%------------------------------------------------------------------
 check_version(Version, Options) ->

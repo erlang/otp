@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -281,7 +281,7 @@ handle_call(#request{address = Addr} = Request, _,
                 httpc_request:is_client_closing(Request#request.headers),
 
             case State0#state.request of
-                #request{} -> %% Old request not yet finished
+                #request{} = OldRequest -> %% Old request not yet finished
                     ?hcrd("old request still not finished", []),
                     %% Make sure to use the new value of timers in state
                     NewTimers = State1#state.timers,
@@ -293,9 +293,11 @@ handle_call(#request{address = Addr} = Request, _,
                                         client_close = ClientClose},
                     insert_session(NewSession, ProfileName),
                     ?hcrd("session updated", []),
-                    {reply, ok, State1#state{pipeline = NewPipeline,
-					     session  = NewSession,
-					     timers   = NewTimers}};
+                    {reply, ok, State1#state{
+				  request = OldRequest,
+				  pipeline = NewPipeline,
+				  session  = NewSession,
+				  timers   = NewTimers}};
                 undefined ->
                     %% Note: tcp-message receiving has already been
                     %% activated by handle_pipeline/2. 
