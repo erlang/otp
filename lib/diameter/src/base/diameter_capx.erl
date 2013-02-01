@@ -282,17 +282,9 @@ cs(LS, RS) ->
 %% CER is a subset of CEA, the latter adding Result-Code and a few
 %% more AVP's.
 cea_from_cer(CER, Dict) ->
-    lists:foldl(fun(F,A) -> to_cea(CER, F, A, Dict) end,
-                Dict:'#new-'(diameter_base_CEA),
-                Dict:'#info-'(diameter_base_CER, fields)).
+    [diameter_base_CER | Values] = Dict:'#get-'(CER),
+    Dict:'#set-'(Values, Dict:'#new-'(diameter_base_CEA)).
 
-to_cea(CER, Field, CEA, Dict) ->
-    try Dict:'#get-'(Field, CER) of
-        V -> Dict:'#set-'({Field, V}, CEA)
-    catch
-        error: _ -> CEA
-    end.
-        
 %% rCEA/3
 
 rCEA(CEA, #diameter_service{capabilities = LCaps} = Svc, Dict) ->

@@ -36,6 +36,7 @@
 -define(clause,       ?F(clause)).
 -define(function,     ?F(function)).
 -define(call,         ?F(call)).
+-define(cons,         ?F(cons)).
 -define('fun',        ?F('fun')).
 -define(generate,     ?F(generate)).
 -define(lc,           ?F(lc)).
