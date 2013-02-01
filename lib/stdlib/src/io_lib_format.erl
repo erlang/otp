@@ -58,7 +58,7 @@ collect_cseq(Fmt0, Args0) ->
     {P,Fmt2,Args2} = precision(Fmt1, Args1),
     {Pad,Fmt3,Args3} = pad_char(Fmt2, Args2),
     {Encoding,Fmt4,Args4} = encoding(Fmt3, Args3),
-    {Strings,Fmt5,Args5} = pretty_lists(Fmt4, Args4),
+    {Strings,Fmt5,Args5} = strings(Fmt4, Args4),
     {C,As,Fmt6,Args6} = collect_cc(Fmt5, Args5),
     {{C,As,F,Ad,P,Pad,Encoding,Strings},Fmt6,Args6}.
 
@@ -68,11 +68,11 @@ encoding([$t|Fmt],Args) ->
 encoding(Fmt,Args) ->
     {latin1,Fmt,Args}.
 
-pretty_lists([$l|Fmt],Args) ->
+strings([$l|Fmt],Args) ->
     true = hd(Fmt) =/= $t,
-    {no,Fmt,Args};
-pretty_lists(Fmt,Args) ->
-    {unicode,Fmt,Args}.
+    {false,Fmt,Args};
+strings(Fmt,Args) ->
+    {true,Fmt,Args}.
 
 field_width([$-|Fmt0], Args0) ->
     {F,Fmt,Args} = field_value(Fmt0, Args0),

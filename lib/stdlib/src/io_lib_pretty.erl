@@ -56,7 +56,7 @@ print(Term) ->
                 | {depth, depth()}
                 | {max_chars, max_chars()}
                 | {record_print_fun, rec_print_fun()}
-                | {strings, io_lib:pretty_lists()}
+                | {strings, boolean()}
                 | {encoding, latin1 | utf8 | unicode}.
 -type options() :: [option()].
 
@@ -332,7 +332,7 @@ print_length([], _D, _RF, _Enc, _Str) ->
 print_length({}, _D, _RF, _Enc, _Str) ->
     {"{}", 2};
 print_length(List, D, RF, Enc, Str) when is_list(List) ->
-    case Str =:= unicode andalso printable_list(List, D, Enc) of
+    case Str andalso printable_list(List, D, Enc) of
         true ->
             S = write_string(List, Enc),
             {S, length(S)};
@@ -364,7 +364,7 @@ print_length(<<_/bitstring>>=Bin, D, _RF, Enc, Str) ->
     case bit_size(Bin) rem 8 of
         0 ->
 	    D1 = D - 1, 
-	    case Str =:= unicode andalso printable_bin(Bin, D1, Enc) of
+	    case Str andalso printable_bin(Bin, D1, Enc) of
                 {true, List} when is_list(List) ->
                     S = io_lib:write_string(List, $"), %"
 	            {[$<,$<,S,$>,$>], 4 + length(S)};

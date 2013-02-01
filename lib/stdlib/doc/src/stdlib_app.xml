@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>2005</year><year>2010</year>
+      <year>2005</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -51,7 +51,7 @@
         <p>This parameter can be used to run the Erlang shell
           in restricted mode.</p>
       </item>
-      <tag><c>shell_catch_exception = bool()</c></tag>
+      <tag><c>shell_catch_exception = boolean()</c></tag>
       <item>
         <p>This parameter can be used to set the exception handling
 	  of the Erlang shell's evaluator process.</p>
@@ -75,6 +75,11 @@
       <item>
         <p>This parameter can be used to determine how many 
           results are saved by the Erlang shell.</p>
+      </item>
+      <tag><c>shell_strings = boolean()</c></tag>
+      <item>
+        <p>This parameter can be used to determine how the Erlang
+          shell outputs lists of integers.</p>
       </item>
     </taglist>
   </section>
