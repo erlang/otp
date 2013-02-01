@@ -57,11 +57,13 @@ extern void _dosmaperr(DWORD);
 #define __argv e_argv
 #endif
 
+typedef struct driver_data DriverData;
+
 static void init_console();
 static int get_and_remove_option(int* argc, char** argv, const char* option);
 static char *get_and_remove_option2(int *argc, char **argv, 
 				    const char *option);
-static int init_async_io(struct async_io* aio, int use_threads);
+static int init_async_io(DriverData *dp, struct async_io* aio, int use_threads);
 static void release_async_io(struct async_io* aio, ErlDrvPort);
 static void async_read_file(struct async_io* aio, LPVOID buf, DWORD numToRead);
 static int async_write_file(struct async_io* aio, LPVOID buf, DWORD numToWrite);
@@ -96,7 +98,7 @@ static erts_smp_atomic_t pipe_creation_counter;
 static int driver_write(long, HANDLE, byte*, int);
 static int create_file_thread(struct async_io* aio, int mode);
 #ifdef ERTS_SMP
-static void close_active_handle(ErlDrvPort, HANDLE handle);
+static void close_active_handle(DriverData *, HANDLE handle);
 static DWORD WINAPI threaded_handle_closer(LPVOID param);
 #endif
 static DWORD WINAPI threaded_reader(LPVOID param);
@@ -440,6 +442,8 @@ typedef struct async_io {
   DWORD bytesTransferred;	/* Bytes read or write in the last operation.
 				 * Valid only when DF_OVR_READY is set.
 				 */
+  DriverData *dp;               /* Pointer to driver data struct which
+				   this struct is part of */
 } AsyncIo;
 
 
@@ -458,7 +462,7 @@ static BOOL (WINAPI *fpSetHandleInformation)(HANDLE,DWORD,DWORD);
  * none of the file handles.
  */
 
-typedef struct driver_data {
+struct driver_data {
     int totalNeeded;		/* Total number of bytes needed to fill
 				 * up the packet header or packet. */
     int bytesInBuffer;		/* Number of bytes read so far in
@@ -476,7 +480,8 @@ typedef struct driver_data {
     AsyncIo in;			/* Control block for overlapped reading. */
     AsyncIo out;		/* Control block for overlapped writing. */
     int report_exit;            /* Do report exit status for the port */
-} DriverData;
+    erts_atomic32_t refc;       /* References to this struct */
+};
 
 /* Driver interfaces */
 static ErlDrvData spawn_start(ErlDrvPort, char*, SysDriverOpts*);
@@ -581,6 +586,26 @@ struct erl_drv_entry vanilla_driver_entry = {
     stop_select
 };
 
+static ERTS_INLINE void
+refer_driver_data(DriverData *dp)
+{
+#ifdef DEBUG
+    erts_aint32_t refc = erts_atomic32_inc_read_nob(&dp->refc);
+    ASSERT(refc > 1);
+#else
+    erts_atomic32_inc_nob(&dp->refc);
+#endif
+}
+
+static ERTS_INLINE void
+unrefer_driver_data(DriverData *dp)
+{
+    erts_aint32_t refc = erts_atomic32_dec_read_mb(&dp->refc);
+    ASSERT(refc >= 0);
+    if (refc == 0)
+	driver_free(dp);
+}
+
 /*
  * Initialises a DriverData structure.
  *
@@ -604,6 +629,7 @@ new_driver_data(ErlDrvPort port_num, int packet_bytes, int wait_objs_required, i
      * any more, since driver_select() can't fail.
      */
 
+    erts_atomic32_init_nob(&dp->refc, 1);
     dp->bytesInBuffer = 0;
     dp->totalNeeded = packet_bytes;
     dp->inBufSize = PORT_BUFSIZ;
@@ -616,9 +642,9 @@ new_driver_data(ErlDrvPort port_num, int packet_bytes, int wait_objs_required, i
     dp->port_num = port_num;
     dp->packet_bytes = packet_bytes;
     dp->port_pid = INVALID_HANDLE_VALUE;
-    if (init_async_io(&dp->in, use_threads) == -1)
+    if (init_async_io(dp, &dp->in, use_threads) == -1)
 	goto async_io_error1;
-    if (init_async_io(&dp->out, use_threads) == -1)
+    if (init_async_io(dp, &dp->out, use_threads) == -1)
 	goto async_io_error2;
 
     return dp;
@@ -662,7 +688,7 @@ release_driver_data(DriverData* dp)
 	    dp->in.fd = INVALID_HANDLE_VALUE;
 	    DEBUGF(("Waiting for the in event thingie"));
 	    if (WaitForSingleObject(dp->in.ov.hEvent,timeout) == WAIT_TIMEOUT) {
-		close_active_handle(dp->port_num, dp->in.ov.hEvent);
+		close_active_handle(dp, dp->in.ov.hEvent);
 		dp->in.ov.hEvent = NULL;
 		timeout = 0;
 	    }
@@ -673,7 +699,7 @@ release_driver_data(DriverData* dp)
 	    dp->out.fd = INVALID_HANDLE_VALUE;
 	    DEBUGF(("Waiting for the out event thingie"));
 	    if (WaitForSingleObject(dp->out.ov.hEvent,timeout) == WAIT_TIMEOUT) {
-		close_active_handle(dp->port_num, dp->out.ov.hEvent);
+		close_active_handle(dp, dp->out.ov.hEvent);
 		dp->out.ov.hEvent = NULL;
 	    }
 	    DEBUGF(("...done\n"));
@@ -719,7 +745,7 @@ release_driver_data(DriverData* dp)
      * the exit thread.
      */
 
-    driver_free(dp);
+    unrefer_driver_data(dp);
 }
 
 #ifdef ERTS_SMP
@@ -727,11 +753,12 @@ release_driver_data(DriverData* dp)
 struct handles_to_be_closed {
     HANDLE handles[MAXIMUM_WAIT_OBJECTS];
     unsigned cnt;
+    DriverData *dp;
 };
 static struct handles_to_be_closed* htbc_curr = NULL;
 CRITICAL_SECTION htbc_lock;
 
-static void close_active_handle(ErlDrvPort port_num, HANDLE handle)
+static void close_active_handle(DriverData *dp, HANDLE handle)
 {
     struct handles_to_be_closed* htbc;
     int i;
@@ -745,6 +772,10 @@ static void close_active_handle(ErlDrvPort port_num, HANDLE handle)
 							 sizeof(*htbc));
 	htbc->handles[0] = CreateAutoEvent(FALSE);
 	htbc->cnt = 1;
+	htbc->dp = dp;
+	refer_driver_data(dp); /* Need to keep driver data until we have
+				  closed the event; outstanding operation
+				  might write into it.. */
 	thread = (HANDLE *) _beginthreadex(NULL, 0, threaded_handle_closer, htbc, 0, &tid);
 	CloseHandle(thread);
     }
@@ -797,6 +828,7 @@ threaded_handle_closer(LPVOID param)
     }
     LeaveCriticalSection(&htbc_lock);
     CloseHandle(htbc->handles[0]);
+    unrefer_driver_data(htbc->dp);
     erts_free(ERTS_ALC_T_DRV_TAB, htbc);
     DEBUGF(("threaded_handle_closer %p terminating\r\n", htbc));
     return 0;
@@ -863,8 +895,9 @@ reuse_driver_data(DriverData *dp, HANDLE ifd, HANDLE ofd, int read_write, ErlDrv
  */
 
 static int
-init_async_io(AsyncIo* aio, int use_threads)
+init_async_io(DriverData *dp, AsyncIo* aio, int use_threads)
 {
+    aio->dp = dp;
     aio->flags = 0;
     aio->thread = (HANDLE) -1;
     aio->fd = INVALID_HANDLE_VALUE;
@@ -1282,12 +1315,15 @@ create_file_thread(AsyncIo* aio, int mode)
 {
     DWORD tid;			/* Id for thread. */
 
+    refer_driver_data(aio->dp);
     aio->thread = (HANDLE)
 	_beginthreadex(NULL, 0, 
 		       (mode & DO_WRITE) ? threaded_writer : threaded_reader,
 		       aio, 0, &tid);
-
-    return aio->thread != (HANDLE) -1;
+    if (aio->thread != (HANDLE) -1)
+	return 1;
+    unrefer_driver_data(aio->dp);
+    return 0;
 }
 
 /* 
@@ -2073,6 +2109,7 @@ threaded_reader(LPVOID param)
 	if (aio->flags & DF_EXIT_THREAD)
 	    break;
     }
+    unrefer_driver_data(aio->dp);
     return 0;
 }
 
@@ -2152,6 +2189,7 @@ threaded_writer(LPVOID param)
     }
     CloseHandle(aio->fd);
     aio->fd = INVALID_HANDLE_VALUE;
+    unrefer_driver_data(aio->dp);
     return 0;
 }
 
@@ -2361,6 +2399,8 @@ stop(ErlDrvData data)
 	 */
 	HANDLE thread;
 	DWORD tid;
+
+	/* threaded_exiter implicitly takes over refc from us... */
 	thread = (HANDLE *) _beginthreadex(NULL, 0, threaded_exiter, dp, 0, &tid);
 	CloseHandle(thread);
     }
