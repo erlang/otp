@@ -118,8 +118,9 @@ public class AbstractNode {
 	    localHost = "localhost";
 	}
 
-	final String dotCookieFilename = System.getProperty("user.home")
-		+ File.separator + ".erlang.cookie";
+	final String homeDir = getHomeDir();
+	final String dotCookieFilename = homeDir + File.separator
+                + ".erlang.cookie";
 	BufferedReader br = null;
 
 	try {
@@ -250,5 +251,16 @@ public class AbstractNode {
     @Override
     public String toString() {
 	return node();
+    }
+
+    private static String getHomeDir() {
+	final String home = System.getProperty("user.home");
+	if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+	    final String drive = System.getenv("HOMEDRIVE");
+	    final String path = System.getenv("HOMEPATH");
+	    return (drive != null && path != null) ? drive + path : home;
+	} else {
+	    return home;
+	}
     }
 }
