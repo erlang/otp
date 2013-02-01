@@ -422,6 +422,9 @@ handle_call({is_cached,File}, {_From,_Tag}, S=#state{cache=Cache}) ->
 	    end
     end;
 
+handle_call(get_mode, {_From,_Tag}, S=#state{mode=Mode}) ->
+    {reply, Mode, S};
+
 handle_call(Other,{_From,_Tag}, S) ->			
     error_msg(" ** Codeserver*** ignoring ~w~n ",[Other]),
     {noreply,S}.
