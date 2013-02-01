@@ -275,8 +275,8 @@ check_disk_space({unix, sunos4}, Port, Threshold) ->
     Result = my_cmd("df", Port),
     check_disks_solaris(skip_to_eol(Result), Threshold);
 check_disk_space({unix, darwin}, Port, Threshold) ->
-    Result = my_cmd("/bin/df -k -t ufs,hfs", Port),
-    check_disks_solaris(skip_to_eol(Result), Threshold).
+    Result = my_cmd("/bin/df -i -k -t ufs,hfs", Port),
+    check_disks_susv3(skip_to_eol(Result), Threshold).
 
 % This code works for Linux and FreeBSD as well
 check_disks_solaris("", _Threshold) ->
@@ -296,6 +296,26 @@ check_disks_solaris(Str, Threshold) ->
 	     check_disks_solaris(RestStr, Threshold)];
 	_Other ->
 	    check_disks_solaris(skip_to_eol(Str),Threshold)
+    end.
+
+% Parse per SUSv3 specification, notably recent OS X
+check_disks_susv3("", _Threshold) ->
+    [];
+check_disks_susv3("\n", _Threshold) ->
+    [];
+check_disks_susv3(Str, Threshold) ->
+    case io_lib:fread("~s~d~d~d~d%~d~d~d%~s", Str) of
+    {ok, [_FS, KB, _Used, _Avail, Cap, _IUsed, _IFree, _ICap, MntOn], RestStr} ->
+	    if
+		Cap >= Threshold ->
+		    set_alarm({disk_almost_full, MntOn}, []);
+		true ->
+		    clear_alarm({disk_almost_full, MntOn})
+	    end,
+	    [{MntOn, KB, Cap} |
+	     check_disks_susv3(RestStr, Threshold)];
+	_Other ->
+	    check_disks_susv3(skip_to_eol(Str),Threshold)
     end.
 
 %% Irix: like Linux with an extra FS type column and no '%'.
