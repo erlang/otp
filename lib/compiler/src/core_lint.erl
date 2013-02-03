@@ -309,7 +309,7 @@ expr(#c_fun{vars=Vs,body=B}, Def, Rt, St0) ->
     {Vvs,St1} = variable_list(Vs, St0),
     return_match(Rt, 1, body(B, union(Vvs, Def), any, St1));
 expr(#c_seq{arg=Arg,body=B}, Def, Rt, St0) ->
-    St1 = expr(Arg, Def, any, St0),		%Ignore values
+    St1 = expr(Arg, Def, 1, St0),
     body(B, Def, Rt, St1);
 expr(#c_let{vars=Vs,arg=Arg,body=B}, Def, Rt, St0) ->
     St1 = body(Arg, Def, let_varcount(Vs), St0), %This is a body
