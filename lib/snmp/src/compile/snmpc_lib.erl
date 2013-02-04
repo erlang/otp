@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -240,7 +240,10 @@ import_mib({{'SNMPv2-SMI', ImportsFromMib},Line}) ->
 			aliasname = 'Opaque'},
 	     #asn1_type{bertype   = 'Counter64', 
 			aliasname = 'Counter64',
-			lo = 0, hi = 18446744073709551615}],
+			lo = 0, hi = 18446744073709551615},
+	     #asn1_type{bertype   = 'BITS', 
+			aliasname = 'BITS'}
+	    ],
     Macros = ['MODULE-IDENTITY','OBJECT-IDENTITY','OBJECT-TYPE',
 	      'NOTIFICATION-TYPE'],
     import_built_in_loop(ImportsFromMib,Nodes,Types,Macros,'SNMPv2-SMI',Line);
