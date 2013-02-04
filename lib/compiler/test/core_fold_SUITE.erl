@@ -21,7 +21,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 t_element/1,setelement/1,t_length/1,append/1,t_apply/1,bifs/1,
-	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1]).
+	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1,
+	 unused_multiple_values_error/1,unused_multiple_values/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -36,7 +37,8 @@ all() ->
 groups() -> 
     [{p,test_lib:parallel(),
       [t_element,setelement,t_length,append,t_apply,bifs,
-       eq,nested_call_in_case,guard_try_catch,coverage]}].
+       eq,nested_call_in_case,guard_try_catch,coverage,
+       unused_multiple_values_error,unused_multiple_values]}].
 
 
 init_per_suite(Config) ->
@@ -283,3 +285,41 @@ cover_is_safe_bool_expr(X) ->
     end.
 
 id(I) -> I.
+
+unused_multiple_values_error(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Dir = filename:dirname(code:which(?MODULE)),
+    Core = filename:join(Dir, "unused_multiple_values_error"),
+    Opts = [no_copt,clint,return,from_core,{outdir,PrivDir}
+	   |test_lib:opt_opts(?MODULE)],
+    {error,[{unused_multiple_values_error,
+        [{core_lint,{return_mismatch,{hello,1}}}]}],
+     []} = c:c(Core, Opts),
+    ok.
+
+unused_multiple_values(Config) when is_list(Config) ->
+    put(unused_multiple_values, []),
+    [false] = test_unused_multiple_values(false),
+    [b,a,{a,b},false] = test_unused_multiple_values({a,b}),
+    ok.
+
+test_unused_multiple_values(X) ->
+    ok = do_unused_multiple_values(X),
+    get(unused_multiple_values).
+
+do_unused_multiple_values(X) ->
+    case do_something(X) of
+        false ->
+            A = false;
+        Res ->
+            {A,B} = Res,
+            do_something(A),
+            do_something(B)
+    end,
+    _ThisShouldNotFail = A,
+    ok.
+
+do_something(I) ->
+    put(unused_multiple_values,
+	[I|get(unused_multiple_values)]),
+    I.
