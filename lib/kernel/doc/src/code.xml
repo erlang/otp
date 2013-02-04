@@ -740,7 +740,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
     </func>
 
     <func>
-      <name="get_mode" arity="0"/>
+      <name name="get_mode" arity="0"/>
       <fsummary>The code_server's mode.</fsummary>
       <desc>
         <p>This function returns an atom describing the code_server's mode:
