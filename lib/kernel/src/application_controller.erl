@@ -1447,7 +1447,7 @@ prim_consult(FullName) ->
 	{ok, Bin, _} ->
             case file_binary_to_list(Bin) of
                 {ok, String} ->
-                    case erl_scan:string(String, 1, [unicode]) of
+                    case erl_scan:string(String) of
                         {ok, Tokens, _EndLine} ->
                             prim_parse(Tokens, []);
                         {error, Reason, _EndLine} ->
@@ -1600,7 +1600,7 @@ conv(_) -> [].
 
 %%% Fix some day: eliminate the duplicated code here
 make_term(Str) -> 
-    case erl_scan:string(Str, 1, [unicode]) of
+    case erl_scan:string(Str) of
 	{ok, Tokens, _} ->		  
 	    case erl_parse:parse_term(Tokens ++ [{dot, 1}]) of
 		{ok, Term} ->

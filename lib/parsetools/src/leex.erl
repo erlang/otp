@@ -504,7 +504,7 @@ collect_rule(Ifile, Chars, L0) ->
 collect_action(_Ifile, {error, _}, L, _Cont0) ->
     {error, {L, leex, cannot_parse}, ignored_end_line};
 collect_action(Ifile, Chars, L0, Cont0) ->
-    case erl_scan:tokens(Cont0, Chars, L0, [unicode]) of
+    case erl_scan:tokens(Cont0, Chars, L0) of
         {done,{ok,Toks,_},_} -> {ok,Toks,L0};
         {done,{eof,_},_} -> {eof,L0};
         {done,{error,E,_},_} -> {error,E,L0};

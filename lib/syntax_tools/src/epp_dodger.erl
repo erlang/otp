@@ -401,7 +401,7 @@ quick_parse_form(Dev, L0, Options) ->
 parse_form(Dev, L0, Parser, Options) ->
     NoFail = proplists:get_bool(no_fail, Options),
     Opt = #opt{clever = proplists:get_bool(clever, Options)},
-    case io:scan_erl_form(Dev, "", L0, [unicode]) of
+    case io:scan_erl_form(Dev, "", L0) of
         {ok, Ts, L1} ->
             case catch {ok, Parser(Ts, Opt)} of
                 {'EXIT', Term} ->

@@ -156,9 +156,6 @@
     <datatype>
       <name name="file_info_option"/>
     </datatype>
-    <datatype>
-      <name name="sendfile_option"/>
-    </datatype>
    </datatypes>
 
   <funcs>
@@ -1648,6 +1645,7 @@
     <func>
       <name name="sendfile" arity="5"/>
       <fsummary>send a file to a socket</fsummary>
+      <type name="sendfile_option"/>
       <desc>
         <p>Sends <c>Bytes</c> from the file
         referenced by <c>RawFile</c> beginning at <c>Offset</c> to
