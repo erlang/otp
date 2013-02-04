@@ -1272,6 +1272,8 @@ eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
 		true ->
 		    eval_failure(Call, badarg)
 	    end;
+	{ok,_} ->
+	    eval_failure(Call, badarg);
 	error ->
 	    Call
     end;
