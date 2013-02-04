@@ -387,7 +387,7 @@ encode_arg({list, List}, Dict0) ->
     {L, Dict} = encode_list(List, Dict0, []),
     {[encode(?tag_z, 1), encode(?tag_u, length(List))|L], Dict};
 encode_arg({float, Float}, Dict) when is_float(Float) ->
-    {[encode(?tag_z, 0),<<Float:64/float>>], Dict};
+    encode_arg({literal,Float}, Dict);
 encode_arg({fr,Fr}, Dict) ->
     {[encode(?tag_z, 2),encode(?tag_u, Fr)], Dict};
 encode_arg({field_flags,Flags0}, Dict) ->
