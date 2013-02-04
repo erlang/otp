@@ -15,7 +15,7 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
-{"1.19",
+{"1.19.1",
  %% Up from - max two major revisions back
  [{<<"1\\.19(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R16
   {<<"1\\.18(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R15
