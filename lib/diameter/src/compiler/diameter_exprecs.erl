@@ -61,8 +61,10 @@
 %%   '#info-'(r, Info) ->
 %%       '#info-r'(Info).
 %%
+%%   '#new-'([r | Vals]) -> '#new-r'(Vals);
 %%   '#new-'(r) -> #r{}.
-%%   '#new-'(r, Vals) -> '#new-r'(Vals)
+%%
+%%   '#new-'(r, Vals) -> '#new-r'(Vals).
 %%
 %%   '#new-r'() -> #r{}.
 %%   '#new-r'(Vals) -> '#set-r'(Vals, #r{}).
@@ -193,12 +195,15 @@ fname(Op, Rname) ->
 
 '#new-/1'(Exports) ->
     {?function, fname(new), 1,
-     lists:map(fun 'new-'/1, Exports) ++ [?BADARG(1)]}.
+     lists:flatmap(fun 'new-'/1, Exports) ++ [?BADARG(1)]}.
 
 'new-'(R) ->
-    {?clause, [?ATOM(R)],
-     [],
-     [{?record, R, []}]}.
+    [{?clause, [?ATOM(R)],
+      [],
+      [{?record, R, []}]},
+     {?clause, [{?cons, ?ATOM(R), ?VAR('Vals')}],
+      [],
+      [?CALL(fname(new, R), [?VAR('Vals')])]}].
 
 '#new-/2'(Exports) ->
     {?function, fname(new), 2,
