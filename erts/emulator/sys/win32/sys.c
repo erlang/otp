@@ -916,6 +916,8 @@ init_async_io(DriverData *dp, AsyncIo* aio, int use_threads)
     if (aio->ov.hEvent == NULL)
 	return -1;
     if (use_threads) {
+	OV_BUFFER_PTR(aio) = NULL;
+	OV_NUM_TO_READ(aio) = 0;
 	aio->ioAllowed = CreateAutoEvent(FALSE);
 	if (aio->ioAllowed == NULL)
 	    return -1;
@@ -2330,6 +2332,7 @@ static void fd_stop(ErlDrvData data)
       (void) driver_select(dp->port_num,
 			   (ErlDrvEvent)dp->out.ov.hEvent,
 			   ERL_DRV_WRITE, 0);
+      ASSERT(dp->out.flushEvent);
       SetEvent(dp->out.flushEvent);
       WaitForSingleObject(dp->out.flushReplyEvent, INFINITE);
   }    
