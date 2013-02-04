@@ -99,10 +99,20 @@
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
 -include("diameter_gen_base_accounting.hrl").
+%% The listening transports use RFC 3588 dictionaries, the client
+%% transports use either 3588 or 6733. (So can't use the record
+%% definitions in the latter case.)
 
 %% ===========================================================================
 
 -define(util, diameter_util).
+
+-define(A, list_to_atom).
+-define(L, atom_to_list).
+
+%% Don't use is_record/2 since dictionary hrl's aren't included.
+%% (Since they define conflicting reqcords with the same names.)
+-define(is_record(Rec, Name), (Name == element(1, Rec))).
 
 -define(ADDR, {127,0,0,1}).
 
@@ -113,9 +123,6 @@
 
 -define(EXTRA, an_extra_argument).
 
--define(BASE, ?DIAMETER_DICT_COMMON).
--define(ACCT, ?DIAMETER_DICT_ACCOUNTING).
-
 %% Sequence mask for End-to-End and Hop-by-Hop identifiers.
 -define(CLIENT_MASK, {1,26}).  %% 1 in top 6 bits
 
@@ -125,9 +132,14 @@
 %% How to send answers, in a diameter_packet or not.
 -define(CONTAINERS, [pkt, msg]).
 
-%% Send over multiple connections that are mapped onto
-%% [{E,P} || E <- ?ENCODINGS, P <- ?CONTAINERS].
--define(CONNECTIONS, [c0,c1,c2,c3]).
+%% Which common dictionary to use in the clients.
+-define(RFCS, [rfc3588, rfc6733]).
+
+-record(group,
+        {client_encoding,
+         client_dict0,
+         server_encoding,
+         server_container}).
 
 %% Not really what we should be setting unless the message is sent in
 %% the common application but diameter doesn't care.
@@ -135,6 +147,17 @@
 
 %% An Application-ID the server doesn't support.
 -define(BAD_APP, 42).
+
+%% A common match when receiving answers in a client.
+-define(answer_message(SessionId, ResultCode),
+        ['answer-message',
+         {'Session-Id', SessionId},
+         {'Origin-Host', _},
+         {'Origin-Realm', _},
+         {'Result-Code', ResultCode}
+         | _]).
+-define(answer_message(ResultCode),
+        ?answer_message(_, ResultCode)).
 
 %% Config for diameter:start_service/2.
 -define(SERVICE(Name),
@@ -149,7 +172,10 @@
          | [{application, [{dictionary, D},
                            {module, ?MODULE},
                            {answer_errors, callback}]}
-            || D <- [?BASE, ?ACCT]]]).
+            || D <- [diameter_gen_base_rfc3588,
+                     diameter_gen_base_accounting,
+                     diameter_gen_base_rfc6733,
+                     diameter_gen_acct_rfc6733]]]).
 
 -define(SUCCESS,
         ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_SUCCESS').
@@ -188,11 +214,6 @@
 -define(USER_MOVED,
         ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_USER_MOVED').
 
--define(A, list_to_atom).
--define(L, atom_to_list).
-
--define(NAME(A,B), ?A(?L(A) ++ "," ++ ?L(B))).
-
 %% ===========================================================================
 
 suite() ->
@@ -200,20 +221,27 @@ suite() ->
 
 all() ->
     [start, start_services, add_transports, result_codes]
-        ++ [{group, ?util:name([R,C,A]), P} || R <- ?ENCODINGS,
-                                               C <- ?CONTAINERS,
-                                               A <- ?ENCODINGS,
-                                               P <- [[], [parallel]]]
+        ++ [{group, ?util:name([R,D,A,C]), P} || R <- ?ENCODINGS,
+                                                 D <- ?RFCS,
+                                                 A <- ?ENCODINGS,
+                                                 C <- ?CONTAINERS,
+                                                 P <- [[], [parallel]]]
         ++ [outstanding, remove_transports, empty, stop_services, stop].
 
 groups() ->
     Ts = tc(),
-    [{?util:name([R,C,A]), [], Ts} || R <- ?ENCODINGS,
-                                      C <- ?CONTAINERS,
-                                      A <- ?ENCODINGS].
+    [{?util:name([R,D,A,C]), [], Ts} || R <- ?ENCODINGS,
+                                        D <- ?RFCS,
+                                        A <- ?ENCODINGS,
+                                        C <- ?CONTAINERS].
 
 init_per_group(Name, Config) ->
-    [{group, Name} | Config].
+    [R,D,A,C] = ?util:name(Name),
+    G = #group{client_encoding = R,
+               client_dict0 = dict0(D),
+               server_encoding = A,
+               server_container = C},
+    [{group, G} | Config].
 
 end_per_group(_, _) ->
     ok.
@@ -284,11 +312,27 @@ start_services(_Config) ->
                                           | ?SERVICE(?CLIENT)]).
 
 add_transports(Config) ->
-    LRef = ?util:listen(?SERVER, tcp, [{capabilities_cb, fun capx/2}]),
-    Cs = [?util:connect(?CLIENT, tcp, LRef, [{id, C},
-                                             {capabilities, [osi(C)]}])
-          || C <- ?CONNECTIONS],
+    LRef = ?util:listen(?SERVER,
+                        tcp,
+                        [{capabilities_cb, fun capx/2},
+                         {applications, apps(rfc3588)}]),
+    Cs = [?util:connect(?CLIENT,
+                        tcp,
+                        LRef,
+                        [{id, Id},
+                         {capabilities, [{'Origin-State-Id', origin(Id)}]},
+                         {applications, apps(D)}])
+          || A <- ?ENCODINGS,
+             C <- ?CONTAINERS,
+             D <- ?RFCS,
+             Id <- [{A,C}]],
+    %% The server uses the client's Origin-State-Id to decide how to
+    %% answer.
     ?util:write_priv(Config, "transport", [LRef | Cs]).
+
+apps(D0) ->
+    D = dict0(D0),
+    [acct(D), D].
 
 %% Ensure there are no outstanding requests in request table.
 outstanding(_Config) ->
@@ -314,10 +358,6 @@ capx(_, #diameter_caps{origin_host = {OH,DH}}) ->
     io:format("connection: ~p -> ~p~n", [DH,OH]),
     ok.
 
-osi(Id) ->
-    [$c,N] = atom_to_list(Id),
-    {'Origin-State-Id', N - $0}.
-
 %% ===========================================================================
 
 %% Ensure that result codes have the expected values.
@@ -340,7 +380,7 @@ send_ok(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 1}],
 
-    #diameter_base_accounting_ACA{'Result-Code' = ?SUCCESS}
+    ['ACA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send an accounting ACR that the server answers badly to.
@@ -348,7 +388,7 @@ send_nok(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 0}],
 
-    #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS}
+    ?answer_message(?INVALID_AVP_BITS)
         = call(Config, Req).
 
 %% Send an ACR and expect success.
@@ -356,7 +396,7 @@ send_eval(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 3}],
 
-    #diameter_base_accounting_ACA{'Result-Code' = ?SUCCESS}
+    ['ACA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send an accounting ACR that the server tries to answer with an
@@ -373,46 +413,44 @@ send_protocol_error(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 4}],
 
-    #'diameter_base_answer-message'{'Result-Code' = ?TOO_BUSY}
+    ?answer_message(?TOO_BUSY)
         = call(Config, Req).
 
 %% Send an ASR with an arbitrary AVP and expect success and the same
 %% AVP in the reply.
 send_arbitrary(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{name = 'Class', value = "XXX"}]}],
-    #diameter_base_ASA{'Result-Code' = ?SUCCESS,
-                       'AVP' = Avps}
+    ['ASA', _SessionId, {'Result-Code', ?SUCCESS} | Avps]
         = call(Config, Req),
-    [#diameter_avp{name = 'Class',
-                   value = "XXX"}]
-        = Avps.
+    {'AVP', [#diameter_avp{name = 'Class',
+                           value = "XXX"}]}
+        = lists:last(Avps).
 
 %% Send an unknown AVP (to some client) and check that it comes back.
 send_unknown(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = false,
                                          data = <<17>>}]}],
-    #diameter_base_ASA{'Result-Code' = ?SUCCESS,
-                       'AVP' = Avps}
+    ['ASA', _SessionId, {'Result-Code', ?SUCCESS} | Avps]
         = call(Config, Req),
-    [#diameter_avp{code = 999,
-                   is_mandatory = false,
-                   data = <<17>>}]
-        = Avps.
+    {'AVP', [#diameter_avp{code = 999,
+                           is_mandatory = false,
+                           data = <<17>>}]}
+        = lists:last(Avps).
 
 %% Ditto but set the M flag.
 send_unknown_mandatory(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
                                          is_mandatory = true,
                                          data = <<17>>}]}],
-    #diameter_base_ASA{'Result-Code' = ?AVP_UNSUPPORTED,
-                       'Failed-AVP' = Failed}
+    ['ASA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | Avps]
         = call(Config, Req),
-    [#'diameter_base_Failed-AVP'{'AVP' = Avps}] = Failed,
+    [#'diameter_base_Failed-AVP'{'AVP' = As}]
+        = proplists:get_value('Failed-AVP', Avps),
     [#diameter_avp{code = 999,
                    is_mandatory = true,
                    data = <<17>>}]
-        = Avps.
+        = As.
 
 %% Send an STR that the server ignores.
 send_noreply(Config) ->
@@ -422,32 +460,32 @@ send_noreply(Config) ->
 %% Send an unsupported command and expect 3001.
 send_unsupported(Config) ->
     Req = ['STR', {'Termination-Cause', ?BAD_ANSWER}],
-    #'diameter_base_answer-message'{'Result-Code' = ?COMMAND_UNSUPPORTED}
+    ?answer_message(?COMMAND_UNSUPPORTED)
         = call(Config, Req).
 
 %% Send an unsupported application and expect 3007.
 send_unsupported_app(Config) ->
     Req = ['STR', {'Termination-Cause', ?BAD_ANSWER}],
-    #'diameter_base_answer-message'{'Result-Code' = ?APPLICATION_UNSUPPORTED}
+    ?answer_message(?APPLICATION_UNSUPPORTED)
         = call(Config, Req).
 
 %% Send a request with the E bit set and expect 3008.
 send_error_bit(Config) ->
     Req = ['STR', {'Termination-Cause', ?BAD_ANSWER}],
-    #'diameter_base_answer-message'{'Result-Code' = ?INVALID_HDR_BITS}
+    ?answer_message(?INVALID_HDR_BITS)
         = call(Config, Req).
 
 %% Send a bad version and check that we get 5011.
 send_unsupported_version(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-    #diameter_base_STA{'Result-Code' = ?UNSUPPORTED_VERSION}
+    ['STA', _SessionId, {'Result-Code', ?UNSUPPORTED_VERSION} | _]
         = call(Config, Req).
 
 %% Send a request containing an incorrect AVP length.
 send_invalid_avp_bits(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
-    #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS}
+    ?answer_message(?INVALID_AVP_BITS)
         = call(Config, Req).
 
 %% Send a request containing an AVP length that doesn't match the
@@ -455,7 +493,7 @@ send_invalid_avp_bits(Config) ->
 send_invalid_avp_length(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
-    #'diameter_base_STA'{'Result-Code' = ?INVALID_AVP_LENGTH}
+    ['STA', _SessionId, {'Result-Code', ?INVALID_AVP_LENGTH} | _]
         = call(Config, Req).
 
 %% Send a request containing 5xxx errors that the server rejects with
@@ -463,14 +501,14 @@ send_invalid_avp_length(Config) ->
 send_invalid_reject(Config) ->
     Req = ['STR', {'Termination-Cause', ?USER_MOVED}],
 
-    #'diameter_base_answer-message'{'Result-Code' = ?TOO_BUSY}
+    ?answer_message(?TOO_BUSY)
         = call(Config, Req).
 
 %% Send something long that will be fragmented by TCP.
 send_long(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'User-Name', [lists:duplicate(1 bsl 20, $X)]}],
-    #diameter_base_STA{'Result-Code' = ?SUCCESS}
+    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send something for which pick_peer finds no suitable peer.
@@ -495,14 +533,14 @@ send_any_1(Config) ->
 send_any_2(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'Destination-Host', [?HOST(?SERVER, "unknown.org")]}],
-    #'diameter_base_answer-message'{'Result-Code' = ?UNABLE_TO_DELIVER}
+    ?answer_message(?UNABLE_TO_DELIVER)
         = call(Config, Req, [{filter, {any, [host, realm]}}]).
 
 %% Send with a conjunctive filter.
 send_all_1(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
     Realm = lists:foldr(fun(C,A) -> [C,A] end, [], ?REALM),
-    #diameter_base_STA{'Result-Code' = ?SUCCESS}
+    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req, [{filter, {all, [{host, any},
                                              {realm, Realm}]}}]).
 send_all_2(Config) ->
@@ -520,8 +558,7 @@ send_timeout(Config) ->
 %% received the Session-Id.
 send_error(Config) ->
     Req = ['RAR', {'Re-Auth-Request-Type', ?AUTHORIZE_AUTHENTICATE}],
-    #'diameter_base_answer-message'{'Result-Code' = ?TOO_BUSY,
-                                    'Session-Id' = SId}
+    ?answer_message(SId, ?TOO_BUSY)
         = call(Config, Req),
     undefined /= SId.
 
@@ -531,10 +568,9 @@ send_detach(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
     Ref = make_ref(),
     ok = call(Config, Req, [{extra, [{self(), Ref}]}, detach]),
-    #diameter_packet{msg = Rec, errors = []}
-        = receive {Ref, T} -> T after 2000 -> false end,
-    #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = Rec.
+    Ans = receive {Ref, T} -> T after 2000 -> false end,
+    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
+        = Ans.
 
 %% Send a request which can't be encoded and expect {error, encode}.
 send_encode_error(Config) ->
@@ -544,11 +580,11 @@ send_encode_error(Config) ->
 send_destination_1(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'Destination-Host', [?HOST(?SERVER, ?REALM)]}],
-    #diameter_base_STA{'Result-Code' = ?SUCCESS}
+    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req, [{filter, {all, [host, realm]}}]).
 send_destination_2(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-    #diameter_base_STA{'Result-Code' = ?SUCCESS}
+    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req, [{filter, {all, [host, realm]}}]).
 
 %% Send with filtering on and expect failure when specifying an
@@ -569,12 +605,12 @@ send_destination_4(Config) ->
 send_destination_5(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'Destination-Realm', "unknown.org"}],
-    #'diameter_base_answer-message'{'Result-Code' = ?REALM_NOT_SERVED}
+    ?answer_message(?REALM_NOT_SERVED)
         = call(Config, Req).
 send_destination_6(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'Destination-Host', [?HOST(?SERVER, "unknown.org")]}],
-    #'diameter_base_answer-message'{'Result-Code' = ?UNABLE_TO_DELIVER}
+    ?answer_message(?UNABLE_TO_DELIVER)
         = call(Config, Req).
 
 %% Specify an invalid option and expect failure.
@@ -608,7 +644,7 @@ send_bad_filter(Config, F) ->
 %% Specify multiple filter options and expect them be conjunctive.
 send_multiple_filters_1(Config) ->
     Fun = fun(#diameter_caps{}) -> true end,
-    #diameter_base_STA{'Result-Code' = ?SUCCESS}
+    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = send_multiple_filters(Config, [host, {eval, Fun}]).
 send_multiple_filters_2(Config) ->
     E = {erlang, is_tuple, []},
@@ -619,7 +655,7 @@ send_multiple_filters_3(Config) ->
     E2 = {erlang, is_tuple, []},
     E3 = {erlang, is_record, [diameter_caps]},
     E4 = [{erlang, is_record, []}, diameter_caps],
-    #diameter_base_STA{'Result-Code' = ?SUCCESS}
+    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = send_multiple_filters(Config, [{eval, E} || E <- [E1,E2,E3,E4]]).
 
 send_multiple_filters(Config, Fs) ->
@@ -630,7 +666,7 @@ send_multiple_filters(Config, Fs) ->
 %% only the return value from the prepare_request callback being
 %% significant.
 send_anything(Config) ->
-    #diameter_base_STA{'Result-Code' = ?SUCCESS}
+    ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = call(Config, anything).
 
 %% ===========================================================================
@@ -640,56 +676,69 @@ call(Config, Req) ->
 
 call(Config, Req, Opts) ->
     Name = proplists:get_value(testcase, Config),
-    [Encoding, C, E] = ?util:name(proplists:get_value(group, Config)),
+    #group{client_encoding = ReqEncoding,
+           client_dict0 = Dict0}
+        = Group
+        = proplists:get_value(group, Config),
     diameter:call(?CLIENT,
-                  dict(Req),
-                  msg(Req, Encoding),
-                  [{extra, [Name, client(E,C)]} | Opts]).
+                  dict(Req, Dict0),
+                  msg(Req, ReqEncoding, Dict0),
+                  [{extra, [Name, Group]} | Opts]).
 
-client(E, C) ->
-    list_to_atom([$c, $0 + 2*codec(E) + container(C)]).
+origin({A,C}) ->
+    2*codec(A) + container(C);
 
-client(N) ->
-    {codec(N bsr 1), container(N rem 2)}.
+origin(N) ->
+    {codec(N band 2), container(N rem 2)}.
+
+%% Map booleans, but the readable atoms are part of (constructed)
+%% group names, so it's good that they're readable.
 
 codec(record) -> 0;
-codec(list) -> 1;
+codec(list)   -> 1;
 codec(0) -> record;
-codec(1) -> list.
-
-%% Here we're just mapping booleans but the readable atoms are part of
-%% (constructed) group names, so it's good that they're readable.
+codec(_) -> list.
 
 container(pkt) -> 0;
 container(msg) -> 1;
 container(0) -> pkt;
-container(1) -> msg.
+container(_) -> msg.
 
-msg([H|T], record)
+msg([H|_] = Msg, record = E, diameter_gen_base_rfc3588)
   when H == 'ACR';
        H == 'ACA' ->
-    ?ACCT:'#new-'(?ACCT:msg2rec(H), T);
-msg([H|T], record) ->
-    ?BASE:'#new-'(?BASE:msg2rec(H), T);
-msg(T, _) ->
-    T.
+    msg(Msg, E, diameter_gen_base_accounting);
+msg([H|_] = Msg, record = E, diameter_gen_base_rfc6733)
+  when H == 'ACR';
+       H == 'ACA' ->
+    msg(Msg, E, diameter_gen_acct_rfc6733);
+msg([H|T], record, Dict) ->
+    Dict:'#new-'(Dict:msg2rec(H), T);
+msg(Msg, _, _) ->
+    Msg.
 
-dict(['ACR' | _]) ->
-    ?ACCT;
-dict(#diameter_base_accounting_ACR{}) ->
-    ?ACCT;
-dict(_) ->
-    ?BASE.
+dict0(D) ->
+    ?A("diameter_gen_base_" ++ ?L(D)).
+
+dict(Msg, Dict0)
+  when 'ACR' == hd(Msg);
+       'ACA' == hd(Msg);
+       ?is_record(Msg, diameter_base_accounting_ACR);
+       ?is_record(Msg, diameter_base_accounting_ACA) ->
+    acct(Dict0);
+dict(_, Dict0) ->
+    Dict0.
+
+acct(diameter_gen_base_rfc3588) ->
+    diameter_gen_base_accounting;
+acct(diameter_gen_base_rfc6733) ->
+    diameter_gen_acct_rfc6733.
 
 %% Set only values that aren't already.
-set([H|T], Vs) ->
+set(_, [H|T], Vs) ->
     [H | Vs ++ T];
-set(#diameter_base_accounting_ACR{} = Rec, Vs) ->
-    set(Rec, Vs, ?ACCT);
-set(Rec, Vs) ->
-    set(Rec, Vs, ?BASE).
-
-set(Rec, Vs, Dict) ->
+set(#group{client_dict0 = Dict0} = _Group, Rec, Vs) ->
+    Dict = dict(Rec, Dict0),
     lists:foldl(fun({F,_} = FV, A) ->
                         set(Dict, Dict:'#get-'(F, A), FV, A)
                 end,
@@ -718,17 +767,18 @@ peer_down(_SvcName, _Peer, State) ->
 
 %% pick_peer/6-7
 
-pick_peer(Peers, _, ?CLIENT, _State, Name, Id)
+pick_peer(Peers, _, ?CLIENT, _State, Name, Group)
   when Name /= send_detach ->
-    find(Id, Peers).
+    find(Group, Peers).
 
 pick_peer(_Peers, _, ?CLIENT, _State, send_nopeer, _, ?EXTRA) ->
     false;
 
-pick_peer(Peers, _, ?CLIENT, _State, send_detach, Id, {_,_}) ->
-    find(Id, Peers).
+pick_peer(Peers, _, ?CLIENT, _State, send_detach, Group, {_,_}) ->
+    find(Group, Peers).
 
-find(Id, Peers) ->
+find(#group{server_encoding = A, server_container = C}, Peers) ->
+    Id = {A,C},
     [P] = [P || P <- Peers, id(Id, P)],
     {ok, P}.
 
@@ -742,39 +792,40 @@ id(Id, {Pid, _Caps}) ->
 prepare_request(_Pkt, ?CLIENT, {_Ref, _Caps}, send_discard, _) ->
     {discard, unprepared};
 
-prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, Name, _) ->
-    {send, prepare(Pkt, Caps, Name)}.
+prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, Name, Group) ->
+    {send, prepare(Pkt, Caps, Name, Group)}.
 
-prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, send_detach, _, _) ->
-    {eval_packet, {send, prepare(Pkt, Caps)}, [fun log/2, detach]}.
+prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, send_detach, Group, _) ->
+    {eval_packet, {send, prepare(Pkt, Caps, Group)}, [fun log/2, detach]}.
 
 log(#diameter_packet{} = P, T) ->
     io:format("~p: ~p~n", [T,P]).
 
-%% prepare/3
+%% prepare/4
 
-prepare(Pkt, Caps, send_invalid_avp_bits) ->
-    Req = prepare(Pkt, Caps),
+prepare(Pkt, Caps, send_invalid_avp_bits, #group{client_dict0 = Dict0}
+                                          = Group) ->
+    Req = prepare(Pkt, Caps, Group),
     %% Last AVP in our STR is Termination-Cause of type Unsigned32:
     %% set its length improperly.
     #diameter_packet{header = #diameter_header{length = L},
                      bin = B}
         = E
-        = diameter_codec:encode(?BASE, Pkt#diameter_packet{msg = Req}),
+        = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
     Offset = L - 7,  %% to AVP Length
     <<H:Offset/binary, 12:24/integer, T:4/binary>> = B,
     E#diameter_packet{bin = <<H/binary, 13:24/integer, T/binary>>};
 
-prepare(Pkt, Caps, N)
+prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
   when N == send_invalid_avp_length;
        N == send_invalid_reject ->
-    Req = prepare(Pkt, Caps),
+    Req = prepare(Pkt, Caps, Group),
     %% Second last AVP in our STR is Auth-Application-Id of type
     %% Unsigned32: Send a value of length 8.
     #diameter_packet{header = #diameter_header{length = L},
                      bin = B0}
         = E
-        = diameter_codec:encode(?BASE, Pkt#diameter_packet{msg = Req}),
+        = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
     Offset = L - 7 - 12,  %% to AVP Length
     <<H0:Offset/binary, 12:24/integer, T:16/binary>> = B0,
     <<V, L:24/integer, H/binary>> = H0,  %% assert
@@ -785,107 +836,111 @@ prepare(Pkt, Caps, N)
                               0:32/integer,
                               T/binary>>};
 
-prepare(Pkt, Caps, send_unsupported) ->
-    Req = prepare(Pkt, Caps),
+prepare(Pkt, Caps, send_unsupported, #group{client_dict0 = Dict0} = Group) ->
+    Req = prepare(Pkt, Caps, Group),
     #diameter_packet{bin = <<H:5/binary, _CmdCode:3/binary, T/binary>>}
         = E
-        = diameter_codec:encode(?BASE, Pkt#diameter_packet{msg = Req}),
+        = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
     E#diameter_packet{bin = <<H/binary, 42:24/integer, T/binary>>};
 
-prepare(Pkt, Caps, send_unsupported_app) ->
-    Req = prepare(Pkt, Caps),
+prepare(Pkt, Caps, send_unsupported_app, #group{client_dict0 = Dict0}
+                                         = Group) ->
+    Req = prepare(Pkt, Caps, Group),
     #diameter_packet{bin = <<H:8/binary, _ApplId:4/binary, T/binary>>}
         = E
-        = diameter_codec:encode(?BASE, Pkt#diameter_packet{msg = Req}),
+        = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
     E#diameter_packet{bin = <<H/binary, ?BAD_APP:32/integer, T/binary>>};
 
-prepare(Pkt, Caps, send_error_bit) ->
+prepare(Pkt, Caps, send_error_bit, Group) ->
     #diameter_packet{header = Hdr} = Pkt,
     Pkt#diameter_packet{header = Hdr#diameter_header{is_error = true},
-                        msg = prepare(Pkt, Caps)};
+                        msg = prepare(Pkt, Caps, Group)};
 
-prepare(Pkt, Caps, send_unsupported_version) ->
+prepare(Pkt, Caps, send_unsupported_version, Group) ->
     #diameter_packet{header = Hdr} = Pkt,
     Pkt#diameter_packet{header = Hdr#diameter_header{version = 42},
-                        msg = prepare(Pkt, Caps)};
+                        msg = prepare(Pkt, Caps, Group)};
 
-prepare(Pkt, Caps, send_anything) ->
+prepare(Pkt, Caps, send_anything, Group) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-    prepare(Pkt#diameter_packet{msg = Req}, Caps);
+    prepare(Pkt#diameter_packet{msg = Req}, Caps, Group);
 
-prepare(Pkt, Caps, _Name) ->
-    prepare(Pkt, Caps).
+prepare(Pkt, Caps, _Name, Group) ->
+    prepare(Pkt, Caps, Group).
 
-%% prepare/2
+%% prepare/3
 
-prepare(#diameter_packet{msg = Req}, Caps)
-  when is_record(Req, diameter_base_accounting_ACR);
+prepare(#diameter_packet{msg = Req}, Caps, Group)
+  when ?is_record(Req, diameter_base_accounting_ACR);
        'ACR' == hd(Req) ->
     #diameter_caps{origin_host  = {OH, _},
                    origin_realm = {OR, DR}}
         = Caps,
 
-    set(Req, [{'Session-Id', diameter:session_id(OH)},
-              {'Origin-Host',  OH},
-              {'Origin-Realm', OR},
-              {'Destination-Realm', DR}]);
+    set(Group, Req, [{'Session-Id', diameter:session_id(OH)},
+                     {'Origin-Host',  OH},
+                     {'Origin-Realm', OR},
+                     {'Destination-Realm', DR}]);
 
-prepare(#diameter_packet{msg = Req}, Caps)
-  when is_record(Req, diameter_base_ASR);
+prepare(#diameter_packet{msg = Req}, Caps, Group)
+  when ?is_record(Req, diameter_base_ASR);
        'ASR' == hd(Req) ->
     #diameter_caps{origin_host  = {OH, DH},
                    origin_realm = {OR, DR}}
         = Caps,
-    set(Req, [{'Session-Id', diameter:session_id(OH)},
-              {'Origin-Host',  OH},
-              {'Origin-Realm', OR},
-              {'Destination-Host',  DH},
-              {'Destination-Realm', DR},
-              {'Auth-Application-Id', ?APP_ID}]);
+    set(Group, Req, [{'Session-Id', diameter:session_id(OH)},
+                     {'Origin-Host',  OH},
+                     {'Origin-Realm', OR},
+                     {'Destination-Host',  DH},
+                     {'Destination-Realm', DR},
+                     {'Auth-Application-Id', ?APP_ID}]);
 
-prepare(#diameter_packet{msg = Req}, Caps)
-  when is_record(Req, diameter_base_STR);
+prepare(#diameter_packet{msg = Req}, Caps, Group)
+  when ?is_record(Req, diameter_base_STR);
        'STR' == hd(Req) ->
     #diameter_caps{origin_host  = {OH, _},
                    origin_realm = {OR, DR}}
         = Caps,
-    set(Req, [{'Session-Id', diameter:session_id(OH)},
-              {'Origin-Host',  OH},
-              {'Origin-Realm', OR},
-              {'Destination-Realm', DR},
-              {'Auth-Application-Id', ?APP_ID}]);
+    set(Group, Req, [{'Session-Id', diameter:session_id(OH)},
+                     {'Origin-Host',  OH},
+                     {'Origin-Realm', OR},
+                     {'Destination-Realm', DR},
+                     {'Auth-Application-Id', ?APP_ID}]);
 
-prepare(#diameter_packet{msg = Req}, Caps)
-  when is_record(Req, diameter_base_RAR);
+prepare(#diameter_packet{msg = Req}, Caps, Group)
+  when ?is_record(Req, diameter_base_RAR);
        'RAR' == hd(Req) ->
     #diameter_caps{origin_host  = {OH, DH},
                    origin_realm = {OR, DR}}
         = Caps,
-    set(Req, [{'Session-Id', diameter:session_id(OH)},
-              {'Origin-Host',  OH},
-              {'Origin-Realm', OR},
-              {'Destination-Host',  DH},
-              {'Destination-Realm', DR},
-              {'Auth-Application-Id', ?APP_ID}]).
+    set(Group, Req, [{'Session-Id', diameter:session_id(OH)},
+                     {'Origin-Host',  OH},
+                     {'Origin-Realm', OR},
+                     {'Destination-Host',  DH},
+                     {'Destination-Realm', DR},
+                     {'Auth-Application-Id', ?APP_ID}]).
 
 %% prepare_retransmit/5
 
-prepare_retransmit(_Pkt, false, _Peer, _Name, _Id) ->
+prepare_retransmit(_Pkt, false, _Peer, _Name, _Group) ->
     discard.
 
 %% handle_answer/6-7
 
-handle_answer(Pkt, Req, ?CLIENT, Peer, Name, _Id) ->
-    answer(Pkt, Req, Peer, Name).
+handle_answer(Pkt, Req, ?CLIENT, Peer, Name, Group) ->
+    answer(Pkt, Req, Peer, Name, Group).
 
-handle_answer(Pkt, _Req, ?CLIENT, _Peer, send_detach, _Id, {Pid, Ref}) ->
-    Pid ! {Ref, Pkt}.
+handle_answer(Pkt, Req, ?CLIENT, Peer, send_detach = Name, Group, X) ->
+    {Pid, Ref} = X,
+    Pid ! {Ref, answer(Pkt, Req, Peer, Name, Group)}.
 
-answer(Pkt, Req, _Peer, Name) ->
-    #diameter_packet{header = H, msg = Rec, errors = Es} = Pkt,
-    ApplId = app(Req, Name),
+answer(Pkt, Req, _Peer, Name, #group{client_dict0 = Dict0}) ->
+    #diameter_packet{header = H, msg = Ans, errors = Es} = Pkt,
+    ApplId = app(Req, Name, Dict0),
     #diameter_header{application_id = ApplId} = H,  %% assert
-    answer(Rec, Es, Name).
+    Dict = dict(Ans, Dict0),
+    [R | Vs] = Dict:'#get-'(answer(Ans, Es, Name)),
+    [Dict:rec2msg(R) | Vs].
 
 answer(Rec, [_|_], N)
   when N == send_invalid_avp_bits;
@@ -895,15 +950,15 @@ answer(Rec, [_|_], N)
 answer(Rec, [], _) ->
     Rec.
 
-app(_, send_unsupported_app) ->
+app(_, send_unsupported_app, _) ->
     ?BAD_APP;
-app(Req, _) ->
-    Dict = dict(Req),
+app(Req, _, Dict0) ->
+    Dict = dict(Req, Dict0),
     Dict:id().
 
 %% handle_error/6
 
-handle_error(Reason, _Req, ?CLIENT, _Peer, _Name, _Id) ->
+handle_error(Reason, _Req, ?CLIENT, _Peer, _Name, _Group) ->
     {error, Reason}.
 
 %% handle_request/3
@@ -918,13 +973,13 @@ handle_request(#diameter_packet{header = H, msg = M}, ?SERVER, {_Ref, Caps}) ->
     {V,B} = ?CLIENT_MASK,
     V = EI bsr B,  %% assert
     V = HI bsr B,  %%
-    #diameter_caps{origin_state_id = {_,[N]}} = Caps,
-    answer(client(N), request(M, Caps)).
+    #diameter_caps{origin_state_id = {_,[Id]}} = Caps,
+    answer(origin(Id), request(M, Caps)).
 
 answer(T, {Tag, Action, Post}) ->
     {Tag, answer(T, Action), Post};
-answer({E,C}, {reply, Ans}) ->
-    answer(C, {reply, msg(Ans, E)});
+answer({A,C}, {reply, Ans}) ->
+    answer(C, {reply, msg(Ans, A, diameter_gen_base_rfc3588)});
 answer(pkt, {reply, Ans}) ->
     {reply, #diameter_packet{msg = Ans}};
 answer(_, T) ->
@@ -998,7 +1053,8 @@ request(#diameter_base_ASR{'Session-Id' = SId,
                     {'AVP', Avps}]};
 
 %% send_invalid_reject
-request(#diameter_base_STR{'Termination-Cause' = ?USER_MOVED}, _Caps) ->
+request(#diameter_base_STR{'Termination-Cause' = ?USER_MOVED},
+        _Caps) ->
     {protocol_error, ?TOO_BUSY};
 
 %% send_noreply
@@ -1008,13 +1064,13 @@ request(#diameter_base_STR{'Termination-Cause' = T},
     discard;
 
 %% send_destination_5
-request(#diameter_base_STR{'Destination-Realm'= R},
+request(#diameter_base_STR{'Destination-Realm' = R},
         #diameter_caps{origin_realm = {OR, _}})
   when R /= undefined, R /= OR ->
     {protocol_error, ?REALM_NOT_SERVED};
 
 %% send_destination_6
-request(#diameter_base_STR{'Destination-Host'= [H]},
+request(#diameter_base_STR{'Destination-Host' = [H]},
         #diameter_caps{origin_host = {OH, _}})
   when H /= OH ->
     {protocol_error, ?UNABLE_TO_DELIVER};
