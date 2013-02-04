@@ -142,7 +142,7 @@ report_receiver(_, _) -> none.
 tag({M,F,A}) when is_atom(M), is_atom(F), is_integer(A) ->
     io:format(user, "~n=TESTCASE: ~w:~w/~w", [M,F,A]);
 tag(Testcase) ->
-    io:format(user, "~n=TESTCASE: ~tp", [Testcase]).
+    io:format(user, "~n=TESTCASE: ~p", [Testcase]).
 
 tag_event(Event) ->
     {calendar:local_time(), Event}.
