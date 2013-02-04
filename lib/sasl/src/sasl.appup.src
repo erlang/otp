@@ -1,7 +1,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,11 +17,13 @@
 %% %CopyrightEnd%
 {"%VSN%",
  %% Up from - max two major revisions back
- [{<<"2\\.2(\\.[0-9]+)*">>,[restart_new_emulator]},         %% R15
-  {<<"2\\.1\\.10(\\.[0-9]+)*">>,[restart_new_emulator]},    %% R14B04 (and later?)
-  {<<"2\\.1\\.[6-9](\\.[0-9]+)*">>,[restart_new_emulator]}],%% R13B-R14B03
+ [{<<"2\\.3(\\.[0-9]+)*">>,[restart_new_emulator]},         %% R16
+  {<<"2\\.2(\\.[0-9]+)*">>,[restart_new_emulator]},         %% R15
+  {<<"2\\.1\\.10(\\.[0-9]+)*">>,[restart_new_emulator]},    %% R14B04
+  {<<"2\\.1\\.9\\.[24](\\.[0-9]+)*">>,[restart_new_emulator]}],%% R14B-R14B03
  %% Down to - max two major revisions back
- [{<<"2\\.2(\\.[0-9]+)*">>,[restart_new_emulator]},         %% R15
-  {<<"2\\.1\\.10(\\.[0-9]+)*">>,[restart_new_emulator]},    %% R14B04 (and later?)
-  {<<"2\\.1\\.[6-9](\\.[0-9]+)*">>,[restart_new_emulator]}] %% R13B-R14B03
+ [{<<"2\\.3(\\.[0-9]+)*">>,[restart_new_emulator]},         %% R16
+  {<<"2\\.2(\\.[0-9]+)*">>,[restart_new_emulator]},         %% R15
+  {<<"2\\.1\\.10(\\.[0-9]+)*">>,[restart_new_emulator]},    %% R14B04
+  {<<"2\\.1\\.9\\.[24](\\.[0-9]+)*">>,[restart_new_emulator]}] %% R14B-R14B03
 }.
