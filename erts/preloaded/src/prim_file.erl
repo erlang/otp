@@ -50,9 +50,9 @@
 	 write_file_info/2, write_file_info/3, write_file_info/4,
 	 make_link/2, make_link/3,
 	 make_symlink/2, make_symlink/3,
-	 read_link/1, read_link/2,
+	 read_link/1, read_link/2, read_link_all/1, read_link_all/2,
 	 read_link_info/1, read_link_info/2, read_link_info/3,
-	 list_dir/1, list_dir/2]).
+	 list_dir/1, list_dir/2, list_dir_all/1, list_dir_all/2]).
 %% How to start and stop the ?DRV port.
 -export([start/0, stop/1]).
 
@@ -877,6 +877,18 @@ read_link_int(Port, Link) ->
     drv_command(Port, [?FILE_READLINK, pathname(Link)],
 		fun handle_fname_response/1).
 
+%% read_link_all/{2,3}
+
+read_link_all(Link) ->
+    read_link_all_int({?DRV, [binary]}, Link).
+
+read_link_all(Port, Link) when is_port(Port) ->
+    read_link_all_int(Port, Link).
+
+read_link_all_int(Port, Link) ->
+    drv_command(Port, [?FILE_READLINK, pathname(Link)],
+		fun handle_fname_response_all/1).
+
 
 
 %% read_link_info/{2,3}
@@ -927,6 +939,23 @@ list_dir_int(Port, Dir) ->
 			end
 		end).
 
+list_dir_all(Dir) ->
+    list_dir_all_int({?DRV, [binary]}, Dir).
+
+list_dir_all(Port, Dir) when is_port(Port) ->
+    list_dir_all_int(Port, Dir).
+
+list_dir_all_int(Port, Dir) ->
+    drv_command(Port, [?FILE_READDIR, pathname(Dir)],
+		fun(P) ->
+			case list_dir_response(P, []) of
+			    {ok, RawNames} ->
+				{ok, list_dir_convert_all(RawNames)};
+			    Error ->
+				Error
+			end
+		end).
+
 list_dir_response(Port, Acc0) ->
     case drv_get_response(Port) of
 	{lfname, []} ->
@@ -956,6 +985,17 @@ list_dir_convert([Name|Names]) ->
     end;
 list_dir_convert([]) -> [].
 
+list_dir_convert_all([Name|Names]) ->
+    %% If the filename cannot be converted, retain the filename as
+    %% a binary.
+    case prim_file:internal_native2name(Name) of
+	{error, _} ->
+	    [Name|list_dir_convert(Names)];
+	Converted when is_list(Converted) ->
+	    [Converted|list_dir_convert(Names)]
+    end;
+list_dir_convert_all([]) -> [].
+
 %%%-----------------------------------------------------------------
 %%% Functions to communicate with the driver
 
@@ -970,6 +1010,19 @@ handle_fname_response(Port) ->
 		    {error, einval};
 		{error, _} ->
 		    {error, einval};
+		Converted when is_list(Converted) ->
+		    {ok, Converted}
+	    end;
+	Error ->
+	    Error
+    end.
+
+handle_fname_response_all(Port) ->
+    case drv_get_response(Port) of
+	{fname, Name} ->
+	    case prim_file:internal_native2name(Name) of
+		{error, _} ->
+		    {ok, Name};
 		Converted when is_list(Converted) ->
 		    {ok, Converted}
 	    end;

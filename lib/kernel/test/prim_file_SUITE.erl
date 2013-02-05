@@ -50,7 +50,8 @@
 	  read_link_info_for_non_link/1, 
 	  symlinks_a/1, symlinks_b/1,
 	  list_dir_limit/1,
-	  list_dir_error/1]).
+	  list_dir_error/1,
+	  list_dir/1]).
 
 -export([advise/1]).
 -export([large_write/1]).
@@ -82,7 +83,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [read_write_file, {group, dirs}, {group, files},
      delete_a, delete_b, rename_a, rename_b, {group, errors},
-     {group, compression}, {group, links}, list_dir_limit].
+     {group, compression}, {group, links}, list_dir_limit, list_dir].
 
 groups() -> 
     [{dirs, [],
@@ -2036,6 +2037,8 @@ symlinks(Config, Handle, Suffix) ->
 		?line #file_info{links=1, type=symlink} = Info2,
 		?line {ok, Name} = 
 		    ?PRIM_FILE_call(read_link, Handle, [Alias]),
+		{ok, Name} =
+		    ?PRIM_FILE_call(read_link_all, Handle, [Alias]),
 		ok
 	end,
     
@@ -2149,6 +2152,31 @@ list_dir_error(Config) ->
     NonExisting = filename:join(Priv, "non-existing-dir"),
     {error,enoent} = prim_file:list_dir(NonExisting),
     ok.
+
+%%%
+%%% Test list_dir() and list_dir_all().
+%%%
+
+list_dir(Config) ->
+    RootDir = ?config(priv_dir, Config),
+    TestDir = filename:join(RootDir, ?MODULE_STRING++"_list_dir"),
+    ?PRIM_FILE:make_dir(TestDir),
+    list_dir_1(TestDir, 42, []).
+
+list_dir_1(TestDir, 0, Sorted) ->
+    [ok = ?PRIM_FILE:delete(filename:join(TestDir, F)) ||
+	F <- Sorted],
+    ok = ?PRIM_FILE:del_dir(TestDir);
+list_dir_1(TestDir, Cnt, Sorted0) ->
+    Base = "file" ++ integer_to_list(Cnt),
+    Name = filename:join(TestDir, Base),
+    ok = ?PRIM_FILE:write_file(Name, Base),
+    Sorted = lists:merge([Base], Sorted0),
+    {ok,DirList0} = ?PRIM_FILE:list_dir(TestDir),
+    {ok,DirList1} = ?PRIM_FILE:list_dir_all(TestDir),
+    Sorted = lists:sort(DirList0),
+    Sorted = lists:sort(DirList1),
+    list_dir_1(TestDir, Cnt-1, Sorted).
 
 %%%
 %%% Support for testing large files.
