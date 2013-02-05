@@ -516,7 +516,7 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 				fields = FieldList},
 		   Sline}|ColsEtc],
 		 Data) ->
-    ?vlog("defloop -> "
+    ?vlog("defloop(~w) -> "
 	  "[object_type(sequence_of),object_type(type,[1]),sequence]:"
 	  "~n   NameOfTable:  ~p"
 	  "~n   SeqName:      ~p"
@@ -535,7 +535,8 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 	  "~n   Eline:        ~p"
 	  "~n   FieldList:    ~p"
 	  "~n   Sline:        ~p",
-	  [NameOfTable,SeqName,Taccess,Kind,Tstatus,
+	  [?LINE, 
+	   NameOfTable,SeqName,Taccess,Kind,Tstatus,
 	   Tindex,Tunits,Tline,
 	   NameOfEntry,TEline,IndexingInfo,Estatus,Eunits,Ref,Eline,
 	   FieldList,Sline]),
@@ -563,7 +564,6 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
     {ColMEs, RestObjs} = 
 	define_cols(ColsEtc, 1, FieldList, NameOfEntry, NameOfTable, []),
     AfterIdxTypes = after_indexes_type(IndexingInfo, RestObjs), 
-    after_indexes_type(IndexingInfo, RestObjs), 
     TableInfo = snmpc_lib:make_table_info(Eline, NameOfTable,
 					  IndexingInfo, AfterIdxTypes, ColMEs),
     snmpc_lib:add_cdata(#cdata.mes, 
@@ -597,7 +597,7 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 		   Sline}|ColsEtc],
 		 #dldata{relaxed_row_name_assign_check = true} = Data) 
   when is_integer(Idx) andalso (Idx > 1) ->
-    ?vlog("defloop -> "
+    ?vlog("defloop(~w) -> "
 	  "[object_type(sequence_of),object_type(type,[~w]),sequence]:"
 	  "~n   NameOfTable:  ~p"
 	  "~n   SeqName:      ~p"
@@ -616,7 +616,8 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 	  "~n   Eline:        ~p"
 	  "~n   FieldList:    ~p"
 	  "~n   Sline:        ~p",
-	  [Idx, 
+	  [?LINE, 
+	   Idx, 
 	   NameOfTable,SeqName,Taccess,Kind,Tstatus,
 	   Tindex,Tunits,Tline,
 	   NameOfEntry,TEline,IndexingInfo,Estatus,Eunits,Ref,Eline,
@@ -676,7 +677,7 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 		  {#mc_sequence{name   = SeqName,
 				fields = FieldList}, Sline}|ColsEtc],
 		 Data) ->
-    ?vlog("defloop -> "
+    ?vlog("defloop(~w) -> "
 	  "[object_type(sequence_of),object_type(type),sequence(fieldList)]:"
 	  "~n   NameOfTable:  ~p"
 	  "~n   SeqName:      ~p"
@@ -695,7 +696,8 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 	  "~n   Eline:        ~p"
 	  "~n   FieldList:    ~p"
 	  "~n   Sline:        ~p",
-	  [NameOfTable,SeqName,Taccess,Kind,Tstatus,
+	  [?LINE, 
+	   NameOfTable,SeqName,Taccess,Kind,Tstatus,
 	   Tindex,Tunits,Tline,
 	   NameOfEntry,IndexingInfo,Estatus,BadOID,Eunits,Ref,Eline,
 	   FieldList,Sline]),
@@ -817,7 +819,7 @@ definitions_loop([{#mc_module_identity{name         = NewVarName,
 	   "~n   Desc:       ~p"
 	   "~n   Revs0:      ~p"
 	   "~n   Parent:     ~p"
-	   "~n   SubIndex:   ~p",
+	   "~n   SubIndex:   ~w",
 	   [NewVarName, LU, Org, CI, Desc, Revs0, Parent, SubIndex], Line),
     ensure_macro_imported('MODULE-IDENTITY', Line),
     snmpc_lib:register_oid(Line, NewVarName, Parent, SubIndex),
@@ -843,7 +845,7 @@ definitions_loop([{#mc_internal{name      = NewVarName,
 	   "~n   NewVarName: ~p"
 	   "~n   Macro:      ~p"
 	   "~n   Parent:     ~p"
-	   "~n   SubIndex:   ~p", 
+	   "~n   SubIndex:   ~w", 
 	   [NewVarName, Macro, Parent, SubIndex], Line),
     ensure_macro_imported(Macro, Line),
     snmpc_lib:register_oid(Line, NewVarName, Parent, SubIndex),
