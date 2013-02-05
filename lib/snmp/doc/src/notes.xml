@@ -77,6 +77,12 @@
           <p>Own Id: OTP-10799</p>
         </item>
 
+        <item>
+          <p>[compiler] The MIB compiler could not handle a table index 
+	  that was defined later in the MIB. </p>
+          <p>Own Id: OTP-10808</p>
+        </item>
+
       </list>
 
     </section>

@@ -516,7 +516,7 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 				fields = FieldList},
 		   Sline}|ColsEtc],
 		 Data) ->
-    ?vlog("defloop -> "
+    ?vlog("defloop(~w) -> "
 	  "[object_type(sequence_of),object_type(type,[1]),sequence]:"
 	  "~n   NameOfTable:  ~p"
 	  "~n   SeqName:      ~p"
@@ -535,7 +535,8 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 	  "~n   Eline:        ~p"
 	  "~n   FieldList:    ~p"
 	  "~n   Sline:        ~p",
-	  [NameOfTable,SeqName,Taccess,Kind,Tstatus,
+	  [?LINE, 
+	   NameOfTable,SeqName,Taccess,Kind,Tstatus,
 	   Tindex,Tunits,Tline,
 	   NameOfEntry,TEline,IndexingInfo,Estatus,Eunits,Ref,Eline,
 	   FieldList,Sline]),
@@ -562,8 +563,9 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 		       units       = Eunits},
     {ColMEs, RestObjs} = 
 	define_cols(ColsEtc, 1, FieldList, NameOfEntry, NameOfTable, []),
+    AfterIdxTypes = after_indexes_type(IndexingInfo, RestObjs), 
     TableInfo = snmpc_lib:make_table_info(Eline, NameOfTable,
-					  IndexingInfo, ColMEs),
+					  IndexingInfo, AfterIdxTypes, ColMEs),
     snmpc_lib:add_cdata(#cdata.mes, 
 			[TableEntryME,
 			 TableME#me{assocList=[{table_info, 
@@ -595,7 +597,7 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 		   Sline}|ColsEtc],
 		 #dldata{relaxed_row_name_assign_check = true} = Data) 
   when is_integer(Idx) andalso (Idx > 1) ->
-    ?vlog("defloop -> "
+    ?vlog("defloop(~w) -> "
 	  "[object_type(sequence_of),object_type(type,[~w]),sequence]:"
 	  "~n   NameOfTable:  ~p"
 	  "~n   SeqName:      ~p"
@@ -614,7 +616,8 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 	  "~n   Eline:        ~p"
 	  "~n   FieldList:    ~p"
 	  "~n   Sline:        ~p",
-	  [Idx, 
+	  [?LINE, 
+	   Idx, 
 	   NameOfTable,SeqName,Taccess,Kind,Tstatus,
 	   Tindex,Tunits,Tline,
 	   NameOfEntry,TEline,IndexingInfo,Estatus,Eunits,Ref,Eline,
@@ -644,8 +647,9 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 		       units       = Eunits},
     {ColMEs, RestObjs} = 
 	define_cols(ColsEtc, 1, FieldList, NameOfEntry, NameOfTable, []),
+    AfterIdxTypes = after_indexes_type(IndexingInfo, RestObjs), 
     TableInfo = snmpc_lib:make_table_info(Eline, NameOfTable,
-					  IndexingInfo, ColMEs),
+					  IndexingInfo, AfterIdxTypes, ColMEs),
     snmpc_lib:add_cdata(#cdata.mes, 
 			[TableEntryME,
 			 TableME#me{assocList=[{table_info, 
@@ -673,7 +677,7 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 		  {#mc_sequence{name   = SeqName,
 				fields = FieldList}, Sline}|ColsEtc],
 		 Data) ->
-    ?vlog("defloop -> "
+    ?vlog("defloop(~w) -> "
 	  "[object_type(sequence_of),object_type(type),sequence(fieldList)]:"
 	  "~n   NameOfTable:  ~p"
 	  "~n   SeqName:      ~p"
@@ -692,7 +696,8 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 	  "~n   Eline:        ~p"
 	  "~n   FieldList:    ~p"
 	  "~n   Sline:        ~p",
-	  [NameOfTable,SeqName,Taccess,Kind,Tstatus,
+	  [?LINE, 
+	   NameOfTable,SeqName,Taccess,Kind,Tstatus,
 	   Tindex,Tunits,Tline,
 	   NameOfEntry,IndexingInfo,Estatus,BadOID,Eunits,Ref,Eline,
 	   FieldList,Sline]),
@@ -720,8 +725,9 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 		       units       = Eunits},
     {ColMEs, RestObjs} = 
 	define_cols(ColsEtc, 1, FieldList, NameOfEntry, NameOfTable, []),
+    AfterIdxTypes = after_indexes_type(IndexingInfo, RestObjs), 
     TableInfo = snmpc_lib:make_table_info(Eline, NameOfTable,
-					  IndexingInfo, ColMEs),
+					  IndexingInfo, AfterIdxTypes, ColMEs),
     snmpc_lib:add_cdata(#cdata.mes, 
 			       [TableEntryME,
 				TableME#me{assocList=[{table_info, 
@@ -813,7 +819,7 @@ definitions_loop([{#mc_module_identity{name         = NewVarName,
 	   "~n   Desc:       ~p"
 	   "~n   Revs0:      ~p"
 	   "~n   Parent:     ~p"
-	   "~n   SubIndex:   ~p",
+	   "~n   SubIndex:   ~w",
 	   [NewVarName, LU, Org, CI, Desc, Revs0, Parent, SubIndex], Line),
     ensure_macro_imported('MODULE-IDENTITY', Line),
     snmpc_lib:register_oid(Line, NewVarName, Parent, SubIndex),
@@ -839,7 +845,7 @@ definitions_loop([{#mc_internal{name      = NewVarName,
 	   "~n   NewVarName: ~p"
 	   "~n   Macro:      ~p"
 	   "~n   Parent:     ~p"
-	   "~n   SubIndex:   ~p", 
+	   "~n   SubIndex:   ~w", 
 	   [NewVarName, Macro, Parent, SubIndex], Line),
     ensure_macro_imported(Macro, Line),
     snmpc_lib:register_oid(Line, NewVarName, Parent, SubIndex),
@@ -1205,6 +1211,12 @@ safe_elem(N,T) ->
 	X -> X
     end.
 
+
+%% An table index is either: 
+%%   a) part of the table
+%%   b) not part of the table and defined *before* the table
+%%   c) not part of the table and defined *after* the table
+
 %% A correct column
 define_cols([{#mc_object_type{name        = NameOfCol,
 			      syntax      = Type1,
@@ -1379,14 +1391,45 @@ define_cols(Rest, _SubIndex,_,_,_,ColMEs) ->
     snmpc_lib:print_error("Corrupt table definition.",[]),
     {ColMEs,Rest}.
 
+
+%% Table indexes can either be: 
+%%   a) part of the table (a column)
+%%   b) not part of the table and defined *before* the table
+%%   c) not part of the table and defined *after* the table
+
+after_indexes_type({indexes, Indexes}, Objs) ->
+    after_indexes_type2(Indexes, Objs);
+after_indexes_type(_, _) ->
+    [].
+
+after_indexes_type2(Indexes, Objs) ->
+    after_indexes_type2(Indexes, Objs, []).
+
+after_indexes_type2([], _Objs, IndexesASN1types) ->
+    IndexesASN1types;
+after_indexes_type2([Index|Indexes], Objs, Acc) ->
+    Acc2 = after_indexes_type3(Index, Objs, Acc),
+    after_indexes_type2(Indexes, Objs, Acc2).
+
+after_indexes_type3(_Index, [], Acc) ->
+    Acc;
+after_indexes_type3(Index, 
+		    [{#mc_object_type{name   = Index, 
+				      syntax = Syntax},_}|_], Acc) ->
+    ASN1 = snmpc_lib:make_ASN1type(Syntax), 
+    [{Index, ASN1}|Acc];
+after_indexes_type3(Index, [_|Objs], Acc) ->
+    after_indexes_type3(Index, Objs, Acc). 
+
+
+
 ensure_macro_imported(dummy, _Line) -> ok;
 ensure_macro_imported(Macro, Line) ->
     Macros = (get(cdata))#cdata.imported_macros,
     case lists:member(Macro, Macros) of
 	true -> ok;
 	false ->
-	    snmpc_lib:print_error("Macro ~p not imported.", [Macro],
-					 Line)
+	    snmpc_lib:print_error("Macro ~p not imported.", [Macro], Line)
     end.
 
 test_table(NameOfTable, Taccess, Kind, _Tindex, Tline) ->

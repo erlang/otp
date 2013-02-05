@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,8 @@
 	 otp_6150/1,
 	 otp_8574/1, 
 	 otp_8595/1, 
-	 otp_10799/1
+	 otp_10799/1, 
+	 otp_10808/1
 
 	]).
 
@@ -133,7 +134,7 @@ all() ->
     ].
 
 groups() -> 
-    [{tickets, [], [otp_6150, otp_8574, otp_8595, otp_10799]}].
+    [{tickets, [], [otp_6150, otp_8574, otp_8595, otp_10799, otp_10808]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -387,7 +388,7 @@ otp_8595(Config) when is_list(Config) ->
 	snmpc:compile(MibFile, [{outdir,      Dir}, 
 				{verbosity,   trace}, 
 				{group_check, false}]),
-    io:format("otp_8595 -> Mib: ~n~p~n", [Mib]),
+    p("Mib: ~n~p~n", [Mib]),
     ok.
 
 
@@ -404,6 +405,25 @@ otp_10799(Config) when is_list(Config) ->
     MibFile = join(MibDir, "OTP10799-MIB.mib"),
     ?line {ok, Mib} = 
 	snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
+    p("Mib: ~n~p~n", [Mib]),
+    ok.
+
+
+%%======================================================================
+
+otp_10808(suite) ->
+    [];
+otp_10808(Config) when is_list(Config) ->
+    put(tname, otp10808),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir     = ?config(case_top_dir, Config),
+    MibDir  = ?config(mib_dir,      Config),
+    MibFile = join(MibDir, "OTP10808-MIB.mib"),
+    ?line {ok, Mib} = 
+	snmpc:compile(MibFile, [{outdir,      Dir}, 
+				{verbosity,   trace}, 
+				{group_check, false}]),
     p("Mib: ~n~p~n", [Mib]),
     ok.
 
