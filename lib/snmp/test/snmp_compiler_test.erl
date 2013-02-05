@@ -53,7 +53,8 @@
 
 	 otp_6150/1,
 	 otp_8574/1, 
-	 otp_8595/1
+	 otp_8595/1, 
+	 otp_10799/1
 
 	]).
 
@@ -132,7 +133,7 @@ all() ->
     ].
 
 groups() -> 
-    [{tickets, [], [otp_6150, otp_8574, otp_8595]}].
+    [{tickets, [], [otp_6150, otp_8574, otp_8595, otp_10799]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -326,13 +327,14 @@ warnings_as_errors(Config) when is_list(Config) ->
 otp_6150(suite) ->
     [];
 otp_6150(Config) when is_list(Config) ->
-    put(tname,otp_6150),
+    put(tname, otp6150),
     p("starting with Config: ~p~n", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "ERICSSON-TOP-MIB.mib"),
-    ?line {ok, Mib} = snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
+    ?line {ok, Mib} = 
+	snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
     io:format("otp_6150 -> Mib: ~n~p~n", [Mib]),
     ok.
 
@@ -342,7 +344,7 @@ otp_6150(Config) when is_list(Config) ->
 otp_8574(suite) ->
     [];
 otp_8574(Config) when is_list(Config) ->
-    put(tname,otp_8574),
+    put(tname, otp8574),
     p("starting with Config: ~p~n", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
@@ -375,7 +377,7 @@ otp_8574(Config) when is_list(Config) ->
 otp_8595(suite) ->
     [];
 otp_8595(Config) when is_list(Config) ->
-    put(tname,otp_8595),
+    put(tname, otp8595),
     p("starting with Config: ~p~n", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
@@ -386,6 +388,23 @@ otp_8595(Config) when is_list(Config) ->
 				{verbosity,   trace}, 
 				{group_check, false}]),
     io:format("otp_8595 -> Mib: ~n~p~n", [Mib]),
+    ok.
+
+
+%%======================================================================
+
+otp_10799(suite) ->
+    [];
+otp_10799(Config) when is_list(Config) ->
+    put(tname, otp10799),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir     = ?config(case_top_dir, Config),
+    MibDir  = ?config(mib_dir,      Config),
+    MibFile = join(MibDir, "OTP10799-MIB.mib"),
+    ?line {ok, Mib} = 
+	snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
+    p("Mib: ~n~p~n", [Mib]),
     ok.
 
 
