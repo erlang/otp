@@ -34,6 +34,79 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.23.1</title>
+    <p>Version 4.23.1 supports code replacement in runtime from/to
+    version 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Errors in <c>vacmAccessTable</c> RowStatus handling.
+	  There are problems with the handling of vacmAccessTableStatus 
+	  that cause some SNMP test suites to report errors.
+	  Most notably, erroneous set operations frequently cause "genErr" 
+	  errors to be returned. These "genErr" errors are usually caused 
+	  by badmatch exceptions coming from 
+	  <c>{ok, Row} = snmpa_vacm:get_row(RowIndex)</c> 
+	  if the row does not exist. </p>
+	  <p>The semantics of the RowStatus handling in that table has 
+	  been adjusted to be compliant with the RowStatus
+	  textual description of SNPMv2-TC MIB. </p>
+	  <p>Stefan Zegenhagen</p>
+	  <p>Own Id: OTP-10164</p>
+        </item>
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[compiler] Now handles MIBs importing the pesudotype BITS. </p>
+          <p>Own Id: OTP-10799</p>
+        </item>
+
+        <item>
+          <p>[compiler] The MIB compiler could not handle a table index 
+	  that was defined later in the MIB. </p>
+          <p>Own Id: OTP-10808</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.23.1 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.23</title>
 <!--
     <p>Version 4.23 supports code replacement in runtime from/to
@@ -69,7 +142,6 @@
         </item>
 
       </list>
-
     </section>
 
     <section>
@@ -90,7 +162,6 @@
 
       </list>
       -->
-
     </section>
 
     <section>
