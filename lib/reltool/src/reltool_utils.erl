@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -106,7 +106,7 @@ normalize_dir([], Path) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 prim_consult(Bin) when is_binary(Bin) ->
-    case erl_scan:string(binary_to_list(Bin)) of
+    case erl_scan:string(unicode:characters_to_list(Bin,encoding(Bin))) of
 	{ok, Tokens, _EndLine} ->
 	    prim_parse(Tokens, []);
 	{error, {_ErrorLine, Module, Reason}, _EndLine} ->
@@ -118,6 +118,14 @@ prim_consult(FullName) when is_list(FullName) ->
 	    prim_consult(Bin);
         error ->
             {error, file:format_error(enoent)}
+    end.
+
+encoding(Bin) when is_binary(Bin) ->
+    case epp:read_encoding_from_binary(Bin) of
+	none ->
+	    epp:default_encoding();
+	E ->
+	    E
     end.
 
 prim_parse(Tokens, Acc) ->
