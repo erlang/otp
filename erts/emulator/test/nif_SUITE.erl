@@ -36,7 +36,7 @@
 	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
 	 is_checks/1,
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
-	 otp_9668/1
+	 otp_9668/1, consume_timeslice/1
 	]).
 
 -export([many_args_100/100]).
@@ -63,7 +63,7 @@ all() ->
      resource_takeover, threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
      make_string,reverse_list_test,
-     otp_9668
+     otp_9668, consume_timeslice
     ].
 
 groups() -> 
@@ -1259,6 +1259,108 @@ otp_9668(Config) ->
     ?line verify_tmpmem(TmpMem),
     ok.
 
+consume_timeslice(Config) when is_list(Config) ->
+    CONTEXT_REDS = 2000,
+    Me = self(),
+    Go = make_ref(),
+    RedDiff = make_ref(),
+    Done = make_ref(),
+    DummyMFA = {?MODULE,dummy_call,1},
+    P = spawn(fun () ->
+		      receive Go -> ok end,
+		      {reductions, R1} = process_info(self(), reductions),
+		      1 = consume_timeslice_nif(100, false),
+		      dummy_call(111),
+		      0 = consume_timeslice_nif(90, false),
+		      dummy_call(222),
+		      1 = consume_timeslice_nif(10, false),
+		      dummy_call(333),
+		      0 = consume_timeslice_nif(25, false),
+		      0 = consume_timeslice_nif(25, false),
+		      0 = consume_timeslice_nif(25, false),
+		      1 = consume_timeslice_nif(25, false),
+		      0 = consume_timeslice_nif(25, false),
+
+		      ok = case consume_timeslice_nif(1, true) of
+			       Cnt when Cnt > 70, Cnt < 80 -> ok;
+			       Other -> Other
+			   end,
+		      dummy_call(444),
+
+		      {reductions, R2} = process_info(self(), reductions),
+		      Me ! {RedDiff, R2 - R1},
+		      exit(Done)
+	end),
+    erlang:yield(),
+
+    erlang:trace_pattern(DummyMFA, [], [local]),
+    ?line 1 = erlang:trace(P, true, [call, running, procs, {tracer, self()}]),
+
+    P ! Go,
+
+    %% receive Go -> ok end,
+    ?line {trace, P, in, _} = next_tmsg(P),
+    
+    %% consume_timeslice_nif(100),
+    %% dummy_call(111)
+    ?line {trace, P, out, _} = next_tmsg(P),
+    ?line {trace, P, in, _} = next_tmsg(P),
+    ?line {trace, P, call, {?MODULE,dummy_call,[111]}} = next_tmsg(P),
+
+    %% consume_timeslice_nif(90),
+    %% dummy_call(222)
+    ?line {trace, P, call, {?MODULE,dummy_call,[222]}} = next_tmsg(P),
+
+    %% consume_timeslice_nif(10),
+    %% dummy_call(333)
+    ?line {trace, P, out, _} = next_tmsg(P),
+    ?line {trace, P, in, _} = next_tmsg(P),
+    ?line {trace, P, call, {?MODULE,dummy_call,[333]}} = next_tmsg(P),
+
+    %% 25,25,25,25, 25
+    ?line {trace, P, out, {?MODULE,consume_timeslice_nif,2}} = next_tmsg(P),
+    ?line {trace, P, in, {?MODULE,consume_timeslice_nif,2}} = next_tmsg(P),
+
+    %% consume_timeslice(1,true)
+    %% dummy_call(444)
+    ?line {trace, P, out, DummyMFA} = next_tmsg(P),
+    ?line {trace, P, in, DummyMFA} = next_tmsg(P),
+    ?line {trace, P, call, {?MODULE,dummy_call,[444]}} = next_tmsg(P),
+
+    %% exit(Done)
+    ?line {trace, P, exit, Done} = next_tmsg(P),
+
+    ExpReds = (100 + 90 + 10 + 25*5 + 75) * CONTEXT_REDS div 100,
+    receive
+	{RedDiff, Reductions} when Reductions < (ExpReds + 10), Reductions > (ExpReds - 10) ->
+	    io:format("Reductions = ~p~n", [Reductions]),
+	    ok;
+	{RedDiff, Reductions} ->
+	    ?t:fail({unexpected_reduction_count, Reductions})
+    end,
+    
+    none = next_msg(P),
+
+    ok.
+
+next_msg(Pid) ->
+    receive
+	M -> M
+    after 100 ->
+	  none
+    end.
+
+next_tmsg(Pid) ->    
+    receive TMsg when is_tuple(TMsg),
+		      element(1, TMsg) == trace,
+		      element(2, TMsg) == Pid ->
+     	    TMsg
+     after 100 ->
+     	    none
+     end.
+
+dummy_call(_) ->    
+    ok.
 
 tmpmem() ->
     case erlang:system_info({allocator,temp_alloc}) of
@@ -1370,6 +1472,7 @@ reverse_list(_) -> ?nif_stub.
 echo_int(_) -> ?nif_stub.
 type_sizes() -> ?nif_stub.
 otp_9668_nif(_) -> ?nif_stub.
+consume_timeslice_nif(_,_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

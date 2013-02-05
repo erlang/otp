@@ -1443,6 +1443,19 @@ void* enif_dlsym(void* handle, const char* symbol,
     return ret;
 }
 
+int enif_consume_timeslice(ErlNifEnv* env, int percent)
+{
+    Sint reds;
+
+    ASSERT(is_proc_bound(env) && percent >= 1 && percent <= 100);
+    if (percent < 1) percent = 1;
+    else if (percent > 100) percent = 100;
+
+    reds = ((CONTEXT_REDS+99) / 100) * percent;
+    ASSERT(reds > 0 && reds <= CONTEXT_REDS);
+    BUMP_REDS(env->proc, reds);
+    return ERTS_BIF_REDS_LEFT(env->proc) == 0;
+}
 
 /***************************************************************************
  **                              load_nif/2                               **

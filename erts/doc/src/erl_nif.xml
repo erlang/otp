@@ -174,9 +174,11 @@ ok
      millisecond has passed. This can be achieved using different approaches.
      If you have full control over the code that are to execute in the native
      function, the best approach is to divide the work into multiple chunks of
-     work and call the native function multiple times. This might, however,
-     not always be possible, e.g. when calling third party libraries. In this
-     case you typically want to dispatch the work to another thread, return
+     work and call the native function multiple times. Function 
+     <seealso marker="#enif_consume_timeslice">enif_consume_timeslice</seealso> can be
+     used this facilitate such work division. In some cases, however, this might not
+     be possible, e.g. when calling third party libraries. Then you typically want
+     to dispatch the work to another thread, return
      from the native function, and wait for the result. The thread can send
      the result back to the calling thread using message passing. Information
      about thread primitives can be found below.</p>
@@ -227,8 +229,8 @@ ok
       bit length have no support yet.</p>
        </item>
       <tag>Resource objects</tag>
-      <item><p>The use of resource objects is a way to return pointers to
-      native data structures from a NIF in a safe way. A resource object is
+      <item><p>The use of resource objects is a safe way to return pointers to
+      native data structures from a NIF. A resource object is
       just a block of memory allocated with
       <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.
       A handle ("safe pointer") to this memory block can then be returned to Erlang by the use of
@@ -580,6 +582,31 @@ typedef enum {
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_wait">erl_drv_cond_wait</seealso>.
           </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_consume_timeslice(ErlNifEnv *env, int percent)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Give the runtime system a hint about how much CPU time the current NIF call has consumed
+    since last hint, or since the start of the NIF if no previous hint has been given.
+    The time is given as a <c>percent</c> of the timeslice that a process is allowed to execute Erlang
+    code until it may be suspended to give time for other runnable processes.
+    The scheduling timeslice is not an exact entity, but can usually be
+    approximated to about 1 millisecond.</p>
+    <p>Note that it is up to the runtime system to determine if and how to use this information.
+    Implementations on some platforms may use other means in order to determine consumed
+    CPU time. Lengthy NIFs should regardless of this frequently call <c>enif_consume_timeslice</c>
+    in order to determine if it is allowed to continue execution or not.</p>
+
+    <p>Returns 1 if the timeslice is exhausted, or 0 otherwise. If 1 is returned the NIF should return
+    as soon as possible in order for the process to yield.</p>
+    <p>Argument <c>percent</c> must be an integer between 1 and 100. This function
+    must only be called from a NIF-calling thread and argument <c>env</c> must be
+    the environment of the calling process.</p>
+    <p>This function is provided to better support co-operative scheduling, improve system responsiveness,
+    and make it easier to prevent misbehaviors of the VM due to a NIF monopolizing a scheduler thread.
+    It can be used to divide <seealso marker="#lengthy_work">length work</seealso> into
+    a number of repeated NIF-calls without the need to create threads.
+    See also the <seealso marker="#WARNING">warning</seealso> text at the beginning of this document.</p>
+    </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</nametext></name>
     <fsummary></fsummary>
