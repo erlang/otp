@@ -656,7 +656,8 @@ get_cwd_int(Drive) ->
     get_cwd_int({?DRV, [binary]}, Drive).
 
 get_cwd_int(Port, Drive) ->
-    drv_command(Port, <<?FILE_PWD, Drive>>).
+    drv_command(Port, <<?FILE_PWD, Drive>>,
+		fun handle_fname_response/1).
 
 
 
@@ -764,7 +765,8 @@ altname(Port, File) when is_port(Port) ->
     altname_int(Port, File).
 
 altname_int(Port, File) ->
-    drv_command(Port, [?FILE_ALTNAME, pathname(File)]).
+    drv_command(Port, [?FILE_ALTNAME, pathname(File)],
+		fun handle_fname_response/1).
 
 %% write_file_info/{2,3,4}
 
@@ -857,7 +859,8 @@ read_link(Port, Link) when is_port(Port) ->
     read_link_int(Port, Link).
 
 read_link_int(Port, Link) ->
-    drv_command(Port, [?FILE_READLINK, pathname(Link)]).
+    drv_command(Port, [?FILE_READLINK, pathname(Link)],
+		fun handle_fname_response/1).
 
 
 
@@ -927,7 +930,13 @@ list_dir_convert([]) -> [].
 %%%-----------------------------------------------------------------
 %%% Functions to communicate with the driver
 
-
+handle_fname_response(Port) ->
+    case drv_get_response(Port) of
+	{fname, Name} ->
+	    {ok, prim_file:internal_native2name(Name)};
+	Error ->
+	    Error
+    end.
 
 %% Opens a driver port and converts any problems into {error, emfile}.
 %% Returns {ok, Port} when successful.
@@ -1202,8 +1211,8 @@ translate_response(?FILE_RESP_N2DATA = X, L0) when is_list(L0) ->
     end;
 translate_response(?FILE_RESP_EOF, []) ->
     eof;
-translate_response(?FILE_RESP_FNAME, Data) when is_binary(Data) ->
-    {ok, prim_file:internal_native2name(Data)};
+translate_response(?FILE_RESP_FNAME, Data) ->
+    {fname, Data};
 translate_response(?FILE_RESP_LFNAME, Data) ->
     {lfname, Data};
 translate_response(?FILE_RESP_ALL_DATA, Data) ->
