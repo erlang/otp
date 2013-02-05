@@ -1372,10 +1372,15 @@ do_compile_beam(Module,Beam,UserOptions) ->
             Forms0 = epp:interpret_file_attribute(Code),
 	    {Forms,Vars} = transform(Vsn, Forms0, Module, Beam),
 
+	    %% We need to recover the source from the compilation
+	    %% info otherwise the newly compiled module will have
+	    %% source pointing to the current directory
+	    SourceInfo = get_source_info(Module, Beam),
+
 	    %% Compile and load the result
 	    %% It's necessary to check the result of loading since it may
 	    %% fail, for example if Module resides in a sticky directory
-	    {ok, Module, Binary} = compile:forms(Forms, UserOptions),
+	    {ok, Module, Binary} = compile:forms(Forms, SourceInfo ++ UserOptions),
 	    case code:load_binary(Module, ?TAG, Binary) of
 		{module, Module} ->
 		    
@@ -1401,6 +1406,17 @@ get_abstract_code(Module, Beam) ->
 	{error,beam_lib,{key_missing_or_invalid,_,_}} ->
 	    encrypted_abstract_code;
 	Error -> Error
+    end.
+
+get_source_info(Module, Beam) ->
+    case beam_lib:chunks(Beam, [compile_info]) of
+	{ok, {Module, [{compile_info, Compile}]}} ->
+		case lists:keyfind(source, 1, Compile) of
+			{ source, _ } = Tuple -> [Tuple];
+			false -> []
+		end;
+	_ ->
+		[]
     end.
 
 transform(Vsn, Code, Module, Beam) when Vsn=:=abstract_v1; Vsn=:=abstract_v2 ->
@@ -1783,17 +1799,11 @@ munge_expr({'catch',Line,Expr}, Vars) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     {{'catch',Line,MungedExpr}, Vars2};
 munge_expr({call,Line1,{remote,Line2,ExprM,ExprF},Exprs},
-	   Vars) when Vars#vars.is_guard=:=false->
+	   Vars) ->
     {MungedExprM, Vars2} = munge_expr(ExprM, Vars),
     {MungedExprF, Vars3} = munge_expr(ExprF, Vars2),
     {MungedExprs, Vars4} = munge_exprs(Exprs, Vars3, []),
     {{call,Line1,{remote,Line2,MungedExprM,MungedExprF},MungedExprs}, Vars4};
-munge_expr({call,Line1,{remote,_Line2,_ExprM,ExprF},Exprs},
-	   Vars) when Vars#vars.is_guard=:=true ->
-    %% Difference in abstract format after preprocessing: BIF calls in guards
-    %% are translated to {remote,...} (which is not allowed as source form)
-    %% NOT NECESSARY FOR Vsn=raw_abstract_v1
-    munge_expr({call,Line1,ExprF,Exprs}, Vars);
 munge_expr({call,Line,Expr,Exprs}, Vars) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     {MungedExprs, Vars3} = munge_exprs(Exprs, Vars2, []),
@@ -1945,7 +1955,7 @@ move_clauses([]) ->
 
 %% Given a .beam file, find the .erl file. Look first in same directory as
 %% the .beam file, then in <beamdir>/../src
-find_source(File0) ->
+find_source(Module, File0) ->
     case filename:rootname(File0,".beam") of
 	File0 ->
 	    File0;
@@ -1962,10 +1972,26 @@ find_source(File0) ->
 			true ->
 			    InDotDotSrc;
 			false ->
-			    {beam,File0}
+			    find_source_from_module(Module, File0)
 		    end
 	    end
     end.
+
+%% In case we can't find the file from the given .beam,
+%% we try to get the information directly from the module source
+find_source_from_module(Module, File) ->
+    Compile = Module:module_info(compile),
+    case lists:keyfind(source, 1, Compile) of
+	{source, Path} ->
+	    case filelib:is_file(Path) of
+		true ->
+		    Path;
+		false ->
+		    {beam, File}
+	    end;
+	false ->
+		{beam, File}
+	end.
 
 do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
     analyse_info(Module,State#main_state.imported),
@@ -2070,7 +2096,7 @@ do_parallel_analysis_to_file(Module, OutFile, Opts, Loaded, From, State) ->
 	       {imported, File0, _} ->
 		   File0
 	   end,
-    case find_source(File) of
+    case find_source(Module, File) of
 	{beam,_BeamFile} ->
 	    reply(From, {error,no_source_code_found});
 	ErlFile ->
