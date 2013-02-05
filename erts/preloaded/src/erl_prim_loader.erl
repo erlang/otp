@@ -149,7 +149,7 @@ start_it("inet", Id, Pid, Hosts) ->
 
 start_it("efile", Id, Pid, _Hosts) ->
     process_flag(trap_exit, true),
-    {ok, Port} = prim_file:open([binary]),
+    {ok, Port} = prim_file:start(),
     init_ack(Pid),
     MultiGet = case erlang:system_info(thread_pool_size) of
                    0 -> false;
@@ -434,7 +434,7 @@ efile_multi_get_file_from_port2(_MFs, 0, _Max, State, _Paths, _Fun, _Ref, Ret) -
 
 efile_par_get_file(Ref, State, {Mod,File} = MF, Paths, Pid, Fun) ->
     %% One port for each file read in "parallel":
-    case prim_file:open([binary]) of
+    case prim_file:start() of
         {ok, Port} ->
             Port0 = State#state.data,
             State1 = State#state{data = Port},

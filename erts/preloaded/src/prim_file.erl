@@ -210,12 +210,7 @@ open(_, _) ->
 %% Opens a port that can be used for open/3 or read_file/2.
 %% Returns {ok, Port} | {error, Reason}.
 open(Portopts) when is_list(Portopts) ->
-    case drv_open(?FD_DRV, Portopts) of
-	{error, _} = Error ->
-	    Error;
-	Other ->
-	    Other
-    end;
+    drv_open(?FD_DRV, [binary|Portopts]);
 open(_) ->
     {error, badarg}.
 
@@ -607,13 +602,7 @@ sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
 %% Returns {ok, Port}, the Port should be used as first argument in all
 %% the following functions. Returns {error, Reason} upon failure.
 start() ->
-    try erlang:open_port({spawn, ?DRV}, [binary]) of
-	Port ->
-	    {ok, Port}
-    catch
-	error:Reason ->
-	    {error, Reason}
-    end.
+    drv_open(?DRV, [binary]).
 
 stop(Port) when is_port(Port) ->
     try erlang:port_close(Port) of
@@ -923,7 +912,7 @@ list_dir_int(Port, Dir) ->
 %% Returns {ok, Port} when successful.
 
 drv_open(Driver, Portopts) ->
-    try erlang:open_port({spawn, Driver}, Portopts) of
+    try erlang:open_port({spawn_driver, Driver}, Portopts) of
 	Port ->
 	    {ok, Port}
     catch
@@ -1205,17 +1194,11 @@ translate_response(?FILE_RESP_N2DATA = X, L0) when is_list(L0) ->
     end;
 translate_response(?FILE_RESP_EOF, []) ->
     eof;
-translate_response(?FILE_RESP_FNAME, []) ->
-    ok;
 translate_response(?FILE_RESP_FNAME, Data) when is_binary(Data) ->
     {ok, prim_file:internal_native2name(Data)};
-translate_response(?FILE_RESP_FNAME, Data) ->
-    {ok, Data};
 translate_response(?FILE_RESP_LFNAME, []) ->
     ok;
 translate_response(?FILE_RESP_LFNAME, Data) when is_binary(Data) ->
-    {append, transform_lfname(Data)};
-translate_response(?FILE_RESP_LFNAME, Data) ->
     {append, transform_lfname(Data)};
 translate_response(?FILE_RESP_ALL_DATA, Data) ->
     {ok, Data};
@@ -1332,15 +1315,8 @@ transform_ldata(0, List, [Size | Sizes], R) ->
     {Front, Rear} = lists_split(List, Size),
     transform_ldata(0, Rear, Sizes, [Front | R]).
 
-transform_lfname(<<>>) -> [];
-transform_lfname(<<L:16, Name:L/binary, Names/binary>>) -> 
-    [ prim_file:internal_native2name(Name) | transform_lfname(Names)];
-transform_lfname([]) -> [];
-transform_lfname([L1,L2|Names]) ->
-    L = (L1 bsl 8) bor L2,
-    {Name, Rest} = lists_split(Names, L),
-    [Name | transform_lfname(Rest)].
-
+transform_lfname(Names) ->
+    [prim_file:internal_native2name(Name) || <<L:16,Name:L/binary>> <= Names].
 
 lists_split(List, 0) when is_list(List) ->
     {[], List};
