@@ -49,7 +49,8 @@
 	  make_link_a/1, make_link_b/1,
 	  read_link_info_for_non_link/1, 
 	  symlinks_a/1, symlinks_b/1,
-	  list_dir_limit/1]).
+	  list_dir_limit/1,
+	  list_dir_error/1]).
 
 -export([advise/1]).
 -export([large_write/1]).
@@ -110,7 +111,7 @@ groups() ->
        write_compressed, compress_errors]},
      {links, [],
       [make_link_a, make_link_b, read_link_info_for_non_link,
-       symlinks_a, symlinks_b]}].
+       symlinks_a, symlinks_b, list_dir_error]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -2138,6 +2139,16 @@ list_dir_limit_cleanup(Dir, Handle, N, Cnt) ->
     Name = integer_to_list(Cnt),
     ?PRIM_FILE:delete(Handle, filename:join(Dir, Name)),
     list_dir_limit_cleanup(Dir, Handle, N, Cnt+1).
+
+%%%
+%%% Test list_dir() on a non-existing pathname.
+%%%
+
+list_dir_error(Config) ->
+    Priv = ?config(priv_dir, Config),
+    NonExisting = filename:join(Priv, "non-existing-dir"),
+    {error,enoent} = prim_file:list_dir(NonExisting),
+    ok.
 
 %%%
 %%% Support for testing large files.
