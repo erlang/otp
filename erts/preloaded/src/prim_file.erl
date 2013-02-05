@@ -899,9 +899,30 @@ list_dir(Port, Dir) when is_port(Port) ->
     list_dir_int(Port, Dir).
 
 list_dir_int(Port, Dir) ->
-    drv_command(Port, [?FILE_READDIR, pathname(Dir)], []).
+    drv_command(Port, [?FILE_READDIR, pathname(Dir)],
+		fun(P) ->
+			case list_dir_response(P, []) of
+			    {ok, RawNames} ->
+				{ok, list_dir_convert(RawNames)};
+			    Error ->
+				Error
+			end
+		end).
 
+list_dir_response(Port, Acc0) ->
+    case drv_get_response(Port) of
+	{lfname, []} ->
+	    {ok, Acc0};
+	{lfname, Names} ->
+	    Acc = [Name || <<L:16,Name:L/binary>> <= Names] ++ Acc0,
+	    list_dir_response(Port, Acc);
+	Error ->
+	    Error
+    end.
 
+list_dir_convert([Name|Names]) ->
+    [prim_file:internal_native2name(Name)|list_dir_convert(Names)];
+list_dir_convert([]) -> [].
 
 %%%-----------------------------------------------------------------
 %%% Functions to communicate with the driver
@@ -1017,19 +1038,10 @@ drv_command_nt(Port, Command, R) when is_port(Port) ->
 %% Receives the response from a driver port.
 %% Returns: {ok, ListOrBinary}|{error, Reason}
 
-drv_get_response(Port, R) when is_list(R) ->
-    case drv_get_response(Port) of
-	ok ->
-	    {ok, R};
-	{ok, Name} ->
-	    drv_get_response(Port, [Name|R]);
-	{append, Names} ->
-	    drv_get_response(Port, append(Names, R));
-	Error ->
-	    Error
-    end;
-drv_get_response(Port, _) ->
-    drv_get_response(Port).
+drv_get_response(Port, undefined) ->
+    drv_get_response(Port);
+drv_get_response(Port, Fun) when is_function(Fun, 1) ->
+    Fun(Port).
 
 drv_get_response(Port) ->
     erlang:bump_reductions(100),
@@ -1048,10 +1060,6 @@ drv_get_response(Port) ->
 
 %%%-----------------------------------------------------------------
 %%% Utility functions.
-
-append([I | Is], R) when is_list(R) -> append(Is, [I | R]);
-append([], R) -> R.
-
 
 %% Converts a list of mode atoms into a mode word for the driver.
 %% Returns {Mode, Portopts, Setopts} where Portopts is a list of 
@@ -1196,10 +1204,8 @@ translate_response(?FILE_RESP_EOF, []) ->
     eof;
 translate_response(?FILE_RESP_FNAME, Data) when is_binary(Data) ->
     {ok, prim_file:internal_native2name(Data)};
-translate_response(?FILE_RESP_LFNAME, []) ->
-    ok;
-translate_response(?FILE_RESP_LFNAME, Data) when is_binary(Data) ->
-    {append, transform_lfname(Data)};
+translate_response(?FILE_RESP_LFNAME, Data) ->
+    {lfname, Data};
 translate_response(?FILE_RESP_ALL_DATA, Data) ->
     {ok, Data};
 translate_response(X, Data) ->
@@ -1314,9 +1320,6 @@ transform_ldata(0, List, [0 | Sizes], R) ->
 transform_ldata(0, List, [Size | Sizes], R) ->
     {Front, Rear} = lists_split(List, Size),
     transform_ldata(0, Rear, Sizes, [Front | R]).
-
-transform_lfname(Names) ->
-    [prim_file:internal_native2name(Name) || <<L:16,Name:L/binary>> <= Names].
 
 lists_split(List, 0) when is_list(List) ->
     {[], List};
