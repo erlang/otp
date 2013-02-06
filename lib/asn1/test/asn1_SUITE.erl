@@ -1064,7 +1064,12 @@ test_modified_x420(Config) ->
 testX420() ->
     [{timetrap,{minutes,90}}].
 testX420(Config) ->
-    test(Config, fun testX420/3, [ber, ber_bin, ber_bin_v2]).
+    case erlang:system_info(system_architecture) of
+	"sparc-sun-solaris2.10" ->
+	    {skip,"Too slow for an old Sparc"};
+	_ ->
+	    test(Config, fun testX420/3, [ber, ber_bin, ber_bin_v2])
+    end.
 testX420(Config, Rule, Opts) ->
     testX420:compile(Rule, [der|Opts], Config),
     ok = testX420:ticket7759(Rule, Config),
