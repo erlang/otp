@@ -37,7 +37,7 @@ compile_loop(Erule, [Spec|Specs], Options, Config)
   when Erule == ber; Erule == ber_bin; Erule == ber_bin_v2; Erule == per ->
     CaseDir = ?config(case_dir, Config),
     asn1_test_lib:compile(filename:join([x420, Spec]), Config,
-                          [Erule, {i, CaseDir}]),
+                          [Erule, {i, CaseDir} | Options]),
     compile_loop(Erule, Specs, Options, Config);
 compile_loop(_Erule, _Specs, _Options, _Config) ->
     ok.
