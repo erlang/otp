@@ -75,6 +75,7 @@ INLINE= \
 
 CORE_MODULES = \
 	bs_shadowed_size_var \
+	unused_multiple_values_error \
 	nested_call_in_case
 
 

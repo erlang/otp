@@ -132,7 +132,12 @@ body(Body, Sub) ->
 
 body(#c_values{anno=A,es=Es0}, Ctxt, Sub) ->
     Es1 = expr_list(Es0, Ctxt, Sub),
-    #c_values{anno=A,es=Es1};
+    case Ctxt of
+	value ->
+	    #c_values{anno=A,es=Es1};
+	effect ->
+	    make_effect_seq(Es1, Sub)
+    end;
 body(E, Ctxt, Sub) ->
     ?ASSERT(verify_scope(E, Sub)),
     expr(E, Ctxt, Sub).
