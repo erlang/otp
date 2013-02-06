@@ -112,7 +112,10 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 				emit([
 				      {next,val}," = case [X || X <- [",Elements,
 				      "],X =/= asn1_NOVALUE] of",nl,
-				      "[] -> ",{curr,val},";",nl,
+				      "[] -> setelement(",
+				      {asis,ExtActualGroupPos+1},",",
+				      {curr,val},",",
+				      "asn1_NOVALUE);",nl,
 				      "_ -> setelement(",{asis,ExtActualGroupPos+1},",",
 				      {curr,val},",",
 				      "{extaddgroup,", Elements,"})",nl,
