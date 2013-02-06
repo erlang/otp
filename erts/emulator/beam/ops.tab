@@ -1021,7 +1021,7 @@ bif0 u$bif:erlang:node/0 Dst=d => node Dst
 
 bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => i_get Src Dst
 
-bif2 Jump=j u$bif:erlang:element/2 S1=s S2=s Dst=d => gen_element(Jump, S1, S2, Dst)
+bif2 Jump=j u$bif:erlang:element/2 S1=s S2=rxy Dst=d => gen_element(Jump, S1, S2, Dst)
 
 bif1 Fail Bif Literal=q Dst => move Literal x | bif1 Fail Bif x Dst
 bif1 p Bif S1 Dst => bif1_body Bif S1 Dst
