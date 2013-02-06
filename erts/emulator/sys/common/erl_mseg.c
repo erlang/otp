@@ -175,6 +175,7 @@ struct cache_t_ {
     Uint size;
     void *seg;
     cache_t *next;
+    cache_t *prev;
 };
 
 
@@ -183,9 +184,9 @@ typedef struct ErtsMsegAllctr_t_ ErtsMsegAllctr_t;
 struct mem_kind_t {
 
     cache_t cache[MAX_CACHE_SIZE];
-    cache_t *cache_unpowered;
-    cache_t *cache_area[CACHE_AREAS];
-    cache_t *cache_free;
+    cache_t cache_unpowered_node;
+    cache_t cache_powered_node[CACHE_AREAS];
+    cache_t cache_free;
 
     Sint cache_size;
     Uint cache_hits;
@@ -516,70 +517,102 @@ do {									\
 #define ERTS_DBG_MK_CHK_THR_ACCESS(MK)
 #endif
 
-/* NEW CACHE interface */
+/* Cache interface */
 
-static ERTS_INLINE cache_t *mseg_cache_alloc_descriptor(MemKind *mk) {
-    cache_t *c = mk->cache_free;
 
-    ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    if (c)
-	mk->cache_free = c->next;
+static ERTS_INLINE void mseg_cache_clear_node(cache_t *c) {
+    c->seg = NULL;
+    c->size = 0;
+    c->next = c;
+    c->prev = c;
+}
+
+static ERTS_INLINE void mseg_cache_unlink_node(cache_t *c) {
+    c->next->prev = c->prev;
+    c->prev->next = c->next;
+
+    c->next = c;
+    c->prev = c;
+}
+
+static ERTS_INLINE void mseg_cache_push_node_front(cache_t *head, cache_t *c) {
+    c->next = head->next;
+    c->prev = head;
+    
+    head->next->prev = c;
+    head->next = c;
+
+    ASSERT(c->next != c);
+    ASSERT(c->prev != c);
+}
+
+/* not needed: mseg_cache_push_node_back */
+
+static ERTS_INLINE cache_t *mseg_cache_pop_node_front(cache_t *head) {
+    cache_t *c;
+
+    ASSERT(head->next != head && head->prev != head);
+
+    c = head->next;
+
+    mseg_cache_unlink_node(c);
 
     return c;
 }
 
-static ERTS_INLINE void mseg_cache_free_descriptor(MemKind *mk, cache_t *c) {
-    ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    ASSERT(c);
-    
-    c->seg  = NULL;
-    c->size = 0;
-    c->next = mk->cache_free;
-    mk->cache_free = c;
+static ERTS_INLINE cache_t *mseg_cache_pop_node_back(cache_t *head) {
+    cache_t *c;
+
+    ASSERT(head->next != head && head->prev != head);
+
+    c = head->prev;
+
+    mseg_cache_unlink_node(c);
+
+    return c;
 }
+
+static ERTS_INLINE int mseg_cache_is_empty(cache_t *head) {
+
+    if (head->next == head) {
+	ASSERT(head->prev == head);
+	return 1;
+    }
+
+    ASSERT(head->next != head && head->prev != head);
+
+    return 0;
+}
+
 
 static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size) {
 
     cache_t *c;
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
 
-    if (mk->cache_free && MAP_IS_ALIGNED(seg)) {
+    if (!mseg_cache_is_empty(&(mk->cache_free)) && MAP_IS_ALIGNED(seg)) {
+	c = mseg_cache_pop_node_front(&(mk->cache_free));
+
+	c->seg  = seg;
+	c->size = size;
+
 	if (IS_2POW(size)) {
 	    int ix = SIZE_TO_CACHE_AREA_IDX(size);
 
 	    ASSERT(ix < CACHE_AREAS);
 	    ASSERT((1 << (ix + MSEG_ALIGN_BITS)) == size);
 
-	    /* unlink from free cache list */
-	    c = mseg_cache_alloc_descriptor(mk);
+	    mseg_cache_push_node_front(&(mk->cache_powered_node[ix]), c);
 
-	    /* link to cache area */
-	    c->seg  = seg;
-	    c->size = size;
-	    c->next = mk->cache_area[ix];
-
-	    mk->cache_area[ix] = c;
-	    mk->cache_size++;
-
-	    ASSERT(mk->cache_size <= mk->ma->max_cache_size);
-
-	    return 1;
 	} else {
-	    /* unlink from free cache list */
-	    c = mseg_cache_alloc_descriptor(mk);
 
-	    /* link to cache area */
-	    c->seg  = seg;
-	    c->size = size;
-	    c->next = mk->cache_unpowered;
-
-	    mk->cache_unpowered = c;
-	    mk->cache_size++;
-
-	    ASSERT(mk->cache_size <= mk->ma->max_cache_size);
-
-	    return 1;
+	    mseg_cache_push_node_front(&(mk->cache_unpowered_node), c);
 	}
+
+	mk->cache_size++;
+	ASSERT(mk->cache_size <= mk->ma->max_cache_size);
+
+	return 1;
     }
 
     return 0;
@@ -590,6 +623,7 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p) {
     Uint size = *size_p;
 
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
+
     if (IS_2POW(size)) {
 
 	int i, ix = SIZE_TO_CACHE_AREA_IDX(size);
@@ -599,76 +633,63 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p) {
 
 	for( i = ix; i < CACHE_AREAS; i++) {
 
-	    if ((c = mk->cache_area[i]) == NULL)
+	    if (mseg_cache_is_empty(&(mk->cache_powered_node[i])))
 		continue;
+
+	    c = mseg_cache_pop_node_front(&(mk->cache_powered_node[i]));
 
 	    ASSERT(IS_2POW(c->size));
 
-	    /* unlink from cache area */
-	    csize   = c->size;
-	    seg     = c->seg;
-	    mk->cache_area[i] = c->next;
-	    c->next = NULL;
+	    csize = c->size;
+	    seg   = c->seg;
+
 	    mk->cache_size--;
 	    mk->cache_hits++;
 
 	    /* link to free cache list */
-	    mseg_cache_free_descriptor(mk, c);
+	    mseg_cache_clear_node(c);
+	    mseg_cache_push_node_front(&(mk->cache_free), c);
 
 	    ASSERT(!(mk->cache_size < 0));
 
-	    /* divvy up the cache - if needed */
-	    while( i > ix) {
-		csize = csize >> 1;
-		/* try to cache half of it */
-		if (!cache_bless_segment(mk, (char *)seg + csize, csize)) {
-		    /* wouldn't cache .. destroy it instead */
-		    mseg_destroy(mk->ma, mk, (char *)seg + csize, csize);
-		}
-		i--;
+	    if (csize != size) {
+		mseg_destroy(mk->ma, mk, (char *)seg + size, csize - size);
 	    }
-	    ASSERT(csize == size);
+
 	    return seg;
 	}
     } 
-    else if (mk->cache_unpowered) {
+    else if (!mseg_cache_is_empty(&(mk->cache_unpowered_node))) {
 	void *seg;
-	cache_t *c, *pc;
+	cache_t *c;
 	Uint csize;
 	Uint bad_max_abs = mk->ma->abs_max_cache_bad_fit;
 	Uint bad_max_rel = mk->ma->rel_max_cache_bad_fit;
 
-	c = mk->cache_unpowered;
-	pc = c;
+	c = mk->cache_unpowered_node.next;
 
-	while (c) {
+	while (c != &(mk->cache_unpowered_node)) {
 	    csize = c->size;
-		if (csize >= size &&
-			((csize - size)*100 < bad_max_rel*size) &&
-			(csize - size) < bad_max_abs ) {
+	    if (csize >= size &&
+		    ((csize - size)*100 < bad_max_rel*size) &&
+		    (csize - size) < bad_max_abs ) {
 
-		/* unlink from cache area */
 		seg = c->seg;
 
-		if (pc == c) {
-		    mk->cache_unpowered = c->next;
-		} else {
-		    pc->next = c->next;
-		}
+		mseg_cache_unlink_node(c);
 
-		c->next = NULL;
 		mk->cache_size--;
 		mk->cache_hits++;
 
 		/* link to free cache list */
-		mseg_cache_free_descriptor(mk, c);
+		mseg_cache_clear_node(c);
+		mseg_cache_push_node_front(&(mk->cache_free), c);
+
 		*size_p = csize;
 
 		return seg;
 	    }
-
-	    pc = c;
-	    c  = c->next;
+	    c = c->next;
 	}
     }
     return NULL;
@@ -679,20 +700,17 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p) {
  * using callbacks from aux-work in the scheduler.
  */
 
-static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, cache_t **head) {
+static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, cache_t *head) {
     cache_t *c = NULL;
 
-    c = *head;
-
-    ASSERT( c != NULL );
-
-    *head = c->next;
+    c = mseg_cache_pop_node_back(head);
 
     if (erts_mtrace_enabled)
 	erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
 
     mseg_destroy(mk->ma, mk, c->seg, c->size);
-    mseg_cache_free_descriptor(mk, c);
+    mseg_cache_clear_node(c);
+    mseg_cache_push_node_front(&(mk->cache_free), c);
 
     mk->segments.current.watermark--;
     mk->cache_size--;
@@ -702,29 +720,25 @@ static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, cache_t **
     return mk->cache_size;
 }
 
-static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, cache_t **head) {
-    cache_t *c = NULL, *next = NULL;
+static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, cache_t *head) {
+    cache_t *c = NULL;
 
-    c = *head;
-    ASSERT( c != NULL );
+    while (!mseg_cache_is_empty(head)) {
 
-    while (c) {
-
-	next = c->next;
+	c = mseg_cache_pop_node_back(head);
 
 	if (erts_mtrace_enabled)
 	    erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
 
 	mseg_destroy(mk->ma, mk, c->seg, c->size);
-	mseg_cache_free_descriptor(mk, c);
+
+	mseg_cache_clear_node(c);
+	mseg_cache_push_node_front(&(mk->cache_free), c);
 
 	mk->segments.current.watermark--;
 	mk->cache_size--;
 
-	c = next;
     }
-
-    *head = NULL;
 
     ASSERT( mk->cache_size >= 0 );
 
@@ -743,12 +757,12 @@ static Uint mseg_check_memkind_cache(MemKind *mk) {
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
 
     for (i = 0; i < CACHE_AREAS; i++) {
-	if (mk->cache_area[i] != NULL)
-	    return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_area[i]));
+	if (!mseg_cache_is_empty(&(mk->cache_powered_node[i])))
+	    return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_powered_node[i]));
     }
 
-    if (mk->cache_unpowered)
-	return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_unpowered));
+    if (!mseg_cache_is_empty(&(mk->cache_unpowered_node)))
+	    return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_unpowered_node));
 
     return 0;
 }
@@ -804,17 +818,17 @@ static void mseg_clear_memkind_cache(MemKind *mk) {
 
     /* drop pow2 caches */
     for (i = 0; i < CACHE_AREAS; i++) {
-	if (mk->cache_area[i] == NULL)
+	if (mseg_cache_is_empty(&(mk->cache_powered_node[i])))
 	    continue;
 
-	mseg_drop_memkind_cache_size(mk, &(mk->cache_area[i]));
-	ASSERT(mk->cache_area[i] == NULL);
+	mseg_drop_memkind_cache_size(mk, &(mk->cache_powered_node[i]));
+	ASSERT(mseg_cache_is_empty(&(mk->cache_powered_node[i])) == 1);
     }
     /* drop varied caches */
-    if(mk->cache_unpowered)
-	mseg_drop_memkind_cache_size(mk, &(mk->cache_unpowered));
+    if (!mseg_cache_is_empty(&(mk->cache_unpowered_node)))
+	mseg_drop_memkind_cache_size(mk, &(mk->cache_unpowered_node));
 
-    ASSERT(mk->cache_unpowered == NULL);
+    ASSERT(mseg_cache_is_empty(&(mk->cache_unpowered_node)) == 1);
     ASSERT(mk->cache_size == 0);
 }
 
@@ -1556,26 +1570,27 @@ erts_mseg_unit_size(void)
     return MSEG_ALIGNED_SIZE;
 }
 
+
 static void mem_kind_init(ErtsMsegAllctr_t *ma, MemKind* mk, const char* name)
 {
     int i;
 
+    /* Clear all cache headers */
+    mseg_cache_clear_node(&(mk->cache_free));
+    mseg_cache_clear_node(&(mk->cache_unpowered_node));
+
     for (i = 0; i < CACHE_AREAS; i++) {
-	mk->cache_area[i] = NULL;
+	mseg_cache_clear_node(&(mk->cache_powered_node[i]));
     }
 
-    mk->cache_free = NULL;
+    /* Populate cache free list */
 
     ASSERT(ma->max_cache_size <= MAX_CACHE_SIZE);
 
     for (i = 0; i < ma->max_cache_size; i++) {
-	mk->cache[i].seg  = NULL;
-	mk->cache[i].size = 0;
-	mk->cache[i].next = mk->cache_free;
-	mk->cache_free = &(mk->cache[i]);
+	mseg_cache_clear_node(&(mk->cache[i]));
+	mseg_cache_push_node_front(&(mk->cache_free), &(mk->cache[i]));
     }
-
-    mk->cache_unpowered = NULL;
 
     mk->cache_size = 0;
     mk->cache_hits = 0;
@@ -1593,9 +1608,6 @@ static void mem_kind_init(ErtsMsegAllctr_t *ma, MemKind* mk, const char* name)
     mk->next = ma->mk_list;
     ma->mk_list = mk;
 }
-
-
-
 
 void
 erts_mseg_init(ErtsMsegInit_t *init)
