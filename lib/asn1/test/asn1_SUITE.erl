@@ -1121,6 +1121,7 @@ test_modules() ->
      "Int",
      "MAP-commonDataTypes",
      "Null",
+     "NullTest",
      "Octetstr",
      "One",
      "P-Record",
