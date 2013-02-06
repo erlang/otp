@@ -71,8 +71,12 @@ listen(Name) ->
         {ok, Socket} ->
             TcpAddress = get_tcp_address(Socket),
             {_,Port} = TcpAddress#net_address.address,
-            {ok, Creation} = erl_epmd:register_node(Name, Port),
-            {ok, {Socket, TcpAddress, Creation}};
+            case erl_epmd:register_node(Name, Port) of
+                {ok, Creation} ->
+                    {ok, {Socket, TcpAddress, Creation}};
+                Error ->
+                    Error
+            end;
         Error ->
             Error
     end.
