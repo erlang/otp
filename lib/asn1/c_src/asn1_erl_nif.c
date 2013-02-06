@@ -1134,8 +1134,8 @@ int ber_encode_length(size_t size, mem_chunk_t **curr, unsigned int *count) {
 	(*curr)->curr -= 1;
 	(*count)++;
     } else {
-	int chunks = size / 256 + 1;
-	if (ber_check_memory(curr, chunks + 1))
+	int chunks = 0;
+	if (ber_check_memory(curr, 8))
 	    return ASN1_ERROR;
 
 	while (size > 0)
@@ -1144,6 +1144,7 @@ int ber_encode_length(size_t size, mem_chunk_t **curr, unsigned int *count) {
 	    size >>= 8;
 	    (*curr)->curr -= 1;
 	    (*count)++;
+	    chunks++;
 	}
 
 	*(*curr)->curr = chunks | 0x80;
