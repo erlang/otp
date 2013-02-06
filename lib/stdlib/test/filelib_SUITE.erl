@@ -65,8 +65,18 @@ wildcard_one(Config) when is_list(Config) ->
     ?line {ok,OldCwd} = file:get_cwd(),
     ?line Dir = filename:join(?config(priv_dir, Config), "wildcard_one"),
     ?line ok = file:make_dir(Dir),
+    do_wildcard_1(Dir,
+		  fun(Wc) ->
+			  filelib:wildcard(Wc, Dir, erl_prim_loader)
+		  end),
     ?line file:set_cwd(Dir),
-    ?line do_wildcard_1(Dir, fun(Wc) -> filelib:wildcard(Wc) end),
+    do_wildcard_1(Dir,
+		  fun(Wc) ->
+			  L = filelib:wildcard(Wc),
+			  L = filelib:wildcard(Wc, erl_prim_loader),
+			  L = filelib:wildcard(Wc, "."),
+			  L = filelib:wildcard(Wc, Dir)
+		  end),
     ?line file:set_cwd(OldCwd),
     ?line ok = file:del_dir(Dir),
     ok.
@@ -130,6 +140,9 @@ do_wildcard_2(Dir, Wcf) ->
     ?line ["abc","abcdef"] = Wcf("a*{def,}"),
     ?line ["abc","abcdef"] = Wcf("a*{,def}"),
 
+    %% Constant wildcard.
+    ["abcdef"] = Wcf("abcdef"),
+
     %% Negative tests.
     ?line [] = Wcf("b*"),
     ?line [] = Wcf("bufflig"),
@@ -157,6 +170,8 @@ do_wildcard_4(Dir, Wcf) ->
     All = ["a-","aA","aB","aC","a[","a]"],
     ?line Files = mkfiles(lists:reverse(All), Dir),
     ?line All = Wcf("a[][A-C-]"),
+    ["a-"] = Wcf("a[-]"),
+    ["a["] = Wcf("a["),
     ?line del(Files),
     do_wildcard_5(Dir, Wcf).
 
@@ -173,6 +188,7 @@ do_wildcard_5(Dir, Wcf) ->
     ?line ["blurf/nisse"] = Wcf("*/nisse"),
     ?line [] = Wcf("mountain/*"),
     ?line [] = Wcf("xa/gurka"),
+    ["blurf/nisse"] = Wcf("blurf/nisse"),
 
     %% Cleanup
     ?line del(Files),
@@ -233,7 +249,24 @@ do_wildcard_8(Dir, Wcf) ->
     del(Files),
     foreach(fun(D) ->
 		    ok = file:del_dir(filename:join(Dir, D))
-	    end, Dirs2 ++ Dirs1 ++ Dirs0).
+	    end, Dirs2 ++ Dirs1 ++ Dirs0),
+    do_wildcard_9(Dir, Wcf).
+
+do_wildcard_9(Dir, Wcf) ->
+    Dirs0 = ["lib","lib/app","lib/app/ebin"],
+    Dirs = [filename:join(Dir, D) || D <- Dirs0],
+    [ok = file:make_dir(D) || D <- Dirs],
+    Files0 = [filename:join("lib/app/ebin", F++".bar") ||
+		 F <- ["abc","foo","foobar"]],
+    Files = [filename:join(Dir, F) || F <- Files0],
+    [ok = file:write_file(F, <<"some content\n">>) || F <- Files],
+    Files0 = Wcf("lib/app/ebin/*.bar"),
+
+    %% Cleanup.
+    del(Files),
+    [ok = file:del_dir(D) || D <- lists:reverse(Dirs)],
+    ok.
+
 
 fold_files(Config) when is_list(Config) ->
     ?line Dir = filename:join(?config(priv_dir, Config), "fold_files"),
