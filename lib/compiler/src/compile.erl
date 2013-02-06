@@ -683,7 +683,7 @@ binary_passes() ->
 
 %% Remove the target file so we don't have an old one if the compilation fail.
 remove_file(St) ->
-    file:delete(St#compile.ofile),
+    _ = file:delete(St#compile.ofile),
     {ok,St}.
 
 -record(asm_module, {module,
@@ -1092,7 +1092,7 @@ makedep_output(#compile{code=Code,options=Opts,ofile=Ofile}=St) ->
 		io:fwrite(Output1, "~ts", [Code]),
 		%% Close the file if relevant.
 		if
-		    CloseOutput -> file:close(Output1);
+		    CloseOutput -> ok = file:close(Output1);
 		    true -> ok
 		end,
 		{ok,St}
@@ -1231,7 +1231,7 @@ encrypt(des3_cbc=Mode, {K1,K2,K3, IVec}, Bin0) ->
 
 random_bytes(N) ->
     {A,B,C} = now(),
-    random:seed(A, B, C),
+    _ = random:seed(A, B, C),
     random_bytes_1(N, []).
 
 random_bytes_1(0, Acc) -> Acc;
