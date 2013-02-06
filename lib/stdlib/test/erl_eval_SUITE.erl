@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,6 +37,7 @@
          otp_6977/1,
 	 otp_7550/1,
          otp_8133/1,
+         otp_10622/1,
          funs/1,
 	 try_catch/1,
 	 eval_expr_5/1,
@@ -79,7 +80,7 @@ all() ->
      pattern_expr, match_bin, guard_3, guard_4, lc,
      simple_cases, unary_plus, apply_atom, otp_5269,
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
-     otp_8133, funs, try_catch, eval_expr_5, zero_width].
+     otp_8133, otp_10622, funs, try_catch, eval_expr_5, zero_width].
 
 groups() -> 
     [].
@@ -960,6 +961,7 @@ otp_8133(Config) when is_list(Config) ->
                   E = fun(N) -> 
                               if 
                                   is_integer(N) -> <<N/integer>>; 
+
                                   true -> erlang:error(foo) 
                               end 
                       end,
@@ -978,6 +980,48 @@ otp_8133(Config) when is_list(Config) ->
                  end
              end.",
             ok),
+    ok.
+
+otp_10622(doc) ->
+    ["OTP-10622. Bugs."];
+otp_10622(suite) ->
+    [];
+otp_10622(Config) when is_list(Config) ->
+    check(fun() -> <<0>> = <<"\x{400}">> end,
+          "<<0>> = <<\"\\x{400}\">>. ",
+          <<0>>),
+    check(fun() -> <<"\x{aa}ff"/utf8>> = <<"\x{aa}ff"/utf8>> end,
+          "<<\"\\x{aa}ff\"/utf8>> = <<\"\\x{aa}ff\"/utf8>>. ",
+          <<"Â\xaaff">>),
+    %% The same bug as last example:
+    check(fun() -> case <<"foo"/utf8>> of
+                       <<"foo"/utf8>> -> true
+                   end
+          end,
+          "case <<\"foo\"/utf8>> of <<\"foo\"/utf8>> -> true end.",
+          true),
+    check(fun() -> <<"\x{400}"/utf8>> = <<"\x{400}"/utf8>> end,
+          "<<\"\\x{400}\"/utf8>> = <<\"\\x{400}\"/utf8>>. ",
+          <<208,128>>),
+    error_check("<<\"\\x{aaa}\">> = <<\"\\x{aaa}\">>.",
+                {badmatch,<<"\xaa">>}),
+
+    check(fun() -> [a || <<"\x{aaa}">> <= <<2703:16>>] end,
+          "[a || <<\"\\x{aaa}\">> <= <<2703:16>>]. ",
+          []),
+    check(fun() -> [a || <<"\x{aa}"/utf8>> <= <<"\x{aa}"/utf8>>] end,
+          "[a || <<\"\\x{aa}\"/utf8>> <= <<\"\\x{aa}\"/utf8>>]. ",
+          [a]),
+    check(fun() -> [a || <<"\x{aa}x"/utf8>> <= <<"\x{aa}y"/utf8>>] end,
+          "[a || <<\"\\x{aa}x\"/utf8>> <= <<\"\\x{aa}y\"/utf8>>]. ",
+          []),
+    check(fun() -> [a || <<"\x{aaa}">> <= <<"\x{aaa}">>] end,
+          "[a || <<\"\\x{aaa}\">> <= <<\"\\x{aaa}\">>]. ",
+          []),
+    check(fun() -> [a || <<"\x{aaa}"/utf8>> <= <<"\x{aaa}"/utf8>>] end,
+          "[a || <<\"\\x{aaa}\"/utf8>> <= <<\"\\x{aaa}\"/utf8>>]. ",
+          [a]),
+
     ok.
 
 funs(doc) ->
