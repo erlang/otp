@@ -452,18 +452,6 @@ printable_list(L, _D, latin1) ->
     io_lib:printable_latin1_list(L);
 printable_list(L, _D, _Uni) ->
     io_lib:printable_list(L).
-%% Truncated lists could break some existing code.
-% printable_list(L, D, Enc) when D >= 0 ->
-%     Len = ?CHARS * (D - 1),
-%     case printable_list1(L, Len, Enc) of
-%         all ->
-%             true;
-%         N when is_integer(N), Len - N >= D - 1 ->
-%             {L1, _} = lists:split(Len - N, L),
-%             {true, L1};
-%         N when is_integer(N) ->
-%             false
-%     end.
 
 printable_bin(Bin, D, Enc) when D >= 0, ?CHARS * D =< byte_size(Bin) ->
     printable_bin(Bin, erlang:min(?CHARS * D, byte_size(Bin)), D, Enc);
@@ -473,7 +461,7 @@ printable_bin(Bin, D, Enc) ->
 printable_bin(Bin, Len, D, latin1) ->
     N = erlang:min(20, Len),
     L = binary_to_list(Bin, 1, N),
-    case printable_list1(L, N) of
+    case printable_latin1_list(L, N) of
         all when N =:= byte_size(Bin)  ->
             {true, L};
         all when N =:= Len -> % N < byte_size(Bin)
@@ -507,7 +495,7 @@ printable_bin1(_Bin, _Start, 0) ->
 printable_bin1(Bin, Start, Len) ->
     N = erlang:min(10000, Len),
     L = binary_to_list(Bin, Start, Start + N - 1),
-    case printable_list1(L, N) of
+    case printable_latin1_list(L, N) of
         all ->
             printable_bin1(Bin, Start + N, Len - N);
         NC when is_integer(NC) ->
@@ -515,25 +503,43 @@ printable_bin1(Bin, Start, Len) ->
     end.
 
 %% -> all | integer() >=0. Adopted from io_lib.erl.
-% printable_list1([_ | _], 0) -> 0;
-printable_list1([C | Cs], N) when is_integer(C), C >= $\s, C =< $~ ->
-    printable_list1(Cs, N - 1);
-printable_list1([C | Cs], N) when is_integer(C), C >= $\240, C =< $\377 ->
-    printable_list1(Cs, N - 1);
-printable_list1([$\n | Cs], N) -> printable_list1(Cs, N - 1);
-printable_list1([$\r | Cs], N) -> printable_list1(Cs, N - 1);
-printable_list1([$\t | Cs], N) -> printable_list1(Cs, N - 1);
-printable_list1([$\v | Cs], N) -> printable_list1(Cs, N - 1);
-printable_list1([$\b | Cs], N) -> printable_list1(Cs, N - 1);
-printable_list1([$\f | Cs], N) -> printable_list1(Cs, N - 1);
-printable_list1([$\e | Cs], N) -> printable_list1(Cs, N - 1);
-printable_list1([], _) -> all;
-printable_list1(_, N) -> N.
+% printable_latin1_list([_ | _], 0) -> 0;
+printable_latin1_list([C | Cs], N) when C >= $\s, C =< $~ ->
+    printable_latin1_list(Cs, N - 1);
+printable_latin1_list([C | Cs], N) when C >= $\240, C =< $\377 ->
+    printable_latin1_list(Cs, N - 1);
+printable_latin1_list([$\n | Cs], N) -> printable_latin1_list(Cs, N - 1);
+printable_latin1_list([$\r | Cs], N) -> printable_latin1_list(Cs, N - 1);
+printable_latin1_list([$\t | Cs], N) -> printable_latin1_list(Cs, N - 1);
+printable_latin1_list([$\v | Cs], N) -> printable_latin1_list(Cs, N - 1);
+printable_latin1_list([$\b | Cs], N) -> printable_latin1_list(Cs, N - 1);
+printable_latin1_list([$\f | Cs], N) -> printable_latin1_list(Cs, N - 1);
+printable_latin1_list([$\e | Cs], N) -> printable_latin1_list(Cs, N - 1);
+printable_latin1_list([], _) -> all;
+printable_latin1_list(_, N) -> N.
 
-printable_unicode(<<C/utf8, R/binary>>, I, L) when I > 0 ->
-    printable_unicode(R, I - 1, [C | L]);
+printable_unicode(<<C/utf8, R/binary>>=Bin, I, L) when I > 0 ->
+    case printable_char(C) of
+        true ->
+            printable_unicode(R, I - 1, [C | L]);
+        false ->
+            {I, Bin, lists:reverse(L)}
+    end;
 printable_unicode(Bin, I, L) ->
     {I, Bin, lists:reverse(L)}.
+
+printable_char($\n) -> true;
+printable_char($\r) -> true;
+printable_char($\t) -> true;
+printable_char($\v) -> true;
+printable_char($\b) -> true;
+printable_char($\f) -> true;
+printable_char($\e) -> true;
+printable_char(C) ->
+    C >= $\s andalso C =< $~ orelse
+    C >= 16#A0 andalso C < 16#D800 orelse
+    C > 16#DFFF andalso C < 16#FFFE orelse
+    C > 16#FFFF andalso C =< 16#10FFFF.
 
 write_string(S, latin1) ->
     io_lib:write_latin1_string(S, $"); %"
