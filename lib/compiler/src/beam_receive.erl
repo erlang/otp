@@ -249,7 +249,7 @@ opt_ref_used(Is, RefReg, Fail, D) ->
     Done = gb_sets:singleton(Fail),
     Regs = regs_init_x0(),
     try
-	opt_ref_used_1(Is, RefReg, D, Done, Regs),
+	_ = opt_ref_used_1(Is, RefReg, D, Done, Regs),
 	true
     catch
 	throw:not_used ->
