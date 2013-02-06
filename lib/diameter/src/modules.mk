@@ -51,6 +51,7 @@ RT_MODULES = \
 	base/diameter_stats \
 	base/diameter_sup \
 	base/diameter_sync \
+	base/diameter_traffic \
 	base/diameter_types \
 	base/diameter_watchdog \
 	base/diameter_watchdog_sup \

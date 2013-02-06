@@ -502,7 +502,7 @@ rcv(N, _, _)
 rcv(_, Pkt, #watchdog{transport = TPid,
                       dictionary = Dict0,
                       receive_data = T}) ->
-    diameter_service:receive_message(TPid, Pkt, Dict0, T).
+    diameter_traffic:receive_message(TPid, Pkt, Dict0, T).
 
 throwaway(S) ->
     throw({?MODULE, throwaway, S}).
