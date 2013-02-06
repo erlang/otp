@@ -152,8 +152,6 @@ format_error({attribute,A}) ->
     io_lib:format("attribute '~w' after function definitions", [A]);
 format_error({missing_qlc_hrl,A}) ->
     io_lib:format("qlc:q/~w called, but \"qlc.hrl\" not included", [A]);
-format_error({redefine_import,{bif,{F,A},M}}) ->
-    io_lib:format("function ~w/~w already auto-imported from ~w", [F,A,M]);
 format_error({redefine_import,{{F,A},M}}) ->
     io_lib:format("function ~w/~w already imported from ~w", [F,A,M]);
 format_error({bad_inline,{F,A}}) ->
@@ -222,8 +220,6 @@ format_error({removed, MFA, String}) when is_list(String) ->
     io_lib:format("~s: ~s", [format_mfa(MFA), String]);
 format_error({obsolete_guard, {F, A}}) ->
     io_lib:format("~p/~p obsolete", [F, A]);
-format_error({reserved_for_future,K}) ->
-    io_lib:format("atom ~w: future reserved keyword - rename or quote", [K]);
 format_error({too_many_arguments,Arity}) ->
     io_lib:format("too many arguments (~w) - "
 		  "maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]);
@@ -236,11 +232,6 @@ format_error({illegal_guard_local_call, {F,A}}) ->
     io_lib:format("call to local/imported function ~w/~w is illegal in guard",
 		  [F,A]);
 format_error(illegal_guard_expr) -> "illegal guard expression";
-%% --- exports ---
-format_error({explicit_export,F,A}) ->
-    io_lib:format("in this release, the call to ~w/~w must be written "
-		  "like this: erlang:~w/~w",
-		  [F,A,F,A]);
 %% --- records ---
 format_error({undefined_record,T}) ->
     io_lib:format("record ~w undefined", [T]);
@@ -278,8 +269,6 @@ format_error({variable_in_record_def,V}) ->
 %% --- binaries ---
 format_error({undefined_bittype,Type}) ->
     io_lib:format("bit type ~w undefined", [Type]);
-format_error({bittype_mismatch,T1,T2,What}) ->
-    io_lib:format("bit type mismatch (~s) between ~p and ~p", [What,T1,T2]);
 format_error(bittype_unit) ->
     "a bit unit size must not be specified unless a size is specified too";
 format_error(illegal_bitsize) ->
@@ -1798,11 +1787,9 @@ gexpr({call,Line,{atom,_La,F},As}, Vt, St0) ->
     %% BifClash - Function called in guard
     case erl_internal:guard_bif(F, A) andalso no_guard_bif_clash(St1,{F,A}) of
         true ->
-	    %% Also check that it is auto-imported.
-	    case erl_internal:bif(F, A) of
-		true -> {Asvt,St1};
-		false -> {Asvt,add_error(Line, {explicit_export,F,A}, St1)}
-	    end;
+	    %% Assert that it is auto-imported.
+	    true = erl_internal:bif(F, A),
+	    {Asvt,St1};
         false ->
 	    case is_local_function(St1#lint.locals,{F,A}) orelse
 		is_imported_function(St1#lint.imports,{F,A}) of
