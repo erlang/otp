@@ -7833,7 +7833,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
       if (!IS_CONNECTED(desc))
 	  return ctl_error(ENOTCONN, rbuf, rsize);
 
-      if (!desc->stype == SOCK_STREAM)
+      if (desc->stype != SOCK_STREAM)
 	  return ctl_error(EINVAL, rbuf, rsize);
 
       if (*buf == 1 && !desc->is_ignored) {
