@@ -600,7 +600,7 @@ decode_regexps(Key, Regexps, _Old) when is_list(Regexps) ->
     throw({error, "Illegal option: " ++ Text}).
 
 do_decode_regexps(Key, [Regexp | Regexps], Acc) ->
-    case catch re:compile(Regexp, []) of
+    case catch re:compile(Regexp, [unicode]) of
         {ok, MP} ->
             do_decode_regexps(Key,
 			      Regexps,
