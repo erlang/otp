@@ -643,9 +643,9 @@ alcu_mseg_realloc(Allctr_t *allctr, void *seg, Uint old_size, Uint *new_size_p)
 }
 
 static ERTS_INLINE void
-alcu_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size)
+alcu_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
 {
-    erts_mseg_dealloc_opt(allctr->alloc_no, seg, size, &allctr->mseg_opt);
+    erts_mseg_dealloc_opt(allctr->alloc_no, seg, size, flags, &allctr->mseg_opt);
     INC_CC(allctr->calls.mseg_dealloc);
 }
 
@@ -2276,7 +2276,7 @@ resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
 		       (void *) BLK2UMEM(old_blk),
 		       MIN(new_blk_sz, old_blk_sz) - ABLK_HDR_SZ);
 	    unlink_carrier(&allctr->sbc_list, old_crr);
-	    alcu_mseg_dealloc(allctr, old_crr, old_crr_sz);
+	    alcu_mseg_dealloc(allctr, old_crr, old_crr_sz, ERTS_MSEG_FLG_NONE);
 	}
 	else {
 	    /* Old carrier unchanged; restore stat */
@@ -2352,6 +2352,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk)
     Carrier_t *crr;
 #if HAVE_ERTS_MSEG
     Uint is_mseg = 0;
+    Uint mseg_flags = ERTS_MSEG_FLG_NONE;
 #endif
 
     if (IS_SBC_BLK(blk)) {
@@ -2398,6 +2399,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk)
 	    is_mseg++;
 	    ASSERT(crr_sz % MSEG_UNIT_SZ == 0);
 	    STAT_MSEG_MBC_FREE(allctr, crr_sz);
+	    mseg_flags = ERTS_MSEG_FLG_2POW;
 	}
 	else
 #endif
@@ -2411,7 +2413,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk)
 
 #if HAVE_ERTS_MSEG
     if (is_mseg) {
-	alcu_mseg_dealloc(allctr, crr, crr_sz);
+	alcu_mseg_dealloc(allctr, crr, crr_sz, mseg_flags);
     }
     else
 #endif

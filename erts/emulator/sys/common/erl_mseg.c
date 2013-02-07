@@ -585,18 +585,20 @@ static ERTS_INLINE int mseg_cache_is_empty(cache_t *head) {
 }
 
 
-static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size) {
+static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Uint flags) {
 
     cache_t *c;
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
 
-    if (!mseg_cache_is_empty(&(mk->cache_free)) && MAP_IS_ALIGNED(seg)) {
+    ASSERT(!MSEG_FLG_IS_2POW(flags) || (MSEG_FLG_IS_2POW(flags) && MAP_IS_ALIGNED(seg) && IS_2POW(size)));
+
+    if (!mseg_cache_is_empty(&(mk->cache_free))) {
 	c = mseg_cache_pop_node_front(&(mk->cache_free));
 
 	c->seg  = seg;
 	c->size = size;
 
-	if (IS_2POW(size)) {
+	if (MSEG_FLG_IS_2POW(flags)) {
 	    int ix = SIZE_TO_CACHE_AREA_IDX(size);
 
 	    ASSERT(ix < CACHE_AREAS);
@@ -613,23 +615,40 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size) {
 	ASSERT(mk->cache_size <= mk->ma->max_cache_size);
 
 	return 1;
+    } else if (!MSEG_FLG_IS_2POW(flags) && !mseg_cache_is_empty(&(mk->cache_unpowered_node))) {
+
+	/* Evict oldest slot from cache so we can store an unpowered (sbc) segment  */
+
+	c = mseg_cache_pop_node_back(&(mk->cache_unpowered_node));
+
+	mseg_destroy(mk->ma, mk, c->seg, c->size);
+	mseg_cache_clear_node(c);
+
+	c->seg  = seg;
+	c->size = size;
+
+	mseg_cache_push_node_front(&(mk->cache_unpowered_node), c);
+
+	return 1;
     }
 
     return 0;
 }
 
-static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p) {
+static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p, Uint flags) {
 
     Uint size = *size_p;
 
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
 
-    if (IS_2POW(size)) {
+    if (MSEG_FLG_IS_2POW(flags)) {
 
 	int i, ix = SIZE_TO_CACHE_AREA_IDX(size);
 	void *seg;
 	cache_t *c;
 	Uint csize;
+
+	ASSERT(IS_2POW(size));
 
 	for( i = ix; i < CACHE_AREAS; i++) {
 
@@ -639,6 +658,7 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p) {
 	    c = mseg_cache_pop_node_front(&(mk->cache_powered_node[i]));
 
 	    ASSERT(IS_2POW(c->size));
+	    ASSERT(MAP_IS_ALIGNED(c->seg));
 
 	    csize = c->size;
 	    seg   = c->seg;
@@ -887,7 +907,7 @@ mseg_alloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, Uint *size_p,
 	ma->min_seg_size = size;
 #endif
     
-    if (opt->cache && mk->cache_size > 0 && (seg = cache_get_segment(mk, &size)) != NULL) 
+    if (opt->cache && mk->cache_size > 0 && (seg = cache_get_segment(mk, &size, flags)) != NULL)
 	goto done;
 
     if ((seg = mseg_create(ma, mk, size)) == NULL)
@@ -908,14 +928,13 @@ done:
 
 static void
 mseg_dealloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg, Uint size,
-	     const ErtsMsegOpt_t *opt)
+	     Uint flags, const ErtsMsegOpt_t *opt)
 {
     MemKind* mk = memkind(ma, opt);
 
-
     ERTS_MSEG_DEALLOC_STAT(mk,size);
 
-    if (opt->cache && cache_bless_segment(mk, seg, size)) {
+    if (opt->cache && cache_bless_segment(mk, seg, size, flags)) {
 	schedule_cache_check(ma);
 	goto done;
     }
@@ -948,7 +967,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 
     /* Dealloc old segment if new segment is of size 0 */
     if (!(*new_size_p)) {
-	mseg_dealloc(ma, atype, seg, old_size, opt);
+	mseg_dealloc(ma, atype, seg, old_size, flags, opt);
 	DEC_CC(ma, dealloc);
 	return NULL;
     }
@@ -1007,7 +1026,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
     else {
 
 	if (!opt->preserv) {
-	    mseg_dealloc(ma, atype, seg, old_size, opt);
+	    mseg_dealloc(ma, atype, seg, old_size, flags, opt);
 	    new_seg = mseg_alloc(ma, atype, &new_size, flags, opt);
 	    ASSERT(MAP_IS_ALIGNED(new_seg) || !new_seg);
 	}
@@ -1034,7 +1053,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 		new_size = old_size;
 	    else {
 		sys_memcpy(((char *) new_seg), ((char *) seg), MIN(new_size, old_size));
-		mseg_dealloc(ma, atype, seg, old_size, opt);
+		mseg_dealloc(ma, atype, seg, old_size, flags, opt);
 	    }
 #endif
 	}
@@ -1511,19 +1530,19 @@ erts_mseg_alloc(ErtsAlcType_t atype, Uint *size_p, Uint flags)
 
 void
 erts_mseg_dealloc_opt(ErtsAlcType_t atype, void *seg,
-		      Uint size, const ErtsMsegOpt_t *opt)
+		      Uint size, Uint flags, const ErtsMsegOpt_t *opt)
 {
     ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_OPT(opt);
     ERTS_MSEG_LOCK(ma);
     ERTS_DBG_MA_CHK_THR_ACCESS(ma);
-    mseg_dealloc(ma, atype, seg, size, opt);
+    mseg_dealloc(ma, atype, seg, size, flags, opt);
     ERTS_MSEG_UNLOCK(ma);
 }
 
 void
-erts_mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size)
+erts_mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size, Uint flags)
 {
-    erts_mseg_dealloc_opt(atype, seg, size, &erts_mseg_default_opt);
+    erts_mseg_dealloc_opt(atype, seg, size, flags, &erts_mseg_default_opt);
 }
 
 void *
@@ -1733,7 +1752,7 @@ erts_mseg_test(unsigned long op,
     case 0x401:
 	return (unsigned long) erts_mseg_alloc(ERTS_ALC_A_INVALID, (Uint *) a1, (Uint) 0);
     case 0x402:
-	erts_mseg_dealloc(ERTS_ALC_A_INVALID, (void *) a1, (Uint) a2);
+	erts_mseg_dealloc(ERTS_ALC_A_INVALID, (void *) a1, (Uint) a2, (Uint) 0);
 	return (unsigned long) 0;
     case 0x403:
 	return (unsigned long) erts_mseg_realloc(ERTS_ALC_A_INVALID,
