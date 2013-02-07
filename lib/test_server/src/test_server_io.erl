@@ -235,7 +235,7 @@ handle_info(kill_group_leaders, #st{gls=Gls,stopping=From}=St) ->
     gen_server:reply(From, ok),
     {stop,normal,St};
 handle_info(Other, St) ->
-    io:format("Ignoring: ~tp\n", [Other]),
+    io:format("Ignoring: ~p\n", [Other]),
     {noreply,St}.
 
 terminate(_, _) ->
@@ -261,7 +261,7 @@ do_output(stdout, Str0, #st{job_name=Name}) ->
 do_output(Tag, Str, #st{fds=Fds}=St) ->
     case gb_trees:lookup(Tag, Fds) of
 	none ->
-	    S = io_lib:format("\n*** ERROR: ~w, line ~w: No known '~tp' log file\n",
+	    S = io_lib:format("\n*** ERROR: ~w, line ~w: No known '~p' log file\n",
 			      [?MODULE,?LINE,Tag]),
 	    do_output(stdout, [S,Str], St);
 	{value,Fd} ->
@@ -273,7 +273,7 @@ do_output(Tag, Str, #st{fds=Fds}=St) ->
 		end
 	    catch _:Error ->
 		    S = io_lib:format("\n*** ERROR: ~w, line ~w: Error writing to "
-				      "log file '~tp': ~tp\n",
+				      "log file '~p': ~p\n",
 				      [?MODULE,?LINE,Tag,Error]),
 		    do_output(stdout, [S,Str], St)
 	    end

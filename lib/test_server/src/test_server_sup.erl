@@ -75,7 +75,7 @@ timetrap(Timeout0, ReportTVal, Scale, Pid) ->
 				    "Testcase process ~w not "
 				    "responding to timetrap "
 				    "timeout:~n"
-				    "  ~tp.~n"
+				    "  ~p.~n"
 				    "Killing testcase...~n",
 				    [Pid, Trap]),
 			    exit(Pid, kill)
@@ -142,11 +142,11 @@ call_crash(Time,Crash,M,F,A) ->
 	    {'EXIT',Pid,_Reason} when Crash==any ->
 		ok;
 	    {'EXIT',Reason} ->
-		test_server:format(12, "Wrong crash reason. Wanted ~tp, got ~tp.",
+		test_server:format(12, "Wrong crash reason. Wanted ~p, got ~p.",
 		      [Crash, Reason]),
 		exit({wrong_crash_reason,Reason});
 	    {'EXIT',Pid,Reason} ->
-		test_server:format(12, "Wrong crash reason. Wanted ~tp, got ~tp.",
+		test_server:format(12, "Wrong crash reason. Wanted ~p, got ~p.",
 		      [Crash, Reason]),
 		exit({wrong_crash_reason,Reason});
 	    {'EXIT',OtherPid,Reason} when OldTrapExit == false ->
@@ -312,7 +312,7 @@ check_dict(Dict, Reason) ->
 	[] ->
 	    1;                         % All ok.
 	List ->
-	    io:format("** ~ts (~ts) ->~n~tp~n",[Reason, Dict, List]),
+	    io:format("** ~ts (~ts) ->~n~p~n",[Reason, Dict, List]),
 	    0
     end.
 
@@ -321,7 +321,7 @@ check_dict_tolerant(Dict, Reason, Mode) ->
 	[] ->
 	    1;                         % All ok.
 	List ->
-	    io:format("** ~ts (~ts) ->~n~tp~n",[Reason, Dict, List]),
+	    io:format("** ~ts (~ts) ->~n~p~n",[Reason, Dict, List]),
 	    case Mode of
 		pedantic ->
 		    0;
@@ -397,7 +397,7 @@ append_files_to_logfile([File|Files]) ->
 		    %% fail, but in that case it will throw an exception so that
 		    %% we will be aware of the problem.
 		    io:format(Fd, "Unable to write the crash dump "
-			      "to this file: ~tp~n", [file:format_error(Error)])
+			      "to this file: ~p~n", [file:format_error(Error)])
 	    end;
 	_Error ->
 	    io:format(Fd, "Failed to read: ~ts\n", [File])
@@ -555,7 +555,7 @@ format_loc([{Mod,LineOrFunc}]) ->
 format_loc({Mod,Func}) when is_atom(Func) -> 
     io_lib:format("{~w,~w}",[Mod,Func]);
 format_loc(Loc) ->
-    io_lib:format("~tp",[Loc]).
+    io_lib:format("~p",[Loc]).
 
 format_loc1([{Mod,Func,Line}]) ->
     ["              ",format_loc1({Mod,Func,Line}),"]"];

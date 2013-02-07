@@ -159,7 +159,15 @@ handle_call({print,Detail,Msg,Printer}, {From,_}, St) ->
 handle_cast(stop, St) ->
     {stop,normal,St}.
 
-handle_info({'DOWN',Ref,process,_,_}, #st{minor_monitor=Ref}=St) ->
+handle_info({'DOWN',Ref,process,_,Reason}=D, #st{minor_monitor=Ref}=St) ->
+    case Reason of
+	normal -> ok;
+	_ ->
+	    Data = io_lib:format("=== WARNING === TC: ~w\n"
+				 "Got down from minor Fd ~w: ~w\n\n",
+				 [St#st.tc,St#st.minor,D]),
+	    test_server_io:print(xxxFrom, unexpected_io, Data)
+    end,
     {noreply,St#st{minor=none,minor_monitor=none}};
 handle_info({permit_io,Pid}, #st{permit_io=P}=St) ->
     {noreply,St#st{permit_io=gb_sets:add(Pid, P)}};
@@ -253,12 +261,19 @@ output_to_file(minor, Data0, From, #st{tc={M,F,A},minor=none}) ->
     Data = [io_lib:format("=== ~w:~w/~w\n", [M,F,A]),Data0],
     test_server_io:print(From, unexpected_io, Data),
     ok;
-output_to_file(minor, Data, From, #st{minor=Fd}) ->
+output_to_file(minor, Data, From, #st{tc=TC,minor=Fd}) ->
     try
 	io:put_chars(Fd, Data)
     catch
-	_:_ ->
-	    test_server_io:print(From, unexpected_io, Data)
+	Type:Reason ->
+	    Data1 =
+		[io_lib:format("=== ERROR === TC: ~w\n"
+			       "Failed to write to minor Fd: ~w\n"
+			       "Type: ~w\n"
+			       "Reason: ~w\n",
+			       [TC,Fd,Type,Reason]),
+		 Data,"\n"],
+	    test_server_io:print(From, unexpected_io, Data1)
     end;
 output_to_file(Detail, Data, From, _) ->
     test_server_io:print(From, Detail, Data).

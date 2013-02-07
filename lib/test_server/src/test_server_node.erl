@@ -249,7 +249,7 @@ print_trc(Out,{trace_ts,P,call,{M,F,A},C,Ts},N) ->
 	      "~w: ~s~n"
 	      "Process   : ~w~n"
 	      "Call      : ~w:~w/~w~n"
-	      "Arguments : ~tp~n"
+	      "Arguments : ~p~n"
 	      "Caller    : ~w~n~n",
 	      [N,ts(Ts),P,M,F,length(A),A,C]);
 print_trc(Out,{trace_ts,P,call,{M,F,A},Ts},N) ->
@@ -257,14 +257,14 @@ print_trc(Out,{trace_ts,P,call,{M,F,A},Ts},N) ->
 	      "~w: ~s~n"
 	      "Process   : ~w~n"
 	      "Call      : ~w:~w/~w~n"
-	      "Arguments : ~tp~n~n",
+	      "Arguments : ~p~n~n",
 	      [N,ts(Ts),P,M,F,length(A),A]);
 print_trc(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
     io:format(Out,
 	      "~w: ~s~n"
 	      "Process      : ~w~n"
 	      "Return from  : ~w:~w/~w~n"
-	      "Return value : ~tp~n~n",
+	      "Return value : ~p~n~n",
 	      [N,ts(Ts),P,M,F,A,R]);
 print_trc(Out,{drop,X},N) ->
     io:format(Out,
@@ -274,7 +274,7 @@ print_trc(Out,Trace,N) ->
     Ts = element(size(Trace),Trace),
     io:format(Out,
 	      "~w: ~s~n"
-	      "Trace        : ~tp~n~n",
+	      "Trace        : ~p~n~n",
 	      [N,ts(Ts),Trace]).
 ts({_, _, Micro} = Now) ->
     {{Y,M,D},{H,Min,S}} = calendar:now_to_local_time(Now),
@@ -465,8 +465,8 @@ handle_start_node_return(Version,VsnStr,{started, Node, OVersion, OVsnStr}) ->
     Str = io_lib:format("WARNING: Started node "
 			"reports different system "
 			"version than current node! "
-			"Current node version: ~tp, ~tp "
-			"Started node version: ~tp, ~tp",
+			"Current node version: ~p, ~p "
+			"Started node version: ~p, ~p",
 			[Version, VsnStr, 
 			 OVersion, OVsnStr]),
     Str1 = lists:flatten(Str),

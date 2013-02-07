@@ -186,7 +186,7 @@ do_cover_compile1([M|Rest]) ->
 		{ok,_} ->
 		    ok;
 		Error ->
-		    io:fwrite("\nWARNING: Could not cover compile ~w: ~tp\n",
+		    io:fwrite("\nWARNING: Could not cover compile ~w: ~p\n",
 			      [M,Error])
 	    end,
 	    code:stick_mod(M),
@@ -196,7 +196,7 @@ do_cover_compile1([M|Rest]) ->
 		{module,_} ->
 		    do_cover_compile1([M|Rest]);
 		Error ->
-		    io:fwrite("\nWARNING: Could not load ~w: ~tp\n",[M,Error]),
+		    io:fwrite("\nWARNING: Could not load ~w: ~p\n",[M,Error]),
 		    do_cover_compile1(Rest)
 	    end;
 	{false,_} ->
@@ -204,7 +204,7 @@ do_cover_compile1([M|Rest]) ->
 		{ok,_} ->
 		    ok;
 		Error ->
-		    io:fwrite("\nWARNING: Could not cover compile ~w: ~tp\n",
+		    io:fwrite("\nWARNING: Could not cover compile ~w: ~p\n",
 			      [M,Error])
 	    end,
 	    do_cover_compile1(Rest)
@@ -286,7 +286,7 @@ cover_analyse(Analyse,Modules,Stop) ->
 		      {ok,{M,{Cov,NotCov}}} ->
 			  {M,{Cov,NotCov,DetailsFun(M)}};
 		      Err ->
-			  io:fwrite("WARNING: Analysis failed for ~w. Reason: ~tp\n",
+			  io:fwrite("WARNING: Analysis failed for ~w. Reason: ~p\n",
 				    [M,Err]),
 			  {M,Err}
 		  end
@@ -498,7 +498,7 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 			 exit(Pid, kill),
 			 %% here's the only place we know Reason, so we save
 			 %% it as a comment, potentially replacing user data
-			 Error = lists:flatten(io_lib:format("Aborted: ~tp",
+			 Error = lists:flatten(io_lib:format("Aborted: ~p",
 							     [Reason])),
 			 Error1 = lists:flatten([string:strip(S,left) ||
 						    S <- string:tokens(Error,
@@ -742,8 +742,8 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 				    timer:sleep(1),
 				    group_leader() ! {printout,12,
 						      "WARNING! "
-						      "~w:end_per_testcase(~w, ~tp)"
-						      " crashed!\n\tReason: ~tp\n",
+						      "~w:end_per_testcase(~w, ~p)"
+						      " crashed!\n\tReason: ~p\n",
 						      [Mod,Func,Conf,Why]};
 				_ ->
 				    ok
@@ -756,8 +756,8 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 			Starter ! {self(),{call_end_conf,Data,ok}};
 		    {'EXIT',Pid,Reason} ->
 			group_leader() ! {printout,12,
-					  "WARNING! ~w:end_per_testcase(~w, ~tp)"
-					  " failed!\n\tReason: ~tp\n",
+					  "WARNING! ~w:end_per_testcase(~w, ~p)"
+					  " failed!\n\tReason: ~p\n",
 					  [Mod,Func,Conf,Reason]},
 			Starter ! {self(),{call_end_conf,Data,{error,Reason}}};
 		    {'EXIT',_OtherPid,Reason} ->
@@ -802,7 +802,7 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 			    {Result,E}
 		    end,
 		group_leader() ! {printout,12,
-				  "WARNING! ~w:end_per_testcase(~w, ~tp)"
+				  "WARNING! ~w:end_per_testcase(~w, ~p)"
 				  " failed!\n\tReason: timetrap timeout"
 				  " after ~w ms!\n", [Mod,Func,EndConf,TVal]},
 		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
@@ -1180,7 +1180,7 @@ do_init_per_testcase(Mod, Args) ->
 		Bad ->
 		    group_leader() ! {printout,12,
 				      "ERROR! init_per_testcase has returned "
-				      "bad elements in Config: ~tp\n",[Bad]},
+				      "bad elements in Config: ~p\n",[Bad]},
 		    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
 	    end;
 	{fail,_Reason}=Res ->
@@ -1197,7 +1197,7 @@ do_init_per_testcase(Mod, Args) ->
 	    FormattedLoc = test_server_sup:format_loc(Line),
 	    group_leader() ! {printout,12,
 			      "ERROR! init_per_testcase thrown!\n"
-			      "\tLocation: ~ts\n\tReason: ~tp\n",
+			      "\tLocation: ~ts\n\tReason: ~p\n",
 			      [FormattedLoc, Other]},
 	    {skip,{failed,{Mod,init_per_testcase,Other}}};
 	_:Reason0 ->
@@ -1208,7 +1208,7 @@ do_init_per_testcase(Mod, Args) ->
 	    FormattedLoc = test_server_sup:format_loc(Line),
 	    group_leader() ! {printout,12,
 			      "ERROR! init_per_testcase crashed!\n"
-			      "\tLocation: ~ts\n\tReason: ~tp\n",
+			      "\tLocation: ~ts\n\tReason: ~p\n",
 			      [FormattedLoc,Reason]},
 	    {skip,{failed,{Mod,init_per_testcase,Reason}}}
     end.
@@ -1249,7 +1249,7 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 				  "</font>\n",[Comment0,EndFunc])),
 	    group_leader() ! {printout,12,
 			      "WARNING: ~w thrown!\n"
-			      "Reason: ~tp\n"
+			      "Reason: ~p\n"
 			      "Line: ~ts\n",
 			      [EndFunc, Other,
 			       test_server_sup:format_loc(get_loc())]},
@@ -1271,7 +1271,7 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 				  "</font>\n",[Comment0,EndFunc])),
 	    group_leader() ! {printout,12,
 			      "WARNING: ~w crashed!\n"
-			      "Reason: ~tp\n"
+			      "Reason: ~p\n"
 			      "Line: ~ts\n",
 			      [EndFunc, Reason,
 			       test_server_sup:format_loc(get_loc())]},
@@ -1351,7 +1351,7 @@ lookup_config(Key,Config) ->
 	{value,{Key,Val}} ->
 	    Val;
 	_ ->
-	    io:format("Could not find element ~tp in Config.~n",[Key]),
+	    io:format("Could not find element ~p in Config.~n",[Key]),
 	    undefined
     end.
 
@@ -1433,7 +1433,7 @@ format(Detail, Format, Args) ->
     Str =
 	case catch io_lib:format(Format,Args) of
 	    {'EXIT',_} ->
-		io_lib:format("illegal format; ~tp with args ~tp.\n",
+		io_lib:format("illegal format; ~p with args ~p.\n",
 			      [Format,Args]);
 	    Valid -> Valid
 	end,
@@ -1564,7 +1564,7 @@ fail(Reason) ->
 
 cast_to_list(X) when is_list(X) -> X;
 cast_to_list(X) when is_atom(X) -> atom_to_list(X);
-cast_to_list(X) -> lists:flatten(io_lib:format("~tp", [X])).
+cast_to_list(X) -> lists:flatten(io_lib:format("~p", [X])).
 
 
 
@@ -1735,7 +1735,7 @@ ensure_timetrap(Config) ->
 		Garbage ->
 		    erase(test_server_default_timetrap),
 		    format("=== WARNING: garbage in "
-			   "test_server_default_timetrap: ~tp~n",
+			   "test_server_default_timetrap: ~p~n",
 			   [Garbage])
 	    end,
 	    DTmo = case lists:keysearch(default_timeout,1,Config) of
@@ -1743,7 +1743,7 @@ ensure_timetrap(Config) ->
 		       _ -> ?DEFAULT_TIMETRAP_SECS
 		   end,
 	    format("=== test_server setting default "
-		   "timetrap of ~tp seconds~n",
+		   "timetrap of ~p seconds~n",
 		   [DTmo]),
 	    put(test_server_default_timetrap, timetrap(seconds(DTmo)))
     end.
@@ -1764,7 +1764,7 @@ cancel_default_timetrap(true) ->
 	Garbage ->
 	    erase(test_server_default_timetrap),
 	    format("=== WARNING: garbage in "
-		   "test_server_default_timetrap: ~tp~n",
+		   "test_server_default_timetrap: ~p~n",
 		   [Garbage]),
 	    error
     end.
@@ -1773,7 +1773,7 @@ time_ms({hours,N}, _, _) -> hours(N);
 time_ms({minutes,N}, _, _) -> minutes(N);
 time_ms({seconds,N}, _, _) -> seconds(N);
 time_ms({Other,_N}, _, _) ->
-    format("=== ERROR: Invalid time specification: ~tp. "
+    format("=== ERROR: Invalid time specification: ~p. "
 	   "Should be seconds, minutes, or hours.~n", [Other]),
     exit({invalid_time_format,Other});
 time_ms(Ms, _, _) when is_integer(Ms) -> Ms;
