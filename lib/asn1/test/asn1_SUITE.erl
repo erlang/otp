@@ -1043,17 +1043,24 @@ testDoubleEllipses(Config, Rule, Opts) ->
     testDoubleEllipses:main(Rule).
 
 test_modified_x420(Config) ->
+    test(Config, fun test_modified_x420/3, [ber]).
+test_modified_x420(Config, Rule, Opts) ->
     Files = [filename:join(modified_x420, F) || F <- ["PKCS7",
                                                       "InformationFramework",
                                                       "AuthenticationFramework"]],
-    asn1_test_lib:compile_all(Files, Config, [der]),
-    test_modified_x420:test_io(Config).
+    asn1_test_lib:compile_all(Files, Config, [Rule,der|Opts]),
+    test_modified_x420:test(Config).
 
 
 testX420() ->
     [{timetrap,{minutes,90}}].
 testX420(Config) ->
-    test(Config, fun testX420/3, [ber]).
+    case erlang:system_info(system_architecture) of
+	"sparc-sun-solaris2.10" ->
+	    {skip,"Too slow for an old Sparc"};
+	_ ->
+	    test(Config, fun testX420/3, [ber])
+    end.
 testX420(Config, Rule, Opts) ->
     testX420:compile(Rule, [der|Opts], Config),
     ok = testX420:ticket7759(Rule, Config),

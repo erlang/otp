@@ -98,6 +98,35 @@
 
 </section>
 
+<section><title>Asn1 1.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ASN.1 decoders generated with the options <c>-bber_bin
+	    +optimize +nif</c> would decode open types with a size
+	    larger than 511 incorrectly. That bug could cause
+	    decoding by <c>public_key</c> to fail. The bug was in the
+	    NIF library <c>asn1_erl_nif.so</c>; therefore there is no
+	    need re-compile ASN.1 specifications that had the
+	    problem.</p>
+          <p>
+	    Own Id: OTP-10805 Aux Id: seq12244 </p>
+        </item>
+        <item>
+          <p>
+	    Encoding SEQUENCEs with multiple extension addition
+	    groups with optional values could fail (depending both on
+	    the specification and whether all values were provided).</p>
+          <p>
+	    Own Id: OTP-10811 Aux Id: OTP-10664 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
