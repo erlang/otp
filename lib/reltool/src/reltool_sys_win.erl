@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -181,7 +181,7 @@ do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->
     end.
 
 restart_server_safe_config(true,Parent,Reason) ->
-    io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
+    io:format("~w(~w): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
     proc_lib:init_ack(Parent, {error,Reason});
 restart_server_safe_config(false,Parent,Reason) ->
     wx:new(),
@@ -198,7 +198,7 @@ restart_server_safe_config(false,Parent,Reason) ->
 	?wxID_OK ->
 	    do_init([{safe_config,true},{parent,Parent},?safe_config]);
 	?wxID_CANCEL ->
-	    io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
+	    io:format("~w(~w): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
 	    proc_lib:init_ack(Parent,{error,Reason})
     end.
 
@@ -211,7 +211,7 @@ exit_dialog(Warnings) ->
         ?wxID_OK ->
 	    ok;
         ?wxID_CANCEL  ->
-	    io:format("~p(~p): <ERROR> ~s\n", [?MODULE, ?LINE, Details]),
+	    io:format("~w(~w): <ERROR> ~ts\n", [?MODULE, ?LINE, Details]),
 	    exit(Details)
     end.
 
@@ -249,7 +249,7 @@ loop(S) ->
 				    WWs2 = lists:delete(ObjRef, WWs),
 				    ?MODULE:loop(S#state{warning_wins = WWs2});
 				false ->
-				    error_logger:format("~p~p got unexpected "
+				    error_logger:format("~w~w got unexpected "
 							"message:\n\t~p\n",
 							[?MODULE, self(), Msg]),
 				    ?MODULE:loop(S)
@@ -291,7 +291,7 @@ loop(S) ->
 					   S#state.app_wins),
             ?MODULE:loop(S#state{fgraph_wins = FWs, app_wins = AWs});
         Msg ->
-            error_logger:format("~p~p got unexpected message:\n\t~p\n",
+            error_logger:format("~w~w got unexpected message:\n\t~p\n",
                                 [?MODULE, self(), Msg]),
             ?MODULE:loop(S)
     end.
@@ -315,7 +315,7 @@ handle_child_exit({'EXIT', Pid, _Reason} = Exit, FWs, AWs) ->
 msg_warning({'EXIT', _Pid, shutdown}, Type) when Type =/= unknown ->
     ok;
 msg_warning(Exit, Type) ->
-    error_logger:format("~p~p got unexpected message (~p):\n\t~p\n",
+    error_logger:format("~w~w got unexpected message (~w):\n\t~p\n",
                         [?MODULE, self(), Type, Exit]).
 
 create_window(S) ->
@@ -1161,7 +1161,7 @@ handle_system_event(#state{sys = Sys} = S,
     Sys2 = Sys#sys{incl_cond = AppCond},
     do_set_sys(S#state{sys = Sys2});
 handle_system_event(S, Event, ObjRef, UserData) ->
-    error_logger:format("~p~p got unexpected wx sys event to ~p "
+    error_logger:format("~w~w got unexpected wx sys event to ~p "
 			"with user data: ~p\n\t ~p\n",
                         [?MODULE, self(), ObjRef, UserData, Event]),
     S.
@@ -1177,13 +1177,13 @@ handle_source_event(S,
 		    _UserData) ->
     case wxTreeCtrl:getItemData(ObjRef, Item) of
         #root_data{dir = _Dir} ->
-            %% io:format("Root dialog: ~p\n", [Dir]),
+            %% io:format("Root dialog: ~tp\n", [Dir]),
             S;
         #lib_data{dir = _Dir} ->
-            %% io:format("Lib dialog: ~p\n", [Dir]),
+            %% io:format("Lib dialog: ~tp\n", [Dir]),
             S;
         #escript_data{file = _File} ->
-            %% io:format("Escript dialog: ~p\n", [File]),
+            %% io:format("Escript dialog: ~tp\n", [File]),
             S;
         #app_data{name = Name} ->
             do_open_app(S, Name);
@@ -1203,7 +1203,7 @@ handle_source_event(S,
         #escript_data{file = File} ->
             wx:batch(fun() -> escript_popup(S, File, Tree, Item) end);
         #app_data{name = Name} ->
-            io:format("App menu: ~p\n", [Name]),
+            io:format("App menu: ~tp\n", [Name]),
             S;
         undefined ->
             S
@@ -1223,7 +1223,7 @@ handle_app_event(S,
     Items = reltool_utils:get_items(ListCtrl),
     handle_app_button(S, Items, Action);
 handle_app_event(S, Event, ObjRef, UserData) ->
-    error_logger:format("~p~p got unexpected wx app event to "
+    error_logger:format("~w~w got unexpected wx app event to "
 			"~p with user data: ~p\n\t ~p\n",
                         [?MODULE, self(), ObjRef, UserData, Event]),
     S.
@@ -1267,7 +1267,7 @@ move_app(S, {_ItemNo, AppBase}, Action) ->
             blacklist_del ->
                 undefined;
             _ ->
-                error_logger:format("~p~p got unexpected app "
+                error_logger:format("~w~w got unexpected app "
 				    "button event: ~p ~p\n",
                                     [?MODULE, self(), Action, AppBase]),
                 OldApp#app.incl_cond

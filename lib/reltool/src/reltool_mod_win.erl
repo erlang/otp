@@ -130,7 +130,7 @@ do_init(Parent, WxEnv, Xref, RelPid, C, ModName) ->
 loop(#state{xref_pid = Xref, common = C, mod = Mod} = S) ->
     receive
 	Msg ->
-	    %% io:format("~s~p -> ~p\n", [S#state.name, self(), Msg]),
+	    %% io:format("~ts~w -> ~p\n", [S#state.name, self(), Msg]),
 	    case Msg of
 		{system, From, SysMsg} ->
 		    Dbg = C#common.sys_debug,
@@ -170,7 +170,7 @@ loop(#state{xref_pid = Xref, common = C, mod = Mod} = S) ->
 		    S2 = handle_event(S, Wx),
 		    ?MODULE:loop(S2);
 		_ ->
-		    error_logger:format("~p~p got unexpected message:\n\t~p\n",
+		    error_logger:format("~w~w got unexpected message:\n\t~p\n",
 					[?MODULE, self(), Msg]),
 		    ?MODULE:loop(S)
 	    end
@@ -485,7 +485,7 @@ handle_event(#state{xref_pid = Xref} = S, Wx) ->
 	    wxWindow:setFocus(ObjRef),
 	    S;
 	_ ->
-            error_logger:format("~p~p got unexpected mod event from "
+            error_logger:format("~w~w got unexpected mod event from "
 				"wx:\n\t~p\n",
                                 [?MODULE, self(), Wx]),
             S

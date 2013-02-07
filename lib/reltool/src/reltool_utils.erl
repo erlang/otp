@@ -431,7 +431,7 @@ scroll_size(ObjRef) ->
 safe_keysearch(Key, Pos, List, Mod, Line) ->
     case lists:keysearch(Key, Pos, List) of
         false ->
-            io:format("~p(~p): lists:keysearch(~p, ~p, ~p) -> false\n",
+            io:format("~w(~w): lists:keysearch(~p, ~w, ~p) -> false\n",
                       [Mod, Line, Key, Pos, List]),
             erlang:error({Mod, Line, lists, keysearch, [Key, Pos, List]});
         {value, Val} ->
@@ -463,7 +463,7 @@ create_dir(Dir) ->
             ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("create dir ~s: ~s", [Dir, Text])
+            throw_error("create dir ~ts: ~ts", [Dir, Text])
     end.
 
 list_dir(Dir) ->
@@ -472,7 +472,7 @@ list_dir(Dir) ->
 	    Files;
         error ->
             Text = file:format_error(enoent),
-            throw_error("list dir ~s: ~s", [Dir, Text])
+            throw_error("list dir ~ts: ~ts", [Dir, Text])
     end.
 
 read_file_info(File) ->
@@ -481,7 +481,7 @@ read_file_info(File) ->
 	    Info;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("read file info ~s: ~s", [File, Text])
+            throw_error("read file info ~ts: ~ts", [File, Text])
     end.
 
 write_file_info(File, Info) ->
@@ -490,7 +490,7 @@ write_file_info(File, Info) ->
 	    ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("write file info ~s: ~s", [File, Text])
+            throw_error("write file info ~ts: ~ts", [File, Text])
     end.
 
 read_file(File) ->
@@ -499,7 +499,7 @@ read_file(File) ->
 	    Bin;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("read file ~s: ~s", [File, Text])
+            throw_error("read file ~ts: ~ts", [File, Text])
     end.
 
 write_file(File, IoList) ->
@@ -508,7 +508,7 @@ write_file(File, IoList) ->
 	    ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("write file ~s: ~s", [File, Text])
+            throw_error("write file ~ts: ~ts", [File, Text])
     end.
 
 recursive_delete(Dir) ->
@@ -524,7 +524,7 @@ recursive_delete(Dir) ->
 		    ok;
 		{error, Reason} ->
 		    Text = file:format_error(Reason),
-		    throw_error("delete file ~s: ~s\n", [Dir, Text])
+		    throw_error("delete file ~ts: ~ts\n", [Dir, Text])
 	    end;
 	false ->
             delete(Dir, regular)
@@ -538,7 +538,7 @@ delete(File, Type) ->
             ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("delete file ~s: ~s\n", [File, Text])
+            throw_error("delete file ~ts: ~ts\n", [File, Text])
     end.
 
 do_delete(File, regular) ->
@@ -577,11 +577,11 @@ copy_file(From, To) ->
 		    ok;
 		{error, Reason} ->
 		    Text = file:format_error(Reason),
-		    throw_error("copy file ~s -> ~s: ~s\n", [From, To, Text])
+		    throw_error("copy file ~ts -> ~ts: ~ts\n", [From, To, Text])
 	    end;
 	error ->
 	    Text = file:format_error(enoent),
-	    throw_error("copy file ~s -> ~s: ~s\n", [From, To, Text])
+	    throw_error("copy file ~ts -> ~ts: ~ts\n", [From, To, Text])
     end.
 
 throw_error(Format, Args) ->
@@ -594,10 +594,7 @@ decode_regexps(Key, {add, Regexps}, Old) when is_list(Regexps) ->
 decode_regexps(_Key, {del, Regexps}, Old)  when is_list(Regexps) ->
     [Re || Re <- Old, not lists:member(Re#regexp.source, Regexps)];
 decode_regexps(Key, Regexps, _Old) when is_list(Regexps) ->
-    do_decode_regexps(Key, Regexps, []);
-decode_regexps(Key, Regexps, _Old) when is_list(Regexps) ->
-    Text = lists:flatten(io_lib:format("~p", [{Key, Regexps}])),
-    throw({error, "Illegal option: " ++ Text}).
+    do_decode_regexps(Key, Regexps, []).
 
 do_decode_regexps(Key, [Regexp | Regexps], Acc) ->
     case catch re:compile(Regexp, [unicode]) of
