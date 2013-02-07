@@ -190,17 +190,16 @@ extern volatile int __erl_errno;
 #define MAXATOMLEN_UTF8 (255*4 + 1)
 #define MAXNODELEN EI_MAXALIVELEN+1+EI_MAXHOSTNAMELEN
 
-enum erlang_char_encoding { 
+typedef enum { 
     ERLANG_ASCII = 1,
     ERLANG_LATIN1 = 2,
     ERLANG_UTF8 = 4,
-    ERLANG_ANY = ERLANG_ASCII|ERLANG_LATIN1|ERLANG_UTF8
-};
+}erlang_char_encoding;
 
 /* a pid */
 typedef struct {
   char node[MAXATOMLEN_UTF8];
-  enum erlang_char_encoding node_org_enc;
+  erlang_char_encoding node_org_enc;
   unsigned int num;
   unsigned int serial;
   unsigned int creation;
@@ -209,7 +208,7 @@ typedef struct {
 /* a port */
 typedef struct {
   char node[MAXATOMLEN_UTF8];
-  enum erlang_char_encoding node_org_enc;
+  erlang_char_encoding node_org_enc;
   unsigned int id;
   unsigned int creation;
 } erlang_port;
@@ -217,7 +216,7 @@ typedef struct {
 /* a ref */
 typedef struct {
   char node[MAXATOMLEN_UTF8];
-  enum erlang_char_encoding node_org_enc;  
+  erlang_char_encoding node_org_enc;  
   int len;
   unsigned int n[3];
   unsigned int creation;
@@ -246,7 +245,7 @@ typedef struct {
 typedef struct {
     long arity;
     char module[MAXATOMLEN_UTF8];
-    enum erlang_char_encoding module_org_enc;
+    erlang_char_encoding module_org_enc;
     char md5[16];
     long index;
     long old_index;
@@ -441,16 +440,16 @@ int ei_x_encode_string(ei_x_buff* x, const char* s);
 int ei_x_encode_string_len(ei_x_buff* x, const char* s, int len);
 int ei_encode_atom(char *buf, int *index, const char *p);
 int ei_encode_atom_as(char *buf, int *index, const char *p,
-		    enum erlang_char_encoding from, enum erlang_char_encoding to);
+		    erlang_char_encoding from, erlang_char_encoding to);
 int ei_encode_atom_len(char *buf, int *index, const char *p, int len);
 int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
-			enum erlang_char_encoding from, enum erlang_char_encoding to);
+			erlang_char_encoding from, erlang_char_encoding to);
 int ei_x_encode_atom(ei_x_buff* x, const char* s);
 int ei_x_encode_atom_as(ei_x_buff* x, const char* s,
-		      enum erlang_char_encoding from, enum erlang_char_encoding to);
+		      erlang_char_encoding from, erlang_char_encoding to);
 int ei_x_encode_atom_len(ei_x_buff* x, const char* s, int len);
 int ei_x_encode_atom_len_as(ei_x_buff* x, const char* s, int len,
-			  enum erlang_char_encoding from, enum erlang_char_encoding to);
+			  erlang_char_encoding from, erlang_char_encoding to);
 int ei_encode_binary(char *buf, int *index, const void *p, long len);
 int ei_x_encode_binary(ei_x_buff* x, const void* s, int len);
 int ei_encode_pid(char *buf, int *index, const erlang_pid *p);
@@ -500,7 +499,7 @@ int ei_decode_boolean(const char *buf, int *index, int *p);
 int ei_decode_char(const char *buf, int *index, char *p);
 int ei_decode_string(const char *buf, int *index, char *p);
 int ei_decode_atom(const char *buf, int *index, char *p);
-int ei_decode_atom_as(const char *buf, int *index, char *p, int destlen, enum erlang_char_encoding want, enum erlang_char_encoding* was, enum erlang_char_encoding* result);
+int ei_decode_atom_as(const char *buf, int *index, char *p, int destlen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result);
 int ei_decode_binary(const char *buf, int *index, void *p, long *len);
 int ei_decode_fun(const char* buf, int* index, erlang_fun* p);
 void free_fun(erlang_fun* f);

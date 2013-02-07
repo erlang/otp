@@ -45,15 +45,15 @@ int ei_encode_atom_len(char *buf, int *index, const char *p, int len)
 }
 
 int ei_encode_atom_as(char *buf, int *index, const char *p,
-		      enum erlang_char_encoding from_enc,
-		      enum erlang_char_encoding to_enc)
+		      erlang_char_encoding from_enc,
+		      erlang_char_encoding to_enc)
 {	
     return ei_encode_atom_len_as(buf, index, p, strlen(p), from_enc, to_enc);
 }
 
 int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
-			  enum erlang_char_encoding from_enc,
-			  enum erlang_char_encoding to_enc)
+			  erlang_char_encoding from_enc,
+			  erlang_char_encoding to_enc)
 {
   char *s = buf + *index;
   char *s0 = s;
@@ -138,7 +138,7 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
 
 int
 ei_internal_put_atom(char** bufp, const char* p, int slen,
-		     enum erlang_char_encoding to_enc)
+		     erlang_char_encoding to_enc)
 {
     int ix = 0;
     if (ei_encode_atom_len_as(*bufp, &ix, p, slen, ERLANG_UTF8, to_enc) < 0)

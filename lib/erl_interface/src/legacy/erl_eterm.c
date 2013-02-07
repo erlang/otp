@@ -154,7 +154,7 @@ ETERM *erl_mk_atom (const char *s)
 char* erl_atom_ptr_latin1(Erl_Atom_data* a)
 {
     if (a->latin1 == NULL) {
-	enum erlang_char_encoding enc;
+	erlang_char_encoding enc;
 	a->lenL = utf8_to_latin1(NULL, a->utf8, a->lenU, a->lenU, &enc);
 	if (a->lenL < 0) {
 	    a->lenL = 0;

@@ -86,18 +86,21 @@
     <title>DATA TYPES</title>
 
     <taglist>
-      <tag><marker id="erlang_char_encoding"/>enum erlang_char_encoding</tag>
+      <tag><marker id="erlang_char_encoding"/>erlang_char_encoding</tag>
        <item>
 	 <p/>
 	 <code type="none">
-enum erlang_char_encoding {
-    ERLANG_ASCII, ERLANG_LATIN1, ERLANG_UTF8
-};
+typedef enum {
+    ERLANG_ASCII = 1,
+    ERLANG_LATIN1 = 2,
+    ERLANG_UTF8 = 4
+}erlang_char_encoding;
 </code>
-         <p>The character encoding used for atoms. <c>ERLANG_ASCII</c> represents 7-bit ASCII.
+         <p>The character encodings used for atoms. <c>ERLANG_ASCII</c> represents 7-bit ASCII.
 	 Latin1 and UTF8 are different extensions of 7-bit ASCII. All 7-bit ASCII characters
 	 are valid Latin1 and UTF8 characters. ASCII and Latin1 both represent each character
-	 by one byte. A UTF8 character can consist of one to four bytes.</p>
+	 by one byte. A UTF8 character can consist of one to four bytes. Note that these
+	 constants are bit-flags and can be combined with bitwise-or.</p>
       </item>
     </taglist>
   </section>
@@ -250,10 +253,10 @@ enum erlang_char_encoding {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_encode_atom_as(char *buf, int *index, const char *p, enum erlang_char_encoding from_enc, enum erlang_char_encoding to_enc)</nametext></name>
-      <name><ret>int</ret><nametext>ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, enum erlang_char_encoding from_enc, enum erlang_char_encoding to_enc)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_atom_as(ei_x_buff* x, const char *p, enum erlang_char_encoding from_enc, enum erlang_char_encoding to_enc)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, enum erlang_char_encoding from_enc, enum erlang_char_encoding to_enc)</nametext></name>
+      <name><ret>int</ret><nametext>ei_encode_atom_as(char *buf, int *index, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name><ret>int</ret><nametext>ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_atom_as(ei_x_buff* x, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
       <fsummary>Encode an atom</fsummary>
       <desc>
         <p>Encodes an atom in the binary format with character encoding
@@ -534,7 +537,7 @@ ei_x_encode_empty_list(&amp;x);
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>ei_decode_atom_as(const char *buf, int *index, char *p, int plen, enum erlang_char_encoding want, enum erlang_char_encoding* was, enum erlang_char_encoding* result)</nametext></name>
+      <name><ret>int</ret><nametext>ei_decode_atom_as(const char *buf, int *index, char *p, int plen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result)</nametext></name>
       <fsummary>Decode an atom</fsummary>
       <desc>
         <p>This function decodes an atom from the binary format. The

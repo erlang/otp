@@ -40,10 +40,12 @@
              err, size1, SIZE, (EI_LONGLONG)p); 
 #endif
 
+#define ERLANG_ANY (ERLANG_ASCII|ERLANG_LATIN1|ERLANG_UTF8)
+
 struct my_atom {
-  enum erlang_char_encoding from;
-  enum erlang_char_encoding was_check;
-  enum erlang_char_encoding result_check;
+  erlang_char_encoding from;
+  erlang_char_encoding was_check;
+  erlang_char_encoding result_check;
 };
 
 /* Allow arrays constants to be part of macro arguments */
@@ -668,7 +670,7 @@ TESTCASE(test_ei_decode_utf8_atom)
 
 int ei_decode_my_atom_as(const char *buf, int *index, char *to,
 			 struct my_atom *atom) {
-  enum erlang_char_encoding was,result;
+  erlang_char_encoding was,result;
   int res = ei_decode_atom_as(buf,index,to,1024,atom->from,&was,&result);
   if (res != 0)
     return res;

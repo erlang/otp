@@ -28,14 +28,14 @@ int ei_decode_atom(const char *buf, int *index, char *p)
 }
 
 int ei_decode_atom_as(const char *buf, int *index, char* p, int destlen,
-		      enum erlang_char_encoding want_enc,
-		      enum erlang_char_encoding* was_encp,
-		      enum erlang_char_encoding* res_encp)
+		      erlang_char_encoding want_enc,
+		      erlang_char_encoding* was_encp,
+		      erlang_char_encoding* res_encp)
 {
     const char *s = buf + *index;
     const char *s0 = s;
     int len;
-    enum erlang_char_encoding got_enc;
+    erlang_char_encoding got_enc;
     
     switch (get8(s)) {
     case ERL_ATOM_EXT:
@@ -92,7 +92,7 @@ int ei_decode_atom_as(const char *buf, int *index, char* p, int destlen,
 
 
 int utf8_to_latin1(char* dst, const char* src, int slen, int destlen,
-		   enum erlang_char_encoding* res_encp)
+		   erlang_char_encoding* res_encp)
 {
     const char* const dst_start = dst;
     const char* const dst_end = dst + destlen;
@@ -128,7 +128,7 @@ int utf8_to_latin1(char* dst, const char* src, int slen, int destlen,
 }
 
 int latin1_to_utf8(char* dst, const char* src, int slen, int destlen,
-		   enum erlang_char_encoding* res_encp)
+		   erlang_char_encoding* res_encp)
 {
     const char* const src_end = src + slen;
     const char* const dst_start = dst;
@@ -163,7 +163,7 @@ int latin1_to_utf8(char* dst, const char* src, int slen, int destlen,
 
 
 int ei_internal_get_atom(const char** bufp, char* p,
-			 enum erlang_char_encoding* was_encp)
+			 erlang_char_encoding* was_encp)
 {
     int ix = 0;
     if (ei_decode_atom_as(*bufp, &ix, p, MAXATOMLEN_UTF8, ERLANG_UTF8, was_encp, NULL) < 0)

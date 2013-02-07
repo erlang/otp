@@ -660,7 +660,7 @@ static int read_atom(unsigned char** ext, Erl_Atom_data* a)
 {
     char buf[MAXATOMLEN_UTF8];
     int offs = 0;
-    enum erlang_char_encoding enc;
+    erlang_char_encoding enc;
     int ret = ei_decode_atom_as((char*)*ext, &offs, buf, MAXATOMLEN_UTF8,
 				ERLANG_LATIN1|ERLANG_UTF8, NULL, &enc);
     *ext += offs;
@@ -1423,8 +1423,8 @@ static int cmpbytes(unsigned char* s1,int l1,unsigned char* s2,int l2)
 static int cmpatoms(unsigned char* s1, int l1, unsigned char tag1,	 
                     unsigned char* s2, int l2, unsigned char tag2)
 {
-    enum erlang_char_encoding enc1 = tag2enc(tag1);
-    enum erlang_char_encoding enc2 = tag2enc(tag2);
+    erlang_char_encoding enc1 = tag2enc(tag1);
+    erlang_char_encoding enc2 = tag2enc(tag2);
 
     if (enc1 == enc2) {
 	return cmpbytes(s1, l1,s2,l2);

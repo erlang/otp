@@ -47,7 +47,7 @@ struct Type {
 typedef struct
 {
     char name[MAXATOMLEN_UTF8];
-    enum erlang_char_encoding enc;
+    erlang_char_encoding enc;
 }my_atom;
 
 int ei_decode_my_atom(const char *buf, int *index, my_atom* a)
