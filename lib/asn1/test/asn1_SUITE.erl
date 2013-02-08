@@ -991,7 +991,9 @@ test_ParamTypeInfObj(Config) ->
 
 test_WS_ParamClass(Config) -> test(Config, fun test_WS_ParamClass/3).
 test_WS_ParamClass(Config, Rule, Opts) ->
-    asn1_test_lib:compile("InformationFramework", Config, [Rule|Opts]).
+    asn1_test_lib:compile("InformationFramework", Config, [Rule|Opts]),
+    ?only_ber(testWSParamClass:main(Rule)),
+    ok.
 
 test_Defed_ObjectIdentifier(Config) ->
     asn1_test_lib:compile("UsefulDefinitions", Config, [ber]).
