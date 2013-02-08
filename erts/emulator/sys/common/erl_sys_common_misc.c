@@ -125,11 +125,20 @@ sys_double_to_chars(double fp, char *buffer, size_t buffer_size)
  *   if compact != 0, the trailing 0's will be truncated
  */
 int
-sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals, int compact)
+sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
+			 int compact)
 {
-    /* Note that some C compilers don't support "static const double" propagation into
-     * arrays so we use a define */
+    /* Note that some C compilers don't support "static const" propagation
+     * so we use a defines */
     #define SYS_DOUBLE_RND_CONST 0.55555555555555555
+    #define FRAC_SIZE            52
+    #define EXP_SIZE             11
+    #define EXP_MASK             ((1ll << EXP_SIZE) - 1)
+    #define MAX_DECIMALS         (sizeof(cs_sys_double_pow10) \
+				   / sizeof(cs_sys_double_pow10[0]))
+    #define FRAC_MASK            ((1ll << FRAC_SIZE) - 1)
+    #define FRAC_MASK2           ((1ll << (FRAC_SIZE + 1)) - 1)
+    #define MAX_FLOAT            (1ll << (FRAC_SIZE+1))
 
     static const double cs_sys_double_pow10[] = {
         SYS_DOUBLE_RND_CONST / 1ll,
@@ -152,15 +161,6 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals, 
         SYS_DOUBLE_RND_CONST / 100000000000000000ll,
         SYS_DOUBLE_RND_CONST / 1000000000000000000ll
     };
-
-    static const int FRAC_SIZE          = 52;
-    static const int EXP_SIZE           = 11;
-    static const int EXP_MASK           = (1ll << EXP_SIZE) - 1;
-    static const int MAX_DECIMALS       = sizeof(cs_sys_double_pow10) / sizeof(cs_sys_double_pow10[0]);
-
-    static const long long FRAC_MASK    = (1ll << FRAC_SIZE) - 1;
-    static const long long FRAC_MASK2   = (1ll << (FRAC_SIZE + 1)) - 1;
-    static const long long MAX_FLOAT    = 1ll << (FRAC_SIZE+1);
 
     long long mantissa, int_part = 0, frac_part = 0;
     short exp;
