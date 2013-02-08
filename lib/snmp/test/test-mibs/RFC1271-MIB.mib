@@ -3,7 +3,8 @@
               IMPORTS
                   Counter                              FROM RFC1155-SMI
                   mib-2,DisplayString                  FROM RFC1213-MIB
-                  OBJECT-TYPE                          FROM RFC-1212;
+                  OBJECT-TYPE                          FROM RFC-1212
+		  TimeTicks                            FROM SNMPv2-SMI;
  
           --  This MIB module uses the extended OBJECT-TYPE macro as
           --  defined in [9].

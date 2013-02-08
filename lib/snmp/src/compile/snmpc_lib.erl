@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 -compile({no_auto_import,[error/2]}).
 -export([test_father/4, make_ASN1type/1, import/1, makeInternalNode2/2,
 	 is_consistent/1, resolve_defval/1, make_variable_info/1,
-	 check_trap_name/3, make_table_info/4, get_final_mib/2, set_dir/2,
+	 check_trap_name/3, make_table_info/5, get_final_mib/2, set_dir/2,
 	 look_at/1, add_cdata/2,
 	 check_object_group/4, check_notification_group/4, 
 	 check_notification/3, 
@@ -240,7 +240,10 @@ import_mib({{'SNMPv2-SMI', ImportsFromMib},Line}) ->
 			aliasname = 'Opaque'},
 	     #asn1_type{bertype   = 'Counter64', 
 			aliasname = 'Counter64',
-			lo = 0, hi = 18446744073709551615}],
+			lo = 0, hi = 18446744073709551615},
+	     #asn1_type{bertype   = 'BITS', 
+			aliasname = 'BITS'}
+	    ],
     Macros = ['MODULE-IDENTITY','OBJECT-IDENTITY','OBJECT-TYPE',
 	      'NOTIFICATION-TYPE'],
     import_built_in_loop(ImportsFromMib,Nodes,Types,Macros,'SNMPv2-SMI',Line);
@@ -704,7 +707,8 @@ check_trap_name(EnterpriseName, Line, MEs) ->
 %% This information is needed to be able to create default instrumentation
 %% functions for tables.
 %%----------------------------------------------------------------------
-make_table_info(Line, TableName, {augments, SrcTableEntry}, ColumnMEs) ->
+
+make_table_info(Line, TableName, {augments, SrcTableEntry}, _, ColumnMEs) ->
     ColMEs = lists:keysort(#me.oid, ColumnMEs),
     Nbr_of_Cols = length(ColMEs), 
     MEs = ColMEs ++ (get(cdata))#cdata.mes,
@@ -723,16 +727,18 @@ make_table_info(Line, TableName, {augments, SrcTableEntry}, ColumnMEs) ->
 		first_accessible = FirstAcc, 
 		not_accessible   = NoAccs, 
 		index_types      = Aug}; 
-make_table_info(Line, TableName, {indexes, []}, _ColumnMEs) ->
+make_table_info(Line, TableName, {indexes, []}, _, _ColumnMEs) ->
     print_error("Table ~w lacks indexes.", [TableName],Line),
     #table_info{};
-make_table_info(Line, TableName, {indexes, Indexes}, ColumnMEs) ->
+make_table_info(Line, TableName, {indexes, Indexes}, AfterIdxTypes, 
+		ColumnMEs) ->
     ColMEs = lists:keysort(#me.oid, ColumnMEs),
     NonImpliedIndexes = lists:map(fun non_implied_name/1, Indexes),
     test_read_create_access(ColMEs, Line, dummy),
     NonIndexCol = test_index_positions(Line, NonImpliedIndexes, ColMEs),
     Nbr_of_Cols = length(ColMEs),
-    ASN1Indexes = find_asn1_types_for_indexes(Indexes, ColMEs, Line),
+    ASN1Indexes = find_asn1_types_for_indexes(Indexes, 
+					      AfterIdxTypes, ColMEs, Line),
     FA = first_accessible(TableName, ColMEs),
     StatCol = find_status_col(Line, TableName, ColMEs),
     NoAccs = list_not_accessible(NonIndexCol,ColMEs),
@@ -816,11 +822,17 @@ get_defvals(ColMEs) ->
         lists:filter(fun drop_undefined/1,
 		     lists:map(fun column_and_defval/1, ColMEs))).
 
-find_asn1_types_for_indexes(Indexes, ColMEs,Line) ->
-    MEs = ColMEs ++ (get(cdata))#cdata.mes,
+find_asn1_types_for_indexes(Indexes, AfterIdxTypes, ColMEs, Line) ->
+    ?vtrace("find_asn1_types_for_indexes -> "
+	    "~n   Indexes: ~p"
+	    "~n   ColMEs:  ~p"
+	    "~n   Line:    ~p", [Indexes, ColMEs, Line]),
+    MEs = ColMEs ++ (get(cdata))#cdata.mes ++ 
+	[#me{aliasname = Idx, asn1_type = Type} || {Idx, Type} <- 
+						       AfterIdxTypes],
     test_implied(Indexes, Line),
     lists:map(fun (ColumnName) ->
-		      translate_type(get_asn1_type(ColumnName, MEs,Line))
+		      translate_type(get_asn1_type(ColumnName, MEs, Line))
 	      end, 
 	      Indexes).
 
@@ -846,7 +858,11 @@ column_and_defval(#me{oid = Oid, assocList = AssocList}) ->
     end.
 
 %% returns: an asn1_type if ColME is an indexfield, otherwise undefined.
-get_asn1_type({implied,ColumnName}, MEs, Line) ->
+get_asn1_type({implied, ColumnName}, MEs, Line) ->
+    ?vtrace("get_asn1_type(implied) -> "
+	    "~n   ColumnName: ~p"
+	    "~n   MEs:        ~p"
+	    "~n   Line:       ~p", [ColumnName, MEs, Line]),
     case lookup(ColumnName, MEs) of
 	{value,#me{asn1_type=A}} when A#asn1_type.bertype =:=
 				      'OCTET STRING' ->
@@ -859,6 +875,10 @@ get_asn1_type({implied,ColumnName}, MEs, Line) ->
 			[Shit], Line)
     end;
 get_asn1_type(ColumnName, MEs, Line) ->
+    ?vtrace("get_asn1_type -> "
+	    "~n   ColumnName: ~p"
+	    "~n   MEs:        ~p"
+	    "~n   Line:       ~p", [ColumnName, MEs, Line]),
     case lookup(ColumnName, MEs) of
 	{value,ME} -> ME#me.asn1_type;
 	false -> error("Can't find object ~p. Used as INDEX in table.",
