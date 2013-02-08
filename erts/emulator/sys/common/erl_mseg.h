@@ -74,7 +74,7 @@ typedef struct {
 {									\
     4*1024*1024,	/* amcbf: Absolute max cache bad fit	*/	\
     20,			/* rmcbf: Relative max cache bad fit	*/	\
-    5,			/* mcs:   Max cache size		*/	\
+    10,			/* mcs:   Max cache size		*/	\
     1000		/* cci:   Cache check interval		*/	\
 }
 
