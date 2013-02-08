@@ -217,15 +217,15 @@ int ei_x_encode_atom_len(ei_x_buff* x, const char* s, int len)
 }
 
 int ei_x_encode_atom_as(ei_x_buff* x, const char* s,
-			enum erlang_char_encoding from_enc,
-			enum erlang_char_encoding to_enc)
+			erlang_char_encoding from_enc,
+			erlang_char_encoding to_enc)
 {
     return ei_x_encode_atom_len_as(x, s, strlen(s), from_enc, to_enc);
 }
 
 int ei_x_encode_atom_len_as(ei_x_buff* x, const char* s, int len,
-			    enum erlang_char_encoding from_enc,
-			    enum erlang_char_encoding to_enc)
+			    erlang_char_encoding from_enc,
+			    erlang_char_encoding to_enc)
 {
     int i = x->index;
     if (ei_encode_atom_len_as(NULL, &i, s, len, from_enc, to_enc) == -1)

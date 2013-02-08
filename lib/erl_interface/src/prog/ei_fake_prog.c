@@ -96,7 +96,7 @@ int main(void)
   EI_ULONGLONG *ulonglongp = (EI_ULONGLONG*)NULL;
   EI_ULONGLONG ulonglongx = 0;
 #endif
-  enum erlang_char_encoding enc;
+  erlang_char_encoding enc;
 
   intx = erl_errno;
 
