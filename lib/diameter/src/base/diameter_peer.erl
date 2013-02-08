@@ -272,7 +272,7 @@ handle_cast(Msg, State) ->
 
 %% Remote service is distributing a message.
 handle_info({notify, SvcName, T}, S) ->
-    bang(diameter_service:whois(SvcName), T),
+    diameter_service:notify(SvcName, T),
     {noreply, S};
 
 handle_info(Info, State) ->
@@ -303,13 +303,6 @@ code_change(_OldVsn, State, _Extra) ->
 
 ifc_send(Pid, T) ->
     Pid ! {diameter, T}.
-
-%% bang/2
-
-bang(undefined = No, _) ->
-    No;
-bang(Pid, T) ->
-    Pid ! T.
 
 %% call/1
 

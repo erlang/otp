@@ -40,7 +40,7 @@
          stop_transport/2]).
 
 %% towards diameter_peer
--export([whois/1]).
+-export([notify/2]).
 
 %% towards diameter_traffic
 -export([find_incoming_app/4,
@@ -51,6 +51,7 @@
          subscriptions/1,
          subscriptions/0,
          call_module/3,
+         whois/1,
          state/1,
          uptime/1]).
 
@@ -323,6 +324,14 @@ find_incoming_app(PeerT, TPid, Id, Apps) ->
         error: badarg ->  %% service has gone down (and taken table with it)
             false
     end.
+
+%% ---------------------------------------------------------------------------
+%% # notify/2
+%% ---------------------------------------------------------------------------
+
+notify(SvcName, Msg) ->
+    Pid = whois(SvcName),
+    is_pid(Pid) andalso (Pid ! Msg).
 
 %% ===========================================================================
 %% ===========================================================================
