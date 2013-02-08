@@ -740,7 +740,7 @@ is_origin({N, _}) ->
         orelse N == 'Origin-State-Id'.
 
 %% failed_avp/1
-    
+
 failed_avp([] = No) ->
     No;
 failed_avp(Avps) ->
@@ -1034,7 +1034,7 @@ dpr([CB|Rest], [Reason | _] = Args, S) ->
             diameter_lib:error_report(failure, No),
             {stop, No}
     end;
-        
+
 dpr([], [Reason | _], S) ->
     send_dpr(Reason, [], S).
 

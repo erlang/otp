@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -355,7 +355,7 @@ open(Opts) ->
     gen_sctp:open([{ip, ?ADDR}, {port, 0}, {active, true}, binary,
                    {recbuf, 1 bsl 16}, {sndbuf, 1 bsl 16}
                    | Opts]).
-    
+
 %% assoc/1
 
 assoc(Sock) ->

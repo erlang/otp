@@ -400,7 +400,7 @@ dict0(Config) ->
         rfc6733 -> diameter_gen_base_rfc6733
     end.
 
-apps(Config) ->       
+apps(Config) ->
     case proplists:get_value(rfc, Config) of
         rfc3588 -> [base3588, acct3588];
         rfc6733 -> [base6733, acct6733]

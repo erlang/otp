@@ -343,7 +343,7 @@ recv_reopen(listen, Ref, _, _) ->
 reg(Type, Ref, SvcName, T) ->
     TPid = tpid(Type, Ref, diameter:service_info(SvcName, transport)),
     true = diameter_reg:add_new({?MODULE, TPid, T}).
-    
+
 %% tpid/3
 
 tpid(connect, Ref, [[{ref, Ref},
@@ -369,7 +369,7 @@ tpid(listen, Ref, [[{ref, Ref},
       {port, [{owner, TPid} | _]}
       | _]]
         = lists:filter(fun([{watchdog, {_,_,S}} | _]) ->
-                               S == okay orelse S == reopen 
+                               S == okay orelse S == reopen
                        end,
                        As),
     TPid.
@@ -426,7 +426,7 @@ send({SvcName, {_,_,_} = T}, Sock, Bin) ->
     putr(origin, [OH, OR]),
     putr(config, T),
     send(Sock, Bin);
-    
+
 %% Discard DWA, failback after another timeout in the peer.
 send({Wd, 0 = No, Msg}, Sock, Bin) ->
     Origin = getr(origin),

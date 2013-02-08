@@ -289,7 +289,7 @@ ports() ->
     Ts = diameter_reg:match({?MODULE, '_', '_'}),
     [{type(T), N, Pid} || {{?MODULE, T, {_, {_, S}}}, Pid} <- Ts,
                           {ok, N} <- [inet:port(S)]].
-    
+
 ports(Ref) ->
     Ts = diameter_reg:match({?MODULE, '_', {Ref, '_'}}),
     [{type(T), N, Pid} || {{?MODULE, T, {R, {_, S}}}, Pid} <- Ts,

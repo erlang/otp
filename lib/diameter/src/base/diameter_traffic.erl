@@ -604,7 +604,7 @@ reply(Msg, Dict, TPid, Fs, #diameter_packet{errors = [H|_] = Es} = Pkt) ->
 
 eval_packet(Pkt, Fs) ->
     lists:foreach(fun(F) -> diameter_lib:eval([F,Pkt]) end, Fs).
-    
+
 %% make_answer_packet/2
 
 %% A reply message clears the R and T flags and retains the P flag.
@@ -1463,7 +1463,7 @@ retransmit(discard, _, _, _, _, _) ->
 
 retransmit({eval_packet, RC, F}, Transport, Req, SvcName, Timeout, Fs) ->
     retransmit(RC, Transport, Req, SvcName, Timeout, [F|Fs]);
-    
+
 retransmit(T, {_, _, App}, _, _, _, _) ->
     ?ERROR({invalid_return, prepare_retransmit, App, T}).
 
@@ -1535,7 +1535,7 @@ failover(TPid)
 %% Note that a request process can store its request after failover
 %% notifications are sent here: store_request/4 sends the notification
 %% in that case.
-    
+
 %% Failover as a consequence of request_peer_down/1: inform the
 %% request process.
 failover({_, Req, TRef}) ->
@@ -1631,4 +1631,3 @@ eval([M|X], F, A) ->
 
 choose(true, X, _)  -> X;
 choose(false, _, X) -> X.
-

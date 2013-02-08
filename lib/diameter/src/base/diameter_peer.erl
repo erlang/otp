@@ -123,7 +123,7 @@ pair([_ | Rest], Mods, Acc) ->
     pair(Rest, Mods, Acc);
 
 %% No transport_module or transport_config: defaults.
-pair([], [], []) ->  
+pair([], [], []) ->
     [{[?DEFAULT_TMOD], ?DEFAULT_TCFG, ?DEFAULT_TTMO}];
 
 %% One transport_module, one transport_config.

@@ -624,14 +624,14 @@ opt(sequence = K, F) ->
         E:R ->
             ?THROW({value, {K, E, R, ?STACK}})
     end;
-            
+
 opt(K, _) ->
     ?THROW({value, K}).
 
 sequence({H,N} = T)
   when 0 =< N, N =< 32, 0 =< H, 0 == H bsr N ->
     T;
-    
+
 sequence(_) ->
     ?THROW({value, sequence}).
 
