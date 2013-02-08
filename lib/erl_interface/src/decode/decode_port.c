@@ -28,15 +28,15 @@ int ei_decode_port(const char *buf, int *index, erlang_port *p)
   
   if (get8(s) != ERL_PORT_EXT) return -1;
 
-  /* first the nodename */
-  if (get_atom(&s, p->node, &p->node_org_enc) < 0) return -1;
-  
-  /* now the numbers: num (4), creation (1) */
   if (p) {
+    if (get_atom(&s, p->node, &p->node_org_enc) < 0) return -1;
     p->id = get32be(s) & 0x0fffffff /* 28 bits */;
     p->creation = get8(s) & 0x03;
   }
-  else s += 5;
+  else {
+      if (get_atom(&s, NULL, NULL) < 0) return -1;
+      s += 5;
+  }
   
   *index += s-s0;
   

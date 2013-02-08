@@ -52,7 +52,8 @@ typedef struct
 
 int ei_decode_my_atom(const char *buf, int *index, my_atom* a)
 {
-    return ei_decode_atom_as(buf, index, a->name, sizeof(a->name), ERLANG_UTF8, &a->enc, NULL);
+    return ei_decode_atom_as(buf, index, (a ? a->name : NULL), sizeof(a->name),
+			     ERLANG_UTF8, (a ? &a->enc : NULL), NULL);
 }
 int ei_encode_my_atom(char *buf, int *index, my_atom* a)
 {
@@ -77,7 +78,7 @@ void decode_encode(struct Type* t, void* obj)
     
     MESSAGE("ei_decode_%s, arg is type %s", t->name, t->type);
     buf = read_packet(NULL);
-    err = t->ei_decode_fp(buf+1, &size1, obj);
+    err = t->ei_decode_fp(buf+1, &size1, NULL);
     if (err != 0) {
 	if (err != -1) {
 	    fail("decode returned non zero but not -1");
@@ -96,7 +97,35 @@ void decode_encode(struct Type* t, void* obj)
 	return;
     }
 
+    err = t->ei_decode_fp(buf+1, &size2, obj);
+    if (err != 0) {
+	if (err != -1) {
+	    fail("decode returned non zero but not -1");
+	} else {
+	    fail("decode returned non zero");
+	}
+	return;
+    }
+    if (size1 != size2) {
+	MESSAGE("size1 = %d, size2 = %d\n",size1,size2);
+	fail("decode sizes differs");
+	return;
+    }
+
+    size2 = 0;
+    err = ei_skip_term(buf+1, &size2);
+    if (err != 0) {
+	fail("ei_skip_term returned non zero");
+	return;
+    }
+    if (size1 != size2) {
+	MESSAGE("size1 = %d, size2 = %d\n",size1,size2);
+	fail("skip size differs");
+	return;
+    }
+
     MESSAGE("ei_encode_%s buf is NULL, arg is type %s", t->name, t->type);
+    size2 = 0;
     err = t->ei_encode_fp(NULL, &size2, obj);
     if (err != 0) {
 	if (err != -1) {
