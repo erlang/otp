@@ -18,10 +18,10 @@
 %%
 
 %%
-%% This module implements (as a process) the RFC 3588 Peer State
+%% This module implements (as a process) the RFC 3588/6733 Peer State
 %% Machine modulo the necessity of adapting the peer election to the
-%% fact that we don't know the identity of a peer until we've
-%% received a CER/CEA from it.
+%% fact that we don't know the identity of a peer until we've received
+%% a CER/CEA from it.
 %%
 
 -module(diameter_peer_fsm).
@@ -107,8 +107,9 @@
          transport    :: pid(),     %% transport process
          dictionary   :: module(),  %% common dictionary
          service      :: #diameter_service{},
-         dpr = false  :: false | {uint32(), uint32()}}).
+         dpr = false  :: false | {uint32(), uint32()},
                             %% | hop by hop and end to end identifiers
+         length_errors :: exit | handle | discard}).
 
 %% There are non-3588 states possible as a consequence of 5.6.1 of the
 %% standard and the corresponding problem for incoming CEA's: we don't
@@ -191,15 +192,22 @@ i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
     putr(?REF_KEY, Ref),
     putr(?SEQUENCE_KEY, Mask),
     putr(?RESTRICT_KEY, Nodes),
-    {TPid, Addrs} = start_transport(T, Rest, Svc),
+
     Tmo = proplists:get_value(capx_timeout, Opts, ?EVENT_TIMEOUT),
     ?IS_TIMEOUT(Tmo) orelse ?ERROR({invalid, {capx_timeout, Tmo}}),
+    OnLengthErr = proplists:get_value(length_errors, Opts, exit),
+    lists:member(OnLengthErr, [exit, handle, discard])
+        orelse ?ERROR({invalid, {length_errors, OnLengthErr}}),
+
+    {TPid, Addrs} = start_transport(T, Rest, Svc),
+
     #state{state = {'Wait-Conn-Ack', Tmo},
            parent = WPid,
            transport = TPid,
            dictionary = Dict0,
            mode = M,
-           service = svc(Svc, Addrs)}.
+           service = svc(Svc, Addrs),
+           length_errors = OnLengthErr}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when
@@ -512,21 +520,6 @@ encode(Rec, Dict) ->
 
 %% recv/2
 
-%% RFC 3588 has result code 5015 for an invalid length but if a
-%% transport is detecting message boundaries using the length header
-%% then a length error will likely lead to further errors.
-
-recv(#diameter_packet{header = #diameter_header{length = Len}
-                             = Hdr,
-                      bin = Bin},
-     S)
-  when Len < 20;
-       (0 /= Len rem 4 orelse bit_size(Bin) /= 8*Len) ->
-    discard(invalid_message_length, recv, [size(Bin),
-                                           bit_size(Bin) rem 8,
-                                           Hdr,
-                                           S]);
-
 recv(#diameter_packet{header = #diameter_header{} = Hdr}
      = Pkt,
      #state{parent = Pid,
@@ -541,29 +534,52 @@ recv(#diameter_packet{header = undefined,
                       bin = Bin}
      = Pkt,
      S) ->
-    recv(Pkt#diameter_packet{header = diameter_codec:decode_header(Bin)}, S);
+    recv(diameter_codec:decode_header(Bin), Pkt, S);
 
-recv(Bin, S)
-  when is_binary(Bin) ->
-    recv(#diameter_packet{bin = Bin}, S);
+recv(Bin, S) ->
+    recv(#diameter_packet{bin = Bin}, S).
 
-recv(#diameter_packet{header = false} = Pkt, S) ->
-    discard(truncated_header, recv, [Pkt, S]).
+%% recv/3
+
+recv(#diameter_header{length = Len}
+     = H,
+     #diameter_packet{bin = Bin}
+     = Pkt,
+     #state{length_errors = E}
+     = S)
+  when E == handle;
+       0 == Len rem 4, bit_size(Bin) == 8*Len ->
+    recv(Pkt#diameter_packet{header = H}, S);
+
+recv(#diameter_header{}
+     = H,
+     #diameter_packet{bin = Bin},
+     #state{length_errors = E}
+     = S) ->
+    invalid(E,
+            invalid_message_length,
+            recv,
+            [size(Bin), bit_size(Bin) rem 8, H, S]);
+
+recv(false, Pkt, #state{length_errors = E} = S) ->
+    invalid(E, truncated_header, recv, [Pkt, S]).
+
+%% Note that counters here only count discarded messages.
+invalid(E, Reason, F, A) ->
+    diameter_stats:incr(Reason),
+    abort(E, Reason, F, A).
+
+abort(exit, Reason, F, A) ->
+    diameter_lib:warning_report(Reason, {?MODULE, F, A}),
+    throw({?MODULE, abort, Reason});
+
+abort(_, _, _, _) ->
+    ok.
 
 msg_id({_,_,_} = T, _) ->
     T;
 msg_id(_, Hdr) ->
-    diameter_codec:msg_id(Hdr).
-
-%% Treat invalid length as a transport error and die. Especially in
-%% the TCP case, in which there's no telling where the next message
-%% begins in the incoming byte stream, keeping a crippled connection
-%% alive may just make things worse.
-
-discard(Reason, F, A) ->
-    diameter_stats:incr(Reason),
-    diameter_lib:warning_report(Reason, {?MODULE, F, A}),
-    throw({?MODULE, abort, Reason}).
+    {_,_,_} = diameter_codec:msg_id(Hdr).
 
 %% rcv/3
 

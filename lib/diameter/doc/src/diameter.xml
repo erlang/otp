@@ -975,6 +975,42 @@ configured them.</p>
 Defaults to a single callback returning <c>dpr</c>.</p>
 </item>
 
+<marker id="length_errors"/>
+<tag><c>{length_errors, exit|handle|discard}</c></tag>
+<item>
+<p>
+Specifies how to deal with errors in the Message Length field of the
+Diameter Header in an incoming message.
+An error in this context is that the length is not at least 20 bytes
+(the length of a Header), is not a multiple of 4 (a valid length) or
+is not the length of the message in question, as received over the
+transport interface documented in &man_transport;.</p>
+
+<p>
+If <c>exit</c> then a warning report is emitted and the parent of the
+transport process in question exits, which causes the transport
+process itself to exit as described in &man_transport;.
+If <c>handle</c> then the message is processed as usual, a resulting
+&app_handle_request; or &app_handle_answer; callback (if one takes
+place) indicating the <c>5015</c> error (DIAMETER_INVALID_MESSAGE_LENGTH).
+If <c>discard</c> then the message in question is silently discarded.</p>
+
+<p>
+Defaults to <c>exit</c>.</p>
+
+<note>
+<p>
+The default value reflects the fact that a transport module for a
+stream-oriented transport like TCP may not be able to recover from a
+message length error since such a transport must use the Message
+Length header to divide the incoming byte stream into individual
+Diameter messages.
+An invalid length leaves it with no reliable way to rediscover message
+boundaries, which may result in the failure of subsequent messages.
+See &man_tcp; for the behaviour of that module.</p>
+</note>
+</item>
+
 <marker id="reconnect_timer"/>
 <tag><c>{reconnect_timer, Tc}</c></tag>
 <item>

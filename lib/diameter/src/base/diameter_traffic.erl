@@ -309,21 +309,35 @@ request_cb(App,
 
 %% examine/1
 %%
-%% Look for errors in a decoded message. Length errors result in
-%% decode failure in diameter_codec.
+%% Look for errors in a decoded message. It's odd/unfortunate that
+%% 501[15] aren't protocol errors.
 
-examine(#diameter_packet{header = #diameter_header{version
-                                                   = ?DIAMETER_VERSION}}
-        = Pkt) ->
-    Pkt;
+%%   DIAMETER_INVALID_MESSAGE_LENGTH 5015
+%%
+%%      This error is returned when a request is received with an invalid
+%%      message length.
+
+examine(#diameter_packet{header = #diameter_header{length = Len},
+                         bin = Bin,
+                         errors = Es}
+        = Pkt)
+  when Len < 20;
+       0 /= Len rem 4;
+       8*Len /= bit_size(Bin) ->
+    Pkt#diameter_packet{errors = [5015 | Es]};
 
 %%   DIAMETER_UNSUPPORTED_VERSION       5011
 %%      This error is returned when a request was received, whose version
 %%      number is unsupported.
 
-examine(#diameter_packet{errors = Es} = Pkt) ->
-    Pkt#diameter_packet{errors = [5011 | Es]}.
-%% It's odd/unfortunate that this isn't a protocol error.
+examine(#diameter_packet{header = #diameter_header{version = V},
+                         errors = Es}
+        = Pkt)
+  when V /= ?DIAMETER_VERSION ->
+    Pkt#diameter_packet{errors = [5011 | Es]};
+
+examine(Pkt) ->
+    Pkt.
 
 %% request_cb/8
 
