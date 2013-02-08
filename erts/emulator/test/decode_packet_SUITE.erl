@@ -403,6 +403,9 @@ http_request(Msg) ->
 	 {"Other-Field: with some text\r\n",
 	  {http_header,0,  "Other-Field"  ,undefined,  "with some text"},
 	  {http_header,0,<<"Other-Field">>,undefined,<<"with some text">>}},
+	 {"Make-sure-a-LONG-HEaDer-fIeLd-is-fORMATTED-NicelY: with some text\r\n",
+	  {http_header,0,  "Make-Sure-A-Long-Header-Field-Is-Formatted-Nicely"  ,undefined,  "with some text"},
+	  {http_header,0,<<"Make-Sure-A-Long-Header-Field-Is-Formatted-Nicely">>,undefined,<<"with some text">>}},
 	 {"Multi-Line: Once upon a time in a land far far away,\r\n"
 	  " there lived a princess imprisoned in the highest tower\r\n"
 	  " of the most haunted castle.\r\n",
