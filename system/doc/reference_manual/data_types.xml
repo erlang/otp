@@ -397,7 +397,11 @@ hello
 14> <input>binary_to_integer(&lt;&lt;"77">>).</input>
 77
 15> <input>integer_to_binary(77).</input>
-&lt;&lt;"77">></pre>
+&lt;&lt;"77">>
+16> <input>float_to_binary(7.0).</input>
+&lt;&lt;"7.00000000000000000000e+00">>
+17> <input>binary_to_float(&lt;&lt;"7.000e+00>>").</input>
+7.0</pre>
   </section>
 </chapter>
 

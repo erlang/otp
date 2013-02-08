@@ -39,6 +39,7 @@
 #include "erl_thr_progress.h"
 #define ERTS_PTAB_WANT_BIF_IMPL__
 #include "erl_ptab.h"
+#include "erl_bits.h"
 
 static Export* flush_monitor_message_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
@@ -2955,29 +2956,9 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
 
 /**********************************************************************/
 
-/* convert a float to a list of ascii characters */
+static int do_float_to_charbuf(Process *p, Eterm efloat, Eterm list, 
+			char *fbuf, int sizeof_fbuf) {
 
-BIF_RETTYPE float_to_list_1(BIF_ALIST_1)
-{
-     int i;
-     Uint need;
-     Eterm* hp;
-     FloatDef f;
-     char fbuf[30];
-     
-     /* check the arguments */
-     if (is_not_float(BIF_ARG_1))
-	 BIF_ERROR(BIF_P, BADARG);
-     GET_DOUBLE(BIF_ARG_1, f);
-     if ((i = sys_double_to_chars(f.fd, fbuf, sizeof(fbuf))) <= 0)
-	 BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
-     need = i*2;
-     hp = HAlloc(BIF_P, need);
-     BIF_RET(buf_to_intlist(&hp, fbuf, i, NIL));
-}
-
-BIF_RETTYPE float_to_list_2(BIF_ALIST_2)
-{
     const static int arity_two = make_arityval(2);
     int decimals = SYS_DEFAULT_FLOAT_DECIMALS;
     int compact = 0;
@@ -2986,16 +2967,11 @@ BIF_RETTYPE float_to_list_2(BIF_ALIST_2)
         FMT_FIXED,
         FMT_SCIENTIFIC
     } fmt_type = FMT_LEGACY;
-    Eterm list = BIF_ARG_2;
     Eterm arg;
-    int i;
-    Uint need;
-    Eterm* hp;
     FloatDef f;
-    char fbuf[256];
 
     /* check the arguments */
-    if (is_not_float(BIF_ARG_1))
+    if (is_not_float(efloat))
         goto badarg;
 
     for(; is_list(list); list = CDR(list_val(list))) {
@@ -3023,22 +2999,64 @@ BIF_RETTYPE float_to_list_2(BIF_ALIST_2)
         goto badarg;
     }
 
-    GET_DOUBLE(BIF_ARG_1, f);
+    GET_DOUBLE(efloat, f);
 
     if (fmt_type == FMT_FIXED) {
-        if ((i = sys_double_to_chars_fast(f.fd, fbuf, sizeof(fbuf),
-                decimals, compact)) <= 0)
-            goto badarg;
+        return sys_double_to_chars_fast(f.fd, fbuf, sizeof_fbuf,
+                decimals, compact);
     } else {
-        if ((i = sys_double_to_chars_ext(f.fd, fbuf, sizeof(fbuf), decimals)) <= 0)
-            goto badarg;
+        return sys_double_to_chars_ext(f.fd, fbuf, sizeof_fbuf, decimals);
     }
 
-    need = i*2;
-    hp = HAlloc(BIF_P, need);
-    BIF_RET(buf_to_intlist(&hp, fbuf, i, NIL));
 badarg:
+    return -1;
+}
+
+/* convert a float to a list of ascii characters */
+
+static BIF_RETTYPE do_float_to_list(Process *BIF_P, Eterm arg, Eterm opts) {
+  int used;
+  Eterm* hp;
+  char fbuf[256];
+  
+  if ((used = do_float_to_charbuf(BIF_P,arg,opts,fbuf,sizeof(fbuf))) <= 0) {
     BIF_ERROR(BIF_P, BADARG);
+  }
+  hp = HAlloc(BIF_P, (Uint)used*2);
+  BIF_RET(buf_to_intlist(&hp, fbuf, (Uint)used, NIL));
+}
+  
+
+BIF_RETTYPE float_to_list_1(BIF_ALIST_1)
+{
+  return do_float_to_list(BIF_P,BIF_ARG_1,NIL);
+}
+
+BIF_RETTYPE float_to_list_2(BIF_ALIST_2)
+{
+  return do_float_to_list(BIF_P,BIF_ARG_1,BIF_ARG_2);
+}
+
+/* convert a float to a binary of ascii characters */
+
+static BIF_RETTYPE do_float_to_binary(Process *BIF_P, Eterm arg, Eterm opts) {
+  int used;
+  char fbuf[256];
+  
+  if ((used = do_float_to_charbuf(BIF_P,arg,opts,fbuf,sizeof(fbuf))) <= 0) {
+    BIF_ERROR(BIF_P, BADARG);
+  }
+  BIF_RET(new_binary(BIF_P, (byte*)fbuf, (Uint)used));
+}
+
+BIF_RETTYPE float_to_binary_1(BIF_ALIST_1)
+{
+  return do_float_to_binary(BIF_P,BIF_ARG_1,NIL);
+}
+
+BIF_RETTYPE float_to_binary_2(BIF_ALIST_2)
+{
+  return do_float_to_binary(BIF_P,BIF_ARG_1,BIF_ARG_2);
 }
 
 /**********************************************************************/
@@ -3223,36 +3241,101 @@ BIF_RETTYPE string_to_float_1(BIF_ALIST_1)
     BIF_RET(tup);
 }
 
+static BIF_RETTYPE do_charbuf_to_float(Process *BIF_P,char *buf) {
+  FloatDef f;
+  Eterm res;
+  Eterm* hp;
+
+  if (sys_chars_to_double(buf, &f.fd) != 0)
+    BIF_ERROR(BIF_P, BADARG);
+
+  hp = HAlloc(BIF_P, FLOAT_SIZE_OBJECT);
+  res = make_float(hp);
+  PUT_DOUBLE(f, hp);
+  BIF_RET(res);
+
+}
 
 BIF_RETTYPE list_to_float_1(BIF_ALIST_1)
 {
     int i;
-    FloatDef f;
     Eterm res;
-    Eterm* hp;
     char *buf = NULL;
 
     i = list_length(BIF_ARG_1);
-    if (i < 0) {
-    badarg:
-	if (buf)
-	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	BIF_ERROR(BIF_P, BADARG);
-    }
-
+    if (i < 0)
+      BIF_ERROR(BIF_P, BADARG);
+    
     buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
     
     if (intlist_to_buf(BIF_ARG_1, buf, i) < 0)
-	goto badarg;
+      goto list_to_float_1_error;
     buf[i] = '\0';		/* null terminal */
-
-    if (sys_chars_to_double(buf, &f.fd) != 0)
-	goto badarg;
-    hp = HAlloc(BIF_P, FLOAT_SIZE_OBJECT);
-    res = make_float(hp);
-    PUT_DOUBLE(f, hp);
+    
+    if ((res = do_charbuf_to_float(BIF_P,buf)) == THE_NON_VALUE)
+      goto list_to_float_1_error;
+    
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_RET(res);
+    
+ list_to_float_1_error:
+    erts_free(ERTS_ALC_T_TMP, (void *) buf);
+    BIF_ERROR(BIF_P, BADARG);
+
+}
+
+BIF_RETTYPE binary_to_float_1(BIF_ALIST_1)
+{
+    Eterm res;
+    Eterm binary = BIF_ARG_1;
+    Sint size;
+    byte* bytes, *buf;
+    Eterm* real_bin;
+    Uint offs = 0;
+    Uint bit_offs = 0;
+
+    if (is_not_binary(binary) || (size = binary_size(binary)) == 0)
+      BIF_ERROR(BIF_P, BADARG);
+
+    /* 
+     *  Unfortunately we have to copy the binary because we have to insert
+     *  the '\0' at the end of the binary for strtod to work 
+     *  (there is no nstrtod :( )
+     */
+
+    buf = erts_alloc(ERTS_ALC_T_TMP, size + 1);
+
+    real_bin = binary_val(binary);
+    if (*real_bin == HEADER_SUB_BIN) {
+	ErlSubBin* sb = (ErlSubBin *) real_bin;
+	if (sb->bitsize) {
+	    goto binary_to_float_1_error;
+	}
+	offs = sb->offs;
+	bit_offs = sb->bitoffs;
+	real_bin = binary_val(sb->orig);
+    } 
+    if (*real_bin == HEADER_PROC_BIN) {
+	bytes = ((ProcBin *) real_bin)->bytes + offs;
+    } else {
+	bytes = (byte *)(&(((ErlHeapBin *) real_bin)->data)) + offs;
+    }
+    if (bit_offs)
+      erts_copy_bits(bytes, bit_offs, 1, buf, 0, 1, size*8);
+    else
+      memcpy(buf, bytes, size);
+    
+    buf[size] = '\0';
+    
+    if ((res = do_charbuf_to_float(BIF_P,(char*)buf)) == THE_NON_VALUE)
+	goto binary_to_float_1_error;
+
+    erts_free(ERTS_ALC_T_TMP, (void *) buf);
+    BIF_RET(res);
+
+ binary_to_float_1_error:
+    erts_free(ERTS_ALC_T_TMP, (void *) buf);
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 /**********************************************************************/

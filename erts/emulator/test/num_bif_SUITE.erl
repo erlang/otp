@@ -37,22 +37,22 @@
 
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2, end_per_group/2, t_abs/1, t_float/1,
-	 t_float_to_list/1, t_integer_to_string/1,
+	 t_float_to_string/1, t_integer_to_string/1,
 	 t_string_to_integer/1,
-	 t_list_to_float_safe/1, t_list_to_float_risky/1,
+	 t_string_to_float_safe/1, t_string_to_float_risky/1,
 	 t_round/1, t_trunc/1
      ]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [t_abs, t_float, t_float_to_list, t_integer_to_string,
-     {group, t_list_to_float}, t_string_to_integer, t_round,
+    [t_abs, t_float, t_float_to_string, t_integer_to_string,
+     {group, t_string_to_float}, t_string_to_integer, t_round,
      t_trunc].
 
 groups() -> 
-    [{t_list_to_float, [],
-      [t_list_to_float_safe, t_list_to_float_risky]}].
+    [{t_string_to_float, [],
+      [t_string_to_float_safe, t_string_to_float_risky]}].
 
 init_per_suite(Config) ->
     Config.
@@ -112,110 +112,135 @@ t_float(Config) when is_list(Config) ->
     ok.
 
 
-%% Tests float_to_list/1, float_to_list/2.
+%% Tests float_to_list/1, float_to_list/2, float_to_binary/1, float_to_binary/2
 
-t_float_to_list(Config) when is_list(Config) ->
-    test_ftl("0.0e+0", 0.0),
-    test_ftl("2.5e+1", 25.0),
-    test_ftl("2.5e+0", 2.5),
-    test_ftl("2.5e-1", 0.25),
-    test_ftl("-3.5e+17", -350.0e15),
-    "1.00000000000000000000e+00"  = float_to_list(1.0),
-    "1.00000000000000000000e+00"  = float_to_list(1.0,  []),
-    "-1.00000000000000000000e+00" = float_to_list(-1.0, []),
-    "-1.00000000000000000000"     = float_to_list(-1.0, [{decimals, 20}]),
-    {'EXIT', {badarg, _}}         = (catch float_to_list(1.0,  [{decimals, -1}])),
-    {'EXIT', {badarg, _}}         = (catch float_to_list(1.0,  [{decimals, 254}])),
-    {'EXIT', {badarg, _}}         = (catch float_to_list(1.0,  [{scientific, 250}])),
-    {'EXIT', {badarg, _}}         = (catch float_to_list(1.0e+300, [{decimals, 1}])),
-    "1.0e+300"                    = float_to_list(1.0e+300, [{scientific, 1}]),
-    "1.0"                         = float_to_list(1.0, [{decimals, 249}, compact]),
-    "1"                           = float_to_list(1.0, [{decimals, 0}]),
-    "2"                           = float_to_list(1.9, [{decimals, 0}]),
-    "123456789012345680.0"        = erlang:float_to_list(
-                                        123456789012345678.0, [{decimals, 236}, compact]),
-    {'EXIT', {badarg, _}}         = (catch float_to_list(
-                                        123456789012345678.0, [{decimals, 237}])),
-    Expected = "1." ++ string:copies("0", 249) ++ "e+00",
-    Expected = float_to_list(1.0,  [{scientific, 249}, compact]),
+t_float_to_string(Config) when is_list(Config) ->
+    test_fts("0.00000000000000000000e+00", 0.0),
+    test_fts("2.50000000000000000000e+01", 25.0),
+    test_fts("2.50000000000000000000e+00", 2.5),
+    test_fts("2.50000000000000000000e-01", 0.25),
+    test_fts("-3.50000000000000000000e+17", -350.0e15),
+    test_fts("1.00000000000000000000e+00",1.0),
+    test_fts("1.00000000000000000000e+00",1.0,  []),
+    test_fts("-1.00000000000000000000e+00",-1.0, []),
+    test_fts("-1.00000000000000000000",-1.0, [{decimals, 20}]),
+    {'EXIT', {badarg, _}} = (catch float_to_list(1.0,  [{decimals, -1}])),
+    {'EXIT', {badarg, _}} = (catch float_to_list(1.0,  [{decimals, 254}])),
+    {'EXIT', {badarg, _}} = (catch float_to_list(1.0,  [{scientific, 250}])),
+    {'EXIT', {badarg, _}} = (catch float_to_list(1.0e+300, [{decimals, 1}])),
+    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0,  [{decimals, -1}])),
+    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0,  [{decimals, 254}])),
+    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0,  [{scientific, 250}])),
+    {'EXIT', {badarg, _}} = (catch float_to_binary(1.0e+300, [{decimals, 1}])),
+    test_fts("1.0e+300",1.0e+300, [{scientific, 1}]),
+    test_fts("1.0",1.0,  [{decimals,   249}, compact]),
+    test_fts("1",1.0,[{decimals,0}]),
+    test_fts("2",1.9,[{decimals,0}]),
+    test_fts("123456789012345680.0",123456789012345678.0,
+	     [{decimals, 236}, compact]),
+    {'EXIT', {badarg, _}} = (catch float_to_list(
+				     123456789012345678.0, [{decimals, 237}])),
+    {'EXIT', {badarg, _}} = (catch float_to_binary(
+				     123456789012345678.0, [{decimals, 237}])),
+    test_fts("1." ++ string:copies("0", 249) ++ "e+00",
+	     1.0,  [{scientific, 249}, compact]),
 
     X1 = float_to_list(1.0),
     X2 = float_to_list(1.0, [{scientific, 20}]),
     X1 = X2,
-    "1.000e+00" = float_to_list(1.0,   [{scientific, 3}]),
-    "1.000"     = float_to_list(1.0,   [{decimals, 3}]),
-    "1.0"       = float_to_list(1.0,   [{decimals, 1}]),
-    "1.0"       = float_to_list(1.0,   [{decimals, 3}, compact]),
-    "1.12"      = float_to_list(1.123, [{decimals, 2}]),
-    "1.123"     = float_to_list(1.123, [{decimals, 3}]),
-    "1.123"     = float_to_list(1.123, [{decimals, 3}, compact]),
-    "1.1230"    = float_to_list(1.123, [{decimals, 4}]),
-    "1.12300"   = float_to_list(1.123, [{decimals, 5}]),
-    "1.123"     = float_to_list(1.123, [{decimals, 5}, compact]),
-    "1.1234"    = float_to_list(1.1234,[{decimals, 6}, compact]),
-    "1.01"      = float_to_list(1.005, [{decimals, 2}]),
-    "-1.01"     = float_to_list(-1.005,[{decimals, 2}]),
-    "0.999"     = float_to_list(0.999, [{decimals, 3}]),
-    "-0.999"    = float_to_list(-0.999,[{decimals, 3}]),
-    "1.0"       = float_to_list(0.999, [{decimals, 2}, compact]),
-    "-1.0"      = float_to_list(-0.999,[{decimals, 2}, compact]),
-    "0.5"       = float_to_list(0.5,   [{decimals, 1}]),
-    "-0.5"      = float_to_list(-0.5,  [{decimals, 1}]),
+
+    Y1 = float_to_binary(1.0),
+    Y2 = float_to_binary(1.0, [{scientific, 20}]),
+    Y1 = Y2,
+
+    test_fts("1.000e+00",1.0,   [{scientific, 3}]),
+    test_fts("1.000",1.0,   [{decimals,   3}]),
+    test_fts("1.0",1.0, [{decimals, 1}]),
+    test_fts("1.0",1.0, [{decimals, 3}, compact]),
+    test_fts("1.12",1.123, [{decimals, 2}]),
+    test_fts("1.123",1.123, [{decimals, 3}]),
+    test_fts("1.123",1.123, [{decimals, 3}, compact]),
+    test_fts("1.1230",1.123, [{decimals, 4}]),
+    test_fts("1.12300",1.123, [{decimals, 5}]),
+    test_fts("1.123",1.123, [{decimals, 5}, compact]),
+    test_fts("1.1234",1.1234,[{decimals, 6}, compact]),
+    test_fts("1.01",1.005, [{decimals, 2}]),
+    test_fts("-1.01",-1.005,[{decimals, 2}]),
+    test_fts("0.999",0.999, [{decimals, 3}]),
+    test_fts("-0.999",-0.999,[{decimals, 3}]),
+    test_fts("1.0",0.999, [{decimals, 2}, compact]),
+    test_fts("-1.0",-0.999,[{decimals, 2}, compact]),
+    test_fts("0.5",0.5,   [{decimals, 1}]),
+    test_fts("-0.5",-0.5,  [{decimals, 1}]),
     "2.333333"  = erlang:float_to_list(7/3, [{decimals, 6}, compact]),
     "2.333333"  = erlang:float_to_list(7/3, [{decimals, 6}]),
-    "0.00000000000000000000e+00" = float_to_list(0.0, [compact]),
-    "0.0"       = float_to_list(0.0,   [{decimals, 10}, compact]),
-    "123000000000000000000.0"    = float_to_list(1.23e20, [{decimals,   10}, compact]),
-    "1.2300000000e+20"           = float_to_list(1.23e20, [{scientific, 10}, compact]),
-    "1.23000000000000000000e+20" = float_to_list(1.23e20, []),
+    <<"2.333333">>  = erlang:float_to_binary(7/3, [{decimals, 6}, compact]),
+    <<"2.333333">>  = erlang:float_to_binary(7/3, [{decimals, 6}]),
+    test_fts("0.00000000000000000000e+00",0.0, [compact]),
+    test_fts("0.0",0.0,   [{decimals, 10}, compact]),
+    test_fts("123000000000000000000.0",1.23e20, [{decimals,   10}, compact]),
+    test_fts("1.2300000000e+20",1.23e20, [{scientific, 10}, compact]),
+    test_fts("1.23000000000000000000e+20",1.23e20, []),
     ok.
     
-test_ftl(Expect, Float) ->
-    %% No ?line on the next line -- we want the line number from t_float_to_list.
-    Expect = remove_zeros(lists:reverse(float_to_list(Float)), []).
+test_fts(Expect, Float) ->
+    Expect = float_to_list(Float),
+    BinExpect = list_to_binary(Expect),
+    BinExpect = float_to_binary(Float).
 
-%% Removes any non-significant zeros in a floating point number.
-%% Example: 2.500000e+01 -> 2.5e+1
+test_fts(Expect, Float, Args) ->
+    Expect = float_to_list(Float,Args),
+    BinExpect = list_to_binary(Expect),
+    BinExpect = float_to_binary(Float,Args).
 
-remove_zeros([$+, $e|Rest], [$0, X|Result]) ->
-    remove_zeros([$+, $e|Rest], [X|Result]);
-remove_zeros([$-, $e|Rest], [$0, X|Result]) ->
-    remove_zeros([$-, $e|Rest], [X|Result]);
-remove_zeros([$0, $.|Rest], [$e|Result]) ->
-    remove_zeros(Rest, [$., $0, $e|Result]);
-remove_zeros([$0|Rest], [$e|Result]) ->
-    remove_zeros(Rest, [$e|Result]);
-remove_zeros([Char|Rest], Result) ->
-    remove_zeros(Rest, [Char|Result]);
-remove_zeros([], Result) ->
-    Result.
 
 %% Tests list_to_float/1.
 
-t_list_to_float_safe(Config) when is_list(Config) ->
-    0.0 = list_to_float(id("0.0")),
-    0.0 = list_to_float(id("-0.0")),
-    0.5 = list_to_float(id("0.5")),
-    -0.5 = list_to_float(id("-0.5")),
-    100.0 = list_to_float(id("1.0e2")),
-    127.5 = list_to_float(id("127.5")),
-    -199.5 = list_to_float(id("-199.5")),
+t_string_to_float_safe(Config) when is_list(Config) ->
+    test_stf(0.0,"0.0"),
+    test_stf(0.0,"-0.0"),
+    test_stf(0.5,"0.5"),
+    test_stf(-0.5,"-0.5"),
+    test_stf(100.0,"1.0e2"),
+    test_stf(127.5,"127.5"),
+    test_stf(-199.5,"-199.5"),
 
     {'EXIT',{badarg,_}} = (catch list_to_float(id("0"))),
     {'EXIT',{badarg,_}} = (catch list_to_float(id("0..0"))),
     {'EXIT',{badarg,_}} = (catch list_to_float(id("0e12"))),
     {'EXIT',{badarg,_}} = (catch list_to_float(id("--0.0"))),
+    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"0">>))),
+    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"0..0">>))),
+    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"0e12">>))),
+    {'EXIT',{badarg,_}} = (catch binary_to_float(id(<<"--0.0">>))),
+
+    UBin = <<0:3,(id(<<"0.0">>))/binary,0:5>>,
+    <<_:3,UnAlignedBin:3/binary,0:5>> = id(UBin),
+    0.0 = binary_to_float(UnAlignedBin),
+
+    ABin = <<0:8,(id(<<"1.0">>))/binary,0:8>>,
+    <<_:8,AlignedBin:3/binary,0:8>> = id(ABin),
+    1.0 = binary_to_float(AlignedBin),
 
     ok.
 
 %% This might crash the emulator...
 %% (Known to crash the Unix version of Erlang 4.4.1)
 
-t_list_to_float_risky(Config) when is_list(Config) ->
+t_string_to_float_risky(Config) when is_list(Config) ->
     Many_Ones = lists:duplicate(25000, id($1)),
     id(list_to_float("2."++Many_Ones)),
     {'EXIT', {badarg, _}} = (catch list_to_float("2"++Many_Ones)),
+
+    id(binary_to_float(list_to_binary("2."++Many_Ones))),
+    {'EXIT', {badarg, _}} = (catch binary_to_float(
+				     list_to_binary("2"++Many_Ones))),
     ok.
+
+test_stf(Expect,List) ->
+    Expect = list_to_float(List),
+    Bin = list_to_binary(List),
+    Expect = binary_to_float(Bin).
 
 %% Tests round/1.
 

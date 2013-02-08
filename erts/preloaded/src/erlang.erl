@@ -74,7 +74,7 @@
 
 -export([adler32/1, adler32/2, adler32_combine/3, append_element/2]).
 -export([atom_to_binary/2, atom_to_list/1, binary_part/2, binary_part/3]).
--export([binary_to_atom/2, binary_to_existing_atom/2]).
+-export([binary_to_atom/2, binary_to_existing_atom/2, binary_to_float/1]).
 -export([binary_to_integer/1,binary_to_integer/2]).
 -export([binary_to_list/1]).
 -export([binary_to_list/3, binary_to_term/1, binary_to_term/2]).
@@ -87,7 +87,8 @@
 -export([display_nl/0, display_string/1, dist_exit/3, erase/0, erase/1]).
 -export([error/1, error/2, exit/1, exit/2, external_size/1]).
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
--export([float_to_list/1, float_to_list/2]).
+-export([float_to_binary/1, float_to_binary/2,
+	 float_to_list/1, float_to_list/2]).
 -export([fun_info/2, fun_to_list/1, function_exported/3]).
 -export([garbage_collect/0, garbage_collect/1]).
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/1]).
@@ -320,6 +321,12 @@ binary_to_atom(_Binary, _Encoding) ->
       Binary :: binary(),
       Encoding :: latin1 | unicode | utf8.
 binary_to_existing_atom(_Binary, _Encoding) ->
+    erlang:nif_error(undefined).
+
+%% binary_to_float/1
+-spec binary_to_float(Binary) -> float() when
+      Binary :: binary().
+binary_to_float(_Binary) ->
     erlang:nif_error(undefined).
 
 %% binary_to_integer/1
@@ -724,6 +731,22 @@ finish_after_on_load(_P1, _P2) ->
 float(_Number) ->
     erlang:nif_error(undefined).
 
+%% float_to_binary/1
+-spec float_to_binary(Float) -> binary() when
+      Float :: float().
+float_to_binary(_Float) ->
+    erlang:nif_error(undefined).
+
+%% float_to_binary/2
+-spec float_to_binary(Float, Options) -> binary() when
+      Float :: float(),
+      Options :: [Option],
+      Option  :: {decimals, Decimals :: 0..253} |
+                 {scientific, Decimals :: 0..249} |
+                 compact.
+float_to_binary(_Float, _Options) ->
+    erlang:nif_error(undefined).
+
 %% float_to_list/1
 -spec float_to_list(Float) -> string() when
       Float :: float().
@@ -734,8 +757,8 @@ float_to_list(_Float) ->
 -spec float_to_list(Float, Options) -> string() when
       Float :: float(),
       Options :: [Option],
-      Option  :: {decimals, non_neg_integer()} |
-                 {scientific, non_neg_integer()} |
+      Option  :: {decimals, Decimals :: 0..253} |
+                 {scientific, Decimals :: 0..249} |
                  compact.
 float_to_list(_Float, _Options) ->
     erlang:nif_error(undefined).
