@@ -16,7 +16,7 @@
 <header>
 
 <copyright>
-<year>2011</year><year>2012</year>
+<year>2011</year><year>2013</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -76,14 +76,18 @@ The generated hrl also contains macro definitions for the possible values of
 AVPs of type Enumerated.</p>
 
 <p>
-The diameter application includes three dictionary modules
+The diameter application includes five dictionary modules
 corresponding to applications defined in section 2.4 of &the_rfc;:
-<c>diameter_gen_base_rfc3588</c> for the Diameter Common Messages
-application with application identifier 0,
-<c>diameter_gen_accounting</c> for the Diameter Base Accounting
+<c>diameter_gen_base_rfc3588</c> and <c>diameter_gen_base_rfc6733</c>
+for the Diameter Common Messages application with application
+identifier 0,
+<c>diameter_gen_accounting</c> (for RFC 3588) and
+<c>diameter_gen_acct_rfc6733</c> for the Diameter Base Accounting
 application with application identifier 3 and
 <c>diameter_gen_relay</c> the Relay application with application
-identifier 0xFFFFFFFF.
+identifier 0xFFFFFFFF.</p>
+
+<p>
 The Common Message and Relay applications are the only applications
 that diameter itself has any specific knowledge of.
 The Common Message application is used for messages that diameter
