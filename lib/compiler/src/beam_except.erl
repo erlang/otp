@@ -49,13 +49,14 @@ function({function,Name,Arity,CLabel,Is0}) ->
 
 -record(st,
 	{lbl,					%func_info label
-	 loc					%location for func_info
+	 loc,					%location for func_info
+	 arity					%arity for function
 	 }).
 
 function_1(Is0) ->
     case Is0 of
-	[{label,Lbl},{line,Loc}|_] ->
-	    St = #st{lbl=Lbl,loc=Loc},
+	[{label,Lbl},{line,Loc},{func_info,_,_,Arity}|_] ->
+	    St = #st{lbl=Lbl,loc=Loc,arity=Arity},
 	    translate(Is0, St, []);
 	[{label,_}|_] ->
 	    %% No line numbers. The source must be a .S file.
@@ -74,14 +75,14 @@ translate_1(Ar, I, Is, St, [{line,_}=Line|Acc1]=Acc0) ->
     case dig_out(Ar, Acc1) of
 	no ->
 	    translate(Is, St, [I|Acc0]);
-	{yes,function_clause,Acc2} ->
+	{yes,{function_clause,Arity},Acc2} ->
 	    case {Line,St} of
-		{{line,Loc},#st{lbl=Fi,loc=Loc}} ->
+		{{line,Loc},#st{lbl=Fi,loc=Loc,arity=Arity}} ->
 		    Instr = {jump,{f,Fi}},
 		    translate(Is, St, [Instr|Acc2]);
 		{_,_} ->
 		    %% This must be "error(function_clause, Args)" in
-		    %% the Erlang source code. Don't translate.
+		    %% the Erlang source code or a fun. Don't translate.
 		    translate(Is, St, [I|Acc0])
 	    end;
 	{yes,Instr,Acc2} ->
@@ -135,11 +136,16 @@ fix_block(Is0, Words) ->
     [{set,[],[],{alloc,Live,{F1,F2,Needed-Words,F3}}}|Is].
 
 dig_out_block_fc([{set,[],[],{alloc,Live,_}}|Bl]) ->
-    dig_out_fc(Bl, Live-1, nil);
+    case dig_out_fc(Bl, Live-1, nil) of
+	no ->
+	    no;
+	yes ->
+	    {yes,{function_clause,Live}}
+    end;
 dig_out_block_fc(_) -> no.
 
 dig_out_fc([{set,[Dst],[{x,Reg},Dst0],put_list}|Is], Reg, Dst0) ->
     dig_out_fc(Is, Reg-1, Dst);
 dig_out_fc([{set,[{x,0}],[{atom,function_clause}],move}], -1, {x,1}) ->
-    {yes,function_clause};
+    yes;
 dig_out_fc(_, _, _) -> no.
