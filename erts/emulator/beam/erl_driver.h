@@ -408,6 +408,11 @@ EXTERN int driver_cancel_timer(ErlDrvPort port);
 EXTERN int driver_read_timer(ErlDrvPort port, unsigned long *time_left);
 
 /*
+ * Inform runtime system about lengthy work.
+ */
+EXTERN int erl_drv_consume_timeslice(ErlDrvPort port, int percent);
+
+/*
  * Get plain-text error message from within a driver
  */
 EXTERN char* erl_errno_id(int error);

@@ -35,6 +35,13 @@ extern Export* erts_format_cpu_topology_trap;
 #define BIF_ARG_2  (BIF__ARGS[1])
 #define BIF_ARG_3  (BIF__ARGS[2])
 
+#define ERTS_IS_PROC_OUT_OF_REDS(p)		\
+    ((p)->fcalls > 0				\
+     ? 0					\
+     : (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))	\
+	? (p)->fcalls == 0			\
+	: ((p)->fcalls == -CONTEXT_REDS)))
+
 #define BUMP_ALL_REDS(p) do {			\
     if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) 	\
 	(p)->fcalls = 0; 			\

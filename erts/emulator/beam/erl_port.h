@@ -175,6 +175,7 @@ struct _erl_drv_port {
     ErlDrvPDL port_data_lock;
 
     ErtsPrtSD *psd;		 /* Port specific data */
+    int reds; /* Only used while executing driver callbacks */
 };
 
 #define ERTS_PORT_GET_CONNECTED(PRT) \

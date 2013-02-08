@@ -170,10 +170,13 @@
      callback, the best approach is to divide the work into multiple chunks of
      work and trigger multiple calls to the
      <seealso marker="driver_entry#timeout">timeout callback</seealso> using
-     zero timeouts. This might, however, not always be possible, e.g. when
-     calling third party libraries. In this case you typically want to dispatch
-     the work to another thread. Information about thread primitives can be
-     found below.</p>
+     zero timeouts. The
+     <seealso marker="#erl_drv_consume_timeslice"><c>erl_drv_consume_timeslice()</c></seealso>
+     function can be useful in order to determine when to trigger such
+     timeout callback calls. It might, however, not always be possible to
+     implement it this way, e.g. when calling third party libraries. In this
+     case you typically want to dispatch the work to another thread.
+     Information about thread primitives can be found below.</p>
   </description>
 
   <section>
@@ -2807,7 +2810,6 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
         <p>This function is thread-safe.</p>
       </desc>
     </func>
-
     <func>
       <name><ret>int</ret><nametext>erl_drv_getenv(char *key, char *value, size_t *value_size)</nametext></name>
       <fsummary>Get the value of an environment variable</fsummary>
@@ -2841,6 +2843,52 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
 	         C library interfaces from a driver.
 	</p></warning>
         <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>erl_drv_consume_timeslice(ErlDrvPort port, int percent)</nametext></name>
+      <fsummary>Give the runtime system a hint about how much CPU time the
+      current driver callback call has consumed</fsummary>
+      <desc>
+        <marker id="erl_drv_consume_timeslice"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>port</c></tag>
+          <item>Port handle of the executing port.</item>
+          <tag><c>percent</c></tag>
+          <item>Approximate consumed fraction of a full
+	  time-slice in percent.</item>
+        </taglist>
+	<p>Give the runtime system a hint about how much CPU time the
+	current driver callback call has consumed since last hint, or
+	since the start of the callback if no previous hint has been given.
+	The time is given as a fraction, in percent, of a full time-slice
+	that a port is allowed to execute before it should surrender the
+	CPU to other runnable ports or processes. Valid range is
+	<c>[1, 100]</c>. The scheduling time-slice is not an exact entity,
+	but can usually be approximated to about 1 millisecond.</p>
+
+	<p>Note that it is up to the runtime system to determine if and
+	how to	use this information. Implementations on some platforms
+	may use other means in order to determine the consumed fraction
+	of the time-slice. Lengthy driver callbacks should regardless of
+	this frequently call the <c>erl_drv_consume_timeslice()</c>
+	function in order to determine if it is allowed to continue
+	execution or not.</p>
+
+	<p><c>erl_drv_consume_timeslice()</c> returns a non-zero value
+	if the time-slice has been exhausted, and zero if the callback is
+	allowed to continue execution. If a non-zero value is
+	returned the driver callback should return as soon as possible in
+	order for the port to be able to yield.</p>
+
+	<p>This function is provided to better support co-operative scheduling,
+	improve system responsiveness, and to make it easier to prevent
+	misbehaviors of the VM due to a port monopolizing a scheduler thread.
+	It can be used when dividing length work into a number of repeated
+	driver callback calls without the need to use threads. Also see the
+	important <seealso marker="#WARNING">warning</seealso> text at the
+	beginning of this document.</p>
       </desc>
     </func>
   </funcs>
