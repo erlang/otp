@@ -185,7 +185,7 @@ server(StartSync) ->
     %% Check if we're in user restricted mode.
     RShErr = 
 	case application:get_env(stdlib, restricted_shell) of
-	    {ok,RShMod} ->
+	    {ok,RShMod} when is_atom(RShMod) ->
 		io:fwrite(<<"Restricted ">>, []),
 		case code:ensure_loaded(RShMod) of
 		    {module,RShMod} -> 
@@ -193,6 +193,8 @@ server(StartSync) ->
 		    {error,What} ->
 			{RShMod,What}
 		end;
+            {ok, Term} ->
+                {Term,not_an_atom};
 	    undefined ->
 		undefined
 	end,
