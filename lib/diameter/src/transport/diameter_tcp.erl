@@ -557,9 +557,7 @@ tls_handshake(Type, true, #transport{socket = Sock,
                           = S) ->
     {ok, SSock} = tls(Type, Sock, [{cb_info, ?TCP_CB(M)} | Opts]),
     Ref = getr(?REF_KEY),
-    is_reference(Ref)  %% started in new code
-        andalso
-        (true = diameter_reg:add_new({?MODULE, Type, {Ref, SSock}})),
+    true = diameter_reg:add_new({?MODULE, Type, {Ref, SSock}}),
     S#transport{socket = SSock,
                 module = ssl};
 

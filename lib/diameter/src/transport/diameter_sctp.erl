@@ -585,8 +585,7 @@ recv({_, #sctp_assoc_change{state = comm_up,
                 socket = Sock}
      = S) ->
     Ref = getr(?REF_KEY),
-    is_reference(Ref)  %% started in new code
-        andalso publish(T, Ref, Id, Sock),
+    publish(T, Ref, Id, Sock),
     up(S#transport{assoc_id = Id,
                    streams = {IS, OS}});
 
