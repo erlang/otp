@@ -93,7 +93,8 @@ before configuring TLS capability on diameter transports.</p>
 <v>Reason = term()</v>
 <v>OwnOpt = {raddr, &ip_address;}
           | {rport, integer()}
-          | {port, integer()}</v>
+          | {port, integer()}
+          | {fragment_timer, infinity | 0..16#FFFFFFFF}</v>
 <v>SslOpt = {ssl_options, true | list()}</v>
 <v>TcpOpt = term()</v>
 </type>
@@ -103,7 +104,6 @@ before configuring TLS capability on diameter transports.</p>
 The start function required by &man_transport;.</p>
 
 <p>
-The only diameter_tcp-specific argument is the options list.
 Options <c>raddr</c> and <c>rport</c> specify the remote address
 and port for a connecting transport and are not valid for a listening
 transport.
@@ -112,7 +112,18 @@ that should support TLS: a value of <c>true</c> results in a
 TLS handshake immediately upon connection establishment while
 <c>list()</c> specifies options to be passed to &ssl_connect2; or
 &ssl_accept2;
-after capabilities exchange if TLS is negotiated.
+after capabilities exchange if TLS is negotiated.</p>
+
+<p>
+Option <c>fragment_timer</c> specifies the timeout, in milliseconds,
+of a timer used to flush messages from the incoming byte
+stream even if the number of bytes indicated in the Message Length
+field of its Diameter Header have not yet been accumulated:
+such a message is received over the transport interface after
+two successive timeouts without the reception of additional bytes.
+Defaults to 1000.</p>
+
+<p>
 Remaining options are any accepted by &ssl_connect3; or
 &gen_tcp_connect3; for
 a connecting transport, or &ssl_listen2; or &gen_tcp_listen2; for

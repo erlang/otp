@@ -15,7 +15,7 @@
 <erlref>
 <header>
 <copyright>
-<year>2011</year><year>2012</year>
+<year>2011</year><year>2013</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -81,7 +81,6 @@ and implements the behaviour documented in
 The start function required by &man_transport;.</p>
 
 <p>
-The only diameter_sctp-specific argument is the options list.
 Options <c>raddr</c> and <c>rport</c> specify the remote address
 and port for a connecting transport and not valid for a listening
 transport: the former is required while latter defaults to 3868 if
