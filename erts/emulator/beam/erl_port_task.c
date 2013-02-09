@@ -685,12 +685,12 @@ enqueue_proc2port_data(Port *pp,
 void
 erl_drv_busy_msgq_limits(ErlDrvPort dport, ErlDrvSizeT *lowp, ErlDrvSizeT *highp)
 {
-    Port *pp = erts_drvport2port(dport, NULL);
-    ErtsPortTaskBusyPortQ *bpq = pp->sched.taskq.bpq;
+    Port *pp = erts_drvport2port(dport);
+    ErtsPortTaskBusyPortQ *bpq;
     int written = 0, resume_procs = 0;
     ErlDrvSizeT low, high;
 
-    if (!pp || !bpq) {
+    if (pp == ERTS_INVALID_ERL_DRV_PORT || !(bpq = pp->sched.taskq.bpq)) {
 	if (lowp)
 	    *lowp = ERL_DRV_BUSY_MSGQ_DISABLED;
 	if (highp)
