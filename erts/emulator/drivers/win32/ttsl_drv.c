@@ -414,12 +414,12 @@ static int check_buf_size(byte *s, int n)
 	} 
 	if (utf8_mode) { /* That is, terminal is UTF8 compliant */
 	    if (ch >= 128 || isprint(ch)) {
-		DEBUGLOG(("Printable(UTF-8:%d):%d",(pos - opos),ch));
+		DEBUGLOG(("Printable(UTF-8:%d):%d",pos,ch));
 		size++; /* Buffer contains wide characters... */
 	    } else if (ch == '\t') {
 		size += 8;
 	    } else {
-		DEBUGLOG(("Magic(UTF-8:%d):%d",(pos - opos),ch));
+		DEBUGLOG(("Magic(UTF-8:%d):%d",pos,ch));
 		size += 2;
 	    }
 	} else {
