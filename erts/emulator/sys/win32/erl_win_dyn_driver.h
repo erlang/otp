@@ -37,6 +37,7 @@ WDD_TYPEDEF(int, driver_failure_posix,(ErlDrvPort, int));
 WDD_TYPEDEF(int, driver_failure,(ErlDrvPort, int));
 WDD_TYPEDEF(int, driver_exit, (ErlDrvPort, int));
 WDD_TYPEDEF(int, driver_failure_eof, (ErlDrvPort));
+WDD_TYPEDEF(void, erl_drv_busy_msgq_limits, (ErlDrvPort, ErlDrvSizeT *, ErlDrvSizeT *));
 WDD_TYPEDEF(int, driver_select, (ErlDrvPort, ErlDrvEvent, int, int));
 WDD_TYPEDEF(int, driver_event, (ErlDrvPort, ErlDrvEvent,ErlDrvEventData));
 WDD_TYPEDEF(int, driver_output, (ErlDrvPort, char *, ErlDrvSizeT));
@@ -152,6 +153,7 @@ typedef struct {
     WDD_FTYPE(driver_failure) *driver_failure;
     WDD_FTYPE(driver_exit) *driver_exit;
     WDD_FTYPE(driver_failure_eof) *driver_failure_eof;
+    WDD_FTYPE(erl_drv_busy_msgq_limits) *erl_drv_busy_msgq_limits;
     WDD_FTYPE(driver_select) *driver_select;
     WDD_FTYPE(driver_event) *driver_event;
     WDD_FTYPE(driver_output) *driver_output;
@@ -261,6 +263,7 @@ extern TWinDynDriverCallbacks WinDynDriverCallbacks;
 #define driver_failure (WinDynDriverCallbacks.driver_failure)
 #define driver_exit (WinDynDriverCallbacks.driver_exit)
 #define driver_failure_eof (WinDynDriverCallbacks.driver_failure_eof)
+#define erl_drv_busy_msgq_limits (WinDynDriverCallbacks.erl_drv_busy_msgq_limits)
 #define driver_select (WinDynDriverCallbacks.driver_select)
 #define driver_event (WinDynDriverCallbacks.driver_event)
 #define driver_output (WinDynDriverCallbacks.driver_output)
@@ -394,6 +397,7 @@ do {				                        \
 ((W).driver_failure) = driver_failure;			\
 ((W).driver_exit) = driver_exit;			\
 ((W).driver_failure_eof) = driver_failure_eof;		\
+((W).erl_drv_busy_msgq_limits) = erl_drv_busy_msgq_limits;\
 ((W).driver_select) = driver_select;			\
 ((W).driver_event) = driver_event;			\
 ((W).driver_output) = driver_output;			\
