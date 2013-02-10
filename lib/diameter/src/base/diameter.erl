@@ -306,7 +306,8 @@ call(SvcName, App, Message) ->
     | {module, app_module()}
     | {state, any()}
     | {call_mutates_state, boolean()}
-    | {answer_errors, callback|report|discard}.
+    | {answer_errors, callback|report|discard}
+    | {request_errors, callback|answer_3xxx}.
 
 -type app_alias()
    :: any().
