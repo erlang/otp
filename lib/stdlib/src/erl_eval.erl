@@ -346,7 +346,12 @@ expr({call,_,{atom,_,Func},As0}, Bs0, Lf, Ef, RBs) ->
 expr({call,_,Func0,As0}, Bs0, Lf, Ef, RBs) -> % function or {Mod,Fun}
     {value,Func,Bs1} = expr(Func0, Bs0, Lf, Ef, none),
     {As,Bs2} = expr_list(As0, Bs1, Lf, Ef),
-    do_apply(Func, As, Bs2, Ef, RBs);
+    case Func of
+	{M,F} when is_atom(M), is_atom(F) ->
+	    erlang:raise(error, {badfun,Func}, stacktrace());
+	_ ->
+	    do_apply(Func, As, Bs2, Ef, RBs)
+    end;
 expr({'catch',_,Expr}, Bs0, Lf, Ef, RBs) ->
     Ref = make_ref(),
     case catch {Ref,expr(Expr, Bs0, Lf, Ef, none)} of
