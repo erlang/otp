@@ -118,13 +118,13 @@ check(String) ->
 
 %%% (This should be useful for all format_error functions.)
 check_error({error, Info, EndLine}, Module0) ->
-    ?line {ErrorLine, Module, Desc} = Info,
-    ?line true = (Module == Module0),
-    ?line assert_type(EndLine, integer),
-    ?line assert_type(ErrorLine, integer),
-    ?line true = (ErrorLine =< EndLine),
-    ?line String = lists:flatten(Module0:format_error(Desc)),
-    ?line true = io_lib:printable_list(String).
+    {ErrorLine, Module, Desc} = Info,
+    true = (Module == Module0),
+    assert_type(EndLine, integer),
+    assert_type(ErrorLine, integer),
+    true = (ErrorLine =< EndLine),
+    String = lists:flatten(Module0:format_error(Desc)),
+    true = io_lib:printable_list(String).
 
 iso88591(doc) -> ["Tests the support for ISO-8859-1 i.e Latin-1"];
 iso88591(suite) -> [];
@@ -809,77 +809,57 @@ white_spaces() ->
 
 unicode() ->
     ?line {ok,[{char,1,83},{integer,1,45}],1} =
-        erl_scan:string("$\\12345", 1, [{unicode,false}]), % not unicode
+        erl_scan:string("$\\12345"), % not unicode
 
     ?line {error,{1,erl_scan,{illegal,character}},1} =
-        erl_scan:string([1089], 1, [{unicode,false}]),
+        erl_scan:string([1089]),
     ?line {error,{{1,1},erl_scan,{illegal,character}},{1,2}} =
-        erl_scan:string([1089], {1,1}, [{unicode,false}]),
-    ?line {error,{1,erl_scan,{illegal,character}},1} =
-    %% ?line {error,{1,erl_scan,{illegal,atom}},1} =
-        erl_scan:string("'a"++[1089]++"b'", 1, [{unicode,false}]),
-    ?line {error,{{1,3},erl_scan,{illegal,character}},{1,4}} =
-        erl_scan:string("'a"++[1089]++"b'", {1,1}, [{unicode,false}]),
+        erl_scan:string([1089], {1,1}),
+    ?line {error,{1,erl_scan,{illegal,atom}},1} =
+        erl_scan:string("'a"++[1089]++"b'", 1),
+    ?line {error,{{1,1},erl_scan,{illegal,atom}},{1,6}} =
+        erl_scan:string("'a"++[1089]++"b'", {1,1}),
     ?line test("\"a"++[1089]++"b\""),
     ?line {ok,[{char,1,1}],1} =
-        erl_scan:string([$$,$\\,$^,1089], 1, [{unicode,false}]),
+        erl_scan:string([$$,$\\,$^,1089], 1),
 
     ?line {error,{1,erl_scan,Error},1} =
-        erl_scan:string("\"qa\x{aaa}", 1, [{unicode,false}]),
+        erl_scan:string("\"qa\x{aaa}", 1),
     ?line "unterminated string starting with \"qa"++[2730]++"\"" =
         erl_scan:format_error(Error),
     ?line {error,{{1,1},erl_scan,_},{1,11}} =
-        erl_scan:string("\"qa\\x{aaa}",{1,1}, [{unicode,false}]),
-    ?line {error,{{1,4},erl_scan,{illegal,character}},{1,11}} =
-        erl_scan:string("'qa\\x{aaa}'",{1,1}, [{unicode,false}]),
+        erl_scan:string("\"qa\\x{aaa}",{1,1}),
+    ?line {error,{{1,1},erl_scan,{illegal,atom}},{1,12}} =
+        erl_scan:string("'qa\\x{aaa}'",{1,1}),
 
-    Tags = [category, column, length, line, symbol, text],
-
-    %% Workaround. No character codes greater than 255! To be changed.
-    %% Note: don't remove these tests, just modify them!
-
-    ?line {ok,[{integer,1,1089}],1} =
-        erl_scan:string([$$,1089], 1, [{unicode,false}]),
-    ?line {ok,[{integer,1,1089}],1} =
-        erl_scan:string([$$,$\\,1089], 1, [{unicode,false}]),
+    ?line {ok,[{char,1,1089}],1} =
+        erl_scan:string([$$,1089], 1),
+    ?line {ok,[{char,1,1089}],1} =
+        erl_scan:string([$$,$\\,1089], 1),
 
     Qs = "$\\x{aaa}",
-    ?line {ok,[{integer,1,16#aaa}],1} =
-        erl_scan:string(Qs, 1, [{unicode,false}]),
+    ?line {ok,[{char,1,$\x{aaa}}],1} =
+        erl_scan:string(Qs, 1),
     ?line {ok,[Q2],{1,9}} =
-        erl_scan:string("$\\x{aaa}", {1,1}, [text,{unicode,false}]),
-    ?line [{category,integer},{column,1},{length,8},
+        erl_scan:string("$\\x{aaa}", {1,1}, [text]),
+    ?line [{category,char},{column,1},{length,8},
            {line,1},{symbol,16#aaa},{text,Qs}] =
         erl_scan:token_info(Q2),
 
     U1 = "\"\\x{aaa}\"",
-    ?line {ok,[T1,T2,T3],{1,10}} =
-        erl_scan:string(U1, {1,1}, [text,{unicode,false}]),
-    ?line [{category,'['},{column,1},{length,1},{line,1},
-           {symbol,'['},{text,"\""}] = erl_scan:token_info(T1, Tags),
-    ?line [{category,integer},{column,2},{length,7},
-           {line,1},{symbol,16#aaa},{text,"\\x{aaa}"}] =
-        erl_scan:token_info(T2, Tags),
-    ?line [{category,']'},{column,9},{length,1},{line,1},
-           {symbol,']'},{text,"\""}] = erl_scan:token_info(T3, Tags),
-    ?line  {ok,[{'[',1},{integer,1,16#aaa},{']',1}],1} =
-        erl_scan:string(U1, 1, [{unicode,false}]),
+    {ok,
+     [{string,[{line,1},{column,1},{text,"\"\\x{aaa}\""}],[2730]}],
+     {1,10}} = erl_scan:string(U1, {1,1}, [text]),
+    {ok,[{string,1,[2730]}],1} = erl_scan:string(U1, 1),
 
     U2 = "\"\\x41\\x{fff}\\x42\"",
-    ?line {ok,[{'[',1},{char,1,16#41},{',',1},{integer,1,16#fff},
-               {',',1},{char,1,16#42},{']',1}],1} =
-        erl_scan:string(U2, 1, [{unicode,false}]),
+    {ok,[{string,1,[$\x41,$\x{fff},$\x42]}],1} = erl_scan:string(U2, 1),
 
     U3 = "\"a\n\\x{fff}\n\"",
-    ?line {ok,[{'[',1},{char,1,$a},{',',1},{char,1,$\n},
-               {',',2},{integer,2,16#fff},{',',2},{char,2,$\n},
-               {']',3}],3} =
-        erl_scan:string(U3, 1, [{unicode,false}]),
+    {ok,[{string,1,[$a,$\n,$\x{fff},$\n]}],3} = erl_scan:string(U3, 1),
 
     U4 = "\"\\^\n\\x{aaa}\\^\n\"",
-    ?line {ok,[{'[',1},{char,1,$\n},{',',2},{integer,2,16#aaa},
-               {',',2},{char,2,$\n},{']',3}],3} =
-        erl_scan:string(U4, 1, [{unicode,false}]),
+    {ok,[{string,1,[$\n,$\x{aaa},$\n]}],3} = erl_scan:string(U4, 1),
 
     %% Keep these tests:
     ?line test(Qs),
@@ -889,21 +869,15 @@ unicode() ->
     ?line test(U4),
 
     Str1 = "\"ab" ++ [1089] ++ "cd\"",
-    ?line {ok,[{'[',1},{char,1,$a},{',',1},{char,1,$b},{',',1},
-               {integer,1,1089},{',',1},{char,1,$c},{',',1},
-               {char,1,$d},{']',1}],1} =
-        erl_scan:string(Str1, 1, [{unicode,false}]),
-    ?line {ok,[{'[',_},{char,_,$a},{',',_},{char,_,$b},{',',_},
-               {integer,_,1089},{',',_},{char,_,$c},{',',_},
-               {char,_,$d},{']',_}],{1,8}} =
-        erl_scan:string(Str1, {1,1}, [{unicode,false}]),
+    {ok,[{string,1,[$a,$b,1089,$c,$d]}],1} = erl_scan:string(Str1, 1),
+    {ok,[{string,{1,1},[$a,$b,1089,$c,$d]}],{1,8}} =
+        erl_scan:string(Str1, {1,1}),
     ?line test(Str1),
     Comment = "%% "++[1089],
-    %% Returned a comment In R15B03:
-    {error,{1,erl_scan,{illegal,character}},1} =
-        erl_scan:string(Comment, 1, [return,{unicode,false}]),
-    {error,{{1,1},erl_scan,{illegal,character}},{1,5}} =
-        erl_scan:string(Comment, {1,1}, [return,{unicode,false}]),
+    {ok,[{comment,1,[$%,$%,$\s,1089]}],1} =
+        erl_scan:string(Comment, 1, [return]),
+    {ok,[{comment,{1,1},[$%,$%,$\s,1089]}],{1,5}} =
+        erl_scan:string(Comment, {1,1}, [return]),
     ok.
 
 more_chars() ->
