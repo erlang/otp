@@ -1086,6 +1086,10 @@ funs(Config) when is_list(Config) ->
 		"begin M = lists, F = fun M:reverse/1,"
 		" [1,2] = F([2,1]), ok end.",
 		ok),
+
+    %% Test that {M,F} is not accepted as a fun.
+    error_check("{" ?MODULE_STRING ",module_info}().",
+		{badfun,{?MODULE,module_info}}),
     ok.
 
 run_many_args({S, As}) ->
