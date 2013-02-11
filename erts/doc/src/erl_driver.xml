@@ -1960,9 +1960,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
           emulator thread. This enables the driver to perform
           time-consuming, blocking operations without blocking the
           emulator.</p>
-        <p>Erlang is by default started without an async thread pool. The
-          number of async threads that the runtime system should use
-          is specified by the
+        <p>The async thread pool size can be set with the
           <seealso marker="erl#async_thread_pool_size">+A</seealso>
           command line argument of <seealso marker="erl">erl(1)</seealso>.
           If no async thread pool is available, the call is made
