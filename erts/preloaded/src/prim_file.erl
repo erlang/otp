@@ -152,7 +152,8 @@
 
 -export([internal_name2native/1,
          internal_native2name/1,
-         internal_normalize_utf8/1]).
+         internal_normalize_utf8/1,
+	 is_translatable/1]).
 
 -type prim_file_name() :: string() | unicode:unicode_binary().
 -type prim_file_name_error() :: 'error' | 'ignore' | 'warning'.
@@ -171,6 +172,11 @@ internal_native2name(_) ->
 -spec internal_normalize_utf8(unicode:unicode_binary()) -> string().
 
 internal_normalize_utf8(_) ->
+    erlang:nif_error(undefined).
+
+-spec is_translatable(prim_file_name()) -> boolean().
+
+is_translatable(_) ->
     erlang:nif_error(undefined).
 
 %%% End of BIFs
@@ -671,10 +677,17 @@ set_cwd(Dir) ->
 set_cwd(Port, Dir) when is_port(Port) ->
     set_cwd_int(Port, Dir).
 
-set_cwd_int(Port, Dir) ->
-    %% Dir is now either a string or an EXIT tuple.
-    %% An EXIT tuple will fail in the following catch.
-    drv_command(Port, [?FILE_CHDIR, pathname(Dir)]).
+set_cwd_int(Port, Dir) when is_binary(Dir) ->
+    case prim_file:is_translatable(Dir) of
+	false ->
+	    {error, no_translation};
+	true ->
+	    drv_command(Port, [?FILE_CHDIR, pathname(Dir)])
+    end;
+set_cwd_int(Port, Dir) when is_list(Dir) ->
+    drv_command(Port, [?FILE_CHDIR, pathname(Dir)]);
+set_cwd_int(_, _) ->
+    {error, badarg}.
 
 
 
