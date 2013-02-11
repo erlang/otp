@@ -738,6 +738,19 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
 	<c>undefined</c>.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="get_mode" arity="0"/>
+      <fsummary>The code_server's mode.</fsummary>
+      <desc>
+        <p>This function returns an atom describing the code_server's mode:
+        <c>interactive</c> or <c>embedded</c>. </p>
+        <p>This information is useful when an external entity (for example,
+        an IDE) provides additional code for a running node. If in interactive
+        mode, it only needs to add to the code path. If in embedded mode,
+        the code has to be loaded with <c>load_binary/3</c></p>
+      </desc>
+    </func>
   </funcs>
 </erlref>
 

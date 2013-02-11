@@ -64,7 +64,8 @@
 	 where_is_file/1,
 	 where_is_file/2,
 	 set_primary_archive/4,
-	 clash/0]).
+	 clash/0,
+     get_mode/0]).
 
 -export_type([load_error_rsn/0, load_ret/0]).
 
@@ -292,6 +293,9 @@ replace_path(Name, Dir) when (is_atom(Name) orelse is_list(Name)),
 
 -spec rehash() -> 'ok'.
 rehash() -> call(rehash).
+
+-spec get_mode() -> 'embedded' | 'interactive'.
+get_mode() -> call(get_mode).
 
 %%-----------------------------------------------------------------
 
