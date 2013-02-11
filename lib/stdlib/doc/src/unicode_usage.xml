@@ -69,12 +69,11 @@ strings.</p>
 <p>Character data may be combined from several sources, sometimes available in a mix of strings and binaries. Erlang has for long had the concept of <c>iodata</c> or <c>iolists</c>, where binaries and lists can be combined to represent a sequence of bytes. In the same way, the Unicode aware modules often allow for combinations of binaries and lists where the binaries have characters encoded in UTF-8 and the lists contain such binaries or numbers representing Unicode codepoints:</p>
 <code type="none">
 unicode_binary() = binary() with characters encoded in UTF-8 coding standard
-unicode_char() = integer() >= 0 representing valid Unicode codepoint
 
 chardata() = charlist() | unicode_binary()
 
-charlist() = [unicode_char() | unicode_binary() | charlist()]
-  a unicode_binary is allowed as the tail of the list</code>
+charlist() = maybe_improper_list(char() | unicode_binary() | charlist(),
+                                 unicode_binary() | nil())</code>
 <p>The module <c>unicode</c> in STDLIB even supports similar mixes with binaries containing other encodings than UTF-8, but that is a special case to allow for conversions to and from external data:</p>
     <code type="none">
 external_unicode_binary() = binary() with characters coded in
@@ -82,10 +81,10 @@ external_unicode_binary() = binary() with characters coded in
 
 external_chardata() = external_charlist() | external_unicode_binary()
 
-external_charlist() = [unicode_char() |
-                       external_unicode_binary() |
-                       external_charlist()]
-  an external_unicode_binary() is allowed as the tail of the list</code>
+external_charlist() = maybe_improper_list(char() |
+                                            external_unicode_binary() |
+                                            external_charlist(),
+                                          external_unicode_binary() | nil())</code>
 </section>
 <section>
 <title>Basic Language Support for Unicode</title>

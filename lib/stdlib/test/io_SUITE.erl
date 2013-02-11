@@ -2049,6 +2049,8 @@ otp_10302(Suite) when is_list(Suite) ->
     "<<\"apel\"...>>" = pretty(<<"apelsin">>, 2),
     "<<228,112,112,108>>" = fmt("~tp", [<<"äppl">>]),
     "<<228,...>>" = fmt("~tP", [<<"äppl">>, 2]),
+    "<<0,0,0,0,0,0,1,0>>" = fmt("~p", [<<256:64/unsigned-integer>>]),
+    "<<0,0,0,0,0,0,1,0>>" = fmt("~tp", [<<256:64/unsigned-integer>>]),
 
     Chars = lists:seq(0, 512), % just a few...
     [] = [C || C <- Chars, S <- io_lib:write_char_as_latin1(C),

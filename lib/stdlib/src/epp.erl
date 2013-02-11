@@ -661,7 +661,7 @@ leave_file(From, St) ->
 %% scan_toks(Tokens, From, EppState)
 
 scan_toks(From, St) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location, [unicode]) of
+    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
 	{ok,Toks,Cl} ->
 	    scan_toks(Toks, From, St#epp{location=Cl});
 	{error,E,Cl} ->
@@ -1035,7 +1035,7 @@ new_location(Ln, {Le,_}, {Lf,_}) ->
 %%  nested conditionals and repeated 'else's.
 
 skip_toks(From, St, [I|Sis]) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location, [unicode]) of
+    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
 	{ok,[{'-',_Lh},{atom,_Li,ifdef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [ifdef,I|Sis]);
 	{ok,[{'-',_Lh},{atom,_Li,ifndef}|_Toks],Cl} ->

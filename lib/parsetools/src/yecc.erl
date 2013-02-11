@@ -2561,7 +2561,7 @@ format_assoc(nonassoc) ->
 
 format_symbol(Symbol) ->
     String = concat([Symbol]),
-    case erl_scan:string(String, 1, [unicode]) of
+    case erl_scan:string(String) of
         {ok, [{atom, _, _}], _} ->
             io_lib:fwrite(<<"~w">>, [Symbol]);
         {ok, [{Word, _}], _} when Word =/= ':', Word =/= '->' ->

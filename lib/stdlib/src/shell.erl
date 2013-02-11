@@ -950,7 +950,7 @@ local_func(rd, [{atom,_,RecName},RecDef0], Bs, _Shell, RT, _Lf, _Ef) ->
     RecDef = expand_value(RecDef0),
     RDs = lists:flatten(erl_pp:expr(RecDef)),
     Attr = lists:concat(["-record('", RecName, "',", RDs, ")."]),
-    {ok, Tokens, _} = erl_scan:string(Attr, 1, [unicode]),
+    {ok, Tokens, _} = erl_scan:string(Attr),
     case erl_parse:parse_form(Tokens) of
         {ok,AttrForm} ->
             [RN] = add_records([AttrForm], Bs, RT),
@@ -1397,7 +1397,6 @@ enc() ->
 garb(Shell) ->
     erlang:garbage_collect(Shell),
     catch erlang:garbage_collect(whereis(user)),
-    catch erlang:garbage_collect(whereis(group)),
     catch erlang:garbage_collect(group_leader()),
     erlang:garbage_collect().
 

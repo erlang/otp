@@ -1196,7 +1196,7 @@ change_time(Name, {{AY, AM, AD}, {AH, AMin, ASec}}=Atime,
 -spec sendfile(RawFile, Socket, Offset, Bytes, Opts) ->
    {'ok', non_neg_integer()} | {'error', inet:posix() | 
 				closed | badarg | not_owner} when
-      RawFile :: file:fd(),
+      RawFile :: fd(),
       Socket :: inet:socket(),
       Offset :: non_neg_integer(),
       Bytes :: non_neg_integer(),
@@ -1222,7 +1222,7 @@ sendfile(File, Sock, Offset, Bytes, Opts) ->
 -spec sendfile(Filename, Socket) ->
    {'ok', non_neg_integer()} | {'error', inet:posix() | 
 				closed | badarg | not_owner}
-      when Filename :: file:name(),
+      when Filename :: name(),
 	   Socket :: inet:socket().
 sendfile(Filename, Sock)  ->
     case file:open(Filename, [read, raw, binary]) of
@@ -1345,7 +1345,7 @@ eval_stream(Fd, Handling, Bs) ->
     eval_stream(Fd, Handling, 1, undefined, [], Bs).
 
 eval_stream(Fd, H, Line, Last, E, Bs) ->
-    eval_stream2(io:parse_erl_exprs(Fd, '', Line, [unicode]), Fd, H, Last, E, Bs).
+    eval_stream2(io:parse_erl_exprs(Fd, '', Line), Fd, H, Last, E, Bs).
 
 eval_stream2({ok,Form,EndLine}, Fd, H, Last, E, Bs0) ->
     try erl_eval:exprs(Form, Bs0) of
