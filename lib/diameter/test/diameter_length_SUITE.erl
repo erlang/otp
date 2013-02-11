@@ -41,10 +41,10 @@
 %% diameter callbacks
 -export([peer_up/3,
          peer_down/3,
-         pick_peer/6,
-         prepare_request/5,
-         handle_answer/6,
-         handle_error/6,
+         pick_peer/5,
+         prepare_request/4,
+         handle_answer/5,
+         handle_error/5,
          handle_request/3]).
 
 -include("diameter.hrl").
@@ -73,14 +73,14 @@
                         {answer_errors, callback}]}]).
 
 -define(SUCCESS,
-        ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_SUCCESS').
+        ?'DIAMETER_BASE_RESULT-CODE_SUCCESS').
 -define(MISSING_AVP,
-        ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_MISSING_AVP').
+        ?'DIAMETER_BASE_RESULT-CODE_MISSING_AVP').
 -define(INVALID_MESSAGE_LENGTH,
-        ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_INVALID_MESSAGE_LENGTH').
+        ?'DIAMETER_BASE_RESULT-CODE_INVALID_MESSAGE_LENGTH').
 
 -define(LOGOUT,
-        ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_LOGOUT').
+        ?'DIAMETER_BASE_TERMINATION-CAUSE_LOGOUT').
 
 -define(GROUPS, [exit, handle, discard]).
 
@@ -196,21 +196,18 @@ send(discard) ->
         = call(0);
 
 send(Config) ->
-    Group = proplists:get_value(group, Config),
-    put({?MODULE, group}, Group),
-    send(Group).
+    send(proplists:get_value(group, Config)).
 
 %% ===========================================================================
 
 call(Delta) ->
-    Group = get({?MODULE, group}),
     diameter:call(?CLIENT,
                   ?DICT,
                   #diameter_base_STR
                   {'Termination-Cause' = ?LOGOUT,
                    'Auth-Application-Id' = ?DIAMETER_APP_ID_COMMON,
                    'Origin-State-Id' = [7]},
-                  [{extra, [Group, Delta]}]).
+                  [{extra, [Delta]}]).
 
 %% ===========================================================================
 %% diameter callbacks
@@ -225,14 +222,14 @@ peer_up(_SvcName, _Peer, State) ->
 peer_down(_SvcName, _Peer, State) ->
     State.
 
-%% pick_peer/6
+%% pick_peer/5
 
-pick_peer([Peer], _, ?CLIENT, _State, _Group, _Delta) ->
+pick_peer([Peer], _, ?CLIENT, _State, _Delta) ->
     {ok, Peer}.
 
-%% prepare_request/5
+%% prepare_request/4
 
-prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, _Group, Delta) ->
+prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, Delta) ->
     {send, resize(Delta, prepare(Pkt, Caps))}.
 
 prepare(#diameter_packet{msg = Req0} = Pkt, Caps) ->
@@ -253,14 +250,14 @@ resize(Delta, #diameter_packet{bin = Bin} = Pkt) ->
 resize(Delta, <<V, Len:24, T/binary>>) ->
     <<V, (Len + Delta):24, T/binary>>.
 
-%% handle_answer/6
+%% handle_answer/5
 
-handle_answer(Pkt, _Req, ?CLIENT, _Peer, _Group, _Delta) ->
+handle_answer(Pkt, _Req, ?CLIENT, _Peer, _Delta) ->
     Pkt#diameter_packet.msg.
 
-%% handle_error/6
+%% handle_error/5
 
-handle_error(Reason, _Req, ?CLIENT, _Peer, _Group, _Delta) ->
+handle_error(Reason, _Req, ?CLIENT, _Peer, _Delta) ->
     {error, Reason}.
 
 %% handle_request/3
@@ -280,8 +277,12 @@ handle_request(Pkt, ?SERVER, {_Ref, Caps}) ->
 answer(Group, #diameter_packet{errors = Es}, Ans) ->
     answer(Group, Es, Ans);
 
+%% No errors: just answer.
 answer(_, [], Ans) ->
     {reply, Ans};
+
+%% Otherwise an invalid length should only reach the callback if
+%% length_errors = handle.
 answer(Group, [RC|_], Ans)
   when RC == ?INVALID_MESSAGE_LENGTH, Group == handle;
        RC /= ?INVALID_MESSAGE_LENGTH ->

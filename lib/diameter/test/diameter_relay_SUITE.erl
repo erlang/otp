@@ -107,7 +107,7 @@
 -define(LOOP_DETECTED, 3005).
 -define(UNABLE_TO_DELIVER, 3002).
 
--define(LOGOUT, ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_LOGOUT').
+-define(LOGOUT, ?'DIAMETER_BASE_TERMINATION-CAUSE_LOGOUT').
 -define(AUTHORIZE_ONLY, ?'DIAMETER_BASE_RE-AUTH-REQUEST-TYPE_AUTHORIZE_ONLY').
 
 %% ===========================================================================

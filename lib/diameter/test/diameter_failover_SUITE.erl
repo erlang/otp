@@ -103,9 +103,9 @@
 -define(SUCCESS, 2001).
 
 %% Value of Termination-Cause determines client/server behaviour.
--define(LOGOUT,   ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_LOGOUT').
--define(MOVED,    ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_USER_MOVED').
--define(TIMEOUT,  ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_SESSION_TIMEOUT').
+-define(LOGOUT,   ?'DIAMETER_BASE_TERMINATION-CAUSE_LOGOUT').
+-define(MOVED,    ?'DIAMETER_BASE_TERMINATION-CAUSE_USER_MOVED').
+-define(TIMEOUT,  ?'DIAMETER_BASE_TERMINATION-CAUSE_SESSION_TIMEOUT').
 
 %% ===========================================================================
 
