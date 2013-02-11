@@ -39,6 +39,7 @@
 #include "erl_alloc.h"
 #include "big.h"
 #include "erl_thr_progress.h"
+#include "erl_util_queue.h"
 
 #if HAVE_ERTS_MSEG
 
@@ -527,64 +528,6 @@ static ERTS_INLINE void mseg_cache_clear_node(cache_t *c) {
     c->prev = c;
 }
 
-static ERTS_INLINE void mseg_cache_unlink_node(cache_t *c) {
-    c->next->prev = c->prev;
-    c->prev->next = c->next;
-
-    c->next = c;
-    c->prev = c;
-}
-
-static ERTS_INLINE void mseg_cache_push_node_front(cache_t *head, cache_t *c) {
-    c->next = head->next;
-    c->prev = head;
-    
-    head->next->prev = c;
-    head->next = c;
-
-    ASSERT(c->next != c);
-    ASSERT(c->prev != c);
-}
-
-/* not needed: mseg_cache_push_node_back */
-
-static ERTS_INLINE cache_t *mseg_cache_pop_node_front(cache_t *head) {
-    cache_t *c;
-
-    ASSERT(head->next != head && head->prev != head);
-
-    c = head->next;
-
-    mseg_cache_unlink_node(c);
-
-    return c;
-}
-
-static ERTS_INLINE cache_t *mseg_cache_pop_node_back(cache_t *head) {
-    cache_t *c;
-
-    ASSERT(head->next != head && head->prev != head);
-
-    c = head->prev;
-
-    mseg_cache_unlink_node(c);
-
-    return c;
-}
-
-static ERTS_INLINE int mseg_cache_is_empty(cache_t *head) {
-
-    if (head->next == head) {
-	ASSERT(head->prev == head);
-	return 1;
-    }
-
-    ASSERT(head->next != head && head->prev != head);
-
-    return 0;
-}
-
-
 static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Uint flags) {
 
     cache_t *c;
@@ -592,8 +535,9 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
 
     ASSERT(!MSEG_FLG_IS_2POW(flags) || (MSEG_FLG_IS_2POW(flags) && MAP_IS_ALIGNED(seg) && IS_2POW(size)));
 
-    if (!mseg_cache_is_empty(&(mk->cache_free))) {
-	c = mseg_cache_pop_node_front(&(mk->cache_free));
+    if (!erts_circleq_is_empty(&(mk->cache_free))) {
+	c = erts_circleq_head(&(mk->cache_free));
+	erts_circleq_remove(c);
 
 	c->seg  = seg;
 	c->size = size;
@@ -604,22 +548,23 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
 	    ASSERT(ix < CACHE_AREAS);
 	    ASSERT((1 << (ix + MSEG_ALIGN_BITS)) == size);
 
-	    mseg_cache_push_node_front(&(mk->cache_powered_node[ix]), c);
+	    erts_circleq_push_head(&(mk->cache_powered_node[ix]), c);
 
 	} else {
 
-	    mseg_cache_push_node_front(&(mk->cache_unpowered_node), c);
+	    erts_circleq_push_head(&(mk->cache_unpowered_node), c);
 	}
 
 	mk->cache_size++;
 	ASSERT(mk->cache_size <= mk->ma->max_cache_size);
 
 	return 1;
-    } else if (!MSEG_FLG_IS_2POW(flags) && !mseg_cache_is_empty(&(mk->cache_unpowered_node))) {
+    } else if (!MSEG_FLG_IS_2POW(flags) && !erts_circleq_is_empty(&(mk->cache_unpowered_node))) {
 
 	/* Evict oldest slot from cache so we can store an unpowered (sbc) segment  */
 
-	c = mseg_cache_pop_node_back(&(mk->cache_unpowered_node));
+	c = erts_circleq_tail(&(mk->cache_unpowered_node));
+	erts_circleq_remove(c);
 
 	mseg_destroy(mk->ma, mk, c->seg, c->size);
 	mseg_cache_clear_node(c);
@@ -627,7 +572,7 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
 	c->seg  = seg;
 	c->size = size;
 
-	mseg_cache_push_node_front(&(mk->cache_unpowered_node), c);
+	erts_circleq_push_head(&(mk->cache_unpowered_node), c);
 
 	return 1;
     }
@@ -652,10 +597,11 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p, Uint flags
 
 	for( i = ix; i < CACHE_AREAS; i++) {
 
-	    if (mseg_cache_is_empty(&(mk->cache_powered_node[i])))
+	    if (erts_circleq_is_empty(&(mk->cache_powered_node[i])))
 		continue;
 
-	    c = mseg_cache_pop_node_front(&(mk->cache_powered_node[i]));
+	    c = erts_circleq_head(&(mk->cache_powered_node[i]));
+	    erts_circleq_remove(c);
 
 	    ASSERT(IS_2POW(c->size));
 	    ASSERT(MAP_IS_ALIGNED(c->seg));
@@ -668,7 +614,7 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p, Uint flags
 
 	    /* link to free cache list */
 	    mseg_cache_clear_node(c);
-	    mseg_cache_push_node_front(&(mk->cache_free), c);
+	    erts_circleq_push_head(&(mk->cache_free), c);
 
 	    ASSERT(!(mk->cache_size < 0));
 
@@ -679,16 +625,14 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p, Uint flags
 	    return seg;
 	}
     } 
-    else if (!mseg_cache_is_empty(&(mk->cache_unpowered_node))) {
+    else if (!erts_circleq_is_empty(&(mk->cache_unpowered_node))) {
 	void *seg;
 	cache_t *c;
 	Uint csize;
 	Uint bad_max_abs = mk->ma->abs_max_cache_bad_fit;
 	Uint bad_max_rel = mk->ma->rel_max_cache_bad_fit;
 
-	c = mk->cache_unpowered_node.next;
-
-	while (c != &(mk->cache_unpowered_node)) {
+	erts_circleq_foreach(c, &(mk->cache_unpowered_node)) {
 	    csize = c->size;
 	    if (csize >= size &&
 		    ((csize - size)*100 < bad_max_rel*size) &&
@@ -696,20 +640,18 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p, Uint flags
 
 		seg = c->seg;
 
-		mseg_cache_unlink_node(c);
+		erts_circleq_remove(c);
 
 		mk->cache_size--;
 		mk->cache_hits++;
 
-		/* link to free cache list */
 		mseg_cache_clear_node(c);
-		mseg_cache_push_node_front(&(mk->cache_free), c);
+		erts_circleq_push_head(&(mk->cache_free), c);
 
 		*size_p = csize;
 
 		return seg;
 	    }
-	    c = c->next;
 	}
     }
     return NULL;
@@ -723,14 +665,15 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p, Uint flags
 static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, cache_t *head) {
     cache_t *c = NULL;
 
-    c = mseg_cache_pop_node_back(head);
+    c = erts_circleq_tail(head);
+    erts_circleq_remove(c);
 
     if (erts_mtrace_enabled)
 	erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
 
     mseg_destroy(mk->ma, mk, c->seg, c->size);
     mseg_cache_clear_node(c);
-    mseg_cache_push_node_front(&(mk->cache_free), c);
+    erts_circleq_push_head(&(mk->cache_free), c);
 
     mk->segments.current.watermark--;
     mk->cache_size--;
@@ -743,9 +686,10 @@ static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, cache_t *h
 static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, cache_t *head) {
     cache_t *c = NULL;
 
-    while (!mseg_cache_is_empty(head)) {
+    while (!erts_circleq_is_empty(head)) {
 
-	c = mseg_cache_pop_node_back(head);
+	c = erts_circleq_tail(head);
+	erts_circleq_remove(c);
 
 	if (erts_mtrace_enabled)
 	    erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
@@ -753,7 +697,7 @@ static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, cache_t *head)
 	mseg_destroy(mk->ma, mk, c->seg, c->size);
 
 	mseg_cache_clear_node(c);
-	mseg_cache_push_node_front(&(mk->cache_free), c);
+	erts_circleq_push_head(&(mk->cache_free), c);
 
 	mk->segments.current.watermark--;
 	mk->cache_size--;
@@ -777,11 +721,11 @@ static Uint mseg_check_memkind_cache(MemKind *mk) {
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
 
     for (i = 0; i < CACHE_AREAS; i++) {
-	if (!mseg_cache_is_empty(&(mk->cache_powered_node[i])))
+	if (!erts_circleq_is_empty(&(mk->cache_powered_node[i])))
 	    return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_powered_node[i]));
     }
 
-    if (!mseg_cache_is_empty(&(mk->cache_unpowered_node)))
+    if (!erts_circleq_is_empty(&(mk->cache_unpowered_node)))
 	    return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_unpowered_node));
 
     return 0;
@@ -838,17 +782,17 @@ static void mseg_clear_memkind_cache(MemKind *mk) {
 
     /* drop pow2 caches */
     for (i = 0; i < CACHE_AREAS; i++) {
-	if (mseg_cache_is_empty(&(mk->cache_powered_node[i])))
+	if (erts_circleq_is_empty(&(mk->cache_powered_node[i])))
 	    continue;
 
 	mseg_drop_memkind_cache_size(mk, &(mk->cache_powered_node[i]));
-	ASSERT(mseg_cache_is_empty(&(mk->cache_powered_node[i])) == 1);
+	ASSERT(erts_circleq_is_empty(&(mk->cache_powered_node[i])));
     }
     /* drop varied caches */
-    if (!mseg_cache_is_empty(&(mk->cache_unpowered_node)))
+    if (!erts_circleq_is_empty(&(mk->cache_unpowered_node)))
 	mseg_drop_memkind_cache_size(mk, &(mk->cache_unpowered_node));
 
-    ASSERT(mseg_cache_is_empty(&(mk->cache_unpowered_node)) == 1);
+    ASSERT(erts_circleq_is_empty(&(mk->cache_unpowered_node)));
     ASSERT(mk->cache_size == 0);
 }
 
@@ -1608,7 +1552,7 @@ static void mem_kind_init(ErtsMsegAllctr_t *ma, MemKind* mk, const char* name)
 
     for (i = 0; i < ma->max_cache_size; i++) {
 	mseg_cache_clear_node(&(mk->cache[i]));
-	mseg_cache_push_node_front(&(mk->cache_free), &(mk->cache[i]));
+	erts_circleq_push_head(&(mk->cache_free), &(mk->cache[i]));
     }
 
     mk->cache_size = 0;
