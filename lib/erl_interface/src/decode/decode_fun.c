@@ -32,7 +32,7 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
     int i, ix, ix0, n;
     erlang_pid* p_pid;
     char* p_module;
-    enum erlang_char_encoding* p_module_org_enc;
+    erlang_char_encoding* p_module_org_enc;
     long* p_index;
     long* p_uniq;
     long* p_old_index;
