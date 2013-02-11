@@ -27,12 +27,12 @@
 -export([format_error/1]).
 %% File system and metadata.
 -export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, rename/2,
-	 make_dir/1, del_dir/1, list_dir/1,
+	 make_dir/1, del_dir/1, list_dir/1, list_dir_all/1,
 	 read_file_info/1, read_file_info/2,
 	 write_file_info/2, write_file_info/3,
 	 altname/1,
 	 read_link_info/1, read_link_info/2,
-	 read_link/1,
+	 read_link/1, read_link_all/1,
 	 make_link/2, make_symlink/2,
 	 read_file/1, write_file/2, write_file/3]).
 %% Specialized
@@ -278,6 +278,14 @@ read_link_info(Name, Opts) when is_list(Opts) ->
 read_link(Name) ->
     check_and_call(read_link, [file_name(Name)]).
 
+-spec read_link_all(Name) -> {ok, Filename} | {error, Reason} when
+      Name :: name(),
+      Filename :: filename(),
+      Reason :: posix() | badarg.
+
+read_link_all(Name) ->
+    check_and_call(read_link_all, [file_name(Name)]).
+
 -spec write_file_info(Filename, FileInfo) -> ok | {error, Reason} when
       Filename :: name(),
       FileInfo :: file_info(),
@@ -302,6 +310,14 @@ write_file_info(Name, Info = #file_info{}, Opts) when is_list(Opts) ->
 
 list_dir(Name) ->
     check_and_call(list_dir, [file_name(Name)]).
+
+-spec list_dir_all(Dir) -> {ok, Filenames} | {error, Reason} when
+      Dir :: name(),
+      Filenames :: [filename()],
+      Reason :: posix() | badarg.
+
+list_dir_all(Name) ->
+    check_and_call(list_dir_all, [file_name(Name)]).
 
 -spec read_file(Filename) -> {ok, Binary} | {error, Reason} when
       Filename :: name(),

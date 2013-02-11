@@ -136,6 +136,8 @@ handle_call({del_dir, Name}, _From, Handle) ->
 
 handle_call({list_dir, Name}, _From, Handle) ->
     {reply, ?PRIM_FILE:list_dir(Handle, Name), Handle};
+handle_call({list_dir_all, Name}, _From, Handle) ->
+    {reply, ?PRIM_FILE:list_dir_all(Handle, Name), Handle};
 
 handle_call(get_cwd, _From, Handle) ->
     {reply, ?PRIM_FILE:get_cwd(Handle), Handle};
@@ -166,6 +168,8 @@ handle_call({read_link_info, Name, Opts}, _From, Handle) ->
     {reply, ?PRIM_FILE:read_link_info(Handle, Name, Opts), Handle};
 
 handle_call({read_link, Name}, _From, Handle) ->
+    {reply, ?PRIM_FILE:read_link(Handle, Name), Handle};
+handle_call({read_link_all, Name}, _From, Handle) ->
     {reply, ?PRIM_FILE:read_link(Handle, Name), Handle};
 
 handle_call({make_link, Old, New}, _From, Handle) ->
