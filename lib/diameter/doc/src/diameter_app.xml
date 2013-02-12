@@ -13,7 +13,7 @@
 <header>
 
 <copyright>
-<year>2011</year><year>2012</year>
+<year>2011</year><year>2013</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -509,14 +509,15 @@ Otherwise it contains the record representing the request as outlined
 in &dict;.</p>
 
 <p>
-The <c>errors</c> field specifies any Result-Code's identifying errors
-that were encountered in decoding the request.
-In this case diameter will set both Result-Code and
-Failed-AVP AVP's in a returned
-answer &message; before sending it to the peer:
-the returned &message; need only set any other required AVP's.
-Note that the errors detected by diameter are all of the 5xxx series
-(Permanent Failures).
+The <c>errors</c> field specifies any results codes identifying errors
+found while decoding the request.
+This is used to set Result-Code and/or Failed-AVP in a returned
+answer unless the callback returns a <c>#diameter_packet{}</c>
+whose <c>errors</c> field is set to either a non-empty list of its
+own, in which case this list is used instead, or the atom <c>false</c>
+to disable any setting of Result-Code and Failed-AVP.
+Note that the errors detected by diameter are of the 3xxx
+and 5xxx series, Protocol Errors and Permanent Failures respectively.
 The <c>errors</c> list is empty if the request has been received in
 the relay application.</p>
 
@@ -558,8 +559,6 @@ where <c>Avps</c> sets the Origin-Host, Origin-Realm, the specified
 Result-Code and (if the request sent one) Session-Id AVP's.</p>
 
 <p>
-Note that &the_rfc; mandates that only answers with a 3xxx series
-Result-Code (protocol errors) may set the E bit.
 Returning a non-3xxx value in a <c>protocol_error</c> tuple
 will cause the request process in question to fail.</p>
 </item>
