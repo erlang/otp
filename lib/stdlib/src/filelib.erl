@@ -315,13 +315,6 @@ do_wildcard_3(Base, [Pattern|Rest], Result, Mod) ->
 do_wildcard_3(Base, [], Result, _Mod) ->
     [Base|Result].
 
-wildcard_4(Pattern, [File|Rest], Base, Result) when is_binary(File) ->
-    case wildcard_5(Pattern, binary_to_list(File)) of
-	true ->
-	    wildcard_4(Pattern, Rest, Base, [join(Base, File)|Result]);
-	false ->
-	    wildcard_4(Pattern, Rest, Base, Result)
-    end;
 wildcard_4(Pattern, [File|Rest], Base, Result) ->
     case wildcard_5(Pattern, File) of
 	true ->
