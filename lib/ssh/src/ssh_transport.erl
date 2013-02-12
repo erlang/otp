@@ -362,10 +362,10 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = HostKey, f = F,
 	      description = "Key exchange failed",
 	      language = "en"},
 	    ErrorMsg = case Error of
-			   {error, rejected} ->
-			       {error, {rejected, {hostkey, HostKey}}};
-			   _ ->
-			       Error
+			   {_, What} ->
+			       {What, []};
+			   Else ->
+			       {Else, []}
 		       end,
 	    throw({ErrorMsg, Disconnect})
     end.
