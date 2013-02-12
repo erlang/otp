@@ -535,7 +535,15 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
 
     ASSERT(!MSEG_FLG_IS_2POW(flags) || (MSEG_FLG_IS_2POW(flags) && MAP_IS_ALIGNED(seg) && IS_2POW(size)));
 
+    /* The idea is that sbc caching is prefered over mbc caching.
+     * Blocks are normally allocated in mb carriers and thus cached there.
+     * Large blocks has no such cache and it is up to mseg to cache them to speed things up.
+     */
+
     if (!erts_circleq_is_empty(&(mk->cache_free))) {
+
+	/* We have free slots, use one to cache the segment */
+
 	c = erts_circleq_head(&(mk->cache_free));
 	erts_circleq_remove(c);
 
@@ -550,10 +558,8 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
 
 	    erts_circleq_push_head(&(mk->cache_powered_node[ix]), c);
 
-	} else {
-
+	} else
 	    erts_circleq_push_head(&(mk->cache_unpowered_node), c);
-	}
 
 	mk->cache_size++;
 	ASSERT(mk->cache_size <= mk->ma->max_cache_size);
@@ -561,7 +567,8 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
 	return 1;
     } else if (!MSEG_FLG_IS_2POW(flags) && !erts_circleq_is_empty(&(mk->cache_unpowered_node))) {
 
-	/* Evict oldest slot from cache so we can store an unpowered (sbc) segment  */
+	/* No free slots.
+	 * Evict oldest slot from unpowered cache so we can cache an unpowered (sbc) segment  */
 
 	c = erts_circleq_tail(&(mk->cache_unpowered_node));
 	erts_circleq_remove(c);
@@ -575,6 +582,30 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
 	erts_circleq_push_head(&(mk->cache_unpowered_node), c);
 
 	return 1;
+    } else if (!MSEG_FLG_IS_2POW(flags)) {
+
+	/* No free slots and no unpowered (sbc) slots.
+	 * Evict smallest slot from powered cache so we can cache an unpowered (sbc) segment  */
+
+	int i;
+
+	for( i = 0; i < CACHE_AREAS; i++) {
+	    if (erts_circleq_is_empty(&(mk->cache_powered_node[i])))
+		continue;
+
+	    c = erts_circleq_tail(&(mk->cache_powered_node[i]));
+	    erts_circleq_remove(c);
+
+	    mseg_destroy(mk->ma, mk, c->seg, c->size);
+	    mseg_cache_clear_node(c);
+
+	    c->seg  = seg;
+	    c->size = size;
+
+	    erts_circleq_push_head(&(mk->cache_unpowered_node), c);
+
+	    return 1;
+	}
     }
 
     return 0;
