@@ -66,16 +66,30 @@ add_handler(Args) ->
 %% Description: Stops the event manager
 %%--------------------------------------------------------------------
 stop() ->
-    flush(),
-    gen_event:stop(?CT_MEVMGR_REF).
+    case flush() of
+	{error,Reason} ->
+	    ct_master_logs:log("Error",
+			       "No response from CT Master Event.\n"
+			       "Reason = ~p\n"
+			       "Terminating now!\n",[Reason]),
+	    %% communication with event manager fails, kill it
+	    catch exit(whereis(?CT_MEVMGR_REF), kill);
+	_ ->
+	    gen_event:stop(?CT_MEVMGR_REF)
+    end.
 
 flush() ->
-    case gen_event:call(?CT_MEVMGR_REF,?MODULE,flush) of
+    try gen_event:call(?CT_MEVMGR_REF,?MODULE,flush,1800000) of
 	flushing ->
 	    timer:sleep(1),
 	    flush();
 	done ->
-	    ok
+	    ok;
+	Error = {error,_} ->
+	    Error
+    catch
+	_:Reason ->
+	    {error,Reason}
     end.
 
 %%--------------------------------------------------------------------
