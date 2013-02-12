@@ -50,7 +50,7 @@ unix_cases() ->
 		true ->  [{group, release}];
 		false -> [no_run_erl]
 	    end,
-    [target_system] ++ RunErlCases ++ cases().
+    [target_system, target_system_unicode] ++ RunErlCases ++ cases().
 
 win32_cases() -> 
     [{group,release} | cases()].
@@ -1559,6 +1559,9 @@ eval_appup_with_restart(Conf) when is_list(Conf) ->
 %% Test the example/target_system.erl module
 target_system(Conf) when is_list(Conf) ->
     PrivDir = priv_dir(Conf),
+    target_system1(Conf,PrivDir).
+
+target_system1(Conf,PrivDir) ->
     DataDir = ?config(data_dir,Conf),
 
     TargetCreateDir = filename:join([PrivDir,"target_system","create"]),
@@ -1566,7 +1569,6 @@ target_system(Conf) when is_list(Conf) ->
 
     ok = filelib:ensure_dir(filename:join(TargetCreateDir,"xx")),
     ok = filelib:ensure_dir(filename:join(TargetInstallDir,"xx")),
-
 
     %% Create the .rel file
     RelName = filename:join(TargetCreateDir,"ts-1.0"),
@@ -1607,7 +1609,8 @@ target_system(Conf) when is_list(Conf) ->
     StdlibVsn = vsn(stdlib,current),
     SaslVsn = vsn(sasl,current),
     RelFileBasename = filename:basename(RelFile),
-    true = filelib:is_dir(filename:join(LibDir,"kernel-"++KernelVsn)),
+    KernelLibDir = filename:join(LibDir,"kernel-"++KernelVsn),
+    true = filelib:is_dir(KernelLibDir),
     true = filelib:is_dir(filename:join(LibDir,"stdlib-"++StdlibVsn)),
     true = filelib:is_dir(filename:join(LibDir,"sasl-"++SaslVsn)),
     true = filelib:is_dir(filename:join(LibDir,"a-1.0")),
@@ -1616,11 +1619,13 @@ target_system(Conf) when is_list(Conf) ->
     true = filelib:is_regular(filename:join(RelDir,"start_erl.data")),
     true = filelib:is_regular(filename:join(RelDir,RelFileBasename)),
     true = filelib:is_dir(filename:join(RelDir,RelVsn)),
-    true = filelib:is_regular(filename:join([RelDir,RelVsn,"start.boot"])),
+    StartBoot = filename:join([RelDir,RelVsn,"start.boot"]),
+    true = filelib:is_regular(StartBoot),
     true = filelib:is_regular(filename:join([RelDir,RelVsn,RelFileBasename])),
     BinDir = filename:join(TargetInstallDir,bin),
+    Erl = filename:join(BinDir,erl),
+    true = filelib:is_regular(Erl),
     true = filelib:is_regular(filename:join(BinDir,"start.boot")),
-    true = filelib:is_regular(filename:join(BinDir,erl)),
     true = filelib:is_regular(filename:join(BinDir,start_erl)),
     true = filelib:is_regular(filename:join(BinDir,start)),
     true = filelib:is_regular(filename:join(BinDir,epmd)),
@@ -1631,9 +1636,81 @@ target_system(Conf) when is_list(Conf) ->
     ErtsVsn = vsn(erts,current),
     {ok,SED} = file:read_file(filename:join(RelDir,"start_erl.data")),
     [ErtsVsn,RelVsn] = string:tokens(binary_to_list(SED),"\s\n"),
+
+    %% Check that installation can be started
+    Sname = list_to_atom(atom_to_list(?MODULE) ++ "-target_system"),
+    {ok,Node} = start_target_node_with_erl(Erl,Sname,StartBoot),
+
+    TargetInstallDir = rpc:call(Node,code,root_dir,[]),
+    KernelLibDir = rpc:call(Node,code,lib_dir,[kernel]),
+    [{RelName,RelVsn,_Apps,permanent}] =
+	rpc:call(Node,release_handler,which_releases,[]),
+
+    ?t:format("Target node ok:~nRootDir: ~ts~nKernelLibDir: ~ts~nRelease: ~ts",
+	      [TargetInstallDir,KernelLibDir,RelName]),
+
     ok.
 
+target_system(cleanup,_Conf) ->
+    Sname = list_to_atom(atom_to_list(?MODULE) ++ "-target_system"),
+    stop_target_node(node_name(Sname)),
+    ok.
 
+start_target_node_with_erl(Erl,Sname,Boot) ->
+    FullName = node_name(Sname),
+    FilenameMode = case file:native_name_encoding() of
+		       latin1 -> "+fnl";
+		       utf8 -> "+fnui"
+		   end,
+    Args = [FilenameMode,"-detached", "-noinput","-sname",atom_to_list(Sname),
+	   "-boot",filename:rootname(Boot)],
+    ?t:format("Starting node ~p: ~ts~n",
+	      [FullName, lists:flatten([[X," "] || X <- [Erl|Args]])]),
+    ?t:format("open_port({spawn_executable, ~tp}, [{args,~p}])~n",[Erl,Args]),
+    case open_port({spawn_executable, Erl}, [{args,Args}]) of
+        Port when is_port(Port) ->
+            unlink(Port),
+            erlang:port_close(Port),
+	    %% timer:sleep(10000),
+	    %% io:format("PING: ~p~n",[net_adm:ping(FullName)]),
+	    ok = wait_nodes_up([FullName],"target_system test node"),
+	    {ok,FullName};
+        Error ->
+            ?t:fail({failed_to_start_node, FullName, Error})
+    end.
+
+stop_target_node(Node) ->
+    monitor_node(Node, true),
+    _ = rpc:call(Node,erlang,halt,[]),
+    receive {nodedown, Node} -> ok end.
+
+%% Test that the example/target_system.erl module can create and
+%% install under a path which includes unicode characters
+target_system_unicode(Conf) when is_list(Conf) ->
+    PrivDir = priv_dir(Conf),
+    UnicodeStr = [945,946], % alhpa beta in greek letters
+    UnicodePrivDir = filename:join(PrivDir,UnicodeStr),
+
+    PA = filename:dirname(code:which(?MODULE)),
+
+    %% Make sure this runs on a node with unicode file name mode
+    Sname = list_to_atom(atom_to_list(?MODULE) ++ "-target_system_unicode"),
+    {ok,Node} = ?t:start_node(Sname,peer,[{args,"+fnui -pa " ++ PA}]),
+    ok = rpc:call(Node,file,make_dir,[UnicodePrivDir]),
+    case rpc:call(Node,application,start,[sasl]) of
+	ok -> ok;
+	{error,{already_started,sasl}} -> ok;
+	Error -> ?t:fail({failed_to_start_sasl_on_test_node,Node,Error})
+    end,
+    ok = rpc:call(Node,?MODULE,target_system1,[Conf,UnicodePrivDir]),
+    ok.
+
+target_system_unicode(cleanup,Conf) ->
+    Sname = list_to_atom(atom_to_list(?MODULE) ++ "-target_system_unicode"),
+    Node = node_name(Sname),
+    _ = rpc:call(Node,?MODULE,target_system,[cleanup,Conf]),
+    _ = stop_node(Node),
+    ok.
 
 %%%=================================================================
 %%% Testing global groups.
@@ -1852,7 +1929,7 @@ stop_node(Node) ->
 
 
 copy_client(Conf,Master,Sname,Client) ->
-    io:format("copy_client(Conf)"),
+    ?t:format("copy_client(Conf)"),
 
     DataDir = ?config(data_dir, Conf),
     MasterDir = filename:join(priv_dir(Conf),Master),
@@ -2012,7 +2089,7 @@ chmod(Dest,Opts) ->
 
 
 copy_error(Src, Dest, Reason) ->
-    io:format("Copy ~s to ~s failed: ~s\n",
+    ?t:format("Copy ~s to ~s failed: ~s\n",
 	      [Src,Dest,file:format_error(Reason)]),
     ?t:fail(file_copy_failed).
 
@@ -2513,9 +2590,9 @@ start_node_unix(Sname,NodeDir) ->
     Script = filename:join([NodeDir,"bin","start"]),
     Cmd = "env NODENAME="++atom_to_list(Sname) ++ " " ++ Script,
     %% {ok,StartFile} = file:read_file(Cmd),
-    %% io:format("~s:\n~s~n~n",[Start,binary_to_list(StartFile)]),
+    %% ?t:format("~s:\n~s~n~n",[Start,binary_to_list(StartFile)]),
     Res = os:cmd(Cmd),
-    io:format("Start ~p: ~p~n=>\t~p~n", [Sname,Cmd,Res]).
+    ?t:format("Start ~p: ~p~n=>\t~p~n", [Sname,Cmd,Res]).
 
 start_node_win32(Sname,NodeDir) ->
     Name = atom_to_list(Sname) ++ "_P1G",
