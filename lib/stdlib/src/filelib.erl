@@ -275,9 +275,10 @@ do_wildcard_2([], _, Result, _Mod) ->
 
 do_wildcard_3(Base, [[double_star]|Rest], Result, Mod) ->
     lists:sort(do_double_star(".", [Base], Rest, Result, Mod, true));
-do_wildcard_3(Base, [Pattern|Rest], Result, Mod) ->
-    case do_list_dir(Base, Mod) of
+do_wildcard_3(Base0, [Pattern|Rest], Result, Mod) ->
+    case do_list_dir(Base0, Mod) of
 	{ok, Files0} ->
+	    Base = prepare_base(Base0),
 	    Files = lists:sort(Files0),
 	    Matches = wildcard_4(Pattern, Files, Base, []),
 	    do_wildcard_2(Matches, Rest, Result, Mod);
@@ -290,7 +291,7 @@ do_wildcard_3(Base, [], Result, _Mod) ->
 wildcard_4(Pattern, [File|Rest], Base, Result) ->
     case wildcard_5(Pattern, File) of
 	true ->
-	    wildcard_4(Pattern, Rest, Base, [filename:join(Base, File)|Result]);
+	    wildcard_4(Pattern, Rest, Base, [Base++File|Result]);
 	false ->
 	    wildcard_4(Pattern, Rest, Base, Result)
     end;
@@ -322,6 +323,11 @@ wildcard_5([], [_|_]) ->
     false;
 wildcard_5([_|_], []) ->
     false.
+
+prepare_base(Base0) ->
+    Base1 = filename:join(Base0, "x"),
+    "x"++Base2 = lists:reverse(Base1),
+    lists:reverse(Base2).
 
 do_double_star(Base, [H|T], Rest, Result, Mod, Root) ->
     Full = case Root of
