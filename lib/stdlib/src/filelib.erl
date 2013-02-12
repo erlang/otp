@@ -280,7 +280,7 @@ do_wildcard_3(Base0, [Pattern|Rest], Result, Mod) ->
     case do_list_dir(Base0, Mod) of
 	{ok, Files} ->
 	    Base = prepare_base(Base0),
-	    Matches = wildcard_4(Pattern, Files, Base, []),
+	    Matches = do_wildcard_4(Pattern, Base, Files),
 	    do_wildcard_2(Matches, Rest, Result, Mod);
 	_ ->
 	    Result
@@ -288,41 +288,42 @@ do_wildcard_3(Base0, [Pattern|Rest], Result, Mod) ->
 do_wildcard_3(Base, [], Result, _Mod) ->
     [Base|Result].
 
-wildcard_4(Pattern, [File|Rest], Base, Result) ->
-    case wildcard_5(Pattern, File) of
-	true ->
-	    wildcard_4(Pattern, Rest, Base, [Base++File|Result]);
+do_wildcard_4(Pattern, Base, Files) ->
+    case will_always_match(Pattern) of
 	false ->
-	    wildcard_4(Pattern, Rest, Base, Result)
-    end;
-wildcard_4(_Patt, [], _Base, Result) ->
-    Result.
+	    [Base++F || F <- Files, match_part(Pattern, F)];
+	true ->
+	    [Base++F || F <- Files]
+    end.
 
-wildcard_5([question|Rest1], [_|Rest2]) ->
-    wildcard_5(Rest1, Rest2);
-wildcard_5([accept], _) ->
+match_part([question|Rest1], [_|Rest2]) ->
+    match_part(Rest1, Rest2);
+match_part([accept], _) ->
     true;
-wildcard_5([double_star], _) ->
+match_part([double_star], _) ->
     true;
-wildcard_5([star|Rest], File) ->
+match_part([star|Rest], File) ->
     do_star(Rest, File);
-wildcard_5([{one_of, Ordset}|Rest], [C|File]) ->
+match_part([{one_of, Ordset}|Rest], [C|File]) ->
     case ordsets:is_element(C, Ordset) of
-	true  -> wildcard_5(Rest, File);
+	true  -> match_part(Rest, File);
 	false -> false
     end;
-wildcard_5([{alt, Alts}], File) ->
+match_part([{alt, Alts}], File) ->
     do_alt(Alts, File);
-wildcard_5([C|Rest1], [C|Rest2]) when is_integer(C) ->
-    wildcard_5(Rest1, Rest2);
-wildcard_5([X|_], [Y|_]) when is_integer(X), is_integer(Y) ->
+match_part([C|Rest1], [C|Rest2]) when is_integer(C) ->
+    match_part(Rest1, Rest2);
+match_part([X|_], [Y|_]) when is_integer(X), is_integer(Y) ->
     false;
-wildcard_5([], []) ->
+match_part([], []) ->
     true;
-wildcard_5([], [_|_]) ->
+match_part([], [_|_]) ->
     false;
-wildcard_5([_|_], []) ->
+match_part([_|_], []) ->
     false.
+
+will_always_match([accept]) -> true;
+will_always_match(_) -> false.
 
 prepare_base(Base0) ->
     Base1 = filename:join(Base0, "x"),
@@ -347,19 +348,13 @@ do_double_star(Base, [H|T], Rest, Result, Mod, Root) ->
 do_double_star(_Base, [], _Rest, Result, _Mod, _Root) ->
     Result.
 
-do_star(Pattern, [X|Rest]) ->
-    case wildcard_5(Pattern, [X|Rest]) of
-	true  -> true;
-	false -> do_star(Pattern, Rest)
-    end;
+do_star(Pattern, [_|Rest]=File) ->
+    match_part(Pattern, File) orelse do_star(Pattern, Rest);
 do_star(Pattern, []) ->
-    wildcard_5(Pattern, []).
+    match_part(Pattern, []).
 
 do_alt([Alt|Rest], File) ->
-    case wildcard_5(Alt, File) of
-	true  -> true;
-	false -> do_alt(Rest, File)
-    end;
+    match_part(Alt, File) orelse do_alt(Rest, File);
 do_alt([], _File) ->
     false.
 
