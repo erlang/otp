@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2012</year>
+      <year>1999</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -84,10 +84,13 @@
       {client_preferred_next_protocols, binary(), client | server, list(binary())}
     </c></p>
 
-    <p><c>transportoption() = {CallbackModule, DataTag, ClosedTag}
-	- defaults to {gen_tcp, tcp, tcp_closed}. Ssl may be
-	run over any reliable transport protocol that has
-	an equivalent API to gen_tcp's.</c></p>
+    <p><c>transportoption() = {cb_info, {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom(), ErrTag:atom()}}
+	- defaults to {gen_tcp, tcp, tcp_closed, tcp_error}. Can be used to customize
+	the transport layer. The callback module must implement a reliable transport
+	protocol and behave as gen_tcp and in addition have functions corresponding to
+	inet:setopts/2, inet:getopts/2, inet:peername/1, inet:sockname/1 and inet:port/1.
+	The callback gen_tcp is treated specially and will call inet directly.
+    </c></p>
     
     <p><c>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CallbackModule =
 	atom()</c>

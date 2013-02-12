@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2012. All Rights Reserved.
+# Copyright Ericsson AB 1999-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -52,11 +52,11 @@ MODULES= \
 	ssl_cipher \
 	ssl_connection \
 	ssl_connection_sup \
-	ssl_debug \
 	ssl_handshake \
 	ssl_manager \
 	ssl_session \
 	ssl_session_cache \
+	ssl_socket \
 	ssl_record \
 	ssl_ssl2 \
 	ssl_ssl3 \
@@ -64,7 +64,6 @@ MODULES= \
 	ssl_tls_dist_proxy
 
 INTERNAL_HRL_FILES = \
-	 ssl_debug.hrl \
 	 ssl_alert.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_internal.hrl \
 	 ssl_record.hrl
 
