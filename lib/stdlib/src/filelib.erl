@@ -19,12 +19,13 @@
 -module(filelib).
 
 %% File utilities.
--export([wildcard/1, wildcard/2, is_dir/1, is_file/1, is_regular/1, 
-	 compile_wildcard/1]).
+-export([wildcard/1, wildcard/2, is_dir/1, is_file/1, is_regular/1]).
 -export([fold_files/5, last_modified/1, file_size/1, ensure_dir/1]).
-
 -export([wildcard/3, is_dir/2, is_file/2, is_regular/2]).
 -export([fold_files/6, last_modified/2, file_size/2]).
+
+%% For debugging/testing.
+-export([compile_wildcard/1]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -45,7 +46,7 @@
 -spec wildcard(Wildcard) -> [file:filename()] when
       Wildcard :: filename() | dirname().
 wildcard(Pattern) when is_list(Pattern) ->
-    ?HANDLE_ERROR(do_wildcard(Pattern, file)).
+    ?HANDLE_ERROR(do_wildcard(Pattern, ".", file)).
 
 -spec wildcard(Wildcard, Cwd) -> [file:filename()] when
       Wildcard :: filename() | dirname(),
@@ -53,7 +54,7 @@ wildcard(Pattern) when is_list(Pattern) ->
 wildcard(Pattern, Cwd) when is_list(Pattern), is_list(Cwd) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, file));
 wildcard(Pattern, Mod) when is_list(Pattern), is_atom(Mod) ->
-    ?HANDLE_ERROR(do_wildcard(Pattern, Mod)).
+    ?HANDLE_ERROR(do_wildcard(Pattern, ".", Mod)).
 
 -spec wildcard(file:name(), file:name(), atom()) -> [file:filename()].
 wildcard(Pattern, Cwd, Mod)
@@ -120,47 +121,6 @@ file_size(File, Mod) when is_atom(Mod) ->
     do_file_size(File, Mod).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-do_wildcard(Pattern, Mod) when is_list(Pattern) ->
-    do_wildcard_comp(do_compile_wildcard(Pattern), Mod).
-
-do_wildcard_comp({compiled_wildcard,{exists,File}}, Mod) ->
-    case eval_read_file_info(File, Mod) of
-	{ok,_} -> [File];
-	_ -> []
-    end;
-do_wildcard_comp({compiled_wildcard,[cwd,Base|Rest]}, Mod) ->
-    do_wildcard_1([Base], Rest, Mod);
-do_wildcard_comp({compiled_wildcard,[Base|Rest]}, Mod) ->
-    do_wildcard_1([Base], Rest, Mod).
-
-do_wildcard(Pattern, Cwd, Mod) when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)) ->
-    do_wildcard_comp(do_compile_wildcard(Pattern), Cwd, Mod).
-
-do_wildcard_comp({compiled_wildcard,{exists,File}}, Cwd, Mod) ->
-    case eval_read_file_info(filename:absname(File, Cwd), Mod) of
-	{ok,_} -> [File];
-	_ -> []
-    end;
-do_wildcard_comp({compiled_wildcard,[cwd|Rest0]}, Cwd0, Mod) ->
-    case Rest0 of
-	[current|Rest] -> ok;
-	Rest -> ok
-    end,
-    {Cwd,PrefixLen} = case filename:join([Cwd0]) of
-	      Bin when is_binary(Bin) -> {Bin,byte_size(Bin)+1};
-	      Other -> {Other,length(Other)+1}
-	  end,		%Slash away redundant slashes.
-    [
-     if 
-	 is_binary(N) ->
-	     <<_:PrefixLen/binary,Res/binary>> = N,
-	     Res;
-	 true ->
-	     lists:nthtail(PrefixLen, N)
-     end || N <- do_wildcard_1([Cwd], Rest, Mod)];
-do_wildcard_comp({compiled_wildcard,[Base|Rest]}, _Cwd, Mod) ->
-    do_wildcard_1([Base], Rest, Mod).
 
 do_is_dir(Dir, Mod) ->
     case eval_read_file_info(Dir, Mod) of
@@ -290,8 +250,23 @@ ensure_dir(F) ->
 %%% Pattern matching using a compiled wildcard.
 %%%
 
-do_wildcard_1(Files, Pattern, Mod) ->
-    do_wildcard_2(Files, Pattern, [], Mod).
+do_wildcard(Pattern, Cwd, Mod) ->
+    {Compiled,PrefixLen} = compile_wildcard(Pattern, Cwd),
+    Files = do_wildcard_1(Compiled, Mod),
+    if
+	PrefixLen =:= 0 ->
+	    Files;
+	true ->
+	    [lists:nthtail(PrefixLen, File) || File <- Files]
+    end.
+
+do_wildcard_1({exists,File}, Mod) ->
+    case eval_read_file_info(File, Mod) of
+	{ok,_} -> [File];
+	_ -> []
+    end;
+do_wildcard_1([Base|Rest], Mod) ->
+    do_wildcard_2([Base], Rest, [], Mod).
 
 do_wildcard_2([File|Rest], Pattern, Result, Mod) ->
     do_wildcard_2(Rest, Pattern, do_wildcard_3(File, Pattern, Result, Mod), Mod);
@@ -299,7 +274,7 @@ do_wildcard_2([], _, Result, _Mod) ->
     Result.
 
 do_wildcard_3(Base, [[double_star]|Rest], Result, Mod) ->
-    lists:sort(do_double_star(current, [Base], Rest, Result, Mod, true));
+    lists:sort(do_double_star(".", [Base], Rest, Result, Mod, true));
 do_wildcard_3(Base, [Pattern|Rest], Result, Mod) ->
     case do_list_dir(Base, Mod) of
 	{ok, Files0} ->
@@ -315,7 +290,7 @@ do_wildcard_3(Base, [], Result, _Mod) ->
 wildcard_4(Pattern, [File|Rest], Base, Result) ->
     case wildcard_5(Pattern, File) of
 	true ->
-	    wildcard_4(Pattern, Rest, Base, [join(Base, File)|Result]);
+	    wildcard_4(Pattern, Rest, Base, [filename:join(Base, File)|Result]);
 	false ->
 	    wildcard_4(Pattern, Rest, Base, Result)
     end;
@@ -349,7 +324,10 @@ wildcard_5([_|_], []) ->
     false.
 
 do_double_star(Base, [H|T], Rest, Result, Mod, Root) ->
-    Full = join(Base, H),
+    Full = case Root of
+	       false -> filename:join(Base, H);
+	       true -> H
+	   end,
     Result1 = case do_list_dir(Full, Mod) of
         {ok, Files} ->
             do_double_star(Full, Files, Rest, Result, Mod, false);
@@ -379,46 +357,54 @@ do_alt([Alt|Rest], File) ->
 do_alt([], _File) ->
     false.
 
-do_list_dir(current, Mod) -> eval_list_dir(".", Mod);
 do_list_dir(Dir, Mod) ->     eval_list_dir(Dir, Mod).
-
-join(current, File) -> File;
-join(Base, File) -> filename:join(Base, File).
 
 	    
 %%% Compiling a wildcard.
 
-compile_wildcard(Pattern) ->
-    ?HANDLE_ERROR(do_compile_wildcard(Pattern)).
+%% Only for debugging.
+compile_wildcard(Pattern) when is_list(Pattern) ->
+    {compiled_wildcard,?HANDLE_ERROR(compile_wildcard(Pattern, "."))}.
 
-do_compile_wildcard(Pattern) ->
-    {compiled_wildcard,compile_wildcard_1(Pattern)}.
-
-compile_wildcard_1(Pattern) ->
+compile_wildcard(Pattern, Cwd0) ->
     [Root|Rest] = filename:split(Pattern),
     case filename:pathtype(Root) of
 	relative ->
-	    case compile_wildcard_2([Root|Rest], current) of
-		{exists,_}=Wc -> Wc;
-		[_|_]=Wc -> [cwd|Wc]
-	    end;
+	    Cwd = filename:join([Cwd0]),
+	    compile_wildcard_2([Root|Rest], {cwd,Cwd});
 	_ ->
-	    compile_wildcard_2(Rest, [Root])
+	    compile_wildcard_2(Rest, {root,0,Root})
     end.
 
 compile_wildcard_2([Part|Rest], Root) ->
     case compile_part(Part) of
 	Part ->
-	    compile_wildcard_2(Rest, join(Root, Part));
+	    compile_wildcard_2(Rest, compile_join(Root, Part));
 	Pattern ->
 	    compile_wildcard_3(Rest, [Pattern,Root])
     end;
-compile_wildcard_2([], Root) -> {exists,Root}.
+compile_wildcard_2([], {root,PrefixLen,Root}) ->
+    {{exists,Root},PrefixLen}.
 
 compile_wildcard_3([Part|Rest], Result) ->
     compile_wildcard_3(Rest, [compile_part(Part)|Result]);
 compile_wildcard_3([], Result) ->
-    lists:reverse(Result).
+    case lists:reverse(Result) of
+	[{root,PrefixLen,Root}|Compiled] ->
+	    {[Root|Compiled],PrefixLen};
+	[{cwd,Root}|Compiled] ->
+	    {[Root|Compiled],length(filename:join(Root, "x"))-1}
+    end.
+
+compile_join({cwd,"."}, File) ->
+    {root,0,File};
+compile_join({cwd,Cwd}, File0) ->
+    File = filename:join([File0]),
+    Root = filename:join(Cwd, File),
+    PrefixLen = length(Root) - length(File),
+    {root,PrefixLen,Root};
+compile_join({root,PrefixLen,Root}, File) ->
+    {root,PrefixLen,filename:join(Root, File)}.
 
 compile_part(Part) ->
     compile_part(Part, false, []).
