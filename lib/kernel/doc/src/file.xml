@@ -110,6 +110,9 @@
       <name name="filename"/>
     </datatype>
     <datatype>
+      <name name="filename_all"/>
+    </datatype>
+    <datatype>
       <name name="io_device"/>
       <desc>
         <p>As returned by

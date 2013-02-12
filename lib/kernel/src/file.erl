@@ -67,8 +67,8 @@
 -export([ipread_s32bu_p32bu_int/3]).
 
 %% Types that can be used from other modules -- alphabetically ordered.
--export_type([date_time/0, fd/0, file_info/0, filename/0, io_device/0,
-	      name/0, posix/0]).
+-export_type([date_time/0, fd/0, file_info/0, filename/0, filename_all/0,
+              io_device/0, name/0, posix/0]).
 
 %%% Includes and defines
 -include("file.hrl").
@@ -80,7 +80,8 @@
 -define(RAM_FILE, ram_file).           % Module
 
 %% data types
--type filename()  :: string() | binary().
+-type filename()  :: string().
+-type filename_all() :: string() | binary().
 -type file_info() :: #file_info{}.
 -type fd()        :: #file_descriptor{}.
 -type io_device() :: pid() | fd().
@@ -280,7 +281,7 @@ read_link(Name) ->
 
 -spec read_link_all(Name) -> {ok, Filename} | {error, Reason} when
       Name :: name(),
-      Filename :: filename(),
+      Filename :: filename_all(),
       Reason :: posix() | badarg.
 
 read_link_all(Name) ->
@@ -313,7 +314,7 @@ list_dir(Name) ->
 
 -spec list_dir_all(Dir) -> {ok, Filenames} | {error, Reason} when
       Dir :: name(),
-      Filenames :: [filename()],
+      Filenames :: [filename_all()],
       Reason :: posix() | badarg.
 
 list_dir_all(Name) ->
