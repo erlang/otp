@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,8 +35,7 @@ generate_and_send_response(#mod{init_data =
 				#init_data{peername = {_,"unknown"}}}) ->
     ok;
 generate_and_send_response(#mod{config_db = ConfigDB} = ModData) ->
-    Modules = httpd_util:lookup(ConfigDB,modules,
-				[mod_get, mod_head, mod_log]),
+    Modules = httpd_util:lookup(ConfigDB,modules, ?DEFAULT_MODS),
     case traverse_modules(ModData, Modules) of
 	done ->
 	    ok;
@@ -71,7 +70,6 @@ traverse_modules(ModData,[Module|Rest]) ->
     ?hdrd("traverse modules", [{callback_module, Module}]), 
     case (catch apply(Module, do, [ModData])) of
 	{'EXIT', Reason} ->
-	    ?hdrd("traverse modules - exit", [{reason, Reason}]), 
 	    String = 
 		lists:flatten(
 		  io_lib:format("traverse exit from apply: ~p:do => ~n~p",
