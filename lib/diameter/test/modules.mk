@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2012. All Rights Reserved.
+# Copyright Ericsson AB 2010-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,8 @@ MODULES = \
 	diameter_tls_SUITE \
 	diameter_failover_SUITE \
 	diameter_dpr_SUITE \
-	diameter_event_SUITE
+	diameter_event_SUITE \
+	diameter_length_SUITE
 
 HRL_FILES = \
 	diameter_ct.hrl

@@ -332,8 +332,9 @@ call(SvcName, App, Message) ->
     | {capabilities_cb, evaluable()}
     | {capx_timeout, 'Unsigned32'()}
     | {disconnect_cb, evaluable()}
-    | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
+    | {length_errors, exit | handle | discard}
     | {reconnect_timer, 'Unsigned32'()}
+    | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
     | {private, any()}.
 
 %% Predicate passed to remove_transport/2
