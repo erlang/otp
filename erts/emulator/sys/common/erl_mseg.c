@@ -585,7 +585,10 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
     } else if (!MSEG_FLG_IS_2POW(flags)) {
 
 	/* No free slots and no unpowered (sbc) slots.
-	 * Evict smallest slot from powered cache so we can cache an unpowered (sbc) segment  */
+	 * Evict smallest slot from powered cache so we can cache an unpowered (sbc) segment.
+	 * Note: Though this is the wanted policy I don't think it is used significantly.
+	 * This branch could probably be removed without serious impact.
+	 */
 
 	int i;
 
@@ -659,30 +662,62 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p, Uint flags
     else if (!erts_circleq_is_empty(&(mk->cache_unpowered_node))) {
 	void *seg;
 	cache_t *c;
+	cache_t *best = NULL;
+	Uint bdiff = 0;
 	Uint csize;
 	Uint bad_max_abs = mk->ma->abs_max_cache_bad_fit;
 	Uint bad_max_rel = mk->ma->rel_max_cache_bad_fit;
 
 	erts_circleq_foreach(c, &(mk->cache_unpowered_node)) {
 	    csize = c->size;
-	    if (csize >= size &&
-		    ((csize - size)*100 < bad_max_rel*size) &&
-		    (csize - size) < bad_max_abs ) {
+	    if (csize >= size) {
+		if (((csize - size)*100 < bad_max_rel*size) && (csize - size) < bad_max_abs ) {
 
-		seg = c->seg;
+		    seg = c->seg;
 
-		erts_circleq_remove(c);
+		    erts_circleq_remove(c);
 
-		mk->cache_size--;
-		mk->cache_hits++;
+		    mk->cache_size--;
+		    mk->cache_hits++;
 
-		mseg_cache_clear_node(c);
-		erts_circleq_push_head(&(mk->cache_free), c);
+		    mseg_cache_clear_node(c);
+		    erts_circleq_push_head(&(mk->cache_free), c);
 
-		*size_p = csize;
+		    *size_p = csize;
 
-		return seg;
+		    return seg;
+
+		} else if (!best || (csize - size) < bdiff) {
+		    best  = c;
+		    bdiff = csize - size;
+		}
 	    }
+	}
+
+	/* No cached segment met our criteria, use the best one found and trim it */
+
+	if (best) {
+
+	    seg   = best->seg;
+	    csize = best->size;
+
+	    ASSERT(best->seg);
+	    ASSERT(best->size > 0);
+
+	    mk->cache_hits++;
+
+	    /* Use current cache placement for remaining segment space */
+
+	    best->seg  = seg + size;
+	    best->size = csize - size;
+
+	    ASSERT((size % GET_PAGE_SIZE) == 0);
+	    ASSERT((best->size % GET_PAGE_SIZE) == 0);
+
+	    *size_p = size;
+
+	    return seg;
+
 	}
     }
     return NULL;
