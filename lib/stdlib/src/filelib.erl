@@ -252,13 +252,14 @@ ensure_dir(F) ->
 
 do_wildcard(Pattern, Cwd, Mod) ->
     {Compiled,PrefixLen} = compile_wildcard(Pattern, Cwd),
-    Files = do_wildcard_1(Compiled, Mod),
-    if
-	PrefixLen =:= 0 ->
-	    Files;
-	true ->
-	    [lists:nthtail(PrefixLen, File) || File <- Files]
-    end.
+    Files0 = do_wildcard_1(Compiled, Mod),
+    Files = if
+		PrefixLen =:= 0 ->
+		    Files0;
+		true ->
+		    [lists:nthtail(PrefixLen, File) || File <- Files0]
+	    end,
+    lists:sort(Files).
 
 do_wildcard_1({exists,File}, Mod) ->
     case eval_read_file_info(File, Mod) of
@@ -274,12 +275,11 @@ do_wildcard_2([], _, Result, _Mod) ->
     Result.
 
 do_wildcard_3(Base, [[double_star]|Rest], Result, Mod) ->
-    lists:sort(do_double_star(".", [Base], Rest, Result, Mod, true));
+    do_double_star(".", [Base], Rest, Result, Mod, true);
 do_wildcard_3(Base0, [Pattern|Rest], Result, Mod) ->
     case do_list_dir(Base0, Mod) of
-	{ok, Files0} ->
+	{ok, Files} ->
 	    Base = prepare_base(Base0),
-	    Files = lists:sort(Files0),
 	    Matches = wildcard_4(Pattern, Files, Base, []),
 	    do_wildcard_2(Matches, Rest, Result, Mod);
 	_ ->
