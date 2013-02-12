@@ -46,15 +46,18 @@
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
--include("diameter_gen_base_rfc3588.hrl").
 
 %% Values of Disconnect-Cause in DPR.
--define(GOAWAY, ?'DIAMETER_BASE_DISCONNECT-CAUSE_DO_NOT_WANT_TO_TALK_TO_YOU').
--define(REBOOT, ?'DIAMETER_BASE_DISCONNECT-CAUSE_REBOOTING').
--define(BUSY, ?'DIAMETER_BASE_DISCONNECT-CAUSE_BUSY').
+-define(GOAWAY, 2).  %% DO_NOT_WANT_TO_TALK_TO_YOU
+-define(BUSY,   1).  %% BUSY
+-define(REBOOT, 0).  %% REBOOTING
 
+%% Values of Inband-Security-Id.
 -define(NO_INBAND_SECURITY, 0).
 -define(TLS, 1).
+
+%% Note that the a common dictionary hrl is purposely not included
+%% since the common dictionary is an argument to start/3.
 
 %% Keys in process dictionary.
 -define(CB_KEY, cb).         %% capabilities callback
@@ -100,8 +103,9 @@
                | {'Wait-CEA', uint32(), uint32()}
                | 'Open',
          mode :: accept | connect | {connect, reference()},
-         parent       :: pid(),  %% watchdog process
-         transport    :: pid(),  %% transport process
+         parent       :: pid(),     %% watchdog process
+         transport    :: pid(),     %% transport process
+         dictionary   :: module(),  %% common dictionary
          service      :: #diameter_service{},
          dpr = false  :: false | {uint32(), uint32()}}).
                             %% | hop by hop and end to end identifiers
@@ -134,7 +138,8 @@
 %% ---------------------------------------------------------------------------
 
 -spec start(T, [Opt], {diameter:sequence(),
-                       diameter:restriction(),
+                       [node()],
+                       module(),
                        #diameter_service{}})
    -> {reference(), pid()}
  when T   :: {connect|accept, diameter:transport_ref()},
@@ -173,6 +178,7 @@ init(T) ->
 
 i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
                                    Nodes,
+                                   Dict0,
                                    #diameter_service{capabilities = LCaps}
                                    = Svc}}) ->
     erlang:monitor(process, WPid),
@@ -191,6 +197,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
     #state{state = {'Wait-Conn-Ack', Tmo},
            parent = WPid,
            transport = TPid,
+           dictionary = Dict0,
            mode = M,
            service = svc(Svc, Addrs)}.
 %% The transport returns its local ip addresses so that different
@@ -199,8 +206,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
 %% sending capabilities exchange messages.
 %%
 %% Invalid transport config may cause us to crash but note that the
-%% watchdog start (start/2) succeeds regardless so as not to crash the
-%% service.
+%% watchdog start (start/2) succeeds regardless.
 
 %% Wait for the caller to have a monitor to avoid a race with our
 %% death. (Since the exit reason is used in diameter_service.)
@@ -455,7 +461,8 @@ start_next(#state{service = Svc0} = S) ->
 send_CER(#state{state = {'Wait-Conn-Ack', Tmo},
                 mode = {connect, Remote},
                 service = #diameter_service{capabilities = LCaps},
-                transport = TPid}
+                transport = TPid,
+                dictionary = Dict}
          = S) ->
     OH = LCaps#diameter_caps.origin_host,
     req_send_CER(OH, Remote)
@@ -466,7 +473,7 @@ send_CER(#state{state = {'Wait-Conn-Ack', Tmo},
     #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
                                                hop_by_hop_id = Hid}}
         = Pkt
-        = encode(CER),
+        = encode(CER, Dict),
     send(TPid, Pkt),
     start_timer(Tmo, S#state{state = {'Wait-CEA', Hid, Eid}}).
 
@@ -488,19 +495,20 @@ start_timer(Tmo, #state{state = PS} = S) ->
 
 %% build_CER/1
 
-build_CER(#state{service = #diameter_service{capabilities = LCaps}}) ->
-    {ok, CER} = diameter_capx:build_CER(LCaps),
+build_CER(#state{service = #diameter_service{capabilities = LCaps},
+                 dictionary = Dict}) ->
+    {ok, CER} = diameter_capx:build_CER(LCaps, Dict),
     CER.
 
-%% encode/1
+%% encode/2
 
-encode(Rec) ->
+encode(Rec, Dict) ->
     Seq = diameter_session:sequence({_,_} = getr(?SEQUENCE_KEY)),
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
                            end_to_end_id = Seq,
                            hop_by_hop_id = Seq},
-    diameter_codec:encode(?BASE, #diameter_packet{header = Hdr,
-                                                  msg = Rec}).
+    diameter_codec:encode(Dict, #diameter_packet{header = Hdr,
+                                                 msg = Rec}).
 
 %% recv/2
 
@@ -521,9 +529,10 @@ recv(#diameter_packet{header = #diameter_header{length = Len}
 
 recv(#diameter_packet{header = #diameter_header{} = Hdr}
      = Pkt,
-     #state{parent = Pid}
+     #state{parent = Pid,
+            dictionary = Dict0}
      = S) ->
-    Name = diameter_codec:msg_name(Hdr),
+    Name = diameter_codec:msg_name(Dict0, Hdr),
     Pid ! {recv, self(), Name, Pkt},
     diameter_stats:incr({msg_id(Name, Hdr), recv}), %% count received
     rcv(Name, Pkt, S);
@@ -608,13 +617,13 @@ send(Pid, Msg) ->
 
 %% handle_request/3
 
-handle_request(Type, #diameter_packet{} = Pkt, S) ->
+handle_request(Type, #diameter_packet{} = Pkt, #state{dictionary = D} = S) ->
     ?LOG(recv, Type),
-    send_answer(Type, diameter_codec:decode(?BASE, Pkt), S).
+    send_answer(Type, diameter_codec:decode(D, Pkt), S).
 
 %% send_answer/3
 
-send_answer(Type, ReqPkt, #state{transport = TPid} = S) ->
+send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
     #diameter_packet{header = H,
                      transport_data = TD}
         = ReqPkt,
@@ -631,13 +640,15 @@ send_answer(Type, ReqPkt, #state{transport = TPid} = S) ->
                            msg = Msg,
                            transport_data = TD},
 
-    send(TPid, diameter_codec:encode(?BASE, Pkt)),
+    send(TPid, diameter_codec:encode(Dict, Pkt)),
     eval(PostF, S).
 
 eval([F|A], S) ->
     apply(F, A ++ [S]);
 eval(ok, S) ->
-    S.
+    S;
+eval(T, _) ->
+    close(T).
 
 %% build_answer/3
 
@@ -648,11 +659,11 @@ build_answer('CER',
                                                         is_error = false},
                               errors = []}
              = Pkt,
-             S) ->
-    {SupportedApps, RCaps, #diameter_base_CEA{'Result-Code' = RC,
-                                              'Inband-Security-Id' = IS}
-                           = CEA}
-        = recv_CER(CER, S),
+             #state{dictionary = Dict0}
+             = S) ->
+    {SupportedApps, RCaps, CEA} = recv_CER(CER, S),
+
+    [RC, IS] = Dict0:'#get-'(['Result-Code', 'Inband-Security-Id'], CEA),
 
     #diameter_caps{origin_host = {OH, DH}}
         = Caps
@@ -665,10 +676,10 @@ build_answer('CER',
             orelse ?THROW(4003),  %% DIAMETER_ELECTION_LOST
         caps_cb(Caps)
     of
-        N -> {cea(CEA, N), [fun open/5, Pkt,
-                                        SupportedApps,
-                                        Caps,
-                                        {accept, hd([_] = IS)}]}
+        N -> {cea(CEA, N, Dict0), [fun open/5, Pkt,
+                                               SupportedApps,
+                                               Caps,
+                                               {accept, hd([_] = IS)}]}
     catch
         ?FAILURE(Reason) ->
             rejected(Reason, {'CER', Reason, Caps, Pkt}, S)
@@ -685,15 +696,15 @@ build_answer(Type,
     RC = rc(H, Es),
     {answer(Type, RC, Es, S), post(Type, RC, Pkt, S)}.
 
-cea(CEA, ok) ->
+cea(CEA, ok, _) ->
     CEA;
-cea(CEA, 2001) ->
+cea(CEA, 2001, _) ->
     CEA;
-cea(CEA, RC) ->
-    CEA#diameter_base_CEA{'Result-Code' = RC}.
+cea(CEA, RC, Dict0) ->
+    Dict0:'#set-'({'Result-Code', RC}, CEA).
 
 post('CER' = T, RC, Pkt, S) ->
-    [fun(_) -> close({T, caps(S), {RC, Pkt}}) end];
+    {T, caps(S), {RC, Pkt}};
 post(_, _, _, _) ->
     ok.
 
@@ -703,7 +714,7 @@ rejected({capabilities_cb, _F, Reason}, T, S) ->
 rejected(discard, T, _) ->
     close(T);
 rejected({N, Es}, T, S) ->
-    {answer('CER', N, Es, S), [fun(_) -> close(T) end]};
+    {answer('CER', N, Es, S), T};
 rejected(N, T, S) ->
     rejected({N, []}, T, S).
 
@@ -729,7 +740,7 @@ is_origin({N, _}) ->
         orelse N == 'Origin-State-Id'.
 
 %% failed_avp/1
-    
+
 failed_avp([] = No) ->
     No;
 failed_avp(Avps) ->
@@ -818,22 +829,23 @@ a('DPR', #diameter_caps{origin_host = {Host, _},
 
 %% recv_CER/2
 
-recv_CER(CER, #state{service = Svc}) ->
-    {ok, T} = diameter_capx:recv_CER(CER, Svc),
+recv_CER(CER, #state{service = Svc, dictionary = Dict}) ->
+    {ok, T} = diameter_capx:recv_CER(CER, Svc, Dict),
     T.
 
 %% handle_CEA/1
 
 handle_CEA(#diameter_packet{bin = Bin}
            = Pkt,
-           #state{service = #diameter_service{capabilities = LCaps}}
+           #state{dictionary = Dict0,
+                  service = #diameter_service{capabilities = LCaps}}
            = S)
   when is_binary(Bin) ->
     ?LOG(recv, 'CEA'),
 
     #diameter_packet{msg = CEA}
         = DPkt
-        = diameter_codec:decode(?BASE, Pkt),
+        = diameter_codec:decode(Dict0, Pkt),
 
     {SApps, IS, RCaps} = recv_CEA(DPkt, S),
 
@@ -841,8 +853,7 @@ handle_CEA(#diameter_packet{bin = Bin}
         = Caps
         = capz(LCaps, RCaps),
 
-    #diameter_base_CEA{'Result-Code' = RC}
-        = CEA,
+    RC = Dict0:'#get-'('Result-Code', CEA),
 
     %% Ensure that we don't already have a connection to the peer in
     %% question. This isn't the peer election of 3588 except in the
@@ -878,8 +889,9 @@ recv_CEA(#diameter_packet{header = #diameter_header{version
                                                     is_error = false},
                           msg = CEA,
                           errors = []},
-         #state{service = Svc}) ->
-    {ok, T} = diameter_capx:recv_CEA(CEA, Svc),
+         #state{service = Svc,
+                dictionary = Dict}) ->
+    {ok, T} = diameter_capx:recv_CEA(CEA, Svc, Dict),
     T;
 
 recv_CEA(Pkt, S) ->
@@ -1022,13 +1034,14 @@ dpr([CB|Rest], [Reason | _] = Args, S) ->
             diameter_lib:error_report(failure, No),
             {stop, No}
     end;
-        
+
 dpr([], [Reason | _], S) ->
     send_dpr(Reason, [], S).
 
 -record(opts, {cause, timeout = ?DPA_TIMEOUT}).
 
 send_dpr(Reason, Opts, #state{transport = TPid,
+                              dictionary = Dict,
                               service = #diameter_service{capabilities = Caps}}
                        = S) ->
     #opts{cause = Cause, timeout = Tmo}
@@ -1048,7 +1061,8 @@ send_dpr(Reason, Opts, #state{transport = TPid,
         = Pkt
         = encode(['DPR', {'Origin-Host', OH},
                          {'Origin-Realm', OR},
-                         {'Disconnect-Cause', Cause}]),
+                         {'Disconnect-Cause', Cause}],
+                 Dict),
     send(TPid, Pkt),
     dpa_timer(Tmo),
     ?LOG(send, 'DPR'),

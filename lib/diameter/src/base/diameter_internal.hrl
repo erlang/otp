@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,8 +57,6 @@
 %% 3588, 2.4:
 -define(APP_ID_COMMON, 0).
 -define(APP_ID_RELAY, 16#FFFFFFFF).
-
--define(BASE, diameter_gen_base_rfc3588).
 
 %%% ---------------------------------------------------------
 

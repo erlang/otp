@@ -4,7 +4,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -124,10 +124,10 @@ arg(["-i", Dir | Args], #argv{options = Opts} = A) ->
 
 arg(["--name", Name | Args], #argv{options = Opts} = A) ->
     arg(Args, A#argv{options = [{name, Name} | Opts]});
-    
+
 arg(["--prefix", Name | Args], #argv{options = Opts} = A) ->
     arg(Args, A#argv{options = [{prefix, Name} | Opts]});
-    
+
 arg(["--inherits", Dict | Args], #argv{options = Opts} = A) ->
     arg(Args, A#argv{options = Opts ++ [{inherits, Dict}]});
 
@@ -166,7 +166,7 @@ path_exists(File, Type) ->
 	_ ->
 	    throw({"No such file: ~p", [File]})
     end.
-    
+
 file_exists(File) ->
     path_exists(File, regular).
 

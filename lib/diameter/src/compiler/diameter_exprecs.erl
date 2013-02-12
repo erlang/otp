@@ -18,7 +18,7 @@
 %%
 
 %%
-%% Parse transform for generating record access functions
+%% Parse transform for generating record access functions.
 %%
 %% This parse transform can be used to reduce compile-time
 %% dependencies in large systems.
@@ -39,21 +39,21 @@
 %%
 %%   export_records([RecName, ...])
 %%
-%% causes this transform to lay out access functions for the exported
-%% records:
+%% causes this transform to insert functions for the exported records:
 %%
 %%   -module(foo)
 %%   -compile({parse_transform, diameter_exprecs}).
 %%
 %%   -record(r, {a, b, c}).
-%%   -export_records([a]).
+%%   -export_records([r]).
 %%
 %%   -export(['#info-'/1, '#info-'/2,
-%%            '#new-'/1, '#new-'/2,
-%%            '#get-'/2, '#set-'/2,
-%%            '#new-a'/0, '#new-a'/1,
-%%            '#get-a'/2, '#set-a'/2,
-%%            '#info-a'/1]).
+%%            '#new-'/1,  '#new-'/2,
+%%            '#get-'/1', '#get-'/2,
+%%            '#set-'/2,
+%%            '#new-r'/0, '#new-r'/1,
+%%            '#get-r'/2, '#set-r'/2,
+%%            '#info-r'/1]).
 %%
 %%   '#info-'(RecName) ->
 %%       '#info-'(RecName, fields).
@@ -61,14 +61,22 @@
 %%   '#info-'(r, Info) ->
 %%       '#info-r'(Info).
 %%
+%%   '#new-'([r | Vals]) -> '#new-r'(Vals);
 %%   '#new-'(r) -> #r{}.
-%%   '#new-'(r, Vals) -> '#new-r'(Vals)
+%%
+%%   '#new-'(r, Vals) -> '#new-r'(Vals).
 %%
 %%   '#new-r'() -> #r{}.
 %%   '#new-r'(Vals) -> '#set-r'(Vals, #r{}).
 %%
+%%   '#get-'(#r{} = Rec) ->
+%%       [r | '#get-r'(Rec)].
+%%
 %%   '#get-'(Attrs, #r{} = Rec) ->
 %%       '#get-r'(Attrs, Rec).
+%%
+%%   '#get-r'(#r{} = Rec) ->
+%%       lists:zip([a,b,c], tl(tuple_to_list(Rec))).
 %%
 %%   '#get-r'(Attrs, Rec) when is_list(Attrs) ->
 %%       ['#get-r'(A, Rec) || A <- Attrs];
@@ -116,6 +124,7 @@ a_export(Exports) ->
                           {fname(info), 2},
                           {fname(new), 1},
                           {fname(new), 2},
+                          {fname(get), 1},
                           {fname(get), 2},
                           {fname(set), 2}
                           | lists:flatmap(fun export/1, Exports)]}.
@@ -124,6 +133,7 @@ export(Rname) ->
     New = fname(new, Rname),
     [{New, 0},
      {New, 1},
+     {fname(get, Rname), 1},
      {fname(get, Rname), 2},
      {fname(set, Rname), 2},
      {fname(info, Rname), 1}].
@@ -135,6 +145,7 @@ f_accessors(Es, Rs) ->
      '#info-/2'(Es),
      '#new-/1'(Es),
      '#new-/2'(Es),
+     '#get-/1'(Es),
      '#get-/2'(Es),
      '#set-/2'(Es)
      | lists:flatmap(fun(N) -> accessors(N, fields(N, Rs)) end, Es)].
@@ -142,6 +153,7 @@ f_accessors(Es, Rs) ->
 accessors(Rname, Fields) ->
     ['#new-X/0'(Rname),
      '#new-X/1'(Rname),
+     '#get-X/1'(Rname, Fields),
      '#get-X/2'(Rname, Fields),
      '#set-X/2'(Rname, Fields),
      '#info-X/1'(Rname, Fields)].
@@ -183,12 +195,15 @@ fname(Op, Rname) ->
 
 '#new-/1'(Exports) ->
     {?function, fname(new), 1,
-     lists:map(fun 'new-'/1, Exports) ++ [?BADARG(1)]}.
+     lists:flatmap(fun 'new-'/1, Exports) ++ [?BADARG(1)]}.
 
 'new-'(R) ->
-    {?clause, [?ATOM(R)],
-     [],
-     [{?record, R, []}]}.
+    [{?clause, [?ATOM(R)],
+      [],
+      [{?record, R, []}]},
+     {?clause, [{?cons, ?ATOM(R), ?VAR('Vals')}],
+      [],
+      [?CALL(fname(new, R), [?VAR('Vals')])]}].
 
 '#new-/2'(Exports) ->
     {?function, fname(new), 2,
@@ -198,6 +213,15 @@ fname(Op, Rname) ->
     {?clause, [?ATOM(R), ?VAR('Vals')],
      [],
      [?CALL(fname(new, R), [?VAR('Vals')])]}.
+
+'#get-/1'(Exports) ->
+    {?function, fname(get), 1,
+     lists:map(fun 'get--'/1, Exports) ++ [?BADARG(1)]}.
+
+'get--'(R) ->
+    {?clause, [{?match, {?record, R, []}, ?VAR('Rec')}],
+     [],
+     [{?cons, ?ATOM(R), ?CALL(fname(get, R), [?VAR('Rec')])}]}.
 
 '#get-/2'(Exports) ->
     {?function, fname(get), 2,
@@ -244,6 +268,14 @@ fname(Op, Rname) ->
      [],
      [{?record, ?VAR('Rec'), Rname,
        [{?record_field, ?ATOM(Attr), ?VAR('V')}]}]}.
+
+'#get-X/1'(Rname, Fields) ->
+    FName = fname(get, Rname),
+    Values = ?CALL(tl, [?CALL(tuple_to_list, [?VAR('Rec')])]),
+    {?function, FName, 1,
+     [{?clause, [?VAR('Rec')],
+       [],
+       [?APPLY(lists, zip, [?TERM(Fields), Values])]}]}.
 
 '#get-X/2'(Rname, Fields) ->
     FName = fname(get, Rname),

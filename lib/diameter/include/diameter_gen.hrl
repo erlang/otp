@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -320,7 +320,7 @@ pack_avp(Name, #diameter_avp{name = AvpName} = Avp, Acc) ->
 pack_avp(Name, 0, Avp, Acc) ->
     pack_AVP(Name, Avp, Acc);
 
-pack_avp(_, Arity, Avp, Acc) ->    
+pack_avp(_, Arity, Avp, Acc) ->
     pack(Arity, Avp#diameter_avp.name, Avp, Acc).
 
 %% pack_AVP/3
@@ -332,7 +332,7 @@ pack_AVP(Name, Avp, Acc) ->
         Arity ->
             pack(Arity, 'AVP', Avp, Acc)
     end.
-    
+
 %% 3588:
 %%
 %%   DIAMETER_AVP_UNSUPPORTED           5001

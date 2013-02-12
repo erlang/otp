@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -113,14 +113,21 @@
 
 -define(VALUES(Rec), tl(tuple_to_list(Rec))).
 
+%% The RFC 3588 common dictionary is used to validate capabilities
+%% configuration. That a given transport may use the RFC 6733
+%% dictionary is of no consequence.
+-define(BASE, diameter_gen_base_rfc3588).
+
 %%% The return values below assume the server diameter_config is started.
 %%% The functions will exit if it isn't.
 
 %% --------------------------------------------------------------------------
-%% # start_service(SvcName, Opts)
-%%
-%% Output: ok | {error, Reason}
+%% # start_service/2
 %% --------------------------------------------------------------------------
+
+-spec start_service(diameter:service_name(), [diameter:service_opt()])
+   -> ok
+    | {error, term()}.
 
 start_service(SvcName, Opts)
   when is_list(Opts)  ->
@@ -134,21 +141,22 @@ start_rc(timeout) ->
     {error, application_not_started}.
 
 %% --------------------------------------------------------------------------
-%% # stop_service(SvcName)
-%%
-%% Output: ok
+%% # stop_service/1
 %% --------------------------------------------------------------------------
+
+-spec stop_service(diameter:service_name())
+   -> ok.
 
 stop_service(SvcName) ->
     sync(SvcName, {stop_service, SvcName}).
 
 %% --------------------------------------------------------------------------
-%% # add_transport(SvcName, {Type, Opts})
-%%
-%% Input:  Type = connect | listen
-%%
-%% Output: {ok, Ref} | {error, Reason}
+%% # add_transport/2
 %% --------------------------------------------------------------------------
+
+-spec add_transport(diameter:service_name(), {connect|listen, [diameter:transport_opt()]})
+   -> {ok, diameter:transport_ref()}
+    | {error, term()}.
 
 add_transport(SvcName, {T, Opts})
   when is_list(Opts), (T == connect orelse T == listen) ->
@@ -170,6 +178,10 @@ add_transport(SvcName, {T, Opts})
 %%
 %% Output: ok | {error, Reason}
 %% --------------------------------------------------------------------------
+
+-spec remove_transport(diameter:service_name(), diameter:transport_pred())
+   -> ok
+    | {error, term()}.
 
 remove_transport(SvcName, Pred) ->
     try
@@ -473,6 +485,10 @@ stop(SvcName) ->
 
 %% add/3
 
+%% Can't check for a single common dictionary since a transport may
+%% restrict applications so that that there's one while the service
+%% has many.
+
 add(SvcName, Type, Opts) ->
     %% Ensure usable capabilities. diameter_service:merge_service/2
     %% depends on this.
@@ -545,7 +561,7 @@ make_config(SvcName, Opts) ->
     [] == Apps andalso ?THROW(no_apps),
 
     %% Use the fact that diameter_caps has the same field names as CER.
-    Fields = diameter_gen_base_rfc3588:'#info-'(diameter_base_CER) -- ['AVP'],
+    Fields = ?BASE:'#info-'(diameter_base_CER) -- ['AVP'],
 
     COpts = [T || {K,_} = T <- Opts, lists:member(K, Fields)],
     Caps = make_caps(#diameter_caps{}, COpts),
@@ -608,14 +624,14 @@ opt(sequence = K, F) ->
         E:R ->
             ?THROW({value, {K, E, R, ?STACK}})
     end;
-            
+
 opt(K, _) ->
     ?THROW({value, K}).
 
 sequence({H,N} = T)
   when 0 =< N, N =< 32, 0 =< H, 0 == H bsr N ->
     T;
-    
+
 sequence(_) ->
     ?THROW({value, sequence}).
 
@@ -629,7 +645,8 @@ make_caps(Caps, Opts) ->
 
 %% Validate types by encoding a CER.
 encode_CER(Opts) ->
-    {ok, CER} = diameter_capx:build_CER(make_caps(?EXAMPLE_CAPS, Opts)),
+    {ok, CER} = diameter_capx:build_CER(make_caps(?EXAMPLE_CAPS, Opts),
+                                        ?BASE),
 
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
                            end_to_end_id = 0,

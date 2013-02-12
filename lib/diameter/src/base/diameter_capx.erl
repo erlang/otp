@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,14 +47,13 @@
 
 -module(diameter_capx).
 
--export([build_CER/1,
-         recv_CER/2,
-         recv_CEA/2,
+-export([build_CER/2,
+         recv_CER/3,
+         recv_CEA/3,
          make_caps/2]).
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
--include("diameter_gen_base_rfc3588.hrl").
 
 -define(SUCCESS,    2001).  %% DIAMETER_SUCCESS
 -define(NOAPP,      5010).  %% DIAMETER_NO_COMMON_APPLICATION
@@ -67,27 +66,31 @@
 
 -type tried(T) :: {ok, T} | {error, {term(), list()}}.
 
--spec build_CER(#diameter_caps{})
-   -> tried(#diameter_base_CER{}).
+-spec build_CER(#diameter_caps{}, module())
+   -> tried(CER)
+ when CER :: tuple().
 
-build_CER(Caps) ->
-    try_it([fun bCER/1, Caps]).
+build_CER(Caps, Dict) ->
+    try_it([fun bCER/2, Caps, Dict]).
 
--spec recv_CER(#diameter_base_CER{}, #diameter_service{})
+-spec recv_CER(CER, #diameter_service{}, module())
    -> tried({[diameter:'Unsigned32'()],
              #diameter_caps{},
-             #diameter_base_CEA{}}).
+             CEA})
+ when CER :: tuple(),
+      CEA :: tuple().
 
-recv_CER(CER, Svc) ->
-    try_it([fun rCER/2, CER, Svc]).
+recv_CER(CER, Svc, Dict) ->
+    try_it([fun rCER/3, CER, Svc, Dict]).
 
--spec recv_CEA(#diameter_base_CEA{}, #diameter_service{})
+-spec recv_CEA(CEA, #diameter_service{}, module())
    -> tried({[diameter:'Unsigned32'()],
              [diameter:'Unsigned32'()],
-             #diameter_caps{}}).
+             #diameter_caps{}})
+ when CEA :: tuple().
 
-recv_CEA(CEA, Svc) ->
-    try_it([fun rCEA/2, CEA, Svc]).
+recv_CEA(CEA, Svc, Dict) ->
+    try_it([fun rCEA/3, CEA, Svc, Dict]).
 
 make_caps(Caps, Opts) ->
     try_it([fun mk_caps/2, Caps, Opts]).
@@ -161,16 +164,17 @@ ipaddr(A) ->
             ?THROW(T)
     end.
 
-%% bCER/1
+%% bCER/2
 %%
 %% Build a CER record to send to a remote peer.
 
 %% Use the fact that diameter_caps has the same field names as CER.
-bCER(#diameter_caps{} = Rec) ->
-    #diameter_base_CER{}
-        = list_to_tuple([diameter_base_CER | tl(tuple_to_list(Rec))]).
+bCER(#diameter_caps{} = Rec, Dict) ->
+    Values = lists:zip(Dict:'#info-'(diameter_base_CER, fields),
+                       tl(tuple_to_list(Rec))),
+    Dict:'#new-'(diameter_base_CER, Values).
 
-%% rCER/2
+%% rCER/3
 %%
 %% Build a CEA record to send to a remote peer in response to an
 %% incoming CER. RFC 3588 gives no guidance on what should be sent
@@ -214,12 +218,9 @@ bCER(#diameter_caps{} = Rec) ->
 %%   TLS                               1
 %%      This node supports TLS security, as defined by [TLS].
 
-rCER(CER, #diameter_service{capabilities = LCaps} = Svc) ->
-    #diameter_base_CEA{}
-        = CEA
-        = cea_from_cer(bCER(LCaps)),
-
-    RCaps = capx_to_caps(CER),
+rCER(CER, #diameter_service{capabilities = LCaps} = Svc, Dict) ->
+    CEA = cea_from_cer(bCER(LCaps, Dict), Dict),
+    RCaps = capx_to_caps(CER, Dict),
     SApps = common_applications(LCaps, RCaps, Svc),
 
     {SApps,
@@ -227,17 +228,18 @@ rCER(CER, #diameter_service{capabilities = LCaps} = Svc) ->
      build_CEA(SApps,
                LCaps,
                RCaps,
-               CEA#diameter_base_CEA{'Result-Code' = ?SUCCESS})}.
+               Dict,
+               Dict:'#set-'({'Result-Code', ?SUCCESS}, CEA))}.
 
-build_CEA([], _, _, CEA) ->
-    CEA#diameter_base_CEA{'Result-Code' = ?NOAPP};
+build_CEA([], _, _, Dict, CEA) ->
+    Dict:'#set-'({'Result-Code', ?NOAPP}, CEA);
 
-build_CEA(_, LCaps, RCaps, CEA) ->
+build_CEA(_, LCaps, RCaps, Dict, CEA) ->
     case common_security(LCaps, RCaps) of
         [] ->
-            CEA#diameter_base_CEA{'Result-Code' = ?NOSECURITY};
+            Dict:'#set-'({'Result-Code', ?NOSECURITY}, CEA);
         [_] = IS ->
-            CEA#diameter_base_CEA{'Inband-Security-Id' = IS}
+            Dict:'#set-'({'Inband-Security-Id', IS}, CEA)
     end.
 
 %% common_security/2
@@ -275,46 +277,41 @@ cs(LS, RS) ->
 %% practice something there may be a need for more synchronization
 %% than notification by way of an event subscription offers.
 
-%% cea_from_cer/1
+%% cea_from_cer/2
 
 %% CER is a subset of CEA, the latter adding Result-Code and a few
 %% more AVP's.
-cea_from_cer(#diameter_base_CER{} = CER) ->
-    lists:foldl(fun(F,A) -> to_cea(CER, F, A) end,
-                #diameter_base_CEA{},
-                record_info(fields, diameter_base_CER)).
+cea_from_cer(CER, Dict) ->
+    [diameter_base_CER | Values] = Dict:'#get-'(CER),
+    Dict:'#set-'(Values, Dict:'#new-'(diameter_base_CEA)).
 
-to_cea(CER, Field, CEA) ->
-    try ?BASE:'#get-'(Field, CER) of
-        V -> ?BASE:'#set-'({Field, V}, CEA)
-    catch
-        error: _ -> CEA
-    end.
-        
-%% rCEA/2
+%% rCEA/3
 
-rCEA(CEA, #diameter_service{capabilities = LCaps} = Svc) ->
-    RCaps = capx_to_caps(CEA),
+rCEA(CEA, #diameter_service{capabilities = LCaps} = Svc, Dict) ->
+    RCaps = capx_to_caps(CEA, Dict),
     SApps = common_applications(LCaps, RCaps, Svc),
     IS = common_security(LCaps, RCaps),
 
     {SApps, IS, RCaps}.
 
-%% capx_to_caps/1
+%% capx_to_caps/2
 
-capx_to_caps(#diameter_base_CEA{'Origin-Host' = OH,
-                                'Origin-Realm' = OR,
-                                'Host-IP-Address' = IP,
-                                'Vendor-Id' = VId,
-                                'Product-Name' = PN,
-                                'Origin-State-Id' = OSI,
-                                'Supported-Vendor-Id' = SV,
-                                'Auth-Application-Id' = Auth,
-                                'Inband-Security-Id' = IS,
-                                'Acct-Application-Id' = Acct,
-                                'Vendor-Specific-Application-Id' = VSA,
-                                'Firmware-Revision' = FR,
-                                'AVP' = X}) ->
+capx_to_caps(CEX, Dict) ->
+    [OH, OR, IP, VId, PN, OSI, SV, Auth, IS, Acct, VSA, FR, X]
+        = Dict:'#get-'(['Origin-Host',
+                        'Origin-Realm',
+                        'Host-IP-Address',
+                        'Vendor-Id',
+                        'Product-Name',
+                        'Origin-State-Id',
+                        'Supported-Vendor-Id',
+                        'Auth-Application-Id',
+                        'Inband-Security-Id',
+                        'Acct-Application-Id',
+                        'Vendor-Specific-Application-Id',
+                        'Firmware-Revision',
+                        'AVP'],
+                       CEX),
     #diameter_caps{origin_host = OH,
                    origin_realm = OR,
                    vendor_id = VId,
@@ -327,10 +324,7 @@ capx_to_caps(#diameter_base_CEA{'Origin-Host' = OH,
                    acct_application_id = Acct,
                    vendor_specific_application_id = VSA,
                    firmware_revision = FR,
-                   avp = X};
-
-capx_to_caps(#diameter_base_CER{} = CER) ->
-    capx_to_caps(cea_from_cer(CER)).
+                   avp = X}.
 
 %% ---------------------------------------------------------------------------
 %% ---------------------------------------------------------------------------
@@ -365,13 +359,12 @@ app_union(#diameter_caps{auth_application_id = U,
                          vendor_specific_application_id = V}) ->
     set_list(U ++ C ++ lists:flatmap(fun vsa_apps/1, V)).
 
-vsa_apps(#'diameter_base_Vendor-Specific-Application-Id'
-         {'Auth-Application-Id' = U,
-          'Acct-Application-Id' = C}) ->
-    U ++ C;
-vsa_apps(L) ->
-    Rec = ?BASE:'#new-'('diameter_base_Vendor-Specific-Application-Id', L),
-    vsa_apps(Rec).
+vsa_apps([_ | [_,_] = Ids]) ->
+    lists:append(Ids);
+vsa_apps(Rec)
+  when is_tuple(Rec) ->
+    [_|T] = tuple_to_list(Rec),
+    vsa_apps(T).
 
 %% It's a configuration error for a locally advertised application not
 %% to be represented in Apps. Don't just match on lists:keyfind/3 in

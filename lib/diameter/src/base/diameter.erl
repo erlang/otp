@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -213,7 +213,7 @@ origin_state_id() ->
    -> any().
 
 call(SvcName, App, Message, Options) ->
-    diameter_service:call(SvcName, {alias, App}, Message, Options).
+    diameter_traffic:send_request(SvcName, {alias, App}, Message, Options).
 
 call(SvcName, App, Message) ->
     call(SvcName, App, Message, []).
