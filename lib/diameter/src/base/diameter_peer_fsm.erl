@@ -126,24 +126,17 @@
 %% State Machine rather than closer to the transport. This is what we
 %% now do below: connect/accept call diameter_watchdog and return the
 %% pid of the watchdog process, and the watchdog in turn calls start/3
-%% below to start the process implementing the Peer State Machine. The
-%% former is a "peer" in diameter_service while the latter is a
-%% "conn". In a sense, diameter_service sees the watchdog as
-%% implementing the Peer State Machine and the process implemented
-%% here as being the transport, not being aware of the watchdog at
-%% all.
+%% below to start the process implementing the Peer State Machine.
 %%
 
-%%% ---------------------------------------------------------------------------
-%%% # start({connect|accept, Ref}, Opts, Service)
-%%%
-%%% Output: Pid
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # start/3
+%% ---------------------------------------------------------------------------
 
 -spec start(T, [Opt], {diameter:sequence(),
                        diameter:restriction(),
                        #diameter_service{}})
-   -> pid()
+   -> {reference(), pid()}
  when T   :: {connect|accept, diameter:transport_ref()},
       Opt :: diameter:transport_opt().
 
@@ -152,9 +145,15 @@
 %% specified on the transport in question. Check here that the list is
 %% still non-empty.
 
-start({_,_} = Type, Opts, MS) ->
-    {ok, Pid} = diameter_peer_fsm_sup:start_child({self(), Type, Opts, MS}),
-    Pid.
+start({_,_} = Type, Opts, S) ->
+    Ack = make_ref(),
+    T = {Ack, self(), Type, Opts, S},
+    {ok, Pid} = diameter_peer_fsm_sup:start_child(T),
+    try
+        {erlang:monitor(process, Pid), Pid}
+    after
+        Pid ! Ack
+    end.
 
 start_link(T) ->
     {ok, _} = proc_lib:start_link(?MODULE,
@@ -163,8 +162,8 @@ start_link(T) ->
                                   infinity,
                                   diameter_lib:spawn_opts(server, [])).
 
-%%% ---------------------------------------------------------------------------
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
 
 %% init/1
 
@@ -172,12 +171,13 @@ init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
 
-i({WPid, T, Opts, {Mask, Nodes, #diameter_service{applications = Apps,
-                                                  capabilities = LCaps}
-                                = Svc}}) ->
-    [] /= Apps orelse ?ERROR({no_apps, T, Opts}),
+i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
+                                   Nodes,
+                                   #diameter_service{capabilities = LCaps}
+                                   = Svc}}) ->
+    erlang:monitor(process, WPid),
+    wait(Ack, WPid),
     putr(?DWA_KEY, dwa(LCaps)),
-    {M, Ref} = T,
     diameter_stats:reg(Ref),
     {[Cs,Ds], Rest} = proplists:split(Opts, [capabilities_cb, disconnect_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Cs]}),
@@ -185,7 +185,6 @@ i({WPid, T, Opts, {Mask, Nodes, #diameter_service{applications = Apps,
     putr(?REF_KEY, Ref),
     putr(?SEQUENCE_KEY, Mask),
     putr(?RESTRICT_KEY, Nodes),
-    erlang:monitor(process, WPid),
     {TPid, Addrs} = start_transport(T, Rest, Svc),
     Tmo = proplists:get_value(capx_timeout, Opts, ?EVENT_TIMEOUT),
     ?IS_TIMEOUT(Tmo) orelse ?ERROR({invalid, {capx_timeout, Tmo}}),
@@ -202,6 +201,16 @@ i({WPid, T, Opts, {Mask, Nodes, #diameter_service{applications = Apps,
 %% Invalid transport config may cause us to crash but note that the
 %% watchdog start (start/2) succeeds regardless so as not to crash the
 %% service.
+
+%% Wait for the caller to have a monitor to avoid a race with our
+%% death. (Since the exit reason is used in diameter_service.)
+wait(Ref, Pid) ->
+    receive
+        Ref ->
+            ok;
+        {'DOWN', _, process, Pid, _} = D ->
+            exit({shutdown, D})
+    end.
 
 start_transport(T, Opts, #diameter_service{capabilities = LCaps} = Svc) ->
     Addrs0 = LCaps#diameter_caps.host_ip_address,
@@ -274,13 +283,12 @@ handle_info(T, #state{} = State) ->
             {noreply, S};
         {stop, Reason} ->
             ?LOG(stop, Reason),
-            x(Reason, State);
+            {stop, {shutdown, Reason}, State};
         stop ->
             ?LOG(stop, T),
-            x(T, State)
+            {stop, {shutdown, T}, State}
     catch
         exit: {diameter_codec, encode, _} = Reason ->
-            close_wd(Reason, State#state.parent),
             ?LOG(stop, Reason),
             %% diameter_codec:encode/2 emits an error report. Only
             %% indicate the probable reason here.
@@ -300,10 +308,6 @@ handle_info(T, #state{} = State) ->
 %% succesfully encoded. It's not checked at diameter:add_transport/2
 %% since this can be called before creating the service.
 
-x(Reason, #state{} = S) ->
-    close_wd(Reason, S),
-    {stop, {shutdown, Reason}, S}.
-
 %% terminate/2
 
 terminate(_, _) ->
@@ -314,8 +318,8 @@ terminate(_, _) ->
 code_change(_, State, _) ->
     {ok, State}.
 
-%%% ---------------------------------------------------------------------------
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
 
 putr(Key, Val) ->
     put({?MODULE, Key}, Val).
@@ -378,9 +382,8 @@ transition({diameter, {recv, Pkt}}, S) ->
     recv(Pkt, S);
 
 %% Timeout when still in the same state ...
-transition({timeout = T, PS}, #state{state = PS} = S) ->
-    close({capx(PS), T}, S),
-    stop;
+transition({timeout = T, PS}, #state{state = PS}) ->
+    {stop, {capx(PS), T}};
 
 %% ... or not.
 transition({timeout, _}, _) ->
@@ -393,8 +396,6 @@ transition({send, Msg}, #state{transport = TPid}) ->
 
 %% Request for graceful shutdown at remove_transport, stop_service of
 %% application shutdown.
-transition({shutdown = T, Pid}, S) ->
-    transition({T, Pid, transport}, S);
 transition({shutdown, Pid, Reason}, #state{parent = Pid, dpr = false} = S) ->
     dpr(Reason, S);
 transition({shutdown, Pid, _}, #state{parent = Pid}) ->
@@ -459,7 +460,7 @@ send_CER(#state{state = {'Wait-Conn-Ack', Tmo},
     OH = LCaps#diameter_caps.origin_host,
     req_send_CER(OH, Remote)
         orelse
-        close({already_connected, Remote, LCaps}, S),
+        close({already_connected, Remote, LCaps}),
     CER = build_CER(S),
     ?LOG(send, 'CER'),
     #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
@@ -692,17 +693,17 @@ cea(CEA, RC) ->
     CEA#diameter_base_CEA{'Result-Code' = RC}.
 
 post('CER' = T, RC, Pkt, S) ->
-    [fun close/2, {T, caps(S), {RC, Pkt}}];
+    [fun(_) -> close({T, caps(S), {RC, Pkt}}) end];
 post(_, _, _, _) ->
     ok.
 
 rejected({capabilities_cb, _F, Reason}, T, S) ->
     rejected(Reason, T, S);
 
-rejected(discard, T, S) ->
-    close(T, S);
+rejected(discard, T, _) ->
+    close(T);
 rejected({N, Es}, T, S) ->
-    {answer('CER', N, Es, S), [fun close/2, T]};
+    {answer('CER', N, Es, S), [fun(_) -> close(T) end]};
 rejected(N, T, S) ->
     rejected({N, []}, T, S).
 
@@ -862,7 +863,7 @@ handle_CEA(#diameter_packet{bin = Bin}
     of
         _ -> open(DPkt, SApps, Caps, {connect, hd([_] = IS)}, S)
     catch
-        ?FAILURE(Reason) -> close({'CEA', Reason, Caps, DPkt}, S)
+        ?FAILURE(Reason) -> close({'CEA', Reason, Caps, DPkt})
     end.
 %% Check more than the result code since the peer could send success
 %% regardless. If not 2001 then a peer_up callback could do anything
@@ -882,7 +883,7 @@ recv_CEA(#diameter_packet{header = #diameter_header{version
     T;
 
 recv_CEA(Pkt, S) ->
-    close({'CEA', caps(S), Pkt}, S).
+    close({'CEA', caps(S), Pkt}).
 
 caps(#diameter_service{capabilities = Caps}) ->
     Caps;
@@ -935,14 +936,14 @@ open(Pkt, SupportedApps, Caps, {Type, IS}, #state{parent = Pid,
 
 %% We've advertised TLS support: tell the transport the result
 %% and expect a reply when the handshake is complete.
-tls_ack(true, Caps, Type, IS, #state{transport = TPid} = S) ->
+tls_ack(true, Caps, Type, IS, #state{transport = TPid}) ->
     Ref = make_ref(),
     TPid ! {diameter, {tls, Ref, Type, IS == ?TLS}},
     receive
         {diameter, {tls, Ref}} ->
             ok;
         {'DOWN', _, process, TPid, Reason} ->
-            close({tls_ack, Reason, Caps}, S)
+            close({tls_ack, Reason, Caps})
     end;
 
 %% Or not. Don't send anything to the transport so that transports
@@ -955,24 +956,10 @@ capz(#diameter_caps{} = L, #diameter_caps{} = R) ->
         = list_to_tuple([diameter_caps | lists:zip(tl(tuple_to_list(L)),
                                                    tl(tuple_to_list(R)))]).
 
-%% close/2
+%% close/1
 
-%% Tell the watchdog that our death isn't due to transport failure.
-close(Reason, #state{parent = Pid}) ->
-    close_wd(Reason, Pid),
+close(Reason) ->
     throw({?MODULE, close, Reason}).
-
-%% close_wd/2
-
-%% Ensure the watchdog dies if DPR has been sent ...
-close_wd(_, #state{dpr = false}) ->
-    ok;
-close_wd(Reason, #state{parent = Pid}) ->
-    close_wd(Reason, Pid);
-
-%% ... or otherwise
-close_wd(Reason, Pid) ->
-    Pid ! {close, self(), Reason}.
 
 %% dwa/1
 

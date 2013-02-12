@@ -80,7 +80,9 @@
          send_multiple_filters_2/1,
          send_multiple_filters_3/1,
          send_anything/1,
+         outstanding/1,
          remove_transports/1,
+         empty/1,
          stop_services/1,
          stop/1]).
 
@@ -202,7 +204,7 @@ all() ->
                                                C <- ?CONTAINERS,
                                                A <- ?ENCODINGS,
                                                P <- [[], [parallel]]]
-        ++ [remove_transports, stop_services, stop].
+        ++ [outstanding, remove_transports, empty, stop_services, stop].
 
 groups() ->
     Ts = tc(),
@@ -288,6 +290,11 @@ add_transports(Config) ->
           || C <- ?CONNECTIONS],
     ?util:write_priv(Config, "transport", [LRef | Cs]).
 
+%% Ensure there are no outstanding requests in request table.
+outstanding(_Config) ->
+    [] = [T || T <- ets:tab2list(diameter_request),
+               is_atom(element(1,T))].
+
 remove_transports(Config) ->
     [LRef | Cs] = ?util:read_priv(Config, "transport"),
     [?util:disconnect(?CLIENT, C, ?SERVER, LRef) || C <- Cs].
@@ -295,6 +302,10 @@ remove_transports(Config) ->
 stop_services(_Config) ->
     ok = diameter:stop_service(?CLIENT),
     ok = diameter:stop_service(?SERVER).
+
+%% Ensure even transports have been removed from request table.
+empty(_Config) ->
+    [] = ets:tab2list(diameter_request).
 
 stop(_Config) ->
     ok = diameter:stop().
