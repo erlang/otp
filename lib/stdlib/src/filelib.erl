@@ -19,9 +19,6 @@
 -module(filelib).
 
 %% File utilities.
-
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
 -export([wildcard/1, wildcard/2, is_dir/1, is_file/1, is_regular/1, 
 	 compile_wildcard/1]).
 -export([fold_files/5, last_modified/1, file_size/1, ensure_dir/1]).
@@ -37,7 +34,7 @@
 	catch
 	    error:{badpattern,_}=UnUsUalVaRiAbLeNaMe ->
 		%% Get the stack backtrace correct.
-		erlang:error(UnUsUalVaRiAbLeNaMe)
+		error(UnUsUalVaRiAbLeNaMe)
 	end).
 
 -type filename() :: file:name().
@@ -430,7 +427,7 @@ compile_part_to_sep(Part) ->
     compile_part(Part, true, []).
 
 compile_part([], true, _) ->
-    error(missing_delimiter);
+    badpattern(missing_delimiter);
 compile_part([$,|Rest], true, Result) ->
     {ok, $,, lists:reverse(Result), Rest};
 compile_part([$}|Rest], true, Result) ->
@@ -502,8 +499,8 @@ compile_alt(Pattern, Result) ->
 	    error
     end.
 
-error(Reason) ->
-    erlang:error({badpattern,Reason}).
+badpattern(Reason) ->
+    error({badpattern,Reason}).
 
 eval_read_file_info(File, file) ->
     file:read_file_info(File);
