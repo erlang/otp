@@ -1029,10 +1029,22 @@ char* win32_errorstr(int);
 #define ERL_FILENAME_UTF8_MAC  (3)
 #define ERL_FILENAME_WIN_WCHAR (4)
 
+/************************************************************************
+ * If a filename in for example list_dir is not in the right encoding, it
+ * will be skipped in the resulting list, but depending on a startup setting
+ * we will inform the user in different ways. These macros define the
+ * different reactions to wrongly coded filenames. In the error case an
+ * exception will be thrown by prim_file.
+ ************************************************************************/
+#define ERL_FILENAME_WARNING_WARNING (0)
+#define ERL_FILENAME_WARNING_IGNORE (1)
+#define ERL_FILENAME_WARNING_ERROR (2)
+
 int erts_get_native_filename_encoding(void);
 /* The set function is only to be used by erl_init! */
-void erts_set_user_requested_filename_encoding(int encoding); 
+void erts_set_user_requested_filename_encoding(int encoding, int warning);
 int erts_get_user_requested_filename_encoding(void);
+int erts_get_filename_warning_type(void);
 
 void erts_init_sys_common_misc(void);
 

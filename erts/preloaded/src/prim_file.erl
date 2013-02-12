@@ -50,9 +50,9 @@
 	 write_file_info/2, write_file_info/3, write_file_info/4,
 	 make_link/2, make_link/3,
 	 make_symlink/2, make_symlink/3,
-	 read_link/1, read_link/2,
+	 read_link/1, read_link/2, read_link_all/1, read_link_all/2,
 	 read_link_info/1, read_link_info/2, read_link_info/3,
-	 list_dir/1, list_dir/2]).
+	 list_dir/1, list_dir/2, list_dir_all/1, list_dir_all/2]).
 %% How to start and stop the ?DRV port.
 -export([start/0, stop/1]).
 
@@ -152,16 +152,19 @@
 
 -export([internal_name2native/1,
          internal_native2name/1,
-         internal_normalize_utf8/1]).
+         internal_normalize_utf8/1,
+	 is_translatable/1]).
 
 -type prim_file_name() :: string() | unicode:unicode_binary().
+-type prim_file_name_error() :: 'error' | 'ignore' | 'warning'.
 
 -spec internal_name2native(prim_file_name()) -> binary().
 
 internal_name2native(_) ->
     erlang:nif_error(undefined).
 
--spec internal_native2name(binary()) -> prim_file_name().
+-spec internal_native2name(binary()) ->
+        prim_file_name() | {'error',prim_file_name_error()}.
 
 internal_native2name(_) ->
     erlang:nif_error(undefined).
@@ -169,6 +172,11 @@ internal_native2name(_) ->
 -spec internal_normalize_utf8(unicode:unicode_binary()) -> string().
 
 internal_normalize_utf8(_) ->
+    erlang:nif_error(undefined).
+
+-spec is_translatable(prim_file_name()) -> boolean().
+
+is_translatable(_) ->
     erlang:nif_error(undefined).
 
 %%% End of BIFs
@@ -210,12 +218,7 @@ open(_, _) ->
 %% Opens a port that can be used for open/3 or read_file/2.
 %% Returns {ok, Port} | {error, Reason}.
 open(Portopts) when is_list(Portopts) ->
-    case drv_open(?FD_DRV, Portopts) of
-	{error, _} = Error ->
-	    Error;
-	Other ->
-	    Other
-    end;
+    drv_open(?FD_DRV, [binary|Portopts]);
 open(_) ->
     {error, badarg}.
 
@@ -607,13 +610,7 @@ sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
 %% Returns {ok, Port}, the Port should be used as first argument in all
 %% the following functions. Returns {error, Reason} upon failure.
 start() ->
-    try erlang:open_port({spawn, ?DRV}, [binary]) of
-	Port ->
-	    {ok, Port}
-    catch
-	error:Reason ->
-	    {error, Reason}
-    end.
+    drv_open(?DRV, [binary]).
 
 stop(Port) when is_port(Port) ->
     try erlang:port_close(Port) of
@@ -667,7 +664,8 @@ get_cwd_int(Drive) ->
     get_cwd_int({?DRV, [binary]}, Drive).
 
 get_cwd_int(Port, Drive) ->
-    drv_command(Port, <<?FILE_PWD, Drive>>).
+    drv_command(Port, <<?FILE_PWD, Drive>>,
+		fun handle_fname_response/1).
 
 
 
@@ -679,10 +677,17 @@ set_cwd(Dir) ->
 set_cwd(Port, Dir) when is_port(Port) ->
     set_cwd_int(Port, Dir).
 
-set_cwd_int(Port, Dir) ->
-    %% Dir is now either a string or an EXIT tuple.
-    %% An EXIT tuple will fail in the following catch.
-    drv_command(Port, [?FILE_CHDIR, pathname(Dir)]).
+set_cwd_int(Port, Dir) when is_binary(Dir) ->
+    case prim_file:is_translatable(Dir) of
+	false ->
+	    {error, no_translation};
+	true ->
+	    drv_command(Port, [?FILE_CHDIR, pathname(Dir)])
+    end;
+set_cwd_int(Port, Dir) when is_list(Dir) ->
+    drv_command(Port, [?FILE_CHDIR, pathname(Dir)]);
+set_cwd_int(_, _) ->
+    {error, badarg}.
 
 
 
@@ -775,7 +780,8 @@ altname(Port, File) when is_port(Port) ->
     altname_int(Port, File).
 
 altname_int(Port, File) ->
-    drv_command(Port, [?FILE_ALTNAME, pathname(File)]).
+    drv_command(Port, [?FILE_ALTNAME, pathname(File)],
+		fun handle_fname_response/1).
 
 %% write_file_info/{2,3,4}
 
@@ -868,7 +874,20 @@ read_link(Port, Link) when is_port(Port) ->
     read_link_int(Port, Link).
 
 read_link_int(Port, Link) ->
-    drv_command(Port, [?FILE_READLINK, pathname(Link)]).
+    drv_command(Port, [?FILE_READLINK, pathname(Link)],
+		fun handle_fname_response/1).
+
+%% read_link_all/{2,3}
+
+read_link_all(Link) ->
+    read_link_all_int({?DRV, [binary]}, Link).
+
+read_link_all(Port, Link) when is_port(Port) ->
+    read_link_all_int(Port, Link).
+
+read_link_all_int(Port, Link) ->
+    drv_command(Port, [?FILE_READLINK, pathname(Link)],
+		fun handle_fname_response_all/1).
 
 
 
@@ -910,20 +929,112 @@ list_dir(Port, Dir) when is_port(Port) ->
     list_dir_int(Port, Dir).
 
 list_dir_int(Port, Dir) ->
-    drv_command(Port, [?FILE_READDIR, pathname(Dir)], []).
+    drv_command(Port, [?FILE_READDIR, pathname(Dir)],
+		fun(P) ->
+			case list_dir_response(P, []) of
+			    {ok, RawNames} ->
+				{ok, list_dir_convert(RawNames)};
+			    Error ->
+				Error
+			end
+		end).
 
+list_dir_all(Dir) ->
+    list_dir_all_int({?DRV, [binary]}, Dir).
 
+list_dir_all(Port, Dir) when is_port(Port) ->
+    list_dir_all_int(Port, Dir).
+
+list_dir_all_int(Port, Dir) ->
+    drv_command(Port, [?FILE_READDIR, pathname(Dir)],
+		fun(P) ->
+			case list_dir_response(P, []) of
+			    {ok, RawNames} ->
+				{ok, list_dir_convert_all(RawNames)};
+			    Error ->
+				Error
+			end
+		end).
+
+list_dir_response(Port, Acc0) ->
+    case drv_get_response(Port) of
+	{lfname, []} ->
+	    {ok, Acc0};
+	{lfname, Names} ->
+	    Acc = [Name || <<L:16,Name:L/binary>> <= Names] ++ Acc0,
+	    list_dir_response(Port, Acc);
+	Error ->
+	    Error
+    end.
+
+list_dir_convert([Name|Names]) ->
+    %% If the filename cannot be converted, return error or ignore
+    %% with optional error logger warning, depending on +fn{u|a}{i|e|w}
+    %% emulator switches.
+    case prim_file:internal_native2name(Name) of
+	{error, warning} ->
+	    error_logger:warning_msg("Non-unicode filename ~p ignored\n",
+				     [Name]),
+	    list_dir_convert(Names);
+	{error, ignore} ->
+	    list_dir_convert(Names);
+	{error, error} ->
+	    {error, {no_translation, Name}};
+	Converted when is_list(Converted) ->
+	    [Converted|list_dir_convert(Names)]
+    end;
+list_dir_convert([]) -> [].
+
+list_dir_convert_all([Name|Names]) ->
+    %% If the filename cannot be converted, retain the filename as
+    %% a binary.
+    case prim_file:internal_native2name(Name) of
+	{error, _} ->
+	    [Name|list_dir_convert(Names)];
+	Converted when is_list(Converted) ->
+	    [Converted|list_dir_convert(Names)]
+    end;
+list_dir_convert_all([]) -> [].
 
 %%%-----------------------------------------------------------------
 %%% Functions to communicate with the driver
 
+handle_fname_response(Port) ->
+    case drv_get_response(Port) of
+	{fname, Name} ->
+	    case prim_file:internal_native2name(Name) of
+		{error, warning} ->
+		    error_logger:warning_msg("Non-unicode filename ~p "
+					     "ignored when reading link\n",
+					     [Name]),
+		    {error, einval};
+		{error, _} ->
+		    {error, einval};
+		Converted when is_list(Converted) ->
+		    {ok, Converted}
+	    end;
+	Error ->
+	    Error
+    end.
 
+handle_fname_response_all(Port) ->
+    case drv_get_response(Port) of
+	{fname, Name} ->
+	    case prim_file:internal_native2name(Name) of
+		{error, _} ->
+		    {ok, Name};
+		Converted when is_list(Converted) ->
+		    {ok, Converted}
+	    end;
+	Error ->
+	    Error
+    end.
 
 %% Opens a driver port and converts any problems into {error, emfile}.
 %% Returns {ok, Port} when successful.
 
 drv_open(Driver, Portopts) ->
-    try erlang:open_port({spawn, Driver}, Portopts) of
+    try erlang:open_port({spawn_driver, Driver}, Portopts) of
 	Port ->
 	    {ok, Port}
     catch
@@ -1028,19 +1139,10 @@ drv_command_nt(Port, Command, R) when is_port(Port) ->
 %% Receives the response from a driver port.
 %% Returns: {ok, ListOrBinary}|{error, Reason}
 
-drv_get_response(Port, R) when is_list(R) ->
-    case drv_get_response(Port) of
-	ok ->
-	    {ok, R};
-	{ok, Name} ->
-	    drv_get_response(Port, [Name|R]);
-	{append, Names} ->
-	    drv_get_response(Port, append(Names, R));
-	Error ->
-	    Error
-    end;
-drv_get_response(Port, _) ->
-    drv_get_response(Port).
+drv_get_response(Port, undefined) ->
+    drv_get_response(Port);
+drv_get_response(Port, Fun) when is_function(Fun, 1) ->
+    Fun(Port).
 
 drv_get_response(Port) ->
     erlang:bump_reductions(100),
@@ -1059,10 +1161,6 @@ drv_get_response(Port) ->
 
 %%%-----------------------------------------------------------------
 %%% Utility functions.
-
-append([I | Is], R) when is_list(R) -> append(Is, [I | R]);
-append([], R) -> R.
-
 
 %% Converts a list of mode atoms into a mode word for the driver.
 %% Returns {Mode, Portopts, Setopts} where Portopts is a list of 
@@ -1205,18 +1303,10 @@ translate_response(?FILE_RESP_N2DATA = X, L0) when is_list(L0) ->
     end;
 translate_response(?FILE_RESP_EOF, []) ->
     eof;
-translate_response(?FILE_RESP_FNAME, []) ->
-    ok;
-translate_response(?FILE_RESP_FNAME, Data) when is_binary(Data) ->
-    {ok, prim_file:internal_native2name(Data)};
 translate_response(?FILE_RESP_FNAME, Data) ->
-    {ok, Data};
-translate_response(?FILE_RESP_LFNAME, []) ->
-    ok;
-translate_response(?FILE_RESP_LFNAME, Data) when is_binary(Data) ->
-    {append, transform_lfname(Data)};
+    {fname, Data};
 translate_response(?FILE_RESP_LFNAME, Data) ->
-    {append, transform_lfname(Data)};
+    {lfname, Data};
 translate_response(?FILE_RESP_ALL_DATA, Data) ->
     {ok, Data};
 translate_response(X, Data) ->
@@ -1331,16 +1421,6 @@ transform_ldata(0, List, [0 | Sizes], R) ->
 transform_ldata(0, List, [Size | Sizes], R) ->
     {Front, Rear} = lists_split(List, Size),
     transform_ldata(0, Rear, Sizes, [Front | R]).
-
-transform_lfname(<<>>) -> [];
-transform_lfname(<<L:16, Name:L/binary, Names/binary>>) -> 
-    [ prim_file:internal_native2name(Name) | transform_lfname(Names)];
-transform_lfname([]) -> [];
-transform_lfname([L1,L2|Names]) ->
-    L = (L1 bsl 8) bor L2,
-    {Name, Rest} = lists_split(Names, L),
-    [Name | transform_lfname(Rest)].
-
 
 lists_split(List, 0) when is_list(List) ->
     {[], List};

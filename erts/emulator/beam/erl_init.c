@@ -981,19 +981,64 @@ erl_start(int argc, char **argv)
 	    break;
 	case 'f':
 	    if (!strncmp(argv[i],"-fn",3)) {
+		int warning_type =  ERL_FILENAME_WARNING_WARNING;
 		arg = get_arg(argv[i]+3, argv[i+1], &i);
 		switch (*arg) {
 		case 'u':
-		    erts_set_user_requested_filename_encoding(ERL_FILENAME_UTF8);
+		    switch (*(argv[i]+4)) {
+		    case 'w':
+		    case 0:
+			break;
+		    case 'i':
+			warning_type =  ERL_FILENAME_WARNING_IGNORE;
+			break;
+		    case 'e':
+			warning_type =  ERL_FILENAME_WARNING_ERROR;
+			break;
+		    default:
+			erts_fprintf(stderr, "bad type of warnings for "
+				     "wrongly coded filename: %s\n", argv[i]+4);
+			erts_usage();
+		    }
+		    erts_set_user_requested_filename_encoding
+			(
+			 ERL_FILENAME_UTF8,
+			 warning_type
+			 );
 		    break;
 		case 'l':
-		    erts_set_user_requested_filename_encoding(ERL_FILENAME_LATIN1);
+		    erts_set_user_requested_filename_encoding
+			(
+			 ERL_FILENAME_LATIN1,
+			 warning_type
+			 );
 		    break;
 		case 'a':
-		    erts_set_user_requested_filename_encoding(ERL_FILENAME_UNKNOWN);
+		    switch (*(argv[i]+4)) {
+		    case 'w':
+		    case 0:
+			break;
+		    case 'i':
+			warning_type =  ERL_FILENAME_WARNING_IGNORE;
+			break;
+		    case 'e':
+			warning_type =  ERL_FILENAME_WARNING_ERROR;
+			break;
+		    default:
+			erts_fprintf(stderr, "bad type of warnings for "
+				     "wrongly coded filename: %s\n", argv[i]+4);
+			erts_usage();
+		    }
+		    erts_set_user_requested_filename_encoding
+			(
+			 ERL_FILENAME_UNKNOWN,
+			 warning_type
+			 );
 		    break;
 		default:
-		    erts_fprintf(stderr, "bad filename encoding %s, can be (l,u or a)\n", arg);
+		    erts_fprintf(stderr, "bad filename encoding %s, can be "
+				 "(l,u or a, optionally followed by w, "
+				 "i or e)\n", arg);
 		    erts_usage();
 		}
 		break;

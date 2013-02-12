@@ -45,6 +45,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 read_write_file/1, names/1]).
 -export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1,
+	 list_dir/1,list_dir_error/1,
 	 pos1/1, pos2/1]).
 -export([close/1, consult1/1, path_consult/1, delete/1]).
 -export([ eval1/1, path_eval/1, script1/1, path_script/1,
@@ -115,7 +116,8 @@ all() ->
      read_line_4, standard_io].
 
 groups() -> 
-    [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1]},
+    [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1,
+		 list_dir, list_dir_error]},
      {files, [],
       [{group, open}, {group, pos}, {group, file_info},
        {group, consult}, {group, eval}, {group, script},
@@ -518,6 +520,42 @@ win_cur_dir_1(_Config) ->
     %% a SSH connection. We can't test any more.
 
     ok.
+
+
+%%%
+%%% Test list_dir() on a non-existing pathname.
+%%%
+
+list_dir_error(Config) ->
+    Priv = ?config(priv_dir, Config),
+    NonExisting = filename:join(Priv, "non-existing-dir"),
+    {error,enoent} = ?FILE_MODULE:list_dir(NonExisting),
+    ok.
+
+%%%
+%%% Test list_dir() and list_dir_all().
+%%%
+
+list_dir(Config) ->
+    RootDir = ?config(priv_dir, Config),
+    TestDir = filename:join(RootDir, ?MODULE_STRING++"_list_dir"),
+    ?FILE_MODULE:make_dir(TestDir),
+    list_dir_1(TestDir, 42, []).
+
+list_dir_1(TestDir, 0, Sorted) ->
+    [ok = ?FILE_MODULE:delete(filename:join(TestDir, F)) ||
+	F <- Sorted],
+    ok = ?FILE_MODULE:del_dir(TestDir);
+list_dir_1(TestDir, Cnt, Sorted0) ->
+    Base = "file" ++ integer_to_list(Cnt),
+    Name = filename:join(TestDir, Base),
+    ok = ?FILE_MODULE:write_file(Name, Base),
+    Sorted = lists:merge([Base], Sorted0),
+    {ok,DirList0} = ?FILE_MODULE:list_dir(TestDir),
+    {ok,DirList1} = ?FILE_MODULE:list_dir_all(TestDir),
+    Sorted = lists:sort(DirList0),
+    Sorted = lists:sort(DirList1),
+    list_dir_1(TestDir, Cnt-1, Sorted).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -2453,6 +2491,7 @@ symlinks(suite) -> [];
 symlinks(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line {error, _} = ?FILE_MODULE:read_link(lists:duplicate(10000,$a)),
+    {error, _} = ?FILE_MODULE:read_link_all(lists:duplicate(10000,$a)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -2476,6 +2515,7 @@ symlinks(Config) when is_list(Config) ->
 		?line {ok, Info2} = ?FILE_MODULE:read_link_info(Alias),
 		?line #file_info{links=1, type=symlink} = Info2,
 		?line {ok, Name} = ?FILE_MODULE:read_link(Alias),
+		{ok, Name} = ?FILE_MODULE:read_link_all(Alias),
 		ok
 	  end,
     

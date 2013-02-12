@@ -2573,8 +2573,20 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
     case ERL_FILENAME_UTF8:
 	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
 	if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK) {
+	    Eterm *hp = HAlloc(BIF_P,3);
+	    Eterm warn_type = NIL;
 	    erts_free_aligned_binary_bytes(temp_alloc);
-	    goto noconvert;
+	    switch (erts_get_filename_warning_type()) {
+	    case ERL_FILENAME_WARNING_IGNORE:
+		warn_type = am_ignore;
+		break;
+	    case ERL_FILENAME_WARNING_ERROR:
+		warn_type = am_error;
+		break;
+	    default:
+		warn_type = am_warning;
+	    }
+	    BIF_RET(TUPLE2(hp,am_error,warn_type));
 	}
 	num_built = 0;
 	num_eaten = 0;
@@ -2607,9 +2619,8 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_RET(ret);
     default:
-	goto noconvert;
+	break;
     }
- noconvert:
     BIF_RET(BIF_ARG_1);
 }
 
@@ -2644,6 +2655,52 @@ BIF_RETTYPE prim_file_internal_normalize_utf8_1(BIF_ALIST_1)
     ret = do_utf8_to_list_normalize(BIF_P, num_chars, bytes, size);
     erts_free_aligned_binary_bytes(temp_alloc);
     BIF_RET(ret);
+}  
+
+BIF_RETTYPE prim_file_is_translatable_1(BIF_ALIST_1)
+{
+    ERTS_DECLARE_DUMMY(Eterm real_bin);
+    ERTS_DECLARE_DUMMY(Uint offset);
+    Uint size;
+    Uint num_chars;
+    Uint bitsize;
+    ERTS_DECLARE_DUMMY(Uint bitoffs);
+    byte *temp_alloc = NULL;
+    byte *bytes;
+    byte *err_pos;
+    int status;
+
+    if (is_not_binary(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    size = binary_size(BIF_ARG_1);
+    ERTS_GET_REAL_BIN(BIF_ARG_1, real_bin, offset, bitoffs, bitsize);
+    if (bitsize != 0) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    if (size == 0) {
+	BIF_RET(am_true);
+    }
+
+    /*
+     * If the encoding is latin1, the pathname is always translatable.
+     */
+    switch (erts_get_native_filename_encoding()) {
+    case ERL_FILENAME_LATIN1:
+	BIF_RET(am_true);
+    case ERL_FILENAME_WIN_WCHAR:
+	if (erts_get_user_requested_filename_encoding() == ERL_FILENAME_LATIN1) {
+	    BIF_RET(am_true);
+	}
+    }
+
+    /*
+     * Check whether the binary contains legal UTF-8 sequences.
+     */
+    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
+    status = erts_analyze_utf8(bytes, size, &err_pos, &num_chars, NULL);
+    erts_free_aligned_binary_bytes(temp_alloc);
+    BIF_RET(status == ERTS_UTF8_OK ? am_true : am_false);
 }  
 
 BIF_RETTYPE file_native_name_encoding_0(BIF_ALIST_0)

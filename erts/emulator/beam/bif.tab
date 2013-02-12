@@ -522,6 +522,7 @@ bif erlang:nif_error/2
 bif prim_file:internal_name2native/1
 bif prim_file:internal_native2name/1
 bif prim_file:internal_normalize_utf8/1
+bif prim_file:is_translatable/1
 bif file:native_name_encoding/0
 
 #

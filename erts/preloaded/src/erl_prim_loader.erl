@@ -149,8 +149,18 @@ start_it("inet", Id, Pid, Hosts) ->
 
 start_it("efile", Id, Pid, _Hosts) ->
     process_flag(trap_exit, true),
-    {ok, Port} = prim_file:open([binary]),
-    init_ack(Pid),
+    {ok, Port} = prim_file:start(),
+    %% Check that we started in a valid directory.
+    case prim_file:get_cwd(Port) of
+	{error, _} ->
+	    %% At this point in the startup, we have no error_logger at all.
+	    Report = "Invalid current directory or invalid filename "
+		"mode: loader cannot read current directory\n",
+	    erlang:display(Report),
+	    exit({error, invalid_current_directory});
+	_ ->
+	    init_ack(Pid)
+    end,
     MultiGet = case erlang:system_info(thread_pool_size) of
                    0 -> false;
                    _ -> true
@@ -434,7 +444,7 @@ efile_multi_get_file_from_port2(_MFs, 0, _Max, State, _Paths, _Fun, _Ref, Ret) -
 
 efile_par_get_file(Ref, State, {Mod,File} = MF, Paths, Pid, Fun) ->
     %% One port for each file read in "parallel":
-    case prim_file:open([binary]) of
+    case prim_file:start() of
         {ok, Port} ->
             Port0 = State#state.data,
             State1 = State#state{data = Port},
