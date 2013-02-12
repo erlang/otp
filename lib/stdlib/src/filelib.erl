@@ -305,10 +305,7 @@ match_part([double_star], _) ->
 match_part([star|Rest], File) ->
     do_star(Rest, File);
 match_part([{one_of, Ordset}|Rest], [C|File]) ->
-    case ordsets:is_element(C, Ordset) of
-	true  -> match_part(Rest, File);
-	false -> false
-    end;
+    gb_sets:is_element(C, Ordset) andalso match_part(Rest, File);
 match_part([{alt, Alts}], File) ->
     do_alt(Alts, File);
 match_part([C|Rest1], [C|Rest2]) when is_integer(C) ->
@@ -460,7 +457,7 @@ compile_charset(List, Ordset) ->
 compile_charset1([Lower, $-, Upper|Rest], Ordset) when Lower =< Upper ->
     compile_charset1(Rest, compile_range(Lower, Upper, Ordset));
 compile_charset1([$]|Rest], Ordset) ->
-    {ok, {one_of, Ordset}, Rest};
+    {ok, {one_of, gb_sets:from_ordset(Ordset)}, Rest};
 compile_charset1([X|Rest], Ordset) ->
     compile_charset1(Rest, ordsets:add_element(X, Ordset));
 compile_charset1([], _Ordset) ->
