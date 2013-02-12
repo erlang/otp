@@ -5375,31 +5375,28 @@ uri_encode(File,Encoding) ->
     Components = filename:split(File),
     filename:join([uri_encode_comp(C,Encoding) || C <- Components]).
 
-uri_encode_comp("/",_) ->
-    "/";
-uri_encode_comp(Chars,utf8) ->
-    http_uri:encode(Chars);
-uri_encode_comp(Chars,latin1) ->
-    do_uri_encode(Chars).
-
-%% Encode a file reference to a latin1 filename so it can be inserted
-%% in a utf8 encoded HTML file.
-%% This does the same as http_uri:encode/1, except it also encodes all
-%% characters >127 - i.e. latin1 but not ASCII.
-do_uri_encode([Char|Chars]) ->
-    case Char>127 orelse sets:is_element(Char, reserved()) of
+%% Encode the reference to a "filename of the given encoding" so it
+%% can be inserted in a utf8 encoded HTML file.
+%% This does almost the same as http_uri:encode/1, except
+%% 1. it does not convert @, : and / (in order to preserve nodename and c:/)
+%% 2. if the file name is in latin1, it also encodes all
+%%    characters >127 - i.e. latin1 but not ASCII.
+uri_encode_comp([Char|Chars],Encoding) ->
+    Reserved = sets:is_element(Char, reserved()),
+    case (Char>127 andalso Encoding==latin1) orelse Reserved of
 	true ->
-	    [ $% | http_util:integer_to_hexlist(Char)] ++ do_uri_encode(Chars);
+	    [ $% | http_util:integer_to_hexlist(Char)] ++
+		uri_encode_comp(Chars,Encoding);
 	false ->
-	    [Char | do_uri_encode(Chars)]
+	    [Char | uri_encode_comp(Chars,Encoding)]
     end;
-do_uri_encode([]) ->
+uri_encode_comp([],_) ->
     [].
 
 %% Copied from http_uri.erl, but slightly modified
-%% (not converting @ and :)
+%% (not converting @, : and /)
 reserved() ->
-    sets:from_list([$;, $&, $=, $+, $,, $/, $?,
+    sets:from_list([$;, $&, $=, $+, $,, $?,
 		    $#, $[, $], $<, $>, $\", ${, $}, $|,
                     $\\, $', $^, $%, $ ]).
 

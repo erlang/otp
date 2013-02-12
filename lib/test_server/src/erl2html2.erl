@@ -126,7 +126,7 @@ build_html(SFd,DFd,Encoding,Functions) ->
     build_html(SFd,DFd,Encoding,file:read_line(SFd),1,Functions,false).
 
 build_html(SFd,DFd,Encoding,{ok,Str},L,[{F,A,L}|Functions],_IsFuncDef) ->
-    FALink = http_uri:encode(F++"-"++integer_to_list(A)),
+    FALink = test_server_ctrl:uri_encode(F++"-"++integer_to_list(A),utf8),
     file:write(DFd,["<a name=\"",to_raw_list(FALink,Encoding),"\"/>"]),
     build_html(SFd,DFd,Encoding,{ok,Str},L,Functions,true);
 build_html(SFd,DFd,Encoding,{ok,Str},L,[{clause,L}|Functions],_IsFuncDef) ->
