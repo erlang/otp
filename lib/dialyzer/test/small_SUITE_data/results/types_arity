@@ -1,0 +1,2 @@
+
+types_arity.erl:16: Invalid type specification for function types_arity:test2/0. The success typing is () -> {'node','a','nil','nil'}
