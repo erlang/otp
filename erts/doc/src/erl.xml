@@ -615,6 +615,28 @@
 	     debugging.</item>
 	   </taglist>
       </item>
+      <tag><marker id="+pc"/><marker id="max_processes"><c><![CDATA[+pc Range]]></c></marker></tag>
+      <item>
+	<p>Sets the range of characters that the system will consider printable in heuristic detection of strings. This typically affects the shell, debugger and io:format functions (when ~tp is used in the format string).</p> 
+	<p>Currently two values for the <c>Range</c> are supported:
+	<taglist>
+	  <tag><c>latin1</c></tag> <item>The default. Only characters
+	  in the ISO-latin-1 range can be considered printable, which means
+	  that a character with a code point &gt; 255 will never be
+	  considered printable and that lists containing such
+	  characters will be displayed as lists of integers rather
+	  than text strings by tools.</item>
+	  <tag><c>unicode</c></tag>
+	  <item>All printable Unicode characters are considered when
+	  determining if a list of integers is to be displayed in
+	  string syntax. This may give unexpected results if for
+	  example your font does not cover all Unicode
+	  characters.</item>
+	</taglist>
+	</p>
+	<p>Se also <seealso marker="stdlib:io#printable_range/0">
+	io:printable_range/0</seealso>.</p>
+      </item>
       <tag><marker id="+P"/><marker id="max_processes"><c><![CDATA[+P Number]]></c></marker></tag>
       <item>
 	<p>Sets the maximum number of simultaneously existing processes for this
