@@ -166,13 +166,13 @@ groups() ->
        testINSTANCE_OF,
        testTCAP,
        test_ParamTypeInfObj,
-       test_WS_ParamClass,
        test_Defed_ObjectIdentifier,
        testSelectionType,
        testSSLspecs,
        testNortel,
-       % Uses 'PKCS7'
-       {group, [], [test_modified_x420,
+       % Uses 'PKCS7', 'InformationFramework'
+       {group, [], [test_WS_ParamClass,
+		    test_modified_x420,
                     testX420]},
        testTcapsystem,
        testNBAPsystem,
@@ -986,8 +986,9 @@ test_driver_load(Config, Rule, Opts) ->
 test_ParamTypeInfObj(Config) ->
     asn1_test_lib:compile("IN-CS-1-Datatypes", Config, [ber]).
 
-test_WS_ParamClass(Config) ->
-    asn1_test_lib:compile("InformationFramework", Config, [ber]).
+test_WS_ParamClass(Config) -> test(Config, fun test_WS_ParamClass/3).
+test_WS_ParamClass(Config, Rule, Opts) ->
+    asn1_test_lib:compile("InformationFramework", Config, [Rule|Opts]).
 
 test_Defed_ObjectIdentifier(Config) ->
     asn1_test_lib:compile("UsefulDefinitions", Config, [ber]).

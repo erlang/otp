@@ -1174,12 +1174,12 @@ gen_dec_imm_1('UTF8String', _Constraint, Aligned) ->
     asn1ct_imm:per_dec_restricted_string(Aligned);
 gen_dec_imm_1('REAL', _Constraint, Aligned) ->
     asn1ct_imm:per_dec_real(Aligned);
-gen_dec_imm_1(#'ObjectClassFieldType'{}=TypeName, Constraint, Aligned) ->
+gen_dec_imm_1(#'ObjectClassFieldType'{}=TypeName, _Constraint, Aligned) ->
     case asn1ct_gen:get_inner(TypeName) of
-	{fixedtypevaluefield,_,InnerType} ->
-	    gen_dec_imm_1(InnerType, Constraint, Aligned);
-	T ->
-	    gen_dec_imm_1(T, Constraint, Aligned)
+	{fixedtypevaluefield,_,#type{def=InnerType,constraint=C}} ->
+	    gen_dec_imm_1(InnerType, C, Aligned);
+	#type{def=T,constraint=C} ->
+	    gen_dec_imm_1(T, C, Aligned)
     end.
 
 gen_dec_bit_string(F, Imm) ->
