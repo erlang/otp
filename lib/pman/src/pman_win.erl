@@ -546,7 +546,7 @@ name(Pid) ->
 %%
 
 module_data(ModuleName) ->
-    vformat("", catch apply({ModuleName, module_info},[])).
+    vformat("", catch apply(ModuleName, module_info, [])).
 
 
 
