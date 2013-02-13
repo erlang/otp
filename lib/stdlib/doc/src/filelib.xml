@@ -36,8 +36,9 @@
   <description>
     <p>This module contains utilities on a higher level than the <c>file</c>
       module.</p>
-    <p>The module supports Unicode file names, so that it will match against regular expressions given in Unicode and that it will find and process raw file names (i.e. files named in a way that does not confirm to the expected encoding).</p>
-    <p>If the VM operates in Unicode file naming mode on a machine with transparent file naming, the <c>fun()</c> provided to <c>fold_files/5</c> needs to be prepared to handle binary file names.</p>
+    <p>This module does not support "raw" file names (i.e. files whose names
+    do not comply with the expected encoding). Such files will be ignored
+    by the functions in this module.</p>
     <p>For more information about raw file names, see the <seealso marker="kernel:file">file</seealso> module.</p>
   </description>
 
