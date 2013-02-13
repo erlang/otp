@@ -20,6 +20,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include("test_lib.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -compile(export_all).
 
@@ -1969,80 +1970,48 @@ copy_client(Conf,Master,Sname,Client) ->
 clean_priv_dir(Conf,Save) ->
     PrivDir = priv_dir(Conf),
 
-    {ok, OrigWd} = file:get_cwd(),
-
-    ok = file:set_cwd(PrivDir),
     ?t:format("========  current dir ~p~n",[PrivDir]),
-    {ok, Dirs} = file:list_dir(PrivDir),
+    Dirs = filelib:wildcard(filename:join(PrivDir,"*")),
     ?t:format("========  deleting  ~p~n",[Dirs]),
 
-    ok = clean_dirs_os(Dirs,Save),
-    {ok,Remaining} = file:list_dir(PrivDir),
+    ok = rm_rf(Dirs,Save),
+    Remaining = filelib:wildcard(filename:join(PrivDir,"*")),
     ?t:format("========  remaining  ~p~n",[Remaining]),
 
     case Remaining of
 	[] ->
 	    ok;
 	_ ->
-	    clean_dirs_os(Remaining,Save),
-	    Remaining2 = file:list_dir(PrivDir),
+	    rm_rf(Remaining,Save),
+	    Remaining2 = filelib:wildcard(filename:join(PrivDir,"*")),
 	    ?t:format("========  remaining after second try ~p~n",[Remaining2])
     end,
 
-    ok = file:set_cwd(OrigWd),
     ok.
 
 
-clean_dirs_os(Dirs,Save) ->
-    case os:type() of
-	{unix, _} ->
-	    clean_dirs_unix(Dirs,Save);
-	{win32, _} ->
-	    clean_dirs_win32(Dirs,Save);
-	Os ->
-	    test_server:fail({error, {not_yet_implemented_os, Os}})
-    end.
-
-
-clean_dirs_unix([],_) ->
-    ok;
-clean_dirs_unix(["save"|Dirs],Save) when Save ->
-    clean_dirs_unix(Dirs,Save);
-clean_dirs_unix([Dir|Dirs],Save) ->
-    Rm = string:concat("rm -rf ", Dir),
-    ?t:format("============== COMMAND ~p~n",[Rm]),
-    case file:list_dir(Dir) of
-	{error, enotdir} ->
-	    ok;
-	X ->
-	    ?t:format("------- Dir ~p~n       ~p~n",[Dir, X])
-    end,
-    case os:cmd(Rm) of
-	      [] ->
-		  ?t:format("------- Result of COMMAND ~p~n",[ok]);
-	      Y ->
-		  ?t:format("!!!!!!! delete ERROR  Dir ~p Error ~p~n",[Dir, Y]),
-		  ?t:format("------- ls -al  ~p~n",[os:cmd("ls -al " ++ Dir)])
-	  end,
-
-    clean_dirs_unix(Dirs,Save).
-
-clean_dirs_win32([],_) ->
-    ok;
-clean_dirs_win32(["save"|Dirs],Save) when Save ->
-    clean_dirs_win32(Dirs,Save);
-clean_dirs_win32([Dir|Dirs],Save) ->
-    Rm =
-       case filelib:is_dir(Dir) of
-          true ->
-             string:concat("rmdir /s /q ", Dir);
-          false ->
-             string:concat("del /q ", Dir)
-       end,
-    ?t:format("============== COMMAND ~p~n",[Rm]),
-    [] = os:cmd(Rm),
-    clean_dirs_win32(Dirs,Save).
-
+rm_rf([File|Files],Save) ->
+    case Save andalso filename:basename(File)=="save" of
+	true ->
+	    rm_rf(Files,Save);
+	false ->
+	    case file:read_link_info(File) of
+		{ok,#file_info{type=directory}} ->
+		    MoreFiles = filelib:wildcard(filename:join(File,"*")),
+		    rm_rf(MoreFiles,Save),
+		    file:del_dir(File),
+		    rm_rf(Files,Save);
+		{ok,#file_info{}} ->
+		    file:delete(File),
+		    rm_rf(Files,Save);
+		Other ->
+		    ?t:format("========  could not delete file  ~p~n"
+			      "read_link_info -> ~p~n",[File,Other]),
+		    rm_rf(Files,Save)
+	    end
+    end;
+rm_rf([],_) ->
+    ok.
 
 node_name(Sname) when is_atom(Sname) ->
     {ok,Host} = inet:gethostname(),
