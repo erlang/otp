@@ -1456,6 +1456,27 @@ static ERL_NIF_TERM otp_9668_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return atom_ok;
 }
 
+static ERL_NIF_TERM consume_timeslice_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int percent;
+    char atom[10];
+    int do_repeat;
+
+    if (!enif_get_int(env, argv[0], &percent) ||
+	!enif_get_atom(env, argv[1], atom, sizeof(atom), ERL_NIF_LATIN1)) {
+	return enif_make_badarg(env);
+    }
+    if (strcmp(atom , "true") == 0) {
+	int cnt = 1;
+	while (enif_consume_timeslice(env, percent) == 0 && cnt < 200)
+	    cnt++;
+	return enif_make_int(env, cnt);
+    }
+    else {
+	return enif_make_int(env, enif_consume_timeslice(env, percent));
+    }
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -1504,7 +1525,8 @@ static ErlNifFunc nif_funcs[] =
     {"reverse_list",1, reverse_list},
     {"echo_int", 1, echo_int},
     {"type_sizes", 0, type_sizes},
-    {"otp_9668_nif", 1, otp_9668_nif}
+    {"otp_9668_nif", 1, otp_9668_nif},
+    {"consume_timeslice_nif", 2, consume_timeslice_nif}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)
