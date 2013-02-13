@@ -185,8 +185,7 @@ control($s, [L0], F, Adj, P, Pad, latin1, _I) ->
     L = iolist_to_chars(L0),
     string(L, F, Adj, P, Pad);
 control($s, [L0], F, Adj, P, Pad, unicode, _I) ->
-    L = unicode:characters_to_list(L0),
-    true = is_list(L),
+    L = cdata_to_chars(L0),
     uniconv(string(L, F, Adj, P, Pad));
 control($e, [A], F, Adj, P, Pad, _Enc, _I) when is_float(A) ->
     fwrite_e(A, F, Adj, P, Pad);
@@ -557,6 +556,25 @@ iolist_to_chars([]) ->
     [];
 iolist_to_chars(B) when is_binary(B) ->
     binary_to_list(B).
+
+%% cdata() :: clist() | cbinary()
+%% clist() ::  maybe_improper_list(char() | cbinary() | clist(),
+%%                                 cbinary() | nil())
+%% cbinary() :: unicode:unicode_binary() | unicode:latin1_binary()
+
+%% cdata_to_chars(cdata()) -> io_lib:deep_char_list()
+
+cdata_to_chars([C|Cs]) when is_integer(C), C >= $\000 ->
+    [C | cdata_to_chars(Cs)];
+cdata_to_chars([I|Cs]) ->
+    [cdata_to_chars(I) | cdata_to_chars(Cs)];
+cdata_to_chars([]) ->
+    [];
+cdata_to_chars(B) when is_binary(B) ->
+    case catch unicode:characters_to_list(B) of
+        L when is_list(L) -> L;
+        _ -> binary_to_list(B)
+    end.
 
 %% string(String, Field, Adjust, Precision, PadChar)
 
