@@ -56,13 +56,17 @@ DATA_DIRS = $(sort $(dir $(DATA)))
 ERL_COMPILE_FLAGS += +warn_export_vars \
                      +warn_unused_vars \
                      -I ../include \
-                     -I ../src/gen
+                     -I ../src/gen \
+                     $(STRICT_FLAGS)
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
 all debug opt: $(TARGET_FILES)
+
+strict:
+	$(MAKE) opt STRICT_FLAGS=-Werror
 
 # Require success ...
 run: $(SUITES)
@@ -114,7 +118,7 @@ help:
 	@echo "        Echo some relevant variables."
 	@echo ========================================
 
-.PHONY: all any run clean debug docs help info opt realclean
+.PHONY: all any run clean debug docs help info opt realclean strict
 
 # ----------------------------------------------------
 # Special Targets

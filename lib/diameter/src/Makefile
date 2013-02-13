@@ -109,7 +109,8 @@ ERL_COMPILE_FLAGS += \
 	+warn_unused_vars \
 	-pa $(ABS_EBIN) \
 	-I $(INCDIR) \
-	-I gen
+	-I gen \
+	$(STRICT_FLAGS)
 # -pa is to be able to include_lib from the include directory: the
 # path must contain the application name.
 
@@ -123,6 +124,13 @@ gen/diameter_gen_%.erl gen/diameter_gen_%.hrl: dict/%.dia
 	../bin/diameterc -o gen -i $(EBIN) $<
 
 opt: $(TARGET_FILES)
+
+# Compile with -Werror during development. Don't do this in the 'opt'
+# target so that new warnings don't break the build. It's also
+# convenient to have both targets when weeding out warnings isn't the
+# priority. (Or when they're intentional, when debugging.)
+strict:
+	$(MAKE) opt STRICT_FLAGS=-Werror
 
 # Build unofficial patches with some degree of traceability. Refuse to
 # build if there are diffs from HEAD since that defeats the purpose.
@@ -251,13 +259,13 @@ release_docs_spec:
 # Dependencies
 # ----------------------------------------------------
 
-gen/diameter_gen_base_accounting.erl gen/diameter_gen_relay.erl \
-gen/diameter_gen_base_accounting.hrl gen/diameter_gen_relay.hrl: \
+gen/diameter_gen_base_accounting.erl gen/diameter_gen_base_accounting.hrl: \
 	$(EBIN)/diameter_gen_base_rfc3588.$(EMULATOR)
 
 gen/diameter_gen_acct_rfc6733.erl gen/diameter_gen_acct_rfc6733.hrl: \
 	$(EBIN)/diameter_gen_base_rfc6733.$(EMULATOR)
 
+gen/diameter_gen_relay.erl gen/diameter_gen_relay.hrl \
 gen/diameter_gen_base_rfc3588.erl gen/diameter_gen_base_rfc3588.hrl \
 gen/diameter_gen_base_rfc6733.erl gen/diameter_gen_base_rfc6733.hrl: \
 	$(COMPILER_MODULES:%=$(EBIN)/%.$(EMULATOR))
@@ -281,7 +289,7 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 .PHONY: debug opt release_docs_spec release_spec
 .PHONY: $(TARGET_DIRS:%/=%) $(TARGET_DIRS:%/=release_src_%)
 .PHONY: $(EXAMPLE_DIRS:%/=release_examples_%)
-.PHONY: plt dialyze patch
+.PHONY: plt dialyze patch strict
 
 # Keep intermediate files.
 .SECONDARY: $(DICT_ERLS) $(DICT_HRLS) gen/$(DICT_YRL:%=%.erl)
