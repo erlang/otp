@@ -39,6 +39,7 @@
 #include "erl_alloc.h"
 #include "big.h"
 #include "erl_thr_progress.h"
+#include "erl_util_queue.h"
 
 #if HAVE_ERTS_MSEG
 
@@ -175,6 +176,7 @@ struct cache_t_ {
     Uint size;
     void *seg;
     cache_t *next;
+    cache_t *prev;
 };
 
 
@@ -183,9 +185,9 @@ typedef struct ErtsMsegAllctr_t_ ErtsMsegAllctr_t;
 struct mem_kind_t {
 
     cache_t cache[MAX_CACHE_SIZE];
-    cache_t *cache_unpowered;
-    cache_t *cache_area[CACHE_AREAS];
-    cache_t *cache_free;
+    cache_t cache_unpowered_node;
+    cache_t cache_powered_node[CACHE_AREAS];
+    cache_t cache_free;
 
     Sint cache_size;
     Uint cache_hits;
@@ -516,67 +518,94 @@ do {									\
 #define ERTS_DBG_MK_CHK_THR_ACCESS(MK)
 #endif
 
-/* NEW CACHE interface */
+/* Cache interface */
 
-static ERTS_INLINE cache_t *mseg_cache_alloc_descriptor(MemKind *mk) {
-    cache_t *c = mk->cache_free;
 
-    ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    if (c)
-	mk->cache_free = c->next;
-
-    return c;
-}
-
-static ERTS_INLINE void mseg_cache_free_descriptor(MemKind *mk, cache_t *c) {
-    ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    ASSERT(c);
-    
-    c->seg  = NULL;
+static ERTS_INLINE void mseg_cache_clear_node(cache_t *c) {
+    c->seg = NULL;
     c->size = 0;
-    c->next = mk->cache_free;
-    mk->cache_free = c;
+    c->next = c;
+    c->prev = c;
 }
 
-static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size) {
+static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Uint flags) {
 
     cache_t *c;
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
 
-    if (mk->cache_free && MAP_IS_ALIGNED(seg)) {
-	if (IS_2POW(size)) {
+    ASSERT(!MSEG_FLG_IS_2POW(flags) || (MSEG_FLG_IS_2POW(flags) && MAP_IS_ALIGNED(seg) && IS_2POW(size)));
+
+    /* The idea is that sbc caching is prefered over mbc caching.
+     * Blocks are normally allocated in mb carriers and thus cached there.
+     * Large blocks has no such cache and it is up to mseg to cache them to speed things up.
+     */
+
+    if (!erts_circleq_is_empty(&(mk->cache_free))) {
+
+	/* We have free slots, use one to cache the segment */
+
+	c = erts_circleq_head(&(mk->cache_free));
+	erts_circleq_remove(c);
+
+	c->seg  = seg;
+	c->size = size;
+
+	if (MSEG_FLG_IS_2POW(flags)) {
 	    int ix = SIZE_TO_CACHE_AREA_IDX(size);
 
 	    ASSERT(ix < CACHE_AREAS);
 	    ASSERT((1 << (ix + MSEG_ALIGN_BITS)) == size);
 
-	    /* unlink from free cache list */
-	    c = mseg_cache_alloc_descriptor(mk);
+	    erts_circleq_push_head(&(mk->cache_powered_node[ix]), c);
 
-	    /* link to cache area */
+	} else
+	    erts_circleq_push_head(&(mk->cache_unpowered_node), c);
+
+	mk->cache_size++;
+	ASSERT(mk->cache_size <= mk->ma->max_cache_size);
+
+	return 1;
+    } else if (!MSEG_FLG_IS_2POW(flags) && !erts_circleq_is_empty(&(mk->cache_unpowered_node))) {
+
+	/* No free slots.
+	 * Evict oldest slot from unpowered cache so we can cache an unpowered (sbc) segment  */
+
+	c = erts_circleq_tail(&(mk->cache_unpowered_node));
+	erts_circleq_remove(c);
+
+	mseg_destroy(mk->ma, mk, c->seg, c->size);
+	mseg_cache_clear_node(c);
+
+	c->seg  = seg;
+	c->size = size;
+
+	erts_circleq_push_head(&(mk->cache_unpowered_node), c);
+
+	return 1;
+    } else if (!MSEG_FLG_IS_2POW(flags)) {
+
+	/* No free slots and no unpowered (sbc) slots.
+	 * Evict smallest slot from powered cache so we can cache an unpowered (sbc) segment.
+	 * Note: Though this is the wanted policy I don't think it is used significantly.
+	 * This branch could probably be removed without serious impact.
+	 */
+
+	int i;
+
+	for( i = 0; i < CACHE_AREAS; i++) {
+	    if (erts_circleq_is_empty(&(mk->cache_powered_node[i])))
+		continue;
+
+	    c = erts_circleq_tail(&(mk->cache_powered_node[i]));
+	    erts_circleq_remove(c);
+
+	    mseg_destroy(mk->ma, mk, c->seg, c->size);
+	    mseg_cache_clear_node(c);
+
 	    c->seg  = seg;
 	    c->size = size;
-	    c->next = mk->cache_area[ix];
 
-	    mk->cache_area[ix] = c;
-	    mk->cache_size++;
-
-	    ASSERT(mk->cache_size <= mk->ma->max_cache_size);
-
-	    return 1;
-	} else {
-	    /* unlink from free cache list */
-	    c = mseg_cache_alloc_descriptor(mk);
-
-	    /* link to cache area */
-	    c->seg  = seg;
-	    c->size = size;
-	    c->next = mk->cache_unpowered;
-
-	    mk->cache_unpowered = c;
-	    mk->cache_size++;
-
-	    ASSERT(mk->cache_size <= mk->ma->max_cache_size);
+	    erts_circleq_push_head(&(mk->cache_unpowered_node), c);
 
 	    return 1;
 	}
@@ -585,90 +614,110 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size) {
     return 0;
 }
 
-static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p) {
+static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p, Uint flags) {
 
     Uint size = *size_p;
 
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    if (IS_2POW(size)) {
+
+    if (MSEG_FLG_IS_2POW(flags)) {
 
 	int i, ix = SIZE_TO_CACHE_AREA_IDX(size);
 	void *seg;
 	cache_t *c;
 	Uint csize;
 
+	ASSERT(IS_2POW(size));
+
 	for( i = ix; i < CACHE_AREAS; i++) {
 
-	    if ((c = mk->cache_area[i]) == NULL)
+	    if (erts_circleq_is_empty(&(mk->cache_powered_node[i])))
 		continue;
 
-	    ASSERT(IS_2POW(c->size));
+	    c = erts_circleq_head(&(mk->cache_powered_node[i]));
+	    erts_circleq_remove(c);
 
-	    /* unlink from cache area */
-	    csize   = c->size;
-	    seg     = c->seg;
-	    mk->cache_area[i] = c->next;
-	    c->next = NULL;
+	    ASSERT(IS_2POW(c->size));
+	    ASSERT(MAP_IS_ALIGNED(c->seg));
+
+	    csize = c->size;
+	    seg   = c->seg;
+
 	    mk->cache_size--;
 	    mk->cache_hits++;
 
 	    /* link to free cache list */
-	    mseg_cache_free_descriptor(mk, c);
+	    mseg_cache_clear_node(c);
+	    erts_circleq_push_head(&(mk->cache_free), c);
 
 	    ASSERT(!(mk->cache_size < 0));
 
-	    /* divvy up the cache - if needed */
-	    while( i > ix) {
-		csize = csize >> 1;
-		/* try to cache half of it */
-		if (!cache_bless_segment(mk, (char *)seg + csize, csize)) {
-		    /* wouldn't cache .. destroy it instead */
-		    mseg_destroy(mk->ma, mk, (char *)seg + csize, csize);
-		}
-		i--;
+	    if (csize != size) {
+		mseg_destroy(mk->ma, mk, (char *)seg + size, csize - size);
 	    }
-	    ASSERT(csize == size);
+
 	    return seg;
 	}
     } 
-    else if (mk->cache_unpowered) {
+    else if (!erts_circleq_is_empty(&(mk->cache_unpowered_node))) {
 	void *seg;
-	cache_t *c, *pc;
+	cache_t *c;
+	cache_t *best = NULL;
+	Uint bdiff = 0;
 	Uint csize;
 	Uint bad_max_abs = mk->ma->abs_max_cache_bad_fit;
 	Uint bad_max_rel = mk->ma->rel_max_cache_bad_fit;
 
-	c = mk->cache_unpowered;
-	pc = c;
-
-	while (c) {
+	erts_circleq_foreach(c, &(mk->cache_unpowered_node)) {
 	    csize = c->size;
-		if (csize >= size &&
-			((csize - size)*100 < bad_max_rel*size) &&
-			(csize - size) < bad_max_abs ) {
+	    if (csize >= size) {
+		if (((csize - size)*100 < bad_max_rel*size) && (csize - size) < bad_max_abs ) {
 
-		/* unlink from cache area */
-		seg = c->seg;
+		    seg = c->seg;
 
-		if (pc == c) {
-		    mk->cache_unpowered = c->next;
-		} else {
-		    pc->next = c->next;
+		    erts_circleq_remove(c);
+
+		    mk->cache_size--;
+		    mk->cache_hits++;
+
+		    mseg_cache_clear_node(c);
+		    erts_circleq_push_head(&(mk->cache_free), c);
+
+		    *size_p = csize;
+
+		    return seg;
+
+		} else if (!best || (csize - size) < bdiff) {
+		    best  = c;
+		    bdiff = csize - size;
 		}
-
-		c->next = NULL;
-		mk->cache_size--;
-		mk->cache_hits++;
-
-		/* link to free cache list */
-		mseg_cache_free_descriptor(mk, c);
-		*size_p = csize;
-
-		return seg;
 	    }
+	}
 
-	    pc = c;
-	    c  = c->next;
+	/* No cached segment met our criteria, use the best one found and trim it */
+
+	if (best) {
+
+	    seg   = best->seg;
+	    csize = best->size;
+
+	    ASSERT(best->seg);
+	    ASSERT(best->size > 0);
+
+	    mk->cache_hits++;
+
+	    /* Use current cache placement for remaining segment space */
+
+	    best->seg  = seg + size;
+	    best->size = csize - size;
+
+	    ASSERT((size % GET_PAGE_SIZE) == 0);
+	    ASSERT((best->size % GET_PAGE_SIZE) == 0);
+
+	    *size_p = size;
+
+	    return seg;
+
 	}
     }
     return NULL;
@@ -679,20 +728,18 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p) {
  * using callbacks from aux-work in the scheduler.
  */
 
-static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, cache_t **head) {
+static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, cache_t *head) {
     cache_t *c = NULL;
 
-    c = *head;
-
-    ASSERT( c != NULL );
-
-    *head = c->next;
+    c = erts_circleq_tail(head);
+    erts_circleq_remove(c);
 
     if (erts_mtrace_enabled)
 	erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
 
     mseg_destroy(mk->ma, mk, c->seg, c->size);
-    mseg_cache_free_descriptor(mk, c);
+    mseg_cache_clear_node(c);
+    erts_circleq_push_head(&(mk->cache_free), c);
 
     mk->segments.current.watermark--;
     mk->cache_size--;
@@ -702,29 +749,26 @@ static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, cache_t **
     return mk->cache_size;
 }
 
-static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, cache_t **head) {
-    cache_t *c = NULL, *next = NULL;
+static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, cache_t *head) {
+    cache_t *c = NULL;
 
-    c = *head;
-    ASSERT( c != NULL );
+    while (!erts_circleq_is_empty(head)) {
 
-    while (c) {
-
-	next = c->next;
+	c = erts_circleq_tail(head);
+	erts_circleq_remove(c);
 
 	if (erts_mtrace_enabled)
 	    erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
 
 	mseg_destroy(mk->ma, mk, c->seg, c->size);
-	mseg_cache_free_descriptor(mk, c);
+
+	mseg_cache_clear_node(c);
+	erts_circleq_push_head(&(mk->cache_free), c);
 
 	mk->segments.current.watermark--;
 	mk->cache_size--;
 
-	c = next;
     }
-
-    *head = NULL;
 
     ASSERT( mk->cache_size >= 0 );
 
@@ -743,12 +787,12 @@ static Uint mseg_check_memkind_cache(MemKind *mk) {
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
 
     for (i = 0; i < CACHE_AREAS; i++) {
-	if (mk->cache_area[i] != NULL)
-	    return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_area[i]));
+	if (!erts_circleq_is_empty(&(mk->cache_powered_node[i])))
+	    return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_powered_node[i]));
     }
 
-    if (mk->cache_unpowered)
-	return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_unpowered));
+    if (!erts_circleq_is_empty(&(mk->cache_unpowered_node)))
+	    return mseg_drop_one_memkind_cache_size(mk, &(mk->cache_unpowered_node));
 
     return 0;
 }
@@ -804,17 +848,17 @@ static void mseg_clear_memkind_cache(MemKind *mk) {
 
     /* drop pow2 caches */
     for (i = 0; i < CACHE_AREAS; i++) {
-	if (mk->cache_area[i] == NULL)
+	if (erts_circleq_is_empty(&(mk->cache_powered_node[i])))
 	    continue;
 
-	mseg_drop_memkind_cache_size(mk, &(mk->cache_area[i]));
-	ASSERT(mk->cache_area[i] == NULL);
+	mseg_drop_memkind_cache_size(mk, &(mk->cache_powered_node[i]));
+	ASSERT(erts_circleq_is_empty(&(mk->cache_powered_node[i])));
     }
     /* drop varied caches */
-    if(mk->cache_unpowered)
-	mseg_drop_memkind_cache_size(mk, &(mk->cache_unpowered));
+    if (!erts_circleq_is_empty(&(mk->cache_unpowered_node)))
+	mseg_drop_memkind_cache_size(mk, &(mk->cache_unpowered_node));
 
-    ASSERT(mk->cache_unpowered == NULL);
+    ASSERT(erts_circleq_is_empty(&(mk->cache_unpowered_node)));
     ASSERT(mk->cache_size == 0);
 }
 
@@ -873,7 +917,7 @@ mseg_alloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, Uint *size_p,
 	ma->min_seg_size = size;
 #endif
     
-    if (opt->cache && mk->cache_size > 0 && (seg = cache_get_segment(mk, &size)) != NULL) 
+    if (opt->cache && mk->cache_size > 0 && (seg = cache_get_segment(mk, &size, flags)) != NULL)
 	goto done;
 
     if ((seg = mseg_create(ma, mk, size)) == NULL)
@@ -894,14 +938,13 @@ done:
 
 static void
 mseg_dealloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg, Uint size,
-	     const ErtsMsegOpt_t *opt)
+	     Uint flags, const ErtsMsegOpt_t *opt)
 {
     MemKind* mk = memkind(ma, opt);
 
-
     ERTS_MSEG_DEALLOC_STAT(mk,size);
 
-    if (opt->cache && cache_bless_segment(mk, seg, size)) {
+    if (opt->cache && cache_bless_segment(mk, seg, size, flags)) {
 	schedule_cache_check(ma);
 	goto done;
     }
@@ -934,7 +977,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 
     /* Dealloc old segment if new segment is of size 0 */
     if (!(*new_size_p)) {
-	mseg_dealloc(ma, atype, seg, old_size, opt);
+	mseg_dealloc(ma, atype, seg, old_size, flags, opt);
 	DEC_CC(ma, dealloc);
 	return NULL;
     }
@@ -993,7 +1036,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
     else {
 
 	if (!opt->preserv) {
-	    mseg_dealloc(ma, atype, seg, old_size, opt);
+	    mseg_dealloc(ma, atype, seg, old_size, flags, opt);
 	    new_seg = mseg_alloc(ma, atype, &new_size, flags, opt);
 	    ASSERT(MAP_IS_ALIGNED(new_seg) || !new_seg);
 	}
@@ -1020,7 +1063,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 		new_size = old_size;
 	    else {
 		sys_memcpy(((char *) new_seg), ((char *) seg), MIN(new_size, old_size));
-		mseg_dealloc(ma, atype, seg, old_size, opt);
+		mseg_dealloc(ma, atype, seg, old_size, flags, opt);
 	    }
 #endif
 	}
@@ -1497,19 +1540,19 @@ erts_mseg_alloc(ErtsAlcType_t atype, Uint *size_p, Uint flags)
 
 void
 erts_mseg_dealloc_opt(ErtsAlcType_t atype, void *seg,
-		      Uint size, const ErtsMsegOpt_t *opt)
+		      Uint size, Uint flags, const ErtsMsegOpt_t *opt)
 {
     ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_OPT(opt);
     ERTS_MSEG_LOCK(ma);
     ERTS_DBG_MA_CHK_THR_ACCESS(ma);
-    mseg_dealloc(ma, atype, seg, size, opt);
+    mseg_dealloc(ma, atype, seg, size, flags, opt);
     ERTS_MSEG_UNLOCK(ma);
 }
 
 void
-erts_mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size)
+erts_mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size, Uint flags)
 {
-    erts_mseg_dealloc_opt(atype, seg, size, &erts_mseg_default_opt);
+    erts_mseg_dealloc_opt(atype, seg, size, flags, &erts_mseg_default_opt);
 }
 
 void *
@@ -1556,26 +1599,27 @@ erts_mseg_unit_size(void)
     return MSEG_ALIGNED_SIZE;
 }
 
+
 static void mem_kind_init(ErtsMsegAllctr_t *ma, MemKind* mk, const char* name)
 {
     int i;
 
+    /* Clear all cache headers */
+    mseg_cache_clear_node(&(mk->cache_free));
+    mseg_cache_clear_node(&(mk->cache_unpowered_node));
+
     for (i = 0; i < CACHE_AREAS; i++) {
-	mk->cache_area[i] = NULL;
+	mseg_cache_clear_node(&(mk->cache_powered_node[i]));
     }
 
-    mk->cache_free = NULL;
+    /* Populate cache free list */
 
     ASSERT(ma->max_cache_size <= MAX_CACHE_SIZE);
 
     for (i = 0; i < ma->max_cache_size; i++) {
-	mk->cache[i].seg  = NULL;
-	mk->cache[i].size = 0;
-	mk->cache[i].next = mk->cache_free;
-	mk->cache_free = &(mk->cache[i]);
+	mseg_cache_clear_node(&(mk->cache[i]));
+	erts_circleq_push_head(&(mk->cache_free), &(mk->cache[i]));
     }
-
-    mk->cache_unpowered = NULL;
 
     mk->cache_size = 0;
     mk->cache_hits = 0;
@@ -1593,9 +1637,6 @@ static void mem_kind_init(ErtsMsegAllctr_t *ma, MemKind* mk, const char* name)
     mk->next = ma->mk_list;
     ma->mk_list = mk;
 }
-
-
-
 
 void
 erts_mseg_init(ErtsMsegInit_t *init)
@@ -1721,7 +1762,7 @@ erts_mseg_test(unsigned long op,
     case 0x401:
 	return (unsigned long) erts_mseg_alloc(ERTS_ALC_A_INVALID, (Uint *) a1, (Uint) 0);
     case 0x402:
-	erts_mseg_dealloc(ERTS_ALC_A_INVALID, (void *) a1, (Uint) a2);
+	erts_mseg_dealloc(ERTS_ALC_A_INVALID, (void *) a1, (Uint) a2, (Uint) 0);
 	return (unsigned long) 0;
     case 0x403:
 	return (unsigned long) erts_mseg_realloc(ERTS_ALC_A_INVALID,

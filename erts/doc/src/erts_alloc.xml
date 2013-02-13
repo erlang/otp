@@ -276,7 +276,7 @@
       <item>
        Max cached segments. The maximum number of memory segments
        stored in the memory segment cache. Valid range is
-       0-30. Default value is 5.</item>
+       0-30. Default value is 10.</item>
     </taglist>
     <p>The following flags are available for configuration of
       <c>sys_alloc</c>:</p>
