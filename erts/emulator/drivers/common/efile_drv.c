@@ -2263,6 +2263,8 @@ file_stop(ErlDrvData e)
 	    desc->fd = FILE_FD_INVALID;
 	    desc->flags = 0;
 	    cq_execute(desc);
+	} else {
+	    EF_FREE(desc);
 	}
     } else {
 	if (desc->fd != FILE_FD_INVALID) {
