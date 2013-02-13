@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -184,14 +184,18 @@ wait_ack(Port) ->
 loop(Parent, Port, Cmd) ->
     send_heart_beat(Port),
     receive
-	{From, set_cmd, NewCmd} when length(NewCmd) < 2047 ->
-	    send_heart_cmd(Port, NewCmd),
-	    wait_ack(Port),
-	    From ! {heart, ok},
-	    loop(Parent, Port, NewCmd);
-	{From, set_cmd, NewCmd} ->
-	    From ! {heart, {error, {bad_cmd, NewCmd}}},
-	    loop(Parent, Port, Cmd);
+	{From, set_cmd, NewCmd0} ->
+	    Enc = file:native_name_encoding(),
+	    case catch unicode:characters_to_binary(NewCmd0,Enc,Enc) of
+		NewCmd when is_binary(NewCmd), byte_size(NewCmd) < 2047 ->
+		    send_heart_cmd(Port, NewCmd),
+		    wait_ack(Port),
+		    From ! {heart, ok},
+		    loop(Parent, Port, NewCmd);
+		_ ->
+		    From ! {heart, {error, {bad_cmd, NewCmd0}}},
+		    loop(Parent, Port, Cmd)
+	    end;
 	{From, clear_cmd} ->
 	    From ! {heart, ok},
 	    send_heart_cmd(Port, ""),

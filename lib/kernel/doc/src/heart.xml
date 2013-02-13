@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2012</year>
+      <year>1996</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -118,8 +118,13 @@
           the system. The new Erlang runtime system will (if it
           misbehaves) use the environment variable
           <c>HEART_COMMAND</c> to reboot.</p>
-        <p>Limitations: The length of the <c><anno>Cmd</anno></c> command string
-          must be less than 2047 characters.</p>
+
+        <p>Limitations: The <c><anno>Cmd</anno></c> command string
+        will be sent to the heart program as a ISO-latin-1 or UTF-8
+        encoded binary depending on the file name encoding mode of the
+        emulator (see
+	<seealso marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seealso>).
+	The size of the encoded binary must be less than 2047 bytes.</p>
       </desc>
     </func>
     <func>
