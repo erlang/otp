@@ -496,7 +496,7 @@ void erts_usage(void)
 
     erts_fprintf(stderr, "-d          don't write a crash dump for internally detected errors\n");
     erts_fprintf(stderr, "            (halt(String) will still produce a crash dump)\n");
-
+    erts_fprintf(stderr, "-fn[u|a|l]  Control how filenames are interpreted\n");
     erts_fprintf(stderr, "-hms size   set minimum heap size in words (default %d)\n",
 	       H_DEFAULT_SIZE);
     erts_fprintf(stderr, "-hmbs size  set minimum binary virtual heap size in words (default %d)\n",
@@ -509,7 +509,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "            Note that this flag is deprecated!\n");
     erts_fprintf(stderr, "-M<X> <Y>   memory allocator switches,\n");
     erts_fprintf(stderr, "            see the erts_alloc(3) documentation for more info.\n");
-
+    erts_fprintf(stderr, "-pc <set>   Control what characters are considered printable (default latin1)\n");
     erts_fprintf(stderr, "-P number   set maximum number of processes on this node,\n");
     erts_fprintf(stderr, "            valid range is [%d-%d]\n",
 		 ERTS_MIN_PROCESSES, ERTS_MAX_PROCESSES);
@@ -979,13 +979,30 @@ erl_start(int argc, char **argv)
 	    VERBOSE(DEBUG_SYSTEM,
                     ("using display items %d\n",display_items));
 	    break;
+	case 'p':
+	    if (!strncmp(argv[i],"-pc",3)) {
+		int printable_chars = ERL_PRINTABLE_CHARACTERS_LATIN1;
+		arg = get_arg(argv[i]+3, argv[i+1], &i);
+		if (!strcmp(arg,"unicode")) {
+		    printable_chars = ERL_PRINTABLE_CHARACTERS_UNICODE;
+		} else if (strcmp(arg,"latin1")) {
+		    erts_fprintf(stderr, "bad range of printable "
+				 "characters: %s\n", arg);
+		    erts_usage();
+		}
+		erts_set_printable_characters(printable_chars);
+		break;
+	    } else {
+		erts_fprintf(stderr, "%s unknown flag %s\n", argv[0], argv[i]);
+		erts_usage();
+	    }
 	case 'f':
 	    if (!strncmp(argv[i],"-fn",3)) {
 		int warning_type =  ERL_FILENAME_WARNING_WARNING;
 		arg = get_arg(argv[i]+3, argv[i+1], &i);
 		switch (*arg) {
 		case 'u':
-		    switch (*(argv[i]+4)) {
+		    switch (*(arg+1)) {
 		    case 'w':
 		    case 0:
 			break;
@@ -997,7 +1014,7 @@ erl_start(int argc, char **argv)
 			break;
 		    default:
 			erts_fprintf(stderr, "bad type of warnings for "
-				     "wrongly coded filename: %s\n", argv[i]+4);
+				     "wrongly coded filename: %s\n", arg+1);
 			erts_usage();
 		    }
 		    erts_set_user_requested_filename_encoding
@@ -1014,7 +1031,7 @@ erl_start(int argc, char **argv)
 			 );
 		    break;
 		case 'a':
-		    switch (*(argv[i]+4)) {
+		    switch (*(arg+1)) {
 		    case 'w':
 		    case 0:
 			break;
@@ -1026,7 +1043,7 @@ erl_start(int argc, char **argv)
 			break;
 		    default:
 			erts_fprintf(stderr, "bad type of warnings for "
-				     "wrongly coded filename: %s\n", argv[i]+4);
+				     "wrongly coded filename: %s\n", arg+1);
 			erts_usage();
 		    }
 		    erts_set_user_requested_filename_encoding
