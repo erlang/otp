@@ -1074,7 +1074,7 @@ type(hipe_bifs, ref_set, 2, Xs) ->
   strict(arg_types(hipe_bifs, ref_set, 2), Xs, fun (_) -> t_nil() end);
 type(hipe_bifs, remove_refs_from, 1, Xs) ->
   strict(arg_types(hipe_bifs, remove_refs_from, 1), Xs,
-	 fun (_) -> t_nil() end);
+	 fun (_) -> t_atom('ok') end);
 type(hipe_bifs, set_funinfo_native_address, 3, Xs) ->
   strict(arg_types(hipe_bifs, set_funinfo_native_address, 3), Xs,
 	 fun (_) -> t_nil() end);

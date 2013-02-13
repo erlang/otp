@@ -1791,7 +1791,7 @@ BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
 
     if (BIF_ARG_1 == am_all) {
 	hipe_purge_all_refs();
-	BIF_RET(NIL);
+	BIF_RET(am_ok);
     }
 
     if (!term_to_mfa(BIF_ARG_1, &mfa))
@@ -1828,7 +1828,7 @@ BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
 	caller_mfa->refers_to = NULL;
     }
     hipe_mfa_info_table_unlock();
-    BIF_RET(NIL);
+    BIF_RET(am_ok);
 }
 
 

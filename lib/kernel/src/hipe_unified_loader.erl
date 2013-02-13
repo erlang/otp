@@ -218,7 +218,7 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
       {MFAs,Addresses} = exports(ExportMap, CodeAddress),
       %% Remove references to old versions of the module.
       ReferencesToPatch = get_refs_from(MFAs, []),
-      remove_refs_from(MFAs),
+      ok = remove_refs_from(MFAs),
       %% Patch all dynamic references in the code.
       %%  Function calls, Atoms, Constants, System calls
       patch(Refs, CodeAddress, ConstMap2, Addresses, TrampolineMap),
@@ -802,7 +802,7 @@ patch_to_emu_step1(Mod) ->
       %% Find all call sites that call these MFAs. As a side-effect,
       %% create native stubs for any MFAs that are referred.
       ReferencesToPatch = get_refs_from(MFAs, []),
-      remove_refs_from(MFAs),
+      ok = remove_refs_from(MFAs),
       ReferencesToPatch;
     false ->
       %% The first time we load the module, no redirection needs to be done.
@@ -846,11 +846,8 @@ get_refs_from(MFAs, []) ->
   mark_referred_from(MFAs),
   MFAs.
 
-mark_referred_from([MFA|MFAs]) ->
-  hipe_bifs:mark_referred_from(MFA),
-  mark_referred_from(MFAs);
-mark_referred_from([]) ->
-  [].
+mark_referred_from(MFAs) ->
+  lists:foreach(fun(MFA) -> hipe_bifs:mark_referred_from(MFA) end, MFAs).
 
 %%--------------------------------------------------------------------
 %% Given a list of MFAs with referred_from references, update their
@@ -858,11 +855,8 @@ mark_referred_from([]) ->
 %%
 %% The {MFA,Refs} list must come from get_refs_from/2.
 %%
-redirect([MFA|Rest]) ->
-  hipe_bifs:redirect_referred_from(MFA),
-  redirect(Rest);
-redirect([]) ->
-  ok.
+redirect(MFAs) ->
+  lists:foreach(fun(MFA) -> hipe_bifs:redirect_referred_from(MFA) end, MFAs).
 
 %%--------------------------------------------------------------------
 %% Given a list of MFAs, remove all referred_from references having
@@ -874,11 +868,8 @@ redirect([]) ->
 %% list. The refers_to list is used here to find the CalleeMFAs whose
 %% referred_from lists should be updated.
 %%
-remove_refs_from([CallerMFA|CallerMFAs]) ->
-  hipe_bifs:remove_refs_from(CallerMFA),
-  remove_refs_from(CallerMFAs);
-remove_refs_from([]) ->
-  [].
+remove_refs_from(MFAs) ->
+  lists:foreach(fun(MFA) -> hipe_bifs:remove_refs_from(MFA) end, MFAs).
 
 %%--------------------------------------------------------------------
 
