@@ -495,6 +495,8 @@ init(Init, Kernel) ->
 			{'EXIT', LoadError} ->
 			    Reason = {'load error', LoadError},
 			    Init ! {ack, self(), {error, to_string(Reason)}};
+                        {error, Error} ->
+                            Init ! {ack, self(), {error, to_string(Error)}};
 			{ok, NewS} ->
 			    Init ! {ack, self(), ok},
 			    gen_server:enter_loop(?MODULE, [], NewS,
