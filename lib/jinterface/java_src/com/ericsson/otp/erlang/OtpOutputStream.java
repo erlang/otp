@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.util.Arrays;
+import java.util.zip.Deflater;
 
 /**
  * Provides a stream for encoding Erlang terms to external format, for
@@ -47,6 +48,8 @@ public class OtpOutputStream extends ByteArrayOutputStream {
     private static final DecimalFormat eform = new DecimalFormat("e+00;e-00");
     private static final BigDecimal ten = new BigDecimal(10.0);
     private static final BigDecimal one = new BigDecimal(1.0);
+
+    private int fixedSize = Integer.MAX_VALUE;
 
     /**
      * Create a stream with the default initial size (2048 bytes).
@@ -101,10 +104,16 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      * the storage of an <tt>OtpOutputStream</tt> instance.
      */
     public void trimToSize() {
-	if (super.count < super.buf.length) {
-	    final byte[] tmp = new byte[super.count];
-	    System.arraycopy(super.buf, 0, tmp, 0, super.count);
+	resize(super.count);
+    }
+
+    private void resize(int size) {
+	if (size < super.buf.length) {
+	    final byte[] tmp = new byte[size];
+	    System.arraycopy(super.buf, 0, tmp, 0, size);
 	    super.buf = tmp;
+	} else if (size > super.buf.length) {
+	    ensureCapacity(size);
 	}
     }
 
@@ -116,6 +125,9 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      * @param   minCapacity   the desired minimum capacity
      */
     public void ensureCapacity(int minCapacity) {
+	if (minCapacity > fixedSize) {
+	    throw new IllegalArgumentException("Trying to increase fixed-size buffer");
+	}
 	int oldCapacity = super.buf.length;
 	if (minCapacity > oldCapacity) {
 	    int newCapacity = (oldCapacity * 3)/2 + 1;
@@ -123,6 +135,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 		newCapacity = oldCapacity + defaultIncrement;
 	    if (newCapacity < minCapacity)
 		newCapacity = minCapacity;
+	    newCapacity = Math.min(fixedSize, newCapacity);
 	    // minCapacity is usually close to size, so this is a win:
 	    final byte[] tmp = new byte[newCapacity];
 	    System.arraycopy(super.buf, 0, tmp, 0, super.count);
@@ -142,19 +155,37 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	super.buf[super.count++] = b;
     }
 
-    /**
-     * Write an array of bytes to the stream.
-     * 
-     * @param buf
-     *            the array of bytes to write.
-     * 
+    /* (non-Javadoc)
+     * @see java.io.ByteArrayOutputStream#write(byte[])
      */
-
     @Override
     public void write(final byte[] buf) {
-	ensureCapacity(super.count + buf.length);
-	System.arraycopy(buf, 0, super.buf, super.count, buf.length);
-	super.count += buf.length;
+	// don't assume that super.write(byte[]) calls write(buf, 0, buf.length)
+	write(buf, 0, buf.length);
+    }
+
+    /* (non-Javadoc)
+     * @see java.io.ByteArrayOutputStream#write(int)
+     */
+    @Override
+    public synchronized void write(int b) {
+	ensureCapacity(super.count + 1);
+	super.buf[super.count] = (byte) b;
+	count += 1;
+    }
+
+    /* (non-Javadoc)
+     * @see java.io.ByteArrayOutputStream#write(byte[], int, int)
+     */
+    @Override
+    public synchronized void write(byte[] b, int off, int len) {
+	if ((off < 0) || (off > b.length) || (len < 0)
+		|| ((off + len) - b.length > 0)) {
+	    throw new IndexOutOfBoundsException();
+	}
+	ensureCapacity(super.count + len);
+	System.arraycopy(b, off, super.buf, super.count, len);
+	super.count += len;
     }
 
     /**
@@ -819,24 +850,77 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 
     /**
      * Write an arbitrary Erlang term to the stream in compressed format.
-     * 
+     *
      * @param o
-     *            the Erlang tem to write.
+     *            the Erlang term to write.
      */
     public void write_compressed(final OtpErlangObject o) {
+	write_compressed(o, Deflater.DEFAULT_COMPRESSION);
+    }
+
+    /**
+     * Write an arbitrary Erlang term to the stream in compressed format.
+     *
+     * @param o
+     *            the Erlang term to write.
+     * @param level
+     *            the compression level (<tt>0..9</tt>)
+     */
+    public void write_compressed(final OtpErlangObject o, int level) {
 	final OtpOutputStream oos = new OtpOutputStream(o);
-	write1(OtpExternal.compressedTag);
-	write4BE(oos.size());
-	final java.io.FilterOutputStream fos = new java.io.FilterOutputStream(
-		this);
-	final java.util.zip.DeflaterOutputStream dos = new java.util.zip.DeflaterOutputStream(
-		fos);
-	try {
-	    oos.writeTo(dos);
-	    dos.close();
-	} catch (final IOException e) {
-	    throw new java.lang.IllegalArgumentException(
-		    "Intremediate stream failed for Erlang object " + o);
+	/*
+	 * similar to erts_term_to_binary() in external.c:
+	 * We don't want to compress if compression actually increases the size.
+	 * Since compression uses 5 extra bytes (COMPRESSED tag + size), don't
+	 * compress if the original term is smaller.
+	 */
+	if (oos.size() < 5) {
+	    // fast path for small terms
+	    try {
+		oos.writeTo(this);
+		// if the term is written as a compressed term, the output
+		// stream is closed, so we do this here, too
+		this.close();
+	    } catch (IOException e) {
+		throw new java.lang.IllegalArgumentException(
+			"Intermediate stream failed for Erlang object " + o);
+	    }
+	} else {
+	    int startCount = super.count;
+	    // we need destCount bytes for an uncompressed term
+	    // -> if compression uses more, use the uncompressed term!
+	    int destCount = startCount + oos.size();
+	    this.fixedSize = destCount;
+	    Deflater def = new Deflater(level);
+	    final java.util.zip.DeflaterOutputStream dos = new java.util.zip.DeflaterOutputStream(
+		    this, def);
+	    try {
+		write1(OtpExternal.compressedTag);
+		write4BE(oos.size());
+		oos.writeTo(dos);
+		dos.close(); // note: closes this, too!
+	    } catch (final IllegalArgumentException e) {
+		// discard further un-compressed data
+		// -> if not called, there may be memory leaks!
+		def.end();
+		// could not make the value smaller than originally
+		// -> reset to starting count, write uncompressed
+		super.count = startCount;
+		try {
+		    oos.writeTo(this);
+		    // if the term is written as a compressed term, the output
+		    // stream is closed, so we do this here, too
+		    this.close();
+		} catch (IOException e2) {
+		    throw new java.lang.IllegalArgumentException(
+			    "Intermediate stream failed for Erlang object " + o);
+		}
+	    } catch (final IOException e) {
+		throw new java.lang.IllegalArgumentException(
+			"Intermediate stream failed for Erlang object " + o);
+	    } finally {
+		this.fixedSize = Integer.MAX_VALUE;
+	    }
 	}
     }
 

@@ -208,7 +208,10 @@ decompress_roundtrip(Config) when is_list(Config) ->
 	<<RandomBin1M:1048576/binary,_/binary>> = RandomBin,
 	<<RandomBin10M:10485760/binary,_/binary>> = RandomBin,
     Terms =
-	[0.0,
+	[{},
+	 {a,b,c},
+	 [],
+	 0.0,
 	 math:sqrt(2),
 	 <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,31:5>>,
 	 RandomBin1k,
@@ -234,7 +237,10 @@ compress_roundtrip(Config) when is_list(Config) ->
 	<<RandomBin1M:1048576/binary,_/binary>> = RandomBin,
 	<<RandomBin10M:10485760/binary,_/binary>> = RandomBin,
     Terms =
-	[0.0,
+	[{},
+	 {a,b,c},
+	 [],
+	 0.0,
 	 math:sqrt(2),
 	 <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,31:5>>,
 	 RandomBin1k,
