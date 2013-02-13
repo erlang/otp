@@ -335,7 +335,7 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
     int fi = 0;
     char format_str[7];
     char sbuf[32];
-    char *bufp;
+    char *bufp = sbuf;
     double dexp;
     int exp;
     size_t max_size = 1;
@@ -425,12 +425,12 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
 
     max_size++; /* '\0' */
 
-    if (max_size < sizeof(sbuf))
-	bufp = sbuf;
-    else {
+    if (max_size >= sizeof(sbuf)) {
 	bufp = (char *) malloc(sizeof(char)*max_size);
 	if (!bufp) {
 	    res = -ENOMEM;
+	    /* Make sure not to trigger free */
+	    bufp = sbuf;
 	    goto out;
 	}
     }
@@ -448,10 +448,10 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
 
     res = fmt_fld(fn, arg, bufp, size, 0, width, 0, new_fmt, count);
 
+ out:
     if (bufp != sbuf)
 	free((void *) bufp);
 
- out:
     if (erts_printf_unblock_fpe)
 	(*erts_printf_unblock_fpe)(fpe_was_unmasked);
     return res;

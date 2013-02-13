@@ -2963,15 +2963,14 @@ BIF_RETTYPE float_to_list_2(BIF_ALIST_2)
             Eterm* tp = tuple_val(arg);
             if (*tp == arity_two && is_small(tp[2])) {
                 decimals = signed_val(tp[2]);
-                if (decimals > 0 && decimals < sizeof(fbuf) - 6 /* "X." ++ "e+YY" */)
-                    switch (tp[1]) {
-                        case am_decimals:
-                            fmt_type = FMT_FIXED;
-                            continue;
-                        case am_scientific:
-                            fmt_type = FMT_SCIENTIFIC;
-                            continue;
-                    }
+                switch (tp[1]) {
+                    case am_decimals:
+                        fmt_type = FMT_FIXED;
+                        continue;
+                    case am_scientific:
+                        fmt_type = FMT_SCIENTIFIC;
+                        continue;
+                }
             }
         }
         goto badarg;
