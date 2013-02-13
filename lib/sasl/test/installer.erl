@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,8 +54,12 @@
 -export([reg_proc/1]).
 -export([registered_loop/1]).
 
--define(print(List), {rh_print, TestNode} ! {print, {?MODULE, ?LINE}, List}).
--define(print_line(Line,List), {rh_print, TestNode} ! {print, {?MODULE, Line}, List}).
+-define(print(List),
+	io:format(user,"(~w:~w) ~tp~n",[?MODULE,?LINE,List]),
+	{rh_print, TestNode} ! {print, {?MODULE, ?LINE}, List}).
+-define(print_line(Line,List),
+	io:format(user,"(~w:~w) ~tp~n",[?MODULE,Line,List]),
+	{rh_print, TestNode} ! {print, {?MODULE, Line}, List}).
 -define(fail(Term), exit({?MODULE, ?LINE, Term})).
 -define(fail_line(Line,Term), exit({?MODULE, Line, Term})).
 
@@ -905,10 +909,9 @@ start_client(TestNode,Client,Sname) ->
 
 start_client_unix(TestNode,Sname,Node) ->
     Start = filename:join(["clients", "type1", Node, "bin", "start"]),
-    Cmd = lists:concat(["env NODENAME=",Sname," ",
-			filename:join(code:root_dir(), Start)]),
+    Cmd = filename:join(code:root_dir(), Start),
     ?print([{start_client,Sname},Cmd]),
-    Res = os:cmd(Cmd),
+    Res = rh_test_lib:cmd(Cmd,[],[{"NODENAME",atom_to_list(Sname)}]),
     ?print([{start_client,result},Res]).
 
 start_client_win32(TestNode,Client,ClientSname) ->

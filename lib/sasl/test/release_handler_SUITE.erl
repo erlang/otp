@@ -24,6 +24,8 @@
 
 -compile(export_all).
 
+-define(unicode_string,[945,946]). % greek letters alpha and beta
+
 % Default timetrap timeout (set in init_per_testcase).
 %-define(default_timeout, ?t:minutes(40)).
 -define(default_timeout, ?t:minutes(10)).
@@ -1667,16 +1669,11 @@ start_target_node_with_erl(Erl,Sname,Boot) ->
 	   "-boot",filename:rootname(Boot)],
     ?t:format("Starting node ~p: ~ts~n",
 	      [FullName, lists:flatten([[X," "] || X <- [Erl|Args]])]),
-    ?t:format("open_port({spawn_executable, ~tp}, [{args,~p}])~n",[Erl,Args]),
-    case open_port({spawn_executable, Erl}, [{args,Args}]) of
-        Port when is_port(Port) ->
-            unlink(Port),
-            erlang:port_close(Port),
-	    %% timer:sleep(10000),
-	    %% io:format("PING: ~p~n",[net_adm:ping(FullName)]),
+    case rh_test_lib:cmd(Erl,Args,[]) of
+	ok ->
 	    ok = wait_nodes_up([FullName],"target_system test node"),
 	    {ok,FullName};
-        Error ->
+	Error ->
             ?t:fail({failed_to_start_node, FullName, Error})
     end.
 
@@ -1689,7 +1686,7 @@ stop_target_node(Node) ->
 %% install under a path which includes unicode characters
 target_system_unicode(Conf) when is_list(Conf) ->
     PrivDir = priv_dir(Conf),
-    UnicodeStr = [945,946], % alhpa beta in greek letters
+    UnicodeStr = ?unicode_string,
     UnicodePrivDir = filename:join(PrivDir,UnicodeStr),
 
     PA = filename:dirname(code:which(?MODULE)),
@@ -1970,13 +1967,13 @@ copy_client(Conf,Master,Sname,Client) ->
 clean_priv_dir(Conf,Save) ->
     PrivDir = priv_dir(Conf),
 
-    ?t:format("========  current dir ~p~n",[PrivDir]),
+    ?t:format("========  current dir ~tp~n",[PrivDir]),
     Dirs = filelib:wildcard(filename:join(PrivDir,"*")),
-    ?t:format("========  deleting  ~p~n",[Dirs]),
+    ?t:format("========  deleting  ~tp~n",[Dirs]),
 
     ok = rm_rf(Dirs,Save),
     Remaining = filelib:wildcard(filename:join(PrivDir,"*")),
-    ?t:format("========  remaining  ~p~n",[Remaining]),
+    ?t:format("========  remaining  ~tp~n",[Remaining]),
 
     case Remaining of
 	[] ->
@@ -1984,7 +1981,7 @@ clean_priv_dir(Conf,Save) ->
 	_ ->
 	    rm_rf(Remaining,Save),
 	    Remaining2 = filelib:wildcard(filename:join(PrivDir,"*")),
-	    ?t:format("========  remaining after second try ~p~n",[Remaining2])
+	    ?t:format("========  remaining after second try ~tp~n",[Remaining2])
     end,
 
     ok.
@@ -2058,7 +2055,7 @@ chmod(Dest,Opts) ->
 
 
 copy_error(Src, Dest, Reason) ->
-    ?t:format("Copy ~s to ~s failed: ~s\n",
+    ?t:format("Copy ~ts to ~ts failed: ~ts\n",
 	      [Src,Dest,file:format_error(Reason)]),
     ?t:fail(file_copy_failed).
 
@@ -2098,9 +2095,11 @@ subst_file(Src, Dest, Vars) ->
     subst_file(Src, Dest, Vars, []).
 subst_file(Src, Dest, Vars, Opts) ->
     {ok, Bin} = file:read_file(Src),
-    Conts = binary_to_list(Bin),
+    Conts = binary_to_list(Bin), % The source will always be latin1
     NConts = subst(Conts, Vars),
-    ok = file:write_file(Dest, NConts),
+    %% The destination must be utf8 if file name encoding is unicode
+    Enc = file:native_name_encoding(),
+    ok = file:write_file(Dest, unicode:characters_to_binary(NConts,Enc,Enc)),
     preserve(Src,Dest,Opts),
     chmod(Dest,Opts).
 
@@ -2133,13 +2132,22 @@ subst_var([], Vars, Result, VarAcc) ->
 
 
 priv_dir(Conf) ->
-%%    filename:absname(?config(priv_dir, Conf)). % Get rid of trailing slash
     %% Due to problem with long paths on windows => creating a new
     %% priv_dir under data_dir
-    filename:absname(filename:join(?config(data_dir, Conf),priv_dir)).
+    %% And get rid of trailing slash (absname does that)
+    %% And if file name translation mode is utf8 when not on windows,
+    %% use a path with unicode characters...
+    PrivDir =
+	case {file:native_name_encoding(),os:type()} of
+	    {utf8,{Os,_}} when Os=/=win32 ->
+		"priv_dir_" ++ ?unicode_string;
+	    _ ->
+		"priv_dir"
+	end,
+    filename:absname(filename:join([?config(data_dir, Conf),PrivDir])).
 
 init_priv_dir(Conf) ->
-    Dir = filename:absname(filename:join(?config(data_dir, Conf),priv_dir)),
+    Dir = priv_dir(Conf),
     case filelib:is_dir(Dir) of
 	true ->
 	    clean_priv_dir(Conf,false);
@@ -2164,7 +2172,7 @@ rh_print() ->
     receive
 	{print, {Module,Line}, [H|T]} ->
 	    ?t:format("=== ~p:~p - ~p",[Module,Line,H]),
-	    lists:foreach(fun(Term) -> ?t:format("    ~p",[Term]) end, T),
+	    lists:foreach(fun(Term) -> ?t:format("    ~tp",[Term]) end, T),
 	    ?t:format("",[]),
 	    rh_print();
 	kill ->
@@ -2557,11 +2565,14 @@ start_nodes(Conf,Snames,Tag) ->
     
 start_node_unix(Sname,NodeDir) ->
     Script = filename:join([NodeDir,"bin","start"]),
-    Cmd = "env NODENAME="++atom_to_list(Sname) ++ " " ++ Script,
-    %% {ok,StartFile} = file:read_file(Cmd),
-    %% ?t:format("~s:\n~s~n~n",[Start,binary_to_list(StartFile)]),
-    Res = os:cmd(Cmd),
-    ?t:format("Start ~p: ~p~n=>\t~p~n", [Sname,Cmd,Res]).
+    ?t:format("Starting ~p: ~tp~n", [Sname,Script]),
+    case rh_test_lib:cmd(Script,[],[{"NODENAME",atom_to_list(Sname)}]) of
+	ok ->
+	    {ok,node_name(Sname)};
+        Error ->
+            ?t:fail({failed_to_start_node, Sname, Error})
+    end.
+
 
 start_node_win32(Sname,NodeDir) ->
     Name = atom_to_list(Sname) ++ "_P1G",

@@ -1,5 +1,6 @@
 -module(rh_test_lib).
 
+-export([cmd/3]).
 -export([erlsrv/3,
 	 erlsrv/4]).
 -export([get_service_args/3,
@@ -9,6 +10,16 @@
 	 get_client_args/3,
 	 get_client_args/4]).
 
+
+cmd(Cmd,Args,Env) ->
+    case open_port({spawn_executable, Cmd}, [{args,Args},{env,Env}]) of
+        Port when is_port(Port) ->
+            unlink(Port),
+            erlang:port_close(Port),
+	    ok;
+        Error ->
+            Error
+    end.
 
 erlsrv(Erlsrv,Action,Name) ->
     erlsrv(Erlsrv,Action,Name,"").
