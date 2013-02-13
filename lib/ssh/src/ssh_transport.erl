@@ -361,13 +361,7 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = HostKey, f = F,
 	      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
 	      description = "Key exchange failed",
 	      language = "en"},
-	    ErrorMsg = case Error of
-			   {_, What} ->
-			       {What, []};
-			   Else ->
-			       {Else, []}
-		       end,
-	    throw({ErrorMsg, Disconnect})
+	    throw({Error, Disconnect})
     end.
 
 handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = _Min,

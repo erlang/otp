@@ -40,7 +40,7 @@
 	 close/2, stop/1, send/5,
 	 send_eof/2]).
 
--export([open_channel/6, reply_request/3, request/6, request/7, global_request/4, event/2,cast/2]).
+-export([open_channel/6, reply_request/3, request/6, request/7, global_request/4, event/2, event/3, cast/2]).
 
 %% Internal application API and spawn
 -export([send_msg/1, ssh_channel_info_handler/3]).
