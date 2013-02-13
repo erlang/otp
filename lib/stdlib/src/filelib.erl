@@ -447,8 +447,6 @@ compile_part([], _Upto, Result) ->
 
 compile_charset([$]|Rest], Ordset) ->
     compile_charset1(Rest, ordsets:add_element($], Ordset));
-compile_charset([$-|Rest], Ordset) ->
-    compile_charset1(Rest, ordsets:add_element($-, Ordset));
 compile_charset([], _Ordset) ->
     error;
 compile_charset(List, Ordset) ->
