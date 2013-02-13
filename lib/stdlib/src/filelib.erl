@@ -53,14 +53,14 @@ wildcard(Pattern) when is_list(Pattern) ->
 -spec wildcard(Wildcard, Cwd) -> [file:filename()] when
       Wildcard :: filename() | dirname(),
       Cwd :: dirname().
-wildcard(Pattern, Cwd) when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)) ->
+wildcard(Pattern, Cwd) when is_list(Pattern), is_list(Cwd) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, file));
 wildcard(Pattern, Mod) when is_list(Pattern), is_atom(Mod) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Mod)).
 
 -spec wildcard(file:name(), file:name(), atom()) -> [file:filename()].
 wildcard(Pattern, Cwd, Mod)
-  when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)), is_atom(Mod) ->
+  when is_list(Pattern), is_list(Cwd), is_atom(Mod) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, Mod)).
 
 -spec is_dir(Name) -> boolean() when
