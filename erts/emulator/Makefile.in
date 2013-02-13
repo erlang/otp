@@ -20,6 +20,8 @@
 include $(ERL_TOP)/make/target.mk
 include ../vsn.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
+include $(TARGET)/gen_git_version.mk
+
 
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
 HIPE_ENABLED=@HIPE_ENABLED@
@@ -196,7 +198,7 @@ else
 EMU_CC  = @EMU_CC@
 endif
 WFLAGS  = @WFLAGS@
-CFLAGS  = @STATIC_CFLAGS@ $(TYPE_FLAGS) $(FLAVOR_FLAGS) $(DEFS) $(WFLAGS) $(THR_DEFS) $(ARCHCFLAGS)
+CFLAGS  = @STATIC_CFLAGS@ $(TYPE_FLAGS) $(FLAVOR_FLAGS) $(DEFS) $(WFLAGS) $(THR_DEFS) $(ARCHCFLAGS) $(GIT_VSN)
 HCC     = @HCC@
 LD      = @LD@
 DEXPORT = @DEXPORT@
@@ -1005,6 +1007,12 @@ DEP_CC=$(CC)
 DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLANG_OSTYPE)
 SYS_SRC=$(ALL_SYS_SRC)
 endif
+
+.PHONY: $(TARGET)/gen_git_version.mk
+$(TARGET)/gen_git_version.mk:
+# We touch beam/erl_bif.info.c if we regenerated the git version to force a
+# rebuild.
+	if $(gen_verbose)utils/gen_git_version $@; then touch beam/erl_bif_info.c; fi
 
 .PHONY: depend
 ifdef VOID_EMULATOR

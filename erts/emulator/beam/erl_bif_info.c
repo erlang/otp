@@ -69,7 +69,11 @@ static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 				     " [no-c-stack-objects]"
 #endif
 #ifndef OTP_RELEASE
+#ifdef ERLANG_GIT_VERSION
+				     " [source-" ERLANG_GIT_VERSION "]"
+#else
 				     " [source]"
+#endif
 #endif	
 #ifdef ARCH_64
 #if HALFWORD_HEAP
