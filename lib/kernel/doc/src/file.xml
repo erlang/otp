@@ -60,14 +60,6 @@
     converted, why the Unicode mode for file names is not default on
     systems having completely transparent file naming.</p>
 
-    <note>
-      <p>As of R14B01, the most basic file handling modules
-      (<c>file</c>, <c>prim_file</c>, <c>filelib</c> and
-      <c>filename</c>) accept raw file names, but the rest of OTP is not
-      guaranteed to handle them, why Unicode file naming on systems
-      where it is not default is still considered experimental.</p>
-    </note>
-
     <p>Raw file names is a new feature in OTP R14B01, which allows the
     user to supply completely uninterpreted file names to the
     underlying OS/filesystem. They are supplied as binaries, where it
