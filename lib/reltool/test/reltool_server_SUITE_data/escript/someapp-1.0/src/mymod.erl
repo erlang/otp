@@ -22,5 +22,6 @@
 %%%-----------------------------------------------------------------
 %%% escript main function
 main(Args) ->
+    io:format("Module: ~w\n", [?MODULE]),
     io:format("Root dir: ~s\n", [code:root_dir()]),
     io:format("Script args: ~p\n", [Args]).

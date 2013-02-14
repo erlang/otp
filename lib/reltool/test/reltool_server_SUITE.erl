@@ -878,7 +878,7 @@ create_standalone(_Config) ->
     %% Execute escript
     Expected =  s2b(["Root dir: ", RootDir, "\n"
 		     "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-		     "Smp: false\n",
+		     "Emuarg: [\"emuvalue\"]\n",
 		     "ExitCode:0"]),
     io:format("Expected: ~ts\n", [Expected]),
     ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
@@ -923,7 +923,8 @@ create_standalone_beam(Config) ->
     ?msym(ok, stop_node(Node)),
 
     %% Execute escript
-    Expected =  s2b(["Root dir: ", RootDir, "\n"
+    Expected =  s2b(["Module: mymod\n"
+		     "Root dir: ", RootDir, "\n"
 		     "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
 		     "ExitCode:0"]),
     io:format("Expected: ~ts\n", [Expected]),
@@ -975,7 +976,8 @@ create_standalone_app(Config) ->
     ?msym(ok, stop_node(Node)),
 
     %% Execute escript
-    Expected =  s2b(["Root dir: ", RootDir, "\n"
+    Expected =  s2b(["Module: mymod\n"
+		     "Root dir: ", RootDir, "\n"
 		     "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
 		     "ExitCode:0"]),
     io:format("Expected: ~ts\n", [Expected]),
@@ -1063,14 +1065,15 @@ create_multiple_standalone(Config) ->
     %% Execute escript1
     Expected1 =  s2b(["Root dir: ", RootDir, "\n"
 		      "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-		      "Smp: false\n",
+		      "Emuarg: [\"emuvalue\"]\n",
 		      "ExitCode:0"]),
     io:format("Expected1: ~ts\n", [Expected1]),
     ?m(Expected1, run(BinDir, EscriptName1, "-arg1 arg2 arg3")),
 
 
     %% Execute escript2
-    Expected2 =  s2b(["Root dir: ", RootDir, "\n"
+    Expected2 =  s2b(["Module: mymod\n"
+		      "Root dir: ", RootDir, "\n"
 		      "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
 		      "ExitCode:0"]),
     io:format("Expected2: ~ts\n", [Expected2]),
