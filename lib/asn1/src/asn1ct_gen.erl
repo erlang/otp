@@ -657,9 +657,13 @@ gen_check_sof(Name,SOF,Type) ->
     end,
     emit({"   ",{asis,NewName},"(DVs,Vs).",nl,nl}).
 
+gen_check_sequence(Name, []) ->
+    emit([{asis,ensure_atom(Name)},"(_,_) ->",nl,
+	 "    throw(badval).",nl,nl]);
 gen_check_sequence(Name,Components) ->
     emit([{asis,ensure_atom(Name)},"(DefaultValue,Value) ->",nl]),
     gen_check_sequence(Name,Components,1).
+
 gen_check_sequence(Name,[#'ComponentType'{name=N,typespec=Type}|Cs],Num) ->
     InnerType = get_inner(Type#type.def),
     NthDefV = ["element(",Num+1,",DefaultValue)"],
@@ -671,9 +675,7 @@ gen_check_sequence(Name,[#'ComponentType'{name=N,typespec=Type}|Cs],Num) ->
 	_ ->
 	    emit({",",nl}),
 	    gen_check_sequence(Name,Cs,Num+1)
-    end;
-gen_check_sequence(_,[],_) ->
-    ok.
+    end.
 
 gen_check_choice(Name,CList=[#'ComponentType'{}|_Cs]) ->
     emit([{asis,ensure_atom(Name)},"({Id,DefaultValue},{Id,Value}) ->",nl]),
