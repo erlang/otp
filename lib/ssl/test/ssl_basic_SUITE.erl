@@ -822,7 +822,7 @@ invalid_inet_get_option_not_list(Config) when is_list(Config) ->
 
 
 get_invalid_inet_option_not_list(Socket) ->
-    {error, {eoptions, {inet_options, some_invalid_atom_here}}}
+    {error, {eoptions, {socket_options, some_invalid_atom_here}}}
      = ssl:getopts(Socket, some_invalid_atom_here),
      ok.
 
@@ -854,7 +854,7 @@ invalid_inet_get_option_improper_list(Config) when is_list(Config) ->
 
 
 get_invalid_inet_option_improper_list(Socket) ->
-    {error, {eoptions, {inet_option, foo,_}}} = ssl:getopts(Socket, [packet | foo]),
+    {error, {eoptions, {socket_options, foo,_}}} = ssl:getopts(Socket, [packet | foo]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -884,10 +884,10 @@ invalid_inet_set_option(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 set_invalid_inet_option(Socket) ->
-    {error, {eoptions, {inet_opt, {packet, foo}}}} = ssl:setopts(Socket, [{packet, foo}]),
-    {error, {eoptions, {inet_opt, {header, foo}}}} = ssl:setopts(Socket, [{header, foo}]),
-    {error, {eoptions, {inet_opt, {active, foo}}}} = ssl:setopts(Socket, [{active, foo}]),
-    {error, {eoptions, {inet_opt, {mode, foo}}}}   = ssl:setopts(Socket, [{mode, foo}]),
+    {error, {eoptions, {socket_option, {packet, foo}}}} = ssl:setopts(Socket, [{packet, foo}]),
+    {error, {eoptions, {socket_option, {header, foo}}}} = ssl:setopts(Socket, [{header, foo}]),
+    {error, {eoptions, {socket_option, {active, foo}}}} = ssl:setopts(Socket, [{active, foo}]),
+    {error, {eoptions, {socket_option, {mode, foo}}}}   = ssl:setopts(Socket, [{mode, foo}]),
     ok.
 %%--------------------------------------------------------------------
 invalid_inet_set_option_not_list() ->
@@ -966,7 +966,6 @@ misc_ssl_options(Config) when is_list(Config) ->
 		{key, undefined}, 
 		{password, []},
 		{reuse_session, fun(_,_,_,_) -> true end},
-		{debug, []}, 
 		{cb_info, {gen_tcp, tcp, tcp_closed, tcp_error}}],
     
    Server = 
@@ -1421,7 +1420,6 @@ eoptions(Config) when is_list(Config) ->
 		{reuse_session, foo},
 		{reuse_sessions, 0},
 		{renegotiate_at, "10"},
-		{debug, 1},
 		{mode, depech},
 		{packet, 8.0},
 		{packet_size, "2"},
@@ -3149,7 +3147,7 @@ treashold(N, _) ->
     N + 1.
 
 get_invalid_inet_option(Socket) ->
-    {error, {eoptions, {inet_option, foo, _}}} = ssl:getopts(Socket, [foo]),
+    {error, {eoptions, {socket_option, foo, _}}} = ssl:getopts(Socket, [foo]),
     ok.
 
 shutdown_result(Socket, server) ->
