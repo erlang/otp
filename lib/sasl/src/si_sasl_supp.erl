@@ -360,7 +360,7 @@ ppi_impl(XPid) ->
 print_info(Device, Pid, {Module, Func}, Opt, Data) ->
     case erlang:function_exported(Module, Func, 2) of
 	true ->
-	    case catch apply({Module, Func}, [Opt, Data]) of
+	    case catch apply(Module, Func, [Opt, Data]) of
 		Format when is_list(Format) ->
 		    format_lib_supp:print_info(Device, 79,
 					       add_pid_to_format(Pid, Format)),
