@@ -86,6 +86,7 @@ groups() ->
                     testInvokeMod,
                     per,
                     ber_other,
+		    der,
                     h323test,
                     per_GeneralString]},
        testChoPrim,
@@ -686,6 +687,8 @@ ber_other(Config) ->
 ber_other(Config, Rule, Opts) ->
     [module_test(M, Config, Rule, Opts) || M <- ber_modules()].
 
+der(Config) ->
+    asn1_test_lib:compile_all(ber_modules(), Config, [der]).
 
 module_test(M, Config, Rule, Opts) ->
     asn1_test_lib:compile(M, Config, [Rule|Opts]),
