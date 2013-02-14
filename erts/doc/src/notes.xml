@@ -144,7 +144,7 @@
 	    spawning processes, terminating processes, sending
 	    messages, etc.</item> <item>Optimizations of run queue
 	    management reducing contention.</item>
-	    <item>Optimizations of process state changes reducing
+	    <item>Optimizations of process internal state changes reducing
 	    contention.</item> </list> <p>These changes imply changes
 	    of the characteristics the system. Most notable: changed
 	    timing in the system.</p>
@@ -403,7 +403,7 @@
         </item>
         <item>
           <p>
-	    The <seealso marker="#+stbt">+stbt</seealso> command line
+	    The <seealso marker="erl#+stbt">+stbt</seealso> command line
 	    argument of <c>erl</c> was added. This argument can be
 	    used for trying to set scheduler bind type. Upon failure
 	    unbound schedulers will be used.</p>
