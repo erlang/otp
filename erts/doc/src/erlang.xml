@@ -300,6 +300,44 @@
       </desc>
     </func>
     <func>
+      <name name="binary_to_float" arity="1"/>
+      <fsummary>Convert from text representation to a float</fsummary>
+      <desc>
+        <p>Returns the float whose text representation is <c><anno>Binary</anno></c>.</p>
+        <pre>
+> <input>binary_to_float(&lt;&lt;"2.2017764e+0">>).</input>
+2.2017764</pre>
+        <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
+          representation of a float.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="binary_to_integer" arity="1"/>
+      <fsummary>Convert from text representation to an integer</fsummary>
+      <desc>
+        <p>Returns an integer whose text representation is
+          <c><anno>Binary</anno></c>.</p>
+        <pre>
+> <input>binary_to_integer(&lt;&lt;"123"&gt;&gt;).</input>
+123</pre>
+        <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
+          representation of an integer.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="binary_to_integer" arity="2"/>
+      <fsummary>Convert from text representation to an integer</fsummary>
+      <desc>
+        <p>Returns an integer whose text representation in base
+          <c><anno>Base</anno></c> is <c><anno>Binary</anno></c>.</p>
+        <pre>
+> <input>binary_to_integer(&lt;&lt;"3FF"&gt;&gt;, 16).</input>
+1023</pre>
+        <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
+          representation of an integer.</p>
+      </desc>
+    </func>
+    <func>
       <name name="binary_to_list" arity="1"/>
       <fsummary>Convert a binary to a list</fsummary>
       <desc>
@@ -961,26 +999,38 @@ true
       </desc>
     </func>
     <func>
-      <name name="float_to_list" arity="1"/>
+      <name name="float_to_binary" arity="1"/>
       <fsummary>Text representation of a float</fsummary>
       <desc>
-        <p>Returns a string which corresponds to the text
-          representation of <c><anno>Float</anno></c>.</p>
-        <pre>
-> <input>float_to_list(7.0).</input>
-"7.00000000000000000000e+00"</pre>
+        <p>The same as <c>float_to_binary(<anno>Float</anno>,[{scientific,20}])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>float_to_list(Float, Options) -> string()</name>
+      <name name="float_to_binary" arity="2"/>
       <fsummary>Text representation of a float formatted using given options</fsummary>
-      <type>
-        <v>Float = float()</v>
-        <v>Options = [Option]</v>
-        <v>Option = {decimals, Decimals::0..253} |
-                    {scientific, Decimals::0..249} |
-                    compact</v>
-      </type>
+      <desc>
+        <p>Returns a binary which corresponds to the text
+          representation of <c><anno>Float</anno></c> using fixed decimal 
+	  point formatting. The <c><anno>Options</anno></c> behave in the same
+	  way as <seealso marker="#float_to_list/2">float_to_list/2</seealso>.
+	</p>
+        <pre>
+> <input>float_to_binary(7.12, [{decimals, 4}]).</input>
+&lt;&lt;"7.1200">>
+> <input>float_to_binary(7.12, [{decimals, 4}, compact]).</input>
+&lt;&lt;"7.12">></pre>
+      </desc>
+    </func>
+    <func>
+      <name name="float_to_list" arity="1"/>
+      <fsummary>Text representation of a float</fsummary>
+      <desc>
+	<p>The same as <c>float_to_list(<anno>Float</anno>,[{scientific,20}])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="float_to_list" arity="2"/>
+      <fsummary>Text representation of a float formatted using given options</fsummary>
       <desc>
         <p>Returns a string which corresponds to the text
           representation of <c>Float</c> using fixed decimal point formatting.
@@ -993,7 +1043,8 @@ true
           only meaningful together with the <c>decimals</c> option). When
           <c>scientific</c> option is provided, the float will be formatted using
           scientific notation with <c>Decimals</c> digits of precision. If
-          <c>Options</c> is <c>[]</c> the function behaves like <c>float_to_list/1</c>.
+          <c>Options</c> is <c>[]</c> the function behaves like 
+	  <c><seealso marker="#float_to_list/1">float_to_list/1</seealso></c>.
           </p>
         <pre>
 > <input>float_to_list(7.12, [{decimals, 4}]).</input>
@@ -1429,7 +1480,28 @@ os_prompt% </pre>
 {one,new,two,three}</pre>
       </desc>
     </func>
-
+    <func>
+      <name name="integer_to_binary" arity="1"/>
+      <fsummary>Text representation of an integer</fsummary>
+      <desc>
+        <p>Returns a binary which corresponds to the text
+          representation of <c><anno>Integer</anno></c>.</p>
+        <pre>
+> <input>integer_to_binary(77).</input>
+&lt;&lt;"77">></pre>
+      </desc>
+    </func>
+    <func>
+      <name name="integer_to_binary" arity="2"/>
+      <fsummary>Text representation of an integer</fsummary>
+      <desc>
+        <p>Returns a binary which corresponds to the text
+          representation of <c><anno>Integer</anno></c> in base <c><anno>Base</anno></c>.</p>
+        <pre>
+> <input>integer_to_binary(1023, 16).</input>
+&lt;&lt;"3FF">></pre>
+      </desc>
+    </func>
     <func>
       <name name="integer_to_list" arity="1"/>
       <fsummary>Text representation of an integer</fsummary>

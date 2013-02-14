@@ -240,6 +240,98 @@ erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, Uint b
     return previous;
 }
 
+BIF_RETTYPE binary_to_integer_1(BIF_ALIST_1)
+{
+  byte *temp_alloc = NULL;
+  char *bytes;
+  Uint size;
+  Eterm res;
+
+  if ((bytes = (char*)erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc))
+      == NULL )
+    goto binary_to_integer_1_error;
+  
+  size = binary_size(BIF_ARG_1);
+  
+  if ((res = erts_chars_to_integer(BIF_P,bytes,size,10)) != THE_NON_VALUE) {
+    erts_free_aligned_binary_bytes(temp_alloc);
+    return res;
+  }
+
+ binary_to_integer_1_error:
+  erts_free_aligned_binary_bytes(temp_alloc);
+  BIF_ERROR(BIF_P, BADARG);
+}
+
+BIF_RETTYPE binary_to_integer_2(BIF_ALIST_2)
+{
+  byte *temp_alloc = NULL;
+  char *bytes;
+  Uint size;
+  int base;
+  Eterm res;
+  
+  if (!is_small(BIF_ARG_2))
+    BIF_ERROR(BIF_P, BADARG);
+
+  base = signed_val(BIF_ARG_2);
+  
+  if (base < 2 || base > 36) 
+    BIF_ERROR(BIF_P, BADARG);
+
+  if ((bytes = (char*)erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc))
+      == NULL )
+    goto binary_to_integer_2_error;
+  
+  size = binary_size(BIF_ARG_1);
+  
+  if ((res = erts_chars_to_integer(BIF_P,bytes,size,base)) != THE_NON_VALUE) {
+    erts_free_aligned_binary_bytes(temp_alloc);
+    return res;
+  }
+
+ binary_to_integer_2_error:
+  
+  erts_free_aligned_binary_bytes(temp_alloc);
+  BIF_ERROR(BIF_P, BADARG);
+
+}
+
+BIF_RETTYPE integer_to_binary_1(BIF_ALIST_1)
+{   
+    Uint size;
+    Eterm res;
+
+    if (is_not_integer(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (is_small(BIF_ARG_1)) {
+	char *c;
+	struct Sint_buf ibuf;
+
+	/* Enhancement: If we can calculate the buffer size exactly
+	 * we could avoid an unnecessary copy of buffers.
+	 * Useful if size determination is faster than a copy.
+	 */
+	c = Sint_to_buf(signed_val(BIF_ARG_1), &ibuf);
+	size = sys_strlen(c);
+	res = new_binary(BIF_P, (byte *)c, size);
+    } else {
+	byte* bytes;
+	Uint n = 0;
+
+	/* Here we also have multiple copies of buffers
+	 * due to new_binary interface
+	 */
+	size = big_decimal_estimate(BIF_ARG_1) - 1; /* remove null */
+	bytes = (byte*) erts_alloc(ERTS_ALC_T_TMP, sizeof(byte)*size);
+	n = erts_big_to_binary_bytes(BIF_ARG_1, (char *)bytes, size);
+	res = new_binary(BIF_P, bytes + size - n, n);
+	erts_free(ERTS_ALC_T_TMP, (void *) bytes);
+    }
+    BIF_RET(res);
+}
 
 BIF_RETTYPE binary_to_list_1(BIF_ALIST_1)
 {
