@@ -158,6 +158,9 @@
       <item>Make Dialyzer a bit more quiet.</item>
       <tag><c><![CDATA[--verbose]]></c></tag>
       <item>Make Dialyzer a bit more verbose.</item>
+      <tag><c><![CDATA[--statistics]]></c></tag>
+      <item>Prints information about the progress of execution (analysis phases,
+      time spent in each and size of the relative input).</item>
       <tag><c><![CDATA[--build_plt]]></c></tag>
       <item>The analysis starts from an empty plt and creates a new one from
         the files specified with <c><![CDATA[-c]]></c> and
@@ -228,6 +231,9 @@
        match.</item>
       <tag><c><![CDATA[-Wno_opaque]]></c></tag>
       <item>Suppress warnings for violations of opaqueness of data types.</item>
+      <tag><c><![CDATA[-Wno_behaviours]]></c>***</tag>
+      <item>Suppress warnings about behaviour callbacks which drift from the
+       published recommended interfaces.</item>
       <tag><c><![CDATA[-Wunmatched_returns]]></c>***</tag>
       <item>Include warnings for function calls which ignore a structured return
         value or do not match against one of many possible return
@@ -237,9 +243,6 @@
        exception.</item>
       <tag><c><![CDATA[-Wrace_conditions]]></c>***</tag>
       <item>Include warnings for possible race conditions.</item>
-      <tag><c><![CDATA[-Wbehaviours]]></c>***</tag>
-      <item>Include warnings about behaviour callbacks which drift from the
-       published recommended interfaces.</item>
       <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
       <item>Warn about underspecified functions
       (the -spec is strictly more allowing than the success typing).</item>
