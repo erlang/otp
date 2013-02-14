@@ -2698,7 +2698,7 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
      */
     {
 	ErlDrvSizeT disable = ERL_DRV_BUSY_MSGQ_DISABLED;
-	erl_drv_busy_msgq_limits((ErlDrvPort) pp, &disable, NULL);
+	erl_drv_busy_msgq_limits(ERTS_Port2ErlDrvPort(pp), &disable, NULL);
     }
 
     pp->dist_entry = dep;

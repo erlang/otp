@@ -141,7 +141,7 @@ kill_ports_driver_unloaded(DE_Handle *dh)
 
 	state = erts_atomic32_read_nob(&prt->state);
 	if (!(state & ERTS_PORT_SFLGS_DEAD) && prt->drv_ptr->handle == dh)
-	    driver_failure_atom((ErlDrvPort) prt, "driver_unloaded");
+	    driver_failure_atom(ERTS_Port2ErlDrvPort(prt), "driver_unloaded");
 
 	erts_port_release(prt);
     }

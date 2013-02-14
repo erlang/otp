@@ -1260,9 +1260,9 @@ spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	retval = set_driver_data(dp, hFromChild, hToChild, opts->read_write,
 				 opts->exit_status);
 	if (retval != ERL_DRV_ERROR_GENERAL && retval != ERL_DRV_ERROR_ERRNO) {
-	    Port *prt = erts_drvport2port_raw(port_num);
+	    Port *prt = erts_drvport2port(port_num);
 		/* We assume that this cannot generate a negative number */
-	    ASSERT(prt);
+	    ASSERT(prt != ERTS_INVALID_ERL_DRV_PORT);
 	    prt->os_pid = (SWord) pid;
 	}
     }

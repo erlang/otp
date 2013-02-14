@@ -40,7 +40,29 @@ extern int erts_port_parallelism;
 
 typedef struct erts_driver_t_ erts_driver_t;
 
-#define ERTS_INVALID_ERL_DRV_PORT ((ErlDrvPort) (SWord) -1)
+/*
+ * It would have been preferred to use NULL as value of
+ * ERTS_INVALID_ERL_DRV_PORT. That would, however, not be
+ * backward compatible. In pre-R16 systems, 0 was a valid
+ * port handle and -1 was used as invalid handle, so we
+ * are stuck with it.
+ */
+#define ERTS_INVALID_ERL_DRV_PORT ((struct _erl_drv_port *) ((SWord) -1))
+#ifdef DEBUG
+/* Make sure we use this api, and do not cast directly */
+#define ERTS_ErlDrvPort2Port(PH)	\
+    ((PH) == ERTS_INVALID_ERL_DRV_PORT	\
+     ? ERTS_INVALID_ERL_DRV_PORT	\
+     : ((Port *) ((PH) - 4711)))
+#define ERTS_Port2ErlDrvPort(PH)	\
+    ((PH) == ERTS_INVALID_ERL_DRV_PORT	\
+     ? ERTS_INVALID_ERL_DRV_PORT	\
+     : ((ErlDrvPort) ((PH) + 4711)))
+#else
+#define ERTS_ErlDrvPort2Port(PH) ((Port *) (PH))
+#define ERTS_Port2ErlDrvPort(PH) ((ErlDrvPort) (PH))
+#endif
+
 #define SMALL_IO_QUEUE 5   /* Number of fixed elements */
 
 typedef struct {
@@ -429,15 +451,15 @@ ERTS_GLB_INLINE void erts_port_release(Port *);
 ERTS_GLB_INLINE Port *erts_thr_id2port_sflgs(Eterm id, Uint32 invalid_sflgs);
 ERTS_GLB_INLINE void erts_thr_port_release(Port *prt);
 #endif
-ERTS_GLB_INLINE Port *erts_thr_drvport2port_raw(ErlDrvPort, int);
-ERTS_GLB_INLINE Port *erts_drvport2port_raw(ErlDrvPort drvport);
-ERTS_GLB_INLINE Port *erts_drvport2port(ErlDrvPort, erts_aint32_t *);
-ERTS_GLB_INLINE Port *erts_drvportid2port(Eterm);
+ERTS_GLB_INLINE Port *erts_thr_drvport2port(ErlDrvPort, int);
+ERTS_GLB_INLINE Port *erts_drvport2port_state(ErlDrvPort, erts_aint32_t *);
 ERTS_GLB_INLINE Eterm erts_drvport2id(ErlDrvPort);
 ERTS_GLB_INLINE Uint32 erts_portid2status(Eterm);
 ERTS_GLB_INLINE int erts_is_port_alive(Eterm);
 ERTS_GLB_INLINE int erts_is_valid_tracer_port(Eterm);
 ERTS_GLB_INLINE int erts_port_driver_callback_epilogue(Port *, erts_aint32_t *);
+
+#define erts_drvport2port(Prt) erts_drvport2port_state((Prt), NULL)
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -620,90 +642,72 @@ erts_thr_port_release(Port *prt)
 
 #endif
 
-ERTS_GLB_INLINE Port*
-erts_thr_drvport2port_raw(ErlDrvPort drvport, int lock_pdl)
+ERTS_GLB_INLINE Port *
+erts_thr_drvport2port(ErlDrvPort drvport, int lock_pdl)
 {
+    Port *prt = ERTS_ErlDrvPort2Port(drvport);
+    ASSERT(prt != NULL);
+    if (prt == ERTS_INVALID_ERL_DRV_PORT)
+	return ERTS_INVALID_ERL_DRV_PORT;
+
+    if (lock_pdl && prt->port_data_lock)
+	driver_pdl_lock(prt->port_data_lock);
+
 #if ERTS_ENABLE_LOCK_CHECK
-    int emu_thread = erts_lc_is_emu_thr();
-#endif
-    if (drvport == ERTS_INVALID_ERL_DRV_PORT)
-	return NULL;
-    else {
-	Port *prt = (Port *) drvport;
-	if (lock_pdl && prt->port_data_lock)
-	    driver_pdl_lock(prt->port_data_lock);
-#if ERTS_ENABLE_LOCK_CHECK
-	if (!ERTS_IS_CRASH_DUMPING) {
-	    if (emu_thread) {
-		ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-		ERTS_LC_ASSERT(!prt->port_data_lock
-			       || erts_lc_mtx_is_locked(&prt->port_data_lock->mtx));
-	    }
-	    else {
-		ERTS_LC_ASSERT(prt->port_data_lock);
-		ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&prt->port_data_lock->mtx));
-	    }
+    if (!ERTS_IS_CRASH_DUMPING) {
+	if (erts_lc_is_emu_thr()) {
+	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+	    ERTS_LC_ASSERT(!prt->port_data_lock
+			   || erts_lc_mtx_is_locked(&prt->port_data_lock->mtx));
 	}
+	else {
+	    ERTS_LC_ASSERT(prt->port_data_lock);
+	    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&prt->port_data_lock->mtx));
+	}
+    }
 #endif
-	return prt;
-    }
-}
 
-ERTS_GLB_INLINE Port*
-erts_drvport2port_raw(ErlDrvPort drvport)
-{
-    ERTS_LC_ASSERT(erts_lc_is_emu_thr());
-    if (drvport == ERTS_INVALID_ERL_DRV_PORT)
-	return NULL;
-    else {
-	Port *prt = (Port *) drvport;
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)
-			   || ERTS_IS_CRASH_DUMPING);
-	return prt;
+    if (erts_atomic32_read_nob(&prt->state)
+	& ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP) {
+	if (lock_pdl && prt->port_data_lock)
+	    driver_pdl_unlock(prt->port_data_lock);
+	return ERTS_INVALID_ERL_DRV_PORT;
     }
-}
-
-ERTS_GLB_INLINE Port*
-erts_drvport2port(ErlDrvPort drvport, erts_aint32_t *statep)
-{
-    Port *prt = erts_drvport2port_raw(drvport);
-    erts_aint32_t state;
-    if (!prt)
-	return NULL;
-    state = erts_atomic32_read_nob(&prt->state);
-    if (state & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
-	return NULL;
-    if (statep)
-	*statep = state;
     return prt;
 }
 
-ERTS_GLB_INLINE Port*
-erts_drvportid2port(Eterm id)
+ERTS_GLB_INLINE Port *
+erts_drvport2port_state(ErlDrvPort drvport, erts_aint32_t *statep)
 {
-    Port *prt;
+    Port *prt = ERTS_ErlDrvPort2Port(drvport);
     erts_aint32_t state;
-    if (is_not_internal_port(id))
-	return NULL;
-    prt = (Port *) erts_ptab_pix2intptr_nob(&erts_port,
-					    internal_port_index(id));
-    if (!prt)
-	return NULL;
+    ASSERT(prt);
+    ERTS_LC_ASSERT(erts_lc_is_emu_thr());
+    if (prt == ERTS_INVALID_ERL_DRV_PORT)
+	return ERTS_INVALID_ERL_DRV_PORT;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)
 		       || ERTS_IS_CRASH_DUMPING);
-    if (prt->common.id != id)
-	return NULL;
+    /* 
+     * This state check is only needed since a driver callback
+     * might terminate the port, and then call back into the
+     * emulator. Drivers should preferably have been forbidden
+     * to call into the emulator after terminating the port,
+     * but it has been like this for ages. Perhaps forbid this
+     * in some future major release?
+     */
     state = erts_atomic32_read_nob(&prt->state);
     if (state & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
-	return NULL;
+	return ERTS_INVALID_ERL_DRV_PORT;
+    if (statep)
+	*statep = state;
     return prt;
 }
 
 ERTS_GLB_INLINE Eterm
 erts_drvport2id(ErlDrvPort drvport)
 {
-    Port *prt = erts_drvport2port_raw(drvport);
-    if (!prt)
+    Port *prt = erts_drvport2port(drvport);
+    if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return am_undefined;
     else
 	return prt->common.id;

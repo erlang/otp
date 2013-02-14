@@ -1070,17 +1070,6 @@ init_emulator(void)
 
 #endif /* USE_VM_PROBES */
 
-#ifdef USE_VM_PROBES
-void
-dtrace_drvport_str(ErlDrvPort drvport, char *port_buf)
-{
-    Port *port = erts_drvport2port(drvport, NULL);
-
-    erts_snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%lu>",
-                  port_channel_no(port->common.id),
-                  port_number(port->common.id));
-}
-#endif
 /*
  * process_main() is called twice:
  * The first call performs some initialisation, including exporting

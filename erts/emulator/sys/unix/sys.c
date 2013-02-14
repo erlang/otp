@@ -1211,8 +1211,8 @@ static int set_driver_data(ErlDrvPort port_num,
 	report_exit_list = report_exit;
     }
 
-    prt = erts_drvport2port(port_num, NULL);
-    if (prt)
+    prt = erts_drvport2port(port_num);
+    if (prt != ERTS_INVALID_ERL_DRV_PORT)
 	prt->os_pid = pid;
 
     if (read_write & DO_READ) {
@@ -2650,7 +2650,7 @@ report_exit_status(ErtsSysReportExit *rep, int status)
 	if (rep->ifd >= 0) {
 	    driver_data[rep->ifd].alive = 0;
 	    driver_data[rep->ifd].status = status;
-	    (void) driver_select((ErlDrvPort) pp,
+	    (void) driver_select(ERTS_Port2ErlDrvPort(pp),
 				 rep->ifd,
 				 (ERL_DRV_READ|ERL_DRV_USE),
 				 1);
@@ -2658,7 +2658,7 @@ report_exit_status(ErtsSysReportExit *rep, int status)
 	if (rep->ofd >= 0) {
 	    driver_data[rep->ofd].alive = 0;
 	    driver_data[rep->ofd].status = status;
-	    (void) driver_select((ErlDrvPort) pp,
+	    (void) driver_select(ERTS_Port2ErlDrvPort(pp),
 				 rep->ofd,
 				 (ERL_DRV_WRITE|ERL_DRV_USE),
 				 1);
