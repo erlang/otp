@@ -29,7 +29,7 @@
          manpage/1, otp_6708/1, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
-	 io_lib_print_binary_depth_one/1, otp_10302/1]).
+	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10836/1]).
 
 %-define(debug, true).
 
@@ -65,7 +65,7 @@ all() ->
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
      io_fread_newlines, otp_8989, io_lib_fread_literal,
-     io_lib_print_binary_depth_one, otp_10302].
+     io_lib_print_binary_depth_one, otp_10302, otp_10836].
 
 groups() -> 
     [].
@@ -2078,3 +2078,10 @@ pretty(Term, Opts) when is_list(Opts) ->
 
 is_latin1(S) ->
     S >= 0 andalso S =< 255.
+
+otp_10836(doc) ->
+    "OTP-10836. ~ts extended to latin1";
+otp_10836(Suite) when is_list(Suite) ->
+    S = io_lib:format("~ts", [[<<"äpple"/utf8>>, <<"äpple">>]]),
+    "äppleäpple" = lists:flatten(S),
+    ok.
