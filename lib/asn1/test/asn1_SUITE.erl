@@ -212,7 +212,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(Func, Config) ->
-    CaseDir = filename:join([?config(priv_dir, Config), ?MODULE, Func]),
+    CaseDir = filename:join(?config(priv_dir, Config), Func),
     ok = filelib:ensure_dir(filename:join([CaseDir, dummy_file])),
     true = code:add_patha(CaseDir),
 
