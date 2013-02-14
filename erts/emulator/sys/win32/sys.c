@@ -749,7 +749,6 @@ static void close_active_handle(ErlDrvPort port_num, HANDLE handle)
 	CloseHandle(thread);
     }
     htbc->handles[htbc->cnt++] = handle;
-    driver_select(port_num, (ErlDrvEvent)handle, ERL_DRV_USE_NO_CALLBACK, 0);
     SetEvent(htbc->handles[0]);
     htbc_curr = htbc;
     LeaveCriticalSection(&htbc_lock);
@@ -914,12 +913,8 @@ release_async_io(AsyncIo* aio, ErlDrvPort port_num)
 	CloseHandle(aio->fd);
     aio->fd = INVALID_HANDLE_VALUE;
 
-    if (aio->ov.hEvent != NULL) {
-	(void) driver_select(port_num,
-			     (ErlDrvEvent)aio->ov.hEvent,
-			     ERL_DRV_USE, 0);
-	/* was CloseHandle(aio->ov.hEvent); */
-    }
+    if (aio->ov.hEvent != NULL)
+	CloseHandle(aio->ov.hEvent);
 
     aio->ov.hEvent = NULL;
 
@@ -2349,12 +2344,12 @@ stop(ErlDrvData data)
     if (dp->in.ov.hEvent != NULL) {
 	(void) driver_select(dp->port_num,
 			     (ErlDrvEvent)dp->in.ov.hEvent,
-			     ERL_DRV_READ, 0);
+			     ERL_DRV_READ|ERL_DRV_USE_NO_CALLBACK, 0);
     }
     if (dp->out.ov.hEvent != NULL) {
 	(void) driver_select(dp->port_num,
 			     (ErlDrvEvent)dp->out.ov.hEvent,
-			     ERL_DRV_WRITE, 0);
+			     ERL_DRV_WRITE|ERL_DRV_USE_NO_CALLBACK, 0);
     }    
 
     if (dp->out.thread == (HANDLE) -1 && dp->in.thread == (HANDLE) -1) {
