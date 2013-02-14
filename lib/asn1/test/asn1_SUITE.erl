@@ -200,8 +200,6 @@ parallel(Options) ->
 %%------------------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    true = code:add_patha(PrivDir),
     Config.
 
 end_per_suite(_Config) ->
