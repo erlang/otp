@@ -1199,6 +1199,7 @@ typedef struct {
     int async; /* Asynchronous operation */
     int pre_chk_sched_flags; /* Check sched flags before lock? */
     int fpe_was_unmasked;
+    int reds_left_in;
 } ErtsTryImmDrvCallState;
 
 #define ERTS_INIT_TRY_IMM_DRV_CALL_STATE(C_P, PRT, SFLGS, PTS_FLGS, A, PRT_OP) \
@@ -1213,6 +1214,7 @@ static ERTS_INLINE ErtsTryImmDrvCallResult
 try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 {
     ErtsTryImmDrvCallResult res;
+    int reds_left_in;
     erts_aint32_t invalid_state, invalid_sched_flags;
     Port *prt = sp->port;
     Process *c_p = sp->c_p;
@@ -1246,15 +1248,23 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	goto locked_fail;
     }
 
-    if (c_p) {
+
+    if (!c_p)
+	reds_left_in = CONTEXT_REDS/10;
+    else {
 	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
 	    trace_virtual_sched(c_p, am_out);
 	if (erts_system_profile_flags.runnable_procs
 	    && erts_system_profile_flags.exclusive)
 	    profile_runnable_proc(c_p, am_inactive);
 
+	reds_left_in = ERTS_BIF_REDS_LEFT(c_p);
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     }
+
+    ASSERT(0 <= reds_left_in && reds_left_in <= CONTEXT_REDS);
+    sp->reds_left_in = reds_left_in;
+    prt->reds = CONTEXT_REDS - reds_left_in;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
@@ -1276,10 +1286,12 @@ locked_fail:
 static ERTS_INLINE void
 finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
 {
+    int reds;
     Port *prt = sp->port;
     Process *c_p = sp->c_p;
 
-    erts_port_driver_callback_epilogue(prt, NULL);
+    reds = prt->reds;
+    reds += erts_port_driver_callback_epilogue(prt, NULL);
 
     erts_unblock_fpe(sp->fpe_was_unmasked);
 
@@ -1293,6 +1305,12 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
 
     if (c_p) {
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+
+	if (reds != (CONTEXT_REDS - sp->reds_left_in)) {
+	    int bump_reds = reds - (CONTEXT_REDS - sp->reds_left_in);
+	    ASSERT(bump_reds > 0);
+	    BUMP_REDS(c_p, bump_reds);
+	}
 
 	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
 	    trace_virtual_sched(c_p, am_in);

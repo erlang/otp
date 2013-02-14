@@ -2070,11 +2070,16 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     result = do_send(p, to, msg, suspend, &ref);
     if (result > 0) {
 	ERTS_VBUMP_REDS(p, result);
+	if (ERTS_IS_PROC_OUT_OF_REDS(p))
+	    goto yield_return;
 	BIF_RET(am_ok);
     }
 
     switch (result) {
     case 0:
+	/* May need to yield even though we do not bump reds here... */
+	if (ERTS_IS_PROC_OUT_OF_REDS(p))
+	    goto yield_return;
 	BIF_RET(am_ok); 
 	break;
     case SEND_TRAP:
@@ -2092,10 +2097,10 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	}
 	break;
     case SEND_YIELD_RETURN:
-	if (suspend)
-	    ERTS_BIF_YIELD_RETURN(p, am_ok);
-	else
+	if (!suspend)
 	    BIF_RET(am_nosuspend);
+    yield_return:
+	ERTS_BIF_YIELD_RETURN(p, am_ok);
     case SEND_AWAIT_RESULT:
 	ASSERT(is_internal_ref(ref));
 	BIF_TRAP3(await_port_send_result_trap, p, ref, am_nosuspend, am_ok);
@@ -2134,11 +2139,16 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     
     if (result > 0) {
 	ERTS_VBUMP_REDS(p, result);
+	if (ERTS_IS_PROC_OUT_OF_REDS(p))
+	    goto yield_return;
 	BIF_RET(msg);
     }
 
     switch (result) {
     case 0:
+	/* May need to yield even though we do not bump reds here... */
+	if (ERTS_IS_PROC_OUT_OF_REDS(p))
+	    goto yield_return;
 	BIF_RET(msg); 
 	break;
     case SEND_TRAP:
@@ -2148,6 +2158,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	ERTS_BIF_YIELD2(bif_export[BIF_send_2], p, to, msg);
 	break;
     case SEND_YIELD_RETURN:
+    yield_return:
 	ERTS_BIF_YIELD_RETURN(p, msg);
     case SEND_AWAIT_RESULT:
 	ASSERT(is_internal_ref(ref));

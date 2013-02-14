@@ -48,6 +48,7 @@ WDD_TYPEDEF(ErlDrvSizeT, driver_vec_to_buf, (ErlIOVec *, char *, ErlDrvSizeT));
 WDD_TYPEDEF(int, driver_set_timer, (ErlDrvPort, unsigned long));
 WDD_TYPEDEF(int, driver_cancel_timer, (ErlDrvPort));
 WDD_TYPEDEF(int, driver_read_timer, (ErlDrvPort, unsigned long *));
+WDD_TYPEDEF(int, erl_drv_consume_timeslice, (ErlDrvPort, int));
 WDD_TYPEDEF(char *, erl_errno_id, (int));
 WDD_TYPEDEF(void, set_busy_port, (ErlDrvPort, int));
 WDD_TYPEDEF(void, set_port_control_flags, (ErlDrvPort, int));
@@ -164,6 +165,7 @@ typedef struct {
     WDD_FTYPE(driver_set_timer) *driver_set_timer;
     WDD_FTYPE(driver_cancel_timer) *driver_cancel_timer;
     WDD_FTYPE(driver_read_timer) *driver_read_timer;
+    WDD_FTYPE(erl_drv_consume_timeslice) *erl_drv_consume_timeslice;
     WDD_FTYPE(erl_errno_id) *erl_errno_id;
     WDD_FTYPE(set_busy_port)* set_busy_port;
     WDD_FTYPE(set_port_control_flags) *set_port_control_flags;
@@ -274,6 +276,7 @@ extern TWinDynDriverCallbacks WinDynDriverCallbacks;
 #define driver_set_timer (WinDynDriverCallbacks.driver_set_timer)
 #define driver_cancel_timer (WinDynDriverCallbacks.driver_cancel_timer)
 #define driver_read_timer (WinDynDriverCallbacks.driver_read_timer)
+#define erl_drv_consume_timeslice (WinDynDriverCallbacks.erl_drv_consume_timeslice)
 #define erl_errno_id (WinDynDriverCallbacks.erl_errno_id)
 #define set_busy_port (WinDynDriverCallbacks.set_busy_port)
 #define set_port_control_flags (WinDynDriverCallbacks.set_port_control_flags)
@@ -408,6 +411,7 @@ do {				                        \
 ((W).driver_set_timer) = driver_set_timer;		\
 ((W).driver_cancel_timer) = driver_cancel_timer;	\
 ((W).driver_read_timer) = driver_read_timer;		\
+((W).erl_drv_consume_timeslice) = erl_drv_consume_timeslice;\
 ((W).erl_errno_id) = erl_errno_id;			\
 ((W).set_busy_port) = set_busy_port;			\
 ((W).set_port_control_flags) = set_port_control_flags;	\
