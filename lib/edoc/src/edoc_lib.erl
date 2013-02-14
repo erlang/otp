@@ -865,10 +865,13 @@ find_sources_2(Dir, Pkg, Rec, Ext, Skip) ->
 	    []
     end.
 
-find_sources_3(Es, Dir, '', Rec, Ext, Skip) ->
+find_sources_3(Es, Dir, Pkg, Rec, Ext, Skip) ->
     [find_sources_2(filename:join(Dir, E),
-		    to_atom(E), Rec, Ext, Skip)
+		    to_atom(join(Pkg, E)), Rec, Ext, Skip)
      || E <- Es, is_package_dir(E, Dir)].
+
+join('', E) -> E;
+join(Pkg, E) -> filename:join(Pkg, E).
 
 is_source_file(Name, Ext) ->
     (filename:extension(Name) == Ext)
