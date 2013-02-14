@@ -716,7 +716,7 @@ binary_options(Config) when is_list(Config) ->
 			  {getline, "<<\"hej\\n\">>"},
 			  {putline, "io:get_line('')."},
 			  {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-			  {getline, "<<\""++binary_to_list(unicode:characters_to_binary(<<"\345\344\366"/utf8>>,latin1,utf8))++"\\n\">>"}
+			  {getline, "<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>"}
 			 ],[])
     end,
    %% And one with oldshell
@@ -1784,8 +1784,8 @@ get_default_shell() ->
 		{putline, "whereis(user_drv)."},
 		{getline, "undefined"}],[]),
 	old
-    catch E:R ->
-	    ?dbg({E,R}),
+    catch _E:_R ->
+	    ?dbg({_E,_R}),
 	    new
     end.
 
