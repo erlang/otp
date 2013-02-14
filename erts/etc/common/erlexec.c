@@ -1175,11 +1175,14 @@ start_epmd(char *epmd)
 	strcat(epmd, arg1);
     }
     {
-	STARTUPINFO start;
+	wchar_t wcepmd[MAXPATHLEN+100];
+	STARTUPINFOW start;
 	PROCESS_INFORMATION pi;
 	memset(&start, 0, sizeof (start));
 	start.cb = sizeof (start);
-	if (!CreateProcess(NULL, epmd, NULL, NULL, FALSE, 
+	MultiByteToWideChar(CP_UTF8, 0, epmd, -1, wcepmd, MAXPATHLEN+100);
+
+	if (!CreateProcessW(NULL, wcepmd, NULL, NULL, FALSE, 
 			       CREATE_DEFAULT_ERROR_MODE | DETACHED_PROCESS,
 			       NULL, NULL, &start, &pi))
 	    result = -1;

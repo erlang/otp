@@ -99,13 +99,32 @@ char *strerror(int errnum)
 }
 #endif /* !HAVE_STRERROR */
 
+#ifdef __WIN32__
+int wmain(int argc, wchar_t **wcargv)
+{
+    char** argv;
+#else
 int
 main(int argc, char** argv)
 {
+#endif
     int eargv_size;
     int eargc_base;		/* How many arguments in the base of eargv. */
     char* emulator;
     int need_shell = 0;
+
+#ifdef __WIN32__
+    int i;
+    int len;
+    /* Convert argv to utf8 */
+    argv = malloc((argc+1) * sizeof(char*));
+    for (i=0; i<argc; i++) {
+	len = WideCharToMultiByte(CP_UTF8, 0, wcargv[i], -1, NULL, 0, NULL, NULL);
+	argv[i] = malloc(len*sizeof(char));
+	WideCharToMultiByte(CP_UTF8, 0, wcargv[i], -1, argv[i], len, NULL, NULL);
+    }
+    argv[argc] = NULL;
+#endif
 
     emulator = get_default_emulator(argv[0]);
 
@@ -193,66 +212,65 @@ push_words(char* src)
 	PUSH(strsave(sbuf));
 }
 #ifdef __WIN32__
-char *make_commandline(char **argv)
+wchar_t *make_commandline(char **argv)
 {
-    static char *buff = NULL;
+    static wchar_t *buff = NULL;
     static int siz = 0;
-    int num = 0;
-    char **arg, *p;
+    int num = 0, len;
+    char **arg;
+    wchar_t *p;
 
     if (*argv == NULL) { 
-	return "";
+	return L"";
     }
     for (arg = argv; *arg != NULL; ++arg) {
 	num += strlen(*arg)+1;
     }
     if (!siz) {
 	siz = num;
-	buff = malloc(siz*sizeof(char));
+	buff = (wchar_t *) emalloc(siz*sizeof(wchar_t));
     } else if (siz < num) {
 	siz = num;
-	buff = realloc(buff,siz*sizeof(char));
+	buff = (wchar_t *) realloc(buff,siz*sizeof(wchar_t));
     }
     p = buff;
+    num=0;
     for (arg = argv; *arg != NULL; ++arg) {
-	strcpy(p,*arg);
-	p+=strlen(*arg);
-	*p++=' ';
+	len = MultiByteToWideChar(CP_UTF8, 0, *arg, -1, p, siz);
+	p+=(len-1);
+	*p++=L' ';
     }
-    *(--p) = '\0';
+    *(--p) = L'\0';
 
     if (debug) {
-	printf("Processed commandline:%s\n",buff);
+	printf("Processed command line:%S\n",buff);
     }
     return buff;
 }
 
 int my_spawnvp(char **argv)
 {
-    STARTUPINFO siStartInfo;
+    STARTUPINFOW siStartInfo;
     PROCESS_INFORMATION piProcInfo;
     DWORD ec;
 
-    memset(&siStartInfo,0,sizeof(STARTUPINFO));
-    siStartInfo.cb = sizeof(STARTUPINFO); 
+    memset(&siStartInfo,0,sizeof(STARTUPINFOW));
+    siStartInfo.cb = sizeof(STARTUPINFOW); 
     siStartInfo.dwFlags = STARTF_USESTDHANDLES;
     siStartInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     siStartInfo.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
     siStartInfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
-    siStartInfo.wShowWindow = SW_HIDE;
-    siStartInfo.dwFlags |= STARTF_USESHOWWINDOW;
 
-
-    if (!CreateProcess(NULL, 
-		       make_commandline(argv),
-		       NULL, 
-		       NULL, 
-		       TRUE, 
-		       0,
-		       NULL, 
-		       NULL, 
-		       &siStartInfo, 
-		       &piProcInfo)) {
+    if (!CreateProcessW(NULL, 
+			make_commandline(argv),
+			NULL, 
+			NULL, 
+			TRUE, 
+			0,
+			NULL, 
+			NULL, 
+			&siStartInfo, 
+			&piProcInfo)) {
 	return -1;
     }
     CloseHandle(piProcInfo.hThread);
@@ -330,6 +348,18 @@ strsave(char* string)
     return p;
 }
 
+static int 
+file_exists(char *progname) 
+{
+#ifdef __WIN32__
+    wchar_t wcsbuf[MAXPATHLEN];
+    MultiByteToWideChar(CP_UTF8, 0, progname, -1, wcsbuf, MAXPATHLEN);
+    return (_waccess(wcsbuf, 0) != -1);
+#else
+    return (access(progname, 1) != -1);
+#endif
+}
+
 static char*
 get_default_emulator(char* progname)
 {
@@ -343,15 +373,8 @@ get_default_emulator(char* progname)
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {
 	if (IS_DIRSEP(*s)) {
 	    strcpy(s+1, ERL_NAME);
-#ifdef __WIN32__
-	    if (_access(sbuf, 0) != -1) {
+	    if(file_exists(sbuf))
 		return strsave(sbuf);
-	    }
-#else
-	    if (access(sbuf, 1) != -1) {
-		return strsave(sbuf);
-	    }
-#endif
 	    break;
 	}
     }
