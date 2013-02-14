@@ -575,17 +575,6 @@ check_very_icky(Mod) ->
 			       end,
 	?line {NumOK,NumNOK} = filelib:fold_files(".",".*",true,fun(_F,{N,M}) when is_list(_F) ->  io:format("~ts~n",[_F]),{N+1,M}; (_F,{N,M}) ->  io:format("~p~n",[_F]),{N,M+1} end,{0,0}),
 	?line ok = filelib:fold_files(".",[1076,1089,1072,124,46,42],true,fun(_F,_) -> ok end,false),
-	?line SF3 = unicode:characters_to_binary("åäösubfil3",
-                                                 file:native_name_encoding()),
-	?line SF2 = case treat_icky(<<"åäösubfil2">>) of
-	                LF2 when is_list(LF2) ->
-			    unicode:characters_to_binary(LF2,
-			                      file:native_name_encoding());
-			BF2 ->
-			    BF2
-	            end,		      
-	?line Sorted = lists:sort([SF3,SF2]),
-	?line Sorted = lists:sort(filelib:wildcard("*",<<"åäösubdir2">>)),
 	ok
     catch
 	throw:need_unicode_mode ->
