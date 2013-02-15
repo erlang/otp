@@ -2956,7 +2956,7 @@ timestamp() ->
 				"~2.2.0w:~2.2.0w:~2.2.0w.",
 				[Yr, Mth, Dy, Hr, Mt, Sc])).
 
-filename([C | T]) when is_integer(C), C > 0, C =< 255 ->
+filename([C | T]) when is_integer(C), C > 0 ->
     [C | filename(T)];
 filename([H|T]) ->
     filename(H) ++ filename(T);

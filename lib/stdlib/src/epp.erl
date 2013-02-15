@@ -614,7 +614,7 @@ enter_file_reply(From, Name, Location, AtLocation) ->
 
 %% Flatten filename to a string. Must be a valid filename.
 
-file_name([C | T]) when is_integer(C), C > 0, C =< 255 ->
+file_name([C | T]) when is_integer(C), C > 0 ->
     [C | file_name(T)];
 file_name([H|T]) ->
     file_name(H) ++ file_name(T);

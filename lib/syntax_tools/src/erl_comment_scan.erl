@@ -282,7 +282,7 @@ join_lines([], Txt, L, Col, Ind) ->
 %% =====================================================================
 %% Utility functions for internal use
 
-filename([C|T]) when is_integer(C), C > 0, C =< 255 ->
+filename([C|T]) when is_integer(C), C > 0 ->
     [C | filename(T)];
 filename([]) ->
     [];
