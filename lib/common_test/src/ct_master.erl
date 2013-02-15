@@ -428,7 +428,7 @@ master_loop(#state{node_ctrl_pids=[],
     log(all,"TEST RESULTS",Str,[]),
     log(all,"Info","Updating log files",[]),
     refresh_logs(LogDirs,[]),
-
+    
     ct_master_event:stop(),
     ct_master_logs:stop(),
     ok;
