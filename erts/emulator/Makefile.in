@@ -20,7 +20,7 @@
 include $(ERL_TOP)/make/target.mk
 include ../vsn.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
-include $(TARGET)/gen_git_version.mk
+-include $(TARGET)/gen_git_version.mk
 
 
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
