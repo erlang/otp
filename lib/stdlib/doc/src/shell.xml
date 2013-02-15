@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -781,7 +781,7 @@ loop(N) ->
       </desc>
     </func>
     <func>
-      <name>catch_exception(Bool) -> Bool</name>
+      <name>catch_exception(Bool) -> boolean()</name>
       <fsummary>Sets the exception handling of the shell</fsummary>
       <type>
         <v>Bool = boolean()</v>
@@ -801,8 +801,8 @@ loop(N) ->
       <name name="prompt_func" arity="1"/>
       <fsummary>Sets the shell prompt</fsummary>
       <desc>
-        <p>Sets the shell prompt function to <c>PromptFunc</c>. The
-          previous prompt function is returned.</p>
+        <p>Sets the shell prompt function to <c><anno>PromptFunc</anno></c>.
+          The previous prompt function is returned.</p>
       </desc>
     </func>
     <func>
@@ -825,6 +825,20 @@ loop(N) ->
       <desc>
         <p>Exits a restricted shell and starts a normal shell. The function
           is meant to be called from the shell.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="strings" arity="1"/>
+      <fsummary>Sets the shell's string recognition flag.</fsummary>
+      <desc>
+        <p>Sets pretty printing of lists to <c><anno>Strings</anno></c>.
+          The previous value of the flag is returned.</p>
+        <p>The flag can also be set by the STDLIB application variable
+          <c>shell_strings</c>. The default is
+          <c>true</c> which means that lists of integers will be
+          printed using the string syntax, when possible. The value
+          <c>false</c> means that no lists will be printed using the
+          string syntax.</p>
       </desc>
     </func>
   </funcs>

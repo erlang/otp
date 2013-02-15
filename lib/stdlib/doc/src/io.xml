@@ -390,10 +390,11 @@ ok</pre>
           applicable, it is used for both the field width and precision.
           The default padding character is <c>' '</c> (space).</p>
         <p><c>Mod</c> is the control sequence modifier. It is either a
-	single character (currently only <c>t</c>, for Unicode translation,
-	is supported) that changes the interpretation of Data.</p>
-
-         <p>The following control sequences are available:</p>
+          single character (currently only <c>t</c>, for Unicode
+          translation, and <c>l</c>, for stopping <c>p</c> and
+          <c>P</c> from detecting printable characters, are supported)
+          that changes the interpretation of Data.</p>
+        <p>The following control sequences are available:</p>
         <taglist>
           <tag><c>~</c></tag>
           <item>
@@ -407,7 +408,7 @@ ok</pre>
               which in turn defaults to 1. The following example
               illustrates:</p>
             <pre>
-2> <input>io:fwrite("|~10.5c|~-10.5c|~5c|~n", [$a, $b, $c]).</input>
+1> <input>io:fwrite("|~10.5c|~-10.5c|~5c|~n", [$a, $b, $c]).</input>
 |     aaaaa|bbbbb     |ccccc|
 ok</pre>
             <p>If the Unicode translation modifier (<c>t</c>) is in effect,
@@ -415,10 +416,10 @@ ok</pre>
 	    valid Unicode codepoint, otherwise it should be an integer
 	    less than or equal to 255, otherwise it is masked with 16#FF:</p>
 <pre>
-1> <input>io:fwrite("~tc~n",[1024]).</input>
+2> <input>io:fwrite("~tc~n",[1024]).</input>
 \x{400}
 ok
-2> <input>io:fwrite("~c~n",[1024]).</input>
+3> <input>io:fwrite("~c~n",[1024]).</input>
 ^@
 ok</pre>
 
@@ -462,20 +463,20 @@ ok</pre>
             <p>This format can be used for printing any object and
               truncating the output so it fits a specified field:</p>
             <pre>
-3> <input>io:fwrite("|~10w|~n", [{hey, hey, hey}]).</input>
+1> <input>io:fwrite("|~10w|~n", [{hey, hey, hey}]).</input>
 |**********|
 ok
-4> <input>io:fwrite("|~10s|~n", [io_lib:write({hey, hey, hey})]).</input>
+2> <input>io:fwrite("|~10s|~n", [io_lib:write({hey, hey, hey})]).</input>
 |{hey,hey,h|
-5> <input>io:fwrite("|~-10.8s|~n", [io_lib:write({hey, hey, hey})]).</input>
+3> <input>io:fwrite("|~-10.8s|~n", [io_lib:write({hey, hey, hey})]).</input>
 |{hey,hey  |
 ok</pre>
           <p>A list with integers larger than 255 is considered an error if the Unicode translation modifier is not given:</p>
 <pre>
-1> <input>io:fwrite("~ts~n",[[1024]]).</input>
+4> <input>io:fwrite("~ts~n",[[1024]]).</input>
 \x{400}
 ok
-2> io:fwrite("~s~n",[[1024]]).
+5> <input>io:fwrite("~s~n",[[1024]]).</input>
 ** exception exit: {badarg,[{io,format,[&lt;0.26.0&gt;,"~s~n",[[1024]]]},
    ...</pre>
           </item>
@@ -496,17 +497,17 @@ ok
               printable characters and to output these as strings.
               For example:</p>
             <pre>
-5> <input>T = [{attributes,[[{id,age,1.50000},{mode,explicit},</input>
+1> <input>T = [{attributes,[[{id,age,1.50000},{mode,explicit},</input>
 <input>{typename,"INTEGER"}], [{id,cho},{mode,explicit},{typename,'Cho'}]]},</input>
 <input>{typename,'Person'},{tag,{'PRIVATE',3}},{mode,implicit}].</input>
 ...
-6> <input>io:fwrite("~w~n", [T]).</input>
+2> <input>io:fwrite("~w~n", [T]).</input>
 [{attributes,[[{id,age,1.5},{mode,explicit},{typename,
 [73,78,84,69,71,69,82]}],[{id,cho},{mode,explicit},{typena
 me,'Cho'}]]},{typename,'Person'},{tag,{'PRIVATE',3}},{mode
 ,implicit}]
 ok
-7> <input>io:fwrite("~62p~n", [T]).</input>
+3> <input>io:fwrite("~62p~n", [T]).</input>
 [{attributes,[[{id,age,1.5},
                {mode,explicit},
                {typename,"INTEGER"}],
@@ -522,7 +523,7 @@ ok</pre>
               <c>io:fwrite</c> or <c>io:format</c>. For example, using
               <c>T</c> above:</p>
             <pre>
-8> <input>io:fwrite("Here T = ~62p~n", [T]).</input>
+4> <input>io:fwrite("Here T = ~62p~n", [T]).</input>
 Here T = [{attributes,[[{id,age,1.5},
                         {mode,explicit},
                         {typename,"INTEGER"}],
@@ -533,6 +534,18 @@ Here T = [{attributes,[[{id,age,1.5},
           {tag,{'PRIVATE',3}},
           {mode,implicit}]
 ok</pre>
+            <p>When the modifier <c>l</c> is given no detection of
+              printable character lists will take place. For example:</p>
+            <pre>
+5> <input>S = [{a,"a"}, {b, "b"}].</input>
+6> <input>io:fwrite("~15p~n", [S]).</input>
+[{a,"a"},
+ {b,"b"}]
+ok
+7> <input>io:fwrite("~15lp~n", [S]).</input>
+[{a,[97]},
+ {b,[98]}]
+ok</pre>
           </item>
           <tag><c>W</c></tag>
           <item>
@@ -541,7 +554,7 @@ ok</pre>
               are printed. Anything below this depth is replaced with
               <c>...</c>. For example, using <c>T</c> above:</p>
             <pre>
-9> <input>io:fwrite("~W~n", [T,9]).</input>
+8> <input>io:fwrite("~W~n", [T,9]).</input>
 [{attributes,[[{id,age,1.5},{mode,explicit},{typename,...}],
 [{id,cho},{mode,...},{...}]]},{typename,'Person'},
 {tag,{'PRIVATE',3}},{mode,implicit}]
@@ -558,7 +571,7 @@ ok</pre>
               are printed. Anything below this depth is replaced with
               <c>...</c>. For example:</p>
             <pre>
-10> <input>io:fwrite("~62P~n", [T,9]).</input>
+9> <input>io:fwrite("~62P~n", [T,9]).</input>
 [{attributes,[[{id,age,1.5},{mode,explicit},{typename,...}],
               [{id,cho},{mode,...},{...}]]},
  {typename,'Person'},
@@ -572,13 +585,13 @@ ok</pre>
               10. A leading dash is printed for negative integers.</p>
             <p>The precision field selects base. For example:</p>
             <pre>
-11> <input>io:fwrite("~.16B~n", [31]).</input>
+1> <input>io:fwrite("~.16B~n", [31]).</input>
 1F
 ok
-12> <input>io:fwrite("~.2B~n", [-19]).</input>
+2> <input>io:fwrite("~.2B~n", [-19]).</input>
 -10011
 ok
-13> <input>io:fwrite("~.36B~n", [5*36+35]).</input>
+3> <input>io:fwrite("~.36B~n", [5*36+35]).</input>
 5Z
 ok</pre>
           </item>
@@ -590,10 +603,10 @@ ok</pre>
             <p>The prefix can be a possibly deep list of characters or
               an atom.</p>
             <pre>
-14> <input>io:fwrite("~X~n", [31,"10#"]).</input>
+1> <input>io:fwrite("~X~n", [31,"10#"]).</input>
 10#31
 ok
-15> <input>io:fwrite("~.16X~n", [-31,"0x"]).</input>
+2> <input>io:fwrite("~.16X~n", [-31,"0x"]).</input>
 -0x1F
 ok</pre>
           </item>
@@ -602,10 +615,10 @@ ok</pre>
             <p>Like <c>B</c>, but prints the number with an Erlang style
               <c>#</c>-separated base prefix.</p>
             <pre>
-16> <input>io:fwrite("~.10#~n", [31]).</input>
+1> <input>io:fwrite("~.10#~n", [31]).</input>
 10#31
 ok
-17> <input>io:fwrite("~.16#~n", [-31]).</input>
+2> <input>io:fwrite("~.16#~n", [-31]).</input>
 -16#1F
 ok</pre>
           </item>
@@ -639,10 +652,10 @@ ok</pre>
         </taglist>
         <p>If an error occurs, there is no output. For example:</p>
         <pre>
-18> <input>io:fwrite("~s ~w ~i ~w ~c ~n",['abc def', 'abc def', {foo, 1},{foo, 1}, 65]).</input>
+1> <input>io:fwrite("~s ~w ~i ~w ~c ~n",['abc def', 'abc def', {foo, 1},{foo, 1}, 65]).</input>
 abc def 'abc def'  {foo,1} A
 ok
-19> <input>io:fwrite("~s", [65]).</input>
+2> <input>io:fwrite("~s", [65]).</input>
 ** exception exit: {badarg,[{io,format,[&lt;0.22.0>,"~s","A"]},
                             {erl_eval,do_apply,5},
                             {shell,exprs,6},

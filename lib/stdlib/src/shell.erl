@@ -22,7 +22,7 @@
 -export([whereis_evaluator/0, whereis_evaluator/1]).
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_allowed/3, non_local_allowed/3]).
--export([prompt_func/1]).
+-export([prompt_func/1, strings/1]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
@@ -30,6 +30,7 @@
 -define(DEF_RESULTS, 20).
 -define(DEF_CATCH_EXCEPTION, false).
 -define(DEF_PROMPT_FUNC, default).
+-define(DEF_STRINGS, true).
 
 -define(RECORDS, shell_records).
 
@@ -1366,8 +1367,16 @@ pp(V, I, RT) ->
     pp(V, I, RT, enc()).
 
 pp(V, I, RT, Enc) ->
+    Strings =
+        case application:get_env(stdlib, shell_strings) of
+            {ok, false} ->
+                false;
+            _ ->
+                true
+        end,
     io_lib_pretty:print(V, ([{column, I}, {line_length, columns()},
                              {depth, ?LINEMAX}, {max_chars, ?CHAR_MAX},
+                             {strings, Strings},
                              {record_print_fun, record_print_fun(RT)}]
                             ++ Enc)).
 
@@ -1444,14 +1453,22 @@ history(L) when is_integer(L), L >= 0 ->
 results(L) when is_integer(L), L >= 0 ->
     set_env(stdlib, shell_saved_results, L, ?DEF_RESULTS).
 
--spec catch_exception(Bool) -> Bool when
+-spec catch_exception(Bool) -> boolean() when
       Bool :: boolean().
 
 catch_exception(Bool) ->
     set_env(stdlib, shell_catch_exception, Bool, ?DEF_CATCH_EXCEPTION).
 
--spec prompt_func(PromptFunc) -> PromptFunc when
-      PromptFunc :: 'default' | {module(),atom()}.
+-spec prompt_func(PromptFunc) -> PromptFunc2 when
+      PromptFunc :: 'default' | {module(),atom()},
+      PromptFunc2 :: 'default' | {module(),atom()}.
 
 prompt_func(String) ->
     set_env(stdlib, shell_prompt_func, String, ?DEF_PROMPT_FUNC).
+
+-spec strings(Strings) -> Strings2 when
+      Strings :: boolean(),
+      Strings2 :: boolean().
+
+strings(Strings) ->
+    set_env(stdlib, shell_strings, Strings, ?DEF_STRINGS).
