@@ -323,11 +323,7 @@ generate_and_run_unicode_test(Config0,Encoding) ->
     Config1 = lists:keydelete(node,1,Config0),
     Config2 = lists:keydelete(work_dir,1,Config1),
     NodeName = list_to_atom("test_server_tester_" ++ atom_to_list(Encoding)),
-    ErtsSwitch = case Encoding of
-		     latin1 -> "+fnl";
-		     utf8 -> "+fnu"
-		 end,
-    Config = start_node(Config2,NodeName,ErtsSwitch),
+    Config = start_node(Config2,NodeName,erts_switch(Encoding)),
 
     %% Compile the suite
     Node = proplists:get_value(node,Config),
