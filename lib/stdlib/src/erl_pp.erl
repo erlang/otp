@@ -42,7 +42,7 @@
                 | {encoding, latin1 | unicode | utf8}).
 -type(options() :: hook_function() | [option()]).
 
--record(pp, {string_fun, char_fun}).
+-record(pp, {string_fun, char_fun, term_fun}).
 
 -record(options, {hook, encoding, opts}).
 
@@ -61,7 +61,8 @@ form(Thing) ->
       Options :: options()).
 
 form(Thing, Options) ->
-    frmt(lform(Thing, options(Options)), state(Options)).
+    State = state(Options),
+    frmt(lform(Thing, options(Options), State), State).
 
 -spec(attribute(Attribute) -> io_lib:chars() when
       Attribute :: erl_parse:abstract_form()).
@@ -74,7 +75,8 @@ attribute(Thing) ->
       Options :: options()).
 
 attribute(Thing, Options) ->
-    frmt(lattribute(Thing, options(Options)), state(Options)).
+    State = state(Options),
+    frmt(lattribute(Thing, options(Options), State), State).
 
 -spec(function(Function) -> io_lib:chars() when
       Function :: erl_parse:abstract_form()).
@@ -180,11 +182,13 @@ state(_Hook) ->
 
 state() ->
     #pp{string_fun = fun io_lib:write_string_as_latin1/1,
-        char_fun   = fun io_lib:write_char_as_latin1/1}.
+        char_fun   = fun io_lib:write_char_as_latin1/1,
+        term_fun   = fun(T) -> io_lib:format("~p", [T]) end}.
 
 unicode_state() ->
     #pp{string_fun = fun io_lib:write_string/1,
-        char_fun   = fun io_lib:write_char/1}.
+        char_fun   = fun io_lib:write_char/1,
+        term_fun   = fun(T) -> io_lib:format("~tp", [T]) end}.
 
 encoding(Options) ->
     case proplists:get_value(encoding, Options, epp:default_encoding()) of
@@ -193,47 +197,47 @@ encoding(Options) ->
         unicode -> unicode
     end.
 
-lform({attribute,Line,Name,Arg}, Opts) ->
-    lattribute({attribute,Line,Name,Arg}, Opts);
-lform({function,Line,Name,Arity,Clauses}, Opts) ->
+lform({attribute,Line,Name,Arg}, Opts, State) ->
+    lattribute({attribute,Line,Name,Arg}, Opts, State);
+lform({function,Line,Name,Arity,Clauses}, Opts, _State) ->
     lfunction({function,Line,Name,Arity,Clauses}, Opts);
-lform({rule,Line,Name,Arity,Clauses}, Opts) ->
+lform({rule,Line,Name,Arity,Clauses}, Opts, _State) ->
     lrule({rule,Line,Name,Arity,Clauses}, Opts);
 %% These are specials to make it easier for the compiler.
-lform({error,E}, _Opts) ->
-    leaf(format("~p\n", [{error,E}]));
-lform({warning,W}, _Opts) ->
-    leaf(format("~p\n", [{warning,W}]));
-lform({eof,_Line}, _Opts) ->
+lform({error,E}, _Opts, State) ->
+    leaf((State#pp.term_fun)({error,E})++"\n");
+lform({warning,W}, _Opts, State) ->
+    leaf((State#pp.term_fun)({warning,W})++"\n");
+lform({eof,_Line}, _Opts, _State) ->
     $\n.
 
-lattribute({attribute,_Line,type,Type}, Opts) ->
+lattribute({attribute,_Line,type,Type}, Opts, _State) ->
     [typeattr(type, Type, Opts),leaf(".\n")];
-lattribute({attribute,_Line,opaque,Type}, Opts) ->
+lattribute({attribute,_Line,opaque,Type}, Opts, _State) ->
     [typeattr(opaque, Type, Opts),leaf(".\n")];
-lattribute({attribute,_Line,spec,Arg}, _Opts) ->
+lattribute({attribute,_Line,spec,Arg}, _Opts, _State) ->
     [specattr(Arg),leaf(".\n")];
-lattribute({attribute,_Line,Name,Arg}, Opts) ->
-    [lattribute(Name, Arg, Opts),leaf(".\n")].
+lattribute({attribute,_Line,Name,Arg}, Opts, State) ->
+    [lattribute(Name, Arg, Opts, State),leaf(".\n")].
 
-lattribute(module, {M,Vs}, _Opts) ->
+lattribute(module, {M,Vs}, _Opts, _State) ->
     attr("module",[{var,0,pname(M)},
                    foldr(fun(V, C) -> {cons,0,{var,0,V},C}
                          end, {nil,0}, Vs)]);
-lattribute(module, M, _Opts) ->
+lattribute(module, M, _Opts, _State) ->
     attr("module", [{var,0,pname(M)}]);
-lattribute(export, Falist, _Opts) ->
+lattribute(export, Falist, _Opts, _State) ->
     call({var,0,"-export"}, [falist(Falist)], 0, none);
-lattribute(import, Name, _Opts) when is_list(Name) ->
+lattribute(import, Name, _Opts, _State) when is_list(Name) ->
     attr("import", [{var,0,pname(Name)}]);
-lattribute(import, {From,Falist}, _Opts) ->
+lattribute(import, {From,Falist}, _Opts, _State) ->
     attr("import",[{var,0,pname(From)},falist(Falist)]);
-lattribute(file, {Name,Line}, _Opts) ->
-    attr("file", [{var,0,format("~p", [Name])},{integer,0,Line}]);
-lattribute(record, {Name,Is}, Opts) ->
+lattribute(file, {Name,Line}, _Opts, State) ->
+    attr("file", [{var,0,(State#pp.term_fun)(Name)},{integer,0,Line}]);
+lattribute(record, {Name,Is}, Opts, _State) ->
     Nl = leaf(format("-record(~w,", [Name])),
     [{first,Nl,record_fields(Is, Opts)},$)];
-lattribute(Name, Arg, #options{encoding = Encoding}) ->
+lattribute(Name, Arg, #options{encoding = Encoding}, _State) ->
     attr(write(Name), [erl_parse:abstract(Arg, [{encoding,Encoding}])]).
 
 typeattr(Tag, {TypeName,Type,Args}, _Opts) ->
@@ -423,7 +427,7 @@ lexpr(E, Opts) ->
 
 lexpr({var,_,V}, _, _) when is_integer(V) ->    %Special hack for Robert
     leaf(format("_~w", [V]));
-lexpr({var,_,V}, _, _) -> leaf(format("~s", [V]));
+lexpr({var,_,V}, _, _) -> leaf(format("~ts", [V]));
 lexpr({char,_,C}, _, _) -> {char,C};
 lexpr({integer,_,N}, _, _) -> leaf(write(N));
 lexpr({float,_,F}, _, _) -> leaf(write(F));
@@ -799,7 +803,7 @@ maybe_paren(_P, _Prec, Expr) ->
     Expr.
 
 leaf(S) ->
-    {leaf,iolist_size(S),S}.
+    {leaf,chars_size(S),S}.
 
 %%% Do the formatting. Currently nothing fancy. Could probably have
 %%% done it in one single pass.
@@ -1009,7 +1013,7 @@ incr(I, Incr) ->
     I+Incr.
 
 indentation(E, I) when I < 0 ->
-    iolist_size(E);
+    chars_size(E);
 indentation(E, I0) ->
     I = io_lib_format:indentation(E, I0),
     case has_nl(E) of
@@ -1063,6 +1067,15 @@ write_char(C, PP) ->
 %%
 %% Utilities
 %%
+
+chars_size([C | Es]) when is_integer(C) ->
+    1 + chars_size(Es);
+chars_size([E | Es]) ->
+    chars_size(E) + chars_size(Es);
+chars_size([]) ->
+    0;
+chars_size(B) when is_binary(B) ->
+    byte_size(B).
 
 -define(N_SPACES, 30).
 

@@ -435,7 +435,6 @@ file_type(Name, Links) ->
     end.
 
 open_output_file(FName, Options) ->
-io:format("Options ~p~n", [Options]),
     case catch file:open(FName, [write]++Options) of
         {ok, FD} ->
             FD;
@@ -1805,7 +1804,7 @@ get_free_vars_1([{free, B} | _Bs]) -> B;
 get_free_vars_1([_ | Bs]) -> get_free_vars_1(Bs);
 get_free_vars_1([]) -> [].
 
-filename([C | T]) when is_integer(C), C > 0, C =< 255 ->
+filename([C | T]) when is_integer(C), C > 0 ->
     [C | filename(T)];
 filename([H|T]) ->
     filename(H) ++ filename(T);
