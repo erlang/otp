@@ -39,7 +39,8 @@
 	 delete_suite_data/0, delete_suite_data/1, match_delete_suite_data/1,
 	 delete_testdata/0, delete_testdata/1,
 	 set_testdata/1, get_testdata/1, get_testdata/2,
-	 set_testdata_async/1, update_testdata/2, update_testdata/3]).
+	 set_testdata_async/1, update_testdata/2, update_testdata/3,
+	 set_verbosity/1, get_verbosity/1]).
 
 -export([override_silence_all_connections/0, override_silence_connections/1, 
 	 get_overridden_silenced_connections/0, 
@@ -128,6 +129,10 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
     create_table(?conn_table,#conn.handle),
     create_table(?board_table,2),
     create_table(?suite_table,#suite_data.key),
+
+    create_table(?verbosity_table,1),
+    [ets:insert(?verbosity_table,{Cat,Lvl}) || {Cat,Lvl} <- Verbosity],
+
     {ok,StartDir} = file:get_cwd(),
     case file:set_cwd(LogDir) of
 	ok -> ok;
@@ -202,7 +207,7 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
     end,
-    loop(Mode, [{{verbosity,Cat},Lvl} || {Cat,Lvl} <- Verbosity], StartDir).
+    loop(Mode, [], StartDir).
 
 create_table(TableName,KeyPos) ->
     create_table(TableName,set,KeyPos).
@@ -277,6 +282,19 @@ reset_cwd() ->
 
 get_start_dir() ->
     call(get_start_dir).
+
+%% handle verbosity outside ct_util_server (let the client read
+%% the verbosity table) to avoid possible deadlock situations
+set_verbosity(Elem = {_Category,_Level}) ->
+    ets:insert(?verbosity_table, Elem),
+    ok.
+get_verbosity(Category) ->
+    case ets:lookup(?verbosity_table, Category) of
+	[{Category,Level}] -> 
+	    Level;
+	_ ->
+	    undefined
+    end.
 
 loop(Mode,TestData,StartDir) ->
     receive 
@@ -377,6 +395,7 @@ loop(Mode,TestData,StartDir) ->
 	    ets:delete(?conn_table),
 	    ets:delete(?board_table),
 	    ets:delete(?suite_table),
+	    ets:delete(?verbosity_table),
 	    ct_logs:close(Info, StartDir),
 	    ct_event:stop(),
 	    ct_config:stop(),

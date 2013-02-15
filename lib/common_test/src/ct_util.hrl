@@ -21,6 +21,7 @@
 -define(conn_table,ct_connections).
 -define(board_table,ct_boards).
 -define(suite_table,ct_suite_data).
+-define(verbosity_table,ct_verbosity_table).
 
 -record(conn, {handle,
 	       targetref,

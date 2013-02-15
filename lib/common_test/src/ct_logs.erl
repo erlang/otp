@@ -397,9 +397,9 @@ tc_print(Category,Format,Args) ->
 %%% <p>This function is called by <code>ct</code> when printing
 %%% stuff from a testcase on the user console.</p>
 tc_print(Category,Importance,Format,Args) ->
-    VLvl = case ct_util:get_testdata({verbosity,Category}) of
+    VLvl = case ct_util:get_verbosity(Category) of
 	       undefined -> 
-		   ct_util:get_testdata({verbosity,'$unspecified'});
+		   ct_util:get_verbosity('$unspecified');
 	       {error,bad_invocation} ->
 		   ?MAX_VERBOSITY;
 	       Val ->

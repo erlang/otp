@@ -201,7 +201,7 @@ setup(Test, Config) ->
 	    undefined ->
 		Opts0 ++ [{event_handler,{?eh,EvHArgs}} | Test];
 	    EvHs ->
-		Opts0 ++ [{event_handler,[{?eh,EvHArgs}|EvHs]} |
+		Opts0 ++ [{event_handler,{[?eh|EvHs],EvHArgs}} |
 			  proplists:delete(event_handler, Test)]
 	end,
     ERPid = ct_test_support:start_event_receiver(Config),
