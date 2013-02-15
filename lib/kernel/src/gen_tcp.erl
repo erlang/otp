@@ -256,7 +256,7 @@ close(S) ->
 -spec send(Socket, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
       Packet :: iodata(),
-      Reason :: inet:posix().
+      Reason :: closed | inet:posix().
 
 send(S, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
