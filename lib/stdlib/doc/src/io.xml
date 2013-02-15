@@ -494,8 +494,9 @@ ok
               <c>~w</c>, but breaks terms whose printed representation
               is longer than one line into many lines and indents each
               line sensibly. It also tries to detect lists of
-              printable characters and to output these as strings.
-              For example:</p>
+              printable characters and to output these as strings. The
+              Unicode translation modifier is used for determining
+              what characters are printable. For example:</p>
             <pre>
 1> <input>T = [{attributes,[[{id,age,1.50000},{mode,explicit},</input>
 <input>{typename,"INTEGER"}], [{id,cho},{mode,explicit},{typename,'Cho'}]]},</input>
@@ -545,6 +546,19 @@ ok
 7> <input>io:fwrite("~15lp~n", [S]).</input>
 [{a,[97]},
  {b,[98]}]
+ok</pre>
+            <p>Binaries that look like UTF-8 encoded strings will be
+              output with the string syntax if the Unicode translation
+              modifier is given:</p>
+            <pre>
+9> <input>io:fwrite("~p~n",[[1024]]).</input>
+[1024]
+10> <input>io:fwrite("~tp~n",[[1024]]).</input>
+"\x{400}"
+11> <input>io:fwrite("~tp~n", [&lt;&lt;128,128&gt;&gt;]).</input>
+&lt;&lt;128,128&gt;&gt;
+12> <input>io:fwrite("~tp~n", [&lt;&lt;208,128&gt;&gt;]).</input>
+&lt;&lt;"\x{400}"/utf8&gt;&gt;
 ok</pre>
           </item>
           <tag><c>W</c></tag>
