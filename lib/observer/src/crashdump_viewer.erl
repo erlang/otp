@@ -214,6 +214,7 @@ script_start([File]) ->
     DefaultBrowser =
 	case os:type() of
 	    {win32,_} -> iexplore;
+	    {unix,darwin} -> open;
 	    _ -> firefox
 	end,
     script_start([File,DefaultBrowser]);
@@ -277,8 +278,8 @@ usage() ->
     io:format(
       "\nusage: cdv file [ browser ]\n"
       "\tThe \'file\' must be an existing erlang crash dump.\n"
-      "\tDefault browser is \'iexplore\' (Internet Explorer) on Windows\n"
-      "\tor else \'firefox\'.\n",
+      "\tDefault browser is \'iexplore\' (Internet Explorer) on Windows,\n"
+      "\t\'open\' on Mac OS X, or else \'firefox\'.\n",
       []).
 
 
