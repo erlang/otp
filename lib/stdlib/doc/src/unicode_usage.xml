@@ -32,41 +32,323 @@
     <rev>PA1</rev>
     <file>unicode_usage.xml</file>
   </header>
-<p>Implementing support for Unicode character sets is an ongoing process. The Erlang Enhancement Proposal (EEP) 10 outlines the basics of Unicode support and also specifies a default encoding in binaries that all Unicode-aware modules should handle in the future.</p>
-<p>The functionality described in EEP10 is implemented in Erlang/OTP as of R13A, but that is by no means the end of it. More functionality will be needed in the future and more OTP-libraries might need updating to cope with Unicode data.</p>
-<p>This guide outlines the current Unicode support and gives a couple of recipes for working with Unicode data.</p>
 <section>
-<title>What Unicode Is</title>
-<p>Unicode is a standard defining codepoints (numbers) for all known, living or dead, scripts. In principle, every known symbol used in any language has a Unicode codepoint.</p>
-<p>Unicode codepoints are defined and published by the <em>Unicode Consortium</em>, which is a non profit organization.</p>
-<p>Support for Unicode is increasing throughout the world of computing, as the benefits of one common character set are overwhelming when programs are used in a global environment.</p>
-<p>Along with the base of the standard, the codepoints for all the scripts, there are a couple of encoding standards available. Different operating systems and tools support different encodings. For example Linux and MacOSX has chosen the UTF-8 encoding, which is backwards compatible with 7-bit ASCII and therefore affects programs written in plain English the least. Windows&reg; on the other hand supports a limited version of UTF-16, namely all the code planes where the characters can be stored in one single 16-bit entity, which includes most living languages.</p>
-<p>The most widely spread encodings are:</p>
-<taglist>
-<tag>UTF-8</tag>
-<item>Each character is stored in one to four bytes depending on codepoint. The encoding is backwards compatible with 7-bit ASCII as all 7-bit characters are stored in one single byte as is. The characters beyond codepoint 127 are stored in more bytes, letting the most significant bit in the first character indicate a multi-byte character. For details on the encoding, the RFC is publicly available.</item>
-<tag>UTF-16</tag>
-<item>This encoding has many similarities to UTF-8, but the basic unit is a 16-bit number. This means that all characters occupy at least two bytes, some high numbers even four bytes. Some programs and operating systems claiming to use UTF-16 only allows for characters that can be stored in one 16-bit entity, which is usually sufficient to handle living languages. As the basic unit is more than one byte, byte-order issues occur, why UTF-16 exists in both a big-endian and little-endian variant.</item>
-<tag>UTF-32</tag>
-<item>The most straight forward representation, each character is stored in one single 32-bit number. There is no need for escapes or any variable amount of entities for one character, all Unicode codepoints can be stored in one single 32-bit entity. As with UTF-16, there are byte-order issues, UTF-32 can be both big- and little-endian.</item>
-<tag>UCS-4</tag>
-<item>Basically the same as UTF-32, but without some Unicode semantics, defined by IEEE and has little use as a separate encoding standard. For all normal (and possibly abnormal) usages, UTF-32 and UCS-4 are interchangeable.</item>
-</taglist>
-<p>Certain ranges of characters are left unused and certain ranges are even deemed invalid. The most notable invalid range is 16#D800 - 16#DFFF, as the UTF-16 encoding does not allow for encoding of these numbers. It can be speculated that the UTF-16 encoding standard was, from the beginning, expected to be able to hold all Unicode characters in one 16-bit entity, but then had to be extended, leaving a hole in the Unicode range to cope with backward compatibility.</p>
-<p>Additionally, the codepoint 16#FEFF is used for byte order marks (BOM's) and use of that character is not encouraged in other contexts than that. It actually is valid though, as the character "ZWNBS" (Zero Width Non Breaking Space). BOM's are used to identify encodings and byte order for programs where such parameters are not known in advance. Byte order marks are more seldom used than one could expect, but their use is becoming more widely spread as they provide the means for programs to make educated guesses about the Unicode format of a certain file.</p>
+<title>Unicode implementation in Erlang/OTP</title>
+  <p>Implementing support for Unicode character sets is an ongoing
+  process. The Erlang Enhancement Proposal (EEP) 10 outlined the
+  basics of Unicode support and also specified a default encoding in
+  binaries that all Unicode-aware modules should handle in the
+  future.</p>
+
+  <p>The functionality described in EEP10 was implemented in Erlang/OTP
+  as of R13A, but that was by no means the end of it. In R14B01 support
+  for Unicode file names was added, although it was in no way complete
+  and was by default disabled on platforms where no guarantee was given
+  for the file name encoding. With R16A came support for UTF-8 encoded
+  source code, among with enhancements to many of the applications to
+  support both Unicode encoded file names as well as support for UTF-8
+  encoded files in several circumstances. Most notable is the support
+  for UTF-8 in files read by file:consult/1, release handler support
+  for UTF-8 and more support for Unicode character sets in the
+  io-system.</p>
+
+  <p>In R17, the encoding default for Erlang source files will be
+  switched to UTF-8 and in R18 Erlang will support atoms in the full
+  Unicode range, meaning full Unicode function names and module
+  names</p>
+
+  <p>This guide outlines the current Unicode support and gives a couple
+  of recipes for working with Unicode data.</p>
+</section>
+<section>
+<title>Understanding Unicode</title>
+  <p>Experience with the Unicode support in Erlang has made it
+  painfully clear that understanding Unicode characters and encodings
+  is not as easy as one would expect. The complexity of the field as
+  well as the implications of the standard requires thorough
+  understanding of concepts rarely before thought of.</p>
+
+  <p>Furthermore the Erlang implementation requires understanding of
+  concepts that never were an issue for many (Erlang) programmers. To
+  understand and use Unicode characters requires that you study the
+  subject thoroughly, even if you're an experienced programmer.</p>
+
+  <p>As an example, one could contemplate the issue of converting
+  between upper and lower case letters. Reading the standard will make
+  you realize that, to begin with, there's not a simple one to one
+  mapping in all scripts. Take German as an example, where there's a
+  letter "ß" (Sharp s) in lower case, but the uppercase equivalent is
+  "SS". Or Greek, where "Σ" has two different lowercase forms: "ς" in
+  word-final position and "σ" elsewhere. Or Turkish where dotted and
+  dot-less "i" both exist in lower case and upper case forms, or
+  Cyrillic "I" which usually has no lowercase form. Or of course
+  languages that have no concept of upper case (or lower case). So, a
+  conversion function will need to know not only one character at a
+  time, but possibly the whole sentence, maybe the natural language
+  the translation should be in and also take into account differences
+  in input and output string length and so on. There is at the time of
+  writing no Unicode to_upper/to_lower functionality in Erlang/OTP, but
+  there are publicly available libraries that addresses these issues.</p>
+
+  <p>Another example is the accented characters where the same glyph
+  has two different representations. Let's look at the Swedish
+  "ö". There's a code point for that in the Unicode standard, but you
+  can also write it as "o" followed by U+0308 (Combining Diaeresis,
+  with the simplified meaning that the last letter should have a "¨"
+  above). They have exactly the same glyph. they are for most
+  purposes the same, but they have completely different
+  representations. For example MacOS X converts all file names to use
+  Combining Diaeresis, while most other programs (including Erlang)
+  try to hide that by doing the opposite when for example listing
+  directories. However it's done, it's usually important to normalize
+  such characters to avoid utter confusion.</p>
+
+  <p>The list of examples can be made as long as the Unicode standard, I
+  suspect. The point is that one need a kind of knowledge that was
+  never needed when programs only took one or two languages into
+  account. The complexity of human languages and scripts, certainly
+  has made this a challenge when constructing a universal
+  standard. Supporting Unicode properly in your program <em>will</em> require
+  effort.</p>
+
+</section>
+<section>
+<title>What Unicode is</title>
+  <p>Unicode is a standard defining code points (numbers) for all
+  known, living or dead, scripts. In principle, every known symbol
+  used in any language has a Unicode code point.</p>
+  <p>Unicode code points are defined and published by the <em>Unicode
+  Consortium</em>, which is a non profit organization.</p>
+  <p>Support for Unicode is increasing throughout the world of
+  computing, as the benefits of one common character set are
+  overwhelming when programs are used in a global environment.</p>
+  <p>Along with the base of the standard: the code points for all the
+  scripts, there are a couple of <em>encoding standards</em> available.</p>
+  <p>It is vital to understand the difference between encodings and
+  Unicode characters. Unicode characters are code points according to
+  the Unicode standard, while the encodings are ways to represent such
+  code points. An encoding is just an standard for representation,
+  UTF-8 can for example be used to represent a very limited part of
+  the Unicode character set (e.g. ISO-Latin-1), or the full Unicode
+  range. It's just an encoding format.</p>
+  <p>As long as all character sets were limited to 256 characters,
+  each character could be stored in one single byte, so there was more
+  or less only one practical encoding for the characters. Encoding
+  each character in one byte was so common that the encoding wasn't
+  even named. When we now, with the Unicode system, have a lot more
+  than 256 characters, we need a common way to represent these. The
+  common ways of representing the code points are the encodings. This
+  means a whole new concept to the programmer, the concept of
+  character representation, which was before a non-issue.</p>
+
+  <p>Different operating systems and tools support different
+  encodings. For example Linux and MacOS X has chosen the UTF-8
+  encoding, which is backwards compatible with 7-bit ASCII and
+  therefore affects programs written in plain English the
+  least. Windows&reg; on the other hand supports a limited version of
+  UTF-16, namely all the code planes where the characters can be
+  stored in one single 16-bit entity, which includes most living
+  languages.</p>
+
+  <p>The most widely spread encodings are:</p>
+  <taglist>
+    <tag>Bytewise representation</tag>
+    <item>This is not a proper Unicode representation, but the
+    representation used for characters before the Unicode standard. It
+    can still be used to represent character code points in the Unicode
+    standard that have numbers below 256, which corresponds exactly to
+    the ISO-Latin-1 character set. In Erlang, this is commonly denoted
+    'latin1' encoding, which is slightly misleading as ISO-Latin-1 is
+    a character code range, not an encoding.</item>
+    <tag>UTF-8</tag>
+    <item>Each character is stored in one to four bytes depending on
+    code point. The encoding is backwards compatible with bytewise
+    representation of 7-bit ASCII as all 7-bit characters are stored
+    in one single byte in UTF-8. The characters beyond code point 126
+    are stored in more bytes, letting the most significant bit in the
+    first character indicate a multi-byte character. For details on
+    the encoding, the RFC is publicly available. Note that UTF-8 is
+    <em>not</em> compatible with bytewise representation for
+    code points between 127 and 255, so a ISO-Latin-1 bytewise
+    representation is not generally compatible with UTF-8.</item>
+    <tag>UTF-16</tag>
+    <item>This encoding has many similarities to UTF-8, but the basic
+    unit is a 16-bit number. This means that all characters occupy at
+    least two bytes, some high numbers even four bytes. Some programs,
+    libraries and operating systems claiming to use UTF-16 only allows
+    for characters that can be stored in one 16-bit entity, which is
+    usually sufficient to handle living languages. As the basic unit
+    is more than one byte, byte-order issues occur, why UTF-16 exists
+    in both a big-endian and little-endian variant. In Erlang, the
+    full UTF-16 range is supported when applicable, like in the
+    'unicode' module and in the bit syntax.</item>
+    <tag>UTF-32</tag>
+    <item>The most straight forward representation. Each character is
+    stored in one single 32-bit number. There is no need for escapes
+    or any variable amount of entities for one character, all Unicode
+    code points can be stored in one single 32-bit entity. As with
+    UTF-16, there are byte-order issues, UTF-32 can be both big- and
+    little-endian.</item>
+    <tag>UCS-4</tag>
+    <item>Basically the same as UTF-32, but without some Unicode
+    semantics, defined by IEEE and has little use as a separate
+    encoding standard. For all normal (and possibly abnormal) usages,
+    UTF-32 and UCS-4 are interchangeable.</item>
+  </taglist>
+  <p>Certain ranges of numbers are left unused in the Unicode standard
+  and certain ranges are even deemed invalid. The most notable invalid
+  range is 16#D800 - 16#DFFF, as the UTF-16 encoding does not allow
+  for encoding of these numbers. It can be speculated that the UTF-16
+  encoding standard was, from the beginning, expected to be able to
+  hold all Unicode characters in one 16-bit entity, but then had to be
+  extended, leaving a hole in the Unicode range to cope with backward
+  compatibility.</p>
+  <p>Additionally, the code point 16#FEFF is used for byte order marks
+  (BOM's) and use of that character is not encouraged in other
+  contexts than that. It actually is valid though, as the character
+  "ZWNBS" (Zero Width Non Breaking Space). BOM's are used to identify
+  encodings and byte order for programs where such parameters are not
+  known in advance. Byte order marks are more seldom used than one
+  could expect, but their use might become more widely spread as they
+  provide the means for programs to make educated guesses about the
+  Unicode format of a certain file.</p>
+</section>
+<section>
+  <title>Areas where Erlang support Unicode</title>
+  <p>To support Unicode in Erlang, problems in several areas have been
+  addressed. Each area is described briefly in this section and more
+  thoroughly further down in this document:</p>
+  <taglist>
+    <tag>Representation</tag>
+    <item>To handle Unicode characters in Erlang, we have to have a
+    common representation both in lists and binaries. The EEP (10) and
+    the subsequent initial implementation in R13A settled a standard
+    representation of Unicode characters in Erlang.</item>
+    <tag>Manipulation</tag>
+    <item>The Unicode characters need to be processed by the Erlang
+    program, why library functions need to be able to handle them. In
+    some cases functionality was added to already existing interfaces
+    (as the string module now can handle lists with arbitrary code points),
+    in some cases new functionality or options need to be added (as in
+    the <c>io</c>-module, the file handling, the <c>unicode</c> module
+    and the bit syntax). Today most modules in kernel and stdlib, as
+    well as the VM are Unicode aware.</item>
+    <tag>File I/O</tag>
+    <item>I/O is by far the most problematic area for Unicode. A file
+    is an entity where bytes are stored and the lore of programming
+    has been to treat characters and bytes as interchangeable. With
+    Unicode characters, you need to decide on an encoding as soon as
+    you want to store the data in a file. In Erlang you can open a
+    text file with an encoding option, so that you can read characters
+    from it rather than bytes, but you can also open a file for
+    bytewise I/O. The I/O-system of Erlang has been designed (or at
+    least used) in a way where you expect any <c>io_device</c> to be
+    able to cope with any string data, but that is no longer the case
+    when you work with Unicode characters. Handling the fact that you
+    need to know the capabilities of the device where your data ends
+    up is something new to the Erlang programmer. Furthermore, ports
+    in Erlang are byte oriented, so an arbitrary string of (Unicode)
+    characters can not be sent to a port without first converting it
+    to an encoding of choice.</item>
+    <tag>Terminal I/O</tag>
+    <item>Terminal I/O is slightly easier than file I/O. The output is
+    meant for human reading and is usually Erlang syntax (e.g. in the
+    shell). There exists syntactic representation of any Unicode
+    character without actually displaying the glyph (instead written
+    as <c>\x{</c>HHH<c>}</c>), so Unicode data can usually be displayed
+    even if the terminal as such do not support the whole Unicode
+    range.</item>
+    <tag>File names</tag>
+    <item>File names can be stored as Unicode strings, in different
+    ways depending on the underlying OS and file system. This can be
+    handled fairly easy by a program. The problems arise when the file
+    system is not consequent in it's encodings, like for example
+    Linux. Linux allows files to be named with any sequence of bytes,
+    leaving to each program to interpret those bytes. On systems where
+    these "transparent" file names are used, Erlang has to be informed
+    about the file name encoding by a startup flag. The default is
+    bytewise interpretation, which is actually usually wrong, but
+    allows for interpretation of <em>all</em> file names. The concept
+    of "raw file names" has to be used to handle wrongly encoded
+    file names if one enables Unicode file name translation
+    (<c>+fnu</c>) on platforms where this is not the default.</item>
+    <tag>Source code encoding</tag>
+    <item>When it comes to the Erlang source code, there is support
+    for the UTF-8 encoding and bytewise encoding. The default in R16B
+    is bytewise (or latin1) encoding. You can control the encoding by
+    a comment like:
+<code>
+%% -*- coding: utf-8 -*-
+</code>
+    in the beginning of the file. It of course requires your editor to
+    support UTF-8 as well. The same comment is also interpreted by
+    functions like file:consult/1 , the release handler etc, so that
+    you can have all text files in your source directories in UTF-8
+    encoding.
+    </item>
+    <tag>The language</tag>
+    <item>Having the source code in UTF-8 also allows you to write
+    string literals containing Unicode characters with code points &gt;
+    255, although atoms, module names and function names will be
+    restricted to the ISO-Latin-1 range until the R18 release. Binary
+    literals where you use the <c>/utf8</c> type, can also be
+    expressed using Unicode characters &gt; 255. Having module names
+    using characters other than 7-bit ASCII can cause trouble on
+    operating systems with inconsistent file naming schemes, and might
+    also hurt portability, so it's not really recommended. It is
+    suggested in EEP 40 that the language should also allow for
+    Unicode characters &gt; 255 in variable names. Weather to
+    implement that EEP or not is yet to be decided.</item>
+  </taglist>
 </section>
 <section>
 <title>Standard Unicode Representation in Erlang</title>
-<p>In Erlang, strings are actually lists of integers. A string is defined to be encoded in the ISO-latin-1 (ISO8859-1) character set, which is, codepoint by codepoint, a sub-range of the Unicode character set.</p>
-<p>The standard list encoding for strings is therefore easily extendible to cope with the whole Unicode range: A Unicode string in Erlang is simply a list containing integers, each integer being a valid Unicode codepoint and representing one character in the Unicode character set.</p>
-<p>Regular Erlang strings in ISO-latin-1 are a subset of their Unicode
-strings.</p>
+<p>In Erlang, strings are actually lists of integers. A string was up
+until R13 defined to be encoded in the ISO-latin-1 (ISO8859-1)
+character set, which is, code point by code point, a sub-range of the
+Unicode character set.</p>
+<p>The standard list encoding for strings was therefore easily
+extended to cope with the whole Unicode range: A Unicode string in
+Erlang is simply a list containing integers, each integer being a
+valid Unicode code point and representing one character in the Unicode
+character set.</p>
+<p>Erlang strings in ISO-latin-1 are a subset of Unicode strings.</p>
+<p>Only if a string contains code points &lt; 256, can it be directly
+converted to a binary by using i.e. <c>erlang:iolist_to_binary/1</c>
+or can be sent directly to a port. If the string contains Unicode
+characters &gt; 255, an encoding has to be decided upon and the
+string should be converted to a binary in the preferred encoding using
+<c>unicode:characters_to_binary/{1,2,3}</c>. Strings are not generally
+lists of bytes, as they were before R13. They are lists of
+characters. Characters are not generally bytes, they are Unicode
+code points.</p>
 
-<p>Binaries on the other hand are more troublesome. For performance reasons, programs often store textual data in binaries instead of lists, mainly because they are more compact (one byte per character instead of two words per character, as is the case with lists). Using <c>erlang:list_to_binary/1</c>, a regular Erlang string can be converted into a binary, effectively using the ISO-latin-1 encoding in the binary - one byte per character. This is very convenient for those regular Erlang strings, but cannot be done for Unicode lists.</p>
-<p>As the UTF-8 encoding is widely spread and provides the most compact storage, it is selected as the standard encoding of Unicode characters in binaries for Erlang.</p>
-<p>The standard binary encoding is used whenever a library function in Erlang should cope with Unicode data in binaries, but is of course not enforced when communicating externally. Functions and bit-syntax exist to encode and decode both UTF-8, UTF-16 and UTF-32 in binaries. Library functions dealing with binaries and Unicode in general, however, only deal with the default encoding.</p>
+<p>Binaries are more troublesome. For performance reasons, programs
+often store textual data in binaries instead of lists, mainly because
+they are more compact (one byte per character instead of two words per
+character, as is the case with lists). Using
+<c>erlang:list_to_binary/1</c>, an ISO-Latin-1 Erlang string could be
+converted into a binary, effectively using bytewise encoding - one
+byte per character. This was very convenient for those limited Erlang
+strings, but cannot be done for arbitrary Unicode lists.</p>
+<p>As the UTF-8 encoding is widely spread and provides some backward
+compatibility in the 7-bit ASCII range, it is selected as the standard
+encoding for Unicode characters in binaries for Erlang.</p>
+<p>The standard binary encoding is used whenever a library function in
+Erlang should cope with Unicode data in binaries, but is of course not
+enforced when communicating externally. Functions and bit-syntax exist
+to encode and decode both UTF-8, UTF-16 and UTF-32 in
+binaries. Library functions dealing with binaries and Unicode in
+general, however, only deal with the default encoding.</p>
 
-<p>Character data may be combined from several sources, sometimes available in a mix of strings and binaries. Erlang has for long had the concept of <c>iodata</c> or <c>iolists</c>, where binaries and lists can be combined to represent a sequence of bytes. In the same way, the Unicode aware modules often allow for combinations of binaries and lists where the binaries have characters encoded in UTF-8 and the lists contain such binaries or numbers representing Unicode codepoints:</p>
+<p>Character data may be combined from several sources, sometimes
+available in a mix of strings and binaries. Erlang has for long had
+the concept of <c>iodata</c> or <c>iolists</c>, where binaries and
+lists can be combined to represent a sequence of bytes. In the same
+way, the Unicode aware modules often allow for combinations of
+binaries and lists where the binaries have characters encoded in UTF-8
+and the lists contain such binaries or numbers representing Unicode
+code points:</p>
 <code type="none">
 unicode_binary() = binary() with characters encoded in UTF-8 coding standard
 
@@ -74,7 +356,9 @@ chardata() = charlist() | unicode_binary()
 
 charlist() = maybe_improper_list(char() | unicode_binary() | charlist(),
                                  unicode_binary() | nil())</code>
-<p>The module <c>unicode</c> in STDLIB even supports similar mixes with binaries containing other encodings than UTF-8, but that is a special case to allow for conversions to and from external data:</p>
+<p>The module <c>unicode</c> in STDLIB even supports similar mixes
+with binaries containing other encodings than UTF-8, but that is a
+special case to allow for conversions to and from external data:</p>
     <code type="none">
 external_unicode_binary() = binary() with characters coded in
   a user specified Unicode encoding other than UTF-8 (UTF-16 or UTF-32)
@@ -87,79 +371,228 @@ external_charlist() = maybe_improper_list(char() |
                                           external_unicode_binary() | nil())</code>
 </section>
 <section>
-<title>Basic Language Support for Unicode</title>
-<p><marker id="unicode_in_erlang"/>As of Erlang/OTP R16 Erlang can be
-written in ISO-latin-1 or Unicode (UTF-8). The details on how to state
-the encoding of an Erlang source file can be found in <seealso
-marker="stdlib:epp#encoding">epp(3)</seealso>. Strings and comments
-can be written using Unicode, but functions still have to be named in
-ISO-latin-1 and atoms are restricted to ISO-latin-1. Erlang/OTP R18 is
-expected to handle functions named in Unicode as well as Unicode
-atoms.</p>
-<section>
-<title>Bit-syntax</title>
-<p>The bit-syntax contains types for coping with binary data in the three main encodings. The types are named <c>utf8</c>, <c>utf16</c> and <c>utf32</c> respectively. The <c>utf16</c> and <c>utf32</c> types can be in a big- or little-endian variant:</p>
-<code>
+  <title>Basic Language Support for Unicode</title>
+  <p><marker id="unicode_in_erlang"/>As of Erlang/OTP R16 Erlang
+  source files can be written in either UTF-8 or bytewise encoding
+  (a.k.a. latin1 encoding). The details on how to state the encoding
+  of an Erlang source file can be found in 
+  <seealso marker="stdlib:epp#encoding">epp(3)</seealso>. Strings and comments
+  can be written using Unicode, but functions still have to be named
+  using characters from the ISO-latin-1 character set and atoms are
+  restricted to the same ISO-latin-1 range. These restrictions in the
+  language are of course independent of the encoding of the source
+  file. Erlang/OTP R18 is expected to handle functions named in
+  Unicode as well as Unicode atoms.</p>
+  <section>
+    <title>Bit-syntax</title>
+    <p>The bit-syntax contains types for coping with binary data in the
+    three main encodings. The types are named <c>utf8</c>, <c>utf16</c>
+    and <c>utf32</c> respectively. The <c>utf16</c> and <c>utf32</c> types
+    can be in a big- or little-endian variant:</p>
+    <code>
 &lt;&lt;Ch/utf8,_/binary&gt;&gt; = Bin1,
 &lt;&lt;Ch/utf16-little,_/binary&gt;&gt; = Bin2,
 Bin3 = &lt;&lt;$H/utf32-little, $e/utf32-little, $l/utf32-little, $l/utf32-little,
-               $o/utf32-little&gt;&gt;,</code>
-<p>For convenience, literal strings can be encoded with a Unicode encoding in binaries using the following (or similar) syntax:</p>
-<code>
+$o/utf32-little&gt;&gt;,</code>
+    <p>For convenience, literal strings can be encoded with a Unicode
+    encoding in binaries using the following (or similar) syntax:</p>
+    <code>
 Bin4 = &lt;&lt;"Hello"/utf16&gt;&gt;,</code>
-</section>
-<section>
-<title>String- and Character-literals</title>
-<p>For source code, there is an extension to the <c>\</c>OOO (backslash
-followed by three octal numbers) and <c>\x</c>HH (backslash followed by <c>x</c>,
-followed by two hexadecimal characters) syntax, namely <c>\x{</c>H ...<c>}</c> (a
-backslash followed by an <c>x</c>, followed by left curly bracket, any
-number of hexadecimal digits and a terminating right curly bracket).
-This allows for entering characters of any codepoint literally in a
-string even when the encoding is ISO-latin-1.</p>
-</section>
-<p>In the shell, if using a Unicode input device, <c>$</c> can be followed directly by a Unicode character producing an integer. In the following example the codepoint of a Cyrillic <c>s</c> is output:</p>
-<pre>
+  </section>
+  <section>
+    <title>String- and Character-literals</title>
+    <p>For source code, there is an extension to the <c>\</c>OOO
+    (backslash followed by three octal numbers) and <c>\x</c>HH
+    (backslash followed by <c>x</c>, followed by two hexadecimal
+    characters) syntax, namely <c>\x{</c>H ...<c>}</c> (a backslash
+    followed by an <c>x</c>, followed by left curly bracket, any
+    number of hexadecimal digits and a terminating right curly
+    bracket). This allows for entering characters of any code point
+    literally in a string even when the encoding of the source file is
+    bytewise (latin1).</p>
+    <p>In the shell, if using a Unicode input device, or in source
+    code stored in UTF-8, <c>$</c> can be followed directly by a
+    Unicode character producing an integer. In the following example
+    the code point of a Cyrillic <c>с</c> is output:</p>
+    <pre>
 7> <input>$с.</input>
 1089</pre>
+  </section>
+  <section>
+    <title>Heuristic string detection</title>
+    <p>In certain output functions and in the output of return values
+    in the shell, Erlang tries to heuristically detect string data in
+    lists and binaries. Typically you will see heuristic detection in
+    a situation like this:</p>
+    <pre>
+1> <input>[97,98,99].</input>
+"abc"
+2> <input>&lt;&lt;97,98,99&gt;&gt;.</input>
+&lt;&lt;"abc"&gt;&gt;    
+3> <input>&lt;&lt;195,165,195,164,195,182&gt;&gt;</input>
+&lt;&lt;"åäö"/utf8&gt;&gt;</pre>
+    <p>Here the shell will detect lists containing printable
+    characters or binaries containing printable characters either in
+    bytewise or UTF-8 encoding. The question here is: what is a
+    printable character? One view would be that anything the Unicode
+    standard thinks is printable, will also be printable according to
+    the heuristic detection. The result would be that almost any list
+    of integers will be deemed a string, resulting in all sorts of
+    characters being printed, maybe even characters your terminal does
+    not have in it's font set (resulting in some generic output you
+    probably will not appreciate). Another way is to keep it backwards
+    compatible so that only the ISO-Latin-1 character set is used to
+    detect a string. A third way would be to let the user decide
+    exactly what Unicode ranges are to be viewed as characters. In
+    R16B you can select either the whole Unicode range or the
+    ISO-Latin-1 range by supplying the startup flag <c>+pc
+    </c><i>Range</i>, where <i>Range</i> is either <c>latin1</c> or
+    <c>unicode</c>. For backwards compatibility, the default is
+    <c>latin1</c>. This only controls how heuristic string detection
+    is done. In the future, more ranges are expected to be added, so
+    that one can tailor the heuristics to the language and region
+    relevant to the user.</p>
+    <p>Lets look at an example with the two different startup options:</p>
+<pre>
+$ <input>erl +pc latin1</input>
+Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.10.1  (abort with ^G)  
+1> <input>[1024].</input>
+[1024]
+2> <input>[1070,1085,1080,1082,1086,1076].</input>
+[1070,1085,1080,1082,1086,1076]
+3> <input>[229,228,246].</input>
+"åäö"
+4> <input>&lt;&lt;208,174,208,189,208,184,208,186,208,190,208,180&gt;&gt;.</input>
+&lt;&lt;208,174,208,189,208,184,208,186,208,190,208,180&gt;&gt;
+5> <input>&lt;&lt;229/utf8,228/utf8,246/utf8&gt;&gt;.</input>
+&lt;&lt;"åäö"/utf8&gt;&gt;
+</pre>
+<pre>
+$ <input>erl +pc unicode</input>
+Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.10.1  (abort with ^G)  
+1> <input>[1024].</input>
+"Ѐ"
+2> <input>[1070,1085,1080,1082,1086,1076].</input>
+"Юникод"
+3> <input>[229,228,246].</input>
+"åäö"
+4> <input>&lt;&lt;208,174,208,189,208,184,208,186,208,190,208,180&gt;&gt;.</input>
+&lt;&lt;"Юникод"/utf8&gt;&gt;
+5> <input>&lt;&lt;229/utf8,228/utf8,246/utf8&gt;&gt;.</input>
+&lt;&lt;"åäö"/utf8&gt;&gt;
+</pre>
+    <p>In the examples, we can see that the default Erlang shell will
+    only interpret characters from the ISO-Latin1 range as printable
+    and will only detect lists or binaries with those "printable"
+    characters as containing string data. The valid UTF-8 binary
+    containing "Юникод", will not be print as a string. When, on the
+    other hand, started with all Unicode characters printable (<c>+pc
+    unicode</c>), the shell will output anything containing printable
+    Unicode data (in binaries either UTF-8 or bytewise encoded) as
+    string data.</p>
+
+    <p>These heuristics are also used by
+    <c>io</c>(<c>_lib</c>)<c>:format/2</c> and friends when the
+    <c>t</c> modifier is used in conjunction with <c>~p</c> or
+    <c>~P</c>:</p>
+<pre>
+$ <input>erl +pc latin1</input>
+Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.10.1  (abort with ^G)  
+1> <input>io:format("~tp~n",[{&lt;&lt;"åäö"&gt;&gt;, &lt;&lt;"åäö"/utf8&gt;&gt;, &lt;&lt;208,174,208,189,208,184,208,186,208,190,208,180&gt;&gt;}]).</input>
+{&lt;&lt;"åäö"&gt;&gt;,&lt;&lt;"åäö"/utf8&gt;&gt;,&lt;&lt;208,174,208,189,208,184,208,186,208,190,208,180&gt;&gt;}
+ok
+</pre>
+<pre>
+$ <input>erl +pc unicode</input>
+Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.10.1  (abort with ^G)  
+1> <input>io:format("~tp~n",[{&lt;&lt;"åäö"&gt;&gt;, &lt;&lt;"åäö"/utf8&gt;&gt;, &lt;&lt;208,174,208,189,208,184,208,186,208,190,208,180&gt;&gt;}]).</input>
+{&lt;&lt;"åäö"&gt;&gt;,&lt;&lt;"åäö"/utf8&gt;&gt;,&lt;&lt;"Юникод"/utf8&gt;&gt;}
+ok
+</pre>
+    <p>Please observe that this only affects <i>heuristic</i> interpretation
+    of lists and binaries on output. For example the <c>~ts</c> format
+    sequence does always output a valid lists of characters,
+    regardless of the <c>+pc</c> setting, as the programmer has
+    explicitly requested string output.</p>
+  </section>
 </section>
 <section>
 <title>The Interactive Shell</title>
-<p>The interactive Erlang shell, when started towards a terminal or started using the <c>werl</c> command on windows, can support Unicode input and output.</p>
-<p>On Windows&reg;, proper operation requires that a suitable font is installed and selected for the Erlang application to use. If no suitable font is available on your system, try installing the DejaVu fonts (<c>dejavu-fonts.org</c>), which are freely available and then select that font in the Erlang shell application.</p>
-<p>On Unix&reg;-like operating systems, the terminal should be able to handle UTF-8 on input and output (modern versions of XTerm, KDE konsole and the Gnome terminal do for example) and your locale settings have to be proper. As an example, my <c>LANG</c> environment variable is set as this:</p>
+<p>The interactive Erlang shell, when started towards a terminal or
+started using the <c>werl</c> command on windows, can support Unicode
+input and output.</p>
+<p>On Windows&reg;, proper operation requires that a suitable font is
+installed and selected for the Erlang application to use. If no
+suitable font is available on your system, try installing the DejaVu
+fonts (<c>dejavu-fonts.org</c>), which are freely available and then
+select that font in the Erlang shell application.</p>
+<p>On Unix&reg;-like operating systems, the terminal should be able to
+handle UTF-8 on input and output (modern versions of XTerm, KDE
+konsole and the Gnome terminal do for example) and your locale
+settings have to be proper. As an example, my <c>LANG</c> environment
+variable is set as this:</p>
 <pre>
 $ <input>echo $LANG</input>
 en_US.UTF-8</pre>
-<p>Actually, most systems handle the <c>LC_CTYPE</c> variable before <c>LANG</c>, so if that is set, it has to be set to <c>UTF-8</c>:</p>
+<p>Actually, most systems handle the <c>LC_CTYPE</c> variable before
+<c>LANG</c>, so if that is set, it has to be set to <c>UTF-8</c>:</p>
 <pre>
 $ echo <input>$LC_CTYPE</input>
 en_US.UTF-8</pre>
-<p>The <c>LANG</c> or <c>LC_CTYPE</c> setting should be consistent with what the terminal is capable of, there is no portable way for Erlang to ask the actual terminal about its UTF-8 capacity, we have to rely on the language and character type settings.</p>
-<p>To investigate what Erlang thinks about the terminal, the <c>io:getopts()</c> call can be used when the shell is started:</p>
+<p>The <c>LANG</c> or <c>LC_CTYPE</c> setting should be consistent
+with what the terminal is capable of, there is no portable way for
+Erlang to ask the actual terminal about its UTF-8 capacity, we have to
+rely on the language and character type settings.</p>
+<p>To investigate what Erlang thinks about the terminal, the
+<c>io:getopts()</c> call can be used when the shell is started:</p>
 <pre>
 $ <input>LC_CTYPE=en_US.ISO-8859-1 erl</input>
-Erlang R16B (erts-5.10) [source] [async-threads:0] [hipe] [kernel-poll:false]
+Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
-Eshell V5.10  (abort with ^G)
+Eshell V5.10.1  (abort with ^G)
 1> <input>lists:keyfind(encoding, 1, io:getopts()).</input>
 {encoding,latin1}
 2> <input>q().</input>
 ok
 $ <input>LC_CTYPE=en_US.UTF-8 erl</input>
-Erlang R16B (erts-5.10) [source] [async-threads:0] [hipe] [kernel-poll:false]
+Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
-Eshell V5.10  (abort with ^G)
+Eshell V5.10.1  (abort with ^G)
 1> <input>lists:keyfind(encoding, 1, io:getopts()).</input>
 {encoding,unicode}
 2></pre>
-<p>When (finally?) everything is in order with the locale settings, fonts and the terminal emulator, you probably also have discovered a way to input characters in the script you desire. For testing, the simplest way is to add some keyboard mappings for other languages, usually done with some applet in your desktop environment. In my KDE environment, I start the KDE Control Center (Personal Settings), select "Regional and Accessibility" and then "Keyboard Layout". On Windows XP&reg;, I start Control Panel->Regional and Language Options, select the Language tab and click the Details... button in the square named "Text services and input Languages". Your environment probably provides similar means of changing the keyboard layout. Make sure you have a way to easily switch back and forth between keyboards if you are not used to this, entering commands using a Cyrillic character set is, as an example, not easily done in the Erlang shell.</p>
-<p>Now you are set up for some Unicode input and output. The simplest thing to do is of course to enter a string in the shell:</p>
+
+<p>When (finally?) everything is in order with the locale settings,
+fonts and the terminal emulator, you probably also have discovered a
+way to input characters in the script you desire. For testing, the
+simplest way is to add some keyboard mappings for other languages,
+usually done with some applet in your desktop environment. In my KDE
+environment, I start the KDE Control Center (Personal Settings),
+select "Regional and Accessibility" and then "Keyboard Layout". On
+Windows XP&reg;, I start Control Panel->Regional and Language Options,
+select the Language tab and click the Details... button in the square
+named "Text services and input Languages". Your environment probably
+provides similar means of changing the keyboard layout. Make sure you
+have a way to easily switch back and forth between keyboards if you
+are not used to this, entering commands using a Cyrillic character set
+is, as an example, not easily done in the Erlang shell.</p>
+
+<p>Now you are set up for some Unicode input and output. The simplest
+thing to do is of course to enter a string in the shell:</p>
+
 <pre>
 $ <input>erl</input>
-Erlang R16B (erts-5.10) [source] [async-threads:0] [hipe] [kernel-poll:false]
+Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
-Eshell V5.10  (abort with ^G)
+Eshell V5.10.1  (abort with ^G)
 1> <input>lists:keyfind(encoding, 1, io:getopts()).</input>
 {encoding,unicode}
 2> <input>"Юникод"</input>
@@ -168,12 +601,15 @@ Eshell V5.10  (abort with ^G)
 Юникод
 ok
 4> </pre>
-<p>While strings can be input as Unicode characters, the language elements are still limited to the ISO-latin-1 character set. Only character constants and strings are allowed to be beyond that range:</p>
+<p>While strings can be input as Unicode characters, the language
+elements are still limited to the ISO-latin-1 character set. Only
+character constants and strings are allowed to be beyond that
+range:</p>
 <pre>
 $ <input>erl</input>
-Erlang R16B (erts-5.10) [source] [async-threads:0] [hipe] [kernel-poll:false]
+Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
-Eshell V5.10  (abort with ^G)
+Eshell V5.10.1  (abort with ^G)
 1> <input>$ξ</input>
 958
 2> <input>Юникод.</input>
@@ -181,91 +617,520 @@ Eshell V5.10  (abort with ^G)
 2> </pre>
 </section> 
 <section>
-<title>Unicode File Names</title>
-<p>Most modern operating systems support Unicode file names in some way or another. There are several different ways to do this and Erlang by default treats the different approaches differently:</p>
-<taglist>
-<tag>Mandatory Unicode file naming</tag>
-<item>
-<p>Windows and, for most common uses, MacOSX enforces Unicode support for file names. All files created in the filesystem have names that can consistently be interpreted. In MacOSX, all file names are retrieved in UTF-8 encoding, while Windows has selected an approach where each system call handling file names has a special Unicode aware variant, giving much the same effect. There are no file names on these systems that are not Unicode file names, why the default behavior of the Erlang VM is to work in &quot;Unicode file name translation mode&quot;, meaning that a file name can be given as a Unicode list and that will be automatically translated to the proper name encoding for the underlying operating and file system.</p>
-<p>Doing i.e. a <c>file:list_dir/1</c> on one of these systems may return Unicode lists with codepoints beyond 255, depending on the content of the actual filesystem.</p>
-<p>As the feature is fairly new, you may still stumble upon non core applications that cannot handle being provided with file names containing characters with codepoints larger than 255, but the core Erlang system should have no problems with Unicode file names.</p>
-</item>
-<tag>Transparent file naming</tag>
-<item>
-<p>Most Unix operating systems have adopted a simpler approach, namely that Unicode file naming is not enforced, but by convention. Those systems usually use UTF-8 encoding for Unicode file names, but do not enforce it. On such a system, a file name containing characters having codepoints between 128 and 255 may be named either as plain ISO-latin-1 or using UTF-8 encoding. As no consistency is enforced, the Erlang VM can do no consistent translation of all file names. If the VM would automatically select encoding based on heuristics, one could get unexpected behavior on these systems, therefore file names not being encoded in UTF-8 are returned as &quot;raw file names&quot; if Unicode file naming support is turned on.</p>
-<p>A raw file name is not a list, but a binary. Many non core applications still do not handle file names given as binaries, why such raw names are avoided by default. This means that systems having implemented Unicode file naming through transparent file systems and an UTF-8 convention, do not by default have Unicode file naming turned on. Explicitly turning Unicode file name handling on for these types of systems is considered experimental.</p>
-</item>
-</taglist>
-<p>The Unicode file naming support was introduced with OTP release R14B01. A VM operating in Unicode file mode can work with files having names in any language or character set (as long as it is supported by the underlying OS and file system). The Unicode character list is used to denote file or directory names and if the file system content is listed, you will also be able to get Unicode lists as return value. The support lies in the Kernel and STDLIB modules, why most applications (that does not explicitly require the file names to be in the ISO-latin-1 range) will benefit from the Unicode support without change.</p>
+  <title>Unicode File Names</title>
+  <p>Most modern operating systems support Unicode file names in some
+  way or another. There are several different ways to do this and
+  Erlang by default treats the different approaches differently:</p>
+  <taglist>
+    <tag>Mandatory Unicode file naming</tag>
+    <item>
+      <p>Windows and, for most common uses, MacOS X enforces Unicode
+      support for file names. All files created in the file system have
+      names that can consistently be interpreted. In MacOS X, all file
+      names are retrieved in UTF-8 encoding, while Windows has
+      selected an approach where each system call handling file names
+      has a special Unicode aware variant, giving much the same
+      effect. There are no file names on these systems that are not
+      Unicode file names, why the default behavior of the Erlang VM is
+      to work in &quot;Unicode file name translation mode&quot;,
+      meaning that a file name can be given as a Unicode list and that
+      will be automatically translated to the proper name encoding for
+      the underlying operating and file system.</p>
+      <p>Doing i.e. a <c>file:list_dir/1</c> on one of these systems
+      may return Unicode lists with code points beyond 255, depending
+      on the content of the actual file system.</p>
+      <p>As the feature is fairly new, you may still stumble upon non
+      core applications that cannot handle being provided with file
+      names containing characters with code points larger than 255, but
+      the core Erlang system should have no problems with Unicode file
+      names.</p>
+    </item>
+    <tag>Transparent file naming</tag>
+    <item>
+      <p>Most Unix operating systems have adopted a simpler approach,
+      namely that Unicode file naming is not enforced, but by
+      convention. Those systems usually use UTF-8 encoding for Unicode
+      file names, but do not enforce it. On such a system, a file name
+      containing characters having code points between 128 and 255 may
+      be named either as plain ISO-latin-1 or using UTF-8 encoding. As
+      no consistency is enforced, the Erlang VM can do no consistent
+      translation of all file names. If the VM would automatically
+      select encoding based on heuristics, one could get unexpected
+      behavior on these systems. By default, Erlang starts in "latin1"
+      file name mode on such systems, meaning bytewise encoding in file
+      names. This allows for list representation of all file names in
+      the system, but, for example, a file named "Östersund.txt", will
+      appear in <c>file:list_dir/1</c> as either "Östersund.txt" (if
+      the file name was encoded in bytewise ISO-Latin-1 by the program
+      creating the file, or more probably as
+      <c>[195,150,115,116,101,114,115,117,110,100]</c>, which is a
+      list containing UTF-8 bytes - not what you would want... If you
+      on the other hand use Unicode file name translation on such a
+      system, nun-UTF-8 file names will simply be ignored by functions
+      like <c>file:list_dir/1</c>. They can be retrieved with
+      <c>file:list_dir_all/1</c>, but wrongly encoded file names will
+      appear as &quot;raw file names&quot;.</p>
 
-<p>On Operating systems with mandatory Unicode file names, this means that you more easily conform to the file names of other (non Erlang) applications, and you can also process file names that, at least on Windows, were completely inaccessible (due to having names that could not be represented in ISO-latin-1). Also you will avoid creating incomprehensible file names on MacOSX as the vfs layer of the OS will accept all your file names as UTF-8 and will not rewrite them.</p>
+      <p>A raw file name is not a list, but a binary with undefined
+      encoding. Many non core applications still do not handle file
+      names given as binaries, why such raw names are avoided by
+      default. All functions in the <c>file</c> module taking
+      file names as input will handle raw file names, sending them more
+      or less uninterpreted to the underlying OS API, but only the
+      functions with names ending in <c>_all</c> will produce raw file
+      names. As special considerations will have to be taken by tools
+      etc to be able to handle non-UTF-8 encoded file names when
+      Unicode file name translation is activated on systems with
+      transparent file naming, the default is to leave such
+      translation off on such operating systems.</p>
+    </item>
+  </taglist>
 
-<p>For most systems, turning on Unicode file name translation is no problem even if it uses transparent file naming. Very few systems have mixed file name encodings. A consistent UTF-8 named system will work perfectly in Unicode file name mode. It is still however considered experimental in R14B01. Unicode file name translation is turned on with the <c>+fnu</c> switch to the <c>erl</c> program. If the VM is started in Unicode file name translation mode, <c>file:native_name_encoding/0</c> will return the atom <c>utf8</c>.</p>
+  <p>The Unicode file naming support was introduced with OTP release
+  R14B01. A VM operating in Unicode file name translation mode can
+  work with files having names in any language or character set (as
+  long as it is supported by the underlying OS and file system). The
+  Unicode character list is used to denote file or directory names and
+  if the file system content is listed, you will also be able to get
+  Unicode lists as return value. The support lies in the Kernel and
+  STDLIB modules, why most applications (that does not explicitly
+  require the file names to be in the ISO-latin-1 range) will benefit
+  from the Unicode support without change.</p>
 
-<p>In Unicode file name mode, file names given to the BIF <c>open_port/2</c> with the option <c>{spawn_executable,...}</c> are also interpreted as Unicode. So is the parameter list given in the <c>args</c> option available when using <c>spawn_executable</c>. The UTF-8 translation of arguments can be avoided using binaries, see the discussion about raw file names below.</p>
+  <p>On Operating systems with mandatory Unicode file names, this
+  means that you more easily conform to the file names of other (non
+  Erlang) applications, and you can also process file names that, at
+  least on Windows, were completely inaccessible (due to having names
+  that could not be represented in ISO-latin-1). Also you will avoid
+  creating incomprehensible file names on MacOS X as the vfs layer of
+  the OS will accept all your file names as UTF-8 and will not rewrite
+  them.</p>
 
-<p>It is worth noting that the file <c>encoding</c> options given when opening a file has nothing to do with the file <em>name</em> encoding convention. You can very well open files containing UTF-8 but having file names in ISO-latin-1 or vice versa.</p>
+  <p>For most systems, turning on Unicode file name translation is no
+  problem even if it uses transparent file naming. Very few systems
+  have mixed file name encodings. A consistent UTF-8 named system will
+  work perfectly in Unicode file name mode. It was still however
+  considered experimental in R14B01 and is still not the default on
+  such systems. Unicode file name translation is turned on with the
+  <c>+fnu</c> switch to the <c>erl</c> program. If the VM is started
+  in Unicode file name translation mode,
+  <c>file:native_name_encoding/0</c> will return the atom
+  <c>utf8</c>. The <c>+fnu</c> switch can be followed by <c>w</c>,
+  <c>i</c> or <c>e</c>, to control how wrongly encoded file names are
+  to be reported. <c>w</c> means that a warning is sent to the
+  <c>error_logger</c> whenever a wrongly encoded file name is
+  "skipped" in directory listings, <c>i</c> means that those wrongly
+  encoded file names are silently ignored and <c>e</c> means that the
+  API function will return an error whenever a wrongly encoded file
+  (or directory) name is encountered. <c>w</c> is the default.</p>
 
-<note><p>Erlang drivers and NIF shared objects still can not be named with names containing codepoints beyond 127. This is a known limitation to be removed in a future release. Erlang modules however can, but it is definitely not a good idea and is still considered experimental.</p></note> 
+  <p>In Unicode file name mode, file names given to the BIF
+  <c>open_port/2</c> with the option <c>{spawn_executable,...}</c> are
+  also interpreted as Unicode. So is the parameter list given in the
+  <c>args</c> option available when using <c>spawn_executable</c>. The
+  UTF-8 translation of arguments can be avoided using binaries, see
+  the discussion about raw file names below.</p>
+
+  <p>It is worth noting that the file <c>encoding</c> options given
+  when opening a file has nothing to do with the file <em>name</em>
+  encoding convention. You can very well open files containing data
+  encoded in UTF-8 but having file names in bytewise (latin1) encoding
+  or vice versa.</p>
+
+  <note><p>Erlang drivers and NIF shared objects still can not be
+  named with names containing code points beyond 127. This is a known
+  limitation to be removed in a future release. Erlang modules however
+  can, but it is definitely not a good idea and is still considered
+  experimental.</p></note>
 
 <section>
-<title>Notes About Raw File Names and Automatic File Name Conversion</title>
+  <title>Notes About Raw File Names and Automatic File Name Conversion</title>
 
-<p>Raw file names is introduced together with Unicode file name support in erts-5.8.2 (OTP R14B01). The reason &quot;raw file names&quot; is introduced in the system is to be able to consistently represent file names given in different encodings on the same system. Having the VM automatically translate a file name that is not in UTF-8 to a list of Unicode characters might seem practical, but this would open up for both duplicate file names and other inconsistent behavior. Consider a directory containing a file named &quot;björn&quot; in ISO-latin-1, while the Erlang VM is operating in Unicode file name mode (and therefore expecting UTF-8 file naming). The ISO-latin-1 name is not valid UTF-8 and one could be tempted to think that automatic conversion in for example <c>file:list_dir/1</c> is a good idea. But what would happen if we later tried to open the file and have the name as a Unicode list (magically converted from the ISO-latin-1 file name)? The VM will convert the file name given to UTF-8, as this is the encoding expected. Effectively this means trying to open the file named &lt;&lt;&quot;björn&quot;/utf8&gt;&gt;. This file does not exist, and even if it existed it would not be the same file as the one that was listed. We could even create two files named &quot;björn&quot;, one named in the UTF-8 encoding and one not. If <c>file:list_dir/1</c> would automatically convert the ISO-latin-1 file name to a list, we would get two identical file names as the result. To avoid this, we need to differentiate between file names being properly encoded according to the Unicode file naming convention (i.e. UTF-8) and file names being invalid under the encoding. This is done by representing invalid encoding as &quot;raw&quot; file names, i.e. as binaries.</p>
-<p>The core system of Erlang (Kernel and STDLIB) accepts raw file names except for loadable drivers and executables invoked using <c>open_port({spawn, ...} ...)</c>. <c>open_port({spawn_executable, ...} ...)</c> however does accept them. As mentioned earlier, the arguments given in the option list to <c>open_port({spawn_executable, ...} ...)</c> undergo the same conversion as the file names, meaning that the executable will be provided with arguments in UTF-8 as well. This translation is avoided consistently with how the file names are treated, by giving the argument as a binary.</p>
-<p>To force Unicode file name translation mode on systems where this is not the default is considered experimental in OTP R14B01 due to the raw file names possibly being a new experience to the programmer and that the non core applications of OTP are not tested for compliance with raw file names yet. Unicode file name translation is expected to be default in future releases.</p>
-<p>If working with raw file names, one can still conform to the encoding convention of the Erlang VM by using the <c>file:native_name_encoding/0</c> function, which returns either the atom <c>latin1</c> or the atom <c>utf8</c> depending on the file name translation mode. On Linux, a VM started without explicitly stating the file name translation mode will default to <c>latin1</c> as the native file name encoding, why file names on the disk encoded as UTF-8 will be returned as a list of the names interpreted as ISO-latin-1. The &quot;UTF-8 list&quot; is not a practical type for displaying or operating on in Erlang, but it is backward compatible and usable in all functions requiring a file name. On Windows and MacOSX, the default behavior is that of file name translation, why the <c>file:native_name_encoding/0</c> by default returns <c>utf8</c> on those systems (the fact that Windows actually does not use UTF-8 on the file system level can safely be ignored by the Erlang programmer). The default behavior can be changed using the <c>+fnu</c> or <c>+fnl</c> options to the VM, see the <seealso marker="erts:erl"><c>erl(1)</c></seealso> command manual page.</p> 
-<p>Even if you are operating without Unicode file naming translation automatically done by the VM, you can access and create files with names in UTF-8 encoding by using raw file names encoded as UTF-8. Enforcing the UTF-8 encoding regardless of the mode the Erlang VM is started in might, in some circumstances be a good idea, as the convention of using UTF-8 file names is spreading.</p>  
+  <p>Raw file names was introduced together with Unicode file name
+  support in erts-5.8.2 (OTP R14B01). The reason &quot;raw file
+  names&quot; was introduced in the system was to be able to
+  consistently represent file names given in different encodings on
+  the same system. Having the VM automatically translate a file name
+  that is not in UTF-8 to a list of Unicode characters might seem
+  practical, but this would open up for both duplicate file names and
+  other inconsistent behavior. Consider a directory containing a file
+  named &quot;björn&quot; in ISO-latin-1, while the Erlang VM is
+  operating in Unicode file name mode (and therefore expecting UTF-8
+  file naming). The ISO-latin-1 name is not valid UTF-8 and one could
+  be tempted to think that automatic conversion in for example
+  <c>file:list_dir/1</c> is a good idea. But what would happen if we
+  later tried to open the file and have the name as a Unicode list
+  (magically converted from the ISO-latin-1 file name)? The VM will
+  convert the file name given to UTF-8, as this is the encoding
+  expected. Effectively this means trying to open the file named
+  &lt;&lt;&quot;björn&quot;/utf8&gt;&gt;. This file does not exist,
+  and even if it existed it would not be the same file as the one that
+  was listed. We could even create two files named &quot;björn&quot;,
+  one named in the UTF-8 encoding and one not. If
+  <c>file:list_dir/1</c> would automatically convert the ISO-latin-1
+  file name to a list, we would get two identical file names as the
+  result. To avoid this, we need to differentiate between file names
+  being properly encoded according to the Unicode file naming
+  convention (i.e. UTF-8) and file names being invalid under the
+  encoding. By the common <c>file:list_dir/1</c> function, the wrongly
+  encoded file names are simply ignored in Unicode file name
+  translation mode, but by the <c>file:list_dir_all/1</c> function,
+  the file names with invalid encoding are returned as &quot;raw&quot;
+  file names, i.e. as binaries.</p> 
+
+  <p>The Erlang <c>file</c> module accepts raw file names as
+  input. <c>open_port({spawn_executable, ...} ...)</c> also accepts
+  them. As mentioned earlier, the arguments given in the option list
+  to <c>open_port({spawn_executable, ...}  ...)</c> undergo the same
+  conversion as the file names, meaning that the executable will be
+  provided with arguments in UTF-8 as well. This translation is
+  avoided consistently with how the file names are treated, by giving
+  the argument as a binary.</p>
+
+  <p>To force Unicode file name translation mode on systems where this
+  is not the default was considered experimental in OTP R14B01 due to
+  the fact that the initial implementation did not ignore wrongly
+  encoded file names, so that raw file names could spread unexpectedly
+  throughout the system. Beginning with R16B, the wrongly encoded file
+  names are only retrieved by special functions
+  (e.g. <c>file:list_dir_all/1</c>, so the impact on existing code is
+  much lower, why it is now supported. Unicode file name translation
+  is expected to be default in future releases.</p>
+
+  <p>If working with raw file names, one can still conform to the
+  encoding convention of the Erlang VM by using the
+  <c>file:native_name_encoding/0</c> function, which returns either
+  the atom <c>latin1</c> or the atom <c>utf8</c> depending on the file
+  name translation mode. On Linux, a VM started without explicitly
+  stating the file name translation mode will default to <c>latin1</c>
+  as the native file name encoding. On Windows and MacOS X, the default
+  behavior is that of Unicode file name translation, why the
+  <c>file:native_name_encoding/0</c> by default returns <c>utf8</c> on
+  those systems (the fact that Windows actually does not use UTF-8 on
+  the file system level can safely be ignored by the Erlang
+  programmer). The default behavior can, as been stated before, be
+  changed using the <c>+fnu</c> or <c>+fnl</c> options to the VM, see
+  the <seealso marker="erts:erl"><c>erl(1)</c></seealso> command
+  manual page.</p>
+
+  <p>Even if you are operating without Unicode file naming translation
+  automatically done by the VM, you can access and create files with
+  names in UTF-8 encoding by using raw file names encoded as
+  UTF-8. Enforcing the UTF-8 encoding regardless of the mode the
+  Erlang VM is started in might, in some circumstances be a good idea,
+  as the convention of using UTF-8 file names is spreading.</p>
 </section>
 <section>
-<title>Notes About MacOSX</title>
-<p>MacOSXs vfs layer enforces UTF-8 file names in a quite aggressive way. Older versions did this by simply refusing to create non UTF-8 conforming file names, while newer versions replace offending bytes with the sequence &quot;%HH&quot;, where HH is the original character in hexadecimal notation. As Unicode translation is enabled by default on MacOSX, the only way to come up against this is to either start the VM with the <c>+fnl</c> flag or to use a raw file name in <c>latin1</c> encoding. In that case, the file can not be opened with the same name as the one used to create this. The problem is by design in newer versions of MacOSX.</p>
-<p>MacOSX also reorganizes the names of files so that the representation of accents etc is denormalized, i.e. the character <c>ö</c> is represented as the codepoints [111,776], where 111 is the character <c>o</c> and 776 is a special accent character. This type of denormalized Unicode is otherwise very seldom used and Erlang normalizes those file names on retrieval, so that denormalized file names is not passed up to the Erlang application. In Erlang the file name &quot;björn&quot; is retrieved as [98,106,246,114,110], not as [98,106,117,776,114,110], even though the file system might think differently.</p>
+  <title>Notes About MacOS X</title>
+  <p>MacOS X's vfs layer enforces UTF-8 file names in a quite aggressive
+  way. Older versions did this by simply refusing to create non UTF-8
+  conforming file names, while newer versions replace offending bytes
+  with the sequence &quot;%HH&quot;, where HH is the original
+  character in hexadecimal notation. As Unicode translation is enabled
+  by default on MacOS X, the only way to come up against this is to
+  either start the VM with the <c>+fnl</c> flag or to use a raw file
+  name in <c>latin1</c> encoding. In that case, the file can not be
+  opened with the same name as the one used to create this. The
+  problem is by design in newer versions of MacOS X.</p>
+
+  <p>MacOS X also reorganizes the names of files so that the
+  representation of accents etc is using the "combining characters",
+  i.e. the character <c>ö</c> is represented as the code points
+  [111,776], where 111 is the character <c>o</c> and 776 is the
+  special accent character "combining diaeresis". This way of
+  normalizing Unicode is otherwise very seldom used and Erlang
+  normalizes those file names in the opposite way upon retrieval, so
+  that file names using combining accents are not passed up to the
+  Erlang application. In Erlang the file name &quot;björn&quot; is
+  retrieved as [98,106,246,114,110], not as [98,106,117,776,114,110],
+  even though the file system might think differently. The
+  normalization into combining accents are redone when actually
+  accessing files, so this can usually be ignored by the Erlang
+  programmer.</p>
 </section>
 </section>
 <section>
-<title>Unicode in Environment Variables and Parameters</title>
-<p>Environment variables and their interpretation is handled much in the same way as file names. If Unicode file names are enabled, environment variables as well as parameters to the Erlang VM are expected to be in Unicode.</p>
-<p>If Unicode file names are enabled, the calls to <seealso marker="kernel:os#getenv/0"><c>os:getenv/0</c></seealso>, <seealso marker="kernel:os#getenv/1"><c>os:getenv/1</c></seealso> and <seealso marker="kernel:os#putenv/2"><c>os:putenv/2</c></seealso> will handle Unicode strings. On Unix-like platforms, the built-in functions will translate environment variables in UTF-8 to/from Unicode strings, possibly with codepoints > 255. On Windows the Unicode versions of the environment system API will be used, also allowing for codepoints > 255.</p>
-<p>On Unix-like operating systems, parameters are expected to be UTF-8 without translation if Unicode file names are enabled.</p>
+  <title>Unicode in Environment Variables and Parameters to erl</title>
+  <p>Environment variables and their interpretation is handled much in
+  the same way as file names. If Unicode file names are enabled,
+  environment variables as well as parameters to the Erlang VM are
+  expected to be in Unicode.</p>
+  <p>If Unicode file names are enabled, the calls to 
+  <seealso marker="kernel:os#getenv/0"><c>os:getenv/0</c></seealso>, 
+  <seealso marker="kernel:os#getenv/1"><c>os:getenv/1</c></seealso> and
+  <seealso marker="kernel:os#putenv/2"><c>os:putenv/2</c></seealso>
+  will handle Unicode strings. On Unix-like platforms, the built-in
+  functions will translate environment variables in UTF-8 to/from
+  Unicode strings, possibly with code points > 255. On Windows the
+  Unicode versions of the environment system API will be used, also
+  allowing for code points > 255.</p>
+  <p>On Unix-like operating systems, parameters are expected to be
+  UTF-8 without translation if Unicode file names are enabled.</p>
 </section>
 <section>
-<title>Unicode-aware Modules</title>
-<p>Most of the modules in Erlang/OTP are of course Unicode-unaware in the sense that they have no notion of Unicode and really should not have. Typically they handle non-textual or byte-oriented data (like <c>gen_tcp</c> etc).</p>
-<p>Modules that actually handle textual data (like <c>io_lib</c>, <c>string</c> etc) are sometimes subject to conversion or extension to be able to handle Unicode characters.</p>
-<p>Fortunately, most textual data has been stored in lists and range checking has been sparse, why modules like <c>string</c> works well for Unicode lists with little need for conversion or extension.</p>
-<p>Some modules are however changed to be explicitly Unicode-aware. These modules include:</p>
-<taglist>
-<tag><c>unicode</c></tag>
-<item>
-<p>The module <seealso marker="stdlib:unicode">unicode</seealso> is obviously Unicode-aware. It contains functions for conversion between different Unicode formats as well as some utilities for identifying byte order marks. Few programs handling Unicode data will survive without this module.</p>
-</item>
-<tag><c>io</c></tag>
-<item>
-<p>The <seealso marker="stdlib:io">io</seealso> module has been extended along with the actual I/O-protocol to handle Unicode data. This means that several functions require binaries to be in UTF-8 and there are modifiers to formatting control sequences to allow for outputting of Unicode strings.</p>
-</item>
-<tag><c>file</c>, <c>group</c>, <c>user</c></tag>
-<item>
-<p>I/O-servers throughout the system are able both to handle Unicode data and has options for converting data upon actual output or input to/from the device. As shown earlier, the <seealso marker="stdlib:shell">shell</seealso> has support for Unicode terminals and the  <seealso marker="kernel:file">file</seealso> module allows for translation to and from various Unicode formats on disk.</p>
-<p>The actual reading and writing of files with Unicode data is however not best done with the <c>file</c> module as its interface is byte oriented. A file opened with a Unicode encoding (like UTF-8), is then best read or written using the <seealso marker="stdlib:io">io</seealso> module.</p>
-</item>
-<tag><c>re</c></tag>
-<item>
-<p>The <seealso marker="stdlib:re">re</seealso> module allows for matching Unicode strings as a special option. As the library is actually centered on matching in binaries, the Unicode support is UTF-8-centered.</p>
-</item>
-<tag><c>wx</c></tag>
-<item>
-<p>The <seealso marker="wx:wx">wx</seealso> graphical library has extensive support for Unicode text</p>
-</item>
-</taglist>
-<p>The module <seealso marker="stdlib:string">string</seealso> works perfect for Unicode strings as well as for ISO-latin-1 strings with the exception of the language-dependent <seealso marker="stdlib:string#to_upper/1">to_upper</seealso> and <seealso marker="stdlib:string#to_lower/1">to_lower</seealso> functions, which are only correct for the ISO-latin-1 character set. Actually they can never function correctly for Unicode characters in their current form, there are language and locale issues as well as multi-character mappings to consider when conversion text between cases. Converting case in an international environment is a big subject not yet addressed in OTP.</p>
+  <title>Unicode-aware Modules</title>
+  <p>Most of the modules in Erlang/OTP are of course Unicode-unaware
+  in the sense that they have no notion of Unicode and really should
+  not have. Typically they handle non-textual or byte-oriented data
+  (like <c>gen_tcp</c> etc).</p>
+  <p>Modules that actually handle textual data (like <c>io_lib</c>,
+  <c>string</c> etc) are sometimes subject to conversion or extension
+  to be able to handle Unicode characters.</p>
+  <p>Fortunately, most textual data has been stored in lists and range
+  checking has been sparse, why modules like <c>string</c> works well
+  for Unicode lists with little need for conversion or extension.</p>
+  <p>Some modules are however changed to be explicitly
+  Unicode-aware. These modules include:</p>
+  <taglist>
+    <tag><c>unicode</c></tag>
+    <item>
+      <p>The module <seealso marker="stdlib:unicode">unicode</seealso>
+      is obviously Unicode-aware. It contains functions for conversion
+      between different Unicode formats as well as some utilities for
+      identifying byte order marks. Few programs handling Unicode data
+      will survive without this module.</p>
+    </item>
+    <tag><c>io</c></tag>
+    <item>
+      <p>The <seealso marker="stdlib:io">io</seealso> module has been
+      extended along with the actual I/O-protocol to handle Unicode
+      data. This means that several functions require binaries to be
+      in UTF-8 and there are modifiers to formatting control sequences
+      to allow for outputting of Unicode strings.</p>
+    </item>
+    <tag><c>file</c>, <c>group</c>, <c>user</c></tag>
+    <item>
+      <p>I/O-servers throughout the system are able both to handle
+      Unicode data and has options for converting data upon actual
+      output or input to/from the device. As shown earlier, the
+      <seealso marker="stdlib:shell">shell</seealso> has support for
+      Unicode terminals and the <seealso
+      marker="kernel:file">file</seealso> module allows for
+      translation to and from various Unicode formats on disk.</p>
+      <p>The actual reading and writing of files with Unicode data is
+      however not best done with the <c>file</c> module as its
+      interface is byte oriented. A file opened with a Unicode
+      encoding (like UTF-8), is then best read or written using the
+      <seealso marker="stdlib:io">io</seealso> module.</p>
+    </item>
+    <tag><c>re</c></tag>
+    <item>
+      <p>The <seealso marker="stdlib:re">re</seealso> module allows
+      for matching Unicode strings as a special option. As the library
+      is actually centered on matching in binaries, the Unicode
+      support is UTF-8-centered.</p>
+    </item>
+    <tag><c>wx</c></tag>
+    <item>
+      <p>The <seealso marker="wx:wx">wx</seealso> graphical library
+      has extensive support for Unicode text</p>
+    </item>
+  </taglist>
+  <p>The module <seealso marker="stdlib:string">string</seealso> works
+  perfect for Unicode strings as well as for ISO-latin-1 strings with
+  the exception of the language-dependent 
+  <seealso marker="stdlib:string#to_upper/1">to_upper</seealso> and 
+  <seealso marker="stdlib:string#to_lower/1">to_lower</seealso> functions,
+  which are only correct for the ISO-latin-1 character set. Actually
+  they can never function correctly for Unicode characters in their
+  current form, there are language and locale issues as well as
+  multi-character mappings to consider when conversion text between
+  cases. Converting case in an international environment is a big
+  subject not yet addressed in OTP.</p>
 </section>
 <section>
-<title>Unicode Recipes</title>
-<p>When starting with Unicode, one often stumbles over some common issues. I try to outline some methods of dealing with Unicode data in this section.</p>
+  <title>Unicode data in files</title>
+  <p>The fact that Erlang as such can handle Unicode data in many forms
+  does not automatically mean that the content of any file can be
+  Unicode text. The external entities such as ports or io_servers are
+  not generally Unicode capable.</p>
+  <p>Ports are always byte oriented, so before sending data that you
+  are not sure is bytewise encoded to a port, make sure to encode it
+  in a proper Unicode encoding. Sometimes this will mean that only
+  part of the data shall be encoded as e.g. UTF-8, some parts may be
+  binary data (like a length indicator) or something else that shall
+  not undergo character encoding, so no automatic translation is
+  present.</p>
+  <p>io_servers behave a little differently. The io_servers connected
+  to terminals (or stdout) can usually cope with Unicode data
+  regardless of the <c>encoding</c> option. This is convenient when
+  one expects a modern environment but do not want to crash when
+  writing to a archaic terminal or pipe. Files on the other hand are
+  more picky. A file can have an encoding option which makes it
+  generally usable by the io-module (e.g. <c>{encoding,utf8}</c>), but
+  is by default opened as a byte oriented file. The <seealso
+  marker="kernel:file">file</seealso> module is byte oriented, why only
+  ISO-Latin-1 characters can be written using that module. The
+  <seealso marker="stdlib:io">io</seealso> module is the one to use if
+  Unicode data is to be output to a file with other <c>encoding</c>
+  than <c>latin1</c> (a.k.a. bytewise encoding). It is slightly
+  confusing that a file opened with
+  e.g. <c>file:open(Name,[read,{encoding,utf8}])</c>, cannot be
+  properly read using <c>file:read(File,N)</c> but you have to use the
+  <c>io</c> module to retrieve the Unicode data from it. The reason is
+  that <c>file:read</c> and <c>file:write</c> (and friends) are purely
+  byte oriented, and should so be, as that is the way to access
+  files other than text files - byte by byte. Just as with ports, you
+  can of course write encoded data into a file by "manually" converting
+  the data to the encoding of choice (using the <seealso
+  marker="stdlib:unicode">unicode</seealso> module or the bit syntax)
+  and then output it on a bytewise encoded (<c>latin1</c>) file.</p>
+  <p>The rule of thumb is that the <seealso
+  marker="kernel:file">file</seealso> module should be used for files
+  opened for bytewise access (<c>{encoding,latin1}</c>) and the
+  <seealso marker="stdlib:io">io</seealso> module should be used when
+  accessing files with any other encoding
+  (e.g. <c>{encoding,uf8}</c>).</p>
+
+  <p>Functions reading Erlang syntax from files generally recognize
+  the <c>coding:</c> comment and can therefore handle Unicode data on
+  input. When writing Erlang Terms to a file, you should insert
+  such comments when applicable:</p>
+  <pre>
+$ <input>erl +fna +pc unicode</input>
+Erlang R16B (erts-5.10.1) [source]  [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.10.1  (abort with ^G)
+1> <input>file:write_file("test.term",&lt;&lt;"%% coding: utf-8\n[{\"Юникод\",4711}].\n"/utf8&gt;&gt;).</input>
+ok
+2> <input>file:consult("test.term").</input>   
+{ok,[[{"Юникод",4711}]]}
+  </pre>
+</section>
 <section>
-<title>Byte Order Marks</title>
-<p>A common method of identifying encoding in text-files is to put a byte order mark (BOM) first in the file. The BOM is the codepoint 16#FEFF encoded in the same way as the rest of the file. If such a file is to be read, the first few bytes (depending on encoding) is not part of the actual text. This code outlines how to open a file which is believed to have a BOM and set the files encoding and position for further sequential reading (preferably using the <seealso marker="stdlib:io">io</seealso> module). Note that error handling is omitted from the code:</p>
+  <title>Summary of options and environment variables concerning Unicode</title>
+  <p>The Unicode support is controlled by both command line switches,
+  some standard environment variables and the version of OTP you are
+  using. Most options affect mainly the way Unicode data is displayed,
+  not the actual functionality of the API's in the standard
+  libraries. This means that actual Erlang programs usually do not
+  need to concern themselves with these options, they are more for the
+  development environment. An Erlang program can be written so that it
+  works well regardless of the type of system or the Unicode options
+  that are in effect.</p>
+
+  <p>Here follows a summary of the settings affecting Unicode:</p>
+  <taglist>
+    <tag>The <c>LANG</c> and <c>LC_CTYPE</c> environment variables</tag>
+    <item>
+      <p>The language setting in the OS mainly affects the shell. The
+      terminal (i.e. the group_leader) will operate with <c>{encoding,
+      unicode}</c> only if the environment tells it that UTF-8 is
+      allowed. This setting should correspond to the actual terminal
+      you are using.</p>
+      <p>The environment can also affect file name interpretation, if
+      Erlang is started with the <c>+fna</c> flag.</p>
+      <p>You can check the setting of this by calling
+      <c>io:getopts(group_leader()).</c>, you will get an option list
+      containing <c>{encoding,unicode}</c> or
+      <c>{encoding,latin1}</c>.</p>
+    </item>
+    <tag>The <c>+pc </c>{<c>unicode</c>|<c>latin1</c>} flag to 
+    <seealso marker="erts:erl"><c>erl(1)</c></seealso></tag>
+    <item>
+      <p>This flag affects what is interpreted as string data when
+      doing heuristic string detection in the shell and in
+      <c>io</c>/<c>io_lib:format</c> with the <c>"~tp"</c> and
+      <c>~tP</c> formatting instructions, as described above.</p>
+      <p>You can check this option by calling io:printable_range/0,
+      which will in R16 return <c>unicode</c> or <c>latin1</c>. To be
+      compatible with future (expected) extensions to the settings,
+      one should rather use <c>io_lib:printable_list/1</c> to check if
+      a list is printable according to the setting. That function will
+      take into account new possible settings returned from
+      <c>io:printable_range/0</c>.</p>
+    </item>
+    <tag>The <c>+fn</c>{<c>l</c>|<c>a</c>|<c>u</c>}
+    [{<c>w</c>|<c>i</c>|<c>e</c>}] 
+    flag to <seealso marker="erts:erl"><c>erl(1)</c></seealso></tag>
+    <item>
+      <p>This flag affects how the file names are to be interpreted. On
+      operating systems with transparent file naming, this has to be
+      specified to allow for file naming in Unicode characters (and
+      for correct interpretation of file names containing characters
+      &gt; 255.</p>
+      <p><c>+fnl</c> means bytewise interpretation of file names, which
+      was the usual way to represent ISO-Latin-1 file names before
+      UTF-8 file naming got widespread. This is the default on all
+      Unix-like operating systems except MacOS X.</p>
+      <p><c>+fnu</c> means that file names are encoded in UTF-8, which
+      is nowadays the common scheme (although not enforced).</p>
+      <p><c>+fna</c> means that you automatically select between
+      <c>+fnl</c> and <c>+fnu</c>, based on the <c>LANG</c> and
+      <c>LC_CTYPE</c> environment variables. This is optimistic
+      heuristics indeed, nothing enforces a user to have a terminal
+      with the same encoding as the file system, but usually, this is
+      the case. This might be the default behavior in a future
+      release.</p>
+
+      <p>The additional {<c>w</c>|<c>i</c>|<c>e</c>} tells the
+      file module how to handle file names that are not interpretable
+      in the expected encoding. This affects <c>file:list_dir/1</c>
+      and <c>file:read_link/1</c>, that will never return such
+      file names. If <c>+fnuw</c> (or <c>+fnaw</c> in an UTF-8
+      environment) is given, invalid file names encountered will result
+      in a warning being sent to the error logger (and all correctly
+      encoded names in a directory will be returned by
+      <c>list_dir/1</c>).  If <c>+fnui</c> (or <c>+fnai</c> in an
+      UTF-8 environment) is given, all wrongly encoded file names are
+      silently ignored. If <c>+fnue</c> (or <c>+fnae</c> in an UTF-8
+      environment) is given, directories containing wrongly encoded
+      file names will result in an error tuple being returned from
+      <c>file:list_dir/1</c>. Note that <c>file:read_link/1</c> will always
+      return an error if the link points to an invalid file name.</p>
+
+      <p>The file name translation mode can be read with the
+      <c>file:native_name_encoding/0</c> function, which returns
+      <c>latin1</c> (meaning bytewise encoding) or <c>utf8</c>.</p>
+    </item>
+    <tag><seealso marker="stdlib:epp#default_encoding/0">epp:default_encoding()</seealso></tag>
+    <item>
+      <p>This function returns the default encoding for Erlang source
+      files (if no encoding comment is present) in the currently
+      running release. For R16 this returns <c>latin1</c> (meaning
+      bytewise encoding). In R17 and forward it is expected to return
+      <c>utf8</c>.</p>
+      <p>The encoding of each file can be specified using comments as
+      described in 
+      <seealso marker="stdlib:epp#encoding">epp(3)</seealso>.</p>
+    </item>
+    <tag><seealso marker="stdlib:io#setopts/1">io:setopts</seealso> and the <c>-oldshell</c>/<c>-noshell</c> flags.</tag>
+    <item>
+      <p>When Erlang is started with <c>-oldshell</c> or
+      <c>-noshell</c>, the io_server for <c>standard_io</c> is default
+      set to bytewise encoding, while an interactive shell defaults to
+      what the environment variables says.</p>
+      <p>With the <c>io:setopts/2</c> function you can set the
+      encoding of a file or other io_server. This can also be set when
+      opening a file. Setting the terminal (or other
+      <c>standard_io</c> server) unconditionally to the option
+      <c>[{encoding,utf8}]</c> will for example make UTF-8 encoded characters
+      be written to the device regardless of how Erlang was started or
+      the users environment.</p>
+      <p>Opening files with <c>encoding</c> option is convenient when
+      writing or reading text files in a known encoding.</p>
+      <p>You can retrieve the <c>encoding</c> setting for an io_server
+      using <seealso
+      marker="stdlib:io#getopts/1">io:getopts</seealso>.</p>
+    </item>
+  </taglist>
+</section>
+<section>
+  <title>Unicode Recipes</title>
+  <p>When starting with Unicode, one often stumbles over some common
+  issues. I try to outline some methods of dealing with Unicode data
+  in this section.</p>
+  <section>
+    <title>Byte Order Marks</title>
+    <p>A common method of identifying encoding in text-files is to put
+    a byte order mark (BOM) first in the file. The BOM is the
+    code point 16#FEFF encoded in the same way as the rest of the
+    file. If such a file is to be read, the first few bytes (depending
+    on encoding) is not part of the actual text. This code outlines
+    how to open a file which is believed to have a BOM and set the
+    files encoding and position for further sequential reading
+    (preferably using the <seealso marker="stdlib:io">io</seealso>
+    module). Note that error handling is omitted from the code:</p>
 <code>
 open_bom_file_for_reading(File) -&gt;
     {ok,F} = file:open(File,[read,binary]),
@@ -284,11 +1149,11 @@ open_bom_file_for_writing(File,Encoding) -&gt;
     io:setopts(F,[{encoding,Encoding}]),
     {ok,F}.
 </code>
-<p>In both cases the file is then best processed using the <c>io</c> module, as the functions in <c>io</c> can handle codepoints beyond the ISO-latin-1 range.</p>
+<p>In both cases the file is then best processed using the <c>io</c> module, as the functions in <c>io</c> can handle code points beyond the ISO-latin-1 range.</p>
 </section>
 <section>
 <title>Formatted Input and Output</title>
-<p>When reading and writing to Unicode-aware entities, like the User or a file opened for Unicode translation, you will probably want to format text strings using the functions in <seealso marker="stdlib:io">io</seealso> or <seealso marker="stdlib:io_lib">io_lib</seealso>. For backward compatibility reasons, these functions do not accept just any list as a string, but require a special <em>translation modifier</em> when working with Unicode texts. The modifier is <c>t</c>. When applied to the <c>s</c> control character in a formatting string, it accepts all Unicode codepoints and expect binaries to be in UTF-8:</p>
+<p>When reading and writing to Unicode-aware entities, like the User or a file opened for Unicode translation, you will probably want to format text strings using the functions in <seealso marker="stdlib:io">io</seealso> or <seealso marker="stdlib:io_lib">io_lib</seealso>. For backward compatibility reasons, these functions do not accept just any list as a string, but require a special <em>translation modifier</em> when working with Unicode texts. The modifier is <c>t</c>. When applied to the <c>s</c> control character in a formatting string, it accepts all Unicode code points and expect binaries to be in UTF-8:</p>
 <pre>
 1> <input>io:format("~ts~n",[&lt;&lt;"åäö"/utf8&gt;&gt;]).</input>
 åäö
@@ -296,24 +1161,37 @@ ok
 2> <input>io:format("~s~n",[&lt;&lt;"åäö"/utf8&gt;&gt;]).</input>
 Ã¥Ã¤Ã¶
 ok</pre>
-<p>Obviously the second <c>io:format/2</c> gives undesired output because the UTF-8 binary is not in latin1. Because ISO-latin-1 is still the defined character set of Erlang, the non prefixed <c>s</c> control character expects ISO-latin-1 in binaries as well as lists.</p>
-<p>As long as the data is always lists, the <c>t</c> modifier can be used for any string, but when binary data is involved, care must be taken to make the right choice of formatting characters.</p>
+<p>Obviously the second <c>io:format/2</c> gives undesired output because the UTF-8 binary is not in latin1. For backward compatibility, the non prefixed <c>s</c> control character expects bytewise encoded ISO-latin-1 characters in binaries and lists containing only code points &lt; 256.</p>
+<p>As long as the data is always lists, the <c>t</c> modifier can be used for any string, but when binary data is involved, care must be taken to make the right choice of formatting characters. A bytewise encoded binary will also be interpreted as a string and printed even when using <c>~ts</c>, but it might be mistaken for a valid UTF-8 string and one should therefore avoid using the <c>~ts</c> control if the binary contains bytewise encoded characters and not UTF-8.</p>
 <p>The function <c>format/2</c> in <c>io_lib</c> behaves similarly. This function is defined to return a deep list of characters and the output could easily be converted to binary data for outputting on a device of any kind by a simple <c>erlang:list_to_binary/1</c>. When the translation modifier is used, the list can however contain characters that cannot be stored in one byte. The call to <c>erlang:list_to_binary/1</c> will in that case fail. However, if the I/O server you want to communicate with is Unicode-aware, the list returned can still be used directly:</p>
 <pre>
-$ <input>erl</input>
-Erlang R16B (erts-5.10) [source] [async-threads:0] [hipe] [kernel-poll:false]
+$ <input>erl +pc unicode</input>
+Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
-Eshell V5.10 (abort with ^G)
+Eshell V5.10.1 (abort with ^G)
 1> <input>io_lib:format("~ts~n", ["Γιούνικοντ"]).</input>
 ["Γιούνικοντ","\n"]
 2> <input>io:put_chars(io_lib:format("~ts~n", ["Γιούνικοντ"])).</input>
 Γιούνικοντ
 ok</pre>
-<p>The Unicode string is returned as a Unicode list, which is recognized as such since the Erlang shell uses the Unicode encoding. The Unicode list is valid input to the <seealso marker="stdlib:io#put_chars/2">io:put_chars/2</seealso> function, so data can be output on any Unicode capable device. If the device is a terminal, characters will be output in the <c>\x{</c>H ...<c>}</c> format if encoding is <c>latin1</c> otherwise in UTF-8 (for the non-interactive terminal - "oldshell" or "noshell") or whatever is suitable to show the character properly (for an interactive terminal - the regular shell). The bottom line is that you can always send Unicode data to the <c>standard_io</c> device. Files will however only accept Unicode codepoints beyond ISO-latin-1 if <c>encoding</c> is set to something else than <c>latin1</c>.</p>
+<p>The Unicode string is returned as a Unicode list, which is
+recognized as such since the Erlang shell uses the Unicode encoding
+(and is started with all Unicode characters considered printable). The
+Unicode list is valid input to the 
+<seealso marker="stdlib:io#put_chars/2">io:put_chars/2</seealso> function, so
+data can be output on any Unicode capable device. If the device is a
+terminal, characters will be output in the <c>\x{</c>H ...<c>}</c>
+format if encoding is <c>latin1</c> otherwise in UTF-8 (for the
+non-interactive terminal - "oldshell" or "noshell") or whatever is
+suitable to show the character properly (for an interactive terminal -
+the regular shell). The bottom line is that you can always send
+Unicode data to the <c>standard_io</c> device. Files will however only
+accept Unicode code points beyond ISO-latin-1 if <c>encoding</c> is set
+to something else than <c>latin1</c>.</p>
 </section>
 <section>
 <title>Heuristic Identification of UTF-8</title>
-<p>While it iss strongly encouraged that the actual encoding of characters in binary data is known prior to processing, that is not always possible. On a typical Linux&reg; system, there is a mix of UTF-8 and ISO-latin-1 text files and there are seldom any BOM's in the files to identify them.</p>
+<p>While it is strongly encouraged that the actual encoding of characters in binary data is known prior to processing, that is not always possible. On a typical Linux&reg; system, there is a mix of UTF-8 and ISO-latin-1 text files and there are seldom any BOM's in the files to identify them.</p>
 <p>UTF-8 is designed in such a way that ISO-latin-1 characters with numbers beyond the 7-bit ASCII range are seldom considered valid when decoded as UTF-8. Therefore one can usually use heuristics to determine if a file is in UTF-8 or if it is encoded in ISO-latin-1 (one byte per character) encoding. The <c>unicode</c> module can be used to determine if data can be interpreted as UTF-8:</p>
 <code>
 heuristic_encoding_bin(Bin) when is_binary(Bin) -&gt;
@@ -344,7 +1222,7 @@ loop_through_file(F,Acc,{ok,Bin}) when is_binary(Bin) -&gt;
 	    loop_through_file(F,&lt;&lt;&gt;&gt;,file:read(F,1024))
     end.
 </code>
-<p>Another option is to try to read the whole file in utf8 encoding and see if it fails. Here we need to read the file using <c>io:get_chars/3</c>, as we have to succeed in reading characters with a codepoint over 255:</p>
+<p>Another option is to try to read the whole file in utf8 encoding and see if it fails. Here we need to read the file using <c>io:get_chars/3</c>, as we have to succeed in reading characters with a code point over 255:</p>
 <code>
 heuristic_encoding_file2(FileName) -&gt;
     {ok,F} = file:open(FileName,[read,binary,{encoding,utf8}]),
@@ -356,6 +1234,66 @@ loop_through_file2(_,{error,_Err}) -&gt;
     latin1;
 loop_through_file2(F,Bin) when is_binary(Bin) -&gt;
     loop_through_file2(F,io:get_chars(F,'',1024)).
+</code>
+</section>
+<section>
+  <title>When you get a list of UTF-8 bytes</title>
+  <p>For various reasons, you may find yourself having a list of UTF-8
+  bytes. This is not a regular string of Unicode characters as each
+  element in the list does not contain one character. Instead you get
+  the "raw" UTF-8 encoding that you have in binaries. This is easily
+  converted to a proper Unicode string by first converting byte per
+  byte into a binary and then converting the binary of UTF-8 encoded
+  characters back to a Unicode string:</p>
+<code>
+  utf8_list_to_string(StrangeList) ->
+    unicode:characters_to_list(list_to_binary(StrangeList)).
+</code>
+</section>
+<section>
+  <title>Double UTF-8 encoding</title>
+  <p>When working with binaries, you may get the horrible "double
+  UTF-8 encoding", where strange characters are encoded in your
+  binaries or files that you did not expect. What you may have got, is
+  an UTF-8 encoded binary that is for the second time encoded as
+  UTF-8. A common situation is where you read a file, byte by byte,
+  but the actual content is already UTF-8. If you then convert the
+  bytes to UTF-8, using the i.e. the <c>unicode</c> module or by
+  writing to a file opened with the <c>{encoding,utf8}</c> option. You
+  will have each <i>byte</i> in the in the input file encoded as
+  UTF-8, not each character of the original text (one character may
+  have been encoded in several bytes). There is no real remedy for
+  this other than being very sure of which data is actually encoded
+  in which format, and never convert UTF-8 data (possibly read byte by
+  byte from a file) into UTF-8 again.</p>
+  <p>The by far most common situation where this happens, is when you
+  get lists of UTF-8 instead of proper Unicode strings, and then convert
+  them to UTF-8 in a binary or on a file:</p>
+<code>
+  wrong_thing_to_do() ->
+    {ok,Bin} = file:read_file("an_utf8_encoded_file.txt"),
+    MyList = binary_to_list(Bin), %% Wrong! It is an utf8 binary!
+    {ok,C} = file:open("catastrophe.txt",[write,{encoding,utf8}]), 
+    io:put_chars(C,MyList), %% Expects a Unicode string, but get UTF-8
+                            %% bytes in a list!
+    file:close(C). %% The file catastrophe.txt contains more or less unreadable
+                   %% garbage!
+</code>
+  <p>Make very sure you know what a binary contains before converting
+  it to a string. If no other option exists, try heuristics:</p>
+<code>
+  if_you_can_not_know() ->
+    {ok,Bin} = file:read_file("maybe_utf8_encoded_file.txt"),
+    MyList = case unicode:characters_to_list(Bin) of
+      L when is_list(L) ->
+        L;
+      _ ->
+        binary_to_list(Bin) %% The file was bytewise encoded
+    end,
+    %% Now we know that the list is a Unicode string, not a list of UTF-8 bytes
+    {ok,G} = file:open("greatness.txt",[write,{encoding,utf8}]), 
+    io:put_chars(G,MyList), %% Expects a Unicode string, which is what it gets!
+    file:close(G). %% The file contains valid UTF-8 encoded Unicode characters!
 </code>
 </section>
 </section>
