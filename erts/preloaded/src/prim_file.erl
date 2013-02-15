@@ -990,9 +990,9 @@ list_dir_convert_all([Name|Names]) ->
     %% a binary.
     case prim_file:internal_native2name(Name) of
 	{error, _} ->
-	    [Name|list_dir_convert(Names)];
+	    [Name|list_dir_convert_all(Names)];
 	Converted when is_list(Converted) ->
-	    [Converted|list_dir_convert(Names)]
+	    [Converted|list_dir_convert_all(Names)]
     end;
 list_dir_convert_all([]) -> [].
 
