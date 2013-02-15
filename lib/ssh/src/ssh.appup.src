@@ -19,6 +19,7 @@
 
 {"%VSN%",	
  [
+  {<<"2.1.3">>, [{restart_application, ssh}]},
   {<<"2.1.2">>, [{restart_application, ssh}]},
   {<<"2.1.1">>, [{restart_application, ssh}]},
   {<<"2.1">>, [{restart_application, ssh}]},
@@ -26,6 +27,7 @@
   {<<"1\\.*">>, [{restart_application, ssh}]}
  ],
  [
+  {<<"2.1.3">>, [{restart_application, ssh}]},
   {<<"2.1.2">>, [{restart_application, ssh}]},
   {<<"2.1.1">>, [{restart_application, ssh}]},
   {<<"2.1">>,[{restart_application, ssh}]},
