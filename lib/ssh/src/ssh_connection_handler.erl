@@ -223,11 +223,13 @@ key_exchange(#ssh_msg_kexdh_reply{} = Msg,
     catch
 	#ssh_msg_disconnect{} = DisconnectMsg ->
 	    handle_disconnect(DisconnectMsg, State);
+	{ErrorToDisplay, #ssh_msg_disconnect{} = DisconnectMsg} ->
+	    handle_disconnect(DisconnectMsg, State, ErrorToDisplay);
 	_:Error ->
 	    Desc = log_error(Error),
 	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-						  description = Desc,
-						  language = "en"}, State)
+							  description = Desc,
+							  language = "en"}, State)
     end;
 
 key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg, 
@@ -673,6 +675,11 @@ terminate({shutdown, #ssh_msg_disconnect{} = Msg}, StateName, #state{ssh_params 
     send_msg(SshPacket, State),
     ssh_connection_manager:event(Pid, Msg),
     terminate(normal, StateName, State#state{ssh_params = Ssh});
+terminate({shutdown, {#ssh_msg_disconnect{} = Msg, ErrorMsg}}, StateName, #state{ssh_params = Ssh0, manager = Pid} = State) ->
+    {SshPacket, Ssh} = ssh_transport:ssh_packet(Msg, Ssh0),
+    send_msg(SshPacket, State),
+    ssh_connection_manager:event(Pid, Msg, ErrorMsg),
+    terminate(normal, StateName, State#state{ssh_params = Ssh});
 terminate(Reason, StateName, #state{ssh_params = Ssh0, manager = Pid} = State) ->
     log_error(Reason),
     DisconnectMsg = 
@@ -950,6 +957,8 @@ handle_ssh_packet(Length, StateName, #state{decoded_data_buffer = DecData0,
 
 handle_disconnect(#ssh_msg_disconnect{} = Msg, State) ->
     {stop, {shutdown, Msg}, State}.
+handle_disconnect(#ssh_msg_disconnect{} = Msg, State, ErrorMsg) ->
+    {stop, {shutdown, {Msg, ErrorMsg}}, State}.
 
 counterpart_versions(NumVsn, StrVsn, #ssh{role = server} = Ssh) ->
     Ssh#ssh{c_vsn = NumVsn , c_version = StrVsn};

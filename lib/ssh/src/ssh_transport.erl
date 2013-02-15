@@ -356,12 +356,12 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = HostKey, f = F,
 	    {ok, SshPacket, Ssh#ssh{shared_secret  = K,
 				    exchanged_hash = H,
 				    session_id = sid(Ssh, H)}};
-	_Error ->
+	Error ->
 	    Disconnect = #ssh_msg_disconnect{
 	      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
 	      description = "Key exchange failed",
 	      language = "en"},
-	    throw(Disconnect)
+	    throw({Error, Disconnect})
     end.
 
 handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = _Min,
