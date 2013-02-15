@@ -56,7 +56,7 @@
 -export([rename/1, access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1, exclusive/1]).
 -export([ e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
--export([otp_5814/1]).
+-export([otp_5814/1, otp_10852/1]).
 
 -export([ read_not_really_compressed/1,
 	 read_compressed_cooked/1, read_compressed_cooked_binary/1,
@@ -111,7 +111,7 @@ all() ->
      {group, files}, delete, rename, names, {group, errors},
      {group, compression}, {group, links}, copy,
      delayed_write, read_ahead, segment_read, segment_write,
-     ipread, pid2name, interleaved_read_write, otp_5814,
+     ipread, pid2name, interleaved_read_write, otp_5814, otp_10852,
      large_file, large_write, read_line_1, read_line_2, read_line_3,
      read_line_4, standard_io].
 
@@ -627,8 +627,8 @@ start_node(Name, Args) ->
 	    ct:log("Node ~p started~n", [Node]),
 	    Node
     end.
-    
-    
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -3479,6 +3479,49 @@ otp_5814(Config) when is_list(Config) ->
     file:delete(File),
     ?line ?t:timetrap_cancel(Dog),
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+otp_10852(suite) ->
+    [];
+otp_10852(doc) ->
+    ["OTP-10852. +fnu and latin1 filenames"];
+otp_10852(Config) when is_list(Config) ->
+    Node = start_node(erl_pp_helper, "+fnu"),
+    Dir = ?config(priv_dir, Config),
+    B = filename:join(Dir, <<"\xE4">>),
+    ok = rpc_call(Node, get_cwd, [B]),
+    {error, no_translation} = rpc_call(Node, set_cwd, [B]),
+    ok = rpc_call(Node, delete, [B]),
+    ok = rpc_call(Node, rename, [B, B]),
+    ok = rpc_call(Node, read_file_info, [B]),
+    ok = rpc_call(Node, read_link_info, [B]),
+    ok = rpc_call(Node, read_link, [B]),
+    ok = rpc_call(Node, write_file_info, [B,#file_info{}]),
+    ok = rpc_call(Node, list_dir, [B]),
+    ok = rpc_call(Node, list_dir_all, [B]),
+    ok = rpc_call(Node, read_file, [B]),
+    ok = rpc_call(Node, make_link, [B,B]),
+    ok = rpc_call(Node, make_symlink, [B,B]),
+    ok = rpc_call(Node, delete, [B]),
+    ok = rpc_call(Node, make_dir, [B]),
+    ok = rpc_call(Node, del_dir, [B]),
+    ok = rpc_call(Node, write_file, [B,B]),
+    {ok, Fd} = rpc_call(Node, open, [B,[read]]),
+    ok = rpc_call(Node, close, [Fd]),
+    {ok,0} = rpc_call(Node, copy, [B,B]),
+    {ok, Fd2, B} = rpc_call(Node, path_open, [["."], B, [read]]),
+    ok = rpc_call(Node, close, [Fd2]),
+    true = test_server:stop_node(Node),
+    ok.
+
+rpc_call(N, F, As) ->
+    case rpc:call(N, ?FILE_MODULE, F, As) of
+        {error, enotsup} -> ok;
+        {error, enoent} -> ok;
+        {error, badarg} -> ok;
+        Else -> Else
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -125,6 +125,14 @@
       <desc>
         <p>If VM is in Unicode filename mode, <c>string()</c> and <c>char()</c>
           are allowed to be > 255.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="name_all"/>
+      <desc>
+        <p>If VM is in Unicode filename mode, <c>string()</c> and <c>char()</c>
+          are allowed to be > 255.
           <c><anno>RawFilename</anno></c> is a filename not subject to
           Unicode translation,
           meaning that it can contain characters not conforming to
@@ -520,6 +528,12 @@
           <tag><c>enoent</c></tag>
           <item>
             <p>The directory does not exist.</p>
+          </item>
+          <tag><c>{no_translation, <anno>Filename</anno>}</c></tag>
+          <item>
+            <p><c><anno>Filename</anno></c> is a <c>binary()</c> with
+              characters coded in ISO-latin-1 and the VM was started
+              with the parameter <c>+fnue</c>.</p>
           </item>
         </taglist>
       </desc>
@@ -1579,6 +1593,12 @@
           <item>
             <p><c><anno>Dir</anno></c> had an improper type,
               such as tuple.</p>
+          </item>
+          <tag><c>no_translation</c></tag>
+          <item>
+            <p><c><anno>Dir</anno></c> is a <c>binary()</c> with
+              characters coded in ISO-latin-1 and the VM was started
+              with the parameter <c>+fnue</c>.</p>
           </item>
         </taglist>
         <warning>
