@@ -88,7 +88,7 @@ encode_real(_C, {Mantissa, Base, Exponent}) when Base =:= 2 ->
 	      end,
 %%    ok = io:format("SignBitMask: ~w~n",[SignBitMask]),
     SFactor = 0,
-    OctExpLen = size(OctExp),
+    OctExpLen = byte_size(OctExp),
     if OctExpLen > 255 ->
 	    exit({error,{asn1, {to_big_exp_in_encode_real, OctExpLen}}});
        true  -> true %% make real assert later..

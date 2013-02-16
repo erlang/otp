@@ -613,11 +613,11 @@ bit_string_trailing_zeros1(BitList,Lb,Ub) ->
 encode_bin_bit_string(C, {Unused,BinBits}, _NamedBitList)
   when is_integer(C),C=<16 ->
     range_check(C, bit_size(BinBits) - Unused),
-    [45,C,size(BinBits),BinBits];
+    [45,C,byte_size(BinBits),BinBits];
 encode_bin_bit_string(C, {Unused,BinBits}, _NamedBitList)
   when is_integer(C), C =< 255 ->
     range_check(C, bit_size(BinBits) - Unused),
-    [2,45,C,size(BinBits),BinBits];
+    [2,45,C,byte_size(BinBits),BinBits];
 encode_bin_bit_string(C, {Unused,BinBits}, _NamedBitList)
   when is_integer(C), C =< 65535 ->
     range_check(C, bit_size(BinBits) - Unused),
