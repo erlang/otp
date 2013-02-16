@@ -910,16 +910,20 @@ find(Pred, [H|T]) ->
 
 %% incr/4
 %%
-%% Increment a stats counter for an incoming or outgoing message.
+%% Increment a stats counter for result codes in incoming and outgoing
+%% answers.
 
 %% Outgoing message as binary: don't count. (Sending binaries is only
 %% partially supported.)
 incr(_, #diameter_packet{msg = undefined}, _, _) ->
     ok;
 
+%% Incoming with decode errors.
 incr(recv = D, #diameter_packet{header = H, errors = [_|_]}, _, TPid) ->
     incr(TPid, {diameter_codec:msg_id(H), D, error});
 
+%% Incoming without errors or outgoing. Outgoing with encode errors
+%% never gets here since encode fails.
 incr(Dir, Pkt, Dict, TPid) ->
     #diameter_packet{header = #diameter_header{is_error = E}
                             = Hdr,
@@ -929,9 +933,9 @@ incr(Dir, Pkt, Dict, TPid) ->
     RC = int(get_avp_value(Dict, 'Result-Code', Rec)),
     PE = is_protocol_error(RC),
 
-    %% Check that the E bit is set only for 3xxx result codes.
-    (not (E orelse PE))
-        orelse (E andalso PE)
+    %% Check that Result-Code matches E-bit.
+    (not (E orelse PE))        %% non-3xxx answer without E-bit
+        orelse (E andalso PE)  %% 3xxx answer with E-bit
         orelse x({invalid_error_bit, RC}, answer, [Dir, Pkt]),
 
     irc(TPid, Hdr, Dir, rc_counter(Dict, Rec, RC)).
@@ -947,7 +951,7 @@ irc(TPid, Hdr, Dir, Ctr) ->
 incr(TPid, Counter) ->
     diameter_stats:incr(Counter, TPid, 1).
 
-%% error_counter/2
+%% rc_counter/2
 
 %% RFC 3588, 7.6:
 %%
@@ -1303,12 +1307,15 @@ handle_answer(SvcName,
 
 answer(Pkt, SvcName, Dict, App, #request{transport = TPid} = Req) ->
     try
-        incr(recv, Pkt, Dict, TPid)
+        incr(recv, Pkt, Dict, TPid) %% count result codes in received answers
     of
         _ -> answer(Pkt, SvcName, App, Req)
     catch
-        exit: {invalid_error_bit, _} = E ->
-            answer(Pkt#diameter_packet{errors = [E]}, SvcName, App, Req)
+        exit: {invalid_error_bit, RC} ->
+            #diameter_packet{errors = Es}
+                = Pkt,
+            E = {5004, #diameter_avp{name = 'Result-Code', value = RC}},
+            answer(Pkt#diameter_packet{errors = [E|Es]}, SvcName, App, Req)
     end.
 
 answer(Pkt,
