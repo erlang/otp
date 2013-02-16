@@ -37,10 +37,15 @@
 
 %% testcases
 -export([start/1,
+         send_unknown_application/1,
          send_unknown_command/1,
-         send_ok_override/1,
+         send_ok/1,
          send_invalid_avp_bits/1,
+         send_missing_avp/1,
+         send_ignore_missing_avp/1,
          send_double_error/1,
+         send_3xxx/1,
+         send_5xxx/1,
          stop/1]).
 
 %% diameter callbacks
@@ -54,46 +59,46 @@
 
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc6733.hrl").
+%% Use the fact that STR/STA is identical in RFC's 3588 and 6733.
 
 %% ===========================================================================
 
 -define(util, diameter_util).
+-define(testcase(), proplists:get_value(testcase, get(?MODULE))).
+-define(group(Config), begin
+                           put(?MODULE, Config),
+                           ?util:name(proplists:get_value(group, Config))
+                       end).
+
+-define(L, atom_to_list).
+-define(A, list_to_atom).
 
 -define(CLIENT, "CLIENT").
 -define(SERVER, "SERVER").
 -define(REALM, "erlang.org").
 -define(HOST(Host, Realm), Host ++ [$.|Realm]).
--define(DICT, diameter_gen_base_rfc6733).
+
+-define(ERRORS, [answer, answer_3xxx, callback]).
+-define(RFCS, [rfc3588, rfc6733]).
+-define(DICT(RFC), ?A("diameter_gen_base_" ++ ?L(RFC))).
+-define(DICT, ?DICT(rfc6733)).
+
+-define(COMMON, ?DIAMETER_APP_ID_COMMON).
 
 %% Config for diameter:start_service/2.
--define(SERVICE(Name, RequestErrors),
+-define(SERVICE(Name, Errors, RFC),
         [{'Origin-Host', Name ++ "." ++ ?REALM},
          {'Origin-Realm', ?REALM},
          {'Host-IP-Address', [{127,0,0,1}]},
          {'Vendor-Id', 12345},
          {'Product-Name', "OTP/diameter"},
-         {'Auth-Application-Id', [?DIAMETER_APP_ID_COMMON]},
-         {application, [{dictionary, ?DICT},
+         {'Auth-Application-Id', [?COMMON]},
+         {application, [{dictionary, ?DICT(RFC)},
                         {module, ?MODULE},
                         {answer_errors, callback},
-                        {request_errors, RequestErrors}]}]).
-
--define(SUCCESS,              2001).
--define(UNSUPPORTED_COMMAND,  3001).
--define(INVALID_AVP_BITS,     3009).
--define(UNKNOWN_SESSION_ID,   5002).
--define(MISSING_AVP,          5005).
+                        {request_errors, Errors}]}]).
 
 -define(LOGOUT, ?'DIAMETER_BASE_TERMINATION-CAUSE_LOGOUT').
-
--define(GROUPS, [answer_3xxx, callback]).
--define(L, atom_to_list).
--define(A, list_to_atom).
--define(v, proplists:get_value).
-
--define(testcase(Config), put({?MODULE, testcase}, ?v(testcase, Config))).
--define(testcase(), get({?MODULE, testcase})).
--define(group(Config), ?v(group, Config)).
 
 %% ===========================================================================
 
@@ -101,11 +106,12 @@ suite() ->
     [{timetrap, {seconds, 60}}].
 
 all() ->
-    [{group, G} || G <- ?GROUPS].
+    [{group, ?util:name([E,D])} || E <- ?ERRORS, D <- ?RFCS].
 
 groups() ->
     Tc = tc(),
-    [{G, [], [start] ++ Tc ++ [stop]} || G <- ?GROUPS].
+    [{?util:name([E,D]), [], [start] ++ Tc ++ [stop]}
+     || E <- ?ERRORS, D <- ?RFCS].
 
 init_per_suite(Config) ->
     ok = diameter:start(),
@@ -126,17 +132,16 @@ init_per_testcase(Name, Config) ->
 end_per_testcase(_, _) ->
     ok.
 
-origin(answer_3xxx)   -> 0;
-origin(callback) -> 1;
-
-origin(0) -> answer_3xxx;
-origin(1) -> callback.
-
 tc() ->
-    [send_unknown_command,
-     send_ok_override,
+    [send_unknown_application,
+     send_unknown_command,
+     send_ok,
      send_invalid_avp_bits,
-     send_double_error].
+     send_missing_avp,
+     send_ignore_missing_avp,
+     send_double_error,
+     send_3xxx,
+     send_5xxx].
 
 %% ===========================================================================
 
@@ -144,13 +149,15 @@ tc() ->
 
 start(Config) ->
     Group = proplists:get_value(group, Config),
-    ok = diameter:start_service(?SERVER, ?SERVICE(?L(Group), Group)),
-    ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, callback)),
+    [Errors, RFC] = ?util:name(Group),
+    ok = diameter:start_service(?SERVER, ?SERVICE(?L(Group),
+                                                  Errors,
+                                                  RFC)),
+    ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT,
+                                                  callback,
+                                                  rfc6733)),
     LRef = ?util:listen(?SERVER, tcp),
-    ?util:connect(?CLIENT,
-                  tcp,
-                  LRef,
-                  [{capabilities, [{'Origin-State-Id', origin(Group)}]}]).
+    ?util:connect(?CLIENT, tcp, LRef).
 
 %% stop/1
 
@@ -160,78 +167,173 @@ stop(_Config) ->
     ok = diameter:stop_service(?SERVER),
     ok = diameter:stop_service(?CLIENT).
 
+%% send_unknown_application/1
+%%
+%% Send an unknown application that a callback (which shouldn't take
+%% place) fails on.
+
+%% diameter answers.
+send_unknown_application([_,_]) ->
+    #'diameter_base_answer-message'{'Result-Code' = 3007,
+                                                 %% UNSUPPORTED_APPLICATION
+                                    'Failed-AVP' = [],
+                                    'AVP' = []}
+        = call();
+
+send_unknown_application(Config) ->
+    send_unknown_application(?group(Config)).
+
 %% send_unknown_command/1
 %%
-%% Send a unknown command and expect a different result depending on
-%% whether or not the server gets a handle_request callback.
+%% Send a unknown command that a callback discards.
 
-%% Server handle_request discards the request.
-send_unknown_command(callback) ->
+%% handle_request discards the request.
+send_unknown_command([callback, _]) ->
     {error, timeout} = call();
 
-%% No handle_request, diameter answers.
-send_unknown_command(answer_3xxx) ->
-    #'diameter_base_answer-message'{'Result-Code' = ?UNSUPPORTED_COMMAND}
+%% diameter answers.
+send_unknown_command([_,_]) ->
+    #'diameter_base_answer-message'{'Result-Code' = 3001,
+                                                 %% UNSUPPORTED_COMMAND
+                                    'Failed-AVP' = [],
+                                    'AVP' = []}
         = call();
 
 send_unknown_command(Config) ->
-    ?testcase(Config),
     send_unknown_command(?group(Config)).
 
-%% send_ok_override/1
+%% send_ok/1
 %%
-%% Send a correct STA and expect the same answer from handle_request
-%% in both cases.
+%% Send a correct STR that a callback answers with 5002.
 
-send_ok_override(A)
-  when is_atom(A) ->
-    #diameter_base_STA{'Result-Code' = ?UNKNOWN_SESSION_ID}
+%% Callback answers.
+send_ok([_,_]) ->
+    #diameter_base_STA{'Result-Code' = 5002,  %% UNKNOWN_SESSION_ID
+                       'Failed-AVP' = [],
+                       'AVP' = []}
         = call();
 
-send_ok_override(Config) ->
-    ?testcase(Config),
-    send_ok_override(?group(Config)).
+send_ok(Config) ->
+    send_ok(?group(Config)).
 
 %% send_invalid_avp_bits/1
 %%
 %% Send a request with an incorrect length on the optional
-%% Origin-State-Id and expect a callback to ignore the error.
+%% Origin-State-Id that a callback ignores.
 
-send_invalid_avp_bits(callback) ->
-    #diameter_base_STA{'Result-Code' = ?SUCCESS,
-                       'Failed-AVP' = []}
+%% Callback answers.
+send_invalid_avp_bits([callback, _]) ->
+    #diameter_base_STA{'Result-Code' = 2001,  %% SUCCESS
+                       'Failed-AVP' = [],
+                       'AVP' = []}
         = call();
 
-send_invalid_avp_bits(answer_3xxx) ->
-    #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS,
-                                    'Failed-AVP' = []}
+%% diameter answers.
+send_invalid_avp_bits([_,_]) ->
+    #'diameter_base_answer-message'{'Result-Code' = 3009, %% INVALID_AVP_BITS
+                                    'Failed-AVP' = [],
+                                    'AVP' = []}
         = call();
 
 send_invalid_avp_bits(Config) ->
-    ?testcase(Config),
     send_invalid_avp_bits(?group(Config)).
+
+%% send_missing_avp/1
+%%
+%% Send a request with a missing AVP that a callback answers.
+
+%% diameter answers.
+send_missing_avp([answer, rfc6733]) ->
+    #'diameter_base_answer-message'{'Result-Code' = 5005,  %% MISSING_AVP
+                                    'Failed-AVP' = [_],
+                                    'AVP' = []}
+        = call();
+
+%% Callback answers.
+send_missing_avp([_,_]) ->
+    #diameter_base_STA{'Result-Code' = 5005,  %% MISSING_AVP
+                       'Failed-AVP' = [_],
+                       'AVP' = []}
+        = call();
+
+send_missing_avp(Config) ->
+    send_missing_avp(?group(Config)).
+
+%% send_ignore_missing_avp/1
+%%
+%% Send a request with a missing AVP that a callback ignores.
+
+%% diameter answers.
+send_ignore_missing_avp([answer, rfc6733]) ->
+    #'diameter_base_answer-message'{'Result-Code' = 5005,  %% MISSING_AVP
+                                    'Failed-AVP' = [_],
+                                    'AVP' = []}
+        = call();
+
+%% Callback answers, ignores the error
+send_ignore_missing_avp([_,_]) ->
+    #diameter_base_STA{'Result-Code' = 2001,  %% SUCCESS
+                       'Failed-AVP' = [],
+                       'AVP' = []}
+        = call();
+
+send_ignore_missing_avp(Config) ->
+    send_ignore_missing_avp(?group(Config)).
 
 %% send_double_error/1
 %%
 %% Send a request with both an incorrect length on the optional
-%% Origin-State-Id and a missing AVP and see that it's answered
-%% differently.
+%% Origin-State-Id and a missing AVP.
 
-%% diameter answers with the 3xxx error.
-send_double_error(answer_3xxx) ->
-    #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS,
-                                    'Failed-AVP' = [_]}
+%% Callback answers with STA.
+send_double_error([callback, _]) ->
+    #diameter_base_STA{'Result-Code' = 5005,  %% MISSING_AVP
+                       'Failed-AVP' = [_],
+                       'AVP' = []}
         = call();
 
-%% handle_request answers with STA and diameter resets Result-Code.
-send_double_error(callback) ->
-    #diameter_base_STA{'Result-Code' = ?MISSING_AVP,
-                       'Failed-AVP' = [_]}
+%% diameter answers with answer-message.
+send_double_error([_,_]) ->
+    #'diameter_base_answer-message'{'Result-Code' = 3009, %% INVALID_AVP_BITS
+                                    'Failed-AVP' = [_],
+                                    'AVP' = []}
         = call();
 
 send_double_error(Config) ->
-    ?testcase(Config),
     send_double_error(?group(Config)).
+
+%% send_3xxx/1
+%%
+%% Send a request that's answered with a 3xxx result code.
+
+%% Callback answers.
+send_3xxx([_,_]) ->
+    #'diameter_base_answer-message'{'Result-Code' = 3999,
+                                    'Failed-AVP' = [],
+                                    'AVP' = []}
+        = call();
+
+send_3xxx(Config) ->
+    send_3xxx(?group(Config)).
+
+%% send_5xxx/1
+%%
+%% Send a request that's answered with a 5xxx result code.
+
+%% Callback answers but fails since 5xxx isn't allowed in an RFC 3588
+%% answer-message.
+send_5xxx([_, rfc3588]) ->
+    {error, timeout} = call();
+
+%% Callback answers.
+send_5xxx([_,_]) ->
+    #'diameter_base_answer-message'{'Result-Code' = 5999,
+                                    'Failed-AVP' = [],
+                                    'AVP' = []}
+        = call();
+
+send_5xxx(Config) ->
+    send_5xxx(?group(Config)).
 
 %% ===========================================================================
 
@@ -241,7 +343,7 @@ call() ->
                   ?DICT,
                   #diameter_base_STR
                   {'Termination-Cause' = ?LOGOUT,
-                   'Auth-Application-Id' = ?DIAMETER_APP_ID_COMMON,
+                   'Auth-Application-Id' = ?COMMON,
                    'Class' = [?L(Name)]},
                   [{extra, [Name]}]).
 
@@ -268,23 +370,50 @@ pick_peer([Peer], _, ?CLIENT, _State, _Name) ->
 prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, Name) ->
     {send, prepare(Pkt, Caps, Name)}.
 
+prepare(Pkt0, Caps, send_unknown_application) ->
+    Req = sta(Pkt0, Caps),
+    #diameter_packet{bin = <<H:8/binary, 0:32, T/binary>>}
+        = Pkt
+        = diameter_codec:encode(?DICT, Pkt0#diameter_packet{msg = Req}),
+
+    Pkt#diameter_packet{bin = <<H/binary, 23:32, T/binary>>};
+
 prepare(Pkt0, Caps, send_unknown_command) ->
-    #diameter_packet{msg = Req0}
-        = Pkt0,
-    #diameter_caps{origin_host  = {OH, _},
-                   origin_realm = {OR, DR}}
-        = Caps,
-    Req = Req0#diameter_base_STR{'Session-Id' = diameter:session_id(OH),
-                                 'Origin-Host' = OH,
-                                 'Origin-Realm' = OR,
-                                 'Destination-Realm' = DR},
+    Req = sta(Pkt0, Caps),
     #diameter_packet{bin = <<H:5/binary, 275:24, T/binary>>}
         = Pkt
         = diameter_codec:encode(?DICT, Pkt0#diameter_packet{msg = Req}),
 
     Pkt#diameter_packet{bin = <<H/binary, 572:24, T/binary>>};
 
-prepare(Pkt, Caps, send_ok_override) ->
+prepare(Pkt, Caps, T)
+  when T == send_ok;
+       T == send_3xxx;
+       T == send_5xxx ->
+    sta(Pkt, Caps);
+
+prepare(Pkt0, Caps, send_invalid_avp_bits) ->
+    Req0 = sta(Pkt0, Caps),
+    %% Append an Origin-State-Id with an incorrect AVP Length in order
+    %% to force 3009.
+    Req = Req0#diameter_base_STR{'Origin-State-Id' = [7]},
+    #diameter_packet{bin = Bin}
+        = Pkt
+        = diameter_codec:encode(?DICT, Pkt0#diameter_packet{msg = Req}),
+    Offset = size(Bin) - 12 + 5,
+    <<H:Offset/binary, Len:24, T/binary>> = Bin,
+    Pkt#diameter_packet{bin = <<H/binary, (Len + 2):24, T/binary>>};
+
+prepare(Pkt0, Caps, send_double_error) ->
+    dehost(prepare(Pkt0, Caps, send_invalid_avp_bits));
+
+prepare(Pkt, Caps, T)
+  when T == send_missing_avp;
+       T == send_ignore_missing_avp ->
+    Req = sta(Pkt, Caps),
+    dehost(diameter_codec:encode(?DICT, Pkt#diameter_packet{msg = Req})).
+
+sta(Pkt, Caps) ->
     #diameter_packet{msg = Req}
         = Pkt,
     #diameter_caps{origin_host  = {OH, _},
@@ -293,32 +422,10 @@ prepare(Pkt, Caps, send_ok_override) ->
     Req#diameter_base_STR{'Session-Id' = diameter:session_id(OH),
                           'Origin-Host' = OH,
                           'Origin-Realm' = OR,
-                          'Destination-Realm' = DR};
+                          'Destination-Realm' = DR}.
 
-prepare(Pkt, Caps, send_invalid_avp_bits) ->
-    #diameter_packet{msg = Req0}
-        = Pkt,
-    #diameter_caps{origin_host  = {OH, _},
-                   origin_realm = {OR, DR}}
-        = Caps,
-    %% Append an Origin-State-Id with an incorrect AVP Length in order
-    %% to force 3009.
-    Req = Req0#diameter_base_STR{'Session-Id' = diameter:session_id(OH),
-                                 'Origin-Host' = OH,
-                                 'Origin-Realm' = OR,
-                                 'Destination-Realm' = DR,
-                                 'Origin-State-Id' = [7]},
-    #diameter_packet{bin = Bin}
-        = diameter_codec:encode(?DICT, Pkt#diameter_packet{msg = Req}),
-    Offset = size(Bin) - 12 + 5,
-    <<H:Offset/binary, Len:24, T/binary>> = Bin,
-    Pkt#diameter_packet{bin = <<H/binary, (Len + 2):24, T/binary>>};
-
-prepare(Pkt0, Caps, send_double_error) ->
-    #diameter_packet{bin = Bin}
-        = Pkt
-        = prepare(Pkt0, Caps, send_invalid_avp_bits),
-    %% Keep Session-Id but remove Origin-Host.
+%% Strip Origin-Host.
+dehost(#diameter_packet{bin = Bin} = Pkt) ->
     <<V, Len:24, H:16/binary, T0/binary>>
         = Bin,
     {SessionId, T1} = split_avp(T0),
@@ -351,18 +458,27 @@ pad(N) ->
 
 %% handle_request/3
 
-%% send_unknown_command
-handle_request(#diameter_packet{msg = undefined}, ?SERVER, _) ->
+handle_request(#diameter_packet{header = #diameter_header{application_id = 0},
+                                msg = Msg},
+               ?SERVER,
+               {_, Caps}) ->
+    request(Msg, Caps).
+
+request(undefined, _) ->  %% unknown command
     discard;
 
-handle_request(#diameter_packet{msg = Req}, ?SERVER, {_, Caps}) ->
-    #diameter_base_STR{'Class' = [Name]}
-        = Req,
-    {reply, request(?A(Name), Req, Caps)}.
+request(#diameter_base_STR{'Class' = [Name]} = Req, Caps) ->
+    request(?A(Name), Req, Caps).
 
-request(send_ok_override, Req, Caps) ->
-    #diameter_packet{msg = answer(Req, Caps),
-                     errors = [?UNKNOWN_SESSION_ID]};  %% override
+request(send_ok, Req, Caps) ->
+    {reply, #diameter_packet{msg = answer(Req, Caps),
+                             errors = [5002]}};  %% UNKNOWN_SESSION_ID
+
+request(send_3xxx, _Req, _Caps) ->
+    {answer_message, 3999};
+
+request(send_5xxx, _Req, _Caps) ->
+    {answer_message, 5999};
 
 request(send_invalid_avp_bits, Req, Caps) ->
     #diameter_base_STR{'Origin-State-Id' = []}
@@ -370,10 +486,16 @@ request(send_invalid_avp_bits, Req, Caps) ->
     %% Default errors field but a non-answer-message and only 3xxx
     %% errors detected means diameter sets neither Result-Code nor
     %% Failed-AVP.
-    #diameter_packet{msg = answer(Req, Caps)};
+    {reply, #diameter_packet{msg = answer(Req, Caps)}};
 
-request(send_double_error, Req, Caps) ->
-    answer(Req, Caps).
+request(T, Req, Caps)
+  when T == send_double_error;
+       T == send_missing_avp ->
+    {reply, answer(Req, Caps)};
+
+request(send_ignore_missing_avp, Req, Caps) ->
+    {reply, #diameter_packet{msg = answer(Req, Caps),
+                             errors = false}}.  %% ignore errors
 
 answer(Req, Caps) ->
     #diameter_base_STR{'Session-Id' = SId}
@@ -384,4 +506,4 @@ answer(Req, Caps) ->
     #diameter_base_STA{'Session-Id' = SId,
                        'Origin-Host' = OH,
                        'Origin-Realm' = OR,
-                       'Result-Code' = ?SUCCESS}.
+                       'Result-Code' = 2001}.  %% SUCCESS
