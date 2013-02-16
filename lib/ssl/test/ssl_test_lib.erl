@@ -206,7 +206,7 @@ close(Pid) ->
 
 check_result(Server, {error, SReason} = ServerMsg, Client,  {error, closed} = ClientMsg) -> 
     receive 
-	{Server, {error, {SReason, _}}} -> 
+	{Server, {error, SReason}} -> 
 	    receive 
 		{Client, ClientMsg} ->
 		    ok;

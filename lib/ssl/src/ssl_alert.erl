@@ -45,7 +45,7 @@
 reason_code(#alert{description = ?CLOSE_NOTIFY}, _) ->
     closed;
 reason_code(#alert{description = Description}, _) ->
-    {essl, description_txt(Description)}.
+    {tls_alert, description_txt(Description)}.
 
 %%--------------------------------------------------------------------
 -spec alert_txt(#alert{}) -> string().

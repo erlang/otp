@@ -106,15 +106,15 @@ end_per_group(_GroupName, Config) ->
 %%--------------------------------------------------------------------
 
 validate_empty_protocols_are_not_allowed(Config) when is_list(Config) ->
-    {error, {eoptions, {next_protocols_advertised, {invalid_protocol, <<>>}}}}
+    {error, {options, {next_protocols_advertised, {invalid_protocol, <<>>}}}}
 	= (catch ssl:listen(9443,
 			    [{next_protocols_advertised, [<<"foo/1">>, <<"">>]}])),
-    {error, {eoptions, {client_preferred_next_protocols, {invalid_protocol, <<>>}}}}
+    {error, {options, {client_preferred_next_protocols, {invalid_protocol, <<>>}}}}
 	= (catch ssl:connect({127,0,0,1}, 9443,
 			     [{client_preferred_next_protocols,
 			       {client, [<<"foo/1">>, <<"">>], <<"foox/1">>}}], infinity)),
     Option = {client_preferred_next_protocols, {invalid_protocol, <<"">>}},
-    {error, {eoptions, Option}} = (catch ssl:connect({127,0,0,1}, 9443, [Option], infinity)).
+    {error, {options, Option}} = (catch ssl:connect({127,0,0,1}, 9443, [Option], infinity)).
 
 %--------------------------------------------------------------------------------
 
@@ -126,12 +126,12 @@ validate_empty_advertisement_list_is_allowed(Config) when is_list(Config) ->
 
 validate_advertisement_must_be_a_binary_list(Config) when is_list(Config) ->
     Option = {next_protocols_advertised, blah},
-    {error, {eoptions, Option}} = (catch ssl:listen(9443, [Option])).
+    {error, {options, Option}} = (catch ssl:listen(9443, [Option])).
 %--------------------------------------------------------------------------------
 
 validate_client_protocols_must_be_a_tuple(Config) when is_list(Config)  ->
     Option = {client_preferred_next_protocols, [<<"foo/1">>]},
-    {error, {eoptions, Option}} = (catch ssl:connect({127,0,0,1}, 9443, [Option])).
+    {error, {options, Option}} = (catch ssl:connect({127,0,0,1}, 9443, [Option])).
 
 %--------------------------------------------------------------------------------
 
@@ -220,7 +220,7 @@ npn_not_supported_client(Config) when is_list(Config) ->
 			    {from, self()},  {options, ClientOpts}]),
     
     ssl_test_lib:check_result(Client, {error, 
-				       {eoptions, 
+				       {options, 
 					{not_supported_in_sslv3, PrefProtocols}}}).
 
 %--------------------------------------------------------------------------------
@@ -229,7 +229,7 @@ npn_not_supported_server(Config) when is_list(Config)->
     AdvProtocols = {next_protocols_advertised, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]},
     ServerOpts = [AdvProtocols] ++  ServerOpts0,
   
-    {error, {eoptions, {not_supported_in_sslv3, AdvProtocols}}} = ssl:listen(0, ServerOpts).
+    {error, {options, {not_supported_in_sslv3, AdvProtocols}}} = ssl:listen(0, ServerOpts).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

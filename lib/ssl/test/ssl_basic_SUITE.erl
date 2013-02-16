@@ -99,10 +99,10 @@ options_tests() ->
      invalid_inet_set_option_not_list,
      invalid_inet_set_option_improper_list,
      dh_params,
-     ecertfile,
-     ecacertfile,
-     ekeyfile,
-     eoptions,
+     invalid_certfile,
+     invalid_cacertfile,
+     invalid_keyfile,
+     invalid_options,
      protocol_versions,
      empty_protocol_versions,
      ipv6,
@@ -822,7 +822,7 @@ invalid_inet_get_option_not_list(Config) when is_list(Config) ->
 
 
 get_invalid_inet_option_not_list(Socket) ->
-    {error, {eoptions, {socket_options, some_invalid_atom_here}}}
+    {error, {options, {socket_options, some_invalid_atom_here}}}
      = ssl:getopts(Socket, some_invalid_atom_here),
      ok.
 
@@ -854,7 +854,7 @@ invalid_inet_get_option_improper_list(Config) when is_list(Config) ->
 
 
 get_invalid_inet_option_improper_list(Socket) ->
-    {error, {eoptions, {socket_options, foo,_}}} = ssl:getopts(Socket, [packet | foo]),
+    {error, {options, {socket_options, foo,_}}} = ssl:getopts(Socket, [packet | foo]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -884,10 +884,10 @@ invalid_inet_set_option(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 set_invalid_inet_option(Socket) ->
-    {error, {eoptions, {socket_option, {packet, foo}}}} = ssl:setopts(Socket, [{packet, foo}]),
-    {error, {eoptions, {socket_option, {header, foo}}}} = ssl:setopts(Socket, [{header, foo}]),
-    {error, {eoptions, {socket_option, {active, foo}}}} = ssl:setopts(Socket, [{active, foo}]),
-    {error, {eoptions, {socket_option, {mode, foo}}}}   = ssl:setopts(Socket, [{mode, foo}]),
+    {error, {options, {socket_options, {packet, foo}}}} = ssl:setopts(Socket, [{packet, foo}]),
+    {error, {options, {socket_options, {header, foo}}}} = ssl:setopts(Socket, [{header, foo}]),
+    {error, {options, {socket_options, {active, foo}}}} = ssl:setopts(Socket, [{active, foo}]),
+    {error, {options, {socket_options, {mode, foo}}}}   = ssl:setopts(Socket, [{mode, foo}]),
     ok.
 %%--------------------------------------------------------------------
 invalid_inet_set_option_not_list() ->
@@ -917,7 +917,7 @@ invalid_inet_set_option_not_list(Config) when is_list(Config) ->
 
 
 set_invalid_inet_option_not_list(Socket) ->
-    {error, {eoptions, {not_a_proplist, some_invalid_atom_here}}}
+    {error, {options, {not_a_proplist, some_invalid_atom_here}}}
 	= ssl:setopts(Socket, some_invalid_atom_here),
     ok.
 
@@ -948,7 +948,7 @@ invalid_inet_set_option_improper_list(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 set_invalid_inet_option_improper_list(Socket) ->
-    {error, {eoptions, {not_a_proplist, [{packet, 0} | {foo, 2}]}}} =
+    {error, {options, {not_a_proplist, [{packet, 0} | {foo, 2}]}}} =
 	ssl:setopts(Socket, [{packet, 0} | {foo, 2}]),
     ok.
 
@@ -1286,9 +1286,9 @@ ipv6(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-ekeyfile() ->
+invalid_keyfile() ->
     [{doc,"Test what happens with an invalid key file"}].
-ekeyfile(Config) when is_list(Config) -> 
+invalid_keyfile(Config) when is_list(Config) -> 
     ClientOpts = ?config(client_opts, Config),
     BadOpts = ?config(server_bad_key, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1304,16 +1304,17 @@ ekeyfile(Config) when is_list(Config) ->
 	ssl_test_lib:start_client_error([{node, ClientNode}, 
 			    {port, Port}, {host, Hostname},
 			    {from, self()},  {options, ClientOpts}]),
-    
-    ssl_test_lib:check_result(Server, {error, ekeyfile}, Client,  
-			      {error, closed}).
+
+    File = proplists:get_value(keyfile,BadOpts),    
+    ssl_test_lib:check_result(Server, {error,{options, {keyfile, File, {error,enoent}}}}, Client,  
+				       {error, closed}).
 
 %%--------------------------------------------------------------------
 
-ecertfile() ->
+invalid_certfile() ->
     [{doc,"Test what happens with an invalid cert file"}].
 
-ecertfile(Config) when is_list(Config) -> 
+invalid_certfile(Config) when is_list(Config) -> 
     ClientOpts = ?config(client_opts, Config),
     ServerBadOpts = ?config(server_bad_cert, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1330,16 +1331,16 @@ ecertfile(Config) when is_list(Config) ->
 					 {port, Port}, {host, Hostname},
 					 {from, self()}, 
 					 {options, ClientOpts}]),
-    
-    ssl_test_lib:check_result(Server, {error, ecertfile}, Client, 
-			      {error, closed}).
+    File = proplists:get_value(certfile, ServerBadOpts),
+    ssl_test_lib:check_result(Server, {error,{options, {certfile, File, {error,enoent}}}}, 
+			      Client, {error, closed}).
     
 
 %%--------------------------------------------------------------------
-ecacertfile() ->
+invalid_cacertfile() ->
     [{doc,"Test what happens with an invalid cacert file"}].
 
-ecacertfile(Config) when is_list(Config) ->
+invalid_cacertfile(Config) when is_list(Config) ->
     ClientOpts    = [{reuseaddr, true}|?config(client_opts, Config)],
     ServerBadOpts = [{reuseaddr, true}|?config(server_bad_ca, Config)],
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1357,11 +1358,12 @@ ecacertfile(Config) when is_list(Config) ->
 					 {port, Port0}, {host, Hostname},
 					 {from, self()}, 
 					 {options, ClientOpts}]),
+
+    File0 = proplists:get_value(cacertfile, ServerBadOpts),
     
-    ssl_test_lib:check_result(Server0, {error, ecacertfile},
+    ssl_test_lib:check_result(Server0, {error, {options, {cacertfile, File0,{error,enoent}}}},
 			      Client0, {error, closed}),
     
-    File0 = proplists:get_value(cacertfile, ServerBadOpts),
     File = File0 ++ "do_not_exit.pem",
     ServerBadOpts1 = [{cacertfile, File}|proplists:delete(cacertfile, ServerBadOpts)],
             
@@ -1378,31 +1380,32 @@ ecacertfile(Config) when is_list(Config) ->
 					 {from, self()}, 
 					 {options, ClientOpts}]),
 
-    ssl_test_lib:check_result(Server1, {error, ecacertfile},
+
+    ssl_test_lib:check_result(Server1, {error, {options, {cacertfile, File,{error,enoent}}}},
 			      Client1, {error, closed}),
     ok.
     
     
 
 %%--------------------------------------------------------------------
-eoptions() ->
+invalid_options() ->
     [{doc,"Test what happens when we give invalid options"}].
        
-eoptions(Config) when is_list(Config) -> 
+invalid_options(Config) when is_list(Config) -> 
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
     Check = fun(Client, Server, {versions, [sslv2, sslv3]} = Option) ->
 		    ssl_test_lib:check_result(Server, 
-					      {error, {eoptions, {sslv2, Option}}}, 
+					      {error, {options, {sslv2, Option}}}, 
 					      Client,
-					      {error, {eoptions, {sslv2, Option}}});
+					      {error, {options, {sslv2, Option}}});
 	       (Client, Server, Option) ->
 		    ssl_test_lib:check_result(Server, 
-					      {error, {eoptions, Option}}, 
+					      {error, {options, Option}}, 
 					      Client,
-					      {error, {eoptions, Option}})
+					      {error, {options, Option}})
 	    end,
 
     TestOpts = [{versions, [sslv2, sslv3]}, 
@@ -1593,8 +1596,8 @@ default_reject_anonymous(Config) when is_list(Config) ->
 			    [{ciphers,[Cipher]} |
 			     ClientOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error, {essl, "insufficient security"}},
-			      Client, {error, {essl, "insufficient security"}}).
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "insufficient security"}},
+			      Client, {error, {tls_alert, "insufficient security"}}).
 
 %%--------------------------------------------------------------------
 reuse_session() ->
@@ -3147,7 +3150,7 @@ treashold(N, _) ->
     N + 1.
 
 get_invalid_inet_option(Socket) ->
-    {error, {eoptions, {socket_option, foo, _}}} = ssl:getopts(Socket, [foo]),
+    {error, {options, {socket_options, foo, _}}} = ssl:getopts(Socket, [foo]),
     ok.
 
 shutdown_result(Socket, server) ->
