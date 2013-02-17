@@ -601,6 +601,19 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 
 #ifdef USE_THREADS
 
+ERTS_GLB_INLINE void
+erts_dw_atomic_set_dirty(erts_dw_atomic_t *var, erts_dw_aint_t *val);
+ERTS_GLB_INLINE void
+erts_dw_atomic_read_dirty(erts_dw_atomic_t *var, erts_dw_aint_t *val);
+ERTS_GLB_INLINE void
+erts_atomic_set_dirty(erts_atomic_t *var, erts_aint_t val);
+ERTS_GLB_INLINE erts_aint_t
+erts_atomic_read_dirty(erts_atomic_t *var);
+ERTS_GLB_INLINE void
+erts_atomic32_set_dirty(erts_atomic32_t *var, erts_aint32_t val);
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_read_dirty(erts_atomic32_t *var);
+
 /*
  * See "Documentation of atomics and memory barriers" at the top
  * of this file for info on atomics.
@@ -642,6 +655,26 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_dw_atomic_set_wb ethr_dw_atomic_set_wb
 #define erts_dw_atomic_read_wb ethr_dw_atomic_read_wb
 #define erts_dw_atomic_cmpxchg_wb ethr_dw_atomic_cmpxchg_wb
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE void
+erts_dw_atomic_set_dirty(erts_dw_atomic_t *var, erts_dw_aint_t *val)
+{
+    ethr_sint_t *sint = ethr_dw_atomic_addr(var);
+    sint[0] = val->sint[0];
+    sint[1] = val->sint[1];    
+}
+
+ERTS_GLB_INLINE void
+erts_dw_atomic_read_dirty(erts_dw_atomic_t *var, erts_dw_aint_t *val)
+{
+    ethr_sint_t *sint = ethr_dw_atomic_addr(var);
+    val->sint[0] = sint[0];
+    val->sint[1] = sint[1];
+}
+
+#endif
 
 /* Word size atomics */
 
@@ -743,6 +776,24 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_atomic_xchg_wb ethr_atomic_xchg_wb
 #define erts_atomic_cmpxchg_wb ethr_atomic_cmpxchg_wb
 
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE void
+erts_atomic_set_dirty(erts_atomic_t *var, erts_aint_t val)
+{
+    ethr_sint_t *sint = ethr_atomic_addr(var);
+    *sint = val;
+}
+
+ERTS_GLB_INLINE erts_aint_t
+erts_atomic_read_dirty(erts_atomic_t *var)
+{
+    ethr_sint_t *sint = ethr_atomic_addr(var);
+    return *sint;
+}
+
+#endif
+
 /* 32-bit atomics */
 
 #define erts_atomic32_init_nob ethr_atomic32_init
@@ -843,6 +894,24 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_atomic32_xchg_wb ethr_atomic32_xchg_wb
 #define erts_atomic32_cmpxchg_wb ethr_atomic32_cmpxchg_wb
 
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE void
+erts_atomic32_set_dirty(erts_atomic32_t *var, erts_aint32_t val)
+{
+    ethr_sint32_t *sint = ethr_atomic32_addr(var);
+    *sint = val;
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_read_dirty(erts_atomic32_t *var)
+{
+    ethr_sint32_t *sint = ethr_atomic32_addr(var);
+    return *sint;
+}
+
+#endif
+
 #else /* !USE_THREADS */
 
 /* Double word size atomics */
@@ -881,6 +950,9 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_dw_atomic_set_wb erts_no_dw_atomic_set
 #define erts_dw_atomic_read_wb erts_no_dw_atomic_read
 #define erts_dw_atomic_cmpxchg_wb erts_no_dw_atomic_cmpxchg
+
+#define erts_dw_atomic_set_dirty erts_no_dw_atomic_set
+#define erts_dw_atomic_read_dirty erts_no_dw_atomic_read
 
 /* Word size atomics */
 
@@ -982,6 +1054,9 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_atomic_xchg_wb erts_no_atomic_xchg
 #define erts_atomic_cmpxchg_wb erts_no_atomic_cmpxchg
 
+#define erts_atomic_set_dirty erts_no_atomic_set
+#define erts_atomic_read_dirty erts_no_atomic_read
+
 /* 32-bit atomics */
 
 #define erts_atomic32_init_nob erts_no_atomic32_set
@@ -1081,6 +1156,9 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_atomic32_read_band_wb erts_no_atomic32_read_band
 #define erts_atomic32_xchg_wb erts_no_atomic32_xchg
 #define erts_atomic32_cmpxchg_wb erts_no_atomic32_cmpxchg
+
+#define erts_atomic32_set_dirty erts_no_atomic32_set
+#define erts_atomic32_read_dirty erts_no_atomic32_read
 
 #endif /* !USE_THREADS */
 
