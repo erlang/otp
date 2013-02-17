@@ -316,8 +316,13 @@
           <c>compile_beam_directory/0,1</c>, it is assumed that the
           source code can be found in the same directory as the
           <c>.beam</c> file, in <c>../src</c> relative to that
-          directory, or at the source path in
-          <c>Module:module_info(compile)</c>. If no source code is found,
+          directory, or using the source path in
+          <c>Module:module_info(compile)</c>. When using the latter,
+          two paths are examined: first the one constructed by
+          joining <c>../src</c> and the tail of the compiled path
+          below a trailing <c>src</c> component, then the compiled
+          path itself.
+          If no source code is found,
           <c>{error,no_source_code_found}</c> is returned.</p>
 	<p>HINT: It is possible to issue multiple analyse_to_file commands at
 	  the same time. </p> 
