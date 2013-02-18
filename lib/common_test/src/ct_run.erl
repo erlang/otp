@@ -2291,8 +2291,12 @@ add_jobs([{TestDir,all,_}|Tests], Skip, Opts, CleanUp) ->
 	{'EXIT',_} ->
 	    CleanUp;
 	_ ->
-	    wait_for_idle(),
-	    add_jobs(Tests, Skip, Opts, CleanUp)
+	    case wait_for_idle() of
+		ok ->
+		    add_jobs(Tests, Skip, Opts, CleanUp);
+		_ ->
+		    CleanUp
+	    end
     end;
 add_jobs([{TestDir,[Suite],all}|Tests], Skip,
 	 Opts, CleanUp) when is_atom(Suite) ->
@@ -2305,8 +2309,12 @@ add_jobs([{TestDir,Suites,all}|Tests], Skip,
 	{'EXIT',_} ->
 	    CleanUp;
 	_ ->
-	    wait_for_idle(),
-	    add_jobs(Tests, Skip, Opts, CleanUp)
+	    case wait_for_idle() of
+		ok ->
+		    add_jobs(Tests, Skip, Opts, CleanUp);
+		_ ->
+		    CleanUp
+	    end
     end;
 add_jobs([{TestDir,Suite,all}|Tests], Skip, Opts, CleanUp) ->
     case maybe_interpret(Suite, all, Opts) of
@@ -2318,8 +2326,12 @@ add_jobs([{TestDir,Suite,all}|Tests], Skip, Opts, CleanUp) ->
 		{'EXIT',_} ->
 		    CleanUp;
 		_ ->
-		    wait_for_idle(),
-		    add_jobs(Tests, Skip, Opts, [Suite|CleanUp])
+		    case wait_for_idle() of
+			ok ->
+			    add_jobs(Tests, Skip, Opts, [Suite|CleanUp]);
+			_ ->
+			    CleanUp
+		    end
 	    end;
 	Error ->
 	    Error
@@ -2358,8 +2370,12 @@ add_jobs([{TestDir,Suite,Confs}|Tests], Skip, Opts, CleanUp) when
 		{'EXIT',_} ->
 		    CleanUp;
 		_ ->
-		    wait_for_idle(),
-		    add_jobs(Tests, Skip, Opts, [Suite|CleanUp])
+		    case wait_for_idle() of
+			ok ->
+			    add_jobs(Tests, Skip, Opts, [Suite|CleanUp]);
+			_ ->
+			    CleanUp
+		    end
 	    end;
 	Error ->
 	    Error
@@ -2384,8 +2400,12 @@ add_jobs([{TestDir,Suite,Cases}|Tests],
 		{'EXIT',_} ->
 		    CleanUp;
 		_ ->
-		    wait_for_idle(),
-		    add_jobs(Tests, Skip, Opts, [Suite|CleanUp])
+		    case wait_for_idle() of
+			ok ->
+			    add_jobs(Tests, Skip, Opts, [Suite|CleanUp]);
+			_ ->
+			    CleanUp
+		    end
 	    end;
 	Error ->
 	    Error
@@ -2401,8 +2421,12 @@ add_jobs([{TestDir,Suite,Case}|Tests], Skip, Opts, CleanUp) when is_atom(Case) -
 		{'EXIT',_} ->
 		    CleanUp;
 		_ ->
-		    wait_for_idle(),
-		    add_jobs(Tests, Skip, Opts, [Suite|CleanUp])
+		    case wait_for_idle() of
+			ok ->
+			    add_jobs(Tests, Skip, Opts, [Suite|CleanUp]);
+			_ ->
+			    CleanUp
+		    end
 	    end;
 	Error ->
 	    Error
@@ -2412,7 +2436,13 @@ add_jobs([], _, _, CleanUp) ->
 
 wait_for_idle() ->
     ct_util:update_last_run_index(),
-    Notify = fun(Me) -> Me ! idle end,
+    Notify = fun(Me,IdleState) -> Me ! {idle,IdleState},
+				  receive
+				      {Me,proceed} -> ok
+				  after
+				      30000 -> ok
+				  end
+	     end,
     case catch test_server_ctrl:idle_notify(Notify) of
 	{'EXIT',_} ->
 	    error;
@@ -2420,11 +2450,14 @@ wait_for_idle() ->
 	    %% so we don't hang forever if test_server dies
 	    Ref = erlang:monitor(process, TSPid),
 	    Result = receive
-			 idle -> ok;
+			 {idle,abort}           -> aborted;
+			 {idle,_}               -> ok;
 			 {'DOWN', Ref, _, _, _} -> error
 		     end,
 	    erlang:demonitor(Ref, [flush]),
 	    ct_util:update_last_run_index(),
+	    %% let test_server_ctrl proceed (and possibly shut down) now
+	    TSPid ! {self(),proceed},
 	    Result
     end.
 
