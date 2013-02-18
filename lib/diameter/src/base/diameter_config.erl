@@ -670,17 +670,17 @@ app_acc({application, Opts}, Acc) ->
     [Dict, Mod] = get_opt([dictionary, module], Opts),
     Alias = get_opt(alias, Opts, Dict),
     ModS  = get_opt(state, Opts, Alias),
-    M = get_opt(call_mutates_state, Opts, false),
-    A = get_opt(answer_errors, Opts, report),
-    R = get_opt(request_errors, Opts, answer_3xxx),
+    M = get_opt(call_mutates_state, Opts, false, [true]),
+    A = get_opt(answer_errors, Opts, report, [callback, discard]),
+    P = get_opt(request_errors, Opts, answer_3xxx, [answer, callback]),
     [#diameter_app{alias = Alias,
                    dictionary = Dict,
                    id = cb(Dict, id),
                    module = init_mod(Mod),
                    init_state = ModS,
-                   mutable = init_mutable(M),
-                   options = [{answer_errors, init_answers(A)},
-                              {request_errors, init_request_errors(R)}]}
+                   mutable = M,
+                   options = [{answer_errors, A},
+                              {request_errors, P}]}
      | Acc];
 app_acc(_, Acc) ->
     Acc.
@@ -709,27 +709,16 @@ init_cb(List) ->
                    V <- [proplists:get_value(F, List, D)]],
     #diameter_callback{} = list_to_tuple([diameter_callback | Values]).
 
-init_mutable(M)
-  when M == true;
-       M == false ->
-    M;
-init_mutable(M) ->
-    ?THROW({call_mutates_state, M}).
+%% Retreive and validate.
+get_opt(Key, List, Def, Other) ->
+    init_opt(Key, get_opt(Key, List, Def), [Def|Other]).
 
-init_answers(A)
-  when callback == A;
-       report == A;
-       discard == A ->
-    A;
-init_answers(A) ->
-    ?THROW({answer_errors, A}).
-
-init_request_errors(P)
-  when callback == P;
-       answer_3xxx == P ->
-    P;
-init_request_errors(P) ->
-    ?THROW({request_errors, P}).
+init_opt(_, V, [V|_]) ->
+    V;
+init_opt(Name, V, [_|Vals]) ->
+    init_opt(Name, V, Vals);
+init_opt(Name, V, []) ->
+    ?THROW({Name, V}).
 
 %% Get a single value at the specified key.
 get_opt(Keys, List)

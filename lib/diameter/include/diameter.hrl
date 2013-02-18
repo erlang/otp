@@ -144,5 +144,5 @@
          id,         %% 32-bit unsigned application identifier = Dict:id()
          mutable = false, %% boolean(), do traffic callbacks modify state?
          options = [{answer_errors, report},      %% | callback | discard
-                    {request_errors, answer_3xxx}]}). %% | callback
+                    {request_errors, answer_3xxx}]}). %% | callback | answer
 -endif. %% -ifdef(diameter_hrl).

@@ -475,6 +475,7 @@ not selected.</p>
            | discard
            | {eval|eval_packet, Action, PostF}</v>
 <v>Reply   = {reply, &packet; | &message;}
+           | {answer_message, 3000..3999|5000..5999}
            | {protocol_error, 3000..3999}</v>
 <v>Opt     = &mod_call_opt;</v>
 <v>PostF   = &mod_evaluable;</v>
@@ -545,22 +546,25 @@ preserved in the outgoing answer, appropriate values otherwise
 being set by diameter.</p>
 </item>
 
-<tag><c>{protocol_error, 3000..3999}</c></tag>
+<tag><c>{answer_message, 3000..3999|5000..5999}</c></tag>
 <item>
 <p>
 Send an answer message to the peer containing the specified
-protocol error.
+Result-Code.
 Equivalent to</p>
 <pre>
 {reply, ['answer-message' | Avps]
 </pre>
 <p>
 where <c>Avps</c> sets the Origin-Host, Origin-Realm, the specified
-Result-Code and (if the request sent one) Session-Id AVP's.</p>
+Result-Code and (if the request contained one) Session-Id AVP's.</p>
 
 <p>
-Returning a non-3xxx value in a <c>protocol_error</c> tuple
-will cause the request process in question to fail.</p>
+Returning a value other than 3xxx or 5xxx will cause the request
+process in question to fail, as will returning a 5xxx value if the
+peer connection in question has been configured with the RFC 3588
+common dictionary <c>diameter_gen_base_rfc3588</c>.
+(Since RFC 3588 only allows 3xxx values in an answer-message.)</p>
 </item>
 
 <tag><c>{relay, Opts}</c></tag>
@@ -613,11 +617,20 @@ containing the encoded binary.
 The return value is ignored.</p>
 </item>
 
+<tag><c>{protocol_error, 3000..3999}</c></tag>
+<item>
+<p>
+Equivalent to <c>{answer_message, 3000..3999}</c>.</p>
+</item>
+
 </taglist>
 
+<note>
 <p>
-Note that protocol errors detected by diameter will result in an
-answer message without <c>handle_request/3</c> being invoked.</p>
+Requests containing errors may be answered by diameter, without a
+callback taking place, depending on the value of the
+&mod_application_opt; <c>request_errors</c>.</p>
+</note>
 
 </desc>
 </func>
