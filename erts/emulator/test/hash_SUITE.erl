@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -363,6 +364,7 @@ phash2_test() ->
          %% (cannot use block_hash due to compatibility issues...)
 	 {abc,26499},
 	 {abd,26500},
+	 {'åäö', 62518}, 
 
 	 %% small
 	 {0,3175731469},
