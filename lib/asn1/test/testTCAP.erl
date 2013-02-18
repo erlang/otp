@@ -37,7 +37,7 @@ compile_asn1config(Config, Options) ->
     asn1_test_lib:compile_all(Files, Config, Options),
     asn1_test_lib:compile_erlang("TCAPPackage_msg", Config, []).
 
-test(ber=Erule,_Config) ->
+test(Erule,_Config) ->
 %    ?line OutDir = ?config(priv_dir,Config),
     %% testing OTP-4798, open type encoded with indefinite length
     ?line {ok,_Res} = asn1_wrapper:decode('TCAPMessages-simple','MessageType', val_OTP_4798(Erule)),

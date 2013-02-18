@@ -350,7 +350,7 @@ testPrimStrings(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
 			      [compact_bit_string,Rule|Opts]),
     testPrimStrings:bit_string(Rule),
-    ?only_ber(testPrimStrings:more_strings(Rule)).
+    testPrimStrings:more_strings(Rule).
 
 testPrimStrings_cases(Rule) ->
     testPrimStrings:bit_string(Rule),
@@ -367,10 +367,10 @@ testPrimExternal(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["External", "PrimExternal"], Config,
                               [Rule|Opts]),
     testPrimExternal:external(Rule),
-    ?only_ber(asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
-                                            [Rule|Opts])),
-    ?only_ber(testPrimStrings_cases(Rule)),
-    ?only_ber(testPrimStrings:more_strings(Rule)).
+    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
+			      [Rule|Opts]),
+    testPrimStrings_cases(Rule),
+    testPrimStrings:more_strings(Rule).
 
 testChoPrim(Config) -> test(Config, fun testChoPrim/3).
 testChoPrim(Config, Rule, Opts) ->
@@ -633,9 +633,10 @@ c_syntax(Config) ->
              "SeqBadComma"]].
 
 c_string(Config) ->
-    test(Config, fun c_string/3, [per, ber]).
+    test(Config, fun c_string/3).
 c_string(Config, Rule, Opts) ->
-    asn1_test_lib:compile("String", Config, [Rule|Opts]).
+    asn1_test_lib:compile("String", Config, [Rule|Opts]),
+    asn1ct:test('String').
 
 c_implicit_before_choice(Config) ->
     test(Config, fun c_implicit_before_choice/3, [ber]).
@@ -864,7 +865,7 @@ testExport(Config) ->
 		       [{outdir, ?config(case_dir, Config)}]).
 
 testImport(Config) ->
-    test(Config, fun testImport/3, [ber]).
+    test(Config, fun testImport/3).
 testImport(Config, Rule, Opts) ->
     {error, _} = asn1ct:compile(filename:join(?config(data_dir, Config),
                                               "ImportsFrom"),
@@ -909,7 +910,7 @@ duplicate_tags(Config) ->
 	asn1ct:compile(filename:join(DataDir, "SeqOptional2"),
 		       [abs, {outdir, CaseDir}]).
 
-rtUI(Config) -> test(Config, fun rtUI/3, [per,ber]).
+rtUI(Config) -> test(Config, fun rtUI/3).
 rtUI(Config, Rule, Opts) ->
     asn1_test_lib:compile("Prim", Config, [Rule|Opts]),
     {ok, _} = asn1rt:info('Prim').
@@ -925,7 +926,7 @@ testINSTANCE_OF(Config, Rule, Opts) ->
     testINSTANCE_OF:main(Rule).
 
 testTCAP(Config) ->
-    test(Config, fun testTCAP/3, [ber]).
+    test(Config, fun testTCAP/3).
 testTCAP(Config, Rule, Opts) ->
     testTCAP:compile(Config, [Rule|Opts]),
     testTCAP:test(Rule, Config),
@@ -983,7 +984,9 @@ test_WS_ParamClass(Config, Rule, Opts) ->
     ok.
 
 test_Defed_ObjectIdentifier(Config) ->
-    asn1_test_lib:compile("UsefulDefinitions", Config, [ber]).
+    test(Config, fun test_Defed_ObjectIdentifier/3).
+test_Defed_ObjectIdentifier(Config, Rule, Opts) ->
+    asn1_test_lib:compile("UsefulDefinitions", Config, [Rule|Opts]).
 
 testSelectionType(Config) -> test(Config, fun testSelectionType/3).
 testSelectionType(Config, Rule, Opts) ->
@@ -1011,7 +1014,7 @@ test_undecoded_rest(Config, Rule, Opts) ->
     test_undecoded_rest:test(undec_rest, Config).
 
 testTcapsystem(Config) ->
-    test(Config, fun testTcapsystem/3, [ber]).
+    test(Config, fun testTcapsystem/3).
 testTcapsystem(Config, Rule, Opts) ->
     testTcapsystem:compile(Config, [Rule|Opts]).
 
