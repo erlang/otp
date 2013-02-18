@@ -503,9 +503,7 @@ static int validate_unicode(Eterm arg)
 {
     if (is_not_small(arg) ||
 	arg > make_small(0x10FFFFUL) ||
-	(make_small(0xD800UL) <= arg && arg <= make_small(0xDFFFUL)) ||
-	arg == make_small(0xFFFEUL) ||
-	arg == make_small(0xFFFFUL))
+	(make_small(0xD800UL) <= arg && arg <= make_small(0xDFFFUL)))
 	return 0;
     return 1;
 }
