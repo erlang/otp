@@ -205,16 +205,25 @@ recv_request({#diameter_app{id = Id, dictionary = Dict} = App, Caps},
            Caps,
            Dict0,
            RecvData,
-           diameter_codec:decode(Id, Dict, Pkt));
+           errors(Id, diameter_codec:decode(Id, Dict, Pkt)));
 %% Note that the decode is different depending on whether or not Id is
 %% ?APP_ID_RELAY.
 
 %%   DIAMETER_APPLICATION_UNSUPPORTED   3007
 %%      A request was sent for an application that is not supported.
 
-recv_request(#diameter_caps{} = Caps, TPid, Pkt, Dict0, _) ->
-    As = collect_avps(Pkt),
-    protocol_error(3007, TPid, Caps, Dict0, Pkt#diameter_packet{avps = As});
+recv_request(#diameter_caps{}
+             = Caps,
+             TPid,
+             #diameter_packet{errors = Es}
+             = Pkt,
+             Dict0,
+             _) ->
+    protocol_error(TPid,
+                   Caps,
+                   Dict0,
+                   Pkt#diameter_packet{avps = collect_avps(Pkt),
+                                       errors = [3007 | Es]});
 
 recv_request(false, _, _, _, _) ->  %% transport has gone down
     ok.
@@ -229,75 +238,25 @@ collect_avps(Pkt) ->
 
 %% recv_R/6
 
-%% Wrong number of bits somewhere in the message: reply.
-%%
-%%   DIAMETER_INVALID_AVP_BITS          3009
-%%      A request was received that included an AVP whose flag bits are
-%%      set to an unrecognized value, or that is inconsistent with the
-%%      AVP's definition.
-%%
-recv_R(_App,
+%% Answer 3xxx errors ourselves ...
+recv_R(#diameter_app{options = [_, {request_errors, answer_3xxx} | _]},
        TPid,
        Caps,
        Dict0,
        _RecvData,
-       #diameter_packet{errors = [Bs | _]} = Pkt)
-  when is_bitstring(Bs) ->
-    protocol_error(3009, TPid, Caps, Dict0, Pkt);
+       #diameter_packet{errors = [RC|_]} = Pkt)
+  when 3 == RC div 1000 ->
+    protocol_error(TPid, Caps, Dict0, Pkt);
 
-%% Either we support this application but don't recognize the command
-%% or we're a relay and the command isn't proxiable.
-%%
-%%   DIAMETER_COMMAND_UNSUPPORTED       3001
-%%      The Request contained a Command-Code that the receiver did not
-%%      recognize or support.  This MUST be used when a Diameter node
-%%      receives an experimental command that it does not understand.
-%%
-recv_R(#diameter_app{id = Id},
+%% ... or make a handle_request callback. Note that
+%% Pkt#diameter_packet.msg = undefined in the 3001 case.
+recv_R(App,
        TPid,
        Caps,
        Dict0,
-       _RecvData,
-       #diameter_packet{header = #diameter_header{is_proxiable = P},
-                        msg = M}
-       = Pkt)
-  when ?APP_ID_RELAY /= Id, undefined == M;
-       ?APP_ID_RELAY == Id, not P ->
-    protocol_error(3001, TPid, Caps, Dict0, Pkt);
-
-%% Error bit was set on a request.
-%%
-%%   DIAMETER_INVALID_HDR_BITS          3008
-%%      A request was received whose bits in the Diameter header were
-%%      either set to an invalid combination, or to a value that is
-%%      inconsistent with the command code's definition.
-%%
-recv_R(_App,
-       TPid,
-       Caps,
-       Dict0,
-       _RecvData,
-       #diameter_packet{header = #diameter_header{is_error = true}}
-       = Pkt) ->
-    protocol_error(3008, TPid, Caps, Dict0, Pkt);
-
-%% A message in a locally supported application or a proxiable message
-%% in the relay application. Don't distinguish between the two since
-%% each application has its own callback config. That is, the user can
-%% easily distinguish between the two cases.
-recv_R(App, TPid, Caps, Dict0, RecvData, Pkt) ->
-    request_cb(App, TPid, Caps, Dict0, RecvData, examine(Pkt)).
-
-%% Note that there may still be errors but these aren't protocol
-%% (3xxx) errors that lead to an answer-message.
-
-request_cb(App,
-           TPid,
-           Caps,
-           Dict0,
-           #recvdata{service_name = SvcName}
-           = RecvData,
-           Pkt) ->
+       #recvdata{service_name = SvcName}
+       = RecvData,
+       Pkt) ->
     request_cb(cb(App, handle_request, [Pkt, SvcName, {TPid, Caps}]),
                App,
                TPid,
@@ -307,20 +266,21 @@ request_cb(App,
                [],
                Pkt).
 
-%% examine/1
+%% errors/1
 %%
-%% Look for errors in a decoded message. It's odd/unfortunate that
-%% 501[15] aren't protocol errors.
+%% Look for errors in a decoded message, prepending the errors field
+%% with the first detected error. It's odd/unfortunate that 5011 isn't
+%% a protocol error.
 
 %%   DIAMETER_INVALID_MESSAGE_LENGTH 5015
 %%
 %%      This error is returned when a request is received with an invalid
 %%      message length.
 
-examine(#diameter_packet{header = #diameter_header{length = Len},
-                         bin = Bin,
-                         errors = Es}
-        = Pkt)
+errors(_, #diameter_packet{header = #diameter_header{length = Len},
+                           bin = Bin,
+                           errors = Es}
+          = Pkt)
   when Len < 20;
        0 /= Len rem 4;
        8*Len /= bit_size(Bin) ->
@@ -330,13 +290,47 @@ examine(#diameter_packet{header = #diameter_header{length = Len},
 %%      This error is returned when a request was received, whose version
 %%      number is unsupported.
 
-examine(#diameter_packet{header = #diameter_header{version = V},
-                         errors = Es}
-        = Pkt)
+errors(_, #diameter_packet{header = #diameter_header{version = V},
+                           errors = Es}
+          = Pkt)
   when V /= ?DIAMETER_VERSION ->
     Pkt#diameter_packet{errors = [5011 | Es]};
 
-examine(Pkt) ->
+%%   DIAMETER_INVALID_AVP_BITS          3009
+%%      A request was received that included an AVP whose flag bits are
+%%      set to an unrecognized value, or that is inconsistent with the
+%%      AVP's definition.
+
+errors(_, #diameter_packet{errors = [Bs | Es]} = Pkt)
+  when is_bitstring(Bs) ->
+    Pkt#diameter_packet{errors = [3009 | Es]};
+
+%%   DIAMETER_COMMAND_UNSUPPORTED       3001
+%%      The Request contained a Command-Code that the receiver did not
+%%      recognize or support.  This MUST be used when a Diameter node
+%%      receives an experimental command that it does not understand.
+
+errors(Id, #diameter_packet{header = #diameter_header{is_proxiable = P},
+                            msg = M,
+                            errors = Es}
+           = Pkt)
+  when ?APP_ID_RELAY /= Id, undefined == M;  %% don't know the command
+       ?APP_ID_RELAY == Id, not P ->         %% command isn't proxiable
+    Pkt#diameter_packet{errors = [3001 | Es]};
+
+%%   DIAMETER_INVALID_HDR_BITS          3008
+%%      A request was received whose bits in the Diameter header were
+%%      either set to an invalid combination, or to a value that is
+%%      inconsistent with the command code's definition.
+
+errors(_, #diameter_packet{header = #diameter_header{is_request = true,
+                                                     is_error = true},
+                            errors = Es}
+          = Pkt) ->
+    Pkt#diameter_packet{errors = [3008 | Es]};
+
+%% Green.
+errors(_, Pkt) ->
     Pkt.
 
 %% request_cb/8
@@ -365,7 +359,7 @@ request_cb({protocol_error, RC},
            _RecvData,
            Fs,
            Pkt)
-  when 3000 =< RC, RC < 4000 ->
+  when 3 == RC div 1000 ->
     protocol_error(RC, TPid, Caps, Dict0, Fs, Pkt);
 
 %% RFC 3588 says we must reply 3001 to anything unrecognized or
@@ -447,28 +441,36 @@ dict(Dict, Dict0, Rec) ->
         error:_ -> Dict
     end.
 
-%% protocol_error/6
+%% protocol_error/5
 
-protocol_error(RC, TPid, Caps, Dict0, Fs, Pkt) ->
-    #diameter_caps{origin_host = {OH,_},
-                   origin_realm = {OR,_}}
-        = Caps,
-    #diameter_packet{avps = Avps, errors = Es}
-        = Pkt,
-
+protocol_error(TPid,
+               #diameter_caps{origin_host  = {OH,_},
+                              origin_realm = {OR,_}},
+               Dict0,
+               Fs,
+               #diameter_packet{avps = Avps,
+                                errors = [RC|_]}
+               = Pkt) ->
     ?LOG({error, RC}, Pkt),
-    reply(answer_message({OH, OR, RC}, Dict0, Avps),
-          Dict0,
-          TPid,
-          Fs,
-          Pkt#diameter_packet{errors = [RC | Es]}).
+    reply(answer_message({OH, OR, RC}, Dict0, Avps), Dict0, TPid, Fs, Pkt).
 %% Note that reply/5 may set the result code once more. It's set in
 %% answer_message/3 in case reply/5 doesn't.
 
-%% protocol_error/5
+protocol_error(TPid, Caps, Dict0, Pkt) ->
+    protocol_error(TPid, Caps, Dict0, [], Pkt).
 
-protocol_error(RC, TPid, Caps, Dict0, Pkt) ->
-    protocol_error(RC, TPid, Caps, Dict0, [], Pkt).
+protocol_error(RC,
+               TPid,
+               Caps,
+               Dict0,
+               Fs,
+               #diameter_packet{errors = Es}
+               = Pkt) ->
+    protocol_error(TPid,
+                   Caps,
+                   Dict0,
+                   Fs,
+                   Pkt#diameter_packet{errors = [RC | Es]}).
 
 %% resend/7
 %%
@@ -661,15 +663,15 @@ rc(RC) ->
 
 %% rc/4
 
-rc(#diameter_packet{msg = Rec} = Pkt, RC, Failed, DictT) ->
-    Pkt#diameter_packet{msg = rc(Rec, RC, Failed, DictT)};
+rc(#diameter_packet{msg = Rec} = Pkt, RC, Failed, Dict) ->
+    Pkt#diameter_packet{msg = rc(Rec, RC, Failed, Dict)};
 
-rc(Rec, RC, Failed, DictT)
+rc(Rec, RC, Failed, Dict)
   when is_integer(RC) ->
     set(Rec,
-        lists:append([rc(Rec, {'Result-Code', RC}, DictT),
-                      failed_avp(Rec, Failed, DictT)]),
-        DictT).
+        lists:append([rc(Rec, {'Result-Code', RC}, Dict),
+                      failed_avp(Rec, Failed, Dict)]),
+        Dict).
 
 %% Reply as name and tuple list ...
 set([_|_] = Ans, Avps, _) ->
@@ -1268,11 +1270,12 @@ handle_answer(SvcName, App, {error, Req, Reason}) ->
     handle_error(App, Req, Reason, SvcName);
 
 handle_answer(SvcName,
-              #diameter_app{dictionary = Dict}
+              #diameter_app{dictionary = Dict,
+                            id = Id}
               = App,
               {answer, Req, Dict0, Pkt}) ->
     Mod = dict(Dict, Dict0, Pkt),
-    answer(examine(diameter_codec:decode(Mod, Pkt)),
+    answer(errors(Id, diameter_codec:decode(Mod, Pkt)),
            SvcName,
            Mod,
            App,

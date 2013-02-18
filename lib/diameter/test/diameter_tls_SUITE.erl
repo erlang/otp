@@ -122,7 +122,7 @@
                   {capabilities, Caps}]}).
 
 -define(SUCCESS, 2001).
--define(LOGOUT, ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_LOGOUT').
+-define(LOGOUT, ?'DIAMETER_BASE_TERMINATION-CAUSE_LOGOUT').
 
 %% ===========================================================================
 

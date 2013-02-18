@@ -672,13 +672,15 @@ app_acc({application, Opts}, Acc) ->
     ModS  = get_opt(state, Opts, Alias),
     M = get_opt(call_mutates_state, Opts, false),
     A = get_opt(answer_errors, Opts, report),
+    R = get_opt(request_errors, Opts, answer_3xxx),
     [#diameter_app{alias = Alias,
                    dictionary = Dict,
                    id = cb(Dict, id),
                    module = init_mod(Mod),
                    init_state = ModS,
                    mutable = init_mutable(M),
-                   options = [{answer_errors, init_answers(A)}]}
+                   options = [{answer_errors, init_answers(A)},
+                              {request_errors, init_request_errors(R)}]}
      | Acc];
 app_acc(_, Acc) ->
     Acc.
@@ -721,6 +723,13 @@ init_answers(A)
     A;
 init_answers(A) ->
     ?THROW({answer_errors, A}).
+
+init_request_errors(P)
+  when callback == P;
+       answer_3xxx == P ->
+    P;
+init_request_errors(P) ->
+    ?THROW({request_errors, P}).
 
 %% Get a single value at the specified key.
 get_opt(Keys, List)
