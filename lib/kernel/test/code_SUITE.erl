@@ -716,7 +716,7 @@ analyse([], [This={M,F,A}|Path], Visited, ErrCnt0) ->
     %% These modules should be loaded by code.erl before 
     %% the code_server is started.
     OK = [erlang, os, prim_file, erl_prim_loader, init, ets,
-	  code_server, lists, lists_sort, unicode, binary, filename, packages, 
+	  code_server, lists, lists_sort, unicode, binary, filename,
 	  gb_sets, gb_trees, hipe_unified_loader, hipe_bifs,
 	  prim_zip, zlib],
     ErrCnt1 = 
@@ -1590,7 +1590,7 @@ native_early_modules_1(Architecture) ->
             ?line true = lists:all(fun code:is_module_native/1,
 				   [ets,file,filename,gb_sets,gb_trees,
 				    %%hipe_unified_loader, no_native as workaround
-				    lists,os,packages]),
+				    lists,os]),
             ok
     end.
 
