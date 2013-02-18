@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2743,7 +2743,7 @@ otp_10302(doc) ->
 otp_10302(suite) -> [];
 otp_10302(Config) when is_list(Config) ->
     {ok,Node} = start_node(shell_suite_helper_2,
-			   "-pa "++?config(priv_dir,Config)++ 
+			   "-pa "++?config(priv_dir,Config)++
 			   " +pc unicode"),
     Test1 =
         <<"begin
@@ -2752,7 +2752,7 @@ otp_10302(Config) when is_list(Config) ->
                rd(rec, {a = \"\\x{400}\"}),
                ok = rl(rec)
             end.">>,
-    "-record(rec,{a = \"\x{400}\"}).\nok.\n" = t(Test1),
+    "-record(rec,{a = \"\x{400}\"}).\nok.\n" = t({Node,Test1}),
 
     Test3 =
         <<"io:setopts([{encoding,utf8}]).
@@ -2784,7 +2784,8 @@ otp_10302(Config) when is_list(Config) ->
     %% One $" is "lost":
     true =
        "\x{400}\": command not found" =:=
-       prompt_err({<<"io:setopts([{encoding,utf8}]). v(\"\x{400}\")."/utf8>>,
+       prompt_err({Node,
+                   <<"io:setopts([{encoding,utf8}]). v(\"\x{400}\")."/utf8>>,
                    unicode}),
 
     "ok.\ndefault\n* Bad prompt function: \"\x{400}\".\n" =
@@ -2819,7 +2820,7 @@ otp_10302(Config) when is_list(Config) ->
 
     "ok.\n** exception error: an error occurred when evaluating"
         " an arithmetic expression\n     in operator  '/'/2\n"
-        "        called as <<170>> / <<170>>.\n" = t(Test7),
+        "        called as <<170>> / <<170>>.\n" = t({Node,Test7}),
     Test8 =
         <<"begin
                A = [1089],
@@ -2865,7 +2866,7 @@ otp_10302(Config) when is_list(Config) ->
     "ok.\n** exception error: no function clause matching \n"
     "                    erl_eval:'-inside-an-interpreted-fun-'"
     "({\"1\xaa\",170,<<\"hi\">>,\n                                           "
-    "                 <<\"1\xaa\"/utf8>>}) .\n"  = t(Test11),
+    "                 <<\"1\xaa\"/utf8>>}) .\n"  = t({Node,Test11}),
     Test12 = <<"fun(a, b) -> false end(65, [1089]).">>,
     "** exception error: no function clause matching \n"
     "                    erl_eval:'-inside-an-interpreted-fun-'(65,[1089])"

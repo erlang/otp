@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,7 +49,7 @@
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
-          otp_10302/1]).
+          otp_10302/1, otp_10820/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -80,7 +80,8 @@ groups() ->
      {attributes, [], [misc_attrs, import_export]},
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
-       otp_8473, otp_8522, otp_8567, otp_8664, otp_9147, otp_10302]}].
+       otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
+       otp_10302, otp_10820]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1074,6 +1075,34 @@ otp_10302(Config) when is_list(Config) ->
 unicode_hook({foo,E}, I, P, H) ->
     erl_pp:expr({call,0,{atom,0,foo},[E]}, I, P, H).
 
+otp_10820(doc) ->
+    "OTP-10820. Unicode filenames.";
+otp_10820(suite) -> [];
+otp_10820(Config) when is_list(Config) ->
+    C1 = <<"%% coding: utf-8\n -module(any).">>,
+    ok = do_otp_10820(Config, C1, "+pc latin1"),
+    ok = do_otp_10820(Config, C1, "+pc unicode"),
+    C2 = <<"-module(any).">>,
+    ok = do_otp_10820(Config, C2, "+pc latin1"),
+    ok = do_otp_10820(Config, C2, "+pc unicode").
+
+do_otp_10820(Config, C, PC) ->
+    {ok,Node} = start_node(erl_pp_helper, "+fnu " ++ PC),
+    L = [915,953,959,973,957,953,954,959,957,964],
+    FileName = filename(L++".erl", Config),
+    ok = rpc:call(Node, file, write_file, [FileName, C]),
+    {ok, _, []} =  rpc:call(Node, compile, file,
+                            [FileName, [return,'P',{outdir,?privdir}]]),
+    PFileName = filename(L++".P", Config),
+    {ok, Bin} = rpc:call(Node, file, read_file, [PFileName]),
+    true = test_server:stop_node(Node),
+    true = file_attr_is_string(binary_to_list(Bin)),
+    ok.
+
+file_attr_is_string("-file(\"" ++ _) -> true;
+file_attr_is_string([_ | L]) ->
+    file_attr_is_string(L).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 compile(Config, Tests) ->
@@ -1247,3 +1276,8 @@ filename(Name, Config) ->
 fail() ->
     io:format("failed~n"),
     ?t:fail().
+
+%% +fnu means a peer node has to be started; slave will not do
+start_node(Name, Xargs) ->
+    ?line PA = filename:dirname(code:which(?MODULE)),
+    test_server:start_node(Name, peer, [{args, "-pa " ++ PA ++ " " ++ Xargs}]).
