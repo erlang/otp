@@ -485,13 +485,18 @@ printable_bin(Bin, Len, D, latin1) ->
             false
     end;
 printable_bin(Bin, Len, D, _Uni) ->
-    case printable_unicode(Bin, Len, [], io:printable_range()) of
-        {_, <<>>, L} ->
-            {byte_size(Bin) =:= length(L), L};
-        {NC, Bin1, L} when D > 0, Len - NC >= D ->
-            {byte_size(Bin)-byte_size(Bin1) =:= length(L), true, L};
-        {_NC, _Bin, _L} ->
-            false
+    case valid_utf8(Bin,Len) of
+	true ->
+	    case printable_unicode(Bin, Len, [], io:printable_range()) of
+		{_, <<>>, L} ->
+		    {byte_size(Bin) =:= length(L), L};
+		{NC, Bin1, L} when D > 0, Len - NC >= D ->
+		    {byte_size(Bin)-byte_size(Bin1) =:= length(L), true, L};
+		{_NC, _Bin, _L} ->
+		    false
+	    end;
+	false ->
+	    printable_bin(Bin, Len, D, latin1)
     end.
 
 printable_bin1(_Bin, _Start, 0) ->
@@ -521,6 +526,15 @@ printable_latin1_list([$\f | Cs], N) -> printable_latin1_list(Cs, N - 1);
 printable_latin1_list([$\e | Cs], N) -> printable_latin1_list(Cs, N - 1);
 printable_latin1_list([], _) -> all;
 printable_latin1_list(_, N) -> N.
+
+valid_utf8(<<>>,_) ->
+    true;
+valid_utf8(_,0) ->
+    true;
+valid_utf8(<<_/utf8, R/binary>>,N) ->
+    valid_utf8(R,N-1);
+valid_utf8(_,_) ->
+    false.
 
 printable_unicode(<<C/utf8, R/binary>>=Bin, I, L, Range) when I > 0 ->
     case printable_char(C,Range) of
