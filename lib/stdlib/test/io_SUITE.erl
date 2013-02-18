@@ -2035,24 +2035,24 @@ printable_range(doc) ->
     "Check that the printable range set by the user actually works";
 printable_range(Suite) when is_list(Suite) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave, 
+    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
 					 [{args, " +pc unicode -pa " ++ Pa}]),
-    {ok, LNode} = test_server:start_node(printable_range_latin1, slave, 
+    {ok, LNode} = test_server:start_node(printable_range_latin1, slave,
 					 [{args, " +pc latin1 -pa " ++ Pa}]),
-    {ok, DNode} = test_server:start_node(printable_range_default, slave, 
+    {ok, DNode} = test_server:start_node(printable_range_default, slave,
 					 [{args, " -pa " ++ Pa}]),
     unicode = rpc:call(UNode,io,printable_range,[]),
     latin1 = rpc:call(LNode,io,printable_range,[]),
     latin1 = rpc:call(DNode,io,printable_range,[]),
     test_server:stop_node(UNode),
     test_server:stop_node(LNode),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave, 
+    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
 					 [{args, " +pcunicode -pa " ++ Pa}]),
-    {ok, LNode} = test_server:start_node(printable_range_latin1, slave, 
+    {ok, LNode} = test_server:start_node(printable_range_latin1, slave,
 					 [{args, " +pclatin1 -pa " ++ Pa}]),
     unicode = rpc:call(UNode,io,printable_range,[]),
     latin1 = rpc:call(LNode,io,printable_range,[]),
-    {error, _} = test_server:start_node(printable_range_unnicode, slave, 
+    {error, _} = test_server:start_node(printable_range_unnicode, slave,
 					[{args, " +pcunnicode -pa " ++ Pa}]),
     PrettyOptions = [{column,1},
 		     {line_length,109},
@@ -2092,17 +2092,16 @@ printable_range(Suite) when is_list(Suite) ->
 					       <<1024/utf8,1025/utf8>>}]]))),
     125 = lists:max(lists:flatten(rpc:call(LNode,io_lib,format,
 					   ["~tp",
-					    [{hello, 
+					    [{hello,
 					      <<1024/utf8,1025/utf8>>}]]))),
     125 = lists:max(lists:flatten(rpc:call(DNode,io_lib,format,
 					   ["~tp",
-					    [{hello, 
+					    [{hello,
 					      <<1024/utf8,1025/utf8>>}]]))),
     test_server:stop_node(UNode),
     test_server:stop_node(LNode),
     test_server:stop_node(DNode),
     ok.
-    
 
 io_lib_print_binary_depth_one(doc) ->
     "Test binaries printed with a depth of one behave correctly";
@@ -2119,14 +2118,16 @@ otp_10302(doc) ->
     "OTP-10302. Unicode";
 otp_10302(Suite) when is_list(Suite) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave, 
+    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
 					 [{args, " +pc unicode -pa " ++ Pa}]),
-    {ok, LNode} = test_server:start_node(printable_range_latin1, slave, 
+    {ok, LNode} = test_server:start_node(printable_range_latin1, slave,
 					 [{args, " +pc latin1 -pa " ++ Pa}]),
     "\"\x{400}\"" = rpc:call(UNode,?MODULE,pretty,["\x{400}", -1]),
-    "<<\"\x{400}\"/utf8>>" = rpc:call(UNode,?MODULE,pretty,[<<"\x{400}"/utf8>>, -1]),
+    "<<\"\x{400}\"/utf8>>" = rpc:call(UNode,?MODULE,pretty,
+				      [<<"\x{400}"/utf8>>, -1]),
 
-    "<<\"\x{400}foo\"/utf8>>" = rpc:call(UNode,?MODULE,pretty,[<<"\x{400}foo"/utf8>>, 2]),
+    "<<\"\x{400}foo\"/utf8>>" = rpc:call(UNode,?MODULE,pretty,
+					 [<<"\x{400}foo"/utf8>>, 2]),
     "[1024]" = rpc:call(LNode,?MODULE,pretty,["\x{400}", -1]),
     "<<208,128>>" = rpc:call(LNode,?MODULE,pretty,[<<"\x{400}"/utf8>>, -1]),
 

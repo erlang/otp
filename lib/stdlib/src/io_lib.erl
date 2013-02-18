@@ -545,7 +545,7 @@ printable_latin1_list(_) -> false.			%Everything else is false
 
 printable_list(L) ->
     %% There will be more alternatives returns from io:printable range 
-    %% in the future. To not have a catch-all caluse is deliberate.
+    %% in the future. To not have a catch-all clause is deliberate.
     case io:printable_range() of
 	latin1 ->
 	    printable_latin1_list(L);
