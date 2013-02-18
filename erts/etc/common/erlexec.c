@@ -145,13 +145,6 @@ static char *plusr_val_switches[] = {
     NULL
 };
 
-/* +pc arguments with values */
-static char *pluspc_val_switches[] = {
-    "latin1",
-    "unicode",
-    NULL
-};
-
 /* +z arguments with values */
 static char *plusz_val_switches[] = {
     "dbbl",
