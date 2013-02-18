@@ -277,13 +277,19 @@ port_dies(_Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     {status, _} = process_info(Ref, status),   
     process_flag(trap_exit, true),
-    Port = lists:last(erlang:ports()),      
-    exit(Port, kill),
-    %% Wait for exit_status from port 5000 ms (will not get a exit
-    %% status in this case), then wait a little longer to make sure
-    %% the port and the controlprocess has had time to terminate.
-    test_server:sleep(10000),
-    undefined = process_info(Ref, status).
+    NamedPorts =  [{P,  erlang:port_info(P, name)} || P <- erlang:ports()],
+    case [P || {P, {name, Name}} <- NamedPorts,  is_odbcserver(Name)]  of
+	[Port] ->
+	    exit(Port, kill),
+	    %% Wait for exit_status from port 5000 ms (will not get a exit
+	    %% status in this case), then wait a little longer to make sure
+	    %% the port and the controlprocess has had time to terminate.
+	    test_server:sleep(10000),
+	    undefined = process_info(Ref, status);
+	[] ->
+	    ct:fail([erlang:port_info(P, name) || P <- erlang:ports()])  
+    end.
+
 
 %%-------------------------------------------------------------------------
 control_process_dies(doc) ->
@@ -292,13 +298,17 @@ control_process_dies(suite) -> [];
 control_process_dies(_Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     process_flag(trap_exit, true),
-    Port = lists:last(erlang:ports()),      
-    {connected, Ref} = erlang:port_info(Port, connected),  
-    exit(Ref, kill),
-    test_server:sleep(500),
-    undefined = erlang:port_info(Port, connected).
-    %% Check for c-program still running, how?
-
+    NamedPorts =  [{P,  erlang:port_info(P, name)} || P <- erlang:ports()],
+    case [P || {P, {name, Name}} <- NamedPorts,  is_odbcserver(Name)] of
+	[Port] ->
+	    {connected, Ref} = erlang:port_info(Port, connected),  
+	    exit(Ref, kill),
+	    test_server:sleep(500),
+	    undefined = erlang:port_info(Port, connected);
+	%% Check for c-program still running, how?
+	[] ->
+	    ct:fail([erlang:port_info(P, name) || P <- erlang:ports()])    
+    end.
 
 %%-------------------------------------------------------------------------
 client_dies_normal(doc) ->
@@ -868,3 +878,13 @@ extended_errors(Config) when is_list(Config)->
 
     ok = odbc:disconnect(Ref),
     ok = odbc:disconnect(RefExtended).
+
+
+is_odbcserver(Name) ->
+    case re:run(Name, "odbcserver") of
+	{match, _} ->
+	    true;
+	_ ->
+	    false
+    end.
+
