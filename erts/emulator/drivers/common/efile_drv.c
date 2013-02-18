@@ -1160,7 +1160,14 @@ static void invoke_read_line(void *data)
 	    /* Need more place */
 	    ErlDrvSizeT need = (d->c.read_line.read_size >= DEFAULT_LINEBUF_SIZE) ?
 		d->c.read_line.read_size + DEFAULT_LINEBUF_SIZE : DEFAULT_LINEBUF_SIZE;
-	    ErlDrvBinary   *newbin = driver_alloc_binary(need);
+	    ErlDrvBinary   *newbin;
+#if !ALWAYS_READ_LINE_AHEAD
+	    /* Use read_ahead size if need does not exceed it */
+	    if (need < (d->c.read_line.binp)->orig_size && 
+		d->c.read_line.read_ahead)
+	      need = (d->c.read_line.binp)->orig_size;
+#endif
+	    newbin = driver_alloc_binary(need);
 	    if (newbin == NULL) {
 		d->result_ok = 0;
 		d->errInfo.posix_errno = ENOMEM;
