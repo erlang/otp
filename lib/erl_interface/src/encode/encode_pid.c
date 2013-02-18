@@ -26,7 +26,8 @@ int ei_encode_pid(char *buf, int *index, const erlang_pid *p)
   char *s = buf + *index;
 
   ++(*index); /* skip ERL_PID_EXT */
-  if (ei_encode_atom_len_as(buf, index, p->node, strlen(p->node), ERLANG_UTF8, p->node_org_enc) < 0)
+  if (ei_encode_atom_len_as(buf, index, p->node, strlen(p->node),
+			    ERLANG_UTF8, ERLANG_LATIN1|ERLANG_UTF8) < 0)
       return -1;
 
   if (buf) {

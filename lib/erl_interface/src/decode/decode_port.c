@@ -29,7 +29,7 @@ int ei_decode_port(const char *buf, int *index, erlang_port *p)
   if (get8(s) != ERL_PORT_EXT) return -1;
 
   if (p) {
-    if (get_atom(&s, p->node, &p->node_org_enc) < 0) return -1;
+    if (get_atom(&s, p->node, NULL) < 0) return -1;
     p->id = get32be(s) & 0x0fffffff /* 28 bits */;
     p->creation = get8(s) & 0x03;
   }

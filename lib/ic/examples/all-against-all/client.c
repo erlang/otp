@@ -88,7 +88,6 @@ int main(){
 
   /* Initiating pid*/
   strcpy(pid.node,client_node);
-  pid.node_org_enc = ERLANG_LATIN1;
   pid.num = 99;
   pid.serial = 0;
   pid.creation = 0;

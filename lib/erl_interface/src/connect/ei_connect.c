@@ -459,7 +459,6 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
 /*    memmove(&ec->this_ipaddr, thisipaddr, sizeof(ec->this_ipaddr)); */
     
     strcpy(ec->self.node,thisnodename);
-    ec->self.node_org_enc = ERLANG_LATIN1;
     ec->self.num = 0;
     ec->self.serial = 0;
     ec->self.creation = creation;

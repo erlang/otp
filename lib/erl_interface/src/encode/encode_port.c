@@ -27,7 +27,7 @@ int ei_encode_port(char *buf, int *index, const erlang_port *p)
 
   ++(*index); /* skip ERL_PORT_EXT */
   if (ei_encode_atom_len_as(buf, index, p->node, strlen(p->node), ERLANG_UTF8,
-			    p->node_org_enc) < 0) {
+			    ERLANG_LATIN1|ERLANG_UTF8) < 0) {
       return -1;
   }
   if (buf) {

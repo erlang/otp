@@ -31,7 +31,7 @@ int ei_decode_ref(const char *buf, int *index, erlang_ref *p)
   switch (get8(s)) {
     case ERL_REFERENCE_EXT:
       if (p) {
-	  if (get_atom(&s, p->node, &p->node_org_enc) < 0) return -1;
+	  if (get_atom(&s, p->node, NULL) < 0) return -1;
 	  p->n[0] = get32be(s);
 	  p->len = 1;
 	  p->creation = get8(s) & 0x03;
@@ -52,7 +52,7 @@ int ei_decode_ref(const char *buf, int *index, erlang_ref *p)
 
       if (p) {
 	  p->len = count;
-	  if (get_atom(&s, p->node, &p->node_org_enc) < 0) return -1;
+	  if (get_atom(&s, p->node, NULL) < 0) return -1;
 	  p->creation = get8(s) & 0x03;
       }
       else {
