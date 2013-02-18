@@ -741,13 +741,9 @@ value_test(Config, Rule, Opts) ->
                           'ObjIdValues':'mobileDomainId'()).
 
 value_bad_enum_test(Config) ->
-    case ?MODULE of
-        asn1_SUITE ->
-            {error, _} = asn1ct:compile(?config(data_dir, Config)
-                                            ++ "BadEnumValue1",
-                                        [{outdir, ?config(case_dir, Config)}]);
-        _ -> {skip, "Runs in asn1_SUITE only"}
-    end.
+    {error, _} = asn1ct:compile(?config(data_dir, Config) ++
+				    "BadEnumValue1",
+				[{outdir, ?config(case_dir, Config)}]).
 
 constructed(Config) ->
     test(Config, fun constructed/3, [ber]).
@@ -862,15 +858,10 @@ testInvokeMod(Config, Rule, Opts) ->
     {ok, _Result2} = 'PrimStrings':encode('Bs1', [1, 0, 1, 0]).
 
 testExport(Config) ->
-    case ?MODULE of
-        asn1_SUITE ->
-            {error, {asn1, _Reason}} =
-                asn1ct:compile(filename:join(?config(data_dir, Config),
-                                             "IllegalExport"),
-                               [{outdir, ?config(case_dir, Config)}]);
-        _ ->
-            {skip, "Runs in asn1_SUITE only"}
-    end.
+    {error, {asn1, _Reason}} =
+	asn1ct:compile(filename:join(?config(data_dir, Config),
+				     "IllegalExport"),
+		       [{outdir, ?config(case_dir, Config)}]).
 
 testImport(Config) ->
     test(Config, fun testImport/3, [ber]).
@@ -911,16 +902,12 @@ testOpenTypeImplicitTag(Config, Rule, Opts) ->
     testOpenTypeImplicitTag:main(Rule).
 
 duplicate_tags(Config) ->
-    case ?MODULE of
-        asn1_SUITE ->
-            DataDir = ?config(data_dir, Config),
-            CaseDir = ?config(case_dir, Config),
-            {error, {asn1, [{error, {type, _, _, 'SeqOpt1Imp', {asn1, {duplicates_of_the_tags, _}}}}]}} =
-            asn1ct:compile(filename:join(DataDir, "SeqOptional2"),
-                           [abs, {outdir, CaseDir}]);
-        _ ->
-            {skip, "Runs in asn1_SUITE only"}
-    end.
+    DataDir = ?config(data_dir, Config),
+    CaseDir = ?config(case_dir, Config),
+    {error, {asn1, [{error, {type, _, _, 'SeqOpt1Imp',
+			     {asn1, {duplicates_of_the_tags, _}}}}]}} =
+	asn1ct:compile(filename:join(DataDir, "SeqOptional2"),
+		       [abs, {outdir, CaseDir}]).
 
 rtUI(Config) -> test(Config, fun rtUI/3, [per,ber]).
 rtUI(Config, Rule, Opts) ->
