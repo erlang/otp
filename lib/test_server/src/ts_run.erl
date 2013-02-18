@@ -261,13 +261,17 @@ run_batch(Vars, _Spec, State) ->
     ts_lib:progress(Vars, 1, "Command: ~s~n", [Command]),
     io:format(user, "Command: ~s~n",[Command]),
     Port = open_port({spawn, Command}, [stream, in, eof]),
-    tricky_print_data(Port).
+    Timeout = 30000 * case os:getenv("TS_RUN_VALGRIND") of
+			  false -> 1;
+			  _ -> 100
+		      end,
+    tricky_print_data(Port, Timeout).
 
-tricky_print_data(Port) ->
+tricky_print_data(Port, Timeout) ->
     receive
 	{Port, {data, Bytes}} ->
 	    io:put_chars(Bytes),
-	    tricky_print_data(Port);
+	    tricky_print_data(Port, Timeout);
 	{Port, eof} ->
 	    Port ! {self(), close}, 
 	    receive
@@ -280,7 +284,7 @@ tricky_print_data(Port) ->
 	    after 1 ->				% force context switch
 		    ok
 	    end
-    after 30000 ->
+    after Timeout ->
 	    case erl_epmd:names() of
 		{ok,Names} ->
 		    case is_testnode_dead(Names) of
@@ -288,10 +292,10 @@ tricky_print_data(Port) ->
 			    io:put_chars("WARNING: No EOF, but "
 					 "test_server node is down!\n");
 			false ->
-			    tricky_print_data(Port)
+			    tricky_print_data(Port, Timeout)
 		    end;
 		_ ->
-		    tricky_print_data(Port)
+		    tricky_print_data(Port, Timeout)
 	    end
     end.
 

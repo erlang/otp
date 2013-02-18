@@ -59,10 +59,6 @@
 #  undef ETHR_TRY_INLINE_FUNCS
 #endif
 
-#if !defined(ETHR_DISABLE_NATIVE_IMPLS) && (defined(PURIFY)||defined(VALGRIND))
-#  define ETHR_DISABLE_NATIVE_IMPLS
-#endif
-
 /* Assume 64-byte cache line size */
 #define ETHR_CACHE_LINE_SIZE 64
 #define ETHR_CACHE_LINE_MASK (ETHR_CACHE_LINE_SIZE - 1)
@@ -413,7 +409,11 @@ extern ethr_runtime_t ethr_runtime__;
 #  endif
 #endif
 
-#include "ethr_optimized_fallbacks.h"
+#ifdef VALGRIND  /* mutex as fallback for spinlock for VALGRIND */
+#  undef ETHR_HAVE_NATIVE_SPINLOCKS
+#else
+#  include "ethr_optimized_fallbacks.h"
+#endif
 
 typedef struct {
     void *(*thread_create_prepare_func)(void);
