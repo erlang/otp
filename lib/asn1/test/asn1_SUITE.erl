@@ -86,6 +86,7 @@ groups() ->
                     testInvokeMod,
                     per,
                     ber_other,
+		    der,
                     h323test,
                     per_GeneralString]},
        testChoPrim,
@@ -166,13 +167,13 @@ groups() ->
        testINSTANCE_OF,
        testTCAP,
        test_ParamTypeInfObj,
-       test_WS_ParamClass,
        test_Defed_ObjectIdentifier,
        testSelectionType,
        testSSLspecs,
        testNortel,
-       % Uses 'PKCS7'
-       {group, [], [test_modified_x420,
+       % Uses 'PKCS7', 'InformationFramework'
+       {group, [], [test_WS_ParamClass,
+		    test_modified_x420,
                     testX420]},
        testTcapsystem,
        testNBAPsystem,
@@ -200,8 +201,6 @@ parallel(Options) ->
 %%------------------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    true = code:add_patha(PrivDir),
     Config.
 
 end_per_suite(_Config) ->
@@ -214,7 +213,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(Func, Config) ->
-    CaseDir = filename:join([?config(priv_dir, Config), ?MODULE, Func]),
+    CaseDir = filename:join(?config(priv_dir, Config), Func),
     ok = filelib:ensure_dir(filename:join([CaseDir, dummy_file])),
     true = code:add_patha(CaseDir),
 
@@ -688,6 +687,8 @@ ber_other(Config) ->
 ber_other(Config, Rule, Opts) ->
     [module_test(M, Config, Rule, Opts) || M <- ber_modules()].
 
+der(Config) ->
+    asn1_test_lib:compile_all(ber_modules(), Config, [der]).
 
 module_test(M, Config, Rule, Opts) ->
     asn1_test_lib:compile(M, Config, [Rule|Opts]),
@@ -988,8 +989,11 @@ test_driver_load(Config, Rule, Opts) ->
 test_ParamTypeInfObj(Config) ->
     asn1_test_lib:compile("IN-CS-1-Datatypes", Config, [ber]).
 
-test_WS_ParamClass(Config) ->
-    asn1_test_lib:compile("InformationFramework", Config, [ber]).
+test_WS_ParamClass(Config) -> test(Config, fun test_WS_ParamClass/3).
+test_WS_ParamClass(Config, Rule, Opts) ->
+    asn1_test_lib:compile("InformationFramework", Config, [Rule|Opts]),
+    ?only_ber(testWSParamClass:main(Rule)),
+    ok.
 
 test_Defed_ObjectIdentifier(Config) ->
     asn1_test_lib:compile("UsefulDefinitions", Config, [ber]).
@@ -1123,6 +1127,7 @@ test_modules() ->
      "Int",
      "MAP-commonDataTypes",
      "Null",
+     "NullTest",
      "Octetstr",
      "One",
      "P-Record",

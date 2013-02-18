@@ -273,7 +273,7 @@ call_to_size_1(Config) when is_list(Config) ->
     Server = ?config(xref_server, Config),
 
     %% Applications that do not call erlang:size/1:
-    Apps = [compiler,debugger,kernel,observer,parsetools,
+    Apps = [asn1,compiler,debugger,kernel,observer,parsetools,
 	    runtime_tools,stdlib,tools,webtool],
 
     Fs = [{erlang,size,1}],

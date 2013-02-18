@@ -528,14 +528,7 @@ gen_decode_sof(Erules,TypeName,_InnerTypeName,D) when is_record(D,type) ->
 		   Atom when is_atom(Atom) -> Atom;
 		   _ -> TypeNameSuffix
 	       end,
-%% fix me
-    ObjFun =
-	case D#type.tablecinf of
-	    [{objfun,_}|_R] ->
-		", ObjFun";
-	    _ ->
-		[]
-	end,
+    ObjFun = false,
     gen_dec_line(Erules,TypeName,ContName,[],Cont,mandatory,ObjFun),
     %%    gen_dec_line_sof(Erules,Typename,ContName,Cont,ObjFun),
     emit([" || ",{curr,v}," <- ",{curr,tlv},"].",nl,nl,nl]).

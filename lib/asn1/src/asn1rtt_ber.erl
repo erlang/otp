@@ -868,7 +868,7 @@ remove_unused_then_dotag(TagIn,Unused,BinBits) ->
 	    encode_tags(TagIn, <<0>>, 1);
 	0 ->
 	    Bin = <<Unused,BinBits/binary>>,
-	    encode_tags(TagIn,Bin,size(Bin));
+	    encode_tags(TagIn, Bin, byte_size(Bin));
 	Num ->
 	    N = byte_size(BinBits)-1,
 	    <<BBits:N/binary,LastByte>> = BinBits,

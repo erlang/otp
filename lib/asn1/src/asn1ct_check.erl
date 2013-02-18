@@ -1263,13 +1263,13 @@ check_object_list(S,ClassRef,[ObjOrSet|Objs],Acc) ->
 	    check_object_list(S,ClassRef,Objs,[{{no_mod,no_name},Def}|Acc]);
 	{'ObjectSetFromObjects',Os,FieldName} when is_tuple(Os) ->
 	    NewSet =
-		check_ObjectSetFromObjects(S,element(size(Os),Os),
+		check_ObjectSetFromObjects(S, element(tuple_size(Os), Os),
 					   FieldName,[]),
 	    check_object_list(S,ClassRef,Objs,NewSet++Acc);
 	{{'ObjectSetFromObjects',Os,FieldName},InterSection}
 	when is_tuple(Os) ->
 	    NewSet =
-		check_ObjectSetFromObjects(S, element(size(Os),Os),
+		check_ObjectSetFromObjects(S, element(tuple_size(Os), Os),
 					   FieldName,InterSection),
 	    check_object_list(S,ClassRef,Objs,NewSet++Acc);
 	Other ->
@@ -1570,7 +1570,7 @@ gen_incl_set(S,Fields,#typedef{typespec=#type{def=Eref}})
     gen_incl_set(S,Fields,CDef);
 gen_incl_set(S,Fields,ClassDef) ->
     case catch get_unique_fieldname(S,ClassDef) of
-	Tuple when is_tuple(Tuple), size(Tuple) =:= 3 ->
+	Tuple when tuple_size(Tuple) =:= 3 ->
 	    false;
 	_ ->
 	    gen_incl_set1(S,Fields,
@@ -1589,7 +1589,7 @@ gen_incl_set1(_,['EXTENSIONMARK'],_) ->
 gen_incl_set1(_,['EXTENSIONMARK'|_],_) ->
     true;
 gen_incl_set1(S,[Object|Rest],CFields)->
-    Fields = element(size(Object),Object),
+    Fields = element(tuple_size(Object), Object),
     case gen_incl1(S,Fields,CFields) of
 	true ->
 	    true;
@@ -3028,7 +3028,7 @@ is_record_normalized(S,Name,V = #'Externalvaluereference'{},NumComps) ->
 	_ -> false
     end;
 is_record_normalized(_S,Name,Value,NumComps) when is_tuple(Value) ->
-    (size(Value) =:= (NumComps + 1)) andalso (element(1,Value)=:=Name);
+    (tuple_size(Value) =:= (NumComps + 1)) andalso (element(1, Value) =:= Name);
 is_record_normalized(_,_,_,_) ->
     false.
 
@@ -3720,7 +3720,7 @@ maybe_open_type(S,ClassSpec=#objectclass{fields=Fs},
 	{typefieldreference,_} ->
 	    case {catch get_unique_fieldname(S,#classdef{typespec=ClassSpec}),
 		  asn1ct_gen:get_constraint(Constr,componentrelation)}of
-		{Tuple,_} when is_tuple(Tuple), size(Tuple) =:= 3 ->
+		{Tuple,_} when tuple_size(Tuple) =:= 3 ->
 		    OCFT#'ObjectClassFieldType'{fieldname=FieldNames,
 						type='ASN1_OPEN_TYPE'};
 		{_,no} ->
@@ -4167,7 +4167,7 @@ check_constraint(S,Ext) when is_record(Ext,'Externaltypereference') ->
 
 
 check_constraint(S,{'SizeConstraint',{Lb,Ub}}) 
-  when is_list(Lb);is_tuple(Lb),size(Lb)==2 ->
+  when is_list(Lb); tuple_size(Lb) =:= 2 ->
     NewLb = range_check(resolv_tuple_or_list(S,Lb)),
     NewUb = range_check(resolv_tuple_or_list(S,Ub)),
     {'SizeConstraint',{NewLb,NewUb}};
@@ -5217,7 +5217,7 @@ imported1(_Name,[]) ->
 check_integer(_S,[],_C) ->
     [];
 check_integer(S,NamedNumberList,_C) ->
-    case [X||X<-NamedNumberList,is_tuple(X),size(X)=:=2] of
+    case [X || X <- NamedNumberList, tuple_size(X) =:= 2] of
 	NamedNumberList ->
 	    %% An already checked integer with NamedNumberList
 	    NamedNumberList;
