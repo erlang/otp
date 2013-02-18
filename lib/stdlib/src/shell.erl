@@ -570,7 +570,7 @@ report_exception(Class, Severity, {Reason,Stacktrace}, RT) ->
     I = iolist_size(Tag) + 1,
     PF = fun(Term, I1) -> pp(Term, I1, RT) end,
     SF = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
-    Enc = io:printable_range(),
+    Enc = encoding(),
     Str = lib:format_exception(I, Class, Reason, Stacktrace, SF, PF, Enc),
     io:requests([{put_chars, latin1, Tag},
                  {put_chars, unicode, Str},
@@ -1384,9 +1384,14 @@ columns() ->
         {ok,N} -> N;
         _ -> 80
     end.
-
+encoding() ->
+    [{encoding, Encoding}] = enc(),
+    Encoding.
 enc() ->
-    [{encoding, io:printable_range()}].
+    case lists:keyfind(encoding, 1, io:getopts()) of
+	false -> [{encoding,latin1}]; % should never happen
+	Enc -> [Enc]
+    end.
 
 garb(Shell) ->
     erlang:garbage_collect(Shell),
