@@ -798,7 +798,8 @@ prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, Name, Group) ->
 prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, send_detach, Group, _) ->
     {eval_packet, {send, prepare(Pkt, Caps, Group)}, [fun log/2, detach]}.
 
-log(#diameter_packet{} = P, T) ->
+log(#diameter_packet{bin = Bin} = P, T)
+  when is_binary(Bin) ->
     io:format("~p: ~p~n", [T,P]).
 
 %% prepare/4
@@ -980,7 +981,8 @@ answer(T, {Tag, Action, Post}) ->
     {Tag, answer(T, Action), Post};
 answer({A,C}, {reply, Ans}) ->
     answer(C, {reply, msg(Ans, A, diameter_gen_base_rfc3588)});
-answer(pkt, {reply, Ans}) ->
+answer(pkt, {reply, Ans})
+  when not is_record(Ans, diameter_packet) ->
     {reply, #diameter_packet{msg = Ans}};
 answer(_, T) ->
     T.
