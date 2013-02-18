@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,16 +23,23 @@
 %% Module used to run suites from Makefile.
 %%
 
--export([run/1]).
+-export([run/1,
+         cover/0]).
 
 %% The makefile looks for signs of failure so ignore the ct:run_test/1
 %% return value.
 
-run([Suite]) ->
+run(Suites) ->
+    ct_run([{suite, Suites}]).
+
+cover() ->
+    ct_run([{spec, "./testspec"}]).
+
+ct_run(Opts) ->
     Start = info(),
-    ct:run_test([{suite, Suite},
-                 {logdir, "./log"},
-                 {auto_compile, false}]),
+    ct:run_test([{logdir, "./log"},
+                 {auto_compile, false}
+                 | Opts]),
     info(Start , info()).
 
 info() ->

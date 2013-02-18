@@ -77,7 +77,7 @@ any: opt
 
 clean:
 	rm -f $(TARGET_FILES) 
-	rm -f depend.mk
+	rm -f depend.mk coverspec
 
 realclean: clean
 	rm -rf log
@@ -136,10 +136,21 @@ $(SUITES): log opt
 	| awk '{print} / FAILED /{rc=1} END{exit rc}' rc=0
 # Shorter in sed but requires a GNU extension (ie. Q).
 
+cover: log opt coverspec
+	$(ERL) -noinput \
+	       -pa $(realpath ../ebin) \
+	       -sname diameter_cover \
+	       -s diameter_ct cover \
+	       -s init stop \
+	| awk '{print} / FAILED /{rc=1} END{exit rc}' rc=0
+
+coverspec: diameter.cover
+	sed -f $@.sed $< > $@
+
 log:
 	mkdir $@
 
-.PHONY: $(SUITES)
+.PHONY: $(SUITES) cover
 
 # ----------------------------------------------------
 # Release Targets
