@@ -186,7 +186,7 @@ part(_, _) ->
 -spec part(Subject, Pos, Len) -> binary() when
       Subject :: binary(),
       Pos :: non_neg_integer(),
-      Len :: non_neg_integer().
+      Len :: integer().
 
 part(_, _, _) ->
     erlang:nif_error(undef).
