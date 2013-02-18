@@ -96,7 +96,7 @@
 	 misc1_do/1, safe_fixtable_do/1, info_do/1, dups_do/1, heavy_lookup_do/1,
 	 heavy_lookup_element_do/1, member_do/1, otp_5340_do/1, otp_7665_do/1, meta_wb_do/1,
 	 do_heavy_concurrent/1, tab2file2_do/2, exit_large_table_owner_do/2,
-         types_do/1, sleeper/0, rpc_externals/0, memory_do/1,
+         types_do/1, sleeper/0, memory_do/1,
 	 ms_tracee_dummy/1, ms_tracee_dummy/2, ms_tracee_dummy/3, ms_tracee_dummy/4
 	]).
 
@@ -5989,33 +5989,103 @@ make_ext_ref() ->
 init_externals() ->
     case get(externals) of
 	undefined ->
-	    SysDistSz = ets:info(sys_dist,size),
-	    ?line Pa = filename:dirname(code:which(?MODULE)),
-	    ?line {ok, Node} = test_server:start_node(plopp, slave, [{args, " -pa " ++ Pa}]),
-	    ?line Res = case rpc:call(Node, ?MODULE, rpc_externals, []) of
-			    {badrpc, {'EXIT', E}} ->
-				test_server:fail({rpcresult, E});
-			    R -> R
-			end,
-	    ?line test_server:stop_node(Node),
-
-	    %% Wait for table 'sys_dist' to stabilize
-	    repeat_while(fun() ->
-				 case ets:info(sys_dist,size) of
-				     SysDistSz -> false;
-				     Sz ->
-					 io:format("Waiting for sys_dist to revert size from ~p to size ~p\n",
-						   [Sz, SysDistSz]),
-					 receive after 1000 -> true end
-				 end
-			 end),
+	    OtherNode = {gurka@sallad, 1},
+	    Res = {mk_pid(OtherNode, 7645, 8123),
+		   mk_port(OtherNode, 187489773),
+		   mk_ref(OtherNode, [262143, 1293964255, 3291964278])},
 	    put(externals, Res);
 
 	{_,_,_} -> ok
     end.
 
-rpc_externals() ->
-    {self(), make_port(), make_ref()}.
+%%
+%% Node container constructor functions
+%%
+
+-define(VERSION_MAGIC,       131).
+-define(PORT_EXT,            102).
+-define(PID_EXT,             103).
+-define(NEW_REFERENCE_EXT,   114).
+
+uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
+    [(Uint bsr 24) band 16#ff,
+     (Uint bsr 16) band 16#ff,
+     (Uint bsr 8) band 16#ff,
+     Uint band 16#ff];
+uint32_be(Uint) ->
+    exit({badarg, uint32_be, [Uint]}).
+
+uint16_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 16 ->
+    [(Uint bsr 8) band 16#ff,
+     Uint band 16#ff];
+uint16_be(Uint) ->
+    exit({badarg, uint16_be, [Uint]}).
+
+uint8(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 8 ->
+    Uint band 16#ff;
+uint8(Uint) ->
+    exit({badarg, uint8, [Uint]}).
+
+mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_pid({NodeNameExt, Creation}, Number, Serial);
+mk_pid({NodeNameExt, Creation}, Number, Serial) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					?PID_EXT,
+					NodeNameExt,
+					uint32_be(Number),
+					uint32_be(Serial),
+					uint8(Creation)])) of
+	Pid when is_pid(Pid) ->
+	    Pid;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_pid, [{NodeNameExt, Creation}, Number, Serial]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end.
+
+mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_port({NodeNameExt, Creation}, Number);
+mk_port({NodeNameExt, Creation}, Number) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					      ?PORT_EXT,
+					      NodeNameExt,
+					      uint32_be(Number),
+					      uint8(Creation)])) of
+	Port when is_port(Port) ->
+	    Port;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_port, [{NodeNameExt, Creation}, Number]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end.
+
+mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
+					   is_integer(Creation),
+					   is_list(Numbers) ->
+    <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
+    mk_ref({NodeNameExt, Creation}, Numbers);
+mk_ref({NodeNameExt, Creation}, Numbers) when is_binary(NodeNameExt),
+					      is_integer(Creation),
+					      is_list(Numbers) ->
+    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
+					      ?NEW_REFERENCE_EXT,
+					      uint16_be(length(Numbers)),
+					      NodeNameExt,
+					      uint8(Creation),
+					      lists:map(fun (N) ->
+								uint32_be(N)
+							end,
+							Numbers)])) of
+	Ref when is_reference(Ref) ->
+	    Ref;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, Numbers]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
+    end.
+
 
 make_sub_binary(Bin) when is_binary(Bin) ->
     {_,B} = split_binary(list_to_binary([0,1,3,Bin]), 3),
