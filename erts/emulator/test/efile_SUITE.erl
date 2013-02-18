@@ -21,6 +21,8 @@
 	 init_per_group/2,end_per_group/2]).
 -export([iter_max_files/1]).
 
+-export([do_iter_max_files/2]).
+
 -include_lib("test_server/include/test_server.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -51,11 +53,17 @@ end_per_group(_GroupName, Config) ->
 
 iter_max_files(suite) -> [];
 iter_max_files(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line TestFile = filename:join(DataDir, "existing_file"),
-    ?line L = do_iter_max_files(10, TestFile),
-    ?line io:format("Number of files opened in each test:~n~w\n", [L]),
-    ?line all_equal(L),
+    DataDir = ?config(data_dir,Config),
+    TestFile = filename:join(DataDir, "existing_file"),
+    N = 10,
+    %% Run on a different node in order to set the max ports
+    Dir = filename:dirname(code:which(?MODULE)),
+    {ok,Node} = test_server:start_node(test_iter_max_files,slave,
+				       [{args,"+Q 1524 -pa " ++ Dir}]),
+    L = rpc:call(Node,?MODULE,do_iter_max_files,[N, TestFile]),
+    test_server:stop_node(Node),
+    io:format("Number of files opened in each test:~n~w\n", [L]),
+    all_equal(L),
     Head = hd(L),
     if  Head >= 2 -> ok;
 	true -> ?line test_server:fail(too_few_files)
@@ -91,6 +99,6 @@ open_files(Name) ->
 	      {ok, Fd} ->
 		  [Fd| open_files(Name)];
 	      {error, Reason} ->
-		  io:format("Error reason: ~p", [Reason]),
+%		  io:format("Error reason: ~p", [Reason]),
 		  []
 	  end.
