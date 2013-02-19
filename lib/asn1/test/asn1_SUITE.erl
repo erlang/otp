@@ -350,7 +350,7 @@ testPrimStrings(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
 			      [compact_bit_string,Rule|Opts]),
     testPrimStrings:bit_string(Rule),
-    ?only_ber(testPrimStrings:more_strings(Rule)).
+    testPrimStrings:more_strings(Rule).
 
 testPrimStrings_cases(Rule) ->
     testPrimStrings:bit_string(Rule),
@@ -367,10 +367,10 @@ testPrimExternal(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["External", "PrimExternal"], Config,
                               [Rule|Opts]),
     testPrimExternal:external(Rule),
-    ?only_ber(asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
-                                            [Rule|Opts])),
-    ?only_ber(testPrimStrings_cases(Rule)),
-    ?only_ber(testPrimStrings:more_strings(Rule)).
+    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
+			      [Rule|Opts]),
+    testPrimStrings_cases(Rule),
+    testPrimStrings:more_strings(Rule).
 
 testChoPrim(Config) -> test(Config, fun testChoPrim/3).
 testChoPrim(Config, Rule, Opts) ->
@@ -633,9 +633,10 @@ c_syntax(Config) ->
              "SeqBadComma"]].
 
 c_string(Config) ->
-    test(Config, fun c_string/3, [per, ber]).
+    test(Config, fun c_string/3).
 c_string(Config, Rule, Opts) ->
-    asn1_test_lib:compile("String", Config, [Rule|Opts]).
+    asn1_test_lib:compile("String", Config, [Rule|Opts]),
+    asn1ct:test('String').
 
 c_implicit_before_choice(Config) ->
     test(Config, fun c_implicit_before_choice/3, [ber]).
@@ -741,13 +742,9 @@ value_test(Config, Rule, Opts) ->
                           'ObjIdValues':'mobileDomainId'()).
 
 value_bad_enum_test(Config) ->
-    case ?MODULE of
-        asn1_SUITE ->
-            {error, _} = asn1ct:compile(?config(data_dir, Config)
-                                            ++ "BadEnumValue1",
-                                        [{outdir, ?config(case_dir, Config)}]);
-        _ -> {skip, "Runs in asn1_SUITE only"}
-    end.
+    {error, _} = asn1ct:compile(?config(data_dir, Config) ++
+				    "BadEnumValue1",
+				[{outdir, ?config(case_dir, Config)}]).
 
 constructed(Config) ->
     test(Config, fun constructed/3, [ber]).
@@ -862,18 +859,13 @@ testInvokeMod(Config, Rule, Opts) ->
     {ok, _Result2} = 'PrimStrings':encode('Bs1', [1, 0, 1, 0]).
 
 testExport(Config) ->
-    case ?MODULE of
-        asn1_SUITE ->
-            {error, {asn1, _Reason}} =
-                asn1ct:compile(filename:join(?config(data_dir, Config),
-                                             "IllegalExport"),
-                               [{outdir, ?config(case_dir, Config)}]);
-        _ ->
-            {skip, "Runs in asn1_SUITE only"}
-    end.
+    {error, {asn1, _Reason}} =
+	asn1ct:compile(filename:join(?config(data_dir, Config),
+				     "IllegalExport"),
+		       [{outdir, ?config(case_dir, Config)}]).
 
 testImport(Config) ->
-    test(Config, fun testImport/3, [ber]).
+    test(Config, fun testImport/3).
 testImport(Config, Rule, Opts) ->
     {error, _} = asn1ct:compile(filename:join(?config(data_dir, Config),
                                               "ImportsFrom"),
@@ -911,18 +903,14 @@ testOpenTypeImplicitTag(Config, Rule, Opts) ->
     testOpenTypeImplicitTag:main(Rule).
 
 duplicate_tags(Config) ->
-    case ?MODULE of
-        asn1_SUITE ->
-            DataDir = ?config(data_dir, Config),
-            CaseDir = ?config(case_dir, Config),
-            {error, {asn1, [{error, {type, _, _, 'SeqOpt1Imp', {asn1, {duplicates_of_the_tags, _}}}}]}} =
-            asn1ct:compile(filename:join(DataDir, "SeqOptional2"),
-                           [abs, {outdir, CaseDir}]);
-        _ ->
-            {skip, "Runs in asn1_SUITE only"}
-    end.
+    DataDir = ?config(data_dir, Config),
+    CaseDir = ?config(case_dir, Config),
+    {error, {asn1, [{error, {type, _, _, 'SeqOpt1Imp',
+			     {asn1, {duplicates_of_the_tags, _}}}}]}} =
+	asn1ct:compile(filename:join(DataDir, "SeqOptional2"),
+		       [abs, {outdir, CaseDir}]).
 
-rtUI(Config) -> test(Config, fun rtUI/3, [per,ber]).
+rtUI(Config) -> test(Config, fun rtUI/3).
 rtUI(Config, Rule, Opts) ->
     asn1_test_lib:compile("Prim", Config, [Rule|Opts]),
     {ok, _} = asn1rt:info('Prim').
@@ -938,7 +926,7 @@ testINSTANCE_OF(Config, Rule, Opts) ->
     testINSTANCE_OF:main(Rule).
 
 testTCAP(Config) ->
-    test(Config, fun testTCAP/3, [ber]).
+    test(Config, fun testTCAP/3).
 testTCAP(Config, Rule, Opts) ->
     testTCAP:compile(Config, [Rule|Opts]),
     testTCAP:test(Rule, Config),
@@ -996,7 +984,9 @@ test_WS_ParamClass(Config, Rule, Opts) ->
     ok.
 
 test_Defed_ObjectIdentifier(Config) ->
-    asn1_test_lib:compile("UsefulDefinitions", Config, [ber]).
+    test(Config, fun test_Defed_ObjectIdentifier/3).
+test_Defed_ObjectIdentifier(Config, Rule, Opts) ->
+    asn1_test_lib:compile("UsefulDefinitions", Config, [Rule|Opts]).
 
 testSelectionType(Config) -> test(Config, fun testSelectionType/3).
 testSelectionType(Config, Rule, Opts) ->
@@ -1024,7 +1014,7 @@ test_undecoded_rest(Config, Rule, Opts) ->
     test_undecoded_rest:test(undec_rest, Config).
 
 testTcapsystem(Config) ->
-    test(Config, fun testTcapsystem/3, [ber]).
+    test(Config, fun testTcapsystem/3).
 testTcapsystem(Config, Rule, Opts) ->
     testTcapsystem:compile(Config, [Rule|Opts]).
 
@@ -1268,189 +1258,6 @@ smp(Config)  ->
         false ->
             {skipped,"No smp support"}
     end.
-
-per_performance(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    NifDir = filename:join(PrivDir,"nif"),
-    ErlDir = filename:join(PrivDir,"erl"),
-    file:make_dir(NifDir),file:make_dir(ErlDir),
-
-    Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-    ok = testNBAPsystem:compile([{priv_dir,NifDir}|Config], [per]),
-    ok = testNBAPsystem:compile([{priv_dir,ErlDir}|Config], [per]),
-
-    Modules = ['NBAP-CommonDataTypes',
-               'NBAP-Constants',
-               'NBAP-Containers',
-               'NBAP-IEs',
-               'NBAP-PDU-Contents',
-               'NBAP-PDU-Discriptions'],
-
-
-    PreNif = fun() ->
-                     code:add_patha(NifDir),
-                     lists:foreach(fun(M) ->
-                                           code:purge(M),
-                                           code:load_file(M)
-                                   end,Modules)
-             end,
-
-    PreErl = fun() ->
-                     code:add_patha(ErlDir),
-                     lists:foreach(fun(M) ->
-                                           code:purge(M),
-                                           code:load_file(M)
-                                   end,Modules)
-             end,
-
-    Func = fun() ->
-                   element(1,timer:tc(
-                               asn1_wrapper,encode,['NBAP-PDU-Discriptions',
-                                                    'NBAP-PDU',
-                                                    Msg]))
-           end,
-
-    nif_vs_erlang_performance({{{PreNif,Func},{PreErl,Func}},100000,32}).
-
-ber_performance(Config) ->
-
-    Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-    ok = testNBAPsystem:compile(Config, [ber]),
-
-
-    BerFun = fun() ->
-                     {ok,B} = asn1_wrapper:encode('NBAP-PDU-Discriptions',
-                                                  'NBAP-PDU', Msg),
-                     asn1_wrapper:decode(
-                        'NBAP-PDU-Discriptions',
-                        'NBAP-PDU',
-                        B)
-             end,
-    nif_vs_erlang_performance({BerFun,100000,32}).
-
-cert_pem_performance(Config) when is_list(Config) ->
-    cert_pem_performance({100000, 32});
-cert_pem_performance({N,S}) ->
-    nif_vs_erlang_performance({fun pem_performance:cert_pem/0,N,S}).
-
-dsa_pem_performance(Config) when is_list(Config) ->
-    dsa_pem_performance({100000, 32});
-dsa_pem_performance({N,S}) ->
-    nif_vs_erlang_performance({fun pem_performance:dsa_pem/0,N,S}).
-
-
-nif_vs_erlang_performance({{TC1,TC2},N,Sched}) ->
-    random:seed({123,456,789}),
-    io:format("Running a ~p sample with ~p max procs...~n~n",[N,Sched]),
-
-    {True,False} = exec(TC1,TC2,Sched,N+1),
-
-    io:format("~ndone!~n"),
-
-    io:format("~n"),TStats = print_stats(strip(True,N div 20)),
-    io:format("~n"),FStats = print_stats(strip(False,N div 20)),
-    Str = io_lib:format("~nNifs are ~.3f% faster than erlang!~n",
-                        [(element(2,FStats) - element(2,TStats)) /
-                             element(2,FStats) * 100]),
-    io:format(Str),
-    {comment, lists:flatten(Str)};
-nif_vs_erlang_performance({T,N,Sched}) ->
-    PTC1 = fun() ->
-                  application:set_env(asn1, nif_loadable, true)
-           end,
-    PTC2 = fun() ->
-                  application:set_env(asn1, nif_loadable, false)
-           end,
-    TC = fun() ->
-                 element(1,timer:tc(T))
-         end,
-    nif_vs_erlang_performance({{{PTC1,TC},{PTC2,TC}},N,Sched}).
-
-
-print_stats(Data) ->
-    Length = length(Data),
-    Mean = lists:sum(Data) / Length,
-    Variance = lists:foldl(fun(N,Acc) -> math:pow(N - Mean, 2)+Acc end, 0, Data),
-    StdDev = math:sqrt(Variance / Length),
-    Median = lists:nth(round(Length/2),Data),
-    Min = lists:min(Data),
-    Max = lists:max(Data),
-    if Length < 20 ->
-            io:format("Data: ~w~n",[Data]);
-       true ->
-            ok
-    end,
-    io:format("Length: ~p~nMean: ~p~nStdDev: ~p~nMedian: ~p~nMin: ~p~nMax: ~p~n",
-              [Length,Mean,StdDev,Median,Min,Max]),
-    {Length,Mean,StdDev,Median,Min,Max}.
-
-collect(Acc) ->
-    receive
-        {Tag,Val} ->
-            Prev = proplists:get_value(Tag,Acc,[]),
-            collect(lists:keystore(Tag,1,Acc,{Tag,[Val|Prev]}))
-    after 100 ->
-            Acc
-    end.
-
-exec(One,Two,Max,N) ->
-    exec(One,Two,Max,N,{[],[]}).
-exec(_,_,_,1,{D1,D2}) ->
-    {lists:flatten(D1),lists:flatten(D2)};
-exec({PreOne,One} = O,{PreTwo,Two} = T,MaxProcs, N, {D1,D2}) ->
-    Num = random:uniform(round(N/2)),
-    if Num rem 3 == 0 ->
-            timer:sleep(Num rem 1000);
-       true ->
-            ok
-    end,
-    Procs = random:uniform(MaxProcs),
-    io:format("\tBatch: ~p items in ~p processes, ~p left~n",[Num,Procs,N-Num]),
-    if Num rem 2 == 1 ->
-            erlang:garbage_collect(),
-            PreOne(),
-            MoreOne = pexec(One, Num, Procs, []),
-            erlang:garbage_collect(),
-            PreTwo(),
-            MoreTwo = pexec(Two, Num, Procs, []);
-       true ->
-            erlang:garbage_collect(),
-            PreTwo(),
-            MoreTwo = pexec(Two, Num, Procs, []),
-            erlang:garbage_collect(),
-            PreOne(),
-            MoreOne = pexec(One, Num, Procs, [])
-    end,
-    exec(O,T,MaxProcs,N-Num,{[MoreOne|D1],
-                             [MoreTwo|D2]}).
-
-pexec(_Fun, _, 0, []) ->
-    [];
-pexec(Fun, _, 0, [{Ref,Pid}|Rest]) ->
-    receive
-        {data,D} ->
-            [D|pexec(Fun,0,0,[{Ref,Pid}|Rest])];
-        {'DOWN', Ref, process, Pid, normal} ->
-            pexec(Fun, 0,0,Rest)
-    end;
-pexec(Fun, 0, 1, AccProcs) ->
-    pexec(Fun, 0, 0, AccProcs);
-pexec(Fun, N, 1, AccProcs) ->
-    [Fun()|pexec(Fun, N - 1, 1, AccProcs)];
-pexec(Fun, N, Procs, AccProcs) ->
-    S = self(),
-    Pid = spawn(fun() ->
-                        S ! {data,pexec(Fun,N,1,[])}
-                end),
-    Ref = erlang:monitor(process, Pid),
-    pexec(Fun, N, Procs - 1, [{Ref,Pid}|AccProcs]).
-
-strip(Data,Num) ->
-    {_,R} = lists:split(Num,lists:sort(Data)),
-    element(2,lists:split(Num,lists:reverse(R))).
-
-faster(A,B) ->
-    (B - A)/B * 100.
 
 enc_dec(1, Msg, N) ->
     worker_loop(N, Msg);
