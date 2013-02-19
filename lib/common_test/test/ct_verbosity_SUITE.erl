@@ -44,8 +44,11 @@
 %% there will be clashes with logging processes etc).
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config1 = ct_test_support:init_per_suite(Config),
-    Config1.
+    DataDir = ?config(data_dir, Config),
+    EvH = filename:join(DataDir,"simple_evh.erl"),
+    ct:pal("Compiling ~s: ~p", [EvH,compile:file(EvH,[{outdir,DataDir},
+						      debug_info])]),
+    ct_test_support:init_per_suite([{path_dirs,[DataDir]} | Config]).
 
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
@@ -56,7 +59,8 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{timetrap,{seconds,30}},
+	    {ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [
@@ -67,7 +71,8 @@ all() ->
      change_default,
      combine_categories,
      testspec_only,
-     merge_with_testspec
+     merge_with_testspec,
+     possible_deadlock
     ].
 
 %%--------------------------------------------------------------------
@@ -173,6 +178,17 @@ merge_with_testspec(Config) ->
     ok = execute(TC, Opts, ERPid, Config).
 
 %%%-----------------------------------------------------------------
+%%% 
+possible_deadlock(Config) ->
+    TC = possible_deadlock,
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "io_test_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite},{label,TC},
+			  {event_handler,[simple_evh]}], Config),
+    ok = execute(TC, Opts, ERPid, Config).
+    
+
+%%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
 
@@ -180,7 +196,14 @@ setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
     Level = ?config(trace_level, Config),
     EvHArgs = [{cbm,ct_test_support},{trace_level,Level}],
-    Opts = Opts0 ++ [{event_handler,{?eh,EvHArgs}}|Test],
+    Opts =
+	case proplists:get_value(event_handler, Test) of
+	    undefined ->
+		Opts0 ++ [{event_handler,{?eh,EvHArgs}} | Test];
+	    EvHs ->
+		Opts0 ++ [{event_handler,{[?eh|EvHs],EvHArgs}} |
+			  proplists:delete(event_handler, Test)]
+	end,
     ERPid = ct_test_support:start_event_receiver(Config),
     {Opts,ERPid}.
 

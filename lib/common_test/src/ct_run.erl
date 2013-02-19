@@ -2921,11 +2921,11 @@ opts2args(EnvStartOpts) ->
 			  [{event_handler_init,[atom_to_list(EH),ArgStr]}];
 		     ({event_handler,{EHs,Arg}}) when is_list(EHs) ->
 			  ArgStr = lists:flatten(io_lib:format("~p", [Arg])),
-			  Strs = lists:map(fun(EH) ->
-						   [atom_to_list(EH),
-						    ArgStr,"and"]
-					   end, EHs),
-			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
+			  Strs = lists:flatmap(fun(EH) ->
+						       [atom_to_list(EH),
+							ArgStr,"and"]
+					       end, EHs),
+			  [_LastAnd | StrsR] = lists:reverse(Strs),
 			  [{event_handler_init,lists:reverse(StrsR)}];
 		     ({logopts,LOs}) when is_list(LOs) ->
 			  [{logopts,[atom_to_list(LO) || LO <- LOs]}];

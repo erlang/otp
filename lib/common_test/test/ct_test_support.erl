@@ -312,8 +312,10 @@ wait_for_ct_stop(Retries, CTNode) ->
 	undefined ->
 	    true;
 	Pid ->
+	    Info = (catch process_info(Pid)),
 	    test_server:format(0, "Waiting for CT (~p) to finish (~p)...", 
 			       [Pid,Retries]),
+	    test_server:format(0, "Process info for ~p:~n~p", [Info]), 
 	    timer:sleep(5000),
 	    wait_for_ct_stop(Retries-1, CTNode)
     end.
@@ -328,12 +330,17 @@ handle_event(EH, Event) ->
     
 start_event_receiver(Config) ->
     CTNode = proplists:get_value(ct_node, Config),
-    spawn_link(CTNode, fun() -> er() end).
+    Level = proplists:get_value(trace_level, Config),
+    ER = spawn_link(CTNode, fun() -> er() end),
+    test_server:format(Level, "~nEvent receiver ~w started!~n", [ER]),
+    ER.
 
 get_events(_, Config) ->
     CTNode = proplists:get_value(ct_node, Config),
+    Level = proplists:get_value(trace_level, Config),
     {event_receiver,CTNode} ! {self(),get_events},
     Events = receive {event_receiver,Evs} -> Evs end,
+    test_server:format(Level, "Stopping event receiver!~n", []),
     {event_receiver,CTNode} ! stop,
     Events.
 
