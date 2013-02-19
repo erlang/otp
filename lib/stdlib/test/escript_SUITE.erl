@@ -913,7 +913,7 @@ unicode(Config) when is_list(Config) ->
     run(Dir, "unicode1",
         [<<"escript: exception error: an error occurred when evaluating"
            " an arithmetic expression\n  in operator  '/'/2\n     "
-           "called as <<170>> / <<170>>\nExitCode:127">>]),
+           "called as <<224,170,170>> / <<224,170,170>>\nExitCode:127">>]),
     run(Dir, "unicode2",
         [<<"escript: exception error: an error occurred when evaluating"
            " an arithmetic expression\n  in operator  '/'/2\n     "

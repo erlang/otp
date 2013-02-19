@@ -2817,10 +2817,10 @@ otp_10302(Config) when is_list(Config) ->
            {ok, Es} = erl_parse:parse_exprs(Ts),
            B = erl_eval:new_bindings(),
            erl_eval:exprs(Es, B).">>,
-
+    
     "ok.\n** exception error: an error occurred when evaluating"
         " an arithmetic expression\n     in operator  '/'/2\n"
-        "        called as <<170>> / <<170>>.\n" = t({Node,Test7}),
+        "        called as <<\"ª\">> / <<\"ª\">>.\n" = t({Node,Test7}),
     Test8 =
         <<"begin
                A = [1089],
