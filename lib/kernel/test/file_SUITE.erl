@@ -45,7 +45,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 read_write_file/1, names/1]).
 -export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1,
-	 list_dir/1,list_dir_error/1,
+	 list_dir/1,list_dir_error/1, untranslatable_names/1,
 	 pos1/1, pos2/1]).
 -export([close/1, consult1/1, path_consult/1, delete/1]).
 -export([ eval1/1, path_eval/1, script1/1, path_script/1,
@@ -117,7 +117,7 @@ all() ->
 
 groups() -> 
     [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1,
-		 list_dir, list_dir_error]},
+		 list_dir, list_dir_error, untranslatable_names]},
      {files, [],
       [{group, open}, {group, pos}, {group, file_info},
        {group, consult}, {group, eval}, {group, script},
@@ -557,6 +557,78 @@ list_dir_1(TestDir, Cnt, Sorted0) ->
     Sorted = lists:sort(DirList1),
     list_dir_1(TestDir, Cnt-1, Sorted).
 
+untranslatable_names(Config) ->
+    case no_untranslatable_names() of
+	true ->
+	    {skip,"Not a problem on this OS"};
+	false ->
+	    untranslatable_names_1(Config)
+    end.
+
+untranslatable_names_1(Config) ->
+    {ok,OldCwd} = file:get_cwd(),
+    PrivDir = ?config(priv_dir, Config),
+    Dir = filename:join(PrivDir, "untranslatable_names"),
+    ok = file:make_dir(Dir),
+    Node = start_node(untranslatable_names, "+fnu"),
+    try
+	ok = file:set_cwd(Dir),
+	[ok = file:write_file(F, F) || {_,F} <- untranslatable_names()],
+
+	ExpectedListDir0 = [unicode:characters_to_list(N, utf8) ||
+			       {utf8,N} <- untranslatable_names()],
+	ExpectedListDir = lists:sort(ExpectedListDir0),
+	io:format("ExpectedListDir: ~p\n", [ExpectedListDir]),
+	ExpectedListDir = call_and_sort(Node, file, list_dir, [Dir]),
+
+	ExpectedListDirAll0 = [case Enc of
+				   utf8 ->
+				       unicode:characters_to_list(N, utf8);
+				   latin1 ->
+				       N
+			       end || {Enc,N} <- untranslatable_names()],
+	ExpectedListDirAll = lists:sort(ExpectedListDirAll0),
+	io:format("ExpectedListDirAll: ~p\n", [ExpectedListDirAll]),
+	ExpectedListDirAll = call_and_sort(Node, file, list_dir_all, [Dir])
+    after
+	catch test_server:stop_node(Node),
+	file:set_cwd(OldCwd),
+	[file:delete(F) || {_,F} <- untranslatable_names()],
+	file:del_dir(Dir)
+    end,
+    ok.
+
+untranslatable_names() ->
+    [{utf8,<<"abc">>},
+     {utf8,<<"def">>},
+     {utf8,<<"Lagerl",195,182,"f">>},
+     {utf8,<<195,150,"stra Emterwik">>},
+     {latin1,<<"M",229,"rbacka">>},
+     {latin1,<<"V",228,"rmland">>}].
+
+call_and_sort(Node, M, F, A) ->
+    {ok,Res} = rpc:call(Node, M, F, A),
+    lists:sort(Res).
+
+no_untranslatable_names() ->
+    case os:type() of
+	{unix,darwin} -> true;
+	{win32,_} -> true;
+	_ -> false
+    end.
+
+start_node(Name, Args) ->
+    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    ct:log("Trying to start ~w@~s~n", [Name,Host]),
+    case test_server:start_node(Name, peer, [{args,Args}]) of
+	{error,Reason} ->
+	    test_server:fail(Reason);
+	{ok,Node} ->
+	    ct:log("Node ~p started~n", [Node]),
+	    Node
+    end.
+    
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 

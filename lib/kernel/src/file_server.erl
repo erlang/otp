@@ -170,7 +170,7 @@ handle_call({read_link_info, Name, Opts}, _From, Handle) ->
 handle_call({read_link, Name}, _From, Handle) ->
     {reply, ?PRIM_FILE:read_link(Handle, Name), Handle};
 handle_call({read_link_all, Name}, _From, Handle) ->
-    {reply, ?PRIM_FILE:read_link(Handle, Name), Handle};
+    {reply, ?PRIM_FILE:read_link_all(Handle, Name), Handle};
 
 handle_call({make_link, Old, New}, _From, Handle) ->
     {reply, ?PRIM_FILE:make_link(Handle, Old, New), Handle};
