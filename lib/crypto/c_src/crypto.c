@@ -136,6 +136,7 @@ static void unload(ErlNifEnv* env, void* priv_data);
 
 /* The NIFs: */
 static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md5(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md5_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md5_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -218,6 +219,7 @@ static ERL_NIF_TERM blowfish_ofb64_encrypt(ErlNifEnv* env, int argc, const ERL_N
 
 
 /* helpers */
+static void init_algorithms_types(void);
 static void init_digest_types(ErlNifEnv* env);
 static void hmac_md5(unsigned char *key, int klen,
 		     unsigned char *dbuf, int dlen, 
@@ -250,6 +252,7 @@ static int library_refc = 0; /* number of users of this dynamic library */
 
 static ErlNifFunc nif_funcs[] = {
     {"info_lib", 0, info_lib},
+    {"algorithms", 0, algorithms},
     {"md5", 1, md5},
     {"md5_init", 0, md5_init},
     {"md5_update", 2, md5_update},
@@ -464,6 +467,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_digest = enif_make_atom(env,"digest");
 
     init_digest_types(env);
+    init_algorithms_types();
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     {
@@ -542,6 +546,35 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 static void unload(ErlNifEnv* env, void* priv_data)
 {
     --library_refc;
+}
+
+static int algos_cnt;
+static ERL_NIF_TERM algos[7];   /* increase when extending the list */
+
+static void init_algorithms_types(void)
+{
+    algos_cnt = 0;
+
+    algos[algos_cnt++] = atom_md5;
+    algos[algos_cnt++] = atom_sha;
+    algos[algos_cnt++] = atom_ripemd160;
+#ifdef HAVE_SHA224
+    algos[algos_cnt++] = atom_sha224;
+#endif
+#ifdef HAVE_SHA256
+    algos[algos_cnt++] = atom_sha256;
+#endif
+#ifdef HAVE_SHA384
+    algos[algos_cnt++] = atom_sha384;
+#endif
+#ifdef HAVE_SHA512
+    algos[algos_cnt++] = atom_sha512;
+#endif
+}
+
+static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_list_from_array(env, algos, algos_cnt);
 }
 
 static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
