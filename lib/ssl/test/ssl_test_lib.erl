@@ -704,38 +704,46 @@ openssl_dsa_suites() ->
 		 end, Ciphers).
 
 anonymous_suites() ->
-    [{dh_anon, rc4_128, md5},
-     {dh_anon, des_cbc, sha},
-     {dh_anon, '3des_ede_cbc', sha},
-     {dh_anon, aes_128_cbc, sha},
-     {dh_anon, aes_256_cbc, sha}].
+    Suites =
+	[{dh_anon, rc4_128, md5},
+	 {dh_anon, des_cbc, sha},
+	 {dh_anon, '3des_ede_cbc', sha},
+	 {dh_anon, aes_128_cbc, sha},
+	 {dh_anon, aes_256_cbc, sha}],
+    ssl_cipher:filter_suites(Suites).
 
 psk_suites() ->
-    [{psk, rc4_128, sha},
-     {psk, '3des_ede_cbc', sha},
-     {psk, aes_128_cbc, sha},
-     {psk, aes_256_cbc, sha},
-     {dhe_psk, rc4_128, sha},
-     {dhe_psk, '3des_ede_cbc', sha},
-     {dhe_psk, aes_128_cbc, sha},
-     {dhe_psk, aes_256_cbc, sha},
-     {rsa_psk, rc4_128, sha},
-     {rsa_psk, '3des_ede_cbc', sha},
-     {rsa_psk, aes_128_cbc, sha},
-     {rsa_psk, aes_256_cbc, sha}].
+    Suites =
+	[{psk, rc4_128, sha},
+	 {psk, '3des_ede_cbc', sha},
+	 {psk, aes_128_cbc, sha},
+	 {psk, aes_256_cbc, sha},
+	 {dhe_psk, rc4_128, sha},
+	 {dhe_psk, '3des_ede_cbc', sha},
+	 {dhe_psk, aes_128_cbc, sha},
+	 {dhe_psk, aes_256_cbc, sha},
+	 {rsa_psk, rc4_128, sha},
+	 {rsa_psk, '3des_ede_cbc', sha},
+	 {rsa_psk, aes_128_cbc, sha},
+	 {rsa_psk, aes_256_cbc, sha}],
+    ssl_cipher:filter_suites(Suites).
 
 srp_suites() ->
-    [{srp_anon, '3des_ede_cbc', sha},
-     {srp_rsa, '3des_ede_cbc', sha},
-     {srp_anon, aes_128_cbc, sha},
-     {srp_rsa, aes_128_cbc, sha},
-     {srp_anon, aes_256_cbc, sha},
-     {srp_rsa, aes_256_cbc, sha}].
+    Suites =
+	[{srp_anon, '3des_ede_cbc', sha},
+	 {srp_rsa, '3des_ede_cbc', sha},
+	 {srp_anon, aes_128_cbc, sha},
+	 {srp_rsa, aes_128_cbc, sha},
+	 {srp_anon, aes_256_cbc, sha},
+	 {srp_rsa, aes_256_cbc, sha}],
+    ssl_cipher:filter_suites(Suites).
 
 srp_dss_suites() ->
-    [{srp_dss, '3des_ede_cbc', sha},
-     {srp_dss, aes_128_cbc, sha},
-     {srp_dss, aes_256_cbc, sha}].
+    Suites =
+	[{srp_dss, '3des_ede_cbc', sha},
+	 {srp_dss, aes_128_cbc, sha},
+	 {srp_dss, aes_256_cbc, sha}],
+    ssl_cipher:filter_suites(Suites).
 
 pem_to_der(File) ->
     {ok, PemBin} = file:read_file(File),
