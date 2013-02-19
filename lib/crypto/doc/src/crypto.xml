@@ -99,6 +99,14 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
+      <name>algorithms() -> [atom()]</name>
+      <fsummary>Provide a list of available crypto algorithms.</fsummary>
+      <desc>
+        <p>Provides the available crypto algorithms in terms of a list
+          of atoms.</p>
+      </desc>
+    </func>
+    <func>
       <name>info_lib() -> [{Name,VerNum,VerStr}]</name>
       <fsummary>Provides information about the libraries used by crypto.</fsummary>
       <type>

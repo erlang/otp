@@ -21,7 +21,7 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info/0, info_lib/0, version/0]).
+-export([start/0, stop/0, info/0, info_lib/0, algorithms/0, version/0]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
@@ -116,7 +116,7 @@
 		    srp_value_B,
 		    srp3_value_u, srp6_value_u, srp6a_multiplier,
 		    srp_client_secret, srp_server_secret,
-		    info_lib]).
+		    info_lib, algorithms]).
 
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha'.
@@ -190,6 +190,8 @@ info() ->
     ?FUNC_LIST.
 
 info_lib() -> ?nif_stub.
+
+algorithms() -> ?nif_stub.
 
 %% Crypto app version history:
 %% (no version): Driver implementation
