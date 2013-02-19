@@ -394,6 +394,49 @@ make_dsa_cert(Config) ->
 		       {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
      | Config].
 
+make_ecdsa_cert(Config) ->
+    case proplists:get_bool(ec, crypto:algorithms()) of
+	    true ->
+	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, ec, ec, ""),
+	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, ec, ec, ""),
+	    [{server_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true},
+				  {cacertfile, ServerCaCertFile},
+				  {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
+	     {server_ecdsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
+					 {cacertfile, ClientCaCertFile},
+					 {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+					 {verify, verify_peer}]},
+	     {client_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true},
+				  {cacertfile, ClientCaCertFile},
+				  {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
+	     | Config];
+	_ ->
+	    Config
+    end.
+
+%% RFC 4492, Sect. 2.3.  ECDH_RSA
+%%
+%%    This key exchange algorithm is the same as ECDH_ECDSA except that the
+%%    server's certificate MUST be signed with RSA rather than ECDSA.
+make_ecdh_rsa_cert(Config) ->
+    case proplists:get_bool(ec, crypto:algorithms()) of
+	true ->
+	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, rsa, ec, "rsa_"),
+	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, rsa, ec, "rsa_"),
+	    [{server_ecdh_rsa_opts, [{ssl_imp, new},{reuseaddr, true},
+				     {cacertfile, ServerCaCertFile},
+				     {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
+	     {server_ecdh_rsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
+					    {cacertfile, ClientCaCertFile},
+					    {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+					    {verify, verify_peer}]},
+	     {client_ecdh_rsa_opts, [{ssl_imp, new},{reuseaddr, true},
+				     {cacertfile, ClientCaCertFile},
+				     {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
+	     | Config];
+	_ ->
+	    Config
+    end.
 
 make_mix_cert(Config) ->
     {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, dsa,
@@ -657,10 +700,14 @@ send_selected_port(_,_,_) ->
     ok.
 
 rsa_suites() ->
-    lists:filter(fun({dhe_dss, _, _}) ->
-			 false;
+    lists:filter(fun({rsa, _, _}) ->
+			 true;
+		    ({dhe_rsa, _, _}) ->
+			 true;
+		    ({ecdhe_rsa, _, _}) ->
+			 true;
 		    (_) ->
-			 true
+			 false
 		 end,
 		 ssl:cipher_suites()).
 
@@ -680,22 +727,59 @@ dsa_suites() ->
 		 end,
 		 ssl:cipher_suites()).
 
+ecdsa_suites() ->
+     lists:filter(fun({ecdhe_ecdsa, _, _}) ->
+			 true;
+		    (_) ->
+			 false
+		 end,
+		 ssl:cipher_suites()).
+
+ecdh_rsa_suites() ->
+     lists:filter(fun({ecdh_rsa, _, _}) ->
+			 true;
+		    (_) ->
+			 false
+		 end,
+		 ssl:cipher_suites()).
 
 openssl_rsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
     lists:filter(fun(Str) ->
-			 case re:run(Str,"DSS",[]) of
+			 case re:run(Str,"DSS|ECDH-RSA|ECDSA",[]) of
 			     nomatch ->
 				 true;
 			     _ ->
 				 false
 			 end 
-		 end, Ciphers).
+		     end, Ciphers).
 
 openssl_dsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
     lists:filter(fun(Str) ->
 			 case re:run(Str,"DSS",[]) of
+			     nomatch ->
+				 false;
+			     _ ->
+				 true
+			 end 
+		 end, Ciphers).
+
+openssl_ecdsa_suites() ->
+    Ciphers = ssl:cipher_suites(openssl),
+    lists:filter(fun(Str) ->
+			 case re:run(Str,"ECDHE-ECDSA",[]) of
+			     nomatch ->
+				 false;
+			     _ ->
+				 true
+			 end 
+		 end, Ciphers).
+
+openssl_ecdh_rsa_suites() ->
+    Ciphers = ssl:cipher_suites(openssl),
+    lists:filter(fun(Str) ->
+			 case re:run(Str,"ECDH-RSA",[]) of
 			     nomatch ->
 				 false;
 			     _ ->
@@ -709,7 +793,11 @@ anonymous_suites() ->
 	 {dh_anon, des_cbc, sha},
 	 {dh_anon, '3des_ede_cbc', sha},
 	 {dh_anon, aes_128_cbc, sha},
-	 {dh_anon, aes_256_cbc, sha}],
+	 {dh_anon, aes_256_cbc, sha},
+	 {ecdh_anon,rc4_128,sha},
+	 {ecdh_anon,'3des_ede_cbc',sha},
+	 {ecdh_anon,aes_128_cbc,sha},
+	 {ecdh_anon,aes_256_cbc,sha}],
     ssl_cipher:filter_suites(Suites).
 
 psk_suites() ->
@@ -826,6 +914,8 @@ init_tls_version(Version) ->
 
 sufficient_crypto_support('tlsv1.2') ->
     proplists:get_bool(sha256, crypto:algorithms());
+sufficient_crypto_support(ciphers_ec) ->
+    proplists:get_bool(ec, crypto:algorithms());
 sufficient_crypto_support(_) ->
     true.
 
