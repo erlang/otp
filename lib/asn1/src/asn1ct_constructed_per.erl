@@ -1603,16 +1603,14 @@ get_name_list([], Acc) ->
 
 
 gen_enc_choice2(Erule,TopType, {L1,L2}, Ext) ->
-    gen_enc_choice2(Erule,TopType, L1 ++ L2, 0, Ext);
-gen_enc_choice2(Erule,TopType, {L1,L2,L3}, Ext) ->
-    gen_enc_choice2(Erule,TopType, L1 ++ L3 ++ L2, 0, Ext);
+    gen_enc_choice2(Erule, TopType, L1 ++ L2, 0, [], Ext);
+gen_enc_choice2(Erule, TopType, {L1,L2,L3}, Ext) ->
+    gen_enc_choice2(Erule, TopType, L1 ++ L3 ++ L2, 0, [], Ext);
 gen_enc_choice2(Erule,TopType, L, Ext) ->
-    gen_enc_choice2(Erule,TopType, L, 0, Ext).
+    gen_enc_choice2(Erule,TopType, L, 0, [], Ext).
 
-gen_enc_choice2(Erule,TopType,[H1,H2|T], Pos, Ext) 
-when is_record(H1,'ComponentType'), is_record(H2,'ComponentType') ->
-    Cname = H1#'ComponentType'.name,
-    Type = H1#'ComponentType'.typespec,
+gen_enc_choice2(Erule, TopType, [H|T], Pos, Sep0, Ext) ->
+    #'ComponentType'{name=Cname,typespec=Type} = H,
     EncObj =
 	case asn1ct_gen:get_constraint(Type#type.constraint,
 				       componentrelation) of
@@ -1620,44 +1618,22 @@ when is_record(H1,'ComponentType'), is_record(H2,'ComponentType') ->
 		case Type#type.tablecinf of
 		    [{objfun,_}|_] ->
 			{"got objfun through args","ObjFun"};
-		    _ ->false
+		    _ ->
+			false
 		end;
-	    _ -> {no_attr,"ObjFun"}
+	    _ ->
+		{no_attr,"ObjFun"}
 	end,
-    emit({{asis,Cname}," ->",nl}),
+    emit([Sep0,{asis,Cname}," ->",nl]),
     DoExt = case Ext of
-		{ext,ExtPos,_} when (Pos + 1) < ExtPos -> noext;
+		{ext,ExtPos,_} when Pos + 1 < ExtPos -> noext;
 		_ -> Ext
 	    end,
-    gen_enc_line(Erule,TopType,Cname,Type,"element(2,Val)", 
-		 Pos+1,EncObj,DoExt),
-    emit({";",nl}),
-    gen_enc_choice2(Erule,TopType,[H2|T], Pos+1, Ext);
-gen_enc_choice2(Erule,TopType,[H1|T], Pos, Ext) 
-  when is_record(H1,'ComponentType') ->
-    Cname = H1#'ComponentType'.name,
-    Type = H1#'ComponentType'.typespec,
-    EncObj =
-	case asn1ct_gen:get_constraint(Type#type.constraint,
-				       componentrelation) of
-	    no -> 
-		case Type#type.tablecinf of
-		    [{objfun,_}|_] ->
-			{"got objfun through args","ObjFun"};
-		    _ ->false
-		end;
-	    _ -> {no_attr,"ObjFun"}
-	end,
-    emit({{asis,H1#'ComponentType'.name}," ->",nl}),
-    DoExt = case Ext of
-		{ext,ExtPos,_} when (Pos + 1) < ExtPos -> noext;
-		_ -> Ext
-	    end,
-    gen_enc_line(Erule,TopType,Cname,Type,"element(2,Val)", 
-		 Pos+1,EncObj,DoExt),
-    gen_enc_choice2(Erule,TopType,T, Pos+1, Ext);
-gen_enc_choice2(_Erule,_,[], _, _)  ->
-    true.
+    gen_enc_line(Erule, TopType, Cname, Type, "element(2, Val)",
+		 Pos+1, EncObj, DoExt),
+    Sep = [";",nl],
+    gen_enc_choice2(Erule, TopType, T, Pos+1, Sep, Ext);
+gen_enc_choice2(_, _, [], _, _, _)  -> ok.
 
 gen_dec_choice(Erule,TopType,CompList,{ext,Pos,NumExt}) ->
     emit(["{Ext,",{curr,bytes},"} = ",
