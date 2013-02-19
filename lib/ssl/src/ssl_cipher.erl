@@ -35,7 +35,7 @@
 -export([security_parameters/3, suite_definition/1,
 	 decipher/5, cipher/5,
 	 suite/1, suites/1, anonymous_suites/0, psk_suites/1, srp_suites/0,
-	 openssl_suite/1, openssl_suite_name/1, filter/2,
+	 openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1]).
 
 -compile(inline).
@@ -737,6 +737,52 @@ filter(DerCert, Ciphers) ->
 	    Ciphers -- rsa_signed_suites()
     end.
 	
+%%--------------------------------------------------------------------
+-spec filter_suites([cipher_suite()]) -> [cipher_suite()].
+%%
+%% Description: filter suites for algorithms
+%%-------------------------------------------------------------------
+filter_suites(Suites = [{_,_,_}|_]) ->
+    Algos = crypto:algorithms(),
+    lists:filter(fun({KeyExchange, Cipher, Hash}) ->
+			 is_acceptable_keyexchange(KeyExchange, Algos) andalso
+			     is_acceptable_cipher(Cipher, Algos) andalso
+			     is_acceptable_hash(Hash, Algos)
+		 end, Suites);
+
+filter_suites(Suites = [{_,_,_,_}|_]) ->
+    Algos = crypto:algorithms(),
+    lists:filter(fun({KeyExchange, Cipher, Hash, Prf}) ->
+			 is_acceptable_keyexchange(KeyExchange, Algos) andalso
+			     is_acceptable_cipher(Cipher, Algos) andalso
+			     is_acceptable_hash(Hash, Algos) andalso
+			     is_acceptable_prf(Prf, Algos)
+		 end, Suites);
+
+filter_suites(Suites) ->
+    Algos = crypto:algorithms(),
+    lists:filter(fun(Suite) ->
+			 {KeyExchange, Cipher, Hash, Prf} = ssl_cipher:suite_definition(Suite),
+			 is_acceptable_keyexchange(KeyExchange, Algos) andalso
+			     is_acceptable_cipher(Cipher, Algos) andalso
+			     is_acceptable_hash(Hash, Algos) andalso
+			     is_acceptable_prf(Prf, Algos)
+		 end, Suites).
+
+is_acceptable_keyexchange(_, _) ->
+    true.
+
+is_acceptable_cipher(_, _) ->
+    true.
+
+is_acceptable_hash(Hash, Algos) ->
+    proplists:get_bool(Hash, Algos).
+
+is_acceptable_prf(default_prf, _) ->
+    true;
+is_acceptable_prf(Prf, Algos) ->
+    proplists:get_bool(Prf, Algos).
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
