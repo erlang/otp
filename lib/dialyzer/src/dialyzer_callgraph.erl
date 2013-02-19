@@ -798,10 +798,7 @@ condensation(G) ->
     fun({V1, V2}) ->
         I1 = ets:lookup_element(V2I, V1, 2),
         I2 = ets:lookup_element(V2I, V2, 2),
-	case I1 =:= I2 of
-	  true  -> true;
-	  false -> ets:insert(I2I, {I1, I2})
-	end
+	I1 =:= I2 orelse ets:insert(I2I, {I1, I2})
     end,
   lists:foreach(Fun1, digraph:edges(G)),
   Fun3 =
