@@ -1020,17 +1020,6 @@ add_tests([],Spec) ->				% done
 %% check if it's a CT term that has bad format or if the user seems to
 %% have added something of his/her own, which we'll let pass if relaxed
 %% mode is enabled.
-check_term(Atom) when is_atom(Atom) ->
-    Valid = valid_terms(),
-    case lists:member(Atom,Valid) of
-	true ->
-	    valid;
-	false ->				% ignore
-	    case get(relaxed) of
-		true -> invalid;
-		false -> throw({error,{undefined_term_in_spec,Atom}})
-	    end
-    end;
 check_term(Term) when is_tuple(Term) ->
     Size = size(Term),
     [Name|_] = tuple_to_list(Term),
@@ -1059,9 +1048,7 @@ check_term(Term) when is_tuple(Term) ->
 			    throw({error,{undefined_term_in_spec,Term}})
 		    end
 	    end
-    end;
-check_term(Other) ->
-    throw({error,{undefined_term_in_spec,Other}}).
+    end.
 
 %% specific data handling before saving in testspec record, e.g.
 %% converting relative paths to absolute for directories and files
