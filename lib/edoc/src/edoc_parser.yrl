@@ -462,4 +462,4 @@ throw_error({parse_throws, E}, L) ->
 throw_error(parse_param, L) ->
     throw({error, L, "missing parameter name"});
 throw_error({Where, E}, L) when is_list(Where) ->
-    throw({error,L,{"unknown error parsing ~s: ~P.",[Where,E,15]}}).
+    throw({error,L,{"unknown error parsing ~ts: ~P.",[Where,E,15]}}).

@@ -466,20 +466,20 @@ uri_get("file://localhost/" ++ Path) ->
     uri_get_file(Path);
 uri_get("file://" ++ Path) ->
     Msg = io_lib:format("cannot handle 'file:' scheme with "
-			"nonlocal network-path: 'file://~s'.",
+			"nonlocal network-path: 'file://~ts'.",
 			[Path]),
     {error, Msg};
 uri_get("file:/" ++ Path) ->
     uri_get_file(Path);
 uri_get("file:" ++ Path) ->
-    Msg = io_lib:format("ignoring malformed URI: 'file:~s'.", [Path]),
+    Msg = io_lib:format("ignoring malformed URI: 'file:~ts'.", [Path]),
     {error, Msg};
 uri_get("http:" ++ Path) ->
     uri_get_http("http:" ++ Path);
 uri_get("ftp:" ++ Path) ->
     uri_get_ftp("ftp:" ++ Path);
 uri_get("//" ++ Path) ->
-    Msg = io_lib:format("cannot access network-path: '//~s'.", [Path]),
+    Msg = io_lib:format("cannot access network-path: '//~ts'.", [Path]),
     {error, Msg};
 uri_get([C, $:, $/ | _]=Path) when C >= $A, C =< $Z; C >= $a, C =< $z ->
     uri_get_file(Path);  % special case for Windows
@@ -490,7 +490,7 @@ uri_get(URI) ->
 	true ->
 	    uri_get_file(URI);
 	false ->
-	    Msg = io_lib:format("cannot handle URI: '~s'.", [URI]),
+	    Msg = io_lib:format("cannot handle URI: '~ts'.", [URI]),
 	    {error, Msg}
     end.
 
@@ -555,12 +555,12 @@ uri_get_http_1(Result, URI) ->
     end.
 
 http_errmsg(Reason, URI) ->
-    io_lib:format("http error: ~s: '~s'", [Reason, URI]).
+    io_lib:format("http error: ~ts: '~ts'", [Reason, URI]).
 
 %% TODO: implement ftp access method
 
 uri_get_ftp(URI) ->
-    Msg = io_lib:format("cannot access ftp scheme yet: '~s'.", [URI]),
+    Msg = io_lib:format("cannot access ftp scheme yet: '~ts'.", [URI]),
     {error, Msg}.
 
 %% @private
@@ -615,7 +615,7 @@ copy_file(From, To) ->
 	{ok, _} -> ok;
 	{error, R} ->
 	    R1 = file:format_error(R),
-	    report("error copying '~s' to '~s': ~s.", [From, To, R1]),
+	    report("error copying '~ts' to '~ts': ~ts.", [From, To, R1]),
 	    exit(error)
     end.
 
@@ -631,7 +631,7 @@ list_dir(Dir, Error) ->
 			fun (S, As) -> warning(S, As), [] end
 		end,
 	    R1 = file:format_error(R),
-	    F("could not read directory '~s': ~s.", [filename(Dir), R1])
+	    F("could not read directory '~ts': ~ts.", [filename(Dir), R1])
     end.
 
 %% @private
@@ -667,7 +667,7 @@ simplify_path(P) ->
 %% 	ok -> ok;
 %% 	{error, R} ->
 %% 	    R1 = file:format_error(R),
-%% 	    report("cannot create directory '~s': ~s.", [Dir, R1]),
+%% 	    report("cannot create directory '~ts': ~ts.", [Dir, R1]),
 %% 	    exit(error)
 %%     end.
 
@@ -707,7 +707,7 @@ write_file(Text, Dir, Name, Package, Options) ->
 	    ok = file:close(FD);
 	{error, R} ->
 	    R1 = file:format_error(R),
-	    report("could not write file '~s': ~s.", [File, R1]),
+	    report("could not write file '~ts': ~ts.", [File, R1]),
 	    exit(error)
     end.
 
@@ -761,7 +761,7 @@ read_info_file(Dir) ->
 		    parse_info_file(Text, File);
 		{error, R} ->
 		    R1 = file:format_error(R),
-		    warning("could not read '~s': ~s.", [File, R1]),
+		    warning("could not read '~ts': ~ts.", [File, R1]),
 		    {?NO_APP, [], []}
 	    end;	    
 	false ->
@@ -776,7 +776,7 @@ uri_get_info_file(Base) ->
 	{ok, Text} ->
 	    parse_info_file(Text, URI);
 	{error, Msg} ->
-	    warning("could not read '~s': ~s.", [URI, Msg]),
+	    warning("could not read '~ts': ~ts.", [URI, Msg]),
 	    {?NO_APP, [], []}
     end.
 
@@ -785,10 +785,10 @@ parse_info_file(Text, Name) ->
 	{ok, Vs} ->
 	    info_file_data(Vs);
 	{error, eof} ->
-	    warning("unexpected end of file in '~s'.", [Name]),
+	    warning("unexpected end of file in '~ts'.", [Name]),
 	    {?NO_APP, [], []};
 	{error, {_Line,Module,R}} ->
-	    warning("~s: ~s.", [Module:format_error(R), Name]),
+	    warning("~ts: ~ts.", [Module:format_error(R), Name]),
 	    {?NO_APP, [], []}
     end.
 
@@ -1033,7 +1033,7 @@ run_plugin(Name, Key, Default, Fun, Opts) when is_atom(Name) ->
 	{ok, Value} ->
 	    Value;
 	R ->
-	    report("error in ~s '~w': ~W.", [Name, Module, R, 20]),
+	    report("error in ~ts '~w': ~W.", [Name, Module, R, 20]),
 	    exit(error)
     end.
 

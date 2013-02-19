@@ -2749,7 +2749,7 @@ read_module(Name, Options) ->
     end.
 
 read_module_1(Name, Options) ->
-    verbose("reading module `~s'.", [filename(Name)], Options),
+    verbose("reading module `~ts'.", [filename(Name)], Options),
     {Forms, Enc} = read_module_2(Name, Options),
     case proplists:get_bool(comments, Options) of
 	false ->
@@ -2794,7 +2794,7 @@ check_forms([F | Fs], File) ->
 		    _ ->
 			"unknown error"
 		end,
-	    report_error("in file `~s' at line ~w:\n  ~ts",
+	    report_error("in file `~ts' at line ~w:\n  ~ts",
 			 [filename(File), erl_syntax:get_pos(F), S]),
 	    exit(error);
 	_ ->
@@ -2841,18 +2841,18 @@ write_module(Tree, Name, Dir, Opts) ->
 		       {value, directory} ->
 			   ok;
 		       {value, _} ->
-			   report_error("`~s' is not a directory.",
+			   report_error("`~ts' is not a directory.",
 					[Dir1]),
 			   exit(error);
 		       none ->
 			   case file:make_dir(Dir1) of
 			       ok ->
-				   verbose("created directory `~s'.",
+				   verbose("created directory `~ts'.",
 					   [Dir1], Opts),
 				   ok;
 			       E ->
 				   report_error("failed to create "
-						"directory `~s'.",
+						"directory `~ts'.",
 						[Dir1]),
 				   exit({make_dir, E})
 			   end
@@ -2870,7 +2870,7 @@ write_module(Tree, Name, Dir, Opts) ->
     Printer = proplists:get_value(printer, Opts),
     FD = open_output_file(File),
     ok = output_encoding(FD, Opts),
-    verbose("writing to file `~s'.", [File], Opts),
+    verbose("writing to file `~ts'.", [File], Opts),
     V = (catch {ok, output(FD, Printer, Tree, Opts)}),
     ok = file:close(FD),
     case V of
@@ -2911,7 +2911,7 @@ backup_file_1(Name, Opts) ->
 			 filename:basename(Name1) ++ Suffix),
     case catch file:rename(Name1, Dest) of
 	ok ->
-	    verbose("made backup of file `~s'.", [Name1], Opts);
+	    verbose("made backup of file `~ts'.", [Name1], Opts);
 	{error, R} ->
 	    error_backup_file(Name1),
 	    exit({error, R});
@@ -3036,19 +3036,19 @@ warning_apply_2(Module, Target) ->
 		   "possibly unsafe in `~s'.", [Module, Target]).
 
 error_open_output(Name) ->
-    report_error("cannot open file `~s' for output.", [filename(Name)]).
+    report_error("cannot open file `~ts' for output.", [filename(Name)]).
 
 error_read_file(Name) ->
-    report_error("error reading file `~s'.", [filename(Name)]).
+    report_error("error reading file `~ts'.", [filename(Name)]).
 
 error_read_file_info(Name) ->
-    report_error("error getting file info: `~s'.", [filename(Name)]).
+    report_error("error getting file info: `~ts'.", [filename(Name)]).
 
 error_write_file(Name) ->
-    report_error("error writing to file `~s'.", [filename(Name)]).
+    report_error("error writing to file `~ts'.", [filename(Name)]).
 
 error_backup_file(Name) ->
-    report_error("could not create backup of file `~s'.",
+    report_error("could not create backup of file `~ts'.",
 		 [filename(Name)]).
 
 verbose(S, Opts) ->

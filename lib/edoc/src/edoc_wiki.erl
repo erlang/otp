@@ -295,7 +295,7 @@ expand_uri([], _, L, _Ss, Us, _As) ->
 
 expand_uri_error(Us, L) ->
     {Ps, _} = edoc_lib:split_at(lists:reverse(Us), $:),
-    throw_error(L, {"reference '[~s:...' ended unexpectedly", [Ps]}).
+    throw_error(L, {"reference '[~ts:...' ended unexpectedly", [Ps]}).
 
 
 push_uri(Us, Ss, As) ->

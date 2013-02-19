@@ -512,7 +512,7 @@ m(M) ->
 print_object_file(Mod) ->
     case code:is_loaded(Mod) of
 	{file,File} ->
-	    format("Object file: ~s\n", [File]);
+	    format("Object file: ~ts\n", [File]);
 	_ ->
 	    ignore
     end.
