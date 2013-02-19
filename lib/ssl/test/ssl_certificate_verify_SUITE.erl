@@ -252,8 +252,8 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, [{active, false} | BadClientOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error, {essl, "handshake failure"}},
-			      Client, {error, {essl, "handshake failure"}}).
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "handshake failure"}},
+			      Client, {error, {tls_alert, "handshake failure"}}).
 
 
 %%--------------------------------------------------------------------
@@ -293,14 +293,14 @@ verify_fun_always_run_client(Config) when is_list(Config) ->
 					       [{verify, verify_peer},
 						{verify_fun, FunAndState}
 						| ClientOpts]}]),
-    %% Server error may be {essl,"handshake failure"} or closed depending on timing
+    %% Server error may be {tls_alert,"handshake failure"} or closed depending on timing
     %% this is not a bug it is a circumstance of how tcp works!
     receive
 	{Server, ServerError} ->
 	    ct:print("Server Error ~p~n", [ServerError])
     end,
 
-    ssl_test_lib:check_result(Client, {error, {essl, "handshake failure"}}).
+    ssl_test_lib:check_result(Client, {error, {tls_alert, "handshake failure"}}).
 
 %%--------------------------------------------------------------------
 verify_fun_always_run_server() ->
@@ -342,14 +342,14 @@ verify_fun_always_run_server(Config) when is_list(Config) ->
 					       [{verify, verify_peer}
 						| ClientOpts]}]),
 
-    %% Client error may be {essl, "handshake failure" } or closed depending on timing
+    %% Client error may be {tls_alert, "handshake failure" } or closed depending on timing
     %% this is not a bug it is a circumstance of how tcp works!
     receive
 	{Client, ClientError} ->
 	    ct:print("Client Error ~p~n", [ClientError])
     end,
 
-    ssl_test_lib:check_result(Server, {error, {essl, "handshake failure"}}).
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "handshake failure"}}).
 
 %%--------------------------------------------------------------------
 
@@ -432,8 +432,8 @@ cert_expired(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, [{verify, verify_peer} | ClientOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error, {essl, "certificate expired"}},
-			      Client, {error, {essl, "certificate expired"}}).
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "certificate expired"}},
+			      Client, {error, {tls_alert, "certificate expired"}}).
 
 two_digits_str(N) when N < 10 ->
     lists:flatten(io_lib:format("0~p", [N]));
@@ -710,8 +710,8 @@ invalid_signature_server(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, [{verify, verify_peer} | ClientOpts]}]),
 
-    tcp_delivery_workaround(Server, {error, {essl, "bad certificate"}},
-			    Client, {error, {essl, "bad certificate"}}).
+    tcp_delivery_workaround(Server, {error, {tls_alert, "bad certificate"}},
+			    Client, {error, {tls_alert, "bad certificate"}}).
 
 %%--------------------------------------------------------------------
 
@@ -747,8 +747,8 @@ invalid_signature_client(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, NewClientOpts}]),
 
-    tcp_delivery_workaround(Server, {error, {essl, "bad certificate"}},
-			    Client, {error, {essl, "bad certificate"}}).
+    tcp_delivery_workaround(Server, {error, {tls_alert, "bad certificate"}},
+			    Client, {error, {tls_alert, "bad certificate"}}).
 
 
 %%--------------------------------------------------------------------
@@ -792,7 +792,7 @@ server_verify_no_cacerts(Config) when is_list(Config) ->
 					      {options, [{verify, verify_peer}
 							 | ServerOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error, {eoptions, {cacertfile, ""}}}).
+    ssl_test_lib:check_result(Server, {error, {options, {cacertfile, ""}}}).
 
 
 %%--------------------------------------------------------------------
@@ -829,8 +829,8 @@ unknown_server_ca_fail(Config) when is_list(Config) ->
 						{verify_fun, FunAndState}
 						| ClientOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error, {essl, "unknown ca"}},
-			      Client, {error, {essl, "unknown ca"}}).
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "unknown ca"}},
+			      Client, {error, {tls_alert, "unknown ca"}}).
 
 %%--------------------------------------------------------------------
 unknown_server_ca_accept_verify_none() ->

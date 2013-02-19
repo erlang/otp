@@ -162,7 +162,7 @@ connect(Host, Port, Options, Timeout) ->
 %% Description: Creates an ssl listen socket.
 %%--------------------------------------------------------------------
 listen(_Port, []) ->
-    {error, enooptions};
+    {error, nooptions};
 listen(Port, Options0) ->
     try
 	{ok, Config} = handle_options(Options0, server),
@@ -380,13 +380,13 @@ getopts(#sslsocket{pid = {ListenSocket,  #config{cb = {Transport,_,_,_}}}},
 	{ok, _} = Result ->
 	    Result;
 	{error, InetError} ->
-	    {error, {eoptions, {socket_options, OptionTags, InetError}}}
+	    {error, {options, {socket_options, OptionTags, InetError}}}
     catch
 	_:_ ->
-	    {error, {eoptions, {socket_options, OptionTags}}}
+	    {error, {options, {socket_options, OptionTags}}}
     end;
 getopts(#sslsocket{}, OptionTags) ->
-    {error, {eoptions, {socket_options, OptionTags}}}.
+    {error, {options, {socket_options, OptionTags}}}.
 
 %%--------------------------------------------------------------------
 -spec setopts(#sslsocket{},  [gen_tcp:option()]) -> ok | {error, reason()}.
@@ -400,7 +400,7 @@ setopts(#sslsocket{pid = Pid}, Options0) when is_pid(Pid), is_list(Options0)  ->
 	    ssl_connection:set_opts(Pid, Options)
     catch
 	_:_ ->
-	    {error, {eoptions, {not_a_proplist, Options0}}}
+	    {error, {options, {not_a_proplist, Options0}}}
     end;
 
 setopts(#sslsocket{pid = {ListenSocket, #config{cb = {Transport,_,_,_}}}}, Options) when is_list(Options) ->
@@ -408,13 +408,13 @@ setopts(#sslsocket{pid = {ListenSocket, #config{cb = {Transport,_,_,_}}}}, Optio
 	ok ->
 	    ok;
 	{error, InetError} ->
-	    {error, {eoptions, {socket_options, Options, InetError}}}
+	    {error, {options, {socket_options, Options, InetError}}}
     catch
 	_:Error ->
-	    {error, {eoptions, {socket_options, Options, Error}}}
+	    {error, {options, {socket_options, Options, Error}}}
     end;
 setopts(#sslsocket{}, Options) ->
-    {error, {eoptions,{not_a_proplist, Options}}}.
+    {error, {options,{not_a_proplist, Options}}}.
 
 %%---------------------------------------------------------------
 -spec shutdown(#sslsocket{}, read | write | read_write) ->  ok | {error, reason()}.
@@ -503,24 +503,26 @@ format_error({error, Reason}) ->
 format_error(Reason) when is_list(Reason) ->
     Reason;
 format_error(closed) ->
-    "The connection is closed";
-format_error({ecacertfile, _}) ->
-    "Own CA certificate file is invalid.";
-format_error({ecertfile, _}) ->
-    "Own certificate file is invalid.";
-format_error({ekeyfile, _}) ->
-    "Own private key file is invalid.";
-format_error({essl, Description}) ->
-    Description;
-format_error({eoptions, Options}) ->
-    lists:flatten(io_lib:format("Error in options list: ~p~n", [Options]));
+    "TLS connection is closed";
+format_error({tls_alert, Description}) ->
+    "TLS Alert: " ++ Description;
+format_error({options,{FileType, File, Reason}}) when FileType == cacertfile;
+						      FileType == certfile;
+						      FileType == keyfile;
+						      FileType == dhfile ->
+    Error = file_error_format(Reason),
+    file_desc(FileType) ++ File ++ ": " ++ Error;
+format_error({options, {socket_options, Option, Error}}) ->
+    lists:flatten(io_lib:format("Invalid transport socket option ~p: ~s", [Option, format_error(Error)]));
+format_error({options, {socket_options, Option}}) ->
+    lists:flatten(io_lib:format("Invalid socket option: ~p", [Option]));
+format_error({options, Options}) ->
+    lists:flatten(io_lib:format("Invalid TLS option: ~p", [Options]));
 
 format_error(Error) ->
-    case (catch inet:format_error(Error)) of
-        "unkknown POSIX" ++ _ ->
-            no_format(Error);
-        {'EXIT', _} ->
-            no_format(Error);
+    case inet:format_error(Error) of
+        "unknown POSIX" ++ _ ->
+            unexpected_format(Error);
         Other ->
             Other
     end.
@@ -541,8 +543,6 @@ random_bytes(N) ->
 	    crypto:rand_bytes(N)
     end.
 
-
-
 %%%--------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
@@ -559,11 +559,11 @@ do_connect(Address, Port,
 	    {error, Reason}
     catch
 	exit:{function_clause, _} ->
-	    {error, {eoptions, {cb_info, CbInfo}}};
+	    {error, {options, {cb_info, CbInfo}}};
 	exit:badarg ->
-	    {error, {eoptions, {socket_options, UserOpts}}};
+	    {error, {options, {socket_options, UserOpts}}};
 	exit:{badarg, _} ->
-	    {error, {eoptions, {socket_options, UserOpts}}}
+	    {error, {options, {socket_options, UserOpts}}}
     end.
 
 handle_options(Opts0, _Role) ->
@@ -607,7 +607,7 @@ handle_options(Opts0, _Role) ->
 		{verify_peer, UserFailIfNoPeerCert,
 		 ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
 	    Value ->
-		throw({error, {eoptions, {verify, Value}}})
+		throw({error, {options, {verify, Value}}})
 	end,
 
     CertFile = handle_option(certfile, Opts, <<>>),
@@ -754,9 +754,9 @@ validate_option(ciphers, Value)  when is_list(Value) ->
     try cipher_suites(Version, Value)
     catch
 	exit:_ ->
-	    throw({error, {eoptions, {ciphers, Value}}});
+	    throw({error, {options, {ciphers, Value}}});
 	error:_->
-	    throw({error, {eoptions, {ciphers, Value}}})
+	    throw({error, {options, {ciphers, Value}}})
     end;
 validate_option(reuse_session, Value) when is_function(Value) ->
     Value;
@@ -781,7 +781,7 @@ validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredPro
   when is_list(PreferredProtocols) ->
     case ssl_record:highest_protocol_version([]) of
 	{3,0} ->
-	    throw({error, {eoptions, {not_supported_in_sslv3, {Opt, Value}}}});
+	    throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
 	_ ->
 	    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
 	    validate_npn_ordering(Precedence),
@@ -792,7 +792,7 @@ validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredPro
            byte_size(Default) > 0, byte_size(Default) < 256 ->
     case ssl_record:highest_protocol_version([]) of
 	{3,0} ->
-	    throw({error, {eoptions, {not_supported_in_sslv3, {Opt, Value}}}});
+	    throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
 	_ ->
 	    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
 	    validate_npn_ordering(Precedence),
@@ -804,7 +804,7 @@ validate_option(client_preferred_next_protocols, undefined) ->
 validate_option(next_protocols_advertised = Opt, Value) when is_list(Value) ->
     case ssl_record:highest_protocol_version([]) of
 	{3,0} ->
-	    throw({error, {eoptions, {not_supported_in_sslv3, {Opt, Value}}}});
+	    throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
 	_ ->
 	    validate_binary_list(next_protocols_advertised, Value),
 	    Value
@@ -813,14 +813,14 @@ validate_option(next_protocols_advertised = Opt, Value) when is_list(Value) ->
 validate_option(next_protocols_advertised, undefined) ->
     undefined;
 validate_option(Opt, Value) ->
-    throw({error, {eoptions, {Opt, Value}}}).
+    throw({error, {options, {Opt, Value}}}).
 
 validate_npn_ordering(client) ->
     ok;
 validate_npn_ordering(server) ->
     ok;
 validate_npn_ordering(Value) ->
-    throw({error, {eoptions, {client_preferred_next_protocols, {invalid_precedence, Value}}}}).
+    throw({error, {options, {client_preferred_next_protocols, {invalid_precedence, Value}}}}).
 
 validate_binary_list(Opt, List) ->
     lists:foreach(
@@ -829,7 +829,7 @@ validate_binary_list(Opt, List) ->
                       byte_size(Bin) < 256 ->
             ok;
            (Bin) ->
-            throw({error, {eoptions, {Opt, {invalid_protocol, Bin}}}})
+            throw({error, {options, {Opt, {invalid_protocol, Bin}}}})
         end, List).
 
 validate_versions([], Versions) ->
@@ -840,23 +840,23 @@ validate_versions([Version | Rest], Versions) when Version == 'tlsv1.2';
                                                    Version == sslv3 ->
     validate_versions(Rest, Versions);					   
 validate_versions([Ver| _], Versions) ->
-    throw({error, {eoptions, {Ver, {versions, Versions}}}}).
+    throw({error, {options, {Ver, {versions, Versions}}}}).
 
 validate_inet_option(mode, Value)
   when Value =/= list, Value =/= binary ->
-    throw({error, {eoptions, {mode,Value}}});
+    throw({error, {options, {mode,Value}}});
 validate_inet_option(packet, Value)
   when not (is_atom(Value) orelse is_integer(Value)) ->
-    throw({error, {eoptions, {packet,Value}}});
+    throw({error, {options, {packet,Value}}});
 validate_inet_option(packet_size, Value)
   when not is_integer(Value) ->
-    throw({error, {eoptions, {packet_size,Value}}});
+    throw({error, {options, {packet_size,Value}}});
 validate_inet_option(header, Value)
   when not is_integer(Value) ->
-    throw({error, {eoptions, {header,Value}}});
+    throw({error, {options, {header,Value}}});
 validate_inet_option(active, Value)
   when Value =/= true, Value =/= false, Value =/= once ->
-    throw({error, {eoptions, {active,Value}}});
+    throw({error, {options, {active,Value}}});
 validate_inet_option(_, _) ->
     ok.
 
@@ -935,8 +935,27 @@ cipher_suites(Version, Ciphers0)  ->
     Ciphers = [ssl_cipher:openssl_suite(C) || C <- string:tokens(Ciphers0, ":")],
     cipher_suites(Version, Ciphers).
 
-no_format(Error) ->    
-    lists:flatten(io_lib:format("No format string for error: \"~p\" available.", [Error])).
+unexpected_format(Error) ->    
+    lists:flatten(io_lib:format("Unexpected error: ~p", [Error])).
+
+file_error_format({error, Error})->
+    case file:format_error(Error) of 
+	"unknown POSIX error" ->
+	    "decoding error";
+	Str ->
+	    Str
+    end;
+file_error_format(_) ->
+    "decoding error".
+    
+file_desc(cacertfile) ->
+    "Invalid CA certificate file ";
+file_desc(certfile) ->
+    "Invalid certificate file ";
+file_desc(keyfile) ->
+    "Invalid key file "; 
+file_desc(dhfile) ->
+    "Invalid DH params file ".
 
 detect(_Pred, []) ->
     undefined;

@@ -1136,9 +1136,8 @@ init_certificates(#ssl_options{cacerts = CaCerts,
 		    end,
 	    {ok, _, _, _, _, _} = ssl_manager:connection_init(Certs, Role)
 	catch
-	    Error:Reason ->
-		handle_file_error(?LINE, Error, Reason, CACertFile, {ecacertfile, Reason},
-				  erlang:get_stacktrace())
+	    _:Reason ->
+		file_error(CACertFile, {cacertfile, Reason})
 	end,
     init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CertFile, Role).
 
@@ -1158,9 +1157,8 @@ init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHan
 	[OwnCert] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
 	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, OwnCert}
     catch
-	Error:Reason ->
-	    handle_file_error(?LINE, Error, Reason, CertFile, {ecertfile, Reason},
-			      erlang:get_stacktrace())
+	_:Reason ->
+	    file_error(CertFile, {certfile, Reason})	    
     end;
 init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, _, _) ->
     {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, Cert}.
@@ -1177,9 +1175,8 @@ init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
 		     ],
 	private_key(public_key:pem_entry_decode(PemEntry, Password))
     catch 
-	Error:Reason ->
-	    handle_file_error(?LINE, Error, Reason, KeyFile, {ekeyfile, Reason},
-			      erlang:get_stacktrace()) 
+	_:Reason ->
+	    file_error(KeyFile, {keyfile, Reason}) 
     end;
 
 %% First two clauses are for backwards compatibility
@@ -1205,18 +1202,14 @@ private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
 private_key(Key) ->
     Key.
 
--spec(handle_file_error(_,_,_,_,_,_) -> no_return()).
-handle_file_error(Line, Error, {badmatch, Reason}, File, Throw, Stack) ->
-    file_error(Line, Error, Reason, File, Throw, Stack);
-handle_file_error(Line, Error, Reason, File, Throw, Stack) ->
-    file_error(Line, Error, Reason, File, Throw, Stack).
-
--spec(file_error(_,_,_,_,_,_) -> no_return()).
-file_error(Line, Error, Reason, File, Throw, Stack) ->
-    Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
-			   [Line, Error, Reason, File, Stack]),
-    error_logger:error_report(Report),
-    throw(Throw).
+-spec(file_error(_,_) -> no_return()).
+file_error(File, Throw) ->
+    case Throw of
+	{Opt,{badmatch, {error, {badmatch, Error}}}} ->
+	    throw({options, {Opt, binary_to_list(File), Error}});
+	_ ->
+	    throw(Throw)
+    end.
 
 init_diffie_hellman(_,Params, _,_) when is_binary(Params)->
     public_key:der_decode('DHParameter', Params);
@@ -1234,9 +1227,8 @@ init_diffie_hellman(DbHandle,_, DHParamFile, server) ->
 		?DEFAULT_DIFFIE_HELLMAN_PARAMS
 	end
     catch
-	Error:Reason ->
-	    handle_file_error(?LINE, Error, Reason, 
-			      DHParamFile, {edhfile, Reason},  erlang:get_stacktrace()) 
+	_:Reason ->
+	    file_error(DHParamFile, {dhfile, Reason}) 
     end.
 
 sync_send_all_state_event(FsmPid, Event) ->
@@ -2179,13 +2171,13 @@ get_socket_opts(Transport, Socket, [Tag | Tags], SockOpts, Acc) ->
 	{ok, [Opt]} ->
 	    get_socket_opts(Transport, Socket, Tags, SockOpts, [Opt | Acc]);
 	{error, Error} ->
-	    {error, {eoptions, {socket_option, Tag, Error}}}
+	    {error, {options, {socket_options, Tag, Error}}}
     catch
 	%% So that inet behavior does not crash our process
-	_:Error -> {error, {eoptions, {socket_option, Tag, Error}}}
+	_:Error -> {error, {options, {socket_options, Tag, Error}}}
     end;
 get_socket_opts(_, _,Opts, _,_) ->
-    {error, {eoptions, {socket_options, Opts, function_clause}}}.
+    {error, {options, {socket_options, Opts, function_clause}}}.
 
 set_socket_opts(_,_, [], SockOpts, []) ->
     {ok, SockOpts};
@@ -2195,18 +2187,18 @@ set_socket_opts(Transport, Socket, [], SockOpts, Other) ->
 	ok ->
 	    {ok, SockOpts};
 	{error, InetError} ->
-	    {{error, {eoptions, {socket_option, Other, InetError}}}, SockOpts}
+	    {{error, {options, {socket_options, Other, InetError}}}, SockOpts}
     catch
 	_:Error ->
 	    %% So that inet behavior does not crash our process
-	    {{error, {eoptions, {socket_option, Other, Error}}}, SockOpts}
+	    {{error, {options, {socket_options, Other, Error}}}, SockOpts}
     end;
 
 set_socket_opts(Transport,Socket, [{mode, Mode}| Opts], SockOpts, Other) when Mode == list; Mode == binary ->
     set_socket_opts(Transport, Socket, Opts, 
 		    SockOpts#socket_options{mode = Mode}, Other);
 set_socket_opts(_, _, [{mode, _} = Opt| _], SockOpts, _) ->
-    {{error, {eoptions, {socket_option, Opt}}}, SockOpts};
+    {{error, {options, {socket_options, Opt}}}, SockOpts};
 set_socket_opts(Transport,Socket, [{packet, Packet}| Opts], SockOpts, Other) when Packet == raw;
 									Packet == 0;
 									Packet == 1;
@@ -2225,19 +2217,19 @@ set_socket_opts(Transport,Socket, [{packet, Packet}| Opts], SockOpts, Other) whe
     set_socket_opts(Transport, Socket, Opts, 
 		    SockOpts#socket_options{packet = Packet}, Other);
 set_socket_opts(_, _, [{packet, _} = Opt| _], SockOpts, _) ->
-    {{error, {eoptions, {socket_option, Opt}}}, SockOpts};
+    {{error, {options, {socket_options, Opt}}}, SockOpts};
 set_socket_opts(Transport, Socket, [{header, Header}| Opts], SockOpts, Other) when is_integer(Header) ->
     set_socket_opts(Transport, Socket, Opts, 
 		    SockOpts#socket_options{header = Header}, Other);
 set_socket_opts(_, _, [{header, _} = Opt| _], SockOpts, _) ->
-    {{error,{eoptions, {socket_option, Opt}}}, SockOpts};
+    {{error,{options, {socket_options, Opt}}}, SockOpts};
 set_socket_opts(Transport, Socket, [{active, Active}| Opts], SockOpts, Other) when Active == once;
 										   Active == true;
 										   Active == false ->
     set_socket_opts(Transport, Socket, Opts, 
 		    SockOpts#socket_options{active = Active}, Other);
 set_socket_opts(_, _, [{active, _} = Opt| _], SockOpts, _) ->
-    {{error, {eoptions, {socket_option, Opt}} }, SockOpts};
+    {{error, {options, {socket_options, Opt}} }, SockOpts};
 set_socket_opts(Transport, Socket, [Opt | Opts], SockOpts, Other) ->
     set_socket_opts(Transport, Socket, Opts, SockOpts, [Opt | Other]).
 
