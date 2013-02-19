@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -84,24 +84,26 @@ to_string([]) -> [].
 % 	filename:join(Dir, File)).
 
 classpath(Dir) ->
-    PS =
+    {PS,Quote,EscSpace} =
 	case os:type() of
-	    {win32, _} -> ";";
-	    _          -> ":"
+	    {win32, _} -> {";","\"",""};
+	    _          -> {":","","\\"}
 	end,
     es(Dir++PS++
 	filename:join([code:lib_dir(jinterface),"priv","OtpErlang.jar"])++PS++
 	case os:getenv("CLASSPATH") of
 	    false -> "";
 	    Classpath -> Classpath
-	end).
+	end,
+       Quote,
+       EscSpace).
 
-es(L) ->
-    lists:flatmap(fun($ ) ->
-			  "\\ ";
-		     (C) ->
-			  [C]
-		  end,lists:flatten(L)).
+es(L,Quote,EscSpace) ->
+    Quote++lists:flatmap(fun($ ) ->
+				EscSpace++" ";
+			   (C) ->
+				[C]
+			end,lists:flatten(L)) ++ Quote.
 
 cmd(Cmd) ->
     PortOpts = [{line,80},eof,exit_status,stderr_to_stdout],
