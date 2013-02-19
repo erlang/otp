@@ -1475,8 +1475,9 @@ count_cases(Dir) ->
 			    write_summary(SumFile, Summary),
 			    Summary
 		    end;
-		{error, _Reason} ->
-		    io:format("\nFailed to read ~p (skipped)\n", [LogFile]),
+		{error, Reason} ->
+		    io:format("\nFailed to read ~p: ~p (skipped)\n",
+			      [LogFile,Reason]),
 		    error
 	    end
     end.

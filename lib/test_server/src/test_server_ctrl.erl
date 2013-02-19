@@ -681,7 +681,7 @@ handle_call({abort_current_testcase,Reason}, _From, State) ->
 handle_call({finish,Fini}, _From, State) ->
     case State#state.jobs of
 	[] ->
-	    lists:foreach(fun({Cli,Fun}) -> Fun(Cli) end,
+	    lists:foreach(fun({Cli,Fun}) -> Fun(Cli,Fini) end,
 			  State#state.idle_notify),
 	    State2 = State#state{finish=false},
 	    {stop,shutdown,{ok,self()}, State2};
@@ -699,14 +699,11 @@ handle_call({finish,Fini}, _From, State) ->
 
 handle_call({idle_notify,Fun}, {Cli,_Ref}, State) ->
     case State#state.jobs of
-	[] ->
-	    Fun(Cli),
-	    {reply, {ok,self()}, State};
-	_ ->
-	    Subscribed = State#state.idle_notify,
-	    {reply, {ok,self()},
-	     State#state{idle_notify=[{Cli,Fun}|Subscribed]}}
-    end;
+	[] -> self() ! report_idle;
+	_  -> ok
+    end,
+    Subscribed = State#state.idle_notify,
+    {reply, {ok,self()}, State#state{idle_notify=[{Cli,Fun}|Subscribed]}};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% handle_call(start_get_totals, From, State) -> {ok,Pid}
@@ -1000,6 +997,13 @@ handle_cast({node_started,Node}, State) ->
 %% lost contact with target. The test_server_ctrl process is
 %% terminated, and teminate/2 will do the cleanup
 
+handle_info(report_idle, State) ->
+    Finish = State#state.finish,
+    lists:foreach(fun({Cli,Fun}) -> Fun(Cli,Finish) end,
+		  State#state.idle_notify),
+    {noreply,State#state{idle_notify=[]}};
+
+
 handle_info({'EXIT',Pid,Reason}, State) ->
     case lists:keysearch(Pid,2,State#state.jobs) of
 	false ->
@@ -1017,11 +1021,12 @@ handle_info({'EXIT',Pid,Reason}, State) ->
 			      [Name,Reason])
 	    end,
 	    State2 = State#state{jobs=NewJobs},
+	    Finish = State2#state.finish,
 	    case NewJobs of
 		[] ->
-		    lists:foreach(fun({Cli,Fun}) -> Fun(Cli) end,
+		    lists:foreach(fun({Cli,Fun}) -> Fun(Cli,Finish) end,
 				  State2#state.idle_notify),
-		    case State2#state.finish of
+		    case Finish of
 			false ->
 			    {noreply,State2#state{idle_notify=[]}};
 			_ ->			% true | abort
@@ -1031,9 +1036,9 @@ handle_info({'EXIT',Pid,Reason}, State) ->
 			    {stop,shutdown,State2#state{finish=false}}
 		    end;
 		_ ->				% pending jobs
-		    case State2#state.finish of
+		    case Finish of
 			abort ->		% abort test now!
-			    lists:foreach(fun({Cli,Fun}) -> Fun(Cli) end,
+			    lists:foreach(fun({Cli,Fun}) -> Fun(Cli,Finish) end,
 					  State2#state.idle_notify),
 			    {stop,shutdown,State2#state{finish=false}};
 			_ ->			% true | false
