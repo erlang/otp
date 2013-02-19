@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -128,8 +128,8 @@ gen(hrl, Spec, Mod, Path) ->
 
 gen(erl, Spec, Mod, Path) ->
     Forms = [{?attribute, module, Mod},
-             {?attribute, compile, [{parse_transform, diameter_exprecs}]},
-             {?attribute, compile, [{parse_transform, diameter_nowarn}]},
+             {?attribute, compile, {parse_transform, diameter_exprecs}},
+             {?attribute, compile, nowarn_unused_function},
              {?attribute, export, [{name, 0},
                                    {id, 0},
                                    {vendor_id, 0},

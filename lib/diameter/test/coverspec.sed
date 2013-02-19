@@ -1,8 +1,7 @@
-#-*-makefile-*-   ; force emacs to enter makefile-mode
-
+#
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2013. All Rights Reserved.
+# Copyright Ericsson AB 2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -16,7 +15,19 @@
 # under the License.
 #
 # %CopyrightEnd%
+#
 
-APPLICATION  = diameter
-DIAMETER_VSN = 1.4.1
-APP_VSN      = $(APPLICATION)-$(DIAMETER_VSN)$(PRE_VSN)
+#
+# Morph diameter.cover into a legitimate cover spec. All that's being
+# retained is the list of excluded modules. This is used by Makefile
+# when running cover locally.
+#
+
+/^{incl_app,/{
+  i\
+{level, details}.\
+{incl_dirs, ["../ebin"]}.
+  d
+}
+
+/^{excl_mods,/s@ .*@@

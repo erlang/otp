@@ -56,13 +56,17 @@ DATA_DIRS = $(sort $(dir $(DATA)))
 ERL_COMPILE_FLAGS += +warn_export_vars \
                      +warn_unused_vars \
                      -I ../include \
-                     -I ../src/gen
+                     -I ../src/gen \
+                     $(STRICT_FLAGS)
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
 all debug opt: $(TARGET_FILES)
+
+strict:
+	$(MAKE) opt STRICT_FLAGS=-Werror
 
 # Require success ...
 run: $(SUITES)
@@ -73,7 +77,7 @@ any: opt
 
 clean:
 	rm -f $(TARGET_FILES) 
-	rm -f depend.mk
+	rm -f depend.mk coverspec
 
 realclean: clean
 	rm -rf log
@@ -114,7 +118,7 @@ help:
 	@echo "        Echo some relevant variables."
 	@echo ========================================
 
-.PHONY: all any run clean debug docs help info opt realclean
+.PHONY: all any run clean debug docs help info opt realclean strict
 
 # ----------------------------------------------------
 # Special Targets
@@ -132,10 +136,21 @@ $(SUITES): log opt
 	| awk '{print} / FAILED /{rc=1} END{exit rc}' rc=0
 # Shorter in sed but requires a GNU extension (ie. Q).
 
+cover: log opt coverspec
+	$(ERL) -noinput \
+	       -pa $(realpath ../ebin) \
+	       -sname diameter_cover \
+	       -s diameter_ct cover \
+	       -s init stop \
+	| awk '{print} / FAILED /{rc=1} END{exit rc}' rc=0
+
+coverspec: diameter.cover
+	sed -f $@.sed $< > $@
+
 log:
 	mkdir $@
 
-.PHONY: $(SUITES)
+.PHONY: $(SUITES) cover
 
 # ----------------------------------------------------
 # Release Targets
