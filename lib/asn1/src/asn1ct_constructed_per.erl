@@ -1322,8 +1322,7 @@ gen_dec_component_no_val({ext,_,_},mandatory) ->
     emit({"asn1_NOVALUE"}).
     
 
-gen_dec_choice_line(Erule, TopType, Comp, Pos, Ext) ->
-    Pre = gen_dec_line_open_type(Erule, Ext, Pos),
+gen_dec_choice_line(Erule, TopType, Comp, Pre) ->
     Imm0 = gen_dec_line_imm(Erule, TopType, Comp, false, Pre),
     Init = {ignore,fun(_) -> {[],[]} end},
     Imm = [{group,[Init|Imm0]}],
@@ -1638,62 +1637,135 @@ gen_enc_choice2(Erule, TopType, [H|T], Pos, Sep0, Ext) ->
     gen_enc_choice2(Erule, TopType, T, Pos+1, Sep, Ext);
 gen_enc_choice2(_, _, [], _, _, _)  -> ok.
 
-gen_dec_choice(Erule,TopType,CompList,{ext,Pos,NumExt}) ->
-    emit(["{Ext,",{curr,bytes},"} = ",
-	  {call,Erule,getbit,["Bytes"]},com,nl]),
+%% Generate the code for CHOICE. If the CHOICE is extensible,
+%% the structure of the generated code is as follows:
+%%
+%% case Bytes of
+%%   <<0:1,Bytes1/bitstring>> ->
+%%      Choice = <Decode INTEGER (0..LastRootChoice) from Bytes1>
+%%      case Choice of
+%%        0 -> <Decode>;
+%%        :
+%%        LastRootChoice -> <Decode>
+%%      end;
+%%   <<1:1,Bytes1/bitstring>> ->
+%%      Choice = <Decode normally small number from Bytes1>
+%%      TmpVal = <Decode open type>
+%%      case Choice of
+%%        0 -> <Decode TmpVal>;
+%%        :
+%%        LastExtension -> <Decode TmpVal>;
+%%        _ -> <Return TmpVal since the type is unknown>
+%%       end
+%% end
+%%
+%% The return value from the generated function always looks like:
+%%    {{ChoiceTag,Value},RemainingBuffer}
+%% where ChoiceTag will be 'asn1_ExtAlt' for an unknown extension.
+%%
+%% If the CHOICE is not extensible, the top-level case is omitted
+%% and only the code in the first case arm is generated.
+
+gen_dec_choice(Erule, TopType, CompList, {ext,_,_}=Ext) ->
+    {RootList,ExtList} = split_complist(CompList),
+    emit(["case Bytes of",nl]),
+    case RootList of
+	[] ->
+	    ok;
+	[_|_] ->
+	    emit(["<<0:1,Bytes1/bitstring>> ->",nl]),
+	    asn1ct_name:new(bytes),
+	    gen_dec_choice1(Erule, TopType, RootList, noext),
+	    emit([";",nl,nl])
+    end,
+    emit(["<<1:1,Bytes1/bitstring>> ->",nl]),
+    asn1ct_name:clear(),
     asn1ct_name:new(bytes),
-    gen_dec_choice1(Erule,TopType,CompList,{ext,Pos,NumExt});
-gen_dec_choice(Erule,TopType,CompList,noext) ->
-    gen_dec_choice1(Erule,TopType,CompList,noext).
+    asn1ct_name:new(bytes),
+    gen_dec_choice1(Erule, TopType, ExtList, Ext),
+    emit([nl,"end"]);
+gen_dec_choice(Erule, TopType, CompList, noext) ->
+    gen_dec_choice1(Erule, TopType, CompList, noext).
 
-gen_dec_choice1(Erule,TopType,CompList,noext) ->
-    emit(["{Choice,",{curr,bytes},
-	  "} = ",{call,Erule,getchoice,
-		  [{prev,bytes},length(CompList),"0"]},com,nl,
-	  "{Cname,{Val,NewBytes}} = case Choice of",nl]),
-    gen_dec_choice2(Erule,TopType,CompList,noext),
-    emit({nl,"end,",nl}),
-    emit({nl,"{{Cname,Val},NewBytes}"});
-gen_dec_choice1(Erule,TopType,{RootList,ExtList},Ext) ->
-    NewList = RootList ++ ExtList,
-    gen_dec_choice1(Erule,TopType, NewList, Ext);
-gen_dec_choice1(Erule,TopType,{RootList,ExtList,RootList2},Ext) ->
-    NewList = RootList ++ RootList2 ++ ExtList,
-    gen_dec_choice1(Erule,TopType, NewList, Ext);
-gen_dec_choice1(Erule,TopType,CompList,{ext,ExtPos,ExtNum}) ->
-    emit(["{Choice,",{curr,bytes},"} = ",
-	  {call,Erule,getchoice,
-	   [{prev,bytes},length(CompList)-ExtNum,"Ext"]},com,nl]),
-    emit({"{Cname,{Val,NewBytes}} = case Choice + Ext*",ExtPos-1," of",nl}),
-    gen_dec_choice2(Erule,TopType,CompList,{ext,ExtPos,ExtNum}),
+split_complist({Root1,Ext,Root2}) ->
+    {Root1++Root2,Ext};
+split_complist({_,_}=CompList) ->
+    CompList.
+
+gen_dec_choice1(Erule, TopType, CompList, noext=Ext) ->
+    emit_getchoice(Erule, CompList, Ext),
+    emit(["case Choice of",nl]),
+    Pre = {safe,fun(St) ->
+			{asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
+			 fun() -> St end}
+		end},
+    gen_dec_choice2(Erule, TopType, CompList, Pre),
+    emit([nl,"end"]);
+gen_dec_choice1(Erule, TopType, CompList, {ext,_,_}=Ext) ->
+    emit_getchoice(Erule, CompList, Ext),
     Imm = asn1ct_imm:per_dec_open_type(is_aligned(Erule)),
+    emit(["begin",nl]),
     BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
-    emit([";",nl,
-	  "_ ->",nl]),
-    {TmpTerm,TmpBuf} = asn1ct_imm:dec_slim_cg(Imm, BytesVar),
-    emit([com,nl,
-	  "{asn1_ExtAlt,{",TmpTerm,com,TmpBuf,"}}",nl,
-	  "end,",nl,nl,
-	  "{{Cname,Val},NewBytes}"]).
+    {Dst,DstBuf} = asn1ct_imm:dec_slim_cg(Imm, BytesVar),
+    emit([nl,
+	  "end,",nl,
+	  "case Choice of",nl]),
+    Pre = {safe,fun(St) ->
+			emit(["{TmpVal,_} = "]),
+			{Dst,
+			 fun() ->
+				 emit([",",nl,
+				       "{TmpVal,",DstBuf,"}"]),
+				 St
+			 end}
+		end},
+    gen_dec_choice2(Erule, TopType, CompList, Pre),
+    case CompList of
+	[] -> ok;
+	[_|_] -> emit([";",nl])
+    end,
+    emit(["_ ->",nl,
+	  "{{asn1_ExtAlt,",Dst,"},",DstBuf,"}",nl,
+	  "end"]).
 
+emit_getchoice(Erule, CompList, Ext) ->
+    Al = is_aligned(Erule),
+    Imm = case {Ext,CompList} of
+	      {noext,[_]} ->
+		  {value,0};
+	      {noext,_} ->
+		  asn1ct_imm:per_dec_constrained(0, length(CompList)-1, Al);
+	      {{ext,_,_},_} ->
+		  asn1ct_imm:per_dec_normally_small_number(Al)
+	  end,
+    emit(["{Choice,",{curr,bytes},"} = ",nl]),
+    BytesVar = asn1ct_gen:mk_var(asn1ct_name:prev(bytes)),
+    asn1ct_imm:dec_code_gen(Imm, BytesVar),
+    emit([com,nl]).
 
 gen_dec_choice2(Erule,TopType,L,Ext) ->
     gen_dec_choice2(Erule, TopType, L, 0, [], Ext).
 
-gen_dec_choice2(Erule, TopType, [H0|T], Pos, Sep0, Ext) ->
+gen_dec_choice2(Erule, TopType, [H0|T], Pos, Sep0, Pre) ->
     #'ComponentType'{name=Cname,typespec=Type} = H0,
     H = H0#'ComponentType'{prop=mandatory},
+    emit([Sep0,Pos," ->",nl]),
     case Type#type.def of
 	#'ObjectClassFieldType'{type={typefield,_}} ->
-	    emit([Sep0,Pos," ->",nl]),
-	    gen_dec_choice_line(Erule, TopType, H, Pos+1, Ext);
+	    emit("{Cname,{Val,NewBytes}} = begin\n"),
+	    gen_dec_choice_line(Erule, TopType, H, Pre),
+	    emit([nl,
+		  "end,",nl,
+		  "{{Cname,Val},NewBytes}"]);
 	_ ->
-	    emit([Sep0,Pos," -> {",{asis,Cname},",",nl]),
-	    gen_dec_choice_line(Erule, TopType, H, Pos+1, Ext),
-	    emit("}")
+	    emit("{Val,NewBytes} = begin\n"),
+	    gen_dec_choice_line(Erule, TopType, H, Pre),
+	    emit([nl,
+		  "end,",nl,
+		  "{{",{asis,Cname},",Val},NewBytes}"])
     end,
     Sep = [";",nl],
-    gen_dec_choice2(Erule, TopType, T, Pos+1, Sep, Ext);
+    gen_dec_choice2(Erule, TopType, T, Pos+1, Sep, Pre);
 gen_dec_choice2(_, _, [], _, _, _)  -> ok.
 
 indent(N) ->

@@ -25,6 +25,7 @@
 	 per_dec_length/3,per_dec_named_integer/3,
 	 per_dec_octet_string/2,per_dec_open_type/1,per_dec_real/1,
 	 per_dec_restricted_string/1]).
+-export([per_dec_constrained/3,per_dec_normally_small_number/1]).
 -export([optimize_alignment/1,optimize_alignment/2,
 	 dec_slim_cg/2,dec_code_gen/2]).
 -export([effective_constraint/2]).

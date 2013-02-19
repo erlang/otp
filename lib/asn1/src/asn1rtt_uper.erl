@@ -21,7 +21,7 @@
 
 -export([setext/1, fixoptionals/3,
 	 fixextensions/2,
-	 skipextensions/3, getbit/1, getchoice/3 ]).
+	 skipextensions/3]).
 -export([set_choice/3, encode_integer/2, encode_integer/3]).
 -export([encode_small_number/1, encode_constrained_number/2,
 	 encode_boolean/1,
@@ -122,29 +122,6 @@ skipextensions(Bytes0, Nr, ExtensionBitstr) when is_bitstring(ExtensionBitstr) -
 	    Bytes0
     end.
 
-
-getchoice(Bytes,1,0) -> % only 1 alternative is not encoded
-    {0,Bytes};
-getchoice(Bytes,_,1) ->
-    decode_small_number(Bytes);
-getchoice(Bytes,NumChoices,0) ->
-    decode_constrained_number(Bytes,{0,NumChoices-1}).
-
-
-getbit(Buffer) ->
-    <<B:1,Rest/bitstring>> = Buffer,
-    {B,Rest}.
-
-getbits(Buffer, Num) when is_bitstring(Buffer) ->
-    <<Bs:Num,Rest/bitstring>> = Buffer,
-    {Bs,Rest}.
-
-
-%% Pick the first Num octets.
-%% Returns octets as an integer with bit significance as in buffer.
-getoctets(Buffer, Num) when is_bitstring(Buffer) ->
-    <<Val:Num/integer-unit:8,RestBitStr/bitstring>> = Buffer,
-    {Val,RestBitStr}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% set_choice(Alt,Choices,Altnum) -> ListofBitSettings
@@ -265,15 +242,6 @@ encode_small_number(Val) when Val < 64 ->
 encode_small_number(Val) ->
     [<<1:1>>|encode_semi_constrained_number(0, Val)].
 
-decode_small_number(Bytes) ->
-    {Bit,Bytes2} = getbit(Bytes),
-    case Bit of
-	0 ->
-	    getbits(Bytes2,6);
-	1 ->
-	    decode_semi_constrained_number(Bytes2)
-    end.
-
 %% X.691:10.7 Encoding of a semi-constrained whole number
 encode_semi_constrained_number(Lb, Val) ->
     %% encoding in minimum number of octets preceeded by a length
@@ -289,11 +257,6 @@ encode_semi_constrained_number(Lb, Val) ->
 	    [encode_length(Size),Bin]
     end.
 
-decode_semi_constrained_number(Bytes) ->
-    {Len,Bytes2} = decode_length(Bytes),
-    {V,Bytes3} = getoctets(Bytes2,Len),
-    {V,Bytes3}.
-
 encode_constrained_number({Lb,Ub}, Val) when Val >= Lb, Ub >= Val ->
     Range = Ub - Lb + 1,
     Val2 = Val - Lb,
@@ -301,13 +264,6 @@ encode_constrained_number({Lb,Ub}, Val) when Val >= Lb, Ub >= Val ->
     <<Val2:NumBits>>;
 encode_constrained_number(Range,Val) ->
     exit({error,{asn1,{integer_range,Range,value,Val}}}).
-
-
-decode_constrained_number(Buffer, {Lb,Ub}) ->
-    Range = Ub - Lb + 1,
-    NumBits = num_bits(Range),
-    {Val,Remain} = getbits(Buffer,NumBits),
-    {Val+Lb,Remain}.
 
 %% X.691:10.8 Encoding of an unconstrained whole number
 

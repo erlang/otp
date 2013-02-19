@@ -19,7 +19,7 @@
 -module(asn1rtt_per).
 
 -export([setext/1, fixextensions/2,
-	 skipextensions/3, getbit/1, getchoice/3,
+	 skipextensions/3,
 	 set_choice/3,encode_integer/2,
 	 encode_small_number/1,
 	 encode_constrained_number/2,
@@ -88,51 +88,12 @@ skipextensions(Bytes0, Nr, ExtensionBitstr) when is_bitstring(ExtensionBitstr) -
 	    Bytes0
     end.
 
-
-getchoice(Bytes, 1, 0) -> % only 1 alternative is not encoded
-    {0,Bytes};
-getchoice(Bytes, _, 1) ->
-    decode_small_number(Bytes);
-getchoice(Bytes, NumChoices, 0) ->
-    decode_constrained_number(Bytes, {0,NumChoices-1}).
-
-
-getbit(Buffer) ->
-    <<B:1,Rest/bitstring>> = Buffer,
-    {B,Rest}.
-
-getbits(Buffer, Num) when is_bitstring(Buffer) ->
-    <<Bs:Num,Rest/bitstring>> = Buffer,
-    {Bs,Rest}.
-
 align(Bin) when is_binary(Bin) ->
     Bin;
 align(BitStr) when is_bitstring(BitStr) ->
     AlignBits = bit_size(BitStr) rem 8,
     <<_:AlignBits,Rest/binary>> = BitStr,
     Rest.
-
-
-%% First align buffer, then pick the first Num octets.
-%% Returns octets as an integer with bit significance as in buffer.
-getoctets(Buffer, Num) when is_binary(Buffer) ->
-    <<Val:Num/integer-unit:8,RestBin/binary>> = Buffer,
-    {Val,RestBin};
-getoctets(Buffer, Num) when is_bitstring(Buffer) ->
-    AlignBits = bit_size(Buffer) rem 8,
-    <<_:AlignBits,Val:Num/integer-unit:8,RestBin/binary>> = Buffer,
-    {Val,RestBin}.
-
-
-%% First align buffer, then pick the first Num octets.
-%% Returns octets as a binary
-getoctets_as_bin(Bin,Num) when is_binary(Bin) ->
-    <<Octets:Num/binary,RestBin/binary>> = Bin,
-    {Octets,RestBin};
-getoctets_as_bin(Bin,Num) when is_bitstring(Bin) ->
-    AlignBits = bit_size(Bin) rem 8,
-    <<_:AlignBits,Val:Num/binary,RestBin/binary>> = Bin,
-    {Val,RestBin}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% set_choice(Alt,Choices,Altnum) -> ListofBitSettings
@@ -238,15 +199,6 @@ encode_small_number(Val) when Val < 64 ->
 encode_small_number(Val) ->
     [1|encode_semi_constrained_number(0, Val)].
 
-decode_small_number(Bytes) ->
-    {Bit,Bytes2} = getbit(Bytes),
-    case Bit of
-	0 ->
-	    getbits(Bytes2, 6);
-	1 ->
-	    decode_semi_constrained_number(Bytes2)
-    end.
-
 %% X.691:10.7 Encoding of a semi-constrained whole number
 encode_semi_constrained_number(Lb, Val) ->
     Val2 = Val - Lb,
@@ -260,10 +212,6 @@ encode_semi_constrained_number(Lb, Val) ->
 	true ->
 	    [encode_length(Len),21,<<Len:16>>|Oct]
     end.
-
-decode_semi_constrained_number(Bytes) ->
-    {Len,Bytes2} = decode_length(Bytes),
-    getoctets(Bytes2, Len).
 
 encode_constrained_number({Lb,_Ub},_Range,{bits,N},Val) ->
     Val2 = Val-Lb,
@@ -332,47 +280,6 @@ encode_constrained_number({Lb,Ub}, Val) when Val >= Lb, Ub >= Val ->
     end;
 encode_constrained_number({_,_},Val) ->
     exit({error,{asn1,{illegal_value,Val}}}).
-
-decode_constrained_number(Buffer,VR={Lb,Ub}) ->
-    Range = Ub - Lb + 1,
-    decode_constrained_number(Buffer,VR,Range).
-
-decode_constrained_number(Buffer,{Lb,_Ub},Range) ->
-						%    Val2 = Val - Lb,
-    {Val,Remain} =
-	if
-	    Range  == 1 ->
-		{0,Buffer};
-	    Range  == 2 ->
-		getbits(Buffer,1);
-	    Range  =< 4 ->
-		getbits(Buffer,2);
-	    Range  =< 8 ->
-		getbits(Buffer,3);
-	    Range  =< 16 ->
-		getbits(Buffer,4);
-	    Range  =< 32 ->
-		getbits(Buffer,5);
-	    Range  =< 64 ->
-		getbits(Buffer,6);
-	    Range  =< 128 ->
-		getbits(Buffer,7);
-	    Range  =< 255 ->
-		getbits(Buffer,8);
-	    Range  =< 256 ->
-		getoctets(Buffer,1);
-	    Range  =< 65536 ->
-		getoctets(Buffer,2);
-            Range =< (1 bsl (255*8))  ->
-                OList = binary:bin_to_list(binary:encode_unsigned(Range - 1)),
-                RangeOctLen = length(OList),
-                {Len, Bytes} = decode_length(Buffer, {1, RangeOctLen}),
-                {Octs, RestBytes} = getoctets_as_bin(Bytes, Len),
-                {binary:decode_unsigned(Octs), RestBytes};
-	    true  ->
-		exit({not_supported,{integer_range,Range}})
-	end,
-    {Val+Lb,Remain}.
 
 %% For some reason the minimum bits needed in the length field in
 %% the encoding of constrained whole numbers must always be at least 2?
@@ -475,11 +382,6 @@ decode_length(Buffer)  -> % un-constrained
 	    %% this case should be fixed
 	    exit({error,{asn1,{decode_length,{nyi,above_16k}}}})
     end.
-
-decode_length(Buffer, {Lb,Ub}) when Ub =< 65535, Lb >= 0 -> % constrained
-    decode_constrained_number(Buffer, {Lb,Ub});
-decode_length(Buffer, {Lb,_Ub}) when is_integer(Lb), Lb >= 0 -> % Ub > 65535
-    decode_length(Buffer).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% bitstring NamedBitList
