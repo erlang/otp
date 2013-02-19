@@ -1322,8 +1322,8 @@ gen_dec_component_no_val({ext,_,_},mandatory) ->
     emit({"asn1_NOVALUE"}).
     
 
-gen_dec_line(Erule, TopType, Comp, Pos, DecInfObj, Ext) ->
-    Imm0 = gen_dec_line_imm(Erule, TopType, Comp, Pos, DecInfObj, Ext),
+gen_dec_line(Erule, TopType, Comp, Pos, Ext) ->
+    Imm0 = gen_dec_line_imm(Erule, TopType, Comp, Pos, false, Ext),
     Init = {ignore,fun(_) -> {[],[]} end},
     Imm = [{group,[Init|Imm0]}],
     emit_gen_dec_imm(Imm).
@@ -1675,42 +1675,23 @@ gen_dec_choice1(Erule,TopType,CompList,{ext,ExtPos,ExtNum}) ->
 
 
 gen_dec_choice2(Erule,TopType,L,Ext) ->
-    gen_dec_choice2(Erule,TopType,L,0,Ext).
+    gen_dec_choice2(Erule, TopType, L, 0, [], Ext).
 
-gen_dec_choice2(Erule,TopType,[H1,H2|T],Pos,Ext) 
-when is_record(H1,'ComponentType'), is_record(H2,'ComponentType') ->
-    Cname = H1#'ComponentType'.name,
-    Type = H1#'ComponentType'.typespec,
+gen_dec_choice2(Erule, TopType, [H0|T], Pos, Sep0, Ext) ->
+    #'ComponentType'{name=Cname,typespec=Type} = H0,
+    H = H0#'ComponentType'{prop=mandatory},
     case Type#type.def of
 	#'ObjectClassFieldType'{type={typefield,_}} ->
-	    emit({Pos," -> ",nl}),
-	    wrap_gen_dec_line(Erule,H1,TopType,Cname,Type,Pos+1,false,Ext),
-	    emit({";",nl});
+	    emit([Sep0,Pos," ->",nl]),
+	    gen_dec_line(Erule, TopType, H, Pos+1, Ext);
 	_ ->
-	    emit({Pos," -> {",{asis,Cname},",",nl}),
-	    wrap_gen_dec_line(Erule,H1,TopType,Cname,Type,Pos+1,false,Ext),
-	    emit({"};",nl})
-    end,
-    gen_dec_choice2(Erule,TopType,[H2|T],Pos+1,Ext);
-gen_dec_choice2(Erule,TopType,[H1,_H2|T],Pos,Ext) when is_record(H1,'ComponentType') ->
-    gen_dec_choice2(Erule,TopType,[H1|T],Pos,Ext); % skip extensionmark
-gen_dec_choice2(Erule,TopType,[H1|T],Pos,Ext) when is_record(H1,'ComponentType') ->
-    Cname = H1#'ComponentType'.name,
-    Type = H1#'ComponentType'.typespec,
-    case Type#type.def of
-	#'ObjectClassFieldType'{type={typefield,_}} ->
-	    emit({Pos," -> ",nl}),
-	    wrap_gen_dec_line(Erule,H1,TopType,Cname,Type,Pos+1,false,Ext);
-	_ ->
-	    emit({Pos," -> {",{asis,Cname},",",nl}),
-	    wrap_gen_dec_line(Erule,H1,TopType,Cname,Type,Pos+1,false,Ext),
+	    emit([Sep0,Pos," -> {",{asis,Cname},",",nl]),
+	    gen_dec_line(Erule, TopType, H, Pos+1, Ext),
 	    emit("}")
     end,
-    gen_dec_choice2(Erule,TopType,[T],Pos+1);
-gen_dec_choice2(Erule,TopType,[_|T],Pos,Ext) ->
-    gen_dec_choice2(Erule,TopType,T,Pos,Ext);% skip extensionmark
-gen_dec_choice2(_,_,[],Pos,_)  ->
-    Pos.
+    Sep = [";",nl],
+    gen_dec_choice2(Erule, TopType, T, Pos+1, Sep, Ext);
+gen_dec_choice2(_, _, [], _, _, _)  -> ok.
 
 indent(N) ->
     lists:duplicate(N,32). % 32 = space
@@ -1790,14 +1771,6 @@ wrap_extensionAdditionGroups([H|T],ExtAddGrpLenPos,Acc,ExtAddGroupDiff,ExtGroupN
 wrap_extensionAdditionGroups([],_,Acc,_,_) ->
     lists:reverse(Acc).
 
-
-wrap_gen_dec_line(Erule,C,TopType,_Cname,_Type,Pos,DIO,Ext) ->
-    put(component_type,{true,C}),
-    gen_dec_line(Erule, TopType, C#'ComponentType'{prop=mandatory},
-		 Pos, DIO, Ext),
-    erase(component_type).
-
-			  
 value_match(Index,Value) when is_atom(Value) ->
     value_match(Index,atom_to_list(Value));
 value_match([],Value) ->
