@@ -165,7 +165,7 @@ static char heX[] = "0123456789ABCDEF";
 #define SIGN(X) ((X) > 0 ? 1 : ((X) < 0 ? -1 : 0)) 
 #define USIGN(X) ((X) == 0 ? 0 : 1)
 
-int (*erts_printf_eterm_func)(fmtfn_t, void*, unsigned long, long, unsigned long*) = NULL;
+int (*erts_printf_eterm_func)(fmtfn_t, void*, ErlPfEterm, long, ErlPfEterm*) = NULL;
 
 static int
 noop_fn(void *vfp, char* buf, size_t len)
@@ -822,8 +822,8 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 	    case FMTC_T:    /* Eterm */
 	    case FMTC_R: {  /* Eterm, Eterm* base  (base ignored if !HALFWORD_HEAP) */
 		long prec;
-		unsigned long eterm;
-		unsigned long* eterm_base;
+		ErlPfEterm eterm;
+		ErlPfEterm* eterm_base;
 		
 		if (!erts_printf_eterm_func)
 		    return -EINVAL;
@@ -833,9 +833,9 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 		    prec = LONG_MAX;
 		else
 		    prec = (long) precision;
-		eterm = va_arg(ap, unsigned long);
+		eterm = va_arg(ap, ErlPfEterm);
 		eterm_base = ((fmt & FMTC_MASK) == FMTC_R) ?
-		    va_arg(ap, unsigned long*) : NULL;
+		    va_arg(ap, ErlPfEterm*) : NULL;
 		if (width > 0 && !(fmt & FMTF_adj)) {
 		    res = (*erts_printf_eterm_func)(noop_fn, NULL, eterm, prec, eterm_base);
 		    if (res < 0)

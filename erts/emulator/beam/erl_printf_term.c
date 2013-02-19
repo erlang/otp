@@ -498,10 +498,13 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 }
 
 int
-erts_printf_term(fmtfn_t fn, void* arg, unsigned long term, long precision,
-		 unsigned long* term_base)
+erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision,
+		 ErlPfEterm* term_base)
 {
-    int res = print_term(fn, arg, (Eterm)term, &precision, (Eterm*)term_base);
+    int res;
+    ASSERT(sizeof(ErlPfEterm) == sizeof(Eterm));
+
+    res = print_term(fn, arg, (Eterm)term, &precision, (Eterm*)term_base);
     if (res < 0)
 	return res;
     if (precision <= 0)
