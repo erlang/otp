@@ -4311,8 +4311,7 @@ erts_sched_set_wakeup_other_type(char *str)
     wakeup_other.type = type;
     return 0;
 #else
-    if (sys_strcmp(str, "proposal") == 0 || sys_strcmp(str, "default") == 0 ||
-	sys_strcmp(str, "legacy") == 0) {
+    if (sys_strcmp(str, "default") == 0 || sys_strcmp(str, "legacy") == 0) {
 	return 0;
     } 
     return EINVAL;
