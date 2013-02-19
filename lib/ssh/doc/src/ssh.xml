@@ -91,7 +91,8 @@
       </type>
       <desc>
 	<p>Connects to an SSH server. No channel is started. This is done
-	by calling ssh_connect:session_channel/2.</p>
+	by calling
+	<seealso marker="ssh_connection#session_channel/2">ssh_connection:session_channel/[2, 4]</seealso>.</p>
 	<p>Options are:</p>
 	<taglist>
           <tag><c><![CDATA[{user_dir, string()}]]></c></tag>
