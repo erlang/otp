@@ -3241,6 +3241,8 @@ t_to_string(?bitstr(0, 0), _RecDict) ->
   "<<>>";
 t_to_string(?bitstr(8, 0), _RecDict) ->
   "binary()";
+t_to_string(?bitstr(1, 0), _RecDict) ->
+  "bitstring()";
 t_to_string(?bitstr(0, B), _RecDict) ->
   lists:flatten(io_lib:format("<<_:~w>>", [B]));
 t_to_string(?bitstr(U, 0), _RecDict) ->
@@ -3870,12 +3872,14 @@ t_form_to_string({type, _L, binary, [Base, Unit]} = Type) ->
       case {U, B} of
 	{0, 0} -> "<<>>";
 	{8, 0} -> "binary()";
+	{1, 0} -> "bitstring()";
 	{0, B} -> lists:flatten(io_lib:format("<<_:~w>>", [B]));
 	{U, 0} -> lists:flatten(io_lib:format("<<_:_*~w>>", [U]));
 	{U, B} -> lists:flatten(io_lib:format("<<_:~w,_:_*~w>>", [B, U]))
       end;
     _ -> io_lib:format("Badly formed bitstr type ~w", [Type])
   end;
+t_form_to_string({type, _L, bitstring, []}) -> "bitstring()";
 t_form_to_string({type, _L, 'fun', []}) -> "fun()";
 t_form_to_string({type, _L, 'fun', [{type, _, any}, Range]}) ->
   "fun(...) -> " ++ t_form_to_string(Range);
