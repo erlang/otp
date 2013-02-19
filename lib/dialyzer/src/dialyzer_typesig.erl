@@ -1543,12 +1543,11 @@ get_bif_constr({erlang, '==', 2}, Dst, [Arg1, Arg2] = Args, _State) ->
 			   mk_constraint(Arg1, sub, ArgV1),
 			   mk_constraint(Arg2, sub, ArgV2)]);
 get_bif_constr({erlang, element, 2} = _BIF, Dst, Args,
-               #state{cs = Constrs} = State) ->
+               #state{cs = Constrs, opaques = Opaques}) ->
   GenType = erl_bif_types:type(erlang, element, 2),
   case t_is_none(GenType) of
     true -> ?debug("Bif: ~w failed\n", [_BIF]), throw(error);
     false ->
-      Opaques = State#state.opaques,
       Fun = fun(Map) ->
 		[I, T] = ATs = lookup_type_list(Args, Map),
 		ATs2 = case lists:member(T, Opaques) of
