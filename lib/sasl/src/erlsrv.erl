@@ -30,7 +30,7 @@
 
 erlsrv(EVer) ->
     Root = code:root_dir(),
-    filename:join([Root, "erts-" ++ EVer, "bin", "erlsrv.exe"]).
+    "\"" ++ filename:join([Root, "erts-" ++ EVer, "bin", "erlsrv.exe"]) ++ "\"".
 
 current_version() ->
     hd(string:tokens(erlang:system_info(version),"_ ")).
