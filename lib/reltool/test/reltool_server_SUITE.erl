@@ -43,6 +43,11 @@ end_per_suite(Config) ->
     reltool_test_lib:end_per_suite(Config).
 
 init_per_testcase(Func,Config) ->
+    Node = full_node_name(?NODE_NAME),
+    case net_adm:ping(Node) of
+	pong -> stop_node(Node);
+	pang -> ok
+    end,
     reltool_test_lib:init_per_testcase(Func,Config).
 end_per_testcase(Func,Config) -> 
     reltool_test_lib:end_per_testcase(Func,Config).
@@ -799,8 +804,10 @@ create_target_unicode(Config) ->
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
 
+
     %% The ua application has a unicode string as description - check
     %% that it is translated correctly.
+    wait_for_app(Node,ua,50),
     Apps = rpc:call(Node,application,which_applications,[]),
     ?m({ua,"Application for testing unicode in reltool - αβ","1.0"},
        lists:keyfind(ua,1,Apps)),
@@ -1163,6 +1170,7 @@ create_slim(Config) ->
 	    "-sasl", "releases_dir", EscapedQuote++TargetRelDir++EscapedQuote],
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl, Args)),
     ?msym(RootDir, rpc:call(Node, code, root_dir, [])),
+    wait_for_app(Node,sasl,50),
     ?msym([{RelName,RelVsn,_,permanent}],
 	  rpc:call(Node,release_handler,which_releases,[])),
     ?msym(ok, stop_node(Node)),
@@ -2505,9 +2513,19 @@ start_node(Name, ErlPath, Args0) ->
     end.
 
 stop_node(Node) ->
-    monitor_node(Node, true),
-    spawn(Node, fun () -> halt() end),
-    receive {nodedown, Node} -> ok end.
+    rpc:call(Node,erlang,halt,[]),
+    wait_for_node_down(Node,50).
+
+wait_for_node_down(Node,0) ->
+    test_server:fail({cant_terminate_node,Node});
+wait_for_node_down(Node,N) ->
+    case net_adm:ping(Node) of
+	pong ->
+	    timer:sleep(1000),
+	    wait_for_node_down(Node,N-1);
+	pang ->
+	    ok
+    end.
 
 mk_node_args(Name, Args) ->
     Pa = filename:dirname(code:which(?MODULE)),
@@ -2552,6 +2570,22 @@ wait_for_process(Node, Name, N) when is_integer(N), N > 0 ->
 	    erlang:error({Reason, Node});
 	Pid when is_pid(Pid) ->
 	    ok
+    end.
+
+wait_for_app(_Node, Name, 0) ->
+    {error, Name};
+wait_for_app(Node, Name, N) when is_integer(N), N > 0 ->
+    case rpc:call(Node,application,which_applications,[]) of
+	{badrpc,Reason} ->
+	    test_server:fail({failed_to_get_applications,Reason});
+	Apps ->
+	    case lists:member(Name,Apps) of
+		false ->
+		    timer:sleep(1000),
+		    wait_for_app(Node, Name, N-1);
+		true ->
+		    ok
+	    end
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
