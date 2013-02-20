@@ -132,9 +132,17 @@ atom_hash(Atom* obj)
     byte* p = obj->name;
     int len = obj->len;
     HashValue h = 0, g;
+    byte v;
 
     while(len--) {
-	h = (h << 4) + *p++;
+	v = *p++;
+	/* latin1 clutch for r16 */
+	if ((v & 0xFE) == 0xC2 && (*p & 0xC0) == 0x80) {
+	    v = (v << 6) | (*p & 0x3F);
+	    p++; len--;
+	}
+	/* normal hashpjw follows for v */
+	h = (h << 4) + v;
 	if ((g = h & 0xf0000000)) {
 	    h ^= (g >> 24);
 	    h ^= g;
