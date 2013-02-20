@@ -25,8 +25,6 @@
 %%%
 %%% Created     : 28 Oct 2009 by Stavros Aronis <aronisstav@gmail.com>
 %%%-------------------------------------------------------------------
-%%% NOTE: This module is currently experimental -- do NOT rely on it!
-%%%-------------------------------------------------------------------
 
 -module(dialyzer_behaviours).
 
@@ -127,15 +125,12 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
 		     erl_types:t_to_string(CbReturnType, Records)]}|Acc00]
 	      end
 	  end,
-	Acc02 =
-	  case erl_types:any_none(
-		 erl_types:t_inf_lists(ArgTypes, CbArgTypes)) of
-	    false -> Acc01;
-	    true ->
-	      find_mismatching_args(type, ArgTypes, CbArgTypes, Behaviour,
-				    Function, Arity, Records, 1, Acc01)
-	  end,
-	Acc02
+	case erl_types:any_none(erl_types:t_inf_lists(ArgTypes, CbArgTypes)) of
+	  false -> Acc01;
+	  true ->
+	    find_mismatching_args(type, ArgTypes, CbArgTypes, Behaviour,
+				  Function, Arity, Records, 1, Acc01)
+	end
     end,
   Acc2 =
     case dialyzer_codeserver:lookup_mfa_contract(CbMFA, Codeserver) of
@@ -157,16 +152,14 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
 		 erl_types:t_to_string(ExtraType, Records),
 		 erl_types:t_to_string(CbReturnType, Records)]}|Acc10]
 	  end,
-	Acc12 =
-	  case erl_types:any_none(
-		 erl_types:t_inf_lists(SpecArgTypes, CbArgTypes)) of
-	    false -> Acc11;
-	    true ->
-	      find_mismatching_args({spec, File, Line}, SpecArgTypes,
-				    CbArgTypes, Behaviour, Function,
-				    Arity, Records, 1, Acc11)
-	  end,
-	Acc12
+	case erl_types:any_none(
+	       erl_types:t_inf_lists(SpecArgTypes, CbArgTypes)) of
+	  false -> Acc11;
+	  true ->
+	    find_mismatching_args({spec, File, Line}, SpecArgTypes,
+				  CbArgTypes, Behaviour, Function,
+				  Arity, Records, 1, Acc11)
+	end
     end,
   NewAcc = Acc2,
   check_all_callbacks(Module, Behaviour, Rest, State, NewAcc).
