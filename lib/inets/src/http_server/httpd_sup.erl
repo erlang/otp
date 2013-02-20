@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -248,7 +248,8 @@ listen(Address, Port, Config)  ->
 	    case http_transport:start(SocketType) of
 		ok ->
 		    Fd = proplists:get_value(fd, Config),
-		    case http_transport:listen(SocketType, Address, Port, Fd) of
+		    IpFamily =  proplists:get_value(ipfamily, Config, inet6fb4),
+		    case http_transport:listen(SocketType, Address, Port, Fd, IpFamily) of
 			{ok, ListenSocket} ->
 			    NewConfig = proplists:delete(port, Config),
 			    {NewPort, _} = http_transport:sockname(SocketType, ListenSocket),
