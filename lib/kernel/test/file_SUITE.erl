@@ -45,7 +45,8 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 read_write_file/1, names/1]).
 -export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1,
-	 list_dir/1,list_dir_error/1, untranslatable_names/1,
+	 list_dir/1,list_dir_error/1,
+	 untranslatable_names/1, untranslatable_names_error/1,
 	 pos1/1, pos2/1]).
 -export([close/1, consult1/1, path_consult/1, delete/1]).
 -export([ eval1/1, path_eval/1, script1/1, path_script/1,
@@ -117,7 +118,8 @@ all() ->
 
 groups() -> 
     [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1,
-		 list_dir, list_dir_error, untranslatable_names]},
+		 list_dir, list_dir_error, untranslatable_names,
+		 untranslatable_names_error]},
      {files, [],
       [{group, open}, {group, pos}, {group, file_info},
        {group, consult}, {group, eval}, {group, script},
@@ -590,6 +592,40 @@ untranslatable_names_1(Config) ->
 	ExpectedListDirAll = lists:sort(ExpectedListDirAll0),
 	io:format("ExpectedListDirAll: ~p\n", [ExpectedListDirAll]),
 	ExpectedListDirAll = call_and_sort(Node, file, list_dir_all, [Dir])
+    after
+	catch test_server:stop_node(Node),
+	file:set_cwd(OldCwd),
+	[file:delete(F) || {_,F} <- untranslatable_names()],
+	file:del_dir(Dir)
+    end,
+    ok.
+
+untranslatable_names_error(Config) ->
+    case no_untranslatable_names() of
+	true ->
+	    {skip,"Not a problem on this OS"};
+	false ->
+	    untranslatable_names_error_1(Config)
+    end.
+
+untranslatable_names_error_1(Config) ->
+    {ok,OldCwd} = file:get_cwd(),
+    PrivDir = ?config(priv_dir, Config),
+    Dir = filename:join(PrivDir, "untranslatable_names_error"),
+    ok = file:make_dir(Dir),
+    Node = start_node(untranslatable_names, "+fnue"),
+    try
+	ok = file:set_cwd(Dir),
+	[ok = file:write_file(F, F) || {_,F} <- untranslatable_names()],
+
+	ExpectedListDir0 = [unicode:characters_to_list(N, utf8) ||
+			       {utf8,N} <- untranslatable_names()],
+	ExpectedListDir = lists:sort(ExpectedListDir0),
+	io:format("ExpectedListDir: ~p\n", [ExpectedListDir]),
+	{error,{no_translation,BadFile}} =
+	    rpc:call(Node, file, list_dir, [Dir]),
+	true = lists:keymember(BadFile, 2, untranslatable_names())
+
     after
 	catch test_server:stop_node(Node),
 	file:set_cwd(OldCwd),
