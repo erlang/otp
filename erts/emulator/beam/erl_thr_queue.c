@@ -301,7 +301,7 @@ element_free(ErtsThrQ_t *q, ErtsThrQElement_t *el)
 #ifdef USE_THREADS
 
 static ERTS_INLINE ErtsThrQElement_t *
-enqueue_managed(ErtsThrQ_t *q, ErtsThrQElement_t *this, int want_last)
+enqueue_managed(ErtsThrQ_t *q, ErtsThrQElement_t *this)
 {
     erts_aint_t ilast, itmp;
 
@@ -321,27 +321,52 @@ enqueue_managed(ErtsThrQ_t *q, ErtsThrQElement_t *this, int want_last)
 
     /* Move last pointer forward... */
     while (1) {
-	if (want_last) {
-	    if (erts_atomic_read_rb(&this->next) != ERTS_AINT_NULL) {
-		/* Someone else will move it forward */
-		ilast = erts_atomic_read_rb(&q->tail.data.last);
-		return (ErtsThrQElement_t *) ilast;
-	    }
-	}
-	else {
-	    if (erts_atomic_read_nob(&this->next) != ERTS_AINT_NULL) {
-		/* Someone else will move it forward */
-		return NULL;
-	    }
+	if (erts_atomic_read_rb(&this->next) != ERTS_AINT_NULL) {
+	    /* Someone else will move it forward */
+	    ilast = erts_atomic_read_rb(&q->tail.data.last);
+	    return (ErtsThrQElement_t *) ilast;
 	}
 	itmp = erts_atomic_cmpxchg_mb(&q->tail.data.last,
 				      (erts_aint_t) this,
 				      ilast);
 	if (ilast == itmp)
-	    return want_last ? this : NULL;
+	    return this;
 	ilast = itmp;
     }
 }
+
+static ERTS_INLINE ErtsThrQElement_t *
+enqueue_marker(ErtsThrQ_t *q, ErtsThrQElement_t **headp)
+{
+    int maybe_notify;
+    erts_aint_t inext;
+    ErtsThrQElement_t *last, *head;
+
+    if (headp)
+	head = *headp;
+    else
+	head = ErtsThrQDirtyReadEl(&q->head.head);
+
+    ASSERT(!q->head.used_marker);
+    q->head.used_marker = 1;
+    last = enqueue_managed(q, &q->tail.data.marker);
+    maybe_notify = &q->tail.data.marker == last;
+    inext = erts_atomic_read_acqb(&head->next);
+    if (inext == (erts_aint_t) &q->tail.data.marker) {
+	ErtsThrQDirtySetEl(&q->head.head, &q->tail.data.marker);
+	if (headp)
+	    *headp = &q->tail.data.marker;
+    }
+    else if (maybe_notify) {
+	/*
+	 * We need to notify; otherwise, we might loose a notification
+	 * for a concurrently inserted element.
+	 */
+	q->head.notify(q->head.arg);
+    }
+    return last;
+}
+
 
 static ErtsThrQCleanState_t
 clean(ErtsThrQ_t *q, int max_ops, int do_notify)
@@ -409,20 +434,8 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 	    q->head.unref_end = q->head.next.unref_end;
 
 	    if (!q->head.used_marker
-		&& q->head.unref_end == (ErtsThrQElement_t *) ilast) {
-		q->head.used_marker = 1;
-		ilast = (erts_aint_t) enqueue_managed(q,
-						      &q->tail.data.marker,
-						      1);
-		head = ErtsThrQDirtyReadEl(&q->head.head);
-		if (head == q->head.unref_end) {
-		    ErtsThrQElement_t *next;
-		    next = ((ErtsThrQElement_t *)
-			    erts_atomic_read_acqb(&head->next));
-		    if (next == &q->tail.data.marker)
-			ErtsThrQDirtySetEl(&q->head.head, &q->tail.data.marker);
-		}
-	    }
+		&& q->head.unref_end == (ErtsThrQElement_t *) ilast)
+		ilast = (erts_aint_t) enqueue_marker(q, NULL);
 
 	    if (q->head.unref_end == (ErtsThrQElement_t *) ilast)
 		ERTS_SMP_MEMORY_BARRIER;
@@ -450,13 +463,9 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 	    erts_aint_t inext;
 	    inext = erts_atomic_read_acqb(&head->next);
 	    if (inext == ERTS_AINT_NULL) {
-		q->head.used_marker = 1;
-		(void) enqueue_managed(q, &q->tail.data.marker, 0);
-		inext = erts_atomic_read_acqb(&head->next);
-		if (inext == (erts_aint_t) &q->tail.data.marker) {
-		    ErtsThrQDirtySetEl(&q->head.head, &q->tail.data.marker);
+		enqueue_marker(q, &head);
+		if (head == &q->tail.data.marker)
 		    goto check_thr_progress;
-		}
 	    }
 	}
 
@@ -603,7 +612,7 @@ enqueue(ErtsThrQ_t *q, void *data, ErtsThrQElement_t *this)
 	}
     }
 
-    notify = this == enqueue_managed(q, this, 1);
+    notify = this == enqueue_managed(q, this);
 	
 
 #ifdef ERTS_SMP
