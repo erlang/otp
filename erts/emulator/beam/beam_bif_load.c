@@ -1081,7 +1081,21 @@ beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
 static int
 is_native(BeamInstr* code)
 {
-    return ((Eterm *)code[MI_FUNCTIONS])[1] != 0;
+    Uint i, num_functions = code[MI_NUM_FUNCTIONS];
+
+    /* Check NativeAdress of first real function in module
+     */
+    for (i=0; i<num_functions; i++) {
+	BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
+	Eterm name = (Eterm) func_info[3];
+
+	if (is_atom(name)) {
+	    return func_info[1] != 0;    
+	}
+	else ASSERT(is_nil(name)); /* ignore BIF stubs */
+    }
+    /* Not a single non-BIF function? */
+    return 0;
 }
 
 
