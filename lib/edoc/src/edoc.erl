@@ -677,7 +677,84 @@ read_source_2(Name, Opts) ->
     Includes = proplists:append_values(includes, Opts)
 	++ [filename:dirname(Name)],
     Macros = proplists:append_values(macros, Opts),
-    epp:parse_file(Name, Includes, Macros).
+    %% epp:parse_file(Name, Includes, Macros).
+    parse_file(Name, Includes, Macros).
+
+%% The code below has been copied from epp.erl.
+%%
+%% Copy the line of the last token to the last token that will be
+%% part of the parse tree.
+%%
+%% The last line is used in edoc_extract:find_type_docs() to determine
+%% if a type declaration is followed by a comment.
+%% <example>
+%%    -type t() :: [
+%%                    {tag, integer()}
+%%                 ].
+%%   %% Protocol options.
+%% </example>
+%% The line of the dot token will be copied to the integer token.
+
+parse_file(Name, Includes, Macros) ->
+    case epp:open(Name, Includes, Macros) of
+        {ok, Epp} ->
+            try {ok, parse_file(Epp)}
+            after _ = epp:close(Epp)
+            end;
+        Error ->
+            Error
+    end.
+
+parse_file(Epp) ->
+    case scan_and_parse(Epp) of
+	{ok, Form} ->
+	    case Form of
+		{attribute,La,record,{Record, Fields}} ->
+		    case epp:normalize_typed_record_fields(Fields) of
+			{typed, NewFields} ->
+			    [{attribute, La, record, {Record, NewFields}},
+			     {attribute, La, type,
+			      {{record, Record}, Fields, []}}
+			     | parse_file(Epp)];
+			not_typed ->
+			    [Form | parse_file(Epp)]
+		    end;
+		_ ->
+		    [Form | parse_file(Epp)]
+	    end;
+	{error, E} ->
+	    [{error, E} | parse_file(Epp)];
+	{eof, Location} ->
+	    [{eof, Location}]
+    end.
+
+scan_and_parse(Epp) ->
+    case epp:scan_erl_form(Epp) of
+        {ok, Toks0} ->
+            Toks = fix_last_line(Toks0),
+            case erl_parse:parse_form(Toks) of
+                {ok, Form} ->
+                    {ok, Form};
+                Else ->
+                    Else
+            end;
+        Else ->
+            Else
+    end.
+
+fix_last_line(Toks0) ->
+    Toks1 = lists:reverse(Toks0),
+    {line, LastLine} = erl_scan:token_info(hd(Toks1), line),
+    fll(Toks1, LastLine, []).
+
+fll([{Category, Attributes0, Symbol} | L], LastLine, Ts) ->
+    F = fun(_OldLine) -> LastLine end,
+    Attributes = erl_scan:set_attribute(line, Attributes0, F),
+    lists:reverse(L, [{Category, Attributes, Symbol} | Ts]);
+fll([T | L], LastLine, Ts) ->
+    fll(L, LastLine, [T | Ts]);
+fll(L, _LastLine, Ts) ->
+    lists:reverse(L, Ts).
 
 check_forms(Fs, Name) ->
     Fun = fun (F) ->
