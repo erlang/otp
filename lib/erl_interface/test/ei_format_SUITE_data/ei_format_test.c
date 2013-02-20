@@ -22,6 +22,7 @@
 #endif
 
 #include "ei_runner.h"
+#include <string.h>
 
 /*
  * Purpose: Tests the ei_format() function.

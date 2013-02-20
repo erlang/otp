@@ -19,6 +19,9 @@
 
 #include "ei_runner.h"
 
+#include <string.h>
+#include <stdlib.h>
+
 /*
  * Purpose: Tests the ei_print() function.
  * Author:  Jakob 
