@@ -291,7 +291,7 @@ filename(N) ->
     exit(error).
 
 error_read_file(Name) ->
-    report_error("error reading file `~s'.", [Name]).
+    report_error("error reading file `~ts'.", [Name]).
 
 report_error(S, Vs) ->
     error_logger:error_msg(lists:concat([?MODULE, ": ", S, "\n"]), Vs).

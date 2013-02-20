@@ -200,7 +200,7 @@ source({M, P, Name, Path}, Dir, Suffix, Env, Set, Private, Hidden,
 		    {Set, Error}
 	    end;
 	R ->
-	    report("skipping source file '~s': ~W.", [File, R, 15]),
+	    report("skipping source file '~ts': ~W.", [File, R, 15]),
 	    {Set, true}
     end.
 
@@ -216,14 +216,14 @@ check_name(M, M0, P0, File) ->
 	    ok;
 	_ ->
 	    if N =/= N0 ->
-		    warning("file '~s' actually contains module '~s'.",
+		    warning("file '~ts' actually contains module '~s'.",
 			    [File, M]);
 	       true ->
 		    ok
 	    end
     end,
     if P =/= P0 ->
-	    warning("file '~s' belongs to package '~s', not '~s'.",
+	    warning("file '~ts' belongs to package '~s', not '~s'.",
 		    [File, P, P0]);
        true ->
 	    ok

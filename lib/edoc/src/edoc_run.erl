@@ -162,7 +162,7 @@ file(Args) ->
 -spec invalid_args(string(), list()) -> no_return().
 
 invalid_args(Where, Args) ->
-    report("invalid arguments to ~s: ~w.", [Where, Args]),
+    report("invalid arguments to ~ts: ~w.", [Where, Args]),
     shutdown_error().
 
 run(F) ->
@@ -213,13 +213,13 @@ parse_arg(A) ->
 	{ok, Expr} ->
 	    case catch erl_parse:normalise(Expr) of
 		{'EXIT', _} ->
-		    report("bad argument: '~s':", [A]),
+		    report("bad argument: '~ts':", [A]),
 		    exit(error);
 		Term ->
 		    Term
 	    end;
 	{error, _, D} ->
-	    report("error parsing argument '~s'", [A]),
+	    report("error parsing argument '~ts'", [A]),
 	    error(D),
 	    exit(error)
     end.

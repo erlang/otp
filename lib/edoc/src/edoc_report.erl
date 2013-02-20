@@ -83,13 +83,13 @@ report(L, Where, S, Vs) ->
     io:nl().
 
 where({File, module}) ->
-    io_lib:fwrite("~s, in module header: ", [File]);
+    io_lib:fwrite("~ts, in module header: ", [File]);
 where({File, footer}) ->
-    io_lib:fwrite("~s, in module footer: ", [File]);
+    io_lib:fwrite("~ts, in module footer: ", [File]);
 where({File, header}) ->
-    io_lib:fwrite("~s, in header file: ", [File]);
+    io_lib:fwrite("~ts, in header file: ", [File]);
 where({File, {F, A}}) ->
-    io_lib:fwrite("~s, function ~s/~w: ", [File, F, A]);
+    io_lib:fwrite("~ts, function ~s/~w: ", [File, F, A]);
 where([]) ->
     io_lib:fwrite("~s: ", [?APPLICATION]);
 where(File) when is_list(File) ->

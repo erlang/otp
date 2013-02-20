@@ -660,7 +660,7 @@ read_source(Name, Opts0) ->
 	    check_forms(Forms, Name),
 	    Forms;
 	{error, R} ->
-	    edoc_report:error({"error reading file '~s'.",
+	    edoc_report:error({"error reading file '~ts'.",
                                [edoc_lib:filename(Name)]}),
 	    exit({error, R})
     end.

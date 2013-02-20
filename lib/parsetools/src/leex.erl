@@ -127,7 +127,7 @@ file(File, Opts0) ->
     leex_ret(St).             
 
 format_error({file_error, Reason}) ->
-    io_lib:fwrite("~s",[file:format_error(Reason)]);
+    io_lib:fwrite("~ts",[file:format_error(Reason)]);
 format_error(missing_defs) -> "missing Definitions";
 format_error(missing_rules) -> "missing Rules";
 format_error(missing_code) -> "missing Erlang code";
@@ -301,10 +301,10 @@ pack_warnings([]) ->
 report_errors(St) ->
     when_opt(fun () -> 
                      foreach(fun({File,{none,Mod,E}}) -> 
-                                     io:fwrite("~s: ~ts\n",
+                                     io:fwrite("~ts: ~ts\n",
                                                [File,Mod:format_error(E)]);
                                 ({File,{Line,Mod,E}}) -> 
-                                     io:fwrite("~s:~w: ~ts\n",
+                                     io:fwrite("~ts:~w: ~ts\n",
                                                [File,Line,Mod:format_error(E)])
                              end, sort(St#leex.errors))
              end, report_errors, St#leex.opts).
@@ -319,11 +319,11 @@ report_warnings(St) ->
     ShouldReport = member(report_warnings, St#leex.opts) orelse ReportWerror,
     when_bool(fun () ->
 		      foreach(fun({File,{none,Mod,W}}) ->
-				      io:fwrite("~s: ~s~ts\n",
+				      io:fwrite("~ts: ~s~ts\n",
 						[File,Prefix,
 						 Mod:format_error(W)]);
 				 ({File,{Line,Mod,W}}) ->
-				      io:fwrite("~s:~w: ~s~ts\n",
+				      io:fwrite("~ts:~w: ~s~ts\n",
 						[File,Line,Prefix,
 						 Mod:format_error(W)])
 			      end, sort(St#leex.warnings))
@@ -401,7 +401,7 @@ parse_file(St0) ->
         {ok,Xfile} ->
             St1 = St0#leex{encoding = epp:set_encoding(Xfile)},
             try
-                verbose_print(St1, "Parsing file ~s, ", [St1#leex.xfile]),
+                verbose_print(St1, "Parsing file ~ts, ", [St1#leex.xfile]),
                 %% We KNOW that errors throw so we can ignore them here.
                 {ok,Line1,St2} = parse_head(Xfile, St1),
                 {ok,Line2,Macs,St3} = parse_defs(Xfile, Line1, St2),
@@ -1292,7 +1292,7 @@ pack_dfa([], _, Rs, PDFA) -> {PDFA,Rs}.
 %%  the code for the actions.
 
 out_file(St0, DFA, DF, Actions, Code) ->
-    verbose_print(St0, "Writing file ~s, ", [St0#leex.efile]),
+    verbose_print(St0, "Writing file ~ts, ", [St0#leex.efile]),
     case open_inc_file(St0) of
         {ok,Ifile} ->
             try
@@ -1582,7 +1582,7 @@ pp_sep(_, _, _, _) -> " ".
 %%  with Graphviz.
 
 out_dfa_graph(St, DFA, DF) ->
-    verbose_print(St, "Writing DFA to file ~s, ", [St#leex.gfile]),
+    verbose_print(St, "Writing DFA to file ~ts, ", [St#leex.gfile]),
     case file:open(St#leex.gfile, [write]) of
         {ok,Gfile} ->
             try
@@ -1644,7 +1644,7 @@ output_encoding_comment(File, #leex{encoding = Encoding}) ->
     io:fwrite(File, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
 
 output_file_directive(File, Filename, Line) ->
-    io:fwrite(File, <<"-file(~s, ~w).\n">>, 
+    io:fwrite(File, <<"-file(~ts, ~w).\n">>,
               [format_filename(Filename), Line]).
 
 format_filename(Filename) ->

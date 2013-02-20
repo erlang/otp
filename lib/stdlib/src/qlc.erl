@@ -3709,7 +3709,7 @@ maybe_error_logger(Name, Why) ->
     Trimmer = fun(M, _F, _A) -> M =:= erl_eval end,
     Formater = fun(Term, I) -> io_lib:print(Term, I, 80, -1) end,
     X = lib:format_stacktrace(1, Stacktrace, Trimmer, Formater),
-    error_logger:Name("qlc: temporary file was needed for ~w\n~s\n", 
+    error_logger:Name("qlc: temporary file was needed for ~w\n~ts\n",
                       [Why, lists:flatten(X)]).
 
 expand_stacktrace() ->

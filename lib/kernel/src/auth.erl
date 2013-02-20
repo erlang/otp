@@ -391,7 +391,7 @@ create_cookie(Name) ->
 	{error,Reason} ->
 	    {error,
 	     lists:flatten(
-	       io_lib:format("Failed to create cookie file '~s': ~p", [Name, Reason]))}
+	       io_lib:format("Failed to create cookie file '~ts': ~p", [Name, Reason]))}
     end.
 
 random_cookie(0, _, Result) ->

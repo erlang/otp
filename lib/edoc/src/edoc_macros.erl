@@ -88,7 +88,7 @@ link_macro(S, Line, Env) ->
 		 true -> " target=\"_top\""; % note the initial space
 		 false -> ""
 	     end,
-    lists:flatten(io_lib:fwrite("<a href=\"~s\"~s>~ts</a>",
+    lists:flatten(io_lib:fwrite("<a href=\"~ts\"~ts>~ts</a>",
 				[URI, Target, Txt])).
 
 section_macro(S, _Line, _Env) ->
@@ -102,7 +102,7 @@ type_macro(S, Line, Env) ->
     Def = edoc_parser:parse_typedef(S1, Line),
     {#t_typedef{type = T}, _} = Def,
     Txt = edoc_layout:type(edoc_data:type(T, Env)),
-    lists:flatten(io_lib:fwrite("<code>~s</code>", [Txt])).
+    lists:flatten(io_lib:fwrite("<code>~ts</code>", [Txt])).
 
 
 %% Expand inline macros in tag content.

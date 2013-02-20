@@ -185,7 +185,7 @@ format_error({endsymbol_is_terminal, Symbol}) ->
 format_error({error, Module, Error}) ->
     Module:format_error(Error);
 format_error({file_error, Reason}) ->
-    io_lib:fwrite("~s",[file:format_error(Reason)]);
+    io_lib:fwrite("~ts",[file:format_error(Reason)]);
 format_error(illegal_empty) ->
     io_lib:fwrite("illegal use of empty symbol", []);
 format_error({internal_error, Error}) ->
@@ -481,7 +481,7 @@ generate(St0) ->
               ?PASS(action_conflicts), ?PASS(write_file)],
     F = case member(time, St1#yecc.options) of
             true -> 
-                io:fwrite(<<"Generating parser from grammar in ~s\n">>, 
+                io:fwrite(<<"Generating parser from grammar in ~ts\n">>,
                           [format_filename(St1#yecc.infile)]),
                 fun timeit/3;
             false ->
@@ -858,10 +858,10 @@ report_errors(St) ->
     case member(report_errors, St#yecc.options) of
         true ->
             foreach(fun({File,{none,Mod,E}}) -> 
-                            io:fwrite(<<"~s: ~ts\n">>,
+                            io:fwrite(<<"~ts: ~ts\n">>,
                                       [File,Mod:format_error(E)]);
                        ({File,{Line,Mod,E}}) -> 
-                            io:fwrite(<<"~s:~w: ~ts\n">>,
+                            io:fwrite(<<"~ts:~w: ~ts\n">>,
                                       [File,Line,Mod:format_error(E)])
                     end, sort(St#yecc.errors));
         false -> 
@@ -878,11 +878,11 @@ report_warnings(St) ->
     case member(report_warnings, St#yecc.options) orelse ReportWerror of
         true ->
             foreach(fun({File,{none,Mod,W}}) -> 
-                            io:fwrite(<<"~s: ~s~ts\n">>,
+                            io:fwrite(<<"~ts: ~s~ts\n">>,
                                       [File,Prefix,
 				       Mod:format_error(W)]);
                        ({File,{Line,Mod,W}}) -> 
-                            io:fwrite(<<"~s:~w: ~s~ts\n">>,
+                            io:fwrite(<<"~ts:~w: ~s~ts\n">>,
                                       [File,Line,Prefix,
 				       Mod:format_error(W)])
                     end, sort(St#yecc.warnings));
@@ -2518,7 +2518,7 @@ output_encoding_comment(#yecc{encoding = Encoding}=St) ->
     fwrite(St, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
 
 output_file_directive(St, Filename, Line) when St#yecc.file_attrs ->
-    fwrite(St, <<"-file(~s, ~w).\n">>, 
+    fwrite(St, <<"-file(~ts, ~w).\n">>,
            [format_filename(Filename), Line]);
 output_file_directive(St, _Filename, _Line) ->
     St.
