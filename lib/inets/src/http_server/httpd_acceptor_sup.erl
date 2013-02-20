@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/2, start_acceptor/5, start_acceptor/6, stop_acceptor/2]).
+-export([start_link/2, start_acceptor/6, start_acceptor/7, stop_acceptor/2]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -43,11 +43,11 @@ start_link(Addr, Port) ->
 %% Function: [start|stop]_acceptor/5
 %% Description: Starts/stops an [auth | security] worker (child) process
 %%----------------------------------------------------------------------
-start_acceptor(SocketType, Addr, Port, ConfigDb, AcceptTimeout) ->
-    start_worker(httpd_acceptor, SocketType, Addr, Port,
+start_acceptor(SocketType, Addr, Port, IpFamily, ConfigDb, AcceptTimeout) ->
+    start_worker(httpd_acceptor, SocketType, Addr, Port, IpFamily,
 		 ConfigDb, AcceptTimeout, self(), []).
-start_acceptor(SocketType, Addr, Port, ConfigDb, AcceptTimeout, ListenSocket) ->
-    start_worker(httpd_acceptor, SocketType, Addr, Port,
+start_acceptor(SocketType, Addr, Port, IpFamily, ConfigDb, AcceptTimeout, ListenSocket) ->
+    start_worker(httpd_acceptor, SocketType, Addr, Port, IpFamily,
 		 ConfigDb, AcceptTimeout, ListenSocket, self(), []).
 
 
@@ -69,18 +69,18 @@ init(_) ->
 make_name(Addr,Port) ->
     httpd_util:make_name("httpd_acc_sup", Addr, Port).
 
-start_worker(M, SocketType, Addr, Port, ConfigDB, AcceptTimeout, Manager, Modules) ->
+start_worker(M, SocketType, Addr, Port, IpFamily, ConfigDB, AcceptTimeout, Manager, Modules) ->
     SupName = make_name(Addr, Port),
-    Args    = [Manager, SocketType, Addr, Port, ConfigDB, AcceptTimeout],
+    Args    = [Manager, SocketType, Addr, Port, IpFamily, ConfigDB, AcceptTimeout],
     Spec    = {{M, Addr, Port},
 	       {M, start_link, Args}, 
 	       permanent, timer:seconds(1), worker, [M] ++ Modules},
     supervisor:start_child(SupName, Spec).
 
-start_worker(M, SocketType, Addr, Port, ConfigDB, AcceptTimeout, ListenSocket,
+start_worker(M, SocketType, Addr, Port, IpFamily, ConfigDB, AcceptTimeout, ListenSocket,
 	     Manager, Modules) ->
     SupName = make_name(Addr, Port),
-    Args    = [Manager, SocketType, ListenSocket, ConfigDB, AcceptTimeout],
+    Args    = [Manager, SocketType, ListenSocket, IpFamily, ConfigDB, AcceptTimeout],
     Spec    = {{M, Addr, Port},
 	       {M, start_link, Args}, 
 	       permanent, timer:seconds(1), worker, [M] ++ Modules},

@@ -247,8 +247,9 @@ listen(Address, Port, Config)  ->
 	SocketType ->
 	    case http_transport:start(SocketType) of
 		ok ->
-		    Fd = proplists:get_value(fd, Config), 
-		    case http_transport:listen(SocketType, Address, Port, Fd) of
+		    Fd = proplists:get_value(fd, Config),
+		    IpFamily =  proplists:get_value(ipfamily, Config, inet6fb4),
+		    case http_transport:listen(SocketType, Address, Port, Fd, IpFamily) of
 			{ok, ListenSocket} ->
 			    NewConfig = proplists:delete(port, Config),
 			    {NewPort, _} = http_transport:sockname(SocketType, ListenSocket),

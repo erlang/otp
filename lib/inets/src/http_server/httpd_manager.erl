@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -264,11 +264,12 @@ init([ConfigFile, ConfigList, AcceptTimeout, Addr, Port, ListenInfo]) ->
     end.
 
 do_init(ConfigFile, ConfigList, AcceptTimeout, Addr, Port) ->
+    IpFamily = proplists:get_value(ipfamily, ConfigList, inet6fb4),
     NewConfigFile = proplists:get_value(file, ConfigList, ConfigFile),
     ConfigDB      = do_initial_store(ConfigList),
     SocketType    = httpd_conf:lookup_socket_type(ConfigDB),
     case httpd_acceptor_sup:start_acceptor(SocketType, Addr,
-					   Port, ConfigDB, AcceptTimeout) of
+					   Port, IpFamily, ConfigDB, AcceptTimeout) of
 	{ok, _Pid} ->
 	    Status = [{max_conn,        0}, 
 		      {last_heavy_load, never}, 
@@ -284,11 +285,12 @@ do_init(ConfigFile, ConfigList, AcceptTimeout, Addr, Port) ->
     end.
 
 do_init(ConfigFile, ConfigList, AcceptTimeout, Addr, Port, ListenInfo) ->
+    IpFamily = proplists:get_value(ipfamily, ConfigList, inet6fb4),
     NewConfigFile = proplists:get_value(file, ConfigList, ConfigFile),
     ConfigDB   = do_initial_store(ConfigList),
     SocketType = httpd_conf:lookup_socket_type(ConfigDB),
     case httpd_acceptor_sup:start_acceptor(SocketType, Addr,
-					   Port, ConfigDB, 
+					   Port, IpFamily, ConfigDB, 
 					   AcceptTimeout, ListenInfo) of
 	{ok, _Pid} ->
 	    Status = [{max_conn,0}, {last_heavy_load,never}, 
