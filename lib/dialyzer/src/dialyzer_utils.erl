@@ -219,15 +219,18 @@ get_record_and_type_info([], _Module, Records, RecDict) ->
   end.
 
 add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
-  case erl_types:type_is_defined(TypeOrOpaque, Name, RecDict) of
+  Arity = length(ArgForms),
+  case erl_types:type_is_defined(TypeOrOpaque, Name, Arity, RecDict) of
     true ->
-      throw({error, flat_format("Type ~s already defined\n", [Name])});
+      Msg = flat_format("Type ~s/~w already defined\n", [Name, Arity]),
+      throw({error, Msg});
     false ->
       ArgTypes = [erl_types:t_from_form(X) || X <- ArgForms],
       case lists:all(fun erl_types:t_is_var/1, ArgTypes) of
 	true ->
 	  ArgNames = [erl_types:t_var_name(X) || X <- ArgTypes],
-	  dict:store({TypeOrOpaque, Name}, {Module, TypeForm, ArgNames}, RecDict);
+	  dict:store({TypeOrOpaque, Name, Arity},
+                     {Module, TypeForm, ArgNames}, RecDict);
 	false ->
 	  throw({error, flat_format("Type declaration for ~w does not "
 				    "have variables as parameters", [Name])})

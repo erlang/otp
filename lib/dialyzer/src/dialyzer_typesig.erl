@@ -2582,19 +2582,8 @@ enter_type(Key, Val, Map) when is_integer(Key) ->
       end
   end;
 enter_type(Key, Val, Map) ->
-  ?debug("Entering ~s :: ~s\n", [format_type(Key), format_type(Val)]),
   KeyName = t_var_name(Key),
-  case t_is_any(Val) of
-    true ->
-      erase_type(KeyName, Map);
-    false ->
-      LimitedVal = t_limit(Val, ?INTERNAL_TYPE_LIMIT),
-      case dict:find(KeyName, Map) of
-	{ok, LimitedVal} -> Map;
-	{ok, _} -> map_store(KeyName, LimitedVal, Map);
-	error -> map_store(KeyName, LimitedVal, Map)
-      end
-  end.
+  enter_type(KeyName, Val, Map).
 
 enter_type_lists([Key|KeyTail], [Val|ValTail], Map) ->
   Map1 = enter_type(Key, Val, Map),

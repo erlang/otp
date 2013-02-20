@@ -205,7 +205,7 @@
 	 t_var/1,
 	 t_var_name/1,
 	 %% t_assign_variables_to_subtype/2,
-	 type_is_defined/3,
+	 type_is_defined/4,
 	 record_field_diffs_to_string/2,
 	 subst_all_vars_to_any/1,
 	 lift_list_to_pos_empty/1,
@@ -544,12 +544,12 @@ t_opaque_from_records(RecDict) ->
   OpaqueRecDict =
     dict:filter(fun(Key, _Value) ->
 		    case Key of
-		      {opaque, _Name} -> true;
+		      {opaque, _Name, _Arity} -> true;
 		      _  -> false
 		    end
 		end, RecDict),
   OpaqueTypeDict =
-    dict:map(fun({opaque, Name}, {Module, Type, ArgNames}) ->
+    dict:map(fun({opaque, Name, _Arity}, {Module, Type, ArgNames}) ->
 		 case ArgNames of
 		   [] ->
 		     t_opaque(Module, Name, [], t_from_form(Type, RecDict));
@@ -707,8 +707,8 @@ t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args} = RemType,
       MFA = {RemMod, Name, ArgsLen},
       case sets:is_element(MFA, ET) of
         true ->
-          case lookup_type(Name, RemDict) of
-            {type, {_Mod, Type, ArgNames}} when ArgsLen =:= length(ArgNames) ->
+          case lookup_type(Name, ArgsLen, RemDict) of
+            {type, {_Mod, Type, ArgNames}} ->
               {NewType, NewCycle, NewRR} =
                 case can_unfold_more(RemType, C) of
                   true ->
@@ -726,7 +726,7 @@ t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args} = RemType,
                   false -> RT
                 end,
               {RT1, RetRR};
-            {opaque, {Mod, Type, ArgNames}} when ArgsLen =:= length(ArgNames) ->
+            {opaque, {Mod, Type, ArgNames}} ->
               List = lists:zip(ArgNames, Args),
               TmpVarDict = dict:from_list(List),
               {Rep, NewCycle, NewRR} =
@@ -746,12 +746,6 @@ t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args} = RemType,
               {t_from_form({opaque, -1, Name, {Mod, Args, RT1}},
                            RemDict, TmpVarDict),
                RetRR};
-            {type, _} ->
-              Msg = io_lib:format("Unknown remote type ~w\n", [Name]),
-              throw({error, Msg});
-            {opaque, _} ->
-              Msg = io_lib:format("Unknown remote opaque type ~w\n", [Name]),
-              throw({error, Msg});
             error ->
               Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
                                   [RemMod, Name]),
@@ -3682,8 +3676,9 @@ t_from_form({type, _L, union, Args}, TypeNames, InOpaque, RecDict, VarDict) ->
   {L, R} = list_from_form(Args, TypeNames, InOpaque, RecDict, VarDict),
   {t_sup(L), R};
 t_from_form({type, _L, Name, Args}, TypeNames, InOpaque, RecDict, VarDict) ->
-  case lookup_type(Name, RecDict) of
-    {type, {_Module, Type, ArgNames}} when length(Args) =:= length(ArgNames) ->
+  ArgsLen = length(Args),
+  case lookup_type(Name, ArgsLen, RecDict) of
+    {type, {_Module, Type, ArgNames}} ->
       case can_unfold_more({type, Name}, TypeNames) of
         true ->
           List = lists:zipwith(
@@ -3703,7 +3698,7 @@ t_from_form({type, _L, Name, Args}, TypeNames, InOpaque, RecDict, VarDict) ->
           end;
         false -> {t_any(), [{type, Name}]}
       end;
-    {opaque, {Module, Type, ArgNames}} when length(Args) =:= length(ArgNames) ->
+    {opaque, {Module, Type, ArgNames}} ->
       {Rep, Rret} =
         case can_unfold_more({opaque, Name}, TypeNames) of
           true ->
@@ -3732,12 +3727,9 @@ t_from_form({type, _L, Name, Args}, TypeNames, InOpaque, RecDict, VarDict) ->
                         RecDict, VarDict)
           end,
       {Tret, Rret};
-    {type, _} ->
-      throw({error, io_lib:format("Unknown type ~w\n", [Name])});
-    {opaque, _} ->
-      throw({error, io_lib:format("Unknown opaque type ~w\n", [Name])});
     error ->
-      throw({error, io_lib:format("Unable to find type ~w\n", [Name])}) 
+      Msg = io_lib:format("Unable to find type ~w/~w\n", [Name, ArgsLen]),
+      throw({error, Msg})
   end;
 t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames, _InOpaque,
             _RecDict, _VarDict) ->
@@ -3990,20 +3982,20 @@ lookup_record(Tag, Arity, RecDict) when is_atom(Tag) ->
     error -> error
   end.
 
-lookup_type(Name, RecDict) ->
-  case dict:find({type, Name}, RecDict) of
+lookup_type(Name, Arity, RecDict) ->
+  case dict:find({type, Name, Arity}, RecDict) of
     error ->
-      case dict:find({opaque, Name}, RecDict) of
+      case dict:find({opaque, Name, Arity}, RecDict) of
 	error -> error;
 	{ok, Found} -> {opaque, Found}
       end;
     {ok, Found} -> {type, Found}
   end.
 
--spec type_is_defined('type' | 'opaque', atom(), dict()) -> boolean().
+-spec type_is_defined('type' | 'opaque', atom(), arity(), dict()) -> boolean().
 
-type_is_defined(TypeOrOpaque, Name, RecDict) ->
-  dict:is_key({TypeOrOpaque, Name}, RecDict).
+type_is_defined(TypeOrOpaque, Name, Arity, RecDict) ->
+  dict:is_key({TypeOrOpaque, Name, Arity}, RecDict).
 
 can_unfold_more(TypeName, TypeNames) ->
   Fun = fun(E, Acc) -> case E of TypeName -> Acc + 1; _ -> Acc end end,
