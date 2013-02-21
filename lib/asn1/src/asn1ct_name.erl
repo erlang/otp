@@ -75,11 +75,14 @@ active(V) ->
     end.
 
 req(Req) ->
-    get(?MODULE) ! {self(), Req},
+    Pid = get(?MODULE),
+    Ref = monitor(process, Pid),
+    Pid ! {self(), Req},
     receive
-        {?MODULE, Reply} -> Reply
-    after 5000 ->
-            exit(name_server_timeout)
+        {?MODULE, Reply} ->
+	    Reply;
+	{'DOWN', Ref, process, Pid, Reason} ->
+            error({name_server_died,Reason})
     end.
 
 clear() ->     stop(), start().
