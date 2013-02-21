@@ -21,7 +21,6 @@
 
 %%-compile(export_all).
 -export([start/0,
-	 stop/0,
 	 curr/1,
 	 clear/0,
 	 active/1,
@@ -43,13 +42,11 @@ start() ->
 	    already_started
     end.
 
-stop() ->
-    req(stop),
-    erase(?MODULE).
-
 name_server_loop({Ref, Parent} = Monitor,Vars) ->
 %%    io:format("name -- ~w~n",[Vars]),
     receive
+	{_From,clear} ->
+	    name_server_loop(Monitor, []);
 	{From,{current,Variable}} ->
 	    From ! {?MODULE,get_curr(Vars,Variable)},
 	    name_server_loop(Monitor,Vars);
@@ -61,10 +58,8 @@ name_server_loop({Ref, Parent} = Monitor,Vars) ->
 	{From,{next,Variable}} ->
 	    From ! {?MODULE,get_next(Vars,Variable)},
 	    name_server_loop(Monitor,Vars);
-    {'DOWN', Ref, process, Parent, Reason} ->
-        exit(Reason);
-	{From,stop} ->
-	    From ! {?MODULE,stopped}
+	{'DOWN', Ref, process, Parent, Reason} ->
+	    exit(Reason)
     end.
 
 active(V) ->
@@ -88,7 +83,7 @@ cast(Req) ->
     get(?MODULE) ! {self(), Req},
     ok.
 
-clear() ->     stop(), start().
+clear() ->     cast(clear).
 curr(V) ->     req({current,V}).
 new(V) ->      cast({new,V}).
 
