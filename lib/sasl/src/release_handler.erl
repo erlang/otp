@@ -2205,23 +2205,23 @@ set_static_files(SrcDir, DestDir, Masters) ->
 write_ini_file(RootDir,EVsn,Masters) ->
    BinDir = filename:join([RootDir,"erts-"++EVsn,"bin"]),
    Str0 = io_lib:format("[erlang]~n"
-                        "Bindir=~s~n"
+                        "Bindir=~ts~n"
                         "Progname=erl~n"
-                        "Rootdir=~s~n",
+                        "Rootdir=~ts~n",
 		        [filename:nativename(BinDir),
 		         filename:nativename(RootDir)]),
-   Str = re:replace(Str0,"\\\\","\\\\\\\\",[{return,list},global]),
+   Str = re:replace(Str0,"\\\\","\\\\\\\\",[{return,list},global,unicode]),
    IniFile = filename:join(BinDir,"erl.ini"),
    do_write_ini_file(IniFile,Str,Masters).
 
 do_write_ini_file(File,Data,false) ->
-    case do_write_file(File, Data) of
+    case do_write_file(File, Data, [{encoding,utf8}]) of
 	ok    -> ok;
 	Error -> throw(Error)
     end;
 do_write_ini_file(File,Data,Masters) ->
     all_masters(Masters),
-    safe_write_file_m(File, Data, Masters).
+    safe_write_file_m(File, Data, [{encoding,utf8}], Masters).
 
 
 %%-----------------------------------------------------------------
@@ -2235,13 +2235,15 @@ do_write_ini_file(File,Data,Masters) ->
 %% (as long as possible), except for 4 which is allowed to fail.
 %%-----------------------------------------------------------------
 safe_write_file_m(File, Data, Masters) ->
+    safe_write_file_m(File, Data, [], Masters).
+safe_write_file_m(File, Data, FileOpts, Masters) ->
     Backup = File ++ ".backup",
     Change = File ++ ".change",
     case at_all_masters(Masters, ?MODULE, do_copy_files,
 			[File, [Backup]]) of
 	ok ->
 	    case at_all_masters(Masters, ?MODULE, do_write_file,
-				[Change, Data]) of
+				[Change, Data, FileOpts]) of
 		ok ->
 		    case at_all_masters(Masters, file, rename,
 					[Change, File]) of
