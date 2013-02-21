@@ -53,8 +53,7 @@ name_server_loop({Ref, Parent} = Monitor,Vars) ->
 	{From,{current,Variable}} ->
 	    From ! {?MODULE,get_curr(Vars,Variable)},
 	    name_server_loop(Monitor,Vars);
-	{From,{new,Variable}} ->
-	    From ! {?MODULE,done},
+	{_From,{new,Variable}} ->
 	    name_server_loop(Monitor,new_var(Vars,Variable));
 	{From,{prev,Variable}} ->
 	    From ! {?MODULE,get_prev(Vars,Variable)},
@@ -85,9 +84,14 @@ req(Req) ->
             error({name_server_died,Reason})
     end.
 
+cast(Req) ->
+    get(?MODULE) ! {self(), Req},
+    ok.
+
 clear() ->     stop(), start().
 curr(V) ->     req({current,V}).
-new(V) ->      req({new,V}).
+new(V) ->      cast({new,V}).
+
 prev(V) ->
     case req({prev,V}) of
 	none ->
