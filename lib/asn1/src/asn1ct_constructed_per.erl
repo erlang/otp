@@ -1254,7 +1254,7 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
 			St
 		end
 	end,
-    Lines = gen_dec_line_imm(Erule, TopType, Comp, Tpos, DecInfObj, Ext),
+    Lines = gen_dec_seq_line_imm(Erule, TopType, Comp, Tpos, DecInfObj, Ext),
     Postamble =
 	case {Ext,Prop} of
 	    {noext,mandatory} ->
@@ -1322,13 +1322,18 @@ gen_dec_component_no_val({ext,_,_},mandatory) ->
     emit({"asn1_NOVALUE"}).
     
 
-gen_dec_line(Erule, TopType, Comp, Pos, Ext) ->
-    Imm0 = gen_dec_line_imm(Erule, TopType, Comp, Pos, false, Ext),
+gen_dec_choice_line(Erule, TopType, Comp, Pos, Ext) ->
+    Pre = gen_dec_line_open_type(Erule, Ext, Pos),
+    Imm0 = gen_dec_line_imm(Erule, TopType, Comp, false, Pre),
     Init = {ignore,fun(_) -> {[],[]} end},
     Imm = [{group,[Init|Imm0]}],
     emit_gen_dec_imm(Imm).
 
-gen_dec_line_imm(Erule, TopType, Comp, Pos, DecInfObj, Ext) ->
+gen_dec_seq_line_imm(Erule, TopType, Comp, Pos, DecInfObj, Ext) ->
+    Pre = gen_dec_line_open_type(Erule, Ext, Pos),
+    gen_dec_line_imm(Erule, TopType, Comp, DecInfObj, Pre).
+
+gen_dec_line_imm(Erule, TopType, Comp, DecInfObj, Pre) ->
     #'ComponentType'{name=Cname,typespec=Type} = Comp,
     Atype = 
 	case Type of
@@ -1337,9 +1342,7 @@ gen_dec_line_imm(Erule, TopType, Comp, Pos, DecInfObj, Ext) ->
 	    _  ->
 		asn1ct_gen:get_inner(Type#type.def)
 	end,
-
-    Pre = gen_dec_line_open_type(Erule, Ext, Pos),
-    Decode = gen_dec_line_special(Erule, Atype, TopType, Comp, DecInfObj, Ext),
+    Decode = gen_dec_line_special(Erule, Atype, TopType, Comp, DecInfObj),
     Post =
 	fun({SaveBytes,Finish}) ->
 		{AccTerm,AccBytes} = Finish(),
@@ -1383,7 +1386,7 @@ gen_dec_line_open_type(_, _, _) ->
 	  end}.
 
 gen_dec_line_special(Erule, {typefield,_}, _TopType, Comp,
-		     DecInfObj, Ext) ->
+		     DecInfObj) ->
     #'ComponentType'{name=Cname,typespec=Type,prop=Prop} = Comp,
     fun({_BytesVar,PrevSt}) ->
 	    case DecInfObj of
@@ -1415,7 +1418,7 @@ gen_dec_line_special(Erule, {typefield,_}, _TopType, Comp,
 		    %% objfun though arguments on function
 		    %% invocation.
 		    if
-			Ext == noext andalso Prop == mandatory ->
+			Prop =:= mandatory ->
 			    ok;
 			true ->
 			    asn1ct_name:new(tmpterm),
@@ -1429,7 +1432,7 @@ gen_dec_line_special(Erule, {typefield,_}, _TopType, Comp,
 		    asn1ct_imm:dec_code_gen(Imm, BytesVar),
 		    emit([com,nl]),
 		    if
-			Ext == noext andalso Prop == mandatory ->
+			Prop =:= mandatory ->
 			    emit([{curr,term}," =",nl,"      "]);
 			true ->
 			    emit(["     {"])
@@ -1446,7 +1449,7 @@ gen_dec_line_special(Erule, {typefield,_}, _TopType, Comp,
 		    emit([indent(6),{curr,tmpterm},nl]),
 		    emit([indent(2),"end"]),
 		    if
-			Ext == noext andalso Prop == mandatory ->
+			Prop =:= mandatory ->
 			    ok;
 			true ->
 			    emit([",",nl,{curr,tmpbytes},"}"])
@@ -1466,7 +1469,7 @@ gen_dec_line_special(Erule, {typefield,_}, _TopType, Comp,
 	    end
     end;
 gen_dec_line_special(Erule, {objectfield,PrimFieldName1,PFNList}, _TopType,
-		     Comp, _DecInfObj, _Ext) ->
+		     Comp, _DecInfObj) ->
     fun({_BytesVar,PrevSt}) ->
 	    Imm = asn1ct_imm:per_dec_open_type(is_aligned(Erule)),
 	    BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
@@ -1478,7 +1481,7 @@ gen_dec_line_special(Erule, {objectfield,PrimFieldName1,PFNList}, _TopType,
 			  Prop}],
 	    {SaveBytes,PrevSt}
     end;
-gen_dec_line_special(Erule, Atype, TopType, Comp, DecInfObj, _Ext) ->
+gen_dec_line_special(Erule, Atype, TopType, Comp, DecInfObj) ->
     case gen_dec_line_other(Erule, Atype, TopType, Comp) of
 	Fun when is_function(Fun, 1) ->
 	    fun({BytesVar,PrevSt}) ->
@@ -1683,10 +1686,10 @@ gen_dec_choice2(Erule, TopType, [H0|T], Pos, Sep0, Ext) ->
     case Type#type.def of
 	#'ObjectClassFieldType'{type={typefield,_}} ->
 	    emit([Sep0,Pos," ->",nl]),
-	    gen_dec_line(Erule, TopType, H, Pos+1, Ext);
+	    gen_dec_choice_line(Erule, TopType, H, Pos+1, Ext);
 	_ ->
 	    emit([Sep0,Pos," -> {",{asis,Cname},",",nl]),
-	    gen_dec_line(Erule, TopType, H, Pos+1, Ext),
+	    gen_dec_choice_line(Erule, TopType, H, Pos+1, Ext),
 	    emit("}")
     end,
     Sep = [";",nl],
