@@ -32,7 +32,7 @@ endif
 
 ifeq ($(TOPDOC),)
 $(HTMLDIR)/index.html: $(XML_FILES) $(SPECS_FILES)
-	date=`date +"%B %e %Y"`; \
+	date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) --noout \
           --stringparam outdir $(HTMLDIR) \
           --stringparam docgen "$(DOCGEN)" \
@@ -53,7 +53,7 @@ $(HTMLDIR)/index.html: $(XML_FILES) $(SPECS_FILES)
 endif
 
 $(HTMLDIR)/users_guide.html: $(XML_FILES)
-	date=`date +"%B %e %Y"`; \
+	date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) --noout  \
 		--stringparam outdir  $(HTMLDIR)  \
 		--stringparam docgen "$(DOCGEN)"  \
@@ -72,7 +72,7 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
 	        $(DOCGEN)/priv/xsl/db_html.xsl book.xml
 
 %.fo: $(XML_FILES) $(SPECS_FILES)
-	date=`date +"%B %e %Y"`; \
+	date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) \
          --stringparam docgen "$(DOCGEN)" \
          --stringparam gendate "$$date" \
@@ -94,7 +94,7 @@ ifneq ($(XML_FILES),)
 # Generation of application index data
 # ----------------------------------------------------
 $(HTMLDIR)/$(APPLICATION).eix: $(XML_FILES) $(SPECS_FILES)
-	date=`date +"%B %e %Y"`; \
+	date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) --stringparam docgen "$(DOCGEN)" \
 		--stringparam gendate "$$date" \
 	        --stringparam appname "$(APPLICATION)" \

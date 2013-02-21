@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2012. All Rights Reserved.
+# Copyright Ericsson AB 1999-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -162,7 +162,7 @@ $(MAN_INDEX): $(MAN_INDEX_SCRIPT)
 #--------------------------------------------------------------------------
 
 $(HTMLDIR)/highlights.html:  highlights.xml
-	date=`date +"%B %e %Y"`; \
+	date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) --output $(@) \
 		--stringparam docgen "$(DOCGEN)" \
 		--stringparam topdocdir "$(TOPDOCDIR)" \
@@ -179,7 +179,7 @@ $(HTMLDIR)/highlights.html:  highlights.xml
 
 
 $(HTMLDIR)/incompatible.html:  incompatible.xml
-	date=`date +"%B %e %Y"`; \
+	date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) --output $(@) --stringparam docgen "$(DOCGEN)" \
 		--stringparam topdocdir "$(TOPDOCDIR)" \
 		--stringparam pdfdir "$(PDFREFDIR)"  \
