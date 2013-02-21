@@ -38,7 +38,8 @@ start() ->
                     end)),
             ok;
 	_Pid ->
-	    already_started
+	    %% Already started. Clear the variables.
+	    clear()
     end.
 
 name_server_loop({Ref, Parent} = Monitor,Vars) ->

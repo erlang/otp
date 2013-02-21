@@ -227,7 +227,6 @@ gen_decode_constructed(Erule, Typename, #type{}=D) ->
     Imm0 = gen_dec_constructed_imm(Erule, Typename, #type{}=D),
     Imm = opt_imm(Imm0),
     asn1ct_name:start(),
-    asn1ct_name:clear(),
     emit_gen_dec_imm(Imm),
     emit([".",nl,nl]).
 
@@ -489,7 +488,6 @@ gen_encode_choice(Erule,Typename,D) when is_record(D,type) ->
 
 gen_decode_choice(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
-    asn1ct_name:clear(),
     asn1ct_name:new(bytes),
     {'CHOICE',CompList} = D#type.def,
     Ext = extensible_enc(CompList),

@@ -183,7 +183,6 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
 
 gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
-    asn1ct_name:clear(),
     asn1ct_name:new(tag),
     #'SEQUENCE'{tablecinf=TableConsInfo,components=CList0} = D#type.def,
 
@@ -349,7 +348,6 @@ gen_encode_set(Erules,Typename,D) when is_record(D,type) ->
 
 gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
-    asn1ct_name:clear(),
 %%    asn1ct_name:new(term),
     asn1ct_name:new(tag),
     #'SET'{tablecinf=TableConsInfo,components=TCompList0} = D#type.def,
@@ -504,7 +502,6 @@ gen_encode_sof(Erules,Typename,_InnerTypename,D) when is_record(D,type) ->
 
 gen_decode_sof(Erules,TypeName,_InnerTypeName,D) when is_record(D,type) ->
     asn1ct_name:start(),
-    asn1ct_name:clear(),
     {SeqOrSetOf, _TypeTag, Cont} = 
 	case D#type.def of
 	    {'SET OF',_Cont} -> {'SET OF','SET',_Cont};
