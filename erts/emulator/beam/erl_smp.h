@@ -259,6 +259,9 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_dw_atomic_read_wb erts_dw_atomic_read_wb
 #define erts_smp_dw_atomic_cmpxchg_wb erts_dw_atomic_cmpxchg_wb
 
+#define erts_smp_dw_atomic_set_dirty erts_dw_atomic_set_dirty
+#define erts_smp_dw_atomic_read_dirty erts_dw_atomic_read_dirty
+
 /* Word size atomics */
 
 #define erts_smp_atomic_init_nob erts_atomic_init_nob
@@ -365,6 +368,9 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic_xchg_wb erts_atomic_xchg_wb
 #define erts_smp_atomic_cmpxchg_wb erts_atomic_cmpxchg_wb
 #define erts_smp_atomic_read_bset_wb erts_atomic_read_bset_wb
+
+#define erts_smp_atomic_set_dirty erts_atomic_set_dirty
+#define erts_smp_atomic_read_dirty erts_atomic_read_dirty
 
 /* 32-bit atomics */
 
@@ -473,6 +479,9 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic32_cmpxchg_wb erts_atomic32_cmpxchg_wb
 #define erts_smp_atomic32_read_bset_wb erts_atomic32_read_bset_wb
 
+#define erts_smp_atomic32_set_dirty erts_atomic32_set_dirty
+#define erts_smp_atomic32_read_dirty erts_atomic32_read_dirty
+
 #else /* !ERTS_SMP */
 
 /* Double word size atomics */
@@ -511,6 +520,9 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_dw_atomic_set_wb erts_no_dw_atomic_set
 #define erts_smp_dw_atomic_read_wb erts_no_dw_atomic_read
 #define erts_smp_dw_atomic_cmpxchg_wb erts_no_dw_atomic_cmpxchg
+
+#define erts_smp_dw_atomic_set_dirty erts_no_dw_atomic_set
+#define erts_smp_dw_atomic_read_dirty erts_no_dw_atomic_read
 
 /* Word size atomics */
 
@@ -619,6 +631,9 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic_cmpxchg_wb erts_no_atomic_cmpxchg
 #define erts_smp_atomic_read_bset_wb erts_no_atomic_read_bset
 
+#define erts_smp_atomic_set_dirty erts_no_atomic_set
+#define erts_smp_atomic_read_dirty erts_no_atomic_read
+
 /* 32-bit atomics */
 
 #define erts_smp_atomic32_init_nob erts_no_atomic32_set
@@ -725,6 +740,9 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic32_xchg_wb erts_no_atomic32_xchg
 #define erts_smp_atomic32_cmpxchg_wb erts_no_atomic32_cmpxchg
 #define erts_smp_atomic32_read_bset_wb erts_no_atomic32_read_bset
+
+#define erts_smp_atomic32_set_dirty erts_no_atomic32_set
+#define erts_smp_atomic32_read_dirty erts_no_atomic32_read
 
 #endif /* !ERTS_SMP */
 

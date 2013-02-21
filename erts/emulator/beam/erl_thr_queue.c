@@ -113,6 +113,11 @@ sl_element_free(ErtsThrQElement_t *p)
 
 #endif
 
+#define ErtsThrQDirtyReadEl(A) \
+    ((ErtsThrQElement_t *) erts_atomic_read_dirty((A)))
+#define ErtsThrQDirtySetEl(A, V) \
+    erts_atomic_set_dirty((A), (erts_aint_t) (V))
+
 typedef union {
     ErtsThrQ_t q;
     char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsThrQ_t))];
@@ -137,7 +142,7 @@ erts_thr_q_initialize(ErtsThrQ_t *q, ErtsThrQInit_t *qi)
     q->last = NULL;
     q->q.blk = NULL;
 #else
-    erts_atomic_init_nob(&q->tail.data.marker.next.atmc, ERTS_AINT_NULL);
+    erts_atomic_init_nob(&q->tail.data.marker.next, ERTS_AINT_NULL);
     q->tail.data.marker.data.ptr = NULL;
     erts_atomic_init_nob(&q->tail.data.last,
 			 (erts_aint_t) &q->tail.data.marker);
@@ -150,7 +155,7 @@ erts_thr_q_initialize(ErtsThrQ_t *q, ErtsThrQInit_t *qi)
     if (!q->tail.data.notify)
 	q->tail.data.notify = noop_callback;
 
-    q->head.head.ptr = &q->tail.data.marker;
+    erts_atomic_init_nob(&q->head.head, (erts_aint_t) &q->tail.data.marker);
     q->head.live = qi->live.objects;
     q->head.first = &q->tail.data.marker;
     q->head.unref_end = &q->tail.data.marker;
@@ -296,17 +301,17 @@ element_free(ErtsThrQ_t *q, ErtsThrQElement_t *el)
 #ifdef USE_THREADS
 
 static ERTS_INLINE ErtsThrQElement_t *
-enqueue_managed(ErtsThrQ_t *q, ErtsThrQElement_t *this, int want_last)
+enqueue_managed(ErtsThrQ_t *q, ErtsThrQElement_t *this)
 {
     erts_aint_t ilast, itmp;
 
-    erts_atomic_init_nob(&this->next.atmc, ERTS_AINT_NULL);
+    erts_atomic_init_nob(&this->next, ERTS_AINT_NULL);
     /* Enqueue at end of list... */
 
     ilast = erts_atomic_read_nob(&q->tail.data.last);
     while (1) {
 	ErtsThrQElement_t *last = (ErtsThrQElement_t *) ilast;
-	itmp = erts_atomic_cmpxchg_mb(&last->next.atmc,
+	itmp = erts_atomic_cmpxchg_mb(&last->next,
 				      (erts_aint_t) this,
 				      ERTS_AINT_NULL);
 	if (itmp == ERTS_AINT_NULL)
@@ -316,31 +321,57 @@ enqueue_managed(ErtsThrQ_t *q, ErtsThrQElement_t *this, int want_last)
 
     /* Move last pointer forward... */
     while (1) {
-	if (want_last) {
-	    if (erts_atomic_read_rb(&this->next.atmc) != ERTS_AINT_NULL) {
-		/* Someone else will move it forward */
-		ilast = erts_atomic_read_rb(&q->tail.data.last);
-		return (ErtsThrQElement_t *) ilast;
-	    }
-	}
-	else {
-	    if (erts_atomic_read_nob(&this->next.atmc) != ERTS_AINT_NULL) {
-		/* Someone else will move it forward */
-		return NULL;
-	    }
+	if (erts_atomic_read_rb(&this->next) != ERTS_AINT_NULL) {
+	    /* Someone else will move it forward */
+	    ilast = erts_atomic_read_rb(&q->tail.data.last);
+	    return (ErtsThrQElement_t *) ilast;
 	}
 	itmp = erts_atomic_cmpxchg_mb(&q->tail.data.last,
 				      (erts_aint_t) this,
 				      ilast);
 	if (ilast == itmp)
-	    return want_last ? this : NULL;
+	    return this;
 	ilast = itmp;
     }
 }
 
+static ERTS_INLINE ErtsThrQElement_t *
+enqueue_marker(ErtsThrQ_t *q, ErtsThrQElement_t **headp)
+{
+    int maybe_notify;
+    erts_aint_t inext;
+    ErtsThrQElement_t *last, *head;
+
+    if (headp)
+	head = *headp;
+    else
+	head = ErtsThrQDirtyReadEl(&q->head.head);
+
+    ASSERT(!q->head.used_marker);
+    q->head.used_marker = 1;
+    last = enqueue_managed(q, &q->tail.data.marker);
+    maybe_notify = &q->tail.data.marker == last;
+    inext = erts_atomic_read_acqb(&head->next);
+    if (inext == (erts_aint_t) &q->tail.data.marker) {
+	ErtsThrQDirtySetEl(&q->head.head, &q->tail.data.marker);
+	if (headp)
+	    *headp = &q->tail.data.marker;
+    }
+    else if (maybe_notify) {
+	/*
+	 * We need to notify; otherwise, we might loose a notification
+	 * for a concurrently inserted element.
+	 */
+	q->head.notify(q->head.arg);
+    }
+    return last;
+}
+
+
 static ErtsThrQCleanState_t
 clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 {
+    ErtsThrQElement_t *head;
     erts_aint_t ilast;
     int um_refc_ix;
     int ops;
@@ -349,7 +380,8 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 	ErtsThrQElement_t *tmp;
     restart:
 	ASSERT(q->head.first);
-	if (q->head.first == q->head.head.ptr) {
+	head = ErtsThrQDirtyReadEl(&q->head.head);
+	if (q->head.first == head) {
 	    q->head.clean_reached_head_count++;
 	    if (q->head.clean_reached_head_count
 		>= ERTS_THR_Q_MAX_CLEAN_REACHED_HEAD_COUNT) {
@@ -362,19 +394,20 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 	    break;
 	if (q->head.first == &q->tail.data.marker) {
 	    q->head.used_marker = 0;
-	    q->head.first = q->head.first->next.ptr;
+	    q->head.first = ErtsThrQDirtyReadEl(&q->head.first->next);
 	    goto restart;
 	}
 	tmp = q->head.first;
-	q->head.first = q->head.first->next.ptr;
+	q->head.first = ErtsThrQDirtyReadEl(&q->head.first->next);
 	if (q->head.deq_fini.automatic)
 	    element_free(q, tmp);
 	else {
 	    tmp->data.ptr = (void *) (UWord) q->head.live;
 	    if (!q->head.deq_fini.start)
 		q->head.deq_fini.start = tmp;
-	    else if (q->head.deq_fini.end->next.ptr == &q->tail.data.marker)
-		q->head.deq_fini.end->next.ptr = tmp;
+	    else if (ErtsThrQDirtyReadEl(&q->head.deq_fini.end->next)
+		     == &q->tail.data.marker)
+		ErtsThrQDirtySetEl(&q->head.deq_fini.end->next, tmp);
 	    q->head.deq_fini.end = tmp;
 	}
     }
@@ -401,21 +434,8 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 	    q->head.unref_end = q->head.next.unref_end;
 
 	    if (!q->head.used_marker
-		&& q->head.unref_end == (ErtsThrQElement_t *) ilast) {
-		q->head.used_marker = 1;
-		ilast = (erts_aint_t) enqueue_managed(q,
-						      &q->tail.data.marker,
-						      1);
-		if (q->head.head.ptr == q->head.unref_end) {
-		    ErtsThrQElement_t *next;
-		    next = ((ErtsThrQElement_t *)
-			    erts_atomic_read_acqb(&q->head.head.ptr->next.atmc));
-		    if (next == &q->tail.data.marker) {
-			q->head.head.ptr->next.ptr = &q->tail.data.marker;
-			q->head.head.ptr = &q->tail.data.marker;
-		    }
-		}
-	    }
+		&& q->head.unref_end == (ErtsThrQElement_t *) ilast)
+		ilast = (erts_aint_t) enqueue_marker(q, NULL);
 
 	    if (q->head.unref_end == (ErtsThrQElement_t *) ilast)
 		ERTS_SMP_MEMORY_BARRIER;
@@ -436,20 +456,16 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
     }
 #endif
 
-    if (q->head.first == q->head.head.ptr) {
+    head = ErtsThrQDirtyReadEl(&q->head.head);
+    if (q->head.first == head) {
     inspect_head:
 	if (!q->head.used_marker) {
 	    erts_aint_t inext;
-	    inext = erts_atomic_read_acqb(&q->head.head.ptr->next.atmc);
+	    inext = erts_atomic_read_acqb(&head->next);
 	    if (inext == ERTS_AINT_NULL) {
-		q->head.used_marker = 1;
-		(void) enqueue_managed(q, &q->tail.data.marker, 0);
-		inext = erts_atomic_read_acqb(&q->head.head.ptr->next.atmc);
-		if (inext == (erts_aint_t) &q->tail.data.marker) {
-		    q->head.head.ptr->next.ptr = &q->tail.data.marker;
-		    q->head.head.ptr = &q->tail.data.marker;
+		enqueue_marker(q, &head);
+		if (head == &q->tail.data.marker)
 		    goto check_thr_progress;
-		}
 	    }
 	}
 
@@ -506,26 +522,27 @@ erts_thr_q_inspect(ErtsThrQ_t *q, int ensure_empty)
 #ifndef USE_THREADS
     return ERTS_THR_Q_CLEAN;
 #else
+    ErtsThrQElement_t *head = ErtsThrQDirtyReadEl(&q->head.head);
     if (ensure_empty) {
 	erts_aint_t inext;
-	inext = erts_atomic_read_acqb(&q->head.head.ptr->next.atmc);
+	inext = erts_atomic_read_acqb(&head->next);
 	if (inext != ERTS_AINT_NULL) {
 	    if (&q->tail.data.marker != (ErtsThrQElement_t *) inext)
 		return ERTS_THR_Q_DIRTY;
 	    else {
-		q->head.head.ptr->next.ptr = (ErtsThrQElement_t *) inext;
-		q->head.head.ptr = (ErtsThrQElement_t *) inext;
-		inext = erts_atomic_read_acqb(&q->head.head.ptr->next.atmc);
+		head = (ErtsThrQElement_t *) inext;
+		ErtsThrQDirtySetEl(&q->head.head, head);
+		inext = erts_atomic_read_acqb(&head->next);
 		if (inext != ERTS_AINT_NULL)
 		    return ERTS_THR_Q_DIRTY;
 	    }
 	}
     }
 
-    if (q->head.first == q->head.head.ptr) {
+    if (q->head.first == head) {
 	if (!q->head.used_marker) {
 	    erts_aint_t inext;
-	    inext = erts_atomic_read_acqb(&q->head.head.ptr->next.atmc);
+	    inext = erts_atomic_read_acqb(&head->next);
 	    if (inext == ERTS_AINT_NULL)
 		return ERTS_THR_Q_DIRTY;
 	}
@@ -553,11 +570,11 @@ enqueue(ErtsThrQ_t *q, void *data, ErtsThrQElement_t *this)
 #ifndef USE_THREADS
     ASSERT(data);
 
-    this->next.ptr = NULL;
+    this->next = NULL;
     this->data.ptr = data;
 
     if (q->last)
-	q->last->next.ptr = this;
+	q->last->next = this;
     else {
 	q->first = q->last = this;
 	q->init.notify(q->init.arg);
@@ -595,7 +612,7 @@ enqueue(ErtsThrQ_t *q, void *data, ErtsThrQElement_t *this)
 	}
     }
 
-    notify = this == enqueue_managed(q, this, 1);
+    notify = this == enqueue_managed(q, this);
 	
 
 #ifdef ERTS_SMP
@@ -638,17 +655,17 @@ erts_thr_q_get_finalize_dequeue_data(ErtsThrQ_t *q, ErtsThrQFinDeQ_t *fdp)
 	ErtsThrQElement_t *e = q->head.deq_fini.start;
 	ErtsThrQElement_t *end = q->head.deq_fini.end;
 	while (e != end) {
-	    ASSERT(q->head.head.ptr != e);
+	    ASSERT(ErtsThrQDirtyReadEl(&q->head.head) != e);
 	    ASSERT(q->head.first != e);
 	    ASSERT(q->head.unref_end != e);
-	    e = e->next.ptr;
+	    e = ErtsThrQDirtyReadEl(&e->next);
 	}
     }	
 #endif
     fdp->start = q->head.deq_fini.start;
     fdp->end = q->head.deq_fini.end;
     if (fdp->end)
-	fdp->end->next.ptr = NULL;
+	ErtsThrQDirtySetEl(&fdp->end->next, NULL);
     q->head.deq_fini.start = NULL;
     q->head.deq_fini.end = NULL;
     return fdp->start != NULL;
@@ -662,7 +679,7 @@ erts_thr_q_append_finalize_dequeue_data(ErtsThrQFinDeQ_t *fdp0,
 #ifdef USE_THREADS
     if (fdp1->start) {
 	if (fdp0->end)
-	    fdp0->end->next.ptr = fdp1->start;
+	    ErtsThrQDirtySetEl(&fdp0->end->next, fdp1->start);
 	else
 	    fdp0->start = fdp1->start;
 	fdp0->end = fdp1->end;
@@ -683,7 +700,7 @@ int erts_thr_q_finalize_dequeue(ErtsThrQFinDeQ_t *state)
 	    if (!start)
 		break;
 	    tmp = start;
-	    start = start->next.ptr;
+	    start = ErtsThrQDirtyReadEl(&start->next);
 	    live = (ErtsThrQLive_t) (UWord) tmp->data.ptr;
 	    element_live_free(live, tmp);
 	}
@@ -724,7 +741,7 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
 	return NULL;
     tmp = q->first;
     res = tmp->data.ptr;
-    q->first = tmp->next.ptr;
+    q->first = tmp->next;
     if (!q->first)
 	q->last = NULL;
 
@@ -732,24 +749,26 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
 
     return res;
 #else
+    ErtsThrQElement_t *head;
     erts_aint_t inext;
     void *res;
 
-    inext = erts_atomic_read_acqb(&q->head.head.ptr->next.atmc);
+    head = ErtsThrQDirtyReadEl(&q->head.head);
+    inext = erts_atomic_read_acqb(&head->next);
     if (inext == ERTS_AINT_NULL)
 	return NULL;
-    q->head.head.ptr->next.ptr = (ErtsThrQElement_t *) inext;
-    q->head.head.ptr = (ErtsThrQElement_t *) inext;
-    if (q->head.head.ptr == &q->tail.data.marker) {
-	inext = erts_atomic_read_acqb(&q->head.head.ptr->next.atmc);
+    head = (ErtsThrQElement_t *) inext;
+    ErtsThrQDirtySetEl(&q->head.head, head);
+    if (head == &q->tail.data.marker) {
+	inext = erts_atomic_read_acqb(&head->next);
 	if (inext == ERTS_AINT_NULL)
 	    return NULL;
-	q->head.head.ptr->next.ptr = (ErtsThrQElement_t *) inext;
-	q->head.head.ptr = (ErtsThrQElement_t *) inext;
+	head = (ErtsThrQElement_t *) inext;
+	ErtsThrQDirtySetEl(&q->head.head, head);
     }
-    res = q->head.head.ptr->data.ptr;
+    res = head->data.ptr;
 #if ERTS_THR_Q_DBG_CHK_DATA
-    q->head.head.ptr->data.ptr = NULL;
+    head->data.ptr = NULL;
     if (!res)
 	erl_exit(ERTS_ABORT_EXIT, "Missing data in dequeue\n");
 #endif
