@@ -58,7 +58,7 @@ bin_to_list(_, _) ->
 -spec bin_to_list(Subject, Pos, Len) -> [byte()] when
       Subject :: binary(),
       Pos :: non_neg_integer(),
-      Len :: non_neg_integer().
+      Len :: integer().
 
 bin_to_list(_, _, _) ->
     erlang:nif_error(undef).
