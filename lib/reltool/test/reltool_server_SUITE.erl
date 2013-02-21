@@ -1,7 +1,8 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -60,6 +61,7 @@ all() ->
      create_script,
      create_script_sort,
      create_target,
+     create_target_unicode,
      create_embedded,
      create_standalone,
      create_standalone_beam,
@@ -750,6 +752,70 @@ create_target(_Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate target system
+
+create_target_unicode(Config) ->
+    DataDir = ?config(data_dir,Config),
+
+    %% If file name translation mode is unicode, then use unicode
+    %% characters release name (which will be used as file name for
+    %% .rel, .script and .boot)
+    RelNamePrefix =
+	case file:native_name_encoding() of
+	    utf8 ->
+		"Unicode test αβ";
+	    latin1 ->
+		"Unicode test"
+	end,
+
+    %% Configure the server
+    RelName1 = RelNamePrefix,
+    RelName2 = RelNamePrefix ++ " with SASL",
+    RelVsn = "1.0",
+    Sys =
+        {sys,
+         [
+          {root_dir, code:root_dir()},
+          {lib_dirs, [filename:join(DataDir,"unicode")]},
+	  {app_file, all},
+	  {incl_cond,exclude},
+	  {boot_rel, RelName2},
+          {rel, RelName1, RelVsn, [stdlib, kernel, ua]},
+          {rel, RelName2, RelVsn, [sasl, stdlib, kernel, ua]},
+          {app, kernel, [{incl_cond, include}]},
+          {app, stdlib, [{incl_cond, include}]},
+          {app, sasl, [{incl_cond, include}]},
+          {app, ua, [{incl_cond, include}]}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_unicode"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Sys}])]),
+    ok = ?m(ok, reltool:create_target([{config, Sys}], TargetDir)),
+
+    %% Start a node
+    Erl = filename:join([TargetDir, "bin", "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+
+    %% The ua application has a unicode string as description - check
+    %% that it is translated correctly.
+    Apps = rpc:call(Node,application,which_applications,[]),
+    ?m({ua,"Application for testing unicode in reltool - αβ","1.0"},
+       lists:keyfind(ua,1,Apps)),
+
+    %% Check that the release name is correct (really only
+    %% insteresting if file name translation mode is utf8)
+    [{RelName,_,_,_}] =
+	?msym([{_,_,_,_}],rpc:call(Node,release_handler,which_releases,[])),
+    ?m(true,lists:prefix(RelNamePrefix,RelName)),
+
+    ?msym(ok, stop_node(Node)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate embedded target system
 
 create_embedded(_Config) ->
@@ -810,11 +876,11 @@ create_standalone(_Config) ->
     ?msym(ok, stop_node(Node)),
     
     %% Execute escript
-    Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
-				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-				  "Smp: false\n",
-				  "ExitCode:0"]),
-    io:format("Expected: ~s\n", [Expected]),
+    Expected =  s2b(["Root dir: ", RootDir, "\n"
+		     "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+		     "Smp: false\n",
+		     "ExitCode:0"]),
+    io:format("Expected: ~ts\n", [Expected]),
     ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
     
     ok.
@@ -857,10 +923,10 @@ create_standalone_beam(Config) ->
     ?msym(ok, stop_node(Node)),
 
     %% Execute escript
-    Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
-				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-				  "ExitCode:0"]),
-    io:format("Expected: ~s\n", [Expected]),
+    Expected =  s2b(["Root dir: ", RootDir, "\n"
+		     "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+		     "ExitCode:0"]),
+    io:format("Expected: ~ts\n", [Expected]),
     ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
 
     ok.
@@ -909,10 +975,10 @@ create_standalone_app(Config) ->
     ?msym(ok, stop_node(Node)),
 
     %% Execute escript
-    Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
-				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-				  "ExitCode:0"]),
-    io:format("Expected: ~s\n", [Expected]),
+    Expected =  s2b(["Root dir: ", RootDir, "\n"
+		     "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+		     "ExitCode:0"]),
+    io:format("Expected: ~ts\n", [Expected]),
     ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
 
     ok.
@@ -995,19 +1061,19 @@ create_multiple_standalone(Config) ->
     ?msym(ok, stop_node(Node)),
 
     %% Execute escript1
-    Expected1 =  iolist_to_binary(["Root dir: ", RootDir, "\n"
-				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-				  "Smp: false\n",
-				  "ExitCode:0"]),
-    io:format("Expected1: ~s\n", [Expected1]),
+    Expected1 =  s2b(["Root dir: ", RootDir, "\n"
+		      "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+		      "Smp: false\n",
+		      "ExitCode:0"]),
+    io:format("Expected1: ~ts\n", [Expected1]),
     ?m(Expected1, run(BinDir, EscriptName1, "-arg1 arg2 arg3")),
 
 
     %% Execute escript2
-    Expected2 =  iolist_to_binary(["Root dir: ", RootDir, "\n"
-				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-				  "ExitCode:0"]),
-    io:format("Expected2: ~s\n", [Expected2]),
+    Expected2 =  s2b(["Root dir: ", RootDir, "\n"
+		      "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+		      "ExitCode:0"]),
+    io:format("Expected2: ~ts\n", [Expected2]),
     ?m(Expected2, run(BinDir, EscriptName2, "-arg1 arg2 arg3")),
 
     ok.
@@ -2420,7 +2486,7 @@ start_node(Name, ErlPath) ->
 start_node(Name, ErlPath, Args0) ->
     FullName = full_node_name(Name),
     Args = mk_node_args(Name, Args0),
-    io:format("Starting node ~p: ~s~n",
+    io:format("Starting node ~p: ~ts~n",
 	      [FullName, lists:flatten([[X," "] || X <- [ErlPath|Args]])]),
     %io:format("open_port({spawn_executable, ~p}, [{args,~p}])~n",[ErlPath,Args]),
     case open_port({spawn_executable, ErlPath}, [{args,Args}]) of
@@ -2513,7 +2579,7 @@ do_run(Dir, Cmd) ->
     Res = get_data(Port, []),
     receive
         {Port,{exit_status,ExitCode}} ->
-            iolist_to_binary([Res,"ExitCode:"++integer_to_list(ExitCode)])
+            s2b([Res,"ExitCode:"++integer_to_list(ExitCode)])
     end.
 
 get_data(Port, SoFar) ->
@@ -2537,3 +2603,9 @@ expected_output([], _) ->
     [];
 expected_output(Bin, _) when is_binary(Bin) -> 
     Bin.
+
+%% Convert the given list to a binary with the same encoding as the
+%% file name translation mode
+s2b(List) ->
+    Enc = file:native_name_encoding(),
+    unicode:characters_to_binary(List,Enc,Enc).
