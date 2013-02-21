@@ -22,11 +22,8 @@
 %%-compile(export_all).
 -export([start/0,
 	 stop/0,
-	 push/1,
-	 pop/1,
 	 curr/1,
 	 clear/0,
-	 delete/1,
 	 active/1,
 	 prev/1,
 	 next/1,
@@ -56,15 +53,6 @@ name_server_loop({Ref, Parent} = Monitor,Vars) ->
 	{From,{current,Variable}} ->
 	    From ! {?MODULE,get_curr(Vars,Variable)},
 	    name_server_loop(Monitor,Vars);
-	{From,{pop,Variable}} ->
-	    From ! {?MODULE,done},
-	    name_server_loop(Monitor,pop_var(Vars,Variable));
-	{From,{push,Variable}} ->
-	    From ! {?MODULE,done},
-	    name_server_loop(Monitor,push_var(Vars,Variable));
-	{From,{delete,Variable}} ->
-	    From ! {?MODULE,done},
-	    name_server_loop(Monitor,delete_var(Vars,Variable));
 	{From,{new,Variable}} ->
 	    From ! {?MODULE,done},
 	    name_server_loop(Monitor,new_var(Vars,Variable));
@@ -94,12 +82,9 @@ req(Req) ->
             exit(name_server_timeout)
     end.
 
-pop(V) ->     req({pop,V}).
-push(V) ->         req({push,V}).
 clear() ->     stop(), start().
 curr(V) ->     req({current,V}).
 new(V) ->      req({new,V}).
-delete(V) ->   req({delete,V}).
 prev(V) ->
     case req({prev,V}) of
 	none ->
@@ -146,26 +131,6 @@ get_digs([H|T]) ->
 	    []
     end.
 
-push_var(Vars,Variable) ->
-    case lists:keysearch(Variable,1,Vars) of
-	false ->
-	    [{Variable,[0]}|Vars];
-	{value,{Variable,[Digit|Drest]}} ->
-	    NewVars = lists:keydelete(Variable,1,Vars),
-	    [{Variable,[Digit,Digit|Drest]}|NewVars]
-    end.
-
-pop_var(Vars,Variable) ->
-    case lists:keysearch(Variable,1,Vars) of
-	false ->
-	    ok;
-	{value,{Variable,[_Dig]}} ->
-	    lists:keydelete(Variable,1,Vars);
-	{value,{Variable,[_Dig|Digits]}} ->
-	    NewVars = lists:keydelete(Variable,1,Vars),
-	    [{Variable,Digits}|NewVars]
-    end.
-    
 get_curr([],Variable) ->
     Variable;
 get_curr([{Variable,[0|_Drest]}|_Tail],Variable) ->
@@ -183,22 +148,6 @@ new_var(Vars,Variable) ->
 	{value,{Variable,[Digit|Drest]}} ->
 	    NewVars = lists:keydelete(Variable,1,Vars),
 	    [{Variable,[Digit+1|Drest]}|NewVars]
-    end.
-
-delete_var(Vars,Variable) ->
-    case lists:keysearch(Variable,1,Vars) of
-	false ->
-	    Vars;
-	{value,{Variable,[N]}} when N =< 1  ->
-	    lists:keydelete(Variable,1,Vars);
-	{value,{Variable,[Digit|Drest]}} ->
-	    case Digit of
-		0 ->
-		    Vars;
-		_ ->
-		    NewVars = lists:keydelete(Variable,1,Vars),
-		    [{Variable,[Digit-1|Drest]}|NewVars]
-	    end
     end.
 
 get_prev(Vars,Variable) ->

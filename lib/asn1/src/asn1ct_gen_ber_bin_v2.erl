@@ -26,7 +26,6 @@
 
 -export([pgen/4]).
 -export([decode_class/1, decode_type/1]).
--export([add_removed_bytes/0]).
 -export([gen_encode/2,gen_encode/3,gen_decode/2,gen_decode/3]).
 -export([gen_encode_prim/4]).
 -export([gen_dec_prim/7]).
@@ -1614,19 +1613,6 @@ decode_type('UniversalString') -> 28;
 decode_type('BMPString') -> 30;
 decode_type('CHOICE') -> 'CHOICE'; % choice gets the tag from the actual alternative  
 decode_type(Else) -> exit({error,{asn1,{unrecognized_type,Else}}}).
-
-add_removed_bytes() ->
-    asn1ct_name:delete(rb),
-    add_removed_bytes(asn1ct_name:all(rb)).
-
-add_removed_bytes([H,T1|T]) ->
-    emit({{var,H},"+"}),
-    add_removed_bytes([T1|T]);
-add_removed_bytes([H|T]) ->
-    emit({{var,H}}),
-    add_removed_bytes(T);
-add_removed_bytes([]) ->
-    true.
 
 mkfuncname(WhatKind,DecOrEnc) ->
     case WhatKind of
