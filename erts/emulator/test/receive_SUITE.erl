@@ -65,15 +65,18 @@ call_with_huge_message_queue(Config) when is_list(Config) ->
 
     ?line [self() ! {msg,N} || N <- lists:seq(1, 500000)],
     erlang:garbage_collect(),
-    ?line {NewTime,ok} = tc(fun() -> calls(10, Pid) end),
-    io:format("Time for empty message queue: ~p", [Time]),
-    io:format("Time for huge message queue: ~p", [NewTime]),
+    ?line {NewTime1,ok} = tc(fun() -> calls(10, Pid) end),
+    ?line {NewTime2,ok} = tc(fun() -> calls(10, Pid) end),
 
-    case (NewTime+1) / (Time+1) of
+    io:format("Time for empty message queue: ~p", [Time]),
+    io:format("Time1 for huge message queue: ~p", [NewTime1]),
+    io:format("Time2 for huge message queue: ~p", [NewTime2]),
+
+    case hd(lists:sort([(NewTime1+1) / (Time+1), (NewTime2+1) / (Time+1)])) of
 	Q when Q < 10 ->
 	    ok;
 	Q ->
-	    io:format("Q = ~p", [Q]),
+	    io:format("Best Q = ~p", [Q]),
 	    ?line ?t:fail()
     end,
     ok.
