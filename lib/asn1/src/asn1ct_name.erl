@@ -93,11 +93,7 @@ prev(V) ->
     end.
 
 next(V) ->
-    case req({next,V}) of
-	none ->
-	    exit('cant get next of none');
-	Rep -> Rep
-    end.
+    req({next,V}).
     
 all(V) ->
     Curr = curr(V),
@@ -131,45 +127,36 @@ get_digs([H|T]) ->
 	    []
     end.
 
-get_curr([],Variable) ->
+get_curr([], Variable) ->
     Variable;
-get_curr([{Variable,[0|_Drest]}|_Tail],Variable) ->
-    Variable;
-get_curr([{Variable,[Digit|_Drest]}|_Tail],Variable) ->
-    list_to_atom(lists:concat([Variable,integer_to_list(Digit)]));
+get_curr([{Variable,Digit}|_Tail], Variable) ->
+    list_to_atom(lists:concat([Variable,Digit]));
+get_curr([_|Tail], Variable) ->
+    get_curr(Tail, Variable).
 
-get_curr([_|Tail],Variable) ->
-    get_curr(Tail,Variable).
-
-new_var(Vars,Variable) ->
-    case lists:keysearch(Variable,1,Vars) of
+new_var(Vars, Variable) ->
+    case lists:keyfind(Variable, 1, Vars) of
 	false ->
-	    [{Variable,[1]}|Vars];
-	{value,{Variable,[Digit|Drest]}} ->
-	    NewVars = lists:keydelete(Variable,1,Vars),
-	    [{Variable,[Digit+1|Drest]}|NewVars]
+	    [{Variable,1}|Vars];
+	{Variable,Digit} ->
+	    NewVars = lists:keydelete(Variable, 1, Vars),
+	    [{Variable,Digit+1}|NewVars]
     end.
 
-get_prev(Vars,Variable) ->
-    case lists:keysearch(Variable,1,Vars) of
+get_prev(Vars, Variable) ->
+    case lists:keyfind(Variable, 1, Vars) of
 	false ->
 	    none;
-	{value,{Variable,[Digit|_]}} when Digit =< 1 ->
+	{Variable,Digit} when Digit =< 1 ->
 	    Variable;
-	{value,{Variable,[Digit|_]}} when Digit > 1 ->
-	    list_to_atom(lists:concat([Variable,
-				       integer_to_list(Digit-1)]));
-	_ ->
-	    none
+	{Variable,Digit} when Digit > 1 ->
+	    list_to_atom(lists:concat([Variable,Digit-1]))
     end.
 
-get_next(Vars,Variable) ->
-    case lists:keysearch(Variable,1,Vars) of
+get_next(Vars, Variable) ->
+    case lists:keyfind(Variable, 1, Vars) of
 	false ->
 	    list_to_atom(lists:concat([Variable,"1"]));
-	{value,{Variable,[Digit|_]}} when Digit >= 0 ->
-	    list_to_atom(lists:concat([Variable,
-				       integer_to_list(Digit+1)]));
-	_ ->
-	    none
+	{Variable,Digit} when Digit >= 0 ->
+	    list_to_atom(lists:concat([Variable,Digit+1]))
     end.
