@@ -105,12 +105,7 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
 
 
 gen_encode_prim(Erules,D,DoTag) ->
-    Value = case asn1ct_name:active(val) of
-		true ->
-		    asn1ct_gen:mk_var(asn1ct_name:curr(val));
-		false ->
-		    "Val"
-	    end,
+    Value = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
     gen_encode_prim(Erules,D,DoTag,Value).
 
 

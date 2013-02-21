@@ -23,7 +23,6 @@
 -export([start/0,
 	 curr/1,
 	 clear/0,
-	 active/1,
 	 prev/1,
 	 next/1,
 	 all/1,
@@ -60,12 +59,6 @@ name_server_loop({Ref, Parent} = Monitor,Vars) ->
 	    name_server_loop(Monitor,Vars);
 	{'DOWN', Ref, process, Parent, Reason} ->
 	    exit(Reason)
-    end.
-
-active(V) ->
-    case curr(V) of
-	nil -> false;
-	_ -> true
     end.
 
 req(Req) ->
