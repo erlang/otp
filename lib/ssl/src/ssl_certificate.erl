@@ -38,7 +38,8 @@
 	 is_valid_key_usage/2,
 	 select_extension/2,
 	 extensions_list/1,
-	 signature_type/1
+	 signature_type/1,
+	 public_key_type/1
 	]).
  
 %%====================================================================
@@ -167,7 +168,7 @@ extensions_list(Extensions) ->
     Extensions.
 
 %%--------------------------------------------------------------------
--spec signature_type(term()) -> rsa | dsa .
+-spec signature_type(term()) -> rsa | dsa | ecdsa.
 %%
 %% Description: 
 %%--------------------------------------------------------------------
@@ -180,7 +181,26 @@ signature_type(RSA) when RSA == ?sha1WithRSAEncryption;
 			 ->
     rsa;
 signature_type(?'id-dsa-with-sha1') ->
-    dsa.
+    dsa;
+signature_type(EC) when EC == ?'ecdsa-with-SHA1';
+			EC == ?'ecdsa-with-SHA2';
+			EC == ?'ecdsa-with-SHA224';
+			EC == ?'ecdsa-with-SHA256';
+			EC == ?'ecdsa-with-SHA384';
+			EC == ?'ecdsa-with-SHA512' ->
+    ecdsa.
+
+%%--------------------------------------------------------------------
+-spec public_key_type(term()) -> rsa | dsa | ec.
+%%
+%% Description:
+%%--------------------------------------------------------------------
+public_key_type(?'rsaEncryption') ->
+    rsa;
+public_key_type(?'id-dsa') ->
+    dsa;
+public_key_type(?'id-ecPublicKey') ->
+    ec.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
