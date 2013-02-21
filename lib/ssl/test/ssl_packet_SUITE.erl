@@ -55,6 +55,13 @@ all() ->
      {group, 'sslv3'}
     ].
 
+groups() ->
+    [{'tlsv1.2', [], packet_tests()},
+     {'tlsv1.1', [], packet_tests()},
+     {'tlsv1', [], packet_tests()},
+     {'sslv3', [], packet_tests()}
+    ].
+
 packet_tests() ->
     active_packet_tests() ++ active_once_packet_tests() ++ passive_packet_tests() ++
 	[packet_send_to_large,
@@ -133,7 +140,6 @@ init_per_suite(Config) ->
     try crypto:start() of
 	ok ->
 	    application:start(public_key),
-	    ssl:start(),
 	    Result =
 		(catch make_certs:all(?config(data_dir, Config),
 				      ?config(priv_dir, Config))),
@@ -184,7 +190,7 @@ packet_raw_passive_many_small() ->
 
 packet_raw_passive_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, raw}",
-    packet(Config, Data, send, passive_recv_packet, ?MANY, raw, false).
+    packet(Config, Data, send, passive_raw, ?MANY, raw, false).
 
 %%--------------------------------------------------------------------
 
@@ -193,14 +199,14 @@ packet_raw_passive_some_big() ->
 
 packet_raw_passive_some_big(Config) when is_list(Config) ->
     Data = lists:append(lists:duplicate(100, "1234567890")),
-    packet(Config, Data, send, passive_recv_packet, ?SOME, raw, false).
+    packet(Config, Data, send, passive_raw, ?SOME, raw, false).
 %%--------------------------------------------------------------------
 packet_0_passive_many_small() ->
     [{doc,"Test packet option {packet, 0} in passive mode."}].
 
 packet_0_passive_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, 0}, equivalent to packet raw.",
-    packet(Config, Data, send, passive_recv_packet, ?MANY, 0, false).
+    packet(Config, Data, send, passive_raw, ?MANY, 0, false).
 
 %%--------------------------------------------------------------------
 packet_0_passive_some_big() ->
@@ -208,7 +214,7 @@ packet_0_passive_some_big() ->
 
 packet_0_passive_some_big(Config) when is_list(Config) ->
     Data = lists:append(lists:duplicate(100, "1234567890")),
-    packet(Config, Data, send, passive_recv_packet, ?SOME, 0, false).
+    packet(Config, Data, send, passive_raw, ?SOME, 0, false).
 
 %%--------------------------------------------------------------------
 packet_1_passive_many_small() ->
@@ -296,7 +302,7 @@ packet_1_active_once_many_small() ->
 
 packet_1_active_once_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, 1}",
-    packet(Config, Data, send_raw, active_once_raw, ?MANY, 1, once).
+    packet(Config, Data, send, active_once_packet, ?MANY, 1, once).
 
 %%--------------------------------------------------------------------
 packet_1_active_once_some_big() ->
@@ -304,7 +310,7 @@ packet_1_active_once_some_big() ->
 
 packet_1_active_once_some_big(Config) when is_list(Config) ->
     Data = lists:append(lists:duplicate(255, "1")),
-    packet(Config, Data, send_raw, active_once_raw, ?SOME, 1, once).
+    packet(Config, Data, send, active_once_packet, ?SOME, 1, once).
 
 
 %%--------------------------------------------------------------------
@@ -313,7 +319,7 @@ packet_2_active_once_many_small() ->
 
 packet_2_active_once_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, 2}",
-    packet(Config, Data, send_raw, active_once_raw, ?MANY, 2, once).
+    packet(Config, Data, send, active_once_packet, ?MANY, 2, once).
 
 %%--------------------------------------------------------------------
 packet_2_active_once_some_big() ->
@@ -321,7 +327,7 @@ packet_2_active_once_some_big() ->
 
 packet_2_active_once_some_big(Config) when is_list(Config) ->
     Data = lists:append(lists:duplicate(100, "1234567890")),
-    packet(Config, Data, send_raw, active_once_raw, ?SOME, 2, once).
+    packet(Config, Data, send, active_once_raw, ?SOME, 2, once).
 
 %%--------------------------------------------------------------------
 packet_4_active_once_many_small() ->
@@ -329,7 +335,7 @@ packet_4_active_once_many_small() ->
 
 packet_4_active_once_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, 4}",
-    packet(Config, Data, send_raw, active_once_raw, ?MANY, 4, once).
+    packet(Config, Data, send, active_once_packet, ?MANY, 4, once).
 
 %%--------------------------------------------------------------------
 packet_4_active_once_some_big() ->
@@ -337,7 +343,7 @@ packet_4_active_once_some_big() ->
 
 packet_4_active_once_some_big(Config) when is_list(Config) ->
     Data = lists:append(lists:duplicate(100, "1234567890")),
-    packet(Config, Data, send_raw, active_once_raw, ?SOME, 4, once).
+    packet(Config, Data, send, active_once_packet, ?SOME, 4, once).
 
 %%--------------------------------------------------------------------
 packet_raw_active_many_small() ->
@@ -345,7 +351,7 @@ packet_raw_active_many_small() ->
 
 packet_raw_active_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, raw}",
-    packet(Config, Data, send_raw, active_raw, ?MANY, raw, active).
+    packet(Config, Data, send_raw, active_raw, ?MANY, raw, true).
 
 %%--------------------------------------------------------------------
 packet_raw_active_some_big() ->
@@ -353,7 +359,7 @@ packet_raw_active_some_big() ->
 
 packet_raw_active_some_big(Config) when is_list(Config) ->
     Data = lists:append(lists:duplicate(100, "1234567890")),
-    packet(Config, Data, send_raw, active_raw, ?SOME, raw, active).
+    packet(Config, Data, send_raw, active_raw, ?SOME, raw, true).
 
 %%--------------------------------------------------------------------
 packet_0_active_many_small() ->
@@ -361,7 +367,7 @@ packet_0_active_many_small() ->
 
 packet_0_active_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, 0}",
-    packet(Config, Data, send_raw, active_raw, ?MANY, 0, active).
+    packet(Config, Data, send_raw, active_raw, ?MANY, 0, true).
 
 %%--------------------------------------------------------------------
 packet_0_active_some_big() ->
@@ -369,7 +375,7 @@ packet_0_active_some_big() ->
 
 packet_0_active_some_big(Config) when is_list(Config) ->
     Data = lists:append(lists:duplicate(100, "1234567890")),
-    packet(Config, Data, send_raw, active_raw, ?SOME, 0, active).
+    packet(Config, Data, send, active_raw, ?SOME, 0, true).
 
 %%--------------------------------------------------------------------
 packet_1_active_many_small() ->
@@ -377,7 +383,7 @@ packet_1_active_many_small() ->
 
 packet_1_active_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, 1}",
-    packet(Config, Data, send_raw, active_raw, ?MANY, 1, active).
+    packet(Config, Data, send, active_packet, ?MANY, 1, true).
 
 %%--------------------------------------------------------------------
 packet_1_active_some_big() ->
@@ -385,7 +391,7 @@ packet_1_active_some_big() ->
 
 packet_1_active_some_big(Config) when is_list(Config) ->
     Data = lists:append(lists:duplicate(255, "1")),
-    packet(Config, Data, send_raw, active_raw, ?SOME, 1, active).
+    packet(Config, Data, send, active_packet, ?SOME, 1, true).
 
 %%--------------------------------------------------------------------
 packet_2_active_many_small() ->
@@ -393,7 +399,7 @@ packet_2_active_many_small() ->
 
 packet_2_active_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, 2}",
-    packet(Config, Data, send_raw, active_raw, ?MANY, 2, active).
+    packet(Config, Data, send, active_packet, ?MANY, 2, true).
 
 %%--------------------------------------------------------------------
 packet_2_active_some_big() ->
@@ -401,7 +407,7 @@ packet_2_active_some_big() ->
 
 packet_2_active_some_big(Config) when is_list(Config) ->
     Data = lists:append(lists:duplicate(100, "1234567890")),
-    packet(Config, Data, send_raw, active_raw, ?SOME, 2, active).
+    packet(Config, Data, send, active_packet, ?SOME, 2, true).
 
 %%--------------------------------------------------------------------
 packet_4_active_many_small() ->
@@ -409,7 +415,7 @@ packet_4_active_many_small() ->
 
 packet_4_active_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, 4}",
-    packet(Config, Data, send_raw, active_raw, ?MANY, 4, active).
+    packet(Config, Data, send, active_packet, ?MANY, 4, true).
 
 %%--------------------------------------------------------------------
 packet_4_active_some_big() ->
@@ -417,7 +423,7 @@ packet_4_active_some_big() ->
 
 packet_4_active_some_big(Config) when is_list(Config) ->
     Data = lists:append(lists:duplicate(100, "1234567890")),
-    packet(Config, Data, send_raw, active_raw, ?SOME, 4, active).
+    packet(Config, Data, send, active_packet, ?SOME, 4, true).
 
 %%--------------------------------------------------------------------
 packet_send_to_large() ->
@@ -1879,7 +1885,7 @@ packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
 					{mfa, {?MODULE, Send ,[Data, Quantity]}},
-					{options, ServerOpts}]),
+					{options, [{packet, Packet} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
