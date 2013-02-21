@@ -416,11 +416,13 @@ hello(Hello = #client_hello{client_version = ClientVersion},
 		     ssl_options = SslOpts}) ->
     case ssl_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 				     ConnectionStates0, Cert}, Renegotiation) of
-        {Version, {Type, Session}, ConnectionStates, ProtocolsToAdvertise} ->
-            do_server_hello(Type, ProtocolsToAdvertise, State#state{connection_states  =
-					      ConnectionStates,
-					      negotiated_version = Version,
-					      session = Session});
+        {Version, {Type, Session}, ConnectionStates, ProtocolsToAdvertise,
+	 EcPointFormats, EllipticCurves} ->
+            do_server_hello(Type, ProtocolsToAdvertise,
+			    EcPointFormats, EllipticCurves,
+			    State#state{connection_states  = ConnectionStates,
+					negotiated_version = Version,
+					session = Session});
         #alert{} = Alert ->
             handle_own_alert(Alert, ClientVersion, hello, State)
     end;
@@ -533,7 +535,9 @@ certify(#certificate{} = Cert,
 certify(#server_key_exchange{} = KeyExchangeMsg, 
         #state{role = client, negotiated_version = Version,
 	       key_algorithm = Alg} = State0) 
-  when Alg == dhe_dss; Alg == dhe_rsa;  Alg == dh_anon;
+  when Alg == dhe_dss; Alg == dhe_rsa;
+       Alg == ecdhe_rsa; Alg == ecdhe_ecdsa;
+       Alg == dh_anon; Alg == ecdh_anon;
        Alg == psk; Alg == dhe_psk; Alg == rsa_psk;
        Alg == srp_dss; Alg == srp_rsa; Alg == srp_anon ->
     case handle_server_key(KeyExchangeMsg, State0) of
@@ -672,6 +676,17 @@ certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPubl
 									  base = G},
 				   diffie_hellman_keys = {_, ServerDhPrivateKey}} = State0) ->
     case dh_master_secret(crypto:mpint(P), crypto:mpint(G), ClientPublicDhKey, ServerDhPrivateKey, State0) of
+	#state{} = State1 ->
+	    {Record, State} = next_record(State1),
+	    next_state(certify, cipher, Record, State);
+	#alert{} = Alert ->
+	    handle_own_alert(Alert, Version, certify, State0)
+    end;
+
+certify_client_key_exchange(#client_ec_diffie_hellman_public{dh_public = ClientPublicEcDhPoint},
+			    #state{negotiated_version = Version,
+				   diffie_hellman_keys = {'ECKey', ECDHKey}} = State0) ->
+    case ec_dh_master_secret(ECDHKey, ClientPublicEcDhPoint, State0) of
 	#state{} = State1 ->
 	    {Record, State} = next_record(State1),
 	    next_state(certify, cipher, Record, State);
@@ -1278,6 +1293,7 @@ init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
 	[PemEntry] = [PemEntry || PemEntry = {PKey, _ , _} <- List,
 				  PKey =:= 'RSAPrivateKey' orelse
 				      PKey =:= 'DSAPrivateKey' orelse
+				      PKey =:= 'ECPrivateKey' orelse
 				      PKey =:= 'PrivateKeyInfo'
 		     ],
 	private_key(public_key:pem_entry_decode(PemEntry, Password))
@@ -1291,6 +1307,8 @@ init_private_key(_,{rsa, PrivateKey}, _, _,_) ->
     init_private_key('RSAPrivateKey', PrivateKey);
 init_private_key(_,{dsa, PrivateKey},_,_,_) ->
     init_private_key('DSAPrivateKey', PrivateKey);
+init_private_key(_,{ec, PrivateKey},_,_,_) ->
+    init_private_key('ECPrivateKey', PrivateKey);
 init_private_key(_,{Asn1Type, PrivateKey},_,_,_) ->
     private_key(init_private_key(Asn1Type, PrivateKey)).
 
@@ -1306,8 +1324,28 @@ private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
 				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa'},
 			     privateKey = Key}) ->
     public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
+
+private_key(#'ECPrivateKey'{privateKey = PrivKey,
+			    parameters = Param,
+			    publicKey = _PubKey}) ->
+    ECCurve = case Param of
+		  #'OTPECParameters'{ fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor } ->
+		      Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType), FieldId#'OTPFieldID'.parameters},
+		      Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
+		      {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
+		  {namedCurve, OID} ->
+		      pubkey_cert_records:namedCurves(OID)
+	      end,
+    Key = {ECCurve, list2int(PrivKey), undefined},
+    {'ECKey', crypto:term_to_ec_key(Key)};
+
 private_key(Key) ->
     Key.
+
+list2int(L) ->
+    S = length(L) * 8,
+    <<R:S/integer>> = erlang:iolist_to_binary(L),
+    R.
 
 -spec(file_error(_,_) -> no_return()).
 file_error(File, Throw) ->
@@ -1357,7 +1395,25 @@ handle_peer_cert(PeerCert, PublicKeyInfo,
     State1 = State0#state{session = 
 			 Session#session{peer_certificate = PeerCert},
 			 public_key_info = PublicKeyInfo},
-    {Record, State} = next_record(State1),
+    State2 = case PublicKeyInfo of
+		 {?'id-ecPublicKey', {'ECPoint', PublicKey}, PublicKeyParams} ->
+		     ECCurve = case PublicKeyParams of
+				   #'OTPECParameters'{ fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor } ->
+				       Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType), FieldId#'OTPFieldID'.parameters},
+				       Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
+				       {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
+				   {namedCurve, OID} ->
+				       pubkey_cert_records:namedCurves(OID)
+			       end,
+		     %% Generate Client ECDH Key
+		     ECClntKey = crypto:ec_key_new(ECCurve),
+		     crypto:ec_key_generate(ECClntKey),
+		     State3 = State1#state{diffie_hellman_keys = {'ECKey', ECClntKey}},
+		     ec_dh_master_secret(ECClntKey, PublicKey, State3);
+
+		 _ -> State1
+	     end,
+    {Record, State} = next_record(State2),
     next_state(certify, certify, Record, State).
 
 certify_client(#state{client_certificate_requested = true, role = client,
@@ -1407,15 +1463,18 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
 verify_client_cert(#state{client_certificate_requested = false} = State) ->
     State.
 
-do_server_hello(Type, NextProtocolsToSend, #state{negotiated_version = Version,
-						  session = #session{session_id = SessId},
-						  connection_states = ConnectionStates0,
-						  renegotiation = {Renegotiation, _}}
+do_server_hello(Type, NextProtocolsToSend,
+		EcPointFormats, EllipticCurves,
+		#state{negotiated_version = Version,
+		       session = #session{session_id = SessId},
+		       connection_states = ConnectionStates0,
+		       renegotiation = {Renegotiation, _}}
 		= State0) when is_atom(Type) ->
 
     ServerHello = 
         ssl_handshake:server_hello(SessId, Version, 
-                                   ConnectionStates0, Renegotiation, NextProtocolsToSend),
+                                   ConnectionStates0, Renegotiation,
+				   NextProtocolsToSend, EcPointFormats, EllipticCurves),
     State = server_hello(ServerHello,
 			 State0#state{expecting_next_protocol_negotiation =
 					  NextProtocolsToSend =/= undefined}),
@@ -1547,7 +1606,7 @@ server_hello_done(#state{transport_cb = Transport,
 		tls_handshake_history = Handshake}.
 
 certify_server(#state{key_algorithm = Algo} = State)
-  when Algo == dh_anon; Algo == psk; Algo == dhe_psk; Algo == srp_anon ->
+  when Algo == dh_anon; Algo == ecdh_anon; Algo == psk; Algo == dhe_psk; Algo == srp_anon  ->
     State;
 
 certify_server(#state{transport_cb = Transport,
@@ -1601,6 +1660,43 @@ key_exchange(#state{role = server, key_algorithm = Algo,
     State#state{connection_states = ConnectionStates,
 		diffie_hellman_keys = Keys,
                 tls_handshake_history = Handshake};
+
+key_exchange(#state{role = server, private_key = Key, key_algorithm = Algo} = State)
+  when Algo == ecdh_ecdsa; Algo == ecdh_rsa ->
+    State#state{diffie_hellman_keys = Key};
+key_exchange(#state{role = server, key_algorithm = Algo,
+		    hashsign_algorithm = HashSignAlgo,
+		    private_key = PrivateKey,
+		    connection_states = ConnectionStates0,
+		    negotiated_version = Version,
+		    tls_handshake_history = Handshake0,
+		    socket = Socket,
+		    transport_cb = Transport
+		   } = State)
+  when Algo == ecdhe_ecdsa; Algo == ecdhe_rsa;
+       Algo == ecdh_anon ->
+    %%TODO: select prefered curve from extension
+
+    %% Generate Server ECDH Key
+    ECDHKey = crypto:ec_key_new(secp256k1),
+    crypto:ec_key_generate(ECDHKey),
+    Keys = {'ECKey', ECDHKey},
+
+    ConnectionState =
+	ssl_record:pending_connection_state(ConnectionStates0, read),
+    SecParams = ConnectionState#connection_state.security_parameters,
+    #security_parameters{client_random = ClientRandom,
+			 server_random = ServerRandom} = SecParams,
+    Msg =  ssl_handshake:key_exchange(server, Version, {ecdh, Keys,
+							HashSignAlgo, ClientRandom,
+							ServerRandom,
+							PrivateKey}),
+    {BinMsg, ConnectionStates, Handshake1} =
+	encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
+    Transport:send(Socket, BinMsg),
+    State#state{connection_states = ConnectionStates,
+		diffie_hellman_keys = Keys,
+		tls_handshake_history = Handshake1};
 
 key_exchange(#state{role = server, key_algorithm = psk,
 		    ssl_options = #ssl_options{psk_identity = undefined}} = State) ->
@@ -1749,6 +1845,23 @@ key_exchange(#state{role = client,
        Algorithm == dhe_rsa;
        Algorithm == dh_anon ->
     Msg =  ssl_handshake:key_exchange(client, Version, {dh, DhPubKey}),
+    {BinMsg, ConnectionStates, Handshake} =
+        encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
+    Transport:send(Socket, BinMsg),
+    State#state{connection_states = ConnectionStates,
+                tls_handshake_history = Handshake};
+
+key_exchange(#state{role = client,
+		    connection_states = ConnectionStates0,
+		    key_algorithm = Algorithm,
+		    negotiated_version = Version,
+		    diffie_hellman_keys = Keys,
+		    socket = Socket, transport_cb = Transport,
+		    tls_handshake_history = Handshake0} = State)
+  when Algorithm == ecdhe_ecdsa; Algorithm == ecdhe_rsa;
+       Algorithm == ecdh_ecdsa; Algorithm == ecdh_rsa;
+       Algorithm == ecdh_anon ->
+    Msg = ssl_handshake:key_exchange(client, Version, {ecdh, Keys}),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
     Transport:send(Socket, BinMsg),
@@ -1936,7 +2049,7 @@ handle_server_key(#server_key_exchange{exchange_keys = Keys},
     Params = ssl_handshake:decode_server_key(Keys, KeyAlg, Version),
     HashSign = connection_hashsign(Params#server_key_params.hashsign, State),
     case HashSign of
-	{_, anon} ->
+	{_, SignAlgo} when SignAlgo == anon; SignAlgo == ecdh_anon ->
 	    server_master_secret(Params#server_key_params.params, State);
 	_ ->
 	    verify_server_key(Params, HashSign, State)
@@ -1968,6 +2081,15 @@ verify_server_key(#server_key_params{params = Params,
 server_master_secret(#server_dh_params{dh_p = P, dh_g = G, dh_y = ServerPublicDhKey},
 		     State) ->
     dh_master_secret(P, G, ServerPublicDhKey, undefined, State);
+
+server_master_secret(#server_ecdh_params{curve = ECCurve, public = ECServerPubKey},
+		     State) ->
+    %% Generate Client ECDH Key
+    ECClntKey = crypto:ec_key_new(ECCurve),
+    crypto:ec_key_generate(ECClntKey),
+    State1 = State#state{diffie_hellman_keys = {'ECKey', ECClntKey}},
+
+    ec_dh_master_secret(ECClntKey, ECServerPubKey, State1);
 
 server_master_secret(#server_psk_params{
 			hint = IdentityHint},
@@ -2011,6 +2133,11 @@ dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey, State) ->
     PremasterSecret =
 	crypto:dh_compute_key(mpint_binary(PublicDhKey), PrivateDhKey,
 			      [PMpint, GMpint]),
+    master_from_premaster_secret(PremasterSecret, State).
+
+ec_dh_master_secret(ECKey, ECPoint, State) ->
+    PremasterSecret =
+	crypto:ecdh_compute_key(ECKey, ECPoint),
     master_from_premaster_secret(PremasterSecret, State).
 
 handle_psk_identity(_PSKIdentity, LookupFun)
@@ -2938,14 +3065,21 @@ default_hashsign(_Version = {Major, Minor}, KeyExchange)
        (KeyExchange == rsa orelse
 	KeyExchange == dhe_rsa orelse
 	KeyExchange == dh_rsa orelse
+	KeyExchange == ecdhe_rsa orelse
 	KeyExchange == srp_rsa) ->
     {sha, rsa};
 default_hashsign(_Version, KeyExchange)
   when KeyExchange == rsa;
        KeyExchange == dhe_rsa;
        KeyExchange == dh_rsa;
+       KeyExchange == ecdhe_rsa;
        KeyExchange == srp_rsa ->
     {md5sha, rsa};
+default_hashsign(_Version, KeyExchange)
+  when KeyExchange == ecdhe_ecdsa;
+       KeyExchange == ecdh_ecdsa;
+       KeyExchange == ecdh_rsa ->
+    {sha, ecdsa};
 default_hashsign(_Version, KeyExchange)
   when KeyExchange == dhe_dss;
        KeyExchange == dh_dss;
@@ -2953,6 +3087,7 @@ default_hashsign(_Version, KeyExchange)
     {sha, dsa};
 default_hashsign(_Version, KeyExchange)
   when KeyExchange == dh_anon;
+       KeyExchange == ecdh_anon;
        KeyExchange == psk;
        KeyExchange == dhe_psk;
        KeyExchange == rsa_psk;
