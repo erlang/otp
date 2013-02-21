@@ -76,13 +76,12 @@ typedef struct {
 typedef struct ErtsThrQElement_t_ ErtsThrQElement_t;
 typedef struct ErtsThrQElement_t ErtsThrQPrepEnQ_t;
 
-typedef union {
-    erts_atomic_t atmc;
-    ErtsThrQElement_t *ptr;
-} ErtsThrQPtr_t;
-
 struct ErtsThrQElement_t_ {
-    ErtsThrQPtr_t next;
+#ifdef USE_THREADS
+    erts_atomic_t next;
+#else
+    ErtsThrQElement_t *next;
+#endif
     union {
 	erts_atomic_t atmc;
 	void *ptr;
@@ -130,7 +129,7 @@ struct ErtsThrQ_t_ {
      * thread dequeuing.
      */
     struct {
-	ErtsThrQPtr_t head;
+	erts_atomic_t head;
 	ErtsThrQLive_t live;
 	ErtsThrQElement_t *first;
 	ErtsThrQElement_t *unref_end;
