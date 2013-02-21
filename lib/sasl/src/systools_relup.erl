@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -494,21 +494,18 @@ get_script_from_appup(Mode, TopApp, BaseVsn, Ws, RUs) ->
 	    throw({error, ?MODULE, {no_relup, FName, TopApp, BaseVsn}})
     end.
 
-appup_search_for_version(BaseVsn, VsnRUs) ->
-    appup_search_for_version(BaseVsn, length(BaseVsn), VsnRUs).
-
-appup_search_for_version(BaseVsn,_,[{BaseVsn,RU}|_]) ->
+appup_search_for_version(BaseVsn,[{BaseVsn,RU}|_]) ->
     {ok,RU};
-appup_search_for_version(BaseVsn,Size,[{Vsn,RU}|VsnRUs]) when is_binary(Vsn) ->
-    case re:run(BaseVsn,Vsn,[unicode,{capture,first,index}]) of
-	{match,[{0,Size}]} ->
+appup_search_for_version(BaseVsn,[{Vsn,RU}|VsnRUs]) when is_binary(Vsn) ->
+    case re:run(BaseVsn,Vsn,[unicode,{capture,first,list}]) of
+	{match,[BaseVsn]} ->
 	    {ok, RU};
 	_ ->
-	    appup_search_for_version(BaseVsn,Size,VsnRUs)
+	    appup_search_for_version(BaseVsn,VsnRUs)
     end;
-appup_search_for_version(BaseVsn,Size,[_|VsnRUs]) ->
-    appup_search_for_version(BaseVsn,Size,VsnRUs);
-appup_search_for_version(_,_,[]) ->
+appup_search_for_version(BaseVsn,[_|VsnRUs]) ->
+    appup_search_for_version(BaseVsn,VsnRUs);
+appup_search_for_version(_,[]) ->
     error.
 
 
@@ -603,14 +600,15 @@ print_error(Other) ->
 format_error({file_problem, {"relup", _Posix}}) ->
     io_lib:format("Could not open file relup~n", []);
 format_error({file_problem, {File, What}}) ->
-    io_lib:format("Could not ~p file ~p~n", [get_reason(What), File]);
+    io_lib:format("Could not ~w file ~ts~n", [get_reason(What), File]);
 format_error({no_relup, File, App, Vsn}) ->
-    io_lib:format("No release upgrade script entry for ~p-~s to ~p-~s "
-		  "in file ~p~n",
+    io_lib:format("No release upgrade script entry for ~w-~ts to ~w-~ts "
+		  "in file ~ts~n",
 		  [App#application.name, App#application.vsn, 
 		   App#application.name, Vsn, File]);
 format_error({missing_sasl,Release}) ->
-    io_lib:format("No sasl application in release ~p, ~p. Can not be upgraded.",
+    io_lib:format("No sasl application in release ~ts, ~ts. "
+		  "Can not be upgraded.",
 		  [Release#release.name, Release#release.vsn]);
 format_error(Error) ->
     io:format("~p~n", [Error]).
@@ -629,16 +627,16 @@ print_warning(W, Opts) ->
 		     "*WARNING* "
 	     end,
     S = format_warning(Prefix, W),
-    io:format("~s", [S]).
+    io:format("~ts", [S]).
 
 format_warning(W) ->
     format_warning("*WARNING* ", W).
 
 format_warning(Prefix, {erts_vsn_changed, {Rel1, Rel2}}) ->
-    io_lib:format("~sThe ERTS version changed between ~p and ~p~n",
+    io_lib:format("~tsThe ERTS version changed between ~p and ~p~n",
 		  [Prefix, Rel1, Rel2]);
 format_warning(Prefix, What) ->
-    io_lib:format("~s~p~n",[Prefix, What]).
+    io_lib:format("~ts~p~n",[Prefix, What]).
 
 
 get_reason({error, {open, _, _}}) -> open;

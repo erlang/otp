@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -624,7 +624,7 @@ get_proc_state(Proc) ->
 
 maybe_supervisor_which_children(suspended, Name, Pid) ->
     error_logger:error_msg("release_handler: a which_children call"
-                           " to ~p (~p) was avoided. This supervisor"
+                           " to ~p (~w) was avoided. This supervisor"
                            " is suspended and should likely be upgraded"
                            " differently. Exiting ...~n", [Name, Pid]),
     error(suspended_supervisor);
@@ -635,7 +635,7 @@ maybe_supervisor_which_children(State, Name, Pid) ->
             Res;
         Other ->
             error_logger:error_msg("release_handler: ~p~nerror during"
-                                   " a which_children call to ~p (~p)."
+                                   " a which_children call to ~p (~w)."
                                    " [State: ~p] Exiting ... ~n",
                                    [Other, Name, Pid, State]),
             error(which_children_failed)
@@ -647,7 +647,7 @@ maybe_get_dynamic_mods(Name, Pid) ->
             Res;
         Other ->
             error_logger:error_msg("release_handler: ~p~nerror during a"
-                                   " get_modules call to ~p (~p),"
+                                   " get_modules call to ~p (~w),"
                                    " there may be an error in it's"
                                    " childspec. Exiting ...~n",
                                    [Other, Name, Pid]),

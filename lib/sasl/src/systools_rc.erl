@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -904,7 +904,7 @@ format_error({bad_op_before_point_of_no_return, Instruction}) ->
     io_lib:format("Bad instruction ~p~nbefore point_of_no_return~n",
 		  [Instruction]);
 format_error({no_object_code, Mod}) ->
-    io_lib:format("No load_object_code found for module: ~p~n", [Mod]);
+    io_lib:format("No load_object_code found for module: ~w~n", [Mod]);
 format_error({suspended_not_resumed, Mods}) ->
     io_lib:format("Suspended but not resumed: ~p~n", [Mods]);
 format_error({resumed_not_suspended, Mods}) ->
@@ -916,19 +916,19 @@ format_error({start_not_stop, Mods}) ->
 format_error({stop_not_start, Mods}) ->
     io_lib:format("Stopped but not started: ~p~n", [Mods]);
 format_error({no_such_application, App}) ->
-    io_lib:format("Started undefined application: ~p~n", [App]);
+    io_lib:format("Started undefined application: ~w~n", [App]);
 format_error({removed_application_present, App}) ->
-    io_lib:format("Removed application present: ~p~n", [App]);
+    io_lib:format("Removed application present: ~w~n", [App]);
 format_error(dup_mnesia_backup) ->
     io_lib:format("Duplicate mnesia_backup~n", []);
 format_error(bad_mnesia_backup) ->
     io_lib:format("mnesia_backup in bad position~n", []);
 format_error({conflicting_versions, Lib, V1, V2}) ->
-    io_lib:format("Conflicting versions for ~p, ~p and ~p~n", [Lib, V1, V2]);
+    io_lib:format("Conflicting versions for ~w, ~ts and ~ts~n", [Lib, V1, V2]);
 format_error({no_appl_vsn, Appl}) ->
-    io_lib:format("No version specified for application: ~p~n", [Appl]);
+    io_lib:format("No version specified for application: ~w~n", [Appl]);
 format_error({no_such_module, Mod}) ->
-    io_lib:format("No such module: ~p~n", [Mod]);
+    io_lib:format("No such module: ~w~n", [Mod]);
 format_error(too_many_point_of_no_return) ->
     io_lib:format("Too many point_of_no_return~n", []);
 
