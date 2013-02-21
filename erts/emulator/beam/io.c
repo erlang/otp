@@ -412,6 +412,7 @@ static Port *create_port(char *name,
 #endif
 	if (enop)
 	    *enop = 0;
+	erts_free(ERTS_ALC_T_PORT, prt);
 	return NULL;
     }
 
