@@ -1248,11 +1248,15 @@ comp_call_pre_post(noext, mandatory, _, _, _, _, _, _) ->
 comp_call_pre_post(noext, Prop, _, _, TextPos, OptTable, NumOptionals, Ext) ->
     %% OPTIONAL or DEFAULT
     OptPos = get_optionality_pos(TextPos, OptTable),
-    Element = io_lib:format("Opt band (1 bsl ~w)",
-			    [NumOptionals - OptPos]),
+    Element = case NumOptionals - OptPos of
+		  0 ->
+		      "Opt band 1";
+		  Shift ->
+		      lists:concat(["(Opt bsr ",Shift,") band 1"])
+	      end,
     {[fun(St) ->
 	      emit(["case ",Element," of",nl,
-		    "  _Opt",TextPos," when _Opt",TextPos," > 0 ->"]),
+		    "1 ->",nl]),
 	      St
       end],
      [fun(St) ->
