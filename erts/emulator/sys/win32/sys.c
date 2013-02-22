@@ -752,8 +752,8 @@ release_driver_data(DriverData* dp)
 
 struct handles_to_be_closed {
     HANDLE handles[MAXIMUM_WAIT_OBJECTS];
+    DriverData *drv_data[MAXIMUM_WAIT_OBJECTS];
     unsigned cnt;
-    DriverData *dp;
 };
 static struct handles_to_be_closed* htbc_curr = NULL;
 CRITICAL_SECTION htbc_lock;
@@ -771,15 +771,18 @@ static void close_active_handle(DriverData *dp, HANDLE handle)
 	htbc = (struct handles_to_be_closed*) erts_alloc(ERTS_ALC_T_DRV_TAB,
 							 sizeof(*htbc));
 	htbc->handles[0] = CreateAutoEvent(FALSE);
+	htbc->drv_data[0] = NULL;
 	htbc->cnt = 1;
-	htbc->dp = dp;
-	refer_driver_data(dp); /* Need to keep driver data until we have
-				  closed the event; outstanding operation
-				  might write into it.. */
 	thread = (HANDLE *) _beginthreadex(NULL, 0, threaded_handle_closer, htbc, 0, &tid);
 	CloseHandle(thread);
     }
-    htbc->handles[htbc->cnt++] = handle;
+    i = htbc->cnt++;
+    htbc->handles[i] = handle;
+    htbc->drv_data[i] = dp;
+    if (dp)
+	refer_driver_data(dp); /* Need to keep driver data until we have
+				  closed the event; outstanding operation
+				  might write into it.. */
     SetEvent(htbc->handles[0]);
     htbc_curr = htbc;
     LeaveCriticalSection(&htbc_lock);
@@ -811,8 +814,13 @@ threaded_handle_closer(LPVOID param)
 	default:
 	    ix = res - WAIT_OBJECT_0;
 	    if (ix > 0 && ix < htbc->cnt) {
+		int move_ix;
 		CloseHandle(htbc->handles[ix]);
-		htbc->handles[ix] = htbc->handles[--htbc->cnt];
+		if (htbc->drv_data[ix])
+		    unrefer_driver_data(htbc->drv_data[ix]);
+		move_ix = --htbc->cnt;
+		htbc->handles[ix] = htbc->handles[move_ix];
+		htbc->drv_data[ix] = htbc->drv_data[move_ix];
 	    }
 	}
 	if (htbc != htbc_curr) {
@@ -828,7 +836,7 @@ threaded_handle_closer(LPVOID param)
     }
     LeaveCriticalSection(&htbc_lock);
     CloseHandle(htbc->handles[0]);
-    unrefer_driver_data(htbc->dp);
+    ASSERT(!htbc->drv_data[0]);
     erts_free(ERTS_ALC_T_DRV_TAB, htbc);
     DEBUGF(("threaded_handle_closer %p terminating\r\n", htbc));
     return 0;
