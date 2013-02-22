@@ -1040,11 +1040,24 @@ char* win32_errorstr(int);
 #define ERL_FILENAME_WARNING_IGNORE (1)
 #define ERL_FILENAME_WARNING_ERROR (2)
 
+/***********************************************************************
+ * The user can request a range of character that he/she consider
+ * printable. Currently this can be either latin1 or unicode, but
+ * in the future a set of ranges, or languages, could be specified.
+ ***********************************************************************/
+#define ERL_PRINTABLE_CHARACTERS_LATIN1 (0)
+#define ERL_PRINTABLE_CHARACTERS_UNICODE (1)
+
 int erts_get_native_filename_encoding(void);
 /* The set function is only to be used by erl_init! */
 void erts_set_user_requested_filename_encoding(int encoding, int warning);
 int erts_get_user_requested_filename_encoding(void);
 int erts_get_filename_warning_type(void);
+/* This function is called from erl_init. The setting is read by BIF's 
+   in io/io_lib. Setting is not atomic. */
+void erts_set_printable_characters(int range);
+/* Get the setting (ERL_PRINTABLE_CHARACTERS_{LATIN1|UNICODE} */
+int erts_get_printable_characters(void);
 
 void erts_init_sys_common_misc(void);
 

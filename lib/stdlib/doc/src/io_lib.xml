@@ -301,7 +301,11 @@
       <fsummary>Test for a list of printable characters</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
-          printable Unicode characters, otherwise it returns <c>false</c>.</p>
+          printable characters, otherwise it returns <c>false</c>.</p>
+	  <p>What is a printable character in this case is determined by the
+	  <c>+pc</c> start up flag to the Erlang VM. See 
+	  <seealso marker="io#printable_range/0">io:printable_range/0</seealso> 
+	  and <seealso marker="erts:erl#erl">erl(1)</seealso>.</p>
       </desc>
     </func>
     <func>
@@ -310,6 +314,14 @@
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
           printable ISO-latin-1 characters, otherwise it returns <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="printable_unicode_list" arity="1"/>
+      <fsummary>Test for a list of printable Unicode characters</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
+          printable Unicode characters, otherwise it returns <c>false</c>.</p>
       </desc>
     </func>
   </funcs>

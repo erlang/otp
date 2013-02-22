@@ -254,7 +254,7 @@ notify(Win,Message) ->
 entry(Parent, Title, Prompt, {Type, Value}) ->
     Ted = wxTextEntryDialog:new(Parent, to_string(Prompt),
 				[{caption, to_string(Title)},
-				 {value, to_string("~999999tp",Value)}]),
+				 {value, to_string("~999999tp",[Value])}]),
 
     case wxDialog:showModal(Ted) of
 	?wxID_OK ->

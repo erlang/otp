@@ -129,7 +129,7 @@ start_restricted(RShMod) when is_atom(RShMod) ->
 	    error_logger:error_report(
 	      lists:flatten(
 		io_lib:fwrite(
-		  "Restricted shell module ~w not found: ~"++cs_p() ++"\n",
+		  "Restricted shell module ~w not found: ~tp\n",
 		  [RShMod,What]))),
 	    Error
     end.
@@ -214,8 +214,7 @@ server(StartSync) ->
             ok;
 	{RShMod2,What2} -> 
             io:fwrite(
-              ("Warning! Restricted shell module ~w not found: ~"
-               ++cs_p()++".\n"
+              ("Warning! Restricted shell module ~w not found: ~tp.\n"
                "Only the commands q() and init:stop() will be allowed!\n"),
               [RShMod2,What2]),
             application:set_env(stdlib, restricted_shell, ?MODULE)
@@ -337,7 +336,7 @@ get_prompt_func() ->
     end.
 
 bad_prompt_func(M) ->
-    fwrite_severity(benign, "Bad prompt function: ~"++cs_p(), [M]).
+    fwrite_severity(benign, "Bad prompt function: ~tp", [M]).
 
 default_prompt(N) ->
     %% Don't bother flattening the list irrespective of what the
@@ -1380,27 +1379,18 @@ pp(V, I, RT, Enc) ->
                              {record_print_fun, record_print_fun(RT)}]
                             ++ Enc)).
 
-%% Control sequence 'p' possibly with Unicode translation modifier
-cs_p() ->
-    case encoding() of
-        latin1 -> "p";
-        unicode -> "tp"
-    end.
-
 columns() ->
     case io:columns() of
         {ok,N} -> N;
         _ -> 80
     end.
-
 encoding() ->
     [{encoding, Encoding}] = enc(),
     Encoding.
-
 enc() ->
     case lists:keyfind(encoding, 1, io:getopts()) of
-        false -> [{encoding,latin1}]; % should never happen
-        Enc -> [Enc]
+	false -> [{encoding,latin1}]; % should never happen
+	Enc -> [Enc]
     end.
 
 garb(Shell) ->
@@ -1424,10 +1414,9 @@ check_env(V) ->
 	{ok, Val} when is_integer(Val), Val >= 0 ->
 	    ok;
         {ok, Val} ->
-            Txt = io_lib:fwrite(
-                    ("Invalid value of STDLIB configuration parameter ~w: ~"
-                     ++cs_p()++"\n"),
-                    [V, Val]),
+            Txt = io_lib:fwrite
+                    ("Invalid value of STDLIB configuration parameter"
+                     "~w: ~tp\n", [V, Val]),
 	    error_logger:info_report(lists:flatten(Txt))
     end.
 	    

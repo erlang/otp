@@ -853,7 +853,7 @@ handle_event(#wx{id=?EVAL_ENTRY, event=#wxCommand{type=command_text_enter}},
 handle_event(#wx{event=#wxList{type=command_list_item_selected, itemIndex=Row}},Wi) ->
     Bs = get(bindings),
     {Var,Val} = lists:nth(Row+1, Bs),
-    Str = io_lib:format("< ~s = ~p~n", [Var, Val]),
+    Str = io_lib:format("< ~s = ~lp~n", [Var, Val]),
     eval_output(Wi, Str, bold),
     ignore;
 handle_event(#wx{event=#wxList{type=command_list_item_activated, itemIndex=Row}},_Wi) ->    

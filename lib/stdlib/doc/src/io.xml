@@ -211,6 +211,18 @@
       </desc>
     </func>
     <func>
+      <name name="printable_range" arity="0"/>
+      <fsummary>Get user requested printable character range</fsummary>
+      <desc>
+	<p>Return the user requested range of printable Unicode characters.</p>
+	<p>The user can request a range of characters that are to be considered printable in heuristic detection of strings by the shell and by the formatting functions. This is done by supplying <c>+pc &lt;range&gt;</c> when starting Erlang.</p>
+	<p>Currently the only valid values for <c>&lt;range&gt;</c> are <c>latin1</c> and <c>unicode</c>. <c>latin1</c> means that only code points below 256 (with the exception of control characters etc) will be considered printable. <c>unicode</c> means that all printable characters in all unicode character ranges are considered printable by the io functions.</p>
+	<p>By default, Erlang is started so that only the <c>latin1</c> range of characters will indicate that a list of integers is a string.</p>
+	<p>The simplest way to utilize the setting is to call <seealso marker="io_lib#printable_list/1">io_lib:printable_list/1</seealso>, which will use the return value of this function to decide if a list is a string of printable characters or not.</p>
+	<note><p>In the future, this function may return more values and ranges. It is recommended to use the io_lib:printable_list/1 function to avoid compatibility problems.</p></note>
+      </desc>
+    </func>
+    <func>
       <name name="setopts" arity="1"/>
       <name name="setopts" arity="2"/>
       <fsummary>Set options</fsummary>

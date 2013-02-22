@@ -72,7 +72,7 @@
 
 -export([quote_atom/2, char_list/1, latin1_char_list/1,
 	 deep_char_list/1, deep_latin1_char_list/1,
-	 printable_list/1, printable_latin1_list/1]).
+	 printable_list/1, printable_latin1_list/1, printable_unicode_list/1]).
 
 %% Utilities for collecting characters.
 -export([collect_chars/3, collect_chars/4,
@@ -533,27 +533,45 @@ printable_latin1_list(_) -> false.			%Everything else is false
 %%  Return true if CharList is a list of printable characters, else
 %%  false. The notion of printable in Unicode terms is somewhat floating.
 %%  Everything that is not a control character and not invalid unicode
-%%  will be considered printable.
+%%  will be considered printable. 
+%%  What the user has noted as printable characters is what actually 
+%%  specifies when this function will return true. If the VM is started
+%%  with +pc latin1, only the latin1 range will be deemed as printable
+%%  if on the other hand +pc unicode is given, all characters in the Unicode
+%%  character set are deemed printable. latin1 is default.
 
 -spec printable_list(Term) -> boolean() when
       Term :: term().
 
-printable_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
-    printable_list(Cs);
-printable_list([C|Cs])
+printable_list(L) ->
+    %% There will be more alternatives returns from io:printable range 
+    %% in the future. To not have a catch-all clause is deliberate.
+    case io:printable_range() of
+	latin1 ->
+	    printable_latin1_list(L);
+	unicode ->
+	    printable_unicode_list(L)
+    end.
+
+-spec printable_unicode_list(Term) -> boolean() when
+      Term :: term().
+
+printable_unicode_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
+    printable_unicode_list(Cs);
+printable_unicode_list([C|Cs])
   when is_integer(C), C >= 16#A0, C < 16#D800;
        is_integer(C), C > 16#DFFF, C < 16#FFFE;
        is_integer(C), C > 16#FFFF, C =< 16#10FFFF ->
-    printable_list(Cs);
-printable_list([$\n|Cs]) -> printable_list(Cs);
-printable_list([$\r|Cs]) -> printable_list(Cs);
-printable_list([$\t|Cs]) -> printable_list(Cs);
-printable_list([$\v|Cs]) -> printable_list(Cs);
-printable_list([$\b|Cs]) -> printable_list(Cs);
-printable_list([$\f|Cs]) -> printable_list(Cs);
-printable_list([$\e|Cs]) -> printable_list(Cs);
-printable_list([]) -> true;
-printable_list(_) -> false.		%Everything else is false
+    printable_unicode_list(Cs);
+printable_unicode_list([$\n|Cs]) -> printable_unicode_list(Cs);
+printable_unicode_list([$\r|Cs]) -> printable_unicode_list(Cs);
+printable_unicode_list([$\t|Cs]) -> printable_unicode_list(Cs);
+printable_unicode_list([$\v|Cs]) -> printable_unicode_list(Cs);
+printable_unicode_list([$\b|Cs]) -> printable_unicode_list(Cs);
+printable_unicode_list([$\f|Cs]) -> printable_unicode_list(Cs);
+printable_unicode_list([$\e|Cs]) -> printable_unicode_list(Cs);
+printable_unicode_list([]) -> true;
+printable_unicode_list(_) -> false.		%Everything else is false
 
 %% List = nl()
 %%  Return a list of characters to generate a newline.

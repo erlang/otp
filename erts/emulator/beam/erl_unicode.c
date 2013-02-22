@@ -2747,3 +2747,11 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen)
     return dp - dest;
 }
 
+BIF_RETTYPE io_printable_range_0(BIF_ALIST_0)
+{
+    if (erts_get_printable_characters() == ERL_PRINTABLE_CHARACTERS_UNICODE) {
+	BIF_RET(am_unicode);
+    } else {
+	BIF_RET(am_latin1);
+    }
+}

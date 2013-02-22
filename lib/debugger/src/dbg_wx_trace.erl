@@ -687,7 +687,7 @@ meta_cmd({trace_output, Str}, State) ->
 
 %% Reply on a user command
 meta_cmd({eval_rsp, Res}, State) ->
-    Str = io_lib:print(Res),
+    Str = io_lib_pretty:print(Res,[{encoding,unicode}]),
     dbg_wx_trace_win:eval_output(State#state.win, [$<,Str,10], normal),
     State.
 

@@ -32,6 +32,8 @@
          parse_erl_exprs/4,parse_erl_form/1,parse_erl_form/2,
          parse_erl_form/3,parse_erl_form/4]).
 -export([request/1,request/2,requests/1,requests/2]).
+%% Implemented in native code
+-export([printable_range/0]).
 
 -export_type([device/0, format/0, server_no_data/0]).
 
@@ -65,6 +67,11 @@ o_request(Io, Request, Func) ->
 	Other ->
 	    Other
     end.
+
+%% Request what the user considers printable characters
+-spec printable_range() -> 'unicode' | 'latin1'.
+printable_range() ->
+    erlang:nif_error(undefined).
 
 %% Put chars takes mixed *unicode* list from R13 onwards.
 -spec put_chars(CharData) -> 'ok' when

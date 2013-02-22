@@ -49,10 +49,15 @@
 static int filename_encoding = ERL_FILENAME_UNKNOWN;
 static int filename_warning = ERL_FILENAME_WARNING_WARNING;
 #if defined(__WIN32__) || defined(__DARWIN__)
-static int user_filename_encoding = ERL_FILENAME_UTF8; /* Default unicode on windows */
+/* Default unicode on windows and MacOS X */
+static int user_filename_encoding = ERL_FILENAME_UTF8; 
 #else
 static int user_filename_encoding = ERL_FILENAME_LATIN1;
 #endif
+/* This controls the heuristic in printing characters in shell and w/ 
+   io:format("~tp", ...) etc. */
+static int printable_character_set = ERL_PRINTABLE_CHARACTERS_LATIN1;
+
 void erts_set_user_requested_filename_encoding(int encoding, int warning)
 {
     user_filename_encoding = encoding;
@@ -67,6 +72,15 @@ int erts_get_user_requested_filename_encoding(void)
 int erts_get_filename_warning_type(void)
 {
     return filename_warning;
+}
+
+void erts_set_printable_characters(int range) {
+    /* Not an atomic */
+    printable_character_set = range;
+}
+
+int erts_get_printable_characters(void) {
+    return  printable_character_set;
 }
 
 void erts_init_sys_common_misc(void)

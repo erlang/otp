@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2742,6 +2742,9 @@ otp_10302(doc) ->
     "OTP-10302. Unicode.";
 otp_10302(suite) -> [];
 otp_10302(Config) when is_list(Config) ->
+    {ok,Node} = start_node(shell_suite_helper_2,
+			   "-pa "++?config(priv_dir,Config)++
+			   " +pc unicode"),
     Test1 =
         <<"begin
                io:setopts([{encoding,utf8}]),
@@ -2749,13 +2752,13 @@ otp_10302(Config) when is_list(Config) ->
                rd(rec, {a = \"\\x{400}\"}),
                ok = rl(rec)
             end.">>,
-    "-record(rec,{a = \"\x{400}\"}).\nok.\n" = t(Test1),
+    "-record(rec,{a = \"\x{400}\"}).\nok.\n" = t({Node,Test1}),
 
     Test3 =
         <<"io:setopts([{encoding,utf8}]).
            rd(rec, {a = \"\\x{400}\"}).
            ok = rp(#rec{}).">>,
-    "ok.\nrec\n#rec{a = \"\x{400}\"}.\nok.\n" = t(Test3),
+    "ok.\nrec\n#rec{a = \"\x{400}\"}.\nok.\n" = t({Node,Test3}),
 
     Test4 =
         <<"io:setopts([{encoding,utf8}]).
@@ -2766,7 +2769,7 @@ otp_10302(Config) when is_list(Config) ->
     "ok.\n\"\x{400}\"\nA = \"\x{400}\".\nok.\n"
     "1: io:setopts([{encoding,utf8}])\n-> ok.\n"
     "2: A = [1024] = \"\x{400}\"\n-> \"\x{400}\"\n"
-    "3: b()\n-> ok.\nok.\n" = t(Test4),
+    "3: b()\n-> ok.\nok.\n" = t({Node,Test4}),
 
     Test5 =
         <<"begin
@@ -2776,18 +2779,20 @@ otp_10302(Config) when is_list(Config) ->
                b(),
                h()
            end.">>,
-    "A = \"\x{400}\".\nok.\n" = t(Test5),
+    "A = \"\x{400}\".\nok.\n" = t({Node,Test5}),
 
     %% One $" is "lost":
     true =
        "\x{400}\": command not found" =:=
-       prompt_err({<<"io:setopts([{encoding,utf8}]). v(\"\x{400}\")."/utf8>>,
+       prompt_err({Node,
+                   <<"io:setopts([{encoding,utf8}]). v(\"\x{400}\")."/utf8>>,
                    unicode}),
 
     "ok.\ndefault\n* Bad prompt function: \"\x{400}\".\n" =
-        t({<<"io:setopts([{encoding,utf8}]). "
+        t({Node,<<"io:setopts([{encoding,utf8}]). "
              "shell:prompt_func(\"\x{400}\")."/utf8>>,
            unicode}),
+    rpc:call(Node,shell, prompt_func, [default]),
     _ = shell:prompt_func(default),
 
     %% Test lib:format_exception() (cf. OTP-6554)
@@ -2812,10 +2817,10 @@ otp_10302(Config) when is_list(Config) ->
            {ok, Es} = erl_parse:parse_exprs(Ts),
            B = erl_eval:new_bindings(),
            erl_eval:exprs(Es, B).">>,
-
+    
     "ok.\n** exception error: an error occurred when evaluating"
         " an arithmetic expression\n     in operator  '/'/2\n"
-        "        called as <<170>> / <<170>>.\n" = t(Test7),
+        "        called as <<\"ª\">> / <<\"ª\">>.\n" = t({Node,Test7}),
     Test8 =
         <<"begin
                A = [1089],
@@ -2839,7 +2844,7 @@ otp_10302(Config) when is_list(Config) ->
 
     "ok.\n** exception error: an error occurred when evaluating"
         " an arithmetic expression\n     in operator  '/'/2\n"
-        "        called as \"\x{441}\" / \"\x{441}\".\n" = t(Test9),
+        "        called as \"\x{441}\" / \"\x{441}\".\n" = t({Node,Test9}),
     Test10 =
         <<"A = {\"1\\xaa\",
            $\\xaa,
@@ -2861,7 +2866,7 @@ otp_10302(Config) when is_list(Config) ->
     "ok.\n** exception error: no function clause matching \n"
     "                    erl_eval:'-inside-an-interpreted-fun-'"
     "({\"1\xaa\",170,<<\"hi\">>,\n                                           "
-    "                 <<\"1\xaa\"/utf8>>}) .\n"  = t(Test11),
+    "                 <<\"1\xaa\"/utf8>>}) .\n"  = t({Node,Test11}),
     Test12 = <<"fun(a, b) -> false end(65, [1089]).">>,
     "** exception error: no function clause matching \n"
     "                    erl_eval:'-inside-an-interpreted-fun-'(65,[1089])"
@@ -2871,8 +2876,9 @@ otp_10302(Config) when is_list(Config) ->
            fun(a, b) -> false end(65, [1089]).">>,
     "ok.\n** exception error: no function clause matching \n"
     "                    erl_eval:'-inside-an-interpreted-fun-'(65,\"\x{441}\")"
-    " .\n" = t(Test13),
+    " .\n" = t({Node,Test13}),
 
+    test_server:stop_node(Node),
     ok.
 
 scan(B) ->
@@ -2895,6 +2901,8 @@ scan(S0, F) ->
             []
     end.
 
+t({Node,Bin,Enc}) when is_atom(Node),is_binary(Bin), is_atom(Enc) ->
+    t0({Bin,Enc}, fun() -> start_new_shell(Node) end);
 t({Node,Bin}) when is_atom(Node),is_binary(Bin) ->
     t0({Bin,latin1}, fun() -> start_new_shell(Node) end);
 t(Bin) when is_binary(Bin) ->

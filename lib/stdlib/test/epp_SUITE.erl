@@ -25,7 +25,7 @@
 	 variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1,
-         otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1]).
+         otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -67,7 +67,7 @@ all() ->
      {group, variable}, otp_4870, otp_4871, otp_5362, pmod,
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8503, otp_8562,
-     otp_8665, otp_8911, otp_10302].
+     otp_8665, otp_8911, otp_10302, otp_10820].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -1359,6 +1359,30 @@ encoding_nocom(Enc, File) ->
     ok = file:close(Fd),
     E = epp:read_encoding(File, Options).
 
+otp_10820(doc) ->
+    "OTP-10820. Unicode filenames.";
+otp_10820(suite) ->
+    [];
+otp_10820(Config) when is_list(Config) ->
+    L = [915,953,959,973,957,953,954,959,957,964],
+    Dir = ?config(priv_dir, Config),
+    File = filename:join(Dir, L++".erl"),
+    C1 = <<"%% coding: utf-8\n -module(any).">>,
+    ok = do_otp_10820(File, C1, "+pc latin1"),
+    ok = do_otp_10820(File, C1, "+pc unicode"),
+    C2 = <<"\n-module(any).">>,
+    ok = do_otp_10820(File, C2, "+pc latin1"),
+    ok = do_otp_10820(File, C2, "+pc unicode").
+
+do_otp_10820(File, C, PC) ->
+    {ok,Node} = start_node(erl_pp_helper, "+fnu " ++ PC),
+    ok = rpc:call(Node, file, write_file, [File, C]),
+    {ok,[{attribute,1,file,{File,1}},
+         {attribute,2,module,any},
+         {eof,2}]} = rpc:call(Node, epp, parse_file, [File, [],[]]),
+    true = test_server:stop_node(Node),
+    ok.
+
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).
 
@@ -1475,3 +1499,8 @@ ln2({error,M}) ->
     {error,ln2(M)};
 ln2(M) ->
     M.
+
+%% +fnu means a peer node has to be started; slave will not do
+start_node(Name, Xargs) ->
+    ?line PA = filename:dirname(code:which(?MODULE)),
+    test_server:start_node(Name, peer, [{args, "-pa " ++ PA ++ " " ++ Xargs}]).

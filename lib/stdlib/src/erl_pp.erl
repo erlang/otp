@@ -42,7 +42,7 @@
                 | {encoding, latin1 | unicode | utf8}).
 -type(options() :: hook_function() | [option()]).
 
--record(pp, {string_fun, char_fun, term_fun}).
+-record(pp, {string_fun, char_fun}).
 
 -record(options, {hook, encoding, opts}).
 
@@ -182,13 +182,11 @@ state(_Hook) ->
 
 state() ->
     #pp{string_fun = fun io_lib:write_string_as_latin1/1,
-        char_fun   = fun io_lib:write_char_as_latin1/1,
-        term_fun   = fun(T) -> io_lib:format("~p", [T]) end}.
+        char_fun   = fun io_lib:write_char_as_latin1/1}.
 
 unicode_state() ->
     #pp{string_fun = fun io_lib:write_string/1,
-        char_fun   = fun io_lib:write_char/1,
-        term_fun   = fun(T) -> io_lib:format("~tp", [T]) end}.
+        char_fun   = fun io_lib:write_char/1}.
 
 encoding(Options) ->
     case proplists:get_value(encoding, Options, epp:default_encoding()) of
@@ -204,10 +202,10 @@ lform({function,Line,Name,Arity,Clauses}, Opts, _State) ->
 lform({rule,Line,Name,Arity,Clauses}, Opts, _State) ->
     lrule({rule,Line,Name,Arity,Clauses}, Opts);
 %% These are specials to make it easier for the compiler.
-lform({error,E}, _Opts, State) ->
-    leaf((State#pp.term_fun)({error,E})++"\n");
-lform({warning,W}, _Opts, State) ->
-    leaf((State#pp.term_fun)({warning,W})++"\n");
+lform({error,E}, _Opts, _State) ->
+    leaf(format("~p\n", [{error,E}]));
+lform({warning,W}, _Opts, _State) ->
+    leaf(format("~p\n", [{warning,W}]));
 lform({eof,_Line}, _Opts, _State) ->
     $\n.
 
@@ -233,7 +231,7 @@ lattribute(import, Name, _Opts, _State) when is_list(Name) ->
 lattribute(import, {From,Falist}, _Opts, _State) ->
     attr("import",[{var,0,pname(From)},falist(Falist)]);
 lattribute(file, {Name,Line}, _Opts, State) ->
-    attr("file", [{var,0,(State#pp.term_fun)(Name)},{integer,0,Line}]);
+    attr("file", [{var,0,(State#pp.string_fun)(Name)},{integer,0,Line}]);
 lattribute(record, {Name,Is}, Opts, _State) ->
     Nl = leaf(format("-record(~w,", [Name])),
     [{first,Nl,record_fields(Is, Opts)},$)];

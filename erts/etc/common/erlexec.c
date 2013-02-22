@@ -912,6 +912,16 @@ int main(int argc, char **argv)
 			  i++;
 		      }
 		      break;
+		  case 'p':
+		      if (argv[i][2] != 'c' || argv[i][3] != '\0')
+			  goto the_default;
+		      if (i+1 >= argc)
+			  usage(argv[i]);
+		      argv[i][0] = '-';
+		      add_Eargs(argv[i]);
+		      add_Eargs(argv[i+1]);
+		      i++;
+		      break;
 		  case 'z':
 		      if (!is_one_of_strings(&argv[i][2], plusz_val_switches)) {
 			  goto the_default;
