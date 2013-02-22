@@ -1159,8 +1159,11 @@ char* buf;			/* Buffer to read into. */
 size_t count;			/* Number of bytes to read. */
 size_t* pBytesRead;		/* Where to return number of bytes read. */
 {
-    if (!ReadFile((HANDLE) fd, buf, count, (DWORD *) pBytesRead, NULL))
+    DWORD nbytes = 0;
+    if (!ReadFile((HANDLE) fd, buf, count, &nbytes, NULL))
 	return set_error(errInfo);
+
+    *pBytesRead = nbytes;
     return 1;
 }
 
