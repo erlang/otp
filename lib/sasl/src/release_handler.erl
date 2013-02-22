@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,8 @@
 %% Internal exports, a client release_handler may call this functions.
 -export([do_write_release/3, do_copy_file/2, do_copy_files/2,
 	 do_copy_files/1, do_rename_files/1, do_remove_files/1,
-	 remove_file/1, do_write_file/2, do_ensure_RELEASES/1]).
+	 remove_file/1, do_write_file/2, do_write_file/3,
+	 do_ensure_RELEASES/1]).
 
 -record(state, {unpurged = [],
 		root,
@@ -254,7 +255,7 @@ check_timeout(_Else) -> false.
 new_emulator_upgrade(Vsn, Opts) ->
     Result = call({install_release, Vsn, reboot, Opts}),
     error_logger:info_msg(
-      "~p:install_release(~p,~p) completed after node restart "
+      "~w:install_release(~p,~p) completed after node restart "
       "with new emulator version~nResult: ~p~n",[?MODULE,Vsn,Opts,Result]),
     Result.
 
@@ -1128,7 +1129,7 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
 	    {ok,[FC]} ->
 		FC;
 	    {error,Error1} ->
-		io:format("Warning: ~p can not read ~p: ~p~n",
+		io:format("Warning: ~w can not read ~p: ~p~n",
 			  [?MODULE,FromFile,Error1]),
 		[]
 	end,
@@ -1138,7 +1139,7 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
 	    {ok,[ToConfig]} ->
 		[lists:keyfind(App,1,ToConfig) || App <- [kernel,stdlib,sasl]];
 	    {error,Error2} ->
-		io:format("Warning: ~p can not read ~p: ~p~n",
+		io:format("Warning: ~w can not read ~p: ~p~n",
 			  [?MODULE,ToFile,Error2]),
 		[false,false,false]
 	end,
@@ -1597,7 +1598,9 @@ remove_file(File) ->
     end.
 
 do_write_file(File, Str) ->
-    case file:open(File, [write]) of
+    do_write_file(File, Str, []).
+do_write_file(File, Str, FileOpts) ->
+    case file:open(File, [write | FileOpts]) of
 	{ok, Fd} ->
 	    io:put_chars(Fd, Str),
 	    file:close(Fd),

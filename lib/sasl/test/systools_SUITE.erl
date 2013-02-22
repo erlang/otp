@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,8 @@
 
 -export([all/0,suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
--export([script_options/1, normal_script/1, no_mod_vsn_script/1,
+-export([script_options/1, normal_script/1, unicode_script/1,
+	 unicode_script/2, no_mod_vsn_script/1,
 	 wildcard_script/1, variable_script/1, no_sasl_script/1,
 	 abnormal_script/1, src_tests_script/1, crazy_script/1,
 	 included_script/1, included_override_script/1,
@@ -75,7 +76,7 @@ all() ->
 
 groups() -> 
     [{script, [],
-      [script_options, normal_script, no_mod_vsn_script,
+      [script_options, normal_script, unicode_script, no_mod_vsn_script,
        wildcard_script, variable_script, abnormal_script,
        no_sasl_script, src_tests_script, crazy_script,
        included_script, included_override_script,
@@ -247,6 +248,62 @@ normal_script(Config) when is_list(Config) ->
 
     ok = file:set_cwd(OldDir),
     code:set_path(PSAVE),			% Restore path
+    ok.
+
+
+%% make_script: Test make_script with unicode .app file
+unicode_script(Config) when is_list(Config) ->
+    UnicodeStr = [945,946], % alhpa beta in greek letters
+
+    {LatestDir, LatestName} = create_script({unicode,UnicodeStr},Config),
+
+    DataDir = filename:absname(?copydir),
+    UnicodeApp = fname([DataDir, "d_unicode", "lib", "ua-1.0"]),
+    TarFile = fname(?privdir, "unicode_app.tgz"),
+    {ok, Tar} = erl_tar:open(TarFile, [write, compressed]),
+    ok = erl_tar:add(Tar, UnicodeApp, "ua-1.0", [compressed]),
+    ok = erl_tar:close(Tar),
+
+    UnicodeLibDir = fname([DataDir, "d_unicode", UnicodeStr]),
+    P1 = fname([UnicodeLibDir, "ua-1.0", "ebin"]),
+
+    %% Need to do this on a separate node to make sure it has unicode
+    %% filename mode (+fnu*)
+    {ok,HostStr} = inet:gethostname(),
+    Host = list_to_atom(HostStr),
+    {ok,Node} = ct_slave:start(Host,unicode_script_node,[{erl_flags,"+fnui"}]),
+
+    ok = rpc:call(Node,erl_tar,extract,
+		  [TarFile, [{cwd,UnicodeLibDir},compressed]]),
+
+    true = rpc:call(Node,code,add_patha,[P1]),
+
+    ok = rpc:call(Node,file,set_cwd,[LatestDir]),
+
+    ok = rpc:call(Node,systools,make_script,[filename:basename(LatestName),
+					     [local]]),
+
+    {ok, Script} = rpc:call(Node,file,consult,[LatestName++".script"]),
+
+    %% For debug purpose - print script to log
+    io:format("~tp~n",[Script]),
+
+    %% check that script contains unicode strings in
+    %% 1. release version (set in ?MODULE:do_create_script)
+    [{script,{"Test release",UnicodeStr},Instr}] = Script,
+
+    %% 2. application description (set in ua.app in data dir)
+    [AppInfo] = [X || {apply,{application,load,[{application,ua,X}]}} <- Instr],
+    {description,UnicodeStr} = lists:keyfind(description,1,AppInfo),
+
+    %% 3. path (directory name where unicode_app.tgz is extracted)
+    true = lists:member({path,[P1]},Instr),
+
+    ok.
+
+unicode_script(cleanup,Config) ->
+    _ = ct_slave:stop(unicode_script_node),
+    file:delete(fname(?privdir, "unicode_app.tgz")),
     ok.
 
 
@@ -2090,15 +2147,20 @@ create_script(current_all_future_erts,Config) ->
     do_create_script(current_all_future_erts,Config,"99.99",Apps);
 create_script(current_all_future_sasl,Config) ->
     Apps = [{kernel,current},{stdlib,current},{sasl,"9.9"},{db,"2.1"},{fe,"3.1"}],
-    do_create_script(current_all_future_sasl,Config,current,Apps).
+    do_create_script(current_all_future_sasl,Config,current,Apps);
+create_script({unicode,RelVsn},Config) ->
+    Apps = core_apps(current) ++ [{ua,"1.0"}],
+    do_create_script(unicode,RelVsn,Config,current,Apps).
 
 
 do_create_script(Id,Config,ErtsVsn,AppVsns) ->
+    do_create_script(Id,string:to_upper(atom_to_list(Id)),Config,ErtsVsn,AppVsns).
+do_create_script(Id,RelVsn,Config,ErtsVsn,AppVsns) ->
     PrivDir = ?privdir,
     Name = fname(PrivDir, Id),
     {ok,Fd} = file:open(Name++".rel",write),
     RelfileContent =
-	{release,{"Test release", string:to_upper(atom_to_list(Id))},
+	{release,{"Test release", RelVsn},
 	 {erts,erts_vsn(ErtsVsn)},
 	 app_vsns(AppVsns)},
     io:format(Fd,"~p.~n",[RelfileContent]),
