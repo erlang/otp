@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -582,11 +582,17 @@ validate_config_params([{server_tokens, {private, Value}} | Rest])
 validate_config_params([{server_tokens, Value} | _]) ->
     throw({server_tokens, Value});
 
-validate_config_params([{socket_type, Value} | Rest]) 
-  when (Value =:= ip_comm) orelse 
-       (Value =:= ssl) orelse 
-       (Value =:= essl) ->
+validate_config_params([{socket_type, ip_comm} | Rest]) ->
     validate_config_params(Rest);
+
+validate_config_params([{socket_type, Value} | Rest]) 
+  when Value == ssl; Value == essl ->
+    validate_config_params(Rest);
+
+validate_config_params([{socket_type, {Value, _}} | Rest])
+  when Value == essl orelse Value == ssl ->
+    validate_config_params(Rest);
+
 validate_config_params([{socket_type, Value} | _]) ->
     throw({socket_type, Value});
 
@@ -916,6 +922,8 @@ lookup_socket_type(ConfigDB) ->
     case httpd_util:lookup(ConfigDB, socket_type, ip_comm) of
 	ip_comm ->
 	    ip_comm;
+	{Tag, Conf} ->
+	    {Tag, Conf};
 	SSL when (SSL =:= ssl) orelse (SSL =:= essl) ->
 	    SSLTag = 
 		if

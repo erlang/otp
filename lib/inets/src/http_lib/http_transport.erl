@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 -export([
 	 start/1, 
 	 connect/3, connect/4, 
-	 listen/2, listen/3, listen/4, 
+	 listen/4, listen/5,
 	 accept/2, accept/3, 
 	 close/2,
 	 send/3, 
@@ -155,41 +155,41 @@ connect({essl, SslConfig}, {Host, Port}, Opts0, Timeout) ->
 %% reason for this to enable a HTTP-server not running as root to use
 %% port 80.
 %%-------------------------------------------------------------------------
-listen(SocketType, Port) ->
-    listen(SocketType, undefined, Port).
+listen(ip_comm = _SocketType, Addr, Port, Fd, IpFamily) ->
+    listen_ip_comm(Addr, Port, Fd, IpFamily);
+  
+listen({essl, SSLConfig}, Addr, Port, Fd, IpFamily) ->
+    listen_ssl(Addr, Port, Fd, SSLConfig, IpFamily).
 
-listen(ip_comm = _SocketType, Addr, Port) ->
-    listen_ip_comm(Addr, Port, undefined);
+listen(ip_comm = _SocketType, Addr, Port, IpFamily) ->
+    listen_ip_comm(Addr, Port, undefined, IpFamily);
 
 %% Wrapper for backaward compatibillity
-listen({ssl, SSLConfig}, Addr, Port) ->
+listen({ssl, SSLConfig}, Addr, Port, IpFamily) ->
     ?hlrt("listen (wrapper)", 
 	  [{addr,       Addr}, 
 	   {port,       Port}, 
 	   {ssl_config, SSLConfig}]),
-    listen({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Addr, Port);
+    listen({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Addr, Port, IpFamily);
 
-listen({essl, SSLConfig}, Addr, Port) ->
+
+listen({essl, SSLConfig}, Addr, Port, IpFamily) ->
     ?hlrt("listen (essl)", 
 	  [{addr,       Addr}, 
 	   {port,       Port}, 
 	   {ssl_config, SSLConfig}]),
-    listen_ssl(Addr, Port, [{ssl_imp, new}, {reuseaddr, true} | SSLConfig]).
+    listen_ssl(Addr, Port, undefined, SSLConfig, IpFamily).
 
-
-listen(ip_comm, Addr, Port, Fd) ->
-    listen_ip_comm(Addr, Port, Fd).
-
-listen_ip_comm(Addr, Port, Fd) ->
-    case (catch do_listen_ip_comm(Addr, Port, Fd)) of
+listen_ip_comm(Addr, Port, Fd, IpFamily) ->
+    case (catch do_listen_ip_comm(Addr, Port, Fd, IpFamily)) of
 	{'EXIT', Reason} ->
 	    {error, {exit, Reason}};
 	Else ->
 	    Else
     end.
 
-do_listen_ip_comm(Addr, Port, Fd) ->
-    {NewPort, Opts, IpFamily} = get_socket_info(Addr, Port, Fd),
+do_listen_ip_comm(Addr, Port, Fd, IpFamily) ->
+    {NewPort, Opts} = get_socket_info(Addr, Port, Fd),
     case IpFamily of
 	inet6fb4 -> 
 	    Opts2 = [inet6 | Opts], 
@@ -222,10 +222,9 @@ do_listen_ip_comm(Addr, Port, Fd) ->
     end.
 
 
-listen_ssl(Addr, Port, Opts0) ->
-    IpFamily = ipfamily_default(Addr, Port), 
-    BaseOpts = [{backlog, 128}, {reuseaddr, true} | Opts0], 
-    Opts     = sock_opts(Addr, BaseOpts),
+listen_ssl(Addr, Port, Fd, Opts0, IpFamily) ->
+    {NewPort, SockOpt} = get_socket_info(Addr, Port, Fd),
+    Opts = SockOpt ++ Opts0,
     case IpFamily of
 	inet6fb4 -> 
 	    Opts2 = [inet6 | Opts], 
@@ -236,13 +235,13 @@ listen_ssl(Addr, Port, Opts0) ->
 		    Opts3 = [inet | Opts], 
 		    ?hlrt("ipv6 listen failed - try ipv4 instead", 
 			  [{reason, Reason}, {opts, Opts3}]),
-		    ssl:listen(Port, Opts3);
+		    ssl:listen(NewPort, Opts3);
 		
 		{'EXIT', Reason} -> 
 		    Opts3 = [inet | Opts], 
 		    ?hlrt("ipv6 listen exit - try ipv4 instead", 
 			  [{reason, Reason}, {opts, Opts3}]),
-		    ssl:listen(Port, Opts3); 
+		    ssl:listen(NewPort, Opts3); 
 		
 		Other ->
 		    ?hlrt("ipv6 listen done", [{other, Other}]),
@@ -252,61 +251,21 @@ listen_ssl(Addr, Port, Opts0) ->
 	_ ->
 	    Opts2 = [IpFamily | Opts],
 	    ?hlrt("listen", [{opts, Opts2}]),
-	    ssl:listen(Port, Opts2)
+	    ssl:listen(NewPort, Opts2)
     end.
 
 
-ipfamily_default(Addr, Port) ->
-    httpd_conf:lookup(Addr, Port, ipfamily, inet6fb4).
 
-get_socket_info(Addr, Port, Fd0) ->
+get_socket_info(Addr, Port, Fd) ->
     BaseOpts        = [{backlog, 128}, {reuseaddr, true}], 
-    IpFamilyDefault = ipfamily_default(Addr, Port), 
     %% The presence of a file descriptor takes precedence
-    case get_fd(Port, Fd0, IpFamilyDefault) of
-	{Fd, IpFamily} -> 
-	    {0, sock_opts(Addr, [{fd, Fd} | BaseOpts]), IpFamily};
+    case Fd of
 	undefined ->
-	    {Port, sock_opts(Addr, BaseOpts), IpFamilyDefault}
+	    {Port, sock_opts(Addr, BaseOpts)};
+	Fd -> 
+	    {0, sock_opts(Addr, [{fd, Fd} | BaseOpts])}
     end.
 	    
-get_fd(Port, undefined = _Fd, IpFamilyDefault) ->
-    FdKey = list_to_atom("httpd_" ++ integer_to_list(Port)),
-    case init:get_argument(FdKey) of
-	{ok, [[Value]]} ->
-	    case string:tokens(Value, [$|]) of
-		[FdStr, IpFamilyStr] ->
-		    {fd_of(FdStr), ip_family_of(IpFamilyStr)};
-		[FdStr] ->
-		    {fd_of(FdStr), IpFamilyDefault};
-		_ ->
-		    throw({error, {bad_descriptor, Value}})
-	    end;
-	error ->
-	    undefined
-    end;
-get_fd(_Port, Fd, IpFamilyDefault) ->
-    {Fd, IpFamilyDefault}.
-
-    
-fd_of(FdStr) ->
-    case (catch list_to_integer(FdStr)) of
-	Fd when is_integer(Fd) ->
-	    Fd;
-	_ ->
-	    throw({error, {bad_descriptor, FdStr}})
-    end.
-
-ip_family_of(IpFamilyStr) ->
-    IpFamily = list_to_atom(IpFamilyStr),
-    case lists:member(IpFamily, [inet, inet6, inet6fb4]) of
-	true ->
-	    IpFamily;
-	false ->
-	    throw({error, {bad_ipfamily, IpFamilyStr}})
-    end.
-
-
 %%-------------------------------------------------------------------------
 %% accept(SocketType, ListenSocket) -> {ok, Socket} | {error, Reason}
 %% accept(SocketType, ListenSocket, Timeout) -> ok | {error, Reason}

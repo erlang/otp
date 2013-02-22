@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,6 @@
 %%-------------------------------------------------------------------------
 alias(Type, Port, Host, Node) ->
     %% This is very crude, but...
-    tsp("alias -> Has IPv6 support: ~p", [inets_test_lib:has_ipv6_support()]),
     Opts = [], 
     ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET /pics/icon.sheet.gif "
@@ -85,16 +84,7 @@ actions(Type, Port, Host, Node) ->
 
 %%-------------------------------------------------------------------------
 security(ServerRoot, Type, Port, Host, Node) ->
-    tsp("security -> "
-	"entry with"
-	"~n   ServerRoot: ~p"
-	"~n   Type:       ~p"
-	"~n   Port:       ~p"
-	"~n   Host:       ~p"
-	"~n   Node:       ~p", [ServerRoot, Type, Port, Host, Node]),
-
-    tsp("security -> "
-	"register - receive security events"),
+   
     global:register_name(mod_security_test, self()),   % Receive events
 
     tsp("security -> "
@@ -333,13 +323,7 @@ security(ServerRoot, Type, Port, Host, Node) ->
 
 %%-------------------------------------------------------------------------
 auth(Type, Port, Host, Node) ->
-    tsp("auth -> "
-	"entry with"
-	"~n   Type:       ~p"
-	"~n   Port:       ~p"
-	"~n   Host:       ~p"
-	"~n   Node:       ~p", [Type, Port, Host, Node]),
-
+ 
     %% Authentication required!
     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
 				       "GET /open/ HTTP/1.0\r\n\r\n",
@@ -750,11 +734,6 @@ htaccess(Type, Port, Host, Node) ->
 					{header, "WWW-Authenticate"}]).
 %%--------------------------------------------------------------------
 cgi(Type, Port, Host, Node) ->
-%%     tsp("cgi -> entry with"
-%% 	"~n   Type: ~p"
-%% 	"~n   Port: ~p"
-%% 	"~n   Host: ~p"
-%% 	"~n   Node: ~p", []),
     {Script, Script2, Script3} =
 	case test_server:os_type() of
 	    {win32, _} ->

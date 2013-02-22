@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,10 +24,10 @@
 -include("inets_internal.hrl").
 
 %% Internal application API
--export([start_link/5, start_link/6]).
+-export([start_link/6, start_link/7]).
 
 %% Other exports (for spawn's etc.)
--export([acceptor_init/6, acceptor_init/7, acceptor_loop/5]).
+-export([acceptor_init/7, acceptor_init/8, acceptor_loop/6]).
 
 %%
 %% External API
@@ -35,27 +35,27 @@
 
 %% start_link
 
-start_link(Manager, SocketType, Addr, Port, ConfigDb, AcceptTimeout) ->
+start_link(Manager, SocketType, Addr, Port, IpFamily, ConfigDb, AcceptTimeout) ->
     ?hdrd("start link", 
 	  [{manager, Manager}, 
 	   {socket_type, SocketType}, 
 	   {address, Addr}, 
 	   {port, Port}, 
 	   {timeout, AcceptTimeout}]),
-    Args = [self(), Manager, SocketType, Addr, Port, ConfigDb, AcceptTimeout],
+    Args = [self(), Manager, SocketType, Addr, Port, IpFamily, ConfigDb, AcceptTimeout],
     proc_lib:start_link(?MODULE, acceptor_init, Args).
 
-start_link(Manager, SocketType, ListenSocket, ConfigDb, AcceptTimeout) ->
+start_link(Manager, SocketType, ListenSocket, IpFamily, ConfigDb, AcceptTimeout) ->
     ?hdrd("start link", 
 	  [{manager, Manager}, 
 	   {socket_type, SocketType}, 
 	   {listen_socket, ListenSocket}, 
 	   {timeout, AcceptTimeout}]),
-    Args = [self(), Manager, SocketType, ListenSocket, 
+    Args = [self(), Manager, SocketType, ListenSocket, IpFamily, 
 	    ConfigDb, AcceptTimeout],
     proc_lib:start_link(?MODULE, acceptor_init, Args).
 
-acceptor_init(Parent, Manager, SocketType, {ListenOwner, ListenSocket}, 
+acceptor_init(Parent, Manager, SocketType, {ListenOwner, ListenSocket}, IpFamily,
 	      ConfigDb, AcceptTimeout) ->
     ?hdrd("acceptor init", 
 	  [{parent, Parent}, 
@@ -66,9 +66,9 @@ acceptor_init(Parent, Manager, SocketType, {ListenOwner, ListenSocket},
 	   {timeout, AcceptTimeout}]),
     link(ListenOwner),
     proc_lib:init_ack(Parent, {ok, self()}),
-    acceptor_loop(Manager, SocketType, ListenSocket, ConfigDb, AcceptTimeout).
+    acceptor_loop(Manager, SocketType, ListenSocket, IpFamily, ConfigDb, AcceptTimeout).
 
-acceptor_init(Parent, Manager, SocketType, Addr, Port, 
+acceptor_init(Parent, Manager, SocketType, Addr, Port, IpFamily, 
 	      ConfigDb, AcceptTimeout) ->
     ?hdrd("acceptor init", 
 	  [{parent, Parent}, 
@@ -77,20 +77,20 @@ acceptor_init(Parent, Manager, SocketType, Addr, Port,
 	   {address, Addr}, 
 	   {port, Port}, 
 	   {timeout, AcceptTimeout}]),
-    case (catch do_init(SocketType, Addr, Port)) of
+    case (catch do_init(SocketType, Addr, Port, IpFamily)) of
 	{ok, ListenSocket} ->
 	    proc_lib:init_ack(Parent, {ok, self()}),
 	    acceptor_loop(Manager, SocketType, 
-			  ListenSocket, ConfigDb, AcceptTimeout);
+			  ListenSocket, IpFamily,ConfigDb, AcceptTimeout);
 	Error ->
 	    proc_lib:init_ack(Parent, Error),
 	    error
     end.
    
-do_init(SocketType, Addr, Port) ->
+do_init(SocketType, Addr, Port, IpFamily) ->
     ?hdrt("do init", []),
     do_socket_start(SocketType),
-    ListenSocket = do_socket_listen(SocketType, Addr, Port),
+    ListenSocket = do_socket_listen(SocketType, Addr, Port, IpFamily),
     {ok, ListenSocket}.
 
 
@@ -105,9 +105,9 @@ do_socket_start(SocketType) ->
     end.
 
 
-do_socket_listen(SocketType, Addr, Port) ->
+do_socket_listen(SocketType, Addr, Port, IpFamily) ->
     ?hdrt("do socket listen", []),
-    case http_transport:listen(SocketType, Addr, Port) of
+    case http_transport:listen(SocketType, Addr, Port, IpFamily) of
 	{ok, ListenSocket} ->
 	    ListenSocket;
 	{error, Reason} ->
@@ -121,7 +121,7 @@ do_socket_listen(SocketType, Addr, Port) ->
 
 %% acceptor 
 
-acceptor_loop(Manager, SocketType, ListenSocket, ConfigDb, AcceptTimeout) ->
+acceptor_loop(Manager, SocketType, ListenSocket, IpFamily, ConfigDb, AcceptTimeout) ->
     ?hdrd("awaiting accept", 
 	  [{manager, Manager}, 
 	   {socket_type, SocketType}, 
@@ -133,12 +133,12 @@ acceptor_loop(Manager, SocketType, ListenSocket, ConfigDb, AcceptTimeout) ->
 	    handle_connection(Manager, ConfigDb, AcceptTimeout, 
 			      SocketType, Socket),
 	    ?MODULE:acceptor_loop(Manager, SocketType, 
-				  ListenSocket, ConfigDb,AcceptTimeout);
+				  ListenSocket, IpFamily, ConfigDb,AcceptTimeout);
 	{error, Reason} ->
 	    ?hdri("accept failed", [{reason, Reason}]),
 	    handle_error(Reason, ConfigDb),
 	    ?MODULE:acceptor_loop(Manager, SocketType, ListenSocket, 
-				  ConfigDb, AcceptTimeout);
+				  IpFamily, ConfigDb, AcceptTimeout);
 	{'EXIT', Reason} ->
 	    ?hdri("accept exited", [{reason, Reason}]),
 	    ReasonString = 

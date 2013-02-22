@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -257,7 +257,7 @@ handle_call(#request{address = Addr} = Request, _,
                    session = #session{type = pipeline} = Session,
                    timers  = Timers,
                    options = #options{proxy = Proxy} = _Options, 
-                   profile_name = ProfileName} = State) 
+                   profile_name = ProfileName} = State0)
   when Status =/= undefined ->
 
     ?hcrv("new request on a pipeline session", 
@@ -274,18 +274,18 @@ handle_call(#request{address = Addr} = Request, _,
             ?hcrd("request sent", []),
 
             %% Activate the request time out for the new request
-            NewState = 
-                activate_request_timeout(State#state{request = Request}),
+            State1 =
+                activate_request_timeout(State0#state{request = Request}),
 
             ClientClose = 
                 httpc_request:is_client_closing(Request#request.headers),
 
-            case State#state.request of
-                #request{} -> %% Old request not yet finished
+            case State0#state.request of
+                #request{} = OldRequest -> %% Old request not yet finished
                     ?hcrd("old request still not finished", []),
                     %% Make sure to use the new value of timers in state
-                    NewTimers   = NewState#state.timers,
-                    NewPipeline = queue:in(Request, State#state.pipeline),
+                    NewTimers = State1#state.timers,
+                    NewPipeline = queue:in(Request, State1#state.pipeline),
                     NewSession  = 
                         Session#session{queue_length = 
                                         %% Queue + current
@@ -293,9 +293,11 @@ handle_call(#request{address = Addr} = Request, _,
                                         client_close = ClientClose},
                     insert_session(NewSession, ProfileName),
                     ?hcrd("session updated", []),
-                    {reply, ok, State#state{pipeline = NewPipeline,
-                                            session  = NewSession,
-                                            timers   = NewTimers}};
+                    {reply, ok, State1#state{
+				  request = OldRequest,
+				  pipeline = NewPipeline,
+				  session  = NewSession,
+				  timers   = NewTimers}};
                 undefined ->
                     %% Note: tcp-message receiving has already been
                     %% activated by handle_pipeline/2. 
@@ -306,20 +308,15 @@ handle_call(#request{address = Addr} = Request, _,
                         Session#session{queue_length = 1,
                                         client_close = ClientClose},
                     httpc_manager:insert_session(NewSession, ProfileName),
-                    Relaxed = 
-                        (Request#request.settings)#http_options.relaxed, 
-                    MFA = {httpc_response, parse, 
-                           [State#state.max_header_size, Relaxed]}, 
                     NewTimers = Timers#timers{queue_timer = undefined}, 
                     ?hcrd("session created", []),
-                    {reply, ok, NewState#state{request = Request,
-                                               session = NewSession,
-                                               mfa     = MFA,
-                                               timers  = NewTimers}}
+		    State = init_wait_for_response_state(Request, State1#state{session = NewSession,
+								      timers = NewTimers}),
+                    {reply, ok, State}
             end;
         {error, Reason} ->
             ?hcri("failed sending request", [{reason, Reason}]),
-            {reply, {pipeline_failed, Reason}, State}
+            {reply, {pipeline_failed, Reason}, State0}
     end;
 
 handle_call(#request{address = Addr} = Request, _, 
@@ -327,7 +324,7 @@ handle_call(#request{address = Addr} = Request, _,
                    session = #session{type = keep_alive} = Session,
                    timers  = Timers,
                    options = #options{proxy = Proxy} = _Options,
-                   profile_name = ProfileName} = State) 
+                   profile_name = ProfileName} = State0)
   when Status =/= undefined ->
     
     ?hcrv("new request on a keep-alive session", 
@@ -335,64 +332,53 @@ handle_call(#request{address = Addr} = Request, _,
            {profile, ProfileName}, 
            {status,  Status}]),
 
-    Address = handle_proxy(Addr, Proxy),
-    case httpc_request:send(Address, Session, Request) of
-        ok ->
+    ClientClose = httpc_request:is_client_closing(Request#request.headers),
 
-            ?hcrd("request sent", []),
+    case State0#state.request of
+	#request{} -> %% Old request not yet finished
+	    %% Make sure to use the new value of timers in state
+	    ?hcrd("old request still not finished", []),
+	    NewKeepAlive = queue:in(Request, State0#state.keep_alive),
+	    NewSession   =
+		Session#session{queue_length =
+				    %% Queue + current
+				    queue:len(NewKeepAlive) + 1,
+				client_close = ClientClose},
+	    insert_session(NewSession, ProfileName),
+	    ?hcrd("session updated", []),
+	    {reply, ok, State0#state{keep_alive = NewKeepAlive,
+				    session    = NewSession}};
+	undefined ->
+	    %% Note: tcp-message reciving has already been
+	    %% activated by handle_pipeline/2.
+	    ?hcrd("no current request", []),
+	    cancel_timer(Timers#timers.queue_timer,
+			 timeout_queue),
+	    Address = handle_proxy(Addr, Proxy),
+	    case httpc_request:send(Address, Session, Request) of
+		ok ->
+		    ?hcrd("request sent", []),
 
-            %% Activate the request time out for the new request
-            NewState = 
-                activate_request_timeout(State#state{request = Request}),
-
-            ClientClose = 
-                httpc_request:is_client_closing(Request#request.headers),
-
-            case State#state.request of
-                #request{} -> %% Old request not yet finished
-                    %% Make sure to use the new value of timers in state
-                    ?hcrd("old request still not finished", []),
-                    NewTimers    = NewState#state.timers,
-                    NewKeepAlive = queue:in(Request, State#state.keep_alive),
-                    NewSession   = 
-                        Session#session{queue_length = 
-                                        %% Queue + current
-                                        queue:len(NewKeepAlive) + 1,
-                                        client_close = ClientClose},
-                    insert_session(NewSession, ProfileName),
-                    ?hcrd("session updated", []),
-                    {reply, ok, State#state{keep_alive = NewKeepAlive,
-                                            session    = NewSession,
-                                            timers     = NewTimers}};
-                undefined ->
-                    %% Note: tcp-message reciving has already been
-                    %% activated by handle_pipeline/2. 
-                    ?hcrd("no current request", []),
-                    cancel_timer(Timers#timers.queue_timer, 
-                                 timeout_queue),
-                    NewSession = 
-                        Session#session{queue_length = 1,
-                                        client_close = ClientClose},
-                    insert_session(NewSession, ProfileName),
-                    Relaxed = 
-                        (Request#request.settings)#http_options.relaxed,
-                    MFA = {httpc_response, parse,
-                           [State#state.max_header_size, Relaxed]}, 
-                    {reply, ok, NewState#state{request = Request,
-                                               session = NewSession, 
-                                               mfa     = MFA}}
-            end;
-
-        {error, Reason} ->
-            ?hcri("failed sending request", [{reason, Reason}]),
-            {reply, {request_failed, Reason}, State}
+		    %% Activate the request time out for the new request
+		    State1 =
+			activate_request_timeout(State0#state{request = Request}),
+		    NewTimers = State1#state.timers,
+		    NewSession =
+			Session#session{queue_length = 1,
+					client_close = ClientClose},
+		    insert_session(NewSession, ProfileName),
+		    State = init_wait_for_response_state(Request, State1#state{session = NewSession,
+								      timers = NewTimers}),
+		    {reply, ok, State};
+		{error, Reason} ->
+		    ?hcri("failed sending request", [{reason, Reason}]),
+		    {reply, {request_failed, Reason}, State0}
+	    end
     end;
-
 
 handle_call(info, _, State) ->
     Info = handler_info(State), 
     {reply, Info, State}.
-
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -1239,8 +1225,7 @@ handle_queue(#state{status = pipeline} = State, Data) ->
 handle_pipeline(#state{status       = pipeline, 
 		       session      = Session,
 		       profile_name = ProfileName,
-		       options      = #options{pipeline_timeout = TimeOut}} = 
-		State, 
+		       options      = #options{pipeline_timeout = TimeOut}} = State,
 		Data) ->
 
     ?hcrd("handle pipeline", [{profile, ProfileName}, 
@@ -1250,25 +1235,7 @@ handle_pipeline(#state{status       = pipeline,
     case queue:out(State#state.pipeline) of
 	{empty, _} ->
 	    ?hcrd("pipeline queue empty", []),
-	    
-	    %% The server may choose too teminate an idle pipeline
-	    %% in this case we want to receive the close message
-	    %% at once and not when trying to pipeline the next
-	    %% request.
-	    activate_once(Session), 
-
-	    %% If a pipeline that has been idle for some time is not
-	    %% closed by the server, the client may want to close it.
-	    NewState = activate_queue_timeout(TimeOut, State),
-	    update_session(ProfileName, Session, #session.queue_length, 0), 
-	    %% Note mfa will be initilized when a new request 
-	    %% arrives.
-	    {noreply, 
-	     NewState#state{request     = undefined, 
-			    mfa         = undefined,
-			    status_line = undefined,
-			    headers     = undefined,
-			    body        = undefined}};
+	    handle_empty_queue(Session, ProfileName, TimeOut, State);
 	{{value, NextRequest}, Pipeline} ->    
 	    ?hcrd("pipeline queue non-empty", []),
 	    case lists:member(NextRequest#request.id, 
@@ -1286,38 +1253,17 @@ handle_pipeline(#state{status       = pipeline,
 			Session#session{queue_length =
 					%% Queue + current
 					queue:len(Pipeline) + 1},
-		    insert_session(NewSession, ProfileName),
-		    Relaxed = 
-			(NextRequest#request.settings)#http_options.relaxed,
-		    MFA = {httpc_response, 
-			   parse,
-			   [State#state.max_header_size, Relaxed]}, 
-		    NewState = 
-			State#state{pipeline    = Pipeline,
-				    request     = NextRequest,
-				    mfa         = MFA,
-				    status_line = undefined,
-				    headers     = undefined,
-				    body        = undefined},
-		    case Data of
-			<<>> ->
-			    activate_once(Session), 
-			    {noreply, NewState};
-			_ ->
-			    %% If we already received some bytes of
-			    %% the next response
-			    handle_info({httpc_handler, dummy, Data}, 
-					NewState) 
-		    end
+		    receive_response(NextRequest,
+				     NewSession, Data,
+				     State#state{pipeline = Pipeline})
 	    end
     end.
 
-handle_keep_alive_queue(
-  #state{status       = keep_alive,
-	 session      = Session,
-	 profile_name = ProfileName,
-	 options      = #options{keep_alive_timeout = TimeOut}} = State, 
-  Data) ->
+handle_keep_alive_queue(#state{status       = keep_alive,
+			       session      = Session,
+			       profile_name = ProfileName,
+			       options      = #options{keep_alive_timeout = TimeOut}} = State,
+			Data) ->
 
     ?hcrd("handle keep_alive", [{profile, ProfileName}, 
 				{session, Session},
@@ -1326,25 +1272,7 @@ handle_keep_alive_queue(
     case queue:out(State#state.keep_alive) of
 	{empty, _} ->
 	    ?hcrd("keep_alive queue empty", []),
-	    %% The server may choose too terminate an idle keep_alive session
-	    %% in this case we want to receive the close message
-	    %% at once and not when trying to send the next
-	    %% request.
-	    activate_once(Session), 
-	    %% If a keep_alive session has been idle for some time is not
-	    %% closed by the server, the client may want to close it.
-	    NewState = activate_queue_timeout(TimeOut, State),
-	    update_session(ProfileName, Session, #session.queue_length, 0),
-	    %% Note mfa will be initilized when a new request 
-	    %% arrives.
-	    {noreply, 
-	     NewState#state{request     = undefined, 
-			    mfa         = undefined,
-			    status_line = undefined,
-			    headers     = undefined,
-			    body        = undefined
-			   } 
-	    };
+	    handle_empty_queue(Session, ProfileName, TimeOut, State);
 	{{value, NextRequest}, KeepAlive} ->    
 	    ?hcrd("keep_alive queue non-empty", []),
 	    case lists:member(NextRequest#request.id, 
@@ -1355,30 +1283,61 @@ handle_keep_alive_queue(
 		      State#state{keep_alive = KeepAlive}, Data);
 		false ->
 		    ?hcrv("next request", [{request, NextRequest}]),
-		    Relaxed = 
-			(NextRequest#request.settings)#http_options.relaxed,
-		    MFA     = {httpc_response, parse, 
-			       [State#state.max_header_size, Relaxed]}, 
-		    NewState =
-			State#state{request     = NextRequest,
-				    keep_alive  = KeepAlive,
-				    mfa         = MFA,
-				    status_line = undefined,
-				    headers     = undefined,
-				    body        = undefined},
-		    case Data of
-			<<>> ->
-			    activate_once(Session), 
-			    {noreply, NewState};
-			_ ->
-			    %% If we already received some bytes of
-			    %% the next response
-			    handle_info({httpc_handler, dummy, Data}, 
-					NewState) 
+		    #request{address = Address} = NextRequest,
+		    case httpc_request:send(Address, Session, NextRequest) of
+			ok ->
+			    receive_response(NextRequest,
+					     Session, <<>>,
+					     State#state{keep_alive = KeepAlive});
+			{error, Reason} ->
+			    {reply, {keep_alive_failed, Reason}, State}
 		    end
 	    end
     end.
 
+handle_empty_queue(Session, ProfileName, TimeOut, State) ->
+    %% The server may choose too terminate an idle pipline| keep_alive session
+    %% in this case we want to receive the close message
+    %% at once and not when trying to send the next
+    %% request.
+    activate_once(Session),
+    %% If a pipline | keep_alive session has been idle for some time is not
+    %% closed by the server, the client may want to close it.
+    NewState = activate_queue_timeout(TimeOut, State),
+    update_session(ProfileName, Session, #session.queue_length, 0),
+    %% Note mfa will be initilized when a new request
+    %% arrives.
+    {noreply,
+     NewState#state{request     = undefined,
+		    mfa         = undefined,
+		    status_line = undefined,
+		    headers     = undefined,
+		    body        = undefined
+			   }
+    }.
+
+receive_response(Request, Session, Data, State) ->
+    NewState = init_wait_for_response_state(Request, State),
+    gather_data(Data, Session, NewState).
+
+init_wait_for_response_state(Request, State) ->
+    Relaxed =
+	(Request#request.settings)#http_options.relaxed,
+    MFA     = {httpc_response, parse,
+	       [State#state.max_header_size, Relaxed]},
+    State#state{request     = Request,
+		mfa         = MFA,
+		status_line = undefined,
+		headers     = undefined,
+		body        = undefined}.
+
+gather_data(<<>>, Session, State) ->
+    activate_once(Session),
+    {noreply, State};
+gather_data(Data, _, State) ->
+    %% If we already received some bytes of
+    %% the next response
+    handle_info({httpc_handler, dummy, Data}, State).
 
 case_insensitive_header(Str) when is_list(Str) ->
     http_util:to_lower(Str);
