@@ -29,6 +29,7 @@ autom4te.cache
 i686-pc-linux-gnu
 x86_64-unknown-linux-gnu
 i386-apple-darwin[0-9]*.[0-9]*.[0-9]*
+x86_64-apple-darwin[0-9]*.[0-9]*.[0-9]*
 sparc-sun-solaris[0-9]*.[0-9]*
 i386-pc-solaris[0-9]*.[0-9]*
 i386-unknown-freebsd[0-9]*.[0-9]*
@@ -151,7 +152,10 @@ JAVADOC-GENERATED
 /lib/*/SKIP
 
 /lib/*/doc/html/*.html
+/lib/*/doc/html/*.css
+/lib/*/doc/html/js
 /lib/*/doc/html/*.gif
+/lib/*/doc/html/*.png
 /lib/*/doc/html/*.eix
 /lib/*/doc/man[0-9]/*.[0-9]
 /lib/*/doc/pdf/*.fo
