@@ -1233,68 +1233,63 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
 		    end
 	    end
 	end,
-
-    OptOrDef =
-	case {Ext,Prop} of
-	    {noext,mandatory} ->
-		ignore;
-	    {noext,_} -> %% OPTIONAL or DEFAULT
-		OptPos = get_optionality_pos(TextPos, OptTable),
-		Element = io_lib:format("Opt band (1 bsl ~w)",
-					[NumberOfOptionals - OptPos]),
-		fun(St) ->
-			emit(["case ",Element," of",nl]),
-			emit(["  _Opt",TextPos," when _Opt",TextPos," > 0 ->"]),
-			St
-		end;
-	    {{ext,_,_},_} ->			%Extension
-		fun(St) ->
-			emit(["case Extensions of",nl,
-			      "  <<_:",Pos-1,",1:1,_/bitstring>> ->",nl]),
-			St
-		end
-	end,
+    {Pre,Post} = comp_call_pre_post(Ext, Prop, Pos, Type, TextPos,
+				    OptTable, NumberOfOptionals, Ext),
     Lines = gen_dec_seq_line_imm(Erule, TopType, Comp, Tpos, DecInfObj, Ext),
-    Postamble =
-	case {Ext,Prop} of
-	    {noext,mandatory} ->
-		ignore;
-	    {noext,_} ->
-		fun(St) ->
-			emit([";",nl,"0 ->"]),
-			emit(["{"]),
-			gen_dec_component_no_val(Ext,Prop),
-			emit({",",{curr,bytes},"}",nl}),
-			emit([nl,"end"]),
-			St
-		end;
-	    _ ->
-		fun(St) ->
-			emit([";",nl,"_  ->",nl]),
-			emit(["{"]),
-			case Type of
-			    #type{def=#'SEQUENCE'{
-					 extaddgroup=Number2,
-					 components=ExtGroupCompList2}}
-			      when is_integer(Number2)->
-				emit({"{extAddGroup,"}),
-				gen_dec_extaddGroup_no_val(Ext,ExtGroupCompList2),
-				emit({"}"});
-			    _ ->
-				gen_dec_component_no_val(Ext, Prop)
-			end,
-			emit({",",{curr,bytes},"}",nl}),
-			emit([nl,"end"]),
-			St
-		end
-	end,
     AdvBuffer = {ignore,fun(St) ->
 				asn1ct_name:new(bytes),
 				St
 			end},
-    [{group,[{safe,Comment},{safe,Preamble},
-	     OptOrDef|Lines]++
-      [Postamble,{safe,AdvBuffer}]}].
+    [{group,[{safe,Comment},{safe,Preamble}] ++ Pre ++
+	  Lines ++ Post ++ [{safe,AdvBuffer}]}].
+
+comp_call_pre_post(noext, mandatory, _, _, _, _, _, _) ->
+    {[],[]};
+comp_call_pre_post(noext, Prop, _, _, TextPos, OptTable, NumOptionals, Ext) ->
+    %% OPTIONAL or DEFAULT
+    OptPos = get_optionality_pos(TextPos, OptTable),
+    Element = io_lib:format("Opt band (1 bsl ~w)",
+			    [NumOptionals - OptPos]),
+    {[fun(St) ->
+	      emit(["case ",Element," of",nl,
+		    "  _Opt",TextPos," when _Opt",TextPos," > 0 ->"]),
+	      St
+      end],
+     [fun(St) ->
+	      emit([";",nl,
+		    "0 ->",nl,
+		    "{"]),
+	      gen_dec_component_no_val(Ext, Prop),
+	      emit([",",{curr,bytes},"}",nl,
+		    "end"]),
+	      St
+      end]};
+comp_call_pre_post({ext,_,_}, Prop, Pos, Type, _, _, _, Ext) ->
+    %% Extension
+    {[fun(St) ->
+	      emit(["case Extensions of",nl,
+		    "  <<_:",Pos-1,",1:1,_/bitstring>> ->",nl]),
+	      St
+      end],
+     [fun(St) ->
+	      emit([";",nl,
+		    "_  ->",nl,
+		    "{"]),
+	      case Type of
+		  #type{def=#'SEQUENCE'{
+			       extaddgroup=Number2,
+			       components=ExtGroupCompList2}}
+		    when is_integer(Number2)->
+		      emit("{extAddGroup,"),
+		      gen_dec_extaddGroup_no_val(Ext, ExtGroupCompList2),
+		      emit("}");
+		  _ ->
+		      gen_dec_component_no_val(Ext, Prop)
+	      end,
+	      emit([",",{curr,bytes},"}",nl,
+		    "end"]),
+	      St
+      end]}.
 
 is_mandatory_predef_tab_c(noext, mandatory,
 			  {"got objfun through args","ObjFun"}) ->
