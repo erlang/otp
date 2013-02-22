@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,6 +28,9 @@
 
 -define(TRACEWIN, ['Search Area', 'Button Area', 'Evaluator Area', 'Bindings Area']).
 -define(BACKTRACE, 100).
+-define(STRNAME, 'Use range of +pc flag'). % See also erl(1)
+-define(STRINGS, [str_on]).
+-define(AUTO_ATTACH, [init, exit, break]).
 
 -record(pinfo, {pid,       % pid()
 		status     % break | exit | idle | running | waiting
@@ -45,6 +48,7 @@
 
 		tracewin,  % [Area] Areas shown in trace window
 		backtrace, % integer() Number of call frames to fetch
+                strings,   % [str_on] Integer lists as strings
 
 		attach,    % false | {Flags, Function}
 
@@ -157,6 +161,7 @@ init2(CallingPid, Mode, SFile, GS) ->
 			  int:auto_attach(),    % Auto Attach
 			  int:stack_trace(),    % Stack Trace
 			  ?BACKTRACE,           % Back Trace Size
+                          ?STRINGS,             % Lists as Strings
 			  State1),
 
     State3 = init_contents(int:interpreted(),   % Modules
@@ -176,7 +181,7 @@ init2(CallingPid, Mode, SFile, GS) ->
 	    loop(load_settings(SFile, State3))
     end.
 
-init_options(TraceWin, AutoAttach, StackTrace, BackTrace, State) ->
+init_options(TraceWin, AutoAttach, StackTrace, BackTrace, Strings, State) ->
     lists:foreach(fun(Area) ->
 			  dbg_wx_mon_win:select(Area, true)
 		  end,
@@ -187,10 +192,7 @@ init_options(TraceWin, AutoAttach, StackTrace, BackTrace, State) ->
 	{Flags, _Function} ->
 	    dbg_wx_mon_win:show_option(State#state.win,
 				       auto_attach, Flags),
-	    lists:foreach(fun(Flag) ->
-				  dbg_wx_mon_win:select(map(Flag), true)
-			  end,
-			  Flags)
+            select(Flags, ?AUTO_ATTACH)
     end,
 
     dbg_wx_mon_win:show_option(State#state.win,
@@ -199,7 +201,10 @@ init_options(TraceWin, AutoAttach, StackTrace, BackTrace, State) ->
 
     dbg_wx_mon_win:show_option(State#state.win, back_trace, BackTrace),
 
-    State#state{tracewin=TraceWin, backtrace=BackTrace}.
+    select(Strings, ?STRINGS),
+    dbg_wx_mon_win:show_option(State#state.win, strings, Strings),
+
+    State#state{tracewin=TraceWin, backtrace=BackTrace, strings=Strings}.
 
 init_contents(Mods, Breaks, Processes, State) ->
     Win2 =
@@ -431,7 +436,7 @@ gui_cmd({'Stack Trace', [Name]}, State) ->
     State;
 gui_cmd('Back Trace Size...', State) ->
     Window = dbg_wx_mon_win:get_window(State#state.win),
-    What = {integer, State#state.backtrace},
+    What = {integer, integer_to_list(State#state.backtrace)},
     case dbg_wx_win:entry(Window, "Backtrace", 'Backtrace:', What) of
 	cancel -> 
 	    State;
@@ -439,6 +444,11 @@ gui_cmd('Back Trace Size...', State) ->
 	    dbg_wx_mon_win:show_option(State#state.win,back_trace, BackTrace),
 	    State#state{backtrace=BackTrace}
     end;
+gui_cmd({'Strings', Flags}, State) ->
+    Names = [map(Flag) || Flag <- Flags],
+    dbg_wx_mon_win:show_option(State#state.win, strings, Names),
+    select(Names, ?STRINGS),
+    State#state{strings=Names};
 
 %% Help Menu
 gui_cmd('Debugger', State) ->
@@ -522,16 +532,8 @@ int_cmd({auto_attach, AutoAttach}, State) ->
 		  false -> [];
 		  {Flags, _Function} -> Flags
 	      end,
-    OffFlags = [init, exit, break] -- OnFlags,
     dbg_wx_mon_win:show_option(State#state.win, auto_attach, OnFlags),
-    lists:foreach(fun(Flag) ->
-			  dbg_wx_mon_win:select(map(Flag), true)
-		  end,
-		  OnFlags),
-    lists:foreach(fun(Flag) ->
-			  dbg_wx_mon_win:select(map(Flag), false)
-		  end,
-		  OffFlags),
+    select(OnFlags, ?AUTO_ATTACH),
     State#state{attach=AutoAttach};
 int_cmd({stack_trace, Flag}, State) ->
     dbg_wx_mon_win:show_option(State#state.win, stack_trace, Flag),
@@ -582,6 +584,8 @@ menus() ->
 		   [{'Stack On, Tail', no, radio},
 		    {'Stack On, No Tail', no, radio},
 		    {'Stack Off', no, radio}]},
+		  {'Strings', no, cascade,
+		   [{?STRNAME, no, check}]},
 		  {'Back Trace Size...', no}]},
      {'Windows', []},
      {'Help', [{'Debugger', no}]}].
@@ -642,8 +646,21 @@ map('Stack Off')         -> false;
 map(all)                 -> 'Stack On, Tail';
 map(true)                -> 'Stack On, Tail';
 map(no_tail)             -> 'Stack On, No Tail';
-map(false)               -> 'Stack Off'.
+map(false)               -> 'Stack Off';
 
+map(?STRNAME)            -> str_on;            % Strings
+map(str_on)              -> ?STRNAME.
+
+select(Flags, AllFlags) ->
+    OffFlags = AllFlags -- Flags,
+    lists:foreach(fun(Flag) ->
+                          dbg_wx_mon_win:select(map(Flag), false)
+                  end,
+                  OffFlags),
+    lists:foreach(fun(Flag) ->
+                          dbg_wx_mon_win:select(map(Flag), true)
+                  end,
+                  Flags).
 
 %%====================================================================
 %% Debugger settings
@@ -663,8 +680,8 @@ load_settings(SFile, State) ->
     end.
 
 load_settings2(Settings, State) ->
-    {TraceWin, AutoAttach, StackTrace, BackTrace, Files, Breaks} =
-	Settings,
+    Vals = loaded(Settings),
+    [TraceWin,AutoAttach,StackTrace,BackTrace,Strings,Files,Breaks] = Vals,
 
     TraceWinAll = ['Button Area', 'Evaluator Area', 'Bindings Area',
 		   'Trace Area'],
@@ -679,6 +696,13 @@ load_settings2(Settings, State) ->
     end,
 
     int:stack_trace(StackTrace),
+
+    if
+        Strings =:= keep -> ok;
+        true ->
+            dbg_wx_mon_win:show_option(State#state.win, strings, Strings),
+            select(Strings, ?STRINGS)
+    end,
 
     dbg_wx_mon_win:show_option(State#state.win, back_trace, BackTrace),
 
@@ -708,16 +732,18 @@ load_settings2(Settings, State) ->
 		  end,
 		  Breaks),
 
-    State#state{tracewin=TraceWin, backtrace=BackTrace}.
+    State#state{tracewin=TraceWin, backtrace=BackTrace, strings=Strings}.
+
+loaded({TraceWin, AutoAttach, StackTrace, BackTrace, Files, Breaks}) ->
+    %% Up to and including R16B
+    [TraceWin,AutoAttach,StackTrace,BackTrace,keep,Files,Breaks];
+loaded(Settings) when is_list(Settings) ->
+    Keys = [trace_win,auto_attach,stack_trace,back_trace,strings,files,
+            breaks],
+    [proplists:get_value(Key, Settings) || Key <- Keys].
 
 save_settings(SFile, State) ->
-    Settings = {State#state.tracewin,
-		int:auto_attach(),
-		int:stack_trace(),
-		State#state.backtrace,
-		[int:file(Mod) || Mod <- int:interpreted()],
-		int:all_breaks()},
-
+    Settings = saved(State),
     Binary = term_to_binary({debugger_settings, Settings}),
     case file:write_file(SFile, Binary) of
 	ok ->
@@ -726,6 +752,14 @@ save_settings(SFile, State) ->
 	    State
     end.
 
+saved(#state{tracewin=TraceWin, backtrace=BackTrace, strings=Strings}) ->
+    [{trace_win,TraceWin},
+     {auto_attach,int:auto_attach()},
+     {stack_trace,int:stack_trace()},
+     {back_trace,BackTrace},
+     {strings,Strings},
+     {files,[int:file(Mod) || Mod <- int:interpreted()]},
+     {breaks,int:all_breaks()}].
 
 %%====================================================================
 %% Other internal functions
@@ -752,4 +786,5 @@ registered_name(Pid) ->
     end.
 
 trace_function(State) ->
-    {dbg_wx_trace, start, [State#state.tracewin, State#state.backtrace]}.
+    #state{tracewin=Win, backtrace=BT, strings=Str} = State,
+    {dbg_wx_trace, start, [Win,BT,Str]}.
