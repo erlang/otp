@@ -25,7 +25,7 @@
 
 static int verify_ascii_atom(const char* src, int slen);
 static int verify_utf8_atom(const char* src, int slen);
-
+static int is_latin1_as_utf8(const char *p, int len);
 
 int ei_encode_atom(char *buf, int *index, const char *p)
 {
@@ -63,6 +63,14 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
       return -1;
   }
 
+  if (to_enc == (ERLANG_LATIN1 | ERLANG_UTF8)) {
+    if (from_enc == ERLANG_UTF8) {
+      to_enc = is_latin1_as_utf8(p, len) ? ERLANG_LATIN1 : ERLANG_UTF8;
+    }
+    else {
+      to_enc = from_enc;
+    }
+  }
   switch(to_enc) {
   case ERLANG_LATIN1:
       if (buf) {
@@ -148,7 +156,7 @@ ei_internal_put_atom(char** bufp, const char* p, int slen,
 }
 
 
-int verify_ascii_atom(const char* src, int slen)
+static int verify_ascii_atom(const char* src, int slen)
 {
     while (slen > 0) {
 	if ((src[0] & 0x80) != 0) return -1;
@@ -158,7 +166,7 @@ int verify_ascii_atom(const char* src, int slen)
     return 0;
 }
 
-int verify_utf8_atom(const char* src, int slen)
+static int verify_utf8_atom(const char* src, int slen)
 {
     int num_chars = 0;
 
@@ -188,3 +196,13 @@ int verify_utf8_atom(const char* src, int slen)
     return 0;
 }
 
+/* Only latin1 code points in utf8 string?
+ */
+static int is_latin1_as_utf8(const char *p, int len)
+{
+  int i;
+  for (i=0; i<len; i++) {
+    if ((unsigned char)p[i] > 0xC3) return 0;
+  }
+  return 1;
+}

@@ -28,7 +28,7 @@ int ei_encode_ref(char *buf, int *index, const erlang_ref *p)
 
   (*index) += 1 + 2; /* skip to node atom */
   if (ei_encode_atom_len_as(buf, index, p->node, strlen(p->node), ERLANG_UTF8,
-			    p->node_org_enc) < 0) {
+			    ERLANG_LATIN1|ERLANG_UTF8) < 0) {
       return -1;
   }
 

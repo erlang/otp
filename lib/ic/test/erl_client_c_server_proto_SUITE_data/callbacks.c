@@ -494,12 +494,10 @@ m_i_port_test__rs* m_i_port_test__cb(CORBA_Object oe_obj,
     m_i_port_test__rs* rs = NULL; 
 
     strcpy((*a).node,(*b).node);
-    a->node_org_enc = b->node_org_enc;
     (*a).id = (*b).id;
     (*a).creation = 0;
 
     strcpy((*c).node,(*b).node);
-    c->node_org_enc = b->node_org_enc;
     (*c).id = (*b).id;
     (*c).creation = 0;
     return rs;
@@ -516,7 +514,6 @@ m_i_ref_test__rs* m_i_ref_test__cb(CORBA_Object oe_obj,
     m_i_ref_test__rs* rs = NULL; 
 
     strcpy((*a).node,(*b).node);
-    a->node_org_enc = b->node_org_enc;
     /*(*a).id = (*b).id;*/
     (*a).len = (*b).len;
     (*a).n[0] = (*b).n[0];
@@ -525,7 +522,6 @@ m_i_ref_test__rs* m_i_ref_test__cb(CORBA_Object oe_obj,
     (*a).creation = 0;
 
     strcpy((*c).node,(*b).node);
-    c->node_org_enc = b->node_org_enc;
     /*(*c).id = (*b).id;*/
     (*c).len = (*b).len;
     (*c).n[0] = (*b).n[0];
@@ -561,7 +557,6 @@ m_i_typedef_test__rs* m_i_typedef_test__cb(CORBA_Object oe_obj,
   
     *d = *b;
     strcpy((*e).node,(*c).node);
-    e->node_org_enc = c->node_org_enc;
     (*e).id = (*c).id;
     (*e).creation = 0;
     *a = 4711;

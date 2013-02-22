@@ -264,7 +264,9 @@ typedef enum {
 	The <c>p</c> parameter is the name of the atom with character encoding
 	<c><seealso marker="#erlang_char_encoding">from_enc</seealso></c>  (ascii, latin1 or utf8).
 	The name must either be zero-terminated or a function variant with a <c>len</c>
-	parameter must be used.</p>
+	parameter must be used. If <c>to_enc</c> is set to the bitwise-or'd combination
+	<c>(ERLANG_LATIN1|ERLANG_UTF8)</c>, utf8 encoding is only used if the atom string
+	can not be represented in latin1 encoding.</p>
 	<p>The encoding will fail if <c>p</c> is not a valid string in encoding <c>from_enc</c>,
 	if the string is too long or if it can not be represented with character encoding <c>to_enc</c>.</p>
 	<p>These functions were introduced in R16 release of Erlang/OTP as part of a first step

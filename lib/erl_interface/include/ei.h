@@ -199,7 +199,6 @@ typedef enum {
 /* a pid */
 typedef struct {
   char node[MAXATOMLEN_UTF8];
-  erlang_char_encoding node_org_enc;
   unsigned int num;
   unsigned int serial;
   unsigned int creation;
@@ -208,7 +207,6 @@ typedef struct {
 /* a port */
 typedef struct {
   char node[MAXATOMLEN_UTF8];
-  erlang_char_encoding node_org_enc;
   unsigned int id;
   unsigned int creation;
 } erlang_port;
@@ -216,7 +214,6 @@ typedef struct {
 /* a ref */
 typedef struct {
   char node[MAXATOMLEN_UTF8];
-  erlang_char_encoding node_org_enc;  
   int len;
   unsigned int n[3];
   unsigned int creation;
