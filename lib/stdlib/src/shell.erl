@@ -283,7 +283,12 @@ get_command(Prompt, Eval, Bs, RT, Ds) ->
                           eof;
                       {error,ErrorInfo,_EndPos} ->
                           %% Skip the rest of the line:
+                          Opts = io:getopts(),
+                          TmpOpts = lists:keyreplace(echo, 1, Opts,
+                                                     {echo, false}),
+                          _ = io:setopts(TmpOpts),
                           _ = io:get_line(''),
+                          _ = io:setopts(Opts),
                           {error,ErrorInfo};
                       Else ->
                           Else
