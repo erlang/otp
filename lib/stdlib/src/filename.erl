@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -62,14 +62,14 @@
 
 
 -spec absname(Filename) -> file:filename_all() when
-      Filename :: file:name().
+      Filename :: file:name_all().
 absname(Name) ->
     {ok, Cwd} = file:get_cwd(),
     absname(Name, Cwd).
 
 -spec absname(Filename, Dir) -> file:filename_all() when
-      Filename :: file:name(),
-      Dir :: file:name().
+      Filename :: file:name_all(),
+      Dir :: file:name_all().
 absname(Name, AbsBase) when is_binary(Name), is_list(AbsBase) ->
     absname(Name,filename_string_to_binary(AbsBase));
 absname(Name, AbsBase) when is_list(Name), is_binary(AbsBase) ->
@@ -123,8 +123,8 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
 %% AbsBase must be absolute and Name must be relative.
 
 -spec absname_join(Dir, Filename) -> file:filename_all() when
-      Dir :: file:name(),
-      Filename :: file:name().
+      Dir :: file:name_all(),
+      Filename :: file:name_all().
 absname_join(AbsBase, Name) ->
     join(AbsBase, flatten(Name)).
 
@@ -137,7 +137,7 @@ absname_join(AbsBase, Name) ->
 %%           basename("/") -> []
 
 -spec basename(Filename) -> file:filename_all() when
-      Filename :: file:name().
+      Filename :: file:name_all().
 basename(Name) when is_binary(Name) ->
     case os:type() of
 	{win32,_} ->
@@ -202,8 +202,8 @@ skip_prefix(Name, _) ->
 %%	    rootname(basename("xxx.erl")) -> "xxx"
 
 -spec basename(Filename, Ext) -> file:filename_all() when
-      Filename :: file:name(),
-      Ext :: file:name().
+      Filename :: file:name_all(),
+      Ext :: file:name_all().
 basename(Name, Ext) when is_binary(Name), is_list(Ext) ->
     basename(Name,filename_string_to_binary(Ext));
 basename(Name, Ext) when is_list(Name), is_binary(Ext) ->
@@ -252,7 +252,7 @@ basename([], _Ext, Tail, _DrvSep2) ->
 %%	    dirname("kalle.erl") -> "."
 
 -spec dirname(Filename) -> file:filename_all() when
-      Filename :: file:name().
+      Filename :: file:name_all().
 dirname(Name) when is_binary(Name) ->
     {Dsep,Drivesep} = separators(),
     SList = case Dsep of
@@ -345,7 +345,7 @@ dirjoin1([H|T],Acc,Sep) ->
 %% On Windows:  fn:dirname("\\usr\\src/kalle.erl") -> "/usr/src"
 
 -spec extension(Filename) -> file:filename_all() when
-      Filename :: file:name().
+      Filename :: file:name_all().
 extension(Name) when is_binary(Name) ->
     {Dsep,_} = separators(),
     SList = case Dsep of
@@ -388,7 +388,7 @@ extension([], Result, _OsType) ->
 %% Joins a list of filenames with directory separators.
 
 -spec join(Components) -> file:filename_all() when
-      Components :: [file:name()].
+      Components :: [file:name_all()].
 join([Name1, Name2|Rest]) ->
     join([join(Name1, Name2)|Rest]);
 join([Name]) when is_list(Name) ->
@@ -401,8 +401,8 @@ join([Name]) when is_atom(Name) ->
 %% Joins two filenames with directory separators.
 
 -spec join(Name1, Name2) -> file:filename_all() when
-      Name1 :: file:name(),
-      Name2 :: file:name().
+      Name1 :: file:name_all(),
+      Name2 :: file:name_all().
 join(Name1, Name2) when is_list(Name1), is_list(Name2) ->
     OsType = major_os_type(),
     case pathtype(Name2) of
@@ -488,7 +488,7 @@ maybe_remove_dirsep(Name, _) ->
 %% a given base directory, which is is assumed to be normalised
 %% by a previous call to join/{1,2}.
 
--spec append(file:filename_all(), file:name()) -> file:filename_all().
+-spec append(file:filename_all(), file:name_all()) -> file:filename_all().
 append(Dir, Name) when is_binary(Dir), is_binary(Name) ->
     <<Dir/binary,$/:8,Name/binary>>;
 append(Dir, Name) when is_binary(Dir) ->
@@ -511,7 +511,7 @@ append(Dir, Name) ->
 %%		Example: a:bar.erl, /temp/foo.erl
 
 -spec pathtype(Path) -> 'absolute' | 'relative' | 'volumerelative' when
-      Path :: file:name().
+      Path :: file:name_all().
 pathtype(Atom) when is_atom(Atom) ->
     pathtype(atom_to_list(Atom));
 pathtype(Name) when is_list(Name) or is_binary(Name) ->
@@ -565,7 +565,7 @@ win32_pathtype(_) 		  -> relative.
 %%           rootname("/jam.src/foo.erl") -> "/jam.src/foo"
 
 -spec rootname(Filename) -> file:filename_all() when
-      Filename :: file:name().
+      Filename :: file:name_all().
 rootname(Name) when is_binary(Name) ->
     list_to_binary(rootname(binary_to_list(Name))); % No need to handle unicode, . is < 128
 rootname(Name0) ->
@@ -595,8 +595,8 @@ rootname([], Root, _Ext, _OsType) ->
 %%           rootname("/jam.src/foo.erl", ".erl") -> "/jam.src/foo"
 
 -spec rootname(Filename, Ext) -> file:filename_all() when
-      Filename :: file:name(),
-      Ext :: file:name().
+      Filename :: file:name_all(),
+      Ext :: file:name_all().
 rootname(Name, Ext) when is_binary(Name), is_binary(Ext) ->
     list_to_binary(rootname(binary_to_list(Name),binary_to_list(Ext)));
 rootname(Name, Ext) when is_binary(Name) ->
@@ -623,8 +623,8 @@ rootname2([Char|Rest], Ext, Result) when is_integer(Char) ->
 %% split("a:\\msdev\\include") -> ["a:/", "msdev", "include"]
 
 -spec split(Filename) -> Components when
-      Filename :: file:name(),
-      Components :: [file:name()].
+      Filename :: file:name_all(),
+      Components :: [file:name_all()].
 split(Name) when is_binary(Name) ->
     case os:type() of
 	{win32, _} -> win32_splitb(Name);
@@ -718,7 +718,7 @@ split([], Comp, Components, OsType) ->
 %% name will be normalized as done by join/1.
 
 -spec nativename(Path) -> file:filename_all() when
-      Path :: file:name().
+      Path :: file:name_all().
 nativename(Name0) ->
     Name = join([Name0]),			%Normalize.
     case os:type() of
@@ -922,7 +922,7 @@ major_os_type() ->
 %%  Flatten a list, also accepting atoms.
 
 -spec flatten(Filename) -> file:filename_all() when
-      Filename :: file:name().
+      Filename :: file:name_all().
 flatten(Bin) when is_binary(Bin) ->
     Bin;
 flatten(List) ->
