@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -120,7 +120,7 @@ apply_fun(Pid, false, Fun) ->
 apply_fun(Pid, true, Fun) ->
     case get_status(Pid) of
 	{ok, Warnings} ->
-	    [io:format("~p: ~s\n", [?APPLICATION, W]) || W <- Warnings],
+	    [io:format("~w: ~ts\n", [?APPLICATION, W]) || W <- Warnings],
 	    apply_fun(Pid, false, Fun);
 	{error, _Reason} = Error ->
 	    stop(Pid),

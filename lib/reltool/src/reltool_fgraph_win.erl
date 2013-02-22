@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -525,7 +525,7 @@ loop(S, G) ->
 	    exit(Reason);
 
         Other ->
-            error_logger:format("~p~p got unexpected message:\n\t~p\n",
+            error_logger:format("~w~w got unexpected message:\n\t~p\n",
                                 [?MODULE, self(), Other]),
             loop(S, G)
     end.

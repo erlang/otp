@@ -296,7 +296,7 @@ do_gen_rel(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
 	     {ErtsName, Erts#app.vsn},
 	     [strip_rel_info(App, RelApps) || App <- MergedApps]};
 	false ->
-	    reltool_utils:throw_error("Mandatory application ~p is "
+	    reltool_utils:throw_error("Mandatory application ~w is "
 				      "not included",
                                       [ErtsName])
     end.
@@ -383,8 +383,8 @@ merge_app(RelName,
         [] ->
 	    App#app{app_type = Type2, info = Info#app_info{incl_apps = InclApps}};
         BadIncl ->
-            reltool_utils:throw_error("~p: These applications are "
-				      "used by release ~s but are "
+            reltool_utils:throw_error("~w: These applications are "
+				      "used by release ~ts but are "
 				      "missing as included_applications "
 				      "in the app file: ~p",
                                       [Name, RelName, BadIncl])
@@ -865,7 +865,7 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
 		case File of
 		    "erts" ->
 			reltool_utils:throw_error("This system is not installed. "
-						  "The directory ~s is missing.",
+						  "The directory ~ts is missing.",
 				    [Erts#app.label]);
 		    _ when File =:= Erts#app.label ->
 			replace_dyn_erl(Relocatable, Spec);
@@ -987,7 +987,7 @@ check_sys(Mandatory, SysFiles) ->
 do_check_sys(Prefix, Specs) ->
     case lookup_spec(Prefix, Specs) of
         [] ->
-            reltool_utils:throw_error("Mandatory system directory ~s "
+            reltool_utils:throw_error("Mandatory system directory ~ts "
 				      "is not included",
                                       [Prefix]);
         _ ->
@@ -1008,8 +1008,8 @@ lookup_spec(Prefix, Specs) ->
 safe_lookup_spec(Prefix, Specs) ->
     case lookup_spec(Prefix, Specs) of
         [] ->
-	    %% io:format("lookup fail ~s:\n\t~p\n", [Prefix, Specs]),
-            reltool_utils:throw_error("Mandatory system file ~s is "
+	    %% io:format("lookup fail ~ts:\n\t~p\n", [Prefix, Specs]),
+            reltool_utils:throw_error("Mandatory system file ~ts is "
 				      "not included", [Prefix]);
         Match ->
             Match
@@ -1053,7 +1053,7 @@ spec_lib_files(#sys{root_dir = RootDir,
 check_apps([Mandatory | Names], Apps) ->
     case lists:keymember(Mandatory, #app.name, Apps) of
         false ->
-            reltool_utils:throw_error("Mandatory application ~p is "
+            reltool_utils:throw_error("Mandatory application ~w is "
 				      "not included in ~p",
                                       [Mandatory, Apps]);
         true ->
@@ -1144,13 +1144,13 @@ spec_dir(Dir) ->
 		     Base,
 		     [spec_dir(filename:join([Dir, F])) || F <- Files]};
                 error ->
-                    reltool_utils:throw_error("list dir ~s failed", [Dir])
+                    reltool_utils:throw_error("list dir ~ts failed", [Dir])
             end;
         {ok, #file_info{type = regular}} ->
             %% Plain file
             {copy_file, Base};
         _ ->
-            reltool_utils:throw_error("read file info ~s failed", [Dir])
+            reltool_utils:throw_error("read file info ~ts failed", [Dir])
     end.
 
 spec_mod(Mod, DebugInfo) ->
@@ -1284,7 +1284,7 @@ do_eval_spec({archive, Archive, Options, Files},
         {ok, _} ->
             ok;
         {error, Reason} ->
-            reltool_utils:throw_error("create archive ~s failed: ~p",
+            reltool_utils:throw_error("create archive ~ts failed: ~p",
 				      [ArchiveFile, Reason])
     end;
 do_eval_spec({copy_file, File}, _OrigSourceDir, SourceDir, TargetDir) ->
@@ -1473,7 +1473,7 @@ do_install(RelName, TargetDir) ->
             ok = release_handler:create_RELEASES(TargetDir2, RelFile),
             ok;
         _ ->
-            reltool_utils:throw_error("~s: Illegal data file syntax", [DataFile])
+            reltool_utils:throw_error("~ts: Illegal data file syntax",[DataFile])
     end.
 
 nativename(Dir) ->

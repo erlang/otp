@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -173,7 +173,7 @@ loop(#state{xref_pid = Xref, common = C, app = App} = S) ->
 						    S#state.mod_wins)},
             ?MODULE:loop(S2);
         Msg ->
-            error_logger:format("~p~p got unexpected message:\n\t~p\n",
+            error_logger:format("~w~w got unexpected message:\n\t~p\n",
                                 [?MODULE, self(), Msg]),
             ?MODULE:loop(S)
     end.
@@ -181,7 +181,7 @@ loop(#state{xref_pid = Xref, common = C, app = App} = S) ->
 exit_warning({'EXIT', _Pid, shutdown}) ->
     ok;
 exit_warning({'EXIT', _Pid, _Reason} = Msg) ->
-    error_logger:format("~p~p got unexpected message:\n\t~p\n",
+    error_logger:format("~w~w got unexpected message:\n\t~p\n",
 			[?MODULE, self(), Msg]).
 
 create_window(#state{app = App} = S) ->
@@ -627,7 +627,7 @@ handle_event(#state{sys = Sys, app = App} = S, Wx) ->
             Items = reltool_utils:get_items(ListCtrl),
 	    handle_mod_button(S, Items, Action);
         _ ->
-            error_logger:format("~p~p got unexpected app event from "
+            error_logger:format("~w~w got unexpected app event from "
 				"wx:\n\t~p\n",
                                 [?MODULE, self(), Wx]),
             S
@@ -674,8 +674,8 @@ move_mod(App, {_ItemNo, ModStr}, Action) ->
 	    blacklist_del ->
 		undefined;
 	    _ ->
-		error_logger:format("~p~p got unexpected mod "
-				    "button event: ~p\n\t ~p\n",
+		error_logger:format("~w~w got unexpected mod "
+				    "button event: ~w\n\t ~p\n",
 				    [?MODULE, self(), ModName, Action]),
 		M#mod.incl_cond
 	end,
