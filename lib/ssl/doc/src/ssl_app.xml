@@ -41,8 +41,9 @@
   <section>
     <title>ENVIRONMENT</title>
     <p>The following application environment configuration parameters
-      are defined for the SSL application. Refer to application(3) for
-      more information about configuration parameters.
+    are defined for the SSL application. See <seealso
+    marker="kernel:application">application(3)</seealso>for more
+    information about configuration parameters.
       </p>
     <p>Note that the environment parameters can be set on the command line,
       for instance,</p>
@@ -87,7 +88,7 @@
 
   <section>
     <title>SEE ALSO</title>
-    <p>application(3)</p>
+	<p><seealso marker="kernel:application">application(3)</seealso></p>
   </section>
   
 </appref>
