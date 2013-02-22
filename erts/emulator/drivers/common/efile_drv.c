@@ -1149,7 +1149,7 @@ static void invoke_read_line(void *data)
 {
     struct t_data *d = (struct t_data *) data;
     int status;
-    size_t read_size;
+    size_t read_size = 0;
     int local_loop = (d->again == 0);
     DTRACE_INVOKE_SETUP(FILE_READ_LINE);
 
