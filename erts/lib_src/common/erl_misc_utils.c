@@ -192,7 +192,8 @@ struct erts_cpu_info_t_ {
 static __forceinline int
 get_proc_affinity(erts_cpu_info_t *cpuinfo, cpu_set_t *cpuset)
 {
-    DWORD pamask, samask;
+    DWORD_PTR pamask;
+    DWORD_PTR samask;
     if (GetProcessAffinityMask(GetCurrentProcess(), &pamask, &samask)) {
 	*cpuset = (cpu_set_t) pamask;
 	return 0;

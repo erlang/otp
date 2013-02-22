@@ -28,6 +28,22 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
+#include "erl_int_sizes_config.h"
+
+#if SIZEOF_VOID_P == SIZEOF_LONG
+typedef unsigned long ErlPfUWord;
+typedef long          ErlPfSWord;
+#elif SIZEOF_VOID_P == SIZEOF_INT
+typedef unsigned int ErlPfUWord;
+typedef int          ErlPfSWord;
+#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+typedef unsigned long long ErlPfUWord;
+typedef long long          ErlPfSWord;
+#else
+#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
+#endif
+
+
 typedef int (*fmtfn_t)(void*, char*, size_t);
 
 extern int erts_printf_format(fmtfn_t, void*, char*, va_list);
@@ -36,11 +52,21 @@ extern int erts_printf_char(fmtfn_t, void*, char);
 extern int erts_printf_string(fmtfn_t, void*, char *);
 extern int erts_printf_buf(fmtfn_t, void*, char *, size_t);
 extern int erts_printf_pointer(fmtfn_t, void*, void *);
-extern int erts_printf_ulong(fmtfn_t, void*, char, int, int, unsigned long);
-extern int erts_printf_slong(fmtfn_t, void*, char, int, int, signed long);
+extern int erts_printf_uword(fmtfn_t, void*, char, int, int, ErlPfUWord);
+extern int erts_printf_sword(fmtfn_t, void*, char, int, int, ErlPfSWord);
 extern int erts_printf_double(fmtfn_t, void *, char, int, int, double);
 
-extern int (*erts_printf_eterm_func)(fmtfn_t, void*, unsigned long, long, unsigned long*);
-
+#ifdef HALFWORD_HEAP_EMULATOR
+#  if SIZEOF_INT != 4
+#    error Unsupported integer size for HALFWORD_HEAP_EMULATOR
+#  endif
+typedef unsigned int ErlPfEterm;
+#else
+typedef ErlPfUWord ErlPfEterm;
 #endif
+
+extern int (*erts_printf_eterm_func)(fmtfn_t, void*, ErlPfEterm, long, ErlPfEterm*);
+
+
+#endif /* ERL_PRINTF_FORMAT_H__ */
 
