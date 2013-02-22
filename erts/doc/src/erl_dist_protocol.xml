@@ -162,11 +162,12 @@ By default EPMD listens on port 4369.
 	    </item>
 	    <tag><c>Nlen</c></tag>
 	    <item>
-	      The length of the <c>NodeName</c>.
+	      The length (in bytes) of the <c>NodeName</c> field.
 	    </item>
 	    <tag><c>NodeName</c></tag>
 	    <item>
-	      The NodeName as a string of length <c>Nlen</c>.
+	      The NodeName as an UTF-8 encoded string of
+	      <c>Nlen</c> bytes.
 	    </item>
 	    <tag><c>Elen</c></tag>
 	    <item>
@@ -322,7 +323,7 @@ If Result > 0, the packet only consists of [119, Result].
 	  NodeInfo is, as expressed in Erlang:
 	</p>
 	<code>
-	io:format("name ~s at port ~p~n", [NodeName, Port]).
+	io:format("name ~ts at port ~p~n", [NodeName, Port]).
 	</code>
       </section>
 
@@ -362,14 +363,14 @@ If Result > 0, the packet only consists of [119, Result].
 	  NodeInfo is, as expressed in Erlang:
 	</p>
 	<code>
-	io:format("active name     ~s at port ~p, fd = ~p ~n",
+	io:format("active name     ~ts at port ~p, fd = ~p ~n",
 	          [NodeName, Port, Fd]).
 	</code>
 	<p>
 	  or
 	</p>
 	<code>
-	io:format("old/unused name ~s at port ~p, fd = ~p~n",
+	io:format("old/unused name ~ts at port ~p, fd = ~p~n",
 	          [NodeName, Port, Fd]).
 	</code>
 
@@ -640,7 +641,7 @@ If Result > 0, the packet only consists of [119, Result].
 	    <c>$ERL_TOP/lib/kernel/include/dist.hrl</c>.
             (32 bit big endian)
 	    Name0 ... NameN is the full nodename of A, as a string of bytes (the
-            packet length denotes how long it is).
+	    packet length denotes how long it is).
 	  </p></item>
 	  <tag>3) recv_status/send_status</tag>
 	  <item><p>B sends a status message to A, which indicates
