@@ -298,7 +298,9 @@ call(SvcName, App, Message) ->
    :: capability()
     | {application, [application_opt()]}
     | {restrict_connections, restriction()}
-    | {sequence, sequence() | evaluable()}.
+    | {sequence, sequence() | evaluable()}
+    | {share_peers, boolean()}
+    | {use_shared_peers, boolean()}.
 
 -type application_opt()
    :: {alias, app_alias()}

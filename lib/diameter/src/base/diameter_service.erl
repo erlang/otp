@@ -1233,12 +1233,12 @@ report_status(Status,
                         peer = TPid,
                         type = Type,
                         options = Opts},
-              #peer{apps = [_|_] = As,
+              #peer{apps = [_|_] = Apps,
                     caps = Caps},
               #state{service_name = SvcName}
               = S,
               Extra) ->
-    share_peer(Status, Caps, As, TPid, S),
+    share_peer(Status, Caps, Apps, TPid, S),
     Info = [Status, Ref, {TPid, Caps}, {type(Type), Opts} | Extra],
     send_event(SvcName, list_to_tuple(Info)).
 
@@ -1255,9 +1255,9 @@ send_event(#diameter_event{service = SvcName} = E) ->
 %% # share_peer/5
 %% ---------------------------------------------------------------------------
 
-share_peer(up, Caps, Aliases, TPid, #state{options = [_, {_, true} | _],
+share_peer(up, Caps, Apps, TPid, #state{options = [_, {_, true} | _],
                                            service_name = Svc}) ->
-    diameter_peer:notify(Svc, {peer, TPid, Aliases, Caps});
+    diameter_peer:notify(Svc, {peer, TPid, [A || {_,A} <- Apps], Caps});
 
 share_peer(_, _, _, _, _) ->
     ok.
@@ -1285,8 +1285,10 @@ remote_peer_up(Pid, Aliases, Caps, #state{options = [_, _, {_, true} | _],
                                           shared_peers = PDict}) ->
     #diameter_service{applications = Apps} = Svc,
     Key = #diameter_app.alias,
-    As = lists:filter(fun(A) -> lists:keymember(A, Key, Apps) end, Aliases),
-    rpu(Pid, Caps, PDict, As);
+    rpu(Pid, Caps, PDict, lists:filter(fun(A) ->
+                                               lists:keymember(A, Key, Apps)
+                                       end,
+                                       Aliases));
 
 remote_peer_up(_, _, _, #state{options = [_, _, {_, false} | _]}) ->
     ok.

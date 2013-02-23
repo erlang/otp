@@ -588,7 +588,7 @@ opt(K, false = B)
     B;
 
 opt(K, true = B)
-  when K == share_peer;
+  when K == share_peers;
        K == use_shared_peers ->
     B;
 
