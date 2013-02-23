@@ -258,6 +258,9 @@ path(Config, Name) ->
 lport(M, Ref) ->
     lport(M, Ref, 1).
 
+lport(M, {Node, Ref}, Tries) ->
+    rpc:call(Node, ?MODULE, lport, [M, Ref, Tries]);
+
 lport(M, Ref, Tries) ->
     lp(tmod(M), Ref, Tries).
 
