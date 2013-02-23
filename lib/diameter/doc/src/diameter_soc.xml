@@ -4,12 +4,12 @@
   %also;
 ]>
 
-<chapter>
+<chapter xmlns:xi="http://www.w3.org/2001/XInclude">
 
 <header>
 <copyright>
 <year>2011</year>
-<year>2012</year>
+<year>2013</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 
@@ -79,6 +79,8 @@ just be unnecessary configuration of a value that it has no control over.</p>
      if it's maybe a bit far-fetched. -->
 
 </list>
+
+<xi:include href="diameter_soc_rfc6733.xml"/>
 
 </section>
 

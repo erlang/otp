@@ -4,7 +4,7 @@
 
 %CopyrightBegin%
 
-Copyright Ericsson AB 2012. All Rights Reserved.
+Copyright Ericsson AB 2012-2013. All Rights Reserved.
 
 The contents of this file are subject to the Erlang Public License,
 Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,8 @@ significant.
 <!ENTITY mod_origin_state_id '<seealso marker="diameter#origin_state_id-0">diameter:origin_state_id/0</seealso>'>
 <!ENTITY mod_remove_transport '<seealso marker="diameter#remove_transport-2">diameter:remove_transport/2</seealso>'>
 <!ENTITY mod_service_info '<seealso marker="diameter#service_info-2">diameter:service_info/2</seealso>'>
-<!ENTITY mod_services  '<seealso marker="diameter#services-0">diameter:services/0</seealso>'>
+<!ENTITY mod_services '<seealso marker="diameter#services-0">diameter:services/0</seealso>'>
+<!ENTITY mod_session_id '<seealso marker="diameter#session_id-1">diameter:session_id/1</seealso>'>
 <!ENTITY mod_start_service '<seealso marker="diameter#start_service-2">diameter:start_service/2</seealso>'>
 <!ENTITY mod_stop_service '<seealso marker="diameter#stop_service-1">diameter:stop_service/1</seealso>'>
 <!ENTITY mod_subscribe '<seealso marker="diameter#subscribe-1">diameter:subscribe/1</seealso>'>
