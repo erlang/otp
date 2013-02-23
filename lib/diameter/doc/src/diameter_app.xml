@@ -196,7 +196,8 @@ process.</p>
 </type>
 <desc>
 <p>
-Invoked to signal the availability of a peer connection.
+Invoked to signal the availability of a peer connection on the local
+Erlang node.
 In particular, capabilities exchange with the peer has indicated
 support for the application in question, the RFC 3539 watchdog state
 machine for the connection has reached state <c>OKAY</c> and Diameter
@@ -230,8 +231,8 @@ handled independently of &peer_up; and &peer_down;.</p>
 </type>
 <desc>
 <p>
-Invoked to signal that a peer connection is no longer available
-following a previous call to &peer_up;.
+Invoked to signal that a peer connection on the local Erlang node is
+no longer available following a previous call to &peer_up;.
 In particular, that the RFC 3539 watchdog state machine for the
 connection has left state <c>OKAY</c> and the peer will no longer be a
 candidate in &pick_peer; callbacks.</p>
@@ -240,11 +241,11 @@ candidate in &pick_peer; callbacks.</p>
 </func>
 
 <func>
-<name>Mod:pick_peer(Candidates, _Reserved, SvcName, State)
+<name>Mod:pick_peer(LocalCandidates, RemoteCandidates, SvcName, State)
       -> Selection | false</name>
 <fsummary>Select a target peer for an outgoing request.</fsummary>
 <type>
-<v>Candidates = [&peer;]</v>
+<v>LocalCandidates = RemoteCandidates = [&peer;]</v>
 <v>SvcName = &mod_service_name;</v>
 <v>State = NewState = &state;</v>
 <v>Selection = {ok, Peer} | {Peer, NewState}</v>
@@ -257,7 +258,7 @@ peer for an outgoing request.
 The return value indicates the selected peer.</p>
 
 <p>
-The candidate list contains only those peers that have advertised
+The candidate lists contain only those peers that have advertised
 support for the Diameter application in question during capabilities
 exchange, that have not be excluded by a <c>filter</c> option in
 the call to &mod_call;
@@ -266,7 +267,11 @@ The order of the elements is unspecified except that any
 peers whose Origin-Host and Origin-Realm matches that of the
 outgoing request (in the sense of a <c>{filter, {all, [host, realm]}}</c>
 option to &mod_call;)
-will be placed at the head of the list.</p>
+will be placed at the head of the list.
+<c>LocalCandidates</c> contains peers whose transport process resides
+on the local Erlang node while
+<c>RemoteCandidates</c> contains peers that have been communicated
+from other nodes by services of the same name.</p>
 
 <p>
 A callback that returns a peer() will be followed by a
@@ -286,15 +291,18 @@ retransmission to an alternate peer is abandoned if an answer is
 received from a previously selected peer.</p>
 
 <p>
-Returning <c>false</c> or <c>{false, NewState}</c> causes <c>{error,
-no_connection}</c> to be returned from &mod_call;.</p>
-
-<p>
 The return values <c>false</c> and <c>{false, State}</c> (that is,
 <c>NewState = State</c>) are equivalent, as are <c>{ok, Peer}</c> and
 <c>{Peer, State}</c>.</p>
 
 <note>
+<p>
+<c>RemoteCandidates</c> is the empty list if the service has been
+configured with the (default) &mod_service_opt;
+<c>{use_shared_peers, false}</c>.</p>
+</note>
+
+<warning>
 <p>
 The return value <c>{Peer, NewState}</c> is only allowed if
 the Diameter application in question was configured with the
@@ -303,7 +311,7 @@ Otherwise, the <c>State</c> argument is always
 the intial value as configured on the application, not any subsequent
 value returned by a &peer_up;
 or &peer_down; callback.</p>
-</note>
+</warning>
 
 </desc>
 

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY nodes
+  '<seealso marker="erts:erlang#nodes-0">erlang:nodes/0</seealso>'>
   <!ENTITY make_ref
   '<seealso marker="erts:erlang#make_ref-0">erlang:make_ref/0</seealso>'>
   <!ENTITY transport_module
@@ -819,6 +821,59 @@ non-negative integer less than <c>1 bsl (32-N)</c>.</p>
 
 <p>
 Defaults to <c>{0,32}</c>.</p>
+
+<warning>
+<p>
+Multiple Erlang nodes implementing the same Diameter node should
+be configured with different sequence masks to ensure that each node
+uses a unique range of End-to-End and Hop-by-Hop identifiers for
+outgoing requests.</p>
+</warning>
+</item>
+
+<tag><c>{share_peers, boolean()}</c></tag>
+<item>
+<p>
+Specifies whether or not peer connections on the local Erlang node
+are shared with services on visible nodes (as returned by &nodes;).
+Peers shared from remote nodes become available in the candidates list
+passed as the second argument to &app_pick_peer; callbacks.</p>
+
+<p>
+Defaults to <c>false</c>.</p>
+
+<note>
+<p>
+Peers are only shared with other services of the same name.
+Since the value of the &application_opt; <c>alias</c> is the handle
+for identifying a peer, both local and remote, as a candidate for an
+outgoing request, services that share peers should use the same
+aliases for identifying their supported applications.</p>
+</note>
+
+<note>
+<p>
+Services that share peers can do so in order to distribute the
+implementation of a Diameter node across multiple Erlang nodes, in
+which case the participating services should typically be configured
+with identical &capabilities;.</p>
+</note>
+</item>
+
+<tag><c>{use_shared_peers, boolean()}</c></tag>
+<item>
+<p>
+Specifies whether or not the service makes use of peer connections
+shared by identically named services on other Erlang nodes.</p>
+
+<p>
+Defaults to <c>false</c>.</p>
+
+<note>
+<p>
+A service that does not use shared peers will always pass the empty
+list as the second argument of &app_pick_peer; callbacks.</p>
+</note>
 </item>
 
 </taglist>
