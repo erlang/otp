@@ -125,9 +125,9 @@
          monitor = false :: false | pid(),   %% process to die with
          options
          :: [{sequence, diameter:sequence()}  %% sequence mask
-             | {restrict_connections, diameter:restriction()}
-             | {share_peers, boolean()}  %% broadcast peers to remote nodes?
-             | {use_shared_peers, boolean()}]}).%% use broadcasted peers?
+             | {share_peers, diameter:remotes()}       %% broadcast to
+             | {use_shared_peers, diameter:remotes()}  %% use from
+             | {restrict_connections, diameter:restriction()}]}).
 %% shared_peers reflects the peers broadcast from remote nodes.
 
 %% Record representing an RFC 3539 watchdog process implemented by
@@ -681,11 +681,9 @@ mref(false = No) ->
 mref(P) ->
     erlang:monitor(process, P).
 
-init_shared(#state{options = [_, _, {_, true} | _],
+init_shared(#state{options = [_, _, {_,T} | _],
                    service_name = Svc}) ->
-    diameter_peer:notify(Svc, {service, self()});
-init_shared(#state{options = [_, _, {_, false} | _]}) ->
-    ok.
+    notify(T, Svc, {service, self()}).
 
 init_mod(#diameter_app{alias = Alias,
                        init_state = S}) ->
@@ -697,6 +695,37 @@ start_fsm({Ref, Type, Opts}, S) ->
 get_value(Key, Vs) ->
     {_, V} = lists:keyfind(Key, 1, Vs),
     V.
+
+notify(Share, SvcName, T) ->
+    Nodes = remotes(Share),
+    [] /= Nodes andalso diameter_peer:notify(Nodes, SvcName, T).
+%% Test for the empty list for upgrade reasons: there's no
+%% diameter_peer:notify/3 in old code so no call means no load order
+%% requirement.
+
+remotes(false) ->
+    [];
+
+remotes(true) ->
+    nodes();
+
+remotes(Nodes)
+  when is_atom(hd(Nodes));
+       Nodes == [] ->
+    Nodes;
+
+remotes(F) ->
+    try diameter_lib:eval(F) of
+        L when is_list(L) ->
+            L;
+        T ->
+            diameter_lib:error_report({invalid_return, T}, F),
+            []
+    catch
+        E:R ->
+            diameter_lib:error_report({failure, {E, R, ?STACK}}, F),
+            []
+    end.
 
 %% ---------------------------------------------------------------------------
 %% # start/3
@@ -1255,9 +1284,9 @@ send_event(#diameter_event{service = SvcName} = E) ->
 %% # share_peer/5
 %% ---------------------------------------------------------------------------
 
-share_peer(up, Caps, Apps, TPid, #state{options = [_, {_, true} | _],
-                                           service_name = Svc}) ->
-    diameter_peer:notify(Svc, {peer, TPid, [A || {_,A} <- Apps], Caps});
+share_peer(up, Caps, Apps, TPid, #state{options = [_, {_,T} | _],
+                                        service_name = Svc}) ->
+    notify(T, Svc, {peer, TPid, [A || {_,A} <- Apps], Caps});
 
 share_peer(_, _, _, _, _) ->
     ok.
@@ -1266,36 +1295,34 @@ share_peer(_, _, _, _, _) ->
 %% # share_peers/2
 %% ---------------------------------------------------------------------------
 
-share_peers(Pid, #state{options = [_, {_, true} | _],
-                        local_peers = PDict}) ->
-    ?Dict:fold(fun(A,Ps,ok) -> sp(Pid, A, Ps), ok end, ok, PDict);
-
-share_peers(_, _) ->
-    ok.
+share_peers(Pid, #state{options = [_, {_,T} | _], local_peers = PDict}) ->
+    is_remote(Pid, T)
+        andalso ?Dict:fold(fun(A,Ps,ok) -> sp(Pid, A, Ps), ok end, ok, PDict).
 
 sp(Pid, Alias, Peers) ->
     lists:foreach(fun({P,C}) -> Pid ! {peer, P, [Alias], C} end, Peers).
+
+is_remote(Pid, T) ->
+    Node = node(Pid),
+    Node /= node() andalso lists:member(Node, remotes(T)).
 
 %% ---------------------------------------------------------------------------
 %% # remote_peer_up/4
 %% ---------------------------------------------------------------------------
 
-remote_peer_up(Pid, Aliases, Caps, #state{options = [_, _, {_, true} | _],
-                                          service = Svc,
-                                          shared_peers = PDict}) ->
+remote_peer_up(Pid, Aliases, Caps, #state{options = [_, _, {_,T} | _]} = S) ->
+    is_remote(Pid, T)
+        andalso rpu(Pid, Aliases, Caps, S).
+
+rpu(Pid, Aliases, Caps, #state{service = Svc, shared_peers = PDict}) ->
     #diameter_service{applications = Apps} = Svc,
     Key = #diameter_app.alias,
-    rpu(Pid, Caps, PDict, lists:filter(fun(A) ->
-                                               lists:keymember(A, Key, Apps)
-                                       end,
-                                       Aliases));
+    F = fun(A) -> lists:keymember(A, Key, Apps) end,
+    rpu(Pid, lists:filter(F, Aliases), Caps, PDict);
 
-remote_peer_up(_, _, _, #state{options = [_, _, {_, false} | _]}) ->
-    ok.
-
-rpu(_, _, PDict, []) ->
-    PDict;
-rpu(Pid, Caps, PDict, Aliases) ->
+rpu(_, [] = No, _, _) ->
+    No;
+rpu(Pid, Aliases, Caps, PDict) ->
     erlang:monitor(process, Pid),
     T = {Pid, Caps},
     lists:foreach(fun(A) -> ?Dict:append(A, T, PDict) end, Aliases).
@@ -1304,8 +1331,7 @@ rpu(Pid, Caps, PDict, Aliases) ->
 %% # remote_peer_down/2
 %% ---------------------------------------------------------------------------
 
-remote_peer_down(Pid, #state{options = [_, _, {_, true} | _],
-                             shared_peers = PDict}) ->
+remote_peer_down(Pid, #state{shared_peers = PDict}) ->
     lists:foreach(fun(A) -> rpd(Pid, A, PDict) end, ?Dict:fetch_keys(PDict)).
 
 rpd(Pid, Alias, PDict) ->

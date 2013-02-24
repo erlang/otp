@@ -28,8 +28,9 @@
          all/0]).
 
 %% testcases
--export([start/1,
+-export([enslave/1,
          ping/1,
+         start/1,
          connect/1,
          send_local/1,
          send_remote/1,
@@ -71,8 +72,8 @@
          {'Product-Name', "OTP/diameter"},
          {'Auth-Application-Id', [?DICT:id()]},
          {'Origin-State-Id', origin()},
-         {share_peers, true},
-         {use_shared_peers, true},
+         {share_peers, peers()},
+         {use_shared_peers, peers()},
          {restrict_connections, false},
          {sequence, fun sequence/0},
          {application, [{dictionary, ?DICT},
@@ -102,8 +103,9 @@ suite() ->
     [{timetrap, {seconds, 60}}].
 
 all() ->
-    [start,
+    [enslave,
      ping,
+     start,
      connect,
      send_local,
      send_remote,
@@ -114,10 +116,49 @@ all() ->
 %% ===========================================================================
 %% start/stop testcases
 
+%% enslave/1
+%%
+%% Start four slave nodes, one to implement a Diameter server,
+%% two three to implement a client.
+
+enslave(Config) ->
+    Here = filename:dirname(code:which(?MODULE)),
+    Ebin = filename:join([Here, "..", "ebin"]),
+    Dirs = [Here, Ebin],
+    Nodes = [{N,S} || {M,S} <- ?NODES, N <- [slave(M, Dirs)]],
+    ?util:write_priv(Config, nodes, [{N,S} || {{N,ok},S} <- Nodes]),
+    [] = [{T,S} || {{_,E} = T, S} <- Nodes, E /= ok].
+
+slave(Name, Dirs) ->
+    add_pathsa(Dirs, ct_slave:start(Name)).
+
+add_pathsa(Dirs, {ok, Node}) ->
+    {Node, rpc:call(Node, code, add_pathsa, [Dirs])};
+add_pathsa(_, No) ->
+    {No, error}.
+
+%% ping/1
+%%
+%% Ensure the client nodes are connected since the sharing of
+%% transports is only between connected nodes.
+
+ping({?SERVER, _Nodes}) ->
+    [];
+
+ping({?CLIENT, Nodes}) ->
+    [N || {N,_} <- Nodes,
+          node() /= N,
+          pang <- [net_adm:ping(N)]];
+
+ping(Config) ->
+    Nodes = ?util:read_priv(Config, nodes),
+    [] = [{N,RC} || {N,S} <- Nodes,
+                    RC <- [rpc:call(N, ?MODULE, ping, [{S, Nodes}])],
+                    RC /= []].
+
 %% start/1
 %%
-%% Start three slave nodes, one that implement a Diameter server and
-%% two that implement a client.
+%% Start diameter services.
 
 start(SvcName)
   when is_atom(SvcName) ->
@@ -125,21 +166,10 @@ start(SvcName)
     ok = diameter:start_service(SvcName, ?SERVICE((?L(SvcName))));
 
 start(Config) ->
-    Dir = filename:dirname(code:which(?MODULE)),
-    Nodes = [{N, Svcname} || {Nodename, Svcname} <- ?NODES,
-                             N <- [slave(Nodename, Dir)]],
-    [] = [RC || {N,S} <- Nodes,
-                RC <- [rpc:call(N, ?MODULE, start, [S])],
-                RC /= ok],
-    ?util:write_priv(Config, nodes, Nodes).
-
-slave(Name, Dir) ->
-    {ok, Node} = ct_slave:start(Name),
-    ok = rpc:call(Node,
-                  code,
-                  add_pathsa,
-                  [[Dir, filename:join([Dir, "..", "ebin"])]]),
-    Node.
+    Nodes = ?util:read_priv(Config, nodes),
+    [] = [{N,RC} || {N,S} <- Nodes,
+                    RC <- [rpc:call(N, ?MODULE, start, [S])],
+                    RC /= ok].
 
 sequence() ->
     sequence(sname()).
@@ -159,25 +189,13 @@ origin(Client) ->
     "client" ++ N = ?L(Client),
     list_to_integer(N).
 
-%% ping/1
-%%
-%% Ensure the client nodes are connected since the sharing of
-%% transports is only between connected nodes.
+peers() ->
+    peers(sname()).
 
-ping({?SERVER, _Nodes}) ->
-    ok;
-
-ping({?CLIENT, Nodes}) ->
-    {_, []} = {node(), [N || {N,_} <- Nodes,
-                             node() /= N,
-                             pang <- [net_adm:ping(N)]]},
-    ok;
-
-ping(Config) ->
-    Nodes = ?util:read_priv(Config, nodes),
-    [] = [RC || {N,S} <- Nodes,
-                RC <- [rpc:call(N, ?MODULE, ping, [{S, Nodes}])],
-                RC /= ok].
+peers(server)  -> true;
+peers(client0) -> [node() | nodes()];
+peers(client1) -> fun erlang:nodes/0;
+peers(client2) -> nodes().
 
 %% connect/1
 %%
@@ -194,23 +212,17 @@ connect({?CLIENT, Config}) ->
 
 connect(Config) ->
     Nodes = ?util:read_priv(Config, nodes),
-    [] = [RC || {N,S} <- Nodes,
-                RC <- [rpc:call(N, ?MODULE, connect, [{S,Config}])],
-                RC /= ok].
+    [] = [{N,RC} || {N,S} <- Nodes,
+                    RC <- [rpc:call(N, ?MODULE, connect, [{S,Config}])],
+                    RC /= ok].
 
 %% stop/1
 %%
 %% Stop the slave nodes.
 
-stop(Name)
-  when is_atom(Name) ->
-    {ok, _Node} = ct_slave:stop(Name),
-    ok;
-
 stop(_Config) ->
-    [] = [RC || {N,_} <- ?NODES,
-                RC <- [stop(N)],
-                RC /= ok].
+    [] = [{N,E} || {N,_} <- ?NODES,
+                   {error, _, _} = E <- [ct_slave:stop(N)]].
 
 %% ===========================================================================
 %% traffic testcases
@@ -336,12 +348,7 @@ request(#diameter_base_STR{'Termination-Cause' = ?TIMEOUT}, _) ->
 
 request(#diameter_base_STR{'Termination-Cause' = ?MOVED}, Peer) ->
     {TPid, #diameter_caps{origin_state_id = {_, [N]}}} = Peer,
-    if N == 0 ->  %% sent from the originating node ...
-            {protocol_error, ?BUSY};
-       true ->    %% ... or through a remote node: force failover
-            exit(TPid, kill),
-            discard
-    end;
+    fail(N, TPid);
 
 request(#diameter_base_STR{'Session-Id' = SId}, {_, Caps}) ->
     #diameter_caps{origin_host  = {OH, _},
@@ -351,3 +358,10 @@ request(#diameter_base_STR{'Session-Id' = SId}, {_, Caps}) ->
                                'Session-Id' = SId,
                                'Origin-Host' = OH,
                                'Origin-Realm' = OR}}.
+
+fail(0, _) ->     %% sent from the originating node ...
+    {protocol_error, ?BUSY};
+
+fail(_, TPid) ->  %% ... or through a remote node: force failover
+    exit(TPid, kill),
+    discard.

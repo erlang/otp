@@ -37,7 +37,7 @@ under the License.
 <approved></approved>
 <checked></checked>
 <date></date>
-<rev>%REV%</rev>
+<rev></rev>
 <file>diameter_app.xml</file>
 
 </header>
@@ -297,9 +297,9 @@ The return values <c>false</c> and <c>{false, State}</c> (that is,
 
 <note>
 <p>
-<c>RemoteCandidates</c> is the empty list if the service has been
-configured with the (default) &mod_service_opt;
-<c>{use_shared_peers, false}</c>.</p>
+The &mod_service_opt; <c>use_shared_peers</c> determines whether or
+not a service uses peers shared from other nodes.
+If not then <c>RemoteCandidates</c> is the empty list.</p>
 </note>
 
 <warning>

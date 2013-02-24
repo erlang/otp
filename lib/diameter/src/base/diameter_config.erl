@@ -573,7 +573,6 @@ make_config(SvcName, Opts) ->
                                  {false, monitor},
                                  {?NOMASK, sequence},
                                  {nodes, restrict_connections}]),
-    %% share_peers and use_shared_peers are currently undocumented.
 
     #service{name = SvcName,
              rec = #diameter_service{applications = Apps,
@@ -592,19 +591,27 @@ opt(K, true = B)
        K == use_shared_peers ->
     B;
 
+opt(restrict_connections, T)
+  when T == node;
+       T == nodes ->
+    T;
+
+opt(K, T)
+  when (K == share_peers
+        orelse K == use_shared_peers
+        orelse K == restrict_connections), ([] == T
+                                            orelse is_atom(hd(T))) ->
+    T;
+
 opt(monitor, P)
   when is_pid(P) ->
     P;
 
-opt(restrict_connections, T)
-  when T == node;
-       T == nodes;
-       T == [];
-       is_atom(hd(T)) ->
-    T;
-
-opt(restrict_connections = K, F) ->
-    try diameter_lib:eval(F) of  %% no guarantee that it won't fail later
+opt(K, F)
+  when K == restrict_connections;
+       K == share_peers;
+       K == use_shared_peers ->
+    try diameter_lib:eval(F) of  %% but no guarantee that it won't fail later
         Nodes when is_list(Nodes) ->
             F;
         V ->
