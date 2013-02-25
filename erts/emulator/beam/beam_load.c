@@ -205,7 +205,7 @@ typedef struct {
 typedef struct {
     Eterm term;			/* The tagged term (in the heap). */
     Uint heap_size;		/* (Exact) size on the heap. */
-    Uint offset;		/* Offset from temporary location to final. */
+    SWord offset;		/* Offset from temporary location to final. */
     ErlOffHeap off_heap;	/* Start of linked list of ProcBins. */
     Eterm* heap;		/* Heap for term. */
 } Literal;
@@ -4045,7 +4045,7 @@ freeze_code(LoaderState* stp)
 	code[MI_LITERALS_END] = (BeamInstr) high;
 	ptr = low;
 	for (i = 0; i < stp->num_literals; i++) {
-	    Uint offset;
+	    SWord offset;
 	    struct erl_off_heap_header* t_off_heap;
 
 	    sys_memcpy(ptr, stp->literals[i].heap,
