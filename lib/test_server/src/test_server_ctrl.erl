@@ -251,8 +251,6 @@ parse_cmd_line(['MODULE',Mod|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
 parse_cmd_line(['CASE',Mod,Case|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
     parse_cmd_line(Cmds,[{topcase,{Mod,Case}}|SpecList],[atom_to_list(Mod)|Names],
 		   Param, Trc, Cov, TCCB);
-parse_cmd_line(['PARAMETERS',Param|Cmds], SpecList, Names, _Param, Trc, Cov, TCCB) ->
-    parse_cmd_line(Cmds, SpecList, Names, Param, Trc, Cov, TCCB);
 parse_cmd_line(['TRACE',Trc|Cmds], SpecList, Names, Param, _Trc, Cov, TCCB) ->
     parse_cmd_line(Cmds, SpecList, Names, Param, Trc, Cov, TCCB);
 parse_cmd_line(['COVER',App,CF,Analyse|Cmds], SpecList, Names, Param, Trc, _Cov, TCCB) ->
@@ -284,19 +282,23 @@ cast_to_list(X) -> lists:flatten(io_lib:format("~w", [X])).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% START INTERFACE
 
-start() ->
-    start(local).
+%% Kept for backwards compatibility
+start(_) ->
+    start().
+start_link(_) ->
+    start_link().
 
-start(Param) ->
-    case gen_server:start({local,?MODULE}, ?MODULE, [Param], []) of
+
+start() ->
+    case gen_server:start({local,?MODULE}, ?MODULE, [], []) of
 	{ok, Pid} ->
 	    {ok, Pid};
 	Other ->
 	    Other
     end.
 
-start_link(Param) ->
-    case gen_server:start_link({local,?MODULE}, ?MODULE, [Param], []) of
+start_link() ->
+    case gen_server:start_link({local,?MODULE}, ?MODULE, [], []) of
 	{ok, Pid} ->
 	    {ok, Pid};
 	Other ->
@@ -463,24 +465,11 @@ controller_call(Arg, Timeout) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% init([Mode])
-%% Mode = lazy | error_logger
-%% StateFile = string()
-%% ReadMode = ignore_errors | halt_on_errors
+%% init([])
 %%
 %% init() is the init function of the test_server's gen_server.
-%% When Mode=error_logger: The init function of the test_server's gen_event
-%% event handler used as a replacement error_logger when running test_suites.
 %%
-%% The init function reads the test server state file, to see what test
-%% suites were running when the test server was last running, and which
-%% flags that were in effect. If no state file is found, or there are
-%% errors in it, defaults are used.
-%%
-%% Mode 'lazy' ignores (and resets to []) any jobs in the state file
-%%
-
-init([_]) ->
+init([]) ->
     case os:getenv("TEST_SERVER_CALL_TRACE") of
 	false ->
 	    ok;
@@ -505,7 +494,6 @@ init([_]) ->
     end,
     test_server_sup:cleanup_crash_dumps(),
     State = #state{jobs=[],finish=false},
-    put(test_server_free_targets,[]),
     TI0 = test_server:init_target_info(),
     TargetHost = test_server_sup:hoststr(),
     TI = TI0#target_info{host=TargetHost,
@@ -529,7 +517,7 @@ naming() ->
 %% is completed.
 %%
 handle_call(kill_slavenodes, _From, State) ->
-    Nodes = test_server_node:kill_nodes(State#state.target_info),
+    Nodes = test_server_node:kill_nodes(),
     {reply, Nodes, State};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -950,11 +938,11 @@ handle_call({wait_for_node, Node}, From, State) ->
 %% - the node is really stopped by test_server when this returns.
 
 handle_call({stop_node, Name}, _From, State) ->
-    R = test_server_node:stop_node(Name, State#state.target_info),
+    R = test_server_node:stop_node(Name),
     {reply, R, State};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% handle_call({stop_node,Name}, _, State) -> ok | {error,Reason}
+%% handle_call({is_release_available,Name}, _, State) -> ok | {error,Reason}
 %%
 %% Tests if the release is available.
 
@@ -993,9 +981,7 @@ handle_cast({node_started,Node}, State) ->
 %%
 %% Handles exit messages from linked processes. Only test suites are
 %% expected to be linked.  When a test suite terminates, it is removed
-%% from the job queue.  If a target client terminates it means that we
-%% lost contact with target. The test_server_ctrl process is
-%% terminated, and teminate/2 will do the cleanup
+%% from the job queue.
 
 handle_info(report_idle, State) ->
     Finish = State#state.finish,
@@ -1047,35 +1033,12 @@ handle_info({'EXIT',Pid,Reason}, State) ->
 	    end
     end;
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% handle_info({tcp,Sock,Bin}, State)
-%%
-%% Message from remote main target process
-%% Only valid message is 'job_proc_killed', which indicates
-%% that a process running a test suite was killed
-
-handle_info({tcp,_MainSock,<<1,Request/binary>>}, State) ->
-    case binary_to_term(Request) of
-	{job_proc_killed,Name,Reason} ->
-	    %% The only purpose of this is to inform the user about what
-	    %% happened on target.
-	    %% The local job proc will soon be killed by the closed socket or
-	    %% because the job is finished. Then the above clause ('EXIT') will
-	    %% handle the problem.
-	    io:format("Suite ~ts was killed on remote target with reason"
-		      " ~p\n", [Name,Reason]);
-	_ ->
-	    ignore
-    end,
-    {noreply,State};
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% handle_info({tcp_closed,Sock}, State)
 %%
 %% A Socket was closed. This indicates that a node died.
 %% This can be
-%% *Target node (if remote)
 %% *Slave or peer node started by a test suite
 %% *Trace controll node
 
@@ -1084,7 +1047,7 @@ handle_info({tcp_closed,Sock}, State=#state{trc=Sock}) ->
     %%! Maybe print something???
     {noreply,State#state{trc=false}};
 handle_info({tcp_closed,Sock}, State) ->
-    test_server_node:nodedown(Sock, State#state.target_info),
+    test_server_node:nodedown(Sock),
     {noreply,State};
 handle_info(_, State) ->
     %% dummy; accept all, do nothing.
@@ -1095,7 +1058,7 @@ handle_info(_, State) ->
 %% Reason = term()
 %%
 %% Cleans up when the test_server is terminating. Kills the running
-%% test suites (if any) and terminates the remote target (if is exists)
+%% test suites (if any) and any possible remainting slave node
 
 terminate(_Reason, State) ->
     case State#state.trc of
@@ -1103,7 +1066,7 @@ terminate(_Reason, State) ->
 	Sock -> test_server_node:stop_tracer_node(Sock)
     end,
     kill_all_jobs(State#state.jobs),
-    test_server_node:stop(State#state.target_info),
+    test_server_node:kill_nodes(),
     case lists:keysearch(sasl, 1, application:which_applications()) of
 	{value,_} ->
 	    test_server_h:restore();
@@ -2071,7 +2034,6 @@ do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% run_test_cases(TestSpec, Config, TimetrapData) -> exit(Result)
 %%
-%% If remote target, a socket connection is established.
 %% Runs the specified tests, then displays/logs the summary.
 
 run_test_cases(TestSpec, Config, TimetrapData) ->
@@ -2137,8 +2099,7 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 %% return a new configuration.
 %%
 %% {make,Ref,{Mod,Func,Args}} Mod:Func is a make function, and it is called
-%% with the given arguments. This function will *always* be called on the host
-%% - not on target.
+%% with the given arguments.
 %%
 %% {Mod,Case} This is a normal test case. Determine the correct
 %% configuration, and insert {Mod,Case,Config} as head of the list,
@@ -3462,19 +3423,15 @@ handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% run_test_case(Ref, Num, Mod, Func, Args, RunInit,
-%%               Where, TimetrapData, Mode) -> RetVal
+%%               TimetrapData, Mode) -> RetVal
 %%
 %% Creates the minor log file and inserts some test case specific headers
-%% and footers into the log files. If a remote target is used, the test
-%% suite (binary) and the content of data_dir is sent. Then the test case
-%% is executed and the result is printed to the log files (also info
-%% about lingering processes & slave nodes in the system is presented).
+%% and footers into the log files. Then the test case is executed and the
+%% result is printed to the log files (also info about lingering processes
+%% & slave nodes in the system is presented).
 %%
 %% RunInit decides if the per test case init is to be run (true for all
 %% but conf cases).
-%%
-%% Where specifies if the test case should run on target or on the host.
-%% (Note that 'make' test cases always run on host).
 %%
 %% Mode specifies if the test case should be executed by a dedicated,
 %% parallel, process rather than sequentially by the main process. If
@@ -4110,11 +4067,6 @@ do_format_exception(Reason={Error,Stack}) ->
 %% DetectedFail = [{File,Line}]
 %% ProcessesBefore = ProcessesAfter = integer()
 %%
-%% Where indicates if the test should run on target or always on the host.
-%%
-%% If test is to be run on target, and target is remote the request is
-%% sent over socket to target, and test_server runs the case and sends the
-%% result back over the socket. Else test_server runs the case directly on host.
 
 run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit,
 		    TimetrapData) ->
@@ -4351,8 +4303,7 @@ update_config(Config, []) ->
 %%                           Cases is treated according to this table, then
 %%                           FinMFA is placed in the BasicCaseList. InitMFA
 %%                           and FinMFA are make/unmake functions. If InitMFA
-%%                           fails, Cases are not run. InitMFA and FinMFA are
-%%                           always run on the host - not on target.
+%%                           fails, Cases are not run.
 %%
 %% When a function is called, above, it means that the function is invoked
 %% and the return is expected to be:
@@ -4702,7 +4653,7 @@ keep_name(Props) ->
 		    (_) -> false end, Props).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                 Target node handling functions                   %%
+%%                 Node handling functions                   %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

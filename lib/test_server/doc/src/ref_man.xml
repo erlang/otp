@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,7 +31,7 @@
   <description>
     <p><em>Test Server</em> is a portable test server for
       automated application testing. The server can run test suites
-      on local or remote targets and log progress and results to HTML
+      and log progress and results to HTML
       pages. The main purpose of Test Server is to act as engine
       inside customized test tools. A callback interface for 
       such framework applications is provided.</p>

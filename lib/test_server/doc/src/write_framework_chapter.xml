@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -46,15 +46,8 @@
     <title>Interfacing the test server controller from Erlang</title>
     <p>Using the test server from Erlang means that you have to start
       the test server and then add test jobs. Use
-      <c>test_server_ctrl:start/0</c> to start a local target or
-      <c>test_server_ctrl:start/1</c> to start a remote target. The test
-      server is stopped by <c>test_server_ctrl:stop/0</c>.
-      </p>
-    <p>The argument to <c>test_server_ctrl:start/1</c> is the name of a
-      parameter file. The parameter file specifies what type of target
-      to start and where to start it, as well as some additional
-      parameters needed for different target types. See the reference
-      manual for a detailed description of all valid parameters.
+      <c>test_server_ctrl:start/0</c> to start the test server, and
+      <c>test_server_ctrl:stop/0</c> to stop it.
       </p>
 
     <section>

@@ -218,17 +218,14 @@ do_cover_compile1([]) ->
 %% Analyse = {details,Dir} | details | {overview,void()} | overview
 %% Modules = [atom()], the modules to analyse
 %%
-%% Cover analysis. If this is a remote target, analyse_to_file can not be used.
-%% In that case the analyse level 'line' is used instead if Analyse==details.
+%% Cover analysis. If Analyse=={details,Dir} analyse_to_file is used.
 %%
-%% If this is a local target, the test directory is given
-%% (Analyse=={details,Dir}) and analyse_to_file can be used directly.
+%% If Analyse=={overview,Dir} analyse_to_file is not used, only an
+%% overview containing the number of covered/not covered lines in each
+%% module.
 %%
-%% If Analyse==overview | {overview,Dir} analyse_to_file is not used, only
-%% an overview containing the number of covered/not covered lines in each module.
-%%
-%% Also, if a Dir exists, cover data will be exported to a file called
-%% all.coverdata in that directory.
+%% Also, cover data will be exported to a file called all.coverdata in
+%% the given directory.
 %%
 %% Finally, if Stop==true, then cover will be stopped after the
 %% analysis is completed. Stopping cover causes the original (non
@@ -261,24 +258,13 @@ cover_analyse(Analyse,Modules,Stop) ->
 		    Error ->
 			fun(_) -> Error end
 		end;
-	    details ->
-		fun(M) ->
-			case cover:analyse(M,line) of
-			    {ok,Lines} ->
-				{lines,Lines};
-			    Error ->
-				Error
-			end
-		end;
 	    {overview,Dir} ->
 		case cover:export(filename:join(Dir,"all.coverdata")) of
 		    ok ->
 			fun(_) -> undefined end;
 		    Error ->
 			fun(_) -> Error end
-		end;
-	    overview ->
-		fun(_) -> undefined end
+		end
 	end,
     R = pmap(
 	  fun(M) ->
@@ -512,10 +498,10 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 		 end,
 	    run_test_case_msgloop(St);
 	{sync_apply,From,MFA} ->
-	    sync_local_or_remote_apply(false,From,MFA),
+	    do_sync_apply(false,From,MFA),
 	    run_test_case_msgloop(St0);
 	{sync_apply_proxy,Proxy,From,MFA} ->
-	    sync_local_or_remote_apply(Proxy,From,MFA),
+	    do_sync_apply(Proxy,From,MFA),
 	    run_test_case_msgloop(St0);
 	{comment,NewComment0} ->
 	    NewComment1 = test_server_ctrl:to_string(NewComment0),
@@ -2599,10 +2585,9 @@ purify_format(Format, Args) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% Generic send functions for communication with host
+%% Apply given function and reply to caller or proxy.
 %%
-sync_local_or_remote_apply(Proxy, From, {M,F,A}) ->
-    %% i'm a local target
+do_sync_apply(Proxy, From, {M,F,A}) ->
     Result = apply(M, F, A),
     if is_pid(Proxy) -> Proxy ! {sync_result_proxy,From,Result};
        true -> From ! {sync_result,Result}

@@ -26,10 +26,9 @@
 
 %% Test Controller interface
 -export([is_release_available/1]).
--export([stop/1]).
 -export([start_tracer_node/2,trace_nodes/2,stop_tracer_node/1]).
--export([start_node/5, stop_node/2]).
--export([kill_nodes/1, nodedown/2]).
+-export([start_node/5, stop_node/1]).
+-export([kill_nodes/0, nodedown/1]).
 %% Internal export
 -export([node_started/1,trc/1,handle_debug/4]).
 
@@ -57,23 +56,12 @@ is_release_available(Rel) ->
 	    false
     end.
 
-stop(TI) ->
-    kill_nodes(TI).
-
-nodedown(Sock, TI) ->
+nodedown(Sock) ->
     Match = #slave_info{name='$1',socket=Sock,client='$2',_='_'},
     case ets:match(slave_tab,Match) of
-	[[Node,Client]] -> % Slave node died
+	[[Node,_Client]] -> % Slave node died
 	    gen_tcp:close(Sock),
 	    ets:delete(slave_tab,Node),
-	    close_target_client(Client),
-	    HostAtom = test_server_sup:hostatom(Node),
-	    case lists:member(HostAtom,TI#target_info.slave_targets) of
-		true -> 
-		    put(test_server_free_targets,
-			get(test_server_free_targets) ++ [HostAtom]);
-		false -> ok
-	    end,
 	    slave_died;
 	[] ->
 	    ok
@@ -300,9 +288,11 @@ start_node(_SlaveName, _Type, _Options, _From, _TI) ->
 
 %%
 %% Peer nodes are always started on the same host as test_server_ctrl
-%% Socket communication is used in case target and controller is
-%% not the same node (target must not know the controller node
-%% via erlang distribution)
+%%
+%% (Socket communication is used since in early days the test target
+%% and the test server controller node could be on different hosts and
+%% the target could not know the controller node via erlang
+%% distribution)
 %%
 start_node_peer(SlaveName, OptList, From, TI) ->
     SuppliedArgs = start_node_get_option_value(args, OptList, []),
@@ -403,8 +393,6 @@ do_start_node_slave(Host0, SlaveName, Args, Prog, Cleanup) ->
 	    _ -> cast_to_list(Host0)
 	end,
     Cmd = Prog ++ " " ++ Args,
-    %% Can use slave.erl here because I'm both controller and target
-    %% so I will ping the new node anyway
     case slave:start(Host, SlaveName, Args, no_link, Prog) of
 	{ok,Nodename} ->
 	    case Cleanup of
@@ -545,61 +533,36 @@ start_node_get_option_value(Key, List, Default) ->
 %% stop_node(Name) -> ok | {error,Reason}
 %%
 %% Clean up - test_server will stop this node
-stop_node(Name, TI) ->
+stop_node(Name) ->
     case ets:lookup(slave_tab,Name) of
-	[#slave_info{client=Client}] -> 
+	[#slave_info{}] ->
 	    ets:delete(slave_tab,Name),
-	    HostAtom = test_server_sup:hostatom(Name),
-	    case lists:member(HostAtom,TI#target_info.slave_targets) of
-		true -> 
-		    put(test_server_free_targets,
-			get(test_server_free_targets) ++ [HostAtom]);
-		false -> ok
-	    end,
-	    close_target_client(Client),
 	    ok;
 	[] -> 
 	    {error, not_a_slavenode}
     end.
 	    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% kill_nodes(TI) -> ok
+%% kill_nodes() -> ok
 %%
 %% Brutally kill all slavenodes that were not stopped by test_server
-kill_nodes(TI) ->
+kill_nodes() ->
     case ets:match_object(slave_tab,'_') of
 	[] -> [];
 	List ->
-	    lists:map(fun(SI) -> kill_node(SI,TI) end, List)
+	    lists:map(fun(SI) -> kill_node(SI) end, List)
     end.
 
-kill_node(SI,TI) ->
+kill_node(SI) ->
     Name = SI#slave_info.name,
     ets:delete(slave_tab,Name),
-    HostAtom = test_server_sup:hostatom(Name),
-    case lists:member(HostAtom,TI#target_info.slave_targets) of
-	true ->
-	    put(test_server_free_targets,
-		get(test_server_free_targets) ++ [HostAtom]);
-	false -> ok
-    end,
     case SI#slave_info.socket of
 	undefined ->
 	    catch rpc:call(Name,erlang,halt,[]);
 	Sock ->
 	    gen_tcp:close(Sock)
     end,
-    close_target_client(SI#slave_info.client),
     Name.
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Platform specific code
-
-close_target_client(undefined) ->
-    ok.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% cast_to_list(X) -> string()

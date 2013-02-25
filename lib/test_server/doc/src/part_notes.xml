@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,7 +30,7 @@
   <description>
     <p>The <em>Test Server</em> is a portable test server for
       application testing. The test server can run automatic test suites
-      on local or remote target and log progress and results to HTML
+      and log progress and results to HTML
       pages. It also provides some support for test suite authors.</p>
     <p>For information about older versions, see
       <url href="part_notes_history_frame.html">Release Notes History</url>.</p>

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -57,64 +57,19 @@
   <funcs>
     <func>
       <name>start() -> Result</name>
-      <name>start(ParameterFile) -> Result</name>
       <fsummary>Starts the test server.</fsummary>
       <type>
         <v>Result = ok | {error, {already_started, pid()}</v>
-        <v>ParameterFile = atom() | string()</v>
       </type>
       <desc>
-        <p>This function starts the test server. If the parameter file
-          is given, it indicates that the target is remote. In that case
-          the target node is started and a socket connection is
-          established between the controller and the target node.
-          </p>
-        <p>The parameter file is a text file containing key-value
-          tuples. Each tuple must be followed by a dot-newline
-          sequence. The following key-value tuples are allowed:
-          </p>
-        <taglist>
-          <tag><c>{type,PlatformType}</c></tag>
-          <item>This is an atom indicating the target platform type,
-           currently supported: <c>PlatformType = vxworks</c>          <br></br>
-Mandatory
-          </item>
-          <tag><c>{target,TargetHost}</c></tag>
-          <item>This is the name of the target host, can be atom or
-           string.
-                    <br></br>
-Mandatory
-          </item>
-          <tag><c>{slavetargets,SlaveTargets}</c></tag>
-          <item>This is a list of available hosts where slave nodes
-           can be started. The hostnames are given as atoms or strings.
-                    <br></br>
-Optional, default <c>SlaveTargets = []</c></item>
-          <tag><c>{longnames,Bool}</c></tag>
-          <item>This indicates if longnames shall be used, i.e. if the
-          <c>-name</c> option should be used for the target node
-           instead of <c>-sname</c>          <br></br>
-Optional, default <c>Bool = false</c></item>
-          <tag><c>{master, {MasterHost, MasterCookie}}</c></tag>
-          <item>If target is remote and the target node is started as
-           a slave node, this option indicates which master and 
-	   cookie to use. The given master
-           will also be used as master for slave nodes started with
-          <c>test_server:start_node/3</c>. It is expected that the
-          <c>erl_boot_server</c> is started on the master node before
-           the <c>test_server_ctrl:start/1</c> function is called.
-                    <br></br>
-Optional, if not given the test server controller node
-           is used as master and the <c>erl_boot_server</c> is
-           automatically started.</item>
-        </taglist>
+        <p>This function starts the test server.</p>
       </desc>
     </func>
     <func>
       <name>stop() -> ok</name>
       <fsummary>Stops the test server immediately.</fsummary>
       <desc>
-        <p>This stops the test server (both controller and target) and
+        <p>This stops the test server and
           all its activity.  The running test suite (if any) will be
           halted.</p>
       </desc>
@@ -684,10 +639,6 @@ test_server_ctrl:cross_cover_analyse(Level,[{s1,S1LogDir},{s2,S2LogDir}])
           <item>Names the test suite to something else than the
            default name. This does not apply to <c>SPEC</c> which keeps
            its names.
-          </item>
-          <tag><c>PARAMETERS parameterfile</c></tag>
-          <item>Specifies the parameter file to use when starting
-           remote target
           </item>
           <tag><c>COVER app cover_file analyse</c></tag>
           <item>Indicates that the test should be run with cover
