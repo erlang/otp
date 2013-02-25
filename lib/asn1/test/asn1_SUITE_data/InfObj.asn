@@ -39,21 +39,6 @@ RANAP-PDU ::= CHOICE {
 
 CLASS2 ::= RANAP-ELEMENTARY-PROCEDURE
 
-MY-CLASS ::= CLASS {
-    &integerValue      INTEGER UNIQUE,
-    &booleanValue      BOOLEAN,
-    &stringValue       PrintableString
-    }
-
-myobject MY-CLASS ::= {
-    &integerValue      12,
-    &booleanValue      TRUE,
-    &stringValue       "hejsan"
-    }
-MyObjectSet MY-CLASS ::= {
-    myobject
-    }
-
 InitiatingMessage  ::= SEQUENCE {
     procedureCode  RANAP-ELEMENTARY-PROCEDURE.&procedureCode	({RANAP-ELEMENTARY-PROCEDURES}),
     criticality	RANAP-ELEMENTARY-PROCEDURE.&criticality		({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode}),
@@ -147,6 +132,46 @@ id-Iu-Release2				INTEGER ::= 2
 id-Iu-Release3				INTEGER ::= 3
 id-Iu-Release4				INTEGER ::= 4
 id-Iu-Release5				INTEGER ::= 5
+
+--
+-- MY-CLASS
+--
+
+Seq ::= SEQUENCE {
+    int INTEGER,
+    str OCTET STRING
+}
+
+MY-CLASS ::= CLASS {
+    &Count             DEFAULT INTEGER,
+    &integerValue      INTEGER UNIQUE,
+    &booleanValue      BOOLEAN,
+    &stringValue       PrintableString
+}
+
+myobject MY-CLASS ::= {
+    &integerValue      12,
+    &booleanValue      TRUE,
+    &stringValue       "hejsan"
+}
+
+myotherobject MY-CLASS ::= {
+    &Count             Seq,
+    &integerValue      42,
+    &booleanValue      FALSE,
+    &stringValue       "hoppsan"
+}
+
+MyObjectSet MY-CLASS ::= {
+    myobject | myotherobject
+}
+
+MyPdu ::= SEQUENCE {
+    count MY-CLASS.&Count ({MyObjectSet}{@int}),
+    int   MY-CLASS.&integerValue ({MyObjectSet}),
+    bool  MY-CLASS.&booleanValue ({MyObjectSet}{@int}),
+    str   MY-CLASS.&stringValue ({MyObjectSet}{@int})
+}
 
 END
 

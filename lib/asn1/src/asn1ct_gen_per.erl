@@ -454,7 +454,7 @@ gen_encode_default_call(ClassName,FieldName,Type) ->
 	    [#typedef{name=[FieldName,ClassName],
 		      typespec=Type}];
 	{primitive,bif} ->
-	    gen_encode_prim(per,Type,"false","Val"),
+	    gen_encode_prim(uper, Type, "false", "Val"),
 	    [];
 	#'Externaltypereference'{module=CurrentMod,type=Etype} ->
 	    emit(["   'enc_",Etype,"'(Val)",nl]),
@@ -590,7 +590,7 @@ gen_decode_default_call(ClassName,FieldName,Bytes,Type) ->
 	    [#typedef{name=[FieldName,ClassName],
 		      typespec=Type}];
 	{primitive,bif} ->
-	    gen_dec_prim(per,Type,Bytes),
+	    gen_dec_prim(uper, Type, Bytes),
 	    [];
 	#'Externaltypereference'{module=CurrentMod,type=Etype} ->
 	    emit(["   'dec_",Etype,"'(",Bytes,", telltype)",nl]),
