@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -145,9 +145,9 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test cases starts here. -------------------------------------------
 %%--------------------------------------------------------------------
-close_file(doc) ->
-    ["Test that sftpd closes its fildescriptors after compleating the "
-     "transfer OTP-6350"];
+close_file() ->
+    [{doc, "Test that sftpd closes its fildescriptors after compleating the "
+     "transfer OTP-6350"}].
 
 close_file(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
@@ -165,10 +165,10 @@ close_file(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-quit(doc) ->
-    [" When the sftp client ends the session the "
+quit() ->
+    [{doc, " When the sftp client ends the session the "
      "server will now behave correctly and not leave the "
-     "client hanging. OTP-6349"];
+     "client hanging. OTP-6349"}].
 
 quit(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
@@ -197,9 +197,9 @@ quit(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-file_cb(doc) ->
-    ["Test that it is possible to change the callback module for"
-    " the sftpds filehandling. OTP-6356"];
+file_cb() ->
+    [{"Test that it is possible to change the callback module for"
+      " the sftpds filehandling. OTP-6356"}].
 
 file_cb(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
@@ -245,8 +245,6 @@ file_cb(Config) when is_list(Config) ->
     alt_file_handler_check(alt_del_dir).
 %%--------------------------------------------------------------------
 
-root_dir(doc) ->
-    [""];
 root_dir(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
     FileName = "test.txt",
@@ -258,16 +256,15 @@ root_dir(Config) when is_list(Config) ->
     ct:pal("Listing: ~p~n", [Listing]).
 
 %%--------------------------------------------------------------------
-list_dir_limited(doc) ->
-    [""];
 list_dir_limited(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
     {ok, Listing} =
 	ssh_sftp:list_dir(Sftp, "."),
     ct:pal("Listing: ~p~n", [Listing]).
 
-ver6_basic(doc) ->
-    ["Test some version 6 features"];
+%%--------------------------------------------------------------------
+ver6_basic() ->
+    [{doc, "Test some version 6 features"}].
 ver6_basic(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     NewDir = filename:join(PrivDir, "testdir2"),

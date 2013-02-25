@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -101,8 +101,8 @@ end_per_testcase(_TestCase, _Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 
-erlang_shell_client_openssh_server(doc) ->
-    ["Test that ssh:shell/2 works"];
+erlang_shell_client_openssh_server() ->
+    [{doc, "Test that ssh:shell/2 works"}].
 
 erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
@@ -128,8 +128,8 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     end.
 
 %--------------------------------------------------------------------
-erlang_client_openssh_server_exec(doc) ->
-    ["Test api function ssh_connection:exec"];
+erlang_client_openssh_server_exec() ->
+    [{doc, "Test api function ssh_connection:exec"}].
 
 erlang_client_openssh_server_exec(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
@@ -167,8 +167,8 @@ erlang_client_openssh_server_exec(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-erlang_client_openssh_server_exec_compressed(doc) ->
-    ["Test that compression option works"];
+erlang_client_openssh_server_exec_compressed() ->
+    [{doc, "Test that compression option works"}].
 
 erlang_client_openssh_server_exec_compressed(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
@@ -190,8 +190,8 @@ erlang_client_openssh_server_exec_compressed(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-erlang_server_openssh_client_exec(doc) ->
-    ["Test that exec command works."];
+erlang_server_openssh_client_exec() ->
+    [{doc, "Test that exec command works."}].
 
 erlang_server_openssh_client_exec(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
@@ -221,8 +221,8 @@ erlang_server_openssh_client_exec(Config) when is_list(Config) ->
      ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-erlang_server_openssh_client_exec_compressed(doc) ->
-    ["Test that exec command works."];
+erlang_server_openssh_client_exec_compressed() ->
+    [{doc, "Test that exec command works."}].
 
 erlang_server_openssh_client_exec_compressed(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
@@ -249,8 +249,8 @@ erlang_server_openssh_client_exec_compressed(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-erlang_client_openssh_server_setenv(doc) ->
-    ["Test api function ssh_connection:setenv"];
+erlang_client_openssh_server_setenv() ->
+    [{doc, "Test api function ssh_connection:setenv"}].
 
 erlang_client_openssh_server_setenv(Config) when is_list(Config) ->
     ConnectionRef =
@@ -292,8 +292,8 @@ erlang_client_openssh_server_setenv(Config) when is_list(Config) ->
 %% setenv not meaningfull on erlang ssh daemon!
 
 %%--------------------------------------------------------------------
-erlang_client_openssh_server_publickey_rsa(doc) ->
-    ["Validate using rsa publickey."];
+erlang_client_openssh_server_publickey_rsa() ->
+    [{doc, "Validate using rsa publickey."}].
 erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
     {ok,[[Home]]} = init:get_argument(home),
     KeyFile =  filename:join(Home, ".ssh/id_rsa"),
@@ -319,8 +319,8 @@ erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
 	
 
 %%--------------------------------------------------------------------
-erlang_client_openssh_server_publickey_dsa(doc) ->
-    ["Validate using dsa publickey."];
+erlang_client_openssh_server_publickey_dsa() ->
+    [{doc, "Validate using dsa publickey."}].
 erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
     {ok,[[Home]]} = init:get_argument(home),
     KeyFile =  filename:join(Home, ".ssh/id_dsa"),
@@ -344,8 +344,8 @@ erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
 	    {skip, "no ~/.ssh/id_dsa"}  
     end.
 %%--------------------------------------------------------------------
-erlang_server_openssh_client_pulic_key_dsa(doc) ->
-    ["Validate using dsa publickey."];
+erlang_server_openssh_client_pulic_key_dsa() ->
+    [{doc, "Validate using dsa publickey."}].
 erlang_server_openssh_client_pulic_key_dsa(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
@@ -371,8 +371,8 @@ erlang_server_openssh_client_pulic_key_dsa(Config) when is_list(Config) ->
      ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-erlang_client_openssh_server_password(doc) ->
-    ["Test client password option"];
+erlang_client_openssh_server_password() ->
+    [{doc, "Test client password option"}].
 erlang_client_openssh_server_password(Config) when is_list(Config) ->
     %% to make sure we don't public-key-auth
     UserDir = ?config(data_dir, Config),
