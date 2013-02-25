@@ -26,7 +26,7 @@
 %-compile(export_all).
 
 -export([gen_dec_imm/2]).
--export([pgen/4,gen_dec_prim/3,gen_encode_prim/4]).
+-export([gen_dec_prim/3,gen_encode_prim/4]).
 -export([gen_obj_code/3,gen_objectset_code/2]).
 -export([gen_decode/2, gen_decode/3]).
 -export([gen_encode/2, gen_encode/3]).
@@ -36,17 +36,6 @@
 
 -import(asn1ct_gen, [emit/1,demit/1]).
 -import(asn1ct_func, [call/3]).
-
-%% pgen(Erules, Module, TypeOrVal)
-%% Generate Erlang module (.erl) and (.hrl) file corresponding to an ASN.1 module
-%% .hrl file is only generated if necessary
-%% Erules = per | ber
-%% Module = atom()
-%% TypeOrVal = {TypeList,ValueList}
-%% TypeList = ValueList = [atom()]
-
-pgen(OutFile,Erules,Module,TypeOrVal) ->
-    asn1ct_gen:pgen_module(OutFile,Erules,Module,TypeOrVal,[],true).
 
 
 %% Generate ENCODING ******************************

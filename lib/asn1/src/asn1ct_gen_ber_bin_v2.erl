@@ -24,7 +24,6 @@
 
 -include("asn1_records.hrl").
 
--export([pgen/4]).
 -export([decode_class/1, decode_type/1]).
 -export([gen_encode/2,gen_encode/3,gen_decode/2,gen_decode/3]).
 -export([gen_encode_prim/4]).
@@ -57,18 +56,6 @@
 -define(T_GraphicString,    ?UNIVERSAL bor ?PRIMITIVE bor 25). %can be constructed
 -define(T_VisibleString,    ?UNIVERSAL bor ?PRIMITIVE bor 26). %can be constructed
 -define(T_GeneralString,    ?UNIVERSAL bor ?PRIMITIVE bor 27). %can be constructed
-
-%% pgen(Erules, Module, TypeOrVal)
-%% Generate Erlang module (.erl) and (.hrl) file corresponding to an ASN.1 module
-%% .hrl file is only generated if necessary
-%% Erules = per | ber
-%% Module = atom()
-%% TypeOrVal = {TypeList,ValueList,PTypeList}
-%% TypeList = ValueList = [atom()]
-
-pgen(OutFile,Erules,Module,TypeOrVal) ->
-    asn1ct_gen:pgen_module(OutFile,Erules,Module,TypeOrVal,[],true).
-
 
 %%===============================================================================
 %%===============================================================================
