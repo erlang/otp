@@ -41,7 +41,9 @@ suite() ->
 
 all() -> 
     [{group, erlang_server},
-     {group, openssh_server}].
+     {group, openssh_server},
+     sftp_nonexistent_subsystem
+    ].
 
 
 init_per_suite(Config) ->
@@ -76,9 +78,7 @@ init_per_group(erlang_server, Config) ->
 	ssh_test_lib:daemon([{system_dir, SysDir},
 			     {user_dir, PrivDir},
 			     {user_passwords,
-			      [{?USER, ?PASSWD}]},
-			     {failfun,
-			      fun ssh_test_lib:failfun/2}]),
+			      [{?USER, ?PASSWD}]}]),
     [{group, erlang_server}, {sftpd, Sftpd} | Config];
 
 init_per_group(openssh_server, Config) ->
@@ -99,6 +99,17 @@ end_per_group(_, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
+
+init_per_testcase(sftp_nonexistent_subsystem, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    SysDir =  ?config(data_dir, Config),
+    Sftpd = ssh_test_lib:daemon([{system_dir, SysDir},
+				 {user_dir, PrivDir},
+				 {subsystems, []},
+				 {user_passwords,
+				  [{?USER, ?PASSWD}]}
+				]),
+    [{sftpd, Sftpd} | Config];
 
 init_per_testcase(Case, Config) ->
     prep(Config),
@@ -129,6 +140,8 @@ init_per_testcase(Case, Config) ->
 	    [{sftp, Sftp}, {watchdog, Dog} | TmpConfig]
     end.
 
+end_per_testcase(sftp_nonexistent_subsystem, Config) ->
+    Config;
 end_per_testcase(rename_file, Config) ->
     PrivDir = ?config(priv_dir, Config),
     NewFileName = filename:join(PrivDir, "test.txt"),
@@ -421,6 +434,17 @@ pos_write(Config) when is_list(Config) ->
 
     NewData1 = list_to_binary("Bye, see you tomorrow!"),
     {ok, NewData1} = ssh_sftp:read_file(Sftp, FileName).
+
+%%--------------------------------------------------------------------
+sftp_nonexistent_subsystem() ->
+    [""].
+sftp_nonexistent_subsystem(Config) when is_list(Config) ->
+    {_,Host, Port} =  ?config(sftpd, Config),
+    {error,"server failed to start sftp subsystem"} =
+	ssh_sftp:start_channel(Host, Port,
+			       [{user_interaction, false},
+				{user, ?USER}, {password, ?PASSWD},
+				{silently_accept_hosts, true}]).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

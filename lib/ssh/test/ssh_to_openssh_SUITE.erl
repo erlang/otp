@@ -49,7 +49,9 @@ groups() ->
 			  erlang_client_openssh_server_setenv,
 			  erlang_client_openssh_server_publickey_rsa,
 			  erlang_client_openssh_server_publickey_dsa,
-			  erlang_client_openssh_server_password]},
+			  erlang_client_openssh_server_password,
+			  erlang_client_openssh_server_nonexistent_subsystem
+			 ]},
      {erlang_server, [], [erlang_server_openssh_client_exec,
 			  erlang_server_openssh_client_exec_compressed,
 			  erlang_server_openssh_client_pulic_key_dsa]}
@@ -400,6 +402,20 @@ erlang_client_openssh_server_password(Config) when is_list(Config) ->
 	_ ->
 	    ct:pal("Whoami failed reason: ~n", [])
 	end.
+
+%%--------------------------------------------------------------------
+
+erlang_client_openssh_server_nonexistent_subsystem() ->
+    [{doc, "Test client password option"}].
+erlang_client_openssh_server_nonexistent_subsystem(Config) when is_list(Config) ->
+
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+					 [{user_interaction, false},
+					  silently_accept_hosts]),
+
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+
+    failure = ssh_connection:subsystem(ConnectionRef, ChannelId, "foo", infinity).
 
 %%--------------------------------------------------------------------
 %
