@@ -784,6 +784,8 @@ analyse_type(Type, Info, Rewrite) ->
     integer ->
       TrueRange = inf(any_range(), OldVarRange),
       FalseRange = inf(none_range(), OldVarRange);
+    number ->
+      TrueRange = FalseRange = OldVarRange;
     _ ->
       TrueRange = inf(none_range(), OldVarRange),
       FalseRange = OldVarRange

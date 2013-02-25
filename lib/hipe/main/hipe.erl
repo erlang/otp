@@ -1135,7 +1135,7 @@ option_text(debug) ->
 option_text(icode_range) ->
   "Performs integer range analysis on the Icode level";
 option_text(icode_ssa_check) ->
-  "Checks whether Icode is on SSA form or not\n";
+  "Checks whether Icode is on SSA form or not";
 option_text(icode_ssa_copy_prop) ->
   "Performs copy propagation on Icode SSA";
 option_text(icode_ssa_const_prop) ->
@@ -1143,14 +1143,14 @@ option_text(icode_ssa_const_prop) ->
 option_text(icode_ssa_struct_reuse) ->
   "Factors out common tuple and list constructions on Icode SSA";
 option_text(icode_type) ->
-  "Performs type analysis on the Icode level" ++
+  "Performs type analysis on the Icode level\n" ++
   "and then simplifies the code based on the results of this analysis";
 option_text(load) ->
   "Automatically load the produced native code into memory";
 option_text(peephole) ->
   "Enables peephole optimizations";
 option_text(pmatch) ->
-  "Enables pattern matching compilation when compiling from Core; " ++
+  "Enables pattern matching compilation when compiling from Core;\n" ++
   "has no effect when compiling from BEAM bytecode";
 option_text(pp_asm) ->
   "Displays assembly listing with addresses and bytecode\n" ++
@@ -1197,11 +1197,11 @@ option_text(timeout) ->
   "    The limit must be a non-negative integer or the atom 'infinity'.\n" ++
   "    The current default limit is 15 minutes (900000 ms).";
 option_text(use_indexing) ->
-  "Use indexing for multiple-choice branch selection.";
+  "Use indexing for multiple-choice branch selection";
 option_text(use_callgraph) ->
-  "Compile the functions in a module according to a reversed topological " ++
-  "sorted order to gain more information when using a persistent lookup " ++
-  "table for storing intra-modular type information.";
+  "Compile the functions in a module according to a reversed topological\n" ++
+  "sorted order to gain more information when using a persistent lookup\n" ++
+  "table for storing intra-modular type information";
 option_text(verbose) ->
   "Output information about what is being done";
 option_text(Opt) when is_atom(Opt) ->
