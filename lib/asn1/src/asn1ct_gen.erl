@@ -1902,7 +1902,7 @@ index2suffix(N) ->
 ct_gen_module(ber) ->
     asn1ct_gen_ber_bin_v2;
 ct_gen_module(per) ->
-    asn1ct_gen_per_rt2ct;
+    asn1ct_gen_per;
 ct_gen_module(uper) ->
     asn1ct_gen_per.
 

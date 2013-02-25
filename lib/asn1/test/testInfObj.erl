@@ -50,7 +50,8 @@ main(_Erule) ->
 
     roundtrip('InfObj', 'MyPdu', {'MyPdu',42,12,false,"string"}),
     roundtrip('InfObj', 'MyPdu', {'MyPdu',{'Seq',1023,"hello"},
-				  42,true,"longer string"}).
+				  42,true,"longer string"}),
+    roundtrip('InfObj', 'MyPdu', {'MyPdu',"75712346",43,true,"string"}).
 
 
 roundtrip(M, T, V) ->

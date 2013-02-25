@@ -163,7 +163,14 @@ myotherobject MY-CLASS ::= {
 }
 
 MyObjectSet MY-CLASS ::= {
-    myobject | myotherobject
+    myobject | myotherobject |
+    {
+        -- Each character will be encoded in 3 bits in UPER, 4 bits in PER.
+	&Count             NumericString (FROM("01234567") ^ SIZE(8)),
+	&integerValue      43,
+	&booleanValue      TRUE,
+	&stringValue       "tjosan"
+    }
 }
 
 MyPdu ::= SEQUENCE {
