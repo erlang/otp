@@ -1144,78 +1144,34 @@ emit_default_getenc(ObjSetName,UniqueName) ->
 %% gen_inlined_enc_funs for each object iterates over all fields of a
 %% class, and for each typefield it checks if the object has that
 %% field and emits the proper code.
-gen_inlined_enc_funs(Fields,[{typefield,Name,_}|Rest],
-		     ObjSetName,NthObj) ->
-    CurrMod = get(currmod),
-    InternalDefFunName = asn1ct_gen:list2name([NthObj,Name,ObjSetName]),
-    case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when is_record(Type,type) ->
-	    emit({indent(3),"fun(Type, Val, _RestPrimFieldName) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    {Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
-	    gen_inlined_enc_funs1(Fields,Rest,ObjSetName,NthObj+N,Ret);
-	{value,{_,Type}} when is_record(Type,typedef) ->
-	    emit({indent(3),"fun(Type, Val, _RestPrimFieldName) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    {Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
-	    gen_inlined_enc_funs1(Fields,Rest,ObjSetName,NthObj+N,Ret);
-	{value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-	    emit([indent(3),"fun(Type, Val, _RestPrimFieldName) ->",nl,
-		  indent(6),"case Type of",nl]),
-	    emit([indent(9),{asis,Name}," ->",nl]),
-	    if
-		M == CurrMod ->
-		    emit([indent(12),"'enc_",T,"'(Val)"]);
-		true ->
-		    #typedef{typespec=Type} = asn1_db:dbget(M,T),
-		    OTag = Type#type.tag,
-%% 		    Tag = [encode_tag_val((decode_class(X#tag.class) bsl 10) +
-%% 					  X#tag.number) ||
-%% 			      X <- OTag],
- 		    Tag = [encode_tag_val(decode_class(X#tag.class),
- 					  X#tag.form,X#tag.number) ||
- 			      X <- OTag],
-		    emit([indent(12),"'",M,"':'enc_",T,"'(Val, ",{asis,Tag},")"])
-	    end,
-	    gen_inlined_enc_funs1(Fields,Rest,ObjSetName,NthObj,[]);
-	false ->
-	    %% This field was not present in the object thus there
-	    %% were no type in the table and we therefore generate
-	    %% code that returns the input for application treatment.
-	    emit([indent(3),"fun(Type, Val, _RestPrimFieldName) ->",nl,
-		  indent(6),"case Type of",nl,
-		  indent(9),{asis,Name}," ->",nl,
-		  indent(12),"Len = case Val of",nl,
-		  indent(15),"B when is_binary(B) -> size(B);",nl,
-		  indent(15),"_ -> length(Val)",nl,
-		  indent(12),"end,",nl,
-		  indent(12),"{Val,Len}"]),
-	    gen_inlined_enc_funs1(Fields,Rest,ObjSetName,NthObj,[])
-    end;
+gen_inlined_enc_funs(Fields, [{typefield,_,_}|_]=T, ObjSetName, NthObj) ->
+    emit([indent(3),"fun(Type, Val, _RestPrimFieldName) ->",nl,
+	  indent(6),"case Type of",nl]),
+    gen_inlined_enc_funs1(Fields, T, ObjSetName, [], NthObj, []);
 gen_inlined_enc_funs(Fields,[_|Rest],ObjSetName,NthObj) ->
     gen_inlined_enc_funs(Fields,Rest,ObjSetName,NthObj);
 gen_inlined_enc_funs(_,[],_,NthObj) ->
     {[],NthObj}.
 
-gen_inlined_enc_funs1(Fields,[{typefield,Name,_}|Rest],ObjSetName,
-		      NthObj,Acc) ->
+gen_inlined_enc_funs1(Fields, [{typefield,Name,_}|Rest], ObjSetName,
+		      Sep0, NthObj, Acc0) ->
+    emit(Sep0),
+    Sep = [";",nl],
     CurrMod = get(currmod),
     InternalDefFunName = asn1ct_gen:list2name([NthObj,Name,ObjSetName]),
-    {Acc2,NAdd}=
-	case lists:keysearch(Name,1,Fields) of
-	    {value,{_,Type}} when is_record(Type,type) ->
-		emit({";",nl}),
-		{Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
-		{Ret++Acc,N};
-	    {value,{_,Type}} when is_record(Type,typedef) ->
-		emit({";",nl,indent(9),{asis,Name}," ->",nl}),
-		{Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
-		{Ret++Acc,N};
-	    {value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-		emit({";",nl,indent(9),{asis,Name}," ->",nl}),
+    {Acc,NAdd} =
+	case lists:keyfind(Name,1,Fields) of
+	    {_,#type{}=Type} ->
+		{Ret,N} = emit_inner_of_fun(Type,InternalDefFunName),
+		{Ret++Acc0,N};
+	    {_,#typedef{}=Type} ->
+		emit([indent(9),{asis,Name}," ->",nl]),
+		{Ret,N} = emit_inner_of_fun(Type, InternalDefFunName),
+		{Ret++Acc0,N};
+	    {_,#'Externaltypereference'{module=M,type=T}} ->
+		emit([indent(9),{asis,Name}," ->",nl]),
 		if
-		    M == CurrMod ->
+		    M =:= CurrMod ->
 			emit([indent(12),"'enc_",T,"'(Val)"]);
 		    true ->
 			#typedef{typespec=Type} = asn1_db:dbget(M,T),
@@ -1223,27 +1179,30 @@ gen_inlined_enc_funs1(Fields,[{typefield,Name,_}|Rest],ObjSetName,
 			Tag = [encode_tag_val(decode_class(X#tag.class), 
 					      X#tag.form,X#tag.number) ||
 				  X <- OTag],
-			emit([indent(12),"'",M,"':'enc_",T,"'(Val, ",{asis,Tag},")"])
+			emit([indent(12),"'",M,"':'enc_",T,"'(Val, ",
+			      {asis,Tag},")"])
 		end,
-		{Acc,0};
+		{Acc0,0};
 	    false ->
 		%% This field was not present in the object thus there
 		%% were no type in the table and we therefore generate
 		%% code that returns the input for application
 		%% treatment.
-		emit([";",nl,indent(9),{asis,Name}," ->",nl]),
-		emit([indent(12),"Len = case Val of",nl,
-		      indent(15),"Bin when is_binary(Bin) -> byte_size(Bin);",nl,
-		      indent(15),"_ -> length(Val)",nl,indent(12),"end,",nl,
+		emit([indent(9),{asis,Name}," ->",nl,
+		      indent(12),"Len = case Val of",nl,
+		      indent(15),"Bin when is_binary(Bin) -> "
+		      "byte_size(Bin);",nl,
+		      indent(15),"_ -> length(Val)",nl,
+		      indent(12),"end,",nl,
 		      indent(12),"{Val,Len}"]),
-		{Acc,0}
+		{Acc0,0}
 	end,
-    gen_inlined_enc_funs1(Fields,Rest,ObjSetName,NthObj+NAdd,Acc2);
-gen_inlined_enc_funs1(Fields,[_|Rest],ObjSetName,NthObj,Acc)->
-    gen_inlined_enc_funs1(Fields,Rest,ObjSetName,NthObj,Acc);
-gen_inlined_enc_funs1(_,[],_,NthObj,Acc) ->
-    emit({nl,indent(6),"end",nl}),
-    emit({indent(3),"end"}),
+    gen_inlined_enc_funs1(Fields, Rest, ObjSetName, Sep, NthObj+NAdd, Acc);
+gen_inlined_enc_funs1(Fields,[_|Rest], ObjSetName, Sep, NthObj, Acc)->
+    gen_inlined_enc_funs1(Fields, Rest, ObjSetName, Sep, NthObj, Acc);
+gen_inlined_enc_funs1(_, [], _, _, NthObj, Acc) ->
+    emit([nl,indent(6),"end",nl,
+	  indent(3),"end"]),
     {Acc,NthObj}.
 
 emit_inner_of_fun(TDef=#typedef{name={ExtMod,Name},typespec=Type},
@@ -1352,79 +1311,32 @@ emit_default_getdec(ObjSetName,UniqueName) ->
     emit(["'getdec_",ObjSetName,"'(",{asis,UniqueName},", ErrV) ->",nl]),
     emit([indent(2), "fun(C,V,_) -> exit({{component,C},{value,V},{unique_name_and_value,",{asis,UniqueName},", ErrV}}) end"]).
 
-gen_inlined_dec_funs(Fields,[{typefield,Name,Prop}|Rest],
-		     ObjSetName,NthObj) ->
-    DecProp = case Prop of
-		  'OPTIONAL' -> opt_or_default;
-		  {'DEFAULT',_} -> opt_or_default;
-		  _ -> mandatory
-	      end,
-    CurrMod = get(currmod),
-    InternalDefFunName = [NthObj,Name,ObjSetName],
-    case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when is_record(Type,type) ->
-	    emit([indent(3),"fun(Type, Bytes, _RestPrimFieldName) ->",
-		  nl,indent(6),"case Type of",nl]),
-	    N=emit_inner_of_decfun(Type,DecProp,InternalDefFunName),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-	{value,{_,Type}} when is_record(Type,typedef) ->
-	    emit([indent(3),"fun(Type, Bytes, _RestPrimFieldName) ->",
-		  nl,indent(6),"case Type of",nl]),
-	    emit([indent(9),{asis,Name}," ->",nl]),
-	    N=emit_inner_of_decfun(Type,DecProp,InternalDefFunName),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-	{value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-	    emit([indent(3),"fun(Type, Bytes, _RestPrimFieldName) ->",
-		  nl,indent(6),"case Type of",nl]),
-	    emit([indent(9),{asis,Name}," ->",nl]),
-	    if
-		M == CurrMod ->
-		    emit([indent(12),"'dec_",T,"'(Bytes)"]);
-		true ->
-		    #typedef{typespec=Type} = asn1_db:dbget(M,T),
-		    OTag = Type#type.tag,
-		    Tag = [(decode_class(X#tag.class) bsl 10) + X#tag.number ||
-			      X <- OTag],
-		    emit([indent(12),"'",M,"':'dec_",T,"'(Bytes, ",{asis,Tag},")"])
-	    end,
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-	false ->
-	    emit([indent(3),"fun(Type, Bytes, _RestPrimFieldName) ->",
-		  nl,indent(6),"case Type of",nl,
-		  indent(9),{asis,Name}," ->",nl,
-		  indent(12),"Len = case Bytes of",nl,
-		  indent(15),"B when is_binary(B) -> byte_size(B);",nl,
-		  indent(15),"_ -> length(Bytes)",nl,
-		  indent(12),"end,",nl,
-		  indent(12),"{Bytes,[],Len}"]),
-	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj)
-    end;
-gen_inlined_dec_funs(Fields,[_H|Rest],ObjSetName,NthObj) ->
-    gen_inlined_dec_funs(Fields,Rest,ObjSetName,NthObj);
-gen_inlined_dec_funs(_,[],_,NthObj) ->
-    NthObj.
+gen_inlined_dec_funs(Fields, ClFields, ObjSetName, NthObj) ->
+    emit([indent(3),"fun(Type, Bytes, _RestPrimFieldName) ->",nl,
+	  indent(6),"case Type of",nl]),
+    gen_inlined_dec_funs1(Fields, ClFields, ObjSetName, "", NthObj).
 
-gen_inlined_dec_funs1(Fields,[{typefield,Name,Prop}|Rest],
-		      ObjSetName,NthObj) ->
+gen_inlined_dec_funs1(Fields, [{typefield,Name,Prop}|Rest],
+		      ObjSetName, Sep0, NthObj) ->
+    emit(Sep0),
+    Sep = [";",nl],
     DecProp = case Prop of
 		  'OPTIONAL' -> opt_or_default;
 		  {'DEFAULT',_} -> opt_or_default;
 		  _ -> mandatory
 	      end,
-    CurrMod = get(currmod),
     InternalDefFunName = [NthObj,Name,ObjSetName],
-    N=
-	case lists:keysearch(Name,1,Fields) of
-	    {value,{_,Type}} when is_record(Type,type) ->
-		emit([";",nl]),
+    N = case lists:keyfind(Name, 1, Fields) of
+	    {_,#type{}=Type} ->
 		emit_inner_of_decfun(Type,DecProp,InternalDefFunName);
-	    {value,{_,Type}} when is_record(Type,typedef) ->
-		emit([";",nl,indent(9),{asis,Name}," ->",nl]),
+	    {_,#typedef{}=Type} ->
+		emit([indent(9),{asis,Name}," ->",nl]),
 		emit_inner_of_decfun(Type,DecProp,InternalDefFunName);
-	    {value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-		emit([";",nl,indent(9),{asis,Name}," ->",nl]),
+	    {_,#'Externaltypereference'{module=M,type=T}} ->
+		emit([indent(9),{asis,Name}," ->",nl]),
+		CurrMod = get(currmod),
 		if
-		    M == CurrMod ->
+		    M =:= CurrMod ->
 			emit([indent(12),"'dec_",T,"'(Bytes)"]);
 		    true ->
 			#typedef{typespec=Type} = asn1_db:dbget(M,T),
@@ -1435,21 +1347,20 @@ gen_inlined_dec_funs1(Fields,[{typefield,Name,Prop}|Rest],
 		end,
 		0;
 	    false ->
-		emit([";",nl,
-		      indent(9),{asis,Name}," ->",nl,
+		emit([indent(9),{asis,Name}," ->",nl,
 		      indent(12),"Len = case Bytes of",nl,
-		      indent(15),"B when is_binary(B) -> size(B);",nl,
+		      indent(15),"B when is_binary(B) -> byte_size(B);",nl,
 		      indent(15),"_ -> length(Bytes)",nl,
 		      indent(12),"end,",nl,
 		      indent(12),"{Bytes,[],Len}"]),
 		0
     end,
-    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-gen_inlined_dec_funs1(Fields,[_|Rest],ObjSetName,NthObj)->
-    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj);
-gen_inlined_dec_funs1(_,[],_,NthObj) ->
-    emit([nl,indent(6),"end",nl]),
-    emit([indent(3),"end"]),
+    gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj+N);
+gen_inlined_dec_funs1(Fields, [_|Rest], ObjSetName, Sep, NthObj)->
+    gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj);
+gen_inlined_dec_funs1(_, [], _, _, NthObj) ->
+    emit([nl,indent(6),"end",nl,
+	  indent(3),"end"]),
     NthObj.
 
 emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},Prop,

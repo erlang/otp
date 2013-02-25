@@ -697,89 +697,51 @@ emit_default_getenc(ObjSetName,UniqueName) ->
 %% gen_inlined_enc_funs for each object iterates over all fields of a
 %% class, and for each typefield it checks if the object has that
 %% field and emits the proper code.
-gen_inlined_enc_funs(Erule,Fields,[{typefield,Name,_}|Rest],ObjSetName,NthObj) ->
-    CurrMod = get(currmod),
-    InternalDefFunName = asn1ct_gen:list2name([NthObj,Name,ObjSetName]),
-    case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when is_record(Type,type) ->
-	    emit({indent(3),"fun(Type, Val, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    {Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
-	    gen_inlined_enc_funs1(Erule,Fields,Rest,ObjSetName,NthObj+N,Ret);
-	{value,{_,Type}} when is_record(Type,typedef) ->
-	    emit({indent(3),"fun(Type, Val, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    {Ret,N} = emit_inner_of_fun(Type,InternalDefFunName),
-	    gen_inlined_enc_funs1(Erule,Fields,Rest,ObjSetName,NthObj+N,Ret);
-	{value,{_,#'Externaltypereference'{module=CurrMod,type=T}}} ->
-	    emit({indent(3),"fun(Type, Val, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    emit([indent(12),"'enc_",T,"'(Val)"]),
-%	    {Ret,N} = emit_inner_of_fun(TDef,InternalDefFunName),
-	    gen_inlined_enc_funs1(Erule,Fields,Rest,ObjSetName,NthObj,[]);
-	{value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-	    emit({indent(3),"fun(Type, Val, _) ->",nl,
-		  indent(6),"case Type of",nl}),
-	    emit({indent(9),{asis,Name}," ->",nl}),
-	    emit([indent(12),"'",M,"'",":'enc_",T,"'(Val)"]),
-	    gen_inlined_enc_funs1(Erule,Fields,Rest,ObjSetName,NthObj,[]);
-	false when Erule =:= uper ->
-	    emit([indent(3),"fun(Type,Val,_) ->",nl,
-		  indent(6),"case Type of",nl,
-		  indent(9),{asis,Name}," -> Val",nl]),
-	    gen_inlined_enc_funs1(Erule,Fields,Rest,ObjSetName,NthObj,[]);
-	false ->
-	    emit([indent(3),"fun(Type,Val,_) ->",nl,
-		  indent(6),"case Type of",nl,
-		  indent(9),{asis,Name}," -> [{octets,Val}]",nl]),
-	    gen_inlined_enc_funs1(Erule,Fields,Rest,ObjSetName,NthObj,[])
-    end;
+gen_inlined_enc_funs(Erule, Fields, [{typefield,_,_}|_]=T,
+		     ObjSetName, NthObj) ->
+    emit([indent(3),"fun(Type, Val, _) ->",nl,
+	  indent(6),"case Type of",nl]),
+    gen_inlined_enc_funs1(Erule, Fields, T, ObjSetName, [], NthObj, []);
 gen_inlined_enc_funs(Erule,Fields,[_H|Rest],ObjSetName,NthObj) ->
     gen_inlined_enc_funs(Erule,Fields,Rest,ObjSetName,NthObj);
 gen_inlined_enc_funs(_,_,[],_,NthObj) ->
     {[],NthObj}.
 
-gen_inlined_enc_funs1(Erule,Fields,[{typefield,Name,_}|Rest],ObjSetName,
-		     NthObj,Acc) ->
+gen_inlined_enc_funs1(Erule, Fields, [{typefield,Name,_}|Rest], ObjSetName,
+		      Sep0, NthObj, Acc0) ->
+    emit(Sep0),
+    Sep = [";",nl],
     CurrentMod = get(currmod),
     InternalDefFunName = asn1ct_gen:list2name([NthObj,Name,ObjSetName]),
-    {Acc2,NAdd}=
-	case lists:keysearch(Name,1,Fields) of
-	    {value,{_,Type}} when is_record(Type,type) ->
-		emit({";",nl}),
-		{Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
-		{Ret++Acc,N};
-	    {value,{_,Type}} when is_record(Type,typedef) ->
-		emit({";",nl,indent(9),{asis,Name}," ->",nl}),
-		{Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
-		{Ret++Acc,N};
-	    {value,{_,#'Externaltypereference'{module=CurrentMod,type=T}}} ->
-		emit({";",nl,indent(9),{asis,Name}," ->",nl}),
-		emit([indent(12),"'enc_",T,"'(Val)"]),
-		{Acc,0};
-	    {value,{_,#'Externaltypereference'{module=M,type=T}}} ->
-		emit({";",nl,indent(9),{asis,Name}," ->",nl}),
-		emit([indent(12),"'",M,"'",":'enc_",T,"'(Val)"]),
-		{Acc,0};
+    {Acc,NAdd} =
+	case lists:keyfind(Name, 1, Fields) of
+	    {_,#type{}=Type} ->
+		{Ret,N} = emit_inner_of_fun(Type, InternalDefFunName),
+		{Ret++Acc0,N};
+	    {_,#typedef{}=Type} ->
+		emit([indent(9),{asis,Name}," ->",nl]),
+		{Ret,N} = emit_inner_of_fun(Type, InternalDefFunName),
+		{Ret++Acc0,N};
+	    {_,#'Externaltypereference'{module=CurrentMod,type=T}} ->
+		emit([indent(9),{asis,Name}," ->",nl,
+		      indent(12),"'enc_",T,"'(Val)"]),
+		{Acc0,0};
+	    {_,#'Externaltypereference'{module=M,type=T}} ->
+		emit([indent(9),{asis,Name}," ->",nl,
+		      indent(12),"'",M,"'",":'enc_",T,"'(Val)"]),
+		{Acc0,0};
 	    false when Erule =:= uper ->
-		emit([";",nl,
-		      indent(9),{asis,Name}," -> ",nl,
-		      "Val",nl]),
-		{Acc,0};
-	    false ->
-		emit([";",nl,
-		      indent(9),{asis,Name}," -> ",nl,
-		      "[{octets,Val}]",nl]),
-		{Acc,0}
+		emit([indent(9),{asis,Name}," ->",nl,
+		      indent(12),"Val",nl]),
+		{Acc0,0}
 	end,
-    gen_inlined_enc_funs1(Erule,Fields,Rest,ObjSetName,NthObj+NAdd,Acc2);
-gen_inlined_enc_funs1(Erule,Fields,[_H|Rest],ObjSetName,NthObj,Acc)->
-    gen_inlined_enc_funs1(Erule,Fields,Rest,ObjSetName,NthObj,Acc);
-gen_inlined_enc_funs1(_,_,[],_,NthObj,Acc) ->
-    emit({nl,indent(6),"end",nl}),
-    emit({indent(3),"end"}),
+    gen_inlined_enc_funs1(Erule, Fields, Rest, ObjSetName, Sep,
+			  NthObj+NAdd, Acc);
+gen_inlined_enc_funs1(Erule, Fields, [_|T], ObjSetName, Sep, NthObj, Acc)->
+    gen_inlined_enc_funs1(Erule, Fields, T, ObjSetName, Sep, NthObj, Acc);
+gen_inlined_enc_funs1(_, _, [], _, _, NthObj, Acc) ->
+    emit([nl,indent(6),"end",nl,
+	  indent(3),"end"]),
     {Acc,NthObj}.
 
 emit_inner_of_fun(TDef=#typedef{name={ExtMod,Name},typespec=Type},
