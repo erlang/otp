@@ -665,6 +665,8 @@
 	than <c>65536</c>, the chosen value will increased to a value
 	larger or equal to the maximum amount of file descriptors that
 	can be opened.</p>
+	<p>On Windows the default value is set to <c>8196</c> because the 
+	normal OS limitations are set higher than most machines can handle.</p>
 	<p>Previously the environment variable <c>ERL_MAX_PORTS</c> was used
 	for setting the maximum number of simultaneously existing ports. This
 	environment variable is deprecated, and scheduled for removal in

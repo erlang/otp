@@ -31,7 +31,18 @@ typedef struct ErtsProc2PortSigData_ ErtsProc2PortSigData;
 #include "erl_thr_progress.h"
 #include "erl_trace.h"
 
+#ifndef __WIN32__
 #define ERTS_DEFAULT_MAX_PORTS (1 << 16)
+#else
+/* 
+ *  Do not default to as many max ports on Windows
+ *  as there are no os limits to stop system
+ *  from running amok. If allowed to go too high
+ *  windows rarely recovers from the errors and
+ *  other OS processes can be effected. 
+ */
+#define ERTS_DEFAULT_MAX_PORTS (1 << 13)
+#endif /* __WIN32__ */
 #define ERTS_MIN_PORTS 1024
 
 extern int erts_port_synchronous_ops;
