@@ -30,6 +30,75 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.19.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Bugs related to Unicode have been fixed in the
+	    <c>erl_eval</c> module. </p>
+          <p>
+	    Own Id: OTP-10622 Aux Id: kunagi-351 [262] </p>
+        </item>
+        <item>
+	    <p><c>filelib:wildcard("some/relative/path/*.beam",
+	    Path)</c> would fail to match any file. That is,
+	    filelib:wildcard/2 would not work if the first component
+	    of the pattern did not contain any wildcard characters.
+	    (A previous attempt to fix the problem in R15B02 seems to
+	    have made matters worse.)</p>
+	    <p>(Thanks to Samuel Rivas and Tuncer Ayaz.)</p>
+	    <p>There is also an incompatible change to the
+	    <c>Path</c> argument. It is no longer allowed to be a
+	    binary.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10812</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The new STDLIB application variable
+	    <c>shell_strings</c> can be used for determining how the
+	    Erlang shell outputs lists of integers. The new function
+	    <c>shell:strings/1</c> toggles the value of the variable.
+	    </p> <p> The control sequence modifier <c>l</c> can be
+	    used for turning off the string recognition of <c>~p</c>
+	    and <c>~P</c>. </p>
+          <p>
+	    Own Id: OTP-10755</p>
+        </item>
+        <item>
+	    <p> Miscellaneous updates due to Unicode support. </p>
+          <p>
+	    Own Id: OTP-10820</p>
+        </item>
+        <item>
+	    <p> Extend <c>~ts</c> to handle binaries with characters
+	    coded in ISO-latin-1 </p>
+          <p>
+	    Own Id: OTP-10836</p>
+        </item>
+        <item>
+          <p>
+	    The +pc flag to erl can be used to set the range of
+	    characters considered printable. This affects how the
+	    shell and io:format("~tp",...) functionality does
+	    heuristic string detection. More can be read in STDLIB
+	    users guide.</p>
+          <p>
+	    Own Id: OTP-10884</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.19</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

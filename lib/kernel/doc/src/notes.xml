@@ -30,6 +30,80 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A bug that could cause a crash with wrong reason has
+	    been corrected in the <c>application_controller</c>
+	    module. </p>
+          <p>
+	    Own Id: OTP-10754</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>code:is_module_native/1</c> that sometimes in R16A
+	    returned false for hipe compiled modules containing BIFs
+	    such as <c>lists</c>.</p>
+          <p>
+	    Own Id: OTP-10870</p>
+        </item>
+        <item>
+          <p>
+	    Respect <c>{exit_on_close,false}</c> option on tcp socket
+	    in non-passive mode when receiving fails (due to an
+	    ill-formed packet for example) by only doing a half close
+	    and still allow sending on the socket. (Thanks to Anthony
+	    Molinaro and Steve Vinoski for reporting the problem)</p>
+          <p>
+	    Own Id: OTP-10879</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Slightly nicer error message when node start fails due to
+	    duplicate name. Thanks to Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-10797</p>
+        </item>
+        <item>
+	    <p> Miscellaneous updates due to Unicode support. </p>
+          <p>
+	    Own Id: OTP-10820</p>
+        </item>
+        <item>
+          <p>
+	    Add a new function code:get_mode() can be used to detect
+	    how the code servers behaves. Thanks to Vlad Dumitrescu</p>
+          <p>
+	    Own Id: OTP-10823</p>
+        </item>
+        <item>
+          <p>
+	    Fix type of error Reason on gen_tcp:send/2. Thanks to
+	    Sean Cribbs.</p>
+          <p>
+	    Own Id: OTP-10839</p>
+        </item>
+        <item>
+	    <p><c>file:list_dir_all/1</c> and
+	    <c>file:read_link_all/1</c> that can handle raw file
+	    names have been added. See the User Guide for STDLIB for
+	    information about raw file names.</p>
+          <p>
+	    Own Id: OTP-10852</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.16</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

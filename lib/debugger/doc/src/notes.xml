@@ -32,6 +32,25 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 3.2.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The +pc flag to erl can be used to set the range of
+	    characters considered printable. This affects how the
+	    shell and io:format("~tp",...) functionality does
+	    heuristic string detection. More can be read in STDLIB
+	    users guide.</p>
+          <p>
+	    Own Id: OTP-10884</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 3.2.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix a bug in cover when used with no_auto_import. Thanks
+	    to José Valim.</p>
+          <p>
+	    Own Id: OTP-10778</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

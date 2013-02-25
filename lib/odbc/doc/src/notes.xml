@@ -31,7 +31,24 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.14</title>
+  <section><title>ODBC 2.10.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed calling odbc:param_query/3 and odbc:param_query/4
+	    with unparameterized query string and empty parameters
+	    list. Thanks to Danil Onishchenko.</p>
+          <p>
+	    Own Id: OTP-10798</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.14</title>
 
     <section><title>Improvements and New Features</title>
       <list>

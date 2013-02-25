@@ -42,6 +42,93 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>Diameter 1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix erroneous watchdog transition from DOWN to INITIAL.</p>
+          <p>
+	    This transition took place when a peer connection was
+	    reestablished following a failed capabilities exchange.
+	    RFC 3539 requires DOWN to transition into REOPEN.</p>
+          <p>
+	    Own Id: OTP-10692</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add application_opt() request_errors to make the handling
+	    of incoming requests containing decode errors
+	    configurable.</p>
+          <p>
+	    The value 'callback' ensures that a handle_request
+	    callback takes place for all such requests, the default
+	    being for diameter to answer 3xxx series errors itself.</p>
+          <p>
+	    Own Id: OTP-10686</p>
+        </item>
+        <item>
+          <p>
+	    Add transport_opt() length_errors.</p>
+          <p>
+	    The value determines how messages received over the
+	    transport interface with an incorrect Message Length are
+	    dealt with.</p>
+          <p>
+	    Own Id: OTP-10687</p>
+        </item>
+        <item>
+          <p>
+	    Add commentary on RFC 6733 to Standards Compliance
+	    chapter of the User's Guide.</p>
+          <p>
+	    Own Id: OTP-10688</p>
+        </item>
+        <item>
+          <p>
+	    Allow a 5xxx result code in an answer-message on peer
+	    connections using the RFC 6733 common dictionary.</p>
+          <p>
+	    RFC 6733 allows this while RFC 3588 does not. A
+	    handle_request callback can return {answer_message,
+	    3000..3999|5000..5999} in the simplest case.</p>
+          <p>
+	    Own Id: OTP-10759</p>
+        </item>
+        <item>
+          <p>
+	    Add dictionaries for RFC 6733.</p>
+          <p>
+	    Both the common and accounting dictionaries differ from
+	    their RFC 3588 counterparts, which is reflected in
+	    generated record definitions. Application configuration
+	    on a service or transport determines the dictionary that
+	    will be used on a given peer connection.</p>
+          <p>
+	    Own Id: OTP-10760</p>
+        </item>
+        <item>
+          <p>
+	    Allow a handle_request callback to control diameter's
+	    setting of Result-Code and Failed-AVP.</p>
+          <p>
+	    Setting errors = false in a returned #diameter_packet{}
+	    disables the setting.</p>
+          <p>
+	    Own Id: OTP-10761</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Diameter 1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

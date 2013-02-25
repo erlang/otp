@@ -29,6 +29,29 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.1.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Better quality on the error messages for when key
+	    exchange failed.</p>
+          <p>
+	    Own Id: OTP-10553 Aux Id: seq12152 </p>
+        </item>
+        <item>
+          <p>
+	    Fix link to documentation for ssh:connect/3,4. Thanks to
+	    Martin Hässler.</p>
+          <p>
+	    Own Id: OTP-10862</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 2.1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,42 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.5.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in OtpErlangTuple constructor. Thanks to Vlad
+	    Dumitrescu.</p>
+          <p>
+	    Own Id: OTP-10819</p>
+        </item>
+        <item>
+          <p>
+	    Fixed finding cookie file on windows. Thanks to Vlad
+	    Dumitrescu</p>
+          <p>
+	    Own Id: OTP-10821</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Don't compress external binary format if this increases
+	    the size. Thanks to Nico Kruber.</p>
+          <p>
+	    Own Id: OTP-10822</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.5.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

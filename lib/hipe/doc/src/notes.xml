@@ -30,6 +30,32 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Bug fixed in hipe to where it did not allow unicode code
+	    points 16#FFFE and 16#FFFF in bit syntax in natively
+	    compiled modules.</p>
+          <p>
+	    Own Id: OTP-10867</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in hipe compiled code related to the handling of
+	    <c>is_number/1</c>. (Thanks to Sebastian Egner and
+	    Johannes Weiﬂl for minimal test code and Kostis for quick
+	    patch)</p>
+          <p>
+	    Own Id: OTP-10897</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

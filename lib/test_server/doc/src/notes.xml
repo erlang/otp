@@ -32,6 +32,62 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The unicode update of test_server for R16A introduced a
+	    few potential errors when logging to files. Sometimes ~tp
+	    or ~ts was used for formatting also when writing to files
+	    that were not opened with the {encoding,utf8} option. If
+	    then the argument contained unicode characters above 255,
+	    the file descriptor would crash. This has been corrected
+	    by the following modifications: <list> <item> Since the
+	    'unexpected_io' log file is used only when the test case
+	    HTML file is not available (e.g. between test cases),
+	    this file is now also a HTML file and as other
+	    test_server HTML logs it is always UTF-8 encoded </item>
+	    <item> Since it is possible to change which information
+	    is going to which log file (with
+	    test_server_ctrl:set_levels/3), we do not have full
+	    control over which information is written to which file.
+	    This means that any printout could be written to the
+	    'major' log file (suite.log), which was earlier encoded
+	    as latin1. To avoid crashing this file descriptor due to
+	    unicode strings, the 'major' log file is now also encoded
+	    in UTF-8 (possible incopatibility). </item> <item> The
+	    cross_cover.info file is no longer a text file which can
+	    be read with file:consult/1, instead it is written as a
+	    pure binary file using term_to_binary when writing and
+	    binary_to_term when reading. </item> <item> The encoding
+	    of the file named 'last_name', which only content is the
+	    path to the last run.&lt;timestamp&gt; directory, is now
+	    dependent on the file name mode of the VM. If file names
+	    are expected to be unicode, then the 'last_name' file is
+	    UTF-8 encoded, else it is latin1 encoded. </item> </list></p>
+          <p>
+	    Also, ~tp has been changed back to ~p unless it is
+	    somehow likely that the argument includes strings. It is
+	    not obvious that this is the correct thing to do, but
+	    some decission had to be taken...</p>
+          <p>
+	    Own Id: OTP-10780</p>
+        </item>
+        <item>
+          <p>
+	    Using the force_stop flag/option to interrupt a test run
+	    caused a crash in Common Test. This problem has been
+	    solved.</p>
+          <p>
+	    Own Id: OTP-10832</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

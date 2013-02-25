@@ -31,6 +31,34 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to Unicode support. </p>
+          <p>
+	    Own Id: OTP-10820</p>
+        </item>
+        <item>
+          <p>
+	    User defined types with same name and different arity and
+	    documentation inconsistencies. Thanks Stavros Aronis.</p>
+          <p>
+	    Own Id: OTP-10861</p>
+        </item>
+        <item>
+          <p>
+	    Native code compilation changes. Thanks to Kostis
+	    Sagonas.</p>
+          <p>
+	    Own Id: OTP-10865</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.5.4</title>
 
     <section><title>Improvements and New Features</title>

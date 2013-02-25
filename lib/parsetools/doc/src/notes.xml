@@ -30,6 +30,20 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.0.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to Unicode support. </p>
+          <p>
+	    Own Id: OTP-10820</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.0.8</title>
 
     <section><title>Improvements and New Features</title>

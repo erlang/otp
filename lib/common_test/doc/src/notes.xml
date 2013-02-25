@@ -32,6 +32,69 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If an event handler installed in the CT Master event
+	    manager took too long to respond during the termination
+	    phase, CT Master crashed because of a timeout after 5
+	    secs. This would leave the system in a bad state. The
+	    problem has been solved by means of a 30 min timeout
+	    value and if CT Master gets a timeout after that time, it
+	    now kills the event manager and shuts down properly.</p>
+          <p>
+	    Own Id: OTP-10634 Aux Id: kunagi-347 [258] </p>
+        </item>
+        <item>
+          <p>
+	    Printing with any of the ct printout functions from an
+	    event handler installed by Common Test, would cause a
+	    deadlock. This problem has been solved.</p>
+          <p>
+	    Own Id: OTP-10826 Aux Id: seq12250 </p>
+        </item>
+        <item>
+          <p>
+	    Using the force_stop flag/option to interrupt a test run
+	    caused a crash in Common Test. This problem has been
+	    solved.</p>
+          <p>
+	    Own Id: OTP-10832</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed depricated run_test program, use ct_run instead.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9052</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Test case execution time increases with size of test run.</p>
+          <p>
+	    Own Id: OTP-10855</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

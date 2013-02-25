@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Some updates are made to systools and release_handler for
+	    handling of unicode.</p>
+          <p>
+	    Own Id: OTP-10782</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

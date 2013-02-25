@@ -33,7 +33,47 @@
   </header>
   
   
-  <section><title>Inets 5.9.3</title>
+  <section><title>Inets 5.9.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    httpd: The modules option now defaults to the documented
+	    value.</p>
+          <p>
+	    Own Id: OTP-10844</p>
+        </item>
+        <item>
+          <p>
+	    httpc: Fixed persistent connection implementation that
+	    was broken by a patch to R13. The patch made persisten
+	    connections behaved the same way as pipelining.</p>
+          <p>
+	    Own Id: OTP-10845</p>
+        </item>
+        <item>
+          <p>
+	    httpd: Simplified configuration of ssl in httpd, this
+	    also enables all ssl options to be configured. The old
+	    and limited way is no longer documented but will be
+	    supported for backwards comatibility for some time.</p>
+          <p>
+	    Own Id: OTP-10846</p>
+        </item>
+        <item>
+          <p>
+	    Handle correctly the "No files found or file unavailable"
+	    error code. Thanks to Serge Aleynikov</p>
+          <p>
+	    Own Id: OTP-10886</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.3</title>
 
     <section><title>Improvements and New Features</title>
       <list>

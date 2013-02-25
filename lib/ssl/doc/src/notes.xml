@@ -26,7 +26,35 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
   
-  <section><title>SSL 5.2</title>
+  <section><title>SSL 5.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Transport callback handling is changed so that gen_tcp is
+	    treated as a special case where inet will be called
+	    directly for functions such as setopts, as gen_tcp does
+	    not have its own setopts. This will enable users to use
+	    the transport callback for other customizations such as
+	    websockets.</p>
+          <p>
+	    Own Id: OTP-10847</p>
+        </item>
+        <item>
+          <p>
+	    Follow up to OTP-10451 solved in ssl-5.2 R16A. Make sure
+	    format_error return good strings. Replace confusing
+	    legacy atoms with more descriptive atoms.</p>
+          <p>
+	    Own Id: OTP-10864</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

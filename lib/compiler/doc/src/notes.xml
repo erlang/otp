@@ -31,6 +31,53 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The compiler would crash attempting to compile
+	    expressions such as "element(2, not_tuple)".</p>
+          <p>
+	    Own Id: OTP-10794</p>
+        </item>
+        <item>
+          <p>
+	    Forbid multiple values in Core Erlang sequence arguments.
+	    Thanks to José Valim and Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-10818</p>
+        </item>
+        <item>
+          <p>
+	    An unsafe optimization would cause the compiler to crash
+	    with an internal error for certain complex code
+	    sequences.</p>
+          <p>
+	    Own Id: OTP-10825 Aux Id: seq12247 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Integers in expression that will give a floating point
+	    result (such as "<c>X / 2</c>" will now be converted to
+	    floating point at compile-time. (Suggested by Richard
+	    O'Keefe.)</p>
+	    <p>Identical floating points constans in a module will
+	    now be coalesced to one entry in the constant pool.</p>
+          <p>
+	    Own Id: OTP-10788</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.9</title>
 
     <section><title>Improvements and New Features</title>

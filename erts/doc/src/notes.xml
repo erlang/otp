@@ -30,6 +30,335 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Threads created internally in the runtime system by
+	    vanilla, fd, and spawn drivers on Windows systems could
+	    make thread unsafe calls to <c>driver_select()</c>.</p>
+          <p>
+	    Own Id: OTP-10802</p>
+        </item>
+        <item>
+          <p>
+	    Threads created internally in the runtime system by the
+	    vanilla, fd, and spawn drivers on Windows systems could
+	    make unsafe memory accesses to driver data after port had
+	    terminated.</p>
+          <p>
+	    Own Id: OTP-10803</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system could crash when flushing data to
+	    standard out or standard error on Windows.</p>
+          <p>
+	    Own Id: OTP-10807</p>
+        </item>
+        <item>
+	    <p>Bugs due to the port optimizations introduced in
+	    erts-5.10/OTP-R16A have been fixed:</p> <list>
+	    <item>Memory leak when terminating ports</item>
+	    <item>Memory leak when reaching the system limit of
+	    maximum amount of concurrently existing ports</item>
+	    <item>Crashs due to missing, or late test of bad port
+	    handle</item> <item>The newly introduced driver API
+	    function <c>erl_drv_busy_msgq_limits()</c> could not be
+	    used by dynamically linked in drivers on Windows</item>
+	    </list>
+          <p>
+	    Own Id: OTP-10809 Aux Id: OTP-10336 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>{packet,httph}</c> header capitalization for
+	    unrecognized header fields longer than 20 charachters
+	    such as <c>Sec-Websocket-Version</c>. The limit is simply
+	    raised from 20 to 50 characters with the hope that valid
+	    headers longer than 50 are not used.</p>
+          <p>
+	    Own Id: OTP-10824</p>
+        </item>
+        <item>
+          <p>
+	    Fix rounding issues in float_to_list/1,2. Thanks to Serge
+	    Aleynikov</p>
+          <p>
+	    Own Id: OTP-10837</p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak in file driver introduced in R16A.</p>
+          <p>
+	    Own Id: OTP-10841</p>
+        </item>
+        <item>
+	    <p>A bug in an ERTS internal queue implementation could
+	    cause the loss of a wake up signal to a consumer thread.
+	    This has now been fixed.</p>
+	    <p>The effect of this bug, when triggered, was often only
+	    a small or even no delay of certain operations. This
+	    since, threads often are woken due to other unrelated
+	    reasons. However, if the consumer thread was not woken
+	    due to other reasons when the bug was triggered, these
+	    operations could be left hanging, potentially for ever.
+	    Such effects seems to have been very rare, but we have on
+	    at least one occasion gotten a report about such an
+	    issue.</p>
+	    <p>Operations potentially effected by this bug:</p>
+	    <taglist> <tag>Inspection of memory allocation
+	    status</tag> <item>The Erlang process calling
+	    <c>erlang:memory/[0,1]</c>, or
+	    <c>erlang:system_info({allocator|allocator_sizes, _})</c>
+	    could potentially hang waiting for responses from
+	    involved threads.</item> <tag>Async thread pool
+	    jobs</tag> <item>An async thread pool job request and/or
+	    reply could potentially be left hanging. In OTP this only
+	    effected file operations, but user implemented drivers
+	    using the async thread pool were also effected. In the
+	    file operation case, this would typically translate into
+	    an Erlang process potentially hanging on the file
+	    operation.</item> <tag>Shutting down the runtime
+	    system</tag> <item>Due to the issue with the async thread
+	    pool mentioned above, flushing of I/O while terminating
+	    the runtime system could also potentially hang.</item>
+	    <tag>ETS memory deallocation</tag> <item>Scheduled jobs
+	    handling deallocation of the main structure of an ETS
+	    table could potentially hang. This more or less only
+	    translates into minor memory leaks.</item> <tag>Shutting
+	    down distribution</tag> <item>The distribution shutdown
+	    phase used when manually shutting down the distribution,
+	    i.e., when calling <c>net_kernel:stop()</c>, could
+	    potentially hang.</item> </taglist>
+          <p>
+	    Own Id: OTP-10854</p>
+        </item>
+        <item>
+          <p>
+	    OS X Snow Leopard now only uses write, as writev does not
+	    work properly on very large files.</p>
+          <p>
+	    Own Id: OTP-10858</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where line oriented file I/O using read_ahead
+	    was very slow for files with very large difference in
+	    line length.</p>
+          <p>
+	    Own Id: OTP-10859</p>
+        </item>
+        <item>
+          <p>
+	    In erts-5.10 (R16A) faulty hashvalues were produced for
+	    non-ASCII atoms (characters in byte-range 128..255). This
+	    has now been fixed and hashvalues conforms to previous
+	    OTP releases.</p>
+          <p>
+	    Own Id: OTP-10860</p>
+        </item>
+        <item>
+          <p>
+	    Fixes of memory accesses that might be thread unsafe when
+	    the runtime system has been linked against third-party
+	    libraries for atomic memory operations during the build.
+	    Most builds are uneffected by this bug. If triggered, the
+	    runtime system will most likely crash more or less
+	    immediately.</p>
+          <p>
+	    Own Id: OTP-10875 Aux Id: OTP-10854 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where it was longer possible to give the +sws
+	    proposal flag to non-smp emulators.</p>
+          <p>
+	    Own Id: OTP-10881 Aux Id: seq12258 </p>
+        </item>
+        <item>
+          <p>
+	    Faulty type to bytes read for ReadFile on Windows. This
+	    could cause windows systems to misbehave. The correct
+	    type is now used.</p>
+          <p>
+	    Own Id: OTP-10890</p>
+        </item>
+        <item>
+          <p>
+	    Change default max ports for Windows to 8192. Having a
+	    too large value caused Windows to not be able to recover
+	    properly. If you want to use another value, pass <c>+Q
+	    Value</c> to erl or werl.</p>
+          <p>
+	    Own Id: OTP-10892</p>
+        </item>
+        <item>
+          <p>
+	    Fix rare crash on halfword vm during code loading.</p>
+          <p>
+	    Own Id: OTP-10896</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Tuple funs (deprecated in R15B) are no longer supported.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10170</p>
+        </item>
+        <item>
+          <p>
+	    Added four new bifs, <c>erlang:binary_to_integer/1,2</c>,
+	    <c>erlang:integer_to_binary/1</c>,
+	    <c>erlang:binary_to_float/1</c> and
+	    <c>erlang:float_to_binary/1,2</c>. These bifs work
+	    similarly to how their list counterparts work, except
+	    they operate on binaries. In most cases converting from
+	    and to binaries is faster than converting from and to
+	    lists. </p>
+          <p>
+	    These bifs are auto-imported into erlang source files and
+	    can therefore be used without the <c>erlang</c> prefix.</p>
+          <p>
+	    Own Id: OTP-10300 Aux Id: kunagi-74 [74] </p>
+        </item>
+        <item>
+          <p>
+	    The experimental support for packages has been removed.</p>
+          <p>
+	    Own Id: OTP-10348 Aux Id: kunagi-316 [227] </p>
+        </item>
+        <item>
+	    <p>The driver API function <seealso
+	    marker="erl_driver#erl_drv_consume_timeslice"><c>erl_drv_consume_timeslice()</c></seealso>,
+	    and the NIF API function <seealso
+	    marker="erl_nif#enif_consume_timeslice"><c>enif_consume_timeslice()</c></seealso>
+	    have been introduced.</p>
+	    <p>These functions are provided in order to better
+	    support co-operative scheduling, improve system
+	    responsiveness, and to make it easier to prevent
+	    misbehaviors of the VM due to a process or port
+	    monopolizing a scheduler thread. They can be used when
+	    dividing lengthy work into a number of repeated calls
+	    without the need to use threads.</p>
+          <p>
+	    Own Id: OTP-10810</p>
+        </item>
+        <item>
+          <p>
+	    The list_to_integer/2 bif has been optimized when used
+	    with bases other than 10.</p>
+          <p>
+	    Own Id: OTP-10834 Aux Id: kunagi-74 [74] </p>
+        </item>
+        <item>
+          <p>
+	    The git commit sha of the HEAD commit is now added to the
+	    Erlang shell when compiling a non-released Erlang
+	    version.</p>
+          <p>
+	    Own Id: OTP-10838</p>
+        </item>
+        <item>
+	    <p>Change caching policy for memory segment allocator.
+	    For instance, prefer sbc segments over mbc segments,
+	    caching policy is time-arrow aware, evicting older cached
+	    segments to store newer segments. </p> <p>The default
+	    number of cachable segment has been increased from five
+	    to ten segments. This can be modified, same as before,
+	    with the command line option <c>+MMmcs 5</c></p>
+	    <p>Impact: Increased speed for processing on larger
+	    objects, e.g. binaries. Slight increase of mapped and
+	    resident memory. Tune your system with memory options to
+	    <c>erl</c> for best performance.</p>
+          <p>
+	    Own Id: OTP-10840</p>
+        </item>
+        <item>
+          <p>
+	    Updated config.sub and config.guess to latest version
+	    from gnu.org</p>
+          <p>
+	    Own Id: OTP-10848</p>
+        </item>
+        <item>
+          <p>
+	    Add an xcomp file for Blue Gene/Q. Thanks to Kostis
+	    Sagonas.</p>
+          <p>
+	    Own Id: OTP-10849</p>
+        </item>
+        <item>
+          <p>
+	    Cleanup of documentation of the type language. Thanks to
+	    Kostis Sagonas.</p>
+          <p>
+	    Own Id: OTP-10850</p>
+        </item>
+        <item>
+          <p>
+	    Change the return value of hipe_bifs:remove_refs_from/1.
+	    Thanks to Kostis Sagonas.</p>
+          <p>
+	    Own Id: OTP-10851</p>
+        </item>
+        <item>
+          <p>
+	    As of ERTS-5.10/OTP-R16A node names passed in the EPMD
+	    protocol are required to be encoded in UTF-8. Since EPMD
+	    previously accepted latin1 encoded node names this is an
+	    incompatibility. However, since Erlang nodes always have
+	    required characters in node names to be 7-bit ASCII
+	    characters (and still do require this), this
+	    incompatibility should not effect anyone using EPMD as an
+	    Erlang Port Mapper Daemon.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10872 Aux Id: OTP-10753 </p>
+        </item>
+        <item>
+          <p>
+	    The +pc flag to erl can be used to set the range of
+	    characters considered printable. This affects how the
+	    shell and io:format("~tp",...) functionality does
+	    heuristic string detection. More can be read in STDLIB
+	    users guide.</p>
+          <p>
+	    Own Id: OTP-10884</p>
+        </item>
+        <item>
+          <p>
+	    Fix a number of type cast errors related to formatted
+	    printing on Win64 that can potentially cause problem when
+	    the Erlang VM exceeds 4 GB of ram. (Thanks to Blaine
+	    Whittle for the original patch)</p>
+          <p>
+	    Own Id: OTP-10887</p>
+        </item>
+        <item>
+          <p>
+	    The effect of the deprecated environment variable
+	    ERL_MAX_PORTS had been removed premeturely. It has now
+	    been readded. Note that this is still scheduled to be
+	    released in R17B.</p>
+          <p>
+	    Own Id: OTP-10895</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

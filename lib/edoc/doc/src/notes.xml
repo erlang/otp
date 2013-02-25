@@ -31,6 +31,33 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>EDoc sometimes failed to associate a comment with the
+	    preceding type declaration. This bug has been fixed.
+	    (Thanks to Serge Aleynikov for reporting the bug.) </p>
+          <p>
+	    Own Id: OTP-10866</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to Unicode support. </p>
+          <p>
+	    Own Id: OTP-10820</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.11</title>
 
     <section><title>Improvements and New Features</title>

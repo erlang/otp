@@ -30,7 +30,25 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.3</title>
+   <section><title>IC 4.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Revert the structs <c>erlang_pid</c>, <c>erlang_port</c>
+	    and <c>erlang_ref</c> as they were before R16A (without
+	    <c>node_org_enc</c>) in order to be backward compatible
+	    with user code that accesses the fields of these structs.</p>
+          <p>
+	    Own Id: OTP-10885 Aux Id: seq12256 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3</title>
 
     <section><title>Improvements and New Features</title>
       <list>
