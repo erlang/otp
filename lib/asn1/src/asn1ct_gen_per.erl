@@ -94,8 +94,6 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
 	    emit({"'enc_",Etype,"'(Val).",nl,nl});
 	#'Externaltypereference'{module=Emod,type=Etype} ->
 	    emit({"'",Emod,"':'enc_",Etype,"'(Val).",nl,nl});
-	#typereference{val=Ename} ->
-	    emit({"'enc_",Ename,"'(Val).",nl,nl});
 	{notype,_} ->
 	    emit({"'enc_",InnerType,"'(Val).",nl,nl})
     end.
@@ -805,9 +803,6 @@ emit_inner_of_fun(Erule, #type{}=Type, _) ->
 	Def when is_atom(Def) ->
 	    emit({indent(9),Def," ->",nl,indent(12)}),
 	    gen_encode_prim(Erule, Type, dotag, "Val");
-	TRef when is_record(TRef,typereference) ->
-	    T = TRef#typereference.val,
-	    emit({indent(9),T," ->",nl,indent(12),"'enc_",T,"'(Val)"});
 	#'Externaltypereference'{module=CurrMod,type=T} ->
 	    emit({indent(9),T," ->",nl,indent(12),"'enc_",T,"'(Val)"});
 	#'Externaltypereference'{module=ExtMod,type=T} ->
@@ -929,9 +924,6 @@ emit_inner_of_decfun(Erule, #type{}=Type, _) ->
 	Def when is_atom(Def) ->
 	    emit({indent(9),Def," ->",nl,indent(12)}),
 	    gen_dec_prim(Erule, Type, "Val");
-	TRef when is_record(TRef,typereference) ->
-	    T = TRef#typereference.val,
-	    emit({indent(9),T," ->",nl,indent(12),"'dec_",T,"'(Val)"});
 	#'Externaltypereference'{module=CurrMod,type=T} ->
 	    emit({indent(9),T," ->",nl,indent(12),"'dec_",T,"'(Val)"});
 	#'Externaltypereference'{module=ExtMod,type=T} ->
@@ -1004,9 +996,6 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 	    emit({".",nl,nl});
 	{constructed,bif} ->
 	    asn1ct_gen:gen_decode_constructed(Erules,Typename,InnerType,D);
-	#typereference{val=Dname} ->
-	    emit({"'dec_",Dname,"'(Bytes,telltype)"}),
-	    emit({".",nl,nl});
 	#'Externaltypereference'{module=CurrMod,type=Etype} ->
 	    emit({"'dec_",Etype,"'(Bytes,telltype).",nl,nl});
 	#'Externaltypereference'{module=Emod,type=Etype} ->

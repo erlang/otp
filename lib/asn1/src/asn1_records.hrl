@@ -45,7 +45,6 @@
 -record(pobjectdef,{checked=false,pos,name,args,class,def}).
 -record(pobjectsetdef,{checked=false,pos,name,args,class,def}).
 
--record(typereference,{pos,val}).
 -record(identifier,{pos,val}).
 -record(constraint,{c,e}).
 -record('Constraint',{'SingleValue'=no,'SizeConstraint'=no,'ValueRange'=no,'PermittedAlphabet'=no,

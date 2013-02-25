@@ -141,8 +141,6 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
 	{primitive,bif} ->
 	    gen_encode_prim(ber,Type,"TagIn","Val"),
 	    emit([".",nl]);
-	#typereference{val=Ename} ->
-	    emit(["   'enc_",Ename,"'(Val, TagIn).",nl]);
 	#'Externaltypereference'{module=CurrentMod,type=Etype} ->
 	    emit(["   'enc_",Etype,"'(Val, TagIn).",nl]);
 	#'Externaltypereference'{module=Emod,type=Etype} ->
@@ -1241,10 +1239,6 @@ emit_inner_of_fun(Type,_) when is_record(Type,type) ->
 				  X#tag.form,X#tag.number)||X <- OTag],
 	    emit([indent(9),Def," ->",nl,indent(12)]),
 	    gen_encode_prim(ber,Type,{asis,lists:reverse(Tag)},"Val");
-	TRef when is_record(TRef,typereference) ->
-	    T = TRef#typereference.val,
-	    emit([indent(9),T," ->",nl,indent(12),"'enc_",T,
-		  "'(Val)"]);
 	#'Externaltypereference'{module=CurrMod,type=T} ->
 	    emit([indent(9),T," ->",nl,indent(12),"'enc_",T,
 		  "'(Val)"]);
@@ -1481,8 +1475,6 @@ mkfuncname(WhatKind,DecOrEnc) ->
 % 		    io:format("CurrMod: ~p, Mod: ~p~n",[CurrMod,Mod]),
 		    lists:concat(["'",Mod,"':'",DecOrEnc,"_",EType,"'"])
 	    end;
-	#'typereference'{val=EType} ->
-	    lists:concat(["'",DecOrEnc,"_",EType,"'"]);
 	'ASN1_OPEN_TYPE' ->
 	    lists:concat(["'",DecOrEnc,"_",WhatKind,"'"])
 	    

@@ -23,6 +23,9 @@
 -export([parse/1]).
 -include("asn1_records.hrl").
 
+%% Only used internally within this module.
+-record(typereference, {pos,val}).
+
 %% parse all types in module
 parse(Tokens) ->
     case catch parse_ModuleDefinition(Tokens) of

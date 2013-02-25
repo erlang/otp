@@ -675,8 +675,6 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
 	    NewTypename = [Constructed_Suffix|Typename],
 	    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
 		  "'(Bytes, telltype",ObjFun,"),",nl});
-	#typereference{val=Dname} ->
-	    emit({"'dec_",Dname,"'(Bytes,telltype),",nl});
 	#'Externaltypereference'{module=CurrMod,type=EType} ->
 	    emit({"'dec_",EType,"'(Bytes,telltype),",nl});
 	#'Externaltypereference'{module=EMod,type=EType} ->
@@ -1055,8 +1053,6 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
 		#'Externaltypereference'{module=Mod,type=EType} ->
 		    emit({"'",Mod,"':'enc_",
 			  EType,"'(",Element,")"});
-		#typereference{val=Ename} ->
-		    emit({"'enc_",Ename,"'(",Element,")"});
 		{notype,_} ->
 		    emit({"'enc_",Atype,"'(",Element,")"});
 		{primitive,bif} ->
@@ -1540,10 +1536,6 @@ gen_dec_line_other(Erule, Atype, TopType, Comp) ->
 		    asn1ct_gen_per:gen_dec_imm(Erule, #type{def=OpenType});
 		_ ->
 		    asn1ct_gen_per:gen_dec_imm(Erule, Type)
-	    end;
-	#typereference{val=Dname} ->
-	    fun(BytesVar) ->
-		    emit({"'dec_",Dname,"'(",BytesVar,",telltype)"})
 	    end;
 	{notype,_} ->
 	    fun(BytesVar) ->

@@ -695,8 +695,7 @@ check_class_fields(S,[F|Fields],Acc) ->
 		Type2 = maybe_unchecked_OCFT(S,Type),
 		Cat = 
 		    case asn1ct_gen:type(asn1ct_gen:get_inner(Type2#type.def)) of
-			Def when is_record(Def,typereference);
-				 is_record(Def,'Externaltypereference') ->
+			Def when is_record(Def,'Externaltypereference') ->
 			    {_,D} = get_referenced_type(S,Def),
 			    D;
 			{undefined,user} -> 
@@ -1233,8 +1232,7 @@ check_object_list(S,ClassRef,[ObjOrSet|Objs],Acc) ->
 	ObjSet when is_record(ObjSet,type) ->
 	    ObjSetDef = 
 		case ObjSet#type.def of
-		    Ref when is_record(Ref,typereference);
-			     is_record(Ref,'Externaltypereference') ->
+		    Ref when is_record(Ref,'Externaltypereference') ->
 			{_,D} = get_referenced_type(S,ObjSet#type.def),
 			D;
 		    Other ->
@@ -3535,10 +3533,6 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 				merge_tags(Tag,?TAG_CONSTRUCTED(?N_SET))};
 	    %% This is a temporary hack until the full Information Obj Spec
 	    %% in X.681 is supported
-	    {{typereference,_,'TYPE-IDENTIFIER'},[{typefieldreference,_,'Type'}]} ->
-		Ct=maybe_illicit_implicit_tag(open_type,Tag),
-		TempNewDef#newt{type='ASN1_OPEN_TYPE',tag=Ct};
-
 	    {#'Externaltypereference'{type='TYPE-IDENTIFIER'},
 	     [{typefieldreference,_,'Type'}]} ->
 		Ct=maybe_illicit_implicit_tag(open_type,Tag),
@@ -4925,19 +4919,7 @@ get_referenced(S,Emod,Ename,Pos) ->
 	    end;
 	T when is_record(T,typedef) ->
 	    ?dbg("get_referenced T: ~p~n",[T]),
-	    Spec = T#typedef.typespec, %% XXXX Spec may be something else than #type
-	    case Spec of
-		#type{def=#typereference{}} ->
-		    Tref = Spec#type.def,
-		    Def = #'Externaltypereference'{module=Emod,
-						   type=Tref#typereference.val,
-						   pos=Tref#typereference.pos},
-			    
-		    
-		    {Emod,T#typedef{typespec=Spec#type{def=Def}}};
-		_ ->
-		    {Emod,T} % should add check that T is exported here
-	    end;
+	    {Emod,T};	    % should add check that T is exported here
 	V ->
 	    ?dbg("get_referenced V: ~p~n",[V]),
 	    {Emod,V}
@@ -6874,9 +6856,6 @@ get_OCFType(S,Fields,[PrimFieldName|Rest]) ->
 
 get_taglist(S,Ext) when is_record(Ext,'Externaltypereference') ->
     {_,T} = get_referenced_type(S,Ext),
-    get_taglist(S,T#typedef.typespec);
-get_taglist(S,Tref) when is_record(Tref,typereference) ->
-    {_,T} = get_referenced_type(S,Tref),
     get_taglist(S,T#typedef.typespec);
 get_taglist(S,Type) when is_record(Type,type) ->
     case Type#type.tag of

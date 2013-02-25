@@ -1455,8 +1455,6 @@ print_attribute_comment(InnerType,Pos,Cname,Prop) ->
     CommentLine = "%%-------------------------------------------------",
     emit([nl,CommentLine]),
     case InnerType of
-	{typereference,_,Name} -> 
-	    emit([nl,"%% attribute ",Cname,"(",Pos,") with type ",Name]);
 	{'Externaltypereference',_,XModule,Name} -> 
 	    emit([nl,"%% attribute ",Cname,"(",Pos,")   External ",XModule,":",Name]);
 	_ ->

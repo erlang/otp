@@ -1671,7 +1671,6 @@ unify_if_string(PrimType) ->
 
 get_inner(A) when is_atom(A) -> A;    
 get_inner(Ext) when is_record(Ext,'Externaltypereference') -> Ext;    
-get_inner(Tref) when is_record(Tref,typereference) -> Tref;
 get_inner({fixedtypevaluefield,_,Type}) ->
     if 
 	is_record(Type,type) ->
@@ -1703,8 +1702,6 @@ get_inner(T) when is_tuple(T) ->
 
 
 type(X) when is_record(X,'Externaltypereference') ->
-    X;
-type(X) when is_record(X,typereference) ->
     X;
 type('ASN1_OPEN_TYPE') ->
     'ASN1_OPEN_TYPE';
