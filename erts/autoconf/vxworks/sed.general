@@ -31,6 +31,7 @@ s|^#undef SIZEOF_SHORT|#define SIZEOF_SHORT 2|
 s|^#undef SIZEOF_INT|#define SIZEOF_INT 4|
 s|^#undef SIZEOF_LONG_LONG|#define SIZEOF_LONG_LONG 8|
 s|^#undef SIZEOF_LONG$|#define SIZEOF_LONG 4|
+s|^#undef SIZEOF_VOID_P$|#define SIZEOF_VOID_P 4|
 
 # General stuff.
 s|@erts_rootdir@|/clearcase/otp/erts|
@@ -93,7 +94,6 @@ s|@TTPREFIX@|GCC_EXEC_PREFIX=@WIND_BASE@/host/@HOST_TYPE@/lib/gcc-lib/ @WIND_BAS
 
 # Install programs etc
 s|@PERL@|perl|
-s|@INSTALL@|/usr/ucb/install -c|
 s|@INSTALL_PROGRAM@|${INSTALL}|
 s|@INSTALL_SCRIPT@|${INSTALL}|
 s|@INSTALL_DATA@|${INSTALL} -m 644|

@@ -23,6 +23,11 @@
 #
 #
 #
+#
+# Install programs etc
+s|@INSTALL@|/usr/bin/install -c|
+
+# other
 s|@host@|vxworks_simlinux|
 s|@system_type@|vxworks_simlinux|
 s|@ARCH@|simlinux|

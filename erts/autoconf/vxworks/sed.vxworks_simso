@@ -23,6 +23,10 @@
 #
 #
 #
+# Install programs etc
+s|@INSTALL@|/usr/ucb/install -c|
+
+# other
 s|@host@|vxworks_simso|
 s|@system_type@|vxworks_simso|
 s|@ARCH@|simso|

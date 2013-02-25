@@ -23,6 +23,10 @@
 #
 #
 #
+# Install programs etc
+s|@INSTALL@|/usr/bin/install -c|
+
+# other
 s|@host@|vxworks_ppc32|
 s|@system_type@|vxworks_ppc32|
 s|@ARCH@|ppc32|
