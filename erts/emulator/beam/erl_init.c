@@ -935,6 +935,12 @@ erl_start(int argc, char **argv)
 				  (erts_aint32_t) max_gen_gcs);
     }
 
+    envbufsz = sizeof(envbuf);
+    if (erts_sys_getenv_raw("ERL_MAX_PORTS", envbuf, &envbufsz) == 0) {
+	port_tab_sz = atoi(envbuf);
+	port_tab_sz_ignore_files = 1;
+    }
+
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__DARWIN__)
     /*
      * The default stack size on MacOS X is too small for pcre.
