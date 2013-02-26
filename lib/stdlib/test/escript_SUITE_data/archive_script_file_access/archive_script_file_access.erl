@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -56,7 +56,7 @@ main([RelArchiveFile]) ->
 
     %% If symlinks are supported on this platform...
     RelSymlinkArchiveFile = "symlink_to_" ++ RelArchiveFile,
-    case file:read_link(RelSymlinkArchiveFile) of
+    case element(1,os:type()) =:= win32 orelse file:read_link(RelSymlinkArchiveFile) of
 	{ok,_} ->
 	    DotSlashSymlinkArchiveFile = "./" ++ RelSymlinkArchiveFile,
 	    AbsSymlinkArchiveFile=filename:join(filename:dirname(AbsArchiveFile),
