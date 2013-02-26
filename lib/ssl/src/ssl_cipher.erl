@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -483,10 +483,10 @@ filter(undefined, Ciphers) ->
 filter(DerCert, Ciphers) ->
     OtpCert = public_key:pkix_decode_cert(DerCert, otp),
     SigAlg = OtpCert#'OTPCertificate'.signatureAlgorithm,
-    case ssl_certificate:signature_type(SigAlg#'SignatureAlgorithm'.algorithm) of
-	rsa ->
+    case public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm) of
+	{_, rsa} ->
 	    filter_rsa(OtpCert, Ciphers -- dsa_signed_suites());
-	dsa ->
+	{_, dsa} ->
 	    Ciphers -- rsa_signed_suites()
     end.
 	

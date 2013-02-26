@@ -36,6 +36,7 @@
 	 decrypt_public/2, decrypt_public/3,
 	 sign/3, verify/4,
 	 pkix_sign/2, pkix_verify/2,	 
+	 pkix_sign_types/1,
 	 pkix_is_self_signed/1, 
 	 pkix_is_fixed_dh_cert/1,
 	 pkix_is_issuer/2,
@@ -53,6 +54,7 @@
 -type dss_digest_type()      :: 'none' | 'sha'. %% None is for backwards compatibility
 -type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
 			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
+-type oid()                  :: tuple().
 
 -define(UINT32(X), X:32/unsigned-big-integer).
 -define(DER_NULL, <<5, 0>>).
@@ -335,6 +337,34 @@ format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
    [crypto:mpint(K) || K <- [E, N, D]].
 
 %%--------------------------------------------------------------------
+
+-spec pkix_sign_types(SignatureAlg::oid()) ->
+			     %% Relevant dsa digest type is subpart of rsa digest type
+			     { DigestType :: rsa_digest_type(),
+			       SignatureType :: rsa | dsa
+			     }.
+%% Description:
+%%--------------------------------------------------------------------
+pkix_sign_types(?sha1WithRSAEncryption) ->
+    {sha, rsa};
+pkix_sign_types(?'sha-1WithRSAEncryption') ->
+    {sha, rsa};
+pkix_sign_types(?sha224WithRSAEncryption) ->
+    {sha224, rsa};
+pkix_sign_types(?sha256WithRSAEncryption) ->
+    {sha256, rsa};
+pkix_sign_types(?sha384WithRSAEncryption) ->
+    {sha384, rsa};
+pkix_sign_types(?sha512WithRSAEncryption) ->
+    {sha512, rsa};
+pkix_sign_types(?md5WithRSAEncryption) ->
+    {md5, rsa};
+pkix_sign_types(?'id-dsa-with-sha1') ->
+    {sha, dsa};
+pkix_sign_types(?'id-dsaWithSHA1') ->
+    {sha, dsa}.
+
+%%--------------------------------------------------------------------
 -spec sign(binary() | {digest, binary()},  rsa_digest_type() | dss_digest_type(),
 	   rsa_private_key() |
 	   dsa_private_key()) -> Signature :: binary().
@@ -406,7 +436,7 @@ pkix_sign(#'OTPTBSCertificate'{signature =
 			       = SigAlg} = TBSCert, Key) ->
 
     Msg = pkix_encode('OTPTBSCertificate', TBSCert, otp),
-    DigestType = pubkey_cert:digest_type(Alg),
+    {DigestType, _} = pkix_sign_types(Alg),
     Signature = sign(Msg, DigestType, Key),
     Cert = #'OTPCertificate'{tbsCertificate= TBSCert,
 			     signatureAlgorithm = SigAlg,
