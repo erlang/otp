@@ -25,6 +25,7 @@
 
 %% Only used internally within this module.
 -record(typereference, {pos,val}).
+-record(constraint,{c,e}).
 
 %% parse all types in module
 parse(Tokens) ->
@@ -461,7 +462,8 @@ parse_BuiltinType([{'INSTANCE',_},{'OF',_}|Rest]) ->
     {DefinedObjectClass,Rest2} = parse_DefinedObjectClass(Rest),
     case Rest2 of
 	[{'(',_}|_] ->
-	    {Constraint,Rest3} = parse_Constraint(Rest2),
+	    {Constraint0,Rest3} = parse_Constraint(Rest2),
+	    Constraint = merge_constraints([Constraint0]),
 	    {#type{def={'INSTANCE OF',DefinedObjectClass,Constraint}},Rest3};
 	_ ->
 	    {#type{def={'INSTANCE OF',DefinedObjectClass,[]}},Rest2}

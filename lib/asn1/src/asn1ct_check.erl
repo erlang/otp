@@ -2348,17 +2348,7 @@ validate_integer_ref(S,Ref,NamedNumberList,Constr) ->
 	    
 		
 
-check_integer_range(Int,Constr) when is_list(Constr) ->
-    NewConstr = [X || #constraint{c=X} <- Constr],
-    check_constr(Int,NewConstr);
-
-check_integer_range(_Int,_Constr) ->
-    %%io:format("~p~n",[Constr]),
-    ok.
-
-check_constr(Int,[{'ValueRange',Lb,Ub}|T]) when Int >= Lb, Int =< Ub ->
-    check_constr(Int,T);
-check_constr(_Int,[]) ->
+check_integer_range(_Int, Constr) when is_list(Constr) ->
     ok.
 
 validate_bitstring(_S,_Value,_NamedNumberList,_Constr) ->
@@ -4018,9 +4008,7 @@ parse_objectset(Set) ->
 %% check_constraints/2
 %%    
 check_constraints(S,C) when is_list(C) -> 
-    check_constraints(S, C, []);
-check_constraints(S,C) when is_record(C,constraint) -> 
-    check_constraints(S, C#constraint.c, []).
+    check_constraints(S, C, []).
 
 resolv_tuple_or_list(S,List) when is_list(List) ->
     lists:map(fun(X)->resolv_value(S,X) end, List);
@@ -5350,7 +5338,7 @@ iof_associated_type1(S,C) ->
 %% the tablecinf value for the second component.
 instance_of_constraints(_,[]) ->
     {false,[],[],[]};
-instance_of_constraints(S,#constraint{c={simpletable,Type}}) ->
+instance_of_constraints(S, [{simpletable,Type}]) ->
     #type{def=#'Externaltypereference'{type=Name}} = Type,
     ModuleName = S#state.mname,
     ObjectSetRef=#'Externaltypereference'{module=ModuleName,
