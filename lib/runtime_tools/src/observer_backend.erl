@@ -217,15 +217,39 @@ fetch_stats_loop(Parent, Time) ->
 %% etop backend
 %%
 etop_collect(Collector) ->
+    %% If this is the first time and the scheduler_wall_time flag is
+    %% false, SchedulerWallTime will be 'undefined' (and show 0 cpu
+    %% utilization in etop). Next time the flag will be true and then
+    %% there will be a measurement.
+    SchedulerWallTime = erlang:statistics(scheduler_wall_time),
+
+    %% Turn off the flag while collecting data per process etc.
+    case erlang:system_flag(scheduler_wall_time,false) of
+	false ->
+	    %% First time and the flag was false - start a monitoring
+	    %% process to set the flag back to false when etop is stopped.
+	    spawn(fun() -> flag_holder_proc(Collector) end);
+	_ ->
+	    ok
+    end,
+
     ProcInfo = etop_collect(processes(), []),
+
     Collector ! {self(),#etop_info{now = now(),
 				   n_procs = length(ProcInfo),
 				   run_queue = erlang:statistics(run_queue),
-				   wall_clock = erlang:statistics(wall_clock),
-				   runtime = erlang:statistics(runtime),
+				   runtime = SchedulerWallTime,
 				   memi = etop_memi(),
 				   procinfo = ProcInfo
-				  }}.
+				  }},
+    erlang:system_flag(scheduler_wall_time,true).
+
+flag_holder_proc(Collector) ->
+    Ref = erlang:monitor(process,Collector),
+    receive
+	{'DOWN',Ref,_,_,_} ->
+	    erlang:system_flag(scheduler_wall_time,false)
+    end.
 
 etop_memi() ->
     try
