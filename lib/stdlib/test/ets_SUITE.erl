@@ -3218,6 +3218,7 @@ delete_large_tab_1(Name, Flags, Data, Fix) ->
 				end
 			end,
 			0),
+    SchedTracerMon = monitor(process, SchedTracer),
     ?line Loopers = start_loopers(erlang:system_info(schedulers),
 				  Prio,
 				  fun (_) -> erlang:yield() end,
@@ -3237,7 +3238,9 @@ delete_large_tab_1(Name, Flags, Data, Fix) ->
 		      N >= 5 -> ?line ok;
 		      true -> ?line ?t:fail()
 		  end
-	  end.
+	  end,
+    receive {'DOWN',SchedTracerMon,process,SchedTracer,_} -> ok end,
+    ok.
 
 delete_large_named_table(doc) ->
     "Delete a large name table and try to create a new table with the same name in another process.";
