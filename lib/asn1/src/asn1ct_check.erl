@@ -4035,23 +4035,19 @@ resolv_value1(S, ERef = #'Externalvaluereference'{value=Name}) ->
 		    resolv_value1(S,VDef)
 	    end
     end;
-resolv_value1(S,{gt,V}) ->
-    case V of
+resolv_value1(S, {gt,V}) ->
+    case resolv_value1(S, V) of
 	Int when is_integer(Int) ->
-	    V + 1;
-	#valuedef{value=Int} ->
-	    1 + resolv_value(S,Int);
+	    Int + 1;
 	Other ->
-	    throw({error,{asn1,{undefined_type_or_value,Other}}})
+	    throw({error,{asn1,{not_integer_value,Other}}})
     end;
-resolv_value1(S,{lt,V}) ->
-    case V of
+resolv_value1(S, {lt,V}) ->
+    case resolv_value1(S, V) of
 	Int when is_integer(Int) ->
-	    V - 1;
-	#valuedef{value=Int} ->
-	    resolv_value(S,Int) - 1;
+	    Int - 1;
 	Other ->
-	    throw({error,{asn1,{undefined_type_or_value,Other}}})
+	    throw({error,{asn1,{not_integer_value,Other}}})
     end;
 resolv_value1(S,{'ValueFromObject',{object,Object},[{valuefieldreference,
 						     FieldName}]}) ->
