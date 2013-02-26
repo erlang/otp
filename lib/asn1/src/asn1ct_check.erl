@@ -875,14 +875,6 @@ check_object(S,
     ?dbg("check_object set: ~p~n",[ObjSet#'ObjectSet'.set]),
     {_,ClassDef} = get_referenced_type(S,ClassRef),
     NewClassRef = check_externaltypereference(S,ClassRef),
-    %% XXXXXXXXXX
-    case ObjSet of
-	#'ObjectSet'{set={'Externaltypereference',undefined,'MSAccessProtocol',
-                     'AllOperations'}} ->
-	    ok;
-	_ ->
-	    ok
-    end,
     {UniqueFieldName,UniqueInfo} = 
 	case (catch get_unique_fieldname(S,ClassDef)) of
 	    {error,'__undefined_',_} -> 
@@ -3997,26 +3989,10 @@ categorize(_S,type,Def) when is_record(Def,type) ->
 categorize(_,_,Def) ->
     [Def].
 categorize(S,object_set,Def,ClassRef) ->
-    %% XXXXXXXXXX
-    case Def of
-	{'Externaltypereference',undefined,'MSAccessProtocol','AllOperations'} ->
-	    ok;
-	_ ->
-	    ok
-    end,
     NewObjSetSpec = 
 	check_object(S,Def,#'ObjectSet'{class = ClassRef,
 					set = parse_objectset(Def)}),
     Name = new_reference_name("object_set_argument"),
-    %% XXXXXXXXXX
-    case Name of
-	internal_object_set_argument_78 ->
-	    ok;
-	internal_object_set_argument_77 ->
-	    ok;
-	_ ->
-	    ok
-    end,
     [save_object_set_instance(S,Name,NewObjSetSpec)];
 categorize(_S,object,Def,_ClassRef) ->
     %% should be handled
