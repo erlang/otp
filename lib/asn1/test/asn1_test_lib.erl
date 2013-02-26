@@ -50,6 +50,7 @@ compile_file(File, Options) ->
         end
     catch
         Class:Reason ->
+	    ct:print("Failed to compile ~s\n", [File]),
             erlang:error({compile_failed, {File, Options}, {Class, Reason}})
     end.
 
@@ -58,7 +59,7 @@ compile_erlang(Mod, Config, Options) ->
     CaseDir = ?config(case_dir, Config),
     M = list_to_atom(Mod),
     {ok, M} = compile:file(filename:join(DataDir, Mod),
-                           [{i, CaseDir}, {outdir, CaseDir}|Options]).
+                           [report,{i,CaseDir},{outdir,CaseDir}|Options]).
 
 should_load(File, Options) ->
     case lists:member(abs, Options) of
