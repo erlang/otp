@@ -1,7 +1,8 @@
+%%
 %% %CopyrightBegin%
 %%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,7 +58,7 @@ init_per_testcase(Case, Config) ->
     catch error:undef -> ok
     end,
     [{watchdog, Dog}|Config].
-end_per_testcase(Case, Config) ->
+end_per_testcase(_Case, Config) ->
     %% try apply(?MODULE,Case,[cleanup,Config])
     %% catch error:undef -> ok
     %% end,
