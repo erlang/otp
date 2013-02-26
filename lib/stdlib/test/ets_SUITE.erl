@@ -3242,7 +3242,7 @@ delete_large_tab_1(Name, Flags, Data, Fix) ->
 delete_large_named_table(doc) ->
     "Delete a large name table and try to create a new table with the same name in another process.";
 delete_large_named_table(Config) when is_list(Config) ->    
-    ?line Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 500000)],
+    ?line Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 200000)],
     ?line EtsMem = etsmem(),
     repeat_for_opts(fun(Opts) -> delete_large_named_table_do(Opts,Data) end),
     ?line verify_etsmem(EtsMem),
@@ -3264,16 +3264,17 @@ delete_large_named_table_1(Name, Flags, Data, Fix) ->
 	    ?line lists:foreach(fun({K,_}) -> ets:delete(Tab, K) end, Data)
     end,
     Parent = self(),
-    Pid = my_spawn_link(fun() ->
-			     receive
-				 {trace,Parent,call,_} ->
-				     ets_new(Name, [named_table])
-			     end
-		     end),
+    {Pid, MRef} = my_spawn_opt(fun() ->
+				       receive
+					   {trace,Parent,call,_} ->
+					       ets_new(Name, [named_table])
+				       end
+			       end, [link, monitor]),
     ?line erlang:trace(self(), true, [call,{tracer,Pid}]),
     ?line erlang:trace_pattern({ets,delete,1}, true, [global]),
     ?line erlang:yield(), true = ets:delete(Tab),
     ?line erlang:trace_pattern({ets,delete,1}, false, [global]),
+    receive {'DOWN',MRef,process,Pid,_} -> ok end,
     ok.
 
 evil_delete(doc) ->
