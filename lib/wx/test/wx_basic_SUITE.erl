@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -100,6 +100,7 @@ several_apps(Config) ->
 	    || N <- lists:seq(1,4)],
     process_flag(trap_exit,true),
     ?m_multi_receive([{complete,Pid} || Pid <- Pids]),
+    [Pid ! quit || Pid <- Pids],
     case wx_test_lib:user_available(Config) of
 	true ->
 	    receive {'EXIT',_,foo} -> ok end;
@@ -118,6 +119,7 @@ several_apps(Parent, N, Config) ->
 	#wx{obj=Frame, event=#wxSize{}} ->
 	    Parent ! {complete, self()}
     end,
+    receive quit -> ok end,
     wx_test_lib:wx_destroy(Frame, Config),
     exit(foo).
 
