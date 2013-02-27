@@ -47,6 +47,12 @@
 
 -define(BASE, ?DIAMETER_DICT_COMMON).
 
+-define(IS_NATURAL(N), (is_integer(N) andalso 0 =< N)).
+
+-record(config,
+        {suspect = 1 :: non_neg_integer(),    %% OKAY -> SUSPECT
+         okay    = 3 :: non_neg_integer()}).  %% REOPEN -> OKAY
+
 -record(watchdog,
         {%% PCB - Peer Control Block; see RFC 3539, Appendix A
          status = initial :: initial | okay | suspect | down | reopen,
@@ -54,7 +60,8 @@
          tw :: 6000..16#FFFFFFFF | {module(), atom(), list()},
                                 %% {M,F,A} -> integer() >= 0
          num_dwa = 0 :: -1 | non_neg_integer(),
-                     %% number of DWAs received during reopen
+                     %% number of DWAs received in reopen,
+                     %% or to send in okay before moving to suspect
          %% end PCB
          parent = self() :: pid(),              %% service process
          transport       :: pid() | undefined,  %% peer_fsm process
@@ -64,7 +71,8 @@
                  %% term passed into diameter_service with incoming message
          sequence :: diameter:sequence(),     %% mask
          restrict :: {diameter:restriction(), boolean()},
-         shutdown = false :: boolean()}).
+         shutdown = false :: boolean(),
+         config :: #config{}}).
 
 %% ---------------------------------------------------------------------------
 %% start/2
@@ -129,7 +137,8 @@ i({Ack, T, Pid, {RecvData,
               receive_data = RecvData,
               dictionary = Dict0,
               sequence = Mask,
-              restrict = {Restrict, lists:member(node(), Nodes)}}.
+              restrict = {Restrict, lists:member(node(), Nodes)},
+              config = config(Opts)}.
 
 wait(Ref, Pid) ->
     receive
@@ -138,6 +147,27 @@ wait(Ref, Pid) ->
         {'DOWN', _, process, Pid, _} = D ->
             exit({shutdown, D})
     end.
+
+%% config/1
+%%
+%% Could also configure counts for SUSPECT to DOWN and REOPEN to DOWN,
+%% but don't.
+
+config(Opts) ->
+    Config = proplists:get_value(watchdog_config, Opts, []),
+    is_list(Config) orelse config_error({watchdog_config, Config}),
+    lists:foldl(fun config/2, #config{}, Config).
+
+config({suspect, N}, Rec)
+  when ?IS_NATURAL(N) ->
+    Rec#config{suspect = N};
+
+config({okay, N}, Rec)
+  when ?IS_NATURAL(N) ->
+    Rec#config{okay = N};
+
+config(T, _) ->
+    config_error(T).
 
 %% start/5
 
@@ -219,6 +249,17 @@ handle_info(T, #watchdog{} = State) ->
             ?LOG(stop, T),
             event(T, State, State#watchdog{status = down}),
             {stop, {shutdown, T}, State}
+    end;
+
+handle_info(T, State) ->  %% started in old code
+    handle_info(T, upgrade(State)).
+
+upgrade(State) ->
+    case erlang:append_element(State, #config{}) of
+        #watchdog{status = okay, config = #config{suspect = OS}} = S ->
+            S#watchdog{num_dwa = OS};
+        #watchdog{} = S ->
+            S
     end.
 
 close({'DOWN', _, process, TPid, {shutdown, Reason}},
@@ -331,11 +372,13 @@ transition({accepted = T, TPid}, #watchdog{transport = TPid,
 transition({open, TPid, Hosts, _} = Open,
            #watchdog{transport = TPid,
                      status = initial,
-                     restrict = {_, R}}
+                     restrict = {_,R},
+                     config = #config{suspect = OS}}
            = S) ->
     case okay(getr(restart), Hosts, R) of
         okay ->
-            set_watchdog(S#watchdog{status = okay});
+            set_watchdog(S#watchdog{status = okay,
+                                    num_dwa = OS});
         reopen ->
             transition(Open, S#watchdog{status = down})
     end;
@@ -347,15 +390,22 @@ transition({open, TPid, Hosts, _} = Open,
 
 transition({open = Key, TPid, _Hosts, T},
            #watchdog{transport = TPid,
-                     status = down}
+                     status = down,
+                     config = #config{suspect = OS,
+                                      okay = RO}}
            = S) ->
-    %% Store the info we need to notify the parent to reopen the
-    %% connection after the requisite DWA's are received, at which
-    %% time we eraser(open). The reopen message is a later addition,
-    %% to communicate the new capabilities as soon as they're known.
-    putr(Key, {TPid, T}),
-    set_watchdog(send_watchdog(S#watchdog{status = reopen,
-                                          num_dwa = 0}));
+    case RO of
+        0 ->  %% non-standard: skip REOPEN
+            set_watchdog(S#watchdog{status = okay,
+                                    num_dwa = OS});
+        _ ->
+            %% Store the info we need to notify the parent to reopen
+            %% the connection after the requisite DWA's are received,
+            %% at which time we eraser(open).
+            putr(Key, {TPid, T}),
+            set_watchdog(send_watchdog(S#watchdog{status = reopen,
+                                                  num_dwa = 0}))
+    end;
 
 %%   OKAY          Connection down      CloseConnection()
 %%                                      Failover()
@@ -553,22 +603,27 @@ rcv(_, #watchdog{status = okay} = S) ->
 %%   SUSPECT       Receive non-DWA      Failback()
 %%                                      SetWatchdog()        OKAY
 
-rcv('DWA', #watchdog{status = suspect} = S) ->
+rcv('DWA', #watchdog{status = suspect, config = #config{suspect = OS}} = S) ->
     set_watchdog(S#watchdog{status = okay,
+                            num_dwa = OS,
                             pending = false});
 
-rcv(_, #watchdog{status = suspect} = S) ->
-    set_watchdog(S#watchdog{status = okay});
+rcv(_, #watchdog{status = suspect, config = #config{suspect = OS}} = S) ->
+    set_watchdog(S#watchdog{status = okay,
+                            num_dwa = OS});
 
 %%   REOPEN        Receive DWA &        Pending = FALSE
 %%                 NumDWA == 2          NumDWA++
 %%                                      Failback()           OKAY
 
 rcv('DWA', #watchdog{status = reopen,
-                     num_dwa = 2 = N}
-           = S) ->
+                     num_dwa = N,
+                     config = #config{suspect = OS,
+                                      okay = RO}}
+           = S)
+  when N+1 == RO ->
     S#watchdog{status = okay,
-               num_dwa = N+1,
+               num_dwa = OS,
                pending = false};
 
 %%   REOPEN        Receive DWA &        Pending = FALSE
@@ -607,9 +662,16 @@ timeout(#watchdog{status = T,
 %%                 Pending              SetWatchdog()        SUSPECT
 
 timeout(#watchdog{status = okay,
-                  pending = true}
-  = S) ->
-    S#watchdog{status = suspect};
+                  pending = true,
+                  num_dwa = N}
+        = S) ->
+    case N of
+        1 ->
+            S#watchdog{status = suspect};
+        _ ->  %% non-standard
+            send_watchdog(S#watchdog{pending = false,
+                                     num_dwa = decr(N)})
+    end;
 
 %%   SUSPECT       Timer expires        CloseConnection()
 %%                                      SetWatchdog()        DOWN
@@ -662,6 +724,11 @@ timeout(#watchdog{status = T} = S)
   when T == initial;
        T == down ->
     restart(S).
+
+decr(0 = N) ->
+    N;
+decr(N) ->
+    N-1.
 
 %% restart/1
 

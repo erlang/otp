@@ -1125,6 +1125,30 @@ modules in order until one establishes a connection within the
 corresponding timeout (see below) or all fail.</p>
 </item>
 
+<marker id="watchdog_config"/>
+<tag><c>{watchdog_config, [{okay|suspect, non_neg_integer()}]}</c></tag>
+<item>
+<p>
+Specifies configuration that alters the behaviour of the watchdog
+state machine.
+On key <c>okay</c>, the non-negative number of answered DWR
+messages required before transitioning from REOPEN to OKAY.
+On key <c>suspect</c>, the positive number of unanswered DWR messages
+before transitioning from OKAY to SUSPECT, or 0 to never make this
+transition.</p>
+
+<p>
+Defaults to <c>[{okay, 3}, {suspect, 1}]</c>.
+Not specifying a key is equivalent to specifying
+the default value for that key.</p>
+<warning>
+<p>
+The default value is as required by RFC 3539: changing it results
+in non-standard behaviour that should only be used to simulate
+misbehaving nodes during test.</p>
+</warning>
+</item>
+
 <marker id="watchdog_timer"/>
 <tag><c>{watchdog_timer, TwInit}</c></tag>
 <item>
