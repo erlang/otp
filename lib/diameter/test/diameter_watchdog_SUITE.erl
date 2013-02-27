@@ -30,7 +30,7 @@
          end_per_suite/1]).
 
 %% testcases
--export([reopen/1, reopen/4, reopen/7]).
+-export([reopen/1, reopen/4, reopen/6]).
 
 -export([id/1,    %% jitter callback
          run1/1]).
@@ -64,7 +64,7 @@
          {'Host-IP-Address', [?ADDR]},
          {'Vendor-Id', 42},
          {'Product-Name', "OTP/diameter"},
-         {'Auth-Application-Id', [?DIAMETER_APP_ID_COMMON]},
+         {'Auth-Application-Id', [0 = ?BASE:id()]},
          {application, [{alias, Name},
                         {dictionary, ?BASE},
                         {module, ?MODULE}]}]).
@@ -72,45 +72,38 @@
 %% Watchdog timer as a callback.
 -define(WD(T), {?MODULE, id, [T]}).
 
-%% Watchdog timers used by the testcases. Note that the short timeout
-%% with random jitter is excluded since the reopen/1 isn't smart
-%% enough to deal with it: see ONE_WD below.
--define(WD_TIMERS, [?WD(6000)
-                    | [F_(T_) || T_ <- [10000, 20000, 30000],
-                                 F_ <- [fun(T__) -> T__ end,
-                                        fun(T__) -> ?WD(T__) end]]]).
+%% Watchdog timers used by the testcases.
+-define(WD_TIMERS, [10000, ?WD(10000)]).
 
-%% Watchdog timer of the misbehaving peer.
--define(PEER_WD, 10000).
+%% Watchdog timer of the misbehaving node. Longer than the peer's so
+%% that DWR is never sent at watchdog timeout.
+-define(PEER_WD, 20000).
 
-%% Receive a watchdog event within a specified time.
--define(EVENT(T, Tmo),
-        receive #diameter_event{info = T} -> now()
-        after Tmo -> ?ERROR({timeout, Tmo})
-        end).
-
-%% Receive an event in a given number of watchdogs, plus or minus
-%% half. Note that the call to now_diff assumes left to right
-%% evaluation order.
--define(EVENT(T, N, WdL, WdH),
-        [?ERROR({received, _Elapsed_, _LowerBound_, N, WdL})
-         || _UpperBound_ <- [(N)*(WdH) + (WdH) div 2],
-            _Elapsed_    <- [now_diff(now(), ?EVENT(T, _UpperBound_))],
-            _LowerBound_ <- [(N)*(WdL) - (WdL) div 2],
-            _Elapsed_ =< _LowerBound_*1000]).
-
--define(EVENT(T, N, Wd),
-        ?EVENT(T, N, Wd, Wd)).
-
-%% A timeout that ensures one watchdog. The ensure only one watchdog
+%% A timeout that ensures one watchdog. To ensure only one watchdog
 %% requires (Wd + 2000) + 1000 < 2*(Wd - 2000) ==> 7000 < Wd for the
 %% case with random jitter.
 -define(ONE_WD(Wd), jitter(Wd,2000) + 1000).
 
+%% Receive an event message from diameter.
+-define(EVENT(T),
+        apply(fun() ->  %% apply to not bind T_
+                      receive #diameter_event{info = T = T_} ->
+                              log_event(T_)
+                      end
+              end,
+              [])).
+
+%% Receive a watchdog event.
+-define(WD_EVENT(Ref), log_wd(element(4, ?EVENT({watchdog, Ref, _, _, _})))).
+
+%% Log to make failures identifiable.
+-define(LOG(T),   ?LOG("~p", [T])).
+-define(LOG(F,A), ct:pal("~p: " ++ F, [self() | A])).
+
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {minutes, 10}}].%% enough for 17 watchdogs @ 30 sec plus jitter
+    [{timetrap, {minutes, 5}}]. %% 20 watchdogs @ 15 sec
 
 all() ->
     [reopen].
@@ -130,82 +123,67 @@ end_per_suite(_Config) ->
 %% and reopen behaviour by examining watchdog events.
 
 reopen(_) ->
-    [] = run([[reopen, T, Wd, N, M]
-              || Wd <- ?WD_TIMERS,       %% watchdog_timer value
-                 T <- [listen, connect], %% watchdog to test
+    [] = run([[reopen, T, W, N, M]
+              || T <- [listen, connect], %% watchdog to test
+                 W <- ?WD_TIMERS,        %% watchdog_timer value
                  N <- [0,1,2],           %% DWR's to answer before ignoring
                  M <- ['DWR', 'DWA', 'RAA']]). %% how to induce failback
 
-reopen(Type, Wd, N, M) ->
-    Server = start_service(),
-    Client = start_service(),
+reopen(Test, Wd, N, M) ->
+    %% Publish a ref ensure the connecting transport is added only
+    %% once events from the listening transport are subscribed to.
+    Ref = make_ref(),
+    [] = run([[reopen, T, Test, Ref, Wd, N, M] || T <- [listen, connect]]).
 
-    %% The peer to the transport whose watchdog is tested is given a
-    %% long watchdog timeout so that it doesn't send DWR of its own.
-    {Node, Peer} = {{[], Wd}, {[{module, ?MODULE}], ?WD(?PEER_WD)}},
+%% reopen/6
 
-    {{LH,LW},{CH,CW}} = case Type of
-                            listen  -> {Node, Peer};
-                            connect -> {Peer, Node}
-                        end,
+reopen(Type, Test, Ref, Wd, N, M) ->
+    {SvcName, TRef} = start(Type, Ref, opts(Type, Test, Ref, Wd)),
+    reopen(Type, Test, SvcName, TRef, Wd, N, M).
 
-    LO = [{transport_module, diameter_tcp},
-          {transport_config, LH ++ [{ip, ?ADDR}, {port, 0}]},
-          {watchdog_timer, LW}],
+%% start/3
 
-    {ok, LRef} = diameter:add_transport(Server, {listen, LO}),
-
-    [LP] = ?util:lport(tcp, LRef, 20),
-
-    CO = [{transport_module, diameter_tcp},
-          {transport_config, CH ++ [{ip, ?ADDR}, {port, 0},
-                                    {raddr, ?ADDR}, {rport, LP}]},
-          {watchdog_timer, CW}],
-
-    %% Use a temporary process to ensure the connecting transport is
-    %% added only once events from the listening transport are
-    %% subscribed to.
-    Pid = spawn(fun() -> receive _ -> ok end end),
-
-    [] = run([[reopen, Type, T, LRef, Pid, Wd, N, M]
-              || T <- [{listen, Server}, {connect, Client, CO}]]).
-
-%% start_service/1
-
-start_service() ->
+start(Type, Ref, Opts) ->
     Name = hostname(),
+    true = diameter:subscribe(Name),
     ok = diameter:start_service(Name, [{monitor, self()} | ?SERVICE(Name)]),
-    Name.
+    {ok, TRef} = diameter:add_transport(Name, {Type, Opts}),
+    true = diameter_reg:add_new({Type, Ref, Name}),
+    {Name, TRef}.
+
+opts(Type, Test, Ref, Wd) ->
+    {Timer, Counts, Mod} = opts(Type, Test, Wd),
+    [{transport_module, diameter_tcp},
+     {transport_config, Mod ++ [{ip, ?ADDR}, {port, 0}] ++ cfg(Type, Ref)},
+     {watchdog_timer, Timer},
+     {watchdog_counts, Counts}].
+
+cfg(listen, _) ->
+    [];
+cfg(connect, Ref) ->
+    [{{_, _, SvcName}, _Pid}] = diameter_reg:wait({listen, Ref, '_'}),
+    [[{ref, LRef} | _]] = diameter:service_info(SvcName, transport),
+    [LP] = ?util:lport(tcp, LRef, 20),
+    [{raddr, ?ADDR}, {rport, LP}].
+
+opts(Type, Type, Wd) ->
+    {Wd, [], []};
+opts(_Type, _Test, _Wd) ->
+    {?WD(?PEER_WD), [{open, 0}], [{module, ?MODULE}]}.
 
 %% reopen/7
 
-reopen(Type, {listen = T, SvcName}, Ref, Pid, Wd, N, M) ->
-    diameter:subscribe(SvcName),
-    Pid ! ok,
-    recv(Type, T, SvcName, Ref, Wd, N, M);
-
-reopen(Type, {connect = T, SvcName, Opts}, _, Pid, Wd, N, M) ->
-    diameter:subscribe(SvcName),
-    MRef = erlang:monitor(process, Pid),
-    receive {'DOWN', MRef, process, _, _} -> ok end,
-    {ok, Ref} = diameter:add_transport(SvcName, {T, Opts}),
-    recv(Type, T, SvcName, Ref, Wd, N, M).
-
-%% recv/7
-
 %% The watchdog to be tested.
-recv(Type, Type, _SvcName, Ref, Wd, N, M) ->
+reopen(Type, Type, SvcName, Ref, Wd, N, M) ->
+    ?LOG("node, ~p, ~p", [Type, Ref]),
+
     %% Connection should come up immediately as a consequence of
     %% starting the watchdog process. In the accepting case this
     %% results in a new watchdog on a transport waiting for a new
     %% connection.
 
-    ?EVENT({watchdog, Ref, _, {initial, okay}, _}, 2000),
-    ?EVENT({up, Ref, _, _, #diameter_packet{}}, 0),
-
-    %% Low/high watchdog timeouts.
-    WdL = jitter(Wd, -2000),
-    WdH = jitter(Wd, 2000),
+    {initial, okay} = ?WD_EVENT(Ref),
+    ?EVENT({up, Ref, _, _, #diameter_packet{}}),
 
     %%   OKAY          Timer expires &      Failover()
     %%                 Pending              SetWatchdog()        SUSPECT
@@ -215,8 +193,13 @@ recv(Type, Type, _SvcName, Ref, Wd, N, M) ->
     %% the first unanswered DWR. Knowing the min/max watchdog timeout
     %% values gives the time interval in which the event is expected.
 
-    ?EVENT({watchdog, Ref, _, {okay, suspect}, _}, N+2, WdL, WdH),
-    ?EVENT({down, Ref, _, _}, 0),
+    [0,0,0,0] = wd_counts(SvcName),
+
+    {okay, suspect} = ?WD_EVENT(Ref),
+    ?EVENT({down, Ref, _, _}),
+
+    %% N received DWA's
+    [_,_,_,N] = wd_counts(SvcName),
 
     %%   SUSPECT       Receive DWA          Pending = FALSE
     %%                                      Failback()
@@ -228,8 +211,13 @@ recv(Type, Type, _SvcName, Ref, Wd, N, M) ->
     %% The peer sends a message before the expiry of another watchdog
     %% to induce failback.
 
-    ?EVENT({watchdog, Ref, _, {suspect, okay}, _}, WdH + 2000),
-    ?EVENT({up, Ref, _, _}, 0),
+    {suspect, okay} = ?WD_EVENT(Ref),
+    ?EVENT({up, Ref, _, _}),
+
+    %% N+1 sent DWR's, N/N+1 received DWA's
+    R1 = N+1,
+    A1 = choose(M == 'DWA', R1, N),
+    [R1,_,_,A1] = wd_counts(SvcName),
 
     %%   OKAY          Timer expires &      SendWatchdog()
     %%                 !Pending             SetWatchdog()
@@ -242,16 +230,19 @@ recv(Type, Type, _SvcName, Ref, Wd, N, M) ->
     %% back down after either one or two watchdog expiries, depending
     %% on whether or not DWA restored the connection.
 
-    F = choose(M == 'DWA', 2, 1),
-    ?EVENT({watchdog, Ref, _, {okay, suspect}, _}, F, WdL, WdH),
-    ?EVENT({down, Ref, _, _}, 0),
+    {okay, suspect} = ?WD_EVENT(Ref),
+    ?EVENT({down, Ref, _, _}),
 
     %%   SUSPECT       Timer expires        CloseConnection()
     %%                                      SetWatchdog()        DOWN
     %%
     %% Non-response brings the connection down after another timeout.
 
-    ?EVENT({watchdog, Ref, _, {suspect, down}, _}, 1, WdL, WdH),
+    {suspect, down} = ?WD_EVENT(Ref),
+
+    R2 = R1 + choose(M == 'DWA', 1, 0),
+    A2 = A1,
+    [R2,_,_,A2] = wd_counts(SvcName),
 
     %%   DOWN          Timer expires        AttemptOpen()
     %%                                      SetWatchdog()        DOWN
@@ -263,7 +254,7 @@ recv(Type, Type, _SvcName, Ref, Wd, N, M) ->
     %%
     %% The connection is reestablished after another timeout.
 
-    recv_reopen(Type, Ref, WdL, WdH),
+    recv_reopen(Type, Ref),
 
     %%   REOPEN        Receive non-DWA      Throwaway()          REOPEN
     %%
@@ -281,18 +272,27 @@ recv(Type, Type, _SvcName, Ref, Wd, N, M) ->
     %% An exchange of 3 watchdogs (the first directly after
     %% capabilities exchange) brings the connection back up.
 
-    ?EVENT({watchdog, Ref, _, {reopen, okay}, _}, 2, WdL, WdH),
-    ?EVENT({up, Ref, _, _, #diameter_packet{}}, 0),
+    {reopen, okay} = ?WD_EVENT(Ref),
+    ?EVENT({up, Ref, _, _, #diameter_packet{}}),
+
+    %% Three DWR's have been answered.
+    R3 = R2 + 3,
+    A3 = A2 + 3,
+    [R3,_,_,A3] = wd_counts(SvcName),
 
     %% Non-response brings it down again.
 
-    ?EVENT({watchdog, Ref, _, {okay, suspect}, _}, 2, WdL, WdH),
-    ?EVENT({down, Ref, _, _}, 0),
-    ?EVENT({watchdog, Ref, _, {suspect, down}, _}, 1, WdL, WdH),
+    {okay, suspect} = ?WD_EVENT(Ref),
+    ?EVENT({down, Ref, _, _}),
+    {suspect, down} = ?WD_EVENT(Ref),
+
+    R4 = R3 + 1,
+    A4 = A3,
+    [R4,_,_,A4] = wd_counts(SvcName),
 
     %% Reestablish after another watchdog.
 
-    recv_reopen(Type, Ref, WdL, WdH),
+    recv_reopen(Type, Ref),
 
     %%   REOPEN        Timer expires &      NumDWA = -1
     %%                 Pending &            SetWatchdog()
@@ -305,36 +305,57 @@ recv(Type, Type, _SvcName, Ref, Wd, N, M) ->
     %% Peer is now ignoring all watchdogs go down again after 2
     %% timeouts.
 
-    ?EVENT({watchdog, Ref, _, {reopen, down}, _}, 2, WdL, WdH);
+    {reopen, down} = ?WD_EVENT(Ref);
 
 %% The misbehaving peer.
-recv(_, Type, SvcName, Ref, Wd, N, M) ->
+reopen(Type, _, SvcName, Ref, Wd, N, M) ->
+    ?LOG("peer, ~p, ~p", [Type, Ref]),
+
     %% First transport process.
-    ?EVENT({watchdog, Ref, _, {initial, okay}, _}, 1000),
-    ?EVENT({up, Ref, _, _, #diameter_packet{}}, 0),
+    {initial, okay} = ?WD_EVENT(Ref),
+    ?EVENT({up, Ref, _, _, #diameter_packet{}}),
+
     reg(Type, Ref, SvcName, {SvcName, {Wd,N,M}}),
-    ?EVENT({watchdog, Ref, _, {okay, down}, _}, infinity),
+
+    {okay, down} = ?WD_EVENT(Ref),
 
     %% Second transport process.
-    ?EVENT({watchdog, Ref, _, {_, reopen}, _}, infinity),
+    ?EVENT({watchdog, Ref, _, {_, reopen}, _}),
     reg(Type, Ref, SvcName, 3),
-    ?EVENT({watchdog, Ref, _, {_, down}, _}, infinity),
+    ?EVENT({watchdog, Ref, _, {_, down}, _}),
 
     %% Third transport process.
-    ?EVENT({watchdog, Ref, _, {_, reopen}, _}, infinity),
+    ?EVENT({watchdog, Ref, _, {_, reopen}, _}),
     reg(Type, Ref, SvcName, 0),
-    ?EVENT({watchdog, Ref, _, {_, down}, _}, infinity),
+    ?EVENT({watchdog, Ref, _, {_, down}, _}),
 
     ok.
 
-%% recv_reopen/4
+log_wd({From, To} = T) ->
+    ?LOG("~p -> ~p", [From, To]),
+    T.
 
-recv_reopen(connect, Ref, WdL, WdH) ->
-    ?EVENT({watchdog, Ref, _, {_, reopen}, _}, 1, WdL, WdH),
-    ?EVENT({reconnect, Ref, _}, 0);
+log_event(E) ->
+    T = element(1,E),
+    T == watchdog orelse ?LOG("~p", [T]),
+    E.
 
-recv_reopen(listen, Ref, _, _) ->
-    ?EVENT({watchdog, Ref, _, {_, reopen}, _}, 1, ?PEER_WD).
+%% wd_counts/1
+
+wd_counts(SvcName) ->
+    [Info] = diameter:service_info(SvcName, transport),
+    {_, Counters} = lists:keyfind(statistics, 1, Info),
+    [proplists:get_value({{0,280,R}, D}, Counters, 0) || D <- [send,recv],
+                                                         R <- [1,0]].
+
+%% recv_reopen/2
+
+recv_reopen(connect, Ref) ->
+    {down, reopen} = ?WD_EVENT(Ref),
+    ?EVENT({reconnect, Ref, _});
+
+recv_reopen(listen, Ref) ->
+    {_, reopen} = ?WD_EVENT(Ref).
 
 %% reg/4
 %%
@@ -508,11 +529,6 @@ run1([F|A]) ->
                  io:format("~p~n", [{A, E, R, S}]),
                  S
          end.
-
-%% now_diff/2
-
-now_diff(T1, T2) ->
-    timer:now_diff(T2, T1).
 
 %% jitter/2
 
