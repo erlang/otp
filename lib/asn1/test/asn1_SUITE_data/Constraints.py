@@ -86,5 +86,6 @@ Document ::= OCTET STRING (ENCODED BY pdf)
 
 pdf OBJECT IDENTIFIER ::= {1,2,3,4,5}
 
+ShorterExt ::= IA5String (SIZE (5, ...))
 
 END

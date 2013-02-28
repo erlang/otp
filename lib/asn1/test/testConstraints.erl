@@ -145,7 +145,15 @@ int_constraints(Rules) ->
     [roundtrip('VariableSize', lists:seq($A, $A+L-1)) ||
 	L <- lists:seq(1, 10)],
 
+    roundtrip_enc('ShorterExt', "a", shorter_ext(Rules, "a")),
+    roundtrip('ShorterExt', "abcde"),
+    roundtrip('ShorterExt', "abcdef"),
+
     ok.
+
+shorter_ext(per, "a") -> <<16#80,16#01,16#61>>;
+shorter_ext(uper, "a") -> <<16#80,16#E1>>;
+shorter_ext(ber, _) -> none.
 
 refed_NNL_name(_Erule) ->
     ?line {ok,_} = asn1_wrapper:encode('Constraints','AnotherThing',fred),
@@ -159,6 +167,15 @@ roundtrip(Module, Type, Value) ->
     {ok,Encoded} = Module:encode(Type, Value),
     {ok,Value} = Module:decode(Type, Encoded),
     ok.
+
+roundtrip_enc(Type, Value, Enc) ->
+    Module = 'Constraints',
+    {ok,Encoded} = Module:encode(Type, Value),
+    {ok,Value} = Module:decode(Type, Encoded),
+    case Enc of
+	none -> ok;
+	Encoded -> ok
+    end.
 
 range_error(ber, Type, Value) ->
     %% BER: Values outside the effective range should be rejected

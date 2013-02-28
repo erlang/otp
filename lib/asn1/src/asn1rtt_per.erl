@@ -356,7 +356,7 @@ encode_length({Lb,Ub}=Vr, Len) when Ub =< 65535 ,Lb >= 0 -> % constrained
 encode_length({Lb,_Ub}, Len) when is_integer(Lb), Lb >= 0 -> % Ub > 65535
     encode_length(Len);
 encode_length({{Lb,Ub}=Vr,Ext}, Len)
-  when Ub =< 65535 ,Lb >= 0,Len=<Ub, is_list(Ext) ->
+  when Ub =< 65535, Lb =< Len, Len =< Ub, is_list(Ext) ->
     %% constrained extensible
     [0|encode_constrained_number(Vr,Len)];
 encode_length({{_,_},Ext},Len) when is_list(Ext) ->

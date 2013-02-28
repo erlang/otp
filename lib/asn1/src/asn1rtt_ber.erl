@@ -1270,12 +1270,7 @@ check_restricted_string(Val, StrLen, Range) ->
     case Range of
 	{Lb,Ub} when StrLen >= Lb, Ub >= StrLen -> % variable length constraint
 	    Val;
-	{{Lb,_Ub},[]} when StrLen >= Lb ->
-	    Val;
-	{{Lb,_Ub},_Ext=[Min|_]} when StrLen >= Lb; StrLen >= Min ->
-	    Val;
-	{{Lb1,Ub1},{Lb2,Ub2}} when StrLen >= Lb1, StrLen =< Ub1;
-				   StrLen =< Ub2, StrLen >= Lb2 ->
+	{_,Ext} when is_list(Ext) ->
 	    Val;
 	StrLen -> % fixed length constraint
 	    Val;
