@@ -128,7 +128,20 @@ int_constraints(Rules) ->
     %%==========================================================
 
     roundtrip('T', "IA"),
-    roundtrip('T2', "IA").
+    roundtrip('T2', "IA"),
+
+    %%==========================================================
+    %%  More SIZE Constraints
+    %%==========================================================
+
+    roundtrip('FixedSize', "0123456789"),
+    roundtrip('FixedSize2', "0123456789"),
+    roundtrip('FixedSize2', "0123456789abcdefghij"),
+
+    [roundtrip('VariableSize', lists:seq($A, $A+L-1)) ||
+	L <- lists:seq(1, 10)],
+
+    ok.
 
 refed_NNL_name(_Erule) ->
     ?line {ok,_} = asn1_wrapper:encode('Constraints','AnotherThing',fred),
