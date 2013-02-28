@@ -1,4 +1,4 @@
-{suites,"../mnesia_test",all}.
+{suites,"../mnesia_test",[mnesia_SUITE]}.
 {skip_cases,"../mnesia_test",mnesia_measure_test,
             [ram_meter],
             "Takes to long time"}.
