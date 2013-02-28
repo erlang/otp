@@ -1580,6 +1580,7 @@ clear_function_break(BeamInstr *pc, Uint break_flags)
     }
     if (common & ERTS_BPF_META_TRACE) {
 	MatchSetUnref(bp->meta_ms);
+	bp_meta_unref(bp->meta_pid);
     }
     if (common & ERTS_BPF_COUNT) {
 	ASSERT((bp->flags & ERTS_BPF_COUNT_ACTIVE) == 0);
