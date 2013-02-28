@@ -615,7 +615,7 @@
 	     debugging.</item>
 	   </taglist>
       </item>
-      <tag><marker id="+pc"/><marker id="max_processes"><c><![CDATA[+pc Range]]></c></marker></tag>
+      <tag><marker id="+pc"/><marker id="printable_character_range"><c><![CDATA[+pc Range]]></c></marker></tag>
       <item>
 	<p>Sets the range of characters that the system will consider printable in heuristic detection of strings. This typically affects the shell, debugger and io:format functions (when ~tp is used in the format string).</p> 
 	<p>Currently two values for the <c>Range</c> are supported:
