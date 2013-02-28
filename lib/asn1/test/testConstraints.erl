@@ -128,7 +128,11 @@ int_constraints(Rules) ->
     %%==========================================================
 
     roundtrip('T', "IA"),
+    roundtrip('T', "IAB"),
+    roundtrip('T', "IABC"),
     roundtrip('T2', "IA"),
+    roundtrip('T2', "IAB"),
+    roundtrip('T2', "IABC"),
 
     %%==========================================================
     %%  More SIZE Constraints

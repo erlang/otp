@@ -359,8 +359,8 @@ encode_length({{Lb,Ub}=Vr,Ext}, Len)
   when Ub =< 65535 ,Lb >= 0,Len=<Ub, is_list(Ext) ->
     %% constrained extensible
     [0|encode_constrained_number(Vr,Len)];
-encode_length({{Lb,_},Ext},Len) when is_list(Ext) ->
-    [1|encode_semi_constrained_number(Lb, Len)];
+encode_length({{_,_},Ext},Len) when is_list(Ext) ->
+    [1|encode_length(Len)];
 encode_length(SingleValue, _Len) when is_integer(SingleValue) ->
     [].
 
