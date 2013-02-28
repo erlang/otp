@@ -36,7 +36,7 @@
 	 encode_VideotexString/2,
 	 encode_ObjectDescriptor/2,
 	 encode_UTF8String/1,
-	 encode_octet_string/3,
+	 encode_octet_string/2,
 	 encode_known_multiplier_string/4,
 	 octets_to_complete/2]).
 
@@ -660,12 +660,10 @@ make_and_set_list([], _) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% X.691:16
-%% encode_octet_string(Constraint,ExtensionMarker,Val)
+%% encode_octet_string(Constraint, Val)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-encode_octet_string(_C, true, _Val) ->
-    exit({error,{asn1,{'not_supported',extensionmarker}}});
-encode_octet_string({_,_}=SZ, false, Val) ->
+encode_octet_string({_,_}=SZ, Val) ->
     Len = length(Val),
     try
 	[encode_length(SZ, Len),2|octets_to_complete(Len, Val)]
@@ -673,7 +671,7 @@ encode_octet_string({_,_}=SZ, false, Val) ->
 	exit:{error,{asn1,{encode_length,_}}} ->
 	    encode_fragmented_octet_string(Val)
     end;
-encode_octet_string(SZ, false, Val) when is_list(SZ) ->
+encode_octet_string(SZ, Val) when is_list(SZ) ->
     Len = length(Val),
     try
 	[encode_length({hd(SZ),lists:max(SZ)},Len),2|
@@ -682,9 +680,9 @@ encode_octet_string(SZ, false, Val) when is_list(SZ) ->
 	exit:{error,{asn1,{encode_length,_}}} ->
 	    encode_fragmented_octet_string(Val)
     end;
-encode_octet_string(Sv, false, Val) when is_integer(Sv) ->
+encode_octet_string(Sv, Val) when is_integer(Sv) ->
     encode_fragmented_octet_string(Val);
-encode_octet_string(no, false, Val) ->
+encode_octet_string(no, Val) ->
     Len = length(Val),
     try
 	[encode_length(Len),2|octets_to_complete(Len, Val)]
@@ -692,7 +690,7 @@ encode_octet_string(no, false, Val) ->
 	exit:{error,{asn1,{encode_length,_}}} ->
 	    encode_fragmented_octet_string(Val)
     end;
-encode_octet_string(C, _, _) ->
+encode_octet_string(C, _) ->
     exit({error,{not_implemented,C}}).
 
 encode_fragmented_octet_string(Val) ->

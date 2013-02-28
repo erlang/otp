@@ -317,7 +317,7 @@ emit_enc_octet_string(Erules, Constraint, Value) ->
 		  "  end"]);
 	C ->
 	    call(Erules, encode_octet_string,
-		 [{asis,C},false,Value])
+		 [{asis,C},Value])
     end.
 
 emit_enc_integer_case(Value) ->
