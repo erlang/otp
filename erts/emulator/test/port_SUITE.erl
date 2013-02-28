@@ -670,7 +670,7 @@ close_ports([]) ->
     ok.
 
 open_ports(Name, Settings) ->
-    test_server:sleep(50),
+    test_server:sleep(5),
     case catch open_port(Name, Settings) of
 	P when is_port(P) ->
 	    [P| open_ports(Name, Settings)];
