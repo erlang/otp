@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -137,16 +137,16 @@ end_per_testcase(_Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-app_test(doc) ->
-    ["Application consistency test."];
+app_test() ->
+    [{doc, "App lication consistency test."}].
 app_test(Config) when is_list(Config) ->
     ?t:app_test(ssh),
     ok.
 %%--------------------------------------------------------------------
-misc_ssh_options(doc) ->
-    ["Test that we can set some misc options not tested elsewhere, "
-     "some options not yet present are not decided if we should support or "
-     "if they need thier own test case."];
+misc_ssh_options() ->
+    [{doc, "Test that we can set some misc options not tested elsewhere, "
+      "some options not yet present are not decided if we should support or "
+      "if they need thier own test case."}].
 misc_ssh_options(Config) when is_list(Config) ->  
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
@@ -163,8 +163,8 @@ misc_ssh_options(Config) when is_list(Config) ->
     basic_test([{client_opts, CMiscOpt1 ++ ClientOpts}, {server_opts, SMiscOpt1 ++ ServerOpts}]).
 
 %%--------------------------------------------------------------------
-exec(doc) ->
-    ["Test api function ssh_connection:exec"];
+exec() ->
+    [{doc, "Test api function ssh_connection:exec"}].
 exec(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -205,8 +205,8 @@ exec(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-exec_compressed(doc) ->
-    ["Test that compression option works"];
+exec_compressed() ->
+    [{doc, "Test that compression option works"}].
 exec_compressed(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -234,8 +234,8 @@ exec_compressed(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-idle_time(doc) ->
-    ["Idle timeout test"];
+idle_time() ->
+    [{doc, "Idle timeout test"}].
 idle_time(Config) ->
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
@@ -256,8 +256,8 @@ idle_time(Config) ->
     end,
     ssh:stop_daemon(Pid).
 %%--------------------------------------------------------------------
-rekey(doc) ->
-    ["Idle timeout test"];
+rekey() ->
+    [{doc, "Idle timeout test"}].
 rekey(Config) ->
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
@@ -278,8 +278,8 @@ rekey(Config) ->
 	    ssh:stop_daemon(Pid)
     end.
 %%--------------------------------------------------------------------
-shell(doc) ->
-    ["Test that ssh:shell/2 works"];
+shell() ->
+    [{doc, "Test that ssh:shell/2 works"}].
 shell(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -300,9 +300,9 @@ shell(Config) when is_list(Config) ->
     end.
     
 %%--------------------------------------------------------------------
-daemon_already_started(doc) ->
-    ["Test that get correct error message if you try to start a daemon",
-    "on an adress that already runs a daemon see also seq10667" ];
+daemon_already_started() ->
+    [{doc, "Test that get correct error message if you try to start a daemon",
+      "on an adress that already runs a daemon see also seq10667"}].
 daemon_already_started(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
     UserDir = ?config(priv_dir, Config),
@@ -317,8 +317,8 @@ daemon_already_started(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-server_password_option(doc) ->
-    ["validate to server that uses the 'password' option"];
+server_password_option() ->
+    [{doc, "validate to server that uses the 'password' option"}].
 server_password_option(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -351,8 +351,8 @@ server_password_option(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-server_userpassword_option(doc) ->
-    ["validate to server that uses the 'password' option"];
+server_userpassword_option() ->
+    [{doc, "validate to server that uses the 'password' option"}].
 server_userpassword_option(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -387,8 +387,8 @@ server_userpassword_option(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-known_hosts(doc) ->
-    ["check that known_hosts is updated correctly"];
+known_hosts() ->
+    [{doc, "check that known_hosts is updated correctly"}].
 known_hosts(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config), 
@@ -414,8 +414,8 @@ known_hosts(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 %%--------------------------------------------------------------------
 
-pass_phrase(doc) ->
-    ["Test that we can use keyes protected by pass phrases"];
+pass_phrase() ->
+    [{doc, "Test that we can use keyes protected by pass phrases"}].
 pass_phrase(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -435,8 +435,8 @@ pass_phrase(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-internal_error(doc) ->
-    ["Test that client does not hang if disconnects due to internal error"];
+internal_error() ->
+    [{doc,"Test that client does not hang if disconnects due to internal error"}].
 internal_error(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -452,8 +452,8 @@ internal_error(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-send(doc) ->
-    ["Test ssh_connection:send/3"];
+send() ->
+    [{doc, "Test ssh_connection:send/3"}].
 send(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -473,8 +473,8 @@ send(Config) when is_list(Config) ->
 
 
 %%--------------------------------------------------------------------
-close(doc) ->
-    ["Simulate that we try to close an already closed connection"];
+close() ->
+    [{doc, "Simulate that we try to close an already closed connection"}].
 close(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config), 
