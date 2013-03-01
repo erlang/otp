@@ -403,7 +403,7 @@ init([Cm, ChannelId, Timeout]) ->
 			rep_buf = <<>>,
 			inf = new_inf()}};
 	failure ->
-	    {stop, {error, "server failed to start sftp subsystem"}};
+	    {stop, "server failed to start sftp subsystem"};
 	Error ->
 	    {stop, Error}
     end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -163,8 +163,8 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-open_close_file(doc) ->
-    ["Test SSH_FXP_OPEN and SSH_FXP_CLOSE commands"];
+open_close_file() ->
+    [{doc, "Test SSH_FXP_OPEN and SSH_FXP_CLOSE commands"}].
 open_close_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -194,8 +194,8 @@ open_close_file(Config) when is_list(Config) ->
 		  ?SSH_FXF_OPEN_EXISTING).
 
 %%--------------------------------------------------------------------
-open_close_dir(doc) ->
-    ["Test SSH_FXP_OPENDIR and SSH_FXP_CLOSE commands"];
+open_close_dir() ->
+    [{doc,"Test SSH_FXP_OPENDIR and SSH_FXP_CLOSE commands"}].
 open_close_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Cm, Channel} = ?config(sftp, Config),
@@ -221,8 +221,8 @@ open_close_dir(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-read_file(doc) ->
-    ["Test SSH_FXP_READ command"];
+read_file() ->
+    [{doc, "Test SSH_FXP_READ command"}].
 read_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -244,8 +244,8 @@ read_file(Config) when is_list(Config) ->
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
-read_dir(doc) ->
-    ["Test SSH_FXP_READDIR command"];
+read_dir() ->
+    [{doc,"Test SSH_FXP_READDIR command"}].
 read_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Cm, Channel} = ?config(sftp, Config),
@@ -255,8 +255,8 @@ read_dir(Config) when is_list(Config) ->
     ok = read_dir(Handle, Cm, Channel, ReqId).
 
 %%--------------------------------------------------------------------
-write_file(doc) ->
-    ["Test SSH_FXP_WRITE command"];
+write_file() ->
+    [{doc, "Test SSH_FXP_WRITE command"}].
 write_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -279,8 +279,8 @@ write_file(Config) when is_list(Config) ->
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
-remove_file(doc) ->
-    ["Test SSH_FXP_REMOVE command"];
+remove_file() ->
+    [{doc, "Test SSH_FXP_REMOVE command"}].
 remove_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -300,8 +300,8 @@ remove_file(Config) when is_list(Config) ->
 	remove(PrivDir, Cm, Channel, NewReqId).
 
 %%--------------------------------------------------------------------
-rename_file(doc) ->
-    ["Test SSH_FXP_RENAME command"];
+rename_file() ->
+    [{doc, "Test SSH_FXP_RENAME command"}].
 rename_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -337,8 +337,8 @@ rename_file(Config) when is_list(Config) ->
 	       ?SSH_FXP_RENAME_ATOMIC).
 
 %%--------------------------------------------------------------------
-mk_rm_dir(doc) ->
-    ["Test SSH_FXP_MKDIR and SSH_FXP_RMDIR command"];
+mk_rm_dir() ->
+    [{doc, "Test SSH_FXP_MKDIR and SSH_FXP_RMDIR command"}].
 mk_rm_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Cm, Channel} = ?config(sftp, Config),
@@ -360,8 +360,8 @@ mk_rm_dir(Config) when is_list(Config) ->
 	    _/binary>>, _} = rmdir(DirName, Cm, Channel, NewReqId2).
 
 %%--------------------------------------------------------------------
-real_path(doc) ->
-    ["Test SSH_FXP_REALPATH command"];
+real_path() ->
+    [{doc, "Test SSH_FXP_REALPATH command"}].
 real_path(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
@@ -388,8 +388,6 @@ real_path(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-links(doc) ->
-    [];
 links(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
@@ -417,8 +415,8 @@ links(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-retrieve_attributes(doc) ->
-    ["Test SSH_FXP_STAT, SSH_FXP_LSTAT AND SSH_FXP_FSTAT commands"];
+retrieve_attributes() ->
+    [{"Test SSH_FXP_STAT, SSH_FXP_LSTAT AND SSH_FXP_FSTAT commands"}].
 retrieve_attributes(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -482,8 +480,8 @@ retrieve_attributes(Config) when is_list(Config) ->
 		  end, AttrValues).
 
 %%--------------------------------------------------------------------
-set_attributes(doc) ->
-    ["Test SSH_FXP_SETSTAT AND SSH_FXP_FSETSTAT commands"];
+set_attributes() ->
+    [{doc, "Test SSH_FXP_SETSTAT AND SSH_FXP_FSETSTAT commands"}].
 set_attributes(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
@@ -540,8 +538,8 @@ set_attributes(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-ver3_rename(doc) ->
-    ["Test that ver3 rename message is handled OTP 6352"];
+ver3_rename() ->
+    [{doc, "Test that ver3 rename message is handled OTP 6352"}].
 ver3_rename(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -554,8 +552,8 @@ ver3_rename(Config) when is_list(Config) ->
 	rename(FileName, NewFileName, Cm, Channel, ReqId, 3, 0).
 
 %%--------------------------------------------------------------------
-relpath(doc) ->
-    ["Check that realpath works ok seq10670"];
+relpath() ->
+    [{doc, "Check that realpath works ok seq10670"}].
 relpath(Config) when is_list(Config) ->
     ReqId = 0,
     {Cm, Channel} = ?config(sftp, Config),
@@ -577,8 +575,8 @@ relpath(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-sshd_read_file(doc) ->
-    ["Test SSH_FXP_READ command, using sshd-server"];
+sshd_read_file() ->
+    [{doc,"Test SSH_FXP_READ command, using sshd-server"}].
 sshd_read_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -598,8 +596,9 @@ sshd_read_file(Config) when is_list(Config) ->
 	read_file(Handle, 100, 0, Cm, Channel, NewReqId),
 
     {ok, Data} = file:read_file(FileName).
-ver6_basic(doc) ->
-    ["Test SFTP Version 6"];
+%%--------------------------------------------------------------------
+ver6_basic() ->
+    [{doc, "Test SFTP Version 6"}].
 ver6_basic(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     %FileName = filename:join(PrivDir, "test.txt"),

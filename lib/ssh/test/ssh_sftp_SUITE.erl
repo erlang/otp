@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,9 @@ suite() ->
 
 all() -> 
     [{group, erlang_server},
-     {group, openssh_server}].
+     {group, openssh_server},
+     sftp_nonexistent_subsystem
+    ].
 
 
 init_per_suite(Config) ->
@@ -76,9 +78,7 @@ init_per_group(erlang_server, Config) ->
 	ssh_test_lib:daemon([{system_dir, SysDir},
 			     {user_dir, PrivDir},
 			     {user_passwords,
-			      [{?USER, ?PASSWD}]},
-			     {failfun,
-			      fun ssh_test_lib:failfun/2}]),
+			      [{?USER, ?PASSWD}]}]),
     [{group, erlang_server}, {sftpd, Sftpd} | Config];
 
 init_per_group(openssh_server, Config) ->
@@ -99,6 +99,17 @@ end_per_group(_, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
+
+init_per_testcase(sftp_nonexistent_subsystem, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    SysDir =  ?config(data_dir, Config),
+    Sftpd = ssh_test_lib:daemon([{system_dir, SysDir},
+				 {user_dir, PrivDir},
+				 {subsystems, []},
+				 {user_passwords,
+				  [{?USER, ?PASSWD}]}
+				]),
+    [{sftpd, Sftpd} | Config];
 
 init_per_testcase(Case, Config) ->
     prep(Config),
@@ -129,6 +140,8 @@ init_per_testcase(Case, Config) ->
 	    [{sftp, Sftp}, {watchdog, Dog} | TmpConfig]
     end.
 
+end_per_testcase(sftp_nonexistent_subsystem, Config) ->
+    Config;
 end_per_testcase(rename_file, Config) ->
     PrivDir = ?config(priv_dir, Config),
     NewFileName = filename:join(PrivDir, "test.txt"),
@@ -145,8 +158,8 @@ end_per_testcase(Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-open_close_file(doc) ->
-    ["Test API functions open/3 and close/2"];
+open_close_file() ->
+    [{doc, "Test API functions open/3 and close/2"}].
 open_close_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
@@ -165,8 +178,8 @@ open_close_file(Server, File, Mode) ->
     ok = ssh_sftp:close(Server, Handle).
 
 %%--------------------------------------------------------------------
-open_close_dir(doc) ->
-    ["Test API functions opendir/2 and close/2"];
+open_close_dir() ->
+    [{doc, "Test API functions opendir/2 and close/2"}].
 open_close_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
@@ -177,8 +190,8 @@ open_close_dir(Config) when is_list(Config) ->
     {error, _} =  ssh_sftp:opendir(Sftp, FileName).
 
 %%--------------------------------------------------------------------
-read_file(doc) ->
-    ["Test API funtion read_file/2"];
+read_file() ->
+    [{doc, "Test API funtion read_file/2"}].
 read_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
@@ -187,8 +200,8 @@ read_file(Config) when is_list(Config) ->
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
-read_dir(doc) ->
-    ["Test API function list_dir/2"];
+read_dir() ->
+    [{doc,"Test API function list_dir/2"}].
 read_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
@@ -196,8 +209,8 @@ read_dir(Config) when is_list(Config) ->
     ct:pal("sftp list dir: ~p~n", [Files]).
 
 %%--------------------------------------------------------------------
-write_file(doc) ->
-    ["Test API function write_file/2"];
+write_file() ->
+    [{doc, "Test API function write_file/2"}].
 write_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
@@ -208,8 +221,8 @@ write_file(Config) when is_list(Config) ->
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
-remove_file(doc) ->
-    ["Test API function delete/2"];
+remove_file() ->
+    [{doc,"Test API function delete/2"}].
 remove_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
@@ -222,8 +235,8 @@ remove_file(Config) when is_list(Config) ->
     false = lists:member(filename:basename(FileName), NewFiles),
     {error, _} = ssh_sftp:delete(Sftp, FileName).
 %%--------------------------------------------------------------------
-rename_file(doc) ->
-    ["Test API function rename_file/2"];
+rename_file() ->
+    [{doc, "Test API function rename_file/2"}].
 rename_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
@@ -242,8 +255,8 @@ rename_file(Config) when is_list(Config) ->
     true = lists:member(filename:basename(NewFileName), NewFiles).
 
 %%--------------------------------------------------------------------
-mk_rm_dir(doc) ->
-    ["Test API functions make_dir/2, del_dir/2"];
+mk_rm_dir() ->
+    [{doc,"Test API functions make_dir/2, del_dir/2"}].
 mk_rm_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
@@ -256,8 +269,8 @@ mk_rm_dir(Config) when is_list(Config) ->
     {error, _} = ssh_sftp:del_dir(Sftp, PrivDir).
 
 %%--------------------------------------------------------------------
-links(doc) ->
-    ["Tests API function make_symlink/3"];
+links() ->
+    [{doc,"Tests API function make_symlink/3"}].
 links(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
@@ -273,8 +286,8 @@ links(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-retrieve_attributes(doc) ->
-    ["Test API function read_file_info/3"];
+retrieve_attributes() ->
+    [{doc, "Test API function read_file_info/3"}].
 retrieve_attributes(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
@@ -287,8 +300,8 @@ retrieve_attributes(Config) when is_list(Config) ->
     ct:pal("SFTP: ~p   FILE: ~p~n", [FileInfo, NewFileInfo]).
 
 %%--------------------------------------------------------------------
-set_attributes(doc) ->
-    ["Test API function write_file_info/3"];
+set_attributes() ->
+    [{doc,"Test API function write_file_info/3"}].
 set_attributes(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -303,8 +316,8 @@ set_attributes(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-async_read(doc) ->
-    ["Test API aread/3"];
+async_read() ->
+    [{doc,"Test API aread/3"}].
 async_read(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
     PrivDir =  ?config(priv_dir, Config),
@@ -321,8 +334,8 @@ async_read(Config) when is_list(Config) ->
 	    ct:fail(Msg)
     end.
 %%--------------------------------------------------------------------
-async_write(doc) ->
-    ["Test API awrite/3"];
+async_write() ->
+    [{doc,"Test API awrite/3"}].
 async_write(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
     PrivDir =  ?config(priv_dir, Config),
@@ -340,8 +353,8 @@ async_write(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-position(doc) ->
-    ["Test API functions position/3"];
+position() ->
+    [{doc, "Test API functions position/3"}].
 position(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -370,8 +383,8 @@ position(Config) when is_list(Config) ->
     {ok, "2"} = ssh_sftp:read(Sftp, Handle, 1).
 
 %%--------------------------------------------------------------------
-pos_read(doc) ->
-    ["Test API functions pread/3 and apread/3"];
+pos_read() ->
+    [{doc,"Test API functions pread/3 and apread/3"}].
 pos_read(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -396,8 +409,8 @@ pos_read(Config) when is_list(Config) ->
     {ok, NewData1} = ssh_sftp:pread(Sftp, Handle, {bof, 4}, 4).
 
 %%--------------------------------------------------------------------
-pos_write(doc) ->
-    ["Test API functions pwrite/4 and apwrite/4"];
+pos_write() ->
+    [{doc,"Test API functions pwrite/4 and apwrite/4"}].
 pos_write(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -421,6 +434,17 @@ pos_write(Config) when is_list(Config) ->
 
     NewData1 = list_to_binary("Bye, see you tomorrow!"),
     {ok, NewData1} = ssh_sftp:read_file(Sftp, FileName).
+
+%%--------------------------------------------------------------------
+sftp_nonexistent_subsystem() ->
+    [{doc, "Try to execute sftp subsystem on a server that does not support it"}].
+sftp_nonexistent_subsystem(Config) when is_list(Config) ->
+    {_,Host, Port} =  ?config(sftpd, Config),
+    {error,"server failed to start sftp subsystem"} =
+	ssh_sftp:start_channel(Host, Port,
+			       [{user_interaction, false},
+				{user, ?USER}, {password, ?PASSWD},
+				{silently_accept_hosts, true}]).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
