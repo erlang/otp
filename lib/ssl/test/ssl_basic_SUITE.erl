@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -259,7 +259,8 @@ api_tests() ->
      shutdown_error,
      hibernate,
      ssl_accept_timeout,
-     ssl_recv_timeout
+     ssl_recv_timeout,
+     versions_option
     ].
 
 certificate_verify_tests() ->
@@ -4070,7 +4071,43 @@ client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == dss orelse KeyAlgo == 
      ?config(server_dsa_opts, Config)}.
 
 %%--------------------------------------------------------------------
-%%% Internal functions
+
+versions_option() ->
+    [{doc,"Test API versions option to connect/listen."}].
+versions_option(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),  
+
+    Supported = proplists:get_value(supported, ssl:versions()),
+    Available = proplists:get_value(available, ssl:versions()),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, send_recv_result_active, []}},
+					{options, [{versions, Supported} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    Server ! listen,				       
+    
+    ErrClient = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+						 {host, Hostname},
+						 {from, self()},
+						 {options, [{versions , Available -- Supported} | ClientOpts]}]),
+    receive
+	{Server, _} ->
+	    ok
+    end,	    
+   
+    ssl_test_lib:check_result(ErrClient, {error, "protocol version"}).
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 send_recv_result(Socket) ->
     ssl:send(Socket, "Hello world"),

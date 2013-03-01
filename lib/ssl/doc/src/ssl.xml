@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2012</year>
+      <year>1999</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -273,6 +273,13 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 <p> {bad_cert, cert_expired}, {bad_cert, invalid_issuer}, {bad_cert, invalid_signature}, {bad_cert, unknown_ca},{bad_cert, selfsigned_peer}, {bad_cert, name_not_permitted}, {bad_cert, missing_basic_constraint}, {bad_cert, invalid_key_usage}</p>
       </item>
 
+      <tag>{versions, [protocol()]}</tag>
+      <item>TLS protocol versions that will be supported by started clients and servers.
+      This option overrides the application environment option <c>protocol_version</c>. If the
+      environment option is not set it defaults to all versions supported by the SSL application. See also
+      <seealso marker="ssl:ssl_app">ssl(6)</seealso>
+      </item>
+      
       <tag>{hibernate_after, integer()|undefined}</tag>
       <item>When an integer-value is specified, the <code>ssl_connection</code>
             will go into hibernation after the specified number of milliseconds

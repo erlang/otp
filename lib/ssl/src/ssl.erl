@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -572,8 +572,15 @@ handle_options(Opts0, _Role) ->
 
     CertFile = handle_option(certfile, Opts, <<>>),
     
+    Versions = case handle_option(versions, Opts, []) of
+		   [] ->
+		       ssl_record:supported_protocol_versions();  
+		   Vsns  ->
+		       [ssl_record:protocol_version(Vsn) || Vsn <- Vsns]
+	       end,  
+
     SSLOptions = #ssl_options{
-      versions   = handle_option(versions, Opts, []),
+      versions   = Versions,
       verify     = validate_option(verify, Verify),
       verify_fun = VerifyFun,
       fail_if_no_peer_cert = FailIfNoPeerCert,

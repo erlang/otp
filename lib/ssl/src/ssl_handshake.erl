@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -61,11 +61,7 @@ client_hello(Host, Port, ConnectionStates,
 			  ciphers = UserSuites
 			 } = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
-
-    Fun = fun(Version) ->
-		  ssl_record:protocol_version(Version)
-	  end,
-    Version = ssl_record:highest_protocol_version(lists:map(Fun, Versions)),
+    Version = ssl_record:highest_protocol_version(Versions),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
     Ciphers = available_suites(UserSuites, Version),
@@ -124,10 +120,11 @@ hello(#server_hello{cipher_suite = CipherSuite, server_version = Version,
 		    compression_method = Compression, random = Random,
 		    session_id = SessionId, renegotiation_info = Info,
 		    hash_signs = _HashSigns},
-      #ssl_options{secure_renegotiate = SecureRenegotation},
+      #ssl_options{secure_renegotiate = SecureRenegotation, 
+		   versions = SupportedVersions},
       ConnectionStates0, Renegotiation) ->
-%%TODO: select hash and signature algorigthm
-    case ssl_record:is_acceptable_version(Version) of
+    %%TODO: select hash and signature algorigthm
+    case ssl_record:is_acceptable_version(Version, SupportedVersions) of
 	true ->
 	    case handle_renegotiation_info(client, Info, ConnectionStates0, 
 					   Renegotiation, SecureRenegotation, []) of
@@ -152,7 +149,7 @@ hello(#client_hello{client_version = ClientVersion, random = Random,
       {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
 %% TODO: select hash and signature algorithm
     Version = select_version(ClientVersion, Versions),
-    case ssl_record:is_acceptable_version(Version) of
+    case ssl_record:is_acceptable_version(Version, Versions) of
 	true ->
 	    {Type, #session{cipher_suite = CipherSuite,
 			    compression_method = Compression} = Session} 
@@ -767,11 +764,7 @@ hello_security_parameters(server, Version, ConnectionState, CipherSuite, Random,
      }.
 
 select_version(ClientVersion, Versions) ->   
-    Fun = fun(Version) ->
-		  ssl_record:protocol_version(Version)
-	  end,
-    ServerVersion = ssl_record:highest_protocol_version(lists:map(Fun,
-								  Versions)),
+    ServerVersion = ssl_record:highest_protocol_version(Versions),
     ssl_record:lowest_protocol_version(ClientVersion, ServerVersion).
 
 select_cipher_suite([], _) ->
