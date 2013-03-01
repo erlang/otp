@@ -24,6 +24,7 @@
 	 info_msg/1,info_msg/2,warning_msg/1,warning_msg/2, 
 	 logfile/1,tty/1,swap_handler/1,
 	 add_report_handler/1,add_report_handler/2,
+	 add_report_sup_handler/1,add_report_sup_handler/2,
 	 delete_report_handler/1]).
 
 -export([init/1,
@@ -271,6 +272,21 @@ add_report_handler(Module) when is_atom(Module) ->
 
 add_report_handler(Module, Args) when is_atom(Module) ->
     gen_event:add_handler(error_logger, Module, Args).
+
+-spec add_report_sup_handler(Handler) -> any() when
+      Handler :: module().
+
+add_report_sup_handler(Module) when is_atom(Module) ->
+    gen_event:add_sup_handler(error_logger, Module, []).
+
+-spec add_report_sup_handler(Handler, Args) -> Result when
+      Handler :: module(),
+      Args :: gen_event:handler_args(),
+      Result :: gen_event:add_handler_ret().
+
+add_report_sup_handler(Module, Args) when is_atom(Module) ->
+    gen_event:add_sup_handler(error_logger, Module, Args).
+
 
 -spec delete_report_handler(Handler) -> Result when
       Handler :: module(),
