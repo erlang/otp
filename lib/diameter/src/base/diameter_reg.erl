@@ -138,7 +138,7 @@ del(T) ->
 %% associations removed.)
 %% ===========================================================================
 
--spec match(tuple())
+-spec match(any())
    -> [{term(), pid()}].
 
 match(Pat) ->
