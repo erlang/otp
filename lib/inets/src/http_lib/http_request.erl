@@ -248,13 +248,8 @@ key_value_str(Key = 'content-language', Headers) ->
     key_value_str(atom_to_list(Key), 
 		    Headers#http_request_h.'content-language');
 key_value_str(Key = 'content-length', Headers) ->
-    case Headers#http_request_h.'content-length' of
-	"0" ->
-	    undefined;
-	_ -> 
-	    key_value_str(atom_to_list(Key), 
-			    Headers#http_request_h.'content-length')
-    end;
+    key_value_str(atom_to_list(Key), 
+		    Headers#http_request_h.'content-length');
 key_value_str(Key = 'content-location', Headers) ->
     key_value_str(atom_to_list(Key),
 		    Headers#http_request_h.'content-location');
