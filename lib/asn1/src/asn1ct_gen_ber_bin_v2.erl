@@ -154,7 +154,7 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
     end.
 
 gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
-    BitStringConstraint = D#type.constraint,
+    BitStringConstraint = get_size_constraint(D#type.constraint),
     asn1ct_name:new(enumval),
     Type = case D#type.def of
 	       'OCTET STRING'    -> restricted_string;
@@ -459,11 +459,7 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 %% Currently not used for BER replaced with [] as place holder
 %%    Constraint = Att#type.constraint,
 %% Constraint = [],
-    Constraint = 
-	case get_constraint(Att#type.constraint,'SizeConstraint') of
-	    no -> [];
-	    Tc -> Tc
-	end,
+    Constraint = get_size_constraint(Att#type.constraint),
     ValueRange = 
 	case get_constraint(Att#type.constraint,'ValueRange') of
 	    no -> [];
@@ -1478,6 +1474,14 @@ mkfuncname(WhatKind,DecOrEnc) ->
 	'ASN1_OPEN_TYPE' ->
 	    lists:concat(["'",DecOrEnc,"_",WhatKind,"'"])
 	    
+    end.
+
+get_size_constraint(C) ->
+    case lists:keyfind('SizeConstraint', 1, C) of
+	false -> [];
+	{_,{_,[]}} -> [];			%Extensible.
+	{_,{Sv,Sv}} -> Sv;
+	{_,{_,_}=Tc} -> Tc
     end.
 
 get_constraint(C,Key) ->

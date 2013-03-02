@@ -347,22 +347,17 @@ encode_length(Len) ->				% unconstrained
 	    exit({error,{asn1,{encode_length,{nyi,above_16k}}}})
     end.
 
-encode_length(undefined, Len) -> % un-constrained
-    encode_length(Len);
-encode_length({0,'MAX'},Len) ->
-    encode_length(undefined,Len);
-encode_length({Lb,Ub}=Vr, Len) when Ub =< 65535 ,Lb >= 0 -> % constrained
-    encode_constrained_number(Vr,Len);
-encode_length({Lb,_Ub}, Len) when is_integer(Lb), Lb >= 0 -> % Ub > 65535
-    encode_length(Len);
-encode_length({{Lb,Ub}=Vr,Ext}, Len)
-  when Ub =< 65535, Lb =< Len, Len =< Ub, is_list(Ext) ->
-    %% constrained extensible
-    [0|encode_constrained_number(Vr,Len)];
-encode_length({{_,_},Ext},Len) when is_list(Ext) ->
-    [1|encode_length(Len)];
-encode_length(SingleValue, _Len) when is_integer(SingleValue) ->
-    [].
+encode_length({C,[]}, Len) ->
+    case C of
+	{Lb,Ub}=Vr when Lb =< Len, Len =< Ub ->
+	    [0|encode_constrained_number(Vr, Len)];
+	_ ->
+	    [1|encode_length(Len)]
+    end;
+encode_length(Len, Len) ->
+    [];
+encode_length(Vr, Len) ->
+    encode_constrained_number(Vr, Len).
 
 %% X.691 10.9.3.4 (only used for length of bitmap that prefixes extension
 %% additions in a sequence or set
@@ -684,15 +679,6 @@ encode_octet_string({_,_}=SZ, Val) ->
 	exit:{error,{asn1,{encode_length,_}}} ->
 	    encode_fragmented_octet_string(Val)
     end;
-encode_octet_string(SZ, Val) when is_list(SZ) ->
-    Len = length(Val),
-    try
-	[encode_length({hd(SZ),lists:max(SZ)},Len),2|
-	 octets_to_complete(Len,Val)]
-    catch
-	exit:{error,{asn1,{encode_length,_}}} ->
-	    encode_fragmented_octet_string(Val)
-    end;
 encode_octet_string(Sv, Val) when is_integer(Sv) ->
     encode_fragmented_octet_string(Val);
 encode_octet_string(no, Val) ->
@@ -702,9 +688,7 @@ encode_octet_string(no, Val) ->
     catch
 	exit:{error,{asn1,{encode_length,_}}} ->
 	    encode_fragmented_octet_string(Val)
-    end;
-encode_octet_string(C, _) ->
-    exit({error,{not_implemented,C}}).
+    end.
 
 encode_fragmented_octet_string(Val) ->
     Bin = iolist_to_binary(Val),
@@ -740,7 +724,7 @@ encode_known_multiplier_string(SizeC, NumBits, CharOutTab, Val) ->
     case SizeC of
 	Ub when is_integer(Ub), Ub*NumBits < 16  ->
 	    Result;
-	Ub when is_integer(Ub), Ub =<65535 -> % fixed length
+	Ub when is_integer(Ub) ->
 	    [2,Result];
 	{{_,Ub},Ext}=SZ when is_list(Ext) ->
 	    Len = length(Val),

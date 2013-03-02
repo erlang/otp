@@ -655,7 +655,6 @@ constraint_equivalence(Config) ->
     AbsFile = filename:join(CaseDir, Asn1Spec++".abs"),
     {ok,Terms} = file:consult(AbsFile),
     Cs = [begin
-	      'INTEGER' = element(3, Type),	%Assertion.
 	      Constraints = element(4, Type),
 	      Name1 = atom_to_list(Name0),
 	      {Name,_} = lists:splitwith(fun(C) -> C =/= $X end, Name1),

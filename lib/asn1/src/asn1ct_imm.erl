@@ -95,18 +95,16 @@ per_dec_integer(Constraint0, Aligned) ->
 
 per_dec_length(SingleValue, _, _Aligned) when is_integer(SingleValue) ->
     {value,SingleValue};
-per_dec_length({S,S}, _, _Aligned) when is_integer(S) ->
-    {value,S};
-per_dec_length({{_,_}=Constr,_}, AllowZero, Aligned) ->
+per_dec_length({{Fixed,Fixed},[]}, AllowZero, Aligned) ->
+    bit_case(per_dec_length(Fixed, AllowZero, Aligned),
+	     per_dec_length(no, AllowZero, Aligned));
+per_dec_length({{_,_}=Constr,[]}, AllowZero, Aligned) ->
     bit_case(per_dec_length(Constr, AllowZero, Aligned),
-	     per_dec_length(undefined, AllowZero, Aligned));
+	     per_dec_length(no, AllowZero, Aligned));
 per_dec_length({Lb,Ub}, _AllowZero, Aligned) when is_integer(Lb),
-						  is_integer(Lb),
-						  Ub =< 65535 ->
+						  is_integer(Lb) ->
     per_dec_constrained(Lb, Ub, Aligned);
-per_dec_length({_,_}, AllowZero, Aligned) ->
-    decode_unconstrained_length(AllowZero, Aligned);
-per_dec_length(undefined, AllowZero, Aligned) ->
+per_dec_length(no, AllowZero, Aligned) ->
     decode_unconstrained_length(AllowZero, Aligned).
 
 per_dec_named_integer(Constraint, NamedList0, Aligned) ->
@@ -115,7 +113,7 @@ per_dec_named_integer(Constraint, NamedList0, Aligned) ->
     {map,Int,NamedList}.
 
 per_dec_k_m_string(StringType, Constraint, Aligned) ->
-    SzConstr = get_constraint(Constraint, 'SizeConstraint'),
+    SzConstr = effective_constraint(bitstring, Constraint),
     N = string_num_bits(StringType, Constraint, Aligned),
     %% X.691 (07/2002) 27.5.7 says if the upper bound times the number
     %% of bits is greater than or equal to 16, then the bit field should
@@ -159,18 +157,17 @@ per_dec_restricted_string(Aligned) ->
 %%% Local functions.
 %%%
 
-dec_string(Sv, U, Aligned0, AF) when is_integer(Sv), Sv < 16#10000 ->
+dec_string(Sv, U, Aligned0, AF) when is_integer(Sv) ->
     Bits = U*Sv,
     Aligned = Aligned0 andalso AF(Bits, Bits),
     {get_bits,Sv,[U,binary,{align,Aligned}]};
-dec_string([_|_]=C, U, Aligned, AF) when is_list(C) ->
-    dec_string({hd(C),lists:max(C)}, U, Aligned, AF);
-dec_string({Sv,Sv}, U, Aligned, AF) ->
-    dec_string(Sv, U, Aligned, AF);
-dec_string({{_,_}=C,_}, U, Aligned, AF) ->
+dec_string({{Sv,Sv},[]}, U, Aligned, AF) ->
+    bit_case(dec_string(Sv, U, Aligned, AF),
+	     dec_string(no, U, Aligned, AF));
+dec_string({{_,_}=C,[]}, U, Aligned, AF) ->
     bit_case(dec_string(C, U, Aligned, AF),
 	     dec_string(no, U, Aligned, AF));
-dec_string({Lb,Ub}, U, Aligned0, AF) when Ub < 16#10000 ->
+dec_string({Lb,Ub}, U, Aligned0, AF) ->
     Len = per_dec_constrained(Lb, Ub, Aligned0),
     Aligned = Aligned0 andalso AF(Lb*U, Ub*U),
     {get_bits,Len,[U,binary,{align,Aligned}]};
@@ -712,7 +709,27 @@ effective_constraint(integer, C) ->
     VR = effective_constr('ValueRange', VRs),
     greatest_common_range(SV, VR);
 effective_constraint(bitstring, C) ->
-    get_constraint(C, 'SizeConstraint').
+    case get_constraint(C, 'SizeConstraint') of
+	{{Lb,Ub},[]}=Range when is_integer(Lb) ->
+	    if
+		is_integer(Ub), Ub < 16#10000 ->
+		    Range;
+		true ->
+		    no
+	    end;
+	{Lb,Ub}=Range when is_integer(Lb) ->
+	    if
+		is_integer(Ub), Ub < 16#10000 ->
+		    if
+			Lb =:= Ub -> Lb;
+			true -> Range
+		    end;
+		true ->
+		    no
+	    end;
+	no ->
+	    no
+    end.
 
 effective_constr(_, []) -> [];
 effective_constr('SingleValue', List) ->

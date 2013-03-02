@@ -838,8 +838,8 @@ int_to_bitlist(Int) when is_integer(Int), Int >= 0 ->
 %% and BinBits is a binary representing the BIT STRING.
 %%=================================================================
 encode_bin_bit_string(C,{Unused,BinBits},_NamedBitList,TagIn)->
-    case get_constraint(C,'SizeConstraint') of
-	no ->
+    case C of
+	[] ->
 	    remove_unused_then_dotag(TagIn, Unused, BinBits);
 	{_Min,Max} ->
 	    BBLen = (byte_size(BinBits)*8)-Unused,
@@ -885,8 +885,8 @@ remove_unused_then_dotag(TagIn,Unused,BinBits) ->
 encode_bit_string_named(C, [FirstVal | RestVal], NamedBitList, TagIn) ->
     ToSetPos = get_all_bitposes([FirstVal | RestVal], NamedBitList, []),
     Size =
-	case get_constraint(C,'SizeConstraint') of
-	    no ->
+	case C of
+	    [] ->
 		lists:max(ToSetPos)+1;
 	    {_Min,Max} ->
 		Max;
@@ -943,8 +943,8 @@ make_and_set_list(Len, [], XPos) ->
 %% Encode bit string for lists of ones and zeroes
 %%=================================================================
 encode_bit_string_bits(C, BitListVal, _NamedBitList, TagIn) when is_list(BitListVal) ->
-    case get_constraint(C,'SizeConstraint') of
-	no ->
+    case C of
+	[] ->
 	    {Len, Unused, OctetList} = encode_bitstring(BitListVal),
 	    %%add unused byte to the Len
 	    encode_tags(TagIn, [Unused | OctetList], Len+1);
@@ -957,7 +957,7 @@ encode_bit_string_bits(C, BitListVal, _NamedBitList, TagIn) when is_list(BitList
 	Constr={{_,_},{_,_}} ->%{{Min1,Max1},{Min2,Max2}}
 	    %% constraint with extension mark
 	    encode_constr_bit_str_bits(Constr,BitListVal,TagIn);
-	Size ->
+	Size when is_integer(Size) ->
 	    case length(BitListVal) of
 		BitSize when BitSize == Size ->
 		    {Len, Unused, OctetList} = encode_bitstring(BitListVal),
@@ -1266,22 +1266,14 @@ decode_restricted_string(Tlv, Range, TagsIn) ->
     Bin = match_and_collect(Tlv, TagsIn),
     check_restricted_string(binary_to_list(Bin), byte_size(Bin), Range).
 
-check_restricted_string(Val, StrLen, Range) ->
-    case Range of
-	{Lb,Ub} when StrLen >= Lb, Ub >= StrLen -> % variable length constraint
-	    Val;
-	{_,Ext} when is_list(Ext) ->
-	    Val;
-	StrLen -> % fixed length constraint
-	    Val;
-	{_,_} ->
-	    exit({error,{asn1,{length,Range,Val}}});
-	_Len when is_integer(_Len) ->
-	    exit({error,{asn1,{length,Range,Val}}});
-	_ -> % some strange constraint that we don't support yet
-	    Val
-    end.
-
+check_restricted_string(Val, _Len, []) ->
+    Val;
+check_restricted_string(Val, Len, {Lb,Ub}) when Lb =< Len, Len =< Ub ->
+    Val;
+check_restricted_string(Val, Len, Len) ->
+    Val;
+check_restricted_string(Val, _Len, Range) ->
+    exit({error,{asn1,{length,Range,Val}}}).
 
 %%============================================================================
 %% encode Universal string
@@ -1528,14 +1520,6 @@ match_and_collect(Tlv, TagsIn) ->
 	    collect_parts(PartList);
 	Bin when is_binary(Bin) ->
 	    Bin
-    end.
-
-get_constraint(C, Key) ->
-    case lists:keyfind(Key, 1, C) of
-	false ->
-	    no;
-	{_,V} ->
-	    V
     end.
 
 collect_parts(TlvList) ->

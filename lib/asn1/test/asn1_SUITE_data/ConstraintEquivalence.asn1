@@ -43,6 +43,18 @@ BEGIN
  RangeX23 ::= INTEGER ((0..10) INTERSECTION (5..20) ^ (MIN..MAX))
  RangeX24 ::= INTEGER ((5|6|7|8|9|10) INTERSECTION (5..20) ^ (MIN..MAX))
 
+ UnconstrainedStringX00 ::= IA5String
+ UnconstrainedStringX01 ::= IA5String (SIZE (0..MAX))
+
+ ConstrainedStringX00 ::= IA5String (SIZE (0..5))
+ ConstrainedStringX01 ::= IA5String (SIZE (0|1|2|3|4|5))
+
+ -- Note: None of the back-ends care about the exact values
+ -- outside of the root range.
+ ExtConstrainedStringX00 ::= IA5String (SIZE (1..2, ...))
+ ExtConstrainedStringX01 ::= IA5String (SIZE (1|2, ..., 3))
+ ExtConstrainedStringX02 ::= IA5String (SIZE (1|2, ..., 3|4|5))
+
  integer4 INTEGER ::= 4
  integer11 INTEGER ::= 11
  integer42 INTEGER ::= 42

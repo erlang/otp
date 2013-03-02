@@ -276,10 +276,12 @@ fragmented_octet_string(Erules) ->
 	    K48-1,K48,K48+1,K48+(1 bsl 7)-1,K48+(1 bsl 7),K48+(1 bsl 7)+1,
 	    K64-1,K64,K64+1,K64+(1 bsl 7)-1,K64+(1 bsl 7),K64+(1 bsl 7)+1,
 	    K64+K16-1,K64+K16,K64+K16+1],
-    Types = ['Os','OsFrag'],
+    Types = ['Os','OsFrag','OsFragExt'],
     [fragmented_octet_string(Erules, Types, L) || L <- Lens],
     fragmented_octet_string(Erules, ['FixedOs65536'], 65536),
     fragmented_octet_string(Erules, ['FixedOs65537'], 65537),
+    fragmented_octet_string(Erules, ['FixedOs65536Ext'], 65536),
+    fragmented_octet_string(Erules, ['FixedOs65537Ext'], 65537),
 
     %% Make sure that octet alignment works.
     roundtrip('OsAlignment',

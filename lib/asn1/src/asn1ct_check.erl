@@ -4310,7 +4310,42 @@ normalize_cs([{'ValueRange',{Sv,Sv}}|Cs]) ->
     [{'SingleValue',Sv}|normalize_cs(Cs)];
 normalize_cs([{'ValueRange',{'MIN','MAX'}}|Cs]) ->
     normalize_cs(Cs);
-normalize_cs(Other) -> Other.
+normalize_cs([{'SizeConstraint',C0}|Cs]) ->
+    case normalize_size_constraint(C0) of
+	none ->
+	    normalize_cs(Cs);
+	C ->
+	    [{'SizeConstraint',C}|normalize_cs(Cs)]
+    end;
+normalize_cs([H|T]) ->
+    [H|normalize_cs(T)];
+normalize_cs([]) -> [].
+
+%% Normalize a size constraint to make it non-ambiguous and
+%% easy to interpret for the backends.
+%%
+%% Returns one of the following terms:
+%%  {LowerBound,UpperBound}
+%%  {{LowerBound,UpperBound},[]}     % Extensible
+%%  none                             % Remove size constraint from list
+%%
+%% where:
+%%  LowerBound = integer()
+%%  UpperBound = integer() | 'MAX'
+
+normalize_size_constraint(Sv) when is_integer(Sv) ->
+    {Sv,Sv};
+normalize_size_constraint({Root,Ext}) when is_list(Ext) ->
+    {normalize_size_constraint(Root),[]};
+normalize_size_constraint({{_,_},Ext}) when is_integer(Ext) ->
+    normalize_size_constraint(Ext);
+normalize_size_constraint([H|T]) ->
+    {H,lists:last(T)};
+normalize_size_constraint({0,'MAX'}) ->
+    none;
+normalize_size_constraint({Lb,Ub}=Range)
+  when is_integer(Lb), is_integer(Ub) orelse Ub =:= 'MAX' ->
+    Range.
 
 is_range(Prev, [H|T]) when Prev =:= H - 1 -> is_range(H, T);
 is_range(_, [_|_]) -> false;

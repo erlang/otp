@@ -502,12 +502,8 @@ gen_encode_sof(Erule,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     asn1ct_name:start(),
     {_SeqOrSetOf,ComponentType} = D#type.def,
     emit({"[",nl}),
-    SizeConstraint =
-	case asn1ct_gen:get_constraint(D#type.constraint,
-				       'SizeConstraint') of
-	    no -> undefined;
-	    Range -> Range
-	end,
+    SizeConstraint = asn1ct_imm:effective_constraint(bitstring,
+						     D#type.constraint),
     ObjFun =
 	case D#type.tablecinf of
 	    [{objfun,_}|_R] ->
@@ -563,7 +559,7 @@ gen_encode_length(per, {Lb,Ub}) when Ub =< 65535, Lb >= 0 ->
 gen_encode_length(Erules, SizeConstraint) ->
     emit([nl,indent(3),
 	  case SizeConstraint of
-	      undefined ->
+	      no ->
 		  {call,Erules,encode_length,["length(Val)"]};
 	      _ ->
 		  {call,Erules,encode_length,
@@ -574,12 +570,8 @@ gen_encode_length(Erules, SizeConstraint) ->
 gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     asn1ct_name:start(),
     {_SeqOrSetOf,ComponentType} = D#type.def,
-    SizeConstraint =
-	case asn1ct_gen:get_constraint(D#type.constraint,
-				       'SizeConstraint') of
-	    no -> undefined;
-	    Range -> Range
-	end,
+    SizeConstraint = asn1ct_imm:effective_constraint(bitstring,
+						     D#type.constraint),
     ObjFun =
 	case D#type.tablecinf of
 	    [{objfun,_}|_R] ->

@@ -142,6 +142,9 @@ int_constraints(Rules) ->
     roundtrip('FixedSize2', "0123456789"),
     roundtrip('FixedSize2', "0123456789abcdefghij"),
 
+    range_error(Rules, 'FixedSize', "short"),
+    range_error(Rules, 'FixedSize2', "short"),
+
     [roundtrip('VariableSize', lists:seq($A, $A+L-1)) ||
 	L <- lists:seq(1, 10)],
 
@@ -181,7 +184,7 @@ range_error(ber, Type, Value) ->
     %% BER: Values outside the effective range should be rejected
     %% on decode.
     {ok,Encoded} = 'Constraints':encode(Type, Value),
-    {error,{asn1,{integer_range,_,_}}} = 'Constraints':decode(Type, Encoded),
+    {error,{asn1,_}} = 'Constraints':decode(Type, Encoded),
     ok;
 range_error(Per, Type, Value) when Per =:= per; Per =:= uper ->
     %% (U)PER: Values outside the effective range should be rejected

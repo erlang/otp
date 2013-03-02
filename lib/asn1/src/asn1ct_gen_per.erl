@@ -118,6 +118,11 @@ gen_encode_prim(per=Erules, D, DoTag, Value) ->
     asn1ct_gen_per_rt2ct:gen_encode_prim(Erules, D, DoTag, Value);
 gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
     Constraint = D#type.constraint,
+    SizeConstr = asn1ct_imm:effective_constraint(bitstring, Constraint),
+    Pa = case lists:keyfind('PermittedAlphabet', 1, Constraint) of
+	     false -> no;
+	     {_,Pa0} -> Pa0
+	 end,
     asn1ct_name:new(enumval),
     case D#type.def of
 	'INTEGER' ->
@@ -132,7 +137,6 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    emit_enc_real(Erules, Value);
 
 	{'BIT STRING',NamedNumberList} ->
-	    SizeConstr = get_constraint(Constraint, 'SizeConstraint'),
 	    call(Erules, encode_bit_string,
 		 [{asis,SizeConstr},Value,
 		  {asis,NamedNumberList}]);
@@ -148,7 +152,7 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	'BOOLEAN' ->
 	    call(Erules, encode_boolean, [Value]);
 	'OCTET STRING' ->
-	    case get_constraint(Constraint, 'SizeConstraint') of
+	    case SizeConstr of
 		0 ->
 		    emit("[]");
 		no ->
@@ -157,30 +161,38 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 		    call(Erules, encode_octet_string, [{asis,C},Value])
 	    end;
 	'NumericString' ->
-	    call(Erules, encode_NumericString, [{asis,Constraint},Value]);
+	    call(Erules, encode_NumericString, [{asis,SizeConstr},
+						{asis,Pa},Value]);
 	TString when TString == 'TeletexString';
 		     TString == 'T61String' ->
 	    call(Erules, encode_TeletexString, [{asis,Constraint},Value]);
 	'VideotexString' ->
 	    call(Erules, encode_VideotexString, [{asis,Constraint},Value]);
 	'UTCTime' ->
-	    call(Erules, encode_VisibleString, [{asis,Constraint},Value]);
+	    call(Erules, encode_VisibleString, [{asis,SizeConstr},
+						{asis,Pa},Value]);
 	'GeneralizedTime' ->
-	    call(Erules, encode_VisibleString, [{asis,Constraint},Value]);
+	    call(Erules, encode_VisibleString, [{asis,SizeConstr},
+						{asis,Pa},Value]);
 	'GraphicString' ->
 	    call(Erules, encode_GraphicString, [{asis,Constraint},Value]);
 	'VisibleString' ->
-	    call(Erules, encode_VisibleString, [{asis,Constraint},Value]);
+	    call(Erules, encode_VisibleString, [{asis,SizeConstr},
+						{asis,Pa},Value]);
 	'GeneralString' ->
 	    call(Erules, encode_GeneralString, [{asis,Constraint},Value]);
 	'PrintableString' ->
-	    call(Erules, encode_PrintableString, [{asis,Constraint},Value]);
+	    call(Erules, encode_PrintableString, [{asis,SizeConstr},
+						  {asis,Pa},Value]);
 	'IA5String' ->
-	    call(Erules, encode_IA5String, [{asis,Constraint},Value]);
+	    call(Erules, encode_IA5String, [{asis,SizeConstr},
+					    {asis,Pa},Value]);
 	'BMPString' ->
-	    call(Erules, encode_BMPString, [{asis,Constraint},Value]);
+	    call(Erules, encode_BMPString, [{asis,SizeConstr},
+					    {asis,Pa},Value]);
 	'UniversalString' ->
-	    call(Erules, encode_UniversalString, [{asis,Constraint},Value]);
+	    call(Erules, encode_UniversalString, [{asis,SizeConstr},
+						  {asis,Pa},Value]);
 	'UTF8String' ->
 	    call(Erules, encode_UTF8String, [Value]);
 	'ANY' ->
@@ -251,16 +263,6 @@ enc_ext_and_val(per, E, F, Args) ->
 enc_ext_and_val(uper, E, F, Args) ->
     <<E:1,(apply(asn1ct_eval_uper, F, Args))/bitstring>>.
 
-
-get_constraint([{Key,V}], Key) ->
-    V;
-get_constraint([], _) ->
-    no;
-get_constraint(C, Key) ->
-    case lists:keyfind(Key, 1, C) of
-	false -> no;
-	{Key,V} -> V
-    end.
 
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------
@@ -1016,7 +1018,7 @@ gen_dec_imm_1('ASN1_OPEN_TYPE', Constraint, Aligned) ->
 gen_dec_imm_1('ANY', _Constraint, Aligned) ->
     imm_decode_open_type([], Aligned);
 gen_dec_imm_1({'BIT STRING',NNL}, Constr0, Aligned) ->
-    Constr = get_constraint(Constr0, 'SizeConstraint'),
+    Constr = asn1ct_imm:effective_constraint(bitstring, Constr0),
     Imm = asn1ct_imm:per_dec_raw_bitstring(Constr, Aligned),
     case NNL of
 	[] ->
@@ -1069,7 +1071,7 @@ gen_dec_imm_1('UTCTime', Constraint, Aligned) ->
 gen_dec_imm_1('GeneralizedTime', Constraint, Aligned) ->
     gen_dec_k_m_string('VisibleString', Constraint, Aligned);
 gen_dec_imm_1('OCTET STRING', Constraint, Aligned) ->
-    SzConstr = get_constraint(Constraint, 'SizeConstraint'),
+    SzConstr = asn1ct_imm:effective_constraint(bitstring, Constraint),
     Imm = asn1ct_imm:per_dec_octet_string(SzConstr, Aligned),
     {convert,binary_to_list,Imm};
 gen_dec_imm_1('TeletexString', _Constraint, Aligned) ->

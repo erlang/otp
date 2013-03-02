@@ -139,11 +139,7 @@ emit_enc_real(Erules, Real) ->
 	  "end"]).
 
 emit_enc_known_multiplier_string(StringType,C,Value) ->
-    SizeC = 
-	case get_constraint(C,'SizeConstraint') of
-	    L when is_list(L) -> {lists:min(L),lists:max(L)};
-	    L -> L
-	end,
+    SizeC = effective_constraint(bitstring, C),
     PAlphabC = get_constraint(C,'PermittedAlphabet'),
     case {StringType,PAlphabC} of
 	{'UniversalString',{_,_}} ->
@@ -268,7 +264,7 @@ charbits1(NumOfChars) ->
 %% copied from run time module
 
 emit_enc_octet_string(Erules, Constraint, Value) ->
-    case get_constraint(Constraint,'SizeConstraint') of
+    case effective_constraint(bitstring, Constraint) of
 	0 ->
 	    emit({"  []"});
 	1 ->
