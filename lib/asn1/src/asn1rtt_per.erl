@@ -663,6 +663,19 @@ make_and_set_list([], _) ->
 %% encode_octet_string(Constraint, Val)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+encode_octet_string({{Sv,Sv},Ext}=SZ, Val) when is_list(Ext), Sv =< 2 ->
+    Len = length(Val),
+    try
+        case encode_length(SZ, Len) of
+            [0|_]=EncLen ->
+                [EncLen,45,Sv*8,Sv,Val];
+            [_|_]=EncLen ->
+                [EncLen|octets_to_complete(Len, Val)]
+        end
+    catch
+	exit:{error,{asn1,{encode_length,_}}} ->
+	    encode_fragmented_octet_string(Val)
+    end;
 encode_octet_string({_,_}=SZ, Val) ->
     Len = length(Val),
     try
@@ -725,12 +738,24 @@ encode_restricted_string(Val) when is_list(Val)->
 encode_known_multiplier_string(SizeC, NumBits, CharOutTab, Val) ->
     Result = chars_encode2(Val, NumBits, CharOutTab),
     case SizeC of
-	Ub when is_integer(Ub), Ub*NumBits =< 16  ->
+	Ub when is_integer(Ub), Ub*NumBits < 16  ->
 	    Result;
 	Ub when is_integer(Ub), Ub =<65535 -> % fixed length
 	    [2,Result];
-	{Ub,Lb} ->
-	    [encode_length({Ub,Lb},length(Val)),2,Result];
+	{{_,Ub},Ext}=SZ when is_list(Ext) ->
+	    Len = length(Val),
+	    case encode_length(SZ, Len) of
+		[0|_]=EncLen when Ub*NumBits < 16 ->
+		    [EncLen,45,Len*NumBits,Len,Val];
+		[_|_]=EncLen ->
+		    [EncLen,2|Result]
+	    end;
+	{_,Ub}=Range ->
+	    [encode_length(Range, length(Val))|
+	     if
+		 Ub*NumBits < 16 -> Result;
+		 true -> [2|Result]
+	     end];
 	no  ->
 	    [encode_length(length(Val)),2,Result]
     end.

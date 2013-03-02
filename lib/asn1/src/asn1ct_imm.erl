@@ -117,15 +117,25 @@ per_dec_named_integer(Constraint, NamedList0, Aligned) ->
 per_dec_k_m_string(StringType, Constraint, Aligned) ->
     SzConstr = get_constraint(Constraint, 'SizeConstraint'),
     N = string_num_bits(StringType, Constraint, Aligned),
-    Imm = dec_string(SzConstr, N, Aligned),
+    %% X.691 (07/2002) 27.5.7 says if the upper bound times the number
+    %% of bits is greater than or equal to 16, then the bit field should
+    %% be aligned.
+    Imm = dec_string(SzConstr, N, Aligned, fun(_, Ub) -> Ub >= 16 end),
     Chars = char_tab(Constraint, StringType, N),
     convert_string(N, Chars, Imm).
 
 per_dec_octet_string(Constraint, Aligned) ->
-    dec_string(Constraint, 8, Aligned).
+    dec_string(Constraint, 8, Aligned,
+	       %% Aligned unless the size is fixed and =< 16.
+	       fun(Sv, Sv) -> Sv > 16;
+		  (_, _) -> true
+	       end).
 
 per_dec_raw_bitstring(Constraint, Aligned) ->
-    dec_string(Constraint, 1, Aligned).
+    dec_string(Constraint, 1, Aligned,
+	       fun(Sv, Sv) -> Sv > 16;
+		  (_, _) -> true
+	       end).
 
 per_dec_open_type(Aligned) ->
     {get_bits,decode_unconstrained_length(true, Aligned),
@@ -149,21 +159,22 @@ per_dec_restricted_string(Aligned) ->
 %%% Local functions.
 %%%
 
-dec_string(Sv, U, _Aligned) when is_integer(Sv), U*Sv =< 16 ->
-    {get_bits,Sv,[U,binary]};
-dec_string(Sv, U, Aligned) when is_integer(Sv), Sv < 16#10000 ->
+dec_string(Sv, U, Aligned0, AF) when is_integer(Sv), Sv < 16#10000 ->
+    Bits = U*Sv,
+    Aligned = Aligned0 andalso AF(Bits, Bits),
     {get_bits,Sv,[U,binary,{align,Aligned}]};
-dec_string([_|_]=C, U, Aligned) when is_list(C) ->
-    dec_string({hd(C),lists:max(C)}, U, Aligned);
-dec_string({Sv,Sv}, U, Aligned) ->
-    dec_string(Sv, U, Aligned);
-dec_string({{_,_}=C,_}, U, Aligned) ->
-    bit_case(dec_string(C, U, Aligned),
-	     dec_string(no, U, Aligned));
-dec_string({Lb,Ub}, U, Aligned) when Ub < 16#10000 ->
-    Len = per_dec_constrained(Lb, Ub, Aligned),
+dec_string([_|_]=C, U, Aligned, AF) when is_list(C) ->
+    dec_string({hd(C),lists:max(C)}, U, Aligned, AF);
+dec_string({Sv,Sv}, U, Aligned, AF) ->
+    dec_string(Sv, U, Aligned, AF);
+dec_string({{_,_}=C,_}, U, Aligned, AF) ->
+    bit_case(dec_string(C, U, Aligned, AF),
+	     dec_string(no, U, Aligned, AF));
+dec_string({Lb,Ub}, U, Aligned0, AF) when Ub < 16#10000 ->
+    Len = per_dec_constrained(Lb, Ub, Aligned0),
+    Aligned = Aligned0 andalso AF(Lb*U, Ub*U),
     {get_bits,Len,[U,binary,{align,Aligned}]};
-dec_string(_, U, Aligned) ->
+dec_string(_, U, Aligned, _AF) ->
     Al = [{align,Aligned}],
     DecRest = fun(V, Buf) ->
 		      asn1ct_func:call(per_common,

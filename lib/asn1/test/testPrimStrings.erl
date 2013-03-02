@@ -255,11 +255,16 @@ octet_string(Rules) ->
     fragmented_octet_string(Rules),
 
     S255 = lists:seq(1, 255),
-    FixedStrings = {'OsFixedStrings',true,"","1","12","345",true,
-		    S255,[$a|S255],[$a,$b|S255],397},
-    roundtrip('OsFixedStrings', FixedStrings),
+    Strings = {type,true,"","1","12","345",true,
+	       S255,[$a|S255],[$a,$b|S255],397},
+    p_roundtrip('OsFixedStrings', Strings),
+    p_roundtrip('OsFixedStringsExt', Strings),
+    p_roundtrip('OsVarStringsExt', Strings),
+    ShortenedStrings = shorten_by_two(Strings),
+    p_roundtrip('OsFixedStringsExt', ShortenedStrings),
+    p_roundtrip('OsVarStringsExt', ShortenedStrings),
     ok.
-    
+
 fragmented_octet_string(Erules) ->
     K16 = 1 bsl 14,
     K32 = K16 + K16,
@@ -437,6 +442,15 @@ other_strings(_Rules) ->
     roundtrip('IA5', IA5_1),
 
     roundtrip('IA5Visible', lists:seq($\s, $~)),
+
+    S255 = lists:seq(0, 127) ++ lists:seq(1, 127),
+    Strings = {type,true,"","1","12","345",true,"6789",true,
+	       S255,[$a|S255],[$a,$b|S255],397},
+    p_roundtrip('IA5FixedStrings', Strings),
+    p_roundtrip('IA5FixedStringsExt', Strings),
+    p_roundtrip('IA5VarStringsExt', Strings),
+    ShortenedStrings = shorten_by_two(Strings),
+    p_roundtrip('IA5VarStringsExt', ShortenedStrings),
 
     ok.
 
@@ -708,6 +722,17 @@ wrapper_utf8_binary_to_list(L) when is_list(L) ->
     asn1rt:utf8_binary_to_list(list_to_binary(L));
 wrapper_utf8_binary_to_list(B) ->
     asn1rt:utf8_binary_to_list(B).
+
+shorten_by_two(Tuple) ->
+    L = [case E of
+	     [_,_|T] -> T;
+	     _ -> E
+	 end || E <- tuple_to_list(Tuple)],
+    list_to_tuple(L).
+
+p_roundtrip(Type, Value0) ->
+    Value = setelement(1, Value0, Type),
+    roundtrip(Type, Value).
 
 roundtrip(Type, Value) ->
     {ok,Encoded} = 'PrimStrings':encode(Type, Value),
