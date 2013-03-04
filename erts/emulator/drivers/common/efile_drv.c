@@ -2559,7 +2559,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	      reply_Sint64(desc, d->c.sendfile.written);
 	      desc->sendfile_state = not_sending;
 	      free_sendfile(data);
-	  } else if (d->result_ok == 1) { // If we are using select to send the rest of the data
+	  } else if (d->result_ok == 1) { /* If we are using select to send the rest of the data */
 	      desc->sendfile_state = sending;
 	      desc->d = d;
 	      driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd,
@@ -4114,7 +4114,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
 
 	if (hd_len != 0 || tl_len != 0 || flags != 0) {
-	    // We do not allow header, trailers and/or flags right now
+	    /* We do not allow header, trailers and/or flags right now */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}

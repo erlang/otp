@@ -150,14 +150,14 @@
 #define D2GTE(a1,a0,b1,b0) (!D2LT(a1,a0,b1,b0))
 #define D2LTE(a1,a0,b1,b0) (!D2GT(a1,a0,b1,b0))
 
-// Add (A+B),  A=(a1B+a0) B=(b1B+b0)
+/* Add (A+B),  A=(a1B+a0) B=(b1B+b0) */
 #define D2ADD(a1,a0,b1,b0,c1,c0) do { \
 	ErtsDigit __ci = 0;	      \
 	DSUM(a0,b0,__ci,c0); \
 	DSUMc(a1,b1,__ci,c1);			\
     } while(0)
 
-// Subtract (A-B), A=(a1B+a0), B=(b1B+b0)  (A>=B)
+/* Subtract (A-B), A=(a1B+a0), B=(b1B+b0)  (A>=B) */
 #define D2SUB(a1,a0,b1,b0,c1,c0) do { \
 	ErtsDigit __bi;		      \
 	DSUB(a0,b0,__bi,c0);	      \
@@ -1337,7 +1337,7 @@ static dsize_t I_lshift(ErtsDigit* x, dsize_t xl, Sint y,
 
 	    while(bw--)
 		*r++ = 0;
-	    if (sw) {  // NOTE! x >> 32 is not = 0!
+	    if (sw) {  /* NOTE! x >> 32 is not = 0! */
 		while(xl--) {
 		    a0 = (*x << sw) | a1;
 		    a1 = (*x >> (D_EXP - sw));
@@ -1384,7 +1384,7 @@ static dsize_t I_lshift(ErtsDigit* x, dsize_t xl, Sint y,
 	    x += (xl-1);
 	    r += (rl-1);
 	    xl -= bw;
-	    if (sw) { // NOTE! x >> 32 is not = 0!
+	    if (sw) { /* NOTE! x >> 32 is not = 0! */
 		while(xl--) {
 		    a1 = (*x >> sw) | a0;
 		    a0 = (*x << (D_EXP-sw));
@@ -2468,7 +2468,7 @@ int term_equals_2pow32(Eterm x)
 	if (!is_big(x))
 	    return 0;
 	bp = big_val(x);
-#if D_EXP == 16   // 16 bit platfrom not really supported!!!
+#if D_EXP == 16   /* 16 bit platfrom not really supported!!! */
 	return (BIG_SIZE(bp) == 3) && !BIG_DIGIT(bp,0) && !BIG_DIGIT(bp,1) && 
 	    BIG_DIGIT(bp,2) == 1;
 #elif D_EXP == 32

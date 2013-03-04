@@ -2713,25 +2713,26 @@ tailrecur_ne:
 	case SMALL_FLOAT:
 	    GET_DOUBLE(bw, f2);
 	    if (f2.fd < MAX_LOSSLESS_FLOAT && f2.fd > MIN_LOSSLESS_FLOAT) {
-		// Float is within the no loss limit
+		/* Float is within the no loss limit */
 		f1.fd = signed_val(aw);
 		j = float_comp(f1.fd, f2.fd);
 #if ERTS_SIZEOF_ETERM == 8
 	    } else if (f2.fd > (double) (MAX_SMALL + 1)) {
-		// Float is a positive bignum, i.e. bigger
+		/* Float is a positive bignum, i.e. bigger */
 		j = -1;
 	    } else if (f2.fd < (double) (MIN_SMALL - 1)) {
-		// Float is a negative bignum, i.e. smaller
+		/* Float is a negative bignum, i.e. smaller */
 		j = 1;
-	    } else { // Float is a Sint but less precise
+	    } else {
+		/* Float is a Sint but less precise */
 		j = signed_val(aw) - (Sint) f2.fd;
 	    }
 #else
 	    } else {
-		// If float is positive it is bigger than small
+		/* If float is positive it is bigger than small */
 		j = (f2.fd > 0.0) ? -1 : 1;
 	    }
-#endif // ERTS_SIZEOF_ETERM == 8
+#endif /* ERTS_SIZEOF_ETERM == 8 */
 	    break;
         case FLOAT_BIG:
 	{
@@ -2743,18 +2744,18 @@ tailrecur_ne:
 	    GET_DOUBLE(bw, f2);
 	    if ((f2.fd < (double) (MAX_SMALL + 1))
 		    && (f2.fd > (double) (MIN_SMALL - 1))) {
-		// Float is a Sint
+		/* Float is a Sint */
 		j = big_sign(aw) ? -1 : 1;
 	    } else if (big_arity(aw) > BIG_ARITY_FLOAT_MAX
 		       || pow(2.0,(big_arity(aw)-1)*D_EXP) > fabs(f2.fd)) {
-		// If bignum size shows that it is bigger than the abs float
+		/* If bignum size shows that it is bigger than the abs float */
 		j = big_sign(aw) ? -1 : 1;
 	    } else if (big_arity(aw) < BIG_ARITY_FLOAT_MAX
 		       && (pow(2.0,(big_arity(aw))*D_EXP)-1.0) < fabs(f2.fd)) {
-		// If bignum size shows that it is smaller than the abs float
+		/* If bignum size shows that it is smaller than the abs float */
 		j = f2.fd < 0 ? 1 : -1;
 	    } else if (f2.fd < MAX_LOSSLESS_FLOAT && f2.fd > MIN_LOSSLESS_FLOAT) {
-		// Float is within the no loss limit
+		/* Float is within the no loss limit */
 		if (big_to_double(aw, &f1.fd) < 0) {
 		    j = big_sign(aw) ? -1 : 1;
 		} else {
@@ -2771,25 +2772,26 @@ tailrecur_ne:
 	case FLOAT_SMALL:
 	    GET_DOUBLE(aw, f1);
 	    if (f1.fd < MAX_LOSSLESS_FLOAT && f1.fd > MIN_LOSSLESS_FLOAT) {
-		// Float is within the no loss limit
+		/* Float is within the no loss limit */
 		f2.fd = signed_val(bw);
 		j = float_comp(f1.fd, f2.fd);
 #if ERTS_SIZEOF_ETERM == 8
 	    } else if (f1.fd > (double) (MAX_SMALL + 1)) {
-		// Float is a positive bignum, i.e. bigger
+		/* Float is a positive bignum, i.e. bigger */
 		j = 1;
 	    } else if (f1.fd < (double) (MIN_SMALL - 1)) {
-		// Float is a negative bignum, i.e. smaller
+		/* Float is a negative bignum, i.e. smaller */
 		j = -1;
-	    } else { // Float is a Sint but less precise it
+	    } else {
+		/* Float is a Sint but less precise it */
 		j = (Sint) f1.fd - signed_val(bw);
 	    }
 #else
 	    } else {
-		// If float is positive it is bigger than small
+		/* If float is positive it is bigger than small */
 		j = (f1.fd > 0.0) ? 1 : -1;
 	    }
-#endif // ERTS_SIZEOF_ETERM == 8
+#endif /* ERTS_SIZEOF_ETERM == 8 */
 	    break;
 	default:
 	    j = b_tag - a_tag;

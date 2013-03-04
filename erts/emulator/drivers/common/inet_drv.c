@@ -3854,8 +3854,10 @@ static void desc_close(inet_descriptor* desc)
 	desc->forced_events = 0;
 	desc->send_would_block = 0;
 #endif
-	// We should close the fd here, but the other driver might still
-	// be selecting on it.
+	/*
+	 * We should close the fd here, but the other driver might still
+	 * be selecting on it.
+	 */
 	if (!desc->is_ignored)
 	    driver_select(desc->port,(ErlDrvEvent)(long)desc->event, 
 			  ERL_DRV_USE, 0);
