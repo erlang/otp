@@ -333,13 +333,20 @@ psk_suites({3, N}) ->
 
 psk_suites(N)
   when N >= 3 ->
-    psk_suites(0) ++
-	[?TLS_DHE_PSK_WITH_AES_256_CBC_SHA384,
-	 ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384,
-	 ?TLS_PSK_WITH_AES_256_CBC_SHA384,
-	 ?TLS_DHE_PSK_WITH_AES_128_CBC_SHA256,
-	 ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256,
-	 ?TLS_PSK_WITH_AES_128_CBC_SHA256];
+    [
+     ?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384,
+     ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384,
+     ?TLS_PSK_WITH_AES_256_GCM_SHA384,
+     ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA384,
+     ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384,
+     ?TLS_PSK_WITH_AES_256_CBC_SHA384,
+     ?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256,
+     ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256,
+     ?TLS_PSK_WITH_AES_128_GCM_SHA256,
+     ?TLS_DHE_PSK_WITH_AES_128_CBC_SHA256,
+     ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256,
+     ?TLS_PSK_WITH_AES_128_CBC_SHA256
+    ] ++ psk_suites(0);
 
 psk_suites(_) ->
 	[?TLS_DHE_PSK_WITH_AES_256_CBC_SHA,
@@ -490,6 +497,19 @@ suite_definition(?TLS_RSA_PSK_WITH_AES_256_CBC_SHA) ->
     {rsa_psk, aes_256_cbc, sha, default_prf};
 
 %%% TLS 1.2 PSK Cipher Suites RFC 5487
+
+suite_definition(?TLS_PSK_WITH_AES_128_GCM_SHA256) ->
+    {psk, aes_128_gcm, null, sha256};
+suite_definition(?TLS_PSK_WITH_AES_256_GCM_SHA384) ->
+    {psk, aes_256_gcm, null, sha384};
+suite_definition(?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256) ->
+    {dhe_psk, aes_128_gcm, null, sha256};
+suite_definition(?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384) ->
+    {dhe_psk, aes_256_gcm, null, sha384};
+suite_definition(?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256) ->
+    {rsa_psk, aes_128_gcm, null, sha256};
+suite_definition(?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384) ->
+    {rsa_psk, aes_256_gcm, null, sha384};
 
 suite_definition(?TLS_PSK_WITH_AES_128_CBC_SHA256) ->
     {psk, aes_128_cbc, sha256, default_prf};
@@ -757,6 +777,19 @@ suite({rsa_psk, aes_256_cbc,sha}) ->
     ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA;
 
 %%% TLS 1.2 PSK Cipher Suites RFC 5487
+
+suite({psk, aes_128_gcm, null}) ->
+    ?TLS_PSK_WITH_AES_128_GCM_SHA256;
+suite({psk, aes_256_gcm, null}) ->
+    ?TLS_PSK_WITH_AES_256_GCM_SHA384;
+suite({dhe_psk, aes_128_gcm, null}) ->
+    ?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256;
+suite({dhe_psk, aes_256_gcm, null}) ->
+    ?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384;
+suite({rsa_psk, aes_128_gcm, null}) ->
+    ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256;
+suite({rsa_psk, aes_256_gcm, null}) ->
+    ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384;
 
 suite({psk, aes_128_cbc, sha256}) ->
     ?TLS_PSK_WITH_AES_128_CBC_SHA256;
@@ -1608,7 +1641,9 @@ dhe_rsa_suites() ->
      ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384].
 
 psk_rsa_suites() ->
-    [?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384,
+    [?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384,
+     ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256,
+     ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384,
      ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256,
      ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA,
      ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA,
