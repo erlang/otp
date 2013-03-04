@@ -216,8 +216,6 @@ from_type_prim(M, D) ->
 		_ ->
 		    [lists:nth(random(length(NN)),NN)]
 	    end;
-	'ANY' ->
-	    exit({asn1_error,nyi,'ANY'});
 	'NULL' ->
 	    'NULL';
 	'OBJECT IDENTIFIER' ->

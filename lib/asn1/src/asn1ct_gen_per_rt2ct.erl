@@ -100,8 +100,6 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    emit_enc_known_multiplier_string('UniversalString',Constraint,Value);
 	'UTF8String' ->
 	    call(Erules, encode_UTF8String, [Value]);
-	'ANY' ->
-	    call(Erules, encode_open_type, [Value]);
 	'ASN1_OPEN_TYPE' ->
 	    NewValue = case Constraint of
 			   [#'Externaltypereference'{type=Tname}] ->

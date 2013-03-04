@@ -195,8 +195,6 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 						  {asis,Pa},Value]);
 	'UTF8String' ->
 	    call(Erules, encode_UTF8String, [Value]);
-	'ANY' ->
-	    call(Erules, encode_open_type, [Value]);
 	'ASN1_OPEN_TYPE' ->
 	    NewValue = case Constraint of
 			   [#'Externaltypereference'{type=Tname}] ->
@@ -1015,8 +1013,6 @@ gen_dec_imm(Erule, #type{def=Name,constraint=C}) ->
 
 gen_dec_imm_1('ASN1_OPEN_TYPE', Constraint, Aligned) ->
     imm_decode_open_type(Constraint, Aligned);
-gen_dec_imm_1('ANY', _Constraint, Aligned) ->
-    imm_decode_open_type([], Aligned);
 gen_dec_imm_1({'BIT STRING',NNL}, Constr0, Aligned) ->
     Constr = asn1ct_imm:effective_constraint(bitstring, Constr0),
     Imm = asn1ct_imm:per_dec_raw_bitstring(Constr, Aligned),

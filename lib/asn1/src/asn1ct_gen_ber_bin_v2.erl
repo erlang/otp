@@ -192,8 +192,6 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    call(encode_bit_string,
 		 [{asis,BitStringConstraint},Value,
 		  {asis,NamedNumberList},DoTag]);
-	'ANY' ->
-	    call(encode_open_type, [Value,DoTag]);
 	'NULL' ->
 	    call(encode_null, [Value,DoTag]);
 	'OBJECT IDENTIFIER' ->
@@ -475,7 +473,6 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 		_ -> ""
 	    end,
     NewTypeName = case Typename of
-		      'ANY'             -> 'ASN1_OPEN_TYPE';
 		      'OCTET STRING'    -> restricted_string;
 		      'NumericString'   -> restricted_string;
 		      'TeletexString'   -> restricted_string;

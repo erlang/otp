@@ -1737,7 +1737,6 @@ prim_bif(X) ->
 		    'REAL',
 		    'OBJECT IDENTIFIER',
 		    'RELATIVE-OID',
-		    'ANY',
 		    'NULL',
 		    'BIT STRING' ,
 		    'OCTET STRING' ,
