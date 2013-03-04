@@ -54,6 +54,10 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
+#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#include <openssl/modes.h>
+#endif
+
 #include "crypto_callback.h"
 
 #if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA224) && defined(NID_sha224)\
@@ -83,6 +87,10 @@
 
 #if OPENSSL_VERSION_NUMBER >= 0x0090803fL
 # define HAVE_AES_IGE
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000100fL
+# define HAVE_GCM
 #endif
 
 #if defined(HAVE_EC)
@@ -257,6 +265,8 @@ static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
 
 static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 /* helpers */
 static void init_algorithms_types(ErlNifEnv*);
@@ -387,7 +397,11 @@ static ErlNifFunc nif_funcs[] = {
     {"ecdsa_verify_nif", 5, ecdsa_verify_nif},
     {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif},
 
-    {"rand_seed_nif", 1, rand_seed_nif}
+    {"rand_seed_nif", 1, rand_seed_nif},
+
+    {"aes_gcm_encrypt", 4, aes_gcm_encrypt},
+    {"aes_gcm_decrypt", 5, aes_gcm_decrypt}
+
 };
 
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
@@ -703,7 +717,7 @@ static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
 static int algo_pubkey_cnt;
 static ERL_NIF_TERM algo_pubkey[3]; /* increase when extending the list */
 static int algo_cipher_cnt;
-static ERL_NIF_TERM algo_cipher[2]; /* increase when extending the list */
+static ERL_NIF_TERM algo_cipher[3]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
@@ -740,6 +754,9 @@ static void init_algorithms_types(ErlNifEnv* env)
 #endif
 #ifdef HAVE_AES_IGE
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
+#endif
+#if defined(HAVE_GCM)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
 #endif
 
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
@@ -1736,6 +1753,107 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
     ret = enif_make_tuple2(env, new_state_term, cipher_term);
     CONSUME_REDS(env,text_bin);
     return ret;
+}
+
+static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key,Iv,AAD,In) */
+#if defined(HAVE_GCM)
+    GCM128_CONTEXT *ctx = NULL;
+    ErlNifBinary key, iv, aad, in;
+    AES_KEY aes_key;
+    unsigned char *outp;
+    ERL_NIF_TERM out, out_tag;
+
+    CHECK_OSE_CRYPTO();
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+	|| AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)) {
+	return enif_make_badarg(env);
+    }
+
+    if (!(ctx = CRYPTO_gcm128_new(&aes_key, (block128_f)AES_encrypt)))
+	return atom_error;
+
+    CRYPTO_gcm128_setiv(ctx, iv.data, iv.size);
+
+    if (CRYPTO_gcm128_aad(ctx, aad.data, aad.size))
+	goto out_err;
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    /* encrypt */
+    if (CRYPTO_gcm128_encrypt(ctx, in.data, outp, in.size))
+	goto out_err;
+
+    /* calculate the tag */
+    CRYPTO_gcm128_tag(ctx, enif_make_new_binary(env, EVP_GCM_TLS_TAG_LEN, &out_tag), EVP_GCM_TLS_TAG_LEN);
+    CRYPTO_gcm128_release(ctx);
+
+    CONSUME_REDS(env, in);
+
+    return enif_make_tuple2(env, out, out_tag);
+
+out_err:
+    CRYPTO_gcm128_release(ctx);
+    return atom_error;
+
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key,Iv,AAD,In,Tag) */
+#if defined(HAVE_GCM)
+    GCM128_CONTEXT *ctx;
+    ErlNifBinary key, iv, aad, in, tag;
+    AES_KEY aes_key;
+    unsigned char *outp;
+    ERL_NIF_TERM out;
+
+    CHECK_OSE_CRYPTO();
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+        || AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
+	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag) || tag.size != EVP_GCM_TLS_TAG_LEN) {
+	return enif_make_badarg(env);
+    }
+
+    if (!(ctx = CRYPTO_gcm128_new(&aes_key, (block128_f)AES_encrypt)))
+	return atom_error;
+
+    CRYPTO_gcm128_setiv(ctx, iv.data, iv.size);
+
+    if (CRYPTO_gcm128_aad(ctx, aad.data, aad.size))
+	goto out_err;
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    /* decrypt */
+    if (CRYPTO_gcm128_decrypt(ctx, in.data, outp, in.size))
+	    goto out_err;
+
+    /* calculate and check the tag */
+    if (CRYPTO_gcm128_finish(ctx, tag.data, EVP_GCM_TLS_TAG_LEN))
+	    goto out_err;
+
+    CRYPTO_gcm128_release(ctx);
+    CONSUME_REDS(env, in);
+
+    return out;
+
+out_err:
+    CRYPTO_gcm128_release(ctx);
+    return atom_error;
+#else
+    return atom_notsup;
+#endif
 }
 
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
