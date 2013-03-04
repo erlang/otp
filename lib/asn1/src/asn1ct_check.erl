@@ -3567,29 +3567,14 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 	    Other ->
 		exit({'cant check' ,Other})
 	end,
-    Ts2 = case NewDef of
-	      #newt{type=unchanged} ->
-		  Ts#type{def=Def};
-	      #newt{type=TDef}->
-		  Ts#type{def=TDef}
-	  end,
-    NewTag = case NewDef of
-		 #newt{tag=unchanged} ->
-		     Tag;
-		 #newt{tag=TT} ->
-		     TT
-	     end,
-    T3 = Ts2#type{tag = lists:map(fun(TempTag = #tag{type={default,TTx}}) ->
-					  TempTag#tag{type=TTx};
-				     (Else) -> Else end, NewTag)},
-    T4 = case NewDef of
-	     #newt{constraint=unchanged} ->
-		 T3#type{constraint=Constr};
-	     #newt{constraint=NewConstr} -> 
-		 T3#type{constraint=NewConstr}
-	 end,
-    T5 = T4#type{inlined=NewDef#newt.inlined},
-    T5#type{constraint=check_constraints(S,T5#type.constraint)};
+    #newt{type=TDef,tag=NewTags,constraint=NewConstr,inlined=Inlined} = NewDef,
+    Ts#type{def=TDef,
+	    inlined=Inlined,
+	    constraint=check_constraints(S, NewConstr),
+	    tag=lists:map(fun(#tag{type={default,TTx}}=TempTag) ->
+				  TempTag#tag{type=TTx};
+			     (Other) -> Other
+			  end, NewTags)};
 check_type(_S,Type,Ts) ->
     exit({error,{asn1,internal_error,Type,Ts}}).
 
