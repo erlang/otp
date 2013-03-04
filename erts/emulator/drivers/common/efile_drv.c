@@ -1346,7 +1346,7 @@ static void invoke_preadv(void *data)
 	      = efile_pread(&d->errInfo, 
 			    (int) d->fd,
 			    c->offsets[c->cnt] + c->size,
-			    ev->iov[1 + c->cnt].iov_base + c->size,
+			    ((char *)ev->iov[1 + c->cnt].iov_base) + c->size,
 			    read_size,
 			    &bytes_read))) {
 	    bytes_read_so_far += bytes_read;
@@ -1641,7 +1641,7 @@ static void invoke_pwritev(void *data) {
 		- c->free_size;
 	}
 	d->result_ok = efile_pwrite(&d->errInfo, (int) d->fd,
-				    iov[iovcnt].iov_base + p,
+				    (char *)(iov[iovcnt].iov_base) + p,
 				    write_size,
 				    c->specs[c->cnt].offset);
 	if (! d->result_ok) {
@@ -3813,7 +3813,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	res_ev->iov[0].iov_base = res_ev->binv[0]->orig_bytes;
 	/* Fill in the number of buffers in the header */
 	put_int32(0, res_ev->iov[0].iov_base);
-	put_int32(n, res_ev->iov[0].iov_base+4);
+	put_int32(n, (char *)(res_ev->iov[0].iov_base) + 4);
 	/**/
 	res_ev->size = res_ev->iov[0].iov_len;
 	if (n == 0) {
