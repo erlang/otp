@@ -1132,10 +1132,10 @@ corresponding timeout (see below) or all fail.</p>
 Specifies configuration that alters the behaviour of the watchdog
 state machine.
 On key <c>okay</c>, the non-negative number of answered DWR
-messages required before transitioning from REOPEN to OKAY.
-On key <c>suspect</c>, the positive number of unanswered DWR messages
-before transitioning from OKAY to SUSPECT, or 0 to never make this
-transition.</p>
+messages before transitioning from REOPEN to OKAY.
+On key <c>suspect</c>, the number of watchdog timeouts before
+transitioning from OKAY to SUSPECT when DWR is unanswered, or 0 to
+not make the transition.</p>
 
 <p>
 Defaults to <c>[{okay, 3}, {suspect, 1}]</c>.

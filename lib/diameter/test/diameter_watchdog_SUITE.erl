@@ -89,16 +89,23 @@
 -define(INFO(T), #diameter_event{info = T}).
 
 %% Receive an event message from diameter.
--define(EVENT(T),
-        apply(fun() ->  %% apply to not bind T_
-                      receive #diameter_event{info = T = T_} ->
-                              log_event(T_)
-                      end
+-define(EVENT(T),    %% apply to not bind T_
+        apply(fun() ->
+                      receive ?INFO(T = T_) -> log_event(T_) end
               end,
               [])).
 
 %% Receive a watchdog event.
 -define(WD_EVENT(Ref), log_wd(element(4, ?EVENT({watchdog, Ref, _, _, _})))).
+-define(WD_EVENT(Ref, Ms),
+        apply(fun() ->
+                      receive ?INFO({watchdog, Ref, _, T_, _}) ->
+                              log_wd(T_)
+                      after Ms ->
+                              false
+                      end
+              end,
+              [])).
 
 %% Log to make failures identifiable.
 -define(LOG(T),     ?LOG("~p", [T])).
@@ -376,8 +383,8 @@ tpid(Ref, [[{ref, Ref},
 %% # suspect/1
 %% ===========================================================================
 
-%% Configure transports to require a set number of watchdogs before
-%% moving from OKAY to SUSPECT.
+%% Configure transports to require a set number of watchdog timeouts
+%% before moving from OKAY to SUSPECT.
 
 suspect(_) ->
     [] = run([[abuse, [suspect, N]] || N <- [0,1,3]]).
@@ -394,19 +401,21 @@ suspect(TRef, true, SvcName, _) ->
     {okay, _} = ?WD_EVENT(TRef);
 
 suspect(TRef, false, SvcName, 0) ->  %% SUSPECT disabled
-    %% Wait 2+ watchdogs and see that two unanswered watchdogs have
-    %% been sent.
-    [2,0,0,0] = receive
-                    ?INFO({watchdog, TRef, _, _, _} = T) -> T
-                after 28000 ->
-                        wd_counts(SvcName)
-                end;
+    %% Wait 2+ watchdogs and see that only one watchdog has been sent.
+    false = ?WD_EVENT(TRef, 28000),
+    [1,0,0,0] = wd_counts(SvcName);
 
 suspect(TRef, false, SvcName, N) ->
-    {okay, suspect} = ?WD_EVENT(TRef),
-    [N,0,0,0] = wd_counts(SvcName),
-    {suspect, down} = ?WD_EVENT(TRef),
-    [N,0,0,0] = wd_counts(SvcName).
+    %% Check that no watchdog transition takes place within N+
+    %% watchdogs ...
+    false = ?WD_EVENT(TRef, N*10000+8000),
+    [1,0,0,0] = wd_counts(SvcName),
+    %% ... but that the connection then becomes suspect ...
+    {okay, suspect} = ?WD_EVENT(TRef, 10000),
+    [1,0,0,0] = wd_counts(SvcName),
+    %% ... and goes down.
+    {suspect, down} = ?WD_EVENT(TRef, 18000),
+    [1,0,0,0] = wd_counts(SvcName).
 
 %% abuse/1
 
@@ -470,13 +479,9 @@ ok(TRef, SvcName, Down, 0) ->
     %% Connection comes up without watchdog exchange.
     {Down, okay} = ?WD_EVENT(TRef),
     [1,0,0,0] = wd_counts(SvcName),
-    %% Wait 2+ watchdog timeout to see that the connection stays up and
-    %% two watchdogs are exchanged.
-    ok = receive ?INFO({watchdog, TRef, _, _, _} = T) ->
-                 T
-         after 28000 ->
-                 ok
-         end,
+    %% Wait 2+ watchdog timeouts to see that the connection stays up
+    %% and two watchdogs are exchanged.
+    false = ?WD_EVENT(TRef, 28000),
     [3,0,0,2] = wd_counts(SvcName);
 
 ok(TRef, SvcName, Down, N) ->

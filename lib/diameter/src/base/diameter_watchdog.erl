@@ -49,6 +49,8 @@
 
 -define(IS_NATURAL(N), (is_integer(N) andalso 0 =< N)).
 
+-define(CHOOSE(B,T,F), if (B) -> T; true -> F end).
+
 -record(config,
         {suspect = 1 :: non_neg_integer(),    %% OKAY -> SUSPECT
          okay    = 3 :: non_neg_integer()}).  %% REOPEN -> OKAY
@@ -61,7 +63,7 @@
                                 %% {M,F,A} -> integer() >= 0
          num_dwa = 0 :: -1 | non_neg_integer(),
                      %% number of DWAs received in reopen,
-                     %% or to send in okay before moving to suspect
+                     %% or number of timeouts before okay -> suspect
          %% end PCB
          parent = self() :: pid(),              %% service process
          transport       :: pid() | undefined,  %% peer_fsm process
@@ -424,7 +426,7 @@ transition({'DOWN', _, process, TPid, _Reason},
            #watchdog{transport = TPid,
                      status = T}
            = S) ->
-    set_watchdog(S#watchdog{status = case T of initial -> T; _ -> down end,
+    set_watchdog(S#watchdog{status = ?CHOOSE(initial == T, T, down),
                             pending = false,
                             transport = undefined});
 
@@ -668,9 +670,10 @@ timeout(#watchdog{status = okay,
     case N of
         1 ->
             S#watchdog{status = suspect};
-        _ ->  %% non-standard
-            send_watchdog(S#watchdog{pending = false,
-                                     num_dwa = decr(N)})
+        0 ->  %% non-standard: never move to suspect
+            S;
+        N ->  %% non-standard: more timeouts before moving
+            S#watchdog{num_dwa = N-1}
     end;
 
 %%   SUSPECT       Timer expires        CloseConnection()
@@ -724,11 +727,6 @@ timeout(#watchdog{status = T} = S)
   when T == initial;
        T == down ->
     restart(S).
-
-decr(0 = N) ->
-    N;
-decr(N) ->
-    N-1.
 
 %% restart/1
 
