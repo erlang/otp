@@ -658,8 +658,7 @@ cipher(#certificate_verify{signature = Signature, hashsign_algorithm = CertHashS
 % client must send a next protocol message if we are expecting it
 cipher(#finished{}, #state{role = server, expecting_next_protocol_negotiation = true,
 			   next_protocol = undefined, negotiated_version = Version} = State0) ->
-       handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, cipher, State0),
-       {stop, normal, State0};
+       handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, cipher, State0);
 
 cipher(#finished{verify_data = Data} = Finished, 
        #state{negotiated_version = Version,
