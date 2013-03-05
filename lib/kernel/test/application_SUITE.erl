@@ -21,8 +21,10 @@
 -include_lib("test_server/include/test_server.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 failover/1, failover_comp/1, permissions/1, load/1,
+	 init_per_group/2,end_per_group/2
+     ]).
+
+-export([failover/1, failover_comp/1, permissions/1, load/1,
 	 load_use_cache/1,
 	 otp_1586/1, otp_2078/1, otp_2012/1, otp_2718/1, otp_2973/1,
 	 otp_3002/1, otp_3184/1, otp_4066/1, otp_4227/1, otp_5363/1,
@@ -33,6 +35,7 @@
 
 -export([config_change/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
+	 ensure_started/1,
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1]).
 
 -define(TESTCASE, testcase_name).
@@ -47,7 +50,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [failover, failover_comp, permissions, load,
-     load_use_cache, {group, reported_bugs}, start_phases,
+     load_use_cache, ensure_started, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key, get_env,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout].
@@ -953,6 +956,28 @@ nodedown_start(Conf) when is_list(Conf) ->
     
     stop_node_nice(Cp2),
     ok.
+
+
+ensure_started(suite) -> [];
+ensure_started(doc) -> ["Test application:ensure_started/1."];
+ensure_started(Conf) ->
+
+    {ok, Fd} = file:open("app1.app", [write]),
+    w_app1(Fd),
+    file:close(Fd),
+
+    ok = application:ensure_started(app1),
+    ok = application:ensure_started(app1),
+    {error, {already_started, app1}} = application:start(app1),
+    ok = application:stop(app1),
+    {error,{"no such file or directory", _ }} = application:ensure_started(hopefully_not_an_existing_app_file),
+
+    ok = application:ensure_started(app1, permanent),
+    ok = application:ensure_started(app1, permanent),
+    ok = application:stop(app1),
+    ok = application:unload(app1),
+    ok.
+
 
 %%%-----------------------------------------------------------------
 %%% Testing of reported bugs and other tickets.
