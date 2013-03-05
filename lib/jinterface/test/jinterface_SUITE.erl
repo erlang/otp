@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -184,6 +184,10 @@ init_per_testcase(_Case,Config) ->
     [{watch_dog,Dog}|Config].
 
 end_per_testcase(_Case,Config) ->
+    case whereis(erl_link_server) of
+	undefined -> ok;
+	Pid -> exit(Pid,kill)
+    end,
     ?t:timetrap_cancel(?config(watch_dog,Config)),
     ok.
 

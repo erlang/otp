@@ -48,7 +48,7 @@ java(Java, Dir, Class, Args, Props) ->
 
 
 
-init_all(Config) when list(Config) ->
+init_all(Config) when is_list(Config) ->
     case find_executable(["java"]) of
 	false -> {skip,"Found no Java VM"};
 	Path -> [{java,Path}|Config]
@@ -69,13 +69,13 @@ find_executable([E|T]) ->
 	Path -> Path
     end.
 
-to_string([H|T]) when integer(H) ->
+to_string([H|T]) when is_integer(H) ->
     integer_to_list(H)++" "++to_string(T);
-to_string([H|T]) when atom(H) ->
+to_string([H|T]) when is_atom(H) ->
     atom_to_list(H)++" "++to_string(T);
-to_string([H|T]) when pid(H) ->
+to_string([H|T]) when is_pid(H) ->
     pid_to_list(H)++" "++to_string(T);
-to_string([H|T]) when list(H) ->
+to_string([H|T]) when is_list(H) ->
     lists:flatten(H)++" "++to_string(T);
 to_string([]) -> [].
 
@@ -109,12 +109,12 @@ cmd(Cmd) ->
     PortOpts = [{line,80},eof,exit_status,stderr_to_stdout],
     io:format("cmd: ~s~n", [Cmd]),
     case catch open_port({spawn,Cmd}, PortOpts) of
-	Port when port(Port) ->
+	Port when is_port(Port) ->
 	    Result = cmd_loop(Port, []),
 	    io:format("cmd res: ~w~n", [Result]),
 	    case Result of
 		0 -> ok;
-		ExitCode when integer(ExitCode) -> {error,ExitCode};
+		ExitCode when is_integer(ExitCode) -> {error,ExitCode};
 		Error -> Error
 	    end;
 	{'EXIT',Reason} ->
