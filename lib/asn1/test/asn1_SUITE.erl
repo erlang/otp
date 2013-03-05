@@ -1093,11 +1093,8 @@ per_modules() ->
 
 ber_modules() ->
     [X || X <- test_modules(),
-          X =/= "CommonDataTypes",
-          X =/= "DS-EquipmentUser-CommonFunctionOrig-TransmissionPath",
           X =/= "H323-MESSAGES",
-          X =/= "H235-SECURITY-MESSAGES",
-          X =/= "MULTIMEDIA-SYSTEM-CONTROL"].
+          X =/= "H235-SECURITY-MESSAGES"].
 
 test_modules() ->
     ["BitStr",
