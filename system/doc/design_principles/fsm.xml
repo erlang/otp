@@ -87,7 +87,7 @@ locked({button, Digit}, {SoFar, Code}) ->
     case [Digit|SoFar] of
         Code ->
             do_unlock(),
-            {next_state, open, {[], Code}, 3000};
+            {next_state, open, {[], Code}, 30000};
         Incomplete when length(Incomplete)<length(Code) ->
             {next_state, locked, {Incomplete, Code}};
         _Wrong ->
@@ -203,7 +203,7 @@ open(timeout, State) ->
 
   <section>
     <title>Timeouts</title>
-    <p>When a correct code has been givened, the door is unlocked and
+    <p>When a correct code has been given, the door is unlocked and
       the following tuple is returned from <c>locked/2</c>:</p>
     <code type="none">
 {next_state, open, {[], Code}, 30000};</code>
