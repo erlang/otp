@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2012</year>
+      <year>2006</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -73,12 +73,6 @@
       analysis that shows exactly what parts of the code have been
       executed during the test. In overview mode, only the code
       coverage overview page gets printed.</p>
-
-    <p><em>Note:</em> Currently, for Common Test to be able to print
-      code coverage HTML files for the modules included in the
-      analysis, the source code files of these modules must be
-      located in the same directory as the corresponding <c>.beam</c>
-      files. This is a limitation that will be removed later.</p>
 
     <p>You can choose to export and import code coverage data between
       tests. If you specify the name of an export file in the cover
