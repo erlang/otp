@@ -1076,17 +1076,14 @@ ticket_6143(Config) ->
     ok = test_compile_options:ticket_6143(Config).
 
 testExtensionAdditionGroup(Config) ->
-    %% FIXME problems with automatic tags [ber_bin], [ber_bin, optimize]
-    test(Config, fun testExtensionAdditionGroup/3, [per, uper]).
+    test(Config, fun testExtensionAdditionGroup/3).
 testExtensionAdditionGroup(Config, Rule, Opts) ->
     asn1_test_lib:compile("Extension-Addition-Group", Config, [Rule|Opts]),
     asn1_test_lib:compile_erlang("extensionAdditionGroup", Config,
                                  [debug_info]),
-    extensionAdditionGroup:run([Rule|Opts]),
-    extensionAdditionGroup:run2([Rule|Opts]),
-    extensionAdditionGroup:run3(),
-    asn1_test_lib:compile("EUTRA-RRC-Definitions", Config, [Rule, {record_name_prefix, "RRC-"}|Opts]),
-    extensionAdditionGroup:run3([Rule|Opts]).
+    asn1_test_lib:compile("EUTRA-RRC-Definitions", Config,
+			  [Rule,{record_name_prefix,"RRC-"}|Opts]),
+    extensionAdditionGroup:run(Rule).
 
 % parse_modules() ->
 %   ["ImportsFrom"].
