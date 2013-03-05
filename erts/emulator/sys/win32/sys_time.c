@@ -63,6 +63,7 @@
  
 static SysHrTime wrap = 0;
 static DWORD last_tick_count = 0;
+static erts_smp_spinlock_t wrap_lock;
 
 /* Getting timezone information is a heavy operation, so we want to do this 
    only once */
@@ -82,6 +83,7 @@ sys_init_time(void)
        static_tzi.DaylightDate.wMonth != 0) {
 	have_static_tzi = 1;
     }
+    erts_smp_spinlock_init(&wrap_lock, "sys_gethrtime");
     return 1;
 }
 
@@ -367,11 +369,15 @@ SysHrTime
 sys_gethrtime(void) 
 {
     DWORD ticks = (SysHrTime) (GetTickCount() & 0x7FFFFFFF);
+    SysHrTime res;
+    erts_smp_spin_lock(&wrap_lock);
     if (ticks < (SysHrTime) last_tick_count) {
 	wrap += LL_LITERAL(1) << 31;
     }
     last_tick_count = ticks;
-    return ((((LONGLONG) ticks) + wrap) * LL_LITERAL(1000000));
+    res = ((((LONGLONG) ticks) + wrap) * LL_LITERAL(1000000));
+    erts_smp_spin_unlock(&wrap_lock);
+    return res
 }
 
 clock_t 
