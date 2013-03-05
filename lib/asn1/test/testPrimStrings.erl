@@ -54,7 +54,7 @@ bit_string(Rules) ->
     bs_roundtrip('Bs1', [1,0,0,0,0,0,0,0,0]),
     bs_roundtrip('Bs1', [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]),
     
-    case asn1_wrapper:erule(Rules) of
+    case Rules of
 	ber ->
 	    bs_decode('Bs1', <<35,8,3,2,0,73,3,2,4,32>>,
 		      [0,1,0,0,1,0,0,1,0,0,1,0]),
@@ -62,7 +62,7 @@ bit_string(Rules) ->
 		      [1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,0]),
 	    bs_decode('Bs1', <<35,128,3,2,0,234,3,3,7,156,0,0,0>>,
 		      [1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,0]);
-	per ->
+	_ ->
 	    ok
     end,
 
@@ -71,28 +71,9 @@ bit_string(Rules) ->
     %% Bs2 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (7))
     %%==========================================================
     
-    ?line {ok,Bytes21} = asn1_wrapper:encode('PrimStrings','Bs2',[mo,tu,fr]),
-    ?line {ok,[mo,tu,fr]} = asn1_wrapper:decode('PrimStrings','Bs2',lists:flatten(Bytes21)),
-    
-    ?line {ok,Bytes22} = asn1_wrapper:encode('PrimStrings','Bs2',[0,1,1,0,0,1,0]),
-    ?line {ok,[mo,tu,fr]} = asn1_wrapper:decode('PrimStrings','Bs2',lists:flatten(Bytes22)),
-    ok,
-%% skip this because it is wrong
-%     ?line case asn1_wrapper:erule(Rules) of
-% 	      ber -> 
-% 		  ?line {ok,[mo,tu,fr,su,mo,th]} = 
-% 		      asn1_wrapper:decode('PrimStrings','Bs2',[35,8,3,2,0,101,3,2,2,200]),
-		  
-% 		  ?line {ok,[mo,tu,fr,su,mo,th]} = 
-% 		      asn1_wrapper:decode('PrimStrings','Bs2',[35,128,3,2,1,100,3,2,2,200,0,0]),
-% 		  ok;
-	      
-% 	      per ->
-% 		  ok
-% 	  end,
-    
-    
-    
+    roundtrip('Bs2', [mo,tu,fr]),
+    roundtrip('Bs2', [0,1,1,0,0,1,0], [mo,tu,fr]),
+
     %%==========================================================
     %% Bs3 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (1..7))
     %%==========================================================
@@ -114,10 +95,9 @@ bit_string(Rules) ->
     %%==========================================================
     
     bs_roundtrip('BsPri', 45, [1,0,1,1,0,1]),
-    
     bs_roundtrip('BsPri', 211, [1,1,0,0,1,0,1,1]),
     
-    case asn1_wrapper:erule(Rules) of
+    case Rules of
 	ber ->
 	    bs_decode('BsPri', <<223,61,4,5,75,226,96>>,
 		      [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]),
@@ -127,7 +107,7 @@ bit_string(Rules) ->
 		      [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]),
 	    bs_decode('BsPri', <<255,61,128,3,2,0,75,3,3,5,226,96,0,0>>,
 		      [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]);
-	per ->
+	_ ->
 	    ok
     end,
     
@@ -139,11 +119,11 @@ bit_string(Rules) ->
     bs_roundtrip('BsExpPri', 45, [1,0,1,1,0,1]),
     bs_roundtrip('BsExpPri', 211, [1,1,0,0,1,0,1,1]),
     
-    case asn1_wrapper:erule(Rules) of
+    case Rules of
 	ber ->
 	    bs_decode('BsExpPri', <<255,61,6,3,4,5,75,226,96>>,
 		      [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]);
-	per ->
+	_ ->
 	    ok
     end,
     
@@ -151,24 +131,22 @@ bit_string(Rules) ->
     %% TestS ::= BIT STRING {a(0),b(1)} (SIZE (3..8)), test case for OTP-4353
     %%==========================================================
 
-    ?line {ok,Bytes53} = asn1_wrapper:encode('PrimStrings','TestS',[a]),
-    ?line {ok,[a]} = 
-	asn1_wrapper:decode('PrimStrings','TestS',lists:flatten(Bytes53)),
+    roundtrip('TestS', [a]),
 
     %%==========================================================
     %% PersonalStatus ::= BIT STRING {married(0),employed(1),
     %%    veteran(2), collegeGraduate(3)}, test case for OTP-5710
     %%==========================================================
     
-    ?line {ok,Bytes54} = asn1_wrapper:encode('BitStr','PersonalStatus',[]),
-    ?line {ok,[]} = asn1_wrapper:decode('BitStr','PersonalStatus',Bytes54),
+    {ok,Bytes54} = 'BitStr':encode('PersonalStatus', []),
+    {ok,[]} = 'BitStr':decode('PersonalStatus', Bytes54),
     
     %%==========================================================
     %% BS5932 ::= BIT STRING (SIZE (5..MAX))
     %% test case for OTP-5932
     %%==========================================================
     bs_roundtrip('BSMAX', [1,0,1,0,1]),
-    case asn1_wrapper:erule(Rules) of
+    case Rules of
 	ber ->
 	    {error,_} = 'PrimStrings':encode('BSMAX', [1,0,1]);
 	_ ->
@@ -203,21 +181,18 @@ octet_string(Rules) ->
     %% Os ::= OCTET STRING
     %%==========================================================
 
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-		  ?line {ok,"Jones"} = 
-		      asn1_wrapper:decode('PrimStrings','Os',[4,5,16#4A,16#6F,16#6E,16#65,16#73]),
-
-		  ?line {ok,"Jones"} = 
-		      asn1_wrapper:decode('PrimStrings','Os',[36,9,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73]),
-		  
-		  ?line {ok,"Jones"} = 
-		      asn1_wrapper:decode('PrimStrings','Os',[36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0]),
-		  ok;
-	      
-	      per ->
-		  ok
-	  end,
+    case Rules of
+	ber ->
+	    {ok,"Jones"} =
+		'PrimStrings':decode('Os', <<4,5,16#4A,16#6F,16#6E,16#65,16#73>>),
+	    {ok,"Jones"} =
+		'PrimStrings':decode('Os', <<36,9,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73>>),
+	    {ok,"Jones"} =
+		'PrimStrings':decode('Os', <<36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0>>),
+	    ok;
+	_ ->
+	    ok
+    end,
 
     roundtrip('Os', [47,23,99,255,1]),
     roundtrip('OsCon', [47,23,99,255,1]),
@@ -239,18 +214,18 @@ octet_string(Rules) ->
     roundtrip('OsExpApp', OsR),
 
 
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','OsExpApp',[127,62,7,4,5,16#4A,16#6F,16#6E,16#65,16#73]),
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','OsExpApp',[127,62,11,36,9,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73]),
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','OsExpApp',[127,62,13,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0]),
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','OsExpApp',[127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0]),
-		  ?line {ok,"JonesJones"} = asn1_wrapper:decode('PrimStrings','OsExpApp',[127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0]),
-		  ok;
-	      
-	      per ->
-		  ok
-	  end,
+    case Rules of
+	ber ->
+	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,7,4,5,16#4A,16#6F,16#6E,16#65,16#73>>),
+	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,11,36,9,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73>>),
+	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,13,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0>>),
+	    {ok,"Jones"} = 'PrimStrings':decode('OsExpApp', <<127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0>>),
+	    {ok,"JonesJones"} = 'PrimStrings':decode('OsExpApp', <<127,62,128,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,36,128,4,3,16#4A,16#6F,16#6E,4,2,16#65,16#73,0,0,0,0>>),
+	    ok;
+
+	_->
+	    ok
+    end,
 
     fragmented_octet_string(Rules),
 
@@ -343,75 +318,58 @@ numeric_string(Rules) ->
     %%==========================================================
 
     roundtrip('Ns', []),
+    roundtrip('Ns', "01 34"),
+    case Rules of
+	ber ->
+	    {ok,"Jones"} = 'PrimStrings':decode('Ns',
+						<<16#12,5,16#4A,16#6F,
+						 16#6E,16#65,16#73>>),
+	    {ok,"Jones"} = 'PrimStrings':decode('Ns',
+						<<16#32,9,18,3,16#4A,16#6F,
+						 16#6E,18,2,16#65,16#73>>),
+	    {ok,"Jones"} = 'PrimStrings':decode('Ns',
+						<<16#32,128,18,3,16#4A,16#6F,
+						 16#6E,18,2,16#65,16#73,0,0>>),
+	    ok;
+	_ ->
+	    ok
+    end,
 
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-		  ?line {ok,BytesNs1} = asn1_wrapper:encode('PrimStrings','Ns',[48,49,32,51,52]),
-		  ?line {ok,[48,49,32,51,52]} = asn1_wrapper:decode('PrimStrings','Ns',lists:flatten(BytesNs1)),
-
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','Ns',[16#12,5,16#4A,16#6F,16#6E,16#65,16#73]),
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','Ns',[16#32,9,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73]),
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','Ns',[16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0]),
-		  ok;
-	      
-	      per ->
-		  ?line {ok,BytesNs1} = asn1_wrapper:encode('PrimStrings','Ns',[48,49,32,51,52]),
-		  ?line {ok,"01 34"} = asn1_wrapper:decode('PrimStrings','Ns',lists:flatten(BytesNs1)),
-		  ok
-	  end,
-
-    
-
-		       
     %%==========================================================
     %% NsCon ::= [70] NumericString
     %%==========================================================
 
     roundtrip('NsCon', []),
+    roundtrip('NsCon', "01 34"),
 
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-		  ?line {ok,BytesNs11} = asn1_wrapper:encode('PrimStrings','NsCon',[48,49,32,51,52]),
-		  ?line {ok,[48,49,32,51,52]} = asn1_wrapper:decode('PrimStrings','NsCon',lists:flatten(BytesNs11)),
+    case Rules of
+	ber ->
+	    {ok,"Jones"} = 'PrimStrings':decode('NsCon', <<16#9F,16#46,5,16#4A,16#6F,16#6E,16#65,16#73>>),
+	    {ok,"Jones"} = 'PrimStrings':decode('NsCon', <<16#BF,16#46,9,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73>>),
+	    {ok,"Jones"} = 'PrimStrings':decode('NsCon', <<16#BF,16#46,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0>>),
+	    ok;
+	_ ->
+	    ok
+    end,
 
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','NsCon',[16#9F,16#46,5,16#4A,16#6F,16#6E,16#65,16#73]),
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','NsCon',[16#BF,16#46,9,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73]),
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','NsCon',[16#BF,16#46,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0]),
-		  ok;
-	      
-	      per ->
-		  ?line {ok,BytesNs11} = asn1_wrapper:encode('PrimStrings','NsCon',[48,49,32,51,52]),
-		  ?line {ok,"01 34"} = asn1_wrapper:decode('PrimStrings','NsCon',lists:flatten(BytesNs11)),
-		  ok
-	  end,
-
-
-		       
     %%==========================================================
     %% NsExpCon ::= [71] EXPLICIT NumericString
     %%==========================================================
 
     roundtrip('NsExpCon', []),
+    roundtrip('NsExpCon', "01 34"),
 
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-		  ?line {ok,BytesNs21} = asn1_wrapper:encode('PrimStrings','NsExpCon',[48,49,32,51,52]),
-		  ?line {ok,[48,49,32,51,52]} = asn1_wrapper:decode('PrimStrings','NsExpCon',lists:flatten(BytesNs21)),
-
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','NsExpCon',[16#BF,16#47,16#07,16#12,16#05,16#4A,16#6F,16#6E,16#65,16#73]),
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','NsExpCon',[16#BF,16#47,11,16#32,9,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73]),
-		  ?line {ok,"Jones"} = asn1_wrapper:decode('PrimStrings','NsExpCon',[16#BF,16#47,128,16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0,0,0]),
-		  ?line {ok,"JonesJones"} = asn1_wrapper:decode('PrimStrings','NsExpCon',[16#BF,16#47,26,16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0,16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0]),
-		  ?line {ok,"JonesJones"} = asn1_wrapper:decode('PrimStrings','NsExpCon',[16#BF,16#47,128,16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0,16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0,0,0]),
-		  ok;
-	      
-	      per ->
-		  ?line {ok,BytesNs21} = asn1_wrapper:encode('PrimStrings','NsExpCon',[48,49,32,51,52]),
-		  ?line {ok,"01 34"} = asn1_wrapper:decode('PrimStrings','NsExpCon',lists:flatten(BytesNs21)),
-		  ok
-	  end,
-
-    ok.
+    case Rules of
+	ber ->
+	    {ok,"Jones"} = 'PrimStrings':decode('NsExpCon', <<16#BF,16#47,16#07,16#12,16#05,16#4A,16#6F,16#6E,16#65,16#73>>),
+	    {ok,"Jones"} = 'PrimStrings':decode('NsExpCon', <<16#BF,16#47,11,16#32,9,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73>>),
+	    {ok,"Jones"} = 'PrimStrings':decode('NsExpCon', <<16#BF,16#47,128,16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0,0,0>>),
+	    {ok,"JonesJones"} = 'PrimStrings':decode('NsExpCon', <<16#BF,16#47,26,16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0,16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0>>),
+	    {ok,"JonesJones"} = 'PrimStrings':decode('NsExpCon', <<16#BF,16#47,128,16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0,16#32,128,18,3,16#4A,16#6F,16#6E,18,2,16#65,16#73,0,0,0,0>>),
+	    ok;
+	_ ->
+	    ok
+    end.
 
 		       
 other_strings(_Rules) ->
@@ -507,23 +465,19 @@ universal_string(Rules) ->
     %%==========================================================
     
     roundtrip('Us', [{47,23,99,47},{0,0,55,66}]),
-    
-    ?line {ok,Bytes2} = 
-	asn1_wrapper:encode('PrimStrings','Us',[{47,23,99,255},{0,0,0,201}]),
-    ?line {ok,[{47,23,99,255},201]} = 
-	asn1_wrapper:decode('PrimStrings','Us',lists:flatten(Bytes2)),
-    
+    roundtrip('Us',
+	      [{47,23,99,255},{0,0,0,201}],
+	      [{47,23,99,255},201]),
     roundtrip('Us', "Universal String"),
     roundtrip('Us', []),
     roundtrip('Us', [{47,23,99,47}]),
     
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-    
-		  ?line {ok,[{47,23,99,255},{0,0,2,201}]} = 
-		      asn1_wrapper:decode('PrimStrings','Us',lists:flatten([16#3C,12,28,4,47,23,99,255,28,4,0,0,2,201])),
-		  ?line {ok,[{47,23,99,255},{0,0,2,201}]} = 
-		      asn1_wrapper:decode('PrimStrings','Us',lists:flatten([16#3C,16#80,28,4,47,23,99,255,28,4,0,0,2,201,0,0]));
+    case Rules of
+	ber ->
+	    {ok,[{47,23,99,255},{0,0,2,201}]} =
+		'PrimStrings':decode('Us', <<16#3C,12,28,4,47,23,99,255,28,4,0,0,2,201>>),
+	    {ok,[{47,23,99,255},{0,0,2,201}]} =
+		'PrimStrings':decode('Us', <<16#3C,16#80,28,4,47,23,99,255,28,4,0,0,2,201,0,0>>);
 	      _ ->
 		  ok
 	  end,
@@ -538,24 +492,21 @@ universal_string(Rules) ->
 %%==========================================================
 
     roundtrip('UsCon', [{47,23,99,255},{0,0,2,201}]),
-    
-    ?line {ok,Bytes12} = 
-	asn1_wrapper:encode('PrimStrings','UsCon',[{47,23,99,255},{0,0,0,201}]),
-    ?line {ok,[{47,23,99,255},201]} = 
-	asn1_wrapper:decode('PrimStrings','UsCon',lists:flatten(Bytes12)),
-    
+    roundtrip('UsCon',
+	      [{47,23,99,255},{0,0,0,201}],
+	      [{47,23,99,255},201]),
     roundtrip('UsCon', "Universal String"),
     roundtrip('UsCon', []),
     
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber -> 
-		  ?line {ok,[{47,23,99,255},{0,0,2,201}]} = 
-		      asn1_wrapper:decode('PrimStrings','UsCon',lists:flatten([16#BF,16#46,12,28,4,47,23,99,255,28,4,0,0,2,201])),
-		  ?line {ok,[{47,23,99,255},{0,0,2,201}]} = 
-		      asn1_wrapper:decode('PrimStrings','UsCon',lists:flatten([16#BF,16#46,16#80,28,4,47,23,99,255,28,4,0,0,2,201,0,0]));
-	      _ -> ok
-	  end,
-
+    case Rules of
+	ber ->
+	    {ok,[{47,23,99,255},{0,0,2,201}]} =
+		'PrimStrings':decode('UsCon', <<16#BF,16#46,12,28,4,47,23,99,255,28,4,0,0,2,201>>),
+	    {ok,[{47,23,99,255},{0,0,2,201}]} =
+		'PrimStrings':decode('UsCon', <<16#BF,16#46,16#80,28,4,47,23,99,255,28,4,0,0,2,201,0,0>>);
+	_ ->
+	    ok
+    end,
 
 
 %%==========================================================
@@ -563,25 +514,21 @@ universal_string(Rules) ->
 %%==========================================================
 
     roundtrip('UsExpCon', [{47,23,99,255},{0,0,2,201}]),
-    
-    ?line {ok,Bytes22} = 
-	asn1_wrapper:encode('PrimStrings','UsExpCon',[{47,23,99,255},{0,0,0,201}]),
-    ?line {ok,[{47,23,99,255},201]} = 
-	asn1_wrapper:decode('PrimStrings','UsExpCon',lists:flatten(Bytes22)),
-    
+    roundtrip('UsExpCon',
+	      [{47,23,99,255},{0,0,0,201}],
+	      [{47,23,99,255},201]),
     roundtrip('UsExpCon', "Universal String"),
     roundtrip('UsExpCon', []),
     
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber ->     
-		  ?line {ok,[{47,23,99,255},{0,0,2,201}]} = 
-		      asn1_wrapper:decode('PrimStrings','UsExpCon',lists:flatten([16#BF,16#47,14,60,12,28,4,47,23,99,255,28,4,0,0,2,201])),
-		  ?line {ok,[{47,23,99,255},{0,0,2,201}]} = 
-		      asn1_wrapper:decode('PrimStrings','UsExpCon',lists:flatten([16#BF,16#47,16,60,16#80,28,4,47,23,99,255,28,4,0,0,2,201,0,0]));
-	      _ -> ok
-	  end,
-
-    ok.
+    case Rules of
+	ber ->
+	    {ok,[{47,23,99,255},{0,0,2,201}]} =
+		'PrimStrings':decode('UsExpCon', <<16#BF,16#47,14,60,12,28,4,47,23,99,255,28,4,0,0,2,201>>),
+	    {ok,[{47,23,99,255},{0,0,2,201}]} =
+		'PrimStrings':decode('UsExpCon', <<16#BF,16#47,16,60,16#80,28,4,47,23,99,255,28,4,0,0,2,201,0,0>>);
+	_ ->
+	    ok
+    end.
 
 		       
 bmp_string(_Rules) ->
@@ -591,12 +538,9 @@ bmp_string(_Rules) ->
     %%==========================================================
 
     roundtrip('BMP', [{0,0,99,48},{0,0,2,201}]),
-    
-    ?line {ok,Bytes2} = 
-	asn1_wrapper:encode('PrimStrings','BMP',[{0,0,0,48},{0,0,2,201}]),
-    ?line {ok,[48,{0,0,2,201}]} = 
-	asn1_wrapper:decode('PrimStrings','BMP',lists:flatten(Bytes2)),
-
+    roundtrip('BMP',
+	      [{0,0,0,48},{0,0,2,201}],
+	      [48,{0,0,2,201}]),
     roundtrip('BMP', "BMP String"),
     roundtrip('BMP', []),
 
@@ -604,9 +548,6 @@ bmp_string(_Rules) ->
     roundtrip('BMP', BMP1),
 		     
     ok.
-
-
-
 
 		       
 times(_Rules) ->
@@ -636,94 +577,29 @@ utf8_string(_Rules) ->
     %% UTF ::= UTF8String
     %%==========================================================
 
-    %% test values in all ranges
+    AllRanges = [16#00,
+		 16#7f,
+		 16#80,
+		 16#7ff,
+		 16#800,
+		 16#ffff,
+		 16#10000,
+		 16#1fffff,
+		 16#200000,
+		 16#3ffffff,
+		 16#4000000,
+		 16#7fffffff],
+    [begin
+	 {ok,UTF8} = asn1rt:utf8_list_to_binary([Char]),
+	 {ok,[Char]} = asn1rt:utf8_binary_to_list(UTF8),
+	 roundtrip('UTF', UTF8)
+     end || Char <- AllRanges],
 
-    ValLbR1 = [16#00],
-    ValUbR1 = [16#7f],
-    ValLbR2 = [16#80],
-    ValUbR2 = [16#7ff],
-    ValLbR3 = [16#800],
-    ValUbR3 = [16#ffff],
-    ValLbR4 = [16#10000],
-    ValUbR4 = [16#1fffff],
-    ValLbR5 = [16#200000],
-    ValUbR5 = [16#3ffffff],
-    ValLbR6 = [16#4000000],
-    ValUbR6 = [16#7fffffff],
-    
-    ?line {ok,UTF8L1} = asn1rt:utf8_list_to_binary(ValLbR1),
-    ?line {ok,Bytes1} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L1),
-    ?line {ok,Bin1} = asn1_wrapper:decode('PrimStrings','UTF',Bytes1),
-    ?line {ok,ValLbR1} = wrapper_utf8_binary_to_list(Bin1),
-    
-    ?line {ok,UTF8L2} = asn1rt:utf8_list_to_binary(ValUbR1),
-    ?line {ok,Bytes2} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L2),
-    ?line {ok,Bin2} = asn1_wrapper:decode('PrimStrings','UTF',Bytes2),
-    ?line {ok,ValUbR1} = wrapper_utf8_binary_to_list(Bin2),
+    {ok,UTF8} = asn1rt:utf8_list_to_binary(AllRanges),
+    {ok,AllRanges} = asn1rt:utf8_binary_to_list(UTF8),
+    roundtrip('UTF', UTF8),
+    ok.
 
-    ?line {ok,UTF8L3} = asn1rt:utf8_list_to_binary(ValLbR2),
-    ?line {ok,Bytes3} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L3),
-    ?line {ok,Bin3} = asn1_wrapper:decode('PrimStrings','UTF',Bytes3),
-    ?line {ok,ValLbR2} = wrapper_utf8_binary_to_list(Bin3),
-
-    ?line {ok,UTF8L4} = asn1rt:utf8_list_to_binary(ValUbR2),
-    ?line {ok,Bytes4} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L4),
-    ?line {ok,Bin4} = asn1_wrapper:decode('PrimStrings','UTF',Bytes4),
-    ?line {ok,ValUbR2} = wrapper_utf8_binary_to_list(Bin4),
-
-    ?line {ok,UTF8L5} = asn1rt:utf8_list_to_binary(ValLbR3),
-    ?line {ok,Bytes5} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L5),
-    ?line {ok,Bin5} = asn1_wrapper:decode('PrimStrings','UTF',Bytes5),
-    ?line {ok,ValLbR3} = wrapper_utf8_binary_to_list(Bin5),
-
-    ?line {ok,UTF8L6} = asn1rt:utf8_list_to_binary(ValUbR3),
-    ?line {ok,Bytes6} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L6),
-    ?line {ok,Bin6} = asn1_wrapper:decode('PrimStrings','UTF',Bytes6),
-    ?line {ok,ValUbR3} = wrapper_utf8_binary_to_list(Bin6),
-
-    ?line {ok,UTF8L7} = asn1rt:utf8_list_to_binary(ValLbR4),
-    ?line {ok,Bytes7} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L7),
-    ?line {ok,Bin7} = asn1_wrapper:decode('PrimStrings','UTF',Bytes7),
-    ?line {ok,ValLbR4} = wrapper_utf8_binary_to_list(Bin7),
-
-    ?line {ok,UTF8L8} = asn1rt:utf8_list_to_binary(ValUbR4),
-    ?line {ok,Bytes8} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L8),
-    ?line {ok,Bin8} = asn1_wrapper:decode('PrimStrings','UTF',Bytes8),
-    ?line {ok,ValUbR4} = wrapper_utf8_binary_to_list(Bin8),
-
-    ?line {ok,UTF8L9} = asn1rt:utf8_list_to_binary(ValLbR5),
-    ?line {ok,Bytes9} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L9),
-    ?line {ok,Bin9} = asn1_wrapper:decode('PrimStrings','UTF',Bytes9),
-    ?line {ok,ValLbR5} = wrapper_utf8_binary_to_list(Bin9),
-
-    ?line {ok,UTF8L10} = asn1rt:utf8_list_to_binary(ValUbR5),
-    ?line {ok,Bytes10} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L10),
-    ?line {ok,Bin10} = asn1_wrapper:decode('PrimStrings','UTF',Bytes10),
-    ?line {ok,ValUbR5} = wrapper_utf8_binary_to_list(Bin10),
-
-    ?line {ok,UTF8L11} = asn1rt:utf8_list_to_binary(ValLbR6),
-    ?line {ok,Bytes11} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L11),
-    ?line {ok,Bin11} = asn1_wrapper:decode('PrimStrings','UTF',Bytes11),
-    ?line {ok,ValLbR6} = wrapper_utf8_binary_to_list(Bin11),
-
-    ?line {ok,UTF8L12} = asn1rt:utf8_list_to_binary(ValUbR6),
-    ?line {ok,Bytes12} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L12),
-    ?line {ok,Bin12} = asn1_wrapper:decode('PrimStrings','UTF',Bytes12),
-    ?line {ok,ValUbR6} = wrapper_utf8_binary_to_list(Bin12),
-    
-    LVal = ValLbR1++ValUbR1++ValLbR2++ValUbR2++ValLbR3++ValUbR3++
-	ValLbR4++ValUbR4++ValLbR5++ValUbR5++ValLbR6++ValUbR6,
-    LongVal = LVal++LVal++LVal++LVal++LVal++LVal++LVal++"hello",
-    
-    ?line {ok,UTF8L13} = asn1rt:utf8_list_to_binary(LongVal),
-    ?line {ok,Bytes13} = asn1_wrapper:encode('PrimStrings','UTF',UTF8L13),
-    ?line {ok,Bin13} = asn1_wrapper:decode('PrimStrings','UTF',Bytes13),
-    ?line {ok,LongVal} = wrapper_utf8_binary_to_list(Bin13).
-
-wrapper_utf8_binary_to_list(L) when is_list(L) ->
-    asn1rt:utf8_binary_to_list(list_to_binary(L));
-wrapper_utf8_binary_to_list(B) ->
-    asn1rt:utf8_binary_to_list(B).
 
 shorten_by_two(Tuple) ->
     L = [case E of
@@ -739,6 +615,11 @@ p_roundtrip(Type, Value0) ->
 roundtrip(Type, Value) ->
     {ok,Encoded} = 'PrimStrings':encode(Type, Value),
     {ok,Value} = 'PrimStrings':decode(Type, Encoded),
+    ok.
+
+roundtrip(Type, Value, Expected) ->
+    {ok,Encoded} = 'PrimStrings':encode(Type, Value),
+    {ok,Expected} = 'PrimStrings':decode(Type, Encoded),
     ok.
 
 bs_roundtrip(Type, Value) ->
