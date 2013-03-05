@@ -658,7 +658,6 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
 						       Cont#type.def),
     Conttype = asn1ct_gen:get_inner(Cont#type.def),
     Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
-    CurrMod = get(currmod),
     case asn1ct_gen:type(Conttype) of
 	{primitive,bif} ->
 	    Ctgenmod:gen_dec_prim(Erule,Cont,"Bytes"),
@@ -667,10 +666,9 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
 	    NewTypename = [Constructed_Suffix|Typename],
 	    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
 		  "'(Bytes, telltype",ObjFun,"),",nl});
-	#'Externaltypereference'{module=CurrMod,type=EType} ->
-	    emit({"'dec_",EType,"'(Bytes,telltype),",nl});
-	#'Externaltypereference'{module=EMod,type=EType} ->
-	    emit({"'",EMod,"':'dec_",EType,"'(Bytes,telltype),",nl});
+	#'Externaltypereference'{}=Etype ->
+	    asn1ct_gen_per:gen_dec_external(Etype, "Bytes"),
+	    emit([com,nl]);
 	'ASN1_OPEN_TYPE' ->
 	    Ctgenmod:gen_dec_prim(Erule,#type{def='ASN1_OPEN_TYPE'},
 				  "Bytes"),
@@ -1504,16 +1502,10 @@ gen_dec_line_dec_inf(Comp, DecInfObj) ->
 
 gen_dec_line_other(Erule, Atype, TopType, Comp) ->
     #'ComponentType'{name=Cname,typespec=Type} = Comp,
-    CurrMod = get(currmod),
     case asn1ct_gen:type(Atype) of
-	#'Externaltypereference'{module=CurrMod,type=EType} ->
+	#'Externaltypereference'{}=Etype ->
 	    fun(BytesVar) ->
-		    emit({"'dec_",EType,"'(",BytesVar,",telltype)"})
-	    end;
-	#'Externaltypereference'{module=Mod,type=EType} ->
-	    fun(BytesVar) ->
-		    emit({"'",Mod,"':'dec_",EType,"'(",BytesVar,
-			  ",telltype)"})
+		    asn1ct_gen_per:gen_dec_external(Etype, BytesVar)
 	    end;
 	{primitive,bif} ->
 	    case Atype of

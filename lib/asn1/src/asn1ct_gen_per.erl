@@ -30,6 +30,7 @@
 -export([gen_obj_code/3,gen_objectset_code/2]).
 -export([gen_decode/2, gen_decode/3]).
 -export([gen_encode/2, gen_encode/3]).
+-export([gen_dec_external/2]).
 -export([extaddgroup2sequence/1]).
 
 -import(asn1ct_gen, [emit/1,demit/1]).
@@ -547,16 +548,10 @@ gen_decode_objectfields(_, _, [], _, _, CAcc) ->
 
 
 gen_decode_field_call(_Erules, _ObjName, _FieldName, Bytes,
-		      #'Externaltypereference'{module=M,type=T}) ->
-    CurrentMod = get(currmod),
-    if
-	M == CurrentMod ->
-	    emit(["   'dec_",T,"'(",Bytes,", telltype)"]),
-	    [];
-	true ->
-	    emit(["   '",M,"':'dec_",T,"'(",Bytes,", telltype)"]),
-	    []
-    end;
+		      #'Externaltypereference'{}=Etype) ->
+    emit("   "),
+    gen_dec_external(Etype, Bytes),
+    [];
 gen_decode_field_call(Erules, ObjName, FieldName, Bytes, Type) ->
     Def = Type#typedef.typespec,
     case Type#typedef.name of
@@ -578,7 +573,6 @@ gen_decode_field_call(Erules, ObjName, FieldName, Bytes, Type) ->
     end.
 
 gen_decode_default_call(Erules, ClassName, FieldName, Bytes, Type) ->
-    CurrentMod = get(currmod),
     InnerType = asn1ct_gen:get_inner(Type#type.def),
     case asn1ct_gen:type(InnerType) of
     	{constructed,bif} ->
@@ -589,11 +583,8 @@ gen_decode_default_call(Erules, ClassName, FieldName, Bytes, Type) ->
 	{primitive,bif} ->
 	    gen_dec_prim(Erules, Type, Bytes),
 	    [];
-	#'Externaltypereference'{module=CurrentMod,type=Etype} ->
-	    emit(["   'dec_",Etype,"'(",Bytes,", telltype)",nl]),
-	    [];
-	#'Externaltypereference'{module=Emod,type=Etype} ->
-	    emit(["   '",Emod,"':'dec_",Etype,"'(",Bytes,", telltype)",nl]),
+	#'Externaltypereference'{}=Etype ->
+	    asn1ct_gen_per:gen_dec_external(Etype, Bytes),
 	    []
     end.
 
@@ -873,7 +864,6 @@ gen_inlined_dec_funs(Erule, Fields, List, ObjSetName, NthObj0) ->
 
 gen_inlined_dec_funs1(Erule, Fields, [{typefield,Name,_}|Rest],
 		      ObjSetName, Sep0, NthObj) ->
-    CurrentMod = get(currmod),
     InternalDefFunName = [NthObj,Name,ObjSetName],
     emit(Sep0),
     Sep = [";",nl],
@@ -883,13 +873,10 @@ gen_inlined_dec_funs1(Erule, Fields, [{typefield,Name,_}|Rest],
 	    {_,#typedef{}=Type} ->
 		emit([indent(9),{asis,Name}," ->",nl]),
 		emit_inner_of_decfun(Erule, Type, InternalDefFunName);
-	    {_,#'Externaltypereference'{module=CurrentMod,type=T}} ->
+	    {_,#'Externaltypereference'{}=Etype} ->
 		emit([indent(9),{asis,Name}," ->",nl,
-		      indent(12),"'dec_",T,"'(Val,telltype)"]),
-		0;
-	    {_,#'Externaltypereference'{module=M,type=T}} ->
-		emit([indent(9),{asis,Name}," ->",nl,
-		      indent(12),"'",M,"':'dec_",T,"'(Val,telltype)"]),
+		      indent(12)]),
+		gen_dec_external(Etype, "Val"),
 		0;
 	    false ->
 		emit([indent(9),{asis,Name}," -> {Val,Type}"]),
@@ -946,7 +933,6 @@ gen_internal_funcs(Erules,[TypeDef|Rest]) ->
 %% DECODING *****************************
 %%***************************************
 
-
 gen_decode(Erules,Type) when is_record(Type,typedef) ->
     D = Type,
     emit({nl,nl}),
@@ -983,7 +969,6 @@ dbdec(Type) ->
     demit({"io:format(\"decoding: ",{asis,Type},"~w~n\",[Bytes]),",nl}).
 
 gen_decode_user(Erules,D) when is_record(D,typedef) ->
-    CurrMod = get(currmod),
     Typename = [D#typedef.name],
     Def = D#typedef.typespec,
     InnerType = asn1ct_gen:get_inner(Def#type.def),
@@ -996,13 +981,20 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
 	    emit({".",nl,nl});
 	{constructed,bif} ->
 	    asn1ct_gen:gen_decode_constructed(Erules,Typename,InnerType,D);
-	#'Externaltypereference'{module=CurrMod,type=Etype} ->
-	    emit({"'dec_",Etype,"'(Bytes,telltype).",nl,nl});
-	#'Externaltypereference'{module=Emod,type=Etype} ->
-	    emit({"'",Emod,"':'dec_",Etype,"'(Bytes,telltype).",nl,nl});
+	#'Externaltypereference'{}=Etype ->
+	    gen_dec_external(Etype, "Bytes"),
+	    emit([".",nl,nl]);
 	Other ->
 	    exit({error,{asn1,{unknown,Other}}})
     end.
+
+gen_dec_external(Ext, BytesVar) ->
+    CurrMod = get(currmod),
+    #'Externaltypereference'{module=Mod,type=Type} = Ext,
+    emit([case CurrMod of
+	      Mod -> [];
+	      _ -> ["'",Mod,"':"]
+	  end,"'dec_",Type,"'(",BytesVar,",telltype)"]).
 
 gen_dec_imm(Erule, #type{def=Name,constraint=C}) ->
     Aligned = case Erule of
