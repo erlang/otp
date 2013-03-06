@@ -92,16 +92,22 @@ send(SendAddr, Socket, SocketType,
 		{TmpHdrs3, AbsUri}
 	end,
     
-    FinalHeaders = 
-	case NewHeaders of
-	    HeaderList when is_list(HeaderList) ->
-		http_headers(HeaderList, []);
-	    _  ->
-		http_request:http_headers(NewHeaders)
-	end,
-    Version = HttpOptions#http_options.version,
-
-    do_send_body(SocketType, Socket, Method, Uri, Version, FinalHeaders, Body).
+    try 
+        FinalHeaders = 
+            case NewHeaders of
+                HeaderList when is_list(HeaderList) ->
+                    http_headers(HeaderList, []);
+                _  ->
+                    http_request:http_headers(NewHeaders)
+            end,
+        Version = HttpOptions#http_options.version,
+        
+        do_send_body(SocketType, Socket, Method, Uri, Version, FinalHeaders, Body)
+    catch ErrType:Err ->
+              ?hcrt("exception in send", [{ErrType, Err}]),
+              {error, {headers_error, Err}}
+    end.
+    
 
 
 do_send_body(SocketType, Socket, Method, Uri, Version, Headers, 
