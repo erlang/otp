@@ -73,7 +73,6 @@
 	  session_cache,        % 
 	  session_cache_cb,     %
           negotiated_version,   % tls_version()
-          supported_protocol_versions, % [atom()]
           client_certificate_requested = false,
 	  key_algorithm,       % atom as defined by cipher_suite
 	  hashsign_algorithm,  % atom as defined by cipher_suite
@@ -659,8 +658,7 @@ cipher(#certificate_verify{signature = Signature, hashsign_algorithm = CertHashS
 % client must send a next protocol message if we are expecting it
 cipher(#finished{}, #state{role = server, expecting_next_protocol_negotiation = true,
 			   next_protocol = undefined, negotiated_version = Version} = State0) ->
-       handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, cipher, State0),
-       {stop, normal, State0};
+       handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, cipher, State0);
 
 cipher(#finished{verify_data = Data} = Finished, 
        #state{negotiated_version = Version,
