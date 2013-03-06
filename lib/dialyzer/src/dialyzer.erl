@@ -409,9 +409,10 @@ message_to_string({extra_range, [M, F, A, ExtraRanges, SigRange]}) ->
   io_lib:format("The specification for ~w:~w/~w states that the function"
 		" might also return ~s but the inferred return is ~s\n",
 		[M, F, A, ExtraRanges, SigRange]);
-message_to_string({overlapping_contract, []}) ->
-  "Overloaded contract has overlapping domains;"
-    " such contracts are currently unsupported and are simply ignored\n";
+message_to_string({overlapping_contract, [M, F, A]}) ->
+  io_lib:format("Overloaded contract for ~w:~w/~w has overlapping domains;"
+		" such contracts are currently unsupported and are simply ignored\n",
+		[M, F, A]);
 message_to_string({spec_missing_fun, [M, F, A]}) ->
   io_lib:format("Contract for function that does not exist: ~w:~w/~w\n",
 		[M, F, A]);
