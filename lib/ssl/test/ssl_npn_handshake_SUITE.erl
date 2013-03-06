@@ -24,6 +24,7 @@
 -compile(export_all).
 -include_lib("common_test/include/ct.hrl").
 
+-define(SLEEP, 500).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -55,7 +56,8 @@ next_protocol_tests() ->
      fallback_npn_handshake_server_preference,
      client_negotiate_server_does_not_support,
      no_client_negotiate_but_server_supports_npn,
-     renegotiate_from_client_after_npn_handshake
+     renegotiate_from_client_after_npn_handshake,
+     npn_handshake_session_reused
     ].
 
 next_protocol_not_supported() ->
@@ -230,6 +232,56 @@ npn_not_supported_server(Config) when is_list(Config)->
     ServerOpts = [AdvProtocols] ++  ServerOpts0,
   
     {error, {options, {not_supported_in_sslv3, AdvProtocols}}} = ssl:listen(0, ServerOpts).
+
+%--------------------------------------------------------------------------------
+npn_handshake_session_reused(Config) when  is_list(Config)->
+    ClientOpts0 = ?config(client_opts, Config),
+    ClientOpts = [{client_preferred_next_protocols,
+		   {client, [<<"http/1.0">>], <<"http/1.1">>}}] ++ ClientOpts0,
+    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts =[{next_protocols_advertised,
+		   [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}]  ++ ServerOpts0,
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                    {from, self()},
+                    {mfa, {ssl_test_lib, session_info_result, []}},
+					{options, ServerOpts}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+               {host, Hostname},
+               {from, self()},
+               {mfa, {ssl_test_lib, no_result_msg, []}},
+               {options, ClientOpts}]),
+
+    SessionInfo = 
+	receive
+	    {Server, Info} ->
+		Info
+	end,
+        
+    Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
+    
+    %% Make sure session is registered
+    ct:sleep(?SLEEP),
+
+    Client1 =
+	ssl_test_lib:start_client([{node, ClientNode},
+				   {port, Port}, {host, Hostname},
+				   {mfa, {ssl_test_lib, session_info_result, []}},
+				   {from, self()},  {options, ClientOpts}]),
+
+      receive
+	{Client1, SessionInfo} ->
+	    ok;
+	{Client1, Other} ->
+	    ct:fail(Other)
+      end,
+    
+    ssl_test_lib:close(Server), 
+    ssl_test_lib:close(Client),
+    ssl_test_lib:close(Client1).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
