@@ -214,7 +214,9 @@
           <c>{no_abstract_code,BeamFile}</c> is returned.
           If the abstract code is encrypted, and no key is available
           for decrypting it, the error reason 
-          <c><![CDATA[{encrypted_abstract_code,BeamFile} is returned. <p>If only the module name (i.e. not the full name of the <c>.beam]]></c> file) is given to this function, the
+          <c>{encrypted_abstract_code,BeamFile}</c> is returned.</p>
+         <p>If only the module name (i.e. not the full name of the
+          <c>.beam</c> file) is given to this function, the
           <c>.beam</c> file is found by calling
           <c>code:which(Module)</c>. If no <c>.beam</c> file is found,
           the error reason <c>non_existing</c> is returned. If the
