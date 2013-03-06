@@ -146,15 +146,7 @@ set_choice_tag(_Alt,[],_Tag) ->
 %%         | binary
 %% Contraint = not used in this version
 %%
-encode_open_type(Val) when is_list(Val) ->
-    Bin = list_to_binary(Val),
-    case byte_size(Bin) of
-	Size when Size > 255 ->
-	    [encode_length(Size),21,<<Size:16>>,Bin];
-	Size ->
-	    [encode_length(Size),20,Size,Bin]
-    end;
-encode_open_type(Val) when is_binary(Val) ->
+encode_open_type(Val) ->
     case byte_size(Val) of
 	Size when Size > 255 ->
 	    [encode_length(Size),21,<<Size:16>>,Val]; % octets implies align

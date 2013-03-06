@@ -207,7 +207,9 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 			       io_lib:format(
 				 "complete(enc_~s(~s))",
 				 [Tname,Value]);
-			 _ -> Value
+			   _ ->
+			       io_lib:format("iolist_to_binary(~s)",
+					     [Value])
 		     end,
 	    call(Erules, encode_open_type, [NewValue]);
 	#'ObjectClassFieldType'{} ->

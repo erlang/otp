@@ -175,9 +175,7 @@ set_choice_tag(_Alt,[],_Tag) ->
 %%         | binary
 %% Contraint = not used in this version
 %%
-encode_open_type(Val) when is_list(Val) ->
-    encode_open_type(list_to_binary(Val));
-encode_open_type(Val) when is_binary(Val) ->
+encode_open_type(Val) ->
     [encode_length(byte_size(Val)),Val].
 
 
