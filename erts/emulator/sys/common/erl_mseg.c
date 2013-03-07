@@ -439,7 +439,7 @@ mseg_destroy(ErtsMsegAllctr_t *ma, MemKind* mk, void *seg, Uint size) {
 }
 
 #if HAVE_MSEG_RECREATE
-#if defined(__NetBsd__)
+#if defined(__NetBSD__)
 #define MREMAP_FLAGS  (0)
 #else
 #define MREMAP_FLAGS  (MREMAP_MAYMOVE)
