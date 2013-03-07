@@ -75,7 +75,7 @@ pgen_module(OutFile,Erules,Module,
     HrlGenerated = pgen_hrl(Erules,Module,TypeOrVal,Options,Indent),
     asn1ct_name:start(),
     ErlFile = lists:concat([OutFile,".erl"]),
-    Fid = fopen(ErlFile,[write]),
+    Fid = fopen(ErlFile),
     put(gen_file_out,Fid),
     asn1ct_func:start_link(),
     gen_head(Erules,Module,HrlGenerated),
@@ -1131,7 +1131,7 @@ pgen_info() ->
 
 open_hrl(OutFile,Module) ->
     File = lists:concat([OutFile,".hrl"]),
-    Fid = fopen(File,[write]),
+    Fid = fopen(File),
     put(gen_file_out,Fid),
     gen_hrlhead(Module).
 
@@ -1147,7 +1147,7 @@ demit(Term) ->
 
 						% always generation
 emit(Term) ->
-    io:put_chars(get(gen_file_out), do_emit(Term)).
+    ok = file:write(get(gen_file_out), do_emit(Term)).
 
 do_emit({external,_M,T}) ->
     do_emit(T);
@@ -1205,8 +1205,8 @@ call_args([A|As], Sep) ->
     [Sep,do_emit(A)|call_args(As, ", ")];
 call_args([], _) -> [].
 
-fopen(F, ModeList) ->
-    case file:open(F, ModeList) of
+fopen(F) ->
+    case file:open(F, [write,raw,delayed_write]) of
 	{ok, Fd} -> 
 	    Fd;
 	{error, Reason} ->
