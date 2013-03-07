@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2001</year>
-      <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -214,7 +214,9 @@
           <c>{no_abstract_code,BeamFile}</c> is returned.
           If the abstract code is encrypted, and no key is available
           for decrypting it, the error reason 
-          <c><![CDATA[{encrypted_abstract_code,BeamFile} is returned. <p>If only the module name (i.e. not the full name of the <c>.beam]]></c> file) is given to this function, the
+          <c>{encrypted_abstract_code,BeamFile}</c> is returned.</p>
+         <p>If only the module name (i.e. not the full name of the
+          <c>.beam</c> file) is given to this function, the
           <c>.beam</c> file is found by calling
           <c>code:which(Module)</c>. If no <c>.beam</c> file is found,
           the error reason <c>non_existing</c> is returned. If the
@@ -313,9 +315,15 @@
           file, i.e. using <c>compile_beam/1</c> or
           <c>compile_beam_directory/0,1</c>, it is assumed that the
           source code can be found in the same directory as the
-          <c>.beam</c> file, or in <c>../src</c> relative to that
-          directory. If no source code is found, 
-          <c>,{error,no_source_code_found}</c> is returned.</p>
+          <c>.beam</c> file, in <c>../src</c> relative to that
+          directory, or using the source path in
+          <c>Module:module_info(compile)</c>. When using the latter,
+          two paths are examined: first the one constructed by
+          joining <c>../src</c> and the tail of the compiled path
+          below a trailing <c>src</c> component, then the compiled
+          path itself.
+          If no source code is found,
+          <c>{error,no_source_code_found}</c> is returned.</p>
 	<p>HINT: It is possible to issue multiple analyse_to_file commands at
 	  the same time. </p> 
       </desc>
