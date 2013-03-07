@@ -1146,77 +1146,64 @@ demit(Term) ->
     end.
 
 						% always generation
+emit(Term) ->
+    io:put_chars(get(gen_file_out), do_emit(Term)).
 
-emit({external,_M,T}) ->
-    emit(T);
+do_emit({external,_M,T}) ->
+    do_emit(T);
 
-emit({prev,Variable}) when is_atom(Variable) ->
-    emit({var,asn1ct_name:prev(Variable)});
+do_emit({prev,Variable}) when is_atom(Variable) ->
+    do_emit({var,asn1ct_name:prev(Variable)});
 
-emit({next,Variable}) when is_atom(Variable) ->
-    emit({var,asn1ct_name:next(Variable)});
+do_emit({next,Variable}) when is_atom(Variable) ->
+    do_emit({var,asn1ct_name:next(Variable)});
 
-emit({curr,Variable}) when is_atom(Variable) ->
-    emit({var,asn1ct_name:curr(Variable)});
+do_emit({curr,Variable}) when is_atom(Variable) ->
+    do_emit({var,asn1ct_name:curr(Variable)});
     
-emit({var,Variable}) when is_atom(Variable) ->
+do_emit({var,Variable}) when is_atom(Variable) ->
     [Head|V] = atom_to_list(Variable),
-    emit([Head-32|V]);
+    [Head-32|V];
 
-emit({var,Variable}) ->
+do_emit({var,Variable}) ->
     [Head|V] = Variable,
-    emit([Head-32|V]);
+    [Head-32|V];
 
-emit({asis,What}) ->
-    format(get(gen_file_out),"~w",[What]);
+do_emit({asis,What}) ->
+    io_lib:format("~w", [What]);
 
-emit({call,M,F,A}) ->
-    asn1ct_func:call(M, F, A);
+do_emit({call,M,F,A}) ->
+    MFA = {M,F,length(A)},
+    asn1ct_func:need(MFA),
+    [atom_to_list(F),"(",call_args(A, "")|")"];
 
-emit(nl) ->
-    nl(get(gen_file_out));
+do_emit(nl) ->
+    "\n";
 
-emit(com) ->
-    emit(",");
+do_emit(com) ->
+    ",";
 
-emit(tab) ->
-    put_chars(get(gen_file_out),"     ");
+do_emit(tab) ->
+    "     ";
 
-emit(What) when is_integer(What) ->
-    put_chars(get(gen_file_out),integer_to_list(What));
+do_emit(What) when is_integer(What) ->
+    integer_to_list(What);
 
-emit(What) when is_list(What), is_integer(hd(What)) ->
-    put_chars(get(gen_file_out),What);
+do_emit(What) when is_list(What), is_integer(hd(What)) ->
+    What;
 
-emit(What) when is_atom(What) ->
-    put_chars(get(gen_file_out),atom_to_list(What));
+do_emit(What) when is_atom(What) ->
+    atom_to_list(What);
 
-emit(What) when is_tuple(What) ->
-    emit_parts(tuple_to_list(What));
+do_emit(What) when is_tuple(What) ->
+    [do_emit(E) || E <- tuple_to_list(What)];
 
-emit(What) when is_list(What) ->
-    emit_parts(What);
+do_emit(What) when is_list(What) ->
+    [do_emit(E) || E <- What].
 
-emit(X) ->
-    exit({'cant emit ',X}).
-
-emit_parts([]) -> true;
-emit_parts([H|T]) ->
-    emit(H),
-    emit_parts(T).
-
-format(undefined,X,Y) ->
-    io:format(X,Y);
-format(X,Y,Z) ->
-    io:format(X,Y,Z).
-
-nl(undefined) -> io:nl();
-nl(X) -> io:nl(X).
-
-put_chars(undefined,X) ->
-    io:put_chars(X);
-put_chars(Y,X) ->
-    io:put_chars(Y,X).
+call_args([A|As], Sep) ->
+    [Sep,do_emit(A)|call_args(As, ", ")];
+call_args([], _) -> [].
 
 fopen(F, ModeList) ->
     case file:open(F, ModeList) of
