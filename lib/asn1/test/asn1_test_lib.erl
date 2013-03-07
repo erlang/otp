@@ -45,8 +45,8 @@ compile_file(File, Options) ->
                 ok;
             {module, Module} ->
                 code:purge(Module),
-                true = code:soft_purge(Module),
-                {module, Module} = code:load_file(Module)
+                {module, Module} = code:load_file(Module),
+		code:purge(Module)
         end
     catch
         Class:Reason ->
