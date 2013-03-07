@@ -75,7 +75,7 @@ StateName(Event, StateData) ->
 -export([init/1, locked/2, open/2]).
 
 start_link(Code) ->
-    gen_fsm:start_link({local, code_lock}, code_lock, Code, []).
+    gen_fsm:start_link({local, code_lock}, code_lock, lists:reverse(Code, []).
 
 button(Digit) ->
     gen_fsm:send_event(code_lock, {button, Digit}).
@@ -106,7 +106,8 @@ open(timeout, State) ->
       calling <c>code_lock:start_link(Code)</c>:</p>
     <code type="none">
 start_link(Code) ->
-    gen_fsm:start_link({local, code_lock}, code_lock, Code, []).</code>
+    gen_fsm:start_link({local, code_lock}, code_lock, lists:reverse(Code), []).
+    </code>
     <p><c>start_link</c> calls the function <c>gen_fsm:start_link/4</c>.
       This function spawns and links to a new process, a gen_fsm.</p>
     <list type="bulleted">
@@ -130,8 +131,8 @@ start_link(Code) ->
           corresponding to one process contained in one module.</p>
       </item>
       <item>
-        <p>The third argument, <c>Code</c>, is a term which is passed
-          as-is to the callback function <c>init</c>. Here, <c>init</c>
+        <p>The third argument, <c>Code</c>, is a list of digits which is passed
+          reversed to the callback function <c>init</c>. Here, <c>init</c>
           gets the correct code for the lock as indata.</p>
       </item>
       <item>
