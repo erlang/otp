@@ -1028,7 +1028,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 		sys_memcpy(((char *) new_seg),
 			   ((char *) seg),
 			   MIN(new_size, old_size));
-		mseg_dealloc(ma, atype, seg, old_size, opt);
+		mseg_dealloc(ma, atype, seg, old_size, flags, opt);
 	    }
 #endif
 	}
