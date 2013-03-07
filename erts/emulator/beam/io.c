@@ -5960,7 +5960,7 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 	    binv++;
 	    n--;
 	} else {
-	    iov->iov_base += skip;
+	    iov->iov_base = ((char *)(iov->iov_base)) + skip;
 	    iov->iov_len -= skip;
 	    skip = 0;
 	}
@@ -6405,7 +6405,7 @@ int driver_enqv(ErlDrvPort ix, ErlIOVec* vec, ErlDrvSizeT skip)
 	    n--;
 	}
 	else {
-	    iov->iov_base += skip;
+	    iov->iov_base = ((char *)(iov->iov_base)) + skip;
 	    iov->iov_len -= skip;
 	    skip = 0;
 	}
@@ -6470,7 +6470,7 @@ int driver_pushqv(ErlDrvPort ix, ErlIOVec* vec, ErlDrvSizeT skip)
 	    n--;
 	}
 	else {
-	    iov->iov_base += skip;
+	    iov->iov_base = ((char *)(iov->iov_base)) + skip;
 	    iov->iov_len -= skip;
 	    skip = 0;
 	}
@@ -6529,7 +6529,7 @@ ErlDrvSizeT driver_deq(ErlDrvPort ix, ErlDrvSizeT size)
 	    q->v_head++;
 	}
 	else {
-	    q->v_head->iov_base += size;
+	    q->v_head->iov_base = ((char *)(q->v_head->iov_base)) + size;
 	    q->v_head->iov_len -= size;
 	    size = 0;
 	}

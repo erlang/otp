@@ -724,7 +724,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			hp = HAlloc(p, 2);
 			obj = CDR(objp);
 			ioterm = CONS(hp, rest_term, obj);
-			//(*left) = 0;
+			/* (*left) = 0; */
 			goto done;
 		    }
 		    if (rest_term != NIL) {

@@ -152,7 +152,7 @@ static int mask_sse2(void)
 
 #if defined(__x86_64__)
 
-static inline int cpu_has_sse2(void) { return 1; }
+static ERTS_INLINE int cpu_has_sse2(void) { return 1; }
 
 #else /* !__x86_64__ */
 
@@ -179,7 +179,7 @@ static unsigned int xor_eflags(unsigned int mask)
     return eax;
 }
 
-static __inline__ unsigned int cpuid_eax(unsigned int op)
+static ERTS_INLINE unsigned int cpuid_eax(unsigned int op)
 {
     unsigned int eax, save_ebx;
 
@@ -195,7 +195,7 @@ static __inline__ unsigned int cpuid_eax(unsigned int op)
     return eax;
 }
 
-static __inline__ unsigned int cpuid_edx(unsigned int op)
+static ERTS_INLINE unsigned int cpuid_edx(unsigned int op)
 {
     unsigned int eax, edx, save_ebx;
  
@@ -215,7 +215,7 @@ static __inline__ unsigned int cpuid_edx(unsigned int op)
  * register on the Intel486 processor to generate alignment
  * faults. This bit cannot be set on the Intel386 processor.
  */
-static __inline__ int is_386(void)
+static ERTS_INLINE int is_386(void)
 {
     return ((xor_eflags(1<<18) >> 18) & 1) == 0;
 }
@@ -223,7 +223,7 @@ static __inline__ int is_386(void)
 /* Newer x86 processors have a CPUID instruction, as indicated by
  * the ID bit (#21) in EFLAGS being modifiable.
  */
-static __inline__ int has_CPUID(void)
+static ERTS_INLINE int has_CPUID(void)
 {
     return (xor_eflags(1<<21) >> 21) & 1;
 }

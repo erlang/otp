@@ -350,7 +350,7 @@ schedule_cache_check(ErtsMsegAllctr_t *ma) {
 static ERTS_INLINE void *
 mmap_align(ErtsMsegAllctr_t *ma, void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
 
-    void *p, *q;
+    char *p, *q;
     UWord d;
 
     p = mmap(addr, length, prot, flags, fd, offset);
@@ -366,14 +366,14 @@ mmap_align(ErtsMsegAllctr_t *ma, void *addr, size_t length, int prot, int flags,
     if ((p = mmap(addr, length + MSEG_ALIGNED_SIZE, prot, flags, fd, offset)) == MAP_FAILED)
 	return MAP_FAILED;
 
-    q = (void *)ALIGNED_CEILING(p);
-    d = q - p;
+    q = (void *)ALIGNED_CEILING((char *)p);
+    d = (UWord)(q - p);
 
     if (d > 0)
 	munmap(p, d);
 
     if (MSEG_ALIGNED_SIZE - d > 0)
-	munmap((void *) (q + length), MSEG_ALIGNED_SIZE - d);
+	munmap((void *)(q + length), MSEG_ALIGNED_SIZE - d);
 
     return q;
 }
@@ -708,7 +708,7 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint *size_p, Uint flags
 
 	    /* Use current cache placement for remaining segment space */
 
-	    best->seg  = seg + size;
+	    best->seg  = ((char *)seg) + size;
 	    best->size = csize - size;
 
 	    ASSERT((size % GET_PAGE_SIZE) == 0);
