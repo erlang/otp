@@ -471,6 +471,13 @@ abbreviated(#finished{verify_data = Data} = Finished,
 	    handle_own_alert(Alert, Version, abbreviated, State)
     end;
 
+%% only allowed to send next_protocol message after change cipher spec
+%% & before finished message and it is not allowed during renegotiation
+abbreviated(#next_protocol{selected_protocol = SelectedProtocol},
+	    #state{role = server, expecting_next_protocol_negotiation = true} = State0) ->
+    {Record, State} = next_record(State0#state{next_protocol = SelectedProtocol}),
+    next_state(abbreviated, abbreviated, Record, State);
+
 abbreviated(timeout, State) ->
     { next_state, abbreviated, State, hibernate };
 
@@ -655,7 +662,7 @@ cipher(#certificate_verify{signature = Signature, hashsign_algorithm = CertHashS
 	    handle_own_alert(Alert, Version, cipher, State0)
     end;
 
-% client must send a next protocol message if we are expecting it
+%% client must send a next protocol message if we are expecting it
 cipher(#finished{}, #state{role = server, expecting_next_protocol_negotiation = true,
 			   next_protocol = undefined, negotiated_version = Version} = State0) ->
        handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, cipher, State0);
@@ -680,8 +687,8 @@ cipher(#finished{verify_data = Data} = Finished,
 	    handle_own_alert(Alert, Version, cipher, State)
     end;
 
-% only allowed to send next_protocol message after change cipher spec
-% & before finished message and it is not allowed during renegotiation
+%% only allowed to send next_protocol message after change cipher spec
+%% & before finished message and it is not allowed during renegotiation
 cipher(#next_protocol{selected_protocol = SelectedProtocol},
        #state{role = server, expecting_next_protocol_negotiation = true} = State0) ->
     {Record, State} = next_record(State0#state{next_protocol = SelectedProtocol}),
