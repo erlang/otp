@@ -119,7 +119,7 @@ static int zlib_deflate(ZLibData* d, int flush);
 #if defined(__WIN32__)
 static int i32(char* buf)
 #else
-static inline int i32(char* buf)
+static __inline__ int i32(char* buf)
 #endif
 {
     return (int) (

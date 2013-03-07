@@ -25,7 +25,7 @@
 #include "hipe_x86_asm.h"	/* for NR_ARG_REGS */
 
 /* uncomment to simulate & test what the initial PowerPC port will do */
-//#define SKIP_YOUNGEST_FRAME
+/* #define SKIP_YOUNGEST_FRAME */
 
 struct nstack_walk_state {
 #ifdef SKIP_YOUNGEST_FRAME

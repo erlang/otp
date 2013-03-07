@@ -238,7 +238,7 @@ void hipe_handle_exception(Process *c_p)
 
     if (c_p->mbuf) {
 	erts_printf("%s line %u: p==%p, p->mbuf==%p\n", __FUNCTION__, __LINE__, c_p, c_p->mbuf);
-	//erts_garbage_collect(c_p, 0, NULL, 0);
+	/* erts_garbage_collect(c_p, 0, NULL, 0); */
     }
 
     /*
@@ -270,7 +270,7 @@ void hipe_handle_exception(Process *c_p)
     c_p->def_arg_reg[0] = exception_tag[GET_EXC_CLASS(c_p->freason)];
 
     if (c_p->mbuf) {
-	//erts_printf("%s line %u: p==%p, p->mbuf==%p, p->lastbif==%p\n", __FUNCTION__, __LINE__, c_p, c_p->mbuf, c_p->hipe.lastbif);
+	/* erts_printf("%s line %u: p==%p, p->mbuf==%p, p->lastbif==%p\n", __FUNCTION__, __LINE__, c_p, c_p->mbuf, c_p->hipe.lastbif); */
 	erts_garbage_collect(c_p, 0, NULL, 0);
     }
 

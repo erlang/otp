@@ -67,7 +67,7 @@
 #define FILENAMES_16BIT 1
 #endif
 
-// We use sendfilev if it exist on solaris
+/* We use sendfilev if it exist on solaris */
 #if !defined(HAVE_SENDFILE) && defined(HAVE_SENDFILEV)
 #define HAVE_SENDFILE
 #endif
@@ -86,20 +86,6 @@ typedef struct _Efile_error {
     int posix_errno;		/* Posix error number, as in <errno.h>. */
     int os_errno;		/* Os-dependent error number (not used). */
 } Efile_error;
-
-/*
- * This structure contains date and time.
- */
-
-//typedef struct _Efile_time {
-//    unsigned year;		/* (4 digits). */
-//    unsigned month;		/* (1..12). */
-//    unsigned day;		/* (1..31). */
-//    unsigned hour;		/* (0..23). */
-//    unsigned minute;		/* (0..59). */
-//    unsigned second;		/* (0..59). */
-//} Efile_time;
-
 
 /*
  * Describes what is returned by file:file_info/1.

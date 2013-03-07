@@ -629,7 +629,7 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 		    if (w < iov[cnt].iov_len) {
 			/* Adjust the buffer for next write */
 			iov[cnt].iov_len -= w;
-			iov[cnt].iov_base += w;
+			iov[cnt].iov_base = ((char *)iov[cnt].iov_base) + w;
 			w = 0;
 			break;
 		    } else {

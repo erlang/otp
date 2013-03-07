@@ -1811,7 +1811,7 @@ erts_set_aux_work_timeout(int ix, erts_aint32_t type, int enable)
 
     ERTS_DBG_CHK_AUX_WORK_VAL(type);
     ERTS_DBG_CHK_AUX_WORK_VAL(erts_atomic32_read_nob(&aux_work_tmo->type[ix]));
-//    erts_fprintf(stderr, "t(%d, 0x%x, %d)\n", ix, type, enable);
+    /* erts_fprintf(stderr, "t(%d, 0x%x, %d)\n", ix, type, enable); */
 
     if (!enable) {
 	old = erts_atomic32_read_band_mb(&aux_work_tmo->type[ix], ~type);

@@ -36,7 +36,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -----------------------------------------------------------------------------
 */
-//#define ERLANG_DEBUG 1
+/* #define ERLANG_DEBUG 1 */
 
 /* This module contains erts_pcre_exec(), the externally visible function that does
 pattern matching using an NFA algorithm, trying to mimic Perl as closely as

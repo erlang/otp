@@ -1346,7 +1346,7 @@ static void invoke_preadv(void *data)
 	      = efile_pread(&d->errInfo, 
 			    (int) d->fd,
 			    c->offsets[c->cnt] + c->size,
-			    ev->iov[1 + c->cnt].iov_base + c->size,
+			    ((char *)ev->iov[1 + c->cnt].iov_base) + c->size,
 			    read_size,
 			    &bytes_read))) {
 	    bytes_read_so_far += bytes_read;
@@ -1641,7 +1641,7 @@ static void invoke_pwritev(void *data) {
 		- c->free_size;
 	}
 	d->result_ok = efile_pwrite(&d->errInfo, (int) d->fd,
-				    iov[iovcnt].iov_base + p,
+				    (char *)(iov[iovcnt].iov_base) + p,
 				    write_size,
 				    c->specs[c->cnt].offset);
 	if (! d->result_ok) {
@@ -2559,7 +2559,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	      reply_Sint64(desc, d->c.sendfile.written);
 	      desc->sendfile_state = not_sending;
 	      free_sendfile(data);
-	  } else if (d->result_ok == 1) { // If we are using select to send the rest of the data
+	  } else if (d->result_ok == 1) { /* If we are using select to send the rest of the data */
 	      desc->sendfile_state = sending;
 	      desc->d = d;
 	      driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd,
@@ -3813,7 +3813,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	res_ev->iov[0].iov_base = res_ev->binv[0]->orig_bytes;
 	/* Fill in the number of buffers in the header */
 	put_int32(0, res_ev->iov[0].iov_base);
-	put_int32(n, res_ev->iov[0].iov_base+4);
+	put_int32(n, (char *)(res_ev->iov[0].iov_base) + 4);
 	/**/
 	res_ev->size = res_ev->iov[0].iov_len;
 	if (n == 0) {
@@ -4114,7 +4114,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
 
 	if (hd_len != 0 || tl_len != 0 || flags != 0) {
-	    // We do not allow header, trailers and/or flags right now
+	    /* We do not allow header, trailers and/or flags right now */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
