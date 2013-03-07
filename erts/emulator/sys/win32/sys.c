@@ -399,11 +399,12 @@ int* pBuild;			/* Pointer to build number. */
  * Definitions for driver flags.
  */
 
-#define DF_OVR_READY	1	/* Overlapped result is ready. */
-#define DF_EXIT_THREAD	2	/* The thread should exit. */
-#define DF_XLAT_CR	4	/* The thread should translate CRs. */
-#define DF_DROP_IF_INVH 8       /* Drop packages instead of crash if
+#define DF_OVR_READY	  1	/* Overlapped result is ready. */
+#define DF_EXIT_THREAD	  2	/* The thread should exit. */
+#define DF_XLAT_CR	  4	/* The thread should translate CRs. */
+#define DF_DROP_IF_INVH   8     /* Drop packages instead of crash if
 				   invalid handle (stderr) */
+#define DF_THREAD_FLUSHED 16	/* The thread should exit. */
 
 #define OV_BUFFER_PTR(dp) ((LPVOID) ((dp)->ov.Internal))
 #define OV_NUM_TO_READ(dp) ((dp)->ov.InternalHigh)
@@ -2141,8 +2142,9 @@ threaded_writer(LPVOID param)
   
     for (;;) {
 	handle = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
-	if (aio->flags & DF_EXIT_THREAD)
+	if (aio->flags & DF_EXIT_THREAD) {
 	    break;
+	}
 
 	buf = OV_BUFFER_PTR(aio);
 	numToWrite = OV_NUM_TO_READ(aio);
@@ -2150,6 +2152,7 @@ threaded_writer(LPVOID param)
 
 	if (handle == (WAIT_OBJECT_0 + 1) && numToWrite == 0) {
 	  SetEvent(aio->flushReplyEvent);
+	  aio->flags |= DF_THREAD_FLUSHED;
 	  continue;
 	}
 
@@ -2197,6 +2200,7 @@ threaded_writer(LPVOID param)
 	if (aio->flags & DF_EXIT_THREAD)
 	    break;
     }
+    aio->flags |= DF_THREAD_FLUSHED;
     CloseHandle(aio->fd);
     aio->fd = INVALID_HANDLE_VALUE;
     unrefer_driver_data(aio->dp);
@@ -2340,9 +2344,11 @@ static void fd_stop(ErlDrvData data)
       (void) driver_select(dp->port_num,
 			   (ErlDrvEvent)dp->out.ov.hEvent,
 			   ERL_DRV_WRITE, 0);
-      ASSERT(dp->out.flushEvent);
-      SetEvent(dp->out.flushEvent);
-      WaitForSingleObject(dp->out.flushReplyEvent, INFINITE);
+      do {
+	ASSERT(dp->out.flushEvent);
+	SetEvent(dp->out.flushEvent);
+      } while (WaitForSingleObject(dp->out.flushReplyEvent, 10) == WAIT_TIMEOUT
+	       || !(dp->out.flags & DF_THREAD_FLUSHED));
   }    
 
 }
@@ -2433,12 +2439,12 @@ threaded_exiter(LPVOID param)
      */
     i = 0;
     if (dp->out.thread != (HANDLE) -1) {
-	dp->out.flags = DF_EXIT_THREAD;
+	dp->out.flags |= DF_EXIT_THREAD;
 	SetEvent(dp->out.ioAllowed);
 	handles[i++] = dp->out.thread;
     }
     if (dp->in.thread != (HANDLE) -1) {
-	dp->in.flags = DF_EXIT_THREAD;
+	dp->in.flags |= DF_EXIT_THREAD;
 	SetEvent(dp->in.ioAllowed);
 	handles[i++] = dp->in.thread;
     }
