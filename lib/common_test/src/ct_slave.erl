@@ -176,7 +176,7 @@ start(Host, Node) ->
 %%%   <code>NodeName</code> is the name of current node in this case.</item>
 %%% </list></p>
 %%%
-start(Host, Node, Options) ->
+start(Host, Node, Opts) ->
     ENode = enodename(Host, Node),
     case erlang:is_alive() of
 	false->
@@ -184,7 +184,7 @@ start(Host, Node, Options) ->
 	true->
 	    case is_started(ENode) of
 		false->
-		    OptionsRec = fetch_options(Options),
+		    OptionsRec = fetch_options(Opts),
 		    do_start(Host, Node, OptionsRec);
 		{true, not_connected}->
 		    {error, started_not_connected, ENode};
