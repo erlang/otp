@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -56,9 +56,9 @@ start(Node) ->
     start(gethostname(), Node).
 
 %%%-----------------------------------------------------------------
-%%% @spec start(Host, Node) -> Result
-%%%   Node = atom()
-%%%   Host = atom()
+%%% @spec start(HostOrNode, NodeOrOpts) -> Result
+%%%   HostOrNode = atom()
+%%%   NodeOrOpts = atom() | list()
 %%%   Result = {ok, NodeName} |
 %%%	       {error, already_started, NodeName} |
 %%%	       {error, started_not_connected, NodeName} |
@@ -67,9 +67,16 @@ start(Node) ->
 %%%	       {error, startup_timeout, NodeName} |
 %%%	       {error, not_alive, NodeName}
 %%%   NodeName = atom()
-%%% @doc Starts an Erlang node with name <code>Node</code> on host
-%%% <code>Host</code> with the default options.
+%%% @doc Starts an Erlang node with default options on a specified
+%%% host, or on the local host with specified options. That is,
+%%% the call is interpreted as <code>start(Host, Node)</code> when the
+%%% second argument is atom-valued and <code>start(Node, Opts)</code>
+%%% when it's list-valued.
 %%% @see start/3
+start(_HostOrNode = Node, _NodeOrOpts = Opts) %% match to satiate edoc
+  when is_list(Opts) ->
+    start(gethostname(), Node, Opts);
+
 start(Host, Node) ->
     start(Host, Node, []).
 
