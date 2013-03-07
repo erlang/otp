@@ -353,7 +353,7 @@ int main(int argc, char **argv)
      * at the start of every new to_erl-session.
      */
 
-    if (write(wfd, "\022", 1) < 0) {
+    if (write(wfd, "\014", 1) < 0) {
 	fprintf(stderr, "Error in writing ^R to FIFO.\n");
     }
 
