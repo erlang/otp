@@ -29,8 +29,8 @@
 -include("ssl_internal.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
--include("ssl_record.hrl").
--include("ssl_handshake.hrl").
+-include("tls_record.hrl").
+-include("tls_handshake.hrl").
 
 -define(LONG_TIMEOUT, 600000).
 
