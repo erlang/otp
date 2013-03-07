@@ -1951,47 +1951,61 @@ move_clauses([{M,F,A,C,_L}|Clauses]) ->
     move_clauses(Clauses);
 move_clauses([]) ->
     ok.
-			  
 
 %% Given a .beam file, find the .erl file. Look first in same directory as
-%% the .beam file, then in <beamdir>/../src
+%% the .beam file, then in ../src, then in compile info.
 find_source(Module, File0) ->
-    case filename:rootname(File0,".beam") of
-	File0 ->
-	    File0;
-	File ->
-	    InSameDir = File++".erl",
-	    case filelib:is_file(InSameDir) of
-		true -> 
-		    InSameDir;
-		false ->
-		    Dir = filename:dirname(File),
-		    Mod = filename:basename(File),
-		    InDotDotSrc = filename:join([Dir,"..","src",Mod++".erl"]),
-		    case filelib:is_file(InDotDotSrc) of
-			true ->
-			    InDotDotSrc;
-			false ->
-			    find_source_from_module(Module, File0)
-		    end
-	    end
+    try
+        Root = filename:rootname(File0, ".beam"),
+        Root == File0 andalso throw(File0),  %% not .beam
+        %% Look for .erl in pwd.
+        File = Root ++ ".erl",
+        throw_file(File),
+        %% Not in pwd: look in ../src.
+        BeamDir = filename:dirname(File),
+        Base = filename:basename(File),
+        throw_file(filename:join([BeamDir, "..", "src", Base])),
+        %% Not in ../src: look for source path in compile info, but
+        %% first look relative the beam directory.
+        Info = lists:keyfind(source, 1, Module:module_info(compile)),
+        false == Info andalso throw({beam, File0}),  %% stripped
+        {source, SrcFile} = Info,
+        throw_file(splice(BeamDir, SrcFile)),  %% below ../src
+        throw_file(SrcFile),                   %% or absolute
+        %% No success means that source is either not under ../src or
+        %% its relative path differs from that of compile info. (For
+        %% example, compiled under src/x but installed under src/y.)
+        %% An option to specify an arbitrary source path explicitly is
+        %% probably a better solution than either more heuristics or a
+        %% potentially slow filesystem search.
+        {beam, File0}
+    catch
+        Path -> Path
     end.
 
-%% In case we can't find the file from the given .beam,
-%% we try to get the information directly from the module source
-find_source_from_module(Module, File) ->
-    Compile = Module:module_info(compile),
-    case lists:keyfind(source, 1, Compile) of
-	{source, Path} ->
-	    case filelib:is_file(Path) of
-		true ->
-		    Path;
-		false ->
-		    {beam, File}
-	    end;
-	false ->
-		{beam, File}
-	end.
+throw_file(Path) ->
+    false /= Path andalso filelib:is_file(Path) andalso throw(Path).
+
+%% Splice the tail of a source path, starting from the last "src"
+%% component, onto the parent of a beam directory, or return false if
+%% no "src" component is found.
+%%
+%% Eg. splice("/path/to/app-1.0/ebin", "/compiled/path/to/app/src/x/y.erl")
+%%        --> "/path/to/app-1.0/ebin/../src/x/y.erl"
+%%
+%% This handles the case of source in subdirectories of ../src with
+%% beams that have moved since compilation.
+%%
+splice(BeamDir, SrcFile) ->
+    case lists:splitwith(fun(C) -> C /= "src" end, revsplit(SrcFile)) of
+        {T, [_|_]} ->  %% found src component
+            filename:join([BeamDir, "..", "src" | lists:reverse(T)]);
+        {_, []} ->     %% or not
+            false
+    end.
+
+revsplit(Path) ->
+    lists:reverse(filename:split(Path)).
 
 do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
     analyse_info(Module,State#main_state.imported),
