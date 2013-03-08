@@ -19,7 +19,8 @@
 
 {"%VSN%",	
  [
- {<<"2.1.4">>, [{load_module, ssh_sftp, soft_purge, soft_purge, []}]},
+ {<<"2.1.4">>, [{load_module, ssh_sftp, soft_purge, soft_purge, []},
+                {load_module, ssh_connection_handler, soft_purge, soft_purge, []}]},
   {<<"2.1.3">>, [{restart_application, ssh}]},
   {<<"2.1.2">>, [{restart_application, ssh}]},
   {<<"2.1.1">>, [{restart_application, ssh}]},
@@ -28,7 +29,9 @@
   {<<"1\\.*">>, [{restart_application, ssh}]}
  ],
  [
-  {<<"2.1.4">>, [{load_module, ssh_sftp, soft_purge, soft_purge, []}]},
+  {<<"2.1.4">>, [{load_module, ssh_sftp, soft_purge, soft_purge, []},
+                 {load_module, ssh_connection_handler, soft_purge, soft_purge, []}]},
+  {<<"2.1.3">>, [{restart_application, ssh}]},
   {<<"2.1.2">>, [{restart_application, ssh}]},
   {<<"2.1.1">>, [{restart_application, ssh}]},
   {<<"2.1">>,[{restart_application, ssh}]},
