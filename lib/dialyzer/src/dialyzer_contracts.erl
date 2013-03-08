@@ -520,6 +520,8 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract}}|Left],
 	case check_contract(Contract, Sig) of
 	  {error, invalid_contract} ->
 	    [invalid_contract_warning(MFA, FileLine, Sig, RecDict)|Acc];
+	  {error, {overlapping_contract, []}} ->
+	    [overlapping_contract_warning(MFA, FileLine)|Acc];
 	  {error, {extra_range, ExtraRanges, STRange}} ->
 	    Warn =
 	      case t_from_forms_without_remote(Contract#contract.forms,
@@ -570,6 +572,9 @@ get_invalid_contract_warnings_funs([], _Plt, _RecDict, Acc) ->
 invalid_contract_warning({M, F, A}, FileLine, SuccType, RecDict) ->
   SuccTypeStr = dialyzer_utils:format_sig(SuccType, RecDict),
   {?WARN_CONTRACT_TYPES, FileLine, {invalid_contract, [M, F, A, SuccTypeStr]}}.
+
+overlapping_contract_warning({M, F, A}, FileLine) ->
+  {?WARN_CONTRACT_TYPES, FileLine, {overlapping_contract, [M, F, A]}}.
 
 extra_range_warning({M, F, A}, FileLine, ExtraRanges, STRange) ->
   ERangesStr = erl_types:t_to_string(ExtraRanges),
