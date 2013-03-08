@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -3303,8 +3303,7 @@ monit(Tab, File) ->
     timer:sleep(100),
     spawn(F1),
     dets:close(Tab),
-    file:delete(File),
-    ok.
+    ok = file:delete(File).
 
 do_log(Tab) ->
     case catch dets:insert(Tab, {hej,san,sa}) of
@@ -3314,7 +3313,7 @@ do_log(Tab) ->
 
 %% Kill the Dets process while repair is in progress.
 kill_while_repairing(Tab, File) ->
-    ?line create_opened_log(File),
+    create_opened_log(File),
     Delay = 1000,
     dets:start(),
     Parent = self(),
@@ -3324,16 +3323,22 @@ kill_while_repairing(Tab, File) ->
                 timer:sleep(Delay),
                 Parent ! {self(), R}
         end,
-    ?line P1 = spawn(F), % will repair
-    timer:sleep(100),
-    ?line P2 = spawn(F), % pending...
-    ?line P3 = spawn(F), % pending...
-    ?line DetsPid = find_dets_pid([P1, P2, P3 | Ps]),
+    %% One of these will open the file, the other will be pending
+    %% until the file has been repaired:
+    P1 = spawn(F),
+    P2 = spawn(F),
+    P3 = spawn(F),
+    DetsPid = find_dets_pid([P1, P2, P3 | Ps]),
     exit(DetsPid, kill),
 
-    ?line receive {P1,R1} -> {'EXIT', {dets_process_died, _}} = R1 end,
-    ?line receive {P2,R2} -> {ok, _} = R2 end,
-    ?line receive {P3,R3} -> {ok, _} = R3 end,
+    receive {P1,R1} -> R1 end,
+    receive {P2,R2} -> R2 end,
+    receive {P3,R3} -> R3 end,
+    io:format("Killed pid: ~p~n", [DetsPid]),
+    io:format("Remaining Dets-pids (should be nil): ~p~n",
+              [find_dets_pids()]),
+    {replies,[{'EXIT', {dets_process_died, _}}, {ok,_}, {ok, _}]} =
+         {replies,lists:sort([R1, R2, R3])},
 
     timer:sleep(200),
     case dets:info(Tab) of
@@ -3341,7 +3346,7 @@ kill_while_repairing(Tab, File) ->
             ok;
         _Info ->
             timer:sleep(5000),
-            ?line undefined = dets:info(Tab)
+            undefined = dets:info(Tab)
     end,
 
     file:delete(File),
@@ -3352,6 +3357,19 @@ find_dets_pid(P0) ->
         [P, _] -> P;
         _ -> timer:sleep(100), find_dets_pid(P0)
     end.
+
+find_dets_pid() ->
+    case find_dets_pids() of
+        [] ->
+            timer:sleep(100),
+            find_dets_pid();
+        [Pid] ->
+            Pid
+    end.
+
+find_dets_pids() ->
+    lists:filter(fun(P) -> dets:pid2name(P) =/= undefined end,
+                 erlang:processes()).
 
 %% Kill the Dets process when there are users and an on-going
 %% initiailization.
@@ -3379,9 +3397,7 @@ kill_while_init(Tab, File) ->
     ?line receive {P2,R2} -> {ok, _} = R2 end,
     ?line receive {P3,R3} -> {ok, _} = R3 end,
     ?line receive {P4,R4} -> {ok, _} = R4 end,
-    ?line [DetsPid] = 
-        lists:filter(fun(P) -> dets:pid2name(P) =/= undefined end, 
-                     erlang:processes()),
+    DetsPid = find_dets_pid(),
     exit(DetsPid, kill),
     
     timer:sleep(1000),
