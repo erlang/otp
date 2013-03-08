@@ -35,14 +35,15 @@
 	  chunk_decode_trailer/1,
 	  http_response/1, http_request/1, validate_request_line/1,
 	  esi_parse_headers/1, cgi_parse_headers/1,
-	  is_absolut_uri/1, convert_netscapecookie_date/1]).
+	  is_absolut_uri/1, convert_netscapecookie_date/1,
+	  check_content_length_encoding/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, chunk}, http_response, http_request,
      validate_request_line, {group, script}, is_absolut_uri,
-     convert_netscapecookie_date].
+     convert_netscapecookie_date, check_content_length_encoding].
 
 groups() -> 
     [{script, [], [esi_parse_headers, cgi_parse_headers]},
@@ -456,6 +457,25 @@ validate_request_line(Config) when is_list(Config) ->
 	httpd_request:validate("GET", NewForbiddenUri1, "HTTP/1.1"),
 
     ok.
+
+%%-------------------------------------------------------------------------
+check_content_length_encoding(doc) ->
+    ["Test http_request:headers/2. Check that the content-length is"
+     " encoded even when it is zero." ];
+check_content_length_encoding(suite) ->
+    [];
+check_content_length_encoding(Config) when is_list(Config) ->
+
+    %% Check that the content-length is preserved.
+    %% Sanity check.
+    Header1 = http_request:http_headers(#http_request_h{'content-length'="123"}),
+    true = (string:str(Header1, "content-length: 123\r\n") > 0),
+    %% Check that content-length=0 is handled correctly.
+    Header2 = http_request:http_headers(#http_request_h{'content-length'="0"}),
+    true = (string:str(Header2, "content-length: 0\r\n") > 0),
+
+    ok.
+
 %%-------------------------------------------------------------------------
 esi_parse_headers(doc) ->
     ["Test httpd_esi:*. All header values are received in the same"
