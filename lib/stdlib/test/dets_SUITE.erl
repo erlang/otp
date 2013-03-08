@@ -22,7 +22,6 @@
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
--define(line, put(line, ?LINE), ).
 -define(config(X,Y), foo).
 -define(t, test_server).
 -define(privdir(_), "./dets_SUITE_priv").
@@ -135,10 +134,10 @@ newly_started(doc) ->
 newly_started(suite) -> 
     [];
 newly_started(Config) when is_list(Config) ->
-    ?line true = is_alive(),
-    ?line {ok, Node} = test_server:start_node(slave1, slave, []),
-    ?line [] = rpc:call(Node, dets, all, []),
-    ?line test_server:stop_node(Node),
+    true = is_alive(),
+    {ok, Node} = test_server:start_node(slave1, slave, []),
+    [] = rpc:call(Node, dets, all, []),
+    test_server:stop_node(Node),
     ok.
 
 basic_v8(doc) ->
@@ -156,31 +155,31 @@ basic_v9(Config) when is_list(Config) ->
     basic(Config, 9).
 
 basic(Config, Version) ->
-    ?line Tab = dets_basic_test,
-    ?line FName = filename(Tab, Config),
+    Tab = dets_basic_test,
+    FName = filename(Tab, Config),
 
     P0 = pps(),
-    ?line {ok, _} = dets:open_file(Tab,[{file, FName},{version,Version}]),
-    ?line ok = dets:insert(Tab,{mazda,japan}),
-    ?line ok = dets:insert(Tab,{toyota,japan}),
-    ?line ok = dets:insert(Tab,{suzuki,japan}),
-    ?line ok = dets:insert(Tab,{honda,japan}),
-    ?line ok = dets:insert(Tab,{renault,france}),
-    ?line ok = dets:insert(Tab,{citroen,france}),
-    ?line ok = dets:insert(Tab,{opel,germany}),
-    ?line ok = dets:insert(Tab,{saab,sweden}),
-    ?line ok = dets:insert(Tab,{volvo,sweden}),
-    ?line [{opel,germany}] = dets:lookup(Tab,opel),
-    ?line Japs = dets:traverse(Tab, fun(Obj) -> 
-					   case Obj of 
-					       {_, japan} -> {continue, Obj};
-					       _ -> continue
-					   end
-				    end),
-    ?line 4  = length(Japs),
-    ?line ok = dets:close(Tab),
-    ?line file:delete(FName),
-    ?line check_pps(P0),
+    {ok, _} = dets:open_file(Tab,[{file, FName},{version,Version}]),
+    ok = dets:insert(Tab,{mazda,japan}),
+    ok = dets:insert(Tab,{toyota,japan}),
+    ok = dets:insert(Tab,{suzuki,japan}),
+    ok = dets:insert(Tab,{honda,japan}),
+    ok = dets:insert(Tab,{renault,france}),
+    ok = dets:insert(Tab,{citroen,france}),
+    ok = dets:insert(Tab,{opel,germany}),
+    ok = dets:insert(Tab,{saab,sweden}),
+    ok = dets:insert(Tab,{volvo,sweden}),
+    [{opel,germany}] = dets:lookup(Tab,opel),
+    Japs = dets:traverse(Tab, fun(Obj) ->
+                                      case Obj of
+                                          {_, japan} -> {continue, Obj};
+                                          _ -> continue
+                                      end
+                              end),
+    4  = length(Japs),
+    ok = dets:close(Tab),
+    file:delete(FName),
+    check_pps(P0),
     ok.
     
 
@@ -204,24 +203,24 @@ open(Config, Version) ->
     %% If this becomes a problem, one should consider running this
     %% test on a slave node.
 
-    ?line {Sets, Bags, Dups} = args(Config),
+    {Sets, Bags, Dups} = args(Config),
     
-    ?line All = Sets ++ Bags ++ Dups,
-    ?line delete_files(All),
+    All = Sets ++ Bags ++ Dups,
+    delete_files(All),
 
-    ?line Data = make_data(1),
+    Data = make_data(1),
 
     P0 = pps(),
-    ?line Tabs = open_files(1, All, Version),
-    ?line initialize(Tabs, Data),
-    ?line check(Tabs, Data),
+    Tabs = open_files(1, All, Version),
+    initialize(Tabs, Data),
+    check(Tabs, Data),
 
-    ?line foreach(fun(Tab) -> ok = dets:close(Tab) end, Tabs),
+    foreach(fun(Tab) -> ok = dets:close(Tab) end, Tabs),
     %% Now reopen the files
     ?format("Reopening closed files \n", []),
-    ?line Tabs = open_files(1, All, Version),
+    Tabs = open_files(1, All, Version),
     ?format("Checking contents of reopened files \n", []),
-    ?line check(Tabs, Data),
+    check(Tabs, Data),
     %% crash the dets server
 
     ?format("Crashing dets server \n", []),
@@ -235,25 +234,25 @@ open(Config, Version) ->
 
     %% Now reopen the files again
     ?format("Reopening crashed files \n", []),
-    ?line open_files(1, All, Version),
+    open_files(1, All, Version),
     ?format("Checking contents of repaired files \n", []),
-    ?line check(Tabs, Data),
+    check(Tabs, Data),
     
-    ?line close_all(Tabs),
+    close_all(Tabs),
 
-    ?line delete_files(All),
+    delete_files(All),
     P1 = pps(),
     {Ports0, Procs0} = P0,
     {Ports1, Procs1} = P1,
-    ?line true = Ports1 =:= Ports0,
+    true = Ports1 =:= Ports0,
     %% The dets_server process has been restarted:
-    ?line [_] = Procs0 -- Procs1,
-    ?line [_] = Procs1 -- Procs0,
+    [_] = Procs0 -- Procs1,
+    [_] = Procs1 -- Procs0,
     ok.
     
 check(Tabs, Data) ->
     foreach(fun(Tab) ->
-		    ?line Kp = dets:info(Tab, keypos), 
+		    Kp = dets:info(Tab, keypos),
 		    ?format("checking ~p~n", [Tab]),
 		    foreach(fun(Item) ->
 				    case dets:lookup(Tab, k(Kp,Item)) of
@@ -285,31 +284,31 @@ sets_v9(Config) when is_list(Config) ->
     sets(Config, 9).
 
 sets(Config, Version) ->
-    ?line {Sets, _, _} = args(Config),
+    {Sets, _, _} = args(Config),
 
-    ?line Data = make_data(1),
-    ?line delete_files(Sets),
+    Data = make_data(1),
+    delete_files(Sets),
     P0 = pps(),
-    ?line Tabs = open_files(1, Sets, Version),
+    Tabs = open_files(1, Sets, Version),
     Bigger = [{17,q,w,w}, {48,q,w,w,w,w,w,w}], % 48 requires a bigger buddy
-    ?line initialize(Tabs, Data++Bigger++Data), % overwrite
-    ?line Len = length(Data),
-    ?line foreach(fun(Tab) -> trav_test(Data, Len, Tab) end, Tabs),
-    ?line size_test(Len, Tabs),
-    ?line no_keys_test(Tabs),
-    ?line foreach(fun(Tab) -> del_test(Tab) end, Tabs),
-    ?line initialize(Tabs, Data),
-    ?line foreach(fun(Tab) -> del_obj_test(Tab) end, Tabs),
-    ?line initialize(Tabs, Data),
-    ?line foreach(fun(Tab) ->
-			  Len = dets:info(Tab, size) end, 
-		  Tabs),
-    ?line foreach(fun(Tab) -> match_test(Data, Tab) end, Tabs),
-    ?line foreach(fun(Tab) -> match_del_test(Tab) end, Tabs),
+    initialize(Tabs, Data++Bigger++Data), % overwrite
+    Len = length(Data),
+    foreach(fun(Tab) -> trav_test(Data, Len, Tab) end, Tabs),
+    size_test(Len, Tabs),
+    no_keys_test(Tabs),
+    foreach(fun(Tab) -> del_test(Tab) end, Tabs),
+    initialize(Tabs, Data),
+    foreach(fun(Tab) -> del_obj_test(Tab) end, Tabs),
+    initialize(Tabs, Data),
+    foreach(fun(Tab) ->
+                    Len = dets:info(Tab, size) end,
+            Tabs),
+    foreach(fun(Tab) -> match_test(Data, Tab) end, Tabs),
+    foreach(fun(Tab) -> match_del_test(Tab) end, Tabs),
     
-    ?line close_all(Tabs),
-    ?line delete_files(Sets),
-    ?line check_pps(P0),
+    close_all(Tabs),
+    delete_files(Sets),
+    check_pps(P0),
     ok.
 
 bags_v8(doc) ->
@@ -328,27 +327,27 @@ bags_v9(Config) when is_list(Config) ->
 
 bags(Config, Version) ->
     {_, Bags, _} = args(Config),
-    ?line Data = make_data(1, bag),  %% gives twice as many objects
-    ?line delete_files(Bags),
+    Data = make_data(1, bag),  %% gives twice as many objects
+    delete_files(Bags),
     P0 = pps(),
-    ?line Tabs = open_files(1, Bags, Version),
-    ?line initialize(Tabs, Data++Data),
-    ?line Len = length(Data),
-    ?line foreach(fun(Tab) -> trav_test(Data, Len, Tab) end, Tabs),
-    ?line size_test(Len, Tabs),
-    ?line no_keys_test(Tabs),
-    ?line foreach(fun(Tab) -> del_test(Tab) end, Tabs),
-    ?line initialize(Tabs, Data),
-    ?line foreach(fun(Tab) -> del_obj_test(Tab) end, Tabs),
-    ?line initialize(Tabs, Data),
-    ?line foreach(fun(Tab) ->
-			  Len = dets:info(Tab, size) end, 
-		  Tabs),
-    ?line foreach(fun(Tab) -> match_test(Data, Tab) end, Tabs),
-    ?line foreach(fun(Tab) -> match_del_test(Tab) end, Tabs),
-    ?line close_all(Tabs),
-    ?line delete_files(Bags),
-    ?line check_pps(P0),
+    Tabs = open_files(1, Bags, Version),
+    initialize(Tabs, Data++Data),
+    Len = length(Data),
+    foreach(fun(Tab) -> trav_test(Data, Len, Tab) end, Tabs),
+    size_test(Len, Tabs),
+    no_keys_test(Tabs),
+    foreach(fun(Tab) -> del_test(Tab) end, Tabs),
+    initialize(Tabs, Data),
+    foreach(fun(Tab) -> del_obj_test(Tab) end, Tabs),
+    initialize(Tabs, Data),
+    foreach(fun(Tab) ->
+                    Len = dets:info(Tab, size) end,
+            Tabs),
+    foreach(fun(Tab) -> match_test(Data, Tab) end, Tabs),
+    foreach(fun(Tab) -> match_del_test(Tab) end, Tabs),
+    close_all(Tabs),
+    delete_files(Bags),
+    check_pps(P0),
     ok.
 
 
@@ -368,27 +367,27 @@ duplicate_bags_v9(Config) when is_list(Config) ->
 
 duplicate_bags(Config, Version) when is_list(Config) ->
     {_, _, Dups} = args(Config),
-    ?line Data = make_data(1, duplicate_bag), %% gives twice as many objects
-    ?line delete_files(Dups),
+    Data = make_data(1, duplicate_bag), %% gives twice as many objects
+    delete_files(Dups),
     P0 = pps(),
-    ?line Tabs = open_files(1, Dups, Version),
-    ?line initialize(Tabs, Data),
-    ?line Len = length(Data),
-    ?line foreach(fun(Tab) -> trav_test(Data, Len, Tab) end, Tabs),
-    ?line size_test(Len, Tabs),
-    ?line no_keys_test(Tabs),
-    ?line foreach(fun(Tab) -> del_test(Tab) end, Tabs),
-    ?line initialize(Tabs, Data),
-    ?line foreach(fun(Tab) -> del_obj_test(Tab) end, Tabs),
-    ?line initialize(Tabs, Data),
-    ?line foreach(fun(Tab) ->
-			  Len = dets:info(Tab, size) end, 
-		  Tabs),
-    ?line foreach(fun(Tab) -> match_test(Data, Tab) end, Tabs),
-    ?line foreach(fun(Tab) -> match_del_test(Tab) end, Tabs),
-    ?line close_all(Tabs),
-    ?line delete_files(Dups),
-    ?line check_pps(P0),
+    Tabs = open_files(1, Dups, Version),
+    initialize(Tabs, Data),
+    Len = length(Data),
+    foreach(fun(Tab) -> trav_test(Data, Len, Tab) end, Tabs),
+    size_test(Len, Tabs),
+    no_keys_test(Tabs),
+    foreach(fun(Tab) -> del_test(Tab) end, Tabs),
+    initialize(Tabs, Data),
+    foreach(fun(Tab) -> del_obj_test(Tab) end, Tabs),
+    initialize(Tabs, Data),
+    foreach(fun(Tab) ->
+                    Len = dets:info(Tab, size) end,
+            Tabs),
+    foreach(fun(Tab) -> match_test(Data, Tab) end, Tabs),
+    foreach(fun(Tab) -> match_del_test(Tab) end, Tabs),
+    close_all(Tabs),
+    delete_files(Dups),
+    check_pps(P0),
     ok.
 
 
@@ -412,26 +411,26 @@ access(Config, Version) ->
     Args = [[{ram_file, true}],
 	    []],
     
-    ?line {Args_acc_1, _, _} = zip_filename(Args_acc, [], [], Config),
-    ?line delete_files(Args_acc_1),
-    ?line {Args_1, _, _} = zip_filename(Args, [], [], Config),
+    {Args_acc_1, _, _} = zip_filename(Args_acc, [], [], Config),
+    delete_files(Args_acc_1),
+    {Args_1, _, _} = zip_filename(Args, [], [], Config),
 
     P0 = pps(),
-    ?line {error, {file_error,_,enoent}} = dets:open_file('1', hd(Args_acc_1)),
+    {error, {file_error,_,enoent}} = dets:open_file('1', hd(Args_acc_1)),
 
-    ?line Tabs = open_files(1, Args_1, Version),
-    ?line close_all(Tabs),
-    ?line Tabs = open_files(1, Args_acc_1, Version),
+    Tabs = open_files(1, Args_1, Version),
+    close_all(Tabs),
+    Tabs = open_files(1, Args_acc_1, Version),
 
-    ?line foreach(fun(Tab) ->
-			  {error, {access_mode,_}} = dets:insert(Tab, {1,2}),
-			  [] = dets:lookup(Tab, 11),
-			  '$end_of_table' = dets:first(Tab),
-			  {error, {access_mode,_}} = dets:delete(Tab, 22)
-		  end, Tabs),
-    ?line close_all(Tabs),
-    ?line delete_files(Args_acc_1),
-    ?line check_pps(P0),
+    foreach(fun(Tab) ->
+                    {error, {access_mode,_}} = dets:insert(Tab, {1,2}),
+                    [] = dets:lookup(Tab, 11),
+                    '$end_of_table' = dets:first(Tab),
+                    {error, {access_mode,_}} = dets:delete(Tab, 22)
+            end, Tabs),
+    close_all(Tabs),
+    delete_files(Args_acc_1),
+    check_pps(P0),
     ok.
 
 
@@ -440,23 +439,23 @@ dirty_mark(doc) ->
 dirty_mark(suite) ->
     [];
 dirty_mark(Config) when is_list(Config) ->
-    ?line true = is_alive(),
-    ?line Tab = dets_dirty_mark_test,
-    ?line FName = filename(Tab, Config),
+    true = is_alive(),
+    Tab = dets_dirty_mark_test,
+    FName = filename(Tab, Config),
     P0 = pps(),
-    ?line dets:open_file(Tab,[{file, FName}]),
-    ?line dets:insert(Tab,{mazda,japan}),
-    ?line dets:insert(Tab,{toyota,japan}),
-    ?line dets:insert(Tab,{suzuki,japan}),
-    ?line dets:insert(Tab,{honda,japan}),
-    ?line dets:insert(Tab,{renault,france}),
-    ?line dets:insert(Tab,{citroen,france}),
-    ?line dets:insert(Tab,{opel,germany}),
-    ?line dets:insert(Tab,{saab,sweden}),
-    ?line dets:insert(Tab,{volvo,sweden}),
-    ?line [{opel,germany}] = dets:lookup(Tab,opel),
-    ?line ok = dets:close(Tab),
-    ?line Call = fun(P,A) ->
+    dets:open_file(Tab,[{file, FName}]),
+    dets:insert(Tab,{mazda,japan}),
+    dets:insert(Tab,{toyota,japan}),
+    dets:insert(Tab,{suzuki,japan}),
+    dets:insert(Tab,{honda,japan}),
+    dets:insert(Tab,{renault,france}),
+    dets:insert(Tab,{citroen,france}),
+    dets:insert(Tab,{opel,germany}),
+    dets:insert(Tab,{saab,sweden}),
+    dets:insert(Tab,{volvo,sweden}),
+    [{opel,germany}] = dets:lookup(Tab,opel),
+    ok = dets:close(Tab),
+    Call = fun(P,A) ->
 		   P ! {self(), A},
 		   receive
 		       {P, Ans} ->
@@ -465,26 +464,26 @@ dirty_mark(Config) when is_list(Config) ->
 			   exit(other_process_dead)
 		   end
 	   end,
-    ?line {ok, Node} = test_server:start_node(dets_dirty_mark, 
-					      slave,
-					      [{linked, false},
-					       {args, "-pa " ++ 
-					       filename:dirname
+    {ok, Node} = test_server:start_node(dets_dirty_mark,
+                                        slave,
+                                        [{linked, false},
+                                         {args, "-pa " ++
+                                              filename:dirname
 						(code:which(?MODULE))}]),
-    ?line ok = ensure_node(20, Node),
+    ok = ensure_node(20, Node),
     %% io:format("~p~n",[rpc:call(Node, code, get_path, [])]),
     %% io:format("~p~n",[rpc:call(Node, file, get_cwd, [])]),
     %% io:format("~p~n",[Config]),
-    ?line Pid = rpc:call(Node,erlang, spawn, 
+    Pid = rpc:call(Node,erlang, spawn,
 			 [?MODULE, dets_dirty_loop, []]),
-    ?line {ok, Tab} = Call(Pid, [open, Tab, [{file, FName}]]),
-    ?line [{opel,germany}] = Call(Pid, [read,Tab,opel]),
-    ?line test_server:stop_node(Node),
-    ?line {ok, Tab} = dets:open_file(Tab,[{file, FName}, 
-					  {repair,false}]),
-    ?line ok = dets:close(Tab),
-    ?line file:delete(FName),
-    ?line check_pps(P0),
+    {ok, Tab} = Call(Pid, [open, Tab, [{file, FName}]]),
+    [{opel,germany}] = Call(Pid, [read,Tab,opel]),
+    test_server:stop_node(Node),
+    {ok, Tab} = dets:open_file(Tab,[{file, FName},
+                                    {repair,false}]),
+    ok = dets:close(Tab),
+    file:delete(FName),
+    check_pps(P0),
     ok.
 
 dirty_mark2(doc) ->
@@ -492,22 +491,22 @@ dirty_mark2(doc) ->
 dirty_mark2(suite) ->
     [];
 dirty_mark2(Config) when is_list(Config) ->
-    ?line true = is_alive(),
-    ?line Tab = dets_dirty_mark2_test,
-    ?line FName = filename(Tab, Config),
+    true = is_alive(),
+    Tab = dets_dirty_mark2_test,
+    FName = filename(Tab, Config),
     P0 = pps(),
-    ?line dets:open_file(Tab,[{file, FName}]),
-    ?line dets:insert(Tab,{toyota,japan}),
-    ?line dets:insert(Tab,{suzuki,japan}),
-    ?line dets:insert(Tab,{honda,japan}),
-    ?line dets:insert(Tab,{renault,france}),
-    ?line dets:insert(Tab,{citroen,france}),
-    ?line dets:insert(Tab,{opel,germany}),
-    ?line dets:insert(Tab,{saab,sweden}),
-    ?line dets:insert(Tab,{volvo,sweden}),
-    ?line [{opel,germany}] = dets:lookup(Tab,opel),
-    ?line ok = dets:close(Tab),
-    ?line Call = fun(P,A) ->
+    dets:open_file(Tab,[{file, FName}]),
+    dets:insert(Tab,{toyota,japan}),
+    dets:insert(Tab,{suzuki,japan}),
+    dets:insert(Tab,{honda,japan}),
+    dets:insert(Tab,{renault,france}),
+    dets:insert(Tab,{citroen,france}),
+    dets:insert(Tab,{opel,germany}),
+    dets:insert(Tab,{saab,sweden}),
+    dets:insert(Tab,{volvo,sweden}),
+    [{opel,germany}] = dets:lookup(Tab,opel),
+    ok = dets:close(Tab),
+    Call = fun(P,A) ->
 		   P ! {self(), A},
 		   receive
 		       {P, Ans} ->
@@ -516,25 +515,25 @@ dirty_mark2(Config) when is_list(Config) ->
 			   exit(other_process_dead)
 		   end
 	   end,
-    ?line {ok, Node} = test_server:start_node(dets_dirty_mark2, 
-					      slave,
-					      [{linked, false},
-					       {args, "-pa " ++ 
-					       filename:dirname
+    {ok, Node} = test_server:start_node(dets_dirty_mark2,
+                                        slave,
+                                        [{linked, false},
+                                         {args, "-pa " ++
+                                              filename:dirname
 						(code:which(?MODULE))}]),
-    ?line ok = ensure_node(20, Node),
-    ?line Pid = rpc:call(Node,erlang, spawn, 
-			 [?MODULE, dets_dirty_loop, []]),
-    ?line {ok, Tab} = Call(Pid, [open, Tab, [{file, FName},{auto_save,1000}]]),
-    ?line ok = Call(Pid, [write,Tab,{mazda,japan}]),
-    ?line timer:sleep(2100),
+    ok = ensure_node(20, Node),
+    Pid = rpc:call(Node,erlang, spawn,
+                   [?MODULE, dets_dirty_loop, []]),
+    {ok, Tab} = Call(Pid, [open, Tab, [{file, FName},{auto_save,1000}]]),
+    ok = Call(Pid, [write,Tab,{mazda,japan}]),
+    timer:sleep(2100),
     %% Read something, just to give auto save time to finish.
-    ?line [{opel,germany}] = Call(Pid, [read,Tab,opel]),
-    ?line test_server:stop_node(Node),
-    ?line {ok, Tab} = dets:open_file(Tab, [{file, FName}, {repair,false}]),
-    ?line ok = dets:close(Tab),
-    ?line file:delete(FName),
-    ?line check_pps(P0),
+    [{opel,germany}] = Call(Pid, [read,Tab,opel]),
+    test_server:stop_node(Node),
+    {ok, Tab} = dets:open_file(Tab, [{file, FName}, {repair,false}]),
+    ok = dets:close(Tab),
+    file:delete(FName),
+    check_pps(P0),
     ok.
 
 dets_dirty_loop() ->
@@ -570,38 +569,38 @@ bag_next_v9(suite) ->
 bag_next_v9(doc) ->
     ["Check that bags and next work as expected."];
 bag_next_v9(Config) when is_list(Config) ->
-    ?line Tab = dets_bag_next_test,
-    ?line FName = filename(Tab, Config),
+    Tab = dets_bag_next_test,
+    FName = filename(Tab, Config),
 
     %% first and next crash upon error
-    ?line dets:open_file(Tab,[{file, FName}, {type, bag},{version,9}]),
-    ?line ok = dets:insert(Tab, [{1,1},{2,2},{3,3},{4,4}]),
-    ?line FirstKey = dets:first(Tab),
-    ?line NextKey = dets:next(Tab, FirstKey),
-    ?line [FirstObj | _] = dets:lookup(Tab, FirstKey),
-    ?line [NextObj | _] = dets:lookup(Tab, NextKey),
-    ?line {ok, FirstPos} = dets:where(Tab, FirstObj),
-    ?line {ok, NextPos} = dets:where(Tab, NextObj),
+    dets:open_file(Tab,[{file, FName}, {type, bag},{version,9}]),
+    ok = dets:insert(Tab, [{1,1},{2,2},{3,3},{4,4}]),
+    FirstKey = dets:first(Tab),
+    NextKey = dets:next(Tab, FirstKey),
+    [FirstObj | _] = dets:lookup(Tab, FirstKey),
+    [NextObj | _] = dets:lookup(Tab, NextKey),
+    {ok, FirstPos} = dets:where(Tab, FirstObj),
+    {ok, NextPos} = dets:where(Tab, NextObj),
     crash(FName, NextPos+12),
-    ?line {'EXIT',BadObject1} = (catch dets:next(Tab, FirstKey)),
-    ?line bad_object(BadObject1, FName),
+    {'EXIT',BadObject1} = (catch dets:next(Tab, FirstKey)),
+    bad_object(BadObject1, FName),
     crash(FName, FirstPos+12),
-    ?line {'EXIT',BadObject2} = (catch dets:first(Tab)),
-    ?line bad_object(BadObject2, FName),
-    ?line dets:close(Tab),
-    ?line file:delete(FName),
+    {'EXIT',BadObject2} = (catch dets:first(Tab)),
+    bad_object(BadObject2, FName),
+    dets:close(Tab),
+    file:delete(FName),
 
     bag_next(Config, 9).
 
 bag_next(Config, Version) ->
-    ?line Tab = dets_bag_next_test,
-    ?line FName = filename(Tab, Config),
+    Tab = dets_bag_next_test,
+    FName = filename(Tab, Config),
     P0 = pps(),
-    ?line dets:open_file(Tab,[{file, FName}, {type, bag},{version,Version}]),
-    ?line dets:insert(Tab,{698,hopp}),
-    ?line dets:insert(Tab,{186,hopp}),
-    ?line dets:insert(Tab,{hej,hopp}),
-    ?line dets:insert(Tab,{186,plopp}),
+    dets:open_file(Tab,[{file, FName}, {type, bag},{version,Version}]),
+    dets:insert(Tab,{698,hopp}),
+    dets:insert(Tab,{186,hopp}),
+    dets:insert(Tab,{hej,hopp}),
+    dets:insert(Tab,{186,plopp}),
     Loop = fun(N, Last, Self) ->
 		   case N of
 		       0 ->
@@ -615,10 +614,10 @@ bag_next(Config, Version) ->
 			   end
 		   end
 	   end,
-    ?line ok = Loop(4,dets:first(Tab),Loop),
-    ?line dets:close(Tab),
-    ?line file:delete(FName),
-    ?line check_pps(P0),
+    ok = Loop(4,dets:first(Tab),Loop),
+    dets:close(Tab),
+    file:delete(FName),
+    check_pps(P0),
     ok.
 
 oldbugs_v8(doc) ->
@@ -638,15 +637,15 @@ oldbugs_v9(Config) when is_list(Config) ->
 oldbugs(Config, Version) ->
     FName = filename(dets_suite_oldbugs_test, Config),
     P0 = pps(),
-    ?line {ok, ob} = dets:open_file(ob, [{version, Version},
+    {ok, ob} = dets:open_file(ob, [{version, Version},
 					 {type, bag}, {file, FName}]),
-    ?line ok = dets:insert(ob, {1, 2}),
-    ?line ok = dets:insert(ob, {1,3}),
-    ?line ok = dets:insert(ob, {1, 2}),
-    ?line 2 = dets:info(ob, size),  %% assertion
-    ?line ok = dets:close(ob),
-    ?line file:delete(FName),
-    ?line check_pps(P0),
+    ok = dets:insert(ob, {1, 2}),
+    ok = dets:insert(ob, {1,3}),
+    ok = dets:insert(ob, {1, 2}),
+    2 = dets:info(ob, size),  %% assertion
+    ok = dets:close(ob),
+    file:delete(FName),
+    check_pps(P0),
     ok.
 
 unsafe_assumptions(suite) -> [];
@@ -654,30 +653,30 @@ unsafe_assumptions(doc) ->
     "Tests that shrinking an object and then expanding it works.";
 unsafe_assumptions(Config) when is_list(Config) ->
     FName = filename(dets_suite_unsafe_assumptions_test, Config),
-    ?line file:delete(FName),
+    file:delete(FName),
     P0 = pps(),
-    ?line {ok, a} = dets:open_file(a, [{version,8},{file, FName}]),
+    {ok, a} = dets:open_file(a, [{version,8},{file, FName}]),
     O0 = {2,false},
     O1 = {1, false},
     O2 = {1, true},
     O3 = {1, duplicate(20,false)},
     O4 = {1, duplicate(25,false)}, % same 2-log as O3
-    ?line ok = dets:insert(a, O1),
-    ?line ok = dets:insert(a, O0),
-    ?line true = [O1,O0] =:= sort(get_all_objects(a)),
-    ?line true = [O1,O0] =:= sort(get_all_objects_fast(a)),
-    ?line ok = dets:insert(a, O2),
-    ?line true = [O2,O0] =:= sort(get_all_objects(a)),
-    ?line true = [O2,O0] =:= sort(get_all_objects_fast(a)),
-    ?line ok = dets:insert(a, O3),
-    ?line true = [O3,O0] =:= sort(get_all_objects(a)),
-    ?line true = [O3,O0] =:= sort(get_all_objects_fast(a)),
-    ?line ok = dets:insert(a, O4),
-    ?line true = [O4,O0] =:= sort(get_all_objects(a)),
-    ?line true = [O4,O0] =:= sort(get_all_objects_fast(a)),
-    ?line ok = dets:close(a),
-    ?line file:delete(FName),
-    ?line check_pps(P0),
+    ok = dets:insert(a, O1),
+    ok = dets:insert(a, O0),
+    true = [O1,O0] =:= sort(get_all_objects(a)),
+    true = [O1,O0] =:= sort(get_all_objects_fast(a)),
+    ok = dets:insert(a, O2),
+    true = [O2,O0] =:= sort(get_all_objects(a)),
+    true = [O2,O0] =:= sort(get_all_objects_fast(a)),
+    ok = dets:insert(a, O3),
+    true = [O3,O0] =:= sort(get_all_objects(a)),
+    true = [O3,O0] =:= sort(get_all_objects_fast(a)),
+    ok = dets:insert(a, O4),
+    true = [O4,O0] =:= sort(get_all_objects(a)),
+    true = [O4,O0] =:= sort(get_all_objects_fast(a)),
+    ok = dets:close(a),
+    file:delete(FName),
+    check_pps(P0),
     ok.
 
 truncated_segment_array_v8(suite) -> [];
@@ -698,22 +697,22 @@ trunc_seg_array(Config, V) ->
     TabRef = dets_suite_truncated_segment_array_test,
     Fname = filename(TabRef, Config),
     %% Create file that needs to be repaired
-    ?line file:delete(Fname),
+    file:delete(Fname),
     P0 = pps(),
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file, Fname},{version,V}]),
-    ?line ok = dets:close(TabRef),
+    {ok, TabRef} = dets:open_file(TabRef, [{file, Fname},{version,V}]),
+    ok = dets:close(TabRef),
     
     %% Truncate the file
-    ?line HeadSize = headsz(V),
-    ?line truncate(Fname, HeadSize + 10),
+    HeadSize = headsz(V),
+    truncate(Fname, HeadSize + 10),
     
     %% Open the truncated file
-    ?line io:format("Expect repair:~n"),
-    ?line {ok, TabRef} = dets:open_file(TabRef, 
+    io:format("Expect repair:~n"),
+    {ok, TabRef} = dets:open_file(TabRef,
 					[{file, Fname}, {repair, true}]),
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),
-    ?line check_pps(P0),
+    ok = dets:close(TabRef),
+    file:delete(Fname),
+    check_pps(P0),
     ok.
 
 open_file_v8(doc) ->
@@ -730,58 +729,58 @@ open_file_v9(suite) ->
 open_file_v9(Config) when is_list(Config) ->
     T = open_v9,
     Fname = filename(T, Config),
-    ?line {ok, _} = dets:open_file(T, [{file,Fname},{version,9}]),
-    ?line 9 = dets:info(T, version),
-    ?line true = [self()] =:= dets:info(T, users),
-    ?line {ok, _} = dets:open_file(T, [{file,Fname},{version,9}]),
-    ?line {error,incompatible_arguments} = 
+    {ok, _} = dets:open_file(T, [{file,Fname},{version,9}]),
+    9 = dets:info(T, version),
+    true = [self()] =:= dets:info(T, users),
+    {ok, _} = dets:open_file(T, [{file,Fname},{version,9}]),
+    {error,incompatible_arguments} =
 	dets:open_file(T, [{file,Fname},{version,8}]),
-    ?line true = [self(),self()] =:= dets:info(T, users),
-    ?line ok = dets:close(T),
-    ?line true = [self()] =:= dets:info(T, users),
-    ?line ok = dets:close(T),
-    ?line undefined = ets:info(T, users),
-    ?line file:delete(Fname),
+    true = [self(),self()] =:= dets:info(T, users),
+    ok = dets:close(T),
+    true = [self()] =:= dets:info(T, users),
+    ok = dets:close(T),
+    undefined = ets:info(T, users),
+    file:delete(Fname),
 
     open_1(Config, 9).
 
 open_1(Config, V) ->
     TabRef = open_file_1_test,
     Fname = filename(TabRef, Config),
-    ?line file:delete(Fname),
+    file:delete(Fname),
 
     P0 = pps(),
-    ?line {error,{file_error,Fname,enoent}} = dets:open_file(Fname),
+    {error,{file_error,Fname,enoent}} = dets:open_file(Fname),
     
-    ?line ok = file:write_file(Fname, duplicate(100,65)),
-    ?line {error,{not_a_dets_file,Fname}} = dets:open_file(Fname),
-    ?line file:delete(Fname),
+    ok = file:write_file(Fname, duplicate(100,65)),
+    {error,{not_a_dets_file,Fname}} = dets:open_file(Fname),
+    file:delete(Fname),
 
     HeadSize = headsz(V),
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file, Fname},{version,V}]),
-    ?line ok = dets:close(TabRef),
-    ?line truncate(Fname, HeadSize + 10),
-    ?line true = dets:is_dets_file(Fname),
-    ?line io:format("Expect repair:~n"),
-    ?line {ok, Ref} = dets:open_file(Fname), % repairing
-    ?line ok = dets:close(Ref),
-    ?line file:delete(Fname),
+    {ok, TabRef} = dets:open_file(TabRef, [{file, Fname},{version,V}]),
+    ok = dets:close(TabRef),
+    truncate(Fname, HeadSize + 10),
+    true = dets:is_dets_file(Fname),
+    io:format("Expect repair:~n"),
+    {ok, Ref} = dets:open_file(Fname), % repairing
+    ok = dets:close(Ref),
+    file:delete(Fname),
 
     %% truncated file header, invalid type
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
-    ?line ok = ins(TabRef, 3000),
-    ?line ok = dets:close(TabRef),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    ok = ins(TabRef, 3000),
+    ok = dets:close(TabRef),
     TypePos = 12,
     crash(Fname, TypePos),
-    ?line {error, {invalid_type_code,Fname}} = dets:open_file(Fname),
-    ?line truncate(Fname, HeadSize - 10),    
-    ?line {error, {tooshort,Fname}} = dets:open_file(Fname),
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),
+    {error, {invalid_type_code,Fname}} = dets:open_file(Fname),
+    truncate(Fname, HeadSize - 10),
+    {error, {tooshort,Fname}} = dets:open_file(Fname),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {error,{file_error,{foo,bar},_}} = dets:is_dets_file({foo,bar}),
-    ?line check_pps(P0),
+    {error,{file_error,{foo,bar},_}} = dets:is_dets_file({foo,bar}),
+    check_pps(P0),
     ok.
 
 init_table_v8(doc) ->
@@ -799,16 +798,16 @@ init_table_v9(Config) when is_list(Config) ->
     %% Objects are returned in "time order".
     T = init_table_v9,
     Fname = filename(T, Config),
-    ?line file:delete(Fname),
+    file:delete(Fname),
     L = [{1,a},{2,b},{1,c},{2,c},{1,c},{2,a},{1,b}],
     Input = init([L]),
-    ?line {ok, _} = dets:open_file(T, [{file,Fname},{version,9},
+    {ok, _} = dets:open_file(T, [{file,Fname},{version,9},
 				       {type,duplicate_bag}]),
-    ?line ok = dets:init_table(T, Input),
-    ?line [{1,a},{1,c},{1,c},{1,b}] = dets:lookup(T, 1),
-    ?line [{2,b},{2,c},{2,a}] = dets:lookup(T, 2),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),
+    ok = dets:init_table(T, Input),
+    [{1,a},{1,c},{1,c},{1,b}] = dets:lookup(T, 1),
+    [{2,b},{2,c},{2,a}] = dets:lookup(T, 2),
+    ok = dets:close(T),
+    file:delete(Fname),
 
     init_table(Config, 9),
     fast_init_table(Config).
@@ -816,57 +815,57 @@ init_table_v9(Config) when is_list(Config) ->
 init_table(Config, V) ->
     TabRef = init_table_test,
     Fname = filename(TabRef, Config),
-    ?line file:delete(Fname),
+    file:delete(Fname),
     P0 = pps(),
 
     Args = [{file,Fname},{version,V},{auto_save,120000}],
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {'EXIT', _} = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    {'EXIT', _} =
 	(catch dets:init_table(TabRef, fun(foo) -> bar end)),
     dets:close(TabRef),
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {'EXIT', _} = (catch dets:init_table(TabRef, fun() -> foo end)),
+    {ok, _} = dets:open_file(TabRef, Args),
+    {'EXIT', _} = (catch dets:init_table(TabRef, fun() -> foo end)),
     dets:close(TabRef),
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {'EXIT', {badarg, _}} = (catch dets:init_table(TabRef, nofun)),
-    ?line {'EXIT', {badarg, _}} = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    {'EXIT', {badarg, _}} = (catch dets:init_table(TabRef, nofun)),
+    {'EXIT', {badarg, _}} =
 	(catch dets:init_table(TabRef, fun(_X) -> end_of_input end, 
 			       [{foo,bar}])),
     dets:close(TabRef),
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line away = (catch dets:init_table(TabRef, fun(_) -> throw(away) end)),
+    {ok, _} = dets:open_file(TabRef, Args),
+    away = (catch dets:init_table(TabRef, fun(_) -> throw(away) end)),
     dets:close(TabRef),
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {error, {init_fun, fopp}} = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    {error, {init_fun, fopp}} =
 	dets:init_table(TabRef, fun(read) -> fopp end),
     dets:close(TabRef),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line dets:safe_fixtable(TabRef, true),
-    ?line {error, {fixed_table, TabRef}} = dets:init_table(TabRef, init([])),
-    ?line dets:safe_fixtable(TabRef, false),
-    ?line ET = ets:new(foo,[]),
-    ?line ok = dets:from_ets(TabRef, ET),
-    ?line [] = get_all_objects(TabRef),
-    ?line [] = get_all_objects_fast(TabRef),
-    ?line true = ets:insert(ET, {1,a}),
-    ?line true = ets:insert(ET, {2,b}),
-    ?line ok = dets:from_ets(TabRef, ET),
-    ?line [{1,a},{2,b}] = sort(get_all_objects(TabRef)),
-    ?line [{1,a},{2,b}] = sort(get_all_objects_fast(TabRef)),
-    ?line true = ets:delete(ET),
-    ?line 120000 = dets:info(TabRef, auto_save),
-    ?line ok = dets:close(TabRef),
+    {ok, _} = dets:open_file(TabRef, Args),
+    dets:safe_fixtable(TabRef, true),
+    {error, {fixed_table, TabRef}} = dets:init_table(TabRef, init([])),
+    dets:safe_fixtable(TabRef, false),
+    ET = ets:new(foo,[]),
+    ok = dets:from_ets(TabRef, ET),
+    [] = get_all_objects(TabRef),
+    [] = get_all_objects_fast(TabRef),
+    true = ets:insert(ET, {1,a}),
+    true = ets:insert(ET, {2,b}),
+    ok = dets:from_ets(TabRef, ET),
+    [{1,a},{2,b}] = sort(get_all_objects(TabRef)),
+    [{1,a},{2,b}] = sort(get_all_objects_fast(TabRef)),
+    true = ets:delete(ET),
+    120000 = dets:info(TabRef, auto_save),
+    ok = dets:close(TabRef),
 
-    ?line {ok, _} = dets:open_file(TabRef, [{access,read} | Args]),
-    ?line {error, {access_mode, Fname}} = dets:init_table(TabRef, init([])),
-    ?line ok = dets:close(TabRef),
+    {ok, _} = dets:open_file(TabRef, [{access,read} | Args]),
+    {error, {access_mode, Fname}} = dets:init_table(TabRef, init([])),
+    ok = dets:close(TabRef),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {error, invalid_objects_list} =
+    {ok, _} = dets:open_file(TabRef, Args),
+    {error, invalid_objects_list} =
 	(catch dets:init_table(TabRef, init([[{1,2},bad,{3,4}]]))),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
     L1 = [[{1,a},{2,b}],[],[{3,c}],[{4,d}],[]],
     bulk_init(L1, set, 4, Config, V),
@@ -879,28 +878,28 @@ init_table(Config, V) ->
     file:delete(Fname),
 
     %% Initiate a file that contains a lot of objects.
-    ?line {ok, _} = dets:open_file(TabRef, [{min_no_slots,10000} | Args]),
-    ?line ok = ins(TabRef, 6000),
+    {ok, _} = dets:open_file(TabRef, [{min_no_slots,10000} | Args]),
+    ok = ins(TabRef, 6000),
     Fun = init_fun(0, 10000),
-    ?line ok = dets:init_table(TabRef, Fun,{format,term}),
-    ?line All = sort(get_all_objects(TabRef)),
-    ?line FAll = get_all_objects_fast(TabRef),
-    ?line true = All =:= sort(FAll),
-    ?line true = length(All) =:= 10000,
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),
+    ok = dets:init_table(TabRef, Fun,{format,term}),
+    All = sort(get_all_objects(TabRef)),
+    FAll = get_all_objects_fast(TabRef),
+    true = All =:= sort(FAll),
+    true = length(All) =:= 10000,
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(TabRef, [{min_no_slots,4000} | Args]),
-    ?line ok = ins(TabRef, 6000),
-    ?line FileSize1 = dets:info(TabRef, file_size),
+    {ok, _} = dets:open_file(TabRef, [{min_no_slots,4000} | Args]),
+    ok = ins(TabRef, 6000),
+    FileSize1 = dets:info(TabRef, file_size),
     Fun2 = init_fun(0, 4000),
-    ?line ok = dets:init_table(TabRef, Fun2),
-    ?line FileSize2 = dets:info(TabRef, file_size),
-    ?line ok = dets:close(TabRef),
-    ?line true = FileSize1 > FileSize2,
-    ?line file:delete(Fname),
+    ok = dets:init_table(TabRef, Fun2),
+    FileSize2 = dets:info(TabRef, file_size),
+    ok = dets:close(TabRef),
+    true = FileSize1 > FileSize2,
+    file:delete(Fname),
 
-    ?line check_pps(P0),
+    check_pps(P0),
     ok.
 
 bulk_init(Ls, Type, N, Config, V) ->
@@ -909,26 +908,26 @@ bulk_init(Ls, Type, N, Config, V) ->
 bulk_init(Ls, Type, N, Est, Config, V) ->
     T = init_table_test,
     Fname = filename(T, Config),
-    ?line file:delete(Fname),
+    file:delete(Fname),
     Input = init(Ls),
     Args = [{ram_file,false}, {type,Type},{keypos,1},{file,Fname},
 	    {estimated_no_objects, Est},{version,V}],
-    ?line {ok, T} = dets:open_file(T, Args),
-    ?line ok = dets:init_table(T, Input),
-    ?line All = sort(get_all_objects(T)),
-    ?line FAll = get_all_objects_fast(T),
-    ?line true = All =:= sort(FAll),
-    ?line true = length(All) =:= N,
-    ?line true = dets:info(T, size) =:= N,
-    ?line ok = dets:close(T),
+    {ok, T} = dets:open_file(T, Args),
+    ok = dets:init_table(T, Input),
+    All = sort(get_all_objects(T)),
+    FAll = get_all_objects_fast(T),
+    true = All =:= sort(FAll),
+    true = length(All) =:= N,
+    true = dets:info(T, size) =:= N,
+    ok = dets:close(T),
     
-    ?line {ok, T} = dets:open_file(T, Args),
-    ?line All2 = sort(get_all_objects(T)),
-    ?line FAll2 = get_all_objects_fast(T),
-    ?line true = All =:= All2,
-    ?line true = All =:= sort(FAll2),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname).
+    {ok, T} = dets:open_file(T, Args),
+    All2 = sort(get_all_objects(T)),
+    FAll2 = get_all_objects_fast(T),
+    true = All =:= All2,
+    true = All =:= sort(FAll2),
+    ok = dets:close(T),
+    file:delete(Fname).
 
 init(L) ->
     fun(close) ->
@@ -954,130 +953,130 @@ fast_init_table(Config) ->
     V = 9,
     TabRef = init_table_test,
     Fname = filename(TabRef, Config),
-    ?line file:delete(Fname),
+    file:delete(Fname),
     P0 = pps(),
 
     Args = [{file,Fname},{version,V},{auto_save,120000}],
 
     Source = init_table_test_source,
     SourceFname = filename(Source, Config),
-    ?line file:delete(SourceFname),
+    file:delete(SourceFname),
     SourceArgs = [{file,SourceFname},{version,V},{auto_save,120000}],
 
-    ?line {ok, Source} = dets:open_file(Source, SourceArgs),
+    {ok, Source} = dets:open_file(Source, SourceArgs),
     
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {'EXIT', _} = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    {'EXIT', _} =
 	(catch dets:init_table(TabRef, fun(foo) -> bar end, {format,bchunk})),
     dets:close(TabRef),
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {'EXIT', _} = (catch dets:init_table(TabRef, fun() -> foo end,
+    {ok, _} = dets:open_file(TabRef, Args),
+    {'EXIT', _} = (catch dets:init_table(TabRef, fun() -> foo end,
 					       {format,bchunk})),
     dets:close(TabRef),
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {'EXIT', {badarg, _}} = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    {'EXIT', {badarg, _}} =
 	(catch dets:init_table(TabRef, nofun, {format,bchunk})),
     dets:close(TabRef),
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line away = (catch dets:init_table(TabRef, fun(_) -> throw(away) end,
+    {ok, _} = dets:open_file(TabRef, Args),
+    away = (catch dets:init_table(TabRef, fun(_) -> throw(away) end,
 					{format,bchunk})),
     dets:close(TabRef),
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {error, {init_fun, fopp}} = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    {error, {init_fun, fopp}} =
 	dets:init_table(TabRef, fun(read) -> fopp end, {format,bchunk}),
     dets:close(TabRef),
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line dets:safe_fixtable(TabRef, true),
-    ?line {error, {fixed_table, TabRef}} = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    dets:safe_fixtable(TabRef, true),
+    {error, {fixed_table, TabRef}} =
 	dets:init_table(TabRef, init([]), {format,bchunk}),
-    ?line dets:safe_fixtable(TabRef, false),
-    ?line ok = dets:close(TabRef),
+    dets:safe_fixtable(TabRef, false),
+    ok = dets:close(TabRef),
 
-    ?line {ok, _} = dets:open_file(TabRef, [{access,read} | Args]),
-    ?line {error, {access_mode, Fname}} = 
+    {ok, _} = dets:open_file(TabRef, [{access,read} | Args]),
+    {error, {access_mode, Fname}} =
 	dets:init_table(TabRef, init([]), {format,bchunk}),
-    ?line ok = dets:close(TabRef),
+    ok = dets:close(TabRef),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {error, {init_fun,{1,2}}} =
+    {ok, _} = dets:open_file(TabRef, Args),
+    {error, {init_fun,{1,2}}} =
 	dets:init_table(TabRef, init([[{1,2},bad,{3,4}]]), {format,bchunk}),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {error, {init_fun, end_of_input}} = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    {error, {init_fun, end_of_input}} =
 	dets:init_table(TabRef, init([]),{format,bchunk}),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line {'EXIT', {badarg, _}} = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    {'EXIT', {badarg, _}} =
 	(catch dets:init_table(TabRef, init([]),{format,foppla})),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line ok = ins(TabRef, 100),
+    {ok, _} = dets:open_file(TabRef, Args),
+    ok = ins(TabRef, 100),
 
-    ?line [BParms | Objs] = collect_bchunk(TabRef, init_bchunk(TabRef)),
-    ?line Parms = binary_to_term(BParms),
-    ?line {error, {init_fun, <<"foobar">>}} = 
+    [BParms | Objs] = collect_bchunk(TabRef, init_bchunk(TabRef)),
+    Parms = binary_to_term(BParms),
+    {error, {init_fun, <<"foobar">>}} =
 	dets:init_table(TabRef, init([[<<"foobar">>]]),{format,bchunk}),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line Parms1 = setelement(1, Parms, foobar),
+    {ok, _} = dets:open_file(TabRef, Args),
+    Parms1 = setelement(1, Parms, foobar),
     BParms1 = term_to_binary(Parms1),
-    ?line {error, {init_fun, BParms1}} = 
+    {error, {init_fun, BParms1}} =
 	dets:init_table(TabRef, init([[BParms1 | Objs]]),{format,bchunk}),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
+    {ok, _} = dets:open_file(TabRef, Args),
     [{Sz1,No1} | NoColls17] = element(tuple_size(Parms), Parms),
     Parms2 = setelement(tuple_size(Parms), Parms, [{Sz1,No1+1} | NoColls17]),
     BParms2 = term_to_binary(Parms2),
-    ?line {error, invalid_objects_list} = 
+    {error, invalid_objects_list} =
 	dets:init_table(TabRef, init([[BParms2 | Objs]]),{format,bchunk}),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line [{LSize1,Slot1,Obj1} | ObjsRest] = Objs,
+    {ok, _} = dets:open_file(TabRef, Args),
+    [{LSize1,Slot1,Obj1} | ObjsRest] = Objs,
   
-    ?line BadSize = byte_size(Obj1)-1,
-    ?line <<BadSizeObj:BadSize/binary,_:1/binary>> = Obj1,
-    ?line BadObjs = [{LSize1,Slot1,BadSizeObj} | ObjsRest],
-    ?line {error, invalid_objects_list} = 
+    BadSize = byte_size(Obj1)-1,
+    <<BadSizeObj:BadSize/binary,_:1/binary>> = Obj1,
+    BadObjs = [{LSize1,Slot1,BadSizeObj} | ObjsRest],
+    {error, invalid_objects_list} =
 	dets:init_table(TabRef, init([[BParms | BadObjs]]),{format,bchunk}),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line <<Size:32,BigObj0/binary>> = list_to_binary(lists:duplicate(16,Obj1)),
-    ?line BigObj = <<(Size*16):32,BigObj0/binary>>,
-    ?line BadColl = [BParms, {LSize1+4,Slot1,BigObj} | ObjsRest],
-    ?line {error, invalid_objects_list} = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    <<Size:32,BigObj0/binary>> = list_to_binary(lists:duplicate(16,Obj1)),
+    BigObj = <<(Size*16):32,BigObj0/binary>>,
+    BadColl = [BParms, {LSize1+4,Slot1,BigObj} | ObjsRest],
+    {error, invalid_objects_list} =
          dets:init_table(TabRef, init([BadColl]),{format,bchunk}),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(TabRef, Args),
+    {ok, _} = dets:open_file(TabRef, Args),
     BadObj = <<"foobar">>,
-    ?line {error, invalid_objects_list} = 
+    {error, invalid_objects_list} =
 	dets:init_table(TabRef, init([[BParms, BadObj]]),{format,bchunk}),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(TabRef, [{type,bag} | Args]),
-    ?line {error, {init_fun, _}} = 
+    {ok, _} = dets:open_file(TabRef, [{type,bag} | Args]),
+    {error, {init_fun, _}} =
 	dets:init_table(TabRef, init([[BParms]]),{format,bchunk}),
-    ?line _ = dets:close(TabRef),
-    ?line file:delete(Fname),
+    _ = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line ok = dets:close(Source),
-    ?line file:delete(SourceFname),
+    ok = dets:close(Source),
+    file:delete(SourceFname),
 
     L1 = [{1,a},{2,b},{3,c},{4,d}],
     fast_bulk_init(L1, set, 4, 4, Config, V),
@@ -1090,91 +1089,91 @@ fast_init_table(Config) ->
     file:delete(Fname),
 
     %% Initiate a file that contains a lot of objects.
-    ?line {ok, _} = dets:open_file(Source, [{min_no_slots,10000} | SourceArgs]),
+    {ok, _} = dets:open_file(Source, [{min_no_slots,10000} | SourceArgs]),
     Fun1 = init_fun(0, 10000),
-    ?line ok = dets:init_table(Source, Fun1, {format,term}),
+    ok = dets:init_table(Source, Fun1, {format,term}),
     
-    ?line {ok, _} = dets:open_file(TabRef, [{min_no_slots,10000} | Args]),
-    ?line ok = ins(TabRef, 6000),
+    {ok, _} = dets:open_file(TabRef, [{min_no_slots,10000} | Args]),
+    ok = ins(TabRef, 6000),
     Fun2 = init_bchunk(Source),
-    ?line true = 
+    true =
         dets:is_compatible_bchunk_format(TabRef, 
                                          dets:info(Source, bchunk_format)),
-    ?line false = dets:is_compatible_bchunk_format(TabRef, <<"foobar">>),
-    ?line ok = dets:init_table(TabRef, Fun2, {format, bchunk}),
-    ?line ok = dets:close(Source),
-    ?line file:delete(SourceFname),
-    ?line All = sort(get_all_objects(TabRef)),
-    ?line FAll = get_all_objects_fast(TabRef),
-    ?line true = All =:= sort(FAll),
-    ?line true = length(All) =:= 10000,
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),
+    false = dets:is_compatible_bchunk_format(TabRef, <<"foobar">>),
+    ok = dets:init_table(TabRef, Fun2, {format, bchunk}),
+    ok = dets:close(Source),
+    file:delete(SourceFname),
+    All = sort(get_all_objects(TabRef)),
+    FAll = get_all_objects_fast(TabRef),
+    true = All =:= sort(FAll),
+    true = length(All) =:= 10000,
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
     %% Initiate inserts fewer objects than the table contains.
-    ?line {ok, _} = dets:open_file(Source, [{min_no_slots,1000} | SourceArgs]),
-    ?line ok = ins(Source, 4000),
+    {ok, _} = dets:open_file(Source, [{min_no_slots,1000} | SourceArgs]),
+    ok = ins(Source, 4000),
     
-    ?line {ok, _} = dets:open_file(TabRef, [{min_no_slots,1000} | Args]),
-    ?line ok = ins(TabRef, 6000),
-    ?line FileSize1 = dets:info(TabRef, file_size),
+    {ok, _} = dets:open_file(TabRef, [{min_no_slots,1000} | Args]),
+    ok = ins(TabRef, 6000),
+    FileSize1 = dets:info(TabRef, file_size),
     Fun4 = init_bchunk(Source),
-    ?line ok = dets:init_table(TabRef, Fun4, {format, bchunk}),
-    ?line ok = dets:close(Source),
-    ?line file:delete(SourceFname),
-    ?line FileSize2 = dets:info(TabRef, file_size),
-    ?line All_2 = sort(get_all_objects(TabRef)),
-    ?line FAll_2 = get_all_objects_fast(TabRef),
-    ?line true = All_2 =:= sort(FAll_2),
-    ?line true = length(All_2) =:= 4000,
-    ?line ok = dets:close(TabRef),
-    ?line true = FileSize1 > FileSize2,
+    ok = dets:init_table(TabRef, Fun4, {format, bchunk}),
+    ok = dets:close(Source),
+    file:delete(SourceFname),
+    FileSize2 = dets:info(TabRef, file_size),
+    All_2 = sort(get_all_objects(TabRef)),
+    FAll_2 = get_all_objects_fast(TabRef),
+    true = All_2 =:= sort(FAll_2),
+    true = length(All_2) =:= 4000,
+    ok = dets:close(TabRef),
+    true = FileSize1 > FileSize2,
 
     %% Bchunk and fixed table.
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line NoItems = dets:info(TabRef, no_objects),
-    ?line AllObjects1 = sort(get_all_objects_fast(TabRef)),
-    ?line dets:safe_fixtable(TabRef, true),
-    ?line true = dets:info(TabRef, fixed),
-    ?line Cont1 = init_bchunk(TabRef),
-    ?line NoDel = 
+    {ok, _} = dets:open_file(TabRef, Args),
+    NoItems = dets:info(TabRef, no_objects),
+    AllObjects1 = sort(get_all_objects_fast(TabRef)),
+    dets:safe_fixtable(TabRef, true),
+    true = dets:info(TabRef, fixed),
+    Cont1 = init_bchunk(TabRef),
+    NoDel =
 	dets:select_delete(TabRef, [{{'_',{item,'_','_'}},[],[true]}]),
-    ?line true = (NoDel > 0),
-    ?line AllObjects2 = sort(get_all_objects_fast(TabRef)),
-    ?line true = dets:info(TabRef, fixed),
-    ?line Cont2 = init_bchunk(TabRef),
-    ?line NoItems2 = dets:info(TabRef, no_objects),
-    ?line true = (NoItems =:= NoItems2 + NoDel),
-    ?line NoDel2 = dets:select_delete(TabRef, [{'_',[],[true]}]),
-    ?line true = (NoDel2 > 0),
-    ?line AllObjects3 = sort(get_all_objects_fast(TabRef)),
-    ?line NoItems3 = dets:info(TabRef, no_objects),
-    ?line true = (NoItems3 =:= 0),
-    ?line true = dets:info(TabRef, fixed),
-    ?line true = (NoItems2 =:= NoItems3 + NoDel2),
-    ?line Cont3 = init_bchunk(TabRef),
+    true = (NoDel > 0),
+    AllObjects2 = sort(get_all_objects_fast(TabRef)),
+    true = dets:info(TabRef, fixed),
+    Cont2 = init_bchunk(TabRef),
+    NoItems2 = dets:info(TabRef, no_objects),
+    true = (NoItems =:= NoItems2 + NoDel),
+    NoDel2 = dets:select_delete(TabRef, [{'_',[],[true]}]),
+    true = (NoDel2 > 0),
+    AllObjects3 = sort(get_all_objects_fast(TabRef)),
+    NoItems3 = dets:info(TabRef, no_objects),
+    true = (NoItems3 =:= 0),
+    true = dets:info(TabRef, fixed),
+    true = (NoItems2 =:= NoItems3 + NoDel2),
+    Cont3 = init_bchunk(TabRef),
 
-    ?line BinColl1 = collect_bchunk(TabRef, Cont1),
-    ?line BinColl2 = collect_bchunk(TabRef, Cont2),
-    ?line BinColl3 = collect_bchunk(TabRef, Cont3),
-    ?line dets:safe_fixtable(TabRef, false),
-    ?line ok = dets:close(TabRef),    
-    ?line file:delete(Fname),
+    BinColl1 = collect_bchunk(TabRef, Cont1),
+    BinColl2 = collect_bchunk(TabRef, Cont2),
+    BinColl3 = collect_bchunk(TabRef, Cont3),
+    dets:safe_fixtable(TabRef, false),
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
     %% Now check that the above collected binaries are correct.
-    ?line {ok, _} = dets:open_file(TabRef, Args),
-    ?line ok = dets:init_table(TabRef, init([BinColl1]),{format,bchunk}),
-    ?line true = (AllObjects1 =:= sort(get_all_objects_fast(TabRef))),
-    ?line true = (length(AllObjects1) =:= dets:info(TabRef, no_objects)),
-    ?line ok = dets:init_table(TabRef, init([BinColl2]),{format,bchunk}),
-    ?line true = (AllObjects2 =:= sort(get_all_objects_fast(TabRef))),
-    ?line true = (length(AllObjects2) =:= dets:info(TabRef, no_objects)),
-    ?line ok = dets:init_table(TabRef, init([BinColl3]),{format,bchunk}),
-    ?line true = (AllObjects3 =:= sort(get_all_objects_fast(TabRef))),
-    ?line true = (length(AllObjects3) =:= dets:info(TabRef, no_objects)),
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),
-    ?line check_pps(P0),
+    {ok, _} = dets:open_file(TabRef, Args),
+    ok = dets:init_table(TabRef, init([BinColl1]),{format,bchunk}),
+    true = (AllObjects1 =:= sort(get_all_objects_fast(TabRef))),
+    true = (length(AllObjects1) =:= dets:info(TabRef, no_objects)),
+    ok = dets:init_table(TabRef, init([BinColl2]),{format,bchunk}),
+    true = (AllObjects2 =:= sort(get_all_objects_fast(TabRef))),
+    true = (length(AllObjects2) =:= dets:info(TabRef, no_objects)),
+    ok = dets:init_table(TabRef, init([BinColl3]),{format,bchunk}),
+    true = (AllObjects3 =:= sort(get_all_objects_fast(TabRef))),
+    true = (length(AllObjects3) =:= dets:info(TabRef, no_objects)),
+    ok = dets:close(TabRef),
+    file:delete(Fname),
+    check_pps(P0),
     ok.
 
 fast_bulk_init(L, Type, N, NoKeys, Config, V) ->
@@ -1183,40 +1182,40 @@ fast_bulk_init(L, Type, N, NoKeys, Config, V) ->
 fast_bulk_init(L, Type, N, NoKeys, Est, Config, V) ->
     T = init_table_test,
     Fname = filename(T, Config),
-    ?line file:delete(Fname),
+    file:delete(Fname),
 
     Args0 = [{ram_file,false}, {type,Type},{keypos,1},
 	    {estimated_no_objects, Est},{version,V}],
     Args = [{file,Fname} | Args0],
     S = init_table_test_source,
     SFname = filename(S, Config),
-    ?line file:delete(SFname),
+    file:delete(SFname),
     SArgs = [{file,SFname} | Args0],
 
-    ?line {ok, S} = dets:open_file(S, SArgs),
-    ?line ok = dets:insert(S, L),
+    {ok, S} = dets:open_file(S, SArgs),
+    ok = dets:insert(S, L),
 
     Input = init_bchunk(S),
-    ?line {ok, T} = dets:open_file(T, Args),
-    ?line ok = dets:init_table(T, Input, [{format,bchunk}]),
-    ?line All = sort(get_all_objects(T)),
-    ?line FAll = get_all_objects_fast(T),
-    ?line true = All =:= sort(FAll),
-    ?line true = length(All) =:= N,
-    ?line true = dets:info(T, size) =:= N,
-    ?line true = dets:info(T, no_keys) =:= NoKeys,
-    ?line ok = dets:close(T),
+    {ok, T} = dets:open_file(T, Args),
+    ok = dets:init_table(T, Input, [{format,bchunk}]),
+    All = sort(get_all_objects(T)),
+    FAll = get_all_objects_fast(T),
+    true = All =:= sort(FAll),
+    true = length(All) =:= N,
+    true = dets:info(T, size) =:= N,
+    true = dets:info(T, no_keys) =:= NoKeys,
+    ok = dets:close(T),
     
-    ?line {ok, T} = dets:open_file(T, Args),
-    ?line All2 = sort(get_all_objects(T)),
-    ?line FAll2 = get_all_objects_fast(T),
-    ?line true = All =:= All2,
-    ?line true = All =:= sort(FAll2),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),
+    {ok, T} = dets:open_file(T, Args),
+    All2 = sort(get_all_objects(T)),
+    FAll2 = get_all_objects_fast(T),
+    true = All =:= All2,
+    true = All =:= sort(FAll2),
+    ok = dets:close(T),
+    file:delete(Fname),
 
-    ?line ok = dets:close(S),
-    ?line file:delete(SFname),
+    ok = dets:close(S),
+    file:delete(SFname),
     ok.
 
 init_bchunk(T) ->
@@ -1268,94 +1267,94 @@ repair_v9(Config) when is_list(Config) ->
     %% Convert from format 9 to format 8.
     T = convert_98,
     Fname = filename(T, Config),
-    ?line file:delete(Fname),
-    ?line {ok, _} = dets:open_file(T, [{file,Fname},{version,9},
+    file:delete(Fname),
+    {ok, _} = dets:open_file(T, [{file,Fname},{version,9},
 				       {type,duplicate_bag}]),
-    ?line 9 = dets:info(T, version),
-    ?line true = is_binary(dets:info(T, bchunk_format)),
-    ?line ok = dets:insert(T, [{1,a},{2,b},{1,c},{2,c},{1,c},{2,a},{1,b}]),
-    ?line dets:close(T),
-    ?line {error, {version_mismatch, _}} = 
+    9 = dets:info(T, version),
+    true = is_binary(dets:info(T, bchunk_format)),
+    ok = dets:insert(T, [{1,a},{2,b},{1,c},{2,c},{1,c},{2,a},{1,b}]),
+    dets:close(T),
+    {error, {version_mismatch, _}} =
 	dets:open_file(T, [{file,Fname},{version,8},{type,duplicate_bag}]),
-    ?line {ok, _} = dets:open_file(T, [{file,Fname},{version,8},
+    {ok, _} = dets:open_file(T, [{file,Fname},{version,8},
 				       {type,duplicate_bag},{repair,force}]),
-    ?line 8 = dets:info(T, version),
-    ?line true = undefined =:= dets:info(T, bchunk_format),
-    ?line [{1,a},{1,b},{1,c},{1,c}] = sort(dets:lookup(T, 1)),
-    ?line [{2,a},{2,b},{2,c}] = sort(dets:lookup(T, 2)),
-    ?line 7 = dets:info(T, no_objects),
-    ?line no_keys_test(T),
-    ?line _ = histogram(T, silent),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),
+    8 = dets:info(T, version),
+    true = undefined =:= dets:info(T, bchunk_format),
+    [{1,a},{1,b},{1,c},{1,c}] = sort(dets:lookup(T, 1)),
+    [{2,a},{2,b},{2,c}] = sort(dets:lookup(T, 2)),
+    7 = dets:info(T, no_objects),
+    no_keys_test(T),
+    _ = histogram(T, silent),
+    ok = dets:close(T),
+    file:delete(Fname),
 
     %% The short lived format 9(a).
     %% Not very throughly tested here.
     A9 = a9,
-    ?line Version9aS = filename:join(?datadir(Config), "version_9a.dets"),
-    ?line Version9aT = filename('v9a.dets', Config),
-    ?line {ok, _} = file:copy(Version9aS, Version9aT),
-    ?line {ok, A9} = dets:open_file(A9, [{file,Version9aT}]),
-    ?line undefined = dets:info(A9, bchunk_format),
-    ?line [{1,a},{2,b},{3,c}] = sort(dets:match_object(A9, '_')),
-    ?line ok = dets:insert(A9, {4,d}),
-    ?line ok = dets:close(A9),
-    ?line {ok, A9} = dets:open_file(A9, [{file,Version9aT}]),
-    ?line {error, old_version} = dets:bchunk(A9, start),
-    ?line ok = dets:close(A9),
-    ?line io:format("Expect forced repair:~n"),
-    ?line {ok, A9} = dets:open_file(A9, [{file,Version9aT},{repair,force}]),
-    ?line {_, _} = dets:bchunk(A9, start),
-    ?line ok = dets:close(A9),
-    ?line file:delete(Version9aT),
+    Version9aS = filename:join(?datadir(Config), "version_9a.dets"),
+    Version9aT = filename('v9a.dets', Config),
+    {ok, _} = file:copy(Version9aS, Version9aT),
+    {ok, A9} = dets:open_file(A9, [{file,Version9aT}]),
+    undefined = dets:info(A9, bchunk_format),
+    [{1,a},{2,b},{3,c}] = sort(dets:match_object(A9, '_')),
+    ok = dets:insert(A9, {4,d}),
+    ok = dets:close(A9),
+    {ok, A9} = dets:open_file(A9, [{file,Version9aT}]),
+    {error, old_version} = dets:bchunk(A9, start),
+    ok = dets:close(A9),
+    io:format("Expect forced repair:~n"),
+    {ok, A9} = dets:open_file(A9, [{file,Version9aT},{repair,force}]),
+    {_, _} = dets:bchunk(A9, start),
+    ok = dets:close(A9),
+    file:delete(Version9aT),
 
     repair(Config, 9).
 
 repair(Config, V) ->
     TabRef = repair_test,
     Fname = filename(TabRef, Config),
-    ?line file:delete(Fname),
+    file:delete(Fname),
     HeadSize = headsz(V),
 
     P0 = pps(),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} =
 	(catch dets:open_file(TabRef, [{min_no_slots,1000},
 				       {max_no_slots,500}])),
-    ?line {error,{file_error,hoppla,enoent}} = dets:file_info(hoppla),
-    ?line {error,{file_error,Fname,enoent}} = 
+    {error,{file_error,hoppla,enoent}} = dets:file_info(hoppla),
+    {error,{file_error,Fname,enoent}} =
 	dets:open_file(TabRef, [{file, Fname}, {access, read}]),
 
     %% compacting, and some kind of test that free lists are saved OK on file
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
-    ?line 0 = dets:info(TabRef, size),
-    ?line ok = ins(TabRef, 30000),
-    ?line ok = del(TabRef, 30000, 3),
-    ?line ok = dets:close(TabRef),
-    ?line {error, {access_mode,Fname}} =
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    0 = dets:info(TabRef, size),
+    ok = ins(TabRef, 30000),
+    ok = del(TabRef, 30000, 3),
+    ok = dets:close(TabRef),
+    {error, {access_mode,Fname}} =
         dets:open_file(foo, [{file,Fname},{repair,force},{access,read}]),
-    ?line {ok, Ref3} = dets:open_file(Fname), % no repair!
-    ?line 20000 = dets:info(Ref3, size),
-    ?line 20000 = dets:foldl(fun(_, N) -> N+1 end, 0, Ref3),
-    ?line 20000 = count_objects_quite_fast(Ref3), % actually a test of match
-    ?line no_keys_test(Ref3),
-    ?line ok = dets:close(Ref3),
+    {ok, Ref3} = dets:open_file(Fname), % no repair!
+    20000 = dets:info(Ref3, size),
+    20000 = dets:foldl(fun(_, N) -> N+1 end, 0, Ref3),
+    20000 = count_objects_quite_fast(Ref3), % actually a test of match
+    no_keys_test(Ref3),
+    ok = dets:close(Ref3),
     if
         V =:= 8 ->
-            ?line {ok, TabRef} = dets:open_file(TabRef, 
+            {ok, TabRef} = dets:open_file(TabRef,
                                    [{file, Fname},{version,V},{access,read}]),
-            ?line ok = dets:close(TabRef),
-            ?line io:format("Expect compacting repair:~n"),
-            ?line {ok, TabRef} = dets:open_file(TabRef, 
+            ok = dets:close(TabRef),
+            io:format("Expect compacting repair:~n"),
+            {ok, TabRef} = dets:open_file(TabRef,
                                                 [{file, Fname},{version,V}]),
-            ?line 20000 = dets:info(TabRef, size),
-	    ?line _ = histogram(TabRef, silent),
-            ?line ok = dets:close(TabRef);
+            20000 = dets:info(TabRef, size),
+	    _ = histogram(TabRef, silent),
+            ok = dets:close(TabRef);
         true ->
             ok
     end,
-    ?line {error,{keypos_mismatch,Fname}} = 
+    {error,{keypos_mismatch,Fname}} =
 	dets:open_file(TabRef, [{file, Fname},{keypos,17}]),
-    ?line {error,{type_mismatch,Fname}} = 
+    {error,{type_mismatch,Fname}} =
 	dets:open_file(TabRef, [{file, Fname},{type,duplicate_bag}]),
 
     %% make one of the temporary files unwritable
@@ -1364,257 +1363,257 @@ repair(Config, V) ->
 		      Fname ++ ".TMP.10000"; 
 		  true -> Fname ++ ".TMP.1" 
 	      end,
-    ?line file:delete(TmpFile),
-    ?line {ok, TmpFd} = file:open(TmpFile, [read,write]),
-    ?line ok = file:close(TmpFd),
-    ?line unwritable(TmpFile),
-    ?line {error,{file_error,TmpFile,eacces}} = dets:fsck(Fname, V),
-    ?line {ok, _} = dets:open_file(TabRef, 
-                        [{repair,false},{file, Fname},{version,V}]),
-    ?line 20000 = length(get_all_objects(TabRef)),
-    ?line _ = histogram(TabRef, silent),
-    ?line 20000 = length(get_all_objects_fast(TabRef)),
-    ?line ok = dets:close(TabRef),
-    ?line writable(TmpFile),
-    ?line file:delete(TmpFile),
+    file:delete(TmpFile),
+    {ok, TmpFd} = file:open(TmpFile, [read,write]),
+    ok = file:close(TmpFd),
+    unwritable(TmpFile),
+    {error,{file_error,TmpFile,eacces}} = dets:fsck(Fname, V),
+    {ok, _} = dets:open_file(TabRef,
+                             [{repair,false},{file, Fname},{version,V}]),
+    20000 = length(get_all_objects(TabRef)),
+    _ = histogram(TabRef, silent),
+    20000 = length(get_all_objects_fast(TabRef)),
+    ok = dets:close(TabRef),
+    writable(TmpFile),
+    file:delete(TmpFile),
 
-    ?line truncate(Fname, HeadSize + 10),
-    ?line {error,{not_closed, Fname}} = 
+    truncate(Fname, HeadSize + 10),
+    {error,{not_closed, Fname}} =
 	dets:open_file(TabRef, [{file, Fname}, {access, read}]),
-    ?line {error,{not_closed, Fname}} = 
+    {error,{not_closed, Fname}} =
 	dets:open_file(TabRef, [{file, Fname}, {access, read}, 
                                 {repair,force}]),
-    ?line {error,{needs_repair, Fname}} = 
+    {error,{needs_repair, Fname}} =
 	dets:open_file(TabRef, [{file, Fname}, {repair, false}]),
-    ?line file:delete(Fname),
+    file:delete(Fname),
 
     %% truncated file header
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
-    ?line ok = ins(TabRef, 100),
-    ?line ok = dets:close(TabRef),
-    ?line truncate(Fname, HeadSize - 10),    
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    ok = ins(TabRef, 100),
+    ok = dets:close(TabRef),
+    truncate(Fname, HeadSize - 10),
     %% a new file is created ('tooshort')
-    ?line {ok, TabRef} = dets:open_file(TabRef, 
-					[{file,Fname},{version,V},
-					 {min_no_slots,1000},
-					 {max_no_slots,1000000}]),
+    {ok, TabRef} = dets:open_file(TabRef,
+                                  [{file,Fname},{version,V},
+                                   {min_no_slots,1000},
+                                   {max_no_slots,1000000}]),
     case dets:info(TabRef, no_slots) of
 	undefined -> ok;
 	{Min1,Slot1,Max1} ->
-	    ?line true = Min1 =< Slot1, true = Slot1 =< Max1,
-	    ?line true = 1000 < Min1, true = 1000+256 > Min1,
-	    ?line true = 1000000 < Max1, true = (1 bsl 20)+256 > Max1
+	    true = Min1 =< Slot1, true = Slot1 =< Max1,
+	    true = 1000 < Min1, true = 1000+256 > Min1,
+	    true = 1000000 < Max1, true = (1 bsl 20)+256 > Max1
     end,
-    ?line 0 = dets:info(TabRef, size),
-    ?line no_keys_test(TabRef),
-    ?line _ = histogram(TabRef, silent),
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),
+    0 = dets:info(TabRef, size),
+    no_keys_test(TabRef),
+    _ = histogram(TabRef, silent),
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
     %% version bump (v8)
-    ?line Version7S = filename:join(?datadir(Config), "version_r2d.dets"),
-    ?line Version7T = filename('v2.dets', Config),
-    ?line {ok, _} = file:copy(Version7S, Version7T),
-    ?line {error,{version_bump, Version7T}} = dets:open_file(Version7T),
-    ?line {error,{version_bump, Version7T}} = 
+    Version7S = filename:join(?datadir(Config), "version_r2d.dets"),
+    Version7T = filename('v2.dets', Config),
+    {ok, _} = file:copy(Version7S, Version7T),
+    {error,{version_bump, Version7T}} = dets:open_file(Version7T),
+    {error,{version_bump, Version7T}} =
 	dets:open_file(Version7T, [{file,Version7T},{repair,false}]),
-    ?line {error,{version_bump, Version7T}} = 
+    {error,{version_bump, Version7T}} =
 	dets:open_file(Version7T, [{file, Version7T}, {access, read}]),
-    ?line io:format("Expect upgrade:~n"),
-    ?line {ok, _} = dets:open_file(Version7T, 
+    io:format("Expect upgrade:~n"),
+    {ok, _} = dets:open_file(Version7T,
                                    [{file, Version7T},{version, V}]),
-    ?line [{1,a},{2,b}] = sort(get_all_objects(Version7T)),
-    ?line [{1,a},{2,b}] = sort(get_all_objects_fast(Version7T)),
+    [{1,a},{2,b}] = sort(get_all_objects(Version7T)),
+    [{1,a},{2,b}] = sort(get_all_objects_fast(Version7T)),
     Phash = if 
 		V =:= 8 -> phash;
 		true -> phash2
 	    end,
-    ?line Phash = dets:info(Version7T, hash),
-    ?line _ = histogram(Version7T, silent),
-    ?line ok = dets:close(Version7T),
-    ?line {ok, _} = dets:open_file(Version7T, [{file, Version7T}]),
-    ?line Phash = dets:info(Version7T, hash),
-    ?line ok = dets:close(Version7T),
-    ?line file:delete(Version7T),
+    Phash = dets:info(Version7T, hash),
+    _ = histogram(Version7T, silent),
+    ok = dets:close(Version7T),
+    {ok, _} = dets:open_file(Version7T, [{file, Version7T}]),
+    Phash = dets:info(Version7T, hash),
+    ok = dets:close(Version7T),
+    file:delete(Version7T),
 
     %% converting free lists
-    ?line Version8aS = filename:join(?datadir(Config), "version_r3b02.dets"),
-    ?line Version8aT = filename('v3.dets', Config),
-    ?line {ok, _} = file:copy(Version8aS, Version8aT),
+    Version8aS = filename:join(?datadir(Config), "version_r3b02.dets"),
+    Version8aT = filename('v3.dets', Config),
+    {ok, _} = file:copy(Version8aS, Version8aT),
     %% min_no_slots and max_no_slots are ignored - no repair is taking place
-    ?line {ok, _} = dets:open_file(version_8a, 
+    {ok, _} = dets:open_file(version_8a,
 				   [{file, Version8aT},{min_no_slots,1000},
 				    {max_no_slots,100000}]),
-    ?line [{1,b},{2,a},{a,1},{b,2}] = sort(get_all_objects(version_8a)),
-    ?line [{1,b},{2,a},{a,1},{b,2}] = sort(get_all_objects_fast(version_8a)),
-    ?line ok = ins(version_8a, 1000),
-    ?line 1002 = dets:info(version_8a, size),
-    ?line no_keys_test(version_8a),
-    ?line All8a = sort(get_all_objects(version_8a)),
-    ?line 1002 = length(All8a),
-    ?line FAll8a = sort(get_all_objects_fast(version_8a)),
-    ?line true = sort(All8a) =:= sort(FAll8a),
-    ?line ok = del(version_8a, 300, 3),
-    ?line 902 = dets:info(version_8a, size),
-    ?line no_keys_test(version_8a),
-    ?line All8a2 = sort(get_all_objects(version_8a)),
-    ?line 902 = length(All8a2),
-    ?line FAll8a2 = sort(get_all_objects_fast(version_8a)),
-    ?line true = sort(All8a2) =:= sort(FAll8a2),
-    ?line _ = histogram(version_8a, silent),
-    ?line ok = dets:close(version_8a),
-    ?line file:delete(Version8aT),
+    [{1,b},{2,a},{a,1},{b,2}] = sort(get_all_objects(version_8a)),
+    [{1,b},{2,a},{a,1},{b,2}] = sort(get_all_objects_fast(version_8a)),
+    ok = ins(version_8a, 1000),
+    1002 = dets:info(version_8a, size),
+    no_keys_test(version_8a),
+    All8a = sort(get_all_objects(version_8a)),
+    1002 = length(All8a),
+    FAll8a = sort(get_all_objects_fast(version_8a)),
+    true = sort(All8a) =:= sort(FAll8a),
+    ok = del(version_8a, 300, 3),
+    902 = dets:info(version_8a, size),
+    no_keys_test(version_8a),
+    All8a2 = sort(get_all_objects(version_8a)),
+    902 = length(All8a2),
+    FAll8a2 = sort(get_all_objects_fast(version_8a)),
+    true = sort(All8a2) =:= sort(FAll8a2),
+    _ = histogram(version_8a, silent),
+    ok = dets:close(version_8a),
+    file:delete(Version8aT),
 
     %% will fail unless the slots are properly sorted when repairing (v8)
     BArgs = [{file, Fname},{type,duplicate_bag},
 	     {delayed_write,{3000,10000}},{version,V}],
-    ?line {ok, TabRef} = dets:open_file(TabRef, BArgs),
+    {ok, TabRef} = dets:open_file(TabRef, BArgs),
     Seq = seq(1, 500),
     Small = map(fun(X) -> {X,X} end, Seq),
     Big = map(fun(X) -> erlang:make_tuple(20, X) end, Seq),
-    ?line ok = dets:insert(TabRef, Small),
-    ?line ok = dets:insert(TabRef, Big),
-    ?line ok = dets:insert(TabRef, Small),
-    ?line ok = dets:insert(TabRef, Big),
-    ?line All = sort(safe_get_all_objects(TabRef)),
-    ?line ok = dets:close(TabRef),
-    ?line io:format("Expect forced repair:~n"),
-    ?line {ok, _} = 
+    ok = dets:insert(TabRef, Small),
+    ok = dets:insert(TabRef, Big),
+    ok = dets:insert(TabRef, Small),
+    ok = dets:insert(TabRef, Big),
+    All = sort(safe_get_all_objects(TabRef)),
+    ok = dets:close(TabRef),
+    io:format("Expect forced repair:~n"),
+    {ok, _} =
          dets:open_file(TabRef, [{repair,force},{min_no_slots,2000} | BArgs]),
     if 
 	V =:= 9 ->
-	    ?line {MinNoSlots,_,MaxNoSlots} = dets:info(TabRef, no_slots),
-	    ?line ok = dets:close(TabRef),
-	    ?line io:format("Expect compaction:~n"),
-	    ?line {ok, _} = 
+	    {MinNoSlots,_,MaxNoSlots} = dets:info(TabRef, no_slots),
+	    ok = dets:close(TabRef),
+	    io:format("Expect compaction:~n"),
+	    {ok, _} =
 		dets:open_file(TabRef, [{repair,force},
 					{min_no_slots,MinNoSlots},
 					{max_no_slots,MaxNoSlots} | BArgs]);
 	true ->
 	    ok
     end,
-    ?line All2 = get_all_objects(TabRef),
-    ?line true = All =:= sort(All2),
-    ?line FAll2 = get_all_objects_fast(TabRef),
-    ?line true = All =:= sort(FAll2),
-    ?line true = length(All) =:= dets:info(TabRef, size),
-    ?line no_keys_test(TabRef),
+    All2 = get_all_objects(TabRef),
+    true = All =:= sort(All2),
+    FAll2 = get_all_objects_fast(TabRef),
+    true = All =:= sort(FAll2),
+    true = length(All) =:= dets:info(TabRef, size),
+    no_keys_test(TabRef),
     Fun = fun(X) -> 4 = length(dets:lookup(TabRef, X)) end,
-    ?line foreach(Fun, Seq),
-    ?line _ = histogram(TabRef, silent),
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),
+    foreach(Fun, Seq),
+    _ = histogram(TabRef, silent),
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
     %% object bigger than segments, the "hole" is taken care of
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file, Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file, Fname},{version,V}]),
     Tuple = erlang:make_tuple(1000, foobar), % > 2 kB
-    ?line ok = dets:insert(TabRef, Tuple),
+    ok = dets:insert(TabRef, Tuple),
     %% at least one full segment (objects smaller than 2 kB):
-    ?line ins(TabRef, 2000), 
-    ?line ok = dets:close(TabRef),
+    ins(TabRef, 2000),
+    ok = dets:close(TabRef),
 
     if 
         V =:= 8 ->
             %% first estimated number of objects is wrong, repair once more
-            ?line {ok, Fd} = file:open(Fname, [read,write]),
+            {ok, Fd} = file:open(Fname, [read,write]),
             NoPos = HeadSize - 8,  % no_objects
-            ?line file:pwrite(Fd, NoPos, <<0:32>>), % NoItems
+            file:pwrite(Fd, NoPos, <<0:32>>), % NoItems
             ok = file:close(Fd),
-            ?line dets:fsck(Fname, V),
-            ?line {ok, _} = 
+            dets:fsck(Fname, V),
+            {ok, _} =
                 dets:open_file(TabRef, 
                                [{repair,false},{file, Fname},{version,V}]),
-            ?line 2001 = length(get_all_objects(TabRef)),
-            ?line _ = histogram(TabRef, silent),
-            ?line 2001 = length(get_all_objects_fast(TabRef)),
-            ?line ok = dets:close(TabRef);
+            2001 = length(get_all_objects(TabRef)),
+            _ = histogram(TabRef, silent),
+            2001 = length(get_all_objects_fast(TabRef)),
+            ok = dets:close(TabRef);
         true ->
             ok
     end,
 
-    ?line {ok, _} = 
+    {ok, _} =
         dets:open_file(TabRef, 
                        [{repair,false},{file, Fname},{version,V}]),
-    ?line {ok, ObjPos} = dets:where(TabRef, {66,{item,number,66}}),
-    ?line ok = dets:close(TabRef),
+    {ok, ObjPos} = dets:where(TabRef, {66,{item,number,66}}),
+    ok = dets:close(TabRef),
     %% Damaged object.
     Pos = 12, % v9: compaction fails, proper repair follows
     crash(Fname, ObjPos+Pos),
-    ?line io:format(
+    io:format(
 	    "Expect forced repair (possibly after attempted compaction):~n"),
-    ?line {ok, _} = 
+    {ok, _} =
 	dets:open_file(TabRef, [{repair,force},{file, Fname},{version,V}]),
-    ?line true = dets:info(TabRef, size) < 2001,
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),
+    true = dets:info(TabRef, size) < 2001,
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
     %% The file is smaller than the padded object.
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
-    ?line ok = dets:insert(TabRef, Tuple),
-    ?line ok = dets:close(TabRef),
-    ?line io:format("Expect forced repair or compaction:~n"),
-    ?line {ok, _} = 
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    ok = dets:insert(TabRef, Tuple),
+    ok = dets:close(TabRef),
+    io:format("Expect forced repair or compaction:~n"),
+    {ok, _} =
 	dets:open_file(TabRef, [{repair,force},{file, Fname},{version,V}]),
-    ?line true = 1 =:= dets:info(TabRef, size),
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),
+    true = 1 =:= dets:info(TabRef, size),
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
     %% Damaged free lists.
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
-    ?line ok = ins(TabRef, 300),
-    ?line ok = dets:sync(TabRef),
-    ?line ok = del(TabRef, 300, 3),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    ok = ins(TabRef, 300),
+    ok = dets:sync(TabRef),
+    ok = del(TabRef, 300, 3),
     %% FileSize is approximately where the free lists will be written.
-    ?line FileSize = dets:info(TabRef, memory),
-    ?line ok = dets:close(TabRef),
+    FileSize = dets:info(TabRef, memory),
+    ok = dets:close(TabRef),
     crash(Fname, FileSize+20),
     %% Used to return bad_freelists, but that changed in OTP-9622
-    ?line {ok, TabRef} =
+    {ok, TabRef} =
 	dets:open_file(TabRef, [{file,Fname},{version,V}]),
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
     %% File not closed, opening with read and read_write access tried.
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
-    ?line ok = ins(TabRef, 300),
-    ?line ok = dets:close(TabRef),
-    ?line crash(Fname, ?CLOSED_PROPERLY_POS+3, ?NOT_PROPERLY_CLOSED),
-    ?line {error, {not_closed, Fname}} =
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    ok = ins(TabRef, 300),
+    ok = dets:close(TabRef),
+    crash(Fname, ?CLOSED_PROPERLY_POS+3, ?NOT_PROPERLY_CLOSED),
+    {error, {not_closed, Fname}} =
        dets:open_file(foo, [{file,Fname},{version,V},{repair,force},
                             {access,read}]),
-    ?line {error, {not_closed, Fname}} =
+    {error, {not_closed, Fname}} =
        dets:open_file(foo, [{file,Fname},{version,V},{repair,true},
                             {access,read}]),
-    ?line io:format("Expect repair:~n"),
-    ?line {ok, TabRef} =
+    io:format("Expect repair:~n"),
+    {ok, TabRef} =
        dets:open_file(TabRef, [{file,Fname},{version,V},{repair,true},
                                {access,read_write}]),
-    ?line ok = dets:close(TabRef),
-    ?line crash(Fname, ?CLOSED_PROPERLY_POS+3, ?NOT_PROPERLY_CLOSED),
-    ?line io:format("Expect forced repair:~n"),
-    ?line {ok, TabRef} =
+    ok = dets:close(TabRef),
+    crash(Fname, ?CLOSED_PROPERLY_POS+3, ?NOT_PROPERLY_CLOSED),
+    io:format("Expect forced repair:~n"),
+    {ok, TabRef} =
        dets:open_file(TabRef, [{file,Fname},{version,V},{repair,force},
                                {access,read_write}]),
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),    
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
     %% The size of an object is huge.
-    ?line {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
-    ?line ok = dets:insert(TabRef, [{1,2,3},{2,3,4}]),
-    ?line {ok, ObjPos2} = dets:where(TabRef, {1,2,3}),
-    ?line ok = dets:close(TabRef),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    ok = dets:insert(TabRef, [{1,2,3},{2,3,4}]),
+    {ok, ObjPos2} = dets:where(TabRef, {1,2,3}),
+    ok = dets:close(TabRef),
     ObjPos3 = if
                   V =:= 8 -> ObjPos2 + 4;
                   V =:= 9 -> ObjPos2
               end,
     crash(Fname, ObjPos3, 255),
-    ?line io:format("Expect forced repair:~n"),
-    ?line {ok, TabRef} = 
+    io:format("Expect forced repair:~n"),
+    {ok, TabRef} =
          dets:open_file(TabRef, [{file,Fname},{version,V},{repair,force}]),
-    ?line ok = dets:close(TabRef),
-    ?line file:delete(Fname),    
+    ok = dets:close(TabRef),
+    file:delete(Fname),
 
-    ?line check_pps(P0),
+    check_pps(P0),
     ok.
 
 hash_v8b_v8c(doc) ->
@@ -1623,77 +1622,77 @@ hash_v8b_v8c(doc) ->
 hash_v8b_v8c(suite) ->
     [];
 hash_v8b_v8c(Config) when is_list(Config) ->
-    ?line Source = 
+    Source =
 	filename:join(?datadir(Config), "dets_test_v8b.dets"),
     %% Little endian version of old file (there is an endianess bug in 
     %% the old hash). This is all about version 8 of the dets file format.
 
     P0 = pps(),
-    ?line SourceLE = 
+    SourceLE =
 	filename:join(?datadir(Config), 
 		      "dets_test_v8b_little_endian.dets"),
-    ?line Target1 = filename('oldhash1.dets', Config),
-    ?line Target1LE = filename('oldhash1le.dets', Config),
-    ?line Target2 = filename('oldhash2.dets', Config),
-    ?line {ok, Bin} = file:read_file(Source),
-    ?line {ok, BinLE} = file:read_file(SourceLE),
-    ?line ok = file:write_file(Target1,Bin),
-    ?line ok = file:write_file(Target1LE,BinLE),
-    ?line ok = file:write_file(Target2,Bin),
-    ?line {ok, d1} = dets:open_file(d1,[{file,Target1}]),
-    ?line {ok, d1le} = dets:open_file(d1le,[{file,Target1LE}]),
-    ?line {ok, d2} = dets:open_file(d2,[{file,Target2},{repair,force},
+    Target1 = filename('oldhash1.dets', Config),
+    Target1LE = filename('oldhash1le.dets', Config),
+    Target2 = filename('oldhash2.dets', Config),
+    {ok, Bin} = file:read_file(Source),
+    {ok, BinLE} = file:read_file(SourceLE),
+    ok = file:write_file(Target1,Bin),
+    ok = file:write_file(Target1LE,BinLE),
+    ok = file:write_file(Target2,Bin),
+    {ok, d1} = dets:open_file(d1,[{file,Target1}]),
+    {ok, d1le} = dets:open_file(d1le,[{file,Target1LE}]),
+    {ok, d2} = dets:open_file(d2,[{file,Target2},{repair,force},
                                         {version,8}]),
-    ?line FF = fun(N,_F,_T) when N > 16#FFFFFFFFFFFFFFFF -> 
-		       ok;
-		  (N,F,T) -> 
-		       V = integer_to_list(N),
-		       case dets:lookup(T,N) of
-				 [{N,V}] ->
-				     F(N*2,F,T);
-				 _Error ->
-				     exit({failed,{lookup,T,N}})
-			     end
-	       end,
-    ?line Mess = case (catch FF(1,FF,d1)) of
-		     {'EXIT', {failed, {lookup,_,_}}} ->
-			 ?line ok = dets:close(d1),
-			 ?line FF(1,FF,d1le),
-			 ?line hash = dets:info(d1le,hash),
-			 ?line dets:insert(d1le,{33333333333,hejsan}),
-			 ?line [{33333333333,hejsan}] = 
-			     dets:lookup(d1le,33333333333),
-			 ?line ok = dets:close(d1le),
-			 ?line {ok, d1le} = dets:open_file(d1le,
-							   [{file,Target1LE}]),
-			 ?line [{33333333333,hejsan}] = 
-			     dets:lookup(d1le,33333333333),
-			 ?line FF(1,FF,d1le),
-			 ?line ok = dets:close(d1le),
-			 "Seems to be a little endian machine";
-		     {'EXIT', Fault} ->
-			 exit(Fault);
-		     _ ->
-			 ?line ok = dets:close(d1le),
-			 ?line hash = dets:info(d1,hash),
-			 ?line dets:insert(d1,{33333333333,hejsan}),
-			 ?line [{33333333333,hejsan}] = 
-			     dets:lookup(d1,33333333333),
-			 ?line ok = dets:close(d1),
-			 ?line {ok, d1} = dets:open_file(d1,[{file,Target1}]),
-			 ?line [{33333333333,hejsan}] = 
-			     dets:lookup(d1,33333333333),
-			 ?line FF(1,FF,d1),
-			 ?line ok = dets:close(d1),
-			 "Seems to be a big endian machine"
-		 end,
-    ?line FF(1,FF,d2),
-    ?line phash = dets:info(d2,hash),
-    ?line ok = dets:close(d2),
-    ?line file:delete(Target1),
-    ?line file:delete(Target1LE),
-    ?line file:delete(Target2),
-    ?line check_pps(P0),
+    FF = fun(N,_F,_T) when N > 16#FFFFFFFFFFFFFFFF ->
+                 ok;
+            (N,F,T) ->
+                 V = integer_to_list(N),
+                 case dets:lookup(T,N) of
+                     [{N,V}] ->
+                         F(N*2,F,T);
+                     _Error ->
+                         exit({failed,{lookup,T,N}})
+                 end
+         end,
+    Mess = case (catch FF(1,FF,d1)) of
+               {'EXIT', {failed, {lookup,_,_}}} ->
+                   ok = dets:close(d1),
+                   FF(1,FF,d1le),
+                   hash = dets:info(d1le,hash),
+                   dets:insert(d1le,{33333333333,hejsan}),
+                   [{33333333333,hejsan}] =
+                       dets:lookup(d1le,33333333333),
+                   ok = dets:close(d1le),
+                   {ok, d1le} = dets:open_file(d1le,
+                                                     [{file,Target1LE}]),
+                   [{33333333333,hejsan}] =
+                       dets:lookup(d1le,33333333333),
+                   FF(1,FF,d1le),
+                   ok = dets:close(d1le),
+                   "Seems to be a little endian machine";
+               {'EXIT', Fault} ->
+                   exit(Fault);
+               _ ->
+                   ok = dets:close(d1le),
+                   hash = dets:info(d1,hash),
+                   dets:insert(d1,{33333333333,hejsan}),
+                   [{33333333333,hejsan}] =
+                       dets:lookup(d1,33333333333),
+                   ok = dets:close(d1),
+                   {ok, d1} = dets:open_file(d1,[{file,Target1}]),
+                   [{33333333333,hejsan}] =
+                       dets:lookup(d1,33333333333),
+                   FF(1,FF,d1),
+                   ok = dets:close(d1),
+                   "Seems to be a big endian machine"
+           end,
+    FF(1,FF,d2),
+    phash = dets:info(d2,hash),
+    ok = dets:close(d2),
+    file:delete(Target1),
+    file:delete(Target1LE),
+    file:delete(Target2),
+    check_pps(P0),
     {comment, Mess}.
 
 phash(doc) ->
@@ -1704,57 +1703,57 @@ phash(Config) when is_list(Config) ->
     T = phash,
     Phash_v9bS = filename:join(?datadir(Config), "version_9b_phash.dat"),
     Fname = filename('v9b.dets', Config),
-    ?line {ok, _} = file:copy(Phash_v9bS, Fname),
+    {ok, _} = file:copy(Phash_v9bS, Fname),
     
     %% Deleting all objects changes the hash function. 
     %% A feature... (it's for free)
-    ?line {ok, T} = dets:open_file(T, [{file, Fname}]),
-    ?line phash = dets:info(T, hash),
-    ?line dets:delete_all_objects(T),
-    ?line phash2 = dets:info(T, hash),
-    ?line [] = get_all_objects(T),
-    ?line [] = get_all_objects_fast(T),
-    ?line ok = dets:close(T),
+    {ok, T} = dets:open_file(T, [{file, Fname}]),
+    phash = dets:info(T, hash),
+    dets:delete_all_objects(T),
+    phash2 = dets:info(T, hash),
+    [] = get_all_objects(T),
+    [] = get_all_objects_fast(T),
+    ok = dets:close(T),
 
     %% The hash function is kept when compacting a table.
-    ?line {ok, _} = file:copy(Phash_v9bS, Fname),
-    ?line io:format("Expect compaction:~n"),
-    ?line {ok, T} = dets:open_file(T, [{file, Fname},{repair,force}]),
-    ?line phash = dets:info(T, hash),
-    ?line [{1,a},{2,b},{3,c},{4,d},{5,e}] =
+    {ok, _} = file:copy(Phash_v9bS, Fname),
+    io:format("Expect compaction:~n"),
+    {ok, T} = dets:open_file(T, [{file, Fname},{repair,force}]),
+    phash = dets:info(T, hash),
+    [{1,a},{2,b},{3,c},{4,d},{5,e}] =
 	lists:sort(dets:lookup_keys(T, [1,2,3,4,5])),
-    ?line ok = dets:close(T),
+    ok = dets:close(T),
 
     %% The hash function is updated when repairing a table (no cost).
-    ?line {ok, _} = file:copy(Phash_v9bS, Fname),
+    {ok, _} = file:copy(Phash_v9bS, Fname),
     crash(Fname, ?CLOSED_PROPERLY_POS+3, 0),
-    ?line io:format("Expect repair:~n"),
-    ?line {ok, T} = dets:open_file(T, [{file, Fname}]),
-    ?line phash2 = dets:info(T, hash),
-    ?line [{1,a},{2,b},{3,c},{4,d},{5,e}] =
+    io:format("Expect repair:~n"),
+    {ok, T} = dets:open_file(T, [{file, Fname}]),
+    phash2 = dets:info(T, hash),
+    [{1,a},{2,b},{3,c},{4,d},{5,e}] =
 	lists:sort(dets:lookup_keys(T, [1,2,3,4,5])),
-    ?line ok = dets:close(T),
+    ok = dets:close(T),
     
     %% One cannot use the bchunk format when copying between a phash
     %% table and a phash2 table. (There is no test for the case an R9
     %% (or later) node (using phash2) copies a table to an R8 node
     %% (using phash).) See also the comment on HASH_PARMS in dets_v9.erl.
-    ?line {ok, _} = file:copy(Phash_v9bS, Fname),
-    ?line {ok, T} = dets:open_file(T, [{file, Fname}]),
-    ?line Type = dets:info(T, type),
-    ?line KeyPos = dets:info(T, keypos),
+    {ok, _} = file:copy(Phash_v9bS, Fname),
+    {ok, T} = dets:open_file(T, [{file, Fname}]),
+    Type = dets:info(T, type),
+    KeyPos = dets:info(T, keypos),
     Input = init_bchunk(T),    
     T2 = phash_table,
     Fname2 = filename(T2, Config),
     Args = [{type,Type},{keypos,KeyPos},{version,9},{file,Fname2}],
-    ?line {ok, T2} = dets:open_file(T2, Args),
-    ?line {error, {init_fun, _}} = 
+    {ok, T2} = dets:open_file(T2, Args),
+    {error, {init_fun, _}} =
 	dets:init_table(T2, Input, {format,bchunk}),
-    ?line _ = dets:close(T2),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname2),
+    _ = dets:close(T2),
+    ok = dets:close(T),
+    file:delete(Fname2),
 
-    ?line file:delete(Fname),
+    file:delete(Fname),
     ok.
 
 fold_v8(doc) ->
@@ -1774,50 +1773,50 @@ fold_v9(Config) when is_list(Config) ->
 fold(Config, Version) ->
     T = test_table,
     N = 100,
-    ?line Fname = filename(T, Config),
-    ?line file:delete(Fname),
+    Fname = filename(T, Config),
+    file:delete(Fname),
     P0 = pps(),
 
     Args = [{version, Version}, {file,Fname}, {estimated_no_objects, N}],
-    ?line {ok, _} = dets:open_file(T, Args),
+    {ok, _} = dets:open_file(T, Args),
 
-    ?line ok = ins(T, N),
+    ok = ins(T, N),
 
-    ?line Ets = ets:new(to_ets, [public]),
-    ?line dets:to_ets(T, Ets),
-    ?line true = N =:= ets:info(Ets, size),
-    ?line ets:delete(Ets),
+    Ets = ets:new(to_ets, [public]),
+    dets:to_ets(T, Ets),
+    true = N =:= ets:info(Ets, size),
+    ets:delete(Ets),
 
-    ?line Ets2 = ets:new(to_ets, [private]),
-    ?line dets:to_ets(T, Ets2),
-    ?line true = N =:= ets:info(Ets2, size),
-    ?line ets:delete(Ets2),
+    Ets2 = ets:new(to_ets, [private]),
+    dets:to_ets(T, Ets2),
+    true = N =:= ets:info(Ets2, size),
+    ets:delete(Ets2),
 
-    ?line {'EXIT', {badarg, _}} = (catch dets:to_ets(T, not_an_ets_table)),
+    {'EXIT', {badarg, _}} = (catch dets:to_ets(T, not_an_ets_table)),
 
     F0 = fun(X, A) -> [X | A] end,
-    ?line true = N =:= length(dets:foldl(F0, [], T)),
-    ?line true = N =:= length(dets:foldr(F0, [], T)),
+    true = N =:= length(dets:foldl(F0, [], T)),
+    true = N =:= length(dets:foldr(F0, [], T)),
 
     F1 = fun(_X, _A) -> throw(away) end, 
-    ?line away = (catch dets:foldl(F1, [], T)),
-    ?line away = (catch dets:foldr(F1, [], T)),
+    away = (catch dets:foldl(F1, [], T)),
+    away = (catch dets:foldr(F1, [], T)),
 
     F2 = fun(X, A) -> X + A end, 
-    ?line {'EXIT', _} = (catch dets:foldl(F2, [], T)),
-    ?line {'EXIT', _} = (catch dets:foldr(F2, [], T)),
+    {'EXIT', _} = (catch dets:foldl(F2, [], T)),
+    {'EXIT', _} = (catch dets:foldr(F2, [], T)),
 
     F3 = fun(_X) -> throw(away) end,
-    ?line away = (catch dets:traverse(T, F3)),
+    away = (catch dets:traverse(T, F3)),
 
     F4 = fun(X) -> X + 17 end,
-    ?line {'EXIT', _} = (catch dets:traverse(T, F4)),
+    {'EXIT', _} = (catch dets:traverse(T, F4)),
 
-    ?line F5 = fun(_X) -> done end,
-    ?line done = dets:traverse(T, F5),
+    F5 = fun(_X) -> done end,
+    done = dets:traverse(T, F5),
 
-    ?line {ok, ObjPos} = dets:where(T, {66,{item,number,66}}),
-    ?line ok = dets:close(T),
+    {ok, ObjPos} = dets:where(T, {66,{item,number,66}}),
+    ok = dets:close(T),
 
     %% Damaged object.
     Pos = if 
@@ -1825,15 +1824,15 @@ fold(Config, Version) ->
 	      Version =:= 9 -> 8
 	  end,
     crash(Fname, ObjPos+Pos),
-    ?line {ok, _} = dets:open_file(T, Args),
-    ?line io:format("Expect corrupt table:~n"),
-    ?line BadObject1 = dets:foldl(F0, [], T),
-    ?line bad_object(BadObject1, Fname),
-    ?line BadObject2 = dets:close(T), 
-    ?line bad_object(BadObject2, Fname),
+    {ok, _} = dets:open_file(T, Args),
+    io:format("Expect corrupt table:~n"),
+    BadObject1 = dets:foldl(F0, [], T),
+    bad_object(BadObject1, Fname),
+    BadObject2 = dets:close(T),
+    bad_object(BadObject2, Fname),
 
-    ?line file:delete(Fname),
-    ?line check_pps(P0),
+    file:delete(Fname),
+    check_pps(P0),
     ok.
 
 fixtable_v8(doc) ->
@@ -1852,64 +1851,64 @@ fixtable_v9(Config) when is_list(Config) ->
 
 fixtable(Config, Version) when is_list(Config) ->
     T = fixtable,
-    ?line Fname = filename(fixtable, Config),
-    ?line file:delete(Fname),
+    Fname = filename(fixtable, Config),
+    file:delete(Fname),
     Args = [{version,Version},{file,Fname}],
     P0 = pps(),
-    ?line {ok, _} = dets:open_file(T, Args),
+    {ok, _} = dets:open_file(T, Args),
 
     %% badarg
-    ?line check_badarg(catch dets:safe_fixtable(no_table,true),
+    check_badarg(catch dets:safe_fixtable(no_table,true),
 		       dets, safe_fixtable, [no_table,true]),
-    ?line check_badarg(catch dets:safe_fixtable(T,undefined),
+    check_badarg(catch dets:safe_fixtable(T,undefined),
 		       dets, safe_fixtable, [T,undefined]),
 
     %% The table is not allowed to grow while the elements are inserted:
 
-    ?line ok = ins(T, 500),
-    ?line dets:safe_fixtable(T, false),    
+    ok = ins(T, 500),
+    dets:safe_fixtable(T, false),
     %% Now the table can grow. At the same time as elements are inserted,
     %% the table tries to catch up with the previously inserted elements.
-    ?line ok = ins(T, 1000),
-    ?line 1000 = dets:info(T, size),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),
+    ok = ins(T, 1000),
+    1000 = dets:info(T, size),
+    ok = dets:close(T),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(T, [{type, duplicate_bag} | Args]),
+    {ok, _} = dets:open_file(T, [{type, duplicate_bag} | Args]),
     %% In a fixed table, delete and re-insert an object.
-    ?line ok = dets:insert(T, {1, a, b}),
-    ?line dets:safe_fixtable(T, true),
-    ?line ok = dets:match_delete(T, {1, a, b}),
-    ?line ok = dets:insert(T, {1, a, b}),
-    ?line dets:safe_fixtable(T, false),
-    ?line 1 = length(dets:match_object(T, '_')),
+    ok = dets:insert(T, {1, a, b}),
+    dets:safe_fixtable(T, true),
+    ok = dets:match_delete(T, {1, a, b}),
+    ok = dets:insert(T, {1, a, b}),
+    dets:safe_fixtable(T, false),
+    1 = length(dets:match_object(T, '_')),
 
-    ?line ok = dets:match_delete(T, '_'),
+    ok = dets:match_delete(T, '_'),
     %% In a fixed table, delete and insert a smaller object.
-    ?line ok = dets:insert(T, {1, duplicate(100, e)}),
-    ?line dets:safe_fixtable(T, true),
-    ?line ok = dets:match_delete(T, {1, '_'}),
-    ?line ok = dets:insert(T, {1, a, b}),
-    ?line dets:safe_fixtable(T, false),
-    ?line 1 = length(dets:match_object(T, '_')),
+    ok = dets:insert(T, {1, duplicate(100, e)}),
+    dets:safe_fixtable(T, true),
+    ok = dets:match_delete(T, {1, '_'}),
+    ok = dets:insert(T, {1, a, b}),
+    dets:safe_fixtable(T, false),
+    1 = length(dets:match_object(T, '_')),
 
-    ?line ok = dets:delete_all_objects(T),
+    ok = dets:delete_all_objects(T),
     %% Like the last one, but one extra object.
-    ?line ok = dets:insert(T, {1, duplicate(100, e)}),
-    ?line ok = dets:insert(T, {2, duplicate(100, e)}),
-    ?line dets:safe_fixtable(T, true),
-    ?line ok = dets:match_delete(T, {1, '_'}),
-    ?line ok = dets:insert(T, {1, a, b}),
-    ?line dets:safe_fixtable(T, false),
-    ?line 2 = length(dets:match_object(T, '_')),
-    ?line dets:safe_fixtable(T, true),
-    ?line ok = dets:delete_all_objects(T),
-    ?line true = dets:info(T, fixed),
-    ?line 0 = length(dets:match_object(T, '_')),
+    ok = dets:insert(T, {1, duplicate(100, e)}),
+    ok = dets:insert(T, {2, duplicate(100, e)}),
+    dets:safe_fixtable(T, true),
+    ok = dets:match_delete(T, {1, '_'}),
+    ok = dets:insert(T, {1, a, b}),
+    dets:safe_fixtable(T, false),
+    2 = length(dets:match_object(T, '_')),
+    dets:safe_fixtable(T, true),
+    ok = dets:delete_all_objects(T),
+    true = dets:info(T, fixed),
+    0 = length(dets:match_object(T, '_')),
 
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),    
-    ?line check_pps(P0),
+    ok = dets:close(T),
+    file:delete(Fname),
+    check_pps(P0),
     ok.
 
 match_v8(doc) ->
@@ -1928,164 +1927,164 @@ match_v9(Config) when is_list(Config) ->
 
 match(Config, Version) ->
     T = match,
-    ?line Fname = filename(match, Config),
-    ?line file:delete(Fname),
+    Fname = filename(match, Config),
+    file:delete(Fname),
     P0 = pps(),
 
     Args = [{version, Version}, {file,Fname}, {type, duplicate_bag},
 	    {estimated_no_objects,550}],
-    ?line {ok, _} = dets:open_file(T, Args),
-    ?line ok = dets:insert(T, {1, a, b}),
-    ?line ok = dets:insert(T, {1, b, a}),
-    ?line ok = dets:insert(T, {2, a, b}),
-    ?line ok = dets:insert(T, {2, b, a}),
+    {ok, _} = dets:open_file(T, Args),
+    ok = dets:insert(T, {1, a, b}),
+    ok = dets:insert(T, {1, b, a}),
+    ok = dets:insert(T, {2, a, b}),
+    ok = dets:insert(T, {2, b, a}),
 
     %% match, badarg
     MSpec = [{'_',[],['$_']}],
-    ?line check_badarg(catch dets:match(no_table, '_'),
-		       dets, match, [no_table,'_']),
-    ?line check_badarg(catch dets:match(T, '_', not_a_number),
-		       dets, match, [T,'_',not_a_number]),
-    ?line {EC1, _} = dets:select(T, MSpec, 1),
-    ?line check_badarg(catch dets:match(EC1),
-		       dets, match, [EC1]),
+    check_badarg(catch dets:match(no_table, '_'),
+                 dets, match, [no_table,'_']),
+    check_badarg(catch dets:match(T, '_', not_a_number),
+                 dets, match, [T,'_',not_a_number]),
+    {EC1, _} = dets:select(T, MSpec, 1),
+    check_badarg(catch dets:match(EC1),
+                 dets, match, [EC1]),
 
     %% match_object, badarg
-    ?line check_badarg(catch dets:match_object(no_table, '_'),
-		       dets, match_object, [no_table,'_']),
-    ?line check_badarg(catch dets:match_object(T, '_', not_a_number),
-		       dets, match_object, [T,'_',not_a_number]),
-    ?line {EC2, _} = dets:select(T, MSpec, 1),
-    ?line check_badarg(catch dets:match_object(EC2),
-		       dets, match_object, [EC2]),
+    check_badarg(catch dets:match_object(no_table, '_'),
+                 dets, match_object, [no_table,'_']),
+    check_badarg(catch dets:match_object(T, '_', not_a_number),
+                 dets, match_object, [T,'_',not_a_number]),
+    {EC2, _} = dets:select(T, MSpec, 1),
+    check_badarg(catch dets:match_object(EC2),
+                 dets, match_object, [EC2]),
 
     dets:safe_fixtable(T, true),
-    ?line {[_, _], C1} = dets:match_object(T, '_', 2),
-    ?line {[_, _], C2} = dets:match_object(C1),
-    ?line '$end_of_table' = dets:match_object(C2),
-    ?line {[_, _], C3} = dets:match_object(T, {1, '_', '_'}, 100),
-    ?line '$end_of_table' = dets:match_object(C3),
-    ?line '$end_of_table' = dets:match_object(T, {'_'}, default),
-    ?line dets:safe_fixtable(T, false),
+    {[_, _], C1} = dets:match_object(T, '_', 2),
+    {[_, _], C2} = dets:match_object(C1),
+    '$end_of_table' = dets:match_object(C2),
+    {[_, _], C3} = dets:match_object(T, {1, '_', '_'}, 100),
+    '$end_of_table' = dets:match_object(C3),
+    '$end_of_table' = dets:match_object(T, {'_'}, default),
+    dets:safe_fixtable(T, false),
 
-    ?line dets:safe_fixtable(T, true),
-    ?line {[_, _], C30} = dets:match(T, '$1', 2),
-    ?line {[_, _], C31} = dets:match(C30),
-    ?line '$end_of_table' = dets:match(C31),
-    ?line {[_, _], C32} = dets:match(T, {1, '$1', '_'}, 100),
-    ?line '$end_of_table' = dets:match(C32),
-    ?line '$end_of_table' = dets:match(T, {'_'}, default),
-    ?line dets:safe_fixtable(T, false),
-    ?line [[1],[1],[2],[2]] = sort(dets:match(T, {'$1','_','_'})),
+    dets:safe_fixtable(T, true),
+    {[_, _], C30} = dets:match(T, '$1', 2),
+    {[_, _], C31} = dets:match(C30),
+    '$end_of_table' = dets:match(C31),
+    {[_, _], C32} = dets:match(T, {1, '$1', '_'}, 100),
+    '$end_of_table' = dets:match(C32),
+    '$end_of_table' = dets:match(T, {'_'}, default),
+    dets:safe_fixtable(T, false),
+    [[1],[1],[2],[2]] = sort(dets:match(T, {'$1','_','_'})),
 
     %% delete and insert while chunking
     %% (this case almost worthless after changes in OTP-5232)
-    ?line ok = dets:match_delete(T, '_'),
+    ok = dets:match_delete(T, '_'),
     L500 = seq(1, 500),
     Fun = fun(X) -> ok = dets:insert(T, {X, a, b, c, d}) end,
-    ?line foreach(Fun, L500),
+    foreach(Fun, L500),
     %% Select one object DI in L3 below to be deleted.
-    ?line {_, TmpCont} = dets:match_object(T, '_', 200),    
-    ?line {_, TmpCont1} = dets:match_object(TmpCont),
-    ?line {TTL, _} = dets:match_object(TmpCont1),
-    ?line DI = if Version =:= 8 -> last(TTL); Version =:= 9 -> hd(TTL) end,
-    ?line dets:safe_fixtable(T, true),
-    ?line {L1, C20} = dets:match_object(T, '_', 200),    
-    ?line true = 200 =< length(L1),
-    ?line ok = dets:match_delete(T, {'2','_','_'}), % no match
-    ?line ok = dets:match_delete(T, DI), % last object
+    {_, TmpCont} = dets:match_object(T, '_', 200),
+    {_, TmpCont1} = dets:match_object(TmpCont),
+    {TTL, _} = dets:match_object(TmpCont1),
+    DI = if Version =:= 8 -> last(TTL); Version =:= 9 -> hd(TTL) end,
+    dets:safe_fixtable(T, true),
+    {L1, C20} = dets:match_object(T, '_', 200),
+    true = 200 =< length(L1),
+    ok = dets:match_delete(T, {'2','_','_'}), % no match
+    ok = dets:match_delete(T, DI), % last object
     Tiny = {1050},
-    ?line ok = dets:insert(T, Tiny),
-    ?line true = member(Tiny, dets:match_object(T, '_')),
-    ?line {_L2, C21} = dets:match_object(C20),
-    ?line {_L3, _C22} = dets:match_object(C21),
+    ok = dets:insert(T, Tiny),
+    true = member(Tiny, dets:match_object(T, '_')),
+    {_L2, C21} = dets:match_object(C20),
+    {_L3, _C22} = dets:match_object(C21),
     %% It used to be that Tiny was not visible here, but since the 
     %% scanning of files was changed to inspect the free lists every
     %% now and then it may very well be visible here.
-    %% ?line false = member(Tiny, _L3),
+    %% false = member(Tiny, _L3),
     %% DI used to visible here, but the above mentioned modification
     %% has changed that; it may or may not be visible.
-    %% ?line true = member(DI, _L3),
-    ?line dets:safe_fixtable(T, false),
-    ?line true = dets:member(T, 1050),
-    ?line true = member(Tiny, dets:match_object(T, '_')),
-    ?line false = member(DI, dets:match_object(T, '_')),
+    %% true = member(DI, _L3),
+    dets:safe_fixtable(T, false),
+    true = dets:member(T, 1050),
+    true = member(Tiny, dets:match_object(T, '_')),
+    false = member(DI, dets:match_object(T, '_')),
 
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),
+    ok = dets:close(T),
+    file:delete(Fname),
 
     N = 100,
-    ?line {ok, _} = dets:open_file(T, [{estimated_no_objects,N} | Args]),
-    ?line ok = ins(T, N),
+    {ok, _} = dets:open_file(T, [{estimated_no_objects,N} | Args]),
+    ok = ins(T, N),
     Obj = {66,{item,number,66}},
     Spec = {'_','_'},
-    ?line {ok, ObjPos} = dets:where(T, Obj),
-    ?line ok = dets:close(T),
+    {ok, ObjPos} = dets:where(T, Obj),
+    ok = dets:close(T),
     %% Damaged object.
     crash(Fname, ObjPos+12),
-    ?line {ok, _} = dets:open_file(T, Args),
-    ?line io:format("Expect corrupt table:~n"),
-    ?line case ins(T, N) of
+    {ok, _} = dets:open_file(T, Args),
+    io:format("Expect corrupt table:~n"),
+    case ins(T, N) of
 	      ok ->
-                  ?line bad_object(dets:sync(T), Fname);
+                  bad_object(dets:sync(T), Fname);
 	      Else ->
-		  ?line bad_object(Else, Fname)
+		  bad_object(Else, Fname)
 	  end,
-    ?line io:format("Expect corrupt table:~n"),
-    ?line bad_object(dets:match(T, Spec), Fname),
-    ?line io:format("Expect corrupt table:~n"),
-    ?line bad_object(dets:match_delete(T, Spec), Fname),
-    ?line bad_object(dets:close(T), Fname),
-    ?line file:delete(Fname),
+    io:format("Expect corrupt table:~n"),
+    bad_object(dets:match(T, Spec), Fname),
+    io:format("Expect corrupt table:~n"),
+    bad_object(dets:match_delete(T, Spec), Fname),
+    bad_object(dets:close(T), Fname),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(T, [{estimated_no_objects,N} | Args]),
-    ?line ok = ins(T, N),
-    ?line {ok, ObjPos2} = dets:where(T, Obj),
-    ?line ok = dets:close(T),
+    {ok, _} = dets:open_file(T, [{estimated_no_objects,N} | Args]),
+    ok = ins(T, N),
+    {ok, ObjPos2} = dets:where(T, Obj),
+    ok = dets:close(T),
 
     %% Damaged size of object.
     %% In v8, there is a next pointer before the size.
     CrashPos = if Version =:= 8 -> 5; Version =:= 9 -> 1 end,
     crash(Fname, ObjPos2+CrashPos),
-    ?line {ok, _} = dets:open_file(T, Args),
-    ?line io:format("Expect corrupt table:~n"),
-    ?line case ins(T, N) of
-	      ok ->
-		  ?line bad_object(dets:sync(T), Fname);
-	      Else2 ->
-		  ?line bad_object(Else2, Fname)
-	  end,
+    {ok, _} = dets:open_file(T, Args),
+    io:format("Expect corrupt table:~n"),
+    case ins(T, N) of
+        ok ->
+            bad_object(dets:sync(T), Fname);
+        Else2 ->
+            bad_object(Else2, Fname)
+    end,
     %% Just echoes...
-    ?line bad_object(dets:match(T, Spec), Fname),
-    ?line bad_object(dets:match_delete(T, Spec), Fname),
-    ?line bad_object(dets:close(T), Fname),
-    ?line file:delete(Fname),
+    bad_object(dets:match(T, Spec), Fname),
+    bad_object(dets:match_delete(T, Spec), Fname),
+    bad_object(dets:close(T), Fname),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(T, [{estimated_no_objects,N} | Args]),
-    ?line ok = ins(T, N),
-    ?line {ok, ObjPos3} = dets:where(T, Obj),
-    ?line ok = dets:close(T),
+    {ok, _} = dets:open_file(T, [{estimated_no_objects,N} | Args]),
+    ok = ins(T, N),
+    {ok, ObjPos3} = dets:where(T, Obj),
+    ok = dets:close(T),
 
     %% match_delete finds an error
     CrashPos3 = if Version =:= 8 -> 12; Version =:= 9 -> 16 end,
     crash(Fname, ObjPos3+CrashPos3),
-    ?line {ok, _} = dets:open_file(T, Args),
-    ?line bad_object(dets:match_delete(T, Spec), Fname),
-    ?line bad_object(dets:close(T), Fname),
-    ?line file:delete(Fname),
+    {ok, _} = dets:open_file(T, Args),
+    bad_object(dets:match_delete(T, Spec), Fname),
+    bad_object(dets:close(T), Fname),
+    file:delete(Fname),
 
     %% The key is not fixed, but not all objects with the key are removed.
-    ?line {ok, _} = dets:open_file(T, Args),
-    ?line ok = dets:insert(T, [{1,a},{1,b},{1,c},{1,a},{1,b},{1,c}]),
-    ?line 6 = dets:info(T, size),
-    ?line ok = dets:match_delete(T, {'_',a}),
-    ?line 4 = dets:info(T, size),
-    ?line [{1,b},{1,b},{1,c},{1,c}] = 
+    {ok, _} = dets:open_file(T, Args),
+    ok = dets:insert(T, [{1,a},{1,b},{1,c},{1,a},{1,b},{1,c}]),
+    6 = dets:info(T, size),
+    ok = dets:match_delete(T, {'_',a}),
+    4 = dets:info(T, size),
+    [{1,b},{1,b},{1,c},{1,c}] =
 	sort(dets:match_object(T,{'_','_'})),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),
+    ok = dets:close(T),
+    file:delete(Fname),
 
-    ?line check_pps(P0),
+    check_pps(P0),
     ok.
 
 select_v8(doc) ->
@@ -2104,102 +2103,102 @@ select_v9(Config) when is_list(Config) ->
 
 select(Config, Version) ->
     T = select,
-    ?line Fname = filename(select, Config),
-    ?line file:delete(Fname),
+    Fname = filename(select, Config),
+    file:delete(Fname),
     P0 = pps(),
 
-    ?line Args = [{version,Version}, {file,Fname}, {type, duplicate_bag},
-		  {estimated_no_objects,550}],
-    ?line {ok, _} = dets:open_file(T, Args),
-    ?line ok = dets:insert(T, {1, a, b}),
-    ?line ok = dets:insert(T, {1, b, a}),
-    ?line ok = dets:insert(T, {2, a, b}),
-    ?line ok = dets:insert(T, {2, b, a}),
-    ?line ok = dets:insert(T, {3, a, b}),
-    ?line ok = dets:insert(T, {3, b, a}),
+    Args = [{version,Version}, {file,Fname}, {type, duplicate_bag},
+            {estimated_no_objects,550}],
+    {ok, _} = dets:open_file(T, Args),
+    ok = dets:insert(T, {1, a, b}),
+    ok = dets:insert(T, {1, b, a}),
+    ok = dets:insert(T, {2, a, b}),
+    ok = dets:insert(T, {2, b, a}),
+    ok = dets:insert(T, {3, a, b}),
+    ok = dets:insert(T, {3, b, a}),
 
     %% badarg
     MSpec = [{'_',[],['$_']}],
-    ?line check_badarg(catch dets:select(no_table, MSpec),
-		       dets, select, [no_table,MSpec]),
-    ?line check_badarg(catch dets:select(T, <<17>>),
-		       dets, select, [T,<<17>>]),
-    ?line check_badarg(catch dets:select(T, []),
-		       dets, select, [T,[]]),
-    ?line check_badarg(catch dets:select(T, MSpec, not_a_number),
-		       dets, select, [T,MSpec,not_a_number]),
-    ?line {EC, _} = dets:match(T, '_', 1),
-    ?line check_badarg(catch dets:select(EC),
-		       dets, select, [EC]),
+    check_badarg(catch dets:select(no_table, MSpec),
+                 dets, select, [no_table,MSpec]),
+    check_badarg(catch dets:select(T, <<17>>),
+                 dets, select, [T,<<17>>]),
+    check_badarg(catch dets:select(T, []),
+                 dets, select, [T,[]]),
+    check_badarg(catch dets:select(T, MSpec, not_a_number),
+                 dets, select, [T,MSpec,not_a_number]),
+    {EC, _} = dets:match(T, '_', 1),
+    check_badarg(catch dets:select(EC),
+                 dets, select, [EC]),
 
     AllSpec = [{'_',[],['$_']}],
 
-    ?line dets:safe_fixtable(T, true),
-    ?line {[_, _], C1} = dets:select(T, AllSpec, 2),
-    ?line {[_, _], C2} = dets:select(C1),
-    ?line {[_, _], C2a} = dets:select(C2),
-    ?line '$end_of_table' = dets:select(C2a),
-    ?line {[_, _], C3} = dets:select(T, [{{1,'_','_'},[],['$_']}], 100),
-    ?line '$end_of_table' = dets:select(C3),
-    ?line '$end_of_table' = dets:select(T, [{{'_'},[],['$_']}], default),
-    ?line dets:safe_fixtable(T, false),
+    dets:safe_fixtable(T, true),
+    {[_, _], C1} = dets:select(T, AllSpec, 2),
+    {[_, _], C2} = dets:select(C1),
+    {[_, _], C2a} = dets:select(C2),
+    '$end_of_table' = dets:select(C2a),
+    {[_, _], C3} = dets:select(T, [{{1,'_','_'},[],['$_']}], 100),
+    '$end_of_table' = dets:select(C3),
+    '$end_of_table' = dets:select(T, [{{'_'},[],['$_']}], default),
+    dets:safe_fixtable(T, false),
     Sp1 = [{{1,'_','_'},[],['$_']},{{1,'_','_'},[],['$_']},
 	   {{2,'_','_'},[],['$_']}],
-    ?line [_,_,_,_] = dets:select(T, Sp1),
+    [_,_,_,_] = dets:select(T, Sp1),
     Sp2 = [{{1,'_','_'},[],['$_']},{{1,'_','_'},[],['$_']},
 	   {{'_','_','_'},[],['$_']}],
-    ?line [_,_,_,_,_,_] = dets:select(T, Sp2),
+    [_,_,_,_,_,_] = dets:select(T, Sp2),
 
     AllDeleteSpec = [{'_',[],[true]}],
     %% delete and insert while chunking
     %% (this case almost worthless after changes in OTP-5232)
-    ?line 6 = dets:select_delete(T, AllDeleteSpec),
+    6 = dets:select_delete(T, AllDeleteSpec),
     L500 = seq(1, 500),
     Fun = fun(X) -> ok = dets:insert(T, {X, a, b, c, d}) end,
-    ?line foreach(Fun, L500),
+    foreach(Fun, L500),
     %% Select one object DI in L3 below to be deleted.
-    ?line {_, TmpCont} = dets:match_object(T, '_', 200),    
-    ?line {_, TmpCont1} = dets:match_object(TmpCont),
-    ?line {TTL, _} = dets:match_object(TmpCont1),
-    ?line DI = if Version =:= 8 -> last(TTL); Version =:= 9 -> hd(TTL) end,
-    ?line dets:safe_fixtable(T, true),
-    ?line {L1, C20} = dets:select(T, AllSpec, 200),
-    ?line true = 200 =< length(L1),
-    ?line 0 = dets:select_delete(T, [{{2,'_','_'},[],[true]}]),
-    ?line 1 = dets:select_delete(T, [{DI,[],[true]}]), % last object
+    {_, TmpCont} = dets:match_object(T, '_', 200),
+    {_, TmpCont1} = dets:match_object(TmpCont),
+    {TTL, _} = dets:match_object(TmpCont1),
+    DI = if Version =:= 8 -> last(TTL); Version =:= 9 -> hd(TTL) end,
+    dets:safe_fixtable(T, true),
+    {L1, C20} = dets:select(T, AllSpec, 200),
+    true = 200 =< length(L1),
+    0 = dets:select_delete(T, [{{2,'_','_'},[],[true]}]),
+    1 = dets:select_delete(T, [{DI,[],[true]}]), % last object
     Tiny = {1050},
-    ?line ok = dets:insert(T, Tiny),
-    ?line true = member(Tiny, dets:select(T, AllSpec)),
-    ?line {_L2, C21} = dets:select(C20),
-    ?line {_L3, _C22} = dets:select(C21),
+    ok = dets:insert(T, Tiny),
+    true = member(Tiny, dets:select(T, AllSpec)),
+    {_L2, C21} = dets:select(C20),
+    {_L3, _C22} = dets:select(C21),
     %% It used to be that Tiny was not visible here, but since the 
     %% scanning of files was changed to inspect the free lists every
     %% now and then it may very well be visible here.
-    %% ?line false = member(Tiny, _L3),
+    %% false = member(Tiny, _L3),
     %% DI used to visible here, but the above mentioned modification
     %% has changed that; it may or may not be visible.
-    %% ?line true = member(DI, _L3),
-    ?line true = dets:member(T, 1050),
-    ?line true = member(Tiny, dets:select(T, AllSpec)),
-    ?line false = member(DI, dets:select(T, AllSpec)),
-    ?line dets:safe_fixtable(T, false),
-    ?line true = dets:member(T, 1050),
-    ?line true = member(Tiny, dets:select(T, AllSpec)),
-    ?line false = member(DI, dets:select(T, AllSpec)),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),
+    %% true = member(DI, _L3),
+    true = dets:member(T, 1050),
+    true = member(Tiny, dets:select(T, AllSpec)),
+    false = member(DI, dets:select(T, AllSpec)),
+    dets:safe_fixtable(T, false),
+    true = dets:member(T, 1050),
+    true = member(Tiny, dets:select(T, AllSpec)),
+    false = member(DI, dets:select(T, AllSpec)),
+    ok = dets:close(T),
+    file:delete(Fname),
 
     %% The key is not fixed, but not all objects with the key are removed.
-    ?line {ok, _} = dets:open_file(T, Args),
-    ?line ok = dets:insert(T, [{1,a},{1,b},{1,c},{1,a},{1,b},{1,c}]),
-    ?line 6 = dets:info(T, size),
-    ?line 2 = dets:select_delete(T, [{{'_',a},[],[true]}]),
-    ?line 4 = dets:info(T, size),
-    ?line [{1,b},{1,b},{1,c},{1,c}] = sort(dets:select(T, AllSpec)),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),
+    {ok, _} = dets:open_file(T, Args),
+    ok = dets:insert(T, [{1,a},{1,b},{1,c},{1,a},{1,b},{1,c}]),
+    6 = dets:info(T, size),
+    2 = dets:select_delete(T, [{{'_',a},[],[true]}]),
+    4 = dets:info(T, size),
+    [{1,b},{1,b},{1,c},{1,c}] = sort(dets:select(T, AllSpec)),
+    ok = dets:close(T),
+    file:delete(Fname),
 
-    ?line check_pps(P0),
+    check_pps(P0),
     ok.
 
 update_counter(doc) ->
@@ -2208,34 +2207,34 @@ update_counter(suite) ->
     [];
 update_counter(Config) when is_list(Config) ->
     T = update_counter,
-    ?line Fname = filename(select, Config),
-    ?line file:delete(Fname),
+    Fname = filename(select, Config),
+    file:delete(Fname),
     P0 = pps(),
 
-    ?line check_badarg(catch dets:update_counter(no_table, 1, 1),
-		       dets, update_counter, [no_table,1,1]),
+    check_badarg(catch dets:update_counter(no_table, 1, 1),
+                 dets, update_counter, [no_table,1,1]),
 
     Args = [{file,Fname},{keypos,2}],
-    ?line {ok, _} = dets:open_file(T, [{type,set} | Args]),
-    ?line {'EXIT', {badarg, _}} = (catch dets:update_counter(T, 1, 1)),
-    ?line ok = dets:insert(T, {1,a}),
-    ?line {'EXIT', {badarg, _}} = (catch dets:update_counter(T, 1, 1)),
-    ?line ok = dets:insert(T, {0,1}),
-    ?line {'EXIT', {badarg, _}} = (catch dets:update_counter(T, 1, 1)),
-    ?line ok = dets:insert(T, {0,1,0}),
-    ?line 1 = dets:update_counter(T, 1, 1),
-    ?line 2 = dets:update_counter(T, 1, 1),
-    ?line 6 = dets:update_counter(T, 1, {3,4}),
-    ?line {'EXIT', {badarg, _}} = (catch dets:update_counter(T, 1, {0,3})),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),
+    {ok, _} = dets:open_file(T, [{type,set} | Args]),
+    {'EXIT', {badarg, _}} = (catch dets:update_counter(T, 1, 1)),
+    ok = dets:insert(T, {1,a}),
+    {'EXIT', {badarg, _}} = (catch dets:update_counter(T, 1, 1)),
+    ok = dets:insert(T, {0,1}),
+    {'EXIT', {badarg, _}} = (catch dets:update_counter(T, 1, 1)),
+    ok = dets:insert(T, {0,1,0}),
+    1 = dets:update_counter(T, 1, 1),
+    2 = dets:update_counter(T, 1, 1),
+    6 = dets:update_counter(T, 1, {3,4}),
+    {'EXIT', {badarg, _}} = (catch dets:update_counter(T, 1, {0,3})),
+    ok = dets:close(T),
+    file:delete(Fname),
 
-    ?line {ok, _} = dets:open_file(T, [{type,bag} | Args]),
-    ?line ok = dets:insert(T, {0,1,0}),
-    ?line {'EXIT', {badarg, _}} = (catch dets:update_counter(T, 1, 1)),
-    ?line ok = dets:close(T),
-    ?line file:delete(Fname),
-    ?line check_pps(P0),
+    {ok, _} = dets:open_file(T, [{type,bag} | Args]),
+    ok = dets:insert(T, {0,1,0}),
+    {'EXIT', {badarg, _}} = (catch dets:update_counter(T, 1, 1)),
+    ok = dets:close(T),
+    file:delete(Fname),
+    check_pps(P0),
 
     ok.
 
@@ -2245,133 +2244,133 @@ badarg(suite) ->
     [];
 badarg(Config) when is_list(Config) ->
     T = badarg,
-    ?line Fname = filename(select, Config),
-    ?line file:delete(Fname),
+    Fname = filename(select, Config),
+    file:delete(Fname),
     P0 = pps(),
 
     Args = [{file,Fname},{keypos,3}],
-    ?line {ok, _} = dets:open_file(T, [{type,set} | Args]),
-    % ?line dets:verbose(),
+    {ok, _} = dets:open_file(T, [{type,set} | Args]),
+    % dets:verbose(),
 
     %% badargs are tested in match, select and fixtable too.
 
     %% open
-    ?line check_badarg(catch dets:open_file({a,tuple},[]),
-		       dets, open_file, [{a,tuple},[]]),
-    ?line check_badarg(catch dets:open_file({a,tuple}),
-		       dets, open_file,[{a,tuple}]),
-    ?line check_badarg(catch dets:open_file(file,[foo]),
-		       dets, open_file, [file,[foo]]),
-    ?line check_badarg(catch dets:open_file({hej,san},[{type,set}|3]),
-		       dets, open_file, [{hej,san},[{type,set}|3]]),
+    check_badarg(catch dets:open_file({a,tuple},[]),
+                 dets, open_file, [{a,tuple},[]]),
+    check_badarg(catch dets:open_file({a,tuple}),
+                 dets, open_file,[{a,tuple}]),
+    check_badarg(catch dets:open_file(file,[foo]),
+                 dets, open_file, [file,[foo]]),
+    check_badarg(catch dets:open_file({hej,san},[{type,set}|3]),
+                 dets, open_file, [{hej,san},[{type,set}|3]]),
 
     %% insert
-    ?line check_badarg(catch dets:insert(no_table, {1,2}),
-		       dets, insert, [no_table,{1,2}]),
-    ?line check_badarg(catch dets:insert(no_table, [{1,2}]),
-		       dets, insert, [no_table,[{1,2}]]),
-    ?line check_badarg(catch dets:insert(T, {1,2}),
-		       dets, insert, [T,{1,2}]),
-    ?line check_badarg(catch dets:insert(T, [{1,2}]),
-		       dets, insert, [T,[{1,2}]]),
-    ?line check_badarg(catch dets:insert(T, [{1,2,3} | 3]),
-		       dets, insert, [T,[{1,2,3}|3]]),
+    check_badarg(catch dets:insert(no_table, {1,2}),
+                 dets, insert, [no_table,{1,2}]),
+    check_badarg(catch dets:insert(no_table, [{1,2}]),
+                 dets, insert, [no_table,[{1,2}]]),
+    check_badarg(catch dets:insert(T, {1,2}),
+                 dets, insert, [T,{1,2}]),
+    check_badarg(catch dets:insert(T, [{1,2}]),
+                 dets, insert, [T,[{1,2}]]),
+    check_badarg(catch dets:insert(T, [{1,2,3} | 3]),
+                 dets, insert, [T,[{1,2,3}|3]]),
 
     %% lookup{_keys}
-    ?line check_badarg(catch dets:lookup_keys(T, []),
-		       dets, lookup_keys, [badarg,[]]),
-    ?line check_badarg(catch dets:lookup(no_table, 1),
-		       dets, lookup, [no_table,1]),
-    ?line check_badarg(catch dets:lookup_keys(T, [1 | 2]),
-		       dets, lookup_keys, [T,[1|2]]),
+    check_badarg(catch dets:lookup_keys(T, []),
+                 dets, lookup_keys, [badarg,[]]),
+    check_badarg(catch dets:lookup(no_table, 1),
+                 dets, lookup, [no_table,1]),
+    check_badarg(catch dets:lookup_keys(T, [1 | 2]),
+                 dets, lookup_keys, [T,[1|2]]),
 
     %% member
-    ?line check_badarg(catch dets:member(no_table, 1),
-		       dets, member, [no_table,1]),
+    check_badarg(catch dets:member(no_table, 1),
+                 dets, member, [no_table,1]),
 
     %% sync
-    ?line check_badarg(catch dets:sync(no_table),
-		       dets, sync, [no_table]),
+    check_badarg(catch dets:sync(no_table),
+                 dets, sync, [no_table]),
 
     %% delete{_keys}
-    ?line check_badarg(catch dets:delete(no_table, 1),
-		       dets, delete, [no_table,1]),
+    check_badarg(catch dets:delete(no_table, 1),
+                 dets, delete, [no_table,1]),
 
     %% delete_object
-    ?line check_badarg(catch dets:delete_object(no_table, {1,2,3}),
-		       dets, delete_object, [no_table,{1,2,3}]),
-    ?line check_badarg(catch dets:delete_object(T, {1,2}),
-		       dets, delete_object, [T,{1,2}]),
-    ?line check_badarg(catch dets:delete_object(no_table, [{1,2,3}]),
-		       dets, delete_object, [no_table,[{1,2,3}]]),
-    ?line check_badarg(catch dets:delete_object(T, [{1,2}]),
-		       dets, delete_object, [T,[{1,2}]]),
-    ?line check_badarg(catch dets:delete_object(T, [{1,2,3} | 3]),
-		       dets, delete_object, [T,[{1,2,3}|3]]),
+    check_badarg(catch dets:delete_object(no_table, {1,2,3}),
+                 dets, delete_object, [no_table,{1,2,3}]),
+    check_badarg(catch dets:delete_object(T, {1,2}),
+                 dets, delete_object, [T,{1,2}]),
+    check_badarg(catch dets:delete_object(no_table, [{1,2,3}]),
+                 dets, delete_object, [no_table,[{1,2,3}]]),
+    check_badarg(catch dets:delete_object(T, [{1,2}]),
+                 dets, delete_object, [T,[{1,2}]]),
+    check_badarg(catch dets:delete_object(T, [{1,2,3} | 3]),
+                 dets, delete_object, [T,[{1,2,3}|3]]),
 
     %% first,next,slot
-    ?line check_badarg(catch dets:first(no_table),
-		       dets, first, [no_table]),
-    ?line check_badarg(catch dets:next(no_table, 1),
-		       dets, next, [no_table,1]),
-    ?line check_badarg(catch dets:slot(no_table, 0),
-		       dets, slot, [no_table,0]),
+    check_badarg(catch dets:first(no_table),
+                 dets, first, [no_table]),
+    check_badarg(catch dets:next(no_table, 1),
+                 dets, next, [no_table,1]),
+    check_badarg(catch dets:slot(no_table, 0),
+                 dets, slot, [no_table,0]),
 
     %% info
-    ?line undefined = dets:info(no_table),
-    ?line undefined = dets:info(no_table, foo),
-    ?line undefined = dets:info(T, foo),
+    undefined = dets:info(no_table),
+    undefined = dets:info(no_table, foo),
+    undefined = dets:info(T, foo),
 
     %% match_delete
-    ?line check_badarg(catch dets:match_delete(no_table, '_'),
+    check_badarg(catch dets:match_delete(no_table, '_'),
                  dets, match_delete, [no_table,'_']),
 
     %% delete_all_objects
-    ?line check_badarg(catch dets:delete_all_objects(no_table),
-		       dets, delete_all_objects, [no_table]),
+    check_badarg(catch dets:delete_all_objects(no_table),
+                 dets, delete_all_objects, [no_table]),
 
     %% select_delete
     MSpec = [{'_',[],['$_']}],
-    ?line check_badarg(catch dets:select_delete(no_table, MSpec),
-                       dets, select_delete, [no_table,MSpec]),
-    ?line check_badarg(catch dets:select_delete(T, <<17>>),
-		       dets, select_delete, [T, <<17>>]),
+    check_badarg(catch dets:select_delete(no_table, MSpec),
+                 dets, select_delete, [no_table,MSpec]),
+    check_badarg(catch dets:select_delete(T, <<17>>),
+                 dets, select_delete, [T, <<17>>]),
 
     %% traverse, fold
     TF = fun(_) -> continue end,
-    ?line check_badarg(catch dets:traverse(no_table, TF),
-                       dets, traverse, [no_table,TF]),
+    check_badarg(catch dets:traverse(no_table, TF),
+                 dets, traverse, [no_table,TF]),
     FF = fun(_, A) -> A end,
-    ?line check_badarg(catch dets:foldl(FF, [], no_table),
-		       dets, foldl, [FF,[],no_table]),
-    ?line check_badarg(catch dets:foldr(FF, [], no_table),
-		       dets, foldl, [FF,[],no_table]),
+    check_badarg(catch dets:foldl(FF, [], no_table),
+                 dets, foldl, [FF,[],no_table]),
+    check_badarg(catch dets:foldr(FF, [], no_table),
+                 dets, foldl, [FF,[],no_table]),
 
     %% close
-    ?line ok = dets:close(T),
-    ?line {error, not_owner} = dets:close(T),
-    ?line {error, not_owner} = dets:close(T),
+    ok = dets:close(T),
+    {error, not_owner} = dets:close(T),
+    {error, not_owner} = dets:close(T),
 
     %% init_table
     IF = fun(X) -> X end,
-    ?line check_badarg(catch dets:init_table(no_table, IF),
-		       dets, init_table, [no_table,IF,[]]),
-    ?line check_badarg(catch dets:init_table(no_table, IF, []),
-		       dets, init_table, [no_table,IF,[]]),
+    check_badarg(catch dets:init_table(no_table, IF),
+                 dets, init_table, [no_table,IF,[]]),
+    check_badarg(catch dets:init_table(no_table, IF, []),
+                 dets, init_table, [no_table,IF,[]]),
 
     %% from_ets
     Ets = ets:new(ets,[]),
-    ?line check_badarg(catch dets:from_ets(no_table, Ets),
-		       dets, from_ets, [no_table,Ets]),
+    check_badarg(catch dets:from_ets(no_table, Ets),
+                 dets, from_ets, [no_table,Ets]),
     ets:delete(Ets),
 
-    ?line {ok, T} = dets:open_file(T, Args),
-    ?line {error,incompatible_arguments} = 
+    {ok, T} = dets:open_file(T, Args),
+    {error,incompatible_arguments} =
 	dets:open_file(T, [{type,bag} | Args]),
-    ?line ok = dets:close(T),
+    ok = dets:close(T),
 
     file:delete(Fname),
-    ?line check_pps(P0),
+    check_pps(P0),
     ok.
 
 cache_sets_v8(doc) ->
@@ -2407,11 +2406,11 @@ cache_sets(Config, DelayedWrite, Extra, Sz, Version) ->
     %% Sz = integer(). Size of the inserted tuples.
 
     T = cache,
-    ?line Fname = filename(cache, Config),
-    ?line file:delete(Fname),
+    Fname = filename(cache, Config),
+    file:delete(Fname),
     P0 = pps(),
 
-    ?line {ok, _} = 
+    {ok, _} =
 	dets:open_file(T,[{version, Version}, {file,Fname}, {type,set}, 
 			  {delayed_write, DelayedWrite}]),
 
@@ -2420,48 +2419,48 @@ cache_sets(Config, DelayedWrite, Extra, Sz, Version) ->
 	if 
 	    Extra ->
 		%% Insert enough to get three keys in some slot.
-		?line dets:safe_fixtable(T, true),
+		dets:safe_fixtable(T, true),
 		insert_objs(T, 1, Sz, Dups);
 	    true ->
 		{1,[]}
 	  end,
     Tuple = erlang:make_tuple(Sz, Key),
-    ?line ok = dets:delete(T, Key),
-    ?line ok = dets:sync(T),    
+    ok = dets:delete(T, Key),
+    ok = dets:sync(T),
 
     %% The values of keys in the same slot as Key are checked.
-    ?line OtherValues = sort(lookup_keys(T, OtherKeys)),
+    OtherValues = sort(lookup_keys(T, OtherKeys)),
     
-    ?line ok = dets:insert(T, Tuple),
-    ?line [Tuple] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:insert(T, [Tuple,Tuple]),
+    ok = dets:insert(T, Tuple),
+    [Tuple] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
+    ok = dets:insert(T, [Tuple,Tuple]),
     %% If no delay, the cache gets filled immediately, and written.
-    ?line [Tuple] = dets:lookup_keys(T, [Key,a,b,c,d,e,f]),
-    ?line true = dets:member(T, Key),
+    [Tuple] = dets:lookup_keys(T, [Key,a,b,c,d,e,f]),
+    true = dets:member(T, Key),
 
     %% If delay, this happens without file access.
-    ?line ok = dets:delete(T,Key),
-    ?line ok = dets:insert(T,Tuple),
-    ?line ok = dets:insert(T,Tuple),
-    ?line [Tuple] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:sync(T),
-    ?line [Tuple] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
+    ok = dets:delete(T,Key),
+    ok = dets:insert(T,Tuple),
+    ok = dets:insert(T,Tuple),
+    [Tuple] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
+    ok = dets:sync(T),
+    [Tuple] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
 
     %% Key's objects are is on file only, 
     %% key 'toto' in the cache (if there is one).
-    ?line ok = dets:delete(T,toto),
-    ?line ok = dets:insert(T,[{toto,b},{toto,b}]),
-    ?line true = sort([Tuple,{toto,b}]) =:= 
-                 sort(dets:lookup_keys(T, [Key,toto])),
-    ?line true = dets:member(T, toto),
+    ok = dets:delete(T,toto),
+    ok = dets:insert(T,[{toto,b},{toto,b}]),
+    true = sort([Tuple,{toto,b}]) =:=
+        sort(dets:lookup_keys(T, [Key,toto])),
+    true = dets:member(T, toto),
 
-    ?line ok = dets:delete(T, Key),
-    ?line ok = dets:sync(T),
-    ?line false = dets:member(T, Key),
-    ?line Size = dets:info(T, size),
+    ok = dets:delete(T, Key),
+    ok = dets:sync(T),
+    false = dets:member(T, Key),
+    Size = dets:info(T, size),
 
     %% No object with the key on the file.
     %% Delete, add one object.
@@ -2483,37 +2482,37 @@ cache_sets(Config, DelayedWrite, Extra, Sz, Version) ->
 		  E -> E + 1
 	      end,
     Tuple2 = setelement(2, Tuple, Element),
-    ?line ok = dets:sync(T),
-    ?line ok = dets:insert(T, Tuple2),
-    ?line [Tuple2] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:sync(T),    
-    ?line [Tuple2] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
+    ok = dets:sync(T),
+    ok = dets:insert(T, Tuple2),
+    [Tuple2] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
+    ok = dets:sync(T),
+    [Tuple2] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
 
-    ?line ok = dets:insert(T, {3,a}),
-    ?line ok = dets:insert(T, {3,b}),
-    ?line ok = dets:delete_object(T, {3,c}),
-    ?line ok = dets:delete_object(T, {3,d}),
-    ?line [{3,b}] = dets:lookup(T, 3),
+    ok = dets:insert(T, {3,a}),
+    ok = dets:insert(T, {3,b}),
+    ok = dets:delete_object(T, {3,c}),
+    ok = dets:delete_object(T, {3,d}),
+    [{3,b}] = dets:lookup(T, 3),
 
-    ?line ok = dets:delete(T, 3),
-    ?line ok = dets:delete_object(T, {3,c}),
-    ?line ok = dets:delete_object(T, {3,d}),
-    ?line [] = dets:lookup(T, 3),
+    ok = dets:delete(T, 3),
+    ok = dets:delete_object(T, {3,c}),
+    ok = dets:delete_object(T, {3,d}),
+    [] = dets:lookup(T, 3),
 
-    ?line OtherValues = sort(lookup_keys(T, OtherKeys)),
+    OtherValues = sort(lookup_keys(T, OtherKeys)),
     if
 	Extra ->
 	    %% Let the table grow a while, if it needs to.
-	    ?line All1 = get_all_objects(T),
-	    ?line dets:safe_fixtable(T, false),
-	    ?line timer:sleep(1000),
-	    ?line OtherValues = sort(lookup_keys(T, OtherKeys)),
-	    ?line dets:safe_fixtable(T, true),
-	    ?line All2 = get_all_objects(T),
-	    ?line FAll2 = get_all_objects_fast(T),
-	    ?line true = sort(All2) =:= sort(FAll2),
+	    All1 = get_all_objects(T),
+	    dets:safe_fixtable(T, false),
+	    timer:sleep(1000),
+	    OtherValues = sort(lookup_keys(T, OtherKeys)),
+	    dets:safe_fixtable(T, true),
+	    All2 = get_all_objects(T),
+	    FAll2 = get_all_objects_fast(T),
+	    true = sort(All2) =:= sort(FAll2),
             case symdiff(All1, All2) of
 		{[],[]} ->  ok;
 		{X,Y} ->
@@ -2523,10 +2522,10 @@ cache_sets(Config, DelayedWrite, Extra, Sz, Version) ->
 	true ->
 	    ok
     end,
-    ?line ok = dets:close(T),
+    ok = dets:close(T),
 
     file:delete(Fname),
-    ?line check_pps(P0),
+    check_pps(P0),
     ok.
     
 cache_bags_v8(doc) ->
@@ -2562,11 +2561,11 @@ cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
     %% Sz = integer(). Size of the inserted tuples.
 
     T = cache,
-    ?line Fname = filename(cache, Config),
-    ?line file:delete(Fname),
+    Fname = filename(cache, Config),
+    file:delete(Fname),
     P0 = pps(),
 
-    ?line {ok, _} = 
+    {ok, _} =
 	dets:open_file(T,[{version, Version}, {file,Fname}, {type,bag}, 
 			  {delayed_write, DelayedWrite}]),
 
@@ -2575,49 +2574,49 @@ cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
 	if 
 	    Extra ->
 		%% Insert enough to get three keys in some slot.
-		?line dets:safe_fixtable(T, true),
+		dets:safe_fixtable(T, true),
 		insert_objs(T, 1, Sz, Dups);
 	    true ->
 		{1,[]}
 	  end,
     Tuple = erlang:make_tuple(Sz, Key),
-    ?line ok = dets:delete(T, Key),
-    ?line ok = dets:sync(T),    
+    ok = dets:delete(T, Key),
+    ok = dets:sync(T),
 
     %% The values of keys in the same slot as Key are checked.
-    ?line OtherValues = sort(lookup_keys(T, OtherKeys)),
+    OtherValues = sort(lookup_keys(T, OtherKeys)),
     
-    ?line ok = dets:insert(T, Tuple),
-    ?line [Tuple] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:insert(T, [Tuple,Tuple]),
+    ok = dets:insert(T, Tuple),
+    [Tuple] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
+    ok = dets:insert(T, [Tuple,Tuple]),
     %% If no delay, the cache gets filled immediately, and written.
-    ?line [Tuple] = dets:lookup_keys(T, [Key,a,b,c,d,e,f]),
-    ?line true = dets:member(T, Key),
+    [Tuple] = dets:lookup_keys(T, [Key,a,b,c,d,e,f]),
+    true = dets:member(T, Key),
 
     %% If delay, this happens without file access. 
     %% (This is no longer true; cache lookup has been simplified.)
-    ?line ok = dets:delete(T,Key),
-    ?line ok = dets:insert(T,Tuple),
-    ?line ok = dets:insert(T,Tuple),
-    ?line [Tuple] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:sync(T),
-    ?line [Tuple] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
+    ok = dets:delete(T,Key),
+    ok = dets:insert(T,Tuple),
+    ok = dets:insert(T,Tuple),
+    [Tuple] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
+    ok = dets:sync(T),
+    [Tuple] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
 
     %% Key's objects are is on file only, 
     %% key toto in the cache (if there is one).
-    ?line ok = dets:delete(T,toto),
-    ?line false = dets:member(T, toto),
-    ?line ok = dets:insert(T,[{toto,b},{toto,b}]),
-    ?line true = sort([Tuple,{toto,b}]) =:= 
-                 sort(dets:lookup_keys(T, [Key,toto])),
-    ?line true = dets:member(T, toto),
+    ok = dets:delete(T,toto),
+    false = dets:member(T, toto),
+    ok = dets:insert(T,[{toto,b},{toto,b}]),
+    true = sort([Tuple,{toto,b}]) =:=
+        sort(dets:lookup_keys(T, [Key,toto])),
+    true = dets:member(T, toto),
 
-    ?line ok = dets:delete(T, Key),
-    ?line ok = dets:sync(T),
-    ?line Size = dets:info(T, size),
+    ok = dets:delete(T, Key),
+    ok = dets:sync(T),
+    Size = dets:info(T, size),
 
     %% No object with the key on the file.
     %% Delete, add one object.
@@ -2634,50 +2633,50 @@ cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
     del_and_ins(both, T, Size2, Tuple, Key, 1),
 
     %% Overwrite an objekt on file with the same object.
-    ?line ok = dets:insert(T, Tuple),
-    ?line ok = dets:sync(T),
-    ?line [Tuple2] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:insert(T, Tuple),
-    ?line ok = dets:sync(T),
-    ?line [Tuple2] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
+    ok = dets:insert(T, Tuple),
+    ok = dets:sync(T),
+    [Tuple2] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
+    ok = dets:insert(T, Tuple),
+    ok = dets:sync(T),
+    [Tuple2] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
 
     %% A mix of insert and delete.
-    ?line ok = dets:delete(T, Key),
-    ?line ok = dets:sync(T),
-    ?line ok = dets:delete(T, Key),
-    ?line ok = dets:insert(T, {Key,foo}),
-    ?line ok = dets:insert(T, {Key,bar}),
-    ?line [{Key,bar},{Key,foo}] = sort(dets:lookup(T, Key)),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:delete_object(T, {Key,foo}),
-    ?line ok = dets:insert(T, {Key,kar}),
-    ?line [{Key,bar},{Key,kar}] = sort(dets:lookup(T, Key)),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:insert(T, [{Key,kar},{Key,kar}]),
-    ?line [{Key,bar},{Key,kar}] = sort(dets:lookup(T, Key)),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:delete_object(T, {Key,bar}),
-    ?line ok = dets:delete_object(T, {Key,kar}),
-    ?line [] = dets:lookup(T, Key),
-    ?line false = dets:member(T, Key),
-    ?line ok = dets:sync(T),
-    ?line [] = dets:lookup(T, Key),
-    ?line false = dets:member(T, Key),
+    ok = dets:delete(T, Key),
+    ok = dets:sync(T),
+    ok = dets:delete(T, Key),
+    ok = dets:insert(T, {Key,foo}),
+    ok = dets:insert(T, {Key,bar}),
+    [{Key,bar},{Key,foo}] = sort(dets:lookup(T, Key)),
+    true = dets:member(T, Key),
+    ok = dets:delete_object(T, {Key,foo}),
+    ok = dets:insert(T, {Key,kar}),
+    [{Key,bar},{Key,kar}] = sort(dets:lookup(T, Key)),
+    true = dets:member(T, Key),
+    ok = dets:insert(T, [{Key,kar},{Key,kar}]),
+    [{Key,bar},{Key,kar}] = sort(dets:lookup(T, Key)),
+    true = dets:member(T, Key),
+    ok = dets:delete_object(T, {Key,bar}),
+    ok = dets:delete_object(T, {Key,kar}),
+    [] = dets:lookup(T, Key),
+    false = dets:member(T, Key),
+    ok = dets:sync(T),
+    [] = dets:lookup(T, Key),
+    false = dets:member(T, Key),
 
-    ?line OtherValues = sort(lookup_keys(T, OtherKeys)),
+    OtherValues = sort(lookup_keys(T, OtherKeys)),
     if
 	Extra ->
 	    %% Let the table grow for a while, if it needs to.
-	    ?line All1 = get_all_objects(T),
-	    ?line dets:safe_fixtable(T, false),
-	    ?line timer:sleep(1200),
-	    ?line OtherValues = sort(lookup_keys(T, OtherKeys)),
-	    ?line dets:safe_fixtable(T, true),
-	    ?line All2 = get_all_objects(T),
-	    ?line FAll2 = get_all_objects_fast(T),
-	    ?line true = sort(All2) =:= sort(FAll2),
+	    All1 = get_all_objects(T),
+	    dets:safe_fixtable(T, false),
+	    timer:sleep(1200),
+	    OtherValues = sort(lookup_keys(T, OtherKeys)),
+	    dets:safe_fixtable(T, true),
+	    All2 = get_all_objects(T),
+	    FAll2 = get_all_objects_fast(T),
+	    true = sort(All2) =:= sort(FAll2),
             case symdiff(All1, All2) of
 		{[],[]} ->  ok;
 		{X,Y} ->
@@ -2687,28 +2686,28 @@ cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
 	true ->
 	    ok
     end,
-    ?line ok = dets:close(T),
+    ok = dets:close(T),
     file:delete(Fname),
 
     %% Second object of a key added and looked up simultaneously.
     R1 = {index_test,1,2,3,4},
     R2 = {index_test,2,2,13,14},
     R3 = {index_test,1,12,13,14},
-    ?line {ok, _} = dets:open_file(T,[{version,Version},{type,bag},
-				      {keypos,2},{file,Fname}]),
-    ?line ok = dets:insert(T,R1),
-    ?line ok = dets:sync(T),
-    ?line ok = dets:insert(T,R2),
-    ?line ok = dets:sync(T),
-    ?line ok = dets:insert(T,R3),
-    ?line [R1,R3] = sort(dets:lookup(T,1)),
-    ?line true = dets:member(T, 1),
-    ?line [R1,R3] = sort(dets:lookup(T,1)),
-    ?line true = dets:member(T, 1),
-    ?line ok = dets:close(T),
+    {ok, _} = dets:open_file(T,[{version,Version},{type,bag},
+                                {keypos,2},{file,Fname}]),
+    ok = dets:insert(T,R1),
+    ok = dets:sync(T),
+    ok = dets:insert(T,R2),
+    ok = dets:sync(T),
+    ok = dets:insert(T,R3),
+    [R1,R3] = sort(dets:lookup(T,1)),
+    true = dets:member(T, 1),
+    [R1,R3] = sort(dets:lookup(T,1)),
+    true = dets:member(T, 1),
+    ok = dets:close(T),
     file:delete(Fname),
 
-    ?line check_pps(P0),
+    check_pps(P0),
     ok.
     
 cache_duplicate_bags_v8(doc) ->
@@ -2743,11 +2742,11 @@ cache_dup_bags(Config, DelayedWrite, Extra, Sz, Version) ->
     %% Sz = integer(). Size of the inserted tuples.
 
     T = cache,
-    ?line Fname = filename(cache, Config),
-    ?line file:delete(Fname),
+    Fname = filename(cache, Config),
+    file:delete(Fname),
     P0 = pps(),
 
-    ?line {ok, _} = 
+    {ok, _} =
 	dets:open_file(T,[{version, Version}, {file,Fname}, 
 			  {type,duplicate_bag}, 
 			  {delayed_write, DelayedWrite}]),
@@ -2757,53 +2756,53 @@ cache_dup_bags(Config, DelayedWrite, Extra, Sz, Version) ->
 	if 
 	    Extra ->
 		%% Insert enough to get three keys in some slot.
-		?line dets:safe_fixtable(T, true),
+		dets:safe_fixtable(T, true),
 		insert_objs(T, 1, Sz, Dups);
 	    true ->
 		{1,[]}
 	  end,
     Tuple = erlang:make_tuple(Sz, Key),
-    ?line ok = dets:delete(T, Key),
-    ?line ok = dets:sync(T),    
-    ?line false = dets:member(T, Key),
+    ok = dets:delete(T, Key),
+    ok = dets:sync(T),
+    false = dets:member(T, Key),
 
     %% The values of keys in the same slot as Key are checked.
-    ?line OtherValues = sort(lookup_keys(T, OtherKeys)),
+    OtherValues = sort(lookup_keys(T, OtherKeys)),
     
-    ?line ok = dets:insert(T, Tuple),
-    ?line [Tuple] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:insert(T, [Tuple,Tuple]),
+    ok = dets:insert(T, Tuple),
+    [Tuple] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
+    ok = dets:insert(T, [Tuple,Tuple]),
     %% If no delay, the cache gets filled immediately, and written.
-    ?line [Tuple,Tuple,Tuple] = dets:lookup_keys(T, [Key,a,b,c,d,e,f]),
-    ?line true = dets:member(T, Key),
+    [Tuple,Tuple,Tuple] = dets:lookup_keys(T, [Key,a,b,c,d,e,f]),
+    true = dets:member(T, Key),
 
     %% If delay, this happens without file access.
     %% (This is no longer true; cache lookup has been simplified.)
-    ?line ok = dets:delete(T,Key),
-    ?line ok = dets:insert(T,Tuple),
-    ?line ok = dets:insert(T,Tuple),
-    ?line [Tuple,Tuple] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
-    ?line ok = dets:sync(T),
-    ?line [Tuple,Tuple] = dets:lookup(T, Key),
-    ?line true = dets:member(T, Key),
+    ok = dets:delete(T,Key),
+    ok = dets:insert(T,Tuple),
+    ok = dets:insert(T,Tuple),
+    [Tuple,Tuple] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
+    ok = dets:sync(T),
+    [Tuple,Tuple] = dets:lookup(T, Key),
+    true = dets:member(T, Key),
 
     %% One object in the cache, one on the file.
-    ?line ok = dets:delete(T,Key),
-    ?line ok = dets:insert(T,Tuple),
-    ?line ok = dets:sync(T),
-    ?line ok = dets:insert(T,Tuple),
-    ?line true = dets:member(T, Key), % should not read the file, but it does..
+    ok = dets:delete(T,Key),
+    ok = dets:insert(T,Tuple),
+    ok = dets:sync(T),
+    ok = dets:insert(T,Tuple),
+    true = dets:member(T, Key), % should not read the file, but it does..
 
     %% Key's objects are is on file only, 
     %% key toto in the cache (if there is one).
-    ?line ok = dets:delete(T,toto),
-    ?line ok = dets:insert(T,[{toto,b},{toto,b}]),
-    ?line true = sort([Tuple,Tuple,{toto,b},{toto,b}]) =:= 
+    ok = dets:delete(T,toto),
+    ok = dets:insert(T,[{toto,b},{toto,b}]),
+    true = sort([Tuple,Tuple,{toto,b},{toto,b}]) =:=
                  sort(dets:lookup_keys(T, [Key,toto])),
-    ?line true = dets:member(T, toto),
-    ?line Size = dets:info(T, size),
+    true = dets:member(T, toto),
+    Size = dets:info(T, size),
 
     %% Two objects with the same key on the file.
     %% Delete them, add two objects.
@@ -2824,18 +2823,18 @@ cache_dup_bags(Config, DelayedWrite, Extra, Sz, Version) ->
     del_and_ins(object, T, Size, Tuple, Key, 1),
     del_and_ins(both, T, Size, Tuple, Key, 1),
 
-    ?line OtherValues = sort(lookup_keys(T, OtherKeys)),
+    OtherValues = sort(lookup_keys(T, OtherKeys)),
     if
 	Extra ->
 	    %% Let the table grow for a while, if it needs to.
-	    ?line All1 = get_all_objects(T),
-	    ?line dets:safe_fixtable(T, false),
-	    ?line timer:sleep(1200),
-	    ?line OtherValues = sort(lookup_keys(T, OtherKeys)),
-	    ?line dets:safe_fixtable(T, true),
-	    ?line All2 = get_all_objects(T),
-	    ?line FAll2 = get_all_objects_fast(T),
-	    ?line true = sort(All2) =:= sort(FAll2),
+	    All1 = get_all_objects(T),
+	    dets:safe_fixtable(T, false),
+	    timer:sleep(1200),
+	    OtherValues = sort(lookup_keys(T, OtherKeys)),
+	    dets:safe_fixtable(T, true),
+	    All2 = get_all_objects(T),
+	    FAll2 = get_all_objects_fast(T),
+	    true = sort(All2) =:= sort(FAll2),
             case symdiff(All1, All2) of
 		{[],[]} ->  ok;
 		{X,Y} ->
@@ -2845,10 +2844,10 @@ cache_dup_bags(Config, DelayedWrite, Extra, Sz, Version) ->
 	true ->
 	    ok
     end,
-    ?line ok = dets:close(T),
+    ok = dets:close(T),
 
     file:delete(Fname),
-    ?line check_pps(P0),
+    check_pps(P0),
     ok.
     
 lookup_keys(_T, []) ->
@@ -2859,47 +2858,47 @@ lookup_keys(T, Keys) ->
 del_and_ins(W, T, Size, Obj, Key, N) ->
     case W of
 	object -> 
-	    ?line ok = dets:delete_object(T, Obj);
+	    ok = dets:delete_object(T, Obj);
 	key ->
 
-	    ?line ok = dets:delete(T, Key);
+	    ok = dets:delete(T, Key);
 	both ->
-	    ?line ok = dets:delete(T, Key),
-	    ?line ok = dets:delete_object(T, Obj)
+	    ok = dets:delete(T, Key),
+	    ok = dets:delete_object(T, Obj)
     end,
     Objs = duplicate(N, Obj),
-    ?line [] = dets:lookup(T, Key),
-    ?line ok = dets:insert(T, Objs),
-    ?line Objs = dets:lookup_keys(T, [snurrespratt,Key]),
-    ?line true = Size + length(Objs)-2 =:= dets:info(T, size),
-    ?line Objs = dets:lookup(T, Key).
+    [] = dets:lookup(T, Key),
+    ok = dets:insert(T, Objs),
+    Objs = dets:lookup_keys(T, [snurrespratt,Key]),
+    true = Size + length(Objs)-2 =:= dets:info(T, size),
+    Objs = dets:lookup(T, Key).
 
 
 insert_objs(T, N, Sz, Dups) ->
     Seq = seq(N,N+255),
     L0 = map(fun(I) -> erlang:make_tuple(Sz, I) end, Seq),
     L = append(duplicate(Dups, L0)),
-    ?line ok = dets:insert(T, L),
-    ?line case search_slot(T, 0) of
-	      false ->
-		  insert_objs(T, N+256, Sz, Dups);
-	      Keys ->
-		  Keys
-	  end.
+    ok = dets:insert(T, L),
+    case search_slot(T, 0) of
+        false ->
+            insert_objs(T, N+256, Sz, Dups);
+        Keys ->
+            Keys
+    end.
 
 search_slot(T, I) ->
-    ?line case dets:slot(T, I) of
-	      '$end_of_table' ->
-		  false;
-	      Objs ->
-		  case usort(map(fun(X) -> element(1, X) end, Objs)) of
-		      [_, Key, _ | _] = Keys0 ->
-			  Keys = delete(Key, Keys0),
-			  {Key, Keys};
-		      _ ->
-			  search_slot(T, I+1)
-		  end
-	  end.
+    case dets:slot(T, I) of
+        '$end_of_table' ->
+            false;
+        Objs ->
+            case usort(map(fun(X) -> element(1, X) end, Objs)) of
+                [_, Key, _ | _] = Keys0 ->
+                    Keys = delete(Key, Keys0),
+                    {Key, Keys};
+                _ ->
+                    search_slot(T, I+1)
+            end
+    end.
 
 symdiff(L1, L2) ->
     {X, _, Y} = 
@@ -2912,18 +2911,18 @@ otp_4208(suite) ->
     [];
 otp_4208(Config) when is_list(Config) ->
     Tab = otp_4208,
-    ?line FName = filename(Tab, Config),
+    FName = filename(Tab, Config),
     Expected = sort([{3,ghi,12},{1,abc,10},{4,jkl,13},{2,def,11}]),
 
     file:delete(FName),
-    ?line {ok, Tab} = dets:open_file(Tab, [{file,FName}]),
-    ?line ok = dets:insert(Tab, [{1,abc,10},{2,def,11},{3,ghi,12},{4,jkl,13}]),
-    ?line Expected = sort(dets:traverse(Tab, fun(X) -> {continue, X} end)),
-    ?line ok = dets:close(Tab),
+    {ok, Tab} = dets:open_file(Tab, [{file,FName}]),
+    ok = dets:insert(Tab, [{1,abc,10},{2,def,11},{3,ghi,12},{4,jkl,13}]),
+    Expected = sort(dets:traverse(Tab, fun(X) -> {continue, X} end)),
+    ok = dets:close(Tab),
 
-    ?line {ok, Tab} = dets:open_file(Tab, [{access, read},{file,FName}]),
-    ?line Expected = sort(dets:traverse(Tab, fun(X) -> {continue, X} end)),
-    ?line ok = dets:close(Tab),
+    {ok, Tab} = dets:open_file(Tab, [{access, read},{file,FName}]),
+    Expected = sort(dets:traverse(Tab, fun(X) -> {continue, X} end)),
+    ok = dets:close(Tab),
     file:delete(FName),
     
     ok.
@@ -2934,21 +2933,21 @@ otp_4989(suite) ->
     [];
 otp_4989(Config) when is_list(Config) ->
     Tab = otp_4989,
-    ?line FName = filename(Tab, Config),
+    FName = filename(Tab, Config),
 
     %% Do exactly as in the error report.
-    ?line _Ets = ets:new(Tab, [named_table]),
+    _Ets = ets:new(Tab, [named_table]),
     ets_init(Tab, 100000),
-    ?line {ok, Tab} = 
+    {ok, Tab} =
         dets:open_file(Tab, [{access, read_write}, {file,FName}, {keypos,2}]),
-    ?line ok = dets:from_ets(Tab, Tab),
-    ?line ok = dets:close(Tab),
+    ok = dets:from_ets(Tab, Tab),
+    ok = dets:close(Tab),
     %% Restore.
-    ?line  {ok, Tab} = 
+     {ok, Tab} =
         dets:open_file(Tab, [{access, read}, {keypos, 2}, {file, FName}]),
-    ?line true = ets:delete_all_objects(Tab),
-    ?line true = ets:from_dets(Tab, Tab),
-    ?line ok = dets:close(Tab),
+    true = ets:delete_all_objects(Tab),
+    true = ets:from_dets(Tab, Tab),
+    ok = dets:close(Tab),
     ets:delete(Tab),
     file:delete(FName),
     ok.
@@ -2965,20 +2964,20 @@ otp_8898(suite) ->
     [];
 otp_8898(Config) when is_list(Config) ->
     Tab = otp_8898,
-    ?line FName = filename(Tab, Config),
+    FName = filename(Tab, Config),
 
     Server = self(),
 
-    ?line file:delete(FName),
-    ?line {ok, _} = dets:open_file(Tab,[{file, FName}]),
-    ?line [P1,P2,P3] = new_clients(3, Tab),
+    file:delete(FName),
+    {ok, _} = dets:open_file(Tab,[{file, FName}]),
+    [P1,P2,P3] = new_clients(3, Tab),
 
     Seq = [{P1,[sync]},{P2,[{lookup,1,[]}]},{P3,[{insert,{1,b}}]}],
-    ?line atomic_requests(Server, Tab, [[]], Seq),
-    ?line true = get_replies([{P1,ok},{P2,ok},{P3,ok}]),
-    ?line ok = dets:close(Tab),
-    ?line {ok, _} = dets:open_file(Tab,[{file, FName}]),
-    ?line file:delete(FName),
+    atomic_requests(Server, Tab, [[]], Seq),
+    true = get_replies([{P1,ok},{P2,ok},{P3,ok}]),
+    ok = dets:close(Tab),
+    {ok, _} = dets:open_file(Tab,[{file, FName}]),
+    file:delete(FName),
 
     ok.
 
@@ -2988,25 +2987,25 @@ otp_8899(suite) ->
     [];
 otp_8899(Config) when is_list(Config) ->
     Tab = many_clients,
-    ?line FName = filename(Tab, Config),
+    FName = filename(Tab, Config),
 
     Server = self(),
 
-    ?line file:delete(FName),
-    ?line {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
-    ?line [P1,P2,P3,P4] = new_clients(4, Tab),
+    file:delete(FName),
+    {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
+    [P1,P2,P3,P4] = new_clients(4, Tab),
 
     MC = [Tab],
     Seq6a = [{P1,[{insert,[{used_to_be_skipped_by,match}]},
                   {lookup,1,[{1,a}]}]},
              {P2,[{verbose,true,MC}]},
              {P3,[{lookup,1,[{1,a}]}]}, {P4,[{verbose,true,MC}]}],
-    ?line atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq6a),
-    ?line true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
-    ?line [{1,a},{2,b},{3,c},{used_to_be_skipped_by,match}] =
+    atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq6a),
+    true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
+    [{1,a},{2,b},{3,c},{used_to_be_skipped_by,match}] =
         lists:sort(dets:match_object(Tab, '_')),
-    ?line _ = dets:close(Tab),
-    ?line file:delete(FName),
+    _ = dets:close(Tab),
+    file:delete(FName),
 
     ok.
 
@@ -3016,14 +3015,14 @@ many_clients(suite) ->
     [];
 many_clients(Config) when is_list(Config) ->
     Tab = many_clients,
-    ?line FName = filename(Tab, Config),
+    FName = filename(Tab, Config),
 
     Server = self(),
 
-    ?line file:delete(FName),
+    file:delete(FName),
     P0 = pps(),
-    ?line {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
-    ?line [P1,P2,P3,P4] = new_clients(4, Tab),
+    {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
+    [P1,P2,P3,P4] = new_clients(4, Tab),
 
     %% dets:init_table/2 is used for making sure that all processes
     %% start sending requests before the Dets process begins to handle
@@ -3034,67 +3033,67 @@ many_clients(Config) when is_list(Config) ->
     %% One key is read, updated, and read again.
     Seq1 = [{P1,[{lookup,1,[{1,a}]}]}, {P2,[{insert,{1,b}}]},
 	    {P3,[{lookup,1,[{1,b}]}]}, {P4,[{lookup,1,[{1,b}]}]}],
-    ?line atomic_requests(Server, Tab, [[{1,a}]], Seq1),
-    ?line true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
+    atomic_requests(Server, Tab, [[{1,a}]], Seq1),
+    true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
 
     %% Different keys read by different processes
     Seq2 = [{P1,[{member,1,true}]}, {P2,[{lookup,2,[{2,b}]}]},
 	    {P3,[{lookup,1,[{1,a}]}]}, {P4,[{lookup,3,[{3,c}]}]}],
-    ?line atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq2),
-    ?line true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
+    atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq2),
+    true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
 
     %% Reading deleted key.
     Seq3 = [{P1,[{delete_key,2}]}, {P2,[{lookup,1,[{1,a}]}]},
 	    {P3,[{lookup,1,[{1,a}]}]}, {P4,[{member,2,false}]}],
-    ?line atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq3),
-    ?line true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
+    atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq3),
+    true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
 
     %% Inserting objects.
     Seq4 = [{P1,[{insert,[{1,a},{2,b}]}]}, {P2,[{insert,[{2,c},{3,a}]}]},
 	    {P3,[{insert,[{3,b},{4,d}]}]},
 	    {P4,[{lookup_keys,[1,2,3,4],[{1,a},{2,c},{3,b},{4,d}]}]}],
-    ?line atomic_requests(Server, Tab, [], Seq4),
-    ?line true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
+    atomic_requests(Server, Tab, [], Seq4),
+    true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
 
     %% Deleting objects.
     Seq5 = [{P1,[{delete_object,{1,a}}]}, {P2,[{delete_object,{1,a}}]},
 	    {P3,[{delete_object,{3,c}}]},
 	    {P4,[{lookup_keys,[1,2,3,4],[{2,b}]}]}],
-    ?line atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq5),
-    ?line true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
+    atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq5),
+    true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
 
     %% Some request not streamed.
     Seq6 = [{P1,[{lookup,1,[{1,a}]}]}, {P2,[{info,size,3}]},
 	    {P3,[{lookup,1,[{1,a}]}]}, {P4,[{info,size,3}]}],
-    ?line atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq6),
-    ?line true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
+    atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq6),
+    true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
 
     %% Some request not streamed.
     Seq7 = [{P1,[{insert,[{3,a}]}]}, {P2,[{insert,[{3,b}]}]},
 	    {P3,[{delete_object,{3,c}}]},
 	    {P4,[{lookup,3,[{3,b}]}]}],
-    ?line atomic_requests(Server, Tab, [[{3,c}]], Seq7),
-    ?line true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
+    atomic_requests(Server, Tab, [[{3,c}]], Seq7),
+    true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
 
-    ?line put_requests(Server, [{P1,stop},{P2,stop},{P3,stop},{P4,stop}]),
-    ?line ok = dets:close(Tab),
-    ?line file:delete(FName),
+    put_requests(Server, [{P1,stop},{P2,stop},{P3,stop},{P4,stop}]),
+    ok = dets:close(Tab),
+    file:delete(FName),
 
     %% Check that errors are handled correctly by the streaming operators.
-    ?line {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
-    ?line ok = ins(Tab, 100),
+    {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
+    ok = ins(Tab, 100),
     Obj = {66,{item,number,66}},
-    ?line {ok, ObjPos} = dets:where(Tab, Obj),
-    ?line ok = dets:close(Tab),
+    {ok, ObjPos} = dets:where(Tab, Obj),
+    ok = dets:close(Tab),
     %% Damaged object.
     crash(FName, ObjPos+12),
-    ?line {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
-    ?line BadObject1 = dets:lookup_keys(Tab, [65,66,67,68,69]),
-    ?line bad_object(BadObject1, FName),
-    ?line _Error = dets:close(Tab),
-    ?line file:delete(FName),
+    {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
+    BadObject1 = dets:lookup_keys(Tab, [65,66,67,68,69]),
+    bad_object(BadObject1, FName),
+    _Error = dets:close(Tab),
+    file:delete(FName),
 
-    ?line check_pps(P0),
+    check_pps(P0),
 
     ok.
 
@@ -3120,7 +3119,7 @@ get_replies(L) ->
     lists:all(fun({Pid,Reply}) -> Reply =:= get_reply(Pid) end, L).
 
 get_reply(Pid) ->
-    ?line receive {Pid, Reply} -> Reply end.
+    receive {Pid, Reply} -> Reply end.
 
 new_clients(0, _Tab) ->
     [];
@@ -3135,7 +3134,7 @@ client(S, Tab) ->
 	{S, stop} ->
 	    exit(normal);
 	{S, ToDo} ->
-	    ?line Reply = eval(ToDo, Tab),
+	    Reply = eval(ToDo, Tab),
 	    case Reply of
 		{error, _} -> io:format("~p: ~p~n", [self(), Reply]);
 		_ -> ok
@@ -3147,55 +3146,55 @@ client(S, Tab) ->
 eval([], _Tab) ->
     ok;
 eval([{verbose,Bool,Expected} | L], Tab) ->
-    ?line case dets:verbose(Bool) of
-	      Expected -> eval(L, Tab);
-	      Error -> {error, {verbose,Error}}
-	  end;
+    case dets:verbose(Bool) of
+        Expected -> eval(L, Tab);
+        Error -> {error, {verbose,Error}}
+    end;
 eval([sync | L], Tab) ->
-    ?line case dets:sync(Tab) of
-	      ok -> eval(L, Tab);
-	      Error -> {error, {sync,Error}}
-	  end;
+    case dets:sync(Tab) of
+        ok -> eval(L, Tab);
+        Error -> {error, {sync,Error}}
+    end;
 eval([{insert,Stuff} | L], Tab) ->
-    ?line case dets:insert(Tab, Stuff) of
-	      ok -> eval(L, Tab);
-	      Error -> {error, {insert,Stuff,Error}}
-	  end;
+    case dets:insert(Tab, Stuff) of
+        ok -> eval(L, Tab);
+        Error -> {error, {insert,Stuff,Error}}
+    end;
 eval([{lookup,Key,Expected} | L], Tab) ->
-    ?line case dets:lookup(Tab, Key) of
-	      Expected -> eval(L, Tab);
-	      Else -> {error, {lookup,Key,Expected,Else}}
-	  end;
+    case dets:lookup(Tab, Key) of
+        Expected -> eval(L, Tab);
+        Else -> {error, {lookup,Key,Expected,Else}}
+    end;
 eval([{lookup_keys,Keys,Expected} | L], Tab) ->
     %% Time order is destroyed...
-    ?line case dets:lookup_keys(Tab, Keys) of
-	      R when is_list(R) -> 
-		  case lists:sort(Expected) =:= lists:sort(R) of
-		      true -> eval(L, Tab);
-		      false -> {error, {lookup_keys,Keys,Expected,R}}
-		  end;
-	      Else -> {error, {lookup_keys,Keys,Expected,Else}}
-	  end;
+    case dets:lookup_keys(Tab, Keys) of
+        R when is_list(R) ->
+            case lists:sort(Expected) =:= lists:sort(R) of
+                true -> eval(L, Tab);
+                false -> {error, {lookup_keys,Keys,Expected,R}}
+            end;
+        Else -> {error, {lookup_keys,Keys,Expected,Else}}
+    end;
 eval([{member,Key,Expected} | L], Tab) ->
-    ?line case dets:member(Tab, Key) of
-	      Expected -> eval(L, Tab);
-	      Else -> {error, {member,Key,Expected,Else}}
-	  end;
+    case dets:member(Tab, Key) of
+        Expected -> eval(L, Tab);
+        Else -> {error, {member,Key,Expected,Else}}
+    end;
 eval([{delete_key,Key} | L], Tab) ->
-    ?line case dets:delete(Tab, Key) of
-	      ok -> eval(L, Tab);
-	      Else -> {error, {delete_key,Key,Else}}
-	  end;
+    case dets:delete(Tab, Key) of
+        ok -> eval(L, Tab);
+        Else -> {error, {delete_key,Key,Else}}
+    end;
 eval([{delete_object,Object} | L], Tab) ->
-    ?line case dets:delete_object(Tab, Object) of
-	      ok -> eval(L, Tab);
-	      Else -> {error, {delete_object,Object,Else}}
-	  end;
+    case dets:delete_object(Tab, Object) of
+        ok -> eval(L, Tab);
+        Else -> {error, {delete_object,Object,Else}}
+    end;
 eval([{info,Tag,Expected} | L], Tab) ->
-    ?line case dets:info(Tab, Tag) of
-	      Expected -> eval(L, Tab);
-	      Else -> {error, {info,Tag,Else,Expected}}
-	  end;
+    case dets:info(Tab, Tag) of
+        Expected -> eval(L, Tab);
+        Else -> {error, {info,Tag,Else,Expected}}
+    end;
 eval(Else, _Tab) ->
     {error, {bad_request,Else}}.
 
@@ -3206,44 +3205,44 @@ otp_4906(suite) ->
 otp_4906(Config) when is_list(Config) ->
     N = 256*512 + 400,
     Tab = otp_4906,
-    ?line FName = filename(Tab, Config),
+    FName = filename(Tab, Config),
     
     file:delete(FName),
-    ?line {ok, Tab} = dets:open_file(Tab, [{file, FName}]),
-    ?line ok = ins_small(Tab, 0, N),
-    ?line ok = dets:close(Tab),
-    ?line {ok, Tab} = dets:open_file(Tab, [{file, FName}]),
-    ?line ok = read_4906(Tab, N-1),
-    ?line ok = dets:close(Tab),
+    {ok, Tab} = dets:open_file(Tab, [{file, FName}]),
+    ok = ins_small(Tab, 0, N),
+    ok = dets:close(Tab),
+    {ok, Tab} = dets:open_file(Tab, [{file, FName}]),
+    ok = read_4906(Tab, N-1),
+    ok = dets:close(Tab),
     file:delete(FName),
 
     %% If the (only) process fixing a table updates the table, the
     %% process will no longer be punished with a 1 ms delay (hm, the
     %% server is delayed, it should be the client...). In this example
     %% the writing process *is* delayed.
-    ?line {ok,Tab} = dets:open_file(Tab, [{file,FName}]),
+    {ok,Tab} = dets:open_file(Tab, [{file,FName}]),
     Parent = self(),
     FixPid = spawn_link(fun() -> 
                                 dets:safe_fixtable(Tab, true),
                                 receive {Parent, stop} -> ok end
                         end),
-    ?line ok = ins_small(Tab, 0, 1000),
+    ok = ins_small(Tab, 0, 1000),
     FixPid ! {Parent, stop},
     timer:sleep(1),
-    ?line ok = dets:close(Tab),
+    ok = dets:close(Tab),
     file:delete(FName),
     ok.
 
 read_4906(_T, N) when N < 0 ->
     ok;
 read_4906(T, N) ->
-    ?line [_] = dets:lookup(T, N),
+    [_] = dets:lookup(T, N),
     read_4906(T, N-1).
 
 ins_small(_T, I, N) when I =:= N ->
     ok;
 ins_small(T, I, N) ->
-    ?line ok = dets:insert(T, {I}),
+    ok = dets:insert(T, {I}),
     ins_small(T, I+1, N).
 
 otp_5402(doc) ->
@@ -3252,28 +3251,28 @@ otp_5402(suite) ->
     [];
 otp_5402(Config) when is_list(Config) ->
     Tab = otp_5402,
-    ?line File = filename:join(["cannot", "write", "this", "file"]),
+    File = filename:join(["cannot", "write", "this", "file"]),
 
     %% close
-    ?line{ok, T} = dets:open_file(Tab, [{ram_file,true},
-                                        {file, File}]),
-    ?line ok = dets:insert(T, {1,a}),
-    ?line {error,{file_error,_,_}} = dets:close(T),
+    {ok, T} = dets:open_file(Tab, [{ram_file,true},
+                                   {file, File}]),
+    ok = dets:insert(T, {1,a}),
+    {error,{file_error,_,_}} = dets:close(T),
 
     %% sync
-    ?line {ok, T} = dets:open_file(Tab, [{ram_file,true},
-                                         {file, File}]),
-    ?line ok = dets:insert(T, {1,a}),
-    ?line {error,{file_error,_,_}} = dets:sync(T),
-    ?line {error,{file_error,_,_}} = dets:close(T),
+    {ok, T} = dets:open_file(Tab, [{ram_file,true},
+                                   {file, File}]),
+    ok = dets:insert(T, {1,a}),
+    {error,{file_error,_,_}} = dets:sync(T),
+    {error,{file_error,_,_}} = dets:close(T),
 
     %% auto_save
-    ?line {ok, T} = dets:open_file(Tab, [{ram_file,true},
-                                         {auto_save, 2000},
-                                         {file, File}]),
-    ?line ok = dets:insert(T, {1,a}),
-    ?line timer:sleep(5000),
-    ?line {error,{file_error,_,_}} = dets:close(T),
+    {ok, T} = dets:open_file(Tab, [{ram_file,true},
+                                   {auto_save, 2000},
+                                   {file, File}]),
+    ok = dets:insert(T, {1,a}),
+    timer:sleep(5000),
+    {error,{file_error,_,_}} = dets:close(T),
     ok.
 
 simultaneous_open(doc) ->
@@ -3284,12 +3283,12 @@ simultaneous_open(Config) ->
     Tab = sim_open,
     File = filename(Tab, Config),
     
-    ?line ok = monit(Tab, File),
-    ?line ok = kill_while_repairing(Tab, File),
-    ?line ok = kill_while_init(Tab, File),
-    ?line ok = open_ro(Tab, File),
-    ?line ok = open_w(Tab, File, 0, Config),
-    ?line ok = open_w(Tab, File, 100, Config),
+    ok = monit(Tab, File),
+    ok = kill_while_repairing(Tab, File),
+    ok = kill_while_init(Tab, File),
+    ok = open_ro(Tab, File),
+    ok = open_w(Tab, File, 0, Config),
+    ok = open_w(Tab, File, 100, Config),
     ok.
 
 %% One process logs and another process closes the log. Before
@@ -3382,9 +3381,9 @@ kill_while_init(Tab, File) ->
                 receive {Parent, die} -> ok end,
                 {error, not_owner} = dets:close(Tab)
         end,
-    ?line P1 = spawn(F),
-    ?line P2 = spawn(F),
-    ?line P3 = spawn(F),
+    P1 = spawn(F),
+    P2 = spawn(F),
+    P3 = spawn(F),
     IF = fun() ->
                  R = dets:open_file(Tab, [{file,File}]),
                  Parent ! {self(), R},
@@ -3392,27 +3391,27 @@ kill_while_init(Tab, File) ->
                  {'EXIT', {badarg, _}} = (catch dets:init_table(Tab, Fun)),
                  receive {Parent, die} -> ok end
           end,
-    ?line P4 = spawn(IF),
-    ?line receive {P1,R1} -> {ok, _} = R1 end,
-    ?line receive {P2,R2} -> {ok, _} = R2 end,
-    ?line receive {P3,R3} -> {ok, _} = R3 end,
-    ?line receive {P4,R4} -> {ok, _} = R4 end,
+    P4 = spawn(IF),
+    receive {P1,R1} -> {ok, _} = R1 end,
+    receive {P2,R2} -> {ok, _} = R2 end,
+    receive {P3,R3} -> {ok, _} = R3 end,
+    receive {P4,R4} -> {ok, _} = R4 end,
     DetsPid = find_dets_pid(),
     exit(DetsPid, kill),
     
     timer:sleep(1000),
-    ?line undefined = dets:info(Tab),
-    ?line P1 ! {Parent, die},
-    ?line P2 ! {Parent, die},
-    ?line P3 ! {Parent, die},
-    ?line P4 ! {Parent, die},
+    undefined = dets:info(Tab),
+    P1 ! {Parent, die},
+    P2 ! {Parent, die},
+    P3 ! {Parent, die},
+    P4 ! {Parent, die},
 
     file:delete(File),
     timer:sleep(100),
     ok.
 
 open_ro(Tab, File) ->
-    ?line create_opened_log(File),
+    create_opened_log(File),
     Delay = 1000,
     Parent = self(),
     F = fun() ->
@@ -3420,47 +3419,47 @@ open_ro(Tab, File) ->
                 timer:sleep(Delay),
                 Parent ! {self(), R}
         end,
-    ?line P1 = spawn(F),
-    ?line P2 = spawn(F),
-    ?line P3 = spawn(F),
+    P1 = spawn(F),
+    P2 = spawn(F),
+    P3 = spawn(F),
     
-    ?line receive {P1,R1} -> {error,{not_closed,_}} = R1 end,
-    ?line receive {P2,R2} -> {error,{not_closed,_}} = R2 end,
-    ?line receive {P3,R3} -> {error,{not_closed,_}} = R3 end,
+    receive {P1,R1} -> {error,{not_closed,_}} = R1 end,
+    receive {P2,R2} -> {error,{not_closed,_}} = R2 end,
+    receive {P3,R3} -> {error,{not_closed,_}} = R3 end,
     ok.
 
 open_w(Tab, File, Delay, Config) ->
-    ?line create_opened_log(File),
+    create_opened_log(File),
     Parent = self(),
     F = fun() -> 
                 R = dets:open_file(Tab, [{file,File}]),
                 timer:sleep(Delay),
                 Parent ! {self(), R}
         end,
-    ?line Pid1 = spawn(F),
-    ?line Pid2 = spawn(F),
-    ?line Pid3 = spawn(F),
-    ?line undefined = dets:info(Tab), % is repairing now
-    ?line 0 = qlen(),
+    Pid1 = spawn(F),
+    Pid2 = spawn(F),
+    Pid3 = spawn(F),
+    undefined = dets:info(Tab), % is repairing now
+    0 = qlen(),
 
     Tab2 = t2,
     File2 = filename(Tab2, Config),
-    ?line file:delete(File2),
-    ?line {ok,Tab2} = dets:open_file(Tab2, [{file,File2}]),
-    ?line ok = dets:close(Tab2),
-    ?line file:delete(File2),
-    ?line 0 = qlen(), % still repairing
+    file:delete(File2),
+    {ok,Tab2} = dets:open_file(Tab2, [{file,File2}]),
+    ok = dets:close(Tab2),
+    file:delete(File2),
+    0 = qlen(), % still repairing
 
-    ?line receive {Pid1,R1} -> {ok, Tab} = R1 end,
-    ?line receive {Pid2,R2} -> {ok, Tab} = R2 end,
-    ?line receive {Pid3,R3} -> {ok, Tab} = R3 end,
+    receive {Pid1,R1} -> {ok, Tab} = R1 end,
+    receive {Pid2,R2} -> {ok, Tab} = R2 end,
+    receive {Pid3,R3} -> {ok, Tab} = R3 end,
     timer:sleep(200),
     case dets:info(Tab) of
         undefined -> 
             ok;
         _Info ->
             timer:sleep(5000),
-            ?line undefined = dets:info(Tab)
+            undefined = dets:info(Tab)
     end,
 
     file:delete(File),
@@ -3473,10 +3472,10 @@ qlen() ->
 create_opened_log(File) ->
     Tab = t,
     file:delete(File),
-    ?line {ok, Tab} = dets:open_file(Tab, [{file,File}]),
-    ?line ok = ins(Tab, 60000),
-    ?line ok = dets:close(Tab),
-    ?line crash(File, ?CLOSED_PROPERLY_POS+3, ?NOT_PROPERLY_CLOSED),
+    {ok, Tab} = dets:open_file(Tab, [{file,File}]),
+    ok = ins(Tab, 60000),
+    ok = dets:close(Tab),
+    crash(File, ?CLOSED_PROPERLY_POS+3, ?NOT_PROPERLY_CLOSED),
     ok.
 
 insert_new(doc) ->
@@ -3487,24 +3486,24 @@ insert_new(Config) ->
     Tab = insert_new,
     File = filename(Tab, Config),
     file:delete(File),
-    ?line {ok, T} = dets:open_file(Tab, [{file,File}]),
-    ?line {'EXIT', {badarg, _}} = (catch dets:insert_new(Tab, 14)),
-    ?line {'EXIT', {badarg, _}} = (catch dets:insert_new(Tab, {})),
-    ?line true = dets:insert_new(Tab, {1,a}),
-    ?line false = dets:insert_new(Tab, {1,a}),
-    ?line true = dets:insert_new(Tab, [{2,b}, {3,c}]),
-    ?line false = dets:insert_new(Tab, [{2,b}, {3,c}]),
-    ?line false = dets:insert_new(Tab, [{1,a}, {4,d}]),
-    ?line ok = dets:close(Tab),
+    {ok, T} = dets:open_file(Tab, [{file,File}]),
+    {'EXIT', {badarg, _}} = (catch dets:insert_new(Tab, 14)),
+    {'EXIT', {badarg, _}} = (catch dets:insert_new(Tab, {})),
+    true = dets:insert_new(Tab, {1,a}),
+    false = dets:insert_new(Tab, {1,a}),
+    true = dets:insert_new(Tab, [{2,b}, {3,c}]),
+    false = dets:insert_new(Tab, [{2,b}, {3,c}]),
+    false = dets:insert_new(Tab, [{1,a}, {4,d}]),
+    ok = dets:close(Tab),
 
     file:delete(File),    
-    ?line {ok, T} = dets:open_file(Tab, [{file,File},{type,bag}]),
-    ?line true = dets:insert_new(Tab, {1,a}),
-    ?line false = dets:insert_new(Tab, {1,b}),
-    ?line true = dets:insert_new(Tab, [{2,b}, {3,c}]),
-    ?line false = dets:insert_new(Tab, [{2,a}, {3,d}]),
-    ?line false = dets:insert_new(Tab, [{1,a}, {4,d}]),
-    ?line ok = dets:close(Tab),
+    {ok, T} = dets:open_file(Tab, [{file,File},{type,bag}]),
+    true = dets:insert_new(Tab, {1,a}),
+    false = dets:insert_new(Tab, {1,b}),
+    true = dets:insert_new(Tab, [{2,b}, {3,c}]),
+    false = dets:insert_new(Tab, [{2,a}, {3,d}]),
+    false = dets:insert_new(Tab, [{1,a}, {4,d}]),
+    ok = dets:close(Tab),
     
 
     file:delete(File),
@@ -3516,24 +3515,24 @@ repair_continuation(suite) ->
     [];
 repair_continuation(Config) ->
     Tab = repair_continuation_table,
-    ?line Fname = filename(repair_cont, Config),
-    ?line file:delete(Fname),
-    ?line {ok, _} = dets:open_file(Tab, [{file,Fname}]),
-    ?line ok = dets:insert(Tab, [{1,a},{2,b},{3,c}]),
+    Fname = filename(repair_cont, Config),
+    file:delete(Fname),
+    {ok, _} = dets:open_file(Tab, [{file,Fname}]),
+    ok = dets:insert(Tab, [{1,a},{2,b},{3,c}]),
 
-    ?line MS = [{'_',[],[true]}],
+    MS = [{'_',[],[true]}],
 
-    ?line {[true], C1} = dets:select(Tab, MS, 1),
-    ?line C2 = binary_to_term(term_to_binary(C1)),
-    ?line {'EXIT', {badarg, _}} = (catch dets:select(C2)),
-    ?line C3 = dets:repair_continuation(C2, MS),
-    ?line {[true], C4} = dets:select(C3),
-    ?line C5 = dets:repair_continuation(C4, MS),
-    ?line {[true], _} = dets:select(C5),
-    ?line {'EXIT', {badarg, _}} = (catch dets:repair_continuation(Tab, bu)),
+    {[true], C1} = dets:select(Tab, MS, 1),
+    C2 = binary_to_term(term_to_binary(C1)),
+    {'EXIT', {badarg, _}} = (catch dets:select(C2)),
+    C3 = dets:repair_continuation(C2, MS),
+    {[true], C4} = dets:select(C3),
+    C5 = dets:repair_continuation(C4, MS),
+    {[true], _} = dets:select(C5),
+    {'EXIT', {badarg, _}} = (catch dets:repair_continuation(Tab, bu)),
 
-    ?line ok = dets:close(Tab),
-    ?line file:delete(Fname),
+    ok = dets:close(Tab),
+    file:delete(Fname),
     ok.
 
 otp_5487(doc) ->
@@ -3547,20 +3546,20 @@ otp_5487(Config) ->
 
 otp_5487(Config, Version) ->
     Tab = otp_5487,
-    ?line Fname = filename(otp_5487, Config),
-    ?line file:delete(Fname),
-    ?line Ets = ets:new(otp_5487, [public, set]),
-    ?line lists:foreach(fun(I) -> ets:insert(Ets, {I,I+1}) end,
-                        lists:seq(0,1000)),
-    ?line {ok, _} = dets:open_file(Tab, [{file,Fname},{version,Version}]),
-    ?line ok = dets:from_ets(Tab, Ets),
-    ?line ok = dets:sync(Tab),
-    ?line ok = dets:close(Tab),
-    ?line {ok, _} = dets:open_file(Tab, [{file,Fname},{access,read}]),
-    ?line [{1,2}] = dets:lookup(Tab, 1),
-    ?line ok = dets:close(Tab),
-    ?line ets:delete(Ets),
-    ?line file:delete(Fname).
+    Fname = filename(otp_5487, Config),
+    file:delete(Fname),
+    Ets = ets:new(otp_5487, [public, set]),
+    lists:foreach(fun(I) -> ets:insert(Ets, {I,I+1}) end,
+                  lists:seq(0,1000)),
+    {ok, _} = dets:open_file(Tab, [{file,Fname},{version,Version}]),
+    ok = dets:from_ets(Tab, Ets),
+    ok = dets:sync(Tab),
+    ok = dets:close(Tab),
+    {ok, _} = dets:open_file(Tab, [{file,Fname},{access,read}]),
+    [{1,2}] = dets:lookup(Tab, 1),
+    ok = dets:close(Tab),
+    ets:delete(Ets),
+    file:delete(Fname).
 
 otp_6206(doc) ->
     ["OTP-6206. Badly formed free lists."];
@@ -3572,15 +3571,15 @@ otp_6206(Config) ->
 
     file:delete(File),
     Options = [{file,File}],
-    ?line {ok, Tab} = dets:open_file(Tab, Options),
+    {ok, Tab} = dets:open_file(Tab, Options),
     NObjs = 13006,
-    ?line ok = ins(Tab, NObjs),
-    ?line ok = del(Tab, NObjs, 2),
-    ?line ok = dets:close(Tab),
+    ok = ins(Tab, NObjs),
+    ok = del(Tab, NObjs, 2),
+    ok = dets:close(Tab),
 
     %% Used to return {badmatch,{error,{bad_freelists,File}}.
-    ?line {ok, Tab} = dets:open_file(Tab, [{repair,false}|Options]),
-    ?line ok = dets:close(Tab),
+    {ok, Tab} = dets:open_file(Tab, [{repair,false}|Options]),
+    ok = dets:close(Tab),
     file:delete(File),
     ok.
 
@@ -3593,10 +3592,10 @@ otp_6359(Config) ->
     File = filename(Tab, Config),
 
     file:delete(File),
-    ?line {ok, _} = dets:open_file(Tab, [{file, File}]),
+    {ok, _} = dets:open_file(Tab, [{file, File}]),
     %% Used to return {[], Cont}:
-    ?line '$end_of_table' = dets:match(Tab, '_', 100),
-    ?line ok = dets:close(Tab),
+    '$end_of_table' = dets:match(Tab, '_', 100),
+    ok = dets:close(Tab),
     file:delete(File),
     ok.
 
@@ -3621,47 +3620,47 @@ otp_4738_dupbag(Version, Config) ->
     One = 1,
     FOne = float(One),
     Args = [{file,File},{type,duplicate_bag},{version,Version}],
-    ?line {ok, Tab} = dets:open_file(Tab, Args),
-    ?line ok = dets:insert(Tab, [{I,One},{F,One},{I,FOne},{F,FOne}]),
-    ?line ok = dets:sync(Tab),
-    ?line [{F,One},{F,FOne}] = dets:lookup(Tab, F),
-    ?line [{I,One},{I,FOne}] = dets:lookup(Tab, I),
-    ?line ok = dets:insert(Tab, [{F,One},{F,FOne}]),
-    ?line [{I,One},{I,FOne},{F,One},{F,FOne},{F,One},{F,FOne}] = 
+    {ok, Tab} = dets:open_file(Tab, Args),
+    ok = dets:insert(Tab, [{I,One},{F,One},{I,FOne},{F,FOne}]),
+    ok = dets:sync(Tab),
+    [{F,One},{F,FOne}] = dets:lookup(Tab, F),
+    [{I,One},{I,FOne}] = dets:lookup(Tab, I),
+    ok = dets:insert(Tab, [{F,One},{F,FOne}]),
+    [{I,One},{I,FOne},{F,One},{F,FOne},{F,One},{F,FOne}] =
         dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:insert(Tab, [{F,FOne},{F,One}]),
-    ?line [{I,One},{I,FOne},{F,One},{F,FOne},{F,One},
+    ok = dets:insert(Tab, [{F,FOne},{F,One}]),
+    [{I,One},{I,FOne},{F,One},{F,FOne},{F,One},
            {F,FOne},{F,FOne},{F,One}] = 
         dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:delete_object(Tab, {I,FOne}),
-    ?line [{I,One},{F,One},{F,FOne},{F,One},{F,FOne},{F,FOne},{F,One}] = 
+    ok = dets:delete_object(Tab, {I,FOne}),
+    [{I,One},{F,One},{F,FOne},{F,One},{F,FOne},{F,FOne},{F,One}] =
         dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:insert(Tab, {I,FOne}),
-    ?line [{I,One},{I,FOne},{F,One},{F,FOne},{F,One},
+    ok = dets:insert(Tab, {I,FOne}),
+    [{I,One},{I,FOne},{F,One},{F,FOne},{F,One},
            {F,FOne},{F,FOne},{F,One}] = 
         dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:delete_object(Tab, {F,FOne}),
-    ?line [{I,One},{I,FOne},{F,One},{F,One},{F,One}] = 
+    ok = dets:delete_object(Tab, {F,FOne}),
+    [{I,One},{I,FOne},{F,One},{F,One},{F,One}] =
         dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:delete(Tab, F),
-    ?line [{I,One},{I,FOne}] = dets:match_object(Tab, '_'),
-    ?line ok = dets:close(Tab),
+    ok = dets:delete(Tab, F),
+    [{I,One},{I,FOne}] = dets:match_object(Tab, '_'),
+    ok = dets:close(Tab),
     file:delete(File),
 
     Zero = 0,
     FZero = float(Zero),
-    ?line {ok, Tab} = dets:open_file(Tab, Args),    
-    ?line ok = dets:insert(Tab, [{I,One},{F,One},{I,FOne},{F,FOne}]),
-    ?line ok = dets:insert(Tab, [{I,One},{F,One},{I,FOne},{F,FOne}]),
-    ?line ok = dets:insert(Tab, [{I,Zero},{F,Zero},{I,FZero},{I,FZero}]),
-    ?line Objs0 = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:close(Tab),
+    {ok, Tab} = dets:open_file(Tab, Args),
+    ok = dets:insert(Tab, [{I,One},{F,One},{I,FOne},{F,FOne}]),
+    ok = dets:insert(Tab, [{I,One},{F,One},{I,FOne},{F,FOne}]),
+    ok = dets:insert(Tab, [{I,Zero},{F,Zero},{I,FZero},{I,FZero}]),
+    Objs0 = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
+    ok = dets:close(Tab),
     crash(File, ?CLOSED_PROPERLY_POS+3, ?NOT_PROPERLY_CLOSED),
     io:format("Expect repair:~n"),
-    ?line {ok, Tab} = dets:open_file(Tab, Args),    
-    ?line Objs1 = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:close(Tab),
-    ?line Objs1 = Objs0,
+    {ok, Tab} = dets:open_file(Tab, Args),
+    Objs1 = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
+    ok = dets:close(Tab),
+    Objs1 = Objs0,
     file:delete(File),
     ok.
 
@@ -3674,26 +3673,26 @@ otp_4738_bag(Version, Config) ->
     One = 1,
     FOne = float(One),
     Args = [{file,File},{type,bag},{version,Version}],
-    ?line {ok, Tab} = dets:open_file(Tab, Args),
-    ?line ok = dets:insert(Tab, [{I,One},{F,One},{I,FOne},{F,FOne}]),
-    ?line ok = dets:sync(Tab),
-    ?line [{F,One},{F,FOne}] = dets:lookup(Tab, F),
-    ?line [{I,One},{I,FOne}] = dets:lookup(Tab, I),
-    ?line ok = dets:insert(Tab, [{F,One},{F,FOne}]),
-    ?line [{I,One},{I,FOne},{F,One},{F,FOne}] = 
+    {ok, Tab} = dets:open_file(Tab, Args),
+    ok = dets:insert(Tab, [{I,One},{F,One},{I,FOne},{F,FOne}]),
+    ok = dets:sync(Tab),
+    [{F,One},{F,FOne}] = dets:lookup(Tab, F),
+    [{I,One},{I,FOne}] = dets:lookup(Tab, I),
+    ok = dets:insert(Tab, [{F,One},{F,FOne}]),
+    [{I,One},{I,FOne},{F,One},{F,FOne}] =
         dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:insert(Tab, [{F,FOne},{F,One}]),
-    ?line [{I,One},{I,FOne},{F,FOne},{F,One}] = 
+    ok = dets:insert(Tab, [{F,FOne},{F,One}]),
+    [{I,One},{I,FOne},{F,FOne},{F,One}] =
         dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:delete_object(Tab, {I,FOne}),
-    ?line [{I,One},{F,FOne},{F,One}] = 
+    ok = dets:delete_object(Tab, {I,FOne}),
+    [{I,One},{F,FOne},{F,One}] =
         dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:insert(Tab, {I,FOne}),
-    ?line [{I,One},{I,FOne},{F,FOne},{F,One}] = 
+    ok = dets:insert(Tab, {I,FOne}),
+    [{I,One},{I,FOne},{F,FOne},{F,One}] =
         dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:delete(Tab, F),
-    ?line [{I,One},{I,FOne}] = dets:match_object(Tab, '_'),
-    ?line ok = dets:close(Tab),
+    ok = dets:delete(Tab, F),
+    [{I,One},{I,FOne}] = dets:match_object(Tab, '_'),
+    ok = dets:close(Tab),
     file:delete(File).
 
 otp_4738_set(Version, Config) ->
@@ -3705,53 +3704,53 @@ otp_4738_set(Version, Config) ->
     %% I and F share the same slot.
     I = -12857447,
     F = float(I),
-    ?line {ok, Tab} = dets:open_file(Tab, Args),
-    ?line ok = dets:insert(Tab, [{I},{F}]),
-    ?line ok = dets:sync(Tab),
-    ?line [{F}] = dets:lookup(Tab, F),
-    ?line [{I}] = dets:lookup(Tab, I),
-    ?line ok = dets:insert(Tab, [{F}]),
-    ?line [{I},{F}] = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:close(Tab),
+    {ok, Tab} = dets:open_file(Tab, Args),
+    ok = dets:insert(Tab, [{I},{F}]),
+    ok = dets:sync(Tab),
+    [{F}] = dets:lookup(Tab, F),
+    [{I}] = dets:lookup(Tab, I),
+    ok = dets:insert(Tab, [{F}]),
+    [{I},{F}] = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
+    ok = dets:close(Tab),
     file:delete(File),
     
-    ?line {ok, Tab} = dets:open_file(Tab, Args),
-    ?line ok = dets:insert(Tab, [{I}]),
-    ?line ok = dets:sync(Tab),
-    ?line [] = dets:lookup(Tab, F),
-    ?line [{I}] = dets:lookup(Tab, I),
-    ?line ok = dets:insert(Tab, [{F}]),
-    ?line [{I},{F}] = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:close(Tab),
+    {ok, Tab} = dets:open_file(Tab, Args),
+    ok = dets:insert(Tab, [{I}]),
+    ok = dets:sync(Tab),
+    [] = dets:lookup(Tab, F),
+    [{I}] = dets:lookup(Tab, I),
+    ok = dets:insert(Tab, [{F}]),
+    [{I},{F}] = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
+    ok = dets:close(Tab),
     file:delete(File),
 
-    ?line {ok, Tab} = dets:open_file(Tab, Args),
+    {ok, Tab} = dets:open_file(Tab, Args),
     ok = dets:insert(Tab, [{I},{F}]),
     %% {insert, ...} in the cache, try lookup:
-    ?line [{F}] = dets:lookup(Tab, F),
-    ?line [{I}] = dets:lookup(Tab, I),
+    [{F}] = dets:lookup(Tab, F),
+    [{I}] = dets:lookup(Tab, I),
     %% Both were found, but that cannot be verified.
-    ?line [{I},{F}] = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:close(Tab),
+    [{I},{F}] = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
+    ok = dets:close(Tab),
     file:delete(File),
 
-    ?line {ok, Tab} = dets:open_file(Tab, Args),
-    ?line ok = dets:insert(Tab, [{I}]),
-    ?line ok = dets:sync(Tab),
-    ?line ok = dets:insert(Tab, [{F}]),
+    {ok, Tab} = dets:open_file(Tab, Args),
+    ok = dets:insert(Tab, [{I}]),
+    ok = dets:sync(Tab),
+    ok = dets:insert(Tab, [{F}]),
     %% {insert, ...} in the cache, try lookup:
-    ?line [{F}] = dets:lookup(Tab, F),
-    ?line [{I}] = dets:lookup(Tab, I),
-    ?line [{I},{F}] = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:close(Tab),
+    [{F}] = dets:lookup(Tab, F),
+    [{I}] = dets:lookup(Tab, I),
+    [{I},{F}] = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
+    ok = dets:close(Tab),
     file:delete(File),
 
-    ?line {ok, Tab} = dets:open_file(Tab, Args),
+    {ok, Tab} = dets:open_file(Tab, Args),
     %% Both operations in the cache:
-    ?line ok = dets:insert(Tab, [{I}]),
-    ?line ok = dets:insert(Tab, [{F}]),
-    ?line [{I},{F}] = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
-    ?line ok = dets:close(Tab),
+    ok = dets:insert(Tab, [{I}]),
+    ok = dets:insert(Tab, [{F}]),
+    [{I},{F}] = dets_utils:mkeysort(1, dets:match_object(Tab, '_')),
+    ok = dets:close(Tab),
     file:delete(File),
     ok.
 
@@ -3765,9 +3764,9 @@ otp_7146(Config) ->
     file:delete(File),
 
     Max = 2048,
-    ?line {ok, Tab} = dets:open_file(Tab, [{max_no_slots,Max}, {file,File}]),
+    {ok, Tab} = dets:open_file(Tab, [{max_no_slots,Max}, {file,File}]),
     write_dets(Tab, Max),
-    ?line ok = dets:close(Tab),
+    ok = dets:close(Tab),
 
     file:delete(File),
     ok.
@@ -3789,11 +3788,11 @@ otp_8070(Config) when is_list(Config) ->
     Tab = otp_8070,
     File = filename(Tab, Config),
     file:delete(File),
-    ?line {ok, _} = dets:open_file(Tab, [{file,File},{type, duplicate_bag}]),
-    ?line ok = dets:insert(Tab, [{3,0}]),
-    ?line false = dets:insert_new(Tab, [{3,1},{3,1}]),
-    ?line [{3,0}] = dets:lookup(Tab, 3),
-    ?line ok = dets:close(Tab),
+    {ok, _} = dets:open_file(Tab, [{file,File},{type, duplicate_bag}]),
+    ok = dets:insert(Tab, [{3,0}]),
+    false = dets:insert_new(Tab, [{3,1},{3,1}]),
+    [{3,0}] = dets:lookup(Tab, 3),
+    ok = dets:close(Tab),
     file:delete(File),
     ok.
 
@@ -3806,19 +3805,19 @@ otp_8856(Config) when is_list(Config) ->
     File = filename(Tab, Config),
     file:delete(File),
     Me = self(),
-    ?line {ok, _} = dets:open_file(Tab, [{type, bag}, {file, File}]),
+    {ok, _} = dets:open_file(Tab, [{type, bag}, {file, File}]),
     spawn(fun()-> Me ! {1, dets:insert(Tab, [])} end),
     spawn(fun()-> Me ! {2, dets:insert_new(Tab, [])} end),
-    ?line ok = dets:close(Tab),
-    ?line receive {1, ok} -> ok end,
-    ?line receive {2, true} -> ok end,
+    ok = dets:close(Tab),
+    receive {1, ok} -> ok end,
+    receive {2, true} -> ok end,
     file:delete(File),
 
-    ?line {ok, _} = dets:open_file(Tab, [{type, set}, {file, File}]),
+    {ok, _} = dets:open_file(Tab, [{type, set}, {file, File}]),
     spawn(fun() -> dets:delete(Tab, 0) end),
     spawn(fun() -> Me ! {3, dets:insert_new(Tab, {0,0})} end),
-    ?line ok = dets:close(Tab),
-    ?line receive {3, true} -> ok end,
+    ok = dets:close(Tab),
+    receive {3, true} -> ok end,
     file:delete(File),
     ok.
 
@@ -3829,19 +3828,19 @@ otp_8903(suite) ->
 otp_8903(Config) when is_list(Config) ->
     Tab = otp_8903,
     File = filename(Tab, Config),
-    ?line {ok,T} = dets:open_file(bug, [{file,File}]),
-    ?line ok = dets:insert(T, [{1,a},{2,b},{3,c}]),
-    ?line dets:safe_fixtable(T, true),
-    ?line {[_],C1} = dets:match_object(T, '_', 1),
-    ?line {BC1,_D} = dets:bchunk(T, start),
-    ?line ok = dets:close(T),
-    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:match_object(C1)}),
-    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:bchunk(T, BC1)}),
-    ?line {ok,T} = dets:open_file(bug, [{file,File}]),
-    ?line false = dets:info(T, safe_fixed),
-    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:match_object(C1)}),
-    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:bchunk(T, BC1)}),
-    ?line ok = dets:close(T),
+    {ok,T} = dets:open_file(bug, [{file,File}]),
+    ok = dets:insert(T, [{1,a},{2,b},{3,c}]),
+    dets:safe_fixtable(T, true),
+    {[_],C1} = dets:match_object(T, '_', 1),
+    {BC1,_D} = dets:bchunk(T, start),
+    ok = dets:close(T),
+    {'EXIT', {badarg, _}} = (catch {foo,dets:match_object(C1)}),
+    {'EXIT', {badarg, _}} = (catch {foo,dets:bchunk(T, BC1)}),
+    {ok,T} = dets:open_file(bug, [{file,File}]),
+    false = dets:info(T, safe_fixed),
+    {'EXIT', {badarg, _}} = (catch {foo,dets:match_object(C1)}),
+    {'EXIT', {badarg, _}} = (catch {foo,dets:bchunk(T, BC1)}),
+    ok = dets:close(T),
     file:delete(File),
     ok.
 
@@ -3857,23 +3856,23 @@ otp_8923(Config) when is_list(Config) ->
     Bin = list_to_binary([ 0 || _ <- lists:seq(1, 400) ]),
     BigBin = list_to_binary([ 0 ||_ <- lists:seq(1, 4000)]),
     Ets = ets:new(temp, [{keypos,1}]),
-    ?line [ true = ets:insert(Ets, {C,Bin}) || C <- lists:seq(1, 700) ],
-    ?line true = ets:insert(Ets, {helper_data,BigBin}),
-    ?line true = ets:insert(Ets, {prim_btree,BigBin}),
-    ?line true = ets:insert(Ets, {sec_btree,BigBin}),
+    [ true = ets:insert(Ets, {C,Bin}) || C <- lists:seq(1, 700) ],
+    true = ets:insert(Ets, {helper_data,BigBin}),
+    true = ets:insert(Ets, {prim_btree,BigBin}),
+    true = ets:insert(Ets, {sec_btree,BigBin}),
     %% Note: too few slots; re-hash will take place
-    ?line {ok, Tab} = dets:open_file(Tab, [{file,File}]),
-    ?line Tab = ets:to_dets(Ets, Tab),
-    ?line ok = dets:close(Tab),
-    ?line true = ets:delete(Ets),
+    {ok, Tab} = dets:open_file(Tab, [{file,File}]),
+    Tab = ets:to_dets(Ets, Tab),
+    ok = dets:close(Tab),
+    true = ets:delete(Ets),
     
-    ?line {ok,Ref} = dets:open_file(File),
-    ?line [{1,_}] = dets:lookup(Ref, 1),
-    ?line ok = dets:close(Ref),
+    {ok,Ref} = dets:open_file(File),
+    [{1,_}] = dets:lookup(Ref, 1),
+    ok = dets:close(Ref),
 
-    ?line {ok,Ref2} = dets:open_file(File),
-    ?line [{helper_data,_}] = dets:lookup(Ref2, helper_data),
-    ?line ok = dets:close(Ref2),
+    {ok,Ref2} = dets:open_file(File),
+    [{helper_data,_}] = dets:lookup(Ref2, helper_data),
+    ok = dets:close(Ref2),
 
     file:delete(File),
     ok.
@@ -3890,14 +3889,14 @@ otp_9282(Config) when is_list(Config) ->
 
 some_calls(Tab, Config) ->
     File = filename(ref, Config),
-    ?line {ok,T} = dets:open_file(Tab, [{file,File}]),
-    ?line T = Tab,
-    ?line false = dets:info(T, safe_fixed),
-    ?line File = dets:info(T, filename),
-    ?line ok = dets:insert(Tab, [{3,0}]),
-    ?line [{3,0}] = dets:lookup(Tab, 3),
-    ?line [{3,0}] = dets:traverse(Tab, fun(X) -> {continue, X} end),
-    ?line ok = dets:close(T),
+    {ok,T} = dets:open_file(Tab, [{file,File}]),
+    T = Tab,
+    false = dets:info(T, safe_fixed),
+    File = dets:info(T, filename),
+    ok = dets:insert(Tab, [{3,0}]),
+    [{3,0}] = dets:lookup(Tab, 3),
+    [{3,0}] = dets:traverse(Tab, fun(X) -> {continue, X} end),
+    ok = dets:close(T),
     file:delete(File).
 
 otp_9607(doc) ->
@@ -3915,53 +3914,53 @@ otp_9607(Config) when is_list(Config) ->
             Key = a,
             Value = 1,
             Args = [{file,File}],
-            ?line {ok, T} = dets:open_file(T, Args),
-            ?line ok = dets:insert(T, {Key, Value}),
-            ?line ok = dets:close(T),
+            {ok, T} = dets:open_file(T, Args),
+            ok = dets:insert(T, {Key, Value}),
+            ok = dets:close(T),
 
-            ?line Call = fun(P, A) ->
-                                 P ! {self(), A},
-                                 receive
-                                     {P, Ans} ->
-                                         Ans
-                                 after 5000 ->
-                                         exit(other_process_dead)
-                                 end
-                         end,
+            Call = fun(P, A) ->
+                           P ! {self(), A},
+                           receive
+                               {P, Ans} ->
+                                   Ans
+                           after 5000 ->
+                                   exit(other_process_dead)
+                           end
+                   end,
             %% Create a file on the modified format, read the file
             %% with an emulator that doesn't know about the modified
             %% format.
-            ?line {ok, Node} = start_node_rel(Version, Version, slave),
-            ?line Pid = rpc:call(Node, erlang, spawn,
-                                 [?MODULE, dets_dirty_loop, []]),
-            ?line {error,{needs_repair, File}} =
+            {ok, Node} = start_node_rel(Version, Version, slave),
+            Pid = rpc:call(Node, erlang, spawn,
+                           [?MODULE, dets_dirty_loop, []]),
+            {error,{needs_repair, File}} =
                 Call(Pid, [open, T, Args++[{repair,false}]]),
             io:format("Expect repair:~n"),
-            ?line {ok, T} = Call(Pid, [open, T, Args]),
-            ?line [{Key,Value}] = Call(Pid, [read, T, Key]),
-            ?line ok = Call(Pid, [close, T]),
+            {ok, T} = Call(Pid, [open, T, Args]),
+            [{Key,Value}] = Call(Pid, [read, T, Key]),
+            ok = Call(Pid, [close, T]),
             file:delete(File),
 
             %% Create a file on the unmodified format. Modify the file
             %% using an emulator that must not turn the file into the
             %% modified format. Read the file and make sure it is not
             %% repaired.
-            ?line {ok, T} = Call(Pid, [open, T, Args]),
-            ?line ok = Call(Pid, [write, T, {Key,Value}]),
-            ?line [{Key,Value}] = Call(Pid, [read, T, Key]),
-            ?line ok = Call(Pid, [close, T]),
+            {ok, T} = Call(Pid, [open, T, Args]),
+            ok = Call(Pid, [write, T, {Key,Value}]),
+            [{Key,Value}] = Call(Pid, [read, T, Key]),
+            ok = Call(Pid, [close, T]),
 
             Key2 = b,
             Value2 = 2,
 
-            ?line {ok, T} = dets:open_file(T, Args),
-            ?line [{Key,Value}] = dets:lookup(T, Key),
-            ?line ok = dets:insert(T, {Key2,Value2}),
-            ?line ok = dets:close(T),
+            {ok, T} = dets:open_file(T, Args),
+            [{Key,Value}] = dets:lookup(T, Key),
+            ok = dets:insert(T, {Key2,Value2}),
+            ok = dets:close(T),
 
-            ?line {ok, T} = Call(Pid, [open, T, Args++[{repair,false}]]),
-            ?line [{Key2,Value2}] = Call(Pid, [read, T, Key2]),
-            ?line ok = Call(Pid, [close, T]),
+            {ok, T} = Call(Pid, [open, T, Args++[{repair,false}]]),
+            [{Key2,Value2}] = Call(Pid, [read, T, Key2]),
+            ok = Call(Pid, [close, T]),
 
             ?t:stop_node(Node),
             file:delete(File),
@@ -3978,21 +3977,21 @@ otp_9607(Config) when is_list(Config) ->
 
 start_node_rel(Name, Rel, How) ->
     Release = [{release, atom_to_list(Rel)}],
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line test_server:start_node(Name, How,
-                                 [{args,
-                                   " -kernel net_setuptime 100 "
-                                   " -pa " ++ Pa},
-                                  {erl, Release}]).
+    Pa = filename:dirname(code:which(?MODULE)),
+    test_server:start_node(Name, How,
+                           [{args,
+                             " -kernel net_setuptime 100 "
+                             " -pa " ++ Pa},
+                            {erl, Release}]).
 
 crash(File, Where) ->
     crash(File, Where, 10).
 
 crash(File, Where, What) when is_integer(What) ->
-    ?line {ok, Fd} = file:open(File, [read,write]),
-    ?line file:position(Fd, Where),
-    ?line ok = file:write(Fd, [What]),
-    ?line ok = file:close(Fd).
+    {ok, Fd} = file:open(File, [read,write]),
+    file:position(Fd, Where),
+    ok = file:write(Fd, [What]),
+    ok = file:close(Fd).
 
 args(Config) ->
     {Sets, Bags, Dups} = 
@@ -4047,56 +4046,56 @@ zip_filename([], [], [], S1, B1, D1, _, _Conf) ->
 
 del_test(Tab) ->
     ?format("Deltest on ~p~n", [Tab]),
-    ?line Objs = safe_get_all_objects(Tab),
-    ?line Keys = map(fun(X) -> element(1, X) end, Objs),
-    ?line foreach(fun(Key) -> dets:delete(Tab, Key) end, Keys),
-    ?line 0 = length(get_all_objects(Tab)),
-    ?line [] = get_all_objects_fast(Tab),
-    ?line 0 = dets:info(Tab, size).
+    Objs = safe_get_all_objects(Tab),
+    Keys = map(fun(X) -> element(1, X) end, Objs),
+    foreach(fun(Key) -> dets:delete(Tab, Key) end, Keys),
+    0 = length(get_all_objects(Tab)),
+    [] = get_all_objects_fast(Tab),
+    0 = dets:info(Tab, size).
 
 del_obj_test(Tab) ->
     ?format("Delobjtest on ~p~n", [Tab]),
-    ?line Objs = safe_get_all_objects(Tab),
-    ?line LL = length(Objs),
-    ?line LL = dets:info(Tab, size),
-    ?line foreach(fun(Obj) -> dets:delete_object(Tab, Obj) end, Objs),
-    ?line 0 = length(get_all_objects(Tab)),
-    ?line [] = get_all_objects_fast(Tab),
-    ?line 0 = dets:info(Tab, size).
+    Objs = safe_get_all_objects(Tab),
+    LL = length(Objs),
+    LL = dets:info(Tab, size),
+    foreach(fun(Obj) -> dets:delete_object(Tab, Obj) end, Objs),
+    0 = length(get_all_objects(Tab)),
+    [] = get_all_objects_fast(Tab),
+    0 = dets:info(Tab, size).
 
 match_del_test(Tab) ->
-    ?line ?format("Match delete test on ~p~n", [Tab]),
-    ?line ok = dets:match_delete(Tab, {'_','_','_'}),
-    ?line Sz = dets:info(Tab, size),
-    ?line true = Sz =:= length(dets:match_object(Tab, '_')),
-    ?line ok = dets:match_delete(Tab, '_'),
-    ?line 0 = dets:info(Tab, size),
-    ?line 0 = length(get_all_objects(Tab)),
-    ?line [] = get_all_objects_fast(Tab).
+    ?format("Match delete test on ~p~n", [Tab]),
+    ok = dets:match_delete(Tab, {'_','_','_'}),
+    Sz = dets:info(Tab, size),
+    true = Sz =:= length(dets:match_object(Tab, '_')),
+    ok = dets:match_delete(Tab, '_'),
+    0 = dets:info(Tab, size),
+    0 = length(get_all_objects(Tab)),
+    [] = get_all_objects_fast(Tab).
 
 trav_test(_Data, Len, Tab) ->
     ?format("Travtest on ~p~n", [Tab]),
-    ?line _X0 = dets:traverse(Tab, fun(_X) -> continue end),
-    ?line XX = dets:traverse(Tab, fun(X) -> {continue, X} end),
-    ?line case Len =:= length(XX) of
+    _X0 = dets:traverse(Tab, fun(_X) -> continue end),
+    XX = dets:traverse(Tab, fun(X) -> {continue, X} end),
+    case Len =:= length(XX) of
 	      false -> ?format("DIFF ~p~n", [XX -- _Data]);
 	      true -> ok
 	  end,
-    ?line 1 = length(dets:traverse(Tab, fun(X) -> {done, X} end)).
+    1 = length(dets:traverse(Tab, fun(X) -> {done, X} end)).
 
 match_test(Data, Tab) ->
-    ?line ?format("Match test on ~p~n", [Tab]),
-    ?line Data1 = sort(filter(fun(X) when tuple_size(X) =:= 3 -> true;
-				 (_X) -> false
-			      end, Data)),
-    ?line Data1 = sort(dets:match_object(Tab, {'$1', '$2', '$3'})),
+    ?format("Match test on ~p~n", [Tab]),
+    Data1 = sort(filter(fun(X) when tuple_size(X) =:= 3 -> true;
+                           (_X) -> false
+                        end, Data)),
+    Data1 = sort(dets:match_object(Tab, {'$1', '$2', '$3'})),
 
-    ?line Len = length(Data),
-    ?line Len = length(dets:match(Tab, '_')),
-    ?line Len2 = length(Data1),
-    ?line Len2 = length(dets:match(Tab, {'$1', '_', '_'})),
+    Len = length(Data),
+    Len = length(dets:match(Tab, '_')),
+    Len2 = length(Data1),
+    Len2 = length(dets:match(Tab, {'$1', '_', '_'})),
     
-    ?line Data3 = 
+    Data3 =
 	filter(fun(X) ->
 		       K = element(1, X),
 		       if
@@ -4104,14 +4103,14 @@ match_test(Data, Tab) ->
 			   true -> false
 		       end
 	       end, Data),
-    ?line Len3 = length(Data3),
-    ?line Len3 = length(dets:match(Tab, {{'$1', '$2'}, '_', '_'})),
-    ?line Len3 = length(dets:match_object(Tab, {{'$1', '$2'}, '_', '_'})),
+    Len3 = length(Data3),
+    Len3 = length(dets:match(Tab, {{'$1', '$2'}, '_', '_'})),
+    Len3 = length(dets:match_object(Tab, {{'$1', '$2'}, '_', '_'})),
     
-    ?line R = make_ref(),
-    ?line dets:insert(Tab, {{R, R}, 33 ,44}),
-    ?line 1 = length(dets:match(Tab, {{R, R}, '_', '_'})),
-    ?line 1 = length(dets:match_object(Tab, {{R, R}, '_', '_'})).
+    R = make_ref(),
+    dets:insert(Tab, {{R, R}, 33 ,44}),
+    1 = length(dets:match(Tab, {{R, R}, '_', '_'})),
+    1 = length(dets:match_object(Tab, {{R, R}, '_', '_'})).
 
 %%
 %% Utilities
@@ -4123,20 +4122,20 @@ headsz(_) ->
     ?HEADSZ_v9.
 
 unwritable(Fname) ->
-    ?line {ok, Info} = file:read_file_info(Fname),
+    {ok, Info} = file:read_file_info(Fname),
     Mode = Info#file_info.mode - 8#00200,
-    ?line file:write_file_info(Fname, Info#file_info{mode = Mode}).
+    file:write_file_info(Fname, Info#file_info{mode = Mode}).
 
 writable(Fname) ->
-    ?line {ok, Info} = file:read_file_info(Fname),
+    {ok, Info} = file:read_file_info(Fname),
     Mode = Info#file_info.mode bor 8#00200,
-    ?line file:write_file_info(Fname, Info#file_info{mode = Mode}).
+    file:write_file_info(Fname, Info#file_info{mode = Mode}).
 
 truncate(File, Where) ->
-    ?line {ok, Fd} = file:open(File, [read,write]),
-    ?line file:position(Fd, Where),
-    ?line ok = file:truncate(Fd),
-    ?line ok = file:close(Fd).
+    {ok, Fd} = file:open(File, [read,write]),
+    file:position(Fd, Where),
+    ok = file:truncate(Fd),
+    ok = file:close(Fd).
 
 new_filename(Name, _Config) when is_integer(Name) ->
     filename:join(?privdir(_Config),
@@ -4151,8 +4150,8 @@ open_files(_Name, [], _Version) ->
     [];
 open_files(Name0, [Args | Tail], Version) ->
     ?format("init ~p~n", [Args]),
-    ?line Name = list_to_atom(integer_to_list(Name0)),
-    ?line {ok, Name} = dets:open_file(Name, [{version,Version} | Args]),
+    Name = list_to_atom(integer_to_list(Name0)),
+    {ok, Name} = dets:open_file(Name, [{version,Version} | Args]),
     [Name | open_files(Name0+1, Tail, Version)].
     
 close_all(Tabs) -> foreach(fun(Tab) -> ok = dets:close(Tab) end, Tabs).
@@ -4167,11 +4166,11 @@ delete_files(Args) ->
 
 %% Initialize all tables
 initialize(Tabs, Data) ->
-    ?line foreach(fun(Tab) ->
-			  Fun = fun(Obj) -> ok =  dets:insert(Tab, Obj) end,
-			  foreach(Fun, Data),
-			  dets:sync(Tab)
-		  end, Tabs).
+    foreach(fun(Tab) ->
+                    Fun = fun(Obj) -> ok =  dets:insert(Tab, Obj) end,
+                    foreach(Fun, Data),
+                    dets:sync(Tab)
+            end, Tabs).
 
 %% need more than 512 objects to really trig overflow
 make_data(Kp) ->
@@ -4244,9 +4243,9 @@ ensure_node(N, Node) ->
     end.
 
 size_test(Len, Tabs) ->
-    ?line foreach(fun(Tab) ->
-			  Len = dets:info(Tab, size)
-		  end, Tabs).
+    foreach(fun(Tab) ->
+                    Len = dets:info(Tab, size)
+            end, Tabs).
 
 no_keys_test([T | Ts]) ->
     no_keys_test(T),
@@ -4259,15 +4258,15 @@ no_keys_test(T) ->
 	    ok;
 	9 ->
 	    Kp = dets:info(T, keypos),
-	    ?line All = dets:match_object(T, '_'),
-	    ?line L = lists:map(fun(X) -> element(Kp, X) end, All),
-	    ?line NoKeys = length(lists:usort(L)),
-	    ?line case {dets:info(T, no_keys), NoKeys} of
-		      {N, N} ->
-			  ok;
-		      {N1, N2} ->
-			  exit({no_keys_test, N1, N2})
-		  end
+	    All = dets:match_object(T, '_'),
+	    L = lists:map(fun(X) -> element(Kp, X) end, All),
+	    NoKeys = length(lists:usort(L)),
+	    case {dets:info(T, no_keys), NoKeys} of
+                {N, N} ->
+                    ok;
+                {N1, N2} ->
+                    exit({no_keys_test, N1, N2})
+            end
     end.
 
 safe_get_all_objects(Tab) ->
@@ -4282,13 +4281,13 @@ get_all_objects(Tab) -> get_all_objects(dets:first(Tab), Tab, []).
 %% Assuming no key matches {error, Reason}...
 get_all_objects('$end_of_table', _Tab, L) -> L;
 get_all_objects({error, Reason}, _Tab, _L) ->
-    exit({get_all_objects, get(line), {error, Reason}});
+    exit({get_all_objects, {error, Reason}});
 get_all_objects(Key, Tab, L) -> 
     Objs = dets:lookup(Tab, Key),
-    ?line get_all_objects(dets:next(Tab, Key), Tab, Objs ++ L).
+    get_all_objects(dets:next(Tab, Key), Tab, Objs ++ L).
 
 count_objects_quite_fast(Tab) ->
-    ?line R1 = dets:match_object(Tab, '_', 1),
+    R1 = dets:match_object(Tab, '_', 1),
     count_objs_1(R1, 0).
 
 count_objs_1('$end_of_table', N) ->
@@ -4308,42 +4307,42 @@ histogram(Tab) ->
     histogram(Tab, OnePercent).
 
 histogram(Tab, OnePercent) ->
-    ?line E = ets:new(histo, []),
-    ?line dets:safe_fixtable(Tab, true),
-    ?line Hist = histo(Tab, E, 0, OnePercent, OnePercent),
-    ?line dets:safe_fixtable(Tab, false),
-    ?line case Hist of
-	      ok ->
-		  ?line H = ets:tab2list(E),
-		  ?line true = ets:delete(E),
-		  sort(H);
-	      Error ->
-		  ets:delete(E),
-		  Error
-	  end.
+    E = ets:new(histo, []),
+    dets:safe_fixtable(Tab, true),
+    Hist = histo(Tab, E, 0, OnePercent, OnePercent),
+    dets:safe_fixtable(Tab, false),
+    case Hist of
+        ok ->
+            H = ets:tab2list(E),
+            true = ets:delete(E),
+            sort(H);
+        Error ->
+            ets:delete(E),
+            Error
+    end.
 
 histo(T, E, I, One, Count) when is_number(Count), I > Count ->
     io:format("."),
     histo(T, E, I, One, Count+One);
 histo(T, E, I, One, Count) ->
-    ?line case dets:slot(T, I) of
-	      '$end_of_table' when is_number(Count) ->
-		  io:format("~n"),
-		  ok;
-	      '$end_of_table' ->
-		  ok;
-	       Objs when is_list(Objs) ->
-		  L = length(Objs),
-		  case catch ets:update_counter(E, L, 1) of
-		      {'EXIT', _} ->
-			  ets:insert(E, {L, 1});
-		      _ ->
-			  ok
-		  end,
-		  histo(T, E, I+1, One, Count);
-	      Error ->
-		  Error
-	  end.
+    case dets:slot(T, I) of
+        '$end_of_table' when is_number(Count) ->
+            io:format("~n"),
+            ok;
+        '$end_of_table' ->
+            ok;
+        Objs when is_list(Objs) ->
+            L = length(Objs),
+            case catch ets:update_counter(E, L, 1) of
+                {'EXIT', _} ->
+                    ets:insert(E, {L, 1});
+                _ ->
+                    ok
+            end,
+            histo(T, E, I+1, One, Count);
+        Error ->
+            Error
+    end.
 
 sum_histogram(H) ->
     sum_histogram(H, 0).
