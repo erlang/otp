@@ -97,6 +97,11 @@
                 {client1, ?CLIENT},
                 {client2, ?CLIENT}]).
 
+%% Options to ct_slave:start/2.
+-define(TIMEOUTS, [{T, 15000} || T <- [boot_timeout,
+                                       init_timeout,
+                                       start_timeout]]).
+
 %% ===========================================================================
 
 suite() ->
@@ -130,7 +135,7 @@ enslave(Config) ->
     [] = [{T,S} || {{_,E} = T, S} <- Nodes, E /= ok].
 
 slave(Name, Dirs) ->
-    add_pathsa(Dirs, ct_slave:start(Name)).
+    add_pathsa(Dirs, ct_slave:start(Name, ?TIMEOUTS)).
 
 add_pathsa(Dirs, {ok, Node}) ->
     {Node, rpc:call(Node, code, add_pathsa, [Dirs])};
