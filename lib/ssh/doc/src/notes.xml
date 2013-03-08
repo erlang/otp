@@ -29,6 +29,34 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Bug in rekeying for daemon fixed.</p>
+          <p>
+	    Own Id: OTP-10911</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Enhanced error message and added test for ssh clients
+	    trying to start non existing subsystems.</p>
+          <p>
+	    Own Id: OTP-10714</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 2.1.4</title>
 
     <section><title>Improvements and New Features</title>
