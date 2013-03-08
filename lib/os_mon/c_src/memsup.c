@@ -104,6 +104,9 @@
 #if !defined (__OpenBSD__) && !defined (__NetBSD__) 
 #include <vm/vm_param.h>
 #endif
+#if defined (__NetBSD__)
+#include <sys/vmmeter.h>
+#endif
 #if defined (__FreeBSD__) || defined(__DragonFly__)
 #include <sys/vmmeter.h>
 #endif
