@@ -908,7 +908,8 @@ connect_and_send_first_request(Address, Request, #state{options = Options} = Sta
                               httpc_response:error(Request, Reason)},
                     {ok, State#state{request = Request,
                                      session =
-                                         #session{socket = Socket}}}
+                                         #session{socket = Socket,
+                                                  socket_type = SocketType}}}
             end;
         {error, Reason} ->
             self() ! {init_error, error_connecting,
