@@ -168,6 +168,8 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	       'GeneralString'   -> restricted_string;
 	       'PrintableString' -> restricted_string;
 	       'IA5String'       -> restricted_string;
+	       'UTCTime'         -> restricted_string;
+	       'GeneralizedTime' -> restricted_string;
 	       Other             -> Other
 	   end,
     case Type of
@@ -204,10 +206,6 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    call(encode_UTF8_string, [Value,DoTag]);
 	'BMPString' ->
 	    call(encode_BMP_string, [Value,DoTag]);
-	'UTCTime' ->
-	    call(encode_utc_time, [Value,DoTag]);
-	'GeneralizedTime' ->
-	    call(encode_generalized_time, [Value,DoTag]);
 	'ASN1_OPEN_TYPE' ->
 	    call(encode_open_type, [Value,DoTag]);
 	#'ObjectClassFieldType'{} ->
@@ -474,6 +472,9 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 		      'GeneralString'   -> restricted_string;
 		      'PrintableString' -> restricted_string;
 		      'IA5String'       -> restricted_string;
+		      'ObjectDescriptor'-> restricted_string;
+		      'UTCTime'         -> restricted_string;
+		      'GeneralizedTime' -> restricted_string;
 		      _                 -> Typename
 		  end,
     case NewTypeName of
@@ -519,10 +520,6 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	'RELATIVE-OID' ->
 	    emit(["decode_relative_oid(",BytesVar,","]),
 	    need(decode_relative_oid, 2);
-	'ObjectDescriptor' ->
-	    emit(["decode_restricted_string(",
-		  BytesVar,",",{asis,Constraint},","]),
-	    need(decode_restricted_string, 3);
 	restricted_string ->
 	    emit(["decode_restricted_string",AsBin,"(",BytesVar,","]),
 	    case Constraint of
@@ -544,14 +541,6 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	    emit(["decode_BMP_string",AsBin,"(",
 		  BytesVar,",",{asis,Constraint},","]),
 	    need(decode_BMP_string, 3);
-	'UTCTime' ->
-	    emit(["decode_utc_time",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},","]),
-	    need(decode_utc_time, 3);
-	'GeneralizedTime' ->
-	    emit(["decode_generalized_time",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},","]),
-	    need(decode_generalized_time, 3);
 	'ASN1_OPEN_TYPE' ->
 	    emit(["decode_open_type_as_binary(",
 		  BytesVar,","]),

@@ -42,9 +42,7 @@
 	 decode_restricted_string/2,decode_restricted_string/3,
 	 encode_universal_string/2,decode_universal_string/3,
 	 encode_UTF8_string/2,decode_UTF8_string/2,
-	 encode_BMP_string/2,decode_BMP_string/3,
-	 encode_generalized_time/2,decode_generalized_time/3,
-	 encode_utc_time/2,decode_utc_time/3]).
+	 encode_BMP_string/2,decode_BMP_string/3]).
 
 -export([encode_open_type/2,decode_open_type/2,
 	 decode_open_type_as_binary/2]).
@@ -1375,56 +1373,6 @@ mk_BMP_string([0,B|T], US) ->
     mk_BMP_string(T, [B|US]);
 mk_BMP_string([C,D|T], US) ->
     mk_BMP_string(T, [{0,0,C,D}|US]).
-
-
-%%============================================================================
-%% Generalized time, ITU_T X.680 Chapter 39
-%%
-%% encode Generalized time
-%%============================================================================
-
-encode_generalized_time(OctetList, TagIn) ->
-    encode_tags(TagIn, OctetList, length(OctetList)).
-
-%%============================================================================
-%% decode Generalized time
-%%    (Buffer, Range, HasTag, TotalLen) -> {String, Remain, RemovedBytes}
-%%============================================================================
-
-decode_generalized_time(Tlv, _Range, Tags) ->
-    Val = match_tags(Tlv, Tags),
-    NewVal = case Val of
-		 [_H|_T]=PartList ->		% constructed
-		     collect_parts(PartList);
-		 Bin ->
-		     Bin
-	     end,
-    binary_to_list(NewVal).
-
-%%============================================================================
-%% Universal time, ITU_T X.680 Chapter 40
-%%
-%% encode UTC time
-%%============================================================================
-
-encode_utc_time(OctetList, TagIn) ->
-    encode_tags(TagIn, OctetList, length(OctetList)).
-
-%%============================================================================
-%% decode UTC time
-%%    (Buffer, Range, HasTag, TotalLen) -> {String, Remain, RemovedBytes}
-%%============================================================================
-
-decode_utc_time(Tlv, _Range, Tags) ->
-    Val = match_tags(Tlv, Tags),
-    NewVal = case Val of
-		 [_|_]=PartList -> % constructed
-		     collect_parts(PartList);
-		 Bin ->
-		     Bin
-	     end,
-    binary_to_list(NewVal).
-
 
 %%============================================================================
 %% Length handling
