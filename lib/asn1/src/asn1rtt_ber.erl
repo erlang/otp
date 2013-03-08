@@ -27,7 +27,8 @@
 	 skip_ExtensionAdditions/2]).
 -export([encode_boolean/2,decode_boolean/2,
 	 encode_integer/2,encode_integer/3,
-	 decode_integer/3,decode_integer/4,
+	 decode_integer/2,decode_integer/3,
+	 decode_named_integer/3,decode_named_integer/4,
 	 encode_enumerated/2,decode_enumerated/3,
 	 encode_bit_string/4,
 	 decode_named_bit_string/3,
@@ -700,10 +701,19 @@ encode_integer_neg(N, Acc) ->
 %%    (Buffer, Range, NamedNumberList, HasTag, TotalLen) -> {Integer, Remain, RemovedBytes}
 %%===============================================================================
 
-decode_integer(Tlv, Range, NamedNumberList, TagIn) ->
+decode_named_integer(Tlv, NamedNumberList, TagIn) ->
+    V = match_tags(Tlv, TagIn),
+    Int = decode_integer(V),
+    number2name(Int, NamedNumberList).
+
+decode_named_integer(Tlv, Range, NamedNumberList, TagIn) ->
     V = match_tags(Tlv, TagIn),
     Int = range_check_integer(decode_integer(V), Range),
     number2name(Int, NamedNumberList).
+
+decode_integer(Tlv, TagIn) ->
+    V = match_tags(Tlv, TagIn),
+    decode_integer(V).
 
 decode_integer(Tlv, Range, TagIn) ->
     V = match_tags(Tlv, TagIn),
@@ -715,21 +725,10 @@ decode_integer(Bin) ->
     <<Int:Len/signed-unit:8>> = Bin,
     Int.
 
+range_check_integer(Int, {Lb,Ub}) when Lb =< Int, Int =< Ub ->
+    Int;
 range_check_integer(Int, Range) ->
-    case Range of
-	[] -> % No length constraint
-	    Int;
-	{Lb,Ub} when Int >= Lb, Ub >= Int -> % variable length constraint
-	    Int;
-	{_,_} ->
-	    exit({error,{asn1,{integer_range,Range,Int}}});
-	Int -> % fixed value constraint
-	    Int;
-	SingleValue when is_integer(SingleValue) ->
-	    exit({error,{asn1,{integer_range,Range,Int}}});
-	_ -> % some strange constraint that we don't support yet
-	    Int
-    end.
+    exit({error,{asn1,{integer_range,Range,Int}}}).
 
 number2name(Int, []) ->
     Int;

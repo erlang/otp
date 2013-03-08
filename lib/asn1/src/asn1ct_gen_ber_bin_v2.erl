@@ -458,16 +458,7 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 %%    Constraint = Att#type.constraint,
 %% Constraint = [],
     Constraint = get_size_constraint(Att#type.constraint),
-    ValueRange = 
-	case get_constraint(Att#type.constraint,'ValueRange') of
-	    no -> [];
-	    Tv -> Tv
-	end,
-    SingleValue = 
-	case get_constraint(Att#type.constraint,'SingleValue') of
-	    no -> [];
-	    Sv -> Sv
-	end,
+    IntConstr = int_constr(Att#type.constraint),
     AsBin = case get(binary_strings) of
 		true -> "_as_bin";
 		_ -> ""
@@ -490,14 +481,27 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	    emit(["decode_boolean(",BytesVar,","]),
 	    need(decode_boolean, 2);
 	'INTEGER' ->
-	    emit(["decode_integer(",BytesVar,",",
-		  {asis,int_constr(SingleValue,ValueRange)},","]),
-	    need(decode_integer, 3);
+	    case IntConstr of
+		[] ->
+		    emit(["decode_integer(",BytesVar,","]),
+		    need(decode_integer, 2);
+		{_,_} ->
+		    emit(["decode_integer(",BytesVar,",",
+			  {asis,IntConstr},","]),
+		    need(decode_integer, 3)
+	    end;
 	{'INTEGER',NamedNumberList} ->
-	    emit(["decode_integer(",BytesVar,",",
-		  {asis,int_constr(SingleValue,ValueRange)},",",
-		  {asis,NamedNumberList},","]),
-	    need(decode_integer, 4);
+	    case IntConstr of
+		[] ->
+		    emit(["decode_named_integer(",BytesVar,",",
+			  {asis,NamedNumberList},","]),
+		    need(decode_named_integer, 3);
+		{_,_} ->
+		    emit(["decode_named_integer(",BytesVar,",",
+			  {asis,IntConstr},",",
+			  {asis,NamedNumberList},","]),
+		    need(decode_named_integer, 4)
+	    end;
 	{'ENUMERATED',NamedNumberList} ->
 	    emit(["decode_enumerated(",BytesVar,",",
 		  {asis,NamedNumberList},","]),
@@ -591,15 +595,23 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	    emit([TagStr,")"])
     end.
 
-
-int_constr([],[]) ->
-    [];
-int_constr([],ValueRange) ->
-    ValueRange;
-int_constr(SingleValue,[]) ->
-    SingleValue;
-int_constr(SV,VR) ->
-    [SV,VR].
+%% Simplify an integer constraint so that we can efficiently test it.
+-spec int_constr(term()) -> [] | {integer(),integer()|'MAX'}.
+int_constr(C) ->
+    case asn1ct_imm:effective_constraint(integer, C) of
+	[{_,[]}] ->
+	    %% Extension - ignore constraint.
+	    [];
+	[{'ValueRange',{'MIN',_}}] ->
+	    %% Tricky to implement efficiently - ignore it.
+	    [];
+	[{'ValueRange',{_,_}=Range}] ->
+	    Range;
+	[{'SingleValue',Sv}] ->
+	    {Sv,Sv};
+	[] ->
+	    []
+    end.
 
 gen_dec_bit_string(BytesVar, _Constraint, [_|_]=NNL, TagStr) ->
     call(decode_named_bit_string,
@@ -1480,15 +1492,6 @@ get_size_constraint(C) ->
 	{_,{Sv,Sv}} -> Sv;
 	{_,{_,_}=Tc} -> Tc
     end.
-
-get_constraint(C,Key) ->
-    case lists:keysearch(Key,1,C) of
-	false ->
-	     no;
-	{value,{_,V}} -> 
-	    V
-    end.
-
 
 get_class_fields(#classdef{typespec=ObjClass}) ->
     ObjClass#objectclass.fields;
