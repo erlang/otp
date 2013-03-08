@@ -53,7 +53,7 @@ get_app_vars(AppFun, Vars, OsType) ->
 	    Res;
 	{cannot_find_app, App} ->
 	    io:format("* WARNING: Cannot find ~p!~n", [App]),
-	    Vars;
+	    [{App,not_found}|Vars];
 	{'EXIT', Reason} ->
 	    exit(Reason);
 	Garbage ->
