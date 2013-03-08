@@ -61,6 +61,8 @@ optimize_alignment(Imm, Al) ->
 per_dec_boolean() ->
     {map,{get_bits,1,[1]},[{0,false},{1,true}]}.
 
+per_dec_enumerated([{V,_}], _Aligned) ->
+    {value,V};
 per_dec_enumerated(NamedList0, Aligned) ->
     Ub = length(NamedList0) - 1,
     Constraint = [{'ValueRange',{0,Ub}}],
@@ -375,6 +377,8 @@ opt_al({call,Fun,E0}, A0) ->
 opt_al({convert,Op,E0}, A0) ->
     {E,A} = opt_al(E0, A0),
     {{convert,Op,E},A};
+opt_al({value,V}=Term, A) when is_integer(V); is_atom(V) ->
+    {Term,A};
 opt_al({value,E0}, A0) ->
     {E,A} = opt_al(E0, A0),
     {{value,E},A};
@@ -391,8 +395,6 @@ opt_al({'case',Cs0}, A0) ->
 opt_al({map,E0,Cs}, A0) ->
     {E,A} = opt_al(E0, A0),
     {{map,E,Cs},A};
-opt_al('NULL'=Null, A) ->
-    {Null,A};
 opt_al(I, A) when is_integer(I) ->
     {I,A}.
 
@@ -480,8 +482,8 @@ flatten({map,E0,Cs0}, Buf0, St0) ->
     {Dst,St2} = new_var("Int", St1),
     Cs = flatten_map_cs(Cs0, E),
     {{Dst,DstBuf},Pre++[{'map',E,Cs,{Dst,DstBuf}}],St2};
-flatten({value,'NULL'}, Buf0, St0) ->
-    {{"'NULL'",Buf0},[],St0};
+flatten({value,V}, Buf0, St0) when is_atom(V) ->
+    {{"'"++atom_to_list(V)++"'",Buf0},[],St0};
 flatten({value,V0}, Buf0, St0) when is_integer(V0) ->
     {{V0,Buf0},[],St0};
 flatten({value,V0}, Buf0, St0) ->
