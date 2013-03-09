@@ -25,21 +25,20 @@
 %%-compile(export_all).
 %% Public exports
 -export([compile/1, compile/2]).
--export([start/0, start/1]).
 -export([encode/2, encode/3, decode/3]).
 -export([test/1, test/2, test/3, value/2, value/3]).
 %% Application internal exports
 -export([compile_asn/3,compile_asn1/3,compile_py/3,compile/3,
 	 vsn/0,
 	 get_name_of_def/1,get_pos_of_def/1]).
--export([read_config_data/1,get_gen_state_field/1,get_gen_state/0,
-	 partial_inc_dec_toptype/1,save_gen_state/1,update_gen_state/2,
+-export([read_config_data/1,get_gen_state_field/1,
+	 partial_inc_dec_toptype/1,update_gen_state/2,
 	 get_tobe_refed_func/1,reset_gen_state/0,is_function_generated/1,
-	 generated_refed_func/1,next_refed_func/0,pop_namelist/0,
-	 next_namelist_el/0,update_namelist/1,step_in_constructed/0,
+	 generated_refed_func/1,next_refed_func/0,
+	 update_namelist/1,step_in_constructed/0,
 	 add_tobe_refed_func/1,add_generated_refed_func/1,
-	 maybe_rename_function/3,latest_sindex/0,current_sindex/0,
-	 set_current_sindex/1,next_sindex/0,maybe_saved_sindex/2,
+	 maybe_rename_function/3,current_sindex/0,
+	 set_current_sindex/1,maybe_saved_sindex/2,
 	 parse_and_save/2,verbose/3,warning/3,warning/4,error/3]).
 -export([get_bit_string_format/0]).
 
@@ -2097,52 +2096,6 @@ update_namelist(Name) ->
 	Other -> Other
     end.
 
-pop_namelist() ->
-    DeepTail = %% removes next element in order
-	fun([[{_,A}]|T],_Fun) when is_atom(A) -> T;
-	   ([{_N,L}|T],_Fun) when is_list(L) -> [L|T];
-	   ([[]|T],Fun) -> Fun(T,Fun);
-	   ([L1|L2],Fun) when is_list(L1) ->
-		case lists:flatten(L1) of
-		    [] -> Fun([L2],Fun);
-		    _ -> [Fun(L1,Fun)|L2]
-		end;
-	   ([_H|T],_Fun) -> T
-	end,
-    {Pop,NewNL} =
-	case get_gen_state_field(namelist) of
-	    [] -> {[],[]};
-	    L ->
-		{next_namelist_el(L),
-		 DeepTail(L,DeepTail)}
-	end,
-    update_gen_state(namelist,NewNL),
-    Pop.
-
-%% next_namelist_el fetches the next type/component name in turn in
-%% the namelist, without changing the namelist.
-next_namelist_el() ->
-    case get_gen_state_field(namelist) of
-	undefined -> undefined;
-	L when is_list(L) -> next_namelist_el(L)
-    end.
-
-next_namelist_el([]) ->
-    [];
-next_namelist_el([L]) when is_list(L) ->
-    next_namelist_el(L);
-next_namelist_el([H|_]) when is_atom(H) ->
-    H;
-next_namelist_el([L|T]) when is_list(L) ->
-    case next_namelist_el(L) of
-	[] ->
-	    next_namelist_el([T]);
-	R ->
-	    R
-    end;
-next_namelist_el([H={_,A}|_]) when is_atom(A) ->
-    H.
-
 %% removes a bracket from the namelist
 step_in_constructed() ->
     case get_gen_state_field(namelist) of
@@ -2382,14 +2335,6 @@ maybe_saved_sindex(Name,Pattern) ->
 	    end
     end.
     
-next_sindex() ->
-    SI = get_gen_state_field(suffix_index),
-    update_gen_state(suffix_index,SI+1),
-    SI+1.
-
-latest_sindex() ->
-    get_gen_state_field(suffix_index).
-
 current_sindex() ->
     get_gen_state_field(current_suffix_index).
 

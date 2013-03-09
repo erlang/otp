@@ -21,15 +21,9 @@
 
 -include("asn1_records.hrl").
 
--export([pgen_exports/3,
-	 pgen_hrl/5,
-	 gen_head/3,
-	 demit/1,
+-export([demit/1,
 	 emit/1,
 	 get_inner/1,type/1,def_to_tag/1,prim_bif/1,
-	 type_from_object/1,
-	 get_typefromobject/1,get_fieldcategory/2,
-	 get_classfieldcategory/2,
 	 list2name/1,
 	 list2rname/1,
 	 constructed_suffix/2,
@@ -41,7 +35,6 @@
 	 index2suffix/1,
 	 get_record_name_prefix/0]).
 -export([pgen/5,
-	 pgen_module/6,
 	 mk_var/1, 
 	 un_hyphen_var/1]).
 -export([gen_encode_constructed/4,
@@ -1767,15 +1760,6 @@ def_to_tag(Def) ->
 
 %% Information Object Class
 
-type_from_object(X) ->
-    case (catch lists:last(element(2,X))) of
-	{'EXIT',_} ->
-	    {notype,X};
-	Normal ->
-	    Normal
-    end.
-
-
 get_fieldtype([],_FieldName)->
     {no_type,no_name};
 get_fieldtype([Field|Rest],FieldName) ->
@@ -1791,34 +1775,6 @@ get_fieldtype([Field|Rest],FieldName) ->
 	    get_fieldtype(Rest,FieldName)
     end.
 
-get_fieldcategory([],_FieldName) ->
-    no_cat;
-get_fieldcategory([Field|Rest],FieldName) ->
-    case element(2,Field) of
-	FieldName ->
-	    element(1,Field);
-	_ ->
-	    get_fieldcategory(Rest,FieldName)
-    end.
-
-get_typefromobject(Type) when is_record(Type,type) ->
-    case Type#type.def of
-	{{objectclass,_,_},TypeFrObj} when is_list(TypeFrObj) ->
-	    {_,FieldName} = lists:last(TypeFrObj),
-	    FieldName;
-	_ ->
-	    {no_field}
-    end.
-
-get_classfieldcategory(Type,FieldName) ->
-    case (catch Type#type.def) of
-	{{obejctclass,Fields,_},_} ->
-	    get_fieldcategory(Fields,FieldName);
-	{'EXIT',_} ->
-	    no_cat;
-	_ ->
-	    no_cat
-    end.
 %% Information Object Class
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
