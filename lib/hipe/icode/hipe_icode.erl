@@ -261,7 +261,6 @@
 %%    {tuple, N}
 %%    atom
 %%    {atom, Atom}
-%%    constant
 %%    number
 %%    integer
 %%    {integer, N}
@@ -380,7 +379,6 @@
 %%    | {tuple, integer()}
 %%    | atom
 %%    | {atom, atom()}
-%%    | constant
 %%    | number
 %%    | integer
 %%    | {integer, integer()}
