@@ -407,7 +407,7 @@ cast(Node, Mod, Fun, Args) ->
     true.
 
 
-%% Asynchronous broadcast, returns nothing, it's just send'n prey
+%% Asynchronous broadcast, returns nothing, it's just send 'n' pray
 -spec abcast(Name, Msg) -> abcast when
       Name :: atom(),
       Msg :: term().
