@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -99,8 +99,7 @@
        function fails, all tests in the test suite are skipped. The
        difference between this "make case" and a normal conf case is
        that for the make case, <c>Init</c> and <c>Fin</c> are given with
-       arguments (<c>{Mod,Func,Args}</c>), and that they are executed
-       on the controller node (i.e. not on target).
+       arguments (<c>{Mod,Func,Args}</c>).
       </item>
       <tag><c>Case</c></tag>
       <item>This can only be used inside a module, i.e. not a test

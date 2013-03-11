@@ -4,7 +4,7 @@
 <part>
   <header>
     <copyright>
-      <year>2006</year><year>2009</year>
+      <year>2006</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,7 +30,7 @@
   <description>
     <p>The <em>Test Server</em> is a portable test server for
       application testing. The test server can run automatic test suites
-      on local or remote target and log progress and results to HTML
+      and log progress and results to HTML
       pages. It also provides some support for test suite authors.</p>
   </description>
   <include file="notes_history"></include>
