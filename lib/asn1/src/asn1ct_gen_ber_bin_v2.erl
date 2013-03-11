@@ -69,8 +69,8 @@
 %% encode #{typedef, {pos, name, typespec}}
 %%===============================================================================
 
-gen_encode(Erules,Type) when is_record(Type,typedef) ->
-    gen_encode_user(Erules,Type).
+gen_encode(Erules, #typedef{}=D) ->
+    gen_encode_user(Erules, #typedef{}=D, true).
 
 %%===============================================================================
 %% encode #{type, {tag, def, constraint}}
@@ -120,20 +120,28 @@ gen_encode(Erules,Tname,#'ComponentType'{name=Cname,typespec=Type}) ->
     NewType = Type#type{tag=[]},
     gen_encode(Erules,NewTname,NewType).
 
-gen_encode_user(Erules,D) when is_record(D,typedef) ->
+gen_encode_user(Erules, #typedef{}=D, Wrapper) ->
     Typename = [D#typedef.name],
     Type = D#typedef.typespec,
     InnerType = asn1ct_gen:get_inner(Type#type.def),
-    OTag = Type#type.tag,
-    Tag = [encode_tag_val(decode_class(X#tag.class),X#tag.form,X#tag.number)|| X <- OTag],
     emit([nl,nl,"%%================================"]),
     emit([nl,"%%  ",Typename]),
     emit([nl,"%%================================",nl]),
-    emit(["'enc_",asn1ct_gen:list2name(Typename),
-	  "'(Val",") ->",nl]),
-    emit(["    'enc_",asn1ct_gen:list2name(Typename),
-	  "'(Val, ", {asis,lists:reverse(Tag)},").",nl,nl]),
-    emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val, TagIn) ->",nl}),
+    FuncName = "'enc_" ++ asn1ct_gen:list2name(Typename) ++ "'",
+    case Wrapper of
+	true ->
+	    %% This is a top-level type. Generate an 'enc_Type'/1
+	    %% wrapper.
+	    OTag = Type#type.tag,
+	    Tag0 = [encode_tag_val(decode_class(Class), Form, Number) ||
+		       #tag{class=Class,form=Form,number=Number} <- OTag],
+	    Tag = lists:reverse(Tag0),
+	    emit([FuncName,"(Val) ->",nl,
+		  "    ",FuncName,"(Val, ",{asis,Tag},").",nl,nl]);
+	false ->
+	    ok
+    end,
+    emit([FuncName,"(Val, TagIn) ->",nl]),
     CurrentMod = get(currmod),
     case asn1ct_gen:type(InnerType) of
 	{constructed,bif} ->
@@ -735,7 +743,7 @@ gen_encode_objectfields(_,[],_,_,Acc) ->
 gen_encode_constr_type(Erules,[TypeDef|Rest]) when is_record(TypeDef,typedef) ->
     case is_already_generated(enc,TypeDef#typedef.name) of
 	true -> ok;
-	_ -> gen_encode_user(Erules,TypeDef)
+	false -> gen_encode_user(Erules, TypeDef, false)
     end,
     gen_encode_constr_type(Erules,Rest);
 gen_encode_constr_type(_,[]) ->
@@ -942,7 +950,10 @@ gen_decode_constr_type(Erules,[TypeDef|Rest]) when is_record(TypeDef,typedef) ->
     case is_already_generated(dec,TypeDef#typedef.name) of
 	true -> ok;
 	_ ->
-	    gen_decode(Erules,TypeDef)
+	    emit([nl,nl,
+		  "'dec_",TypeDef#typedef.name,
+		  "'(Tlv, TagIn) ->",nl]),
+	    gen_decode_user(Erules, TypeDef)
     end,
     gen_decode_constr_type(Erules,Rest);
 gen_decode_constr_type(_,[]) ->
@@ -1404,10 +1415,9 @@ emit_inner_of_decfun(Type,Prop,_) when is_record(Type,type) ->
 gen_internal_funcs(_,[]) ->
     ok;
 gen_internal_funcs(Erules,[TypeDef|Rest]) ->
-    gen_encode_user(Erules,TypeDef),
-    emit([nl,nl,"'dec_",TypeDef#typedef.name,
-%	  "'(Tlv, OptOrMand, TagIn) ->",nl]),
-	  "'(Tlv, TagIn) ->",nl]),
+    gen_encode_user(Erules, TypeDef, false),
+    emit([nl,nl,
+	  "'dec_",TypeDef#typedef.name,"'(Tlv, TagIn) ->",nl]),
     gen_decode_user(Erules,TypeDef),
     gen_internal_funcs(Erules,Rest).
 
