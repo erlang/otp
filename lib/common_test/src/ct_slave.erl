@@ -43,12 +43,13 @@
 %%% @spec start(Node) -> Result
 %%%   Node = atom()
 %%%   Result = {ok, NodeName} |
-%%%	       {error, already_started, NodeName} |
-%%%	       {error, started_not_connected, NodeName} |
-%%%	       {error, boot_timeout, NodeName} |
-%%%	       {error, init_timeout, NodeName} |
-%%%	       {error, startup_timeout, NodeName} |
-%%%	       {error, not_alive, NodeName}
+%%%            {error, Reason, NodeName}
+%%%   Reason = already_started |
+%%%            started_not_connected |
+%%%            boot_timeout |
+%%%            init_timeout |
+%%%            startup_timeout |
+%%%            not_alive
 %%%   NodeName = atom()
 %%% @doc Starts an Erlang node with name <code>Node</code> on the local host.
 %%% @see start/3
@@ -60,12 +61,13 @@ start(Node) ->
 %%%   HostOrNode = atom()
 %%%   NodeOrOpts = atom() | list()
 %%%   Result = {ok, NodeName} |
-%%%	       {error, already_started, NodeName} |
-%%%	       {error, started_not_connected, NodeName} |
-%%%	       {error, boot_timeout, NodeName} |
-%%%	       {error, init_timeout, NodeName} |
-%%%	       {error, startup_timeout, NodeName} |
-%%%	       {error, not_alive, NodeName}
+%%%            {error, Reason, NodeName}
+%%%   Reason = already_started |
+%%%            started_not_connected |
+%%%            boot_timeout |
+%%%            init_timeout |
+%%%            startup_timeout |
+%%%            not_alive
 %%%   NodeName = atom()
 %%% @doc Starts an Erlang node with default options on a specified
 %%% host, or on the local host with specified options. That is,
@@ -109,12 +111,14 @@ start(Host, Node) ->
 %%%   ErlangFlags = string()
 %%%   EnvVar = string()
 %%%   Value = string()
-%%%   Result = {ok, NodeName} | {error, already_started, NodeName} |
-%%%	       {error, started_not_connected, NodeName} |
-%%%	       {error, boot_timeout, NodeName} |
-%%%	       {error, init_timeout, NodeName} |
-%%%	       {error, startup_timeout, NodeName} |
-%%%	       {error, not_alive, NodeName}
+%%%   Result = {ok, NodeName} |
+%%%            {error, Reason, NodeName}
+%%%   Reason = already_started |
+%%%            started_not_connected |
+%%%            boot_timeout |
+%%%            init_timeout |
+%%%            startup_timeout |
+%%%            not_alive
 %%%   NodeName = atom()
 %%% @doc Starts an Erlang node with name <code>Node</code> on host
 %%% <code>Host</code> as specified by the combination of options in
@@ -196,9 +200,11 @@ start(Host, Node, Opts) ->
 %%% @spec stop(Node) -> Result
 %%%   Node = atom()
 %%%   Result = {ok, NodeName} |
-%%%	       {error, not_started, NodeName} |
-%%%	       {error, not_connected, NodeName} |
-%%%            {error, stop_timeout, NodeName}
+%%%            {error, Reason, NodeName}
+%%%   Reason = not_started |
+%%%            not_connected |
+%%%            stop_timeout
+
 %%%   NodeName = atom()
 %%% @doc Stops the running Erlang node with name <code>Node</code> on
 %%% the localhost.
@@ -209,9 +215,10 @@ stop(Node) ->
 %%%   Host = atom()
 %%%   Node = atom()
 %%%   Result = {ok, NodeName} |
-%%%	       {error, not_started, NodeName} |
-%%%	       {error, not_connected, NodeName} |
-%%%            {error, stop_timeout, NodeName}
+%%%            {error, Reason, NodeName}
+%%%   Reason = not_started |
+%%%            not_connected |
+%%%            stop_timeout
 %%%   NodeName = atom()
 %%% @doc Stops the running Erlang node with name <code>Node</code> on
 %%% host <code>Host</code>.
