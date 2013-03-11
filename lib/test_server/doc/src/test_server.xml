@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2012</year>
+      <year>2013</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -73,8 +73,8 @@
         <d>This is the same as returned from <c>os:type/0</c></d>
       </type>
       <desc>
-        <p>This function can be called on controller or target node, and
-          it will always return the OS type of the target node.</p>
+        <p>This function is equivalent to <c>os:type/0</c>. It is kept
+        for backwards compatibility.</p>
       </desc>
     </func>
     <func>
@@ -465,9 +465,7 @@ Tries running clock_sanity_check() up to 8 times,and
         <taglist>
           <tag><c>{remote, true}</c></tag>
           <item>Start the node on a remote host. If not specified, the
-           node will be started on the local host (with some
-           exceptions, as for the case of VxWorks, where
-           all nodes are started on a remote host).  Test cases that
+           node will be started on the local host.  Test cases that
            require a remote host will fail with a reasonable comment if
            no remote hosts are available at the time they are run.
           </item>
@@ -748,7 +746,6 @@ Only valid for peer nodes. Note that slave nodes always
           test case or <c>{skip,Comment}</c>. The syntax of a test
           specification is described in the Test Server User's Guide.
           </p>
-        <p><em>Note that the specification clause always is executed on the controller host.</em></p>
         <p>The <em>execution clause</em> (argument <c>Config</c>) is
           only called if the specification clause returns an empty list.
           The execution clause is the real test case. Here you must call

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -130,7 +130,6 @@
       case. If the test specification is an empty list, this indicates
       that the test case is a leaf test case, i.e. one to be executed.
       </p>
-    <p><em>Note that the specification clause of a test case is executed on the test server controller host. This means that if target is remote, the specification clause is probably executed on a different platform than the one tested.</em></p>
     <p>The execution clause implements the actual test case. It takes
       one argument, <c>Config</c>, which contain configuration
       information like <c>data_dir</c> and <c>priv_dir</c>. See <seealso marker="#data_priv_dir">Data and Private Directories</seealso> for
