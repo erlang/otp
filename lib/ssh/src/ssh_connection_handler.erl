@@ -213,6 +213,29 @@ key_exchange(#ssh_msg_kexdh_init{} = Msg,
 						  description = Desc,
 						  language = "en"}, State)
     end;
+
+key_exchange({#ssh_msg_kexinit{} = Kex, Payload},
+	#state{ssh_params = #ssh{role = Role} = Ssh0,
+					 key_exchange_init_msg = OwnKex} =
+	State) ->
+    Ssh1 = ssh_transport:key_init(opposite_role(Role), Ssh0, Payload),
+    try ssh_transport:handle_kexinit_msg(Kex, OwnKex, Ssh1) of
+	{ok, NextKexMsg, Ssh} when Role == client ->
+	    send_msg(NextKexMsg, State),
+	    {next_state, key_exchange,
+	     next_packet(State#state{ssh_params = Ssh})};
+	{ok, Ssh} when Role == server ->
+	    {next_state, key_exchange,
+	     next_packet(State#state{ssh_params = Ssh})}
+    catch
+	#ssh_msg_disconnect{} = DisconnectMsg ->
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+						  description = Desc,
+						  language = "en"}, State)
+    end;
   
 key_exchange(#ssh_msg_kexdh_reply{} = Msg, 
 	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) -> 
@@ -456,7 +479,9 @@ userauth(#ssh_msg_userauth_banner{message = Msg},
     {next_state, userauth, next_packet(State)}.
 
 connected({#ssh_msg_kexinit{}, _Payload} = Event, State) ->
-    kexinit(Event, State#state{renegotiate = true}).
+    kexinit(Event, State#state{renegotiate = true});
+connected({#ssh_msg_kexdh_init{}, _Payload} = Event, State) ->
+    key_exchange(Event, State#state{renegotiate = true}).
 
 %%--------------------------------------------------------------------
 %% Function: 
@@ -510,7 +535,7 @@ handle_event({info, From, Options}, StateName,  #state{ssh_params = Ssh} = State
     spawn(?MODULE, ssh_info_handler, [Options, Ssh, From]), 
     {next_state, StateName, State};
 handle_event(data_size, connected, #state{ssh_params = Ssh0} = State) ->
-    Sent = inet:getstat(State#state.socket, [send_oct]),
+    {ok, [{send_oct,Sent}]} = inet:getstat(State#state.socket, [send_oct]),
     MaxSent = proplists:get_value(rekey_limit, State#state.opts, 1024000000),
     case Sent >= MaxSent of
 	true ->
@@ -518,7 +543,7 @@ handle_event(data_size, connected, #state{ssh_params = Ssh0} = State) ->
 	    send_msg(SshPacket, State),
 	    {next_state, connected, 
 	     next_packet(State#state{ssh_params = Ssh,
-			     key_exchange_init_msg = KeyInitMsg,
+				     key_exchange_init_msg = KeyInitMsg,
 				     renegotiate = true})};
 	_ ->
 	    {next_state, connected, next_packet(State)}

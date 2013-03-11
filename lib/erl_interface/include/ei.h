@@ -193,7 +193,7 @@ extern volatile int __erl_errno;
 typedef enum { 
     ERLANG_ASCII = 1,
     ERLANG_LATIN1 = 2,
-    ERLANG_UTF8 = 4,
+    ERLANG_UTF8 = 4
 }erlang_char_encoding;
 
 /* a pid */
