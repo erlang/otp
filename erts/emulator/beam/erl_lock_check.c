@@ -181,6 +181,11 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "efile_drv dtrace mutex",               NULL                    },
 #endif
     {	"mtrace_buf",				NULL			},
+#ifdef __WIN32__
+#ifdef ERTS_SMP
+    {   "sys_gethrtime",                        NULL                    },
+#endif
+#endif
     {	"erts_alloc_hard_debug",		NULL			}
 };
 
