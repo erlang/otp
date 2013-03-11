@@ -48,6 +48,7 @@
 	  compression_method,
 	  cipher_suite,
 	  master_secret,
+	  srp_username,
 	  is_resumable,
 	  time_stamp
 	  }).
@@ -99,7 +100,9 @@
 	  cipher_suites,      % cipher_suites<2..2^16-1>
 	  compression_methods, % compression_methods<1..2^8-1>,
 	  renegotiation_info,
+	  srp,                % srp username to send
 	  hash_signs,          % supported combinations of hashes/signature algos
+	  elliptic_curves,     % supported elliptic curver
 	  next_protocol_negotiation = undefined % [binary()]
 	 }).
 
@@ -111,6 +114,7 @@
 	  compression_method, % compression_method
 	  renegotiation_info,
 	  hash_signs,          % supported combinations of hashes/signature algos
+	  elliptic_curves,     % supported elliptic curver
 	  next_protocol_negotiation = undefined % [binary()]
 	 }).
 
@@ -128,6 +132,11 @@
 
 -define(KEY_EXCHANGE_RSA, 0).
 -define(KEY_EXCHANGE_DIFFIE_HELLMAN, 1).
+-define(KEY_EXCHANGE_EC_DIFFIE_HELLMAN, 6).
+-define(KEY_EXCHANGE_PSK, 2).
+-define(KEY_EXCHANGE_DHE_PSK, 3).
+-define(KEY_EXCHANGE_RSA_PSK, 4).
+-define(KEY_EXCHANGE_SRP, 5).
 
 -record(server_rsa_params, {
 	  rsa_modulus,  %%  opaque RSA_modulus<1..2^16-1>
@@ -139,7 +148,28 @@
 	  dh_g, %% opaque DH_g<1..2^16-1>
 	  dh_y  %% opaque DH_Ys<1..2^16-1>
 	 }).
-  
+
+-record(server_ecdh_params, {
+	  curve,
+	  public           %% opaque encoded ECpoint
+	 }).
+
+-record(server_psk_params, {
+	  hint
+	 }).
+
+-record(server_dhe_psk_params, {
+	  hint,
+	  dh_params
+	 }).
+
+-record(server_srp_params, {
+	  srp_n, %% opaque srp_N<1..2^16-1>
+	  srp_g, %% opaque srp_g<1..2^16-1>
+	  srp_s, %% opaque srp_s<1..2^8-1>
+	  srp_b  %% opaque srp_B<1..2^16-1>
+	 }).
+
 -record(server_key_exchange, {
 	  exchange_keys
 	 }).
@@ -173,6 +203,9 @@
 -define(DSS_SIGN, 2).
 -define(RSA_FIXED_DH, 3).
 -define(DSS_FIXED_DH, 4).
+-define(ECDSA_SIGN, 64).
+-define(RSA_FIXED_ECDH, 65).
+-define(ECDSA_FIXED_ECDH, 66).
 
 % opaque DistinguishedName<1..2^16-1>;
 
@@ -209,6 +242,28 @@
 	  dh_public
 	 }).
 
+-record(client_ec_diffie_hellman_public, {
+	  dh_public
+	 }).
+
+-record(client_psk_identity, {
+	  identity
+	 }).
+
+-record(client_dhe_psk_identity, {
+	  identity,
+	  dh_public
+	 }).
+
+-record(client_rsa_psk_identity, {
+	  identity,
+	  exchange_keys
+	 }).
+
+-record(client_srp_public, {
+	  srp_a
+	 }).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Certificate verify - RFC 4346 section 7.4.8
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -235,6 +290,15 @@
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SRP  RFC 5054 section 2.8.1.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-define(SRP_EXT, 12).
+
+-record(srp, {
+	  username
+	 }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Signature Algorithms  RFC 5746 section 7.4.1.4.1.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(SIGNATURE_ALGORITHMS_EXT, 13).
@@ -254,6 +318,33 @@
 -record(next_protocol_negotiation, {extension_data}).
 
 -record(next_protocol, {selected_protocol}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ECC Extensions RFC 4492 section 4 and 5
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(ELLIPTIC_CURVES_EXT, 10).
+-define(EC_POINT_FORMATS_EXT, 11).
+
+-record(elliptic_curves, {
+	  elliptic_curve_list
+	 }).
+
+-record(ec_point_formats, {
+	  ec_point_format_list
+	 }).
+
+-define(ECPOINT_UNCOMPRESSED, 0).
+-define(ECPOINT_ANSIX962_COMPRESSED_PRIME, 1).
+-define(ECPOINT_ANSIX962_COMPRESSED_CHAR2, 2).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ECC RFC 4492 Handshake Messages, Section 5
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(EXPLICIT_PRIME, 1).
+-define(EXPLICIT_CHAR2, 2).
+-define(NAMED_CURVE, 3).
 
 -endif. % -ifdef(ssl_handshake).
 

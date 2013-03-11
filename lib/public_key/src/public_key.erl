@@ -92,7 +92,9 @@ pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
             der_decode(KeyType, Key0);
         'DSAPublicKey' ->
             {params, DssParams} = der_decode('DSAParams', Params),
-            {der_decode(KeyType, Key0), DssParams}
+            {der_decode(KeyType, Key0), DssParams};
+        'ECPrivateKey' ->
+            der_decode(KeyType, Key0)
     end;
 pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 						      is_binary(Der) ->
@@ -334,6 +336,40 @@ format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
 					privateExponent = D}) ->
    [crypto:mpint(K) || K <- [E, N, D]].
 
+%%
+%% Description: convert a ECPrivate key into resource Key
+%%--------------------------------------------------------------------
+list2int(L) ->
+    S = length(L) * 8,
+    <<R:S/integer>> = erlang:iolist_to_binary(L),
+    R.
+
+ec_private_key_to_eckey(#'ECPrivateKey'{privateKey = PrivKey,
+					parameters = Param,
+					publicKey = _PubKey}) ->
+    ECCurve = case Param of
+                  #'OTPECParameters'{ fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor } ->
+                      Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType), FieldId#'OTPFieldID'.parameters},
+                      Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
+                      {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
+                  {namedCurve, OID} ->
+                      pubkey_cert_records:namedCurves(OID)
+              end,
+    Key = {ECCurve, list2int(PrivKey), undefined},
+    {'ECKey', crypto:term_to_ec_key(Key)}.
+
+ec_public_key_to_eckey({#'ECPoint'{point = ECPoint}, Param}) ->
+    ECCurve = case Param of
+                  #'OTPECParameters'{ fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor } ->
+                      Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType), FieldId#'OTPFieldID'.parameters},
+                      Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
+                      {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
+                  {namedCurve, OID} ->
+                      pubkey_cert_records:namedCurves(OID)
+              end,
+    Key = {ECCurve, undefined, ECPoint},
+    {'ECKey', crypto:term_to_ec_key(Key)}.
+
 %%--------------------------------------------------------------------
 -spec sign(binary() | {digest, binary()},  rsa_digest_type() | dss_digest_type(),
 	   rsa_private_key() |
@@ -355,6 +391,18 @@ sign(PlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
     crypto:dss_sign(sized_binary(PlainText),
           [crypto:mpint(P), crypto:mpint(Q),
            crypto:mpint(G), crypto:mpint(X)]);
+
+sign(Digest, DigestType, Key = {?'id-ecPublicKey', _, _}) ->
+    sign(Digest, DigestType, ec_public_key_to_eckey(Key));
+
+sign(Digest, DigestType, Key = #'ECPrivateKey'{}) ->
+    sign(Digest, DigestType, ec_private_key_to_eckey(Key));
+
+sign({digest,_}=Digest, DigestType, {'ECKey', Key}) ->
+    crypto:ecdsa_sign(DigestType, Digest, Key);
+
+sign(PlainText, DigestType, {'ECKey', Key}) ->
+    crypto:ecdsa_sign(DigestType, sized_binary(PlainText), Key);
 
 %% Backwards compatible
 sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
@@ -384,6 +432,24 @@ verify({digest,_}=Digest, sha, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = 
     crypto:dss_verify(Digest, sized_binary(Signature),
 		      [crypto:mpint(P), crypto:mpint(Q), 
 		       crypto:mpint(G), crypto:mpint(Key)]);
+
+verify({digest,_}=Digest, DigestType, Signature, {'ECKey', Key}) ->
+    crypto:ecdsa_verify(DigestType, Digest,
+			sized_binary(Signature),
+			Key);
+
+verify(PlainText, DigestType, Signature, Key = #'ECPrivateKey'{}) ->
+    verify(PlainText, DigestType, Signature, ec_private_key_to_eckey(Key));
+
+verify(PlainText, DigestType, Signature, Key = {#'ECPoint'{}, _}) ->
+    verify(PlainText, DigestType, Signature, ec_public_key_to_eckey(Key));
+
+verify(PlainText, DigestType, Signature, {'ECKey', Key}) ->
+    crypto:ecdsa_verify(DigestType,
+			sized_binary(PlainText),
+			sized_binary(Signature),
+			Key);
+
 %% Backwards compatibility
 verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
     verify({digest,Digest}, sha, Signature, Key);
@@ -428,7 +494,17 @@ pkix_verify(DerCert, {Key, #'Dss-Parms'{}} = DSAKey)
 pkix_verify(DerCert,  #'RSAPublicKey'{} = RSAKey) 
   when is_binary(DerCert) ->
     {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
-    verify(PlainText, DigestType, Signature, RSAKey).
+    verify(PlainText, DigestType, Signature, RSAKey);
+
+pkix_verify(DerCert,  #'ECPrivateKey'{} = ECKey)
+  when is_binary(DerCert) ->
+    {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
+    verify(PlainText, DigestType, Signature, ECKey);
+
+pkix_verify(DerCert, Key = {'ECKey', _})
+  when is_binary(DerCert) ->
+    {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
+    verify(PlainText, DigestType, Signature,  Key).
 
 %%--------------------------------------------------------------------
 -spec pkix_is_issuer(Cert :: der_encoded()| #'OTPCertificate'{} | #'CertificateList'{},

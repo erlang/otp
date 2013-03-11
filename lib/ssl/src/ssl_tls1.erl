@@ -29,7 +29,8 @@
 -include("ssl_record.hrl").
 
 -export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7,
-	 setup_keys/8, suites/1, prf/5]).
+	 setup_keys/8, suites/1, prf/5,
+	 ecc_curves/1, ec_nid2curve_id/1, ec_curve_id2nid/1]).
 
 %%====================================================================
 %% Internal application API
@@ -184,27 +185,56 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
     
 suites(Minor) when Minor == 1; Minor == 2->
     [ 
+      ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
       ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
       ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+      ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
+      ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
       ?TLS_RSA_WITH_AES_256_CBC_SHA,
+
+      ?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+      ?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
       ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
       ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+      ?TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,
+      ?TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,
       ?TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+
+      ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_RSA_WITH_AES_128_CBC_SHA,
       %%?TLS_RSA_WITH_IDEA_CBC_SHA,
+      ?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+      ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
       ?TLS_RSA_WITH_RC4_128_SHA,
       ?TLS_RSA_WITH_RC4_128_MD5,
       ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
+      ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
+      ?TLS_ECDH_RSA_WITH_RC4_128_SHA,
       ?TLS_RSA_WITH_DES_CBC_SHA
      ];
 
 suites(Minor) when Minor == 3 ->
     [
+     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
+
      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
      ?TLS_RSA_WITH_AES_256_CBC_SHA256,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
+
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA256
@@ -303,3 +333,64 @@ finished_label(client) ->
     <<"client finished">>;
 finished_label(server) ->
     <<"server finished">>.
+
+%% list ECC curves in prefered order
+ecc_curves(_Minor) ->
+    [sect571r1,sect571k1,secp521r1,sect409k1,sect409r1,
+     secp384r1,sect283k1,sect283r1,secp256k1,secp256r1,
+     sect239k1,sect233k1,sect233r1,secp224k1,secp224r1,
+     sect193r1,sect193r2,secp192k1,secp192r1,sect163k1,
+     sect163r1,sect163r2,secp160k1,secp160r1,secp160r2].
+
+%% ECC curves from draft-ietf-tls-ecc-12.txt (Oct. 17, 2005)
+ec_nid2curve_id(sect163k1) -> 1;
+ec_nid2curve_id(sect163r1) -> 2;
+ec_nid2curve_id(sect163r2) -> 3;
+ec_nid2curve_id(sect193r1) -> 4;
+ec_nid2curve_id(sect193r2) -> 5;
+ec_nid2curve_id(sect233k1) -> 6;
+ec_nid2curve_id(sect233r1) -> 7;
+ec_nid2curve_id(sect239k1) -> 8;
+ec_nid2curve_id(sect283k1) -> 9;
+ec_nid2curve_id(sect283r1) -> 10;
+ec_nid2curve_id(sect409k1) -> 11;
+ec_nid2curve_id(sect409r1) -> 12;
+ec_nid2curve_id(sect571k1) -> 13;
+ec_nid2curve_id(sect571r1) -> 14;
+ec_nid2curve_id(secp160k1) -> 15;
+ec_nid2curve_id(secp160r1) -> 16;
+ec_nid2curve_id(secp160r2) -> 17;
+ec_nid2curve_id(secp192k1) -> 18;
+ec_nid2curve_id(secp192r1) -> 19;
+ec_nid2curve_id(secp224k1) -> 20;
+ec_nid2curve_id(secp224r1) -> 21;
+ec_nid2curve_id(secp256k1) -> 22;
+ec_nid2curve_id(secp256r1) -> 23;
+ec_nid2curve_id(secp384r1) -> 24;
+ec_nid2curve_id(secp521r1) -> 25.
+
+ec_curve_id2nid(1) -> sect163k1;
+ec_curve_id2nid(2) -> sect163r1;
+ec_curve_id2nid(3) -> sect163r2;
+ec_curve_id2nid(4) -> sect193r1;
+ec_curve_id2nid(5) -> sect193r2;
+ec_curve_id2nid(6) -> sect233k1;
+ec_curve_id2nid(7) -> sect233r1;
+ec_curve_id2nid(8) -> sect239k1;
+ec_curve_id2nid(9) -> sect283k1;
+ec_curve_id2nid(10) -> sect283r1;
+ec_curve_id2nid(11) -> sect409k1;
+ec_curve_id2nid(12) -> sect409r1;
+ec_curve_id2nid(13) -> sect571k1;
+ec_curve_id2nid(14) -> sect571r1;
+ec_curve_id2nid(15) -> secp160k1;
+ec_curve_id2nid(16) -> secp160r1;
+ec_curve_id2nid(17) -> secp160r2;
+ec_curve_id2nid(18) -> secp192k1;
+ec_curve_id2nid(19) -> secp192r1;
+ec_curve_id2nid(20) -> secp224k1;
+ec_curve_id2nid(21) -> secp224r1;
+ec_curve_id2nid(22) -> secp256k1;
+ec_curve_id2nid(23) -> secp256r1;
+ec_curve_id2nid(24) -> secp384r1;
+ec_curve_id2nid(25) -> secp521r1.

@@ -281,6 +281,13 @@ wait_for_result(Pid, Msg) ->
 	%%     Unexpected
     end.
 
+user_lookup(psk, _Identity, UserState) ->
+    {ok, UserState};
+user_lookup(srp, Username, _UserState) ->
+    Salt = ssl:random_bytes(16),
+    UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, <<"secret">>])]),
+    {ok, {srp_1024, Salt, UserPassHash}}.
+
 cert_options(Config) ->
     ClientCaCertFile = filename:join([?config(priv_dir, Config), 
 				      "client", "cacerts.pem"]),
@@ -307,6 +314,7 @@ cert_options(Config) ->
 				   "badcert.pem"]),
     BadKeyFile = filename:join([?config(priv_dir, Config), 
 			      "badkey.pem"]),
+    PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
     [{client_opts, [{ssl_imp, new},{reuseaddr, true}]}, 
      {client_verification_opts, [{cacertfile, ClientCaCertFile}, 
 				{certfile, ClientCertFile},  
@@ -319,6 +327,24 @@ cert_options(Config) ->
      {server_opts, [{ssl_imp, new},{reuseaddr, true}, 
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
      {server_anon, [{ssl_imp, new},{reuseaddr, true}, {ciphers, anonymous_suites()}]},
+     {client_psk, [{ssl_imp, new},{reuseaddr, true},
+		   {psk_identity, "Test-User"},
+		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
+     {server_psk, [{ssl_imp, new},{reuseaddr, true},
+		   {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
+		   {ciphers, psk_suites()}]},
+     {server_psk_hint, [{ssl_imp, new},{reuseaddr, true},
+			{certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+			{psk_identity, "HINT"},
+			{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
+			{ciphers, psk_suites()}]},
+     {client_srp, [{ssl_imp, new},{reuseaddr, true},
+		   {srp_identity, {"Test-User", "secret"}}]},
+     {server_srp, [{ssl_imp, new},{reuseaddr, true},
+		   {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+		   {user_lookup_fun, {fun user_lookup/3, undefined}},
+		   {ciphers, srp_suites()}]},
      {server_verification_opts, [{ssl_imp, new},{reuseaddr, true}, 
 		    {cacertfile, ServerCaCertFile},
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
@@ -356,9 +382,61 @@ make_dsa_cert(Config) ->
 			       {verify, verify_peer}]},
      {client_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
 			{cacertfile, ClientCaCertFile},
-			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
+			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]},
+     {server_srp_dsa, [{ssl_imp, new},{reuseaddr, true}, 
+		       {cacertfile, ServerCaCertFile},
+		       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+		       {user_lookup_fun, {fun user_lookup/3, undefined}},
+		       {ciphers, srp_dss_suites()}]},
+     {client_srp_dsa, [{ssl_imp, new},{reuseaddr, true}, 
+		       {srp_identity, {"Test-User", "secret"}},
+		       {cacertfile, ClientCaCertFile},
+		       {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
      | Config].
 
+make_ecdsa_cert(Config) ->
+    case proplists:get_bool(ec, crypto:algorithms()) of
+	    true ->
+	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, ec, ec, ""),
+	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, ec, ec, ""),
+	    [{server_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true},
+				  {cacertfile, ServerCaCertFile},
+				  {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
+	     {server_ecdsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
+					 {cacertfile, ClientCaCertFile},
+					 {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+					 {verify, verify_peer}]},
+	     {client_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true},
+				  {cacertfile, ClientCaCertFile},
+				  {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
+	     | Config];
+	_ ->
+	    Config
+    end.
+
+%% RFC 4492, Sect. 2.3.  ECDH_RSA
+%%
+%%    This key exchange algorithm is the same as ECDH_ECDSA except that the
+%%    server's certificate MUST be signed with RSA rather than ECDSA.
+make_ecdh_rsa_cert(Config) ->
+    case proplists:get_bool(ec, crypto:algorithms()) of
+	true ->
+	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, rsa, ec, "rsa_"),
+	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, rsa, ec, "rsa_"),
+	    [{server_ecdh_rsa_opts, [{ssl_imp, new},{reuseaddr, true},
+				     {cacertfile, ServerCaCertFile},
+				     {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
+	     {server_ecdh_rsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
+					    {cacertfile, ClientCaCertFile},
+					    {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+					    {verify, verify_peer}]},
+	     {client_ecdh_rsa_opts, [{ssl_imp, new},{reuseaddr, true},
+				     {cacertfile, ClientCaCertFile},
+				     {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
+	     | Config];
+	_ ->
+	    Config
+    end.
 
 make_mix_cert(Config) ->
     {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, dsa,
@@ -622,10 +700,14 @@ send_selected_port(_,_,_) ->
     ok.
 
 rsa_suites() ->
-    lists:filter(fun({dhe_dss, _, _}) ->
-			 false;
+    lists:filter(fun({rsa, _, _}) ->
+			 true;
+		    ({dhe_rsa, _, _}) ->
+			 true;
+		    ({ecdhe_rsa, _, _}) ->
+			 true;
 		    (_) ->
-			 true
+			 false
 		 end,
 		 ssl:cipher_suites()).
 
@@ -645,17 +727,32 @@ dsa_suites() ->
 		 end,
 		 ssl:cipher_suites()).
 
+ecdsa_suites() ->
+     lists:filter(fun({ecdhe_ecdsa, _, _}) ->
+			 true;
+		    (_) ->
+			 false
+		 end,
+		 ssl:cipher_suites()).
+
+ecdh_rsa_suites() ->
+     lists:filter(fun({ecdh_rsa, _, _}) ->
+			 true;
+		    (_) ->
+			 false
+		 end,
+		 ssl:cipher_suites()).
 
 openssl_rsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
     lists:filter(fun(Str) ->
-			 case re:run(Str,"DSS",[]) of
+			 case re:run(Str,"DSS|ECDH-RSA|ECDSA",[]) of
 			     nomatch ->
 				 true;
 			     _ ->
 				 false
 			 end 
-		 end, Ciphers).
+		     end, Ciphers).
 
 openssl_dsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
@@ -668,12 +765,73 @@ openssl_dsa_suites() ->
 			 end 
 		 end, Ciphers).
 
+openssl_ecdsa_suites() ->
+    Ciphers = ssl:cipher_suites(openssl),
+    lists:filter(fun(Str) ->
+			 case re:run(Str,"ECDHE-ECDSA",[]) of
+			     nomatch ->
+				 false;
+			     _ ->
+				 true
+			 end 
+		 end, Ciphers).
+
+openssl_ecdh_rsa_suites() ->
+    Ciphers = ssl:cipher_suites(openssl),
+    lists:filter(fun(Str) ->
+			 case re:run(Str,"ECDH-RSA",[]) of
+			     nomatch ->
+				 false;
+			     _ ->
+				 true
+			 end 
+		 end, Ciphers).
+
 anonymous_suites() ->
-    [{dh_anon, rc4_128, md5},
-     {dh_anon, des_cbc, sha},
-     {dh_anon, '3des_ede_cbc', sha},
-     {dh_anon, aes_128_cbc, sha},
-     {dh_anon, aes_256_cbc, sha}].
+    Suites =
+	[{dh_anon, rc4_128, md5},
+	 {dh_anon, des_cbc, sha},
+	 {dh_anon, '3des_ede_cbc', sha},
+	 {dh_anon, aes_128_cbc, sha},
+	 {dh_anon, aes_256_cbc, sha},
+	 {ecdh_anon,rc4_128,sha},
+	 {ecdh_anon,'3des_ede_cbc',sha},
+	 {ecdh_anon,aes_128_cbc,sha},
+	 {ecdh_anon,aes_256_cbc,sha}],
+    ssl_cipher:filter_suites(Suites).
+
+psk_suites() ->
+    Suites =
+	[{psk, rc4_128, sha},
+	 {psk, '3des_ede_cbc', sha},
+	 {psk, aes_128_cbc, sha},
+	 {psk, aes_256_cbc, sha},
+	 {dhe_psk, rc4_128, sha},
+	 {dhe_psk, '3des_ede_cbc', sha},
+	 {dhe_psk, aes_128_cbc, sha},
+	 {dhe_psk, aes_256_cbc, sha},
+	 {rsa_psk, rc4_128, sha},
+	 {rsa_psk, '3des_ede_cbc', sha},
+	 {rsa_psk, aes_128_cbc, sha},
+	 {rsa_psk, aes_256_cbc, sha}],
+    ssl_cipher:filter_suites(Suites).
+
+srp_suites() ->
+    Suites =
+	[{srp_anon, '3des_ede_cbc', sha},
+	 {srp_rsa, '3des_ede_cbc', sha},
+	 {srp_anon, aes_128_cbc, sha},
+	 {srp_rsa, aes_128_cbc, sha},
+	 {srp_anon, aes_256_cbc, sha},
+	 {srp_rsa, aes_256_cbc, sha}],
+    ssl_cipher:filter_suites(Suites).
+
+srp_dss_suites() ->
+    Suites =
+	[{srp_dss, '3des_ede_cbc', sha},
+	 {srp_dss, aes_128_cbc, sha},
+	 {srp_dss, aes_256_cbc, sha}],
+    ssl_cipher:filter_suites(Suites).
 
 pem_to_der(File) ->
     {ok, PemBin} = file:read_file(File),
@@ -755,15 +913,9 @@ init_tls_version(Version) ->
     ssl:start().
 
 sufficient_crypto_support('tlsv1.2') ->
-    Data = "Sampl",
-    Data2 = "e #1",
-    Key = <<0,1,2,3,16,17,18,19,32,33,34,35,48,49,50,51,4,5,6,7,20,21,22,23,36,37,38,39,
-	    52,53,54,55,8,9,10,11,24,25,26,27,40,41,42,43,56,57,58,59>>,
-    try
-	crypto:sha256_mac(Key, lists:flatten([Data, Data2])),
-	true
-    catch _:_ -> false
-    end;
+    proplists:get_bool(sha256, crypto:algorithms());
+sufficient_crypto_support(ciphers_ec) ->
+    proplists:get_bool(ec, crypto:algorithms());
 sufficient_crypto_support(_) ->
     true.
 

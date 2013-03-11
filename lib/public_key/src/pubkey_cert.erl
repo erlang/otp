@@ -464,7 +464,15 @@ digest_type(?sha512WithRSAEncryption) ->
 digest_type(?md5WithRSAEncryption) ->
     md5;
 digest_type(?'id-dsa-with-sha1') ->
-    sha.
+    sha;
+digest_type(?'ecdsa-with-SHA1') ->
+    sha;
+digest_type(?'ecdsa-with-SHA512') ->
+    sha512;
+digest_type(?'ecdsa-with-SHA384') ->
+    sha384;
+digest_type(?'ecdsa-with-SHA256') ->
+    sha256.
 
 public_key_info(PublicKeyInfo, 
 		#path_validation_state{working_public_key_algorithm =

@@ -39,7 +39,10 @@
          hmac_update_md5_io/1,
          hmac_update_md5_n/1,
          hmac_rfc2202/1,
-	 hmac_rfc4231/1,
+	 hmac_rfc4231_sha224/1,
+	 hmac_rfc4231_sha256/1,
+	 hmac_rfc4231_sha384/1,
+	 hmac_rfc4231_sha512/1,
    ripemd160/1,
    ripemd160_update/1,
 	 sha256/1,
@@ -72,6 +75,8 @@
 	 dsa_sign_hash_test/1,
 	 rsa_encrypt_decrypt/1,
 	 dh/1,
+	 srp3/1, srp6/1, srp6a/1,
+	 ec/1,
 	 exor_test/1,
 	 rc4_test/1,
 	 rc4_stream_test/1,
@@ -93,14 +98,15 @@ groups() ->
        sha256, sha256_update, sha512, sha512_update,
        hmac_update_sha, hmac_update_sha_n, hmac_update_sha256, hmac_update_sha512,
        hmac_update_md5_n, hmac_update_md5_io, hmac_update_md5,
-       hmac_rfc2202, hmac_rfc4231,
+       hmac_rfc2202, hmac_rfc4231_sha224, hmac_rfc4231_sha256,
+       hmac_rfc4231_sha384, hmac_rfc4231_sha512,
        des_cbc, aes_cfb, aes_cbc,
        des_cfb, des_cfb_iter, des3_cbc, des3_cfb, rc2_cbc,
        aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
        rand_uniform_test, strong_rand_test,
        rsa_verify_test, dsa_verify_test, rsa_sign_test,
        rsa_sign_hash_test, dsa_sign_test, dsa_sign_hash_test,
-       rsa_encrypt_decrypt, dh, exor_test,
+       rsa_encrypt_decrypt, dh, srp3, srp6, srp6a, ec, exor_test,
        rc4_test, rc4_stream_test, mod_exp_test, blowfish_cfb64,
        smp]}].
 
@@ -363,8 +369,7 @@ hmac_update_sha256(doc) ->
 hmac_update_sha256(suite) ->
     [];
 hmac_update_sha256(Config) when is_list(Config) ->
-    if_098(fun() -> hmac_update_sha256_do() end).
-
+    if_supported(sha256, fun() -> hmac_update_sha256_do() end).
 
 hmac_update_sha256_do() ->
     ?line Key = hexstr2bin("00010203101112132021222330313233"
@@ -386,7 +391,7 @@ hmac_update_sha512(doc) ->
 hmac_update_sha512(suite) ->
     [];
 hmac_update_sha512(Config) when is_list(Config) ->
-    if_098(fun() -> hmac_update_sha512_do() end).
+    if_supported(sha512, fun() -> hmac_update_sha512_do() end).
 
 hmac_update_sha512_do() ->
     ?line Key = hexstr2bin("00010203101112132021222330313233"
@@ -582,366 +587,192 @@ hmac_rfc2202_sha() ->
     ?line m(Case7Exp, Case7Mac_1),
     ?line m(Case7Exp, Case7Mac_2).
 
-hmac_rfc4231(doc) ->
-    ["Generate an HMAC using crypto:shaXXX_mac, hmac, and hmac_init, hmac_update, and hmac_final. "
+hmac_rfc4231_sha224(doc) ->
+    ["Generate an HMAC using crypto:sha224_mac, hmac, and hmac_init, hmac_update, and hmac_final. "
      "Testvectors are take from RFC4231." ];
-hmac_rfc4231(suite) ->
+hmac_rfc4231_sha224(suite) ->
     [];
-hmac_rfc4231(Config) when is_list(Config) ->
-    if_098(fun() -> hmac_rfc4231_do() end).
+hmac_rfc4231_sha224(Config) when is_list(Config) ->
+    if_supported(sha224, fun() -> hmac_rfc4231_sha224_do() end).
 
-hmac_rfc4231_do() ->
-    %% Test Case 1
-    Case1Key = binary:copy(<<16#0b>>, 20),
-    Case1Data = <<"Hi There">>,
-    Case1Exp224 = hexstr2bin("896fb1128abbdf196832107cd49df33f"
-			     "47b4b1169912ba4f53684b22"),
-    Case1Exp256 = hexstr2bin("b0344c61d8db38535ca8afceaf0bf12b"
-			     "881dc200c9833da726e9376c2e32cff7"),
-    Case1Exp384 = hexstr2bin("afd03944d84895626b0825f4ab46907f"
-			     "15f9dadbe4101ec682aa034c7cebc59c"
-			     "faea9ea9076ede7f4af152e8b2fa9cb6"),
-    Case1Exp512 = hexstr2bin("87aa7cdea5ef619d4ff0b4241a1d6cb0"
-			     "2379f4e2ce4ec2787ad0b30545e17cde"
-			     "daa833b7d6b8a702038b274eaea3f4e4"
-			     "be9d914eeb61f1702e696c203a126854"),
+hmac_rfc4231_sha256(doc) ->
+    ["Generate an HMAC using crypto:sha256_mac, hmac, and hmac_init, hmac_update, and hmac_final. "
+     "Testvectors are take from RFC4231." ];
+hmac_rfc4231_sha256(suite) ->
+    [];
+hmac_rfc4231_sha256(Config) when is_list(Config) ->
+    if_supported(sha256, fun() -> hmac_rfc4231_sha256_do() end).
 
-    ?line Case1Ctx224 = crypto:hmac_init(sha224, Case1Key),
-    ?line Case1Ctx224_2 = crypto:hmac_update(Case1Ctx224, Case1Data),
-    ?line Case1Mac224_1 = crypto:hmac_final(Case1Ctx224_2),
-    ?line Case1Mac224_2 = crypto:sha224_mac(Case1Key, Case1Data),
-    ?line Case1Mac224_3 = crypto:hmac(sha224, Case1Key, Case1Data),
-    ?line m(Case1Exp224, Case1Mac224_1),
-    ?line m(Case1Exp224, Case1Mac224_2),
-    ?line m(Case1Exp224, Case1Mac224_3),
+hmac_rfc4231_sha384(doc) ->
+    ["Generate an HMAC using crypto:sha384_mac, hmac, and hmac_init, hmac_update, and hmac_final. "
+     "Testvectors are take from RFC4231." ];
+hmac_rfc4231_sha384(suite) ->
+    [];
+hmac_rfc4231_sha384(Config) when is_list(Config) ->
+    if_supported(sha384, fun() -> hmac_rfc4231_sha384_do() end).
 
-    ?line Case1Ctx256 = crypto:hmac_init(sha256, Case1Key),
-    ?line Case1Ctx256_2 = crypto:hmac_update(Case1Ctx256, Case1Data),
-    ?line Case1Mac256_1 = crypto:hmac_final(Case1Ctx256_2),
-    ?line Case1Mac256_2 = crypto:sha256_mac(Case1Key, Case1Data),
-    ?line Case1Mac256_3 = crypto:hmac(sha256, Case1Key, Case1Data),
-    ?line m(Case1Exp256, Case1Mac256_1),
-    ?line m(Case1Exp256, Case1Mac256_2),
-    ?line m(Case1Exp256, Case1Mac256_3),
+hmac_rfc4231_sha512(doc) ->
+    ["Generate an HMAC using crypto:sha512_mac, hmac, and hmac_init, hmac_update, and hmac_final. "
+     "Testvectors are take from RFC4231." ];
+hmac_rfc4231_sha512(suite) ->
+    [];
+hmac_rfc4231_sha512(Config) when is_list(Config) ->
+    if_supported(sha512, fun() -> hmac_rfc4231_sha512_do() end).
 
-    ?line Case1Ctx384 = crypto:hmac_init(sha384, Case1Key),
-    ?line Case1Ctx384_2 = crypto:hmac_update(Case1Ctx384, Case1Data),
-    ?line Case1Mac384_1 = crypto:hmac_final(Case1Ctx384_2),
-    ?line Case1Mac384_2 = crypto:sha384_mac(Case1Key, Case1Data),
-    ?line Case1Mac384_3 = crypto:hmac(sha384, Case1Key, Case1Data),
-    ?line m(Case1Exp384, Case1Mac384_1),
-    ?line m(Case1Exp384, Case1Mac384_2),
-    ?line m(Case1Exp384, Case1Mac384_3),
+hmac_rfc4231_case(Hash, HashFun, case1, Exp) ->
+    %% Test 1
+    Key = binary:copy(<<16#0b>>, 20),
+    Data = <<"Hi There">>,
+    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp);
 
-    ?line Case1Ctx512 = crypto:hmac_init(sha512, Case1Key),
-    ?line Case1Ctx512_2 = crypto:hmac_update(Case1Ctx512, Case1Data),
-    ?line Case1Mac512_1 = crypto:hmac_final(Case1Ctx512_2),
-    ?line Case1Mac512_2 = crypto:sha512_mac(Case1Key, Case1Data),
-    ?line Case1Mac512_3 = crypto:hmac(sha512, Case1Key, Case1Data),
-    ?line m(Case1Exp512, Case1Mac512_1),
-    ?line m(Case1Exp512, Case1Mac512_2),
-    ?line m(Case1Exp512, Case1Mac512_3),
+hmac_rfc4231_case(Hash, HashFun, case2, Exp) ->
+    %% Test 2
+    Key = <<"Jefe">>,
+    Data = <<"what do ya want for nothing?">>,
+    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp);
 
-    %% Test Case 2
-    Case2Key = <<"Jefe">>,
-    Case2Data = <<"what do ya want for nothing?">>,
-    Case2Exp224 = hexstr2bin("a30e01098bc6dbbf45690f3a7e9e6d0f"
-			     "8bbea2a39e6148008fd05e44"),
-    Case2Exp256 = hexstr2bin("5bdcc146bf60754e6a042426089575c7"
-			     "5a003f089d2739839dec58b964ec3843"),
-    Case2Exp384 = hexstr2bin("af45d2e376484031617f78d2b58a6b1b"
-			     "9c7ef464f5a01b47e42ec3736322445e"
-			     "8e2240ca5e69e2c78b3239ecfab21649"),
-    Case2Exp512 = hexstr2bin("164b7a7bfcf819e2e395fbe73b56e0a3"
-			     "87bd64222e831fd610270cd7ea250554"
-			     "9758bf75c05a994a6d034f65f8f0e6fd"
-			     "caeab1a34d4a6b4b636e070a38bce737"),
+hmac_rfc4231_case(Hash, HashFun, case3, Exp) ->
+    %% Test 3
+    Key = binary:copy(<<16#aa>>, 20),
+    Data = binary:copy(<<16#dd>>, 50),
+    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp);
 
-    ?line Case2Ctx224 = crypto:hmac_init(sha224, Case2Key),
-    ?line Case2Ctx224_2 = crypto:hmac_update(Case2Ctx224, Case2Data),
-    ?line Case2Mac224_1 = crypto:hmac_final(Case2Ctx224_2),
-    ?line Case2Mac224_2 = crypto:sha224_mac(Case2Key, Case2Data),
-    ?line Case2Mac224_3 = crypto:hmac(sha224, Case2Key, Case2Data),
-    ?line m(Case2Exp224, Case2Mac224_1),
-    ?line m(Case2Exp224, Case2Mac224_2),
-    ?line m(Case2Exp224, Case2Mac224_3),
+hmac_rfc4231_case(Hash, HashFun, case4, Exp) ->
+    %% Test 4
+    Key = list_to_binary(lists:seq(1, 16#19)),
+    Data = binary:copy(<<16#cd>>, 50),
+    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp);
 
-    ?line Case2Ctx256 = crypto:hmac_init(sha256, Case2Key),
-    ?line Case2Ctx256_2 = crypto:hmac_update(Case2Ctx256, Case2Data),
-    ?line Case2Mac256_1 = crypto:hmac_final(Case2Ctx256_2),
-    ?line Case2Mac256_2 = crypto:sha256_mac(Case2Key, Case2Data),
-    ?line Case2Mac256_3 = crypto:hmac(sha256, Case2Key, Case2Data),
-    ?line m(Case2Exp256, Case2Mac256_1),
-    ?line m(Case2Exp256, Case2Mac256_2),
-    ?line m(Case2Exp256, Case2Mac256_3),
+hmac_rfc4231_case(Hash, HashFun, case5, Exp) ->
+    %% Test 5
+    Key = binary:copy(<<16#0c>>, 20),
+    Data = <<"Test With Truncation">>,
+    hmac_rfc4231_case(Hash, HashFun, Key, Data, 16, Exp);
 
-    ?line Case2Ctx384 = crypto:hmac_init(sha384, Case2Key),
-    ?line Case2Ctx384_2 = crypto:hmac_update(Case2Ctx384, Case2Data),
-    ?line Case2Mac384_1 = crypto:hmac_final(Case2Ctx384_2),
-    ?line Case2Mac384_2 = crypto:sha384_mac(Case2Key, Case2Data),
-    ?line Case2Mac384_3 = crypto:hmac(sha384, Case2Key, Case2Data),
-    ?line m(Case2Exp384, Case2Mac384_1),
-    ?line m(Case2Exp384, Case2Mac384_2),
-    ?line m(Case2Exp384, Case2Mac384_3),
+hmac_rfc4231_case(Hash, HashFun, case6, Exp) ->
+    %% Test 6
+    Key = binary:copy(<<16#aa>>, 131),
+    Data = <<"Test Using Larger Than Block-Size Key - Hash Key First">>,
+    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp);
 
-    ?line Case2Ctx512 = crypto:hmac_init(sha512, Case2Key),
-    ?line Case2Ctx512_2 = crypto:hmac_update(Case2Ctx512, Case2Data),
-    ?line Case2Mac512_1 = crypto:hmac_final(Case2Ctx512_2),
-    ?line Case2Mac512_2 = crypto:sha512_mac(Case2Key, Case2Data),
-    ?line Case2Mac512_3 = crypto:hmac(sha512, Case2Key, Case2Data),
-    ?line m(Case2Exp512, Case2Mac512_1),
-    ?line m(Case2Exp512, Case2Mac512_2),
-    ?line m(Case2Exp512, Case2Mac512_3),
-
-    %% Test Case 3
-    Case3Key = binary:copy(<<16#aa>>, 20),
-    Case3Data = binary:copy(<<16#dd>>, 50),
-    Case3Exp224 = hexstr2bin("7fb3cb3588c6c1f6ffa9694d7d6ad264"
-			     "9365b0c1f65d69d1ec8333ea"),
-    Case3Exp256 = hexstr2bin("773ea91e36800e46854db8ebd09181a7"
-			     "2959098b3ef8c122d9635514ced565fe"),
-    Case3Exp384 = hexstr2bin("88062608d3e6ad8a0aa2ace014c8a86f"
-			     "0aa635d947ac9febe83ef4e55966144b"
-			     "2a5ab39dc13814b94e3ab6e101a34f27"),
-    Case3Exp512 = hexstr2bin("fa73b0089d56a284efb0f0756c890be9"
-			     "b1b5dbdd8ee81a3655f83e33b2279d39"
-			     "bf3e848279a722c806b485a47e67c807"
-			     "b946a337bee8942674278859e13292fb"),
-
-    ?line Case3Ctx224 = crypto:hmac_init(sha224, Case3Key),
-    ?line Case3Ctx224_2 = crypto:hmac_update(Case3Ctx224, Case3Data),
-    ?line Case3Mac224_1 = crypto:hmac_final(Case3Ctx224_2),
-    ?line Case3Mac224_2 = crypto:sha224_mac(Case3Key, Case3Data),
-    ?line Case3Mac224_3 = crypto:hmac(sha224, Case3Key, Case3Data),
-    ?line m(Case3Exp224, Case3Mac224_1),
-    ?line m(Case3Exp224, Case3Mac224_2),
-    ?line m(Case3Exp224, Case3Mac224_3),
-
-    ?line Case3Ctx256 = crypto:hmac_init(sha256, Case3Key),
-    ?line Case3Ctx256_2 = crypto:hmac_update(Case3Ctx256, Case3Data),
-    ?line Case3Mac256_1 = crypto:hmac_final(Case3Ctx256_2),
-    ?line Case3Mac256_2 = crypto:sha256_mac(Case3Key, Case3Data),
-    ?line Case3Mac256_3 = crypto:hmac(sha256, Case3Key, Case3Data),
-    ?line m(Case3Exp256, Case3Mac256_1),
-    ?line m(Case3Exp256, Case3Mac256_2),
-    ?line m(Case3Exp256, Case3Mac256_3),
-
-    ?line Case3Ctx384 = crypto:hmac_init(sha384, Case3Key),
-    ?line Case3Ctx384_2 = crypto:hmac_update(Case3Ctx384, Case3Data),
-    ?line Case3Mac384_1 = crypto:hmac_final(Case3Ctx384_2),
-    ?line Case3Mac384_2 = crypto:sha384_mac(Case3Key, Case3Data),
-    ?line Case3Mac384_3 = crypto:hmac(sha384, Case3Key, Case3Data),
-    ?line m(Case3Exp384, Case3Mac384_1),
-    ?line m(Case3Exp384, Case3Mac384_2),
-    ?line m(Case3Exp384, Case3Mac384_3),
-
-    ?line Case3Ctx512 = crypto:hmac_init(sha512, Case3Key),
-    ?line Case3Ctx512_2 = crypto:hmac_update(Case3Ctx512, Case3Data),
-    ?line Case3Mac512_1 = crypto:hmac_final(Case3Ctx512_2),
-    ?line Case3Mac512_2 = crypto:sha512_mac(Case3Key, Case3Data),
-    ?line Case3Mac512_3 = crypto:hmac(sha512, Case3Key, Case3Data),
-    ?line m(Case3Exp512, Case3Mac512_1),
-    ?line m(Case3Exp512, Case3Mac512_2),
-    ?line m(Case3Exp512, Case3Mac512_3),
-
-    %% Test Case 4
-    Case4Key = list_to_binary(lists:seq(1, 16#19)),
-    Case4Data = binary:copy(<<16#cd>>, 50),
-    Case4Exp224 = hexstr2bin("6c11506874013cac6a2abc1bb382627c"
-			     "ec6a90d86efc012de7afec5a"),
-    Case4Exp256 = hexstr2bin("82558a389a443c0ea4cc819899f2083a"
-			     "85f0faa3e578f8077a2e3ff46729665b"),
-    Case4Exp384 = hexstr2bin("3e8a69b7783c25851933ab6290af6ca7"
-			     "7a9981480850009cc5577c6e1f573b4e"
-			     "6801dd23c4a7d679ccf8a386c674cffb"),
-    Case4Exp512 = hexstr2bin("b0ba465637458c6990e5a8c5f61d4af7"
-			     "e576d97ff94b872de76f8050361ee3db"
-			     "a91ca5c11aa25eb4d679275cc5788063"
-			     "a5f19741120c4f2de2adebeb10a298dd"),
-
-    ?line Case4Ctx224 = crypto:hmac_init(sha224, Case4Key),
-    ?line Case4Ctx224_2 = crypto:hmac_update(Case4Ctx224, Case4Data),
-    ?line Case4Mac224_1 = crypto:hmac_final(Case4Ctx224_2),
-    ?line Case4Mac224_2 = crypto:sha224_mac(Case4Key, Case4Data),
-    ?line Case4Mac224_3 = crypto:hmac(sha224, Case4Key, Case4Data),
-    ?line m(Case4Exp224, Case4Mac224_1),
-    ?line m(Case4Exp224, Case4Mac224_2),
-    ?line m(Case4Exp224, Case4Mac224_3),
-
-    ?line Case4Ctx256 = crypto:hmac_init(sha256, Case4Key),
-    ?line Case4Ctx256_2 = crypto:hmac_update(Case4Ctx256, Case4Data),
-    ?line Case4Mac256_1 = crypto:hmac_final(Case4Ctx256_2),
-    ?line Case4Mac256_2 = crypto:sha256_mac(Case4Key, Case4Data),
-    ?line Case4Mac256_3 = crypto:hmac(sha256, Case4Key, Case4Data),
-    ?line m(Case4Exp256, Case4Mac256_1),
-    ?line m(Case4Exp256, Case4Mac256_2),
-    ?line m(Case4Exp256, Case4Mac256_3),
-
-    ?line Case4Ctx384 = crypto:hmac_init(sha384, Case4Key),
-    ?line Case4Ctx384_2 = crypto:hmac_update(Case4Ctx384, Case4Data),
-    ?line Case4Mac384_1 = crypto:hmac_final(Case4Ctx384_2),
-    ?line Case4Mac384_2 = crypto:sha384_mac(Case4Key, Case4Data),
-    ?line Case4Mac384_3 = crypto:hmac(sha384, Case4Key, Case4Data),
-    ?line m(Case4Exp384, Case4Mac384_1),
-    ?line m(Case4Exp384, Case4Mac384_2),
-    ?line m(Case4Exp384, Case4Mac384_3),
-
-    ?line Case4Ctx512 = crypto:hmac_init(sha512, Case4Key),
-    ?line Case4Ctx512_2 = crypto:hmac_update(Case4Ctx512, Case4Data),
-    ?line Case4Mac512_1 = crypto:hmac_final(Case4Ctx512_2),
-    ?line Case4Mac512_2 = crypto:sha512_mac(Case4Key, Case4Data),
-    ?line Case4Mac512_3 = crypto:hmac(sha512, Case4Key, Case4Data),
-    ?line m(Case4Exp512, Case4Mac512_1),
-    ?line m(Case4Exp512, Case4Mac512_2),
-    ?line m(Case4Exp512, Case4Mac512_3),
-
-    %% Test Case 5
-    Case5Key = binary:copy(<<16#0c>>, 20),
-    Case5Data = <<"Test With Truncation">>,
-    Case5Exp224 = hexstr2bin("0e2aea68a90c8d37c988bcdb9fca6fa8"),
-    Case5Exp256 = hexstr2bin("a3b6167473100ee06e0c796c2955552b"),
-    Case5Exp384 = hexstr2bin("3abf34c3503b2a23a46efc619baef897"),
-    Case5Exp512 = hexstr2bin("415fad6271580a531d4179bc891d87a6"),
-
-    ?line Case5Ctx224 = crypto:hmac_init(sha224, Case5Key),
-    ?line Case5Ctx224_2 = crypto:hmac_update(Case5Ctx224, Case5Data),
-    ?line Case5Mac224_1 = crypto:hmac_final_n(Case5Ctx224_2, 16),
-    ?line Case5Mac224_2 = crypto:sha224_mac(Case5Key, Case5Data, 16),
-    ?line Case5Mac224_3 = crypto:hmac(sha224, Case5Key, Case5Data, 16),
-    ?line m(Case5Exp224, Case5Mac224_1),
-    ?line m(Case5Exp224, Case5Mac224_2),
-    ?line m(Case5Exp224, Case5Mac224_3),
-
-    ?line Case5Ctx256 = crypto:hmac_init(sha256, Case5Key),
-    ?line Case5Ctx256_2 = crypto:hmac_update(Case5Ctx256, Case5Data),
-    ?line Case5Mac256_1 = crypto:hmac_final_n(Case5Ctx256_2, 16),
-    ?line Case5Mac256_2 = crypto:sha256_mac(Case5Key, Case5Data, 16),
-    ?line Case5Mac256_3 = crypto:hmac(sha256, Case5Key, Case5Data, 16),
-    ?line m(Case5Exp256, Case5Mac256_1),
-    ?line m(Case5Exp256, Case5Mac256_2),
-    ?line m(Case5Exp256, Case5Mac256_3),
-
-    ?line Case5Ctx384 = crypto:hmac_init(sha384, Case5Key),
-    ?line Case5Ctx384_2 = crypto:hmac_update(Case5Ctx384, Case5Data),
-    ?line Case5Mac384_1 = crypto:hmac_final_n(Case5Ctx384_2, 16),
-    ?line Case5Mac384_2 = crypto:sha384_mac(Case5Key, Case5Data, 16),
-    ?line Case5Mac384_3 = crypto:hmac(sha384, Case5Key, Case5Data, 16),
-    ?line m(Case5Exp384, Case5Mac384_1),
-    ?line m(Case5Exp384, Case5Mac384_2),
-    ?line m(Case5Exp384, Case5Mac384_3),
-
-    ?line Case5Ctx512 = crypto:hmac_init(sha512, Case5Key),
-    ?line Case5Ctx512_2 = crypto:hmac_update(Case5Ctx512, Case5Data),
-    ?line Case5Mac512_1 = crypto:hmac_final_n(Case5Ctx512_2, 16),
-    ?line Case5Mac512_2 = crypto:sha512_mac(Case5Key, Case5Data, 16),
-    ?line Case5Mac512_3 = crypto:hmac(sha512, Case5Key, Case5Data, 16),
-    ?line m(Case5Exp512, Case5Mac512_1),
-    ?line m(Case5Exp512, Case5Mac512_2),
-    ?line m(Case5Exp512, Case5Mac512_3),
-
-    %% Test Case 6
-    Case6Key = binary:copy(<<16#aa>>, 131),
-    Case6Data = <<"Test Using Larger Than Block-Size Key - Hash Key First">>,
-    Case6Exp224 = hexstr2bin("95e9a0db962095adaebe9b2d6f0dbce2"
-			     "d499f112f2d2b7273fa6870e"),
-    Case6Exp256 = hexstr2bin("60e431591ee0b67f0d8a26aacbf5b77f"
-			     "8e0bc6213728c5140546040f0ee37f54"),
-    Case6Exp384 = hexstr2bin("4ece084485813e9088d2c63a041bc5b4"
-			     "4f9ef1012a2b588f3cd11f05033ac4c6"
-			     "0c2ef6ab4030fe8296248df163f44952"),
-    Case6Exp512 = hexstr2bin("80b24263c7c1a3ebb71493c1dd7be8b4"
-			     "9b46d1f41b4aeec1121b013783f8f352"
-			     "6b56d037e05f2598bd0fd2215d6a1e52"
-			     "95e64f73f63f0aec8b915a985d786598"),
-
-    ?line Case6Ctx224 = crypto:hmac_init(sha224, Case6Key),
-    ?line Case6Ctx224_2 = crypto:hmac_update(Case6Ctx224, Case6Data),
-    ?line Case6Mac224_1 = crypto:hmac_final(Case6Ctx224_2),
-    ?line Case6Mac224_2 = crypto:sha224_mac(Case6Key, Case6Data),
-    ?line Case6Mac224_3 = crypto:hmac(sha224, Case6Key, Case6Data),
-    ?line m(Case6Exp224, Case6Mac224_1),
-    ?line m(Case6Exp224, Case6Mac224_2),
-    ?line m(Case6Exp224, Case6Mac224_3),
-
-    ?line Case6Ctx256 = crypto:hmac_init(sha256, Case6Key),
-    ?line Case6Ctx256_2 = crypto:hmac_update(Case6Ctx256, Case6Data),
-    ?line Case6Mac256_1 = crypto:hmac_final(Case6Ctx256_2),
-    ?line Case6Mac256_2 = crypto:sha256_mac(Case6Key, Case6Data),
-    ?line Case6Mac256_3 = crypto:hmac(sha256, Case6Key, Case6Data),
-    ?line m(Case6Exp256, Case6Mac256_1),
-    ?line m(Case6Exp256, Case6Mac256_2),
-    ?line m(Case6Exp256, Case6Mac256_3),
-
-    ?line Case6Ctx384 = crypto:hmac_init(sha384, Case6Key),
-    ?line Case6Ctx384_2 = crypto:hmac_update(Case6Ctx384, Case6Data),
-    ?line Case6Mac384_1 = crypto:hmac_final(Case6Ctx384_2),
-    ?line Case6Mac384_2 = crypto:sha384_mac(Case6Key, Case6Data),
-    ?line Case6Mac384_3 = crypto:hmac(sha384, Case6Key, Case6Data),
-    ?line m(Case6Exp384, Case6Mac384_1),
-    ?line m(Case6Exp384, Case6Mac384_2),
-    ?line m(Case6Exp384, Case6Mac384_3),
-
-    ?line Case6Ctx512 = crypto:hmac_init(sha512, Case6Key),
-    ?line Case6Ctx512_2 = crypto:hmac_update(Case6Ctx512, Case6Data),
-    ?line Case6Mac512_1 = crypto:hmac_final(Case6Ctx512_2),
-    ?line Case6Mac512_2 = crypto:sha512_mac(Case6Key, Case6Data),
-    ?line Case6Mac512_3 = crypto:hmac(sha512, Case6Key, Case6Data),
-    ?line m(Case6Exp512, Case6Mac512_1),
-    ?line m(Case6Exp512, Case6Mac512_2),
-    ?line m(Case6Exp512, Case6Mac512_3),
-    
+hmac_rfc4231_case(Hash, HashFun, case7, Exp) ->
     %% Test Case 7
-    Case7Key = binary:copy(<<16#aa>>, 131),
-    Case7Data = <<"This is a test using a larger than block-size key and a larger t",
-		  "han block-size data. The key needs to be hashed before being use",
-		  "d by the HMAC algorithm.">>,
-    Case7Exp224 = hexstr2bin("3a854166ac5d9f023f54d517d0b39dbd"
-			     "946770db9c2b95c9f6f565d1"),
-    Case7Exp256 = hexstr2bin("9b09ffa71b942fcb27635fbcd5b0e944"
-			     "bfdc63644f0713938a7f51535c3a35e2"),
-    Case7Exp384 = hexstr2bin("6617178e941f020d351e2f254e8fd32c"
-			     "602420feb0b8fb9adccebb82461e99c5"
-			     "a678cc31e799176d3860e6110c46523e"),
-    Case7Exp512 = hexstr2bin("e37b6a775dc87dbaa4dfa9f96e5e3ffd"
-			     "debd71f8867289865df5a32d20cdc944"
-			     "b6022cac3c4982b10d5eeb55c3e4de15"
-			     "134676fb6de0446065c97440fa8c6a58"),
+    Key = binary:copy(<<16#aa>>, 131),
+    Data = <<"This is a test using a larger than block-size key and a larger t",
+	     "han block-size data. The key needs to be hashed before being use",
+	     "d by the HMAC algorithm.">>,
+    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp).
 
-    ?line Case7Ctx224 = crypto:hmac_init(sha224, Case7Key),
-    ?line Case7Ctx224_2 = crypto:hmac_update(Case7Ctx224, Case7Data),
-    ?line Case7Mac224_1 = crypto:hmac_final(Case7Ctx224_2),
-    ?line Case7Mac224_2 = crypto:sha224_mac(Case7Key, Case7Data),
-    ?line Case7Mac224_3 = crypto:hmac(sha224, Case7Key, Case7Data),
-    ?line m(Case7Exp224, Case7Mac224_1),
-    ?line m(Case7Exp224, Case7Mac224_2),
-    ?line m(Case7Exp224, Case7Mac224_3),
+hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp) ->
+    ?line Ctx = crypto:hmac_init(Hash, Key),
+    ?line Ctx2 = crypto:hmac_update(Ctx, Data),
+    ?line Mac1 = crypto:hmac_final(Ctx2),
+    ?line Mac2 = crypto:HashFun(Key, Data),
+    ?line Mac3 = crypto:hmac(Hash, Key, Data),
+    ?line m(Exp, Mac1),
+    ?line m(Exp, Mac2),
+    ?line m(Exp, Mac3).
 
-    ?line Case7Ctx256 = crypto:hmac_init(sha256, Case7Key),
-    ?line Case7Ctx256_2 = crypto:hmac_update(Case7Ctx256, Case7Data),
-    ?line Case7Mac256_1 = crypto:hmac_final(Case7Ctx256_2),
-    ?line Case7Mac256_2 = crypto:sha256_mac(Case7Key, Case7Data),
-    ?line Case7Mac256_3 = crypto:hmac(sha256, Case7Key, Case7Data),
-    ?line m(Case7Exp256, Case7Mac256_1),
-    ?line m(Case7Exp256, Case7Mac256_2),
-    ?line m(Case7Exp256, Case7Mac256_3),
+hmac_rfc4231_case(Hash, HashFun, Key, Data, Trunc, Exp) ->
+    ?line Ctx = crypto:hmac_init(Hash, Key),
+    ?line Ctx2 = crypto:hmac_update(Ctx, Data),
+    ?line Mac1 = crypto:hmac_final_n(Ctx2, Trunc),
+    ?line Mac2 = crypto:HashFun(Key, Data, Trunc),
+    ?line Mac3 = crypto:hmac(Hash, Key, Data, Trunc),
+    ?line m(Exp, Mac1),
+    ?line m(Exp, Mac2),
+    ?line m(Exp, Mac3).
 
-    ?line Case7Ctx384 = crypto:hmac_init(sha384, Case7Key),
-    ?line Case7Ctx384_2 = crypto:hmac_update(Case7Ctx384, Case7Data),
-    ?line Case7Mac384_1 = crypto:hmac_final(Case7Ctx384_2),
-    ?line Case7Mac384_2 = crypto:sha384_mac(Case7Key, Case7Data),
-    ?line Case7Mac384_3 = crypto:hmac(sha384, Case7Key, Case7Data),
-    ?line m(Case7Exp384, Case7Mac384_1),
-    ?line m(Case7Exp384, Case7Mac384_2),
-    ?line m(Case7Exp384, Case7Mac384_3),
+hmac_rfc4231_sha224_do() ->
+    Case1 = hexstr2bin("896fb1128abbdf196832107cd49df33f"
+		       "47b4b1169912ba4f53684b22"),
+    Case2 = hexstr2bin("a30e01098bc6dbbf45690f3a7e9e6d0f"
+		       "8bbea2a39e6148008fd05e44"),
+    Case3 = hexstr2bin("7fb3cb3588c6c1f6ffa9694d7d6ad264"
+		       "9365b0c1f65d69d1ec8333ea"),
+    Case4 = hexstr2bin("6c11506874013cac6a2abc1bb382627c"
+		       "ec6a90d86efc012de7afec5a"),
+    Case5 = hexstr2bin("0e2aea68a90c8d37c988bcdb9fca6fa8"),
+    Case6 = hexstr2bin("95e9a0db962095adaebe9b2d6f0dbce2"
+		       "d499f112f2d2b7273fa6870e"),
+    Case7 = hexstr2bin("3a854166ac5d9f023f54d517d0b39dbd"
+		       "946770db9c2b95c9f6f565d1"),
+    hmac_rfc4231_cases_do(sha224, sha224_mac, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
 
-    ?line Case7Ctx512 = crypto:hmac_init(sha512, Case7Key),
-    ?line Case7Ctx512_2 = crypto:hmac_update(Case7Ctx512, Case7Data),
-    ?line Case7Mac512_1 = crypto:hmac_final(Case7Ctx512_2),
-    ?line Case7Mac512_2 = crypto:sha512_mac(Case7Key, Case7Data),
-    ?line Case7Mac512_3 = crypto:hmac(sha512, Case7Key, Case7Data),
-    ?line m(Case7Exp512, Case7Mac512_1),
-    ?line m(Case7Exp512, Case7Mac512_2),
-    ?line m(Case7Exp512, Case7Mac512_3).
+hmac_rfc4231_sha256_do() ->
+    Case1 = hexstr2bin("b0344c61d8db38535ca8afceaf0bf12b"
+		       "881dc200c9833da726e9376c2e32cff7"),
+    Case2 = hexstr2bin("5bdcc146bf60754e6a042426089575c7"
+		       "5a003f089d2739839dec58b964ec3843"),
+    Case3 = hexstr2bin("773ea91e36800e46854db8ebd09181a7"
+		       "2959098b3ef8c122d9635514ced565fe"),
+    Case4 = hexstr2bin("82558a389a443c0ea4cc819899f2083a"
+		       "85f0faa3e578f8077a2e3ff46729665b"),
+    Case5 = hexstr2bin("a3b6167473100ee06e0c796c2955552b"),
+    Case6 = hexstr2bin("60e431591ee0b67f0d8a26aacbf5b77f"
+		       "8e0bc6213728c5140546040f0ee37f54"),
+    Case7 = hexstr2bin("9b09ffa71b942fcb27635fbcd5b0e944"
+		       "bfdc63644f0713938a7f51535c3a35e2"),
+    hmac_rfc4231_cases_do(sha256, sha256_mac, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
+
+hmac_rfc4231_sha384_do() ->
+    Case1 = hexstr2bin("afd03944d84895626b0825f4ab46907f"
+		       "15f9dadbe4101ec682aa034c7cebc59c"
+		       "faea9ea9076ede7f4af152e8b2fa9cb6"),
+    Case2 = hexstr2bin("af45d2e376484031617f78d2b58a6b1b"
+		       "9c7ef464f5a01b47e42ec3736322445e"
+		       "8e2240ca5e69e2c78b3239ecfab21649"),
+    Case3 = hexstr2bin("88062608d3e6ad8a0aa2ace014c8a86f"
+		       "0aa635d947ac9febe83ef4e55966144b"
+		       "2a5ab39dc13814b94e3ab6e101a34f27"),
+    Case4 = hexstr2bin("3e8a69b7783c25851933ab6290af6ca7"
+		       "7a9981480850009cc5577c6e1f573b4e"
+		       "6801dd23c4a7d679ccf8a386c674cffb"),
+    Case5 = hexstr2bin("3abf34c3503b2a23a46efc619baef897"),
+    Case6 = hexstr2bin("4ece084485813e9088d2c63a041bc5b4"
+		       "4f9ef1012a2b588f3cd11f05033ac4c6"
+		       "0c2ef6ab4030fe8296248df163f44952"),
+    Case7 = hexstr2bin("6617178e941f020d351e2f254e8fd32c"
+		       "602420feb0b8fb9adccebb82461e99c5"
+		       "a678cc31e799176d3860e6110c46523e"),
+    hmac_rfc4231_cases_do(sha384, sha384_mac, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
+
+hmac_rfc4231_sha512_do() ->
+    Case1 = hexstr2bin("87aa7cdea5ef619d4ff0b4241a1d6cb0"
+		       "2379f4e2ce4ec2787ad0b30545e17cde"
+		       "daa833b7d6b8a702038b274eaea3f4e4"
+		       "be9d914eeb61f1702e696c203a126854"),
+    Case2 = hexstr2bin("164b7a7bfcf819e2e395fbe73b56e0a3"
+		       "87bd64222e831fd610270cd7ea250554"
+		       "9758bf75c05a994a6d034f65f8f0e6fd"
+		       "caeab1a34d4a6b4b636e070a38bce737"),
+    Case3 = hexstr2bin("fa73b0089d56a284efb0f0756c890be9"
+		       "b1b5dbdd8ee81a3655f83e33b2279d39"
+		       "bf3e848279a722c806b485a47e67c807"
+		       "b946a337bee8942674278859e13292fb"),
+    Case4 = hexstr2bin("b0ba465637458c6990e5a8c5f61d4af7"
+		       "e576d97ff94b872de76f8050361ee3db"
+		       "a91ca5c11aa25eb4d679275cc5788063"
+		       "a5f19741120c4f2de2adebeb10a298dd"),
+    Case5 = hexstr2bin("415fad6271580a531d4179bc891d87a6"),
+    Case6 = hexstr2bin("80b24263c7c1a3ebb71493c1dd7be8b4"
+		       "9b46d1f41b4aeec1121b013783f8f352"
+		       "6b56d037e05f2598bd0fd2215d6a1e52"
+		       "95e64f73f63f0aec8b915a985d786598"),
+    Case7 = hexstr2bin("e37b6a775dc87dbaa4dfa9f96e5e3ffd"
+		       "debd71f8867289865df5a32d20cdc944"
+		       "b6022cac3c4982b10d5eeb55c3e4de15"
+		       "134676fb6de0446065c97440fa8c6a58"),
+    hmac_rfc4231_cases_do(sha512, sha512_mac, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
+
+hmac_rfc4231_cases_do(Hash, HashFun, CasesData) ->
+    hmac_rfc4231_cases_do(Hash, HashFun, [case1, case2, case3, case4, case5, case6, case7], CasesData).
+
+hmac_rfc4231_cases_do(_Hash, _HashFun, _, []) ->
+    ok;
+hmac_rfc4231_cases_do(Hash, HashFun, [C|Cases], [D|CasesData]) ->
+    hmac_rfc4231_case(Hash, HashFun, C, D),
+    hmac_rfc4231_cases_do(Hash, HashFun, Cases, CasesData).
 
 hmac_update_md5_io(doc) ->
     ["Generate an MD5 HMAC using hmac_init, hmac_update, and hmac_final. "
@@ -1025,7 +856,7 @@ sha256(doc) ->
 sha256(suite) ->
     [];
 sha256(Config) when is_list(Config) ->
-    if_098(fun() -> sha256_do() end).
+    if_supported(sha256, fun() -> sha256_do() end).
 
 sha256_do() ->
     ?line m(crypto:sha256("abc"),
@@ -1044,7 +875,7 @@ sha256_update(doc) ->
 sha256_update(suite) ->
     [];
 sha256_update(Config) when is_list(Config) ->
-    if_098(fun() -> sha256_update_do() end).
+    if_supported(sha256, fun() -> sha256_update_do() end).
 
 sha256_update_do() ->
     ?line Ctx = crypto:sha256_init(),
@@ -1063,7 +894,7 @@ sha512(doc) ->
 sha512(suite) ->
     [];
 sha512(Config) when is_list(Config) ->
-    if_098(fun() -> sha512_do() end).
+    if_supported(sha512, fun() -> sha512_do() end).
 
 sha512_do() ->
     ?line m(crypto:sha512("abc"),
@@ -1084,7 +915,7 @@ sha512_update(doc) ->
 sha512_update(suite) ->
     [];
 sha512_update(Config) when is_list(Config) ->
-    if_098(fun() -> sha512_update_do() end).
+    if_supported(sha512, fun() -> sha512_update_do() end).
 
 sha512_update_do() ->
     ?line Ctx = crypto:sha512_init(),
@@ -2017,6 +1848,221 @@ dh(Config) when is_list(Config) ->
 	    exit(Pid, kill)
     end.
 
+ec(doc) ->
+    ["Test ec (Ecliptic Curve) functions."];
+ec(suite) -> [];
+ec(Config) when is_list(Config) ->
+    if_supported(ec, fun() -> ec_do() end).
+
+ec_do() ->
+    %% test for a name curve
+    L2 = crypto:ec_key_new(sect113r2),
+    crypto:ec_key_generate(L2),
+
+    D2 = crypto:ec_key_to_term(L2),
+    T2 = crypto:term_to_ec_key(D2),
+    ?line D2 = crypto:ec_key_to_term(T2),
+
+    %%TODO: find a published test case for a EC key
+
+    %% test for a full specified curve and public key,
+    %% taken from csca-germany_013_self_signed_cer.pem
+    PubKey = <<16#04, 16#4a, 16#94, 16#49, 16#81, 16#77, 16#9d, 16#df,
+	       16#1d, 16#a5, 16#e7, 16#c5, 16#27, 16#e2, 16#7d, 16#24,
+	       16#71, 16#a9, 16#28, 16#eb, 16#4d, 16#7b, 16#67, 16#75,
+	       16#ae, 16#09, 16#0a, 16#51, 16#45, 16#19, 16#9b, 16#d4,
+	       16#7e, 16#a0, 16#81, 16#e5, 16#5e, 16#d4, 16#a4, 16#3f,
+	       16#60, 16#7c, 16#6a, 16#50, 16#ee, 16#36, 16#41, 16#8a,
+	       16#87, 16#ff, 16#cd, 16#a6, 16#10, 16#39, 16#ca, 16#95,
+	       16#76, 16#7d, 16#ae, 16#ca, 16#c3, 16#44, 16#3f, 16#e3, 16#2c>>,
+    <<P:264/integer>> = <<16#00, 16#a9, 16#fb, 16#57, 16#db, 16#a1, 16#ee, 16#a9,
+                          16#bc, 16#3e, 16#66, 16#0a, 16#90, 16#9d, 16#83, 16#8d,
+			  16#72, 16#6e, 16#3b, 16#f6, 16#23, 16#d5, 16#26, 16#20,
+			  16#28, 16#20, 16#13, 16#48, 16#1d, 16#1f, 16#6e, 16#53, 16#77>>,
+    <<A:256/integer>> = <<16#7d, 16#5a, 16#09, 16#75, 16#fc, 16#2c, 16#30, 16#57,
+			  16#ee, 16#f6, 16#75, 16#30, 16#41, 16#7a, 16#ff, 16#e7,
+			  16#fb, 16#80, 16#55, 16#c1, 16#26, 16#dc, 16#5c, 16#6c,
+			  16#e9, 16#4a, 16#4b, 16#44, 16#f3, 16#30, 16#b5, 16#d9>>,
+    <<B:256/integer>> = <<16#26, 16#dc, 16#5c, 16#6c, 16#e9, 16#4a, 16#4b, 16#44,
+			  16#f3, 16#30, 16#b5, 16#d9, 16#bb, 16#d7, 16#7c, 16#bf,
+			  16#95, 16#84, 16#16, 16#29, 16#5c, 16#f7, 16#e1, 16#ce,
+			  16#6b, 16#cc, 16#dc, 16#18, 16#ff, 16#8c, 16#07, 16#b6>>,
+    BasePoint = <<16#04, 16#8b, 16#d2, 16#ae, 16#b9, 16#cb, 16#7e, 16#57,
+		  16#cb, 16#2c, 16#4b, 16#48, 16#2f, 16#fc, 16#81, 16#b7,
+		  16#af, 16#b9, 16#de, 16#27, 16#e1, 16#e3, 16#bd, 16#23,
+		  16#c2, 16#3a, 16#44, 16#53, 16#bd, 16#9a, 16#ce, 16#32,
+		  16#62, 16#54, 16#7e, 16#f8, 16#35, 16#c3, 16#da, 16#c4,
+		  16#fd, 16#97, 16#f8, 16#46, 16#1a, 16#14, 16#61, 16#1d,
+		  16#c9, 16#c2, 16#77, 16#45, 16#13, 16#2d, 16#ed, 16#8e,
+		  16#54, 16#5c, 16#1d, 16#54, 16#c7, 16#2f, 16#04, 16#69, 16#97>>,
+    <<Order:264/integer>> = <<16#00, 16#a9, 16#fb, 16#57, 16#db, 16#a1, 16#ee, 16#a9,
+			      16#bc, 16#3e, 16#66, 16#0a, 16#90, 16#9d, 16#83, 16#8d,
+			      16#71, 16#8c, 16#39, 16#7a, 16#a3, 16#b5, 16#61, 16#a6,
+			      16#f7, 16#90, 16#1e, 16#0e, 16#82, 16#97, 16#48, 16#56, 16#a7>>,
+    CoFactor = 1,
+    Curve = {{prime_field,P},{A,B,none},BasePoint, Order,CoFactor},
+    CsCaKey = {Curve, undefined, PubKey},
+    T3 = crypto:term_to_ec_key(CsCaKey),
+    ?line CsCaKey = crypto:ec_key_to_term(T3),
+
+    Msg = <<99,234,6,64,190,237,201,99,80,248,58,40,70,45,149,218,5,246,242,63>>,
+    Sign = crypto:ecdsa_sign(sha, sized_binary(Msg), L2),
+    ?line true = crypto:ecdsa_verify(sha, sized_binary(Msg), sized_binary(Sign), L2),
+    ?line false = crypto:ecdsa_verify(sha, sized_binary(Msg), sized_binary(<<10,20>>), L2),
+
+    ok.
+
+srp3(doc) ->
+    ["SRP-3 test vectors generated by http://srp.stanford.edu/demo/demo.html"];
+srp3(suite) -> [];
+srp3(Config) when is_list(Config) ->
+    Username = <<"alice">>,
+    Password = <<"password123">>,
+    Salt = hexstr2bin("2857827A19266A1F2BC6"),
+    Prime = hexstr2bin("EEAF0AB9ADB38DD69C33F80AFA8FC5E86072618775FF3C0B9EA2314C"
+		       "9C256576D674DF7496EA81D3383B4813D692C6E0E0D5D8E250B98BE4"
+		       "8E495C1D6089DAD15DC7D7B46154D6B6CE8EF4AD69B15D4982559B29"
+		       "7BCF1885C529F566660E57EC68EDBC3C05726CC02FD4CBF4976EAA9A"
+		       "FD5138FE8376435B9FC61D2FC0EB06E3"),
+    Generator = <<2>>,
+    Multiplier = 1,
+    %% X = hexstr2bin("96E54AB0CD4C5123EDCFA4A1502918AAD3C9E2A8"),
+    Verifier = hexstr2bin("96EB5F13621D911AA1CA405DE9C64217D4108EEEECAFFE500034FE0E"
+			  "C031E42C8714667C161BCE0E7996F7DDE1B63824C130D2D7286C08C0"
+			  "49758420735961347112AE102A3F23B3F687F8FEE0DF2BFAF933C608"
+			  "D6FE5B5EEE3116FE54016E065BF8E8C9FDBBC08719231AC215149140"
+			  "519E8FDD9AA4F410C28A58AF42974D2D"),
+    ClntPriv = hexstr2bin("6411DE75538BED8170677D577D0608F39112BC95B503C447EB6AC945"
+			  "49C75C7B"),
+    SrvrPriv = hexstr2bin("85E44A6F694DBE676145DB245A045CD37C99F05C562C7840A31F270D"
+			  "9AADCF8B"),
+    ClntPub = hexstr2bin("B22B1FFA2244B8CB94F3A9080F419CAEAB0DBA93EA1965B5E84587EE"
+			 "55C79E7A118865DC59B9D0353362C2A8261E7C1B0D221A0E233C2AD1"
+			 "640DACBB8664CBC9733EAC392DA7800142860380C3FC573C3C064329"
+			 "CF54063FD114C7210E9CB3A611EA8002B1844B698F930D95D143899B"
+			 "948A090E0C25938E5F84067D1883DC63"),
+    SrvrPub = hexstr2bin("93A8C4D8B7F7395ADCFD4ABA37B015124513D3F37B3E85EB23064BE5"
+			 "F53C0AE32FFB9D8C0AA0DCFFA74D632DD67DEBB5C35AAE9812286CC8"
+			 "C43CC176ECBC6D3F447594D9554E995B2509127BF88FADDDA4982D03"
+			 "8EC3001320712D3B1269308CE70F319B2295FA57674F03A2D993CFB1"
+			 "F84C35B7D0C012FA73CD4C8F7D5A71C7"),
+    U = hexstr2bin("02E2476A"),
+
+    PremasterSecret = hexstr2bin("C29A986C4D521BBC66428ED11D994CD7431574A6184B83CDCC345092"
+				 "791E75748A1D38CAC4BD14760F0D2694B711236419240FF2F172454C"
+				 "46ABF4FF39498DAFDD2C82924F7D7BD76CDFCE688C77D93F18A65409"
+				 "9176A9192615DC0277AE7C12F1F6A7F6563FCA11675D809AF578BDE5"
+				 "2B51E05D440B63099A017A0B45044801"),
+    UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
+    m(crypto:srp_mod_exp(Generator, UserPassHash, Prime), Verifier),
+    m(crypto:srp_mod_exp(Generator, ClntPriv, Prime), ClntPub),
+    m(crypto:srp3_value_u(SrvrPub), U),
+    m(crypto:srp_value_B(Multiplier, Verifier, Generator, SrvrPriv, Prime), SrvrPub),
+    m(crypto:srp_client_secret(ClntPriv, U, SrvrPub, Multiplier, Generator, UserPassHash, Prime), PremasterSecret),
+    m(crypto:srp_server_secret(Verifier, SrvrPriv, U, ClntPub, Prime), PremasterSecret),
+    ok.
+
+srp6(doc) ->
+    ["SRP-6 test vectors generated by http://srp.stanford.edu/demo/demo.html"];
+srp6(suite) -> [];
+srp6(Config) when is_list(Config) ->
+    Username = <<"alice">>,
+    Password = <<"password123">>,
+    Salt = hexstr2bin("2857827A19266A1F2BC6"),
+    Prime = hexstr2bin("EEAF0AB9ADB38DD69C33F80AFA8FC5E86072618775FF3C0B9EA2314C"
+		       "9C256576D674DF7496EA81D3383B4813D692C6E0E0D5D8E250B98BE4"
+		       "8E495C1D6089DAD15DC7D7B46154D6B6CE8EF4AD69B15D4982559B29"
+		       "7BCF1885C529F566660E57EC68EDBC3C05726CC02FD4CBF4976EAA9A"
+		       "FD5138FE8376435B9FC61D2FC0EB06E3"),
+    Generator = <<2>>,
+    Multiplier = 3,
+    %% X = hexstr2bin("96E54AB0CD4C5123EDCFA4A1502918AAD3C9E2A8"),
+    Verifier = hexstr2bin("96EB5F13621D911AA1CA405DE9C64217D4108EEEECAFFE500034FE0E"
+			  "C031E42C8714667C161BCE0E7996F7DDE1B63824C130D2D7286C08C0"
+			  "49758420735961347112AE102A3F23B3F687F8FEE0DF2BFAF933C608"
+			  "D6FE5B5EEE3116FE54016E065BF8E8C9FDBBC08719231AC215149140"
+			  "519E8FDD9AA4F410C28A58AF42974D2D"),
+    ClntPriv = hexstr2bin("6411DE75538BED8170677D577D0608F39112BC95B503C447EB6AC945"
+			  "49C75C7B"),
+    SrvrPriv = hexstr2bin("85E44A6F694DBE676145DB245A045CD37C99F05C562C7840A31F270D"
+			  "9AADCF8B"),
+    ClntPub = hexstr2bin("B22B1FFA2244B8CB94F3A9080F419CAEAB0DBA93EA1965B5E84587EE"
+			 "55C79E7A118865DC59B9D0353362C2A8261E7C1B0D221A0E233C2AD1"
+			 "640DACBB8664CBC9733EAC392DA7800142860380C3FC573C3C064329"
+			 "CF54063FD114C7210E9CB3A611EA8002B1844B698F930D95D143899B"
+			 "948A090E0C25938E5F84067D1883DC63"),
+    SrvrPub = hexstr2bin("D2D07845CE7ECDB9845DD36B10ACD3598CC29049DE9F467F84CE16B6"
+			 "D97A6DC567AF8B0F9FEDF74962400AD5C357951E64E67B641246F264"
+			 "C8DE6D9A72E554D6C8D3194548780A0C438A0FCC509CA88A14AA1DEB"
+			 "C0F09E4B37A965D1545DB4AD361346F3189B0EA569C06D326C4E4797"
+			 "9E381C748293B7C0591BE0BE419E053E"),
+    U = hexstr2bin("0A2534C0BF52A0DA9001EEC62CF2A546AB0908A7"),
+
+    PremasterSecret = hexstr2bin("19D22C19612874EBF1F2581F8EFCFDC44C6FDA3B87B0A73823D7E962"
+				 "554295D4E48D3A336523ADBDDD0EC8FB0F02687109E97E01C17C93CC"
+				 "7216F9CD8A4AC39F0429857D8D1023066614BDFCBCB89F59A0FEB81C"
+				 "72E992AAD89095A84B6A5FADA152369AB1E350A03693BEF044DF3EDF"
+				 "0C34741F4696C30E9F675D09F58ACBEB"),
+    UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
+    m(crypto:srp_mod_exp(Generator, UserPassHash, Prime), Verifier),
+    m(crypto:srp_mod_exp(Generator, ClntPriv, Prime), ClntPub),
+    m(crypto:srp6_value_u(ClntPub, SrvrPub, Prime), U),
+    m(crypto:srp_value_B(Multiplier, Verifier, Generator, SrvrPriv, Prime), SrvrPub),
+    m(crypto:srp_client_secret(ClntPriv, U, SrvrPub, Multiplier, Generator, UserPassHash, Prime), PremasterSecret),
+    m(crypto:srp_server_secret(Verifier, SrvrPriv, U, ClntPub, Prime), PremasterSecret),
+    ok.
+
+srp6a(doc) ->
+    ["SRP-6a test vectors from RFC5054."];
+srp6a(suite) -> [];
+srp6a(Config) when is_list(Config) ->
+    Username = <<"alice">>,
+    Password = <<"password123">>,
+    Salt = hexstr2bin("BEB25379D1A8581EB5A727673A2441EE"),
+    Prime = hexstr2bin("EEAF0AB9ADB38DD69C33F80AFA8FC5E86072618775FF3C0B9EA2314C"
+		       "9C256576D674DF7496EA81D3383B4813D692C6E0E0D5D8E250B98BE4"
+		       "8E495C1D6089DAD15DC7D7B46154D6B6CE8EF4AD69B15D4982559B29"
+		       "7BCF1885C529F566660E57EC68EDBC3C05726CC02FD4CBF4976EAA9A"
+		       "FD5138FE8376435B9FC61D2FC0EB06E3"),
+    Generator = <<2>>,
+    Multiplier = hexstr2bin("7556AA045AEF2CDD07ABAF0F665C3E818913186F"),
+    %% X = hexstr2bin("94B7555AABE9127CC58CCF4993DB6CF84D16C124"),
+    Verifier = hexstr2bin("7E273DE8696FFC4F4E337D05B4B375BEB0DDE1569E8FA00A9886D812"
+			  "9BADA1F1822223CA1A605B530E379BA4729FDC59F105B4787E5186F5"
+			  "C671085A1447B52A48CF1970B4FB6F8400BBF4CEBFBB168152E08AB5"
+			  "EA53D15C1AFF87B2B9DA6E04E058AD51CC72BFC9033B564E26480D78"
+			  "E955A5E29E7AB245DB2BE315E2099AFB"),
+    ClntPriv = hexstr2bin("60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DD"
+			  "DA2D4393"),
+    SrvrPriv = hexstr2bin("E487CB59D31AC550471E81F00F6928E01DDA08E974A004F49E61F5D1"
+			  "05284D20"),
+    ClntPub = hexstr2bin("61D5E490F6F1B79547B0704C436F523DD0E560F0C64115BB72557EC4"
+			 "4352E8903211C04692272D8B2D1A5358A2CF1B6E0BFCF99F921530EC"
+			 "8E39356179EAE45E42BA92AEACED825171E1E8B9AF6D9C03E1327F44"
+			 "BE087EF06530E69F66615261EEF54073CA11CF5858F0EDFDFE15EFEA"
+			 "B349EF5D76988A3672FAC47B0769447B"),
+    SrvrPub = hexstr2bin("BD0C61512C692C0CB6D041FA01BB152D4916A1E77AF46AE105393011"
+			 "BAF38964DC46A0670DD125B95A981652236F99D9B681CBF87837EC99"
+			 "6C6DA04453728610D0C6DDB58B318885D7D82C7F8DEB75CE7BD4FBAA"
+			 "37089E6F9C6059F388838E7A00030B331EB76840910440B1B27AAEAE"
+			 "EB4012B7D7665238A8E3FB004B117B58"),
+    U = hexstr2bin("CE38B9593487DA98554ED47D70A7AE5F462EF019"),
+
+    PremasterSecret = hexstr2bin("B0DC82BABCF30674AE450C0287745E7990A3381F63B387AAF271A10D"
+				 "233861E359B48220F7C4693C9AE12B0A6F67809F0876E2D013800D6C"
+				 "41BB59B6D5979B5C00A172B4A2A5903A0BDCAF8A709585EB2AFAFA8F"
+				 "3499B200210DCC1F10EB33943CD67FC88A2F39A4BE5BEC4EC0A3212D"
+				 "C346D7E474B29EDE8A469FFECA686E5A"),
+    UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
+    m(crypto:srp_mod_exp(Generator, UserPassHash, Prime), Verifier),
+    m(crypto:srp_mod_exp(Generator, ClntPriv, Prime), ClntPub),
+    m(crypto:srp6a_multiplier(Generator, Prime), Multiplier),
+    m(crypto:srp6_value_u(ClntPub, SrvrPub, Prime), U),
+    m(crypto:srp_value_B(Multiplier, Verifier, Generator, SrvrPriv, Prime), SrvrPub),
+    m(crypto:srp_client_secret(ClntPriv, U, SrvrPub, Multiplier, Generator, UserPassHash, Prime), PremasterSecret),
+    m(crypto:srp_server_secret(Verifier, SrvrPriv, U, ClntPub, Prime), PremasterSecret),
+    ok.
+
 %%
 %%
 exor_test(doc) ->
@@ -2120,8 +2166,8 @@ worker_loop(N, Config) ->
 	      aes_cfb, aes_cbc, des_cbc_iter, rand_uniform_test, strong_rand_test,
 	      rsa_verify_test, exor_test, rc4_test, rc4_stream_test, mod_exp_test,
               hmac_update_md5, hmac_update_sha, hmac_update_sha256, hmac_update_sha512,
-	      hmac_rfc2202, hmac_rfc4231,
-	      aes_ctr_stream },
+	      hmac_rfc2202, hmac_rfc4231_sha224, hmac_rfc4231_sha256, hmac_rfc4231_sha384,
+	      hmac_rfc4231_sha512, aes_ctr_stream },
 
     F = element(random:uniform(size(Funcs)),Funcs),
     %%io:format("worker ~p calling ~p\n",[self(),F]),
@@ -2256,10 +2302,10 @@ openssl_version() ->
 	    undefined
     end.
 
-if_098(Fun) ->
-    case openssl_version() of
-	V when V < 16#908000 ->
-	    {skipped,"OpenSSL version too old"};
+if_supported(Algorithm, Fun) ->
+    case proplists:get_bool(Algorithm, crypto:algorithms()) of
+	true ->
+	    Fun();
 	_ ->
-	    Fun()
+	    {skipped, io:format("~s not spupported", [Algorithm])}
     end.

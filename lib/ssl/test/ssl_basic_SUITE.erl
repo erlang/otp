@@ -69,6 +69,7 @@ groups() ->
      {session, [], session_tests()},
      {renegotiate, [], renegotiate_tests()},
      {ciphers, [], cipher_tests()},
+     {ciphers_ec, [], cipher_tests_ec()},
      {error_handling_tests, [], error_handling_tests()}
     ].
 
@@ -76,6 +77,7 @@ all_versions_groups ()->
     [{group, api},
      {group, renegotiate},
      {group, ciphers},
+     {group, ciphers_ec},
      {group, error_handling_tests}].
 
 
@@ -154,7 +156,17 @@ cipher_tests() ->
      ciphers_dsa_signed_certs,
      ciphers_dsa_signed_certs_openssl_names,
      anonymous_cipher_suites,
+     psk_cipher_suites,
+     psk_with_hint_cipher_suites,
+     srp_cipher_suites,
+     srp_dsa_cipher_suites,
      default_reject_anonymous].
+
+cipher_tests_ec() ->
+    [ciphers_ecdsa_signed_certs,
+     ciphers_ecdsa_signed_certs_openssl_names,
+     ciphers_ecdh_rsa_signed_certs,
+     ciphers_ecdh_rsa_signed_certs_openssl_names].
 
 error_handling_tests()->
     [controller_dies,
@@ -184,7 +196,9 @@ init_per_suite(Config0) ->
 	    ct:print("Make certs  ~p~n", [Result]),
 
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-	    Config = ssl_test_lib:cert_options(Config1),
+	    Config2 = ssl_test_lib:make_ecdsa_cert(Config1),
+	    Config3 = ssl_test_lib:make_ecdh_rsa_cert(Config2),
+	    Config = ssl_test_lib:cert_options(Config3),
 	    [{watchdog, Dog} | Config]
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -1575,7 +1589,34 @@ anonymous_cipher_suites(Config) when is_list(Config) ->
     Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
     Ciphers = ssl_test_lib:anonymous_suites(),
     run_suites(Ciphers, Version, Config, anonymous).
-
+%%-------------------------------------------------------------------
+psk_cipher_suites() ->
+    [{doc, "Test the PSK ciphersuites WITHOUT server supplied identity hint"}].
+psk_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:psk_suites(),
+    run_suites(Ciphers, Version, Config, psk).
+%%-------------------------------------------------------------------
+psk_with_hint_cipher_suites()->
+    [{doc, "Test the PSK ciphersuites WITH server supplied identity hint"}].
+psk_with_hint_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:psk_suites(),
+    run_suites(Ciphers, Version, Config, psk_with_hint).
+%%-------------------------------------------------------------------
+srp_cipher_suites()->
+    [{doc, "Test the SRP ciphersuites"}].
+srp_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:srp_suites(),
+    run_suites(Ciphers, Version, Config, srp).
+%%-------------------------------------------------------------------
+srp_dsa_cipher_suites()->
+    [{doc, "Test the SRP DSA ciphersuites"}].
+srp_dsa_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:srp_dss_suites(),
+    run_suites(Ciphers, Version, Config, srp_dsa).
 %%--------------------------------------------------------------------
 default_reject_anonymous()->
     [{doc,"Test that by default anonymous cipher suites are rejected "}].
@@ -1600,6 +1641,48 @@ default_reject_anonymous(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, {error, {tls_alert, "insufficient security"}},
 			      Client, {error, {tls_alert, "insufficient security"}}).
 
+%%--------------------------------------------------------------------
+ciphers_ecdsa_signed_certs() -> 
+    [{doc, "Test all ecdsa ssl cipher suites in highest support ssl/tls version"}].
+
+ciphers_ecdsa_signed_certs(Config) when is_list(Config) ->
+    Version = 
+       ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+
+    Ciphers = ssl_test_lib:ecdsa_suites(),
+    ct:print("~p erlang cipher suites ~p~n", [Version, Ciphers]),
+    run_suites(Ciphers, Version, Config, ecdsa).
+%%--------------------------------------------------------------------
+ciphers_ecdsa_signed_certs_openssl_names() -> 
+    [{doc, "Test all ecdsa ssl cipher suites in highest support ssl/tls version"}].
+
+ciphers_ecdsa_signed_certs_openssl_names(Config) when is_list(Config) ->
+    Version = 
+       ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:openssl_ecdsa_suites(),  
+    ct:print("tls1 openssl cipher suites ~p~n", [Ciphers]),
+    run_suites(Ciphers, Version, Config, ecdsa).
+%%--------------------------------------------------------------------
+ciphers_ecdh_rsa_signed_certs() -> 
+    [{doc, "Test all ecdh_rsa ssl cipher suites in highest support ssl/tls version"}].
+
+ciphers_ecdh_rsa_signed_certs(Config) when is_list(Config) ->
+    Version = 
+       ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+
+    Ciphers = ssl_test_lib:ecdh_rsa_suites(),
+    ct:print("~p erlang cipher suites ~p~n", [Version, Ciphers]),
+    run_suites(Ciphers, Version, Config, ecdh_rsa).
+%%--------------------------------------------------------------------
+ciphers_ecdh_rsa_signed_certs_openssl_names() -> 
+    [{doc, "Test all ecdh_rsa ssl cipher suites in highest support ssl/tls version"}].
+
+ciphers_ecdh_rsa_signed_certs_openssl_names(Config) when is_list(Config) ->
+    Version = 
+       ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:openssl_ecdh_rsa_suites(),  
+    ct:print("tls1 openssl cipher suites ~p~n", [Ciphers]),
+    run_suites(Ciphers, Version, Config, ecdh_rsa).
 %%--------------------------------------------------------------------
 reuse_session() ->
     [{doc,"Test reuse of sessions (short handshake)"}].
@@ -3094,12 +3177,21 @@ rizzo_test(Cipher, Config, Version, Mfa) ->
 	    [{Cipher, Error}]
     end.
 
-client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == rsa orelse KeyAlgo == dhe_rsa ->
+client_server_opts({KeyAlgo,_,_}, Config)
+  when KeyAlgo == rsa orelse
+       KeyAlgo == dhe_rsa orelse
+       KeyAlgo == ecdhe_rsa ->
     {?config(client_opts, Config),
      ?config(server_opts, Config)};
 client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == dss orelse KeyAlgo == dhe_dss ->
     {?config(client_dsa_opts, Config),
-     ?config(server_dsa_opts, Config)}.
+     ?config(server_dsa_opts, Config)};
+client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == ecdh_ecdsa orelse KeyAlgo == ecdhe_ecdsa ->
+    {?config(client_opts, Config),
+     ?config(server_ecdsa_opts, Config)};
+client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == ecdh_rsa ->
+    {?config(client_opts, Config),
+     ?config(server_ecdh_rsa_opts, Config)}.
 
 run_suites(Ciphers, Version, Config, Type) ->
     {ClientOpts, ServerOpts} =
@@ -3113,7 +3205,25 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    anonymous ->
 		%% No certs in opts!
 		{?config(client_opts, Config),
-		 ?config(server_anon, Config)}
+		 ?config(server_anon, Config)};
+	    psk ->
+		{?config(client_psk, Config),
+		 ?config(server_psk, Config)};
+	    psk_with_hint ->
+		{?config(client_psk, Config),
+		 ?config(server_psk_hint, Config)};
+	    srp ->
+		{?config(client_srp, Config),
+		 ?config(server_srp, Config)};
+	    srp_dsa ->
+		{?config(client_srp_dsa, Config),
+		 ?config(server_srp_dsa, Config)};
+	    ecdsa ->
+		{?config(client_opts, Config),
+		 ?config(server_ecdsa_opts, Config)};
+	    ecdh_rsa ->
+		{?config(client_opts, Config),
+		 ?config(server_ecdh_rsa_opts, Config)}
 	    end,
 
     Result =  lists:map(fun(Cipher) ->

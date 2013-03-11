@@ -82,7 +82,8 @@
    
     <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey' |
     'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo' |
-    'PrivateKeyInfo' | 'CertificationRequest'</code></p>
+    'PrivateKeyInfo' | 'CertificationRequest' | 'ECPrivateKey'|
+    'OTPEcpkParameters'</code></p>
     
     <p><code>pem_entry () = {pki_asn1_type(), binary(), %% DER or encrypted DER
           not_encrypted | cipher_info()} </code></p>
@@ -98,6 +99,8 @@
 
     <p><code>dsa_private_key() = #'DSAPrivateKey'{}</code></p>
     
+    <p><code>ec_key()  = {'ECKey', Key}</code></p>
+
     <p><code> public_crypt_options() = [{rsa_pad, rsa_padding()}]. </code></p>
 
     <p><code> rsa_padding() =  'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding'
@@ -106,6 +109,8 @@
     <p><code> rsa_digest_type()  = 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512' </code></p>
 
     <p><code> dss_digest_type()  = 'sha' </code></p>
+
+    <p><code> ecdsa_digest_type()  = 'sha' </code></p>
 
     <p><code> crl_reason()  = unspecified | keyCompromise | cACompromise | affiliationChanged | superseded | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise
     </code></p>
@@ -511,8 +516,8 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
        <d>The msg is either the binary "plain text" data to be
        signed or it is the hashed value of "plain text" i.e. the
        digest.</d>
-       <v>DigestType = rsa_digest_type() | dss_digest_type()</v>
-       <v>Key = rsa_private_key() | dsa_private_key()</v>
+       <v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
+       <v>Key = rsa_private_key() | dsa_private_key() | ec_key()</v>
   </type>
   <desc>
     <p> Creates a digital signature.</p> 
@@ -575,9 +580,9 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <v>Msg = binary() | {digest,binary()}</v>
        <d>The msg is either the binary "plain text" data 
         or it is the hashed value of "plain text" i.e. the digest.</d>
-      <v>DigestType = rsa_digest_type() | dss_digest_type()</v>
+      <v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
       <v>Signature = binary()</v>
-      <v>Key = rsa_public_key() | dsa_public_key()</v> 
+      <v>Key = rsa_public_key() | dsa_public_key() | ec_key()</v> 
   </type> 
   <desc> 
     <p>Verifies a digital signature</p> 

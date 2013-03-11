@@ -21,7 +21,7 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info/0, info_lib/0, version/0]).
+-export([start/0, stop/0, info/0, info_lib/0, algorithms/0, version/0]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
@@ -58,12 +58,18 @@
 -export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
 -export([strong_rand_bytes/1, strong_rand_mpint/3]).
 -export([mod_exp/3, mpint/1, erlint/1]).
+-export([srp_mod_exp/3, srp_value_B/5]).
+-export([srp3_value_u/1, srp6_value_u/3, srp6a_multiplier/2]).
+-export([srp_client_secret/7, srp_server_secret/5]).
+
 %% -export([idea_cbc_encrypt/3, idea_cbc_decrypt/3]).
 -export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
 -export([aes_cbc_256_encrypt/3, aes_cbc_256_decrypt/3]).
 -export([aes_cbc_ivec/1]).
 -export([aes_ctr_encrypt/3, aes_ctr_decrypt/3]).
 -export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
+-export([ec_key_new/1, ec_key_to_term/1, term_to_ec_key/1, ec_key_generate/1]).
+-export([ecdsa_sign/2, ecdsa_sign/3, ecdsa_verify/3, ecdsa_verify/4, ecdh_compute_key/2]).
 
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see below
 
@@ -109,12 +115,28 @@
 		    hash, hash_init, hash_update, hash_final,
 		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n, info,
 		    rc2_cbc_encrypt, rc2_cbc_decrypt,
-		    info_lib]).
+		    srp_mod_exp, srp_value_B,
+		    srp3_value_u, srp6_value_u, srp6a_multiplier,
+		    srp_client_secret, srp_server_secret,
+		    ec_key_new, ec_key_to_term, term_to_ec_key, ec_key_generate,
+		    ecdsa_sign, ecdsa_verify, ecdh_compute_key,
+		    info_lib, algorithms]).
 
+-type mpint() :: binary().
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha'.
+-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
 -type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
+-type ec_key_res() :: any().		%% nif resource
+-type ec_named_curve() :: atom().
+-type ec_point() :: binary().
+-type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
+-type ec_field() :: {prime_field, Prime :: mpint()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
+-type ec_prime() :: {A :: mpint(), B :: mpint(), Seed :: binary()}.
+-type ec_curve_spec() :: {Field :: ec_field(), Prime :: ec_prime(), Point :: ec_point(), Order :: mpint(), CoFactor :: none | mpint()}.
+-type ec_curve() :: ec_named_curve() | ec_curve_spec().
+-type ec_key() :: {Curve :: ec_curve(), PrivKey :: mpint() | undefined, PubKey :: ec_point() | undefined}.
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -183,6 +205,8 @@ info() ->
     ?FUNC_LIST.
 
 info_lib() -> ?nif_stub.
+
+algorithms() -> ?nif_stub.
 
 %% Crypto app version history:
 %% (no version): Driver implementation
@@ -1065,9 +1089,160 @@ dh_compute_key(OthersPublicKey, MyPrivateKey, DHParameters) ->
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
 %%
+%% EC
+%%
+-spec ec_key_new(ec_named_curve()) -> ec_key_res().
+ec_key_new(_Curve) -> ?nif_stub.
+
+-spec ec_key_generate(ec_key_res()) -> ok | error.
+ec_key_generate(_Key) -> ?nif_stub.
+
+nif_prime_to_term({prime_field, Prime}) ->
+    {prime_field, erlint(Prime)};
+nif_prime_to_term(PrimeField) ->
+    PrimeField.
+nif_curve_to_term({A, B, Seed}) ->
+    {erlint(A), erlint(B), Seed}.
+nif_curve_parameters_to_term({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
+    {nif_prime_to_term(PrimeField), nif_curve_to_term(Curve), BasePoint, erlint(Order), erlint(CoFactor)};
+nif_curve_parameters_to_term(Curve) when is_atom(Curve) ->
+    %% named curve
+    Curve.
+
+-spec ec_key_to_term(ec_key_res()) -> ec_key().
+ec_key_to_term(Key) ->
+    case ec_key_to_term_nif(Key) of
+        {Curve, PrivKey, PubKey} ->
+            {nif_curve_parameters_to_term(Curve), erlint(PrivKey), PubKey};
+        _ ->
+            erlang:error(conversion_failed)
+    end.
+
+ec_key_to_term_nif(_Key) -> ?nif_stub.
+
+term_to_nif_prime({prime_field, Prime}) ->
+    {prime_field, mpint(Prime)};
+term_to_nif_prime(PrimeField) ->
+    PrimeField.
+term_to_nif_curve({A, B, Seed}) ->
+    {mpint(A), mpint(B), Seed}.
+term_to_nif_curve_parameters({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
+    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), BasePoint, mpint(Order), mpint(CoFactor)};
+term_to_nif_curve_parameters(Curve) when is_atom(Curve) ->
+    %% named curve
+    Curve.
+
+-spec term_to_ec_key(ec_key()) -> ec_key_res().
+term_to_ec_key({Curve, undefined, PubKey}) ->
+    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), undefined, PubKey);
+term_to_ec_key({Curve, PrivKey, PubKey}) ->
+    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), mpint(PrivKey), PubKey).
+
+term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
+
+%%
+%% ECDSA - sign
+%%
+-spec ecdsa_sign(data_or_digest(), ec_key_res()) -> binary().
+-spec ecdsa_sign(ecdsa_digest_type(), data_or_digest(), ec_key_res()) -> binary().
+
+ecdsa_sign(DataOrDigest,Key) ->
+    ecdsa_sign(sha, DataOrDigest, Key).
+ecdsa_sign(Type, DataOrDigest, Key) ->
+    case ecdsa_sign_nif(Type,DataOrDigest,Key) of
+	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
+	Sign -> Sign
+    end.
+
+ecdsa_sign_nif(_Type, _DataOrDigest, _Key) -> ?nif_stub.
+
+%%
+%% ECDSA - verify
+%%
+-spec ecdsa_verify(data_or_digest(), binary(), ec_key_res()) -> boolean().
+-spec ecdsa_verify(ecdsa_digest_type(), data_or_digest(), binary(), ec_key_res()) ->
+			boolean().
+
+ecdsa_verify(Data,Signature,Key) ->
+    ecdsa_verify_nif(sha, Data,Signature,Key).
+ecdsa_verify(Type, DataOrDigest, Signature, Key) ->
+    case ecdsa_verify_nif(Type, DataOrDigest, Signature, Key) of
+	notsup -> erlang:error(notsup);
+	Bool -> Bool
+    end.
+
+ecdsa_verify_nif(_Type, _DataOrDigest, _Signature, _Key) -> ?nif_stub.
+
+-spec ecdh_compute_key(ec_key_res(), ec_key_res() | ec_point()) -> binary().
+ecdh_compute_key(_Others, _My) -> ?nif_stub.
+
+%%
+%% SRP functions
+%%
+-spec srp_mod_exp(binary(), binary(), binary()) -> binary().
+srp_mod_exp(Generator, Exponent, Prime) ->
+    Verifier = mod_exp_nif(bin2bn(Generator), bin2bn(Exponent), bin2bn(Prime)),
+    case erlint(Verifier) of
+	0 -> error;
+	_ -> bn2bin(Verifier)
+    end.
+
+-spec srp_value_B(binary(), integer(), binary(), binary(), binary()) -> binary().
+srp_value_B(Multiplier, Verifier, Generator, Exponent, Prime) ->
+    srp_value_B_nif(srp_multiplier(Multiplier), Verifier, Generator, Exponent, Prime).
+
+srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_stub.
+
+-spec srp_client_secret(binary(), binary(), binary(), integer()|binary(), binary(), binary(), binary()) -> binary().
+srp_client_secret(A, U, B, Multiplier, Generator, Exponent, Prime) ->
+    srp_client_secret_nif(A, U, B, srp_multiplier(Multiplier), Generator, Exponent, Prime).
+
+srp_client_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?nif_stub.
+
+-spec srp_server_secret(binary(), binary(), binary(), binary(), binary()) -> binary().
+srp_server_secret(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
+
+-spec srp6a_multiplier(binary(), binary()) -> binary().
+srp6a_multiplier(Generator, Prime) ->
+    %% k = SHA1(N | PAD(g))
+    C0 = sha_init(),
+    C1 = sha_update(C0, Prime),
+    C2 = sha_update(C1, srp_pad_to(erlang:byte_size(Prime), Generator)),
+    sha_final(C2).
+
+-spec srp3_value_u(binary()) -> binary().
+srp3_value_u(B) ->
+    %% The parameter u is a 32-bit unsigned integer which takes its value
+    %% from the first 32 bits of the SHA1 hash of B, MSB first.
+    <<U:32/bits, _/binary>> = sha(B),
+    U.
+
+-spec srp6_value_u(binary(), binary(), binary()) -> binary().
+srp6_value_u(A, B, Prime) ->
+    %% SHA1(PAD(A) | PAD(B))
+    PadLength = erlang:byte_size(Prime),
+    C0 = sha_init(),
+    C1 = sha_update(C0, srp_pad_to(PadLength, A)),
+    C2 = sha_update(C1, srp_pad_to(PadLength, B)),
+    sha_final(C2).
+
+%%
 %%  LOCAL FUNCTIONS
 %%
 
+srp_pad_length(Width, Length) ->
+    (Width - Length rem Width) rem Width.
+
+srp_pad_to(Width, Binary) ->
+    case srp_pad_length(Width, size(Binary)) of
+        0 -> Binary;
+        N -> << 0:(N*8), Binary/binary>>
+    end.
+
+srp_multiplier(Multiplier) when is_binary(Multiplier) ->
+    bin2bn(Multiplier);
+srp_multiplier(Multiplier) when is_integer(Multiplier) ->
+    mpint(Multiplier).
 
 %% large integer in a binary with 32bit length
 %% MP representaion  (SSH2)
@@ -1110,4 +1285,13 @@ mpint_pos(X,I,Ds) ->
 erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
     Bits= MPIntSize * 8,
     <<Integer:Bits/integer>> = MPIntValue,
-    Integer.
+    Integer;
+erlint(undefined) ->
+    undefined.
+
+bin2bn(Bin) ->
+    Len = erlang:byte_size(Bin),
+    <<?UINT32(Len), Bin/binary>>.
+
+bn2bin(<<_:32, Bin/binary>>) ->
+    Bin.
