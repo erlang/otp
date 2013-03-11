@@ -43,7 +43,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     case odbc_test_lib:odbc_check() of
 	ok ->
-	    [sql_query, next, {group, scrollable_cursors}, select_count,
+	    [stored_proc, sql_query, next, {group, scrollable_cursors}, select_count,
 	     select_next, select_relative, select_absolute,
 	     create_table_twice, delete_table_twice, duplicate_key,
 	     not_connection_owner, no_result_set, query_error,
@@ -172,6 +172,26 @@ end_per_testcase(_Case, Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
+stored_proc(doc)->
+    ["Test stored proc with OUT param"];
+stored_proc(suite) -> [];
+stored_proc(Config) when is_list(Config) ->
+    case ?RDBMS of
+        X when X == oracle; X == postgres->
+            Ref = ?config(connection_ref, Config),
+            {updated, _} =
+                odbc:sql_query(Ref,
+                               ?RDBMS:stored_proc_integer_out()),
+            Result = ?RDBMS:query_result(),
+            Result =
+                ?RDBMS:param_query(Ref),
+            {updated, _} =
+                odbc:sql_query(Ref, ?RDBMS:drop_proc()),
+            ok;
+        _ ->
+	    {skip, "stored proc not yet supported"}
+    end.
+
 sql_query(doc)->
     ["Test the common cases"];
 sql_query(suite) -> [];
