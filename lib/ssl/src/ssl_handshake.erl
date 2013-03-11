@@ -1685,7 +1685,7 @@ certificate_authorities_from_db(CertDbHandle, CertDbRef) ->
 			 (_, Acc) ->
 			      Acc
 		      end,
-    ssl_certificate_db:foldl(ConnectionCerts, [], CertDbHandle).
+    ssl_pkix_db:foldl(ConnectionCerts, [], CertDbHandle).
 
 
 digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->

@@ -48,7 +48,7 @@ MODULES= \
 	ssl_sup \
 	inet_tls_dist \
 	ssl_certificate\
-	ssl_certificate_db\
+	ssl_pkix_db\
 	ssl_cipher \
 	ssl_srp_primes \
 	ssl_connection \

@@ -21,7 +21,7 @@
 	       ssl_connection,
 	       ssl_cipher,
 	       ssl_srp_primes,
-	       ssl_certificate_db,
+	       ssl_pkix_db,
 	       ssl_certificate,
 	       ssl_alert
 	       ]},

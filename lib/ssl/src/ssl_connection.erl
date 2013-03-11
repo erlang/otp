@@ -2976,14 +2976,14 @@ handle_trusted_certs_db(#state{cert_db_ref = Ref,
 			       ssl_options = #ssl_options{cacertfile = undefined}}) ->
     %% Certs provided as DER directly can not be shared
     %% with other connections and it is safe to delete them when the connection ends.
-    ssl_certificate_db:remove_trusted_certs(Ref, CertDb);
+    ssl_pkix_db:remove_trusted_certs(Ref, CertDb);
 handle_trusted_certs_db(#state{file_ref_db = undefined}) ->
     %% Something went wrong early (typically cacertfile does not exist) so there is nothing to handle
     ok;
 handle_trusted_certs_db(#state{cert_db_ref = Ref,
 			       file_ref_db = RefDb,
 			       ssl_options = #ssl_options{cacertfile = File}}) ->
-    case ssl_certificate_db:ref_count(Ref, RefDb, -1) of
+    case ssl_pkix_db:ref_count(Ref, RefDb, -1) of
 	0 ->
 	    ssl_manager:clean_cert_db(Ref, File);
 	_ ->
