@@ -23,12 +23,6 @@
 %%=====================================================================
 
 %%---------------------------------------------------------------------
-%% THIS DOES NOT REALLY BELONG HERE -- PLEASE REMOVE ASAP!
-%%---------------------------------------------------------------------
-
--type ordset(T)	 :: [T].
-
-%%---------------------------------------------------------------------
 %% Include files needed for the compilation of this header file
 %%---------------------------------------------------------------------
 
@@ -67,7 +61,7 @@
                       | 'op_exact_eqeq_2' | 'suspend_msg_timeout'.
 
 -type icode_type_test()	:: 'atom' | 'bignum' | 'binary' | 'bitstr' | 'boolean'
-                         | 'cons' | 'constant' | 'fixnum' | 'float'
+                         | 'cons' | 'fixnum' | 'float'
                          | 'function' | 'function2' | 'integer' | 'list' | 'nil'
                          | 'number' | 'pid' | 'port' | 'reference' | 'tuple'
                          | {'atom', atom()} | {'integer', integer()}

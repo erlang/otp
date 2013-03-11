@@ -102,7 +102,7 @@ pp(#icode_callgraph{ordered_sccs = SCCs}) ->
 %%------------------------------------------------------------------------
 %% Get the modules called from this module
 
--spec get_called_modules([mfa_icode()]) -> ordset(atom()).
+-spec get_called_modules([mfa_icode()]) -> ordsets:ordset(atom()).
 
 get_called_modules(List) ->
   get_remote_calls(List, []).
