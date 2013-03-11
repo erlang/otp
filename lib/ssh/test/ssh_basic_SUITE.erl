@@ -272,7 +272,7 @@ rekey(Config) ->
 					  {user_interaction, false},
 					  {rekey_limit, 0}]),
     receive
-    after 15000 ->
+    after 200000 ->
 	    %%By this time rekeying would have been done
 	    ssh:close(ConnectionRef),
 	    ssh:stop_daemon(Pid)
