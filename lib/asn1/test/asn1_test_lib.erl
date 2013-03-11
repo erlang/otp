@@ -39,7 +39,7 @@ compile_all(Files, Config, Options) ->
 
 compile_file(File, Options) ->
     try
-        ok = asn1ct:compile(File, Options),
+        ok = asn1ct:compile(File, [warnings_as_errors|Options]),
         case should_load(File, Options) of
             false ->
                 ok;
