@@ -784,8 +784,10 @@ format_list(List) ->
 
 make_list([Last]) ->
     [format(Last), $]];
+make_list([Head|Tail]) when is_list(Tail) ->
+    [format(Head), $,|make_list(Tail)];
 make_list([Head|Tail]) ->
-    [format(Head), $,|make_list(Tail)].
+    [format(Head), $|, format(Tail), $]].
 
 map_printable_list([$\n|Cs]) ->
     [$\\, $n|map_printable_list(Cs)];
