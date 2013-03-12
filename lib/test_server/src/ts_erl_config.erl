@@ -32,7 +32,7 @@ variables(Base0, OsType) ->
     Base2 = get_app_vars(fun erl_interface/2, Base1, OsType),
     Base3 = get_app_vars(fun ic/2, Base2, OsType),
     Base4 = get_app_vars(fun jinterface/2, Base3, OsType),
-    Base5 = dl_vars(Base4, OsType),
+    Base5 = dl_vars(Base4, Base3, OsType),
     Base6 = emu_vars(Base5),
     Base7 = get_app_vars(fun ssl/2, Base6, OsType),
     Base8 = erts_lib(Base7, OsType),
@@ -60,7 +60,7 @@ get_app_vars(AppFun, Vars, OsType) ->
 	    exit({unexpected_internal_error, Garbage})
     end.
 
-dl_vars(Vars, _) ->
+dl_vars(Vars, Base3, OsType) ->
     ShlibRules0 = ".SUFFIXES:\n" ++
  	".SUFFIXES: @dll@ @obj@ .c\n\n" ++
  	".c@dll@:\n" ++
@@ -68,7 +68,23 @@ dl_vars(Vars, _) ->
 	"\t@SHLIB_LD@ @CROSSLDFLAGS@ @SHLIB_LDFLAGS@ $(SHLIB_EXTRA_LDFLAGS) -o $@ $*@obj@ @SHLIB_LDLIBS@ $(SHLIB_EXTRA_LDLIBS)",
 
     ShlibRules = ts_lib:subst(ShlibRules0, Vars),
-    [{'SHLIB_RULES', ShlibRules}|Vars].
+    case get_app_vars2(fun jinterface/2, Base3, OsType) of
+	{App, not_found} ->
+	    [{'SHLIB_RULES', ShlibRules}, {App, "not_found"}|Vars];
+	_ ->
+	    [{'SHLIB_RULES', ShlibRules}|Vars]
+    end.
+get_app_vars2(AppFun, Vars, OsType) ->
+    case catch AppFun(Vars,OsType) of
+	Res when is_list(Res) ->
+	    {jinterface, ok};
+	{cannot_find_app, App} ->
+	    {App, not_found};
+	{'EXIT', Reason} ->
+	    exit(Reason);
+	Garbage ->
+	    exit({unexpected_internal_error, Garbage})
+    end.
 
 erts_lib_name(multi_threaded, {win32, V}) ->
     link_library("erts_MD" ++ case is_debug_build() of
