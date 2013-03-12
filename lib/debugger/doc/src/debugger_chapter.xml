@@ -4,7 +4,7 @@
 <chapter>
 <header>
     <copyright>
-      <year>1997</year><year>2011</year>
+      <year>1997</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -159,7 +159,7 @@
 
       <p>A line breakpoint is created at a certain line in a module.</p>
 
-      <image file="images/line_break_dialog.gif">
+      <image file="images/line_break_dialog.jpg">
 	<icaption>The Line Break Dialog Window.</icaption>
       </image>
 
@@ -191,7 +191,7 @@
 	retrieve the value of <c>Variable</c> (given as an atom).
 	The function returns <c>unbound</c> or <c>{value,Value}</c>.</p>
 	
-      <image file="images/cond_break_dialog.gif">
+      <image file="images/cond_break_dialog.jpg">
 	<icaption>The Conditional Break Dialog Window.</icaption>
       </image>
 
@@ -199,18 +199,15 @@
 	which the appropriate module can be selected.</p>
 
       <p>Example: A conditional breakpoint calling
-	<c>c_test:c_break/1</c> is added at line 8 in the module
-	<c>fac</c>. Each time the breakpoint is reached, the function is
+	<c>c_test:c_break/1</c> is added at line 6 in the module
+	<c>fact</c>. Each time the breakpoint is reached, the function is
 	called, and when <c>N</c> is equal to 3 it returns <c>true</c>,
 	and the process stops.</p>
 	
-      <p>Extract from <c>fac.erl</c>:</p>
+      <p>Extract from <c>fact.erl</c>:</p>
       <pre>
-4.   fac(0) ->
-5.      1;
-6.
-7.   fac(N) ->
-8.      N * fac(N - 1).</pre>
+5.   fac(0) -> 1;
+6.   fac(N) when N > 0, is_integer(N) -> N * fac(N-1).</pre>
 
       <p>Definition of <c>c_test:c_break/1</c>:</p>
       <pre>
@@ -232,7 +229,7 @@ c_break(Bindings) ->
       <p>A function breakpoint is a set of line breakpoints, one at
 	the first line of each clause in the given function.</p>
 
-      <image file="images/function_break_dialog.gif">
+      <image file="images/function_break_dialog.jpg">
 	<icaption>The Function Break Dialog Window.</icaption>
       </image>
 
@@ -255,13 +252,15 @@ c_break(Bindings) ->
     <pre>
 1> <input>catch a+1.</input>
 {'EXIT',{badarith,[{erlang,'+',[a,1],[]},
-                   {erl_eval,do_apply,5,[{file,"erl_eval.erl"},{line,562}]},
-                   {erl_eval,expr,5,[{file,"erl_eval.erl"},{line,359}]},
-                   {shell,exprs,7,[{file,"shell.erl"},{line,668}]},
-                   {shell,eval_exprs,7,[{file,"shell.erl"},{line,623}]},
-                   {shell,eval_loop,3,[{file,"shell.erl"},{line,608}]}]}}</pre>
+                   {erl_eval,do_apply,6,[{file,"erl_eval.erl"},{line,573}]},
+                   {erl_eval,expr,5,[{file,"erl_eval.erl"},{line,357}]},
+                   {shell,exprs,7,[{file,"shell.erl"},{line,674}]},
+                   {shell,eval_exprs,7,[{file,"shell.erl"},{line,629}]},
+                   {shell,eval_loop,3,[{file,"shell.erl"},{line,614}]}]}}</pre>
 
-    <p>See the <em>Erlang Reference Manual, Errors and Error handling</em>,
+    <p>See the Erlang Reference Manual,
+      <seealso marker="doc/reference_manual:errors">
+      Errors and Error Handling</seealso>,
       for more information about the stack trace.</p>
 
     <p>The Debugger emulates the stack trace by keeping track of recently
@@ -305,12 +304,12 @@ c_break(Bindings) ->
       processes, that is all processes which have been/are executing
       code in interpreted modules.</p>
 
-    <image file="images/monitor.gif">
+    <image file="images/monitor.jpg">
       <icaption>The Monitor Window.</icaption>
     </image>
 
-    <p>The Auto Attach buttons, Stack Trace label and Back Trace Size
-      label show some options set, see
+    <p>The Auto Attach buttons, Stack Trace label, Back Trace Size
+      label, and Strings button show some options set, see
       <seealso marker="#options">Options Menu</seealso> for further
       information about these options.</p>
 
@@ -374,7 +373,9 @@ c_break(Bindings) ->
 	<item>
 	  <p>Try to load and restore Debugger settings from a file
 	    previously saved using <em>Save Settings...</em>, see below.
-	    Any errors are silently ignored.</p>
+	    Any errors are silently ignored.
+            <em>Note:</em> Settings saved by Erlang R16B01 or later
+            cannot be read by Erlang R16B or earlier.</p>
 	</item>
 	
 	<tag><em>Save Settings...</em></tag>
@@ -530,6 +531,19 @@ c_break(Bindings) ->
 	  </list>
 	</item>
 
+	<tag><em>Strings</em></tag>
+	<item><p>Set which integer lists should be printed as strings.
+            Does not affect already existing debugged processes.</p>
+	  <list>
+
+	    <item><em>Use range of +pc flag</em> - use the printable
+              character range set by the
+              <seealso marker="erts:erl#printable_character_range">
+              <c>erl(1)</c></seealso> flag <c>+pc</c>.
+          </item>
+	  </list>
+	</item>
+
 	<tag><em>Back Trace Size...</em></tag>
 	<item><p>Set how many call frames should be fetched when
 	    inspecting the call stack from the Attach Process window.
@@ -549,7 +563,7 @@ c_break(Bindings) ->
       <taglist>
 	<tag><em>Help</em></tag>
 	<item><p>View the Debugger documentation. Currently this
-	    function requires Netscape to be up and running.</p></item>
+	    function requires a web browser to be up and running.</p></item>
       </taglist>
     </section>
   </section>
@@ -585,14 +599,14 @@ c_break(Bindings) ->
       the Erlang shell:<br/>
       <c>4> c(module, debug_info).</c></p>
       
-    <image file="images/interpret.gif">
+    <image file="images/interpret.jpg">
       <icaption>The Interpret Dialog Window.</icaption>
     </image>
 
     <p>Browse the file hierarchy and interpret the appropriate modules
       by selecting a module name and pressing <em>Choose</em> (or
       carriage return), or by double clicking the module name.
-      Interpreted modules are displayed with a * in front of the name.
+      Interpreted modules have the type <c>erl src</c>.
     </p>
 
     <p>Pressing <em>All</em> will interpret all displayed modules in
@@ -619,7 +633,7 @@ c_break(Bindings) ->
       execution is automatically stopped.
     </p>
 
-    <image file="images/attach.gif">
+    <image file="images/attach.jpg">
       <icaption>The Attach Process Window.</icaption>
     </image>
 
@@ -629,9 +643,9 @@ c_break(Bindings) ->
 	  is indented and each line is prefixed with its line number.
 	  If the process execution is stopped, the current line is
 	  marked with <em>--></em>. An existing break point at a line
-	  is marked with <em>-@-</em>. In the example above,
-	  the execution has been stopped at line 56, before
-	  the execution of <c>io:format/2</c>.</p>
+	  is marked with a stop symbol. In the example above,
+	  the execution has been stopped at line 6, before
+	  the execution of <c>fac/1</c>.</p>
 	<p>Active breakpoints are shown in red, while inactive
 	  breakpoints are shown in blue.</p>
       </item>
@@ -678,7 +692,7 @@ c_break(Bindings) ->
 
     <p>It is configurable using the Options menu which areas should
       be shown or hidden. By default, all areas except the Trace area
-      is shown.</p>
+      are shown.</p>
 
     <section>
       <title>The File Menu</title>
@@ -776,7 +790,13 @@ c_break(Bindings) ->
 
 	<tag><em>Stack Trace</em></tag>
 	<item><p>Same as in <seealso marker="#monitor">the Monitor
-	      window</seealso>, but does only affect the debugged
+	      window</seealso>, but only affects the debugged
+	    process the window is attached to.</p>
+	</item>
+
+	<tag><em>Strings</em></tag>
+	<item><p>Same as in <seealso marker="#monitor">the Monitor
+	      window</seealso>, but only affects the debugged
 	    process the window is attached to.</p>
 	</item>
 
@@ -805,7 +825,7 @@ c_break(Bindings) ->
     <p>The View Module window shows the contents of an interpreted
       module and makes it possible to set breakpoints.</p>
 
-    <image file="images/view.gif">
+    <image file="images/view.jpg">
       <icaption>The View Module Window.</icaption>
     </image>
 
@@ -818,7 +838,7 @@ c_break(Bindings) ->
       Doubleclicking a line with an existing breakpoint will remove
       the breakpoint.</p>
 
-    <p>Breakpoints are marked with <em>-@-</em>.</p>
+    <p>Breakpoints are marked with a stop symbol.</p>
 
     <section>
       <title>File and Edit Menus</title>

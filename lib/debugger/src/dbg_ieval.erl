@@ -324,61 +324,64 @@ trace(What, Args) ->
 trace(return, {_Le,{dbg_apply,_,_,_}}, _Bool) ->
     ignore;
 trace(What, Args, true) ->
-    Str = case What of
-	      send ->
-		  {To,Msg} = Args,
-		  io_lib:format("==> ~w : ~p~n", [To, Msg]);
-	      receivex ->
-		  {Le, TimeoutP} = Args,
-		  Tail = case TimeoutP of
-			     true -> "with timeout~n";
-			     false -> "~n"
-			 end,
-		  io_lib:format("   (~w) receive " ++ Tail, [Le]);
-		      
-	      received when Args =:= null ->
-		  io_lib:format("~n", []);
-	      received -> % Args=Msg
-		  io_lib:format("~n<== ~p~n", [Args]);
-		      
-	      call ->
-		  {Called, {Le,Li,M,F,As}} = Args,
-		  case Called of
-		      extern ->
-			  io_lib:format("++ (~w) <~w> ~w:~w~ts~n",
-					[Le,Li,M,F,format_args(As)]);
-		      local ->
-			  io_lib:format("++ (~w) <~w> ~w~ts~n",
-					[Le,Li,F,format_args(As)])
-		  end;
-	      call_fun ->
-		  {Le,Li,F,As} = Args,
-		  io_lib:format("++ (~w) <~w> ~w~ts~n",
-				[Le, Li, F, format_args(As)]);
-	      return ->
-		  {Le,Val} = Args,
-		  io_lib:format("-- (~w) ~p~n", [Le, Val]);
-		      
-		      
-	      bif ->
-		  {Le,Li,M,F,As} = Args,
-		  io_lib:format("++ (~w) <~w> ~w:~w~ts~n",
-				[Le, Li, M, F, format_args(As)])
-	  end,
-    dbg_icmd:tell_attached({trace_output, Str});
+    Fun = fun(P) -> format_trace(What, Args, P) end,
+    dbg_icmd:tell_attached({trace_output, Fun});
 trace(_What, _Args, false) ->
     ignore.
 
-format_args(As) when is_list(As) ->
-    [$(,format_args1(As),$)];
-format_args(A) ->
-    [$/,io_lib:format("~p", [A])].
+format_trace(What, Args, P) ->
+    case What of
+        send ->
+            {To,Msg} = Args,
+            io_lib:format("==> ~w : "++P++"~n", [To, Msg]);
+        receivex ->
+            {Le, TimeoutP} = Args,
+            Tail = case TimeoutP of
+                       true -> "with timeout~n";
+                       false -> "~n"
+                   end,
+            io_lib:format("   (~w) receive " ++ Tail, [Le]);
 
-format_args1([A]) ->
-    [io_lib:format("~p", [A])];
-format_args1([A|As]) ->
-    [io_lib:format("~p", [A]),$,|format_args1(As)];
-format_args1([]) ->
+        received when Args =:= null ->
+            io_lib:format("~n", []);
+        received -> % Args=Msg
+            io_lib:format("~n<== "++P++"~n", [Args]);
+
+        call ->
+            {Called, {Le,Li,M,F,As}} = Args,
+            case Called of
+                extern ->	
+                    io_lib:format("++ (~w) <~w> ~w:~w~ts~n",
+                                  [Le,Li,M,F,format_args(As, P)]);
+                local ->
+                    io_lib:format("++ (~w) <~w> ~w~ts~n",
+                                  [Le,Li,F,format_args(As, P)])
+            end;
+        call_fun ->
+            {Le,Li,F,As} = Args,
+            io_lib:format("++ (~w) <~w> ~w~ts~n",
+                          [Le, Li, F, format_args(As, P)]);
+        return ->
+            {Le,Val} = Args,
+            io_lib:format("-- (~w) "++P++"~n", [Le, Val]);
+
+
+        bif ->
+            {Le,Li,M,F,As} = Args,
+            io_lib:format("++ (~w) <~w> ~w:~w~ts~n",
+                          [Le, Li, M, F, format_args(As, P)])
+    end.
+
+format_args(As, P) when is_list(As) ->
+    [$(,format_args1(As, P),$)];
+format_args(A, P) ->
+    [$/,io_lib:format(P, [A])].
+
+format_args1([A], P) ->
+    [io_lib:format(P, [A])];
+format_args1([A|As], P) ->
+    [io_lib:format(P, [A]),$,|format_args1(As, P)];
+format_args1([], _) ->
     [].
 
 %%--Other useful functions--------------------------------------------
