@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,18 +36,16 @@
 
 %%---------------------------------------------------------------------
 
--spec coordinate(hipe_digraph:hdg(), [{mfa(),boolean()}], [mfa()], module()) ->
+-spec coordinate(hipe_digraph:hdg(), [mfa()], [mfa()], module()) ->
         no_return().
 
 coordinate(CG, Escaping, NonEscaping, Mod) ->
   ServerPid = initialize_server(Escaping, Mod),
-  Clean = [MFA || {MFA, _} <- Escaping],
-  All = NonEscaping ++ Clean,
-  Restart = 
-    fun (MFALists, PM) -> restart_funs(MFALists, PM, All, ServerPid) end,
-  LastAction = 
-    fun (PM) -> last_action(PM, ServerPid, Mod, All) end, 
-  coordinate({Clean,All}, CG, gb_trees:empty(), Restart, LastAction, ServerPid).
+  All = ordsets:from_list(Escaping ++ NonEscaping),
+  Restart = fun (MFALs, PM) -> restart_funs(MFALs, PM, All, ServerPid) end,
+  LastAction = fun (PM) -> last_action(PM, ServerPid, Mod, All) end,
+  MFALists = {Escaping, All},
+  coordinate(MFALists, CG, gb_trees:empty(), Restart, LastAction, ServerPid).
 
 -type mfalists() :: {[mfa()], [mfa()]}.
 
@@ -129,7 +127,7 @@ restart_funs({Queue, Busy} = QB, PM, All, ServerPid) ->
 
 initialize_server(Escaping, Mod) ->
   Pid = spawn_link(fun () -> info_server(Mod) end),
-  lists:foreach(fun ({MFA, _}) -> Pid ! {set_escaping, MFA} end, Escaping),
+  lists:foreach(fun (MFA) -> Pid ! {set_escaping, MFA} end, Escaping),
   Pid.
  
 safe_get_args(MFA, Cfg, Pid, Mod) ->
