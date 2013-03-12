@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -193,7 +193,7 @@ job_control_remote(Config) when is_list(Config) ->
 	    {skip,"No new shell found"};
 	_ ->
 	    ?line RNode = create_nodename(),
-	    ?line MyNode = atom_to_list(node()),
+	    ?line MyNode = atom2list(node()),
 	    ?line Pid = spawn_link(fun() ->
 					   receive die ->
 						   ok
@@ -254,7 +254,7 @@ job_control_remote_noshell(Config) when is_list(Config) ->
 					   end),
 	    ?line PidStr = rpc:call(NSNode,erlang,pid_to_list,[Pid]),
 	    ?line true = rpc:call(NSNode,erlang,register,[kalaskula,Pid]),
-	    ?line NSNodeStr = atom_to_list(NSNode),
+	    ?line NSNodeStr = atom2list(NSNode),
 	    ?line CookieString = lists:flatten(
 				   io_lib:format("~w",
 						 [erlang:get_cookie()])),
@@ -715,7 +715,10 @@ get_default_shell() ->
 		{putline, "whereis(user_drv)."},
 		{getline, "undefined"}],[]),
 	old
-    catch E:R ->
-	    ?dbg({E,R}),
+    catch _E:_R ->
+	    ?dbg({_E,_R}),
 	    new
     end.
+
+atom2list(A) ->
+    lists:flatten(io_lib:format("~w", [A])).
