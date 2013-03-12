@@ -83,7 +83,8 @@ real_requests()->
      stream_through_fun,
      stream_through_mfa,
      streaming_error,
-     inet_opts
+     inet_opts,
+     invalid_headers
     ].
 
 only_simulated() ->
@@ -794,6 +795,10 @@ headers_dummy(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
+
+invalid_headers(Config) ->
+    Request  = {url(group_name(Config), "/dummy.html", Config), [{"cookie", undefined}]},
+    {error, _} = httpc:request(get, Request, [], []).
 
 remote_socket_close(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/just_close.html", Config),
