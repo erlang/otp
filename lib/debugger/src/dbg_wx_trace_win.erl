@@ -35,6 +35,7 @@
 	 select_line/2, selected_line/1,
 	 eval_output/3,                               % Evaluator area
 	 update_bindings/2,                           % Bindings area
+         update_strings/1,
 	 trace_output/2,                              % Trace area
 	 handle_event/2
 	]).
@@ -200,6 +201,7 @@ create_win(Parent, Title, Windows, Menus) ->
 		
 		wxFrame:show(Win),
 		put(window, Win),
+                put(strings, [str_on]),
 		Wi
 	end,
 
@@ -567,10 +569,18 @@ update_bindings(#winInfo{bind=#sub{out=BA}}, Bs) ->
     wx:foldl(fun({Var,Val},Row) ->
 		     wxListCtrl:insertItem(BA, Row, ""), 
 		     wxListCtrl:setItem(BA, Row, 0, dbg_wx_win:to_string(Var)),
-		     wxListCtrl:setItem(BA, Row, 1, dbg_wx_win:to_string("~99999tP",[Val, 20])),
+                     Format = case get(strings) of
+                                  []        -> "~999999lP";
+                                  [str_on]  -> "~999999tP"
+                              end,
+		     wxListCtrl:setItem(BA, Row, 1, dbg_wx_win:to_string(Format,[Val, 20])),
 		     Row+1
 	     end, 0, Bs),
     put(bindings,Bs),
+    ok.
+
+update_strings(Strings) ->
+    _ = put(strings, Strings),
     ok.
 
 %%--------------------------------------------------------------------
@@ -853,7 +863,10 @@ handle_event(#wx{id=?EVAL_ENTRY, event=#wxCommand{type=command_text_enter}},
 handle_event(#wx{event=#wxList{type=command_list_item_selected, itemIndex=Row}},Wi) ->
     Bs = get(bindings),
     {Var,Val} = lists:nth(Row+1, Bs),
-    Str = io_lib:format("< ~s = ~lp~n", [Var, Val]),
+    Str = case get(strings) of
+              []       -> io_lib:format("< ~s = ~lp~n", [Var, Val]);
+              [str_on] -> io_lib:format("< ~s = ~tp~n", [Var, Val])
+          end,
     eval_output(Wi, Str, bold),
     ignore;
 handle_event(#wx{event=#wxList{type=command_list_item_activated, itemIndex=Row}},_Wi) ->    
