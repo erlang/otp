@@ -1012,8 +1012,6 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
 	    case DynamicEnc of
 		{_LeadingAttrName,Fun} ->
 		    case (Type#type.def)#'ObjectClassFieldType'.fieldname of
-			{notype,T} ->
-			    throw({error,{notype,type_from_object,T}});
 			{Name,RestFieldNames} when is_atom(Name) ->
 			    asn1ct_func:need({Erule,complete,1}),
 			    asn1ct_func:need({Erule,encode_open_type,1}),
@@ -1043,8 +1041,6 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
 		#'Externaltypereference'{module=Mod,type=EType} ->
 		    emit({"'",Mod,"':'enc_",
 			  EType,"'(",Element,")"});
-		{notype,_} ->
-		    emit({"'enc_",Atype,"'(",Element,")"});
 		{primitive,bif} ->
 		    EncType =
 			case Atype of
@@ -1520,10 +1516,6 @@ gen_dec_line_other(Erule, Atype, TopType, Comp) ->
 		    asn1ct_gen_per:gen_dec_imm(Erule, #type{def=OpenType});
 		_ ->
 		    asn1ct_gen_per:gen_dec_imm(Erule, Type)
-	    end;
-	{notype,_} ->
-	    fun(BytesVar) ->
-		    emit({"'dec_",Atype,"'(",BytesVar,",telltype)"})
 	    end;
 	{constructed,bif} ->
 	    NewTypename = [Cname|TopType],

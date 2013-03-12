@@ -999,9 +999,7 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 	 {componentrelation,_,_}} ->
 	    {_LeadingAttrName,Fun} = EncObj,
 	    case RefedFieldName of
-%% 		{notype,T} ->
-%% 		    throw({error,{notype,type_from_object,T}});
-		{Name,RestFieldNames} when is_atom(Name), Name =/= notype ->
+		{Name,RestFieldNames} when is_atom(Name) ->
 		    case OptOrMand of
 			mandatory -> ok;
 			_ ->
@@ -1041,8 +1039,6 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 			end,
 		    ?ASN1CT_GEN_BER:gen_encode_prim(ber,EncType,{asis,Tag},
 						   Element);
-%% 		{notype,_} ->
-%% 		    emit(["'enc_",InnerType,"'(",Element,", ",{asis,Tag},")"]);
 		'ASN1_OPEN_TYPE' ->
 		    case Type#type.def of
 			#'ObjectClassFieldType'{} -> %Open Type

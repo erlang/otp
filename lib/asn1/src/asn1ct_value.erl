@@ -51,8 +51,6 @@ from_type(M,Typename,Type) when is_record(Type,type) ->
 	    from_type(Emod,Etype);
 	{_,user} ->
 		from_type(M,InnerType);
-	{notype,_} ->
-	    true;
 	{primitive,bif} ->
 	    from_type_prim(M, Type);
 	'ASN1_OPEN_TYPE' ->

@@ -1690,15 +1690,6 @@ type({fixedtypevaluefield,_Name,Type}) when is_record(Type,type) ->
 type({typefield,_}) ->
     'ASN1_OPEN_TYPE';
 type(X) ->
-    %%    io:format("asn1_types:type(~p)~n",[X]),
-    case catch type2(X) of
-	{'EXIT',_} ->
-	    {notype,X};
-	Normal ->
-	    Normal
-    end.
-
-type2(X) ->
     case prim_bif(X) of
 	true ->
 	    {primitive,bif};

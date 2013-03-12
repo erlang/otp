@@ -94,9 +94,7 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
 	#'Externaltypereference'{module=CurrMod,type=Etype} ->
 	    emit({"'enc_",Etype,"'(Val).",nl,nl});
 	#'Externaltypereference'{module=Emod,type=Etype} ->
-	    emit({"'",Emod,"':'enc_",Etype,"'(Val).",nl,nl});
-	{notype,_} ->
-	    emit({"'enc_",InnerType,"'(Val).",nl,nl})
+	    emit({"'",Emod,"':'enc_",Etype,"'(Val).",nl,nl})
     end.
 
 
