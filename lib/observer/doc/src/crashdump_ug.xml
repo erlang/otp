@@ -48,8 +48,8 @@
     Information which shows a short summary of the information in
     the crashdump.</p>
 
-    <p>The default browser is Internet Explorer on Windows or else
-    Firefox. To use another browser, give the browser's start command
+    <p>The default browser is Internet Explorer on Windows, open on Mac OS X, 
+    or else Firefox. To use another browser, give the browser's start command
     as the second argument to <c>cdv</c>. If the given browser name is
     not known to Crashdump Viewer, the browser argument is executed as
     a command with the start URL as the only argument.</p>
