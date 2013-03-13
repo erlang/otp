@@ -1202,8 +1202,8 @@ start_erlang_server_and_openssl_client_with_opts(Config, ErlangServerOpts, OpenS
                     {mfa, {?MODULE, erlang_ssl_receive, [Data]}},
                     {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-
-    Cmd = "openssl s_client " ++ OpenSSLClientOpts ++ " -msg -port " ++ integer_to_list(Port)  ++
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Cmd = "openssl s_client " ++ OpenSSLClientOpts ++ " -msg -port " ++ integer_to_list(Port)  ++ version_flag(Version) ++
     " -host localhost",
 
     ct:print("openssl cmd: ~p~n", [Cmd]),
