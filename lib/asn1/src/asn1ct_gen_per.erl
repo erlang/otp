@@ -287,9 +287,7 @@ gen_obj_code(Erules,_Module,Obj) when is_record(Obj,typedef) ->
 				ObjName, Fields, []),
     emit(nl),
     gen_decode_constr_type(Erules,DecConstructed),
-    emit(nl);
-gen_obj_code(_,_,Obj) when is_record(Obj,pobjectdef) ->
-    ok.
+    emit(nl).
 
 
 gen_encode_objectfields(Erule, ClassName,

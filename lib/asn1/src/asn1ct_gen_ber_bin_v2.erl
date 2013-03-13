@@ -650,9 +650,7 @@ gen_obj_code(Erules,_Module,Obj) when is_record(Obj,typedef) ->
 				ObjName,Fields,[]),
     emit(nl),
     gen_decode_constr_type(Erules,DecConstructed),
-    emit_tlv_format_function();
-gen_obj_code(_Erules,_Module,Obj) when is_record(Obj,pobjectdef) ->
-    ok.
+    emit_tlv_format_function().
 
 gen_encode_objectfields(ClassName,[{typefield,Name,OptOrMand}|Rest],
 			ObjName,ObjectFields,ConstrAcc) ->
