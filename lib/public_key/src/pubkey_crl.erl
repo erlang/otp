@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -561,7 +561,7 @@ extract_crl_verify_data(CRL, DerCRL) ->
     #'AlgorithmIdentifier'{algorithm = SigAlg} =
 	CRL#'CertificateList'.signatureAlgorithm,
     PlainText = encoded_tbs_crl(DerCRL),
-    DigestType = pubkey_cert:digest_type(SigAlg),
+    {DigestType, _} = public_key:pkix_sign_types(SigAlg),
     {DigestType, PlainText, Signature}.
 
 encoded_tbs_crl(CRL) ->

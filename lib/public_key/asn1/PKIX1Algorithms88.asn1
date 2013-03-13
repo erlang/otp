@@ -35,6 +35,9 @@
    id-dsa-with-sha1 OBJECT IDENTIFIER ::=  {
         iso(1) member-body(2) us(840) x9-57 (10040) x9algorithm(4) 3 }
 
+   id-dsaWithSHA1 OBJECT IDENTIFIER ::= {
+	iso(1) identified-organization(3) oiw(14) secsig(3) algorithms(2) dsaWithSHA1(27)
+  }
    -- encoding for DSA signature generated with SHA-1 hash
 
    Dss-Sig-Value  ::=  SEQUENCE  {
