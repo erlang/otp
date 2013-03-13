@@ -1468,20 +1468,13 @@ decode_type('BMPString') -> 30;
 decode_type('CHOICE') -> 'CHOICE'; % choice gets the tag from the actual alternative  
 decode_type(Else) -> exit({error,{asn1,{unrecognized_type,Else}}}).
 
-mkfuncname(WhatKind,DecOrEnc) ->
-    case WhatKind of
-	#'Externaltypereference'{module=Mod,type=EType} ->
-	    CurrMod = get(currmod),
-	    case CurrMod of
-		Mod ->
-		    lists:concat(["'",DecOrEnc,"_",EType,"'"]);
-		_ ->
-% 		    io:format("CurrMod: ~p, Mod: ~p~n",[CurrMod,Mod]),
-		    lists:concat(["'",Mod,"':'",DecOrEnc,"_",EType,"'"])
-	    end;
-	'ASN1_OPEN_TYPE' ->
-	    lists:concat(["'",DecOrEnc,"_",WhatKind,"'"])
-	    
+mkfuncname(#'Externaltypereference'{module=Mod,type=EType}, DecOrEnc) ->
+    CurrMod = get(currmod),
+    case CurrMod of
+	Mod ->
+	    lists:concat(["'",DecOrEnc,"_",EType,"'"]);
+	_ ->
+	    lists:concat(["'",Mod,"':'",DecOrEnc,"_",EType,"'"])
     end.
 
 get_size_constraint(C) ->

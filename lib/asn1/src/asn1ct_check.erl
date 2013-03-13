@@ -1816,10 +1816,6 @@ convert_to_defaultfield(S,ObjFieldName,[OFS|RestOFS],CField)->
 				T = check_type(S,#typedef{typespec=ObjFieldSetting},
 					       ObjFieldSetting),
 				{#typedef{checked=true,name=Bif,typespec=T},RestSettings};
-			    _OCFT = #'ObjectClassFieldType'{} ->
-				T=check_type(S,#typedef{typespec=ObjFieldSetting},ObjFieldSetting),
-				%%io:format("OCFT=~p~n,T=~p~n",[OCFT,T]),
-				{#typedef{checked=true,typespec=T},RestSettings};
 			    _ ->
 				%this case should not happen any more
 				{Mod,T} = 
