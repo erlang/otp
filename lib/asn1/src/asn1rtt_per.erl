@@ -963,7 +963,10 @@ encode_relative_oid(Val) when is_list(Val) ->
 %%
 
 complete(L) ->
-    asn1rt_nif:encode_per_complete(L).
+    case asn1rt_nif:encode_per_complete(L) of
+	<<>> -> <<0>>;
+	Bin -> Bin
+    end.
 
 octets_to_complete(Len,Val) when Len < 256 ->
     [20,Len,Val];
