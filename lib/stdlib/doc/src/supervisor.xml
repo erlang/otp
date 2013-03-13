@@ -177,12 +177,6 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
           child process, it must be implemented in a safe way and its cleanup
           procedure must always return.</p>
         </warning>
-        <p><em>Important note on simple-one-for-one supervisors:</em>
-          The dynamically created child processes of a
-          simple-one-for-one supervisor are not explicitly killed,
-          regardless of shutdown strategy, but are expected to terminate
-          when the supervisor does (that is, when an exit signal from
-          the parent process is received).</p>
         <p>Note that all child processes implemented using the standard
           OTP behavior modules automatically adhere to the shutdown
           protocol.</p>
