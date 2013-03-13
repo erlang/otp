@@ -163,8 +163,13 @@ request(Method,
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, ParsedUrl} ->
-	    handle_request(Method, Url, ParsedUrl, Headers, [], [], 
-			   HTTPOptions, Options, Profile)
+	    case header_parse(Headers) of
+		{error, Reason} ->
+		    {error, Reason};
+		_ ->
+		    handle_request(Method, Url, ParsedUrl, Headers, [], [], 
+				   HTTPOptions, Options, Profile)
+	    end
     end;
      
 request(Method, 
@@ -1247,7 +1252,12 @@ uri_parse(URI, Opts) ->
 
 
 %%--------------------------------------------------------------------------
-    
+header_parse([]) ->
+    ok;
+header_parse([{Field, Value}|T]) when is_list(Field), is_list(Value) ->    
+    header_parse(T);
+header_parse(_) -> 
+    {error, {headers_error, not_strings}}.
 child_name2info(undefined) ->
     {error, no_such_service};
 child_name2info(httpc_manager) ->
