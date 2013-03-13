@@ -397,7 +397,6 @@ struct t_pwritev {
     ErlDrvPort         port;
     ErlDrvPDL          q_mtx;
     size_t             size;
-    size_t             free_size;
     unsigned           cnt;
     unsigned           n;
     struct t_pbuf_spec specs[1];
@@ -462,7 +461,6 @@ struct t_data
 	    ErlDrvPort    port;
 	    ErlDrvPDL     q_mtx;
 	    size_t        size;
-	    size_t        free_size;
 	    size_t        reply_size;
 	} writev;
 	struct t_pwritev pwritev;
@@ -1532,26 +1530,24 @@ static void invoke_writev(void *data) {
     }
     EF_FREE(iov);
 
-    d->c.writev.free_size = size;
-    d->c.writev.size -= size;
     if (! d->result_ok) {
 	d->again = 0;
+	MUTEX_LOCK(d->c.writev.q_mtx);
+	driver_deq(d->c.writev.port, d->c.writev.size);
+	MUTEX_UNLOCK(d->c.writev.q_mtx);
     } else {
 	if (! segment) {
 	    d->again = 0;
 	}
+	d->c.writev.size -= size;
 	TRACE_F(("w%lu", (unsigned long)size));
-
+	MUTEX_LOCK(d->c.writev.q_mtx);
+	driver_deq(d->c.writev.port, size);
+	MUTEX_UNLOCK(d->c.writev.q_mtx);
     }
-    DTRACE_INVOKE_RETURN(FILE_WRITE);
-}
 
-static void free_writev(void *data) {
-    struct t_data *d = data;
-    MUTEX_LOCK(d->c.writev.q_mtx);
-    driver_deq(d->c.writev.port, d->c.writev.size + d->c.writev.free_size);
-    MUTEX_UNLOCK(d->c.writev.q_mtx);
-    EF_FREE(d);
+
+    DTRACE_INVOKE_RETURN(FILE_WRITE);
 }
 
 static void invoke_pwd(void *data)
@@ -1602,7 +1598,7 @@ static void invoke_pwritev(void *data) {
     struct t_pwritev *c = &d->c.pwritev;
     size_t            p;
     int               segment;
-    size_t            size, write_size;
+    size_t            size, write_size, written;
     DTRACE_INVOKE_SETUP(FILE_PWRITEV);
 
     segment = d->again && c->size >= 2*FILE_SEGMENT_WRITE;
@@ -1622,23 +1618,19 @@ static void invoke_pwritev(void *data) {
 
     if (iovlen < 0)
 	goto error; /* Port terminated */
-    for (iovcnt = 0, c->free_size = 0;
-	 c->cnt < c->n && iovcnt < iovlen && c->free_size < size;
+    for (iovcnt = 0, written = 0;
+	 c->cnt < c->n && iovcnt < iovlen && written < size;
 	 c->cnt++) {
 	int chop;
 	write_size = c->specs[c->cnt].size;
 	if (iov[iovcnt].iov_len - p < write_size) {
-	    /* Mismatch between pos/size spec and what is queued */
-	    d->errInfo.posix_errno = EINVAL;
-	    d->result_ok = 0;
-	    d->again = 0;
-	    goto done;
+	    goto error;
 	}
-	chop = segment && c->free_size + write_size >= 2*FILE_SEGMENT_WRITE;
+	chop = segment && written + write_size >= 2*FILE_SEGMENT_WRITE;
 	if (chop) {
-	    ASSERT(c->free_size < FILE_SEGMENT_WRITE);
+	    ASSERT(written < FILE_SEGMENT_WRITE);
 	    write_size = FILE_SEGMENT_WRITE + FILE_SEGMENT_WRITE/2 
-		- c->free_size;
+		- written;
 	}
 	d->result_ok = efile_pwrite(&d->errInfo, (int) d->fd,
 				    iov[iovcnt].iov_base + p,
@@ -1646,15 +1638,15 @@ static void invoke_pwritev(void *data) {
 				    c->specs[c->cnt].offset);
 	if (! d->result_ok) {
 	    d->again = 0;
-	    goto done;
+	    goto deq_error;
 	}
-	c->free_size += write_size; 
+	written += write_size; 
 	c->size -= write_size;
 	if (chop) { 
 	    c->specs[c->cnt].offset += write_size;
 	    c->specs[c->cnt].size -= write_size;
 	    /* Schedule out (d->again != 0) */
-	    goto done;
+	    break;
 	}
 	/* Move forward in buffer */
 	p += write_size;
@@ -1676,23 +1668,26 @@ static void invoke_pwritev(void *data) {
 	    d->errInfo.posix_errno = EINVAL;
 	    d->result_ok = 0;
 	    d->again = 0;
+	deq_error:
+	    MUTEX_LOCK(d->c.writev.q_mtx);
+	    driver_deq(d->c.pwritev.port, c->size);
+	    MUTEX_UNLOCK(d->c.writev.q_mtx);
+
+	    goto done;
 	} else {
-	    ASSERT(c->free_size == size);
+	    ASSERT(written == size);
 	    d->again = 0;
 	}
-    }
+    } else
+      ASSERT(written == FILE_SEGMENT_WRITE);
+      
+    MUTEX_LOCK(d->c.writev.q_mtx);
+    driver_deq(d->c.pwritev.port, size);
+    MUTEX_UNLOCK(d->c.writev.q_mtx);
  done:
     EF_FREE(iov); /* Free our copy of the vector, nothing to restore */
+    
     DTRACE_INVOKE_RETURN(FILE_PWRITEV);
-}
-
-static void free_pwritev(void *data) {
-    struct t_data *d = data;
-
-    MUTEX_LOCK(d->c.writev.q_mtx);
-    driver_deq(d->c.pwritev.port, d->c.pwritev.free_size + d->c.pwritev.size);
-    MUTEX_UNLOCK(d->c.writev.q_mtx);
-    EF_FREE(d);
 }
 
 static void invoke_flstat(void *data)
@@ -2008,21 +2003,8 @@ static void try_free_read_bin(file_descriptor *desc) {
 
 
 static int try_again(file_descriptor *desc, struct t_data *d) {
-    if (! d->again) {
+    if (! d->again)
 	return 0;
-    }
-    switch (d->command) {
-    case FILE_WRITE:
-	MUTEX_LOCK(d->c.writev.q_mtx);
-	driver_deq(d->c.writev.port, d->c.writev.free_size);
-	MUTEX_UNLOCK(d->c.writev.q_mtx);
-	break;
-    case FILE_PWRITEV:
-	MUTEX_LOCK(d->c.writev.q_mtx);
-	driver_deq(d->c.pwritev.port, d->c.pwritev.free_size);
-	MUTEX_UNLOCK(d->c.writev.q_mtx);
-	break;
-    }
     if (desc->timer_state != timer_idle) {
 	driver_cancel_timer(desc->port);
     }
@@ -2078,10 +2060,9 @@ static struct t_data *async_write(file_descriptor *desc, int *errp,
     }
 #endif
     d->reply = reply;
-    d->c.writev.free_size = 0;
     d->c.writev.reply_size = reply_size;
     d->invoke = invoke_writev;
-    d->free = free_writev;
+    d->free = free_data;
     d->level = 1;
     cq_enq(desc, d);
     desc->write_buffered = 0;
@@ -2394,7 +2375,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 		  desc->write_errInfo = d->errInfo;
 	      }
 	  }
-	  free_writev(data);
+	  free_data(data);
 	  break;
       case FILE_LSEEK:
 	  if (d->reply) {
@@ -2524,7 +2505,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  } else {
 	      reply_Uint(desc, d->c.pwritev.n);
 	  }
-	  free_pwritev(data);
+	  free_data(data);
 	  break;
       case FILE_PREADV:
 	  if (!d->result_ok) {
@@ -2581,7 +2562,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
     }
     DTRACE6(efile_drv_return, sched_i1, sched_i2, sched_utag,
             command, result_ok, posix_errno);
-    if (desc->write_buffered != 0 && desc->timer_state == timer_idle) {
+    if (desc->write_buffered != 0 && desc->timer_state == timer_idle ) {
 	desc->timer_state = timer_write;
 	driver_set_timer(desc->port, desc->write_delay);
     }
@@ -3651,7 +3632,6 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 #ifdef USE_VM_PROBES
 	dt_i3 = d->c.pwritev.size;
 #endif
-	d->c.pwritev.free_size = 0;
 	if (j == 0) {
 	    /* Trivial case - nothing to write */
 	    EF_FREE(d);
@@ -3675,7 +3655,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 		MUTEX_UNLOCK(desc->q_mtx);
 		/* Execute the command */
 		d->invoke = invoke_pwritev;
-		d->free = free_pwritev;
+		d->free = free_data;
 		d->level = 1;
 		cq_enq(desc, d);
 	    }
