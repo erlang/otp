@@ -35,7 +35,9 @@ sha384WithRSAEncryption    OBJECT IDENTIFIER ::= { pkcs-1 12 }
 sha512WithRSAEncryption    OBJECT IDENTIFIER ::= { pkcs-1 13 }
 sha224WithRSAEncryption    OBJECT IDENTIFIER  ::=  { pkcs-1 14 }
 
-
+-- ISO oid  - equvivalent to sha1WithRSAEncryption
+sha-1WithRSAEncryption OBJECT IDENTIFIER ::= {
+	iso(1) identified-organization(3) oiw(14) secsig(3) algorithms(2) sha-1WithRSAEncryption(29)}
 
 id-sha1    OBJECT IDENTIFIER ::= {
     iso(1) identified-organization(3) oiw(14) secsig(3)

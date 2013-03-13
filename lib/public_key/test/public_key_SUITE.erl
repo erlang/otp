@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,8 @@ all() ->
      {group, ssh_public_key_decode_encode},
      encrypt_decrypt,
      {group, sign_verify},
-     pkix, pkix_countryname, pkix_path_validation].
+     pkix, pkix_countryname, pkix_path_validation,
+     pkix_iso_rsa_oid, pkix_iso_dsa_oid].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, encrypted_pem,
@@ -688,6 +689,31 @@ pkix_path_validation(Config) when is_list(Config) ->
 	public_key:pkix_path_validation(unknown_ca, [Cert1], [{verify_fun,
 							      VerifyFunAndState1}]),
     ok.
+
+%%--------------------------------------------------------------------
+pkix_iso_rsa_oid() ->
+ [{doc, "Test workaround for supporting certs that use ISO oids"
+   " 1.3.14.3.2.29 instead of PKIX/PKCS oid"}].
+pkix_iso_rsa_oid(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    {ok, PemCert} = file:read_file(filename:join(Datadir, "rsa_ISO.pem")),
+    [{_, Cert, _}] = public_key:pem_decode(PemCert),
+    OTPCert = public_key:pkix_decode_cert(Cert, otp),
+    SigAlg = OTPCert#'OTPCertificate'.signatureAlgorithm,
+    {_, rsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
+
+%%--------------------------------------------------------------------
+pkix_iso_dsa_oid() ->
+ [{doc, "Test workaround for supporting certs that use ISO oids"
+   "1.3.14.3.2.27 instead of PKIX/PKCS oid"}].
+pkix_iso_dsa_oid(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    {ok, PemCert} = file:read_file(filename:join(Datadir, "dsa_ISO.pem")),
+    [{_, Cert, _}] = public_key:pem_decode(PemCert),
+    OTPCert = public_key:pkix_decode_cert(Cert, otp),
+    SigAlg = OTPCert#'OTPCertificate'.signatureAlgorithm,
+    {_, dsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------

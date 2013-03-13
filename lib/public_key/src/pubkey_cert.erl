@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,7 @@
  	 validate_time/3, validate_signature/6,
  	 validate_issuer/4, validate_names/6,
 	 validate_extensions/4,
-	 normalize_general_name/1, digest_type/1, is_self_signed/1,
+	 normalize_general_name/1, is_self_signed/1,
 	 is_issuer/2, issuer_id/2, is_fixed_dh_cert/1,
 	 verify_data/1, verify_fun/4, select_extension/2, match_name/3,
 	 extensions_list/1, cert_auth_key_id/1, time_str_2_gregorian_sec/1]).
@@ -426,13 +426,12 @@ extensions_list(asn1_NOVALUE) ->
 extensions_list(Extensions) ->
     Extensions.
 
-
 extract_verify_data(OtpCert, DerCert) ->
     {_, Signature} = OtpCert#'OTPCertificate'.signature,
     SigAlgRec = OtpCert#'OTPCertificate'.signatureAlgorithm,
     SigAlg = SigAlgRec#'SignatureAlgorithm'.algorithm,
     PlainText = encoded_tbs_cert(DerCert),
-    DigestType = digest_type(SigAlg),
+    {DigestType,_} = public_key:pkix_sign_types(SigAlg),
     {DigestType, PlainText, Signature}.
 
 verify_signature(OtpCert, DerCert, Key, KeyParams) ->
@@ -450,21 +449,6 @@ encoded_tbs_cert(Cert) ->
     {'Certificate',
      {'Certificate_tbsCertificate', EncodedTBSCert}, _, _} = PKIXCert,
     EncodedTBSCert.
-
-digest_type(?sha1WithRSAEncryption) ->
-    sha;
-digest_type(?sha224WithRSAEncryption) ->
-    sha224;
-digest_type(?sha256WithRSAEncryption) ->
-    sha256;
-digest_type(?sha384WithRSAEncryption) ->
-    sha384;
-digest_type(?sha512WithRSAEncryption) ->
-    sha512;
-digest_type(?md5WithRSAEncryption) ->
-    md5;
-digest_type(?'id-dsa-with-sha1') ->
-    sha.
 
 public_key_info(PublicKeyInfo, 
 		#path_validation_state{working_public_key_algorithm =

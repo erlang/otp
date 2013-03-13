@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,8 +37,7 @@
 	 is_valid_extkey_usage/2,
 	 is_valid_key_usage/2,
 	 select_extension/2,
-	 extensions_list/1,
-	 signature_type/1
+	 extensions_list/1
 	]).
  
 %%====================================================================
@@ -165,22 +164,6 @@ extensions_list(asn1_NOVALUE) ->
     [];
 extensions_list(Extensions) ->
     Extensions.
-
-%%--------------------------------------------------------------------
--spec signature_type(term()) -> rsa | dsa .
-%%
-%% Description: 
-%%--------------------------------------------------------------------
-signature_type(RSA) when RSA == ?sha1WithRSAEncryption;
-			 RSA == ?md5WithRSAEncryption;
-			 RSA == ?sha224WithRSAEncryption;
-			 RSA == ?sha256WithRSAEncryption;
-			 RSA == ?sha384WithRSAEncryption;
-			 RSA == ?sha512WithRSAEncryption
-			 ->
-    rsa;
-signature_type(?'id-dsa-with-sha1') ->
-    dsa.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
