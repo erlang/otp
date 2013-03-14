@@ -177,6 +177,7 @@ groups() ->
                     testX420]},
        testTcapsystem,
        testNBAPsystem,
+       testS1AP,
        test_compile_options,
        testDoubleEllipses,
        test_x691,
@@ -1022,6 +1023,16 @@ testNBAPsystem(Config) -> test(Config, fun testNBAPsystem/3, [per]).
 testNBAPsystem(Config, Rule, Opts) ->
     testNBAPsystem:compile(Config, [Rule|Opts]),
     testNBAPsystem:test(Rule, Config).
+
+testS1AP(Config) -> test(Config, fun testS1AP/3).
+testS1AP(Config, Rule, Opts) ->
+    S1AP = ["S1AP-CommonDataTypes",
+	    "S1AP-Constants",
+	    "S1AP-Containers",
+	    "S1AP-IEs",
+	    "S1AP-PDU-Contents",
+	    "S1AP-PDU-Descriptions"],
+    asn1_test_lib:compile_all(S1AP, Config, [Rule|Opts]).
 
 test_compile_options(Config) ->
     ok = test_compile_options:wrong_path(Config),
