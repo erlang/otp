@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1094,9 +1094,11 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
     %% First, install release directly and check how much time it takes
+    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
     {TInst0,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
-    ct:log("install_release: ~.2f",[TInst0/1000000]),
+    SWT0 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
+%    ct:log("install_release: ~.2f",[TInst0/1000000]),
 
     %% Restore to old release, spawn processes again and load to get old code
     {_,RelVsn1} = init:script_id(),
@@ -1113,15 +1115,32 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     {TCheck,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, check_install_release,
 			   [RelVsn2,[purge]]]),
-    ct:log("check_install_release with purge: ~.2f",[TCheck/1000000]),
+%    ct:log("check_install_release with purge: ~.2f",[TCheck/1000000]),
 
     %% Finally install release after check and purge, and check that
     %% this install was faster than the first.
+    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,false]),
+    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
     {TInst2,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
-    ct:log("install_release: ~.2f",[TInst2/1000000]),
+    SWT2 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
+%    ct:log("install_release: ~.2f",[TInst2/1000000]),
 
-    true = (TInst2 < TInst0),
+    %% Calculate and print real time and CPU utilization
+    SumFun = fun({_,A,T},{AAcc,TAcc}) -> {A+AAcc,T+TAcc} end,
+    {SumA0,SumT0} = lists:foldl(SumFun,{0,0},SWT0),
+    {SumA2,SumT2} = lists:foldl(SumFun,{0,0},SWT2),
+    TI0=TInst0/1000000,
+    TI2=TInst2/1000000,
+    CPU0=SumA0/SumT0,
+    CPU2=SumA2/SumT2,
+    X0 = TI0*CPU0,
+    X2 = TI2*CPU2,
+    ct:log("First run:  T=~.2fsec, CPU=~.2f, T*CPU=~.2f~n"
+	   "Second run: T=~.2fsec, CPU=~.2f, T*CPU=~.2f~n",
+	   [TI0, CPU0, X0, TI2, CPU2, X2]),
+
+    true = (X2 =< X0),  % disregarding wait time for file access etc.
 
     ok.
 
@@ -1172,9 +1191,11 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
     %% First, install release directly and check how much time it takes
+    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
     {TInst0,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
-    ct:log("install_release: ~.2f",[TInst0/1000000]),
+    SWT0 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
+%    ct:log("install_release: ~.2f",[TInst0/1000000]),
 
     %% Restore to old release, spawn processes again and load to get old code
     {_,RelVsn1} = init:script_id(),
@@ -1191,15 +1212,32 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     {TCheck,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, check_install_release,
 			   [RelVsn2,[purge]]]),
-    ct:log("check_install_release with purge: ~.2f",[TCheck/1000000]),
+%    ct:log("check_install_release with purge: ~.2f",[TCheck/1000000]),
 
     %% Finally install release after check and purge, and check that
     %% this install was faster than the first.
+    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,false]),
+    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
     {TInst2,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
-    ct:log("install_release: ~.2f",[TInst2/1000000]),
+    SWT2 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
+%    ct:log("install_release: ~.2f",[TInst2/1000000]),
 
-    true = (TInst2 =< TInst0),
+    %% Calculate and print real time and CPU utilization
+    SumFun = fun({_,A,T},{AAcc,TAcc}) -> {A+AAcc,T+TAcc} end,
+    {SumA0,SumT0} = lists:foldl(SumFun,{0,0},SWT0),
+    {SumA2,SumT2} = lists:foldl(SumFun,{0,0},SWT2),
+    TI0=TInst0/1000000,
+    TI2=TInst2/1000000,
+    CPU0=SumA0/SumT0,
+    CPU2=SumA2/SumT2,
+    X0 = TI0*CPU0,
+    X2 = TI2*CPU2,
+    ct:log("First run:  T=~.2fsec, CPU=~.2f, T*CPU=~.2f~n"
+	   "Second run: T=~.2fsec, CPU=~.2f, T*CPU=~.2f~n",
+	   [TI0, CPU0, X0, TI2, CPU2, X2]),
+
+    true = (X2 =< X0),  % disregarding wait time for file access etc.
 
     ok.
 
