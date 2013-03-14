@@ -1016,8 +1016,11 @@ complete(InList) when is_list(InList) ->
 		Bits -> <<Res/bitstring,0:(8-Bits)>>
 	end
     end;
-complete(InList) when is_binary(InList) ->
-    InList;
+complete(Bin) when is_binary(Bin) ->
+    case Bin of
+	<<>> -> <<0>>;
+	_ -> Bin
+    end;
 complete(InList) when is_bitstring(InList) ->
     PadLen = 8 - (bit_size(InList) band 7),
     <<InList/bitstring,0:PadLen>>.
