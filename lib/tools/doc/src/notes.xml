@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -37,7 +37,7 @@
         <item>
           <p>
 	    Fix a bug in cover when used with no_auto_import. Thanks
-	    to José Valim.</p>
+	    to JosÃ© Valim.</p>
           <p>
 	    Own Id: OTP-10778</p>
         </item>
@@ -72,7 +72,7 @@
         <item>
           <p>
 	    Add separate face for exported functions (Thanks to
-	    Thomas Järvstrand)</p>
+	    Thomas JÃ¤rvstrand)</p>
           <p>
 	    Own Id: OTP-10637</p>
         </item>
@@ -157,7 +157,7 @@
         </item>
         <item>
           <p>
-	    Documentation fixes (Thanks to Ricardo Catalinas Jiménez
+	    Documentation fixes (Thanks to Ricardo Catalinas JimÃ©nez
 	    )</p>
           <p>
 	    Own Id: OTP-10121</p>

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -76,7 +76,7 @@
         <item>
           <p>
 	    Add missing spaces in xmerl doc (Thanks to Ricardo
-	    Catalinas Jiménez)</p>
+	    Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-9873</p>
         </item>

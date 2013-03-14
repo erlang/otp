@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -59,7 +59,7 @@
       <list>
         <item>
           <p>
-	    Fix typo in ET doc (Thanks to Ricardo Catalinas Jiménez)</p>
+	    Fix typo in ET doc (Thanks to Ricardo Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-10119</p>
         </item>

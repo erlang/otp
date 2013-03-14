@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -246,7 +246,7 @@
         <item>
           <p>
 	    Initialize <c>to</c> and <c>to_name</c> in
-	    <c>erl_receive_msg</c>. (Thanks to Göran Larsson)</p>
+	    <c>erl_receive_msg</c>. (Thanks to GÃ¶ran Larsson)</p>
           <p>
 	    Own Id: OTP-9241</p>
         </item>

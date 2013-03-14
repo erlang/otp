@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -39,7 +39,7 @@
           <p>
 	    Add {silent_start, boolean()} option to wx:new/1 in order
 	    to be able to suppress error messages during startup of
-	    wx. (Thanks to Håkan Mattsson)</p>
+	    wx. (Thanks to HÃ¥kan Mattsson)</p>
           <p>
 	    Own Id: OTP-10585</p>
         </item>

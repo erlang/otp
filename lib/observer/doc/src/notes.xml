@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -76,7 +76,7 @@
           <p>
 	    Start position was lost after a 'Found' -&gt; 'Not found'
 	    search sequence leading an undefined position in the next
-	    search. Thanks to Peti Gömori</p>
+	    search. Thanks to Peti GÃ¶mori</p>
           <p>
 	    Own Id: OTP-10218</p>
         </item>
