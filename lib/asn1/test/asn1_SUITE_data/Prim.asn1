@@ -22,6 +22,8 @@ BEGIN
 
   Enum ::=  ENUMERATED {monday(1),tuesday(2),wednesday(3),thursday(4),
                         friday(5),saturday(6),sunday(7)}
+  SingleEnumVal ::= ENUMERATED {true}
+  SingleEnumValExt ::= ENUMERATED {true, ...}
 
   ObjId ::= OBJECT IDENTIFIER
   
@@ -35,4 +37,15 @@ BEGIN
 			base (2),
 			exponent (-125..128) } )
 
+  Seq ::= SEQUENCE {
+    n Null,
+    i1 INTEGER (0..63),
+    e1 SingleEnumVal,
+    i2 INTEGER (0..63),
+    e2 SingleEnumVal,
+    i3 INTEGER (0..63),
+    b Bool,
+    i4 INTEGER (0..63)
+  }    
+    
 END

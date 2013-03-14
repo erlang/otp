@@ -21,14 +21,14 @@
 
 -export([all/1, init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
--export([':#"|@\\ difficult_case_name_äöå'/1,
+-export(['#=@: difficult_case_name_äöå'/1,
 	 print_and_log_unicode/1,
 	 print_and_log_latin1/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 all(suite) ->
-    [':#"|@\\ difficult_case_name_äöå',
+    ['#=@: difficult_case_name_äöå',
      print_and_log_unicode,
      print_and_log_latin1].
 
@@ -57,7 +57,7 @@ cancel_timetrap(Config) ->
 %%%-----------------------------------------------------------------
 %%% Test cases
 
-':#"|@\\ difficult_case_name_äöå'(Config) when is_list(Config) ->
+'#=@: difficult_case_name_äöå'(Config) when is_list(Config) ->
     ok.
 
 print_and_log_unicode(Config) when is_list(Config) ->

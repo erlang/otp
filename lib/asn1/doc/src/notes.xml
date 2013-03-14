@@ -31,6 +31,27 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 2.0.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The generated decoder for the 'per' and 'uper'
+	    backends did not correctly decode ENUMERATEDs with a
+	    single value.</p>
+	    <p>The generated encoder for the 'per' and 'uper'
+	    backends generated an empty binary for a top-level type
+	    that did not need to be encoded (such as an ENUMERATED
+	    with a single value). The correct result should be a
+	    binary containing a 0 byte.</p>
+          <p>
+	    Own Id: OTP-10916 Aux Id: seq12270 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 2.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

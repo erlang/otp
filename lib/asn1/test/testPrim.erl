@@ -513,6 +513,14 @@ enum(Rules) ->
 		      case catch asn1_wrapper:encode('Prim','Enum',4) of Enum -> Enum end,
 		  ok
 	  end,
+
+    case Rules of
+	Per when Per =:= per; Per =:= uper ->
+	    {ok,<<0>>} = 'Prim':encode('SingleEnumVal', true),
+	    {ok,<<0>>} = 'Prim':encode('SingleEnumValExt', true);
+	ber ->
+	    ok
+    end,
     ok.
 
 
