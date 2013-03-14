@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -276,7 +276,12 @@ clear_lines(From, To, Grid) ->
     end.
     
 formatmfa({M, F, A}) ->
-    io_lib:format("~w:~w/~w",[M, F, A]).
+    io_lib:format("~w:~w/~w",[M, F, A]);
+formatmfa(Other) ->
+    %% E.g. when running hipe - the current_function for some
+    %% processes will be 'undefined'
+    io_lib:format("~w",[Other]).
+
 
 makegridlines([#etop_proc_info{pid=Pid,
 			       mem=Mem,

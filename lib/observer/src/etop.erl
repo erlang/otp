@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -325,12 +325,39 @@ loadinfo(SysI) ->
     #etop_info{n_procs = Procs, 
 	       run_queue = RQ, 
 	       now = Now,
-	       wall_clock = {_, WC}, 
-	       runtime = {_, RT}} = SysI,
-    Cpu = round(100*RT/WC),
+	       wall_clock = WC,
+	       runtime = RT} = SysI,
+    Cpu = calculate_cpu_utilization(WC,RT),
     Clock = io_lib:format("~2.2.0w:~2.2.0w:~2.2.0w",
 			 tuple_to_list(element(2,calendar:now_to_datetime(Now)))),
     {Cpu,Procs,RQ,Clock}.
+
+calculate_cpu_utilization({_,WC},{_,RT}) ->
+    %% Old version of observer_backend, using statistics(wall_clock)
+    %% and statistics(runtime)
+    case {WC,RT} of
+	{0,0} ->
+	    0;
+	{0,_} ->
+	    100;
+	_ ->
+	    round(100*RT/WC)
+    end;
+calculate_cpu_utilization(_,undefined) ->
+    %% First time collecting - no cpu utilization has been measured
+    %% since scheduler_wall_time flag is not yet on
+    0;
+calculate_cpu_utilization(_,RTInfo) ->
+    %% New version of observer_backend, using statistics(scheduler_wall_time)
+    Sum = lists:foldl(fun({_,A,T},{AAcc,TAcc}) -> {A+AAcc,T+TAcc} end,
+		      {0,0},
+		      RTInfo),
+    case Sum of
+	{0,0} ->
+	    0;
+	{Active,Total} ->
+	    round(100*Active/Total)
+    end.
 
 meminfo(MemI, [Tag|Tags]) -> 
     [round(get_mem(Tag, MemI)/1024)|meminfo(MemI, Tags)];
