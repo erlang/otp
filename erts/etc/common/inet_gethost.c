@@ -1209,7 +1209,7 @@ static void start_que_request(Worker *w)
 #endif
 }
 
-#ifndef WIN32    
+#ifndef WIN32
 /* Signal utilities */
 static RETSIGTYPE (*sys_sigset(int sig, RETSIGTYPE (*func)(int)))(int)
 {

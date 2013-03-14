@@ -29,6 +29,11 @@
 #  define INADDR_NONE 0xffffffff
 #endif
 
+#if defined(__OSE__)
+#  include "sys/ioctl.h"
+#  define sleep(x) delay(x*1000)
+#endif
+
 /*
  *  
  *  This server is a local name server for Erlang nodes. Erlang nodes can
@@ -273,7 +278,7 @@ void run(EpmdVars *g)
       num_sockets = 1;
     }
 
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && !defined(__OSE__)
   /* We ignore the SIGPIPE signal that is raised when we call write
      twice on a socket closed by the other end. */
   signal(SIGPIPE, SIG_IGN);

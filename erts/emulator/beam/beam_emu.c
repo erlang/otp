@@ -1190,11 +1190,16 @@ void process_main(void)
      * c_p->arg_reg before calling the scheduler.
      */
     if (!init_done) {
+       /* This should only be reached during the init phase when only the main
+        * process is running. I.e. there is no race for init_done.
+        */
 	init_done = 1;
 	goto init_emulator;
     }
+
     c_p = NULL;
     reds_used = 0;
+
     goto do_schedule1;
 
  do_schedule:

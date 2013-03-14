@@ -389,7 +389,7 @@ static void run_daemon(EpmdVars *g)
 }
 #endif
 
-#if defined(VXWORKS)
+#if defined(VXWORKS) || defined(__OSE__)
 static void run_daemon(EpmdVars *g)
 {
     run(g);

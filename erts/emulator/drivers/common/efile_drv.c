@@ -373,6 +373,9 @@ struct erl_drv_entry efile_driver_entry = {
 #else
     NULL
 #endif /* HAVE_SENDFILE */
+#ifdef __OSE__
+    ,NULL
+#endif
 };
 
 

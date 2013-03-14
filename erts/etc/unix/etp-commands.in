@@ -3133,6 +3133,24 @@ document etp-ets-tabledump
 %---------------------------------------------------------------------------
 end
 
+
+############################################################################
+# OSE support
+#
+define etp-ose-attach
+  target ose $arg0:21768
+  attach block start_beam start_beam
+end
+
+document etp-ose-attach
+%---------------------------------------------------------------------------
+% etp-ose-attach Host
+%
+% Connect and attach to erlang vm at Host.
+%---------------------------------------------------------------------------
+end
+
+
 ############################################################################
 # Erlang support module handling
 #

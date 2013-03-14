@@ -20,6 +20,10 @@
 include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 
+ifeq ($(findstring ose,$(TARGET)),ose)
+include $(ERL_TOP)/make/$(TARGET)/ose_lm.mk
+endif
+
 ERTS_LIB_TYPEMARKER=.$(TYPE)
 
 USING_MINGW=@MIXED_CYGWIN_MINGW@
@@ -161,7 +165,26 @@ endif
 PORT_ENTRY_POINT=erl_port_entry
 ENTRY_LDFLAGS=-entry:$(PORT_ENTRY_POINT)
 
-else # UNIX (!win32)
+else
+ifeq ($(findstring ose,$(TARGET)),ose)
+ENTRY_LDFLAGS=
+ENTRY_OBJ=
+ERLSRV_OBJECTS=
+MC_OUTPUTS=
+INET_GETHOST =
+INSTALL_EMBEDDED_PROGS =
+INSTALL_EMBEDDED_DATA =
+INSTALL_TOP = Install
+INSTALL_TOP_BIN =
+INSTALL_MISC =
+INSTALL_SRC =
+ERLEXECDIR = .
+INSTALL_LIBS =
+INSTALL_OBJS =
+INSTALL_INCLUDES =
+TEXTFILES = Install erl.src
+INSTALL_PROGS =
+else # UNIX (!win32 && !ose)
 ENTRY_LDFLAGS=
 ENTRY_OBJ=
 ERLSRV_OBJECTS= 
@@ -185,6 +208,7 @@ INSTALL_PROGS =              \
 	$(BINDIR)/heart@EXEEXT@      \
 	$(BINDIR)/$(ERLEXEC) \
 	$(INSTALL_EMBEDDED_PROGS)
+endif
 endif
 
 .PHONY: etc
@@ -370,27 +394,27 @@ $(OBJDIR)/heart.o: heart.c $(RC_GENERATED)
 $(OBJDIR)/inet_gethost.o: inet_gethost.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c inet_gethost.c
 
+# inet_gethost
 $(BINDIR)/inet_gethost@EXEEXT@: $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(ERTS_LIB)
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
+# run_erl
 $(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o
-	$(V_LD) $(LDFLAGS) -o $@ $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(LIBS)
-
+	$(V_LD) $(LDFLAGS) -o $@ $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(LIBS) $(ERTS_INTERNAL_LIBS)
 $(OBJDIR)/run_erl.o: ../unix/run_erl.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c ../unix/run_erl.c
 
+# to_erl
 $(BINDIR)/to_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
 	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
-
 $(OBJDIR)/to_erl.o: ../unix/to_erl.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c ../unix/to_erl.c
 
+# dyn_erl
 $(BINDIR)/dyn_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
 	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
-
 $(OBJDIR)/dyn_erl.o: ../unix/dyn_erl.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c ../unix/dyn_erl.c
-
 $(OBJDIR)/safe_string.o: ../unix/safe_string.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c ../unix/safe_string.c
 
@@ -401,6 +425,7 @@ $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
 $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c $(RC_GENERATED)
 	$(V_CC) -I$(EMUDIR) $(CFLAGS) -o $@ -c $(ERLEXECDIR)/$(ERLEXEC).c
 endif
+
 $(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o $(ERTS_LIB)
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
@@ -477,11 +502,6 @@ endif
 ifneq ($(INSTALL_MISC),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/misc"
 	$(INSTALL_SCRIPT) $(INSTALL_MISC) "$(RELEASE_PATH)/misc"
-endif
-ifneq ($(INSTALL_ERL_OSE),)
-	$(INSTALL_DIR) "$(RELEASE_PATH)/build_erl_ose"
-	cd $(OSEETC) && $(TAR) erl_ose_$(SYSTEM_VSN).tar $(INSTALL_ERL_OSE)
-	cd $(OSEETC) && $(INSTALL_SCRIPT) erl_ose_$(SYSTEM_VSN).tar "$(RELEASE_PATH)/build_erl_ose"
 endif
 ifneq ($(INSTALL_SRC),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/src"

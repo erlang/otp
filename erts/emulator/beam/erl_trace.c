@@ -3467,12 +3467,21 @@ static void
 init_sys_msg_dispatcher(void)
 {
     erts_smp_thr_opts_t thr_opts = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+#ifdef __OSE__
+    thr_opts.coreNo   = 0;
+#endif
     thr_opts.detached = 1;
     init_smq_element_alloc();
     sys_message_queue = NULL;
     sys_message_queue_end = NULL;
     erts_smp_cnd_init(&smq_cnd);
     erts_smp_mtx_init(&smq_mtx, "sys_msg_q");
+#ifdef ETHR_HAVE_THREAD_NAMES
+    thr_opts.name = "sys_msg_dispatcher";
+#endif
+#ifdef ETHR_HAVE_THREAD_NICENESS
+    thr_opts.prio++;
+#endif
     erts_smp_thr_create(&sys_msg_dispatcher_tid,
 			sys_msg_dispatcher_func,
 			NULL,

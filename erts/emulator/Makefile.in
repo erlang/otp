@@ -22,6 +22,9 @@ include ../vsn.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 -include $(TARGET)/gen_git_version.mk
 
+ifeq ($(findstring ose,$(TARGET)),ose)
+include $(ERL_TOP)/make/$(TARGET)/ose_lm.mk
+endif
 
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
 HIPE_ENABLED=@HIPE_ENABLED@
@@ -234,7 +237,9 @@ HCC     = @HCC@
 LD      = @LD@
 DEXPORT = @DEXPORT@
 RANLIB  = @RANLIB@
+ifneq ($(findstring ose,$(TARGET)),ose)
 STRIP   = strip
+endif
 PERL    = @PERL@
 RM	= @RM@
 MKDIR	= @MKDIR@
@@ -787,7 +792,8 @@ DRV_OBJS = \
 	$(OBJDIR)/efile_drv.o \
 	$(OBJDIR)/inet_drv.o \
 	$(OBJDIR)/zlib_drv.o \
-	$(OBJDIR)/ram_file_drv.o
+	$(OBJDIR)/ram_file_drv.o \
+	$(OBJDIR)/ttsl_drv.o
 OS_OBJS = \
 	$(OBJDIR)/win_efile.o \
 	$(OBJDIR)/win_con.o \
@@ -799,6 +805,28 @@ OS_OBJS = \
 	$(OBJDIR)/sys_interrupt.o \
 	$(OBJDIR)/sys_env.o \
 	$(OBJDIR)/dosmap.o
+
+else
+ifeq ($(findstring ose,$(TARGET)),ose)
+OS_OBJS = \
+	$(OBJDIR)/sys.o \
+	$(OBJDIR)/driver_tab.o \
+	$(OBJDIR)/ose_efile.o \
+	$(OBJDIR)/gzio.o \
+	$(OBJDIR)/elib_memmove.o
+
+OS_OBJS += $(OSEROOT)/src/ose_confd.o \
+	$(OSEROOT)/src/crt0_lm.o
+
+OS_OBJS += $(OBJDIR)/sys_float.o \
+					 $(OBJDIR)/sys_time.o
+
+DRV_OBJS = \
+	$(OBJDIR)/efile_drv.o \
+	$(OBJDIR)/inet_drv.o \
+	$(OBJDIR)/zlib_drv.o \
+	$(OBJDIR)/ram_file_drv.o
+
 else
 OS_OBJS = \
 	$(OBJDIR)/sys.o \
@@ -813,10 +841,10 @@ DRV_OBJS = \
 	$(OBJDIR)/efile_drv.o \
 	$(OBJDIR)/inet_drv.o \
 	$(OBJDIR)/zlib_drv.o \
-	$(OBJDIR)/ram_file_drv.o
+	$(OBJDIR)/ram_file_drv.o \
+	$(OBJDIR)/ttsl_drv.o
 endif
-
-	DRV_OBJS += $(OBJDIR)/ttsl_drv.o
+endif
 
 ifneq ($(STATIC_NIFS),no)
 STATIC_NIF_LIBS = $(STATIC_NIFS)
@@ -987,6 +1015,13 @@ $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 	$(ld_verbose)$(PURIFY) $(LD) -dll -def:sys/$(ERLANG_OSTYPE)/erl.def -implib:$(BINDIR)/erl_dll.lib -o $(BINDIR)/$(EMULATOR_EXECUTABLE) \
 	$(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) $(STATIC_NIF_LIBS) \
 	$(STATIC_DRIVER_LIBS) $(LIBS)
+
+else
+ifeq ($(findstring ose,$(TARGET)),ose)
+$(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS) $(LCF)
+	$(call build-ose-load-module, $@, $(INIT_OBJS) $(OBJS), $(STATIC_NIF_LIBS) \
+	$(STATIC_DRIVER_LIBS) $(LIBS), $(LMCONF))
+
 else
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 	echo $(DEPLIBS)
@@ -994,6 +1029,7 @@ $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 	$(HIPEBEAMLDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) \
 	$(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS) $(LIBS)
 
+endif
 endif
 
 # ----------------------------------------------------------------------

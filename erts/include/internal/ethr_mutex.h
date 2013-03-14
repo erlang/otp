@@ -103,6 +103,9 @@ void LeaveCriticalSection(CRITICAL_SECTION *);
 #elif defined(ETHR_WIN32_THREADS)
 #  define ETHR_MTX_Q_LOCK_CRITICAL_SECTION__
 #  define ETHR_MTX_QLOCK_TYPE__ CRITICAL_SECTION
+#elif defined(ETHR_OSE_THREADS)
+#  define ETHR_MTX_Q_LOCK_PTHREAD_MUTEX__
+#  define ETHR_MTX_QLOCK_TYPE__ pthread_mutex_t
 #else
 #  error Need a qlock implementation
 #endif
@@ -254,6 +257,25 @@ struct ethr_cond_ {
     int initialized;
 #endif
 };
+
+#elif defined(ETHR_OSE_THREADS)
+
+typedef struct ethr_mutex_ ethr_mutex;
+struct ethr_mutex_ {
+    pthread_mutex_t pt_mtx;
+#if ETHR_XCHK
+    int initialized;
+#endif
+};
+
+typedef struct ethr_cond_ ethr_cond;
+struct ethr_cond_ {
+    pthread_cond_t pt_cnd;
+#if ETHR_XCHK
+    int initialized;
+#endif
+};
+
 
 #else
 #  error "no mutex implementation"

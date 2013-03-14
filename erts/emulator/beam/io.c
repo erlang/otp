@@ -49,7 +49,9 @@
 #include "erl_map.h"
 
 extern ErlDrvEntry fd_driver_entry;
+#ifndef __OSE__
 extern ErlDrvEntry vanilla_driver_entry;
+#endif
 extern ErlDrvEntry spawn_driver_entry;
 extern ErlDrvEntry *driver_tab[]; /* table of static drivers, only used during initialization */
 
@@ -2764,7 +2766,9 @@ void erts_init_io(int port_tab_size,
     erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
 
     init_driver(&fd_driver, &fd_driver_entry, NULL);
+#ifndef __OSE__
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
+#endif
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
     erts_init_static_drivers();
     for (dp = driver_tab; *dp != NULL; dp++)
@@ -7333,6 +7337,9 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 	drv->stop_select = de->stop_select;
     else
 	drv->stop_select = no_stop_select_callback;
+#ifdef __OSE__
+    drv->resolve_signal = de->resolve_signal;
+#endif
 
     if (!de->init)
 	return 0;

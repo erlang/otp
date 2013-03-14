@@ -78,8 +78,6 @@ struct ErlDrvTid_ {
 
 static ethr_tsd_key tid_key;
 
-static ethr_thr_opts def_ethr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
-
 #else /* USE_THREADS */
 static Uint tsd_len;
 static void **tsd;
@@ -605,6 +603,7 @@ erl_drv_thread_create(char *name,
     struct ErlDrvTid_ *dtid;
     ethr_thr_opts ethr_opts;
     ethr_thr_opts *use_opts;
+    ethr_thr_opts def_ethr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
 
     if (!opts)
 	use_opts = NULL;

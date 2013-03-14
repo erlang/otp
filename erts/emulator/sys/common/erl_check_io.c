@@ -34,6 +34,7 @@
 #endif
 #include "sys.h"
 #include "global.h"
+#include "erl_port.h"
 #include "erl_check_io.h"
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
@@ -77,6 +78,12 @@ typedef char EventStateFlags;
 #define ERTS_CIO_POLL_MAX_FDS	ERTS_POLL_EXPORT(erts_poll_max_fds)
 #define ERTS_CIO_POLL_INIT	ERTS_POLL_EXPORT(erts_poll_init)
 #define ERTS_CIO_POLL_INFO	ERTS_POLL_EXPORT(erts_poll_info)
+
+#ifdef __OSE__
+#define GET_FD(fd) fd->id
+#else
+#define GET_FD(fd) fd
+#endif
 
 static struct pollset_info
 {
@@ -435,7 +442,11 @@ deselect(ErtsDrvEventState *state, int mode)
 	}
     }
 
-    state->events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, rm_events, 0, &do_wake);
+    state->events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, rm_events, 0, &do_wake
+#ifdef __OSE__
+	    ,NULL
+#endif
+    );
 
     if (!(state->events)) {
 	switch (state->type) {
@@ -584,7 +595,11 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 	wake_poller = 1;
     }
 
-    new_events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, ctl_events, on, &wake_poller);
+    new_events = ERTS_CIO_POLL_CTL(pollset.ps, state->fd, ctl_events, on, &wake_poller
+#ifdef __OSE__
+	    ,prt->drv_ptr->resolve_signal
+#endif
+	    );
 
     if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
 	if (state->type == ERTS_EV_TYPE_DRV_SEL && !state->events) {
@@ -894,7 +909,7 @@ print_driver_name(erts_dsprintf_buf_t *dsbufp, Eterm id)
 static void
 steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 {
-    erts_dsprintf(dsbufp, "stealing control of fd=%d from ", (int) state->fd);
+    erts_dsprintf(dsbufp, "stealing control of fd=%d from ", (int) GET_FD(state->fd));
     switch (state->type) {
     case ERTS_EV_TYPE_DRV_SEL: {
 	int deselect_mode = 0;
@@ -918,7 +933,7 @@ steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 	if (deselect_mode)
 	    deselect(state, deselect_mode);
 	else {
-	    erts_dsprintf(dsbufp, "no one", (int) state->fd);
+	    erts_dsprintf(dsbufp, "no one", (int) GET_FD(state->fd));
 	    ASSERT(0);
 	}
 	erts_dsprintf(dsbufp, "\n");
@@ -946,7 +961,7 @@ steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 	break;
     }
     default:
-	erts_dsprintf(dsbufp, "no one\n", (int) state->fd);
+	erts_dsprintf(dsbufp, "no one\n", (int) GET_FD(state->fd));
 	ASSERT(0);
     }
 }
@@ -957,14 +972,21 @@ print_select_op(erts_dsprintf_buf_t *dsbufp,
 {
     Port *pp = erts_drvport2port(ix);
     erts_dsprintf(dsbufp,
+#ifdef __OSE__
+		  "driver_select(%p, %d,%s%s%s%s | %d, %d) "
+#else
 		  "driver_select(%p, %d,%s%s%s%s, %d) "
+#endif
 		  "by ",
 		  ix,
-		  (int) fd,
+		  (int) GET_FD(fd),
 		  mode & ERL_DRV_READ ? " ERL_DRV_READ" : "",
 		  mode & ERL_DRV_WRITE ? " ERL_DRV_WRITE" : "",
 		  mode & ERL_DRV_USE ? " ERL_DRV_USE" : "",
 		  mode & (ERL_DRV_USE_NO_CALLBACK & ~ERL_DRV_USE) ? "_NO_CALLBACK" : "",
+#ifdef __OSE__
+	          fd->signo,
+#endif
 		  on);
     print_driver_name(dsbufp, pp != ERTS_INVALID_ERL_DRV_PORT ? pp->common.id : NIL);
     erts_dsprintf(dsbufp, "driver %T ", pp != ERTS_INVALID_ERL_DRV_PORT ? pp->common.id : NIL);
@@ -1010,7 +1032,7 @@ steal_pending_stop_select(erts_dsprintf_buf_t *dsbufp, ErlDrvPort ix,
     ASSERT(state->type == ERTS_EV_TYPE_STOP_USE);
     erts_dsprintf(dsbufp, "failed: fd=%d (re)selected before stop_select "
 		          "was called for driver %s\n",
-		  (int) state->fd, state->driver.drv_ptr->name);
+		  (int) GET_FD(state->fd), state->driver.drv_ptr->name);
     erts_send_error_to_logger_nogl(dsbufp);
 
     if (on) {
@@ -1395,6 +1417,20 @@ stale_drv_select(Eterm id, ErtsDrvEventState *state, int mode)
 }
 
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
+#ifdef __OSE__
+static SafeHashValue drv_ev_state_hash(void *des)
+{
+    SafeHashValue val = (SafeHashValue) ((ErtsDrvEventState *) des)->fd;
+    return val ^ (val >> 8);  /* Good enough for aligned pointer values? */
+}
+
+static int drv_ev_state_cmp(void *des1, void *des2)
+{
+    return ( ((((ErtsDrvEventState *) des1)->fd->id == ((ErtsDrvEventState *) des2)->fd->id)
+	    && (((ErtsDrvEventState *) des1)->fd->signo == ((ErtsDrvEventState *) des2)->fd->signo))
+	    ? 0 : 1);
+}
+#else
 static SafeHashValue drv_ev_state_hash(void *des)
 {
     SafeHashValue val = (SafeHashValue) ((ErtsDrvEventState *) des)->fd;
@@ -1406,6 +1442,7 @@ static int drv_ev_state_cmp(void *des1, void *des2)
     return ( ((ErtsDrvEventState *) des1)->fd == ((ErtsDrvEventState *) des2)->fd
 	    ? 0 : 1);
 }
+#endif
 
 static void *drv_ev_state_alloc(void *des_tmpl)
 {
@@ -1436,7 +1473,69 @@ static void drv_ev_state_free(void *des)
     erts_smp_spin_unlock(&state_prealloc_lock);
 }
 #endif
+#ifdef __OSE__
+OseSignal *erl_drv_ose_get_input_signal(ErlDrvEvent drv_ev) {
+    struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
+    ethr_mutex_lock(&ev->mtx);
+    if (ev->imsgs == NULL) {
+      ethr_mutex_unlock(&ev->mtx);
+      return NULL;
+    } else {
+      ErtsPollOseMsgList *msg = ev->imsgs;
+      OseSignal *sig = (OseSignal*)msg->data;
+      ASSERT(msg->data);
+      ev->imsgs = msg->next;
+      ethr_mutex_unlock(&ev->mtx);
+      erts_free(ERTS_ALC_T_FD_SIG_LIST,msg);
+      restore(sig);
+      return sig;
+    }
+}
 
+OseSignal *erl_drv_ose_get_output_signal(ErlDrvEvent drv_ev) {
+    struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
+    ethr_mutex_lock(&ev->mtx);
+    if (ev->omsgs == NULL) {
+      ethr_mutex_unlock(&ev->mtx);
+      return NULL;
+    } else {
+      ErtsPollOseMsgList *msg = ev->omsgs;
+      OseSignal *sig = (OseSignal*)msg->data;
+      ASSERT(msg->data);
+      ev->omsgs = msg->next;
+      ethr_mutex_unlock(&ev->mtx);
+      erts_free(ERTS_ALC_T_FD_SIG_LIST,msg);
+      restore(sig);
+      return sig;
+    }
+}
+
+ErlDrvEvent erl_drv_ose_event_alloc(SIGSELECT signo, int id) {
+  struct erts_sys_fd_type *ev = erts_alloc(ERTS_ALC_T_DRV_EV,
+					   sizeof(struct erts_sys_fd_type));
+  ev->signo = signo;
+  ev->id = id;
+  ev->imsgs = NULL;
+  ev->omsgs = NULL;
+  ethr_mutex_init(&ev->mtx);
+  return (ErlDrvEvent)ev;
+}
+
+void erl_drv_ose_event_free(ErlDrvEvent drv_ev) {
+  struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
+  ethr_mutex_destroy(&ev->mtx);
+  erts_free(ERTS_ALC_T_DRV_EV,ev);
+}
+
+void erl_drv_ose_event_fetch(ErlDrvEvent drv_ev, SIGSELECT *signo, int *id) {
+  struct erts_sys_fd_type *ev = (struct erts_sys_fd_type *)drv_ev;
+  if (signo)
+    *signo = ev->signo;
+  if (id)
+    *id = ev->id;
+}
+
+#endif
 void
 ERTS_CIO_EXPORT(erts_init_check_io)(void)
 {
@@ -1882,12 +1981,14 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(void)
     int fd, len;
 #endif
     IterDebugCounters counters;
+#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     ErtsDrvEventState null_des;
 
     null_des.driver.select = NULL;
     null_des.events = 0;
     null_des.remove_cnt = 0;
     null_des.type = ERTS_EV_TYPE_NONE;
+#endif
 
     erts_printf("--- fds in pollset --------------------------------------\n");
 

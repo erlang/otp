@@ -262,6 +262,8 @@ check_file_result(_, _, {error,enoent}) ->
     error;
 check_file_result(_, _, {error,enotdir}) ->
     error;
+check_file_result(_, _, {error,einval}) ->
+    error;
 check_file_result(Func, Target, {error,Reason}) ->   
     case (catch atom_to_list(Reason)) of
         {'EXIT',_} ->                           % exit trapped
@@ -1392,6 +1394,8 @@ absname_vr([Drive, $\: | NameRest], _) ->
 %% Assumes normalized name
 pathtype(Name) when is_list(Name) -> 
     case erlang:system_info(os_type) of
+	{ose, _}  ->
+	    unix_pathtype(Name);
 	{unix, _}  -> 
 	    unix_pathtype(Name);
 	{win32, _} ->

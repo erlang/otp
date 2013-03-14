@@ -37,6 +37,11 @@
 #  define ETHR_DEBUG
 #endif
 
+#if defined(__PPC__) || defined (__POWERPC)
+/* OSE compiler should be fixed! */
+#define __ppc__
+#endif
+
 #if defined(ETHR_DEBUG)
 #  undef ETHR_XCHK
 #  define  ETHR_XCHK 1
@@ -189,6 +194,36 @@ typedef DWORD ethr_tsd_key;
 #define ETHR_USE_OWN_RWMTX_IMPL__
 
 #define ETHR_YIELD() (Sleep(0), 0)
+
+#elif defined(ETHR_OSE_THREADS)
+
+#include "ose.h"
+#undef NIL
+
+#if defined(ETHR_HAVE_PTHREAD_H)
+#include <pthread.h>
+#endif
+
+typedef struct {
+  PROCESS id;
+  unsigned int tsd_key_index;
+  void *res;
+} ethr_tid;
+
+struct ethr_tsd_key__ {
+  PROCESS id;
+  char key[];
+};
+typedef struct ethr_tsd_key__* ethr_tsd_key;
+
+#undef ETHR_HAVE_ETHR_SIG_FUNCS
+
+#define ETHR_USE_OWN_RWMTX_IMPL__
+#define ETHR_USE_OWN_MTX_IMPL__
+#define ETHR_HAVE_THREAD_NAMES
+#define ETHR_HAVE_THREAD_NICENESS
+
+#define ETHR_PPC_HAVE_NO_LWSYNC
 
 #else /* No supported thread lib found */
 
@@ -367,7 +402,7 @@ extern ethr_runtime_t ethr_runtime__;
 
 #include "ethr_atomics.h" /* The atomics API */
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) && !defined(ETHR_OSE_THREADS)
 #  ifndef ETHR_SPIN_BODY
 #    if defined(__i386__) || defined(__x86_64__)
 #      define ETHR_SPIN_BODY __asm__ __volatile__("rep;nop" : : : "memory")
@@ -383,9 +418,20 @@ extern ethr_runtime_t ethr_runtime__;
 #  ifndef ETHR_SPIN_BODY
 #    define ETHR_SPIN_BODY do {YieldProcessor();ETHR_COMPILER_BARRIER;} while(0)
 #  endif
+#elif defined(ETHR_OSE_THREADS)
+#  ifndef ETHR_SPIN_BODY
+#    define ETHR_SPIN_BODY delay(1)
+#  else
+#  error "Have to use delay on OSE"
+#  endif
 #endif
 
+#ifndef ETHR_OSE_THREADS
 #define ETHR_YIELD_AFTER_BUSY_LOOPS 50
+#else
+#define ETHR_YIELD_AFTER_BUSY_LOOPS 0
+#endif
+
 
 #ifndef ETHR_SPIN_BODY
 #  define ETHR_SPIN_BODY ETHR_COMPILER_BARRIER
@@ -408,6 +454,8 @@ extern ethr_runtime_t ethr_runtime__;
 #    else
 #      define ETHR_YIELD() (pthread_yield(), 0)
 #    endif
+#  elif defined(ETHR_OSE_THREADS)
+#    define ETHR_YIELD() (delay(1), 0)
 #  else
 #    define ETHR_YIELD() (ethr_compiler_barrier(), 0)
 #  endif
@@ -459,9 +507,20 @@ typedef struct {
 typedef struct {
     int detached;			/* boolean (default false) */
     int suggested_stack_size;		/* kilo words (default sys dependent) */
+#ifdef ETHR_OSE_THREADS
+    char *name;
+    OSPRIORITY prio;
+    U32 coreNo;
+#endif
 } ethr_thr_opts;
 
+#if defined(ETHR_OSE_THREADS)
+/* Default ethr name is big as we want to be able to sprint stuff in there */
+#define ETHR_THR_OPTS_DEFAULT_INITER \
+   {0, -1, "ethread", get_pri(current_process()), 0}
+#else
 #define ETHR_THR_OPTS_DEFAULT_INITER {0, -1}
+#endif
 
 
 #if !defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
@@ -571,8 +630,10 @@ typedef struct ethr_ts_event_ ethr_ts_event; /* Needed by ethr_mutex.h */
 
 #if defined(ETHR_WIN32_THREADS)
 #  include "win/ethr_event.h"
-#else
+#elif defined(ETHR_PTHREADS)
 #  include "pthread/ethr_event.h"
+#elif defined(ETHR_OSE_THREADS)
+#  include "ose/ethr_event.h"
 #endif
 
 int ethr_set_main_thr_status(int, int);
@@ -641,6 +702,38 @@ static ETHR_INLINE ethr_ts_event *
 ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
 {
     ethr_ts_event *tsep = TlsGetValue(ethr_ts_event_key__);
+    if (!tsep) {
+	int res = ethr_get_tmp_ts_event__(&tsep);
+	if (res != 0)
+	    ETHR_FATAL_ERROR__(res);
+	ETHR_ASSERT(tsep);
+    }
+    return tsep;
+}
+
+static ETHR_INLINE void
+ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
+{
+    if (tsep->iflgs & ETHR_TS_EV_TMP) {
+	int res = ethr_free_ts_event__(tsep);
+	if (res != 0)
+	    ETHR_FATAL_ERROR__(res);
+    }
+}
+
+#endif
+
+#elif  defined (ETHR_OSE_THREADS)
+
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHREAD_IMPL__)
+
+extern char* ethr_ts_event_key__;
+
+static ETHR_INLINE ethr_ts_event *
+ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
+{
+     ethr_ts_event *tsep = (ethr_ts_event *)get_envp(current_process(),
+						     ethr_ts_event_key__);
     if (!tsep) {
 	int res = ethr_get_tmp_ts_event__(&tsep);
 	if (res != 0)

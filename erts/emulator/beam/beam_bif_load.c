@@ -201,7 +201,7 @@ finish_loading_1(BIF_ALIST_1)
      * to keep the elements in.
      */
 
-    n = list_length(BIF_ARG_1);
+    n = erts_list_length(BIF_ARG_1);
     if (n == -1) {
 	ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
 	goto done;

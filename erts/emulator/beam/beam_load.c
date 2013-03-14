@@ -5824,7 +5824,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     Funcs = tp[1];
     Patchlist = tp[2];        
    
-    if ((n = list_length(Funcs)) < 0) {
+    if ((n = erts_list_length(Funcs)) < 0) {
 	goto error;
     }
     if ((bytes = erts_get_aligned_binary_bytes(Beam, &temp_alloc)) == NULL) {

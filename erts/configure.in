@@ -905,7 +905,10 @@ dnl what the user say. This might not be the right way to do it, but
 dnl for now that is the way we do it.
 USER_LD=$LD
 USER_LDFLAGS="$LDFLAGS"
-LD='$(CC)'
+case $host in
+   *ose) ;;
+   *) LD='$(CC)' ;;
+esac
 AC_SUBST(LD)
 
 LDFLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
@@ -916,12 +919,15 @@ dnl AC_CYGWIN is deprecated
 AC_EXEEXT
 AC_OBJEXT
 
-dnl This is the os flavour, should be unix, vxworks or win32
-if test "X$host" = "Xwin32"; then
-	ERLANG_OSTYPE=win32
-else
-	ERLANG_OSTYPE=unix         
-fi
+dnl This is the os flavour, should be unix, ose, vxworks or win32
+case $host in
+   win32)
+      ERLANG_OSTYPE=win32 ;;
+   *ose)
+      ERLANG_OSTYPE=ose ;;
+   *)
+      ERLANG_OSTYPE=unix ;;
+esac
 
 AC_SUBST(ERLANG_OSTYPE)
 
@@ -1206,7 +1212,7 @@ case "$enable_threads"-"$found_threads" in
 	AC_MSG_RESULT(yes; enabled by user) ;;
     unknown-yes)
 	case $host_os in
-	    solaris*|linux*|darwin*|win32)
+	    solaris*|linux*|darwin*|win32|ose)
 		emu_threads=yes
 		AC_MSG_RESULT(yes; default on this platform)
 		;;
@@ -1286,7 +1292,7 @@ else
 		    enable_child_waiter_thread=no
 		fi
 		;;
-	    win32)
+	    win32|ose)
 		# Child waiter thread cannot be enabled
 		disable_child_waiter_thread=yes
 		enable_child_waiter_thread=no
@@ -2018,7 +2024,7 @@ AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		pread pwrite memmove strerror strerror_r strncasecmp \
 		gethrtime localtime_r gmtime_r inet_pton \
-		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
+		memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
 		setlocale nl_langinfo poll mlockall])
 
@@ -2058,6 +2064,17 @@ case $host_os in
         *)
 	    AC_CHECK_FUNCS([writev]) ;;
 esac
+
+case $host_os in
+        *ose)
+	    AC_MSG_CHECKING([for mmap])
+	    AC_MSG_RESULT(no)
+	    AC_MSG_CHECKING([for mremap])
+	    AC_MSG_RESULT(no) ;;
+        *)
+	    AC_CHECK_FUNCS([mmap mremap]) ;;
+esac
+
 
 AC_CHECK_DECLS([posix2time, time2posix],,,[#include <time.h>])
 
@@ -4728,6 +4745,7 @@ AC_OUTPUT(
   Makefile:Makefile.in
   ../make/$host/otp.mk:../make/otp.mk.in
   ../make/$host/otp_ded.mk:../make/otp_ded.mk.in
+  ../make/$host/ose_lm.mk:../make/ose_lm.mk.in
 dnl
 dnl The ones below should be moved to their respective lib
 dnl

@@ -226,6 +226,13 @@ erts_init_async(void)
 	thr_opts.suggested_stack_size
 	    = erts_async_thread_suggested_stack_size;
 
+#ifdef ETHR_HAVE_THREAD_NICENESS
+	thr_opts.prio += 2;
+#endif
+#ifdef ETHR_HAVE_THREAD_NAMES
+	thr_opts.name = "async_thread";
+#endif
+
 	for (i = 0; i < erts_async_max_threads; i++) {
 	    ErtsAsyncQ *aq = async_q(i);
 	    erts_thr_create(&aq->thr_id, async_main, (void*) aq, &thr_opts);

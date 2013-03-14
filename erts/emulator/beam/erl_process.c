@@ -44,6 +44,7 @@
 #include "dtrace-wrapper.h"
 #include "erl_ptab.h"
 
+
 #define ERTS_DELAYED_WAKEUP_INFINITY (~(Uint64) 0)
 #define ERTS_DELAYED_WAKEUP_REDUCTIONS ((Uint64) CONTEXT_REDS/2)
 
@@ -53,7 +54,11 @@
 
 #define ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST (CONTEXT_REDS/10)
 
+#ifndef ERTS_SCHED_MIN_SPIN
 #define ERTS_SCHED_SPIN_UNTIL_YIELD 100
+#else
+#define ERTS_SCHED_SPIN_UNTIL_YIELD 1
+#endif
 
 #define ERTS_SCHED_SYS_SLEEP_SPINCOUNT_VERY_LONG 40
 #define ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_VERY_LONG 1000
@@ -2682,7 +2687,11 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
      * be waiting in erl_sys_schedule()
      */
 
+#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
+    if (esdp->no != 1) {
+#else
     if (ERTS_SCHEDULER_IS_DIRTY(esdp) || !prepare_for_sys_schedule()) {
+#endif
 
 	sched_waiting(esdp->no, rq);
 
@@ -2690,7 +2699,11 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	spincount = sched_busy_wait.tse;
 
+#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
+	ASSERT(esdp->no != 1);
+#else
     tse_wait:
+#endif
 
 	if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && thr_prgr_active != working)
 	    sched_wall_time_change(esdp, thr_prgr_active);
@@ -2782,6 +2795,12 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	ASSERT(working);
 	sched_wall_time_change(esdp, working = 0);
+#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
+	sys_poll_try:
+	while(!prepare_for_sys_schedule()) {
+		delay(1);
+	}
+#endif
 
 	spincount = sched_busy_wait.sys_schedule;
 	if (spincount == 0)
@@ -2795,7 +2814,6 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		sched_wall_time_change(esdp, working = 0);
 
 	    ASSERT(!erts_port_task_have_outstanding_io_tasks());
-
 	    erl_sys_schedule(1); /* Might give us something to do */
 
 	    dt = erts_do_time_read_and_reset();
@@ -2843,7 +2861,11 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		 */
 		if (!prepare_for_sys_schedule()) {
 		    spincount *= ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT;
+#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
+		    goto sys_poll_try;
+#else
 		    goto tse_wait;
+#endif
 		}
 	    }
 #endif
@@ -2871,7 +2893,11 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		sched_change_waiting_sys_to_waiting(esdp->no, rq);
 		erts_smp_runq_unlock(rq);
 		spincount = 0;
+#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
+		goto sys_poll_try;
+#else
 		goto tse_wait;
+#endif
 	    }
 	}
 #endif
@@ -4889,11 +4915,17 @@ erts_early_init_scheduling(int no_schedulers)
     wakeup_other.threshold = ERTS_SCHED_WAKEUP_OTHER_THRESHOLD_MEDIUM;
     wakeup_other.type = ERTS_SCHED_WAKEUP_OTHER_TYPE_DEFAULT;
 #endif
+#ifndef ERTS_SCHED_MIN_SPIN
     sched_busy_wait.sys_schedule = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM;
     sched_busy_wait.tse = (ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM
 			   * ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT);
     sched_busy_wait.aux_work = (ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM
 				* ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_MEDIUM);
+#else
+    sched_busy_wait.sys_schedule = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_NONE;
+    sched_busy_wait.tse = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_NONE;
+    sched_busy_wait.aux_work = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_NONE;
+#endif
 }
 
 int
@@ -6795,7 +6827,7 @@ void
 erts_start_schedulers(void)
 {
     int res = 0;
-    Uint actual = 0;
+    Uint actual;
     Uint wanted = erts_no_schedulers;
     Uint wanted_no_schedulers = erts_no_schedulers;
     ethr_thr_opts opts = ETHR_THR_OPTS_DEFAULT_INITER;
@@ -6826,15 +6858,31 @@ erts_start_schedulers(void)
 	res = ENOTSUP;
     }
 
-    while (actual < wanted) {
+#ifdef ETHR_HAVE_THREAD_NAMES
+    opts.name = malloc(sizeof(char)*(strlen("scheduler_XXXX")+1));
+#endif
+
+    for (actual = 0; actual < wanted; actual++) {
 	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(actual);
-	actual++;
-	ASSERT(actual == esdp->no);
-	res = ethr_thr_create(&esdp->tid,sched_thread_func,(void*)esdp,&opts);
+
+	ASSERT(actual == esdp->no - 1);
+
+#ifdef ETHR_HAVE_THREAD_NAMES
+	sprintf(opts.name,"scheduler_%d", actual+1);
+#endif
+
+#ifdef __OSE__
+        /* This should be done in the bind strategy */
+	opts.coreNo = (actual+1) % ose_num_cpus();
+#endif
+
+	res = ethr_thr_create(&esdp->tid, sched_thread_func,(void*)esdp,&opts);
+
 	if (res != 0) {
-	    actual--;
-	    break;
+           //actual--;
+           break;
 	}
+
     }
     
     erts_no_schedulers = actual;
@@ -6860,6 +6908,16 @@ erts_start_schedulers(void)
 #endif
 
     ERTS_THR_MEMORY_BARRIER;
+#ifdef ETHR_HAVE_THREAD_NAMES
+    free(opts.name);
+    opts.name   = "aux_thread";
+#endif
+#ifdef __OSE__
+    opts.coreNo = 0;
+#endif
+#ifdef ETHR_HAVE_THREAD_NICENESS
+    opts.prio++;
+#endif
 
     res = ethr_thr_create(&aux_tid, aux_thread, NULL, &opts);
     if (res != 0)
@@ -8076,7 +8134,11 @@ Process *schedule(Process *p, int calls)
 
 	    goto check_activities_to_run;
 	}
-	else if (!ERTS_SCHEDULER_IS_DIRTY(esdp) &&
+	else if (
+#ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
+		 esdp->no == 1 &&
+#endif
+		 !ERTS_SCHEDULER_IS_DIRTY(esdp) &&
 		 (fcalls > input_reductions && prepare_for_sys_schedule())) {
 	    /*
 	     * Schedule system-level activities.
@@ -9379,7 +9441,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
      * Check for errors.
      */
 
-    if (is_not_atom(mod) || is_not_atom(func) || ((arity = list_length(args)) < 0)) {
+    if (is_not_atom(mod) || is_not_atom(func) || ((arity = erts_list_length(args)) < 0)) {
 	so->error_code = BADARG;
 	goto error;
     }

@@ -150,7 +150,7 @@ void erts_silence_warn_unused_result(long unused);
 
 int erts_fit_in_bits_int64(Sint64);
 int erts_fit_in_bits_int32(Sint32);
-int list_length(Eterm);
+int erts_list_length(Eterm);
 int erts_is_builtin(Eterm, Eterm, int);
 Uint32 make_broken_hash(Eterm);
 Uint32 block_hash(byte *, unsigned, Uint32);

@@ -2675,7 +2675,7 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 
     if (i < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	i = list_length(BIF_ARG_1);
+	i = erts_list_length(BIF_ARG_1);
 	if (i > MAX_ATOM_CHARACTERS) {
 	    BIF_ERROR(BIF_P, SYSTEM_LIMIT);
 	}
@@ -2953,7 +2953,7 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
     char *buf = NULL;
     int base;
 
-    i = list_length(BIF_ARG_1);
+    i = erts_list_length(BIF_ARG_1);
     if (i < 0)
       BIF_ERROR(BIF_P, BADARG);
     
@@ -3292,7 +3292,7 @@ BIF_RETTYPE list_to_float_1(BIF_ALIST_1)
     Eterm res;
     char *buf = NULL;
 
-    i = list_length(BIF_ARG_1);
+    i = erts_list_length(BIF_ARG_1);
     if (i < 0)
       BIF_ERROR(BIF_P, BADARG);
     
@@ -3407,7 +3407,7 @@ BIF_RETTYPE list_to_tuple_1(BIF_ALIST_1)
     Eterm* hp;
     int len;
 
-    if ((len = list_length(list)) < 0 || len > ERTS_MAX_TUPLE_SIZE) {
+    if ((len = erts_list_length(list)) < 0 || len > ERTS_MAX_TUPLE_SIZE) {
 	BIF_ERROR(BIF_P, BADARG);
     }
 
