@@ -61,7 +61,7 @@ is_killed_block(R, Is) ->
 %%  to determine the kill state across branches.
 
 is_killed(R, Is, D) ->
-    St = #live{bl=fun check_killed_block/2,lbl=D,res=gb_trees:empty()},
+    St = #live{bl=check_killed_block_fun(),lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{killed,_} -> true;
 	{used,_} -> false;
@@ -72,7 +72,7 @@ is_killed(R, Is, D) ->
 %%  Determine whether Reg is killed at label Lbl.
 
 is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
-    St0 = #live{bl=fun check_killed_block/2,lbl=D,res=gb_trees:empty()},
+    St0 = #live{bl=check_killed_block_fun(),lbl=D,res=gb_trees:empty()},
     case check_liveness_at(R, Lbl, St0) of
 	{killed,_} -> true;
 	{used,_} -> false;
@@ -87,7 +87,7 @@ is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
 %%  across branches.
 
 is_not_used(R, Is, D) ->
-    St = #live{bl=check_used_block_fun(D),lbl=D,res=gb_trees:empty()},
+    St = #live{bl=fun check_used_block/3,lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{killed,_} -> true;
 	{used,_} -> false;
@@ -102,7 +102,7 @@ is_not_used(R, Is, D) ->
 %%  across branches.
 
 is_not_used_at(R, Lbl, D) ->
-    St = #live{bl=check_used_block_fun(D),lbl=D,res=gb_trees:empty()},
+    St = #live{bl=fun check_used_block/3,lbl=D,res=gb_trees:empty()},
     case check_liveness_at(R, Lbl, St) of
 	{killed,_} -> true;
 	{used,_} -> false;
@@ -246,10 +246,10 @@ combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
 
 check_liveness(R, [{set,_,_,_}=I|_], St) ->
     erlang:error(only_allowed_in_blocks, [R,I,St]);
-check_liveness(R, [{block,Blk}|Is], #live{bl=BlockCheck}=St) ->
-    case BlockCheck(R, Blk) of
-	transparent -> check_liveness(R, Is, St);
-	Other when is_atom(Other) -> {Other,St}
+check_liveness(R, [{block,Blk}|Is], #live{bl=BlockCheck}=St0) ->
+    case BlockCheck(R, Blk, St0) of
+	{transparent,St} -> check_liveness(R, Is, St);
+	{Other,_}=Res when is_atom(Other) -> Res
     end;
 check_liveness(R, [{label,_}|Is], St) ->
     check_liveness(R, Is, St);
@@ -533,6 +533,9 @@ check_liveness_fail(R, Op, Args, Fail, St) ->
 %%  
 %%    (Unknown instructions will cause an exception.)
 
+check_killed_block_fun() ->
+    fun(R, Is, St) -> {check_killed_block(R, Is),St} end.
+
 check_killed_block({x,X}, [{set,_,_,{alloc,Live,_}}|_]) ->
     if 
 	X >= Live -> killed;
@@ -563,50 +566,51 @@ check_killed_block(_, []) -> transparent.
 %%  
 %%    (Unknown instructions will cause an exception.)
 
-check_used_block_fun(D) ->
-    fun(R, Is) -> check_used_block(R, Is, D) end.
-
-check_used_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], D) ->
+check_used_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], St) ->
     if 
-	X >= Live -> killed;
+	X >= Live -> {killed,St};
+	true -> check_used_block_1(R, Ss, Ds, Op, Is, St)
+    end;
+check_used_block(R, [{set,Ds,Ss,Op}|Is], St) ->
+    check_used_block_1(R, Ss, Ds, Op, Is, St);
+check_used_block(R, [{'%live',Live}|Is], St) ->
+    case R of
+	{x,X} when X >= Live -> {killed,St};
+	_ -> check_used_block(R, Is, St)
+    end;
+check_used_block(_, [], St) -> {transparent,St}.
+
+check_used_block_1(R, Ss, Ds, Op, Is, St0) ->
+    case member(R, Ss) of
 	true ->
-	    case member(R, Ss) orelse
-		is_reg_used_at(R, Op, D) of
-		true -> used;
-		false ->
+	    {used,St0};
+	false ->
+	    case is_reg_used_at(R, Op, St0) of
+		{true,St} ->
+		    {used,St};
+		{false,St} ->
 		    case member(R, Ds) of
-			true -> killed;
-			false -> check_used_block(R, Is, D)
+			true -> {killed,St};
+			false -> check_used_block(R, Is, St)
 		    end
 	    end
-    end;
-check_used_block(R, [{set,Ds,Ss,Op}|Is], D) ->
-    case member(R, Ss) orelse
-	is_reg_used_at(R, Op, D) of
-	true -> used;
-	false ->
-	    case member(R, Ds) of
-		true -> killed;
-		false -> check_used_block(R, Is, D)
-	    end
-    end;
-check_used_block(R, [{'%live',Live}|Is], D) ->
-    case R of
-	{x,X} when X >= Live -> killed;
-	_ -> check_used_block(R, Is, D)
-    end;
-check_used_block(_, [], _) -> transparent.
+    end.
 
-is_reg_used_at(R, {gc_bif,_,{f,Lbl}}, D) ->
-    is_reg_used_at_1(R, Lbl, D);
-is_reg_used_at(R, {bif,_,{f,Lbl}}, D) ->
-    is_reg_used_at_1(R, Lbl, D);
-is_reg_used_at(_, _, _) -> false.
+is_reg_used_at(R, {gc_bif,_,{f,Lbl}}, St) ->
+    is_reg_used_at_1(R, Lbl, St);
+is_reg_used_at(R, {bif,_,{f,Lbl}}, St) ->
+    is_reg_used_at_1(R, Lbl, St);
+is_reg_used_at(_, _, St) ->
+    {false,St}.
 
-is_reg_used_at_1(_, 0, _) ->
-    false;
-is_reg_used_at_1(R, Lbl, D) ->
-    not is_not_used_at(R, Lbl, D).
+is_reg_used_at_1(_, 0, St) ->
+    {false,St};
+is_reg_used_at_1(R, Lbl, St0) ->
+    case check_liveness_at(R, Lbl, St0) of
+	{killed,St} -> {false,St};
+	{used,St} -> {true,St};
+	{unknown,St} -> {true,St}
+    end.
 
 index_labels_1([{label,Lbl}|Is0], Acc) ->
     Is = lists:dropwhile(fun({label,_}) -> true;
