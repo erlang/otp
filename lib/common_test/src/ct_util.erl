@@ -940,7 +940,9 @@ ct_make_ref_loop(N) ->
 	    From ! {self(),N},
 	    ct_make_ref_loop(N+1)
     end.
-   
+
+abs_name("/") ->
+    "/";
 abs_name(Dir0) ->
     Abs = filename:absname(Dir0),
     Dir = case lists:reverse(Abs) of
