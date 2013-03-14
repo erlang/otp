@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -76,7 +76,7 @@ slave(Config) ->
     cover_compiled = code:which(cover_test_mod),
     cover_test_mod:foo(),
     N1 = nodename(slave,1),
-    {ok,Node} = ct_slave:start(N1),
+    {ok,Node} = start_slave(N1),
     cover_compiled = rpc:call(Node,code,which,[cover_test_mod]),
     rpc:call(Node,cover_test_mod,foo,[]),
     {ok,Node} = ct_slave:stop(N1),
@@ -87,7 +87,7 @@ slave_start_slave(Config) ->
     cover_test_mod:foo(),
     N1 = nodename(slave_start_slave,1),
     N2 = nodename(slave_start_slave,2),
-    {ok,Node} = ct_slave:start(N1),
+    {ok,Node} = start_slave(N1),
     cover_compiled = rpc:call(Node,code,which,[cover_test_mod]),
     rpc:call(Node,cover_test_mod,foo,[]),
     {ok,Node2} = rpc:call(Node,ct_slave,start,[N2]),
@@ -99,7 +99,7 @@ slave_start_slave(Config) ->
 cover_node_option(Config) ->
     cover_compiled = code:which(cover_test_mod),
     cover_test_mod:foo(),
-    Node = fullname(existing_node),
+    Node = fullname(existing_node_1),
     cover_compiled = rpc:call(Node,code,which,[cover_test_mod]),
     rpc:call(Node,cover_test_mod,foo,[]),
     ok.
@@ -107,7 +107,7 @@ cover_node_option(Config) ->
 ct_cover_add_remove_nodes(Config) ->
     cover_compiled = code:which(cover_test_mod),
     cover_test_mod:foo(),
-    Node = fullname(existing_node),
+    Node = fullname(existing_node_2),
     Beam = rpc:call(Node,code,which,[cover_test_mod]),
     false = (Beam == cover_compiled),
 
@@ -154,3 +154,11 @@ kill_slaves(Case, [Node|Nodes]) ->
     kill_slaves(Case,Nodes);
 kill_slaves(_,[]) ->
     ok.
+
+start_slave(Name) ->
+    {ok, HostStr}=inet:gethostname(),
+    Host = list_to_atom(HostStr),
+    ct_slave:start(Host,Name,
+		   [{boot_timeout,10}, % extending some timers for slow test hosts
+		    {init_timeout,10},
+		    {startup_timeout,10}]).

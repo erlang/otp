@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -59,10 +59,8 @@ init_per_testcase(TestCase, Config) ->
     ct_test_support:init_per_testcase(TestCase, Config).
 
 end_per_testcase(TestCase, Config) ->
-    Node = fullname(existing_node),
-    case lists:member(Node,nodes()) of
-	true -> rpc:call(Node,erlang,halt,[]);
-	false -> ok
+    try apply(?MODULE,TestCase,[cleanup,Config])
+    catch error:undef -> ok
     end,
     ct_test_support:end_per_testcase(TestCase, Config).
 
@@ -125,33 +123,35 @@ slave_start_slave(Config) ->
 %% spec file.
 %% Check that cover is collected from test node and slave node.
 cover_node_option(Config) ->
-    {ok, HostStr}=inet:gethostname(),
-    Host = list_to_atom(HostStr),
     DataDir = ?config(data_dir,Config),
-    {ok,Node} = ct_slave:start(Host,existing_node,
-			       [{erl_flags,"-pa " ++ DataDir}]),
+    {ok,Node} = start_slave(existing_node_1, "-pa " ++ DataDir),
     false = check_cover(Node),
     CoverSpec = default_cover_file_content() ++ [{nodes,[Node]}],
     CoverFile = create_cover_file(cover_node_option,CoverSpec,Config),
     {ok,Events} = run_test(cover_node_option,cover_node_option,
 			   [{cover,CoverFile}],Config),
     check_calls(Events,2),
-    {ok,Node} = ct_slave:stop(existing_node),
+    {ok,Node} = ct_slave:stop(existing_node_1),
+    ok.
+
+cover_node_option(cleanup,_Config) ->
+    _ = ct_slave:stop(existing_node_1),
     ok.
 
 %% Test ct_cover:add_nodes/1 and ct_cover:remove_nodes/1
 %% Check that cover is collected from added node
 ct_cover_add_remove_nodes(Config) ->
-    {ok, HostStr}=inet:gethostname(),
-    Host = list_to_atom(HostStr),
     DataDir = ?config(data_dir,Config),
-    {ok,Node} = ct_slave:start(Host,existing_node,
-			       [{erl_flags,"-pa " ++ DataDir}]),
+    {ok,Node} = start_slave(existing_node_2, "-pa " ++ DataDir),
     false = check_cover(Node),
     {ok,Events} = run_test(ct_cover_add_remove_nodes,ct_cover_add_remove_nodes,
 			   [],Config),
     check_calls(Events,2),
-    {ok,Node} = ct_slave:stop(existing_node),
+    {ok,Node} = ct_slave:stop(existing_node_2),
+    ok.
+
+ct_cover_add_remove_nodes(cleanup,_Config) ->
+    _ = ct_slave:stop(existing_node_2),
     ok.
 
 %% Test that the test suite itself can be cover compiled and that
@@ -310,3 +310,12 @@ create_cover_file(Filename,Terms,Config) ->
 		  end,Terms),
     ok = file:close(Fd),
     File.
+
+start_slave(Name,Args) ->
+    {ok, HostStr}=inet:gethostname(),
+    Host = list_to_atom(HostStr),
+    ct_slave:start(Host,Name,
+		   [{erl_flags,Args},
+		    {boot_timeout,10}, % extending some timers for slow test hosts
+		    {init_timeout,10},
+		    {startup_timeout,10}]).
