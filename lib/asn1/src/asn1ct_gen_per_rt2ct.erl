@@ -23,12 +23,12 @@
 
 -include("asn1_records.hrl").
 
--export([gen_encode_prim/4]).
+-export([gen_encode_prim/3]).
 
 -import(asn1ct_gen, [emit/1,demit/1]).
 -import(asn1ct_func, [call/3]).
 
-gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
+gen_encode_prim(Erules, #type{}=D, Value) ->
     Constraint = D#type.constraint,
     case D#type.def of
 	'INTEGER' ->
@@ -119,9 +119,9 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	#'ObjectClassFieldType'{} ->
 	    case asn1ct_gen:get_inner(D#type.def) of
 		{fixedtypevaluefield,_,InnerType} -> 
-		    gen_encode_prim(Erules,InnerType,DoTag,Value);
+		    gen_encode_prim(Erules, InnerType, Value);
 		T -> %% 'ASN1_OPEN_TYPE'
-		    gen_encode_prim(Erules,D#type{def=T},DoTag,Value)
+		    gen_encode_prim(Erules, D#type{def=T}, Value)
 	    end;
 	XX ->
 	    exit({asn1_error,nyi,XX})

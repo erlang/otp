@@ -26,7 +26,7 @@
 %-compile(export_all).
 
 -export([gen_dec_imm/2]).
--export([gen_dec_prim/3,gen_encode_prim/4]).
+-export([gen_dec_prim/3,gen_encode_prim/3]).
 -export([gen_obj_code/3,gen_objectset_code/2]).
 -export([gen_decode/2, gen_decode/3]).
 -export([gen_encode/2, gen_encode/3]).
@@ -84,10 +84,10 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
     emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val) ->",nl}),
     case asn1ct_gen:type(InnerType) of
 	{primitive,bif} ->
-	    gen_encode_prim(Erules,Def,"false"),
+	    gen_encode_prim(Erules, Def),
 	    emit({".",nl});
 	'ASN1_OPEN_TYPE' ->
-	    gen_encode_prim(Erules,Def#type{def='ASN1_OPEN_TYPE'},"false"),
+	    gen_encode_prim(Erules, Def#type{def='ASN1_OPEN_TYPE'}),
 	    emit({".",nl});
 	{constructed,bif} ->
 	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,D);
@@ -98,24 +98,24 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
     end.
 
 
-gen_encode_prim(Erules,D,DoTag) ->
+gen_encode_prim(Erules, D) ->
     Value = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
-    gen_encode_prim(Erules,D,DoTag,Value).
+    gen_encode_prim(Erules, D, Value).
 
-gen_encode_prim(Erules, #type{def={'ENUMERATED',{N1,N2}}}, _, Value) ->
+gen_encode_prim(Erules, #type{def={'ENUMERATED',{N1,N2}}}, Value) ->
     NewList = [{0,X} || {X,_} <- N1] ++ ['EXT_MARK'] ++
 	[{1,X} || {X,_} <- N2],
     NewC = {0,length(N1)-1},
     emit(["case ",Value," of",nl]),
     emit_enc_enumerated_cases(Erules, NewC, NewList, 0);
-gen_encode_prim(Erules, #type{def={'ENUMERATED',NNL}}, _, Value) ->
+gen_encode_prim(Erules, #type{def={'ENUMERATED',NNL}}, Value) ->
     NewList = [X || {X,_} <- NNL],
     NewC = {0,length(NewList)-1},
     emit(["case ",Value," of",nl]),
     emit_enc_enumerated_cases(Erules, NewC, NewList, 0);
-gen_encode_prim(per=Erules, D, DoTag, Value) ->
-    asn1ct_gen_per_rt2ct:gen_encode_prim(Erules, D, DoTag, Value);
-gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
+gen_encode_prim(per=Erules, D, Value) ->
+    asn1ct_gen_per_rt2ct:gen_encode_prim(Erules, D, Value);
+gen_encode_prim(Erules, #type{}=D, Value) ->
     Constraint = D#type.constraint,
     SizeConstr = asn1ct_imm:effective_constraint(bitstring, Constraint),
     Pa = case lists:keyfind('PermittedAlphabet', 1, Constraint) of
@@ -213,9 +213,9 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	#'ObjectClassFieldType'{} ->
 	    case asn1ct_gen:get_inner(D#type.def) of
 		{fixedtypevaluefield,_,InnerType} -> 
-		    gen_encode_prim(Erules,InnerType,DoTag,Value);
+		    gen_encode_prim(Erules, InnerType, Value);
 		T -> %% 'ASN1_OPEN_TYPE'
-		    gen_encode_prim(Erules,D#type{def=T},DoTag,Value)
+		    gen_encode_prim(Erules, D#type{def=T}, Value)
 	    end;
 	XX ->
 	    exit({asn1_error,nyi,XX})
@@ -418,7 +418,7 @@ gen_encode_field_call(Erules, ObjName, FieldName, Type) ->
     Def = Type#typedef.typespec,
     case Type#typedef.name of
 	{primitive,bif} -> 
-	    gen_encode_prim(Erules, Def, "false", "Val"),
+	    gen_encode_prim(Erules, Def, "Val"),
 	    [];
 	{constructed,bif} ->
 	    emit({"   'enc_",ObjName,'_',FieldName,
@@ -445,7 +445,7 @@ gen_encode_default_call(Erules, ClassName, FieldName, Type) ->
 	    [#typedef{name=[FieldName,ClassName],
 		      typespec=Type}];
 	{primitive,bif} ->
-	    gen_encode_prim(Erules, Type, "false", "Val"),
+	    gen_encode_prim(Erules, Type, "Val"),
 	    [];
 	#'Externaltypereference'{module=CurrentMod,type=Etype} ->
 	    emit(["   'enc_",Etype,"'(Val)",nl]),
@@ -773,7 +773,7 @@ emit_inner_of_fun(Erule, #typedef{name={ExtMod,Name},typespec=Type}=TDef,
     case {ExtMod,Name} of
 	{primitive,bif} ->
 	    emit(indent(12)),
-	    gen_encode_prim(Erule, Type, dotag, "Val"),
+	    gen_encode_prim(Erule, Type, "Val"),
 	    {[],0};
 	{constructed,bif} ->
 	    emit([indent(12),"'enc_",
@@ -791,7 +791,7 @@ emit_inner_of_fun(Erule, #type{}=Type, _) ->
     case Type#type.def of
 	Def when is_atom(Def) ->
 	    emit({indent(9),Def," ->",nl,indent(12)}),
-	    gen_encode_prim(Erule, Type, dotag, "Val");
+	    gen_encode_prim(Erule, Type, "Val");
 	#'Externaltypereference'{module=CurrMod,type=T} ->
 	    emit({indent(9),T," ->",nl,indent(12),"'enc_",T,"'(Val)"});
 	#'Externaltypereference'{module=ExtMod,type=T} ->

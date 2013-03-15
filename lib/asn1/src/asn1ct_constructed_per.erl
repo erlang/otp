@@ -619,10 +619,9 @@ gen_encode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
     
     Conttype = asn1ct_gen:get_inner(Cont#type.def),
     Currmod = get(currmod),
-    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     case asn1ct_gen:type(Conttype) of
 	{primitive,bif} ->
-	    gen_encode_prim_wrapper(Ctgenmod,Erule,Cont,false,"H");
+	    asn1ct_gen_per:gen_encode_prim(Erule, Cont, "H");
 	{constructed,bif} ->
 	    NewTypename = [Constructed_Suffix|Typename],
 	    emit({"'enc_",asn1ct_gen:list2name(NewTypename),"'(H",
@@ -632,9 +631,9 @@ gen_encode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
 	#'Externaltypereference'{module=EMod,type=EType} ->
 	    emit({"'",EMod,"':'enc_",EType,"'(H)",nl,nl});
 	'ASN1_OPEN_TYPE' ->
-	    gen_encode_prim_wrapper(Ctgenmod,Erule,
-				    #type{def='ASN1_OPEN_TYPE'},
-				    false,"H");
+	    asn1ct_gen_per:gen_encode_prim(Erule,
+					   #type{def='ASN1_OPEN_TYPE'},
+					   "H");
 	_ ->
 	    emit({"'enc_",Conttype,"'(H)",nl,nl})
     end,
@@ -990,7 +989,6 @@ gen_enc_line(Erule,TopType, Cname, Type, [], Pos,DynamicEnc,Ext) ->
     Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
     gen_enc_line(Erule,TopType,Cname,Type,Element, Pos,DynamicEnc,Ext);
 gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
-    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     Atype = 
 	case Type of
 	    #type{def=#'ObjectClassFieldType'{type=InnerType}} ->
@@ -1049,17 +1047,16 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
 			    _ ->
 				Type
 			end,
-		    gen_encode_prim_wrapper(Ctgenmod,Erule,EncType,
-					    false,Element);
+		    asn1ct_gen_per:gen_encode_prim(Erule, EncType, Element);
 		'ASN1_OPEN_TYPE' ->
 		    case Type#type.def of
 			#'ObjectClassFieldType'{type=OpenType} ->
-			    gen_encode_prim_wrapper(Ctgenmod,Erule,
-						    #type{def=OpenType},
-						    false,Element);
+			    asn1ct_gen_per:gen_encode_prim(Erule,
+							   #type{def=OpenType},
+							   Element);
 			_ ->
-			    gen_encode_prim_wrapper(Ctgenmod,Erule,Type,
-						    false,Element)
+			    asn1ct_gen_per:gen_encode_prim(Erule, Type,
+							   Element)
 		    end;
 		{constructed,bif} ->
 		    NewTypename = [Cname|TopType],
@@ -1737,11 +1734,6 @@ gen_dec_choice2(_, _, [], _, _, _)  -> ok.
 
 indent(N) ->
     lists:duplicate(N,32). % 32 = space
-
-gen_encode_prim_wrapper(CtgenMod,Erule,Cont,DoTag,Value) ->    
-%    put(component_type,true), % add more info in component_type
-    CtgenMod:gen_encode_prim(Erule,Cont,DoTag,Value).
-%    erase(component_type).
 
 make_elements(I,Val,ExtCnames) ->
     make_elements(I,Val,ExtCnames,[]).
