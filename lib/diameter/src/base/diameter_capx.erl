@@ -172,7 +172,50 @@ ipaddr(A) ->
 bCER(#diameter_caps{} = Rec, Dict) ->
     Values = lists:zip(Dict:'#info-'(diameter_base_CER, fields),
                        tl(tuple_to_list(Rec))),
-    Dict:'#new-'(diameter_base_CER, Values).
+    Dict:'#new-'(diameter_base_CER, [{K, map(K, V, Dict)}
+                                     || {K,V} <- Values]).
+
+%% map/3
+%%
+%% Deal with differerences in common dictionary AVP's to make changes
+%% transparent in service/transport config. In particular, one
+%% annoying difference between RFC 3588 and RFC 6733.
+%%
+%% RFC 6773 changes the definition of Vendor-Specific-Application-Id,
+%% giving Vendor-Id arity 1 instead of 3588's 1*. This causes woe
+%% since the corresponding dictionaries expect different values for a
+%% 'Vendor-Id': a list for 3588, an integer for 6733.
+
+map('Vendor-Specific-Application-Id', L, Dict) ->
+    Rec = Dict:'#new-'('diameter_base_Vendor-Specific-Application-Id', []),
+    Def = Dict:'#get-'('Vendor-Id', Rec),
+    [vsa(V, Def) || V <- L];
+map(_, V, _) ->
+    V.
+
+vsa({_, N, _, _} = Rec, [])
+  when is_integer(N) ->
+    setelement(2, Rec, [N]);
+
+vsa({_, [N], _, _} = Rec, undefined)
+  when is_integer(N) ->
+    setelement(2, Rec, N);
+
+vsa([_|_] = L, Def) ->
+    [vid(T, Def) || T <- L];
+
+vsa(T, _) ->
+    T.
+
+vid({'Vendor-Id' = K, N}, [])
+  when is_integer(N) ->
+    {K, [N]};
+
+vid({'Vendor-Id' = K, [N]}, undefined) ->
+    {K, N};
+
+vid(T, _) ->
+    T.
 
 %% rCER/3
 %%
