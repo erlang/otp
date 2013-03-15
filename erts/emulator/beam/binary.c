@@ -447,6 +447,7 @@ BIF_RETTYPE bitstring_to_list_1(BIF_ALIST_1)
 BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg)
 {
     Eterm bin;
+    Eterm h,t;
     ErlDrvSizeT size;
     byte* bytes;
 #ifdef DEBUG
@@ -458,6 +459,16 @@ BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg)
     }
     if (is_not_list(arg)) {
 	goto error;
+    }
+    /* check for [binary()] case */
+    h = CAR(list_val(arg));
+    t = CDR(list_val(arg));
+    if (is_binary(h) && is_nil(t) && !(
+		HEADER_SUB_BIN == *(binary_val(h)) && (
+		    ((ErlSubBin *)binary_val(h))->bitoffs != 0 ||
+		    ((ErlSubBin *)binary_val(h))->bitsize != 0
+		))) {
+	return h;
     }
     switch (erts_iolist_size(arg, &size)) {
     case ERTS_IOLIST_OVERFLOW: BIF_ERROR(p, SYSTEM_LIMIT);
