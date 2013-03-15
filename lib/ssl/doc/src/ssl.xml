@@ -184,13 +184,16 @@
 
       <tag>{ciphers, ciphers()}</tag>
       <item>The cipher suites that should be supported. The function
-      <c>cipher_suites/0</c> can be used to find all available
-      ciphers. Additionally some anonymous cipher suites ({dh_anon,
-      rc4_128, md5}, {dh_anon, des_cbc, sha}, {dh_anon,
-      '3des_ede_cbc', sha}, {dh_anon, aes_128_cbc, sha}, {dh_anon,
-      aes_256_cbc, sha}) are supported for testing purposes and will
-      only work if explicitly enabled by this option and they are supported/enabled
-      by the peer also.
+      <c>cipher_suites/0</c> can be used to find all ciphers that are
+      supported by default.  <c>cipher_suites(all)</c> may be called
+      to find all available cipher suites.   
+      Pre-Shared Key (<url href="http://www.ietf.org/rfc/rfc4279.txt">RFC 4279</url> and
+      <url href="http://www.ietf.org/rfc/rfc5487.txt">RFC 5487</url>), 
+      Secure Remote Password (<url href="http://www.ietf.org/rfc/rfc5054.txt">RFC 5054</url>) 
+      and anonymous cipher suites only work if explicitly enabled by
+      this option and they are supported/enabled by the peer also.
+      Note that anonymous cipher suites are supported for testing purposes
+      only and should not be used when security matters.
       </item>
 
       <tag>{ssl_imp, new | old}</tag>
@@ -200,10 +203,10 @@
 
       <tag>{secure_renegotiate, boolean()}</tag>
       <item>Specifies if to reject renegotiation attempt that does
-      not live up to RFC 5746. By default secure_renegotiate is
+      not live up to <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>. By default secure_renegotiate is
       set to false i.e. secure renegotiation will be used if possible
       but it will fallback to unsecure renegotiation if the peer
-      does not support RFC 5746.
+      does not support <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>.
       </item>
 
       <tag>{depth, integer()}</tag>
@@ -305,25 +308,22 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 fun(psk, PSKIdentity, UserState :: term()) ->
 	{ok, SharedSecret :: binary()} | error;
 fun(srp, Username, UserState :: term()) ->
-	{ok, {SRPParams :: srp_param_type(), Salt :: binary(), UserPassHash :: binary()}} | error.
+	{ok, {SRPParams :: srp_param_type(), Salt :: binary(), DerivedKey :: binary()}} | error.
 	</code>
 
-	<p>For PSK cipher suites, the lookup fun will be called in the client and server the find
-	 the shared secret. On the client, PSKIdentity will be set to hint presented by the server
-	 or undefined. On the server, PSKIdentity is the identity presented by the client.
-	 For SRP cipher suites, the fun will only be used by the server to find the SRP values.
+	<p>For Pre-Shared Key (PSK) cipher suites, the lookup fun will
+	be called by the client and server to determine the shared
+	secret. When called by the client, PSKIdentity will be set to the
+	hint presented by the server or undefined. When called by the
+	server, PSKIdentity is the identity presented by the client.
 	</p>
 
-	<p>For SRP, the required values on a server will usually be precalculated and kept in a passwd
-	like file. A sample SRP lookup fun that calculates the values on the fly for a single user entry
-	with a static password could be:</p>
-	<code><![CDATA[
-user_lookup(srp, Username, _UserState) ->
-    Salt = ssl:random_bytes(16),
-    UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, <<"secret">>])]),
-    {ok, {srp_1024, Salt, UserPassHash}}.
-	]]></code>
-
+	<p>For Secure Remote Password (SRP), the fun will only be used by the server to obtain
+	parameters that it will use to generate its session keys. <c>DerivedKey</c> should be 
+	derived according to <url href="http://tools.ietf.org/html/rfc2945#section-3"> RFC 2945</url> and
+	 <url href="http://tools.ietf.org/html/rfc5054#section-2.4"> RFC 5054</url>:
+	<c>crypto:sha([Salt, crypto:sha([Username, &lt;&lt;$:&gt;&gt;, Password])]) </c>
+	</p>
       </item>
 
     </taglist>
@@ -473,13 +473,16 @@ user_lookup(srp, Username, _UserState) ->
       <name>cipher_suites(Type) -> ciphers()</name>
       <fsummary> Returns a list of supported cipher suites</fsummary>
       <type>
-        <v>Type = erlang | openssl</v>
+        <v>Type = erlang | openssl | all</v>
 
       </type>
       <desc><p>Returns a list of supported cipher suites.
 	cipher_suites() is equivalent to cipher_suites(erlang).
 	Type openssl is provided for backwards compatibility with
-	old ssl that used openssl.
+	old ssl that used openssl. cipher_suites(all) returns
+	all available cipher suites. The cipher suites not present
+	in cipher_suites(erlang) but in included in cipher_suites(all)
+	will not be used unless explicitly configured by the user.
 	</p>
     </desc>
     </func>
@@ -866,7 +869,6 @@ user_lookup(srp, Username, _UserState) ->
         </p>
       </desc>
     </func>
-
 
   </funcs> 
 

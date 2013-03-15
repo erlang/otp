@@ -355,7 +355,7 @@ negotiated_next_protocol(#sslsocket{pid = Pid}) ->
     ssl_connection:negotiated_next_protocol(Pid).
 
 -spec cipher_suites() -> [erl_cipher_suite()].
--spec cipher_suites(erlang | openssl) -> [erl_cipher_suite()] | [string()].
+-spec cipher_suites(erlang | openssl | all ) -> [erl_cipher_suite()] | [string()].
 			   
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
@@ -368,8 +368,15 @@ cipher_suites(erlang) ->
 
 cipher_suites(openssl) ->
     Version = ssl_record:highest_protocol_version([]),
-    [ssl_cipher:openssl_suite_name(S) || S <- ssl_cipher:suites(Version)].
+    [ssl_cipher:openssl_suite_name(S) || S <- ssl_cipher:suites(Version)];
 
+cipher_suites(all) ->
+    Version = ssl_record:highest_protocol_version([]),
+    Supported = ssl_cipher:suites(Version)
+	++ ssl_cipher:anonymous_suites()
+	++ ssl_cipher:psk_suites(Version)
+	++ ssl_cipher:srp_suites(),
+    [suite_definition(S) || S <- Supported].
 %%--------------------------------------------------------------------
 -spec getopts(#sslsocket{}, [gen_tcp:option_name()]) ->
 		     {ok, [gen_tcp:option()]} | {error, reason()}.
