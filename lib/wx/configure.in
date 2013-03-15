@@ -71,7 +71,7 @@ WXERL_CAN_BUILD_DRIVER=true
 
 LM_WINDOWS_ENVIRONMENT
 
-if test  X"$MIXED_CYGWIN_VC" == X"yes" -o X"$MIXED_MSYS_VC" == X"yes"; then
+if test  X"$MIXED_CYGWIN_VC" = X"yes" -o X"$MIXED_MSYS_VC" = X"yes"; then
    CFLAGS="-Owx"
 fi
 
@@ -336,7 +336,7 @@ dnl
 if test "$cross_compiling" = "yes"; then
     echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" > ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
-elif test  X"$MIXED_CYGWIN_VC" == X"no" -a X"$MIXED_MSYS_VC" == X"no"; then
+elif test  X"$MIXED_CYGWIN_VC" = X"no" -a X"$MIXED_MSYS_VC" = X"no"; then
     WX_VERSION=`wx-config --version`
     case $WX_VERSION in
          2.8.*)
