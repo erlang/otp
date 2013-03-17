@@ -80,8 +80,8 @@
       {cacerts, [der_encoded()]} | {cacertfile, path()} |
       |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
-      {next_protocols_advertised, list(binary()} |
-      {client_preferred_next_protocols, binary(), client | server, list(binary())}
+      {next_protocols_advertised, [binary()]} |
+      {client_preferred_next_protocols, client | server, [binary()]}
     </c></p>
 
     <p><c>transportoption() = {cb_info, {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom(), ErrTag:atom()}}
@@ -313,25 +313,25 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       when possible.
       </item>
 
-      <tag>{client_preferred_next_protocols,  Precedence:: server | client, ClientPrefs::[binary()]}
-           {client_preferred_next_protocols,  Precedence:: server | client, ClientPrefs::[binary()] , Default :: binary()}}</tag>
-
-	   <item> <p>Indicates the client will try to perform Next Protocol
+      <tag>{client_preferred_next_protocols, Precedence :: server | client, ClientPrefs :: [binary()]}</tag>
+      <tag>{client_preferred_next_protocols, Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}</tag>
+	   <item>
+	   <p>Indicates the client will try to perform Next Protocol
 	   Negotiation.</p>
 
-	    <p>If precedence is server the negaotiated protocol will be the
+	   <p>If precedence is server the negotiated protocol will be the
 	   first protocol that appears on the server advertised list that is
-	   also on the clients preference list.</p>
+	   also on the client preference list.</p>
 
-	   <p>If the precedence is client the negaotiated protocol will be the
-	   first protocol that appears on the clients preference list that is
+	   <p>If precedence is client the negotiated protocol will be the
+	   first protocol that appears on the client preference list that is
 	   also on the server advertised list.</p>
 
-	  <p> If the client does not support any of the servers advertised
+	   <p>If the client does not support any of the server advertised
 	   protocols or the server does not advertise any protocols the
 	   client will fallback to the first protocol in its list or if a
 	   default is supplied it will fallback to that instead. If the
-	   server does not support next protocol renegotiation the
+	   server does not support Next Protocol Negotiation the
 	   connection will be aborted if no default protocol is supplied.</p>
 	   </item>
     </taglist>
@@ -388,7 +388,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       and CipherSuite is of type ciphersuite().
     </item>
 
-      <tag>{next_protocols_advertised, Protocols :: list(binary())}</tag>
+      <tag>{next_protocols_advertised, Protocols :: [binary()]}</tag>
       <item>The list of protocols to send to the client if the client indicates
       it supports the Next Protocol extension. The client may select a protocol
       that is not on this list. The list of protocols must not contain an empty
