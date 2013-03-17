@@ -33,6 +33,7 @@
              {load_module, diameter_stats},
              {load_module, diameter_service},
              {load_module, diameter_watchdog},
+             {load_module, diameter_capx},
              {load_module, diameter}]}
  ],
  [
