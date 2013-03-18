@@ -1142,7 +1142,7 @@ handle_response(#state{request      = Request,
 			      {session,     Session}, 
 			      {status_line, StatusLine}]),
 
-    handle_cookies(Headers, Request, Options, httpc_manager), %% FOO profile_name
+    handle_cookies(Headers, Request, Options, ProfileName), 
     case httpc_response:result({StatusLine, Headers, Body}, Request) of
 	%% 100-continue
 	continue -> 
