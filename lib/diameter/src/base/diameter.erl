@@ -45,6 +45,7 @@
 
 -export_type([evaluable/0,
               restriction/0,
+              remotes/0,
               sequence/0,
               app_alias/0,
               service_name/0,
@@ -292,13 +293,20 @@ call(SvcName, App, Message) ->
     | [node()]
     | evaluable().
 
+-type remotes()
+   :: boolean()
+    | [node()]
+    | evaluable().
+
 %% Options passed to start_service/2
 
 -type service_opt()
    :: capability()
     | {application, [application_opt()]}
     | {restrict_connections, restriction()}
-    | {sequence, sequence() | evaluable()}.
+    | {sequence, sequence() | evaluable()}
+    | {share_peers, remotes()}
+    | {use_shared_peers, remotes()}.
 
 -type application_opt()
    :: {alias, app_alias()}

@@ -31,7 +31,7 @@
          send/2,
          close/1,
          abort/1,
-         notify/2]).
+         notify/3]).
 
 %% Server start.
 -export([start_link/0]).
@@ -63,11 +63,11 @@
 -define(DEFAULT_TTMO, infinity).
 
 %%% ---------------------------------------------------------------------------
-%%% # notify/2
+%%% # notify/3
 %%% ---------------------------------------------------------------------------
 
-notify(SvcName, T) ->
-    rpc:abcast(nodes(), ?SERVER, {notify, SvcName, T}).
+notify(Nodes, SvcName, T) ->
+    rpc:abcast(Nodes, ?SERVER, {notify, SvcName, T}).
 
 %%% ---------------------------------------------------------------------------
 %%% # start/1
