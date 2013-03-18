@@ -1479,12 +1479,14 @@ send({TPid, Pkt, #request{handler = Pid} = Req, SvcName, Timeout, TRef}) ->
                        Req#request{handler = self()},
                        SvcName,
                        Timeout),
-    Pid ! reref(receive T -> T end, Ref, TRef).
-
-reref({T, Ref, R}, Ref, TRef) ->
-    {T, TRef, R};
-reref(T, _, _) ->
-    T.
+    receive
+        {answer, _, _, _, _} = A ->
+            Pid ! A;
+        {failover = T, Ref} ->
+            Pid ! {T, TRef};
+        T ->
+            exit({timeout, Ref, TPid} = T)
+    end.
 
 %% send/2
 
@@ -1559,7 +1561,7 @@ resend_request(Pkt0,
 
 store_request(TPid, Bin, Req, Timeout) ->
     Seqs = diameter_codec:sequence_numbers(Bin),
-    TRef = erlang:start_timer(Timeout, self(), timeout),
+    TRef = erlang:start_timer(Timeout, self(), TPid),
     ets:insert(?REQUEST_TABLE, {Seqs, Req, TRef}),
     ets:member(?REQUEST_TABLE, TPid)
         orelse (self() ! {failover, TRef}),  %% failover/1 may have missed

@@ -31,6 +31,7 @@ MODULES = \
 	diameter_codec_test \
 	diameter_compiler_SUITE \
 	diameter_dict_SUITE \
+	diameter_distribution_SUITE \
 	diameter_dpr_SUITE \
 	diameter_event_SUITE \
 	diameter_failover_SUITE \
