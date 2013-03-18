@@ -1082,8 +1082,26 @@ fi
 
 AC_SUBST(ERTS_BUILD_SMP_EMU)
 
-AC_CHECK_FUNCS([posix_fadvise, fallocate])
+AC_CHECK_FUNCS([posix_fadvise])
 AC_CHECK_HEADERS([linux/falloc.h])
+dnl * Old glibcs have broken fallocate64(). Make sure not to use it.
+AC_CACHE_CHECK([whether fallocate() works],i_cv_fallocate_works,[
+    AC_TRY_LINK([
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <fcntl.h>
+        #include <unistd.h>
+	#include <fcntl.h>
+	#include <linux/falloc.h>
+	],
+        [	            
+	int fd = creat("conftest.temp", 0600);
+        fallocate(fd, FALLOC_FL_KEEP_SIZE,(off_t)  1024,(off_t)  1024);
+    	], i_cv_fallocate_works=yes, i_cv_fallocate_works=no)
+])
+if test $i_cv_fallocate_works = yes; then
+   AC_DEFINE(HAVE_FALLOCATE, 1, Define if you have a working fallocate())
+fi
 
 dnl * Old glibcs have broken posix_fallocate(). Make sure not to use it.
 dnl * It may also be broken in AIX.
