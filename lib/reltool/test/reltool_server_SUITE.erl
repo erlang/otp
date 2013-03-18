@@ -80,6 +80,7 @@ all() ->
      otp_9229_dupl_mod_exclude_app,
      otp_9229_dupl_mod_exclude_mod,
      dupl_mod_in_app_file,
+     exclude_non_existing_app,
      get_apps,
      get_mod,
      get_sys,
@@ -1313,7 +1314,6 @@ otp_9229_dupl_mod_exclude_mod(Config) ->
 
     ok.
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Test that if a module is duplicated in a .app file, then a warning
 %% is produced, but target can still be created.
@@ -1342,6 +1342,31 @@ dupl_mod_in_app_file(Config) ->
        reltool:get_status([{config, Sys}])),
 
     %%! test that only one module installed (in spec)
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that if an application is explicitly excluded a warning should
+%% be issued.
+exclude_non_existing_app(_Config) ->
+    %% Configure the server
+    Sys =
+        {sys,
+         [
+          {incl_cond,exclude},
+          {app,foobar,[{incl_cond,exclude}]},
+          {app,kernel,[{incl_cond,include}]},
+          {app,stdlib,[{incl_cond,include}]},
+          {app,sasl,[{incl_cond,include}]}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_exclude_non_existing_app"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Sys}])]),
+    ?m({ok,["foobar: Missing application directory."]},
+       reltool:get_status([{config, Sys}])),
 
     ok.
 
