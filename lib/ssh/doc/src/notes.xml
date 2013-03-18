@@ -29,6 +29,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed timing rekeying bug.</p>
+          <p>
+	    Own Id: OTP-10940</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 2.1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
