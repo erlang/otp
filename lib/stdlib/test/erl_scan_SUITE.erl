@@ -204,20 +204,20 @@ reserved_words() ->
     [begin
          ?line {RW, true} = {RW, erl_scan:reserved_word(RW)},
          S = atom_to_list(RW),
-         Ts = [{RW,1}],
+         Ts = [{RW,{1,1}}],
          ?line test_string(S, Ts)
      end || RW <- L],
     ok.
 
 
 atoms() ->
-    ?line test_string("a
-                 b", [{atom,1,a},{atom,2,b}]),
-    ?line test_string("'a b'", [{atom,1,'a b'}]),
-    ?line test_string("a", [{atom,1,a}]),
-    ?line test_string("a@2", [{atom,1,a@2}]),
-    ?line test_string([39,65,200,39], [{atom,1,'AÈ'}]),
-    ?line test_string("ärlig östen", [{atom,1,ärlig},{atom,1,östen}]),
+    test_string("a
+                 b", [{atom,{1,1},a},{atom,{2,18},b}]),
+    test_string("'a b'", [{atom,{1,1},'a b'}]),
+    test_string("a", [{atom,{1,1},a}]),
+    test_string("a@2", [{atom,{1,1},a@2}]),
+    test_string([39,65,200,39], [{atom,{1,1},'AÈ'}]),
+    test_string("ärlig östen", [{atom,{1,1},ärlig},{atom,{1,7},östen}]),
     ?line {ok,[{atom,_,'$a'}],{1,6}} =
         erl_scan:string("'$\\a'", {1,1}),
     ?line test("'$\\a'"),
@@ -230,7 +230,7 @@ punctuations() ->
     %% One token at a time:
     [begin
          W = list_to_atom(S),
-         Ts = [{W,1}],
+         Ts = [{W,{1,1}}],
          ?line test_string(S, Ts)
      end || S <- L],
     Three = ["/=:=", "<=:=", "==:=", ">=:="], % three tokens...
@@ -246,53 +246,60 @@ punctuations() ->
     [begin
          W1 = list_to_atom(S1),
          W2 = list_to_atom(S2),
-         Ts = [{W1,1},{W2,1}],
+         Ts = [{W1,{1,1}},{W2,{1,-L2+1}}],
          ?line test_string(S, Ts)
-     end || {S,[{_,S1,S2}|_]}  <- SL],
+     end || {S,[{L2,S1,S2}|_]}  <- SL],
 
-    PTs1 = [{'!',1},{'(',1},{')',1},{',',1},{';',1},{'=',1},{'[',1},
-            {']',1},{'{',1},{'|',1},{'}',1}],
+    PTs1 = [{'!',{1,1}},{'(',{1,2}},{')',{1,3}},{',',{1,4}},{';',{1,5}},
+            {'=',{1,6}},{'[',{1,7}},{']',{1,8}},{'{',{1,9}},{'|',{1,10}},
+            {'}',{1,11}}],
     ?line test_string("!(),;=[]{|}", PTs1),
 
-    PTs2 = [{'#',1},{'&',1},{'*',1},{'+',1},{'/',1},
-            {':',1},{'<',1},{'>',1},{'?',1},{'@',1},
-            {'\\',1},{'^',1},{'`',1},{'~',1}],
+    PTs2 = [{'#',{1,1}},{'&',{1,2}},{'*',{1,3}},{'+',{1,4}},{'/',{1,5}},
+            {':',{1,6}},{'<',{1,7}},{'>',{1,8}},{'?',{1,9}},{'@',{1,10}},
+            {'\\',{1,11}},{'^',{1,12}},{'`',{1,13}},{'~',{1,14}}],
     ?line test_string("#&*+/:<>?@\\^`~", PTs2),
 
-    ?line test_string(".. ", [{'..',1}]),
-    ?line test("1 .. 2"),
-    ?line test_string("...", [{'...',1}]),
+    test_string(".. ", [{'..',{1,1}}]),
+    test_string("1 .. 2",
+                [{integer,{1,1},1},{'..',{1,3}},{integer,{1,6},2}]),
+    test_string("...", [{'...',{1,1}}]),
     ok.
 
 comments() ->
     ?line test("a %%\n b"),
     ?line {ok,[],1} = erl_scan:string("%"),
     ?line test("a %%\n b"),
-    ?line {ok,[{atom,_,a},{atom,_,b}],{2,3}} =
+    {ok,[{atom,{1,1},a},{atom,{2,2},b}],{2,3}} =
         erl_scan:string("a %%\n b",{1,1}),
-    ?line {ok,[{atom,_,a},{comment,_,"%%"},{atom,_,b}],{2,3}} =
+    {ok,[{atom,{1,1},a},{comment,{1,3},"%%"},{atom,{2,2},b}],{2,3}} =
         erl_scan:string("a %%\n b",{1,1}, [return_comments]),
-    ?line {ok,[{atom,_,a},
-               {white_space,_," "},
-               {white_space,_,"\n "},
-               {atom,_,b}],
-           {2,3}} =
+    {ok,[{atom,{1,1},a},
+         {white_space,{1,2}," "},
+         {white_space,{1,5},"\n "},
+         {atom,{2,2},b}],
+     {2,3}} =
         erl_scan:string("a %%\n b",{1,1},[return_white_spaces]),
-    ?line {ok,[{atom,_,a},
-               {white_space,_," "},
-               {comment,_,"%%"},
-               {white_space,_,"\n "},
-               {atom,_,b}],
-           {2,3}} = erl_scan:string("a %%\n b",{1,1},[return]),
+    {ok,[{atom,{1,1},a},
+         {white_space,{1,2}," "},
+         {comment,{1,3},"%%"},
+         {white_space,{1,5},"\n "},
+         {atom,{2,2},b}],
+     {2,3}} = erl_scan:string("a %%\n b",{1,1},[return]),
     ok.
 
 errors() ->
     ?line {error,{1,erl_scan,{string,$',"qa"}},1} = erl_scan:string("'qa"), %'
+    {error,{{1,1},erl_scan,{string,$',"qa"}},{1,4}} = %'
+        erl_scan:string("'qa", {1,1}, []), %'
     ?line {error,{1,erl_scan,{string,$","str"}},1} = %"
         erl_scan:string("\"str"), %"
+    {error,{{1,1},erl_scan,{string,$","str"}},{1,5}} = %"
+        erl_scan:string("\"str", {1,1}, []), %"
     ?line {error,{1,erl_scan,char},1} = erl_scan:string("$"),
-    ?line test_string([34,65,200,34], [{string,1,"AÈ"}]),
-    ?line test_string("\\", [{'\\',1}]),
+    {error,{{1,1},erl_scan,char},{1,2}} = erl_scan:string("$", {1,1}, []),
+    test_string([34,65,200,34], [{string,{1,1},"AÈ"}]),
+    test_string("\\", [{'\\',{1,1}}]),
     ?line {'EXIT',_} =
         (catch {foo, erl_scan:string('$\\a', {1,1})}), % type error
     ?line {'EXIT',_} =
@@ -304,7 +311,7 @@ errors() ->
 integers() ->
     [begin
          I = list_to_integer(S),
-         Ts = [{integer,1,I}],
+         Ts = [{integer,{1,1},I}],
          ?line test_string(S, Ts)
      end || S <- [[N] || N <- lists:seq($0, $9)] ++ ["2323","000"] ],
     ok.
@@ -313,14 +320,16 @@ base_integers() ->
     [begin
          B = list_to_integer(BS),
          I = erlang:list_to_integer(S, B),
-         Ts = [{integer,1,I}],
+         Ts = [{integer,{1,1},I}],
          ?line test_string(BS++"#"++S, Ts)
      end || {BS,S} <- [{"2","11"}, {"5","23234"}, {"12","05a"},
                        {"16","abcdef"}, {"16","ABCDEF"}] ],
 
     ?line {error,{1,erl_scan,{base,1}},1} = erl_scan:string("1#000"),
+    {error,{{1,1},erl_scan,{base,1}},{1,2}} =
+        erl_scan:string("1#000", {1,1}, []),
 
-    ?line test_string("12#bc", [{integer,1,11},{atom,1,c}]),
+    test_string("12#bc", [{integer,{1,1},11},{atom,{1,5},c}]),
 
     [begin
          Str = BS ++ "#" ++ S,
@@ -329,40 +338,53 @@ base_integers() ->
      end || {BS,S} <- [{"3","3"},{"15","f"}, {"12","c"}] ],
 
     ?line {ok,[{integer,1,239},{'@',1}],1} = erl_scan:string("16#ef@"),
-    ?line {ok,[{integer,1,14},{atom,1,g@}],1} = erl_scan:string("16#eg@"),
+    {ok,[{integer,{1,1},239},{'@',{1,6}}],{1,7}} =
+        erl_scan:string("16#ef@", {1,1}, []),
+    {ok,[{integer,{1,1},14},{atom,{1,5},g@}],{1,7}} =
+        erl_scan:string("16#eg@", {1,1}, []),
 
     ok.
 
 floats() ->
     [begin
          F = list_to_float(FS),
-         Ts = [{float,1,F}],
+         Ts = [{float,{1,1},F}],
          ?line test_string(FS, Ts)
      end || FS <- ["1.0","001.17","3.31200","1.0e0","1.0E17",
                    "34.21E-18", "17.0E+14"]],
-    ?line test_string("1.e2", [{integer,1,1},{'.',1},{atom,1,e2}]),
+    test_string("1.e2", [{integer,{1,1},1},{'.',{1,2}},{atom,{1,3},e2}]),
 
     ?line {error,{1,erl_scan,{illegal,float}},1} =
         erl_scan:string("1.0e400"),
+    {error,{{1,1},erl_scan,{illegal,float}},{1,8}} =
+        erl_scan:string("1.0e400", {1,1}, []),
     [begin
-         ?line {error,{1,erl_scan,{illegal,float}},1} = erl_scan:string(S)
+         {error,{1,erl_scan,{illegal,float}},1} = erl_scan:string(S),
+         {error,{{1,1},erl_scan,{illegal,float}},{1,_}} =
+             erl_scan:string(S, {1,1}, [])
      end || S <- ["1.14Ea"]],
 
     ok.
 
 dots() ->
-    Dot = [{".",    {ok,[{dot,1}],1}},
-           {". ",   {ok,[{dot,1}],1}},
-           {".\n",  {ok,[{dot,1}],2}},
-           {".%",   {ok,[{dot,1}],1}},
-           {".\210",{ok,[{dot,1}],1}},
-           {".% öh",{ok,[{dot,1}],1}},
-           {".%\n", {ok,[{dot,1}],2}},
-           {".$",   {error,{1,erl_scan,char},1}},
-           {".$\\", {error,{1,erl_scan,char},1}},
-           {".a",   {ok,[{'.',1},{atom,1,a}],1}}
+    Dot = [{".",    {ok,[{dot,1}],1}, {ok,[{dot,{1,1}}],{1,2}}},
+           {". ",   {ok,[{dot,1}],1}, {ok,[{dot,{1,1}}],{1,3}}},
+           {".\n",  {ok,[{dot,1}],2}, {ok,[{dot,{1,1}}],{2,1}}},
+           {".%",   {ok,[{dot,1}],1}, {ok,[{dot,{1,1}}],{1,3}}},
+           {".\210",{ok,[{dot,1}],1}, {ok,[{dot,{1,1}}],{1,3}}},
+           {".% öh",{ok,[{dot,1}],1}, {ok,[{dot,{1,1}}],{1,6}}},
+           {".%\n", {ok,[{dot,1}],2}, {ok,[{dot,{1,1}}],{2,1}}},
+           {".$",   {error,{1,erl_scan,char},1},
+                    {error,{{1,2},erl_scan,char},{1,3}}},
+           {".$\\", {error,{1,erl_scan,char},1},
+                    {error,{{1,2},erl_scan,char},{1,4}}},
+           {".a",   {ok,[{'.',1},{atom,1,a}],1},
+                    {ok,[{'.',{1,1}},{atom,{1,2},a}],{1,3}}}
           ],
-    ?line [R = erl_scan:string(S) || {S, R} <- Dot],
+    [begin
+         R = erl_scan:string(S),
+         R2 = erl_scan:string(S, {1,1}, [])
+     end || {S, R, R2} <- Dot],
 
     ?line {ok,[{dot,_}=T1],{1,2}} = erl_scan:string(".", {1,1}, text),
     ?line [{column,1},{length,1},{line,1},{text,"."}] =
@@ -379,55 +401,55 @@ dots() ->
     ?line {error,{{1,2},erl_scan,char},{1,4}} =
         erl_scan:string(".$\\", {1,1}),
 
-    ?line test(". "),
-    ?line test(".  "),
-    ?line test(".\n"),
-    ?line test(".\n\n"),
-    ?line test(".\n\r"),
-    ?line test(".\n\n\n"),
-    ?line test(".\210"),
-    ?line test(".%\n"),
-    ?line test(".a"),
+    test_string(". ", [{dot,{1,1}}]),
+    test_string(".  ", [{dot,{1,1}}]),
+    test_string(".\n", [{dot,{1,1}}]),
+    test_string(".\n\n", [{dot,{1,1}}]),
+    test_string(".\n\r", [{dot,{1,1}}]),
+    test_string(".\n\n\n", [{dot,{1,1}}]),
+    test_string(".\210", [{dot,{1,1}}]),
+    test_string(".%\n", [{dot,{1,1}}]),
+    test_string(".a", [{'.',{1,1}},{atom,{1,2},a}]),
 
-    ?line test("%. \n. "),
+    test_string("%. \n. ", [{dot,{2,1}}]),
     ?line {more,C} = erl_scan:tokens([], "%. ",{1,1}, return),
-    ?line {done,{ok,[{comment,_,"%. "},
-                     {white_space,_,"\n"},
-                     {dot,_}],
-                 {2,3}}, ""} =
+    {done,{ok,[{comment,{1,1},"%. "},
+               {white_space,{1,4},"\n"},
+               {dot,{2,1}}],
+           {2,3}}, ""} =
         erl_scan:tokens(C, "\n. ", {1,1}, return), % any loc, any options
 
     ?line [test_string(S, R) ||
-              {S, R} <- [{".$\n",   [{'.',1},{char,1,$\n}]},
-                         {"$\\\n",  [{char,1,$\n}]},
-                         {"'\\\n'", [{atom,1,'\n'}]},
-                         {"$\n",    [{char,1,$\n}]}] ],
+              {S, R} <- [{".$\n",   [{'.',{1,1}},{char,{1,2},$\n}]},
+                         {"$\\\n",  [{char,{1,1},$\n}]},
+                         {"'\\\n'", [{atom,{1,1},'\n'}]},
+                         {"$\n",    [{char,{1,1},$\n}]}] ],
     ok.
 
 chars() ->
     [begin
          L = lists:flatten(io_lib:format("$\\~.8b", [C])),
-         Ts = [{char,1,C}],
+         Ts = [{char,{1,1},C}],
          ?line test_string(L, Ts)
      end || C <- lists:seq(0, 255)],
 
     %% Leading zeroes...
     [begin
          L = lists:flatten(io_lib:format("$\\~3.8.0b", [C])),
-         Ts = [{char,1,C}],
+         Ts = [{char,{1,1},C}],
          ?line test_string(L, Ts)
      end || C <- lists:seq(0, 255)],
 
     %% $\^\n now increments the line...
     [begin
          L = "$\\^" ++ [C],
-         Ts = [{char,1,C band 2#11111}],
+         Ts = [{char,{1,1},C band 2#11111}],
          ?line test_string(L, Ts)
      end || C <- lists:seq(0, 255)],
 
     [begin
          L = "$\\" ++ [C],
-         Ts = [{char,1,V}],
+         Ts = [{char,{1,1},V}],
          ?line test_string(L, Ts)
      end || {C,V} <- [{$n,$\n}, {$r,$\r}, {$t,$\t}, {$v,$\v},
                       {$b,$\b}, {$f,$\f}, {$e,$\e}, {$s,$\s},
@@ -440,45 +462,45 @@ chars() ->
     No = EC ++ Ds ++ X ++ New,
     [begin
          L = "$\\" ++ [C],
-         Ts = [{char,1,C}],
+         Ts = [{char,{1,1},C}],
          ?line test_string(L, Ts)
      end || C <- lists:seq(0, 255) -- No],
 
     [begin
          L = "'$\\" ++ [C] ++ "'",
-         Ts = [{atom,1,list_to_atom("$"++[C])}],
+         Ts = [{atom,{1,1},list_to_atom("$"++[C])}],
          ?line test_string(L, Ts)
      end || C <- lists:seq(0, 255) -- No],
 
-    ?line test_string("\"\\013a\\\n\"", [{string,1,"\va\n"}]),
+    test_string("\"\\013a\\\n\"", [{string,{1,1},"\va\n"}]),
 
-    ?line test_string("'\n'", [{atom,1,'\n'}]),
-    ?line test_string("\"\n\a\"", [{string,1,"\na"}]),
+    test_string("'\n'", [{atom,{1,1},'\n'}]),
+    test_string("\"\n\a\"", [{string,{1,1},"\na"}]),
 
     %% No escape
     [begin
          L = "$" ++ [C],
-         Ts = [{char,1,C}],
+         Ts = [{char,{1,1},C}],
          ?line test_string(L, Ts)
      end || C <- lists:seq(0, 255) -- (No ++ [$\\])],
-    ?line test_string("$\n", [{char,1,$\n}]),
+    test_string("$\n", [{char,{1,1},$\n}]),
 
     ?line {error,{{1,1},erl_scan,char},{1,4}} =
         erl_scan:string("$\\^",{1,1}),
-    ?line test_string("$\\\n", [{char,1,$\n}]),
+    test_string("$\\\n", [{char,{1,1},$\n}]),
     %% Robert's scanner returns line 1:
-    ?line test_string("$\\\n", [{char,1,$\n}]),
-    ?line test_string("$\n\n", [{char,1,$\n}]),
+    test_string("$\\\n", [{char,{1,1},$\n}]),
+    test_string("$\n\n", [{char,{1,1},$\n}]),
     ?line test("$\n\n"),
     ok.
 
 
 variables() ->
-    ?line test_string("     \237_Aouåeiyäö", [{var,1,'_Aouåeiyäö'}]),
-    ?line test_string("A_b_c@", [{var,1,'A_b_c@'}]),
-    ?line test_string("V@2", [{var,1,'V@2'}]),
-    ?line test_string("ABDÀ", [{var,1,'ABDÀ'}]),
-    ?line test_string("Ärlig Östen", [{var,1,'Ärlig'},{var,1,'Östen'}]),
+    test_string("     \237_Aouåeiyäö", [{var,{1,7},'_Aouåeiyäö'}]),
+    test_string("A_b_c@", [{var,{1,1},'A_b_c@'}]),
+    test_string("V@2", [{var,{1,1},'V@2'}]),
+    test_string("ABDÀ", [{var,{1,1},'ABDÀ'}]),
+    test_string("Ärlig Östen", [{var,{1,1},'Ärlig'},{var,{1,7},'Östen'}]),
     ok.
 
 eof() ->
@@ -508,10 +530,24 @@ eof() ->
     ?line {done,{ok,[{atom,1,a}],1},eof} =
         erl_scan:tokens(C5,eof,1),
 
+    %% With column.
+    {more, C6} = erl_scan:tokens([], "a", {1,1}),
+    %% An error before R13A.
+    %% {done,{error,{1,erl_scan,scan},1},eof} =
+    {done,{ok,[{atom,{1,1},a}],{1,2}},eof} =
+        erl_scan:tokens(C6,eof,1),
+
     %% A dot followed by eof is special:
     ?line {more, C} = erl_scan:tokens([], "a.", 1),
     ?line {done,{ok,[{atom,1,a},{dot,1}],1},eof} = erl_scan:tokens(C,eof,1),
     ?line {ok,[{atom,1,foo},{dot,1}],1} = erl_scan:string("foo."),
+
+    %% With column.
+    {more, CCol} = erl_scan:tokens([], "a.", {1,1}),
+    {done,{ok,[{atom,{1,1},a},{dot,{1,2}}],{1,3}},eof} =
+        erl_scan:tokens(CCol,eof,1),
+    {ok,[{atom,{1,1},foo},{dot,{1,4}}],{1,5}} =
+        erl_scan:string("foo.", {1,1}, []),
 
     ok.
 
@@ -816,34 +852,34 @@ unicode() ->
         erl_scan:string([1089]),
     ?line {error,{{1,1},erl_scan,{illegal,character}},{1,2}} =
         erl_scan:string([1089], {1,1}),
-    ?line {error,{1,erl_scan,{illegal,atom}},1} =
+    {error,{1,erl_scan,{illegal,atom}},1} =
         erl_scan:string("'a"++[1089]++"b'", 1),
-    ?line {error,{{1,1},erl_scan,{illegal,atom}},{1,6}} =
+    {error,{{1,1},erl_scan,{illegal,atom}},{1,6}} =
         erl_scan:string("'a"++[1089]++"b'", {1,1}),
     ?line test("\"a"++[1089]++"b\""),
-    ?line {ok,[{char,1,1}],1} =
+    {ok,[{char,1,1}],1} =
         erl_scan:string([$$,$\\,$^,1089], 1),
 
-    ?line {error,{1,erl_scan,Error},1} =
+    {error,{1,erl_scan,Error},1} =
         erl_scan:string("\"qa\x{aaa}", 1),
-    ?line "unterminated string starting with \"qa"++[2730]++"\"" =
+    "unterminated string starting with \"qa"++[2730]++"\"" =
         erl_scan:format_error(Error),
     ?line {error,{{1,1},erl_scan,_},{1,11}} =
         erl_scan:string("\"qa\\x{aaa}",{1,1}),
-    ?line {error,{{1,1},erl_scan,{illegal,atom}},{1,12}} =
+    {error,{{1,1},erl_scan,{illegal,atom}},{1,12}} =
         erl_scan:string("'qa\\x{aaa}'",{1,1}),
 
-    ?line {ok,[{char,1,1089}],1} =
+    {ok,[{char,1,1089}],1} =
         erl_scan:string([$$,1089], 1),
-    ?line {ok,[{char,1,1089}],1} =
+    {ok,[{char,1,1089}],1} =
         erl_scan:string([$$,$\\,1089], 1),
 
     Qs = "$\\x{aaa}",
-    ?line {ok,[{char,1,$\x{aaa}}],1} =
+    {ok,[{char,1,$\x{aaa}}],1} =
         erl_scan:string(Qs, 1),
-    ?line {ok,[Q2],{1,9}} =
+    {ok,[Q2],{1,9}} =
         erl_scan:string("$\\x{aaa}", {1,1}, [text]),
-    ?line [{category,char},{column,1},{length,8},
+    [{category,char},{column,1},{length,8},
            {line,1},{symbol,16#aaa},{text,Qs}] =
         erl_scan:token_info(Q2),
 
@@ -1164,7 +1200,13 @@ otp_11807(Config) when is_list(Config) ->
          (catch erl_parse:abstract("string", [{encoding,bad}])),
    ok.
 
-test_string(String, Expected) ->
+test_string(String, ExpectedWithCol) ->
+    {ok, ExpectedWithCol, _EndWithCol} = erl_scan:string(String, {1, 1}, []),
+    Expected = [ begin
+                     {L,_C} = element(2, T),
+                     setelement(2, T, L)
+                 end
+                    || T <- ExpectedWithCol ],
     {ok, Expected, _End} = erl_scan:string(String),
     test(String).
 
