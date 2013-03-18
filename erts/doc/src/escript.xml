@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>2007</year><year>2011</year>
+      <year>2007</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -85,6 +85,11 @@ $ <input>escript factorial 5</input>        </pre>
           enter the major mode for editing Erlang source files. If the
           directive is present it must be located on the second
           line.</p>
+
+        <p>If there is a comment selecting the <seealso
+          marker="stdlib:epp#encoding">encoding</seealso> it can be
+          located on the second line.</p>
+
 	<p>On the third line (or second line depending on the presence
           of the Emacs directive), it is possible to give arguments to
           the emulator, such as </p>
@@ -133,7 +138,9 @@ halt(1).</pre>
         <pre>
 -include_lib("kernel/include/file.hrl").</pre>
         <p>to include the record definitions for the records used by the
-          <c>file:read_link_info/1</c> function.</p>
+          <c>file:read_link_info/1</c> function. You can also select
+          encoding here, but if there is a valid encoding comment on
+          the second line it takes precedence.</p>
 
         <p>The script will be checked for syntactic and semantic
           correctness before being run. If there are warnings (such as
