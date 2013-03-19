@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -228,8 +228,8 @@ code_change(_OldVsn, State, _Extra) ->
 start_portprogram() ->
     OwnPath = os_mon:get_env(os_sup, os_sup_own),
     Command =
-	filename:join([code:priv_dir(os_mon), "bin", "ferrule"]) ++
-	" " ++ OwnPath,
+	"\"" ++ filename:join([code:priv_dir(os_mon), "bin", "ferrule"]) ++
+	"\" " ++ OwnPath,
     open_port({spawn, Command}, [{packet, 2}]).
 
 %% os:cmd(cmd_str(enable)) should be done BEFORE starting os_sup
