@@ -336,6 +336,7 @@ call(SvcName, App, Message) ->
     | {length_errors, exit | handle | discard}
     | {reconnect_timer, 'Unsigned32'()}
     | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
+    | {watchdog_config, [{okay|suspect, non_neg_integer()}]}
     | {private, any()}.
 
 %% Predicate passed to remove_transport/2

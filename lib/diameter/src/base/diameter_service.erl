@@ -1626,16 +1626,10 @@ info_stats(#state{watchdogT = WatchdogT}) ->
 
 info_transport(S) ->
     PeerD = peer_dict(S, config_dict(S)),
-    RefsD = dict:map(fun(_, Ls) -> [P || L <- Ls, {peer, {P,_}} <- L] end,
-                     PeerD),
-    Refs = lists:append(dict:fold(fun(R, Ps, A) -> [[R|Ps] | A] end,
-                                  [],
-                                  RefsD)),
-    Stats = diameter_stats:read(Refs),
+    Stats = diameter_stats:sum(dict:fetch_keys(PeerD)),
     dict:fold(fun(R, Ls, A) ->
-                      Ps = dict:fetch(R, RefsD),
-                      [[{ref, R} | transport(Ls)] ++ [stats([R|Ps], Stats)]
-                       | A]
+                      Cs = proplists:get_value(R, Stats, []),
+                      [[{ref, R} | transport(Ls)] ++ [{statistics, Cs}] | A]
               end,
               [],
               PeerD).
