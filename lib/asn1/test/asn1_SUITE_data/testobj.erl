@@ -639,7 +639,7 @@ run_reset_res() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% Kod för att sätta ihop RANAP-meddelanden 
+%% Code for constructing RANAP messages
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
