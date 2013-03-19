@@ -560,7 +560,6 @@ handle_info({start_connection, server,
     Exec = proplists:get_value(exec, Options),
     CliSpec = proplists:get_value(ssh_cli, Options, {ssh_cli, [Shell]}),
     ssh_connection_handler:send_event(Connection, socket_control),
-    erlang:send_after(3600000, self(), rekey),
     erlang:send_after(60000, self(), rekey_data),
     {noreply, State#state{connection = Connection,
 			  connection_state = 

@@ -42,6 +42,43 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>Diameter 1.4.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken Vendor-Specific-Application-Id configuration.</p>
+          <p>
+	    RFC 6733 changed the definition of this Grouped AVP,
+	    changing the arity of Vendor-Id from 1* to 1. A component
+	    Vendor-Id can now be either list- or integer-valued in
+	    service and transport configuration, allowing it to be
+	    used with both RFC 3588 and RFC 6733 dictionaries.</p>
+          <p>
+	    Own Id: OTP-10942</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add transport_opt() watchdog_config to allow non-standard
+	    behaviour of the watchdog state machine.</p>
+          <p>
+	    This can be useful during test but should not be used on
+	    nodes that must conform to RFC 3539.</p>
+          <p>
+	    Own Id: OTP-10898</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Diameter 1.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
