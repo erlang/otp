@@ -34,6 +34,7 @@
 
 %% testcases
 -export([start/1,
+         vendor_id/1,
          start_services/1,
          add_listeners/1,
          s_no_common_application/1,
@@ -69,7 +70,7 @@
 -define(HOST(Name), Name ++ "." ++ ?REALM).
 
 %% Config for diameter:start_service/2.
--define(SERVICE(Name),
+-define(SERVICE,
         [{'Origin-Realm', ?REALM},
          {'Host-IP-Address', [?ADDR]},
          {'Vendor-Id', 12345},
@@ -103,6 +104,7 @@ suite() ->
     [{timetrap, {seconds, 60}}].
 
 all() -> [start,
+          vendor_id,
           start_services,
           add_listeners]
       ++ [{group, D, P} || D <- ?DICTS, P <- [[], [parallel]]]
@@ -128,6 +130,7 @@ end_per_group(_, _) ->
 
 end_per_testcase(N, _)
   when N == start;
+       N == vendor_id;
        N == start_services;
        N == add_listeners;
        N == remove_listeners;
@@ -156,9 +159,27 @@ tc() ->
 start(_Config) ->
     ok = diameter:start().
 
+%% Ensure that both integer and list-valued vendor id's can be
+%% configured in a 'Vendor-Specific-Application-Id, the arity having
+%% changed between RFC 3588 and RFC 6733.
+vendor_id(_Config) ->
+    [] = ?util:run([[fun vid/1, V] || V <- [1, [1], [1,2], x]]).
+
+vid(V) ->
+    RC = diameter:start_service(make_ref(),
+                                [{'Vendor-Specific-Application-Id',
+                                  [[{'Vendor-Id', V}]]}
+                                 | ?SERVICE]),
+    vid(V, RC).
+
+vid(x, {error, _}) ->
+    ok;
+vid(_, ok) ->
+    ok.
+
 start_services(_Config) ->
-    ok = diameter:start_service(?SERVER, ?SERVICE(?SERVER)),
-    ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT)).
+    ok = diameter:start_service(?SERVER, ?SERVICE),
+    ok = diameter:start_service(?CLIENT, ?SERVICE).
 
 %% One server that responds only to base accounting, one that responds
 %% to both this and the common application. Share a common service just
