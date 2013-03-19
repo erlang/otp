@@ -602,9 +602,15 @@ parse_beam(S, File, HeaderSz, CheckOnly) ->
 parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
     {PreDefMacros, Module} = pre_def_macros(File),
     IncludePath = [],
-    {ok, _} = file:position(Fd, {bof, HeaderSz}),
+    %% Read the encoding on the second line, if there is any:
+    {ok, _} = file:position(Fd, 0),
+    _ = io:get_line(Fd, ''),
+    Encoding = epp:set_encoding(Fd),
+    {ok, _} = file:position(Fd, HeaderSz),
     case epp:open(File, Fd, StartLine, IncludePath, PreDefMacros) of
         {ok, Epp} ->
+            _ = [io:setopts(Fd, [{encoding,Encoding}]) ||
+                    Encoding =/= none],
             {ok, FileForm} = epp:parse_erl_form(Epp),
             OptModRes = epp:parse_erl_form(Epp),
             S2 = S#state{source = text, module = Module},

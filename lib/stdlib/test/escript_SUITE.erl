@@ -919,6 +919,9 @@ unicode(Config) when is_list(Config) ->
            " an arithmetic expression\n  in operator  '/'/2\n     "
            "called as <<\"\xaa\">> / <<\"\xaa\">>\nExitCode:127">>]),
     run(Dir, "unicode3", [<<"ExitCode:0">>]),
+    run(Dir, "unicode4", [<<"ExitCode:0">>]),
+    run(Dir, "unicode5", [<<"ExitCode:0">>]),
+    run(Dir, "unicode6", [<<"ExitCode:0">>]),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
