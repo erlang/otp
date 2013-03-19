@@ -515,13 +515,7 @@ gen_encode_sof(Erule,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     emit({indent(3),"'enc_",asn1ct_gen:list2name(Typename),
 	      "_components'(Val",ObjFun,", [])"}),
     emit({nl,"].",nl}),
-    NewComponentType =
-	case ComponentType#type.def of
-	    {'ENUMERATED',_,Component}->
-		ComponentType#type{def={'ENUMERATED',Component}};
-	    _ -> ComponentType
-	end,
-    gen_encode_sof_components(Erule,Typename,SeqOrSetOf,NewComponentType).
+    gen_encode_sof_components(Erule, Typename, SeqOrSetOf, ComponentType).
 
 
 %% Logic copied from asn1_per_bin_rt2ct:encode_constrained_number
@@ -583,13 +577,7 @@ gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     emit([",",nl,
 	  "'dec_",asn1ct_gen:list2name(Typename),
 	  "_components'(",Num,", ",Buf,ObjFun,", []).",nl,nl]),
-    NewComponentType =
-	case ComponentType#type.def of
-	    {'ENUMERATED',_,Component}->
-		ComponentType#type{def={'ENUMERATED',Component}};
-	    _ -> ComponentType
-	end,
-    gen_decode_sof_components(Erules,Typename,SeqOrSetOf,NewComponentType).
+    gen_decode_sof_components(Erules, Typename, SeqOrSetOf, ComponentType).
 
 is_aligned(per) -> true;
 is_aligned(uper) -> false.
