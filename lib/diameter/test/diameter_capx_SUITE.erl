@@ -130,6 +130,7 @@ end_per_group(_, _) ->
 
 end_per_testcase(N, _)
   when N == start;
+       N == vendor_id;
        N == start_services;
        N == add_listeners;
        N == remove_listeners;
