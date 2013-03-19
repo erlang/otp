@@ -90,6 +90,7 @@ real_requests()->
 only_simulated() ->
     [
      cookie,
+     cookie_profile,
      trace,
      stream_once,
      no_content_204,
@@ -489,8 +490,36 @@ cookie(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(get, Request1, [], []),
 
+   [{session_cookies, [_|_]}] = httpc:which_cookies(httpc:default_profile()),
+
     ets:delete(cookie),
     ok = httpc:set_options([{cookies, disabled}]).
+
+
+
+%%-------------------------------------------------------------------------
+cookie_profile() ->
+    [{doc, "Test cookies on a non default profile."}].
+cookie_profile(Config) when is_list(Config) ->   
+    inets:start(httpc, [{profile, cookie_test}]),
+    ok = httpc:set_options([{cookies, enabled}], cookie_test),
+
+    Request0 = {url(group_name(Config), "/cookie.html", Config), []},
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, Request0, [], [], cookie_test),
+
+    %% Populate table to be used by the "dummy" server
+    ets:new(cookie, [named_table, public, set]),
+    ets:insert(cookie, {cookies, true}),
+
+    Request1 = {url(group_name(Config), "/", Config), []},
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, Request1, [], [], cookie_test),
+
+    ets:delete(cookie),
+    inets:stop(httpc, cookie_test).
 
 %%-------------------------------------------------------------------------
 headers_as_is(doc) ->
