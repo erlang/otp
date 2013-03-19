@@ -28,6 +28,7 @@
 -export([reg/2, reg/1,
          incr/3, incr/1,
          read/1,
+         sum/1,
          flush/1]).
 
 %% supervisor callback
@@ -77,10 +78,14 @@
 
 reg(Pid, Ref)
   when is_pid(Pid) ->
-    call({reg, Pid, Ref}).
+    try
+        call({reg, Pid, Ref})
+    catch
+        exit: _ -> false
+    end.
 
 -spec reg(ref())
-   -> true.
+   -> boolean().
 
 reg(Ref) ->
     reg(self(), Ref).
@@ -111,11 +116,19 @@ incr(Ctr) ->
 %% Retrieve counters for the specified contributors.
 %% ---------------------------------------------------------------------------
 
+%% Read in the server process to ensure that counters for a dying
+%% contributor aren't folded concurrently with select.
+
 -spec read([ref()])
    -> [{ref(), [{counter(), integer()}]}].
 
-read(Refs) ->
-    read(Refs, false).
+read(Refs)
+  when is_list(Refs) ->
+    try call({read, Refs, false}) of
+        L -> to_refdict(L)
+    catch
+        exit: _ -> []
+    end.
 
 read(Refs, B) ->
     MatchSpec = [{{{'_', '$1'}, '_'},
@@ -124,7 +137,48 @@ read(Refs, B) ->
                   ['$_']}],
     L = ets:select(?TABLE, MatchSpec),
     B andalso delete(L),
+    L.
+
+to_refdict(L) ->
     lists:foldl(fun({{C,R}, N}, D) -> orddict:append(R, {C,N}, D) end,
+                orddict:new(),
+                L).
+
+%% ---------------------------------------------------------------------------
+%% # sum(Refs)
+%%
+%% Retrieve counters summed over all contributors for each term.
+%% ---------------------------------------------------------------------------
+
+-spec sum([ref()])
+   -> [{ref(), [{counter(), integer()}]}].
+
+sum(Refs)
+  when is_list(Refs) ->
+    try call({read, Refs}) of
+        L -> [{R, to_ctrdict(Cs)} || {R, [_|_] = Cs} <- L]
+    catch
+        exit: _ -> []
+    end.
+
+read_refs(Refs) ->
+    [{R, readr(R)} || R <- Refs].
+
+readr(Ref) ->
+    MatchSpec = [{{{'_', '$1'}, '_'},
+                  [?ORCOND([{'=:=', '$1', {const, R}}
+                            || R <- [Ref | pids(Ref)]])],
+                  ['$_']}],
+    ets:select(?TABLE, MatchSpec).
+
+pids(Ref) ->
+    MatchSpec = [{{'$1', '$2'},
+                  [{'=:=', '$2', {const, Ref}}],
+                  ['$1']}],
+    ets:select(?TABLE, MatchSpec).
+
+to_ctrdict(L) ->
+    lists:foldl(fun({{C,_}, N}, D) -> orddict:update_counter(C, N, D) end,
                 orddict:new(),
                 L).
 
@@ -138,11 +192,10 @@ read(Refs, B) ->
    -> [{ref(), {counter(), integer()}}].
 
 flush(Refs) ->
-    try
-        call({flush, Refs})
+    try call({read, Refs, true}) of
+        L -> to_refdict(L)
     catch
-        exit: _ ->
-            []
+        exit: _ -> []
     end.
 
 %% ===========================================================================
@@ -186,8 +239,14 @@ handle_call({reg, Pid, Ref}, _From, State) ->
     B andalso erlang:monitor(process, Pid),
     {reply, B, State};
 
-handle_call({flush, Refs}, _From, State) ->
-    {reply, read(Refs, true), State};
+handle_call({read, Refs, Del}, _From, State) ->
+    {reply, read(Refs, Del), State};
+
+handle_call({read, Refs}, _, State) ->
+    {reply, read_refs(Refs), State};
+
+handle_call({flush, Refs}, _From, State) ->  %% from old code
+    {reply, to_refdict(read(Refs, true)), State};
 
 handle_call(Req, From, State) ->
     ?UNEXPECTED([Req, From]),
