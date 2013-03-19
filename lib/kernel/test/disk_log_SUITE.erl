@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -3205,7 +3205,7 @@ many_users(Conf) when is_list(Conf) ->
     ?line true = lists:duplicate(NoClients, {error, {full,"log.LOG"}}) == C2,
     ?line true = length(T2) > 0,
     ?line {C3, T3} = many(Fun2, NoClients, N, wrap, internal, 
-			  {300*NoClients,20}, Dir),
+			  {300*NoClients,200}, Dir),
     ?line true = lists:duplicate(NoClients, ok) == C3,
     ?line true = length(T3) == N*NoClients,
     ok.

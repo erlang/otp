@@ -2837,14 +2837,18 @@ fsck_try(Fd, Tab, FH, Fname, SlotNumbers, Version) ->
 
 tempfile(Fname) ->
     Tmp = lists:concat([Fname, ".TMP"]),
+    tempfile(Tmp, 10).
+
+tempfile(Tmp, 0) ->
+    Tmp;
+tempfile(Tmp, N) ->
     case file:delete(Tmp) of
         {error, eacces} -> % 'dets_process_died' happened anyway... (W-nd-ws)
-            timer:sleep(5000),
-            file:delete(Tmp);
+            timer:sleep(1000),
+            tempfile(Tmp, N-1);
         _ ->
-            ok
-    end,
-    Tmp.
+            Tmp
+    end.
 
 %% -> {ok, NewHead} | {try_again, integer()} | Error
 fsck_try_est(Head, Fd, Fname, SlotNumbers, FH) ->
