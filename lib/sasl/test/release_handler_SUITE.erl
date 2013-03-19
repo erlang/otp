@@ -2676,7 +2676,7 @@ rpc_inst(Node,Func,Args) ->
 
 delete_all_services() ->
     ErlSrv = erlsrv:erlsrv(erlang:system_info(version)),
-    [_|Serviceinfo] = string:tokens(os:cmd(ErlSrv ++ " list"),"\n"),
+    [_|Serviceinfo] = string:tokens(os:cmd("\"" ++ ErlSrv ++ "\" list"),"\n"),
     Services =
 	[lists:takewhile(fun($\t) -> false; (_) -> true end,S)
 	 || S <- Serviceinfo],
