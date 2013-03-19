@@ -21,7 +21,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 t_case/1,t_and_or/1,t_andalso/1,t_orelse/1,inside/1,overlap/1,
-	 combined/1,in_case/1,before_and_inside_if/1]).
+	 combined/1,in_case/1,before_and_inside_if/1,
+	 slow_compilation/1]).
 	 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -471,6 +472,36 @@ before_and_inside_if_2(XDo1, XDo2, Do3) ->
 		  no
 	  end,
     {CH1,CH2}.
+
+
+-record(state, {stack = []}).
+
+slow_compilation(_) ->
+    %% The function slow_compilation_1 used to compile very slowly.
+    ok = slow_compilation_1({a}, #state{}).
+
+slow_compilation_1(T1, #state{stack = [T2|_]})
+    when element(1, T2) == a, element(1, T1) == b, element(1, T1) == c ->
+    ok;
+slow_compilation_1(T, _)
+    when element(1, T) == a1; element(1, T) == b1; element(1, T) == c1 ->
+    ok;
+slow_compilation_1(T, _)
+    when element(1, T) == a2; element(1, T) == b2; element(1, T) == c2 ->
+    ok;
+slow_compilation_1(T, _) when element(1, T) == a ->
+    ok;
+slow_compilation_1(T, _)
+    when
+        element(1, T) == a,
+        (element(1, T) == b) and (element(1, T) == c) ->
+    ok;
+slow_compilation_1(_, T) when element(1, T) == a ->
+    ok;
+slow_compilation_1(_, T) when element(1, T) == b ->
+    ok;
+slow_compilation_1(T, _) when element(1, T) == a ->
+    ok.
 
 %% Utilities.
 
