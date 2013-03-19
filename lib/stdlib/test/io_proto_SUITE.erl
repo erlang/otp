@@ -935,8 +935,8 @@ bc_with_r12_gl_1(_Config,Machine) ->
     TestDataLine1BinUtf = unicode:characters_to_binary(TestDataLine1),
     TestDataLine1BinLatin = list_to_binary(TestDataLine1),
 
-    N2List = create_nodename(), 
-    MyNodeList = atom_to_list(node()), 
+    {ok,N2List} = create_nodename(),
+    MyNodeList = atom2list(node()),
     register(io_proto_suite,self()),
     AM1 = spawn(?MODULE,Machine,
 		[MyNodeList, "io_proto_suite", N2List]),
@@ -1182,8 +1182,8 @@ read_modes_gl_1(_Config,Machine) ->
     TestDataLine1BinUtf = unicode:characters_to_binary(TestDataLine1),
     TestDataLine1BinLatin = list_to_binary(TestDataLine1),
 
-    N2List = create_nodename(), 
-    MyNodeList = atom_to_list(node()), 
+    {ok,N2List} = create_nodename(),
+    MyNodeList = atom2list(node()),
     register(io_proto_suite,self()),
     AM1 = spawn(?MODULE,Machine,
 		[MyNodeList, "io_proto_suite", N2List]),
@@ -1609,7 +1609,7 @@ create_nodename(X) ->
     case file:read_file_info(filename:join(["/tmp",NN])) of
 	{error,enoent} ->
 	    Host = lists:nth(2,string:tokens(atom_to_list(node()),"@")),
-	    NN++"@"++Host;
+	    {ok,NN++"@"++Host};
 	_ ->
 	    create_nodename(X+1)
     end.
@@ -1924,6 +1924,9 @@ hostname() ->
 from(H, [H | T]) -> T;
 from(H, [_ | T]) -> from(H, T);
 from(_, []) -> [].
+
+atom2list(A) ->
+    lists:flatten(io_lib:format("~w", [A])).
 
 chomp([]) ->
     [];
