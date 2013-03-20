@@ -74,7 +74,7 @@ init_per_suite(Config) ->
 	    Result =
 		(catch make_certs:all(?config(data_dir, Config),
 				      ?config(priv_dir, Config))),
-	    ct:print("Make certs  ~p~n", [Result]),
+	    ct:log("Make certs  ~p~n", [Result]),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -311,13 +311,13 @@ run_npn_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
 
 
 assert_npn(Socket, Protocol) ->
-    ct:print("Negotiated Protocol ~p, Expecting: ~p ~n",
+    ct:log("Negotiated Protocol ~p, Expecting: ~p ~n",
 		       [ssl:negotiated_next_protocol(Socket), Protocol]),
     Protocol = ssl:negotiated_next_protocol(Socket).
 
 assert_npn_and_renegotiate_and_send_data(Socket, Protocol, Data) ->
     assert_npn(Socket, Protocol),
-    ct:print("Renegotiating ~n", []),
+    ct:log("Renegotiating ~n", []),
     ok = ssl:renegotiate(Socket),
     ssl:send(Socket, Data),
     assert_npn(Socket, Protocol),
@@ -332,7 +332,7 @@ ssl_receive_and_assert_npn(Socket, Protocol, Data) ->
     ssl_receive(Socket, Data).
 
 ssl_send(Socket, Data) ->
-    ct:print("Connection info: ~p~n",
+    ct:log("Connection info: ~p~n",
                [ssl:connection_info(Socket)]),
     ssl:send(Socket, Data).
 
@@ -340,11 +340,11 @@ ssl_receive(Socket, Data) ->
     ssl_receive(Socket, Data, []).
 
 ssl_receive(Socket, Data, Buffer) ->
-    ct:print("Connection info: ~p~n",
+    ct:log("Connection info: ~p~n",
                [ssl:connection_info(Socket)]),
     receive
     {ssl, Socket, MoreData} ->
-        ct:print("Received ~p~n",[MoreData]),
+        ct:log("Received ~p~n",[MoreData]),
         NewBuffer = Buffer ++ MoreData,
         case NewBuffer of
             Data ->

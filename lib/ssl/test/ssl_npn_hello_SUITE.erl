@@ -75,7 +75,7 @@ encode_and_decode_npn_server_hello_test(_Config) ->
     {[{DecodedHandshakeMessage, _Raw}], _} =
 	ssl_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>),
     NextProtocolNegotiation = DecodedHandshakeMessage#server_hello.next_protocol_negotiation,
-    ct:print("~p ~n", [NextProtocolNegotiation]),
+    ct:log("~p ~n", [NextProtocolNegotiation]),
     NextProtocolNegotiation = #next_protocol_negotiation{extension_data = <<6, "spdy/2">>}.
 
 %%--------------------------------------------------------------------

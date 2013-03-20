@@ -143,7 +143,7 @@ init_per_suite(Config) ->
 	    Result =
 		(catch make_certs:all(?config(data_dir, Config),
 				      ?config(priv_dir, Config))),
-	    ct:print("Make certs  ~p~n", [Result]),
+	    ct:log("Make certs  ~p~n", [Result]),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -2069,7 +2069,7 @@ client_packet_decode(Socket, [Head | Tail] = Packet) ->
     client_packet_decode(Socket, [Head], Tail, Packet).
 
 client_packet_decode(Socket, P1, P2, Packet) ->
-    ct:print("Packet: ~p ~n", [Packet]),
+    ct:log("Packet: ~p ~n", [Packet]),
     ok = ssl:send(Socket, P1),
     ok = ssl:send(Socket, P2),
     receive
