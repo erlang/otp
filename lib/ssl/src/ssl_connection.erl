@@ -1151,7 +1151,7 @@ init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHan
 
 init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CertFile, client) ->
     try 
-	[OwnCert] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
+	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
 	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, OwnCert}
     catch _Error:_Reason  ->
 	    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, undefined}
@@ -1159,7 +1159,7 @@ init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHan
 
 init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, CertFile, server) ->
     try
-	[OwnCert] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
+	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
 	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, OwnCert}
     catch
 	_:Reason ->
