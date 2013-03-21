@@ -99,7 +99,7 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
     asn1ct_table:new(inlined_objects),
 
 
-    Terror = checkt(S,Types,[]),
+    Terror = checkt(S, Types),
     ?dbg("checkt finished with errors:~n~p~n~n",[Terror]),
 
     %% get parameterized object sets sent to checkt/3
@@ -338,51 +338,40 @@ chained_import(S,ImpMod,DefMod,Name) ->
 		    chained_import(S,OtherMod,DefMod,Name)
 	    end
     end.
-			  
-checkt(S,[Name|T],Acc) ->
-    ?dbg("Checking type ~p~n",[Name]),
-    Result = 
-	case asn1_db:dbget(S#state.mname,Name) of
-	    undefined ->
-		error({type,{internal_error,'???'},S});
-	    Type when is_record(Type,typedef) ->
-		NewS = S#state{type=Type,tname=Name},
-		case catch(check_type(NewS,Type,Type#typedef.typespec)) of
-		    {error,Reason} ->
-			error({type,Reason,NewS});
-		    {'EXIT',Reason} ->
-			error({type,{internal_error,Reason},NewS});
-		    {asn1_class,_ClassDef} ->
-			{asn1_class,Name};
-		    pobjectsetdef ->
-			{pobjectsetdef,Name};
-		    pvalueset ->
-			{pvalueset,Name};
-		    Ts ->
-			case Type#typedef.checked of
-			    true -> % already checked and updated
-				ok;
-			    _ ->
-				NewTypeDef = Type#typedef{checked=true,typespec = Ts},
-				
-				asn1_db:dbput(NewS#state.mname,Name,NewTypeDef), % update the type
 
-				ok
-			end
-		end
-	end,
-    case Result of
-	ok ->
-	    checkt(S,T,Acc);
-	_ ->
-	    checkt(S,T,[Result|Acc])
-    end;
-checkt(S,[],Acc) ->
-    case check_contextswitchingtypes(S,[]) of
-	[] ->
-	    lists:reverse(Acc);
-	L ->
-	    checkt(S,L,Acc)
+checkt(S0, Names) ->
+    Check = fun do_checkt/3,
+
+    %% NOTE: check_type/3 will store information in the process
+    %% dictionary if context switching types are encountered;
+    %% therefore we must force the evaluation order.
+    Types = check_fold(S0, Names, Check),
+    CtxtSwitch = check_contextswitchingtypes(S0, []),
+    check_fold(S0, lists:reverse(CtxtSwitch), Check) ++ Types.
+
+do_checkt(S, Name, #typedef{typespec=TypeSpec}=Type0) ->
+    NewS = S#state{type=Type0,tname=Name},
+    try check_type(NewS, Type0, TypeSpec) of
+	#type{}=Ts ->
+	    case Type0#typedef.checked of
+		true ->			 %already checked and updated
+		    ok;
+		_ ->
+		    Type = Type0#typedef{checked=true,
+					 typespec=Ts},
+		    asn1_db:dbput(NewS#state.mname,
+				  Name, Type),
+		    ok
+	    end
+    catch
+	{error,Reason} ->
+	    error({type,Reason,NewS});
+	{asn1_class,_ClassDef} ->
+	    {asn1_class,Name};
+	pobjectsetdef ->
+	    {pobjectsetdef,Name};
+	pvalueset ->
+	    {pvalueset,Name}
     end.
 
 check_contextswitchingtypes(S,Acc) ->
@@ -7399,3 +7388,13 @@ insert_once(S,Tab,Key) ->
 	_ ->
 	    skipped
     end.
+
+check_fold(S, [H|T], Check) ->
+    Type = asn1_db:dbget(S#state.mname, H),
+    case Check(S, H, Type) of
+	ok ->
+	    check_fold(S, T, Check);
+	Error ->
+	    [Error|check_fold(S, T, Check)]
+    end;
+check_fold(_, [], Check) when is_function(Check, 3) -> [].
