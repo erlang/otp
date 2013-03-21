@@ -92,7 +92,7 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
     save_asn1db_uptodate(S,S#state.erule,S#state.mname),
     put(top_module,S#state.mname),
 
-    _Perror = checkp(S,ParameterizedTypes,[]), % must do this before the templates are used
+    _ = checkp(S, ParameterizedTypes), %must do this before the templates are used
     
     %% table to save instances of parameterized objects,object sets
     asn1ct_table:new(parameterized_objects),
@@ -429,38 +429,25 @@ do_checkv(S, Name, Value)
 	    {objectdef,Name}
     end.
 
-checkp(S,[Name|T],Acc) ->
-    %io:format("check_ptypedef:~p~n",[Name]),
-    Result = case asn1_db:dbget(S#state.mname,Name) of
-	undefined ->
-	    error({type,{internal_error,'???'},S});
-	Type when is_record(Type,ptypedef) ->
-	    NewS = S#state{type=Type,tname=Name},
-	    case catch(check_ptype(NewS,Type,Type#ptypedef.typespec)) of
-		{error,Reason} ->
-		    error({type,Reason,NewS});
-		{'EXIT',Reason} ->
-		    error({type,{internal_error,Reason},NewS});
-		{asn1_class,_ClassDef} ->
-		    {asn1_class,Name};
-		{asn1_param_class,_} -> ok;
-		Ts ->
-		    NewType = Type#ptypedef{checked=true,typespec = Ts},
-		    asn1_db:dbput(NewS#state.mname,Name,NewType), % update the type
-		    ok
-	    end
-	     end,
-    case Result of
-	ok ->
-	    checkp(S,T,Acc);
-	_ ->
-	    checkp(S,T,[Result|Acc])
-    end;
-checkp(_S,[],Acc) ->
-    lists:reverse(Acc).
+%% Check parameterized types.
+checkp(S, Names) ->
+    check_fold(S, Names, fun do_checkp/3).
 
-
-
+do_checkp(S0, Name, #ptypedef{typespec=TypeSpec}=Type0) ->
+    S = S0#state{type=Type0,tname=Name},
+    try check_ptype(S, Type0, TypeSpec) of
+	#type{}=Ts ->
+	    Type = Type0#ptypedef{checked=true,typespec=Ts},
+	    asn1_db:dbput(S#state.mname, Name, Type),
+	    ok
+    catch
+	{error,Reason} ->
+	    error({type,Reason,S});
+	{asn1_class,_ClassDef} ->
+	    {asn1_class,Name};
+	{asn1_param_class,_} ->
+	    ok
+    end.
 
 checkc(S,[Name|Cs],Acc) ->
     Result = 
