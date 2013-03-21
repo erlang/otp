@@ -107,7 +107,7 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
 
     {PObjSetNames1,Terror2} = filter_errors(IsPObjSet,Terror),
 
-    Verror = checkv(S,Values ++ ObjectSets,[]), %value sets may be parsed as object sets
+    Verror = checkv(S, Values ++ ObjectSets), %value sets may be parsed as object sets
     ?dbg("checkv finished with errors:~n~p~n~n",[Verror]),
      %% get information object classes wrongly sent to checkt/3
      %% and update Terror2
@@ -391,56 +391,43 @@ check_contextswitchingtypes(S,[{T,TName}|Ts],Acc) ->
 check_contextswitchingtypes(_,[],Acc) ->
     Acc.
 
-checkv(S,[Name|T],Acc) ->
-    ?dbg("Checking valuedef ~p~n",[Name]),
-    Result = case asn1_db:dbget(S#state.mname,Name) of
-		 undefined -> error({value,{internal_error,'???'},S});
-		 Value when is_record(Value,valuedef);
-			    is_record(Value,typedef); %Value set may be parsed as object set.
-			    is_record(Value,pvaluedef);
-			    is_record(Value,pvaluesetdef) ->
-		     NewS = S#state{value=Value},
-		     case catch(check_value(NewS,Value)) of
-			 {error,Reason} ->
-			     error({value,Reason,NewS});
-			 {'EXIT',Reason} ->
-			     error({value,{internal_error,Reason},NewS});
-			 {pobjectsetdef} ->
-			     {pobjectsetdef,Name};
-			 {objectsetdef} ->
-			     {objectsetdef,Name};
-			 {objectdef} ->
-			     %% this is an object, save as typedef
-			     #valuedef{checked=C,pos=Pos,name=N,type=Type,
-				       value=Def}=Value,
-			     ClassName = Type#type.def,
-			     NewSpec = #'Object'{classname=ClassName,
-						 def=Def},
-			     NewDef = #typedef{checked=C,pos=Pos,name=N,
-					       typespec=NewSpec},
-			     asn1_db:dbput(NewS#state.mname,Name,NewDef),
-			     {objectdef,Name};
-			 {valueset,VSet} ->
-			     Pos = asn1ct:get_pos_of_def(Value),
-			     CheckedVSDef = #typedef{checked=true,pos=Pos,
-						     name=Name,typespec=VSet},
-			     asn1_db:dbput(NewS#state.mname,Name,CheckedVSDef),
-			     {valueset,Name};
-			 V ->
-			     %% update the valuedef
-			     asn1_db:dbput(NewS#state.mname,Name,V), 
-			     ok
-		     end
-	     end,
-    case Result of
-	ok ->
-	    checkv(S,T,Acc);
-	_ ->
-	    checkv(S,T,[Result|Acc])
-    end;
-checkv(_S,[],Acc) ->
-    lists:reverse(Acc).
+checkv(S, Names) ->
+    check_fold(S, Names, fun do_checkv/3).
 
+do_checkv(S, Name, Value)
+  when is_record(Value, valuedef);
+       is_record(Value, typedef); %Value set may be parsed as object set.
+       is_record(Value, pvaluedef);
+       is_record(Value, pvaluesetdef) ->
+    NewS = S#state{value=Value},
+    try check_value(NewS, Value) of
+	{valueset,VSet} ->
+	    Pos = asn1ct:get_pos_of_def(Value),
+	    CheckedVSDef = #typedef{checked=true,pos=Pos,
+				    name=Name,typespec=VSet},
+	    asn1_db:dbput(NewS#state.mname, Name, CheckedVSDef),
+	    {valueset,Name};
+	V ->
+	    %% update the valuedef
+	    asn1_db:dbput(NewS#state.mname, Name, V),
+	    ok
+    catch
+	{error,Reason} ->
+	    error({value,Reason,NewS});
+	{pobjectsetdef} ->
+	    {pobjectsetdef,Name};
+	{objectsetdef} ->
+	    {objectsetdef,Name};
+	{objectdef} ->
+	    %% this is an object, save as typedef
+	    #valuedef{checked=C,pos=Pos,name=N,type=Type,
+		      value=Def} = Value,
+	    ClassName = Type#type.def,
+	    NewSpec = #'Object'{classname=ClassName,def=Def},
+	    NewDef = #typedef{checked=C,pos=Pos,name=N,typespec=NewSpec},
+	    asn1_db:dbput(NewS#state.mname, Name, NewDef),
+	    {objectdef,Name}
+    end.
 
 checkp(S,[Name|T],Acc) ->
     %io:format("check_ptypedef:~p~n",[Name]),
