@@ -304,7 +304,7 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_bytes", 3, rand_bytes_3},
     {"strong_rand_mpint_nif", 3, strong_rand_mpint_nif},
     {"rand_uniform_nif", 2, rand_uniform_nif},
-    {"mod_exp_nif", 3, mod_exp_nif},
+    {"mod_exp_nif", 4, mod_exp_nif},
     {"dss_verify", 4, dss_verify},
     {"rsa_verify_nif", 4, rsa_verify_nif},
     {"aes_cbc_crypt", 4, aes_cbc_crypt},
@@ -1543,16 +1543,19 @@ static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 }
 
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Base,Exponent,Modulo) */
+{/* (Base,Exponent,Modulo,bin_hdr) */
     BIGNUM *bn_base=NULL, *bn_exponent=NULL, *bn_modulo, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
     unsigned dlen;      
+    unsigned bin_hdr; /* return type: 0=plain binary, 4: mpint */
+    unsigned extra_byte;
     ERL_NIF_TERM ret;
 
-    if (!get_bn_from_mpint(env, argv[0], &bn_base)
-	|| !get_bn_from_mpint(env, argv[1], &bn_exponent)
-	|| !get_bn_from_mpint(env, argv[2], &bn_modulo)) {
+    if (!get_bn_from_bin(env, argv[0], &bn_base)
+	|| !get_bn_from_bin(env, argv[1], &bn_exponent)
+	|| !get_bn_from_bin(env, argv[2], &bn_modulo)
+	|| !enif_get_uint(env,argv[3],&bin_hdr) || (bin_hdr & ~4)) {
 
 	if (bn_base) BN_free(bn_base);
 	if (bn_exponent) BN_free(bn_exponent);
@@ -1562,9 +1565,14 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     bn_ctx = BN_CTX_new();
     BN_mod_exp(bn_result, bn_base, bn_exponent, bn_modulo, bn_ctx);
     dlen = BN_num_bytes(bn_result);
-    ptr = enif_make_new_binary(env, dlen+4, &ret);
-    put_int32(ptr, dlen);
-    BN_bn2bin(bn_result, ptr+4);
+    extra_byte = bin_hdr && BN_is_bit_set(bn_result, dlen*8-1);
+    ptr = enif_make_new_binary(env, bin_hdr+extra_byte+dlen, &ret);
+    if (bin_hdr) {	
+	put_int32(ptr, extra_byte+dlen);
+	ptr[4] = 0; /* extra zeroed byte to ensure a positive mpint */
+	ptr += bin_hdr + extra_byte;
+    }
+    BN_bn2bin(bn_result, ptr);
     BN_free(bn_result);
     BN_CTX_free(bn_ctx);
     BN_free(bn_modulo);

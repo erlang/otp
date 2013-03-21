@@ -787,17 +787,15 @@ rand_uniform_nif(_From,_To) -> ?nif_stub.
 %%
 mod_exp(Base, Exponent, Modulo)
   when is_integer(Base), is_integer(Exponent), is_integer(Modulo) ->
-    erlint(mod_exp(mpint(Base), mpint(Exponent), mpint(Modulo)));
+    bin_to_int(mod_exp_nif(int_to_bin(Base), int_to_bin(Exponent), int_to_bin(Modulo), 0));
 
 mod_exp(Base, Exponent, Modulo) ->
-    case mod_exp_nif(Base,Exponent,Modulo) of
-	<<Len:32/integer, MSB, Rest/binary>> when MSB > 127 ->
-	    <<(Len + 1):32/integer, 0, MSB, Rest/binary>>;
-	Whatever ->
-	    Whatever
+    mod_exp_nif(mpint_to_bin(Base),mpint_to_bin(Exponent),mpint_to_bin(Modulo), 4).
+    
     end.
 
-mod_exp_nif(_Base,_Exp,_Mod) -> ?nif_stub.    
+
+mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.    
 
 %%
 %% DSS, RSA - verify
@@ -1071,43 +1069,54 @@ dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
 %% large integer in a binary with 32bit length
 %% MP representaion  (SSH2)
-mpint(X) when X < 0 ->
-    case X of
-	-1 ->
-	    <<0,0,0,1,16#ff>>;	    
-       _ ->
-	    mpint_neg(X,0,[])
-    end;
-mpint(X) ->
-    case X of 
-	0 ->
-	    <<0,0,0,0>>;
-	_ ->
-	    mpint_pos(X,0,[])
-    end.
+mpint(X) when X < 0 -> mpint_neg(X);
+mpint(X) -> mpint_pos(X).
 
 -define(UINT32(X),   X:32/unsigned-big-integer).
 
-mpint_neg(-1,I,Ds=[MSB|_]) ->
-    if MSB band 16#80 =/= 16#80 ->
-	    <<?UINT32((I+1)), (list_to_binary([255|Ds]))/binary>>;
-       true ->
-	    (<<?UINT32(I), (list_to_binary(Ds))/binary>>)
-    end;
-mpint_neg(X,I,Ds)  ->
-    mpint_neg(X bsr 8,I+1,[(X band 255)|Ds]).
+
+mpint_neg(X) ->
+    Bin = int_to_bin_neg(X, []),
+    Sz = byte_size(Bin),
+    <<?UINT32(Sz), Bin/binary>>.
     
-mpint_pos(0,I,Ds=[MSB|_]) ->
+mpint_pos(X) ->
+    Bin = int_to_bin_pos(X, []),
+    <<MSB,_/binary>> = Bin,
+    Sz = byte_size(Bin),
     if MSB band 16#80 == 16#80 ->
-	    <<?UINT32((I+1)), (list_to_binary([0|Ds]))/binary>>;
+	    <<?UINT32((Sz+1)), 0, Bin/binary>>;
        true ->
-	    (<<?UINT32(I), (list_to_binary(Ds))/binary>>)
-    end;
-mpint_pos(X,I,Ds) ->
-    mpint_pos(X bsr 8,I+1,[(X band 255)|Ds]).
+	    <<?UINT32(Sz), Bin/binary>>
+    end.
+
+int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
+int_to_bin(X) -> int_to_bin_pos(X, []).
+
+int_to_bin_pos(X) when X >= 0 ->
+    int_to_bin_pos(X, []).
+
+int_to_bin_pos(0,Ds=[_|_]) ->
+    list_to_binary(Ds);
+int_to_bin_pos(X,Ds) ->
+    int_to_bin_pos(X bsr 8, [(X band 255)|Ds]).
+
+int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
+    list_to_binary(Ds);
+int_to_bin_neg(X,Ds) ->
+    int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
+
+
+bin_to_int(Bin) ->
+    Bits = bit_size(Bin),
+    <<Integer:Bits/integer>> = Bin,
+    Integer.
 
 %% int from integer in a binary with 32bit length
 erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
     Bits= MPIntSize * 8,
     <<Integer:Bits/integer>> = MPIntValue,
     Integer.
+
+mpint_to_bin(<<Len:32, Bin:Len/binary>>) ->
+    Bin.
