@@ -749,7 +749,7 @@ ciphers_rsa_signed_certs(Config) when is_list(Config) ->
     Version = 
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
 
-    Ciphers = ssl_test_lib:rsa_suites(),
+    Ciphers = ssl_test_lib:rsa_suites(openssl),
     run_suites(Ciphers, Version, Config, rsa).
 %%--------------------------------------------------------------------
 

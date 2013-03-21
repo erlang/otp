@@ -709,12 +709,13 @@ send_selected_port(Pid, 0, Socket) ->
 send_selected_port(_,_,_) ->
     ok.
 
-rsa_suites() ->
+rsa_suites(CounterPart) ->
+    ECC = is_sane_ecc(CounterPart),
     lists:filter(fun({rsa, _, _}) ->
 			 true;
 		    ({dhe_rsa, _, _}) ->
 			 true;
-		    ({ecdhe_rsa, _, _}) ->
+		    ({ecdhe_rsa, _, _}) when ECC == true ->
 			 true;
 		    (_) ->
 			 false
@@ -963,3 +964,21 @@ send_recv_result_active_once(Socket) ->
 	{ssl, Socket, "Hello world"} ->
 	    ok
     end.
+
+is_sane_ecc(openssl) ->
+    case os:cmd("openssl version") of
+	"OpenSSL 1.0.0a" ++ _ -> % Known bug in openssl
+	    %% manifests as SSL_CHECK_SERVERHELLO_TLSEXT:tls invalid ecpointformat list
+	    false;
+	"OpenSSL 1.0.0" ++ _ ->  % Known bug in openssl
+	    %% manifests as SSL_CHECK_SERVERHELLO_TLSEXT:tls invalid ecpointformat list
+	    false;
+	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
+	    false;
+	"OpenSSL 0.9.7" ++ _ -> % Does not support ECC
+	    false;
+	_ ->
+	    true
+    end;
+is_sane_ecc(_) ->
+    true.
