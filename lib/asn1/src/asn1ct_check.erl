@@ -116,7 +116,7 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
 
     NewClasses = Classes++AddClasses,
 
-    Cerror = checkc(S,NewClasses,[]),
+    Cerror = checkc(S, NewClasses),
     ?dbg("checkc finished with errors:~n~p~n~n",[Cerror]),
      %% get object sets incorrectly sent to checkv/3
      %% and update Verror
@@ -449,47 +449,28 @@ do_checkp(S0, Name, #ptypedef{typespec=TypeSpec}=Type0) ->
 	    ok
     end.
 
-checkc(S,[Name|Cs],Acc) ->
-    Result = 
-	case asn1_db:dbget(S#state.mname,Name) of
-	    undefined ->
-		error({class,{internal_error,'???'},S});
-	    Class  ->
-		ClassSpec = if
-			       is_record(Class,classdef) ->
-%				   Class#classdef.typespec;
-				   Class;
-			       is_record(Class,typedef) ->
-				   Class#typedef.typespec
-			   end,
-		NewS = S#state{type=Class,tname=Name},
-		case catch(check_class(NewS,ClassSpec)) of
-		    {error,Reason} ->
-			error({class,Reason,NewS});
-		    {'EXIT',Reason} ->
-			error({class,{internal_error,Reason},NewS});
-		    C ->
-			%% update the classdef
-			NewClass = 
-			    if
-				is_record(Class,classdef) ->
-				    Class#classdef{checked=true,typespec=C};
-				is_record(Class,typedef) ->
-				    #classdef{checked=true,name=Name,typespec=C}
-			    end,
-			asn1_db:dbput(NewS#state.mname,Name,NewClass),
-			ok
-		end
+%% Check class definitions.
+checkc(S, Names) ->
+    check_fold(S, Names, fun do_checkc/3).
+
+do_checkc(S0, Name, Class0) ->
+    {Class1,ClassSpec} =
+	case Class0 of
+	    #classdef{} ->
+		{Class0,Class0};
+	    #typedef{} ->
+		{#classdef{name=Name},Class0#typedef.typespec}
 	end,
-    case Result of
-	ok ->
-	    checkc(S,Cs,Acc);
-	_ ->
-	    checkc(S,Cs,[Result|Acc])
-    end;
-checkc(_S,[],Acc) ->
-%%    include_default_class(S#state.mname),
-    lists:reverse(Acc).
+    S = S0#state{type=Class0,tname=Name},
+    try check_class(S, ClassSpec) of
+	C ->
+	    Class = Class1#classdef{checked=true,typespec=C},
+	    asn1_db:dbput(S#state.mname, Name, Class),
+	    ok
+	 catch
+	     {error,Reason} ->
+		 error({class,Reason,S})
+	 end.
     
 checko(S,[Name|Os],Acc,ExclO,ExclOS) ->
     ?dbg("Checking object ~p~n",[Name]),
