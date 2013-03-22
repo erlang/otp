@@ -3941,6 +3941,9 @@ m=audio - TDM -
 }}}}}">>.
 
 
+flex_compact_seq12263_num() ->
+    1000.
+
 flex_compact_seq12263_msg01(suite) ->
     [];
 flex_compact_seq12263_msg01(Config) when is_list(Config) ->
@@ -3960,7 +3963,7 @@ flex_compact_seq12263_msg01(Config) when is_list(Config) ->
 		exit(Error)
 	end,
     d("flex_compact_seq12263_msg01 -> flex config generated", []),
-    flex_compact_seq12263([Conf], lists:duplicate(1000, Msg)).
+    flex_compact_seq12263([Conf], flex_compact_seq12263_num(), Msg).
 
 flex_compact_seq12263_msg02(suite) ->
     [];
@@ -3981,7 +3984,7 @@ flex_compact_seq12263_msg02(Config) when is_list(Config) ->
 		exit(Error)
 	end,
     d("flex_compact_seq12263_msg02 -> flex config generated", []),
-    flex_compact_seq12263([Conf], lists:duplicate(1000, Msg)).
+    flex_compact_seq12263([Conf], flex_compact_seq12263_num(), Msg).
 
 flex_compact_seq12263_msg03(suite) ->
     [];
@@ -4002,7 +4005,7 @@ flex_compact_seq12263_msg03(Config) when is_list(Config) ->
 		exit(Error)
 	end,
     d("flex_compact_seq12263_msg03 -> flex config generated", []),
-    flex_compact_seq12263([Conf], lists:duplicate(1000, Msg)).
+    flex_compact_seq12263([Conf], flex_compact_seq12263_num(), Msg).
 
 flex_compact_seq12263_msg04(suite) ->
     [];
@@ -4023,40 +4026,29 @@ flex_compact_seq12263_msg04(Config) when is_list(Config) ->
 		exit(Error)
 	end,
     d("flex_compact_seq12263_msg04 -> flex config generated", []),
-    flex_compact_seq12263([Conf], lists:duplicate(1000, Msg)).
+    flex_compact_seq12263([Conf], flex_compact_seq12263_num(), Msg).
 
-flex_compact_seq12263(EC, BinMsgs) ->
-    BinMsgs2 = enumerate(BinMsgs), 
-    Codec = megaco_compact_text_encoder,
-    try 
-	begin
-	    lists:foreach(
-	      fun({No, BinMsg}) ->
-		      case decode_message(Codec, false, EC, BinMsg) of
-			  {ok, _Msg} ->
-			      d("flex_compact_seq12263 -> decode ok", []),
-			      ok;
-			  {error, Reason} ->
-			      e("flex_compact_seq12263 -> "
-				"decode ~w failed: ~p", [No, Reason]),
-			  throw({error, No, Reason})
-		  end
-	      end, BinMsgs2),
-	    ok
-	end
-    catch
-	exit:E ->
-	    exit(E) 
-    end.
+flex_compact_seq12263(EC, N, BinMsg) ->
+    Codec  = megaco_compact_text_encoder,
+    Decode = fun(No) ->
+		     case decode_message(Codec, false, EC, BinMsg) of
+			 {ok, _Msg} ->
+			     d("flex_compact_seq12263 -> decode ok", []),
+			     ok;
+			 {error, Reason} ->
+			     e("flex_compact_seq12263 -> "
+			       "decode ~w failed: ~p", [No, Reason]),
+			     throw({error, No, Reason})
+		     end
+	     end, 
+    do_flex_compact_seq12263(N, Decode).
 
+do_flex_compact_seq12263(N, Decode) when N > 0 ->
+    Decode(N),
+    do_flex_compact_seq12263(N-1, Decode);
+do_flex_compact_seq12263(_, _) ->
+    ok.
 
-enumerate(L) ->
-    enumerate(1, L).
-
-enumerate(_No, []) ->
-    [];
-enumerate(No, [H|T]) ->
-    [{No, H} | enumerate(No+1, T)].
 
 
 %% ==============================================================
