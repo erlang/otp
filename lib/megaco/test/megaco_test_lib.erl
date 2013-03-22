@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -114,7 +114,7 @@ os_based_skip(_) ->
 
 tickets(Case) ->
     Res = lists:flatten(tickets(Case, default_config())),
-    %% io:format("Res: ~p~n", [Res]),
+    io:format("~w:tickets(Case = ~w) -> Res: ~p~n", [?MODULE, Case, Res]),
     display_result(Res),
     Res.
 
@@ -122,16 +122,25 @@ tickets(Cases, Config) when is_list(Cases) ->
     [tickets(Case, Config) || Case <- Cases];
 tickets(Mod, Config) when is_atom(Mod) ->
     Res = tickets(Mod, tickets, Config),
+    io:format("~w:tickets(Mod = ~w) -> Res: ~p~n", [?MODULE, Mod, Res]),
     Res;
 tickets(Bad, _Config) ->
     [{badarg, Bad, ok}].
 
 tickets(Mod, Func, Config) ->
+    io:format("~w:tickets -> entry with"
+	      "~n   Mod:    ~p"
+	      "~n   Func:   ~p"
+	      "~n   Config: ~p"
+	      "~n", [?MODULE, Mod, Func, Config]),
     case (catch Mod:Func(suite)) of
 	[] ->
 	    io:format("Eval:   ~p:", [{Mod, Func}]),
 	    Res = eval(Mod, Func, Config),
-	    {R, _, _} = Res,
+	    io:format("~w:tickets -> evaluated"
+		      "~n   Res: ~p"
+		      "~n", [?MODULE, Res]),
+	    {R, _, _, _} = Res,
 	    io:format(" ~p~n", [R]),
 	    Res;
 	
@@ -147,17 +156,37 @@ tickets(Mod, Func, Config) ->
 	    lists:map(Map, Cases);
 
         {req, _, {conf, Init, Cases, Finish}} ->
+	    io:format("~w:tickets -> suite result req-conf: "
+		      "~n   Init:   ~p"
+		      "~n   Cases:  ~p"
+		      "~n   Finish: ~p"
+		      "~n", [?MODULE, Init, Cases, Finish]),
 	    case (catch Mod:Init(Config)) of
 		Conf when is_list(Conf) ->
 		    io:format("Expand: ~p:~p ...~n", [Mod, Func]),
 		    Map = fun({M,_}) when is_atom(M) -> 
-				  tickets(M, tickets, Config);
+				  io:format("~w:tickets -> "
+					    "~n   M: ~p"
+					    "~n", [?MODULE, M]),
+				  tickets(M, tickets, Conf);
 			     (F)     when is_atom(F) -> 
-				  tickets(Mod, F, Config);
-			     (Case) -> Case
+				  io:format("~w:tickets -> "
+					    "~n   F: ~p"
+					    "~n", [?MODULE, F]),
+				  tickets(Mod, F, Conf);
+			     (Case) -> 
+				  io:format("~w:tickets -> "
+					    "~n   Case: ~p"
+					    "~n", [?MODULE, Case]),
+				  Case
 			  end,
 		    Res = lists:map(Map, Cases),
+		    io:format("~w:tickets -> and now finish when: "
+			      "~n   Res: ~p"
+			      "~n", [?MODULE, Res]),
 		    (catch Mod:Finish(Conf)),
+		    io:format("~w:tickets -> finished"
+			      "~n", [?MODULE]),
 		    Res;
 		    
 		{'EXIT', {skipped, Reason}} ->
