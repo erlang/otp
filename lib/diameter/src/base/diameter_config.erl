@@ -103,6 +103,10 @@
 %% Time to lay low before restarting a dead service.
 -define(RESTART_SLEEP, 2000).
 
+%% Test for a valid timeout.
+-define(IS_UINT32(N),
+        is_integer(N) andalso 0 =< N andalso 0 == N bsr 32).
+
 %% A minimal diameter_caps for checking for valid capabilities values.
 -define(EXAMPLE_CAPS,
         #diameter_caps{origin_host = "TheHost",
@@ -490,13 +494,11 @@ stop(SvcName) ->
 %% has many.
 
 add(SvcName, Type, Opts) ->
-    %% Ensure usable capabilities. diameter_service:merge_service/2
-    %% depends on this.
-    lists:foreach(fun(Os) ->
-                          is_list(Os) orelse ?THROW({capabilities, Os}),
-                          ok = encode_CER(Os)
-                  end,
-                  [Os || {capabilities, Os} <- Opts, is_list(Os)]),
+    %% Ensure acceptable transport options. This won't catch all
+    %% possible errors (faulty callbacks for example) but it catches
+    %% many. diameter_service:merge_service/2 depends on usable
+    %% capabilities for example.
+    ok = transport_opts(Opts),
 
     Ref = make_ref(),
     T = {Ref, Type, Opts},
@@ -513,6 +515,61 @@ add(SvcName, Type, Opts) ->
         {error, _} = No ->
             No
     end.
+
+transport_opts(Opts) ->
+    lists:foreach(fun(T) -> opt(T) orelse ?THROW({invalid, T}) end, Opts).
+
+opt({transport_module, M}) ->
+    is_atom(M);
+
+opt({transport_config, _, Tmo}) ->
+    ?IS_UINT32(Tmo) orelse Tmo == infinity;
+
+opt({applications, As}) ->
+    is_list(As);
+
+opt({capabilities, Os}) ->
+    is_list(Os) andalso ok == encode_CER(Os);
+
+opt({capx_timeout, Tmo}) ->
+    ?IS_UINT32(Tmo);
+
+opt({length_errors, T}) ->
+    lists:member(T, [exit, handle, discard]);
+
+opt({reconnect_timer, Tmo}) ->
+    ?IS_UINT32(Tmo);
+
+opt({watchdog_timer, {M,F,A}})
+  when is_atom(M), is_atom(F), is_list(A) ->
+    true;
+opt({watchdog_timer, Tmo}) ->
+    ?IS_UINT32(Tmo);
+
+opt({watchdog_config, L}) ->
+    is_list(L) andalso lists:all(fun wdopt/1, L);
+
+%% Options that we can't validate.
+opt({K, _})
+  when K == transport_config;
+       K == capabilities_cb;
+       K == disconnect_cb;
+       K == private ->
+    true;
+
+%% Anything else, which is ignored by us. This makes options sensitive
+%% to spelling mistakes but arbitrary options are passed by some users
+%% as a way to identify transports. (That is, can't just do away with
+%% it.)
+opt(_) ->
+    true.
+
+wdopt({K,N}) ->
+    (K == okay orelse K == suspect) andalso is_integer(N) andalso 0 =< N;
+wdopt(_) ->
+    false.
+
+%% start_transport/2
 
 start_transport(SvcName, T) ->
     case diameter_service:start_transport(SvcName, T) of

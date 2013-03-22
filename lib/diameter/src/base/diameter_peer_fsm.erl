@@ -198,6 +198,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
     OnLengthErr = proplists:get_value(length_errors, Opts, exit),
     lists:member(OnLengthErr, [exit, handle, discard])
         orelse ?ERROR({invalid, {length_errors, OnLengthErr}}),
+    %% Error checking is for configuration added in old code.
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
 
@@ -212,9 +213,6 @@ i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when
 %% sending capabilities exchange messages.
-%%
-%% Invalid transport config may cause us to crash but note that the
-%% watchdog start (start/2) succeeds regardless.
 
 %% Wait for the caller to have a monitor to avoid a race with our
 %% death. (Since the exit reason is used in diameter_service.)
