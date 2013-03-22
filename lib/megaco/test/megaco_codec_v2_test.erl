@@ -623,7 +623,7 @@ compact_tickets(suite) ->
     ].
 
 flex_compact_tickets(suite) ->
-    io:format("flex_compact_tickets(suite) -> entry~n", []),
+    %% io:format("flex_compact_tickets(suite) -> entry~n", []),
     {req, [], 
      {conf, flex_compact_init, flex_compact_tickets_cases(), 
       flex_compact_finish}}.
@@ -3944,8 +3944,8 @@ m=audio - TDM -
 flex_compact_seq12263_msg01(suite) ->
     [];
 flex_compact_seq12263_msg01(Config) when is_list(Config) ->
-    put(dbg, true),
-    put(severity, trc),
+    %% put(dbg, true),
+    %% put(severity, trc),
     d("flex_compact_seq12263_msg01 -> entry", []),
     Msg  = flex_compact_seq12263_msg01(),
     d("flex_compact_seq12263_msg01 -> message created", []),
@@ -3960,13 +3960,13 @@ flex_compact_seq12263_msg01(Config) when is_list(Config) ->
 		exit(Error)
 	end,
     d("flex_compact_seq12263_msg01 -> flex config generated", []),
-    flex_compact_seq12263([Conf], Msg).
+    flex_compact_seq12263([Conf], lists:duplicate(1000, Msg)).
 
 flex_compact_seq12263_msg02(suite) ->
     [];
 flex_compact_seq12263_msg02(Config) when is_list(Config) ->
-    put(dbg, true),
-    put(severity, trc),
+    %% put(dbg, true),
+    %% put(severity, trc),
     d("flex_compact_seq12263_msg02 -> entry", []),
     Msg  = flex_compact_seq12263_msg02(),
     d("flex_compact_seq12263_msg02 -> message created", []),
@@ -3981,13 +3981,13 @@ flex_compact_seq12263_msg02(Config) when is_list(Config) ->
 		exit(Error)
 	end,
     d("flex_compact_seq12263_msg02 -> flex config generated", []),
-    flex_compact_seq12263([Conf], Msg).
+    flex_compact_seq12263([Conf], lists:duplicate(1000, Msg)).
 
 flex_compact_seq12263_msg03(suite) ->
     [];
 flex_compact_seq12263_msg03(Config) when is_list(Config) ->
-    put(dbg, true),
-    put(severity, trc),
+    %% put(dbg, true),
+    %% put(severity, trc),
     d("flex_compact_seq12263_msg03 -> entry", []),
     Msg  = flex_compact_seq12263_msg03(),
     d("flex_compact_seq12263_msg03 -> message created", []),
@@ -4002,13 +4002,13 @@ flex_compact_seq12263_msg03(Config) when is_list(Config) ->
 		exit(Error)
 	end,
     d("flex_compact_seq12263_msg03 -> flex config generated", []),
-    flex_compact_seq12263([Conf], Msg).
+    flex_compact_seq12263([Conf], lists:duplicate(1000, Msg)).
 
 flex_compact_seq12263_msg04(suite) ->
     [];
 flex_compact_seq12263_msg04(Config) when is_list(Config) ->
-    put(dbg, true),
-    put(severity, trc),
+    %% put(dbg, true),
+    %% put(severity, trc),
     d("flex_compact_seq12263_msg04 -> entry", []),
     Msg  = flex_compact_seq12263_msg04(),
     d("flex_compact_seq12263_msg04 -> message created", []),
@@ -4023,20 +4023,40 @@ flex_compact_seq12263_msg04(Config) when is_list(Config) ->
 		exit(Error)
 	end,
     d("flex_compact_seq12263_msg04 -> flex config generated", []),
-    flex_compact_seq12263([Conf], Msg).
+    flex_compact_seq12263([Conf], lists:duplicate(1000, Msg)).
 
-flex_compact_seq12263(EC, BinMsg) ->
-    d("flex_compact_seq12263 -> "
-      "~n   ~p", [binary_to_list(BinMsg)]),
+flex_compact_seq12263(EC, BinMsgs) ->
+    BinMsgs2 = enumerate(BinMsgs), 
     Codec = megaco_compact_text_encoder,
-    case decode_message(Codec, false, EC, BinMsg) of
-	{ok, Msg} ->
-	    d("flex_compact_seq12263 -> decode ok: ~n~p", [Msg]),
-	    ok;
-	{error, Reason} ->
-	    e("flex_compact_seq12263 -> decode failed: ~p", [Reason]),
-	    {error, Reason}
+    try 
+	begin
+	    lists:foreach(
+	      fun({No, BinMsg}) ->
+		      case decode_message(Codec, false, EC, BinMsg) of
+			  {ok, _Msg} ->
+			      d("flex_compact_seq12263 -> decode ok", []),
+			      ok;
+			  {error, Reason} ->
+			      e("flex_compact_seq12263 -> "
+				"decode ~w failed: ~p", [No, Reason]),
+			  throw({error, No, Reason})
+		  end
+	      end, BinMsgs2),
+	    ok
+	end
+    catch
+	exit:E ->
+	    exit(E) 
     end.
+
+
+enumerate(L) ->
+    enumerate(1, L).
+
+enumerate(_No, []) ->
+    [];
+enumerate(No, [H|T]) ->
+    [{No, H} | enumerate(No+1, T)].
 
 
 %% ==============================================================
@@ -7665,13 +7685,13 @@ cre_PkgsItem(Name, Ver) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 flex_init(Config) ->
-    io:format("~w:flex_init -> entry with: "
-	      "~n   Config: ~p"
-	      "~n", [?MODULE, Config]),
+    %% io:format("~w:flex_init -> entry with: "
+    %% 	      "~n   Config: ~p"
+    %% 	      "~n", [?MODULE, Config]),
     Res = megaco_codec_flex_lib:init(Config),
-    io:format("~w:flex_init -> flex init result: "
-	      "~n   Res: ~p"
-	      "~n", [?MODULE, Res]),
+    %% io:format("~w:flex_init -> flex init result: "
+    %% 	      "~n   Res: ~p"
+    %% 	      "~n", [?MODULE, Res]),
     Res.
 
 flex_finish(Config) ->

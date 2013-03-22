@@ -49,14 +49,14 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(Config) when is_list(Config) ->
-    io:format("~w:init -> entry with"
-	      "~n   Config: ~p"
-	      "~n", [?MODULE, Config]),
+    %% io:format("~w:init -> entry with"
+    %% 	      "~n   Config: ~p"
+    %% 	      "~n", [?MODULE, Config]),
     Flag = process_flag(trap_exit, true),    
     Res = (catch start()),
-    io:format("~w:init -> start result"
-	      "~n   Res: ~p"
-	      "~n", [?MODULE, Res]),
+    %% io:format("~w:init -> start result"
+    %% 	      "~n   Res: ~p"
+    %% 	      "~n", [?MODULE, Res]),
     process_flag(trap_exit, Flag),
     case Res of
 	{error, Reason} ->
