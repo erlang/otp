@@ -32,8 +32,8 @@ dbstart(Includes) ->
     ok.
 
 dbnew(Module)              -> req({new, Module}).
-dbsave(OutFile, Module)    -> req({save, OutFile, Module}).
-dbput(Module, K, V)        -> req({set, Module, K, V}).
+dbsave(OutFile, Module)    -> cast({save, OutFile, Module}).
+dbput(Module, K, V)        -> cast({set, Module, K, V}).
 dbget(Module, K)           -> req({get, Module, K}).
 dbstop()                   -> Resp = req(stop), erase(?MODULE), Resp.
 
@@ -50,6 +50,10 @@ req(Request) ->
 	    exit({db_error,Info}) 
     end.
 
+cast(Request) ->
+    get(?MODULE) ! Request,
+    ok.
+
 reply({Ref,From}, Response) ->
     From ! {{Ref,?MODULE}, Response},
     ok.
@@ -62,10 +66,9 @@ init(Parent, Includes) ->
 loop(#state{parent = Parent, monitor = MRef, table = Table,
             includes = Includes} = State) ->
     receive
-        {From, {set, Mod, K2, V}} ->
+        {set, Mod, K2, V} ->
             [{_, Modtab}] = ets:lookup(Table, Mod),
             ets:insert(Modtab, {K2, V}),
-            reply(From, ok),
             loop(State);
         {From, {get, Mod, K2}} ->
             Result = case ets:lookup(Table, Mod) of
@@ -77,9 +80,9 @@ loop(#state{parent = Parent, monitor = MRef, table = Table,
                 _Error       -> reply(From, undefined)
             end,
             loop(State);
-        {From, {save, OutFile, Mod}} ->
+        {save, OutFile, Mod} ->
             [{_,Mtab}] = ets:lookup(Table, Mod),
-            reply(From, ets:tab2file(Mtab, OutFile)),
+            ok = ets:tab2file(Mtab, OutFile),
             loop(State);
         {From, {new, Mod}} ->
             [] = ets:lookup(Table, Mod),	%Assertion.
