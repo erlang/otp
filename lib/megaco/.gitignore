@@ -5,6 +5,7 @@
 
 # Files generated when building/running tests
 /test/*.log
+/test/*.beam
 
 # Generated documentation. (ie. not doc/src)
 /doc/[^s]*
