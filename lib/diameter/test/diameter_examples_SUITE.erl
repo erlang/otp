@@ -27,7 +27,8 @@
          all/0]).
 
 %% testcases
--export([compile/1,
+-export([dict/1, dict/0,
+         code/1,
          enslave/1,
          start/1,
          traffic/1,
@@ -57,17 +58,87 @@ suite() ->
     [{timetrap, {seconds, 45}}].
 
 all() ->
-    [compile,
+    [dict,
+     code,
      enslave,
      start,
      traffic,
      stop].
 
 %% ===========================================================================
+%% dict/1
+%%
+%% Compile example dictionaries in examples/dict.
 
-%% compile/1
+-define(EXAMPLES, [rfc4004_mip,
+                   rfc4005_nas,
+                   rfc4006_cc,
+                   rfc4072_eap,
+                   rfc4590_digest,
+                   rfc4740_sip]).
 
-compile(Config) ->
+dict() ->
+    [{timetrap, {minutes, length(?EXAMPLES)}}].
+
+dict(_Config) ->
+    Dir = filename:join([code:lib_dir(diameter, examples), "dict"]),
+    [] = [RC || D <- ?EXAMPLES,
+                RC <- [dict(atom_to_list(D), Dir)],
+                RC /= ok].
+
+dict(Dict, Dir) ->
+    {Name, Pre} = make_name(Dict),
+    try
+        ok = make(filename:join([Dir, Dict ++ ".dia"]),
+                  [{name, Name},
+                   {prefix, Pre},
+                   inherits("rfc3588_base")
+                   | opts(Dict)]),
+        ok = compile(Name)
+    catch
+        throw: {_,_} = E ->
+            E
+    end.
+
+make(File, Opts) ->
+    case diameter_make:codec(File, Opts) of
+        ok ->
+            ok;
+        No ->
+            throw({make, No})
+    end.
+    
+compile(Name) ->
+    case compile:file(Name ++ ".erl", [return]) of
+        {ok, _, _} ->
+            ok;
+        No ->
+            throw({compile, No})
+    end.
+
+opts(M)
+  when M == "rfc4006_cc";
+       M == "rfc4072_eap" ->
+    [inherits("rfc4005_nas")];
+opts("rfc4740_sip") ->
+    [inherits("rfc4590_digest")];
+opts(_) ->
+    [].
+
+inherits(File) ->
+    {Name, _} = make_name(File),
+    {inherits, File ++ "/" ++ Name}.
+
+make_name(File) ->
+    {R, [$_|N]} = lists:splitwith(fun(C) -> C /= $_ end, File),
+    {string:join(["diameter_gen", N, R], "_"), "diameter_" ++ N}.
+
+%% ===========================================================================
+%% code/1
+%%
+%% Compile example code under examples/code.
+
+code(Config) ->
     Node = slave(hd(?NODES), here()),
     [] = rpc:call(Node,
                   ?MODULE,
@@ -128,6 +199,8 @@ find_files(Dir, RE) ->
 
 cons(H,T) ->
     [H|T].
+
+%% ===========================================================================
 
 %% enslave/1
 %%
