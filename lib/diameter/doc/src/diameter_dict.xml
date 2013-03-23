@@ -263,15 +263,14 @@ dictionary's definitions but the former makes for easier reuse.</p>
 
 <p>
 All dictionaries should typically inherit &the_rfc; AVPs from
-<c>diameter_gen_base_rfc3588</c>.</p>
+<c>diameter_gen_base_rfc6733</c>.</p>
 
 <p>
 Example:</p>
 
 <pre>
-@inherits diameter_gen_base_rfc3588
+@inherits diameter_gen_base_rfc6733
 </pre>
-
 </item>
 
 <marker id="avp_types"/>
