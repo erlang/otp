@@ -59,6 +59,9 @@
                    {rfc4072_eap, [rfc4005_nas]},
                    {rfc4740_sip, [rfc4590_digest]}]).
 
+%% Common dictionaries to inherit from examples.
+-define(DICT0, [rfc3588_base, rfc6733_base]).
+
 %% ===========================================================================
 
 suite() ->
@@ -83,9 +86,10 @@ dict() ->
 dict(_Config) ->
     Dirs = [filename:join(H ++ ["examples", "dict"])
             || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
-    [] = [RC || {_,F} <- sort(find_files(Dirs, ".*\\.dia")),
-                RC <- [make(F)],
-                RC /= ok].
+    [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia")),
+                      D <- ?DICT0,
+                      RC <- [make(F,D)],
+                      RC /= ok].
 
 sort([{_,_} | _] = Files) ->
     lists:sort(fun({A,_},{B,_}) ->
@@ -106,31 +110,37 @@ sort([A,B] = L) ->
 
 %% Recursively accumulate inherited dictionaries.
 dep([D|Rest], Acc) ->
-    dep(opts(D), Rest, Acc);
+    dep(dep(D), Rest, Acc);
 dep([], Acc) ->
     Acc.
 
-dep([{inherits, Map} | T], Rest, Acc) ->
-    [Dict, _] = filename:split(Map),
+dep([{Dict, _} | T], Rest, Acc) ->
     dep(T, [Dict | Rest], [Dict | Acc]);
 dep([], Rest, Acc) ->
     dep(Rest, Acc).
 
-make(Path) ->
+make(Path, Dict0)
+  when is_atom(Dict0) ->
+    make(Path, atom_to_list(Dict0));
+
+make(Path, Dict0) ->
     Dict = filename:rootname(filename:basename(Path)),
-    {Name, Pre} = make_name(Dict),
+    {Mod, Pre} = make_name(Dict),
+    {"diameter_gen_base" ++ Suf = Mod0, _} = make_name(Dict0),
+    Name = Mod ++ Suf,
     try
-        ok = make(Path, [{name, Name},
-                         {prefix, Pre},
-                         inherits(rfc3588_base)
-                         | opts(Dict)]),
-        ok = compile(Name)
+        ok = to_erl(Path, [{name, Name},
+                           {prefix, Pre},
+                           {inherits, "rfc3588_base/" ++ Mod0}
+                           | [{inherits, D ++ "/" ++ M ++ Suf}
+                              || {D,M} <- dep(Dict)]]),
+        ok = to_beam(Name)
     catch
         throw: {_,_} = E ->
             E
     end.
 
-make(File, Opts) ->
+to_erl(File, Opts) ->
     case diameter_make:codec(File, Opts) of
         ok ->
             ok;
@@ -138,7 +148,7 @@ make(File, Opts) ->
             throw({make, No})
     end.
     
-compile(Name) ->
+to_beam(Name) ->
     case compile:file(Name ++ ".erl", [return]) of
         {ok, _, _} ->
             ok;
@@ -146,7 +156,7 @@ compile(Name) ->
             throw({compile, No})
     end.
 
-opts(Dict) ->
+dep(Dict) ->
     case lists:keyfind(list_to_atom(Dict), 1, ?INHERITS) of
         {_, Is} ->
             lists:map(fun inherits/1, Is);
@@ -154,16 +164,16 @@ opts(Dict) ->
             []
     end.
 
-inherits(File)
-  when is_atom(File) ->
-    inherits(atom_to_list(File));
+inherits(Dict)
+  when is_atom(Dict) ->
+    inherits(atom_to_list(Dict));
 
-inherits(File) ->
-    {Name, _} = make_name(File),
-    {inherits, File ++ "/" ++ Name}.
+inherits(Dict) ->
+    {Name, _} = make_name(Dict),
+    {Dict, Name}.
 
-make_name(File) ->
-    {R, [$_|N]} = lists:splitwith(fun(C) -> C /= $_ end, File),
+make_name(Dict) ->
+    {R, [$_|N]} = lists:splitwith(fun(C) -> C /= $_ end, Dict),
     {string:join(["diameter_gen", N, R], "_"), "diameter_" ++ N}.
 
 %% ===========================================================================
