@@ -599,7 +599,8 @@ standard_passes() ->
 
 core_passes() ->
     %% Optimization and transforms of Core Erlang code.
-    [{delay,
+    [{iff,clint0,?pass(core_lint_module)},
+     {delay,
       [{unless,no_copt,
        [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/1},
 	{iff,doldinline,{listing,"oldinline"}},
