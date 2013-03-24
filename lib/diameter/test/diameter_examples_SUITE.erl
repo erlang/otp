@@ -52,6 +52,13 @@
                                        init_timeout,
                                        start_timeout]]).
 
+%% @inherits dependencies between example dictionaries. This is needed
+%% in order compile them in the right order. Can't compile to erl to
+%% find out since @inherits is a beam dependency.
+-define(INHERITS, [{rfc4006_cc,  [rfc4005_nas]},
+                   {rfc4072_eap, [rfc4005_nas]},
+                   {rfc4740_sip, [rfc4590_digest]}]).
+
 %% ===========================================================================
 
 suite() ->
@@ -70,30 +77,53 @@ all() ->
 %%
 %% Compile example dictionaries in examples/dict.
 
--define(EXAMPLES, [rfc4004_mip,
-                   rfc4005_nas,
-                   rfc4006_cc,
-                   rfc4072_eap,
-                   rfc4590_digest,
-                   rfc4740_sip]).
-
 dict() ->
-    [{timetrap, {minutes, length(?EXAMPLES)}}].
+    [{timetrap, {minutes, 10}}].
 
 dict(_Config) ->
-    Dir = filename:join([code:lib_dir(diameter, examples), "dict"]),
-    [] = [RC || D <- ?EXAMPLES,
-                RC <- [dict(atom_to_list(D), Dir)],
+    Dirs = [filename:join(H ++ ["examples", "dict"])
+            || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
+    [] = [RC || {_,F} <- sort(find_files(Dirs, ".*\\.dia")),
+                RC <- [make(F)],
                 RC /= ok].
 
-dict(Dict, Dir) ->
+sort([{_,_} | _] = Files) ->
+    lists:sort(fun({A,_},{B,_}) ->
+                       sort([filename:rootname(F) || F <- [A,B]])
+               end,
+               Files);
+
+sort([A,B] = L) ->
+    [DA,DB] = [dep([D],[]) || D <- L],
+    case {[A] -- DB, [B] -- DA} of
+        {[], [_]} ->  %% B depends on A
+            true;
+        {[_], []} ->  %% A depends on B
+            false;
+        {[_],[_]} ->  %% or not
+            length(DA) < length(DB)
+    end.
+
+%% Recursively accumulate inherited dictionaries.
+dep([D|Rest], Acc) ->
+    dep(opts(D), Rest, Acc);
+dep([], Acc) ->
+    Acc.
+
+dep([{inherits, Map} | T], Rest, Acc) ->
+    [Dict, _] = filename:split(Map),
+    dep(T, [Dict | Rest], [Dict | Acc]);
+dep([], Rest, Acc) ->
+    dep(Rest, Acc).
+
+make(Path) ->
+    Dict = filename:rootname(filename:basename(Path)),
     {Name, Pre} = make_name(Dict),
     try
-        ok = make(filename:join([Dir, Dict ++ ".dia"]),
-                  [{name, Name},
-                   {prefix, Pre},
-                   inherits("rfc3588_base")
-                   | opts(Dict)]),
+        ok = make(Path, [{name, Name},
+                         {prefix, Pre},
+                         inherits(rfc3588_base)
+                         | opts(Dict)]),
         ok = compile(Name)
     catch
         throw: {_,_} = E ->
@@ -116,14 +146,17 @@ compile(Name) ->
             throw({compile, No})
     end.
 
-opts(M)
-  when M == "rfc4006_cc";
-       M == "rfc4072_eap" ->
-    [inherits("rfc4005_nas")];
-opts("rfc4740_sip") ->
-    [inherits("rfc4590_digest")];
-opts(_) ->
-    [].
+opts(Dict) ->
+    case lists:keyfind(list_to_atom(Dict), 1, ?INHERITS) of
+        {_, Is} ->
+            lists:map(fun inherits/1, Is);
+        false ->
+            []
+    end.
+
+inherits(File)
+  when is_atom(File) ->
+    inherits(atom_to_list(File));
 
 inherits(File) ->
     {Name, _} = make_name(File),
@@ -149,8 +182,8 @@ code(Config) ->
 install(PrivDir) ->
     Top = install(here(), PrivDir),
     Src = filename:join([Top, "examples", "code"]),
-    Files = find_files(Src, ".*\\.erl"),
-    [] = [{F,E} || F <- Files,
+    Files = find_files([Src], ".*\\.erl"),
+    [] = [{F,E} || {_,F} <- Files,
                    {error, _, _} = E <- [compile:file(F, [warnings_as_errors,
                                                           return_errors])]].
 
@@ -170,9 +203,9 @@ install(Dir, PrivDir) ->
     true = code:del_path(Ebin),
     Top = top(Dir, code:lib_dir(diameter)),
 
-    %% Create a new diameter/include in priv_dir, copy all includes
-    %% there: first the installed includes, then any we find in
-    %% ../include and ../src/gen.
+    %% Create a new diameter/include in priv_dir. Copy all includes
+    %% there, from below ../include and ../src/gen if they exist (in
+    %% the repo).
     Tmp = filename:join([PrivDir, "diameter"]),
     TmpInc = filename:join([PrivDir, "diameter", "include"]),
     TmpEbin = filename:join([PrivDir, "diameter", "ebin"]),
@@ -181,8 +214,8 @@ install(Dir, PrivDir) ->
 
     Inc = filename:join([Top, "include"]),
     Gen = filename:join([Top, "src", "gen"]),
-    Files = lists:append([find_files(F, ".*\\.hrl") || F <- [Inc, Gen]]),
-    [] = [{F,E} || F <- Files,
+    Files = find_files([Inc, Gen], ".*\\.hrl"),
+    [] = [{F,E} || {_,F} <- Files,
                    B <- [filename:basename(F)],
                    D <- [filename:join([TmpInc, B])],
                    {error, E} <- [file:copy(F,D)]],
@@ -194,11 +227,16 @@ install(Dir, PrivDir) ->
     %% Return the top directory containing examples/code.
     Top.
 
-find_files(Dir, RE) ->
-    filelib:fold_files(Dir, RE, false, fun cons/2, []).
+find_files(Dirs, RE) ->
+    lists:foldl(fun(D,A) -> fold_files(D, RE, A) end,
+                orddict:new(),
+                Dirs).
 
-cons(H,T) ->
-    [H|T].
+fold_files(Dir, RE, Acc) ->
+    filelib:fold_files(Dir, RE, false, fun store/2, Acc).
+
+store(Path, Dict) ->
+    orddict:store(filename:basename(Path), Path, Dict).
 
 %% ===========================================================================
 
