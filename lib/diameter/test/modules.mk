@@ -29,6 +29,7 @@ MODULES = \
 	diameter_capx_SUITE \
 	diameter_codec_SUITE \
 	diameter_codec_test \
+	diameter_config_SUITE \
 	diameter_compiler_SUITE \
 	diameter_dict_SUITE \
 	diameter_distribution_SUITE \
