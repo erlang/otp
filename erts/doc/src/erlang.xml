@@ -2613,7 +2613,28 @@ os_prompt% </pre>
       <desc>
         <p>Returns a port identifier as the result of opening a
           new Erlang port. A port can be seen as an external Erlang
-          process. <c><anno>PortName</anno></c> is one of the following:</p>
+          process.
+	</p>
+	<p>The name of the executable as well as the arguments
+	given in <c>cd</c>, <c>env</c>, <c>args</c> and <c>arg0</c> is subject to
+	Unicode file name translation if the system is running
+	in Unicode file name mode. To avoid
+	translation or force i.e. UTF-8, supply the executable
+	and/or arguments as a binary in the correct
+	encoding. See the <seealso
+	marker="kernel:file">file</seealso> module, the
+	<seealso marker="kernel:file#native_name_encoding/0">
+	  file:native_name_encoding/0</seealso> function and the
+	  <seealso marker="stdlib:unicode_usage">stdlib users guide
+	</seealso> for details.</p>
+
+	<note><p>The characters in the name (if given as a list)
+	can only be &gt; 255 if the Erlang VM is started in
+	Unicode file name translation mode, otherwise the name
+	of the executable is limited to the ISO-latin-1
+	character set.</p></note>
+
+	<p><c><anno>PortName</anno></c> is one of the following:</p>
         <taglist>
           <tag><c>{spawn, <anno>Command</anno>}</c></tag>
           <item>
@@ -2668,25 +2689,6 @@ os_prompt% </pre>
 	      executed, the appropriate command interpreter will
 	      implicitly be invoked, but there will still be no
 	      command argument expansion or implicit PATH search.</p>
-
-	      <p>The name of the executable as well as the arguments
-	      given in <c>args</c> and <c>arg0</c> is subject to
-	      Unicode file name translation if the system is running
-	      in Unicode file name mode. To avoid
-	      translation or force i.e. UTF-8, supply the executable
-	      and/or arguments as a binary in the correct
-	      encoding. See the <seealso
-	      marker="kernel:file">file</seealso> module, the
-	      <seealso marker="kernel:file#native_name_encoding/0">
-	      file:native_name_encoding/0</seealso> function and the 
-	      <seealso marker="stdlib:unicode_usage">stdlib users guide
-	      </seealso> for details.</p>
-
-	      <note><p>The characters in the name (if given as a list)
-	      can only be &gt; 255 if the Erlang VM is started in
-	      Unicode file name translation mode, otherwise the name
-	      of the executable is limited to the ISO-latin-1
-	      character set.</p></note>
   
 	      <p>If the <c><anno>FileName</anno></c> cannot be run, an error
 	      exception, with the posix error code as the reason, is
@@ -2762,11 +2764,7 @@ os_prompt% </pre>
               strings. The one exception is <c><anno>Val</anno></c> being the atom
               <c>false</c> (in analogy with <c>os:getenv/1</c>), which
               removes the environment variable.
-		  </p>
-	      <p>If Unicode filename encoding is in effect (see the <seealso
-	      marker="erts:erl#file_name_encoding">erl manual
-	      page</seealso>), the strings (both <c>Name</c> and
-	      <c>Value</c>) may contain characters with codepoints > 255.</p>
+	    </p>
           </item>
 	  <tag><c>{args, [ string() | binary() ]}</c></tag>
           <item>
@@ -2794,21 +2792,6 @@ os_prompt% </pre>
 	    should not be given in this list. The proper executable name will
 	    automatically be used as argv[0] where applicable.</p>
 
-	    <p>When the Erlang VM is running in Unicode file name
-	    mode, the arguments can contain any Unicode characters and
-	    will be translated into whatever is appropriate on the
-	    underlying OS, which means UTF-8 for all platforms except
-	    Windows, which has other (more transparent) ways of
-	    dealing with Unicode arguments to programs. To avoid
-	    Unicode translation of arguments, they can be supplied as
-	    binaries in whatever encoding is deemed appropriate.</p>
-
-	      <note><p>The characters in the arguments (if given as a
-	      list of characters) can only be &gt; 255 if the Erlang
-	      VM is started in Unicode file name mode,
-	      otherwise the arguments are limited to the
-	      ISO-latin-1 character set.</p></note>
-
 	    <p>If one, for any reason, wants to explicitly set the
 	    program name in the argument vector, the <c>arg0</c>
 	    option can be used.</p>
@@ -2823,9 +2806,6 @@ os_prompt% </pre>
 	    on some operating systems, be desirable. How the program
 	    responds to this is highly system dependent and no specific 
 	    effect is guaranteed.</p>
-
-	    <p>The unicode file name translation rules of the
-	    <c>args</c> option apply to this option as well.</p>
 
 	  </item> 
 

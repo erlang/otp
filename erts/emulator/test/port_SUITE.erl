@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -942,6 +942,20 @@ cd(Config)  when is_list(Config) ->
 	Other2 ->
 	    test_server:fail({env, Other2})
     end,
+    _ = open_port({spawn, Cmd},
+		  [{cd, unicode:characters_to_binary(TestDir)},
+		   {line, 256}]),
+    receive
+	{_, {data, {eol, String2}}} ->
+	    case filename_equal(String2, TestDir) of
+		true ->
+		    ok;
+		false ->
+		    test_server:fail({cd, String2})
+	    end;
+	Other3 ->
+	    test_server:fail({env, Other3})
+    end,
 
     test_server:timetrap_cancel(Dog),
     ok.
@@ -1346,19 +1360,28 @@ spawn_executable(Config) when is_list(Config) ->
     EchoArgs1 = filename:join([DataDir,"echo_args"]),
     ExactFile1 = filename:nativename(os:find_executable(EchoArgs1)),
     [ExactFile1] = run_echo_args(DataDir,[]),
+    [ExactFile1] = run_echo_args(DataDir,[binary]),
     ["echo_args"] = run_echo_args(DataDir,["echo_args"]),
+    ["echo_args"] = run_echo_args(DataDir,[binary, "echo_args"]),
     ["echo_arguments"] = run_echo_args(DataDir,["echo_arguments"]),
+    ["echo_arguments"] = run_echo_args(DataDir,[binary, "echo_arguments"]),
     [ExactFile1,"hello world","dlrow olleh"] = 
 	run_echo_args(DataDir,[ExactFile1,"hello world","dlrow olleh"]),
     [ExactFile1] = run_echo_args(DataDir,[default]),
+    [ExactFile1] = run_echo_args(DataDir,[binary, default]),
     [ExactFile1,"hello world","dlrow olleh"] = 
 	run_echo_args(DataDir,[switch_order,ExactFile1,"hello world",
 			       "dlrow olleh"]),
     [ExactFile1,"hello world","dlrow olleh"] = 
+	run_echo_args(DataDir,[binary,switch_order,ExactFile1,"hello world",
+			       "dlrow olleh"]),
+    [ExactFile1,"hello world","dlrow olleh"] =
 	run_echo_args(DataDir,[default,"hello world","dlrow olleh"]),
 
     [ExactFile1,"hello world","dlrow olleh"] = 
 	run_echo_args_2("\""++ExactFile1++"\" "++"\"hello world\" \"dlrow olleh\""),
+    [ExactFile1,"hello world","dlrow olleh"] =
+	run_echo_args_2(unicode:characters_to_binary("\""++ExactFile1++"\" "++"\"hello world\" \"dlrow olleh\"")),
 
     PrivDir = ?config(priv_dir, Config),
     SpaceDir =filename:join([PrivDir,"With Spaces"]),
@@ -1373,6 +1396,8 @@ spawn_executable(Config) when is_list(Config) ->
     ["echo_arguments"] = run_echo_args(SpaceDir,["echo_arguments"]),
     [ExactFile2,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,[ExactFile2,"hello world","dlrow olleh"]),
+    [ExactFile2,"hello world","dlrow olleh"] =
+	run_echo_args(SpaceDir,[binary, ExactFile2,"hello world","dlrow olleh"]),
     [ExactFile2] = run_echo_args(SpaceDir,[default]),
     [ExactFile2,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,[switch_order,ExactFile2,"hello world",
@@ -1381,6 +1406,8 @@ spawn_executable(Config) when is_list(Config) ->
 	run_echo_args(SpaceDir,[default,"hello world","dlrow olleh"]),
     [ExactFile2,"hello world","dlrow olleh"] = 
 	run_echo_args_2("\""++ExactFile2++"\" "++"\"hello world\" \"dlrow olleh\""),
+    [ExactFile2,"hello world","dlrow olleh"] =
+	run_echo_args_2(unicode:characters_to_binary("\""++ExactFile2++"\" "++"\"hello world\" \"dlrow olleh\"")),
 
     ExeExt = 
 	case string:to_lower(lists:last(string:tokens(ExactFile2,"."))) of
@@ -1408,9 +1435,12 @@ spawn_executable(Config) when is_list(Config) ->
 		      [default,"hello world","dlrow olleh"]),
     [ExactFile3,"hello world","dlrow olleh"] = 
 	run_echo_args_2("\""++ExactFile3++"\" "++"\"hello world\" \"dlrow olleh\""),
+    [ExactFile3,"hello world","dlrow olleh"] =
+	run_echo_args_2(unicode:characters_to_binary("\""++ExactFile3++"\" "++"\"hello world\" \"dlrow olleh\"")),
     {'EXIT',{enoent,_}} = (catch run_echo_args(SpaceDir,"fnurflmonfi",
 						     [default,"hello world",
 						      "dlrow olleh"])),
+
     NonExec = "kronxfrt"++ExeExt,
     file:write_file(filename:join([SpaceDir,NonExec]),
 			  <<"Not an executable">>),
@@ -1511,25 +1541,40 @@ run_echo_args_2(FullnameAndArgs) ->
     
 
 run_echo_args(Where,Args) ->
-    run_echo_args(Where,"echo_args",Args).   
+    run_echo_args(Where,"echo_args",Args).
 run_echo_args(Where,Prog,Args) ->
-    ArgvArg = case Args of
-		  [] ->
-		      [];
-		  [default|T] ->
-		      [{args,T}];
-		  [switch_order,H|T] ->
-		      [{args,T},{arg0,H}];
-		  [H|T] ->
-		      [{arg0,H},{args,T}]
+    {Binary, ArgvArg} = pack_argv(Args),
+    Command0 = filename:join([Where,Prog]),
+    Command = case Binary of
+		  true -> unicode:characters_to_binary(Command0);
+		  false -> Command0
 	      end,
-    Command = filename:join([Where,Prog]),
     Port = open_port({spawn_executable,Command},ArgvArg++[eof]),
     Data = collect_data(Port),
     Port ! {self(), close},
     receive {Port, closed} -> ok end,
     parse_echo_args_output(Data).
-    
+
+pack_argv([binary|Args]) ->
+    {true, pack_argv(Args, true)};
+pack_argv(Args) ->
+    {false, pack_argv(Args, false)}.
+
+pack_argv(Args, Binary) ->
+    case Args of
+	[] ->
+	    [];
+	[default|T] ->
+	    [{args,[make_bin(Arg,Binary) || Arg <- T]}];
+	[switch_order,H|T] ->
+	    [{args,[make_bin(Arg,Binary) || Arg <- T]},{arg0,make_bin(H,Binary)}];
+	[H|T] ->
+	    [{arg0,make_bin(H,Binary)},{args,[make_bin(Arg,Binary) || Arg <- T]}]
+    end.
+
+make_bin(Str, false) -> Str;
+make_bin(Str, true) ->  unicode:characters_to_binary(Str).
+
 collect_data(Port) ->
     receive
 	{Port, {data, Data}} ->
