@@ -301,8 +301,10 @@ run_passes_1([{pass,Name,Pass}|Passes], #st{run=Run}=St0)
     try Run(Name, Pass, St0) of
 	{ok,St} ->
 	    run_passes_1(Passes, St);
-	{error,#st{error=Error}} ->
-	    {error,Error};
+	{error,#st{error=Errors}} ->
+	    {Structured,AllErrors} = clean_errors(Errors),
+	    print_structured_errors(Structured),
+	    {error,AllErrors};
 	done ->
 	    ok
     catch
@@ -314,6 +316,21 @@ run_passes_1([{pass,Name,Pass}|Passes], #st{run=Run}=St0)
     end;
 run_passes_1([], _St) ->
     ok.
+
+clean_errors(Errors) when is_list(Errors) ->
+    F = fun({structured_error,_,_,_}) -> true;
+	   (_) -> false
+	end,
+    {Structured0,AdHoc} = lists:partition(F, Errors),
+    Structured = lists:sort(Structured0),
+    {Structured,Structured ++ AdHoc};
+clean_errors(AdHoc) -> {[],AdHoc}.
+
+print_structured_errors([_|_]=Errors) ->
+    _ = [io:format("~ts:~w: ~ts\n", [F,L,M:format_error(E)]) ||
+	    {structured_error,{F,L},M,E} <- Errors],
+    ok;
+print_structured_errors(_) -> ok.
 
 compile1(File, #st{opts=Opts}=St0) ->
     verbose("Erlang ASN.1 version ~p, compiling ~p~n", [?vsn,File], Opts),

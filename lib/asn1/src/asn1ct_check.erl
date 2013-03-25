@@ -25,7 +25,7 @@
 %-compile(export_all).
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
--export([check/2,storeindb/2]).
+-export([check/2,storeindb/2,format_error/1]).
 %-define(debug,1).
 -include("asn1_records.hrl").
 %%% The tag-number for universal types
@@ -175,8 +175,9 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
 	     {NewTypes,NewValues,ParameterizedTypes,NewClasses,
 	      lists:subtract(NewObjects,ExclO)++InlinedObjects,
 	      lists:subtract(NewObjectSets,ExclOS)++ParObjectSetNames}};
-	_ ->{error,{asn1,lists:flatten([Terror3,Verror5,Cerror,
-					Oerror,Exporterror,ImportError])}}
+	_ ->
+	    {error,lists:flatten([Terror3,Verror5,Cerror,
+				  Oerror,Exporterror,ImportError])}
     end.
 
 context_switch_in_spec() ->
@@ -6946,60 +6947,27 @@ storeindb(S,M) when is_record(M,module) ->
     NewM = M#module{typeorval=findtypes_and_values(TVlist)},
     asn1_db:dbnew(NewM#module.name),
     asn1_db:dbput(NewM#module.name,'MODULE',  NewM),
-    Res = storeindb(NewM#module.name,TVlist,[]),
+    Res = storeindb(#state{mname=NewM#module.name}, TVlist, []),
     include_default_class(S,NewM#module.name),
     include_default_type(NewM#module.name),
     Res.
 
-storeindb(Module,[H|T],ErrAcc) when is_record(H,typedef) ->
-    storeindb(Module,H#typedef.name,H,T,ErrAcc);
-storeindb(Module,[H|T],ErrAcc) when is_record(H,valuedef) ->
-    storeindb(Module,H#valuedef.name,H,T,ErrAcc);
-storeindb(Module,[H|T],ErrAcc) when is_record(H,ptypedef) ->
-    storeindb(Module,H#ptypedef.name,H,T,ErrAcc);
-storeindb(Module,[H|T],ErrAcc) when is_record(H,classdef) ->
-    storeindb(Module,H#classdef.name,H,T,ErrAcc);
-storeindb(Module,[H|T],ErrAcc) when is_record(H,pvaluesetdef) ->
-    storeindb(Module,H#pvaluesetdef.name,H,T,ErrAcc);
-storeindb(Module,[H|T],ErrAcc) when is_record(H,pobjectdef) ->
-    storeindb(Module,H#pobjectdef.name,H,T,ErrAcc);
-storeindb(Module,[H|T],ErrAcc) when is_record(H,pvaluedef) ->
-    storeindb(Module,H#pvaluedef.name,H,T,ErrAcc);
-storeindb(_,[],[]) -> ok;
-storeindb(_,[],ErrAcc) -> 
-    {error,ErrAcc}.
-
-storeindb(Module,Name,H,T,ErrAcc) ->
-    case asn1_db:dbget(Module,Name) of
+storeindb(#state{mname=Module}=S, [H|T], Errors) ->
+    Name = asn1ct:get_name_of_def(H),
+    case asn1_db:dbget(Module, Name) of
 	undefined ->
-	    asn1_db:dbput(Module,Name,H),
-	    storeindb(Module,T,ErrAcc);
-	_ -> 
-	    case H of 
-		_Type when is_record(H,typedef) ->
-		    error({type,"already defined",
-			   #state{mname=Module,type=H,tname=Name}});
-		_Type when is_record(H,valuedef) ->
-		    error({value,"already defined",
-			   #state{mname=Module,value=H,vname=Name}});
-		_Type when is_record(H,ptypedef) ->
-		    error({ptype,"already defined",
-			   #state{mname=Module,type=H,tname=Name}});
-		_Type when is_record(H,pobjectdef) ->
-		    error({ptype,"already defined",
-			   #state{mname=Module,type=H,tname=Name}});
-		_Type when is_record(H,pvaluesetdef) ->
-		    error({ptype,"already defined",
-			   #state{mname=Module,type=H,tname=Name}});
-		_Type when is_record(H,pvaluedef) ->
-		    error({ptype,"already defined",
-			   #state{mname=Module,type=H,tname=Name}});
-		_Type when is_record(H,classdef) ->
-		    error({class,"already defined",
-			   #state{mname=Module,value=H,vname=Name}})
-	    end,
-	    storeindb(Module,T,[H|ErrAcc])
-    end.
+	    asn1_db:dbput(Module, Name, H),
+	    storeindb(S, T, Errors);
+	Prev ->
+	    PrevLine = asn1ct:get_pos_of_def(Prev),
+	    {error,Error} = asn1_error(S, H, {already_defined,Name,PrevLine}),
+	    storeindb(S, T, [Error|Errors])
+    end;
+storeindb(_, [], []) ->
+    ok;
+storeindb(_, [], [_|_]=Errors) ->
+    {error,Errors}.
+
 
 findtypes_and_values(TVList) ->
     findtypes_and_values(TVList,[],[],[],[],[],[]).%% Types,Values,
@@ -7039,7 +7007,15 @@ findtypes_and_values([],Tacc,Vacc,Pacc,Cacc,Oacc,OSacc) ->
     {lists:reverse(Tacc),lists:reverse(Vacc),lists:reverse(Pacc),
      lists:reverse(Cacc),lists:reverse(Oacc),lists:reverse(OSacc)}.
     
+asn1_error(#state{mname=Where}, Item, Error) ->
+    Pos = asn1ct:get_pos_of_def(Item),
+    {error,{structured_error,{Where,Pos},?MODULE,Error}}.
 
+format_error({already_defined,Name,PrevLine}) ->
+    io_lib:format("the name ~p has already been defined at line ~p",
+		  [Name,PrevLine]);
+format_error(Other) ->
+    io_lib:format("~p", [Other]).
 
 error({export,Msg,#state{mname=Mname,type=Ref,tname=Typename}}) ->
     Pos = Ref#'Externaltypereference'.pos,
