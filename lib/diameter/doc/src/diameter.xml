@@ -1162,7 +1162,7 @@ transport.</p>
 
 <marker id="transport_config"/>
 <tag><c>{transport_config, term()}</c></tag>
-<tag><c>{transport_config, term(), &dict_Unsigned32;}</c></tag>
+<tag><c>{transport_config, term(), &dict_Unsigned32; | infinity}</c></tag>
 <item>
 <p>
 A term passed as the third argument to the &transport_start; function of
