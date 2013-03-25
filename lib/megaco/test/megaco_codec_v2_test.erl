@@ -3273,7 +3273,7 @@ flex_compact_otp7576_msg01(Config) when is_list(Config) ->
     compact_otp7576([Conf], Msg).
 
 
-%% Killer 42 original
+%% killer_42_original
 flex_compact_seq12263_msg01() ->
     <<"!/2 stofmg0
 P=25165898{C=34227581{AV=r01/03/01/38/22{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
@@ -3446,8 +3446,8 @@ c=TN RFC2543 -
 m=audio - TDM -
 }}}}}">>.
 
-%% BAD message
-%% Size 36 27 11
+
+%% size36_27_11_bad.txt
 flex_compact_seq12263_msg02() ->
     <<"!/2 stofmg0
 P=25167656{C=34205358{AV=r01/03/01/27/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
@@ -3596,8 +3596,8 @@ c=TN RFC2543 -
 m=audio - TDM -
 }}}}}">>.
 
-%% GOOD message
-%% Size 41 38 55
+
+%% size41_38_55_good.txt
 flex_compact_seq12263_msg03() ->
     <<"!/2 stofmg0
 P=25166035{C=34227581{AV=r01/03/01/38/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
@@ -3766,8 +3766,8 @@ c=TN RFC2543 -
 m=audio - TDM -
 }}}}}">>.
 
-%% BAD message
-%% Size 42 38 55
+
+%% size42_38_55_bad.txt
 flex_compact_seq12263_msg04() ->
     <<"!/2 stofmg0
 P=33555020{C=34227581{AV=r01/03/01/38/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
@@ -3942,7 +3942,7 @@ m=audio - TDM -
 
 
 flex_compact_seq12263_num() ->
-    1000.
+    10.
 
 flex_compact_seq12263_msg01(suite) ->
     [];
