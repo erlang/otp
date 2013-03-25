@@ -30,7 +30,7 @@
 -include("CosNaming_NamingContext.hrl").
 -include("CosNaming_NamingContextExt.hrl").
 -include_lib("orber/include/corba.hrl").
-
+-include_lib("orber/src/orber_iiop.hrl").
 
 %%-----------------------------------------------------------------
 %% External exports
@@ -182,6 +182,8 @@ address(protocol, [$:|T], [], []) ->
     address(version, T, [], [iiop]);
 address(protocol, [$i, $i, $o, $p, $:|T], [], []) ->
     address(version, T, [], [iiop]);
+address(protocol, [$s,$s,$l, $i, $o, $p, $:|T], [], []) ->
+    address(version, T, [], [ssliop]);
 address(protocol, [$r, $i, $r, $:|T], [], []) ->
     {false, rir, T};
 address(protocol, What, _, _) ->
@@ -465,6 +467,20 @@ lookup({corbaname, [[iiop, Vers, Host, Port]|Addresses], Key, Name}, Ctx) ->
 	Obj ->
 	    Obj
     end;
+%%% Corbaname via SSL
+lookup({corbaname, [[ssliop, Vers, Host, Port]|Addresses], Key, Name}, Ctx) ->
+    SSLComponent = 
+	#'IOP_TaggedComponent'{tag=?TAG_SSL_SEC_TRANS, 
+			       component_data=#'SSLIOP_SSL'{target_supports = 2, 
+							    target_requires = 2, 
+							    port = Port}},
+    NS = iop_ior:create_external(Vers, key2id(Key), Host, Port, Key, [SSLComponent]),
+    case catch 'CosNaming_NamingContext':resolve(NS, Ctx, Name) of
+	{'EXCEPTION', _} ->
+	    lookup({corbaname, Addresses, Key, Name}, Ctx);
+	Obj ->
+	    Obj
+    end;
 lookup({corbaname, [_|Addresses], Key, Name}, Ctx) ->
     lookup({corbaname, Addresses, Key, Name}, Ctx);
 
@@ -498,7 +514,43 @@ lookup({corbaloc, [[iiop, Vers, Host, Port]|Addresses], Key}, Ctx) ->
 		    lookup({corbaloc, Addresses, Key}, Ctx)
 	    end
     end;
-		
+
+%%% Corbaloc via SSL
+lookup({corbaloc, [[ssliop, Vers, Host, Port]|Addresses], Key}, Ctx) ->
+    SSLComponent = 
+	#'IOP_TaggedComponent'{tag=?TAG_SSL_SEC_TRANS, 
+			       component_data=#'SSLIOP_SSL'{target_supports = 2, 
+							    target_requires = 2, 
+							    port = Port}},
+    ObjRef = iop_ior:create_external(Vers, key2id(Key), Host, Port, Key, [SSLComponent]),
+    OldVal = put(orber_forward_notify, true),
+
+    case catch corba_object:non_existent(ObjRef, Ctx) of
+	{location_forward, Result} ->
+	    put(orber_forward_notify, OldVal),
+	    Result;
+	false ->
+	    put(orber_forward_notify, OldVal),
+	    ObjRef;
+	true ->
+	    put(orber_forward_notify, OldVal),
+	    lookup({corbaloc, Addresses, Key}, Ctx);
+	_ ->
+	    %% May be located on a version using '_not_existent'
+            %% see CORBA2.3.1 page 15-34 try again.
+	    case catch corba_object:not_existent(ObjRef, Ctx) of
+		{location_forward, Result} ->
+		    put(orber_forward_notify, OldVal),
+		    Result;
+		false ->
+		    put(orber_forward_notify, OldVal),
+		    ObjRef;
+		_ ->
+		    put(orber_forward_notify, OldVal),
+		    lookup({corbaloc, Addresses, Key}, Ctx)
+	    end
+    end;
+			
 lookup({corbaloc, [_|Addresses], Key}, Ctx) ->
     lookup({corbaloc, Addresses, Key}, Ctx);
     

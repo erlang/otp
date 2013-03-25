@@ -32,6 +32,22 @@
     <file>notes.xml</file>
   </header>
 
+
+  <section><title>Orber 3.6.26</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in corbaloc/corbaname over ssl.</p>
+          <p>
+	    Own Id: OTP-10675</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
   <section><title>Orber 3.6.25</title>
 
     <section><title>Improvements and New Features</title>
@@ -45,7 +61,6 @@
       </list>
     </section>
 
-
     <section><title>Known Bugs and Problems</title>
       <list>
         <item>
@@ -57,7 +72,6 @@
         </item>
       </list>
     </section>
-
 </section>
 
 <section><title>Orber 3.6.24</title>

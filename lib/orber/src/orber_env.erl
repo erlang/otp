@@ -302,6 +302,7 @@ create_security_info(ssl, Info) ->
 				 "SSL IIOP accept timeout.......: ~p~n"
 				 "SSL IIOP backlog..............: ~p~n"
 				 "SSL IIOP Local Interface......: ~p~n"
+				 "SSL server options............: ~p~n"
 				 "SSL server certfile...........: ~p~n"
 				 "SSL server verification type..: ~p~n"
 				 "SSL server verification depth.: ~p~n"
@@ -310,6 +311,7 @@ create_security_info(ssl, Info) ->
 				 "SSL server password...........: ~p~n"
 				 "SSL server ciphers............: ~p~n"
 				 "SSL server cachetimeout.......: ~p~n"
+				 "SSL client options............: ~p~n"
 				 "SSL client certfile...........: ~p~n"
 				 "SSL client verification type..: ~p~n"
 				 "SSL client verification depth.: ~p~n"
@@ -323,10 +325,12 @@ create_security_info(ssl, Info) ->
 				  iiop_ssl_in_keepalive(), iiop_ssl_out_keepalive(),
 				  nat_iiop_ssl_port(), iiop_ssl_accept_timeout(),
 				  iiop_ssl_backlog(), iiop_ssl_ip_address_local(),
+				  ssl_server_options(),
 				  ssl_server_certfile(), ssl_server_verify(),
 				  ssl_server_depth(), ssl_server_cacertfile(),
 				  ssl_server_keyfile(), ssl_server_password(),
 				  ssl_server_ciphers(), ssl_server_cachetimeout(),
+				  ssl_client_options(),
 				  ssl_client_certfile(), ssl_client_verify(),
 				  ssl_client_depth(), ssl_client_cacertfile(),
 				  ssl_client_keyfile(), ssl_client_password(),
