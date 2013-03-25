@@ -1151,6 +1151,8 @@ init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHan
 
 init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CertFile, client) ->
     try 
+	%% Ignoring potential proxy-certificates see: 
+	%% http://dev.globus.org/wiki/Security/ProxyFileFormat
 	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
 	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, OwnCert}
     catch _Error:_Reason  ->
