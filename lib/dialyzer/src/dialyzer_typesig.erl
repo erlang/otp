@@ -246,18 +246,27 @@ traverse(Tree, DefinedVars, State) ->
       Val = cerl:bitstr_val(Tree),
       {State1, [SizeType, ValType]} =
 	traverse_list([Size, Val], DefinedVars, State),
-      {State2, TypeConstr} =
+      {State2, TypeConstr, BinValTypeConstr} =
 	case cerl:bitstr_bitsize(Tree) of
-	  all -> {State1, t_bitstr(UnitVal, 0)};
-	  utf -> {State1, t_binary()}; % contains an integer number of bytes
-	  N when is_integer(N) -> {State1, t_bitstr(0, N)};
+	  all ->
+            T = t_bitstr(UnitVal, 0),
+            {State1, T, T};
+	  utf ->
+            %% contains an integer number of bytes
+            T = t_binary(),
+            {State1, T, T};
+	  N when is_integer(N) ->
+            {State1, t_bitstr(0, N), t_bitstr(1, N)};
 	  any -> % Size is not a literal
+            T1 = ?mk_fun_var(bitstr_constr(SizeType, UnitVal), [SizeType]),
+            T2 =
+              ?mk_fun_var(bitstr_constr(SizeType, UnitVal, match), [SizeType]),
 	    {state__store_conj(SizeType, sub, t_non_neg_integer(), State1),
-	     ?mk_fun_var(bitstr_constr(SizeType, UnitVal), [SizeType])}
+             T1, T2}
 	end,
       ValTypeConstr =
 	case cerl:concrete(cerl:bitstr_type(Tree)) of
-	  binary -> TypeConstr;
+	  binary -> BinValTypeConstr;
 	  float ->
 	    case state__is_in_match(State1) of
 	      true -> t_float();
@@ -947,12 +956,20 @@ get_type_test({erlang, is_tuple, 1}) ->     {ok, t_tuple()};
 get_type_test({M, F, A}) when is_atom(M), is_atom(F), is_integer(A) -> error.
 
 bitstr_constr(SizeType, UnitVal) ->
+  bitstr_constr(SizeType, UnitVal, construct).
+
+bitstr_constr(SizeType, UnitVal, ConstructOrMatch) ->
+  Unit =
+    case ConstructOrMatch of
+      construct -> 0;
+      match -> 1
+    end,
   fun(Map) ->
       TmpSizeType = lookup_type(SizeType, Map),
       case t_is_subtype(TmpSizeType, t_non_neg_integer()) of
 	true ->
 	  case t_number_vals(TmpSizeType) of
-	    [OneSize] -> t_bitstr(0, OneSize * UnitVal);
+	    [OneSize] -> t_bitstr(Unit, OneSize * UnitVal);
 	    _ ->
 	      MinSize = erl_types:number_min(TmpSizeType),
 	      t_bitstr(UnitVal, MinSize * UnitVal)
@@ -3374,16 +3391,6 @@ pp_constraints([#constraint{}=C], Level, MaxDepth, _State) ->
 pp_constraints([#constraint{}=C|Tail], Level, MaxDepth, State) ->
   pp_op(C, Level),
   pp_constraints(Tail, Level, MaxDepth, State);
-pp_constraints([#constraint_list{type = Type, list = List, id = Id}],
-	       Level, MaxDepth, State) ->
-  pp_indent(Level),
-  case Type of
-    conj -> io:format("Conj ~w (", [Id]);
-    disj -> io:format("Disj ~w (", [Id])
-  end,
-  NewMaxDepth = pp_constraints(List, Level + 1, MaxDepth, State),
-  io:format(")", []),
-  NewMaxDepth;
 pp_constraints([#constraint_list{type = Type, list = List, id = Id}|Tail],
 	       Level, MaxDepth, State) ->
   pp_indent(Level),
@@ -3392,8 +3399,11 @@ pp_constraints([#constraint_list{type = Type, list = List, id = Id}|Tail],
     disj -> io:format("Disj ~w (", [Id])
   end,
   NewMaxDepth = pp_constraints(List, Level+1, MaxDepth, State),
-  io:format(")", []),
-  pp_constraints(Tail, Level, NewMaxDepth, State).
+  io:format(")"),
+  case Tail =:= [] of
+    true  -> NewMaxDepth + 1;
+    false -> pp_constraints(Tail, Level, NewMaxDepth, State)
+  end.
 
 pp_op(#constraint{lhs = Lhs, op = Op, rhs = Rhs}, Level) ->
   pp_indent(Level),
