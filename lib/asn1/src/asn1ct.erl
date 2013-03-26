@@ -559,6 +559,8 @@ get_pos_of_def(#pobjectdef{pos=Pos}) ->
     Pos;
 get_pos_of_def(#pobjectsetdef{pos=Pos}) ->
     Pos;
+get_pos_of_def(#'Externalvaluereference'{pos=Pos}) ->
+    Pos;
 get_pos_of_def(_) -> 
     undefined.
     

@@ -139,7 +139,6 @@ groups() ->
        testSetOfCho,
        testEnumExt,
        value_test,
-       value_bad_enum_test,
        testSeq2738,
        % Uses 'Constructed'
        {group, [], [constructed,
@@ -740,11 +739,6 @@ value_test(Config, Rule, Opts) ->
     asn1_test_lib:compile("ObjIdValues", Config, [Rule|Opts]),
     {ok, _} = asn1ct:test('ObjIdValues', 'ObjIdType',
                           'ObjIdValues':'mobileDomainId'()).
-
-value_bad_enum_test(Config) ->
-    {error, _} = asn1ct:compile(?config(data_dir, Config) ++
-				    "BadEnumValue1",
-				[{outdir, ?config(case_dir, Config)}]).
 
 constructed(Config) ->
     test(Config, fun constructed/3, [ber]).

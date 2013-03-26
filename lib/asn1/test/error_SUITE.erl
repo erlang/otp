@@ -19,7 +19,7 @@
 
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
-	 already_defined/1]).
+	 already_defined/1,enumerated/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -29,7 +29,8 @@ all() ->
     [{group,p}].
 
 groups() ->
-    [{p,parallel(),[already_defined]}].
+    [{p,parallel(),[already_defined,
+		    enumerated]}].
 
 parallel() ->
     case erlang:system_info(schedulers) > 1 of
@@ -65,6 +66,36 @@ already_defined(Config) ->
      ]
     } = run(P, Config),
     ok.
+
+enumerated(Config) ->
+    M = 'Enumerated',
+    P = {M,
+	 <<"Enumerated DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  Enum ::= ENUMERATED { a, b, c }\n"
+	   "  e Enum ::= d\n"
+	   "  EnumExt ::= ENUMERATED { x, ..., y }\n"
+	   "  ext EnumExt ::= z\n"
+	   "  S1 ::= SEQUENCE {\n"
+           "    ge1 Enum DEFAULT a,\n"
+           "    ge2 EnumExt DEFAULT x,\n"
+           "    ge3 EnumExt DEFAULT y,\n"
+	   "    e Enum DEFAULT aa\n"
+           "  }\n"
+	   "  S2 ::= SEQUENCE {\n"
+	   "    e2 EnumExt DEFAULT xyz\n"
+	   "  }\n"
+	   "END\n">>},
+    {error,
+     [
+      {structured_error,{'Enumerated',3},asn1ct_check,{undefined,d}},
+      {structured_error,{'Enumerated',5},asn1ct_check,{undefined,z}},
+      {structured_error,{'Enumerated',10},asn1ct_check,{undefined,aa}},
+      {structured_error,{'Enumerated',13},asn1ct_check,{undefined,xyz}}
+     ]
+    } = run(P, Config),
+    ok.
+
+
 
 run({Mod,Spec}, Config) ->
     Base = atom_to_list(Mod) ++ ".asn1",

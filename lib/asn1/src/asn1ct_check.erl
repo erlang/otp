@@ -2151,8 +2151,7 @@ check_value(OldS=#state{recordtopname=TopName},V) when is_record(V,valuedef) ->
 		    'REAL' ->
 			ok = validate_real(SVal,Value,Constr),
 			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    {'ENUMERATED',NamedNumberList} ->
-			ok=validate_enumerated(SVal,Value,NamedNumberList,Constr),
+		    {'ENUMERATED',_} ->
 			#newv{value=normalize_value(SVal,Vtype,Value,[])};
 		    'BOOLEAN'->
 			ok=validate_boolean(SVal,Value,Constr),
@@ -2511,23 +2510,6 @@ validate_objectdescriptor(_S,_Value,_Constr) ->
 validate_real(_S,_Value,_Constr) ->
     ok.
 
-validate_enumerated(S,Id,NamedNumberList,_Constr) when is_atom(Id) ->
-    case lists:keysearch(Id,1,NamedNumberList) of
-	{value,_} -> ok;
-	false -> error({value,"unknown ENUMERATED",S})
-    end;
-validate_enumerated(S,{identifier,_Pos,Id},NamedNumberList,_Constr) ->
-    case lists:keysearch(Id,1,NamedNumberList) of
-	{value,_} -> ok;
-	false -> error({value,"unknown ENUMERATED",S})
-    end;
-validate_enumerated(S,#'Externalvaluereference'{value=Id},
-		    NamedNumberList,_Constr) ->
-    case lists:keysearch(Id,1,NamedNumberList) of
-	{value,_} -> ok;
-	false -> error({value,"unknown ENUMERATED",S})
-    end.
-
 validate_boolean(_S,_Value,_Constr) ->
     ok.
 
@@ -2588,7 +2570,8 @@ normalize_value(_,_,mandatory,_) ->
     mandatory;
 normalize_value(_,_,'OPTIONAL',_) ->
     'OPTIONAL';
-normalize_value(S,Type,{'DEFAULT',Value},NameList) ->
+normalize_value(S0, Type, {'DEFAULT',Value}, NameList) ->
+    S = S0#state{value=Value},
     case catch get_canonic_type(S,Type,NameList) of
 	{'BOOLEAN',CType,_} ->
 	    normalize_boolean(S,Value,CType);
@@ -2827,28 +2810,19 @@ normalize_objectdescriptor(Value) ->
 normalize_real(Value) ->
     Value.
 
-normalize_enumerated(S,#'Externalvaluereference'{value=V},CType)
-  when is_list(CType) ->
-    normalize_enumerated2(S,V,CType);
-normalize_enumerated(S,Value,CType) when is_atom(Value),is_list(CType) ->
-    normalize_enumerated2(S,Value,CType);
-normalize_enumerated(S,{Name,EnumV},CType) when is_atom(Name) ->
-    normalize_enumerated(S,EnumV,CType);
-normalize_enumerated(S,Value,{CType1,CType2}) when is_list(CType1), is_list(CType2)->
-    normalize_enumerated(S,Value,CType1++CType2);
-normalize_enumerated(S,V,CType) ->
-    asn1ct:warning("Enumerated unknown type ~p~n",[CType],S,
-		   "Enumerated unknown type"),
-    V.
-normalize_enumerated2(S,V,Enum) ->
-    case lists:keysearch(V,1,Enum) of
-	{value,{Val,_}} -> Val;
-	_ -> 
-	    asn1ct:warning("enumerated value is not correct ~p~n",[V],S,
-			   "enumerated value is not correct"),
-	    V
+normalize_enumerated(S, Id, {Base,Ext}) ->
+    %% Extensible ENUMERATED.
+    normalize_enumerated(S, Id, Base++Ext);
+normalize_enumerated(S, #'Externalvaluereference'{value=Id},
+		    NamedNumberList) ->
+    normalize_enumerated(S, Id, NamedNumberList);
+normalize_enumerated(S, Id, NamedNumberList) when is_atom(Id) ->
+    case lists:keymember(Id, 1, NamedNumberList) of
+	true ->
+	    Id;
+	false ->
+	    throw(asn1_error(S, S#state.value, {undefined,Id}))
     end.
-
 
 normalize_choice(S,{'CHOICE',{C,V}},CType,NameList) when is_atom(C) ->
     case catch lists:keysearch(C,#'ComponentType'.name,CType) of
@@ -7014,9 +6988,13 @@ asn1_error(#state{mname=Where}, Item, Error) ->
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
 		  [Name,PrevLine]);
+format_error({undefined,Name}) ->
+    io_lib:format("'~s' is referenced, but is not defined", [Name]);
 format_error(Other) ->
     io_lib:format("~p", [Other]).
 
+error({_,{structured_error,_,_,_}=SE,_}) ->
+    SE;
 error({export,Msg,#state{mname=Mname,type=Ref,tname=Typename}}) ->
     Pos = Ref#'Externaltypereference'.pos,
     io:format("asn1error:~p:~p:~p~n~p~n",[Pos,Mname,Typename,Msg]),
