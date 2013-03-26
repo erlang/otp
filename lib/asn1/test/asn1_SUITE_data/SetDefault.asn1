@@ -30,4 +30,15 @@ SetIn ::= SET
   intIn  INTEGER DEFAULT 12
 }
 
+SetDef4 ::= SET {
+  set SetExt DEFAULT { intIn 42, boolIn TRUE }
+}
+
+SetExt ::= SET
+{
+  boolIn BOOLEAN,
+  ...,
+  intIn INTEGER
+}
+
 END
