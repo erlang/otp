@@ -596,8 +596,8 @@ dump_log_load_regulation(Config) when is_list(Config) ->
 	 {n_branches, length(Nodes) * 10},
 	 {n_accounts_per_branch, 5},
 	 {replica_type, disc_copies},
-	 {stop_after, timer:seconds(30)},
-	 {report_interval, timer:seconds(10)},
+	 {stop_after, timer:seconds(15)},
+	 {report_interval, timer:seconds(3)},
 	 {use_running_mnesia, true},
 	 {reuse_history_id, true}],
     
