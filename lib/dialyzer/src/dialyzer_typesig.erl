@@ -1787,8 +1787,9 @@ minimize_state(#state{
 		  opaques     = Opaques,
                   solvers     = Solvers
 		 }) ->
-  ETSCMap = ets:new(cmap,[{read_concurrency, true}]),
-  ETSPropTypes = ets:new(prop_types,[{read_concurrency, true}]),
+  Opts = [{read_concurrency, true}],
+  ETSCMap = ets:new(cmap, Opts),
+  ETSPropTypes = ets:new(prop_types, Opts),
   true = ets:insert(ETSCMap, dict:to_list(CMap)),
   true = ets:insert(ETSPropTypes, dict:to_list(PropTypes)),
   #state
@@ -2128,11 +2129,11 @@ restore_local_map(#v2_state{constr_data = ConData}, Id, Map0) ->
     {ok, failed} -> Map0;
     {ok, {[],_}} -> Map0;
     {ok, {Part0,U}} ->
-      Part = [{K,V} || {K,V} <- Part0, not lists:member(K, U)],
+      Part = [KV || {K,_V} = KV <- Part0, not lists:member(K, U)],
       ?debug("restore local map Id=~w U=~w\n", [Id, U]),
       pp_map("Part", dict:from_list(Part)),
       pp_map("Map0", Map0),
-      Map = lists:foldl(fun({K,V}, D) -> dict:store(K, V, D)end, Map0, Part),
+      Map = lists:foldl(fun({K,V}, D) -> dict:store(K, V, D) end, Map0, Part),
       pp_map("Map", Map),
       Map
   end.
