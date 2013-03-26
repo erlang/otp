@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -607,7 +607,7 @@ explicit_stop_during_snmp(Config) when is_list(Config) ->
 
     Do_trans_Pid1 = spawn_link(Node2, ?MODULE, do_trans_loop, [Tab, self()]),
     Do_trans_Pid2 = spawn_link(?MODULE, do_trans_loop, [Tab, self()]),
-    Start_stop_Pid = spawn_link(?MODULE, start_stop, [Node1, 10, self()]),
+    Start_stop_Pid = spawn_link(?MODULE, start_stop, [Node1, 5, self()]),
     receive 
 	test_done -> 
 	    ok
@@ -631,13 +631,13 @@ do_trans_loop2(Tab, Father) ->
 	end,
     case mnesia:transaction(Trans) of
 	{atomic, ok} ->
-	    timer:sleep(200),
+	    timer:sleep(100),
 	    do_trans_loop2(Tab, Father);
 	{aborted, {node_not_running, N}} when N == node() ->
-	    timer:sleep(200),
+	    timer:sleep(100),
 	    do_trans_loop2(Tab, Father);
 	{aborted, {no_exists, Tab}} ->
-	    timer:sleep(200),
+	    timer:sleep(100),
 	    do_trans_loop2(Tab, Father);
 	Else ->
 	    ?error("Transaction failed: ~p ~n", [Else]),
@@ -649,9 +649,9 @@ start_stop(_Node1, 0, Father) ->
     Father ! test_done,
     exit(shutdown);
 start_stop(Node1, N, Father) when N > 0->
-    timer:sleep(timer:seconds(5)),
-    ?match(stopped, rpc:call(Node1, mnesia, stop, [])),
     timer:sleep(timer:seconds(2)),
+    ?match(stopped, rpc:call(Node1, mnesia, stop, [])),
+    timer:sleep(timer:seconds(1)),
     ?match([], mnesia_test_lib:start_mnesia([Node1])),
     start_stop(Node1, N-1, Father).    
 
