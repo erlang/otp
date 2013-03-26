@@ -559,10 +559,10 @@ erl_dist_m(suite) ->
 
 tickets(suite) ->
     [
-     %% compact_tickets, 
-     %% pretty_tickets,
-     flex_compact_tickets%% ,
-     %% flex_pretty_tickets
+     compact_tickets, 
+     pretty_tickets,
+     flex_compact_tickets,
+     flex_pretty_tickets
     ].
 
 
@@ -630,22 +630,22 @@ flex_compact_tickets(suite) ->
 
 flex_compact_tickets_cases() ->
     [
-     %% flex_compact_otp7138_msg01,
-     %% flex_compact_otp7138_msg02,
-     %% flex_compact_otp7431_msg01,
-     %% flex_compact_otp7431_msg02,
-     %% flex_compact_otp7431_msg03, 
-     %% flex_compact_otp7431_msg04,
-     %% flex_compact_otp7431_msg05,
-     %% flex_compact_otp7431_msg06,
-     %% flex_compact_otp7431_msg07,
-     %% flex_compact_otp7138_msg02,
-     %% flex_compact_otp7457_msg01,
-     %% flex_compact_otp7457_msg02,
-     %% flex_compact_otp7457_msg03,
-     %% flex_compact_otp7534_msg01,
-     %% flex_compact_otp7573_msg01,
-     %% flex_compact_otp7576_msg01,
+     flex_compact_otp7138_msg01,
+     flex_compact_otp7138_msg02,
+     flex_compact_otp7431_msg01,
+     flex_compact_otp7431_msg02,
+     flex_compact_otp7431_msg03, 
+     flex_compact_otp7431_msg04,
+     flex_compact_otp7431_msg05,
+     flex_compact_otp7431_msg06,
+     flex_compact_otp7431_msg07,
+     flex_compact_otp7138_msg02,
+     flex_compact_otp7457_msg01,
+     flex_compact_otp7457_msg02,
+     flex_compact_otp7457_msg03,
+     flex_compact_otp7534_msg01,
+     flex_compact_otp7573_msg01,
+     flex_compact_otp7576_msg01,
      flex_compact_seq12263_msg01,
      flex_compact_seq12263_msg02,
      flex_compact_seq12263_msg03,
