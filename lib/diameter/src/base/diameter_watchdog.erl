@@ -225,7 +225,8 @@ dict0(_, _, Acc) ->
     Acc.
 
 config_error(T) ->
-    ?ERROR({configuration_error, T}).
+    diameter_lib:error_report(configuration_error, T),
+    exit({shutdown, {configuration_error, T}}).
 
 %% handle_call/3
 
