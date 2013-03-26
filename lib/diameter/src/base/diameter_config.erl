@@ -693,7 +693,7 @@ opt(K, _) ->
     ?THROW({value, K}).
 
 sequence({H,N} = T)
-  when 0 =< N, N =< 32, 0 =< H, 0 == H bsr N ->
+  when 0 =< N, N =< 32, 0 =< H, 0 == H bsr (32-N) ->
     T;
 
 sequence(_) ->
