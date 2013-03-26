@@ -103,10 +103,12 @@ typedef struct {
 
 /* IBL = In Buffer Length - the raw (un-decoded) message buffer length */
 #define TERM_SPEC_SIZE_INITIAL(IBL) (1024 + 2*(IBL))
+// #define TERM_SPEC_SIZE_INITIAL(IBL) (1000 + (IBL))
 
 /* CTSS = Current term spec size - the current term spec length */
 /* S    = Size - how many positions we need */
 #define TERM_SPEC_SIZE_NEXT(CTSS,S)   ((CTSS) + 1024 + (S))
+// #define TERM_SPEC_SIZE_NEXT(CTSS,S)   (2*(CTSS) + (S))
 
 #if !defined(MEGACO_REENTRANT_FLEX_SCANNER)
 static MfsErlDrvData mfs_drv_data;
@@ -1265,7 +1267,7 @@ static void mfs_load_property_groups(MfsErlDrvData* dataP)
     } // if ((yytext[i] != SP)...
   } // while ...      
       
-  mfs_ensure_term_spec(dataP, 4); // 2 + 2 just in case
+  mfs_ensure_term_spec(dataP, 6); // 3 + 3 just in case
 
   /* Make sure we actually have some groups */
 
