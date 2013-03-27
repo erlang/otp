@@ -158,7 +158,7 @@ wait(Ref, Pid) ->
 config(Opts) ->
     Config = proplists:get_value(watchdog_config, Opts, []),
     is_list(Config) orelse config_error({watchdog_config, Config}),
-    lists:foldl(fun config/2, #config{}, Config).
+    lists:foldl(fun config/2, #config{}, Config).      %% ^ added in old code
 
 config({suspect, N}, Rec)
   when ?IS_NATURAL(N) ->
@@ -168,7 +168,7 @@ config({okay, N}, Rec)
   when ?IS_NATURAL(N) ->
     Rec#config{okay = N};
 
-config(T, _) ->
+config(T, _) ->  %% added in old code
     config_error(T).
 
 %% start/5
@@ -225,7 +225,8 @@ dict0(_, _, Acc) ->
     Acc.
 
 config_error(T) ->
-    ?ERROR({configuration_error, T}).
+    diameter_lib:error_report(configuration_error, T),
+    exit({shutdown, {configuration_error, T}}).
 
 %% handle_call/3
 

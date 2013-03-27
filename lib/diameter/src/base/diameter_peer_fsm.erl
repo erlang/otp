@@ -198,6 +198,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
     OnLengthErr = proplists:get_value(length_errors, Opts, exit),
     lists:member(OnLengthErr, [exit, handle, discard])
         orelse ?ERROR({invalid, {length_errors, OnLengthErr}}),
+    %% Error checking is for configuration added in old code.
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
 
@@ -212,9 +213,6 @@ i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when
 %% sending capabilities exchange messages.
-%%
-%% Invalid transport config may cause us to crash but note that the
-%% watchdog start (start/2) succeeds regardless.
 
 %% Wait for the caller to have a monitor to avoid a race with our
 %% death. (Since the exit reason is used in diameter_service.)
@@ -846,8 +844,12 @@ a('DPR', #diameter_caps{origin_host = {Host, _},
 %% recv_CER/2
 
 recv_CER(CER, #state{service = Svc, dictionary = Dict}) ->
-    {ok, T} = diameter_capx:recv_CER(CER, Svc, Dict),
-    T.
+    case diameter_capx:recv_CER(CER, Svc, Dict) of
+        {ok, T} ->
+            T;
+        {error, Reason} ->
+            close({'CER', CER, Svc, Dict, Reason})
+    end.
 
 %% handle_CEA/1
 
@@ -907,8 +909,12 @@ recv_CEA(#diameter_packet{header = #diameter_header{version
                           errors = []},
          #state{service = Svc,
                 dictionary = Dict}) ->
-    {ok, T} = diameter_capx:recv_CEA(CEA, Svc, Dict),
-    T;
+    case diameter_capx:recv_CEA(CEA, Svc, Dict) of
+        {ok, T} ->
+            T;
+        {error, Reason} ->
+            close({'CEA', CEA, Svc, Dict, Reason})
+    end;
 
 recv_CEA(Pkt, S) ->
     close({'CEA', caps(S), Pkt}).
@@ -987,7 +993,16 @@ capz(#diameter_caps{} = L, #diameter_caps{} = R) ->
 %% close/1
 
 close(Reason) ->
+    report(Reason),
     throw({?MODULE, close, Reason}).
+
+%% Could possibly log more here.
+report({M, _, _, _, _} = T)
+  when M == 'CER';
+       M == 'CEA' ->
+    diameter_lib:error_report(failure, T);
+report(_) ->
+    ok.
 
 %% dwa/1
 
