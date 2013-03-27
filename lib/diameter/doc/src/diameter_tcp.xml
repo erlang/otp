@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY start '<seealso marker="#start-3">start/3</seealso>'>
   <!ENTITY gen_tcp_connect3
   '<seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect/3</seealso>'>
   <!ENTITY gen_tcp_listen2
@@ -81,7 +82,9 @@ before configuring TLS capability on diameter transports.</p>
 
 <func>
 <name>start({Type, Ref}, Svc, [Opt])
-         -> {ok, Pid, [LAddr]} | {error, Reason}</name>
+         -> {ok, Pid}
+          | {ok, Pid, [LAddr]}
+          | {error, Reason}</name>
 <fsummary>Start a transport process.</fsummary>
 <type>
 <v>Type = connect | accept</v>
@@ -153,13 +156,14 @@ that will not be forthcoming, which will eventually cause the RFC 3539
 watchdog to take down the connection.</p>
 
 <p>
-If the <c>#diameter_service{}</c> record has more than one
-<c>Host-IP-Address</c> and option <c>ip</c> is unspecified then the
-first of the these addresses is used as the local address.</p>
-
-<p>
-The returned local address list has length one.</p>
-
+If an <c>ip</c> option is not specified then the first element of a
+non-empty <c>Host-IP-Address</c> list in <c>Svc</c> provides the local
+IP address.
+If neither is specified then the default address selected by &gen_tcp;
+is used.
+In all cases, the selected address is either returned from
+&start; or passed in a <c>connected</c> message over the transport
+interface.</p>
 </desc>
 </func>
 
