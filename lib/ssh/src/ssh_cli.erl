@@ -189,7 +189,12 @@ terminate(_Reason, _State) ->
 %%--------------------------------------------------------------------
 
 exec(Cmd) ->
-    eval(parse(scan(Cmd))).
+    case eval(parse(scan(Cmd))) of
+	{error, _} ->
+	    {Cmd, 0}; %% This should be an external call
+	Term ->
+	    Term
+    end.
 
 scan(Cmd) ->
     erl_scan:string(Cmd). 
