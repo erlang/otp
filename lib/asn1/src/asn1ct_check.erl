@@ -73,7 +73,6 @@
 	end).
 
 -record(newt,{type=unchanged,tag=unchanged,constraint=unchanged,inlined=no}). % used in check_type to update type and tag
--record(newv,{type=unchanged,value=unchanged}). % used in check_value to update type and value
  
 check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
     %%Predicates used to filter errors
@@ -2071,171 +2070,72 @@ check_value(S,#valuedef{pos=Pos,name=Name,type=Type,
     NewType = Type#type{constraint=[Constr]},
     {valueset,
      check_type(S,#typedef{pos=Pos,name=Name,typespec=NewType},NewType)};
-check_value(OldS=#state{recordtopname=TopName},V) when is_record(V,valuedef) ->
-    #valuedef{name=Name,checked=Checked,type=Vtype,
-	      value=Value,module=ModName} = V,
-    ?dbg("check_value, V: ~p~n",[V]),
-    case Checked of
-	true -> 
+check_value(S, #valuedef{}=V) ->
+    ?dbg("check_value, V: ~p~n",[V0]),
+    case V of
+	#valuedef{checked=true} ->
 	    V;
-	{error,_} ->
-	    V;
-	false ->
-	    Def = Vtype#type.def,
-	    Constr = Vtype#type.constraint,
-	    S = OldS#state{type=Vtype,tname=Def,value=V,vname=Name},
-	    SVal = update_state(S,ModName),
-	    NewDef = 
-		case Def of
-		    Ext when is_record(Ext,'Externaltypereference') ->
-			RecName = Ext#'Externaltypereference'.type,
-			{RefM,Type} = get_referenced_type(S,Ext),
-			%% If V isn't a value but an object Type is a #classdef{}
-			%%NewS = S#state{mname=RefM},
-			NewS = update_state(S,RefM),
-			case Type of
-			    #classdef{} ->
-				throw({objectdef});
-			    #typedef{} ->
-				case is_contextswitchtype(Type) of
-				    true ->
-					#valuedef{value=CheckedVal}=
-					    check_value(NewS,V#valuedef{type=Type#typedef.typespec}),
-					#newv{value=CheckedVal};
-				    _ ->
-					#valuedef{value=CheckedVal}=
-					    check_value(NewS#state{recordtopname=[RecName|TopName]},
-							V#valuedef{type=Type#typedef.typespec}),
-					#newv{value=CheckedVal}
-				end;
-			    #type{} ->
-				%% A parameter that couldn't be categorized.
-				#valuedef{value=CheckedVal}=
-				    check_value(NewS#state{recordtopname=[RecName|TopName]},
-						V#valuedef{type=Type}),
-				#newv{value=CheckedVal}
-			end;
-		    'ANY' ->
-			case Value of
-			    {opentypefieldvalue,ANYType,ANYValue} ->
-				CheckedV=
-				    check_value(SVal,#valuedef{name=Name,
-							       type=ANYType,
-							       value=ANYValue,
-							       module=ModName}),
-				#newv{value=CheckedV#valuedef.value};
-			    _ ->
-				throw({error,{asn1,{'cant check value of type',Def}}})
-			end;
-		    'INTEGER' ->
-			ok=validate_integer(SVal,Value,[],Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    {'INTEGER',NamedNumberList} ->
-			ok=validate_integer(SVal,Value,NamedNumberList,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    {'BIT STRING',NamedNumberList} ->
-			ok=validate_bitstring(SVal,Value,NamedNumberList,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'NULL' ->
-			ok=validate_null(SVal,Value,Constr),
-			#newv{};
-		    'OBJECT IDENTIFIER' ->
-			{ok,_}=validate_objectidentifier(SVal,Value,Constr),
-			#newv{value = normalize_value(SVal,Vtype,Value,[])};
-		    'RELATIVE-OID' ->
-			{ok,_}=validate_relative_oid(SVal,Value,Constr),
-			#newv{value = Value};
-		    'ObjectDescriptor' ->
-			ok=validate_objectdescriptor(SVal,Value,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'REAL' ->
-			ok = validate_real(SVal,Value,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    {'ENUMERATED',_} ->
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'BOOLEAN'->
-			ok=validate_boolean(SVal,Value,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'OCTET STRING' ->
-			ok=validate_octetstring(SVal,Value,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'NumericString' ->
-			ok=validate_restrictedstring(SVal,Value,Def,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    TString when TString =:= 'TeletexString';
-				 TString =:= 'T61String' ->
-			ok=validate_restrictedstring(SVal,Value,Def,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'VideotexString' ->
-			ok=validate_restrictedstring(SVal,Value,Def,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'UTCTime' ->
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-%			exit({'cant check value of type' ,Def});
-		    'GeneralizedTime' ->
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-%			exit({'cant check value of type' ,Def});
-		    'GraphicString' ->
-			ok=validate_restrictedstring(SVal,Value,Def,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'VisibleString' ->
-			ok=validate_restrictedstring(SVal,Value,Def,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'GeneralString' ->
-			ok=validate_restrictedstring(SVal,Value,Def,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'PrintableString' ->
-			ok=validate_restrictedstring(SVal,Value,Def,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'IA5String' ->
-			ok=validate_restrictedstring(SVal,Value,Def,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'BMPString' ->
-			ok=validate_restrictedstring(SVal,Value,Def,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'UTF8String' ->
-			ok = validate_restrictedstring(SVal,Vtype,Value,Constr),
-			%%io:format("Vtype: ~p~nValue: ~p~n",[Vtype,Value]);
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    'UniversalString' -> %added 6/12 -00
-			ok = validate_restrictedstring(SVal,Value,Def,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,[])};
-		    Seq when is_record(Seq,'SEQUENCE') ->
-			{ok,SeqVal} = validate_sequence(SVal,Value,
-						   Seq#'SEQUENCE'.components,
-						   Constr),
-			#newv{value=normalize_value(SVal,Vtype,SeqVal,TopName)};
-		    {'SEQUENCE OF',Components} ->
-			ok=validate_sequenceof(SVal,Value,Components,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,TopName)};
-		    {'CHOICE',Components} ->
-			ok=validate_choice(SVal,Value,Components,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,TopName)};
-		    Set when is_record(Set,'SET') ->
-			ok=validate_set(SVal,Value,Set#'SET'.components,
-					      Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,TopName)};
-		    {'SET OF',Components} ->
-			ok=validate_setof(SVal,Value,Components,Constr),
-			#newv{value=normalize_value(SVal,Vtype,Value,TopName)};
-		    {'SelectionType',SelName,SelT} ->
-			CheckedT = check_selectiontype(SVal,SelName,SelT),
-			NewV = V#valuedef{type=CheckedT},
-			SelVDef=check_value(S#state{value=NewV},NewV),
-			#newv{value=SelVDef#valuedef.value};
-		    Other ->
-			exit({'cannot check value of type' ,Other})
-		end,
-	    case NewDef#newv.value of
-		unchanged ->
-		    V#valuedef{checked=true,value=Value};
-		ok ->
-		    V#valuedef{checked=true,value=Value};
-		{error,Reason} ->
-		    V#valuedef{checked={error,Reason},value=Value};
-		_V ->
-		    V#valuedef{checked=true,value=_V}
-	    end
+	#valuedef{checked=false} ->
+	    check_valuedef(S, V)
+    end.
+
+check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
+    #valuedef{name=Name,type=Vtype,value=Value,module=ModName} = V0,
+    V = V0#valuedef{checked=true},
+    Def = Vtype#type.def,
+    Constr = Vtype#type.constraint,
+    S1 = S0#state{type=Vtype,tname=Def,value=V0,vname=Name},
+    SVal = update_state(S1, ModName),
+    case Def of
+	#'Externaltypereference'{type=RecName}=Ext ->
+	    {RefM,Type} = get_referenced_type(S1, Ext),
+	    %% If V isn't a value but an object Type is a #classdef{}
+	    S2 = update_state(S1, RefM),
+	    case Type of
+		#classdef{} ->
+		    throw({objectdef});
+		#typedef{typespec=TypeSpec} ->
+		    S3 = case is_contextswitchtype(Type) of
+			     true ->
+				 S2;
+			     false ->
+				 S2#state{recordtopname=[RecName|TopName]}
+			 end,
+		    #valuedef{value=CheckedVal} =
+			check_value(S3, V0#valuedef{type=TypeSpec}),
+		    V#valuedef{value=CheckedVal};
+		#type{} ->
+		    %% A parameter that couldn't be categorized.
+		    #valuedef{value=CheckedVal} =
+			check_value(S2#state{recordtopname=[RecName|TopName]},
+				    V#valuedef{type=Type}),
+		    V#valuedef{value=CheckedVal}
+	    end;
+	'ANY' ->
+	    {opentypefieldvalue,ANYType,ANYValue} = Value,
+	    CheckedV = check_value(SVal,#valuedef{name=Name,
+						  type=ANYType,
+						  value=ANYValue,
+						  module=ModName}),
+	    V#valuedef{value=CheckedV#valuedef.value};
+	'INTEGER' ->
+	    ok = validate_integer(SVal, Value, [], Constr),
+	    V#valuedef{value=normalize_value(SVal, Vtype, Value, [])};
+	{'INTEGER',NamedNumberList} ->
+	    ok = validate_integer(SVal, Value, NamedNumberList, Constr),
+	    V#valuedef{value=normalize_value(SVal, Vtype, Value, [])};
+	#'SEQUENCE'{components=Components} ->
+	    {ok,SeqVal} = validate_sequence(SVal, Value,
+					    Components, Constr),
+	    V#valuedef{value=normalize_value(SVal, Vtype,
+					    SeqVal, TopName)};
+	{'SelectionType',SelName,SelT} ->
+	    CheckedT = check_selectiontype(SVal, SelName, SelT),
+	    NewV = V#valuedef{type=CheckedT},
+	    SelVDef = check_value(S1#state{value=NewV}, NewV),
+	    V#valuedef{value=SelVDef#valuedef.value};
+	_ ->
+	    V#valuedef{value=normalize_value(SVal, Vtype, Value, TopName)}
     end.
 
 is_contextswitchtype(#typedef{name='EXTERNAL'})->
@@ -2291,12 +2191,6 @@ validate_integer_ref(S,Ref,NamedNumberList,Constr) ->
 check_integer_range(_Int, Constr) when is_list(Constr) ->
     ok.
 
-validate_bitstring(_S,_Value,_NamedNumberList,_Constr) ->
-    ok.
-
-validate_null(_S,'NULL',_Constr) ->
-    ok.
-
 %%------------
 %% This can be removed when the old parser is removed
 %% The function removes 'space' atoms from the list
@@ -2309,9 +2203,6 @@ is_space_list([],Acc) ->
     lists:reverse(Acc);
 is_space_list([H|T],Acc) ->
     is_space_list(T,[H|Acc]).
-
-validate_objectidentifier(S,ERef,C) ->
-    validate_objectidentifier(S,o_id,ERef,C).
 
 validate_objectidentifier(S,OID,ERef,C) 
   when is_record(ERef,'Externalvaluereference') ->
@@ -2410,9 +2301,6 @@ validate_oid(_, S, OID, [Atom|Rest],Acc) when is_atom(Atom) ->
 validate_oid(_, S, OID, V, Acc) ->
     error({value, {"illegal "++to_string(OID),V,Acc},S}).
 
-validate_relative_oid(S,Value,Constr) ->
-    validate_objectidentifier(S,rel_oid,Value,Constr).
-
 is_object_id(OID,S,ERef=#'Externaltypereference'{}) ->
     {_,OI} = get_referenced_type(S,ERef),
     is_object_id(OID,S,OI#typedef.typespec);
@@ -2499,26 +2387,6 @@ valid_objectid(o_id,_I,[1]) -> false;
 valid_objectid(o_id,_I,[2]) -> true;
 valid_objectid(_,_,_) -> true.
 
-
-
-		 
-	    
-
-validate_objectdescriptor(_S,_Value,_Constr) ->
-    ok.
-
-validate_real(_S,_Value,_Constr) ->
-    ok.
-
-validate_boolean(_S,_Value,_Constr) ->
-    ok.
-
-validate_octetstring(_S,_Value,_Constr) ->
-    ok.
-
-validate_restrictedstring(_S,_Value,_Def,_Constr) ->
-    ok.
-
 validate_sequence(S=#state{type=Vtype},Value,_Components,_Constr) ->
     case Vtype of
 	#type{tag=[{tag,'UNIVERSAL',8,'IMPLICIT',32}]} ->
@@ -2532,18 +2400,6 @@ validate_sequence(S=#state{type=Vtype},Value,_Components,_Constr) ->
 	_ ->
 	    {ok,Value}
     end.
-
-validate_sequenceof(_S,_Value,_Components,_Constr) ->
-    ok.
-
-validate_choice(_S,_Value,_Components,_Constr) ->
-    ok.
-
-validate_set(_S,_Value,_Components,_Constr) ->
-    ok.
-
-validate_setof(_S,_Value,_Components,_Constr) ->
-    ok.
 
 to_EXTERNAL1990(S,[{identification,{'CHOICE',{syntax,Stx}}}|Rest]) ->
     to_EXTERNAL1990(S,Rest,[{'direct-reference',Stx}]);
@@ -2796,12 +2652,12 @@ hstring_to_octetlist([H|T],BSL,Acc) when H >= $0; H =< $9 ->
 hstring_to_octetlist([],_,Acc) ->
     lists:reverse(Acc).
 
-normalize_objectidentifier(S,Value) ->
-    {ok,Val}=validate_objectidentifier(S,Value,[]),
+normalize_objectidentifier(S, Value) ->
+    {ok,Val} = validate_objectidentifier(S, o_id, Value, []),
     Val.
 
 normalize_relative_oid(S,Value) ->
-    {ok,Val} = validate_relative_oid(S,Value,[]),
+    {ok,Val} = validate_objectidentifier(S, rel_oid, Value, []),
     Val.
 
 normalize_objectdescriptor(Value) ->
