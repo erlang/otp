@@ -1053,6 +1053,8 @@ type(hipe_bifs, mark_referred_from, 1, Xs) ->
 	 fun (_) -> t_nil() end);
 type(hipe_bifs, merge_term, 1, Xs) ->
   strict(arg_types(hipe_bifs, merge_term, 1), Xs, fun ([X]) -> X end);
+type(hipe_bifs, nstack_used_size, 0, _) ->
+  t_non_neg_fixnum();
 type(hipe_bifs, patch_call, 3, Xs) ->
   strict(arg_types(hipe_bifs, patch_call, 3), Xs, fun (_) -> t_nil() end);
 type(hipe_bifs, patch_insn, 3, Xs) ->
@@ -2361,6 +2363,8 @@ arg_types(hipe_bifs, mark_referred_from, 1) ->
   [t_mfa()];
 arg_types(hipe_bifs, merge_term, 1) ->
   [t_any()];
+arg_types(hipe_bifs, nstack_used_size, 0) ->
+  [];
 arg_types(hipe_bifs, patch_call, 3) ->
   [t_integer(), t_integer(), t_trampoline()];
 arg_types(hipe_bifs, patch_insn, 3) ->

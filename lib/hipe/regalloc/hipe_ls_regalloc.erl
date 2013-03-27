@@ -72,7 +72,7 @@
 %%  PhysRegs = [reg()]
 %%  Entrypoints = [labelname()]
 %%  DontSpill = reg()
-%%  Options = proplist:proplist()
+%%  Options = proplists:proplist()
 %%  Target = atom()
 %%  Coloring = [{temp(), pos()}]
 %%  NumberOfSpills = integer()

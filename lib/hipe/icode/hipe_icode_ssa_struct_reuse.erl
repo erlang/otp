@@ -129,8 +129,8 @@ maps_expr_key_enter(Expr, Maps) ->
 	       key	      = none        :: 'none' | tuple(), % illegal_icode_instr()
 	       defs 	      = none        :: 'none' | [icode_var()],
 	       direct_replace = false       :: boolean(),
-	       inserts 	      = ?SETS:new() :: ?SET(_),
-	       use 	      = ?SETS:new() :: ?SET(_)}).
+	       inserts 	      = ?SETS:new() :: ?SETS:?SET(_),
+	       use 	      = ?SETS:new() :: ?SETS:?SET(_)}).
 
 expr_id(#expr{id = Out}) -> Out.
 expr_defs(#expr{defs = Out}) -> Out.
@@ -169,7 +169,7 @@ expr_create(Key, Defs) ->
 %% exprid - a expression value number which is the expression that
 %%          the variable is defined by.
 
--record(varinfo, {use = ?SETS:new() :: ?SET(_),
+-record(varinfo, {use = ?SETS:new() :: ?SETS:?SET(_),
 		  ref = none        :: 'none' | {non_neg_integer(), non_neg_integer()},
 		  elem = none       :: 'none' | {icode_var(), non_neg_integer()},
 		  exprid = none     :: 'none' | non_neg_integer()}).
@@ -215,12 +215,12 @@ varinfo_use_add(#varinfo{use = UseSet} = I, Use) ->
   varmap		= []               :: [{icode_var(), icode_var()}],
   pre_loop		= false            :: boolean(),
   non_struct_defs 	= gb_sets:new()    :: gb_set(),
-  up_expr     		= none             :: 'none' | ?SET(_),
-  killed_expr 		= none             :: 'none' | ?SET(_),
-  sub_inserts		= ?SETS:new()      :: ?SET(_),
-  inserts 		= ?SETS:new()      :: ?SET(_),
-  antic_in    		= none             :: 'none' | ?SET(_),
-  antic_out   		= none             :: 'none' | ?SET(_),
+  up_expr     		= none             :: 'none' | ?SETS:?SET(_),
+  killed_expr 		= none             :: 'none' | ?SETS:?SET(_),
+  sub_inserts		= ?SETS:new()      :: ?SETS:?SET(_),
+  inserts 		= ?SETS:new()      :: ?SETS:?SET(_),
+  antic_in    		= none             :: 'none' | ?SETS:?SET(_),
+  antic_out   		= none             :: 'none' | ?SETS:?SET(_),
   struct_type		= []               :: [struct_type()],
   struct_elems		= []               :: [struct_elems()]}).
 
