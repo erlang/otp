@@ -58,9 +58,8 @@
 -export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
 -export([strong_rand_bytes/1, strong_rand_mpint/3]).
 -export([mod_exp/3, mod_exp_prime/3, mpint/1, erlint/1]).
--export([srp_value_B/5]).
--export([srp3_value_u/1, srp6_value_u/3, srp6a_multiplier/2]).
--export([srp_client_secret/7, srp_server_secret/5]).
+-export([srp_generate_key/4, srp_generate_key/3,
+	 srp_generate_key/5, srp_compute_key/6, srp_compute_key/7, srp_compute_key/8]).
 
 %% -export([idea_cbc_encrypt/3, idea_cbc_decrypt/3]).
 -export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
@@ -113,9 +112,7 @@
 		    hash, hash_init, hash_update, hash_final,
 		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n, info,
 		    rc2_cbc_encrypt, rc2_cbc_decrypt,
-		    srp_value_B,
-		    srp3_value_u, srp6_value_u, srp6a_multiplier,
-		    srp_client_secret, srp_server_secret,
+		    srp_generate_key, srp_compute_key,
 		    info_lib, algorithms]).
 
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
@@ -801,7 +798,7 @@ mod_exp(Base, Exponent, Modulo)
 mod_exp(Base, Exponent, Modulo) ->
     mod_exp_nif(mpint_to_bin(Base),mpint_to_bin(Exponent),mpint_to_bin(Modulo), 4).
     
--spec mod_exp_prime(binary(), binary(), binary()) -> binary().
+-spec mod_exp_prime(binary(), binary(), binary()) -> binary() | error.
 mod_exp_prime(Base, Exponent, Prime) ->
     case mod_exp_nif(Base, Exponent, Prime, 0) of
 	<<0>> -> error;
@@ -1077,48 +1074,129 @@ dh_compute_key(OthersPublicKey, MyPrivateKey, DHParameters) ->
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
 
--spec srp_value_B(binary(), integer(), binary(), binary(), binary()) -> binary().
-srp_value_B(Multiplier, Verifier, Generator, Exponent, Prime) ->
-    srp_value_B_nif(srp_multiplier(Multiplier), Verifier, Generator, Exponent, Prime).
+%%% SRP
+-spec srp_generate_key(binary(), binary(), atom() | binary(), atom() | binary() ) -> {Public::binary(), Private::binary()}.
+srp_generate_key(Verifier, Generator, Prime, Version) when is_binary(Verifier),
+							   is_binary(Generator),
+							   is_binary(Prime), 
+							   is_atom(Version) ->
+    Private = random_bytes(32),
+    server_srp_gen_key(Private, Verifier, Generator, Prime, Version);
 
-srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_stub.
+srp_generate_key(Generator, Prime, Version, Private) when is_binary(Generator),
+							  is_binary(Prime), 
+							  is_atom(Version),
+							  is_binary(Private) ->
+    client_srp_gen_key(Private, Generator, Prime).
 
--spec srp_client_secret(binary(), binary(), binary(), integer()|binary(), binary(), binary(), binary()) -> binary().
-srp_client_secret(A, U, B, Multiplier, Generator, Exponent, Prime) ->
-    srp_client_secret_nif(A, U, B, srp_multiplier(Multiplier), Generator, Exponent, Prime).
+-spec srp_generate_key(binary(), binary(), binary(), atom(), binary()) -> {Public::binary(), Private::binary()}.
+srp_generate_key(Verifier, Generator, Prime, Version, Private) when is_binary(Verifier),
+								    is_binary(Generator),
+								    is_binary(Prime), 
+								    is_atom(Version),
+								    is_binary(Private)
+								    -> 
+    server_srp_gen_key(Private, Verifier, Generator, Prime, Version).
 
-srp_client_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?nif_stub.
+-spec srp_generate_key(binary(), binary(), atom()) -> {Public::binary(), Private::binary()}.
+srp_generate_key(Generator, Prime, Version) when is_binary(Generator),
+						 is_binary(Prime), 
+						 is_atom(Version) ->
+    Private = random_bytes(32),
+    client_srp_gen_key(Private, Generator, Prime).
 
--spec srp_server_secret(binary(), binary(), binary(), binary(), binary()) -> binary().
-srp_server_secret(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
+-spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), atom()| binary(), atom() | binary() ) -> binary().
+srp_compute_key(DerivedKey, Prime, Generator, ClientPublic, ClientPrivate, ServerPublic, Version) when 
+      is_binary(Prime), 
+      is_binary(Generator),
+      is_binary(ClientPublic),
+      is_binary(ClientPrivate),
+      is_binary(ServerPublic),
+      is_atom(Version) ->
+    Multiplier = srp_multiplier(Version, Generator, Prime),
+    Scrambler = srp_scrambler(Version, ClientPublic, ServerPublic, Prime),
+    srp_client_secret_nif(ClientPrivate, Scrambler, ServerPublic, Multiplier,
+		      Generator, DerivedKey, Prime);
 
--spec srp6a_multiplier(binary(), binary()) -> binary().
-srp6a_multiplier(Generator, Prime) ->
-    %% k = SHA1(N | PAD(g))
-    C0 = sha_init(),
-    C1 = sha_update(C0, Prime),
-    C2 = sha_update(C1, srp_pad_to(erlang:byte_size(Prime), Generator)),
-    sha_final(C2).
+srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Version, Scrambler) when 
+      is_binary(Verifier),
+      is_binary(Prime), 
+      is_binary(ClientPublic),
+      is_binary(ServerPublic),
+      is_binary(ServerPrivate),
+      is_atom(Version),
+      is_binary(Scrambler) ->
+   srp_server_secret_nif(Verifier, ServerPrivate, Scrambler, ClientPublic, Prime).
 
--spec srp3_value_u(binary()) -> binary().
-srp3_value_u(B) ->
-    %% The parameter u is a 32-bit unsigned integer which takes its value
-    %% from the first 32 bits of the SHA1 hash of B, MSB first.
-    <<U:32/bits, _/binary>> = sha(B),
-    U.
+-spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), binary(), atom(), binary()) -> binary().
+srp_compute_key(DerivedKey, Prime, Generator, ClientPublic, ClientPrivate, 
+		ServerPublic, Version, Scrambler) when is_binary(DerivedKey),
+						       is_binary(Prime), 
+						       is_binary(Generator),
+						       is_binary(ClientPublic),
+						       is_binary(ClientPrivate),
+						       is_binary(ServerPublic),
+						       is_atom(Version),
+						       is_binary(Scrambler) ->
+    Multiplier = srp_multiplier(Version, Generator, Prime),
+    srp_client_secret_nif(ClientPrivate, Scrambler, ServerPublic, Multiplier,
+			  Generator, DerivedKey, Prime).
 
--spec srp6_value_u(binary(), binary(), binary()) -> binary().
-srp6_value_u(A, B, Prime) ->
-    %% SHA1(PAD(A) | PAD(B))
-    PadLength = erlang:byte_size(Prime),
-    C0 = sha_init(),
-    C1 = sha_update(C0, srp_pad_to(PadLength, A)),
-    C2 = sha_update(C1, srp_pad_to(PadLength, B)),
-    sha_final(C2).
+-spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), atom()) -> binary().
+srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Version) when 
+      is_binary(Verifier),
+      is_binary(Prime), 
+      is_binary(ClientPublic),
+      is_binary(ServerPublic),
+      is_binary(ServerPrivate),
+      is_atom(Version) ->
+   Scrambler = srp_scrambler(Version, ClientPublic, ServerPublic, Prime),
+   srp_server_secret_nif(Verifier, ServerPrivate, Scrambler, ClientPublic, Prime).
 
 %%
 %%  LOCAL FUNCTIONS
 %%
+
+client_srp_gen_key(Private, Generator, Prime) ->
+    case mod_exp_prime(Generator, Private, Prime) of
+	error ->
+	    error;
+	Public ->
+	    {Public, Private}
+    end.
+
+server_srp_gen_key(Private, Verifier, Generator, Prime, Version) ->
+ Multiplier = srp_multiplier(Version, Generator, Prime),
+   case srp_value_B_nif(Multiplier, Verifier, Generator, Private, Prime) of
+   error ->
+       error;
+   Public ->
+       {Public, Private}
+   end.
+
+srp_multiplier('6a', Generator, Prime) ->
+    %% k = SHA1(N | PAD(g)) from http://srp.stanford.edu/design.html
+    C0 = sha_init(),
+    C1 = sha_update(C0, Prime),
+    C2 = sha_update(C1, srp_pad_to(erlang:byte_size(Prime), Generator)),
+    sha_final(C2);
+srp_multiplier('6', _, _) ->
+    <<3/integer>>;
+srp_multiplier('3', _, _) ->
+    <<1/integer>>.
+
+srp_scrambler(Version, ClientPublic, ServerPublic, Prime) when Version == '6'; Version == '6a'->
+    %% SHA1(PAD(A) | PAD(B)) from http://srp.stanford.edu/design.html
+    PadLength = erlang:byte_size(Prime),
+    C0 = sha_init(),
+    C1 = sha_update(C0, srp_pad_to(PadLength, ClientPublic)),
+    C2 = sha_update(C1, srp_pad_to(PadLength, ServerPublic)),
+    sha_final(C2);
+srp_scrambler('3', _, ServerPublic, _Prime) ->
+    %% The parameter u is a 32-bit unsigned integer which takes its value
+    %% from the first 32 bits of the SHA1 hash of B, MSB first.
+    <<U:32/bits, _/binary>> = sha(ServerPublic),
+    U.
 
 srp_pad_length(Width, Length) ->
     (Width - Length rem Width) rem Width.
@@ -1129,10 +1207,11 @@ srp_pad_to(Width, Binary) ->
         N -> << 0:(N*8), Binary/binary>>
     end.
 
-srp_multiplier(Multiplier) when is_binary(Multiplier) ->
-    Multiplier;
-srp_multiplier(Multiplier) when is_integer(Multiplier) ->
-    int_to_bin_pos(Multiplier).
+srp_server_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
+
+srp_client_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?nif_stub.
+
+srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_stub.
 
 %% large integer in a binary with 32bit length
 %% MP representaion  (SSH2)
@@ -1160,8 +1239,8 @@ mpint_pos(X) ->
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
 int_to_bin(X) -> int_to_bin_pos(X, []).
 
-int_to_bin_pos(X) when X >= 0 ->
-    int_to_bin_pos(X, []).
+%%int_to_bin_pos(X) when X >= 0 ->
+%%    int_to_bin_pos(X, []).
 
 int_to_bin_pos(0,Ds=[_|_]) ->
     list_to_binary(Ds);
@@ -1187,3 +1266,12 @@ erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
 
 mpint_to_bin(<<Len:32, Bin:Len/binary>>) ->
     Bin.
+
+random_bytes(N) ->
+    try strong_rand_bytes(N) of
+	RandBytes ->
+	    RandBytes
+    catch
+	error:low_entropy ->
+	    rand_bytes(N)
+    end.
