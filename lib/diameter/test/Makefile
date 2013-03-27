@@ -93,6 +93,11 @@ info:
 	@$(call list,HRL_FILES)
 	@echo
 	@$(call list,SUITES)
+	@echo
+	@echo erl = $(shell which erl)
+	@erl -noinput \
+	     -eval 'io:format("diameter = ~s~n", [code:lib_dir(diameter)])' \
+	     -s init stop
 	@echo ========================================
 
 help:

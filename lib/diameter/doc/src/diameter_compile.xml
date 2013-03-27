@@ -11,7 +11,7 @@
 <comref>
 <header>
 <copyright>
-<year>2011</year><year>2012</year>
+<year>2011</year><year>2013</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -59,6 +59,7 @@ The module &man_make; provides an alternate compilation interface.</p>
 Compile a single dictionary file to Erlang source.
 Valid options are as follows.</p>
 
+<taglist>
 <tag><![CDATA[-i <dir>]]></tag>
 <item>
 <p>
@@ -71,7 +72,6 @@ dependency, not an erl/hrl dependency.</p>
 Multiple <c>-i</c> options can be specified.</p>
 </item>
 
-<taglist>
 <tag><![CDATA[-o <dir>]]></tag>
 <item>
 <p>
@@ -90,18 +90,30 @@ Supress erl and hrl generation, respectively.</p>
 <tag><![CDATA[--prefix <prefix>]]></tag>
 <item>
 <p>
-Set <c>&dict_name;</c> or <c>&dict_prefix;</c> to the specified
-string.
-Overrides any setting in the file itself.</p>
+Transform the input dictionary before compilation, setting
+<c>&dict_name;</c> or <c>&dict_prefix;</c> to the specified
+string.</p>
 </item>
 
-<tag><![CDATA[--inherits <dict>]]></tag>
+<tag><![CDATA[--inherits <arg>]]></tag>
 <item>
 <p>
-Append &dict_inherits; of the specified module.
-Specifying <c>"-"</c> has the effect of discarding clearing any
-previous inherits, both in the dictionary file and on the options
-list.</p>
+Transform the input dictionary before compilation, appending
+<c>&dict_inherits;</c> of the specified string.</p>
+
+<p>
+Two forms of <c>--inherits</c> have special meaning:</p>
+
+<pre>
+--inherits -
+--inherits Prev/Mod
+</pre>
+
+<p>
+The first has the effect of clearing any previous inherits, the second
+of replacing a previous inherits of <c>Prev</c> to one of <c>Mod</c>.
+This allows the semantics of the input dictionary to be changed without
+modifying the file itself.</p>
 
 <p>
 Multiple <c>--inherits</c> options can be specified.</p>

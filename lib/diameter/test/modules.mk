@@ -34,6 +34,7 @@ MODULES = \
 	diameter_distribution_SUITE \
 	diameter_dpr_SUITE \
 	diameter_event_SUITE \
+	diameter_examples_SUITE \
 	diameter_failover_SUITE \
 	diameter_gen_sctp_SUITE \
 	diameter_length_SUITE \
