@@ -532,6 +532,8 @@ void erts_usage(void)
     erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-sws val    set scheduler wakeup strategy, valid values are:\n");
     erts_fprintf(stderr, "            default|legacy.\n");
+    erts_fprintf(stderr, "-swct val   set scheduler wake cleanup threshold, valid values are:\n");
+    erts_fprintf(stderr, "            very_lazy|lazy|medium|eager|very_eager.\n");
     erts_fprintf(stderr, "-swt val    set scheduler wakeup threshold, valid values are:\n");
     erts_fprintf(stderr, "            very_low|low|medium|high|very_high.\n");
     erts_fprintf(stderr, "-sss size   suggested stack size in kilo words for scheduler threads,\n");
@@ -1412,6 +1414,16 @@ erl_start(int argc, char **argv)
 				 arg);
 		    erts_usage();
 		}
+	    }
+	    else if (has_prefix("wct", sub_param)) {
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+		if (erts_sched_set_wake_cleanup_threshold(arg) != 0) {
+		    erts_fprintf(stderr, "scheduler wake cleanup threshold: %s\n",
+				 arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("scheduler wake cleanup threshold: %s\n", arg));
 	    }
 	    else if (sys_strcmp("wt", sub_param) == 0) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
