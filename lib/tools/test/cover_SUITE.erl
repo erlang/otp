@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,8 @@
 	 dont_reconnect_after_stop/1, stop_node_after_disconnect/1,
 	 export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
-         otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1]).
+         otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1,
+	 otp_10979_hanging_node/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -52,7 +53,7 @@ all() ->
 	     dont_reconnect_after_stop, stop_node_after_disconnect,
 	     export_import, otp_5031, eif, otp_5305, otp_5418,
 	     otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
-	     otp_8340];
+	     otp_8340, otp_10979_hanging_node];
 	_pid ->
 	    {skip,
 	     "It looks like the test server is running "
@@ -1378,6 +1379,25 @@ comprehension_8188(Cf) ->
                        "    <<_>> <= << 1, 2 >>,\n" % 2
                        "    true >>.\n" % 4
                        "two() -> 2">>, Cf), % 1
+
+    ok.
+
+otp_10979_hanging_node(_Config) ->
+
+    P1 = processes(),
+
+    cover:stop(non_existing_node),
+    cover:stop(),
+
+    P2 = processes(),
+
+    case P2--P1 of
+	[] ->
+	    ok;
+	New ->
+	    [io:format("New: ~p, ~p~n",[P,process_info(P)]) || P<-New],
+	    ct:fail(hanging_process)
+    end,
 
     ok.
 

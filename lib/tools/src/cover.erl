@@ -1139,9 +1139,14 @@ remote_collect(Module,Nodes,Stop) ->
 
 do_collection(Node, Module, Stop) ->
     CollectorPid = spawn(fun collector_proc/0),
-    remote_call(Node,{remote,collect,Module,CollectorPid, self()}),
-    if Stop -> remote_call(Node,{remote,stop});
-       true -> ok
+    case remote_call(Node,{remote,collect,Module,CollectorPid, self()}) of
+	{error,node_dead} ->
+	    CollectorPid ! done,
+	    ok;
+	ok when Stop ->
+	    remote_call(Node,{remote,stop});
+	ok ->
+	    ok
     end.
 
 %% Process which receives chunks of data from remote nodes - either when
