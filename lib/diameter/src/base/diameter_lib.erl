@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,77 +19,86 @@
 
 -module(diameter_lib).
 
--export([report/2, info_report/2,
+-export([info_report/2,
          error_report/2,
          warning_report/2,
          now_diff/1,
          time/1,
          eval/1,
-         ip4address/1,
-         ip6address/1,
          ipaddr/1,
          spawn_opts/2,
          wait/1,
          fold_tuple/3,
          log/4]).
 
--include("diameter_internal.hrl").
-
 %% ---------------------------------------------------------------------------
-%% # info_report(Reason, MFA)
-%%
-%% Input: Reason = Arbitrary term indicating the reason for the report.
-%%        MFA    = {Module, Function, Args} to report.
-%%
-%% Output:  true
+%% # info_report/2
 %% ---------------------------------------------------------------------------
 
-report(Reason, MFA) ->
-    info_report(Reason, MFA).
+-spec info_report(Reason :: term(), T :: term())
+   -> true.
 
-info_report(Reason, MFA) ->
-    report(fun error_logger:info_report/1, Reason, MFA),
+info_report(Reason, T) ->
+    report(fun error_logger:info_report/1, Reason, T),
     true.
 
-%%% ---------------------------------------------------------------------------
-%%% # error_report(Reason, MFA)
-%%% # warning_report(Reason, MFA)
-%%%
-%%% Output:  false
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # error_report/2
+%% # warning_report/2
+%% ---------------------------------------------------------------------------
 
-error_report(Reason, MFA) ->
-    report(fun error_logger:error_report/1, Reason, MFA).
+-spec error_report(Reason :: term(), T :: term())
+   -> false.
 
-warning_report(Reason, MFA) ->
-    report(fun error_logger:warning_report/1, Reason, MFA).
+error_report(Reason, T) ->
+    report(fun error_logger:error_report/1, Reason, T).
 
-report(Fun, Reason, MFA) ->
-    Fun([{why, Reason}, {who, self()}, {what, MFA}]),
+-spec warning_report(Reason :: term(), T :: term())
+   -> false.
+
+warning_report(Reason, T) ->
+    report(fun error_logger:warning_report/1, Reason, T).
+
+report(Fun, Reason, T) ->
+    Fun([{why, Reason}, {who, self()}, {what, T}]),
     false.
 
-%%% ---------------------------------------------------------------------------
-%%% # now_diff(Time)
-%%%
-%%% Description: Return timer:now_diff(now(), Time) as an {H, M, S, MicroS}
-%%%              tuple instead of as integer microseconds.
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # now_diff/1
+%% ---------------------------------------------------------------------------
+
+-spec now_diff(NowT)
+   -> {Hours, Mins, Secs, MicroSecs}
+ when NowT  :: {non_neg_integer(), 0..999999, 0..999999},
+      Hours :: non_neg_integer(),
+      Mins  :: 0..59,
+      Secs  :: 0..59,
+      MicroSecs :: 0..999999.
+
+%% Return timer:now_diff(now(), NowT) as an {H, M, S, MicroS} tuple
+%% instead of as integer microseconds.
 
 now_diff({_,_,_} = Time) ->
-    time(timer:now_diff(erlang:now(), Time)).
+    time(timer:now_diff(now(), Time)).
 
-%%% ---------------------------------------------------------------------------
-%%% # time(Time)
-%%%
-%%% Input:  Time = {MegaSec, Sec, MicroSec}
-%%%              | MicroSec
-%%%
-%%% Output: {H, M, S, MicroS}
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # time/1
+%%
+%% Return an elapsed time as an {H, M, S, MicroS} tuple.
+%% ---------------------------------------------------------------------------
 
-time({_,_,_} = Time) ->  %% time of day
+-spec time(NowT | Diff)
+   -> {Hours, Mins, Secs, MicroSecs}
+ when NowT  :: {non_neg_integer(), 0..999999, 0..999999},
+      Diff  :: non_neg_integer(),
+      Hours :: non_neg_integer(),
+      Mins  :: 0..59,
+      Secs  :: 0..59,
+      MicroSecs :: 0..999999.
+
+time({_,_,_} = NowT) ->  %% time of day
     %% 24 hours = 24*60*60*1000000 = 86400000000 microsec
-    time(timer:now_diff(Time, {0,0,0}) rem 86400000000);
+    time(timer:now_diff(NowT, {0,0,0}) rem 86400000000);
 
 time(Micro) ->  %% elapsed time
     Seconds = Micro div 1000000,
@@ -98,9 +107,21 @@ time(Micro) ->  %% elapsed time
     S = Seconds rem 60,
     {H, M, S, Micro rem 1000000}.
 
-%%% ---------------------------------------------------------------------------
-%%% # eval(Func)
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # eval/1
+%%
+%% Evaluate a function in various forms.
+%% ---------------------------------------------------------------------------
+
+-type f() :: {module(), atom(), list()}
+           | nonempty_maybe_improper_list(fun(), list())
+           | fun().
+
+-spec eval(Fun)
+   -> term()
+ when Fun :: f()
+           | {f()}
+           | nonempty_maybe_improper_list(f(), list()).
 
 eval({M,F,A}) ->
     apply(M,F,A);
@@ -120,66 +141,15 @@ eval({F}) ->
 eval(F) ->
     F().
 
-%%% ---------------------------------------------------------------------------
-%%% # ip4address(Addr)
-%%%
-%%% Input:  string()   (eg. "10.0.0.1")
-%%%         | list of integer()
-%%%         | tuple of integer()
-%%%
-%%% Output: {_,_,_,_} of integer
-%%%
-%%% Exceptions: error: {invalid_address, Addr, erlang:get_stacktrace()}
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # ipaddr/1
+%%
+%% Parse an IP address.
+%% ---------------------------------------------------------------------------
 
-ip4address([_,_,_,_] = Addr) -> %% Length 4 string can't be an address.
-    ipaddr(list_to_tuple(Addr));
-
-%% Be brutal.
-ip4address(Addr) ->
-    try
-        {_,_,_,_} = ipaddr(Addr)
-    catch
-        error: _ ->
-            erlang:error({invalid_address, Addr, ?STACK})
-    end.
-
-%%% ---------------------------------------------------------------------------
-%%% # ip6address(Addr)
-%%%
-%%% Input:  string()   (eg. "1080::8:800:200C:417A")
-%%%         | list of integer()
-%%%         | tuple of integer()
-%%%
-%%% Output: {_,_,_,_,_,_,_,_} of integer
-%%%
-%%% Exceptions: error: {invalid_address, Addr, erlang:get_stacktrace()}
-%%% ---------------------------------------------------------------------------
-
-ip6address([_,_,_,_,_,_,_,_] = Addr) -> %% Length 8 string can't be an address.
-    ipaddr(list_to_tuple(Addr));
-
-%% Be brutal.
-ip6address(Addr) ->
-    try
-        {_,_,_,_,_,_,_,_} = ipaddr(Addr)
-    catch
-        error: _ ->
-            erlang:error({invalid_address, Addr, ?STACK})
-    end.
-
-%%% ---------------------------------------------------------------------------
-%%% # ipaddr(Addr)
-%%%
-%%% Input:  string() | tuple of integer()
-%%%
-%%% Output: {_,_,_,_} | {_,_,_,_,_,_,_,_}
-%%%
-%%% Exceptions: error: {invalid_address, erlang:get_stacktrace()}
-%%% ---------------------------------------------------------------------------
-
--spec ipaddr(string() | tuple())
-   -> inet:ip_address().
+-spec ipaddr([byte()] | tuple())
+   -> inet:ip_address()
+    | none().
 
 %% Don't convert lists of integers since a length 8 list like
 %% [$1,$0,$.,$0,$.,$0,$.,$1] is ambiguous: is it "10.0.0.1" or
@@ -193,7 +163,7 @@ ipaddr(Addr) ->
         ip(Addr)
     catch
         error: _ ->
-            erlang:error({invalid_address, ?STACK})
+            erlang:error({invalid_address, erlang:get_stacktrace()})
     end.
 
 %% Already a tuple: ensure non-negative integers of the right size.
@@ -210,11 +180,12 @@ ip(Addr) ->
     {ok, A} = inet_parse:address(Addr),  %% documented in inet(3)
     A.
 
-%%% ---------------------------------------------------------------------------
-%%% # spawn_opts(Type, Opts)
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # spawn_opts/2
+%% ---------------------------------------------------------------------------
 
-%% TODO: config variables.
+-spec spawn_opts(server|worker, list())
+   -> list().
 
 spawn_opts(server, Opts) ->
     opts(75000, Opts);
@@ -224,24 +195,32 @@ spawn_opts(worker, Opts) ->
 opts(HeapSize, Opts) ->
     [{min_heap_size, HeapSize} | lists:keydelete(min_heap_size, 1, Opts)].
 
-%%% ---------------------------------------------------------------------------
-%%% # wait(MRefs)
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # wait/1
+%% ---------------------------------------------------------------------------
+
+-spec wait([pid()])
+   -> ok.
 
 wait(L) ->
-    w([erlang:monitor(process, P) || P <- L]).
+    down([erlang:monitor(process, P) || P <- L]).
 
-w([]) ->
+down([]) ->
     ok;
-w(L) ->
-    receive
-        {'DOWN', MRef, process, _, _} ->
-            w(lists:delete(MRef, L))
-    end.
+down([MRef|T]) ->
+    receive {'DOWN', MRef, process, _, _} -> ok end,
+    down(T).
 
-%%% ---------------------------------------------------------------------------
-%%% # fold_tuple(N, T0, T)
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # fold_tuple/3
+%% ---------------------------------------------------------------------------
+
+-spec fold_tuple(N, T0, T)
+   -> tuple()
+ when N  :: pos_integer(),
+      T0 :: tuple(),
+      T  :: tuple()
+          | undefined.
 
 %% Replace fields in T0 by those of T starting at index N, unless the
 %% new value is 'undefined'.
@@ -262,11 +241,11 @@ ft(undefined, {_, T}) ->
 ft(Value, {Idx, T}) ->
     setelement(Idx, T, Value).
 
-%%% ----------------------------------------------------------
-%%% # log(Slogan, Mod, Line, Details)
-%%%
-%%% Called to have something to trace on for happenings of interest.
-%%% ----------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # log/4
+%%
+%% Called to have something to trace on for happenings of interest.
+%% ---------------------------------------------------------------------------
 
-log(_, _, _, _) ->
+log(_Slogan, _Mod, _Line, _Details) ->
     ok.

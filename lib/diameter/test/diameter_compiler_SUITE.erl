@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,8 +31,7 @@
 %% testcases
 -export([format/1,    format/2,
          replace/1,   replace/2,
-         generate/1,  generate/4,
-         examples/1]).
+         generate/1,  generate/4]).
 
 -export([dict/0]).  %% fake dictionary module
 
@@ -328,14 +327,6 @@
                           "@codecs mymod "
                               "Origin-Host Origin-Realm\n&"}]}]).
 
-%% Standard dictionaries in examples/dict.
--define(EXAMPLES, [rfc4004_mip,
-                   rfc4005_nas,
-                   rfc4006_cc,
-                   rfc4072_eap,
-                   rfc4590_digest,
-                   rfc4740_sip]).
-
 %% ===========================================================================
 
 suite() ->
@@ -344,8 +335,7 @@ suite() ->
 all() ->
     [format,
      replace,
-     generate,
-     examples].
+     generate].
 
 %% Error handling testcases will make an erroneous dictionary out of
 %% the base dictionary and check that the expected error results.
@@ -427,41 +417,6 @@ generate(Mods, Bin, N, Mode) ->
                                                 Mode)},
     Mode == erl
         andalso ({ok, _} = compile:file(File ++ ".erl", [return_errors])).
-
-%% ===========================================================================
-%% examples/1
-%%
-%% Compile dictionaries extracted from various standards.
-
-examples(_Config) ->
-    Dir = filename:join([code:lib_dir(diameter, examples), "dict"]),
-    [D || D <- ?EXAMPLES, _ <- [examples(?S(D), Dir)]].
-
-examples(Dict, Dir) ->
-    {Name, Pre} = make_name(Dict),
-    ok = diameter_make:codec(filename:join([Dir, Dict ++ ".dia"]),
-                             [{name, Name},
-                              {prefix, Pre},
-                              inherits("rfc3588_base")
-                              | opts(Dict)]),
-    {ok, _, _} = compile:file(Name ++ ".erl", [return]).
-
-opts(M)
-  when M == "rfc4006_cc";
-       M == "rfc4072_eap" ->
-    [inherits("rfc4005_nas")];
-opts("rfc4740_sip") ->
-    [inherits("rfc4590_digest")];
-opts(_) ->
-    [].
-
-inherits(File) ->
-    {Name, _} = make_name(File),
-    {inherits, File ++ "/" ++ Name}.
-
-make_name(File) ->
-    {R, [$_|N]} = lists:splitwith(fun(C) -> C /= $_ end, File),
-    {string:join(["diameter_gen", N, R], "_"), "diameter_" ++ N}.
 
 %% ===========================================================================
 

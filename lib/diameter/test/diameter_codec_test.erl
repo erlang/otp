@@ -65,7 +65,7 @@ lib(N, {_,_} = T) ->
 lib(IP, B) ->
     LA = tuple_to_list(IP),
     {SA,Fun} = ip(LA),
-    [] = run([[fun lib/4, IP, B, Fun, A] || A <- [IP, LA, SA]]).
+    [] = run([[fun lib/4, IP, B, Fun, A] || A <- [IP, SA]]).
 
 lib(IP, B, Fun, A) ->
     try Fun(A) of
@@ -78,10 +78,10 @@ lib(IP, B, Fun, A) ->
 
 ip([_,_,_,_] = A) ->
     [$.|S] = lists:append(["." ++ integer_to_list(N) || N <- A]),
-    {S, fun diameter_lib:ip4address/1};
+    {S, fun diameter_lib:ipaddr/1};
 ip([_,_,_,_,_,_,_,_] = A) ->
     [$:|S] = lists:flatten([":" ++ io_lib:format("~.16B", [N]) || N <- A]),
-    {S, fun diameter_lib:ip6address/1}.
+    {S, fun diameter_lib:ipaddr/1}.
 
 %% ------------------------------------------------------------------------
 %% base/1

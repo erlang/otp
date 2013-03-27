@@ -53,7 +53,7 @@ info(L0, L1) ->
                         L0,
                         L1),
     Diff = [T, C, {memory, M}],
-    ct:pal("INFO: ~p~n", [Diff]).
+    io:format("INFO: ~p~n", [Diff]).
 
 diff(time, T0, T1) ->
     timer:now_diff(T1, T0);

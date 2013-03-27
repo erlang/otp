@@ -14,6 +14,7 @@
 <header>
 <copyright>
 <year>2012</year>
+<year>2013</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -73,7 +74,7 @@ Compile a single dictionary file to Erlang source.
 
 <taglist>
 
-<tag><c>{include, Dir::string()}</c></tag>
+<tag><c>{include, string()}</c></tag>
 <item>
 <p>
 Prepend the specified directory to the code path.
@@ -85,7 +86,7 @@ dependency, not an erl/hrl dependency.</p>
 Multiple <c>include</c> options can be specified.</p>
 </item>
 
-<tag><c>{outdir, Dir::string()}</c></tag>
+<tag><c>{outdir, string()}</c></tag>
 <item>
 <p>
 Write generated source to the specified directory.
@@ -95,18 +96,30 @@ Defaults to the current working directory.</p>
 <tag><c>{name|prefix, string()}</c></tag>
 <item>
 <p>
-Set <c>&dict_name;</c> or <c>&dict_prefix;</c> to the specified
-string.
-Overrides any setting in the file itself.</p>
+Transform the input dictionary before compilation, setting
+<c>&dict_name;</c> or <c>&dict_prefix;</c> to the specified
+string.</p>
 </item>
 
-<tag><c>{inherits, Mod::string()}</c></tag>
+<tag><c>{inherits, string()}</c></tag>
 <item>
 <p>
-Append &dict_inherits; of the specified module.
-Specifying <c>"-"</c> has the effect of discarding clearing any
-previous inherits, both in the dictionary file and on the options
-list.</p>
+Transform the input dictionary before compilation, appending
+<c>&dict_inherits;</c> of the specified string.</p>
+
+<p>
+Two forms of <c>@inherits</c> have special meaning:</p>
+
+<pre>
+{inherits, "-"}
+{inherits, "Prev/Mod"}
+</pre>
+
+<p>
+The first has the effect of clearing any previous inherits, the second
+of replacing a previous inherits of <c>Prev</c> to one of <c>Mod</c>.
+This allows the semantics of the input dictionary to be changed without
+modifying the file itself.</p>
 
 <p>
 Multiple <c>inherits</c> options can be specified.</p>
@@ -126,8 +139,9 @@ Multiple <c>inherits</c> options can be specified.</p>
 
 <p>
 All options are string-valued.
-In particular, it is not currently possible to
-an &dict_inherits; module as an atom() or a path as a &filename;</p>
+In particular, it is not currently possible to specify
+an &dict_inherits; module as an atom(), or a path as an arbitrary
+&filename;</p>
 
 </section>
 
