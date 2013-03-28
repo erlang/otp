@@ -887,6 +887,7 @@ abstract(T, Options) when is_list(Options) ->
     abstract(T, Line, Encoding).
 
 -define(UNICODE(C),
+        is_integer(C) andalso
          (C >= 0 andalso C < 16#D800 orelse
           C > 16#DFFF andalso C < 16#FFFE orelse
           C > 16#FFFF andalso C =< 16#10FFFF)).

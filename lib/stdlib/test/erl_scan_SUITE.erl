@@ -22,7 +22,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([ error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
-          otp_10990/1]).
+          otp_10990/1, otp_10992/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -61,7 +61,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, error}, iso88591, otp_7810, otp_10302, otp_10990].
+    [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992].
 
 groups() -> 
     [{error, [], [error_1, error_2]}].
@@ -1128,6 +1128,21 @@ otp_10990(suite) ->
     [];
 otp_10990(Config) when is_list(Config) ->
     {'EXIT',_} = (catch {foo, erl_scan:string([$",42.0,$"],1)}),
+    ok.
+
+otp_10992(doc) ->
+    "OTP-10992. List of floats to abstract format.";
+otp_10992(suite) ->
+    [];
+otp_10992(Config) when is_list(Config) ->
+    {cons,0,{float,0,42.0},{nil,0}} =
+        erl_parse:abstract([42.0], [{encoding,unicode}]),
+    {cons,0,{float,0,42.0},{nil,0}} =
+        erl_parse:abstract([42.0], [{encoding,utf8}]),
+    {cons,0,{integer,0,65},{cons,0,{float,0,42.0},{nil,0}}} =
+        erl_parse:abstract([$A,42.0], [{encoding,unicode}]),
+    {cons,0,{integer,0,65},{cons,0,{float,0,42.0},{nil,0}}} =
+        erl_parse:abstract([$A,42.0], [{encoding,utf8}]),
     ok.
 
 test_string(String, Expected) ->
