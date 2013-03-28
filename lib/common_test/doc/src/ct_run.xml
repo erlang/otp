@@ -113,9 +113,9 @@
 	[-muliply_timetraps Multiplier]
 	[-scale_timetraps]
 	[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
-        [-repeat N [-force_stop]] |
-        [-duration HHMMSS [-force_stop]] |
-        [-until [YYMoMoDD]HHMMSS [-force_stop]]
+        [-repeat N] |
+        [-duration HHMMSS [-force_stop [skip_rest]]] |
+        [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
 	[-basic_html]
     	[-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
 	 CTHModuleN CTHOptsN]
@@ -149,9 +149,9 @@
 	[-muliply_timetraps Multiplier]
 	[-scale_timetraps]
 	[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
-        [-repeat N [-force_stop]] |
-        [-duration HHMMSS [-force_stop]] |
-        [-until [YYMoMoDD]HHMMSS [-force_stop]]
+        [-repeat N] |
+        [-duration HHMMSS [-force_stop [skip_rest]]] |
+        [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
 	[-basic_html]
     	[-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
 	 CTHModuleN CTHOptsN]
