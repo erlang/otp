@@ -240,3 +240,30 @@ describe_floating() ->
     {ok,[{"F",sql_double},{"R",sql_double},{"D",sql_double}]}.
 describe_dec_num() ->
     {ok,[{"MYDEC",{sql_decimal,9,3}},{"MYNUM",{sql_decimal,9,2}}]}.
+
+%-------------------------------------------------------------------------
+drop_proc() ->
+    "drop procedure test_proc1;".
+
+stored_proc_integer_out() ->
+    "create or replace PROCEDURE  test_proc1(" ++
+        "int_a OUT NUMBER, " ++
+        "int_b OUT NUMBER) " ++
+        "is " ++
+        "begin " ++
+        " int_a := 123; " ++
+        " int_b := 456; " ++
+        "exception " ++
+        "WHEN NO_DATA_FOUND THEN " ++
+        " int_a := 0; " ++
+        " int_b := 0; " ++
+        "end;".
+
+param_query(Ref) ->
+    odbc:param_query(Ref, "call test_proc1(?,?)",
+                     [{sql_integer, out, [0]},
+                      {sql_integer, out, [0]}]).
+
+
+query_result() ->
+    {executed, 2, [{123, 456}]}.
