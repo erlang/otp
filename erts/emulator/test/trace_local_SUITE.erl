@@ -874,7 +874,7 @@ exception_test(Opts, Func0, Args0) ->
     %% wrap them in wrappers...
     ?line {Func1,Args1} =
 	case Function of
-	    true  -> {fun exc/2,[Func0,Args0]};
+	    true  -> {fun (F, As) -> exc(F, As) end,[Func0,Args0]};
 	    false -> {Func0,Args0}
 	end,
     

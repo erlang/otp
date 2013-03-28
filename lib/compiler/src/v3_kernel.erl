@@ -235,16 +235,8 @@ gexpr_test_add(Ke, St0) ->
 %% expr(Cexpr, Sub, State) -> {Kexpr,[PreKexpr],State}.
 %%  Convert a Core expression, flattening it at the same time.
 
-expr(#c_var{anno=A,name={_Name,Arity}}=Fname, Sub, St) ->
-    %% A local in an expression.
-    %% For now, these are wrapped into a fun by reverse
-    %% etha-conversion, but really, there should be exactly one
-    %% such "lambda function" for each escaping local name,
-    %% instead of one for each occurrence as done now.
-    Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
-	     V <- integers(1, Arity)],
-    Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
-    expr(Fun, Sub, St);
+expr(#c_var{anno=A,name={Name,Arity}}, Sub, St) ->
+    {#k_local{anno=A,name=get_fsub(Name, Arity, Sub),arity=Arity},[],St};
 expr(#c_var{anno=A,name=V}, Sub, St) ->
     {#k_var{anno=A,name=get_vsub(V, Sub)},[],St};
 expr(#c_literal{anno=A,val=V}, _Sub, St) ->
@@ -1663,6 +1655,19 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
  		  #k_int{val=Index},#k_int{val=Uniq}|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
+uexpr(#k_local{anno=A,name=Name,arity=Arity}, {break,Rs}, St) ->
+    Fs = get_free(Name, Arity, St),
+    FsCount = length(Fs),
+    Free = lit_list_vars(Fs),
+    %% Set dummy values for Index and Uniq -- the real values will
+    %% be assigned by beam_asm.
+    Index = Uniq = 0,
+    Bif = #k_bif{anno=#k{us=Free,ns=lit_list_vars(Rs),a=A},
+                 op=#k_internal{name=make_fun,arity=FsCount+3},
+                 args=[#k_atom{val=Name},#k_int{val=FsCount+Arity},
+                       #k_int{val=Index},#k_int{val=Uniq}|Fs],
+                 ret=Rs},
+    {Bif,Free,St};
 uexpr(Lit, {break,Rs0}, St0) ->
     %% Transform literals to puts here.
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),
@@ -1842,12 +1847,6 @@ make_list(Es) ->
     foldr(fun(E, Acc) ->
  		  #c_cons{hd=E,tl=Acc}
  	  end, #c_literal{val=[]}, Es).
-
-%% List of integers in interval [N,M]. Empty list if N > M.
-
-integers(N, M) when N =< M ->
-    [N|integers(N + 1, M)];
-integers(_, _) -> [].
 
 %% is_in_guard(State) -> true|false.
 

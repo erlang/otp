@@ -138,7 +138,17 @@ string(Str, Dict) when is_list(Str) ->
 -spec lambda(label(), non_neg_integer(), bdict()) ->
         {non_neg_integer(), bdict()}.
 
-lambda(Lbl, NumFree, #asm{lambdas=Lambdas0}=Dict) ->
+lambda(Lbl, 0, #asm{lambdas=Lambdas0}=Dict) ->
+    case lists:keyfind(Lbl, 1, Lambdas0) of
+        {Lbl,{OldIndex,_,_,_,_}} ->
+            {OldIndex,Dict};
+        false ->
+            new_lambda(Lbl, 0, Dict)
+    end;
+lambda(Lbl, NumFree, Dict) ->
+    new_lambda(Lbl, NumFree, Dict).
+
+new_lambda(Lbl, NumFree, #asm{lambdas=Lambdas0}=Dict) ->
     OldIndex = length(Lambdas0),
     %% Set Index the same as OldIndex.
     Index = OldIndex,
@@ -235,10 +245,12 @@ string_table(#asm{strings=Strings,string_offset=Size}) ->
 
 -spec lambda_table(bdict()) -> {non_neg_integer(), [<<_:192>>]}.
 
-lambda_table(#asm{locals=Loc0,lambdas=Lambdas0}) ->
+lambda_table(#asm{exports=Ext0,locals=Loc0,lambdas=Lambdas0}) ->
     Lambdas1 = sofs:relation(Lambdas0),
     Loc = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Loc0]),
-    Lambdas2 = sofs:relative_product1(Lambdas1, Loc),
+    Ext = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Ext0]),
+    All = sofs:union(Loc, Ext),
+    Lambdas2 = sofs:relative_product1(Lambdas1, All),
     Lambdas = [<<F:32,A:32,Lbl:32,Index:32,NumFree:32,OldUniq:32>> ||
 		  {{_,Lbl,Index,NumFree,OldUniq},{F,A}} <- sofs:to_external(Lambdas2)],
     {length(Lambdas),Lambdas}.
