@@ -66,8 +66,20 @@
       <item>
         <p>srp: Secure Remote Password Protocol (RFC 2945)</p>
       </item>
-
-      
+      <item>
+      <p>ecdsa: "Public Key Cryptography for the Financial
+      Services Industry: The Elliptic Curve Digital
+      Signature Standard (ECDSA)", November, 2005.</p>
+      </item>
+    <item>
+      <p>ec: Standards for Efficient Cryptography Group (SECG), "SEC 1:
+      Elliptic Curve Cryptography", Version 1.0, September 2000.</p>
+    </item>
+    <item>
+      <p>ecdsa: American National Standards Institute (ANSI),
+      ANS X9.62-2005: The Elliptic Curve Digital Signature
+      Algorithm (ECDSA), 2005.</p>
+    </item>
     </list>
     <p>The above publications can be found at <url href="http://csrc.nist.gov/publications">NIST publications</url>, at <url href="http://www.ietf.org">IETF</url>.
       </p>
@@ -1360,6 +1372,116 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
     </func>
     
     <func>
+      <name>ec_key_new(NamedCurve) -> ECKey</name>
+      <type>
+	<v>NamedCurve = atom()</v>
+	<v>ECKey = EC key resource()</v>
+      </type>
+      <desc>
+	<p>Generate an new EC key from the named curve. The private key
+	  will be initialized with random data.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>ec_key_generate(ECKey) -> ok | error</name>
+      <type>
+	<v>ECKey = EC key resource()</v>
+      </type>
+      <desc>
+	<p>Fills in the public key if only the private key is known or generates
+	  a new private/public key pair if only the curve parameters are known.
+	</p>
+      </desc>
+     </func>
+
+    <func>
+      <name>ec_key_to_term(ECKey) -> ECKeyTerm.</name>
+      <type>
+	<v>ECKey = EC key resource()</v>
+	<v>ECKeyTerm = EC key as Erlang term</v>
+      </type>
+      <desc>
+	<p>Convert a EC key from a NIF resource into an Erlang term.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>term_to_ec_key(ECKeyTerm) -> ECKey</name>
+      <type>
+	<v>ECKeyTerm = EC key as Erlang term</v>
+	<v>ECKey = EC key resource()</v>
+      </type>
+      <desc>
+	<p>Convert a EC key an Erlang term into a NIF resource.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>ecdsa_sign(DataOrDigest, ECKey) -> Signature</name>
+      <name>ecdsa_sign(DigestType, DataOrDigest, ECKey) -> Signature</name>
+      <fsummary>Sign the data using ecdsa with the given key.</fsummary>
+      <type>
+        <v>DataOrDigest = Data | {digest,Digest}</v>
+        <v>Data = Mpint</v>
+	<v>Digest = binary()</v>
+	<v>ECKey = EC key resource()</v>
+	<v>DigestType = md5 | sha | sha256 | sha384 | sha512</v>
+	<d>The default <c>DigestType</c> is sha.</d>
+        <v>Mpint = binary()</v>
+        <v>Signature = binary()</v>
+      </type>
+      <desc>
+        <p>Creates a ESDSA signature with the private key <c>Key</c>
+	  of a digest. The digest is either calculated as a
+	  <c>DigestType</c> digest of <c>Data</c> or a precalculated
+	  binary <c>Digest</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>ecdsa_verify(DataOrDigest, Signature, ECKey) -> Verified</name>
+      <name>ecdsa_verify(DigestType, DataOrDigest, Signature, ECKey) -> Verified </name>
+      <fsummary>Verify the digest and signature using ecdsa with given public key.</fsummary>
+      <type>
+        <v>Verified = boolean()</v>
+	<v>DataOrDigest = Data | {digest|Digest}</v>
+        <v>Data, Signature = Mpint</v>
+	<v>Digest = binary()</v>
+	<v>ECKey = EC key resource()</v>
+	<v>DigestType = md5 | sha | sha256 | sha384 | sha512</v>
+	<d>The default <c>DigestType</c> is sha.</d>
+        <v>Mpint = binary()</v>
+      </type>
+      <desc>
+	<p>Verifies that a digest matches the ECDSA signature using the
+          signer's public key <c>Key</c>.
+	  The digest is either calculated as a <c>DigestType</c>
+	  digest of <c>Data</c> or a precalculated binary <c>Digest</c>.</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>DigestType</c>
+	is not supported by the underlying OpenSSL implementation.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>ecdh_compute_key(OthersPublicKey, MyPrivateKey) -> SharedSecret</name>
+      <name>ecdh_compute_key(OthersPublicKey, MyECPoint) -> SharedSecret</name>
+      <fsummary>Computes the shared secret</fsummary>
+      <type>
+	<v>OthersPublicKey, MyPrivateKey = ECKey()</v>
+	<v>MyPrivatePoint = binary()</v>
+	<v>SharedSecret = binary()</v>
+      </type>
+      <desc>
+	<p>Computes the shared secret from the private key and the other party's public key.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name>exor(Data1, Data2) -> Result</name>
       <fsummary>XOR data</fsummary>
       <type>
@@ -1371,6 +1493,29 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
   </funcs>
+
+  <section>
+    <title>Elliptic Curve Key</title>
+    <p>Elliptic Curve keys consist of the curve paramters and a the
+      private and public keys (points on the curve). Translating the
+      raw curve paraters into something usable for the underlying
+      OpenSSL implementation is a complicated process. The main cryptografic
+      functions therefore expect a NIF resource as input that contains the
+      key in an internal format. Two functions <b>ec_key_to_term/1</b>
+      and <b>term_to_ec_key</b> are provided to convert between Erlang
+      terms and the resource format</p>
+    <p><em>Key in term form</em></p>
+    <pre>
+ec_named_curve() = atom()
+ec_point() = binary()
+ec_basis() = {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis
+ec_field() = {prime_field, Prime :: Mpint()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}
+ec_prime() = {A :: Mpint(), B :: Mpint(), Seed :: binary()}
+ec_curve_spec() = {Field :: ec_field(), Prime :: ec_prime(), Point :: ec_point(), Order :: Mpint(), CoFactor :: none | Mpint()}
+ec_curve() = ec_named_curve() | ec_curve_spec()
+ec_key() = {Curve :: ec_curve(), PrivKey :: Mpint() | undefined, PubKey :: ec_point() | undefined}
+    </pre>
+  </section>
 
   <section>
     <title>DES in CBC mode</title>

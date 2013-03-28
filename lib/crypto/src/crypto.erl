@@ -67,6 +67,8 @@
 -export([aes_cbc_ivec/1]).
 -export([aes_ctr_encrypt/3, aes_ctr_decrypt/3]).
 -export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
+-export([ec_key_new/1, ec_key_to_term/1, term_to_ec_key/1, ec_key_generate/1]).
+-export([ecdsa_sign/2, ecdsa_sign/3, ecdsa_verify/3, ecdsa_verify/4, ecdh_compute_key/2]).
 
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see below
 
@@ -113,12 +115,25 @@
 		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n, info,
 		    rc2_cbc_encrypt, rc2_cbc_decrypt,
 		    srp_generate_key, srp_compute_key,
+		    ec_key_new, ec_key_to_term, term_to_ec_key, ec_key_generate,
+		    ecdsa_sign, ecdsa_verify, ecdh_compute_key,
 		    info_lib, algorithms]).
 
+-type mpint() :: binary().
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha'.
+-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
 -type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
+-type ec_key_res() :: any().		%% nif resource
+-type ec_named_curve() :: atom().
+-type ec_point() :: binary().
+-type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
+-type ec_field() :: {prime_field, Prime :: mpint()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
+-type ec_prime() :: {A :: mpint(), B :: mpint(), Seed :: binary()}.
+-type ec_curve_spec() :: {Field :: ec_field(), Prime :: ec_prime(), Point :: ec_point(), Order :: mpint(), CoFactor :: none | mpint()}.
+-type ec_curve() :: ec_named_curve() | ec_curve_spec().
+-type ec_key() :: {Curve :: ec_curve(), PrivKey :: mpint() | undefined, PubKey :: ec_point() | undefined}.
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -1154,6 +1169,94 @@ srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Vers
    srp_server_secret_nif(Verifier, ServerPrivate, Scrambler, ClientPublic, Prime).
 
 %%
+%% EC
+%%
+-spec ec_key_new(ec_named_curve()) -> ec_key_res().
+ec_key_new(_Curve) -> ?nif_stub.
+
+-spec ec_key_generate(ec_key_res()) -> ok | error.
+ec_key_generate(_Key) -> ?nif_stub.
+
+nif_prime_to_term({prime_field, Prime}) ->
+    {prime_field, erlint(Prime)};
+nif_prime_to_term(PrimeField) ->
+    PrimeField.
+nif_curve_to_term({A, B, Seed}) ->
+    {erlint(A), erlint(B), Seed}.
+nif_curve_parameters_to_term({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
+    {nif_prime_to_term(PrimeField), nif_curve_to_term(Curve), BasePoint, erlint(Order), erlint(CoFactor)};
+nif_curve_parameters_to_term(Curve) when is_atom(Curve) ->
+    %% named curve
+    Curve.
+
+-spec ec_key_to_term(ec_key_res()) -> ec_key().
+ec_key_to_term(Key) ->
+    case ec_key_to_term_nif(Key) of
+        {Curve, PrivKey, PubKey} ->
+            {nif_curve_parameters_to_term(Curve), erlint(PrivKey), PubKey};
+        _ ->
+            erlang:error(conversion_failed)
+    end.
+
+ec_key_to_term_nif(_Key) -> ?nif_stub.
+
+term_to_nif_prime({prime_field, Prime}) ->
+    {prime_field, mpint(Prime)};
+term_to_nif_prime(PrimeField) ->
+    PrimeField.
+term_to_nif_curve({A, B, Seed}) ->
+    {mpint(A), mpint(B), Seed}.
+term_to_nif_curve_parameters({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
+    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), BasePoint, mpint(Order), mpint(CoFactor)};
+term_to_nif_curve_parameters(Curve) when is_atom(Curve) ->
+    %% named curve
+    Curve.
+
+-spec term_to_ec_key(ec_key()) -> ec_key_res().
+term_to_ec_key({Curve, undefined, PubKey}) ->
+    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), undefined, PubKey);
+term_to_ec_key({Curve, PrivKey, PubKey}) ->
+    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), mpint(PrivKey), PubKey).
+
+term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
+
+%%
+%% ECDSA - sign
+%%
+-spec ecdsa_sign(data_or_digest(), ec_key_res()) -> binary().
+-spec ecdsa_sign(ecdsa_digest_type(), data_or_digest(), ec_key_res()) -> binary().
+
+ecdsa_sign(DataOrDigest,Key) ->
+    ecdsa_sign(sha, DataOrDigest, Key).
+ecdsa_sign(Type, DataOrDigest, Key) ->
+    case ecdsa_sign_nif(Type,DataOrDigest,Key) of
+	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
+	Sign -> Sign
+    end.
+
+ecdsa_sign_nif(_Type, _DataOrDigest, _Key) -> ?nif_stub.
+
+%%
+%% ECDSA - verify
+%%
+-spec ecdsa_verify(data_or_digest(), binary(), ec_key_res()) -> boolean().
+-spec ecdsa_verify(ecdsa_digest_type(), data_or_digest(), binary(), ec_key_res()) ->
+			boolean().
+
+ecdsa_verify(Data,Signature,Key) ->
+    ecdsa_verify_nif(sha, Data,Signature,Key).
+ecdsa_verify(Type, DataOrDigest, Signature, Key) ->
+    case ecdsa_verify_nif(Type, DataOrDigest, Signature, Key) of
+	notsup -> erlang:error(notsup);
+	Bool -> Bool
+    end.
+
+ecdsa_verify_nif(_Type, _DataOrDigest, _Signature, _Key) -> ?nif_stub.
+
+-spec ecdh_compute_key(ec_key_res(), ec_key_res() | ec_point()) -> binary().
+ecdh_compute_key(_Others, _My) -> ?nif_stub.
+
+
 %%  LOCAL FUNCTIONS
 %%
 
@@ -1262,7 +1365,9 @@ bin_to_int(Bin) ->
 erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
     Bits= MPIntSize * 8,
     <<Integer:Bits/integer>> = MPIntValue,
-    Integer.
+    Integer;
+erlint(undefined) ->
+    undefined.
 
 mpint_to_bin(<<Len:32, Bin:Len/binary>>) ->
     Bin.
