@@ -293,3 +293,42 @@ describe_dec_num() ->
 
 describe_timestamp() ->
     {ok, [{"field", sql_timestamp}]}.
+
+%-------------------------------------------------------------------------
+drop_proc() ->
+    "drop function test_proc1(OUT integer, OUT integer);".
+
+stored_proc_integer_out() ->
+    "create or replace FUNCTION test_proc1(" ++
+        "OUT int_a INTEGER, " ++
+        "OUT int_b INTEGER) " ++
+        "AS $$ " ++
+        "BEGIN " ++
+        " int_a := 123; " ++
+        " int_b := 456; " ++
+        "END " ++
+        "$$ LANGUAGE plpgsql ".
+
+%% This does not test what you might think it is supposed to test.
+%% Since the stored procedure has got 2 out parameters and no
+%% in parameters it is of arity 0 as called below.
+%%
+%% The port program odbcserver.c will marshal these out parameters
+%% and hand them to ODBC. The ODBC driver for postgres will
+%% apparently not give a hoot about these out parameters and instead
+%% return the result in a regular result select set. The port program
+%% will assume it has the result in the out parameters and marshal
+%% these as they are i.e as it itself had packed them, so they
+%% come back unchanged.
+%%
+%% The real function result goes into the void but the code in odbcserver.c
+%% that marshals out parameters returned from ODBC will be run
+%% so that is what this test tests...
+%%
+param_query(Ref) ->
+    odbc:param_query(Ref, "select * from test_proc1()",
+                     [{sql_integer, out, [111]},
+                      {sql_integer, out, [444]}]).
+
+query_result() ->
+    {executed, 2, [{111, 444}]}.
