@@ -1804,13 +1804,13 @@ key_exchange(#state{role = client,
 		    connection_states = ConnectionStates0,
 		    key_algorithm = Algorithm,
 		    negotiated_version = Version,
-		    srp_keys = {ClntPubKey, _},
+		    srp_keys = {ClientPubKey, _},
 		    socket = Socket, transport_cb = Transport,
 		    tls_handshake_history = Handshake0} = State)
   when Algorithm == srp_dss;
        Algorithm == srp_rsa;
        Algorithm == srp_anon ->
-    Msg =  ssl_handshake:key_exchange(client, Version, {srp, ClntPubKey}),
+    Msg =  ssl_handshake:key_exchange(client, Version, {srp, ClientPubKey}),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
     Transport:send(Socket, BinMsg),
@@ -2075,30 +2075,30 @@ generate_srp_server_keys(_SrpParams, 10) ->
 generate_srp_server_keys(SrpParams =
 			     #srp_user{generator = Generator, prime = Prime,
 				       verifier = Verifier}, N) ->
-    Private = ssl:random_bytes(32),
-    Multiplier = crypto:srp6a_multiplier(Generator, Prime),
-    case crypto:srp_value_B(Multiplier, Verifier, Generator, Private, Prime) of
+    case crypto:srp_generate_key(Verifier, Generator, Prime, '6a') of
 	error ->
 	    generate_srp_server_keys(SrpParams, N+1);
-	Public -> {Public, Private}
+	Keys ->
+	    Keys
     end.
 
 generate_srp_client_keys(_Generator, _Prime, 10) ->
     ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
 generate_srp_client_keys(Generator, Prime, N) ->
-    Private = ssl:random_bytes(32),
-    case crypto:srp_mod_exp(Generator, Private, Prime) of
+
+    case crypto:srp_generate_key(Generator, Prime, '6a') of
 	error ->
 	    generate_srp_client_keys(Generator, Prime, N+1);
-	Public -> {Public, Private}
+	Keys ->
+	    Keys
     end.
 
 handle_srp_identity(Username, {Fun, UserState}) ->
     case Fun(srp, Username, UserState) of
-	{ok, {SRPParams, Salt, UserPassHash}}
-	  when is_atom(SRPParams), is_binary(Salt), is_binary(UserPassHash) ->
+	{ok, {SRPParams, Salt, DerivedKey}}
+	  when is_atom(SRPParams), is_binary(Salt), is_binary(DerivedKey) ->
 	    {Generator, Prime} = ssl_srp_primes:get_srp_params(SRPParams),
-	    Verifier = crypto:srp_mod_exp(Generator, UserPassHash, Prime),
+	    Verifier = crypto:mod_exp_prime(Generator, DerivedKey, Prime),
 	    #srp_user{generator = Generator, prime = Prime,
 		      salt = Salt, verifier = Verifier};
 	#alert{} = Alert ->
@@ -2107,36 +2107,31 @@ handle_srp_identity(Username, {Fun, UserState}) ->
 	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end.
 
-server_srp_master_secret(Verifier, Prime, ClntPub, State = #state{srp_keys = {SrvrPub, SrvrPriv}}) ->
-    U = crypto:srp6_value_u(ClntPub, SrvrPub, Prime),
-    case crypto:srp_server_secret(Verifier, SrvrPriv, U, ClntPub, Prime) of
+server_srp_master_secret(Verifier, Prime, ClientPub, State = #state{srp_keys = {ServerPub, ServerPriv}}) ->
+    case crypto:srp_compute_key(Verifier, Prime, ClientPub, ServerPub, ServerPriv, '6a') of
 	error ->
 	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
 	PremasterSecret ->
 	    master_from_premaster_secret(PremasterSecret, State)
     end.
 
-client_srp_master_secret(_Generator, _Prime, _Salt, _SrvrPub, #alert{} = Alert, _State) ->
+client_srp_master_secret(_Generator, _Prime, _Salt, _ServerPub, #alert{} = Alert, _State) ->
     Alert;
-client_srp_master_secret(Generator, Prime, Salt, SrvrPub, undefined, State) ->
+client_srp_master_secret(Generator, Prime, Salt, ServerPub, undefined, State) ->
     Keys = generate_srp_client_keys(Generator, Prime, 0),
-    client_srp_master_secret(Generator, Prime, Salt, SrvrPub, Keys, State#state{srp_keys = Keys});
+    client_srp_master_secret(Generator, Prime, Salt, ServerPub, Keys, State#state{srp_keys = Keys});
 
-client_srp_master_secret(Generator, Prime, Salt, SrvrPub, {ClntPub, ClntPriv},
+client_srp_master_secret(Generator, Prime, Salt, ServerPub, {ClientPub, ClientPriv},
 		 #state{ssl_options = SslOpts} = State) ->
     case ssl_srp_primes:check_srp_params(Generator, Prime) of
 	ok ->
 	    {Username, Password} = SslOpts#ssl_options.srp_identity,
-	    UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
+	    DerivedKey = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
 
-	    Multiplier = crypto:srp6a_multiplier(Generator, Prime),
-	    U = crypto:srp6_value_u(ClntPub, SrvrPub, Prime),
-	    case crypto:srp_client_secret(ClntPriv, U, SrvrPub, Multiplier,
-					  Generator, UserPassHash, Prime) of
+	    case crypto:srp_compute_key(DerivedKey, Prime, Generator, ClientPub, ClientPriv, ServerPub, '6a') of
 		error ->
 		    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
 		PremasterSecret ->
-
 		    master_from_premaster_secret(PremasterSecret, State)
 	    end;
 	_ ->
