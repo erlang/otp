@@ -25,7 +25,7 @@
 	 init_per_group/2,end_per_group/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
-	 nomatch/1,sizes/1,tail/1]).
+	 nomatch/1,sizes/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -35,7 +35,7 @@ all() ->
     test_lib:recompile(?MODULE),
     [byte_aligned, bit_aligned, extended_byte_aligned,
      extended_bit_aligned, mixed, filters, trim_coverage,
-     nomatch, sizes, tail].
+     nomatch, sizes].
 
 groups() -> 
     [].
@@ -289,40 +289,6 @@ sizes(Config) when is_list(Config) ->
 
     ?line cs_end(),
     ok.
-
-tail(Config) when is_list(Config) ->
-    ?line [] = tail_1(<<0:7>>),
-    ?line [0] = tail_1(<<0>>),
-    ?line [0] = tail_1(<<0:12>>),
-    ?line [0,0] = tail_1(<<0:20>>),
-
-    ?line [] = tail_2(<<0:7>>),
-    ?line [42] = tail_2(<<0>>),
-    ?line [] = tail_2(<<0:12>>),
-    ?line [42,42] = tail_2(<<0,1>>),
-
-    ?line <<>> = tail_3(<<0:7>>),
-    ?line <<42>> = tail_3(<<0>>),
-    ?line <<42>> = tail_3(<<0:12>>),
-    ?line <<42,42>> = tail_3(<<0:20>>),
-
-    ?line [] = tail_4(<<0:15>>),
-    ?line [7] = tail_4(<<7,8>>),
-    ?line [9] = tail_4(<<9,17:12>>),
-    ok.
-
-tail_1(Bits) ->
-    [X || <<X:8/integer, _/bits>> <= Bits].
-
-tail_2(Bits) ->
-    [42 || <<_:8/integer, _/bytes>> <= Bits].
-
-tail_3(Bits) ->
-    << <<42>> || <<_:8/integer, _/bits>> <= Bits >>.
-
-tail_4(Bits) ->
-    [X || <<X:8/integer, Tail/bits>> <= Bits, bit_size(Tail) >= 8].
-
 
 cs_init() ->
     erts_debug:set_internal_state(available_internal_state, true),
