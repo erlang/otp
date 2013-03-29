@@ -21,6 +21,8 @@
 %% External exports
 -export([suspend/1, suspend/2, resume/1, resume/2,
 	 get_status/1, get_status/2,
+	 get_state/1, get_state/2,
+	 replace_state/2, replace_state/3,
 	 change_code/4, change_code/5,
 	 log/2, log/3, trace/2, trace/3, statistics/2, statistics/3,
 	 log_to_file/2, log_to_file/3, no_debug/1, no_debug/2,
@@ -96,6 +98,32 @@ get_status(Name) -> send_system_msg(Name, get_status).
              | (Dbg :: [dbg_opt()])
              | (Misc :: term()).
 get_status(Name, Timeout) -> send_system_msg(Name, get_status, Timeout).
+
+-spec get_state(Name) -> State when
+      Name :: name(),
+      State :: term().
+get_state(Name) -> send_system_msg(Name, get_state).
+
+-spec get_state(Name, Timeout) -> State when
+      Name :: name(),
+      Timeout :: timeout(),
+      State :: term().
+get_state(Name, Timeout) -> send_system_msg(Name, get_state, Timeout).
+
+-spec replace_state(Name, StateFun) -> NewState when
+      Name :: name(),
+      StateFun :: fun((State :: term()) -> NewState :: term()),
+      NewState :: term().
+replace_state(Name, StateFun) ->
+    send_system_msg(Name, {replace_state, StateFun}).
+
+-spec replace_state(Name, StateFun, Timeout) -> NewState when
+      Name :: name(),
+      StateFun :: fun((State :: term()) -> NewState :: term()),
+      Timeout :: timeout(),
+      NewState :: term().
+replace_state(Name, StateFun, Timeout) ->
+    send_system_msg(Name, {replace_state, StateFun}, Timeout).
 
 -spec change_code(Name, Module, OldVsn, Extra) -> 'ok' | {error, Reason} when
       Name :: name(),
@@ -362,6 +390,10 @@ do_cmd(_, suspend, _Parent, _Mod, Debug, Misc) ->
     {suspended, ok, Debug, Misc};
 do_cmd(_, resume, _Parent, _Mod, Debug, Misc) ->
     {running, ok, Debug, Misc};
+do_cmd(SysState, get_state, _Parent, _Mod, Debug, {State, Misc}) ->
+    {SysState, State, Debug, Misc};
+do_cmd(SysState, replace_state, _Parent, _Mod, Debug, {State, Misc}) ->
+    {SysState, State, Debug, Misc};
 do_cmd(SysState, get_status, Parent, Mod, Debug, Misc) ->
     Res = get_status(SysState, Parent, Mod, Debug, Misc),
     {SysState, Res, Debug, Misc};

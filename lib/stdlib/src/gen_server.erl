@@ -372,6 +372,13 @@ wake_hib(Parent, Name, State, Mod, Debug) ->
 
 decode_msg(Msg, Parent, Name, State, Mod, Time, Debug, Hib) ->
     case Msg of
+	{system, From, get_state} ->
+	    sys:handle_system_msg(get_state, From, Parent, ?MODULE, Debug,
+				  {State, [Name, State, Mod, Time]}, Hib);
+	{system, From, {replace_state, StateFun}} ->
+	    NState = try StateFun(State) catch _:_ -> State end,
+	    sys:handle_system_msg(replace_state, From, Parent, ?MODULE, Debug,
+				  {NState, [Name, NState, Mod, Time]}, Hib);
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
 				  [Name, State, Mod, Time], Hib);
