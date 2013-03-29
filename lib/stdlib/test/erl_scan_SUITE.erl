@@ -21,7 +21,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 
--export([ error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1]).
+-export([ error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
+          otp_10990/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -60,7 +61,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, error}, iso88591, otp_7810, otp_10302].
+    [{group, error}, iso88591, otp_7810, otp_10302, otp_10990].
 
 groups() -> 
     [{error, [], [error_1, error_2]}].
@@ -1119,6 +1120,14 @@ otp_10302(Config) when is_list(Config) ->
      {integer,0,97},
      {cons,0,{integer,0,1024},{string,0,"c"}}} =
         erl_parse:abstract("a"++[1024]++"c", [{encoding,latin1}]),
+    ok.
+
+otp_10990(doc) ->
+    "OTP-10990. Floating point number in input string.";
+otp_10990(suite) ->
+    [];
+otp_10990(Config) when is_list(Config) ->
+    {'EXIT',_} = (catch {foo, erl_scan:string([$",42.0,$"],1)}),
     ok.
 
 test_string(String, Expected) ->

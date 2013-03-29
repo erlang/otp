@@ -338,6 +338,7 @@ string_thing(_) -> "string".
 -define(DIGIT(C), C >= $0, C =< $9).
 -define(CHAR(C), is_integer(C), C >= 0).
 -define(UNICODE(C),
+        is_integer(C) andalso
          (C >= 0 andalso C < 16#D800 orelse
           C > 16#DFFF andalso C < 16#FFFE orelse
           C > 16#FFFF andalso C =< 16#10FFFF)).
