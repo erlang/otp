@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -167,6 +167,23 @@
         <p>Converts the Erlang data structure <c><anno>Data</anno></c> into an
           abstract form of type <c><anno>AbsTerm</anno></c>.
           This is the inverse of <c>normalise/1</c>.</p>
+        <p><c>erl_parse:abstract(T)</c> is equivalent to
+          <c>erl_parse:abstract(T, 0)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="abstract" arity="2"/>
+      <fsummary>Convert an Erlang term into an abstract form</fsummary>
+      <desc>
+        <p>Converts the Erlang data structure <c><anno>Data</anno></c> into an
+          abstract form of type <c><anno>AbsTerm</anno></c>.</p>
+        <p>The <c><anno>Line</anno></c> option is the line that will
+          be assigned to each node of the abstract form.</p>
+        <p>The <c><anno>Encoding</anno></c> option is used for
+          selecting which integer lists will be considered
+          as strings. The default is to use the encoding returned by
+          <seealso marker="epp#default_encoding/0">
+          <c>epp:default_encoding/0</c></seealso></p>
       </desc>
     </func>
   </funcs>
