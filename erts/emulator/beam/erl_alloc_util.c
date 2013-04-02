@@ -878,8 +878,10 @@ erts_alcu_fix_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
 
 #ifdef ERTS_SMP
 
-#define ERTS_ALCU_DD_FIX_TYPE_OFFS \
-  ((sizeof(ErtsAllctrDDBlock_t)-1)/sizeof(UWord) + 1)
+typedef struct {
+    ErtsAllctrDDBlock_t ddblock__; /* must be first */
+    ErtsAlcType_t fix_type;
+}ErtsAllctrFixDDBlock_t;
 
 
 static ERTS_INLINE Allctr_t*
@@ -1180,7 +1182,7 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	if (fix) {
 	    ErtsAlcType_t type;
 
-	    type = (ErtsAlcType_t) ((UWord *) ptr)[ERTS_ALCU_DD_FIX_TYPE_OFFS];
+	    type = ((ErtsAllctrFixDDBlock_t*) ptr)->fix_type;
 	    ix = type - ERTS_ALC_N_MIN_A_FIXED_SIZE;
 	    ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
 	    fix[ix].used--;
@@ -1242,7 +1244,7 @@ enqueue_dealloc_other_instance(ErtsAlcType_t type,
 			       int cinit)
 {
     if (allctr->fix)
-	((UWord *) ptr)[ERTS_ALCU_DD_FIX_TYPE_OFFS] = (UWord) type;
+	((ErtsAllctrFixDDBlock_t*) ptr)->fix_type = type;
 
     if (ddq_enqueue(type, &allctr->dd.q, ptr, cinit))
 	erts_alloc_notify_delayed_dealloc(allctr->ix);
@@ -4198,9 +4200,8 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 #if ERTS_SMP
     if (init->tpref) {
 	Uint sz = ABLK_HDR_SZ;
-	sz += ERTS_ALCU_DD_FIX_TYPE_OFFS*sizeof(UWord);
-	if (init->fix)
-	    sz += sizeof(UWord);
+	sz += (init->fix ? 
+	       sizeof(ErtsAllctrFixDDBlock_t) : sizeof(ErtsAllctrDDBlock_t));
 	sz = UNIT_CEILING(sz);
 	if (sz > allctr->min_block_size)
 	    allctr->min_block_size = sz;
