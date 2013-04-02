@@ -3489,7 +3489,9 @@ do_erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
     fix = allctr->fix;
     if (fix) {
 	int ix = type - ERTS_ALC_N_MIN_A_FIXED_SIZE;
+	ASSERT((unsigned)ix < ERTS_ALC_NO_FIXED_SIZES);
 	ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
+	ASSERT(size <= fix[ix].type_size);
 	fix[ix].used++;
 	res = fix[ix].list;
 	if (res) {
@@ -3510,8 +3512,7 @@ do_erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
 	    ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
 	    return res;
 	}
-	if (size < 2*sizeof(UWord))
-	    size += sizeof(UWord);
+	size = fix[ix].type_size;
 	if (fix[ix].limit < fix[ix].used)
 	    fix[ix].limit = fix[ix].used;
 	if (fix[ix].max_used < fix[ix].used)
@@ -4326,6 +4327,9 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	    allctr->fix[i].list = NULL;
 	    allctr->fix[i].allocated = 0;
 	    allctr->fix[i].used = 0;
+#ifdef ERTS_SMP
+	    ASSERT(allctr->fix[i].type_size >= sizeof(ErtsAllctrFixDDBlock_t));
+#endif
 	}
     }
 
