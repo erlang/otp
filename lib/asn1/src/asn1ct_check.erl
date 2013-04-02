@@ -1025,8 +1025,8 @@ prepare_objset({{'SingleValue',Set},Ext}) ->
 %%    {set,lists:append([Set,Ext]),true};
 prepare_objset({Set,Ext}) when is_list(Set) ->
     {set,merge_sets(Set,Ext),true};
-prepare_objset({ObjDef={object,definedsyntax,_ObjFields},_Ext}) ->
-    {set,[ObjDef],true};
+prepare_objset({{object,definedsyntax,_ObjFields}=Set,Ext}) ->
+    {set,merge_sets(Set, Ext),true};
 prepare_objset(ObjDef={object,definedsyntax,_ObjFields}) ->
     {set,[ObjDef],false};
 prepare_objset({ObjDef=#type{},Ext}) when is_list(Ext) ->

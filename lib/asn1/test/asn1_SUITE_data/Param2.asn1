@@ -33,4 +33,16 @@ BEGIN
 --Delete-end
   }
 
+  SingleRoot ::= SEQUENCE {
+	protocolIEs ProtocolIE-Container { { SingleRootIEs } },
+	...
+  }
+
+  -- The extension was lost when there was a single root item.
+  SingleRootIEs S1AP-PROTOCOL-IES ::= {
+    { ID 1 TYPE OCTET STRING },
+    ...,
+    { ID 2 TYPE INTEGER }
+  }
+
 END

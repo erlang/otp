@@ -141,6 +141,11 @@ param2(Config, Erule) ->
 	asn1_wrapper:decode('Param2', 'HandoverRequired', Enc),
     true = is_binary(Open100),
     true = is_binary(Open101),
+
+    %% Test single root.
+    roundtrip2('SingleRoot',
+	       {'SingleRoot',[{'ProtocolIE-Field',1,"ABC"},
+			      {'ProtocolIE-Field',2,9999}]}),
     ok.
 
 
