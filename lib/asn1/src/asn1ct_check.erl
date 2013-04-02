@@ -4026,8 +4026,8 @@ categorize(S,value,Type,Value) ->
     [#valuedef{type=Type,value=Value,module=S#state.mname}].
 
 
-parse_objectset({valueset,T=#type{}}) ->
-    [T];
+parse_objectset({valueset,#type{def=#'Externaltypereference'{}=Ref}}) ->
+    Ref;
 parse_objectset({valueset,Set}) ->
     Set;
 parse_objectset(#type{def=Ref}) when is_record(Ref,'Externaltypereference') ->
