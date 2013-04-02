@@ -515,9 +515,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= sizeof(Process);
 #if !HALFWORD_HEAP
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MONITOR_SH)]
-	= ERTS_MONITOR_SH_SIZE;
+	= ERTS_MONITOR_SH_SIZE * sizeof(Uint);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NLINK_SH)]
-	= ERTS_LINK_SH_SIZE;
+	= ERTS_LINK_SH_SIZE * sizeof(Uint);
 #endif
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_DRV_EV_D_STATE)]
 	= sizeof(ErtsDrvEventDataState);
