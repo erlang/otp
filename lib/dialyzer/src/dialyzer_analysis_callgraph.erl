@@ -261,8 +261,8 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
                     dict:new(), NewFiles),
       check_for_duplicate_modules(ModDict);
     false ->
-      Msg = io_lib:format("Could not scan the following file(s): ~p",
-			  [lists:flatten(Failed)]),
+      Msg = io_lib:format("Could not scan the following file(s):~n~s",
+      			  [[Reason || {_Filename, Reason} <- Failed]]),
       exit({error, Msg})
   end,
   {T2, _} = statistics(runtime),
