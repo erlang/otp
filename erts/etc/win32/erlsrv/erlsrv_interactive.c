@@ -525,7 +525,7 @@ int do_usage(char *arg0){
 	 "list, give option -args as last option on command line "
 	 "with\n"
 	 "no arguments.\n\n");
-  printf("Se Erlang documentation for full description.\n");
+  printf("See Erlang documentation for full description.\n");
   return 0;
 }
 
