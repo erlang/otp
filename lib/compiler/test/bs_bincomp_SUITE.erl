@@ -282,6 +282,9 @@ sizes(Config) when is_list(Config) ->
     ?line <<1,2,3,0>> = Fun13(7),
     ?line <<1,2,3,0,0>> = Fun13(8),
 
+    <<0:3>> = cs_default(<< <<0:S>> || S <- [0,1,2] >>),
+    <<0:3>> = cs_default(<< <<0:S>> || <<S>> <= <<0,1,2>> >>),
+
     ?line {'EXIT',_} = (catch << <<C:4>> || <<C:8>> <= {1,2,3} >>),
 
     ?line cs_end(),
