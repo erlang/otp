@@ -432,18 +432,6 @@ strsave(char* string)
     return p;
 }
 
-/* Instead of making sure basename exists, we do our own */
-static char *simple_basename(char *path)
-{
-    char *ptr;
-    for (ptr = path; *ptr != '\0'; ++ptr) {
-	if (*ptr == '/' || *ptr == '\\') {
-	    path = ptr + 1;
-	}
-    }
-    return path;
-}
-
 static char*
 get_default_emulator(char* progname)
 {
