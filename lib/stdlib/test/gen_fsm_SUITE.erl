@@ -415,36 +415,36 @@ error_format_status(Config) when is_list(Config) ->
 
 get_state(Config) when is_list(Config) ->
     State = self(),
-    ?line {ok, Pid} = gen_fsm:start(?MODULE, {state_data, State}, []),
-    ?line {idle, State} = sys:get_state(Pid),
-    ?line {idle, State} = sys:get_state(Pid, 5000),
-    ?line stop_it(Pid),
+    {ok, Pid} = gen_fsm:start(?MODULE, {state_data, State}, []),
+    {idle, State} = sys:get_state(Pid),
+    {idle, State} = sys:get_state(Pid, 5000),
+    stop_it(Pid),
 
     %% check that get_state can handle a name being an atom (pid is
     %% already checked by the previous test)
-    ?line {ok, Pid2} = gen_fsm:start({local, gfsm}, gen_fsm_SUITE, {state_data, State}, []),
-    ?line {idle, State} = sys:get_state(gfsm),
-    ?line {idle, State} = sys:get_state(gfsm, 5000),
-    ?line stop_it(Pid2),
+    {ok, Pid2} = gen_fsm:start({local, gfsm}, gen_fsm_SUITE, {state_data, State}, []),
+    {idle, State} = sys:get_state(gfsm),
+    {idle, State} = sys:get_state(gfsm, 5000),
+    stop_it(Pid2),
     ok.
 
 replace_state(Config) when is_list(Config) ->
     State = self(),
-    ?line {ok, Pid} = gen_fsm:start(?MODULE, {state_data, State}, []),
-    ?line {idle, State} = sys:get_state(Pid),
+    {ok, Pid} = gen_fsm:start(?MODULE, {state_data, State}, []),
+    {idle, State} = sys:get_state(Pid),
     NState1 = "replaced",
     Replace1 = fun({StateName, _}) -> {StateName, NState1} end,
-    ?line {idle, NState1} = sys:replace_state(Pid, Replace1),
-    ?line {idle, NState1} = sys:get_state(Pid),
+    {idle, NState1} = sys:replace_state(Pid, Replace1),
+    {idle, NState1} = sys:get_state(Pid),
     NState2 = "replaced again",
     Replace2 = fun({idle, _}) -> {state0, NState2} end,
-    ?line {state0, NState2} = sys:replace_state(Pid, Replace2, 5000),
-    ?line {state0, NState2} = sys:get_state(Pid),
+    {state0, NState2} = sys:replace_state(Pid, Replace2, 5000),
+    {state0, NState2} = sys:get_state(Pid),
     %% verify no change in state if replace function crashes
     Replace3 = fun(_) -> error(fail) end,
-    ?line {state0, NState2} = sys:replace_state(Pid, Replace3),
-    ?line {state0, NState2} = sys:get_state(Pid),
-    ?line stop_it(Pid),
+    {state0, NState2} = sys:replace_state(Pid, Replace3),
+    {state0, NState2} = sys:get_state(Pid),
+    stop_it(Pid),
     ok.
 
 %% Hibernation

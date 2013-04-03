@@ -1042,13 +1042,13 @@ get_state(doc) ->
     ["Test that sys:get_state/1,2 return the gen_server state"];
 get_state(Config) when is_list(Config) ->
     State = self(),
-    ?line {ok, _Pid} = gen_server:start_link({local, get_state},
+    {ok, _Pid} = gen_server:start_link({local, get_state},
                                              ?MODULE, {state,State}, []),
-    ?line State = sys:get_state(get_state),
-    ?line State = sys:get_state(get_state, 5000),
-    ?line {ok, Pid} = gen_server:start_link(?MODULE, {state,State}, []),
-    ?line State = sys:get_state(Pid),
-    ?line State = sys:get_state(Pid, 5000),
+    State = sys:get_state(get_state),
+    State = sys:get_state(get_state, 5000),
+    {ok, Pid} = gen_server:start_link(?MODULE, {state,State}, []),
+    State = sys:get_state(Pid),
+    State = sys:get_state(Pid, 5000),
     ok.
 
 %% Verify that sys:replace_state correctly replaces gen_server state
@@ -1059,24 +1059,24 @@ replace_state(doc) ->
     ["Test that sys:replace_state/1,2 replace the gen_server state"];
 replace_state(Config) when is_list(Config) ->
     State = self(),
-    ?line {ok, _Pid} = gen_server:start_link({local, replace_state},
+    {ok, _Pid} = gen_server:start_link({local, replace_state},
                                              ?MODULE, {state,State}, []),
-    ?line State = sys:get_state(replace_state),
+    State = sys:get_state(replace_state),
     NState1 = "replaced",
     Replace1 = fun(_) -> NState1 end,
-    ?line NState1 = sys:replace_state(replace_state, Replace1),
-    ?line NState1 = sys:get_state(replace_state),
-    ?line {ok, Pid} = gen_server:start_link(?MODULE, {state,NState1}, []),
-    ?line NState1 = sys:get_state(Pid),
+    NState1 = sys:replace_state(replace_state, Replace1),
+    NState1 = sys:get_state(replace_state),
+    {ok, Pid} = gen_server:start_link(?MODULE, {state,NState1}, []),
+    NState1 = sys:get_state(Pid),
     Suffix = " again",
     NState2 = NState1 ++ Suffix,
     Replace2 = fun(S) -> S ++ Suffix end,
-    ?line NState2 = sys:replace_state(Pid, Replace2, 5000),
-    ?line NState2 = sys:get_state(Pid, 5000),
+    NState2 = sys:replace_state(Pid, Replace2, 5000),
+    NState2 = sys:get_state(Pid, 5000),
     %% verify no change in state if replace function crashes
     Replace3 = fun(_) -> throw(fail) end,
-    ?line NState2 = sys:replace_state(Pid, Replace3),
-    ?line NState2 = sys:get_state(Pid, 5000),
+    NState2 = sys:replace_state(Pid, Replace3),
+    NState2 = sys:get_state(Pid, 5000),
     ok.
 
 %% Test that the time for a huge message queue is not
