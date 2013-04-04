@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,8 @@
 	 conf_init/1, check_new_conf/1, conf_cleanup/1,
 	 check_old_conf/1, conf_init_fail/1, start_stop_node/1,
 	 cleanup_nodes_init/1, check_survive_nodes/1, cleanup_nodes_fin/1,
-	 commercial/1]).
+	 commercial/1,
+	 io_invalid_data/1]).
 
 -export([dummy_function/0,dummy_function/1,doer/1]).
 
@@ -47,7 +48,7 @@ all(suite) ->
     [config, comment, timetrap, timetrap_cancel, multiply_timetrap,
      init_per_s, init_per_tc, end_per_tc,
      timeconv, msgs, capture, timecall, do_times, skip_cases,
-     commercial,
+     commercial, io_invalid_data,
      {conf, conf_init, [check_new_conf], conf_cleanup},
      check_old_conf,
      {conf, conf_init_fail,[conf_member_skip],conf_cleanup_skip},
@@ -497,4 +498,8 @@ commercial(Config) when is_list(Config) ->
 	true -> {comment,"Commercial build"}
     end.
 
-	    
+io_invalid_data(Config) when is_list(Config) ->
+    ok = io:put_chars("valid: " ++ [42]),
+    %% OTP-10991 caused this to hang and produce a timetrap timeout:
+    {'EXIT',{badarg,_}} = (catch io:put_chars("invalid: " ++ [42.0])),
+    ok.
