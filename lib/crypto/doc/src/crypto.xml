@@ -63,6 +63,11 @@
       <item>
         <p>dss: Digital Signature Standard (FIPS 186-2)</p>
       </item>
+      <item>
+        <p>srp: Secure Remote Password Protocol (RFC 2945)</p>
+      </item>
+
+      
     </list>
     <p>The above publications can be found at <url href="http://csrc.nist.gov/publications">NIST publications</url>, at <url href="http://www.ietf.org">IETF</url>.
       </p>
@@ -95,6 +100,14 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       <fsummary>Provide a list of available crypto functions.</fsummary>
       <desc>
         <p>Provides the available crypto functions in terms of a list
+          of atoms.</p>
+      </desc>
+    </func>
+    <func>
+      <name>algorithms() -> [atom()]</name>
+      <fsummary>Provide a list of available crypto algorithms.</fsummary>
+      <desc>
+        <p>Provides the available crypto algorithms in terms of a list
           of atoms.</p>
       </desc>
     </func>
@@ -973,7 +986,17 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           using the <c>crypto</c> library.</p>
       </desc>
     </func>
-
+    <func>
+      <name>mod_exp_prime(N, P, M) -> Result</name>
+      <fsummary>Computes the function: N^P mod M</fsummary>
+      <type>
+	<v>N, P, M = binary()</v>
+	<v>Result = binary() | error</v>
+      </type>
+      <desc>
+	<p>Computes the function <c>N^P mod M</c>.</p>
+      </desc>
+    </func>
     <func>
       <name>rsa_sign(DataOrDigest, Key) -> Signature</name>
       <name>rsa_sign(DigestType, DataOrDigest, Key) -> Signature</name>
@@ -1256,7 +1279,84 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
    
+    <func>
+      <name>srp_generate_key(Generator, Prime, Version) -> {PublicKey, PrivateKey} </name>
+      <name>srp_generate_key(Generator, Prime, Version, Private) -> {PublicKey, PrivateKey} </name>
+      <name>srp_generate_key(Verifier, Generator, Prime, Version) -> {PublicKey, PrivateKey} </name>
+      <name>srp_generate_key(Verifier, Generator, Prime, Version, Private) -> {PublicKey, PrivateKey} </name>
+      <fsummary>Generates SRP public keys</fsummary>
+      <type>
+	<v>Verifier = binary()</v>
+	<d>Parameter v from <seealso marker="http://srp.stanford.edu/design.html">SRP design</seealso>
+	 </d>
+	 <v>Generator = binary() </v>
+	 <d>Parameter g from <seealso marker="http://srp.stanford.edu/design.html">SRP design</seealso>
+	 </d>
+	<v>Prime = binary() </v>
+	<d>Parameter N from <seealso marker="http://srp.stanford.edu/design.html">SRP design</seealso>
+	 </d>
+	 <v>Version = '3' |  '6' |  '6a' </v>
+	<d>SRP version, TLS SRP cipher suites uses '6a'.</d>
+	 <v>PublicKey = binary()</v>
+	 <d> Parameter A or B from <seealso marker="http://srp.stanford.edu/design.html">SRP design</seealso></d> 
+	 <v>PrivateKey = binary() - generated if not supplied</v>
+	 <d>Parameter a or b from <seealso marker="http://srp.stanford.edu/design.html">SRP design</seealso></d> 
+      </type>
+      <desc>
+	<p>Generates SRP public keys</p>
+      </desc>
+    </func>
 
+    <func>
+      <name>srp_compute_key(DerivedKey, Prime, Generator,
+      ClientPublic, ClientPrivate, ServerPublic, Version) -> SessionKey</name>
+      <name>srp_compute_key(DerivedKey, Prime, Generator,
+      ClientPublic, ClientPrivate, ServerPublic, Version, Scrambler) -> SessionKey</name>
+      <name>srp_compute_key(Verifier, Prime,
+      ClientPublic, ServerPublic, ServerPrivate, Version, Scrambler)-> SessionKey</name>
+      <name>srp_compute_key(Verifier, Prime,
+      ClientPublic, ServerPublic, ServerPrivate, Version) -> SessionKey</name>
+      
+      <fsummary>Computes SRP session key</fsummary>
+      <type>
+	<v>DerivedKey = binary()</v>
+	<d>Parameter x from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+	 </d>
+	<v>Verifier = binary()</v>
+	<d>Parameter v from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+	 </d>
+	<v>Prime = binary() </v>
+	<d>Parameter N from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+	 </d>
+	<v>Generator = binary() </v>
+	<d>Parameter g from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+	 </d>
+	<v>ClientPublic = binary() </v>
+	<d>Parameter A from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+	 </d>
+	<v>ClientPrivate = binary() </v>
+	<d>Parameter a from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+	 </d>
+	<v>ServerPublic = binary() </v>
+	<d>Parameter B from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+	</d>
+	<v>ServerPrivate = binary() </v>
+	<d>Parameter b from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+	</d>	
+	<v>Version = '3' |  '6' |  '6a' </v>
+	<d>SRP version, TLS SRP cipher suites uses '6a'.</d>
+	<v>SessionKey = binary()</v>
+	<d>Result K from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+	</d>
+      </type>
+      <desc>
+	<p>
+	  Computes the SRP session key (shared secret). Also used
+	  as premaster secret by TLS-SRP ciher suites.
+	</p>
+      </desc>
+    </func>
+    
     <func>
       <name>exor(Data1, Data2) -> Result</name>
       <fsummary>XOR data</fsummary>
