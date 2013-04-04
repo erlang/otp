@@ -29,7 +29,8 @@
 -export([init_per_suite/1, init_per_suite/2, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2,
 	 write_testspec/2, write_testspec/3,
-	 run/2, run/3, run/4, get_opts/1, wait_for_ct_stop/1]).
+	 run/2, run/3, run/4, run_ct_run_test/2, run_ct_script_start/2,
+	 get_opts/1, wait_for_ct_stop/1]).
 
 -export([handle_event/2, start_event_receiver/1, get_events/2,
 	 verify_events/3, verify_events/4, reformat/2, log_events/4,
@@ -224,9 +225,15 @@ get_opts(Config) ->
 %%%-----------------------------------------------------------------
 %%% 
 run(Opts, Config) when is_list(Opts) ->
+    %% use ct interface
+    CtRunTestResult=run_ct_run_test(Opts,Config),
+    %% use run_test interface (simulated)
+    ExitStatus=run_ct_script_start(Opts,Config),
+    check_result(CtRunTestResult,ExitStatus,Opts).
+
+run_ct_run_test(Opts,Config) ->
     CTNode = proplists:get_value(ct_node, Config),
     Level = proplists:get_value(trace_level, Config),
-    %% use ct interface
     test_server:format(Level, "~n[RUN #1] Calling ct:run_test(~p) on ~p~n",
 		       [Opts, CTNode]),
     CtRunTestResult = rpc:call(CTNode, ct, run_test, [Opts]),
@@ -242,7 +249,11 @@ run(Opts, Config) when is_list(Opts) ->
 	    timer:sleep(5000),
 	    undefined = rpc:call(CTNode, erlang, whereis, [ct_util_server])
     end,
-    %% use run_test interface (simulated)
+    CtRunTestResult.
+
+run_ct_script_start(Opts, Config) ->
+    CTNode = proplists:get_value(ct_node, Config),
+    Level = proplists:get_value(trace_level, Config),
     Opts1 = [{halt_with,{?MODULE,ct_test_halt}} | Opts],
     test_server:format(Level, "Saving start opts on ~p: ~p~n",
 		       [CTNode, Opts1]),
@@ -253,27 +264,38 @@ run(Opts, Config) when is_list(Opts) ->
     ExitStatus = rpc:call(CTNode, ct_run, script_start, []),
     test_server:format(Level, "[RUN #2] Got exit status value ~p~n",
 		       [ExitStatus]),
-    case {CtRunTestResult,ExitStatus} of
-	{{_Ok,Failed,{_UserSkipped,_AutoSkipped}},1} when Failed > 0 ->
-	    ok;
-	{{_Ok,0,{_UserSkipped,AutoSkipped}},ExitStatus} when AutoSkipped > 0 ->
-	    case proplists:get_value(exit_status, Opts1) of
-		ignore_config when ExitStatus == 1 ->
-		    {error,{wrong_exit_status,ExitStatus}};
-		_ ->
-		    ok
-	    end;
-	{{error,_}=Error,ExitStatus} ->
-	    if ExitStatus /= 2 ->
-		    {error,{wrong_exit_status,ExitStatus}};
-	       ExitStatus == 2 ->
-		    Error
-	    end;
-	{{_Ok,0,{_UserSkipped,_AutoSkipped}},0} ->
-	    ok;
-	Unexpected ->
-	    {error,{unexpected_return_value,Unexpected}}
-    end.
+    ExitStatus.
+
+check_result({_Ok,Failed,{_UserSkipped,_AutoSkipped}},1,_Opts)
+  when Failed > 0 ->
+    ok;
+check_result({_Ok,0,{_UserSkipped,AutoSkipped}},ExitStatus,Opts)
+  when AutoSkipped > 0 ->
+    case proplists:get_value(exit_status, Opts) of
+	ignore_config when ExitStatus == 1 ->
+	    {error,{wrong_exit_status,ExitStatus}};
+	_ ->
+	    ok
+    end;
+check_result({error,_}=Error,2,_Opts) ->
+    Error;
+check_result({error,_},ExitStatus,_Opts) ->
+    {error,{wrong_exit_status,ExitStatus}};
+check_result({_Ok,0,{_UserSkipped,_AutoSkipped}},0,_Opts) ->
+    ok;
+check_result(CtRunTestResult,ExitStatus,Opts)
+  when is_list(CtRunTestResult) -> % repeated testruns
+    try check_result(sum_testruns(CtRunTestResult,0,0,0,0),ExitStatus,Opts)
+    catch _:_ ->
+	    {error,{unexpected_return_value,{CtRunTestResult,ExitStatus}}}
+    end;
+check_result(CtRunTestResult,ExitStatus,_Opts) ->
+    {error,{unexpected_return_value,{CtRunTestResult,ExitStatus}}}.
+
+sum_testruns([{O,F,{US,AS}}|T],Ok,Failed,UserSkipped,AutoSkipped) ->
+    sum_testruns(T,Ok+O,Failed+F,UserSkipped+US,AutoSkipped+AS);
+sum_testruns([],Ok,Failed,UserSkipped,AutoSkipped) ->
+    {Ok,Failed,{UserSkipped,AutoSkipped}}.
 
 run(M, F, A, Config) ->
     run({M,F,A}, [], Config).

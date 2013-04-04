@@ -771,9 +771,9 @@ script_usage() ->
 	      "\n\t[-scale_timetraps]"
 	      "\n\t[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
 	      "\n\t[-basic_html]"
-	      "\n\t[-repeat N [-force_stop]] |"
-	      "\n\t[-duration HHMMSS [-force_stop]] |"
-	      "\n\t[-until [YYMoMoDD]HHMMSS [-force_stop]]\n\n"),
+	      "\n\t[-repeat N] |"
+	      "\n\t[-duration HHMMSS [-force_stop [skip_rest]]] |"
+	      "\n\t[-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]\n\n"),
     io:format("Run tests using test specification:\n\n"
 	      "\tct_run -spec TestSpec1 TestSpec2 .. TestSpecN"
 	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
@@ -795,9 +795,9 @@ script_usage() ->
 	      "\n\t[-scale_timetraps]"
 	      "\n\t[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
 	      "\n\t[-basic_html]"
-	      "\n\t[-repeat N [-force_stop]] |"
-	      "\n\t[-duration HHMMSS [-force_stop]] |"
-	      "\n\t[-until [YYMoMoDD]HHMMSS [-force_stop]]\n\n"),
+	      "\n\t[-repeat N] |"
+	      "\n\t[-duration HHMMSS [-force_stop [skip_rest]]] |"
+	      "\n\t[-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]\n\n"),
     io:format("Refresh the HTML index files:\n\n"
 	      "\tct_run -refresh_logs [LogDir]"
 	      "[-logdir LogDir] "
@@ -2933,6 +2933,8 @@ opts2args(EnvStartOpts) ->
 			  [];
 		     ({create_priv_dir,PD}) when is_atom(PD) ->
 			  [{create_priv_dir,[atom_to_list(PD)]}];
+		     ({force_stop,skip_rest}) ->
+			  [{force_stop,["skip_rest"]}];
 		     ({force_stop,true}) ->
 			  [{force_stop,[]}];
 		     ({force_stop,false}) ->

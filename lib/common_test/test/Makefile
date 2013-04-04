@@ -38,6 +38,7 @@ MODULES= \
 	ct_groups_spec_SUITE \
 	ct_sequence_1_SUITE \
 	ct_repeat_1_SUITE \
+	ct_repeat_testrun_SUITE \
 	ct_testspec_1_SUITE \
 	ct_testspec_2_SUITE \
 	ct_testspec_3_SUITE \

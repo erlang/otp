@@ -64,38 +64,46 @@ init_tc(Mod,Func,Config) ->
 	    ok
     end,
 
-    case ct_util:get_testdata(curr_tc) of
-	{Suite,{suite0_failed,{require,Reason}}} ->
-	    {skip,{require_failed_in_suite0,Reason}};
-	{Suite,{suite0_failed,_}=Failure} ->
-	    {skip,Failure};
+    case Func=/=end_per_suite
+	andalso Func=/=end_per_group
+	andalso ct_util:get_testdata(skip_rest) of
+	true ->
+	    {skip,"Repeated test stopped by force_stop option"};
 	_ ->
-	    ct_util:update_testdata(curr_tc,
-				    fun(undefined) ->
-					    [{Suite,Func}];
-				       (Running) ->
-					    [{Suite,Func}|Running]
-				    end, [create]),
-	    case ct_util:read_suite_data({seq,Suite,Func}) of
-		undefined ->
-		    init_tc1(Mod,Suite,Func,Config);
-		Seq when is_atom(Seq) ->
-		    case ct_util:read_suite_data({seq,Suite,Seq}) of
-			[Func|TCs] ->		% this is the 1st case in Seq
-			    %% make sure no cases in this seq are
-			    %% marked as failed from an earlier execution 
-			    %% in the same suite
-			    lists:foreach(
-			      fun(TC) ->
-				      ct_util:save_suite_data({seq,Suite,TC},
-							      Seq)
-			      end, TCs);
-			_ ->
-			    ok
-		    end,
-		    init_tc1(Mod,Suite,Func,Config);
-		{failed,Seq,BadFunc} ->
-		    {skip,{sequence_failed,Seq,BadFunc}}
+	    case ct_util:get_testdata(curr_tc) of
+		{Suite,{suite0_failed,{require,Reason}}} ->
+		    {skip,{require_failed_in_suite0,Reason}};
+		{Suite,{suite0_failed,_}=Failure} ->
+		    {skip,Failure};
+		_ ->
+		    ct_util:update_testdata(curr_tc,
+					    fun(undefined) ->
+						    [{Suite,Func}];
+					       (Running) ->
+						    [{Suite,Func}|Running]
+					    end, [create]),
+		    case ct_util:read_suite_data({seq,Suite,Func}) of
+			undefined ->
+			    init_tc1(Mod,Suite,Func,Config);
+			Seq when is_atom(Seq) ->
+			    case ct_util:read_suite_data({seq,Suite,Seq}) of
+				[Func|TCs] -> % this is the 1st case in Seq
+				    %% make sure no cases in this seq are
+				    %% marked as failed from an earlier execution
+				    %% in the same suite
+				    lists:foreach(
+				      fun(TC) ->
+					      ct_util:save_suite_data(
+						{seq,Suite,TC},
+						Seq)
+				      end, TCs);
+				_ ->
+				    ok
+			    end,
+			    init_tc1(Mod,Suite,Func,Config);
+			{failed,Seq,BadFunc} ->
+			    {skip,{sequence_failed,Seq,BadFunc}}
+		    end
 	    end
     end.	    
 

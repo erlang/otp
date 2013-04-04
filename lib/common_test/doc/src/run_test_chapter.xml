@@ -174,7 +174,7 @@
       <item><c><![CDATA[-repeat <n>]]></c>, tells Common Test to repeat the tests n times (see below).</item> 
       <item><c><![CDATA[-duration <time>]]></c>, tells Common Test to repeat the tests for duration of time (see below).</item> 
       <item><c><![CDATA[-until <stop_time>]]></c>, tells Common Test to repeat the tests until stop_time (see below).</item> 
-      <item><c>-force_stop</c>, on timeout, the test run will be aborted when current test job is finished (see below).</item>
+      <item><c>-force_stop [skip_rest]</c>, on timeout, the test run will be aborted when current test job is finished. If <c>skip_rest</c> is provided the rest of the test cases in the current test job will be skipped (see below).</item>
       <item><c><![CDATA[-decrypt_key <key>]]></c>, provides a decryption key for 
         <seealso marker="config_file_chapter#encrypted_config_files">encrypted configuration files</seealso>.</item>
       <item><c><![CDATA[-decrypt_file <key_file>]]></c>, points out a file containing a decryption key for 
@@ -1273,6 +1273,7 @@
        <item><c>-duration DurTime ({duration,DurTime})</c>, where <c>DurTime</c> is the duration, see below.</item>
        <item><c>-until StopTime ({until,StopTime})</c>, where <c>StopTime</c> is finish time, see below.</item>
        <item><c>-force_stop ({force_stop,true})</c></item>
+       <item><c>-force_stop skip_rest ({force_stop,skip_rest})</c></item>
        </list>
        <p>The duration time, <c>DurTime</c>, is specified as <c>HHMMSS</c>. Example: 
           <c>-duration 012030</c> or <c>{duration,"012030"}</c>, means the tests will 
@@ -1283,12 +1284,16 @@
 	  Example: <c>-until 071001120000</c> or <c>{until,"071001120000"}</c>, which means the tests
 	  will be executed and (if time allows) repeated, until 12 o'clock on the 1st of Oct 2007.</p>
 
-       <p>When timeout occurs, Common Test will never abort the test run immediately, since 
+       <p>When timeout occurs, Common Test will never abort the ongoing test case, since
           this might leave the system under test in an undefined, and possibly bad, state.
-	  Instead Common Test will finish the current test job, or the complete test 
-	  run, before stopping. The latter is the default behaviour. The <c>force_stop</c> 
-	  flag/option tells Common Test to stop as soon as the current test job is finished.
-	  Note that since Common Test always finishes off the current test job or test session,
+	  Instead Common Test will by default finish the current test
+	  run before stopping. If the <c>force_stop</c> flag is
+	  given, Common Test will stop as soon as the current test job
+	  is finished, and if the <c>force_stop</c> flag is given with
+	  <c>skip_rest</c> Common Test will only complete the current
+	  test case and skip the rest of the tests in the test job.
+	  Note that since Common Test always finishes off at least the
+	  current test case,
 	  the time specified with <c>duration</c> or <c>until</c> is never definitive!</p>
 
        <p>Log files from every single repeated test run is saved in normal Common Test fashion (see above). 
@@ -1312,6 +1317,18 @@
 
        <p>Example 2:</p>
        <pre>
+          $ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -duration 001000 -forces_stop skip_rest</pre>
+       <p>Here the same test run as in Example 1, but with the
+       <c>force_stop</c> flag set to <c>skip_rest</c>. If the timeout
+       occurs while executing tests in directory to1, the rest of the
+       test cases in to1 will be skipped and then the test will be
+       aborted without running the tests in to2 another time. If the
+       timeout occurs while executing tests in directory to2, then the
+       rest of the test cases in to2 will be skipped and then the test
+       will be aborted.</p>
+
+       <p>Example 3:</p>
+       <pre>
           $ date
 	  Fri Sep 28 15:00:00 MEST 2007
 
@@ -1321,7 +1338,7 @@
 	  Common Test will finish the entire test run before stopping (i.e. the to1 and to2 test
 	  will always both be executed in the same test run).</p>
        
-       <p>Example 3:</p>
+       <p>Example 4:</p>
        <pre>
           $ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -repeat 5</pre>
        <p>Here the test run, including both the to1 and the to2 test, will be repeated 5 times.</p>
