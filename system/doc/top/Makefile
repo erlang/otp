@@ -38,13 +38,6 @@ INFO_FILES = ../../README ../../COPYRIGHT PR.template
 
 TOPDOCDIR=.
 
-TOP_HTML_GEN_FILES = \
-	$(HTMLDIR)/incompatible.html \
-	$(HTMLDIR)/highlights.html
-
-TOP_HTML_FILES = \
-	$(TOP_HTML_GEN_FILES)
-
 include ../installation_guide/xmlfiles.mk
 include ../system_principles/xmlfiles.mk
 include ../embedded/xmlfiles.mk
@@ -229,7 +222,7 @@ $(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
-html:   $(INDEX_FILES) $(TOP_HTML_FILES) \
+html:   $(INDEX_FILES) \
 	$(MAN_INDEX) $(JAVASCRIPT)
 
 debug opt: 
@@ -237,7 +230,7 @@ debug opt:
 clean:
 	rm -rf 	../html/js
 	rm -f PR.template 
-	rm -f  $(INDEX_FILES) $(TOP_HTML_FILES) $(MAN_INDEX) 
+	rm -f  $(INDEX_FILES) $(MAN_INDEX)
 	rm -f  $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f $(INDEX_SCRIPT) $(GLOSSARY_SCRIPT) \
 		$(JAVASCRIPT_BUILD_SCRIPT) 
@@ -256,11 +249,10 @@ release_docs_spec: docs
 	$(INSTALL_DIR)  $(RELSYSDIR)/pdf
 	$(INSTALL_DATA)  \
 		$(TOP_PDF_FILE) $(RELSYSDIR)/pdf
-	$(INSTALL_DATA) $(TOP_HTML_FILES) $(RELSYSDIR) 
 	$(INSTALL_DIR)  $(RELSYSDIR)/js
 	$(INSTALL_DATA)  \
 		$(JAVASCRIPT) $(RELSYSDIR)/js
-	$(INSTALL_DATA) $(INDEX_FILES) $(MAN_INDEX) $(TOP_HTML_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) $(INDEX_FILES) $(MAN_INDEX) $(RELSYSDIR)
 	$(INSTALL_DIR)  $(RELSYSDIR)/docbuild
 	$(INSTALL_DATA) $(INDEX_SCRIPT) $(MAN_INDEX_SCRIPT) $(JAVASCRIPT_BUILD_SCRIPT) \
 		$(INDEX_SRC) $(MAN_INDEX_SRC) $(JAVASCRIPT_BUILD_SCRIPT_SRC) \
