@@ -153,7 +153,7 @@ run(TestDirs) ->
 %%%               {auto_compile,Bool} | {create_priv_dir,CreatePrivDir}  |
 %%%               {multiply_timetraps,M} | {scale_timetraps,Bool} |
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
-%%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
+%%%               {force_stop,ForceStop} | {decrypt,DecryptKeyOrFile} |
 %%%               {refresh_logs,LogDir} | {logopts,LogOpts} | 
 %%%               {verbosity,VLevels} | {basic_html,Bool} | 
 %%%               {ct_hooks, CTHs} | {enable_builtin_hooks,Bool} |
@@ -184,6 +184,7 @@ run(TestDirs) ->
 %%%   N = integer()
 %%%   DurTime = string(HHMMSS)
 %%%   StopTime = string(YYMoMoDDHHMMSS) | string(HHMMSS)
+%%%   ForceStop = skip_rest | Bool
 %%%   DecryptKeyOrFile = {key,DecryptKey} | {file,DecryptFile}
 %%%   DecryptKey = string()
 %%%   DecryptFile = string()

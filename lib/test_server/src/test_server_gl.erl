@@ -197,7 +197,7 @@ handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
 	    From ! {io_reply,ReplyAs,ok}
     catch
 	_:_ ->
-	    {io_reply,ReplyAs,{error,arguments}}
+	    From ! {io_reply,ReplyAs,{error,arguments}}
     end,
     {noreply,St};
 handle_info({structured_io,ClientPid,{Detail,Str}}, St) ->

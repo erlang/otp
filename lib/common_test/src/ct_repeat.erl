@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 %%% start flags (or equivalent ct:run_test/1 options) are supported:
 %%% -until <StopTime>, StopTime = YYMoMoDDHHMMSS | HHMMSS
 %%% -duration <DurTime>, DurTime = HHMMSS
-%%% -force_stop
+%%% -force_stop [skip_rest]
 %%% -repeat <N>, N = integer()</p>
 
 -module(ct_repeat).
@@ -62,12 +62,15 @@ loop_test(If,Args) when is_list(Args) ->
 			io:format("\nCommon Test: "
 				  "Will repeat tests for ~s.\n\n",[ts(Secs)]),
 			TPid =
-			    case lists:keymember(force_stop,1,Args) of 
-				true ->
+			    case proplists:get_value(force_stop,Args) of
+				False when False==false; False==undefined ->
+				    undefined;
+				ForceStop ->
 				    CtrlPid = self(),
-				    spawn(fun() -> stop_after(CtrlPid,Secs) end);
-				false ->
-				    undefined
+				    spawn(
+				      fun() ->
+					      stop_after(CtrlPid,Secs,ForceStop)
+				      end)
 			    end,
 			Args1 = [{loop_info,[{stop_time,Secs,StopTime,1}]} | Args],
 			loop(If,stop_time,0,Secs,StopTime,Args1,TPid,[])
@@ -212,7 +215,7 @@ get_stop_time(until,[Y1,Y2,Mo1,Mo2,D1,D2,H1,H2,Mi1,Mi2,S1,S2]) ->
 	    list_to_integer([S1,S2])},
     calendar:datetime_to_gregorian_seconds({Date,Time});
 
-get_stop_time(until,Time) ->
+get_stop_time(until,Time=[_,_,_,_,_,_]) ->
     get_stop_time(until,"000000"++Time);
 
 get_stop_time(duration,[H1,H2,Mi1,Mi2,S1,S2]) ->
@@ -227,9 +230,16 @@ cancel(Pid) ->
 
 %% After Secs, abort will make the test_server finish the current
 %% job, then empty the job queue and stop.
-stop_after(_CtrlPid,Secs) ->
+stop_after(_CtrlPid,Secs,ForceStop) ->
     timer:sleep(Secs*1000),
+    case ForceStop of
+	SkipRest when SkipRest==skip_rest; SkipRest==["skip_rest"] ->
+	    ct_util:set_testdata({skip_rest,true});
+	_ ->
+	    ok
+    end,
     test_server_ctrl:abort().
+
 
 %% Callback from ct_run to print loop info to system log.
 log_loop_info(Args) ->
@@ -259,11 +269,11 @@ log_loop_info(Args) ->
 		io_lib:format("Test time remaining: ~w secs (~w%)\n",
 			      [Secs,trunc((Secs/Secs0)*100)]),
 	    LogStr4 =
-		case lists:keymember(force_stop,1,Args) of
-		    true ->
-			io_lib:format("force_stop is enabled",[]);
-		    _ ->
-			""
+		case proplists:get_value(force_stop,Args) of
+		    False when False==false; False==undefined ->
+			"";
+		    ForceStop ->
+			io_lib:format("force_stop is set to: ~w",[ForceStop])
 		end,			
 	    ct_logs:log("Test loop info",LogStr1++LogStr2++LogStr3++LogStr4,[])
     end.
