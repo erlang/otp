@@ -32,7 +32,7 @@
 	 spec_init_local_registered_parent/1, 
 	 spec_init_global_registered_parent/1,
 	 otp_5854/1, hibernate/1, otp_7669/1, call_format_status/1,
-	 error_format_status/1, call_with_huge_message_queue/1
+	 error_format_status/1, get_state/1, replace_state/1, call_with_huge_message_queue/1
 	]).
 
 % spawn export
@@ -57,6 +57,7 @@ all() ->
      spec_init_local_registered_parent,
      spec_init_global_registered_parent, otp_5854, hibernate,
      otp_7669, call_format_status, error_format_status,
+     get_state, replace_state,
      call_with_huge_message_queue].
 
 groups() -> 
@@ -1031,6 +1032,51 @@ error_format_status(Config) when is_list(Config) ->
     end,
     ?t:messages_get(),
     process_flag(trap_exit, OldFl),
+    ok.
+
+%% Verify that sys:get_state correctly returns gen_server state
+%%
+get_state(suite) ->
+    [];
+get_state(doc) ->
+    ["Test that sys:get_state/1,2 return the gen_server state"];
+get_state(Config) when is_list(Config) ->
+    State = self(),
+    {ok, _Pid} = gen_server:start_link({local, get_state},
+                                             ?MODULE, {state,State}, []),
+    State = sys:get_state(get_state),
+    State = sys:get_state(get_state, 5000),
+    {ok, Pid} = gen_server:start_link(?MODULE, {state,State}, []),
+    State = sys:get_state(Pid),
+    State = sys:get_state(Pid, 5000),
+    ok.
+
+%% Verify that sys:replace_state correctly replaces gen_server state
+%%
+replace_state(suite) ->
+    [];
+replace_state(doc) ->
+    ["Test that sys:replace_state/1,2 replace the gen_server state"];
+replace_state(Config) when is_list(Config) ->
+    State = self(),
+    {ok, _Pid} = gen_server:start_link({local, replace_state},
+                                             ?MODULE, {state,State}, []),
+    State = sys:get_state(replace_state),
+    NState1 = "replaced",
+    Replace1 = fun(_) -> NState1 end,
+    NState1 = sys:replace_state(replace_state, Replace1),
+    NState1 = sys:get_state(replace_state),
+    {ok, Pid} = gen_server:start_link(?MODULE, {state,NState1}, []),
+    NState1 = sys:get_state(Pid),
+    Suffix = " again",
+    NState2 = NState1 ++ Suffix,
+    Replace2 = fun(S) -> S ++ Suffix end,
+    NState2 = sys:replace_state(Pid, Replace2, 5000),
+    NState2 = sys:get_state(Pid, 5000),
+    %% verify no change in state if replace function crashes
+    Replace3 = fun(_) -> throw(fail) end,
+    NState2 = sys:replace_state(Pid, Replace3),
+    NState2 = sys:get_state(Pid, 5000),
     ok.
 
 %% Test that the time for a huge message queue is not

@@ -31,7 +31,7 @@
 
 -export([shutdown/1]).
 
--export([ sys1/1, call_format_status/1, error_format_status/1]).
+-export([ sys1/1, call_format_status/1, error_format_status/1, get_state/1, replace_state/1]).
 
 -export([hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
 
@@ -66,7 +66,7 @@ groups() ->
        start8, start9, start10, start11, start12]},
      {abnormal, [], [abnormal1, abnormal2]},
      {sys, [],
-      [sys1, call_format_status, error_format_status]}].
+      [sys1, call_format_status, error_format_status, get_state, replace_state]}].
 
 init_per_suite(Config) ->
     Config.
@@ -411,6 +411,40 @@ error_format_status(Config) when is_list(Config) ->
     end,
     ?t:messages_get(),
     process_flag(trap_exit, OldFl),
+    ok.
+
+get_state(Config) when is_list(Config) ->
+    State = self(),
+    {ok, Pid} = gen_fsm:start(?MODULE, {state_data, State}, []),
+    {idle, State} = sys:get_state(Pid),
+    {idle, State} = sys:get_state(Pid, 5000),
+    stop_it(Pid),
+
+    %% check that get_state can handle a name being an atom (pid is
+    %% already checked by the previous test)
+    {ok, Pid2} = gen_fsm:start({local, gfsm}, gen_fsm_SUITE, {state_data, State}, []),
+    {idle, State} = sys:get_state(gfsm),
+    {idle, State} = sys:get_state(gfsm, 5000),
+    stop_it(Pid2),
+    ok.
+
+replace_state(Config) when is_list(Config) ->
+    State = self(),
+    {ok, Pid} = gen_fsm:start(?MODULE, {state_data, State}, []),
+    {idle, State} = sys:get_state(Pid),
+    NState1 = "replaced",
+    Replace1 = fun({StateName, _}) -> {StateName, NState1} end,
+    {idle, NState1} = sys:replace_state(Pid, Replace1),
+    {idle, NState1} = sys:get_state(Pid),
+    NState2 = "replaced again",
+    Replace2 = fun({idle, _}) -> {state0, NState2} end,
+    {state0, NState2} = sys:replace_state(Pid, Replace2, 5000),
+    {state0, NState2} = sys:get_state(Pid),
+    %% verify no change in state if replace function crashes
+    Replace3 = fun(_) -> error(fail) end,
+    {state0, NState2} = sys:replace_state(Pid, Replace3),
+    {state0, NState2} = sys:get_state(Pid),
+    stop_it(Pid),
     ok.
 
 %% Hibernation

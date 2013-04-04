@@ -26,13 +26,14 @@
 	 delete_handler/1, swap_handler/1, swap_sup_handler/1,
 	 notify/1, sync_notify/1, call/1, info/1, hibernate/1,
 	 call_format_status/1, call_format_status_anon/1,
-         error_format_status/1]).
+         error_format_status/1, get_state/1, replace_state/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [start, {group, test_all}, hibernate,
-     call_format_status, call_format_status_anon, error_format_status].
+     call_format_status, call_format_status_anon, error_format_status,
+     get_state, replace_state].
 
 groups() -> 
     [{test_all, [],
@@ -955,4 +956,46 @@ error_format_status(Config) when is_list(Config) ->
     ?t:messages_get(),
     ?line ok = gen_event:stop(Pid),
     process_flag(trap_exit, OldFl),
+    ok.
+
+get_state(suite) ->
+    [];
+get_state(doc) ->
+    ["Test that sys:get_state/1,2 return the gen_event state"];
+get_state(Config) when is_list(Config) ->
+    {ok, Pid} = gen_event:start({local, my_dummy_handler}),
+    State1 = self(),
+    ok = gen_event:add_handler(my_dummy_handler, dummy1_h, [State1]),
+    [{dummy1_h,false,State1}] = sys:get_state(Pid),
+    [{dummy1_h,false,State1}] = sys:get_state(Pid, 5000),
+    State2 = {?MODULE, self()},
+    ok = gen_event:add_handler(my_dummy_handler, {dummy1_h,id}, [State2]),
+    Result1 = sys:get_state(Pid),
+    [{dummy1_h,false,State1},{dummy1_h,id,State2}] = lists:sort(Result1),
+    Result2 = sys:get_state(Pid, 5000),
+    [{dummy1_h,false,State1},{dummy1_h,id,State2}] = lists:sort(Result2),
+    ok = gen_event:stop(Pid),
+    ok.
+
+replace_state(suite) ->
+    [];
+replace_state(doc) ->
+    ["Test that replace_state/2,3 replace the gen_event state"];
+replace_state(Config) when is_list(Config) ->
+    {ok, Pid} = gen_event:start({local, my_dummy_handler}),
+    State1 = self(),
+    ok = gen_event:add_handler(my_dummy_handler, dummy1_h, [State1]),
+    [{dummy1_h,false,State1}] = sys:get_state(Pid),
+    NState1 = "replaced",
+    Replace1 = fun({dummy1_h,false,_}=S) -> setelement(3,S,NState1) end,
+    [{dummy1_h,false,NState1}] = sys:replace_state(Pid, Replace1),
+    [{dummy1_h,false,NState1}] = sys:get_state(Pid),
+    NState2 = "replaced again",
+    Replace2 = fun({dummy1_h,false,_}=S) -> setelement(3,S,NState2) end,
+    [{dummy1_h,false,NState2}] = sys:replace_state(Pid, Replace2, 5000),
+    [{dummy1_h,false,NState2}] = sys:get_state(Pid),
+    %% verify no change in state if replace function crashes
+    Replace3 = fun(_) -> exit(fail) end,
+    [{dummy1_h,false,NState2}] = sys:replace_state(Pid, Replace3),
+    [{dummy1_h,false,NState2}] = sys:get_state(Pid),
     ok.
