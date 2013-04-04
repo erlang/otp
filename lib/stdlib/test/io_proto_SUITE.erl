@@ -147,8 +147,7 @@ unicode_prompt(Config) when is_list(Config) ->
     %% And one with oldshell
      ?line rtnode([{putline,""},
 		   {putline, "2."},
-		   {getline_re, ".*2."},
-		   {getline, "2"},
+		   {getline_re, ".*2$"},
 		   {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
 		   {getline_re, ".*default"},
 		   {putline, "io:get_line('')."},
@@ -263,8 +262,7 @@ setopts_getopts(Config) when is_list(Config) ->
     %% And one with oldshell
     ?line rtnode([{putline,""},
 		  {putline, "2."},
-		  {getline_re, ".*2."},
-		  {getline, "2"},
+		  {getline_re, ".*2$"},
 		  {putline, "lists:keyfind(binary,1,io:getopts())."},
 		  {getline_re, ".*{binary,false}"},
 		  {putline, "io:get_line('')."},
@@ -467,8 +465,7 @@ unicode_options(Config) when is_list(Config) ->
     end,
     ?line rtnode([{putline,""},
 		  {putline, "2."},
-		  {getline_re, ".*2."},
-		  {getline, "2"},
+		  {getline_re, ".*2$"},
 		  {putline, "lists:keyfind(encoding,1,io:getopts())."},
 		  {getline_re, ".*{encoding,latin1}"},
 		  {putline, "io:format(\"~ts~n\",[[1024]])."},
@@ -701,8 +698,7 @@ binary_options(Config) when is_list(Config) ->
 	old ->
 	    ok;
 	new ->
-	    ?line rtnode([{putline,""},
-			  {putline, "2."},
+	    ?line rtnode([{putline, "2."},
 			  {getline, "2"},
 			  {putline, "lists:keyfind(binary,1,io:getopts())."},
 			  {getline, "{binary,false}"},
@@ -720,10 +716,8 @@ binary_options(Config) when is_list(Config) ->
 			 ],[])
     end,
    %% And one with oldshell
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline_re, ".*2."},
-		  {getline, "2"},
+    ?line rtnode([{putline, "2."},
+		  {getline_re, ".*2$"},
 		  {putline, "lists:keyfind(binary,1,io:getopts())."},
 		  {getline_re, ".*{binary,false}"},
 		  {putline, "io:get_line('')."},
