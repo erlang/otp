@@ -21,7 +21,7 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info/0, info_lib/0, version/0]).
+-export([start/0, stop/0, info/0, info_lib/0, algorithms/0, version/0]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
@@ -57,7 +57,10 @@
 -export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
 -export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
 -export([strong_rand_bytes/1, strong_rand_mpint/3]).
--export([mod_exp/3, mpint/1, erlint/1]).
+-export([mod_exp/3, mod_exp_prime/3, mpint/1, erlint/1]).
+-export([srp_generate_key/4, srp_generate_key/3,
+	 srp_generate_key/5, srp_compute_key/6, srp_compute_key/7, srp_compute_key/8]).
+
 %% -export([idea_cbc_encrypt/3, idea_cbc_decrypt/3]).
 -export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
 -export([aes_cbc_256_encrypt/3, aes_cbc_256_decrypt/3]).
@@ -88,7 +91,7 @@
 		    strong_rand_bytes,
 		    strong_rand_mpint,
 		    rand_uniform,
-		    mod_exp,
+		    mod_exp, mod_exp_prime,
 		    dss_verify,dss_sign,
 		    rsa_verify,rsa_sign,
 		    rsa_public_encrypt,rsa_private_decrypt, 
@@ -109,7 +112,8 @@
 		    hash, hash_init, hash_update, hash_final,
 		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n, info,
 		    rc2_cbc_encrypt, rc2_cbc_decrypt,
-		    info_lib]).
+		    srp_generate_key, srp_compute_key,
+		    info_lib, algorithms]).
 
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha'.
@@ -183,6 +187,8 @@ info() ->
     ?FUNC_LIST.
 
 info_lib() -> ?nif_stub.
+
+algorithms() -> ?nif_stub.
 
 %% Crypto app version history:
 %% (no version): Driver implementation
@@ -783,21 +789,24 @@ rand_uniform_pos(_,_) ->
 rand_uniform_nif(_From,_To) -> ?nif_stub.     
 
 %%
-%% mod_exp - utility for rsa generation
+%% mod_exp - utility for rsa generation and SRP
 %%
 mod_exp(Base, Exponent, Modulo)
   when is_integer(Base), is_integer(Exponent), is_integer(Modulo) ->
-    erlint(mod_exp(mpint(Base), mpint(Exponent), mpint(Modulo)));
+    bin_to_int(mod_exp_nif(int_to_bin(Base), int_to_bin(Exponent), int_to_bin(Modulo), 0));
 
 mod_exp(Base, Exponent, Modulo) ->
-    case mod_exp_nif(Base,Exponent,Modulo) of
-	<<Len:32/integer, MSB, Rest/binary>> when MSB > 127 ->
-	    <<(Len + 1):32/integer, 0, MSB, Rest/binary>>;
-	Whatever ->
-	    Whatever
+    mod_exp_nif(mpint_to_bin(Base),mpint_to_bin(Exponent),mpint_to_bin(Modulo), 4).
+    
+-spec mod_exp_prime(binary(), binary(), binary()) -> binary() | error.
+mod_exp_prime(Base, Exponent, Prime) ->
+    case mod_exp_nif(Base, Exponent, Prime, 0) of
+	<<0>> -> error;
+	R -> R
     end.
 
-mod_exp_nif(_Base,_Exp,_Mod) -> ?nif_stub.    
+
+mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.    
 
 %%
 %% DSS, RSA - verify
@@ -1064,50 +1073,205 @@ dh_compute_key(OthersPublicKey, MyPrivateKey, DHParameters) ->
 
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
+
+%%% SRP
+-spec srp_generate_key(binary(), binary(), atom() | binary(), atom() | binary() ) -> {Public::binary(), Private::binary()}.
+srp_generate_key(Verifier, Generator, Prime, Version) when is_binary(Verifier),
+							   is_binary(Generator),
+							   is_binary(Prime), 
+							   is_atom(Version) ->
+    Private = random_bytes(32),
+    server_srp_gen_key(Private, Verifier, Generator, Prime, Version);
+
+srp_generate_key(Generator, Prime, Version, Private) when is_binary(Generator),
+							  is_binary(Prime), 
+							  is_atom(Version),
+							  is_binary(Private) ->
+    client_srp_gen_key(Private, Generator, Prime).
+
+-spec srp_generate_key(binary(), binary(), binary(), atom(), binary()) -> {Public::binary(), Private::binary()}.
+srp_generate_key(Verifier, Generator, Prime, Version, Private) when is_binary(Verifier),
+								    is_binary(Generator),
+								    is_binary(Prime), 
+								    is_atom(Version),
+								    is_binary(Private)
+								    -> 
+    server_srp_gen_key(Private, Verifier, Generator, Prime, Version).
+
+-spec srp_generate_key(binary(), binary(), atom()) -> {Public::binary(), Private::binary()}.
+srp_generate_key(Generator, Prime, Version) when is_binary(Generator),
+						 is_binary(Prime), 
+						 is_atom(Version) ->
+    Private = random_bytes(32),
+    client_srp_gen_key(Private, Generator, Prime).
+
+-spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), atom()| binary(), atom() | binary() ) -> binary().
+srp_compute_key(DerivedKey, Prime, Generator, ClientPublic, ClientPrivate, ServerPublic, Version) when 
+      is_binary(Prime), 
+      is_binary(Generator),
+      is_binary(ClientPublic),
+      is_binary(ClientPrivate),
+      is_binary(ServerPublic),
+      is_atom(Version) ->
+    Multiplier = srp_multiplier(Version, Generator, Prime),
+    Scrambler = srp_scrambler(Version, ClientPublic, ServerPublic, Prime),
+    srp_client_secret_nif(ClientPrivate, Scrambler, ServerPublic, Multiplier,
+		      Generator, DerivedKey, Prime);
+
+srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Version, Scrambler) when 
+      is_binary(Verifier),
+      is_binary(Prime), 
+      is_binary(ClientPublic),
+      is_binary(ServerPublic),
+      is_binary(ServerPrivate),
+      is_atom(Version),
+      is_binary(Scrambler) ->
+   srp_server_secret_nif(Verifier, ServerPrivate, Scrambler, ClientPublic, Prime).
+
+-spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), binary(), atom(), binary()) -> binary().
+srp_compute_key(DerivedKey, Prime, Generator, ClientPublic, ClientPrivate, 
+		ServerPublic, Version, Scrambler) when is_binary(DerivedKey),
+						       is_binary(Prime), 
+						       is_binary(Generator),
+						       is_binary(ClientPublic),
+						       is_binary(ClientPrivate),
+						       is_binary(ServerPublic),
+						       is_atom(Version),
+						       is_binary(Scrambler) ->
+    Multiplier = srp_multiplier(Version, Generator, Prime),
+    srp_client_secret_nif(ClientPrivate, Scrambler, ServerPublic, Multiplier,
+			  Generator, DerivedKey, Prime).
+
+-spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), atom()) -> binary().
+srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Version) when 
+      is_binary(Verifier),
+      is_binary(Prime), 
+      is_binary(ClientPublic),
+      is_binary(ServerPublic),
+      is_binary(ServerPrivate),
+      is_atom(Version) ->
+   Scrambler = srp_scrambler(Version, ClientPublic, ServerPublic, Prime),
+   srp_server_secret_nif(Verifier, ServerPrivate, Scrambler, ClientPublic, Prime).
+
 %%
 %%  LOCAL FUNCTIONS
 %%
 
+client_srp_gen_key(Private, Generator, Prime) ->
+    case mod_exp_prime(Generator, Private, Prime) of
+	error ->
+	    error;
+	Public ->
+	    {Public, Private}
+    end.
+
+server_srp_gen_key(Private, Verifier, Generator, Prime, Version) ->
+ Multiplier = srp_multiplier(Version, Generator, Prime),
+   case srp_value_B_nif(Multiplier, Verifier, Generator, Private, Prime) of
+   error ->
+       error;
+   Public ->
+       {Public, Private}
+   end.
+
+srp_multiplier('6a', Generator, Prime) ->
+    %% k = SHA1(N | PAD(g)) from http://srp.stanford.edu/design.html
+    C0 = sha_init(),
+    C1 = sha_update(C0, Prime),
+    C2 = sha_update(C1, srp_pad_to(erlang:byte_size(Prime), Generator)),
+    sha_final(C2);
+srp_multiplier('6', _, _) ->
+    <<3/integer>>;
+srp_multiplier('3', _, _) ->
+    <<1/integer>>.
+
+srp_scrambler(Version, ClientPublic, ServerPublic, Prime) when Version == '6'; Version == '6a'->
+    %% SHA1(PAD(A) | PAD(B)) from http://srp.stanford.edu/design.html
+    PadLength = erlang:byte_size(Prime),
+    C0 = sha_init(),
+    C1 = sha_update(C0, srp_pad_to(PadLength, ClientPublic)),
+    C2 = sha_update(C1, srp_pad_to(PadLength, ServerPublic)),
+    sha_final(C2);
+srp_scrambler('3', _, ServerPublic, _Prime) ->
+    %% The parameter u is a 32-bit unsigned integer which takes its value
+    %% from the first 32 bits of the SHA1 hash of B, MSB first.
+    <<U:32/bits, _/binary>> = sha(ServerPublic),
+    U.
+
+srp_pad_length(Width, Length) ->
+    (Width - Length rem Width) rem Width.
+
+srp_pad_to(Width, Binary) ->
+    case srp_pad_length(Width, size(Binary)) of
+        0 -> Binary;
+        N -> << 0:(N*8), Binary/binary>>
+    end.
+
+srp_server_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
+
+srp_client_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?nif_stub.
+
+srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_stub.
 
 %% large integer in a binary with 32bit length
 %% MP representaion  (SSH2)
-mpint(X) when X < 0 ->
-    case X of
-	-1 ->
-	    <<0,0,0,1,16#ff>>;	    
-       _ ->
-	    mpint_neg(X,0,[])
-    end;
-mpint(X) ->
-    case X of 
-	0 ->
-	    <<0,0,0,0>>;
-	_ ->
-	    mpint_pos(X,0,[])
-    end.
+mpint(X) when X < 0 -> mpint_neg(X);
+mpint(X) -> mpint_pos(X).
 
 -define(UINT32(X),   X:32/unsigned-big-integer).
 
-mpint_neg(-1,I,Ds=[MSB|_]) ->
-    if MSB band 16#80 =/= 16#80 ->
-	    <<?UINT32((I+1)), (list_to_binary([255|Ds]))/binary>>;
-       true ->
-	    (<<?UINT32(I), (list_to_binary(Ds))/binary>>)
-    end;
-mpint_neg(X,I,Ds)  ->
-    mpint_neg(X bsr 8,I+1,[(X band 255)|Ds]).
+
+mpint_neg(X) ->
+    Bin = int_to_bin_neg(X, []),
+    Sz = byte_size(Bin),
+    <<?UINT32(Sz), Bin/binary>>.
     
-mpint_pos(0,I,Ds=[MSB|_]) ->
+mpint_pos(X) ->
+    Bin = int_to_bin_pos(X, []),
+    <<MSB,_/binary>> = Bin,
+    Sz = byte_size(Bin),
     if MSB band 16#80 == 16#80 ->
-	    <<?UINT32((I+1)), (list_to_binary([0|Ds]))/binary>>;
+	    <<?UINT32((Sz+1)), 0, Bin/binary>>;
        true ->
-	    (<<?UINT32(I), (list_to_binary(Ds))/binary>>)
-    end;
-mpint_pos(X,I,Ds) ->
-    mpint_pos(X bsr 8,I+1,[(X band 255)|Ds]).
+	    <<?UINT32(Sz), Bin/binary>>
+    end.
+
+int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
+int_to_bin(X) -> int_to_bin_pos(X, []).
+
+%%int_to_bin_pos(X) when X >= 0 ->
+%%    int_to_bin_pos(X, []).
+
+int_to_bin_pos(0,Ds=[_|_]) ->
+    list_to_binary(Ds);
+int_to_bin_pos(X,Ds) ->
+    int_to_bin_pos(X bsr 8, [(X band 255)|Ds]).
+
+int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
+    list_to_binary(Ds);
+int_to_bin_neg(X,Ds) ->
+    int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
+
+
+bin_to_int(Bin) ->
+    Bits = bit_size(Bin),
+    <<Integer:Bits/integer>> = Bin,
+    Integer.
 
 %% int from integer in a binary with 32bit length
 erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
     Bits= MPIntSize * 8,
     <<Integer:Bits/integer>> = MPIntValue,
     Integer.
+
+mpint_to_bin(<<Len:32, Bin:Len/binary>>) ->
+    Bin.
+
+random_bytes(N) ->
+    try strong_rand_bytes(N) of
+	RandBytes ->
+	    RandBytes
+    catch
+	error:low_entropy ->
+	    rand_bytes(N)
+    end.

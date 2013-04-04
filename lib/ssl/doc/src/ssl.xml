@@ -79,6 +79,7 @@
       {keyfile, path()} | {password, string()} |
       {cacerts, [der_encoded()]} | {cacertfile, path()} |
       |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
+      {user_lookup_fun, {fun(), term()}}, {psk_identity, string()}, {srp_identity, {string(), string()}} |
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
       {next_protocols_advertised, [binary()]} |
       {client_preferred_next_protocols, client | server, [binary()]}
@@ -123,6 +124,7 @@
       {key_exchange(), cipher(), hash()}</c></p>
     
     <p><c>key_exchange() =  rsa | dhe_dss | dhe_rsa | dh_anon
+       | psk | dhe_psk | rsa_psk | srp_anon | srp_dss | srp_rsa
     </c></p>
 
    <p><c>cipher() = rc4_128 | des_cbc | '3des_ede_cbc'
@@ -133,6 +135,9 @@
 
     <p><c>prf_random() =  client_random | server_random
     </c></p>
+
+   <p><c>srp_param_type() = srp_1024 | srp_1536 | srp_2048 | srp_3072
+      | srp_4096 | srp_6144 | srp_8192</c></p>
 
   </section>
 
@@ -179,13 +184,16 @@
 
       <tag>{ciphers, ciphers()}</tag>
       <item>The cipher suites that should be supported. The function
-      <c>cipher_suites/0</c> can be used to find all available
-      ciphers. Additionally some anonymous cipher suites ({dh_anon,
-      rc4_128, md5}, {dh_anon, des_cbc, sha}, {dh_anon,
-      '3des_ede_cbc', sha}, {dh_anon, aes_128_cbc, sha}, {dh_anon,
-      aes_256_cbc, sha}) are supported for testing purposes and will
-      only work if explicitly enabled by this option and they are supported/enabled
-      by the peer also.
+      <c>cipher_suites/0</c> can be used to find all ciphers that are
+      supported by default.  <c>cipher_suites(all)</c> may be called
+      to find all available cipher suites.   
+      Pre-Shared Key (<url href="http://www.ietf.org/rfc/rfc4279.txt">RFC 4279</url> and
+      <url href="http://www.ietf.org/rfc/rfc5487.txt">RFC 5487</url>), 
+      Secure Remote Password (<url href="http://www.ietf.org/rfc/rfc5054.txt">RFC 5054</url>) 
+      and anonymous cipher suites only work if explicitly enabled by
+      this option and they are supported/enabled by the peer also.
+      Note that anonymous cipher suites are supported for testing purposes
+      only and should not be used when security matters.
       </item>
 
       <tag>{ssl_imp, new | old}</tag>
@@ -195,10 +203,10 @@
 
       <tag>{secure_renegotiate, boolean()}</tag>
       <item>Specifies if to reject renegotiation attempt that does
-      not live up to RFC 5746. By default secure_renegotiate is
+      not live up to <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>. By default secure_renegotiate is
       set to false i.e. secure renegotiation will be used if possible
       but it will fallback to unsecure renegotiation if the peer
-      does not support RFC 5746.
+      does not support <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>.
       </item>
 
       <tag>{depth, integer()}</tag>
@@ -292,6 +300,32 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
             <c>undefined</c> is specified (this is the default), the process
             will never go into hibernation.
       </item>
+
+      <tag>{user_lookup_fun, {Lookupfun :: fun(), UserState :: term()}}</tag>
+      <item>
+	<p>The lookup fun should be defined as:</p>
+	<code>
+fun(psk, PSKIdentity, UserState :: term()) ->
+	{ok, SharedSecret :: binary()} | error;
+fun(srp, Username, UserState :: term()) ->
+	{ok, {SRPParams :: srp_param_type(), Salt :: binary(), DerivedKey :: binary()}} | error.
+	</code>
+
+	<p>For Pre-Shared Key (PSK) cipher suites, the lookup fun will
+	be called by the client and server to determine the shared
+	secret. When called by the client, PSKIdentity will be set to the
+	hint presented by the server or undefined. When called by the
+	server, PSKIdentity is the identity presented by the client.
+	</p>
+
+	<p>For Secure Remote Password (SRP), the fun will only be used by the server to obtain
+	parameters that it will use to generate its session keys. <c>DerivedKey</c> should be 
+	derived according to <url href="http://tools.ietf.org/html/rfc2945#section-3"> RFC 2945</url> and
+	 <url href="http://tools.ietf.org/html/rfc5054#section-2.4"> RFC 5054</url>:
+	<c>crypto:sha([Salt, crypto:sha([Username, &lt;&lt;$:&gt;&gt;, Password])]) </c>
+	</p>
+      </item>
+
     </taglist>
 
   </section>
@@ -334,6 +368,14 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	   server does not support Next Protocol Negotiation the
 	   connection will be aborted if no default protocol is supplied.</p>
 	   </item>
+
+      <tag>{psk_identity, string()}</tag>
+      <item>Specifies the identity the client presents to the server. The matching secret is
+      found by calling the user_look_fun.
+      </item>
+      <tag>{srp_identity, {Username :: string(), Password :: string()}</tag>
+      <item>Specifies the Username and Password to use to authenticate to the server.
+      </item>
     </taglist>
    </section>
 
@@ -396,6 +438,10 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       using <c>negotiated_next_protocol/1</c> method.
       </item>
 
+      <tag>{psk_identity, string()}</tag>
+      <item>Specifies the server identity hint the server presents to the client.
+      </item>
+
     </taglist>
   </section>
   
@@ -427,13 +473,16 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <name>cipher_suites(Type) -> ciphers()</name>
       <fsummary> Returns a list of supported cipher suites</fsummary>
       <type>
-        <v>Type = erlang | openssl</v>
+        <v>Type = erlang | openssl | all</v>
 
       </type>
       <desc><p>Returns a list of supported cipher suites.
 	cipher_suites() is equivalent to cipher_suites(erlang).
 	Type openssl is provided for backwards compatibility with
-	old ssl that used openssl.
+	old ssl that used openssl. cipher_suites(all) returns
+	all available cipher suites. The cipher suites not present
+	in cipher_suites(erlang) but in included in cipher_suites(all)
+	will not be used unless explicitly configured by the user.
 	</p>
     </desc>
     </func>
@@ -820,7 +869,6 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
         </p>
       </desc>
     </func>
-
 
   </funcs> 
 

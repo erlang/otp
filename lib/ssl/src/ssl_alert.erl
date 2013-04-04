@@ -112,4 +112,6 @@ description_txt(?INTERNAL_ERROR) ->
 description_txt(?USER_CANCELED) ->
     "user canceled";
 description_txt(?NO_RENEGOTIATION) ->
-    "no renegotiation".
+    "no renegotiation";
+description_txt(?UNKNOWN_PSK_IDENTITY) ->
+    "unknown psk identity".

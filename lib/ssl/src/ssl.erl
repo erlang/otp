@@ -37,6 +37,7 @@
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_handshake.hrl").
+-include("ssl_srp_primes.hrl").
 
 -include_lib("public_key/include/public_key.hrl"). 
 
@@ -65,6 +66,9 @@
                         {cert, Der::binary()} | {certfile, path()} | {key, Der::binary()} |
                         {keyfile, path()} | {password, string()} | {cacerts, [Der::binary()]} |
                         {cacertfile, path()} | {dh, Der::binary()} | {dhfile, path()} |
+                        {user_lookup_fun, {fun(), InitialUserState::term()}} |
+                        {psk_identity, string()} |
+                        {srp_identity, {string(), string()}} |
                         {ciphers, ciphers()} | {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} |
                         {reuse_session, fun()} | {hibernate_after, integer()|undefined} |
                         {next_protocols_advertised, list(binary())} |
@@ -351,7 +355,7 @@ negotiated_next_protocol(#sslsocket{pid = Pid}) ->
     ssl_connection:negotiated_next_protocol(Pid).
 
 -spec cipher_suites() -> [erl_cipher_suite()].
--spec cipher_suites(erlang | openssl) -> [erl_cipher_suite()] | [string()].
+-spec cipher_suites(erlang | openssl | all ) -> [erl_cipher_suite()] | [string()].
 			   
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
@@ -364,8 +368,15 @@ cipher_suites(erlang) ->
 
 cipher_suites(openssl) ->
     Version = ssl_record:highest_protocol_version([]),
-    [ssl_cipher:openssl_suite_name(S) || S <- ssl_cipher:suites(Version)].
+    [ssl_cipher:openssl_suite_name(S) || S <- ssl_cipher:suites(Version)];
 
+cipher_suites(all) ->
+    Version = ssl_record:highest_protocol_version([]),
+    Supported = ssl_cipher:suites(Version)
+	++ ssl_cipher:anonymous_suites()
+	++ ssl_cipher:psk_suites(Version)
+	++ ssl_cipher:srp_suites(),
+    [suite_definition(S) || S <- Supported].
 %%--------------------------------------------------------------------
 -spec getopts(#sslsocket{}, [gen_tcp:option_name()]) ->
 		     {ok, [gen_tcp:option()]} | {error, reason()}.
@@ -635,6 +646,9 @@ handle_options(Opts0, _Role) ->
       cacertfile = handle_option(cacertfile, Opts, CaCertDefault),
       dh         = handle_option(dh, Opts, undefined),
       dhfile     = handle_option(dhfile, Opts, undefined),
+      user_lookup_fun = handle_option(user_lookup_fun, Opts, undefined),
+      psk_identity = handle_option(psk_identity, Opts, undefined),
+      srp_identity = handle_option(srp_identity, Opts, undefined),
       ciphers    = handle_option(ciphers, Opts, []),
       %% Server side option
       reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
@@ -654,7 +668,8 @@ handle_options(Opts0, _Role) ->
     SslOptions = [versions, verify, verify_fun,
 		  fail_if_no_peer_cert, verify_client_once,
 		  depth, cert, certfile, key, keyfile,
-		  password, cacerts, cacertfile, dh, dhfile, ciphers,
+		  password, cacerts, cacertfile, dh, dhfile,
+		  user_lookup_fun, psk_identity, srp_identity, ciphers,
 		  reuse_session, reuse_sessions, ssl_imp,
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after, 
 		  erl_dist, next_protocols_advertised,
@@ -756,6 +771,20 @@ validate_option(dhfile, Value) when is_binary(Value) ->
     Value;
 validate_option(dhfile, Value) when is_list(Value), Value =/= "" ->
     list_to_binary(Value);
+validate_option(psk_identity, undefined) ->
+    undefined;
+validate_option(psk_identity, Identity)
+  when is_list(Identity), Identity =/= "", length(Identity) =< 65535 ->
+    list_to_binary(Identity);
+validate_option(user_lookup_fun, undefined) ->
+    undefined;
+validate_option(user_lookup_fun, {Fun, _} = Value) when is_function(Fun, 3) ->
+   Value;
+validate_option(srp_identity, undefined) ->
+    undefined;
+validate_option(srp_identity, {Username, Password})
+  when is_list(Username), is_list(Password), Username =/= "", length(Username) =< 255 ->
+    {list_to_binary(Username), list_to_binary(Password)};
 validate_option(ciphers, Value)  when is_list(Value) ->
     Version = ssl_record:highest_protocol_version([]),
     try cipher_suites(Version, Value)
@@ -926,7 +955,10 @@ cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
     Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
     cipher_suites(Version, Ciphers);
 cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
-    Supported = ssl_cipher:suites(Version) ++ ssl_cipher:anonymous_suites(),
+    Supported = ssl_cipher:suites(Version)
+	++ ssl_cipher:anonymous_suites()
+	++ ssl_cipher:psk_suites(Version)
+	++ ssl_cipher:srp_suites(),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported)] of
 	[] ->
 	    Supported;
