@@ -839,9 +839,17 @@ dss_verify(_Type,_Data,_Signature,_Key) -> ?nif_stub.
 
 % Key = [E,N]  E=PublicExponent N=PublicModulus
 rsa_verify(Data,Signature,Key) ->
-    rsa_verify_nif(sha, Data,Signature,Key).
-rsa_verify(Type, DataOrDigest, Signature, Key) ->
-    case rsa_verify_nif(Type, DataOrDigest, Signature, Key) of
+    rsa_verify(sha, Data,Signature,Key).
+rsa_verify(Type, Data, Signature, Key) when is_binary(Data) ->
+    verify(rsa, Type, mpint_to_bin(Data), mpint_to_bin(Signature), map_mpint_to_bin(Key));
+rsa_verify(Type, Digest, Signature, Key) ->
+    verify(rsa, Type, Digest, mpint_to_bin(Signature), map_mpint_to_bin(Key)).
+
+
+verify(dss, Type, Data, Signature, Key) ->
+    dss_verify_nif(Type, Data, Signature, map_ensure_int_as_bin(Key));
+verify(rsa, Type, DataOrDigest, Signature, Key) ->
+    case rsa_verify_nif(Type, DataOrDigest, Signature, map_ensure_int_as_bin(Key)) of
     	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end.
@@ -1178,13 +1186,13 @@ ec_key_new(_Curve) -> ?nif_stub.
 ec_key_generate(_Key) -> ?nif_stub.
 
 nif_prime_to_term({prime_field, Prime}) ->
-    {prime_field, erlint(Prime)};
+    {prime_field, bin_to_int(Prime)};
 nif_prime_to_term(PrimeField) ->
     PrimeField.
 nif_curve_to_term({A, B, Seed}) ->
-    {erlint(A), erlint(B), Seed}.
+    {bin_to_int(A), bin_to_int(B), Seed}.
 nif_curve_parameters_to_term({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
-    {nif_prime_to_term(PrimeField), nif_curve_to_term(Curve), BasePoint, erlint(Order), erlint(CoFactor)};
+    {nif_prime_to_term(PrimeField), nif_curve_to_term(Curve), BasePoint, bin_to_int(Order), bin_to_int(CoFactor)};
 nif_curve_parameters_to_term(Curve) when is_atom(Curve) ->
     %% named curve
     Curve.
@@ -1193,7 +1201,7 @@ nif_curve_parameters_to_term(Curve) when is_atom(Curve) ->
 ec_key_to_term(Key) ->
     case ec_key_to_term_nif(Key) of
         {Curve, PrivKey, PubKey} ->
-            {nif_curve_parameters_to_term(Curve), erlint(PrivKey), PubKey};
+            {nif_curve_parameters_to_term(Curve), bin_to_int(PrivKey), PubKey};
         _ ->
             erlang:error(conversion_failed)
     end.
@@ -1201,13 +1209,13 @@ ec_key_to_term(Key) ->
 ec_key_to_term_nif(_Key) -> ?nif_stub.
 
 term_to_nif_prime({prime_field, Prime}) ->
-    {prime_field, mpint(Prime)};
+    {prime_field, int_to_bin(Prime)};
 term_to_nif_prime(PrimeField) ->
     PrimeField.
 term_to_nif_curve({A, B, Seed}) ->
-    {mpint(A), mpint(B), Seed}.
+    {int_to_bin(A), int_to_bin(B), Seed}.
 term_to_nif_curve_parameters({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
-    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), BasePoint, mpint(Order), mpint(CoFactor)};
+    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), BasePoint, int_to_bin(Order), int_to_bin(CoFactor)};
 term_to_nif_curve_parameters(Curve) when is_atom(Curve) ->
     %% named curve
     Curve.
@@ -1216,7 +1224,7 @@ term_to_nif_curve_parameters(Curve) when is_atom(Curve) ->
 term_to_ec_key({Curve, undefined, PubKey}) ->
     term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), undefined, PubKey);
 term_to_ec_key({Curve, PrivKey, PubKey}) ->
-    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), mpint(PrivKey), PubKey).
+    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), int_to_bin(PrivKey), PubKey).
 
 term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 
@@ -1356,18 +1364,18 @@ int_to_bin_neg(X,Ds) ->
     int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
 
 
-bin_to_int(Bin) ->
+bin_to_int(Bin) when is_binary(Bin) ->
     Bits = bit_size(Bin),
     <<Integer:Bits/integer>> = Bin,
-    Integer.
+    Integer;
+bin_to_int(undefined) ->
+    undefined.
 
 %% int from integer in a binary with 32bit length
 erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
     Bits= MPIntSize * 8,
     <<Integer:Bits/integer>> = MPIntValue,
-    Integer;
-erlint(undefined) ->
-    undefined.
+    Integer.
 
 mpint_to_bin(<<Len:32, Bin:Len/binary>>) ->
     Bin.

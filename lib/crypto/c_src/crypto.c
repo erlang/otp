@@ -2907,9 +2907,8 @@ static ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
 	    return atom_undefined;
 
     dlen = BN_num_bytes(bn);
-    ptr = enif_make_new_binary(env, dlen+4, &ret);
-    put_int32(ptr, dlen);
-    BN_bn2bin(bn, ptr+4);
+    ptr = enif_make_new_binary(env, dlen, &ret);
+    BN_bn2bin(bn, ptr);
 
     return ret;
 }
@@ -3111,7 +3110,7 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     EC_GROUP *group = NULL;
     EC_POINT *point = NULL;
 
-    if (!(argv[1] == atom_undefined || get_bn_from_mpint(env, argv[1], &priv_key))
+    if (!(argv[1] == atom_undefined || get_bn_from_bin(env, argv[1], &priv_key))
 	|| !(argv[2] == atom_undefined || enif_is_binary(env, argv[2]))) {
 	    printf("#1\n");
 	goto out_err;
@@ -3131,8 +3130,8 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     else if (enif_is_tuple(env, argv[0])
 	       && enif_get_tuple(env,argv[0],&c_arity,&curve)
 	       && c_arity == 5
-	       && get_bn_from_mpint(env, curve[3], &bn_order)
-	       && (curve[4] != atom_none && get_bn_from_mpint(env, curve[4], &cofactor))) {
+	       && get_bn_from_bin(env, curve[3], &bn_order)
+	       && (curve[4] != atom_none && get_bn_from_bin(env, curve[4], &cofactor))) {
 	//* {Field, Prime, Point, Order, CoFactor} = Curve */
 
 	int f_arity = -1;
@@ -3144,8 +3143,8 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 
 	/* {A, B, Seed} = Prime */
 	if (!enif_get_tuple(env,curve[1],&p_arity,&prime)
-	    || !get_bn_from_mpint(env, prime[0], &a)
-	    || !get_bn_from_mpint(env, prime[1], &b))
+	    || !get_bn_from_bin(env, prime[0], &a)
+	    || !get_bn_from_bin(env, prime[1], &b))
 	    goto out_err;
 
 	if (!enif_get_tuple(env,curve[0],&f_arity,&field))
@@ -3154,7 +3153,7 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	if (f_arity == 2 && field[0] == atom_prime_field) {
 	    /* {prime_field, Prime} */
 
-	    if (!get_bn_from_mpint(env, field[1], &p))
+	    if (!get_bn_from_bin(env, field[1], &p))
 		goto out_err;
 
 	    if (BN_is_negative(p) || BN_is_zero(p))
@@ -3378,11 +3377,11 @@ static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	digest = data_bin.data;
     }
     else {
-	if (!inspect_mpint(env,argv[1],&data_bin)) {
+	if (!enif_inspect_binary(env,argv[1],&data_bin)) {
 	    return enif_make_badarg(env);
 	}
 	digest = hmacbuf;
-	digp->funcp(data_bin.data+4, data_bin.size-4, digest);
+	digp->funcp(data_bin.data, data_bin.size, digest);
     }
 
     enif_alloc_binary(ECDSA_size(obj->key), &ret_bin);
@@ -3425,7 +3424,7 @@ static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 	return atom_notsup;
     }
 
-    if (!inspect_mpint(env, argv[2], &sign_bin)
+    if (!enif_inspect_binary(env, argv[2], &sign_bin)
 	|| !enif_get_resource(env, argv[3], res_type_ec_key, (void **)&obj))
 	return enif_make_badarg(env);
 
@@ -3438,16 +3437,16 @@ static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 	}
 	digest = data_bin.data;
     }
-    else if (inspect_mpint(env, argv[1], &data_bin)) {
+    else if (enif_inspect_binary(env, argv[1], &data_bin)) {
 	digest = hmacbuf;
-	digp->funcp(data_bin.data+4, data_bin.size-4, digest);
+	digp->funcp(data_bin.data, data_bin.size, digest);
     }
     else {
 	return enif_make_badarg(env);
     }
 
     i = ECDSA_verify(digp->NID_type, digest, digp->len,
-		     sign_bin.data+4, sign_bin.size-4, obj->key);
+		     sign_bin.data, sign_bin.size, obj->key);
 
     return (i==1 ? atom_true : atom_false);
 #else

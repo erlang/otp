@@ -1906,9 +1906,9 @@ ec_do() ->
     ?line CsCaKey = crypto:ec_key_to_term(T3),
 
     Msg = <<99,234,6,64,190,237,201,99,80,248,58,40,70,45,149,218,5,246,242,63>>,
-    Sign = crypto:ecdsa_sign(sha, sized_binary(Msg), L2),
-    ?line true = crypto:ecdsa_verify(sha, sized_binary(Msg), sized_binary(Sign), L2),
-    ?line false = crypto:ecdsa_verify(sha, sized_binary(Msg), sized_binary(<<10,20>>), L2),
+    Sign = crypto:ecdsa_sign(sha, Msg, L2),
+    ?line true = crypto:ecdsa_verify(sha, Msg, Sign, L2),
+    ?line false = crypto:ecdsa_verify(sha, Msg, <<10,20>>, L2),
 
     ok.
 
