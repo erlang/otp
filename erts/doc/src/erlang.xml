@@ -4477,6 +4477,7 @@ true</pre>
     </func>
     <func>
       <name name="spawn_opt" arity="2"/>
+      <type name="priority_level" />
       <fsummary>Create a new process with a fun as entry point</fsummary>
       <desc>
         <p>Returns the pid of a new process started by the application
@@ -4490,6 +4491,7 @@ true</pre>
     </func>
     <func>
       <name name="spawn_opt" arity="3"/>
+      <type name="priority_level" />
       <fsummary>Create a new process with a fun as entry point on a given node</fsummary>
       <desc>
         <p>Returns the pid of a new process started by the application
@@ -4501,6 +4503,7 @@ true</pre>
     </func>
     <func>
       <name name="spawn_opt" arity="4"/>
+      <type name="priority_level" />
       <fsummary>Create a new process with a function as entry point</fsummary>
       <desc>
         <p>Works exactly like
@@ -4602,6 +4605,7 @@ true</pre>
     </func>
     <func>
       <name name="spawn_opt" arity="5"/>
+      <type name="priority_level" />
       <fsummary>Create a new process with a function as entry point on a given node</fsummary>
       <desc>
         <p>Returns the pid of a new process started by the application
