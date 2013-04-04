@@ -1905,11 +1905,11 @@ setelement(_Index, _Tuple1, _Value) ->
       Function :: atom(),
       Args :: [term()],
       Options :: [Option],
-      Option :: link | monitor | {priority, Level}
+      Option :: link | monitor
+              | {priority, Level :: priority_level()}
               | {fullsweep_after, Number :: non_neg_integer()}
               | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()},
-      Level :: low | normal | high.
+              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
 spawn_opt(_Tuple) ->
    erlang:nif_error(undefined).
 
@@ -2244,11 +2244,11 @@ spawn_monitor(M, F, A) ->
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
       Fun :: function(),
       Options :: [Option],
-      Option :: link | monitor | {priority, Level}
+      Option :: link | monitor
+              | {priority, Level :: priority_level()}
               | {fullsweep_after, Number :: non_neg_integer()}
               | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()},
-      Level :: low | normal | high.
+              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
 spawn_opt(F, O) when erlang:is_function(F) ->
     spawn_opt(erlang, apply, [F, []], O);
 spawn_opt({M,F}=MF, O) when erlang:is_atom(M), erlang:is_atom(F) ->
@@ -2262,11 +2262,11 @@ spawn_opt(F, O) ->
       Node :: node(),
       Fun :: function(),
       Options :: [Option],
-      Option :: link | monitor | {priority, Level}
+      Option :: link | monitor
+              | {priority, Level :: priority_level()}
               | {fullsweep_after, Number :: non_neg_integer()}
               | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()},
-      Level :: low | normal | high.
+              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
 spawn_opt(N, F, O) when N =:= erlang:node() ->
     spawn_opt(F, O);
 spawn_opt(N, F, O) when erlang:is_function(F) ->
@@ -2354,11 +2354,11 @@ spawn_link(N,M,F,A) ->
       Function :: atom(),
       Args :: [term()],
       Options :: [Option],
-      Option :: link | monitor | {priority, Level}
+      Option :: link | monitor
+              | {priority, Level :: priority_level()}
               | {fullsweep_after, Number :: non_neg_integer()}
               | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()},
-      Level :: low | normal | high.
+              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
 spawn_opt(M, F, A, Opts) ->
     case catch erlang:spawn_opt({M,F,A,Opts}) of
 	{'EXIT',{Reason,_}} ->
@@ -2374,11 +2374,11 @@ spawn_opt(M, F, A, Opts) ->
       Function :: atom(),
       Args :: [term()],
       Options :: [Option],
-      Option :: link | monitor | {priority, Level}
+      Option :: link | monitor
+              | {priority, Level :: priority_level()}
               | {fullsweep_after, Number :: non_neg_integer()}
               | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()},
-      Level :: low | normal | high.
+              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
 			      erlang:is_atom(M), erlang:is_atom(F),
                               erlang:is_list(A), erlang:is_list(O) ->
