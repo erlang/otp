@@ -1425,7 +1425,7 @@ erl_start(int argc, char **argv)
 		VERBOSE(DEBUG_SYSTEM,
 			("scheduler wake cleanup threshold: %s\n", arg));
 	    }
-	    else if (sys_strcmp("wt", sub_param) == 0) {
+	    else if (has_prefix("wt", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
 		if (erts_sched_set_wakeup_other_thresold(arg) != 0) {
 		    erts_fprintf(stderr, "scheduler wakeup threshold: %s\n",
@@ -1435,7 +1435,7 @@ erl_start(int argc, char **argv)
 		VERBOSE(DEBUG_SYSTEM,
 			("scheduler wakeup threshold: %s\n", arg));
 	    }
-	    else if (sys_strcmp("ws", sub_param) == 0) {
+	    else if (has_prefix("ws", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
 		if (erts_sched_set_wakeup_other_type(arg) != 0) {
 		    erts_fprintf(stderr, "scheduler wakeup strategy: %s\n",
