@@ -2651,11 +2651,17 @@ void erts_init_io(int port_tab_size,
 		  int port_tab_size_ignore_files)
 {
     ErlDrvEntry** dp;
+    UWord common_element_size;
     erts_smp_rwmtx_opt_t drv_list_rwmtx_opts = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     drv_list_rwmtx_opts.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
     drv_list_rwmtx_opts.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
+    common_element_size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
+    common_element_size += ERTS_ALC_DATA_ALIGN_SIZE(sizeof(ErtsPortTaskBusyPortQ));
+    common_element_size += 10; /* name */
 #ifdef ERTS_SMP
+    common_element_size += sizeof(erts_mtx_t);
+
     init_xports_list_alloc();
 #endif
 
@@ -2684,6 +2690,7 @@ void erts_init_io(int port_tab_size,
 			 NULL,
 			 (ErtsPTabElementCommon *) &erts_invalid_port.common,
 			 port_tab_size,
+			 common_element_size, /* Doesn't need to be excact */
 			 "port_table");
 
     erts_smp_atomic_init_nob(&erts_bytes_out, 0);

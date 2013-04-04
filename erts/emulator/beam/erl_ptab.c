@@ -421,6 +421,7 @@ erts_ptab_init_table(ErtsPTab *ptab,
 		     void (*release_element)(void *),
 		     ErtsPTabElementCommon *invalid_element,
 		     int size,
+		     UWord element_size,
 		     char *name)
 {
     size_t tab_sz;
@@ -443,6 +444,7 @@ erts_ptab_init_table(ErtsPTab *ptab,
 	bits = erts_fit_in_bits_int32((Sint32) size - 1);
     }
 
+    ptab->r.o.element_size = element_size;
     ptab->r.o.max = size;
 
     tab_sz = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(size*sizeof(erts_smp_atomic_t));
@@ -670,9 +672,10 @@ erts_ptab_delete_element(ErtsPTab *ptab,
     }
 
     if (ptab->r.o.release_element)
-	erts_schedule_thr_prgr_later_op(ptab->r.o.release_element,
-					(void *) ptab_el,
-					&ptab_el->u.release);
+	erts_schedule_thr_prgr_later_cleanup_op(ptab->r.o.release_element,
+						(void *) ptab_el,
+						&ptab_el->u.release,
+						ptab->r.o.element_size);
 }
 
 /*

@@ -108,6 +108,8 @@ struct ErtsThrPrgrLaterOp_ {
 
 #ifdef ERTS_SMP
 
+/* ERTS_THR_PRGR_VAL_FIRST should only be used when initializing... */
+#define ERTS_THR_PRGR_VAL_FIRST ((ErtsThrPrgrVal) 0)
 #define ERTS_THR_PRGR_VAL_WAITING (~((ErtsThrPrgrVal) 0))
 #define ERTS_THR_PRGR_INVALID (~((ErtsThrPrgrVal) 0))
 

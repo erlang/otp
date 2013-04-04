@@ -1009,6 +1009,20 @@
 	    documentation of the <seealso marker="#+sbt">+sbt</seealso> flag.
 	    </p>
 	  </item>
+	  <tag><marker id="+swct"><c>+sws very_eager|eager|medium|lazy|very_lazy</c></marker></tag>
+	  <item>
+             <p>
+	       Set scheduler wake cleanup threshold. Default is <c>medium</c>.
+	       This flag controls how eager schedulers should be requesting
+	       wake up due to certain cleanup operations. When a lazy setting
+	       is used, more outstanding cleanup operations can be left undone
+	       while a scheduler is idling. When an eager setting is used,
+	       schedulers will more frequently be woken, potentially increasing
+	       CPU-utilization.
+	     </p>
+             <p><em>NOTE:</em> This flag may be removed or changed at any time without prior notice.
+	     </p>
+	  </item>
 	  <tag><marker id="+sws"><c>+sws default|legacy</c></marker></tag>
 	  <item>
              <p>

@@ -146,6 +146,14 @@ extern BeamInstr beam_continue_exit[];
 int erts_sched_compact_load;
 Uint erts_no_schedulers;
 
+#define ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_VERY_LAZY		(4*1024*1024)
+#define ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_LAZY			(512*1024)
+#define ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_MEDIUM			(64*1024)
+#define ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_EAGER			(16*1024)
+#define ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_VERY_EAGER		(1024)
+
+static UWord thr_prgr_later_cleanup_op_threshold = ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_MEDIUM;
+
 ErtsPTab erts_proc erts_align_attribute(ERTS_CACHE_LINE_SIZE);
 
 int erts_sched_thread_suggested_stack_size = -1;
@@ -496,6 +504,7 @@ erts_init_process(int ncpu, int proc_tab_size)
 #endif
 			 (ErtsPTabElementCommon *) &erts_invalid_process.common,
 			 proc_tab_size,
+			 sizeof(Process),
 			 "process_table");
 
     last_reductions = 0;
@@ -909,6 +918,53 @@ unset_aux_work_flags(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flgs)
 #ifdef ERTS_SMP
 
 static ERTS_INLINE void
+haw_chk_later_cleanup_op_wakeup(ErtsAuxWorkData *awdp, ErtsThrPrgrVal val)
+{
+    if (awdp->later_op.first
+	&& erts_thr_progress_cmp(val, awdp->later_op.thr_prgr) >= 0) {
+	awdp->later_op.size = thr_prgr_later_cleanup_op_threshold;
+    }
+}
+
+static ERTS_INLINE void
+haw_thr_prgr_wakeup(ErtsAuxWorkData *awdp, ErtsThrPrgrVal val)
+{
+    int cmp = erts_thr_progress_cmp(val, awdp->latest_wakeup);
+    if (cmp != 0) {
+	if (cmp > 0) {
+	    awdp->latest_wakeup = val;
+	    haw_chk_later_cleanup_op_wakeup(awdp, val);
+	}
+	erts_thr_progress_wakeup(awdp->esdp, val);
+    }
+}
+
+static ERTS_INLINE void
+haw_thr_prgr_soft_wakeup(ErtsAuxWorkData *awdp, ErtsThrPrgrVal val)
+{
+    if (erts_thr_progress_cmp(val, awdp->latest_wakeup) > 0) {
+	awdp->latest_wakeup = val;
+	haw_chk_later_cleanup_op_wakeup(awdp, val);
+	erts_thr_progress_wakeup(awdp->esdp, val);
+    }
+}
+
+static ERTS_INLINE void
+haw_thr_prgr_later_cleanup_op_wakeup(ErtsAuxWorkData *awdp, ErtsThrPrgrVal val, UWord size)
+{
+    if (erts_thr_progress_cmp(val, awdp->latest_wakeup) > 0) {
+	awdp->later_op.thr_prgr = val;
+	if (awdp->later_op.size > size)
+	    awdp->later_op.size -= size;
+	else {
+	    awdp->latest_wakeup = val;
+	    awdp->later_op.size = thr_prgr_later_cleanup_op_threshold;
+	    erts_thr_progress_wakeup(awdp->esdp, val);
+	}
+    }
+}
+
+static ERTS_INLINE void
 haw_thr_prgr_current_reset(ErtsAuxWorkData *awdp)
 {
     awdp->current_thr_prgr = ERTS_THR_PRGR_INVALID;
@@ -1066,8 +1122,7 @@ misc_aux_work_clean(ErtsThrQ_t *q,
     case ERTS_THR_Q_NEED_THR_PRGR:
 #ifdef ERTS_SMP
 	set_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_MISC_THR_PRGR);
-	erts_thr_progress_wakeup(awdp->esdp,
-				 erts_thr_q_need_thr_progress(q));
+	haw_thr_prgr_soft_wakeup(awdp, erts_thr_q_need_thr_progress(q));
 #endif
     case ERTS_THR_Q_CLEAN:
 	break;
@@ -1225,8 +1280,7 @@ handle_async_ready_clean(ErtsAuxWorkData *awdp,
 	return aux_work & ~ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
 #ifdef ERTS_SMP
     case ERTS_ASYNC_READY_NEED_THR_PRGR:
-	erts_thr_progress_wakeup(awdp->esdp,
-				 awdp->async_ready.thr_prgr);
+	haw_thr_prgr_soft_wakeup(awdp, awdp->async_ready.thr_prgr);
 	awdp->async_ready.need_thr_prgr = 1;
 	return aux_work & ~ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
 #endif
@@ -1300,7 +1354,7 @@ handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waitin
 	awdp->dd.thr_prgr = wakeup;
 	set_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD_THR_PRGR);
 	awdp->dd.thr_prgr = wakeup;
-	erts_thr_progress_wakeup(awdp->esdp, wakeup);
+	haw_thr_prgr_soft_wakeup(awdp, wakeup);
     }
     else if (awdp->dd.completed_callback) {
 	awdp->dd.completed_callback(awdp->dd.completed_arg);
@@ -1341,7 +1395,7 @@ handle_delayed_dealloc_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, i
 	if (wakeup == ERTS_THR_PRGR_INVALID)
 	    wakeup = erts_thr_progress_later(awdp->esdp);
 	awdp->dd.thr_prgr = wakeup;
-	erts_thr_progress_wakeup(awdp->esdp, wakeup);
+	haw_thr_prgr_soft_wakeup(awdp, wakeup);
     }
     else {
 	unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD_THR_PRGR);
@@ -1376,6 +1430,7 @@ handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int wait
 	}
 	lop->func(lop->data);
 	if (!awdp->later_op.first) {
+	    awdp->later_op.size = thr_prgr_later_cleanup_op_threshold;
 	    awdp->later_op.last = NULL;
 	    unset_aux_work_flags(awdp->ssi,
 				 ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP);
@@ -1384,6 +1439,29 @@ handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int wait
     }
 
     return aux_work;
+}
+
+static ERTS_INLINE ErtsThrPrgrVal
+enqueue_later_op(ErtsSchedulerData *esdp,
+		 void (*later_func)(void *),
+		 void *later_data,
+		 ErtsThrPrgrLaterOp *lop)
+{
+    ErtsThrPrgrVal later = erts_thr_progress_later(esdp);
+    ASSERT(esdp);
+
+    lop->func = later_func;
+    lop->data = later_data;
+    lop->later = later;
+    lop->next = NULL;
+    if (!esdp->aux_work_data.later_op.last)
+	esdp->aux_work_data.later_op.first = lop;
+    else
+	esdp->aux_work_data.later_op.last->next = lop;
+    esdp->aux_work_data.later_op.last = lop;
+    set_aux_work_flags_wakeup_nob(esdp->ssi,
+				  ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP);
+    return later;
 }
 
 #endif /* ERTS_SMP */
@@ -1396,31 +1474,24 @@ erts_schedule_thr_prgr_later_op(void (*later_func)(void *),
 #ifndef ERTS_SMP
     later_func(later_data);
 #else
-    ErtsSchedulerData *esdp;
-    ErtsAuxWorkData *awdp;
-    int request_wakeup = 1;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    ErtsThrPrgrVal later = enqueue_later_op(esdp, later_func, later_data, lop);
+    haw_thr_prgr_wakeup(&esdp->aux_work_data, later);
+#endif
+}
 
-    esdp = erts_get_scheduler_data();
-    ASSERT(esdp);
-    awdp = &esdp->aux_work_data;
-
-    lop->func = later_func;
-    lop->data = later_data;
-    lop->later = erts_thr_progress_later(esdp);
-    lop->next = NULL;
-    if (!awdp->later_op.last)
-	awdp->later_op.first = lop;
-    else {
-	ErtsThrPrgrLaterOp *last = awdp->later_op.last;
-	last->next = lop;
-	if (erts_thr_progress_equal(last->later, lop->later))
-	    request_wakeup = 0;
-    }
-    awdp->later_op.last = lop;
-    set_aux_work_flags_wakeup_nob(awdp->ssi,
-				  ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP);
-    if (request_wakeup)
-	erts_thr_progress_wakeup(esdp, lop->later);
+void
+erts_schedule_thr_prgr_later_cleanup_op(void (*later_func)(void *),
+					void *later_data,
+					ErtsThrPrgrLaterOp *lop,
+					UWord size)
+{
+#ifndef ERTS_SMP
+    later_func(later_data);
+#else
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    ErtsThrPrgrVal later = enqueue_later_op(esdp, later_func, later_data, lop);
+    haw_thr_prgr_later_cleanup_op_wakeup(&esdp->aux_work_data, later, size);
 #endif
 }
 
@@ -4358,6 +4429,25 @@ erts_sched_set_busy_wait_threshold(char *str)
 
     return 0;
 }
+
+int
+erts_sched_set_wake_cleanup_threshold(char *str)
+{
+    if (sys_strcmp(str, "very_lazy") == 0)
+	thr_prgr_later_cleanup_op_threshold = ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_VERY_LAZY;
+    else if (sys_strcmp(str, "lazy") == 0)
+	thr_prgr_later_cleanup_op_threshold = ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_LAZY;
+    else if (sys_strcmp(str, "medium") == 0)
+	thr_prgr_later_cleanup_op_threshold = ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_MEDIUM;
+    else if (sys_strcmp(str, "eager") == 0)
+	thr_prgr_later_cleanup_op_threshold = ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_EAGER;
+    else if (sys_strcmp(str, "very_eager") == 0)
+	thr_prgr_later_cleanup_op_threshold = ERTS_THR_PRGR_LATER_CLEANUP_OP_THRESHOLD_VERY_EAGER;
+    else
+	return EINVAL;
+    return 0;
+}
+
 static void
 init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp, char *dawwp)
 {
@@ -4365,10 +4455,13 @@ init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp, char *dawwp)
     awdp->esdp = esdp;
     awdp->ssi = esdp ? esdp->ssi : NULL;
 #ifdef ERTS_SMP
+    awdp->latest_wakeup = ERTS_THR_PRGR_VAL_FIRST;
     awdp->misc.thr_prgr = ERTS_THR_PRGR_VAL_WAITING;
     awdp->dd.thr_prgr = ERTS_THR_PRGR_VAL_WAITING;
     awdp->dd.completed_callback = NULL;
     awdp->dd.completed_arg = NULL;
+    awdp->later_op.thr_prgr = ERTS_THR_PRGR_VAL_FIRST;
+    awdp->later_op.size = 0;
     awdp->later_op.first = NULL;
     awdp->later_op.last = NULL;
 #endif
