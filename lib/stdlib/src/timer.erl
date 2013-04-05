@@ -354,7 +354,7 @@ timer_timeout(SysTime) ->
 	'$end_of_table' -> 
 	    infinity;
 	{Time, _Ref} when Time > SysTime ->
-	    Timeout = (Time - SysTime) div 1000,
+	    Timeout = (Time - SysTime + 999) div 1000,
 	    %% Returned timeout must fit in a small int
 	    erlang:min(Timeout, ?MAX_TIMEOUT);
 	Key ->
@@ -414,7 +414,7 @@ next_timeout() ->
 	'$end_of_table' -> 
 	    infinity;
 	{Time, _} ->
-	    erlang:min(positive((Time - system_time()) div 1000), ?MAX_TIMEOUT)
+	    erlang:min(positive((Time - system_time() + 999) div 1000), ?MAX_TIMEOUT)
     end.
 
 %% Help functions
