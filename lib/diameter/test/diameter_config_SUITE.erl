@@ -82,7 +82,11 @@
           [[true],
            [false],
            [[node(), node()]]],
-          [[x]]}]).
+          [[x]]},
+         {invalid_option,  %% invalid service options are rejected
+          [],
+          [[x],
+           [x,x]]}]).
 
 -define(TRANSPORT_CONFIG,
         [{transport_module,
@@ -167,7 +171,14 @@
            [[{okay, 1}]],
            [[{suspect, 2}]]],
           [[x],
-           [[{open, 0}]]]}]).
+           [[{open, 0}]]]},
+         {private,
+          [[x]],
+          []},
+         {invalid_option,  %% invalid transport options are silently ignored
+          [[x],
+           [x,x]],
+          []}]).
 
 %% ===========================================================================
 
