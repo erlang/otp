@@ -598,11 +598,7 @@ default_output() ->
 wait_io_mon_reply(From, Mref) ->
     receive
 	{io_reply, From, Reply} ->
-	    erlang:demonitor(Mref),
-	    receive 
-		{'DOWN', Mref, _, _, _} -> true
-	    after 0 -> true
-	    end,
+	    erlang:demonitor(Mref, [flush]),
 	    Reply;
 	{'EXIT', From, _What} ->
 	    receive

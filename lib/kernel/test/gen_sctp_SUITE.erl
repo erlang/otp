@@ -1399,8 +1399,7 @@ s_req(S, Req) ->
 	{'DOWN',Mref,_,_,Error} ->
 	    exit(Error);
 	{S,Mref,Reply} ->
-	    erlang:demonitor(Mref),
-	    receive {'DOWN',Mref,_,_,_} -> ok after 0 -> ok end,
+	    erlang:demonitor(Mref, [flush]),
 	    Reply
     end.
 

@@ -69,13 +69,8 @@ request(Pid, true, Timeout, Msg, RequestId) ->
     gen_server:cast(Pid, {request, Timeout, Msg, RequestId, self(), MRef}),
     receive
 	{MRef, Reply} ->
-	    erlang:demonitor(MRef),
-            receive 
-                {'DOWN', MRef, _, _, _} -> 
-                    Reply
-            after 0 -> 
-                    Reply
-            end;
+	    erlang:demonitor(MRef, [flush]),
+            Reply;
 	{'DOWN', MRef, _, Pid, _Reason} when is_pid(Pid) ->
             receive
 		%% Clear EXIT message from queue
@@ -444,13 +439,7 @@ collect_fragments(GIOPHdr1, InBuffer, Bytes, Proxy, RequestId, MRef) ->
 	%% the reply and send it to the client.
 	{fragment, #giop_message{byte_order = ByteOrder,
 				 message    = Message} = GIOPHdr2, RequestId, MRef} ->
-	    erlang:demonitor(MRef),
-            receive 
-                {'DOWN', MRef, _, _, _} -> 
-		    ok
-            after 0 -> 
-		    ok
-            end,
+	    erlang:demonitor(MRef, [flush]),
 	    case catch cdr_decode:dec_message_header(null, GIOPHdr2, Message) of
 		{_, #fragment_header{}, FragBody, _, _} ->
 		    %% This buffer is all the fragments concatenated.
@@ -484,13 +473,8 @@ Unable to decode Reply or LocateReply header",[?LINE, NewGIOP, Error], ?DEBUG_LE
 	{MRef, {'EXCEPTION', E}} ->
 	    orber:dbg("[~p] orber_iiop:collect_fragments(~p);", 
 		      [?LINE, E], ?DEBUG_LEVEL),
-	    erlang:demonitor(MRef),
-            receive 
-                {'DOWN', MRef, _, _, _} -> 
-		    corba:raise(E)
-            after 0 -> 
-		    corba:raise(E)
-            end;
+	    erlang:demonitor(MRef, [flush]),
+            corba:raise(E);
 	{'DOWN', MRef, _, Proxy, Reason} when is_pid(Proxy) ->
 	    orber:dbg("[~p] orber_iiop:collect_fragments(~p);~n"
 		      "Monitor generated a DOWN message.", 
@@ -511,13 +495,8 @@ clear_queue(Proxy, RequestId, MRef) ->
 	{MRef, RequestId, cancelled} ->
 	    %% This is the last message that the proxy will send
 	    %% after we've cancelled the request.
-	    erlang:demonitor(MRef),
-	    receive 
-		{'DOWN', MRef, _, _, _} -> 
-		    ok
-	    after 0 -> 
-		    ok
-	    end;
+	    erlang:demonitor(MRef, [flush]),
+	    ok;
 	{'DOWN', MRef, _, Proxy, _Reason} ->
 	    %% The proxy terminated. Clear EXIT message from queue
             receive

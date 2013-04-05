@@ -503,8 +503,7 @@ getit(Req, DefaultName) ->
 			Pid, Reason} ->
 			   {error, Reason}
 		   end,
-	    catch erlang:demonitor(Ref2),
-	    receive {'DOWN',Ref2,_,_,_} -> ok after 0 -> ok end,
+	    catch erlang:demonitor(Ref2, [flush]),
 	    Res2
     end.
 

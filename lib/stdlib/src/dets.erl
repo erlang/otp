@@ -1246,13 +1246,8 @@ req(Proc, R) ->
 	{'DOWN', Ref, process, Proc, _Info} ->
             badarg;
 	{Proc, Reply} ->
-	    erlang:demonitor(Ref),
-	    receive 
-		{'DOWN', Ref, process, Proc, _Reason} ->
-                    Reply
-	    after 0 ->
-                    Reply
-	    end
+	    erlang:demonitor(Ref, [flush]),
+	    Reply
     end.
 
 %% Inlined.

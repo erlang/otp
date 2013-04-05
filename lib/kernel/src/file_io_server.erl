@@ -92,8 +92,7 @@ do_start(Spawn, Owner, FileName, ModeList) ->
     Mref = erlang:monitor(process, Pid),
     receive
 	{Ref, {error, _Reason} = Error} ->
-	    erlang:demonitor(Mref),
-	    receive {'DOWN', Mref, _, _, _} -> ok after 0 -> ok end,
+	    erlang:demonitor(Mref, [flush]),
 	    Error;
 	{Ref, ok} ->
 	    erlang:demonitor(Mref),

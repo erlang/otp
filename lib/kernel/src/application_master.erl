@@ -76,13 +76,8 @@ call(AppMaster, Req) ->
 	{'DOWN', Ref, process, _, _Info} ->
 	    ok;
 	{Tag, Res} ->
-	    erlang:demonitor(Ref),
-	    receive 
-		{'DOWN', Ref, process, _, _Info} -> 
-		    Res
-	    after 0 ->
-		    Res
-	    end
+	    erlang:demonitor(Ref, [flush]),
+	    Res
     end.
 
 %%%-----------------------------------------------------------------
