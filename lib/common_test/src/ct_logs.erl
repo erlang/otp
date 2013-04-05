@@ -639,20 +639,21 @@ logger_loop(State) ->
 			    case erlang:is_process_alive(TCGL) of
 				true ->
 				    State1 = print_to_log(SyncOrAsync, Pid,
+							  Category,
 							  TCGL, List, State),
 				    logger_loop(State1#logger_state{
 						  tc_groupleaders = TCGLs});
 				false ->
 				    %% Group leader is dead, so write to the
-				    %% CtLog instead
-				    Fd = State#logger_state.ct_log_fd,
-				    [begin io:format(Fd,Str,Args),
-					   io:nl(Fd) end || {Str,Args} <- List],
+				    %% CtLog or unexpected_io log instead
+				    unexpected_io(Pid,Category,List,State),
 				    logger_loop(State)			    
 			    end;
-			{ct_log,Fd,TCGLs} ->
-			    [begin io:format(Fd,Str,Args),io:nl(Fd) end ||
-				{Str,Args} <- List],
+			{ct_log,_Fd,TCGLs} ->
+			    %% If category is ct_internal then write
+			    %% to ct_log, else write to unexpected_io
+			    %% log
+			    unexpected_io(Pid,Category,List,State),
 			    logger_loop(State#logger_state{
 					  tc_groupleaders = TCGLs})
 		    end;
@@ -746,27 +747,32 @@ create_io_fun(FromPid, State) ->
 	    end
     end.
 
-print_to_log(sync, FromPid, TCGL, List, State) ->
-    IoFun = create_io_fun(FromPid, State),
+print_to_log(sync, FromPid, Category, TCGL, List, State) ->
     %% in some situations (exceptions), the printout is made from the
     %% test server IO process and there's no valid group leader to send to
-    IoProc = if FromPid /= TCGL -> TCGL;
-		true -> State#logger_state.ct_log_fd
-	     end,
-    io:format(IoProc, "~ts", [lists:foldl(IoFun, [], List)]),
+    if FromPid /= TCGL ->
+	    IoFun = create_io_fun(FromPid, State),
+	    io:format(TCGL,"~ts", [lists:foldl(IoFun, [], List)]);
+       true ->
+	    unexpected_io(FromPid,Category,List,State)
+    end,
     State;
 
-print_to_log(async, FromPid, TCGL, List, State) ->
-    IoFun = create_io_fun(FromPid, State),
+print_to_log(async, FromPid, Category, TCGL, List, State) ->
     %% in some situations (exceptions), the printout is made from the
     %% test server IO process and there's no valid group leader to send to
-    IoProc = if FromPid /= TCGL -> TCGL;
-		true -> State#logger_state.ct_log_fd
-	     end,
-    Printer = fun() ->
-		      test_server:permit_io(IoProc, self()),
-		      io:format(IoProc, "~ts", [lists:foldl(IoFun, [], List)])
-	      end,
+    Printer =
+	if FromPid /= TCGL ->
+		IoFun = create_io_fun(FromPid, State),
+		fun() ->
+			test_server:permit_io(TCGL, self()),
+			io:format(TCGL, "~ts", [lists:foldl(IoFun, [], List)])
+		end;
+	   true ->
+		fun() ->
+			unexpected_io(FromPid,Category,List,State)
+		end
+	end,
     case State#logger_state.async_print_jobs of
 	[] ->
 	    {_Pid,Ref} = spawn_monitor(Printer),
@@ -2514,3 +2520,11 @@ html_encoding(latin1) ->
     "iso-8859-1";
 html_encoding(utf8) ->
     "utf-8".
+
+unexpected_io(Pid,ct_internal,List,#logger_state{ct_log_fd=Fd}=State) ->
+    IoFun = create_io_fun(Pid,State),
+    io:format(Fd, "~ts", [lists:foldl(IoFun, [], List)]);
+unexpected_io(Pid,_Category,List,State) ->
+    IoFun = create_io_fun(Pid,State),
+    Data = io_lib:format("~ts", [lists:foldl(IoFun, [], List)]),
+    test_server_io:print_unexpected(Data).
