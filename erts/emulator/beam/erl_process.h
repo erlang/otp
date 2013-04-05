@@ -430,6 +430,7 @@ typedef struct {
     ErtsSchedulerSleepInfo *ssi;
 #ifdef ERTS_SMP
     ErtsThrPrgrVal current_thr_prgr;
+    ErtsThrPrgrVal latest_wakeup;
 #endif
     struct {
 	int ix;
@@ -444,6 +445,8 @@ typedef struct {
 	void (*completed_arg)(void *);
     } dd;
     struct {
+	ErtsThrPrgrVal thr_prgr;
+	UWord size;
 	ErtsThrPrgrLaterOp *first;
 	ErtsThrPrgrLaterOp *last;
     } later_op;
@@ -1298,10 +1301,15 @@ ERTS_GLB_INLINE int erts_proclist_is_last(ErtsProcList *list,
 int erts_sched_set_wakeup_other_thresold(char *str);
 int erts_sched_set_wakeup_other_type(char *str);
 int erts_sched_set_busy_wait_threshold(char *str);
+int erts_sched_set_wake_cleanup_threshold(char *);
 
 void erts_schedule_thr_prgr_later_op(void (*)(void *),
 				     void *,
 				     ErtsThrPrgrLaterOp *);
+void erts_schedule_thr_prgr_later_cleanup_op(void (*)(void *),
+					     void *,
+					     ErtsThrPrgrLaterOp *,
+					     UWord);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_dbg_check_halloc_lock(Process *p);

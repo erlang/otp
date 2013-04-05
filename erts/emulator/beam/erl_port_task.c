@@ -151,9 +151,10 @@ static ERTS_INLINE void
 schedule_port_task_free(ErtsPortTask *ptp)
 {
 #ifdef ERTS_SMP
-    erts_schedule_thr_prgr_later_op(call_port_task_free,
-				    (void *) ptp,
-				    &ptp->u.release);
+    erts_schedule_thr_prgr_later_cleanup_op(call_port_task_free,
+					    (void *) ptp,
+					    &ptp->u.release,
+					    sizeof(ErtsPortTask));
 #else
     port_task_free(ptp);
 #endif
@@ -772,9 +773,10 @@ static void
 schedule_port_task_handle_list_free(ErtsPortTaskHandleList *pthlp)
 {
 #ifdef ERTS_SMP
-    erts_schedule_thr_prgr_later_op(free_port_task_handle_list,
-				    (void *) pthlp,
-				    &pthlp->u.release);
+    erts_schedule_thr_prgr_later_cleanup_op(free_port_task_handle_list,
+					    (void *) pthlp,
+					    &pthlp->u.release,
+					    sizeof(ErtsPortTaskHandleList));
 #else
     erts_free(ERTS_ALC_T_PT_HNDL_LIST, pthlp);
 #endif
@@ -1999,6 +2001,7 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
      * Schedule cleanup of port structure...
      */
 #ifdef ERTS_SMP
+    /* Has to be more or less immediate to release any driver */
     erts_schedule_thr_prgr_later_op(release_port,
 				    (void *) pp,
 				    &pp->common.u.release);
