@@ -30,6 +30,61 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.10.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The BIF <seealso
+	    marker="erlang#is_process_alive/1"><c>is_process_alive/1</c></seealso>
+	    could prematurely return <c>false</c> while the process
+	    being inspected was terminating. This bug was introduced
+	    in ERTS-5.10.</p>
+          <p>
+	    Own Id: OTP-10926</p>
+        </item>
+        <item>
+	    <p>Fix a problem in <c>erlang:delete_element/2</c> where
+	    the call could corrupt one word of stack if the heap and
+	    stack met during call.</p>
+          <p>
+	    Own Id: OTP-10932</p>
+        </item>
+        <item>
+          <p>
+	    The <seealso
+	    marker="erl#+sws"><c>+sws&lt;value&gt;</c></seealso> and
+	    <seealso
+	    marker="erl#+swt"><c>+swt&lt;value&gt;</c></seealso>
+	    system flags failed if no white space were passed between
+	    the parameter and value parts of the flags. Upon failure,
+	    the runtime system refused to start.</p>
+          <p>
+	    Own Id: OTP-11000</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Scheduler threads will now by default be less eager
+	    requesting wakeup due to certain cleanup operations. This
+	    can also be controlled using the <seealso
+	    marker="erl#+swct"><c>+swct</c></seealso> command line
+	    argument of <seealso
+	    marker="erl"><c>erl(1)</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-10994</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.10.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

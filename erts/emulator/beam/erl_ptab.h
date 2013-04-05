@@ -109,6 +109,7 @@ typedef struct {
     ErtsPTabElementCommon *invalid_element;
     Eterm invalid_data;
     void (*release_element)(void *);
+    UWord element_size;
 } ErtsPTabReadOnlyData;
 
 typedef struct {
@@ -177,6 +178,7 @@ void erts_ptab_init_table(ErtsPTab *ptab,
 			  void (*release_element)(void *),
 			  ErtsPTabElementCommon *invalid_element,
 			  int size,
+			  UWord element_size,
 			  char *name);
 int erts_ptab_new_element(ErtsPTab *ptab,
 			  ErtsPTabElementCommon *ptab_el,

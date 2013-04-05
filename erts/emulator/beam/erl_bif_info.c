@@ -3077,7 +3077,7 @@ BIF_RETTYPE is_process_alive_1(BIF_ALIST_1)
        if (BIF_ARG_1 == BIF_P->common.id)
 	   BIF_RET(am_true);
 
-       rp = erts_proc_lookup(BIF_ARG_1);
+       rp = erts_proc_lookup_raw(BIF_ARG_1);
        if (!rp) {
 	   BIF_RET(am_false);
        }

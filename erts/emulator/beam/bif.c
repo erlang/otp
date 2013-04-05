@@ -2543,7 +2543,7 @@ BIF_RETTYPE insert_element_3(BIF_ALIST_3)
     Eterm* hp;
     Uint arity;
     Eterm res;
-    Sint ix;
+    Sint ix, c1, c2;
 
     if (is_not_tuple(BIF_ARG_2) || is_not_small(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
@@ -2561,14 +2561,12 @@ BIF_RETTYPE insert_element_3(BIF_ALIST_3)
     res = make_tuple(hp);
     *hp = make_arityval(arity + 1);
 
-    ix--;
-    arity -= ix;
+    c1 = ix - 1;
+    c2 = arity - ix + 1;
 
-    while (ix--) { *++hp = *++ptr; }
-
+    while (c1--) { *++hp = *++ptr; }
     *++hp = BIF_ARG_3;
-
-    while(arity--) { *++hp = *++ptr; }
+    while (c2--) { *++hp = *++ptr; }
 
     BIF_RET(res);
 }
@@ -2579,7 +2577,7 @@ BIF_RETTYPE delete_element_2(BIF_ALIST_3)
     Eterm* hp;
     Uint arity;
     Eterm res;
-    Sint ix;
+    Sint ix, c1, c2;
 
     if (is_not_tuple(BIF_ARG_2) || is_not_small(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
@@ -2597,14 +2595,12 @@ BIF_RETTYPE delete_element_2(BIF_ALIST_3)
     res = make_tuple(hp);
     *hp = make_arityval(arity - 1);
 
-    ix--;
-    arity -= ix;
+    c1  = ix - 1;
+    c2  = arity - ix;
 
-    while (ix--) { *++hp = *++ptr; }
-
+    while (c1--) { *++hp = *++ptr; }
     ++ptr;
-
-    while(arity--) { *++hp = *++ptr; }
+    while (c2--) { *++hp = *++ptr; }
 
     BIF_RET(res);
 }

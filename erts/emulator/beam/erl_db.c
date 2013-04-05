@@ -264,9 +264,10 @@ static void schedule_free_dbtable(DbTable* tb)
      *               function has returned).
      */
     ASSERT(erts_refc_read(&tb->common.ref, 0) == 0);
-    erts_schedule_thr_prgr_later_op(free_dbtable,
-				    (void *) tb,
-				    &tb->release.data);
+    erts_schedule_thr_prgr_later_cleanup_op(free_dbtable,
+					    (void *) tb,
+					    &tb->release.data,
+					    sizeof(DbTable));
 }
 
 static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock,
