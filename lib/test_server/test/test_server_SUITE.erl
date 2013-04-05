@@ -104,7 +104,7 @@ test_server_SUITE(Config) ->
 %    rpc:call(Node,dbg, tpl,[test_server_ctrl,x]),
     run_test_server_tests("test_server_SUITE",
 			  [{test_server_SUITE,skip_case7,"SKIPPED!"}],
-			  39, 1, 31, 20, 9, 1, 11, 2, 26, Config).
+			  40, 1, 32, 21, 9, 1, 11, 2, 27, Config).
 
 test_server_parallel01_SUITE(Config) ->
     run_test_server_tests("test_server_parallel01_SUITE", [],
