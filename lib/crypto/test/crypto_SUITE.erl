@@ -1630,8 +1630,11 @@ dsa_verify_test(Config) when is_list(Config) ->
     
     BadArg = (catch my_dss_verify(sized_binary(Msg), <<SizeErr:32, SigBlob/binary>>,
 				      ValidKey)),
-    ?line m(element(1,element(2,BadArg)), badarg),
-    
+    badarg = case element(1,element(2,BadArg)) of
+		 badarg -> badarg;
+		 function_clause -> badarg;
+		 X -> X
+	     end,
     InValidKey = [crypto:mpint(P_p), 
 		  crypto:mpint(Q_p), 
 		  crypto:mpint(G_p),
@@ -1664,20 +1667,29 @@ rsa_sign_test(Config) when is_list(Config) ->
     Msg = <<"7896345786348756234 Hejsan Svejsan, erlang crypto debugger"
 	   "09812312908312378623487263487623412039812 huagasd">>,
     
-    PrivKey = [crypto:mpint(PubEx), crypto:mpint(Mod), crypto:mpint(PrivEx)],
-    PubKey  = [crypto:mpint(PubEx), crypto:mpint(Mod)],
-    ?line Sig1 = crypto:rsa_sign(sized_binary(Msg), PrivKey),
-    ?line m(crypto:rsa_verify(sized_binary(Msg), sized_binary(Sig1),PubKey), true),
+    PrivKey = [PubEx, Mod, PrivEx],
+    PubKey  = [PubEx, Mod],
+    PubKeyMpint = map_int_to_mpint(PubKey),
+    Sig1 = crypto:rsa_sign(sized_binary(Msg), map_int_to_mpint(PrivKey)),
+    Sig1 = crypto:sign(rsa, sha, Msg, PrivKey),
+    true = crypto:rsa_verify(sized_binary(Msg), sized_binary(Sig1), PubKeyMpint),
+    true = crypto:verify(rsa, sha, Msg, Sig1, PubKey),
     
-    ?line Sig2 = crypto:rsa_sign(md5, sized_binary(Msg), PrivKey),
-    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig2),PubKey), true),
+    Sig2 = crypto:rsa_sign(md5, sized_binary(Msg), map_int_to_mpint(PrivKey)),
+    Sig2 = crypto:sign(rsa, md5, Msg, PrivKey),
+    true = crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig2), PubKeyMpint),
+    true = crypto:verify(rsa, md5, Msg, Sig2, PubKey),
     
-    ?line m(Sig1 =:= Sig2, false),
-    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig1),PubKey), false),
-    ?line m(crypto:rsa_verify(sha, sized_binary(Msg), sized_binary(Sig1),PubKey), true),
-  
+    false = (Sig1 =:= Sig2),
+    false = crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig1), PubKeyMpint),
+    false = crypto:verify(rsa, md5, Msg, Sig1, PubKey),
+    true = crypto:rsa_verify(sha, sized_binary(Msg), sized_binary(Sig1), PubKeyMpint),
+    true = crypto:verify(rsa, sha, Msg, Sig1, PubKey),
+
     ok.
-    
+map_int_to_mpint(List) ->
+    lists:map(fun(E) -> crypto:mpint(E) end, List).
+
 rsa_sign_hash_test(doc) ->
     "rsa_sign_hash testing";
 rsa_sign_hash_test(suite) ->
@@ -1906,9 +1918,9 @@ ec_do() ->
     ?line CsCaKey = crypto:ec_key_to_term(T3),
 
     Msg = <<99,234,6,64,190,237,201,99,80,248,58,40,70,45,149,218,5,246,242,63>>,
-    Sign = crypto:ecdsa_sign(sha, Msg, L2),
-    ?line true = crypto:ecdsa_verify(sha, Msg, Sign, L2),
-    ?line false = crypto:ecdsa_verify(sha, Msg, <<10,20>>, L2),
+    Sign = crypto:sign(ecdsa, sha, Msg, L2),
+    ?line true = crypto:verify(ecdsa, sha, Msg, Sign, L2),
+    ?line false = crypto:verify(ecdsa, sha, Msg, <<10,20>>, L2),
 
     ok.
 

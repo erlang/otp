@@ -205,7 +205,7 @@ static ERL_NIF_TERM rand_bytes_3(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -331,7 +331,7 @@ static ErlNifFunc nif_funcs[] = {
     {"strong_rand_mpint_nif", 3, strong_rand_mpint_nif},
     {"rand_uniform_nif", 2, rand_uniform_nif},
     {"mod_exp_nif", 4, mod_exp_nif},
-    {"dss_verify", 4, dss_verify},
+    {"dss_verify_nif", 4, dss_verify_nif},
     {"rsa_verify_nif", 4, rsa_verify_nif},
     {"aes_cbc_crypt", 4, aes_cbc_crypt},
     {"exor", 2, exor},
@@ -1789,13 +1789,7 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return ret;
 }
 
-static int inspect_mpint(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifBinary* bin)
-{    
-    return enif_inspect_binary(env, term, bin) &&
-    bin->size >= 4 && get_int32(bin->data) == bin->size-4;
-}
-
-static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (DigestType|none, Data|{digest,Digest}, Signature,Key=[P, Q, G, Y]) */
     ErlNifBinary data_bin, sign_bin;
     BIGNUM *dsa_p = NULL, *dsa_q = NULL, *dsa_g = NULL, *dsa_y = NULL;
@@ -1818,10 +1812,10 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	    digest = data_bin.data;
 	}
 	else {
-	    if (!inspect_mpint(env, argv[1], &data_bin)) {
+	    if (!enif_inspect_binary(env, argv[1], &data_bin)) {
 		return enif_make_badarg(env);
 	    }
-	    SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    SHA1(data_bin.data, data_bin.size, hmacbuf);
 	    digest = hmacbuf;
 	}
     }
@@ -1833,15 +1827,15 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	return enif_make_badarg(env);
     }
 
-    if (!inspect_mpint(env, argv[2], &sign_bin)
+    if (!enif_inspect_binary(env, argv[2], &sign_bin)
 	|| !enif_get_list_cell(env, argv[3], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa_p)
+	|| !get_bn_from_bin(env, head, &dsa_p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa_q)
+	|| !get_bn_from_bin(env, head, &dsa_q)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa_g)
+	|| !get_bn_from_bin(env, head, &dsa_g)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa_y)
+	|| !get_bn_from_bin(env, head, &dsa_y)
 	|| !enif_is_empty_list(env,tail)) {
 
 	if (dsa_p) BN_free(dsa_p);
@@ -1858,7 +1852,7 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     dsa->priv_key = NULL;
     dsa->pub_key = dsa_y;
     i =  DSA_verify(0, digest, SHA_DIGEST_LENGTH,
-		    sign_bin.data+4, sign_bin.size-4, dsa);
+		    sign_bin.data, sign_bin.size, dsa);
     DSA_free(dsa);
     return(i > 0) ? atom_true : atom_false;
 }
@@ -1984,11 +1978,11 @@ static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     rsa = RSA_new();
 
-    if (!inspect_mpint(env, argv[2], &sign_bin)
+    if (!enif_inspect_binary(env, argv[2], &sign_bin)
 	|| !enif_get_list_cell(env, argv[3], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->e)
+	|| !get_bn_from_bin(env, head, &rsa->e)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->n)
+	|| !get_bn_from_bin(env, head, &rsa->n)
 	|| !enif_is_empty_list(env, tail)) {
 	
 	ret = enif_make_badarg(env);
@@ -2004,9 +1998,9 @@ static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	}
 	digest = data_bin.data;
     }
-    else if (inspect_mpint(env, argv[1], &data_bin)) {
+    else if (enif_inspect_binary(env, argv[1], &data_bin)) {
 	digest = hmacbuf;
-	digp->funcp(data_bin.data+4, data_bin.size-4, digest);
+	digp->funcp(data_bin.data, data_bin.size, digest);
     }
     else {
 	ret = enif_make_badarg(env);
@@ -2014,7 +2008,7 @@ static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     }
 
     i = RSA_verify(digp->NID_type, digest, digp->len,
-		   sign_bin.data+4, sign_bin.size-4, rsa);
+		   sign_bin.data, sign_bin.size, rsa);
 
     ret = (i==1 ? atom_true : atom_false);
 
@@ -2159,22 +2153,22 @@ static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     ERL_NIF_TERM head, tail;
 
     if (!enif_get_list_cell(env, key, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->e)
+	|| !get_bn_from_bin(env, head, &rsa->e)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->n)
+	|| !get_bn_from_bin(env, head, &rsa->n)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->d)
+	|| !get_bn_from_bin(env, head, &rsa->d)
 	|| (!enif_is_empty_list(env, tail) &&
 	    (!enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_mpint(env, head, &rsa->p)
+	     || !get_bn_from_bin(env, head, &rsa->p)
 	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_mpint(env, head, &rsa->q)
+	     || !get_bn_from_bin(env, head, &rsa->q)
 	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_mpint(env, head, &rsa->dmp1)
+	     || !get_bn_from_bin(env, head, &rsa->dmp1)
 	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_mpint(env, head, &rsa->dmq1)
+	     || !get_bn_from_bin(env, head, &rsa->dmq1)
 	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_mpint(env, head, &rsa->iqmp)
+	     || !get_bn_from_bin(env, head, &rsa->iqmp)
 	     || !enif_is_empty_list(env, tail)))) {
 	return 0;
     }
@@ -2211,11 +2205,11 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	digest = data_bin.data;
     }
     else {
-	if (!inspect_mpint(env,argv[1],&data_bin)) {
+	if (!enif_inspect_binary(env,argv[1],&data_bin)) {
 	    return enif_make_badarg(env);
 	}
 	digest = hmacbuf;
-	digp->funcp(data_bin.data+4, data_bin.size-4, digest);
+	digp->funcp(data_bin.data, data_bin.size, digest);
     }
 
     rsa = RSA_new();
@@ -2270,10 +2264,10 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	    digest = data_bin.data;
 	}
 	else {
-	    if (!inspect_mpint(env,argv[1],&data_bin)) {
+	    if (!enif_inspect_binary(env,argv[1],&data_bin)) {
 		return enif_make_badarg(env);
 	    }
-	    SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    SHA1(data_bin.data, data_bin.size, hmacbuf);
 	    digest = hmacbuf;
 	}
     }
@@ -2291,13 +2285,13 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     dsa->pub_key  = NULL;
     if (!enif_get_list_cell(env, argv[2], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa->p)
+	|| !get_bn_from_bin(env, head, &dsa->p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa->q)
+	|| !get_bn_from_bin(env, head, &dsa->q)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa->g)
+	|| !get_bn_from_bin(env, head, &dsa->g)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa->priv_key)
+	|| !get_bn_from_bin(env, head, &dsa->priv_key)
 	|| !enif_is_empty_list(env,tail)) {
 	DSA_free(dsa);
 	return enif_make_badarg(env);

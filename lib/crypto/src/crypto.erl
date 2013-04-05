@@ -68,7 +68,7 @@
 -export([aes_ctr_encrypt/3, aes_ctr_decrypt/3]).
 -export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
 -export([ec_key_new/1, ec_key_to_term/1, term_to_ec_key/1, ec_key_generate/1]).
--export([ecdsa_sign/2, ecdsa_sign/3, ecdsa_verify/3, ecdsa_verify/4, ecdh_compute_key/2]).
+-export([sign/4, verify/5, ecdh_compute_key/2]).
 
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see below
 
@@ -116,13 +116,13 @@
 		    rc2_cbc_encrypt, rc2_cbc_decrypt,
 		    srp_generate_key, srp_compute_key,
 		    ec_key_new, ec_key_to_term, term_to_ec_key, ec_key_generate,
-		    ecdsa_sign, ecdsa_verify, ecdh_compute_key,
+		    sign, verify, ecdh_compute_key,
 		    info_lib, algorithms]).
 
 -type mpint() :: binary().
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha'.
--type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
+%%-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
 -type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
 -type ec_key_res() :: any().		%% nif resource
@@ -834,8 +834,12 @@ mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 
 %% Key = [P,Q,G,Y]   P,Q,G=DSSParams  Y=PublicKey
 dss_verify(Data,Signature,Key) ->
-    dss_verify(sha, Data, Signature, Key).    
-dss_verify(_Type,_Data,_Signature,_Key) -> ?nif_stub.    
+    dss_verify(sha, Data, Signature, Key).
+
+dss_verify(Type,Data,Signature,Key) when is_binary(Data), Type=/=none ->
+    verify(dss,Type,mpint_to_bin(Data),mpint_to_bin(Signature),map_mpint_to_bin(Key));
+dss_verify(Type,Digest,Signature,Key) ->
+    verify(dss,Type,Digest,mpint_to_bin(Signature),map_mpint_to_bin(Key)).
 
 % Key = [E,N]  E=PublicExponent N=PublicModulus
 rsa_verify(Data,Signature,Key) ->
@@ -848,13 +852,22 @@ rsa_verify(Type, Digest, Signature, Key) ->
 
 verify(dss, Type, Data, Signature, Key) ->
     dss_verify_nif(Type, Data, Signature, map_ensure_int_as_bin(Key));
+
 verify(rsa, Type, DataOrDigest, Signature, Key) ->
     case rsa_verify_nif(Type, DataOrDigest, Signature, map_ensure_int_as_bin(Key)) of
     	notsup -> erlang:error(notsup);
 	Bool -> Bool
+    end;
+verify(ecdsa, Type, DataOrDigest, Signature, Key) ->
+    case ecdsa_verify_nif(Type, DataOrDigest, Signature, map_ensure_int_as_bin(Key)) of
+	notsup -> erlang:error(notsup);
+	Bool -> Bool
     end.
 
+
+dss_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
 rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
+ecdsa_verify_nif(_Type, _DataOrDigest, _Signature, _Key) -> ?nif_stub.
 
 
 %%
@@ -868,24 +881,52 @@ rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
 
 dss_sign(DataOrDigest,Key) ->
     dss_sign(sha,DataOrDigest,Key).
-dss_sign(Type, DataOrDigest, Key) ->
-    case dss_sign_nif(Type,DataOrDigest,Key) of
-	error -> erlang:error(badkey, [DataOrDigest, Key]);
-	Sign -> Sign
-    end.
+dss_sign(Type, Data, Key) when is_binary(Data), Type=/=none ->
+    sign(dss, Type, mpint_to_bin(Data), map_mpint_to_bin(Key));
+dss_sign(Type, Digest, Key) ->
+    sign(dss, Type, Digest, map_mpint_to_bin(Key)).
 
-dss_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
 
 %% Key = [E,N,D]  E=PublicExponent N=PublicModulus  D=PrivateExponent
 rsa_sign(DataOrDigest,Key) ->
     rsa_sign(sha, DataOrDigest, Key).
-rsa_sign(Type, DataOrDigest, Key) ->
-    case rsa_sign_nif(Type,DataOrDigest,Key) of
+
+rsa_sign(Type, Data, Key) when is_binary(Data) ->
+    sign(rsa, Type, mpint_to_bin(Data), map_mpint_to_bin(Key));
+rsa_sign(Type, Digest, Key) ->
+    sign(rsa, Type, Digest, map_mpint_to_bin(Key)).
+
+map_mpint_to_bin(List) ->
+    lists:map(fun(E) -> mpint_to_bin(E) end, List ).
+
+map_ensure_int_as_bin([H|_]=List) when is_integer(H) ->
+    lists:map(fun(E) -> int_to_bin(E) end, List);
+map_ensure_int_as_bin(List) ->
+    List.
+
+sign(rsa, Type, DataOrDigest, Key) ->
+    case rsa_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
+	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
+	Sign -> Sign
+    end;
+sign(dss, Type, DataOrDigest, Key) ->
+    case dss_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
+	error -> erlang:error(badkey, [DataOrDigest, Key]);
+	Sign -> Sign
+    end;
+sign(ecdsa, Type, DataOrDigest, Key) ->
+    case ecdsa_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
 	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
 	Sign -> Sign
     end.
 
 rsa_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
+dss_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
+ecdsa_sign_nif(_Type, _DataOrDigest, _Key) -> ?nif_stub.
+
+
+
+
 
 
 %%
@@ -914,7 +955,7 @@ rsa_public_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
 
 %% Binary, Key = [E,N,D]
 rsa_private_decrypt(BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, Key, Padding, false) of
+    case rsa_private_crypt(BinMesg, map_mpint_to_bin(Key), Padding, false) of
 	error ->
 	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign
@@ -925,7 +966,7 @@ rsa_private_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
     
 %% Binary, Key = [E,N,D]
 rsa_private_encrypt(BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, Key, Padding, true) of
+    case rsa_private_crypt(BinMesg, map_mpint_to_bin(Key), Padding, true) of
 	error ->
 	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign
@@ -1228,38 +1269,6 @@ term_to_ec_key({Curve, PrivKey, PubKey}) ->
 
 term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 
-%%
-%% ECDSA - sign
-%%
--spec ecdsa_sign(data_or_digest(), ec_key_res()) -> binary().
--spec ecdsa_sign(ecdsa_digest_type(), data_or_digest(), ec_key_res()) -> binary().
-
-ecdsa_sign(DataOrDigest,Key) ->
-    ecdsa_sign(sha, DataOrDigest, Key).
-ecdsa_sign(Type, DataOrDigest, Key) ->
-    case ecdsa_sign_nif(Type,DataOrDigest,Key) of
-	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
-	Sign -> Sign
-    end.
-
-ecdsa_sign_nif(_Type, _DataOrDigest, _Key) -> ?nif_stub.
-
-%%
-%% ECDSA - verify
-%%
--spec ecdsa_verify(data_or_digest(), binary(), ec_key_res()) -> boolean().
--spec ecdsa_verify(ecdsa_digest_type(), data_or_digest(), binary(), ec_key_res()) ->
-			boolean().
-
-ecdsa_verify(Data,Signature,Key) ->
-    ecdsa_verify_nif(sha, Data,Signature,Key).
-ecdsa_verify(Type, DataOrDigest, Signature, Key) ->
-    case ecdsa_verify_nif(Type, DataOrDigest, Signature, Key) of
-	notsup -> erlang:error(notsup);
-	Bool -> Bool
-    end.
-
-ecdsa_verify_nif(_Type, _DataOrDigest, _Signature, _Key) -> ?nif_stub.
 
 -spec ecdh_compute_key(ec_key_res(), ec_key_res() | ec_point()) -> binary().
 ecdh_compute_key(_Others, _My) -> ?nif_stub.
