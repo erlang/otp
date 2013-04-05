@@ -495,6 +495,38 @@ refuse_af_strategy(struct au_init *init)
 static void hdbg_init(void);
 #endif
 
+static void adjust_fix_alloc_sizes(UWord extra_block_size)
+{
+    
+    if (extra_block_size && erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].enabled) {
+	int j;
+
+#ifdef ERTS_SMP
+	if (erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].thr_spec) {
+	    int i;
+	    ErtsAllocatorThrSpec_t* tspec;
+
+	    tspec = &erts_allctr_thr_spec[ERTS_ALC_A_FIXED_SIZE];	
+	    ASSERT(tspec->enabled);
+
+	    for (i=0; i < tspec->size; i++) {
+		Allctr_t* allctr = tspec->allctr[i];
+		for (j=0; j < ERTS_ALC_NO_FIXED_SIZES; ++j) {
+		    allctr->fix[j].type_size += extra_block_size;
+		}
+	    }
+	}
+	else
+#endif
+	{
+	    Allctr_t* allctr = erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].extra;
+	    for (j=0; j < ERTS_ALC_NO_FIXED_SIZES; ++j) {
+		allctr->fix[j].type_size += extra_block_size;
+	    }	
+	}
+    }
+}
+
 void
 erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 {
@@ -768,7 +800,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 #ifdef DEBUG
     extra_block_size += install_debug_functions();
 #endif
-
+    adjust_fix_alloc_sizes(extra_block_size);
 }
 
 void
