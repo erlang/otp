@@ -225,9 +225,9 @@ decode(Mod, Pkt) ->
 %% question.
 decode(?APP_ID_RELAY, _, #diameter_packet{} = Pkt) ->
     case collect_avps(Pkt) of
-        {Bs, As} ->
+        {E, As} ->
             Pkt#diameter_packet{avps = As,
-                                errors = [Bs]};
+                                errors = [E]};
         As ->
             Pkt#diameter_packet{avps = As}
     end;
@@ -251,12 +251,12 @@ decode(Id, Mod, Bin)
   when is_bitstring(Bin) ->
     decode(Id, Mod, #diameter_packet{header = decode_header(Bin), bin = Bin}).
 
-decode_avps(MsgName, Mod, Pkt, {Bs, Avps}) ->  %% invalid avp bits ...
+decode_avps(MsgName, Mod, Pkt, {E, Avps}) ->
     ?LOG(invalid, Pkt#diameter_packet.bin),
     #diameter_packet{errors = Failed}
         = P
         = decode_avps(MsgName, Mod, Pkt, Avps),
-    P#diameter_packet{errors = [Bs | Failed]};
+    P#diameter_packet{errors = [E | Failed]};
 
 decode_avps('', Mod, Pkt, Avps) ->  %% unknown message ...
     ?LOG(unknown, {Mod, Pkt#diameter_packet.header}),
@@ -403,8 +403,8 @@ collect_avps(Bin, N, Acc) ->
         {Rest, AVP} ->
             collect_avps(Rest, N+1, [AVP#diameter_avp{index = N} | Acc])
     catch
-        ?FAILURE(_) ->
-            {Bin, Acc}
+        ?FAILURE(Error) ->
+            {Error, Acc}
     end.
 
 %%     0                   1                   2                   3
@@ -422,44 +422,87 @@ collect_avps(Bin, N, Acc) ->
 %% split_avp/1
 
 split_avp(Bin) ->
-    8 =< size(Bin) orelse ?THROW(truncated_header),
+    {Code, V, M, P, Len, HdrLen} = split_head(Bin),
+    {Data, B} = split_data(Bin, HdrLen, Len - HdrLen),
 
-    <<Code:32, Flags:1/binary, Length:24, Rest/bitstring>>
-        = Bin,
+    {B, #diameter_avp{code = Code,
+                      vendor_id = V,
+                      is_mandatory = 1 == M,
+                      need_encryption = 1 == P,
+                      data = Data}}.
 
-    8 =< Length orelse ?THROW(invalid_avp_length),
+%% split_head/1
 
-    DataSize = Length - 8,        % size(Code+Flags+Length) = 8 octets
-    PadSize = (4 - (DataSize rem 4)) rem 4,
+split_head(<<Code:32, 1:1, M:1, P:1, _:5, Len:24, V:32, _/bitstring>>) ->
+    {Code, V, M, P, Len, 12};
 
-    DataSize + PadSize =< size(Rest)
-        orelse ?THROW(truncated_data),
+split_head(<<Code:32, 0:1, M:1, P:1, _:5, Len:24, _/bitstring>>) ->
+    {Code, undefined, M, P, Len, 8};
 
-    <<Data:DataSize/binary, _:PadSize/binary, R/bitstring>>
-        = Rest,
-    <<Vbit:1, Mbit:1, Pbit:1, _Reserved:5>>
-        = Flags,
+split_head(Bin) ->
+    ?THROW({5014, #diameter_avp{data = Bin}}).
 
-    0 == Vbit orelse 4 =< size(Data)
-        orelse ?THROW(truncated_vendor_id),
+%% 3588:
+%%
+%%   DIAMETER_INVALID_AVP_LENGTH        5014
+%%      The request contained an AVP with an invalid length.  A Diameter
+%%      message indicating this error MUST include the offending AVPs
+%%      within a Failed-AVP AVP.
 
-    {Vid, D} = vid(Vbit, Data),
-    {R, #diameter_avp{code = Code,
-                      vendor_id = Vid,
-                      is_mandatory = 1 == Mbit,
-                      need_encryption = 1 == Pbit,
-                      data = D}}.
+%% 6733:
+%%
+%%    DIAMETER_INVALID_AVP_LENGTH 5014
+%%
+%%       The request contained an AVP with an invalid length.  A Diameter
+%%       message indicating this error MUST include the offending AVPs
+%%       within a Failed-AVP AVP.  In cases where the erroneous AVP length
+%%       value exceeds the message length or is less than the minimum AVP
+%%                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+%%       header length, it is sufficient to include the offending AVP
+%%       ^^^^^^^^^^^^^
+%%       header and a zero filled payload of the minimum required length
+%%       for the payloads data type.  If the AVP is a Grouped AVP, the
+%%       Grouped AVP header with an empty payload would be sufficient to
+%%       indicate the offending AVP.  In the case where the offending AVP
+%%       header cannot be fully decoded when the AVP length is less than
+%%       the minimum AVP header length, it is sufficient to include an
+%%       offending AVP header that is formulated by padding the incomplete
+%%       AVP header with zero up to the minimum AVP header length.
+%%
+%% The underlined clause must be in error since (1) a header less than
+%% the minimum value mean we don't know the identity of the AVP and
+%% (2) the last sentence covers this case.
 
-%% The RFC is a little misleading when stating that OctetString is
-%% padded to a 32-bit boundary while other types align naturally. All
-%% other types are already multiples of 32 bits so there's no need to
-%% distinguish between types here. Any invalid lengths will result in
-%% decode error in diameter_types.
+%% split_data/3
 
-vid(1, <<Vid:32, Data/bitstring>>) ->
-    {Vid, Data};
-vid(0, Data) ->
-    {undefined, Data}.
+split_data(Bin, HdrLen, Len)
+  when 0 =< Len ->
+    split_data(Bin, HdrLen, Len, (4 - (Len rem 4)) rem 4);
+
+split_data(_, _, _) ->
+    invalid_avp_length().
+
+%% split_data/4
+
+split_data(Bin, HdrLen, Len, Pad) ->
+    <<_:HdrLen/binary, T/bitstring>> = Bin,
+    case T of
+        <<Data:Len/binary, _:Pad/binary, Rest/bitstring>> ->
+            {Data, Rest};
+        _ ->
+            invalid_avp_length()
+    end.
+
+%% invalid_avp_length/0
+%%
+%% AVP Length doesn't mesh with payload. Induce a decode error by
+%% returning a payload that no valid Diameter type can have. This is
+%% so that a known AVP will result in 5014 error with a zero'd
+%% payload. Here we simply don't know how to construct this payload.
+%% (Yes, this solution is an afterthought.)
+
+invalid_avp_length() ->
+    {<<0:1>>, <<>>}.
 
 %%% ---------------------------------------------------------------------------
 %%% # pack_avp/1
@@ -474,19 +517,34 @@ vid(0, Data) ->
 pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Avps} = A) ->
     pack_avp(A#diameter_avp{data = encode_avps(Avps)});
 
-%% ... data as a type/value tuple, possibly with header data, ...
+%% ... data as a type/value tuple ...
 pack_avp(#diameter_avp{data = {Type, Value}} = A)
   when is_atom(Type) ->
     pack_avp(A#diameter_avp{data = diameter_types:Type(encode, Value)});
+
+%% ... with a header in various forms ...
 pack_avp(#diameter_avp{data = {{_,_,_} = T, {Type, Value}}}) ->
     pack_avp(T, iolist_to_binary(diameter_types:Type(encode, Value)));
+
 pack_avp(#diameter_avp{data = {{_,_,_} = T, Bin}})
   when is_binary(Bin) ->
     pack_avp(T, Bin);
+
 pack_avp(#diameter_avp{data = {Dict, Name, Value}} = A) ->
     {Code, _Flags, Vid} = Hdr = Dict:avp_header(Name),
     {Name, Type} = Dict:avp_name(Code, Vid),
     pack_avp(A#diameter_avp{data = {Hdr, {Type, Value}}});
+
+pack_avp(#diameter_avp{code = undefined, data = Bin})
+  when is_binary(Bin) ->
+    %% Reset the AVP Length of an AVP Header resulting from a 5014
+    %% error. The RFC doesn't explicitly say to do this but the
+    %% receiver can't correctly extract this and following AVP's
+    %% without a correct length. On the downside, the header doesn't
+    %% reveal if the received header has been padded.
+    Pad = 8*header_length(Bin) - bit_size(Bin),
+    Len = size(<<H:5/binary, _:24, T/binary>> = <<Bin/bitstring, 0:Pad>>),
+    <<H/binary, Len:24, T/binary>>;
 
 %% ... or as an iolist.
 pack_avp(#diameter_avp{code = Code,
@@ -498,6 +556,11 @@ pack_avp(#diameter_avp{code = Code,
                                             {M, 2#01000000},
                                             {P, 2#00100000}]),
     pack_avp({Code, Flags, V}, iolist_to_binary(Data)).
+
+header_length(<<_:32, 1:1, _/bitstring>>) ->
+    12;
+header_length(_) ->
+    8.
 
 flag_avp({true, B}, F) ->
     F bor B;

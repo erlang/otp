@@ -40,7 +40,7 @@
          send_unknown_application/1,
          send_unknown_command/1,
          send_ok/1,
-         send_invalid_avp_bits/1,
+         send_invalid_hdr_bits/1,
          send_missing_avp/1,
          send_ignore_missing_avp/1,
          send_double_error/1,
@@ -136,7 +136,7 @@ tc() ->
     [send_unknown_application,
      send_unknown_command,
      send_ok,
-     send_invalid_avp_bits,
+     send_invalid_hdr_bits,
      send_missing_avp,
      send_ignore_missing_avp,
      send_double_error,
@@ -216,27 +216,26 @@ send_ok([_,_]) ->
 send_ok(Config) ->
     send_ok(?group(Config)).
 
-%% send_invalid_avp_bits/1
+%% send_invalid_hdr_bits/1
 %%
-%% Send a request with an incorrect length on the optional
-%% Origin-State-Id that a callback ignores.
+%% Send a request with an incorrect E-bit that a callback ignores.
 
 %% Callback answers.
-send_invalid_avp_bits([callback, _]) ->
+send_invalid_hdr_bits([callback, _]) ->
     #diameter_base_STA{'Result-Code' = 2001,  %% SUCCESS
                        'Failed-AVP' = [],
                        'AVP' = []}
         = call();
 
 %% diameter answers.
-send_invalid_avp_bits([_,_]) ->
-    #'diameter_base_answer-message'{'Result-Code' = 3009, %% INVALID_AVP_BITS
+send_invalid_hdr_bits([_,_]) ->
+    #'diameter_base_answer-message'{'Result-Code' = 3008, %% INVALID_HDR_BITS
                                     'Failed-AVP' = [],
                                     'AVP' = []}
         = call();
 
-send_invalid_avp_bits(Config) ->
-    send_invalid_avp_bits(?group(Config)).
+send_invalid_hdr_bits(Config) ->
+    send_invalid_hdr_bits(?group(Config)).
 
 %% send_missing_avp/1
 %%
@@ -282,8 +281,7 @@ send_ignore_missing_avp(Config) ->
 
 %% send_double_error/1
 %%
-%% Send a request with both an incorrect length on the optional
-%% Origin-State-Id and a missing AVP.
+%% Send a request with both an invalid E-bit and a missing AVP.
 
 %% Callback answers with STA.
 send_double_error([callback, _]) ->
@@ -294,8 +292,8 @@ send_double_error([callback, _]) ->
 
 %% diameter answers with answer-message.
 send_double_error([_,_]) ->
-    #'diameter_base_answer-message'{'Result-Code' = 3009, %% INVALID_AVP_BITS
-                                    'Failed-AVP' = [_],
+    #'diameter_base_answer-message'{'Result-Code' = 3008, %% INVALID_HDR_BITS
+                                    'Failed-AVP' = [],
                                     'AVP' = []}
         = call();
 
@@ -392,20 +390,16 @@ prepare(Pkt, Caps, T)
        T == send_5xxx ->
     sta(Pkt, Caps);
 
-prepare(Pkt0, Caps, send_invalid_avp_bits) ->
-    Req0 = sta(Pkt0, Caps),
-    %% Append an Origin-State-Id with an incorrect AVP Length in order
-    %% to force 3009.
-    Req = Req0#diameter_base_STR{'Origin-State-Id' = [7]},
-    #diameter_packet{bin = Bin}
+prepare(Pkt0, Caps, send_invalid_hdr_bits) ->
+    Req = sta(Pkt0, Caps),
+    %% Set the E-bit to force 3008.
+    #diameter_packet{bin = <<H:34, 0:1, T/bitstring>>}
         = Pkt
         = diameter_codec:encode(?DICT, Pkt0#diameter_packet{msg = Req}),
-    Offset = size(Bin) - 12 + 5,
-    <<H:Offset/binary, Len:24, T/binary>> = Bin,
-    Pkt#diameter_packet{bin = <<H/binary, (Len + 2):24, T/binary>>};
+    Pkt#diameter_packet{bin = <<H:34, 1:1, T/bitstring>>};
 
 prepare(Pkt0, Caps, send_double_error) ->
-    dehost(prepare(Pkt0, Caps, send_invalid_avp_bits));
+    dehost(prepare(Pkt0, Caps, send_invalid_hdr_bits));
 
 prepare(Pkt, Caps, T)
   when T == send_missing_avp;
@@ -480,9 +474,7 @@ request(send_3xxx, _Req, _Caps) ->
 request(send_5xxx, _Req, _Caps) ->
     {answer_message, 5999};
 
-request(send_invalid_avp_bits, Req, Caps) ->
-    #diameter_base_STR{'Origin-State-Id' = []}
-        = Req,
+request(send_invalid_hdr_bits, Req, Caps) ->
     %% Default errors field but a non-answer-message and only 3xxx
     %% errors detected means diameter sets neither Result-Code nor
     %% Failed-AVP.

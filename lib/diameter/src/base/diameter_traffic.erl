@@ -226,10 +226,10 @@ recv_R(false = No, _, _, _, _) ->  %% transport has gone down
 
 collect_avps(Pkt) ->
     case diameter_codec:collect_avps(Pkt) of
-        {_Bs, As} ->
-            As;
-        As ->
-            As
+        {_Error, Avps} ->
+            Avps;
+        Avps ->
+            Avps
     end.
 
 %% recv_R/6
@@ -300,7 +300,7 @@ errors(_, #diameter_packet{header = #diameter_header{version = V},
 %%      AVP's definition.
 
 errors(_, #diameter_packet{errors = [Bs | Es]} = Pkt)
-  when is_bitstring(Bs) ->
+  when is_bitstring(Bs) ->  %% from old code
     Pkt#diameter_packet{errors = [3009 | Es]};
 
 %%   DIAMETER_COMMAND_UNSUPPORTED       3001
@@ -595,7 +595,6 @@ reply([Msg], Dict, TPid, Dict0, Fs, ReqPkt)
        is_tuple(Msg) ->
     reply(Msg, Dict, TPid, Dict0, Fs, ReqPkt#diameter_packet{errors = []});
 
-%% No errors or a diameter_header/avp list.
 reply(Msg, Dict, TPid, Dict0, Fs, ReqPkt) ->
     Pkt = encode(Dict, reset(make_answer_packet(Msg, ReqPkt), Dict), Fs),
     incr(send, Pkt, Dict, TPid, Dict0),  %% count outgoing result codes

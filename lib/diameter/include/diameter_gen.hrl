@@ -227,23 +227,20 @@ decode(Name, #diameter_avp{code = Code, vendor_id = Vid} = Avp, Acc) ->
 
 %% decode/4
 
-%% Don't know this AVP: see if it can be packed in an 'AVP' field
-%% undecoded, unless it's mandatory. Need to give Failed-AVP special
-%% treatment since it'll contain any unrecognized mandatory AVP's.
-decode(Name, 'AVP', #diameter_avp{is_mandatory = M} = Avp, {Avps, Acc}) ->
-    {[Avp | Avps], if M, Name /= 'Failed-AVP' ->
-                           unknown(Avp, Acc);
-                      true ->
-                           pack_AVP(Name, Avp, Acc)
-                   end};
-%% Note that the type field is 'undefined' in this case.
-
-%% Or try to decode.
 decode(Name, {AvpName, Type}, Avp, Acc) ->
-    d(Name, Avp#diameter_avp{name = AvpName, type = Type}, Acc).
+    d(Name, Avp#diameter_avp{name = AvpName, type = Type}, Acc);
+
+decode(Name, 'AVP', Avp, Acc) ->
+    decode_AVP(Name, Avp, Acc).
 
 %% d/3
 
+%% Don't try to decode the value of a Failed-AVP component since it
+%% probably won't.
+d('Failed-AVP' = Name, Avp, Acc) ->
+    decode_AVP(Name, Avp, Acc);
+
+%% Or try to decode.
 d(Name, Avp, {Avps, Acc}) ->
     #diameter_avp{name = AvpName,
                   data = Data}
@@ -265,8 +262,23 @@ d(Name, Avp, {Avps, Acc}) ->
                              ?LINE,
                              {Reason, Avp, erlang:get_stacktrace()}),
             {Rec, Failed} = Acc,
-            {[Avp|Avps], {Rec, [{rc(Reason), Avp} | Failed]}}
+            {[Avp|Avps], {Rec, [rc(Reason, Avp) | Failed]}}
     end.
+
+%% decode_AVP/3
+%%
+%% Don't know this AVP: see if it can be packed in an 'AVP' field
+%% undecoded, unless it's mandatory. Need to give Failed-AVP special
+%% treatment since it'll contain any unrecognized mandatory AVP's.
+%% Note that the type field is 'undefined' in this case.
+
+decode_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, {Avps, Acc}) ->
+    {[Avp | Avps], if Name == 'Failed-AVP';
+                      not M ->
+                           pack_AVP(Name, Avp, Acc);
+                      true ->
+                           unknown(Avp, Acc)
+                   end}.
 
 %% rc/1
 
@@ -274,8 +286,8 @@ d(Name, Avp, {Avps, Acc}) ->
 %% DIAMETER_INVALID_AVP_LENGTH (5014). A module specified to a
 %% @custom_types tag in a spec file can also raise an error of this
 %% form.
-rc({'DIAMETER', RC, _}) ->
-    RC;
+rc({'DIAMETER', 5014 = RC, _}, #diameter_avp{name = AvpName} = Avp) ->
+    {RC, Avp#diameter_avp{data = empty_value(AvpName)}};
 
 %% 3588:
 %%
@@ -283,8 +295,8 @@ rc({'DIAMETER', RC, _}) ->
 %%      The request contained an AVP with an invalid value in its data
 %%      portion.  A Diameter message indicating this error MUST include
 %%      the offending AVPs within a Failed-AVP AVP.
-rc(_) ->
-    5004.
+rc(_, Avp) ->
+    {5004, Avp}.
 
 %% ungroup/2
 %%
