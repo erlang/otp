@@ -24,7 +24,8 @@
 %% Interface towards transport modules ...
 -export([recv/2,
          up/1,
-         up/2]).
+         up/2,
+         up/3]).
 
 %% ... and the stack.
 -export([start/1,
@@ -180,7 +181,7 @@ start(Mod, Args) ->
     apply(Mod, start, Args).
 
 %%% ---------------------------------------------------------------------------
-%%% # up/[12]
+%%% # up/1-3
 %%% ---------------------------------------------------------------------------
 
 up(Pid) ->  %% accepting transport
@@ -188,6 +189,9 @@ up(Pid) ->  %% accepting transport
 
 up(Pid, Remote) ->  %% connecting transport
     ifc_send(Pid, {self(), connected, Remote}).
+
+up(Pid, Remote, LAddrs) -> %% connecting transport
+    ifc_send(Pid, {self(), connected, Remote, LAddrs}).
 
 %%% ---------------------------------------------------------------------------
 %%% # recv/2

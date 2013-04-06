@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY message '<seealso marker="#message">message()</seealso>'>
+  <!ENTITY MESSAGES '<seealso marker="#MESSAGES">MESSAGES</seealso>'>
+  <!ENTITY start '<seealso marker="#Mod:start-3">start/3</seealso>'>
   <!ENTITY ip_address
   '<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
@@ -12,7 +14,7 @@
 <erlref>
 <header>
 <copyright>
-<year>2011</year><year>2012</year>
+<year>2011</year><year>2013</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -125,7 +127,7 @@ Ref is the value that was returned from the call to &mod_add_transport;
 that has lead to starting of a transport process.</p>
 
 <p>
-<c>Svc</c> contains the capabilities passed to &mod_start_service; and
+<c>Svc</c> contains capabilities passed to &mod_start_service; and
 &mod_add_transport;, values passed to the latter overriding those
 passed to the former.</p>
 
@@ -134,13 +136,16 @@ passed to the former.</p>
 &mod_transport_opt; list passed to &mod_add_transport;.</p>
 
 <p>
-The start function should use the <c>Host-IP-Address</c> list and/or
-<c>Config</c> to select an appropriate list of local IP addresses,
-and should return this list if different from the
-<c>#diameter_service{}</c> addresses.
-The returned list is used to populate <c>Host-IP-Address</c> AVPs in
-outgoing capabilities exchange messages, the
-<c>#diameter_service{}</c> addresses being used otherwise.</p>
+The start function should use the <c>Host-IP-Address</c> list in
+<c>Svc</c> and/or <c>Config</c> to select an appropriate list of local
+IP addresses, and should return this list if different from the
+<c>Svc</c> addresses.
+In the connecting case, the local address list can instead be
+communicated in a <c>connected</c> message (see &MESSAGES; below)
+following connection establishment.
+In either case, the local address list is used to populate
+<c>Host-IP-Address</c> AVPs in outgoing capabilities exchange
+messages.</p>
 
 <p>
 A transport process must implement the message interface documented below.
@@ -230,13 +235,16 @@ Not sent if the transport process has <c>Type=connect</c>.</p>
 </item>
 
 <tag><c>{diameter, {self(), connected, Remote}}</c></tag>
+<tag><c>{diameter, {self(), connected, Remote, [LocalAddr]}}</c></tag>
 <item>
 <p>
 Inform the parent that the transport process with <c>Type=connect</c>
 has established a connection with a peer.
-Not sent if the transport process has <c>Type=accept</c>.
+Not sent if the transport process has <c>Type=accept</c>.&nbsp;
 <c>Remote</c> is an arbitrary term that uniquely identifies the remote
-endpoint to which the transport has connected.</p>
+endpoint to which the transport has connected.
+A <c>LocalAddr</c> list has the same semantics as one returned from
+&start;.</p>
 </item>
 
 <tag><c>{diameter, {recv, &message;}}</c></tag>
