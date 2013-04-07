@@ -296,9 +296,9 @@ start_connect(tcp, T, Svc, Opts) ->
 %% start_accept/2
 %%
 %% Start transports sequentially by having each wait for a message
-%% from a job in a queue before commencing. Only one transport with
-%% a pending accept is started at a time since diameter_sctp currently
-%% assumes (and diameter currently implements) this.
+%% from a job in a queue before commencing. Only one transport with a
+%% pending accept is started at a time since diameter_{tcp,sctp}
+%% currently assume (and diameter currently implements) this.
 
 start_accept(Prot, Ref) ->
     Pid = sync(accept, Ref),
