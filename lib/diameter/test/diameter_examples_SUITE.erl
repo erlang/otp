@@ -283,7 +283,7 @@ start(server) ->
     ok = diameter:start(),
     ok = server:start(),
     {ok, Ref} = server:listen(tcp),
-    [_] = ?util:lport(tcp, Ref, 20),
+    [_] = ?util:lport(tcp, Ref),
     ok;
 
 start(client) ->

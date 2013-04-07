@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,9 +53,6 @@
 %% Receive a message.
 -define(RECV(Pat, Ret), receive Pat -> Ret end).
 -define(RECV(Pat), ?RECV(Pat, now())).
-
-%% Or not.
--define(WAIT(Ms), receive after Ms -> now() end).
 
 %% Sockets are opened on the loopback address.
 -define(ADDR, {127,0,0,1}).
@@ -209,7 +206,7 @@ init(accept, {Prot, Ref}) ->
 
 init(gen_connect, {Prot, Ref}) ->
     %% Lookup the peer's listening socket.
-    [PortNr] = ?util:lport(Prot, Ref, 20),
+    [PortNr] = ?util:lport(Prot, Ref),
 
     %% Connect, send a message and receive it back.
     {ok, Sock} = gen_connect(Prot, PortNr),
@@ -230,7 +227,8 @@ init(gen_accept, {Prot, Ref}) ->
 
 init(connect, {Prot, Ref}) ->
     %% Lookup the peer's listening socket.
-    [{?TEST_LISTENER(_, PortNr), _}] = match(?TEST_LISTENER(Ref, '_')),
+    [{?TEST_LISTENER(_, PortNr), _}]
+        = diameter_reg:wait(?TEST_LISTENER(Ref, '_')),
 
     %% Start a connecting transport and receive notification of
     %% the connection.
@@ -245,18 +243,6 @@ init(connect, {Prot, Ref}) ->
     %% closing the connection.
     MRef = erlang:monitor(process, TPid),
     ?RECV({'DOWN', MRef, process, _, _}).
-
-match(Pat) ->
-    match(Pat, 20).
-
-match(Pat, T) ->
-    L = diameter_reg:match(Pat),
-    if [] /= L orelse 1 == T ->
-            L;
-       true ->
-            ?WAIT(50),
-            match(Pat, T-1)
-    end.
 
 bin(sctp, #diameter_packet{bin = Bin}) ->
     Bin;
@@ -316,16 +302,12 @@ start_connect(tcp, T, Svc, Opts) ->
 
 start_accept(Prot, Ref) ->
     Pid = sync(accept, Ref),
-
-    %% Configure the same port number for transports on the same
-    %% reference.
-    [PortNr | _] = ?util:lport(Prot, Ref) ++ [0],
     {Mod, Opts} = tmod(Prot),
 
     try
         {ok, TPid, [?ADDR]} = Mod:start({accept, Ref},
                                         ?SVC([?ADDR]),
-                                        [{port, PortNr} | Opts]),
+                                        [{port, 0} | Opts]),
         ?RECV(?TMSG({TPid, connected})),
         TPid
     after

@@ -444,7 +444,7 @@ connect(Config, T, Opts) ->
     {CRef, LRef}.
 
 connect(LRef, Opts) ->
-    [PortNr] = ?util:lport(tcp, LRef, 20),
+    [PortNr] = ?util:lport(tcp, LRef),
     {ok, CRef} = diameter:add_transport(?CLIENT,
                                         {connect, opts(PortNr, Opts)}),
     CRef.

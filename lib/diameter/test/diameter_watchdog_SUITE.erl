@@ -524,7 +524,7 @@ cfg(listen, _) ->
 cfg(connect, Ref) ->
     [{{_, _, SvcName}, _Pid}] = diameter_reg:wait({listen, Ref, '_'}),
     [[{ref, LRef} | _]] = diameter:service_info(SvcName, transport),
-    [LP] = ?util:lport(tcp, LRef, 20),
+    [LP] = ?util:lport(tcp, LRef),
     [{raddr, ?ADDR}, {rport, LP}].
 
 %% ===========================================================================
