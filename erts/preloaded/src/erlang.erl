@@ -1785,7 +1785,7 @@ process_flag(_Flag, _Value) ->
       links |
       last_calls |
       memory |
-      message_que_len |
+      message_queue_len |
       messages |
       min_heap_size |
       min_bin_vheap_size |
@@ -1824,7 +1824,7 @@ process_flag(_Flag, _Value) ->
       {links, PidsAndPorts :: [pid() | port()]} |
       {last_calls, false | (Calls :: [mfa()])} |
       {memory, Size :: non_neg_integer()} |
-      {message_que_len, MessageQueueLen :: non_neg_integer()} |
+      {message_queue_len, MessageQueueLen :: non_neg_integer()} |
       {messages, MessageQueue :: [term()]} |
       {min_heap_size, MinHeapSize :: non_neg_integer()} |
       {min_bin_vheap_size, MinBinVHeapSize :: non_neg_integer()} |
