@@ -114,30 +114,16 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
 				   usedclassfield=UniqueFieldName,
 				   uniqueclassfield=UniqueFieldName,
 				   valueindex=ValueIndex} -> %% N is index of attribute that determines constraint
-		OSDef =
-		    case ObjectSetRef of
-			{Module,OSName} ->
-			    asn1_db:dbget(Module,OSName);
-			OSName ->
-			    asn1_db:dbget(get(currmod),OSName)
-		    end,
-%		io:format("currmod: ~p~nOSName: ~p~nAttrN: ~p~nN: ~p~nUniqueFieldName: ~p~n",
-%			  [get(currmod),OSName,AttrN,N,UniqueFieldName]),
+		{ObjSetMod,ObjSetName} = ObjectSetRef,
+		OSDef = asn1_db:dbget(ObjSetMod, ObjSetName),
 		case (OSDef#typedef.typespec)#'ObjectSet'.gen of
 		    true ->
 			ObjectEncode = 
 			    asn1ct_gen:un_hyphen_var(lists:concat(['Obj',
 								   AttrN])),
-			{ObjSetMod,ObjSetName} =
-			    case ObjectSetRef of
-				{M,O} ->
-				    {{asis,M},O};
-				_ ->
-				    {"?MODULE",ObjectSetRef}
-			    end,
-			emit([ObjectEncode," = ",nl]),
-			emit(["   ",ObjSetMod,":'getenc_",ObjSetName,"'(",{asis,UniqueFieldName},
-			      ", ",nl]),
+			emit([ObjectEncode," = ",nl,
+			     "   ",{asis,ObjSetMod},":'getenc_",ObjSetName,
+			     "'(",{asis,UniqueFieldName},", ",nl]),
 			ValueMatch = value_match(ValueIndex,
 						 lists:concat(["Cindex",N])),
 			emit([indent(35),ValueMatch,"),",nl]),
@@ -257,15 +243,9 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
 		{[{ObjSetRef,LeadingAttr,Term}],PostponedDecArgs} ->
 		    DecObj = asn1ct_gen:un_hyphen_var(lists:concat(['DecObj',LeadingAttr,Term])),
 		    ValueMatch = value_match(ValueIndex,Term),
-		    {ObjSetMod,ObjSetName} =
-			case ObjSetRef of
-			    {M,O} ->
-				{{asis,M},O};
-			    _ ->
-				{"?MODULE",ObjSetRef}
-			end,
+		    {ObjSetMod,ObjSetName} = ObjSetRef,
 		    emit([DecObj," =",nl,
-			  "   ",ObjSetMod,":'getdec_",ObjSetName,"'(",
+			  "   ",{asis,ObjSetMod},":'getdec_",ObjSetName,"'(",
 			  {asis,UniqueFName},", ",ValueMatch,"),",nl]),
 		    gen_dec_postponed_decs(DecObj,PostponedDecArgs)
 	    end,
@@ -442,15 +422,9 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
 		{[{ObjSetRef,LeadingAttr,Term}],PostponedDecArgs} ->
 		    DecObj = asn1ct_gen:un_hyphen_var(lists:concat(['DecObj',LeadingAttr,Term])),
 		    ValueMatch = value_match(ValueIndex,Term),
-		    {ObjSetMod,ObjSetName} =
-			case ObjSetRef of
-			    {M,O} ->
-				{{asis,M},O};
-			    _ ->
-				{"?MODULE",ObjSetRef}
-			end,
+		    {ObjSetMod,ObjSetName} = ObjSetRef,
 		    emit([DecObj," =",nl,
-			  "   ",ObjSetMod,":'getdec_",ObjSetName,"'(",
+			  "   ",{asis,ObjSetMod},":'getdec_",ObjSetName,"'(",
 			  {asis,UniqueFName},", ",ValueMatch,"),",nl]),
 		    gen_dec_postponed_decs(DecObj,PostponedDecArgs)
 	    end,
@@ -1259,15 +1233,9 @@ gen_dec_call(InnerType,Erules,TopType,Cname,Type,BytesVar,Tag,PrimOptOrMand,
 	{Cname,{_,OSet,UniqueFName,ValIndex}} ->
 	    Term = asn1ct_gen:mk_var(asn1ct_name:curr(term)),
 	    ValueMatch = value_match(ValIndex,Term),
-	    {ObjSetMod,ObjSetName} =
-		case OSet of
-		    {M,O} ->
-			{{asis,M},O};
-		    _ ->
-			{"?MODULE",OSet}
-		end,
-	    emit([",",nl,"ObjFun = ",ObjSetMod,":'getdec_",ObjSetName,"'(",
-		  {asis,UniqueFName},", ",ValueMatch,")"]);
+	    {ObjSetMod,ObjSetName} = OSet,
+	    emit([",",nl,"ObjFun = ",{asis,ObjSetMod},":'getdec_",ObjSetName,
+		  "'(",{asis,UniqueFName},", ",ValueMatch,")"]);
 	_ ->
 	    ok
     end,

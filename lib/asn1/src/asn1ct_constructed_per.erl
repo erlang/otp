@@ -143,19 +143,15 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 				   uniqueclassfield=UniqueFieldName,
 				   valueindex=ValueIndex
 				  } -> %% N is index of attribute that determines constraint
-		{{ObjSetMod,ObjSetName},OSDef} =
-		    case ObjectSet of
-			{Module,OSName} ->
-			    {{{asis,Module},OSName},asn1_db:dbget(Module,OSName)};
-			OSName ->
-			    {{"?MODULE",OSName},asn1_db:dbget(get(currmod),OSName)}
-		    end,
-		case (OSDef#typedef.typespec)#'ObjectSet'.gen of
+		{Module,ObjSetName} = ObjectSet,
+		#typedef{typespec=#'ObjectSet'{gen=Gen}} =
+		    asn1_db:dbget(Module, ObjSetName),
+		case Gen of
 		    true ->
 			ObjectEncode = 
 			    asn1ct_gen:un_hyphen_var(lists:concat(['Obj',AttrN])),
-			emit([ObjectEncode," = ",nl]),
-			emit(["  ",ObjSetMod,":'getenc_",ObjSetName,"'(",
+			emit([ObjectEncode," =",nl,
+			      "  ",{asis,Module},":'getenc_",ObjSetName,"'(",
 			      {asis,UniqueFieldName},", ",nl]),
 			El = make_element(N+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
 
@@ -176,7 +172,7 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 				notice_value_match()
 			end,
 			{AttrN,ObjectEncode};
-		    _ ->
+		    false ->
 			false
 		end;
 	    _  ->
@@ -364,14 +360,10 @@ gen_dec_constructed_imm_2(Typename, CompList,
 	{[{ObjSet,LeadingAttr,Term}],ListOfOpenTypes} ->
 	    DecObj = asn1ct_gen:un_hyphen_var(lists:concat(['DecObj',LeadingAttr,Term])),
 	    ValueMatch = value_match(ValueIndex,Term),
-	    {ObjSetMod,ObjSetName} =
-		case ObjSet of
-		    {M,O} -> {{asis,M},O};
-		    _ -> {"?MODULE",ObjSet}
-		end,
-	    emit({DecObj," =",nl,"   ",ObjSetMod,":'getdec_",ObjSetName,"'(",
-%		  {asis,UniqueFName},", ",Term,"),",nl}),
-		  {asis,UniqueFName},", ",ValueMatch,"),",nl}),
+	    {ObjSetMod,ObjSetName} = ObjSet,
+	    emit([DecObj," =",nl,
+		  "   ",{asis,ObjSetMod},":'getdec_",ObjSetName,"'(",
+		  {asis,UniqueFName},", ",ValueMatch,"),",nl]),
 	    gen_dec_listofopentypes(DecObj,ListOfOpenTypes,false)
     end,
     %% we don't return named lists any more   Cnames = mkcnamelist(CompList), 
@@ -1469,14 +1461,11 @@ gen_dec_line_dec_inf(Comp, DecInfObj) ->
 	{Cname,{_,OSet,UniqueFName,ValIndex}} ->
 	    Term = asn1ct_gen:mk_var(asn1ct_name:curr(term)),
 	    ValueMatch = value_match(ValIndex,Term),
-	    {ObjSetMod,ObjSetName} =
-		case OSet of
-		    {M,O} -> {{asis,M},O};
-		    _ -> {"?MODULE",OSet}
-		end,
-	    emit({",",nl,"ObjFun = ",ObjSetMod,
+	    {ObjSetMod,ObjSetName} = OSet,
+	    emit([",",nl,
+		  "ObjFun = ",{asis,ObjSetMod},
 		  ":'getdec_",ObjSetName,"'(",
-		  {asis,UniqueFName},", ",ValueMatch,")"});
+		  {asis,UniqueFName},", ",ValueMatch,")"]);
 	_ ->
 	    ok
     end.
