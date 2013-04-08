@@ -305,9 +305,9 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <item>
 	<p>The lookup fun should be defined as:</p>
 	<code>
-fun(psk, PSKIdentity, UserState :: term()) ->
+fun(psk, PSKIdentity ::string(), UserState :: term()) ->
 	{ok, SharedSecret :: binary()} | error;
-fun(srp, Username, UserState :: term()) ->
+fun(srp, Username :: string(), UserState :: term()) ->
 	{ok, {SRPParams :: srp_param_type(), Salt :: binary(), DerivedKey :: binary()}} | error.
 	</code>
 

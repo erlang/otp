@@ -1287,23 +1287,24 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       <fsummary>Generates SRP public keys</fsummary>
       <type>
 	<v>Verifier = binary()</v>
-	<d>Parameter v from <seealso marker="http://srp.stanford.edu/design.html">SRP design</seealso>
+	<d>Parameter v from <url href="http://srp.stanford.edu/design.html">SRP design</url>
 	 </d>
 	 <v>Generator = binary() </v>
-	 <d>Parameter g from <seealso marker="http://srp.stanford.edu/design.html">SRP design</seealso>
+	 <d>Parameter g from <url href="http://srp.stanford.edu/design.html">SRP design</url>
 	 </d>
 	<v>Prime = binary() </v>
-	<d>Parameter N from <seealso marker="http://srp.stanford.edu/design.html">SRP design</seealso>
+	<d>Parameter N from <url href="http://srp.stanford.edu/design.html">SRP design</url>
 	 </d>
 	 <v>Version = '3' |  '6' |  '6a' </v>
 	<d>SRP version, TLS SRP cipher suites uses '6a'.</d>
 	 <v>PublicKey = binary()</v>
-	 <d> Parameter A or B from <seealso marker="http://srp.stanford.edu/design.html">SRP design</seealso></d> 
-	 <v>PrivateKey = binary() - generated if not supplied</v>
-	 <d>Parameter a or b from <seealso marker="http://srp.stanford.edu/design.html">SRP design</seealso></d> 
+	 <d> Parameter A or B from <url href="http://srp.stanford.edu/design.html">SRP design</url></d>
+	 <v>Private = PrivateKey = binary() - generated if not supplied</v>
+	 <d>Parameter a or b from <url href="http://srp.stanford.edu/design.html">SRP design</url></d>
       </type>
       <desc>
-	<p>Generates SRP public keys</p>
+	<p>Generates SRP public keys for the client side (first argument is Generator)
+	or for the server side (first argument is Verifier).</p>
       </desc>
     </func>
 
@@ -1351,7 +1352,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </type>
       <desc>
 	<p>
-	  Computes the SRP session key (shared secret). Also used
+	  Computes the SRP session key (shared secret) for the client side (first argument is DerivedKey)
+	  or for the server side (first argument is Verifier). Also used
 	  as premaster secret by TLS-SRP ciher suites.
 	</p>
       </desc>
