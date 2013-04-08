@@ -614,30 +614,38 @@ stop_transport(SvcName, Refs) ->
 %% make_config/2
 
 make_config(SvcName, Opts) ->
-    Apps = init_apps(Opts),
+    AppOpts = [T || {application, _} = T <- Opts],
+    Apps = init_apps(AppOpts),
+
     [] == Apps andalso ?THROW(no_apps),
 
     %% Use the fact that diameter_caps has the same field names as CER.
     Fields = ?BASE:'#info-'(diameter_base_CER) -- ['AVP'],
 
-    COpts = [T || {K,_} = T <- Opts, lists:member(K, Fields)],
-    Caps = make_caps(#diameter_caps{}, COpts),
+    CapOpts = [T || {K,_} = T <- Opts, lists:member(K, Fields)],
+    Caps = make_caps(#diameter_caps{}, CapOpts),
 
-    ok = encode_CER(COpts),
+    ok = encode_CER(CapOpts),
 
-    Os = split(Opts, fun opt/2, [{false, share_peers},
-                                 {false, use_shared_peers},
-                                 {false, monitor},
-                                 {?NOMASK, sequence},
-                                 {nodes, restrict_connections}]),
+    SvcOpts = make_opts((Opts -- AppOpts) -- CapOpts,
+                        [{false, share_peers},
+                         {false, use_shared_peers},
+                         {false, monitor},
+                         {?NOMASK, sequence},
+                         {nodes, restrict_connections}]),
 
     #service{name = SvcName,
              rec = #diameter_service{applications = Apps,
                                      capabilities = Caps},
-             options = Os}.
+             options = SvcOpts}.
 
-split(Opts, F, Defs) ->
-    [{K, F(K, get_opt(K, Opts, D))} || {D,K} <- Defs].
+make_opts(Opts, Defs) ->
+    Known = [{K, get_opt(K, Opts, D)} || {D,K} <- Defs],
+    Unknown = Opts -- Known,
+
+    [] == Unknown orelse ?THROW({invalid, hd(Unknown)}),
+
+    [{K, opt(K,V)} || {K,V} <- Known].
 
 opt(K, false = B)
   when K /= sequence ->
@@ -728,8 +736,8 @@ encode_CER(Opts) ->
 init_apps(Opts) ->
     lists:foldl(fun app_acc/2, [], lists:reverse(Opts)).
 
-app_acc({application, Opts}, Acc) ->
-    is_list(Opts) orelse ?THROW({application, Opts}),
+app_acc({application, Opts} = T, Acc) ->
+    is_list(Opts) orelse ?THROW(T),
 
     [Dict, Mod] = get_opt([dictionary, module], Opts),
     Alias = get_opt(alias, Opts, Dict),
@@ -745,9 +753,7 @@ app_acc({application, Opts}, Acc) ->
                    mutable = M,
                    options = [{answer_errors, A},
                               {request_errors, P}]}
-     | Acc];
-app_acc(_, Acc) ->
-    Acc.
+     | Acc].
 
 init_mod(#diameter_callback{} = R) ->
     init_mod([diameter_callback, R]);
