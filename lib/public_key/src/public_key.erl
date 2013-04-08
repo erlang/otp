@@ -256,7 +256,7 @@ decrypt_private(CipherText,
        is_integer(N), is_integer(E), is_integer(D),  
        is_list(Options) ->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_private_decrypt(CipherText, format_rsa_private_key(Key), Padding).
+    crypto:rsa_private_decrypt(CipherText, old_format_rsa_private_key(Key), Padding).
 
 %%--------------------------------------------------------------------
 -spec decrypt_public(CipherText :: binary(), rsa_public_key() | rsa_private_key()) ->
@@ -322,7 +322,7 @@ encrypt_private(PlainText,
        is_integer(N), is_integer(E), is_integer(D),
        is_list(Options) ->		
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_private_encrypt(PlainText, format_rsa_private_key(Key), Padding).
+    crypto:rsa_private_encrypt(PlainText, old_format_rsa_private_key(Key), Padding).
 
 
 format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
@@ -332,9 +332,22 @@ format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
 					coefficient = C})
   when is_integer(P1), is_integer(P2), 
        is_integer(E1), is_integer(E2), is_integer(C) ->
-   [crypto:mpint(K) || K <- [E, N, D, P1, P2, E1, E2, C]];
+   [K || K <- [E, N, D, P1, P2, E1, E2, C]];
 
 format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
+					privateExponent = D}) ->
+   [K || K <- [E, N, D]].
+
+old_format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
+					privateExponent = D,
+					prime1 = P1, prime2 = P2,
+					exponent1 = E1, exponent2 = E2,
+					coefficient = C})
+  when is_integer(P1), is_integer(P2),
+       is_integer(E1), is_integer(E2), is_integer(C) ->
+   [crypto:mpint(K) || K <- [E, N, D, P1, P2, E1, E2, C]];
+
+old_format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
 					privateExponent = D}) ->
    [crypto:mpint(K) || K <- [E, N, D]].
 
@@ -415,20 +428,16 @@ pkix_sign_types(?'ecdsa-with-SHA512') ->
 %% Description: Create digital signature.
 %%--------------------------------------------------------------------
 sign({digest,_}=Digest, DigestType, Key = #'RSAPrivateKey'{}) ->
-    crypto:rsa_sign(DigestType, Digest, format_rsa_private_key(Key));
+    crypto:sign(rsa, DigestType, Digest, format_rsa_private_key(Key));
 
 sign(PlainText, DigestType, Key = #'RSAPrivateKey'{}) ->
-    crypto:rsa_sign(DigestType, sized_binary(PlainText), format_rsa_private_key(Key));
+    crypto:sign(rsa, DigestType, PlainText, format_rsa_private_key(Key));
 
 sign({digest,_}=Digest, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
-    crypto:dss_sign(Digest,
-		    [crypto:mpint(P), crypto:mpint(Q),
-		     crypto:mpint(G), crypto:mpint(X)]);
+    crypto:sign(dss, sha, Digest, [P, Q, G, X]);
 
 sign(PlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
-    crypto:dss_sign(sized_binary(PlainText),
-          [crypto:mpint(P), crypto:mpint(Q),
-           crypto:mpint(G), crypto:mpint(X)]);
+    crypto:sign(dss, sha, PlainText, [P, Q, G, X]);
 
 sign(Digest, DigestType, Key = {?'id-ecPublicKey', _, _}) ->
     sign(Digest, DigestType, ec_public_key_to_eckey(Key));
@@ -437,10 +446,10 @@ sign(Digest, DigestType, Key = #'ECPrivateKey'{}) ->
     sign(Digest, DigestType, ec_private_key_to_eckey(Key));
 
 sign({digest,_}=Digest, DigestType, {'ECKey', Key}) ->
-    crypto:ecdsa_sign(DigestType, Digest, Key);
+    crypto:sign(ecdsa, DigestType, Digest, Key);
 
 sign(PlainText, DigestType, {'ECKey', Key}) ->
-    crypto:ecdsa_sign(DigestType, sized_binary(PlainText), Key);
+    crypto:sign(ecdsa, DigestType, PlainText, Key);
 
 %% Backwards compatible
 sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
@@ -452,29 +461,21 @@ sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
 	     | dsa_public_key()) -> boolean().
 %% Description: Verifies a digital signature.
 %%--------------------------------------------------------------------
-verify({digest,_}=Digest, DigestType, Signature,
+verify({digest,_} = Digest, DigestType, Signature,
        #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
-    crypto:rsa_verify(DigestType, Digest,
-		      sized_binary(Signature),
-		      [crypto:mpint(Exp), crypto:mpint(Mod)]);
+    crypto:verify(rsa, DigestType, Digest, Signature, [Exp, Mod]);
 
 verify(PlainText, DigestType, Signature,
        #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
-    crypto:rsa_verify(DigestType,
-		      sized_binary(PlainText), 
-		      sized_binary(Signature), 
-		      [crypto:mpint(Exp), crypto:mpint(Mod)]);
+    crypto:verify(rsa, DigestType, PlainText, Signature,
+		  [Exp, Mod]);
 
-verify({digest,_}=Digest, sha, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
+verify({digest,_} = Digest, sha = DigestType, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
   when is_integer(Key), is_binary(Signature) ->
-    crypto:dss_verify(Digest, sized_binary(Signature),
-		      [crypto:mpint(P), crypto:mpint(Q), 
-		       crypto:mpint(G), crypto:mpint(Key)]);
+    crypto:verify(dss, DigestType, Digest, Signature, [P, Q, G, Key]);
 
-verify({digest,_}=Digest, DigestType, Signature, {'ECKey', Key}) ->
-    crypto:ecdsa_verify(DigestType, Digest,
-			sized_binary(Signature),
-			Key);
+verify({digest,_} = Digest, DigestType, Signature, {'ECKey', Key}) ->
+    crypto:verify(ecdsa, DigestType, Digest, Signature, Key);
 
 verify(PlainText, DigestType, Signature, Key = #'ECPrivateKey'{}) ->
     verify(PlainText, DigestType, Signature, ec_private_key_to_eckey(Key));
@@ -483,21 +484,16 @@ verify(PlainText, DigestType, Signature, Key = {#'ECPoint'{}, _}) ->
     verify(PlainText, DigestType, Signature, ec_public_key_to_eckey(Key));
 
 verify(PlainText, DigestType, Signature, {'ECKey', Key}) ->
-    crypto:ecdsa_verify(DigestType,
-			sized_binary(PlainText),
-			sized_binary(Signature),
-			Key);
+    crypto:verify(ecdsa, DigestType, PlainText, Signature, Key);
 
 %% Backwards compatibility
 verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
     verify({digest,Digest}, sha, Signature, Key);
 
-verify(PlainText, sha, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}}) 
+verify(PlainText, sha = DigestType, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
   when is_integer(Key), is_binary(PlainText), is_binary(Signature) ->
-    crypto:dss_verify(sized_binary(PlainText), 
-		      sized_binary(Signature), 
-		      [crypto:mpint(P), crypto:mpint(Q), 
-		       crypto:mpint(G), crypto:mpint(Key)]).
+    crypto:verify(dss, DigestType, PlainText, Signature, [P, Q, G, Key]).
+
 %%--------------------------------------------------------------------
 -spec pkix_sign(#'OTPTBSCertificate'{},
 		rsa_private_key() | dsa_private_key()) -> Der::binary().
