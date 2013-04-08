@@ -28,6 +28,7 @@
 -include_lib("reltool/src/reltool.hrl").
 -include("reltool_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -define(NODE_NAME, '__RELTOOL__TEMPORARY_TEST__NODE__').
 -define(WORK_DIR, "reltool_work_dir").
@@ -36,8 +37,9 @@
 %% Initialization functions.
 
 init_per_suite(Config) ->
+    {ok,Cwd} = file:get_cwd(),
     ?ignore(file:make_dir(?WORK_DIR)),
-    reltool_test_lib:init_per_suite(Config).
+    [{cwd,Cwd}|reltool_test_lib:init_per_suite(Config)].
 
 end_per_suite(Config) ->
     reltool_test_lib:end_per_suite(Config).
@@ -49,8 +51,48 @@ init_per_testcase(Func,Config) ->
 	pang -> ok
     end,
     reltool_test_lib:init_per_testcase(Func,Config).
-end_per_testcase(Func,Config) -> 
+end_per_testcase(Func,Config) ->
+    ok = file:set_cwd(filename:join(?config(cwd,Config),?WORK_DIR)),
+    {ok,All}  = file:list_dir("."),
+    Files = [F || F <- All, false == lists:prefix("save.",F)],
+    case ?config(tc_status,Config) of
+	ok ->
+	    ok;
+	_Fail ->
+	    SaveDir = "save."++atom_to_list(Func),
+	    ok = file:make_dir(SaveDir),
+	    save_test_result(Files,SaveDir)
+    end,
+    rm_files(Files),
+    ok = file:set_cwd(?config(cwd,Config)),
     reltool_test_lib:end_per_testcase(Func,Config).
+
+
+save_test_result(Files,DestDir) ->
+    Tar = "copy.tar",
+    ok = erl_tar:create(Tar, Files),
+    ok = erl_tar:extract(Tar, [{cwd,DestDir}]),
+    ok = file:delete(Tar),
+    ok.
+
+rm_files([F | Fs]) ->
+    case file:read_file_info(F) of
+	{ok,#file_info{type=directory}} ->
+	    rm_dir(F);
+	{ok,_Regular} ->
+	    ok = file:delete(F)
+    end,
+    rm_files(Fs);
+rm_files([]) ->
+    ok.
+
+rm_dir(Dir) ->
+    {ok,Files} = file:list_dir(Dir),
+    rm_files([filename:join(Dir, F) || F <- Files]),
+    ok = file:del_dir(Dir).
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% SUITE specification
@@ -506,7 +548,7 @@ create_script(_Config) ->
     %% ?m(OrigScript2, Script2),
     
     ?m(equal, diff_script(OrigScript, Script)),
-    
+
     %% Stop server
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -755,7 +797,7 @@ create_target(_Config) ->
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
     ?msym(ok, stop_node(Node)),
-    
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
