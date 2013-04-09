@@ -108,8 +108,7 @@ pgen_values(Erules,Module,[H|T]) ->
     gen_value(Valuedef),
     pgen_values(Erules,Module,T).
 
-pgen_types(_,_,_,Module,[]) ->
-    gen_value_match(Module),
+pgen_types(_, _, _, _, []) ->
     true;
 pgen_types(Rtmod,Erules,N2nConvEnums,Module,[H|T]) ->
     asn1ct_name:clear(),
@@ -572,22 +571,6 @@ gen_types(Erules,Tname,Type) when is_record(Type,type) ->
     Rtmod:gen_encode(Erules,Tname,Type),
     asn1ct_name:clear(),
     Rtmod:gen_decode(Erules,Tname,Type).
-
-gen_value_match(Module) ->
-    case get(value_match) of
-	{true,Module} ->
-	    emit(["value_match([{Index,Cname}|Rest],Value) ->",nl,
-		  "  Value2 =",nl,
-		  "    case element(Index,Value) of",nl,
-		  "      {Cname,Val2} -> Val2;",nl,
-		  "      X -> X",nl,
-		  "    end,",nl,
-		  "  value_match(Rest,Value2);",nl,
-		  "value_match([],Value) ->",nl,
-		  "  Value.",nl]);
-	_  -> ok
-    end,
-    put(value_match,undefined).
 
 gen_check_defaultval(Erules,Module,[{Name,Type}|Rest]) ->
     gen_check_func(Name,Type),

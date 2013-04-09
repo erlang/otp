@@ -51,6 +51,12 @@ Seq2 ::= SEQUENCE {
   }
 }
 
+Deeper ::= SEQUENCE {
+  a  SEQUENCE {aa INTEGER,
+               s SEQUENCE { ab MYCLASS.&id ({ObjectSet}),
+	                    ac INTEGER }},
+  b  SEQUENCE {ba INTEGER, bb MYCLASS.&Type ({ObjectSet}{@a.s.ab})}
+}
 
 -- following from Peter's definitions
 

@@ -150,27 +150,12 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 		    true ->
 			ObjectEncode = 
 			    asn1ct_gen:un_hyphen_var(lists:concat(['Obj',AttrN])),
+			El = make_element(N+1, asn1ct_gen:mk_var(asn1ct_name:curr(val))),
+			ValueMatch = value_match(ValueIndex, El),
 			emit([ObjectEncode," =",nl,
 			      "  ",{asis,Module},":'getenc_",ObjSetName,"'(",
-			      {asis,UniqueFieldName},", ",nl]),
-			El = make_element(N+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
-
-			Length = fun(X,_LFun) when is_atom(X) -> 
-					 length(atom_to_list(X));
-				    (X,_LFun) when is_list(X) ->
-					 length(X);
-				    ({X1,X2},LFun) ->
-					 LFun(X1,LFun) + LFun(X2,LFun)
-				 end,
-			Indent = 12 + Length(ObjectSet,Length),
-			case ValueIndex of
-			    [] ->
-				emit([indent(Indent),El,"),",nl]);
-			    _ ->
-				emit([indent(Indent),"value_match(",
-				      {asis,ValueIndex},",",El,")),",nl]),
-				notice_value_match()
-			end,
+			      {asis,UniqueFieldName},", ",nl,
+			      "  ",ValueMatch,"),",nl]),
 			{AttrN,ObjectEncode};
 		    false ->
 			false
@@ -1793,9 +1778,5 @@ value_match1(Value,[],Acc,Depth) ->
 value_match1(Value,[{VI,_}|VIs],Acc,Depth) ->
     value_match1(Value,VIs,Acc++lists:concat(["element(",VI,","]),Depth+1).
 
-notice_value_match() ->
-    Module = get(currmod),
-    put(value_match,{true,Module}).
-    
 is_optimized(per) -> true;
 is_optimized(uper) -> false.
