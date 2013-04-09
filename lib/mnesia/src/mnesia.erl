@@ -554,7 +554,7 @@ write(_Tid, _Ts, Tab, Val, LockKind) ->
 write_to_store(Tab, Store, Oid, Val) ->
     case ?catch_val({Tab, record_validation}) of
 	{RecName, Arity, Type}
-	  when tuple_size(Val) == Arity, RecName == element(1, Val) ->
+	  when tuple_size(Val) == Arity ->
 	    case Type of
 		bag ->
 		    ?ets_insert(Store, {Oid, Val, write});
@@ -1544,7 +1544,7 @@ do_dirty_write(SyncMode, Tab, Val)
   when is_atom(Tab), Tab /= schema, is_tuple(Val), tuple_size(Val) > 2 ->
     case ?catch_val({Tab, record_validation}) of
 	{RecName, Arity, _Type}
-	when tuple_size(Val) == Arity, RecName == element(1, Val) ->
+	when tuple_size(Val) == Arity ->
 	    Oid = {Tab, element(2, Val)},
 	    mnesia_tm:dirty(SyncMode, {Oid, Val, write});
 	{'EXIT', _} ->
