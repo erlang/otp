@@ -155,6 +155,7 @@ JAVADOC-GENERATED
 /lib/*/doc/html/*.css
 /lib/*/doc/html/js
 /lib/*/doc/html/*.gif
+/lib/*/doc/html/*.jpg
 /lib/*/doc/html/*.png
 /lib/*/doc/html/*.eix
 /lib/*/doc/man[0-9]/*.[0-9]
@@ -212,7 +213,7 @@ JAVADOC-GENERATED
 
 # debugger
 
-/lib/debugger/doc/html/images/*.gif
+/lib/debugger/doc/html/images/*.jpg
 
 # edoc
 
@@ -224,6 +225,7 @@ JAVADOC-GENERATED
 /erts/info
 /erts/doc/html/*.html
 /erts/doc/html/*.gif
+/erts/doc/html/*.jpg
 /erts/doc/html/*.eix
 /erts/doc/pdf/*.fo
 /erts/doc/pdf/*.pdf
@@ -329,6 +331,7 @@ JAVADOC-GENERATED
 /system/doc/html/js
 /system/doc/html/*/*.html
 /system/doc/html/*/*.gif
+/system/doc/html/*/*.jpg
 /system/doc/html/*/*.eix
 /system/doc/top/PR.template
 /system/doc/top/erlresolvelinks.js
