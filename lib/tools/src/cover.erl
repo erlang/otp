@@ -881,6 +881,8 @@ remote_process_loop(State) ->
 
 	{remote,stop} ->
 	    reload_originals(State#remote_state.compiled),
+	    ets:delete(?COVER_TABLE),
+            ets:delete(?COVER_CLAUSE_TABLE),
             unregister(?SERVER),
 	    ok; % not replying since 'DOWN' message will be received anyway
 
