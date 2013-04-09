@@ -1787,45 +1787,64 @@ rsa_encrypt_decrypt(Config) when is_list(Config) ->
     PrivEx = 7531712708607620783801185371644749935066152052780368689827275932079815492940396744378735701395659435842364793962992309884847527234216715366607660219930945,
     Mod = 7919488123861148172698919999061127847747888703039837999377650217570191053151807772962118671509138346758471459464133273114654252861270845708312601272799123,
     
-    PrivKey = [crypto:mpint(PubEx), crypto:mpint(Mod), crypto:mpint(PrivEx)],
-    PubKey  = [crypto:mpint(PubEx), crypto:mpint(Mod)],
+    PrivKey = [PubEx, Mod, PrivEx],
+    PubKey  = [PubEx, Mod],
 
     Msg = <<"7896345786348 Asldi">>,
 
-    ?line PKCS1 = crypto:rsa_public_encrypt(Msg, PubKey, rsa_pkcs1_padding),
-    ?line PKCS1Dec = crypto:rsa_private_decrypt(PKCS1, PrivKey, rsa_pkcs1_padding),
+    ?line PKCS1 = rsa_public_encrypt(Msg, PubKey, rsa_pkcs1_padding),
+    ?line PKCS1Dec = rsa_private_decrypt(PKCS1, PrivKey, rsa_pkcs1_padding),
     io:format("PKCS1Dec ~p~n",[PKCS1Dec]),
     ?line Msg = PKCS1Dec,
     
-    ?line OAEP = crypto:rsa_public_encrypt(Msg, PubKey, rsa_pkcs1_oaep_padding),
-    ?line Msg = crypto:rsa_private_decrypt(OAEP, PrivKey, rsa_pkcs1_oaep_padding),
+    ?line OAEP = rsa_public_encrypt(Msg, PubKey, rsa_pkcs1_oaep_padding),
+    ?line Msg = rsa_private_decrypt(OAEP, PrivKey, rsa_pkcs1_oaep_padding),
 
     <<Msg2Len:32,_/binary>> = crypto:mpint(Mod),
     Msg2 = list_to_binary(lists:duplicate(Msg2Len-1, $X)),
-    ?line NoPad = crypto:rsa_public_encrypt(Msg2, PubKey, rsa_no_padding),
-    ?line NoPadDec = crypto:rsa_private_decrypt(NoPad, PrivKey, rsa_no_padding),
+    ?line NoPad = rsa_public_encrypt(Msg2, PubKey, rsa_no_padding),
+    ?line NoPadDec = rsa_private_decrypt(NoPad, PrivKey, rsa_no_padding),
     ?line NoPadDec = Msg2,
     
-    ShouldBeError = (catch crypto:rsa_public_encrypt(Msg, PubKey, rsa_no_padding)),
+    ShouldBeError = (catch rsa_public_encrypt(Msg, PubKey, rsa_no_padding)),
     ?line {'EXIT', {encrypt_failed,_}} = ShouldBeError,
     
-%%     ?line SSL = crypto:rsa_public_encrypt(Msg, PubKey, rsa_sslv23_padding),
-%%     ?line Msg = crypto:rsa_private_decrypt(SSL, PrivKey, rsa_sslv23_padding),
+%%     ?line SSL = rsa_public_encrypt(Msg, PubKey, rsa_sslv23_padding),
+%%     ?line Msg = rsa_private_decrypt(SSL, PrivKey, rsa_sslv23_padding),
 
-    ?line PKCS1_2 = crypto:rsa_private_encrypt(Msg, PrivKey, rsa_pkcs1_padding),
-    ?line PKCS1_2Dec = crypto:rsa_public_decrypt(PKCS1_2, PubKey, rsa_pkcs1_padding),
+    ?line PKCS1_2 = rsa_private_encrypt(Msg, PrivKey, rsa_pkcs1_padding),
+    ?line PKCS1_2Dec = rsa_public_decrypt(PKCS1_2, PubKey, rsa_pkcs1_padding),
     io:format("PKCS2Dec ~p~n",[PKCS1_2Dec]),
     ?line Msg = PKCS1_2Dec,
 
-    ?line PKCS1_3 = crypto:rsa_private_encrypt(Msg2, PrivKey, rsa_no_padding),
-    ?line PKCS1_3Dec = crypto:rsa_public_decrypt(PKCS1_3, PubKey, rsa_no_padding),
+    ?line PKCS1_3 = rsa_private_encrypt(Msg2, PrivKey, rsa_no_padding),
+    ?line PKCS1_3Dec = rsa_public_decrypt(PKCS1_3, PubKey, rsa_no_padding),
     io:format("PKCS2Dec ~p~n",[PKCS1_3Dec]),
     ?line Msg2 = PKCS1_3Dec,
     
     ?line {'EXIT', {encrypt_failed,_}} = 
-	(catch crypto:rsa_private_encrypt(Msg, PrivKey, rsa_no_padding)),
+	(catch rsa_private_encrypt(Msg, PrivKey, rsa_no_padding)),
     
     ok.
+
+rsa_public_encrypt(Msg, Key, Pad) ->
+    C1 = crypto:rsa_public_encrypt(Msg, Key, Pad),
+    C2 = crypto:rsa_public_encrypt(Msg, lists:map(fun(E) -> crypto:mpint(E) end, Key), Pad),
+    {C1,C2}.
+
+rsa_public_decrypt(Msg, Key, Pad) ->
+    R = crypto:rsa_public_decrypt(Msg, Key, Pad),
+    R = crypto:rsa_public_decrypt(Msg, lists:map(fun(E) -> crypto:mpint(E) end, Key), Pad).
+
+rsa_private_encrypt(Msg, Key, Pad) ->
+    R = crypto:rsa_private_encrypt(Msg, Key, Pad),
+    R = crypto:rsa_private_encrypt(Msg, lists:map(fun(E) -> crypto:mpint(E) end, Key), Pad).
+
+rsa_private_decrypt({C1,C2}, Key, Pad) ->
+    R = crypto:rsa_private_decrypt(C1, Key, Pad),
+    R = crypto:rsa_private_decrypt(C2, Key, Pad),
+    R = crypto:rsa_private_decrypt(C1, lists:map(fun(E) -> crypto:mpint(E) end, Key), Pad),
+    R = crypto:rsa_private_decrypt(C2, lists:map(fun(E) -> crypto:mpint(E) end, Key), Pad).
 
 
 dh(doc) ->

@@ -904,6 +904,12 @@ map_ensure_int_as_bin([H|_]=List) when is_integer(H) ->
 map_ensure_int_as_bin(List) ->
     List.
 
+map_to_norm_bin([H|_]=List) when is_integer(H) ->
+    lists:map(fun(E) -> int_to_bin(E) end, List);
+map_to_norm_bin(List) ->
+    lists:map(fun(E) -> mpint_to_bin(E) end, List).
+
+
 sign(rsa, Type, DataOrDigest, Key) ->
     case rsa_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
 	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
@@ -945,7 +951,7 @@ ecdsa_sign_nif(_Type, _DataOrDigest, _Key) -> ?nif_stub.
 
 %% Binary, Key = [E,N]
 rsa_public_encrypt(BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg, Key, Padding, true) of
+    case rsa_public_crypt(BinMesg, map_to_norm_bin(Key), Padding, true) of
 	error ->
 	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign
@@ -955,7 +961,7 @@ rsa_public_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
 
 %% Binary, Key = [E,N,D]
 rsa_private_decrypt(BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, map_mpint_to_bin(Key), Padding, false) of
+    case rsa_private_crypt(BinMesg, map_to_norm_bin(Key), Padding, false) of
 	error ->
 	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign
@@ -966,7 +972,7 @@ rsa_private_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
     
 %% Binary, Key = [E,N,D]
 rsa_private_encrypt(BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, map_mpint_to_bin(Key), Padding, true) of
+    case rsa_private_crypt(BinMesg, map_to_norm_bin(Key), Padding, true) of
 	error ->
 	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign
@@ -974,7 +980,7 @@ rsa_private_encrypt(BinMesg, Key, Padding) ->
 
 %% Binary, Key = [E,N]
 rsa_public_decrypt(BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg, Key, Padding, false) of
+    case rsa_public_crypt(BinMesg, map_to_norm_bin(Key), Padding, false) of
 	error ->
 	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign

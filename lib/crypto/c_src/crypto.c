@@ -2339,9 +2339,9 @@ static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
     if (!enif_inspect_binary(env, argv[0], &data_bin)
 	|| !enif_get_list_cell(env, argv[1], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->e)
+	|| !get_bn_from_bin(env, head, &rsa->e)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->n)
+	|| !get_bn_from_bin(env, head, &rsa->n)
 	|| !enif_is_empty_list(env,tail)
 	|| !rsa_pad(argv[2], &padding)) {
 
