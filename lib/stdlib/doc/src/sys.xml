@@ -234,8 +234,8 @@
           <p>These functions are intended only to help with debugging. They are provided for
             convenience, allowing developers to avoid having to create their own state extraction
             functions and also avoid having to interactively extract state from the return values of
-            <c><seealso marker="get_status/1">get_status/1</seealso></c> or
-            <c><seealso marker="get_status/2">get_status/2</seealso></c> while debugging.</p>
+            <c><seealso marker="#get_status-1">get_status/1</seealso></c> or
+            <c><seealso marker="#get_status-2">get_status/2</seealso></c> while debugging.</p>
         </note>
         <p>The value of <c><anno>State</anno></c> varies for different types of
           processes. For a <c>gen_server</c> process, the returned <c><anno>State</anno></c>
@@ -247,8 +247,8 @@
           <c>Id</c> is the handler's ID (which is the value <c>false</c> if it was registered without
           an ID), and <c>HandlerState</c> is the handler's state.</p>
         <p>To obtain more information about a process, including its state, see
-          <seealso marker="get_status/1">get_status/1</seealso> and
-          <seealso marker="get_status/2">get_status/2</seealso>.</p>
+          <seealso marker="#get_status-1">get_status/1</seealso> and
+          <seealso marker="#get_status-2">get_status/2</seealso>.</p>
       </desc>
     </func>
     <func>
