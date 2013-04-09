@@ -568,7 +568,7 @@ send_detach(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
     Ref = make_ref(),
     ok = call(Config, Req, [{extra, [{self(), Ref}]}, detach]),
-    Ans = receive {Ref, T} -> T after 2000 -> false end,
+    Ans = receive {Ref, T} -> T end,
     ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = Ans.
 
@@ -1089,7 +1089,6 @@ request(#diameter_base_STR{'Session-Id' = SId},
                     {'Origin-Host', OH},
                     {'Origin-Realm', OR}]};
 
-%% send_error
+%% send_error/send_timeout
 request(#diameter_base_RAR{}, _Caps) ->
-    receive after 2000 -> ok end,
-    {protocol_error, ?TOO_BUSY}.
+    receive after 2000 -> {protocol_error, ?TOO_BUSY} end.

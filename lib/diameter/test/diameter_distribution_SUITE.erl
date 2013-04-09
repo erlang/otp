@@ -28,7 +28,7 @@
          all/0]).
 
 %% testcases
--export([enslave/1,
+-export([enslave/1, enslave/0,
          ping/1,
          start/1,
          connect/1,
@@ -36,7 +36,7 @@
          send_remote/1,
          send_timeout/1,
          send_failover/1,
-         stop/1]).
+         stop/1, stop/0]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -125,6 +125,9 @@ all() ->
 %%
 %% Start four slave nodes, one to implement a Diameter server,
 %% two three to implement a client.
+
+enslave() ->
+    [{timetrap, {seconds, 30*length(?NODES)}}].
 
 enslave(Config) ->
     Here = filename:dirname(code:which(?MODULE)),
@@ -224,6 +227,9 @@ connect(Config) ->
 %% stop/1
 %%
 %% Stop the slave nodes.
+
+stop() ->
+    [{timetrap, {seconds, 30*length(?NODES)}}].
 
 stop(_Config) ->
     [] = [{N,E} || {N,_} <- ?NODES,

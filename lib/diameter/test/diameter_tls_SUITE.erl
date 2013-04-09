@@ -181,7 +181,7 @@ start_diameter(_Config) ->
     ok = diameter:start().
 
 make_certs() ->
-    [{timetrap, {seconds, 30}}].
+    [{timetrap, {minutes, 2}}].
 
 make_certs(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
@@ -302,9 +302,7 @@ set([H|T], Vs) ->
 
 disconnect({{LRef, _PortNr}, CRef}) ->
     ok = diameter:remove_transport(?CLIENT, CRef),
-    ok = receive #diameter_event{info = {down, LRef, _, _}} -> ok
-         after 2000 -> false
-         end.
+    receive #diameter_event{info = {down, LRef, _, _}} -> ok end.
 
 realm(Host) ->
     tl(lists:dropwhile(fun(C) -> C /= $. end, Host)).
@@ -365,13 +363,11 @@ ssl([{ssl_options = T, Opts}]) ->
 
 connect(Host, {_LRef, PortNr}, {Caps, Opts}) ->
     {ok, Ref} = diameter:add_transport(Host, ?CONNECT(PortNr, Caps, Opts)),
-    ok = receive
-             #diameter_event{service = Host,
-                             info = {up, Ref, _, _, #diameter_packet{}}} ->
-                 ok
-         after 2000 ->
-                 false
-         end,
+    receive
+        #diameter_event{service = Host,
+                        info = {up, Ref, _, _, #diameter_packet{}}} ->
+            ok
+    end,
     Ref.
 
 copts(S, Opts)
