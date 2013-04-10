@@ -39,7 +39,7 @@
 	 check_old_conf/1, conf_init_fail/1, start_stop_node/1,
 	 cleanup_nodes_init/1, check_survive_nodes/1, cleanup_nodes_fin/1,
 	 commercial/1,
-	 io_invalid_data/1]).
+	 io_invalid_data/1, print_unexpected/1]).
 
 -export([dummy_function/0,dummy_function/1,doer/1]).
 
@@ -48,7 +48,7 @@ all(suite) ->
     [config, comment, timetrap, timetrap_cancel, multiply_timetrap,
      init_per_s, init_per_tc, end_per_tc,
      timeconv, msgs, capture, timecall, do_times, skip_cases,
-     commercial, io_invalid_data,
+     commercial, io_invalid_data, print_unexpected,
      {conf, conf_init, [check_new_conf], conf_cleanup},
      check_old_conf,
      {conf, conf_init_fail,[conf_member_skip],conf_cleanup_skip},
@@ -502,4 +502,13 @@ io_invalid_data(Config) when is_list(Config) ->
     ok = io:put_chars("valid: " ++ [42]),
     %% OTP-10991 caused this to hang and produce a timetrap timeout:
     {'EXIT',{badarg,_}} = (catch io:put_chars("invalid: " ++ [42.0])),
+    ok.
+
+print_unexpected(Config) when is_list(Config) ->
+    Str = "-x-x-x- test_server_SUITE:print_unexpected -> Unexpected data -x-x-x-",
+    test_server_io:print_unexpected(Str),
+    UnexpectedLog = filename:join(filename:dirname(?config(tc_logfile,Config)),
+				  "unexpected_io.log.html"),
+    {ok,Bin} = file:read_file(UnexpectedLog),
+    match = re:run(Bin, Str, [global,{capture,none}]),
     ok.

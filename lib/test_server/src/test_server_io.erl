@@ -30,7 +30,8 @@
 
 -module(test_server_io).
 -export([start_link/0,stop/0,get_gl/1,set_fd/2,
-	 start_transaction/0,end_transaction/0,print_buffered/1,print/3,
+	 start_transaction/0,end_transaction/0,
+	 print_buffered/1,print/3,print_unexpected/1,
 	 set_footer/1,set_job_name/1,set_gl_props/1]).
 
 -export([init/1,handle_call/3,handle_info/2,terminate/2]).
@@ -123,6 +124,14 @@ print(From, Tag, Msg) ->
 
 print_buffered(Pid) ->
     req({print_buffered,Pid}).
+
+%% print_unexpected(Msg)
+%%  Msg = string or iolist
+%%
+%%  Print the given string in the unexpected_io log.
+
+print_unexpected(Msg) ->
+    print(xxxFrom,unexpected_io,Msg).
 
 %% set_footer(IoData)
 %%
