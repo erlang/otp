@@ -160,10 +160,10 @@
          flex_compact_otp7534_msg01/1,
          flex_compact_otp7573_msg01/1,
 	 flex_compact_otp7576_msg01/1, 
-	 flex_compact_seq12263_msg01/1, 
-	 flex_compact_seq12263_msg02/1, 
-	 flex_compact_seq12263_msg03/1, 
-	 flex_compact_seq12263_msg04/1, 
+	 flex_compact_otp10998_msg01/1, 
+	 flex_compact_otp10998_msg02/1, 
+	 flex_compact_otp10998_msg03/1, 
+	 flex_compact_otp10998_msg04/1, 
 
 	 pretty_tickets/1, 
 	 pretty_otp4632_msg1/1, 
@@ -646,10 +646,10 @@ flex_compact_tickets_cases() ->
      flex_compact_otp7534_msg01,
      flex_compact_otp7573_msg01,
      flex_compact_otp7576_msg01,
-     flex_compact_seq12263_msg01,
-     flex_compact_seq12263_msg02,
-     flex_compact_seq12263_msg03,
-     flex_compact_seq12263_msg04
+     flex_compact_otp10998_msg01,
+     flex_compact_otp10998_msg02,
+     flex_compact_otp10998_msg03,
+     flex_compact_otp10998_msg04
     ].
 
 pretty_tickets(suite) ->
@@ -3274,7 +3274,7 @@ flex_compact_otp7576_msg01(Config) when is_list(Config) ->
 
 
 %% killer_42_original
-flex_compact_seq12263_msg01() ->
+flex_compact_otp10998_msg01() ->
     <<"!/2 stofmg0
 P=25165898{C=34227581{AV=r01/03/01/38/22{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
 v=0
@@ -3448,7 +3448,7 @@ m=audio - TDM -
 
 
 %% size36_27_11_bad.txt
-flex_compact_seq12263_msg02() ->
+flex_compact_otp10998_msg02() ->
     <<"!/2 stofmg0
 P=25167656{C=34205358{AV=r01/03/01/27/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
 v=0
@@ -3598,7 +3598,7 @@ m=audio - TDM -
 
 
 %% size41_38_55_good.txt
-flex_compact_seq12263_msg03() ->
+flex_compact_otp10998_msg03() ->
     <<"!/2 stofmg0
 P=25166035{C=34227581{AV=r01/03/01/38/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
 v=0
@@ -3768,7 +3768,7 @@ m=audio - TDM -
 
 
 %% size42_38_55_bad.txt
-flex_compact_seq12263_msg04() ->
+flex_compact_otp10998_msg04() ->
     <<"!/2 stofmg0
 P=33555020{C=34227581{AV=r01/03/01/38/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
 v=0
@@ -3941,17 +3941,17 @@ m=audio - TDM -
 }}}}}">>.
 
 
-flex_compact_seq12263_num() ->
+flex_compact_otp10998_num() ->
     10.
 
-flex_compact_seq12263_msg01(suite) ->
+flex_compact_otp10998_msg01(suite) ->
     [];
-flex_compact_seq12263_msg01(Config) when is_list(Config) ->
+flex_compact_otp10998_msg01(Config) when is_list(Config) ->
     %% put(dbg, true),
     %% put(severity, trc),
-    d("flex_compact_seq12263_msg01 -> entry", []),
-    Msg  = flex_compact_seq12263_msg01(),
-    d("flex_compact_seq12263_msg01 -> message created", []),
+    d("flex_compact_otp10998_msg01 -> entry", []),
+    Msg  = flex_compact_otp10998_msg01(),
+    d("flex_compact_otp10998_msg01 -> message created", []),
     Conf = 
 	try flex_scanner_conf(Config) of
 	    C ->
@@ -3962,17 +3962,17 @@ flex_compact_seq12263_msg01(Config) when is_list(Config) ->
 		  "~n   Error: ~p", [Error]),
 		exit(Error)
 	end,
-    d("flex_compact_seq12263_msg01 -> flex config generated", []),
-    flex_compact_seq12263([Conf], flex_compact_seq12263_num(), Msg).
+    d("flex_compact_otp10998_msg01 -> flex config generated", []),
+    flex_compact_otp10998([Conf], flex_compact_otp10998_num(), Msg).
 
-flex_compact_seq12263_msg02(suite) ->
+flex_compact_otp10998_msg02(suite) ->
     [];
-flex_compact_seq12263_msg02(Config) when is_list(Config) ->
+flex_compact_otp10998_msg02(Config) when is_list(Config) ->
     %% put(dbg, true),
     %% put(severity, trc),
-    d("flex_compact_seq12263_msg02 -> entry", []),
-    Msg  = flex_compact_seq12263_msg02(),
-    d("flex_compact_seq12263_msg02 -> message created", []),
+    d("flex_compact_otp10998_msg02 -> entry", []),
+    Msg  = flex_compact_otp10998_msg02(),
+    d("flex_compact_otp10998_msg02 -> message created", []),
     Conf = 
 	try flex_scanner_conf(Config) of
 	    C ->
@@ -3983,17 +3983,17 @@ flex_compact_seq12263_msg02(Config) when is_list(Config) ->
 		  "~n   Error: ~p", [Error]),
 		exit(Error)
 	end,
-    d("flex_compact_seq12263_msg02 -> flex config generated", []),
-    flex_compact_seq12263([Conf], flex_compact_seq12263_num(), Msg).
+    d("flex_compact_otp10998_msg02 -> flex config generated", []),
+    flex_compact_otp10998([Conf], flex_compact_otp10998_num(), Msg).
 
-flex_compact_seq12263_msg03(suite) ->
+flex_compact_otp10998_msg03(suite) ->
     [];
-flex_compact_seq12263_msg03(Config) when is_list(Config) ->
+flex_compact_otp10998_msg03(Config) when is_list(Config) ->
     %% put(dbg, true),
     %% put(severity, trc),
-    d("flex_compact_seq12263_msg03 -> entry", []),
-    Msg  = flex_compact_seq12263_msg03(),
-    d("flex_compact_seq12263_msg03 -> message created", []),
+    d("flex_compact_otp10998_msg03 -> entry", []),
+    Msg  = flex_compact_otp10998_msg03(),
+    d("flex_compact_otp10998_msg03 -> message created", []),
     Conf = 
 	try flex_scanner_conf(Config) of
 	    C ->
@@ -4004,17 +4004,17 @@ flex_compact_seq12263_msg03(Config) when is_list(Config) ->
 		  "~n   Error: ~p", [Error]),
 		exit(Error)
 	end,
-    d("flex_compact_seq12263_msg03 -> flex config generated", []),
-    flex_compact_seq12263([Conf], flex_compact_seq12263_num(), Msg).
+    d("flex_compact_otp10998_msg03 -> flex config generated", []),
+    flex_compact_otp10998([Conf], flex_compact_otp10998_num(), Msg).
 
-flex_compact_seq12263_msg04(suite) ->
+flex_compact_otp10998_msg04(suite) ->
     [];
-flex_compact_seq12263_msg04(Config) when is_list(Config) ->
+flex_compact_otp10998_msg04(Config) when is_list(Config) ->
     %% put(dbg, true),
     %% put(severity, trc),
-    d("flex_compact_seq12263_msg04 -> entry", []),
-    Msg  = flex_compact_seq12263_msg04(),
-    d("flex_compact_seq12263_msg04 -> message created", []),
+    d("flex_compact_otp10998_msg04 -> entry", []),
+    Msg  = flex_compact_otp10998_msg04(),
+    d("flex_compact_otp10998_msg04 -> message created", []),
     Conf = 
 	try flex_scanner_conf(Config) of
 	    C ->
@@ -4025,28 +4025,28 @@ flex_compact_seq12263_msg04(Config) when is_list(Config) ->
 		  "~n   Error: ~p", [Error]),
 		exit(Error)
 	end,
-    d("flex_compact_seq12263_msg04 -> flex config generated", []),
-    flex_compact_seq12263([Conf], flex_compact_seq12263_num(), Msg).
+    d("flex_compact_otp10998_msg04 -> flex config generated", []),
+    flex_compact_otp10998([Conf], flex_compact_otp10998_num(), Msg).
 
-flex_compact_seq12263(EC, N, BinMsg) ->
+flex_compact_otp10998(EC, N, BinMsg) ->
     Codec  = megaco_compact_text_encoder,
     Decode = fun(No) ->
 		     case decode_message(Codec, false, EC, BinMsg) of
 			 {ok, _Msg} ->
-			     d("flex_compact_seq12263 -> decode ok", []),
+			     d("flex_compact_otp10998 -> decode ok", []),
 			     ok;
 			 {error, Reason} ->
-			     e("flex_compact_seq12263 -> "
+			     e("flex_compact_otp10998 -> "
 			       "decode ~w failed: ~p", [No, Reason]),
 			     throw({error, No, Reason})
 		     end
 	     end, 
-    do_flex_compact_seq12263(N, Decode).
+    do_flex_compact_otp10998(N, Decode).
 
-do_flex_compact_seq12263(N, Decode) when N > 0 ->
+do_flex_compact_otp10998(N, Decode) when N > 0 ->
     Decode(N),
-    do_flex_compact_seq12263(N-1, Decode);
-do_flex_compact_seq12263(_, _) ->
+    do_flex_compact_otp10998(N-1, Decode);
+do_flex_compact_otp10998(_, _) ->
     ok.
 
 
