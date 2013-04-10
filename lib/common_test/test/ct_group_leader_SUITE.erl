@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -176,6 +176,10 @@ events_to_check(_Test) ->
 		{?eh,tc_done,{group_leader_SUITE,cap1,ok}},
 		{?eh,tc_start,{group_leader_SUITE,cap2}},
 		{?eh,tc_done,{group_leader_SUITE,cap2,ok}}]},
+     {parallel,[{?eh,tc_start,{group_leader_SUITE,unexp1}},
+		{?eh,tc_done,{group_leader_SUITE,unexp1,ok}},
+		{?eh,tc_start,{group_leader_SUITE,unexp2}},
+		{?eh,tc_done,{group_leader_SUITE,unexp2,ok}}]},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].
