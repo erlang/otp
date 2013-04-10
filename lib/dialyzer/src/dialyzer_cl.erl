@@ -509,7 +509,7 @@ hipe_compile(Files, #options{erlang_mode = ErlangMode} = Options) ->
 		  dialyzer_codeserver, dialyzer_contracts,
 		  dialyzer_coordinator, dialyzer_dataflow, dialyzer_dep,
 		  dialyzer_plt, dialyzer_succ_typings, dialyzer_typesig,
-		  dialyzer_typesig, dialyzer_worker],
+		  dialyzer_worker],
 	  report_native_comp(Options),
 	  {T1, _} = statistics(wall_clock),
 	  native_compile(Mods),
