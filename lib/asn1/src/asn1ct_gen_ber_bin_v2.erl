@@ -799,8 +799,8 @@ gen_encode_default_call(ClassName,FieldName,Type) ->
     Tag = [encode_tag_val(decode_class(X#tag.class),X#tag.form,X#tag.number)|| X <- OTag],
     case asn1ct_gen:type(InnerType) of
     	{constructed,bif} ->
-%%	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,Type);
-	    emit(["   'enc_",ClassName,'_',FieldName,"'(Bytes)"]),
+	    emit(["   'enc_",ClassName,'_',FieldName,"'",
+		  "(Val, ",{asis,Tag},")"]),
 	    [#typedef{name=list_to_atom(lists:concat([ClassName,'_',FieldName])),
 		      typespec=Type}];
 	{primitive,bif} ->

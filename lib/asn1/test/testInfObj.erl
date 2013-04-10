@@ -51,7 +51,14 @@ main(_Erule) ->
     roundtrip('InfObj', 'MyPdu', {'MyPdu',42,12,false,"string"}),
     roundtrip('InfObj', 'MyPdu', {'MyPdu',{'Seq',1023,"hello"},
 				  42,true,"longer string"}),
-    roundtrip('InfObj', 'MyPdu', {'MyPdu',"75712346",43,true,"string"}).
+    roundtrip('InfObj', 'MyPdu', {'MyPdu',"75712346",43,true,"string"}),
+
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',1,{'CONSTRUCTED-DEFAULT_Type',-2001,true}}),
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',2,{'CONSTRUCTED-DEFAULT_Type',999,false}}),
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',3,true}).
 
 
 roundtrip(M, T, V) ->

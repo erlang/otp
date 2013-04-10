@@ -180,6 +180,30 @@ MyPdu ::= SEQUENCE {
     str   MY-CLASS.&stringValue ({MyObjectSet}{@int})
 }
 
+--
+-- Class with constructed default
+--
+
+CONSTRUCTED-DEFAULT ::= CLASS {
+  &id INTEGER UNIQUE,
+  &Type DEFAULT SEQUENCE { a INTEGER, b BOOLEAN },
+  &ok BOOLEAN DEFAULT TRUE
+}
+
+constructed1 CONSTRUCTED-DEFAULT ::= { &id 1 }
+constructed2 CONSTRUCTED-DEFAULT ::= { &id 2, &ok false }
+
+ConstructedDefaultSet CONSTRUCTED-DEFAULT ::= {
+  constructed1 |
+  constructed2 |
+  { &id 3, &Type BOOLEAN }
+}
+
+ConstructedPdu ::= SEQUENCE {
+  id CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
+}
+
 END
 
 
