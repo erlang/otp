@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -127,91 +127,42 @@
 %%      |
 %%      v
 %%    3.14.1
+%%      |
+%%      v
+%%    3.14.2
 %%
 %%
 {"%VSN%",
  [
+  {"3.14.1", 
+   [
+    {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_14_2}, 
+     soft_purge, soft_purge, []}
+   ]
+  }, 
   {"3.14", 
    [
     {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]},
     {update,      megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_config, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.13", 
-   [
-    {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]}, 
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {update, megaco_monitor, soft, soft_purge, soft_purge, []}, 
     {update, megaco_config, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_13_1}, 
-     soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.12", 
-   [
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {load_module, megaco_udp, soft_purge, soft_purge, []},
-    {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]},
-    {update, megaco_config, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_13_1}, 
-     soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.11.3", 
-   [
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {load_module, megaco_udp, soft_purge, soft_purge, []}, 
-    {load_module, megaco_messenger, soft_purge, soft_purge, 
-     [megaco_config, megaco_monitor]},
-    {update, megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_config, {advanced, upgrade_from_pre_3_12}, 
-     soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_13_1}, 
+    {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_14_2}, 
      soft_purge, soft_purge, []}
    ]
   }
  ],
  [
+  {"3.14.1", 
+   [
+    {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_14_2}, 
+     soft_purge, soft_purge, []}
+   ]
+  }, 
   {"3.14", 
    [
     {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]},
     {update,      megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_config, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.13", 
-   [
-    {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]}, 
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {update,      megaco_monitor, soft, soft_purge, soft_purge, []}, 
     {update, megaco_config, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_13_1}, 
-     soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.12", 
-   [
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {load_module, megaco_udp, soft_purge, soft_purge, []},
-    {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]},
-    {update, megaco_config, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_13_1}, 
-     soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.11.3", 
-   [
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {load_module, megaco_udp, soft_purge, soft_purge, []}, 
-    {load_module, megaco_messenger, soft_purge, soft_purge, 
-     [megaco_config, megaco_monitor]},
-    {update, megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_config, {advanced, downgrade_to_pre_3_12}, 
-     soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_13_1}, 
+    {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_14_2}, 
      soft_purge, soft_purge, []}
    ]
   }
