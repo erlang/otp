@@ -721,6 +721,11 @@ main_process_loop(State) ->
 	      end,
 	      State#main_state.nodes),
 	    reload_originals(State#main_state.compiled),
+            ets:delete(?COVER_TABLE),
+            ets:delete(?COVER_CLAUSE_TABLE),
+            ets:delete(?BINARY_TABLE),
+            ets:delete(?COLLECTION_TABLE),
+            ets:delete(?COLLECTION_CLAUSE_TABLE),
             unregister(?SERVER),
 	    reply(From, ok);
 
@@ -876,6 +881,8 @@ remote_process_loop(State) ->
 
 	{remote,stop} ->
 	    reload_originals(State#remote_state.compiled),
+	    ets:delete(?COVER_TABLE),
+            ets:delete(?COVER_CLAUSE_TABLE),
             unregister(?SERVER),
 	    ok; % not replying since 'DOWN' message will be received anyway
 
