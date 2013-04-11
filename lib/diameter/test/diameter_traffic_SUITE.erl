@@ -49,7 +49,9 @@
          send_unsupported_app/1,
          send_error_bit/1,
          send_unsupported_version/1,
-         send_invalid_avp_bits/1,
+         send_long_avp_length/1,
+         send_short_avp_length/1,
+         send_zero_avp_length/1,
          send_invalid_avp_length/1,
          send_invalid_reject/1,
          send_long/1,
@@ -268,7 +270,9 @@ tc() ->
      send_unsupported_app,
      send_error_bit,
      send_unsupported_version,
-     send_invalid_avp_bits,
+     send_long_avp_length,
+     send_short_avp_length,
+     send_zero_avp_length,
      send_invalid_avp_length,
      send_invalid_reject,
      send_long,
@@ -481,11 +485,18 @@ send_unsupported_version(Config) ->
     ['STA', _SessionId, {'Result-Code', ?UNSUPPORTED_VERSION} | _]
         = call(Config, Req).
 
-%% Send a request containing an incorrect AVP length.
-send_invalid_avp_bits(Config) ->
+%% Send a request containing an AVP length > data size.
+send_long_avp_length(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
     ?answer_message(?INVALID_AVP_BITS)
+        = call(Config, Req).
+
+%% Send a request containing an AVP length < data size.
+send_short_avp_length(Config) ->
+    Req = ['STR', {'Termination-Cause', ?LOGOUT}],
+
+    ['STA', _SessionId, {'Result-Code', ?INVALID_AVP_LENGTH} | _]
         = call(Config, Req).
 
 %% Send a request containing an AVP length that doesn't match the
@@ -494,6 +505,13 @@ send_invalid_avp_length(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
     ['STA', _SessionId, {'Result-Code', ?INVALID_AVP_LENGTH} | _]
+        = call(Config, Req).
+
+%% Send a request containing an AVP whose advertised length is < 8.
+send_zero_avp_length(Config) ->
+    Req = ['STR', {'Termination-Cause', ?LOGOUT}],
+
+    ?answer_message(?INVALID_AVP_BITS)
         = call(Config, Req).
 
 %% Send a request containing 5xxx errors that the server rejects with
@@ -804,25 +822,32 @@ log(#diameter_packet{bin = Bin} = P, T)
 
 %% prepare/4
 
-prepare(Pkt, Caps, send_invalid_avp_bits, #group{client_dict0 = Dict0}
-                                          = Group) ->
+prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
+  when N == send_long_avp_length;
+       N == send_short_avp_length;
+       N == send_zero_avp_length ->
     Req = prepare(Pkt, Caps, Group),
-    %% Last AVP in our STR is Termination-Cause of type Unsigned32:
-    %% set its length improperly.
+    %% Second last AVP in our STR is Auth-Application-Id of type
+    %% Unsigned32: set AVP Length to a value other than 12.
     #diameter_packet{header = #diameter_header{length = L},
                      bin = B}
         = E
         = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
-    Offset = L - 7,  %% to AVP Length
-    <<H:Offset/binary, 12:24/integer, T:4/binary>> = B,
-    E#diameter_packet{bin = <<H/binary, 13:24/integer, T/binary>>};
+    Offset = L - 7 - 12,  %% to AVP Length
+    <<H:Offset/binary, 12:24/integer, T:16/binary>> = B,  %% assert
+    AL = case N of
+             send_long_avp_length  -> 13;
+             send_short_avp_length -> 11;
+             send_zero_avp_length  -> 0
+         end,
+    E#diameter_packet{bin = <<H/binary, AL:24/integer, T/binary>>};
 
 prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
   when N == send_invalid_avp_length;
        N == send_invalid_reject ->
     Req = prepare(Pkt, Caps, Group),
     %% Second last AVP in our STR is Auth-Application-Id of type
-    %% Unsigned32: Send a value of length 8.
+    %% Unsigned32: send data of length 8.
     #diameter_packet{header = #diameter_header{length = L},
                      bin = B0}
         = E
@@ -944,7 +969,9 @@ answer(Pkt, Req, _Peer, Name, #group{client_dict0 = Dict0}) ->
     [Dict:rec2msg(R) | Vs].
 
 answer(Rec, [_|_], N)
-  when N == send_invalid_avp_bits;
+  when N == send_long_avp_length;
+       N == send_short_avp_length;
+       N == send_zero_avp_length;
        N == send_invalid_avp_length;
        N == send_invalid_reject ->
     Rec;
