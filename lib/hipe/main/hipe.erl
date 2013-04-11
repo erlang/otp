@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -242,8 +242,7 @@
 %%
 %% @see load/2
 
--spec load(Mod) -> {'module', Mod} | {'error', term()}
-			when is_subtype(Mod, mod()).
+-spec load(Mod) -> {'module', Mod} | {'error', term()} when Mod :: mod().
 
 load(Mod) ->
   load(Mod, beam_file(Mod)).
@@ -265,7 +264,7 @@ load(Mod) ->
 %% @see load/1
 
 -spec load(Mod, string()) -> {'module', Mod} | {'error', term()}
-				    when is_subtype(Mod, mod()).
+				   when Mod :: mod().
 
 load(Mod, BeamFileName) when is_list(BeamFileName) ->
   Architecture = erlang:system_info(hipe_architecture),
@@ -522,7 +521,7 @@ compile(Name, Core, File, Opts) when is_atom(Name) ->
 %% @equiv file(File, [])
 
 -spec file(Mod) -> {'ok', Mod, compile_ret()} | {'error', term()}
-			  when is_subtype(Mod, mod()).
+		     when Mod :: mod().
 
 file(File) ->
   file(File, []).
@@ -542,7 +541,7 @@ file(File) ->
 
 -spec file(Mod, comp_options()) -> {'ok', Mod, compile_ret()}
 				|  {'error', term()}
-				     when is_subtype(Mod, mod()).
+				     when Mod :: mod().
 file(File, Options) when is_atom(File) ->
   case beam_lib:info(File) of
     L when is_list(L) ->
@@ -760,13 +759,15 @@ finalize_fun_concurrent(MfaIcodeList, Exports, Opts) ->
   case MfaIcodeList of
     [{{M,_,_},_}|_] ->
       CallGraph = hipe_icode_callgraph:construct_callgraph(MfaIcodeList),
-      Closures = [{MFA, true} || {MFA, Icode} <- MfaIcodeList,
-				 hipe_icode:icode_is_closure(Icode)],
-      Exported = [{{M, F, A}, false} || {F, A} <- Exports],
+      Exported = [{M, F, A} || {F, A} <- Exports],
+      Closures = [MFA || {MFA, Icode} <- MfaIcodeList,
+			 hipe_icode:icode_is_closure(Icode)],
+      %% In principle, a function could both be exported and used as a
+      %% closure so make sure to add it only once in Escaping below
+      Escaping = ordsets:from_list(Exported ++ Closures),
       NonEscaping = [MFA || {{_M, F, A} = MFA, Icode} <- MfaIcodeList, 
 			    not lists:member({F, A}, Exports),
 			    not hipe_icode:icode_is_closure(Icode)],
-      Escaping = Closures ++ Exported,
       TypeServerFun =
 	fun() ->
 	    hipe_icode_coordinator:coordinate(CallGraph, Escaping,
