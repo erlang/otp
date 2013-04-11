@@ -728,7 +728,8 @@ teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
 	    haltpatterns=[],
 	    seq=false,
 	    repeat=false,
-	    found_prompt=false}).
+	    found_prompt=false,
+	    wait_for_linebreak=true}).
 
 %% @hidden
 %% @doc Externally the silent_teln_expect function shall only be used
@@ -754,20 +755,25 @@ silent_teln_expect(Pid,Data,Pattern,Prx,Opts) ->
 %% condition is fullfilled.
 %% 3b) Repeat (sequence): 2) is repeated either N times or until a
 %% halt condition is fullfilled.
-teln_expect(Pid,Data,Pattern0,Prx,Opts) -> HaltPatterns = case
-    get_ignore_prompt(Opts) of true -> get_haltpatterns(Opts); false
-    -> [prompt | get_haltpatterns(Opts)] end,
-
+teln_expect(Pid,Data,Pattern0,Prx,Opts) -> 
+    HaltPatterns = case get_ignore_prompt(Opts) of 
+		       true -> 
+			   get_haltpatterns(Opts); 
+		       false -> 
+			   [prompt | get_haltpatterns(Opts)] 
+		   end,
+    WaitForLineBreak = get_line_break_opt(Opts),
     Seq = get_seq(Opts),
     Pattern = convert_pattern(Pattern0,Seq),
-
+					   
     Timeout = get_timeout(Opts),
- 
+					   
     EO = #eo{teln_pid=Pid,
 	     prx=Prx,
 	     timeout=Timeout,
 	     seq=Seq,
-	     haltpatterns=HaltPatterns},
+	     haltpatterns=HaltPatterns,
+	     wait_for_linebreak=WaitForLineBreak},
     
     case get_repeat(Opts) of
 	false ->
@@ -807,6 +813,11 @@ get_timeout(Opts) ->
     case lists:keysearch(timeout,1,Opts) of
 	{value,{timeout,T}} -> T;
 	false -> ?DEFAULT_TIMEOUT
+    end.
+get_line_break_opt(Opts) ->
+    case lists:keysearch(wait_for_linebreak,1,Opts) of
+	{value,{wait_for_linebreak,false}} -> false;
+	_ -> true
     end.
 get_repeat(Opts) ->
     case lists:keysearch(repeat,1,Opts) of
@@ -1004,8 +1015,9 @@ seq_expect1(Data,[],Acc,Rest,_EO) ->
 %% Split prompt-chunk at lines
 match_lines(Data,Patterns,EO) ->
     FoundPrompt = EO#eo.found_prompt,
+    NeedLineBreak = EO#eo.wait_for_linebreak,
     case one_line(Data,[]) of
-	{noline,Rest} when FoundPrompt=/=false ->
+	{noline,Rest} when FoundPrompt=/=false, NeedLineBreak =:= true ->
 	    %% This is the line including the prompt
 	    case match_line(Rest,Patterns,FoundPrompt,EO) of
 		nomatch ->
@@ -1013,7 +1025,14 @@ match_lines(Data,Patterns,EO) ->
 		{Tag,Match} ->
 		    {Tag,Match,[]}
 	    end;
-	{noline,Rest} ->
+	{noline,Rest} when NeedLineBreak =:= false ->
+	    case match_line(Rest,Patterns,FoundPrompt,EO) of
+		nomatch ->
+		    {nomatch,prompt};
+		{Tag,Match} ->
+		    {Tag,Match,[]}
+	    end;
+	{noline, Rest} ->
 	    {nomatch,Rest};
 	{Line,Rest} ->
 	    case match_line(Line,Patterns,false,EO) of
