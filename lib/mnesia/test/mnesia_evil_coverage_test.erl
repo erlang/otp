@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,7 @@ all() ->
      db_node_lifecycle, evil_delete_db_node, start_and_stop,
      checkpoint, table_lifecycle, storage_options, 
      add_copy_conflict,
-     add_copy_when_going_down, replica_management,
+     add_copy_when_going_down, replica_management, clear_table_during_load,
      schema_availability, local_content,
      {group, table_access_modifications}, replica_location,
      {group, table_sync}, user_properties, unsupp_user_props,
@@ -569,7 +569,50 @@ storage_options(Config) when is_list(Config) ->
     ?verify_mnesia(Nodes, []).
 
 
+clear_table_during_load(suite) -> [];
+clear_table_during_load(doc) ->
+    ["Clear table caused during load caused a schema entry in the actual tab"];
+clear_table_during_load(Config) when is_list(Config) ->
+    Nodes = [_, Node2] = ?acquire_nodes(2, Config ++ [{tc_timeout, timer:minutes(2)}]),
+    ?match({atomic,ok}, mnesia:create_table(cleartab, [{ram_copies, Nodes}])),
+    Tester = self(),
+    Bin = <<"Testingasdasd", 0:32000>>,
+    Fill =  fun() -> [mnesia:write({cleartab, N, Bin}) || N <- lists:seq(1, 3000)], ok end,
+    ?match({atomic, ok}, mnesia:sync_transaction(Fill)),
 
+    StopAndStart = fun() ->
+			   stopped = mnesia:stop(),
+			   Tester ! {self(), stopped},
+			   receive start_node -> ok end,
+			   ok = mnesia:start(),
+			   ok = mnesia:wait_for_tables([cleartab], 2000),
+			   lists:foreach(fun({cleartab,_,_}) -> ok;
+					    (What) -> Tester ! {failed, What},
+						      unlink(Tester),
+						      exit(foo)
+					 end,
+					 ets:tab2list(cleartab)),
+			   Tester ! {self(), ok},
+			   normal
+		   end,
+
+    Test = fun(N) ->
+		   Pid = spawn_link(Node2, StopAndStart),
+		   receive {Pid, stopped} -> ok end,
+		   Pid ! start_node,
+		   timer:sleep(N*10),
+		   {atomic, ok} = mnesia:clear_table(cleartab),
+		   receive
+		       {Pid, ok} -> ok;
+		       {failed, What} ->
+			   io:format("Failed in ~p tries, with ~p~n",[N, What]),
+			   exit({error, What});
+		       {'EXIT', Pid, Reason} ->
+			   exit({died, Reason})
+		   end
+	   end,
+    [Test(N) || N <- lists:seq(1, 10)],
+    ?verify_mnesia(Nodes, []).
 
 
 add_copy_conflict(suite) -> [];
@@ -599,7 +642,7 @@ add_copy_conflict(Config) when is_list(Config) ->
     mnesia_controller:unblock_controller(),
     
     ?match_receive({test, {atomic,ok}}),
-    
+    ?match(ok, mnesia:wait_for_tables([a,b], 3000)),
     ?verify_mnesia(Nodes, []),
     ?cleanup(1, Config).
 
@@ -635,7 +678,7 @@ add_copy_when_going_down(Config) ->
 		   end,
     _Lock = spawn(fun() -> mnesia:transaction(WriteAndWait) end),
     Tester = self(),
-    spawn_link(fun() -> Res = rpc:call(Node2,mnesia, add_table_copy,
+    spawn_link(fun() -> Res = rpc:call(Node2, mnesia, add_table_copy,
 				       [a, Node2, ram_copies]),
 			Tester ! {test, Res}
 	       end),
