@@ -3268,15 +3268,14 @@ delete_large_named_table_1(Name, Flags, Data, Fix) ->
     end,
     Parent = self(),
     {Pid, MRef} = my_spawn_opt(fun() ->
-				       receive
-					   {trace,Parent,call,_} ->
-					       ets_new(Name, [named_table])
-				       end
-			       end, [link, monitor]),
-    ?line erlang:trace(self(), true, [call,{tracer,Pid}]),
-    ?line erlang:trace_pattern({ets,delete,1}, true, [global]),
-    ?line erlang:yield(), true = ets:delete(Tab),
-    ?line erlang:trace_pattern({ets,delete,1}, false, [global]),
+				      receive
+					  ets_new ->
+					      ets_new(Name, [named_table])				      
+				      end
+			       end,
+			       [link, monitor]),
+    true = ets:delete(Tab),
+    Pid ! ets_new,
     receive {'DOWN',MRef,process,Pid,_} -> ok end,
     ok.
 
