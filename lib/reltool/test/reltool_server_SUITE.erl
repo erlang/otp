@@ -2595,8 +2595,8 @@ start_node(Name, ErlPath, Args0) ->
     %io:format("open_port({spawn_executable, ~p}, [{args,~p}])~n",[ErlPath,Args]),
     case open_port({spawn_executable, ErlPath}, [{args,Args}]) of
         Port when is_port(Port) ->
-            unlink(Port),
-            erlang:port_close(Port),
+	    %% no need to close port since node is detached (see
+	    %% mk_node_args) so port will be closed anyway.
             case ping_node(FullName, 50) of
                 ok -> {ok, FullName};
                 Other -> exit({failed_to_start_node, FullName, Other})
@@ -2629,7 +2629,7 @@ mk_node_args(Name, Args) ->
              end,
     {ok, Pwd} = file:get_cwd(),
     NameStr = atom_to_list(Name),
-    ["-detached", "-noinput",
+    ["-detached",
      NameSw, NameStr,
      "-pa", Pa,
      "-env", "ERL_CRASH_DUMP", Pwd ++ "/erl_crash_dump." ++ NameStr,
