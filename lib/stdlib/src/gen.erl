@@ -17,6 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(gen).
+-compile({inline,[get_node/1]}).
 
 %%%-----------------------------------------------------------------
 %%% This module implements the really generic stuff of the generic
@@ -194,16 +195,6 @@ call({_Name, Node}=Process, Label, Request, Timeout)
     end.
 
 do_call(Process, Label, Request, Timeout) ->
-    %% We trust the arguments to be correct, i.e
-    %% Process is either a local or remote pid,
-    %% or a {Name, Node} tuple (of atoms) and in this 
-    %% case this node (node()) _is_ distributed and Node =/= node().
-    Node = case Process of
- 	       {_S, N} when is_atom(N) ->
- 		   N;
- 	       _ when is_pid(Process) ->
- 		   node(Process)
-	   end,
     try erlang:monitor(process, Process) of
 	Mref ->
 	    %% If the monitor/2 call failed to set up a connection to a
@@ -222,15 +213,12 @@ do_call(Process, Label, Request, Timeout) ->
 		    erlang:demonitor(Mref, [flush]),
 		    {ok, Reply};
 		{'DOWN', Mref, _, _, noconnection} ->
+		    Node = get_node(Process),
 		    exit({nodedown, Node});
 		{'DOWN', Mref, _, _, Reason} ->
 		    exit(Reason)
 	    after Timeout ->
-		    erlang:demonitor(Mref),
-		    receive
-			{'DOWN', Mref, _, _, _} -> true
-		    after 0 -> true
-		    end,
+		    erlang:demonitor(Mref, [flush]),
 		    exit(timeout)
 	    end
     catch
@@ -241,6 +229,7 @@ do_call(Process, Label, Request, Timeout) ->
 	    %% Do the best possible with monitor_node/2.
 	    %% This code may hang indefinitely if the Process 
 	    %% does not exist. It is only used for featureweak remote nodes.
+	    Node = get_node(Process),
 	    monitor_node(Node, true),
 	    receive
 		{nodedown, Node} -> 
@@ -251,6 +240,18 @@ do_call(Process, Label, Request, Timeout) ->
 		    Process ! {Label, {self(), Tag}, Request},
 		    wait_resp(Node, Tag, Timeout)
 	    end
+    end.
+
+get_node(Process) ->
+    %% We trust the arguments to be correct, i.e
+    %% Process is either a local or remote pid,
+    %% or a {Name, Node} tuple (of atoms) and in this
+    %% case this node (node()) _is_ distributed and Node =/= node().
+    case Process of
+	{_S, N} when is_atom(N) ->
+	    N;
+	_ when is_pid(Process) ->
+	    node(Process)
     end.
 
 wait_resp(Node, Tag, Timeout) ->
