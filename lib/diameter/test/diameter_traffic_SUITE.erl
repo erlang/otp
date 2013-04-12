@@ -560,7 +560,7 @@ send_error(Config) ->
     Req = ['RAR', {'Re-Auth-Request-Type', ?AUTHORIZE_AUTHENTICATE}],
     ?answer_message(SId, ?TOO_BUSY)
         = call(Config, Req),
-    undefined /= SId.
+    true = undefined /= SId.
 
 %% Send a request with the detached option and receive it as a message
 %% from handle_answer instead.
