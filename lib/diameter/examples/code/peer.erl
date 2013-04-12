@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -51,7 +51,6 @@
     | {protocol(), ip_address(), non_neg_integer()}
     | {protocol(), ip_address(), ip_address(), non_neg_integer()}.
 
--define(DEFAULT_ADDR, {127,0,0,1}).
 -define(DEFAULT_PORT, 3868).
 
 %% ---------------------------------------------------------------------------
@@ -111,7 +110,7 @@ server({T, Addr, Port}) ->
                          {port, Port}]}];
 
 server(T) ->
-    server({T, ?DEFAULT_ADDR, ?DEFAULT_PORT}).
+    server({T, loopback, ?DEFAULT_PORT}).
 
 %% client/1
 %%
@@ -124,21 +123,28 @@ client({all, LA, RA, RP}) ->
 
 client({T, LA, RA, RP}) ->
     [{transport_module, tmod(T)},
-     {transport_config, [{ip, addr(LA)},
-                         {raddr, addr(RA)},
+     {transport_config, [{raddr, addr(RA)},
                          {rport, RP},
-                         {reuseaddr, true}]}];
+                         {reuseaddr, true}
+                         | ip(LA)]}];
 
-client({T, LA, RP}) ->
-    client({T, LA, LA, RP});
+client({T, RA, RP}) ->
+    client({T, default, RA, RP});
 
 client(T) ->
-    client({T, ?DEFAULT_ADDR, ?DEFAULT_ADDR, ?DEFAULT_PORT}).
+    client({T, loopback, loopback, ?DEFAULT_PORT}).
 
 tmod(tcp)  -> diameter_tcp;
 tmod(sctp) -> diameter_sctp.
 
-addr(default) ->
-    ?DEFAULT_ADDR;
+ip(default) ->
+    [];
+ip(loopback) ->
+    [{ip, {127,0,0,1}}];
+ip(Addr) ->
+    [{ip, Addr}].
+
+addr(loopback) ->
+    {127,0,0,1};
 addr(A) ->
     A.

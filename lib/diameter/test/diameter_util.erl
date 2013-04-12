@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,7 +33,6 @@
 
 %% diameter-specific
 -export([lport/2,
-         lport/3,
          listen/2, listen/3,
          connect/3, connect/4,
          disconnect/4,
@@ -251,27 +250,17 @@ path(Config, Name) ->
     filename:join([Dir, Name]).
 
 %% ---------------------------------------------------------------------------
-%% lport/2-3
+%% lport/2
 %%
 %% Lookup the port number of a tcp/sctp listening transport.
 
-lport(M, Ref) ->
-    lport(M, Ref, 1).
+lport(M, {Node, Ref}) ->
+    rpc:call(Node, ?MODULE, lport, [M, Ref]);
 
-lport(M, {Node, Ref}, Tries) ->
-    rpc:call(Node, ?MODULE, lport, [M, Ref, Tries]);
-
-lport(M, Ref, Tries) ->
-    lp(tmod(M), Ref, Tries).
-
-lp(M, Ref, T) ->
-    L = [N || {listen, N, _} <- M:ports(Ref)],
-    if [] /= L orelse T =< 1 ->
-            L;
-       true ->
-            receive after 50 -> ok end,
-            lp(M, Ref, T-1)
-    end.
+lport(Prot, Ref) ->
+    Mod = tmod(Prot),
+    [_] = diameter_reg:wait({'_', listener, {Ref, '_'}}),
+    [N || {listen, N, _} <- Mod:ports(Ref)].
 
 %% ---------------------------------------------------------------------------
 %% listen/2-3
@@ -297,7 +286,7 @@ connect(Client, Prot, LRef) ->
     connect(Client, Prot, LRef, []).
 
 connect(Client, Prot, LRef, Opts) ->
-    [PortNr] = lport(Prot, LRef, 20),
+    [PortNr] = lport(Prot, LRef),
     Client = diameter:service_info(Client, name),  %% assert
     true = diameter:subscribe(Client),
     Ref = add_transport(Client, {connect, opts(Prot, PortNr) ++ Opts}),
