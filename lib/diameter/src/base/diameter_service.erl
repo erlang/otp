@@ -861,16 +861,20 @@ watchdog(TPid, [], ?WD_SUSPECT, ?WD_OKAY, Wd, State) ->
 %% Watchdog has an unresponsive connection.
 watchdog(TPid, [], ?WD_OKAY, ?WD_SUSPECT = To, Wd, State) ->
     #watchdog{peer = TPid} = Wd,  %% assert
-    connection_down(Wd, To, State);
+    watchdog_down(Wd, To, State);
 
 %% Watchdog has lost its connection.
 watchdog(TPid, [], _, ?WD_DOWN = To, Wd, #state{peerT = PeerT} = S) ->
     close(Wd, S),
-    connection_down(Wd, To, S),
+    watchdog_down(Wd, To, S),
     ets:delete(PeerT, TPid);
 
 watchdog(_, [], _, _, _, _) ->
     ok.
+
+watchdog_down(Wd, To, #state{watchdogT = WatchdogT} = S) ->
+    insert(WatchdogT, Wd#watchdog{state = To}),
+    connection_down(Wd, To, S).
 
 %% ---------------------------------------------------------------------------
 %% # connection_up/3
@@ -1029,21 +1033,17 @@ connection_down(#watchdog{state = ?WD_OKAY,
     remove_local_peer(SApps, {{TPid, Caps}, {SvcName, Apps}}, LDict),
     diameter_traffic:peer_down(TPid);
 
-connection_down(#watchdog{}, #peer{}, _) ->
-    ok;
-
-connection_down(#watchdog{state = WS,
+connection_down(#watchdog{state = ?WD_OKAY,
                           peer = TPid}
                 = Wd,
                 To,
-                #state{watchdogT = WatchdogT,
-                       peerT = PeerT}
+                #state{peerT = PeerT}
                 = S)
   when is_atom(To) ->
-    insert(WatchdogT, Wd#watchdog{state = To}),
-    ?WD_OKAY == WS
-        andalso
-        connection_down(Wd, fetch(PeerT, TPid), S).
+    connection_down(Wd, #peer{} = fetch(PeerT, TPid), S);
+
+connection_down(#watchdog{}, _, _) ->
+    ok.
 
 remove_local_peer(SApps, T, LDict) ->
     lists:foldl(fun(A,D) -> rlp(A, T, D) end, LDict, SApps).
