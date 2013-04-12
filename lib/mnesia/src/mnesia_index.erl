@@ -301,7 +301,12 @@ make_ram_index(Tab, [Pos | Tail]) ->
 
 add_ram_index(Tab, Pos) when is_integer(Pos) ->
     verbose("Creating index for ~w ~n", [Tab]),
-    Index = mnesia_monitor:mktab(mnesia_index, [bag, public]),
+    SetOrBag = val({Tab, setorbag}),
+    IndexType = case SetOrBag of
+        set -> duplicate_bag;
+        bag -> bag
+    end,
+    Index = mnesia_monitor:mktab(mnesia_index, [IndexType, public]),
     Insert = fun(Rec, _Acc) ->
 		     true = ?ets_insert(Index, {element(Pos, Rec), element(2, Rec)})
 	     end,
@@ -309,7 +314,7 @@ add_ram_index(Tab, Pos) when is_integer(Pos) ->
     true = ets:foldl(Insert, true, Tab),
     mnesia_lib:db_fixtable(ram_copies, Tab, false),
     mnesia_lib:set({Tab, {index, Pos}}, Index),
-    add_index_info(Tab, val({Tab, setorbag}), {Pos, {ram, Index}});
+    add_index_info(Tab, SetOrBag, {Pos, {ram, Index}});
 add_ram_index(_Tab, snmp) ->
     ok.
 
