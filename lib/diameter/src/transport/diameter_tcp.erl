@@ -100,6 +100,18 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
+-spec start({accept, Ref}, Svc, [Opt])
+   -> {ok, pid(), [inet:ip_address()]}
+ when Ref :: diameter:transport_ref(),
+      Svc :: #diameter_service{},
+      Opt :: diameter:transport_opt();
+           ({connect, Ref}, Svc, [Opt])
+   -> {ok, pid(), [inet:ip_address()]}
+    | {ok, pid()}
+ when Ref :: diameter:transport_ref(),
+      Svc :: #diameter_service{},
+      Opt :: diameter:transport_opt().
+                   
 start({T, Ref}, #diameter_service{capabilities = Caps}, Opts) ->
     diameter_tcp_sup:start(),  %% start tcp supervisors on demand
     {Mod, Rest} = split(Opts),
@@ -172,7 +184,7 @@ i({T, Ref, Mod, Pid, Opts, Addrs})
                               OwnOpts,
                               ?DEFAULT_FRAGMENT_TIMEOUT),
     ?IS_TIMEOUT(Tmo) orelse ?ERROR({fragment_timer, Tmo}),
-    Sock = i(T, Ref, Mod, Pid, SslOpts, Rest, Addrs),
+    Sock = init(T, Ref, Mod, Pid, SslOpts, Rest, Addrs),
     MPid ! {stop, self()},  %% tell the monitor to die
     M = if SslOpts -> ssl; true -> Mod end,
     setopts(M, Sock),
@@ -199,14 +211,21 @@ i(#monitor{parent = Pid, transport = TPid} = S) ->
 
 i({listen, LRef, APid, {Mod, Opts, Addrs}}) ->
     {[LA, LP], Rest} = proplists:split(Opts, [ip, port]),
-    LAddr = get_addr(LA, Addrs),
+    LAddrOpt = get_addr(LA, Addrs),
     LPort = get_port(LP),
-    {ok, LSock} = Mod:listen(LPort, gen_opts(LAddr, Rest)),
+    {ok, LSock} = Mod:listen(LPort, gen_opts(LAddrOpt, Rest)),
+    LAddr = laddr(LAddrOpt, Mod, LSock),
     true = diameter_reg:add_new({?MODULE, listener, {LRef, {LAddr, LSock}}}),
     proc_lib:init_ack({ok, self(), {LAddr, LSock}}),
     erlang:monitor(process, APid),
     start_timer(#listener{socket = LSock}).
 
+laddr([], Mod, Sock) ->
+    {ok, {Addr, _Port}} = sockname(Mod, Sock),
+    Addr;
+laddr([{ip, Addr}], _, _) ->
+    Addr.
+    
 own(Opts) ->
     {Own, Rest} = proplists:split(Opts, [fragment_timer]),
     {lists:append(Own), Rest}.
@@ -225,17 +244,19 @@ ssl_opts([{ssl_options, Opts}])
 ssl_opts(L) ->
     ?ERROR({ssl_options, L}).
 
-%% i/7
+%% init/7
 
 %% Establish a TLS connection before capabilities exchange ...
-i(Type, Ref, Mod, Pid, true, Opts, Addrs) ->
-    i(Type, Ref, ssl, Pid, [{cb_info, ?TCP_CB(Mod)} | Opts], Addrs);
+init(Type, Ref, Mod, Pid, true, Opts, Addrs) ->
+    init(Type, Ref, ssl, Pid, [{cb_info, ?TCP_CB(Mod)} | Opts], Addrs);
 
 %% ... or not.
-i(Type, Ref, Mod, Pid, _, Opts, Addrs) ->
-    i(Type, Ref, Mod, Pid, Opts, Addrs).
+init(Type, Ref, Mod, Pid, _, Opts, Addrs) ->
+    init(Type, Ref, Mod, Pid, Opts, Addrs).
 
-i(accept = T, Ref, Mod, Pid, Opts, Addrs) ->
+%% init/6
+
+init(accept = T, Ref, Mod, Pid, Opts, Addrs) ->
     {LAddr, LSock} = listener(Ref, {Mod, Opts, Addrs}),
     proc_lib:init_ack({ok, self(), [LAddr]}),
     Sock = ok(accept(Mod, LSock)),
@@ -243,16 +264,27 @@ i(accept = T, Ref, Mod, Pid, Opts, Addrs) ->
     diameter_peer:up(Pid),
     Sock;
 
-i(connect = T, Ref, Mod, Pid, Opts, Addrs) ->
+init(connect = T, Ref, Mod, Pid, Opts, Addrs) ->
     {[LA, RA, RP], Rest} = proplists:split(Opts, [ip, raddr, rport]),
-    LAddr = get_addr(LA, Addrs),
-    RAddr = get_addr(RA, []),
+    LAddrOpt = get_addr(LA, Addrs),
+    RAddr = get_addr(RA),
     RPort = get_port(RP),
-    proc_lib:init_ack({ok, self(), [LAddr]}),
-    Sock = ok(connect(Mod, RAddr, RPort, gen_opts(LAddr, Rest))),
+    proc_lib:init_ack(init_rc(LAddrOpt)),
+    Sock = ok(connect(Mod, RAddr, RPort, gen_opts(LAddrOpt, Rest))),
     publish(Mod, T, Ref, Sock),
-    diameter_peer:up(Pid, {RAddr, RPort}),
+    up(Pid, {RAddr, RPort}, LAddrOpt, Mod, Sock),
     Sock.
+
+init_rc([{ip, Addr}]) ->
+    {ok, self(), [Addr]};
+init_rc([]) ->
+    {ok, self()}.
+
+up(Pid, Remote, [{ip, _Addr}], _, _) ->
+    diameter_peer:up(Pid, Remote);
+up(Pid, Remote, [], Mod, Sock) -> 
+    {Addr, _Port} = ok(sockname(Mod, Sock)),
+    diameter_peer:up(Pid, Remote, [Addr]).
 
 publish(Mod, T, Ref, Sock) ->
     true = diameter_reg:add_new({?MODULE, T, {Ref, Sock}}),
@@ -281,10 +313,17 @@ l([], LRef, T) ->
     {ok, _, AS} = diameter_tcp_sup:start_child({listen, LRef, self(), T}),
     AS.
 
+%% get_addr/1
+
+get_addr(As) ->
+    diameter_lib:ipaddr(addr(As, [])).
+
 %% get_addr/2
 
+get_addr([], []) ->
+    [];
 get_addr(As, Def) ->
-    diameter_lib:ipaddr(addr(As, Def)).
+    [{ip, diameter_lib:ipaddr(addr(As, Def))}].
 
 %% Take the first address from the service if several are unspecified.
 addr([], [Addr | _]) ->
@@ -305,14 +344,10 @@ get_port(Ps) ->
 
 %% gen_opts/2
 
-gen_opts(LAddr, Opts) ->
+gen_opts(LAddrOpt, Opts) ->
     {L,_} = proplists:split(Opts, [binary, packet, active]),
     [[],[],[]] == L orelse ?ERROR({reserved_options, Opts}),
-    [binary,
-     {packet, 0},
-     {active, once},
-     {ip, LAddr}
-     | Opts].
+    [binary, {packet, 0}, {active, once}] ++ LAddrOpt ++ Opts.
 
 %% ---------------------------------------------------------------------------
 %% # ports/1

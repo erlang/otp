@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,6 +36,7 @@
          tcp_connect/1,
          sctp_accept/1,
          sctp_connect/1,
+         reconnect/1, reconnect/0,
          stop/1]).
 
 -export([accept/1,
@@ -53,9 +54,6 @@
 %% Receive a message.
 -define(RECV(Pat, Ret), receive Pat -> Ret end).
 -define(RECV(Pat), ?RECV(Pat, now())).
-
-%% Or not.
--define(WAIT(Ms), receive after Ms -> now() end).
 
 %% Sockets are opened on the loopback address.
 -define(ADDR, {127,0,0,1}).
@@ -102,7 +100,8 @@ tc() ->
     [tcp_accept,
      tcp_connect,
      sctp_accept,
-     sctp_connect].
+     sctp_connect,
+     reconnect].
 
 init_per_suite(Config) ->
     [{sctp, have_sctp()} | Config].
@@ -165,6 +164,90 @@ connect(Prot) ->
     [] = ?util:run([{?MODULE, [init, X, T]} || X <- [gen_accept, connect]]).
 
 %% ===========================================================================
+%% reconnect/1
+%%
+%% Exercise reconnection behaviour: that a connecting transport
+%% doesn't try to establish a new connection until the old one is
+%% broken.
+
+reconnect() ->
+    [{timetrap, {minutes, 4}}].
+
+reconnect({listen, Ref}) ->
+    SvcName = make_ref(),
+    ok = start_service(SvcName),
+    LRef = ?util:listen(SvcName, tcp, [{watchdog_timer, 6000}]),
+    [_] = diameter_reg:wait({diameter_tcp, listener, {LRef, '_'}}),
+    true = diameter_reg:add_new({?MODULE, Ref, LRef}),
+
+    %% Wait for partner to request transport death: kill to force the
+    %% peer to reconnect.
+    TPid = abort(SvcName, LRef, Ref),
+
+    exit(TPid, kill),
+
+    abort(SvcName, LRef, Ref);
+
+reconnect({connect, Ref}) ->
+    SvcName = make_ref(),
+    true = diameter:subscribe(SvcName),
+    ok = start_service(SvcName),
+    [{{_, _, LRef}, Pid}] = diameter_reg:wait({?MODULE, Ref, '_'}),
+    CRef = ?util:connect(SvcName, tcp, LRef, [{reconnect_timer, 2000},
+                                              {watchdog_timer, 6000}]),
+
+    %% Tell partner to kill transport after seeing that there are no
+    %% reconnection attempts.
+    abort(SvcName, Pid, Ref),
+
+    %% Transport does down and is reestablished.
+    ?RECV(#diameter_event{service = SvcName, info = {down, CRef, _, _}}),
+    ?RECV(#diameter_event{service = SvcName, info = {reconnect, CRef, _}}),
+    ?RECV(#diameter_event{service = SvcName, info = {up, CRef, _, _, _}}),
+
+    %% Kill again.
+    abort(SvcName, Pid, Ref),
+
+    %% Wait for partner to die.
+    MRef = erlang:monitor(process, Pid),
+    ?RECV({'DOWN', MRef, process, _, _});
+
+reconnect(_) ->
+    Ref = make_ref(),
+    [] = ?util:run([{?MODULE, [reconnect, {T, Ref}]}
+                    || T <- [listen, connect]]).
+
+start_service(SvcName) ->
+    OH = io_lib:format("~p-~p-~p", tuple_to_list(now())),
+    Opts = [{application, [{dictionary, diameter_gen_base_rfc6733},
+                           {module, diameter_callback}]},
+            {'Origin-Host', OH},
+            {'Origin-Realm', OH ++ ".org"},
+            {'Vendor-Id', 0},
+            {'Product-Name', "x"},
+            {'Auth-Application-Id', [0]}],
+    diameter:start_service(SvcName, Opts).
+
+abort(SvcName, Pid, Ref)
+  when is_pid(Pid) ->
+    receive
+        #diameter_event{service = SvcName, info = {reconnect, _, _}} = E ->
+            erlang:error(E)
+    after 45000 ->
+            ok
+    end,
+    Pid ! {abort, Ref};
+
+abort(SvcName, LRef, Ref)
+  when is_reference(LRef) ->
+    ?RECV({abort, Ref}),
+    [[{ref, LRef}, {type, listen}, {options, _}, {accept, [_,_] = Ts} | _]]
+                                                 %% assert on two accepting
+        = diameter:service_info(SvcName, transport),
+    [TPid] = [P || [{watchdog, {_,_,okay}}, {peer, {P,_}} | _] <- Ts],
+    TPid.
+
+%% ===========================================================================
 %% ===========================================================================
 
 %% have_sctp/0
@@ -209,7 +292,7 @@ init(accept, {Prot, Ref}) ->
 
 init(gen_connect, {Prot, Ref}) ->
     %% Lookup the peer's listening socket.
-    [PortNr] = ?util:lport(Prot, Ref, 20),
+    [PortNr] = ?util:lport(Prot, Ref),
 
     %% Connect, send a message and receive it back.
     {ok, Sock} = gen_connect(Prot, PortNr),
@@ -230,7 +313,8 @@ init(gen_accept, {Prot, Ref}) ->
 
 init(connect, {Prot, Ref}) ->
     %% Lookup the peer's listening socket.
-    [{?TEST_LISTENER(_, PortNr), _}] = match(?TEST_LISTENER(Ref, '_')),
+    [{?TEST_LISTENER(_, PortNr), _}]
+        = diameter_reg:wait(?TEST_LISTENER(Ref, '_')),
 
     %% Start a connecting transport and receive notification of
     %% the connection.
@@ -245,18 +329,6 @@ init(connect, {Prot, Ref}) ->
     %% closing the connection.
     MRef = erlang:monitor(process, TPid),
     ?RECV({'DOWN', MRef, process, _, _}).
-
-match(Pat) ->
-    match(Pat, 20).
-
-match(Pat, T) ->
-    L = diameter_reg:match(Pat),
-    if [] /= L orelse 1 == T ->
-            L;
-       true ->
-            ?WAIT(50),
-            match(Pat, T-1)
-    end.
 
 bin(sctp, #diameter_packet{bin = Bin}) ->
     Bin;
@@ -310,22 +382,18 @@ start_connect(tcp, T, Svc, Opts) ->
 %% start_accept/2
 %%
 %% Start transports sequentially by having each wait for a message
-%% from a job in a queue before commencing. Only one transport with
-%% a pending accept is started at a time since diameter_sctp currently
-%% assumes (and diameter currently implements) this.
+%% from a job in a queue before commencing. Only one transport with a
+%% pending accept is started at a time since diameter_{tcp,sctp}
+%% currently assume (and diameter currently implements) this.
 
 start_accept(Prot, Ref) ->
     Pid = sync(accept, Ref),
-
-    %% Configure the same port number for transports on the same
-    %% reference.
-    [PortNr | _] = ?util:lport(Prot, Ref) ++ [0],
     {Mod, Opts} = tmod(Prot),
 
     try
         {ok, TPid, [?ADDR]} = Mod:start({accept, Ref},
                                         ?SVC([?ADDR]),
-                                        [{port, PortNr} | Opts]),
+                                        [{port, 0} | Opts]),
         ?RECV(?TMSG({TPid, connected})),
         TPid
     after

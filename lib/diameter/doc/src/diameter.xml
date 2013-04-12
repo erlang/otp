@@ -343,8 +343,9 @@ Has one of the following types.</p>
 An address list is available to the start function of a
 &transport_module;, which
 can return a new list for use in the subsequent CER or CEA.
-Host-IP-Address need not be specified if the transport start function
-returns an address list.</p>
+Host-IP-Address need not be specified if the transport module in
+question communicates an address list as described in
+&man_transport;</p>
 </item>
 
 <tag><c>{'Vendor-Id', &dict_Unsigned32;}</c></tag>
@@ -780,10 +781,10 @@ connections to the same peer.</p>
 <p>
 If type <c>[node()]</c> then a connection is rejected if another already
 exists on any of the specified nodes.
-Values of type <c>false</c>, <c>node</c>, <c>nodes</c> or
+Types <c>false</c>, <c>node</c>, <c>nodes</c> and
 &evaluable; are equivalent to
-values <c>[]</c>, <c>[node()]</c>, <c>[node()|nodes()]</c> and the
-evaluated value, respectively, evaluation of each expression taking
+<c>[]</c>, <c>[node()]</c>, <c>[node()|nodes()]</c> and the
+evaluated value respectively, evaluation of each expression taking
 place whenever a new connection is to be established.
 Note that <c>false</c> allows an unlimited number of connections to be
 established with the same peer.</p>

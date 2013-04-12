@@ -100,7 +100,7 @@ start_server(Config) ->
     ok = diameter:start_service(?SERVER, ?SERVICE(?SERVER, [?DICT_COMMON])),
     LRef = ?util:listen(?SERVER, tcp, [{capabilities_cb, fun capx_cb/2},
                                        {capx_timeout, ?SERVER_CAPX_TMO}]),
-    [PortNr] = ?util:lport(tcp, LRef, 20),
+    [PortNr] = ?util:lport(tcp, LRef),
     ?util:write_priv(Config, portnr, PortNr),
     start = event(?SERVER).
 

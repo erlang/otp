@@ -343,7 +343,7 @@ join(Strs) ->
 server(Host, {Caps, Opts}) ->
     ok = diameter:start_service(Host, ?SERVICE(Host, ?DICT_COMMON)),
     {ok, LRef} = diameter:add_transport(Host, ?LISTEN(Caps, Opts)),
-    {LRef, hd([_] = ?util:lport(tcp, LRef, 20))}.
+    {LRef, hd([_] = ?util:lport(tcp, LRef))}.
 
 sopts(?SERVER1, Dir) ->
     {inband_security([?TLS]),

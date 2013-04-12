@@ -351,9 +351,16 @@ transition({diameter, {TPid, connected, Remote}},
                   mode = M}
            = S) ->
     {'Wait-Conn-Ack', _} = PS,  %% assert
-    connect = M,           %%
+    connect = M,                %%
     keep_transport(TPid),
     send_CER(S#state{mode = {M, Remote}});
+
+transition({diameter, {TPid, connected, Remote, LAddrs}},
+           #state{transport = TPid,
+                  service = Svc}
+           = S) ->
+    transition({diameter, {TPid, connected, Remote}},
+               S#state{service = readdr(Svc, LAddrs)});
 
 %% Connection from peer.
 transition({diameter, {TPid, connected}},
@@ -363,7 +370,7 @@ transition({diameter, {TPid, connected}},
                   parent = Pid}
            = S) ->
     {'Wait-Conn-Ack', Tmo} = PS,  %% assert
-    accept = M,            %%
+    accept = M,                   %%
     keep_transport(TPid),
     Pid ! {accepted, self()},
     start_timer(Tmo, S#state{state = recv_CER});
@@ -375,6 +382,8 @@ transition({diameter, {TPid, connected}},
 transition({diameter, {_, connected}}, _) ->
     {stop, connection_timeout};
 transition({diameter, {_, connected, _}}, _) ->
+    {stop, connection_timeout};
+transition({diameter, {_, connected, _, _}}, _) ->
     {stop, connection_timeout};
 
 %% Connection has timed out: start an alternate.
