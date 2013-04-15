@@ -34,6 +34,7 @@ binary_comprehension
 tuple
 %struct
 record_expr record_tuple record_field record_fields
+map_expr map_tuple map_field map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
 try_expr try_catch try_clause try_clauses
@@ -59,7 +60,7 @@ char integer float atom string var
 '*' '/' 'div' 'rem' 'band' 'and'
 '+' '-' 'bor' 'bxor' 'bsl' 'bsr' 'or' 'xor'
 '++' '--'
-'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<='
+'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<=' '=>'
 '<<' '>>'
 '!' '=' '::' '..' '...'
 'spec' 'callback' % helper
@@ -247,6 +248,7 @@ expr_500 -> expr_600 : '$1'.
 
 expr_600 -> prefix_op expr_700 :
 	?mkop1('$1', '$2').
+expr_600 -> map_expr : '$1'.
 expr_600 -> expr_700 : '$1'.
 
 expr_700 -> function_call : '$1'.
@@ -326,6 +328,26 @@ tuple -> '{' exprs '}' : {tuple,?line('$1'),'$2'}.
 
 %%struct -> atom tuple :
 %%	{struct,?line('$1'),element(3, '$1'),element(3, '$2')}.
+
+map_expr -> '#' map_tuple :
+	{map, ?line('$1'),'$2'}.
+map_expr -> expr_max '#' map_tuple :
+	{map, ?line('$2'),'$1','$3'}.
+map_expr -> map_expr '#' map_tuple :
+	{map, ?line('$2'),'$1','$3'}.
+map_expr -> map_expr '.' atom :
+	{map_field, ?line('$2'),'$1','$3'}.
+
+map_tuple -> '{' '}' : [].
+map_tuple -> '{' map_fields '}' : '$2'.
+
+map_fields -> map_field : ['$1'].
+map_fields -> map_field ',' map_fields : ['$1' | '$3'].
+
+map_field -> map_key '=>' expr :
+	{map_field,?line('$1'),'$1','$3'}.
+
+map_key -> expr : '$1'.
 
 
 %% N.B. This is called from expr_700.
@@ -1060,3 +1082,5 @@ get_attribute(L, Name) ->
 
 get_attributes(L) ->
     erl_scan:attributes_info(L).
+
+%% vim: ft=erlang
