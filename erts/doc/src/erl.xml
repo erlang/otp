@@ -536,15 +536,35 @@
       <tag><marker id="file_name_encoding"></marker><c><![CDATA[+fnl]]></c></tag>
       <item>
         <p>The VM works with file names as if they are encoded using the ISO-latin-1 encoding, disallowing Unicode characters with codepoints beyond 255. This is default on operating systems that have transparent file naming, i.e. all Unixes except MacOSX.</p>
+	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names.</p>
       </item>
-      <tag><c><![CDATA[+fnu]]></c></tag>
+      <tag><c><![CDATA[+fnu[{w|i|e}]]]></c></tag>
       <item>
         <p>The VM works with file names as if they are encoded using UTF-8 (or some other system specific Unicode encoding). This is the default on operating systems that enforce Unicode encoding, i.e. Windows and MacOSX.</p>
-	<p>By enabling Unicode file name translation on systems where this is not default, you open up to the possibility that some file names can not be interpreted by the VM and therefore will be returned to the program as raw binaries. The option is therefore considered experimental.</p>
+	<p>The <c>+fnu</c> switch can be followed by <c>w</c>,
+	<c>i</c>, or <c>e</c> to control the way wrongly encoded file
+	names are to be reported. <c>w</c> means that a warning is
+	sent to the <c>error_logger</c> whenever a wrongly encoded
+	file name is "skipped" in directory listings, <c>i</c> means
+	that those wrongly encoded file names are silently ignored and
+	<c>e</c> means that the API function will return an error
+	whenever a wrongly encoded file (or directory) name is
+	encountered. <c>w</c> is the default. Note that
+	<c>file:read_link/1</c> will always return an error if the
+	link points to an invalid file name.</p>
+	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names.</p>
       </item>
-      <tag><c><![CDATA[+fna]]></c></tag>
+      <tag><c><![CDATA[+fna[{w|i|e}]]]></c></tag>
       <item>
-        <p>Selection between <c>+fnl</c> and <c>+fnu</c> is done based on the current locale settings in the OS, meaning that if you have set your terminal for UTF-8 encoding, the filesystem is expected to use the same encoding for filenames (use with care).</p>
+        <p>Selection between <c>+fnl</c> and <c>+fnu</c> is done based on the current locale settings in the OS, meaning that if you have set your terminal for UTF-8 encoding, the filesystem is expected to use the same encoding for file names (use with care).</p>
+	<p>The <c>+fna</c> switch can be followed by <c>w</c>,
+	<c>i</c>, or <c>e</c>. This will have effect if the locale
+	settings cause the behavior of <c>+fnu</c> to be selected.
+	See the description of <c>+fnu</c> above. If the locale
+	settings cause the behavior of <c>+fnl</c> to be selected,
+	then <c>w</c>, <c>i</c>, or <c>e</c> will not have any
+	effect.</p>
+	<p>See <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB User's Guide</seealso> for more infomation about unicode file names.</p>
       </item>
       <tag><c><![CDATA[+hms Size]]></c></tag>
       <item>
@@ -571,9 +591,9 @@
       </item>
       <tag><c><![CDATA[+L]]></c></tag>
       <item>
-        <p>Don't load information about source filenames and line numbers.
+        <p>Don't load information about source file names and line numbers.
 	  This will save some memory, but exceptions will not contain
-	  information about the filenames and line numbers.
+	  information about the file names and line numbers.
           </p>
       </item>
       <tag><marker id="erts_alloc"><c><![CDATA[+MFlag Value]]></c></marker></tag>
