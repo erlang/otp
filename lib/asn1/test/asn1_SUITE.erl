@@ -812,8 +812,9 @@ testInfObjectClass(Config, Rule, Opts) ->
 testParameterizedInfObj(Config) ->
     test(Config, fun testParameterizedInfObj/3).
 testParameterizedInfObj(Config, Rule, Opts) ->
-    asn1_test_lib:compile("Param", Config, [Rule|Opts]),
-    testParameterizedInfObj:main(Rule).
+    Files = ["Param","Param2"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
+    testParameterizedInfObj:main(Config, Rule).
 
 testMergeCompile(Config) -> test(Config, fun testMergeCompile/3).
 testMergeCompile(Config, Rule, Opts) ->

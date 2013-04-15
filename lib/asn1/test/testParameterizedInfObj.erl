@@ -20,7 +20,7 @@
 
 -module(testParameterizedInfObj).
 
--export([main/1,ranap/1]).
+-export([main/2,ranap/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -31,7 +31,11 @@
 -record('Iu-ReleaseCommand',{protocolIEs,protocolExtensions}).
 
 
-main(Erule) ->
+main(Config, Erule) ->
+    param(Erule),
+    param2(Config, Erule).
+
+param(Erule) ->
     PERVal = #'AllocationOrRetentionPriority'
       {priorityLevel = true,
        iE_Extensions = 
@@ -84,7 +88,6 @@ main(Erule) ->
 
     ok.
 
-
 ranap(_Erule) ->    
     ?line PIEVal2 = [{'ProtocolIE-Field',4,ignore,{'Cause',{radioNetwork,'rab-pre-empted'}}}],
     ?line Val2 = 
@@ -102,3 +105,51 @@ open_type(uper_bin,Val) when is_list(Val) ->
     list_to_binary(Val);
 open_type(_,Val) ->
     Val.
+
+param2(Config, Erule) ->
+    roundtrip2('HandoverRequired',
+	       {'HandoverRequired',
+		[{'ProtocolIE-Field',1,"ABC"},
+		 {'ProtocolIE-Field',2,577799}]}),
+    Enc = roundtrip2('HandoverRequired',
+		     {'HandoverRequired',
+		      [{'ProtocolIE-Field',1,"ABC"},
+		       {'ProtocolIE-Field',2,-42},
+		       {'ProtocolIE-Field',100,533},
+		       {'ProtocolIE-Field',101,true}]}),
+
+    %% Now remove the data after the extension mark in the object set.
+    DataDir = ?config(data_dir, Config),
+    CaseDir = ?config(case_dir, Config),
+    Asn1SrcBase = "Param2.asn1",
+    Asn1SrcFile0 = filename:join(DataDir, Asn1SrcBase),
+    {ok,Src0} = file:read_file(Asn1SrcFile0),
+    Src = re:replace(Src0, "--Delete-start.*?--Delete-end", "...\n",
+		     [dotall,global,{return,binary}]),
+    io:format("~s\n\n", [Src]),
+
+    Asn1SrcFile = filename:join(CaseDir, Asn1SrcBase),
+    ok = file:write_file(Asn1SrcFile, Src),
+    ok = asn1ct:compile(Asn1SrcFile,
+			[{i,DataDir},{outdir,CaseDir},Erule]),
+
+    %% Decompile extended data.
+    {ok,{'HandoverRequired',[{'ProtocolIE-Field',1,"ABC"},
+			     {'ProtocolIE-Field',2,-42},
+			     {'ProtocolIE-Field',100,Open100},
+			     {'ProtocolIE-Field',101,Open101}]}} =
+	asn1_wrapper:decode('Param2', 'HandoverRequired', Enc),
+    true = is_binary(Open100),
+    true = is_binary(Open101),
+
+    %% Test single root.
+    roundtrip2('SingleRoot',
+	       {'SingleRoot',[{'ProtocolIE-Field',1,"ABC"},
+			      {'ProtocolIE-Field',2,9999}]}),
+    ok.
+
+
+roundtrip2(T, V) ->
+    {ok,Enc} = asn1_wrapper:encode('Param2', T, V),
+    {ok,V} = asn1_wrapper:decode('Param2', T, Enc),
+    Enc.
