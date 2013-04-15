@@ -78,7 +78,7 @@ push(Bs, #ieval{level=Le,module=Mod,function=Name,
 pop() ->
     case get(trace_stack) of
 	false -> ignore;
-	_ -> % all ¦ no_tail
+	_ -> % all | no_tail
 	    case get(?STACK) of
 		[_Entry|Entries] ->
 		    put(?STACK, Entries);

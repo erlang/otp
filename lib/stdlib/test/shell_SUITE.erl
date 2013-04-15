@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -2820,7 +2821,7 @@ otp_10302(Config) when is_list(Config) ->
     
     "ok.\n** exception error: an error occurred when evaluating"
         " an arithmetic expression\n     in operator  '/'/2\n"
-        "        called as <<\"ª\">> / <<\"ª\">>.\n" = t({Node,Test7}),
+        "        called as <<\"Âª\">> / <<\"Âª\">>.\n" = t({Node,Test7}),
     Test8 =
         <<"begin
                A = [1089],

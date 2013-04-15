@@ -16,7 +16,6 @@
 %%
 %% %CopyrightEnd%
 %%
-%% Author:  Björn-Egil Dahlberg
 
 -module(code_parallel_load_SUITE).
 -export([
