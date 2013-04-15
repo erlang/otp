@@ -480,8 +480,7 @@ open(Item, Mode) ->
       Reason :: posix() | badarg | terminated.
 
 close(File) when is_pid(File) ->
-    R = file_request(File, close),
-    case wait_file_reply(File, R) of
+    case file_request(File, close) of
 	{error, terminated} ->
 	    ok;
 	Other ->
@@ -503,8 +502,7 @@ close(_) ->
       Reason :: posix() | badarg.
 
 advise(File, Offset, Length, Advise) when is_pid(File) ->
-    R = file_request(File, {advise, Offset, Length, Advise}),
-    wait_file_reply(File, R);
+    file_request(File, {advise, Offset, Length, Advise});
 advise(#file_descriptor{module = Module} = Handle, Offset, Length, Advise) ->
     Module:advise(Handle, Offset, Length, Advise);
 advise(_, _, _, _) ->
@@ -517,8 +515,7 @@ advise(_, _, _, _) ->
       Length :: non_neg_integer().
 
 allocate(File, Offset, Length) when is_pid(File) ->
-    R = file_request(File, {allocate, Offset, Length}),
-    wait_file_reply(File, R);
+    file_request(File, {allocate, Offset, Length});
 allocate(#file_descriptor{module = Module} = Handle, Offset, Length) ->
     Module:allocate(Handle, Offset, Length).
 
@@ -601,8 +598,7 @@ pread_int(_, _, _) ->
       Reason :: posix() | badarg | terminated.
 
 pread(File, At, Sz) when is_pid(File), is_integer(Sz), Sz >= 0 ->
-    R = file_request(File, {pread, At, Sz}),
-    wait_file_reply(File, R);
+    file_request(File, {pread, At, Sz});
 pread(#file_descriptor{module = Module} = Handle, Offs, Sz) 
   when is_integer(Sz), Sz >= 0 ->
     Module:pread(Handle, Offs, Sz);
@@ -658,8 +654,7 @@ pwrite_int(_, _, _) ->
       Reason :: posix() | badarg | terminated.
 
 pwrite(File, At, Bytes) when is_pid(File) ->
-    R = file_request(File, {pwrite, At, Bytes}),
-    wait_file_reply(File, R);
+    file_request(File, {pwrite, At, Bytes});
 pwrite(#file_descriptor{module = Module} = Handle, Offs, Bytes) ->
     Module:pwrite(Handle, Offs, Bytes);
 pwrite(_, _, _) ->
@@ -670,8 +665,7 @@ pwrite(_, _, _) ->
       Reason :: posix() | badarg | terminated.
 
 datasync(File) when is_pid(File) ->
-    R = file_request(File, datasync),
-    wait_file_reply(File, R);
+    file_request(File, datasync);
 datasync(#file_descriptor{module = Module} = Handle) ->
     Module:datasync(Handle);
 datasync(_) ->
@@ -682,8 +676,7 @@ datasync(_) ->
       Reason :: posix() | badarg | terminated.
 
 sync(File) when is_pid(File) ->
-    R = file_request(File, sync),
-    wait_file_reply(File, R);
+    file_request(File, sync);
 sync(#file_descriptor{module = Module} = Handle) ->
     Module:sync(Handle);
 sync(_) ->
@@ -696,8 +689,7 @@ sync(_) ->
       Reason :: posix() | badarg | terminated.
 
 position(File, At) when is_pid(File) ->
-    R = file_request(File, {position,At}),
-    wait_file_reply(File, R);
+    file_request(File, {position,At});
 position(#file_descriptor{module = Module} = Handle, At) ->
     Module:position(Handle, At);
 position(_, _) ->
@@ -708,8 +700,7 @@ position(_, _) ->
       Reason :: posix() | badarg | terminated.
 
 truncate(File) when is_pid(File) ->
-    R = file_request(File, truncate),
-    wait_file_reply(File, R);
+    file_request(File, truncate);
 truncate(#file_descriptor{module = Module} = Handle) ->
     Module:truncate(Handle);
 truncate(_) ->
@@ -1497,25 +1488,19 @@ check_args([]) ->
     ok.
 
 %%-----------------------------------------------------------------
-%% Functions for communicating with a file io server.
+%% Function for communicating with a file io server.
 %% The messages sent have the following formats:
 %%
 %%	{file_request,From,ReplyAs,Request}
 %%	{file_reply,ReplyAs,Reply}
 
 file_request(Io, Request) ->
-    R = erlang:monitor(process, Io),
-    Io ! {file_request,self(),Io,Request},
-    R.
-
-wait_file_reply(From, Ref) ->
+    Ref = erlang:monitor(process, Io),
+    Io ! {file_request,self(),Ref,Request},
     receive
-	{file_reply,From,Reply} ->
-	    erlang:demonitor(Ref),
-	    receive {'DOWN', Ref, _, _, _} -> ok after 0 -> ok end,
-	    %% receive {'EXIT', From, _} -> ok after 0 -> ok end,
+	{file_reply,Ref,Reply} ->
+	    erlang:demonitor(Ref, [flush]),
 	    Reply;
 	{'DOWN', Ref, _, _, _} ->
-	    %% receive {'EXIT', From, _} -> ok after 0 -> ok end,
 	    {error, terminated}
     end.
