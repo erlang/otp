@@ -588,17 +588,21 @@ do {									\
 
 #ifdef DEBUG
 #ifdef USE_THREADS
+# ifdef ERTS_SMP
+#  define IS_ACTUALLY_BLOCKING (erts_thr_progress_is_blocking())
+# else
+#  define IS_ACTUALLY_BLOCKING 0
+# endif
 #define ERTS_ALCU_DBG_CHK_THR_ACCESS(A)					\
 do {									\
-    if (!(A)->thread_safe) {						\
-	if (!(A)->debug.saved_tid) {					\
+    if (!(A)->thread_safe && !IS_ACTUALLY_BLOCKING) {                   \
+	if (!(A)->debug.saved_tid) {                                    \
 	    (A)->debug.tid = erts_thr_self();				\
 	    (A)->debug.saved_tid = 1;					\
 	}								\
 	else {								\
 	    ERTS_SMP_LC_ASSERT(						\
-		ethr_equal_tids((A)->debug.tid, erts_thr_self())	\
-		|| erts_thr_progress_is_blocking());			\
+		ethr_equal_tids((A)->debug.tid, erts_thr_self()));	\
 	}								\
     }									\
 } while (0)
@@ -2510,12 +2514,6 @@ static erts_mtx_t init_atoms_mtx;
 static void
 init_atoms(Allctr_t *allctr)
 {
-
-#ifdef USE_THREADS
-    if (allctr && allctr->thread_safe)
-	erts_mtx_unlock(&allctr->mutex);
-#endif
-
     erts_mtx_lock(&init_atoms_mtx);
 
     if (!atoms_initialized) {
@@ -2606,18 +2604,13 @@ init_atoms(Allctr_t *allctr)
 	    fix_type_atoms[ix] = am_atom_put(name, len);
 	}
     }
-
     
-    if (allctr) {
+    if (allctr && !allctr->atoms_initialized) {
 
 	make_name_atoms(allctr);
 
 	(*allctr->init_atoms)();
 
-#ifdef USE_THREADS
-	if (allctr->thread_safe)
-	    erts_mtx_lock(&allctr->mutex);
-#endif
     	allctr->atoms_initialized = 1;
     }
 
@@ -3245,17 +3238,21 @@ erts_alcu_info_options(Allctr_t *allctr,
 {
     Eterm res;
 
-
-#ifdef USE_THREADS
-    if (allctr->thread_safe)
-	erts_mtx_lock(&allctr->mutex);
-#endif
     if (hpp || szp)
 	ensure_atoms_initialized(allctr);
+
+#ifdef USE_THREADS
+    if (allctr->thread_safe) {
+	erts_allctr_wrapper_pre_lock();
+	erts_mtx_lock(&allctr->mutex);
+    }
+#endif
     res = info_options(allctr, print_to_p, print_to_arg, hpp, szp);
 #ifdef USE_THREADS
-    if (allctr->thread_safe)
+    if (allctr->thread_safe) { 
 	erts_mtx_unlock(&allctr->mutex);
+	erts_allctr_wrapper_pre_unlock();
+    }
 #endif
     return res;
 }
@@ -3282,15 +3279,17 @@ erts_alcu_sz_info(Allctr_t *allctr,
 	return am_false;
     }
 
+    if (hpp || szp)
+	ensure_atoms_initialized(allctr);
+
 #ifdef USE_THREADS
-    if (allctr->thread_safe)
+    if (allctr->thread_safe) {
+	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
+    }
 #endif
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
-
-    if (hpp || szp)
-	ensure_atoms_initialized(allctr);
 
     /* Update sbc values not continously updated */
     allctr->sbcs.blocks.curr.no
@@ -3327,12 +3326,15 @@ erts_alcu_sz_info(Allctr_t *allctr,
 
 
 #ifdef USE_THREADS
-    if (allctr->thread_safe)
+    if (allctr->thread_safe) {
 	erts_mtx_unlock(&allctr->mutex);
+	erts_allctr_wrapper_pre_unlock();
+    }
 #endif
 
     return res;
 }
+
 
 Eterm
 erts_alcu_info(Allctr_t *allctr,
@@ -3354,15 +3356,17 @@ erts_alcu_info(Allctr_t *allctr,
 	return am_false;
     }
 
+    if (hpp || szp)
+	ensure_atoms_initialized(allctr);
+
 #ifdef USE_THREADS
-    if (allctr->thread_safe)
+    if (allctr->thread_safe) {
+	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
+    }
 #endif
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
-
-    if (hpp || szp)
-	ensure_atoms_initialized(allctr);
 
     /* Update sbc values not continously updated */
     allctr->sbcs.blocks.curr.no
@@ -3416,8 +3420,10 @@ erts_alcu_info(Allctr_t *allctr,
 
 
 #ifdef USE_THREADS
-    if (allctr->thread_safe)
+    if (allctr->thread_safe) {
 	erts_mtx_unlock(&allctr->mutex);
+	erts_allctr_wrapper_pre_unlock();
+    }
 #endif
 
     return res;
