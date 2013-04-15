@@ -317,8 +317,7 @@ do_start_slave(start, Filer, Name) ->
     SlaveMonitor = erlang:monitor(process, Slave),
     receive
 	{started, Token} ->
-	    erlang:demonitor(SlaveMonitor),
-	    receive {'DOWN', SlaveMonitor, _, _, _} -> ok after 0 -> ok end,
+	    erlang:demonitor(SlaveMonitor, [flush]),
 	    {ok, Slave};
 	{'DOWN', SlaveMonitor, _, _, Reason} ->
 	    exit(Reason)

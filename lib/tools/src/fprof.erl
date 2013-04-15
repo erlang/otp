@@ -1226,10 +1226,7 @@ spawn_3step(Spawn, FunPrelude, FunAck, FunBody)
 		  MRef = erlang:monitor(process, Parent),
 		  receive
 		      {Parent, Ref, Go} ->
-			  erlang:demonitor(MRef),
-			  receive {'DOWN', MRef, _, _, _} -> ok 
-			  after 0 -> ok
-			  end,
+			  erlang:demonitor(MRef, [flush]),
 			  FunBody(Go);
 		      {'DOWN', MRef, _, _, _} ->
 			  ok
@@ -1238,8 +1235,7 @@ spawn_3step(Spawn, FunPrelude, FunAck, FunBody)
     MRef = erlang:monitor(process, Child),
     receive
 	{Child, Ref, Ack} ->
-	    erlang:demonitor(MRef),
-	    receive {'DOWN', MRef, _, _, _} -> ok after 0 -> ok end,
+	    erlang:demonitor(MRef, [flush]),
 	    try FunAck(Ack) of
 		{Result, Go} ->
 		    catch Child ! {Parent, Ref, Go},

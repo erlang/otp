@@ -24,11 +24,7 @@ do_call(Process, Label, Request, Timeout) ->
 		{'DOWN', Mref, _, _, Reason} ->
 		    exit(Reason)
 	    after Timeout ->
-		    erlang:demonitor(Mref),
-		    receive
-			{'DOWN', Mref, _, _, _} -> true
-		    after 0 -> true
-		    end,
+		    erlang:demonitor(Mref, [flush]),
 		    exit(timeout)
 	    end
     catch
