@@ -66,6 +66,7 @@ MODULES= \
 	string_SUITE \
 	supervisor_1 \
 	supervisor_2 \
+	supervisor_3 \
 	supervisor_deadlock \
 	naughty_child \
 	shell_SUITE \
