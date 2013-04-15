@@ -28,10 +28,18 @@ start_link() ->
     ok.
 
 call(M, F, Args) ->
-    MFA = {M,F,length(Args)},
+    A = length(Args),
+    MFA = {M,F,A},
     need(MFA),
-    asn1ct_gen:emit([F,"(",call_args(Args, ""),")"]).
+    case M of
+	binary ->
+	    asn1ct_gen:emit(["binary:",F,"(",call_args(Args, ""),")"]);
+	_ ->
+	    asn1ct_gen:emit([F,"(",call_args(Args, ""),")"])
+    end.
 
+need({binary,_,_}) ->
+    ok;
 need({erlang,_,_}) ->
     ok;
 need(MFA) ->

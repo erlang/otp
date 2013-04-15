@@ -26,7 +26,7 @@
 %-compile(export_all).
 
 -export([gen_dec_imm/2]).
--export([gen_dec_prim/3,gen_encode_prim/3]).
+-export([gen_dec_prim/3,gen_encode_prim_imm/3]).
 -export([gen_obj_code/3,gen_objectset_code/2]).
 -export([gen_decode/2, gen_decode/3]).
 -export([gen_encode/2, gen_encode/3]).
@@ -102,161 +102,86 @@ gen_encode_prim(Erules, D) ->
     Value = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
     gen_encode_prim(Erules, D, Value).
 
-gen_encode_prim(Erules, #type{def={'ENUMERATED',{N1,N2}}}, Value) ->
-    NewList = [{0,X} || {X,_} <- N1] ++ ['EXT_MARK'] ++
-	[{1,X} || {X,_} <- N2],
-    NewC = {0,length(N1)-1},
-    emit(["case ",Value," of",nl]),
-    emit_enc_enumerated_cases(Erules, NewC, NewList, 0);
-gen_encode_prim(Erules, #type{def={'ENUMERATED',NNL}}, Value) ->
-    NewList = [X || {X,_} <- NNL],
-    NewC = {0,length(NewList)-1},
-    emit(["case ",Value," of",nl]),
-    emit_enc_enumerated_cases(Erules, NewC, NewList, 0);
-gen_encode_prim(per=Erules, D, Value) ->
-    asn1ct_gen_per_rt2ct:gen_encode_prim(Erules, D, Value);
 gen_encode_prim(Erules, #type{}=D, Value) ->
-    Constraint = D#type.constraint,
-    SizeConstr = asn1ct_imm:effective_constraint(bitstring, Constraint),
-    Pa = case lists:keyfind('PermittedAlphabet', 1, Constraint) of
-	     false -> no;
-	     {_,Pa0} -> Pa0
-	 end,
-    case D#type.def of
+    Aligned = case Erules of
+		  uper -> false;
+		  per -> true
+	      end,
+    Imm = gen_encode_prim_imm(Value, D, Aligned),
+    asn1ct_imm:enc_cg(Imm, Aligned).
+
+gen_encode_prim_imm(Val, #type{def=Type0,constraint=Constraint}, Aligned) ->
+    case simplify_type(Type0) of
+	k_m_string ->
+	    Type = case Type0 of
+		       'GeneralizedTime' -> 'VisibleString';
+		       'UTCTime' -> 'VisibleString';
+		       _ -> Type0
+		   end,
+	    asn1ct_imm:per_enc_k_m_string(Val, Type, Constraint, Aligned);
+	restricted_string ->
+	    ToBinary = {erlang,iolist_to_binary},
+	    asn1ct_imm:per_enc_restricted_string(Val, ToBinary, Aligned);
+	{'ENUMERATED',NNL} ->
+	    asn1ct_imm:per_enc_enumerated(Val, NNL, Aligned);
 	'INTEGER' ->
-	    Args = [{asis,asn1ct_imm:effective_constraint(integer,Constraint)},
-		    Value],
-	    call(Erules, encode_integer, Args);
-	{'INTEGER',NamedNumberList} ->
-	    Args = [{asis,asn1ct_imm:effective_constraint(integer,Constraint)},
-		    Value,{asis,NamedNumberList}],
-	    call(Erules, encode_integer, Args);
+	    asn1ct_imm:per_enc_integer(Val, Constraint, Aligned);
+	{'INTEGER',NNL} ->
+	    asn1ct_imm:per_enc_integer(Val, NNL, Constraint, Aligned);
 	'REAL' ->
-	    emit_enc_real(Erules, Value);
-
-	{'BIT STRING',NamedNumberList} ->
-	    call(Erules, encode_bit_string,
-		 [{asis,SizeConstr},Value,
-		  {asis,NamedNumberList}]);
+	    ToBinary = {real_common,encode_real},
+	    asn1ct_imm:per_enc_restricted_string(Val, ToBinary, Aligned);
+	{'BIT STRING',NNL} ->
+	    asn1ct_imm:per_enc_bit_string(Val, NNL, Constraint, Aligned);
 	'NULL' ->
-	    emit("[]");
+	    asn1ct_imm:per_enc_null(Val, Aligned);
 	'OBJECT IDENTIFIER' ->
-	    call(Erules, encode_object_identifier, [Value]);
+	    ToBinary = {per_common,encode_oid},
+	    asn1ct_imm:per_enc_restricted_string(Val, ToBinary, Aligned);
 	'RELATIVE-OID' ->
-	    call(Erules, encode_relative_oid, [Value]);
-	'ObjectDescriptor' ->
-	    call(Erules, encode_ObjectDescriptor,
-		 [{asis,Constraint},Value]);
+	    ToBinary = {per_common,encode_relative_oid},
+	    asn1ct_imm:per_enc_restricted_string(Val, ToBinary, Aligned);
 	'BOOLEAN' ->
-	    call(Erules, encode_boolean, [Value]);
+	    asn1ct_imm:per_enc_boolean(Val, Aligned);
 	'OCTET STRING' ->
-	    case SizeConstr of
-		0 ->
-		    emit("[]");
-		no ->
-		    call(Erules, encode_octet_string, [Value]);
-		C ->
-		    call(Erules, encode_octet_string, [{asis,C},Value])
-	    end;
-	'NumericString' ->
-	    call(Erules, encode_NumericString, [{asis,SizeConstr},
-						{asis,Pa},Value]);
-	TString when TString == 'TeletexString';
-		     TString == 'T61String' ->
-	    call(Erules, encode_TeletexString, [{asis,Constraint},Value]);
-	'VideotexString' ->
-	    call(Erules, encode_VideotexString, [{asis,Constraint},Value]);
-	'UTCTime' ->
-	    call(Erules, encode_VisibleString, [{asis,SizeConstr},
-						{asis,Pa},Value]);
-	'GeneralizedTime' ->
-	    call(Erules, encode_VisibleString, [{asis,SizeConstr},
-						{asis,Pa},Value]);
-	'GraphicString' ->
-	    call(Erules, encode_GraphicString, [{asis,Constraint},Value]);
-	'VisibleString' ->
-	    call(Erules, encode_VisibleString, [{asis,SizeConstr},
-						{asis,Pa},Value]);
-	'GeneralString' ->
-	    call(Erules, encode_GeneralString, [{asis,Constraint},Value]);
-	'PrintableString' ->
-	    call(Erules, encode_PrintableString, [{asis,SizeConstr},
-						  {asis,Pa},Value]);
-	'IA5String' ->
-	    call(Erules, encode_IA5String, [{asis,SizeConstr},
-					    {asis,Pa},Value]);
-	'BMPString' ->
-	    call(Erules, encode_BMPString, [{asis,SizeConstr},
-					    {asis,Pa},Value]);
-	'UniversalString' ->
-	    call(Erules, encode_UniversalString, [{asis,SizeConstr},
-						  {asis,Pa},Value]);
-	'UTF8String' ->
-	    call(Erules, encode_UTF8String, [Value]);
+	    asn1ct_imm:per_enc_octet_string(Val, Constraint, Aligned);
 	'ASN1_OPEN_TYPE' ->
-	    NewValue = case Constraint of
-			   [#'Externaltypereference'{type=Tname}] ->
-			       asn1ct_func:need({Erules,complete,1}),
-			       io_lib:format(
-				 "complete(enc_~s(~s))",[Tname,Value]);
-			   [#type{def=#'Externaltypereference'{type=Tname}}] ->
-			       asn1ct_func:need({Erules,complete,1}),
-			       io_lib:format(
-				 "complete(enc_~s(~s))",
-				 [Tname,Value]);
-			   _ ->
-			       io_lib:format("iolist_to_binary(~s)",
-					     [Value])
-		     end,
-	    call(Erules, encode_open_type, [NewValue])
+	    case Constraint of
+		[#'Externaltypereference'{type=Tname}] ->
+		    EncFunc = enc_func(Tname),
+		    Imm = [{apply,EncFunc,[{expr,Val}]}],
+		    asn1ct_imm:per_enc_open_type(Imm, Aligned);
+		[] ->
+		    Imm = [{call,erlang,iolist_to_binary,[{expr,Val}]}],
+		    asn1ct_imm:per_enc_open_type(Imm, Aligned)
+	    end
     end.
-
-emit_enc_real(Erules, Real) ->
-    asn1ct_name:new(tmpval),
-    asn1ct_name:new(tmplen),
-    emit(["begin",nl,
-	  {curr,tmpval}," = ",
-	  {call,real_common,encode_real,[Real]},com,nl,
-	  {curr,tmplen}," = ",
-	  {call,erlang,byte_size,[{curr,tmpval}]},com,nl,
-	  "[",{call,Erules,encode_length,[{curr,tmplen}]},com,nl,
-	  {curr,tmpval},"]",nl,
-	  "end"]).
-
-emit_enc_enumerated_cases(Erules, C, ['EXT_MARK'|T], _Count) ->
-    %% Reset enumeration counter.
-    emit_enc_enumerated_cases(Erules, C, T, 0);
-emit_enc_enumerated_cases(Erules, C, [H|T], Count) ->
-    emit_enc_enumerated_case(Erules, C, H, Count),
-    emit([";",nl]),
-    emit_enc_enumerated_cases(Erules, C, T, Count+1);
-emit_enc_enumerated_cases(_Erules, _, [], _Count) ->
-    emit(["EnumVal -> "
-	  "exit({error,{asn1,{enumerated_not_in_range, EnumVal}}})",nl,
-	  "end"]).
-    
-emit_enc_enumerated_case(Erules, C, {0,EnumName}, Count) ->
-    %% ENUMERATED with extensionmark; the value lies within then extension root
-    Enc = enc_ext_and_val(Erules, 0, encode_constrained_number, [C,Count]),
-    emit(["'",EnumName,"' -> ",{asis,Enc}]);
-emit_enc_enumerated_case(Erules, _C, {1,EnumName}, Count) ->
-    %% ENUMERATED with extensionmark; the value is higher than extension root
-    Enc = enc_ext_and_val(Erules, 1, encode_small_number, [Count]),
-    emit(["'",EnumName,"' -> ",{asis,Enc}]);
-emit_enc_enumerated_case(Erules, C, EnumName, Count) ->
-    %% ENUMERATED without extension
-    EvalMod = eval_module(Erules),
-    emit(["'",EnumName,"' -> ",
-	  {asis,EvalMod:encode_constrained_number(C, Count)}]).
-
-enc_ext_and_val(per, E, F, Args) ->
-    [E|apply(asn1ct_eval_per, F, Args)];
-enc_ext_and_val(uper, E, F, Args) ->
-    Bs = list_to_bitstring([apply(asn1ct_eval_uper, F, Args)]),
-    <<E:1,Bs/bitstring>>.
 
 dec_func(Tname) ->
     list_to_atom(lists:concat(["dec_",Tname])).
+
+enc_func(Tname) ->
+    list_to_atom(lists:concat(["enc_",Tname])).
+
+simplify_type(Type) ->
+    case Type of
+	'BMPString'       -> k_m_string;
+	'IA5String'       -> k_m_string;
+	'NumericString'   -> k_m_string;
+	'PrintableString' -> k_m_string;
+	'VisibleString'   -> k_m_string;
+	'UniversalString' -> k_m_string;
+	'GeneralizedTime' -> k_m_string;
+	'UTCTime'         -> k_m_string;
+	'TeletexString'   -> restricted_string;
+	'T61String'       -> restricted_string;
+	'VideotexString'  -> restricted_string;
+	'GraphicString'   -> restricted_string;
+	'GeneralString'   -> restricted_string;
+	'UTF8String'      -> restricted_string;
+	'ObjectDescriptor' -> restricted_string;
+	Other             -> Other
+    end.
 
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------
@@ -299,18 +224,7 @@ gen_encode_objectfields(Erule, ClassName,
 	case {get_object_field(Name,ObjectFields),OptOrMand} of
 	    {false,'OPTIONAL'} ->
 		EmitFuncClause("Val"),
-		case Erule of
-		    uper ->
-			emit("   Val");
-		    per ->
-			emit(["   if",nl,
-			      "     is_list(Val) ->",nl,
-			      "       NewVal = list_to_binary(Val),",nl,
-			      "       [20,byte_size(NewVal),NewVal];",nl,
-			      "     is_binary(Val) ->",nl,
-			      "       [20,byte_size(Val),Val]",nl,
-			      "   end"])
-		end,
+		emit("   Val"),
 		[];
 	    {false,{'DEFAULT',DefaultType}} ->
 		EmitFuncClause("Val"),
@@ -651,28 +565,11 @@ gen_objset_enc(Erule, ObjSetName, UniqueName, [{ObjName,Val,Fields}|T],
     emit({";",nl}),
     gen_objset_enc(Erule, ObjSetName, UniqueName, T, ClName, ClFields,
 		   NewNthObj, InternalFunc ++ Acc);
-gen_objset_enc(uper, ObjSetName, _UniqueName, ['EXTENSIONMARK'],
+gen_objset_enc(_, ObjSetName, _UniqueName, ['EXTENSIONMARK'],
 	       _ClName, _ClFields, _NthObj, Acc) ->
     emit(["'getenc_",ObjSetName,"'(_) ->",nl]),
     emit({indent(3),"fun(_, Val, _) ->",nl}),
     emit([indent(6),"Val",nl,
-	  indent(3),"end.",nl,nl]),
-    Acc;
-gen_objset_enc(per, ObjSetName, _UniqueName, ['EXTENSIONMARK'],
-	       _ClName, _ClFields, _NthObj, Acc) ->
-    emit(["'getenc_",ObjSetName,"'(_) ->",nl,
-	  indent(3),"fun(_, Val, _) ->",nl,
-	  indent(6),"BinVal = if",nl,
-	  indent(9),"is_list(Val) -> list_to_binary(Val);",nl,
-	  indent(9),"true -> Val",nl,
-	  indent(6),"end,",nl,
-	  indent(6),"Size = byte_size(BinVal),",nl,
-	  indent(6),"if",nl,
-	  indent(9),"Size < 256 ->",nl,
-	  indent(12),"[20,Size,BinVal];",nl,
-	  indent(9),"true ->",nl,
-	  indent(12),"[21,<<Size:16>>,Val]",nl,
-	  indent(6),"end",nl,
 	  indent(3),"end.",nl,nl]),
     Acc;
 gen_objset_enc(_, ObjSetName, UniqueName, [], _, _, _, Acc) ->
@@ -725,20 +622,9 @@ gen_inlined_enc_funs1(Erule, Fields, [{typefield,Name,_}|Rest], ObjSetName,
 		emit([indent(9),{asis,Name}," ->",nl,
 		      indent(12),"'",M,"'",":'enc_",T,"'(Val)"]),
 		{Acc0,0};
-	    false when Erule =:= uper ->
+	    false ->
 		emit([indent(9),{asis,Name}," ->",nl,
 		      indent(12),"Val",nl]),
-		{Acc0,0};
-	    false when Erule =:= per ->
-		emit([indent(9),{asis,Name}," ->",nl,
-		      indent(12),"Size = case Val of",nl,
-		      indent(15),"B when is_binary(B) -> size(B);",nl,
-		      indent(15),"_ -> length(Val)",nl,
-		      indent(12),"end,",nl,
-		      indent(12),"if",nl,
-		      indent(15),"Size < 256 -> [20,Size,Val];",nl,
-		      indent(15),"true -> [21,<<Size:16>>,Val]",nl,
-		      indent(12),"end"]),
 		{Acc0,0}
 	end,
     gen_inlined_enc_funs1(Erule, Fields, Rest, ObjSetName, Sep,
@@ -1165,6 +1051,3 @@ imm_dec_open_type_1(Type, Aligned) ->
 		      "end"])
 	end,
     {call,D,asn1ct_imm:per_dec_open_type(Aligned)}.
-
-eval_module(per) -> asn1ct_eval_per;
-eval_module(uper) -> asn1ct_eval_uper.

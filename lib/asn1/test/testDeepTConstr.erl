@@ -40,8 +40,7 @@ main(_Erule) ->
 	      {any,"DK"},
 	      {final,"NO"}]}},
 
-    {ok,Bytes1} = 'TConstrChoice':encode('FilterItem', Val1),
-    {error,Reason} = asn1_wrapper:decode('TConstrChoice','FilterItem',Bytes1),
+    Reason = must_fail('TConstrChoice', 'FilterItem', Val1),
     io:format("Reason: ~p~n~n",[Reason]),
     {ok,Bytes2} = 'TConstrChoice':encode('FilterItem', Val2),
     {ok,Res} = 'TConstrChoice':decode('FilterItem', Bytes2),
@@ -92,3 +91,13 @@ roundtrip(M, T, V) ->
     {ok,E} = M:encode(T, V),
     {ok,V} = M:decode(T, E),
     ok.
+
+%% Either encoding or decoding must fail.
+must_fail(M, T, V) ->
+    case M:encode(T, V) of
+	{ok,E} ->
+	    {error,Reason} = M:decode(T, E),
+	    Reason;
+	{error,Reason} ->
+	    Reason
+    end.

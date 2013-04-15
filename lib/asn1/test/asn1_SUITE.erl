@@ -359,7 +359,8 @@ testPrimStrings_cases(Rule) ->
     testPrimStrings:universal_string(Rule),
     testPrimStrings:bmp_string(Rule),
     testPrimStrings:times(Rule),
-    testPrimStrings:utf8_string(Rule).
+    testPrimStrings:utf8_string(Rule),
+    testPrimStrings:fragmented(Rule).
 
 testPrimExternal(Config) -> test(Config, fun testPrimExternal/3).
 testPrimExternal(Config, Rule, Opts) ->
@@ -451,7 +452,7 @@ testSeqDefault(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqDefault", Config, [Rule|Opts]),
     testSeqDefault:main(Rule).
 
-testSeqExtension(Config) -> test(Config, fun testSeqExtension/3).
+testSeqExtension(Config) -> test(Config, fun testSeqExtension/3, [ber,uper]).
 testSeqExtension(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["External",
 			       "SeqExtension",
