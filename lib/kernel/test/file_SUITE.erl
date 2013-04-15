@@ -91,6 +91,8 @@
 
 -export([standard_io/1,mini_server/1]).
 
+-export([old_io_protocol/1]).
+
 %% Debug exports
 -export([create_file_slow/2, create_file/2, create_bin/2]).
 -export([verify_file/2, verify_bin/3]).
@@ -114,7 +116,7 @@ all() ->
      delayed_write, read_ahead, segment_read, segment_write,
      ipread, pid2name, interleaved_read_write, otp_5814, otp_10852,
      large_file, large_write, read_line_1, read_line_2, read_line_3,
-     read_line_4, standard_io].
+     read_line_4, standard_io, old_io_protocol].
 
 groups() -> 
     [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1,
@@ -309,6 +311,31 @@ standard_io(Config) when is_list(Config) ->
 	  end,
     Pid ! die,
     receive after 1000 -> ok end.
+
+old_io_protocol(suite) ->
+    [];
+old_io_protocol(doc) ->
+    ["Test that the old file IO protocol =< R16B still works"];
+old_io_protocol(Config) when is_list(Config) ->
+    Dog = test_server:timetrap(test_server:seconds(5)),
+    RootDir = ?config(priv_dir,Config),
+    Name = filename:join(RootDir,
+			 atom_to_list(?MODULE)
+			 ++"old_io_protocol.fil"),
+    MyData = "0123456789abcdefghijklmnopqrstuvxyz",
+    ok = ?FILE_MODULE:write_file(Name, MyData),
+    {ok, Fd} = ?FILE_MODULE:open(Name, write),
+    Fd ! {file_request,self(),Fd,truncate},
+    receive
+	{file_reply,Fd,ok} -> ok
+    end,
+    ok = ?FILE_MODULE:close(Fd),
+    {ok, <<>>} = ?FILE_MODULE:read_file(Name),
+    test_server:timetrap_cancel(Dog),
+    [] = flush(),
+    ok.
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
