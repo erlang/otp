@@ -472,11 +472,11 @@ rec_nodes(Tag, [{N,R}|Tail], Name, Badnodes, Replies, Time, TimerId ) ->
 	{'DOWN', R, _, _, _} ->
 	    rec_nodes(Tag, Tail, Name, [N|Badnodes], Replies, Time, TimerId);
 	{{Tag, N}, Reply} ->  %% Tag is bound !!!
-	    unmonitor(R), 
+	    erlang:demonitor(R, [flush]),
 	    rec_nodes(Tag, Tail, Name, Badnodes, 
 		      [{N,Reply}|Replies], Time, TimerId);
 	{timeout, TimerId, _} ->	
-	    unmonitor(R),
+	    erlang:demonitor(R, [flush]),
 	    %% Collect all replies that already have arrived
 	    rec_nodes_rest(Tag, Tail, Name, [N|Badnodes], Replies)
     end;
@@ -527,10 +527,10 @@ rec_nodes_rest(Tag, [{N,R}|Tail], Name, Badnodes, Replies) ->
 	{'DOWN', R, _, _, _} ->
 	    rec_nodes_rest(Tag, Tail, Name, [N|Badnodes], Replies);
 	{{Tag, N}, Reply} -> %% Tag is bound !!!
-	    unmonitor(R),
+	    erlang:demonitor(R, [flush]),
 	    rec_nodes_rest(Tag, Tail, Name, Badnodes, [{N,Reply}|Replies])
     after 0 ->
-	    unmonitor(R),
+	    erlang:demonitor(R, [flush]),
 	    rec_nodes_rest(Tag, Tail, Name, [N|Badnodes], Replies)
     end;
 rec_nodes_rest(Tag, [N|Tail], Name, Badnodes, Replies) ->
@@ -570,16 +570,6 @@ start_monitor(Node, Name) when is_atom(Node), is_atom(Name) ->
 		Ref when is_reference(Ref) ->
 		    {Node, Ref}
 	    end
-    end.
-
-%% Cancels a monitor started with Ref=erlang:monitor(_, _).
-unmonitor(Ref) when is_reference(Ref) ->
-    erlang:demonitor(Ref),
-    receive
-	{'DOWN', Ref, _, _, _} ->
-	    true
-    after 0 ->
-	    true
     end.
 
 %%% ---------------------------------------------------

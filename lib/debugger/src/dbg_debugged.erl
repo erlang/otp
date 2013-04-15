@@ -19,8 +19,6 @@
 -module(dbg_debugged).
 
 %% External exports
-%% Avoid warning for local function demonitor/1 clashing with autoimported BIF.
--compile({no_auto_import,[demonitor/1]}).
 -export([eval/3]).
 
 %%====================================================================
@@ -47,7 +45,7 @@ msg_loop(Meta, Mref, SaveStacktrace) ->
 
 	%% Evaluated function has returned a value
 	{sys, Meta, {ready, Val}} ->
-	    demonitor(Mref),
+	    erlang:demonitor(Mref, [flush]),
 
 	    %% Restore original stacktrace and return the value
 	    try erlang:raise(throw, stack, SaveStacktrace)
@@ -63,7 +61,7 @@ msg_loop(Meta, Mref, SaveStacktrace) ->
 
 	%% Evaluated function raised an (uncaught) exception
 	{sys, Meta, {exception,{Class,Reason,Stacktrace}}} ->
-	    demonitor(Mref),
+	    erlang:demonitor(Mref, [flush]),
 
 	    %% ...raise the same exception
 	    erlang:error(erlang:raise(Class, Reason, Stacktrace), 
@@ -106,14 +104,6 @@ reply({apply,M,F,As}) ->
 reply({eval,Expr,Bs}) ->
     %% Bindings is an orddict (sort them)
     erl_eval:expr(Expr, lists:sort(Bs)). % {value, Value, Bs2}
-
-%% Demonitor and delete message from inbox
-%%
-demonitor(Mref) ->
-    erlang:demonitor(Mref),
-    receive {'DOWN',Mref,_,_,_} -> ok
-    after 0 -> ok
-    end.
 
 %% Fix stacktrace - keep all above call to this module.
 %%

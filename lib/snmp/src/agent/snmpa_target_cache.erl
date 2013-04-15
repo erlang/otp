@@ -21,8 +21,6 @@
 -behaviour(gen_server).
 
 %% External exports
-%% Avoid warning for local function demonitor/1 clashing with autoimported BIF.
--compile({no_auto_import,[demonitor/1]}).
 -export([start_link/2, stop/0, verbosity/1]).
 
 -export([
@@ -213,21 +211,6 @@ do_init(Prio, Opts) ->
 %%     requests will have to wait.
 %% 
 
-monitor(Pid)   -> erlang:monitor(process, Pid).
--ifdef(SNMP_R10).
-demonitor(Ref) -> 
-    erlang:demonitor(Ref),
-    receive
-	{_, Ref, _, _, _} ->
-	    true
-    after 0 ->
-	    true
-    end.
--else.
-demonitor(Ref) -> 
-    erlang:demonitor(Ref, [flush]).
--endif.
-
 
 %% (1) No write_lock active or waiting
 handle_call({lock, read = Type, infinity}, {Pid, _} = From, 
@@ -236,7 +219,7 @@ handle_call({lock, read = Type, infinity}, {Pid, _} = From,
 	  "entry when no waiting or active writer with"
 	  "~n   Pid: ~p"
 	  "~n   Cnt: ~p", [Pid, Cnt]),
-    MonRef = monitor(Pid),
+    MonRef = erlang:monitor(process, Pid),
     Locker = #locker{pid     = Pid, 
                      from    = From,
 		     mon_ref = MonRef, 
@@ -252,7 +235,7 @@ handle_call({lock, read = Type, infinity}, {Pid, _} = From, State) ->
     ?vlog("lock(read, infinity) -> "
 	  "entry when active or waiting write locks with"
 	  "~n   Pid: ~p", [Pid]),
-    MonRef = monitor(Pid),
+    MonRef = erlang:monitor(process, Pid),
     Locker = #locker{pid     = Pid, 
 		     from    = From, 
 		     mon_ref = MonRef, 
@@ -273,7 +256,7 @@ handle_call({lock, write = Type, infinity}, {Pid, _} = From,
     ?vlog("lock(write, infinity) -> "
 	  "entry when no active lockers with"
 	  "~n   Pid: ~p", [Pid]),
-    MonRef = monitor(Pid),
+    MonRef = erlang:monitor(process, Pid),
     Locker = #locker{pid     = Pid, 
                      from    = From,
 		     mon_ref = MonRef, 
@@ -290,7 +273,7 @@ handle_call({lock, write = Type, infinity}, {Pid, _} = From,
     ?vlog("lock(write, infinity) -> "
 	  "entry when active lockers with"
 	  "~n   Pid: ~p", [Pid]),
-    MonRef = monitor(Pid),
+    MonRef = erlang:monitor(process, Pid),
     Locker = #locker{pid     = Pid, 
 		     from    = From, 
 		     mon_ref = MonRef, 
@@ -307,7 +290,7 @@ handle_call({lock, write = Type, infinity}, {Pid, _} = From,
 	    #state{writer = true} = State) ->
     ?vlog("lock(write, infinity) -> entry with"
 	  "~n   Pid: ~p", [Pid]),
-    MonRef = monitor(Pid),
+    MonRef = erlang:monitor(process, Pid),
     Locker = #locker{pid     = Pid, 
 		     from    = From, 
 		     mon_ref = MonRef, 
@@ -429,7 +412,7 @@ handle_cast({unlock, Pid},
 	[#locker{mon_ref = MonRef, type = read}] ->
 	    ?vdebug("unlock -> found read locker"
 		    "~n   MonRef: ~p", [MonRef]),
-	    demonitor(MonRef),
+	    erlang:demonitor(MonRef, [flush]),
 	    ets:delete(?LOCKER_TAB, Pid),
 %% 	    ?vtrace("unlock -> done when"
 %% 		    "~n   Lockers: ~p", [ets:tab2list(?LOCKER_TAB)]),
@@ -437,7 +420,7 @@ handle_cast({unlock, Pid},
 	[#locker{mon_ref = MonRef, type = write}] ->
 	    ?vdebug("unlock -> found write locker"
 		    "~n   MonRef: ~p", [MonRef]),
-	    demonitor(MonRef),
+	    erlang:demonitor(MonRef, [flush]),
 	    ets:delete(?LOCKER_TAB, Pid),
 %% 	    ?vtrace("unlock -> done when"
 %% 		    "~n   Lockers: ~p", [ets:tab2list(?LOCKER_TAB)]),
@@ -459,7 +442,7 @@ handle_cast({unlock, Pid},
 	[#locker{mon_ref = MonRef, type = read}] when (Cnt == 1) ->
 	    ?vdebug("unlock -> found read locker"
 		    "~n   MonRef: ~p", [MonRef]),
-	    demonitor(MonRef),
+	    erlang:demonitor(MonRef, [flush]),
 	    ets:delete(?LOCKER_TAB, Pid),
 	    case active_waiting_writer(Waiting) of
 		{true, StillWaiting} ->
@@ -482,7 +465,7 @@ handle_cast({unlock, Pid},
 	[#locker{mon_ref = MonRef, type = read}] ->
 	    ?vdebug("unlock -> found read locker"
 		    "~n   MonRef: ~p", [MonRef]),
-	    demonitor(MonRef),
+	    erlang:demonitor(MonRef, [flush]),
 	    ets:delete(?LOCKER_TAB, Pid),
 %% 	    ?vtrace("unlock -> done when"
 %% 		    "~n   Lockers: ~p", [ets:tab2list(?LOCKER_TAB)]),
@@ -492,7 +475,7 @@ handle_cast({unlock, Pid},
 	    %% Release the hord (maybe)
 	    ?vdebug("unlock -> found write locker"
 		    "~n   MonRef: ~p", [MonRef]),
-	    demonitor(MonRef),
+	    erlang:demonitor(MonRef, [flush]),
 	    ets:delete(?LOCKER_TAB, Pid),
 	    {Active, StillWaiting, Writer} = 
 		activate_waiting_readers_or_maybe_writer(Waiting),

@@ -1339,8 +1339,7 @@ epp_reply(From, Rep) ->
 wait_epp_reply(Epp, Mref) ->
     receive
 	{epp_reply,Epp,Rep} ->
-	    erlang:demonitor(Mref),
-	    receive {'DOWN',Mref,_,_,_} -> ok after 0 -> ok end,
+	    erlang:demonitor(Mref, [flush]),
 	    Rep;
 	{'DOWN',Mref,_,_,E} ->
 	    receive {epp_reply,Epp,Rep} -> Rep

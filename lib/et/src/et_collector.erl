@@ -654,13 +654,8 @@ start_trace_client(CollectorPid, Type, FileName) when Type =:= file ->
     Ref = erlang:monitor(process, Pid),
     receive
         WaitFor -> 
-	    erlang:demonitor(Ref),
-	    receive 
-		{'DOWN', Ref, _, _, _} ->
-		    file_loaded
-	    after 0 ->
-		    file_loaded
-	    end;
+	    erlang:demonitor(Ref, [flush]),
+	    file_loaded;
         {'DOWN', Ref, _, _, Reason} ->
             exit(Reason)
     end;

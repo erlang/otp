@@ -551,8 +551,7 @@ c(M, F, A, Flags) ->
 		    stop_clear(),
 		    {error, Reason};
 		{Pid, Res} ->
-		    erlang:demonitor(Mref),
-		    receive {'DOWN', Mref, _, _, _} -> ok after 0 -> ok end,
+		    erlang:demonitor(Mref, [flush]),
 		    %% 'sleep' prevents the tracer (recv_all_traces) from
 		    %% receiving garbage {'EXIT',...} when dbg i stopped.
 		    timer:sleep(1),
@@ -592,8 +591,7 @@ req(R) ->
 	{'DOWN', Mref, _, _, _} -> % If server died
 	    exit(dbg_server_crash);
 	{dbg, Reply} ->
-	    erlang:demonitor(Mref),
-	    receive {'DOWN', Mref, _, _, _} -> ok after 0 -> ok end,
+	    erlang:demonitor(Mref, [flush]),
 	    Reply
     end.
 

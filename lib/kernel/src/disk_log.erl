@@ -1914,13 +1914,8 @@ multi_req(Msg, Pids) ->
 			    {'DOWN', Ref, process, Pid, _Info} ->
 				Reply;
 			    {disk_log, Pid, _Reply} ->
-				erlang:demonitor(Ref),
-				receive 
-				    {'DOWN', Ref, process, Pid, _Reason} ->
-					ok
-				after 0 -> 
-					ok
-				end
+				erlang:demonitor(Ref, [flush]),
+				ok
 			end
 		end, {error, nonode}, Refs).
 
@@ -1965,13 +1960,8 @@ monitor_request(Pid, Req) ->
 	    {error, no_such_log};
 	{disk_log, Pid, Reply} when not is_tuple(Reply) orelse
                                     element(2, Reply) =/= disk_log_stopped ->
-	    erlang:demonitor(Ref),
-	    receive 
-		{'DOWN', Ref, process, Pid, _Reason} ->
-		    Reply
-	    after 0 ->
-                    Reply
-	    end
+	    erlang:demonitor(Ref, [flush]),
+	    Reply
     end.
 
 req2(Pid, R) ->
