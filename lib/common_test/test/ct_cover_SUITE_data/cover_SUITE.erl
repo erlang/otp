@@ -91,7 +91,7 @@ slave_start_slave(_Config) ->
     {ok,Node} = start_slave(N1),
     cover_compiled = rpc:call(Node,code,which,[cover_test_mod]),
     rpc:call(Node,cover_test_mod,foo,[]),
-    {ok,Node2} = rpc:call(Node,ct_slave,start,[N2]),
+    {ok,Node2} = start_slave(Node,N2), % start slave N2 from node Node
     rpc:call(Node2,cover_test_mod,foo,[]),
     {ok,Node2} = rpc:call(Node,ct_slave,stop,[N2]),
     {ok,Node} = ct_slave:stop(N1),
@@ -154,9 +154,13 @@ kill_slaves([]) ->
     ok.
 
 start_slave(Name) ->
+    start_slave(node(),Name).
+
+start_slave(FromNode,Name) ->
     {ok, HostStr}=inet:gethostname(),
     Host = list_to_atom(HostStr),
-    ct_slave:start(Host,Name,
-		   [{boot_timeout,10}, % extending some timers for slow test hosts
-		    {init_timeout,10},
-		    {startup_timeout,10}]).
+    rpc:call(FromNode,ct_slave,start,
+	     [Host,Name,
+	      [{boot_timeout,15}, % extending some timers for slow test hosts
+	       {init_timeout,15},
+	       {startup_timeout,15}]]).
