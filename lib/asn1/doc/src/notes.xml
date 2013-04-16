@@ -31,6 +31,23 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 2.0.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When an object set is an actual parameter, the extension
+	    marker for the object set could get lost (which would
+	    cause the decoding of unknown values to fail).</p>
+          <p>
+	    Own Id: OTP-10995 Aux Id: seq12290 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 2.0.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
