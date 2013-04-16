@@ -253,10 +253,9 @@ decrypt_private(CipherText,
 				 privateExponent = D} = Key,
 		Options)
   when is_binary(CipherText),
-       is_integer(N), is_integer(E), is_integer(D),  
        is_list(Options) ->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_private_decrypt(CipherText, old_format_rsa_private_key(Key), Padding).
+    crypto:rsa_private_decrypt(CipherText, format_rsa_private_key(Key), Padding).
 
 %%--------------------------------------------------------------------
 -spec decrypt_public(CipherText :: binary(), rsa_public_key() | rsa_private_key()) ->
@@ -320,36 +319,25 @@ encrypt_private(PlainText,
 		Options)
   when is_binary(PlainText),
        is_integer(N), is_integer(E), is_integer(D),
-       is_list(Options) ->		
+       is_list(Options) ->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_private_encrypt(PlainText, old_format_rsa_private_key(Key), Padding).
-
+    crypto:rsa_private_encrypt(PlainText, format_rsa_private_key(Key), Padding).
 
 format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
 					privateExponent = D,
 					prime1 = P1, prime2 = P2,
 					exponent1 = E1, exponent2 = E2,
 					coefficient = C})
-  when is_integer(P1), is_integer(P2), 
+  when is_integer(N), is_integer(E), is_integer(D),
+       is_integer(P1), is_integer(P2),
        is_integer(E1), is_integer(E2), is_integer(C) ->
-   [K || K <- [E, N, D, P1, P2, E1, E2, C]];
+   [E, N, D, P1, P2, E1, E2, C];
 
 format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
-					privateExponent = D}) ->
-   [K || K <- [E, N, D]].
-
-old_format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
-					privateExponent = D,
-					prime1 = P1, prime2 = P2,
-					exponent1 = E1, exponent2 = E2,
-					coefficient = C})
-  when is_integer(P1), is_integer(P2),
-       is_integer(E1), is_integer(E2), is_integer(C) ->
-   [crypto:mpint(K) || K <- [E, N, D, P1, P2, E1, E2, C]];
-
-old_format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
-					privateExponent = D}) ->
-   [crypto:mpint(K) || K <- [E, N, D]].
+					privateExponent = D}) when is_integer(N),
+								   is_integer(E),
+								   is_integer(D) ->
+   [E, N, D].
 
 %%
 %% Description: convert a ECPrivate key into resource Key
@@ -720,12 +708,12 @@ do_pem_entry_decode({Asn1Type,_, _} = PemEntry, Password) ->
 
 encrypt_public(PlainText, N, E, Options)->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_public_encrypt(PlainText, [crypto:mpint(E),crypto:mpint(N)],
+    crypto:rsa_public_encrypt(PlainText, [E,N],
 			      Padding).
 
 decrypt_public(CipherText, N,E, Options) ->  
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_public_decrypt(CipherText,[crypto:mpint(E), crypto:mpint(N)], 
+    crypto:rsa_public_decrypt(CipherText,[E, N],
 			      Padding).
 
 path_validation([], #path_validation_state{working_public_key_algorithm
