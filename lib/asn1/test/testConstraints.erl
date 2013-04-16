@@ -122,6 +122,16 @@ int_constraints(Rules) ->
     range_error(Rules, 'X1', 21),
 
     %%==========================================================
+    %%  SemiConstrained
+    %%==========================================================
+
+    roundtrip('SemiConstrained', 100),
+    roundtrip('SemiConstrained', 397249742397243),
+    roundtrip('NegSemiConstrained', -128),
+    roundtrip('NegSemiConstrained', -1),
+    roundtrip('NegSemiConstrained', 500),
+
+    %%==========================================================
     %%  SIZE Constraint (Duboisson p. 268)
     %%  T ::=  IA5String (SIZE (1|2, ..., SIZE (1|2|3)))
     %%  T2 ::= IA5String (SIZE (1|2, ..., 3))

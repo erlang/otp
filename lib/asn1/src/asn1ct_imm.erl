@@ -198,7 +198,7 @@ per_dec_enumerated_fix_list([], Tail, _) -> Tail.
 per_dec_integer_1([{'SingleValue',Value}], _Aligned) ->
     {value,Value};
 per_dec_integer_1([{'ValueRange',{Lb,'MAX'}}], Aligned) when is_integer(Lb) ->
-    per_dec_unconstrained(Aligned);
+    per_decode_semi_constrained(Lb, Aligned);
 per_dec_integer_1([{'ValueRange',{Lb,Ub}}], Aligned) when is_integer(Lb),
 						    is_integer(Ub) ->
     per_dec_constrained(Lb, Ub, Aligned);
