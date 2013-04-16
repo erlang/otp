@@ -1112,10 +1112,10 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     true = rpc:call(Node,erlang,check_old_code,[m10]),
 
     %% Run check_install_release with purge before install this time
-    {TCheck,{ok, _RelVsn1, []}} =
+    {_TCheck,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, check_install_release,
 			   [RelVsn2,[purge]]]),
-%    ct:log("check_install_release with purge: ~.2f",[TCheck/1000000]),
+%    ct:log("check_install_release with purge: ~.2f",[_TCheck/1000000]),
 
     %% Finally install release after check and purge, and check that
     %% this install was faster than the first.
@@ -1209,10 +1209,10 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     true = rpc:call(Node,erlang,check_old_code,[m10]),
 
     %% Run check_install_release with purge before install this time
-    {TCheck,{ok, _RelVsn1, []}} =
+    {_TCheck,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, check_install_release,
 			   [RelVsn2,[purge]]]),
-%    ct:log("check_install_release with purge: ~.2f",[TCheck/1000000]),
+%    ct:log("check_install_release with purge: ~.2f",[_TCheck/1000000]),
 
     %% Finally install release after check and purge, and check that
     %% this install was faster than the first.
