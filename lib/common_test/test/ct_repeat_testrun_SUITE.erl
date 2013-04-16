@@ -51,8 +51,8 @@
 %% least 20 seconds (10 sec for each r1_SUITE:tc1)
 %%
 -define(t1,30). % time shall expire during second run of r1_SUITE
--define(t2,6).  % time shall expire during first run of tc1
--define(t3,16).  % time shall expire during second run of tc1
+-define(t2,9).  % time shall expire during first run of tc1
+-define(t3,19).  % time shall expire during second run of tc1
 
 
 %%--------------------------------------------------------------------
