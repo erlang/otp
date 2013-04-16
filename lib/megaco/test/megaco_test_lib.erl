@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -112,72 +112,15 @@ os_based_skip(_) ->
 %%     {Mod, Fun, ExpectedRes, ActualRes}
 %%----------------------------------------------------------------------
 
-tickets(Case) ->
-    Res = lists:flatten(tickets(Case, default_config())),
-    %% io:format("Res: ~p~n", [Res]),
+tickets(Mod) ->
+    %% io:format("~w:tickets -> entry with"
+    %% 	      "~n   Mod: ~p", [?MODULE, Mod]),
+    Res0 = t({Mod, {group, tickets}, Mod:groups()}, default_config()),
+    Res  = lists:flatten(Res0),
+    %% io:format("~w:tickets(Mod = ~w) -> Res: ~p~n", [?MODULE, Mod, Res]),
     display_result(Res),
     Res.
 
-tickets(Cases, Config) when is_list(Cases) ->     
-    [tickets(Case, Config) || Case <- Cases];
-tickets(Mod, Config) when is_atom(Mod) ->
-    Res = tickets(Mod, tickets, Config),
-    Res;
-tickets(Bad, _Config) ->
-    [{badarg, Bad, ok}].
-
-tickets(Mod, Func, Config) ->
-    case (catch Mod:Func(suite)) of
-	[] ->
-	    io:format("Eval:   ~p:", [{Mod, Func}]),
-	    Res = eval(Mod, Func, Config),
-	    {R, _, _} = Res,
-	    io:format(" ~p~n", [R]),
-	    Res;
-	
-	Cases when is_list(Cases) ->
-	    io:format("Expand: ~p:~p ... ~n"
-		      "        ~p~n", [Mod, Func, Cases]),
-	    Map = fun({M,_}) when is_atom(M) -> 
-			  tickets(M, tickets, Config);
-		     (F)     when is_atom(F) -> 
-			  tickets(Mod, F, Config);
-		     (Case) -> Case
-		  end,
-	    lists:map(Map, Cases);
-
-%%         {req, _, {conf, Init, Cases, Finish}} ->
-%% 	    case (catch Mod:Init(Config)) of
-%% 		Conf when is_list(Conf) ->
-%% 		    io:format("Expand: ~p:~p ...~n", [Mod, Func]),
-%% 		    Map = fun({M,_}) when is_atom(M) -> 
-%% 				  tickets(M, tickets, Config);
-%% 			     (F)     when is_atom(F) -> 
-%% 				  tickets(Mod, F, Config);
-%% 			     (Case) -> Case
-%% 			  end,
-%% 		    Res = lists:map(Map, Cases),
-%% 		    (catch Mod:Finish(Conf)),
-%% 		    Res;
-		    
-%% 		{'EXIT', {skipped, Reason}} ->
-%% 		    io:format(" => skipping: ~p~n", [Reason]),
-%% 		    [{skipped, {Mod, Func}, Reason}];
-		    
-%% 		Error ->
-%% 		    io:format(" => init failed: ~p~n", [Error]),
-%% 		    [{failed, {Mod, Func}, Error}]
-%% 	    end;
-		    
-        {'EXIT', {undef, _}} ->
-	    io:format("Undefined:   ~p~n", [{Mod, Func}]),
-	    [{nyi, {Mod, Func}, ok}];
-		    
-        Error ->
-	    io:format("Ignoring:   ~p:~p: ~p~n", [Mod, Func, Error]),
-	    [{failed, {Mod, Func}, Error}]
-    end.
-	
 
 display_alloc_info() ->
     io:format("Allocator memory information:~n", []),
@@ -253,8 +196,12 @@ alloc_instance_mem_info(Key, InstanceInfo) ->
 		      
     
 t([Case]) when is_atom(Case) ->
+    io:format("~w:t -> entry with"
+	      "~n   [Case]: [~p]", [?MODULE, Case]),
     t(Case);
 t(Case) ->
+    io:format("~w:t -> entry with"
+	      "~n   Case: ~p", [?MODULE, Case]),
     process_flag(trap_exit, true),
     MEM = fun() -> case (catch erlang:memory()) of
 			{'EXIT', _} ->
@@ -351,6 +298,10 @@ t({Mod, Fun, _}, Config)
 	    [{failed, {Mod, Fun}, Error, 0}]
     end;
 t(Mod, Config) when is_atom(Mod) ->
+    io:format("~w:t -> entry with"
+	      "~n   Mod:    ~p"
+	      "~n   Config: ~p"
+	      "~n", [?MODULE, Mod, Config]),    
     %% This is assumed to be a test suite, so we start by calling 
     %% the top test suite function(s) (all/0 and groups/0).
     case (catch Mod:all()) of

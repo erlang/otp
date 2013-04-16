@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2011</year>
+      <year>2000</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,6 +34,53 @@
     bugfixes for every release of Megaco. Each release of Megaco
     thus constitutes one section in this document. The title of each
     section is the version number of Megaco.</p>
+
+
+  <section>
+    <title>Megaco 3.15.2</title>
+
+    <p>Version 3.15.2 supports code replacement in runtime from/to
+      version 3.15.1.1, 3.15.1 and 3.15.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>A minor compiler related performance improvement. </p>
+          <p>Own Id: OTP-8561</p>
+        </item>
+
+     </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Buffer overrun error while flex scanner processing 
+	  property parm groups. </p>
+          <p>This error occured only for large messages if a 
+	  buffer realloc was needed while processing the 
+	  property parm groups. </p>
+          <p>Own Id: OTP-10998</p>
+          <p>Aux Id: Seq 12263</p>
+        </item>
+
+      </list>
+
+    </section>
+
+  </section> <!-- 3.15.2 -->
 
 
   <section><title>Megaco 3.15.1.1</title>
