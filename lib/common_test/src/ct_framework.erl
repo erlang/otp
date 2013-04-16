@@ -807,10 +807,14 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 			   "- - - - - - - - - -~n",
 		       io:format(user, lists:concat([Div,ErrFormat,Div,"~n"]),
 				 ErrArgs),
+		       Link =
+			   "\n\n<a href=\"#end\">"
+			   "Full error description and stacktrace"
+			   "</a>",
 		       ct_logs:tc_log(ct_error_notify,
 				      ?MAX_IMPORTANCE,
 				      "CT Error Notification",
-				      ErrFormat, ErrArgs)
+				      ErrFormat++Link, ErrArgs)
 	       end,
     case Loc of
 	[{?MODULE,error_in_suite}] ->
