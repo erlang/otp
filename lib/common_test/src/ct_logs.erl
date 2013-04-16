@@ -41,7 +41,8 @@
 -export([uri/1]).
 
 %% Logging stuff directly from testcase
--export([tc_log/3, tc_log/4, tc_log_async/3, tc_print/3, tc_print/4,
+-export([tc_log/3, tc_log/4, tc_log/5, tc_log_async/3, tc_log_async/5,
+	 tc_print/3, tc_print/4,
 	 tc_pal/3, tc_pal/4, ct_log/3, basic_html/0]).
 
 %% Simulate logger process for use without ct environment running
@@ -333,8 +334,15 @@ tc_log(Category,Format,Args) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec tc_log(Category,Importance,Format,Args) -> ok
+%%% @equiv tc_log(Category,Importance,"User",Format,Args)
+tc_log(Category,Importance,Format,Args) ->
+    tc_log(Category,Importance,"User",Format,Args).
+
+%%%-----------------------------------------------------------------
+%%% @spec tc_log(Category,Importance,Printer,Format,Args) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
+%%%      Printer = string()
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -343,9 +351,6 @@ tc_log(Category,Format,Args) ->
 %%% <p>This function is called by <code>ct</code> when logging
 %%% stuff directly from a testcase (i.e. not from within the CT
 %%% framework).</p>
-tc_log(Category,Importance,Format,Args) ->
-    tc_log(Category,Importance,"User",Format,Args).
-
 tc_log(Category,Importance,Printer,Format,Args) ->
     cast({log,sync,self(),group_leader(),Category,Importance,
 	  [{div_header(Category,Printer),[]},
@@ -355,14 +360,15 @@ tc_log(Category,Importance,Printer,Format,Args) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec tc_log_async(Category,Format,Args) -> ok
-%%% @equiv tc_log_async(Category,?STD_IMPORTANCE,Format,Args)
+%%% @equiv tc_log_async(Category,?STD_IMPORTANCE,"User",Format,Args)
 tc_log_async(Category,Format,Args) ->
-    tc_log_async(Category,?STD_IMPORTANCE,Format,Args).
+    tc_log_async(Category,?STD_IMPORTANCE,"User",Format,Args).
 
 %%%-----------------------------------------------------------------
 %%% @spec tc_log_async(Category,Importance,Format,Args) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
+%%%      Printer = string()
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -373,9 +379,9 @@ tc_log_async(Category,Format,Args) ->
 %%% to avoid deadlocks when e.g. the hook that handles SASL printouts
 %%% prints to the test case log file at the same time test server
 %%% asks ct_logs for an html wrapper.</p>
-tc_log_async(Category,Importance,Format,Args) ->
+tc_log_async(Category,Importance,Printer,Format,Args) ->
     cast({log,async,self(),group_leader(),Category,Importance,
-	  [{div_header(Category),[]},
+	  [{div_header(Category,Printer),[]},
 	   {Format,Args},
 	   {div_footer(),[]}]}),
     ok.

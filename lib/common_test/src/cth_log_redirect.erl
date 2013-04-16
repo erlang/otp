@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,6 +32,8 @@
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/1]).
+
+-include("ct.hrl").
 
 id(_Opts) ->
     ?MODULE.
@@ -78,7 +80,7 @@ handle_event(Event, LogFunc) ->
 	    SReport = sasl_report:format_report(group_leader(), ErrLogType,
 						tag_event(Event)),
 	    if is_list(SReport) ->
-		    ct_logs:LogFunc(sasl, SReport, []);
+		    ct_logs:LogFunc(sasl, ?STD_IMPORTANCE, "System", SReport, []);
 	       true -> %% Report is an atom if no logging is to be done
 		    ignore
 	    end
@@ -86,7 +88,7 @@ handle_event(Event, LogFunc) ->
     EReport = error_logger_tty_h:write_event(
 		tag_event(Event),io_lib),
     if is_list(EReport) ->
-	    ct_logs:LogFunc(error_logger, EReport, []);
+	    ct_logs:LogFunc(error_logger, ?STD_IMPORTANCE, "System", EReport, []);
        true -> %% Report is an atom if no logging is to be done
 	    ignore
     end,
