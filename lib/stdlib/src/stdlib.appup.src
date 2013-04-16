@@ -1,7 +1,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,11 +17,11 @@
 %% %CopyrightEnd%
 {"%VSN%",
  %% Up from - max two major revisions back
- [{<<"1\\.19(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R16
-  {<<"1\\.18(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R15
-  {<<"1\\.17(\\.[0-9]+)*">>,[restart_new_emulator]}],%% R14
+ [{<<"1\\.20(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R17
+  {<<"1\\.19(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R16
+  {<<"1\\.18(\\.[0-9]+)*">>,[restart_new_emulator]}],%% R15
  %% Down to - max two major revisions back
- [{<<"1\\.19(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R16
-  {<<"1\\.18(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R15
-  {<<"1\\.17(\\.[0-9]+)*">>,[restart_new_emulator]}] %% R14
+ [{<<"1\\.20(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R17
+  {<<"1\\.19(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R16
+  {<<"1\\.18(\\.[0-9]+)*">>,[restart_new_emulator]}] %% R15
 }.
