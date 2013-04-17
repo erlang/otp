@@ -354,13 +354,13 @@ gen_dsa2(LSize, NSize) ->
     X0 = prime(LSize),
     P0 = prime((LSize div 2) +1),
     
-    %% Choose L-bit prime modulus P such that p–1 is a multiple of q.
+    %% Choose L-bit prime modulus P such that p-1 is a multiple of q.
     case dsa_search(X0 div (2*Q*P0), P0, Q, 1000) of
 	error -> 
 	    gen_dsa2(LSize, NSize);
 	P ->	    
 	    G = crypto:mod_exp(2, (P-1) div Q, P), % Choose G a number whose multiplicative order modulo p is q.
-	    %%                 such that This may be done by setting g = h^(p–1)/q mod p, commonly h=2 is used.
+	    %%                 such that This may be done by setting g = h^(p-1)/q mod p, commonly h=2 is used.
 	    
 	    X = prime(20),               %% Choose x by some random method, where 0 < x < q.
 	    Y = crypto:mod_exp(G, X, P), %% Calculate y = g^x mod p.

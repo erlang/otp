@@ -1,3 +1,4 @@
+%%%-*- coding: utf-8 -*-
 %%%-------------------------------------------------------------------
 %%% File    : ttb_autostart.erl
 %%% Author  : Bartłomiej Puzoń <bartlomiej.puzon@erlang-solutions.com>
