@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -237,21 +237,9 @@ generate_text_messages() ->
 
 %% ----
 
-
-expand(RootCase) ->
-    expand([RootCase], []).
-
-expand([], Acc) ->
-    lists:flatten(lists:reverse(Acc));
-expand([Case|Cases], Acc) ->
-    case (catch apply(?MODULE,Case,[suite])) of
-	[] ->
-	    expand(Cases, [Case|Acc]);
-	C when is_list(C) ->
-	    expand(Cases, [expand(C, [])|Acc]);
-	_ ->
-	    expand(Cases, [Case|Acc])
-    end.
+tickets() ->
+    %% io:format("~w:tickets -> entry~n", [?MODULE]),
+    megaco_test_lib:tickets(?MODULE).
 
 
 %% ----
@@ -280,29 +268,38 @@ end_per_testcase(Case, Config) ->
 %% Top test case
 
 all() -> 
-    [{group, text}, {group, binary}, {group, erl_dist},
+    [{group, text}, 
+     {group, binary}, 
+     {group, erl_dist},
      {group, tickets}].
 
 groups() -> 
     [{text, [],
-      [{group, pretty}, {group, flex_pretty},
-       {group, compact}, {group, flex_compact}]},
+      [{group, pretty}, 
+       {group, flex_pretty},
+       {group, compact}, 
+       {group, flex_compact}]},
      {binary, [],
-      [{group, bin}, {group, ber}, {group, ber_bin},
-       {group, per}, {group, per_bin}]},
+      [{group, bin}, 
+       {group, ber}, 
+       {group, ber_bin},
+       {group, per}, 
+       {group, per_bin}]},
      {erl_dist, [], [{group, erl_dist_m}]},
      {pretty, [], [pretty_test_msgs]},
      {compact, [], [compact_test_msgs]},
      {flex_pretty, [], flex_pretty_cases()},
      {flex_compact, [], flex_compact_cases()},
-     {bin, [], [bin_test_msgs]}, {ber, [], [ber_test_msgs]},
+     {bin, [], [bin_test_msgs]}, 
+     {ber, [], [ber_test_msgs]},
      {ber_bin, [], [ber_bin_test_msgs]},
      {per, [], [per_test_msgs]},
      {per_bin, [], [per_bin_test_msgs]},
      {erl_dist_m, [], [erl_dist_m_test_msgs]},
      {tickets, [],
       [{group, compact_tickets},
-       {group, flex_compact_tickets}, {group, pretty_tickets},
+       {group, flex_compact_tickets}, 
+       {group, pretty_tickets},
        {group, flex_pretty_tickets}]},
      {compact_tickets, [],
       [compact_otp4011_msg1, compact_otp4011_msg2,
@@ -378,69 +375,65 @@ end_per_group(_GroupName, Config) ->
 
 
 flex_pretty_cases() -> 
-    [flex_pretty_test_msgs].
+    [
+     flex_pretty_test_msgs
+    ].
 
 
 flex_compact_cases() -> 
-    [flex_compact_test_msgs, flex_compact_dm_timers1,
-     flex_compact_dm_timers2, flex_compact_dm_timers3,
-     flex_compact_dm_timers4, flex_compact_dm_timers5,
-     flex_compact_dm_timers6, flex_compact_dm_timers7,
-     flex_compact_dm_timers8].
-
-
-
-%% Support for per_bin was added to ASN.1 as of version
-%% 1.3.2 (R8). And later merged into 1.3.1.3 (R7). These
-%% releases are identical (as far as I know).
-%% 
-
+    [
+     flex_compact_test_msgs, 
+     flex_compact_dm_timers1,
+     flex_compact_dm_timers2, 
+     flex_compact_dm_timers3,
+     flex_compact_dm_timers4, 
+     flex_compact_dm_timers5,
+     flex_compact_dm_timers6, 
+     flex_compact_dm_timers7,
+     flex_compact_dm_timers8
+    ].
 
 flex_compact_tickets_cases() -> 
-    [flex_compact_otp4299_msg1, flex_compact_otp7431_msg01,
-     flex_compact_otp7431_msg02, flex_compact_otp7431_msg03,
-     flex_compact_otp7431_msg04, flex_compact_otp7431_msg05,
-     flex_compact_otp7431_msg06, flex_compact_otp7431_msg07].
+    [
+     flex_compact_otp4299_msg1, 
+     flex_compact_otp7431_msg01,
+     flex_compact_otp7431_msg02, 
+     flex_compact_otp7431_msg03,
+     flex_compact_otp7431_msg04, 
+     flex_compact_otp7431_msg05,
+     flex_compact_otp7431_msg06, 
+     flex_compact_otp7431_msg07
+    ].
 
 flex_pretty_tickets_cases() -> 
-    [flex_pretty_otp5042_msg1, flex_pretty_otp5085_msg1,
-     flex_pretty_otp5085_msg2, flex_pretty_otp5085_msg3,
-     flex_pretty_otp5085_msg4, flex_pretty_otp5085_msg5,
-     flex_pretty_otp5085_msg6, flex_pretty_otp5085_msg7,
-     flex_pretty_otp5085_msg8, flex_pretty_otp5600_msg1,
-     flex_pretty_otp5600_msg2, flex_pretty_otp5601_msg1,
-     flex_pretty_otp5793_msg01, flex_pretty_otp5803_msg01,
-     flex_pretty_otp5803_msg02, flex_pretty_otp5805_msg01,
-     flex_pretty_otp5836_msg01, flex_pretty_otp7431_msg01,
-     flex_pretty_otp7431_msg02, flex_pretty_otp7431_msg03,
-     flex_pretty_otp7431_msg04, flex_pretty_otp7431_msg05,
-     flex_pretty_otp7431_msg06, flex_pretty_otp7431_msg07].
+    [
+     flex_pretty_otp5042_msg1, 
+     flex_pretty_otp5085_msg1,
+     flex_pretty_otp5085_msg2, 
+     flex_pretty_otp5085_msg3,
+     flex_pretty_otp5085_msg4, 
+     flex_pretty_otp5085_msg5,
+     flex_pretty_otp5085_msg6, 
+     flex_pretty_otp5085_msg7,
+     flex_pretty_otp5085_msg8, 
+     flex_pretty_otp5600_msg1,
+     flex_pretty_otp5600_msg2, 
+     flex_pretty_otp5601_msg1,
+     flex_pretty_otp5793_msg01, 
+     flex_pretty_otp5803_msg01,
+     flex_pretty_otp5803_msg02, 
+     flex_pretty_otp5805_msg01,
+     flex_pretty_otp5836_msg01, 
+     flex_pretty_otp7431_msg01,
+     flex_pretty_otp7431_msg02, 
+     flex_pretty_otp7431_msg03,
+     flex_pretty_otp7431_msg04, 
+     flex_pretty_otp7431_msg05,
+     flex_pretty_otp7431_msg06, 
+     flex_pretty_otp7431_msg07
+    ].
 
-%% ----
 
-tickets() ->
-    Flag  = process_flag(trap_exit, true),    
-    Cases = expand(tickets),
-    Fun   = fun(Case) ->
-		    C = init_per_testcase(Case, [{tc_timeout, 
-						  timer:minutes(10)}]),
-		    io:format("Eval ~w~n", [Case]),
-		    Result = 
-			case (catch apply(?MODULE, Case, [C])) of
-			    {'EXIT', Reason} ->
- 				io:format("~n~p exited:~n   ~p~n", 
- 					  [Case, Reason]),
-				{error, {Case, Reason}};
-			    Res ->
-				Res
-			end,
-		    end_per_testcase(Case, C),
-		    Result
-	    end,
-    process_flag(trap_exit, Flag),
-    lists:map(Fun, Cases).
-
-		
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 pretty_test_msgs(suite) ->
