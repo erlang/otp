@@ -1011,7 +1011,7 @@ make_last_run_index(StartTime) ->
 
 make_last_run_index1(StartTime,IndexName) ->
     Logs1 =
-	case filelib:wildcard([$*|?logdir_ext],".",erl_prim_loader) of
+	case filelib:wildcard([$*|?logdir_ext]) of
 	    [Log] ->				% first test
 		[Log];
 	    Logs ->
@@ -1653,7 +1653,7 @@ make_all_runs_index(When) ->
 		end
 	end,	
 
-    Dirs = filelib:wildcard(logdir_prefix()++"*.*",".",erl_prim_loader),
+    Dirs = filelib:wildcard(logdir_prefix()++"*.*"),
     DirsSorted = (catch sort_all_runs(Dirs)),
 
     LogCacheInfo = get_cache_data(UseCache),
@@ -1681,12 +1681,11 @@ make_all_runs_index(When) ->
 		if UseCache == disabled -> ok;
 		   true -> update_all_runs_in_cache(AllRunsData)
 		end,
-
 		%% write all_runs log file
-		file:write_file(AbsName,
-				unicode:characters_to_binary(
-				  Header++Index++
-				      all_runs_index_footer()))
+		ok = file:write_file(AbsName,
+				     unicode:characters_to_binary(
+				       Header++Index++
+					   all_runs_index_footer()))
 	end,
     notify_and_unlock_file(AbsName),
     if When == start -> ok;
@@ -1717,10 +1716,10 @@ make_all_runs_from_cache(AbsName, Dirs, LogCache) ->
     %% update cache with result
     update_all_runs_in_cache(AllRunsData,LogCache),
     %% write all_runs log file
-    file:write_file(AbsName,
-		    unicode:characters_to_binary(
-		      Header++Index++
-			  all_runs_index_footer())).
+    ok = file:write_file(AbsName,
+			 unicode:characters_to_binary(
+			   Header++Index++
+			       all_runs_index_footer())).
 
 update_all_runs_in_cache(AllRunsData) ->
     case get(ct_log_cache) of
@@ -2059,8 +2058,7 @@ make_all_suites_index(When) when is_atom(When) ->
 		end
 	end,	
 
-    LogDirs = filelib:wildcard(logdir_prefix()++".*/*"++?logdir_ext,".",
-			       erl_prim_loader),
+    LogDirs = filelib:wildcard(logdir_prefix()++".*/*"++?logdir_ext),
 
     LogCacheInfo = get_cache_data(UseCache),
 
@@ -2097,7 +2095,7 @@ make_all_suites_index(NewTestData = {_TestName,DirName}) ->
     %%                {LastLogDir,Summary,URIs},OldDirs}|...]
 
     {AbsIndexName,LogDirData} = ct_util:get_testdata(test_index),
-    
+
     CtRunDirPos = length(filename:split(AbsIndexName)),
     CtRunDir = filename:join(lists:sublist(filename:split(DirName),
 					   CtRunDirPos)),
@@ -2199,7 +2197,7 @@ sort_and_filter_logdirs(Dirs) ->
 %% sort and filter directories (no cache)
 sort_and_filter_logdirs1([Dir|Dirs],Groups) ->
     TestName = filename:rootname(filename:basename(Dir)),
-    case filelib:wildcard(filename:join(Dir,"run.*"),".",erl_prim_loader) of
+    case filelib:wildcard(filename:join(Dir,"run.*")) of
 	RunDirs = [_|_] ->
 	    Groups1 = sort_and_filter_logdirs2(TestName,RunDirs,Groups),
 	    sort_and_filter_logdirs1(Dirs,Groups1);
@@ -2494,7 +2492,7 @@ insert_new_test_data({NewTestName,NewTestDir}, NewLabel, AllTestLogDirs) ->
 		  [LastLogDir|OldDirs]} |
 		 lists:keydelete(NewTestName, 1, AllTestLogDirs)];
 	    false ->
-		[{NewTestName,NewLabel,[],{NewTestDir,{0,0,0,0}},undefined} |
+		[{NewTestName,NewLabel,[],{NewTestDir,{0,0,0,0},undefined},[]} |
 		 AllTestLogDirs]
 	end,
     lists:keysort(1, AllTestLogDirs1).
@@ -2502,7 +2500,6 @@ insert_new_test_data({NewTestName,NewTestDir}, NewLabel, AllTestLogDirs) ->
 make_all_suites_ix_temp1([{TestName,Label,Missing,LastLogDirData,OldDirs}|Rest],
 			 Result, TotSucc, TotFail, UserSkip, AutoSkip,
 			 TotNotBuilt) ->
-    
     case make_one_ix_entry_temp(TestName, LastLogDirData,
 				Label, {true,OldDirs}, Missing) of
 	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,_URIs} ->
@@ -2601,8 +2598,7 @@ try_cleanup(CTRunDir) ->
     %% ensure we're removing the ct_run directory
     case lists:reverse(filename:split(CTRunDir)) of
 	[[$c,$t,$_,$r,$u,$n,$.|_]|_] ->
-	    case filelib:wildcard(filename:join(CTRunDir,"ct_run.*"),".",
-				  erl_prim_loader) of
+	    case filelib:wildcard(filename:join(CTRunDir,"ct_run.*")) of
 		[] ->				% "double check"
 		    rm_dir(CTRunDir);
 		_ ->
@@ -2712,8 +2708,7 @@ notify_and_unlock_file(File) ->
 %%% @doc
 %%%
 get_run_dirs(Dir) ->
-    case filelib:wildcard(filename:join(Dir, "run.[1-2]*"),".",
-			  erl_prim_loader) of
+    case filelib:wildcard(filename:join(Dir, "run.[1-2]*")) of
 	[] ->
 	    false;
 	RunDirs ->
