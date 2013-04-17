@@ -112,12 +112,14 @@ os_based_skip(_) ->
 %%     {Mod, Fun, ExpectedRes, ActualRes}
 %%----------------------------------------------------------------------
 
-tickets(Mod) ->
-    %% io:format("~w:tickets -> entry with"
-    %% 	      "~n   Mod: ~p", [?MODULE, Mod]),
+tickets([Mod]) ->
+    tickets(Mod);
+tickets(Mod) when is_atom(Mod) ->
+    %% p("tickets -> entry with"
+    %% 	      "~n   Mod: ~p", [Mod]),
     Res0 = t({Mod, {group, tickets}, Mod:groups()}, default_config()),
     Res  = lists:flatten(Res0),
-    %% io:format("~w:tickets(Mod = ~w) -> Res: ~p~n", [?MODULE, Mod, Res]),
+    %% p("tickets(~w) -> Res: ~p~n", [Mod, Res]),
     display_result(Res),
     Res.
 
@@ -196,12 +198,12 @@ alloc_instance_mem_info(Key, InstanceInfo) ->
 		      
     
 t([Case]) when is_atom(Case) ->
-    io:format("~w:t -> entry with"
-	      "~n   [Case]: [~p]", [?MODULE, Case]),
+    %% p("t -> entry with"
+    %% 	 "~n   [Case]: [~p]", [Case]),
     t(Case);
 t(Case) ->
-    io:format("~w:t -> entry with"
-	      "~n   Case: ~p", [?MODULE, Case]),
+    %% p("t -> entry with"
+    %% 	 "~n   Case: ~p", [Case]),
     process_flag(trap_exit, true),
     MEM = fun() -> case (catch erlang:memory()) of
 			{'EXIT', _} ->
@@ -263,7 +265,7 @@ t({Mod, {group, Name} = Group, Groups}, Config)
 		exit:{skipped, SkipReason} ->
 		    io:format(" => skipping group: ~p~n", [SkipReason]),
 		    [{skipped, {Mod, Group}, SkipReason, 0}];
-		exit:{undef, _} ->
+		error:undef ->
 		    [t({Mod, Case, Groups}, Config) || 
 			      Case <- GroupsAndCases];
 		T:E ->
@@ -274,7 +276,7 @@ t({Mod, {group, Name} = Group, Groups}, Config)
     end;
 t({Mod, Fun, _}, Config) 
   when is_atom(Mod) andalso is_atom(Fun) ->
-    case catch apply(Mod, Fun, [suite]) of
+    try apply(Mod, Fun, [suite]) of
 	[] ->
 	    io:format("Eval:   ~p:", [{Mod, Fun}]),
 	    Res = eval(Mod, Fun, Config),
@@ -289,22 +291,24 @@ t({Mod, Fun, _}, Config)
 		  end,
 	    t(lists:map(Map, Cases), Config);
 
-        {'EXIT', {undef, _}} ->
-	    io:format("Undefined:   ~p~n", [{Mod, Fun}]),
-	    [{nyi, {Mod, Fun}, ok, 0}];
-		    
         Error ->
 	    io:format("Ignoring:   ~p: ~p~n", [{Mod, Fun}, Error]),
 	    [{failed, {Mod, Fun}, Error, 0}]
+
+    catch
+        error:undef ->
+	    io:format("Undefined:   ~p~n", [{Mod, Fun}]),
+	    [{nyi, {Mod, Fun}, ok, 0}]
+
+	
     end;
 t(Mod, Config) when is_atom(Mod) ->
-    io:format("~w:t -> entry with"
-	      "~n   Mod:    ~p"
-	      "~n   Config: ~p"
-	      "~n", [?MODULE, Mod, Config]),    
+    %% p("t -> entry with"
+    %% 	 "~n   Mod:    ~p"
+    %% 	 "~n   Config: ~p", [Mod, Config]),    
     %% This is assumed to be a test suite, so we start by calling 
     %% the top test suite function(s) (all/0 and groups/0).
-    case (catch Mod:all()) of
+    try Mod:all() of
 	Cases when is_list(Cases) -> 
 	    %% The list may contain atoms (actual test cases) and
 	    %% group-tuples (a tuple naming a group of test cases).
@@ -322,17 +326,21 @@ t(Mod, Config) when is_atom(Mod) ->
 		exit:{skipped, SkipReason} ->
 		    io:format(" => skipping suite: ~p~n", [SkipReason]),
 		    [{skipped, {Mod, init_per_suite}, SkipReason, 0}];
-		exit:{undef, _} ->
+		error:undef ->
 		    [t({Mod, Case, Groups}, Config) || Case <- Cases];
 		T:E ->
+		    io:format(" => failed suite: ~p~n", [{T,E}]),
 		    [{failed, {Mod, init_per_suite}, {T,E}, 0}]
 	    end;
-        {'EXIT', {undef, _}} ->
-	    io:format("Undefined:   ~p~n", [{Mod, all}]),
-	    [{nyi, {Mod, all}, ok, 0}];
-		    
+
 	Crap ->
 	    Crap
+
+    catch
+        error:undef ->
+	    io:format("Undefined:   ~p~n", [{Mod, all}]),
+	    [{nyi, {Mod, all}, ok, 0}]
+		    
     end;
 t(Bad, _Config) ->
     [{badarg, Bad, ok, 0}].
@@ -397,15 +405,24 @@ wait_for_evaluator(Pid, Mod, Fun, Config, Errors, AccTime) ->
 
 do_eval(ReplyTo, Mod, Fun, Config) ->
     display_system_info("before", Mod, Fun),
-    case timer:tc(Mod, Fun, [Config]) of
-	{Time, {'EXIT', {skipped, Reason}}} ->
-	    display_tc_time(Time),
-	    display_system_info("after (skipped)", Mod, Fun),
-	    ReplyTo ! {'EXIT', self(), {skipped, Reason}, Time};
-	{Time, Other} ->
+    T1 = os:timestamp(), 
+    try Mod:Fun(Config) of
+	Res ->
+	    T2   = os:timestamp(), 
+	    Time = timer:now_diff(T2, T1), 
 	    display_tc_time(Time),
 	    display_system_info("after", Mod, Fun),
-	    ReplyTo ! {done, self(), Other, Time}
+	    ReplyTo ! {done, self(), Res, Time}
+    catch
+	error:undef ->
+	    ReplyTo ! {'EXIT', self(), undef, 0};
+	exit:{skipped, Reason} ->
+	    T2   = os:timestamp(), 
+	    Time = timer:now_diff(T2, T1), 
+	    display_tc_time(Time),
+	    display_system_info("after (skipped)", Mod, Fun),
+	    ReplyTo ! {'EXIT', self(), {skipped, Reason}, Time}
+
     end,
     unlink(ReplyTo),
     exit(shutdown).
