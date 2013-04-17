@@ -250,11 +250,12 @@ run(Opts0, Config) when is_list(Opts0) ->
 			Opts0
 		end
 	end,
->>>>>>> peppe/common_test/log_cache
+
     %% use ct interface
     CtRunTestResult=run_ct_run_test(Opts,Config),
     %% use run_test interface (simulated)
     ExitStatus=run_ct_script_start(Opts,Config),
+
     check_result(CtRunTestResult,ExitStatus,Opts).
 
 run_ct_run_test(Opts,Config) ->
