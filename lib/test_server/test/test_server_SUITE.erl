@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -187,7 +188,7 @@ test_server_unicode(Config) ->
     %% Create and run two test suites - one with filename and content
     %% in latin1 (if the default filename mode is latin1) and one with
     %% filename and content in utf8.  Both have name and content
-    %% including letters äöå.  Check that all logs are generated with
+    %% including letters Ã¤Ã¶Ã¥.  Check that all logs are generated with
     %% utf8 encoded filenames.
     case file:native_name_encoding() of
 	utf8 ->
@@ -348,7 +349,7 @@ generate_and_run_unicode_test(Config0,Encoding) ->
     SuiteHtml = translate_filename(LowerModStr++".src.html",Encoding),
     true = filelib:is_regular(filename:join(RunDir,SuiteHtml)),
 
-    TCLog = translate_filename(LowerModStr++".tc_äöå.html",Encoding),
+    TCLog = translate_filename(LowerModStr++".tc_Ã¤Ã¶Ã¥.html",Encoding),
     true = filelib:is_regular(filename:join(RunDir,TCLog)),
     ok.
 
@@ -370,7 +371,7 @@ start_node(Config,Name,Args) ->
     end.
 
 create_unicode_test_suite(Dir,Encoding) ->
-    ModStr = "test_server_"++atom_to_list(Encoding)++"_äöå_SUITE",
+    ModStr = "test_server_"++atom_to_list(Encoding)++"_Ã¤Ã¶Ã¥_SUITE",
     File = filename:join(Dir,ModStr++".erl"),
     Suite =
 	["%% -*- ",epp:encoding_to_string(Encoding)," -*-\n",
@@ -378,12 +379,12 @@ create_unicode_test_suite(Dir,Encoding) ->
 	 "\n"
 	 "-export([all/1, init_per_suite/1, end_per_suite/1]).\n"
 	 "-export([init_per_testcase/2, end_per_testcase/2]).\n"
-	 "-export([tc_äöå/1]).\n"
+	 "-export([tc_Ã¤Ã¶Ã¥/1]).\n"
 	 "\n"
 	 "-include_lib(\"test_server/include/test_server.hrl\").\n"
 	 "\n"
 	 "all(suite) ->\n"
-	 "    [tc_äöå].\n"
+	 "    [tc_Ã¤Ã¶Ã¥].\n"
 	 "\n"
 	 "init_per_suite(Config) ->\n"
 	 "    Config.\n"
@@ -406,7 +407,7 @@ create_unicode_test_suite(Dir,Encoding) ->
 	 "    ?t:timetrap_cancel(Dog),\n"
 	 "    ok.\n"
 	 "\n"
-	 "tc_äöå(Config) when is_list(Config) ->\n"
+	 "tc_Ã¤Ã¶Ã¥(Config) when is_list(Config) ->\n"
 	 "    true = filelib:is_dir(?config(priv_dir,Config)),\n"
 	 "    ok.\n"],
     {ok,Fd} = file:open(raw_filename(File,Encoding),[write,{encoding,Encoding}]),

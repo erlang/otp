@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -214,7 +215,7 @@ html_encoding(utf8) ->
 %%% from the source.
 %%%
 %%% Example: if the encoding of the file is utf8, and we have a string
-%%% containing "å" = [229], then we need to convert this to [195,165]
+%%% containing "Ã¥" = [229], then we need to convert this to [195,165]
 %%% before writing. Note that this conversion is only necessary
 %%% because the destination file is not (necessarily) opened with utf8
 %%% encoding - it is opened with default encoding in order to allow

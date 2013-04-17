@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -122,12 +123,12 @@ state(Else) ->
 %%%                              {ops,Ops}]
 %%%    NewKnown = Known ++ AddedNodes
 %%%    AddedNodes = NewNodes -- Known
-%%%    NewNodes är här den man förhandlat med plus de noder den känner till.
+%%%    NewNodes Ã¤r hÃ¤r den man fÃ¶rhandlat med plus de noder den kÃ¤nner till.
 %%% {added, AddedNodes}, Extra = [{ops,Ops}]
 %%%    NewKnown = Known ++ AddedNodes
-%%%    Den (passiva) noden får Nodes som är NewNodes
-%%%    hos den förhandlande. Sedan: AddedNodes = (Nodes -- Known) -- [node()].
-%%%    Det är som hos förhandlaren.
+%%%    Den (passiva) noden fÃ¥r Nodes som Ã¤r NewNodes
+%%%    hos den fÃ¶rhandlande. Sedan: AddedNodes = (Nodes -- Known) -- [node()].
+%%%    Det Ã¤r som hos fÃ¶rhandlaren.
 %%% {nodes_changed, {New,Old}}
 %%%    Every now and then the list [node() | nodes()] is checked for updates.
 %%%    New are the nodes that global does not know of (yet).

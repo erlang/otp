@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
@@ -992,7 +993,7 @@ otp_10622(Config) when is_list(Config) ->
           <<0>>),
     check(fun() -> <<"\x{aa}ff"/utf8>> = <<"\x{aa}ff"/utf8>> end,
           "<<\"\\x{aa}ff\"/utf8>> = <<\"\\x{aa}ff\"/utf8>>. ",
-          <<"Â\xaaff">>),
+          <<"Ã‚\xaaff">>),
     %% The same bug as last example:
     check(fun() -> case <<"foo"/utf8>> of
                        <<"foo"/utf8>> -> true
