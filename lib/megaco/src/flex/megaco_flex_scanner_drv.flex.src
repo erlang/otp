@@ -1,14 +1,8 @@
   /*
    * %CopyrightBegin%
-<<<<<<< HEAD
-   *
-   * Copyright Ericsson AB 2001-2011. All Rights Reserved.
-   *
-=======
    * 
    * Copyright Ericsson AB 2001-2013. All Rights Reserved.
    * 
->>>>>>> bmk/megaco/flex_buffer_overrun_while_scanning_prop_parms/OTP-10998/r14
    * The contents of this file are subject to the Erlang Public License,
    * Version 1.1, (the "License"); you may not use this file except in
    * compliance with the License. You should have received a copy of the
