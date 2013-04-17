@@ -224,7 +224,33 @@ get_opts(Config) ->
 
 %%%-----------------------------------------------------------------
 %%% 
-run(Opts, Config) when is_list(Opts) ->
+run(Opts0, Config) when is_list(Opts0) ->
+    Opts =
+	%% read (and override) opts from env variable, the form expected:
+	%% "[{some_key1,SomeVal2}, {some_key2,SomeVal2}]"
+	case os:getenv("CT_TEST_OPTS") of
+	    false -> Opts0;
+	    ""    -> Opts0;
+	    Terms ->
+		case erl_scan:string(Terms++".", 0) of
+		    {ok,Tokens,_} ->
+			case erl_parse:parse_term(Tokens) of
+			    {ok,OROpts} ->
+				Override =
+				    fun(O={Key,_}, Os) ->
+					    io:format(user, "ADDING START "
+						      "OPTION: ~p~n", [O]),
+					    [O | lists:keydelete(Key, 1, Os)]
+				    end,
+				lists:foldl(Override, Opts0, OROpts);
+			    _ ->
+				Opts0
+			end;
+		    _ ->
+			Opts0
+		end
+	end,
+>>>>>>> peppe/common_test/log_cache
     %% use ct interface
     CtRunTestResult=run_ct_run_test(Opts,Config),
     %% use run_test interface (simulated)
@@ -236,9 +262,10 @@ run_ct_run_test(Opts,Config) ->
     Level = proplists:get_value(trace_level, Config),
     test_server:format(Level, "~n[RUN #1] Calling ct:run_test(~p) on ~p~n",
 		       [Opts, CTNode]),
+    T0 = now(),
     CtRunTestResult = rpc:call(CTNode, ct, run_test, [Opts]),
-    test_server:format(Level, "~n[RUN #1] Got return value ~p~n",
-		       [CtRunTestResult]),
+    test_server:format(Level, "~n[RUN #1] Got return value ~p after ~p ms~n",
+		       [CtRunTestResult,trunc(timer:now_diff(now(), T0)/1000)]),
     case rpc:call(CTNode, erlang, whereis, [ct_util_server]) of
 	undefined ->
 	    ok;
@@ -261,9 +288,10 @@ run_ct_script_start(Opts, Config) ->
 	     [common_test, run_test_start_opts, Opts1]),
     test_server:format(Level, "[RUN #2] Calling ct_run:script_start() on ~p~n",
 		       [CTNode]),
+    T0 = now(),
     ExitStatus = rpc:call(CTNode, ct_run, script_start, []),
-    test_server:format(Level, "[RUN #2] Got exit status value ~p~n",
-		       [ExitStatus]),
+    test_server:format(Level, "[RUN #2] Got exit status value ~p after ~p ms~n",
+		       [ExitStatus,trunc(timer:now_diff(now(), T0)/1000)]),
     ExitStatus.
 
 check_result({_Ok,Failed,{_UserSkipped,_AutoSkipped}},1,_Opts)

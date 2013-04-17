@@ -329,6 +329,13 @@ script_start1(Parent, Args) ->
 			application:set_env(common_test, basic_html, true),
 			true
 		end,
+    %% disable_log_cache - used by ct_logs
+    case proplists:get_value(disable_log_cache, Args) of
+	undefined ->
+	    application:set_env(common_test, disable_log_cache, false);
+	_ ->
+	    application:set_env(common_test, disable_log_cache, true)
+    end,
 
     Opts = #opts{label = Label, profile = Profile,
 		 vts = Vts, shell = Shell,
@@ -1037,6 +1044,13 @@ run_test2(StartOpts) ->
 	    BasicHtmlBool ->
 		application:set_env(common_test, basic_html, BasicHtmlBool),
 		BasicHtmlBool		
+    end,
+
+    case proplists:get_value(disable_log_cache, StartOpts) of
+	undefined ->
+	    application:set_env(common_test, disable_log_cache, false);
+	DisableCacheBool ->
+	    application:set_env(common_test, disable_log_cache, DisableCacheBool)
     end,
 
     %% stepped execution
