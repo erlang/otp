@@ -685,8 +685,8 @@ certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPubl
 
 certify_client_key_exchange(#client_ec_diffie_hellman_public{dh_public = ClientPublicEcDhPoint},
 			    #state{negotiated_version = Version,
-				   diffie_hellman_keys = {'ECKey', ECDHKey}} = State0) ->
-    case ec_dh_master_secret(ECDHKey, ClientPublicEcDhPoint, State0) of
+				   diffie_hellman_keys = ECDHKey} = State0) ->
+    case ec_dh_master_secret(ECDHKey, #'ECPoint'{point = ClientPublicEcDhPoint}, State0) of
 	#state{} = State1 ->
 	    {Record, State} = next_record(State1),
 	    next_state(certify, cipher, Record, State);
@@ -1325,27 +1325,8 @@ private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
 			     privateKey = Key}) ->
     public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
 
-private_key(#'ECPrivateKey'{privateKey = PrivKey,
-			    parameters = Param,
-			    publicKey = _PubKey}) ->
-    ECCurve = case Param of
-		  #'OTPECParameters'{ fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor } ->
-		      Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType), FieldId#'OTPFieldID'.parameters},
-		      Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
-		      {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
-		  {namedCurve, OID} ->
-		      pubkey_cert_records:namedCurves(OID)
-	      end,
-    Key = {ECCurve, list2int(PrivKey), undefined},
-    {'ECKey', crypto:term_to_ec_key(Key)};
-
 private_key(Key) ->
     Key.
-
-list2int(L) ->
-    S = length(L) * 8,
-    <<R:S/integer>> = erlang:iolist_to_binary(L),
-    R.
 
 -spec(file_error(_,_) -> no_return()).
 file_error(File, Throw) ->
@@ -1396,20 +1377,10 @@ handle_peer_cert(PeerCert, PublicKeyInfo,
 			 Session#session{peer_certificate = PeerCert},
 			 public_key_info = PublicKeyInfo},
     State2 = case PublicKeyInfo of
-		 {?'id-ecPublicKey', {'ECPoint', PublicKey}, PublicKeyParams} ->
-		     ECCurve = case PublicKeyParams of
-				   #'OTPECParameters'{ fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor } ->
-				       Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType), FieldId#'OTPFieldID'.parameters},
-				       Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
-				       {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
-				   {namedCurve, OID} ->
-				       pubkey_cert_records:namedCurves(OID)
-			       end,
-		     %% Generate Client ECDH Key
-		     ECClntKey = crypto:ec_key_new(ECCurve),
-		     crypto:ec_key_generate(ECClntKey),
-		     State3 = State1#state{diffie_hellman_keys = {'ECKey', ECClntKey}},
-		     ec_dh_master_secret(ECClntKey, PublicKey, State3);
+		 {?'id-ecPublicKey',  #'ECPoint'{point = _ECPoint} = PublicKey, PublicKeyParams} ->
+		     Keys = public_key:generate_key(PublicKey, PublicKeyParams),
+		     State3 = State1#state{diffie_hellman_keys = Keys},
+		     ec_dh_master_secret(Keys, PublicKey, State3);
 
 		 _ -> State1
 	     end,
@@ -1633,7 +1604,7 @@ key_exchange(#state{role = server, key_algorithm = rsa} = State) ->
     State;
 key_exchange(#state{role = server, key_algorithm = Algo,
 		    hashsign_algorithm = HashSignAlgo,
-		    diffie_hellman_params = #'DHParameter'{prime = P, base = G} = Params,
+		    diffie_hellman_params = #'DHParameter'{} = Params,
 		    private_key = PrivateKey,
 		    connection_states = ConnectionStates0,
 		    negotiated_version = Version,
@@ -1644,7 +1615,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
   when Algo == dhe_dss;
        Algo == dhe_rsa;
        Algo == dh_anon ->
-    Keys = crypto:dh_generate_key([crypto:mpint(P), crypto:mpint(G)]),
+    Keys = public_key:generate_key(Params),
     ConnectionState = 
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     SecParams = ConnectionState#connection_state.security_parameters,
@@ -1663,7 +1634,8 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 
 key_exchange(#state{role = server, private_key = Key, key_algorithm = Algo} = State)
   when Algo == ecdh_ecdsa; Algo == ecdh_rsa ->
-    State#state{diffie_hellman_keys = Key};
+    ECDH = public_key:generate_key(Key),
+    State#state{diffie_hellman_keys = ECDH};
 key_exchange(#state{role = server, key_algorithm = Algo,
 		    hashsign_algorithm = HashSignAlgo,
 		    private_key = PrivateKey,
@@ -1675,19 +1647,14 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 		   } = State)
   when Algo == ecdhe_ecdsa; Algo == ecdhe_rsa;
        Algo == ecdh_anon ->
-    %%TODO: select prefered curve from extension
 
-    %% Generate Server ECDH Key
-    ECDHKey = crypto:ec_key_new(secp256k1),
-    crypto:ec_key_generate(ECDHKey),
-    Keys = {'ECKey', ECDHKey},
-
+    ECDHKey = public_key:generate_key({curve, default_curve(State)}),
     ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
-    Msg =  ssl_handshake:key_exchange(server, Version, {ecdh, Keys,
+    Msg =  ssl_handshake:key_exchange(server, Version, {ecdh, ECDHKey,
 							HashSignAlgo, ClientRandom,
 							ServerRandom,
 							PrivateKey}),
@@ -1695,7 +1662,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 	encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates,
-		diffie_hellman_keys = Keys,
+		diffie_hellman_keys = ECDHKey,
 		tls_handshake_history = Handshake1};
 
 key_exchange(#state{role = server, key_algorithm = psk,
@@ -1729,7 +1696,7 @@ key_exchange(#state{role = server, key_algorithm = psk,
 key_exchange(#state{role = server, key_algorithm = dhe_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
 		    hashsign_algorithm = HashSignAlgo,
-		    diffie_hellman_params = #'DHParameter'{prime = P, base = G} = Params,
+		    diffie_hellman_params = #'DHParameter'{} = Params,
 		    private_key = PrivateKey,
 		    connection_states = ConnectionStates0,
 		    negotiated_version = Version,
@@ -1737,7 +1704,7 @@ key_exchange(#state{role = server, key_algorithm = dhe_psk,
 		    socket = Socket,
 		    transport_cb = Transport
 		   } = State) ->
-    Keys = crypto:dh_generate_key([crypto:mpint(P), crypto:mpint(G)]),
+    Keys = public_key:generate_key(Params),
     ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     SecParams = ConnectionState#connection_state.security_parameters,
@@ -2084,12 +2051,8 @@ server_master_secret(#server_dh_params{dh_p = P, dh_g = G, dh_y = ServerPublicDh
 
 server_master_secret(#server_ecdh_params{curve = ECCurve, public = ECServerPubKey},
 		     State) ->
-    %% Generate Client ECDH Key
-    ECClntKey = crypto:ec_key_new(ECCurve),
-    crypto:ec_key_generate(ECClntKey),
-    State1 = State#state{diffie_hellman_keys = {'ECKey', ECClntKey}},
-
-    ec_dh_master_secret(ECClntKey, ECServerPubKey, State1);
+    Key = public_key:generate_key({curve, ECCurve}),
+    ec_dh_master_secret(Key, #'ECPoint'{point = ECServerPubKey}, State#state{diffie_hellman_keys = Key});
 
 server_master_secret(#server_psk_params{
 			hint = IdentityHint},
@@ -2126,18 +2089,18 @@ dh_master_secret(Prime, Base, PublicDhKey, undefined, State) ->
     PMpint = mpint_binary(Prime),
     GMpint = mpint_binary(Base),
     Keys = {_, PrivateDhKey} =
-	crypto:dh_generate_key([PMpint,GMpint]),
+	public_key:generate_key({dh, PMpint,GMpint}),
     dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey, State#state{diffie_hellman_keys = Keys});
 
 dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey, State) ->
     PremasterSecret =
-	crypto:dh_compute_key(mpint_binary(PublicDhKey), PrivateDhKey,
-			      [PMpint, GMpint]),
+	public_key:compute_key(mpint_binary(PublicDhKey), PrivateDhKey,
+			       {dh, PMpint, GMpint}),
     master_from_premaster_secret(PremasterSecret, State).
 
 ec_dh_master_secret(ECKey, ECPoint, State) ->
     PremasterSecret =
-	crypto:ecdh_compute_key(ECKey, ECPoint),
+	public_key:compute_key(ECPoint, ECKey),
     master_from_premaster_secret(PremasterSecret, State).
 
 handle_psk_identity(_PSKIdentity, LookupFun)
@@ -2163,7 +2126,7 @@ dhe_psk_master_secret(PSKIdentity, Prime, Base, PublicDhKey, undefined, State) -
     PMpint = mpint_binary(Prime),
     GMpint = mpint_binary(Base),
     Keys = {_, PrivateDhKey} =
-	crypto:dh_generate_key([PMpint,GMpint]),
+	public_key:generate_key({dh, PMpint, GMpint}),
     dhe_psk_master_secret(PSKIdentity, PMpint, GMpint, PublicDhKey, PrivateDhKey,
 			  State#state{diffie_hellman_keys = Keys});
 
@@ -2172,8 +2135,8 @@ dhe_psk_master_secret(PSKIdentity, PMpint, GMpint, PublicDhKey, PrivateDhKey,
     case handle_psk_identity(PSKIdentity, SslOpts#ssl_options.user_lookup_fun) of
 	{ok, PSK} when is_binary(PSK) ->
 	    DHSecret =
-		crypto:dh_compute_key(mpint_binary(PublicDhKey), PrivateDhKey,
-				      [PMpint, GMpint]),
+		public_key:compute_key(mpint_binary(PublicDhKey), PrivateDhKey,
+				       {dh, PMpint, GMpint}),
 	    DHLen = erlang:byte_size(DHSecret),
 	    Len = erlang:byte_size(PSK),
 	    PremasterSecret = <<?UINT16(DHLen), DHSecret/binary, ?UINT16(Len), PSK/binary>>,
@@ -2202,7 +2165,7 @@ generate_srp_server_keys(_SrpParams, 10) ->
 generate_srp_server_keys(SrpParams =
 			     #srp_user{generator = Generator, prime = Prime,
 				       verifier = Verifier}, N) ->
-    case crypto:srp_generate_key(Verifier, Generator, Prime, '6a') of
+    case public_key:generate_key({srp, '6a', Verifier, Generator, Prime}) of
 	error ->
 	    generate_srp_server_keys(SrpParams, N+1);
 	Keys ->
@@ -2213,7 +2176,7 @@ generate_srp_client_keys(_Generator, _Prime, 10) ->
     ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
 generate_srp_client_keys(Generator, Prime, N) ->
 
-    case crypto:srp_generate_key(Generator, Prime, '6a') of
+    case public_key:generate_key({srp, '6a', Generator, Prime}) of
 	error ->
 	    generate_srp_client_keys(Generator, Prime, N+1);
 	Keys ->
@@ -2234,8 +2197,8 @@ handle_srp_identity(Username, {Fun, UserState}) ->
 	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end.
 
-server_srp_master_secret(Verifier, Prime, ClientPub, State = #state{srp_keys = {ServerPub, ServerPriv}}) ->
-    case crypto:srp_compute_key(Verifier, Prime, ClientPub, ServerPub, ServerPriv, '6a') of
+server_srp_master_secret(Verifier, Prime, ClientPub, State = #state{srp_keys = ServerKey}) ->
+    case public_key:compute_key(ClientPub, ServerKey, {srp, '6a', Verifier, Prime}) of
 	error ->
 	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
 	PremasterSecret ->
@@ -2248,14 +2211,13 @@ client_srp_master_secret(Generator, Prime, Salt, ServerPub, undefined, State) ->
     Keys = generate_srp_client_keys(Generator, Prime, 0),
     client_srp_master_secret(Generator, Prime, Salt, ServerPub, Keys, State#state{srp_keys = Keys});
 
-client_srp_master_secret(Generator, Prime, Salt, ServerPub, {ClientPub, ClientPriv},
+client_srp_master_secret(Generator, Prime, Salt, ServerPub, ClientKeys,
 		 #state{ssl_options = SslOpts} = State) ->
     case ssl_srp_primes:check_srp_params(Generator, Prime) of
 	ok ->
 	    {Username, Password} = SslOpts#ssl_options.srp_identity,
-	    DerivedKey = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
-
-	    case crypto:srp_compute_key(DerivedKey, Prime, Generator, ClientPub, ClientPriv, ServerPub, '6a') of
+	    case public_key:compute_key(ServerPub, ClientKeys, {srp, Username, Password, Salt,
+								'6a', Prime, Generator}) of
 		error ->
 		    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
 		PremasterSecret ->
@@ -3122,3 +3084,7 @@ handle_close_alert(Data, StateName, State0) ->
 	_ ->
 	    ok
     end.
+
+default_curve(_) ->
+    %%TODO: select prefered curve from extension
+    secp256k1.

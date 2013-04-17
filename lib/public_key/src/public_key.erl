@@ -34,7 +34,8 @@
 	 decrypt_private/2, decrypt_private/3, 
 	 encrypt_public/2, encrypt_public/3, 
 	 decrypt_public/2, decrypt_public/3,
-	 sign/3, verify/4,
+	 sign/3, verify/4, generate_key/1, generate_key/2,
+	 compute_key/2, compute_key/3,
 	 pkix_sign/2, pkix_verify/2,	 
 	 pkix_sign_types/1,
 	 pkix_is_self_signed/1, 
@@ -323,58 +324,70 @@ encrypt_private(PlainText,
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
     crypto:rsa_private_encrypt(PlainText, format_rsa_private_key(Key), Padding).
 
-format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
-					privateExponent = D,
-					prime1 = P1, prime2 = P2,
-					exponent1 = E1, exponent2 = E2,
-					coefficient = C})
-  when is_integer(N), is_integer(E), is_integer(D),
-       is_integer(P1), is_integer(P2),
-       is_integer(E1), is_integer(E2), is_integer(C) ->
-   [E, N, D, P1, P2, E1, E2, C];
-
-format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
-					privateExponent = D}) when is_integer(N),
-								   is_integer(E),
-								   is_integer(D) ->
-   [E, N, D].
-
-%%
-%% Description: convert a ECPrivate key into resource Key
 %%--------------------------------------------------------------------
-list2int(L) ->
-    S = length(L) * 8,
-    <<R:S/integer>> = erlang:iolist_to_binary(L),
-    R.
+-spec generate_key(#'ECPrivateKey'{} | {curve, Name ::atom()} | #'DHParameter'{}) -> {'ECKey', term()} | {binary(), binary()}.
+-spec generate_key(#'ECPoint'{}, #'OTPECParameters'{} | {namedCurve, oid()}) -> {'ECKey', term()}.
 
-ec_private_key_to_eckey(#'ECPrivateKey'{privateKey = PrivKey,
-					parameters = Param,
-					publicKey = _PubKey}) ->
-    ECCurve = case Param of
-                  #'OTPECParameters'{ fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor } ->
-                      Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType), FieldId#'OTPFieldID'.parameters},
-                      Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
-                      {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
-                  {namedCurve, OID} ->
-                      pubkey_cert_records:namedCurves(OID)
-              end,
-    Key = {ECCurve, list2int(PrivKey), undefined},
-    {'ECKey', crypto:term_to_ec_key(Key)}.
+%% Description: Generates new key(s)
+%%--------------------------------------------------------------------
+generate_key(#'ECPrivateKey'{} = Key) ->
+    ec_private_key_to_eckey(Key);
 
-ec_public_key_to_eckey({#'ECPoint'{point = ECPoint}, Param}) ->
-    ECCurve = case Param of
-                  #'OTPECParameters'{ fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor } ->
-                      Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType), FieldId#'OTPFieldID'.parameters},
-                      Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
-                      {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
-                  {namedCurve, OID} ->
-                      pubkey_cert_records:namedCurves(OID)
-              end,
-    Key = {ECCurve, undefined, ECPoint},
-    {'ECKey', crypto:term_to_ec_key(Key)}.
+generate_key({curve, Name}) ->
+    %% TODO: Better crypto API
+    ECDHKey = crypto:ec_key_new(Name),
+    crypto:ec_key_generate(ECDHKey),
+    crypto:ec_key_to_term(ECDHKey);
+
+generate_key(#'DHParameter'{prime = P, base = G}) ->
+    crypto:dh_generate_key([crypto:mpint(P), crypto:mpint(G)]);
+
+generate_key({dh, Prime, Base}) when is_binary(Prime), is_binary(Base) ->
+    %% TODO: Is mpint could be normal binary!
+    crypto:dh_generate_key([Prime, Base]);
+
+generate_key({srp, Version, Generator, Prime}) when is_binary(Generator), is_binary(Prime) ->
+    crypto:srp_generate_key(Generator, Prime, Version);
+
+generate_key({srp, Version, Verifier, Generator, Prime}) when is_binary(Verifier), is_binary(Generator), is_binary(Prime) ->
+    crypto:srp_generate_key(Verifier, Generator, Prime, Version).
+
+generate_key(#'ECPoint'{} = Key, Params) ->
+    %% TODO: Better crypto API
+    ECKey = ec_public_key_to_eckey({Key,Params}),
+    ECClntKey = crypto:term_to_ec_key(ECKey),
+    crypto:ec_key_generate(ECClntKey),
+    crypto:ec_key_to_term(ECClntKey).
 
 %%--------------------------------------------------------------------
+-spec compute_key(#'ECPoint'{}, {'ECKey', binary()}) -> binary().
+-spec compute_key(OthersKey ::binary(), MyKey::binary() | {binary(), binary()},
+		  {dh, binary(), binary()} |
+		  {srp, atom(), binary(), binary()}  |
+		  {srp, string(), string(), binary(), atom(), binary(), binary()})
+		 -> binary().
+%% Description: Compute shared secret
+%%--------------------------------------------------------------------
+compute_key(#'ECPoint'{point = Point}, Term) ->
+    %% TODO: Better crypto API
+    ECKey = crypto:term_to_ec_key(Term),
+    crypto:ecdh_compute_key(ECKey, Point).
 
+compute_key(OthersKey, MyKey, {dh, Prime, Base}) when is_binary(OthersKey),
+						     is_binary(MyKey),
+						     is_binary(Prime),
+						     is_binary(Base) ->
+    %% TODO: Is mpint could be binary!
+    crypto:dh_compute_key(OthersKey, MyKey, [Prime, Base]);
+
+compute_key(ClientPub, {ServerPub, ServerPriv}, {srp, Version, Verifier, Prime}) ->
+    crypto:srp_compute_key(Verifier, Prime, ClientPub, ServerPub, ServerPriv, Version);
+
+compute_key(ServerPub, {ClientPub, ClientPriv}, {srp, Username, Password, Salt, Version, Prime, Generator}) ->
+    DerivedKey = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
+    crypto:srp_compute_key(DerivedKey, Prime, Generator, ClientPub, ClientPriv, ServerPub, Version).
+
+%%--------------------------------------------------------------------
 -spec pkix_sign_types(SignatureAlg::oid()) ->
 			     %% Relevant dsa digest type is subpart of rsa digest type
 			     { DigestType :: rsa_digest_type(),
@@ -430,14 +443,15 @@ sign(PlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
 sign(Digest, DigestType, Key = {?'id-ecPublicKey', _, _}) ->
     sign(Digest, DigestType, ec_public_key_to_eckey(Key));
 
-sign(Digest, DigestType, Key = #'ECPrivateKey'{}) ->
-    sign(Digest, DigestType, ec_private_key_to_eckey(Key));
+sign({digest,_} = Digest, DigestType, Key = #'ECPrivateKey'{}) ->
+    ECDHKey = ec_private_key_to_eckey(Key),
+    ECKey = crypto:term_to_ec_key(ECDHKey),
+    crypto:sign(ecdsa, DigestType, Digest, ECKey);
 
-sign({digest,_}=Digest, DigestType, {'ECKey', Key}) ->
-    crypto:sign(ecdsa, DigestType, Digest, Key);
-
-sign(PlainText, DigestType, {'ECKey', Key}) ->
-    crypto:sign(ecdsa, DigestType, PlainText, Key);
+sign(PlainText, DigestType, Key = #'ECPrivateKey'{}) ->
+    ECDHKey = ec_private_key_to_eckey(Key),
+    ECKey = crypto:term_to_ec_key(ECDHKey),
+    crypto:sign(ecdsa, DigestType, PlainText, ECKey);
 
 %% Backwards compatible
 sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
@@ -462,17 +476,15 @@ verify({digest,_} = Digest, sha = DigestType, Signature, {Key,  #'Dss-Parms'{p =
   when is_integer(Key), is_binary(Signature) ->
     crypto:verify(dss, DigestType, Digest, Signature, [P, Q, G, Key]);
 
-verify({digest,_} = Digest, DigestType, Signature, {'ECKey', Key}) ->
-    crypto:verify(ecdsa, DigestType, Digest, Signature, Key);
+verify(Digest, DigestType, Signature, Key = #'ECPrivateKey'{}) ->
+    ECDHKey = ec_private_key_to_eckey(Key),
+    ECKey = crypto:term_to_ec_key(ECDHKey),
+    crypto:verify(ecdsa, DigestType, Digest, Signature, ECKey);
 
-verify(PlainText, DigestType, Signature, Key = #'ECPrivateKey'{}) ->
-    verify(PlainText, DigestType, Signature, ec_private_key_to_eckey(Key));
-
-verify(PlainText, DigestType, Signature, Key = {#'ECPoint'{}, _}) ->
-    verify(PlainText, DigestType, Signature, ec_public_key_to_eckey(Key));
-
-verify(PlainText, DigestType, Signature, {'ECKey', Key}) ->
-    crypto:verify(ecdsa, DigestType, PlainText, Signature, Key);
+verify(Digest, DigestType, Signature, Key = {#'ECPoint'{}, _}) ->
+    ECDHKey = ec_public_key_to_eckey(Key),
+    ECKey = crypto:term_to_ec_key(ECDHKey),
+    crypto:verify(ecdsa, DigestType, Digest, Signature, ECKey);
 
 %% Backwards compatibility
 verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
@@ -910,3 +922,57 @@ combine(CRL, DeltaCRLs) ->
 		end,
 	    lists:foldl(Fun,  hd(Deltas), tl(Deltas))
     end.
+
+format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
+					privateExponent = D,
+					prime1 = P1, prime2 = P2,
+					exponent1 = E1, exponent2 = E2,
+					coefficient = C})
+  when is_integer(N), is_integer(E), is_integer(D),
+       is_integer(P1), is_integer(P2),
+       is_integer(E1), is_integer(E2), is_integer(C) ->
+   [E, N, D, P1, P2, E1, E2, C];
+
+format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
+					privateExponent = D}) when is_integer(N),
+								   is_integer(E),
+								   is_integer(D) ->
+   [E, N, D].
+
+%%
+%% Description: convert a ECPrivate key into resource Key
+%%--------------------------------------------------------------------
+list2int(L) ->
+    S = length(L) * 8,
+    <<R:S/integer>> = erlang:iolist_to_binary(L),
+    R.
+
+ec_private_key_to_eckey(#'ECPrivateKey'{privateKey = PrivKey,
+					parameters = Param,
+					publicKey = _PubKey}) ->
+    ECCurve =
+	case Param of
+	    #'OTPECParameters'{ fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor } ->
+		Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType),
+			 FieldId#'OTPFieldID'.parameters},
+		Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
+		{Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
+	    {namedCurve, OID} ->
+		pubkey_cert_records:namedCurves(OID)
+	end,
+    {ECCurve, list2int(PrivKey), undefined}.
+    %%{'ECKey', crypto:term_to_ec_key(Key)}.
+
+ec_public_key_to_eckey({#'ECPoint'{point = ECPoint}, Param}) ->
+    ECCurve =
+	case Param of
+	    #'OTPECParameters'{ fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor } ->
+		Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType),
+			 FieldId#'OTPFieldID'.parameters},
+		Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
+		{Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
+	    {namedCurve, OID} ->
+		pubkey_cert_records:namedCurves(OID)
+	end,
+    {ECCurve, undefined, ECPoint}.
+    %%{'ECKey', crypto:term_to_ec_key(Key)}.

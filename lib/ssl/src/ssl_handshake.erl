@@ -418,8 +418,7 @@ key_exchange(client, _Version, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
 		dh_public = PublicKey}
 	       };
 
-key_exchange(client, _Version, {ecdh, {'ECKey', ECDHKey}}) ->
-    {_, _, ECPublicKey} = crypto:ec_key_to_term(ECDHKey),
+key_exchange(client, _Version, {ecdh, {_,_,ECPublicKey}}) ->
     #client_key_exchange{
 	      exchange_keys = #client_ec_diffie_hellman_public{
 		dh_public = ECPublicKey}
@@ -453,8 +452,8 @@ key_exchange(client, _Version, {srp, PublicKey}) ->
 	       };
 
 key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
-		      #'DHParameter'{prime = P, base = G},
-		      HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
+			       #'DHParameter'{prime = P, base = G},
+			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
     <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
     <<?UINT32(_), GBin/binary>> = crypto:mpint(G),
     ServerDHParams = #server_dh_params{dh_p = PBin, 
@@ -462,10 +461,9 @@ key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
     enc_server_key_exchange(Version, ServerDHParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey);
 
-key_exchange(server, Version, {ecdh, {'ECKey', ECKey}, HashSign, ClientRandom, ServerRandom,
-			       PrivateKey}) ->
-    {ECCurve, _ECPrivKey, ECPubKey} = crypto:ec_key_to_term(ECKey),
-    ServerECParams = #server_ecdh_params{curve = ECCurve, public = ECPubKey},
+key_exchange(server, Version, {ecdh, {ECCurve, _, ECPublicKey}, HashSign, ClientRandom, ServerRandom,
+	     PrivateKey}) ->
+    ServerECParams = #server_ecdh_params{curve = ECCurve, public = ECPublicKey},
     enc_server_key_exchange(Version, ServerECParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey);
 
@@ -1700,7 +1698,7 @@ digitally_signed(_Version, Hash, HashAlgo, #'DSAPrivateKey'{} = Key) ->
 digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
     public_key:encrypt_private(Hash, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
-digitally_signed(_Version, Hash, HashAlgo, {'ECKey', _} = Key) ->
+digitally_signed(_Version, Hash, HashAlgo, Key) ->
     public_key:sign({digest, Hash}, HashAlgo, Key).
 
 calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
