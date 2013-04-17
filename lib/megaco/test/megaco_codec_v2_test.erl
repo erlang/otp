@@ -455,7 +455,8 @@ groups() ->
      {compact, [], [compact_test_msgs]},
      {flex_pretty, [], flex_pretty_cases()},
      {flex_compact, [], flex_compact_cases()},
-     {bin, [], [bin_test_msgs]}, {ber, [], [ber_test_msgs]},
+     {bin, [], [bin_test_msgs]}, 
+     {ber, [], [ber_test_msgs]},
      {ber_bin, [], [ber_bin_test_msgs]},
      {per, [], [per_test_msgs]},
      {per_bin, [], [per_bin_test_msgs]},
@@ -587,7 +588,8 @@ flex_compact_tickets_cases() ->
     ].
 
 flex_pretty_tickets_cases() -> 
-    [flex_pretty_otp5042_msg1, 
+    [
+     flex_pretty_otp5042_msg1, 
      flex_pretty_otp5085_msg1,
      flex_pretty_otp5085_msg2, 
      flex_pretty_otp5085_msg3,
