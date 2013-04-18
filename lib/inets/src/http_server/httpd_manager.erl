@@ -691,11 +691,11 @@ handle_unblock(S, FromA) ->
 handle_unblock(S, _FromA, unblocked) ->
     {ok,S};
 handle_unblock(S, FromA, _AdminState) ->
-    stop_block_tmr(S#state.blocking_tmr),
     case S#state.blocking_tmr of
-	{_Tmr,FromB,Ref} ->
+	{Tmr,FromB,Ref} ->
 	    %% Another process is trying to unblock
 	    %% Inform the blocker
+	    stop_block_tmr(Tmr),
 	    FromB ! {block_reply, {error,{unblocked,FromA}},Ref};
 	_ ->
 	    ok
