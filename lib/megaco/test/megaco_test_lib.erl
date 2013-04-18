@@ -247,16 +247,16 @@ end_group(Mod, Group, Config) ->
 
 %% This is for sub-SUITEs
 t({_Mod, {NewMod, all}, _Groups}, _Config) when is_atom(NewMod) ->
-    p("t(all) -> entry with"
-      "~n   NewMod: ~p", [NewMod]),
+    %% p("t(all) -> entry with"
+    %%   "~n   NewMod: ~p", [NewMod]),
     t(NewMod);
 t({Mod, {group, Name} = Group, Groups}, Config) 
   when is_atom(Mod) andalso is_atom(Name) andalso is_list(Groups) ->
-    p("t(group) -> entry with"
-      "~n   Mod:    ~p"
-      "~n   Name:   ~p"
-      "~n   Groups: ~p"
-      "~n   Config: ~p", [Mod, Name, Groups, Config]),
+    %% p("t(group) -> entry with"
+    %%   "~n   Mod:    ~p"
+    %%   "~n   Name:   ~p"
+    %%   "~n   Groups: ~p"
+    %%   "~n   Config: ~p", [Mod, Name, Groups, Config]),
     case lists:keysearch(Name, 1, Groups) of
 	{value, {Name, _Props, GroupsAndCases}} ->
 	    try init_group(Mod, Name, Config) of
@@ -284,10 +284,10 @@ t({Mod, {group, Name} = Group, Groups}, Config)
     end;
 t({Mod, Fun, _}, Config) 
   when is_atom(Mod) andalso is_atom(Fun) ->
-    p("t -> entry with"
-      "~n   Mod:    ~p"
-      "~n   Fun:    ~p"
-      "~n   Config: ~p", [Mod, Fun, Config]),
+    %% p("t -> entry with"
+    %%   "~n   Mod:    ~p"
+    %%   "~n   Fun:    ~p"
+    %%   "~n   Config: ~p", [Mod, Fun, Config]),
     try apply(Mod, Fun, [suite]) of
 	[] ->
 	    io:format("Eval:   ~p:", [{Mod, Fun}]),
@@ -315,9 +315,9 @@ t({Mod, Fun, _}, Config)
 	
     end;
 t(Mod, Config) when is_atom(Mod) ->
-    p("t -> entry with"
-      "~n   Mod:    ~p"
-      "~n   Config: ~p", [Mod, Config]),    
+    %% p("t -> entry with"
+    %%   "~n   Mod:    ~p"
+    %%   "~n   Config: ~p", [Mod, Config]),    
     %% This is assumed to be a test suite, so we start by calling 
     %% the top test suite function(s) (all/0 and groups/0).
     try Mod:all() of
@@ -433,8 +433,8 @@ do_eval(ReplyTo, Mod, Fun, Config) ->
     T1 = os:timestamp(), 
     try Mod:Fun(Config) of
 	Res ->
-	    p("do_eval -> done"
-	      "~n   Res: ~p", [Res]),
+	    %% p("do_eval -> done"
+	    %%   "~n   Res: ~p", [Res]),
 	    T2   = os:timestamp(), 
 	    Time = timer:now_diff(T2, T1), 
 	    display_tc_time(Time),
