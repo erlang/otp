@@ -414,6 +414,8 @@ loop(Mode,TestData,StartDir) ->
 		[#conn{address=A,callback=CB}] ->
 		    %% A connection crashed - remove the connection but don't die
 		    ct_logs:tc_log_async(ct_error_notify,
+					 ?MAX_IMPORTANCE,
+					 "CT Error Notification",
 					 "Connection process died: "
 					 "Pid: ~w, Address: ~p, Callback: ~w\n"
 					 "Reason: ~p\n\n",
