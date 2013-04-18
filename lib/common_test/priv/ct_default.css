@@ -96,6 +96,14 @@ div.ct_error_notify {
     margin: .2em 0 0 0;
 }
 
+div.ct_error_notify a:link {
+    color: #D0D0D0;
+}
+
+div.ct_error_notify a:visited {
+    color: #AAAAAA;
+}
+
 div.default { 
     background: lightgreen; color: black; 
     font-family: "Monaco", "Andale Mono", "Consolas", monospace;
