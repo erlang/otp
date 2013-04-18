@@ -2625,6 +2625,8 @@ set_no_active_runqs(int active)
     erts_aint32_t exp = erts_smp_atomic32_read_nob(&balance_info.no_runqs);
     while (1) {
 	erts_aint32_t act, new;
+	if ((exp & ERTS_NO_RUNQS_MASK) == active)
+	    break;
 	new = exp & (ERTS_NO_RUNQS_MASK << ERTS_NO_USED_RUNQS_SHIFT);
 	new |= active & ERTS_NO_RUNQS_MASK;
 	act = erts_smp_atomic32_cmpxchg_nob(&balance_info.no_runqs, new, exp);
@@ -3171,9 +3173,6 @@ evacuate_run_queue(ErtsRunQueue *rq,
 	if (notify)
 	    smp_notify_inc_runq(to_rq);
     }
-
-    if (ERTS_EMPTY_RUNQ(rq))
-	empty_runq(rq);
 }
 
 static int
@@ -4067,9 +4066,8 @@ static void
 change_no_used_runqs(int used)
 {
     ErtsMigrationPaths *new_mpaths, *old_mpaths;
-    int active, qix;
+    int qix;
     erts_smp_mtx_lock(&balance_info.update_mtx);
-    get_no_runqs(&active, NULL);
     set_no_used_runqs(used);
 
     old_mpaths = erts_get_migration_paths_managed();
@@ -4697,7 +4695,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online)
     schdlr_sspnd.msb.ongoing = 0;
     erts_smp_atomic32_init_nob(&schdlr_sspnd.active, no_schedulers);
     schdlr_sspnd.msb.procs = NULL;
-    init_no_runqs(no_schedulers, no_schedulers_online);
+    init_no_runqs(no_schedulers_online, no_schedulers_online);
     balance_info.last_active_runqs = no_schedulers;
     erts_smp_mtx_init(&balance_info.update_mtx, "migration_info_update");
     balance_info.forced_check_balance = 0;
