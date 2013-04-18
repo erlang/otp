@@ -30,6 +30,29 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.10.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug in the implementation of offline schedulers has
+	    been fixed. The bug was introduced in OTP-R16A/ERTS-5.10,
+	    and caused work-stealing between schedulers to fail. This
+	    in turn, caused work to accumulate in some run-queues.
+	    The bug was only triggered when there were offline
+	    schedulers in the system, i.e., when the amount of online
+	    schedulers was less than the total amount of schedulers.
+	    The effect of the bug got more severe the larger amount
+	    of offline schedulers the system had.</p>
+          <p>
+	    Own Id: OTP-11022 Aux Id: OTP-9892 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.10.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
