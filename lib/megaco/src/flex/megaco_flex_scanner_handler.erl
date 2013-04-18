@@ -181,11 +181,11 @@ terminate(_Reason, _S) ->
 %% Returns: {ok, NewState}
 %%----------------------------------------------------------------------
 
-code_change({down, _Vsn}, #state{conf = Conf} = State, downgrade_to_pre_3_14_3) ->
+code_change({down, _Vsn}, #state{conf = Conf} = State, downgrade_to_pre_3_16_1) ->
     NewPorts = bump_flex_scanner(Conf),
     {ok, State#state{conf = {flex, NewPorts}}};
 
-code_change(_Vsn, #state{conf = Conf} = State, upgrade_from_pre_3_14_2) ->
+code_change(_Vsn, #state{conf = Conf} = State, upgrade_from_pre_3_16_1) ->
     NewPorts = bump_flex_scanner(Conf),
     {ok, State#state{conf = {flex, NewPorts}}};
 
