@@ -58,8 +58,8 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
     %%      verify_data
     %%          PRF(master_secret, finished_label, MD5(handshake_messages) +
     %%          SHA-1(handshake_messages)) [0..11];
-    MD5 = crypto:md5(Handshake),
-    SHA = crypto:sha(Handshake),
+    MD5 = crypto:hash(md5, Handshake),
+    SHA = crypto:hash(sha, Handshake),
     prf(?MD5SHA, MasterSecret, finished_label(Role), [MD5, SHA], 12);
 
 finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
@@ -77,8 +77,8 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
 -spec certificate_verify(md5sha | sha, integer(), [binary()]) -> binary().
 
 certificate_verify(md5sha, _Version, Handshake) ->
-    MD5 = crypto:md5(Handshake),
-    SHA = crypto:sha(Handshake),
+    MD5 = crypto:hash(md5, Handshake),
+    SHA = crypto:hash(sha, Handshake),
     <<MD5/binary, SHA/binary>>;
 
 certificate_verify(HashAlgo, _Version, Handshake) ->
@@ -248,16 +248,8 @@ suites(Minor) when Minor == 3 ->
 %%%% HMAC and the Pseudorandom Functions RFC 2246 & 4346 - 5.%%%%
 hmac_hash(?NULL, _, _) ->
     <<>>;
-hmac_hash(?MD5, Key, Value) ->
-    crypto:md5_mac(Key, Value);
-hmac_hash(?SHA, Key, Value) ->
-    crypto:sha_mac(Key, Value);
-hmac_hash(?SHA256, Key, Value) ->
-    crypto:sha256_mac(Key, Value);
-hmac_hash(?SHA384, Key, Value) ->
-    crypto:sha384_mac(Key, Value);
-hmac_hash(?SHA512, Key, Value) ->
-    crypto:sha512_mac(Key, Value).
+hmac_hash(Alg, Key, Value) ->
+    crypto:hmac(mac_algo(Alg), Key, Value).
 
 mac_algo(?MD5)    -> md5;
 mac_algo(?SHA)    -> sha;

@@ -696,8 +696,8 @@ decrypt_premaster_secret(Secret, RSAPrivateKey) ->
 %% Description: Calculate server key exchange hash
 %%--------------------------------------------------------------------
 server_key_exchange_hash(md5sha, Value) ->
-    MD5 = crypto:md5(Value),
-    SHA = crypto:sha(Value),
+    MD5 = crypto:hash(md5, Value),
+    SHA = crypto:hash(sha, Value),
     <<MD5/binary, SHA/binary>>;
 
 server_key_exchange_hash(Hash, Value) ->
