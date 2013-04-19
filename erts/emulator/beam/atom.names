@@ -303,6 +303,7 @@ atom load_cancelled
 atom load_failure
 atom local
 atom long_gc
+atom long_schedule
 atom low
 atom Lt='<'
 atom machine

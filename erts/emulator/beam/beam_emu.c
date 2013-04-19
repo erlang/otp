@@ -934,6 +934,7 @@ extern int count_instructions;
 #  define NOINLINE
 #endif
 
+
 /*
  * The following functions are called directly by process_main().
  * Don't inline them.
@@ -952,6 +953,7 @@ static BeamInstr* apply_fun(Process* p, Eterm fun,
 			    Eterm args, Eterm* reg) NOINLINE;
 static Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free) NOINLINE;
+static Uint64 timestamp_millis(void);
 
 
 /*
@@ -1184,6 +1186,9 @@ void process_main(void)
 
     Eterm pt_arity;		/* Used by do_put_tuple */
 
+    Uint64 start_time = 0;          /* Monitor long schedule */
+    BeamInstr* start_time_i = NULL;
+
     ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
 
 
@@ -1206,6 +1211,16 @@ void process_main(void)
  do_schedule:
     reds_used = REDS_IN(c_p) - FCALLS;
  do_schedule1:
+
+    if (start_time != 0) {
+        Sint64 diff = timestamp_millis() - start_time;
+	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
+	    BeamInstr *inptr = find_function_from_pc(start_time_i);
+	    BeamInstr *outptr = find_function_from_pc(c_p->i);
+	    monitor_long_schedule(c_p,inptr,outptr,(Uint) diff);
+	}
+    }
+
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 #if HALFWORD_HEAP
@@ -1214,11 +1229,18 @@ void process_main(void)
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     c_p = schedule(c_p, reds_used);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    start_time = 0;
 #ifdef DEBUG
     pid = c_p->id; /* Save for debugging purpouses */
 #endif
     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
+
+    if (erts_system_monitor_long_schedule != 0) {
+	start_time = timestamp_millis();
+	start_time_i = c_p->i;
+    }
+
     reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
     freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
 #if !HEAP_ON_C_STACK
@@ -6475,6 +6497,19 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
     return call_fun(p, arity, reg, args);
 }
 
+static Uint64 timestamp_millis(void)
+{
+#ifdef HAVE_GETHRTIME
+    return (Uint64) (sys_gethrtime() / 1000000);
+#else
+    Uint64 res;
+    SysTimeval tv;
+    sys_gettimeofday(&tv);
+    res = (Uint64) tv.tv_sec*1000000;
+    res += (Uint64) tv.tv_usec;
+    return (res / 1000);
+#endif
+}
 
 static Eterm
 new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
