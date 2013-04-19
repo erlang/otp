@@ -230,11 +230,11 @@ io_request({window_change, OldTty}, Buf, Tty) ->
 io_request({put_chars, Cs}, Buf, Tty) ->
     put_chars(bin_to_list(Cs), Buf, Tty);
 io_request({put_chars, unicode, Cs}, Buf, Tty) ->
-    put_chars([Ch || Ch <- unicode:characters_to_list(Cs,unicode), Ch =< 255], Buf, Tty);
+    put_chars(unicode:characters_to_list(Cs,unicode), Buf, Tty);
 io_request({insert_chars, Cs}, Buf, Tty) ->
     insert_chars(bin_to_list(Cs), Buf, Tty);
 io_request({insert_chars, unicode, Cs}, Buf, Tty) ->
-    insert_chars([Ch || Ch <- unicode:characters_to_list(Cs,unicode), Ch =< 255], Buf, Tty);
+    insert_chars(unicode:characters_to_list(Cs,unicode), Buf, Tty);
 io_request({move_rel, N}, Buf, Tty) ->
     move_rel(N, Buf, Tty);
 io_request({delete_chars,N}, Buf, Tty) ->
