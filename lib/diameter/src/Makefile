@@ -230,7 +230,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 # Can't $(INSTALL_DIR) more than one directory at a time on Solaris.
 
 release_spec: opt
-	for d in bin ebin include src/dict; do \
+	for d in bin ebin examples include src/dict; do \
 	    $(INSTALL_DIR) "$(RELSYSDIR)/$$d"; \
 	done
 	$(INSTALL_SCRIPT) $(BINS:%=../bin/%) "$(RELSYSDIR)/bin"
