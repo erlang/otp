@@ -114,6 +114,9 @@ static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 #ifdef VALGRIND
 				     " [valgrind-compiled]"
 #endif
+#ifdef ERTS_FRMPTR
+				     " [frame-pointer]"
+#endif
 #ifdef USE_DTRACE
 				     " [dtrace]"
 #endif
@@ -2096,6 +2099,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #elif defined(ERTS_ENABLE_LOCK_COUNT)
 	ERTS_DECL_AM(lcnt);
 	BIF_RET(AM_lcnt);
+#elif defined(ERTS_FRMPTR)
+	ERTS_DECL_AM(frmptr);
+	BIF_RET(AM_frmptr);
 #else
 	BIF_RET(am_opt);
 #endif

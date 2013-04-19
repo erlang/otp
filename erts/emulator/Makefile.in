@@ -48,6 +48,7 @@ CREATE_DIRS=
 
 LDFLAGS=@LDFLAGS@
 ARFLAGS=rc
+OMIT_OMIT_FP=no
 
 ifeq ($(TYPE),debug)
 PURIFY =
@@ -113,11 +114,19 @@ TYPEMARKER = .lcnt
 TYPE_FLAGS = @CFLAGS@ -DERTS_ENABLE_LOCK_COUNT
 else
 
+ifeq ($(TYPE),frmptr)
+PURIFY = 
+OMIT_OMIT_FP=yes
+TYPEMARKER = .frmptr
+TYPE_FLAGS = @CFLAGS@ -DERTS_FRMPTR
+else
+
 # If type isn't one of the above, it *is* opt type...
 override TYPE=opt
 PURIFY =
 TYPEMARKER =
 TYPE_FLAGS = @CFLAGS@
+endif
 endif
 endif
 endif
@@ -219,8 +228,6 @@ LIB_PREFIX=lib
 LIB_SUFFIX=.a
 endif
 
-OMIT_OMIT_FP=no
-
 ifeq (@EMU_LOCK_CHECKING@,yes)
 NO_INLINE_FUNCTIONS=true
 endif
@@ -238,7 +245,7 @@ ifeq ($(NO_INLINE_FUNCTIONS),true)
 GEN_OPT_FLGS = $(OPT_LEVEL) -fno-inline-functions
 else
 ifeq ($(OMIT_OMIT_FP),yes)
-GEN_OPT_FLGS = $(OPT_LEVEL)
+GEN_OPT_FLGS = $(OPT_LEVEL) -fno-omit-frame-pointer
 else
 GEN_OPT_FLGS = $(OPT_LEVEL) -fomit-frame-pointer
 endif
