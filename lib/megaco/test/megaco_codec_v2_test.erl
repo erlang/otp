@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -160,6 +160,10 @@
          flex_compact_otp7534_msg01/1,
          flex_compact_otp7573_msg01/1,
 	 flex_compact_otp7576_msg01/1, 
+	 flex_compact_otp10998_msg01/1, 
+	 flex_compact_otp10998_msg02/1, 
+	 flex_compact_otp10998_msg03/1, 
+	 flex_compact_otp10998_msg04/1, 
 
 	 pretty_tickets/1, 
 	 pretty_otp4632_msg1/1, 
@@ -416,45 +420,8 @@ decode_text_messages(Codec, Config, [Msg|Msgs], Acc) ->
 %% ----
 
 
-expand(RootCase) ->
-    expand([RootCase], []).
-
-expand([], Acc) ->
-    lists:flatten(lists:reverse(Acc));
-expand([Case|Cases], Acc) ->
-    case (catch apply(?MODULE,Case,[suite])) of
-	[] ->
-	    expand(Cases, [Case|Acc]);
-	C when is_list(C) ->
-	    expand(Cases, [expand(C, [])|Acc]);
-	_ ->
-	    expand(Cases, [Case|Acc])
-    end.
-
-	    
-%% ----
-
 tickets() ->
-    Flag  = process_flag(trap_exit, true),    
-    Cases = expand(tickets),
-    Fun   = fun(Case) ->
-		    C = init_per_testcase(Case, [{tc_timeout, 
-						  timer:minutes(10)}]),
-		    io:format("Eval ~w~n", [Case]),
-		    Result = 
-			case (catch apply(?MODULE, Case, [C])) of
-			    {'EXIT', Reason} ->
- 				io:format("~n~p exited:~n   ~p~n", 
- 					  [Case, Reason]),
-				{error, {Case, Reason}};
-			    Res ->
-				Res
-			end,
-		    fin_per_testcase(Case, C),
-		    Result
-	    end,
-    process_flag(trap_exit, Flag),
-    lists:map(Fun, Cases).
+    megaco_test_lib:tickets(?MODULE).
 
 
 %% ----
@@ -656,6 +623,7 @@ compact_tickets(suite) ->
     ].
 
 flex_compact_tickets(suite) ->
+    %% io:format("flex_compact_tickets(suite) -> entry~n", []),
     {req, [], 
      {conf, flex_compact_init, flex_compact_tickets_cases(), 
       flex_compact_finish}}.
@@ -677,7 +645,11 @@ flex_compact_tickets_cases() ->
      flex_compact_otp7457_msg03,
      flex_compact_otp7534_msg01,
      flex_compact_otp7573_msg01,
-     flex_compact_otp7576_msg01
+     flex_compact_otp7576_msg01,
+     flex_compact_otp10998_msg01,
+     flex_compact_otp10998_msg02,
+     flex_compact_otp10998_msg03,
+     flex_compact_otp10998_msg04
     ].
 
 pretty_tickets(suite) ->
@@ -3293,12 +3265,790 @@ otp7573(Codec, EC, BinMsg) ->
 flex_compact_otp7576_msg01(suite) ->
     [];
 flex_compact_otp7576_msg01(Config) when is_list(Config) ->
-%%     put(dbg, true),
-%%     put(severity, trc),
+    %%     put(dbg, true),
+    %%     put(severity, trc),
     d("flex_compact_otp7576_msg01 -> entry", []),
     Msg  = compact_otp7576_msg01(),
     Conf = flex_scanner_conf(Config),
     compact_otp7576([Conf], Msg).
+
+
+%% killer_42_original
+flex_compact_otp10998_msg01() ->
+    <<"!/2 stofmg0
+P=25165898{C=34227581{AV=r01/03/01/38/22{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227613{AV=r01/03/01/38/12{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227744{AV=r01/03/01/38/11{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227755{AV=r01/03/01/38/2{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227768{AV=r01/03/01/38/14{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227774{AV=r01/03/01/38/15{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227775{AV=r01/03/01/38/16{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323119{AV=r01/03/01/38/9{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323122{AV=r01/03/01/38/7{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323156{AV=r01/03/01/38/8{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323260{AV=r01/03/01/38/13{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323272{AV=r01/03/01/38/30{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323273{AV=r01/03/01/38/29{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323275{AV=r01/03/01/38/25{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323276{AV=r01/03/01/38/28{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323279{AV=r01/03/01/38/26{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323280{AV=r01/03/01/38/24{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323281{AV=r01/03/01/38/27{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323284{AV=r01/03/01/38/23{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34129764{AV=r01/03/01/55/31{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227463{AV=r01/03/01/55/26{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227472{AV=r01/03/01/55/22{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227484{AV=r01/03/01/55/16{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227555{AV=r01/03/01/55/5{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227556{AV=r01/03/01/55/14{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227557{AV=r01/03/01/55/10{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227563{AV=r01/03/01/55/7{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227565{AV=r01/03/01/55/13{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227602{AV=r01/03/01/55/21{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227616{AV=r01/03/01/55/1{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227704{AV=r01/03/01/55/19{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227705{AV=r01/03/01/55/18{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227715{AV=r01/03/01/55/20{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322656{AV=r01/03/01/55/30{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322804{AV=r01/03/01/55/24{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322812{AV=r01/03/01/55/15{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322825{AV=r01/03/01/55/4{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322836{AV=r01/03/01/55/17{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323007{AV=r01/03/01/55/6{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323008{AV=r01/03/01/55/2{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323071{AV=r01/03/01/55/28{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323075{AV=r01/03/01/55/29{M{TS{eri_terminfo/dev_state=norm,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=IV},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x00},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}}}">>.
+
+
+%% size36_27_11_bad.txt
+flex_compact_otp10998_msg02() ->
+    <<"!/2 stofmg0
+P=25167656{C=34205358{AV=r01/03/01/27/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34205359{AV=r01/03/01/27/13{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34205360{AV=r01/03/01/27/23{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227786{AV=r01/03/01/27/8{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34230890{AV=r01/03/01/27/15{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34230903{AV=r01/03/01/27/24{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34230904{AV=r01/03/01/27/14{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34230905{AV=r01/03/01/27/12{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34230913{AV=r01/03/01/27/4{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316801{AV=r01/03/01/27/9{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316805{AV=r01/03/01/27/19{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316814{AV=r01/03/01/27/5{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316829{AV=r01/03/01/27/7{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323013{AV=r01/03/01/27/6{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34107499{AV=r01/03/01/11/14{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34107500{AV=r01/03/01/11/4{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34107505{AV=r01/03/01/11/8{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316766{AV=r01/03/01/11/3{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316768{AV=r01/03/01/11/10{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316786{AV=r01/03/01/11/12{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316787{AV=r01/03/01/11/1{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316793{AV=r01/03/01/11/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316794{AV=r01/03/01/11/24{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316795{AV=r01/03/01/11/31{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316797{AV=r01/03/01/11/18{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316804{AV=r01/03/01/11/15{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316807{AV=r01/03/01/11/6{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316815{AV=r01/03/01/11/16{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316819{AV=r01/03/01/11/28{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316824{AV=r01/03/01/11/17{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316826{AV=r01/03/01/11/25{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316827{AV=r01/03/01/11/9{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316828{AV=r01/03/01/11/21{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316830{AV=r01/03/01/11/2{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316832{AV=r01/03/01/11/11{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34316850{AV=r01/03/01/11/5{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}}}">>.
+
+
+%% size41_38_55_good.txt
+flex_compact_otp10998_msg03() ->
+    <<"!/2 stofmg0
+P=25166035{C=34227581{AV=r01/03/01/38/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227613{AV=r01/03/01/38/12{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227744{AV=r01/03/01/38/11{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227755{AV=r01/03/01/38/2{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227768{AV=r01/03/01/38/14{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227774{AV=r01/03/01/38/15{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227775{AV=r01/03/01/38/16{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323122{AV=r01/03/01/38/7{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323156{AV=r01/03/01/38/8{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323260{AV=r01/03/01/38/13{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323272{AV=r01/03/01/38/30{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323273{AV=r01/03/01/38/29{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323275{AV=r01/03/01/38/25{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323276{AV=r01/03/01/38/28{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323279{AV=r01/03/01/38/26{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323280{AV=r01/03/01/38/24{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323281{AV=r01/03/01/38/27{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323284{AV=r01/03/01/38/23{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34129764{AV=r01/03/01/55/31{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227463{AV=r01/03/01/55/26{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227472{AV=r01/03/01/55/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227484{AV=r01/03/01/55/16{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227555{AV=r01/03/01/55/5{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227556{AV=r01/03/01/55/14{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227557{AV=r01/03/01/55/10{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227563{AV=r01/03/01/55/7{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227565{AV=r01/03/01/55/13{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227602{AV=r01/03/01/55/21{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227616{AV=r01/03/01/55/1{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227704{AV=r01/03/01/55/19{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227705{AV=r01/03/01/55/18{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227715{AV=r01/03/01/55/20{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322656{AV=r01/03/01/55/30{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322804{AV=r01/03/01/55/24{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322812{AV=r01/03/01/55/15{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322825{AV=r01/03/01/55/4{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322836{AV=r01/03/01/55/17{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323007{AV=r01/03/01/55/6{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323008{AV=r01/03/01/55/2{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323071{AV=r01/03/01/55/28{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323075{AV=r01/03/01/55/29{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}}}">>.
+
+
+%% size42_38_55_bad.txt
+flex_compact_otp10998_msg04() ->
+    <<"!/2 stofmg0
+P=33555020{C=34227581{AV=r01/03/01/38/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227613{AV=r01/03/01/38/12{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227744{AV=r01/03/01/38/11{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227755{AV=r01/03/01/38/2{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227768{AV=r01/03/01/38/14{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227774{AV=r01/03/01/38/15{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227775{AV=r01/03/01/38/16{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323119{AV=r01/03/01/38/9{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323122{AV=r01/03/01/38/7{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323156{AV=r01/03/01/38/8{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323260{AV=r01/03/01/38/13{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323272{AV=r01/03/01/38/30{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323273{AV=r01/03/01/38/29{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323275{AV=r01/03/01/38/25{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323276{AV=r01/03/01/38/28{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323279{AV=r01/03/01/38/26{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323280{AV=r01/03/01/38/24{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323281{AV=r01/03/01/38/27{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323284{AV=r01/03/01/38/23{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34129764{AV=r01/03/01/55/31{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227463{AV=r01/03/01/55/26{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227472{AV=r01/03/01/55/22{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227484{AV=r01/03/01/55/16{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227555{AV=r01/03/01/55/5{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227556{AV=r01/03/01/55/14{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227557{AV=r01/03/01/55/10{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227563{AV=r01/03/01/55/7{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227565{AV=r01/03/01/55/13{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227602{AV=r01/03/01/55/21{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227616{AV=r01/03/01/55/1{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227704{AV=r01/03/01/55/19{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227705{AV=r01/03/01/55/18{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34227715{AV=r01/03/01/55/20{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322656{AV=r01/03/01/55/30{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322804{AV=r01/03/01/55/24{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322812{AV=r01/03/01/55/15{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322825{AV=r01/03/01/55/4{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34322836{AV=r01/03/01/55/17{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323007{AV=r01/03/01/55/6{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323008{AV=r01/03/01/55/2{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323071{AV=r01/03/01/55/28{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}},C=34323075{AV=r01/03/01/55/29{M{TS{eri_terminfo/dev_state=link,eri_terminfo/dev_type=cee1,eri_terminfo/law_conv=on,SI=OS},O{MO=SR,RV=OFF,semper/act=on,tdmc/ec=off,semper/termstatus=0x01},L{
+v=0
+c=TN RFC2543 -
+m=audio - TDM -
+}}}}}">>.
+
+
+flex_compact_otp10998_num() ->
+    10.
+
+flex_compact_otp10998_msg01(suite) ->
+    [];
+flex_compact_otp10998_msg01(Config) when is_list(Config) ->
+    %% put(dbg, true),
+    %% put(severity, trc),
+    d("flex_compact_otp10998_msg01 -> entry", []),
+    Msg  = flex_compact_otp10998_msg01(),
+    d("flex_compact_otp10998_msg01 -> message created", []),
+    Conf = 
+	try flex_scanner_conf(Config) of
+	    C ->
+		C
+	catch
+	    exit:Error ->
+		e("Failed getting flex config: "
+		  "~n   Error: ~p", [Error]),
+		exit(Error)
+	end,
+    d("flex_compact_otp10998_msg01 -> flex config generated", []),
+    flex_compact_otp10998([Conf], flex_compact_otp10998_num(), Msg).
+
+flex_compact_otp10998_msg02(suite) ->
+    [];
+flex_compact_otp10998_msg02(Config) when is_list(Config) ->
+    %% put(dbg, true),
+    %% put(severity, trc),
+    d("flex_compact_otp10998_msg02 -> entry", []),
+    Msg  = flex_compact_otp10998_msg02(),
+    d("flex_compact_otp10998_msg02 -> message created", []),
+    Conf = 
+	try flex_scanner_conf(Config) of
+	    C ->
+		C
+	catch
+	    exit:Error ->
+		e("Failed getting flex config: "
+		  "~n   Error: ~p", [Error]),
+		exit(Error)
+	end,
+    d("flex_compact_otp10998_msg02 -> flex config generated", []),
+    flex_compact_otp10998([Conf], flex_compact_otp10998_num(), Msg).
+
+flex_compact_otp10998_msg03(suite) ->
+    [];
+flex_compact_otp10998_msg03(Config) when is_list(Config) ->
+    %% put(dbg, true),
+    %% put(severity, trc),
+    d("flex_compact_otp10998_msg03 -> entry", []),
+    Msg  = flex_compact_otp10998_msg03(),
+    d("flex_compact_otp10998_msg03 -> message created", []),
+    Conf = 
+	try flex_scanner_conf(Config) of
+	    C ->
+		C
+	catch
+	    exit:Error ->
+		e("Failed getting flex config: "
+		  "~n   Error: ~p", [Error]),
+		exit(Error)
+	end,
+    d("flex_compact_otp10998_msg03 -> flex config generated", []),
+    flex_compact_otp10998([Conf], flex_compact_otp10998_num(), Msg).
+
+flex_compact_otp10998_msg04(suite) ->
+    [];
+flex_compact_otp10998_msg04(Config) when is_list(Config) ->
+    %% put(dbg, true),
+    %% put(severity, trc),
+    d("flex_compact_otp10998_msg04 -> entry", []),
+    Msg  = flex_compact_otp10998_msg04(),
+    d("flex_compact_otp10998_msg04 -> message created", []),
+    Conf = 
+	try flex_scanner_conf(Config) of
+	    C ->
+		C
+	catch
+	    exit:Error ->
+		e("Failed getting flex config: "
+		  "~n   Error: ~p", [Error]),
+		exit(Error)
+	end,
+    d("flex_compact_otp10998_msg04 -> flex config generated", []),
+    flex_compact_otp10998([Conf], flex_compact_otp10998_num(), Msg).
+
+flex_compact_otp10998(EC, N, BinMsg) ->
+    Codec  = megaco_compact_text_encoder,
+    Decode = fun(No) ->
+		     case decode_message(Codec, false, EC, BinMsg) of
+			 {ok, _Msg} ->
+			     d("flex_compact_otp10998 -> decode ok", []),
+			     ok;
+			 {error, Reason} ->
+			     e("flex_compact_otp10998 -> "
+			       "decode ~w failed: ~p", [No, Reason]),
+			     throw({error, No, Reason})
+		     end
+	     end, 
+    do_flex_compact_otp10998(N, Decode).
+
+do_flex_compact_otp10998(N, Decode) when N > 0 ->
+    Decode(N),
+    do_flex_compact_otp10998(N-1, Decode);
+do_flex_compact_otp10998(_, _) ->
+    ok.
+
 
 
 %% ==============================================================
@@ -6927,7 +7677,14 @@ cre_PkgsItem(Name, Ver) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 flex_init(Config) ->
-    megaco_codec_flex_lib:init(Config).
+    %% io:format("~w:flex_init -> entry with: "
+    %% 	      "~n   Config: ~p"
+    %% 	      "~n", [?MODULE, Config]),
+    Res = megaco_codec_flex_lib:init(Config),
+    %% io:format("~w:flex_init -> flex init result: "
+    %% 	      "~n   Res: ~p"
+    %% 	      "~n", [?MODULE, Res]),
+    Res.
 
 flex_finish(Config) ->
     megaco_codec_flex_lib:finish(Config).
