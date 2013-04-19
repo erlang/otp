@@ -114,8 +114,8 @@ verify_signature(DerEncodedCert, DerKey, _KeyParams) ->
 	#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y} ->
 	    public_key:pkix_verify(DerEncodedCert, {Y, #'Dss-Parms'{p=P, q=Q, g=G}});
 	#'ECPrivateKey'{version = _Version, privateKey = _PrivKey,
-			parameters = _Params, publicKey = _PubKey} ->
-	    public_key:pkix_verify(DerEncodedCert, Key)
+			parameters = Params, publicKey = {0, PubKey}} ->
+	    public_key:pkix_verify(DerEncodedCert, {#'ECPoint'{point = PubKey}, Params})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%% Implementation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

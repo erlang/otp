@@ -418,7 +418,7 @@ key_exchange(client, _Version, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
 		dh_public = PublicKey}
 	       };
 
-key_exchange(client, _Version, {ecdh, {_,_,ECPublicKey}}) ->
+key_exchange(client, _Version, {ecdh, #'ECPrivateKey'{publicKey = {0, ECPublicKey}}}) ->
     #client_key_exchange{
 	      exchange_keys = #client_ec_diffie_hellman_public{
 		dh_public = ECPublicKey}
@@ -461,7 +461,8 @@ key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
     enc_server_key_exchange(Version, ServerDHParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey);
 
-key_exchange(server, Version, {ecdh, {ECCurve, _, ECPublicKey}, HashSign, ClientRandom, ServerRandom,
+key_exchange(server, Version, {ecdh,  #'ECPrivateKey'{publicKey =  {0, ECPublicKey},
+						      parameters = ECCurve}, HashSign, ClientRandom, ServerRandom,
 	     PrivateKey}) ->
     ServerECParams = #server_ecdh_params{curve = ECCurve, public = ECPublicKey},
     enc_server_key_exchange(Version, ServerECParams, HashSign,
@@ -1513,10 +1514,10 @@ enc_server_key(#server_dh_params{dh_p = P, dh_g = G, dh_y = Y}) ->
     GLen = byte_size(G),
     YLen = byte_size(Y),
     <<?UINT16(PLen), P/binary, ?UINT16(GLen), G/binary, ?UINT16(YLen), Y/binary>>;
-enc_server_key(#server_ecdh_params{curve = ECCurve, public = ECPubKey}) ->
+enc_server_key(#server_ecdh_params{curve = {namedCurve, ECCurve}, public = ECPubKey}) ->
     %%TODO: support arbitrary keys
     KLen = size(ECPubKey),
-    <<?BYTE(?NAMED_CURVE_TYPE), ?UINT16((ssl_tls1:ec_nid2curve_id(ECCurve))),
+    <<?BYTE(?NAMED_CURVE_TYPE), ?UINT16((ssl_tls1:ec_nid2curve_id(pubkey_cert_records:namedCurves(ECCurve)))),
       ?BYTE(KLen), ECPubKey/binary>>;
 enc_server_key(#server_psk_params{hint = PskIdentityHint}) ->
     Len = byte_size(PskIdentityHint),

@@ -1378,9 +1378,9 @@ handle_peer_cert(PeerCert, PublicKeyInfo,
 			 public_key_info = PublicKeyInfo},
     State2 = case PublicKeyInfo of
 		 {?'id-ecPublicKey',  #'ECPoint'{point = _ECPoint} = PublicKey, PublicKeyParams} ->
-		     Keys = public_key:generate_key(PublicKey, PublicKeyParams),
-		     State3 = State1#state{diffie_hellman_keys = Keys},
-		     ec_dh_master_secret(Keys, PublicKey, State3);
+		     ECDHKey = public_key:generate_key(PublicKeyParams),
+		     State3 = State1#state{diffie_hellman_keys = ECDHKey},
+		     ec_dh_master_secret(ECDHKey, PublicKey, State3);
 
 		 _ -> State1
 	     end,
@@ -1615,13 +1615,13 @@ key_exchange(#state{role = server, key_algorithm = Algo,
   when Algo == dhe_dss;
        Algo == dhe_rsa;
        Algo == dh_anon ->
-    Keys = public_key:generate_key(Params),
+    DHKeys = public_key:generate_key(Params),
     ConnectionState = 
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams, 
-    Msg =  ssl_handshake:key_exchange(server, Version, {dh, Keys, Params,
+    Msg =  ssl_handshake:key_exchange(server, Version, {dh, DHKeys, Params,
 					       HashSignAlgo, ClientRandom,
 					       ServerRandom,
 					       PrivateKey}),
@@ -1629,13 +1629,12 @@ key_exchange(#state{role = server, key_algorithm = Algo,
         encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates,
-		diffie_hellman_keys = Keys,
+		diffie_hellman_keys = DHKeys,
                 tls_handshake_history = Handshake};
 
 key_exchange(#state{role = server, private_key = Key, key_algorithm = Algo} = State)
   when Algo == ecdh_ecdsa; Algo == ecdh_rsa ->
-    ECDH = public_key:generate_key(Key),
-    State#state{diffie_hellman_keys = ECDH};
+    State#state{diffie_hellman_keys = Key};
 key_exchange(#state{role = server, key_algorithm = Algo,
 		    hashsign_algorithm = HashSignAlgo,
 		    private_key = PrivateKey,
@@ -1648,13 +1647,13 @@ key_exchange(#state{role = server, key_algorithm = Algo,
   when Algo == ecdhe_ecdsa; Algo == ecdhe_rsa;
        Algo == ecdh_anon ->
 
-    ECDHKey = public_key:generate_key({curve, default_curve(State)}),
+    ECDHKeys = public_key:generate_key({curve, default_curve(State)}),
     ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
-    Msg =  ssl_handshake:key_exchange(server, Version, {ecdh, ECDHKey,
+    Msg =  ssl_handshake:key_exchange(server, Version, {ecdh, ECDHKeys,
 							HashSignAlgo, ClientRandom,
 							ServerRandom,
 							PrivateKey}),
@@ -1662,7 +1661,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 	encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates,
-		diffie_hellman_keys = ECDHKey,
+		diffie_hellman_keys = ECDHKeys,
 		tls_handshake_history = Handshake1};
 
 key_exchange(#state{role = server, key_algorithm = psk,
@@ -1704,13 +1703,13 @@ key_exchange(#state{role = server, key_algorithm = dhe_psk,
 		    socket = Socket,
 		    transport_cb = Transport
 		   } = State) ->
-    Keys = public_key:generate_key(Params),
+    DHKeys = public_key:generate_key(Params),
     ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
-    Msg =  ssl_handshake:key_exchange(server, Version, {dhe_psk, PskIdentityHint, Keys, Params,
+    Msg =  ssl_handshake:key_exchange(server, Version, {dhe_psk, PskIdentityHint, DHKeys, Params,
 					       HashSignAlgo, ClientRandom,
 					       ServerRandom,
 					       PrivateKey}),
@@ -1718,7 +1717,7 @@ key_exchange(#state{role = server, key_algorithm = dhe_psk,
         encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates,
-		diffie_hellman_keys = Keys,
+		diffie_hellman_keys = DHKeys,
                 tls_handshake_history = Handshake};
 
 key_exchange(#state{role = server, key_algorithm = rsa_psk,
@@ -2051,8 +2050,8 @@ server_master_secret(#server_dh_params{dh_p = P, dh_g = G, dh_y = ServerPublicDh
 
 server_master_secret(#server_ecdh_params{curve = ECCurve, public = ECServerPubKey},
 		     State) ->
-    Key = public_key:generate_key({curve, ECCurve}),
-    ec_dh_master_secret(Key, #'ECPoint'{point = ECServerPubKey}, State#state{diffie_hellman_keys = Key});
+    ECDHKeys = public_key:generate_key({curve, ECCurve}),
+    ec_dh_master_secret(ECDHKeys, #'ECPoint'{point = ECServerPubKey}, State#state{diffie_hellman_keys = ECDHKeys});
 
 server_master_secret(#server_psk_params{
 			hint = IdentityHint},
@@ -2098,9 +2097,9 @@ dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey, State) ->
 			       {dh, PMpint, GMpint}),
     master_from_premaster_secret(PremasterSecret, State).
 
-ec_dh_master_secret(ECKey, ECPoint, State) ->
+ec_dh_master_secret(ECDHKeys, ECPoint, State) ->
     PremasterSecret =
-	public_key:compute_key(ECPoint, ECKey),
+	public_key:compute_key(ECPoint, ECDHKeys),
     master_from_premaster_secret(PremasterSecret, State).
 
 handle_psk_identity(_PSKIdentity, LookupFun)
