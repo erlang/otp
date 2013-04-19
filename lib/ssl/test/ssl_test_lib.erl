@@ -982,3 +982,15 @@ is_sane_ecc(openssl) ->
     end;
 is_sane_ecc(_) ->
     true.
+
+cipher_restriction(Config) ->
+    case is_sane_ecc(openssl) of
+	false ->
+	    Opts = proplists:get_value(server_opts, Config),
+	    NewConfig = proplists:delete(server_opts, Config),
+	    Restricted0 = ssl:cipher_suites() -- ecdsa_suites(),
+            Restricted  = Restricted0 -- ecdh_rsa_suites(),
+	    [{server_opts, [{ciphers, Restricted} | Opts]} | NewConfig];
+	true ->
+	    Config
+    end.
