@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -781,7 +781,7 @@ do_asm(Beam, Outdir) ->
     try
 	{ok,M,Asm} = compile:forms(A, ['S']),
 	AsmFile = filename:join(Outdir, atom_to_list(M)++".S"),
-	{ok,Fd} = file:open(AsmFile, [write]),
+	{ok,Fd} = file:open(AsmFile, [write,{encoding,utf8}]),
 	beam_listing:module(Fd, Asm),
 	ok = file:close(Fd),
 	case compile:file(AsmFile, [from_asm,no_postopt,binary,report]) of

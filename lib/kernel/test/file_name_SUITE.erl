@@ -1,5 +1,4 @@
 -module(file_name_SUITE).
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
