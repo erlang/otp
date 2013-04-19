@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -113,72 +113,17 @@ os_based_skip(_) ->
 %%     {Mod, Fun, ExpectedRes, ActualRes}
 %%----------------------------------------------------------------------
 
-tickets(Case) ->
-    Res = lists:flatten(tickets(Case, default_config())),
-    %% io:format("Res: ~p~n", [Res]),
+tickets([Mod]) ->
+    tickets(Mod);
+tickets(Mod) when is_atom(Mod) ->
+    %% p("tickets -> entry with"
+    %% 	      "~n   Mod: ~p", [Mod]),
+    Res0 = t({Mod, {group, tickets}, Mod:groups()}, default_config()),
+    Res  = lists:flatten(Res0),
+    %% p("tickets(~w) -> Res: ~p~n", [Mod, Res]),
     display_result(Res),
     Res.
 
-tickets(Cases, Config) when is_list(Cases) ->     
-    [tickets(Case, Config) || Case <- Cases];
-tickets(Mod, Config) when is_atom(Mod) ->
-    Res = tickets(Mod, tickets, Config),
-    Res;
-tickets(Bad, _Config) ->
-    [{badarg, Bad, ok}].
-
-tickets(Mod, Func, Config) ->
-    case (catch Mod:Func(suite)) of
-	[] ->
-	    io:format("Eval:   ~p:", [{Mod, Func}]),
-	    Res = eval(Mod, Func, Config),
-	    {R, _, _} = Res,
-	    io:format(" ~p~n", [R]),
-	    Res;
-	
-	Cases when is_list(Cases) ->
-	    io:format("Expand: ~p:~p ... ~n"
-		      "        ~p~n", [Mod, Func, Cases]),
-	    Map = fun({M,_}) when is_atom(M) -> 
-			  tickets(M, tickets, Config);
-		     (F)     when is_atom(F) -> 
-			  tickets(Mod, F, Config);
-		     (Case) -> Case
-		  end,
-	    lists:map(Map, Cases);
-
-%%         {req, _, {conf, Init, Cases, Finish}} ->
-%% 	    case (catch Mod:Init(Config)) of
-%% 		Conf when is_list(Conf) ->
-%% 		    io:format("Expand: ~p:~p ...~n", [Mod, Func]),
-%% 		    Map = fun({M,_}) when is_atom(M) -> 
-%% 				  tickets(M, tickets, Config);
-%% 			     (F)     when is_atom(F) -> 
-%% 				  tickets(Mod, F, Config);
-%% 			     (Case) -> Case
-%% 			  end,
-%% 		    Res = lists:map(Map, Cases),
-%% 		    (catch Mod:Finish(Conf)),
-%% 		    Res;
-		    
-%% 		{'EXIT', {skipped, Reason}} ->
-%% 		    io:format(" => skipping: ~p~n", [Reason]),
-%% 		    [{skipped, {Mod, Func}, Reason}];
-		    
-%% 		Error ->
-%% 		    io:format(" => init failed: ~p~n", [Error]),
-%% 		    [{failed, {Mod, Func}, Error}]
-%% 	    end;
-		    
-        {'EXIT', {undef, _}} ->
-	    io:format("Undefined:   ~p~n", [{Mod, Func}]),
-	    [{nyi, {Mod, Func}, ok}];
-		    
-        Error ->
-	    io:format("Ignoring:   ~p:~p: ~p~n", [Mod, Func, Error]),
-	    [{failed, {Mod, Func}, Error}]
-    end.
-	
 
 display_alloc_info() ->
     io:format("Allocator memory information:~n", []),
@@ -254,8 +199,12 @@ alloc_instance_mem_info(Key, InstanceInfo) ->
 		      
     
 t([Case]) when is_atom(Case) ->
+    %% p("t -> entry with"
+    %% 	 "~n   [Case]: [~p]", [Case]),
     t(Case);
 t(Case) ->
+    %% p("t -> entry with"
+    %% 	 "~n   Case: ~p", [Case]),
     process_flag(trap_exit, true),
     MEM = fun() -> case (catch erlang:memory()) of
 			{'EXIT', _} ->
@@ -298,9 +247,16 @@ end_group(Mod, Group, Config) ->
 
 %% This is for sub-SUITEs
 t({_Mod, {NewMod, all}, _Groups}, _Config) when is_atom(NewMod) ->
+    %% p("t(all) -> entry with"
+    %%   "~n   NewMod: ~p", [NewMod]),
     t(NewMod);
 t({Mod, {group, Name} = Group, Groups}, Config) 
   when is_atom(Mod) andalso is_atom(Name) andalso is_list(Groups) ->
+    %% p("t(group) -> entry with"
+    %%   "~n   Mod:    ~p"
+    %%   "~n   Name:   ~p"
+    %%   "~n   Groups: ~p"
+    %%   "~n   Config: ~p", [Mod, Name, Groups, Config]),
     case lists:keysearch(Name, 1, Groups) of
 	{value, {Name, _Props, GroupsAndCases}} ->
 	    try init_group(Mod, Name, Config) of
@@ -317,7 +273,7 @@ t({Mod, {group, Name} = Group, Groups}, Config)
 		exit:{skipped, SkipReason} ->
 		    io:format(" => skipping group: ~p~n", [SkipReason]),
 		    [{skipped, {Mod, Group}, SkipReason, 0}];
-		exit:{undef, _} ->
+		error:undef ->
 		    [t({Mod, Case, Groups}, Config) || 
 			      Case <- GroupsAndCases];
 		T:E ->
@@ -328,7 +284,11 @@ t({Mod, {group, Name} = Group, Groups}, Config)
     end;
 t({Mod, Fun, _}, Config) 
   when is_atom(Mod) andalso is_atom(Fun) ->
-    case catch apply(Mod, Fun, [suite]) of
+    %% p("t -> entry with"
+    %%   "~n   Mod:    ~p"
+    %%   "~n   Fun:    ~p"
+    %%   "~n   Config: ~p", [Mod, Fun, Config]),
+    try apply(Mod, Fun, [suite]) of
 	[] ->
 	    io:format("Eval:   ~p:", [{Mod, Fun}]),
 	    Res = eval(Mod, Fun, Config),
@@ -343,18 +303,24 @@ t({Mod, Fun, _}, Config)
 		  end,
 	    t(lists:map(Map, Cases), Config);
 
-        {'EXIT', {undef, _}} ->
-	    io:format("Undefined:   ~p~n", [{Mod, Fun}]),
-	    [{nyi, {Mod, Fun}, ok, 0}];
-		    
         Error ->
 	    io:format("Ignoring:   ~p: ~p~n", [{Mod, Fun}, Error]),
 	    [{failed, {Mod, Fun}, Error, 0}]
+
+    catch
+        error:undef ->
+	    io:format("Undefined:   ~p~n", [{Mod, Fun}]),
+	    [{nyi, {Mod, Fun}, ok, 0}]
+
+	
     end;
 t(Mod, Config) when is_atom(Mod) ->
+    %% p("t -> entry with"
+    %%   "~n   Mod:    ~p"
+    %%   "~n   Config: ~p", [Mod, Config]),    
     %% This is assumed to be a test suite, so we start by calling 
     %% the top test suite function(s) (all/0 and groups/0).
-    case (catch Mod:all()) of
+    try Mod:all() of
 	Cases when is_list(Cases) -> 
 	    %% The list may contain atoms (actual test cases) and
 	    %% group-tuples (a tuple naming a group of test cases).
@@ -372,17 +338,21 @@ t(Mod, Config) when is_atom(Mod) ->
 		exit:{skipped, SkipReason} ->
 		    io:format(" => skipping suite: ~p~n", [SkipReason]),
 		    [{skipped, {Mod, init_per_suite}, SkipReason, 0}];
-		exit:{undef, _} ->
+		error:undef ->
 		    [t({Mod, Case, Groups}, Config) || Case <- Cases];
 		T:E ->
+		    io:format(" => failed suite: ~p~n", [{T,E}]),
 		    [{failed, {Mod, init_per_suite}, {T,E}, 0}]
 	    end;
-        {'EXIT', {undef, _}} ->
-	    io:format("Undefined:   ~p~n", [{Mod, all}]),
-	    [{nyi, {Mod, all}, ok, 0}];
-		    
+
 	Crap ->
 	    Crap
+
+    catch
+        error:undef ->
+	    io:format("Undefined:   ~p~n", [{Mod, all}]),
+	    [{nyi, {Mod, all}, ok, 0}]
+		    
     end;
 t(Bad, _Config) ->
     [{badarg, Bad, ok, 0}].
@@ -409,6 +379,14 @@ eval(Mod, Fun, Config) ->
 wait_for_evaluator(Pid, Mod, Fun, Config, Errors) ->
     wait_for_evaluator(Pid, Mod, Fun, Config, Errors, 0).
 wait_for_evaluator(Pid, Mod, Fun, Config, Errors, AccTime) ->
+    %% p("wait_for_evaluator -> "
+    %%   "~n   Pid:     ~p"
+    %%   "~n   Mod:     ~p"
+    %%   "~n   Fun:     ~p"
+    %%   "~n   Config:  ~p"
+    %%   "~n   Errors:  ~p"
+    %%   "~n   AccTime: ~p", 
+    %%   [Pid, Mod, Fun, Config, Errors, AccTime]),
     TestCase = {?MODULE, Mod, Fun},
     Label = lists:concat(["TEST CASE: ", Fun]),
     receive
@@ -446,16 +424,43 @@ wait_for_evaluator(Pid, Mod, Fun, Config, Errors, AccTime) ->
     end.
 
 do_eval(ReplyTo, Mod, Fun, Config) ->
+    %% p("do_eval -> "
+    %%   "~n   ReplyTo: ~p"
+    %%   "~n   Mod:     ~p"
+    %%   "~n   Fun:     ~p"
+    %%   "~n   Config:  ~p", [ReplyTo, Mod, Fun, Config]),
     display_system_info("before", Mod, Fun),
-    case timer:tc(Mod, Fun, [Config]) of
-	{Time, {'EXIT', {skipped, Reason}}} ->
+    T1 = os:timestamp(), 
+    try Mod:Fun(Config) of
+	Res ->
+	    %% p("do_eval -> done"
+	    %%   "~n   Res: ~p", [Res]),
+	    T2   = os:timestamp(), 
+	    Time = timer:now_diff(T2, T1), 
+	    display_tc_time(Time),
+	    display_system_info("after", Mod, Fun),
+	    ReplyTo ! {done, self(), Res, Time}
+    catch
+	error:undef ->
+	    %% p("do_eval -> error - undef", []),
+	    ReplyTo ! {'EXIT', self(), undef, 0};
+	exit:{skipped, Reason} ->
+	    %% p("do_eval -> exit - skipped"
+	    %%   "~n   Reason: ~p", [Reason]),
+	    T2   = os:timestamp(), 
+	    Time = timer:now_diff(T2, T1), 
 	    display_tc_time(Time),
 	    display_system_info("after (skipped)", Mod, Fun),
 	    ReplyTo ! {'EXIT', self(), {skipped, Reason}, Time};
-	{Time, Other} ->
+	exit:{suite_failed, Reason} ->
+	    %% p("do_eval -> exit - suite-failed"
+	    %%   "~n   Reason: ~p", [Reason]),
+	    T2   = os:timestamp(), 
+	    Time = timer:now_diff(T2, T1), 
 	    display_tc_time(Time),
-	    display_system_info("after", Mod, Fun),
-	    ReplyTo ! {done, self(), Other, Time}
+	    display_system_info("after (failed)", Mod, Fun),
+	    ReplyTo ! {done, self(), Reason, Time}
+
     end,
     unlink(ReplyTo),
     exit(shutdown).
