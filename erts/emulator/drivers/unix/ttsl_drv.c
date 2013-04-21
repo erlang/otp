@@ -842,7 +842,7 @@ static int del_chars(int n)
 	move_cursor(lpos, lpos-l);	/* Move back */
 	/* Fix up buffer and buffer pointers. */
 	if (r > 0)
-	    memcpy(lbuf + pos, lbuf + lpos, r * sizeof(Uint32));
+	    memmove(lbuf + pos, lbuf + lpos, r * sizeof(Uint32));
 	lpos -= l;
 	llen -= l;
 	/* Write out characters after, blank the tail and jump back to lpos. */
