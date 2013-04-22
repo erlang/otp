@@ -330,10 +330,7 @@ encrypt_private(PlainText,
 %% Description: Generates new key(s)
 %%--------------------------------------------------------------------
 generate_key({curve, Name}) ->
-    %% TODO: Better crypto API
-    ECDHKey = crypto:ec_key_new(Name),
-    crypto:ec_key_generate(ECDHKey),
-    Term = crypto:ec_key_to_term(ECDHKey),
+    Term = crypto:ecdh_generate_key(Name),
     ec_key(Term);
 
 generate_key(#'DHParameter'{prime = P, base = G}) ->
@@ -350,13 +347,8 @@ generate_key({srp, Version, Verifier, Generator, Prime}) when is_binary(Verifier
     crypto:srp_generate_key(Verifier, Generator, Prime, Version);
 
 generate_key(Params) ->
-    %% TODO: Better crypto API
-    Name = ec_curve_spec(Params),
-    ECClntKey = crypto:ec_key_new(Name),
-    %% ECDHKey = format_ecdh_key(Params),
-    %% ECClntKey = crypto:term_to_ec_key(ECDHKey),
-    crypto:ec_key_generate(ECClntKey),
-    Term = crypto:ec_key_to_term(ECClntKey),
+    Curve = ec_curve_spec(Params),
+    Term = crypto:ecdh_generate_key(Curve),
     ec_key(Term, Params).
 
 %%--------------------------------------------------------------------
@@ -372,9 +364,7 @@ compute_key(PubKey, #'ECPrivateKey'{} = PrivateKey) ->
     compute_key(PubKey, format_ecdh_key(PrivateKey));
 
 compute_key(#'ECPoint'{point = Point}, ECDHKeys) ->
-    %% TODO: Better crypto API
-    ECKey = crypto:term_to_ec_key(ECDHKeys),
-    crypto:ecdh_compute_key(ECKey, Point).
+    crypto:ecdh_compute_key(ECDHKeys, Point).
 
 compute_key(OthersKey, MyKey, {dh, Prime, Base}) when is_binary(OthersKey),
 						     is_binary(MyKey),
@@ -439,8 +429,7 @@ sign(DigestOrPlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
 
 sign(DigestOrPlainText, DigestType, Key = #'ECPrivateKey'{}) ->
     ECDHKey = format_ecdh_key(Key),
-    ECKey = crypto:term_to_ec_key(ECDHKey),
-    crypto:sign(ecdsa, DigestType, DigestOrPlainText, ECKey);
+    crypto:sign(ecdsa, DigestType, DigestOrPlainText, ECDHKey);
 
 %% Backwards compatible
 sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
@@ -457,15 +446,9 @@ verify(DigestOrPlainText, DigestType, Signature,
     crypto:verify(rsa, DigestType, DigestOrPlainText, Signature,
 		  [Exp, Mod]);
 
-verify(Digest, DigestType, Signature, Key = #'ECPrivateKey'{}) ->
-    ECDHKey = format_ecdh_key(Key),
-    ECKey = crypto:term_to_ec_key(ECDHKey),
-    crypto:verify(ecdsa, DigestType, Digest, Signature, ECKey);
-
 verify(DigestOrPlaintext, DigestType, Signature, Key = {#'ECPoint'{}, _}) ->
     ECDHKey = format_ecdh_key(Key),
-    ECKey = crypto:term_to_ec_key(ECDHKey),
-    crypto:verify(ecdsa, DigestType, DigestOrPlaintext, Signature, ECKey);
+    crypto:verify(ecdsa, DigestType, DigestOrPlaintext, Signature, ECDHKey);
 
 %% Backwards compatibility
 verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
@@ -511,12 +494,7 @@ pkix_verify(DerCert,  #'RSAPublicKey'{} = RSAKey)
     {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
     verify(PlainText, DigestType, Signature, RSAKey);
 
-pkix_verify(DerCert,  #'ECPrivateKey'{} = ECKey)
-  when is_binary(DerCert) ->
-    {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
-    verify(PlainText, DigestType, Signature, ECKey);
-
-pkix_verify(DerCert, Key = {'ECKey', _})
+pkix_verify(DerCert, Key = {#'ECPoint'{}, _})
   when is_binary(DerCert) ->
     {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
     verify(PlainText, DigestType, Signature,  Key).

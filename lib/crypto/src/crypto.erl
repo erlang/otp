@@ -67,8 +67,8 @@
 -export([aes_cbc_ivec/1]).
 -export([aes_ctr_encrypt/3, aes_ctr_decrypt/3]).
 -export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
--export([ec_key_new/1, ec_key_to_term/1, term_to_ec_key/1, ec_key_generate/1]).
--export([sign/4, verify/5, ecdh_compute_key/2]).
+-export([ecdh_generate_key/1, ecdh_compute_key/2]).
+-export([sign/4, verify/5]).
 
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see below
 
@@ -115,8 +115,8 @@
 		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n, info,
 		    rc2_cbc_encrypt, rc2_cbc_decrypt,
 		    srp_generate_key, srp_compute_key,
-		    ec_key_new, ec_key_to_term, term_to_ec_key, ec_key_generate,
-		    sign, verify, ecdh_compute_key,
+		    ecdh_generate_key, ecdh_compute_key,
+		    sign, verify,
 		    info_lib, algorithms]).
 
 -type mpint() :: binary().
@@ -859,7 +859,7 @@ verify(rsa, Type, DataOrDigest, Signature, Key) ->
 	Bool -> Bool
     end;
 verify(ecdsa, Type, DataOrDigest, Signature, Key) ->
-    case ecdsa_verify_nif(Type, DataOrDigest, Signature, map_ensure_int_as_bin(Key)) of
+    case ecdsa_verify_nif(Type, DataOrDigest, Signature, term_to_ec_key(Key)) of
 	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end.
@@ -921,7 +921,7 @@ sign(dss, Type, DataOrDigest, Key) ->
 	Sign -> Sign
     end;
 sign(ecdsa, Type, DataOrDigest, Key) ->
-    case ecdsa_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
+    case ecdsa_sign_nif(Type, DataOrDigest, term_to_ec_key(Key)) of
 	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
 	Sign -> Sign
     end.
@@ -1229,6 +1229,16 @@ srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Vers
 -spec ec_key_new(ec_named_curve()) -> ec_key_res().
 ec_key_new(_Curve) -> ?nif_stub.
 
+ecdh_generate_key(Curve) when is_atom(Curve) ->
+    ECKey = ec_key_new(Curve),
+    ec_key_generate(ECKey),
+    ec_key_to_term(ECKey);
+ecdh_generate_key(Key) ->
+    ECKey = term_to_ec_key(Key),
+    ec_key_generate(ECKey),
+    ec_key_to_term(ECKey).
+
+
 -spec ec_key_generate(ec_key_res()) -> ok | error.
 ec_key_generate(_Key) -> ?nif_stub.
 
@@ -1277,7 +1287,10 @@ term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 
 
 -spec ecdh_compute_key(ec_key_res(), ec_key_res() | ec_point()) -> binary().
-ecdh_compute_key(_Others, _My) -> ?nif_stub.
+ecdh_compute_key(Others, My) ->
+    ecdh_compute_key_nif(term_to_ec_key(Others), My).
+
+ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
 
 
 %%  LOCAL FUNCTIONS

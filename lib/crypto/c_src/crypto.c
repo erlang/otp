@@ -235,7 +235,7 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM ecdh_compute_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 
 /* helpers */
@@ -361,7 +361,7 @@ static ErlNifFunc nif_funcs[] = {
     {"ec_key_generate", 1, ec_key_generate},
     {"ecdsa_sign_nif", 3, ecdsa_sign_nif},
     {"ecdsa_verify_nif", 4, ecdsa_verify_nif},
-    {"ecdh_compute_key", 2, ecdh_compute_key}
+    {"ecdh_compute_key_nif", 2, ecdh_compute_key_nif}
 };
 
 #if defined(HAVE_EC)
@@ -3452,7 +3452,7 @@ static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
   (_OthersPublicKey, _MyPrivateKey)
   (_OthersPublicKey, _MyEC_Point)
 */
-static ERL_NIF_TERM ecdh_compute_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #if defined(HAVE_EC)
     ERL_NIF_TERM ret;
