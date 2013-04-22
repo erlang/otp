@@ -76,16 +76,6 @@ static int initialized = 0;
 
 int erts_have_sbmbc_alloc;
 
-#if HAVE_ERTS_MSEG
-
-#define MSEG_UNIT_SHIFT         MSEG_ALIGN_BITS
-#define MSEG_UNIT_SZ            (1 << MSEG_UNIT_SHIFT)
-#define MSEG_UNIT_MASK		((~(UWord)0) << MSEG_UNIT_SHIFT)
-
-#define MSEG_UNIT_FLOOR(X)	((X) & MSEG_UNIT_MASK)
-#define MSEG_UNIT_CEILING(X)	MSEG_UNIT_FLOOR((X) + ~MSEG_UNIT_MASK)
-
-#endif
 
 #define INV_SYS_ALLOC_CARRIER_MASK	((UWord) (sys_alloc_carrier_size - 1))
 #define SYS_ALLOC_CARRIER_MASK		(~INV_SYS_ALLOC_CARRIER_MASK)
@@ -173,14 +163,6 @@ MBC after deallocating first block:
 #define SET_BLK_SZ_FTR(B, SZ) \
   (((FreeBlkFtr_t *) (((char *) (B)) + (SZ)))[-1] = (SZ))
 
-#define THIS_FREE_BLK_HDR_FLG 	(((UWord) 1) << 0)
-#define PREV_FREE_BLK_HDR_FLG 	(((UWord) 1) << 1)
-#define LAST_BLK_HDR_FLG 	(((UWord) 1) << 2)
-
-/* Special flag combo for (allocated) SBC blocks 
-*/
-#define SBC_BLK_HDR_FLG (THIS_FREE_BLK_HDR_FLG | PREV_FREE_BLK_HDR_FLG | LAST_BLK_HDR_FLG)
-
 #define SET_MBC_ABLK_SZ(B, SZ) \
   (ASSERT(((SZ) & FLG_MASK) == 0), \
    (B)->bhdr = (((B)->bhdr) & ~MBC_ABLK_SZ_MASK) | (SZ))
@@ -222,15 +204,6 @@ MBC after deallocating first block:
      ASSERT(((UWord)(F) & (~FLG_MASK|THIS_FREE_BLK_HDR_FLG|PREV_FREE_BLK_HDR_FLG)) == THIS_FREE_BLK_HDR_FLG), \
      (B)->bhdr = ((Sz) | (F)), \
      (B)->u.carrier = (C))
-
-#  define ABLK_TO_MBC(B) \
-    (ASSERT(IS_MBC_BLK(B) && IS_ALLOCED_BLK(B)), \
-     (Carrier_t*)((MSEG_UNIT_FLOOR((UWord)(B)) - \
-		  (((B)->bhdr >> MBC_ABLK_OFFSET_SHIFT) << MSEG_UNIT_SHIFT))))
-
-#  define FBLK_TO_MBC(B) \
-    (ASSERT(IS_MBC_BLK(B) && IS_FREE_BLK(B)), \
-     (B)->u.carrier)
       
 #  define BLK_TO_MBC(B) (IS_FREE_BLK(B) ? FBLK_TO_MBC(B) : ABLK_TO_MBC(B))
 
@@ -273,8 +246,6 @@ MBC after deallocating first block:
      (B)->carrier = (C))
 
 #  define BLK_TO_MBC(B) ((B)->carrier)
-#  define ABLK_TO_MBC(B) BLK_TO_MBC(B)
-#  define FBLK_TO_MBC(B) BLK_TO_MBC(B)
 
 #  define IS_MBC_FIRST_BLK(AP,B) \
   ((char*)(B) == (char*)((B)->carrier) + MBC_HEADER_SIZE(AP))
@@ -300,8 +271,6 @@ MBC after deallocating first block:
   ((B)->bhdr & PREV_FREE_BLK_HDR_FLG)
 #define IS_PREV_BLK_ALLOCED(B) \
   (!IS_PREV_BLK_FREE((B)))
-#define IS_FREE_BLK(B) \
-  (ASSERT(!IS_SBC_BLK(B)), (B)->bhdr & THIS_FREE_BLK_HDR_FLG)
 #define IS_ALLOCED_BLK(B) \
   (!IS_FREE_BLK((B)))  
 #define IS_LAST_BLK(B) \
@@ -317,11 +286,6 @@ MBC after deallocating first block:
   ((B)->bhdr & PREV_FREE_BLK_HDR_FLG)
 #define GET_BLK_HDR_FLGS(B) \
   ((B)->bhdr & FLG_MASK)
-
-#define IS_SBC_BLK(B) \
-    (((B)->bhdr & FLG_MASK) == SBC_BLK_HDR_FLG)
-#define IS_MBC_BLK(B) \
-  (!IS_SBC_BLK((B)))
 
 #define MBC_BLK_SZ(B) (IS_FREE_BLK(B) ? MBC_FBLK_SZ(B) : MBC_ABLK_SZ(B))
 
@@ -4440,6 +4404,7 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
     case 0x019:	return (UWord) PREV_BLK((Block_t *) a1);
     case 0x01a: return (UWord) IS_MBC_FIRST_BLK((Allctr_t*)a1, (Block_t *) a2);
     case 0x01b: return (UWord) sizeof(Unit_t);
+    case 0x01c: return (unsigned long) BLK_TO_MBC((Block_t*) a1);
     default:	ASSERT(0); return ~((UWord) 0);
     }
 }

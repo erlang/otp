@@ -221,8 +221,15 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #define MBC_FBLK_SZ_MASK        UNIT_MASK
 #define CARRIER_SZ_MASK         UNIT_MASK
 
-
 #if HAVE_ERTS_MSEG
+
+#  define MSEG_UNIT_SHIFT         MSEG_ALIGN_BITS
+#  define MSEG_UNIT_SZ            (1 << MSEG_UNIT_SHIFT)
+#  define MSEG_UNIT_MASK		((~(UWord)0) << MSEG_UNIT_SHIFT)
+
+#  define MSEG_UNIT_FLOOR(X)	((X) & MSEG_UNIT_MASK)
+#  define MSEG_UNIT_CEILING(X)	MSEG_UNIT_FLOOR((X) + ~MSEG_UNIT_MASK)
+
 #  ifdef ARCH_64 
 #    define MBC_ABLK_OFFSET_BITS   24
 #  elif HAVE_SUPER_ALIGNED_MB_CARRIERS
@@ -279,6 +286,30 @@ typedef struct {
     }u;
 #endif
 } Block_t;
+
+#define THIS_FREE_BLK_HDR_FLG 	(((UWord) 1) << 0)
+#define PREV_FREE_BLK_HDR_FLG 	(((UWord) 1) << 1)
+#define LAST_BLK_HDR_FLG 	(((UWord) 1) << 2)
+
+#define SBC_BLK_HDR_FLG /* Special flag combo for (allocated) SBC blocks */\
+    (THIS_FREE_BLK_HDR_FLG | PREV_FREE_BLK_HDR_FLG | LAST_BLK_HDR_FLG)
+
+#define IS_SBC_BLK(B) (((B)->bhdr & FLG_MASK) == SBC_BLK_HDR_FLG)
+#define IS_MBC_BLK(B) (!IS_SBC_BLK((B)))
+#define IS_FREE_BLK(B) (ASSERT(IS_MBC_BLK(B)), \
+			(B)->bhdr & THIS_FREE_BLK_HDR_FLG)
+
+#if MBC_ABLK_OFFSET_BITS
+#  define FBLK_TO_MBC(B) (ASSERT(IS_MBC_BLK(B) && IS_FREE_BLK(B)), \
+			  (B)->u.carrier)
+#  define ABLK_TO_MBC(B) \
+    (ASSERT(IS_MBC_BLK(B) && !IS_FREE_BLK(B)), \
+     (Carrier_t*)((MSEG_UNIT_FLOOR((UWord)(B)) - \
+		  (((B)->bhdr >> MBC_ABLK_OFFSET_SHIFT) << MSEG_UNIT_SHIFT))))
+#else
+#  define FBLK_TO_MBC(B) ((B)->carrier)
+#  define ABLK_TO_MBC(B) ((B)->carrier)
+#endif
 
 typedef UWord FreeBlkFtr_t; /* Footer of a free block */
 

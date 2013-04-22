@@ -984,7 +984,7 @@ erts_bfalc_test(UWord op, UWord a1, UWord a2)
     case 0x205:	return (UWord) ((RBTreeList_t *) a1)->next;
     case 0x206:	return (UWord) IS_BLACK((RBTree_t *) a1);
     case 0x207:	return (UWord) IS_TREE_NODE((RBTree_t *) a1);
-    case 0x208:	return (UWord) 0; /* IS_AOFF */
+    case 0x208:	return (UWord) 1; /* IS_BF_ALGO */
     default:	ASSERT(0); return ~((UWord) 0);
     }
 }

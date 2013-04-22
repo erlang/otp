@@ -1197,6 +1197,11 @@ handle_au_arg(struct au_init *auip,
 	    }
 	    else if (strcmp("aoff", alg) == 0) {
 		auip->atype = AOFIRSTFIT;
+		auip->init.aoff.bf_within_carrier = 0;
+	    }
+	    else if (strcmp("aoffcbf", alg) == 0) {
+		auip->atype = AOFIRSTFIT;
+		auip->init.aoff.bf_within_carrier = 1;
 	    }
 	    else {
 		bad_value(param, sub_param + 1, alg);

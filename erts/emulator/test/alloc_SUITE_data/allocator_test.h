@@ -75,6 +75,7 @@ typedef void* erts_cond;
 #define PREV_BLK(B)		((Block_t *)	ALC_TEST1(0x019, (B)))
 #define IS_MBC_FIRST_BLK(A,B)	((Ulong)	ALC_TEST2(0x01a, (A), (B)))
 #define UNIT_SZ			((Ulong)	ALC_TEST0(0x01b))
+#define BLK_TO_MBC(B)		((Carrier_t *)	ALC_TEST1(0x01c, (B)))
 
 /* From erl_goodfit_alloc.c */
 #define BKT_IX(A, S)		((Ulong)	ALC_TEST2(0x100, (A), (S)))
@@ -91,8 +92,9 @@ typedef void* erts_cond;
 #define RBT_NEXT(T)		((RBTL_t *)	ALC_TEST1(RBT_OP(5), (T)))
 #define RBT_IS_BLACK(T)		((Ulong)	ALC_TEST1(RBT_OP(6), (T)))
 #define RBT_IS_TREE(T)		((Ulong)	ALC_TEST1(RBT_OP(7), (T)))
-#define IS_AOFF(A)		((Ulong)	ALC_TEST1(RBT_OP(8), (A)))
+#define IS_BF_ALGO(A)		((Ulong)	ALC_TEST1(RBT_OP(8), (A)))
 #define RBT_MAX_SZ(T)		((Ulong)	ALC_TEST1(RBT_OP(9), (T)))
+#define IS_CBF(A)		((Ulong)	ALC_TEST1(RBT_OP(0xa), (A)))
 
 /* From erl_mseg.c */
 #define HAVE_MSEG()		((int)		ALC_TEST0(0x400))
