@@ -304,7 +304,7 @@ MBC after deallocating first block:
 
 #define SBC_HEADER_SIZE	   (UNIT_CEILING(sizeof(Carrier_t) + ABLK_HDR_SZ) \
 			    - ABLK_HDR_SZ)
-#define MBC_HEADER_SIZE(AP) SBC_HEADER_SIZE
+#define MBC_HEADER_SIZE(AP) ((AP)->mbc_header_size)
 
 
 #define MSEG_CARRIER_HDR_FLAG		(((UWord) 1) << 0)
@@ -4256,6 +4256,8 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     if (!allctr->get_next_mbc_size)
 	allctr->get_next_mbc_size = get_next_mbc_size;
 
+    if (allctr->mbc_header_size < sizeof(Carrier_t))
+	goto error;
 #ifdef ERTS_SMP
     allctr->dd.use = 0;
     if (init->tpref) {
@@ -4264,6 +4266,9 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	allctr->dd.ix = init->ix;
     }
 #endif
+    allctr->mbc_header_size = (UNIT_CEILING(allctr->mbc_header_size
+					    + ABLK_HDR_SZ)
+			       - ABLK_HDR_SZ);
 
     if (allctr->main_carrier_size) {
 	Block_t *blk;

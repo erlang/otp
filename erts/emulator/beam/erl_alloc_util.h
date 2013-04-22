@@ -448,6 +448,7 @@ struct Allctr_t_ {
 #endif
 
     /* */
+    Uint		mbc_header_size;
     Uint		min_mbc_size;
     Uint		min_mbc_first_free_size;
     Uint		min_block_size;
