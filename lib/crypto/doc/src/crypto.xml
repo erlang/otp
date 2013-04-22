@@ -1354,7 +1354,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 	<p>
 	  Computes the SRP session key (shared secret) for the client side (first argument is DerivedKey)
 	  or for the server side (first argument is Verifier). Also used
-	  as premaster secret by TLS-SRP ciher suites.
+	  as premaster secret by TLS-SRP cipher suites.
 	</p>
       </desc>
     </func>
