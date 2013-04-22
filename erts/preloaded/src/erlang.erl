@@ -1714,15 +1714,15 @@ nodes(_Arg) ->
     erlang:nif_error(undefined).
 
 -spec open_port(PortName, PortSettings) -> port() when
-      PortName :: {spawn, Command :: string()} |
-                  {spawn_driver, Command :: [byte()]} |
+      PortName :: {spawn, Command :: string() | binary()} |
+                  {spawn_driver, Command :: string() | binary()} |
                   {spawn_executable, FileName :: file:name() } |
                   {fd, In :: non_neg_integer(), Out :: non_neg_integer()},
       PortSettings :: [Opt],
       Opt :: {packet, N :: 1 | 2 | 4}
            | stream
            | {line, L :: non_neg_integer()}
-           | {cd, Dir :: string()}
+           | {cd, Dir :: string() | binary()}
            | {env, Env :: [{Name :: string(), Val :: string() | false}]}
            | {args, [string() | binary()]}
            | {arg0, string() | binary()}
