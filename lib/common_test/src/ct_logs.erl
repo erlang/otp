@@ -978,10 +978,9 @@ print_style_error(Fd,StyleSheet,Reason) ->
     print_style(Fd,undefined).    
 
 close_ctlog(Fd) ->
-    io:format(Fd,"\n</pre>\n",[]),
-    io:format(Fd,footer(),[]),
+    io:format(Fd, "\n</pre>\n", []),
+    io:format(Fd, [xhtml("<br><br>\n", "<br /><br />\n") | footer()], []),
     file:close(Fd).
-
 
 
 %%%-----------------------------------------------------------------
@@ -1037,7 +1036,7 @@ make_last_run_index1(StartTime,IndexName) ->
 					     0, 0, 0, 0, 0, Missing),
     %% write current Totals to file, later to be used in all_runs log
     write_totals_file(?totals_name,Label,Logs1,Totals),
-    Index = [Index0|index_footer()],
+    Index = [Index0|last_run_index_footer()],
 
     case force_write_file(IndexName, unicode:characters_to_binary(Index)) of
 	ok ->
@@ -1446,17 +1445,30 @@ header1(Title, SubTitle, TableCols) ->
      "</center>\n",
      SubTitleHTML,"\n"].
 
-index_footer() ->
-    ["</table>\n"
+last_run_index_footer() ->
+    AllRuns = filename:join("../",?all_runs_name),
+    TestIndex = filename:join("../",?index_name),
+    ["</table>\n",
+     xhtml("<br><hr><p>\n", "<br /><hr /><p>\n"),
+     "<a href=\"", uri(AllRuns),
+     "\">Test run history\n</a>  |  ",
+     "<a href=\"", uri(TestIndex),
+     "\">Top level test index\n</a>\n</p>\n",
      "</center>\n" | footer()].
 
+all_suites_index_footer() ->
+    ["</table>\n",
+     "</center>\n",
+     xhtml("<br><br>\n", "<br /><br />\n") | footer()].
+
 all_runs_index_footer() ->
-    ["</tbody>\n</table>\n"
-     "</center>\n" | footer()].
+    ["</tbody>\n</table>\n",
+     "</center>\n",
+     xhtml("<br><br>\n", "<br /><br />\n") | footer()].
 
 footer() ->
      ["<center>\n",
-      xhtml("<br><br>\n<hr>\n", "<br /><br />\n"),
+      xhtml("<hr>\n", ""),
       xhtml("<p><font size=\"-1\">\n", "<div class=\"copyright\">"),
       "Copyright &copy; ", year(),
       " <a href=\"http://www.erlang.org\">Open Telecom Platform</a>",
@@ -1467,7 +1479,6 @@ footer() ->
       "</center>\n"
       "</body>\n"
       "</html>\n"].
-
 
 body_tag() ->
     CTPath = code:lib_dir(common_test),
@@ -2370,7 +2381,7 @@ make_all_suites_index2(IndexName, AllTestLogDirs) ->
 	make_all_suites_index3(AllTestLogDirs,
 			       all_suites_index_header(),
 			       0, 0, 0, 0, 0, [], []),
-    Index = [Index0|index_footer()],
+    Index = [Index0|all_suites_index_footer()],
     case force_write_file(IndexName, unicode:characters_to_binary(Index)) of
 	ok ->
 	    {ok,TempData};
@@ -2476,7 +2487,7 @@ make_all_suites_ix_temp(AbsIndexName, NewTestData, Label, AllTestLogDirs) ->
     Index0 = make_all_suites_ix_temp1(AllTestLogDirs1,
 				      all_suites_index_header(IndexDir),
 				      0, 0, 0, 0, 0),
-    Index = [Index0|index_footer()],
+    Index = [Index0|all_suites_index_footer()],
     case force_write_file(AbsIndexName, unicode:characters_to_binary(Index)) of
 	ok ->
 	    ok;
