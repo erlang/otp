@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -58,7 +58,7 @@
         <item>
           <p>
 	    Fix Debugger settings dialog due to changed behavior in
-	    wxFileDialog (Thanks to Håkan Mattsson)</p>
+	    wxFileDialog (Thanks to HÃ¥kan Mattsson)</p>
           <p>
 	    Own Id: OTP-10621</p>
         </item>
@@ -100,7 +100,7 @@
         <item>
           <p>
 	    Fixed disappearing breakpoints bug, reported by Ricardo
-	    Catalinas Jiménez.</p>
+	    Catalinas JimÃ©nez.</p>
           <p>
 	    Own Id: OTP-9950</p>
         </item>
@@ -121,7 +121,7 @@
 	    occurrences of "Ok" to "OK" in the code, variable names
 	    and strings. This improves the consistency of the code
 	    and follows the GTK UI where "OK" is always used.(Thanks
-	    to Ricardo Catalinas Jiménez)</p>
+	    to Ricardo Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-9699</p>
         </item>

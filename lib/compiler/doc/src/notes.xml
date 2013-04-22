@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -45,7 +45,7 @@
         <item>
           <p>
 	    Forbid multiple values in Core Erlang sequence arguments.
-	    Thanks to José Valim and Anthony Ramine.</p>
+	    Thanks to JosÃ© Valim and Anthony Ramine.</p>
           <p>
 	    Own Id: OTP-10818</p>
         </item>
@@ -144,7 +144,7 @@
           <p>
 	    <c>compile:forms/2</c> will now use a
 	    {source,SourceFilePath} to set the source returned by
-	    <c>module_info(compile)</c> (Thanks to José Valim)</p>
+	    <c>module_info(compile)</c> (Thanks to JosÃ© Valim)</p>
           <p>
 	    Own Id: OTP-10150</p>
         </item>
@@ -256,7 +256,7 @@
         <item>
           <p>
 	    Fix typo in `compile' doc: unmatched parenthesis (Thanks
-	    to Ricardo Catalinas Jiménez)</p>
+	    to Ricardo Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-9919</p>
         </item>
@@ -757,7 +757,7 @@
 	    (Thanks to Paul Fisher.)</p>
 	    <p>Using filter expressions containing <c>andalso</c> or
 	    <c>orelse</c> in a list comprehension could cause a
-	    compiler crash. (Thanks to Martin Engström.)</p>
+	    compiler crash. (Thanks to Martin EngstrÃ¶m.)</p>
           <p>
 	    Own Id: OTP-8054</p>
         </item>

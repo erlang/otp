@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -1598,7 +1598,7 @@
         <item>
           <p>
 	    Fix typo in supervisor behaviour doc (Thanks to Ricardo
-	    Catalinas Jiménez)</p>
+	    Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-9924</p>
         </item>
@@ -1862,7 +1862,7 @@
         <item>
           <p>
 	    Fixes module erlang doc style: option description (Thanks
-	    to Ricardo Catalinas Jiménez)</p>
+	    to Ricardo Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-9697</p>
         </item>
@@ -2311,7 +2311,7 @@
         <item>
           <p>
 	    Fix typos in the epmd documentation (Thanks to Holger
-	    Weiß )</p>
+	    WeiÃŸ )</p>
           <p>
 	    Own Id: OTP-9387</p>
         </item>
@@ -2416,7 +2416,7 @@
         <item>
           <p>
 	    Fix non-existing function (erlang:disconnect/1) in
-	    distributed reference manual (Thanks to Fabian Król)</p>
+	    distributed reference manual (Thanks to Fabian KrÃ³l)</p>
           <p>
 	    Own Id: OTP-9504</p>
         </item>
@@ -2444,7 +2444,7 @@
 	    only separator characters (comma and space).</p>
           <p>
 	    The same applies to epmd's -address option.(Thanks to
-	    Holger Weiß)</p>
+	    Holger WeiÃŸ)</p>
           <p>
 	    Own Id: OTP-9525</p>
         </item>
@@ -2588,7 +2588,7 @@
           <p>
 	    Add support for querying the number of configured and
 	    online processors on SGI systems running IRIX.(Thanks to
-	    Holger Weiß)</p>
+	    Holger WeiÃŸ)</p>
           <p>
 	    Own Id: OTP-9531</p>
         </item>
@@ -2698,7 +2698,7 @@
 	    using a comma-separated list. If the loopback address is
 	    not in this list, it will be added implicitly, so that
 	    the daemon can be queried by an interactive epmd
-	    process.(Thanks to Holger Weiß)</p>
+	    process.(Thanks to Holger WeiÃŸ)</p>
           <p>
 	    Own Id: OTP-9213</p>
         </item>
@@ -2733,7 +2733,7 @@
 	    value over to dbg_gen_printf(). This fixes the problem
 	    that errno had been reset to zero by the time it was used
 	    (to print the corresponding error message) in the
-	    dbg_gen_printf() function. (Thanks to Holger Weiß)</p>
+	    dbg_gen_printf() function. (Thanks to Holger WeiÃŸ)</p>
           <p>
 	    Own Id: OTP-9223</p>
         </item>
@@ -3119,7 +3119,7 @@
 	    Mention that "-detached" implies "-noinput"</p>
           <p>
 	    Clarify that specifying "-noinput" is unnecessary if the
-	    "-detached" flag is given. (thanks to Holger Weiß)</p>
+	    "-detached" flag is given. (thanks to Holger WeiÃŸ)</p>
           <p>
 	    Own Id: OTP-9086</p>
         </item>
@@ -4625,7 +4625,7 @@
 	    failed to detect gcc C compilers with other command line
 	    names than gcc. `configure' now substitute GCC into the
 	    makefiles. If CC is a gcc C compiler, GCC will have the
-	    value yes. (Thanks to Jean-Sébastien Pédron)</p>
+	    value yes. (Thanks to Jean-SÃ©bastien PÃ©dron)</p>
           <p>
 	    Own Id: OTP-8373</p>
         </item>
@@ -6995,7 +6995,7 @@
           <p>
 	    IPv6 name resolving has now been fixed to use
 	    getaddrinfo() patch (thoroughly reworked) courtesy of Love
-	    Hörnquist-Åstrand submitted by Fredrik Thulin. It also
+	    HÃ¶rnquist-Ã…strand submitted by Fredrik Thulin. It also
 	    can use gethostname2() patch (also reworked) courtesy of
 	    Mikael Magnusson for debian submitted by Sergei Golovan.</p>
           <p>

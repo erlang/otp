@@ -219,7 +219,7 @@ parse_file(Epp) ->
 	    [{eof,Location}]
     end.
 
--define(DEFAULT_ENCODING, latin1).
+-define(DEFAULT_ENCODING, utf8).
 
 -spec default_encoding() -> source_encoding().
 

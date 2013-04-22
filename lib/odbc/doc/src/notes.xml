@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -243,7 +243,7 @@
         <item>
           <p>
             ODBC now handles the types SQL_WCHAR and SQL_WVARCHAR.
-            Thanks to Juhani Ränkimies. ODBC also has a new
+            Thanks to Juhani RÃ¤nkimies. ODBC also has a new
             connection option to return all strings as binaries and
             also expect strings to be binaries in the param_query
             function. These changes provides some unicode support.</p>
@@ -253,7 +253,7 @@
         <item>
           <p>
             Now supports SQL_TYPE_TIMESTAMP on the format {{YY, MM,
-            DD}, {HH, MM, SS}}. Thanks to Juhani Ränkimies.</p>
+            DD}, {HH, MM, SS}}. Thanks to Juhani RÃ¤nkimies.</p>
           <p>
             *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>

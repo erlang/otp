@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -124,7 +124,7 @@
           <p>
 	    Two adjacent * used as a single pattern will match all
 	    files and zero or more directories and subdirectories.
-	    (Thanks to José Valim)</p>
+	    (Thanks to JosÃ© Valim)</p>
           <p>
 	    Own Id: OTP-10431</p>
         </item>
@@ -362,7 +362,7 @@
 	    Fix filename:nativename/1 on Win32</p>
           <p>
 	    Don't choke on paths given as binary argument on Win32.
-	    Thanks to Jan Klötzke</p>
+	    Thanks to Jan KlÃ¶tzke</p>
           <p>
 	    Own Id: OTP-10188</p>
         </item>
@@ -471,7 +471,7 @@
         <item>
           <p>
 	    Fix the type spec from the doc of binary:part/3 (Thanks
-	    to Ricardo Catalinas Jiménez)</p>
+	    to Ricardo Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-9920</p>
         </item>
@@ -3036,7 +3036,7 @@
 	    It is now possible to hibernate a
 	    gen_server/gen_event/gen_fsm. In gen_server and gen_fsm,
 	    hibernation is triggered by returning the atom
-	    'hibernate' instead of a timeout value. In the gen_event
+	    'hibernate'Â instead of a timeout value. In the gen_event
 	    case hibernation is triggered by a event handler
 	    returning a tuple with an extra element containing the
 	    atom 'hibernate'.</p>

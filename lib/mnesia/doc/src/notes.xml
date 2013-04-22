@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -85,7 +85,7 @@
         <item>
           <p>
 	    Remove support for the query keyword and query
-	    expressions. Thanks to Loïc Hoguin.</p>
+	    expressions. Thanks to LoÃ¯c Hoguin.</p>
           <p>
 	    Own Id: OTP-10729</p>
         </item>
@@ -322,7 +322,7 @@
 	    "-f" is a non-standard chmod option which at least SGI
 	    IRIX and HP UX do not support. As the only effect of the
 	    "-f" flag is to suppress warning messages, it can be
-	    safely omitted. (Thanks to Holger Weiß)</p>
+	    safely omitted. (Thanks to Holger WeiÃŸ)</p>
           <p>
 	    Own Id: OTP-9170</p>
         </item>

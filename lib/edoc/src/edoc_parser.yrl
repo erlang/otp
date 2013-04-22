@@ -1,4 +1,3 @@
-%% -*- coding: utf-8 -*-
 %% ========================== -*-Erlang-*- =============================
 %% EDoc type specification grammar for the Yecc parser generator,
 %% adapted from Sven-Olof Nyström's type specification parser.

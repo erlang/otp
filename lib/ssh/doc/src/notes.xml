@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -86,7 +86,7 @@
         <item>
           <p>
 	    Fix link to documentation for ssh:connect/3,4. Thanks to
-	    Martin Hässler.</p>
+	    Martin HÃ¤ssler.</p>
           <p>
 	    Own Id: OTP-10862</p>
         </item>

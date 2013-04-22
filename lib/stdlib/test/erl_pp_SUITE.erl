@@ -1082,7 +1082,7 @@ otp_10820(Config) when is_list(Config) ->
     C1 = <<"%% coding: utf-8\n -module(any).">>,
     ok = do_otp_10820(Config, C1, "+pc latin1"),
     ok = do_otp_10820(Config, C1, "+pc unicode"),
-    C2 = <<"-module(any).">>,
+    C2 = <<"%% coding: latin-1\n -module(any).">>,
     ok = do_otp_10820(Config, C2, "+pc latin1"),
     ok = do_otp_10820(Config, C2, "+pc unicode").
 

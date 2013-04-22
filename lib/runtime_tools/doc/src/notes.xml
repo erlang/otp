@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -38,7 +38,7 @@
         <item>
           <p>
 	    Fix Table Viewer refresh crash on no more existing ets
-	    tables (Thanks to Peti Gömori)</p>
+	    tables (Thanks to Peti GÃ¶mori)</p>
           <p>
 	    Own Id: OTP-10635</p>
         </item>

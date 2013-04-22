@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -120,7 +120,7 @@
 	    have it installed.</p>
           <p>
 	    Also adds minor cosmetic changes to the CSS. (Thanks to
-	    Ricardo Catalinas Jiménez)</p>
+	    Ricardo Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-9918</p>
         </item>

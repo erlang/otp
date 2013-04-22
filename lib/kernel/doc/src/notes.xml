@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -305,7 +305,7 @@
           <p>
 	    Fixed issue where using controlling_process/2 with self()
 	    as the second argument caused the port to leak if self()
-	    crashes. (Thanks to Ricardo Catalinas Jiménez)</p>
+	    crashes. (Thanks to Ricardo Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-10094</p>
         </item>
@@ -447,7 +447,7 @@
 	    Various typographical errors corrected in documentation
 	    for the global, error_logger, etop, lists, ets and
 	    supervisor modules and in the c_portdriver and kernel_app
-	    documentation. (Thanks to Ricardo Catalinas Jiménez)</p>
+	    documentation. (Thanks to Ricardo Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-9987</p>
         </item>
@@ -642,7 +642,7 @@
 	    Fixes net_kernel:get_net_ticktime() doc</p>
           <p>
 	    Adds missing description when `ignored' is returned.
-	    (Thanks to Ricardo Catalinas Jiménez )</p>
+	    (Thanks to Ricardo Catalinas JimÃ©nez )</p>
           <p>
 	    Own Id: OTP-9713</p>
         </item>
@@ -828,7 +828,7 @@
         <item>
           <p>
 	    Fix typo in doc of rpc:pmap/3 (Thanks to Ricardo
-	    Catalinas Jiménez)</p>
+	    Catalinas JimÃ©nez)</p>
           <p>
 	    Own Id: OTP-9168</p>
         </item>
