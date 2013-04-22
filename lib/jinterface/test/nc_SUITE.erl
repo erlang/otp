@@ -105,7 +105,7 @@ end_per_suite(Config) ->
 init_per_testcase(Case, Config) ->
     T = case atom_to_list(Case) of
 	    "unicode"++_ -> 240;
-	    _ -> 30
+	    _ -> 120
 	end,
     WatchDog = test_server:timetrap(test_server:seconds(T)),
     [{watchdog, WatchDog}| Config].
