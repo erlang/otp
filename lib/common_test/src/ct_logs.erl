@@ -199,12 +199,19 @@ clear_stylesheet(TC) ->
 %%%-----------------------------------------------------------------
 %%% @spec get_log_dir() -> {ok,Dir} | {error,Reason}
 get_log_dir() ->
-    call({get_log_dir,false}).
+    get_log_dir(false).
 
 %%%-----------------------------------------------------------------
 %%% @spec get_log_dir(ReturnAbsName) -> {ok,Dir} | {error,Reason}
 get_log_dir(ReturnAbsName) ->
-    call({get_log_dir,ReturnAbsName}).
+    case call({get_log_dir,ReturnAbsName}) of
+	{error,does_not_exist} when ReturnAbsName == true ->
+	    {ok,filename:absname(".")};
+	{error,does_not_exist} ->
+	    {ok,"."};
+	Result ->
+	    Result
+    end.
 
 %%%-----------------------------------------------------------------
 %%% make_last_run_index() -> ok
@@ -546,7 +553,6 @@ log_timestamp({MS,S,US}) ->
 
 logger(Parent, Mode, Verbosity) ->
     register(?MODULE,self()),
-
     %%! Below is a temporary workaround for the limitation of
     %%! max one test run per second. 
     %%! --->
