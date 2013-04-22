@@ -111,6 +111,7 @@ init_per_testcase(Case, Config) ->
     [{watchdog, WatchDog}| Config].
 
 end_per_testcase(_Case, Config) ->
+    jitu:kill_all_jnodes(),
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 

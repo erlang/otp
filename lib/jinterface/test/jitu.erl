@@ -27,7 +27,10 @@
 	 java/4,
 	 java/5,
 	 init_all/1,
-	 finish_all/1]).
+	 finish_all/1,
+	 kill_all_jnodes/0]).
+
+-include("ct.hrl").
 
 %%
 %% Lots of stuff here are originating from java_client_erl_server_SUITE.erl
@@ -51,10 +54,33 @@ java(Java, Dir, Class, Args, Props) ->
 init_all(Config) when is_list(Config) ->
     case find_executable(["java"]) of
 	false -> {skip,"Found no Java VM"};
-	Path -> [{java,Path}|Config]
+	Path ->
+	    Pid = spawn(fun() ->
+				ets:new(jitu_tab,[set,named_table,public]),
+				receive stop -> ets:delete(jitu_tab) end
+			end),
+	    [{java,Path},{tab_proc,Pid}|Config]
     end.
 
-finish_all(Config) -> Config.
+finish_all(Config) ->
+    kill_all_jnodes(),
+    ?config(tab_proc,Config) ! stop,
+    Config.
+
+kill_all_jnodes() ->
+    Jnodes = ets:tab2list(jitu_tab),
+    [begin
+%	 ct:pal("Killing OsPid=~w started with ~p",[OsPid,_Cmd]),
+	 kill_os_process(os:type(),integer_to_list(OsPid))
+     end || {OsPid,_Cmd} <- Jnodes],
+    ets:delete_all_objects(jitu_tab),
+    ok.
+
+kill_os_process({win32,_},OsPid) ->
+    os:cmd("taskkill /PID " ++ OsPid);
+kill_os_process(_,OsPid) ->
+    os:cmd("kill " ++ OsPid).
+
 
 %%
 %% Internal stuff...
@@ -110,6 +136,12 @@ cmd(Cmd) ->
     io:format("cmd: ~s~n", [Cmd]),
     case catch open_port({spawn,Cmd}, PortOpts) of
 	Port when is_port(Port) ->
+	    case erlang:port_info(Port,os_pid) of
+		{os_pid,OsPid} ->
+		    ets:insert(jitu_tab,{OsPid,Cmd});
+		_ ->
+		    ok
+	    end,
 	    Result = cmd_loop(Port, []),
 	    io:format("cmd res: ~w~n", [Result]),
 	    case Result of

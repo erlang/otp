@@ -188,6 +188,7 @@ end_per_testcase(_Case,Config) ->
 	undefined -> ok;
 	Pid -> exit(Pid,kill)
     end,
+    jitu:kill_all_jnodes(),
     ?t:timetrap_cancel(?config(watch_dog,Config)),
     ok.
 
