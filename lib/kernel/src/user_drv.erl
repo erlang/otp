@@ -488,21 +488,19 @@ set_unicode_state(Iport, Bool) ->
 
 %% io_request(Request, InPort, OutPort)
 %% io_requests(Requests, InPort, OutPort)
+%% Note: InPort is unused.
 
-io_request({put_chars, unicode,Cs}, _Iport, Oport) ->
-    Oport ! {self(),{command,[?OP_PUTC|unicode:characters_to_binary(Cs,utf8)]}};
-io_request({move_rel,N}, _Iport, Oport) ->
-    Oport ! {self(),{command,[?OP_MOVE|put_int16(N, [])]}};
-io_request({insert_chars,unicode,Cs}, _Iport, Oport) ->
-    Oport ! {self(),{command,[?OP_INSC|unicode:characters_to_binary(Cs,utf8)]}};
-io_request({delete_chars,N}, _Iport, Oport) ->
-    Oport ! {self(),{command,[?OP_DELC|put_int16(N, [])]}};
-io_request(beep, _Iport, Oport) ->
-    Oport ! {self(),{command,[?OP_BEEP]}};
-io_request({requests,Rs}, Iport, Oport) ->
-    io_requests(Rs, Iport, Oport);
-io_request(_R, _Iport, _Oport) ->
-    ok.
+io_request(Request, Iport, Oport) ->
+    try io_command(Request) of
+        Command ->
+            Oport ! {self(),Command},
+            ok
+    catch
+        {requests,Rs} ->
+            io_requests(Rs, Iport, Oport);
+        _ ->
+            ok
+    end.
 
 io_requests([R|Rs], Iport, Oport) ->
     io_request(R, Iport, Oport),
@@ -512,6 +510,19 @@ io_requests([], _Iport, _Oport) ->
 
 put_int16(N, Tail) ->
     [(N bsr 8)band 255,N band 255|Tail].
+
+io_command({put_chars, unicode,Cs}) ->
+    {command,[?OP_PUTC|unicode:characters_to_binary(Cs,utf8)]};
+io_command({move_rel,N}) ->
+    {command,[?OP_MOVE|put_int16(N, [])]};
+io_command({insert_chars,unicode,Cs}) ->
+    {command,[?OP_INSC|unicode:characters_to_binary(Cs,utf8)]};
+io_command({delete_chars,N}) ->
+    {command,[?OP_DELC|put_int16(N, [])]};
+io_command(beep) ->
+    {command,[?OP_BEEP]};
+io_command(Else) ->
+    throw(Else).
 
 %% gr_new()
 %% gr_get_num(Group, Index)

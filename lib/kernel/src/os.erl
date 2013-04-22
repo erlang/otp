@@ -275,8 +275,8 @@ start_port_srv_handle({Ref,Client}) ->
 		error:Reason ->
 		    {Reason,erlang:get_stacktrace()}	    
 	    end,
-    Client ! {Ref,Reply}.
-
+    Client ! {Ref,Reply},
+    ok.
 
 start_port_srv_loop() ->
     receive
@@ -284,7 +284,7 @@ start_port_srv_loop() ->
 				     is_pid(Client) ->
 	    start_port_srv_handle(Request);
 	_Junk ->
-	    ignore
+	    ok
     end,
     start_port_srv_loop().
 

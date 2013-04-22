@@ -139,7 +139,7 @@ connect(Address, Port, Opts) ->
 connect(Address, Port, Opts, Time) ->
     Timer = inet:start_timer(Time),
     Res = (catch connect1(Address,Port,Opts,Timer)),
-    inet:stop_timer(Timer),
+    _ = inet:stop_timer(Timer),
     case Res of
 	{ok,S} -> {ok,S};
 	{error, einval} -> exit(badarg);

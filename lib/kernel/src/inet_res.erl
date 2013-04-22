@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -139,7 +139,7 @@ resolve(Name, Class, Type, Opts, Timeout) ->
 	{ok, Nm} ->
 	    Timer = inet:start_timer(Timeout),
 	    Res = res_query(Nm, Class, Type, Opts, Timer),
-	    inet:stop_timer(Timer),
+	    _ = inet:stop_timer(Timer),
 	    Res;
 	Error ->
 	    Error
@@ -339,7 +339,7 @@ gethostbyaddr(IP) -> gethostbyaddr_tm(IP,false).
 gethostbyaddr(IP,Timeout) ->
     Timer = inet:start_timer(Timeout),
     Res = gethostbyaddr_tm(IP,Timer),
-    inet:stop_timer(Timer),
+    _ = inet:stop_timer(Timer),
     Res.    
 
 gethostbyaddr_tm({A,B,C,D} = IP, Timer) when ?ip(A,B,C,D) ->
@@ -424,7 +424,7 @@ gethostbyname(Name,Family) ->
 gethostbyname(Name,Family,Timeout) ->
     Timer = inet:start_timer(Timeout),    
     Res = gethostbyname_tm(Name,Family,Timer),
-    inet:stop_timer(Timer),
+    _ = inet:stop_timer(Timer),
     Res.
     
 gethostbyname_tm(Name,inet,Timer) ->
@@ -483,7 +483,7 @@ getbyname(Name, Type) ->
 getbyname(Name, Type, Timeout) ->
     Timer = inet:start_timer(Timeout),
     Res = getbyname_tm(Name, Type, Timer),
-    inet:stop_timer(Timer),
+    _ = inet:stop_timer(Timer),
     Res.
 
 getbyname_tm(Name, Type, Timer) when is_list(Name) ->

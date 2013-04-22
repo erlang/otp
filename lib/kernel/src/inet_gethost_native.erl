@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -237,7 +237,7 @@ handle_message({Port, {data, Data}}, State = #state{port = Port}) ->
 				       State;
 				   Req ->
 				       lists:foreach(fun({P,R,TR}) ->
-							     ?CANCEL_TIMER(TR),
+							     _= ?CANCEL_TIMER(TR),
 							     P ! {R,
 								  {ok,
 								   BinReply}}
@@ -276,7 +276,7 @@ handle_message({timeout, Pid, RID}, State) ->
 	{last, {LP,LR,_}} ->
 	    LP ! {LR, {error,timeout}},
 	    %% Remove the whole request structure...
-	    pick_request(State, RID),
+	    _ = pick_request(State, RID),
 	    %% Also cancel the request to the port program...
 	    (catch port_command(State#state.port, 
 				<<RID:32,?OP_CANCEL_REQUEST>>))
@@ -517,7 +517,7 @@ do_start(Sup, C) ->
 	{error, {{already_started, Pid}, _Child}} when is_pid(Pid) ->
 	    ok;
 	{error, already_present} ->
-	    supervisor:delete_child(Sup, Child),
+	    _ = supervisor:delete_child(Sup, Child),
 	    do_start(Sup, C)
     end.
 

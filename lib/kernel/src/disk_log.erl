@@ -1076,13 +1076,13 @@ log_end(S, [], [], Sync) ->
 log_end(S, Pids, Bins, Sync) ->
     case do_log(get(log), rflat(Bins)) of
 	N when is_integer(N) ->
-	    replies(Pids, ok),
+	    ok = replies(Pids, ok),
 	    S1 = (state_ok(S))#state{cnt = S#state.cnt+N},
 	    log_end_sync(S1, Sync);
         {error, {error, {full, _Name}}, N} when Pids =:= [] ->
             log_end_sync(state_ok(S#state{cnt = S#state.cnt + N}), Sync);
 	{error, Error, N} ->
-	    replies(Pids, Error),
+	    ok = replies(Pids, Error),
 	    state_err(S#state{cnt = S#state.cnt + N}, Error)
     end.
 
@@ -1091,7 +1091,7 @@ log_end_sync(S, []) ->
     S;
 log_end_sync(S, Sync) ->
     Res = do_sync(get(log)),
-    replies(Sync, Res),
+    ok = replies(Sync, Res),
     state_err(S, Res).
 
 %% Inlined.
@@ -1183,7 +1183,7 @@ do_exit(S, From, Message0, Reason) ->
 		  _ -> Message0
 	      end,
     _ = disk_log_server:close(self()),
-    replies(From, Message),
+    ok = replies(From, Message),
     ?PROFILE(ep:done()),
     exit(Reason).
 
@@ -1881,7 +1881,8 @@ replies(Pids, Reply) ->
     send_reply(Pids, M).
 
 send_reply(Pid, M) when is_pid(Pid) ->
-    Pid ! M;
+    Pid ! M,
+    ok;
 send_reply([Pid | Pids], M) ->
     Pid ! M,
     send_reply(Pids, M);
@@ -2022,7 +2023,7 @@ notify_owners(Note) ->
 
 cache_error(S, Pids) ->
     Error = S#state.cache_error,
-    replies(Pids, Error),
+    ok = replies(Pids, Error),
     state_err(S#state{cache_error = ok}, Error).
 
 state_ok(S) ->

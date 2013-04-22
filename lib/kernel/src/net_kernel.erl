@@ -320,7 +320,7 @@ passive_connect_monitor(Parent, Node) ->
 		    Parent ! {self(), false};
 		{nodeup,Node,_} ->
 		    monitor_nodes(false,[{node_type,all}]),
-		    erlang:cancel_timer(Tref),
+		    _ = erlang:cancel_timer(Tref),
 		    Parent ! {self(),true}
 	    end
     end.

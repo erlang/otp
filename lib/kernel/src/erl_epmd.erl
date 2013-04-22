@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -217,17 +217,23 @@ do_register_node(NodeName, TcpPort) ->
 	    Extra = "",
 	    Elen = length(Extra),
 	    Len = 1+2+1+1+2+2+2+length(Name)+2+Elen,
-	    gen_tcp:send(Socket, [?int16(Len), ?EPMD_ALIVE2_REQ,
-				   ?int16(TcpPort),
-				   $M,
-				   0,
-				   ?int16(epmd_dist_high()),
-				   ?int16(epmd_dist_low()),
-				   ?int16(length(Name)),
-				   Name,
-				   ?int16(Elen),
-				   Extra]),
-	    wait_for_reg_reply(Socket, []);
+            Packet = [?int16(Len), ?EPMD_ALIVE2_REQ,
+                      ?int16(TcpPort),
+                      $M,
+                      0,
+                      ?int16(epmd_dist_high()),
+                      ?int16(epmd_dist_low()),
+                      ?int16(length(Name)),
+                      Name,
+                      ?int16(Elen),
+                      Extra],
+	    case gen_tcp:send(Socket, Packet) of
+                ok ->
+                    wait_for_reg_reply(Socket, []);
+                Error ->
+                    close(Socket),
+                    Error
+            end;
 	Error ->
 	    Error
     end.
@@ -374,7 +380,7 @@ wait_for_port_reply_name(Socket, Len, Sofar) ->
 %	    io:format("data = ~p~n", _Data),
 	    wait_for_port_reply_name(Socket, Len, Sofar);
 	{tcp_closed, Socket} ->
-	    "foobar"
+	    ok
     end.
 		    
 

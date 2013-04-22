@@ -488,7 +488,7 @@ init(Init, Kernel) ->
 	    %% called during start-up of any app.
 	    case check_conf_data(ConfData) of
 		ok ->
-		    ets:new(ac_tab, [set, public, named_table]),
+		    _ = ets:new(ac_tab, [set, public, named_table]),
 		    S = #state{conf_data = ConfData},
 		    {ok, KAppl} = make_appl(Kernel),
 		    case catch load(S, KAppl) of
@@ -1949,10 +1949,10 @@ test_change_apps(Apps, Conf) ->
 test_do_change_appl([], _, _) ->
     ok;
 test_do_change_appl([A|Apps], [], [R|Res]) ->
-    do_change_appl(R, #appl{name = A}, []),
+    _ = do_change_appl(R, #appl{name = A}, []),
     test_do_change_appl(Apps, [], Res);
 test_do_change_appl([A|Apps], [C|Conf], [R|Res]) ->
-    do_change_appl(R, #appl{name = A}, C),
+    _ = do_change_appl(R, #appl{name = A}, C),
     test_do_change_appl(Apps, Conf, Res).
 
 test_make_apps([], Res) ->

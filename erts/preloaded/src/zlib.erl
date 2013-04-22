@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -206,7 +206,7 @@ deflate(Z, Data) ->
 deflate(Z, Data, Flush) ->
     try port_command(Z, Data) of
 	true ->
-	    call(Z, ?DEFLATE, <<(arg_flush(Flush)):32>>),
+	    _ = call(Z, ?DEFLATE, <<(arg_flush(Flush)):32>>),
 	    collect(Z)
     catch 
 	error:_Err ->
@@ -252,7 +252,7 @@ inflateReset(Z) ->
 inflate(Z, Data) ->
     try port_command(Z, Data) of
 	true -> 
-	    call(Z, ?INFLATE, <<?Z_NO_FLUSH:32>>),
+	    _ = call(Z, ?INFLATE, <<?Z_NO_FLUSH:32>>),
 	    collect(Z)
     catch 
 	error:_Err ->

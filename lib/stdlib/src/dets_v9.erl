@@ -284,9 +284,9 @@
 %% -> ok | throw({NewHead,Error})
 mark_dirty(Head) ->
     Dirty = [{?CLOSED_PROPERLY_POS, <<?NOT_PROPERLY_CLOSED:32>>}],
-    dets_utils:pwrite(Head, Dirty),
-    dets_utils:sync(Head),
-    dets_utils:position(Head, Head#head.freelists_p),
+    {_H, ok} = dets_utils:pwrite(Head, Dirty),
+    ok = dets_utils:sync(Head),
+    {ok, _Pos} = dets_utils:position(Head, Head#head.freelists_p),
     dets_utils:truncate(Head, cur).
 
 %% -> {ok, head()} | throw(Error) | throw(badarg)
@@ -1385,13 +1385,13 @@ segment_file(SizeT, Head, FileData, SegEnd) ->
 	case Data of
 	    {InFile,In0} ->
 		{OutFile, Out} = temp_file(Head, SizeT, I),
-		file:close(In0),
+		_ = file:close(In0),
 		{ok, In} = dets_utils:open(InFile, [raw,binary,read]),
 		{ok, 0} = dets_utils:position(In, InFile, bof),
 		seg_file(SegAddr, SegAddr, In, InFile, Out, OutFile, SizeT, 
 			 SegEnd),
-		file:close(In),
-		file:delete(InFile),
+		_ = file:close(In),
+		_ = file:delete(InFile),
 		{OutFile,Out};
 	    Objects ->
 		{LastAddr, B} = seg_file(Objects, SegAddr, SegAddr, SizeT, []),
@@ -1702,7 +1702,7 @@ free_list_to_file(Ftab, H, Pos, Sz, Ws, WsSz) ->
     free_list_to_file(Ftab, H, Pos+1, Sz, NWs, NWsSz).
 
 free_lists_from_file(H, Pos) ->
-    dets_utils:position(H#head.fptr, H#head.filename, Pos),
+    {ok, Pos} = dets_utils:position(H#head.fptr, H#head.filename, Pos),
     FL = dets_utils:empty_free_lists(),
     case catch bin_to_tree([], H, start, FL, -1, []) of
 	{'EXIT', _} ->
