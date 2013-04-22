@@ -175,22 +175,10 @@
     {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_17}, 
      soft_purge, soft_purge, []}
    ]
-  },
-  {"3.16.0.2", 
-   [
-    {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_17}, 
-     soft_purge, soft_purge, []}
-   ]
   }
  ],
  [
   {"3.16.0.3", 
-   [
-    {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_17}, 
-     soft_purge, soft_purge, []}
-   ]
-  },
-  {"3.16.0.2", 
    [
     {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_17}, 
      soft_purge, soft_purge, []}
