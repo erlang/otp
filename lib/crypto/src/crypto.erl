@@ -1226,39 +1226,20 @@ srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Vers
 %%
 %% EC
 %%
--spec ec_key_new(ec_named_curve()) -> ec_key_res().
-ec_key_new(_Curve) -> ?nif_stub.
 
-ecdh_generate_key(Curve) when is_atom(Curve) ->
-    ECKey = ec_key_new(Curve),
-    ec_key_generate(ECKey),
-    ec_key_to_term(ECKey);
-ecdh_generate_key(Key) ->
-    ECKey = term_to_ec_key(Key),
-    ec_key_generate(ECKey),
-    ec_key_to_term(ECKey).
+-spec ecdh_generate_key(ec_curve()) -> ec_key() | error.
+ecdh_generate_key(Curve) ->
+    ec_key_to_term(ec_key_generate(Curve)).
 
 
--spec ec_key_generate(ec_key_res()) -> ok | error.
 ec_key_generate(_Key) -> ?nif_stub.
 
-nif_prime_to_term({prime_field, Prime}) ->
-    {prime_field, bin_to_int(Prime)};
-nif_prime_to_term(PrimeField) ->
-    PrimeField.
-nif_curve_to_term({A, B, Seed}) ->
-    {bin_to_int(A), bin_to_int(B), Seed}.
-nif_curve_parameters_to_term({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
-    {nif_prime_to_term(PrimeField), nif_curve_to_term(Curve), BasePoint, bin_to_int(Order), bin_to_int(CoFactor)};
-nif_curve_parameters_to_term(Curve) when is_atom(Curve) ->
-    %% named curve
-    Curve.
 
 -spec ec_key_to_term(ec_key_res()) -> ec_key().
 ec_key_to_term(Key) ->
     case ec_key_to_term_nif(Key) of
-        {Curve, PrivKey, PubKey} ->
-            {nif_curve_parameters_to_term(Curve), bin_to_int(PrivKey), PubKey};
+        {PrivKey, PubKey} ->
+            {bin_to_int(PrivKey), PubKey};
         _ ->
             erlang:error(conversion_failed)
     end.

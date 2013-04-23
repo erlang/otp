@@ -229,7 +229,6 @@ static ERL_NIF_TERM bf_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM bf_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM blowfish_ofb64_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-static ERL_NIF_TERM ec_key_new(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ec_key_to_term_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -266,6 +265,11 @@ static void hmac_sha384(unsigned char *key, int klen,
 static void hmac_sha512(unsigned char *key, int klen,
 			unsigned char *dbuf, int dlen,
 			unsigned char *hmacbuf);
+#endif
+#ifdef HAVE_EC
+static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg);
+static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
+		      EC_GROUP *group, EC_POINT **pptr);
 #endif
 
 static int library_refc = 0; /* number of users of this dynamic library */
@@ -355,7 +359,6 @@ static ErlNifFunc nif_funcs[] = {
     {"bf_ecb_crypt", 3, bf_ecb_crypt},
     {"blowfish_ofb64_encrypt", 3, blowfish_ofb64_encrypt},
 
-    {"ec_key_new", 1, ec_key_new},
     {"ec_key_to_term_nif", 1, ec_key_to_term_nif},
     {"term_to_ec_key_nif", 3, term_to_ec_key_nif},
     {"ec_key_generate", 1, ec_key_generate},
@@ -2850,249 +2853,10 @@ static int term2curve_id(ERL_NIF_TERM nid)
     return 0;
 }
 
-static ERL_NIF_TERM curve_id2term(int nid)
+static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 {
-    int i;
-
-    for (i = 0; i < EC_CURVES_CNT; i++)
-	if (ec_curves[i].nid == nid)
-	    return ec_curves[i].atom;
-
-    return atom_undefined;
-}
-#endif
-
-static ERL_NIF_TERM ec_key_new(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-#if defined(HAVE_EC)
     EC_KEY *key = NULL;
     int nid = 0;
-
-    nid = term2curve_id(argv[0]);
-    if (nid == 0)
-	return enif_make_badarg(env);
-    key = EC_KEY_new_by_curve_name(nid);
-
-    if (key) {
-	ERL_NIF_TERM term;
-	struct nif_ec_key *obj = enif_alloc_resource(res_type_ec_key, sizeof(struct nif_ec_key));
-	if (!obj)
-	    return atom_error;
-	obj->key = key;
-	term = enif_make_resource(env, obj);
-	enif_release_resource(obj);
-
-	return term;
-    } else
-	return enif_make_badarg(env);
-#else
-    return atom_notsup;
-#endif
-}
-
-#if defined(HAVE_EC)
-static ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
-{
-    unsigned dlen;
-    unsigned char* ptr;
-    ERL_NIF_TERM ret;
-
-    if (!bn)
-	    return atom_undefined;
-
-    dlen = BN_num_bytes(bn);
-    ptr = enif_make_new_binary(env, dlen, &ret);
-    BN_bn2bin(bn, ptr);
-
-    return ret;
-}
-
-static ERL_NIF_TERM point2term(ErlNifEnv* env,
-			       const EC_GROUP *group,
-			       const EC_POINT *point,
-			       point_conversion_form_t form)
-{
-    unsigned dlen;
-    ErlNifBinary bin;
-
-    dlen = EC_POINT_point2oct(group, point, form, NULL, 0, NULL);
-    if (dlen == 0)
-	return atom_undefined;
-
-    if (!enif_alloc_binary(dlen, &bin))
-	return enif_make_badarg(env);
-
-    if (!EC_POINT_point2oct(group, point, form, bin.data, bin.size, NULL)) {
-	enif_release_binary(&bin);
-	return enif_make_badarg(env);
-    }
-
-    return enif_make_binary(env, &bin);
-}
-#endif
-
-static ERL_NIF_TERM ec_key_to_term_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-#if defined(HAVE_EC)
-    struct nif_ec_key *obj;
-    const EC_GROUP *group;
-    const EC_POINT *public_key;
-    BIGNUM  *order=NULL;
-    const BIGNUM *priv_key = NULL;
-    ERL_NIF_TERM pub_key = atom_undefined;
-    ERL_NIF_TERM group_term = atom_undefined;
-
-    if (!enif_get_resource(env, argv[0], res_type_ec_key, (void **)&obj))
-	    return enif_make_badarg(env);
-
-    group = EC_KEY_get0_group(obj->key);
-    public_key = EC_KEY_get0_public_key(obj->key);
-    priv_key = EC_KEY_get0_private_key(obj->key);
-
-    if (group) {
-	if (EC_GROUP_get_curve_name(group) != 0) {
-	    /* named group */
-	    group_term = curve_id2term(EC_GROUP_get_curve_name(group));
-	} else {
-	    /* export group paramters */
-	    ERL_NIF_TERM field_term = atom_undefined;
-	    ERL_NIF_TERM prime_term = atom_undefined;
-	    ERL_NIF_TERM seed_term = atom_none;
-	    ERL_NIF_TERM point_term = atom_none;
-	    ERL_NIF_TERM order_term = atom_none;
-	    ERL_NIF_TERM cofactor_term = atom_none;
-
-	    int nid = 0;
-	    const EC_POINT *point = NULL;
-	    BIGNUM *tmp = BN_new();
-	    BIGNUM *tmp_1 = BN_new();
-	    BIGNUM *tmp_2 = BN_new();
-
-	    nid = EC_METHOD_get_field_type(EC_GROUP_method_of(group));
-	    if (nid == NID_X9_62_prime_field) {
-		/* the parameters are specified by the prime number p */
-		EC_GROUP_get_curve_GFp(group, tmp, tmp_1, tmp_2, NULL);
-
-		/* {prime_field, Prime} */
-		field_term = enif_make_tuple2(env, atom_prime_field, bn2term(env, tmp));
-	    } else {                     /* nid == NID_X9_62_characteristic_two_field */
-		int field_type;
-		ERL_NIF_TERM basis_term;
-		ERL_NIF_TERM m_term;
-
-		EC_GROUP_get_curve_GF2m(group, NULL, tmp_1, tmp_2, NULL);
-
-		m_term = enif_make_long(env, (long)EC_GROUP_get_degree(group));
-
-		field_type = EC_GROUP_get_basis_type(group);
-		if (field_type == 0) {
-		    basis_term = atom_undefined;
-		} else if (field_type == NID_X9_62_tpBasis) {
-		    unsigned int k;
-		    ERL_NIF_TERM k_term = atom_undefined;
-
-		    if (EC_GROUP_get_trinomial_basis(group, &k))
-			k_term = enif_make_uint(env, k);
-
-		    basis_term = enif_make_tuple2(env, atom_tpbasis, k_term);
-		} else if (field_type == NID_X9_62_ppBasis) {
-                        unsigned int k1, k2, k3;
-			ERL_NIF_TERM k1_term = atom_undefined;
-			ERL_NIF_TERM k2_term = atom_undefined;
-			ERL_NIF_TERM k3_term = atom_undefined;
-
-                        if (EC_GROUP_get_pentanomial_basis(group, &k1, &k2, &k3)) {
-			    /* set k? values */
-			    k1_term = enif_make_uint(env, k1);
-			    k2_term = enif_make_uint(env, k2);
-			    k3_term = enif_make_uint(env, k3);
-			}
-			basis_term = enif_make_tuple4(env, atom_ppbasis, k1_term, k2_term, k3_term);
-		} else {  /* field_type == NID_X9_62_onBasis */
-		    basis_term = atom_onbasis;
-		}
-		/* {characteristic_two_field, M, Basis} */
-		field_term = enif_make_tuple3(env, atom_characteristic_two_field, m_term, basis_term);
-	    }
-
-	    if (EC_GROUP_get0_seed(group)) {
-		unsigned char* ptr;
-
-		ptr = enif_make_new_binary(env, EC_GROUP_get_seed_len(group), &seed_term);
-		memcpy(ptr, EC_GROUP_get0_seed(group), EC_GROUP_get_seed_len(group));
-	    }
-
-
-	    /* set the base point */
-	    point = EC_GROUP_get0_generator(group);
-	    if (point)
-		point_term = point2term(env, group, point, EC_GROUP_get_point_conversion_form(group));
-
-	    /* set the order */
-	    if (EC_GROUP_get_order(group, tmp, NULL))
-		order_term = bn2term(env, tmp);
-
-	    /* set the cofactor (optional) */
-	    if (EC_GROUP_get_cofactor(group, tmp, NULL))
-		cofactor_term = bn2term(env, tmp);
-
-	    prime_term = enif_make_tuple3(env, bn2term(env, tmp_1), bn2term(env, tmp_2), seed_term);
-	    group_term = enif_make_tuple5(env, field_term, prime_term, point_term, order_term, cofactor_term);
-	    BN_free(tmp);
-	    BN_free(tmp_1);
-	    BN_free(tmp_2);
-	}
-
-	if (public_key)
-	    pub_key = point2term(env, group, public_key, EC_KEY_get_conv_form(obj->key));
-
-	if (order) BN_free(order);
-    }
-
-    return enif_make_tuple3(env, group_term, bn2term(env, priv_key), pub_key);
-#else
-    return atom_notsup;
-#endif
-}
-
-#if defined(HAVE_EC)
-static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
-		      EC_GROUP *group, EC_POINT **pptr)
-{
-    int ret = 0;
-    ErlNifBinary bin;
-    EC_POINT *point;
-
-    if (!enif_inspect_binary(env,term,&bin)) {
-        return 0;
-    }
-
-    if ((*pptr = point = EC_POINT_new(group)) == NULL) {
-	return 0;
-    }
-
-    /* set the point conversion form */
-    EC_GROUP_set_point_conversion_form(group, (point_conversion_form_t)(bin.data[0] & ~0x01));
-
-    /* extract the ec point */
-    if (!EC_POINT_oct2point(group, point, bin.data, bin.size, NULL)) {
-	EC_POINT_free(point);
-	*pptr = NULL;
-    } else
-	ret = 1;
-
-    return ret;
-}
-#endif
-
-static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-#if defined(HAVE_EC)
-    ERL_NIF_TERM ret;
-    EC_KEY *key = NULL;
-    BIGNUM *priv_key = NULL;
-    EC_POINT *pub_key = NULL;
-    struct nif_ec_key *obj;
     int c_arity = -1;
     const ERL_NIF_TERM* curve;
     ErlNifBinary seed;
@@ -3104,28 +2868,17 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     EC_GROUP *group = NULL;
     EC_POINT *point = NULL;
 
-    if (!(argv[1] == atom_undefined || get_bn_from_bin(env, argv[1], &priv_key))
-	|| !(argv[2] == atom_undefined || enif_is_binary(env, argv[2]))) {
-	    printf("#1\n");
-	goto out_err;
-    }
-
-    if (enif_is_atom(env, argv[0])) {
-	int nid;
-
-	nid = term2curve_id(argv[0]);
-	if (nid == 0) {
-	    printf("#2\n");
-	    goto out_err;
-	}
-
+    if (enif_is_atom(env, curve_arg)) {
+	nid = term2curve_id(curve_arg);
+	if (nid == 0)
+	    return NULL;
 	key = EC_KEY_new_by_curve_name(nid);
     }
-    else if (enif_is_tuple(env, argv[0])
-	       && enif_get_tuple(env,argv[0],&c_arity,&curve)
-	       && c_arity == 5
-	       && get_bn_from_bin(env, curve[3], &bn_order)
-	       && (curve[4] != atom_none && get_bn_from_bin(env, curve[4], &cofactor))) {
+    else if (enif_is_tuple(env, curve_arg)
+	     && enif_get_tuple(env,curve_arg,&c_arity,&curve)
+	     && c_arity == 5
+	     && get_bn_from_bin(env, curve[3], &bn_order)
+	     && (curve[4] != atom_none && get_bn_from_bin(env, curve[4], &cofactor))) {
 	//* {Field, Prime, Point, Order, CoFactor} = Curve */
 
 	int f_arity = -1;
@@ -3244,9 +2997,145 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	EC_KEY_set_group(key, group);
     }
     else {
-	    printf("#3\n");
+	printf("#3\n");
 	goto out_err;
     }
+
+
+    goto out;
+
+out_err:
+    if (key) EC_KEY_free(key);
+    key = NULL;
+
+out:
+    /* some OpenSSL structures are mem-dup'ed into the key,
+       so we have to free our copies here */
+    if (p) BN_free(p);
+    if (a) BN_free(a);
+    if (b) BN_free(b);
+    if (bn_order) BN_free(bn_order);
+    if (cofactor) BN_free(cofactor);
+    if (group) EC_GROUP_free(group);
+
+    return key;
+}
+
+
+static ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
+{
+    unsigned dlen;
+    unsigned char* ptr;
+    ERL_NIF_TERM ret;
+
+    if (!bn)
+	    return atom_undefined;
+
+    dlen = BN_num_bytes(bn);
+    ptr = enif_make_new_binary(env, dlen, &ret);
+    BN_bn2bin(bn, ptr);
+
+    return ret;
+}
+
+static ERL_NIF_TERM point2term(ErlNifEnv* env,
+			       const EC_GROUP *group,
+			       const EC_POINT *point,
+			       point_conversion_form_t form)
+{
+    unsigned dlen;
+    ErlNifBinary bin;
+
+    dlen = EC_POINT_point2oct(group, point, form, NULL, 0, NULL);
+    if (dlen == 0)
+	return atom_undefined;
+
+    if (!enif_alloc_binary(dlen, &bin))
+	return enif_make_badarg(env);
+
+    if (!EC_POINT_point2oct(group, point, form, bin.data, bin.size, NULL)) {
+	enif_release_binary(&bin);
+	return enif_make_badarg(env);
+    }
+
+    return enif_make_binary(env, &bin);
+}
+#endif
+
+static ERL_NIF_TERM ec_key_to_term_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#if defined(HAVE_EC)
+    struct nif_ec_key *obj;
+    const EC_GROUP *group;
+    const EC_POINT *public_key;
+    const BIGNUM *priv_key = NULL;
+    ERL_NIF_TERM pub_key = atom_undefined;
+
+    if (!enif_get_resource(env, argv[0], res_type_ec_key, (void **)&obj))
+	    return enif_make_badarg(env);
+
+    group = EC_KEY_get0_group(obj->key);
+    public_key = EC_KEY_get0_public_key(obj->key);
+    priv_key = EC_KEY_get0_private_key(obj->key);
+
+    if (group) {
+	if (public_key)
+	    pub_key = point2term(env, group, public_key, EC_KEY_get_conv_form(obj->key));
+    }
+
+    return enif_make_tuple2(env, bn2term(env, priv_key), pub_key);
+#else
+    return atom_notsup;
+#endif
+}
+
+#if defined(HAVE_EC)
+static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
+		      EC_GROUP *group, EC_POINT **pptr)
+{
+    int ret = 0;
+    ErlNifBinary bin;
+    EC_POINT *point;
+
+    if (!enif_inspect_binary(env,term,&bin)) {
+        return 0;
+    }
+
+    if ((*pptr = point = EC_POINT_new(group)) == NULL) {
+	return 0;
+    }
+
+    /* set the point conversion form */
+    EC_GROUP_set_point_conversion_form(group, (point_conversion_form_t)(bin.data[0] & ~0x01));
+
+    /* extract the ec point */
+    if (!EC_POINT_oct2point(group, point, bin.data, bin.size, NULL)) {
+	EC_POINT_free(point);
+	*pptr = NULL;
+    } else
+	ret = 1;
+
+    return ret;
+}
+#endif
+
+static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#if defined(HAVE_EC)
+    ERL_NIF_TERM ret;
+    EC_KEY *key = NULL;
+    BIGNUM *priv_key = NULL;
+    EC_POINT *pub_key = NULL;
+    struct nif_ec_key *obj;
+    EC_GROUP *group = NULL;
+
+    if (!(argv[1] == atom_undefined || get_bn_from_bin(env, argv[1], &priv_key))
+	|| !(argv[2] == atom_undefined || enif_is_binary(env, argv[2]))) {
+	    printf("#1\n");
+	goto out_err;
+    }
+
+    key = ec_key_new(env, argv[0]);
 
     if (!key) {
 	    printf("#4\n");
@@ -3300,11 +3189,6 @@ out:
        so we have to free our copies here */
     if (priv_key) BN_clear_free(priv_key);
     if (pub_key) EC_POINT_free(pub_key);
-    if (p) BN_free(p);
-    if (a) BN_free(a);
-    if (b) BN_free(b);
-    if (bn_order) BN_free(bn_order);
-    if (cofactor) BN_free(cofactor);
     if (group) EC_GROUP_free(group);
     return ret;
 #else
@@ -3315,15 +3199,20 @@ out:
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #if defined(HAVE_EC)
-    struct nif_ec_key *obj;
+    EC_KEY *key = ec_key_new(env, argv[0]);
 
-    if (!enif_get_resource(env, argv[0], res_type_ec_key, (void **)&obj))
-	    return enif_make_badarg(env);
-
-    if (EC_KEY_generate_key(obj->key))
-	return atom_ok;
+    if (key && EC_KEY_generate_key(key)) {
+	ERL_NIF_TERM term;
+	struct nif_ec_key *obj = enif_alloc_resource(res_type_ec_key, sizeof(struct nif_ec_key));
+	if (!obj)
+	    return atom_error;
+	obj->key = key;
+	term = enif_make_resource(env, obj);
+	enif_release_resource(obj);
+	return term;
+    }
     else
-	return atom_error;
+	return enif_make_badarg(env);
 #else
     return atom_notsup;
 #endif

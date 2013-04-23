@@ -1887,7 +1887,8 @@ ec(Config) when is_list(Config) ->
 
 ec_do() ->
     %% test for a name curve
-    D2 = crypto:ecdh_generate_key(sect113r2),
+    {D2_priv, D2_pub} = crypto:ecdh_generate_key(sect113r2),
+    D2 = {sect113r2, D2_priv, D2_pub},
 
     %%TODO: find a published test case for a EC key
 
