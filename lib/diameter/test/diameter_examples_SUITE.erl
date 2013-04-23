@@ -29,6 +29,7 @@
 %% testcases
 -export([dict/1, dict/0,
          code/1,
+         slave/1, slave/0,
          enslave/1,
          start/1,
          traffic/1,
@@ -70,6 +71,7 @@ suite() ->
 all() ->
     [dict,
      code,
+     slave,
      enslave,
      start,
      traffic,
@@ -247,6 +249,29 @@ fold_files(Dir, RE, Acc) ->
 
 store(Path, Dict) ->
     orddict:store(filename:basename(Path), Path, Dict).
+
+%% ===========================================================================
+
+%% slave/1
+%%
+%% Return how long slave start/stop is taking since it seems to be
+%% ridiculously long on some hosts.
+
+slave() ->
+    [{timetrap, {minutes, 10}}].
+
+slave(_) ->
+    T0 = now(),
+    {ok, Node} = ct_slave:start(?MODULE, ?TIMEOUTS),
+    T1 = now(),
+    T2 = rpc:call(Node, erlang, now, []),
+    {ok, Node} = ct_slave:stop(?MODULE),
+    now_diff([T0, T1, T2, now()]).
+
+now_diff([T1,T2|_] = Ts) ->
+    [timer:now_diff(T2,T1) | now_diff(tl(Ts))];
+now_diff(_) ->
+    [].
 
 %% ===========================================================================
 
