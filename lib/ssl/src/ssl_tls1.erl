@@ -30,7 +30,7 @@
 
 -export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7,
 	 setup_keys/8, suites/1, prf/5,
-	 ecc_curves/1, ec_nid2curve_id/1, ec_curve_id2nid/1]).
+	 ecc_curves/1, oid_to_enum/1, enum_to_oid/1]).
 
 %%====================================================================
 %% Internal application API
@@ -328,61 +328,61 @@ finished_label(server) ->
 
 %% list ECC curves in prefered order
 ecc_curves(_Minor) ->
-    [sect571r1,sect571k1,secp521r1,sect409k1,sect409r1,
-     secp384r1,sect283k1,sect283r1,secp256k1,secp256r1,
-     sect239k1,sect233k1,sect233r1,secp224k1,secp224r1,
-     sect193r1,sect193r2,secp192k1,secp192r1,sect163k1,
-     sect163r1,sect163r2,secp160k1,secp160r1,secp160r2].
+    [?sect571r1,?sect571k1,?secp521r1,?sect409k1,?sect409r1,
+     ?secp384r1,?sect283k1,?sect283r1,?secp256k1,?secp256r1,
+     ?sect239k1,?sect233k1,?sect233r1,?secp224k1,?secp224r1,
+     ?sect193r1,?sect193r2,?secp192k1,?secp192r1,?sect163k1,
+     ?sect163r1,?sect163r2,?secp160k1,?secp160r1,?secp160r2].
 
 %% ECC curves from draft-ietf-tls-ecc-12.txt (Oct. 17, 2005)
-ec_nid2curve_id(sect163k1) -> 1;
-ec_nid2curve_id(sect163r1) -> 2;
-ec_nid2curve_id(sect163r2) -> 3;
-ec_nid2curve_id(sect193r1) -> 4;
-ec_nid2curve_id(sect193r2) -> 5;
-ec_nid2curve_id(sect233k1) -> 6;
-ec_nid2curve_id(sect233r1) -> 7;
-ec_nid2curve_id(sect239k1) -> 8;
-ec_nid2curve_id(sect283k1) -> 9;
-ec_nid2curve_id(sect283r1) -> 10;
-ec_nid2curve_id(sect409k1) -> 11;
-ec_nid2curve_id(sect409r1) -> 12;
-ec_nid2curve_id(sect571k1) -> 13;
-ec_nid2curve_id(sect571r1) -> 14;
-ec_nid2curve_id(secp160k1) -> 15;
-ec_nid2curve_id(secp160r1) -> 16;
-ec_nid2curve_id(secp160r2) -> 17;
-ec_nid2curve_id(secp192k1) -> 18;
-ec_nid2curve_id(secp192r1) -> 19;
-ec_nid2curve_id(secp224k1) -> 20;
-ec_nid2curve_id(secp224r1) -> 21;
-ec_nid2curve_id(secp256k1) -> 22;
-ec_nid2curve_id(secp256r1) -> 23;
-ec_nid2curve_id(secp384r1) -> 24;
-ec_nid2curve_id(secp521r1) -> 25.
+oid_to_enum(?sect163k1) -> 1;
+oid_to_enum(?sect163r1) -> 2;
+oid_to_enum(?sect163r2) -> 3;
+oid_to_enum(?sect193r1) -> 4;
+oid_to_enum(?sect193r2) -> 5;
+oid_to_enum(?sect233k1) -> 6;
+oid_to_enum(?sect233r1) -> 7;
+oid_to_enum(?sect239k1) -> 8;
+oid_to_enum(?sect283k1) -> 9;
+oid_to_enum(?sect283r1) -> 10;
+oid_to_enum(?sect409k1) -> 11;
+oid_to_enum(?sect409r1) -> 12;
+oid_to_enum(?sect571k1) -> 13;
+oid_to_enum(?sect571r1) -> 14;
+oid_to_enum(?secp160k1) -> 15;
+oid_to_enum(?secp160r1) -> 16;
+oid_to_enum(?secp160r2) -> 17;
+oid_to_enum(?secp192k1) -> 18;
+oid_to_enum(?secp192r1) -> 19;
+oid_to_enum(?secp224k1) -> 20;
+oid_to_enum(?secp224r1) -> 21;
+oid_to_enum(?secp256k1) -> 22;
+oid_to_enum(?secp256r1) -> 23;
+oid_to_enum(?secp384r1) -> 24;
+oid_to_enum(?secp521r1) -> 25.
 
-ec_curve_id2nid(1) -> sect163k1;
-ec_curve_id2nid(2) -> sect163r1;
-ec_curve_id2nid(3) -> sect163r2;
-ec_curve_id2nid(4) -> sect193r1;
-ec_curve_id2nid(5) -> sect193r2;
-ec_curve_id2nid(6) -> sect233k1;
-ec_curve_id2nid(7) -> sect233r1;
-ec_curve_id2nid(8) -> sect239k1;
-ec_curve_id2nid(9) -> sect283k1;
-ec_curve_id2nid(10) -> sect283r1;
-ec_curve_id2nid(11) -> sect409k1;
-ec_curve_id2nid(12) -> sect409r1;
-ec_curve_id2nid(13) -> sect571k1;
-ec_curve_id2nid(14) -> sect571r1;
-ec_curve_id2nid(15) -> secp160k1;
-ec_curve_id2nid(16) -> secp160r1;
-ec_curve_id2nid(17) -> secp160r2;
-ec_curve_id2nid(18) -> secp192k1;
-ec_curve_id2nid(19) -> secp192r1;
-ec_curve_id2nid(20) -> secp224k1;
-ec_curve_id2nid(21) -> secp224r1;
-ec_curve_id2nid(22) -> secp256k1;
-ec_curve_id2nid(23) -> secp256r1;
-ec_curve_id2nid(24) -> secp384r1;
-ec_curve_id2nid(25) -> secp521r1.
+enum_to_oid(1) -> ?sect163k1;
+enum_to_oid(2) -> ?sect163r1;
+enum_to_oid(3) -> ?sect163r2;
+enum_to_oid(4) -> ?sect193r1;
+enum_to_oid(5) -> ?sect193r2;
+enum_to_oid(6) -> ?sect233k1;
+enum_to_oid(7) -> ?sect233r1;
+enum_to_oid(8) -> ?sect239k1;
+enum_to_oid(9) -> ?sect283k1;
+enum_to_oid(10) -> ?sect283r1;
+enum_to_oid(11) -> ?sect409k1;
+enum_to_oid(12) -> ?sect409r1;
+enum_to_oid(13) -> ?sect571k1;
+enum_to_oid(14) -> ?sect571r1;
+enum_to_oid(15) -> ?secp160k1;
+enum_to_oid(16) -> ?secp160r1;
+enum_to_oid(17) -> ?secp160r2;
+enum_to_oid(18) -> ?secp192k1;
+enum_to_oid(19) -> ?secp192r1;
+enum_to_oid(20) -> ?secp224k1;
+enum_to_oid(21) -> ?secp224r1;
+enum_to_oid(22) -> ?secp256k1;
+enum_to_oid(23) -> ?secp256r1;
+enum_to_oid(24) -> ?secp384r1;
+enum_to_oid(25) -> ?secp521r1.

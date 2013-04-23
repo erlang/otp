@@ -1647,7 +1647,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
   when Algo == ecdhe_ecdsa; Algo == ecdhe_rsa;
        Algo == ecdh_anon ->
 
-    ECDHKeys = public_key:generate_key({curve, default_curve(State)}),
+    ECDHKeys = public_key:generate_key(select_curve(State)),
     ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     SecParams = ConnectionState#connection_state.security_parameters,
@@ -2050,7 +2050,7 @@ server_master_secret(#server_dh_params{dh_p = P, dh_g = G, dh_y = ServerPublicDh
 
 server_master_secret(#server_ecdh_params{curve = ECCurve, public = ECServerPubKey},
 		     State) ->
-    ECDHKeys = public_key:generate_key({curve, ECCurve}),
+    ECDHKeys = public_key:generate_key(ECCurve),
     ec_dh_master_secret(ECDHKeys, #'ECPoint'{point = ECServerPubKey}, State#state{diffie_hellman_keys = ECDHKeys});
 
 server_master_secret(#server_psk_params{
@@ -3084,6 +3084,6 @@ handle_close_alert(Data, StateName, State0) ->
 	    ok
     end.
 
-default_curve(_) ->
+select_curve(_) ->
     %%TODO: select prefered curve from extension
-    secp256k1.
+    {namedCurve, ?secp256k1}.

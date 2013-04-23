@@ -1243,7 +1243,7 @@ dec_server_key(<<?BYTE(?NAMED_CURVE), ?UINT16(CurveID),
 		 ?BYTE(PointLen), ECPoint:PointLen/binary,
 		 _/binary>> = KeyStruct,
 	       ?KEY_EXCHANGE_EC_DIFFIE_HELLMAN, Version) ->
-    Params = #server_ecdh_params{curve = ssl_tls1:ec_curve_id2nid(CurveID),
+    Params = #server_ecdh_params{curve = {namedCurve, ssl_tls1:enum_to_oid(CurveID)},
 				 public = ECPoint},
     {BinMsg, HashSign, Signature} = dec_ske_params(PointLen + 4, KeyStruct, Version),
     #server_key_params{params = Params,
@@ -1330,7 +1330,7 @@ dec_hello_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
     EllipticCurveListLen = Len - 2,
     <<?UINT16(EllipticCurveListLen), EllipticCurveList/binary>> = ExtData,
-    EllipticCurves = [ssl_tls1:ec_curve_id2nid(X) || <<X:16>> <= EllipticCurveList],
+    EllipticCurves = [ssl_tls1:enum_to_oid(X) || <<X:16>> <= EllipticCurveList],
     dec_hello_extensions(Rest, [{elliptic_curves,
 				 #elliptic_curves{elliptic_curve_list = EllipticCurves}} | Acc]);
 
@@ -1517,7 +1517,7 @@ enc_server_key(#server_dh_params{dh_p = P, dh_g = G, dh_y = Y}) ->
 enc_server_key(#server_ecdh_params{curve = {namedCurve, ECCurve}, public = ECPubKey}) ->
     %%TODO: support arbitrary keys
     KLen = size(ECPubKey),
-    <<?BYTE(?NAMED_CURVE_TYPE), ?UINT16((ssl_tls1:ec_nid2curve_id(pubkey_cert_records:namedCurves(ECCurve)))),
+    <<?BYTE(?NAMED_CURVE_TYPE), ?UINT16((ssl_tls1:oid_to_enum(ECCurve))),
       ?BYTE(KLen), ECPubKey/binary>>;
 enc_server_key(#server_psk_params{hint = PskIdentityHint}) ->
     Len = byte_size(PskIdentityHint),
@@ -1601,7 +1601,7 @@ enc_hello_extensions([#renegotiation_info{renegotiated_connection = Info} | Rest
     Len = InfoLen +1,
     enc_hello_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), ?BYTE(InfoLen), Info/binary, Acc/binary>>);
 enc_hello_extensions([#elliptic_curves{elliptic_curve_list = EllipticCurves} | Rest], Acc) ->
-    EllipticCurveList = << <<(ssl_tls1:ec_nid2curve_id(X)):16>> || X <- EllipticCurves>>,
+    EllipticCurveList = << <<(ssl_tls1:oid_to_enum(X)):16>> || X <- EllipticCurves>>,
     ListLen = byte_size(EllipticCurveList),
     Len = ListLen + 2,
     enc_hello_extensions(Rest, <<?UINT16(?ELLIPTIC_CURVES_EXT),
@@ -1675,9 +1675,6 @@ certificate_authorities(CertDbHandle, CertDbRef) ->
     Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
 		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
 		  DNEncodedBin = public_key:pkix_encode('Name', OTPSubj, otp),
-		  %%Subj = public_key:pkix_transform(OTPSubj, encode),
-		  %% {ok, DNEncoded} = 'OTP-PUB-KEY':encode('Name', Subj),
-		  %% DNEncodedBin = iolist_to_binary(DNEncoded),
 		  DNEncodedLen = byte_size(DNEncodedBin),
 		  <<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
 	  end,
