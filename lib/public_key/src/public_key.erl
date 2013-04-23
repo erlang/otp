@@ -364,7 +364,7 @@ compute_key(PubKey, #'ECPrivateKey'{} = PrivateKey) ->
     compute_key(PubKey, format_ecdh_key(PrivateKey));
 
 compute_key(#'ECPoint'{point = Point}, ECDHKeys) ->
-    crypto:ecdh_compute_key(ECDHKeys, Point).
+    crypto:ecdh_compute_key(Point, ECDHKeys).
 
 compute_key(OthersKey, MyKey, {dh, Prime, Base}) when is_binary(OthersKey),
 						     is_binary(MyKey),

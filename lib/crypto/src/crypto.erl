@@ -1286,9 +1286,9 @@ term_to_ec_key({Curve, PrivKey, PubKey}) ->
 term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 
 
--spec ecdh_compute_key(ec_key_res(), ec_key_res() | ec_point()) -> binary().
+-spec ecdh_compute_key(ec_point(), ec_key_res()) -> binary().
 ecdh_compute_key(Others, My) ->
-    ecdh_compute_key_nif(term_to_ec_key(Others), My).
+    ecdh_compute_key_nif(Others, term_to_ec_key(My)).
 
 ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
 

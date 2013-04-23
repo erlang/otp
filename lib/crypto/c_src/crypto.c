@@ -3466,21 +3466,14 @@ static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
     EC_POINT *my_ecpoint;
     EC_KEY *other_ecdh = NULL;
 
-    if (!enif_get_resource(env, argv[0], res_type_ec_key, (void **)&other_key))
+    if (!enif_get_resource(env, argv[1], res_type_ec_key, (void **)&other_key))
 	return enif_make_badarg(env);
 
     group    = EC_GROUP_dup(EC_KEY_get0_group(other_key->key));
     priv_key = EC_KEY_get0_private_key(other_key->key);
 
-    if (!term2point(env, argv[1], group, &my_ecpoint)) {
-	struct nif_ec_key *my_key;
-
-	if (!enif_get_resource(env, argv[1], res_type_ec_key, (void **)&my_key))
-	    goto out_err;
-
-	if ((my_ecpoint = EC_POINT_new(group)) == NULL)
-	    goto out_err;
-	EC_POINT_copy(my_ecpoint, EC_KEY_get0_public_key(my_key->key));
+    if (!term2point(env, argv[0], group, &my_ecpoint)) {
+	goto out_err;
     }
 
     if ((other_ecdh = EC_KEY_new()) == NULL
