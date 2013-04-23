@@ -223,7 +223,7 @@ encode_integer1(C, Val) ->
     case VR = get_constraint(C, 'ValueRange') of
 	no ->
 	    encode_unconstrained_number(Val);
-	{Lb,'MAX'} ->
+	{Lb,'MAX'} when Lb =< Val ->
 	    encode_semi_constrained_number(Lb, Val);
 	%% positive with range
 	{Lb,Ub} when Val >= Lb, Ub >= Val ->

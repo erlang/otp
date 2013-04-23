@@ -173,7 +173,7 @@ encode_integer([{'ValueRange',{Lb,Ub}=VR,Range,PreEnc}],Val)
   when Val >= Lb, Ub >= Val ->
     %% this case when NamedNumberList
     encode_constrained_number(VR, Range, PreEnc, Val);
-encode_integer([{'ValueRange',{Lb,'MAX'}}], Val) ->
+encode_integer([{'ValueRange',{Lb,'MAX'}}], Val) when Lb =< Val ->
     encode_semi_constrained_number(Lb, Val);
 encode_integer([{'ValueRange',{'MIN',_}}], Val) ->
     encode_unconstrained_number(Val);

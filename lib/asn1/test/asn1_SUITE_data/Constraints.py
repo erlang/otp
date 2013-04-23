@@ -14,6 +14,8 @@ LongLong ::= INTEGER (0..18446744073709551615)
 Range256to65536 ::= INTEGER (256..65536)
 SemiConstrained ::= INTEGER (100..MAX)
 NegSemiConstrained ::= INTEGER (-128..MAX)
+SemiConstrainedExt ::= INTEGER (42..MAX, ...)
+NegSemiConstrainedExt ::= INTEGER (-128..MAX, ...)
 
 -- Other constraints
 FixedSize ::= OCTET STRING (SIZE(10)) 

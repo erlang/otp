@@ -131,6 +131,16 @@ int_constraints(Rules) ->
     roundtrip('NegSemiConstrained', -1),
     roundtrip('NegSemiConstrained', 500),
 
+    roundtrip('SemiConstrainedExt', -65536),
+    roundtrip('SemiConstrainedExt', 0),
+    roundtrip('SemiConstrainedExt', 42),
+    roundtrip('SemiConstrainedExt', 100),
+    roundtrip('SemiConstrainedExt', 47777789),
+    roundtrip('NegSemiConstrainedExt', -1023),
+    roundtrip('NegSemiConstrainedExt', -128),
+    roundtrip('NegSemiConstrainedExt', -1),
+    roundtrip('NegSemiConstrainedExt', 500),
+
     %%==========================================================
     %%  SIZE Constraint (Duboisson p. 268)
     %%  T ::=  IA5String (SIZE (1|2, ..., SIZE (1|2|3)))
