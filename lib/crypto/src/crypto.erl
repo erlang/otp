@@ -67,7 +67,7 @@
 -export([aes_cbc_ivec/1]).
 -export([aes_ctr_encrypt/3, aes_ctr_decrypt/3]).
 -export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
--export([ecdh_generate_key/1, ecdh_compute_key/2]).
+-export([ecdh_generate_key/1, ecdh_compute_key/3]).
 -export([sign/4, verify/5]).
 
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see below
@@ -1267,9 +1267,9 @@ term_to_ec_key({Curve, PrivKey, PubKey}) ->
 term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 
 
--spec ecdh_compute_key(ec_point(), ec_key_res()) -> binary().
-ecdh_compute_key(Others, My) ->
-    ecdh_compute_key_nif(Others, term_to_ec_key(My)).
+-spec ecdh_compute_key(ec_point(), binary(), ec_curve()) -> binary().
+ecdh_compute_key(Others, My, Curve) ->
+    ecdh_compute_key_nif(Others, term_to_ec_key({Curve,My,undefined})).
 
 ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
 
