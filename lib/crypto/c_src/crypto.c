@@ -222,8 +222,8 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM srp_client_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM srp_server_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM bf_cfb64_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM bf_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM bf_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -349,11 +349,11 @@ static ErlNifFunc nif_funcs[] = {
     {"rsa_private_crypt", 4, rsa_private_crypt},
     {"dh_generate_parameters_nif", 2, dh_generate_parameters_nif},
     {"dh_check", 1, dh_check},
-    {"dh_generate_key_nif", 2, dh_generate_key_nif},
+    {"dh_generate_key_nif", 3, dh_generate_key_nif},
     {"dh_compute_key_nif", 3, dh_compute_key_nif},
     {"srp_value_B_nif", 5, srp_value_B_nif},
-    {"srp_client_secret_nif", 7, srp_client_secret_nif},
-    {"srp_server_secret_nif", 5, srp_server_secret_nif},
+    {"srp_user_secret_nif", 7, srp_user_secret_nif},
+    {"srp_host_secret_nif", 5, srp_host_secret_nif},
     {"bf_cfb64_crypt", 4, bf_cfb64_crypt},
     {"bf_cbc_crypt", 4, bf_cbc_crypt},
     {"bf_ecb_crypt", 3, bf_ecb_crypt},
@@ -2442,14 +2442,12 @@ static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const E
     }
     p_len = BN_num_bytes(dh_params->p);
     g_len = BN_num_bytes(dh_params->g);
-    p_ptr = enif_make_new_binary(env, p_len+4, &ret_p);
-    g_ptr = enif_make_new_binary(env, g_len+4, &ret_g);
-    put_int32(p_ptr, p_len);
-    put_int32(g_ptr, g_len);
-    BN_bn2bin(dh_params->p, p_ptr+4);
-    BN_bn2bin(dh_params->g, g_ptr+4);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(p_ptr+4, p_len);                
-    ERL_VALGRIND_MAKE_MEM_DEFINED(g_ptr+4, g_len);
+    p_ptr = enif_make_new_binary(env, p_len, &ret_p);
+    g_ptr = enif_make_new_binary(env, g_len, &ret_g);
+    BN_bn2bin(dh_params->p, p_ptr);
+    BN_bn2bin(dh_params->g, g_ptr);
+    ERL_VALGRIND_MAKE_MEM_DEFINED(p_ptr, p_len);
+    ERL_VALGRIND_MAKE_MEM_DEFINED(g_ptr, g_len);
     DH_free(dh_params);
     return enif_make_list2(env, ret_p, ret_g);    
 }
@@ -2461,9 +2459,9 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ERL_NIF_TERM ret, head, tail;
 
     if (!enif_get_list_cell(env, argv[0], &head, &tail)   
-	|| !get_bn_from_mpint(env, head, &dh_params->p)
+	|| !get_bn_from_bin(env, head, &dh_params->p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)   
-	|| !get_bn_from_mpint(env, head, &dh_params->g)
+	|| !get_bn_from_bin(env, head, &dh_params->g)
 	|| !enif_is_empty_list(env,tail)) {
 
 	DH_free(dh_params);
@@ -2485,19 +2483,21 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 }   
 
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (PrivKey, DHParams=[P,G]) */
+{/* (PrivKey, DHParams=[P,G], Mpint) */
     DH* dh_params = DH_new();
     int pub_len, prv_len;
     unsigned char *pub_ptr, *prv_ptr;
     ERL_NIF_TERM ret, ret_pub, ret_prv, head, tail;
+    int mpint; /* 0 or 4 */
 
-    if (!(get_bn_from_mpint(env, argv[0], &dh_params->priv_key)
+    if (!(get_bn_from_bin(env, argv[0], &dh_params->priv_key)
 	  || argv[0] == atom_undefined)
 	|| !enif_get_list_cell(env, argv[1], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dh_params->p)
+	|| !get_bn_from_bin(env, head, &dh_params->p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dh_params->g)
-	|| !enif_is_empty_list(env, tail)) {
+	|| !get_bn_from_bin(env, head, &dh_params->g)
+	|| !enif_is_empty_list(env, tail)
+	|| !enif_get_int(env, argv[2], &mpint) || (mpint & ~4)) {
 	DH_free(dh_params);
 	return enif_make_badarg(env);
     }
@@ -2505,14 +2505,16 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     if (DH_generate_key(dh_params)) {
 	pub_len = BN_num_bytes(dh_params->pub_key);
 	prv_len = BN_num_bytes(dh_params->priv_key);    
-	pub_ptr = enif_make_new_binary(env, pub_len+4, &ret_pub);
-	prv_ptr = enif_make_new_binary(env, prv_len+4, &ret_prv);
-	put_int32(pub_ptr, pub_len);
-	put_int32(prv_ptr, prv_len);
-	BN_bn2bin(dh_params->pub_key, pub_ptr+4);
-	BN_bn2bin(dh_params->priv_key, prv_ptr+4);
-	ERL_VALGRIND_MAKE_MEM_DEFINED(pub_ptr+4, pub_len);    
-	ERL_VALGRIND_MAKE_MEM_DEFINED(prv_ptr+4, prv_len);
+	pub_ptr = enif_make_new_binary(env, pub_len+mpint, &ret_pub);
+	prv_ptr = enif_make_new_binary(env, prv_len+mpint, &ret_prv);
+	if (mpint) {
+	    put_int32(pub_ptr, pub_len); pub_ptr += 4;
+	    put_int32(prv_ptr, prv_len); prv_ptr += 4;
+	}
+	BN_bn2bin(dh_params->pub_key, pub_ptr);
+	BN_bn2bin(dh_params->priv_key, prv_ptr);
+	ERL_VALGRIND_MAKE_MEM_DEFINED(pub_ptr, pub_len);
+	ERL_VALGRIND_MAKE_MEM_DEFINED(prv_ptr, prv_len);
 	ret = enif_make_tuple2(env, ret_pub, ret_prv);
     }
     else {
@@ -2530,12 +2532,12 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     ErlNifBinary ret_bin;
     ERL_NIF_TERM ret, head, tail;
 
-    if (!get_bn_from_mpint(env, argv[0], &pubkey)
-	|| !get_bn_from_mpint(env, argv[1], &dh_params->priv_key)       
+    if (!get_bn_from_bin(env, argv[0], &pubkey)
+	|| !get_bn_from_bin(env, argv[1], &dh_params->priv_key)
 	|| !enif_get_list_cell(env, argv[2], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dh_params->p)
+	|| !get_bn_from_bin(env, head, &dh_params->p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dh_params->g)
+	|| !get_bn_from_bin(env, head, &dh_params->g)
 	|| !enif_is_empty_list(env, tail)) {
 
 	ret = enif_make_badarg(env);
@@ -2613,7 +2615,7 @@ static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     return ret;
 }
 
-static ERL_NIF_TERM srp_client_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (a, u, B, Multiplier, Prime, Exponent, Generator) */
 /*
         <premaster secret> = (B - (k * g^x)) ^ (a + (u * x)) % N
@@ -2693,7 +2695,7 @@ static ERL_NIF_TERM srp_client_secret_nif(ErlNifEnv* env, int argc, const ERL_NI
     return ret;
 }
 
-static ERL_NIF_TERM srp_server_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Verifier, b, u, A, Prime) */
 /*
         <premaster secret> = (A * v^u) ^ b % N

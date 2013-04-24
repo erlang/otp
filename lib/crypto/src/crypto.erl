@@ -58,8 +58,6 @@
 -export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
 -export([strong_rand_bytes/1, strong_rand_mpint/3]).
 -export([mod_exp/3, mod_exp_prime/3, mpint/1, erlint/1]).
--export([srp_generate_key/4, srp_generate_key/3,
-	 srp_generate_key/5, srp_compute_key/6, srp_compute_key/7, srp_compute_key/8]).
 
 %% -export([idea_cbc_encrypt/3, idea_cbc_decrypt/3]).
 -export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
@@ -67,8 +65,9 @@
 -export([aes_cbc_ivec/1]).
 -export([aes_ctr_encrypt/3, aes_ctr_decrypt/3]).
 -export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
--export([ecdh_generate_key/1, ecdh_compute_key/3]).
 -export([sign/4, verify/5]).
+-export([generate_key/2, generate_key/3, compute_key/4]).
+
 
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see below
 
@@ -114,9 +113,7 @@
 		    hash, hash_init, hash_update, hash_final,
 		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n, info,
 		    rc2_cbc_encrypt, rc2_cbc_decrypt,
-		    srp_generate_key, srp_compute_key,
-		    ecdh_generate_key, ecdh_compute_key,
-		    sign, verify,
+		    sign, verify, generate_key, compute_key,
 		    info_lib, algorithms]).
 
 -type mpint() :: binary().
@@ -1122,118 +1119,98 @@ dh_check([_Prime,_Gen]) -> ?nif_stub.
 			     {binary(),binary()}.
 
 dh_generate_key(DHParameters) ->
-    dh_generate_key(undefined, DHParameters).
+    dh_generate_key_nif(undefined, map_mpint_to_bin(DHParameters), 4).
 dh_generate_key(PrivateKey, DHParameters) ->
-    case dh_generate_key_nif(PrivateKey, DHParameters) of
-	error -> erlang:error(generation_failed, [PrivateKey,DHParameters]);
-	Res -> Res
-    end.
+    dh_generate_key_nif(mpint_to_bin(PrivateKey), map_mpint_to_bin(DHParameters), 4).
 
-dh_generate_key_nif(_PrivateKey, _DHParameters) -> ?nif_stub.
+dh_generate_key_nif(_PrivateKey, _DHParameters, _Mpint) -> ?nif_stub.
 
 %% DHParameters = [P (Prime)= mpint(), G(Generator) = mpint()]
-%% MyPrivKey, OthersPublicKey = mpint() 
+%% MyPrivKey, OthersPublicKey = mpint()
 -spec dh_compute_key(binary(), binary(), [binary()]) -> binary().
 
 dh_compute_key(OthersPublicKey, MyPrivateKey, DHParameters) ->
-    case dh_compute_key_nif(OthersPublicKey,MyPrivateKey,DHParameters) of
-	error -> erlang:error(computation_failed, [OthersPublicKey,MyPrivateKey,DHParameters]);
-	Ret -> Ret
-    end.
+    compute_key(dh, mpint_to_bin(OthersPublicKey), mpint_to_bin(MyPrivateKey),
+		map_mpint_to_bin(DHParameters)).
+
 
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
+generate_key(Type, Params) ->
+    generate_key(Type, Params, undefined).
 
-%%% SRP
--spec srp_generate_key(binary(), binary(), atom() | binary(), atom() | binary() ) -> {Public::binary(), Private::binary()}.
-srp_generate_key(Verifier, Generator, Prime, Version) when is_binary(Verifier),
-							   is_binary(Generator),
-							   is_binary(Prime), 
-							   is_atom(Version) ->
-    Private = random_bytes(32),
-    server_srp_gen_key(Private, Verifier, Generator, Prime, Version);
+generate_key(dh, DHParameters, PrivateKey) ->
+    dh_generate_key_nif(PrivateKey, DHParameters, 0);
 
-srp_generate_key(Generator, Prime, Version, Private) when is_binary(Generator),
-							  is_binary(Prime), 
-							  is_atom(Version),
-							  is_binary(Private) ->
-    client_srp_gen_key(Private, Generator, Prime).
+generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
+  when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
+    Private = case PrivArg of
+		  undefined -> random_bytes(32);
+		  _ -> PrivArg
+	      end,
+    host_srp_gen_key(Private, Verifier, Generator, Prime, Version);
 
--spec srp_generate_key(binary(), binary(), binary(), atom(), binary()) -> {Public::binary(), Private::binary()}.
-srp_generate_key(Verifier, Generator, Prime, Version, Private) when is_binary(Verifier),
-								    is_binary(Generator),
-								    is_binary(Prime), 
-								    is_atom(Version),
-								    is_binary(Private)
-								    -> 
-    server_srp_gen_key(Private, Verifier, Generator, Prime, Version).
+generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
+  when is_binary(Generator), is_binary(Prime), is_atom(Version) ->
+    Private = case PrivateArg of
+		  undefined -> random_bytes(32);
+		  _ -> PrivateArg
+	      end,
+    user_srp_gen_key(Private, Generator, Prime);
 
--spec srp_generate_key(binary(), binary(), atom()) -> {Public::binary(), Private::binary()}.
-srp_generate_key(Generator, Prime, Version) when is_binary(Generator),
-						 is_binary(Prime), 
-						 is_atom(Version) ->
-    Private = random_bytes(32),
-    client_srp_gen_key(Private, Generator, Prime).
-
--spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), atom()| binary(), atom() | binary() ) -> binary().
-srp_compute_key(DerivedKey, Prime, Generator, ClientPublic, ClientPrivate, ServerPublic, Version) when 
-      is_binary(Prime), 
-      is_binary(Generator),
-      is_binary(ClientPublic),
-      is_binary(ClientPrivate),
-      is_binary(ServerPublic),
-      is_atom(Version) ->
-    Multiplier = srp_multiplier(Version, Generator, Prime),
-    Scrambler = srp_scrambler(Version, ClientPublic, ServerPublic, Prime),
-    srp_client_secret_nif(ClientPrivate, Scrambler, ServerPublic, Multiplier,
-		      Generator, DerivedKey, Prime);
-
-srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Version, Scrambler) when 
-      is_binary(Verifier),
-      is_binary(Prime), 
-      is_binary(ClientPublic),
-      is_binary(ServerPublic),
-      is_binary(ServerPrivate),
-      is_atom(Version),
-      is_binary(Scrambler) ->
-   srp_server_secret_nif(Verifier, ServerPrivate, Scrambler, ClientPublic, Prime).
-
--spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), binary(), atom(), binary()) -> binary().
-srp_compute_key(DerivedKey, Prime, Generator, ClientPublic, ClientPrivate, 
-		ServerPublic, Version, Scrambler) when is_binary(DerivedKey),
-						       is_binary(Prime), 
-						       is_binary(Generator),
-						       is_binary(ClientPublic),
-						       is_binary(ClientPrivate),
-						       is_binary(ServerPublic),
-						       is_atom(Version),
-						       is_binary(Scrambler) ->
-    Multiplier = srp_multiplier(Version, Generator, Prime),
-    srp_client_secret_nif(ClientPrivate, Scrambler, ServerPublic, Multiplier,
-			  Generator, DerivedKey, Prime).
-
--spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), atom()) -> binary().
-srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Version) when 
-      is_binary(Verifier),
-      is_binary(Prime), 
-      is_binary(ClientPublic),
-      is_binary(ServerPublic),
-      is_binary(ServerPrivate),
-      is_atom(Version) ->
-   Scrambler = srp_scrambler(Version, ClientPublic, ServerPublic, Prime),
-   srp_server_secret_nif(Verifier, ServerPrivate, Scrambler, ClientPublic, Prime).
-
-%%
-%% EC
-%%
-
--spec ecdh_generate_key(ec_curve()) -> ec_key() | error.
-ecdh_generate_key(Curve) ->
+generate_key(ecdh, Curve, undefined) ->
     ec_key_to_term(ec_key_generate(Curve)).
 
 
 ec_key_generate(_Key) -> ?nif_stub.
 
+
+compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
+    case dh_compute_key_nif(OthersPublicKey,MyPrivateKey,DHParameters) of
+	error -> erlang:error(computation_failed,
+			      [OthersPublicKey,MyPrivateKey,DHParameters]);
+	Ret -> Ret
+    end;
+
+compute_key(srp, HostPublic, {UserPublic, UserPrivate},
+	    {user, [DerivedKey, Prime, Generator, Version | ScramblerArg]}) when
+      is_binary(Prime),
+      is_binary(Generator),
+      is_binary(UserPublic),
+      is_binary(UserPrivate),
+      is_binary(HostPublic),
+      is_atom(Version) ->
+    Multiplier = srp_multiplier(Version, Generator, Prime),
+    Scrambler = case ScramblerArg of
+		    [] -> srp_scrambler(Version, UserPublic, HostPublic, Prime);
+		    [S] -> S
+		end,
+    srp_user_secret_nif(UserPrivate, Scrambler, HostPublic, Multiplier,
+			  Generator, DerivedKey, Prime);
+
+compute_key(srp, UserPublic, {HostPublic, HostPrivate},
+	    {host,[Verifier, Prime, Version | ScramblerArg]}) when
+      is_binary(Verifier),
+      is_binary(Prime),
+      is_binary(UserPublic),
+      is_binary(HostPublic),
+      is_binary(HostPrivate),
+      is_atom(Version) ->
+    Scrambler = case ScramblerArg of
+		    [] -> srp_scrambler(Version, UserPublic, HostPublic, Prime);
+		    [S] -> S
+		end,
+    srp_host_secret_nif(Verifier, HostPrivate, Scrambler, UserPublic, Prime);
+
+compute_key(ecdh, Others, My, Curve) ->
+    ecdh_compute_key_nif(Others, term_to_ec_key({Curve,My,undefined})).
+
+ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
+
+
+%%
+%% EC
+%%
 
 -spec ec_key_to_term(ec_key_res()) -> ec_key().
 ec_key_to_term(Key) ->
@@ -1267,17 +1244,11 @@ term_to_ec_key({Curve, PrivKey, PubKey}) ->
 term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 
 
--spec ecdh_compute_key(ec_point(), binary(), ec_curve()) -> binary().
-ecdh_compute_key(Others, My, Curve) ->
-    ecdh_compute_key_nif(Others, term_to_ec_key({Curve,My,undefined})).
-
-ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
-
 
 %%  LOCAL FUNCTIONS
 %%
 
-client_srp_gen_key(Private, Generator, Prime) ->
+user_srp_gen_key(Private, Generator, Prime) ->
     case mod_exp_prime(Generator, Private, Prime) of
 	error ->
 	    error;
@@ -1285,7 +1256,7 @@ client_srp_gen_key(Private, Generator, Prime) ->
 	    {Public, Private}
     end.
 
-server_srp_gen_key(Private, Verifier, Generator, Prime, Version) ->
+host_srp_gen_key(Private, Verifier, Generator, Prime, Version) ->
  Multiplier = srp_multiplier(Version, Generator, Prime),
    case srp_value_B_nif(Multiplier, Verifier, Generator, Private, Prime) of
    error ->
@@ -1305,17 +1276,17 @@ srp_multiplier('6', _, _) ->
 srp_multiplier('3', _, _) ->
     <<1/integer>>.
 
-srp_scrambler(Version, ClientPublic, ServerPublic, Prime) when Version == '6'; Version == '6a'->
+srp_scrambler(Version, UserPublic, HostPublic, Prime) when Version == '6'; Version == '6a'->
     %% SHA1(PAD(A) | PAD(B)) from http://srp.stanford.edu/design.html
     PadLength = erlang:byte_size(Prime),
     C0 = sha_init(),
-    C1 = sha_update(C0, srp_pad_to(PadLength, ClientPublic)),
-    C2 = sha_update(C1, srp_pad_to(PadLength, ServerPublic)),
+    C1 = sha_update(C0, srp_pad_to(PadLength, UserPublic)),
+    C2 = sha_update(C1, srp_pad_to(PadLength, HostPublic)),
     sha_final(C2);
-srp_scrambler('3', _, ServerPublic, _Prime) ->
+srp_scrambler('3', _, HostPublic, _Prime) ->
     %% The parameter u is a 32-bit unsigned integer which takes its value
     %% from the first 32 bits of the SHA1 hash of B, MSB first.
-    <<U:32/bits, _/binary>> = sha(ServerPublic),
+    <<U:32/bits, _/binary>> = sha(HostPublic),
     U.
 
 srp_pad_length(Width, Length) ->
@@ -1327,9 +1298,9 @@ srp_pad_to(Width, Binary) ->
         N -> << 0:(N*8), Binary/binary>>
     end.
 
-srp_server_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
+srp_host_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
 
-srp_client_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?nif_stub.
+srp_user_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?nif_stub.
 
 srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_stub.
 
