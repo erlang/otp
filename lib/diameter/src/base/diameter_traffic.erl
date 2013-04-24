@@ -621,8 +621,8 @@ reset(#diameter_packet{msg = Msg, errors = Es} = Pkt, Dict) ->
 
 reset(Msg, Dict, Es)
   when is_list(Es) ->
-    {E3, E5, Fs} = partition(Es),
-    FailedAVP = failed_avp(Msg, lists:reverse(Fs), Dict),
+    {E3, E5, Failed} = partition(Es),
+    FailedAVP = failed_avp(Msg, Failed, Dict),
     reset(set(Msg, FailedAVP, Dict),
           Dict,
           choose(is_answer_message(Msg, Dict), E3, E5));
@@ -740,14 +740,14 @@ rc(Rec, T, Dict) ->
 failed_avp(_, [] = No, _) ->
     No;
 
-failed_avp(Rec, Failed, Dict) ->
-    [fa(Rec, [{'AVP', Failed}], Dict)].
+failed_avp(Rec, Avps, Dict) ->
+    [failed(Rec, [{'AVP', lists:reverse(Avps)}], Dict)].
 
 %% Reply as name and tuple list ...
-fa([MsgName | Values], FailedAvp, Dict) ->
-    R = Dict:msg2rec(MsgName),
+failed([MsgName | Values], FailedAvp, Dict) ->
+    RecName = Dict:msg2rec(MsgName),
     try
-        Dict:'#info-'(R, {index, 'Failed-AVP'}),
+        Dict:'#info-'(RecName, {index, 'Failed-AVP'}),
         {'Failed-AVP', [FailedAvp]}
     catch
         error: _ ->
@@ -758,8 +758,10 @@ fa([MsgName | Values], FailedAvp, Dict) ->
     end;
 
 %% ... or record.
-fa(Rec, FailedAvp, Dict) ->
+failed(Rec, FailedAvp, Dict) ->
     try
+        RecName = element(1, Rec),  
+        Dict:'#info-'(RecName, {index, 'Failed-AVP'}),
         {'Failed-AVP', [FailedAvp]}
     catch
         error: _ ->
