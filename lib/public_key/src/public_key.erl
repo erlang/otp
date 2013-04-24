@@ -326,38 +326,19 @@ encrypt_private(PlainText,
     crypto:rsa_private_encrypt(PlainText, format_rsa_private_key(Key), Padding).
 
 %%--------------------------------------------------------------------
--spec generate_key(#'ECPrivateKey'{} | {curve, Name ::atom()} | #'DHParameter'{}) -> {'ECKey', term()} | {binary(), binary()}.
-%% Description: Generates new key(s)
+-spec generate_key(#'DHParameter'{} | {namedCurve, Name ::atom()} | #'OTPECParameters'{}) -> {Public::binary(), Private::binary()}.
+%% Description: Generates a new keypair
 %%--------------------------------------------------------------------
-generate_key({curve, Name}) ->
-    Term = crypto:ecdh_generate_key(Name),
-    ec_key(Term, Name);
-
 generate_key(#'DHParameter'{prime = P, base = G}) ->
     crypto:dh_generate_key([crypto:mpint(P), crypto:mpint(G)]);
-
-generate_key({dh, Prime, Base}) when is_binary(Prime), is_binary(Base) ->
-    %% TODO: Is mpint could be normal binary!
-    crypto:dh_generate_key([Prime, Base]);
-
-generate_key({srp, Version, Generator, Prime}) when is_binary(Generator), is_binary(Prime) ->
-    crypto:srp_generate_key(Generator, Prime, Version);
-
-generate_key({srp, Version, Verifier, Generator, Prime}) when is_binary(Verifier), is_binary(Generator), is_binary(Prime) ->
-    crypto:srp_generate_key(Verifier, Generator, Prime, Version);
-
-generate_key(Params) ->
-    Curve = ec_curve_spec(Params),
-    Term = crypto:ecdh_generate_key(Curve),
-    ec_key(Term, Params).
+generate_key({namedCurve, _} = Params) ->
+    ec_generate_key(Params);
+generate_key(#'OTPECParameters'{} = Params) ->
+    ec_generate_key(Params).
 
 %%--------------------------------------------------------------------
--spec compute_key(#'ECPoint'{}, #'ECPrivateKey'{} | crypto:ecdh_key()) -> binary().
--spec compute_key(OthersKey ::binary(), MyKey::binary() | {binary(), binary()},
-		  {dh, binary(), binary()} |
-		  {srp,'3'|'6'| '6a' , binary(), binary()}  |
-		  {srp, string(), string(), binary(), '3'|'6'| '6a', binary(), binary()})
-		 -> binary().
+-spec compute_key(#'ECPoint'{} , #'ECPrivateKey'{}) -> binary().
+-spec compute_key(OthersKey ::binary(), MyKey::binary(), #'DHParameter'{}) -> binary().
 %% Description: Compute shared secret
 %%--------------------------------------------------------------------
 compute_key(PubKey, #'ECPrivateKey'{} = PrivateKey) ->
@@ -366,19 +347,8 @@ compute_key(PubKey, #'ECPrivateKey'{} = PrivateKey) ->
 compute_key(#'ECPoint'{point = Point}, ECDHKeys) ->
     crypto:ecdh_compute_key(Point, ECDHKeys).
 
-compute_key(OthersKey, MyKey, {dh, Prime, Base}) when is_binary(OthersKey),
-						     is_binary(MyKey),
-						     is_binary(Prime),
-						     is_binary(Base) ->
-    %% TODO: Is mpint could be binary!
-    crypto:dh_compute_key(OthersKey, MyKey, [Prime, Base]);
-
-compute_key(ClientPub, {ServerPub, ServerPriv}, {srp, Version, Verifier, Prime}) ->
-    crypto:srp_compute_key(Verifier, Prime, ClientPub, ServerPub, ServerPriv, Version);
-
-compute_key(ServerPub, {ClientPub, ClientPriv}, {srp, Username, Password, Salt, Version, Prime, Generator}) ->
-    DerivedKey = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
-    crypto:srp_compute_key(DerivedKey, Prime, Generator, ClientPub, ClientPriv, ServerPub, Version).
+compute_key(PubKey, PrivKey, #'DHParameter'{prime = P, base = G}) ->
+    crypto:dh_compute_key(PubKey, PrivKey, [crypto:mpint(P), crypto:mpint(G)]).
 
 %%--------------------------------------------------------------------
 -spec pkix_sign_types(SignatureAlg::oid()) ->
@@ -897,6 +867,11 @@ format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
 								   is_integer(E),
 								   is_integer(D) ->
    [E, N, D].
+
+ec_generate_key(Params) ->
+    Curve = ec_curve_spec(Params),
+    Term = crypto:ecdh_generate_key(Curve),
+    ec_key(Term, Params).
 
 format_ecdh_key(#'ECPrivateKey'{privateKey = PrivKey,
 				parameters = Param,
