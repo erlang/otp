@@ -304,6 +304,7 @@ add_ram_index(Tab, Pos) when is_integer(Pos) ->
     SetOrBag = val({Tab, setorbag}),
     IndexType = case SetOrBag of
         set -> duplicate_bag;
+        ordered_set -> duplicate_bag;
         bag -> bag
     end,
     Index = mnesia_monitor:mktab(mnesia_index, [IndexType, public]),
