@@ -1183,7 +1183,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	  "<td>~.3fs</td><td><b>~ts</b></td><td>~w Ok, ~w Failed~ts of ~w</td></tr>\n"
 	  "</tfoot>\n",
 	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]),
-    test_server_io:stop().
+    test_server_io:stop([major,html,unexpected_io]).
 
 report_severe_error(Reason) ->
     test_server_sup:framework_call(report, [severe_error,Reason]).
@@ -1588,7 +1588,7 @@ do_test_cases(TopCases, SkipCases,
 	    print(major, "=started       ~s",
 		   [lists:flatten(timestamp_get(""))]),
 
-	    put(test_server_html_footer, Footer),
+	    test_server_io:set_footer(Footer),
 
 	    run_test_cases(TestSpec, Config, TimetrapData)
     end;

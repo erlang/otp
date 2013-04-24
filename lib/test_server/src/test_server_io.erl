@@ -29,7 +29,7 @@
 %%
 
 -module(test_server_io).
--export([start_link/0,stop/0,get_gl/1,set_fd/2,
+-export([start_link/0,stop/1,get_gl/1,set_fd/2,
 	 start_transaction/0,end_transaction/0,
 	 print_buffered/1,print/3,print_unexpected/1,
 	 set_footer/1,set_job_name/1,set_gl_props/1]).
@@ -55,10 +55,10 @@ start_link() ->
 	    Other
     end.
 
-stop() ->
+stop(FilesToClose) ->
     OldGL = group_leader(),
     group_leader(self(), self()),
-    req(stop),
+    req({stop,FilesToClose}),
     group_leader(OldGL, self()),
     ok.
 
@@ -213,12 +213,21 @@ handle_call({set_job_name,Name}, _From, St) ->
 handle_call({set_gl_props,Props}, _From, #st{shared_gl=Shared}=St) ->
     test_server_gl:set_props(Shared, Props),
     {reply,ok,St#st{gl_props=Props}};
-handle_call(stop, From, #st{shared_gl=SGL,gls=Gls0}=St0) ->
+handle_call({stop,FdTags}, From, #st{fds=Fds,shared_gl=SGL,gls=Gls0}=St0) ->
     St = St0#st{gls=gb_sets:insert(SGL, Gls0),stopping=From},
     gc(St),
     %% Give the users of the surviving group leaders some
     %% time to finish.
     erlang:send_after(2000, self(), stop_group_leaders),
+    %% close open log files
+    lists:foreach(fun(Tag) ->
+			  case gb_trees:lookup(Tag, Fds) of
+			      none ->
+				  ok;
+			      {value,Fd} ->
+				  file:close(Fd)
+			  end
+		  end, FdTags),
     {noreply,St}.
 
 handle_info({'EXIT',Pid,normal}, #st{gls=Gls0,stopping=From}=St) ->
