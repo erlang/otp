@@ -983,14 +983,16 @@ is_sane_ecc(openssl) ->
 is_sane_ecc(_) ->
     true.
 
-cipher_restriction(Config) ->
+cipher_restriction(Config0) ->
     case is_sane_ecc(openssl) of
 	false ->
-	    Opts = proplists:get_value(server_opts, Config),
-	    NewConfig = proplists:delete(server_opts, Config),
+	    Opts = proplists:get_value(server_opts, Config0),
+	    Config1 = proplists:delete(server_opts, Config0),
+	    VerOpts = proplists:get_value(server_verification_opts, Config1),
+	    Config = proplists:delete(server_verification_opts, Config1),
 	    Restricted0 = ssl:cipher_suites() -- ecdsa_suites(),
             Restricted  = Restricted0 -- ecdh_rsa_suites(),
-	    [{server_opts, [{ciphers, Restricted} | Opts]} | NewConfig];
+	    [{server_opts, [{ciphers, Restricted} | Opts]}, {server_verification_opts, [{ciphers, Restricted} | VerOpts] } | Config];
 	true ->
-	    Config
+	    Config0
     end.
