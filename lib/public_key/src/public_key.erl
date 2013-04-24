@@ -331,7 +331,7 @@ encrypt_private(PlainText,
 %%--------------------------------------------------------------------
 generate_key({curve, Name}) ->
     Term = crypto:ecdh_generate_key(Name),
-    ec_key(Term);
+    ec_key(Term, Name);
 
 generate_key(#'DHParameter'{prime = P, base = G}) ->
     crypto:dh_generate_key([crypto:mpint(P), crypto:mpint(G)]);
@@ -916,19 +916,13 @@ ec_curve_spec( #'OTPECParameters'{fieldID = FieldId, curve = PCurve, base = Base
 ec_curve_spec({namedCurve, OID}) ->
     pubkey_cert_records:namedCurves(OID).
 
-ec_key({Curve, PrivateKey, PubKey}) when is_atom(Curve) ->
-    #'ECPrivateKey'{version = 1,
-		    privateKey = int2list(PrivateKey),
-		    parameters = {namedCurve, pubkey_cert_records:namedCurves(Curve)},
-		    publicKey = {0, PubKey}}.
-
-ec_key({Curve, PrivateKey, PubKey}, _Params) when is_atom(Curve) ->
+ec_key({PrivateKey, PubKey}, Curve) when is_atom(Curve) ->
     #'ECPrivateKey'{version = 1,
 		    privateKey = int2list(PrivateKey),
 		    parameters = {namedCurve, pubkey_cert_records:namedCurves(Curve)},
 		    publicKey = {0, PubKey}};
 
-ec_key({_Curve, PrivateKey, PubKey}, Params) ->
+ec_key({PrivateKey, PubKey}, Params) ->
     #'ECPrivateKey'{version = 1,
 		    privateKey = int2list(PrivateKey),
 		    parameters = Params,
