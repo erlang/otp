@@ -387,7 +387,7 @@ key_exchange(client, _Version, {premaster_secret, Secret, {_, PublicKey, _}}) ->
 	encrypted_premaster_secret(Secret, PublicKey),
     #client_key_exchange{exchange_keys = EncPremasterSecret};
 
-key_exchange(client, _Version, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
+key_exchange(client, _Version, {dh, PublicKey}) ->
     #client_key_exchange{
 	      exchange_keys = #client_diffie_hellman_public{
 		dh_public = PublicKey}
@@ -405,7 +405,7 @@ key_exchange(client, _Version, {psk, Identity}) ->
 		identity = Identity}
 	       };
 
-key_exchange(client, _Version, {dhe_psk, Identity, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
+key_exchange(client, _Version, {dhe_psk, Identity, PublicKey}) ->
     #client_key_exchange{
 	      exchange_keys = #client_dhe_psk_identity{
 		identity = Identity,
@@ -426,7 +426,7 @@ key_exchange(client, _Version, {srp, PublicKey}) ->
 		srp_a = PublicKey}
 	       };
 
-key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
+key_exchange(server, Version, {dh, {PublicKey, _},
 			       #'DHParameter'{prime = P, base = G},
 			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
     <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
@@ -449,7 +449,7 @@ key_exchange(server, Version, {psk, PskIdentityHint,
     enc_server_key_exchange(Version, ServerPSKParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey);
 
-key_exchange(server, Version, {dhe_psk, PskIdentityHint, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
+key_exchange(server, Version, {dhe_psk, PskIdentityHint, {PublicKey, _},
 			       #'DHParameter'{prime = P, base = G},
 			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
     <<?UINT32(_), PBin/binary>> = crypto:mpint(P),

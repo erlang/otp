@@ -712,7 +712,7 @@ certify_client_key_exchange(#client_dhe_psk_identity{
 				   diffie_hellman_params = #'DHParameter'{prime = P,
 									  base = G},
 				   diffie_hellman_keys = {_, ServerDhPrivateKey}} = State0) ->
-    case dhe_psk_master_secret(ClientPSKIdentity, crypto:mpint(P), crypto:mpint(G), ClientPublicDhKey, ServerDhPrivateKey, State0) of
+    case dhe_psk_master_secret(ClientPSKIdentity, P, G, ClientPublicDhKey, ServerDhPrivateKey, State0) of
 	#state{} = State1 ->
 	    {Record, State} = next_record(State1),
 	    next_state(certify, cipher, Record, State);
@@ -2087,18 +2087,16 @@ master_from_premaster_secret(PremasterSecret,
 
 dh_master_secret(#'DHParameter'{} = Params, OtherPublicDhKey, MyPrivateKey, State) ->
     PremasterSecret =
-	public_key:compute_key(mpint_binary(OtherPublicDhKey), MyPrivateKey, Params),
+	public_key:compute_key(OtherPublicDhKey, MyPrivateKey, Params),
     master_from_premaster_secret(PremasterSecret, State).
 
 dh_master_secret(Prime, Base, PublicDhKey, undefined, State) ->
-    PMpint = mpint_binary(Prime),
-    GMpint = mpint_binary(Base),
-    Keys = {_, PrivateDhKey} = crypto:dh_generate_key([PMpint, GMpint]),
-    dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey, State#state{diffie_hellman_keys = Keys});
+    Keys = {_, PrivateDhKey} = crypto:generate_key(dh, [Prime, Base]),
+    dh_master_secret(Prime, Base, PublicDhKey, PrivateDhKey, State#state{diffie_hellman_keys = Keys});
 
-dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey, State) ->
+dh_master_secret(Prime, Base, PublicDhKey, PrivateDhKey, State) ->
     PremasterSecret =
-	crypto:dh_compute_key(mpint_binary(PublicDhKey), PrivateDhKey, [PMpint, GMpint]),
+	crypto:compute_key(dh, PublicDhKey, PrivateDhKey, [Prime, Base]),
     master_from_premaster_secret(PremasterSecret, State).
 
 ec_dh_master_secret(ECDHKeys, ECPoint, State) ->
@@ -2126,20 +2124,18 @@ server_psk_master_secret(ClientPSKIdentity,
     end.
 
 dhe_psk_master_secret(PSKIdentity, Prime, Base, PublicDhKey, undefined, State) ->
-    PMpint = mpint_binary(Prime),
-    GMpint = mpint_binary(Base),
     Keys = {_, PrivateDhKey} =
-	crypto:dh_generate_key([PMpint, GMpint]),
-    dhe_psk_master_secret(PSKIdentity, PMpint, GMpint, PublicDhKey, PrivateDhKey,
+	crypto:generate_key(dh, [Prime, Base]),
+    dhe_psk_master_secret(PSKIdentity, Prime, Base, PublicDhKey, PrivateDhKey,
 			  State#state{diffie_hellman_keys = Keys});
 
-dhe_psk_master_secret(PSKIdentity, PMpint, GMpint, PublicDhKey, PrivateDhKey,
+dhe_psk_master_secret(PSKIdentity, Prime, Base, PublicDhKey, PrivateDhKey,
 			     #state{ssl_options = SslOpts} = State) ->
     case handle_psk_identity(PSKIdentity, SslOpts#ssl_options.user_lookup_fun) of
 	{ok, PSK} when is_binary(PSK) ->
 	    DHSecret =
-		crypto:dh_compute_key(mpint_binary(PublicDhKey), PrivateDhKey,
-					  [PMpint, GMpint]),
+		crypto:compute_key(dh, PublicDhKey, PrivateDhKey,
+				   [Prime, Base]),
 	    DHLen = erlang:byte_size(DHSecret),
 	    Len = erlang:byte_size(PSK),
 	    PremasterSecret = <<?UINT16(DHLen), DHSecret/binary, ?UINT16(Len), PSK/binary>>,
@@ -2168,7 +2164,7 @@ generate_srp_server_keys(_SrpParams, 10) ->
 generate_srp_server_keys(SrpParams =
 			     #srp_user{generator = Generator, prime = Prime,
 				       verifier = Verifier}, N) ->
-    case crypto:srp_generate_key(Verifier, Generator, Prime, '6a') of
+    case crypto:generate_key(srp, {host, [Verifier, Generator, Prime, '6a']}) of
 	error ->
 	    generate_srp_server_keys(SrpParams, N+1);
 	Keys ->
@@ -2179,7 +2175,7 @@ generate_srp_client_keys(_Generator, _Prime, 10) ->
     ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
 generate_srp_client_keys(Generator, Prime, N) ->
 
-    case crypto:srp_generate_key(Generator, Prime, '6a') of
+    case crypto:generate_key(srp, {user, [Generator, Prime, '6a']}) of
 	error ->
 	    generate_srp_client_keys(Generator, Prime, N+1);
 	Keys ->
@@ -2200,8 +2196,8 @@ handle_srp_identity(Username, {Fun, UserState}) ->
 	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end.
 
-server_srp_master_secret(Verifier, Prime, ClientPub, State = #state{srp_keys = {ServerPub, ServerPriv}}) ->
-    case crypto:srp_compute_key(Verifier, Prime, ClientPub, ServerPub, ServerPriv, '6a') of
+server_srp_master_secret(Verifier, Prime, ClientPub, State = #state{srp_keys = ServerKeys}) ->
+    case crypto:compute_key(srp, ClientPub, ServerKeys, {host, [Verifier, Prime, '6a']}) of
 	error ->
 	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
 	PremasterSecret ->
@@ -2214,13 +2210,13 @@ client_srp_master_secret(Generator, Prime, Salt, ServerPub, undefined, State) ->
     Keys = generate_srp_client_keys(Generator, Prime, 0),
     client_srp_master_secret(Generator, Prime, Salt, ServerPub, Keys, State#state{srp_keys = Keys});
 
-client_srp_master_secret(Generator, Prime, Salt, ServerPub, {ClientPub, ClientPriv},
+client_srp_master_secret(Generator, Prime, Salt, ServerPub, ClientKeys,
 			 #state{ssl_options = SslOpts} = State) ->
     case ssl_srp_primes:check_srp_params(Generator, Prime) of
 	ok ->
 	    {Username, Password} = SslOpts#ssl_options.srp_identity,
 	    DerivedKey = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
-	    case crypto:srp_compute_key(DerivedKey, Prime, Generator, ClientPub, ClientPriv, ServerPub, '6a') of
+	    case crypto:compute_key(srp, ServerPub, ClientKeys, {user, [DerivedKey, Prime, Generator, '6a']}) of
 		error ->
 		    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
 		PremasterSecret ->
@@ -2889,11 +2885,6 @@ make_premaster_secret({MajVer, MinVer}, rsa) ->
     <<?BYTE(MajVer), ?BYTE(MinVer), Rand/binary>>;
 make_premaster_secret(_, _) ->
     undefined.
-
-mpint_binary(Binary)  ->
-    Size = erlang:byte_size(Binary),
-    <<?UINT32(Size), Binary/binary>>.
-
 
 ack_connection(#state{renegotiation = {true, Initiater}} = State) 
   when Initiater == internal;

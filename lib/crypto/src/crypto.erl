@@ -1140,7 +1140,7 @@ generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
 generate_key(dh, DHParameters, PrivateKey) ->
-    dh_generate_key_nif(PrivateKey, DHParameters, 0);
+    dh_generate_key_nif(PrivateKey,  map_ensure_int_as_bin(DHParameters), 0);
 
 generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
   when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
@@ -1166,7 +1166,7 @@ ec_key_generate(_Key) -> ?nif_stub.
 
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
-    case dh_compute_key_nif(OthersPublicKey,MyPrivateKey,DHParameters) of
+    case dh_compute_key_nif(OthersPublicKey,MyPrivateKey, map_ensure_int_as_bin(DHParameters)) of
 	error -> erlang:error(computation_failed,
 			      [OthersPublicKey,MyPrivateKey,DHParameters]);
 	Ret -> Ret

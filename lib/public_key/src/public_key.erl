@@ -330,7 +330,7 @@ encrypt_private(PlainText,
 %% Description: Generates a new keypair
 %%--------------------------------------------------------------------
 generate_key(#'DHParameter'{prime = P, base = G}) ->
-    crypto:dh_generate_key([crypto:mpint(P), crypto:mpint(G)]);
+    crypto:generate_key(dh, [P, G]);
 generate_key({namedCurve, _} = Params) ->
     ec_generate_key(Params);
 generate_key(#'OTPECParameters'{} = Params) ->
@@ -341,14 +341,13 @@ generate_key(#'OTPECParameters'{} = Params) ->
 -spec compute_key(OthersKey ::binary(), MyKey::binary(), #'DHParameter'{}) -> binary().
 %% Description: Compute shared secret
 %%--------------------------------------------------------------------
-compute_key(PubKey, #'ECPrivateKey'{} = PrivateKey) ->
-    compute_key(PubKey, format_ecdh_key(PrivateKey));
-
-compute_key(#'ECPoint'{point = Point}, ECDHKeys) ->
-    crypto:ecdh_compute_key(Point, ECDHKeys).
+compute_key(#'ECPoint'{point = Point}, #'ECPrivateKey'{privateKey = PrivKey,
+						       parameters = Param}) ->
+    ECCurve = ec_curve_spec(Param),
+    crypto:compute_key(ecdh, Point, list2int(PrivKey), ECCurve).
 
 compute_key(PubKey, PrivKey, #'DHParameter'{prime = P, base = G}) ->
-    crypto:dh_compute_key(PubKey, PrivKey, [crypto:mpint(P), crypto:mpint(G)]).
+    crypto:compute_key(dh, PubKey, PrivKey, [P, G]).
 
 %%--------------------------------------------------------------------
 -spec pkix_sign_types(SignatureAlg::oid()) ->
@@ -741,10 +740,6 @@ validate(Cert, #path_validation_state{working_issuer_name = Issuer,
 
     pubkey_cert:prepare_for_next_cert(OtpCert, ValidationState).
 
-sized_binary(Binary) ->
-    Size = size(Binary),
-    <<?UINT32(Size), Binary/binary>>.
-
 otp_cert(Der) when is_binary(Der) ->
     pkix_decode_cert(Der, otp);
 otp_cert(#'OTPCertificate'{} =Cert) ->
@@ -870,7 +865,7 @@ format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
 
 ec_generate_key(Params) ->
     Curve = ec_curve_spec(Params),
-    Term = crypto:ecdh_generate_key(Curve),
+    Term = crypto:generate_key(ecdh, Curve),
     ec_key(Term, Params).
 
 format_ecdh_key(#'ECPrivateKey'{privateKey = PrivKey,
