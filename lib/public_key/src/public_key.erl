@@ -326,7 +326,9 @@ encrypt_private(PlainText,
     crypto:rsa_private_encrypt(PlainText, format_rsa_private_key(Key), Padding).
 
 %%--------------------------------------------------------------------
--spec generate_key(#'DHParameter'{} | {namedCurve, Name ::atom()} | #'OTPECParameters'{}) -> {Public::binary(), Private::binary()}.
+-spec generate_key(#'DHParameter'{} | {namedCurve, Name ::atom()} |
+		   #'OTPECParameters'{}) -> {Public::binary(), Private::binary()} |
+					    #'ECPrivateKey'{}.
 %% Description: Generates a new keypair
 %%--------------------------------------------------------------------
 generate_key(#'DHParameter'{prime = P, base = G}) ->
@@ -396,9 +398,10 @@ sign(DigestOrPlainText, DigestType, Key = #'RSAPrivateKey'{}) ->
 sign(DigestOrPlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
     crypto:sign(dss, sha, DigestOrPlainText, [P, Q, G, X]);
 
-sign(DigestOrPlainText, DigestType, Key = #'ECPrivateKey'{}) ->
-    ECDHKey = format_ecdh_key(Key),
-    crypto:sign(ecdsa, DigestType, DigestOrPlainText, ECDHKey);
+sign(DigestOrPlainText, DigestType, #'ECPrivateKey'{privateKey = PrivKey,
+						    parameters = Param}) ->
+    ECCurve = ec_curve_spec(Param),
+    crypto:sign(ecdsa, DigestType, DigestOrPlainText, [list2int(PrivKey), ECCurve]);
 
 %% Backwards compatible
 sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
@@ -415,9 +418,9 @@ verify(DigestOrPlainText, DigestType, Signature,
     crypto:verify(rsa, DigestType, DigestOrPlainText, Signature,
 		  [Exp, Mod]);
 
-verify(DigestOrPlaintext, DigestType, Signature, Key = {#'ECPoint'{}, _}) ->
-    ECDHKey = format_ecdh_key(Key),
-    crypto:verify(ecdsa, DigestType, DigestOrPlaintext, Signature, ECDHKey);
+verify(DigestOrPlaintext, DigestType, Signature, {#'ECPoint'{point = Point}, Param}) ->
+    ECCurve = ec_curve_spec(Param),
+    crypto:verify(ecdsa, DigestType, DigestOrPlaintext, Signature, [Point, ECCurve]);
 
 %% Backwards compatibility
 verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
@@ -868,20 +871,10 @@ ec_generate_key(Params) ->
     Term = crypto:generate_key(ecdh, Curve),
     ec_key(Term, Params).
 
-format_ecdh_key(#'ECPrivateKey'{privateKey = PrivKey,
-				parameters = Param,
-				publicKey = _}) ->
-    ECCurve = ec_curve_spec(Param),
-    {ECCurve, list2int(PrivKey), undefined};
-
-format_ecdh_key({#'ECPoint'{point = Point}, Param}) ->
-    ECCurve = ec_curve_spec(Param),
-    {ECCurve, undefined, Point}.
-
 ec_curve_spec( #'OTPECParameters'{fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor }) ->
     Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType),
 	     FieldId#'OTPFieldID'.parameters},
-    Curve = {list2int(PCurve#'Curve'.a), list2int(PCurve#'Curve'.b), none},
+    Curve = {erlang:list_to_binary(PCurve#'Curve'.a), erlang:list_to_binary(PCurve#'Curve'.b), none},
     {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
 ec_curve_spec({namedCurve, OID}) ->
     pubkey_cert_records:namedCurves(OID).

@@ -1892,8 +1892,8 @@ ec(Config) when is_list(Config) ->
 ec_do() ->
     %% test for a name curve
     {D2_priv, D2_pub} = crypto:generate_key(ecdh, sect113r2),
-    D2 = {sect113r2, D2_priv, D2_pub},
-
+    PrivECDH = [D2_priv, sect113r2],
+    PubECDH = [D2_pub, sect113r2],
     %%TODO: find a published test case for a EC key
 
     %% test for a full specified curve and public key,
@@ -1932,14 +1932,11 @@ ec_do() ->
 			      16#f7, 16#90, 16#1e, 16#0e, 16#82, 16#97, 16#48, 16#56, 16#a7>>,
     CoFactor = 1,
     Curve = {{prime_field,P},{A,B,none},BasePoint, Order,CoFactor},
-    CsCaKey = {Curve, undefined, PubKey},
-    %%T3 = crypto:term_to_ec_key(CsCaKey),
-    %%?line CsCaKey = crypto:ec_key_to_term(T3),
 
     Msg = <<99,234,6,64,190,237,201,99,80,248,58,40,70,45,149,218,5,246,242,63>>,
-    Sign = crypto:sign(ecdsa, sha, Msg, D2),
-    ?line true = crypto:verify(ecdsa, sha, Msg, Sign, D2),
-    ?line false = crypto:verify(ecdsa, sha, Msg, <<10,20>>, D2),
+    Sign = crypto:sign(ecdsa, sha, Msg, PrivECDH),
+    ?line true = crypto:verify(ecdsa, sha, Msg, Sign, PubECDH),
+    ?line false = crypto:verify(ecdsa, sha, Msg, <<10,20>>, PubECDH),
 
     ok.
 

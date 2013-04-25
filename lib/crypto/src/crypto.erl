@@ -855,8 +855,8 @@ verify(rsa, Type, DataOrDigest, Signature, Key) ->
     	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end;
-verify(ecdsa, Type, DataOrDigest, Signature, Key) ->
-    case ecdsa_verify_nif(Type, DataOrDigest, Signature, term_to_ec_key(Key)) of
+verify(ecdsa, Type, DataOrDigest, Signature, [Key, Curve]) ->
+    case ecdsa_verify_nif(Type, DataOrDigest, Signature, term_to_ec_key({Curve, undefined, Key})) of
 	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end.
@@ -901,6 +901,11 @@ map_ensure_int_as_bin([H|_]=List) when is_integer(H) ->
 map_ensure_int_as_bin(List) ->
     List.
 
+ensure_int_as_bin(Int) when is_integer(Int) ->
+    int_to_bin(Int);
+ensure_int_as_bin(Bin) ->
+    Bin.
+
 map_to_norm_bin([H|_]=List) when is_integer(H) ->
     lists:map(fun(E) -> int_to_bin(E) end, List);
 map_to_norm_bin(List) ->
@@ -917,8 +922,8 @@ sign(dss, Type, DataOrDigest, Key) ->
 	error -> erlang:error(badkey, [DataOrDigest, Key]);
 	Sign -> Sign
     end;
-sign(ecdsa, Type, DataOrDigest, Key) ->
-    case ecdsa_sign_nif(Type, DataOrDigest, term_to_ec_key(Key)) of
+sign(ecdsa, Type, DataOrDigest, [Key, Curve]) ->
+    case ecdsa_sign_nif(Type, DataOrDigest, term_to_ec_key({Curve, Key, undefined})) of
 	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
 	Sign -> Sign
     end.
@@ -1228,9 +1233,9 @@ term_to_nif_prime({prime_field, Prime}) ->
 term_to_nif_prime(PrimeField) ->
     PrimeField.
 term_to_nif_curve({A, B, Seed}) ->
-    {int_to_bin(A), int_to_bin(B), Seed}.
+    {ensure_int_as_bin(A), ensure_int_as_bin(B), Seed}.
 term_to_nif_curve_parameters({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
-    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), BasePoint, int_to_bin(Order), int_to_bin(CoFactor)};
+    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), ensure_int_as_bin(BasePoint), int_to_bin(Order), int_to_bin(CoFactor)};
 term_to_nif_curve_parameters(Curve) when is_atom(Curve) ->
     %% named curve
     Curve.

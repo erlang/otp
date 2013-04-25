@@ -429,10 +429,8 @@ key_exchange(client, _Version, {srp, PublicKey}) ->
 key_exchange(server, Version, {dh, {PublicKey, _},
 			       #'DHParameter'{prime = P, base = G},
 			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
-    <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
-    <<?UINT32(_), GBin/binary>> = crypto:mpint(G),
-    ServerDHParams = #server_dh_params{dh_p = PBin, 
-				       dh_g = GBin, dh_y = PublicKey},    
+    ServerDHParams = #server_dh_params{dh_p = int_to_bin(P),
+				       dh_g = int_to_bin(G), dh_y = PublicKey},
     enc_server_key_exchange(Version, ServerDHParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey);
 
@@ -452,12 +450,10 @@ key_exchange(server, Version, {psk, PskIdentityHint,
 key_exchange(server, Version, {dhe_psk, PskIdentityHint, {PublicKey, _},
 			       #'DHParameter'{prime = P, base = G},
 			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
-    <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
-    <<?UINT32(_), GBin/binary>> = crypto:mpint(G),
     ServerEDHPSKParams = #server_dhe_psk_params{
       hint = PskIdentityHint,
-      dh_params = #server_dh_params{dh_p = PBin,
-				    dh_g = GBin, dh_y = PublicKey}
+      dh_params = #server_dh_params{dh_p = int_to_bin(P),
+				    dh_g = int_to_bin(G), dh_y = PublicKey}
      },
     enc_server_key_exchange(Version, ServerEDHPSKParams,
 			    HashSign, ClientRandom, ServerRandom, PrivateKey);
@@ -1791,3 +1787,7 @@ handle_srp_extension(undefined, Session) ->
     Session;
 handle_srp_extension(#srp{username = Username}, Session) ->
     Session#session{srp_username = Username}.
+
+int_to_bin(I) ->
+    L = (length(integer_to_list(I, 16)) + 1) div 2,
+    <<I:(L*8)>>.
