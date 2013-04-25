@@ -38,6 +38,10 @@
 
 -define(MASK(N,I), ((I) band (1 bsl (N)))).
 
+-type u32() :: 0..16#FFFFFFFF.
+-type u24() :: 0..16#FFFFFF.
+-type u1()  :: 0..1.
+
 %%     0                   1                   2                   3
 %%     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 %%    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -55,8 +59,12 @@
 %%    +-+-+-+-+-+-+-+-+-+-+-+-+-
 
 %%% ---------------------------------------------------------------------------
-%%% # encode/[2-4]
+%%% # encode/2
 %%% ---------------------------------------------------------------------------
+
+-spec encode(module(), Msg :: term())
+   -> #diameter_packet{}
+    | no_return().
 
 encode(Mod, #diameter_packet{} = Pkt) ->
     try
@@ -217,6 +225,9 @@ rec2msg(Mod, Rec) ->
 
 %% Unsuccessfully decoded AVPs will be placed in #diameter_packet.errors.
 
+-spec decode(module(), #diameter_packet{} | bitstring())
+   -> #diameter_packet{}.
+
 decode(Mod, Pkt) ->
     decode(Mod:id(), Mod, Pkt).
 
@@ -275,6 +286,10 @@ decode_avps(MsgName, Mod, Pkt, Avps) ->  %% ... or not
 %%% # decode_header/1
 %%% ---------------------------------------------------------------------------
 
+-spec decode_header(bitstring())
+   -> #diameter_header{}
+    | false.
+
 decode_header(<<Version:8,
                 MsgLength:24,
                 CmdFlags:1/binary,
@@ -324,6 +339,13 @@ decode_header(_) ->
 %% wraparound counter. The 8-bit counter is incremented each time the
 %% system is restarted.
 
+-spec sequence_numbers(#diameter_packet{}
+                       | #diameter_header{}
+                       | binary()
+                       | Seq)
+   -> Seq
+ when Seq :: {HopByHopId :: u32(), EndToEndId :: u32()}.
+
 sequence_numbers({_,_} = T) ->
     T;
 
@@ -345,12 +367,19 @@ sequence_numbers(<<_:12/binary, H:32, E:32, _/binary>>) ->
 %%% # hop_by_hop_id/2
 %%% ---------------------------------------------------------------------------
 
+-spec hop_by_hop_id(u32(), binary())
+   -> binary().
+
 hop_by_hop_id(Id, <<H:12/binary, _:32, T/binary>>) ->
     <<H/binary, Id:32, T/binary>>.
 
 %%% ---------------------------------------------------------------------------
 %%% # msg_name/2
 %%% ---------------------------------------------------------------------------
+
+-spec msg_name(module(), #diameter_header{})
+   -> atom()
+    | {ApplicationId :: u32(), CommandCode :: u24(), Rbit :: u1()}.
 
 msg_name(Dict0, #diameter_header{application_id = ?APP_ID_COMMON,
                                  cmd_code = C,
@@ -366,6 +395,9 @@ msg_name(_, Hdr) ->
 %%% ---------------------------------------------------------------------------
 %%% # msg_id/1
 %%% ---------------------------------------------------------------------------
+
+-spec msg_id(#diameter_packet{} | #diameter_header{})
+   -> {ApplicationId :: u32(), CommandCode :: u24(), Rbit :: u1()}.
 
 msg_id(#diameter_packet{msg = [#diameter_header{} = Hdr | _]}) ->
     msg_id(Hdr);
@@ -388,6 +420,12 @@ msg_id(<<_:32, Rbit:1, _:7, CmdCode:24, ApplId:32, _/bitstring>>) ->
 %% Note that the returned list of AVP's is reversed relative to their
 %% order in the binary. Note also that grouped avp's aren't unraveled,
 %% only those at the top level.
+
+-spec collect_avps(#diameter_packet{} | bitstring())
+   -> [Avp]
+    | {Error, [Avp]}
+ when Avp   :: #diameter_avp{},
+      Error :: {5014, #diameter_avp{}}.
 
 collect_avps(#diameter_packet{bin = Bin}) ->
     <<_:20/binary, Avps/bitstring>> = Bin,
