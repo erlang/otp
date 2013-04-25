@@ -423,7 +423,8 @@ hello(Hello = #client_hello{client_version = ClientVersion},
 			    EcPointFormats, EllipticCurves,
 			    State#state{connection_states  = ConnectionStates,
 					negotiated_version = Version,
-					session = Session});
+					session = Session,
+					client_ecc = {EllipticCurves, EcPointFormats}});
         #alert{} = Alert ->
             handle_own_alert(Alert, ClientVersion, hello, State)
     end;
@@ -3079,6 +3080,7 @@ handle_close_alert(Data, StateName, State0) ->
 	    ok
     end.
 
+select_curve(#state{client_ecc = {[Curve|_], _}}) ->
+    {namedCurve, Curve};
 select_curve(_) ->
-    %%TODO: select prefered curve from extension
     {namedCurve, ?secp256k1}.
