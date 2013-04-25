@@ -953,7 +953,6 @@ static BeamInstr* apply_fun(Process* p, Eterm fun,
 			    Eterm args, Eterm* reg) NOINLINE;
 static Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free) NOINLINE;
-static Uint64 timestamp_millis(void);
 
 
 /*
@@ -1213,11 +1212,11 @@ void process_main(void)
  do_schedule1:
 
     if (start_time != 0) {
-        Sint64 diff = timestamp_millis() - start_time;
+        Sint64 diff = erts_timestamp_millis() - start_time;
 	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
 	    BeamInstr *inptr = find_function_from_pc(start_time_i);
 	    BeamInstr *outptr = find_function_from_pc(c_p->i);
-	    monitor_long_schedule(c_p,inptr,outptr,(Uint) diff);
+	    monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
 	}
     }
 
@@ -1237,7 +1236,7 @@ void process_main(void)
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
     if (erts_system_monitor_long_schedule != 0) {
-	start_time = timestamp_millis();
+	start_time = erts_timestamp_millis();
 	start_time_i = c_p->i;
     }
 
@@ -6497,19 +6496,7 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
     return call_fun(p, arity, reg, args);
 }
 
-static Uint64 timestamp_millis(void)
-{
-#ifdef HAVE_GETHRTIME
-    return (Uint64) (sys_gethrtime() / 1000000);
-#else
-    Uint64 res;
-    SysTimeval tv;
-    sys_gettimeofday(&tv);
-    res = (Uint64) tv.tv_sec*1000000;
-    res += (Uint64) tv.tv_usec;
-    return (res / 1000);
-#endif
-}
+
 
 static Eterm
 new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)

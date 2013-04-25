@@ -3436,6 +3436,24 @@ void erts_silence_warn_unused_result(long unused)
 
 }
 
+/*
+ * A millisecond timestamp without time correction where there's no hrtime
+ * - for tracing on "long" things...
+ */
+Uint64 erts_timestamp_millis(void)
+{
+#ifdef HAVE_GETHRTIME
+    return (Uint64) (sys_gethrtime() / 1000000);
+#else
+    Uint64 res;
+    SysTimeval tv;
+    sys_gettimeofday(&tv);
+    res = (Uint64) tv.tv_sec*1000000;
+    res += (Uint64) tv.tv_usec;
+    return (res / 1000);
+#endif
+}
+
 #ifdef DEBUG
 /*
  * Handy functions when using a debugger - don't use in the code!

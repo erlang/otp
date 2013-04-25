@@ -1,0 +1,5 @@
+DRVS =	slow_drv@dll@
+
+all: $(DRVS) 
+
+@SHLIB_RULES@
