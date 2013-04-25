@@ -758,7 +758,10 @@ restart(Child, State) ->
                                                     [self(),Id]),
 		    {ok,NState2};
 		{try_again, NState2, #child{name=ChName}} ->
-		    timer:apply_after(0,?MODULE,try_again_restart,[self(),ChName]),
+		    {ok, _TRef} = timer:apply_after(0,
+						    ?MODULE,
+						    try_again_restart,
+						    [self(),ChName]),
 		    {ok,NState2};
 		Other ->
 		    Other

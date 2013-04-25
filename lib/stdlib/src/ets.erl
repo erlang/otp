@@ -978,7 +978,7 @@ file2tab(File, Opts) ->
 		    erlang:raise(error,ErReason,erlang:get_stacktrace())
 	    end
 	after
-	    disk_log:close(Name)
+	    _ = disk_log:close(Name)
 	end
     catch
 	throw:TReason2 ->
