@@ -283,7 +283,7 @@ handle_cast(init_sync, _S) ->
 	    KernelConfig ! dist_ac_took_control,
 
 	    %% we're really just interested in nodedowns.
-	    net_kernel:monitor_nodes(true),
+	    ok = net_kernel:monitor_nodes(true),
 	    
 	    {Known, NAppls, RStarted} = sync_dacs(Appls),
 
@@ -812,21 +812,21 @@ start_appl(AppName, S, Type) ->
 start_distributed(Appl, Name, Nodes, PermittedNodes, S, Type) ->
     case find_start_node(Nodes, PermittedNodes, Name, S) of
 	{ok, Node} when Node =:= node() ->
-	    case Appl#appl.id of
-		{failover, FoNode} when Type =:= req ->
-		    _ = ac_failover(Name, FoNode, undefined);
-		{distributed, Node2} when Type =:= req ->
-		    _ = ac_takeover(req, Name, Node2, undefined);
-		_ when Type =:= reply ->
-		    case lists:keysearch(Name, 2, S#state.remote_started) of
-			{value, {Node3, _}} ->
-			    _ = ac_takeover(reply, Name, Node3, undefined);
-			_ ->
-			    _ = ac_start_it(Type, Name)
-		    end;
-		_ ->
-		    _ = ac_start_it(Type, Name)
-	    end,
+	    _ = case Appl#appl.id of
+		    {failover, FoNode} when Type =:= req ->
+			ac_failover(Name, FoNode, undefined);
+		    {distributed, Node2} when Type =:= req ->
+			ac_takeover(req, Name, Node2, undefined);
+		    _ when Type =:= reply ->
+			case lists:keysearch(Name, 2, S#state.remote_started) of
+			    {value, {Node3, _}} ->
+				ac_takeover(reply, Name, Node3, undefined);
+			    _ ->
+				ac_start_it(Type, Name)
+			end;
+		    _ ->
+			ac_start_it(Type, Name)
+		end,
 	    {run_waiting, true};
 	{already_started, Node} ->
 	    _ = ac_started(Type, Name, Node),

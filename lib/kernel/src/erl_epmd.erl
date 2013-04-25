@@ -300,8 +300,14 @@ get_port(Node, EpmdAddress, Timeout) ->
 	{ok, Socket} ->
 	    Name = to_string(Node),
 	    Len = 1+length(Name),
-	    gen_tcp:send(Socket, [?int16(Len),?EPMD_PORT_PLEASE2_REQ, Name]),
-	    wait_for_port_reply(Socket, []);
+	    Msg = [?int16(Len),?EPMD_PORT_PLEASE2_REQ,Name],
+	    case gen_tcp:send(Socket, Msg) of
+		ok ->
+		    wait_for_port_reply(Socket, []);
+		_Error ->
+		    ?port_please_failure2(_Error),
+		    noport
+	    end;
 	_Error -> 
 	    ?port_please_failure2(_Error),
 	    noport
@@ -430,19 +436,24 @@ get_names(EpmdAddress) ->
     end.
 
 do_get_names(Socket) ->
-    gen_tcp:send(Socket, [?int16(1),?EPMD_NAMES]),
-    receive
-	{tcp, Socket, [P0,P1,P2,P3|T]} ->
-	    EpmdPort = ?u32(P0,P1,P2,P3),
-	    case get_epmd_port() of
-		EpmdPort ->
-		    names_loop(Socket, T, []);
-		_ ->
-		    close(Socket),
-		    {error, address}
+    case gen_tcp:send(Socket, [?int16(1),?EPMD_NAMES]) of
+	ok ->
+	    receive
+		{tcp, Socket, [P0,P1,P2,P3|T]} ->
+		    EpmdPort = ?u32(P0,P1,P2,P3),
+		    case get_epmd_port() of
+			EpmdPort ->
+			    names_loop(Socket, T, []);
+			_ ->
+			    close(Socket),
+			    {error, address}
+		    end;
+		{tcp_closed, Socket} ->
+		    {ok, []}
 	    end;
-	{tcp_closed, Socket} ->
-	    {ok, []}
+	_ ->
+	    close(Socket),
+	    {error, address}
     end.
 
 names_loop(Socket, Acc, Ps) ->

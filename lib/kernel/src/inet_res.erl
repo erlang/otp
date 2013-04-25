@@ -921,18 +921,25 @@ query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
 			[{active,false},{packet,2},binary,Family], 
 			Timeout) of
 	{ok, S} ->
-	    gen_tcp:send(S, Buffer),
-	    case gen_tcp:recv(S, 0, Timeout) of
-		{ok, Answer} ->
-		    gen_tcp:close(S),
-		    case decode_answer(Answer, Id, Verbose) of
-			{ok, _} = OK -> OK;
-			{error, badid} -> {error, servfail};
-			Error -> Error
+	    case gen_tcp:send(S, Buffer) of
+		ok ->
+		    case gen_tcp:recv(S, 0, Timeout) of
+			{ok, Answer} ->
+			    gen_tcp:close(S),
+			    case decode_answer(Answer, Id, Verbose) of
+				{ok, _} = OK -> OK;
+				{error, badid} -> {error, servfail};
+				Error -> Error
+			    end;
+			Error ->
+			    gen_tcp:close(S),
+			    ?verbose(Verbose, "TCP server recv error: ~p\n",
+				     [Error]),
+			    Error
 		    end;
 		Error ->
 		    gen_tcp:close(S),
-		    ?verbose(Verbose, "TCP server recv error: ~p\n",
+		    ?verbose(Verbose, "TCP server send error: ~p\n",
 			     [Error]),
 		    Error
 	    end;

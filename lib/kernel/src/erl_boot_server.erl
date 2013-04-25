@@ -361,7 +361,14 @@ handle_command(S, PS, Msg) ->
     end.
 
 send_file_result(S, Cmd, Result) ->
-    gen_tcp:send(S, term_to_binary({Cmd,Result})).
+    send_result(S, {Cmd,Result}).
 
-send_result(S, Result) ->
-    gen_tcp:send(S, term_to_binary(Result)).
+send_result(S, Term) ->
+    case gen_tcp:send(S, term_to_binary(Term)) of
+	ok ->
+	    ok;
+	Error ->
+	    error_logger:error_msg("** Boot server could not send result "
+				   "to socket: ~w** ~n", [Error]),
+	    ok
+    end.

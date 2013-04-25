@@ -2069,7 +2069,7 @@ random_sleep(Times) ->
     case get(random_seed) of
 	undefined ->
 	    {A1, A2, A3} = now(),
-	    random:seed(A1, A2, A3 + erlang:phash(node(), 100000)),
+	    _ = random:seed(A1, A2, A3 + erlang:phash(node(), 100000)),
             ok;
 	_ -> ok
     end,

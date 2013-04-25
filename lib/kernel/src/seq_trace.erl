@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -125,7 +125,7 @@ get_system_tracer() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 set_token2([{Type,Val}|T]) ->
-    erlang:seq_trace(Type, Val),
+    _ = erlang:seq_trace(Type, Val),
     set_token2(T);
 set_token2([]) ->
     ok.

@@ -165,7 +165,7 @@ get_closest_pid(Name) ->
 
 init([]) ->
     Ns = nodes(),
-    net_kernel:monitor_nodes(true),
+    ok = net_kernel:monitor_nodes(true),
     lists:foreach(fun(N) ->
                           {?MODULE, N} ! {new_pg2, node()},
                           self() ! {nodeup, N}
