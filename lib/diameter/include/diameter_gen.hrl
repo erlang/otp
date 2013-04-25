@@ -25,11 +25,23 @@
 
 -define(THROW(T), throw({?MODULE, T})).
 
-%%% ---------------------------------------------------------------------------
-%%% # encode_avps/3
-%%%
-%%% Returns: binary()
-%%% ---------------------------------------------------------------------------
+-type parent_name()   :: atom().  %% parent = Message or AVP
+-type parent_record() :: tuple(). %%
+-type avp_name()   :: atom().
+-type avp_record() :: tuple().
+-type avp_values() :: [{avp_name(), term()}].
+
+-type non_grouped_avp() :: #diameter_avp{}.
+-type grouped_avp() :: nonempty_improper_list(#diameter_avp{}, [avp()]).
+-type avp() :: non_grouped_avp() | grouped_avp().
+
+%% ---------------------------------------------------------------------------
+%% # encode_avps/2
+%% ---------------------------------------------------------------------------
+
+-spec encode_avps(parent_name(), parent_record() | avp_values())
+   -> binary()
+    | no_return().
 
 encode_avps(Name, Vals)
   when is_list(Vals) ->
@@ -129,20 +141,13 @@ pack_AVP(Name, #diameter_avp{name = AvpName,
         orelse ?THROW([known_avp_as_AVP, Name, AvpName, Data]),
     e(AvpName, [Data]).
 
-%%% ---------------------------------------------------------------------------
-%%% # decode_avps/2
-%%%
-%%% Returns: {Rec, Avps, Failed}
-%%%
-%%%          Rec  = decoded message record
-%%%          Avps = list of Avp
-%%%          Failed = list of {ResultCode, #diameter_avp{}}
-%%%
-%%%          Avp = #diameter_avp{}    if type is not Grouped
-%%%              | list of Avp        where first element has type Grouped
-%%%                                   and following elements are its component
-%%%                                   AVP's.
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # decode_avps/2
+%% ---------------------------------------------------------------------------
+
+-spec decode_avps(parent_name(), [#diameter_avp{}])
+   -> {parent_record(), [avp()], Failed}
+ when Failed :: [{5000..5999, #diameter_avp{}}].
 
 decode_avps(Name, Recs) ->
     d_rc(Name, lists:foldl(fun(T,A) -> decode(Name, T, A) end,
@@ -299,16 +304,9 @@ rc(_, Avp) ->
     {5004, Avp}.
 
 %% ungroup/2
-%%
-%% Returns: {Avp, Dec}
-%%
-%%          Avp = #diameter_avp{}    if type is not Grouped
-%%              | list of Avp        where first element has type Grouped
-%%                                   and following elements are its component
-%%                                   AVP's.
-%%              = as for decode_avps/2
-%%
-%%          Dec = #diameter_avp{}, either Avp or its head in the list case.
+
+-spec ungroup(term(), #diameter_avp{})
+   -> {avp(), #diameter_avp{}}.
 
 %% The decoded value in the Grouped case is as returned by grouped_avp/3:
 %% a record and a list of component AVP's.
@@ -398,23 +396,28 @@ value('AVP', Avp) ->
 value(_, Avp) ->
     Avp#diameter_avp.value.
 
-%%% ---------------------------------------------------------------------------
-%%% # grouped_avp/3
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # grouped_avp/3
+%% ---------------------------------------------------------------------------
+
+-spec grouped_avp(decode, avp_name(), binary())
+   -> {avp_record(), [avp()]};
+                 (encode, avp_name(), avp_record() | avp_values())
+   -> binary() | no_return().
 
 grouped_avp(decode, Name, Data) ->
     {Rec, Avps, []} = decode_avps(Name, diameter_codec:collect_avps(Data)),
     {Rec, Avps};
 %% Note that a failed match here will result in 5004. Note that this is
 %% the only AVP type that doesn't just return the decoded value, also
-%% returning the list of component #diameter_avp{}'s.
+%% returning the list of component AVP's.
 
 grouped_avp(encode, Name, Data) ->
     encode_avps(Name, Data).
 
-%%% ---------------------------------------------------------------------------
-%%% # empty_group/1
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # empty_group/1
+%% ---------------------------------------------------------------------------
 
 empty_group(Name) ->
     list_to_binary(empty_body(Name)).
@@ -435,9 +438,9 @@ z(Name) ->
     Bin = diameter_codec:pack_avp(avp_header(Name), empty_value(Name)),
     << <<0>> || <<_>> <= Bin >>.
 
-%%% ---------------------------------------------------------------------------
-%%% # empty/1
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # empty/1
+%% ---------------------------------------------------------------------------
 
 empty(AvpName) ->
     avp(encode, zero, AvpName).
