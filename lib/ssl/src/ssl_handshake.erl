@@ -173,52 +173,27 @@ hello(#server_hello{cipher_suite = CipherSuite, server_version = Version,
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
     end;
 			       
-hello(#client_hello{client_version = ClientVersion, random = Random,
-		    cipher_suites = CipherSuites,
-		    renegotiation_info = Info,
-		    srp = SRP,
-		    ec_point_formats = EcPointFormats0,
-		    elliptic_curves = EllipticCurves0} = Hello,
-      #ssl_options{versions = Versions,
-		   secure_renegotiate = SecureRenegotation} = SslOpts,
+hello(#client_hello{client_version = ClientVersion} = Hello,
+      #ssl_options{versions = Versions} = SslOpts,
       {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
-%% TODO: select hash and signature algorithm
+    %% TODO: select hash and signature algorithm
     Version = select_version(ClientVersion, Versions),
     case ssl_record:is_acceptable_version(Version, Versions) of
 	true ->
 	    %% TODO: need to take supported Curves into Account when selecting the CipherSuite....
 	    %%       if whe have an ECDSA cert with an unsupported curve, we need to drop ECDSA ciphers
-	    {Type, #session{cipher_suite = CipherSuite,
-			    compression_method = Compression} = Session1}
+	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= select_session(Hello, Port, Session0, Version, 
 				 SslOpts, Cache, CacheCb, Cert),
 	    case CipherSuite of 
 		no_suite ->
 		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
 		_ ->
-		    Session = handle_srp_info(SRP, Session1),
-		    case handle_renegotiation_info(server, Info, ConnectionStates0,
-						   Renegotiation, SecureRenegotation, 
-						   CipherSuites) of
-			{ok, ConnectionStates1} ->
-			    ConnectionStates =
-				hello_pending_connection_states(server, 
-								Version,
-								CipherSuite,
-								Random, 
-								Compression,
-								ConnectionStates1),
-				case handle_next_protocol_on_server(Hello, Renegotiation, SslOpts) of
-					#alert{} = Alert ->
-						Alert;
-					ProtocolsToAdvertise ->
-						{EcPointFormats1, EllipticCurves1} =
-						    handle_ecc_extensions(Version, EcPointFormats0, EllipticCurves0),
-
-						{Version, {Type, Session}, ConnectionStates,
-						 ProtocolsToAdvertise, EcPointFormats1, EllipticCurves1}
-			    end;
-			#alert{} = Alert ->
+		    try handle_hello_extensions(Hello, Version, SslOpts, Session1, ConnectionStates0, Renegotiation) of
+			{Session, ConnectionStates, ProtocolsToAdvertise, ECPointFormats, EllipticCurves} ->
+			    {Version, {Type, Session}, ConnectionStates,
+			     ProtocolsToAdvertise, ECPointFormats, EllipticCurves}
+		    catch throw:Alert ->
 			    Alert
 		    end
 	    end;
@@ -896,11 +871,6 @@ handle_ecc_curves_extension(Version, undefined) ->
     undefined;
 handle_ecc_curves_extension(Version, _) ->
     #elliptic_curves{elliptic_curve_list = ssl_tls1:ecc_curves(Version)}.
-
-handle_srp_info(undefined, Session) ->
-    Session;
-handle_srp_info(#srp{username = Username}, Session) ->
-    Session#session{srp_username = Username}.
 
 handle_renegotiation_info(_, #renegotiation_info{renegotiated_connection = ?byte(0)}, 
 			  ConnectionStates, false, _, _) ->
@@ -1774,3 +1744,50 @@ default_hash_signs() ->
     #hash_sign_algos{hash_sign_algos =
 			 lists:filter(fun({_, ecdsa}) -> HasECC;
 					 (_) -> true end, HashSigns)}.
+
+handle_hello_extensions(#client_hello{random = Random,
+				      cipher_suites = CipherSuites,
+				      renegotiation_info = Info,
+				      srp = SRP,
+				      ec_point_formats = EcPointFormats0,
+				      elliptic_curves = EllipticCurves0} = Hello, Version,
+			#ssl_options{secure_renegotiate = SecureRenegotation} = Opts,
+			Session0, ConnectionStates0, Renegotiation) ->
+    Session = handle_srp_extension(SRP, Session0),
+    ConnectionStates = handle_renegotiation_extension(Version, Info, Random, Session, ConnectionStates0,
+						      Renegotiation, SecureRenegotation, CipherSuites),
+    ProtocolsToAdvertise = handle_next_protocol_extension(Hello, Renegotiation, Opts),
+    {EcPointFormats, EllipticCurves} = handle_ecc_extensions(Version, EcPointFormats0, EllipticCurves0),
+    %%TODO make extensions compund data structure
+    {Session, ConnectionStates, ProtocolsToAdvertise, EcPointFormats, EllipticCurves}.
+
+
+handle_renegotiation_extension(Version, Info, Random, #session{cipher_suite = CipherSuite,
+							       compression_method = Compression},
+			       ConnectionStates0, Renegotiation, SecureRenegotation, CipherSuites) ->
+    case handle_renegotiation_info(server, Info, ConnectionStates0,
+				   Renegotiation, SecureRenegotation,
+				   CipherSuites) of
+	{ok, ConnectionStates1} ->
+	    hello_pending_connection_states(server,
+					    Version,
+					    CipherSuite,
+					    Random,
+					    Compression,
+					    ConnectionStates1);
+	#alert{} = Alert ->
+	    throw(Alert)
+    end.
+
+handle_next_protocol_extension(Hello, Renegotiation, SslOpts)->
+    case handle_next_protocol_on_server(Hello, Renegotiation, SslOpts) of
+	#alert{} = Alert ->
+	    throw(Alert);
+	ProtocolsToAdvertise ->
+	    ProtocolsToAdvertise
+    end.
+
+handle_srp_extension(undefined, Session) ->
+    Session;
+handle_srp_extension(#srp{username = Username}, Session) ->
+    Session#session{srp_username = Username}.

@@ -98,7 +98,8 @@
 	  terminated = false,  %
 	  allow_renegotiate = true,
           expecting_next_protocol_negotiation = false :: boolean(),
-          next_protocol = undefined :: undefined | binary()
+          next_protocol = undefined :: undefined | binary(),
+	  client_ecc          % {Curves, PointFmt}
 	 }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS, 
