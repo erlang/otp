@@ -528,7 +528,9 @@ monitor_sys(Parent) ->
 start_monitor() ->
     Parent = self(),
     Mpid = spawn_link(fun() -> monitor_sys(Parent) end),
-    erlang:system_monitor(Mpid,[{long_schedule,100}]).
+    erlang:system_monitor(Mpid,[{long_schedule,100}]),
+    erlang:yield(), % Need to be rescheduled for the trace to take
+    ok.
 
 system_monitor_long_schedule(suite) ->
     [];
@@ -537,9 +539,14 @@ system_monitor_long_schedule(doc) ->
 system_monitor_long_schedule(Config) when is_list(Config) ->
     Path = ?config(data_dir, Config),
     erl_ddll:start(),
-    ok = load_driver(Path, slow_drv),
+    case (catch load_driver(Path, slow_drv)) of
+	ok ->
+	    do_system_monitor_long_schedule();
+	_Error ->
+	    {skip, "Unable to load slow_drv (windows or no usleep()?)"}
+    end.
+do_system_monitor_long_schedule() ->
     start_monitor(),
-    erlang:yield(), % Need to be rescheduled for the trace to take
     Port = open_port({spawn_driver,slow_drv}, []),
     "ok" = erlang:port_control(Port,0,[]),
     Self = self(),
