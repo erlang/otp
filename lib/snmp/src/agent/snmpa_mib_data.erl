@@ -104,15 +104,49 @@
 %% The over all root is represented as {tree, Tree, internal}.
 %%
 %% tree() = {tree, nodes(), tree_info()}
-%% nodes() = {tree() | node() | undefined_node, ...}
+%% nodes() = [tree() | node() | undefined_node]
 %% node() = {node, node_info()}
 %% tree_info() = {table, Id} | {table_entry, Id} | internal
 %% node_info() = {subagent, Pid} | {variable, Id} | {table_colum, Id}
 %%-----------------------------------------------------------------
 
+-type tree_generation() :: non_neg_integer().
+-type tree()            :: #tree{}.
+-type tree_nodes()      :: [tree_node()].
+-type tree_node()       :: tree() | 
+			   tree_node_elem() | 
+			   tree_node_empty().
+-type tree_node_elem()  :: {node, tree_node_info()}.
+-type tree_node_info()  :: {subagent,     Pid :: pid()} | 
+			   {variable,     Id  :: non_neg_integer()} | 
+			   {table_column, Id  :: non_neg_integer()}.
+-type tree_node_empty() :: {undefined_node, N :: pos_integer()}.
+-type tree_info()       :: {table,       Id :: non_neg_integer()} | 
+			   {table_entry, Id :: non_neg_integer()} | 
+			   internal.
+
+
 %% This record is what is stored in the database. The 'tree' part
 %% is described above...
--record(tree,{generation = ?DUMMY_TREE_GENERATION, root = ?DEFAULT_TREE}).
+-record(mtree, 
+	{
+	  generation = ?DUMMY_TREE_GENERATION :: tree_generation(), 
+	  root       = ?DEFAULT_TREE          :: tree()
+	}).
+
+-record(tree, 
+	{
+	  %% The number of nodes is *not* actually the length of the
+	  %% nodes list. Since the undefined-node(s) can be collapsed
+	  %% into {undefined_node, N} we need to keep track of the 
+	  %% actual size some other way (so that we dont have the 
+	  %% traverse the nodes every time we want to check an index).
+	  num_nodes :: non_neg_integer(), 
+	  nodes     :: tree_nodes(), 
+	  tree_info :: tree_info()
+	}).
+
+
 
 
 %%%======================================================================
@@ -133,29 +167,29 @@ new(Storage) ->
     ?vtrace("open (mib) database",[]),
     MibDb = snmpa_general_db:open(Storage, ?MIB_DATA,
 				  mib_info,
-				  record_info(fields,mib_info), set),
+				  record_info(fields, mib_info), set),
     ?vtrace("open (mib) node database",[]),
     NodeDb = snmpa_general_db:open(Storage, ?MIB_NODE,
 				   node_info,
-				   record_info(fields,node_info), set),
+				   record_info(fields, node_info), set),
     ?vtrace("open (mib) tree database",[]),
     TreeDb = snmpa_general_db:open(Storage, ?MIB_TREE,
 				   tree,
-				   record_info(fields,tree), set),
-    Tree = 
+				   record_info(fields, mtree), set),
+    MTree = 
 	case snmpa_general_db:read(TreeDb, ?DUMMY_TREE_GENERATION) of
 	    false ->
-		T = #tree{},
+		T = #mtree{},
 		snmpa_general_db:write(TreeDb, T),
 		T;
 	    {value, T} ->
 		T
 	end,
     install_mibs(MibDb, NodeDb),
-    #mib_data{mib_db  = MibDb, 
-	      node_db = NodeDb,
-	      tree_db = TreeDb, 
-	      tree    = Tree}.
+    #mib_data{mib_db   = MibDb, 
+	      node_db  = NodeDb,
+	      tree_db  = TreeDb, 
+	      mtree    = MTree}.
 
 
 %%----------------------------------------------------------------------
