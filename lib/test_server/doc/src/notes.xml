@@ -32,6 +32,27 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.5.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new option to erlang:system_monitor,
+	    {long_schedule,Millis} allows you to monitor if your
+	    system performs any lengthy NIF, BIF or driver operations
+	    that might result in bad resource utilization and
+	    therefore bad performance. To better test this
+	    functionality, the test_server has been updated to
+	    include configure tests for usleep.</p>
+          <p>
+	    Own Id: OTP-11067</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.5.3</title>
 
     <section><title>Improvements and New Features</title>
