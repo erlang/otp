@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,7 +18,6 @@
 %%
 -module(snmpa_mib).
 
-%% c(snmpa_mib).
 
 %%%-----------------------------------------------------------------
 %%% This module implements a MIB server.
@@ -75,12 +74,14 @@
 %% Internal Data structures
 %%
 %%   State
-%%       data - is the MIB data (defined in snmpa_mib_data)
+%%       data - is the MIB data (defined in mib_data module)
 %%       meo  - mib entry override
 %%       teo  - trap (notification) entry override
 %%-----------------------------------------------------------------
--record(state, {data, meo, teo, backup, 
-		cache, cache_tmr, cache_autogc, cache_gclimit, cache_age}).
+-record(state, 
+	{data, meo, teo, backup, 
+	 cache, cache_tmr, cache_autogc, cache_gclimit, cache_age, 
+	 mib_data_mod}).
 
 
 
@@ -289,9 +290,11 @@ do_init(Prio, Mibs, Opts) ->
     MeOverride = get_me_override(Opts),
     TeOverride = get_te_override(Opts),
     MibStorage = get_mib_storage(Opts),
+    MibDataMod = get_mib_data_mod(Otps), 
     Data       = snmpa_mib_data:new(MibStorage),
     ?vtrace("init -> mib data created",[]),
-    case (catch mib_operations(load_mib, Mibs, Data, 
+    case (catch mib_operations(MibDataMod, 
+			       load_mib, Mibs, Data, 
 			       MeOverride, TeOverride, true)) of
 	{ok, Data2} ->
 	    ?vdebug("started",[]),
@@ -304,7 +307,8 @@ do_init(Prio, Mibs, Opts) ->
 			cache_tmr     = CacheGcTimer, 
 			cache_autogc  = CacheAutoGC,
 			cache_gclimit = CacheGcLimit,
-			cache_age     = CacheAge}};
+			cache_age     = CacheAge, 
+			mib_data_mib  = MibDataMib}};
 	{'aborted at', Mib, _NewData, Reason} ->
 	    ?vinfo("failed loading mib ~p: ~p",[Mib,Reason]),
 	    {error, {Mib, Reason}}
@@ -315,26 +319,28 @@ do_init(Prio, Mibs, Opts) ->
 %% Returns: {ok, NewMibData} | {'aborted at', Mib, NewData, Reason}
 %% Args: Operation is load_mib | unload_mib.
 %%----------------------------------------------------------------------
-mib_operations(Operation, Mibs, Data, MeOverride, TeOverride) ->
-    mib_operations(Operation, Mibs, Data, MeOverride, TeOverride, false). 
+mib_operations(Mod, Operation, Mibs, Data, MeOverride, TeOverride) ->
+    mib_operations(Mod, Operation, Mibs, Data, MeOverride, TeOverride, false). 
 
 
-mib_operations(_Operation, [], Data, _MeOverride, _TeOverride, _Force) ->
+mib_operations(_Mod, _Operation, [], Data, _MeOverride, _TeOverride, _Force) ->
     {ok, Data};
-mib_operations(Operation, [Mib|Mibs], Data0, MeOverride, TeOverride, Force) ->
+mib_operations(Mod, Operation, [Mib|Mibs], Data0, MeOverride, TeOverride, Force) ->
     ?vtrace("mib operations ~p on"
-	"~n   Mibs: ~p"
-	"~n   with "
-	"~n   MeOverride: ~p"
-	"~n   TeOverride: ~p"
-	"~n   Force:      ~p", [Operation,Mibs,MeOverride,TeOverride,Force]),
-    Data = mib_operation(Operation, Mib, Data0, MeOverride, TeOverride, Force),
-    mib_operations(Operation, Mibs, Data, MeOverride, TeOverride, Force).
+	    "~n   Mibs: ~p"
+	    "~n   with "
+	    "~n   MeOverride: ~p"
+	    "~n   TeOverride: ~p"
+	    "~n   Force:      ~p", 
+	    [Operation, Mibs, MeOverride, TeOverride, Force]),
+    Data = mib_operation(Mod, 
+			 Operation, Mib, Data0, MeOverride, TeOverride, Force),
+    mib_operations(Mod, Operation, Mibs, Data, MeOverride, TeOverride, Force).
 
-mib_operation(Operation, Mib, Data0, MeOverride, TeOverride, Force) 
+mib_operation(Mod, Operation, Mib, Data0, MeOverride, TeOverride, Force) 
   when is_list(Mib) ->
     ?vtrace("mib operation on mib ~p", [Mib]),
-    case apply(snmpa_mib_data, Operation, [Data0,Mib,MeOverride,TeOverride]) of
+    case apply(Mod, Operation, [Data0, Mib, MeOverride, TeOverride]) of
 	{error, 'already loaded'} when (Operation =:= load_mib) andalso  
 				       (Force =:= true) ->
 	    ?vlog("ignore mib ~p -> already loaded", [Mib]),
@@ -350,7 +356,7 @@ mib_operation(Operation, Mib, Data0, MeOverride, TeOverride, Force)
 	{ok, Data} ->
 	    Data
     end;
-mib_operation(_Op, Mib, Data, _MeOverride, _TeOverride, _Force) ->
+mib_operation(_Mod, _Op, Mib, Data, _MeOverride, _TeOverride, _Force) ->
     throw({'aborted at', Mib, Data, bad_mibname}).
 
 
@@ -395,15 +401,15 @@ handle_call({update_cache_opts, Key, Value}, _From, State) ->
     {reply, Result, NewState};
 
 handle_call({lookup, Oid}, _From, 
-	    #state{data = Data, cache = Cache} = State) ->
+	    #state{data = Data, cache = Cache, mib_data_mod = Mod} = State) ->
     ?vlog("lookup ~p", [Oid]), 
     Key = {lookup, Oid}, 
     {Reply, NewState} = 
 	case maybe_cache_lookup(Cache, Key) of
 	    ?NO_CACHE ->
-		{snmpa_mib_data:lookup(Data, Oid), State};
+		{Mod:lookup(Data, Oid), State};
 	    [] ->
-		Rep = snmpa_mib_data:lookup(Data, Oid),
+		Rep = Mod:lookup(Data, Oid),
 		ets:insert(Cache, {Key, Rep, timestamp()}),
 		{Rep, maybe_start_cache_gc_timer(State)};
 	    [{Key, Rep, _}] ->
@@ -414,22 +420,23 @@ handle_call({lookup, Oid}, _From,
     ?vdebug("lookup -> Reply: ~p", [Reply]), 
     {reply, Reply, NewState};
 
-handle_call({which_mib, Oid}, _From, #state{data = Data} = State) ->
+handle_call({which_mib, Oid}, _From, 
+	    #state{data = Data, mib_data_mod = Mod} = State) ->
     ?vlog("which_mib ~p",[Oid]),    
-    Reply = snmpa_mib_data:which_mib(Data, Oid),
+    Reply = Mod:which_mib(Data, Oid),
     ?vdebug("which_mib: ~p",[Reply]),    
     {reply, Reply, State};
 
 handle_call({next, Oid, MibView}, _From, 
-	    #state{data = Data, cache = Cache} = State) ->
+	    #state{data = Data, cache = Cache, mib_data_mod = Mod} = State) ->
     ?vlog("next ~p [~p]", [Oid, MibView]), 
     Key = {next, Oid, MibView},
     {Reply, NewState} = 
 	case maybe_cache_lookup(Cache, Key) of
 	    ?NO_CACHE ->
-		{snmpa_mib_data:next(Data, Oid, MibView), State};
+		{Mod:next(Data, Oid, MibView), State};
 	    [] ->    
-		Rep = snmpa_mib_data:next(Data, Oid, MibView),
+		Rep = Mod:next(Data, Oid, MibView),
 		ets:insert(Cache, {Key, Rep, timestamp()}),
 		{Rep, maybe_start_cache_gc_timer(State)};
 	    [{Key, Rep, _}] ->
@@ -441,15 +448,16 @@ handle_call({next, Oid, MibView}, _From,
     {reply, Reply, NewState};
 
 handle_call({load_mibs, Mibs}, _From, 
-	    #state{data  = Data, 
-		   teo   = TeOverride, 
-		   meo   = MeOverride,
-		   cache = Cache} = State) ->
+	    #state{data         = Data, 
+		   teo          = TeOverride, 
+		   meo          = MeOverride,
+		   cache        = Cache, 
+		   mib_data_mod = Mod} = State) ->
     ?vlog("load mibs ~p",[Mibs]),    
     %% Invalidate cache
     NewCache = maybe_invalidate_cache(Cache),
     {NData,Reply} = 
-	case (catch mib_operations(load_mib, Mibs, Data,
+	case (catch mib_operations(Mod, load_mib, Mibs, Data,
 				   MeOverride, TeOverride)) of
 	    {'aborted at', Mib, NewData, Reason} ->
 		?vlog("aborted at ~p for reason ~p",[Mib,Reason]),    
@@ -457,20 +465,21 @@ handle_call({load_mibs, Mibs}, _From,
 	    {ok, NewData} ->
 		{NewData,ok}
 	end,
-    snmpa_mib_data:sync(NData),
+    Mod:sync(NData),
     {reply, Reply, State#state{data = NData, cache = NewCache}};
 
 handle_call({unload_mibs, Mibs}, _From, 
-	    #state{data  = Data, 
-		   teo   = TeOverride, 
-		   meo   = MeOverride,
-		   cache = Cache} = State) ->
+	    #state{data         = Data, 
+		   teo          = TeOverride, 
+		   meo          = MeOverride,
+		   cache        = Cache, 
+		   mib_data_mod = Mod} = State) ->
     ?vlog("unload mibs ~p",[Mibs]),    
     %% Invalidate cache
     NewCache = maybe_invalidate_cache(Cache),
     %% Unload mib(s)
     {NData,Reply} = 
-	case (catch mib_operations(unload_mib, Mibs, Data,
+	case (catch mib_operations(Mod, unload_mib, Mibs, Data,
 				   MeOverride, TeOverride)) of
 	    {'aborted at', Mib, NewData, Reason} ->
 		?vlog("aborted at ~p for reason ~p",[Mib,Reason]),    
@@ -478,25 +487,28 @@ handle_call({unload_mibs, Mibs}, _From,
 	    {ok, NewData} ->
 		{NewData,ok}
 	end,
-    snmpa_mib_data:sync(NData),
+    Mod:sync(NData),
     {reply, Reply, State#state{data = NData, cache = NewCache}};
 
 handle_call(which_mibs, _From, #state{data = Data} = State) ->
     ?vlog("which mibs",[]),    
-    Reply = snmpa_mib_data:which_mibs(Data),
+    Reply = Mod:which_mibs(Data),
     {reply, Reply, State};
 
-handle_call({whereis_mib, Mib}, _From, #state{data = Data} = State) ->
+handle_call({whereis_mib, Mib}, _From, 
+	    #state{data         = Data, 
+		   mib_data_mod = Mod} = State) ->
     ?vlog("whereis mib: ~p",[Mib]),    
-    Reply = snmpa_mib_data:whereis_mib(Data, Mib),
+    Reply = Mod:whereis_mib(Data, Mib),
     {reply, Reply, State};
 
 handle_call({register_subagent, Oid, Pid}, _From, 
-	    #state{data = Data, cache = Cache} = State) ->
+	    #state{data = Data, cache = Cache, 
+		   mib_data_mod = Mod} = State) ->
     ?vlog("register subagent ~p, ~p",[Oid,Pid]),
     %% Invalidate cache
     NewCache = maybe_invalidate_cache(Cache),
-    case snmpa_mib_data:register_subagent(Data, Oid, Pid) of
+    case Mod:register_subagent(Data, Oid, Pid) of
 	{error, Reason} ->
 	    ?vlog("registration failed: ~p",[Reason]),    
 	    {reply, {error, Reason}, State#state{cache = NewCache}};
@@ -505,11 +517,12 @@ handle_call({register_subagent, Oid, Pid}, _From,
     end;
 
 handle_call({unregister_subagent, OidOrPid}, _From, 
-	    #state{data = Data, cache = Cache} = State) ->
+	    #state{data = Data, cache = Cache, 
+		   mib_data_mod = Mod} = State) ->
     ?vlog("unregister subagent ~p",[OidOrPid]),    
     %% Invalidate cache
     NewCache = maybe_invalidate_cache(Cache),
-    case snmpa_mib_data:unregister_subagent(Data, OidOrPid) of
+    case Mod:unregister_subagent(Data, OidOrPid) of
 	{ok, NewData, DeletedSubagentPid} ->
 	    {reply, {ok, DeletedSubagentPid}, State#state{data  = NewData, 
 							  cache = NewCache}};
@@ -520,10 +533,11 @@ handle_call({unregister_subagent, OidOrPid}, _From,
 	    {reply, ok, State#state{data = NewData, cache = NewCache}}
     end;
 
-handle_call(info, _From, #state{data = Data, cache = Cache} = State) ->
+handle_call(info, _From, #state{data = Data, cache = Cache, 
+				mib_data_mod = Mod} = State) ->
     ?vlog("info",[]),    
     Reply = 
-	case (catch snmpa_mib_data:info(Data)) of
+	case (catch Mod:info(Data)) of
 	    Info when is_list(Info) ->
 		[{cache, size_cache(Cache)} | Info];
 	    E ->
@@ -531,10 +545,12 @@ handle_call(info, _From, #state{data = Data, cache = Cache} = State) ->
 	    end,
     {reply, Reply, State};
 
-handle_call({info, Type}, _From, #state{data = Data} = State) ->
+handle_call({info, Type}, _From, 
+	    #state{data = Data, 
+		   mib_data_mod = Mod} = State) ->
     ?vlog("info ~p",[Type]),    
     Reply = 
-	case (catch snmpa_mib_data:info(Data, Type)) of
+	case (catch Mod:info(Data, Type)) of
 	    Info when is_list(Info) ->
 		Info;
 	    E ->
@@ -542,21 +558,23 @@ handle_call({info, Type}, _From, #state{data = Data} = State) ->
 	end,
     {reply, Reply, State};
 
-handle_call(dump, _From, State) ->
+handle_call(dump, _From, #state{mib_data_mod = Mod} = _State) ->
     ?vlog("dump",[]),    
-    Reply = snmpa_mib_data:dump(State#state.data),
+    Reply = Mod:dump(State#state.data),
     {reply, Reply, State};
     
-handle_call({dump, File}, _From, #state{data = Data} = State) ->
+handle_call({dump, File}, _From, 
+	    #state{data = Data, mib_data_mod = Mod} = State) ->
     ?vlog("dump on ~s",[File]),    
-    Reply = snmpa_mib_data:dump(Data, File),
+    Reply = Mod:dump(Data, File),
     {reply, Reply, State};
     
 %% This check (that there is no backup already in progress) is also 
 %% done in the master agent process, but just in case a user issues 
 %% a backup call to this process directly, we add a similar check here. 
 handle_call({backup, BackupDir}, From, 
-	    #state{backup = undefined, data = Data} = State) ->
+	    #state{backup = undefined, 
+		   data = Data, mib_data_mod = Mod} = State) ->
     ?vlog("backup to ~s", [BackupDir]),
     Pid = self(),
     V   = get(verbosity),
@@ -568,7 +586,7 @@ handle_call({backup, BackupDir}, From,
 			  put(sname, ambs),
 			  put(verbosity, V),
 			  Dir   = filename:join([BackupDir]),
-			  Reply = snmpa_mib_data:backup(Data, Dir),
+			  Reply = Mod:backup(Data, Dir),
 			  Pid ! {backup_done, Reply},
 			  unlink(Pid)
 		  end),	
@@ -637,8 +655,8 @@ handle_info(Info, State) ->
     warning_msg("received unknown info: ~n~p", [Info]),
     {noreply, State}.
 
-terminate(_Reason, #state{data = Data}) ->
-    catch snmpa_mib_data:close(Data),
+terminate(_Reason, #state{data = Data, mib_data_mod = Mod}) ->
+    catch Mod:close(Data),
     ok.
 
 
@@ -663,8 +681,13 @@ terminate(_Reason, #state{data = Data}) ->
 %%     S2 = #state{data = Data, meo = MEO, teo = TEO, backup = B, cache = Cache},
 %%     {ok, S2};
 
-code_change(_Vsn, State, _Extra) ->
-    {ok, State}.
+code_change({down, _Vsn}, #state{mib_data_mod = Mod} = State, _Extra) ->
+    Data = Mod:code_change(down, Data0), 
+    {ok, State#state{data = Data}};
+
+code_change(_Vsn, #state{mib_data_mod = Mod} = State, _Extra) ->
+    Data = Mod:code_change(up, Data0), 
+    {ok, State#state{data = Data}}.
 
 
 %%-----------------------------------------------------------------
