@@ -6137,7 +6137,7 @@ ok
         <v>MonSettings -> {MonitorPid, Options} | undefined</v>
         <v>&nbsp;MonitorPid = pid()</v>
         <v>&nbsp;Options = [Option]</v>
-        <v>&nbsp;&nbsp;Option = {long_gc, Time} | {large_heap, Size} | busy_port | busy_dist_port</v>
+        <v>&nbsp;&nbsp;Option = {long_gc, Time} | {long_schedule, Time} | {large_heap, Size} | busy_port | busy_dist_port</v>
         <v>&nbsp;&nbsp;&nbsp;Time = Size = integer()</v>
       </type>
       <desc>
@@ -6171,7 +6171,7 @@ ok
       <fsummary>Set system performance monitoring options</fsummary>
       <type>
         <v>MonitorPid = pid()</v>
-        <v>Option = {long_gc, Time} | {large_heap, Size} | busy_port | busy_dist_port</v>
+        <v>Option = {long_gc, Time} | {long_schedule, Time} | {large_heap, Size} | busy_port | busy_dist_port</v>
         <v>&nbsp;Time = Size = integer()</v>
         <v>MonSettings = {OldMonitorPid, [Option]}</v>
         <v>&nbsp;OldMonitorPid = pid()</v>
@@ -6203,6 +6203,49 @@ ok
 	      the <c>Info</c> list may be changed at any time without prior
 	      notice.
 	      </p>
+          </item>
+          <tag><c>{long_schedule, Time}</c></tag>
+          <item>
+              <p>If a process or port in the system runs uninterrupted
+              for at least <c>Time</c> wall clock milliseconds, a
+              message <c>{monitor, PidOrPort, long_schedule, Info}</c>
+              is sent to <c>MonitorPid</c>. <c>PidOrPort</c> is the
+              process or port that was running and <c>Info</c> is a
+              list of two-element tuples describing the event. In case
+              of a <c>pid()</c>, the tuples <c>{timeout, Millis}</c>,
+              <c>{in, Location}</c> and <c>{out, Location}</c> will be
+              present, where <c>Location</c> is either an MFA
+              (<c>{Module, Function, Arity}</c>) describing the
+              function where the process was scheduled in/out, or the
+              atom <c>undefined</c>. In case of a <c>port()</c>, the
+              tuples <c>{timeout, Millis}</c> and <c>{port_op,Op}</c>
+              will be present. <c>Op</c> will be one of <c>free</c>,
+              <c>timeout</c>, <c>input</c>, <c>output</c>,
+              <c>event</c> or <c>dist_cmd</c>, depending on which
+              driver callback was executing. <c>free</c> is an
+              internal operation and should never appear, while the
+              others represent the corresponding driver callbacks
+              <c>timeout</c>, <c>ready_input</c>, <c>ready_output</c>,
+              <c>event</c> and finally <c>outputv</c> (when the port
+              is used by distribution).  The <c>Millis</c> value in
+              the <c>timeout</c> tuple will tell you the actual
+              uninterrupted execution time of the process or port,
+              which will always be <c>&gt;=</c> the <c>Time</c> value
+              supplied when starting the trace. New tuples may be
+              added to the <c>Info</c> lists in the future, and the
+              order of the tuples in the list may be changed at any
+              time without prior notice.
+	      </p>
+	      <p>This can be used to detect problems with NIF's or
+	      drivers that takes too long to execute. Generally, 1 ms
+	      is considered a good maximum time for a driver callback
+	      or a NIF. However, a time sharing system should usually
+	      consider everything below 100 ms as "possible" and
+	      fairly "normal". Schedule times above that might however
+	      indicate swapping or a NIF/driver that is
+	      misbehaving. Misbehaving NIF's and drivers could cause
+	      bad resource utilization and bad overall performance of
+	      the system.</p>
           </item>
           <tag><c>{large_heap, Size}</c></tag>
           <item>

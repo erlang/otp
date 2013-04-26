@@ -172,6 +172,7 @@ atom disable_trace
 atom disabled
 atom display_items
 atom dist
+atom dist_cmd
 atom Div='/'
 atom div
 atom dlink
@@ -303,6 +304,7 @@ atom load_cancelled
 atom load_failure
 atom local
 atom long_gc
+atom long_schedule
 atom low
 atom Lt='<'
 atom machine
@@ -419,6 +421,7 @@ atom pid
 atom port
 atom ports
 atom port_count
+atom port_op
 atom print
 atom priority
 atom private

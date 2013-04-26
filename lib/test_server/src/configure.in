@@ -276,6 +276,7 @@ AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
 dnl Checks for library functions.
 AC_CHECK_FUNCS(strerror)
 AC_CHECK_FUNCS(vsnprintf)
+AC_CHECK_FUNCS(usleep)
 
 # First check if the library is available, then if we can choose between
 # two versions of gethostbyname

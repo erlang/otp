@@ -746,6 +746,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     int reds = ERTS_PORT_REDS_EXECUTE;
     erts_aint_t io_tasks_executed = 0;
     int fpe_was_unmasked;
+    Uint64 start_time = 0;
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
 
@@ -807,6 +808,10 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
 	reset_handle(ptp);
 	erts_smp_runq_unlock(runq);
+
+	if (erts_system_monitor_long_schedule != 0) {
+	    start_time = erts_timestamp_millis();
+	}
 
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
 	ERTS_SMP_CHK_NO_PROC_LOCKS;
@@ -881,6 +886,13 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    erts_terminate_port(pp);
 	}
 
+	if (start_time != 0) {
+	    Sint64 diff = erts_timestamp_millis() - start_time;
+	    if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
+		monitor_long_schedule_port(pp,ptp->type,(Uint) diff);
+	    }
+	}
+	start_time = 0;
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
 
 #ifdef ERTS_SMP
