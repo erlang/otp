@@ -66,6 +66,78 @@ obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
     {deprecated, {rpc, multi_server_call, A}};
 
 
+%% *** CRYPTO add in R16B01 ***
+
+obsolete_1(crypto, md4, 1) ->
+    {deprecated, {crypto, hash, 2}};
+obsolete_1(crypto, md5, 1) ->
+    {deprecated, {crypto, hash, 2}};
+obsolete_1(crypto, sha, 1) ->
+    {deprecated, {crypto, hash, 2}};
+
+obsolete_1(crypto, md4_init, 1) ->
+    {deprecated, {crypto, hash_init, 2}};
+obsolete_1(crypto, md5_init, 1) ->
+    {deprecated, {crypto, hash_init, 2}};
+obsolete_1(crypto, sha_init, 1) ->
+    {deprecated, {crypto, hash_init, 2}};
+
+obsolete_1(crypto, md4_update, 2) ->
+    {deprecated, {crypto, hash_update, 3}};
+obsolete_1(crypto, md5_update, 2) ->
+    {deprecated, {crypto, hash_update, 3}};
+obsolete_1(crypto, sah_update, 2) ->
+    {deprecated, {crypto, hash_update, 3}};
+
+obsolete_1(crypto, md4_final, 1) ->
+    {deprecated, {crypto, hash_final, 2}};
+obsolete_1(crypto, md5_final, 1) ->
+    {deprecated, {crypto, hash_final, 2}};
+obsolete_1(crypto, sha_final, 1) ->
+    {deprecated, {crypto, hash_final, 2}};
+
+obsolete_1(crypto, md5_mac, 2) ->
+    {deprecated, {crypto, hmac, 3}};
+obsolete_1(crypto, sha_mac, 2) ->
+    {deprecated, {crypto, hmac, 3}};
+
+obsolete_1(crypto, sha_mac_96, 2) ->
+    {deprecated, {crypto, hmac_n, 3}};
+obsolete_1(crypto, md5_mac_96, 2) ->
+    {deprecated, {crypto, hmac_n, 3}};
+
+obsolete_1(crypto, rsa_sign, 3) ->
+    {deprecated, {crypto, sign, 4}};
+obsolete_1(crypto, rsa_verify, 3) ->
+    {deprecated, {crypto, verify, 4}};
+
+obsolete_1(crypto, dss_sign, 2) ->
+    {deprecated, {crypto, sign, 4}};
+obsolete_1(crypto, dss_sign, 3) ->
+    {deprecated, {crypto, sign, 4}};
+
+obsolete_1(crypto, dss_verify, 3) ->
+    {deprecated, {crypto, verify, 4}};
+obsolete_1(crypto, dss_verify, 4) ->
+    {deprecated, {crypto, verify, 4}};
+
+obsolete_1(crypto, mod_exp, 3) ->
+    {deprecated, {crypto, mod_exp_prime, 3}};
+
+obsolete_1(crypto, dh_compute_key, 3) ->
+    {deprecated, {crypto, compute_key, 4}};
+obsolete_1(crypto, dh_generate_key, 1) ->
+    {deprecated, {crypto, generate_key, 3}};
+obsolete_1(crypto, dh_generate_key, 2) ->
+    {deprecated, {crypto, generate_key, 3}};
+
+obsolete_1(crypto, strong_rand_mpint, 3) ->
+    {deprecated, "needed only by deprecated functions"};
+obsolete_1(crypto, erlint, 3) ->
+    {deprecated, "needed only by deprecated functions"};
+obsolete_1(crypto, mpint, 3) ->
+    {deprecated, "needed only by deprecated functions"};
+
 %% *** SNMP ***
 
 obsolete_1(snmp, N, A) ->

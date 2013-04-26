@@ -28,9 +28,9 @@
 
 -include_lib("public_key/include/public_key.hrl").
 
--type algo_oid()          :: ?'rsaEncryption' | ?'id-dsa'.
--type public_key_params() :: #'Dss-Parms'{} | term().
--type public_key_info()   :: {algo_oid(), #'RSAPublicKey'{} | integer() , public_key_params()}.
+-type oid()               :: tuple().
+-type public_key_params() :: #'Dss-Parms'{} |  {namedCurve, oid()} | #'OTPECParameters'{} | term().
+-type public_key_info()   :: {oid(), #'RSAPublicKey'{} | integer() | #'ECPoint'{}, public_key_params()}.
 -type tls_handshake_history() :: {[binary()], [binary()]}.
 
 -define(NO_PROTOCOL, <<>>).

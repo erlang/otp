@@ -41,16 +41,17 @@
       <item>For security reasons sslv2 is not supported.</item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported
       but not Diffie Hellman Certificates cipher suites.</item>
-      <item>Elliptic Curve cipher suites are supported on
-      systems with a OpenSSL library that has EC support
-      compiled in.</item>
+      <item>Elliptic Curve cipher suites are supported if crypto
+      supports it and named curves are used.
+      </item>
       <item>Export cipher suites are not supported as the
       U.S. lifted its export restrictions in early 2000.</item>
       <item>IDEA cipher suites are not supported as they have
       become deprecated by the latest TLS spec so there is not any
       real motivation to implement them.</item>
-      <item>CRL and policy certificate
-            extensions are not supported yet. </item>
+      <item>CRL and policy certificate extensions are not supported
+      yet. However CRL verification is supported by public_key, only not integrated
+      in ssl yet. </item>
     </list>
  
   </section>

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE appref SYSTEM "appref.dtd">
 
 <appref>
@@ -24,23 +24,14 @@
     </legalnotice>
 
     <title>crypto</title>
-    <prepared>Peter H&ouml;gfeldt</prepared>
-    <responsible>Peter H&ouml;gfeldt</responsible>
-    <docno></docno>
-    <approved>Peter H&ouml;gfeldt</approved>
-    <checked>Peter H&ouml;gfeldt</checked>
-    <date>2003-06-01</date>
-    <rev>B</rev>
     <file>crypto_app.sgml</file>
   </header>
   <app>crypto</app>
   <appsummary>The Crypto Application</appsummary>
   <description>
-    <p>The purpose of the Crypto application is to provide message
-      digest and DES encryption for SMNPv3. It provides computation of
-      message digests MD5 and SHA, and CBC-DES encryption and
-      decryption.</p>
-    <p></p>
+    <p>The purpose of the Crypto application is to provide erlang
+    acess to crypto graphic functions in openssl.
+    </p>
   </description>
 
   <section>
@@ -68,36 +59,6 @@
     <p>Source releases of OpenSSL can be downloaded from the <url href="http://www.openssl.org">OpenSSL</url> project home page,
       or mirror sites listed there.
       </p>
-    <p>The same URL also contains links to some compiled binaries and
-      libraries of OpenSSL (see the <c>Related/Binaries</c> menu) of
-      which the <url href="http://www.shininglightpro.com/search.php?searchname=Win32+OpenSSL">Shining Light Productions Win32 and OpenSSL</url> pages are of
-      interest for the Win32 user.
-      </p>
-    <p>For some Unix flavours there are binary packages available
-      on the net.
-      </p>
-    <p>If you cannot find a suitable binary OpenSSL package, you
-      have to fetch an OpenSSL source release and compile it.
-      </p>
-    <p>You then have to compile and install the library
-      <c>libcrypto.so</c> (Unix), or the library <c>libeay32.dll</c>
-      (Win32).
-      </p>
-    <p>For Unix The <c>crypto_drv</c> dynamic driver is delivered linked
-      to OpenSSL libraries in <c>/usr/local/lib</c>, but the default
-      dynamic linking will also accept libraries in <c>/lib</c> and
-      <c>/usr/lib</c>.
-      </p>
-    <p>If that is not applicable to the particular Unix operating
-      system used, the example <c>Makefile</c> in the Crypto
-      <c>priv/obj</c> directory, should be used as a basis for 
-      relinking the final version of the port program.
-      </p>
-    <p>For <c>Win32</c> it is only required that the library can be
-      found from the <c>PATH</c> environment variable, or that they
-      reside in the appropriate <c>SYSTEM32</c> directory; hence no
-      particular relinking is need. Hence no example <c>Makefile</c>
-      for Win32 is provided.</p>
   </section>
 
   <section>

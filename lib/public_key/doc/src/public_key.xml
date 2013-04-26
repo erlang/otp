@@ -100,8 +100,10 @@
     <p><code>dsa_public_key() = {integer(),  #'Dss-Parms'{}} </code></p>
 
     <p><code>dsa_private_key() = #'DSAPrivateKey'{}</code></p>
+
+    <p><code>ec_public_key()  = {#'ECPoint'{}, #'OTPEcpkParameters'{} | {namedCurve, oid()}} </code></p>
     
-    <p><code>ec_key()  = {'ECKey', Key}</code></p>
+    <p><code>ec_private_key()  = #'ECPrivateKey'{}</code></p>
 
     <p><code> public_crypt_options() = [{rsa_pad, rsa_padding()}]. </code></p>
 
@@ -112,7 +114,7 @@
 
     <p><code> dss_digest_type()  = 'sha' </code></p>
 
-    <p><code> ecdsa_digest_type()  = 'sha' </code></p>
+    <p><code> ecdsa_digest_type()  = 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512' </code></p>
 
     <p><code> crl_reason()  = unspecified | keyCompromise | cACompromise | affiliationChanged | superseded | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise
     </code></p>
@@ -534,7 +536,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
        signed or it is the hashed value of "plain text" i.e. the
        digest.</d>
        <v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
-       <v>Key = rsa_private_key() | dsa_private_key() | ec_key()</v>
+       <v>Key = rsa_private_key() | dsa_private_key() | ec_private_key()</v>
   </type>
   <desc>
     <p> Creates a digital signature.</p> 
@@ -599,10 +601,10 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
         or it is the hashed value of "plain text" i.e. the digest.</d>
       <v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
       <v>Signature = binary()</v>
-      <v>Key = rsa_public_key() | dsa_public_key() | ec_key()</v>
-  </type> 
-  <desc> 
-    <p>Verifies a digital signature</p> 
+      <v>Key = rsa_public_key() | dsa_public_key() | ec_public_key()</v>
+  </type>
+  <desc>
+    <p>Verifies a digital signature</p>
   </desc> 
   </func>
   

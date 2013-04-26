@@ -139,7 +139,8 @@ hello_request() ->
 				    atom(), #connection_states{}, binary()},
 	    boolean()) ->
 			  {tls_version(), session_id(), #connection_states{}, binary() | undefined}|
-			  {tls_version(), {resumed | new, #session{}}, #connection_states{}, list(binary()) | undefined} |
+			  {tls_version(), {resumed | new, #session{}}, #connection_states{}, [binary()] | undefined,
+			  [oid()] | undefined, [oid()] | undefined} |
 			  #alert{}.
 %%
 %% Description: Handles a recieved hello message
@@ -372,8 +373,7 @@ certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
 		   {dh, binary()} |
 		   {dh, {binary(), binary()}, #'DHParameter'{}, {HashAlgo::atom(), SignAlgo::atom()},
 		   binary(), binary(), private_key()} |
-		   {ecdh, {'ECKey', any()}, {HashAlgo::atom(), SignAlgo::atom()},
-		   binary(), binary(), private_key()} |
+		   {ecdh, #'ECPrivateKey'{}} |
 		   {psk, binary()} |
 		   {dhe_psk, binary(), binary()} |
 		   {srp, {binary(), binary()}, #srp_user{}, {HashAlgo::atom(), SignAlgo::atom()},
@@ -417,7 +417,7 @@ key_exchange(client, _Version, {psk_premaster_secret, PskIdentity, Secret, {_, P
 	encrypted_premaster_secret(Secret, PublicKey),
     #client_key_exchange{
 		exchange_keys = #client_rsa_psk_identity{
-		  identity = PskIdentity,
+				   identity = PskIdentity,
 		  exchange_keys = EncPremasterSecret}};
 
 key_exchange(client, _Version, {srp, PublicKey}) ->
@@ -596,6 +596,7 @@ get_tls_handshake(Version, Data, Buffer) ->
 -spec decode_client_key(binary(), key_algo(), tls_version()) ->
 			    #encrypted_premaster_secret{}
 			    | #client_diffie_hellman_public{}
+			    | #client_ec_diffie_hellman_public{}
 			    | #client_psk_identity{}
 			    | #client_dhe_psk_identity{}
 			    | #client_rsa_psk_identity{}

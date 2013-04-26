@@ -360,7 +360,7 @@ hmac_update_sha(Config) when is_list(Config) ->
     ?line Ctx2 = crypto:hmac_update(Ctx, Data),
     ?line Ctx3 = crypto:hmac_update(Ctx2, Data2),
     ?line Mac = crypto:hmac_final(Ctx3),
-    ?line Exp = crypto:sha_mac(Key, lists:flatten([Data, Data2])), 
+    ?line Exp = crypto:hmac(sha, Key, lists:flatten([Data, Data2])),
     ?line m(Exp, Mac).
 
 hmac_update_sha256(doc) ->
@@ -382,7 +382,7 @@ hmac_update_sha256_do() ->
     ?line Ctx2 = crypto:hmac_update(Ctx, Data),
     ?line Ctx3 = crypto:hmac_update(Ctx2, Data2),
     ?line Mac = crypto:hmac_final(Ctx3),
-    ?line Exp = crypto:sha256_mac(Key, lists:flatten([Data, Data2])),
+    ?line Exp = crypto:hmac(sha256, Key, lists:flatten([Data, Data2])),
     ?line m(Exp, Mac).
 
 hmac_update_sha512(doc) ->
@@ -404,7 +404,7 @@ hmac_update_sha512_do() ->
     ?line Ctx2 = crypto:hmac_update(Ctx, Data),
     ?line Ctx3 = crypto:hmac_update(Ctx2, Data2),
     ?line Mac = crypto:hmac_final(Ctx3),
-    ?line Exp = crypto:sha512_mac(Key, lists:flatten([Data, Data2])),
+    ?line Exp = crypto:hmac(sha512, Key, lists:flatten([Data, Data2])),
     ?line m(Exp, Mac).
     
 hmac_update_md5(doc) ->
@@ -619,68 +619,64 @@ hmac_rfc4231_sha512(suite) ->
 hmac_rfc4231_sha512(Config) when is_list(Config) ->
     if_supported(sha512, fun() -> hmac_rfc4231_sha512_do() end).
 
-hmac_rfc4231_case(Hash, HashFun, case1, Exp) ->
+hmac_rfc4231_case(Hash, case1, Exp) ->
     %% Test 1
     Key = binary:copy(<<16#0b>>, 20),
     Data = <<"Hi There">>,
-    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp);
+    hmac_rfc4231_case(Hash, Key, Data, Exp);
 
-hmac_rfc4231_case(Hash, HashFun, case2, Exp) ->
+hmac_rfc4231_case(Hash, case2, Exp) ->
     %% Test 2
     Key = <<"Jefe">>,
     Data = <<"what do ya want for nothing?">>,
-    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp);
+    hmac_rfc4231_case(Hash, Key, Data, Exp);
 
-hmac_rfc4231_case(Hash, HashFun, case3, Exp) ->
+hmac_rfc4231_case(Hash, case3, Exp) ->
     %% Test 3
     Key = binary:copy(<<16#aa>>, 20),
     Data = binary:copy(<<16#dd>>, 50),
-    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp);
+    hmac_rfc4231_case(Hash, Key, Data, Exp);
 
-hmac_rfc4231_case(Hash, HashFun, case4, Exp) ->
+hmac_rfc4231_case(Hash, case4, Exp) ->
     %% Test 4
     Key = list_to_binary(lists:seq(1, 16#19)),
     Data = binary:copy(<<16#cd>>, 50),
-    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp);
+    hmac_rfc4231_case(Hash, Key, Data, Exp);
 
-hmac_rfc4231_case(Hash, HashFun, case5, Exp) ->
+hmac_rfc4231_case(Hash, case5, Exp) ->
     %% Test 5
     Key = binary:copy(<<16#0c>>, 20),
     Data = <<"Test With Truncation">>,
-    hmac_rfc4231_case(Hash, HashFun, Key, Data, 16, Exp);
+    hmac_rfc4231_case(Hash, Key, Data, 16, Exp);
 
-hmac_rfc4231_case(Hash, HashFun, case6, Exp) ->
+hmac_rfc4231_case(Hash, case6, Exp) ->
     %% Test 6
     Key = binary:copy(<<16#aa>>, 131),
     Data = <<"Test Using Larger Than Block-Size Key - Hash Key First">>,
-    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp);
+    hmac_rfc4231_case(Hash, Key, Data, Exp);
 
-hmac_rfc4231_case(Hash, HashFun, case7, Exp) ->
+hmac_rfc4231_case(Hash, case7, Exp) ->
     %% Test Case 7
     Key = binary:copy(<<16#aa>>, 131),
     Data = <<"This is a test using a larger than block-size key and a larger t",
 	     "han block-size data. The key needs to be hashed before being use",
 	     "d by the HMAC algorithm.">>,
-    hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp).
+    hmac_rfc4231_case(Hash, Key, Data, Exp).
 
-hmac_rfc4231_case(Hash, HashFun, Key, Data, Exp) ->
+hmac_rfc4231_case(Hash, Key, Data, Exp) ->
     ?line Ctx = crypto:hmac_init(Hash, Key),
     ?line Ctx2 = crypto:hmac_update(Ctx, Data),
     ?line Mac1 = crypto:hmac_final(Ctx2),
-    ?line Mac2 = crypto:HashFun(Key, Data),
     ?line Mac3 = crypto:hmac(Hash, Key, Data),
     ?line m(Exp, Mac1),
-    ?line m(Exp, Mac2),
     ?line m(Exp, Mac3).
 
-hmac_rfc4231_case(Hash, HashFun, Key, Data, Trunc, Exp) ->
+hmac_rfc4231_case(Hash, Key, Data, Trunc, Exp) ->
     ?line Ctx = crypto:hmac_init(Hash, Key),
     ?line Ctx2 = crypto:hmac_update(Ctx, Data),
     ?line Mac1 = crypto:hmac_final_n(Ctx2, Trunc),
-    ?line Mac2 = crypto:HashFun(Key, Data, Trunc),
     ?line Mac3 = crypto:hmac(Hash, Key, Data, Trunc),
     ?line m(Exp, Mac1),
-    ?line m(Exp, Mac2),
     ?line m(Exp, Mac3).
 
 hmac_rfc4231_sha224_do() ->
@@ -697,7 +693,7 @@ hmac_rfc4231_sha224_do() ->
 		       "d499f112f2d2b7273fa6870e"),
     Case7 = hexstr2bin("3a854166ac5d9f023f54d517d0b39dbd"
 		       "946770db9c2b95c9f6f565d1"),
-    hmac_rfc4231_cases_do(sha224, sha224_mac, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
+    hmac_rfc4231_cases_do(sha224, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
 
 hmac_rfc4231_sha256_do() ->
     Case1 = hexstr2bin("b0344c61d8db38535ca8afceaf0bf12b"
@@ -713,7 +709,7 @@ hmac_rfc4231_sha256_do() ->
 		       "8e0bc6213728c5140546040f0ee37f54"),
     Case7 = hexstr2bin("9b09ffa71b942fcb27635fbcd5b0e944"
 		       "bfdc63644f0713938a7f51535c3a35e2"),
-    hmac_rfc4231_cases_do(sha256, sha256_mac, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
+    hmac_rfc4231_cases_do(sha256, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
 
 hmac_rfc4231_sha384_do() ->
     Case1 = hexstr2bin("afd03944d84895626b0825f4ab46907f"
@@ -735,7 +731,7 @@ hmac_rfc4231_sha384_do() ->
     Case7 = hexstr2bin("6617178e941f020d351e2f254e8fd32c"
 		       "602420feb0b8fb9adccebb82461e99c5"
 		       "a678cc31e799176d3860e6110c46523e"),
-    hmac_rfc4231_cases_do(sha384, sha384_mac, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
+    hmac_rfc4231_cases_do(sha384, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
 
 hmac_rfc4231_sha512_do() ->
     Case1 = hexstr2bin("87aa7cdea5ef619d4ff0b4241a1d6cb0"
@@ -763,16 +759,16 @@ hmac_rfc4231_sha512_do() ->
 		       "debd71f8867289865df5a32d20cdc944"
 		       "b6022cac3c4982b10d5eeb55c3e4de15"
 		       "134676fb6de0446065c97440fa8c6a58"),
-    hmac_rfc4231_cases_do(sha512, sha512_mac, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
+    hmac_rfc4231_cases_do(sha512, [Case1, Case2, Case3, Case4, Case5, Case6, Case7]).
 
-hmac_rfc4231_cases_do(Hash, HashFun, CasesData) ->
-    hmac_rfc4231_cases_do(Hash, HashFun, [case1, case2, case3, case4, case5, case6, case7], CasesData).
+hmac_rfc4231_cases_do(Hash, CasesData) ->
+    hmac_rfc4231_cases_do(Hash, [case1, case2, case3, case4, case5, case6, case7], CasesData).
 
-hmac_rfc4231_cases_do(_Hash, _HashFun, _, []) ->
+hmac_rfc4231_cases_do(_Hash, _, []) ->
     ok;
-hmac_rfc4231_cases_do(Hash, HashFun, [C|Cases], [D|CasesData]) ->
-    hmac_rfc4231_case(Hash, HashFun, C, D),
-    hmac_rfc4231_cases_do(Hash, HashFun, Cases, CasesData).
+hmac_rfc4231_cases_do(Hash, [C|Cases], [D|CasesData]) ->
+    hmac_rfc4231_case(Hash, C, D),
+    hmac_rfc4231_cases_do(Hash, Cases, CasesData).
 
 hmac_update_md5_io(doc) ->
     ["Generate an MD5 HMAC using hmac_init, hmac_update, and hmac_final. "
@@ -859,10 +855,10 @@ sha256(Config) when is_list(Config) ->
     if_supported(sha256, fun() -> sha256_do() end).
 
 sha256_do() ->
-    ?line m(crypto:sha256("abc"),
+    ?line m(crypto:hash(sha256, "abc"),
 	    hexstr2bin("BA7816BF8F01CFEA4141"
 		       "40DE5DAE2223B00361A396177A9CB410FF61F20015AD")),
-    ?line m(crypto:sha256("abcdbcdecdefdefgefghfghighijhijkijkljklmklm"
+    ?line m(crypto:hash(sha256, "abcdbcdecdefdefgefghfghighijhijkijkljklmklm"
 			  "nlmnomnopnopq"), 
 	    hexstr2bin("248D6A61D20638B8"
 		       "E5C026930C3E6039A33CE45964FF2167F6ECEDD419DB06C1")).
@@ -878,10 +874,10 @@ sha256_update(Config) when is_list(Config) ->
     if_supported(sha256, fun() -> sha256_update_do() end).
 
 sha256_update_do() ->
-    ?line Ctx = crypto:sha256_init(),
-    ?line Ctx1 = crypto:sha256_update(Ctx, "abcdbcdecdefdefgefghfghighi"),
-    ?line Ctx2 = crypto:sha256_update(Ctx1, "jhijkijkljklmklmnlmnomnopnopq"),
-    ?line m(crypto:sha256_final(Ctx2), 
+    ?line Ctx = crypto:hash_init(sha256),
+    ?line Ctx1 = crypto:hash_update(Ctx, "abcdbcdecdefdefgefghfghighi"),
+    ?line Ctx2 = crypto:hash_update(Ctx1, "jhijkijkljklmklmnlmnomnopnopq"),
+    ?line m(crypto:hash_final(Ctx2),
 	    hexstr2bin("248D6A61D20638B8"
 		       "E5C026930C3E6039A33CE45964FF2167F6ECEDD419DB06C1")).
 
@@ -897,11 +893,11 @@ sha512(Config) when is_list(Config) ->
     if_supported(sha512, fun() -> sha512_do() end).
 
 sha512_do() ->
-    ?line m(crypto:sha512("abc"),
+    ?line m(crypto:hash(sha512, "abc"),
 	    hexstr2bin("DDAF35A193617ABACC417349AE20413112E6FA4E89A97EA2"
 		       "0A9EEEE64B55D39A2192992A274FC1A836BA3C23A3FEEBBD"
 		       "454D4423643CE80E2A9AC94FA54CA49F")),
-    ?line m(crypto:sha512("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn"
+    ?line m(crypto:hash(sha512, "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn"
 			  "hijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"), 
 	    hexstr2bin("8E959B75DAE313DA8CF4F72814FC143F8F7779C6EB9F7FA1"
 		       "7299AEADB6889018501D289E4900F7E4331B99DEC4B5433A"
@@ -918,10 +914,10 @@ sha512_update(Config) when is_list(Config) ->
     if_supported(sha512, fun() -> sha512_update_do() end).
 
 sha512_update_do() ->
-    ?line Ctx = crypto:sha512_init(),
-    ?line Ctx1 = crypto:sha512_update(Ctx, "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn"),
-    ?line Ctx2 = crypto:sha512_update(Ctx1, "hijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"),
-    ?line m(crypto:sha512_final(Ctx2), 
+    ?line Ctx = crypto:hash_init(sha512),
+    ?line Ctx1 = crypto:hash_update(Ctx, "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn"),
+    ?line Ctx2 = crypto:hash_update(Ctx1, "hijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"),
+    ?line m(crypto:hash_final(Ctx2),
 	    hexstr2bin("8E959B75DAE313DA8CF4F72814FC143F8F7779C6EB9F7FA1"
 		       "7299AEADB6889018501D289E4900F7E4331B99DEC4B5433A"
 		       "C7D329EEB6DD26545E96E55B874BE909")).

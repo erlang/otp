@@ -219,7 +219,7 @@ anonymous_suites() ->
      ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA].
 
 %%--------------------------------------------------------------------
--spec psk_suites(tls_version()) -> [cipher_suite()].
+-spec psk_suites(tls_version() | integer()) -> [cipher_suite()].
 %%
 %% Description: Returns a list of the PSK cipher suites, only supported
 %% if explicitly set by user.

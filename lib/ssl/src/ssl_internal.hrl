@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,7 @@
 -type db_handle()         :: term().
 -type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | dh_anon.
 -type der_cert()          :: binary().
--type private_key()       :: #'RSAPrivateKey'{} | #'DSAPrivateKey'{}.
+-type private_key()       :: #'RSAPrivateKey'{} | #'DSAPrivateKey'{} | #'ECPrivateKey'{}.
 -type issuer()            :: tuple().
 -type serialnumber()      :: integer().
 -type cert_key()          :: {reference(), integer(), issuer()}.

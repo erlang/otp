@@ -54,6 +54,7 @@
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
 -type rsa_digest_type()      :: 'md5' | 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type()      :: 'none' | 'sha'. %% None is for backwards compatibility
+-type ecdsa_digest_type()       :: 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
 			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
 -type oid()                  :: tuple().
@@ -97,7 +98,7 @@ pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
         'DSAPublicKey' ->
             {params, DssParams} = der_decode('DSAParams', Params),
             {der_decode(KeyType, Key0), DssParams};
-        'ECPrivateKey' ->
+        'ECPoint' ->
             der_decode(KeyType, Key0)
     end;
 pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
@@ -355,7 +356,7 @@ compute_key(PubKey, PrivKey, #'DHParameter'{prime = P, base = G}) ->
 -spec pkix_sign_types(SignatureAlg::oid()) ->
 			     %% Relevant dsa digest type is subpart of rsa digest type
 			     { DigestType :: rsa_digest_type(),
-			       SignatureType :: rsa | dsa
+			       SignatureType :: rsa | dsa | ecdsa
 			     }.
 %% Description:
 %%--------------------------------------------------------------------
@@ -387,9 +388,9 @@ pkix_sign_types(?'ecdsa-with-SHA512') ->
     {sha512, ecdsa}.
 
 %%--------------------------------------------------------------------
--spec sign(binary() | {digest, binary()},  rsa_digest_type() | dss_digest_type(),
+-spec sign(binary() | {digest, binary()},  rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
 	   rsa_private_key() |
-	   dsa_private_key()) -> Signature :: binary().
+	   dsa_private_key() | ec_private_key()) -> Signature :: binary().
 %% Description: Create digital signature.
 %%--------------------------------------------------------------------
 sign(DigestOrPlainText, DigestType, Key = #'RSAPrivateKey'{}) ->
@@ -408,9 +409,9 @@ sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
     sign({digest,Digest}, sha, Key).
 
 %%--------------------------------------------------------------------
--spec verify(binary() | {digest, binary()}, rsa_digest_type() | dss_digest_type(),
+-spec verify(binary() | {digest, binary()}, rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
 	     Signature :: binary(), rsa_public_key()
-	     | dsa_public_key()) -> boolean().
+	     | dsa_public_key() | ec_public_key()) -> boolean().
 %% Description: Verifies a digital signature.
 %%--------------------------------------------------------------------
 verify(DigestOrPlainText, DigestType, Signature,
@@ -452,7 +453,7 @@ pkix_sign(#'OTPTBSCertificate'{signature =
 
 %%--------------------------------------------------------------------
 -spec pkix_verify(Cert::binary(), rsa_public_key()|
-		  dsa_public_key()) -> boolean().
+		  dsa_public_key() | ec_public_key()) -> boolean().
 %%
 %% Description: Verify pkix x.509 certificate signature.
 %%--------------------------------------------------------------------
@@ -878,12 +879,6 @@ ec_curve_spec( #'OTPECParameters'{fieldID = FieldId, curve = PCurve, base = Base
     {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
 ec_curve_spec({namedCurve, OID}) ->
     pubkey_cert_records:namedCurves(OID).
-
-ec_key({PrivateKey, PubKey}, Curve) when is_atom(Curve) ->
-    #'ECPrivateKey'{version = 1,
-		    privateKey = int2list(PrivateKey),
-		    parameters = {namedCurve, pubkey_cert_records:namedCurves(Curve)},
-		    publicKey = {0, PubKey}};
 
 ec_key({PrivateKey, PubKey}, Params) ->
     #'ECPrivateKey'{version = 1,

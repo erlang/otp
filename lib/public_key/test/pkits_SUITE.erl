@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -758,11 +758,10 @@ warning(Format, Args, File0, Line) ->
     io:format("~s(~p): Warning "++Format, [File,Line|Args]).
 
 crypto_support_check(Config) ->
-    try crypto:sha256(<<"Test">>) of
-	_ ->
-	    Config
-    catch error:notsup ->
-	    crypto:stop(),
+    case proplists:get_bool(sha256, crypto:algorithms()) of
+	true ->
+	    Config;
+	false ->
 	    {skip, "To old version of openssl"}
     end.
 

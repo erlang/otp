@@ -23,19 +23,13 @@
 
 -export([start/0, stop/0, info/0, info_lib/0, algorithms/0, version/0]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
--export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
--export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
--export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
--export([sha224/1, sha224_init/0, sha224_update/2, sha224_final/1]).
--export([sha256/1, sha256_init/0, sha256_update/2, sha256_final/1]).
--export([sha384/1, sha384_init/0, sha384_update/2, sha384_final/1]).
--export([sha512/1, sha512_init/0, sha512_update/2, sha512_final/1]).
--export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
--export([sha224_mac/2, sha224_mac/3]).
--export([sha256_mac/2, sha256_mac/3]).
--export([sha384_mac/2, sha384_mac/3]).
--export([sha512_mac/2, sha512_mac/3]).
+-export([sign/4, verify/5]).
+-export([generate_key/2, generate_key/3, compute_key/4]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
+-export([exor/2]).
+-export([strong_rand_bytes/1, mod_exp_prime/3]).
+-export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
+
 -export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
 -export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
 -export([des_cfb_encrypt/3, des_cfb_decrypt/3, des_cfb_ivec/2]).
@@ -47,41 +41,69 @@
 -export([blowfish_ofb64_encrypt/3]).
 -export([des_ede3_cbc_encrypt/5, des_ede3_cbc_decrypt/5]).
 -export([aes_cfb_128_encrypt/3, aes_cfb_128_decrypt/3]).
--export([exor/2]).
 -export([rc4_encrypt/2, rc4_set_key/1, rc4_encrypt_with_state/2]).
 -export([rc2_cbc_encrypt/3, rc2_cbc_decrypt/3, rc2_40_cbc_encrypt/3, rc2_40_cbc_decrypt/3]).
--export([dss_verify/3, dss_verify/4, rsa_verify/3, rsa_verify/4]).
--export([dss_sign/2, dss_sign/3, rsa_sign/2, rsa_sign/3]).
 -export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
 -export([rsa_private_encrypt/3, rsa_public_decrypt/3]).
--export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
--export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
--export([strong_rand_bytes/1, strong_rand_mpint/3]).
--export([mod_exp/3, mod_exp_prime/3, mpint/1, erlint/1]).
-
-%% -export([idea_cbc_encrypt/3, idea_cbc_decrypt/3]).
 -export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
 -export([aes_cbc_256_encrypt/3, aes_cbc_256_decrypt/3]).
 -export([aes_cbc_ivec/1]).
 -export([aes_ctr_encrypt/3, aes_ctr_decrypt/3]).
 -export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
--export([sign/4, verify/5]).
--export([generate_key/2, generate_key/3, compute_key/4]).
 
+-export([dh_generate_parameters/2, dh_check/1]). %% Testing see
 
--export([dh_generate_parameters/2, dh_check/1]). %% Testing see below
+%% DEPRECATED
+-export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
+-export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
+-export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
+-deprecated({md4, 1, next_major_release}).
+-deprecated({md5, 1, next_major_release}).
+-deprecated({sha, 1, next_major_release}).
+-deprecated({md4_init, 0, next_major_release}).
+-deprecated({md5_init, 0, next_major_release}).
+-deprecated({sha_init, 0, next_major_release}).
+-deprecated({md4_update, 2, next_major_release}).
+-deprecated({md5_update, 2, next_major_release}).
+-deprecated({sha_update, 2, next_major_release}).
+-deprecated({md4_final, 1, next_major_release}).
+-deprecated({md5_final, 1, next_major_release}).
+-deprecated({sha_final, 1, next_major_release}).
 
+-export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
+-deprecated({md5_mac, 2, next_major_release}).
+-deprecated({md5_mac_96, 2, next_major_release}).
+-deprecated({sha_mac, 2, next_major_release}).
+-deprecated({sha_mac, 3, next_major_release}).
+-deprecated({sha_mac_96, 2, next_major_release}).
+
+-export([dss_verify/3, dss_verify/4, rsa_verify/3, rsa_verify/4]).
+-export([dss_sign/2, dss_sign/3, rsa_sign/2, rsa_sign/3]).
+-deprecated({dss_verify, 3, next_major_release}).
+-deprecated({dss_verify, 4, next_major_release}).
+-deprecated({rsa_verify, 3, next_major_release}).
+-deprecated({rsa_verify, 4, next_major_release}).
+-deprecated({dss_sign, 2, next_major_release}).
+-deprecated({dss_sign, 3, next_major_release}).
+-deprecated({rsa_sign, 2, next_major_release}).
+-deprecated({rsa_sign, 3, next_major_release}).
+
+-export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
+-deprecated({dh_generate_key, 1, next_major_release}).
+-deprecated({dh_generate_key, 2, next_major_release}).
+-deprecated({dh_compute_key, 3, next_major_release}).
+
+-export([mod_exp/3, mpint/1, erlint/1,  strong_rand_mpint/3]).
+-deprecated({mod_exp, 3, next_major_release}).
+-deprecated({mpint, 1, next_major_release}).
+-deprecated({erlint, 1, next_major_release}).
+-deprecated({strong_rand_mpint, 3, next_major_release}).
 
 -define(FUNC_LIST, [md4, md4_init, md4_update, md4_final,
 		    md5, md5_init, md5_update, md5_final,
 		    sha, sha_init, sha_update, sha_final,
-		    sha224, sha224_init, sha224_update, sha224_final,
-		    sha256, sha256_init, sha256_update, sha256_final,
-		    sha384, sha384_init, sha384_update, sha384_final,
-		    sha512, sha512_init, sha512_update, sha512_final,
 		    md5_mac,  md5_mac_96,
 		    sha_mac,  sha_mac_96,
-		    sha224_mac, sha256_mac, sha384_mac, sha512_mac,
 		    des_cbc_encrypt, des_cbc_decrypt,
 		    des_cfb_encrypt, des_cfb_decrypt,
 		    des_ecb_encrypt, des_ecb_decrypt,
@@ -102,7 +124,6 @@
 		    exor,
 		    rc4_encrypt, rc4_set_key, rc4_encrypt_with_state,
 		    rc2_40_cbc_encrypt, rc2_40_cbc_decrypt,
-		    %% idea_cbc_encrypt, idea_cbc_decrypt,
 		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
 		    aes_ctr_encrypt, aes_ctr_decrypt,
                     aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
@@ -124,13 +145,13 @@
 -type crypto_integer() :: binary() | integer().
 -type ec_key_res() :: any().		%% nif resource
 -type ec_named_curve() :: atom().
--type ec_point() :: binary().
+-type ec_point() :: crypto_integer().
 -type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
--type ec_field() :: {prime_field, Prime :: mpint()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
--type ec_prime() :: {A :: mpint(), B :: mpint(), Seed :: binary()}.
--type ec_curve_spec() :: {Field :: ec_field(), Prime :: ec_prime(), Point :: ec_point(), Order :: mpint(), CoFactor :: none | mpint()}.
+-type ec_field() :: {prime_field, Prime :: integer()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
+-type ec_prime() :: {A :: crypto_integer(), B :: crypto_integer(), Seed :: binary() | none}.
+-type ec_curve_spec() :: {Field :: ec_field(), Prime :: ec_prime(), Point :: crypto_integer(), Order :: integer(), CoFactor :: none | integer()}.
 -type ec_curve() :: ec_named_curve() | ec_curve_spec().
--type ec_key() :: {Curve :: ec_curve(), PrivKey :: mpint() | undefined, PubKey :: ec_point() | undefined}.
+-type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -944,11 +965,11 @@ ecdsa_sign_nif(_Type, _DataOrDigest, _Key) -> ?nif_stub.
 
 -spec rsa_public_encrypt(binary(), [binary()], rsa_padding()) ->
 				binary().
--spec rsa_public_decrypt(binary(), [binary()], rsa_padding()) ->
+-spec rsa_public_decrypt(binary(), [integer() | mpint()], rsa_padding()) ->
 				binary().
--spec rsa_private_encrypt(binary(), [binary()], rsa_padding()) ->
+-spec rsa_private_encrypt(binary(), [integer() | mpint()], rsa_padding()) ->
 				binary().
--spec rsa_private_decrypt(binary(), [binary()], rsa_padding()) ->
+-spec rsa_private_decrypt(binary(), [integer() | mpint()], rsa_padding()) ->
 				binary().
 
 %% Binary, Key = [E,N]
@@ -1216,8 +1237,6 @@ ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
 %%
 %% EC
 %%
-
--spec ec_key_to_term(ec_key_res()) -> ec_key().
 ec_key_to_term(Key) ->
     case ec_key_to_term_nif(Key) of
         {PrivKey, PubKey} ->
