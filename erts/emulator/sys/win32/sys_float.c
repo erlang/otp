@@ -133,6 +133,8 @@ sys_double_to_chars_ext(double fp, char *buffer, size_t buffer_size, size_t deci
     return s-buffer; /* i.e strlen(buffer) */
 }
 
+#ifdef USE_MATHERR
+
 int
 matherr(struct _exception *exc)
 {
@@ -140,6 +142,8 @@ matherr(struct _exception *exc)
     DEBUGF(("FP exception (matherr) (0x%x) (%d)\n", exc->type, erl_fp_exception));
     return 1;
 }
+
+#endif
 
 static void
 fpe_exception(int sig)
