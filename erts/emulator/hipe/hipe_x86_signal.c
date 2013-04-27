@@ -183,6 +183,7 @@ static void do_init(void)
 #include <dlfcn.h>
 static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
 #define init_done()	(__next_sigaction != 0)
+extern int _sigaction(int, const struct sigaction*, struct sigaction*);
 #define __SIGACTION _sigaction
 static void do_init(void)
 {
