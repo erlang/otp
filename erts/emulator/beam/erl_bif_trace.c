@@ -1224,9 +1224,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 		match_spec_meta = NIL;
 	}
 	if (r & FUNC_TRACE_COUNT_TRACE) {
-	    c = count < 0 ? 
-		erts_make_integer(-count-1, p) : 
-		erts_make_integer(count, p);
+	    c = erts_make_integer(count, p);
 	}
 	if (r & FUNC_TRACE_TIME_TRACE) {
 	    ct = call_time;

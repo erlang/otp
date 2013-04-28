@@ -4147,7 +4147,7 @@ port_sig_call(Port *prt,
 	    ErlOffHeap *ohp;
 	    Process *rp;
 	    ErtsProcLocks rp_locks = 0;
-	    Uint hsz;
+	    Sint hsz;
 
 	    rp = erts_proc_lookup_raw(sigdp->caller);
 	    if (!rp)
@@ -4264,7 +4264,7 @@ erts_port_call(Process* c_p,
 	switch (try_call_res) {
 	case ERTS_TRY_IMM_DRV_CALL_OK: {
 	    Eterm *hp, *hp_end;
-	    Uint hsz;
+	    Sint hsz;
 	    unsigned ret_flags = 0U;
 	    Eterm term;
 
@@ -5940,10 +5940,6 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     if (vec->size <= skip)
 	return driver_output2(ix, hbuf, hlen, NULL, 0);
     size = vec->size - skip;   /* Size of remaining bytes in vector */
-
-    ASSERT(hlen >= 0);       /* debug only */
-    if (hlen < 0)
-	hlen = 0;
 
     prt = erts_drvport2port_state(ix, &state);
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
