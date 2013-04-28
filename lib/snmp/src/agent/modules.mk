@@ -43,8 +43,8 @@ MODULES = \
 	snmpa_general_db \
 	snmpa_local_db \
 	snmpa_mib \
-	snmpa_mib_data_tree1 \
-	snmpa_mib_data_tree2 \
+	snmpa_mib_data_tttn \
+	snmpa_mib_data_ttln \
 	snmpa_mib_lib \
 	snmpa_misc_sup \
 	snmpa_mpd \
