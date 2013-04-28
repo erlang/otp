@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2013</year><year>2013</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>snmpa_mib_data</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_mib_data.xml</file>
+  </header>
+
+  <module>snmpa_mib_data</module>
+  <modulesummary>Behaviour module for the SNMP agent mib-server 
+  data module.</modulesummary>
+  <description>
+    <p>This module defines the behaviour of the SNMP agent mib-server 
+    data module. A <c>snmpa_mib_data</c> compliant module 
+    must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+        <p>new/1</p>
+      </item>
+      <item>
+        <p>close/1</p>
+      </item>
+      <item>
+        <p>sync/1</p>
+      </item>
+      <item>
+        <p>load_mib/4</p>
+      </item>
+      <item>
+        <p>unload_mib/4</p>
+      </item>
+      <item>
+        <p>lookup/2</p>
+      </item>
+      <item>
+        <p>next/3</p>
+      </item>
+      <item>
+        <p>register_subagent/3</p>
+      </item>
+      <item>
+        <p>unregister_subagent/2</p>
+      </item>
+      <item>
+        <p>which_mib/2</p>
+      </item>
+      <item>
+        <p>which_mibs/1</p>
+      </item>
+      <item>
+        <p>whereis_mib/2</p>
+      </item>
+      <item>
+        <p>backup/2</p>
+      </item>
+      <item>
+        <p>dump/2</p>
+      </item>
+      <item>
+        <p>info/1,2</p>
+      </item>
+      <item>
+        <p>code_change/2</p>
+      </item>
+    </list>
+    <p>The semantics of them and their exact signatures are explained
+    below. </p>
+
+    <marker id="handle_error"></marker>
+  </description>
+  <funcs>
+    <func>
+      <name>new(Storage) -> State</name>
+      <fsummary>Create new (mib-storage) instance</fsummary>
+      <type>
+        <v>Storage = mib_storage()</v>
+        <v>State = term()</v>
+      </type>
+      <desc>
+        <p>Create a new mib-storage instance. </p>
+
+        <marker id="close"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>close(State) -> void()</name>
+      <fsummary>Close the mib-storage</fsummary>
+      <type>
+        <v>State = term()</v>
+      </type>
+      <desc>
+        <p>Close the mib-storage.</p>
+
+        <marker id="sync"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>sync(State) -> void()</name>
+      <fsummary>Synchronize to disc</fsummary>
+      <type>
+        <v>State = term()</v>
+      </type>
+      <desc>
+        <p>Synchronize (write to disc, if possible) the data to disc. 
+	This depends on the <c>mib_storage</c> option, and will only have 
+	an effect if the mib-storage option has an actual disc component 
+	(such as dets, or ets with a file). </p>
+
+        <marker id="load_mib"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>load_mib(State, Filename, MeOverride, TeOverride) -> {ok, NewState} | {error, Reason}</name>
+      <fsummary>Load a mib into the mib-server</fsummary>
+      <type>
+        <v>State = NewState = term()</v>
+        <v>Filename = filename()</v>
+        <v>MeOverride = boolean()</v>
+        <v>TeOverride = boolean()</v>
+        <v>Reason = already_loaded | term()</v>
+      </type>
+      <desc>
+        <p>Load the mib specified by the <c>Filename</c> argument 
+	into the mib-server. 
+	The <c>MeOverride</c> and <c>TeOverride</c> arguments 
+	specifies how the mib-server shall handle duplicate mib- and trap-
+	entries. </p>
+
+        <marker id="unload_mib"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>unload_mib(State, Filename) -> {ok, NewState} | {error, Reason}</name>
+      <fsummary>Unload mib from the mib-server</fsummary>
+      <type>
+        <v>State = NewState = term()</v>
+        <v>Filename = filename()</v>
+        <v>Reason = not_loaded | term()</v>
+      </type>
+      <desc>
+        <p>Unload the mib specified by the <c>Filename</c> argument 
+	from the mib-server. </p>
+
+        <marker id="lookup"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>lookup(State, Oid) -> Reply</name>
+      <fsummary>Find the mib-entry corresponding to the Oid</fsummary>
+      <type>
+        <v>State = term()</v>
+        <v>Reply = {variable, ME} | {table_column, ME, TEOid} | {subagent, SAPid, SAOid} | [false, Reason}</v>
+        <v>Oid = TEOid = SAOid = oid()</v>
+        <v>SAPid = pid()</v>
+        <v>ME = me()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Find the mib-entry corresponding to the Oid. 
+	If it is a variable, the Oid must be 
+	<Oid for var>.0 
+	and if it is a table, Oid must be 
+	<table>.<entry>.<col>.<any>.</p>
+	<!-- FIX -->
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+
