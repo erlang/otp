@@ -16,7 +16,7 @@
 %% 
 %% %CopyrightEnd%
 %%
--module(snmpa_mib_data).
+-module(snmpa_mib_data_tttn).
 
 %%%-----------------------------------------------------------------
 %%% This module implements the MIB internal data structures.
@@ -479,16 +479,20 @@ old_format(LoadedMibs) ->
 %%----------------------------------------------------------------------
 %% A total dump for debugging.
 %%----------------------------------------------------------------------
-dump(#mib_data{mib_db = MibDb, node_db = NodeDb, tree = Tree}) ->
+dump(#mib_data{mib_db  = MibDb, 
+	       node_db = NodeDb, 
+	       tree    = Tree}, io) ->
     (catch io:format("MIB-tables:~n~p~n~n", 
 		     [snmpa_general_db:tab2list(MibDb)])),
     (catch io:format("MIB-entries:~n~p~n~n", 
 		     [snmpa_general_db:tab2list(NodeDb)])),
     (catch io:format("Tree:~n~p~n", [Tree])), % good luck reading it!
-    ok.
+    ok;
 
-dump(#mib_data{mib_db = MibDb, node_db = NodeDb, tree = Tree}, File) ->
-    case file:open(File,[write]) of
+dump(#mib_data{mib_db  = MibDb, 
+	       node_db = NodeDb, 
+	       tree    = Tree}, File) ->
+    case file:open(File, [write]) of
 	{ok, Fd} ->
 	    io:format(Fd,"~s~n", 
 		      [snmp:date_and_time_to_string(snmp:date_and_time())]),
@@ -499,10 +503,10 @@ dump(#mib_data{mib_db = MibDb, node_db = NodeDb, tree = Tree}, File) ->
 	    io:format(Fd,"Tree:~n~p~n", [Tree]), % good luck reading it!
 	    file:close(Fd),
 	    ok;
-	{error,Reason} ->
+	{error, Reason} ->
 	    ?vinfo("~n   Failed opening file '~s' for reason ~p",
-		   [File,Reason]),
-	    {error,Reason}
+		   [File, Reason]),
+	    {error, Reason}
     end.
 
 

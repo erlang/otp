@@ -61,10 +61,8 @@
     {ok, NewState :: term(), Pid :: pid()} | % When second arg was a oid()
     {error, Reason :: term()}.
 
--callback dump(State :: term(), Filename :: string()) -> 
+-callback dump(State :: term(), Destination :: io | filename()) -> 
     ok | {error, Reason :: term()}.
-
--callback print(State :: term()) -> ok.
 
 -callback which_mib(State :: term(), Oid :: oid()) -> 
     {ok, Mib :: string()} | {error, Reason :: term()}.
