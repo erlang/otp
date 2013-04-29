@@ -339,12 +339,22 @@ cert_options(Config) ->
 			{psk_identity, "HINT"},
 			{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
 			{ciphers, psk_suites()}]},
+     {server_psk_anon, [{ssl_imp, new},{reuseaddr, true},
+			{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
+			{ciphers, psk_anon_suites()}]},
+     {server_psk_anon_hint, [{ssl_imp, new},{reuseaddr, true},
+			     {psk_identity, "HINT"},
+			     {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
+			     {ciphers, psk_anon_suites()}]},
      {client_srp, [{ssl_imp, new},{reuseaddr, true},
 		   {srp_identity, {"Test-User", "secret"}}]},
      {server_srp, [{ssl_imp, new},{reuseaddr, true},
 		   {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 		   {user_lookup_fun, {fun user_lookup/3, undefined}},
 		   {ciphers, srp_suites()}]},
+     {server_srp_anon, [{ssl_imp, new},{reuseaddr, true},
+			{user_lookup_fun, {fun user_lookup/3, undefined}},
+			{ciphers, srp_anon_suites()}]},
      {server_verification_opts, [{ssl_imp, new},{reuseaddr, true}, 
 		    {cacertfile, ServerCaCertFile},
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
@@ -711,6 +721,12 @@ anonymous_suites() ->
      {dh_anon, aes_256_cbc, sha}].
 
 psk_suites() ->
+    [{rsa_psk, rc4_128, sha},
+     {rsa_psk, '3des_ede_cbc', sha},
+     {rsa_psk, aes_128_cbc, sha},
+     {rsa_psk, aes_256_cbc, sha}].
+
+psk_anon_suites() ->
     [{psk, rc4_128, sha},
      {psk, '3des_ede_cbc', sha},
      {psk, aes_128_cbc, sha},
@@ -718,19 +734,17 @@ psk_suites() ->
      {dhe_psk, rc4_128, sha},
      {dhe_psk, '3des_ede_cbc', sha},
      {dhe_psk, aes_128_cbc, sha},
-     {dhe_psk, aes_256_cbc, sha},
-     {rsa_psk, rc4_128, sha},
-     {rsa_psk, '3des_ede_cbc', sha},
-     {rsa_psk, aes_128_cbc, sha},
-     {rsa_psk, aes_256_cbc, sha}].
+     {dhe_psk, aes_256_cbc, sha}].
 
 srp_suites() ->
-    [{srp_anon, '3des_ede_cbc', sha},
-     {srp_rsa, '3des_ede_cbc', sha},
-     {srp_anon, aes_128_cbc, sha},
+    [{srp_rsa, '3des_ede_cbc', sha},
      {srp_rsa, aes_128_cbc, sha},
-     {srp_anon, aes_256_cbc, sha},
      {srp_rsa, aes_256_cbc, sha}].
+
+srp_anon_suites() ->
+    [{srp_anon, '3des_ede_cbc', sha},
+     {srp_anon, aes_128_cbc, sha},
+     {srp_anon, aes_256_cbc, sha}].
 
 srp_dss_suites() ->
     [{srp_dss, '3des_ede_cbc', sha},

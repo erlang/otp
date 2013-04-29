@@ -1547,7 +1547,7 @@ server_hello_done(#state{transport_cb = Transport,
 		tls_handshake_history = Handshake}.
 
 certify_server(#state{key_algorithm = Algo} = State)
-  when Algo == dh_anon; Algo == psk; Algo == dhe_psk ->
+  when Algo == dh_anon; Algo == psk; Algo == dhe_psk; Algo == srp_anon ->
     State;
 
 certify_server(#state{transport_cb = Transport,
