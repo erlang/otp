@@ -2705,26 +2705,14 @@ port_info(Port, Item) ->
       Port :: port() | atom(),
       Data :: term().
     
-port_set_data(Port, Data) ->
-    case case erts_internal:port_set_data(Port, Data) of
-	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
-	     Res -> Res
-	 end of
-	badarg -> erlang:error(badarg, [Port, Data]);
-	Result -> Result
-    end.
+port_set_data(_Port, _Data) ->
+    erlang:nif_error(undefined).
 
 -spec erlang:port_get_data(Port) -> term() when
       Port :: port() | atom().
 
-port_get_data(Port) ->
-    case case erts_internal:port_get_data(Port) of
-	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
-	     Res -> Res
-	 end of
-	{ok, Data} -> Data;
-	Error -> erlang:error(Error, [Port])
-    end.
+port_get_data(_Port) ->
+    erlang:nif_error(undefined).
 
 %%
 %% If the emulator wants to perform a distributed command and

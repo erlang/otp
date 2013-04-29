@@ -2861,12 +2861,10 @@ erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt, Eterm ite
 	   included though).
 	 */
 	Uint size = 0;
-	ErlHeapFragment* bp;
 
 	erts_doforall_links(ERTS_P_LINKS(prt), &one_link_size, &size);
 
-	for (bp = prt->bp; bp; bp = bp->next)
-	    size += sizeof(ErlHeapFragment) + (bp->alloc_size - 1)*sizeof(Eterm);
+	size += erts_port_data_size(prt);
 
 	if (prt->linebuf)
 	    size += sizeof(LineBuf) + prt->linebuf->ovsiz;

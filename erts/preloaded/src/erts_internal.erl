@@ -31,8 +31,7 @@
 -export([await_port_send_result/3]).
 
 -export([port_command/3, port_connect/2, port_close/1,
-	 port_control/3, port_call/3, port_set_data/2, port_get_data/1,
-	 port_info/1, port_info/2]).
+	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
 %%
 %% Await result of send to port
@@ -84,19 +83,6 @@ port_control(_Port, _Operation, _Data) ->
       Data :: term(),
       Result :: {ok, term()} | reference() | badarg.
 port_call(_Port, _Operation, _Data) ->
-    erlang:nif_error(undefined).
-
--spec erts_internal:port_get_data(P1) -> Result when
-      P1 :: port() | atom(),
-      Result :: {ok, term()} | reference() | badarg.
-port_get_data(_P1) ->
-    erlang:nif_error(undefined).
-
--spec erts_internal:port_set_data(P1, P2) -> Result when
-      P1 :: port() | atom(),
-      P2 :: term(),
-      Result :: true | reference() | badarg.
-port_set_data(_P1, _P2) ->
     erlang:nif_error(undefined).
 
 -type port_info_1_result_item() ::
