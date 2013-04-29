@@ -156,7 +156,10 @@ cipher_tests() ->
      anonymous_cipher_suites,
      psk_cipher_suites,
      psk_with_hint_cipher_suites,
+     psk_anon_cipher_suites,
+     psk_anon_with_hint_cipher_suites,
      srp_cipher_suites,
+     srp_anon_cipher_suites,
      srp_dsa_cipher_suites,
      default_reject_anonymous].
 
@@ -1594,12 +1597,33 @@ psk_with_hint_cipher_suites(Config) when is_list(Config) ->
     Ciphers = ssl_test_lib:psk_suites(),
     run_suites(Ciphers, Version, Config, psk_with_hint).
 %%-------------------------------------------------------------------
+psk_anon_cipher_suites() ->
+    [{doc, "Test the anonymous PSK ciphersuites WITHOUT server supplied identity hint"}].
+psk_anon_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:psk_anon_suites(),
+    run_suites(Ciphers, Version, Config, psk_anon).
+%%-------------------------------------------------------------------
+psk_anon_with_hint_cipher_suites()->
+    [{doc, "Test the anonymous PSK ciphersuites WITH server supplied identity hint"}].
+psk_anon_with_hint_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:psk_anon_suites(),
+    run_suites(Ciphers, Version, Config, psk_anon_with_hint).
+%%-------------------------------------------------------------------
 srp_cipher_suites()->
     [{doc, "Test the SRP ciphersuites"}].
 srp_cipher_suites(Config) when is_list(Config) ->
     Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
     Ciphers = ssl_test_lib:srp_suites(),
     run_suites(Ciphers, Version, Config, srp).
+%%-------------------------------------------------------------------
+srp_anon_cipher_suites()->
+    [{doc, "Test the anonymous SRP ciphersuites"}].
+srp_anon_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:srp_anon_suites(),
+    run_suites(Ciphers, Version, Config, srp_anon).
 %%-------------------------------------------------------------------
 srp_dsa_cipher_suites()->
     [{doc, "Test the SRP DSA ciphersuites"}].
@@ -3151,9 +3175,18 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    psk_with_hint ->
 		{?config(client_psk, Config),
 		 ?config(server_psk_hint, Config)};
+	    psk_anon ->
+		{?config(client_psk, Config),
+		 ?config(server_psk_anon, Config)};
+	    psk_anon_with_hint ->
+		{?config(client_psk, Config),
+		 ?config(server_psk_anon_hint, Config)};
 	    srp ->
 		{?config(client_srp, Config),
 		 ?config(server_srp, Config)};
+	    srp_anon ->
+		{?config(client_srp, Config),
+		 ?config(server_srp_anon, Config)};
 	    srp_dsa ->
 		{?config(client_srp_dsa, Config),
 		 ?config(server_srp_dsa, Config)}
