@@ -188,7 +188,7 @@ ref_opt(Config) when is_list(Config) ->
 ref_opt_1(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line PrivDir = ?config(priv_dir, Config),
-    ?line Sources = filelib:wildcard(filename:join([DataDir,"ref_opt","*.erl"])),
+    Sources = filelib:wildcard(filename:join([DataDir,"ref_opt","*.{erl,S}"])),
     ?line test_lib:p_run(fun(Src) ->
 				 do_ref_opt(Src, PrivDir)
 			 end, Sources),
@@ -196,10 +196,15 @@ ref_opt_1(Config) ->
 
 do_ref_opt(Source, PrivDir) ->
     try
-	{ok,Mod} = c:c(Source, [{outdir,PrivDir}]),
+	Ext = filename:extension(Source),
+	{ok,Mod} = compile:file(Source, [report_errors,report_warnings,
+					 {outdir,PrivDir}] ++
+					[from_asm || Ext =:= ".S" ]),
+	Base = filename:rootname(filename:basename(Source), Ext),
+    code:purge(list_to_atom(Base)),
+    BeamFile = filename:join(PrivDir, Base),
+    code:load_abs(BeamFile),
 	ok = Mod:Mod(),
-	Base = filename:rootname(filename:basename(Source), ".erl"),
-	BeamFile = filename:join(PrivDir, Base),
 	{beam_file,Mod,_,_,_,Code} = beam_disasm:file(BeamFile),
 	case Base of
 	    "no_"++_ ->
