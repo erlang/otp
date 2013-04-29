@@ -507,6 +507,7 @@ struct ErtsSchedulerData_ {
 
     Uint64 reductions;
     ErtsSchedWallTime sched_wall_time;
+    ErtsPortTaskHandle nosuspend_port_task_handle;
 
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_alloc_verify_func_t verify_unused_temp_alloc;

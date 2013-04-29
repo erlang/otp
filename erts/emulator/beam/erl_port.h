@@ -811,6 +811,7 @@ struct binary;
 #define ERTS_P2P_SIG_DATA_FLG_BAD_OUTPUT	ERTS_P2P_SIG_DATA_FLG(4)
 #define ERTS_P2P_SIG_DATA_FLG_BROKEN_LINK	ERTS_P2P_SIG_DATA_FLG(5)
 #define ERTS_P2P_SIG_DATA_FLG_SCHED		ERTS_P2P_SIG_DATA_FLG(6)
+#define ERTS_P2P_SIG_DATA_FLG_ASYNC		ERTS_P2P_SIG_DATA_FLG(7)
 
 struct ErtsProc2PortSigData_ {
     int flags;
@@ -916,6 +917,7 @@ erts_schedule_proc2port_signal(Process *,
 			       Eterm *,
 			       ErtsProc2PortSigData *,
 			       int,
+			       ErtsPortTaskHandle *,
 			       ErtsProc2PortSigCallback);
 
 int erts_deliver_port_exit(Port *, Eterm, Eterm, int);
@@ -929,6 +931,7 @@ int erts_deliver_port_exit(Port *, Eterm, Eterm, int);
 #define ERTS_PORT_SIG_FLG_BROKEN_LINK		ERTS_P2P_SIG_DATA_FLG_BROKEN_LINK
 #define ERTS_PORT_SIG_FLG_BAD_OUTPUT		ERTS_P2P_SIG_DATA_FLG_BAD_OUTPUT
 #define ERTS_PORT_SIG_FLG_FORCE_SCHED		ERTS_P2P_SIG_DATA_FLG_SCHED
+#define ERTS_PORT_SIG_FLG_ASYNC			ERTS_P2P_SIG_DATA_FLG_ASYNC
 /* ERTS_PORT_SIG_FLG_FORCE_IMM_CALL only when crash dumping... */
 #define ERTS_PORT_SIG_FLG_FORCE_IMM_CALL	ERTS_P2P_SIG_DATA_FLG_BAD_OUTPUT
 
