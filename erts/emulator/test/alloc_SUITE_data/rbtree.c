@@ -103,7 +103,7 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 	else type = AOFF;
     }
 
-    root = RBT_ROOT(alc);
+    root = RBT_ROOT(alc, size);
 
 #ifdef PRINT_TREE
     print_tree(tcs, root);
@@ -369,9 +369,9 @@ test_it(TestCaseState_t *tcs)
 	    do_check(tcs, a, 300);
     }
 
-    ASSERT(tcs, RBT_ROOT(a));
-    ASSERT(tcs, !RBT_LEFT(RBT_ROOT(a)));
-    ASSERT(tcs, !RBT_RIGHT(RBT_ROOT(a)));
+    ASSERT(tcs, RBT_ROOT(a,0));
+    ASSERT(tcs, !RBT_LEFT(RBT_ROOT(a,0)));
+    ASSERT(tcs, !RBT_RIGHT(RBT_ROOT(a,0)));
 }
 
 

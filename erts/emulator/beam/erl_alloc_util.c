@@ -205,8 +205,6 @@ MBC after deallocating first block:
      (B)->bhdr = ((Sz) | (F)), \
      (B)->u.carrier = (C))
       
-#  define BLK_TO_MBC(B) (IS_FREE_BLK(B) ? FBLK_TO_MBC(B) : ABLK_TO_MBC(B))
-
 #  define IS_MBC_FIRST_ABLK(AP,B) \
   ((((UWord)(B) & ~MSEG_UNIT_MASK) == MBC_HEADER_SIZE(AP)) \
    && ((B)->bhdr & MBC_ABLK_OFFSET_MASK) == 0)
@@ -244,8 +242,6 @@ MBC after deallocating first block:
      ASSERT(((UWord)(F) & (~FLG_MASK|THIS_FREE_BLK_HDR_FLG|PREV_FREE_BLK_HDR_FLG)) == THIS_FREE_BLK_HDR_FLG), \
      (B)->bhdr = ((Sz) | (F)), \
      (B)->carrier = (C))
-
-#  define BLK_TO_MBC(B) ((B)->carrier)
 
 #  define IS_MBC_FIRST_BLK(AP,B) \
   ((char*)(B) == (char*)((B)->carrier) + MBC_HEADER_SIZE(AP))
@@ -286,8 +282,6 @@ MBC after deallocating first block:
   ((B)->bhdr & PREV_FREE_BLK_HDR_FLG)
 #define GET_BLK_HDR_FLGS(B) \
   ((B)->bhdr & FLG_MASK)
-
-#define MBC_BLK_SZ(B) (IS_FREE_BLK(B) ? MBC_FBLK_SZ(B) : MBC_ABLK_SZ(B))
 
 #define NXT_BLK(B) \
   (ASSERT(IS_MBC_BLK(B)), \

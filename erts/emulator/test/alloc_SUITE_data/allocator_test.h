@@ -85,7 +85,7 @@ typedef void* erts_cond;
 
 /* From erl_bestfit_alloc.c and erl_ao_firstfit_alloc.c */
 #define IS_AOBF(A)		((Ulong)	ALC_TEST1(RBT_OP(0), (A)))
-#define RBT_ROOT(A)		((RBT_t *)	ALC_TEST1(RBT_OP(1), (A)))
+#define RBT_ROOT(A,SZ)		((RBT_t *)	ALC_TEST2(RBT_OP(1), (A), (SZ)))
 #define RBT_PARENT(T)		((RBT_t *)	ALC_TEST1(RBT_OP(2), (T)))
 #define RBT_LEFT(T)		((RBT_t *)	ALC_TEST1(RBT_OP(3), (T)))
 #define RBT_RIGHT(T)		((RBT_t *)	ALC_TEST1(RBT_OP(4), (T)))

@@ -306,10 +306,13 @@ typedef struct {
     (ASSERT(IS_MBC_BLK(B) && !IS_FREE_BLK(B)), \
      (Carrier_t*)((MSEG_UNIT_FLOOR((UWord)(B)) - \
 		  (((B)->bhdr >> MBC_ABLK_OFFSET_SHIFT) << MSEG_UNIT_SHIFT))))
+#  define BLK_TO_MBC(B) (IS_FREE_BLK(B) ? FBLK_TO_MBC(B) : ABLK_TO_MBC(B))
 #else
 #  define FBLK_TO_MBC(B) ((B)->carrier)
 #  define ABLK_TO_MBC(B) ((B)->carrier)
+#  define BLK_TO_MBC(B)  ((B)->carrier)
 #endif
+#define MBC_BLK_SZ(B) (IS_FREE_BLK(B) ? MBC_FBLK_SZ(B) : MBC_ABLK_SZ(B))
 
 typedef UWord FreeBlkFtr_t; /* Footer of a free block */
 

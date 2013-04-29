@@ -98,7 +98,17 @@ struct AOFF_RBTree_t_ {
 };
 #define AOFF_BLK_SZ(B) MBC_FBLK_SZ(&(B)->hdr)
 
+typedef struct AOFF_Carrier_t_ AOFF_Carrier_t;
+
+struct AOFF_Carrier_t_ {
+    Carrier_t crr;
+    AOFF_Carrier_t* next;
+    AOFF_Carrier_t** prevp;
+    AOFF_RBTree_t* root;
+};
+
 #ifdef HARD_DEBUG
+static void check_carriers(AOFFAllctr_t* alc, AOFF_Carrier_t *crr, Uint32 flags);
 static AOFF_RBTree_t * check_tree(AOFFAllctr_t* alc, AOFF_RBTree_t* root, Uint);
 #endif
 
@@ -140,8 +150,8 @@ static ERTS_INLINE void lower_max_size(AOFF_RBTree_t *node,
 static ERTS_INLINE SWord cmp_blocks(AOFFAllctr_t* alc,
 				    AOFF_RBTree_t* lhs, AOFF_RBTree_t* rhs)
 {
-    if (alc->bf_within_carrier
-	&& FBLK_TO_MBC(&lhs->hdr) == FBLK_TO_MBC(&rhs->hdr)) {
+    ASSERT(FBLK_TO_MBC(&lhs->hdr) == FBLK_TO_MBC(&rhs->hdr));
+    if (alc->bf_within_carrier) {
 	SWord diff = (SWord)AOFF_BLK_SZ(lhs) - (SWord)AOFF_BLK_SZ(rhs);
 	if (diff) return diff;
     }
@@ -152,11 +162,8 @@ static ERTS_INLINE SWord cmp_cand_blk(AOFFAllctr_t* alc,
 				      Block_t* cand_blk, AOFF_RBTree_t* rhs)
 {
     if (alc->bf_within_carrier) {
-	if (IS_FREE_BLK(cand_blk))
-	    return cmp_blocks(alc, (AOFF_RBTree_t*)cand_blk, rhs);
-
-	if (ABLK_TO_MBC(cand_blk) == FBLK_TO_MBC(&rhs->hdr)) {
-	    SWord diff = (SWord)MBC_ABLK_SZ(cand_blk) - (SWord)MBC_FBLK_SZ(&rhs->hdr);
+	if (BLK_TO_MBC(cand_blk) == FBLK_TO_MBC(&rhs->hdr)) {
+	    SWord diff = (SWord)MBC_BLK_SZ(cand_blk) - (SWord)MBC_FBLK_SZ(&rhs->hdr);
 	    if (diff) return diff;
 	}
     }
@@ -168,6 +175,8 @@ static ERTS_INLINE SWord cmp_cand_blk(AOFFAllctr_t* alc,
 static Block_t*	aoff_get_free_block(Allctr_t *, Uint, Block_t *, Uint, Uint32 flags);
 static void aoff_link_free_block(Allctr_t *, Block_t*, Uint32 flags);
 static void aoff_unlink_free_block(Allctr_t *allctr, Block_t *del, Uint32 flags);
+static void aoff_creating_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
+static void aoff_destroying_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
 
 static Eterm info_options(Allctr_t *, char *, int *, void *, Uint **, Uint *);
 static void init_atoms(void);
@@ -216,7 +225,7 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
     sys_memcpy((void *) alc, (void *) &zero.allctr, sizeof(AOFFAllctr_t));
 
     alc->bf_within_carrier              = aoffinit->bf_within_carrier;
-    allctr->mbc_header_size		= sizeof(Carrier_t);
+    allctr->mbc_header_size		= sizeof(AOFF_Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= sizeof(AOFF_RBTree_t);
@@ -233,8 +242,8 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
     allctr->info_options		= info_options;
 
     allctr->get_next_mbc_size		= NULL;
-    allctr->creating_mbc		= NULL;
-    allctr->destroying_mbc		= NULL;
+    allctr->creating_mbc		= aoff_creating_mbc;
+    allctr->destroying_mbc		= aoff_destroying_mbc;
     allctr->init_atoms			= init_atoms;
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -439,9 +448,11 @@ tree_insert_fixup(AOFF_RBTree_t** root, AOFF_RBTree_t *blk)
 static void
 aoff_unlink_free_block(Allctr_t *allctr, Block_t *del, Uint32 flags)
 {
+#ifdef HARD_DEBUG
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
-    AOFF_RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-			    ? &alc->sbmbc_root : &alc->mbc_root);
+#endif
+    AOFF_Carrier_t *crr = (AOFF_Carrier_t*) FBLK_TO_MBC(del);
+    AOFF_RBTree_t **root = &crr->root;
     Uint spliced_is_black;
     AOFF_RBTree_t *x, *y, *z = (AOFF_RBTree_t *) del;
     AOFF_RBTree_t null_x; /* null_x is used to get the fixup started when we
@@ -450,6 +461,7 @@ aoff_unlink_free_block(Allctr_t *allctr, Block_t *del, Uint32 flags)
     null_x.parent = NULL;
 
 #ifdef HARD_DEBUG
+    check_carriers(alc, crr, flags);
     check_tree(alc, *root, 0);
 #endif
 
@@ -619,14 +631,16 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_RBTree_t *blk = (AOFF_RBTree_t *) block;
-    AOFF_RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-			    ? &alc->sbmbc_root : &alc->mbc_root);
+    AOFF_RBTree_t **root;
+    AOFF_Carrier_t *blk_crr = (AOFF_Carrier_t*) FBLK_TO_MBC(block);
     Uint blk_sz = AOFF_BLK_SZ(blk);
 
 #ifdef HARD_DEBUG
-    check_tree(alc, *root, 0);
+    check_carriers(alc, blk_crr, flags);
+    check_tree(alc, blk_crr->root, 0);
 #endif
 
+    root = &blk_crr->root;
     blk->flags	= 0;
     blk->left	= NULL;
     blk->right	= NULL;
@@ -659,7 +673,6 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 		}
 		x = x->right;
 	    }
-
 	}
 
 	/* Insert block into size tree */
@@ -680,14 +693,31 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
 		    Block_t *cand_blk, Uint cand_size, Uint32 flags)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
-    AOFF_RBTree_t *x = ((flags & ERTS_ALCU_FLG_SBMBC)
-		       ? alc->sbmbc_root : alc->mbc_root);
-    AOFF_RBTree_t *blk = NULL;
+    AOFF_Carrier_t *crr = ((flags & ERTS_ALCU_FLG_SBMBC)
+			   ? alc->sbmbc_first : alc->mbc_first);
+    AOFF_RBTree_t *x, *blk = NULL;
 #ifdef HARD_DEBUG
-    AOFF_RBTree_t* dbg_blk = check_tree(alc, x, size);
+    AOFF_RBTree_t* dbg_blk;
 #endif
 
     ASSERT(!cand_blk || cand_size >= size);
+
+    /* Get first-fit carrier
+     */
+    for (;;) {
+	if (!crr)
+	    return NULL;
+	if (crr->root && crr->root->max_sz >= size)
+	    break;
+	crr = crr->next;
+    }
+
+    /* Get block within carrier tree
+     */
+    x = crr->root;
+#ifdef HARD_DEBUG
+    dbg_blk = check_tree(alc, x, size);
+#endif
 
     while (x) {
 	if (x->left && x->left->max_sz >= size) {
@@ -716,6 +746,54 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
     aoff_unlink_free_block(allctr, (Block_t *) blk, flags);
 
     return (Block_t *) blk;
+}
+
+static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
+{
+    AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
+    AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
+    AOFF_Carrier_t **prevp = ((flags & ERTS_ALCU_FLG_SBMBC)
+			      ? &alc->sbmbc_first : &alc->mbc_first);
+    AOFF_Carrier_t *p;
+
+
+    /* Link carrier in address order
+     */
+    for (p = *prevp; p && crr > p; p = p->next) {
+	prevp = &p->next;
+    }
+    ASSERT(crr != p);
+
+    crr->next = p;
+    crr->prevp = prevp;
+    *prevp = crr;
+    if (p) {
+	ASSERT(prevp == p->prevp);
+	p->prevp = &crr->next;
+    }
+
+    /* aoff_link_free_block will add free block later */
+    crr->root = NULL;
+}
+
+static void aoff_destroying_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
+{
+    AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
+    AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
+    AOFF_Carrier_t **pp = ((flags & ERTS_ALCU_FLG_SBMBC)
+			   ? &alc->sbmbc_first : &alc->mbc_first);
+
+    /* Unlink carrier
+     */
+    while (*pp != crr) {
+	ASSERT(*pp && (*pp)->prevp == pp);
+	pp = &(*pp)->next;
+    }
+    *pp = crr->next;
+    if (crr->next) {
+	ASSERT(crr->next->prevp == &crr->next);
+	crr->next->prevp = crr->prevp;
+    }
 }
 
 
@@ -822,7 +900,18 @@ UWord
 erts_aoffalc_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
-    case 0x501:	return (UWord) ((AOFFAllctr_t *) a1)->mbc_root;
+    case 0x501: {
+	AOFF_Carrier_t* crr = ((AOFFAllctr_t *) a1)->mbc_first;
+	Uint size = (Uint) a2;
+	for (;;) {
+	    if (!crr)
+		return (UWord)NULL;
+	    if (crr->root && crr->root->max_sz >= size)
+		break;
+	    crr = crr->next;
+	}	
+	return (UWord) crr->root;
+    }
     case 0x502:	return (UWord) ((AOFF_RBTree_t *) a1)->parent;
     case 0x503:	return (UWord) ((AOFF_RBTree_t *) a1)->left;
     case 0x504:	return (UWord) ((AOFF_RBTree_t *) a1)->right;
@@ -841,6 +930,23 @@ erts_aoffalc_test(UWord op, UWord a1, UWord a2)
 
 
 #ifdef HARD_DEBUG
+
+static void check_carriers(AOFFAllctr_t* alc, AOFF_Carrier_t *crr, Uint32 flags)
+{ 
+    AOFF_Carrier_t *p = ((flags & ERTS_ALCU_FLG_SBMBC)
+			 ? alc->sbmbc_first : alc->mbc_first);
+    int found_it = 0;
+
+    for ( ; p; p = p->next) {
+	if (p == crr) {
+	    ASSERT(!found_it);
+	    found_it = 1;
+	}
+	ASSERT(!p->next || p->next > p);
+    }
+    ASSERT(found_it);
+}
+
 
 #define IS_LEFT_VISITED(FB)	((FB)->flags & LEFT_VISITED_FLG)
 #define IS_RIGHT_VISITED(FB)	((FB)->flags & RIGHT_VISITED_FLG)
