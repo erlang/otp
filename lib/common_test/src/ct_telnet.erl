@@ -37,7 +37,8 @@
 %%%                    {command_timeout,Millisec},
 %%%                    {reconnection_attempts,N},
 %%%                    {reconnection_interval,Millisec},
-%%%                    {keep_alive,Bool}]}.</pre>
+%%%                    {keep_alive,Bool},
+%%                     {wait_for_linebreak, Bool}]}.</pre>
 %%% <p><code>Millisec = integer(), N = integer()</code></p>
 %%% <p>Enter the <code>telnet_settings</code> term in a configuration 
 %%% file included in the test and ct_telnet will retrieve the information
