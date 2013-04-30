@@ -376,7 +376,7 @@ register_subagent(#mib_data{tree = T} = MibData, Oid, Pid) ->
 	NewRootTree ->
 	    SAs = [{Pid, Oid} | MibData#mib_data.subagents],
 	    T2 = T#tree{root = NewRootTree},
-	    MibData#mib_data{tree = T2, subagents = SAs}
+	    {ok, MibData#mib_data{tree = T2, subagents = SAs}}
     end.
 
 

@@ -180,7 +180,7 @@
       <fsummary>Find the mib-entry corresponding to the Oid</fsummary>
       <type>
         <v>State = term()</v>
-        <v>Reply = {variable, ME} | {table_column, ME, TEOid} | {subagent, SAPid, SAOid} | [false, Reason}</v>
+        <v>Reply = {variable, ME} | {table_column, ME, TEOid} | {subagent, SAPid, SAOid} | {false, Reason}</v>
         <v>Oid = TEOid = SAOid = oid()</v>
         <v>SAPid = pid()</v>
         <v>ME = me()</v>
@@ -193,8 +193,46 @@
 	and if it is a table, Oid must be 
 	<table>.<entry>.<col>.<any>.</p>
 	<!-- FIX -->
+
+        <marker id="next"></marker>
       </desc>
     </func>
+
+    <func>
+      <name>next(State, Oid, MibView) -> Reply</name>
+      <fsummary>Finds the lexicographically next oid</fsummary>
+      <type>
+        <v>State = term()</v>
+        <v>Reply = false | endOfTable | {subagent, SAPid, SAOid} | {variable, ME, VarOid} | {table, TableOid, TableRestOid, ME}</v>
+        <v>Oid = SAOid = VarOid = TableOid = TableRestOid = oid()</v>
+        <v>SAPid = pid()</v>
+        <v>ME = me()</v>
+      </type>
+      <desc>
+        <p>Finds the lexicographically next oid. </p>
+
+        <marker id="register_subagent"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>register_subagent(State, Oid, Pid) -> Reply</name>
+      <fsummary>Register the subagent</fsummary>
+      <type>
+        <v>State = NewState = term()</v>
+        <v>Reply = {ok, NewState} | {error, Reason}</v>
+        <v>Oid = oid()</v>
+        <v>Pid = pid()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Register the the subagent, process, 
+	handling part of the mib-tree. </p>
+
+        <marker id="unregister_subagent"></marker>
+      </desc>
+    </func>
+
   </funcs>
   
 </erlref>

@@ -53,7 +53,7 @@
     {table, TableOid :: oid(), TableRestOid :: oid(), MibEntry :: me()}
 
 -callback register_subagent(State :: term(), Oid :: oid(), Pid :: pid()) -> 
-    {error, Reason :: term()} | NewState :: term().
+    {ok, NewState :: term()} | {error, Reason :: term()}.
 
 -callback unregister_subagent(State :: term(), 
 			      Pid :: pid() | Oid :: oid()) -> 
