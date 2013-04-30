@@ -896,25 +896,32 @@ file2tab(File, Opts) ->
     try
 	{ok,Verify,TabArg} = parse_f2t_opts(Opts,false,[]),
 	Name = make_ref(),
-	{ok, Major, Minor, FtOptions, MD5State, FullHeader, DLContext} = 
+        {ok, Name} =
 	    case disk_log:open([{name, Name}, 
 				{file, File}, 
 				{mode, read_only}]) of
 		{ok, Name} ->
-		    get_header_data(Name,Verify);
+                    {ok, Name};
 		{repaired, Name, _,_} -> %Uh? cannot happen?
 		    case Verify of
 			true ->
 			    _ = disk_log:close(Name),
 			    throw(badfile);
 			false ->
-			    get_header_data(Name,Verify)
+                            {ok, Name}
 		    end;
 		{error, Other1} ->
 		    throw({read_error, Other1});
 		Other2 ->
 		    throw(Other2)
 	    end,
+	{ok, Major, Minor, FtOptions, MD5State, FullHeader, DLContext} =
+            try get_header_data(Name, Verify)
+            catch
+                badfile ->
+                    _ = disk_log:close(Name),
+                    throw(badfile)
+            end,
 	try
 	    if  
 		Major > ?MAJOR_F2T_VERSION -> 
@@ -1297,19 +1304,26 @@ named_table(false) -> [].
 tabfile_info(File) when is_list(File) ; is_atom(File) ->
     try
 	Name = make_ref(),
-	{ok, Major, Minor, _FtOptions, _MD5State, FullHeader, _DLContext} = 
+        {ok, Name} =
 	    case disk_log:open([{name, Name}, 
 				{file, File}, 
 				{mode, read_only}]) of
 		{ok, Name} ->
-		    get_header_data(Name,false);
+                    {ok, Name};
 		{repaired, Name, _,_} -> %Uh? cannot happen?
-		    get_header_data(Name,false);
+		    {ok, Name};
 		{error, Other1} ->
 		    throw({read_error, Other1});
 		Other2 ->
 		    throw(Other2)
 	    end,
+	{ok, Major, Minor, _FtOptions, _MD5State, FullHeader, _DLContext} =
+            try get_header_data(Name, false)
+            catch
+                badfile ->
+                    _ = disk_log:close(Name),
+                    throw(badfile)
+            end,
         case disk_log:close(Name) of
             ok -> ok;
             {error, Reason} -> throw(Reason)
