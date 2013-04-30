@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -420,20 +420,9 @@ decode_text_messages(Codec, Config, [Msg|Msgs], Acc) ->
 
 %% ----
 
-expand(RootCase) ->
-    expand([RootCase], []).
-
-expand([], Acc) ->
-    lists:flatten(lists:reverse(Acc));
-expand([Case|Cases], Acc) ->
-    case (catch apply(?MODULE,Case,[suite])) of
-	[] ->
-	    expand(Cases, [Case|Acc]);
-	C when is_list(C) ->
-	    expand(Cases, [expand(C, [])|Acc]);
-	_ ->
-	    expand(Cases, [Case|Acc])
-    end.
+tickets() ->
+    %% io:format("~w:tickets -> entry~n", [?MODULE]),
+    megaco_test_lib:tickets(?MODULE).
 
 
 %% ----
@@ -602,61 +591,56 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 flex_pretty_cases() -> 
-    [flex_pretty_test_msgs].
+    [
+     flex_pretty_test_msgs
+    ].
 
 flex_compact_cases() -> 
-    [flex_compact_test_msgs, flex_compact_dm_timers1,
-     flex_compact_dm_timers2, flex_compact_dm_timers3,
-     flex_compact_dm_timers4, flex_compact_dm_timers5,
-     flex_compact_dm_timers6].
-
-%% Support for per_bin was added to ASN.1 as of version
-%% 1.3.2 (R8). And later merged into 1.3.1.3 (R7). These
-%% releases are identical (as far as I know).
-%% 
+    [
+     flex_compact_test_msgs, 
+     flex_compact_dm_timers1,
+     flex_compact_dm_timers2, 
+     flex_compact_dm_timers3,
+     flex_compact_dm_timers4, 
+     flex_compact_dm_timers5,
+     flex_compact_dm_timers6
+    ].
 
 flex_compact_tickets_cases() -> 
-    [flex_compact_otp7431_msg01a,
-     flex_compact_otp7431_msg01b, flex_compact_otp7431_msg02,
-     flex_compact_otp7431_msg03, flex_compact_otp7431_msg04,
-     flex_compact_otp7431_msg05, flex_compact_otp7431_msg06,
-     flex_compact_otp7431_msg07].
+    [
+     flex_compact_otp7431_msg01a,
+     flex_compact_otp7431_msg01b, 
+     flex_compact_otp7431_msg02,
+     flex_compact_otp7431_msg03, 
+     flex_compact_otp7431_msg04,
+     flex_compact_otp7431_msg05, 
+     flex_compact_otp7431_msg06,
+     flex_compact_otp7431_msg07
+    ].
 
 flex_pretty_tickets_cases() -> 
-    [flex_pretty_otp5042_msg1, flex_pretty_otp5085_msg1,
-     flex_pretty_otp5085_msg2, flex_pretty_otp5085_msg3,
-     flex_pretty_otp5085_msg4, flex_pretty_otp5085_msg5,
-     flex_pretty_otp5085_msg6, flex_pretty_otp5085_msg7,
-     flex_pretty_otp5600_msg1, flex_pretty_otp5600_msg2,
-     flex_pretty_otp5601_msg1, flex_pretty_otp5793_msg01,
-     flex_pretty_otp7431_msg01, flex_pretty_otp7431_msg02,
-     flex_pretty_otp7431_msg03, flex_pretty_otp7431_msg04,
-     flex_pretty_otp7431_msg05, flex_pretty_otp7431_msg06,
-     flex_pretty_otp7431_msg07].
+    [
+     flex_pretty_otp5042_msg1, 
+     flex_pretty_otp5085_msg1,
+     flex_pretty_otp5085_msg2, 
+     flex_pretty_otp5085_msg3,
+     flex_pretty_otp5085_msg4, 
+     flex_pretty_otp5085_msg5,
+     flex_pretty_otp5085_msg6, 
+     flex_pretty_otp5085_msg7,
+     flex_pretty_otp5600_msg1, 
+     flex_pretty_otp5600_msg2,
+     flex_pretty_otp5601_msg1, 
+     flex_pretty_otp5793_msg01,
+     flex_pretty_otp7431_msg01, 
+     flex_pretty_otp7431_msg02,
+     flex_pretty_otp7431_msg03, 
+     flex_pretty_otp7431_msg04,
+     flex_pretty_otp7431_msg05, 
+     flex_pretty_otp7431_msg06,
+     flex_pretty_otp7431_msg07
+    ].
 
-%% ----
-
-tickets() ->
-    Flag  = process_flag(trap_exit, true),    
-    Cases = expand(tickets),
-    Fun   = fun(Case) ->
-		    C = init_per_testcase(Case, [{tc_timeout, 
-						  timer:minutes(10)}]),
-		    io:format("Eval ~w~n", [Case]),
-		    Result = 
-			case (catch apply(?MODULE, Case, [C])) of
-			    {'EXIT', Reason} ->
- 				io:format("~n~p exited:~n   ~p~n", 
- 					  [Case, Reason]),
-				{error, {Case, Reason}};
-			    Res ->
-				Res
-			end,
-		    end_per_testcase(Case, C),
-		    Result
-	    end,
-    process_flag(trap_exit, Flag),
-    lists:map(Fun, Cases).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
