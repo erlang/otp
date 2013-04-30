@@ -712,7 +712,8 @@ udp_options() ->
     [tos, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode, 
      deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
-     add_membership, drop_membership, read_packets,raw].
+     add_membership, drop_membership, read_packets,raw,
+     high_msgq_watermark, low_msgq_watermark].
 
 
 udp_options(Opts, Family) ->
@@ -766,7 +767,7 @@ udp_add(Name, Val, R, Opts, As) ->
 sctp_options() ->
 [   % The following are generic inet options supported for SCTP sockets:
     mode, active, buffer, tos, priority, dontroute, reuseaddr, linger, sndbuf,
-    recbuf, ipv6_v6only,
+    recbuf, ipv6_v6only, high_msgq_watermark, low_msgq_watermark,
 
     % Other options are SCTP-specific (though they may be similar to their
     % TCP and UDP counter-parts):
