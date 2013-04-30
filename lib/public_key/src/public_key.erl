@@ -258,7 +258,7 @@ decrypt_private(CipherText,
   when is_binary(CipherText),
        is_list(Options) ->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_private_decrypt(CipherText, format_rsa_private_key(Key), Padding).
+    crypto:private_decrypt(rsa, CipherText, format_rsa_private_key(Key), Padding).
 
 %%--------------------------------------------------------------------
 -spec decrypt_public(CipherText :: binary(), rsa_public_key() | rsa_private_key()) ->
@@ -324,7 +324,7 @@ encrypt_private(PlainText,
        is_integer(N), is_integer(E), is_integer(D),
        is_list(Options) ->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_private_encrypt(PlainText, format_rsa_private_key(Key), Padding).
+    crypto:private_encrypt(rsa, PlainText, format_rsa_private_key(Key), Padding).
 
 %%--------------------------------------------------------------------
 -spec generate_key(#'DHParameter'{} | {namedCurve, Name ::atom()} |
@@ -652,13 +652,11 @@ do_pem_entry_decode({Asn1Type,_, _} = PemEntry, Password) ->
 
 encrypt_public(PlainText, N, E, Options)->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_public_encrypt(PlainText, [E,N],
-			      Padding).
+    crypto:public_encrypt(rsa, PlainText, [E,N], Padding).
 
-decrypt_public(CipherText, N,E, Options) ->  
+decrypt_public(CipherText, N,E, Options) ->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_public_decrypt(CipherText,[E, N],
-			      Padding).
+    crypto:public_decrypt(rsa, CipherText,[E, N], Padding).
 
 path_validation([], #path_validation_state{working_public_key_algorithm
 					   = Algorithm,

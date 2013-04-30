@@ -73,25 +73,25 @@ cipher(?NULL, CipherState, <<>>, Fragment, _Version) ->
     {GenStreamCipherList, CipherState};
 cipher(?RC4, CipherState, Mac, Fragment, _Version) ->
     State0 = case CipherState#cipher_state.state of
-                 undefined -> crypto:rc4_set_key(CipherState#cipher_state.key);
+                 undefined -> crypto:stream_init(rc4, CipherState#cipher_state.key);
                  S -> S
              end,
     GenStreamCipherList = [Fragment, Mac],
-    {State1, T} = crypto:rc4_encrypt_with_state(State0, GenStreamCipherList),
+    {State1, T} = crypto:stream_encrypt(rc4, State0, GenStreamCipherList),
     {T, CipherState#cipher_state{state = State1}};
 cipher(?DES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) ->
-			 crypto:des_cbc_encrypt(Key, IV, T)
+			 crypto:block_encrypt(des_cbc, Key, IV, T)
 		 end, block_size(des_cbc), CipherState, Mac, Fragment, Version);
 cipher(?'3DES', CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
-			 crypto:des3_cbc_encrypt(K1, K2, K3, IV, T)
+			 crypto:block_encrypt(des3_cbc, [K1, K2, K3], IV, T)
 		 end, block_size(des_cbc), CipherState, Mac, Fragment, Version);
 cipher(?AES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) when byte_size(Key) =:= 16 ->
-			 crypto:aes_cbc_128_encrypt(Key, IV, T);
+			 crypto:block_encrypt(aes_cbc128, Key, IV, T);
 		    (Key, IV, T) when byte_size(Key) =:= 32 ->
-			 crypto:aes_cbc_256_encrypt(Key, IV, T)
+			 crypto:block_encrypt(aes_cbc256, Key, IV, T)
 		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment, Version).
 
 build_cipher_block(BlockSz, Mac, Fragment) ->
@@ -127,10 +127,10 @@ decipher(?NULL, _HashSz, CipherState, Fragment, _) ->
     {Fragment, <<>>, CipherState};
 decipher(?RC4, HashSz, CipherState, Fragment, _) ->
     State0 = case CipherState#cipher_state.state of
-                 undefined -> crypto:rc4_set_key(CipherState#cipher_state.key);
+                 undefined -> crypto:stream_init(rc4, CipherState#cipher_state.key);
                  S -> S
              end,
-    try crypto:rc4_encrypt_with_state(State0, Fragment) of
+    try crypto:stream_decrypt(rc4, State0, Fragment) of
 	{State, Text} ->
 	    GSC = generic_stream_cipher_from_bin(Text, HashSz),
 	    #generic_stream_cipher{content = Content, mac = Mac} = GSC,
@@ -147,17 +147,17 @@ decipher(?RC4, HashSz, CipherState, Fragment, _) ->
 
 decipher(?DES, HashSz, CipherState, Fragment, Version) ->
     block_decipher(fun(Key, IV, T) ->
-			   crypto:des_cbc_decrypt(Key, IV, T)
+			   crypto:block_decrypt(des_cbc, Key, IV, T)
 		   end, CipherState, HashSz, Fragment, Version);
 decipher(?'3DES', HashSz, CipherState, Fragment, Version) ->
     block_decipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
-			   crypto:des3_cbc_decrypt(K1, K2, K3, IV, T)
+			   crypto:block_decrypt(des3_cbc, [K1, K2, K3], IV, T)
 		   end, CipherState, HashSz, Fragment, Version);
 decipher(?AES, HashSz, CipherState, Fragment, Version) ->
     block_decipher(fun(Key, IV, T) when byte_size(Key) =:= 16 ->
-			   crypto:aes_cbc_128_decrypt(Key, IV, T);
+			   crypto:block_decrypt(aes_cbc128, Key, IV, T);
 		      (Key, IV, T) when byte_size(Key) =:= 32 ->
-			   crypto:aes_cbc_256_decrypt(Key, IV, T)
+			   crypto:block_decrypt(aes_cbc256, Key, IV, T)
 		   end, CipherState, HashSz, Fragment, Version).
 
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
