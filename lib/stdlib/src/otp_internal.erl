@@ -131,6 +131,67 @@ obsolete_1(crypto, dh_generate_key, 1) ->
 obsolete_1(crypto, dh_generate_key, 2) ->
     {deprecated, {crypto, generate_key, 3}};
 
+obsolete_1(crypto, des_cbc_encrypt, 3) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto, des3_cbc_encrypt, 5) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto, des_ecb_encrypt, 3) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto, des_ede3_cbc_encrypt, 5) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto, des_cfb_encrypt, 3) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto, des3_cfb_encrypt, 5) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto, blowfish_ecb_encrypt, 2) ->
+    {deprecated, {crypto, block_encrypt, 3}};
+obsolete_1(crypto, blowfish_cbc_encrypt, 3) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto, blowfish_cfb64_encrypt, 3) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto, blowfish_ofb64_encrypt, 3) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto, aes_cfb_128_encrypt, 3) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto, aes_cbc_256_encrypt, 3) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto,rc2_cbc_encrypt, 3) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+obsolete_1(crypto,rc2_40_cbc_encrypt, 3) ->
+    {deprecated, {crypto, block_encrypt, 4}};
+
+obsolete_1(crypto, des_cbc_decrypt, 3) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto, des3_cbc_decrypt, 5) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto, des_ecb_decrypt, 3) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto, des_ede3_cbc_decrypt, 5) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto, des_cfb_decrypt, 3) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto, des3_cfb_decrypt, 5) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto, blowfish_ecb_decrypt, 2) ->
+    {deprecated, {crypto, block_decrypt, 3}};
+obsolete_1(crypto, blowfish_cbc_decrypt, 3) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto, blowfish_cfb64_decrypt, 3) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto, blowfish_ofb64_decrypt, 3) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto, aes_cfb_128_decrypt, 3) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto, aes_cbc_256_decrypt, 3) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto,rc2_cbc_decrypt, 3) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+obsolete_1(crypto,rc2_40_cbc_decrypt, 3) ->
+    {deprecated, {crypto, block_decrypt, 4}};
+
+obsolete_1(crypto,info, 0) ->
+    {deprecated, {crypto, module_info, 0}};
+
 obsolete_1(crypto, strong_rand_mpint, 3) ->
     {deprecated, "needed only by deprecated functions"};
 obsolete_1(crypto, erlint, 3) ->

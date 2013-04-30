@@ -127,15 +127,65 @@
       secp112r2| secp112r1| sect113r2| sect113r1| sect239k1| sect163r1| sect163k1| secp256r1|
       secp192r1 </code></p>
 
+     <p><code>stream_cipher() = rc4 | aes_ctr </code></p>
+
+     <p><code>block_cipher() =  aes_cbc128 | aes_cfb128 | blowfish_cbc |
+     blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf
+     | des_ede3 | rc2_cbc </code></p>
+
+     <p><code>stream_key() =  aes_key() | rc4_key() </code></p>
+
+     <p><code>block_key() =  aes_key() |  blowfish_key() | des_key()| des3_key() </code></p>
+
+     <p><code>aes_key() = binary() </code> Key length is 128, 192 or 256 bits</p>
+
+     <p><code>rc4_key() = binary() </code> Variable key length from 8 bits up to 2048 bits (usually between 40 and 256)</p>
+
+     <p><code>blowfish_key() = binary() </code> Variable key length from 32 bits up to 448 bits</p>
+
+     <p><code>des_key() = binary() </code> Key length is 64 bits (in CBC mod only 8 bits are used)</p>
+
+     <p><code>des3_key() = [binary(), binary(), binary()] </code> Each key part is 64 bits (in CBC mod only 8 bits are used)</p>
  </section>
 
   <funcs>
-      <func>
+    <func>
       <name>algorithms() -> [atom()]</name>
       <fsummary>Provide a list of available crypto algorithms.</fsummary>
       <desc>
         <p>Provides the available crypto algorithms in terms of a list
-          of atoms.</p>
+	of atoms. This is interesting as older versions of the openssl
+	crypto library may not support all algorithms used in the crypto API.</p>
+      </desc>
+    </func>
+
+      <func>
+      <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
+      <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
+      <type>
+	<v>Key = block_key() </v>
+        <v>PlainText = iodata() | binary()</v>
+        <v>IVec = CipherText = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.
+	<c>IVec</c> is an arbitrary initializing vector.
+         </p>
+      </desc>
+    </func>
+
+    <func>
+      <name>block_decrypt(Type, Key, Ivec, CipherText) -> PlainText</name>
+      <fsummary>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher</fsummary>
+      <type>
+	<v>Key = block_key() </v>
+        <v>PlainText = iodata() | binary()</v>
+        <v>IVec = CipherText = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.
+	<c>IVec</c> is an arbitrary initializing vector.
+         </p>
       </desc>
     </func>
 
@@ -314,15 +364,6 @@
       </desc>
     </func>
 
-      <func>
-      <name>info() -> [atom()]</name>
-      <fsummary>Provide a list of available crypto functions.</fsummary>
-      <desc>
-        <p>Provides the available crypto functions in terms of a list
-          of atoms.</p>
-      </desc>
-    </func>
-
     <func>
       <name>info_lib() -> [{Name,VerNum,VerStr}]</name>
       <fsummary>Provides information about the libraries used by crypto.</fsummary>
@@ -358,6 +399,109 @@
       </type>
       <desc>
 	<p>Computes the function <c>N^P mod M</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+   <name>next_iv(Type, Data) -> </name>
+   <fsummary></fsummary>
+   <type>
+     <v>Type = des_cbc | aes_cbc</v>
+     <v>Data = iodata()</v>
+   </type>
+   <desc>
+     <p>Returns the initialization vector to be used in the next
+     iteration of encrypt/decrypt of type <c>Type</c>. Data is the
+     encrypted data from the previous iteration step.</p>
+   </desc>
+    </func>
+
+    <func>
+      <name>private_decrypt(Type, ChipherText, PrivateKey, Padding) -> PlainText</name>
+      <fsummary>Decrypts ChipherText using the private Key.</fsummary>
+      <type>
+	<v>Type = rsa</v>
+	<v>ChipherText = binary()</v>
+	<v>PrivateKey = rsa_private()</v>
+	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
+        <v>PlainText = binary()</v>
+      </type>
+      <desc>
+	<p>Decrypts the <c>ChipherText</c> (usually a session key encrypted with
+	  <seealso marker="#public_encrypt/3">public_encrypt/3</seealso>)
+	  using the <c>PrivateKey</c> and returns the
+	  message. The <c>Padding</c> is the padding mode that was
+	  used to encrypt the data,
+	  see <seealso marker="#public_encrypt/3">public_encrypt/3</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> ChipherText</name>
+      <fsummary>Encrypts Msg using the private Key.</fsummary>
+      <type>
+	<v>Type = rsa</v>
+	<v>PlainText = binary()</v>
+	<v>PrivateKey = rsa_private()</v>
+	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
+        <v>ChipherText = binary()</v>
+      </type>
+      <desc>
+	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
+	  and returns the cipher. The <c>Padding</c> decides what padding mode is used,
+	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
+	  used mode.
+	  The size of the <c>Msg</c> must be less than <c>byte_size(N)-11</c> if
+	  <c>rsa_pkcs1_padding</c> is used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
+	  is used.
+	</p>
+      </desc>
+    </func>
+    <func>
+      <name>public_decrypt(Type, ChipherText, PublicKey, Padding) -> PlainText</name>
+      <fsummary>Decrypts ChipherText using the public Key.</fsummary>
+      <type>
+	<v>Type = rsa</v>
+	<v>ChipherText = binary()</v>
+	<v>PublicKey =  rsa_public() </v>
+	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
+        <v>PlainText = binary()</v>
+      </type>
+      <desc>
+	<p>Decrypts the <c>ChipherText</c> (encrypted with
+	  <seealso marker="#private_encrypt/3">private_encrypt/3</seealso>)
+	  using the <c>PrivateKey</c> and returns the
+	  message. The <c>Padding</c> is the padding mode that was
+	  used to encrypt the data,
+	  see <seealso marker="#private_encrypt/3">private_encrypt/3</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>public_encrypt(Type, PlainText, PublicKey, Padding) -> ChipherText</name>
+      <fsummary>Encrypts Msg using the public Key.</fsummary>
+      <type>
+	<v>Type = rsa</v>
+	<v>PlainText = binary()</v>
+	<v>PublicKey = rsa_public()</v>
+	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
+        <v>ChipherText = binary()</v>
+      </type>
+      <desc>
+	<p>Encrypts the <c>PlainText</c> (usually a session key) using the <c>PublicKey</c>
+	  and returns the <c>CipherText</c>. The <c>Padding</c> decides what padding mode is used,
+	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
+	  used mode and <c>rsa_pkcs1_oaep_padding</c> is EME-OAEP as
+	  defined in PKCS #1 v2.0 with SHA-1, MGF1 and an empty encoding
+	  parameter. This mode is recommended for all new applications.
+	  The size of the <c>Msg</c> must be less
+	  than <c>byte_size(N)-11</c> if
+	  <c>rsa_pkcs1_padding</c> is used, <c>byte_size(N)-41</c> if
+	  <c>rsa_pkcs1_oaep_padding</c> is used and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
+	  is used.
+	</p>
       </desc>
     </func>
 
@@ -435,6 +579,74 @@
       </desc>
     </func>
     <func>
+      <name>stream_init(Type, Key) -> State</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Type rc4 </v>
+        <v>State = opaque() </v>
+        <v>Key = iodata()</v>
+        <v>IVec = binary()</v>
+      </type>
+      <desc>
+        <p>Initializes the state for use in RC4 stream encryption
+        <seealso marker="#stream_encrypt/2">stream_encrypt</seealso> and
+        <seealso marker="#stream_decrypt/2">stream_decrypt</seealso></p>
+      </desc>
+    </func>
+
+   <func>
+      <name>stream_init(Type, Key, IVec) -> State</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Type aes_ctr </v>
+        <v>State = opaque() </v>
+        <v>Key = iodata()</v>
+        <v>IVec = binary()</v>
+      </type>
+      <desc>
+        <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
+        <c>Key</c> is the AES key and must be either 128, 192, or 256 bts long. <c>IVec</c> is
+        an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
+        <seealso marker="#stream_encrypt/2">stream_encrypt</seealso> and
+        <seealso marker="#stream_decrypt/2">stream_decrypt</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>stream_encrypt(Type, State, PlainText) -> { NewState, CipherText}</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Type = stream_cipher() </v>
+        <v>Text = iolist() | binary()</v>
+        <v>CipherText = binary()</v>
+      </type>
+      <desc>
+	<p>Encrypts <c>PlainText</c> according to the stream cipher <c>Type</c>.
+	<c>Text</c> can be any number of bytes. State is initialized using
+        <seealso marker="#stream_init/2">stream_init</seealso> on
+	the next invocation of this function the returned State shall be
+	given as input and so on until the end of the stream is reached.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>stream_decrypt(Type, State, CipherText) -> { NewState, PlainText }</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Type = stream_cipher() </v>
+        <v>CipherText = iodata() | binary()</v>
+        <v>PlainText = binary()</v>
+      </type>
+      <desc>
+	<p>Decrypts <c>CipherText</c> according to the stream cipher <c>Type</c>.
+	<c>PlainText</c> can be any number of bytes. State is initialized using
+        <seealso marker="#stream_init/2">stream_init</seealso> on
+	the next invocation of this function the returned State shall be
+	given as input and so on until the end of the stream is reached.</p>
+      </desc>
+    </func>
+
+  <func>
       <name>verify(Algorithm, DigestType, Msg, Signature, Key) -> boolean()</name>
       <fsummary>Verifies a digital signature.</fsummary>
       <type>
@@ -449,681 +661,80 @@
       <desc>
 	<p>Verifies a digital signature</p>
       </desc>
- </func>
-
-    <func>
-      <name>aes_cfb_128_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to AES in Cipher Feedback mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to AES in Cipher Feedback 
-          mode (CFB). <c>Key</c> is the
-          AES key, and <c>IVec</c> is an arbitrary initializing vector.
-          The lengths of <c>Key</c> and <c>IVec</c> must be 128 bits
-          (16 bytes).</p>
-      </desc>
     </func>
 
-    <func>
-      <name>aes_cfb_128_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to AES in Cipher Feedback mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to AES in Cipher Feedback Mode (CFB).
-          <c>Key</c> is the AES key, and <c>IVec</c> is an arbitrary
-          initializing vector. <c>Key</c> and <c>IVec</c> must have
-          the same values as those used when encrypting. The lengths of
-          <c>Key</c> and <c>IVec</c> must be 128 bits (16 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>aes_cbc_128_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to AES in Cipher Block Chaining mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-          <p>Encrypts <c>Text</c> according to AES in Cipher Block Chaining
-          mode (CBC). <c>Text</c>
-          must be a multiple of 128 bits (16 bytes). <c>Key</c> is the
-          AES key, and <c>IVec</c> is an arbitrary initializing vector.
-          The lengths of <c>Key</c> and <c>IVec</c> must be 128 bits
-          (16 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>aes_cbc_128_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to AES in Cipher Block Chaining mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-          <p>Decrypts <c>Cipher</c> according to AES in Cipher Block
-          Chaining mode (CBC).
-          <c>Key</c> is the AES key, and <c>IVec</c> is an arbitrary
-          initializing vector. <c>Key</c> and <c>IVec</c> must have
-          the same values as those used when encrypting. <c>Cipher</c>
-          must be a multiple of 128 bits (16 bytes).  The lengths of
-          <c>Key</c> and <c>IVec</c> must be 128 bits (16 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>aes_cbc_ivec(Data) -> IVec</name>
-      <fsummary>Get <c>IVec</c> to be used in next iteration of
-                <c>aes_cbc_*_[ecrypt|decrypt]</c></fsummary>
-      <type>
-        <v>Data = iolist() | binary()</v>
-        <v>IVec = binary()</v>
-      </type>
-      <desc>
-        <p>Returns the <c>IVec</c> to be used in a next iteration of 
-          <c>aes_cbc_*_[encrypt|decrypt]</c>. <c>Data</c> is the encrypted
-          data from the previous iteration step.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>aes_ctr_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to AES in Counter mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-      <p>Encrypts <c>Text</c> according to AES in Counter mode (CTR). <c>Text</c>
-        can be any number of bytes. <c>Key</c> is the AES key and must be either
-        128, 192 or 256 bits long. <c>IVec</c> is an arbitrary initializing vector of 128 bits
-        (16 bytes).</p>
-    </desc>
-    </func>
-
-    <func>
-      <name>aes_ctr_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to AES in Counter mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-      <p>Decrypts <c>Cipher</c> according to AES in Counter mode (CTR). <c>Cipher</c>
-        can be any number of bytes. <c>Key</c> is the AES key and must be either
-        128, 192 or 256 bits long. <c>IVec</c> is an arbitrary initializing vector of 128 bits
-        (16 bytes).</p>
-    </desc>
-    </func>
-
-    <func>
-      <name>aes_ctr_stream_init(Key, IVec) -> State</name>
-      <fsummary></fsummary>
-      <type>
-        <v>State = { K, I, E, C }</v>
-        <v>Key = K = iolist()</v>
-        <v>IVec = I = E = binary()</v>
-        <v>C = integer()</v>
-      </type>
-      <desc>
-        <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
-        <c>Key</c> is the AES key and must be either 128, 192, or 256 bts long. <c>IVec</c> is
-        an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
-        <seealso marker="#aes_ctr_stream_encrypt/2">aes_ctr_stream_encrypt</seealso> and 
-        <seealso marker="#aes_ctr_stream_decrypt/2">aes_ctr_stream_decrypt</seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>aes_ctr_stream_encrypt(State, Text) -> { NewState, Cipher}</name>
-      <fsummary></fsummary>
-      <type>
-        <v>Text = iolist() | binary()</v>
-        <v>Cipher = binary()</v>
-      </type>
-      <desc>
-      <p>Encrypts <c>Text</c> according to AES in Counter mode (CTR).  This function can be
-        used to encrypt a stream of text using a series of calls instead of requiring all
-        text to be in memory. <c>Text</c> can be any number of bytes. State is initialized using 
-        <seealso marker="#aes_ctr_stream_init/2">aes_ctr_stream_init</seealso>. <c>NewState</c> is the new streaming
-        encryption state that must be passed to the next call to <c>aes_ctr_stream_encrypt</c>.
-        <c>Cipher</c> is the encrypted cipher text.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>aes_ctr_stream_decrypt(State, Cipher) -> { NewState, Text }</name>
-      <fsummary></fsummary>
-      <type>
-        <v>Cipher = iolist() | binary()</v>
-        <v>Text = binary()</v>
-      </type>
-      <desc>
-      <p>Decrypts <c>Cipher</c> according to AES in Counter mode (CTR). This function can be
-        used to decrypt a stream of ciphertext using a series of calls instead of requiring all
-        ciphertext to be in memory.  <c>Cipher</c> can be any number of bytes. State is initialized using 
-        <seealso marker="#aes_ctr_stream_init/2">aes_ctr_stream_init</seealso>. <c>NewState</c> is the new streaming
-        encryption state that must be passed to the next call to <c>aes_ctr_stream_encrypt</c>.
-        <c>Text</c> is the decrypted data.</p>
-      </desc>
-    </func>
-
-      <func>
-	<name>blowfish_ecb_encrypt(Key, Text) -> Cipher</name>
-	<fsummary>Encrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
-	<type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts the first 64 bits of <c>Text</c> using Blowfish in ECB mode. <c>Key</c> is the Blowfish key. The length of <c>Text</c> must be at least 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>blowfish_ecb_decrypt(Key, Text) -> Cipher</name>
-      <fsummary>Decrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts the first 64 bits of <c>Text</c> using Blowfish in ECB mode. <c>Key</c> is the Blowfish key. The length of <c>Text</c> must be at least 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>blowfish_cbc_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c> using Blowfish in CBC mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> using Blowfish in CBC mode. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
-	arbitrary initializing vector. The length of <c>IVec</c>
-          must be 64 bits (8 bytes). The length of <c>Text</c> must be a multiple of 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>blowfish_cbc_decrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Decrypt <c>Text</c> using Blowfish in CBC mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Text</c> using Blowfish in CBC mode. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
-          arbitrary initializing vector. The length of <c>IVec</c>
-          must be 64 bits (8 bytes). The length of <c>Text</c> must be a multiple 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>blowfish_cfb64_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>using Blowfish in CFB mode with 64
-        bit feedback</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> using Blowfish in CFB mode with 64 bit
-          feedback. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
-          arbitrary initializing vector. The length of <c>IVec</c>
-          must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>blowfish_cfb64_decrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Decrypt <c>Text</c>using Blowfish in CFB mode with 64
-        bit feedback</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Text</c> using Blowfish in CFB mode with 64 bit
-          feedback. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
-          arbitrary initializing vector. The length of <c>IVec</c>
-          must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>blowfish_ofb64_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>using Blowfish in OFB mode with 64
-        bit feedback</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> using Blowfish in OFB mode with 64 bit
-          feedback. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
-          arbitrary initializing vector. The length of <c>IVec</c>
-          must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des_cbc_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to DES in CBC mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to DES in CBC
-          mode. <c>Text</c> must be a multiple of 64 bits (8
-          bytes). <c>Key</c> is the DES key, and <c>IVec</c> is an
-          arbitrary initializing vector. The lengths of <c>Key</c> and
-          <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des_cbc_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES in CBC mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to DES in CBC mode.
-          <c>Key</c> is the DES key, and <c>IVec</c> is an arbitrary
-          initializing vector.  <c>Key</c> and <c>IVec</c> must have
-          the same values as those used when encrypting. <c>Cipher</c>
-          must be a multiple of 64 bits (8 bytes).  The lengths of
-          <c>Key</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des_cbc_ivec(Data) -> IVec</name>
-      <fsummary>Get <c>IVec</c> to be used in next iteration of
-                <c>des_cbc_[ecrypt|decrypt]</c></fsummary>
-      <type>
-        <v>Data = iolist() | binary()</v>
-        <v>IVec = binary()</v>
-      </type>
-      <desc>
-        <p>Returns the <c>IVec</c> to be used in a next iteration of
-          <c>des_cbc_[encrypt|decrypt]</c>. <c>Data</c> is the encrypted
-          data from the previous iteration step.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des_cfb_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to DES in CFB mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to DES in 8-bit CFB
-          mode. <c>Key</c> is the DES key, and <c>IVec</c> is an
-          arbitrary initializing vector. The lengths of <c>Key</c> and
-          <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des_cfb_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES in CFB mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to DES in 8-bit CFB mode.
-          <c>Key</c> is the DES key, and <c>IVec</c> is an arbitrary
-          initializing vector.  <c>Key</c> and <c>IVec</c> must have
-          the same values as those used when encrypting.  The lengths of
-          <c>Key</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des_cfb_ivec(IVec, Data) -> NextIVec</name>
-      <fsummary>Get <c>IVec</c> to be used in next iteration of
-                <c>des_cfb_[ecrypt|decrypt]</c></fsummary>
-      <type>
-        <v>IVec = iolist() | binary()</v>
-        <v>Data = iolist() | binary()</v>
-        <v>NextIVec = binary()</v>
-      </type>
-      <desc>
-        <p>Returns the <c>IVec</c> to be used in a next iteration of
-          <c>des_cfb_[encrypt|decrypt]</c>. <c>IVec</c> is the vector
-          used in the previous iteration step. <c>Data</c> is the encrypted
-          data from the previous iteration step.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des3_cbc_encrypt(Key1, Key2, Key3, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to DES3 in CBC mode</fsummary>
-      <type>
-        <v>Key1 =Key2 = Key3 Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to DES3 in CBC
-          mode. <c>Text</c> must be a multiple of 64 bits (8
-          bytes). <c>Key1</c>, <c>Key2</c>, <c>Key3</c>, are the DES
-          keys, and <c>IVec</c> is an arbitrary initializing
-          vector. The lengths of each of <c>Key1</c>, <c>Key2</c>,
-          <c>Key3</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des3_cbc_decrypt(Key1, Key2, Key3, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES3 in CBC mode</fsummary>
-      <type>
-        <v>Key1 = Key2 = Key3 = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to DES3 in CBC mode.
-          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> are the DES key, and
-          <c>IVec</c> is an arbitrary initializing vector.
-          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> and <c>IVec</c> must
-          and <c>IVec</c> must have the same values as those used when
-          encrypting. <c>Cipher</c> must be a multiple of 64 bits (8
-          bytes).  The lengths of <c>Key1</c>, <c>Key2</c>,
-          <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des3_cfb_encrypt(Key1, Key2, Key3, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to DES3 in CFB mode</fsummary>
-      <type>
-        <v>Key1 =Key2 = Key3 Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to DES3 in 8-bit CFB
-          mode. <c>Key1</c>, <c>Key2</c>, <c>Key3</c>, are the DES
-          keys, and <c>IVec</c> is an arbitrary initializing
-          vector. The lengths of each of <c>Key1</c>, <c>Key2</c>,
-          <c>Key3</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
-	<p>May throw exception <c>notsup</c> for old OpenSSL
-	  versions (0.9.7) that does not support this encryption mode.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des3_cfb_decrypt(Key1, Key2, Key3, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES3 in CFB mode</fsummary>
-      <type>
-        <v>Key1 = Key2 = Key3 = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to DES3 in 8-bit CFB mode.
-          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> are the DES key, and
-          <c>IVec</c> is an arbitrary initializing vector.
-          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> and <c>IVec</c> must
-          and <c>IVec</c> must have the same values as those used when
-          encrypting.  The lengths of <c>Key1</c>, <c>Key2</c>,
-          <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
-	<p>May throw exception <c>notsup</c> for old OpenSSL
-	  versions (0.9.7) that does not support this encryption mode.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>des_ecb_encrypt(Key, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to DES in ECB mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to DES in ECB mode.
-          <c>Key</c> is the DES key. The lengths of <c>Key</c> and
-          <c>Text</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>des_ecb_decrypt(Key, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES in ECB mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to DES in ECB mode.
-          <c>Key</c> is the DES key. The lengths of <c>Key</c> and
-          <c>Cipher</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-      <func>
-      <name>rc2_cbc_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to RC2 in CBC mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>Ivec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to RC2 in CBC mode.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>rc2_cbc_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypts <c>Cipher</c>according to RC2 in CBC mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>Ivec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to RC2 in CBC mode.</p>
-      </desc>
-    </func>
-    
-    <func>
-      <name>rc4_encrypt(Key, Data) -> Result</name>
-      <fsummary>Encrypt data using RC4</fsummary>
-      <type>
-	<v>Key, Data = iolist() | binary()</v>
-	<v>Result = binary()</v>
-      </type>
-      <desc>
-	<p>Encrypts the data with RC4 symmetric stream encryption.
-	  Since it is symmetric, the same function is used for
-	  decryption.</p>
-      </desc>
-    </func>
-
-
-    <func>
-      <name>rsa_public_encrypt(PlainText, PublicKey, Padding) -> ChipherText</name>
-      <fsummary>Encrypts Msg using the public Key.</fsummary>
-      <type>
-	<v>PlainText = binary()</v>
-	<v>PublicKey = [E, N]</v>
-	<v>E, N = integer()</v>
-	<d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus.</d>
-	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
-        <v>ChipherText = binary()</v>
-      </type>
-      <desc>
-	<p>Encrypts the <c>PlainText</c> (usually a session key) using the <c>PublicKey</c>
-	  and returns the cipher. The <c>Padding</c> decides what padding mode is used,
-	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
-	  used mode and <c>rsa_pkcs1_oaep_padding</c> is EME-OAEP as
-	  defined in PKCS #1 v2.0 with SHA-1, MGF1 and an empty encoding
-	  parameter. This mode is recommended for all new applications.
-	  The size of the <c>Msg</c> must be less
-	  than <c>byte_size(N)-11</c> if
-	  <c>rsa_pkcs1_padding</c> is used, <c>byte_size(N)-41</c> if
-	  <c>rsa_pkcs1_oaep_padding</c> is used and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
-	  is used.
-	</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>rsa_private_decrypt(ChipherText, PrivateKey, Padding) -> PlainText</name>
-      <fsummary>Decrypts ChipherText using the private Key.</fsummary>
-      <type>
-	<v>ChipherText = binary()</v>
-	<v>PrivateKey = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</v>
-	<v>E, N, D = integer()</v>
-	<d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus  and
-	  <c>D</c> is the private exponent.</d>
-	<v>P1, P2, E1, E2, C = integer()</v>
-	<d>The longer key format contains redundant information that will make
-	   the calculation faster. <c>P1,P2</c> are first and second prime factors.
-           <c>E1,E2</c> are first and second exponents. <c>C</c> is the CRT coefficient.
-           Terminology is taken from RFC 3447.</d>
-	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
-        <v>PlainText = binary()</v>
-      </type>
-      <desc>
-	<p>Decrypts the <c>ChipherText</c> (usually a session key encrypted with
-	  <seealso marker="#rsa_public_encrypt/3">rsa_public_encrypt/3</seealso>)
-	  using the <c>PrivateKey</c> and returns the
-	  message. The <c>Padding</c> is the padding mode that was
-	  used to encrypt the data,
-	  see <seealso marker="#rsa_public_encrypt/3">rsa_public_encrypt/3</seealso>.
-	</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>rsa_private_encrypt(PlainText, PrivateKey, Padding) -> ChipherText</name>
-      <fsummary>Encrypts Msg using the private Key.</fsummary>
-      <type>
-	<v>PlainText = binary()</v>
-	<v>PrivateKey = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</v>
-	<v>E, N, D = integer()</v>
-	<d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus and
-	  <c>D</c> is the private exponent.</d>
-	<v>P1, P2, E1, E2, C = integer()</v>
-	<d>The longer key format contains redundant information that will make
-	   the calculation faster. <c>P1,P2</c> are first and second prime factors.
-           <c>E1,E2</c> are first and second exponents. <c>C</c> is the CRT coefficient.
-           Terminology is taken from RFC 3447.</d>
-	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
-        <v>ChipherText = binary()</v>
-      </type>
-      <desc>
-	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
-	  and returns the cipher. The <c>Padding</c> decides what padding mode is used,
-	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
-	  used mode.
-	  The size of the <c>Msg</c> must be less than <c>byte_size(N)-11</c> if
-	  <c>rsa_pkcs1_padding</c> is used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
-	  is used.
-	</p>
-      </desc>
-    </func>
-    <func>
-      <name>rsa_public_decrypt(ChipherText, PublicKey, Padding) -> PlainText</name>
-      <fsummary>Decrypts ChipherText using the public Key.</fsummary>
-      <type>
-	<v>ChipherText = binary()</v>
-	<v>PublicKey = [E, N]</v>
-	<v>E, N = integer() </v>
-	<d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus</d>
-	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
-        <v>PlainText = binary()</v>
-      </type>
-      <desc>
-	<p>Decrypts the <c>ChipherText</c> (encrypted with
-	  <seealso marker="#rsa_private_encrypt/3">rsa_private_encrypt/3</seealso>)
-	  using the <c>PrivateKey</c> and returns the
-	  message. The <c>Padding</c> is the padding mode that was
-	  used to encrypt the data,
-	  see <seealso marker="#rsa_private_encrypt/3">rsa_private_encrypt/3</seealso>.
-	</p>
-      </desc>
-    </func>
  </funcs>
 
-  <section>
-    <title>DES in CBC mode</title>
-    <p>The Data Encryption Standard (DES) defines an algorithm for
-      encrypting and decrypting an 8 byte quantity using an 8 byte key
-      (actually only 56 bits of the key is used).
-      </p>
-    <p>When it comes to encrypting and decrypting blocks that are
-      multiples of 8 bytes various modes are defined (NIST SP
-      800-38A). One of those modes is the Cipher Block Chaining (CBC)
-      mode, where the encryption of an 8 byte segment depend not only
-      of the contents of the segment itself, but also on the result of
-      encrypting the previous segment: the encryption of the previous
-      segment becomes the initializing vector of the encryption of the
-      current segment.
-      </p>
-    <p>Thus the encryption of every segment depends on the encryption
-      key (which is secret) and the encryption of the previous
-      segment, except the first segment which has to be provided with
-      an initial initializing vector. That vector could be chosen at
-      random, or be a counter of some kind. It does not have to be
-      secret.
-      </p>
-    <p>The following example is drawn from the old FIPS 81 standard
-      (replaced by NIST SP 800-38A), where both the plain text and the
-      resulting cipher text is settled. The following code fragment
-      returns `true'.
-      </p>
-    <pre><![CDATA[
+  <!-- Maybe put this in the users guide -->
+  <!-- <section> -->
+  <!--   <title>DES in CBC mode</title> -->
+  <!--   <p>The Data Encryption Standard (DES) defines an algorithm for -->
+  <!--     encrypting and decrypting an 8 byte quantity using an 8 byte key -->
+  <!--     (actually only 56 bits of the key is used). -->
+  <!--     </p> -->
+  <!--   <p>When it comes to encrypting and decrypting blocks that are -->
+  <!--     multiples of 8 bytes various modes are defined (NIST SP -->
+  <!--     800-38A). One of those modes is the Cipher Block Chaining (CBC) -->
+  <!--     mode, where the encryption of an 8 byte segment depend not only -->
+  <!--     of the contents of the segment itself, but also on the result of -->
+  <!--     encrypting the previous segment: the encryption of the previous -->
+  <!--     segment becomes the initializing vector of the encryption of the -->
+  <!--     current segment. -->
+  <!--     </p> -->
+  <!--   <p>Thus the encryption of every segment depends on the encryption -->
+  <!--     key (which is secret) and the encryption of the previous -->
+  <!--     segment, except the first segment which has to be provided with -->
+  <!--     an initial initializing vector. That vector could be chosen at -->
+  <!--     random, or be a counter of some kind. It does not have to be -->
+  <!--     secret. -->
+  <!--     </p> -->
+  <!--   <p>The following example is drawn from the old FIPS 81 standard -->
+  <!--     (replaced by NIST SP 800-38A), where both the plain text and the -->
+  <!--     resulting cipher text is settled. The following code fragment -->
+  <!--     returns `true'. -->
+  <!--     </p> -->
+  <!--   <pre><![CDATA[ -->
 
-      Key = <<16#01,16#23,16#45,16#67,16#89,16#ab,16#cd,16#ef>>,
-      IVec = <<16#12,16#34,16#56,16#78,16#90,16#ab,16#cd,16#ef>>,
-      P = "Now is the time for all ",
-      C = crypto:des_cbc_encrypt(Key, IVec, P),
-         % Which is the same as 
-      P1 = "Now is t", P2 = "he time ", P3 = "for all ",
-      C1 = crypto:des_cbc_encrypt(Key, IVec, P1),
-      C2 = crypto:des_cbc_encrypt(Key, C1, P2),
-      C3 = crypto:des_cbc_encrypt(Key, C2, P3),
+  <!--     Key = <<16#01,16#23,16#45,16#67,16#89,16#ab,16#cd,16#ef>>, -->
+  <!--     IVec = <<16#12,16#34,16#56,16#78,16#90,16#ab,16#cd,16#ef>>, -->
+  <!--     P = "Now is the time for all ", -->
+  <!--     C = crypto:des_cbc_encrypt(Key, IVec, P), -->
+  <!--        % Which is the same as  -->
+  <!--     P1 = "Now is t", P2 = "he time ", P3 = "for all ", -->
+  <!--     C1 = crypto:des_cbc_encrypt(Key, IVec, P1), -->
+  <!--     C2 = crypto:des_cbc_encrypt(Key, C1, P2), -->
+  <!--     C3 = crypto:des_cbc_encrypt(Key, C2, P3), -->
 
-      C = <<C1/binary, C2/binary, C3/binary>>,
-      C = <<16#e5,16#c7,16#cd,16#de,16#87,16#2b,16#f2,16#7c,
-             16#43,16#e9,16#34,16#00,16#8c,16#38,16#9c,16#0f,
-             16#68,16#37,16#88,16#49,16#9a,16#7c,16#05,16#f6>>,
-      <<"Now is the time for all ">> == 
-                        crypto:des_cbc_decrypt(Key, IVec, C).
-    ]]></pre>
-    <p>The following is true for the DES CBC mode. For all
-      decompositions <c>P1 ++ P2 = P</c> of a plain text message
-      <c>P</c> (where the length of all quantities are multiples of 8
-      bytes), the encryption <c>C</c> of <c>P</c> is equal to <c>C1 ++
-      C2</c>, where <c>C1</c> is obtained by encrypting <c>P1</c> with
-      <c>Key</c> and the initializing vector <c>IVec</c>, and where
-      <c>C2</c> is obtained by encrypting <c>P2</c> with <c>Key</c>
-      and the initializing vector <c>last8(C1)</c>,
-      where <c>last(Binary)</c> denotes the last 8 bytes of the
-      binary <c>Binary</c>.
-      </p>
-    <p>Similarly, for all decompositions <c>C1 ++ C2 = C</c> of a
-      cipher text message <c>C</c> (where the length of all quantities
-      are multiples of 8 bytes), the decryption <c>P</c> of <c>C</c>
-      is equal to <c>P1 ++ P2</c>, where <c>P1</c> is obtained by
-      decrypting <c>C1</c> with <c>Key</c> and the initializing vector
-      <c>IVec</c>, and where <c>P2</c> is obtained by decrypting
-      <c>C2</c> with <c>Key</c> and the initializing vector
-      <c>last8(C1)</c>, where <c>last8(Binary)</c> is as above.
-      </p>
-    <p>For DES3 (which uses three 64 bit keys) the situation is the
-      same.
-    </p>
-  </section>
+  <!--     C = <<C1/binary, C2/binary, C3/binary>>, -->
+  <!--     C = <<16#e5,16#c7,16#cd,16#de,16#87,16#2b,16#f2,16#7c, -->
+  <!--            16#43,16#e9,16#34,16#00,16#8c,16#38,16#9c,16#0f, -->
+  <!--            16#68,16#37,16#88,16#49,16#9a,16#7c,16#05,16#f6>>, -->
+  <!--     <<"Now is the time for all ">> ==  -->
+  <!--                       crypto:des_cbc_decrypt(Key, IVec, C). -->
+  <!--   ]]></pre> -->
+  <!--   <p>The following is true for the DES CBC mode. For all -->
+  <!--     decompositions <c>P1 ++ P2 = P</c> of a plain text message -->
+  <!--     <c>P</c> (where the length of all quantities are multiples of 8 -->
+  <!--     bytes), the encryption <c>C</c> of <c>P</c> is equal to <c>C1 ++ -->
+  <!--     C2</c>, where <c>C1</c> is obtained by encrypting <c>P1</c> with -->
+  <!--     <c>Key</c> and the initializing vector <c>IVec</c>, and where -->
+  <!--     <c>C2</c> is obtained by encrypting <c>P2</c> with <c>Key</c> -->
+  <!--     and the initializing vector <c>last8(C1)</c>, -->
+  <!--     where <c>last(Binary)</c> denotes the last 8 bytes of the -->
+  <!--     binary <c>Binary</c>. -->
+  <!--     </p> -->
+  <!--   <p>Similarly, for all decompositions <c>C1 ++ C2 = C</c> of a -->
+  <!--     cipher text message <c>C</c> (where the length of all quantities -->
+  <!--     are multiples of 8 bytes), the decryption <c>P</c> of <c>C</c> -->
+  <!--     is equal to <c>P1 ++ P2</c>, where <c>P1</c> is obtained by -->
+  <!--     decrypting <c>C1</c> with <c>Key</c> and the initializing vector -->
+  <!--     <c>IVec</c>, and where <c>P2</c> is obtained by decrypting -->
+  <!--     <c>C2</c> with <c>Key</c> and the initializing vector -->
+  <!--     <c>last8(C1)</c>, where <c>last8(Binary)</c> is as above. -->
+  <!--     </p> -->
+  <!--   <p>For DES3 (which uses three 64 bit keys) the situation is the -->
+  <!--     same. -->
+  <!--   </p> -->
+  <!-- </section> -->
 </erlref>
 

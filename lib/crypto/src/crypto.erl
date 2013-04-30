@@ -21,39 +21,23 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info/0, info_lib/0, algorithms/0, version/0]).
+-export([start/0, stop/0, info_lib/0, algorithms/0, version/0]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, verify/5]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
--export([exor/2]).
--export([strong_rand_bytes/1, mod_exp_prime/3]).
+-export([exor/2, strong_rand_bytes/1, mod_exp_prime/3]).
 -export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
-
--export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
--export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
--export([des_cfb_encrypt/3, des_cfb_decrypt/3, des_cfb_ivec/2]).
--export([des3_cbc_encrypt/5, des3_cbc_decrypt/5]).
--export([des3_cfb_encrypt/5, des3_cfb_decrypt/5]).
--export([blowfish_ecb_encrypt/2, blowfish_ecb_decrypt/2]).
--export([blowfish_cbc_encrypt/3, blowfish_cbc_decrypt/3]).
--export([blowfish_cfb64_encrypt/3, blowfish_cfb64_decrypt/3]).
--export([blowfish_ofb64_encrypt/3]).
--export([des_ede3_cbc_encrypt/5, des_ede3_cbc_decrypt/5]).
--export([aes_cfb_128_encrypt/3, aes_cfb_128_decrypt/3]).
--export([rc4_encrypt/2, rc4_set_key/1, rc4_encrypt_with_state/2]).
--export([rc2_cbc_encrypt/3, rc2_cbc_decrypt/3, rc2_40_cbc_encrypt/3, rc2_40_cbc_decrypt/3]).
--export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
--export([rsa_private_encrypt/3, rsa_public_decrypt/3]).
--export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
--export([aes_cbc_256_encrypt/3, aes_cbc_256_decrypt/3]).
--export([aes_cbc_ivec/1]).
--export([aes_ctr_encrypt/3, aes_ctr_decrypt/3]).
--export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
+-export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
+-export([next_iv/2, next_iv/3]).
+-export([stream_init/2, stream_init/3, stream_encrypt/3, stream_decrypt/3]).
+-export([public_encrypt/4, private_decrypt/4]).
+-export([private_encrypt/4, public_decrypt/4]).
 
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see
 
 %% DEPRECATED
+%% Replaced by hash_*
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
 -export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
@@ -70,6 +54,7 @@
 -deprecated({md5_final, 1, next_major_release}).
 -deprecated({sha_final, 1, next_major_release}).
 
+%% Replaced by hmac_*
 -export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
 -deprecated({md5_mac, 2, next_major_release}).
 -deprecated({md5_mac_96, 2, next_major_release}).
@@ -77,6 +62,7 @@
 -deprecated({sha_mac, 3, next_major_release}).
 -deprecated({sha_mac_96, 2, next_major_release}).
 
+%% Replaced by sign/verify
 -export([dss_verify/3, dss_verify/4, rsa_verify/3, rsa_verify/4]).
 -export([dss_sign/2, dss_sign/3, rsa_sign/2, rsa_sign/3]).
 -deprecated({dss_verify, 3, next_major_release}).
@@ -88,53 +74,150 @@
 -deprecated({rsa_sign, 2, next_major_release}).
 -deprecated({rsa_sign, 3, next_major_release}).
 
+%% Replaced by generate_key
 -export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
 -deprecated({dh_generate_key, 1, next_major_release}).
 -deprecated({dh_generate_key, 2, next_major_release}).
 -deprecated({dh_compute_key, 3, next_major_release}).
 
+%% Replaced by mod_exp_prim and no longer needed
 -export([mod_exp/3, mpint/1, erlint/1,  strong_rand_mpint/3]).
 -deprecated({mod_exp, 3, next_major_release}).
 -deprecated({mpint, 1, next_major_release}).
 -deprecated({erlint, 1, next_major_release}).
 -deprecated({strong_rand_mpint, 3, next_major_release}).
 
--define(FUNC_LIST, [md4, md4_init, md4_update, md4_final,
+%% Replaced by block_*
+-export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
+-export([des3_cbc_encrypt/5, des3_cbc_decrypt/5]).
+-export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
+-export([des_ede3_cbc_encrypt/5, des_ede3_cbc_decrypt/5]).
+-export([des_cfb_encrypt/3, des_cfb_decrypt/3, des_cfb_ivec/2]).
+-export([des3_cfb_encrypt/5, des3_cfb_decrypt/5]).
+-deprecated({des_cbc_encrypt, 3, next_major_release}).
+-deprecated({des_cbc_decrypt, 3, next_major_release}).
+-deprecated({des_cbc_ivec, 1, next_major_release}).
+-deprecated({des3_cbc_encrypt, 5, next_major_release}).
+-deprecated({des3_cbc_decrypt, 5, next_major_release}).
+-deprecated({des_ecb_encrypt, 2, next_major_release}).
+-deprecated({des_ecb_decrypt, 2, next_major_release}).
+-deprecated({des_ede3_cbc_encrypt, 5, next_major_release}).
+-deprecated({des_ede3_cbc_decrypt, 5, next_major_release}).
+-deprecated({des_cfb_encrypt, 3, next_major_release}).
+-deprecated({des_cfb_decrypt, 3, next_major_release}).
+-deprecated({des_cfb_ivec, 2, next_major_release}).
+-deprecated({des3_cfb_encrypt, 5, next_major_release}).
+-deprecated({des3_cfb_decrypt, 5, next_major_release}).
+-export([blowfish_ecb_encrypt/2, blowfish_ecb_decrypt/2]).
+-export([blowfish_cbc_encrypt/3, blowfish_cbc_decrypt/3]).
+-export([blowfish_cfb64_encrypt/3, blowfish_cfb64_decrypt/3]).
+-export([blowfish_ofb64_encrypt/3]).
+-deprecated({blowfish_ecb_encrypt, 2, next_major_release}).
+-deprecated({blowfish_ecb_decrypt, 2, next_major_release}).
+-deprecated({blowfish_cbc_encrypt, 3, next_major_release}).
+-deprecated({blowfish_cbc_decrypt, 3, next_major_release}).
+-deprecated({blowfish_cfb64_encrypt, 3, next_major_release}).
+-deprecated({blowfish_cfb64_decrypt, 3, next_major_release}).
+-deprecated({blowfish_ofb64_encrypt, 3, next_major_release}).
+-export([aes_cfb_128_encrypt/3, aes_cfb_128_decrypt/3]).
+-export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
+-export([aes_cbc_256_encrypt/3, aes_cbc_256_decrypt/3]).
+-export([aes_cbc_ivec/1]).
+-deprecated({aes_cfb_128_encrypt, 3, next_major_release}).
+-deprecated({aes_cfb_128_decrypt, 3, next_major_release}).
+-deprecated({aes_cbc_128_encrypt, 3, next_major_release}).
+-deprecated({aes_cbc_128_decrypt, 3, next_major_release}).
+-deprecated({aes_cbc_256_encrypt, 3, next_major_release}).
+-deprecated({aes_cbc_256_decrypt, 3, next_major_release}).
+-deprecated({aes_cbc_ivec, 1, next_major_release}).
+-export([rc2_cbc_encrypt/3, rc2_cbc_decrypt/3]).
+-export([rc2_40_cbc_encrypt/3, rc2_40_cbc_decrypt/3]).
+-deprecated({rc2_cbc_encrypt, 3, next_major_release}).
+-deprecated({rc2_cbc_decrypt, 3, next_major_release}).
+%% allready replaced by above!
+-deprecated({rc2_40_cbc_encrypt, 3, next_major_release}).
+-deprecated({rc2_40_cbc_decrypt, 3, next_major_release}).
+
+%% Replaced by stream_*
+-export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
+-export([rc4_set_key/1, rc4_encrypt_with_state/2]).
+-deprecated({aes_ctr_stream_init, 2, next_major_release}).
+-deprecated({aes_ctr_stream_encrypt, 2, next_major_release}).
+-deprecated({aes_ctr_stream_decrypt, 2, next_major_release}).
+-deprecated({rc4_set_key, 1, next_major_release}).
+-deprecated({rc4_encrypt_with_state, 2, next_major_release}).
+
+%% Not needed special case of stream_*
+-export([aes_ctr_encrypt/3, aes_ctr_decrypt/3, rc4_encrypt/2]).
+-deprecated({aes_ctr_encrypt, 3, next_major_release}).
+-deprecated({aes_ctr_decrypt, 3, next_major_release}).
+-deprecated({rc4_encrypt, 2, next_major_release}).
+
+%% Replace by public/private_encrypt/decrypt
+-export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
+-export([rsa_private_encrypt/3, rsa_public_decrypt/3]).
+-deprecated({rsa_public_encrypt, 3, next_major_release}).
+-deprecated({rsa_private_decrypt, 3, next_major_release}).
+-deprecated({rsa_public_decrypt, 3, next_major_release}).
+-deprecated({rsa_private_encrypt, 3, next_major_release}).
+
+%% Replaced by crypto:module_info()
+-export([info/0]).
+-deprecated({info, 0, next_major_release}).
+
+-define(FUNC_LIST, [hash, hash_init, hash_update, hash_final,
+		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n,
+		    %% deprecated
+		    md4, md4_init, md4_update, md4_final,
 		    md5, md5_init, md5_update, md5_final,
 		    sha, sha_init, sha_update, sha_final,
 		    md5_mac,  md5_mac_96,
 		    sha_mac,  sha_mac_96,
+		    %%
+		    block_encrypt, block_decrypt,
+		    %% deprecated
 		    des_cbc_encrypt, des_cbc_decrypt,
 		    des_cfb_encrypt, des_cfb_decrypt,
 		    des_ecb_encrypt, des_ecb_decrypt,
 		    des3_cbc_encrypt, des3_cbc_decrypt,
 		    des3_cfb_encrypt, des3_cfb_decrypt,
 		    aes_cfb_128_encrypt, aes_cfb_128_decrypt,
+		    rc2_cbc_encrypt, rc2_cbc_decrypt,
+		    rc2_40_cbc_encrypt, rc2_40_cbc_decrypt,
+		    aes_cbc_128_encrypt, aes_cbc_128_decrypt,
+		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
+		    blowfish_cbc_encrypt, blowfish_cbc_decrypt,
+		    blowfish_cfb64_encrypt, blowfish_cfb64_decrypt,
+		    blowfish_ecb_encrypt, blowfish_ecb_decrypt, blowfish_ofb64_encrypt,
+		    %%
 		    rand_bytes,
 		    strong_rand_bytes,
-		    strong_rand_mpint,
 		    rand_uniform,
-		    mod_exp, mod_exp_prime,
+		    mod_exp_prime,
+		    exor,
+		    %% deprecated
+		    mod_exp,strong_rand_mpint,erlint, mpint,
+		    %%
+		    sign, verify, generate_key, compute_key,
+		    %% deprecated
 		    dss_verify,dss_sign,
 		    rsa_verify,rsa_sign,
 		    rsa_public_encrypt,rsa_private_decrypt, 
 		    rsa_private_encrypt,rsa_public_decrypt,
 		    dh_generate_key, dh_compute_key,
-		    aes_cbc_128_encrypt, aes_cbc_128_decrypt,
-		    exor,
+		    %%
+		    stream_init, stream_encrypt, stream_decrypt,
+		    %% deprecated
 		    rc4_encrypt, rc4_set_key, rc4_encrypt_with_state,
-		    rc2_40_cbc_encrypt, rc2_40_cbc_decrypt,
-		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
 		    aes_ctr_encrypt, aes_ctr_decrypt,
                     aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
-		    aes_cbc_ivec, blowfish_cbc_encrypt, blowfish_cbc_decrypt,
-		    blowfish_cfb64_encrypt, blowfish_cfb64_decrypt,
-		    blowfish_ecb_encrypt, blowfish_ecb_decrypt, blowfish_ofb64_encrypt,
-		    des_cbc_ivec, des_cfb_ivec, erlint, mpint,
-		    hash, hash_init, hash_update, hash_final,
-		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n, info,
-		    rc2_cbc_encrypt, rc2_cbc_decrypt,
-		    sign, verify, generate_key, compute_key,
+		    %%
+		    next_iv,
+		    %% deprecated
+		    aes_cbc_ivec,
+		    des_cbc_ivec, des_cfb_ivec,
+		    info,
+		    %%
 		    info_lib, algorithms]).
 
 -type mpint() :: binary().
@@ -598,6 +681,106 @@ sha512_mac(Key, Data, MacSz) ->
 
 sha512_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
+
+%% Ecrypt/decrypt %%%
+
+-spec block_encrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
+		    blowfish_cfb64 | aes_cbc128 | aes_cfb128 | rc2_cbc,
+		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
+
+block_encrypt(des_cbc, Key, Ivec, Data) ->
+    des_cbc_encrypt(Key, Ivec, Data);
+block_encrypt(des_cfb, Key, Ivec, Data) ->
+    des_cfb_encrypt(Key, Ivec, Data);
+block_encrypt(des3_cbc, [Key1, Key2, Key3], Ivec, Data) ->
+    des3_cbc_encrypt(Key1, Key2, Key3, Ivec, Data);
+block_encrypt(des3_cbf, [Key1, Key2, Key3], Ivec, Data) ->
+    des3_cfb_encrypt(Key1, Key2, Key3, Ivec, Data);
+block_encrypt(des_ede3, [Key1, Key2, Key3], Ivec, Data) ->
+    des_ede3_cbc_encrypt(Key1, Key2, Key3, Ivec, Data);
+block_encrypt(blowfish_cbc, Key, Ivec, Data) ->
+    blowfish_cbc_encrypt(Key, Ivec, Data);
+block_encrypt(blowfish_cfb64, Key, Ivec, Data) ->
+    blowfish_cfb64_encrypt(Key, Ivec, Data);
+block_encrypt(blowfish_ofb64, Key, Ivec, Data) ->
+    blowfish_ofb64_encrypt(Key, Ivec, Data);
+block_encrypt(aes_cbc128, Key, Ivec, Data) ->
+    aes_cbc_128_encrypt(Key, Ivec, Data);
+block_encrypt(aes_cbc256, Key, Ivec, Data) ->
+    aes_cbc_256_encrypt(Key, Ivec, Data);
+block_encrypt(aes_cfb128, Key, Ivec, Data) ->
+    aes_cfb_128_encrypt(Key, Ivec, Data);
+block_encrypt(rc2_cbc, Key, Ivec, Data) ->
+    rc2_cbc_encrypt(Key, Ivec, Data).
+
+-spec block_decrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
+	      blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cfb128 | rc2_cbc,
+	      Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
+
+block_decrypt(des_cbc, Key, Ivec, Data) ->
+    des_cbc_decrypt(Key, Ivec, Data);
+block_decrypt(des_cfb, Key, Ivec, Data) ->
+    des_cfb_decrypt(Key, Ivec, Data);
+block_decrypt(des3_cbc, [Key1, Key2, Key3], Ivec, Data) ->
+    des3_cbc_decrypt(Key1, Key2, Key3, Ivec, Data);
+block_decrypt(des3_cbf, [Key1, Key2, Key3], Ivec, Data) ->
+    des3_cfb_decrypt(Key1, Key2, Key3, Ivec, Data);
+block_decrypt(des_ede3, [Key1, Key2, Key3], Ivec, Data) ->
+    des_ede3_cbc_decrypt(Key1, Key2, Key3, Ivec, Data);
+block_decrypt(blowfish_cbc, Key, Ivec, Data) ->
+    blowfish_cbc_decrypt(Key, Ivec, Data);
+block_decrypt(blowfish_cfb64, Key, Ivec, Data) ->
+    blowfish_cfb64_decrypt(Key, Ivec, Data);
+block_decrypt(blowfish_ofb, Key, Ivec, Data) ->
+    blowfish_ofb64_decrypt(Key, Ivec, Data);
+block_decrypt(aes_cbc128, Key, Ivec, Data) ->
+    aes_cbc_128_decrypt(Key, Ivec, Data);
+block_decrypt(aes_cbc256, Key, Ivec, Data) ->
+    aes_cbc_256_decrypt(Key, Ivec, Data);
+block_decrypt(aes_cfb128, Key, Ivec, Data) ->
+    aes_cfb_128_decrypt(Key, Ivec, Data);
+block_decrypt(rc2_cbc, Key, Ivec, Data) ->
+    rc2_cbc_decrypt(Key, Ivec, Data).
+
+-spec block_encrypt(des_ecb | blowfish_ecb, Key::iodata(), Data::iodata()) -> binary().
+
+block_encrypt(des_ecb, Key, Data) ->
+    des_ecb_encrypt(Key, Data);
+block_encrypt(blowfish_ecb, Key, Data) ->
+    blowfish_ecb_encrypt(Key, Data).
+
+-spec block_decrypt(des_ecb | blowfish_ecb, Key::iodata(), Data::iodata()) -> binary().
+
+block_decrypt(des_ecb, Key, Data) ->
+    des_ecb_decrypt(Key, Data);
+block_decrypt(blowfish_ecb, Key, Data) ->
+    blowfish_ecb_decrypt(Key, Data).
+
+-spec next_iv(des_cbc | aes_cbc, Data::iodata()) -> binary().
+
+next_iv(des_cbc, Data) ->
+    des_cbc_ivec(Data);
+next_iv(aes_cbc, Data) ->
+    aes_cbc_ivec(Data).
+
+-spec next_iv(des_cbf, Ivec::binary(), Data::iodata()) -> binary().
+
+next_iv(des_cbf, Ivec, Data) ->
+    des_cfb_ivec(Ivec, Data).
+
+stream_init(aes_ctr, Key, Ivec) ->
+    aes_ctr_stream_init(Key, Ivec).
+stream_init(rc4, Key) ->
+    rc4_set_key(Key).
+stream_encrypt(aes_ctr, State, Data) ->
+    aes_ctr_stream_encrypt(State, Data);
+stream_encrypt(rc4, State, Data) ->
+    rc4_encrypt_with_state(State, Data).
+stream_decrypt(aes_ctr, State, Data) ->
+    aes_ctr_stream_decrypt(State, Data);
+stream_decrypt(rc4, State, Data) ->
+    rc4_encrypt_with_state (State, Data).
+
 %%
 %% CRYPTO FUNCTIONS
 %%
@@ -746,7 +929,11 @@ blowfish_cfb64_decrypt(Key, IVec, Data) ->
 
 bf_cfb64_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
+blowfish_ofb64_decrypt(Key, Ivec, Data) ->
+    blowfish_ofb64_encrypt(Key, Ivec, Data).
+
 blowfish_ofb64_encrypt(_Key, _IVec, _Data) -> ?nif_stub.
+
 
 %%
 %% AES in cipher feedback mode (CFB)
@@ -956,6 +1143,46 @@ ecdsa_sign_nif(_Type, _DataOrDigest, _Key) -> ?nif_stub.
 
 
 
+-spec public_encrypt(rsa, binary(), [binary()], rsa_padding()) ->
+				binary().
+-spec public_decrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
+				binary().
+-spec private_encrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
+				binary().
+-spec private_decrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
+				binary().
+
+public_encrypt(rsa, BinMesg, Key, Padding) ->
+    case rsa_public_crypt(BinMesg,  map_ensure_int_as_bin(Key), Padding, true) of
+	error ->
+	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
+	Sign -> Sign
+    end.
+
+%% Binary, Key = [E,N,D]
+private_decrypt(rsa, BinMesg, Key, Padding) ->
+    case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
+	error ->
+	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
+	Sign -> Sign
+    end.
+
+
+%% Binary, Key = [E,N,D]
+private_encrypt(rsa, BinMesg, Key, Padding) ->
+    case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, true) of
+	error ->
+	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
+	Sign -> Sign
+    end.
+
+%% Binary, Key = [E,N]
+public_decrypt(rsa, BinMesg, Key, Padding) ->
+    case rsa_public_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
+	error ->
+	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
+	Sign -> Sign
+    end.
 
 
 %%

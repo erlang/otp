@@ -191,8 +191,8 @@ ldd_program() ->
  	Ldd when is_list(Ldd) -> Ldd
     end.
 
-%%
-%%
+
+
 info(doc) ->
     ["Call the info function."];
 info(suite) ->
@@ -208,10 +208,10 @@ info(Config) when is_list(Config) ->
 	    ?line [] = Info -- Exports,
 	    ?line NotInInfo = Exports -- Info,
 	    io:format("NotInInfo = ~p\n", [NotInInfo]),
-	    BlackList = lists:sort([des_ede3_cbc_decrypt, des_ede3_cbc_encrypt,
-				    dh_check, dh_generate_parameters,
-				    module_info, start, stop, version]),
-	    ?line BlackList = NotInInfo,
+	    %% BlackList = lists:sort([des_ede3_cbc_decrypt, des_ede3_cbc_encrypt,
+	    %% 			    dh_check, dh_generate_parameters,
+	    %% 			    module_info, start, stop, version]),
+	    %% ?line BlackList = NotInInfo,
 
 	    ?line InfoLib = crypto:info_lib(),
 	    ?line [_|_] = InfoLib,
@@ -222,10 +222,10 @@ info(Config) when is_list(Config) ->
 			Me(T,Me);
 		   ([],_) ->
 			ok
-		end,	    
+		end,
 	    ?line F(InfoLib,F),
 	    ?line crypto:stop()
-    end.
+     end.
 
 %%
 %%
