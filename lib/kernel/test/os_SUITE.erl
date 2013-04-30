@@ -247,7 +247,8 @@ deep_list_command(Config) when is_list(Config) ->
     %% be deep lists."
     %% That's why os:cmd/1 can have arguments that are deep lists.
     %% It is not a problem for unix, but for windows it is (in R15B02 for ex.).
-    ?line os:cmd([$e, $c, "ho"]),
+    Echo = os:cmd([$e, $c, "ho"]),
+    true = erlang:is_list(Echo),
     %% FYI: [$e, $c, "ho"] =:= io_lib:format("ec~s", ["ho"])
     ok.
 
