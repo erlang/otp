@@ -1331,7 +1331,7 @@ tcp_controlling_process(S, NewOwner) when is_port(S), is_pid(NewOwner) ->
 		{ok, A0} ->
 		    case A0 of
 			false -> ok;
-			_ -> prim_inet:setopt(S, active, false)
+			_ -> ok = prim_inet:setopt(S, active, false)
 		    end,
 		    case tcp_sync_input(S, NewOwner, false) of
 			true ->  %% socket already closed, 
@@ -1342,7 +1342,7 @@ tcp_controlling_process(S, NewOwner) when is_port(S), is_pid(NewOwner) ->
 				    unlink(S), %% unlink from port
 				    case A0 of
 					false -> ok;
-					_ -> prim_inet:setopt(S, active, A0)
+					_ -> ok = prim_inet:setopt(S, active, A0)
 				    end,
 				    ok
 			    catch
@@ -1385,13 +1385,12 @@ udp_controlling_process(S, NewOwner) when is_port(S), is_pid(NewOwner) ->
 	    {error, not_owner};
 	_ ->
 	    {ok, A0} = prim_inet:getopt(S, active),
-	    prim_inet:setopt(S, active, false),
+	    ok = prim_inet:setopt(S, active, false),
 	    udp_sync_input(S, NewOwner),
 	    try erlang:port_connect(S, NewOwner) of
 		true -> 
 		    unlink(S),
-		    prim_inet:setopt(S, active, A0),
-		    ok
+		    ok = prim_inet:setopt(S, active, A0)
 	    catch
 		error:Reason -> 
 		    {error, Reason}
