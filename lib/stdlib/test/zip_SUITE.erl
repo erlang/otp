@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -109,11 +109,30 @@ borderline_test(Size, TempDir) ->
     ok.
 
 unzip_list(Archive, Name) ->
-    case os:find_executable("unzip") of
-        Unzip when is_list(Unzip) ->
+    case unix_unzip_exists() of
+	true ->
             unzip_list1(Archive, Name);
         _ ->
             ok
+    end.
+
+%% Used to do os:find_executable() to check if unzip exists, but on
+%% some hosts that would give an unzip program which did not take the
+%% "-Z" option.
+%% Here we check that "unzip -Z" (which should display usage) and
+%% check that it exists with status 0.
+unix_unzip_exists() ->
+    case os:type() of
+	{unix,_} ->
+	    Port = open_port({spawn,"unzip -Z > /dev/null"}, [exit_status]),
+	    receive
+		{Port,{exit_status,0}} ->
+		    true;
+		{Port,{exit_status,_Fail}} ->
+		    false
+	    end;
+	_ ->
+	    false
     end.
 
 unzip_list1(Archive, Name) ->
