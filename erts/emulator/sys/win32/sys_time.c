@@ -79,7 +79,6 @@ static int days_in_month[2][13] = {
 int 
 sys_init_time(void)
 {
-    /*
     char kernel_dll_name[] = "kernel32";
     HMODULE module;
 
@@ -88,7 +87,7 @@ sys_init_time(void)
 	(ULONGLONG (WINAPI *)(void)) 
 	GetProcAddress(module,"GetTickCount64") : 
 	NULL;
-    */
+
     if(GetTimeZoneInformation(&static_tzi) && 
        static_tzi.StandardDate.wMonth != 0 &&
        static_tzi.DaylightDate.wMonth != 0) {
@@ -96,13 +95,6 @@ sys_init_time(void)
     }
 
     erts_smp_mtx_init(&wrap_lock, "sys_gethrtime");
-    /*
-     * XXX: Debug - remove me!
-     */
-    if (pGetTickCount64 != NULL) {
-	fprintf(stderr,"got GetTickCount64!\r\n");
-	fflush(stderr);
-    } 
 
     return 1;
 }
