@@ -36,7 +36,7 @@
 -export([merge/3, rmerge/3, sort/2, umerge/3, rumerge/3, usort/2]).
 
 -export([all/2,any/2,map/2,flatmap/2,foldl/3,foldr/3,filter/2,
-	 partition/2,zf/2,
+	 partition/2,zf/2,filtermap/2,
 	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,splitwith/2,
 	 split/2]).
 
@@ -1291,18 +1291,28 @@ partition(Pred, [H | T], As, Bs) ->
 partition(Pred, [], As, Bs) when is_function(Pred, 1) ->
     {reverse(As), reverse(Bs)}.
 
--spec zf(fun((T) -> boolean() | {'true', X}), [T]) -> [(T | X)].
+-spec filtermap(Fun, List1) -> List2 when
+      Fun :: fun((Elem) -> boolean() | {'true', Value}),
+      List1 :: [Elem],
+      List2 :: [Elem | Value],
+      Elem :: term(),
+      Value :: term().
 
-zf(F, [Hd|Tail]) ->
+filtermap(F, [Hd|Tail]) ->
     case F(Hd) of
 	true ->
-	    [Hd|zf(F, Tail)];
+	    [Hd|filtermap(F, Tail)];
 	{true,Val} ->
-	    [Val|zf(F, Tail)];
+	    [Val|filtermap(F, Tail)];
 	false ->
-	    zf(F, Tail)
+	    filtermap(F, Tail)
     end;
-zf(F, []) when is_function(F, 1) -> [].
+filtermap(F, []) when is_function(F, 1) -> [].
+
+-spec zf(fun((T) -> boolean() | {'true', X}), [T]) -> [(T | X)].
+
+zf(F, L) ->
+    filtermap(F, L).
 
 -spec foreach(Fun, List) -> ok when
       Fun :: fun((Elem :: T) -> term()),

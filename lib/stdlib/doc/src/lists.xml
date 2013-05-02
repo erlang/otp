@@ -152,6 +152,31 @@
       </desc>
     </func>
     <func>
+      <name name="filtermap" arity="2"/>
+      <fsummary>Filter and map elements which satisfy a function</fsummary>
+      <desc>
+        <p>Calls <c><anno>Fun</anno>(<anno>Elem</anno>)</c> on successive elements <c>Elem</c>
+          of <c><anno>List1</anno></c>. <c><anno>Fun</anno>/2</c> must return either a boolean
+          or a tuple <c>{true, <anno>Value</anno>}</c>. The function returns the list of elements
+          for which <c><anno>Fun</anno></c> returns a new value, where a value of <c>true</c>
+          is synonymous with <c>{true, <anno>Elem</anno>}</c>.</p>
+        <p>That is, <c>filtermap</c> behaves as if it had been defined as follows:</p>
+        <code type="none">
+filtermap(Fun, List1) ->
+    lists:foldr(fun(Elem, Acc) ->
+                       case Fun(Elem) of
+                           false -> Acc;
+                           true -> [Elem|Acc];
+                           {true,Value} -> [Value|Acc]
+                       end,
+                end, [], List1).</code>
+        <p>Example:</p>
+        <pre>
+> <input>lists:filtermap(fun(X) -> case X rem 2 of 0 -> {true, X div 2}; _ -> false end end, [1,2,3,4,5]).</input>
+[1,2]</pre>
+      </desc>
+    </func>
+    <func>
       <name name="flatlength" arity="1"/>
       <fsummary>Length of flattened deep list</fsummary>
       <desc>
