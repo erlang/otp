@@ -150,7 +150,7 @@
          NewEvent = #event{}]]></code>
 
     <p>The interface of the filter function is the same as the the
-    filter functions for the good old <c>lists:zf/2</c>. If the filter
+    filter functions for the good old <c>lists:filtermap/2</c>. If the filter
     returns <c>false</c> it means that the trace data should silently
     be dropped. <c>true</c> means that the trace data data already is
     an <c>Event Record</c> and that it should be kept as it is.
