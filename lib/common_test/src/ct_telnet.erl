@@ -29,7 +29,9 @@
 %%% Command timeout = 10 sec (time to wait for a command to return)
 %%% Max no of reconnection attempts = 3
 %%% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
-%%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
+%%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)
+%%% Wait for linebreak = true (Will expect answer from server to end with linebreak when 
+%%% using ct_telnet:expect)</pre>
 %%% <p>These parameters can be altered by the user with the following
 %%% configuration term:</p>
 %%% <pre>
@@ -37,7 +39,8 @@
 %%%                    {command_timeout,Millisec},
 %%%                    {reconnection_attempts,N},
 %%%                    {reconnection_interval,Millisec},
-%%%                    {keep_alive,Bool}]}.</pre>
+%%%                    {keep_alive,Bool},
+%%                     {wait_for_linebreak, Bool}]}.</pre>
 %%% <p><code>Millisec = integer(), N = integer()</code></p>
 %%% <p>Enter the <code>telnet_settings</code> term in a configuration 
 %%% file included in the test and ct_telnet will retrieve the information
