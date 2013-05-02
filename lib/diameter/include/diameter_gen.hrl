@@ -150,26 +150,17 @@ pack_AVP(Name, #diameter_avp{name = AvpName,
  when Failed :: [{5000..5999, #diameter_avp{}}].
 
 decode_avps(Name, Recs) ->
-    d_rc(Name, lists:foldl(fun(T,A) -> decode(Name, T, A) end,
-                           {[], {newrec(Name), []}},
-                           Recs)).
+    {Avps, {Rec, Failed}}
+        = lists:foldl(fun(T,A) -> decode(Name, T, A) end,
+                      {[], {newrec(Name), []}},
+                      Recs),
+    {Rec, Avps, Failed ++ missing(Rec, Name)}.
+%% Append 5005 errors so that a 5014 for the same AVP will take
+%% precedence in a Result-Code/Failed-AVP setting.
 
 newrec(Name) ->
     '#new-'(name2rec(Name)).
 
-%% No errors so far: keep looking.
-d_rc(Name, {Avps, {Rec, [] = Failed}}) ->
-    try
-        true = have_required_avps(Rec, Name),
-        {Rec, Avps, Failed}
-    catch
-        throw: {?MODULE, {AvpName, Reason}} ->
-            diameter_lib:log({decode, error},
-                             ?MODULE,
-                             ?LINE,
-                             {AvpName, Reason, Rec}),
-            {Rec, Avps, [{5005, empty_avp(AvpName)}]}
-    end;
 %% 3588:
 %%
 %%   DIAMETER_MISSING_AVP               5005
@@ -180,9 +171,17 @@ d_rc(Name, {Avps, {Rec, [] = Failed}}) ->
 %%      Vendor-Id if applicable.  The value field of the missing AVP
 %%      should be of correct minimum length and contain zeroes.
 
-%% Or not. Only need to report the first error so look no further.
-d_rc(_, {Avps, {Rec, Failed}}) ->
-    {Rec, Avps, lists:reverse(Failed)}.
+missing(Rec, Name) ->
+    [{5005, empty_avp(F)} || F <- '#info-'(element(1, Rec), fields),
+                             A <- [avp_arity(Name, F)],
+                             false <- [have_arity(A, '#get-'(F, Rec))]].
+
+%% Maximum arities have already been checked in building the record.
+
+have_arity({Min, _}, L) ->
+    Min =< length(L);
+have_arity(N, V) ->
+    N /= 1 orelse V /= undefined.
 
 %% empty_avp/1
 
@@ -196,25 +195,6 @@ empty_avp(Name) ->
                   need_encryption = 0 /= (Flags band 2#00100000),
                   data = empty_value(Name),
                   type = Type}.
-
-%% have_required_avps/2
-
-have_required_avps(Rec, Name) ->
-    lists:foreach(fun(F) -> hra(Name, F, Rec) end,
-                  '#info-'(element(1, Rec), fields)),
-    true.
-
-hra(Name, AvpName, Rec) ->
-    Arity = avp_arity(Name, AvpName),
-    hra(Arity, '#get-'(AvpName, Rec))
-        orelse ?THROW({AvpName, {insufficient_arity, Arity}}).
-
-%% Maximum arities have already been checked in building the record.
-
-hra({Min, _}, L) ->
-    Min =< length(L);
-hra(N, V) ->
-    N /= 1 orelse V /= undefined.
 
 %% 3588, ch 7:
 %%
@@ -403,13 +383,14 @@ value(_, Avp) ->
 -spec grouped_avp(decode, avp_name(), binary())
    -> {avp_record(), [avp()]};
                  (encode, avp_name(), avp_record() | avp_values())
-   -> binary() | no_return().
+   -> binary()
+    | no_return().
 
 grouped_avp(decode, Name, Data) ->
     {Rec, Avps, []} = decode_avps(Name, diameter_codec:collect_avps(Data)),
     {Rec, Avps};
-%% Note that a failed match here will result in 5004. Note that this is
-%% the only AVP type that doesn't just return the decoded value, also
+%% A failed match here will result in 5004. Note that this is the only
+%% AVP type that doesn't just return the decoded record, also
 %% returning the list of component AVP's.
 
 grouped_avp(encode, Name, Data) ->
