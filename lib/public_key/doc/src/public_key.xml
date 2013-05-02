@@ -154,6 +154,19 @@
 <funcs>    
 
   <func>
+    <name> compute_key(OthersKey, MyKey)-></name>
+    <name> compute_key(OthersKey, MyKey, Params)-></name>
+    <fsummary> Compute shared secret</fsummary>
+    <type>
+      <v>OthersKey = #'ECPoint'{} | binary(), MyKey = #'ECPrivateKey'{} | binary()</v>
+      <v>Params =  #'DHParameter'{}</v>
+    </type>
+  <desc>
+    <p> Compute shared secret </p>
+  </desc>
+  </func>
+
+  <func>
     <name>decrypt_private(CipherText, Key) -> binary()</name>
     <name>decrypt_private(CipherText, Key, Options) -> binary()</name>
     <fsummary>Public key decryption.</fsummary>
@@ -208,6 +221,17 @@
   <desc> 
     <p> Encodes a public key entity with ASN.1 DER encoding.</p>
   </desc> 
+  </func>
+
+  <func>
+    <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} </name>
+    <fsummary>Generates a new keypair</fsummary>
+    <type>
+      <v> Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'OTPECParameters'{} </v>
+    </type>
+  <desc>
+    <p>Generates a new keypair</p>
+  </desc>
   </func>
 
   <func>
