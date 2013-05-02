@@ -21,7 +21,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([space_in_cwd/1, quoting/1, space_in_name/1, bad_command/1,
-	 find_executable/1, unix_comment_in_command/1, evil/1]).
+	 find_executable/1, unix_comment_in_command/1, deep_list_command/1, evil/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
