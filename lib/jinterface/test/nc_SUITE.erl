@@ -104,12 +104,13 @@ end_per_suite(Config) ->
 init_per_testcase(Case, Config) ->
     T = case atom_to_list(Case) of
 	    "unicode"++_ -> 240;
-	    _ -> 30
+	    _ -> 120
 	end,
     WatchDog = test_server:timetrap(test_server:seconds(T)),
     [{watchdog, WatchDog}| Config].
 
 end_per_testcase(_Case, Config) ->
+    jitu:kill_all_jnodes(),
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
@@ -694,15 +695,18 @@ run_server(Server, Config, Action, ExtraArgs) ->
     true = register(Name, self()),
     JName = make_name(),
     spawn_link(fun () ->
+		       %% Setting max memory to 256. This is due to
+		       %% echo_server sometimes failing with
+		       %% OutOfMemoryException one some test machines.
 		       ok = jitu:java(?config(java, Config),
 				      ?config(data_dir, Config),
 				      atom_to_list(Server),
 				      [JName,
 				       erlang:get_cookie(),
 				       node(),
-				       Name]++ExtraArgs
-				     ),
-						%,"-DOtpConnection.trace=3"),
+				       Name]++ExtraArgs,
+				      " -Xmx256m"),
+				      %% " -Xmx256m -DOtpConnection.trace=3"),
 		       Name ! {done, JName}
 	       end),
     receive
