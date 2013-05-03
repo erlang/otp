@@ -3002,7 +3002,6 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 	EC_KEY_set_group(key, group);
     }
     else {
-	printf("#3\n");
 	goto out_err;
     }
 
@@ -3136,14 +3135,12 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 
     if (!(argv[1] == atom_undefined || get_bn_from_bin(env, argv[1], &priv_key))
 	|| !(argv[2] == atom_undefined || enif_is_binary(env, argv[2]))) {
-	    printf("#1\n");
 	goto out_err;
     }
 
     key = ec_key_new(env, argv[0]);
 
     if (!key) {
-	    printf("#4\n");
 	goto out_err;
     }
 
@@ -3152,7 +3149,6 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 
     if (term2point(env, argv[2], group, &pub_key)) {
 	    if (!EC_KEY_set_public_key(key, pub_key)) {
-		    printf("#5\n");
 		    goto out_err;
 	    }
     }
