@@ -21,12 +21,14 @@
 -include_lib("test_server/include/test_server.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,tiny/1,eed/1,basic/1]).
+	init_per_group/2,end_per_group/2]).
+
+-export([tiny/1,eed/1,basic/1,basic_option/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [basic, tiny, eed].
+    [basic, basic_option, tiny, eed].
 
 groups() -> 
     [].
@@ -120,6 +122,51 @@ basic(Config) when is_list(Config) ->
 
     %% change current working directory
 
+    ok = file:set_cwd(OldCurDir),
+    stopped = eprof:stop(),
+    ok.
+
+basic_option(Config) when is_list(Config) ->
+    %% load eprof_test and change directory
+
+    {ok, OldCurDir} = file:get_cwd(),
+    Datadir = ?config(data_dir, Config),
+    Privdir = ?config(priv_dir, Config),
+    {ok,eprof_test} = compile:file(filename:join(Datadir, "eprof_test"),
+					       [trace,{outdir, Privdir}]),
+    ok = file:set_cwd(Privdir),
+    code:purge(eprof_test),
+    {module,eprof_test} = code:load_file(eprof_test),
+
+    % vanilla
+    {ok, _} = eprof:profile(fun() -> eprof_test:do(10) end, [{set_on_spawn, true}]),
+
+    [{_, MfasDo1},{_, MfasLists1}] = eprof:dump(),
+    Mfas1 = MfasDo1 ++ MfasLists1,
+
+    {value, {_, {11, _}}} = lists:keysearch({eprof_test,dec,1},  1, Mfas1),
+    {value, {_, { 1, _}}} = lists:keysearch({eprof_test, go,1},  1, Mfas1),
+    {value, {_, { 9, _}}} = lists:keysearch({lists, split_2,5},  1, Mfas1),
+    {value, {_, { 4, _}}} = lists:keysearch({lists, seq_loop,3}, 1, Mfas1),
+
+    {ok, _} = eprof:profile(fun() -> eprof_test:do(10) end, [set_on_spawn]),
+
+    [{_, MfasDo2},{_, MfasLists2}] = eprof:dump(),
+    Mfas2 = MfasDo2 ++ MfasLists2,
+    {value, {_, {11, _}}} = lists:keysearch({eprof_test,dec,1},  1, Mfas2),
+    {value, {_, { 1, _}}} = lists:keysearch({eprof_test, go,1},  1, Mfas2),
+    {value, {_, { 9, _}}} = lists:keysearch({lists, split_2,5},  1, Mfas2),
+    {value, {_, { 4, _}}} = lists:keysearch({lists, seq_loop,3}, 1, Mfas2),
+
+    % disable trace set_on_spawn
+    {ok, _} = eprof:profile(fun() -> eprof_test:do(10) end, []),
+    [{_, Mfas3}] = eprof:dump(),
+    {value, {_, {11, _}}} = lists:keysearch({eprof_test,dec,1}, 1, Mfas3),
+    {value, {_, { 1, _}}} = lists:keysearch({eprof_test, go,1}, 1, Mfas3),
+    false = lists:keysearch({lists, split_2,5},  1, Mfas3),
+    false = lists:keysearch({lists, seq_loop,3}, 1, Mfas3),
+
+    %% change current working directory
     ok = file:set_cwd(OldCurDir),
     stopped = eprof:stop(),
     ok.
