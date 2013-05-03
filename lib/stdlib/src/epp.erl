@@ -601,7 +601,7 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
     %% file will depend on the order of file inclusions in the parent files
     Path = [filename:dirname(Pname) | tl(St0#epp.path)],
     _ = set_encoding(NewF),
-    #epp{file=NewF,location=Loc,name=Pname,delta=0,
+    #epp{file=NewF,location=Loc,name=Pname,name2=Pname,delta=0,
          sstk=[St0|St0#epp.sstk],path=Path,macs=Ms}.
 
 enter_file_reply(From, Name, Location, AtLocation) ->
