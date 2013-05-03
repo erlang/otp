@@ -85,7 +85,7 @@
     <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey' |
     'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo' |
     'PrivateKeyInfo' | 'CertificationRequest' | 'ECPrivateKey'|
-    'OTPEcpkParameters'</code></p>
+    'EcpkParameters'</code></p>
     
     <p><code>pem_entry () = {pki_asn1_type(), binary(), %% DER or encrypted DER
           not_encrypted | cipher_info()} </code></p>
@@ -101,7 +101,7 @@
 
     <p><code>dsa_private_key() = #'DSAPrivateKey'{}</code></p>
 
-    <p><code>ec_public_key()  = {#'ECPoint'{}, #'OTPEcpkParameters'{} | {namedCurve, oid()}} </code></p>
+    <p><code>ec_public_key()  = {#'ECPoint'{}, #'EcpkParameters'{} | {namedCurve, oid()}} </code></p>
     
     <p><code>ec_private_key()  = #'ECPrivateKey'{}</code></p>
 
@@ -227,7 +227,7 @@
     <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} </name>
     <fsummary>Generates a new keypair</fsummary>
     <type>
-      <v> Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'OTPECParameters'{} </v>
+      <v> Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{} </v>
     </type>
   <desc>
     <p>Generates a new keypair</p>

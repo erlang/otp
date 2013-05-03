@@ -103,7 +103,7 @@ IMPORTS
 	md5WithRSAEncryption,
 	sha1WithRSAEncryption,
 	rsaEncryption, RSAPublicKey,
-	dhpublicnumber, DomainParameters, DHPublicKey,
+	dhpublicnumber, DomainParameters, DHPublicKey, 
 	id-keyExchangeAlgorithm, KEA-Parms-Id, --KEA-PublicKey,
 	ecdsa-with-SHA1, ecdsa-with-SHA224,
 	ecdsa-with-SHA256, ecdsa-with-SHA384, ecdsa-with-SHA512,
@@ -112,7 +112,7 @@ IMPORTS
 	gnBasis, 
 	tpBasis, Trinomial,
 	ppBasis, Pentanomial,
-	id-ecPublicKey, EcpkParameters, ECPoint
+	id-ecPublicKey, EcpkParameters, ECParameters, ECPoint
 	FROM PKIX1Algorithms88 { iso(1) identified-organization(3) dod(6)
 	     internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
 	     id-mod-pkix1-algorithms(17) }
@@ -510,22 +510,6 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
 	    ID ppBasis
 	    TYPE Pentanomial }
 
-   -- Elliptic Curve parameters may be specified explicitly,
-   -- specified implicitly through a "named curve", or
-   -- inherited from the CA
-
-   OTPEcpkParameters ::= CHOICE {
-      ecParameters  OTPECParameters,
-      namedCurve    OBJECT IDENTIFIER,
-      implicitlyCA  NULL }
-
-   OTPECParameters  ::= SEQUENCE {         -- Elliptic curve parameters
-      version   ECPVer,
-      fieldID   OTPFieldID,
-      curve     Curve,
-      base      ECPoint,                -- Base point G
-      order     INTEGER,                -- Order n of the base point
-      cofactor  INTEGER  OPTIONAL }     -- The integer h = #E(Fq)/n
 
    -- SubjectPublicKeyInfo.algorithm
 

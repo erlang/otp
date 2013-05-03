@@ -29,7 +29,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -type oid()               :: tuple().
--type public_key_params() :: #'Dss-Parms'{} |  {namedCurve, oid()} | #'OTPECParameters'{} | term().
+-type public_key_params() :: #'Dss-Parms'{} |  {namedCurve, oid()} | #'ECParameters'{} | term().
 -type public_key_info()   :: {oid(), #'RSAPublicKey'{} | integer() | #'ECPoint'{}, public_key_params()}.
 -type tls_handshake_history() :: {[binary()], [binary()]}.
 

@@ -93,7 +93,7 @@
 -type rsa_private_key()      ::  #'RSAPrivateKey'{}.
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.
 -type dsa_public_key()       :: {integer(), #'Dss-Parms'{}}.
--type ec_public_key()        :: {#'ECPoint'{},{namedCurve, Oid::tuple()} | #'OTPECParameters'{}}.
+-type ec_public_key()        :: {#'ECPoint'{},{namedCurve, Oid::tuple()} | #'ECParameters'{}}.
 -type ec_private_key()       :: #'ECPrivateKey'{}.
 -type der_encoded()          :: binary().
 -type decrypt_der()          :: binary().

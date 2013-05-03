@@ -12,12 +12,12 @@ IMPORTS
 
 -- FROM New PKIX ASN.1 [RFC5912]
 
-OTPEcpkParameters FROM OTP-PKIX;
+EcpkParameters FROM PKIX1Algorithms88;
 
 ECPrivateKey ::= SEQUENCE {
   version        INTEGER,
   privateKey     OCTET STRING,
-  parameters [0] OTPEcpkParameters OPTIONAL,
+  parameters [0] EcpkParameters OPTIONAL,
   publicKey  [1] BIT STRING OPTIONAL
 }
 

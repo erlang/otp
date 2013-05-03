@@ -328,7 +328,7 @@ encrypt_private(PlainText,
 
 %%--------------------------------------------------------------------
 -spec generate_key(#'DHParameter'{} | {namedCurve, Name ::atom()} |
-		   #'OTPECParameters'{}) -> {Public::binary(), Private::binary()} |
+		   #'ECParameters'{}) -> {Public::binary(), Private::binary()} |
 					    #'ECPrivateKey'{}.
 %% Description: Generates a new keypair
 %%--------------------------------------------------------------------
@@ -336,7 +336,7 @@ generate_key(#'DHParameter'{prime = P, base = G}) ->
     crypto:generate_key(dh, [P, G]);
 generate_key({namedCurve, _} = Params) ->
     ec_generate_key(Params);
-generate_key(#'OTPECParameters'{} = Params) ->
+generate_key(#'ECParameters'{} = Params) ->
     ec_generate_key(Params).
 
 %%--------------------------------------------------------------------
@@ -870,9 +870,9 @@ ec_generate_key(Params) ->
     Term = crypto:generate_key(ecdh, Curve),
     ec_key(Term, Params).
 
-ec_curve_spec( #'OTPECParameters'{fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor }) ->
-    Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'OTPFieldID'.fieldType),
-	     FieldId#'OTPFieldID'.parameters},
+ec_curve_spec( #'ECParameters'{fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor }) ->
+    Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'FieldID'.fieldType),
+	     FieldId#'FieldID'.parameters},
     Curve = {erlang:list_to_binary(PCurve#'Curve'.a), erlang:list_to_binary(PCurve#'Curve'.b), none},
     {Field, Curve, erlang:list_to_binary(Base), Order, CoFactor};
 ec_curve_spec({namedCurve, OID}) ->
