@@ -122,7 +122,7 @@ obsolete_1(crypto, dss_verify, 4) ->
     {deprecated, {crypto, verify, 4}};
 
 obsolete_1(crypto, mod_exp, 3) ->
-    {deprecated, {crypto, mod_exp_prime, 3}};
+    {deprecated, {crypto, mod_pow, 3}};
 
 obsolete_1(crypto, dh_compute_key, 3) ->
     {deprecated, {crypto, compute_key, 4}};

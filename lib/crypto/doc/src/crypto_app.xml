@@ -29,37 +29,23 @@
   <app>crypto</app>
   <appsummary>The Crypto Application</appsummary>
   <description>
-    <p>The purpose of the Crypto application is to provide erlang
-    acess to crypto graphic functions in openssl.
+    <p>The purpose of the Crypto application is to provide an Erlang API
+    to cryptographic functions, see <seealso marker="crypto">crypto(3)</seealso>.
+    Note that the API is on a fairly low level and there are some
+    corresponding API functions available in <seealso marker="public_key:public_key">public_key(3)</seealso>,
+    on a higher abstraction level, that uses the crypto application in its implementation.
     </p>
   </description>
 
   <section>
-    <title>Configuration</title>
-    <p>The following environment configuration parameters are defined
-      for the Crypto application. Refer to application(3) for more
-      information about configuration parameters.
-      </p>
-    <taglist>
-      <tag><c><![CDATA[debug = true | false <optional>]]></c></tag>
-      <item>
-        <p>Causes debug information to be written to standard
-          error or standard output. Default is <c>false</c>.
-          </p>
-      </item>
-    </taglist>
-  </section>
+    <title>DEPENDENCIES</title>
 
-  <section>
-    <title>OpenSSL libraries</title>
-    <p>The current implementation of the Erlang Crypto application is
-      based on the <em>OpenSSL</em> package version 0.9.8 or higher.
-      There are source and binary releases on the web.
-      </p>
+    <p>The current crypto implementation uses nifs to interface OpenSSLs crypto library
+    and requires <em>OpenSSL</em> package version 0.9.8 or higher.</p>
     <p>Source releases of OpenSSL can be downloaded from the <url href="http://www.openssl.org">OpenSSL</url> project home page,
-      or mirror sites listed there.
-      </p>
-  </section>
+    or mirror sites listed there.
+    </p>
+    </section>
 
   <section>
     <title>SEE ALSO</title>

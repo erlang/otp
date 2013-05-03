@@ -496,6 +496,7 @@ static ERL_NIF_TERM atom_sha256;
 static ERL_NIF_TERM atom_sha384;
 static ERL_NIF_TERM atom_sha512;
 static ERL_NIF_TERM atom_md5;
+static ERL_NIF_TERM atom_md4;
 static ERL_NIF_TERM atom_ripemd160;
 static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_rsa_pkcs1_padding;
@@ -590,6 +591,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_sha256 = enif_make_atom(env,"sha256");
     atom_sha384 = enif_make_atom(env,"sha384");
     atom_sha512 = enif_make_atom(env,"sha512");
+    atom_md4 = enif_make_atom(env,"md4");
     atom_md5 = enif_make_atom(env,"md5");
     atom_ripemd160 = enif_make_atom(env,"ripemd160");
     atom_error = enif_make_atom(env,"error");
@@ -708,12 +710,12 @@ static void unload(ErlNifEnv* env, void* priv_data)
 }
 
 static int algos_cnt;
-static ERL_NIF_TERM algos[8];   /* increase when extending the list */
+static ERL_NIF_TERM algos[9];   /* increase when extending the list */
 
 static void init_algorithms_types(void)
 {
     algos_cnt = 0;
-
+    algos[algos_cnt++] = atom_md4;
     algos[algos_cnt++] = atom_md5;
     algos[algos_cnt++] = atom_sha;
     algos[algos_cnt++] = atom_ripemd160;

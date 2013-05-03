@@ -30,23 +30,24 @@
       </p>
     <list type="bulleted">
       <item>
-	<p>Hash functions - <url href="http://www.ietf.org/rfc/rfc1320.txt">The MD4 Message Digest Algorithm (RFC 1320)</url>,
+	<p>Hash functions -
+	<url href="http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf"> Secure Hash Standard</url>,
 	<url href="http://www.ietf.org/rfc/rfc1321.txt"> The MD5 Message Digest Algorithm (RFC 1321)</url> and
-	<url href="http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf"> Secure Hash Standard </url>
+	<url href="http://www.ietf.org/rfc/rfc1320.txt">The MD4 Message Digest Algorithm (RFC 1320)</url>
 	</p>
       </item>
       <item>
         <p>Hmac functions - <url href="http://www.ietf.org/rfc/rfc2104.txt"> Keyed-Hashing for Message Authentication (RFC 2104) </url></p>
       </item>
       <item>
-        <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES and
-        and Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB and CTR </url></p>
+        <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES in
+        Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB and CTR </url></p>
       </item>
       <item>
         <p><url href="http://www.ietf.org/rfc/rfc1321.txt"> RSA encryption RFC 1321 </url> </p>
       </item>
       <item>
-        <p>Digital signatures <url href="http://csrc.nist.gov/publications/drafts/fips186-3/fips_186-3.pdf">Digital Signature Standard (DSS) </url>  and  <url href="http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf">Elliptic Curve Digital
+        <p>Digital signatures <url href="http://csrc.nist.gov/publications/drafts/fips186-3/fips_186-3.pdf">Digital Signature Standard (DSS)</url> and<url href="http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf"> Elliptic Curve Digital
 	Signature Algorithm (ECDSA) </url> </p>
       </item>
       <item>
@@ -57,13 +58,7 @@
 
  <section>
     <title>DATA TYPES </title>
-
-    <p><code>byte() = 0 ... 255</code></p>
-
-    <p><code>ioelem() = byte() | binary() | iolist()</code></p>
-
-    <p><code>iolist() = [ioelem()]</code></p>
-
+    
     <p><code>key_value()  = integer() | binary() </code></p>
 
     <p><code>rsa_public()  = [key_value()] = [E, N]  </code></p>
@@ -74,7 +69,7 @@
     the private exponent.The longer key format contains redundant
     information that will make the calculation faster. P1,P2 are first
     and second prime factors. E1,E2 are first and second exponents. C
-    is the CRT coefficient. Terminology is taken from RFC 3447. </p>
+    is the CRT coefficient. Terminology is taken from <url href="http://www.ietf.org/rfc/rfc3477.txt"> RFC 3447</url>.</p>
 
     <p><code>dss_public() = [key_value()] = [P, Q, G, Y] </code></p>
     <p>Where P, Q and G are the dss parameters and Y is the public key.</p>
@@ -137,25 +132,28 @@
 
      <p><code>block_key() =  aes_key() |  blowfish_key() | des_key()| des3_key() </code></p>
 
-     <p><code>aes_key() = binary() </code> Key length is 128, 192 or 256 bits</p>
+     <p><code>aes_key() = iodata() </code> Key length is 128, 192 or 256 bits</p>
 
-     <p><code>rc4_key() = binary() </code> Variable key length from 8 bits up to 2048 bits (usually between 40 and 256)</p>
+     <p><code>rc4_key() = iodata() </code> Variable key length from 8 bits up to 2048 bits (usually between 40 and 256)</p>
 
-     <p><code>blowfish_key() = binary() </code> Variable key length from 32 bits up to 448 bits</p>
+     <p><code>blowfish_key() = iodata() </code> Variable key length from 32 bits up to 448 bits</p>
 
-     <p><code>des_key() = binary() </code> Key length is 64 bits (in CBC mod only 8 bits are used)</p>
+     <p><code>des_key() = iodata() </code> Key length is 64 bits (in CBC mode only 8 bits are used)</p>
 
-     <p><code>des3_key() = [binary(), binary(), binary()] </code> Each key part is 64 bits (in CBC mod only 8 bits are used)</p>
+     <p><code>des3_key() = [binary(), binary(), binary()] </code> Each key part is 64 bits (in CBC mode only 8 bits are used)</p>
+
+     <p><code> message_digest_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> md4 is aslo supported for hash_init/1 and hash/2.
+     Note that both md4 and md5 are recommended only for compatibility with existing applications.
+     </p>
  </section>
 
   <funcs>
     <func>
-      <name>algorithms() -> [atom()]</name>
+      <name>algorithms() -> [message_digest_algorithms() | md4 | ec]</name>
       <fsummary>Provide a list of available crypto algorithms.</fsummary>
       <desc>
-        <p>Provides the available crypto algorithms in terms of a list
-	of atoms. This is interesting as older versions of the openssl
-	crypto library may not support all algorithms used in the crypto API.</p>
+        <p> Can be used to determine if the crypto library has support for elliptic curve (ec) and
+	which message digest algorithms that are supported.</p>
       </desc>
     </func>
 
@@ -164,7 +162,7 @@
       <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Key = block_key() </v>
-        <v>PlainText = iodata() | binary()</v>
+        <v>PlainText = iodata() </v>
         <v>IVec = CipherText = binary()</v>
       </type>
       <desc>
@@ -179,7 +177,7 @@
       <fsummary>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Key = block_key() </v>
-        <v>PlainText = iodata() | binary()</v>
+        <v>PlainText = iodata() </v>
         <v>IVec = CipherText = binary()</v>
       </type>
       <desc>
@@ -201,6 +199,7 @@
       </type>
       <desc>
 	<p>Computes the shared secret from the private key and the other party's public key.
+	 See also <seealso marker="public_key:public_key#compute_key/2">public_key:compute_key/2</seealso>
 	</p>
       </desc>
     </func>
@@ -209,7 +208,7 @@
       <name>exor(Data1, Data2) -> Result</name>
       <fsummary>XOR data</fsummary>
       <type>
-	<v>Data1, Data2 = iolist() | binary()</v>
+	<v>Data1, Data2 = iodata()</v>
 	<v>Result = binary()</v>
       </type>
       <desc>
@@ -229,6 +228,7 @@
       </type>
       <desc>
 	<p>Generates public keys of type <c>Type</c>.
+	See also <seealso marker="public_key:public_key#generate_key/1">public_key:generate_key/1</seealso>
 	</p>
       </desc>
     </func>
@@ -237,7 +237,7 @@
       <name>hash(Type, Data) -> Digest</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = md4 | md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<v>Type = md4 | message_digest_algorithms()</v>
 	<v>Data = iodata()</v>
 	<v>Digest = binary()</v>
       </type>
@@ -252,7 +252,7 @@
       <name>hash_init(Type) -> Context</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = md4 | md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<v>Type = md4 | message_digest_algorithms()</v>
       </type>
       <desc>
         <p>Initializes the context for streaming hash operations. <c>Type</c> determines
@@ -296,7 +296,7 @@
       <name>hmac(Type, Key, Data, MacLength) -> Mac</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = md5 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<v>Type = message_digest_algorithms() </v>
         <v>Key = iodata()</v>
 	<v>Data = iodata()</v>
         <v>MacLength = integer()</v>
@@ -313,8 +313,8 @@
       <name>hmac_init(Type, Key) -> Context</name>
       <fsummary></fsummary>
       <type>
-        <v>Type = md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</v>
-        <v>Key = iolist() | binary()</v>
+        <v>Type = message_digest_algorithms()</v>
+        <v>Key = iodata()</v>
         <v>Context = binary()</v>
       </type>
       <desc>
@@ -329,13 +329,17 @@
       <fsummary></fsummary>
       <type>
         <v>Context = NewContext = binary()</v>
-        <v>Data = iolist() | binary()</v>
+        <v>Data = iodata()</v>
       </type>
       <desc>
         <p>Updates the HMAC represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
         must have been generated using an HMAC init function (such as 
         <seealso marker="#hmac_init/2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
-        must be passed into the next call to <c>hmac_update</c>.</p>
+        must be passed into the next call to <c>hmac_update</c>
+	or to one of the functions <seealso marker="#hmac_final/1">hmac_final</seealso> and
+	<seealso marker="#hmac_final_n/1">hmac_final_n</seealso>
+	</p>
+
       </desc>
     </func>
 
@@ -391,10 +395,10 @@
     </func>
 
     <func>
-      <name>mod_exp_prime(N, P, M) -> Result</name>
+      <name>mod_pow(N, P, M) -> Result</name>
       <fsummary>Computes the function: N^P mod M</fsummary>
       <type>
-	<v>N, P, M = binary()</v>
+	<v>N, P, M = binary() | integer()</v>
 	<v>Result = binary() | error</v>
       </type>
       <desc>
@@ -433,6 +437,7 @@
 	  message. The <c>Padding</c> is the padding mode that was
 	  used to encrypt the data,
 	  see <seealso marker="#public_encrypt/3">public_encrypt/3</seealso>.
+	  See also <seealso marker="public_key:public_key#decrypt_private/2">public_key:decrypt_private/[2,3]</seealso>
 	</p>
       </desc>
     </func>
@@ -455,6 +460,7 @@
 	  The size of the <c>Msg</c> must be less than <c>byte_size(N)-11</c> if
 	  <c>rsa_pkcs1_padding</c> is used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
 	  is used.
+	  See also <seealso marker="public_key:public_key#encrypt_private/2">public_key:encrypt_private/[2,3]</seealso>
 	</p>
       </desc>
     </func>
@@ -475,6 +481,7 @@
 	  message. The <c>Padding</c> is the padding mode that was
 	  used to encrypt the data,
 	  see <seealso marker="#private_encrypt/3">private_encrypt/3</seealso>.
+	  See also <seealso marker="public_key:public_key#decrypt_public/2">public_key:decrypt_public/[2,3]</seealso>
 	</p>
       </desc>
     </func>
@@ -501,6 +508,7 @@
 	  <c>rsa_pkcs1_padding</c> is used, <c>byte_size(N)-41</c> if
 	  <c>rsa_pkcs1_oaep_padding</c> is used and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
 	  is used.
+	  See also <seealso marker="public_key:public_key#encrypt_public/2">public_key:encrypt_public/[2,3]</seealso>
 	</p>
       </desc>
     </func>
@@ -545,6 +553,7 @@
       </type>
       <desc>
 	<p> Creates a digital signature.</p>
+	See also <seealso marker="public_key:public_key#sign/3">public_key:sign/3</seealso>
       </desc>
     </func>
 
@@ -613,36 +622,32 @@
     </func>
 
     <func>
-      <name>stream_encrypt(Type, State, PlainText) -> { NewState, CipherText}</name>
+      <name>stream_encrypt(State, PlainText) -> { NewState, CipherText}</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = stream_cipher() </v>
-        <v>Text = iolist() | binary()</v>
+        <v>Text = iodata()</v>
         <v>CipherText = binary()</v>
       </type>
       <desc>
-	<p>Encrypts <c>PlainText</c> according to the stream cipher <c>Type</c>.
-	<c>Text</c> can be any number of bytes. State is initialized using
-        <seealso marker="#stream_init/2">stream_init</seealso> on
-	the next invocation of this function the returned State shall be
-	given as input and so on until the end of the stream is reached.</p>
+	<p>Encrypts <c>PlainText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
+	<c>Text</c> can be any number of bytes. The initial <c>State</c> is created using
+        <seealso marker="#stream_init/2">stream_init</seealso>.
+	<c>NewState</c> must be passed into the next call to <c>stream_encrypt</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name>stream_decrypt(Type, State, CipherText) -> { NewState, PlainText }</name>
+      <name>stream_decrypt(State, CipherText) -> { NewState, PlainText }</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = stream_cipher() </v>
-        <v>CipherText = iodata() | binary()</v>
+        <v>CipherText = iodata()</v>
         <v>PlainText = binary()</v>
       </type>
       <desc>
-	<p>Decrypts <c>CipherText</c> according to the stream cipher <c>Type</c>.
-	<c>PlainText</c> can be any number of bytes. State is initialized using
-        <seealso marker="#stream_init/2">stream_init</seealso> on
-	the next invocation of this function the returned State shall be
-	given as input and so on until the end of the stream is reached.</p>
+	<p>Decrypts <c>CipherText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
+	<c>PlainText</c> can be any number of bytes. The initial <c>State</c> is created using
+        <seealso marker="#stream_init/2">stream_init</seealso>.
+	<c>NewState</c> must be passed into the next call to <c>stream_encrypt</c>.</p>
       </desc>
     </func>
 
@@ -660,6 +665,7 @@
       </type>
       <desc>
 	<p>Verifies a digital signature</p>
+	See also <seealso marker="public_key:public_key#sign/3">public_key:verify/3</seealso>
       </desc>
     </func>
 

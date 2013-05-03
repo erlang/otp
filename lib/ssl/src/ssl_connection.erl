@@ -2188,7 +2188,7 @@ handle_srp_identity(Username, {Fun, UserState}) ->
 	{ok, {SRPParams, Salt, DerivedKey}}
 	  when is_atom(SRPParams), is_binary(Salt), is_binary(DerivedKey) ->
 	    {Generator, Prime} = ssl_srp_primes:get_srp_params(SRPParams),
-	    Verifier = crypto:mod_exp_prime(Generator, DerivedKey, Prime),
+	    Verifier = crypto:mod_pow(Generator, DerivedKey, Prime),
 	    #srp_user{generator = Generator, prime = Prime,
 		      salt = Salt, verifier = Verifier};
 	#alert{} = Alert ->

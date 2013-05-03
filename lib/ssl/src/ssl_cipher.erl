@@ -77,7 +77,7 @@ cipher(?RC4, CipherState, Mac, Fragment, _Version) ->
                  S -> S
              end,
     GenStreamCipherList = [Fragment, Mac],
-    {State1, T} = crypto:stream_encrypt(rc4, State0, GenStreamCipherList),
+    {State1, T} = crypto:stream_encrypt(State0, GenStreamCipherList),
     {T, CipherState#cipher_state{state = State1}};
 cipher(?DES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) ->
@@ -130,7 +130,7 @@ decipher(?RC4, HashSz, CipherState, Fragment, _) ->
                  undefined -> crypto:stream_init(rc4, CipherState#cipher_state.key);
                  S -> S
              end,
-    try crypto:stream_decrypt(rc4, State0, Fragment) of
+    try crypto:stream_decrypt(State0, Fragment) of
 	{State, Text} ->
 	    GSC = generic_stream_cipher_from_bin(Text, HashSz),
 	    #generic_stream_cipher{content = Content, mac = Mac} = GSC,

@@ -26,11 +26,11 @@
 -export([sign/4, verify/5]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
--export([exor/2, strong_rand_bytes/1, mod_exp_prime/3]).
+-export([exor/2, strong_rand_bytes/1, mod_pow/3]).
 -export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
 -export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
 -export([next_iv/2, next_iv/3]).
--export([stream_init/2, stream_init/3, stream_encrypt/3, stream_decrypt/3]).
+-export([stream_init/2, stream_init/3, stream_encrypt/2, stream_decrypt/2]).
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
 
@@ -193,7 +193,7 @@
 		    rand_bytes,
 		    strong_rand_bytes,
 		    rand_uniform,
-		    mod_exp_prime,
+		    mod_pow,
 		    exor,
 		    %% deprecated
 		    mod_exp,strong_rand_mpint,erlint, mpint,
@@ -685,7 +685,7 @@ sha512_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 %% Ecrypt/decrypt %%%
 
 -spec block_encrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
-		    blowfish_cfb64 | aes_cbc128 | aes_cfb128 | rc2_cbc,
+		    blowfish_cfb64 | aes_cbc128 | aes_cfb128 | aes_cbc256 | rc2_cbc,
 		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
 
 block_encrypt(des_cbc, Key, Ivec, Data) ->
@@ -714,7 +714,7 @@ block_encrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_encrypt(Key, Ivec, Data).
 
 -spec block_decrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
-	      blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cfb128 | rc2_cbc,
+	      blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_cfb128 | rc2_cbc,
 	      Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
 
 block_decrypt(des_cbc, Key, Ivec, Data) ->
@@ -769,17 +769,21 @@ next_iv(des_cbf, Ivec, Data) ->
     des_cfb_ivec(Ivec, Data).
 
 stream_init(aes_ctr, Key, Ivec) ->
-    aes_ctr_stream_init(Key, Ivec).
+    {aes_ctr, aes_ctr_stream_init(Key, Ivec)}.
 stream_init(rc4, Key) ->
-    rc4_set_key(Key).
-stream_encrypt(aes_ctr, State, Data) ->
-    aes_ctr_stream_encrypt(State, Data);
-stream_encrypt(rc4, State, Data) ->
-    rc4_encrypt_with_state(State, Data).
-stream_decrypt(aes_ctr, State, Data) ->
-    aes_ctr_stream_decrypt(State, Data);
-stream_decrypt(rc4, State, Data) ->
-    rc4_encrypt_with_state (State, Data).
+    {rc4, rc4_set_key(Key)}.
+stream_encrypt({aes_ctr, State}, Data) ->
+    {State, Cipher} = aes_ctr_stream_encrypt(State, Data),
+    {{aes_ctr, State}, Cipher};
+stream_encrypt({rc4, State0}, Data) ->
+    {State, Cipher} = rc4_encrypt_with_state(State0, Data),
+    {{rc4, State}, Cipher}.
+stream_decrypt({aes_ctr, State0}, Data) ->
+    {State, Text} = aes_ctr_stream_decrypt(State0, Data),
+    {{aes_ctr, State}, Text};
+stream_decrypt({rc4, State0}, Data) ->
+    {State, Text} = rc4_encrypt_with_state (State0, Data),
+    {{rc4, State}, Text}.
 
 %%
 %% CRYPTO FUNCTIONS
@@ -1018,9 +1022,9 @@ mod_exp(Base, Exponent, Modulo)
 mod_exp(Base, Exponent, Modulo) ->
     mod_exp_nif(mpint_to_bin(Base),mpint_to_bin(Exponent),mpint_to_bin(Modulo), 4).
     
--spec mod_exp_prime(binary(), binary(), binary()) -> binary() | error.
-mod_exp_prime(Base, Exponent, Prime) ->
-    case mod_exp_nif(Base, Exponent, Prime, 0) of
+-spec mod_pow(binary()|integer(), binary()|integer(), binary()|integer()) -> binary() | error.
+mod_pow(Base, Exponent, Prime) ->
+    case mod_exp_nif(ensure_int_as_bin(Base), ensure_int_as_bin(Exponent), ensure_int_as_bin(Prime), 0) of
 	<<0>> -> error;
 	R -> R
     end.
@@ -1500,7 +1504,7 @@ term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 %%
 
 user_srp_gen_key(Private, Generator, Prime) ->
-    case mod_exp_prime(Generator, Private, Prime) of
+    case mod_pow(Generator, Private, Prime) of
 	error ->
 	    error;
 	Public ->

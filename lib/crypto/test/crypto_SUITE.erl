@@ -1979,8 +1979,8 @@ srp3(Config) when is_list(Config) ->
 			    "9176A9192615DC0277AE7C12F1F6A7F6563FCA11675D809AF578BDE5"
 			    "2B51E05D440B63099A017A0B45044801"),
     UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
-    Verifier = crypto:mod_exp_prime(Generator, UserPassHash, Prime), 
-    ClientPublic = crypto:mod_exp_prime(Generator, ClientPrivate, Prime),
+    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime), 
+    ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime),
 
     {ClientPublic, ClientPrivate} = crypto:generate_key(srp, {user, [Generator, Prime, Version]}, ClientPrivate),
     {ServerPublic, ServerPrivate} = crypto:generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, ServerPrivate),
@@ -2030,8 +2030,8 @@ srp6(Config) when is_list(Config) ->
 				 "72E992AAD89095A84B6A5FADA152369AB1E350A03693BEF044DF3EDF"
 				 "0C34741F4696C30E9F675D09F58ACBEB"),
     UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
-    Verifier = crypto:mod_exp_prime(Generator, UserPassHash, Prime), 
-    ClientPublic = crypto:mod_exp_prime(Generator, ClientPrivate, Prime),
+    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime), 
+    ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime),
 
     {ClientPublic, ClientPrivate} = crypto:generate_key(srp, {user, [Generator, Prime, Version]}, ClientPrivate),
     {ServerPublic, ServerPrivate} = crypto:generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, ServerPrivate),
@@ -2081,7 +2081,7 @@ srp6a(Config) when is_list(Config) ->
 			    "3499B200210DCC1F10EB33943CD67FC88A2F39A4BE5BEC4EC0A3212D"
 			    "C346D7E474B29EDE8A469FFECA686E5A"),
     UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
-    Verifier = crypto:mod_exp_prime(Generator, UserPassHash, Prime), 
+    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime), 
 
     {ClientPublic, ClientPrivate} = crypto:generate_key(srp, {user, [Generator, Prime, Version]}, ClientPrivate),
     {ServerPublic, ServerPrivate} = crypto:generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, ServerPrivate),
