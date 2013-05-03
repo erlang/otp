@@ -792,6 +792,11 @@ struct process {
 
     ErlMessageQueue msg;	/* Message queue */
 
+    Eterm *extra_root;          /* Extra root set, used e.g. by yielding bifs. */
+    Uint extra_root_sz;         /* Size of extra root set. */
+    ErtsAlcType_t extra_root_allocator; /* Type of memory allocator used,
+                                used for freeing extra_root if process dies. */
+
     union {
 	ErtsBifTimer *bif_timers;	/* Bif timers aiming at this process */
 	void *terminate;

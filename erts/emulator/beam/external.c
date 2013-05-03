@@ -81,7 +81,52 @@
  *
  */
 
+
+typedef struct {
+  UWord *start;
+  Eterm *sp;
+  UWord *end;
+  UWord *wsp;
+
+  ErtsAtomCacheMap *acmp;
+  Eterm obj;
+  byte *bytes, *ep;
+  Uint32 dflags;
+  struct erl_off_heap_header** off_heap;
+} enc_work_area;
+
+#define PRINT_EWA(ewa)                                      \
+do {                                                        \
+  Uint *_msp = ewa->start;                                  \
+  printf("start: 0x%lx\n\r", (Uint)ewa->start);              \
+  printf("sp: 0x%lx\n\r",  (Uint)ewa->sp);                   \
+  printf("end: 0x%lx\n\r",  (Uint)ewa->end);                 \
+  printf("wsp: 0x%lx\n\r",  (Uint)ewa->wsp);                 \
+  printf("acmp: 0x%lx\n\r",  (Uint)ewa->acmp);               \
+  printf("obj: 0x%lx\n\r",  (Uint)ewa->obj);                 \
+  printf("ep: 0x%lx\n\r",  (Uint)ewa->ep);                   \
+  printf("bytes: 0x%lx\n\r",  (Uint)ewa->bytes);             \
+  printf("dflags: %d\n\r",  (int)ewa->dflags);             \
+  printf("off_heap: 0x%lx\n\r",  (Uint)ewa->off_heap);       \
+  printf("Estack:");                                        \
+  while(_msp < ewa->sp) printf("0x%lx ",(long int)*_msp++); \
+  _msp = ewa->end-1;                                        \
+  printf("\n\rWstack:");                                    \
+  while(_msp > ewa->wsp) printf("%d ",(int)*_msp--);        \
+  printf("\n\r\n\n");                                       \
+} while(0)
+
+static Export term_to_binary_trap_export;
+static Export enc_term_trap_export;
+
+static BIF_RETTYPE term_to_binary_of_size_2(BIF_ALIST_2);
+static BIF_RETTYPE enc_term_trap_3(BIF_ALIST_3);
+static BIF_RETTYPE term_to_binary_of_size(Process *, Eterm, Eterm);
+static BIF_RETTYPE enc_term_cont(Process *, Eterm);
+static BIF_RETTYPE enc_term_trap(Process *, Eterm, Eterm, Eterm);
 static byte* enc_term(ErtsAtomCacheMap *, Eterm, byte*, Uint32, struct erl_off_heap_header** off_heap);
+static Eterm erl_enc_term(Process *, ErtsAtomCacheMap *, Eterm, byte*, Uint32, struct erl_off_heap_header** off_heap, Eterm args, byte* bytes, Eterm bin);
+static byte* enc_small(Eterm, byte*);
 static Uint is_external_string(Eterm obj, int* p_is_string);
 static byte* enc_atom(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
 static byte* enc_pid(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
@@ -90,6 +135,15 @@ static byte* dec_atom(ErtsDistExternal *, byte*, Eterm*);
 static byte* dec_pid(ErtsDistExternal *, Eterm**, byte*, ErlOffHeap*, Eterm*);
 static Sint decoded_size(byte *ep, byte* endp, int internal_tags);
 
+void erts_init_external(void) {
+  erts_init_trap_export(&term_to_binary_trap_export,
+                        am_erlang, am_term_to_binary_of_size, 2,
+                        &term_to_binary_of_size_2);
+  erts_init_trap_export(&enc_term_trap_export,
+                        am_erlang, am_enc_term_cont, 3,
+                        &enc_term_trap_3);
+    return;
+}
 
 static Uint encode_size_struct2(ErtsAtomCacheMap *, Eterm, unsigned);
 
@@ -498,18 +552,15 @@ Uint erts_encode_ext_size_ets(Eterm term)
 }
 
 
-void erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap *acmp)
+void erts_encode_dist_ext(Process *p, Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap *acmp)
 {
     byte *ep = *ext;
 #ifndef ERTS_DEBUG_USE_DIST_SEP
     if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
 #endif
 	*ep++ = VERSION_MAGIC;
+    // TODO: handle process arg and scheduling
     ep = enc_term(acmp, term, ep, flags, NULL);
-    if (!ep)
-	erl_exit(ERTS_ABORT_EXIT,
-		 "%s:%d:erts_encode_dist_ext(): Internal data structure error\n",
-		 __FILE__, __LINE__);
     *ext = ep;
 }
 
@@ -517,16 +568,17 @@ void erts_encode_ext(Eterm term, byte **ext)
 {
     byte *ep = *ext;
     *ep++ = VERSION_MAGIC;
+    // TODO: get process pointer from all uses of erts_encode_ext,
+    //       and make them handle yielding.
     ep = enc_term(NULL, term, ep, TERM_TO_BINARY_DFLAGS, NULL);
-    if (!ep)
-	erl_exit(ERTS_ABORT_EXIT,
-		 "%s:%d:erts_encode_ext(): Internal data structure error\n",
-		 __FILE__, __LINE__);
     *ext = ep;
 }
 
 byte* erts_encode_ext_ets(Eterm term, byte *ep, struct erl_off_heap_header** off_heap)
 {
+    // TODO: get process pointer from all uses of erts_encode_ext_ets,
+    //       and make them handle yielding.
+
     return enc_term(NULL, term, ep, TERM_TO_BINARY_DFLAGS|DFLAG_INTERNAL_TAGS,
 		    off_heap);
 }
@@ -1335,36 +1387,86 @@ external_size_2(BIF_ALIST_2)
     }
 }
 
+
 Eterm
 erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags)
 {
     Uint size;
-    Eterm bin;
-    size_t real_size;
-    byte* endp;
+    Eterm options, *hp;
 
+    /* Save C-level options in an Erlang over trap. */
     size = encode_size_struct2(NULL, Term, flags) + 1 /* VERSION_MAGIC */;
+    hp = HAlloc(p, 4); /* Size of a 3-tuple */
+    options = TUPLE3(hp, make_small(level), make_small(flags), make_small(size));
+
+    BUMP_REDS(p, (size >> 8));
+    if (p->fcalls < 1) {
+      BIF_TRAP2(&term_to_binary_trap_export, p, Term, options);
+    }
+
+    return term_to_binary_of_size(p, Term, options);
+}
+
+BIF_RETTYPE term_to_binary_of_size_2(BIF_ALIST_2)
+{
+  return term_to_binary_of_size(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+
+static BIF_RETTYPE term_to_binary_of_size(Process *p, Eterm arg1, Eterm arg2)
+{
+    Uint size;
+    Uint32 flags;
+    Eterm bin, *ptr;
+    byte* bytes;
+
+    ptr = tuple_val(arg2);
+    flags = unsigned_val(ptr[2]);
+    size = unsigned_val(ptr[3]);
+
+    bin = new_binary(p, (byte *)NULL, size);
+    bytes = binary_bytes(bin);
+    bytes[0] = VERSION_MAGIC;
+    return erl_enc_term(p, NULL, arg1, bytes+1, flags, NULL, arg2, bytes, bin);
+}
+
+static BIF_RETTYPE term_to_binary_cont(Process *p, Eterm res, Eterm args, Eterm bin)
+{
+    Eterm *ptr;
+    size_t real_size;
+    byte *bytes, *endp, *ep;
+    int level;
+    Uint size;
+    enc_work_area *ewa;
+    Binary *bin2;
+
+
+    bin2 = ((ProcBin *) binary_val(res))->val;
+    ewa = ((enc_work_area *)ERTS_MAGIC_BIN_DATA(bin2));
+    ep = ewa->ep;
+    bytes = ewa->bytes;
+    if (!ep)
+        erl_exit(ERTS_ABORT_EXIT,
+		 "%s:%d:enc_term: Internal data structure error\n",
+		 __FILE__, __LINE__);
+
+    ptr = tuple_val(args);
+    level = signed_val(ptr[1]);
+    size = unsigned_val(ptr[3]);
+
+    bin2 = ((ProcBin *) binary_val(res))->val;
+    ewa = ((enc_work_area *)ERTS_MAGIC_BIN_DATA(bin2));
+    endp = ewa->ep;
+
+    real_size = endp - bytes;
+    if (real_size > size) {
+      erl_exit(1, "%s, line %d: buffer overflow: %d word(s)\n",
+               __FILE__, __LINE__, endp - (bytes + size));
+    }
 
     if (level != 0) {
-	byte buf[256];
-	byte* bytes = buf;
 	byte* out_bytes;
 	uLongf dest_len;
-
-	if (sizeof(buf) < size) {
-	    bytes = erts_alloc(ERTS_ALC_T_TMP, size);
-	}
-
-	if ((endp = enc_term(NULL, Term, bytes, flags, NULL))
-	    == NULL) {
-	    erl_exit(1, "%s, line %d: bad term: %x\n",
-		     __FILE__, __LINE__, Term);
-	}
-	real_size = endp - bytes;
-	if (real_size > size) {
-	    erl_exit(1, "%s, line %d: buffer overflow: %d word(s)\n",
-		     __FILE__, __LINE__, real_size - size);
-	}
 
 	/*
 	 * We don't want to compress if compression actually increases the size.
@@ -1379,7 +1481,7 @@ erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags)
 	} else {
 	    dest_len = real_size - 5;
 	}
-	bin = new_binary(p, NULL, real_size+1);
+	bin = erts_realloc_binary(bin, real_size+1);
 	out_bytes = binary_bytes(bin);
 	out_bytes[0] = VERSION_MAGIC;
 	if (erl_zlib_compress2(out_bytes+6, &dest_len, bytes, real_size, level) != Z_OK) {
@@ -1390,29 +1492,46 @@ erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags)
 	    put_int32(real_size, out_bytes+2);
 	    bin = erts_realloc_binary(bin, dest_len+6);
 	}
-	if (bytes != buf) {
-	    erts_free(ERTS_ALC_T_TMP, bytes);
-	}
-	return bin;
-    } else {
-	byte* bytes;
 
-	bin = new_binary(p, (byte *)NULL, size);
-	bytes = binary_bytes(bin);
-	bytes[0] = VERSION_MAGIC;
-	if ((endp = enc_term(NULL, Term, bytes+1, flags, NULL))
-	    == NULL) {
-	    erl_exit(1, "%s, line %d: bad term: %x\n",
-		     __FILE__, __LINE__, Term);
-	}
-	real_size = endp - bytes;
-	if (real_size > size) {
-	    erl_exit(1, "%s, line %d: buffer overflow: %d word(s)\n",
-		     __FILE__, __LINE__, endp - (bytes + size));
-	}
-	return erts_realloc_binary(bin, real_size);
+    } else {
+        bin = erts_realloc_binary(bin, real_size);
     }
+    return bin;
 }
+
+
+static byte*
+enc_small(Eterm obj, byte *ep)
+{
+    Uint n;
+    Sint val = signed_val(obj);
+
+    if ((Uint)val < 256) {
+        *ep++ = SMALL_INTEGER_EXT;
+        put_int8(val, ep);
+        ep++;
+    } else if (sizeof(Sint) == 4 || IS_SSMALL32(val)) {
+        *ep++ = INTEGER_EXT;
+        put_int32(val, ep);
+        ep += 4;
+    } else {
+        DeclareTmpHeapNoproc(tmp_big,2);
+        Eterm big;
+        UseTmpHeapNoproc(2);
+        big = small_to_big(val, tmp_big);
+        *ep++ = SMALL_BIG_EXT;
+        n = big_bytes(big);
+        ASSERT(n < 256);
+        put_int8(n, ep);
+        ep += 1;
+        *ep++ = big_sign(big);
+        ep = big_to_bytes(big, ep);
+        UnUseTmpHeapNoproc(2);
+    }
+
+    return ep;
+}
+
 
 /*
  * This function fills ext with the external format of atom.
@@ -1676,13 +1795,166 @@ dec_pid(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Ete
 #define ENC_TERM ((Eterm) 0)
 #define ENC_ONE_CONS ((Eterm) 1)
 #define ENC_PATCH_FUN_SIZE ((Eterm) 2)
-#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 3)
 
+/* While doing term_to_binary we keep two stacks.
+   One stack contains erlang terms to handle, this stack is passed to the GC
+   as a root set through process.extra_rootset.
+   The other stack contains "work orders" (integers (0, 1, or 2)), this stack
+   the GC can't handle.
+   Both stacks are stored in one memory area which can be reallocated and
+   deallocated if the process dies during a yield.
+ */
+#define ALLOC_EWASTACK(ewa)                                             \
+    ewa->start = (Eterm *)erts_alloc(ERTS_ALC_T_ESTACK, DEF_WSTACK_SIZE*sizeof(UWord)*2); \
+    ewa->sp = ewa->start;                                               \
+    ewa->end = ewa->start + DEF_WSTACK_SIZE*2;                          \
+    ewa->wsp = ewa->end - 1;
+
+
+#define DESTROY_EWASTACK(ewa)						\
+do {									\
+	if(ewa->start != NULL) {					\
+	  erts_free(ERTS_ALC_T_ESTACK, ewa->start);			\
+	  ewa->start=NULL;						\
+        }								\
+} while(0)
+
+#define GROW_IF_NEEDED(ewa)                                             \
+    if (ewa->sp == ewa->wsp) {                  			\
+        int size = (ewa->end - ewa->wsp) -1;				\
+	erl_grow_wstack(&ewa->start, &ewa->sp, &ewa->end);		\
+        ewa->wsp = ewa->end-1;                                          \
+        while(size) *ewa->wsp-- = ewa->sp[size--];			\
+    }									
+
+#define EWASTACK_PUSH(ewa, x)						\
+do {									\
+       GROW_IF_NEEDED(ewa)		         			\
+       *ewa->sp++ = (x);						\
+} while(0)
+
+#define EWASTACK_WPUSH(ewa, x)						\
+do {									\
+    GROW_IF_NEEDED(ewa)                                                 \
+    *ewa->wsp-- = (x);	                 				\
+} while(0)
+
+#define EWASTACK_COUNT(ewa) (ewa->sp - ewa->start)
+#define EWASTACK_WCOUNT(ewa) (ewa->end - ewa->wsp)
+#define EWASTACK_WISEMPTY(ewa) (ewa->wsp == (ewa->end-1))
+#define EWASTACK_POP(ewa) (*(--ewa->sp))
+#define EWASTACK_WPOP(ewa) (*(++ewa->wsp))
+
+#define SAVE_TO_EWA                                                     \
+do {									\
+    ewa->acmp = acmp;                                                   \
+    ewa->obj = obj;                                                     \
+    ewa->ep = ep;                                                       \
+    ewa->dflags = dflags;						\
+    ewa->off_heap = off_heap;						\
+} while(0)
+
+#define GET_FROM_EWA                                                    \
+do {									\
+    acmp = ewa->acmp;                                                   \
+    obj = ewa->obj;                                                     \
+    ep = ewa->ep;                                                       \
+    dflags = ewa->dflags;                                               \
+    off_heap = ewa->off_heap;                                           \
+} while(0)
+
+
+static void cleanup_my_data_ttb(Binary *bp)
+{
+    enc_work_area *ewa;
+    ewa = (enc_work_area *)ERTS_MAGIC_BIN_DATA(bp);
+    DESTROY_EWASTACK(ewa);
+    return;
+}
+
+
+
+#define SET_UP_EWA \
+    bin =  erts_create_magic_binary(sizeof(enc_work_area), cleanup_my_data_ttb); \
+    ewa = (enc_work_area *)ERTS_MAGIC_BIN_DATA(bin); \
+    ALLOC_EWASTACK(ewa);\
+    SAVE_TO_EWA;
+
+#define CHECK_ENC_TERM()                                                \
+    if (!ep)                                                            \
+        erl_exit(ERTS_ABORT_EXIT,                                       \
+		 "%s:%d:enc_term: Internal data structure error\n",     \
+		 __FILE__, __LINE__);
+
+
+/* Yielding entry point to enc_term. */
+Eterm
+erl_enc_term(Process *p, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
+             struct erl_off_heap_header** off_heap, Eterm args, byte* bytes, Eterm resbin)
+{
+    Eterm *hp, mbin, res;
+    enc_work_area *ewa;
+    Binary *bin;
+    SET_UP_EWA;
+    ewa->bytes = bytes;
+
+    hp = HAlloc(p, PROC_BIN_SIZE);
+    mbin = erts_mk_magic_binary_term(&hp, &MSO(p), bin);
+
+    res = enc_term_cont(p, mbin);
+    if(res == THE_NON_VALUE) {
+        // Yield
+        p->extra_root = ewa->start;
+        p->extra_root_sz = (Uint) EWASTACK_COUNT(ewa);
+        p->extra_root_allocator = ERTS_ALC_T_ESTACK;
+        BIF_TRAP3(&enc_term_trap_export, p, mbin, args, resbin);
+    }
+
+    return term_to_binary_cont(p, res, args, resbin);
+}
+
+BIF_RETTYPE enc_term_trap_3(BIF_ALIST_3)
+{
+   return enc_term_trap(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+}
+
+BIF_RETTYPE enc_term_trap(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
+{
+    Eterm res;
+    res = enc_term_cont(p, arg1);
+    if(res == THE_NON_VALUE) {
+        // Yield
+        BIF_TRAP3(&enc_term_trap_export, p, arg1, arg2, arg3);
+    }
+
+    return term_to_binary_cont(p, res, arg2, arg3);
+}
+
+/* Non-yielding entry point to enc_term */
 static byte*
 enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 	 struct erl_off_heap_header** off_heap)
 {
-    DECLARE_WSTACK(s);
+    Eterm *buf, *start_buf, mbin, res;
+    ErlOffHeap fake_off_heap;
+    enc_work_area *ewa;
+    Binary *bin;
+    SET_UP_EWA;
+    start_buf = buf = (Eterm *) erts_alloc(ERTS_ALC_T_BINARY_BUFFER, PROC_BIN_SIZE);
+    fake_off_heap.first=NULL;
+    mbin = erts_mk_magic_binary_term(&buf, &fake_off_heap, bin);
+    res = enc_term_cont(NULL, mbin);
+    bin = ((ProcBin *) binary_val(res))->val;
+    ewa = ((enc_work_area *)ERTS_MAGIC_BIN_DATA(bin));
+    ep = ewa->ep;
+    CHECK_ENC_TERM();
+    erts_free(ERTS_ALC_T_BINARY_BUFFER, start_buf);
+    return ep;
+}
+
+
+BIF_RETTYPE enc_term_cont(Process *p, Eterm arg1)
+{
     Uint n;
     Uint i;
     Uint j;
@@ -1692,65 +1964,73 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 #if HALFWORD_HEAP
     UWord wobj;
 #endif
+    enc_work_area *ewa;
+    ErtsAtomCacheMap *acmp;
+    Eterm obj;
+    byte* ep;
+    Uint32 dflags;
+    struct erl_off_heap_header** off_heap;
 
+    int reds;
+    Binary *bin = ((ProcBin *) binary_val(arg1))->val;
+    ewa = (enc_work_area *) ERTS_MAGIC_BIN_DATA(bin);
+    GET_FROM_EWA;
 
-    goto L_jump_start;
+    /* TODO: We could store the old values in ewa and restore them here... */
+    if(p != NULL) {
+      p->extra_root = NULL;
+      p->extra_root_sz = 0;
+    }
+    reds = (p == NULL) ? 0 : p->fcalls;
+    if (EWASTACK_WISEMPTY(ewa)) goto L_jump_start;
+    else goto outer_loop;
 
  outer_loop:
-    while (!WSTACK_ISEMPTY(s)) {
-#if HALFWORD_HEAP
-	obj = (Eterm) (wobj = WSTACK_POP(s));
-#else
-	obj = WSTACK_POP(s);
-#endif
-	switch (val = WSTACK_POP(s)) {
+    while (!EWASTACK_WISEMPTY(ewa)) {
+        if ((p != NULL) && (--reds < 1)) {
+          p->fcalls = reds;
+          SAVE_TO_EWA;
+          p->extra_root = ewa->start;
+          p->extra_root_sz = (Uint) EWASTACK_COUNT(ewa);
+          p->extra_root_allocator = ERTS_ALC_T_ESTACK;
+          return THE_NON_VALUE;
+        }
+
+	switch (val = EWASTACK_WPOP(ewa)) {
 	case ENC_TERM:
+#if HALFWORD_HEAP
+        	obj = (Eterm) (wobj = EWASTACK_POP(ewa));
+#else
+	        obj = EWASTACK_POP(ewa);
+#endif
+
 	    break;
 	case ENC_ONE_CONS:
 	encode_one_cons:
 	    {
-		Eterm* cons = list_val(obj);
+                Eterm* cons;
 		Eterm tl;
 
+#if HALFWORD_HEAP
+         	obj = (Eterm) (wobj = EWASTACK_POP(ewa));
+#else
+        	obj = EWASTACK_POP(ewa);
+#endif
+                cons = list_val(obj);
 		obj = CAR(cons);
 		tl = CDR(cons);
-		WSTACK_PUSH(s, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
-		WSTACK_PUSH(s, tl);
+		EWASTACK_WPUSH(ewa, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
+		EWASTACK_PUSH(ewa, tl);
 	    }
 	    break;
 	case ENC_PATCH_FUN_SIZE:
 	    {
-#if HALFWORD_HEAP
-		byte* size_p = (byte *) wobj;
-#else
-		byte* size_p = (byte *) obj;
-#endif
+                byte* size_p = (byte *) EWASTACK_WPOP(ewa);
 		put_int32(ep - size_p, size_p);
 	    }
 	    goto outer_loop;
-	case ENC_LAST_ARRAY_ELEMENT:
-	    {
-#if HALFWORD_HEAP
-		Eterm* ptr = (Eterm *) wobj;
-#else
-		Eterm* ptr = (Eterm *) obj;
-#endif
-		obj = *ptr;
-	    }
-	    break;
-	default:		/* ENC_LAST_ARRAY_ELEMENT+1 and upwards */
-	    {
-#if HALFWORD_HEAP
-		Eterm* ptr = (Eterm *) wobj;
-#else
-		Eterm* ptr = (Eterm *) obj;
-#endif
-		obj = *ptr++;
-		WSTACK_PUSH(s, val-1);
-		WSTACK_PUSH(s, (UWord) ptr);
-	    }
-	    break;
 	}
+
 
     L_jump_start:
 	switch(tag_val_def(obj)) {
@@ -1763,34 +2043,7 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 	    break;
 
 	case SMALL_DEF:
-	    {
-		/* From R14B we no longer restrict INTEGER_EXT to 28 bits,
-		 * as done earlier for backward compatibility reasons. */
-		Sint val = signed_val(obj);
-
-		if ((Uint)val < 256) {
-		    *ep++ = SMALL_INTEGER_EXT;
-		    put_int8(val, ep);
-		    ep++;
-		} else if (sizeof(Sint) == 4 || IS_SSMALL32(val)) {
-		    *ep++ = INTEGER_EXT;
-		    put_int32(val, ep);
-		    ep += 4;
-		} else {
-		    DeclareTmpHeapNoproc(tmp_big,2);
-		    Eterm big;
-		    UseTmpHeapNoproc(2);
-		    big = small_to_big(val, tmp_big);
-		    *ep++ = SMALL_BIG_EXT;
-		    n = big_bytes(big);
-		    ASSERT(n < 256);
-		    put_int8(n, ep);
-		    ep += 1;
-		    *ep++ = big_sign(big);
-		    ep = big_to_bytes(big, ep);
-		    UnUseTmpHeapNoproc(2);
-		}
-	    }
+            ep = enc_small(obj, ep);
 	    break;
 
 	case BIG_DEF:
@@ -1877,6 +2130,7 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 		    *ep++ = LIST_EXT;
 		    put_int32(i, ep);
 		    ep += 4;
+                    EWASTACK_PUSH(ewa, obj);
 		    goto encode_one_cons;
 		}
 	    }
@@ -1895,9 +2149,10 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 		put_int32(i, ep);
 		ep += 4;
 	    }
-	    if (i > 0) {
-		WSTACK_PUSH(s, ENC_LAST_ARRAY_ELEMENT+i-1);
-		WSTACK_PUSH(s, (UWord) ptr);
+	    while (i > 0) {
+		EWASTACK_WPUSH(ewa, ENC_TERM);
+		EWASTACK_PUSH(ewa, (UWord) ptr[i-1]);
+                i--;
 	    }
 	    break;
 
@@ -2013,11 +2268,12 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 	case EXPORT_DEF:
 	    {
 		Export* exp = *((Export **) (export_val(obj) + 1));
+
 		if ((dflags & DFLAG_EXPORT_PTR_TAG) != 0) {
 		    *ep++ = EXPORT_EXT;
 		    ep = enc_atom(acmp, exp->code[0], ep, dflags);
 		    ep = enc_atom(acmp, exp->code[1], ep, dflags);
-		    ep = enc_term(acmp, make_small(exp->code[2]), ep, dflags, off_heap);
+		    ep = enc_small(make_small(exp->code[2]), ep);
 		} else {
 		    /* Tag, arity */
 		    *ep++ = SMALL_TUPLE_EXT;
@@ -2041,8 +2297,8 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 		    int ei;
 
 		    *ep++ = NEW_FUN_EXT;
-		    WSTACK_PUSH(s, ENC_PATCH_FUN_SIZE);
-		    WSTACK_PUSH(s, (UWord) ep); /* Position for patching in size */
+		    EWASTACK_WPUSH(ewa, ENC_PATCH_FUN_SIZE);
+		    EWASTACK_WPUSH(ewa, (UWord) ep); /* Position for patching in size */
 		    ep += 4;
 		    *ep = funp->arity;
 		    ep += 1;
@@ -2053,14 +2309,14 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 		    put_int32(funp->num_free, ep);
 		    ep += 4;
 		    ep = enc_atom(acmp, funp->fe->module, ep, dflags);
-		    ep = enc_term(acmp, make_small(funp->fe->old_index), ep, dflags, off_heap);
-		    ep = enc_term(acmp, make_small(funp->fe->old_uniq), ep, dflags, off_heap);
+		    ep = enc_small(make_small(funp->fe->old_index), ep);
+		    ep = enc_small(make_small(funp->fe->old_uniq), ep);
 		    ep = enc_pid(acmp, funp->creator, ep, dflags);
 
 		fun_env:
 		    for (ei = funp->num_free-1; ei > 0; ei--) {
-			WSTACK_PUSH(s, ENC_TERM);
-			WSTACK_PUSH(s, (UWord) funp->env[ei]);
+			EWASTACK_WPUSH(ewa, ENC_TERM);
+			EWASTACK_PUSH(ewa, (UWord) funp->env[ei]);
 		    }
 		    if (funp->num_free != 0) {
 			obj = funp->env[0];
@@ -2103,8 +2359,9 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 	    break;
 	}
     }
-    DESTROY_WSTACK(s);
-    return ep;
+    SAVE_TO_EWA;
+    // DESTROY_EWASTACK(ewa);
+    return arg1;
 }
 
 static

@@ -1740,10 +1740,10 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
     /* Encode internal version of dist header */
     obuf->extp = erts_encode_ext_dist_header_setup(obuf->ext_endp, acmp);
     /* Encode control message */
-    erts_encode_dist_ext(ctl, &obuf->ext_endp, flags, acmp);
+    erts_encode_dist_ext(c_p, ctl, &obuf->ext_endp, flags, acmp);
     if (is_value(msg)) {
 	/* Encode message */
-	erts_encode_dist_ext(msg, &obuf->ext_endp, flags, acmp);
+       erts_encode_dist_ext(c_p, msg, &obuf->ext_endp, flags, acmp);
     }
 
     ASSERT(obuf->extp < obuf->ext_endp);
