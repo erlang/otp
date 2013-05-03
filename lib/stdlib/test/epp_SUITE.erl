@@ -104,6 +104,8 @@ include_local(suite) ->
 include_local(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line File = filename:join(DataDir, "include_local.erl"),
+    FooHrl = filename:join([DataDir,"include","foo.hrl"]),
+    BarHrl = filename:join([DataDir,"include","bar.hrl"]),
     %% include_local.erl includes include/foo.hrl which
     %% includes bar.hrl (also in include/) without requiring
     %% any additional include path, and overriding any file
@@ -111,6 +113,8 @@ include_local(Config) when is_list(Config) ->
     ?line {ok, List} = epp:parse_file(File, [DataDir], []),
     ?line {value, {attribute,_,a,{true,true}}} =
 	lists:keysearch(a,3,List),
+    [{File,1},{FooHrl,1},{BarHrl,1},{FooHrl,5},{File,5}] =
+        [ FileLine || {attribute,_,file,FileLine} <- List ],
     ok.
 
 %%% Here is a little reimplementation of epp:parse_file, which times out
