@@ -34,6 +34,8 @@
 
 typedef struct ErtsPTabListBifData_ ErtsPTabListBifData;
 
+#define ERTS_PTAB_NEW_MAX_RESERVE_FAIL 1000
+
 #define ERTS_PTAB_LIST_BIF_TAB_INSPECT_INDICES_PER_RED 25
 #define ERTS_PTAB_LIST_BIF_TAB_CHUNK_SIZE 1000
 #define ERTS_PTAB_LIST_BIF_MIN_START_REDS				\
@@ -415,6 +417,27 @@ last_data_cmp(Uint64 ld1, Uint64 ld2)
 #define ERTS_PTAB_LastData2EtermData(LD) \
     ((Eterm) ((LD) & ~(~((Uint64) 0) << ERTS_PTAB_ID_DATA_SIZE)))
 
+static ERTS_INLINE Uint32
+ix_to_free_id_data_ix(ErtsPTab *ptab, Uint32 ix)
+{
+    Uint32 dix;
+
+    dix = ((ix & ptab->r.o.dix_cl_mask) << ptab->r.o.dix_cl_shift);
+    dix += ((ix >> ptab->r.o.dix_cli_shift) & ptab->r.o.dix_cli_mask);
+    ASSERT(0 <= dix && dix < ptab->r.o.max);
+    return dix;
+}
+
+UWord
+erts_ptab_mem_size(ErtsPTab *ptab)
+{
+    UWord size = ptab->r.o.max*sizeof(erts_smp_atomic_t);
+    if (ptab->r.o.free_id_data)
+	size += ptab->r.o.max*sizeof(Uint32);
+    return size;
+}
+
+
 void
 erts_ptab_init_table(ErtsPTab *ptab,
 		     ErtsAlcType_t atype,
@@ -422,10 +445,11 @@ erts_ptab_init_table(ErtsPTab *ptab,
 		     ErtsPTabElementCommon *invalid_element,
 		     int size,
 		     UWord element_size,
-		     char *name)
+		     char *name,
+		     int legacy)
 {
-    size_t tab_sz;
-    int bits;
+    size_t tab_sz, alloc_sz;
+    Uint32 bits, cl, cli, ix, ix_per_cache_line, tab_cache_lines; 
     char *tab_end;
     erts_smp_atomic_t *tab_entry;
     erts_smp_rwmtx_opt_t rwmtx_opts = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
@@ -448,7 +472,10 @@ erts_ptab_init_table(ErtsPTab *ptab,
     ptab->r.o.max = size;
 
     tab_sz = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(size*sizeof(erts_smp_atomic_t));
-    ptab->r.o.tab = erts_alloc_permanent_cache_aligned(atype, tab_sz);
+    alloc_sz = tab_sz;
+    if (!legacy)
+	alloc_sz += ERTS_ALC_CACHE_LINE_ALIGN_SIZE(size*sizeof(Uint32));
+    ptab->r.o.tab = erts_alloc_permanent_cache_aligned(atype, alloc_sz);
     tab_end = ((char *) ptab->r.o.tab) + tab_sz;
     tab_entry = ptab->r.o.tab;
     while (tab_end > ((char *) tab_entry)) {
@@ -456,28 +483,57 @@ erts_ptab_init_table(ErtsPTab *ptab,
 	tab_entry++;
     }
 
-    ptab->r.o.tab_cache_lines = tab_sz/ERTS_CACHE_LINE_SIZE;
-    ptab->r.o.pix_per_cache_line = (ERTS_CACHE_LINE_SIZE
-				    / sizeof(erts_smp_atomic_t));
+    tab_cache_lines = tab_sz/ERTS_CACHE_LINE_SIZE;
+    ix_per_cache_line = (ERTS_CACHE_LINE_SIZE/sizeof(erts_smp_atomic_t));
     ASSERT((ptab->r.o.max & (ptab->r.o.max - 1)) == 0); /* power of 2 */
-    ASSERT((ptab->r.o.pix_per_cache_line
-	    & (ptab->r.o.pix_per_cache_line - 1)) == 0); /* power of 2 */
-    ASSERT((ptab->r.o.tab_cache_lines
-	    & (ptab->r.o.tab_cache_lines - 1)) == 0); /* power of 2 */
+    ASSERT((ix_per_cache_line & (ix_per_cache_line - 1)) == 0); /* power of 2 */
+    ASSERT((tab_cache_lines & (tab_cache_lines - 1)) == 0); /* power of 2 */
 
-    ptab->r.o.pix_mask
-	= (1 << bits) - 1;
-    ptab->r.o.pix_cl_mask
-	= ptab->r.o.tab_cache_lines-1;
-    ptab->r.o.pix_cl_shift
-	= erts_fit_in_bits_int32(ptab->r.o.pix_per_cache_line-1);
-    ptab->r.o.pix_cli_shift
-	= erts_fit_in_bits_int32(ptab->r.o.pix_cl_mask);
-    ptab->r.o.pix_cli_mask
-	= (1 << (bits - ptab->r.o.pix_cli_shift)) - 1;
+    ptab->r.o.pix_mask = (1 << bits) - 1;
+    ptab->r.o.pix_cl_mask = tab_cache_lines-1;
+    ptab->r.o.pix_cl_shift = erts_fit_in_bits_int32(ix_per_cache_line-1);
+    ptab->r.o.pix_cli_shift = erts_fit_in_bits_int32(ptab->r.o.pix_cl_mask);
+    ptab->r.o.pix_cli_mask = (1 << (bits - ptab->r.o.pix_cli_shift)) - 1;
 
     ASSERT(ptab->r.o.pix_cl_shift + ptab->r.o.pix_cli_shift == bits);
 
+    if (legacy) {
+	ptab->r.o.free_id_data = NULL;
+	ptab->r.o.dix_cl_mask = 0;
+	ptab->r.o.dix_cl_shift = 0;
+	ptab->r.o.dix_cli_shift = 0;
+	ptab->r.o.dix_cli_mask = 0;
+    }
+    else {
+
+	tab_sz = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(size*sizeof(Uint32));
+	ptab->r.o.free_id_data = (Uint32 *) tab_end;
+
+	tab_cache_lines = tab_sz/ERTS_CACHE_LINE_SIZE;
+	ix_per_cache_line = (ERTS_CACHE_LINE_SIZE/sizeof(Uint32));
+
+	ptab->r.o.dix_cl_mask = tab_cache_lines-1;
+	ptab->r.o.dix_cl_shift = erts_fit_in_bits_int32(ix_per_cache_line-1);
+	ptab->r.o.dix_cli_shift = erts_fit_in_bits_int32(ptab->r.o.dix_cl_mask);
+	ptab->r.o.dix_cli_mask = (1 << (bits - ptab->r.o.dix_cli_shift)) - 1;
+
+	ASSERT((ix_per_cache_line & (ix_per_cache_line - 1)) == 0); /* power of 2 */
+	ASSERT((tab_cache_lines & (tab_cache_lines - 1)) == 0); /* power of 2 */
+
+	ASSERT(ptab->r.o.dix_cl_shift + ptab->r.o.dix_cli_shift == bits);
+
+	ix = 0;
+	for (cl = 0; cl < tab_cache_lines; cl++) {
+	    for (cli = 0; cli < ix_per_cache_line; cli++) {
+		ptab->r.o.free_id_data[ix] = cli*tab_cache_lines+cl;
+		ix++;
+	    }
+	}
+
+	erts_smp_atomic32_init_nob(&ptab->vola.tile.aid_ix, -1);
+	erts_smp_atomic32_init_nob(&ptab->vola.tile.fid_ix, -1);
+
+    }
     ptab->r.o.invalid_element = invalid_element;
     ptab->r.o.invalid_data = erts_ptab_id2data(ptab, invalid_element->id);
     ptab->r.o.release_element = release_element;
@@ -522,9 +578,7 @@ erts_ptab_new_element(ErtsPTab *ptab,
 		      void *init_arg,
 		      void (*init_ptab_el)(void *, Eterm))
 {
-    int pix;
-    Uint64 ld, exp_ld;
-    Eterm data;
+    Uint32 pix, ix, data;
     erts_aint32_t count;
     erts_aint_t invalid = (erts_aint_t) ptab->r.o.invalid_element;
 
@@ -551,62 +605,108 @@ erts_ptab_new_element(ErtsPTab *ptab,
     ptab_el->u.alive.started_interval
 	= erts_smp_current_interval_nob(erts_ptab_interval(ptab));
 
-    ld = last_data_read_acqb(ptab);
+    if (ptab->r.o.free_id_data) {
 
-    /* Reserve slot */
-    while (1) {
-	ld++;
-	pix = erts_ptab_data2pix(ptab, ERTS_PTAB_LastData2EtermData(ld));
-	if (erts_smp_atomic_read_nob(&ptab->r.o.tab[pix]) == ERTS_AINT_NULL) {
-	    erts_aint_t val;
-	    val = erts_smp_atomic_cmpxchg_relb(&ptab->r.o.tab[pix],
-					       invalid,	
-					       ERTS_AINT_NULL);
+	ix = (Uint32) erts_smp_atomic32_inc_read_acqb(&ptab->vola.tile.aid_ix);
+	ix = ix_to_free_id_data_ix(ptab, ix);
 
-	    if (ERTS_AINT_NULL == val)
-		break;
-	}
-    }
+	data = ptab->r.o.free_id_data[ix];
 
-    data = ERTS_PTAB_LastData2EtermData(ld);
-
-    if (data == ptab->r.o.invalid_data) {
-	/* Do not use invalid data; fix it... */
-	ld += ptab->r.o.max;
-	ASSERT(pix == erts_ptab_data2pix(ptab,
-					 ERTS_PTAB_LastData2EtermData(ld)));
-	data = ERTS_PTAB_LastData2EtermData(ld);
-	ASSERT(data != ptab->r.o.invalid_data);
-    }
-
-    exp_ld = last_data_read_nob(ptab);
-
-    /* Move last data forward */
-    while (1) {
-	Uint64 act_ld;
-	if (last_data_cmp(ld, exp_ld) < 0)
-	    break;
-	act_ld = last_data_cmpxchg_relb(ptab, ld, exp_ld);
-	if (act_ld == exp_ld)
-	    break;
-	exp_ld = act_ld;
-    }
-
-    init_ptab_el(init_arg, data);
+	init_ptab_el(init_arg, (Eterm) data);
 
 #ifdef ERTS_SMP
-    erts_smp_atomic32_init_nob(&ptab_el->refc, 1);
+	erts_smp_atomic32_init_nob(&ptab_el->refc, 1);
 #endif
 
-    /* Move into slot reserved */
+	pix = erts_ptab_data2pix(ptab, (Eterm) data);
+
 #ifdef DEBUG
-    ASSERT(invalid == erts_smp_atomic_xchg_relb(&ptab->r.o.tab[pix],
+	ASSERT(ERTS_AINT_NULL == erts_smp_atomic_xchg_relb(&ptab->r.o.tab[pix],
+							   (erts_aint_t) ptab_el));
+#else
+	erts_smp_atomic_set_relb(&ptab->r.o.tab[pix], (erts_aint_t) ptab_el);
+#endif
+
+	erts_ptab_runlock(ptab);
+
+    }
+    else {
+	int rlocked = ERTS_PTAB_NEW_MAX_RESERVE_FAIL;
+	Uint64 ld, exp_ld;
+	/* Deprecated legacy algorithm... */
+
+    restart:
+
+	ptab_el->u.alive.started_interval
+	    = erts_smp_current_interval_nob(erts_ptab_interval(ptab));
+
+	ld = last_data_read_acqb(ptab);
+
+	/* Reserve slot */
+	while (1) {
+	    ld++;
+	    pix = erts_ptab_data2pix(ptab, ERTS_PTAB_LastData2EtermData(ld));
+	    if (erts_smp_atomic_read_nob(&ptab->r.o.tab[pix])
+		== ERTS_AINT_NULL) {
+		erts_aint_t val;
+		val = erts_smp_atomic_cmpxchg_relb(&ptab->r.o.tab[pix],
+						   invalid,	
+						   ERTS_AINT_NULL);
+
+		if (ERTS_AINT_NULL == val)
+		    break;
+	    }
+	    if (rlocked && --rlocked == 0) {
+		erts_ptab_runlock(ptab);
+		erts_ptab_rwlock(ptab);
+		goto restart;
+	    }
+	}
+
+	data = ERTS_PTAB_LastData2EtermData(ld);
+
+	if (data == ptab->r.o.invalid_data) {
+	    /* Do not use invalid data; fix it... */
+	    ld += ptab->r.o.max;
+	    ASSERT(pix == erts_ptab_data2pix(ptab,
+					     ERTS_PTAB_LastData2EtermData(ld)));
+	    data = ERTS_PTAB_LastData2EtermData(ld);
+	    ASSERT(data != ptab->r.o.invalid_data);
+	}
+
+	exp_ld = last_data_read_nob(ptab);
+
+	/* Move last data forward */
+	while (1) {
+	    Uint64 act_ld;
+	    if (last_data_cmp(ld, exp_ld) < 0)
+		break;
+	    act_ld = last_data_cmpxchg_relb(ptab, ld, exp_ld);
+	    if (act_ld == exp_ld)
+		break;
+	    exp_ld = act_ld;
+	}
+
+	init_ptab_el(init_arg, data);
+
+#ifdef ERTS_SMP
+	erts_smp_atomic32_init_nob(&ptab_el->refc, 1);
+#endif
+
+	/* Move into slot reserved */
+#ifdef DEBUG
+	ASSERT(invalid == erts_smp_atomic_xchg_relb(&ptab->r.o.tab[pix],
 						(erts_aint_t) ptab_el));
 #else
-    erts_smp_atomic_set_relb(&ptab->r.o.tab[pix], (erts_aint_t) ptab_el);
+	erts_smp_atomic_set_relb(&ptab->r.o.tab[pix], (erts_aint_t) ptab_el);
 #endif
 
-    erts_ptab_runlock(ptab);
+	if (rlocked)
+	    erts_ptab_runlock(ptab);
+	else
+	    erts_ptab_rwunlock(ptab);
+
+    }
 
     return 1;
 }
@@ -647,7 +747,9 @@ erts_ptab_delete_element(ErtsPTab *ptab,
 			 ErtsPTabElementCommon *ptab_el)
 {
     int maybe_save;
-    int pix = erts_ptab_id2pix(ptab, ptab_el->id);
+    Uint32 pix, ix, data;
+
+    pix = erts_ptab_id2pix(ptab, ptab_el->id);
 
     ASSERT(erts_get_scheduler_id()); /* *Need* to be a scheduler */
 
@@ -659,6 +761,26 @@ erts_ptab_delete_element(ErtsPTab *ptab,
     }
 
     erts_smp_atomic_set_relb(&ptab->r.o.tab[pix], ERTS_AINT_NULL);
+
+    if (ptab->r.o.free_id_data) {
+
+	/* Next data for this slot... */
+	data = (Uint32) erts_ptab_id2data(ptab, ptab_el->id);
+	data += ptab->r.o.max;
+	data &= ~(~((Uint32) 0) << ERTS_PTAB_ID_DATA_SIZE);
+	if (data == ptab->r.o.invalid_data) { /* make sure not invalid */
+	    data += ptab->r.o.max;
+	    data &= ~(~((Uint32) 0) << ERTS_PTAB_ID_DATA_SIZE);
+	}
+
+	ASSERT(data != ptab->r.o.invalid_data);
+	ASSERT(pix == erts_ptab_data2pix(ptab, data));
+
+	ix = (Uint32) erts_smp_atomic32_inc_read_relb(&ptab->vola.tile.fid_ix);
+	ix = ix_to_free_id_data_ix(ptab, ix);
+
+	ptab->r.o.free_id_data[ix] = data;
+    }
 
     ASSERT(erts_smp_atomic32_read_nob(&ptab->vola.tile.count) > 0);
     erts_smp_atomic32_dec_relb(&ptab->vola.tile.count);
@@ -1280,42 +1402,86 @@ erts_ptab_test_next_id(ErtsPTab *ptab, int set, Uint next)
 
     erts_ptab_rwlock(ptab);
 
-    if (!set)
-	ld = last_data_read_nob(ptab);
-    else {
+    if (ptab->r.o.free_id_data) {
+	Uint32 aid_ix, dix;
 
-	ld = (Uint64) next;
-	data = ERTS_PTAB_LastData2EtermData(ld);
-	if (ptab->r.o.invalid_data == data) {
-	    ld += ptab->r.o.max;
-	    ASSERT(erts_ptab_data2pix(ptab, data)
-		   == erts_ptab_data2pix(ptab,
-					 ERTS_PTAB_LastData2EtermData(ld)));
+	if (set) {
+	    Uint32 max_ix, ser, num, start;
+	    max_ix = ptab->r.o.max - 1;
+	    ser = next & ~max_ix;
+	    start = num = next & max_ix;
+	
+	    aid_ix = (Uint32) erts_smp_atomic32_read_nob(&ptab->vola.tile.aid_ix) + 1;
+
+	    do {
+		Uint32 pix = erts_ptab_data2pix(ptab, num);
+		if (ERTS_AINT_NULL == erts_ptab_pix2intptr_nob(ptab, pix)) {
+		    dix = ix_to_free_id_data_ix(ptab, aid_ix);
+		    ptab->r.o.free_id_data[dix] = ser + num;
+		    ASSERT(pix == erts_ptab_data2pix(ptab, ser+num));
+		    if (aid_ix == max_ix)
+			aid_ix = 0;
+		    else
+			aid_ix++;
+		}
+		if (num == max_ix)
+		    num = 0;
+		else
+		    num++;
+	    } while (num != start);
+
+#ifdef DEBUG
+	    if (aid_ix == 0)
+		aid_ix = max_ix;
+	    else
+		aid_ix--;
+	    ASSERT((aid_ix & max_ix) == (((Uint32) erts_atomic32_read_nob(&ptab->vola.tile.fid_ix)) & max_ix));
+#endif
 	}
-	last_data_set_relb(ptab, ld);
+
+	aid_ix = (Uint32) erts_smp_atomic32_read_nob(&ptab->vola.tile.aid_ix) + 1;
+	dix = ix_to_free_id_data_ix(ptab, aid_ix);
+	res = (Sint) ptab->r.o.free_id_data[dix];
     }
+    else {
+	/* Deprecated legacy algorithm... */
+	if (!set)
+	    ld = last_data_read_nob(ptab);
+	else {
 
-    while (1) {
-	int pix;
-	ld++;
-	pix = (int) (ld % ptab->r.o.max);
-	if (first_pix < 0)
-	    first_pix = pix;
-	else if (pix == first_pix) {
-	    res = -1;
-	    break;
-	}
-	if (ERTS_AINT_NULL == erts_ptab_pix2intptr_nob(ptab, pix)) {
+	    ld = (Uint64) next;
 	    data = ERTS_PTAB_LastData2EtermData(ld);
 	    if (ptab->r.o.invalid_data == data) {
 		ld += ptab->r.o.max;
 		ASSERT(erts_ptab_data2pix(ptab, data)
 		       == erts_ptab_data2pix(ptab,
 					     ERTS_PTAB_LastData2EtermData(ld)));
-		data = ERTS_PTAB_LastData2EtermData(ld);
 	    }
-	    res = data;
-	    break;
+	    last_data_set_relb(ptab, ld);
+	}
+
+	while (1) {
+	    int pix;
+	    ld++;
+	    pix = (int) (ld % ptab->r.o.max);
+	    if (first_pix < 0)
+		first_pix = pix;
+	    else if (pix == first_pix) {
+		res = -1;
+		break;
+	    }
+	    if (ERTS_AINT_NULL == erts_ptab_pix2intptr_nob(ptab, pix)) {
+		data = ERTS_PTAB_LastData2EtermData(ld);
+		if (ptab->r.o.invalid_data == data) {
+		    ld += ptab->r.o.max;
+		    ASSERT(erts_ptab_data2pix(ptab, data)
+			   == erts_ptab_data2pix(ptab,
+						 ERTS_PTAB_LastData2EtermData(ld)));
+		    data = ERTS_PTAB_LastData2EtermData(ld);
+		}
+		res = data;
+		break;
+	    }
 	}
     }
 

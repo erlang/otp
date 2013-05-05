@@ -2648,7 +2648,8 @@ erts_port_link(Process *c_p, Port *prt, Eterm to, Eterm *refp)
 }
 
 void erts_init_io(int port_tab_size,
-		  int port_tab_size_ignore_files)
+		  int port_tab_size_ignore_files,
+		  int legacy_port_tab)
 {
     ErlDrvEntry** dp;
     UWord common_element_size;
@@ -2691,7 +2692,8 @@ void erts_init_io(int port_tab_size,
 			 (ErtsPTabElementCommon *) &erts_invalid_port.common,
 			 port_tab_size,
 			 common_element_size, /* Doesn't need to be excact */
-			 "port_table");
+			 "port_table",
+			 legacy_port_tab);
 
     erts_smp_atomic_init_nob(&erts_bytes_out, 0);
     erts_smp_atomic_init_nob(&erts_bytes_in, 0);

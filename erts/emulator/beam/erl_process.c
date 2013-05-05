@@ -485,7 +485,7 @@ release_process(void *vproc)
 
 /* initialize the scheduler */
 void
-erts_init_process(int ncpu, int proc_tab_size)
+erts_init_process(int ncpu, int proc_tab_size, int legacy_proc_tab)
 {
 
 #ifdef ERTS_SMP
@@ -505,7 +505,8 @@ erts_init_process(int ncpu, int proc_tab_size)
 			 (ErtsPTabElementCommon *) &erts_invalid_process.common,
 			 proc_tab_size,
 			 sizeof(Process),
-			 "process_table");
+			 "process_table",
+			 legacy_proc_tab);
 
     last_reductions = 0;
     last_exact_reductions = 0;

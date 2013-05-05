@@ -94,18 +94,23 @@ typedef struct {
     erts_smp_atomic_t last_data;
 #endif
     erts_smp_atomic32_t count;
+    erts_smp_atomic32_t aid_ix;
+    erts_smp_atomic32_t fid_ix;
 } ErtsPTabVolatileData;
 
 typedef struct {
     erts_smp_atomic_t *tab;
+    Uint32 *free_id_data;
     Uint32 max;
-    Uint32 tab_cache_lines;
-    Uint32 pix_per_cache_line;
     Uint32 pix_mask;
     Uint32 pix_cl_mask;
     Uint32 pix_cl_shift;
     Uint32 pix_cli_mask;
     Uint32 pix_cli_shift;
+    Uint32 dix_cl_mask;
+    Uint32 dix_cl_shift;
+    Uint32 dix_cli_mask;
+    Uint32 dix_cli_shift;
     ErtsPTabElementCommon *invalid_element;
     Eterm invalid_data;
     void (*release_element)(void *);
@@ -179,7 +184,8 @@ void erts_ptab_init_table(ErtsPTab *ptab,
 			  ErtsPTabElementCommon *invalid_element,
 			  int size,
 			  UWord element_size,
-			  char *name);
+			  char *name,
+			  int legacy);
 int erts_ptab_new_element(ErtsPTab *ptab,
 			  ErtsPTabElementCommon *ptab_el,
 			  void *init_arg,
@@ -187,6 +193,7 @@ int erts_ptab_new_element(ErtsPTab *ptab,
 void erts_ptab_delete_element(ErtsPTab *ptab,
 			      ErtsPTabElementCommon *ptab_el);
 int erts_ptab_initialized(ErtsPTab *ptab);
+UWord erts_ptab_mem_size(ErtsPTab *ptab);
 
 ERTS_GLB_INLINE erts_interval_t *erts_ptab_interval(ErtsPTab *ptab);
 ERTS_GLB_INLINE int erts_ptab_max(ErtsPTab *ptab);
