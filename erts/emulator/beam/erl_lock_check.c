@@ -143,6 +143,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"ptimer_pre_alloc_lock",		"address",		},
     {	"btm_pre_alloc_lock",			NULL,			},
     {	"dist_entry_out_queue",			"address"		},
+    {	"port_sched_lock",			"port_id"		},
+    {   "port_table",                           NULL                    },
 #endif
     {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
@@ -154,10 +156,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"pmmap",				NULL			},
 #endif
 #ifdef ERTS_SMP
-    {	"port_sched_lock",			"port_id"		},
     {	"port_task_pre_alloc_lock",		"address"		},
     {	"proclist_pre_alloc_lock",		"address"		},
-    {   "port_table",                           NULL                    },
     {	"xports_list_pre_alloc_lock",		"address"		},
     {	"inet_buffer_stack_lock",		NULL			},
     {	"gc_info",				NULL			},

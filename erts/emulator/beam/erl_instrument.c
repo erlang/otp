@@ -271,6 +271,18 @@ stat_upd_realloc(ErtsAlcType_t n, Uint size, Uint old_size)
  * stat instrumentation callback functions
  */
 
+static void stat_pre_lock(void)
+{
+    erts_mtx_lock(&instr_mutex);
+}
+
+static void stat_pre_unlock(void)
+{
+    erts_mtx_unlock(&instr_mutex);
+}
+
+static ErtsAllocatorWrapper_t instr_wrapper;
+
 static void *
 stat_alloc(ErtsAlcType_t n, void *extra, Uint size)
 {
@@ -278,7 +290,9 @@ stat_alloc(ErtsAlcType_t n, void *extra, Uint size)
     Uint ssize;
     void *res;
 
-    erts_mtx_lock(&instr_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_lock(&instr_mutex);
+    }
 
     ssize = size + STAT_BLOCK_HEADER_SIZE;
     res = (*real_af->alloc)(n, real_af->extra, ssize);
@@ -293,7 +307,9 @@ stat_alloc(ErtsAlcType_t n, void *extra, Uint size)
 	res = (void *) ((StatBlock_t *) res)->mem;
     }
 
-    erts_mtx_unlock(&instr_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_unlock(&instr_mutex);
+    }
 
     return res;
 }
@@ -307,7 +323,9 @@ stat_realloc(ErtsAlcType_t n, void *extra, void *ptr, Uint size)
     void *sptr;
     void *res;
 
-    erts_mtx_lock(&instr_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_lock(&instr_mutex);
+    }
 
     if (ptr) {
 	sptr = (void *) (((char *) ptr) - STAT_BLOCK_HEADER_SIZE);
@@ -329,7 +347,9 @@ stat_realloc(ErtsAlcType_t n, void *extra, void *ptr, Uint size)
 	res = (void *) ((StatBlock_t *) res)->mem;
     }
 
-    erts_mtx_unlock(&instr_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_unlock(&instr_mutex);
+    }
 
     return res;
 }
@@ -340,7 +360,9 @@ stat_free(ErtsAlcType_t n, void *extra, void *ptr)
     ErtsAllocatorFunctions_t *real_af = (ErtsAllocatorFunctions_t *) extra;
     void *sptr;
 
-    erts_mtx_lock(&instr_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_lock(&instr_mutex);
+    }
 
     if (ptr) {
 	sptr = (void *) (((char *) ptr) - STAT_BLOCK_HEADER_SIZE);
@@ -352,13 +374,27 @@ stat_free(ErtsAlcType_t n, void *extra, void *ptr)
 
     (*real_af->free)(n, real_af->extra, sptr);
 
-    erts_mtx_unlock(&instr_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_unlock(&instr_mutex);
+    }
 
 }
 
 /*
  * map stat instrumentation callback functions
  */
+
+static void map_stat_pre_lock(void)
+{
+    erts_mtx_lock(&instr_x_mutex);
+    erts_mtx_lock(&instr_mutex);
+}
+
+static void map_stat_pre_unlock(void)
+{
+    erts_mtx_unlock(&instr_mutex);
+    erts_mtx_unlock(&instr_x_mutex);
+}
 
 static void *
 map_stat_alloc(ErtsAlcType_t n, void *extra, Uint size)
@@ -367,7 +403,9 @@ map_stat_alloc(ErtsAlcType_t n, void *extra, Uint size)
     Uint msize;
     void *res;
 
-    erts_mtx_lock(&instr_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_lock(&instr_mutex);
+    }
 
     msize = size + MAP_STAT_BLOCK_HEADER_SIZE;
     res = (*real_af->alloc)(n, real_af->extra, msize);
@@ -388,7 +426,9 @@ map_stat_alloc(ErtsAlcType_t n, void *extra, Uint size)
 	res = (void *) mb->mem;
     }
 
-    erts_mtx_unlock(&instr_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_unlock(&instr_mutex);
+    }
 
     return res;
 }
@@ -402,8 +442,10 @@ map_stat_realloc(ErtsAlcType_t n, void *extra, void *ptr, Uint size)
     void *mptr;
     void *res;
 
-    erts_mtx_lock(&instr_x_mutex);
-    erts_mtx_lock(&instr_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_lock(&instr_x_mutex);
+	erts_mtx_lock(&instr_mutex);
+    }
 
     if (ptr) {
 	mptr = (void *) (((char *) ptr) - MAP_STAT_BLOCK_HEADER_SIZE);
@@ -449,9 +491,10 @@ map_stat_realloc(ErtsAlcType_t n, void *extra, void *ptr, Uint size)
 
 	res = (void *) mb->mem;
     }
-
-    erts_mtx_unlock(&instr_mutex);
-    erts_mtx_unlock(&instr_x_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_unlock(&instr_mutex);
+	erts_mtx_unlock(&instr_x_mutex);
+    }
 
     return res;
 }
@@ -462,8 +505,10 @@ map_stat_free(ErtsAlcType_t n, void *extra, void *ptr)
     ErtsAllocatorFunctions_t *real_af = (ErtsAllocatorFunctions_t *) extra;
     void *mptr;
 
-    erts_mtx_lock(&instr_x_mutex);
-    erts_mtx_lock(&instr_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_lock(&instr_x_mutex);
+	erts_mtx_lock(&instr_mutex);
+    }
 
     if (ptr) {
 	MapStatBlock_t *mb;
@@ -486,8 +531,10 @@ map_stat_free(ErtsAlcType_t n, void *extra, void *ptr)
 
     (*real_af->free)(n, real_af->extra, mptr);
 
-    erts_mtx_unlock(&instr_mutex);
-    erts_mtx_unlock(&instr_x_mutex);
+    if (!erts_is_allctr_wrapper_prelocked()) {
+	erts_mtx_unlock(&instr_mutex);
+	erts_mtx_unlock(&instr_x_mutex);
+    }
 
 }
 
@@ -496,8 +543,10 @@ static void dump_memory_map_to_stream(FILE *fp)
     ErtsAlcType_t n;
     MapStatBlock_t *bp;
     int lock = !ERTS_IS_CRASH_DUMPING;
-    if (lock)
+    if (lock) {
+	ASSERT(!erts_is_allctr_wrapper_prelocked());
 	erts_mtx_lock(&instr_mutex);
+    }
 
     /* Write header */
 
@@ -1155,6 +1204,7 @@ erts_instr_get_type_info(Process *proc)
 Uint
 erts_instr_init(int stat, int map_stat)
 {
+    Uint extra_sz;
     int i;
 
     am_tot = NULL;
@@ -1208,7 +1258,9 @@ erts_instr_init(int stat, int map_stat)
 	    erts_allctrs[i].free	= map_stat_free;
 	    erts_allctrs[i].extra	= (void *) &real_allctrs[i];
 	}
-	return MAP_STAT_BLOCK_HEADER_SIZE;
+	instr_wrapper.lock = map_stat_pre_lock;
+	instr_wrapper.unlock = map_stat_pre_unlock;
+	extra_sz = MAP_STAT_BLOCK_HEADER_SIZE;
     }
     else {
 	erts_instr_stat = 1;
@@ -1220,8 +1272,11 @@ erts_instr_init(int stat, int map_stat)
 	    erts_allctrs[i].free	= stat_free;
 	    erts_allctrs[i].extra	= (void *) &real_allctrs[i];
 	}
-	return STAT_BLOCK_HEADER_SIZE;
+	instr_wrapper.lock = stat_pre_lock;
+	instr_wrapper.unlock = stat_pre_unlock;
+	extra_sz = STAT_BLOCK_HEADER_SIZE;
     }
-
+    erts_allctr_wrapper_prelock_init(&instr_wrapper);
+    return extra_sz;
 }
 

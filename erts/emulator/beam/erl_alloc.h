@@ -135,6 +135,18 @@ typedef struct {
 
 extern ErtsAllocatorThrSpec_t erts_allctr_thr_spec[ERTS_ALC_A_MAX+1];
 
+typedef struct ErtsAllocatorWrapper_t_ {
+    void (*lock)(void);
+    void (*unlock)(void);
+    struct ErtsAllocatorWrapper_t_* next;
+}ErtsAllocatorWrapper_t;
+ErtsAllocatorWrapper_t *erts_allctr_wrappers;
+extern int erts_allctr_wrapper_prelocked;
+extern erts_tsd_key_t erts_allctr_prelock_tsd_key;
+void erts_allctr_wrapper_prelock_init(ErtsAllocatorWrapper_t* wrapper);
+void erts_allctr_wrapper_pre_lock(void);
+void erts_allctr_wrapper_pre_unlock(void);
+
 void erts_alloc_register_scheduler(void *vesdp);
 #ifdef ERTS_SMP
 void erts_alloc_scheduler_handle_delayed_dealloc(void *vesdp,
@@ -188,6 +200,7 @@ void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size);
 void erts_free(ErtsAlcType_t type, void *ptr);
 void *erts_alloc_fnf(ErtsAlcType_t type, Uint size);
 void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size);
+int erts_is_allctr_wrapper_prelocked(void);
 
 #endif /* #if !ERTS_ALC_DO_INLINE */
 
@@ -256,6 +269,13 @@ void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr,
 	size);
+}
+
+ERTS_ALC_INLINE
+int erts_is_allctr_wrapper_prelocked(void)
+{
+    return erts_allctr_wrapper_prelocked                 /* locked */
+	&& !!erts_tsd_get(erts_allctr_prelock_tsd_key);  /* by me  */
 }
 
 #endif /* #if ERTS_ALC_DO_INLINE || defined(ERTS_ALC_INTERNAL__) */
