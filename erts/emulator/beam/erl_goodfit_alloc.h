@@ -82,7 +82,7 @@ struct GFAllctr_t_ {
 
 };
 
-unsigned long erts_gfalc_test(unsigned long, unsigned long, unsigned long);
+UWord erts_gfalc_test(UWord, UWord, UWord);
 
 #endif /* #if defined(GET_ERL_GF_ALLOC_IMPL)
 	      && !defined(ERL_GF_ALLOC_IMPL__) */

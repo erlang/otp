@@ -4394,42 +4394,42 @@ erts_alcu_init(AlcUInit_t *init)
  * to erts_alcu_test()                                                       *
 \*                                                                           */
 
-unsigned long
-erts_alcu_test(unsigned long op, unsigned long a1, unsigned long a2)
+UWord
+erts_alcu_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
-    case 0x000:	return (unsigned long) BLK_SZ((Block_t *) a1);
-    case 0x001:	return (unsigned long) BLK_UMEM_SZ((Block_t *) a1);
-    case 0x002:	return (unsigned long) IS_PREV_BLK_FREE((Block_t *) a1);
-    case 0x003:	return (unsigned long) IS_FREE_BLK((Block_t *) a1);
-    case 0x004:	return (unsigned long) IS_LAST_BLK((Block_t *) a1);
-    case 0x005:	return (unsigned long) UMEM2BLK((void *) a1);
-    case 0x006:	return (unsigned long) BLK2UMEM((Block_t *) a1);
-    case 0x007:	return (unsigned long) IS_SB_CARRIER((Carrier_t *) a1);
-    case 0x008:	return (unsigned long) IS_SBC_BLK((Block_t *) a1);
-    case 0x009:	return (unsigned long) IS_MB_CARRIER((Carrier_t *) a1);
-    case 0x00a:	return (unsigned long) IS_MSEG_CARRIER((Carrier_t *) a1);
-    case 0x00b:	return (unsigned long) CARRIER_SZ((Carrier_t *) a1);
-    case 0x00c:	return (unsigned long) SBC2BLK((Allctr_t *) a1,
+    case 0x000:	return (UWord) BLK_SZ((Block_t *) a1);
+    case 0x001:	return (UWord) BLK_UMEM_SZ((Block_t *) a1);
+    case 0x002:	return (UWord) IS_PREV_BLK_FREE((Block_t *) a1);
+    case 0x003:	return (UWord) IS_FREE_BLK((Block_t *) a1);
+    case 0x004:	return (UWord) IS_LAST_BLK((Block_t *) a1);
+    case 0x005:	return (UWord) UMEM2BLK((void *) a1);
+    case 0x006:	return (UWord) BLK2UMEM((Block_t *) a1);
+    case 0x007:	return (UWord) IS_SB_CARRIER((Carrier_t *) a1);
+    case 0x008:	return (UWord) IS_SBC_BLK((Block_t *) a1);
+    case 0x009:	return (UWord) IS_MB_CARRIER((Carrier_t *) a1);
+    case 0x00a:	return (UWord) IS_MSEG_CARRIER((Carrier_t *) a1);
+    case 0x00b:	return (UWord) CARRIER_SZ((Carrier_t *) a1);
+    case 0x00c:	return (UWord) SBC2BLK((Allctr_t *) a1,
 					       (Carrier_t *) a2);
-    case 0x00d:	return (unsigned long) BLK_TO_SBC((Block_t *) a2);
-    case 0x00e:	return (unsigned long) MBC_TO_FIRST_BLK((Allctr_t *) a1,
+    case 0x00d:	return (UWord) BLK_TO_SBC((Block_t *) a2);
+    case 0x00e:	return (UWord) MBC_TO_FIRST_BLK((Allctr_t *) a1,
 						(Carrier_t *) a2);
-    case 0x00f:	return (unsigned long) FIRST_BLK_TO_MBC((Allctr_t *) a1,
+    case 0x00f:	return (UWord) FIRST_BLK_TO_MBC((Allctr_t *) a1,
 						(Block_t *) a2);
-    case 0x010:	return (unsigned long) ((Allctr_t *) a1)->mbc_list.first;
-    case 0x011:	return (unsigned long) ((Allctr_t *) a1)->mbc_list.last;
-    case 0x012:	return (unsigned long) ((Allctr_t *) a1)->sbc_list.first;
-    case 0x013:	return (unsigned long) ((Allctr_t *) a1)->sbc_list.last;
-    case 0x014:	return (unsigned long) ((Carrier_t *) a1)->next;
-    case 0x015:	return (unsigned long) ((Carrier_t *) a1)->prev;
-    case 0x016:	return (unsigned long) ABLK_HDR_SZ; 
-    case 0x017:	return (unsigned long) ((Allctr_t *) a1)->min_block_size;
-    case 0x018:	return (unsigned long) NXT_BLK((Block_t *) a1);
-    case 0x019:	return (unsigned long) PREV_BLK((Block_t *) a1);
-    case 0x01a: return (unsigned long) IS_MBC_FIRST_BLK((Allctr_t*)a1, (Block_t *) a2);
-    case 0x01b: return (unsigned long) sizeof(Unit_t);
-    default:	ASSERT(0); return ~((unsigned long) 0);
+    case 0x010:	return (UWord) ((Allctr_t *) a1)->mbc_list.first;
+    case 0x011:	return (UWord) ((Allctr_t *) a1)->mbc_list.last;
+    case 0x012:	return (UWord) ((Allctr_t *) a1)->sbc_list.first;
+    case 0x013:	return (UWord) ((Allctr_t *) a1)->sbc_list.last;
+    case 0x014:	return (UWord) ((Carrier_t *) a1)->next;
+    case 0x015:	return (UWord) ((Carrier_t *) a1)->prev;
+    case 0x016:	return (UWord) ABLK_HDR_SZ; 
+    case 0x017:	return (UWord) ((Allctr_t *) a1)->min_block_size;
+    case 0x018:	return (UWord) NXT_BLK((Block_t *) a1);
+    case 0x019:	return (UWord) PREV_BLK((Block_t *) a1);
+    case 0x01a: return (UWord) IS_MBC_FIRST_BLK((Allctr_t*)a1, (Block_t *) a2);
+    case 0x01b: return (UWord) sizeof(Unit_t);
+    default:	ASSERT(0); return ~((UWord) 0);
     }
 }
 

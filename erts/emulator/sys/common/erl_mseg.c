@@ -1749,45 +1749,42 @@ erts_mseg_late_init(void)
 
 #endif /* #if HAVE_ERTS_MSEG */
 
-unsigned long
-erts_mseg_test(unsigned long op,
-	       unsigned long a1,
-	       unsigned long a2,
-	       unsigned long a3)
+UWord
+erts_mseg_test(UWord op, UWord a1, UWord a2, UWord a3)
 {
     switch (op) {
 #if HAVE_ERTS_MSEG
     case 0x400: /* Have erts_mseg */
-	return (unsigned long) 1;
+	return (UWord) 1;
     case 0x401:
-	return (unsigned long) erts_mseg_alloc(ERTS_ALC_A_INVALID, (Uint *) a1, (Uint) 0);
+	return (UWord) erts_mseg_alloc(ERTS_ALC_A_INVALID, (Uint *) a1, (Uint) 0);
     case 0x402:
 	erts_mseg_dealloc(ERTS_ALC_A_INVALID, (void *) a1, (Uint) a2, (Uint) 0);
-	return (unsigned long) 0;
+	return (UWord) 0;
     case 0x403:
-	return (unsigned long) erts_mseg_realloc(ERTS_ALC_A_INVALID,
+	return (UWord) erts_mseg_realloc(ERTS_ALC_A_INVALID,
 						 (void *) a1,
 						 (Uint) a2,
 						 (Uint *) a3,
 						 (Uint) 0);
     case 0x404:
 	erts_mseg_clear_cache();
-	return (unsigned long) 0;
+	return (UWord) 0;
     case 0x405:
-	return (unsigned long) erts_mseg_no(&erts_mseg_default_opt);
+	return (UWord) erts_mseg_no(&erts_mseg_default_opt);
     case 0x406: {
 	ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_IX(0);
-	unsigned long res;
+	UWord res;
 	ERTS_MSEG_LOCK(ma);
-	res = (unsigned long) tot_cache_size(ma);
+	res = (UWord) tot_cache_size(ma);
 	ERTS_MSEG_UNLOCK(ma);
 	return res;
     }
 #else /* #if HAVE_ERTS_MSEG */
     case 0x400: /* Have erts_mseg */
-	return (unsigned long) 0;
+	return (UWord) 0;
 #endif /* #if HAVE_ERTS_MSEG */
-    default:	ASSERT(0); return ~((unsigned long) 0);
+    default:	ASSERT(0); return ~((UWord) 0);
     }
 
 }

@@ -780,19 +780,19 @@ info_options(Allctr_t *allctr,
  * to erts_aoffalc_test()                                                    *
 \*                                                                           */
 
-unsigned long
-erts_aoffalc_test(unsigned long op, unsigned long a1, unsigned long a2)
+UWord
+erts_aoffalc_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
-    case 0x500:	return (unsigned long) 0; /* IS_AOBF */
-    case 0x501:	return (unsigned long) ((AOFFAllctr_t *) a1)->mbc_root;
-    case 0x502:	return (unsigned long) ((AOFF_RBTree_t *) a1)->parent;
-    case 0x503:	return (unsigned long) ((AOFF_RBTree_t *) a1)->left;
-    case 0x504:	return (unsigned long) ((AOFF_RBTree_t *) a1)->right;
-    case 0x506:	return (unsigned long) IS_BLACK((AOFF_RBTree_t *) a1);
-    case 0x508: return (unsigned long) 1; /* IS_AOFF */
-    case 0x509: return (unsigned long) ((AOFF_RBTree_t *) a1)->max_sz;
-    default:	ASSERT(0); return ~((unsigned long) 0);
+    case 0x500:	return (UWord) 0; /* IS_AOBF */
+    case 0x501:	return (UWord) ((AOFFAllctr_t *) a1)->mbc_root;
+    case 0x502:	return (UWord) ((AOFF_RBTree_t *) a1)->parent;
+    case 0x503:	return (UWord) ((AOFF_RBTree_t *) a1)->left;
+    case 0x504:	return (UWord) ((AOFF_RBTree_t *) a1)->right;
+    case 0x506:	return (UWord) IS_BLACK((AOFF_RBTree_t *) a1);
+    case 0x508: return (UWord) 1; /* IS_AOFF */
+    case 0x509: return (UWord) ((AOFF_RBTree_t *) a1)->max_sz;
+    default:	ASSERT(0); return ~((UWord) 0);
     }
 }
 
