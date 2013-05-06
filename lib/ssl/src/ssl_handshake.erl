@@ -1368,8 +1368,8 @@ enc_hs(#client_hello{client_version = {Major, Minor},
     BinCipherSuites = list_to_binary(CipherSuites),
     CsLength = byte_size(BinCipherSuites),
     Extensions0 = hello_extensions(RenegotiationInfo, SRP, NextProtocolNegotiation)
-	++ hello_extensions(EcPointFormats)
-	++ hello_extensions(EllipticCurves),
+	++ ec_hello_extensions(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites), EcPointFormats)
+	++ ec_hello_extensions(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites), EllipticCurves),
     Extensions1 = if
 		      Major == 3, Minor >=3 -> Extensions0 ++ hello_extensions(HashSigns);
 		      true -> Extensions0
@@ -1384,20 +1384,21 @@ enc_hs(#client_hello{client_version = {Major, Minor},
 enc_hs(#server_hello{server_version = {Major, Minor},
 		     random = Random,
 		     session_id = Session_ID,
-		     cipher_suite = Cipher_suite,
+		     cipher_suite = CipherSuite,
 		     compression_method = Comp_method,
 		     renegotiation_info = RenegotiationInfo,
 		     ec_point_formats = EcPointFormats,
 		     elliptic_curves = EllipticCurves,
 		     next_protocol_negotiation = NextProtocolNegotiation}, _Version) ->
     SID_length = byte_size(Session_ID),
+    CipherSuites = [ssl_cipher:suite_definition(CipherSuite)],
     Extensions  = hello_extensions(RenegotiationInfo, NextProtocolNegotiation)
-	++ hello_extensions(EcPointFormats)
-	++ hello_extensions(EllipticCurves),
+	++ ec_hello_extensions(CipherSuites, EcPointFormats)
+	++ ec_hello_extensions(CipherSuites, EllipticCurves),
     ExtensionsBin = enc_hello_extensions(Extensions),
     {?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		     ?BYTE(SID_length), Session_ID/binary,
-                     Cipher_suite/binary, ?BYTE(Comp_method), ExtensionsBin/binary>>};
+                     CipherSuite/binary, ?BYTE(Comp_method), ExtensionsBin/binary>>};
 enc_hs(#certificate{asn1_certificates = ASN1CertList}, _Version) ->
     ASN1Certs = certs_from_list(ASN1CertList),
     ACLen = erlang:iolist_size(ASN1Certs),
@@ -1519,6 +1520,24 @@ enc_sign(_HashSign, Sign, _Version) ->
 	SignLen = byte_size(Sign),
 	<<?UINT16(SignLen), Sign/binary>>.
 
+
+ec_hello_extensions(CipherSuites, #elliptic_curves{} = Info) ->
+    case advertises_ec_ciphers(CipherSuites) of
+	true ->
+	    [Info];
+	false ->
+	    []
+    end;
+ec_hello_extensions(CipherSuites, #ec_point_formats{} = Info) ->
+    case advertises_ec_ciphers(CipherSuites) of
+	true ->
+	    [Info];
+	false ->
+	    []
+    end;
+ec_hello_extensions(_, undefined) ->
+    [].
+
 hello_extensions(RenegotiationInfo, NextProtocolNegotiation) ->
     hello_extensions(RenegotiationInfo) ++ next_protocol_extension(NextProtocolNegotiation).
 
@@ -1527,14 +1546,25 @@ hello_extensions(RenegotiationInfo, SRP, NextProtocolNegotiation) ->
 	++ hello_extensions(SRP)
 	++ next_protocol_extension(NextProtocolNegotiation).
 
+advertises_ec_ciphers([]) ->
+    false;
+advertises_ec_ciphers([{ecdh_ecdsa, _,_,_} | _]) ->
+    true;
+advertises_ec_ciphers([{ecdhe_ecdsa, _,_,_} | _]) ->
+    true;
+advertises_ec_ciphers([{ecdh_rsa, _,_,_} | _]) ->
+    true;
+advertises_ec_ciphers([{ecdhe_rsa, _,_,_} | _]) ->
+    true;
+advertises_ec_ciphers([{ecdh_anon, _,_,_} | _]) ->
+    true;
+advertises_ec_ciphers([_| Rest]) ->
+    advertises_ec_ciphers(Rest).
+
 %% Renegotiation info
 hello_extensions(#renegotiation_info{renegotiated_connection = undefined}) ->
     [];
 hello_extensions(#renegotiation_info{} = Info) ->
-    [Info];
-hello_extensions(#elliptic_curves{} = Info) ->
-    [Info];
-hello_extensions(#ec_point_formats{} = Info) ->
     [Info];
 hello_extensions(#srp{} = Info) ->
     [Info];

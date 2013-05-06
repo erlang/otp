@@ -278,6 +278,11 @@ srp_suites() ->
 %% TLS v1.1 suites
 suite_definition(?TLS_NULL_WITH_NULL_NULL) ->
     {null, null, null, null};
+%% RFC 5746 - Not a real cipher suite used to signal empty "renegotiation_info" extension
+%% to avoid handshake failure from old servers that do not ignore
+%% hello extension data as they should.
+suite_definition(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV) ->
+    {null, null, null, null};
 %% suite_definition(?TLS_RSA_WITH_NULL_MD5) ->
 %%     {rsa, null, md5, default_prf};
 %% suite_definition(?TLS_RSA_WITH_NULL_SHA) ->

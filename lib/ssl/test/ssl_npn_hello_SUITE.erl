@@ -25,6 +25,8 @@
 -compile(export_all).
 -include("ssl_handshake.hrl").
 -include("ssl_record.hrl").
+-include("ssl_cipher.hrl").
+-include("ssl_internal.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 %%--------------------------------------------------------------------
@@ -98,7 +100,7 @@ create_client_handshake(Npn) ->
         client_version = {1, 2},
         random = <<1:256>>,
         session_id = <<>>,
-        cipher_suites = "",
+        cipher_suites = [?TLS_DHE_DSS_WITH_DES_CBC_SHA],
         compression_methods = "",
         next_protocol_negotiation = Npn,
         renegotiation_info = #renegotiation_info{}
@@ -109,7 +111,7 @@ create_server_handshake(Npn) ->
         server_version = {1, 2},
         random = <<1:256>>,
         session_id = <<>>,
-        cipher_suite = <<1,2>>,
+        cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA,
         compression_method = 1,
         next_protocol_negotiation = Npn,
         renegotiation_info = #renegotiation_info{}
@@ -121,7 +123,7 @@ create_connection_states() ->
             security_parameters = #security_parameters{
                 server_random = <<1:256>>,
                 compression_algorithm = 1,
-                cipher_suite = <<1, 2>>
+                cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA
             }
         },
 
