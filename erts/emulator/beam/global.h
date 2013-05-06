@@ -729,10 +729,10 @@ void erts_raw_port_command(Port*, byte*, Uint);
 void driver_report_exit(ErlDrvPort, int);
 LineBuf* allocate_linebuf(int);
 int async_ready(Port *, void*);
-ErtsPortNames *erts_get_port_names(Eterm);
+ErtsPortNames *erts_get_port_names(Eterm, ErlDrvPort);
 void erts_free_port_names(ErtsPortNames *);
 Uint erts_port_ioq_size(Port *pp);
-void erts_stale_drv_select(Eterm, ErlDrvEvent, int, int);
+void erts_stale_drv_select(Eterm, ErlDrvPort, ErlDrvEvent, int, int);
 
 Port *erts_get_heart_port(void);
 

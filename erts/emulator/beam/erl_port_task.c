@@ -1912,18 +1912,21 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 		break;
 	    case ERTS_PORT_TASK_INPUT:
 		erts_stale_drv_select(pp->common.id,
+				      ERTS_Port2ErlDrvPort(pp),
 				      ptp->u.alive.td.io.event,
 				      DO_READ,
 				      1);
 		break;
 	    case ERTS_PORT_TASK_OUTPUT:
 		erts_stale_drv_select(pp->common.id,
+				      ERTS_Port2ErlDrvPort(pp),
 				      ptp->u.alive.td.io.event,
 				      DO_WRITE,
 				      1);
 		break;
 	    case ERTS_PORT_TASK_EVENT:
 		erts_stale_drv_select(pp->common.id,
+				      ERTS_Port2ErlDrvPort(pp),
 				      ptp->u.alive.td.io.event,
 				      0,
 				      1);
