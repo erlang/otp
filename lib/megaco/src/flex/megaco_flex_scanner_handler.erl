@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -181,11 +181,11 @@ terminate(_Reason, _S) ->
 %% Returns: {ok, NewState}
 %%----------------------------------------------------------------------
 
-code_change({down, _Vsn}, #state{conf = Conf} = State, downgrade_to_pre_3_13_1) ->
+code_change({down, _Vsn}, #state{conf = Conf} = State, downgrade_to_pre_3_16_1) ->
     NewPorts = bump_flex_scanner(Conf),
     {ok, State#state{conf = {flex, NewPorts}}};
 
-code_change(_Vsn, #state{conf = Conf} = State, upgrade_from_pre_3_13_1) ->
+code_change(_Vsn, #state{conf = Conf} = State, upgrade_from_pre_3_16_1) ->
     NewPorts = bump_flex_scanner(Conf),
     {ok, State#state{conf = {flex, NewPorts}}};
 

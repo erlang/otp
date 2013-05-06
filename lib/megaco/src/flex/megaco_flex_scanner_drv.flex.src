@@ -1,8 +1,8 @@
   /*
    * %CopyrightBegin%
-   *
-   * Copyright Ericsson AB 2001-2011. All Rights Reserved.
-   *
+   * 
+   * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+   * 
    * The contents of this file are subject to the Erlang Public License,
    * Version 1.1, (the "License"); you may not use this file except in
    * compliance with the License. You should have received a copy of the
@@ -93,6 +93,13 @@ typedef struct {
     int             term_spec_index;
     int             token_counter;
 } MfsErlDrvData;
+
+/* IBL = In Buffer Length - the raw (un-decoded) message buffer length */
+#define TERM_SPEC_SIZE_INITIAL(IBL) (1024 + 2*(IBL))
+
+/* CTSS = Current term spec size - the current term spec length */
+/* S    = Size - how many positions we need */
+#define TERM_SPEC_SIZE_NEXT(CTSS,S)   ((CTSS) + 1024 + (S))
 
 #if !defined(MEGACO_REENTRANT_FLEX_SCANNER)
 static MfsErlDrvData mfs_drv_data;
@@ -736,7 +743,7 @@ v                                       LOAD_TOKEN(mfs_VersionToken);
 #endif
 
 
-/* #define MFS_DEBUG true */    /* temporary */
+// #define MFS_DEBUG true 
 #if defined(MFS_DEBUG)
 #  define DBG( proto ) printf proto
 #  define DBG_BUF(func, bufName, buf, bufSz) mfs_dbg_buf_print(func, bufName, buf, bufSz)
@@ -841,14 +848,19 @@ static void mfs_ensure_term_spec(MfsErlDrvData* dataP, int size)
 	  "\n   term_spec_size:  %d\n", 
 	  dataP->term_spec_index, dataP->term_spec_size) );
 
-    dataP->term_spec_size = (dataP->term_spec_size * 2) + size;
+    dataP->term_spec_size = TERM_SPEC_SIZE_NEXT(dataP->term_spec_size, size);
 
     DBG( ("mfs_ensure_term_spec -> "
-	  "term_spec is at 0x%X, new term_spec_size is %d\n", 
-	  (unsigned int) dataP->term_spec, dataP->term_spec_size) );
+	  "term_spec is at 0x%X, new term_spec_size is %d (%lu)\n", 
+	  (unsigned int) dataP->term_spec, 
+	  dataP->term_spec_size, 
+	  dataP->term_spec_size * sizeof(ErlDrvTermData)) );
 
     tmp = REALLOC(dataP->term_spec, 
                   dataP->term_spec_size * sizeof(ErlDrvTermData));
+
+    DBG( ("mfs_ensure_term_spec -> "
+	  "realloc result: 0x%X\n", (unsigned int) tmp) );
 
     if (tmp == NULL) {
       /*
@@ -941,6 +953,9 @@ static void mfs_octet_load_token(ErlDrvTermData TokenTag, int is_empty)
 
   ASSIGN_TERM_SPEC(dataP, ERL_DRV_TUPLE);
   ASSIGN_TERM_SPEC(dataP, 3);
+
+  DBG( ("mfs_octet_load_token -> done\n") );
+
 }
 
 #if defined(MEGACO_REENTRANT_FLEX_SCANNER)
@@ -1240,7 +1255,7 @@ static void mfs_load_property_groups(MfsErlDrvData* dataP)
     } // if ((yytext[i] != SP)...
   } // while ...      
       
-  mfs_ensure_term_spec(dataP, 4); // 2 + 2 just in case
+  mfs_ensure_term_spec(dataP, 6); // 3 + 3 just in case
 
   /* Make sure we actually have some groups */
 
@@ -1725,7 +1740,7 @@ static ErlDrvSSizeT mfs_control(ErlDrvData          handle,
   dataP->text_buf = tmp;
   dataP->text_ptr = tmp;
 
-  dataP->term_spec_size = 1000 + buf_len;       /* OTP-4237 */
+  dataP->term_spec_size = TERM_SPEC_SIZE_INITIAL(buf_len); 
 
   DBG( ("mfs_control -> allocate term-spec buffer: "
 	"\n   term_spec_size: %d\n", dataP->term_spec_size) );
