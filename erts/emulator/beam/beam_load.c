@@ -2964,19 +2964,19 @@ gen_put_integer(LoaderState* stp, GenOpArg Fail, GenOpArg Size,
     NEW_GENOP(stp, op);
 
     NATIVE_ENDIAN(Flags);
-    if (Size.type == TAG_i && Size.val < 0) {
-    error:
 	/* Negative size must fail */
-	op->op = genop_badarg_1;
-	op->arity = 1;
-	op->a[0] = Fail;
-    } else if (Size.type == TAG_i) {
+    if (Size.type == TAG_i) {
 	op->op = genop_i_new_bs_put_integer_imm_4;
 	op->arity = 4;
 	op->a[0] = Fail;
 	op->a[1].type = TAG_u;
 	if (!safe_mul(Size.val, Unit.val, &op->a[1].val)) {
-	    goto error;
+        error:
+            op->op = genop_badarg_1;
+            op->arity = 1;
+            op->a[0] = Fail;
+            op->next = NULL;
+            return op;
 	}
 	op->a[1].val = Size.val * Unit.val;
 	op->a[2].type = Flags.type;

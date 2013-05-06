@@ -135,8 +135,8 @@ public class Environment {
     if (connection == null)
       connection = self.connect(peer);
  
-    clientP = new com.ericsson.otp.erlang.OtpErlangPid(self); /* This is not perfect */
-    send_ref = new com.ericsson.otp.erlang.OtpErlangRef(self);
+    clientP = self.createPid(); /* This is not perfect */
+    send_ref = self.createRef();
     
   }
 
