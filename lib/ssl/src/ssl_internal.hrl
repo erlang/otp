@@ -37,7 +37,7 @@
 -type tls_atom_version()  :: sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'.
 -type certdb_ref()        :: reference().
 -type db_handle()         :: term().
--type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | dh_anon.
+-type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
 -type der_cert()          :: binary().
 -type private_key()       :: #'RSAPrivateKey'{} | #'DSAPrivateKey'{} | #'ECPrivateKey'{}.
 -type issuer()            :: tuple().

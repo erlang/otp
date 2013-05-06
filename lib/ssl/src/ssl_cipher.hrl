@@ -30,7 +30,7 @@
 			   | aes_128_cbc |  aes_256_cbc.
 -type hash()              :: null | sha | md5 | ssh224 | sha256 | sha384 | sha512.
 -type erl_cipher_suite()  :: {key_algo(), cipher(), hash()}.
--type int_cipher_suite()  :: {key_algo(), cipher(), hash(), hash()}.
+-type int_cipher_suite()  :: {key_algo(), cipher(), hash(), hash() | default_prf}.
 -type cipher_suite()      :: binary().
 -type cipher_enum()        :: integer().
 -type openssl_cipher_suite()  :: string().
