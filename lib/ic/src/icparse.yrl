@@ -230,6 +230,9 @@ Terminals
 Rootsymbol '<specification>'.
 
 
+Expect 9.
+
+
 %%------------------------------------------------------------
 %% Clauses
 %%

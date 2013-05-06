@@ -3576,10 +3576,7 @@ DED_EXT=so
 case $host_os in
     win32) DED_EXT=dll;;
     darwin*)
-	DED_CFLAGS="$DED_CFLAGS -fno-common"
-	if test "X$STATIC_CFLAGS" = "X"; then
-	    STATIC_CFLAGS="-mdynamic-no-pic"
-	fi;;
+	DED_CFLAGS="$DED_CFLAGS -fno-common";;
     *)
 	;;
 esac

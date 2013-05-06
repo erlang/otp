@@ -832,6 +832,8 @@ sys_chars_to_double(char* buf, double* fp)
     return 0;
 }
 
+#ifdef USE_MATHERR
+
 int
 matherr(struct exception *exc)
 {
@@ -842,3 +844,5 @@ matherr(struct exception *exc)
 #endif
     return 1;
 }
+
+#endif
