@@ -6086,12 +6086,12 @@ ok
               uninterrupted execution time of the process or port,
               which will always be <c>&gt;=</c> the <c>Time</c> value
               supplied when starting the trace. New tuples may be
-              added to the <c>Info</c> lists in the future, and the
+              added to the <c>Info</c> list in the future, and the
               order of the tuples in the list may be changed at any
               time without prior notice.
 	      </p>
 	      <p>This can be used to detect problems with NIF's or
-	      drivers that takes too long to execute. Generally, 1 ms
+	      drivers that take too long to execute. Generally, 1 ms
 	      is considered a good maximum time for a driver callback
 	      or a NIF. However, a time sharing system should usually
 	      consider everything below 100 ms as "possible" and
