@@ -495,6 +495,38 @@ refuse_af_strategy(struct au_init *init)
 static void hdbg_init(void);
 #endif
 
+static void adjust_fix_alloc_sizes(UWord extra_block_size)
+{
+    
+    if (extra_block_size && erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].enabled) {
+	int j;
+
+#ifdef ERTS_SMP
+	if (erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].thr_spec) {
+	    int i;
+	    ErtsAllocatorThrSpec_t* tspec;
+
+	    tspec = &erts_allctr_thr_spec[ERTS_ALC_A_FIXED_SIZE];	
+	    ASSERT(tspec->enabled);
+
+	    for (i=0; i < tspec->size; i++) {
+		Allctr_t* allctr = tspec->allctr[i];
+		for (j=0; j < ERTS_ALC_NO_FIXED_SIZES; ++j) {
+		    allctr->fix[j].type_size += extra_block_size;
+		}
+	    }
+	}
+	else
+#endif
+	{
+	    Allctr_t* allctr = erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].extra;
+	    for (j=0; j < ERTS_ALC_NO_FIXED_SIZES; ++j) {
+		allctr->fix[j].type_size += extra_block_size;
+	    }	
+	}
+    }
+}
+
 void
 erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 {
@@ -515,9 +547,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= sizeof(Process);
 #if !HALFWORD_HEAP
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MONITOR_SH)]
-	= ERTS_MONITOR_SH_SIZE;
+	= ERTS_MONITOR_SH_SIZE * sizeof(Uint);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NLINK_SH)]
-	= ERTS_LINK_SH_SIZE;
+	= ERTS_LINK_SH_SIZE * sizeof(Uint);
 #endif
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_DRV_EV_D_STATE)]
 	= sizeof(ErtsDrvEventDataState);
@@ -537,6 +569,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     ncpu = eaiop->ncpu;
     if (ncpu < 1)
 	ncpu = 1;
+
+    erts_tsd_key_create(&erts_allctr_prelock_tsd_key);
 
     erts_sys_alloc_init();
     erts_init_utils_mem();
@@ -768,7 +802,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 #ifdef DEBUG
     extra_block_size += install_debug_functions();
 #endif
-
+    adjust_fix_alloc_sizes(extra_block_size);
 }
 
 void
@@ -3106,6 +3140,55 @@ erts_request_alloc_info(struct process *c_p,
 
     return 1;
 }
+
+/* 
+ * The allocator wrapper prelocking stuff below is about the locking order.
+ * It only affects wrappers (erl_mtrace.c and erl_instrument.c) that keep locks
+ * during alloc/realloc/free.
+ *
+ * Some query functions in erl_alloc_util.c lock the allocator mutex and then
+ * use erts_printf that in turn may call the sys allocator through the wrappers.
+ * To avoid breaking locking order these query functions first "pre-locks" all
+ * allocator wrappers.
+ */
+ErtsAllocatorWrapper_t *erts_allctr_wrappers;
+int erts_allctr_wrapper_prelocked = 0;
+erts_tsd_key_t erts_allctr_prelock_tsd_key;
+
+void erts_allctr_wrapper_prelock_init(ErtsAllocatorWrapper_t* wrapper)
+{
+    ASSERT(wrapper->lock && wrapper->unlock);
+    wrapper->next = erts_allctr_wrappers;
+    erts_allctr_wrappers = wrapper;
+}
+
+void erts_allctr_wrapper_pre_lock(void)
+{
+    if (erts_allctr_wrappers) {
+	ErtsAllocatorWrapper_t* wrapper = erts_allctr_wrappers;
+	for ( ; wrapper; wrapper = wrapper->next) {
+	    wrapper->lock();
+	}
+	ASSERT(!erts_allctr_wrapper_prelocked);
+	erts_allctr_wrapper_prelocked = 1;
+	erts_tsd_set(erts_allctr_prelock_tsd_key, (void*)1);
+    }
+}
+
+void erts_allctr_wrapper_pre_unlock(void)
+{
+    if (erts_allctr_wrappers) {
+	ErtsAllocatorWrapper_t* wrapper = erts_allctr_wrappers;
+	
+	erts_allctr_wrapper_prelocked = 0;
+	erts_tsd_set(erts_allctr_prelock_tsd_key, (void*)0);
+	for ( ; wrapper; wrapper = wrapper->next) {
+	    wrapper->unlock();
+	}
+    }
+}
+
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Deprecated functions                                                    *
