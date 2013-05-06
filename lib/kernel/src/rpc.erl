@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -158,20 +158,20 @@ handle_info({Caller, {reply, Reply}}, S) ->
 	    {noreply, S}
     end;
 handle_info({From, {sbcast, Name, Msg}}, S) ->
-    case catch Name ! Msg of  %% use catch to get the printout
-	{'EXIT', _} ->
-	    From ! {?NAME, node(), {nonexisting_name, Name}};
-	_ -> 
-	    From ! {?NAME, node(), node()}
-    end,
+    _ = case catch Name ! Msg of  %% use catch to get the printout
+            {'EXIT', _} ->
+                From ! {?NAME, node(), {nonexisting_name, Name}};
+            _ ->
+                From ! {?NAME, node(), node()}
+        end,
     {noreply, S};
 handle_info({From, {send, Name, Msg}}, S) ->
-    case catch Name ! {From, Msg} of %% use catch to get the printout
-	{'EXIT', _} ->
-	    From ! {?NAME, node(), {nonexisting_name, Name}};
-	_ ->
-	    ok    %% It's up to Name to respond !!!!!
-    end,
+    _ = case catch Name ! {From, Msg} of %% use catch to get the printout
+            {'EXIT', _} ->
+                From ! {?NAME, node(), {nonexisting_name, Name}};
+            _ ->
+                ok    %% It's up to Name to respond !!!!!
+        end,
     {noreply, S};
 handle_info({From, {call,Mod,Fun,Args,Gleader}}, S) ->
     %% Special for hidden C node's, uugh ...
@@ -423,7 +423,7 @@ abcast(Name, Mess) ->
 abcast([Node|Tail], Name, Mess) ->
     Dest = {Name,Node},
     case catch erlang:send(Dest, Mess, [noconnect]) of
-	noconnect -> spawn(erlang, send, [Dest,Mess]);
+	noconnect -> spawn(erlang, send, [Dest,Mess]), ok;
 	_ -> ok
     end,
     abcast(Tail, Name, Mess);

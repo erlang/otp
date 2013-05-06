@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -135,7 +135,7 @@ pi_impl(Opt, XPid) ->
 		{status_info, Pid, {module, Module}, Data} ->
 		    si_sasl_supp:do_best_printout(Opt, Pid, Module, Data);
 		{error, Reason} ->
-		    si_sasl_supp:ppi_impl(Pid),
+		    _ = si_sasl_supp:ppi_impl(Pid),
 		    {error, {"can not get status info from process:",
 			     XPid,
 			     Reason}};

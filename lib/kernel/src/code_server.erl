@@ -153,7 +153,7 @@ loop(#state{supervisor=Supervisor}=State0) ->
 	{code_call, Pid, Req} ->
 	    case handle_call(Req, {Pid, call}, State0) of
 		{reply, Res, State} ->
-		    reply(Pid, Res),
+		    _ = reply(Pid, Res),
 		    loop(State);
 		{noreply, State} ->
 		    loop(State);
@@ -1505,13 +1505,13 @@ finish_on_load_1(Mod, File, OnLoadRes, WaitingPids, Db) ->
     erlang:finish_after_on_load(Mod, Keep),
     Res = case Keep of
 	      false ->
-		  finish_on_load_report(Mod, OnLoadRes),
+		  _ = finish_on_load_report(Mod, OnLoadRes),
 		  {error,on_load_failure};
 	      true ->
 		  ets:insert(Db, {Mod,File}),
 		  {module,Mod}
 	  end,
-    [reply(Pid, Res) || Pid <- WaitingPids],
+    _ = [reply(Pid, Res) || Pid <- WaitingPids],
     ok.
 
 finish_on_load_report(_Mod, Atom) when is_atom(Atom) ->

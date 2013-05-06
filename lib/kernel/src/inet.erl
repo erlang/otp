@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -389,7 +389,7 @@ gethostbyname(Name,Family) ->
 gethostbyname(Name,Family,Timeout) ->
     Timer = start_timer(Timeout),
     Res = gethostbyname_tm(Name,Family,Timer),
-    stop_timer(Timer),
+    _ = stop_timer(Timer),
     Res.
 
 gethostbyname_tm(Name,Family,Timer) ->
@@ -420,7 +420,7 @@ gethostbyaddr(Address) ->
 gethostbyaddr(Address,Timeout) ->
     Timer = start_timer(Timeout),    
     Res = gethostbyaddr_tm(Address, Timer),
-    stop_timer(Timer),
+    _ = stop_timer(Timer),
     Res.
 
 gethostbyaddr_tm(Address,Timer) ->
@@ -475,7 +475,7 @@ getaddr(Address, Family) ->
 getaddr(Address, Family, Timeout) ->
     Timer = start_timer(Timeout),
     Res = getaddr_tm(Address, Family, Timer),
-    stop_timer(Timer),
+    _ = stop_timer(Timer),
     Res.
 
 getaddr_tm(Address, Family, Timer) ->
@@ -501,7 +501,7 @@ getaddrs(Address, Family) ->
 getaddrs(Address, Family, Timeout) ->
     Timer = start_timer(Timeout),
     Res = getaddrs_tm(Address, Family, Timer),
-    stop_timer(Timer),
+    _ = stop_timer(Timer),
     Res.
 
 -spec getservbyport(Port :: port_number(), Protocol :: atom() | string()) ->
@@ -1331,7 +1331,7 @@ tcp_controlling_process(S, NewOwner) when is_port(S), is_pid(NewOwner) ->
 		{ok, A0} ->
 		    case A0 of
 			false -> ok;
-			_ -> prim_inet:setopt(S, active, false)
+			_ -> ok = prim_inet:setopt(S, active, false)
 		    end,
 		    case tcp_sync_input(S, NewOwner, false) of
 			true ->  %% socket already closed, 
@@ -1342,7 +1342,7 @@ tcp_controlling_process(S, NewOwner) when is_port(S), is_pid(NewOwner) ->
 				    unlink(S), %% unlink from port
 				    case A0 of
 					false -> ok;
-					_ -> prim_inet:setopt(S, active, A0)
+					_ -> ok = prim_inet:setopt(S, active, A0)
 				    end,
 				    ok
 			    catch
@@ -1385,13 +1385,12 @@ udp_controlling_process(S, NewOwner) when is_port(S), is_pid(NewOwner) ->
 	    {error, not_owner};
 	_ ->
 	    {ok, A0} = prim_inet:getopt(S, active),
-	    prim_inet:setopt(S, active, false),
+	    ok = prim_inet:setopt(S, active, false),
 	    udp_sync_input(S, NewOwner),
 	    try erlang:port_connect(S, NewOwner) of
 		true -> 
 		    unlink(S),
-		    prim_inet:setopt(S, active, A0),
-		    ok
+		    ok = prim_inet:setopt(S, active, A0)
 	    catch
 		error:Reason -> 
 		    {error, Reason}

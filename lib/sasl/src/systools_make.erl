@@ -406,9 +406,9 @@ check_rel(Release) ->
     end.
 
 check_rel1({release,{Name,Vsn},{erts,EVsn},Appl}) when is_list(Appl) ->
-    check_name(Name),
-    check_vsn(Vsn),
-    check_evsn(EVsn),
+    Name = check_name(Name),
+    Vsn = check_vsn(Vsn),
+    EVsn = check_evsn(EVsn),
     {{Appls,Incls},Ws} = check_appl(Appl),
     {ok, {Name,Vsn,EVsn,Appls,Incls},Ws};
 check_rel1(_) ->
@@ -974,7 +974,8 @@ check_xref(Appls, Path, XrefP) ->
 	    ok;
 	{error, {already_started, _Pid}} ->
 	    xref:stop(?XREF_SERVER), %% Clear out any previous data
-	    xref:start(?XREF_SERVER, XrefArgs)
+	    {ok,_} = xref:start(?XREF_SERVER, XrefArgs),
+	    ok
     end,
     {ok, _} = xref:set_default(?XREF_SERVER, verbose, false),
     LibPath = case Path == code:get_path() of
@@ -1146,14 +1147,17 @@ generate_script(Output, Release, Appls, Flags) ->
 	{ok, Fd} ->
 	    io:format(Fd, "%% script generated at ~w ~w\n~p.\n",
 		      [date(), time(), Script]),
-	    file:close(Fd),
-
-	    BootFile = Output ++ ".boot",
-	    case file:write_file(BootFile, term_to_binary(Script)) of
+	    case file:close(Fd) of
 		ok ->
-		    ok;
+		    BootFile = Output ++ ".boot",
+		    case file:write_file(BootFile, term_to_binary(Script)) of
+			ok ->
+			    ok;
+			{error, Reason} ->
+			    {error, ?MODULE, {open,BootFile,Reason}}
+		    end;
 		{error, Reason} ->
-		    {error, ?MODULE, {open,BootFile,Reason}}
+		    {error, ?MODULE, {close,ScriptFile,Reason}}
 	    end;
 	{error, Reason} ->
 	    {error, ?MODULE, {open,ScriptFile,Reason}}
@@ -1529,14 +1533,16 @@ mk_tar(RelName, Release, Appls, Flags, Path1) ->
     Tar = open_main_tar(TarName),
     case catch mk_tar(Tar, RelName, Release, Appls, Flags, Path1) of
 	{error,Error} ->
-	    del_tar(Tar, TarName),
+	    _ = del_tar(Tar, TarName),
 	    {error,?MODULE,Error};
 	{'EXIT',Reason} ->
-	    del_tar(Tar, TarName),
+	    _ = del_tar(Tar, TarName),
 	    {error,?MODULE,Reason};
 	_ ->
-	    close_tar(Tar),
-	    ok
+	    case erl_tar:close(Tar) of
+		ok -> ok;
+		{error,Reason} -> {error,?MODULE,{close,TarName,Reason}}
+	    end
     end.
 
 open_main_tar(TarName) ->
@@ -1591,14 +1597,13 @@ add_variable_tar({Variable,P}, Appls, Tar, Flags) ->
 	    case catch add_applications(Appls, VarTar, [{Variable,P}],
 					Flags, Variable) of
 		ok when Flag == include ->
-		    close_tar(VarTar),
+		    close_tar(VarTar,TarName),
 		    add_to_tar(Tar, TarName, TarName),
 		    del_file(TarName);
 		ok when Flag == ownfile ->
-		    close_tar(VarTar),
-		    ok;
+		    close_tar(VarTar,TarName);
 		Error ->
-		    del_tar(VarTar, TarName),
+		    _ = del_tar(VarTar, TarName),
 		    throw(Error)
 	    end
     end.
@@ -1856,12 +1861,15 @@ open_tar(TarName) ->
 	    throw({error,{tar_error, {open, TarName, Error}}})
     end.
 
-close_tar(Tar) ->
-    erl_tar:close(Tar).
+close_tar(Tar,File) ->
+    case erl_tar:close(Tar) of
+	ok -> ok;
+	{error,Reason} -> throw({error,{close,File,Reason}})
+    end.
 
 del_tar(Tar, TarName) ->
-    close_tar(Tar),
-    del_file(TarName).
+    _ = erl_tar:close(Tar),
+    file:delete(TarName).
 
 add_to_tar(Tar, FromFile, ToFile) ->
     case erl_tar:add(Tar, FromFile, ToFile, [compressed, dereference]) of
@@ -1916,13 +1924,20 @@ read_file(File, Path) ->
 			 Other ->
 			     Other
 		     end,
-	    file:close(Stream),
-	    Return;
+	    case file:close(Stream) of
+		ok -> Return;
+		{error, Error} -> {error, {close,File,Error}}
+	    end;
 	_Other ->
 	    {error, {not_found, File}}
     end.
 
-del_file(File) -> file:delete(File).
+del_file(File) ->
+    case file:delete(File) of
+	ok -> ok;
+	{error, Error} ->
+	    throw({error, {delete, File, Error}})
+    end.
 
 dirp(Dir) ->
     case file:read_file_info(Dir) of
@@ -2237,6 +2252,12 @@ format_error({read,File}) ->
     io_lib:format("Cannot read ~p~n",[File]);
 format_error({open,File,Error}) ->
     io_lib:format("Cannot open ~p - ~ts~n",
+		  [File,file:format_error(Error)]);
+format_error({close,File,Error}) ->
+    io_lib:format("Cannot close ~p - ~ts~n",
+		  [File,file:format_error(Error)]);
+format_error({delete,File,Error}) ->
+    io_lib:format("Cannot delete ~p - ~ts~n",
 		  [File,file:format_error(Error)]);
 format_error({tar_error,What}) ->
     form_tar_err(What);

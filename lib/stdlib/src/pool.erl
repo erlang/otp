@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -63,7 +63,7 @@ start(Name) ->
       Args :: string(),
       Nodes :: [node()].
 start(Name, Args) when is_atom(Name) ->
-    gen_server:start({global, pool_master}, pool, [], []),
+    _ = gen_server:start({global, pool_master}, pool, [], []),
     Hosts = net_adm:host_file(),
     Nodes = start_nodes(Hosts, Name, Args),
     lists:foreach(fun attach/1, Nodes),

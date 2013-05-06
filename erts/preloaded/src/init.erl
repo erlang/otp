@@ -1045,7 +1045,7 @@ start_it({eval,Bin}) ->
 	      TsR -> reverse([{dot,1} | TsR])
 	  end,
     {ok,Expr} = erl_parse:parse_exprs(Ts1),
-    erl_eval:exprs(Expr, erl_eval:new_bindings()),
+    {value, _Value, _Bs} = erl_eval:exprs(Expr, erl_eval:new_bindings()),
     ok;
 start_it([_|_]=MFA) ->
     Ref = make_ref(),

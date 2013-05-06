@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -317,10 +317,10 @@ handle_system_msg(Msg, From, Parent, Mod, Debug, Misc, Hib) ->
 handle_system_msg(SysState, Msg, From, Parent, Mod, Debug, Misc, Hib) ->
     case do_cmd(SysState, Msg, Parent, Mod, Debug, Misc) of
 	{suspended, Reply, NDebug, NMisc} ->
-	    gen:reply(From, Reply),
+	    _ = gen:reply(From, Reply),
 	    suspend_loop(suspended, Parent, Mod, NDebug, NMisc, Hib);
 	{running, Reply, NDebug, NMisc} ->
-	    gen:reply(From, Reply),
+	    _ = gen:reply(From, Reply),
             Mod:system_continue(Parent, NDebug, NMisc)
     end.
 

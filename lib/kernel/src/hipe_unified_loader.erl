@@ -226,14 +226,16 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
       %%  (patches the BEAM code to redirect to native.)
       case Beam of
 	[] ->
-	  export_funs(Addresses);
+	  export_funs(Addresses),
+	  ok;
 	BeamBinary when is_binary(BeamBinary) ->
 	  %% Find all closures in the code.
 	  ClosurePatches = find_closure_patches(Refs),
 	  AddressesOfClosuresToPatch =
 	    calculate_addresses(ClosurePatches, CodeAddress, Addresses),
 	  export_funs(Addresses),
-	  export_funs(Mod, BeamBinary, Addresses, AddressesOfClosuresToPatch)
+	  export_funs(Mod, BeamBinary, Addresses, AddressesOfClosuresToPatch),
+	  ok
       end,
       %% Redirect references to the old module to the new module's BEAM stub.
       patch_to_emu_step2(OldReferencesToPatch),

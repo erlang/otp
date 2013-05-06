@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -133,7 +133,7 @@ dns_hostname(Hostname) ->
 -spec ping_list([atom()]) -> [atom()].
 
 ping_list(Nodelist) ->
-    net_kernel:monitor_nodes(true),
+    ok = net_kernel:monitor_nodes(true),
     Sofar = ping_first(Nodelist, nodes()),
     collect_new(Sofar, Nodelist).
 
@@ -159,7 +159,7 @@ collect_new(Sofar, Nodelist) ->
 		    collect_new([Node | Sofar], Nodelist)
 	    end
     after 3000 ->
-	    net_kernel:monitor_nodes(false),
+	    ok = net_kernel:monitor_nodes(false),
 	    Sofar
     end.
 

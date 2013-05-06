@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -182,11 +182,11 @@ wait_ack(Port) ->
     end.
 
 loop(Parent, Port, Cmd) ->
-    send_heart_beat(Port),
+    _ = send_heart_beat(Port),
     receive
 	{From, set_cmd, NewCmd} when length(NewCmd) < 2047 ->
-	    send_heart_cmd(Port, NewCmd),
-	    wait_ack(Port),
+	    _ = send_heart_cmd(Port, NewCmd),
+	    _ = wait_ack(Port),
 	    From ! {heart, ok},
 	    loop(Parent, Port, NewCmd);
 	{From, set_cmd, NewCmd} ->
@@ -194,8 +194,8 @@ loop(Parent, Port, Cmd) ->
 	    loop(Parent, Port, Cmd);
 	{From, clear_cmd} ->
 	    From ! {heart, ok},
-	    send_heart_cmd(Port, ""),
-	    wait_ack(Port),
+	    _ = send_heart_cmd(Port, ""),
+	    _ = wait_ack(Port),
 	    loop(Parent, Port, "");
 	{From, get_cmd} ->
 	    From ! {heart, get_heart_cmd(Port)},
@@ -222,7 +222,7 @@ loop(Parent, Port, Cmd) ->
 -spec no_reboot_shutdown(port()) -> no_return().
 
 no_reboot_shutdown(Port) ->
-    send_shutdown(Port),
+    _ = send_shutdown(Port),
     receive
 	{'EXIT', Port, Reason} when Reason =/= badsig ->
 	    exit(normal)
@@ -232,10 +232,10 @@ do_cycle_port_program(Caller, Parent, Port, Cmd) ->
     unregister(?HEART_PORT_NAME),
     case catch start_portprogram() of
 	{ok, NewPort} ->
-	    send_shutdown(Port),
+	    _ = send_shutdown(Port),
 	    receive
 		{'EXIT', Port, _Reason} ->
-		    send_heart_cmd(NewPort, Cmd),
+		    _ = send_heart_cmd(NewPort, Cmd),
 		    Caller ! {heart, ok},
 		    loop(Parent, NewPort, Cmd)
 	    after
@@ -243,7 +243,7 @@ do_cycle_port_program(Caller, Parent, Port, Cmd) ->
 		    %% Huh! Two heart port programs running...
 		    %% well, the old one has to be sick not to respond
 		    %% so we'll settle for the new one...
-		    send_heart_cmd(NewPort, Cmd),
+		    _ = send_heart_cmd(NewPort, Cmd),
 		    Caller ! {heart, {error, stop_error}},
 		    loop(Parent, NewPort, Cmd)
 	    end;

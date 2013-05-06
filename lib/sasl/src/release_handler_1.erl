@@ -349,7 +349,7 @@ eval({load, {Mod, _PrePurgeMethod, PostPurgeMethod}}, EvalState) ->
     {value, {_Mod, Bin, File}} = lists:keysearch(Mod, 1, Bins),
     % load_binary kills all procs running old code
     % if soft_purge, we know that there are no such procs now
-    code:load_binary(Mod, File, Bin),
+    {module,_} = code:load_binary(Mod, File, Bin),
     % Now, the prev current is old.  There might be procs
     % running it.  Find them.
     Unpurged = do_soft_purge(Mod,PostPurgeMethod,EvalState#eval_state.unpurged),

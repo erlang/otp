@@ -469,7 +469,7 @@ is_compatible_bchunk_format(Tab, Term) ->
 is_dets_file(FileName) ->
     case catch read_file_header(FileName, read, false) of
 	{ok, Fd, FH} ->
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    FH#fileheader.cookie =:= ?MAGIC;
 	{error, {tooshort, _}} ->
 	    false;
@@ -1384,7 +1384,8 @@ do_apply_op(Op, From, Head, N) ->
             end,
             if
                 From =/= self() ->
-                    From ! {self(), {error, {dets_bug, Name, Op, Bad}}};
+                    From ! {self(), {error, {dets_bug, Name, Op, Bad}}},
+                    ok;
                 true -> % auto_save | may_grow | {delayed_write, _}
                     ok
             end,
@@ -1634,7 +1635,8 @@ start_auto_save_timer(Head) when Head#head.auto_save =:= infinity ->
     ok;
 start_auto_save_timer(Head) ->
     Millis = Head#head.auto_save,
-    erlang:send_after(Millis, self(), ?DETS_CALL(self(), auto_save)).
+    _Ref = erlang:send_after(Millis, self(), ?DETS_CALL(self(), auto_save)),
+    ok.
 
 %% Version 9: Peek the message queue and try to evaluate several
 %% lookup requests in parallel. Evalute delete_object, delete and
@@ -1683,7 +1685,7 @@ stream_end(Head, Pids0, C, N, Next) ->
 	    %%  replies to delete and insert requests even if the
 	    %%  latter requests were made before the lookup requests,
 	    %%  which can be confusing.)
-	    lookup_replies(Found),
+	    _ = lookup_replies(Found),
 	    stream_end1(Pids0, Next, N, C, Head1, PwriteList);
 	Head1 when is_record(Head1, head) ->
 	    stream_end2(Pids0, Pids0, Next, N, C, Head1, ok);	    
@@ -1733,7 +1735,7 @@ lookup_replies(Q) ->
 lookup_replies(P, O, []) ->
     lookup_reply(P, O);
 lookup_replies(P, O, [{P2,O2} | L]) ->
-    lookup_reply(P, O),
+    _ = lookup_reply(P, O),
     lookup_replies(P2, lists:append(O2), L).
 
 %% If a list of Pid then op was {member, Key}. Inlined.
@@ -1790,12 +1792,15 @@ fclose(Head) ->
     {Head1, Res} = perform_save(Head, false),
     case Head1#head.ram_file of
 	true -> 
-	    ignore;
+            Res;
 	false -> 
             dets_utils:stop_disk_map(),
-	    file:close(Head1#head.fptr)
-    end,
-    Res.
+	    Res2 = file:close(Head1#head.fptr),
+            if
+                Res2 =:= ok -> Res;
+                true -> Res2
+            end
+    end.
 
 %% -> {NewHead, Res}
 perform_save(Head, DoSync) when Head#head.update_mode =:= dirty;
@@ -2002,7 +2007,7 @@ remove_fix(Head, Pid, How) ->
     end.
 
 do_stop(Head) ->
-    unlink_fixing_procs(Head),
+    _NewHead = unlink_fixing_procs(Head),
     fclose(Head).
 
 unlink_fixing_procs(Head) ->
@@ -2010,7 +2015,7 @@ unlink_fixing_procs(Head) ->
 	false ->
 	    Head;
 	{_, Counters} ->
-	    lists:map(fun({Pid, _Counter}) -> unlink(Pid) end, Counters),
+	    lists:foreach(fun({Pid, _Counter}) -> unlink(Pid) end, Counters),
 	    Head#head{fixed = false, 
 		      freelists = dets_utils:get_freelists(Head)}
     end.
@@ -2021,8 +2026,9 @@ check_growth(Head) ->
     NoThings = no_things(Head),
     if
 	NoThings > Head#head.next ->
-	    erlang:send_after(200, self(), 
-			      ?DETS_CALL(self(), may_grow)); % Catch up.
+	    _Ref = erlang:send_after
+                     (200, self(), ?DETS_CALL(self(), may_grow)), % Catch up.
+            ok;
 	true ->
 	    ok
     end.
@@ -2123,7 +2129,7 @@ do_open_file([Fname, Verbose], Parent, Server, Ref) ->
 do_open_file([Tab, OpenArgs, Verb], Parent, Server, Ref) ->
     case catch fopen3(Tab, OpenArgs) of
 	{error, {tooshort, _}} ->
-	    file:delete(OpenArgs#open_args.file),
+	    _ = file:delete(OpenArgs#open_args.file),
 	    do_open_file([Tab, OpenArgs, Verb], Parent, Server, Ref);
 	{error, _Reason} = Error ->
 	    err(Error);
@@ -2671,11 +2677,11 @@ fopen_init_file(Tab, OpenArgs) ->
     case catch Mod:initiate_file(Fd, Tab, Fname, Type, Kp, MinSlots, MaxSlots,
 				 Ram, CacheSz, Auto, true) of
 	{error, Reason} when Ram ->
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    throw({error, Reason});
 	{error, Reason} ->
-	    file:close(Fd),
-	    file:delete(Fname),
+	    _ = file:close(Fd),
+	    _ = file:delete(Fname),
 	    throw({error, Reason});
 	{ok, Head} ->
 	    start_auto_save_timer(Head),
@@ -2730,8 +2736,8 @@ compact(SourceHead) ->
 	       {ok, H} ->
 		   H;
 	       Error ->
-		   file:close(Fd),
-                   file:delete(Tmp),
+		   _ = file:close(Fd),
+                   _ = file:delete(Tmp),
 		   throw(Error)
 	   end,
 
@@ -2748,12 +2754,12 @@ compact(SourceHead) ->
 	    if 
 		R =:= ok -> ok;
 		true ->
-		    file:delete(Tmp),
+		    _ = file:delete(Tmp),
 		    throw(R)
 	    end;
 	Err ->
-	    file:close(Fd),
-            file:delete(Tmp),
+	    _ = file:close(Fd),
+            _ = file:delete(Tmp),
 	    throw(Err)
     end.
 	    
@@ -2777,7 +2783,7 @@ fsck(Fd, Tab, Fname, FH, MinSlotsArg, MaxSlotsArg, Version) ->
 	    BetterSlotNumbers = {MinSlots, BetterNoSlots, MaxSlots},
             case fsck_try(Fd, Tab, FH, Fname, BetterSlotNumbers, Version) of
                 {try_again, _} ->
-                    file:close(Fd),
+                    _ = file:close(Fd),
                     {error, {cannot_repair, Fname}};
                 Else ->
                     Else
@@ -2818,15 +2824,15 @@ fsck_try(Fd, Tab, FH, Fname, SlotNumbers, Version) ->
                     if 
 			R =:= ok -> ok;
 			true ->
-			    file:delete(Tmp),
+			    _ = file:delete(Tmp),
 			    R
 		    end;
 		TryAgainOrError ->
-                    file:delete(Tmp),
+                    _ = file:delete(Tmp),
                     TryAgainOrError
             end;
 	Error -> 
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    Error
     end.
 
@@ -2855,13 +2861,13 @@ fsck_try_est(Head, Fd, Fname, SlotNumbers, FH) ->
     Bulk = false,
     case Reply of 
         {ok, NoDups, H1} ->
-            file:close(Fd),
+            _ = file:close(Fd),
             fsck_copy(SizeData, H1, Bulk, NoDups);
         {try_again, _} = Return ->
             close_files(Bulk, SizeData, Head),
             Return;
         Else ->
-            file:close(Fd),
+            _ = file:close(Fd),
             close_files(Bulk, SizeData, Head),
 	    Else
     end.
@@ -2896,14 +2902,20 @@ fsck_copy1([SzData | L], Head, Bulk, NoDups) ->
     {LogSz, Pos, {FileName, Fd}, NoObjects} = SzData,
     Size = if NoObjects =:= 0 -> 0; true -> ?POW(LogSz-1) end,
     ExpectedSize = Size * NoObjects,
-    close_tmp(Fd),
-    case file:position(Out, Pos) of
-	{ok, Pos} -> ok;
-	PError -> dets_utils:file_error(FileName, PError)
+    case close_tmp(Fd) of
+        ok -> ok;
+        Err ->
+	    close_files(Bulk, L, Head),
+	    dets_utils:file_error(FileName, Err)
     end,
-    {ok, Pos} = file:position(Out, Pos),
+    case file:position(Out, Pos) of
+        {ok, Pos} -> ok;
+        Err2 ->
+	    close_files(Bulk, L, Head),
+	    dets_utils:file_error(Head#head.filename, Err2)
+        end,
     CR = file:copy({FileName, [raw,binary]}, Out),
-    file:delete(FileName),
+    _ = file:delete(FileName),
     case CR of 
 	{ok, Copied} when Copied =:= ExpectedSize;
 			  NoObjects =:= 0 -> % the segments
@@ -2937,11 +2949,11 @@ free_n_objects(Head, Addr, Size, N) ->
     free_n_objects(NewHead, NewAddr, Size, N-1).
 
 close_files(false, SizeData, Head) ->
-    file:close(Head#head.fptr),
+    _ = file:close(Head#head.fptr),
     close_files(true, SizeData, Head);
 close_files(true, SizeData, _Head) ->
     Fun = fun({_Size, _Pos, {FileName, Fd}, _No}) ->
-		  close_tmp(Fd),
+		  _ = close_tmp(Fd),
 		  file:delete(FileName);
 	     (_) ->
 		  ok
@@ -3261,7 +3273,7 @@ err(Error) ->
 file_info(FileName) ->
     case catch read_file_header(FileName, read, false) of
 	{ok, Fd, FH} ->
-	    file:close(Fd),
+	    _ = file:close(Fd),
             (FH#fileheader.mod):file_info(FH);
 	Other ->
 	    Other
@@ -3290,7 +3302,7 @@ view(FileName) ->
                         X ->
                             X
                     end
-            after file:close(Fd)
+            after _ = file:close(Fd)
             end;
 	X -> 
 	    X

@@ -644,7 +644,7 @@ leave_file(From, St) ->
 		    enter_file_reply(From, OldName, CurrLoc, CurrLoc),
                     case OldName2 =:= OldName of
                         true ->
-                            From;
+                            ok;
                         false ->
                             NFrom = wait_request(NextSt),
                             enter_file_reply(NFrom, OldName2, OldLoc,

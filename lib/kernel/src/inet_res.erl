@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -139,7 +139,7 @@ resolve(Name, Class, Type, Opts, Timeout) ->
 	{ok, Nm} ->
 	    Timer = inet:start_timer(Timeout),
 	    Res = res_query(Nm, Class, Type, Opts, Timer),
-	    inet:stop_timer(Timer),
+	    _ = inet:stop_timer(Timer),
 	    Res;
 	Error ->
 	    Error
@@ -339,7 +339,7 @@ gethostbyaddr(IP) -> gethostbyaddr_tm(IP,false).
 gethostbyaddr(IP,Timeout) ->
     Timer = inet:start_timer(Timeout),
     Res = gethostbyaddr_tm(IP,Timer),
-    inet:stop_timer(Timer),
+    _ = inet:stop_timer(Timer),
     Res.    
 
 gethostbyaddr_tm({A,B,C,D} = IP, Timer) when ?ip(A,B,C,D) ->
@@ -424,7 +424,7 @@ gethostbyname(Name,Family) ->
 gethostbyname(Name,Family,Timeout) ->
     Timer = inet:start_timer(Timeout),    
     Res = gethostbyname_tm(Name,Family,Timer),
-    inet:stop_timer(Timer),
+    _ = inet:stop_timer(Timer),
     Res.
     
 gethostbyname_tm(Name,inet,Timer) ->
@@ -483,7 +483,7 @@ getbyname(Name, Type) ->
 getbyname(Name, Type, Timeout) ->
     Timer = inet:start_timer(Timeout),
     Res = getbyname_tm(Name, Type, Timer),
-    inet:stop_timer(Timer),
+    _ = inet:stop_timer(Timer),
     Res.
 
 getbyname_tm(Name, Type, Timer) when is_list(Name) ->
@@ -921,18 +921,25 @@ query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
 			[{active,false},{packet,2},binary,Family], 
 			Timeout) of
 	{ok, S} ->
-	    gen_tcp:send(S, Buffer),
-	    case gen_tcp:recv(S, 0, Timeout) of
-		{ok, Answer} ->
-		    gen_tcp:close(S),
-		    case decode_answer(Answer, Id, Verbose) of
-			{ok, _} = OK -> OK;
-			{error, badid} -> {error, servfail};
-			Error -> Error
+	    case gen_tcp:send(S, Buffer) of
+		ok ->
+		    case gen_tcp:recv(S, 0, Timeout) of
+			{ok, Answer} ->
+			    gen_tcp:close(S),
+			    case decode_answer(Answer, Id, Verbose) of
+				{ok, _} = OK -> OK;
+				{error, badid} -> {error, servfail};
+				Error -> Error
+			    end;
+			Error ->
+			    gen_tcp:close(S),
+			    ?verbose(Verbose, "TCP server recv error: ~p\n",
+				     [Error]),
+			    Error
 		    end;
 		Error ->
 		    gen_tcp:close(S),
-		    ?verbose(Verbose, "TCP server recv error: ~p\n",
+		    ?verbose(Verbose, "TCP server send error: ~p\n",
 			     [Error]),
 		    Error
 	    end;

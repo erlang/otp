@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -162,29 +162,29 @@ server_loop(#state{mref = Mref} = State) ->
 	{file_request, From, ReplyAs, Request} when is_pid(From) ->
 	    case file_request(Request, State) of
 		{reply, Reply, NewState} ->
-		    file_reply(From, ReplyAs, Reply),
+		    _ = file_reply(From, ReplyAs, Reply),
 		    server_loop(NewState);
 		{error, Reply, NewState} ->
 		    %% error is the same as reply, except that
 		    %% it breaks the io_request_loop further down
-		    file_reply(From, ReplyAs, Reply),
+		    _ = file_reply(From, ReplyAs, Reply),
 		    server_loop(NewState);
 		{stop, Reason, Reply, _NewState} ->
-		    file_reply(From, ReplyAs, Reply),
+		    _ = file_reply(From, ReplyAs, Reply),
 		    exit(Reason)
 	    end;
 	{io_request, From, ReplyAs, Request} when is_pid(From) ->
 	    case io_request(Request, State) of
 		{reply, Reply, NewState} ->
-		    io_reply(From, ReplyAs, Reply),
+		    _ = io_reply(From, ReplyAs, Reply),
 		    server_loop(NewState);
 		{error, Reply, NewState} ->
 		    %% error is the same as reply, except that
 		    %% it breaks the io_request_loop further down
-		    io_reply(From, ReplyAs, Reply),
+		    _ = io_reply(From, ReplyAs, Reply),
 		    server_loop(NewState);
 		{stop, Reason, Reply, _NewState} ->
-		    io_reply(From, ReplyAs, Reply),
+		    _ = io_reply(From, ReplyAs, Reply),
 		    exit(Reason)
 	    end;
 	{'DOWN', Mref, _, _, Reason} ->

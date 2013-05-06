@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -549,7 +549,7 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, Debug) ->
 	{stop, Reason, Reply, NStateData} when From =/= undefined ->
 	    {'EXIT', R} = (catch terminate(Reason, Name, Msg, Mod,
 					   StateName, NStateData, Debug)),
-	    reply(Name, From, Reply, Debug, StateName),
+	    _ = reply(Name, From, Reply, Debug, StateName),
 	    exit(R);
 	{'EXIT', What} ->
 	    terminate(What, Name, Msg, Mod, StateName, StateData, Debug);

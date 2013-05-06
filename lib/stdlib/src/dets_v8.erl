@@ -199,10 +199,10 @@
 %% -> ok | throw({NewHead,Error})
 mark_dirty(Head) ->
     Dirty = [{?CLOSED_PROPERLY_POS, <<?NOT_PROPERLY_CLOSED:32>>}],
-    dets_utils:pwrite(Head, Dirty),
-    dets_utils:sync(Head),
-    dets_utils:position(Head, Head#head.freelists_p),
-    dets_utils:truncate(Head, cur).
+    {_NewHead, ok} = dets_utils:pwrite(Head, Dirty),
+    ok = dets_utils:sync(Head),
+    {ok, _Pos} = dets_utils:position(Head, Head#head.freelists_p),
+    ok = dets_utils:truncate(Head, cur).
 
 %% -> {ok, head()} | throw(Error)
 initiate_file(Fd, Tab, Fname, Type, Kp, MinSlots, MaxSlots, 

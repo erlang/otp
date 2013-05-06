@@ -1924,12 +1924,12 @@ otp_6226_outdir(Config) when is_list(Config) ->
     ok = file:delete(Relup),
 
     %% d) absolute but incorrect path
-    {error,_,{file_problem,{"relup",enoent}}} =
+    {error,_,{file_problem,{"relup",{open,enoent}}}} =
 	systools:make_relup(LatestName,[LatestName1],[LatestName1],
 			    [{outdir,Outdir2},{path,P},silent]),
 
     %% e) relative but incorrect path
-    {error,_,{file_problem,{"relup",enoent}}} =
+    {error,_,{file_problem,{"relup",{open,enoent}}}} =
 	systools:make_relup(LatestName,[LatestName1],[LatestName1],
 			    [{outdir,"./outdir2"},{path,P},silent]),
 

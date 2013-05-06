@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -258,7 +258,7 @@ ensure_started() ->
 	undefined -> 
 	    C = {timer_server, {?MODULE, start_link, []}, permanent, 1000, 
 		 worker, [?MODULE]},
-	    supervisor:start_child(kernel_safe_sup, C),  % kernel_safe_sup
+	    _ = supervisor:start_child(kernel_safe_sup, C),
 	    ok;
 	_ -> ok
     end.
