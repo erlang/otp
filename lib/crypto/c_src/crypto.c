@@ -621,7 +621,8 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 
     res_type_ec_key = enif_open_resource_type(env,NULL,"crypto.EC_KEY",
 					      ec_key_dtor,
-					      ERL_NIF_RT_CREATE, NULL);
+					      ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+					      NULL);
 #endif
 
     init_digest_types(env);
