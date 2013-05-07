@@ -90,7 +90,7 @@ init_per_group(GroupName, Config) ->
 	true ->
 	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
 		true ->
-		    ssl_test_lib:init_tls_version(GroupName),
+		    ssl_test_lib:init_tls_version(GroupName, Config),
 		    Config;
 		false ->
 		    {skip, "Missing crypto support"}
