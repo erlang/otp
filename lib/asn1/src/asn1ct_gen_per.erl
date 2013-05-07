@@ -122,7 +122,6 @@ gen_encode_prim(Erules, #type{}=D, Value) ->
 	     false -> no;
 	     {_,Pa0} -> Pa0
 	 end,
-    asn1ct_name:new(enumval),
     case D#type.def of
 	'INTEGER' ->
 	    Args = [{asis,asn1ct_imm:effective_constraint(integer,Constraint)},
