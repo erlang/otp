@@ -185,8 +185,8 @@ session_cleanup() ->
      "does not grow and grow ..."}].
 session_cleanup(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = ?config(client_opts, Config),
-    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =

@@ -130,8 +130,8 @@ init_per_group(Group, Config) ->
 common_init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
 	true ->
-	    ssl_test_lib:init_tls_version(GroupName),
-	    [{tls_version, GroupName} | Config];
+	    Config0 = ssl_test_lib:init_tls_version(GroupName, Config),
+	    [{tls_version, GroupName} | Config0];
 	_ ->
 	   openssl_check(GroupName, Config)
     end.
