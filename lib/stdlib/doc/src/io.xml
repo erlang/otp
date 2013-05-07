@@ -206,6 +206,7 @@
 [{expand_fun,#Fun&lt;group.0.120017273&gt;},
  {echo,true},
  {binary,false},
+ {max_length,unlimited},
  {encoding,unicode}]</pre>
       <p>This example is, as can be seen, run in an environment where the terminal supports Unicode input and output.</p>
       </desc>
@@ -284,6 +285,14 @@
 	  <p><c>{encoding, utf8}</c> will have the same effect as <c>{encoding, unicode}</c> on files.</p>
 	  <p>The extended encodings are only supported on disk files (opened by the <seealso marker="kernel:file#open/2">file:open/2</seealso> function)</p>
  	  </item>
+          <tag><c>{max_length, 'unlimited' | pos_integer()}</c></tag>
+          <item>
+              <p>Denotes the maximum line length that the I/O server shall handle. If lines
+                  longer than this value are entered, input processing stops at max_length characters
+                  and the input read up to here is returned. The default value is <c>unlimited</c> which
+              means that no input length restriction is active.</p>
+            <p>This option is supported by the standard shell only (<c>group.erl</c>).</p>
+          </item>
         </taglist>
       </desc>
     </func>

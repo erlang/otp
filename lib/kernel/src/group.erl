@@ -39,6 +39,7 @@ server(Drv, Shell, Options) ->
 	proplists:get_value(expand_fun, Options,
 			    fun(B) -> edlin_expand:expand(B) end)),
     put(echo, proplists:get_value(echo, Options, true)),
+    put(max_length, unlimited),
     
     start_shell(Shell),
     server_loop(Drv, get(shell), []).
@@ -351,12 +352,17 @@ check_valid_opts([{echo,_}|T]) ->
     check_valid_opts(T);
 check_valid_opts([{expand_fun,_}|T]) ->
     check_valid_opts(T);
+check_valid_opts([{max_length, X} | T]) when is_integer(X) andalso X > 0 ->
+    check_valid_opts(T);
+check_valid_opts([{max_length, unlimited} | T]) ->
+    check_valid_opts(T);
 check_valid_opts(_) ->
     false.
 
 do_setopts(Opts, Drv, Buf) ->
     put(expand_fun, proplists:get_value(expand_fun, Opts, get(expand_fun))),
     put(echo, proplists:get_value(echo, Opts, get(echo))),
+    put(max_length, proplists:get_value(max_length, Opts, get(max_length))),
     case proplists:get_value(encoding,Opts) of
 	Valid when Valid =:= unicode; Valid =:= utf8 ->
 	    set_unicode_state(Drv,true);
@@ -398,11 +404,17 @@ getopts(Drv,Buf) ->
 		       _ ->
 			   false
 		   end},
+    Max = {max_length, case get(max_length) of
+            Int when is_integer(Int) ->
+                Int;
+            _ ->
+                unlimited
+        end},
     Uni = {encoding, case get_unicode_state(Drv) of
 			true -> unicode;
 			_ -> latin1
 		     end},
-    {ok,[Exp,Echo,Bin,Uni],Buf}.
+    {ok,[Exp,Echo,Bin,Max,Uni],Buf}.
     
 
 %% get_chars(Prompt, Module, Function, XtraArgument, Drv, Buffer)
@@ -439,6 +451,8 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Buf0, State, Encoding) ->
     case Result of
 	{done,Line,Buf1} ->
 	    get_chars_apply(Pbs, M, F, Xa, Drv, Buf1, State, Line, Encoding);
+	{overlong, Line, Rest} ->
+	    {ok, Line, Rest};
 	interrupted ->
 	    {error,{error,interrupted},[]};
 	terminated ->
@@ -471,13 +485,17 @@ err_func(_, F, _) ->
 get_line(Chars, Pbs, Drv, Encoding) ->
     {more_chars,Cont,Rs} = edlin:start(Pbs),
     send_drv_reqs(Drv, Rs),
-    get_line1(edlin:edit_line(Chars, Cont), Drv, new_stack(get(line_buffer)), 
+    get_line1_limit(edlin:edit_line(Chars, Cont), Drv, new_stack(get(line_buffer)),
 	      Encoding).
 
 get_line1({done,Line,Rest,Rs}, Drv, Ls, _Encoding) ->
     send_drv_reqs(Drv, Rs),
     save_line_buffer(Line, get_lines(Ls)),
     {done,Line,Rest};
+get_line1({overlong, Line, Rest, Rs}, Drv, Ls, _Encoding) ->
+    send_drv_reqs(Drv, Rs),
+    save_line_buffer(Line, get_lines(Ls)),
+    {overlong, Line, Rest};
 get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Ls0, Encoding) 
   when ((Mode =:= none) and (Char =:= $\^P))
        or ((Mode =:= meta_left_sq_bracket) and (Char =:= $A)) ->
@@ -485,7 +503,7 @@ get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Ls0, Encoding)
     case up_stack(save_line(Ls0, edlin:current_line(Cont))) of
 	{none,_Ls} ->
 	    send_drv(Drv, beep),
-	    get_line1(edlin:edit_line(Cs, Cont), Drv, Ls0, Encoding);
+	    get_line1_limit(edlin:edit_line(Cs, Cont), Drv, Ls0, Encoding);
 	{Lcs,Ls} ->
 	    send_drv_reqs(Drv, edlin:erase_line(Cont)),
 	    {more_chars,Ncont,Nrs} = edlin:start(edlin:prompt(Cont)),
@@ -502,7 +520,7 @@ get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Ls0, Encoding)
     case down_stack(save_line(Ls0, edlin:current_line(Cont))) of
 	{none,_Ls} ->
 	    send_drv(Drv, beep),
-	    get_line1(edlin:edit_line(Cs, Cont), Drv, Ls0, Encoding);
+	    get_line1_limit(edlin:edit_line(Cs, Cont), Drv, Ls0, Encoding);
 	{Lcs,Ls} ->
 	    send_drv_reqs(Drv, edlin:erase_line(Cont)),
 	    {more_chars,Ncont,Nrs} = edlin:start(edlin:prompt(Cont)),
@@ -548,11 +566,11 @@ get_line1({expand, Before, Cs0, Cont,Rs}, Drv, Ls0, Encoding) ->
 		  send_drv(Drv, {put_chars, unicode, unicode:characters_to_binary(MatchStr,unicode)}),
 		  [$\^L | Cs1]
 	 end,
-    get_line1(edlin:edit_line(Cs, Cont), Drv, Ls0, Encoding);
+    get_line1_limit(edlin:edit_line(Cs, Cont), Drv, Ls0, Encoding);
 get_line1({undefined,_Char,Cs,Cont,Rs}, Drv, Ls, Encoding) ->
     send_drv_reqs(Drv, Rs),
     send_drv(Drv, beep),
-    get_line1(edlin:edit_line(Cs, Cont), Drv, Ls, Encoding);
+    get_line1_limit(edlin:edit_line(Cs, Cont), Drv, Ls, Encoding);
 %% The search item was found and accepted (new line entered on the exact
 %% result found)
 get_line1({_What,Cont={line,_Prompt,_Chars,search_found},Rs}, Drv, Ls0, Encoding) ->
@@ -608,7 +626,7 @@ get_line1({What,Cont0,Rs}, Drv, Ls, Encoding) ->
 more_data(What, Cont0, Drv, Ls, Encoding) ->
     receive
 	{Drv,{data,Cs}} ->
-	    get_line1(edlin:edit_line(Cs, Cont0), Drv, Ls, Encoding);
+        get_line1_limit(edlin:edit_line(Cs, Cont0), Drv, Ls, Encoding);
 	{Drv,eof} ->
 	    get_line1(edlin:edit_line(eof, Cont0), Drv, Ls, Encoding);
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
@@ -626,14 +644,35 @@ more_data(What, Cont0, Drv, Ls, Encoding) ->
 	    get_line1(edlin:edit_line([], Cont0), Drv, Ls, Encoding)
     end.
 
+get_line1_limit({more_chars, Cont, Rs}, Drv, Ls, Encoding) ->
+    Total = edlin:length_before(Cont) + edlin:length_after(Cont),
+    case over_maxlength(Total) of
+        true ->
+            % we've hit the maximum line length. terminate the current
+            % line by faking EOF
+            send_drv_reqs(Drv, Rs),
+            {done, Line, Cs, Rs0} = edlin:edit_line(eof, Cont),
+            % we need to output a newline here...
+            Rs1 = Rs0 ++ [{put_chars,unicode,"\n"}],
+            % and we better split the line by the maximum amount
+            % of input we are expected to return
+            {Ret, Keep} = lists:split(get(max_length), Line),
+            get_line1({overlong, Ret, Keep ++ Cs, Rs1}, Drv, Ls, Encoding);
+        false ->
+            get_line1({more_chars, Cont, Rs}, Drv, Ls, Encoding)
+    end;
+get_line1_limit(Line, Drv, Ls, Encoding) ->
+    get_line1(Line, Drv, Ls, Encoding).
+
+
 get_line_echo_off(Chars, Pbs, Drv) ->
     send_drv_reqs(Drv, [{put_chars, unicode,Pbs}]),
-    get_line_echo_off1(edit_line(Chars,[]), Drv).
+    get_line_echo_off1_limit(edit_line(Chars,[]), Drv).
 
 get_line_echo_off1({Chars,[]}, Drv) ->
     receive
 	{Drv,{data,Cs}} ->
-	    get_line_echo_off1(edit_line(Cs, Chars), Drv);
+	    get_line_echo_off1_limit(edit_line(Cs, Chars), Drv);
 	{Drv,eof} ->
 	    get_line_echo_off1(edit_line(eof, Chars), Drv);
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
@@ -646,6 +685,19 @@ get_line_echo_off1({Chars,[]}, Drv) ->
     end;
 get_line_echo_off1({Chars,Rest}, _Drv) ->
     {done,lists:reverse(Chars),case Rest of done -> []; _ -> Rest end}.
+
+get_line_echo_off1_limit({Chars, []}, Drv) ->
+    case over_maxlength(length(Chars)) of
+        true ->
+            % we've hit the maximum line length...
+            {Line, Rest} = lists:split(get(max_length), Chars),
+            {overlong, Line, Rest};
+        false ->
+            get_line_echo_off1({Chars, []}, Drv)
+    end;
+get_line_echo_off1_limit(Line, Drv) ->
+    get_line_echo_off1(Line, Drv).
+
 
 %% We support line editing for the ICANON mode except the following
 %% line editing characters, which already has another meaning in
@@ -775,12 +827,12 @@ search_down_stack(Stack, Substr) ->
 %% This is get_line without line editing (except for backspace) and
 %% without echo.
 get_password_line(Chars, Drv) ->
-    get_password1(edit_password(Chars,[]),Drv).
+    get_password1_limit(edit_password(Chars,[]),Drv).
 
 get_password1({Chars,[]}, Drv) ->
     receive
 	{Drv,{data,Cs}} ->
-	    get_password1(edit_password(Cs,Chars),Drv);
+	    get_password1_limit(edit_password(Cs,Chars),Drv);
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
 	    %send_drv_reqs(Drv, [{delete_chars, -length(Pbs)}]),
 	    io_request(Req, From, ReplyAs, Drv, []), %WRONG!!!
@@ -796,6 +848,20 @@ get_password1({Chars,[]}, Drv) ->
 get_password1({Chars,Rest},Drv) ->
     send_drv_reqs(Drv,[{put_chars, unicode, "\n"}]),
     {done,lists:reverse(Chars),case Rest of done -> []; _ -> Rest end}.
+
+
+get_password1_limit({Chars, []}, Drv) ->
+    Line = case over_maxlength(length(Chars)) of
+        true ->
+            % we've hit the maximum line length...
+            lists:split(get(max_length), Chars);
+        false ->
+            {Chars, []}
+    end,
+    get_password1(Line, Drv);
+get_password1_limit(Line, Drv) ->
+    get_password1(Line, Drv).
+
 
 edit_password([],Chars) ->
     {Chars,[]};
@@ -832,3 +898,12 @@ append(L1, L2, _) when is_list(L1) ->
     L1++L2;
 append(_Eof, L, _) ->
     L.
+
+
+over_maxlength(LineLength) ->
+    case get(max_length) of
+        Int when is_integer(Int) ->
+            Int < LineLength;
+        _Else ->
+            false
+    end.
