@@ -1342,6 +1342,17 @@ if test "x$TERMCAP_LIB" != "x"; then
 	AC_DEFINE(HAVE_TERMCAP, 1, [Define if termcap functions exists])
 fi
 
+if test "X$host" != "Xwin32"; then
+    AC_MSG_CHECKING(for wcwidth)
+    AC_TRY_LINK([#include <wchar.h>], [wcwidth(0);],
+                have_wcwidth=yes, have_wcwidth=no)
+    if test $have_wcwidth = yes; then
+        AC_MSG_RESULT([yes])
+        AC_DEFINE(HAVE_WCWIDTH, [1],
+                  [Define to 1 if you have a `wcwidth' function.])
+    fi
+fi
+
 dnl -------------
 dnl zlib
 dnl -------------
