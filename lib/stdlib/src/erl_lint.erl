@@ -522,8 +522,7 @@ start(File, Opts) ->
           warn_format = value_option(warn_format, 1, warn_format, 1,
 				     nowarn_format, 0, Opts),
 	  enabled_warnings = Enabled,
-          file = File,
-	  types = default_types()
+          file = File
          }.
 
 %% is_warn_enabled(Category, St) -> boolean().
@@ -1007,7 +1006,7 @@ check_undefined_functions(#lint{called=Called0,defined=Def0}=St0) ->
 check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
     Used = Usage#usage.used_types,
     UTAs = dict:fetch_keys(Used),
-    Undef = [{TA,dict:fetch(TA, Used)} || TA <- UTAs, not dict:is_key(TA, Def)],
+    Undef = [{TA,dict:fetch(TA, Used)} || TA <- UTAs, not dict:is_key(TA, Def), not is_default_type(TA)],
     foldl(fun ({TA,L}, St) ->
 		  add_error(L, {undefined_type,TA}, St)
 	  end, St0, Undef).
@@ -2440,7 +2439,7 @@ type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
         end,
     case (dict:is_key(TypePair, TypeDefs) orelse is_var_arity_type(TypeName)) of
 	true ->
-	    case dict:is_key(TypePair, default_types()) of
+	    case is_default_type(TypePair) of
 		true  ->
 		    case is_newly_introduced_builtin_type(TypePair) of
 			%% allow some types just for bootstrapping
@@ -2488,8 +2487,8 @@ check_type({paren_type, _L, [Type]}, SeenVars, St) ->
 check_type({remote_type, L, [{atom, _, Mod}, {atom, _, Name}, Args]},
 	   SeenVars, #lint{module=CurrentMod} = St) ->
     St1 =
-	case (dict:is_key({Name, length(Args)}, default_types())
-	      orelse is_var_arity_type(Name)) of
+	case is_default_type({Name, length(Args)})
+	      orelse is_var_arity_type(Name) of
 	    true -> add_error(L, {imported_predefined_type, Name}, St);
 	    false -> St
 	end,
@@ -2606,63 +2605,62 @@ is_var_arity_type(union) -> true;
 is_var_arity_type(record) -> true;
 is_var_arity_type(_) -> false.
 
-default_types() ->
-    DefTypes = [{any, 0},
-		{arity, 0},
-		{array, 0},
-		{atom, 0},
-		{atom, 1},
-		{binary, 0},
-		{binary, 2},
-		{bitstring, 0},
-		{bool, 0},
-		{boolean, 0},
-		{byte, 0},
-		{char, 0},
-		{dict, 0},
-		{digraph, 0},
-		{float, 0},
-		{'fun', 0},
-		{'fun', 2},
-		{function, 0},
-		{gb_set, 0},
-		{gb_tree, 0},
-		{identifier, 0},
-		{integer, 0},
-		{integer, 1},
-		{iodata, 0},
-		{iolist, 0},
-		{list, 0},
-		{list, 1},
-		{maybe_improper_list, 0},
-		{maybe_improper_list, 2},
-		{mfa, 0},
-		{module, 0},
-		{neg_integer, 0},
-		{nil, 0},
-		{no_return, 0},
-		{node, 0},
-		{non_neg_integer, 0},
-		{none, 0},
-		{nonempty_list, 0},
-		{nonempty_list, 1},
-		{nonempty_improper_list, 2},
-		{nonempty_maybe_improper_list, 0},
-		{nonempty_maybe_improper_list, 2},
-		{nonempty_string, 0},
-		{number, 0},
-		{pid, 0},
-		{port, 0},
-		{pos_integer, 0},
-		{queue, 0},
-		{range, 2},
-		{reference, 0},
-		{set, 0},
-		{string, 0},
-		{term, 0},
-		{timeout, 0},
-		{var, 1}],
-    dict:from_list([{T, -1} || T <- DefTypes]).
+is_default_type({any, 0}) -> true;
+is_default_type({arity, 0}) -> true;
+is_default_type({array, 0}) -> true;
+is_default_type({atom, 0}) -> true;
+is_default_type({atom, 1}) -> true;
+is_default_type({binary, 0}) -> true;
+is_default_type({binary, 2}) -> true;
+is_default_type({bitstring, 0}) -> true;
+is_default_type({bool, 0}) -> true;
+is_default_type({boolean, 0}) -> true;
+is_default_type({byte, 0}) -> true;
+is_default_type({char, 0}) -> true;
+is_default_type({dict, 0}) -> true;
+is_default_type({digraph, 0}) -> true;
+is_default_type({float, 0}) -> true;
+is_default_type({'fun', 0}) -> true;
+is_default_type({'fun', 2}) -> true;
+is_default_type({function, 0}) -> true;
+is_default_type({gb_set, 0}) -> true;
+is_default_type({gb_tree, 0}) -> true;
+is_default_type({identifier, 0}) -> true;
+is_default_type({integer, 0}) -> true;
+is_default_type({integer, 1}) -> true;
+is_default_type({iodata, 0}) -> true;
+is_default_type({iolist, 0}) -> true;
+is_default_type({list, 0}) -> true;
+is_default_type({list, 1}) -> true;
+is_default_type({maybe_improper_list, 0}) -> true;
+is_default_type({maybe_improper_list, 2}) -> true;
+is_default_type({mfa, 0}) -> true;
+is_default_type({module, 0}) -> true;
+is_default_type({neg_integer, 0}) -> true;
+is_default_type({nil, 0}) -> true;
+is_default_type({no_return, 0}) -> true;
+is_default_type({node, 0}) -> true;
+is_default_type({non_neg_integer, 0}) -> true;
+is_default_type({none, 0}) -> true;
+is_default_type({nonempty_list, 0}) -> true;
+is_default_type({nonempty_list, 1}) -> true;
+is_default_type({nonempty_improper_list, 2}) -> true;
+is_default_type({nonempty_maybe_improper_list, 0}) -> true;
+is_default_type({nonempty_maybe_improper_list, 2}) -> true;
+is_default_type({nonempty_string, 0}) -> true;
+is_default_type({number, 0}) -> true;
+is_default_type({pid, 0}) -> true;
+is_default_type({port, 0}) -> true;
+is_default_type({pos_integer, 0}) -> true;
+is_default_type({queue, 0}) -> true;
+is_default_type({range, 2}) -> true;
+is_default_type({reference, 0}) -> true;
+is_default_type({set, 0}) -> true;
+is_default_type({string, 0}) -> true;
+is_default_type({term, 0}) -> true;
+is_default_type({timeout, 0}) -> true;
+is_default_type({var, 1}) -> true;
+is_default_type(_) -> false.
 
 %% R13
 is_newly_introduced_builtin_type({arity, 0}) -> true;
@@ -2776,10 +2774,7 @@ check_unused_types(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
 	    L = gb_sets:to_list(ExpTs) ++ dict:fetch_keys(D),
 	    UsedTypes = gb_sets:from_list(L),
 	    FoldFun =
-		fun(_Type, -1, AccSt) ->
-			%% Default type
-			AccSt;
-		   (Type, #typeinfo{line = FileLine}, AccSt) ->
+		fun(Type, #typeinfo{line = FileLine}, AccSt) ->
                         case loc(FileLine) of
 			    {FirstFile, _} ->
 				case gb_sets:is_member(Type, UsedTypes) of
@@ -2801,10 +2796,7 @@ check_unused_types(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
 check_local_opaque_types(St) ->
     #lint{types=Ts, exp_types=ExpTs} = St,
     FoldFun =
-        fun(_Type, -1, AccSt) ->
-                %% Default type
-                AccSt;
-           (_Type, #typeinfo{attr = type}, AccSt) ->
+        fun(_Type, #typeinfo{attr = type}, AccSt) ->
                 AccSt;
            (Type, #typeinfo{attr = opaque, line = FileLine}, AccSt) ->
                 case gb_sets:is_element(Type, ExpTs) of
