@@ -556,33 +556,33 @@ send(Socket, Data, Size, Repeate,F) ->
  
 sender(Socket, Data, Size) ->
     ok = send(Socket, Data, Size, 100, fun() -> do_recv(Socket, Data, Size, <<>>, false) end),
-    ct:print("Sender recv: ~p~n", [ssl:getopts(Socket, [active])]),
+    ct:log("Sender recv: ~p~n", [ssl:getopts(Socket, [active])]),
     ok.
 
 sender_once(Socket, Data, Size) ->
     send(Socket, Data, Size, 100, 
 	 fun() -> do_active_once(Socket, Data, Size, <<>>, false) end),
-    ct:print("Sender active once: ~p~n",
+    ct:log("Sender active once: ~p~n",
 		       [ssl:getopts(Socket, [active])]),
     ok.
 
 sender_active(Socket, Data, Size) ->
     F = fun() -> do_active(Socket, Data, Size, <<>>, false) end,
     send(Socket, Data, Size, 100, F),
-    ct:print("Sender active: ~p~n", [ssl:getopts(Socket, [active])]),
+    ct:log("Sender active: ~p~n", [ssl:getopts(Socket, [active])]),
     ok.
 
 echoer(Socket, Data, Size) ->
-    ct:print("Echoer recv: ~p~n", [ssl:getopts(Socket, [active])]),
+    ct:log("Echoer recv: ~p~n", [ssl:getopts(Socket, [active])]),
     echo(fun() -> do_recv(Socket, Data, Size, <<>>, true) end, 100).
 
 echoer_once(Socket, Data, Size) ->
-    ct:print("Echoer active once: ~p ~n",
+    ct:log("Echoer active once: ~p ~n",
 		       [ssl:getopts(Socket, [active])]),
     echo(fun() -> do_active_once(Socket, Data, Size, <<>>, true) end, 100).
 
 echoer_active(Socket, Data, Size) ->
-    ct:print("Echoer active: ~p~n", [ssl:getopts(Socket, [active])]),
+    ct:log("Echoer active: ~p~n", [ssl:getopts(Socket, [active])]),
     echo(fun() -> do_active(Socket, Data, Size, <<>>, true) end, 100).
 
 echo(_Fun, 0) -> ok;

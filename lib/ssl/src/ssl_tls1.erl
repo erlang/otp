@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,8 @@
 -include("ssl_record.hrl").
 
 -export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7,
-	 setup_keys/8, suites/1, prf/5]).
+	 setup_keys/8, suites/1, prf/5,
+	 ecc_curves/1, oid_to_enum/1, enum_to_oid/1]).
 
 %%====================================================================
 %% Internal application API
@@ -57,8 +58,8 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
     %%      verify_data
     %%          PRF(master_secret, finished_label, MD5(handshake_messages) +
     %%          SHA-1(handshake_messages)) [0..11];
-    MD5 = crypto:md5(Handshake),
-    SHA = crypto:sha(Handshake),
+    MD5 = crypto:hash(md5, Handshake),
+    SHA = crypto:hash(sha, Handshake),
     prf(?MD5SHA, MasterSecret, finished_label(Role), [MD5, SHA], 12);
 
 finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
@@ -76,8 +77,8 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
 -spec certificate_verify(md5sha | sha, integer(), [binary()]) -> binary().
 
 certificate_verify(md5sha, _Version, Handshake) ->
-    MD5 = crypto:md5(Handshake),
-    SHA = crypto:sha(Handshake),
+    MD5 = crypto:hash(md5, Handshake),
+    SHA = crypto:hash(sha, Handshake),
     <<MD5/binary, SHA/binary>>;
 
 certificate_verify(HashAlgo, _Version, Handshake) ->
@@ -184,27 +185,56 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
     
 suites(Minor) when Minor == 1; Minor == 2->
     [ 
+      ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
       ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
       ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+      ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
+      ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
       ?TLS_RSA_WITH_AES_256_CBC_SHA,
+
+      ?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+      ?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
       ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
       ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+      ?TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,
+      ?TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,
       ?TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+
+      ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_RSA_WITH_AES_128_CBC_SHA,
       %%?TLS_RSA_WITH_IDEA_CBC_SHA,
+      ?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+      ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
       ?TLS_RSA_WITH_RC4_128_SHA,
       ?TLS_RSA_WITH_RC4_128_MD5,
       ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
+      ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
+      ?TLS_ECDH_RSA_WITH_RC4_128_SHA,
       ?TLS_RSA_WITH_DES_CBC_SHA
      ];
 
 suites(Minor) when Minor == 3 ->
     [
+     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
+
      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
      ?TLS_RSA_WITH_AES_256_CBC_SHA256,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
+
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA256
@@ -218,16 +248,8 @@ suites(Minor) when Minor == 3 ->
 %%%% HMAC and the Pseudorandom Functions RFC 2246 & 4346 - 5.%%%%
 hmac_hash(?NULL, _, _) ->
     <<>>;
-hmac_hash(?MD5, Key, Value) ->
-    crypto:md5_mac(Key, Value);
-hmac_hash(?SHA, Key, Value) ->
-    crypto:sha_mac(Key, Value);
-hmac_hash(?SHA256, Key, Value) ->
-    crypto:sha256_mac(Key, Value);
-hmac_hash(?SHA384, Key, Value) ->
-    crypto:sha384_mac(Key, Value);
-hmac_hash(?SHA512, Key, Value) ->
-    crypto:sha512_mac(Key, Value).
+hmac_hash(Alg, Key, Value) ->
+    crypto:hmac(mac_algo(Alg), Key, Value).
 
 mac_algo(?MD5)    -> md5;
 mac_algo(?SHA)    -> sha;
@@ -303,3 +325,64 @@ finished_label(client) ->
     <<"client finished">>;
 finished_label(server) ->
     <<"server finished">>.
+
+%% list ECC curves in prefered order
+ecc_curves(_Minor) ->
+    [?sect571r1,?sect571k1,?secp521r1,?sect409k1,?sect409r1,
+     ?secp384r1,?sect283k1,?sect283r1,?secp256k1,?secp256r1,
+     ?sect239k1,?sect233k1,?sect233r1,?secp224k1,?secp224r1,
+     ?sect193r1,?sect193r2,?secp192k1,?secp192r1,?sect163k1,
+     ?sect163r1,?sect163r2,?secp160k1,?secp160r1,?secp160r2].
+
+%% ECC curves from draft-ietf-tls-ecc-12.txt (Oct. 17, 2005)
+oid_to_enum(?sect163k1) -> 1;
+oid_to_enum(?sect163r1) -> 2;
+oid_to_enum(?sect163r2) -> 3;
+oid_to_enum(?sect193r1) -> 4;
+oid_to_enum(?sect193r2) -> 5;
+oid_to_enum(?sect233k1) -> 6;
+oid_to_enum(?sect233r1) -> 7;
+oid_to_enum(?sect239k1) -> 8;
+oid_to_enum(?sect283k1) -> 9;
+oid_to_enum(?sect283r1) -> 10;
+oid_to_enum(?sect409k1) -> 11;
+oid_to_enum(?sect409r1) -> 12;
+oid_to_enum(?sect571k1) -> 13;
+oid_to_enum(?sect571r1) -> 14;
+oid_to_enum(?secp160k1) -> 15;
+oid_to_enum(?secp160r1) -> 16;
+oid_to_enum(?secp160r2) -> 17;
+oid_to_enum(?secp192k1) -> 18;
+oid_to_enum(?secp192r1) -> 19;
+oid_to_enum(?secp224k1) -> 20;
+oid_to_enum(?secp224r1) -> 21;
+oid_to_enum(?secp256k1) -> 22;
+oid_to_enum(?secp256r1) -> 23;
+oid_to_enum(?secp384r1) -> 24;
+oid_to_enum(?secp521r1) -> 25.
+
+enum_to_oid(1) -> ?sect163k1;
+enum_to_oid(2) -> ?sect163r1;
+enum_to_oid(3) -> ?sect163r2;
+enum_to_oid(4) -> ?sect193r1;
+enum_to_oid(5) -> ?sect193r2;
+enum_to_oid(6) -> ?sect233k1;
+enum_to_oid(7) -> ?sect233r1;
+enum_to_oid(8) -> ?sect239k1;
+enum_to_oid(9) -> ?sect283k1;
+enum_to_oid(10) -> ?sect283r1;
+enum_to_oid(11) -> ?sect409k1;
+enum_to_oid(12) -> ?sect409r1;
+enum_to_oid(13) -> ?sect571k1;
+enum_to_oid(14) -> ?sect571r1;
+enum_to_oid(15) -> ?secp160k1;
+enum_to_oid(16) -> ?secp160r1;
+enum_to_oid(17) -> ?secp160r2;
+enum_to_oid(18) -> ?secp192k1;
+enum_to_oid(19) -> ?secp192r1;
+enum_to_oid(20) -> ?secp224k1;
+enum_to_oid(21) -> ?secp224r1;
+enum_to_oid(22) -> ?secp256k1;
+enum_to_oid(23) -> ?secp256r1;
+enum_to_oid(24) -> ?secp384r1;
+enum_to_oid(25) -> ?secp521r1.

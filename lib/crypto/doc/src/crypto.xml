@@ -22,263 +22,222 @@
     </legalnotice>
 
     <title>crypto</title>
-    <prepared>Peter H&ouml;gfeldt</prepared>
-    <docno></docno>
-    <date>2000-06-20</date>
-    <rev>B</rev>
   </header>
   <module>crypto</module>
   <modulesummary>Crypto Functions</modulesummary>
   <description>
     <p>This module provides a set of cryptographic functions.
       </p>
-    <p>References:</p>
     <list type="bulleted">
       <item>
-        <p>md4: The MD4 Message Digest Algorithm (RFC 1320)</p>
+	<p>Hash functions -
+	<url href="http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf"> Secure Hash Standard</url>,
+	<url href="http://www.ietf.org/rfc/rfc1321.txt"> The MD5 Message Digest Algorithm (RFC 1321)</url> and
+	<url href="http://www.ietf.org/rfc/rfc1320.txt">The MD4 Message Digest Algorithm (RFC 1320)</url>
+	</p>
       </item>
       <item>
-        <p>md5: The MD5 Message Digest Algorithm (RFC 1321)</p>
+        <p>Hmac functions - <url href="http://www.ietf.org/rfc/rfc2104.txt"> Keyed-Hashing for Message Authentication (RFC 2104) </url></p>
       </item>
       <item>
-        <p>sha: Secure Hash Standard (FIPS 180-2)</p>
+        <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES in
+        Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB and CTR </url></p>
       </item>
       <item>
-        <p>hmac: Keyed-Hashing for Message Authentication (RFC 2104)</p>
+        <p><url href="http://www.ietf.org/rfc/rfc1321.txt"> RSA encryption RFC 1321 </url> </p>
       </item>
       <item>
-        <p>des: Data Encryption Standard (FIPS 46-3)</p>
+        <p>Digital signatures <url href="http://csrc.nist.gov/publications/drafts/fips186-3/fips_186-3.pdf">Digital Signature Standard (DSS)</url> and<url href="http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf"> Elliptic Curve Digital
+	Signature Algorithm (ECDSA) </url> </p>
       </item>
       <item>
-        <p>aes: Advanced Encryption Standard (AES) (FIPS 197) </p>
+        <p><url href="http://www.ietf.org/rfc/rfc2945.txt"> Secure Remote Password Protocol (SRP - RFC 2945) </url></p>
       </item>
-      <item>
-        <p>ecb, cbc, cfb, ofb, ctr: Recommendation for Block Cipher Modes
-          of Operation (NIST SP 800-38A).</p>
-      </item>
-      <item>
-        <p>rsa: Recommendation for Block Cipher Modes of Operation
-          (NIST 800-38A)</p>
-      </item>
-      <item>
-        <p>dss: Digital Signature Standard (FIPS 186-2)</p>
-      </item>
-      <item>
-        <p>srp: Secure Remote Password Protocol (RFC 2945)</p>
-      </item>
-
-      
     </list>
-    <p>The above publications can be found at <url href="http://csrc.nist.gov/publications">NIST publications</url>, at <url href="http://www.ietf.org">IETF</url>.
-      </p>
-    <p><em>Types</em></p>
-    <pre>
-byte() = 0 ... 255
-ioelem() = byte() | binary() | iolist()
-iolist() = [ioelem()]
-Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
-    </pre>
-    <p></p>
   </description>
+
+ <section>
+    <title>DATA TYPES </title>
+    
+    <p><code>key_value()  = integer() | binary() </code></p>
+
+    <p><code>rsa_public()  = [key_value()] = [E, N]  </code></p>
+    <p> Where E is the public exponent and N is public modulus. </p>
+
+    <p><code>rsa_private() = [key_value()] = [E, N, D] | [E, N, D, P1, P2, E1, E2, C] </code></p>
+    <p>Where E is the public exponent, N is public modulus and D is
+    the private exponent.The longer key format contains redundant
+    information that will make the calculation faster. P1,P2 are first
+    and second prime factors. E1,E2 are first and second exponents. C
+    is the CRT coefficient. Terminology is taken from <url href="http://www.ietf.org/rfc/rfc3477.txt"> RFC 3447</url>.</p>
+
+    <p><code>dss_public() = [key_value()] = [P, Q, G, Y] </code></p>
+    <p>Where P, Q and G are the dss parameters and Y is the public key.</p>
+
+    <p><code>dss_private() =  [key_value()] = [P, Q, G, X] </code></p>
+    <p>Where P, Q and G are the dss parameters and X is the private key.</p>
+
+    <p><code>dss_public() =  [key_value()] =[P, Q, G, Y] </code></p>
+
+    <p><code>srp_public() =  key_value() </code></p>
+    <p>Where is <c>A</c> or <c>B</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
+
+    <p><code>srp_private() = key_value() </code></p>
+    <p>Where is  <c>a</c> or <c>b</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
+
+    <p><code>srp_params() = {user, [Generator::binary(), Prime::binary(), Version::atom()]} |
+    {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}
+    |  {user, [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom() | [Scrambler:binary()]]}
+    | {host,[Verifier::binary(), Prime::binary(), Version::atom() | [Scrambler::binary]]} </code></p>
+
+    <p>Where Verifier is <c>v</c>, Generator is <c>g</c> and Prime is<c> N</c>, DerivedKey is <c>X</c>, and Scrambler is
+    <c>u</c> (optional will be genrated if not provided) from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+    Version = '3' |  '6' |  '6a'
+    </p>
+
+    <p><code>dh_public() = key_value() </code></p>
+
+    <p><code>dh_private() = key_value() </code></p>
+
+    <p><code>dh_params() = [key_value()] = [P, G] </code></p>
+
+    <p><code>ecdh_public() = key_value() </code></p>
+
+    <p><code>ecdh_private() = key_value() </code></p>
+
+    <p><code>ecdh_params() =  ec_named_curve() |
+    {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(), CoFactor :: none | integer()} </code></p>
+
+    <p><code>ec_field() = {prime_field, Prime :: integer()} |
+    {characteristic_two_field, M :: integer(), Basis :: ec_basis()}</code></p>
+
+    <p><code>ec_basis() =  {tpbasis, K :: non_neg_integer()} |
+    {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} |
+    onbasis</code></p>
+
+    <p><code>ec_named_curve() ->
+      sect571r1| sect571k1| sect409r1| sect409k1| secp521r1| secp384r1| secp224r1| secp224k1|
+      secp192k1| secp160r2| secp128r2| secp128r1| sect233r1| sect233k1| sect193r2| sect193r1|
+      sect131r2| sect131r1| sect283r1| sect283k1| sect163r2| secp256k1| secp160k1| secp160r1|
+      secp112r2| secp112r1| sect113r2| sect113r1| sect239k1| sect163r1| sect163k1| secp256r1|
+      secp192r1 </code></p>
+
+     <p><code>stream_cipher() = rc4 | aes_ctr </code></p>
+
+     <p><code>block_cipher() =  aes_cbc128 | aes_cfb128 | blowfish_cbc |
+     blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf
+     | des_ede3 | rc2_cbc </code></p>
+
+     <p><code>stream_key() =  aes_key() | rc4_key() </code></p>
+
+     <p><code>block_key() =  aes_key() |  blowfish_key() | des_key()| des3_key() </code></p>
+
+     <p><code>aes_key() = iodata() </code> Key length is 128, 192 or 256 bits</p>
+
+     <p><code>rc4_key() = iodata() </code> Variable key length from 8 bits up to 2048 bits (usually between 40 and 256)</p>
+
+     <p><code>blowfish_key() = iodata() </code> Variable key length from 32 bits up to 448 bits</p>
+
+     <p><code>des_key() = iodata() </code> Key length is 64 bits (in CBC mode only 8 bits are used)</p>
+
+     <p><code>des3_key() = [binary(), binary(), binary()] </code> Each key part is 64 bits (in CBC mode only 8 bits are used)</p>
+
+     <p><code> message_digest_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> md4 is aslo supported for hash_init/1 and hash/2.
+     Note that both md4 and md5 are recommended only for compatibility with existing applications.
+     </p>
+ </section>
+
   <funcs>
     <func>
-      <name>start() -> ok</name>
-      <fsummary>Start the crypto server.</fsummary>
-      <desc>
-        <p>Starts the crypto server.</p>
-      </desc>
-    </func>
-    <func>
-      <name>stop() -> ok</name>
-      <fsummary>Stop the crypto server.</fsummary>
-      <desc>
-        <p>Stops the crypto server.</p>
-      </desc>
-    </func>
-    <func>
-      <name>info() -> [atom()]</name>
-      <fsummary>Provide a list of available crypto functions.</fsummary>
-      <desc>
-        <p>Provides the available crypto functions in terms of a list
-          of atoms.</p>
-      </desc>
-    </func>
-    <func>
-      <name>algorithms() -> [atom()]</name>
+      <name>algorithms() -> [message_digest_algorithms() | md4 | ec]</name>
       <fsummary>Provide a list of available crypto algorithms.</fsummary>
       <desc>
-        <p>Provides the available crypto algorithms in terms of a list
-          of atoms.</p>
+        <p> Can be used to determine if the crypto library has support for elliptic curve (ec) and
+	which message digest algorithms that are supported.</p>
       </desc>
     </func>
-    <func>
-      <name>info_lib() -> [{Name,VerNum,VerStr}]</name>
-      <fsummary>Provides information about the libraries used by crypto.</fsummary>
+
+      <func>
+      <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
+      <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
       <type>
-        <v>Name = binary()</v>
-        <v>VerNum = integer()</v>
-        <v>VerStr = binary()</v>
+	<v>Key = block_key() </v>
+        <v>PlainText = iodata() </v>
+        <v>IVec = CipherText = binary()</v>
       </type>
       <desc>
-        <p>Provides the name and version of the libraries used by crypto.</p>
-        <p><c>Name</c> is the name of the library. <c>VerNum</c> is
-        the numeric version according to the library's own versioning
-        scheme. <c>VerStr</c> contains a text variant of the version.</p>
-        <pre>
-> <input>info_lib().</input>
-[{&lt;&lt;"OpenSSL"&gt;&gt;,9469983,&lt;&lt;"OpenSSL 0.9.8a 11 Oct 2005"&gt;&gt;}]
-        </pre>
-	<note><p>
-	  From OTP R16 the <em>numeric version</em> represents the version of the OpenSSL
-	  <em>header files</em> (<c>openssl/opensslv.h</c>) used when crypto was compiled.
-	  The text variant represents the OpenSSL library used at runtime.
-	  In earlier OTP versions both numeric and text was taken from the library.
-	</p></note>
+        <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.
+	<c>IVec</c> is an arbitrary initializing vector.
+         </p>
       </desc>
     </func>
+
     <func>
-      <name>md4(Data) -> Digest</name>
-      <fsummary>Compute an <c>MD4</c>message digest from <c>Data</c></fsummary>
+      <name>block_decrypt(Type, Key, Ivec, CipherText) -> PlainText</name>
+      <fsummary>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher</fsummary>
       <type>
-        <v>Data = iolist() | binary()</v>
-        <v>Digest = binary()</v>
+	<v>Key = block_key() </v>
+        <v>PlainText = iodata() </v>
+        <v>IVec = CipherText = binary()</v>
       </type>
       <desc>
-        <p>Computes an <c>MD4</c> message digest from <c>Data</c>, where
-          the length of the digest is 128 bits (16 bytes).</p>
+        <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.
+	<c>IVec</c> is an arbitrary initializing vector.
+         </p>
       </desc>
     </func>
+
     <func>
-      <name>md4_init() -> Context</name>
-      <fsummary>Creates an MD4 context</fsummary>
+      <name>compute_key(Type, OthersPublicKey, MyPrivateKey, Params) -> SharedSecret</name>
+      <fsummary>Computes the shared secret</fsummary>
       <type>
-        <v>Context = binary()</v>
+	<v> Type = dh | ecdh | srp </v>
+	<v>OthersPublicKey =  dh_public() | ecdh_public() | srp_public() </v>
+	<v>MyPrivate =  dh_private() | ecdh_private() | srp_private()  </v>
+	<v>Params = dh_params() | edhc_params() | srp_params() </v>
+	<v>SharedSecret = binary()</v>
       </type>
       <desc>
-        <p>Creates an MD4 context, to be used in subsequent calls to
-          <c>md4_update/2</c>.</p>
+	<p>Computes the shared secret from the private key and the other party's public key.
+	 See also <seealso marker="public_key:public_key#compute_key/2">public_key:compute_key/2</seealso>
+	</p>
       </desc>
     </func>
+
     <func>
-      <name>md4_update(Context, Data) -> NewContext</name>
-      <fsummary>Update an MD4 <c>Context</c>with <c>Data</c>, and return a <c>NewContext</c></fsummary>
+      <name>exor(Data1, Data2) -> Result</name>
+      <fsummary>XOR data</fsummary>
       <type>
-        <v>Data = iolist() | binary()</v>
-        <v>Context = NewContext = binary()</v>
+	<v>Data1, Data2 = iodata()</v>
+	<v>Result = binary()</v>
       </type>
       <desc>
-        <p>Updates an MD4 <c>Context</c> with <c>Data</c>, and returns
-          a <c>NewContext</c>.</p>
+	<p>Performs bit-wise XOR (exclusive or) on the data supplied.</p>
       </desc>
     </func>
-    <func>
-      <name>md4_final(Context) -> Digest</name>
-      <fsummary>Finish the update of an MD4 <c>Context</c>and return the computed <c>MD4</c>message digest</fsummary>
+
+   <func>
+      <name>generate_key(Type, Params) -> {PublicKey, PrivateKey} </name>
+      <name>generate_key(Type, Params, PrivateKey) -> {PublicKey, PrivateKey} </name>
+      <fsummary>Generates a public keys of type <c>Type</c></fsummary>
       <type>
-        <v>Context = Digest = binary()</v>
+	<v> Type = dh | ecdh | srp </v>
+	<v>Params = dh_params() | edhc_params() | srp_params() </v>
+	<v>PublicKey =  dh_public() | ecdh_public() | srp_public() </v>
+	<v>PrivateKey =  dh_private() | ecdh_private() | srp_private() </v>
       </type>
       <desc>
-        <p>Finishes the update of an MD4 <c>Context</c> and returns
-          the computed <c>MD4</c> message digest.</p>
+	<p>Generates public keys of type <c>Type</c>.
+	See also <seealso marker="public_key:public_key#generate_key/1">public_key:generate_key/1</seealso>
+	</p>
       </desc>
     </func>
-    <func>
-      <name>md5(Data) -> Digest</name>
-      <fsummary>Compute an <c>MD5</c>message digest from <c>Data</c></fsummary>
-      <type>
-        <v>Data = iolist() | binary()</v>
-        <v>Digest = binary()</v>
-      </type>
-      <desc>
-        <p>Computes an <c>MD5</c> message digest from <c>Data</c>, where
-          the length of the digest is 128 bits (16 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>md5_init() -> Context</name>
-      <fsummary>Creates an MD5 context</fsummary>
-      <type>
-        <v>Context = binary()</v>
-      </type>
-      <desc>
-        <p>Creates an MD5 context, to be used in subsequent calls to 
-          <c>md5_update/2</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>md5_update(Context, Data) -> NewContext</name>
-      <fsummary>Update an MD5 <c>Context</c>with <c>Data</c>, and return a <c>NewContext</c></fsummary>
-      <type>
-        <v>Data = iolist() | binary()</v>
-        <v>Context = NewContext = binary()</v>
-      </type>
-      <desc>
-        <p>Updates an MD5 <c>Context</c> with <c>Data</c>, and returns
-          a <c>NewContext</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>md5_final(Context) -> Digest</name>
-      <fsummary>Finish the update of an MD5 <c>Context</c>and return the computed <c>MD5</c>message digest</fsummary>
-      <type>
-        <v>Context = Digest = binary()</v>
-      </type>
-      <desc>
-        <p>Finishes the update of an MD5 <c>Context</c> and returns
-          the computed <c>MD5</c> message digest.</p>
-      </desc>
-    </func>
-    <func>
-      <name>sha(Data) -> Digest</name>
-      <fsummary>Compute an <c>SHA</c>message digest from <c>Data</c></fsummary>
-      <type>
-        <v>Data = iolist() | binary()</v>
-        <v>Digest = binary()</v>
-      </type>
-      <desc>
-        <p>Computes an <c>SHA</c> message digest from <c>Data</c>, where
-          the length of the digest is 160 bits (20 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>sha_init() -> Context</name>
-      <fsummary>Create an SHA context</fsummary>
-      <type>
-        <v>Context = binary()</v>
-      </type>
-      <desc>
-        <p>Creates an SHA context, to be used in subsequent calls to 
-          <c>sha_update/2</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>sha_update(Context, Data) -> NewContext</name>
-      <fsummary>Update an SHA context</fsummary>
-      <type>
-        <v>Data = iolist() | binary()</v>
-        <v>Context = NewContext = binary()</v>
-      </type>
-      <desc>
-        <p>Updates an SHA <c>Context</c> with <c>Data</c>, and returns
-          a <c>NewContext</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>sha_final(Context) -> Digest</name>
-      <fsummary>Finish the update of an SHA context</fsummary>
-      <type>
-        <v>Context = Digest = binary()</v>
-      </type>
-      <desc>
-        <p>Finishes the update of an SHA <c>Context</c> and returns
-          the computed <c>SHA</c> message digest.</p>
-      </desc>
-    </func>
-    <func>
+
+     <func>
       <name>hash(Type, Data) -> Digest</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = md4 | md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<v>Type = md4 | message_digest_algorithms()</v>
 	<v>Data = iodata()</v>
 	<v>Digest = binary()</v>
       </type>
@@ -288,11 +247,12 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
+
     <func>
       <name>hash_init(Type) -> Context</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = md4 | md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<v>Type = md4 | message_digest_algorithms()</v>
       </type>
       <desc>
         <p>Initializes the context for streaming hash operations. <c>Type</c> determines
@@ -302,6 +262,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
+
     <func>
       <name>hash_update(Context, Data) -> NewContext</name>
       <fsummary></fsummary>
@@ -329,38 +290,13 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 	function used to generate it.</p>
       </desc>
     </func>
-    <func>
-      <name>md5_mac(Key, Data) -> Mac</name>
-      <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
-      <type>
-        <v>Key = Data = iolist() | binary()</v>
-        <v>Mac = binary()</v>
-      </type>
-      <desc>
-        <p>Computes an <c>MD5 MAC</c> message authentification code
-          from <c>Key</c> and <c>Data</c>, where the the length of the
-          Mac is 128 bits (16 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>md5_mac_96(Key, Data) -> Mac</name>
-      <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
-      <type>
-        <v>Key = Data = iolist() | binary()</v>
-        <v>Mac = binary()</v>
-      </type>
-      <desc>
-        <p>Computes an <c>MD5 MAC</c> message authentification code
-          from <c>Key</c> and <c>Data</c>, where the length of the Mac
-          is 96 bits (12 bytes).</p>
-      </desc>
-    </func>
+
     <func>
       <name>hmac(Type, Key, Data) -> Mac</name>
       <name>hmac(Type, Key, Data, MacLength) -> Mac</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = md5 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<v>Type = message_digest_algorithms() </v>
         <v>Key = iodata()</v>
 	<v>Data = iodata()</v>
         <v>MacLength = integer()</v>
@@ -372,12 +308,13 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         will limit the size of the resultant <c>Mac</c>.
       </desc>
     </func>
+
     <func>
       <name>hmac_init(Type, Key) -> Context</name>
       <fsummary></fsummary>
       <type>
-        <v>Type = md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</v>
-        <v>Key = iolist() | binary()</v>
+        <v>Type = message_digest_algorithms()</v>
+        <v>Key = iodata()</v>
         <v>Context = binary()</v>
       </type>
       <desc>
@@ -386,20 +323,26 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         key. The key can be any length.</p>
       </desc>
     </func>
+
     <func>
       <name>hmac_update(Context, Data) -> NewContext</name>
       <fsummary></fsummary>
       <type>
         <v>Context = NewContext = binary()</v>
-        <v>Data = iolist() | binary()</v>
+        <v>Data = iodata()</v>
       </type>
       <desc>
         <p>Updates the HMAC represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
         must have been generated using an HMAC init function (such as 
         <seealso marker="#hmac_init/2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
-        must be passed into the next call to <c>hmac_update</c>.</p>
+        must be passed into the next call to <c>hmac_update</c>
+	or to one of the functions <seealso marker="#hmac_final/1">hmac_final</seealso> and
+	<seealso marker="#hmac_final_n/1">hmac_final_n</seealso>
+	</p>
+
       </desc>
     </func>
+
     <func>
       <name>hmac_final(Context) -> Mac</name>
       <fsummary></fsummary>
@@ -411,6 +354,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         determined by the type of hash function used to generate it.</p>
       </desc>
     </func>
+
     <func>
       <name>hmac_final_n(Context, HashLen) -> Mac</name>
       <fsummary></fsummary>
@@ -423,491 +367,152 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         zero. <c>Mac</c> will be a binary with at most <c>HashLen</c> bytes. Note that if HashLen is greater than the actual number of bytes returned from the underlying hash, the returned hash will have fewer than <c>HashLen</c> bytes.</p>
       </desc>
     </func>
+
     <func>
-      <name>sha_mac(Key, Data) -> Mac</name>
-      <name>sha_mac(Key, Data, MacLength) -> Mac</name>
-      <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
+      <name>info_lib() -> [{Name,VerNum,VerStr}]</name>
+      <fsummary>Provides information about the libraries used by crypto.</fsummary>
       <type>
-        <v>Key = Data = iolist() | binary()</v>
-        <v>Mac = binary()</v>
-	<v>MacLenength = integer() =&lt; 20 </v>
+        <v>Name = binary()</v>
+        <v>VerNum = integer()</v>
+        <v>VerStr = binary()</v>
       </type>
       <desc>
-        <p>Computes an <c>SHA MAC</c> message authentification code
-          from <c>Key</c> and <c>Data</c>, where the default length of the Mac
-          is 160 bits (20 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>sha_mac_96(Key, Data) -> Mac</name>
-      <fsummary>Compute an <c>SHA MAC</c>message authentification code</fsummary>
-      <type>
-        <v>Key = Data = iolist() | binary()</v>
-        <v>Mac = binary()</v>
-      </type>
-      <desc>
-        <p>Computes an <c>SHA MAC</c> message authentification code
-          from <c>Key</c> and <c>Data</c>, where the length of the Mac
-          is 96 bits (12 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>des_cbc_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to DES in CBC mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to DES in CBC
-          mode. <c>Text</c> must be a multiple of 64 bits (8
-          bytes). <c>Key</c> is the DES key, and <c>IVec</c> is an
-          arbitrary initializing vector. The lengths of <c>Key</c> and
-          <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>des_cbc_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES in CBC mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to DES in CBC mode.
-          <c>Key</c> is the DES key, and <c>IVec</c> is an arbitrary
-          initializing vector.  <c>Key</c> and <c>IVec</c> must have
-          the same values as those used when encrypting. <c>Cipher</c>
-          must be a multiple of 64 bits (8 bytes).  The lengths of
-          <c>Key</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>des_cbc_ivec(Data) -> IVec</name>
-      <fsummary>Get <c>IVec</c> to be used in next iteration of
-                <c>des_cbc_[ecrypt|decrypt]</c></fsummary>
-      <type>
-        <v>Data = iolist() | binary()</v>
-        <v>IVec = binary()</v>
-      </type>
-      <desc>
-        <p>Returns the <c>IVec</c> to be used in a next iteration of 
-          <c>des_cbc_[encrypt|decrypt]</c>. <c>Data</c> is the encrypted
-          data from the previous iteration step.</p>
-      </desc>
-    </func>
-    <func>
-      <name>des_cfb_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to DES in CFB mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to DES in 8-bit CFB
-          mode. <c>Key</c> is the DES key, and <c>IVec</c> is an
-          arbitrary initializing vector. The lengths of <c>Key</c> and
-          <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>des_cfb_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES in CFB mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to DES in 8-bit CFB mode.
-          <c>Key</c> is the DES key, and <c>IVec</c> is an arbitrary
-          initializing vector.  <c>Key</c> and <c>IVec</c> must have
-          the same values as those used when encrypting.  The lengths of
-          <c>Key</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>des_cfb_ivec(IVec, Data) -> NextIVec</name>
-      <fsummary>Get <c>IVec</c> to be used in next iteration of
-                <c>des_cfb_[ecrypt|decrypt]</c></fsummary>
-      <type>
-        <v>IVec = iolist() | binary()</v>
-        <v>Data = iolist() | binary()</v>
-        <v>NextIVec = binary()</v>
-      </type>
-      <desc>
-        <p>Returns the <c>IVec</c> to be used in a next iteration of
-          <c>des_cfb_[encrypt|decrypt]</c>. <c>IVec</c> is the vector
-          used in the previous iteration step. <c>Data</c> is the encrypted
-          data from the previous iteration step.</p>
-      </desc>
-    </func>
-    <func>
-      <name>des3_cbc_encrypt(Key1, Key2, Key3, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to DES3 in CBC mode</fsummary>
-      <type>
-        <v>Key1 =Key2 = Key3 Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to DES3 in CBC
-          mode. <c>Text</c> must be a multiple of 64 bits (8
-          bytes). <c>Key1</c>, <c>Key2</c>, <c>Key3</c>, are the DES
-          keys, and <c>IVec</c> is an arbitrary initializing
-          vector. The lengths of each of <c>Key1</c>, <c>Key2</c>,
-          <c>Key3</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>des3_cbc_decrypt(Key1, Key2, Key3, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES3 in CBC mode</fsummary>
-      <type>
-        <v>Key1 = Key2 = Key3 = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to DES3 in CBC mode.
-          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> are the DES key, and
-          <c>IVec</c> is an arbitrary initializing vector.
-          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> and <c>IVec</c> must
-          and <c>IVec</c> must have the same values as those used when
-          encrypting. <c>Cipher</c> must be a multiple of 64 bits (8
-          bytes).  The lengths of <c>Key1</c>, <c>Key2</c>,
-          <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>des3_cfb_encrypt(Key1, Key2, Key3, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to DES3 in CFB mode</fsummary>
-      <type>
-        <v>Key1 =Key2 = Key3 Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to DES3 in 8-bit CFB
-          mode. <c>Key1</c>, <c>Key2</c>, <c>Key3</c>, are the DES
-          keys, and <c>IVec</c> is an arbitrary initializing
-          vector. The lengths of each of <c>Key1</c>, <c>Key2</c>,
-          <c>Key3</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
-	<p>May throw exception <c>notsup</c> for old OpenSSL
-	  versions (0.9.7) that does not support this encryption mode.</p>
-      </desc>
-    </func>
-    <func>
-      <name>des3_cfb_decrypt(Key1, Key2, Key3, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES3 in CFB mode</fsummary>
-      <type>
-        <v>Key1 = Key2 = Key3 = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to DES3 in 8-bit CFB mode.
-          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> are the DES key, and
-          <c>IVec</c> is an arbitrary initializing vector.
-          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> and <c>IVec</c> must
-          and <c>IVec</c> must have the same values as those used when
-          encrypting.  The lengths of <c>Key1</c>, <c>Key2</c>,
-          <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
-	<p>May throw exception <c>notsup</c> for old OpenSSL
-	  versions (0.9.7) that does not support this encryption mode.</p>
+        <p>Provides the name and version of the libraries used by crypto.</p>
+        <p><c>Name</c> is the name of the library. <c>VerNum</c> is
+        the numeric version according to the library's own versioning
+        scheme. <c>VerStr</c> contains a text variant of the version.</p>
+        <pre>
+> <input>info_lib().</input>
+[{&lt;&lt;"OpenSSL"&gt;&gt;,9469983,&lt;&lt;"OpenSSL 0.9.8a 11 Oct 2005"&gt;&gt;}]
+        </pre>
+	<note><p>
+	  From OTP R16 the <em>numeric version</em> represents the version of the OpenSSL
+	  <em>header files</em> (<c>openssl/opensslv.h</c>) used when crypto was compiled.
+	  The text variant represents the OpenSSL library used at runtime.
+	  In earlier OTP versions both numeric and text was taken from the library.
+	</p></note>
       </desc>
     </func>
 
     <func>
-      <name>des_ecb_encrypt(Key, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to DES in ECB mode</fsummary>
+      <name>mod_pow(N, P, M) -> Result</name>
+      <fsummary>Computes the function: N^P mod M</fsummary>
       <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>Cipher = binary()</v>
+	<v>N, P, M = binary() | integer()</v>
+	<v>Result = binary() | error</v>
       </type>
       <desc>
-        <p>Encrypts <c>Text</c> according to DES in ECB mode.
-          <c>Key</c> is the DES key. The lengths of <c>Key</c> and
-          <c>Text</c> must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>des_ecb_decrypt(Key, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES in ECB mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to DES in ECB mode.
-          <c>Key</c> is the DES key. The lengths of <c>Key</c> and
-          <c>Cipher</c> must be 64 bits (8 bytes).</p>
+	<p>Computes the function <c>N^P mod M</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name>blowfish_ecb_encrypt(Key, Text) -> Cipher</name>
-      <fsummary>Encrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts the first 64 bits of <c>Text</c> using Blowfish in ECB mode. <c>Key</c> is the Blowfish key. The length of <c>Text</c> must be at least 64 bits (8 bytes).</p>
-      </desc>
+   <name>next_iv(Type, Data) -> </name>
+   <fsummary></fsummary>
+   <type>
+     <v>Type = des_cbc | aes_cbc</v>
+     <v>Data = iodata()</v>
+   </type>
+   <desc>
+     <p>Returns the initialization vector to be used in the next
+     iteration of encrypt/decrypt of type <c>Type</c>. Data is the
+     encrypted data from the previous iteration step.</p>
+   </desc>
     </func>
+
     <func>
-      <name>blowfish_ecb_decrypt(Key, Text) -> Cipher</name>
-      <fsummary>Decrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
+      <name>private_decrypt(Type, ChipherText, PrivateKey, Padding) -> PlainText</name>
+      <fsummary>Decrypts ChipherText using the private Key.</fsummary>
       <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>Cipher = binary()</v>
+	<v>Type = rsa</v>
+	<v>ChipherText = binary()</v>
+	<v>PrivateKey = rsa_private()</v>
+	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
+        <v>PlainText = binary()</v>
       </type>
       <desc>
-        <p>Decrypts the first 64 bits of <c>Text</c> using Blowfish in ECB mode. <c>Key</c> is the Blowfish key. The length of <c>Text</c> must be at least 64 bits (8 bytes).</p>
+	<p>Decrypts the <c>ChipherText</c> (usually a session key encrypted with
+	  <seealso marker="#public_encrypt/3">public_encrypt/3</seealso>)
+	  using the <c>PrivateKey</c> and returns the
+	  message. The <c>Padding</c> is the padding mode that was
+	  used to encrypt the data,
+	  see <seealso marker="#public_encrypt/3">public_encrypt/3</seealso>.
+	  See also <seealso marker="public_key:public_key#decrypt_private/2">public_key:decrypt_private/[2,3]</seealso>
+	</p>
       </desc>
     </func>
 
     <func>
-      <name>blowfish_cbc_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c> using Blowfish in CBC mode</fsummary>
+      <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> ChipherText</name>
+      <fsummary>Encrypts Msg using the private Key.</fsummary>
       <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
+	<v>Type = rsa</v>
+	<v>PlainText = binary()</v>
+	<v>PrivateKey = rsa_private()</v>
+	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
+        <v>ChipherText = binary()</v>
       </type>
       <desc>
-        <p>Encrypts <c>Text</c> using Blowfish in CBC mode. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
-          arbitrary initializing vector. The length of <c>IVec</c>
-          must be 64 bits (8 bytes). The length of <c>Text</c> must be a multiple of 64 bits (8 bytes).</p>
+	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
+	  and returns the cipher. The <c>Padding</c> decides what padding mode is used,
+	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
+	  used mode.
+	  The size of the <c>Msg</c> must be less than <c>byte_size(N)-11</c> if
+	  <c>rsa_pkcs1_padding</c> is used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
+	  is used.
+	  See also <seealso marker="public_key:public_key#encrypt_private/2">public_key:encrypt_private/[2,3]</seealso>
+	</p>
       </desc>
     </func>
     <func>
-      <name>blowfish_cbc_decrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Decrypt <c>Text</c> using Blowfish in CBC mode</fsummary>
+      <name>public_decrypt(Type, ChipherText, PublicKey, Padding) -> PlainText</name>
+      <fsummary>Decrypts ChipherText using the public Key.</fsummary>
       <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
+	<v>Type = rsa</v>
+	<v>ChipherText = binary()</v>
+	<v>PublicKey =  rsa_public() </v>
+	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
+        <v>PlainText = binary()</v>
       </type>
       <desc>
-        <p>Decrypts <c>Text</c> using Blowfish in CBC mode. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
-          arbitrary initializing vector. The length of <c>IVec</c>
-          must be 64 bits (8 bytes). The length of <c>Text</c> must be a multiple 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>blowfish_cfb64_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>using Blowfish in CFB mode with 64
-        bit feedback</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> using Blowfish in CFB mode with 64 bit
-          feedback. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
-          arbitrary initializing vector. The length of <c>IVec</c>
-          must be 64 bits (8 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>blowfish_cfb64_decrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Decrypt <c>Text</c>using Blowfish in CFB mode with 64
-        bit feedback</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Text</c> using Blowfish in CFB mode with 64 bit
-          feedback. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
-          arbitrary initializing vector. The length of <c>IVec</c>
-          must be 64 bits (8 bytes).</p>
+	<p>Decrypts the <c>ChipherText</c> (encrypted with
+	  <seealso marker="#private_encrypt/3">private_encrypt/3</seealso>)
+	  using the <c>PrivateKey</c> and returns the
+	  message. The <c>Padding</c> is the padding mode that was
+	  used to encrypt the data,
+	  see <seealso marker="#private_encrypt/3">private_encrypt/3</seealso>.
+	  See also <seealso marker="public_key:public_key#decrypt_public/2">public_key:decrypt_public/[2,3]</seealso>
+	</p>
       </desc>
     </func>
 
     <func>
-      <name>blowfish_ofb64_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>using Blowfish in OFB mode with 64
-        bit feedback</fsummary>
+      <name>public_encrypt(Type, PlainText, PublicKey, Padding) -> ChipherText</name>
+      <fsummary>Encrypts Msg using the public Key.</fsummary>
       <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
+	<v>Type = rsa</v>
+	<v>PlainText = binary()</v>
+	<v>PublicKey = rsa_public()</v>
+	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
+        <v>ChipherText = binary()</v>
       </type>
       <desc>
-        <p>Encrypts <c>Text</c> using Blowfish in OFB mode with 64 bit
-          feedback. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
-          arbitrary initializing vector. The length of <c>IVec</c>
-          must be 64 bits (8 bytes).</p>
+	<p>Encrypts the <c>PlainText</c> (usually a session key) using the <c>PublicKey</c>
+	  and returns the <c>CipherText</c>. The <c>Padding</c> decides what padding mode is used,
+	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
+	  used mode and <c>rsa_pkcs1_oaep_padding</c> is EME-OAEP as
+	  defined in PKCS #1 v2.0 with SHA-1, MGF1 and an empty encoding
+	  parameter. This mode is recommended for all new applications.
+	  The size of the <c>Msg</c> must be less
+	  than <c>byte_size(N)-11</c> if
+	  <c>rsa_pkcs1_padding</c> is used, <c>byte_size(N)-41</c> if
+	  <c>rsa_pkcs1_oaep_padding</c> is used and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
+	  is used.
+	  See also <seealso marker="public_key:public_key#encrypt_public/2">public_key:encrypt_public/[2,3]</seealso>
+	</p>
       </desc>
     </func>
 
-    <func>
-      <name>aes_cfb_128_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to AES in Cipher Feedback mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to AES in Cipher Feedback 
-          mode (CFB). <c>Key</c> is the
-          AES key, and <c>IVec</c> is an arbitrary initializing vector.
-          The lengths of <c>Key</c> and <c>IVec</c> must be 128 bits
-          (16 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>aes_cfb_128_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to AES in Cipher Feedback mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to AES in Cipher Feedback Mode (CFB).
-          <c>Key</c> is the AES key, and <c>IVec</c> is an arbitrary
-          initializing vector. <c>Key</c> and <c>IVec</c> must have
-          the same values as those used when encrypting. The lengths of
-          <c>Key</c> and <c>IVec</c> must be 128 bits (16 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>aes_cbc_128_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to AES in Cipher Block Chaining mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-          <p>Encrypts <c>Text</c> according to AES in Cipher Block Chaining
-          mode (CBC). <c>Text</c>
-          must be a multiple of 128 bits (16 bytes). <c>Key</c> is the
-          AES key, and <c>IVec</c> is an arbitrary initializing vector.
-          The lengths of <c>Key</c> and <c>IVec</c> must be 128 bits
-          (16 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>aes_cbc_128_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to AES in Cipher Block Chaining mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-          <p>Decrypts <c>Cipher</c> according to AES in Cipher Block
-          Chaining mode (CBC).
-          <c>Key</c> is the AES key, and <c>IVec</c> is an arbitrary
-          initializing vector. <c>Key</c> and <c>IVec</c> must have
-          the same values as those used when encrypting. <c>Cipher</c>
-          must be a multiple of 128 bits (16 bytes).  The lengths of
-          <c>Key</c> and <c>IVec</c> must be 128 bits (16 bytes).</p>
-      </desc>
-    </func>
-    <func>
-      <name>aes_cbc_ivec(Data) -> IVec</name>
-      <fsummary>Get <c>IVec</c> to be used in next iteration of
-                <c>aes_cbc_*_[ecrypt|decrypt]</c></fsummary>
-      <type>
-        <v>Data = iolist() | binary()</v>
-        <v>IVec = binary()</v>
-      </type>
-      <desc>
-        <p>Returns the <c>IVec</c> to be used in a next iteration of 
-          <c>aes_cbc_*_[encrypt|decrypt]</c>. <c>Data</c> is the encrypted
-          data from the previous iteration step.</p>
-      </desc>
-    </func>
-    <func>
-      <name>aes_ctr_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to AES in Counter mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
-      </type>
-      <desc>
-      <p>Encrypts <c>Text</c> according to AES in Counter mode (CTR). <c>Text</c>
-        can be any number of bytes. <c>Key</c> is the AES key and must be either
-        128, 192 or 256 bits long. <c>IVec</c> is an arbitrary initializing vector of 128 bits
-        (16 bytes).</p>
-    </desc>
-    </func>
-    <func>
-      <name>aes_ctr_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to AES in Counter mode</fsummary>
-      <type>
-        <v>Key = Cipher = iolist() | binary()</v>
-        <v>IVec = Text = binary()</v>
-      </type>
-      <desc>
-      <p>Decrypts <c>Cipher</c> according to AES in Counter mode (CTR). <c>Cipher</c>
-        can be any number of bytes. <c>Key</c> is the AES key and must be either
-        128, 192 or 256 bits long. <c>IVec</c> is an arbitrary initializing vector of 128 bits
-        (16 bytes).</p>
-    </desc>
-    </func>
-    <func>
-      <name>aes_ctr_stream_init(Key, IVec) -> State</name>
-      <fsummary></fsummary>
-      <type>
-        <v>State = { K, I, E, C }</v>
-        <v>Key = K = iolist()</v>
-        <v>IVec = I = E = binary()</v>
-        <v>C = integer()</v>
-      </type>
-      <desc>
-        <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
-        <c>Key</c> is the AES key and must be either 128, 192, or 256 bts long. <c>IVec</c> is
-        an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
-        <seealso marker="#aes_ctr_stream_encrypt/2">aes_ctr_stream_encrypt</seealso> and 
-        <seealso marker="#aes_ctr_stream_decrypt/2">aes_ctr_stream_decrypt</seealso>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>aes_ctr_stream_encrypt(State, Text) -> { NewState, Cipher}</name>
-      <fsummary></fsummary>
-      <type>
-        <v>Text = iolist() | binary()</v>
-        <v>Cipher = binary()</v>
-      </type>
-      <desc>
-      <p>Encrypts <c>Text</c> according to AES in Counter mode (CTR).  This function can be
-        used to encrypt a stream of text using a series of calls instead of requiring all
-        text to be in memory. <c>Text</c> can be any number of bytes. State is initialized using 
-        <seealso marker="#aes_ctr_stream_init/2">aes_ctr_stream_init</seealso>. <c>NewState</c> is the new streaming
-        encryption state that must be passed to the next call to <c>aes_ctr_stream_encrypt</c>.
-        <c>Cipher</c> is the encrypted cipher text.</p>
-      </desc>
-    </func>
-    <func>
-      <name>aes_ctr_stream_decrypt(State, Cipher) -> { NewState, Text }</name>
-      <fsummary></fsummary>
-      <type>
-        <v>Cipher = iolist() | binary()</v>
-        <v>Text = binary()</v>
-      </type>
-      <desc>
-      <p>Decrypts <c>Cipher</c> according to AES in Counter mode (CTR). This function can be
-        used to decrypt a stream of ciphertext using a series of calls instead of requiring all
-        ciphertext to be in memory.  <c>Cipher</c> can be any number of bytes. State is initialized using 
-        <seealso marker="#aes_ctr_stream_init/2">aes_ctr_stream_init</seealso>. <c>NewState</c> is the new streaming
-        encryption state that must be passed to the next call to <c>aes_ctr_stream_encrypt</c>.
-        <c>Text</c> is the decrypted data.</p>
-      </desc>
-    </func>
-    <func>
-      <name>erlint(Mpint) -> N</name>
-      <name>mpint(N) -> Mpint</name>
-      <fsummary>Convert between binary multi-precision integer and erlang big integer</fsummary>
-      <type>
-        <v>Mpint = binary()</v>
-        <v>N = integer()</v>
-      </type>
-      <desc>
-        <p>Convert a binary multi-precision integer <c>Mpint</c> to and from
-          an erlang big integer. A multi-precision integer is a binary
-          with the following form:
-          <c><![CDATA[<<ByteLen:32/integer, Bytes:ByteLen/binary>>]]></c> where both
-          <c>ByteLen</c> and <c>Bytes</c> are big-endian. Mpints are used in
-          some of the functions in <c>crypto</c> and are not translated
-          in the API for performance reasons.</p>
-      </desc>
-    </func>
     <func>
       <name>rand_bytes(N) -> binary()</name>
       <fsummary>Generate a binary of random bytes</fsummary>
@@ -920,6 +525,53 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           number generator.</p>
       </desc>
     </func>
+
+     <func>
+      <name>rand_uniform(Lo, Hi) -> N</name>
+      <fsummary>Generate a random number</fsummary>
+      <type>
+        <v>Lo, Hi, N = integer()</v>
+      </type>
+      <desc>
+        <p>Generate a random number <c><![CDATA[N, Lo =< N < Hi.]]></c> Uses the
+	<c>crypto</c> library pseudo-random number generator.
+	<c>Hi</c> must be larger than <c>Lo</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>sign(Algorithm, DigestType, Msg, Key) -> binary()</name>
+      <fsummary> Create digital signature.</fsummary>
+      <type>
+	<v>Algorithm = rsa | dss | ecdsa </v>
+	<v>Msg = binary() | {digest,binary()}</v>
+	<d>The msg is either the binary "plain text" data to be
+	signed or it is the hashed value of "plain text" i.e. the
+	digest.</d>
+	<v>DigestType = digest_type()</v>
+	<v>Key = rsa_private_key() | dsa_private_key() | ec_private_key()</v>
+      </type>
+      <desc>
+	<p> Creates a digital signature.</p>
+	See also <seealso marker="public_key:public_key#sign/3">public_key:sign/3</seealso>
+      </desc>
+    </func>
+
+    <func>
+      <name>start() -> ok</name>
+      <fsummary> Equivalent to application:start(crypto). </fsummary>
+      <desc>
+        <p> Equivalent to application:start(crypto).</p>
+      </desc>
+    </func>
+    <func>
+      <name>stop() -> ok</name>
+      <fsummary> Equivalent to application:stop(crypto).</fsummary>
+      <desc>
+        <p> Equivalent to application:stop(crypto).</p>
+      </desc>
+    </func>
+
     <func>
       <name>strong_rand_bytes(N) -> binary()</name>
       <fsummary>Generate a binary of random bytes</fsummary>
@@ -936,511 +588,159 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
-      <name>rand_uniform(Lo, Hi) -> N</name>
-      <fsummary>Generate a random number</fsummary>
+      <name>stream_init(Type, Key) -> State</name>
+      <fsummary></fsummary>
       <type>
-        <v>Lo, Hi, N = Mpint | integer()</v>
-        <v>Mpint = binary()</v>
+	<v>Type rc4 </v>
+        <v>State = opaque() </v>
+        <v>Key = iodata()</v>
+        <v>IVec = binary()</v>
       </type>
       <desc>
-        <p>Generate a random number <c><![CDATA[N, Lo =< N < Hi.]]></c> Uses the
-          <c>crypto</c> library pseudo-random number generator. The
-          arguments (and result) can be either erlang integers or binary
-          multi-precision integers. <c>Hi</c> must be larger than <c>Lo</c>.</p>
+        <p>Initializes the state for use in RC4 stream encryption
+        <seealso marker="#stream_encrypt/2">stream_encrypt</seealso> and
+        <seealso marker="#stream_decrypt/2">stream_decrypt</seealso></p>
       </desc>
     </func>
-    <func>
-      <name>strong_rand_mpint(N, Top, Bottom) -> Mpint</name>
-      <fsummary>Generate an N bit random number</fsummary>
+
+   <func>
+      <name>stream_init(Type, Key, IVec) -> State</name>
+      <fsummary></fsummary>
       <type>
-        <v>N = non_neg_integer()</v>
-        <v>Top = -1 | 0 | 1</v>
-        <v>Bottom = 0 | 1</v>
-        <v>Mpint = binary()</v>
+	<v>Type aes_ctr </v>
+        <v>State = opaque() </v>
+        <v>Key = iodata()</v>
+        <v>IVec = binary()</v>
       </type>
       <desc>
-        <p>Generate an N bit random number using OpenSSL's
-        cryptographically strong pseudo random number generator
-        <c>BN_rand</c>.</p>
-        <p>The parameter <c>Top</c> places constraints on the most
-        significant bits of the generated number. If <c>Top</c> is 1, then the
-        two most significant bits will be set to 1, if <c>Top</c> is 0, the
-        most significant bit will be 1, and if <c>Top</c> is -1 then no
-        constraints are applied and thus the generated number may be less than
-        N bits long.</p>
-        <p>If <c>Bottom</c> is 1, then the generated number is
-        constrained to be odd.</p>
-	<p>May throw exception <c>low_entropy</c> in case the random generator
-	failed due to lack of secure "randomness".</p>
-      </desc>
-    </func>
-    <func>
-      <name>mod_exp(N, P, M) -> Result</name>
-      <fsummary>Perform N ^ P mod M</fsummary>
-      <type>
-        <v>N, P, M, Result = Mpint</v>
-        <v>Mpint = binary()</v>
-      </type>
-      <desc>
-        <p>This function performs the exponentiation <c>N ^ P mod M</c>,
-          using the <c>crypto</c> library.</p>
-      </desc>
-    </func>
-    <func>
-      <name>mod_exp_prime(N, P, M) -> Result</name>
-      <fsummary>Computes the function: N^P mod M</fsummary>
-      <type>
-	<v>N, P, M = binary()</v>
-	<v>Result = binary() | error</v>
-      </type>
-      <desc>
-	<p>Computes the function <c>N^P mod M</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>rsa_sign(DataOrDigest, Key) -> Signature</name>
-      <name>rsa_sign(DigestType, DataOrDigest, Key) -> Signature</name>
-      <fsummary>Sign the data using rsa with the given key.</fsummary>
-      <type>
-        <v>DataOrDigest = Data | {digest,Digest}</v>
-        <v>Data = Mpint</v>
-	<v>Digest = binary()</v>
-        <v>Key = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</v>
-        <v>E, N, D = Mpint</v>
-        <d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus and 
-	  <c>D</c> is the private exponent.</d>
-	<v>P1, P2, E1, E2, C = Mpint</v>
-	<d>The longer key format contains redundant information that will make
-	   the calculation faster. <c>P1,P2</c> are first and second prime factors.
-           <c>E1,E2</c> are first and second exponents. <c>C</c> is the CRT coefficient.
-           Terminology is taken from RFC 3447.</d>
-	<v>DigestType = md5 | sha | sha224 | sha256 | sha384 | sha512</v>
-	<d>The default <c>DigestType</c> is sha.</d>
-        <v>Mpint = binary()</v>
-        <v>Signature = binary()</v>
-      </type>
-      <desc>
-        <p>Creates a RSA signature with the private key <c>Key</c>
-	  of a digest. The digest is either calculated as a
-	  <c>DigestType</c> digest of <c>Data</c> or a precalculated
-	  binary <c>Digest</c>.</p>
+        <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
+        <c>Key</c> is the AES key and must be either 128, 192, or 256 bts long. <c>IVec</c> is
+        an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
+        <seealso marker="#stream_encrypt/2">stream_encrypt</seealso> and
+        <seealso marker="#stream_decrypt/2">stream_decrypt</seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name>rsa_verify(DataOrDigest, Signature, Key) -> Verified</name>
-      <name>rsa_verify(DigestType, DataOrDigest, Signature, Key) -> Verified </name>
-      <fsummary>Verify the digest and signature using rsa with given public key.</fsummary>
+      <name>stream_encrypt(State, PlainText) -> { NewState, CipherText}</name>
+      <fsummary></fsummary>
       <type>
-        <v>Verified = boolean()</v>
-	<v>DataOrDigest = Data | {digest|Digest}</v>
-        <v>Data, Signature = Mpint</v>
-	<v>Digest = binary()</v>
-        <v>Key = [E, N]</v>
-        <v>E, N = Mpint</v>
-        <d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus.</d>
-	<v>DigestType = md5 | sha | sha224 | sha256 | sha384 | sha512</v>
-	<d>The default <c>DigestType</c> is sha.</d>
-        <v>Mpint = binary()</v>
+        <v>Text = iodata()</v>
+        <v>CipherText = binary()</v>
       </type>
       <desc>
-	<p>Verifies that a digest matches the RSA signature using the
-          signer's public key <c>Key</c>.
-	  The digest is either calculated as a <c>DigestType</c>
-	  digest of <c>Data</c> or a precalculated binary <c>Digest</c>.</p>
-	<p>May throw exception <c>notsup</c> in case the chosen <c>DigestType</c>
-	is not supported by the underlying OpenSSL implementation.</p>
-      </desc>
-    </func>
-    
-    <func>
-      <name>rsa_public_encrypt(PlainText, PublicKey, Padding) -> ChipherText</name> 
-      <fsummary>Encrypts Msg using the public Key.</fsummary>
-      <type>
-	<v>PlainText = binary()</v>
-	<v>PublicKey = [E, N]</v>
-	<v>E, N = Mpint</v>	
-	<d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus.</d>
-	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
-        <v>ChipherText = binary()</v>
-      </type>
-      <desc>
-	<p>Encrypts the <c>PlainText</c> (usually a session key) using the <c>PublicKey</c>
-	  and returns the cipher. The <c>Padding</c> decides what padding mode is used,
-	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
-	  used mode and <c>rsa_pkcs1_oaep_padding</c> is EME-OAEP as
-	  defined in PKCS #1 v2.0 with SHA-1, MGF1 and an empty encoding
-	  parameter. This mode is recommended for all new applications.
-	  The size of the <c>Msg</c> must be less
-	  than <c>byte_size(N)-11</c> if
-	  <c>rsa_pkcs1_padding</c> is used, <c>byte_size(N)-41</c> if 
-	  <c>rsa_pkcs1_oaep_padding</c> is used and <c>byte_size(N)</c> if <c>rsa_no_padding</c> 
-	  is used.
-	  Where byte_size(N) is the size part of an <c>Mpint-1</c>.
-	</p>
+	<p>Encrypts <c>PlainText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
+	<c>Text</c> can be any number of bytes. The initial <c>State</c> is created using
+        <seealso marker="#stream_init/2">stream_init</seealso>.
+	<c>NewState</c> must be passed into the next call to <c>stream_encrypt</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name>rsa_private_decrypt(ChipherText, PrivateKey, Padding) -> PlainText</name> 
-      <fsummary>Decrypts ChipherText using the private Key.</fsummary>
+      <name>stream_decrypt(State, CipherText) -> { NewState, PlainText }</name>
+      <fsummary></fsummary>
       <type>
-	<v>ChipherText = binary()</v>
-	<v>PrivateKey = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</v>
-	<v>E, N, D = Mpint</v>
-	<d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus  and 
-	  <c>D</c> is the private exponent.</d>
-	<v>P1, P2, E1, E2, C = Mpint</v>
-	<d>The longer key format contains redundant information that will make
-	   the calculation faster. <c>P1,P2</c> are first and second prime factors.
-           <c>E1,E2</c> are first and second exponents. <c>C</c> is the CRT coefficient.
-           Terminology is taken from RFC 3447.</d>
-	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
+        <v>CipherText = iodata()</v>
         <v>PlainText = binary()</v>
       </type>
       <desc>
-	<p>Decrypts the <c>ChipherText</c> (usually a session key encrypted with 
-	  <seealso marker="#rsa_public_encrypt/3">rsa_public_encrypt/3</seealso>) 
-	  using the <c>PrivateKey</c> and returns the
-	  message. The <c>Padding</c> is the padding mode that was
-	  used to encrypt the data, 
-	  see <seealso marker="#rsa_public_encrypt/3">rsa_public_encrypt/3</seealso>.
-	</p>
-      </desc>
-    </func>
-    <func>
-      <name>rsa_private_encrypt(PlainText, PrivateKey, Padding) -> ChipherText</name> 
-      <fsummary>Encrypts Msg using the private Key.</fsummary>
-      <type>
-	<v>PlainText = binary()</v>
-	<v>PrivateKey = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</v>
-	<v>E, N, D = Mpint</v>
-	<d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus and 
-	  <c>D</c> is the private exponent.</d>
-	<v>P1, P2, E1, E2, C = Mpint</v>
-	<d>The longer key format contains redundant information that will make
-	   the calculation faster. <c>P1,P2</c> are first and second prime factors.
-           <c>E1,E2</c> are first and second exponents. <c>C</c> is the CRT coefficient.
-           Terminology is taken from RFC 3447.</d>
-	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
-        <v>ChipherText = binary()</v>
-      </type>
-      <desc>
-	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
-	  and returns the cipher. The <c>Padding</c> decides what padding mode is used,
-	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
-	  used mode.
-	  The size of the <c>Msg</c> must be less than <c>byte_size(N)-11</c> if
-	  <c>rsa_pkcs1_padding</c> is used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c> 
-	  is used.  Where byte_size(N) is the size part of an <c>Mpint-1</c>.
-	</p>
+	<p>Decrypts <c>CipherText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
+	<c>PlainText</c> can be any number of bytes. The initial <c>State</c> is created using
+        <seealso marker="#stream_init/2">stream_init</seealso>.
+	<c>NewState</c> must be passed into the next call to <c>stream_encrypt</c>.</p>
       </desc>
     </func>
 
-    <func>
-      <name>rsa_public_decrypt(ChipherText, PublicKey, Padding) -> PlainText</name> 
-      <fsummary>Decrypts ChipherText using the public Key.</fsummary>
+  <func>
+      <name>verify(Algorithm, DigestType, Msg, Signature, Key) -> boolean()</name>
+      <fsummary>Verifies a digital signature.</fsummary>
       <type>
-	<v>ChipherText = binary()</v>
-	<v>PublicKey = [E, N]</v>
-	<v>E, N = Mpint</v>
-	<d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus</d>
-	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
-        <v>PlainText = binary()</v>
+	<v> Algorithm = rsa | dss | ecdsa </v>
+	<v>Msg = binary() | {digest,binary()}</v>
+	<d>The msg is either the binary "plain text" data
+        or it is the hashed value of "plain text" i.e. the digest.</d>
+	<v>DigestType = digest_type()</v>
+	<v>Signature = binary()</v>
+	<v>Key = rsa_public_key() | dsa_public_key() | ec_public_key()</v>
       </type>
       <desc>
-	<p>Decrypts the <c>ChipherText</c> (encrypted with 
-	  <seealso marker="#rsa_private_encrypt/3">rsa_private_encrypt/3</seealso>) 
-	  using the <c>PrivateKey</c> and returns the
-	  message. The <c>Padding</c> is the padding mode that was
-	  used to encrypt the data, 
-	  see <seealso marker="#rsa_private_encrypt/3">rsa_private_encrypt/3</seealso>.
-	</p>
-      </desc>
-    </func>
-      
-    <func>
-      <name>dss_sign(DataOrDigest, Key) -> Signature</name>
-      <name>dss_sign(DigestType, DataOrDigest, Key) -> Signature</name>
-      <fsummary>Sign the data using dsa with given private key.</fsummary>
-      <type>
-        <v>DigestType = sha</v>
-        <v>DataOrDigest = Mpint | {digest,Digest}</v>
-        <v>Key = [P, Q, G, X]</v>
-        <v>P, Q, G, X = Mpint</v>
-	<d> Where <c>P</c>, <c>Q</c> and <c>G</c> are the dss
-	  parameters and <c>X</c> is the private key.</d>
-        <v>Digest = binary() with length 20 bytes</v>
-        <v>Signature = binary()</v>
-      </type>
-      <desc>
-        <p>Creates a DSS signature with the private key <c>Key</c> of
-	a digest. The digest is either calculated as a SHA1
-	  digest of <c>Data</c> or a precalculated binary <c>Digest</c>.</p>
-	<p>A deprecated feature is having <c>DigestType = 'none'</c>
-	in which case <c>DataOrDigest</c> is a precalculated SHA1
-	digest.</p>
+	<p>Verifies a digital signature</p>
+	See also <seealso marker="public_key:public_key#sign/3">public_key:verify/3</seealso>
       </desc>
     </func>
 
-    <func>
-      <name>dss_verify(DataOrDigest, Signature, Key) -> Verified</name>
-      <name>dss_verify(DigestType, DataOrDigest, Signature, Key) -> Verified</name>
-      <fsummary>Verify the data and signature using dsa with given public key.</fsummary>
-      <type>
-        <v>Verified = boolean()</v>
-        <v>DigestType = sha</v>
-	<v>DataOrDigest = Mpint | {digest,Digest}</v>
-        <v>Data = Mpint | ShaDigest</v>
-        <v>Signature = Mpint</v>
-        <v>Key = [P, Q, G, Y]</v>
-        <v>P, Q, G, Y = Mpint</v>
-	<d> Where <c>P</c>, <c>Q</c> and <c>G</c> are the dss
-	  parameters and <c>Y</c> is the public key.</d>
-        <v>Digest = binary() with length 20 bytes</v>
-      </type>
-      <desc>
-        <p>Verifies that a digest matches the DSS signature using the
-	public key <c>Key</c>. The digest is either calculated as a SHA1
-	digest of <c>Data</c> or is a precalculated binary <c>Digest</c>.</p>
-	<p>A deprecated feature is having <c>DigestType = 'none'</c>
-	in which case <c>DataOrDigest</c> is a precalculated SHA1
-	digest binary.</p>
-      </desc>
-    </func>
+ </funcs>
 
-    <func>
-      <name>rc2_cbc_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to RC2 in CBC mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>Ivec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Encrypts <c>Text</c> according to RC2 in CBC mode.</p>
-      </desc>
-    </func>
+  <!-- Maybe put this in the users guide -->
+  <!-- <section> -->
+  <!--   <title>DES in CBC mode</title> -->
+  <!--   <p>The Data Encryption Standard (DES) defines an algorithm for -->
+  <!--     encrypting and decrypting an 8 byte quantity using an 8 byte key -->
+  <!--     (actually only 56 bits of the key is used). -->
+  <!--     </p> -->
+  <!--   <p>When it comes to encrypting and decrypting blocks that are -->
+  <!--     multiples of 8 bytes various modes are defined (NIST SP -->
+  <!--     800-38A). One of those modes is the Cipher Block Chaining (CBC) -->
+  <!--     mode, where the encryption of an 8 byte segment depend not only -->
+  <!--     of the contents of the segment itself, but also on the result of -->
+  <!--     encrypting the previous segment: the encryption of the previous -->
+  <!--     segment becomes the initializing vector of the encryption of the -->
+  <!--     current segment. -->
+  <!--     </p> -->
+  <!--   <p>Thus the encryption of every segment depends on the encryption -->
+  <!--     key (which is secret) and the encryption of the previous -->
+  <!--     segment, except the first segment which has to be provided with -->
+  <!--     an initial initializing vector. That vector could be chosen at -->
+  <!--     random, or be a counter of some kind. It does not have to be -->
+  <!--     secret. -->
+  <!--     </p> -->
+  <!--   <p>The following example is drawn from the old FIPS 81 standard -->
+  <!--     (replaced by NIST SP 800-38A), where both the plain text and the -->
+  <!--     resulting cipher text is settled. The following code fragment -->
+  <!--     returns `true'. -->
+  <!--     </p> -->
+  <!--   <pre><![CDATA[ -->
 
-    <func>
-      <name>rc2_cbc_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypts <c>Cipher</c>according to RC2 in CBC mode</fsummary>
-      <type>
-        <v>Key = Text = iolist() | binary()</v>
-        <v>Ivec = Cipher = binary()</v>
-      </type>
-      <desc>
-        <p>Decrypts <c>Cipher</c> according to RC2 in CBC mode.</p>
-      </desc>
-    </func>
-    
-    <func>
-      <name>rc4_encrypt(Key, Data) -> Result</name>
-      <fsummary>Encrypt data using RC4</fsummary>
-      <type>
-	<v>Key, Data = iolist() | binary()</v>
-	<v>Result = binary()</v>
-      </type>
-      <desc>
-	<p>Encrypts the data with RC4 symmetric stream encryption.
-	  Since it is symmetric, the same function is used for
-	  decryption.</p>
-      </desc>
-    </func>
+  <!--     Key = <<16#01,16#23,16#45,16#67,16#89,16#ab,16#cd,16#ef>>, -->
+  <!--     IVec = <<16#12,16#34,16#56,16#78,16#90,16#ab,16#cd,16#ef>>, -->
+  <!--     P = "Now is the time for all ", -->
+  <!--     C = crypto:des_cbc_encrypt(Key, IVec, P), -->
+  <!--        % Which is the same as  -->
+  <!--     P1 = "Now is t", P2 = "he time ", P3 = "for all ", -->
+  <!--     C1 = crypto:des_cbc_encrypt(Key, IVec, P1), -->
+  <!--     C2 = crypto:des_cbc_encrypt(Key, C1, P2), -->
+  <!--     C3 = crypto:des_cbc_encrypt(Key, C2, P3), -->
 
-    <func>
-      <name>dh_generate_key(DHParams) -> {PublicKey,PrivateKey} </name>
-      <name>dh_generate_key(PrivateKey, DHParams) -> {PublicKey,PrivateKey} </name>
-      <fsummary>Generates a Diffie-Hellman public key</fsummary>
-      <type>
-	<v>DHParameters = [P, G]</v>
-	<v>P, G = Mpint</v>
-	<d> Where <c>P</c> is the shared prime number and <c>G</c> is the shared generator.</d>
-	<v>PublicKey, PrivateKey = Mpint()</v>
-      </type>
-      <desc>
-	<p>Generates a Diffie-Hellman <c>PublicKey</c> and <c>PrivateKey</c> (if not given).
-	</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>dh_compute_key(OthersPublicKey, MyPrivateKey, DHParams) -> SharedSecret</name>
-      <fsummary>Computes the shared secret</fsummary>
-      <type>
-	<v>DHParameters = [P, G]</v>
-	<v>P, G = Mpint</v>
-	<d> Where <c>P</c> is the shared prime number and <c>G</c> is the shared generator.</d>
-	<v>OthersPublicKey, MyPrivateKey = Mpint()</v>
-	<v>SharedSecret = binary()</v>
-      </type>
-      <desc>
-	<p>Computes the shared secret from the private key and the other party's public key.
-	</p>
-      </desc>
-    </func>
-   
-    <func>
-      <name>srp_generate_key(Generator, Prime, Version) -> {PublicKey, PrivateKey} </name>
-      <name>srp_generate_key(Generator, Prime, Version, Private) -> {PublicKey, PrivateKey} </name>
-      <name>srp_generate_key(Verifier, Generator, Prime, Version) -> {PublicKey, PrivateKey} </name>
-      <name>srp_generate_key(Verifier, Generator, Prime, Version, Private) -> {PublicKey, PrivateKey} </name>
-      <fsummary>Generates SRP public keys</fsummary>
-      <type>
-	<v>Verifier = binary()</v>
-	<d>Parameter v from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	 </d>
-	 <v>Generator = binary() </v>
-	 <d>Parameter g from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	 </d>
-	<v>Prime = binary() </v>
-	<d>Parameter N from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	 </d>
-	 <v>Version = '3' |  '6' |  '6a' </v>
-	<d>SRP version, TLS SRP cipher suites uses '6a'.</d>
-	 <v>PublicKey = binary()</v>
-	 <d> Parameter A or B from <url href="http://srp.stanford.edu/design.html">SRP design</url></d>
-	 <v>Private = PrivateKey = binary() - generated if not supplied</v>
-	 <d>Parameter a or b from <url href="http://srp.stanford.edu/design.html">SRP design</url></d>
-      </type>
-      <desc>
-	<p>Generates SRP public keys for the client side (first argument is Generator)
-	or for the server side (first argument is Verifier).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>srp_compute_key(DerivedKey, Prime, Generator,
-      ClientPublic, ClientPrivate, ServerPublic, Version) -> SessionKey</name>
-      <name>srp_compute_key(DerivedKey, Prime, Generator,
-      ClientPublic, ClientPrivate, ServerPublic, Version, Scrambler) -> SessionKey</name>
-      <name>srp_compute_key(Verifier, Prime,
-      ClientPublic, ServerPublic, ServerPrivate, Version, Scrambler)-> SessionKey</name>
-      <name>srp_compute_key(Verifier, Prime,
-      ClientPublic, ServerPublic, ServerPrivate, Version) -> SessionKey</name>
-      
-      <fsummary>Computes SRP session key</fsummary>
-      <type>
-	<v>DerivedKey = binary()</v>
-	<d>Parameter x from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	 </d>
-	<v>Verifier = binary()</v>
-	<d>Parameter v from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	 </d>
-	<v>Prime = binary() </v>
-	<d>Parameter N from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	 </d>
-	<v>Generator = binary() </v>
-	<d>Parameter g from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	 </d>
-	<v>ClientPublic = binary() </v>
-	<d>Parameter A from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	 </d>
-	<v>ClientPrivate = binary() </v>
-	<d>Parameter a from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	 </d>
-	<v>ServerPublic = binary() </v>
-	<d>Parameter B from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	</d>
-	<v>ServerPrivate = binary() </v>
-	<d>Parameter b from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	</d>	
-	<v>Version = '3' |  '6' |  '6a' </v>
-	<d>SRP version, TLS SRP cipher suites uses '6a'.</d>
-	<v>SessionKey = binary()</v>
-	<d>Result K from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	</d>
-      </type>
-      <desc>
-	<p>
-	  Computes the SRP session key (shared secret) for the client side (first argument is DerivedKey)
-	  or for the server side (first argument is Verifier). Also used
-	  as premaster secret by TLS-SRP cipher suites.
-	</p>
-      </desc>
-    </func>
-    
-    <func>
-      <name>exor(Data1, Data2) -> Result</name>
-      <fsummary>XOR data</fsummary>
-      <type>
-	<v>Data1, Data2 = iolist() | binary()</v>
-	<v>Result = binary()</v>
-      </type>
-      <desc>
-	<p>Performs bit-wise XOR (exclusive or) on the data supplied.</p>
-      </desc>
-    </func>
-  </funcs>
-
-  <section>
-    <title>DES in CBC mode</title>
-    <p>The Data Encryption Standard (DES) defines an algorithm for
-      encrypting and decrypting an 8 byte quantity using an 8 byte key
-      (actually only 56 bits of the key is used).
-      </p>
-    <p>When it comes to encrypting and decrypting blocks that are
-      multiples of 8 bytes various modes are defined (NIST SP
-      800-38A). One of those modes is the Cipher Block Chaining (CBC)
-      mode, where the encryption of an 8 byte segment depend not only
-      of the contents of the segment itself, but also on the result of
-      encrypting the previous segment: the encryption of the previous
-      segment becomes the initializing vector of the encryption of the
-      current segment.
-      </p>
-    <p>Thus the encryption of every segment depends on the encryption
-      key (which is secret) and the encryption of the previous
-      segment, except the first segment which has to be provided with
-      an initial initializing vector. That vector could be chosen at
-      random, or be a counter of some kind. It does not have to be
-      secret.
-      </p>
-    <p>The following example is drawn from the old FIPS 81 standard
-      (replaced by NIST SP 800-38A), where both the plain text and the
-      resulting cipher text is settled. The following code fragment
-      returns `true'.
-      </p>
-    <pre><![CDATA[
-
-      Key = <<16#01,16#23,16#45,16#67,16#89,16#ab,16#cd,16#ef>>,
-      IVec = <<16#12,16#34,16#56,16#78,16#90,16#ab,16#cd,16#ef>>,
-      P = "Now is the time for all ",
-      C = crypto:des_cbc_encrypt(Key, IVec, P),
-         % Which is the same as 
-      P1 = "Now is t", P2 = "he time ", P3 = "for all ",
-      C1 = crypto:des_cbc_encrypt(Key, IVec, P1),
-      C2 = crypto:des_cbc_encrypt(Key, C1, P2),
-      C3 = crypto:des_cbc_encrypt(Key, C2, P3),
-
-      C = <<C1/binary, C2/binary, C3/binary>>,
-      C = <<16#e5,16#c7,16#cd,16#de,16#87,16#2b,16#f2,16#7c,
-             16#43,16#e9,16#34,16#00,16#8c,16#38,16#9c,16#0f,
-             16#68,16#37,16#88,16#49,16#9a,16#7c,16#05,16#f6>>,
-      <<"Now is the time for all ">> == 
-                        crypto:des_cbc_decrypt(Key, IVec, C).
-    ]]></pre>
-    <p>The following is true for the DES CBC mode. For all
-      decompositions <c>P1 ++ P2 = P</c> of a plain text message
-      <c>P</c> (where the length of all quantities are multiples of 8
-      bytes), the encryption <c>C</c> of <c>P</c> is equal to <c>C1 ++
-      C2</c>, where <c>C1</c> is obtained by encrypting <c>P1</c> with
-      <c>Key</c> and the initializing vector <c>IVec</c>, and where
-      <c>C2</c> is obtained by encrypting <c>P2</c> with <c>Key</c>
-      and the initializing vector <c>last8(C1)</c>,
-      where <c>last(Binary)</c> denotes the last 8 bytes of the
-      binary <c>Binary</c>.
-      </p>
-    <p>Similarly, for all decompositions <c>C1 ++ C2 = C</c> of a
-      cipher text message <c>C</c> (where the length of all quantities
-      are multiples of 8 bytes), the decryption <c>P</c> of <c>C</c>
-      is equal to <c>P1 ++ P2</c>, where <c>P1</c> is obtained by
-      decrypting <c>C1</c> with <c>Key</c> and the initializing vector
-      <c>IVec</c>, and where <c>P2</c> is obtained by decrypting
-      <c>C2</c> with <c>Key</c> and the initializing vector
-      <c>last8(C1)</c>, where <c>last8(Binary)</c> is as above.
-      </p>
-    <p>For DES3 (which uses three 64 bit keys) the situation is the
-      same.
-    </p>
-  </section>
+  <!--     C = <<C1/binary, C2/binary, C3/binary>>, -->
+  <!--     C = <<16#e5,16#c7,16#cd,16#de,16#87,16#2b,16#f2,16#7c, -->
+  <!--            16#43,16#e9,16#34,16#00,16#8c,16#38,16#9c,16#0f, -->
+  <!--            16#68,16#37,16#88,16#49,16#9a,16#7c,16#05,16#f6>>, -->
+  <!--     <<"Now is the time for all ">> ==  -->
+  <!--                       crypto:des_cbc_decrypt(Key, IVec, C). -->
+  <!--   ]]></pre> -->
+  <!--   <p>The following is true for the DES CBC mode. For all -->
+  <!--     decompositions <c>P1 ++ P2 = P</c> of a plain text message -->
+  <!--     <c>P</c> (where the length of all quantities are multiples of 8 -->
+  <!--     bytes), the encryption <c>C</c> of <c>P</c> is equal to <c>C1 ++ -->
+  <!--     C2</c>, where <c>C1</c> is obtained by encrypting <c>P1</c> with -->
+  <!--     <c>Key</c> and the initializing vector <c>IVec</c>, and where -->
+  <!--     <c>C2</c> is obtained by encrypting <c>P2</c> with <c>Key</c> -->
+  <!--     and the initializing vector <c>last8(C1)</c>, -->
+  <!--     where <c>last(Binary)</c> denotes the last 8 bytes of the -->
+  <!--     binary <c>Binary</c>. -->
+  <!--     </p> -->
+  <!--   <p>Similarly, for all decompositions <c>C1 ++ C2 = C</c> of a -->
+  <!--     cipher text message <c>C</c> (where the length of all quantities -->
+  <!--     are multiples of 8 bytes), the decryption <c>P</c> of <c>C</c> -->
+  <!--     is equal to <c>P1 ++ P2</c>, where <c>P1</c> is obtained by -->
+  <!--     decrypting <c>C1</c> with <c>Key</c> and the initializing vector -->
+  <!--     <c>IVec</c>, and where <c>P2</c> is obtained by decrypting -->
+  <!--     <c>C2</c> with <c>Key</c> and the initializing vector -->
+  <!--     <c>last8(C1)</c>, where <c>last8(Binary)</c> is as above. -->
+  <!--     </p> -->
+  <!--   <p>For DES3 (which uses three 64 bit keys) the situation is the -->
+  <!--     same. -->
+  <!--   </p> -->
+  <!-- </section> -->
 </erlref>
 

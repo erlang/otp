@@ -63,7 +63,7 @@ init_per_suite(Config0) ->
 	    Result =
 		(catch make_certs:all(?config(data_dir, Config0),
 				      ?config(priv_dir, Config0))),
-	    ct:print("Make certs  ~p~n", [Result]),
+	    ct:log("Make certs  ~p~n", [Result]),
 
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 	    Config = ssl_test_lib:cert_options(Config1),

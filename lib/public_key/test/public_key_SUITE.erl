@@ -551,7 +551,7 @@ dsa_sign_verify(Config) when is_list(Config) ->
     false = public_key:verify(Msg, sha, <<1:8, DSASign/binary>>, 
 			      {DSAPublicKey, DSAParams}), 
     
-    Digest = crypto:sha(Msg),
+    Digest = crypto:hash(sha,Msg),
     DigestSign = public_key:sign(Digest, none, DSAPrivateKey),
     true = public_key:verify(Digest, none, DigestSign, {DSAPublicKey, DSAParams}), 
     <<_:8, RestDigest/binary>> = Digest,

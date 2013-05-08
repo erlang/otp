@@ -37,17 +37,21 @@
     <list type="bulleted">
       <item>ssl requires the crypto and public_key applications.</item>
       <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
-      TLS-1.1 and TLS-1.2 (no support for elliptic curve cipher suites yet).</item>
+      TLS-1.1 and TLS-1.2.</item>
       <item>For security reasons sslv2 is not supported.</item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported
       but not Diffie Hellman Certificates cipher suites.</item>
+      <item>Elliptic Curve cipher suites are supported if crypto
+      supports it and named curves are used.
+      </item>
       <item>Export cipher suites are not supported as the
       U.S. lifted its export restrictions in early 2000.</item>
       <item>IDEA cipher suites are not supported as they have
       become deprecated by the latest TLS spec so there is not any
       real motivation to implement them.</item>
-      <item>CRL and policy certificate
-            extensions are not supported yet. </item>
+      <item>CRL and policy certificate extensions are not supported
+      yet. However CRL verification is supported by public_key, only not integrated
+      in ssl yet. </item>
     </list>
  
   </section>
@@ -75,7 +79,7 @@
       {fail_if_no_peer_cert, boolean()}
       {depth, integer()} |
       {cert, der_encoded()}| {certfile, path()} |
-      {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'PrivateKeyInfo', der_encoded()}} |
+      {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' |'PrivateKeyInfo', der_encoded()}} |
       {keyfile, path()} | {password, string()} |
       {cacerts, [der_encoded()]} | {cacertfile, path()} |
       |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
@@ -125,6 +129,7 @@
     
     <p><c>key_exchange() =  rsa | dhe_dss | dhe_rsa | dh_anon
        | psk | dhe_psk | rsa_psk | srp_anon | srp_dss | srp_rsa
+       | ecdh_anon | ecdh_ecdsa | ecdhe_ecdsa | ecdh_rsa | ecdhe_rsa
     </c></p>
 
    <p><c>cipher() = rc4_128 | des_cbc | '3des_ede_cbc'
@@ -157,7 +162,7 @@
       <tag>{certfile, path()}</tag>
       <item>Path to a file containing the user's certificate.</item>
       
-      <tag>{key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'PrivateKeyInfo', der_encoded()}}</tag>
+      <tag>{key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' |'PrivateKeyInfo', der_encoded()}}</tag>
       <item> The DER encoded users private key. If this option
       is supplied it will override the keyfile option.</item>
       

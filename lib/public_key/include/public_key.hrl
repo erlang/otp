@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,6 +72,10 @@
 	  valid_ext
 	 }).
 
+-record('ECPoint', {
+	  point
+	 }).
+
 
 -define(unspecified, 0).
 -define(keyCompromise, 1).
@@ -89,6 +93,8 @@
 -type rsa_private_key()      ::  #'RSAPrivateKey'{}.
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.
 -type dsa_public_key()       :: {integer(), #'Dss-Parms'{}}.
+-type ec_public_key()        :: {#'ECPoint'{},{namedCurve, Oid::tuple()} | #'ECParameters'{}}.
+-type ec_private_key()       :: #'ECPrivateKey'{}.
 -type der_encoded()          :: binary().
 -type decrypt_der()          :: binary().
 -type pki_asn1_type()        ::  'Certificate' | 'RSAPrivateKey' | 'RSAPublicKey'

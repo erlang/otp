@@ -74,6 +74,19 @@
 # define HAVE_DES_ede3_cfb_encrypt
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= 0x009080ffL \
+	&& !defined(OPENSSL_NO_EC) \
+	&& !defined(OPENSSL_NO_ECDH) \
+	&& !defined(OPENSSL_NO_ECDSA)
+# define HAVE_EC
+#endif
+
+#if defined(HAVE_EC)
+#include <openssl/ec.h>
+#include <openssl/ecdh.h>
+#include <openssl/ecdsa.h>
+#endif
+
 #ifdef VALGRIND
     #  include <valgrind/memcheck.h>
 
@@ -192,7 +205,7 @@ static ERL_NIF_TERM rand_bytes_3(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -209,13 +222,19 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM srp_client_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM srp_server_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM bf_cfb64_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM bf_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM bf_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM blowfish_ofb64_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM ec_key_to_term_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 
 /* helpers */
@@ -246,6 +265,11 @@ static void hmac_sha384(unsigned char *key, int klen,
 static void hmac_sha512(unsigned char *key, int klen,
 			unsigned char *dbuf, int dlen,
 			unsigned char *hmacbuf);
+#endif
+#ifdef HAVE_EC
+static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg);
+static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
+		      EC_GROUP *group, EC_POINT **pptr);
 #endif
 
 static int library_refc = 0; /* number of users of this dynamic library */
@@ -311,7 +335,7 @@ static ErlNifFunc nif_funcs[] = {
     {"strong_rand_mpint_nif", 3, strong_rand_mpint_nif},
     {"rand_uniform_nif", 2, rand_uniform_nif},
     {"mod_exp_nif", 4, mod_exp_nif},
-    {"dss_verify", 4, dss_verify},
+    {"dss_verify_nif", 4, dss_verify_nif},
     {"rsa_verify_nif", 4, rsa_verify_nif},
     {"aes_cbc_crypt", 4, aes_cbc_crypt},
     {"exor", 2, exor},
@@ -325,16 +349,120 @@ static ErlNifFunc nif_funcs[] = {
     {"rsa_private_crypt", 4, rsa_private_crypt},
     {"dh_generate_parameters_nif", 2, dh_generate_parameters_nif},
     {"dh_check", 1, dh_check},
-    {"dh_generate_key_nif", 2, dh_generate_key_nif},
+    {"dh_generate_key_nif", 3, dh_generate_key_nif},
     {"dh_compute_key_nif", 3, dh_compute_key_nif},
     {"srp_value_B_nif", 5, srp_value_B_nif},
-    {"srp_client_secret_nif", 7, srp_client_secret_nif},
-    {"srp_server_secret_nif", 5, srp_server_secret_nif},
+    {"srp_user_secret_nif", 7, srp_user_secret_nif},
+    {"srp_host_secret_nif", 5, srp_host_secret_nif},
     {"bf_cfb64_crypt", 4, bf_cfb64_crypt},
     {"bf_cbc_crypt", 4, bf_cbc_crypt},
     {"bf_ecb_crypt", 3, bf_ecb_crypt},
-    {"blowfish_ofb64_encrypt", 3, blowfish_ofb64_encrypt}
+    {"blowfish_ofb64_encrypt", 3, blowfish_ofb64_encrypt},
+
+    {"ec_key_to_term_nif", 1, ec_key_to_term_nif},
+    {"term_to_ec_key_nif", 3, term_to_ec_key_nif},
+    {"ec_key_generate", 1, ec_key_generate},
+    {"ecdsa_sign_nif", 3, ecdsa_sign_nif},
+    {"ecdsa_verify_nif", 4, ecdsa_verify_nif},
+    {"ecdh_compute_key_nif", 2, ecdh_compute_key_nif}
 };
+
+#if defined(HAVE_EC)
+struct nid_map {
+    char *name;
+    int nid;
+    ERL_NIF_TERM atom;
+};
+
+static struct nid_map ec_curves[] = {
+    /* prime field curves */
+    /* secg curves */
+    { "secp112r1", NID_secp112r1 },
+    { "secp112r2", NID_secp112r2 },
+    { "secp128r1", NID_secp128r1 },
+    { "secp128r2", NID_secp128r2 },
+    { "secp160k1", NID_secp160k1 },
+    { "secp160r1", NID_secp160r1 },
+    { "secp160r2", NID_secp160r2 },
+    /* SECG secp192r1 is the same as X9.62 prime192v1 */
+    { "secp192r1", NID_X9_62_prime192v1 },
+    { "secp192k1", NID_secp192k1 },
+    { "secp224k1", NID_secp224k1 },
+    { "secp224r1", NID_secp224r1 },
+    { "secp256k1", NID_secp256k1 },
+    /* SECG secp256r1 is the same as X9.62 prime256v1 */
+    { "secp256r1", NID_X9_62_prime256v1 },
+    { "secp384r1", NID_secp384r1 },
+    { "secp521r1", NID_secp521r1 },
+    /* X9.62 curves */
+    { "prime192v1", NID_X9_62_prime192v1 },
+    { "prime192v2", NID_X9_62_prime192v2 },
+    { "prime192v3", NID_X9_62_prime192v3 },
+    { "prime239v1", NID_X9_62_prime239v1 },
+    { "prime239v2", NID_X9_62_prime239v2 },
+    { "prime239v3", NID_X9_62_prime239v3 },
+    { "prime256v1", NID_X9_62_prime256v1 },
+    /* characteristic two field curves */
+    /* NIST/SECG curves */
+    { "sect113r1", NID_sect113r1 },
+    { "sect113r2", NID_sect113r2 },
+    { "sect131r1", NID_sect131r1 },
+    { "sect131r2", NID_sect131r2 },
+    { "sect163k1", NID_sect163k1 },
+    { "sect163r1", NID_sect163r1 },
+    { "sect163r2", NID_sect163r2 },
+    { "sect193r1", NID_sect193r1 },
+    { "sect193r2", NID_sect193r2 },
+    { "sect233k1", NID_sect233k1 },
+    { "sect233r1", NID_sect233r1 },
+    { "sect239k1", NID_sect239k1 },
+    { "sect283k1", NID_sect283k1 },
+    { "sect283r1", NID_sect283r1 },
+    { "sect409k1", NID_sect409k1 },
+    { "sect409r1", NID_sect409r1 },
+    { "sect571k1", NID_sect571k1 },
+    { "sect571r1", NID_sect571r1 },
+    /* X9.62 curves */
+    { "c2pnb163v1", NID_X9_62_c2pnb163v1 },
+    { "c2pnb163v2", NID_X9_62_c2pnb163v2 },
+    { "c2pnb163v3", NID_X9_62_c2pnb163v3 },
+    { "c2pnb176v1", NID_X9_62_c2pnb176v1 },
+    { "c2tnb191v1", NID_X9_62_c2tnb191v1 },
+    { "c2tnb191v2", NID_X9_62_c2tnb191v2 },
+    { "c2tnb191v3", NID_X9_62_c2tnb191v3 },
+    { "c2pnb208w1", NID_X9_62_c2pnb208w1 },
+    { "c2tnb239v1", NID_X9_62_c2tnb239v1 },
+    { "c2tnb239v2", NID_X9_62_c2tnb239v2 },
+    { "c2tnb239v3", NID_X9_62_c2tnb239v3 },
+    { "c2pnb272w1", NID_X9_62_c2pnb272w1 },
+    { "c2pnb304w1", NID_X9_62_c2pnb304w1 },
+    { "c2tnb359v1", NID_X9_62_c2tnb359v1 },
+    { "c2pnb368w1", NID_X9_62_c2pnb368w1 },
+    { "c2tnb431r1", NID_X9_62_c2tnb431r1 },
+    /* the WAP/WTLS curves
+     * [unlike SECG, spec has its own OIDs for curves from X9.62] */
+    { "wtls1", NID_wap_wsg_idm_ecid_wtls1 },
+    { "wtls3", NID_wap_wsg_idm_ecid_wtls3 },
+    { "wtls4", NID_wap_wsg_idm_ecid_wtls4 },
+    { "wtls5", NID_wap_wsg_idm_ecid_wtls5 },
+    { "wtls6", NID_wap_wsg_idm_ecid_wtls6 },
+    { "wtls7", NID_wap_wsg_idm_ecid_wtls7 },
+    { "wtls8", NID_wap_wsg_idm_ecid_wtls8 },
+    { "wtls9", NID_wap_wsg_idm_ecid_wtls9 },
+    { "wtls10", NID_wap_wsg_idm_ecid_wtls10 },
+    { "wtls11", NID_wap_wsg_idm_ecid_wtls11 },
+    { "wtls12", NID_wap_wsg_idm_ecid_wtls12 },
+    /* IPSec curves */
+    { "ipsec3", NID_ipsec3 },
+    { "ipsec4", NID_ipsec4 }
+};
+
+#define EC_CURVES_CNT (sizeof(ec_curves)/sizeof(struct nid_map))
+
+struct nif_ec_key {
+    EC_KEY *key;
+};
+#endif
 
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 
@@ -368,6 +496,7 @@ static ERL_NIF_TERM atom_sha256;
 static ERL_NIF_TERM atom_sha384;
 static ERL_NIF_TERM atom_sha512;
 static ERL_NIF_TERM atom_md5;
+static ERL_NIF_TERM atom_md4;
 static ERL_NIF_TERM atom_ripemd160;
 static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_rsa_pkcs1_padding;
@@ -385,6 +514,19 @@ static ERL_NIF_TERM atom_unknown;
 static ERL_NIF_TERM atom_none;
 static ERL_NIF_TERM atom_notsup;
 static ERL_NIF_TERM atom_digest;
+
+static ERL_NIF_TERM atom_ec;
+
+#if defined(HAVE_EC)
+static ERL_NIF_TERM atom_prime_field;
+static ERL_NIF_TERM atom_characteristic_two_field;
+static ERL_NIF_TERM atom_tpbasis;
+static ERL_NIF_TERM atom_ppbasis;
+static ERL_NIF_TERM atom_onbasis;
+
+static ErlNifResourceType* res_type_ec_key;
+static void ec_key_dtor(ErlNifEnv* env, void* obj);
+#endif
 
 /*
 #define PRINTF_ERR0(FMT) enif_fprintf(stderr, FMT "\n")
@@ -415,6 +557,7 @@ static void error_handler(void* null, const char* errstr)
 
 static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
+    int i;
     ErlNifSysInfo sys_info;
     get_crypto_callbacks_t* funcp;
     struct crypto_callbacks* ccb;
@@ -448,6 +591,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_sha256 = enif_make_atom(env,"sha256");
     atom_sha384 = enif_make_atom(env,"sha384");
     atom_sha512 = enif_make_atom(env,"sha512");
+    atom_md4 = enif_make_atom(env,"md4");
     atom_md5 = enif_make_atom(env,"md5");
     atom_ripemd160 = enif_make_atom(env,"ripemd160");
     atom_error = enif_make_atom(env,"error");
@@ -465,6 +609,23 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_none = enif_make_atom(env,"none");
     atom_notsup = enif_make_atom(env,"notsup");
     atom_digest = enif_make_atom(env,"digest");
+
+#if defined(HAVE_EC)
+    atom_ec = enif_make_atom(env,"ec");
+    atom_prime_field = enif_make_atom(env,"prime_field");
+    atom_characteristic_two_field = enif_make_atom(env,"characteristic_two_field");
+    atom_tpbasis = enif_make_atom(env,"tpbasis");
+    atom_ppbasis = enif_make_atom(env,"ppbasis");
+    atom_onbasis = enif_make_atom(env,"onbasis");
+
+    for (i = 0; i < EC_CURVES_CNT; i++)
+	    ec_curves[i].atom =  enif_make_atom(env,ec_curves[i].name);
+
+    res_type_ec_key = enif_open_resource_type(env,NULL,"crypto.EC_KEY",
+					      ec_key_dtor,
+					      ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+					      NULL);
+#endif
 
     init_digest_types(env);
     init_algorithms_types();
@@ -549,12 +710,12 @@ static void unload(ErlNifEnv* env, void* priv_data)
 }
 
 static int algos_cnt;
-static ERL_NIF_TERM algos[7];   /* increase when extending the list */
+static ERL_NIF_TERM algos[9];   /* increase when extending the list */
 
 static void init_algorithms_types(void)
 {
     algos_cnt = 0;
-
+    algos[algos_cnt++] = atom_md4;
     algos[algos_cnt++] = atom_md5;
     algos[algos_cnt++] = atom_sha;
     algos[algos_cnt++] = atom_ripemd160;
@@ -569,6 +730,9 @@ static void init_algorithms_types(void)
 #endif
 #ifdef HAVE_SHA512
     algos[algos_cnt++] = atom_sha512;
+#endif
+#if defined(HAVE_EC)
+    algos[algos_cnt++] = atom_ec;
 #endif
 }
 
@@ -1631,13 +1795,7 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return ret;
 }
 
-static int inspect_mpint(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifBinary* bin)
-{    
-    return enif_inspect_binary(env, term, bin) &&
-    bin->size >= 4 && get_int32(bin->data) == bin->size-4;
-}
-
-static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (DigestType|none, Data|{digest,Digest}, Signature,Key=[P, Q, G, Y]) */
     ErlNifBinary data_bin, sign_bin;
     BIGNUM *dsa_p = NULL, *dsa_q = NULL, *dsa_g = NULL, *dsa_y = NULL;
@@ -1660,10 +1818,10 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	    digest = data_bin.data;
 	}
 	else {
-	    if (!inspect_mpint(env, argv[1], &data_bin)) {
+	    if (!enif_inspect_binary(env, argv[1], &data_bin)) {
 		return enif_make_badarg(env);
 	    }
-	    SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    SHA1(data_bin.data, data_bin.size, hmacbuf);
 	    digest = hmacbuf;
 	}
     }
@@ -1675,15 +1833,15 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	return enif_make_badarg(env);
     }
 
-    if (!inspect_mpint(env, argv[2], &sign_bin)
+    if (!enif_inspect_binary(env, argv[2], &sign_bin)
 	|| !enif_get_list_cell(env, argv[3], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa_p)
+	|| !get_bn_from_bin(env, head, &dsa_p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa_q)
+	|| !get_bn_from_bin(env, head, &dsa_q)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa_g)
+	|| !get_bn_from_bin(env, head, &dsa_g)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa_y)
+	|| !get_bn_from_bin(env, head, &dsa_y)
 	|| !enif_is_empty_list(env,tail)) {
 
 	if (dsa_p) BN_free(dsa_p);
@@ -1700,7 +1858,7 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     dsa->priv_key = NULL;
     dsa->pub_key = dsa_y;
     i =  DSA_verify(0, digest, SHA_DIGEST_LENGTH,
-		    sign_bin.data+4, sign_bin.size-4, dsa);
+		    sign_bin.data, sign_bin.size, dsa);
     DSA_free(dsa);
     return(i > 0) ? atom_true : atom_false;
 }
@@ -1826,11 +1984,11 @@ static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     rsa = RSA_new();
 
-    if (!inspect_mpint(env, argv[2], &sign_bin)
+    if (!enif_inspect_binary(env, argv[2], &sign_bin)
 	|| !enif_get_list_cell(env, argv[3], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->e)
+	|| !get_bn_from_bin(env, head, &rsa->e)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->n)
+	|| !get_bn_from_bin(env, head, &rsa->n)
 	|| !enif_is_empty_list(env, tail)) {
 	
 	ret = enif_make_badarg(env);
@@ -1846,9 +2004,9 @@ static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	}
 	digest = data_bin.data;
     }
-    else if (inspect_mpint(env, argv[1], &data_bin)) {
+    else if (enif_inspect_binary(env, argv[1], &data_bin)) {
 	digest = hmacbuf;
-	digp->funcp(data_bin.data+4, data_bin.size-4, digest);
+	digp->funcp(data_bin.data, data_bin.size, digest);
     }
     else {
 	ret = enif_make_badarg(env);
@@ -1856,7 +2014,7 @@ static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     }
 
     i = RSA_verify(digp->NID_type, digest, digp->len,
-		   sign_bin.data+4, sign_bin.size-4, rsa);
+		   sign_bin.data, sign_bin.size, rsa);
 
     ret = (i==1 ? atom_true : atom_false);
 
@@ -2001,22 +2159,22 @@ static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     ERL_NIF_TERM head, tail;
 
     if (!enif_get_list_cell(env, key, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->e)
+	|| !get_bn_from_bin(env, head, &rsa->e)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->n)
+	|| !get_bn_from_bin(env, head, &rsa->n)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->d)
+	|| !get_bn_from_bin(env, head, &rsa->d)
 	|| (!enif_is_empty_list(env, tail) &&
 	    (!enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_mpint(env, head, &rsa->p)
+	     || !get_bn_from_bin(env, head, &rsa->p)
 	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_mpint(env, head, &rsa->q)
+	     || !get_bn_from_bin(env, head, &rsa->q)
 	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_mpint(env, head, &rsa->dmp1)
+	     || !get_bn_from_bin(env, head, &rsa->dmp1)
 	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_mpint(env, head, &rsa->dmq1)
+	     || !get_bn_from_bin(env, head, &rsa->dmq1)
 	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_mpint(env, head, &rsa->iqmp)
+	     || !get_bn_from_bin(env, head, &rsa->iqmp)
 	     || !enif_is_empty_list(env, tail)))) {
 	return 0;
     }
@@ -2053,11 +2211,11 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	digest = data_bin.data;
     }
     else {
-	if (!inspect_mpint(env,argv[1],&data_bin)) {
+	if (!enif_inspect_binary(env,argv[1],&data_bin)) {
 	    return enif_make_badarg(env);
 	}
 	digest = hmacbuf;
-	digp->funcp(data_bin.data+4, data_bin.size-4, digest);
+	digp->funcp(data_bin.data, data_bin.size, digest);
     }
 
     rsa = RSA_new();
@@ -2112,10 +2270,10 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	    digest = data_bin.data;
 	}
 	else {
-	    if (!inspect_mpint(env,argv[1],&data_bin)) {
+	    if (!enif_inspect_binary(env,argv[1],&data_bin)) {
 		return enif_make_badarg(env);
 	    }
-	    SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    SHA1(data_bin.data, data_bin.size, hmacbuf);
 	    digest = hmacbuf;
 	}
     }
@@ -2133,13 +2291,13 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     dsa->pub_key  = NULL;
     if (!enif_get_list_cell(env, argv[2], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa->p)
+	|| !get_bn_from_bin(env, head, &dsa->p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa->q)
+	|| !get_bn_from_bin(env, head, &dsa->q)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa->g)
+	|| !get_bn_from_bin(env, head, &dsa->g)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dsa->priv_key)
+	|| !get_bn_from_bin(env, head, &dsa->priv_key)
 	|| !enif_is_empty_list(env,tail)) {
 	DSA_free(dsa);
 	return enif_make_badarg(env);
@@ -2187,9 +2345,9 @@ static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
     if (!enif_inspect_binary(env, argv[0], &data_bin)
 	|| !enif_get_list_cell(env, argv[1], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->e)
+	|| !get_bn_from_bin(env, head, &rsa->e)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->n)
+	|| !get_bn_from_bin(env, head, &rsa->n)
 	|| !enif_is_empty_list(env,tail)
 	|| !rsa_pad(argv[2], &padding)) {
 
@@ -2286,14 +2444,12 @@ static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const E
     }
     p_len = BN_num_bytes(dh_params->p);
     g_len = BN_num_bytes(dh_params->g);
-    p_ptr = enif_make_new_binary(env, p_len+4, &ret_p);
-    g_ptr = enif_make_new_binary(env, g_len+4, &ret_g);
-    put_int32(p_ptr, p_len);
-    put_int32(g_ptr, g_len);
-    BN_bn2bin(dh_params->p, p_ptr+4);
-    BN_bn2bin(dh_params->g, g_ptr+4);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(p_ptr+4, p_len);                
-    ERL_VALGRIND_MAKE_MEM_DEFINED(g_ptr+4, g_len);
+    p_ptr = enif_make_new_binary(env, p_len, &ret_p);
+    g_ptr = enif_make_new_binary(env, g_len, &ret_g);
+    BN_bn2bin(dh_params->p, p_ptr);
+    BN_bn2bin(dh_params->g, g_ptr);
+    ERL_VALGRIND_MAKE_MEM_DEFINED(p_ptr, p_len);
+    ERL_VALGRIND_MAKE_MEM_DEFINED(g_ptr, g_len);
     DH_free(dh_params);
     return enif_make_list2(env, ret_p, ret_g);    
 }
@@ -2305,9 +2461,9 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ERL_NIF_TERM ret, head, tail;
 
     if (!enif_get_list_cell(env, argv[0], &head, &tail)   
-	|| !get_bn_from_mpint(env, head, &dh_params->p)
+	|| !get_bn_from_bin(env, head, &dh_params->p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)   
-	|| !get_bn_from_mpint(env, head, &dh_params->g)
+	|| !get_bn_from_bin(env, head, &dh_params->g)
 	|| !enif_is_empty_list(env,tail)) {
 
 	DH_free(dh_params);
@@ -2329,19 +2485,21 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 }   
 
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (PrivKey, DHParams=[P,G]) */
+{/* (PrivKey, DHParams=[P,G], Mpint) */
     DH* dh_params = DH_new();
     int pub_len, prv_len;
     unsigned char *pub_ptr, *prv_ptr;
     ERL_NIF_TERM ret, ret_pub, ret_prv, head, tail;
+    int mpint; /* 0 or 4 */
 
-    if (!(get_bn_from_mpint(env, argv[0], &dh_params->priv_key)
+    if (!(get_bn_from_bin(env, argv[0], &dh_params->priv_key)
 	  || argv[0] == atom_undefined)
 	|| !enif_get_list_cell(env, argv[1], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dh_params->p)
+	|| !get_bn_from_bin(env, head, &dh_params->p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dh_params->g)
-	|| !enif_is_empty_list(env, tail)) {
+	|| !get_bn_from_bin(env, head, &dh_params->g)
+	|| !enif_is_empty_list(env, tail)
+	|| !enif_get_int(env, argv[2], &mpint) || (mpint & ~4)) {
 	DH_free(dh_params);
 	return enif_make_badarg(env);
     }
@@ -2349,14 +2507,16 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     if (DH_generate_key(dh_params)) {
 	pub_len = BN_num_bytes(dh_params->pub_key);
 	prv_len = BN_num_bytes(dh_params->priv_key);    
-	pub_ptr = enif_make_new_binary(env, pub_len+4, &ret_pub);
-	prv_ptr = enif_make_new_binary(env, prv_len+4, &ret_prv);
-	put_int32(pub_ptr, pub_len);
-	put_int32(prv_ptr, prv_len);
-	BN_bn2bin(dh_params->pub_key, pub_ptr+4);
-	BN_bn2bin(dh_params->priv_key, prv_ptr+4);
-	ERL_VALGRIND_MAKE_MEM_DEFINED(pub_ptr+4, pub_len);    
-	ERL_VALGRIND_MAKE_MEM_DEFINED(prv_ptr+4, prv_len);
+	pub_ptr = enif_make_new_binary(env, pub_len+mpint, &ret_pub);
+	prv_ptr = enif_make_new_binary(env, prv_len+mpint, &ret_prv);
+	if (mpint) {
+	    put_int32(pub_ptr, pub_len); pub_ptr += 4;
+	    put_int32(prv_ptr, prv_len); prv_ptr += 4;
+	}
+	BN_bn2bin(dh_params->pub_key, pub_ptr);
+	BN_bn2bin(dh_params->priv_key, prv_ptr);
+	ERL_VALGRIND_MAKE_MEM_DEFINED(pub_ptr, pub_len);
+	ERL_VALGRIND_MAKE_MEM_DEFINED(prv_ptr, prv_len);
 	ret = enif_make_tuple2(env, ret_pub, ret_prv);
     }
     else {
@@ -2374,12 +2534,12 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     ErlNifBinary ret_bin;
     ERL_NIF_TERM ret, head, tail;
 
-    if (!get_bn_from_mpint(env, argv[0], &pubkey)
-	|| !get_bn_from_mpint(env, argv[1], &dh_params->priv_key)       
+    if (!get_bn_from_bin(env, argv[0], &pubkey)
+	|| !get_bn_from_bin(env, argv[1], &dh_params->priv_key)
 	|| !enif_get_list_cell(env, argv[2], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dh_params->p)
+	|| !get_bn_from_bin(env, head, &dh_params->p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &dh_params->g)
+	|| !get_bn_from_bin(env, head, &dh_params->g)
 	|| !enif_is_empty_list(env, tail)) {
 
 	ret = enif_make_badarg(env);
@@ -2457,7 +2617,7 @@ static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     return ret;
 }
 
-static ERL_NIF_TERM srp_client_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (a, u, B, Multiplier, Prime, Exponent, Generator) */
 /*
         <premaster secret> = (B - (k * g^x)) ^ (a + (u * x)) % N
@@ -2537,7 +2697,7 @@ static ERL_NIF_TERM srp_client_secret_nif(ErlNifEnv* env, int argc, const ERL_NI
     return ret;
 }
 
-static ERL_NIF_TERM srp_server_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Verifier, b, u, A, Prime) */
 /*
         <premaster secret> = (A * v^u) ^ b % N
@@ -2686,7 +2846,554 @@ static ERL_NIF_TERM blowfish_ofb64_encrypt(ErlNifEnv* env, int argc, const ERL_N
     return ret;
 }
 
+#if defined(HAVE_EC)
+static int term2curve_id(ERL_NIF_TERM nid)
+{
+    int i;
 
+    for (i = 0; i < EC_CURVES_CNT; i++)
+	if (ec_curves[i].atom == nid)
+	    return ec_curves[i].nid;
+
+    return 0;
+}
+
+static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
+{
+    EC_KEY *key = NULL;
+    int nid = 0;
+    int c_arity = -1;
+    const ERL_NIF_TERM* curve;
+    ErlNifBinary seed;
+    BIGNUM *p = NULL;
+    BIGNUM *a = NULL;
+    BIGNUM *b = NULL;
+    BIGNUM *bn_order = NULL;
+    BIGNUM *cofactor = NULL;
+    EC_GROUP *group = NULL;
+    EC_POINT *point = NULL;
+
+    if (enif_is_atom(env, curve_arg)) {
+	nid = term2curve_id(curve_arg);
+	if (nid == 0)
+	    return NULL;
+	key = EC_KEY_new_by_curve_name(nid);
+    }
+    else if (enif_is_tuple(env, curve_arg)
+	     && enif_get_tuple(env,curve_arg,&c_arity,&curve)
+	     && c_arity == 5
+	     && get_bn_from_bin(env, curve[3], &bn_order)
+	     && (curve[4] != atom_none && get_bn_from_bin(env, curve[4], &cofactor))) {
+	//* {Field, Prime, Point, Order, CoFactor} = Curve */
+
+	int f_arity = -1;
+	const ERL_NIF_TERM* field;
+	int p_arity = -1;
+	const ERL_NIF_TERM* prime;
+
+	long field_bits;
+
+	/* {A, B, Seed} = Prime */
+	if (!enif_get_tuple(env,curve[1],&p_arity,&prime)
+	    || !get_bn_from_bin(env, prime[0], &a)
+	    || !get_bn_from_bin(env, prime[1], &b))
+	    goto out_err;
+
+	if (!enif_get_tuple(env,curve[0],&f_arity,&field))
+	    goto out_err;
+
+	if (f_arity == 2 && field[0] == atom_prime_field) {
+	    /* {prime_field, Prime} */
+
+	    if (!get_bn_from_bin(env, field[1], &p))
+		goto out_err;
+
+	    if (BN_is_negative(p) || BN_is_zero(p))
+		goto out_err;
+
+	    field_bits = BN_num_bits(p);
+	    if (field_bits > OPENSSL_ECC_MAX_FIELD_BITS)
+		goto out_err;
+
+	    /* create the EC_GROUP structure */
+	    group = EC_GROUP_new_curve_GFp(p, a, b, NULL);
+
+	} else if (f_arity == 3 && field[0] == atom_characteristic_two_field) {
+	    /* {characteristic_two_field, M, Basis} */
+
+	    int b_arity = -1;
+	    const ERL_NIF_TERM* basis;
+	    unsigned int k1, k2, k3;
+
+	    if ((p = BN_new()) == NULL)
+		goto out_err;
+
+	    if (!enif_get_long(env, field[1], &field_bits)
+		|| field_bits > OPENSSL_ECC_MAX_FIELD_BITS)
+		goto out_err;
+
+	    if (enif_get_tuple(env,field[2],&b_arity,&basis)) {
+		if (b_arity == 2
+		    && basis[0] == atom_tpbasis
+		    && enif_get_uint(env, basis[1], &k1)) {
+		    /* {tpbasis, k} = Basis */
+
+		    if (!(field_bits > k1 && k1 > 0))
+			goto out_err;
+
+		    /* create the polynomial */
+		    if (!BN_set_bit(p, (int)field_bits)
+                        || !BN_set_bit(p, (int)k1)
+                        || !BN_set_bit(p, 0))
+                                goto out_err;
+
+		} else if (b_arity == 4
+		    && basis[0] == atom_ppbasis
+		    && enif_get_uint(env, basis[1], &k1)
+		    && enif_get_uint(env, basis[2], &k2)
+		    && enif_get_uint(env, basis[3], &k3)) {
+		    /* {ppbasis, k1, k2, k3} = Basis */
+
+		    if (!(field_bits > k3 && k3 > k2 && k2 > k1 && k1 > 0))
+			goto out_err;
+
+		    /* create the polynomial */
+		    if (!BN_set_bit(p, (int)field_bits)
+			|| !BN_set_bit(p, (int)k1)
+			|| !BN_set_bit(p, (int)k2)
+			|| !BN_set_bit(p, (int)k3)
+			|| !BN_set_bit(p, 0))
+			goto out_err;
+
+		} else
+		    goto out_err;
+	    } else if (field[2] == atom_onbasis) {
+		/* onbasis = Basis */
+		/* no parameters */
+		goto out_err;
+
+	    } else
+		goto out_err;
+
+	    group = EC_GROUP_new_curve_GF2m(p, a, b, NULL);
+	} else
+	    goto out_err;
+
+	if (enif_inspect_binary(env, prime[2], &seed)) {
+	    EC_GROUP_set_seed(group, seed.data, seed.size);
+	}
+
+	if (!term2point(env, curve[2], group, &point))
+	    goto out_err;
+
+	if (BN_is_negative(bn_order)
+	    || BN_is_zero(bn_order)
+	    || BN_num_bits(bn_order) > (int)field_bits + 1)
+	    goto out_err;
+
+	if (!EC_GROUP_set_generator(group, point, bn_order, cofactor))
+	    goto out_err;
+
+	EC_GROUP_set_asn1_flag(group, 0x0);
+
+	key = EC_KEY_new();
+	if (!key)
+	    goto out_err;
+	EC_KEY_set_group(key, group);
+    }
+    else {
+	goto out_err;
+    }
+
+
+    goto out;
+
+out_err:
+    if (key) EC_KEY_free(key);
+    key = NULL;
+
+out:
+    /* some OpenSSL structures are mem-dup'ed into the key,
+       so we have to free our copies here */
+    if (p) BN_free(p);
+    if (a) BN_free(a);
+    if (b) BN_free(b);
+    if (bn_order) BN_free(bn_order);
+    if (cofactor) BN_free(cofactor);
+    if (group) EC_GROUP_free(group);
+
+    return key;
+}
+
+
+static ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
+{
+    unsigned dlen;
+    unsigned char* ptr;
+    ERL_NIF_TERM ret;
+
+    if (!bn)
+	    return atom_undefined;
+
+    dlen = BN_num_bytes(bn);
+    ptr = enif_make_new_binary(env, dlen, &ret);
+    BN_bn2bin(bn, ptr);
+
+    return ret;
+}
+
+static ERL_NIF_TERM point2term(ErlNifEnv* env,
+			       const EC_GROUP *group,
+			       const EC_POINT *point,
+			       point_conversion_form_t form)
+{
+    unsigned dlen;
+    ErlNifBinary bin;
+
+    dlen = EC_POINT_point2oct(group, point, form, NULL, 0, NULL);
+    if (dlen == 0)
+	return atom_undefined;
+
+    if (!enif_alloc_binary(dlen, &bin))
+	return enif_make_badarg(env);
+
+    if (!EC_POINT_point2oct(group, point, form, bin.data, bin.size, NULL)) {
+	enif_release_binary(&bin);
+	return enif_make_badarg(env);
+    }
+
+    return enif_make_binary(env, &bin);
+}
+#endif
+
+static ERL_NIF_TERM ec_key_to_term_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#if defined(HAVE_EC)
+    struct nif_ec_key *obj;
+    const EC_GROUP *group;
+    const EC_POINT *public_key;
+    const BIGNUM *priv_key = NULL;
+    ERL_NIF_TERM pub_key = atom_undefined;
+
+    if (!enif_get_resource(env, argv[0], res_type_ec_key, (void **)&obj))
+	    return enif_make_badarg(env);
+
+    group = EC_KEY_get0_group(obj->key);
+    public_key = EC_KEY_get0_public_key(obj->key);
+    priv_key = EC_KEY_get0_private_key(obj->key);
+
+    if (group) {
+	if (public_key)
+	    pub_key = point2term(env, group, public_key, EC_KEY_get_conv_form(obj->key));
+    }
+
+    return enif_make_tuple2(env, bn2term(env, priv_key), pub_key);
+#else
+    return atom_notsup;
+#endif
+}
+
+#if defined(HAVE_EC)
+static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
+		      EC_GROUP *group, EC_POINT **pptr)
+{
+    int ret = 0;
+    ErlNifBinary bin;
+    EC_POINT *point;
+
+    if (!enif_inspect_binary(env,term,&bin)) {
+        return 0;
+    }
+
+    if ((*pptr = point = EC_POINT_new(group)) == NULL) {
+	return 0;
+    }
+
+    /* set the point conversion form */
+    EC_GROUP_set_point_conversion_form(group, (point_conversion_form_t)(bin.data[0] & ~0x01));
+
+    /* extract the ec point */
+    if (!EC_POINT_oct2point(group, point, bin.data, bin.size, NULL)) {
+	EC_POINT_free(point);
+	*pptr = NULL;
+    } else
+	ret = 1;
+
+    return ret;
+}
+#endif
+
+static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#if defined(HAVE_EC)
+    ERL_NIF_TERM ret;
+    EC_KEY *key = NULL;
+    BIGNUM *priv_key = NULL;
+    EC_POINT *pub_key = NULL;
+    struct nif_ec_key *obj;
+    EC_GROUP *group = NULL;
+
+    if (!(argv[1] == atom_undefined || get_bn_from_bin(env, argv[1], &priv_key))
+	|| !(argv[2] == atom_undefined || enif_is_binary(env, argv[2]))) {
+	goto out_err;
+    }
+
+    key = ec_key_new(env, argv[0]);
+
+    if (!key) {
+	goto out_err;
+    }
+
+    if (!group)
+	group = EC_GROUP_dup(EC_KEY_get0_group(key));
+
+    if (term2point(env, argv[2], group, &pub_key)) {
+	    if (!EC_KEY_set_public_key(key, pub_key)) {
+		    goto out_err;
+	    }
+    }
+    if (argv[1] != atom_undefined
+	&& !BN_is_zero(priv_key)) {
+	    if (!EC_KEY_set_private_key(key, priv_key))
+		    goto out_err;
+
+	    /* calculate public key (if necessary) */
+	    if (EC_KEY_get0_public_key(key) == NULL)
+	    {
+		    /* the public key was not included in the SEC1 private
+		     * key => calculate the public key */
+		    pub_key = EC_POINT_new(group);
+		    if (pub_key == NULL
+			|| !EC_POINT_copy(pub_key, EC_GROUP_get0_generator(group))
+			|| !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, NULL)
+			|| !EC_KEY_set_public_key(key, pub_key))
+			    goto out_err;
+	    }
+    }
+
+    obj = enif_alloc_resource(res_type_ec_key, sizeof(struct nif_ec_key));
+    if (!obj)
+	goto out_err;
+
+    obj->key = key;
+    ret = enif_make_resource(env, obj);
+    enif_release_resource(obj);
+
+    goto out;
+
+out_err:
+    if (key) EC_KEY_free(key);
+    ret = enif_make_badarg(env);
+
+out:
+    /* some OpenSSL structures are mem-dup'ed into the key,
+       so we have to free our copies here */
+    if (priv_key) BN_clear_free(priv_key);
+    if (pub_key) EC_POINT_free(pub_key);
+    if (group) EC_GROUP_free(group);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#if defined(HAVE_EC)
+    EC_KEY *key = ec_key_new(env, argv[0]);
+
+    if (key && EC_KEY_generate_key(key)) {
+	ERL_NIF_TERM term;
+	struct nif_ec_key *obj = enif_alloc_resource(res_type_ec_key, sizeof(struct nif_ec_key));
+	if (!obj)
+	    return atom_error;
+	obj->key = key;
+	term = enif_make_resource(env, obj);
+	enif_release_resource(obj);
+	return term;
+    }
+    else
+	return enif_make_badarg(env);
+#else
+    return atom_notsup;
+#endif
+}
+
+#if defined(HAVE_EC)
+static void ec_key_dtor(ErlNifEnv* env, void* obj)
+{
+    struct nif_ec_key *key = (struct nif_ec_key*) obj;
+    EC_KEY_free(key->key);
+}
+#endif
+
+static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type, Data|{digest,Digest}, Key) */
+#if defined(HAVE_EC)
+    ErlNifBinary data_bin, ret_bin;
+    unsigned char hmacbuf[SHA_DIGEST_LENGTH];
+    unsigned int dsa_s_len;
+    struct nif_ec_key *obj;
+    int i;
+    const ERL_NIF_TERM* tpl_terms;
+    int tpl_arity;
+    struct digest_type_t *digp;
+    unsigned char* digest;
+
+    digp = get_digest_type(argv[0]);
+    if (!digp) {
+	return enif_make_badarg(env);
+    }
+    if (!digp->len) {
+	return atom_notsup;
+    }
+
+    if (!enif_get_resource(env, argv[2], res_type_ec_key, (void **)&obj))
+	return enif_make_badarg(env);
+
+    if (enif_get_tuple(env, argv[1], &tpl_arity, &tpl_terms)) {
+	if (tpl_arity != 2 || tpl_terms[0] != atom_digest
+	    || !enif_inspect_binary(env, tpl_terms[1], &data_bin)
+	    || data_bin.size != digp->len) {
+
+	    return enif_make_badarg(env);
+	}
+	digest = data_bin.data;
+    }
+    else {
+	if (!enif_inspect_binary(env,argv[1],&data_bin)) {
+	    return enif_make_badarg(env);
+	}
+	digest = hmacbuf;
+	digp->funcp(data_bin.data, data_bin.size, digest);
+    }
+
+    enif_alloc_binary(ECDSA_size(obj->key), &ret_bin);
+
+    i = ECDSA_sign(digp->NID_type, digest, digp->len,
+		   ret_bin.data, &dsa_s_len, obj->key);
+    if (i) {
+	if (dsa_s_len != ret_bin.size) {
+	    enif_realloc_binary(&ret_bin, dsa_s_len);
+	}
+	return enif_make_binary(env, &ret_bin);
+    }
+    else {
+	enif_release_binary(&ret_bin);
+	return atom_error;
+    }
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type, Data|{digest,Digest}, Signature, Key) */
+#if defined(HAVE_EC)
+    ErlNifBinary data_bin, sign_bin;
+    unsigned char hmacbuf[SHA512_LEN];
+    int i;
+    struct nif_ec_key *obj;
+    const ERL_NIF_TERM type = argv[0];
+    const ERL_NIF_TERM* tpl_terms;
+    int tpl_arity;
+    struct digest_type_t* digp = NULL;
+    unsigned char* digest = NULL;
+
+    digp = get_digest_type(type);
+    if (!digp) {
+	return enif_make_badarg(env);
+    }
+    if (!digp->len) {
+	return atom_notsup;
+    }
+
+    if (!enif_inspect_binary(env, argv[2], &sign_bin)
+	|| !enif_get_resource(env, argv[3], res_type_ec_key, (void **)&obj))
+	return enif_make_badarg(env);
+
+    if (enif_get_tuple(env, argv[1], &tpl_arity, &tpl_terms)) {
+	if (tpl_arity != 2 || tpl_terms[0] != atom_digest
+	    || !enif_inspect_binary(env, tpl_terms[1], &data_bin)
+	    || data_bin.size != digp->len) {
+
+	    return enif_make_badarg(env);
+	}
+	digest = data_bin.data;
+    }
+    else if (enif_inspect_binary(env, argv[1], &data_bin)) {
+	digest = hmacbuf;
+	digp->funcp(data_bin.data, data_bin.size, digest);
+    }
+    else {
+	return enif_make_badarg(env);
+    }
+
+    i = ECDSA_verify(digp->NID_type, digest, digp->len,
+		     sign_bin.data, sign_bin.size, obj->key);
+
+    return (i==1 ? atom_true : atom_false);
+#else
+    return atom_notsup;
+#endif
+}
+
+/*
+  (_OthersPublicKey, _MyPrivateKey)
+  (_OthersPublicKey, _MyEC_Point)
+*/
+static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#if defined(HAVE_EC)
+    ERL_NIF_TERM ret;
+    unsigned char *p;
+    struct nif_ec_key *other_key;
+    int field_size = 0;
+    int i;
+
+    EC_GROUP *group;
+    const BIGNUM *priv_key;
+    EC_POINT *my_ecpoint;
+    EC_KEY *other_ecdh = NULL;
+
+    if (!enif_get_resource(env, argv[1], res_type_ec_key, (void **)&other_key))
+	return enif_make_badarg(env);
+
+    group    = EC_GROUP_dup(EC_KEY_get0_group(other_key->key));
+    priv_key = EC_KEY_get0_private_key(other_key->key);
+
+    if (!term2point(env, argv[0], group, &my_ecpoint)) {
+	goto out_err;
+    }
+
+    if ((other_ecdh = EC_KEY_new()) == NULL
+	|| !EC_KEY_set_group(other_ecdh, group)
+	|| !EC_KEY_set_private_key(other_ecdh, priv_key))
+	goto out_err;
+
+    field_size = EC_GROUP_get_degree(group);
+    if (field_size <= 0)
+	goto out_err;
+
+    p = enif_make_new_binary(env, (field_size+7)/8, &ret);
+    i = ECDH_compute_key(p, (field_size+7)/8, my_ecpoint, other_ecdh, NULL);
+
+    if (i < 0)
+	    goto out_err;
+out:
+    if (group) EC_GROUP_free(group);
+    if (my_ecpoint) EC_POINT_free(my_ecpoint);
+    if (other_ecdh) EC_KEY_free(other_ecdh);
+
+    return ret;
+
+out_err:
+    ret = enif_make_badarg(env);
+    goto out;
+#else
+    return atom_notsup;
+#endif
+}
 
 
 /* HMAC */

@@ -25,6 +25,8 @@
 -compile(export_all).
 -include("ssl_handshake.hrl").
 -include("ssl_record.hrl").
+-include("ssl_cipher.hrl").
+-include("ssl_internal.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 %%--------------------------------------------------------------------
@@ -75,17 +77,19 @@ encode_and_decode_npn_server_hello_test(_Config) ->
     {[{DecodedHandshakeMessage, _Raw}], _} =
 	ssl_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>),
     NextProtocolNegotiation = DecodedHandshakeMessage#server_hello.next_protocol_negotiation,
-    ct:print("~p ~n", [NextProtocolNegotiation]),
+    ct:log("~p ~n", [NextProtocolNegotiation]),
     NextProtocolNegotiation = #next_protocol_negotiation{extension_data = <<6, "spdy/2">>}.
 
 %%--------------------------------------------------------------------
 create_server_hello_with_no_advertised_protocols_test(_Config) ->
-    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(),  false, undefined),
+    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(),  false,
+				       undefined, undefined, undefined),
     undefined = Hello#server_hello.next_protocol_negotiation.
 %%--------------------------------------------------------------------
 create_server_hello_with_advertised_protocols_test(_Config) ->
     Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(),
-				       false, [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]),
+				       false, [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>],
+				       undefined, undefined),
     #next_protocol_negotiation{extension_data = <<6, "spdy/1", 8, "http/1.0", 8, "http/1.1">>} =
 	Hello#server_hello.next_protocol_negotiation.
 %%--------------------------------------------------------------------
@@ -96,7 +100,7 @@ create_client_handshake(Npn) ->
         client_version = {1, 2},
         random = <<1:256>>,
         session_id = <<>>,
-        cipher_suites = "",
+        cipher_suites = [?TLS_DHE_DSS_WITH_DES_CBC_SHA],
         compression_methods = "",
         next_protocol_negotiation = Npn,
         renegotiation_info = #renegotiation_info{}
@@ -107,7 +111,7 @@ create_server_handshake(Npn) ->
         server_version = {1, 2},
         random = <<1:256>>,
         session_id = <<>>,
-        cipher_suite = <<1,2>>,
+        cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA,
         compression_method = 1,
         next_protocol_negotiation = Npn,
         renegotiation_info = #renegotiation_info{}
@@ -119,7 +123,7 @@ create_connection_states() ->
             security_parameters = #security_parameters{
                 server_random = <<1:256>>,
                 compression_algorithm = 1,
-                cipher_suite = <<1, 2>>
+                cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA
             }
         },
 
