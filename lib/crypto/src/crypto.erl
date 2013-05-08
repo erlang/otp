@@ -21,104 +21,220 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info/0, info_lib/0, algorithms/0, version/0]).
+-export([start/0, stop/0, info_lib/0, algorithms/0, version/0]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
+-export([sign/4, verify/5]).
+-export([generate_key/2, generate_key/3, compute_key/4]).
+-export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
+-export([exor/2, strong_rand_bytes/1, mod_pow/3]).
+-export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
+-export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
+-export([next_iv/2, next_iv/3]).
+-export([stream_init/2, stream_init/3, stream_encrypt/2, stream_decrypt/2]).
+-export([public_encrypt/4, private_decrypt/4]).
+-export([private_encrypt/4, public_decrypt/4]).
+
+-export([dh_generate_parameters/2, dh_check/1]). %% Testing see
+
+%% DEPRECATED
+%% Replaced by hash_*
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
 -export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
--export([sha224/1, sha224_init/0, sha224_update/2, sha224_final/1]).
--export([sha256/1, sha256_init/0, sha256_update/2, sha256_final/1]).
--export([sha384/1, sha384_init/0, sha384_update/2, sha384_final/1]).
--export([sha512/1, sha512_init/0, sha512_update/2, sha512_final/1]).
+-deprecated({md4, 1, next_major_release}).
+-deprecated({md5, 1, next_major_release}).
+-deprecated({sha, 1, next_major_release}).
+-deprecated({md4_init, 0, next_major_release}).
+-deprecated({md5_init, 0, next_major_release}).
+-deprecated({sha_init, 0, next_major_release}).
+-deprecated({md4_update, 2, next_major_release}).
+-deprecated({md5_update, 2, next_major_release}).
+-deprecated({sha_update, 2, next_major_release}).
+-deprecated({md4_final, 1, next_major_release}).
+-deprecated({md5_final, 1, next_major_release}).
+-deprecated({sha_final, 1, next_major_release}).
+
+%% Replaced by hmac_*
 -export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
--export([sha224_mac/2, sha224_mac/3]).
--export([sha256_mac/2, sha256_mac/3]).
--export([sha384_mac/2, sha384_mac/3]).
--export([sha512_mac/2, sha512_mac/3]).
--export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
+-deprecated({md5_mac, 2, next_major_release}).
+-deprecated({md5_mac_96, 2, next_major_release}).
+-deprecated({sha_mac, 2, next_major_release}).
+-deprecated({sha_mac, 3, next_major_release}).
+-deprecated({sha_mac_96, 2, next_major_release}).
+
+%% Replaced by sign/verify
+-export([dss_verify/3, dss_verify/4, rsa_verify/3, rsa_verify/4]).
+-export([dss_sign/2, dss_sign/3, rsa_sign/2, rsa_sign/3]).
+-deprecated({dss_verify, 3, next_major_release}).
+-deprecated({dss_verify, 4, next_major_release}).
+-deprecated({rsa_verify, 3, next_major_release}).
+-deprecated({rsa_verify, 4, next_major_release}).
+-deprecated({dss_sign, 2, next_major_release}).
+-deprecated({dss_sign, 3, next_major_release}).
+-deprecated({rsa_sign, 2, next_major_release}).
+-deprecated({rsa_sign, 3, next_major_release}).
+
+%% Replaced by generate_key
+-export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
+-deprecated({dh_generate_key, 1, next_major_release}).
+-deprecated({dh_generate_key, 2, next_major_release}).
+-deprecated({dh_compute_key, 3, next_major_release}).
+
+%% Replaced by mod_exp_prim and no longer needed
+-export([mod_exp/3, mpint/1, erlint/1,  strong_rand_mpint/3]).
+-deprecated({mod_exp, 3, next_major_release}).
+-deprecated({mpint, 1, next_major_release}).
+-deprecated({erlint, 1, next_major_release}).
+-deprecated({strong_rand_mpint, 3, next_major_release}).
+
+%% Replaced by block_*
 -export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
--export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
--export([des_cfb_encrypt/3, des_cfb_decrypt/3, des_cfb_ivec/2]).
 -export([des3_cbc_encrypt/5, des3_cbc_decrypt/5]).
+-export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
+-export([des_ede3_cbc_encrypt/5, des_ede3_cbc_decrypt/5]).
+-export([des_cfb_encrypt/3, des_cfb_decrypt/3, des_cfb_ivec/2]).
 -export([des3_cfb_encrypt/5, des3_cfb_decrypt/5]).
+-deprecated({des_cbc_encrypt, 3, next_major_release}).
+-deprecated({des_cbc_decrypt, 3, next_major_release}).
+-deprecated({des_cbc_ivec, 1, next_major_release}).
+-deprecated({des3_cbc_encrypt, 5, next_major_release}).
+-deprecated({des3_cbc_decrypt, 5, next_major_release}).
+-deprecated({des_ecb_encrypt, 2, next_major_release}).
+-deprecated({des_ecb_decrypt, 2, next_major_release}).
+-deprecated({des_ede3_cbc_encrypt, 5, next_major_release}).
+-deprecated({des_ede3_cbc_decrypt, 5, next_major_release}).
+-deprecated({des_cfb_encrypt, 3, next_major_release}).
+-deprecated({des_cfb_decrypt, 3, next_major_release}).
+-deprecated({des_cfb_ivec, 2, next_major_release}).
+-deprecated({des3_cfb_encrypt, 5, next_major_release}).
+-deprecated({des3_cfb_decrypt, 5, next_major_release}).
 -export([blowfish_ecb_encrypt/2, blowfish_ecb_decrypt/2]).
 -export([blowfish_cbc_encrypt/3, blowfish_cbc_decrypt/3]).
 -export([blowfish_cfb64_encrypt/3, blowfish_cfb64_decrypt/3]).
 -export([blowfish_ofb64_encrypt/3]).
--export([des_ede3_cbc_encrypt/5, des_ede3_cbc_decrypt/5]).
+-deprecated({blowfish_ecb_encrypt, 2, next_major_release}).
+-deprecated({blowfish_ecb_decrypt, 2, next_major_release}).
+-deprecated({blowfish_cbc_encrypt, 3, next_major_release}).
+-deprecated({blowfish_cbc_decrypt, 3, next_major_release}).
+-deprecated({blowfish_cfb64_encrypt, 3, next_major_release}).
+-deprecated({blowfish_cfb64_decrypt, 3, next_major_release}).
+-deprecated({blowfish_ofb64_encrypt, 3, next_major_release}).
 -export([aes_cfb_128_encrypt/3, aes_cfb_128_decrypt/3]).
--export([exor/2]).
--export([rc4_encrypt/2, rc4_set_key/1, rc4_encrypt_with_state/2]).
--export([rc2_cbc_encrypt/3, rc2_cbc_decrypt/3, rc2_40_cbc_encrypt/3, rc2_40_cbc_decrypt/3]).
--export([dss_verify/3, dss_verify/4, rsa_verify/3, rsa_verify/4]).
--export([dss_sign/2, dss_sign/3, rsa_sign/2, rsa_sign/3]).
--export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
--export([rsa_private_encrypt/3, rsa_public_decrypt/3]).
--export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
--export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
--export([strong_rand_bytes/1, strong_rand_mpint/3]).
--export([mod_exp/3, mod_exp_prime/3, mpint/1, erlint/1]).
--export([srp_generate_key/4, srp_generate_key/3,
-	 srp_generate_key/5, srp_compute_key/6, srp_compute_key/7, srp_compute_key/8]).
-
-%% -export([idea_cbc_encrypt/3, idea_cbc_decrypt/3]).
 -export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
 -export([aes_cbc_256_encrypt/3, aes_cbc_256_decrypt/3]).
 -export([aes_cbc_ivec/1]).
--export([aes_ctr_encrypt/3, aes_ctr_decrypt/3]).
+-deprecated({aes_cfb_128_encrypt, 3, next_major_release}).
+-deprecated({aes_cfb_128_decrypt, 3, next_major_release}).
+-deprecated({aes_cbc_128_encrypt, 3, next_major_release}).
+-deprecated({aes_cbc_128_decrypt, 3, next_major_release}).
+-deprecated({aes_cbc_256_encrypt, 3, next_major_release}).
+-deprecated({aes_cbc_256_decrypt, 3, next_major_release}).
+-deprecated({aes_cbc_ivec, 1, next_major_release}).
+-export([rc2_cbc_encrypt/3, rc2_cbc_decrypt/3]).
+-export([rc2_40_cbc_encrypt/3, rc2_40_cbc_decrypt/3]).
+-deprecated({rc2_cbc_encrypt, 3, next_major_release}).
+-deprecated({rc2_cbc_decrypt, 3, next_major_release}).
+%% allready replaced by above!
+-deprecated({rc2_40_cbc_encrypt, 3, next_major_release}).
+-deprecated({rc2_40_cbc_decrypt, 3, next_major_release}).
+
+%% Replaced by stream_*
 -export([aes_ctr_stream_init/2, aes_ctr_stream_encrypt/2, aes_ctr_stream_decrypt/2]).
+-export([rc4_set_key/1, rc4_encrypt_with_state/2]).
+-deprecated({aes_ctr_stream_init, 2, next_major_release}).
+-deprecated({aes_ctr_stream_encrypt, 2, next_major_release}).
+-deprecated({aes_ctr_stream_decrypt, 2, next_major_release}).
+-deprecated({rc4_set_key, 1, next_major_release}).
+-deprecated({rc4_encrypt_with_state, 2, next_major_release}).
 
--export([dh_generate_parameters/2, dh_check/1]). %% Testing see below
+%% Not needed special case of stream_*
+-export([aes_ctr_encrypt/3, aes_ctr_decrypt/3, rc4_encrypt/2]).
+-deprecated({aes_ctr_encrypt, 3, next_major_release}).
+-deprecated({aes_ctr_decrypt, 3, next_major_release}).
+-deprecated({rc4_encrypt, 2, next_major_release}).
 
+%% Replace by public/private_encrypt/decrypt
+-export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
+-export([rsa_private_encrypt/3, rsa_public_decrypt/3]).
+-deprecated({rsa_public_encrypt, 3, next_major_release}).
+-deprecated({rsa_private_decrypt, 3, next_major_release}).
+-deprecated({rsa_public_decrypt, 3, next_major_release}).
+-deprecated({rsa_private_encrypt, 3, next_major_release}).
 
--define(FUNC_LIST, [md4, md4_init, md4_update, md4_final,
+%% Replaced by crypto:module_info()
+-export([info/0]).
+-deprecated({info, 0, next_major_release}).
+
+-define(FUNC_LIST, [hash, hash_init, hash_update, hash_final,
+		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n,
+		    %% deprecated
+		    md4, md4_init, md4_update, md4_final,
 		    md5, md5_init, md5_update, md5_final,
 		    sha, sha_init, sha_update, sha_final,
-		    sha224, sha224_init, sha224_update, sha224_final,
-		    sha256, sha256_init, sha256_update, sha256_final,
-		    sha384, sha384_init, sha384_update, sha384_final,
-		    sha512, sha512_init, sha512_update, sha512_final,
 		    md5_mac,  md5_mac_96,
 		    sha_mac,  sha_mac_96,
-		    sha224_mac, sha256_mac, sha384_mac, sha512_mac,
+		    %%
+		    block_encrypt, block_decrypt,
+		    %% deprecated
 		    des_cbc_encrypt, des_cbc_decrypt,
 		    des_cfb_encrypt, des_cfb_decrypt,
 		    des_ecb_encrypt, des_ecb_decrypt,
 		    des3_cbc_encrypt, des3_cbc_decrypt,
 		    des3_cfb_encrypt, des3_cfb_decrypt,
 		    aes_cfb_128_encrypt, aes_cfb_128_decrypt,
+		    rc2_cbc_encrypt, rc2_cbc_decrypt,
+		    rc2_40_cbc_encrypt, rc2_40_cbc_decrypt,
+		    aes_cbc_128_encrypt, aes_cbc_128_decrypt,
+		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
+		    blowfish_cbc_encrypt, blowfish_cbc_decrypt,
+		    blowfish_cfb64_encrypt, blowfish_cfb64_decrypt,
+		    blowfish_ecb_encrypt, blowfish_ecb_decrypt, blowfish_ofb64_encrypt,
+		    %%
 		    rand_bytes,
 		    strong_rand_bytes,
-		    strong_rand_mpint,
 		    rand_uniform,
-		    mod_exp, mod_exp_prime,
+		    mod_pow,
+		    exor,
+		    %% deprecated
+		    mod_exp,strong_rand_mpint,erlint, mpint,
+		    %%
+		    sign, verify, generate_key, compute_key,
+		    %% deprecated
 		    dss_verify,dss_sign,
 		    rsa_verify,rsa_sign,
 		    rsa_public_encrypt,rsa_private_decrypt, 
 		    rsa_private_encrypt,rsa_public_decrypt,
 		    dh_generate_key, dh_compute_key,
-		    aes_cbc_128_encrypt, aes_cbc_128_decrypt,
-		    exor,
+		    %%
+		    stream_init, stream_encrypt, stream_decrypt,
+		    %% deprecated
 		    rc4_encrypt, rc4_set_key, rc4_encrypt_with_state,
-		    rc2_40_cbc_encrypt, rc2_40_cbc_decrypt,
-		    %% idea_cbc_encrypt, idea_cbc_decrypt,
-		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
 		    aes_ctr_encrypt, aes_ctr_decrypt,
                     aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
-		    aes_cbc_ivec, blowfish_cbc_encrypt, blowfish_cbc_decrypt,
-		    blowfish_cfb64_encrypt, blowfish_cfb64_decrypt,
-		    blowfish_ecb_encrypt, blowfish_ecb_decrypt, blowfish_ofb64_encrypt,
-		    des_cbc_ivec, des_cfb_ivec, erlint, mpint,
-		    hash, hash_init, hash_update, hash_final,
-		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n, info,
-		    rc2_cbc_encrypt, rc2_cbc_decrypt,
-		    srp_generate_key, srp_compute_key,
+		    %%
+		    next_iv,
+		    %% deprecated
+		    aes_cbc_ivec,
+		    des_cbc_ivec, des_cfb_ivec,
+		    info,
+		    %%
 		    info_lib, algorithms]).
 
+-type mpint() :: binary().
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha'.
+%%-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
 -type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
+-type ec_key_res() :: any().		%% nif resource
+-type ec_named_curve() :: atom().
+-type ec_point() :: crypto_integer().
+-type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
+-type ec_field() :: {prime_field, Prime :: integer()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
+-type ec_prime() :: {A :: crypto_integer(), B :: crypto_integer(), Seed :: binary() | none}.
+-type ec_curve_spec() :: {Field :: ec_field(), Prime :: ec_prime(), Point :: crypto_integer(), Order :: integer(), CoFactor :: none | integer()}.
+-type ec_curve() :: ec_named_curve() | ec_curve_spec().
+-type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -565,6 +681,110 @@ sha512_mac(Key, Data, MacSz) ->
 
 sha512_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
+
+%% Ecrypt/decrypt %%%
+
+-spec block_encrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
+		    blowfish_cfb64 | aes_cbc128 | aes_cfb128 | aes_cbc256 | rc2_cbc,
+		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
+
+block_encrypt(des_cbc, Key, Ivec, Data) ->
+    des_cbc_encrypt(Key, Ivec, Data);
+block_encrypt(des_cfb, Key, Ivec, Data) ->
+    des_cfb_encrypt(Key, Ivec, Data);
+block_encrypt(des3_cbc, [Key1, Key2, Key3], Ivec, Data) ->
+    des3_cbc_encrypt(Key1, Key2, Key3, Ivec, Data);
+block_encrypt(des3_cbf, [Key1, Key2, Key3], Ivec, Data) ->
+    des3_cfb_encrypt(Key1, Key2, Key3, Ivec, Data);
+block_encrypt(des_ede3, [Key1, Key2, Key3], Ivec, Data) ->
+    des_ede3_cbc_encrypt(Key1, Key2, Key3, Ivec, Data);
+block_encrypt(blowfish_cbc, Key, Ivec, Data) ->
+    blowfish_cbc_encrypt(Key, Ivec, Data);
+block_encrypt(blowfish_cfb64, Key, Ivec, Data) ->
+    blowfish_cfb64_encrypt(Key, Ivec, Data);
+block_encrypt(blowfish_ofb64, Key, Ivec, Data) ->
+    blowfish_ofb64_encrypt(Key, Ivec, Data);
+block_encrypt(aes_cbc128, Key, Ivec, Data) ->
+    aes_cbc_128_encrypt(Key, Ivec, Data);
+block_encrypt(aes_cbc256, Key, Ivec, Data) ->
+    aes_cbc_256_encrypt(Key, Ivec, Data);
+block_encrypt(aes_cfb128, Key, Ivec, Data) ->
+    aes_cfb_128_encrypt(Key, Ivec, Data);
+block_encrypt(rc2_cbc, Key, Ivec, Data) ->
+    rc2_cbc_encrypt(Key, Ivec, Data).
+
+-spec block_decrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
+	      blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_cfb128 | rc2_cbc,
+	      Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
+
+block_decrypt(des_cbc, Key, Ivec, Data) ->
+    des_cbc_decrypt(Key, Ivec, Data);
+block_decrypt(des_cfb, Key, Ivec, Data) ->
+    des_cfb_decrypt(Key, Ivec, Data);
+block_decrypt(des3_cbc, [Key1, Key2, Key3], Ivec, Data) ->
+    des3_cbc_decrypt(Key1, Key2, Key3, Ivec, Data);
+block_decrypt(des3_cbf, [Key1, Key2, Key3], Ivec, Data) ->
+    des3_cfb_decrypt(Key1, Key2, Key3, Ivec, Data);
+block_decrypt(des_ede3, [Key1, Key2, Key3], Ivec, Data) ->
+    des_ede3_cbc_decrypt(Key1, Key2, Key3, Ivec, Data);
+block_decrypt(blowfish_cbc, Key, Ivec, Data) ->
+    blowfish_cbc_decrypt(Key, Ivec, Data);
+block_decrypt(blowfish_cfb64, Key, Ivec, Data) ->
+    blowfish_cfb64_decrypt(Key, Ivec, Data);
+block_decrypt(blowfish_ofb, Key, Ivec, Data) ->
+    blowfish_ofb64_decrypt(Key, Ivec, Data);
+block_decrypt(aes_cbc128, Key, Ivec, Data) ->
+    aes_cbc_128_decrypt(Key, Ivec, Data);
+block_decrypt(aes_cbc256, Key, Ivec, Data) ->
+    aes_cbc_256_decrypt(Key, Ivec, Data);
+block_decrypt(aes_cfb128, Key, Ivec, Data) ->
+    aes_cfb_128_decrypt(Key, Ivec, Data);
+block_decrypt(rc2_cbc, Key, Ivec, Data) ->
+    rc2_cbc_decrypt(Key, Ivec, Data).
+
+-spec block_encrypt(des_ecb | blowfish_ecb, Key::iodata(), Data::iodata()) -> binary().
+
+block_encrypt(des_ecb, Key, Data) ->
+    des_ecb_encrypt(Key, Data);
+block_encrypt(blowfish_ecb, Key, Data) ->
+    blowfish_ecb_encrypt(Key, Data).
+
+-spec block_decrypt(des_ecb | blowfish_ecb, Key::iodata(), Data::iodata()) -> binary().
+
+block_decrypt(des_ecb, Key, Data) ->
+    des_ecb_decrypt(Key, Data);
+block_decrypt(blowfish_ecb, Key, Data) ->
+    blowfish_ecb_decrypt(Key, Data).
+
+-spec next_iv(des_cbc | aes_cbc, Data::iodata()) -> binary().
+
+next_iv(des_cbc, Data) ->
+    des_cbc_ivec(Data);
+next_iv(aes_cbc, Data) ->
+    aes_cbc_ivec(Data).
+
+-spec next_iv(des_cbf, Ivec::binary(), Data::iodata()) -> binary().
+
+next_iv(des_cbf, Ivec, Data) ->
+    des_cfb_ivec(Ivec, Data).
+
+stream_init(aes_ctr, Key, Ivec) ->
+    {aes_ctr, aes_ctr_stream_init(Key, Ivec)}.
+stream_init(rc4, Key) ->
+    {rc4, rc4_set_key(Key)}.
+stream_encrypt({aes_ctr, State}, Data) ->
+    {State, Cipher} = aes_ctr_stream_encrypt(State, Data),
+    {{aes_ctr, State}, Cipher};
+stream_encrypt({rc4, State0}, Data) ->
+    {State, Cipher} = rc4_encrypt_with_state(State0, Data),
+    {{rc4, State}, Cipher}.
+stream_decrypt({aes_ctr, State0}, Data) ->
+    {State, Text} = aes_ctr_stream_decrypt(State0, Data),
+    {{aes_ctr, State}, Text};
+stream_decrypt({rc4, State0}, Data) ->
+    {State, Text} = rc4_encrypt_with_state (State0, Data),
+    {{rc4, State}, Text}.
+
 %%
 %% CRYPTO FUNCTIONS
 %%
@@ -713,7 +933,11 @@ blowfish_cfb64_decrypt(Key, IVec, Data) ->
 
 bf_cfb64_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
+blowfish_ofb64_decrypt(Key, Ivec, Data) ->
+    blowfish_ofb64_encrypt(Key, Ivec, Data).
+
 blowfish_ofb64_encrypt(_Key, _IVec, _Data) -> ?nif_stub.
+
 
 %%
 %% AES in cipher feedback mode (CFB)
@@ -798,9 +1022,9 @@ mod_exp(Base, Exponent, Modulo)
 mod_exp(Base, Exponent, Modulo) ->
     mod_exp_nif(mpint_to_bin(Base),mpint_to_bin(Exponent),mpint_to_bin(Modulo), 4).
     
--spec mod_exp_prime(binary(), binary(), binary()) -> binary() | error.
-mod_exp_prime(Base, Exponent, Prime) ->
-    case mod_exp_nif(Base, Exponent, Prime, 0) of
+-spec mod_pow(binary()|integer(), binary()|integer(), binary()|integer()) -> binary() | error.
+mod_pow(Base, Exponent, Prime) ->
+    case mod_exp_nif(ensure_int_as_bin(Base), ensure_int_as_bin(Exponent), ensure_int_as_bin(Prime), 0) of
 	<<0>> -> error;
 	R -> R
     end.
@@ -819,19 +1043,40 @@ mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 
 %% Key = [P,Q,G,Y]   P,Q,G=DSSParams  Y=PublicKey
 dss_verify(Data,Signature,Key) ->
-    dss_verify(sha, Data, Signature, Key).    
-dss_verify(_Type,_Data,_Signature,_Key) -> ?nif_stub.    
+    dss_verify(sha, Data, Signature, Key).
+
+dss_verify(Type,Data,Signature,Key) when is_binary(Data), Type=/=none ->
+    verify(dss,Type,mpint_to_bin(Data),mpint_to_bin(Signature),map_mpint_to_bin(Key));
+dss_verify(Type,Digest,Signature,Key) ->
+    verify(dss,Type,Digest,mpint_to_bin(Signature),map_mpint_to_bin(Key)).
 
 % Key = [E,N]  E=PublicExponent N=PublicModulus
 rsa_verify(Data,Signature,Key) ->
-    rsa_verify_nif(sha, Data,Signature,Key).
-rsa_verify(Type, DataOrDigest, Signature, Key) ->
-    case rsa_verify_nif(Type, DataOrDigest, Signature, Key) of
+    rsa_verify(sha, Data,Signature,Key).
+rsa_verify(Type, Data, Signature, Key) when is_binary(Data) ->
+    verify(rsa, Type, mpint_to_bin(Data), mpint_to_bin(Signature), map_mpint_to_bin(Key));
+rsa_verify(Type, Digest, Signature, Key) ->
+    verify(rsa, Type, Digest, mpint_to_bin(Signature), map_mpint_to_bin(Key)).
+
+
+verify(dss, Type, Data, Signature, Key) ->
+    dss_verify_nif(Type, Data, Signature, map_ensure_int_as_bin(Key));
+
+verify(rsa, Type, DataOrDigest, Signature, Key) ->
+    case rsa_verify_nif(Type, DataOrDigest, Signature, map_ensure_int_as_bin(Key)) of
     	notsup -> erlang:error(notsup);
+	Bool -> Bool
+    end;
+verify(ecdsa, Type, DataOrDigest, Signature, [Key, Curve]) ->
+    case ecdsa_verify_nif(Type, DataOrDigest, Signature, term_to_ec_key({Curve, undefined, Key})) of
+	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end.
 
+
+dss_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
 rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
+ecdsa_verify_nif(_Type, _DataOrDigest, _Signature, _Key) -> ?nif_stub.
 
 
 %%
@@ -845,24 +1090,103 @@ rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
 
 dss_sign(DataOrDigest,Key) ->
     dss_sign(sha,DataOrDigest,Key).
-dss_sign(Type, DataOrDigest, Key) ->
-    case dss_sign_nif(Type,DataOrDigest,Key) of
-	error -> erlang:error(badkey, [DataOrDigest, Key]);
-	Sign -> Sign
-    end.
+dss_sign(Type, Data, Key) when is_binary(Data), Type=/=none ->
+    sign(dss, Type, mpint_to_bin(Data), map_mpint_to_bin(Key));
+dss_sign(Type, Digest, Key) ->
+    sign(dss, Type, Digest, map_mpint_to_bin(Key)).
 
-dss_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
 
 %% Key = [E,N,D]  E=PublicExponent N=PublicModulus  D=PrivateExponent
 rsa_sign(DataOrDigest,Key) ->
     rsa_sign(sha, DataOrDigest, Key).
-rsa_sign(Type, DataOrDigest, Key) ->
-    case rsa_sign_nif(Type,DataOrDigest,Key) of
+
+rsa_sign(Type, Data, Key) when is_binary(Data) ->
+    sign(rsa, Type, mpint_to_bin(Data), map_mpint_to_bin(Key));
+rsa_sign(Type, Digest, Key) ->
+    sign(rsa, Type, Digest, map_mpint_to_bin(Key)).
+
+map_mpint_to_bin(List) ->
+    lists:map(fun(E) -> mpint_to_bin(E) end, List ).
+
+map_ensure_int_as_bin([H|_]=List) when is_integer(H) ->
+    lists:map(fun(E) -> int_to_bin(E) end, List);
+map_ensure_int_as_bin(List) ->
+    List.
+
+ensure_int_as_bin(Int) when is_integer(Int) ->
+    int_to_bin(Int);
+ensure_int_as_bin(Bin) ->
+    Bin.
+
+map_to_norm_bin([H|_]=List) when is_integer(H) ->
+    lists:map(fun(E) -> int_to_bin(E) end, List);
+map_to_norm_bin(List) ->
+    lists:map(fun(E) -> mpint_to_bin(E) end, List).
+
+
+sign(rsa, Type, DataOrDigest, Key) ->
+    case rsa_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
+	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
+	Sign -> Sign
+    end;
+sign(dss, Type, DataOrDigest, Key) ->
+    case dss_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
+	error -> erlang:error(badkey, [DataOrDigest, Key]);
+	Sign -> Sign
+    end;
+sign(ecdsa, Type, DataOrDigest, [Key, Curve]) ->
+    case ecdsa_sign_nif(Type, DataOrDigest, term_to_ec_key({Curve, Key, undefined})) of
 	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
 	Sign -> Sign
     end.
 
 rsa_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
+dss_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
+ecdsa_sign_nif(_Type, _DataOrDigest, _Key) -> ?nif_stub.
+
+
+
+
+-spec public_encrypt(rsa, binary(), [binary()], rsa_padding()) ->
+				binary().
+-spec public_decrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
+				binary().
+-spec private_encrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
+				binary().
+-spec private_decrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
+				binary().
+
+public_encrypt(rsa, BinMesg, Key, Padding) ->
+    case rsa_public_crypt(BinMesg,  map_ensure_int_as_bin(Key), Padding, true) of
+	error ->
+	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
+	Sign -> Sign
+    end.
+
+%% Binary, Key = [E,N,D]
+private_decrypt(rsa, BinMesg, Key, Padding) ->
+    case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
+	error ->
+	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
+	Sign -> Sign
+    end.
+
+
+%% Binary, Key = [E,N,D]
+private_encrypt(rsa, BinMesg, Key, Padding) ->
+    case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, true) of
+	error ->
+	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
+	Sign -> Sign
+    end.
+
+%% Binary, Key = [E,N]
+public_decrypt(rsa, BinMesg, Key, Padding) ->
+    case rsa_public_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
+	error ->
+	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
+	Sign -> Sign
+    end.
 
 
 %%
@@ -872,16 +1196,16 @@ rsa_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
 
 -spec rsa_public_encrypt(binary(), [binary()], rsa_padding()) ->
 				binary().
--spec rsa_public_decrypt(binary(), [binary()], rsa_padding()) ->
+-spec rsa_public_decrypt(binary(), [integer() | mpint()], rsa_padding()) ->
 				binary().
--spec rsa_private_encrypt(binary(), [binary()], rsa_padding()) ->
+-spec rsa_private_encrypt(binary(), [integer() | mpint()], rsa_padding()) ->
 				binary().
--spec rsa_private_decrypt(binary(), [binary()], rsa_padding()) ->
+-spec rsa_private_decrypt(binary(), [integer() | mpint()], rsa_padding()) ->
 				binary().
 
 %% Binary, Key = [E,N]
 rsa_public_encrypt(BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg, Key, Padding, true) of
+    case rsa_public_crypt(BinMesg, map_to_norm_bin(Key), Padding, true) of
 	error ->
 	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign
@@ -891,7 +1215,7 @@ rsa_public_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
 
 %% Binary, Key = [E,N,D]
 rsa_private_decrypt(BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, Key, Padding, false) of
+    case rsa_private_crypt(BinMesg, map_to_norm_bin(Key), Padding, false) of
 	error ->
 	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign
@@ -902,7 +1226,7 @@ rsa_private_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
     
 %% Binary, Key = [E,N,D]
 rsa_private_encrypt(BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, Key, Padding, true) of
+    case rsa_private_crypt(BinMesg, map_to_norm_bin(Key), Padding, true) of
 	error ->
 	    erlang:error(encrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign
@@ -910,7 +1234,7 @@ rsa_private_encrypt(BinMesg, Key, Padding) ->
 
 %% Binary, Key = [E,N]
 rsa_public_decrypt(BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg, Key, Padding, false) of
+    case rsa_public_crypt(BinMesg, map_to_norm_bin(Key), Padding, false) of
 	error ->
 	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign
@@ -1052,120 +1376,142 @@ dh_check([_Prime,_Gen]) -> ?nif_stub.
 			     {binary(),binary()}.
 
 dh_generate_key(DHParameters) ->
-    dh_generate_key(undefined, DHParameters).
+    dh_generate_key_nif(undefined, map_mpint_to_bin(DHParameters), 4).
 dh_generate_key(PrivateKey, DHParameters) ->
-    case dh_generate_key_nif(PrivateKey, DHParameters) of
-	error -> erlang:error(generation_failed, [PrivateKey,DHParameters]);
-	Res -> Res
-    end.
+    dh_generate_key_nif(mpint_to_bin(PrivateKey), map_mpint_to_bin(DHParameters), 4).
 
-dh_generate_key_nif(_PrivateKey, _DHParameters) -> ?nif_stub.
+dh_generate_key_nif(_PrivateKey, _DHParameters, _Mpint) -> ?nif_stub.
 
 %% DHParameters = [P (Prime)= mpint(), G(Generator) = mpint()]
-%% MyPrivKey, OthersPublicKey = mpint() 
+%% MyPrivKey, OthersPublicKey = mpint()
 -spec dh_compute_key(binary(), binary(), [binary()]) -> binary().
 
 dh_compute_key(OthersPublicKey, MyPrivateKey, DHParameters) ->
-    case dh_compute_key_nif(OthersPublicKey,MyPrivateKey,DHParameters) of
-	error -> erlang:error(computation_failed, [OthersPublicKey,MyPrivateKey,DHParameters]);
-	Ret -> Ret
-    end.
+    compute_key(dh, mpint_to_bin(OthersPublicKey), mpint_to_bin(MyPrivateKey),
+		map_mpint_to_bin(DHParameters)).
+
 
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
+generate_key(Type, Params) ->
+    generate_key(Type, Params, undefined).
 
-%%% SRP
--spec srp_generate_key(binary(), binary(), atom() | binary(), atom() | binary() ) -> {Public::binary(), Private::binary()}.
-srp_generate_key(Verifier, Generator, Prime, Version) when is_binary(Verifier),
-							   is_binary(Generator),
-							   is_binary(Prime), 
-							   is_atom(Version) ->
-    Private = random_bytes(32),
-    server_srp_gen_key(Private, Verifier, Generator, Prime, Version);
+generate_key(dh, DHParameters, PrivateKey) ->
+    dh_generate_key_nif(PrivateKey,  map_ensure_int_as_bin(DHParameters), 0);
 
-srp_generate_key(Generator, Prime, Version, Private) when is_binary(Generator),
-							  is_binary(Prime), 
-							  is_atom(Version),
-							  is_binary(Private) ->
-    client_srp_gen_key(Private, Generator, Prime).
+generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
+  when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
+    Private = case PrivArg of
+		  undefined -> random_bytes(32);
+		  _ -> PrivArg
+	      end,
+    host_srp_gen_key(Private, Verifier, Generator, Prime, Version);
 
--spec srp_generate_key(binary(), binary(), binary(), atom(), binary()) -> {Public::binary(), Private::binary()}.
-srp_generate_key(Verifier, Generator, Prime, Version, Private) when is_binary(Verifier),
-								    is_binary(Generator),
-								    is_binary(Prime), 
-								    is_atom(Version),
-								    is_binary(Private)
-								    -> 
-    server_srp_gen_key(Private, Verifier, Generator, Prime, Version).
+generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
+  when is_binary(Generator), is_binary(Prime), is_atom(Version) ->
+    Private = case PrivateArg of
+		  undefined -> random_bytes(32);
+		  _ -> PrivateArg
+	      end,
+    user_srp_gen_key(Private, Generator, Prime);
 
--spec srp_generate_key(binary(), binary(), atom()) -> {Public::binary(), Private::binary()}.
-srp_generate_key(Generator, Prime, Version) when is_binary(Generator),
-						 is_binary(Prime), 
-						 is_atom(Version) ->
-    Private = random_bytes(32),
-    client_srp_gen_key(Private, Generator, Prime).
+generate_key(ecdh, Curve, undefined) ->
+    ec_key_to_term(ec_key_generate(Curve)).
 
--spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), atom()| binary(), atom() | binary() ) -> binary().
-srp_compute_key(DerivedKey, Prime, Generator, ClientPublic, ClientPrivate, ServerPublic, Version) when 
-      is_binary(Prime), 
+
+ec_key_generate(_Key) -> ?nif_stub.
+
+
+compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
+    case dh_compute_key_nif(OthersPublicKey,MyPrivateKey, map_ensure_int_as_bin(DHParameters)) of
+	error -> erlang:error(computation_failed,
+			      [OthersPublicKey,MyPrivateKey,DHParameters]);
+	Ret -> Ret
+    end;
+
+compute_key(srp, HostPublic, {UserPublic, UserPrivate},
+	    {user, [DerivedKey, Prime, Generator, Version | ScramblerArg]}) when
+      is_binary(Prime),
       is_binary(Generator),
-      is_binary(ClientPublic),
-      is_binary(ClientPrivate),
-      is_binary(ServerPublic),
+      is_binary(UserPublic),
+      is_binary(UserPrivate),
+      is_binary(HostPublic),
       is_atom(Version) ->
     Multiplier = srp_multiplier(Version, Generator, Prime),
-    Scrambler = srp_scrambler(Version, ClientPublic, ServerPublic, Prime),
-    srp_client_secret_nif(ClientPrivate, Scrambler, ServerPublic, Multiplier,
-		      Generator, DerivedKey, Prime);
+    Scrambler = case ScramblerArg of
+		    [] -> srp_scrambler(Version, UserPublic, HostPublic, Prime);
+		    [S] -> S
+		end,
+    srp_user_secret_nif(UserPrivate, Scrambler, HostPublic, Multiplier,
+			  Generator, DerivedKey, Prime);
 
-srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Version, Scrambler) when 
+compute_key(srp, UserPublic, {HostPublic, HostPrivate},
+	    {host,[Verifier, Prime, Version | ScramblerArg]}) when
       is_binary(Verifier),
-      is_binary(Prime), 
-      is_binary(ClientPublic),
-      is_binary(ServerPublic),
-      is_binary(ServerPrivate),
-      is_atom(Version),
-      is_binary(Scrambler) ->
-   srp_server_secret_nif(Verifier, ServerPrivate, Scrambler, ClientPublic, Prime).
-
--spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), binary(), atom(), binary()) -> binary().
-srp_compute_key(DerivedKey, Prime, Generator, ClientPublic, ClientPrivate, 
-		ServerPublic, Version, Scrambler) when is_binary(DerivedKey),
-						       is_binary(Prime), 
-						       is_binary(Generator),
-						       is_binary(ClientPublic),
-						       is_binary(ClientPrivate),
-						       is_binary(ServerPublic),
-						       is_atom(Version),
-						       is_binary(Scrambler) ->
-    Multiplier = srp_multiplier(Version, Generator, Prime),
-    srp_client_secret_nif(ClientPrivate, Scrambler, ServerPublic, Multiplier,
-			  Generator, DerivedKey, Prime).
-
--spec srp_compute_key(binary(), binary(), binary(), binary(), binary(), atom()) -> binary().
-srp_compute_key(Verifier, Prime, ClientPublic, ServerPublic, ServerPrivate, Version) when 
-      is_binary(Verifier),
-      is_binary(Prime), 
-      is_binary(ClientPublic),
-      is_binary(ServerPublic),
-      is_binary(ServerPrivate),
+      is_binary(Prime),
+      is_binary(UserPublic),
+      is_binary(HostPublic),
+      is_binary(HostPrivate),
       is_atom(Version) ->
-   Scrambler = srp_scrambler(Version, ClientPublic, ServerPublic, Prime),
-   srp_server_secret_nif(Verifier, ServerPrivate, Scrambler, ClientPublic, Prime).
+    Scrambler = case ScramblerArg of
+		    [] -> srp_scrambler(Version, UserPublic, HostPublic, Prime);
+		    [S] -> S
+		end,
+    srp_host_secret_nif(Verifier, HostPrivate, Scrambler, UserPublic, Prime);
+
+compute_key(ecdh, Others, My, Curve) ->
+    ecdh_compute_key_nif(Others, term_to_ec_key({Curve,My,undefined})).
+
+ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
+
 
 %%
+%% EC
+%%
+ec_key_to_term(Key) ->
+    case ec_key_to_term_nif(Key) of
+        {PrivKey, PubKey} ->
+            {bin_to_int(PrivKey), PubKey};
+        _ ->
+            erlang:error(conversion_failed)
+    end.
+
+ec_key_to_term_nif(_Key) -> ?nif_stub.
+
+term_to_nif_prime({prime_field, Prime}) ->
+    {prime_field, int_to_bin(Prime)};
+term_to_nif_prime(PrimeField) ->
+    PrimeField.
+term_to_nif_curve({A, B, Seed}) ->
+    {ensure_int_as_bin(A), ensure_int_as_bin(B), Seed}.
+term_to_nif_curve_parameters({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
+    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), ensure_int_as_bin(BasePoint), int_to_bin(Order), int_to_bin(CoFactor)};
+term_to_nif_curve_parameters(Curve) when is_atom(Curve) ->
+    %% named curve
+    Curve.
+
+-spec term_to_ec_key(ec_key()) -> ec_key_res().
+term_to_ec_key({Curve, undefined, PubKey}) ->
+    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), undefined, PubKey);
+term_to_ec_key({Curve, PrivKey, PubKey}) ->
+    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), int_to_bin(PrivKey), PubKey).
+
+term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
+
+
+
 %%  LOCAL FUNCTIONS
 %%
 
-client_srp_gen_key(Private, Generator, Prime) ->
-    case mod_exp_prime(Generator, Private, Prime) of
+user_srp_gen_key(Private, Generator, Prime) ->
+    case mod_pow(Generator, Private, Prime) of
 	error ->
 	    error;
 	Public ->
 	    {Public, Private}
     end.
 
-server_srp_gen_key(Private, Verifier, Generator, Prime, Version) ->
+host_srp_gen_key(Private, Verifier, Generator, Prime, Version) ->
  Multiplier = srp_multiplier(Version, Generator, Prime),
    case srp_value_B_nif(Multiplier, Verifier, Generator, Private, Prime) of
    error ->
@@ -1185,17 +1531,17 @@ srp_multiplier('6', _, _) ->
 srp_multiplier('3', _, _) ->
     <<1/integer>>.
 
-srp_scrambler(Version, ClientPublic, ServerPublic, Prime) when Version == '6'; Version == '6a'->
+srp_scrambler(Version, UserPublic, HostPublic, Prime) when Version == '6'; Version == '6a'->
     %% SHA1(PAD(A) | PAD(B)) from http://srp.stanford.edu/design.html
     PadLength = erlang:byte_size(Prime),
     C0 = sha_init(),
-    C1 = sha_update(C0, srp_pad_to(PadLength, ClientPublic)),
-    C2 = sha_update(C1, srp_pad_to(PadLength, ServerPublic)),
+    C1 = sha_update(C0, srp_pad_to(PadLength, UserPublic)),
+    C2 = sha_update(C1, srp_pad_to(PadLength, HostPublic)),
     sha_final(C2);
-srp_scrambler('3', _, ServerPublic, _Prime) ->
+srp_scrambler('3', _, HostPublic, _Prime) ->
     %% The parameter u is a 32-bit unsigned integer which takes its value
     %% from the first 32 bits of the SHA1 hash of B, MSB first.
-    <<U:32/bits, _/binary>> = sha(ServerPublic),
+    <<U:32/bits, _/binary>> = sha(HostPublic),
     U.
 
 srp_pad_length(Width, Length) ->
@@ -1207,9 +1553,9 @@ srp_pad_to(Width, Binary) ->
         N -> << 0:(N*8), Binary/binary>>
     end.
 
-srp_server_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
+srp_host_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
 
-srp_client_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?nif_stub.
+srp_user_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?nif_stub.
 
 srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_stub.
 
@@ -1253,10 +1599,12 @@ int_to_bin_neg(X,Ds) ->
     int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
 
 
-bin_to_int(Bin) ->
+bin_to_int(Bin) when is_binary(Bin) ->
     Bits = bit_size(Bin),
     <<Integer:Bits/integer>> = Bin,
-    Integer.
+    Integer;
+bin_to_int(undefined) ->
+    undefined.
 
 %% int from integer in a binary with 32bit length
 erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->

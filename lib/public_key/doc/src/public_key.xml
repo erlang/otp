@@ -84,7 +84,8 @@
    
     <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey' |
     'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo' |
-    'PrivateKeyInfo' | 'CertificationRequest'</code></p>
+    'PrivateKeyInfo' | 'CertificationRequest' | 'ECPrivateKey'|
+    'EcpkParameters'</code></p>
     
     <p><code>pem_entry () = {pki_asn1_type(), binary(), %% DER or encrypted DER
           not_encrypted | cipher_info()} </code></p>
@@ -99,7 +100,11 @@
     <p><code>dsa_public_key() = {integer(),  #'Dss-Parms'{}} </code></p>
 
     <p><code>dsa_private_key() = #'DSAPrivateKey'{}</code></p>
+
+    <p><code>ec_public_key()  = {#'ECPoint'{}, #'EcpkParameters'{} | {namedCurve, oid()}} </code></p>
     
+    <p><code>ec_private_key()  = #'ECPrivateKey'{}</code></p>
+
     <p><code> public_crypt_options() = [{rsa_pad, rsa_padding()}]. </code></p>
 
     <p><code> rsa_padding() =  'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding'
@@ -108,6 +113,8 @@
     <p><code> rsa_digest_type()  = 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512' </code></p>
 
     <p><code> dss_digest_type()  = 'sha' </code></p>
+
+    <p><code> ecdsa_digest_type()  = 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512' </code></p>
 
     <p><code> crl_reason()  = unspecified | keyCompromise | cACompromise | affiliationChanged | superseded | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise
     </code></p>
@@ -145,6 +152,19 @@
   </section> 
 
 <funcs>    
+
+  <func>
+    <name> compute_key(OthersKey, MyKey)-></name>
+    <name> compute_key(OthersKey, MyKey, Params)-></name>
+    <fsummary> Compute shared secret</fsummary>
+    <type>
+      <v>OthersKey = #'ECPoint'{} | binary(), MyKey = #'ECPrivateKey'{} | binary()</v>
+      <v>Params =  #'DHParameter'{}</v>
+    </type>
+  <desc>
+    <p> Compute shared secret </p>
+  </desc>
+  </func>
 
   <func>
     <name>decrypt_private(CipherText, Key) -> binary()</name>
@@ -201,6 +221,17 @@
   <desc> 
     <p> Encodes a public key entity with ASN.1 DER encoding.</p>
   </desc> 
+  </func>
+
+  <func>
+    <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} </name>
+    <fsummary>Generates a new keypair</fsummary>
+    <type>
+      <v> Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{} </v>
+    </type>
+  <desc>
+    <p>Generates a new keypair</p>
+  </desc>
   </func>
 
   <func>
@@ -528,8 +559,8 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
        <d>The msg is either the binary "plain text" data to be
        signed or it is the hashed value of "plain text" i.e. the
        digest.</d>
-       <v>DigestType = rsa_digest_type() | dss_digest_type()</v>
-       <v>Key = rsa_private_key() | dsa_private_key()</v>
+       <v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
+       <v>Key = rsa_private_key() | dsa_private_key() | ec_private_key()</v>
   </type>
   <desc>
     <p> Creates a digital signature.</p> 
@@ -592,12 +623,12 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <v>Msg = binary() | {digest,binary()}</v>
        <d>The msg is either the binary "plain text" data 
         or it is the hashed value of "plain text" i.e. the digest.</d>
-      <v>DigestType = rsa_digest_type() | dss_digest_type()</v>
+      <v>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</v>
       <v>Signature = binary()</v>
-      <v>Key = rsa_public_key() | dsa_public_key()</v> 
-  </type> 
-  <desc> 
-    <p>Verifies a digital signature</p> 
+      <v>Key = rsa_public_key() | dsa_public_key() | ec_public_key()</v>
+  </type>
+  <desc>
+    <p>Verifies a digital signature</p>
   </desc> 
   </func>
   

@@ -100,7 +100,7 @@ add_trusted_certs(_Pid, {der, DerList}, [CerDb, _,_]) ->
     {ok, NewRef};
 
 add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache] = Db) ->
-    MD5 = crypto:md5(File),
+    MD5 = crypto:hash(md5, File),
     case lookup_cached_pem(Db, MD5) of
 	[{_Content, Ref}] ->
 	    ref_count(Ref, RefDb, 1),

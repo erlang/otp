@@ -69,6 +69,7 @@ groups() ->
      {session, [], session_tests()},
      {renegotiate, [], renegotiate_tests()},
      {ciphers, [], cipher_tests()},
+     {ciphers_ec, [], cipher_tests_ec()},
      {error_handling_tests, [], error_handling_tests()}
     ].
 
@@ -76,6 +77,7 @@ all_versions_groups ()->
     [{group, api},
      {group, renegotiate},
      {group, ciphers},
+     {group, ciphers_ec},
      {group, error_handling_tests}].
 
 
@@ -163,6 +165,12 @@ cipher_tests() ->
      srp_dsa_cipher_suites,
      default_reject_anonymous].
 
+cipher_tests_ec() ->
+    [ciphers_ecdsa_signed_certs,
+     ciphers_ecdsa_signed_certs_openssl_names,
+     ciphers_ecdh_rsa_signed_certs,
+     ciphers_ecdh_rsa_signed_certs_openssl_names].
+
 error_handling_tests()->
     [controller_dies,
      client_closes_socket,
@@ -188,10 +196,12 @@ init_per_suite(Config0) ->
 	    Result =
 		(catch make_certs:all(?config(data_dir, Config0),
 				      ?config(priv_dir, Config0))),
-	    ct:print("Make certs  ~p~n", [Result]),
+	    ct:log("Make certs  ~p~n", [Result]),
 
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-	    Config = ssl_test_lib:cert_options(Config1),
+	    Config2 = ssl_test_lib:make_ecdsa_cert(Config1),
+	    Config3 = ssl_test_lib:make_ecdh_rsa_cert(Config2),
+	    Config = ssl_test_lib:cert_options(Config3),
 	    [{watchdog, Dog} | Config]
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -256,7 +266,7 @@ init_per_testcase(empty_protocol_versions, Config)  ->
 %%     ssl_test_lib:make_mix_cert(Config0);
 
 init_per_testcase(_TestCase, Config0) ->
-    ct:print("TLS/SSL version ~p~n ", [ssl_record:supported_protocol_versions()]),
+    ct:log("TLS/SSL version ~p~n ", [ssl_record:supported_protocol_versions()]),
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = ct:timetrap(?TIMEOUT),
    [{watchdog, Dog} | Config].
@@ -319,7 +329,7 @@ connection_info(Config) when is_list(Config) ->
 			    [{ciphers,[{rsa,rc4_128,sha,no_export}]} | 
 			     ClientOpts]}]),
     
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
 
     Version = 
@@ -372,7 +382,7 @@ controlling_process(Config) when is_list(Config) ->
 							       ClientMsg]}},
 			   {options, ClientOpts}]),
    
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
     
     receive 
@@ -422,7 +432,7 @@ controller_dies(Config) when is_list(Config) ->
 									    ClientMsg]}},
 					{options, ClientOpts}]),
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n", [self(), Client, Server]),
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n", [self(), Client, Server]),
     ct:sleep(?SLEEP), %% so that they are connected
     
     process_flag(trap_exit, true),
@@ -460,12 +470,12 @@ controller_dies(Config) when is_list(Config) ->
 	    Client3 ! die_nice 
     end,
 
-    ct:print("Wating on exit ~p~n",[Client3]),
+    ct:log("Wating on exit ~p~n",[Client3]),
     receive {'EXIT', Client3, normal} -> ok end,
     
     receive   %% Client3 is dead but that doesn't matter, socket should not be closed.
 	Unexpected ->
-	    ct:print("Unexpected ~p~n",[Unexpected]),
+	    ct:log("Unexpected ~p~n",[Unexpected]),
 	    ct:fail({line, ?LINE-1})
     after 1000 ->
 	    ok
@@ -596,7 +606,7 @@ peername(Config) when is_list(Config) ->
     ServerMsg = {ok, {ClientIp, ClientPort}},
     ClientMsg = {ok, {ServerIp, Port}},
 	
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
 		   
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
@@ -629,7 +639,7 @@ peercert(Config) when is_list(Config) ->
     ServerMsg = {error, no_peercert},
     ClientMsg = {ok, BinCert},
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
 
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
@@ -667,7 +677,7 @@ peercert_with_client_cert(Config) when is_list(Config) ->
     ServerMsg = {ok, ClientBinCert},
     ClientMsg = {ok, ServerBinCert},
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
 
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
@@ -699,7 +709,7 @@ sockname(Config) when is_list(Config) ->
     ServerMsg = {ok, {ServerIp, Port}},
     ClientMsg = {ok, {ClientIp, ClientPort}},
 			   
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 			 [self(), Client, Server]),
     
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
@@ -772,7 +782,7 @@ socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
     ssl:setopts(Socket, [{nodelay, true}]),
     {ok,[{nodelay, true}]} = ssl:getopts(Socket, [nodelay]),
     {ok, All} = ssl:getopts(Socket, []),
-    ct:print("All opts ~p~n", [All]),
+    ct:log("All opts ~p~n", [All]),
     ok.
 
 
@@ -795,7 +805,7 @@ invalid_inet_get_option(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
 
     ssl_test_lib:check_result(Server, ok),
@@ -821,7 +831,7 @@ invalid_inet_get_option_not_list(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
     
     ssl_test_lib:check_result(Server, ok),
@@ -853,7 +863,7 @@ invalid_inet_get_option_improper_list(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
 
     ssl_test_lib:check_result(Server, ok),
@@ -884,7 +894,7 @@ invalid_inet_set_option(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
 
     ssl_test_lib:check_result(Server, ok),
@@ -916,7 +926,7 @@ invalid_inet_set_option_not_list(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
 
     ssl_test_lib:check_result(Server, ok),
@@ -948,7 +958,7 @@ invalid_inet_set_option_improper_list(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
 
     ssl_test_lib:check_result(Server, ok),
@@ -989,7 +999,7 @@ misc_ssl_options(Config) when is_list(Config) ->
 				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
 				   {options, TestOpts ++ ClientOpts}]),
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 			 [self(), Client, Server]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -1002,7 +1012,7 @@ versions() ->
 
 versions(Config) when is_list(Config) -> 
     [_|_] = Versions = ssl:versions(),
-    ct:print("~p~n", [Versions]).
+    ct:log("~p~n", [Versions]).
 
 %%--------------------------------------------------------------------
 send_recv() ->
@@ -1024,7 +1034,7 @@ send_recv(Config) when is_list(Config) ->
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
 				   {options, [{active, false} | ClientOpts]}]),
     
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 			 [self(), Client, Server]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -1050,7 +1060,7 @@ send_close(Config) when is_list(Config) ->
     {ok, SslS} = rpc:call(ClientNode, ssl, connect, 
 			  [TcpS,[{active, false}|ClientOpts]]),
     
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), self(), Server]),
     ok = ssl:send(SslS, "Hello world"),      
     {ok,<<"Hello world">>} = ssl:recv(SslS, 11),    
@@ -1135,7 +1145,7 @@ upgrade(Config) when is_list(Config) ->
 				   {tcp_options, TcpOpts},
 				   {ssl_options, ClientOpts}]),
     
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -1185,7 +1195,7 @@ upgrade_with_timeout(Config) when is_list(Config) ->
 						{tcp_options, TcpOpts},
 						{ssl_options, ClientOpts}]),
     
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -1211,14 +1221,14 @@ tcp_connect(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {packet, 0}]),
-    ct:print("Testcase ~p connected to Server ~p ~n", [self(), Server]),
+    ct:log("Testcase ~p connected to Server ~p ~n", [self(), Server]),
     gen_tcp:send(Socket, "<SOME GARBLED NON SSL MESSAGE>"),
 
     receive 
 	{tcp_closed, Socket} ->
 	    receive 
 		{Server, {error, Error}} ->
-		    ct:print("Error ~p", [Error])
+		    ct:log("Error ~p", [Error])
 	    end
     end.
 %%--------------------------------------------------------------------
@@ -1239,7 +1249,7 @@ tcp_connect_big(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {packet, 0}]),
-    ct:print("Testcase ~p connected to Server ~p ~n", [self(), Server]),
+    ct:log("Testcase ~p connected to Server ~p ~n", [self(), Server]),
 
     Rand = crypto:rand_bytes(?MAX_CIPHER_TEXT_LENGTH+1),
     gen_tcp:send(Socket, <<?BYTE(0),
@@ -1251,7 +1261,7 @@ tcp_connect_big(Config) when is_list(Config) ->
 		{Server, {error, timeout}} ->
 		    ct:fail("hangs");
 		{Server, {error, Error}} ->
-		    ct:print("Error ~p", [Error])
+		    ct:log("Error ~p", [Error])
 	    end
     end.
 
@@ -1281,7 +1291,7 @@ ipv6(Config) when is_list(Config) ->
 				   {options, 
 				    [inet6, {active, false} | ClientOpts]}]),
 	    
-	    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+	    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 			       [self(), Client, Server]),
 	    
 	    ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -1539,8 +1549,8 @@ ciphers_rsa_signed_certs(Config) when is_list(Config) ->
     Version = 
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
 
-    Ciphers = ssl_test_lib:rsa_suites(),
-    ct:print("~p erlang cipher suites ~p~n", [Version, Ciphers]),
+    Ciphers = ssl_test_lib:rsa_suites(erlang),
+    ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, rsa).
 %%-------------------------------------------------------------------
 ciphers_rsa_signed_certs_openssl_names() ->
@@ -1550,7 +1560,7 @@ ciphers_rsa_signed_certs_openssl_names(Config) when is_list(Config) ->
     Version = 
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
     Ciphers = ssl_test_lib:openssl_rsa_suites(),  
-    ct:print("tls1 openssl cipher suites ~p~n", [Ciphers]),
+    ct:log("tls1 openssl cipher suites ~p~n", [Ciphers]),
     run_suites(Ciphers, Version, Config, rsa).
 
 %%-------------------------------------------------------------------
@@ -1562,7 +1572,7 @@ ciphers_dsa_signed_certs(Config) when is_list(Config) ->
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
 
     Ciphers = ssl_test_lib:dsa_suites(),
-    ct:print("~p erlang cipher suites ~p~n", [Version, Ciphers]),
+    ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, dsa).
 %%-------------------------------------------------------------------
 ciphers_dsa_signed_certs_openssl_names() ->
@@ -1573,7 +1583,7 @@ ciphers_dsa_signed_certs_openssl_names(Config) when is_list(Config) ->
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
 
     Ciphers = ssl_test_lib:openssl_dsa_suites(),
-    ct:print("tls1 openssl cipher suites ~p~n", [Ciphers]),
+    ct:log("tls1 openssl cipher suites ~p~n", [Ciphers]),
     run_suites(Ciphers, Version, Config, dsa).
 %%-------------------------------------------------------------------
 anonymous_cipher_suites()->
@@ -1656,6 +1666,48 @@ default_reject_anonymous(Config) when is_list(Config) ->
 			      Client, {error, {tls_alert, "insufficient security"}}).
 
 %%--------------------------------------------------------------------
+ciphers_ecdsa_signed_certs() ->
+    [{doc, "Test all ecdsa ssl cipher suites in highest support ssl/tls version"}].
+
+ciphers_ecdsa_signed_certs(Config) when is_list(Config) ->
+    Version =
+       ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+
+    Ciphers = ssl_test_lib:ecdsa_suites(),
+    ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
+    run_suites(Ciphers, Version, Config, ecdsa).
+%%--------------------------------------------------------------------
+ciphers_ecdsa_signed_certs_openssl_names() ->
+    [{doc, "Test all ecdsa ssl cipher suites in highest support ssl/tls version"}].
+
+ciphers_ecdsa_signed_certs_openssl_names(Config) when is_list(Config) ->
+    Version =
+       ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:openssl_ecdsa_suites(),
+    ct:log("tls1 openssl cipher suites ~p~n", [Ciphers]),
+    run_suites(Ciphers, Version, Config, ecdsa).
+%%--------------------------------------------------------------------
+ciphers_ecdh_rsa_signed_certs() ->
+    [{doc, "Test all ecdh_rsa ssl cipher suites in highest support ssl/tls version"}].
+
+ciphers_ecdh_rsa_signed_certs(Config) when is_list(Config) ->
+    Version =
+       ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+
+    Ciphers = ssl_test_lib:ecdh_rsa_suites(),
+    ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
+    run_suites(Ciphers, Version, Config, ecdh_rsa).
+%%--------------------------------------------------------------------
+ciphers_ecdh_rsa_signed_certs_openssl_names() ->
+    [{doc, "Test all ecdh_rsa ssl cipher suites in highest support ssl/tls version"}].
+
+ciphers_ecdh_rsa_signed_certs_openssl_names(Config) when is_list(Config) ->
+    Version =
+       ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:openssl_ecdh_rsa_suites(),
+    ct:log("tls1 openssl cipher suites ~p~n", [Ciphers]),
+    run_suites(Ciphers, Version, Config, ecdh_rsa).
+%%--------------------------------------------------------------------
 reuse_session() ->
     [{doc,"Test reuse of sessions (short handshake)"}].
 reuse_session(Config) when is_list(Config) -> 
@@ -1694,7 +1746,7 @@ reuse_session(Config) when is_list(Config) ->
 	{Client1, SessionInfo} ->
 	    ok;
 	{Client1, Other} ->
-	    ct:print("Expected: ~p,  Unexpected: ~p~n",
+	    ct:log("Expected: ~p,  Unexpected: ~p~n",
 			       [SessionInfo, Other]),
 	    ct:fail(session_not_reused)
     end,
@@ -1752,7 +1804,7 @@ reuse_session(Config) when is_list(Config) ->
 	    ct:fail(
 	      session_reused_when_session_reuse_disabled_by_server);
 	{Client4, _Other} ->
-	    ct:print("OTHER: ~p ~n", [_Other]),
+	    ct:log("OTHER: ~p ~n", [_Other]),
 	    ok
     end,
 
@@ -1802,7 +1854,7 @@ reuse_session_expired(Config) when is_list(Config) ->
 	{Client1, SessionInfo} ->
 	    ok;
 	{Client1, Other} ->
-	    ct:print("Expected: ~p,  Unexpected: ~p~n",
+	    ct:log("Expected: ~p,  Unexpected: ~p~n",
 			       [SessionInfo, Other]),
 	    ct:fail(session_not_reused)
     end,
@@ -2505,7 +2557,7 @@ connect_twice(Config) when is_list(Config) ->
 				   {options, [{keepalive, true},{active, false}
 					      | ClientOpts]}]),
 
-    ct:print("Testcase ~p, Client ~p  Server ~p ~n",
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 			 [self(), Client, Server]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -2851,9 +2903,9 @@ result_ok(_Socket) ->
     ok.
 
 renegotiate(Socket, Data) ->
-    ct:print("Renegotiating ~n", []),
+    ct:log("Renegotiating ~n", []),
     Result = ssl:renegotiate(Socket),
-    ct:print("Result ~p~n", [Result]),
+    ct:log("Result ~p~n", [Result]),
     ssl:send(Socket, Data),
     case Result of
 	ok ->
@@ -2882,7 +2934,7 @@ renegotiate_immediately(Socket) ->
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     ct:sleep(?RENEGOTIATION_DISABLE_TIME +1),
     ok = ssl:renegotiate(Socket),
-    ct:print("Renegotiated again"),
+    ct:log("Renegotiated again"),
     ssl:send(Socket, "Hello world"),
     ok.
     
@@ -2901,7 +2953,7 @@ new_config(PrivDir, ServerOpts0) ->
     ServerOpts = proplists:delete(keyfile, ServerOpts2),
 
     {ok, PEM} = file:read_file(NewCaCertFile),
-    ct:print("CA file content: ~p~n", [public_key:pem_decode(PEM)]),
+    ct:log("CA file content: ~p~n", [public_key:pem_decode(PEM)]),
 
     [{cacertfile, NewCaCertFile}, {certfile, NewCertFile},
      {keyfile, NewKeyFile} | ServerOpts].
@@ -3097,15 +3149,15 @@ get_close(Pid, Where) ->
 	{'EXIT', Pid, _Reason} ->
 	    receive
 		{_, {ssl_closed, Socket}} ->
-		    ct:print("Socket closed ~p~n",[Socket]);
+		    ct:log("Socket closed ~p~n",[Socket]);
 		Unexpected ->
-		    ct:print("Unexpected ~p~n",[Unexpected]),
+		    ct:log("Unexpected ~p~n",[Unexpected]),
 		    ct:fail({line, ?LINE-1})
 	    after 5000 ->
 		    ct:fail({timeout, {line, ?LINE, Where}})
 	    end;
 	Unexpected ->
-	    ct:print("Unexpected ~p~n",[Unexpected]),
+	    ct:log("Unexpected ~p~n",[Unexpected]),
 	    ct:fail({line, ?LINE-1})
     after 5000 ->
 	    ct:fail({timeout, {line, ?LINE, Where}})
@@ -3119,7 +3171,7 @@ run_send_recv_rizzo(Ciphers, Config, Version, Mfa) ->
 	[] ->
 	    ok;
 	Error ->
-	    ct:print("Cipher suite errors: ~p~n", [Error]),
+	    ct:log("Cipher suite errors: ~p~n", [Error]),
 	    ct:fail(cipher_suite_failed_see_test_case_log)
     end.
 
@@ -3149,12 +3201,21 @@ rizzo_test(Cipher, Config, Version, Mfa) ->
 	    [{Cipher, Error}]
     end.
 
-client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == rsa orelse KeyAlgo == dhe_rsa ->
+client_server_opts({KeyAlgo,_,_}, Config)
+  when KeyAlgo == rsa orelse
+       KeyAlgo == dhe_rsa orelse
+       KeyAlgo == ecdhe_rsa ->
     {?config(client_opts, Config),
      ?config(server_opts, Config)};
 client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == dss orelse KeyAlgo == dhe_dss ->
     {?config(client_dsa_opts, Config),
-     ?config(server_dsa_opts, Config)}.
+     ?config(server_dsa_opts, Config)};
+client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == ecdh_ecdsa orelse KeyAlgo == ecdhe_ecdsa ->
+    {?config(client_opts, Config),
+     ?config(server_ecdsa_opts, Config)};
+client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == ecdh_rsa ->
+    {?config(client_opts, Config),
+     ?config(server_ecdh_rsa_opts, Config)}.
 
 run_suites(Ciphers, Version, Config, Type) ->
     {ClientOpts, ServerOpts} =
@@ -3189,7 +3250,13 @@ run_suites(Ciphers, Version, Config, Type) ->
 		 ?config(server_srp_anon, Config)};
 	    srp_dsa ->
 		{?config(client_srp_dsa, Config),
-		 ?config(server_srp_dsa, Config)}
+		 ?config(server_srp_dsa, Config)};
+	    ecdsa ->
+		{?config(client_opts, Config),
+		 ?config(server_ecdsa_opts, Config)};
+	    ecdh_rsa ->
+		{?config(client_opts, Config),
+		 ?config(server_ecdh_rsa_opts, Config)}
 	    end,
 
     Result =  lists:map(fun(Cipher) ->
@@ -3199,7 +3266,7 @@ run_suites(Ciphers, Version, Config, Type) ->
 	[] ->
 	    ok;
 	Error ->
-	    ct:print("Cipher suite errors: ~p~n", [Error]),
+	    ct:log("Cipher suite errors: ~p~n", [Error]),
 	    ct:fail(cipher_suite_failed_see_test_case_log)
     end.
 
@@ -3210,7 +3277,7 @@ erlang_cipher_suite(Suite) ->
 
 cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     %% process_flag(trap_exit, true),
-    ct:print("Testing CipherSuite ~p~n", [CipherSuite]),
+    ct:log("Testing CipherSuite ~p~n", [CipherSuite]),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     ErlangCipherSuite = erlang_cipher_suite(CipherSuite),

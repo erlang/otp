@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,9 +28,9 @@
 
 -type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
 			   | aes_128_cbc |  aes_256_cbc.
--type hash()              :: null | sha | md5 | sha256 | sha384 | sha512.
+-type hash()              :: null | sha | md5 | ssh224 | sha256 | sha384 | sha512.
 -type erl_cipher_suite()  :: {key_algo(), cipher(), hash()}.
--type int_cipher_suite()  :: {key_algo(), cipher(), hash(), hash()}.
+-type int_cipher_suite()  :: {key_algo(), cipher(), hash(), hash() | default_prf}.
 -type cipher_suite()      :: binary().
 -type cipher_enum()        :: integer().
 -type openssl_cipher_suite()  :: string().
@@ -218,6 +218,120 @@
 
 %%      TLS_DH_anon_WITH_AES_256_CBC_SHA256   = { 0x00,0x6D };
 -define(TLS_DH_anon_WITH_AES_256_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#6D)>>).
+
+%% RFC 4492 EC TLS suites
+
+%% ECDH_ECDSA
+
+%%      TLS_ECDH_ECDSA_WITH_NULL_SHA           = { 0xC0, 0x01 }
+-define(TLS_ECDH_ECDSA_WITH_NULL_SHA, <<?BYTE(16#C0), ?BYTE(16#01)>>).
+
+%%      TLS_ECDH_ECDSA_WITH_RC4_128_SHA        = { 0xC0, 0x02 }
+-define(TLS_ECDH_ECDSA_WITH_RC4_128_SHA, <<?BYTE(16#C0), ?BYTE(16#02)>>).
+
+%%      TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA   = { 0xC0, 0x03 }
+-define(TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#03)>>).
+
+%%      TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA    = { 0xC0, 0x04 }
+-define(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#04)>>).
+
+%%      TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA    = { 0xC0, 0x05 }
+-define(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#05)>>).
+
+%% ECDHE_ECDSA
+
+%%      TLS_ECDHE_ECDSA_WITH_NULL_SHA          = { 0xC0, 0x06 }
+-define(TLS_ECDHE_ECDSA_WITH_NULL_SHA, <<?BYTE(16#C0), ?BYTE(16#06)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_RC4_128_SHA       = { 0xC0, 0x07 }
+-define(TLS_ECDHE_ECDSA_WITH_RC4_128_SHA, <<?BYTE(16#C0), ?BYTE(16#07)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA  = { 0xC0, 0x08 }
+-define(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#08)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA   = { 0xC0, 0x09 }
+-define(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#09)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA   = { 0xC0, 0x0A }
+-define(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#0A)>>).
+
+%% ECDH_RSA
+
+%%      TLS_ECDH_RSA_WITH_NULL_SHA             = { 0xC0, 0x0B }
+-define(TLS_ECDH_RSA_WITH_NULL_SHA, <<?BYTE(16#C0), ?BYTE(16#0B)>>).
+
+%%      TLS_ECDH_RSA_WITH_RC4_128_SHA          = { 0xC0, 0x0C }
+-define(TLS_ECDH_RSA_WITH_RC4_128_SHA, <<?BYTE(16#C0), ?BYTE(16#0C)>>).
+
+%%      TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA     = { 0xC0, 0x0D }
+-define(TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#0D)>>).
+
+%%      TLS_ECDH_RSA_WITH_AES_128_CBC_SHA      = { 0xC0, 0x0E }
+-define(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#0E)>>).
+
+%%      TLS_ECDH_RSA_WITH_AES_256_CBC_SHA      = { 0xC0, 0x0F }
+-define(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#0F)>>).
+
+%% ECDHE_RSA
+
+%%      TLS_ECDHE_RSA_WITH_NULL_SHA            = { 0xC0, 0x10 }
+-define(TLS_ECDHE_RSA_WITH_NULL_SHA, <<?BYTE(16#C0), ?BYTE(16#10)>>).
+
+%%      TLS_ECDHE_RSA_WITH_RC4_128_SHA         = { 0xC0, 0x11 }
+-define(TLS_ECDHE_RSA_WITH_RC4_128_SHA, <<?BYTE(16#C0), ?BYTE(16#11)>>).
+
+%%      TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA    = { 0xC0, 0x12 }
+-define(TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#12)>>).
+
+%%      TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA     = { 0xC0, 0x13 }
+-define(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#13)>>).
+
+%%      TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA     = { 0xC0, 0x14 }
+-define(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#14)>>).
+
+%% ECDH_anon
+
+%%      TLS_ECDH_anon_WITH_NULL_SHA            = { 0xC0, 0x15 }
+-define(TLS_ECDH_anon_WITH_NULL_SHA, <<?BYTE(16#C0), ?BYTE(16#15)>>).
+
+%%      TLS_ECDH_anon_WITH_RC4_128_SHA         = { 0xC0, 0x16 }
+-define(TLS_ECDH_anon_WITH_RC4_128_SHA, <<?BYTE(16#C0), ?BYTE(16#16)>>).
+
+%%      TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA    = { 0xC0, 0x17 }
+-define(TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#17)>>).
+
+%%      TLS_ECDH_anon_WITH_AES_128_CBC_SHA     = { 0xC0, 0x18 }
+-define(TLS_ECDH_anon_WITH_AES_128_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#18)>>).
+
+%%      TLS_ECDH_anon_WITH_AES_256_CBC_SHA     = { 0xC0, 0x19 }
+-define(TLS_ECDH_anon_WITH_AES_256_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#19)>>).
+
+
+%% RFC 5289 EC TLS suites
+
+%%      TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256  = {0xC0,0x23};
+-define(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, <<?BYTE(16#C0), ?BYTE(16#23)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384  = {0xC0,0x24};
+-define(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384, <<?BYTE(16#C0), ?BYTE(16#24)>>).
+
+%%      TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256   = {0xC0,0x25};
+-define(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256, <<?BYTE(16#C0), ?BYTE(16#25)>>).
+
+%%      TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384   = {0xC0,0x26};
+-define(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384, <<?BYTE(16#C0), ?BYTE(16#26)>>).
+
+%%      TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256    = {0xC0,0x27};
+-define(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, <<?BYTE(16#C0), ?BYTE(16#27)>>).
+
+%%      TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384    = {0xC0,0x28};
+-define(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384, <<?BYTE(16#C0), ?BYTE(16#28)>>).
+
+%%      TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256     = {0xC0,0x29};
+-define(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256, <<?BYTE(16#C0), ?BYTE(16#29)>>).
+
+%%      TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384     = {0xC0,0x2A};
+-define(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384, <<?BYTE(16#C0), ?BYTE(16#2A)>>).
 
 %%% Kerberos Cipher Suites 
 

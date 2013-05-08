@@ -364,11 +364,11 @@ cipher_suites() ->
   
 cipher_suites(erlang) ->
     Version = ssl_record:highest_protocol_version([]),
-    [suite_definition(S) || S <- ssl_cipher:suites(Version)];
+    [suite_definition(S) || S <- cipher_suites(Version, [])];
 
 cipher_suites(openssl) ->
     Version = ssl_record:highest_protocol_version([]),
-    [ssl_cipher:openssl_suite_name(S) || S <- ssl_cipher:suites(Version)];
+    [ssl_cipher:openssl_suite_name(S) || S <- cipher_suites(Version, [])];
 
 cipher_suites(all) ->
     Version = ssl_record:highest_protocol_version([]),
@@ -739,6 +739,7 @@ validate_option(key, {KeyType, Value}) when is_binary(Value),
 					    KeyType == dsa; %% Backwards compatibility
 					    KeyType == 'RSAPrivateKey';
 					    KeyType == 'DSAPrivateKey';
+					    KeyType == 'ECPrivateKey';
 					    KeyType == 'PrivateKeyInfo' ->
     {KeyType, Value};
 
@@ -947,21 +948,22 @@ emulated_options([], Inet,Emulated) ->
     {Inet, Emulated}.
 
 cipher_suites(Version, []) ->
-    ssl_cipher:suites(Version);
+    ssl_cipher:filter_suites(ssl_cipher:suites(Version));
 cipher_suites(Version, [{_,_,_,_}| _] = Ciphers0) -> %% Backwards compatibility
     Ciphers = [{KeyExchange, Cipher, Hash} || {KeyExchange, Cipher, Hash, _} <- Ciphers0],
-    cipher_suites(Version, Ciphers);
+    ssl_cipher:filter_suites(cipher_suites(Version, Ciphers));
 cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
     Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
-    cipher_suites(Version, Ciphers);
+    ssl_cipher:filter_suites(cipher_suites(Version, Ciphers));
 cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
-    Supported = ssl_cipher:suites(Version)
+    Supported0 = ssl_cipher:suites(Version)
 	++ ssl_cipher:anonymous_suites()
 	++ ssl_cipher:psk_suites(Version)
 	++ ssl_cipher:srp_suites(),
-    case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported)] of
+    Supported1 = ssl_cipher:filter_suites(Supported0),
+    case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported1)] of
 	[] ->
-	    Supported;
+	    Supported1;
 	Ciphers ->
 	    Ciphers
     end;

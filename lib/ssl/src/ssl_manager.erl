@@ -103,7 +103,7 @@ connection_init(Trustedcerts, Role) ->
 %% Description: Cach a pem file and return its content.
 %%--------------------------------------------------------------------
 cache_pem_file(File, DbHandle) ->
-    MD5 = crypto:md5(File),
+    MD5 = crypto:hash(md5, File),
     case ssl_certificate_db:lookup_cached_pem(DbHandle, MD5) of
 	[{Content,_}] ->
 	    {ok, Content};
@@ -468,7 +468,7 @@ new_id(Port, Tries, Cache, CacheCb) ->
 clean_cert_db(Ref, CertDb, RefDb, PemCache, File) ->
     case ssl_certificate_db:ref_count(Ref, RefDb, 0) of
 	0 ->	  
-	    MD5 = crypto:md5(File),
+	    MD5 = crypto:hash(md5, File),
 	    case ssl_certificate_db:lookup_cached_pem(PemCache, MD5) of
 		[{Content, Ref}] ->
 		    ssl_certificate_db:insert(MD5, Content, PemCache);		

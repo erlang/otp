@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -202,7 +202,11 @@ pem_start('CertificationRequest') ->
 pem_start('ContentInfo') ->
     <<"-----BEGIN PKCS7-----">>;
 pem_start('CertificateList') ->
-     <<"-----BEGIN X509 CRL-----">>.
+     <<"-----BEGIN X509 CRL-----">>;
+pem_start('OTPEcpkParameters') ->
+    <<"-----BEGIN EC PARAMETERS-----">>;
+pem_start('ECPrivateKey') ->
+    <<"-----BEGIN EC PRIVATE KEY-----">>.
 
 pem_end(<<"-----BEGIN CERTIFICATE-----">>) ->
     <<"-----END CERTIFICATE-----">>;
@@ -226,6 +230,10 @@ pem_end(<<"-----BEGIN PKCS7-----">>) ->
     <<"-----END PKCS7-----">>;
 pem_end(<<"-----BEGIN X509 CRL-----">>) ->
     <<"-----END X509 CRL-----">>;
+pem_end(<<"-----BEGIN EC PARAMETERS-----">>) ->
+    <<"-----END EC PARAMETERS-----">>;
+pem_end(<<"-----BEGIN EC PRIVATE KEY-----">>) ->
+    <<"-----END EC PRIVATE KEY-----">>;
 pem_end(_) ->
     undefined.
 
@@ -250,7 +258,11 @@ asn1_type(<<"-----BEGIN CERTIFICATE REQUEST-----">>) ->
 asn1_type(<<"-----BEGIN PKCS7-----">>) ->
     'ContentInfo';
 asn1_type(<<"-----BEGIN X509 CRL-----">>) ->
-    'CertificateList'.
+    'CertificateList';
+asn1_type(<<"-----BEGIN EC PARAMETERS-----">>) ->
+    'OTPEcpkParameters';
+asn1_type(<<"-----BEGIN EC PRIVATE KEY-----">>) ->
+    'ECPrivateKey'.
 
 pem_decrypt() ->
     <<"Proc-Type: 4,ENCRYPTED">>.

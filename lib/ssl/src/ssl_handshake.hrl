@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,9 +28,9 @@
 
 -include_lib("public_key/include/public_key.hrl").
 
--type algo_oid()          :: ?'rsaEncryption' | ?'id-dsa'.
--type public_key_params() :: #'Dss-Parms'{} | term().
--type public_key_info()   :: {algo_oid(), #'RSAPublicKey'{} | integer() , public_key_params()}.
+-type oid()               :: tuple().
+-type public_key_params() :: #'Dss-Parms'{} |  {namedCurve, oid()} | #'ECParameters'{} | term().
+-type public_key_info()   :: {oid(), #'RSAPublicKey'{} | integer() | #'ECPoint'{}, public_key_params()}.
 -type tls_handshake_history() :: {[binary()], [binary()]}.
 
 -define(NO_PROTOCOL, <<>>).
@@ -102,6 +102,8 @@
 	  renegotiation_info,
 	  srp,                % srp username to send
 	  hash_signs,          % supported combinations of hashes/signature algos
+	  ec_point_formats,    % supported ec point formats
+	  elliptic_curves,     % supported elliptic curver
 	  next_protocol_negotiation = undefined % [binary()]
 	 }).
 
@@ -113,6 +115,8 @@
 	  compression_method, % compression_method
 	  renegotiation_info,
 	  hash_signs,          % supported combinations of hashes/signature algos
+	  ec_point_formats,    % supported ec point formats
+	  elliptic_curves,     % supported elliptic curver
 	  next_protocol_negotiation = undefined % [binary()]
 	 }).
 
@@ -130,6 +134,7 @@
 
 -define(KEY_EXCHANGE_RSA, 0).
 -define(KEY_EXCHANGE_DIFFIE_HELLMAN, 1).
+-define(KEY_EXCHANGE_EC_DIFFIE_HELLMAN, 6).
 -define(KEY_EXCHANGE_PSK, 2).
 -define(KEY_EXCHANGE_DHE_PSK, 3).
 -define(KEY_EXCHANGE_RSA_PSK, 4).
@@ -144,6 +149,11 @@
 	  dh_p, %% opaque DH_p<1..2^16-1>
 	  dh_g, %% opaque DH_g<1..2^16-1>
 	  dh_y  %% opaque DH_Ys<1..2^16-1>
+	 }).
+
+-record(server_ecdh_params, {
+	  curve,
+	  public           %% opaque encoded ECpoint
 	 }).
 
 -record(server_psk_params, {
@@ -195,6 +205,9 @@
 -define(DSS_SIGN, 2).
 -define(RSA_FIXED_DH, 3).
 -define(DSS_FIXED_DH, 4).
+-define(ECDSA_SIGN, 64).
+-define(RSA_FIXED_ECDH, 65).
+-define(ECDSA_FIXED_ECDH, 66).
 
 % opaque DistinguishedName<1..2^16-1>;
 
@@ -228,6 +241,10 @@
 -define(EXPLICIT, 1).
 
 -record(client_diffie_hellman_public, {
+	  dh_public
+	 }).
+
+-record(client_ec_diffie_hellman_public, {
 	  dh_public
 	 }).
 
@@ -303,6 +320,33 @@
 -record(next_protocol_negotiation, {extension_data}).
 
 -record(next_protocol, {selected_protocol}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ECC Extensions RFC 4492 section 4 and 5
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(ELLIPTIC_CURVES_EXT, 10).
+-define(EC_POINT_FORMATS_EXT, 11).
+
+-record(elliptic_curves, {
+	  elliptic_curve_list
+	 }).
+
+-record(ec_point_formats, {
+	  ec_point_format_list
+	 }).
+
+-define(ECPOINT_UNCOMPRESSED, 0).
+-define(ECPOINT_ANSIX962_COMPRESSED_PRIME, 1).
+-define(ECPOINT_ANSIX962_COMPRESSED_CHAR2, 2).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ECC RFC 4492 Handshake Messages, Section 5
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(EXPLICIT_PRIME, 1).
+-define(EXPLICIT_CHAR2, 2).
+-define(NAMED_CURVE, 3).
 
 -endif. % -ifdef(ssl_handshake).
 

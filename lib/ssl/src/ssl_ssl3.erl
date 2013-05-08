@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -154,9 +154,9 @@ suites() ->
 %%--------------------------------------------------------------------
 
 hash(?MD5, Data) ->
-    crypto:md5(Data);
+    crypto:hash(md5, Data);
 hash(?SHA, Data) ->
-    crypto:sha(Data).
+    crypto:hash(sha, Data).
 
 %%pad_1(?NULL) ->
 %%    "";
@@ -198,6 +198,6 @@ gen(_Secret, _All, Wanted, Len, _C, _N, Acc) when Wanted =< Len ->
     Block;
 gen(Secret, All, Wanted, Len, C, N, Acc) ->
     Prefix = lists:duplicate(N, C),
-    SHA = crypto:sha([Prefix, All]),
-    MD5 = crypto:md5([Secret, SHA]),
+    SHA = crypto:hash(sha, [Prefix, All]),
+    MD5 = crypto:hash(md5, [Secret, SHA]),
     gen(Secret, All, Wanted, Len + 16, C+1, N+1, [MD5 | Acc]).

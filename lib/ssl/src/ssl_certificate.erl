@@ -37,7 +37,8 @@
 	 is_valid_extkey_usage/2,
 	 is_valid_key_usage/2,
 	 select_extension/2,
-	 extensions_list/1
+	 extensions_list/1,
+	 public_key_type/1
 	]).
  
 %%====================================================================
@@ -164,6 +165,18 @@ extensions_list(asn1_NOVALUE) ->
     [];
 extensions_list(Extensions) ->
     Extensions.
+
+%%--------------------------------------------------------------------
+-spec public_key_type(term()) -> rsa | dsa | ec.
+%%
+%% Description:
+%%--------------------------------------------------------------------
+public_key_type(?'rsaEncryption') ->
+    rsa;
+public_key_type(?'id-dsa') ->
+    dsa;
+public_key_type(?'id-ecPublicKey') ->
+    ec.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
