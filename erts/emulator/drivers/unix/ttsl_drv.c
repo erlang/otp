@@ -42,6 +42,9 @@ static ErlDrvData ttysl_start(ErlDrvPort, char*);
 #include <locale.h>
 #include <unistd.h>
 #include <termios.h>
+#ifdef HAVE_WCWIDTH
+#include <wchar.h>
+#endif
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
@@ -95,6 +98,9 @@ static int lpos;                /* The current "cursor position" in the line buf
  */
 #define CONTROL_TAG 0x10000000U /* Control character, value in first position */
 #define ESCAPED_TAG 0x01000000U /* Escaped character, value in first position */
+#ifdef HAVE_WCWIDTH
+#define WIDE_TAG    0x02000000U /* Wide character, value in first position    */
+#endif
 #define TAG_MASK    0xFF000000U
 
 #define MAXSIZE (1 << 16)
@@ -597,12 +603,20 @@ static int check_buf_size(byte *s, int n)
 	} 
 	if (utf8_mode) { /* That is, terminal is UTF8 compliant */
 	    if (ch >= 128 || isprint(ch)) {
-		DEBUGLOG(("Printable(UTF-8:%d):%d",(pos - opos),ch));
-		size++; /* Buffer contains wide characters... */
+#ifdef HAVE_WCWIDTH
+		int width;
+#endif
+		DEBUGLOG(("Printable(UTF-8:%d):%d",pos,ch));
+		size++;
+#ifdef HAVE_WCWIDTH
+		if ((width = wcwidth(ch)) > 1) {
+		    size += width - 1;
+		}
+#endif
 	    } else if (ch == '\t') {
 		size += 8;
 	    } else {
-		DEBUGLOG(("Magic(UTF-8:%d):%d",(pos - opos),ch));
+		DEBUGLOG(("Magic(UTF-8:%d):%d",pos,ch));
 		size += 2;
 	    }
 	} else {
@@ -868,12 +882,22 @@ static int step_over_chars(int n)
     end = lbuf + llen;
     c = lbuf + lpos;
     for ( ; n > 0 && c < end; --n) {
+#ifdef HAVE_WCWIDTH
+	while (*c & WIDE_TAG) {
+	    c++;
+	}
+#endif
 	c++;
 	while (c < end && (*c & TAG_MASK) && ((*c & ~TAG_MASK) == 0))
 	    c++;
     }
     for ( ; n < 0 && c > beg; n++) {
 	--c;
+#ifdef HAVE_WCWIDTH
+	while (c > beg + 1 && (c[-1] & WIDE_TAG)) {
+	    --c;
+	}
+#endif
 	while (c > beg && (*c & TAG_MASK) && ((*c & ~TAG_MASK) == 0))
 	    --c;
     }
@@ -899,6 +923,15 @@ static int insert_buf(byte *s, int n)
 	    ++pos;
 	}
 	if ((utf8_mode && (ch >= 128 || isprint(ch))) || (ch <= 255 && isprint(ch))) {
+#ifdef HAVE_WCWIDTH
+	    int width;
+	    if ((width = wcwidth(ch)) > 1) {
+		while (--width) {
+		    DEBUGLOG(("insert_buf: Wide(UTF-8):%d,%d",width,ch));
+		    lbuf[lpos++] = (WIDE_TAG | ((Uint32) ch));
+		}
+	    }
+#endif
 	    DEBUGLOG(("insert_buf: Printable(UTF-8):%d",ch));
 	    lbuf[lpos++] = (Uint32) ch;
 	} else if (ch >= 128) { /* not utf8 mode */
@@ -1006,6 +1039,8 @@ static int write_buf(Uint32 *s, int n)
 	    if (octbuff != octtmp) {
 		driver_free(octbuff);
 	    }
+	} else if (*s & WIDE_TAG) {
+	    --n; s++;
 	} else {
 	    DEBUGLOG(("Very unexpected character %d",(int) *s));
 	    ++n;
