@@ -643,11 +643,11 @@ io_request({get_until, _Prompt, _M, _F, _As}, Buf) ->
 io_request({setopts, _Opts}, Buf) ->
     {ok, Buf};
 io_request(getopts, Buf) ->
-    {error, {error, enotsup}, Buf};
+    {{error, enotsup}, Buf};
 io_request({get_geometry,columns}, Buf) ->
-    {error, {error, enotsup}, Buf};
+    {{error, enotsup}, Buf};
 io_request({get_geometry,rows}, Buf) ->
-    {error, {error, enotsup}, Buf};
+    {{error, enotsup}, Buf};
 io_request({requests, Reqs}, Buf) ->
     io_requests(Reqs, {ok, Buf});
 io_request(_, Buf) ->
