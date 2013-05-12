@@ -40,6 +40,10 @@
 #  include "config.h"
 #endif
 
+#if defined(__DARWIN__) || defined(__APPLE__) && defined(__MACH__)
+#  define _DARWIN_UNLIMITED_SELECT
+#endif
+
 #ifndef WANT_NONBLOCKING
 #  define WANT_NONBLOCKING
 #endif
@@ -88,6 +92,19 @@
 
 #if defined(DEBUG) && 0
 #define HARD_DEBUG
+#endif
+
+#ifdef _DARWIN_UNLIMITED_SELECT
+#  define FDS fd_set *
+#  define FDS_CLR FD_CLR
+#  define FDS_ISSET FD_ISSET
+#  define FDS_SET FD_SET
+#  define FDS_SIZE(n) ((((n)+NFDBITS-1)/NFDBITS)*sizeof(fd_mask))
+#else
+#  define FDS fd_set
+#  define FDS_CLR(fd, fds) FD_CLR((fd), &(fds))
+#  define FDS_ISSET(fd, fds) FD_ISSET((fd), &(fds))
+#  define FDS_SET(fd, fds) FD_SET((fd), &(fds))
 #endif
 
 #define ERTS_POLL_USE_BATCH_UPDATE_POLLSET (ERTS_POLL_USE_DEVPOLL \
@@ -244,10 +261,14 @@ struct ErtsPollSet_ {
 #if ERTS_POLL_USE_FALLBACK
     int no_select_fds;
 #endif
-    fd_set input_fds;
-    fd_set res_input_fds;
-    fd_set output_fds;
-    fd_set res_output_fds;
+#ifdef _DARWIN_UNLIMITED_SELECT
+    size_t select_fds_len;
+    char resize_res_sets;
+#endif
+    FDS input_fds;
+    FDS res_input_fds;
+    FDS output_fds;
+    FDS res_output_fds;
 #endif
 #if ERTS_POLL_USE_UPDATE_REQUESTS_QUEUE
     ErtsPollSetUpdateRequestsBlock update_requests;
@@ -623,6 +644,29 @@ grow_poll_fds(ErtsPollSet ps, int min_ix)
     ps->poll_fds_len = new_len;
 }
 #endif
+
+#ifdef _DARWIN_UNLIMITED_SELECT
+static void
+grow_select_fds(ErtsPollSet ps, int fd)
+{
+    int new_len = ERTS_POLL_EXPORT(erts_poll_get_table_len)(fd + 1);
+    if (new_len > max_fds)
+	new_len = max_fds;
+    new_len = FDS_SIZE(new_len);
+    ps->input_fds = ps->select_fds_len
+	? erts_realloc(ERTS_ALC_T_SELECT_FDS, ps->input_fds, new_len)
+	: erts_alloc(ERTS_ALC_T_SELECT_FDS, new_len);
+    ps->output_fds = ps->select_fds_len
+        ? erts_realloc(ERTS_ALC_T_SELECT_FDS, ps->output_fds, new_len)
+	: erts_alloc(ERTS_ALC_T_SELECT_FDS, new_len);
+    memset((void *) ps->input_fds + ps->select_fds_len, 0,
+	   new_len - ps->select_fds_len);
+    memset((void *) ps->output_fds + ps->select_fds_len, 0,
+	    new_len - ps->select_fds_len);
+    ps->select_fds_len = new_len;
+    ps->resize_res_sets = 1;
+}
+#endif /* _DARWIN_UNLIMITED_SELECT */
 
 static void
 grow_fds_status(ErtsPollSet ps, int min_fd)
@@ -1290,22 +1334,26 @@ static int update_pollset(ErtsPollSet ps, int fd)
 #elif ERTS_POLL_USE_SELECT	/* --- select ------------------------------ */
     {
 	ErtsPollEvents events = ps->fds_status[fd].events;
+#ifdef _DARWIN_UNLIMITED_SELECT
+	if (FDS_SIZE(fd) > ps->select_fds_len)
+	    grow_select_fds(ps, fd);
+#endif
 	if ((ERTS_POLL_EV_IN & events)
 	    != (ERTS_POLL_EV_IN & ps->fds_status[fd].used_events)) {
 	    if (ERTS_POLL_EV_IN & events) {
-		FD_SET(fd, &ps->input_fds);
+		FDS_SET(fd, ps->input_fds);
 	    }
 	    else {
-		FD_CLR(fd, &ps->input_fds);
+		FDS_CLR(fd, ps->input_fds);
 	    }
 	}
 	if ((ERTS_POLL_EV_OUT & events)
 	    != (ERTS_POLL_EV_OUT & ps->fds_status[fd].used_events)) {
 	    if (ERTS_POLL_EV_OUT & events) {
-		FD_SET(fd, &ps->output_fds);
+		FDS_SET(fd, ps->output_fds);
 	    }
 	    else {
-		FD_CLR(fd, &ps->output_fds);
+		FDS_CLR(fd, ps->output_fds);
 	    }
 	}
 
@@ -1789,7 +1837,7 @@ save_poll_result(ErtsPollSet ps, ErtsPollResFd pr[], int max_res,
 		while (fd < end_fd && res < max_res) {
 
 		    pr[res].events = (ErtsPollEvents) 0;
-		    if (FD_ISSET(fd, &ps->res_input_fds)) {
+		    if (FDS_ISSET(fd, ps->res_input_fds)) {
 #if ERTS_POLL_USE_FALLBACK
 			if (fd == ps->kp_fd) {
 			    res += get_kp_results(ps, &pr[res], max_res-res);
@@ -1805,7 +1853,7 @@ save_poll_result(ErtsPollSet ps, ErtsPollResFd pr[], int max_res,
 #endif
 			pr[res].events |= ERTS_POLL_EV_IN;
 		    }
-		    if (FD_ISSET(fd, &ps->res_output_fds))
+		    if (FDS_ISSET(fd, ps->res_output_fds))
 			pr[res].events |= ERTS_POLL_EV_OUT;
 		    if (pr[res].events) {
 			pr[res].fd = fd;
@@ -1835,13 +1883,23 @@ save_poll_result(ErtsPollSet ps, ErtsPollResFd pr[], int max_res,
 			fd_set *iset = NULL;
 			fd_set *oset = NULL;
 			if (ps->fds_status[fd].events & ERTS_POLL_EV_IN) {
+#ifdef _DARWIN_UNLIMITED_SELECT
+			    iset = ps->res_input_fds;
+			    memset((void *) iset, 0, ps->select_fds_len);
+#else
 			    iset = &ps->res_input_fds;
 			    FD_ZERO(iset);
+#endif
 			    FD_SET(fd, iset);
 			}
 			if (ps->fds_status[fd].events & ERTS_POLL_EV_OUT) {
+#ifdef _DARWIN_UNLIMITED_SELECT
+			    oset = ps->res_output_fds;
+			    memset((char *)oset, 0, ps->select_fds_len);
+#else
 			    oset = &ps->res_output_fds;
 			    FD_ZERO(oset);
+#endif
 			    FD_SET(fd, oset);
 			
 			}
@@ -1992,16 +2050,37 @@ check_fd_events(ErtsPollSet ps, SysTimeval *tv, int max_res)
 #elif ERTS_POLL_USE_SELECT	/* --- select ------------------------------ */
 	    SysTimeval to = *tv;
 
+#ifdef _DARWIN_UNLIMITED_SELECT
+	    if (ps->resize_res_sets) {
+		ps->res_input_fds = ps->res_input_fds
+		    ? erts_realloc(ERTS_ALC_T_SELECT_FDS, ps->res_input_fds,
+				   ps->select_fds_len)
+		    : erts_alloc(ERTS_ALC_T_SELECT_FDS, ps->select_fds_len);
+		ps->res_output_fds = ps->res_output_fds
+		    ? erts_realloc(ERTS_ALC_T_SELECT_FDS, ps->res_output_fds,
+				   ps->select_fds_len)
+		    : erts_alloc(ERTS_ALC_T_SELECT_FDS, ps->select_fds_len);
+		ps->resize_res_sets = 0;
+	    }
+	    memcpy(ps->res_input_fds, ps->input_fds, ps->select_fds_len);
+	    memcpy(ps->res_output_fds, ps->output_fds, ps->select_fds_len);
+#else
 	    ps->res_input_fds = ps->input_fds;
 	    ps->res_output_fds = ps->output_fds;
+#endif
 
 #ifdef ERTS_SMP
 	    if (to.tv_sec || to.tv_usec)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
 	    res = select(ps->max_fd + 1,
+#ifdef _DARWIN_UNLIMITED_SELECT
+			 ps->res_input_fds,
+			 ps->res_output_fds,
+#else
 			 &ps->res_input_fds,
 			 &ps->res_output_fds,
+#endif
 			 NULL,
 			 &to);
 #ifdef ERTS_SMP
@@ -2028,8 +2107,13 @@ check_fd_events(ErtsPollSet ps, SysTimeval *tv, int max_res)
 		handle_update_requests(ps);
 		ERTS_POLLSET_UNLOCK(ps);
 		res = select(ps->max_fd + 1,
+#ifdef _DARWIN_UNLIMITED_SELECT
+			     ps->res_input_fds,
+			     ps->res_output_fds,
+#else
 			     &ps->res_input_fds,
 			     &ps->res_output_fds,
+#endif
 			     NULL,
 			     &to);
 		if (res == 0) {
@@ -2233,7 +2317,8 @@ ERTS_POLL_EXPORT(erts_poll_init)(void)
     max_fds = OPEN_MAX;
 #endif
 
-#if ERTS_POLL_USE_SELECT && defined(FD_SETSIZE)
+#if ERTS_POLL_USE_SELECT && defined(FD_SETSIZE) && \
+	!defined(_DARWIN_UNLIMITED_SELECT)
     if (max_fds > FD_SETSIZE)
 	max_fds = FD_SETSIZE;
 #endif
@@ -2301,10 +2386,19 @@ ERTS_POLL_EXPORT(erts_poll_create_pollset)(void)
 #if ERTS_POLL_USE_FALLBACK
     ps->no_select_fds = 0;
 #endif
+#ifdef _DARWIN_UNLIMITED_SELECT
+    ps->select_fds_len = 0;
+    ps->resize_res_sets = 0;
+    ps->input_fds = NULL;
+    ps->res_input_fds = NULL;
+    ps->output_fds = NULL;
+    ps->res_output_fds = NULL;
+#else
     FD_ZERO(&ps->input_fds);
     FD_ZERO(&ps->res_input_fds);
     FD_ZERO(&ps->output_fds);
     FD_ZERO(&ps->res_output_fds);
+#endif
 #endif
 #if ERTS_POLL_USE_UPDATE_REQUESTS_QUEUE
     ps->update_requests.next = NULL;
@@ -2382,6 +2476,16 @@ ERTS_POLL_EXPORT(erts_poll_destroy_pollset)(ErtsPollSet ps)
     if (ps->poll_fds)
 	erts_free(ERTS_ALC_T_POLL_FDS, (void *) ps->poll_fds);
 #elif ERTS_POLL_USE_SELECT
+#ifdef _DARWIN_UNLIMITED_SELECT
+    if (ps->input_fds)
+	erts_free(ERTS_ALC_T_SELECT_FDS, (void *) ps->input_fds);
+    if (ps->res_input_fds)
+	erts_free(ERTS_ALC_T_SELECT_FDS, (void *) ps->res_input_fds);
+    if (ps->output_fds)
+	erts_free(ERTS_ALC_T_SELECT_FDS, (void *) ps->output_fds);
+    if (ps->res_output_fds)
+	erts_free(ERTS_ALC_T_SELECT_FDS, (void *) ps->res_output_fds);
+#endif
 #endif
 #if ERTS_POLL_USE_UPDATE_REQUESTS_QUEUE
     {
@@ -2445,6 +2549,9 @@ ERTS_POLL_EXPORT(erts_poll_info)(ErtsPollSet ps, ErtsPollInfo *pip)
 #if ERTS_POLL_USE_POLL
     size += ps->poll_fds_len*sizeof(struct pollfd);
 #elif ERTS_POLL_USE_SELECT
+#ifdef _DARWIN_UNLIMITED_SELECT
+    size += ps->select_fds_len*4;
+#endif
 #endif
 
 #if ERTS_POLL_USE_UPDATE_REQUESTS_QUEUE
