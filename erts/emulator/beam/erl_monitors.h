@@ -170,6 +170,8 @@ ErtsSuspendMonitor *erts_lookup_suspend_monitor(ErtsSuspendMonitor *root,
 						Eterm pid);
 void erts_delete_suspend_monitor(ErtsSuspendMonitor **root, Eterm pid);
 void erts_init_monitors(void);
+void erts_one_link_size(ErtsLink *lnk, void *vpu);
+void erts_one_mon_size(ErtsMonitor *mon, void *vpu);
 
 #define erts_doforall_monitors erts_sweep_monitors
 #define erts_doforall_links erts_sweep_links

@@ -1024,3 +1024,23 @@ Eterm erts_debug_dump_links_1(BIF_ALIST_1)
 	}
     }
 }
+
+void erts_one_link_size(ErtsLink *lnk, void *vpu)
+{
+    Uint *pu = vpu;
+    *pu += ERTS_LINK_SIZE*sizeof(Uint);
+    if(!IS_CONST(lnk->pid))
+	*pu += NC_HEAP_SIZE(lnk->pid)*sizeof(Uint);
+    if (lnk->type != LINK_NODE && ERTS_LINK_ROOT(lnk) != NULL) {
+	erts_doforall_links(ERTS_LINK_ROOT(lnk),&erts_one_link_size,vpu);
+    }
+}
+void erts_one_mon_size(ErtsMonitor *mon, void *vpu)
+{
+    Uint *pu = vpu;
+    *pu += ERTS_MONITOR_SIZE*sizeof(Uint);
+    if(!IS_CONST(mon->pid))
+	*pu += NC_HEAP_SIZE(mon->pid)*sizeof(Uint);
+    if(!IS_CONST(mon->ref))
+	*pu += NC_HEAP_SIZE(mon->ref)*sizeof(Uint);
+}
