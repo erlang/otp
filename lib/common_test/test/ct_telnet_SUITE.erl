@@ -33,6 +33,10 @@
 
 -define(eh, ct_test_support_eh).
 
+-define(erl_telnet_server_port,1234).
+-define(erl_telnet_server_user,"telnuser").
+-define(erl_telnet_server_pwd,"telnpwd").
+
 %%--------------------------------------------------------------------
 %% TEST SERVER CALLBACK FUNCTIONS
 %%--------------------------------------------------------------------
@@ -48,10 +52,18 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
 
+init_per_testcase(own_server=TestCase, Config) ->
+    TS = telnet_server:start([{port,1234},{users,[{?erl_telnet_server_user,
+						   ?erl_telnet_server_pwd}]}]),
+    ct_test_support:init_per_testcase(TestCase, [{telnet_server,TS}|Config]);
 init_per_testcase(TestCase, Config) ->
     ct_test_support:init_per_testcase(TestCase, Config).
 
 end_per_testcase(TestCase, Config) ->
+    case ?config(telnet_server,Config) of
+	undefined -> ok;
+	TS -> telnet_server:stop(TS)
+    end,
     ct_test_support:end_per_testcase(TestCase, Config).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -71,10 +83,25 @@ default(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "ct_telnet_basic_SUITE"),
     Cfg = {unix, ct:get_config(unix)},
-    ok = file:write_file(filename:join(DataDir, "telnet.cfg"), io_lib:write(Cfg) ++ "."),
     CfgFile = filename:join(DataDir, "telnet.cfg"),
+    ok = file:write_file(CfgFile, io_lib:write(Cfg) ++ "."),
     {Opts,ERPid} = setup([{suite,Suite},{label,default}, {config, CfgFile}], Config),
     ok = execute(default, Opts, ERPid, Config).
+
+own_server(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "ct_telnet_own_server_SUITE"),
+    Cfg = {unix,[{telnet,"localhost"},
+		 {port, 1234},
+		 {username,?erl_telnet_server_user},
+		 {password,?erl_telnet_server_pwd},
+		 {wait_for_linebreak, false},
+%		 {not_require_user_and_pass, true},
+		 {keep_alive,true}]},
+    CfgFile = filename:join(DataDir, "telnet2.cfg"),
+    ok = file:write_file(CfgFile, io_lib:write(Cfg) ++ "."),
+    {Opts,ERPid} = setup([{suite,Suite},{label,own_server}, {config, CfgFile}], Config),
+    ok = execute(own_server, Opts, ERPid, Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -107,15 +134,20 @@ reformat(Events, EH) ->
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
 events_to_check(default,Config) ->
+    all_cases(ct_telnet_basic_SUITE,Config);
+events_to_check(own_server,Config) ->
+    all_cases(ct_telnet_own_server_SUITE,Config).
+
+all_cases(Suite,Config) ->
     {module,_} = code:load_abs(filename:join(?config(data_dir,Config),
-					     ct_telnet_basic_SUITE)),
-    TCs = ct_telnet_basic_SUITE:all(),
-    code:purge(ct_telnet_basic_SUITE),
-    code:delete(ct_telnet_basic_SUITE),
+					     Suite)),
+    TCs = Suite:all(),
+    code:purge(Suite),
+    code:delete(Suite),
 
     OneTest =
 	[{?eh,start_logging,{'DEF','RUNDIR'}}] ++
-	[{?eh,tc_done,{ct_telnet_basic_SUITE,TC,ok}} || TC <- TCs] ++
+	[{?eh,tc_done,{Suite,TC,ok}} || TC <- TCs] ++
 	[{?eh,stop_logging,[]}],
 
     %% 2 tests (ct:run_test + script_start) is default
