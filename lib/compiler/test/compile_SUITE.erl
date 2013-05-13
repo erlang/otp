@@ -492,6 +492,16 @@ encrypted_abstr_1(Simple, Target) ->
     ?line {error,beam_lib,{key_missing_or_invalid,"simple.beam",abstract_code}} =
 	beam_lib:chunks("simple.beam", [abstract_code]),
     ?line ok = file:set_cwd(OldCwd),
+
+    %% Test key compatibility by reading a BEAM file produced before
+    %% the update to the new crypto functions.
+    install_crypto_key("an old key"),
+    KeyCompat = filename:join(filename:dirname(Simple),
+			      "key_compatibility"),
+    {ok,{key_compatibility,[Chunk]}} = beam_lib:chunks(KeyCompat,
+						       [abstract_code]),
+    {abstract_code,{raw_abstract_v1,_}} = Chunk,
+
     ok.
 
 

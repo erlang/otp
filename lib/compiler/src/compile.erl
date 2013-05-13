@@ -1197,9 +1197,9 @@ abstract_code(#compile{code=Code,options=Opts,ofile=OFile}) ->
 
 encrypt_abs_code(Abstr, Key0) ->
     try
-	{Mode,RealKey} = generate_key(Key0),
+	RealKey = generate_key(Key0),
 	case start_crypto() of
-	    ok -> {ok,encrypt(Mode, RealKey, Abstr)};
+	    ok -> {ok,encrypt(RealKey, Abstr)};
 	    {error,_}=E -> E
 	end
     catch
@@ -1216,19 +1216,19 @@ start_crypto() ->
 	    {error,[{none,?MODULE,no_crypto}]}
     end.
 
-generate_key({Mode,String}) when is_atom(Mode), is_list(String) ->
-    {Mode,beam_lib:make_crypto_key(Mode, String)};
+generate_key({Type,String}) when is_atom(Type), is_list(String) ->
+    beam_lib:make_crypto_key(Type, String);
 generate_key(String) when is_list(String) ->
     generate_key({des3_cbc,String}).
 
-encrypt(des3_cbc=Mode, {K1,K2,K3, IVec}, Bin0) ->
-    Bin1 = case byte_size(Bin0) rem 8 of
+encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
+    Bin1 = case byte_size(Bin0) rem BlockSize of
 	       0 -> Bin0;
-	       N -> list_to_binary([Bin0,random_bytes(8-N)])
+	       N -> list_to_binary([Bin0,random_bytes(BlockSize-N)])
 	   end,
-    Bin = crypto:des3_cbc_encrypt(K1, K2, K3, IVec, Bin1),
-    ModeString = atom_to_list(Mode),
-    list_to_binary([0,length(ModeString),ModeString,Bin]).
+    Bin = crypto:block_encrypt(Type, Key, IVec, Bin1),
+    TypeString = atom_to_list(Type),
+    list_to_binary([0,length(TypeString),TypeString,Bin]).
 
 random_bytes(N) ->
     {A,B,C} = now(),
