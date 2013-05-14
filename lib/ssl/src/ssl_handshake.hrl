@@ -133,6 +133,7 @@
 -define(KEY_EXCHANGE_DIFFIE_HELLMAN, 1).
 -define(KEY_EXCHANGE_EC_DIFFIE_HELLMAN, 6).
 -define(KEY_EXCHANGE_PSK, 2).
+-define(KEY_EXCHANGE_EC_DIFFIE_HELLMAN_PSK, 7).
 -define(KEY_EXCHANGE_DHE_PSK, 3).
 -define(KEY_EXCHANGE_RSA_PSK, 4).
 -define(KEY_EXCHANGE_SRP, 5).
@@ -158,6 +159,11 @@
 	 }).
 
 -record(server_dhe_psk_params, {
+	  hint,
+	  dh_params
+	 }).
+
+-record(server_ecdhe_psk_params, {
 	  hint,
 	  dh_params
 	 }).
@@ -250,6 +256,11 @@
 	 }).
 
 -record(client_dhe_psk_identity, {
+	  identity,
+	  dh_public
+	 }).
+
+-record(client_ecdhe_psk_identity, {
 	  identity,
 	  dh_public
 	 }).

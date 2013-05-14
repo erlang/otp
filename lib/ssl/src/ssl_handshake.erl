@@ -227,6 +227,7 @@ certificate_request(CipherSuite, CertDbHandle, CertDbRef, HashSigns, Version) ->
 		   {ecdh, #'ECPrivateKey'{}} |
 		   {psk, binary()} |
 		   {dhe_psk, binary(), binary()} |
+		   {ecdhe_psk, binary(), #'ECPrivateKey'{}} |
 		   {srp, {binary(), binary()}, #srp_user{}, {HashAlgo::atom(), SignAlgo::atom()},
 		   binary(), binary(), public_key:private_key()}) ->
     #client_key_exchange{} | #server_key_exchange{}.
@@ -263,6 +264,13 @@ key_exchange(client, _Version, {dhe_psk, Identity, PublicKey}) ->
 		identity = Identity,
 		dh_public = PublicKey}
 	       };
+
+key_exchange(client, _Version, {ecdhe_psk, Identity, #'ECPrivateKey'{publicKey =  ECPublicKey}}) ->
+    #client_key_exchange{
+       exchange_keys = #client_ecdhe_psk_identity{
+			  identity = Identity,
+			  dh_public = ECPublicKey}
+      };
 
 key_exchange(client, _Version, {psk_premaster_secret, PskIdentity, Secret, {_, PublicKey, _}}) ->
     EncPremasterSecret =
@@ -309,6 +317,16 @@ key_exchange(server, Version, {dhe_psk, PskIdentityHint, {PublicKey, _},
      },
     enc_server_key_exchange(Version, ServerEDHPSKParams,
 			    HashSign, ClientRandom, ServerRandom, PrivateKey);
+
+key_exchange(server, Version, {ecdhe_psk, PskIdentityHint,
+			       #'ECPrivateKey'{publicKey =  ECPublicKey,
+					       parameters = ECCurve},
+			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
+    ServerECDHEPSKParams = #server_ecdhe_psk_params{
+      hint = PskIdentityHint,
+      dh_params = #server_ecdh_params{curve = ECCurve, public = ECPublicKey}},
+    enc_server_key_exchange(Version, ServerECDHEPSKParams, HashSign,
+			    ClientRandom, ServerRandom, PrivateKey);
 
 key_exchange(server, Version, {srp, {PublicKey, _},
 			       #srp_user{generator = Generator, prime = Prime,
@@ -532,14 +550,31 @@ premaster_secret(#server_dhe_psk_params{
 		    LookupFun) ->
     PremasterSecret = premaster_secret(PublicDhKey, PrivateDhKey, Params),
     psk_secret(IdentityHint, LookupFun, PremasterSecret);
+
+premaster_secret(#server_ecdhe_psk_params{
+		    hint = IdentityHint,
+                    dh_params = #server_ecdh_params{
+                                   public = ECServerPubKey}},
+		    PrivateEcDhKey,
+		    LookupFun) ->
+    PremasterSecret = premaster_secret(#'ECPoint'{point = ECServerPubKey}, PrivateEcDhKey),
+    psk_secret(IdentityHint, LookupFun, PremasterSecret);
+
 premaster_secret({rsa_psk, PSKIdentity}, PSKLookup, RSAPremasterSecret) ->
-    psk_secret(PSKIdentity, PSKLookup, RSAPremasterSecret).
+    psk_secret(PSKIdentity, PSKLookup, RSAPremasterSecret);
+
+premaster_secret(#client_ecdhe_psk_identity{
+		    identity =  PSKIdentity,
+		    dh_public = PublicEcDhPoint}, PrivateEcDhKey, PSKLookup) ->
+    PremasterSecret = premaster_secret(#'ECPoint'{point = PublicEcDhPoint}, PrivateEcDhKey),
+    psk_secret(PSKIdentity, PSKLookup, PremasterSecret).
 
 premaster_secret(#client_dhe_psk_identity{
 		    identity =  PSKIdentity,
 		    dh_public = PublicDhKey}, PrivateKey, #'DHParameter'{} = Params, PSKLookup) ->
     PremasterSecret = premaster_secret(PublicDhKey, PrivateKey, Params),
     psk_secret(PSKIdentity, PSKLookup, PremasterSecret).
+
 premaster_secret(#client_psk_identity{identity = PSKIdentity}, PSKLookup) ->
     psk_secret(PSKIdentity, PSKLookup);
 premaster_secret({psk, PSKIdentity}, PSKLookup) ->
@@ -887,6 +922,7 @@ enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
 			    | #client_ec_diffie_hellman_public{}
 			    | #client_psk_identity{}
 			    | #client_dhe_psk_identity{}
+			    | #client_ecdhe_psk_identity{}
 			    | #client_rsa_psk_identity{}
 			    | #client_srp_public{}.
 %%
@@ -1048,6 +1084,7 @@ dec_server_key(<<?UINT16(Len), PskIdentityHint:Len/binary, _/binary>> = KeyStruc
 		       params_bin = BinMsg,
 		       hashsign = HashSign,
 		       signature = Signature};
+
 dec_server_key(<<?UINT16(Len), IdentityHint:Len/binary,
 		 ?UINT16(PLen), P:PLen/binary,
 		 ?UINT16(GLen), G:GLen/binary,
@@ -1058,6 +1095,22 @@ dec_server_key(<<?UINT16(Len), IdentityHint:Len/binary,
       hint = IdentityHint,
       dh_params = DHParams},
     {BinMsg, HashSign, Signature} = dec_server_key_params(Len + PLen + GLen + YLen + 8, KeyStruct, Version),
+    #server_key_params{params = Params,
+		       params_bin = BinMsg,
+		       hashsign = HashSign,
+		       signature = Signature};
+dec_server_key(<<?UINT16(Len), IdentityHint:Len/binary,
+		 ?BYTE(?NAMED_CURVE), ?UINT16(CurveID),
+		 ?BYTE(PointLen), ECPoint:PointLen/binary,
+		 _/binary>> = KeyStruct,
+	       ?KEY_EXCHANGE_EC_DIFFIE_HELLMAN_PSK, Version) ->
+    DHParams = #server_ecdh_params{
+                  curve = {namedCurve, tls_v1:enum_to_oid(CurveID)},
+                  public = ECPoint},
+    Params = #server_ecdhe_psk_params{
+      hint = IdentityHint,
+      dh_params = DHParams},
+    {BinMsg, HashSign, Signature} = dec_server_key_params(Len + 2 + PointLen + 4, KeyStruct, Version),
     #server_key_params{params = Params,
 		       params_bin = BinMsg,
 		       hashsign = HashSign,
@@ -1132,7 +1185,8 @@ filter_hashsigns([Suite | Suites], [{KeyExchange,_,_,_} | Algos], HashSigns, Acc
       KeyExchange == ecdh_anon;
       KeyExchange == srp_anon;
       KeyExchange == psk;
-      KeyExchange == dhe_psk ->
+      KeyExchange == dhe_psk;
+      KeyExchange == ecdhe_psk ->
     %% In this case hashsigns is not used as the kexchange is anonaymous
     filter_hashsigns(Suites, Algos, HashSigns, [Suite| Acc]).
 
@@ -1496,6 +1550,8 @@ advertises_ec_ciphers([{ecdhe_rsa, _,_,_} | _]) ->
     true;
 advertises_ec_ciphers([{ecdh_anon, _,_,_} | _]) ->
     true;
+advertises_ec_ciphers([{ecdhe_psk, _,_,_} | _]) ->
+    true;
 advertises_ec_ciphers([_| Rest]) ->
     advertises_ec_ciphers(Rest).
 
@@ -1790,6 +1846,18 @@ encode_server_key(#server_dhe_psk_params{
     YLen = byte_size(Y),
     <<?UINT16(Len), PskIdentityHint/binary,
       ?UINT16(PLen), P/binary, ?UINT16(GLen), G/binary, ?UINT16(YLen), Y/binary>>;
+encode_server_key(Params = #server_ecdhe_psk_params{hint = undefined}) ->
+    encode_server_key(Params#server_ecdhe_psk_params{hint = <<>>});
+encode_server_key(#server_ecdhe_psk_params{
+		     hint = PskIdentityHint,
+		     dh_params = #server_ecdh_params{
+		       curve = {namedCurve, ECCurve}, public = ECPubKey}}) ->
+    %%TODO: support arbitrary keys
+    Len = byte_size(PskIdentityHint),
+    KLen = size(ECPubKey),
+    <<?UINT16(Len), PskIdentityHint/binary,
+      ?BYTE(?NAMED_CURVE), ?UINT16((tls_v1:oid_to_enum(ECCurve))),
+      ?BYTE(KLen), ECPubKey/binary>>;
 encode_server_key(#server_srp_params{srp_n = N, srp_g = G,	srp_s = S, srp_b = B}) ->
     NLen = byte_size(N),
     GLen = byte_size(G),
@@ -1822,6 +1890,12 @@ encode_client_key(#client_dhe_psk_identity{identity = Id, dh_public = DHPublic},
     Len = byte_size(Id),
     DHLen = byte_size(DHPublic),
     <<?UINT16(Len), Id/binary, ?UINT16(DHLen), DHPublic/binary>>;
+encode_client_key(Identity = #client_ecdhe_psk_identity{identity = undefined}, Version) ->
+    encode_client_key(Identity#client_ecdhe_psk_identity{identity = <<"psk_identity">>}, Version);
+encode_client_key(#client_ecdhe_psk_identity{identity = Id, dh_public = DHPublic}, _) ->
+    Len = byte_size(Id),
+    DHLen = byte_size(DHPublic),
+    <<?UINT16(Len), Id/binary, ?BYTE(DHLen), DHPublic/binary>>;
 encode_client_key(Identity = #client_rsa_psk_identity{identity = undefined}, Version) ->
     encode_client_key(Identity#client_rsa_psk_identity{identity = <<"psk_identity">>}, Version);
 encode_client_key(#client_rsa_psk_identity{identity = Id, exchange_keys = ExchangeKeys}, Version) ->
@@ -1873,6 +1947,10 @@ dec_client_key(<<?UINT16(Len), Id:Len/binary,
 		 ?UINT16(DH_YLen), DH_Y:DH_YLen/binary>>,
 	       ?KEY_EXCHANGE_DHE_PSK, _) ->
     #client_dhe_psk_identity{identity = Id, dh_public = DH_Y};
+dec_client_key(<<?UINT16(Len), Id:Len/binary,
+		 ?BYTE(DH_YLen), DH_Y:DH_YLen/binary>>,
+	       ?KEY_EXCHANGE_EC_DIFFIE_HELLMAN_PSK, _) ->
+    #client_ecdhe_psk_identity{identity = Id, dh_public = DH_Y};
 dec_client_key(<<?UINT16(Len), Id:Len/binary, PKEPMS/binary>>,
 	       ?KEY_EXCHANGE_RSA_PSK, {3, 0}) ->
     #client_rsa_psk_identity{identity = Id,
@@ -2050,6 +2128,8 @@ key_exchange_alg(psk) ->
     ?KEY_EXCHANGE_PSK;
 key_exchange_alg(dhe_psk) ->
     ?KEY_EXCHANGE_DHE_PSK;
+key_exchange_alg(ecdhe_psk) ->
+    ?KEY_EXCHANGE_EC_DIFFIE_HELLMAN_PSK;
 key_exchange_alg(rsa_psk) ->
     ?KEY_EXCHANGE_RSA_PSK;
 key_exchange_alg(Alg)
@@ -2308,6 +2388,7 @@ is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, ecdsa, ecdhe_ecdsa, Supported
 is_acceptable_hash_sign(_, _, _, KeyExAlgo, _) when 
       KeyExAlgo == psk;
       KeyExAlgo == dhe_psk;
+      KeyExAlgo == ecdhe_psk;
       KeyExAlgo == srp_anon;
       KeyExAlgo == dh_anon;
       KeyExAlgo == ecdhe_anon     
