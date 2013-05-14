@@ -24,8 +24,6 @@
 
 -compile(export_all).
 
--define(unicode_string,[945,946]). % greek letters alpha and beta
-
 % Default timetrap timeout (set in init_per_testcase).
 %-define(default_timeout, ?t:minutes(40)).
 -define(default_timeout, ?t:minutes(10)).
@@ -1686,8 +1684,7 @@ stop_target_node(Node) ->
 %% install under a path which includes unicode characters
 target_system_unicode(Conf) when is_list(Conf) ->
     PrivDir = priv_dir(Conf),
-    UnicodeStr = ?unicode_string,
-    UnicodePrivDir = filename:join(PrivDir,UnicodeStr),
+    UnicodePrivDir = filename:join(PrivDir,"αβ"),
 
     PA = filename:dirname(code:which(?MODULE)),
 
@@ -2135,12 +2132,12 @@ priv_dir(Conf) ->
     %% Due to problem with long paths on windows => creating a new
     %% priv_dir under data_dir
     %% And get rid of trailing slash (absname does that)
-    %% And if file name translation mode is utf8 when not on windows,
-    %% use a path with unicode characters...
+    %% And if file name translation mode is utf8, use a path with
+    %% unicode characters
     PrivDir =
-	case {file:native_name_encoding(),os:type()} of
-	    {utf8,{Os,_}} when Os=/=win32 ->
-		"priv_dir_" ++ ?unicode_string;
+	case file:native_name_encoding() of
+	    utf8 ->
+		"priv_dir_αβ";
 	    _ ->
 		"priv_dir"
 	end,
