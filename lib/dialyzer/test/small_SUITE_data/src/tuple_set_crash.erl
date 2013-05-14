@@ -69,8 +69,8 @@ test(TargetId, [Date | DateTail], Key, IVT, IVF) ->
 	{ok, message_from_server(), binary(), binary()}.
 culprit(Message, Key, IVecToServer, IVecFromServer) ->
     {Packet, NewIVecToServer} = message_to_packet(Message, Key, IVecToServer),
-    Message = crypto:aes_cbc_128_decrypt(Key, IVecFromServer, Packet),
-    NewIVecFromServer = crypto:aes_cbc_ivec(Packet),
+    Message = crypto:block_decrypt(aes_cbc128, Key, IVecFromServer, Packet),
+    NewIVecFromServer = crypto:next_iv(aes_cbc, Packet),
     ParsedMessage = parse_message(Message),
     {ok, ParsedMessage, NewIVecToServer, NewIVecFromServer}.
 
@@ -185,9 +185,9 @@ parse_audio_output_info(<<Output:?DWORD, BitMap:?BITMAP1, Rest/binary>>) ->
 -spec message_to_packet(binary(), binary(), binary()) -> {binary(), binary()}.
 message_to_packet(Message, Key, IVec) ->
     PaddedMessage = pad_pkcs5(Message),
-    Packet = crypto:aes_cbc_128_encrypt(Key, IVec, PaddedMessage),
+    Packet = crypto:block_encrypt(aes_cbc128, Key, IVec, PaddedMessage),
     TotalSize = byte_size(Packet),
-    NewIVec = crypto:aes_cbc_ivec(Packet),
+    NewIVec = crypto:next_iv(aes_cbc, Packet),
     {<<TotalSize:?WORD, Packet/binary>>, NewIVec}.
 
 -spec pad_pkcs5(binary()) -> binary().
