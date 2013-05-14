@@ -285,7 +285,7 @@ user_lookup(psk, _Identity, UserState) ->
     {ok, UserState};
 user_lookup(srp, Username, _UserState) ->
     Salt = ssl:random_bytes(16),
-    UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, <<"secret">>])]),
+    UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, <<"secret">>])]),
     {ok, {srp_1024, Salt, UserPassHash}}.
 
 cert_options(Config) ->
