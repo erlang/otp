@@ -94,16 +94,11 @@ connect(Ip,Port,Timeout,KeepAlive,Extra) ->
 	{Username,Password} -> 
 	    connect1(Ip,Port,Timeout,KeepAlive,Username,Password);
 	Name ->
-	    case not_require_user_and_pass(Name) of
-		true ->
-		    connect_without_username_and_pass(Ip,Port,Timeout,KeepAlive);
-		_ ->
-		    case get_username_and_password(Name) of
-			{ok,{Username,Password}} -> 
-			    connect1(Ip,Port,Timeout,KeepAlive,Username,Password);
-			Error -> 
-			    Error
-		    end
+	    case get_username_and_password(Name) of
+		{ok,{Username,Password}} ->
+		    connect1(Ip,Port,Timeout,KeepAlive,Username,Password);
+		Error ->
+		    Error
 	    end
     end.
 
@@ -148,27 +143,6 @@ connect1(Ip,Port,Timeout,KeepAlive,Username,Password) ->
 	end,
     end_log(),
     Result.
-
-connect_without_username_and_pass(Ip,Port,Timeout,KeepAlive) ->
-    start_log("unix_telnet:connect"),
-    Result = 
-	case ct_telnet_client:open(Ip,Port,Timeout,KeepAlive) of
-	    {ok,Pid} ->
-		{ok, Pid};
-	    Error ->
-		cont_log("Could not open telnet connection\n~p\n",[Error]),
-		Error
-	end,
-    end_log(),
-    Result.
-
-not_require_user_and_pass(Name) ->
-    case ct:get_config({Name, not_require_user_and_pass}) of
-	undefined ->
-	    false;
-	_ ->
-	    true
-    end.
 
 get_username_and_password(Name) ->
     case ct:get_config({Name,username}) of

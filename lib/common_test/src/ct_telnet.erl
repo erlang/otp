@@ -29,9 +29,7 @@
 %%% Command timeout = 10 sec (time to wait for a command to return)
 %%% Max no of reconnection attempts = 3
 %%% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
-%%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)
-%%% Wait for linebreak = true (Will expect answer from server to end with linebreak when 
-%%% using ct_telnet:expect)</pre>
+%%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
 %%% <p>These parameters can be altered by the user with the following
 %%% configuration term:</p>
 %%% <pre>
@@ -39,8 +37,7 @@
 %%%                    {command_timeout,Millisec},
 %%%                    {reconnection_attempts,N},
 %%%                    {reconnection_interval,Millisec},
-%%%                    {keep_alive,Bool},
-%%                     {wait_for_linebreak, Bool}]}.</pre>
+%%%                    {keep_alive,Bool}]}.</pre>
 %%% <p><code>Millisec = integer(), N = integer()</code></p>
 %%% <p>Enter the <code>telnet_settings</code> term in a configuration 
 %%% file included in the test and ct_telnet will retrieve the information
@@ -731,8 +728,7 @@ teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
 	    haltpatterns=[],
 	    seq=false,
 	    repeat=false,
-	    found_prompt=false,
-	    wait_for_linebreak=true}).
+	    found_prompt=false}).
 
 %% @hidden
 %% @doc Externally the silent_teln_expect function shall only be used
@@ -758,25 +754,20 @@ silent_teln_expect(Pid,Data,Pattern,Prx,Opts) ->
 %% condition is fullfilled.
 %% 3b) Repeat (sequence): 2) is repeated either N times or until a
 %% halt condition is fullfilled.
-teln_expect(Pid,Data,Pattern0,Prx,Opts) -> 
-    HaltPatterns = case get_ignore_prompt(Opts) of 
-		       true -> 
-			   get_haltpatterns(Opts); 
-		       false -> 
-			   [prompt | get_haltpatterns(Opts)] 
-		   end,
-    WaitForLineBreak = get_line_break_opt(Opts),
+teln_expect(Pid,Data,Pattern0,Prx,Opts) -> HaltPatterns = case
+    get_ignore_prompt(Opts) of true -> get_haltpatterns(Opts); false
+    -> [prompt | get_haltpatterns(Opts)] end,
+
     Seq = get_seq(Opts),
     Pattern = convert_pattern(Pattern0,Seq),
-					   
+
     Timeout = get_timeout(Opts),
-					   
+
     EO = #eo{teln_pid=Pid,
 	     prx=Prx,
 	     timeout=Timeout,
 	     seq=Seq,
-	     haltpatterns=HaltPatterns,
-	     wait_for_linebreak=WaitForLineBreak},
+	     haltpatterns=HaltPatterns},
     
     case get_repeat(Opts) of
 	false ->
@@ -816,11 +807,6 @@ get_timeout(Opts) ->
     case lists:keysearch(timeout,1,Opts) of
 	{value,{timeout,T}} -> T;
 	false -> ?DEFAULT_TIMEOUT
-    end.
-get_line_break_opt(Opts) ->
-    case lists:keysearch(wait_for_linebreak,1,Opts) of
-	{value,{wait_for_linebreak,false}} -> false;
-	_ -> true
     end.
 get_repeat(Opts) ->
     case lists:keysearch(repeat,1,Opts) of
@@ -1018,9 +1004,8 @@ seq_expect1(Data,[],Acc,Rest,_EO) ->
 %% Split prompt-chunk at lines
 match_lines(Data,Patterns,EO) ->
     FoundPrompt = EO#eo.found_prompt,
-    NeedLineBreak = EO#eo.wait_for_linebreak,
     case one_line(Data,[]) of
-	{noline,Rest} when FoundPrompt=/=false, NeedLineBreak =:= true ->
+	{noline,Rest} when FoundPrompt=/=false ->
 	    %% This is the line including the prompt
 	    case match_line(Rest,Patterns,FoundPrompt,EO) of
 		nomatch ->
@@ -1028,14 +1013,7 @@ match_lines(Data,Patterns,EO) ->
 		{Tag,Match} ->
 		    {Tag,Match,[]}
 	    end;
-	{noline,Rest} when NeedLineBreak =:= false ->
-	    case match_line(Rest,Patterns,FoundPrompt,EO) of
-		nomatch ->
-		    {nomatch,prompt};
-		{Tag,Match} ->
-		    {Tag,Match,[]}
-	    end;
-	{noline, Rest} ->
+	{noline,Rest} ->
 	    {nomatch,Rest};
 	{Line,Rest} ->
 	    case match_line(Line,Patterns,false,EO) of
