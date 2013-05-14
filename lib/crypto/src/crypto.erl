@@ -781,10 +781,12 @@ next_iv(des3_cbc, Data) ->
 next_iv(aes_cbc, Data) ->
     aes_cbc_ivec(Data).
 
--spec next_iv(des_cbf, Ivec::binary(), Data::iodata()) -> binary().
+-spec next_iv(des_cfb, Data::iodata(), Ivec::binary()) -> binary().
 
-next_iv(des_cbf, Ivec, Data) ->
-    des_cfb_ivec(Ivec, Data).
+next_iv(des_cfb, Data, Ivec) ->
+    des_cfb_ivec(Ivec, Data);
+next_iv(Type, Data, _Ivec) ->
+    next_iv(Type, Data).
 
 stream_init(aes_ctr, Key, Ivec) ->
     {aes_ctr, aes_ctr_stream_init(Key, Ivec)}.
