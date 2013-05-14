@@ -878,7 +878,7 @@ ec_curve_spec( #'ECParameters'{fieldID = FieldId, curve = PCurve, base = Base, o
 ec_curve_spec({namedCurve, OID}) ->
     pubkey_cert_records:namedCurves(OID).
 
-ec_key({PrivateKey, PubKey}, Params) ->
+ec_key({PubKey, PrivateKey}, Params) ->
     #'ECPrivateKey'{version = 1,
 		    privateKey = int2list(PrivateKey),
 		    parameters = Params,

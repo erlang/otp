@@ -410,7 +410,7 @@ int2list(I) ->
     binary_to_list(<<I:(L*8)>>).
 
 gen_ec2(CurveId) ->
-     {PrivKey, PubKey} = crypto:generate_key(ecdh, CurveId),
+     {PubKey, PrivKey} = crypto:generate_key(ecdh, CurveId),
 
     #'ECPrivateKey'{version = 1,
 		    privateKey = int2list(PrivKey),

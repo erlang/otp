@@ -1489,7 +1489,7 @@ ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
 ec_key_to_term(Key) ->
     case ec_key_to_term_nif(Key) of
         {PrivKey, PubKey} ->
-            {bin_to_int(PrivKey), PubKey};
+            {PubKey,  bin_to_int(PrivKey)};
         _ ->
             erlang:error(conversion_failed)
     end.
