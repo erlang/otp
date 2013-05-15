@@ -183,20 +183,25 @@ extensions() ->
       Command :: atom() | io_lib:chars().
 cmd(Cmd) ->
     validate(Cmd),
-    case type() of
-	{unix, _} ->
-	    unix_cmd(Cmd);
-	{win32, Wtype} ->
-	    Command0 = case {os:getenv("COMSPEC"),Wtype} of
-			  {false,windows} -> lists:concat(["command.com /c", Cmd]);
-			  {false,_} -> lists:concat(["cmd /c", Cmd]);
-			  {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
-		      end,
-            %% open_port/2 awaits string() in Command, but io_lib:chars() can be
-            %% deep lists according to io_lib module description.
-            Command = lists:flatten(Command0),
-	    Port = open_port({spawn, Command}, [stream, in, eof, hide]),
-	    get_data(Port, [])
+    Bytes = case type() of
+		{unix, _} ->
+		    unix_cmd(Cmd);
+		{win32, Wtype} ->
+		    Command0 = case {os:getenv("COMSPEC"),Wtype} of
+				  {false,windows} -> lists:concat(["command.com /c", Cmd]);
+				  {false,_} -> lists:concat(["cmd /c", Cmd]);
+				  {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
+			      end,
+		    %% open_port/2 awaits string() in Command, but io_lib:chars() can be
+		    %% deep lists according to io_lib module description.
+		    Command = lists:flatten(Command0),
+		    Port = open_port({spawn, Command}, [stream, in, eof, hide]),
+		    get_data(Port, [])
+	    end,
+    String = unicode:characters_to_list(list_to_binary(Bytes)),
+    if  %% Convert to unicode list if possible otherwise return bytes
+	is_list(String) -> String;
+	true -> Bytes
     end.
 
 unix_cmd(Cmd) ->
@@ -337,7 +342,7 @@ mk_cmd(Cmd) when is_atom(Cmd) ->		% backward comp.
 mk_cmd(Cmd) ->
     %% We insert a new line after the command, in case the command
     %% contains a comment character.
-    io_lib:format("(~ts\n) </dev/null; echo  \"\^D\"\n", [Cmd]).
+    [$(, unicode:characters_to_binary(Cmd), "\n) </dev/null; echo  \"\^D\"\n"].
 
 
 validate(Atom) when is_atom(Atom) ->
@@ -345,7 +350,7 @@ validate(Atom) when is_atom(Atom) ->
 validate(List) when is_list(List) ->
     validate1(List).
 
-validate1([C|Rest]) when is_integer(C), 0 =< C, C < 256 ->
+validate1([C|Rest]) when is_integer(C) ->
     validate1(Rest);
 validate1([List|Rest]) when is_list(List) ->
     validate1(List),
