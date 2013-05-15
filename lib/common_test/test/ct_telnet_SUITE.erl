@@ -52,7 +52,7 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
 
-init_per_testcase(own_server=TestCase, Config) ->
+init_per_testcase(TestCase, Config) when TestCase=/=unix_telnet->
     TS = telnet_server:start([{port,?erl_telnet_server_port},
 			      {users,[{?erl_telnet_server_user,
 				       ?erl_telnet_server_pwd}]}]),
@@ -71,7 +71,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [
-     default
+     unix_telnet,
+     own_server
     ].
 
 %%--------------------------------------------------------------------
@@ -80,33 +81,28 @@ all() ->
 
 %%%-----------------------------------------------------------------
 %%%
-default(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    Suite = filename:join(DataDir, "ct_telnet_basic_SUITE"),
-    Cfg = {unix, ct:get_config(unix)},
-    CfgFile = filename:join(DataDir, "telnet.cfg"),
-    ok = file:write_file(CfgFile, io_lib:write(Cfg) ++ "."),
-    {Opts,ERPid} = setup([{suite,Suite},{label,default}, {config, CfgFile}], Config),
-    ok = execute(default, Opts, ERPid, Config).
+unix_telnet(Config) when is_list(Config) ->
+    all_tests_in_suite(unix_telnet,"ct_telnet_basic_SUITE","telnet.cfg",Config).
 
 own_server(Config) ->
-    DataDir = ?config(data_dir, Config),
-    Suite = filename:join(DataDir, "ct_telnet_own_server_SUITE"),
-    Cfg = {unix,[{telnet,"localhost"},
-		 {port, ?erl_telnet_server_port},
-		 {username,?erl_telnet_server_user},
-		 {password,?erl_telnet_server_pwd},
-		 {wait_for_linebreak, false},
-%		 {not_require_user_and_pass, true},
-		 {keep_alive,true}]},
-    CfgFile = filename:join(DataDir, "telnet2.cfg"),
-    ok = file:write_file(CfgFile, io_lib:write(Cfg) ++ "."),
-    {Opts,ERPid} = setup([{suite,Suite},{label,own_server}, {config, CfgFile}], Config),
-    ok = execute(own_server, Opts, ERPid, Config).
+    all_tests_in_suite(own_server,"ct_telnet_own_server_SUITE",
+		       "telnet2.cfg",Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
+
+all_tests_in_suite(TestCase, SuiteName, CfgFileName, Config) ->
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, SuiteName),
+    CfgFile = filename:join(DataDir, CfgFileName),
+    Cfg = telnet_config(TestCase),
+    ok = file:write_file(CfgFile, io_lib:write(Cfg) ++ "."),
+    {Opts,ERPid} = setup([{suite,Suite},
+			  {label,TestCase},
+			  {config,CfgFile}],
+			 Config),
+    ok = execute(TestCase, Opts, ERPid, Config).
 
 setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
@@ -131,10 +127,20 @@ execute(Name, Opts, ERPid, Config) ->
 reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
 
+
+telnet_config(unix_telnet) ->
+    {unix, ct:get_config(unix)};
+telnet_config(_) ->
+    {unix,[{telnet,"localhost"},
+	   {port, ?erl_telnet_server_port},
+	   {username,?erl_telnet_server_user},
+	   {password,?erl_telnet_server_pwd},
+	   {keep_alive,true}]}.
+
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
-events_to_check(default,Config) ->
+events_to_check(unix_telnet,Config) ->
     all_cases(ct_telnet_basic_SUITE,Config);
 events_to_check(own_server,Config) ->
     all_cases(ct_telnet_own_server_SUITE,Config).
