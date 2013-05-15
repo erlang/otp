@@ -293,8 +293,46 @@ MBC after deallocating first block:
 
 /* Carriers ... */
 
-#define SBC_HEADER_SIZE	   (UNIT_CEILING(sizeof(Carrier_t) + ABLK_HDR_SZ) \
-			    - ABLK_HDR_SZ)
+/* #define ERTS_ALC_CPOOL_DEBUG */
+
+#if defined(DEBUG) && !defined(ERTS_ALC_CPOOL_DEBUG)
+#  define ERTS_ALC_CPOOL_DEBUG
+#endif
+
+#ifndef ERTS_SMP
+#  undef ERTS_ALC_CPOOL_DEBUG
+#endif
+
+#ifdef ERTS_ALC_CPOOL_DEBUG
+#  define ERTS_ALC_CPOOL_ASSERT(A)				\
+    ((void) ((A)						\
+	     ? 1						\
+	     : (erts_alcu_assert_failed(#A,			\
+					(char *) __FILE__,	\
+					__LINE__,		\
+					(char *) __func__),	\
+		0)))
+#else
+#  define ERTS_ALC_CPOOL_ASSERT(A) ((void) 1)
+#endif
+
+#define ERTS_ALC_IS_CPOOL_ENABLED(A)	((A)->cpool.util_limit)
+
+#define ERTS_CRR_ALCTR_FLG_IN_POOL	(((erts_aint_t) 1) << 0)
+#define ERTS_CRR_ALCTR_FLG_BUSY		(((erts_aint_t) 1) << 1)
+
+#ifdef ERTS_SMP
+#define SBC_HEADER_SIZE	   						\
+    (UNIT_CEILING(sizeof(Carrier_t)					\
+		  - sizeof(ErtsAlcCPoolData_t)				\
+		  + ABLK_HDR_SZ)					\
+     - ABLK_HDR_SZ)
+#else
+#define SBC_HEADER_SIZE	   						\
+    (UNIT_CEILING(sizeof(Carrier_t)					\
+		  + ABLK_HDR_SZ)					\
+     - ABLK_HDR_SZ)
+#endif
 #define MBC_HEADER_SIZE(AP) ((AP)->mbc_header_size)
 
 
@@ -307,7 +345,8 @@ MBC after deallocating first block:
 #define SCH_SBC				SBC_CARRIER_HDR_FLAG
 
 #define SET_CARRIER_HDR(C, Sz, F, AP) \
-  (ASSERT(((Sz) & FLG_MASK) == 0), (C)->chdr = ((Sz) | (F)), (C)->allctr = (AP))
+  (ASSERT(((Sz) & FLG_MASK) == 0), (C)->chdr = ((Sz) | (F)), \
+   erts_smp_atomic_init_nob(&(C)->allctr, (erts_aint_t) (AP)))
 
 #define BLK_TO_SBC(B) \
   ((Carrier_t *) (((char *) (B)) - SBC_HEADER_SIZE))
@@ -547,6 +586,35 @@ static Block_t *create_carrier(Allctr_t *, Uint, UWord);
 static void destroy_carrier(Allctr_t *, Block_t *);
 static void mbc_free(Allctr_t *allctr, void *p);
 
+/* internal data... */
+
+#if 0
+
+static ERTS_INLINE void *
+internal_alloc(UWord size)
+{
+    void *res = erts_sys_alloc(0, NULL, size);
+    if (!res)
+	erts_alloc_enomem(ERTS_ALC_T_UNDEF, size);
+    return res;
+}
+
+static ERTS_INLINE void *
+internal_realloc(void *ptr, UWord size)
+{
+    void *res = erts_sys_realloc(0, NULL, ptr, size);
+    if (!res)
+	erts_alloc_enomem(ERTS_ALC_T_UNDEF, size);
+    return res;
+}
+
+static ERTS_INLINE void
+internal_free(void *ptr)
+{
+    erts_sys_free(0, NULL, ptr);
+}
+
+#endif
 
 /* mseg ... */
 
@@ -835,22 +903,28 @@ get_pref_allctr(void *extra)
  * the "PREV_FREE" flag bit. 
  */
 static ERTS_INLINE Allctr_t*
-get_used_allctr(void *extra, void *p, UWord *sizep)
+get_used_allctr(Allctr_t *pref_allctr, void *extra, void *p, UWord *sizep)
 {
     Block_t* blk = UMEM2BLK(p);
     Carrier_t* crr;
+    erts_aint_t iallctr;
 
     if (IS_SBC_BLK(blk)) {
 	crr = BLK_TO_SBC(blk);
 	if (sizep)
 	    *sizep = SBC_BLK_SZ(blk) - ABLK_HDR_SZ;  
+	iallctr = erts_smp_atomic_read_dirty(&crr->allctr);
     }
     else {
 	crr = ABLK_TO_MBC(blk);
 	if (sizep)
 	    *sizep = MBC_ABLK_SZ(blk) - ABLK_HDR_SZ;
+	if (!ERTS_ALC_IS_CPOOL_ENABLED(pref_allctr))
+	    iallctr = erts_smp_atomic_read_dirty(&crr->allctr);
+	else
+	    iallctr = erts_smp_atomic_read_ddrb(&crr->allctr);
     }
-    return crr->allctr;
+    return (Allctr_t *) (iallctr & ~FLG_MASK);
 }
 
 static void
@@ -1818,6 +1892,413 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
     }
 #endif /* !MBC_REALLOC_ALWAYS_MOVES */
 }
+
+#ifdef ERTS_SMP
+
+#define ERTS_ALC_CPOOL_MAX_FETCH_INSPECT	10
+
+#define ERTS_ALC_CPOOL_PTR_MOD_MRK		(((erts_aint_t) 1) << 0)
+#define ERTS_ALC_CPOOL_PTR_DEL_MRK		(((erts_aint_t) 1) << 1)
+
+#define ERTS_ALC_CPOOL_PTR_MRKS \
+    (ERTS_ALC_CPOOL_PTR_MOD_MRK | ERTS_ALC_CPOOL_PTR_DEL_MRK)
+
+/*
+ * When setting multiple mod markers we always
+ * set mod markers in pointer order and always
+ * on next pointers before prev pointers.
+ */
+
+typedef union {
+    ErtsAlcCPoolData_t sentinel;
+    char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsAlcCPoolData_t))];
+} ErtsAlcCrrPool_t;
+
+#if ERTS_ALC_A_INVALID != 0
+#  error "Carrier pool implementation assumes ERTS_ALC_A_INVALID == 0"
+#endif
+#if ERTS_ALC_A_MIN <= ERTS_ALC_A_INVALID
+#  error "Carrier pool implementation assumes ERTS_ALC_A_MIN > ERTS_ALC_A_INVALID"
+#endif
+
+static ErtsAlcCrrPool_t carrier_pool[ERTS_ALC_A_MAX+1] erts_align_attribute(ERTS_CACHE_LINE_SIZE);
+
+#define ERTS_ALC_CPOOL_MAX_BACKOFF (1 << 8)
+
+static int
+backoff(int n)
+{
+    int i;
+
+    for (i = 0; i < n; i++)
+	ERTS_SPIN_BODY;
+
+    if (n >= ERTS_ALC_CPOOL_MAX_BACKOFF)
+	return ERTS_ALC_CPOOL_MAX_BACKOFF;
+    else
+	return n << 1;
+}
+
+static int
+cpool_dbg_is_in_pool(Allctr_t *allctr, Carrier_t *crr)
+{
+    ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+    ErtsAlcCPoolData_t *cpdp = sentinel;
+    Carrier_t *tmp_crr;
+
+    while (1) {
+	cpdp = (ErtsAlcCPoolData_t *) (erts_atomic_read_ddrb(&cpdp->next) & ~FLG_MASK);
+	if (cpdp == sentinel)
+	    return 0;
+	tmp_crr = (Carrier_t *) (((char *) cpdp) - offsetof(Carrier_t, cpool));
+	if (tmp_crr == crr)
+	    return 1;
+    }
+}
+
+static int
+cpool_is_empty(Allctr_t *allctr)
+{
+    ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+    return ((erts_atomic_read_rb(&sentinel->next) == (erts_aint_t) sentinel)
+	    && (erts_atomic_read_rb(&sentinel->prev) == (erts_aint_t) sentinel));
+}
+
+static ERTS_INLINE ErtsAlcCPoolData_t *
+cpool_aint2cpd(erts_aint_t aint)
+{
+    return (ErtsAlcCPoolData_t *) (aint & ~ERTS_ALC_CPOOL_PTR_MRKS);
+}
+
+static ERTS_INLINE erts_aint_t
+cpool_read(erts_atomic_t *aptr)
+{
+    return erts_atomic_read_acqb(aptr);
+}
+
+static ERTS_INLINE void
+cpool_init(erts_atomic_t *aptr, erts_aint_t val)
+{
+    erts_atomic_set_nob(aptr, val);
+}
+
+static ERTS_INLINE void
+cpool_set_mod_marked(erts_atomic_t *aptr, erts_aint_t new, erts_aint_t old)
+{
+#ifdef ERTS_ALC_CPOOL_DEBUG
+    erts_aint_t act = erts_atomic_xchg_relb(aptr, new);
+    ERTS_ALC_CPOOL_ASSERT(act == (old | ERTS_ALC_CPOOL_PTR_MOD_MRK));
+#else
+    erts_atomic_set_relb(aptr, new);
+#endif
+}
+
+
+static ERTS_INLINE erts_aint_t
+cpool_try_mod_mark_exp(erts_atomic_t *aptr, erts_aint_t exp)
+{
+    ERTS_ALC_CPOOL_ASSERT((exp & ERTS_ALC_CPOOL_PTR_MOD_MRK) == 0);
+    return erts_atomic_cmpxchg_nob(aptr, exp | ERTS_ALC_CPOOL_PTR_MOD_MRK, exp);
+}
+
+static ERTS_INLINE erts_aint_t
+cpool_mod_mark_exp(erts_atomic_t *aptr, erts_aint_t exp)
+{
+    int b;
+    erts_aint_t act;
+    ERTS_ALC_CPOOL_ASSERT((exp & ERTS_ALC_CPOOL_PTR_MOD_MRK) == 0);
+    while (1) {
+	act = erts_atomic_cmpxchg_nob(aptr,
+				      exp | ERTS_ALC_CPOOL_PTR_MOD_MRK,
+				      exp);
+	if (act == exp)
+	    return exp;
+	b = 1;
+	do {
+	    if ((act & ~ERTS_ALC_CPOOL_PTR_MOD_MRK) != exp)
+		return act;
+	    b = backoff(b);
+	    act = erts_atomic_read_nob(aptr);
+	} while (act != exp);
+    }
+}
+
+static ERTS_INLINE erts_aint_t
+cpool_mod_mark(erts_atomic_t *aptr)
+{
+    int b;
+    erts_aint_t act, exp;
+    act = cpool_read(aptr);
+    while (1) {
+	b = 1;
+	while (act & ERTS_ALC_CPOOL_PTR_MOD_MRK) {
+	    b = backoff(b);
+	    act = erts_atomic_read_nob(aptr);
+	}
+	exp = act;
+	act = erts_atomic_cmpxchg_acqb(aptr,
+				       exp | ERTS_ALC_CPOOL_PTR_MOD_MRK,
+				       exp);
+	if (act == exp)
+	    return exp;
+    }
+}
+
+static void
+cpool_insert(Allctr_t *allctr, Carrier_t *crr)
+{
+    ErtsAlcCPoolData_t *cpd1p, *cpd2p;
+    erts_aint_t val;
+    ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+
+    ERTS_ALC_CPOOL_ASSERT(erts_smp_atomic_read_nob(&crr->allctr)
+			  == (erts_aint_t) allctr);
+
+
+    erts_atomic_add_nob(&allctr->cpool.stat.blocks_size,
+			(erts_aint_t) crr->cpool.blocks_size);
+    erts_atomic_add_nob(&allctr->cpool.stat.no_blocks,
+			(erts_aint_t) crr->cpool.blocks);
+    erts_atomic_add_nob(&allctr->cpool.stat.carriers_size,
+			(erts_aint_t) CARRIER_SZ(crr));
+    erts_atomic_inc_nob(&allctr->cpool.stat.no_carriers);
+
+    erts_smp_atomic_set_nob(&crr->allctr,
+			    ((erts_aint_t) allctr)|ERTS_CRR_ALCTR_FLG_IN_POOL);
+
+    /*
+     * We search in 'next' direction and begin by passing
+     * one element before trying to insert. This in order to
+     * avoid contention with threads fetching elements.
+     */
+
+    val = cpool_read(&sentinel->next);
+
+    /* Find a predecessor to be, and set mod marker on its next ptr */
+
+    while (1) {
+	cpd1p = cpool_aint2cpd(val);
+	if (cpd1p == sentinel) {
+	    val = cpool_mod_mark(&cpd1p->next);
+	    break;
+	}
+	val = cpool_read(&cpd1p->next);
+	if (!(val & ERTS_ALC_CPOOL_PTR_MRKS)) {
+	    erts_aint_t tmp = cpool_try_mod_mark_exp(&cpd1p->next, val);
+	    if (tmp == val) {
+		val = tmp;
+		break;
+	    }
+	    val = tmp;
+	}
+    }
+
+    /* Set mod marker on prev ptr of the to be successor */
+
+    cpd2p = cpool_aint2cpd(val);
+
+    cpool_init(&crr->cpool.next, (erts_aint_t) cpd2p);
+    cpool_init(&crr->cpool.prev, (erts_aint_t) cpd1p);
+
+    val = (erts_aint_t) cpd1p;
+
+    while (1) {
+	int b;
+	erts_aint_t tmp;
+
+	tmp = cpool_mod_mark_exp(&cpd2p->prev, val);
+	if (tmp == val)
+	    break;
+	b = 1;
+	do {
+	    b = backoff(b);
+	    tmp = cpool_read(&cpd2p->prev);
+	} while (tmp != val);
+    }
+
+    /* Write pointers to this element in successor and predecessor */
+
+    cpool_set_mod_marked(&cpd1p->next,
+			 (erts_aint_t) &crr->cpool,
+			 (erts_aint_t) cpd2p);
+    cpool_set_mod_marked(&cpd2p->prev,
+			 (erts_aint_t) &crr->cpool,
+			 (erts_aint_t) cpd1p);
+}
+
+static void
+cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
+{
+    ErtsAlcCPoolData_t *cpd1p, *cpd2p;
+    erts_aint_t val;
+#ifdef ERTS_ALC_CPOOL_DEBUG
+    ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+#endif
+
+    ERTS_ALC_CPOOL_ASSERT(sentinel != &crr->cpool);
+
+    /* Set mod marker on next ptr of our predecessor */
+
+    val = (erts_aint_t) &crr->cpool;
+    while (1) {
+	erts_aint_t tmp;
+	cpd1p = cpool_aint2cpd(cpool_read(&crr->cpool.prev));
+	tmp = cpool_mod_mark_exp(&cpd1p->next, val);
+	if (tmp == val)
+	    break;
+    }
+
+    /* Set mod marker on our next ptr */
+
+    val = cpool_mod_mark(&crr->cpool.next);
+
+    /* Set mod marker on the prev ptr of our successor */
+
+    cpd2p = cpool_aint2cpd(val);
+
+    val = (erts_aint_t) &crr->cpool;
+
+    while (1) {
+	int b;
+	erts_aint_t tmp;
+
+	tmp = cpool_mod_mark_exp(&cpd2p->prev, val);
+	if (tmp == val)
+	    break;
+	b = 1;
+	do {
+	    b = backoff(b);
+	    tmp = cpool_read(&cpd2p->prev);
+	} while (tmp != val);
+    }
+
+    /* Set mod marker on our prev ptr */
+
+    val = (erts_aint_t) cpd1p;
+
+    while (1) {
+	int b;
+	erts_aint_t tmp;
+
+	tmp = cpool_mod_mark_exp(&crr->cpool.prev, val);
+	if (tmp == val)
+	    break;
+	b = 1;
+	do {
+	    b = backoff(b);
+	    tmp = cpool_read(&cpd2p->prev);
+	} while (tmp != val);
+    }
+
+    /* Write pointers past this element in predecessor and successor */
+
+    cpool_set_mod_marked(&cpd1p->next,
+			 (erts_aint_t) cpd2p,
+			 (erts_aint_t) &crr->cpool);
+    cpool_set_mod_marked(&cpd2p->prev,
+			 (erts_aint_t) cpd1p,
+			 (erts_aint_t) &crr->cpool);
+
+    /* Repleace mod markers with delete markers on this element */
+    cpool_set_mod_marked(&crr->cpool.next,
+			 ((erts_aint_t) cpd2p) | ERTS_ALC_CPOOL_PTR_DEL_MRK,
+			 ((erts_aint_t) cpd2p) | ERTS_ALC_CPOOL_PTR_MOD_MRK);
+    cpool_set_mod_marked(&crr->cpool.prev,
+			 ((erts_aint_t) cpd1p) | ERTS_ALC_CPOOL_PTR_DEL_MRK,
+			 ((erts_aint_t) cpd1p) | ERTS_ALC_CPOOL_PTR_MOD_MRK);
+
+    crr->cpool.thr_prgr = erts_thr_progress_later(NULL);
+
+    erts_atomic_add_nob(&prev_allctr->cpool.stat.blocks_size,
+			-((erts_aint_t) -crr->cpool.blocks_size));
+    erts_atomic_add_nob(&prev_allctr->cpool.stat.no_blocks,
+			-((erts_aint_t) crr->cpool.blocks));
+    erts_atomic_add_nob(&prev_allctr->cpool.stat.carriers_size,
+			-((erts_aint_t) CARRIER_SZ(crr)));
+    erts_atomic_dec_wb(&prev_allctr->cpool.stat.no_carriers);
+
+}
+
+static Carrier_t *
+cpool_fetch(Allctr_t *allctr, UWord size)
+{
+    int i;
+    Carrier_t *crr;
+    ErtsAlcCPoolData_t *cpdp;
+    ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+
+    i = 0;
+
+    /* First; check our own pending dealloc carrier list... */
+    crr = allctr->cpool.dc_list.last;
+    while (crr && i < ERTS_ALC_CPOOL_MAX_FETCH_INSPECT) {
+	if (erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
+	    unlink_carrier(&allctr->cpool.dc_list, crr);
+	    return crr;
+	}
+	crr = crr->prev;
+	i++;
+    }
+
+    /* ... then the pool ... */
+
+    /*
+     * We search in 'prev' direction and begin by passing
+     * one element before trying to fetch. This in order to
+     * avoid contention with threads inserting elements.
+     */
+
+    cpdp = cpool_aint2cpd(cpool_read(&sentinel->prev));
+    if (cpdp == sentinel)
+	return NULL;
+
+    while (i < ERTS_ALC_CPOOL_MAX_FETCH_INSPECT) {
+	erts_aint_t exp;
+	cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
+	if (cpdp == sentinel) {
+	    cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
+	    if (cpdp == sentinel)
+		return NULL;
+	    i = ERTS_ALC_CPOOL_MAX_FETCH_INSPECT; /* Last one to inspect */
+	}
+	crr = (Carrier_t *) (((char *) cpdp) - offsetof(Carrier_t, cpool));
+	exp = erts_smp_atomic_read_rb(&crr->allctr);
+	if (((exp & (ERTS_CRR_ALCTR_FLG_IN_POOL|ERTS_CRR_ALCTR_FLG_BUSY))
+	     == ERTS_CRR_ALCTR_FLG_IN_POOL)
+	    && (erts_atomic_read_nob(&cpdp->max_size) >= size)) {
+	    erts_aint_t act;
+	    /* Try to fetch it... */
+	    act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
+					     (erts_aint_t) allctr,
+					     exp);
+	    if (act == exp) {
+		cpool_delete(allctr, ((Allctr_t *) (act & ~FLG_MASK)), crr);
+		return crr;
+	    }
+	}
+	i++;
+    }
+    return NULL;
+}
+
+static ERTS_INLINE void
+cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
+{
+    UWord limit, csz;
+    erts_atomic_init_nob(&crr->cpool.next, ERTS_AINT_NULL);
+    erts_atomic_init_nob(&crr->cpool.prev, ERTS_AINT_NULL);
+    crr->cpool.thr_prgr = ERTS_THR_PRGR_INVALID;
+    erts_atomic_init_nob(&crr->cpool.max_size, 0);
+    csz = CARRIER_SZ(crr);
+    limit = csz*allctr->cpool.util_limit;
+    if (limit > csz)
+	limit /= 100;
+    else
+	limit = (csz/100)*allctr->cpool.util_limit;
+    crr->cpool.abandon_limit = limit;
+}
+
+#endif /* ERTS_SMP */
 
 #ifdef DEBUG
 
@@ -3487,7 +3968,7 @@ erts_alcu_free_thr_pref(ErtsAlcType_t type, void *extra, void *p)
 	Allctr_t *pref_allctr, *used_allctr;
 
 	pref_allctr = get_pref_allctr(extra);
-	used_allctr = get_used_allctr(extra, p, NULL);
+	used_allctr = get_used_allctr(pref_allctr, extra, p, NULL);
 	if (pref_allctr != used_allctr)
 	    enqueue_dealloc_other_instance(type,
 					   used_allctr,
@@ -3787,7 +4268,7 @@ realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size,
 	return erts_alcu_alloc_thr_pref(type, extra, size);
 
     pref_allctr = get_pref_allctr(extra);
-    used_allctr = get_used_allctr(extra, p, &old_user_size);
+    used_allctr = get_used_allctr(pref_allctr, extra, p, &old_user_size);
 
     ASSERT(used_allctr && pref_allctr);
 
@@ -3938,6 +4419,17 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	if (sz > allctr->min_block_size)
 	    allctr->min_block_size = sz;
     }
+
+    allctr->cpool.dc_list.first = NULL;
+    allctr->cpool.dc_list.last = NULL;
+    allctr->cpool.abandon_limit = 0;
+    allctr->cpool.insert_allowed_cc = 0;
+    erts_atomic_init_nob(&allctr->cpool.stat.blocks_size, 0);
+    erts_atomic_init_nob(&allctr->cpool.stat.no_blocks, 0);
+    erts_atomic_init_nob(&allctr->cpool.stat.carriers_size, 0);
+    erts_atomic_init_nob(&allctr->cpool.stat.no_carriers, 0);
+    allctr->cpool.check_limit_count = 0;
+    allctr->cpool.util_limit = 0;
 #endif
 
     allctr->sbc_threshold		= init->sbct;
@@ -4081,6 +4573,14 @@ erts_alcu_stop(Allctr_t *allctr)
 void
 erts_alcu_init(AlcUInit_t *init)
 {
+#ifdef ERTS_SMP
+    int i;
+    for (i = 0; i <= ERTS_ALC_A_MAX; i++) {
+	ErtsAlcCPoolData_t *sentinel = &carrier_pool[i].sentinel;
+	erts_atomic_init_nob(&sentinel->next, (erts_aint_t) sentinel);
+	erts_atomic_init_nob(&sentinel->prev, (erts_aint_t) sentinel);
+    }
+#endif
     ASSERT(SBC_BLK_SZ_MASK == MBC_FBLK_SZ_MASK); /* see BLK_SZ */
 #if HAVE_ERTS_MSEG
     ASSERT(erts_mseg_unit_size() == MSEG_UNIT_SZ);
@@ -4154,6 +4654,20 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Debug functions                                                           *
 \*                                                                           */
+
+void
+erts_alcu_assert_failed(char* expr, char* file, int line, char *func)
+{
+    fflush(stdout);
+    fprintf(stderr, "%s:%d:%s(): Assertion failed: %s\n",
+	    file, line, func, expr);
+    fflush(stderr);
+#if defined(__WIN__) || defined(__WIN32__)
+    DebugBreak();
+#else
+    abort();
+#endif
+}
 
 void
 erts_alcu_verify_unused(Allctr_t *allctr)

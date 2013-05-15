@@ -251,12 +251,30 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 
 typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d;} Unit_t;
 
+#ifdef ERTS_SMP
+
+typedef struct {
+    erts_atomic_t next;
+    erts_atomic_t prev;
+    ErtsThrPrgrVal thr_prgr;
+    erts_atomic_t max_size;
+    UWord abandon_limit;
+    /* Statistics */
+    UWord blocks;
+    UWord blocks_size;
+} ErtsAlcCPoolData_t;
+
+#endif
+
 typedef struct Carrier_t_ Carrier_t;
 struct Carrier_t_ {
     UWord chdr;
     Carrier_t *next;
     Carrier_t *prev;
-    Allctr_t  *allctr;
+    erts_smp_atomic_t allctr;
+#ifdef ERTS_SMP
+    ErtsAlcCPoolData_t cpool; /* Overwritten by block if sbc */
+#endif
 };
 
 typedef struct {
@@ -442,6 +460,21 @@ struct Allctr_t_ {
     /* Carriers */
     CarrierList_t	mbc_list;
     CarrierList_t	sbc_list;
+#ifdef ERTS_SMP
+    struct {
+	CarrierList_t	dc_list;
+	UWord		abandon_limit;
+	CallCounter_t	insert_allowed_cc;
+	int		check_limit_count;
+	int		util_limit;
+	struct {
+	    erts_atomic_t	blocks_size;
+	    erts_atomic_t	no_blocks;
+	    erts_atomic_t	carriers_size;
+	    erts_atomic_t	no_carriers;
+	} stat;
+    } cpool;
+#endif
 
     /* Main carrier (if there is one) */
     Carrier_t *		main_carrier;
@@ -522,6 +555,8 @@ void	erts_alcu_verify_unused(Allctr_t *);
 void	erts_alcu_verify_unused_ts(Allctr_t *allctr);
 
 UWord	erts_alcu_test(UWord, UWord, UWord);
+
+void erts_alcu_assert_failed(char* expr, char* file, int line, char *func);
 
 #ifdef DEBUG
 int is_sbc_blk(Block_t*);
