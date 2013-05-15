@@ -142,21 +142,16 @@
 
      <p><code>des3_key() = [binary(), binary(), binary()] </code> Each key part is 64 bits (in CBC mode only 8 bits are used)</p>
 
-     <p><code> message_digest_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> md4 is aslo supported for hash_init/1 and hash/2.
+     <p><code>digest_type() =  md5 | sha | sha224 | sha256 | sha384 | sha512</code></p>
+     <p><code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> md4 is aslo supported for hash_init/1 and hash/2.
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
+     <p><code> cipher_algorithms() =  des | des3 | aes | blowfish | rc2 | rc4 </code> </p>
+     <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh </code> </p>
+     
  </section>
 
   <funcs>
-    <func>
-      <name>algorithms() -> [message_digest_algorithms() | md4 | ec]</name>
-      <fsummary>Provide a list of available crypto algorithms.</fsummary>
-      <desc>
-        <p> Can be used to determine if the crypto library has support for elliptic curve (ec) and
-	which message digest algorithms that are supported.</p>
-      </desc>
-    </func>
-
       <func>
       <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
       <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
@@ -665,6 +660,22 @@
       </desc>
     </func>
 
+   <func>
+      <name>supports() -> AlgorithmList </name>
+      <fsummary>Provide a list of available crypto algorithms.</fsummary>
+      <type>
+      <v> AlgorithmList =  [{hashs, [hash_algorithms()]},
+                            {ciphers, [cipher_algorithms()]},
+			    {public_keys, [public_key_algorithms()]}
+      </v>
+      </type>
+      <desc>
+        <p> Can be used to determine which crypto algorithms that are supported
+	by the underlying OpenSSL library</p>
+      </desc>
+    </func>
+
+    
   <func>
       <name>verify(Algorithm, DigestType, Msg, Signature, Key) -> boolean()</name>
       <fsummary>Verifies a digital signature.</fsummary>

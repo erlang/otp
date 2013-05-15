@@ -21,7 +21,7 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info_lib/0, algorithms/0, version/0, binary_to_integer/1]).
+-export([start/0, stop/0, info_lib/0, supports/0, version/0, binary_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, verify/5]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
@@ -218,7 +218,7 @@
 		    des_cbc_ivec, des_cfb_ivec,
 		    info,
 		    %%
-		    info_lib, algorithms]).
+		    info_lib, supports]).
 
 -type mpint() :: binary().
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
@@ -305,6 +305,22 @@ info() ->
 info_lib() -> ?nif_stub.
 
 algorithms() -> ?nif_stub.
+
+supports()->
+    Algs = algorithms(),
+    PubKeyAlgs = 
+	case lists:member(ec, Algs) of
+	    true ->
+		{public_keys, [rsa, dss, ecdsa, dh, ecdh]};
+	    false ->
+		{public_keys, [rsa, dss, dh]}
+	end,
+    [{hashs, Algs -- [ec]},
+     {ciphers, [des_cbc, des_cfb,  des3_cbc, des3_cbf, des_ede3, blowfish_cbc,
+		blowfish_cfb64, aes_cbc128, aes_cfb128, aes_cbc256, rc2_cbc, aes_ctr, rc4
+	       ]},
+     PubKeyAlgs
+    ].
 
 %% Crypto app version history:
 %% (no version): Driver implementation
@@ -756,9 +772,11 @@ block_decrypt(des_ecb, Key, Data) ->
 block_decrypt(blowfish_ecb, Key, Data) ->
     blowfish_ecb_decrypt(Key, Data).
 
--spec next_iv(des_cbc | aes_cbc, Data::iodata()) -> binary().
+-spec next_iv(des_cbc | des3_cbc | aes_cbc, Data::iodata()) -> binary().
 
 next_iv(des_cbc, Data) ->
+    des_cbc_ivec(Data);
+next_iv(des3_cbc, Data) ->
     des_cbc_ivec(Data);
 next_iv(aes_cbc, Data) ->
     aes_cbc_ivec(Data).

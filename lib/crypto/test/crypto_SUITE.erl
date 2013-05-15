@@ -2334,7 +2334,11 @@ openssl_version() ->
     end.
 
 if_supported(Algorithm, Fun) ->
-    case proplists:get_bool(Algorithm, crypto:algorithms()) of
+    [{hashs, Hashs},
+     {ciphers, Ciphers},
+     {public_keys, Pubkeys}]
+	= crypto:supports(),
+    case proplists:get_bool(Algorithm, Hashs ++ Ciphers ++ Pubkeys) of
 	true ->
 	    Fun();
 	_ ->

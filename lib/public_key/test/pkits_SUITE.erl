@@ -758,7 +758,9 @@ warning(Format, Args, File0, Line) ->
     io:format("~s(~p): Warning "++Format, [File,Line|Args]).
 
 crypto_support_check(Config) ->
-    case proplists:get_bool(sha256, crypto:algorithms()) of
+    CryptoSupport = crypto:supports(),
+    Hashs = proplists:get_value(hashs, CryptoSupport),
+    case proplists:get_bool(sha256, Hashs) of
 	true ->
 	    Config;
 	false ->

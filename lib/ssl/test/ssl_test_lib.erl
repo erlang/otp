@@ -405,7 +405,8 @@ make_dsa_cert(Config) ->
      | Config].
 
 make_ecdsa_cert(Config) ->
-    case proplists:get_bool(ec, crypto:algorithms()) of
+    CryptoSupport = crypto:supports(),
+    case proplists:get_bool(ecdsa, proplists:get_value(public_keys, CryptoSupport)) of
 	    true ->
 	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, ec, ec, ""),
 	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, ec, ec, ""),
@@ -429,7 +430,8 @@ make_ecdsa_cert(Config) ->
 %%    This key exchange algorithm is the same as ECDH_ECDSA except that the
 %%    server's certificate MUST be signed with RSA rather than ECDSA.
 make_ecdh_rsa_cert(Config) ->
-    case proplists:get_bool(ec, crypto:algorithms()) of
+    CryptoSupport = crypto:supports(),
+    case proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport)) of
 	true ->
 	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, rsa, ec, "rsa_"),
 	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, rsa, ec, "rsa_"),
@@ -939,9 +941,11 @@ init_tls_version(Version) ->
     ssl:start().
 
 sufficient_crypto_support('tlsv1.2') ->
-    proplists:get_bool(sha256, crypto:algorithms());
+    CryptoSupport = crypto:supports(),
+    proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport));
 sufficient_crypto_support(ciphers_ec) ->
-    proplists:get_bool(ec, crypto:algorithms());
+    CryptoSupport = crypto:supports(),
+    proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport));
 sufficient_crypto_support(_) ->
     true.
 
