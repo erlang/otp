@@ -93,6 +93,7 @@ do_accept(LSock,Server) ->
     end.
 
 init_client(#state{client=Sock}=State) ->
+    dbg("Server sending: ~p~n",["login: "]),
     R = case gen_tcp:send(Sock,"login: ") of
 	    ok ->
 		loop(State);
@@ -164,8 +165,18 @@ do_handle_data(Data,#state{authorized={user,_}}=State) ->
 do_handle_data("echo "++ Data,State) ->
     send(Data++"\r\n> ",State),
     {ok,State};
-do_handle_data("repeat "++ Data,State) ->
-    send(Data++"\r\n"++Data++"\r\n> ",State),
+do_handle_data("echo_no_prompt "++ Data,State) ->
+    send(Data,State),
+    {ok,State};
+do_handle_data("echo_ml "++ Data,State) ->
+    Lines = string:tokens(Data," "),
+    ReturnData = string:join(Lines,"\n"),
+    send(ReturnData++"\r\n> ",State),
+    {ok,State};
+do_handle_data("echo_ml_no_prompt "++ Data,State) ->
+    Lines = string:tokens(Data," "),
+    ReturnData = string:join(Lines,"\n"),
+    send(ReturnData,State),
     {ok,State};
 do_handle_data([],State) ->
     send("> ",State),

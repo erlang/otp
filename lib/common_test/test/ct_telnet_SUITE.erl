@@ -53,8 +53,9 @@ end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
 
 init_per_testcase(own_server=TestCase, Config) ->
-    TS = telnet_server:start([{port,1234},{users,[{?erl_telnet_server_user,
-						   ?erl_telnet_server_pwd}]}]),
+    TS = telnet_server:start([{port,?erl_telnet_server_port},
+			      {users,[{?erl_telnet_server_user,
+				       ?erl_telnet_server_pwd}]}]),
     ct_test_support:init_per_testcase(TestCase, [{telnet_server,TS}|Config]);
 init_per_testcase(TestCase, Config) ->
     ct_test_support:init_per_testcase(TestCase, Config).
@@ -92,7 +93,7 @@ own_server(Config) ->
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "ct_telnet_own_server_SUITE"),
     Cfg = {unix,[{telnet,"localhost"},
-		 {port, 1234},
+		 {port, ?erl_telnet_server_port},
 		 {username,?erl_telnet_server_user},
 		 {password,?erl_telnet_server_pwd},
 		 {wait_for_linebreak, false},

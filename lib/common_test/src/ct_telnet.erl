@@ -309,7 +309,7 @@ expect(Connection,Patterns) ->
 %%%      Tag = term()
 %%%      Opts = [Opt]
 %%%      Opt = {timeout,Timeout} | repeat | {repeat,N} | sequence |
-%%%            {halt,HaltPatterns} | ignore_prompt
+%%%            {halt,HaltPatterns} | ignore_prompt | no_prompt_check
 %%%      Timeout = integer()
 %%%      N = integer()
 %%%      HaltPatterns = Patterns
@@ -336,13 +336,27 @@ expect(Connection,Patterns) ->
 %%% will also include the matched <code>Tag</code>. Else, only
 %%% <code>RxMatch</code> is returned.</p>
 %%%
-%%% <p>The function will always return when a prompt is found, unless
-%%% the <code>ignore_prompt</code> options is used.</p>
-%%%
 %%% <p>The <code>timeout</code> option indicates that the function
 %%% shall return if the telnet client is idle (i.e. if no data is
 %%% received) for more than <code>Timeout</code> milliseconds. Default
 %%% timeout is 10 seconds.</p>
+%%%
+%%% <p>The function will always return when a prompt is found, unless
+%%% any of the <code>ignore_prompt</code> or
+%%% <code>no_prompt_check</code> options are used, in which case it
+%%% will return when a match is found or after a timeout.</p>
+%%%
+%%% <p>If the <code>ignore_prompt</code> option is used,
+%%% <code>ct_telnet</code> will ignore any prompt found. This option
+%%% is useful if data sent by the server could include a pattern that
+%%% would match the prompt regexp (as returned by
+%%% <code>TargedMod:get_prompt_regexp/0</code>), but which should not
+%%% cause the function to return.</p>
+%%%
+%%% <p>If the <code>no_prompt_check</code> option is used,
+%%% <code>ct_telnet</code> will not search for a prompt at all. This
+%%% is useful if, for instance, the <code>Pattern</code> itself
+%%% matches the prompt.</p>
 %%%
 %%% <p>The <code>repeat</code> option indicates that the pattern(s)
 %%% shall be matched multiple times. If <code>N</code> is given, the
@@ -728,7 +742,8 @@ teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
 	    haltpatterns=[],
 	    seq=false,
 	    repeat=false,
-	    found_prompt=false}).
+	    found_prompt=false,
+	    prompt_check=true}).
 
 %% @hidden
 %% @doc Externally the silent_teln_expect function shall only be used
@@ -754,10 +769,16 @@ silent_teln_expect(Pid,Data,Pattern,Prx,Opts) ->
 %% condition is fullfilled.
 %% 3b) Repeat (sequence): 2) is repeated either N times or until a
 %% halt condition is fullfilled.
-teln_expect(Pid,Data,Pattern0,Prx,Opts) -> HaltPatterns = case
-    get_ignore_prompt(Opts) of true -> get_haltpatterns(Opts); false
-    -> [prompt | get_haltpatterns(Opts)] end,
+teln_expect(Pid,Data,Pattern0,Prx,Opts) ->
+    HaltPatterns =
+	case get_ignore_prompt(Opts) of
+	    true ->
+		get_haltpatterns(Opts);
+	    false ->
+		[prompt | get_haltpatterns(Opts)]
+	end,
 
+    PromptCheck = get_prompt_check(Opts),
     Seq = get_seq(Opts),
     Pattern = convert_pattern(Pattern0,Seq),
 
@@ -767,7 +788,8 @@ teln_expect(Pid,Data,Pattern0,Prx,Opts) -> HaltPatterns = case
 	     prx=Prx,
 	     timeout=Timeout,
 	     seq=Seq,
-	     haltpatterns=HaltPatterns},
+	     haltpatterns=HaltPatterns,
+	     prompt_check=PromptCheck},
     
     case get_repeat(Opts) of
 	false ->
@@ -831,7 +853,9 @@ get_haltpatterns(Opts) ->
     end.
 get_ignore_prompt(Opts) ->    
     lists:member(ignore_prompt,Opts).
-	
+get_prompt_check(Opts) ->
+    not lists:member(no_prompt_check,Opts).
+
 %% Repeat either single or sequence. All match results are accumulated
 %% and returned when a halt condition is fulllfilled.
 repeat_expect(Rest,_Pattern,Acc,#eo{repeat=0}) ->
@@ -892,6 +916,9 @@ get_data1(Pid) ->
 %% lines and each line is matched against each pattern.
 
 %% one_expect: split data chunk at prompts
+one_expect(Data,Pattern,EO) when EO#eo.prompt_check==false ->
+%    io:format("Raw Data ~p Pattern ~p EO ~p ",[Data,Pattern,EO]),
+    one_expect1(Data,Pattern,[],EO#eo{found_prompt=false});
 one_expect(Data,Pattern,EO) ->
     case match_prompt(Data,EO#eo.prx) of
 	{prompt,UptoPrompt,PromptType,Rest} ->
@@ -950,6 +977,8 @@ seq_expect(Data,[],Acc,_EO) ->
     {match,lists:reverse(Acc),Data};
 seq_expect([],Patterns,Acc,_EO) ->
     {continue,Patterns,lists:reverse(Acc),[]};
+seq_expect(Data,Patterns,Acc,EO) when EO#eo.prompt_check==false ->
+    seq_expect1(Data,Patterns,Acc,[],EO#eo{found_prompt=false});
 seq_expect(Data,Patterns,Acc,EO) ->
     case match_prompt(Data,EO#eo.prx) of
 	{prompt,UptoPrompt,PromptType,Rest} ->
@@ -1010,6 +1039,13 @@ match_lines(Data,Patterns,EO) ->
 	    case match_line(Rest,Patterns,FoundPrompt,EO) of
 		nomatch ->
 		    {nomatch,prompt};
+		{Tag,Match} ->
+		    {Tag,Match,[]}
+	    end;
+	{noline,Rest} when EO#eo.prompt_check==false ->
+	    case match_line(Rest,Patterns,false,EO) of
+		nomatch ->
+		    {nomatch,Rest};
 		{Tag,Match} ->
 		    {Tag,Match,[]}
 	    end;
