@@ -391,13 +391,14 @@ gen_dsa2(LSize, NSize) ->
 	error -> 
 	    gen_dsa2(LSize, NSize);
 	P ->	    
-	    G = crypto:mod_exp(2, (P-1) div Q, P), % Choose G a number whose multiplicative order modulo p is q.
+	    G = crypto:mod_pow(2, (P-1) div Q, P), % Choose G a number whose multiplicative order modulo p is q.
 	    %%                 such that This may be done by setting g = h^(p-1)/q mod p, commonly h=2 is used.
 	    
 	    X = prime(20),               %% Choose x by some random method, where 0 < x < q.
-	    Y = crypto:mod_exp(G, X, P), %% Calculate y = g^x mod p.
+	    Y = crypto:mod_pow(G, X, P), %% Calculate y = g^x mod p.
 	    
-	    #'DSAPrivateKey'{version=0, p=P, q=Q, g=G, y=Y, x=X}
+	    #'DSAPrivateKey'{version=0, p = P, q = Q, 
+			     g = crypto:binary_to_integer(G), y = crypto:binary_to_integer(Y), x = X}
     end.
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -419,7 +420,7 @@ gen_ec2(CurveId) ->
 %% See fips_186-3.pdf
 dsa_search(T, P0, Q, Iter) when Iter > 0 ->
     P = 2*T*Q*P0 + 1,
-    case is_prime(crypto:mpint(P), 50) of
+    case is_prime(P, 50) of
 	true -> P;
 	false -> dsa_search(T+1, P0, Q, Iter-1)
     end;
@@ -430,38 +431,40 @@ dsa_search(_,_,_,_) ->
 %%%%%%% Crypto Math %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 prime(ByteSize) ->
     Rand = odd_rand(ByteSize),
-    crypto:erlint(prime_odd(Rand, 0)).
+    prime_odd(Rand, 0).
 
 prime_odd(Rand, N) ->
     case is_prime(Rand, 50) of
 	true -> 
 	    Rand;
 	false -> 
-	    NotPrime = crypto:erlint(Rand),
-	    prime_odd(crypto:mpint(NotPrime+2), N+1)
+	    prime_odd(Rand+2, N+1)
     end.
 
 %% see http://en.wikipedia.org/wiki/Fermat_primality_test
 is_prime(_, 0) -> true;
 is_prime(Candidate, Test) -> 
-    CoPrime = odd_rand(<<0,0,0,4, 10000:32>>, Candidate),
-    case crypto:mod_exp(CoPrime, Candidate, Candidate) of
-	CoPrime -> is_prime(Candidate, Test-1);
-	_       -> false
-    end.
+    CoPrime = odd_rand(10000, Candidate),
+    Result = crypto:mod_pow(CoPrime, Candidate, Candidate) ,
+    is_prime(CoPrime, crypto:binary_to_integer(Result), Candidate, Test).
+
+is_prime(CoPrime, CoPrime, Candidate, Test) ->
+    is_prime(Candidate, Test-1);
+is_prime(_,_,_,_) ->
+    false.
 
 odd_rand(Size) ->
     Min = 1 bsl (Size*8-1),
     Max = (1 bsl (Size*8))-1,
-    odd_rand(crypto:mpint(Min), crypto:mpint(Max)).
+    odd_rand(Min, Max).
 
 odd_rand(Min,Max) ->
-    Rand = <<Sz:32, _/binary>> = crypto:rand_uniform(Min,Max),
-    BitSkip = (Sz+4)*8-1,
-    case Rand of
-	Odd  = <<_:BitSkip,  1:1>> -> Odd;
-	Even = <<_:BitSkip,  0:1>> -> 
-	    crypto:mpint(crypto:erlint(Even)+1)
+    Rand = crypto:rand_uniform(Min,Max),
+    case Rand rem 2 of
+	0 -> 
+	    Rand + 1;
+	_ -> 
+	    Rand
     end.
 
 extended_gcd(A, B) ->
@@ -480,3 +483,4 @@ pem_to_der(File) ->
 der_to_pem(File, Entries) ->
     PemBin = public_key:pem_encode(Entries),
     file:write_file(File, PemBin).
+
