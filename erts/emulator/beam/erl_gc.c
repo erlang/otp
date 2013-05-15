@@ -47,10 +47,6 @@
  */
 #define ALENGTH(a) (sizeof(a)/sizeof(a[0]))
 
-static erts_smp_spinlock_t info_lck;
-static Uint garbage_cols;		/* no of garbage collections */
-static Uint reclaimed;			/* no of words reclaimed in GCs */
-
 # define STACK_SZ_ON_HEAP(p) ((p)->hend - (p)->stop)
 # define OverRunCheck(P) \
     if ((P)->stop < (P)->htop) { \
@@ -120,6 +116,8 @@ static void offset_rootset(Process *p, Sint offs, char* area, Uint area_size,
 static void offset_off_heap(Process* p, Sint offs, char* area, Uint area_size);
 static void offset_mqueue(Process *p, Sint offs, char* area, Uint area_size);
 
+static void init_gc_info(ErtsGCInfo *gcip);
+
 #ifdef HARDDEBUG
 static void disallow_heap_frag_ref_in_heap(Process* p);
 static void disallow_heap_frag_ref_in_old_heap(Process* p);
@@ -137,13 +135,41 @@ static int num_heap_sizes;	/* Number of heap sizes. */
 
 Uint erts_test_long_gc_sleep; /* Only used for testing... */
 
+typedef struct {
+    Process *proc;
+    Eterm ref;
+    Eterm ref_heap[REF_THING_SIZE];
+    Uint req_sched;
+    erts_smp_atomic32_t refc;
+} ErtsGCInfoReq;
+
+#if !HALFWORD_HEAP
+ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(gcireq,
+				 ErtsGCInfoReq,
+				 5,
+				 ERTS_ALC_T_GC_INFO_REQ)
+#else
+static ERTS_INLINE ErtsGCInfoReq *
+gcireq_alloc(void)
+{
+    return erts_alloc(ERTS_ALC_T_GC_INFO_REQ,
+		      sizeof(ErtsGCInfoReq));
+}
+
+static ERTS_INLINE void
+gcireq_free(ErtsGCInfoReq *ptr)
+{
+    erts_free(ERTS_ALC_T_GC_INFO_REQ, ptr);
+}
+#endif
+
 /*
  * Initialize GC global data.
  */
 void
 erts_init_gc(void)
 {
-    int i = 0;
+    int i = 0, ix;
     Sint max_heap_size = 0;
 
     ASSERT(offsetof(ProcBin,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
@@ -156,9 +182,6 @@ erts_init_gc(void)
     ASSERT(offsetof(ProcBin,next) == offsetof(ErlFunThing,next));
     ASSERT(offsetof(ProcBin,next) == offsetof(ExternalThing,next));
 
-    erts_smp_spinlock_init(&info_lck, "gc_info");
-    garbage_cols = 0;
-    reclaimed = 0;
     erts_test_long_gc_sleep = 0;
 
     /*
@@ -199,6 +222,16 @@ erts_init_gc(void)
 	}
     }
     num_heap_sizes = i;
+    
+    for (ix = 0; ix < erts_no_schedulers; ix++) {
+      ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
+      init_gc_info(&esdp->gc_info);
+    }
+
+#if !HALFWORD_HEAP
+    init_gcireq_alloc();
+#endif
+
 }
 
 /*
@@ -287,17 +320,6 @@ erts_heap_sizes(Process* p)
     return res;
 }
 
-void
-erts_gc_info(ErtsGCInfo *gcip)
-{
-    if (gcip) {
-	erts_smp_spin_lock(&info_lck);
-	gcip->garbage_collections = garbage_cols;
-	gcip->reclaimed = reclaimed;
-	erts_smp_spin_unlock(&info_lck);
-    }
-}
-
 void 
 erts_offset_heap(Eterm* hp, Uint sz, Sint offs, Eterm* low, Eterm* high)
 {
@@ -378,6 +400,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     Uint reclaimed_now = 0;
     int done = 0;
     Uint ms1, s1, us1;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
@@ -455,11 +478,9 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 	    monitor_large_heap(p);
     }
 
-    erts_smp_spin_lock(&info_lck);
-    garbage_cols++;
-    reclaimed += reclaimed_now;
-    erts_smp_spin_unlock(&info_lck);
-
+    esdp->gc_info.garbage_cols++;
+    esdp->gc_info.reclaimed += reclaimed_now;
+    
     FLAGS(p) &= ~F_FORCE_GC;
 
 #ifdef CHECK_FOR_HOLES
@@ -2541,6 +2562,110 @@ offset_rootset(Process *p, Sint offs, char* area, Uint area_size,
 	       Eterm* objv, int nobj)
 {
     offset_one_rootset(p, offs, area, area_size, objv, nobj);
+}
+
+static void
+init_gc_info(ErtsGCInfo *gcip)
+{
+  gcip->reclaimed = 0;
+  gcip->garbage_cols = 0;
+}
+
+static void
+reply_gc_info(void *vgcirp)
+{
+    Uint64 reclaimed = 0, garbage_cols = 0;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    ErtsGCInfoReq *gcirp = (ErtsGCInfoReq *) vgcirp;
+    ErtsProcLocks rp_locks = (gcirp->req_sched == esdp->no
+			      ? ERTS_PROC_LOCK_MAIN
+			      : 0);
+    Process *rp = gcirp->proc;
+    Eterm ref_copy = NIL, msg;
+    Eterm *hp = NULL;
+    Eterm **hpp;
+    Uint sz, *szp;
+    ErlOffHeap *ohp = NULL;
+    ErlHeapFragment *bp = NULL;
+
+    ASSERT(esdp);
+
+    reclaimed = esdp->gc_info.reclaimed;
+    garbage_cols = esdp->gc_info.garbage_cols;
+
+    sz = 0;
+    hpp = NULL;
+    szp = &sz;
+
+    while (1) {
+	if (hpp)
+	    ref_copy = STORE_NC(hpp, ohp, gcirp->ref);
+	else
+	    *szp += REF_THING_SIZE;
+
+	msg = erts_bld_tuple(hpp, szp, 3,
+			     make_small(esdp->no),
+			     erts_bld_uint64(hpp, szp, garbage_cols),
+			     erts_bld_uint64(hpp, szp, reclaimed));
+	
+	msg = erts_bld_tuple(hpp, szp, 2, ref_copy, msg);
+	if (hpp)
+	  break;
+	
+	hp = erts_alloc_message_heap(sz, &bp, &ohp, rp, &rp_locks);
+	szp = NULL;
+	hpp = &hp;
+    }
+
+    erts_queue_message(rp, &rp_locks, bp, msg, NIL
+#ifdef USE_VM_PROBES
+			   , NIL
+#endif
+		       );
+
+    if (gcirp->req_sched == esdp->no)
+	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
+ 
+    if (rp_locks)
+	erts_smp_proc_unlock(rp, rp_locks);
+
+    erts_smp_proc_dec_refc(rp);
+
+    if (erts_smp_atomic32_dec_read_nob(&gcirp->refc) == 0)
+	gcireq_free(vgcirp);
+}
+
+Eterm
+erts_gc_info_request(Process *c_p)
+{
+    ErtsSchedulerData *esdp = ERTS_PROC_GET_SCHDATA(c_p);
+    Eterm ref;
+    ErtsGCInfoReq *gcirp;
+    Eterm *hp;
+
+    gcirp = gcireq_alloc();
+    ref = erts_make_ref(c_p);
+    hp = &gcirp->ref_heap[0];
+
+    gcirp->proc = c_p;
+    gcirp->ref = STORE_NC(&hp, NULL, ref);
+    gcirp->req_sched = esdp->no;
+    erts_smp_atomic32_init_nob(&gcirp->refc,
+			       (erts_aint32_t) erts_no_schedulers);
+
+    erts_smp_proc_add_refc(c_p, (Sint32) erts_no_schedulers);
+
+#ifdef ERTS_SMP
+    if (erts_no_schedulers > 1)
+	erts_schedule_multi_misc_aux_work(1,
+					  erts_no_schedulers,
+					  reply_gc_info,
+					  (void *) gcirp);
+#endif
+
+    reply_gc_info((void *) gcirp);
+
+    return ref;
 }
 
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)

@@ -420,6 +420,11 @@ typedef struct {
 } ErtsSchedWallTime;
 
 typedef struct {
+  Uint64 reclaimed;
+  Uint64 garbage_cols;
+} ErtsGCInfo;
+
+typedef struct {
     int sched;
     erts_aint32_t aux_work;
 } ErtsDelayedAuxWorkWakeupJob;
@@ -507,6 +512,7 @@ struct ErtsSchedulerData_ {
 
     Uint64 reductions;
     ErtsSchedWallTime sched_wall_time;
+    ErtsGCInfo gc_info;
     ErtsPortTaskHandle nosuspend_port_task_handle;
 
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
@@ -1126,6 +1132,7 @@ void erts_early_init_scheduling(int);
 void erts_init_scheduling(int, int);
 
 Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable);
+Eterm erts_gc_info_request(Process *c_p);
 Uint64 erts_get_proc_interval(void);
 Uint64 erts_ensure_later_proc_interval(Uint64);
 Uint64 erts_step_proc_interval(void);
