@@ -1421,6 +1421,8 @@ Eterm erts_debug_reader_groups_map(Process *c_p, int groups);
 Uint erts_debug_nbalance(void);
 int erts_debug_wait_deallocations(Process *c_p);
 
+Uint erts_process_memory(Process *c_p);
+
 #ifdef ERTS_SMP
 #  define ERTS_GET_SCHEDULER_DATA_FROM_PROC(PROC) ((PROC)->scheduler_data)
 #  define ERTS_PROC_GET_SCHDATA(PROC) ((PROC)->scheduler_data)

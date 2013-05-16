@@ -290,6 +290,10 @@
       <em>Stack+heap</em>, <em>OldHeap</em>, <em>Heap unused</em>
        and <em>OldHeap unused</em> do not exist. Instead this field
        presents the size of the process' stack.</item>
+      <tag><em>Memory</em></tag>
+      <item>The total memory used by this process. This includes call stack,
+      heap and internal structures. Same as <seealso marker="erlang#process_info-2">erlang:process_info(Pid,memory)</seealso>.
+      </item>
       <tag><em>Program counter</em></tag>
       <item>The current instruction pointer. This is only interesting for
        runtime system developers. The function into which the program

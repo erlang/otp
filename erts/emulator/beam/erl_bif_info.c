@@ -486,27 +486,6 @@ collect_one_suspend_monitor(ErtsSuspendMonitor *smon, void *vsmicp)
     }
 }
 
-
-static void one_link_size(ErtsLink *lnk, void *vpu)
-{
-    Uint *pu = vpu;
-    *pu += ERTS_LINK_SIZE*sizeof(Uint);
-    if(!IS_CONST(lnk->pid))
-	*pu += NC_HEAP_SIZE(lnk->pid)*sizeof(Uint);
-    if (lnk->type != LINK_NODE && ERTS_LINK_ROOT(lnk) != NULL) {
-	erts_doforall_links(ERTS_LINK_ROOT(lnk),&one_link_size,vpu);
-    }
-}
-static void one_mon_size(ErtsMonitor *mon, void *vpu)
-{
-    Uint *pu = vpu;
-    *pu += ERTS_MONITOR_SIZE*sizeof(Uint);
-    if(!IS_CONST(mon->pid))
-	*pu += NC_HEAP_SIZE(mon->pid)*sizeof(Uint);
-    if(!IS_CONST(mon->ref))
-	*pu += NC_HEAP_SIZE(mon->ref)*sizeof(Uint);
-}
-
 /*
  * process_info/[1,2]
  */
@@ -1420,41 +1399,8 @@ process_info_aux(Process *BIF_P,
     }
 
     case am_memory: { /* Memory consumed in bytes */
-	ErlMessage *mp;
-	Uint size = 0;
 	Uint hsz = 3;
-	struct saved_calls *scb;
-	size += sizeof(Process);
-
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
-
-	erts_doforall_links(ERTS_P_LINKS(rp), &one_link_size, &size);
-	erts_doforall_monitors(ERTS_P_MONITORS(rp), &one_mon_size, &size);
-	size += (rp->heap_sz + rp->mbuf_sz) * sizeof(Eterm);
-	if (rp->old_hend && rp->old_heap)
-	    size += (rp->old_hend - rp->old_heap) * sizeof(Eterm);
-
-	size += rp->msg.len * sizeof(ErlMessage);
-
-	for (mp = rp->msg.first; mp; mp = mp->next)
-	    if (mp->data.attached)
-		size += erts_msg_attached_data_size(mp)*sizeof(Eterm);
-
-	if (rp->arg_reg != rp->def_arg_reg) {
-	    size += rp->arity * sizeof(rp->arg_reg[0]);
-	}
-
-	if (rp->psd)
-	    size += sizeof(ErtsPSD);
-
-	scb = ERTS_PROC_GET_SAVED_CALLS_BUF(rp);
-	if (scb) {
-	    size += (sizeof(struct saved_calls)
-		     + (scb->len-1) * sizeof(scb->ct[0]));
-	}
-
-	size += erts_dicts_mem_size(rp);
-
+	Uint size = erts_process_memory(rp);
 	(void) erts_bld_uint(NULL, &hsz, size);
 	hp = HAlloc(BIF_P, hsz);
 	res = erts_bld_uint(&hp, NULL, size);
@@ -2863,7 +2809,7 @@ erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt, Eterm ite
 	Uint size = 0;
 	ErlHeapFragment* bp;
 
-	erts_doforall_links(ERTS_P_LINKS(prt), &one_link_size, &size);
+	erts_doforall_links(ERTS_P_LINKS(prt), &erts_one_link_size, &size);
 
 	for (bp = prt->bp; bp; bp = bp->next)
 	    size += sizeof(ErlHeapFragment) + (bp->alloc_size - 1)*sizeof(Eterm);

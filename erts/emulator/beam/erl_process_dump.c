@@ -76,6 +76,43 @@ erts_deep_process_dump(int to, void *to_arg)
     dump_binaries(to, to_arg, all_binaries);
 }
 
+Uint erts_process_memory(Process *p) {
+  ErlMessage *mp;
+  Uint size = 0;
+  struct saved_calls *scb;
+  size += sizeof(Process);
+
+  ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
+
+  erts_doforall_links(ERTS_P_LINKS(p), &erts_one_link_size, &size);
+  erts_doforall_monitors(ERTS_P_MONITORS(p), &erts_one_mon_size, &size);
+  size += (p->heap_sz + p->mbuf_sz) * sizeof(Eterm);
+  if (p->old_hend && p->old_heap)
+    size += (p->old_hend - p->old_heap) * sizeof(Eterm);
+
+  size += p->msg.len * sizeof(ErlMessage);
+
+  for (mp = p->msg.first; mp; mp = mp->next)
+    if (mp->data.attached)
+      size += erts_msg_attached_data_size(mp)*sizeof(Eterm);
+
+  if (p->arg_reg != p->def_arg_reg) {
+    size += p->arity * sizeof(p->arg_reg[0]);
+  }
+
+  if (p->psd)
+    size += sizeof(ErtsPSD);
+
+  scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
+  if (scb) {
+    size += (sizeof(struct saved_calls)
+	     + (scb->len-1) * sizeof(scb->ct[0]));
+  }
+
+  size += erts_dicts_mem_size(p);
+  return size;
+}
+
 static void
 dump_process_info(int to, void *to_arg, Process *p)
 {
