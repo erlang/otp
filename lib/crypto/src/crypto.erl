@@ -226,15 +226,14 @@
 %%-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
 -type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
--type ec_key_res() :: any().		%% nif resource
--type ec_named_curve() :: atom().
--type ec_point() :: crypto_integer().
--type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
--type ec_field() :: {prime_field, Prime :: integer()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
--type ec_prime() :: {A :: crypto_integer(), B :: crypto_integer(), Seed :: binary() | none}.
--type ec_curve_spec() :: {Field :: ec_field(), Prime :: ec_prime(), Point :: crypto_integer(), Order :: integer(), CoFactor :: none | integer()}.
--type ec_curve() :: ec_named_curve() | ec_curve_spec().
--type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
+%%-type ec_named_curve() :: atom().
+%%-type ec_point() :: crypto_integer().
+%%-type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
+%%-type ec_field() :: {prime_field, Prime :: integer()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
+%%-type ec_prime() :: {A :: crypto_integer(), B :: crypto_integer(), Seed :: binary() | none}.
+%%-type ec_curve_spec() :: {Field :: ec_field(), Prime :: ec_prime(), Point :: crypto_integer(), Order :: integer(), CoFactor :: none | integer()}.
+%%-type ec_curve() :: ec_named_curve() | ec_curve_spec().
+%%-type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -1088,7 +1087,7 @@ verify(rsa, Type, DataOrDigest, Signature, Key) ->
 	Bool -> Bool
     end;
 verify(ecdsa, Type, DataOrDigest, Signature, [Key, Curve]) ->
-    case ecdsa_verify_nif(Type, DataOrDigest, Signature, term_to_ec_key({Curve, undefined, Key})) of
+    case ecdsa_verify_nif(Type, DataOrDigest, Signature, term_to_ec_key(Curve, undefined, Key)) of
 	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end.
@@ -1155,7 +1154,7 @@ sign(dss, Type, DataOrDigest, Key) ->
 	Sign -> Sign
     end;
 sign(ecdsa, Type, DataOrDigest, [Key, Curve]) ->
-    case ecdsa_sign_nif(Type, DataOrDigest, term_to_ec_key({Curve, Key, undefined})) of
+    case ecdsa_sign_nif(Type, DataOrDigest, term_to_ec_key(Curve, Key, undefined)) of
 	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
 	Sign -> Sign
     end.
@@ -1417,7 +1416,8 @@ generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
 generate_key(dh, DHParameters, PrivateKey) ->
-    dh_generate_key_nif(PrivateKey,  map_ensure_int_as_bin(DHParameters), 0);
+    dh_generate_key_nif(ensure_int_as_bin(PrivateKey),
+			map_ensure_int_as_bin(DHParameters), 0);
 
 generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
   when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
@@ -1436,14 +1436,16 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
     user_srp_gen_key(Private, Generator, Prime);
 
 generate_key(ecdh, Curve, undefined) ->
-    ec_key_to_term(ec_key_generate(Curve)).
+    ec_key_to_term_nif(ec_key_generate(Curve)).
 
 
 ec_key_generate(_Key) -> ?nif_stub.
 
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
-    case dh_compute_key_nif(OthersPublicKey,MyPrivateKey, map_ensure_int_as_bin(DHParameters)) of
+    case dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
+			    ensure_int_as_bin(MyPrivateKey),
+			    map_ensure_int_as_bin(DHParameters)) of
 	error -> erlang:error(computation_failed,
 			      [OthersPublicKey,MyPrivateKey,DHParameters]);
 	Ret -> Ret
@@ -1453,34 +1455,34 @@ compute_key(srp, HostPublic, {UserPublic, UserPrivate},
 	    {user, [DerivedKey, Prime, Generator, Version | ScramblerArg]}) when
       is_binary(Prime),
       is_binary(Generator),
-      is_binary(UserPublic),
       is_binary(UserPrivate),
-      is_binary(HostPublic),
       is_atom(Version) ->
+    HostPubBin = ensure_int_as_bin(HostPublic),
     Multiplier = srp_multiplier(Version, Generator, Prime),
     Scrambler = case ScramblerArg of
-		    [] -> srp_scrambler(Version, UserPublic, HostPublic, Prime);
+		    [] -> srp_scrambler(Version, ensure_int_as_bin(UserPublic),
+					HostPubBin, Prime);
 		    [S] -> S
 		end,
-    srp_user_secret_nif(UserPrivate, Scrambler, HostPublic, Multiplier,
+    srp_user_secret_nif(UserPrivate, Scrambler, HostPubBin, Multiplier,
 			  Generator, DerivedKey, Prime);
 
 compute_key(srp, UserPublic, {HostPublic, HostPrivate},
 	    {host,[Verifier, Prime, Version | ScramblerArg]}) when
       is_binary(Verifier),
       is_binary(Prime),
-      is_binary(UserPublic),
-      is_binary(HostPublic),
       is_binary(HostPrivate),
       is_atom(Version) ->
+    UserPubBin = ensure_int_as_bin(UserPublic),
     Scrambler = case ScramblerArg of
-		    [] -> srp_scrambler(Version, UserPublic, HostPublic, Prime);
+		    [] -> srp_scrambler(Version, UserPubBin, ensure_int_as_bin(HostPublic), Prime);
 		    [S] -> S
 		end,
-    srp_host_secret_nif(Verifier, HostPrivate, Scrambler, UserPublic, Prime);
+    srp_host_secret_nif(Verifier, HostPrivate, Scrambler, UserPubBin, Prime);
 
 compute_key(ecdh, Others, My, Curve) ->
-    ecdh_compute_key_nif(Others, term_to_ec_key({Curve,My,undefined})).
+    ecdh_compute_key_nif(ensure_int_as_bin(Others),
+			 term_to_ec_key(Curve,My,undefined)).
 
 ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
 
@@ -1488,14 +1490,6 @@ ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
 %%
 %% EC
 %%
-ec_key_to_term(Key) ->
-    case ec_key_to_term_nif(Key) of
-        {PrivKey, PubKey} ->
-            {PubKey,  bin_to_int(PrivKey)};
-        _ ->
-            erlang:error(conversion_failed)
-    end.
-
 ec_key_to_term_nif(_Key) -> ?nif_stub.
 
 term_to_nif_prime({prime_field, Prime}) ->
@@ -1510,11 +1504,10 @@ term_to_nif_curve_parameters(Curve) when is_atom(Curve) ->
     %% named curve
     Curve.
 
--spec term_to_ec_key(ec_key()) -> ec_key_res().
-term_to_ec_key({Curve, undefined, PubKey}) ->
-    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), undefined, PubKey);
-term_to_ec_key({Curve, PrivKey, PubKey}) ->
-    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), int_to_bin(PrivKey), PubKey).
+term_to_ec_key(Curve, PrivKey, PubKey) ->
+    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve),
+		       ensure_int_as_bin(PrivKey),
+		       ensure_int_as_bin(PubKey)).
 
 term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 

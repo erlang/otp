@@ -3087,7 +3087,7 @@ static ERL_NIF_TERM ec_key_to_term_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	    pub_key = point2term(env, group, public_key, EC_KEY_get_conv_form(obj->key));
     }
 
-    return enif_make_tuple2(env, bn2term(env, priv_key), pub_key);
+    return enif_make_tuple2(env, pub_key, bn2term(env, priv_key));
 #else
     return atom_notsup;
 #endif

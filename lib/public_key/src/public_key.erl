@@ -347,7 +347,7 @@ generate_key(#'ECParameters'{} = Params) ->
 compute_key(#'ECPoint'{point = Point}, #'ECPrivateKey'{privateKey = PrivKey,
 						       parameters = Param}) ->
     ECCurve = ec_curve_spec(Param),
-    crypto:compute_key(ecdh, Point, list2int(PrivKey), ECCurve).
+    crypto:compute_key(ecdh, Point, list_to_binary(PrivKey), ECCurve).
 
 compute_key(PubKey, PrivKey, #'DHParameter'{prime = P, base = G}) ->
     crypto:compute_key(dh, PubKey, PrivKey, [P, G]).
@@ -402,7 +402,7 @@ sign(DigestOrPlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
 sign(DigestOrPlainText, DigestType, #'ECPrivateKey'{privateKey = PrivKey,
 						    parameters = Param}) ->
     ECCurve = ec_curve_spec(Param),
-    crypto:sign(ecdsa, DigestType, DigestOrPlainText, [list2int(PrivKey), ECCurve]);
+    crypto:sign(ecdsa, DigestType, DigestOrPlainText, [list_to_binary(PrivKey), ECCurve]);
 
 %% Backwards compatible
 sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
@@ -880,14 +880,6 @@ ec_curve_spec({namedCurve, OID}) ->
 
 ec_key({PubKey, PrivateKey}, Params) ->
     #'ECPrivateKey'{version = 1,
-		    privateKey = int2list(PrivateKey),
+		    privateKey = binary_to_list(PrivateKey),
 		    parameters = Params,
 		    publicKey = {0, PubKey}}.
-
-list2int(L) ->
-    S = length(L) * 8,
-    <<R:S/integer>> = erlang:iolist_to_binary(L),
-    R.
-int2list(I) ->
-    L = (length(integer_to_list(I, 16)) + 1) div 2,
-    binary_to_list(<<I:(L*8)>>).

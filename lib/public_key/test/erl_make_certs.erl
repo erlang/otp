@@ -403,22 +403,18 @@ gen_dsa2(LSize, NSize) ->
 	    Y = crypto:mod_pow(G, X, P), %% Calculate y = g^x mod p.
 	    
 	    #'DSAPrivateKey'{version=0, p = P, q = Q, 
-			     g = crypto:binary_to_integer(G), y = crypto:binary_to_integer(Y), x = X}
+			     g = crypto:bytes_to_integer(G), y = crypto:bytes_to_integer(Y), x = X}
     end.
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% EC key generation  (OBS: for testing only)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-int2list(I) ->
-    L = (length(integer_to_list(I, 16)) + 1) div 2,
-    binary_to_list(<<I:(L*8)>>).
-
 gen_ec2(CurveId) ->
-     {PrivKey, PubKey} = crypto:generate_key(ecdh, CurveId),
+     {PubKey, PrivKey} = crypto:generate_key(ecdh, CurveId),
 
     #'ECPrivateKey'{version = 1,
-		    privateKey = int2list(PrivKey),
+		    privateKey = binary_to_list(PrivKey),
 		    parameters = {namedCurve, pubkey_cert_records:namedCurves(CurveId)},
 		    publicKey = {0, PubKey}}.
 
@@ -451,7 +447,7 @@ is_prime(_, 0) -> true;
 is_prime(Candidate, Test) -> 
     CoPrime = odd_rand(10000, Candidate),
     Result = crypto:mod_pow(CoPrime, Candidate, Candidate) ,
-    is_prime(CoPrime, crypto:binary_to_integer(Result), Candidate, Test).
+    is_prime(CoPrime, crypto:bytes_to_integer(Result), Candidate, Test).
 
 is_prime(CoPrime, CoPrime, Candidate, Test) ->
     is_prime(Candidate, Test-1);

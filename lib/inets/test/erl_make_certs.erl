@@ -406,10 +406,10 @@ gen_dsa2(LSize, NSize) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 gen_ec2(CurveId) ->
-     {PrivKey, PubKey} = crypto:generate_key(ecdh, CurveId),
+     {PubKey, PrivKey} = crypto:generate_key(ecdh, CurveId),
 
     #'ECPrivateKey'{version = 1,
-		    privateKey = int2list(PrivKey),
+		    privateKey = binary_to_list(PrivKey),
 		    parameters = {namedCurve, pubkey_cert_records:namedCurves(CurveId)},
 		    publicKey = {0, PubKey}}.
 

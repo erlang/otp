@@ -60,6 +60,7 @@
     <title>DATA TYPES </title>
     
     <p><code>key_value()  = integer() | binary() </code></p>
+    <p>Always <c>binary()</c> when used as return value</p>
 
     <p><code>rsa_public()  = [key_value()] = [E, N]  </code></p>
     <p> Where E is the public exponent and N is public modulus. </p>
@@ -77,7 +78,7 @@
     <p><code>dss_private() =  [key_value()] = [P, Q, G, X] </code></p>
     <p>Where P, Q and G are the dss parameters and X is the private key.</p>
 
-    <p><code>srp_public() = binary() </code></p>
+    <p><code>srp_public() = key_value() </code></p>
     <p>Where is <c>A</c> or <c>B</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
 
     <p><code>srp_private() = key_value() </code></p>
@@ -88,15 +89,15 @@
     Version = '3' |  '6' |  '6a'
     </p>
 
-    <p><code>dh_public() = binary() </code></p>
+    <p><code>dh_public() = key_value() </code></p>
 
-    <p><code>dh_private() = binary() </code></p>
+    <p><code>dh_private() = key_value() </code></p>
 
     <p><code>dh_params() = [key_value()] = [P, G] </code></p>
 
-    <p><code>ecdh_public() = binary() </code></p>
+    <p><code>ecdh_public() = key_value() </code></p>
 
-    <p><code>ecdh_private() = integer() </code></p>
+    <p><code>ecdh_private() = key_value() </code></p>
 
     <p><code>ecdh_params() =  ec_named_curve() |
     {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(), CoFactor :: none | integer()} </code></p>
