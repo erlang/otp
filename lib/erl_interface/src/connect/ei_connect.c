@@ -830,7 +830,8 @@ int ei_accept_tmo(ei_cnode* ec, int lfd, ErlConnect *conp, unsigned ms)
     
 error:
     EI_TRACE_ERR0("ei_accept","<- ACCEPT failed");
-    closesocket(fd);
+    if (fd>=0)
+      closesocket(fd);
     return ERL_ERROR;
 } /* ei_accept */
 
