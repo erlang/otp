@@ -678,8 +678,8 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_LOPT_UDP_READ_PACKETS 33  /* Number of packets to read */
 #define INET_OPT_RAW               34  /* Raw socket options */
 #define INET_LOPT_TCP_SEND_TIMEOUT_CLOSE 35  /* auto-close on send timeout or not */
-#define INET_LOPT_TCP_MSGQ_HIWTRMRK     36  /* set local high watermark */
-#define INET_LOPT_TCP_MSGQ_LOWTRMRK     37  /* set local low watermark */
+#define INET_LOPT_MSGQ_HIWTRMRK     36  /* set local msgq high watermark */
+#define INET_LOPT_MSGQ_LOWTRMRK     37  /* set local msgq low watermark */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -5476,27 +5476,25 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    }
 	    continue;
 
-	case INET_LOPT_TCP_MSGQ_HIWTRMRK:
-	    if (desc->stype == SOCK_STREAM) {
-		ErlDrvSizeT high;
-		if (ival < ERL_DRV_BUSY_MSGQ_LIM_MIN
-		    || ERL_DRV_BUSY_MSGQ_LIM_MAX < ival)
-		    return -1;
-		high = (ErlDrvSizeT) ival;
-		erl_drv_busy_msgq_limits(desc->port, NULL, &high);
-	    }
+	case INET_LOPT_MSGQ_HIWTRMRK: {
+	    ErlDrvSizeT high;
+	    if (ival < ERL_DRV_BUSY_MSGQ_LIM_MIN
+		|| ERL_DRV_BUSY_MSGQ_LIM_MAX < ival)
+		return -1;
+	    high = (ErlDrvSizeT) ival;
+	    erl_drv_busy_msgq_limits(desc->port, NULL, &high);
 	    continue;
+	}
 
-	case INET_LOPT_TCP_MSGQ_LOWTRMRK:
-	    if (desc->stype == SOCK_STREAM) {
-		ErlDrvSizeT low;
-		if (ival < ERL_DRV_BUSY_MSGQ_LIM_MIN
-		    || ERL_DRV_BUSY_MSGQ_LIM_MAX < ival)
-		    return -1;
-		low = (ErlDrvSizeT) ival;
-		erl_drv_busy_msgq_limits(desc->port, &low, NULL);
-	    }
+	case INET_LOPT_MSGQ_LOWTRMRK: {
+	    ErlDrvSizeT low;
+	    if (ival < ERL_DRV_BUSY_MSGQ_LIM_MIN
+		|| ERL_DRV_BUSY_MSGQ_LIM_MAX < ival)
+		return -1;
+	    low = (ErlDrvSizeT) ival;
+	    erl_drv_busy_msgq_limits(desc->port, &low, NULL);
 	    continue;
+	}
 
 	case INET_LOPT_TCP_SEND_TIMEOUT:
 	    if (desc->stype == SOCK_STREAM) {
@@ -6398,31 +6396,23 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    }
 	    continue;
 
-	case INET_LOPT_TCP_MSGQ_HIWTRMRK:
-	    if (desc->stype == SOCK_STREAM) {
-		ErlDrvSizeT high = ERL_DRV_BUSY_MSGQ_READ_ONLY;
-		*ptr++ = opt;
-		erl_drv_busy_msgq_limits(desc->port, NULL, &high);
-		ival = high > INT_MAX ? INT_MAX : (int) high;
-		put_int32(ival, ptr);
-	    }
-	    else {
-		TRUNCATE_TO(0,ptr);
-	    }
+	case INET_LOPT_MSGQ_HIWTRMRK: {
+	    ErlDrvSizeT high = ERL_DRV_BUSY_MSGQ_READ_ONLY;
+	    *ptr++ = opt;
+	    erl_drv_busy_msgq_limits(desc->port, NULL, &high);
+	    ival = high > INT_MAX ? INT_MAX : (int) high;
+	    put_int32(ival, ptr);
 	    continue;
+	}
 
-	case INET_LOPT_TCP_MSGQ_LOWTRMRK:
-	    if (desc->stype == SOCK_STREAM) {
-		ErlDrvSizeT low = ERL_DRV_BUSY_MSGQ_READ_ONLY;
-		*ptr++ = opt;
-		erl_drv_busy_msgq_limits(desc->port, &low, NULL);
-		ival = low > INT_MAX ? INT_MAX : (int) low;
-		put_int32(ival, ptr);
-	    }
-	    else {
-		TRUNCATE_TO(0,ptr);
-	    }
+	case INET_LOPT_MSGQ_LOWTRMRK: {
+	    ErlDrvSizeT low = ERL_DRV_BUSY_MSGQ_READ_ONLY;
+	    *ptr++ = opt;
+	    erl_drv_busy_msgq_limits(desc->port, &low, NULL);
+	    ival = low > INT_MAX ? INT_MAX : (int) low;
+	    put_int32(ival, ptr);
 	    continue;
+	}
 
 	case INET_LOPT_TCP_SEND_TIMEOUT:
 	    if (desc->stype == SOCK_STREAM) {
@@ -7471,6 +7461,20 @@ static void inet_stop(inet_descriptor* desc)
     FREE(desc);
 }
 
+static void set_default_msgq_limits(ErlDrvPort port)
+{
+    ErlDrvSizeT q_high = INET_HIGH_MSGQ_WATERMARK;
+    ErlDrvSizeT q_low = INET_LOW_MSGQ_WATERMARK;
+    if (q_low < ERL_DRV_BUSY_MSGQ_LIM_MIN)
+	q_low = ERL_DRV_BUSY_MSGQ_LIM_MIN;
+    else if (q_low > ERL_DRV_BUSY_MSGQ_LIM_MAX)
+	q_low = ERL_DRV_BUSY_MSGQ_LIM_MAX;
+    if (q_high < ERL_DRV_BUSY_MSGQ_LIM_MIN)
+	q_high = ERL_DRV_BUSY_MSGQ_LIM_MIN;
+    else if (q_high > ERL_DRV_BUSY_MSGQ_LIM_MAX)
+	q_high = ERL_DRV_BUSY_MSGQ_LIM_MAX;
+    erl_drv_busy_msgq_limits(port, &q_low, &q_high);
+}
 
 /* Allocate descriptor */
 static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
@@ -8091,9 +8095,8 @@ static int tcp_inet_init(void)
 
 /* initialize the TCP descriptor */
 
-static ErlDrvData tcp_inet_start(ErlDrvPort port, char* args)
+static ErlDrvData prep_tcp_inet_start(ErlDrvPort port, char* args)
 {
-    ErlDrvSizeT q_low, q_high;
     tcp_descriptor* desc;
     DEBUGF(("tcp_inet_start(%ld) {\r\n", (long)port));
 
@@ -8103,17 +8106,6 @@ static ErlDrvData tcp_inet_start(ErlDrvPort port, char* args)
 	return ERL_DRV_ERROR_ERRNO;
     desc->high = INET_HIGH_WATERMARK;
     desc->low  = INET_LOW_WATERMARK;
-    q_high = INET_HIGH_MSGQ_WATERMARK;
-    q_low = INET_LOW_MSGQ_WATERMARK;
-    if (q_low < ERL_DRV_BUSY_MSGQ_LIM_MIN)
-	q_low = ERL_DRV_BUSY_MSGQ_LIM_MIN;
-    else if (q_low > ERL_DRV_BUSY_MSGQ_LIM_MAX)
-	q_low = ERL_DRV_BUSY_MSGQ_LIM_MAX;
-    if (q_high < ERL_DRV_BUSY_MSGQ_LIM_MIN)
-	q_high = ERL_DRV_BUSY_MSGQ_LIM_MIN;
-    else if (q_high > ERL_DRV_BUSY_MSGQ_LIM_MAX)
-	q_high = ERL_DRV_BUSY_MSGQ_LIM_MAX;
-    erl_drv_busy_msgq_limits(port, &q_low, &q_high);
     desc->send_timeout = INET_INFINITY;
     desc->send_timeout_close = 0;
     desc->busy_on_send = 0;
@@ -8130,6 +8122,12 @@ static ErlDrvData tcp_inet_start(ErlDrvPort port, char* args)
     return (ErlDrvData) desc;
 }
 
+static ErlDrvData tcp_inet_start(ErlDrvPort port, char* args)
+{
+    ErlDrvData data = prep_tcp_inet_start(port, args);
+    set_default_msgq_limits(port);
+    return data;
+}
 /* Copy a descriptor, by creating a new port with same settings
  * as the descriptor desc.
  * return NULL on error (SYSTEM_LIMIT no ports avail)
@@ -8141,7 +8139,7 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
     ErlDrvPort port = desc->inet.port;
     tcp_descriptor* copy_desc;
 
-    copy_desc = (tcp_descriptor*) tcp_inet_start(port, NULL);
+    copy_desc = (tcp_descriptor*) prep_tcp_inet_start(port, NULL);
 
     /* Setup event if needed */
     if ((copy_desc->inet.s = s) != INVALID_SOCKET) {
@@ -9864,12 +9862,15 @@ static int should_use_so_bsdcompat(void)
  * as the descriptor desc.
  * return NULL on error (ENFILE no ports avail)
  */
+static ErlDrvData packet_inet_start(ErlDrvPort port, char* args, int protocol);
+
 static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
 {
+    ErlDrvSizeT q_low, q_high;
     ErlDrvPort port = desc->inet.port;
     udp_descriptor* copy_desc;
 
-    copy_desc = (udp_descriptor*) sctp_inet_start(port, NULL);
+    copy_desc = (udp_descriptor*) packet_inet_start(port, NULL, IPPROTO_SCTP);
 
     /* Setup event if needed */
     if ((copy_desc->inet.s = s) != INVALID_SOCKET) {
@@ -9900,9 +9901,17 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
 	FREE(copy_desc);
 	return NULL;
     }
+
+    /* Read busy msgq limits of parent */
+    q_low = q_high = ERL_DRV_BUSY_MSGQ_READ_ONLY;
+    erl_drv_busy_msgq_limits(desc->inet.port, &q_low, &q_high);
+    /* Write same busy msgq limits to child */
+    erl_drv_busy_msgq_limits(port, &q_low, &q_high);
+
     copy_desc->inet.port = port;
     copy_desc->inet.dport = driver_mk_port(port);
     *err = 0;
+
     return copy_desc;
 }
 #endif
@@ -9935,13 +9944,17 @@ static ErlDrvData packet_inet_start(ErlDrvPort port, char* args, int protocol)
 
 static ErlDrvData udp_inet_start(ErlDrvPort port, char *args)
 {
-    return packet_inet_start(port, args, IPPROTO_UDP);
+    ErlDrvData data = packet_inet_start(port, args, IPPROTO_UDP);
+    set_default_msgq_limits(port);
+    return data;
 }
 
 #ifdef HAVE_SCTP
 static ErlDrvData sctp_inet_start(ErlDrvPort port, char *args)
 {
-    return packet_inet_start(port, args, IPPROTO_SCTP);
+    ErlDrvData data = packet_inet_start(port, args, IPPROTO_SCTP);
+    set_default_msgq_limits(port);
+    return data;
 }
 #endif
 

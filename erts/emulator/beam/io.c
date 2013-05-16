@@ -364,9 +364,8 @@ static Port *create_port(char *name,
     ERTS_P_LINKS(prt) = NULL;
     ERTS_P_MONITORS(prt) = NULL;
     prt->linebuf = NULL;
-    prt->bp = NULL;
     prt->suspended = NULL;
-    prt->data = am_undefined;
+    erts_init_port_data(prt);
     prt->port_data_lock = NULL;
     prt->control_flags = 0;
     prt->bytes_in = 0;
@@ -1442,6 +1441,7 @@ erts_schedule_proc2port_signal(Process *c_p,
 			       Eterm *refp,
 			       ErtsProc2PortSigData *sigdp,
 			       int task_flags,
+			       ErtsPortTaskHandle *pthp,
 			       ErtsProc2PortSigCallback callback)
 {
     int sched_res;
@@ -1491,7 +1491,7 @@ erts_schedule_proc2port_signal(Process *c_p,
 
     /* Schedule port close call for later execution... */
     sched_res = erts_port_task_schedule(prt->common.id,
-					NULL,
+					pthp,
 					ERTS_PORT_TASK_PROC_SIG,
 					sigdp,
 					callback,
@@ -1629,6 +1629,7 @@ bad_port_signal(Process *c_p,
 					  refp,
 					  sigdp,
 					  0,
+					  NULL,
 					  port_badsig);
 }
 
@@ -1838,8 +1839,11 @@ erts_port_output(Process *c_p,
     ErlIOVec *evp = NULL;
     char *buf = NULL;
     int force_immediate_call = (flags & ERTS_PORT_SIG_FLG_FORCE_IMM_CALL);
+    int async_nosuspend;
+    ErtsPortTaskHandle *ns_pthp;
 
     ASSERT((flags & ~(ERTS_PORT_SIG_FLG_BANG_OP
+		      | ERTS_PORT_SIG_FLG_ASYNC
 		      | ERTS_PORT_SIG_FLG_NOSUSPEND
 		      | ERTS_PORT_SIG_FLG_FORCE
 		      | ERTS_PORT_SIG_FLG_FORCE_IMM_CALL)) == 0);
@@ -1860,6 +1864,12 @@ erts_port_output(Process *c_p,
 	return ((sched_flags & ERTS_PTS_FLG_EXIT)
 		? ERTS_PORT_OP_DROPPED
 		: ERTS_PORT_OP_BUSY);
+
+    async_nosuspend = ((flags & (ERTS_PORT_SIG_FLG_ASYNC
+				 | ERTS_PORT_SIG_FLG_NOSUSPEND
+				 | ERTS_PORT_SIG_FLG_FORCE))
+		      == (ERTS_PORT_SIG_FLG_ASYNC
+			  | ERTS_PORT_SIG_FLG_NOSUSPEND));
 
     try_call = (force_immediate_call /* crash dumping */
 		|| !(sched_flags & (invalid_flags
@@ -1995,6 +2005,15 @@ erts_port_output(Process *c_p,
 		return ERTS_PORT_OP_DONE;
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS:
 		sched_flags = try_call_state.sched_flags;
+		if (async_nosuspend
+		    && (sched_flags & (busy_flgs|ERTS_PTS_FLG_EXIT))) {
+		    driver_free_binary(cbin);
+		    if (evp != &ev)
+			erts_free(ERTS_ALC_T_TMP, evp);
+		    return ((sched_flags & ERTS_PTS_FLG_EXIT)
+			    ? ERTS_PORT_OP_DROPPED
+			    : ERTS_PORT_OP_BUSY);
+		}
 	    case ERTS_TRY_IMM_DRV_CALL_BUSY_LOCK:
 		/* Schedule outputv() call instead... */
 		break;
@@ -2142,6 +2161,13 @@ erts_port_output(Process *c_p,
 		return ERTS_PORT_OP_DONE;
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS:
 		sched_flags = try_call_state.sched_flags;
+		if (async_nosuspend
+		    && (sched_flags & (busy_flgs|ERTS_PTS_FLG_EXIT))) {
+		    erts_free(ERTS_ALC_T_TMP, buf);
+		    return ((sched_flags & ERTS_PTS_FLG_EXIT)
+			    ? ERTS_PORT_OP_DROPPED
+			    : ERTS_PORT_OP_BUSY);
+		}
 	    case ERTS_TRY_IMM_DRV_CALL_BUSY_LOCK:
 		/* Schedule outputv() call instead... */
 		break;
@@ -2163,13 +2189,25 @@ erts_port_output(Process *c_p,
 
     task_flags = ERTS_PT_FLG_WAIT_BUSY;
     sigdp->flags |= flags;
+    ns_pthp = NULL;
     if (flags & (ERTS_P2P_SIG_DATA_FLG_FORCE|ERTS_P2P_SIG_DATA_FLG_NOSUSPEND)) {
 	task_flags = 0;
 	if (flags & ERTS_P2P_SIG_DATA_FLG_FORCE)
 	    sigdp->flags &= ~ERTS_P2P_SIG_DATA_FLG_NOSUSPEND;
+	else if (async_nosuspend) {
+	    ErtsSchedulerData *esdp = (c_p
+				       ? ERTS_PROC_GET_SCHDATA(c_p)
+				       : erts_get_scheduler_data());
+	    ASSERT(esdp);
+	    ns_pthp = &esdp->nosuspend_port_task_handle;
+	    sigdp->flags &= ~ERTS_P2P_SIG_DATA_FLG_NOSUSPEND;
+	}
 	else if (flags & ERTS_P2P_SIG_DATA_FLG_NOSUSPEND)
 	    task_flags = ERTS_PT_FLG_NOSUSPEND;
     }
+
+    ASSERT(ns_pthp || !async_nosuspend);
+    ASSERT(async_nosuspend || !ns_pthp);
 
     res = erts_schedule_proc2port_signal(c_p,
 					 prt,
@@ -2177,6 +2215,7 @@ erts_port_output(Process *c_p,
 					 refp,
 					 sigdp,
 					 task_flags,
+					 ns_pthp,
 					 port_sig_callback);
 
     if (res != ERTS_PORT_OP_SCHEDULED) {
@@ -2187,9 +2226,23 @@ erts_port_output(Process *c_p,
 	return res;
     }
 
-    if (!(sched_flags & ERTS_PTS_FLG_EXIT) && (sched_flags & busy_flgs))
-	return ERTS_PORT_OP_BUSY_SCHEDULED;
-
+    if (!(flags & ERTS_PORT_SIG_FLG_FORCE)) {
+	sched_flags = erts_smp_atomic32_read_acqb(&prt->sched.flags);
+	if (!(sched_flags & ERTS_PTS_FLG_BUSY_PORT)) {
+	    if (async_nosuspend)
+		erts_port_task_tmp_handle_detach(ns_pthp);
+	}
+	else {
+	    if (!async_nosuspend)
+		return ERTS_PORT_OP_BUSY_SCHEDULED;
+	    else {
+		if (erts_port_task_abort(ns_pthp) == 0)
+		    return ERTS_PORT_OP_BUSY;
+		else
+		    erts_port_task_tmp_handle_detach(ns_pthp);
+	    }
+	}
+    }
     return res;
 
 bad_value:
@@ -2285,6 +2338,7 @@ erts_port_exit(Process *c_p,
     ErlHeapFragment *bp = NULL;
 
     ASSERT((flags & ~(ERTS_PORT_SIG_FLG_BANG_OP
+		      | ERTS_PORT_SIG_FLG_ASYNC
 		      | ERTS_PORT_SIG_FLG_BROKEN_LINK
 		      | ERTS_PORT_SIG_FLG_FORCE_SCHED)) == 0);
 
@@ -2345,6 +2399,7 @@ erts_port_exit(Process *c_p,
 					 refp,
 					 sigdp,
 					 0,
+					 NULL,
 					 port_sig_exit);
 
     if (res == ERTS_PORT_OP_DROPPED) {
@@ -2460,7 +2515,8 @@ erts_port_connect(Process *c_p,
 					   !refp,
 					   am_connect);
 
-    ASSERT((flags & ~ERTS_PORT_SIG_FLG_BANG_OP) == 0);
+    ASSERT((flags & ~(ERTS_PORT_SIG_FLG_BANG_OP
+		      | ERTS_PORT_SIG_FLG_ASYNC)) == 0);
 
     if (is_not_internal_pid(connect))
 	connect_id = NIL; /* Fail in op (for signal order) */
@@ -2499,6 +2555,7 @@ erts_port_connect(Process *c_p,
 					  refp,
 					  sigdp,
 					  0,
+					  NULL,
 					  port_sig_connect);
 }
 
@@ -2555,6 +2612,7 @@ erts_port_unlink(Process *c_p, Port *prt, Eterm from, Eterm *refp)
 					  refp,
 					  sigdp,
 					  0,
+					  NULL,
 					  port_sig_unlink);
 }
 
@@ -2644,6 +2702,7 @@ erts_port_link(Process *c_p, Port *prt, Eterm to, Eterm *refp)
 					  refp,
 					  sigdp,
 					  0,
+					  NULL,
 					  port_sig_link);
 }
 
@@ -3371,11 +3430,8 @@ terminate_port(Port *prt)
 	erts_free(ERTS_ALC_T_LINEBUF, (void *) prt->linebuf);
 	prt->linebuf = NULL;
     }
-    if (prt->bp != NULL) {
-	free_message_buffer(prt->bp);
-	prt->bp = NULL;
-	prt->data = am_undefined;
-    }
+
+    erts_cleanup_port_data(prt);
 
     if (prt->psd)
 	erts_free(ERTS_ALC_T_PRTSD, prt->psd);
@@ -3625,6 +3681,10 @@ erts_port_command(Process *c_p,
     ASSERT(port);
 
     flags |= ERTS_PORT_SIG_FLG_BANG_OP;
+    if (!erts_port_synchronous_ops) {
+	flags |= ERTS_PORT_SIG_FLG_ASYNC;
+	refp = NULL;
+    }
 
     if (is_tuple_arity(command, 2)) {
 	Eterm cntd;
@@ -3632,21 +3692,14 @@ erts_port_command(Process *c_p,
 	cntd = tp[1];
 	if (is_internal_pid(cntd)) {
 	    if (tp[2] == am_close) {
-		if (!erts_port_synchronous_ops)
-		    refp = NULL;
 		flags &= ~ERTS_PORT_SIG_FLG_NOSUSPEND;
 		return erts_port_exit(c_p, flags, port, cntd, am_normal, refp);
 	    } else if (is_tuple_arity(tp[2], 2)) {
 		tp = tuple_val(tp[2]);
 		if (tp[1] == am_command) {
-		    if (!(flags & ERTS_PORT_SIG_FLG_NOSUSPEND)
-			&& !erts_port_synchronous_ops)
-			refp = NULL;
 		    return erts_port_output(c_p, flags, port, cntd, tp[2], refp);
 		}
 		else if (tp[1] == am_connect) {
-		    if (!erts_port_synchronous_ops)
-			refp = NULL;
 		    flags &= ~ERTS_PORT_SIG_FLG_NOSUSPEND;
 		    return erts_port_connect(c_p, flags, port, cntd, tp[2], refp);
 		}
@@ -3655,8 +3708,6 @@ erts_port_command(Process *c_p,
     }
 
     /* badsig */
-    if (!erts_port_synchronous_ops)
-	refp = NULL;
     flags &= ~ERTS_PORT_SIG_FLG_NOSUSPEND;
     return bad_port_signal(c_p, flags, port, c_p->common.id, refp, am_command);
 }
@@ -4053,6 +4104,7 @@ erts_port_control(Process* c_p,
 					 retvalp,
 					 sigdp,
 					 0,
+					 NULL,
 					 port_sig_control);
     if (res != ERTS_PORT_OP_SCHEDULED) {
 	cleanup_scheduled_control(binp, bufp);
@@ -4333,6 +4385,7 @@ erts_port_call(Process* c_p,
 					 retvalp,
 					 sigdp,
 					 0,
+					 NULL,
 					 port_sig_call);
     if (res != ERTS_PORT_OP_SCHEDULED) {
 	cleanup_scheduled_call(bufp);
@@ -4499,226 +4552,8 @@ erts_port_info(Process* c_p,
 					  retvalp,
 					  sigdp,
 					  0,
+					  NULL,
 					  port_sig_info);
-}
-
-static int
-port_sig_set_data(Port *prt,
-		  erts_aint32_t state,
-		  int op,
-		  ErtsProc2PortSigData *sigdp)
-{
-    ASSERT(sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY);
-
-    if (op == ERTS_PROC2PORT_SIG_EXEC) {
-	if (prt->bp)
-	    free_message_buffer(prt->bp);
-	prt->bp = sigdp->u.set_data.bp;
-	prt->data = sigdp->u.set_data.data;
-	port_sched_op_reply(sigdp->caller, sigdp->ref, am_true);
-    }
-    else {
-	if (sigdp->u.set_data.bp)
-	    free_message_buffer(sigdp->u.set_data.bp);
-	port_sched_op_reply(sigdp->caller, sigdp->ref, am_badarg);
-    }
-    return ERTS_PORT_REDS_SET_DATA;
-}
-
-ErtsPortOpResult
-erts_port_set_data(Process* c_p,
-		   Port *prt,
-		   Eterm data,
-		   Eterm *refp)
-{
-    ErtsPortOpResult res;
-    Eterm set_data;
-    ErlHeapFragment *bp;
-    ErtsProc2PortSigData *sigdp;
-    ErtsTryImmDrvCallResult try_call_res;
-    ErtsTryImmDrvCallState try_call_state
-	= ERTS_INIT_TRY_IMM_DRV_CALL_STATE(
-	    c_p,
-	    prt,
-	    ERTS_PORT_SFLGS_INVALID_LOOKUP,
-	    0,
-	    !refp,
-	    am_set_data);
-
-    if (is_immed(data)) {
-	set_data = data;
-	bp = NULL;
-    }
-    else {
-	Eterm *hp;
-	Uint sz = size_object(data);
-	bp = new_message_buffer(sz);
-	hp = bp->mem;
-	set_data = copy_struct(data, sz, &hp, &bp->off_heap);
-    }
-
-    try_call_res = try_imm_drv_call(&try_call_state);
-    switch (try_call_res) {
-    case ERTS_TRY_IMM_DRV_CALL_OK:
-	if (prt->bp)
-	    free_message_buffer(prt->bp);
-	prt->bp = bp;
-	prt->data = set_data;
-	finalize_imm_drv_call(&try_call_state);
-	BUMP_REDS(c_p, ERTS_PORT_REDS_SET_DATA);
-	return ERTS_PORT_OP_DONE;
-    case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
-	return ERTS_PORT_OP_DROPPED;
-    case ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS:
-    case ERTS_TRY_IMM_DRV_CALL_BUSY_LOCK:
-	/* Schedule call instead... */
-	break;
-    }
-
-    sigdp = erts_port_task_alloc_p2p_sig_data();
-    sigdp->flags = ERTS_P2P_SIG_TYPE_SET_DATA;
-    sigdp->u.set_data.data = set_data;
-    sigdp->u.set_data.bp = bp;
-
-    res = erts_schedule_proc2port_signal(c_p,
-					 prt,
-					 c_p->common.id,
-					 refp,
-					 sigdp,
-					 0,
-					 port_sig_set_data);
-    if (res != ERTS_PORT_OP_SCHEDULED && bp)
-	free_message_buffer(bp);
-    return res;
-}
-
-static int
-port_sig_get_data(Port *prt,
-		  erts_aint32_t state,
-		  int op,
-		  ErtsProc2PortSigData *sigdp)
-{
-    ASSERT(sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY);
-    if (op != ERTS_PROC2PORT_SIG_EXEC)
-	port_sched_op_reply(sigdp->caller, sigdp->ref, am_badarg);
-    else {
-	Process *rp;
-	ErtsProcLocks rp_locks = 0;
-
-	rp = erts_proc_lookup_raw(sigdp->caller);
-	if (rp) {
-	    Uint hsz;
-	    Eterm *hp, *hp_start;
-	    Eterm data, msg;
-	    ErlHeapFragment *bp;
-	    ErlOffHeap *ohp;
-
-	    hsz = ERTS_QUEUE_PORT_SCHED_OP_REPLY_SIZE;
-	    hsz += 3;
-	    if (prt->bp)
-		hsz += prt->bp->used_size;
-
-	    hp_start = hp = erts_alloc_message_heap(hsz,
-						    &bp,
-						    &ohp,
-						    rp,
-						    &rp_locks);
-
-	    if (is_immed(prt->data))
-		data = prt->data;
-	    else
-		data = copy_struct(prt->data,
-				   prt->bp->used_size,
-				   &hp,
-				   &bp->off_heap);
-
-
-
-	    msg = TUPLE2(hp, am_ok, data);
-	    hp += 3;
-
-	    queue_port_sched_op_reply(rp,
-				      &rp_locks,
-				      hp_start,
-				      hp,
-				      hsz,
-				      bp,
-				      sigdp->ref,
-				      msg);
-	    if (rp_locks)
-		erts_smp_proc_unlock(rp, rp_locks);
-	}
-    }
-    return ERTS_PORT_REDS_GET_DATA;
-}
-
-ErtsPortOpResult
-erts_port_get_data(Process* c_p,
-		   Port *prt,
-		   Eterm *retvalp)
-{
-    ErtsProc2PortSigData *sigdp;
-    ErtsTryImmDrvCallResult try_call_res;
-    ErtsTryImmDrvCallState try_call_state
-	= ERTS_INIT_TRY_IMM_DRV_CALL_STATE(
-	    c_p,
-	    prt,
-	    ERTS_PORT_SFLGS_INVALID_LOOKUP,
-	    0,
-	    0,
-	    am_get_data);
-
-    try_call_res = try_imm_drv_call(&try_call_state);
-    switch (try_call_res) {
-    case ERTS_TRY_IMM_DRV_CALL_OK: {
-	Eterm *hp;
-	Eterm data;
-	ErlHeapFragment *bp;
-	Uint sz;
-	if (is_immed(prt->data)) {
-	    bp = NULL;
-	    data = prt->data;
-	}
-	else {
-	    bp = new_message_buffer(prt->bp->used_size);
-	    data = copy_struct(prt->data,
-			       prt->bp->used_size,
-			       &hp,
-			       &bp->off_heap);
-	}	    
-	finalize_imm_drv_call(&try_call_state);
-	if (is_immed(data))
-	    sz = 0;
-	else 
-	    sz = bp->used_size;
-
-	hp = HAlloc(c_p,  sz + 3);
-	if (is_not_immed(data)) {
-	    data = copy_struct(data, bp->used_size, &hp, &MSO(c_p));
-	    free_message_buffer(bp);
-	}
-	*retvalp = TUPLE2(hp, am_ok, data);
-	BUMP_REDS(c_p, ERTS_PORT_REDS_GET_DATA);
-	return ERTS_PORT_OP_DONE;
-    }
-    case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
-	return ERTS_PORT_OP_DROPPED;
-    case ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS:
-    case ERTS_TRY_IMM_DRV_CALL_BUSY_LOCK:
-	/* Schedule call instead... */
-	break;
-    }
-
-    sigdp = erts_port_task_alloc_p2p_sig_data();
-    sigdp->flags = ERTS_P2P_SIG_TYPE_GET_DATA;
-
-    return erts_schedule_proc2port_signal(c_p,
-					  prt,
-					  c_p->common.id,
-					  retvalp,
-					  sigdp,
-					  0,
-					  port_sig_get_data);
 }
 
 typedef struct {

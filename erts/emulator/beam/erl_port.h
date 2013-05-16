@@ -167,8 +167,7 @@ struct _erl_drv_port {
 #endif
     erts_atomic_t connected;	/* A connected process */
     Eterm caller;		/* Current caller. */
-    Eterm data;			/* Data associated with port. */
-    ErlHeapFragment* bp;	/* Heap fragment holding data (NULL if imm data). */
+    erts_smp_atomic_t data;	/* Data associated with port. */
     Uint bytes_in;		/* Number of bytes read */
     Uint bytes_out;		/* Number of bytes written */
 
@@ -188,6 +187,12 @@ struct _erl_drv_port {
     ErtsPrtSD *psd;		 /* Port specific data */
     int reds; /* Only used while executing driver callbacks */
 };
+
+
+void erts_init_port_data(Port *);
+void erts_cleanup_port_data(Port *);
+Uint erts_port_data_size(Port *);
+ErlOffHeap *erts_port_data_offheap(Port *);
 
 #define ERTS_PORT_GET_CONNECTED(PRT) \
     ((Eterm) erts_atomic_read_nob(&(PRT)->connected))
@@ -326,8 +331,6 @@ extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
 #define ERTS_PORT_REDS_CONTROL		(CONTEXT_REDS/100)
 #define ERTS_PORT_REDS_CALL		(CONTEXT_REDS/50)
 #define ERTS_PORT_REDS_INFO		(CONTEXT_REDS/100)
-#define ERTS_PORT_REDS_SET_DATA		(CONTEXT_REDS/100)
-#define ERTS_PORT_REDS_GET_DATA		(CONTEXT_REDS/100)
 #define ERTS_PORT_REDS_TERMINATE	(CONTEXT_REDS/50)
 
 void print_port_info(Port *, int, void *);
@@ -794,8 +797,6 @@ struct binary;
 #define ERTS_P2P_SIG_TYPE_INFO			7
 #define ERTS_P2P_SIG_TYPE_LINK			8
 #define ERTS_P2P_SIG_TYPE_UNLINK		9
-#define ERTS_P2P_SIG_TYPE_SET_DATA		10
-#define ERTS_P2P_SIG_TYPE_GET_DATA		11
 
 #define ERTS_P2P_SIG_TYPE_BITS			4
 #define ERTS_P2P_SIG_TYPE_MASK \
@@ -810,6 +811,7 @@ struct binary;
 #define ERTS_P2P_SIG_DATA_FLG_BAD_OUTPUT	ERTS_P2P_SIG_DATA_FLG(4)
 #define ERTS_P2P_SIG_DATA_FLG_BROKEN_LINK	ERTS_P2P_SIG_DATA_FLG(5)
 #define ERTS_P2P_SIG_DATA_FLG_SCHED		ERTS_P2P_SIG_DATA_FLG(6)
+#define ERTS_P2P_SIG_DATA_FLG_ASYNC		ERTS_P2P_SIG_DATA_FLG(7)
 
 struct ErtsProc2PortSigData_ {
     int flags;
@@ -856,10 +858,6 @@ struct ErtsProc2PortSigData_ {
 	struct {
 	    Eterm from;
 	} unlink;
-	struct {
-	    ErlHeapFragment *bp;
-	    Eterm data;
-	} set_data;
     } u;
 } ;
 
@@ -919,6 +917,7 @@ erts_schedule_proc2port_signal(Process *,
 			       Eterm *,
 			       ErtsProc2PortSigData *,
 			       int,
+			       ErtsPortTaskHandle *,
 			       ErtsProc2PortSigCallback);
 
 int erts_deliver_port_exit(Port *, Eterm, Eterm, int);
@@ -932,6 +931,7 @@ int erts_deliver_port_exit(Port *, Eterm, Eterm, int);
 #define ERTS_PORT_SIG_FLG_BROKEN_LINK		ERTS_P2P_SIG_DATA_FLG_BROKEN_LINK
 #define ERTS_PORT_SIG_FLG_BAD_OUTPUT		ERTS_P2P_SIG_DATA_FLG_BAD_OUTPUT
 #define ERTS_PORT_SIG_FLG_FORCE_SCHED		ERTS_P2P_SIG_DATA_FLG_SCHED
+#define ERTS_PORT_SIG_FLG_ASYNC			ERTS_P2P_SIG_DATA_FLG_ASYNC
 /* ERTS_PORT_SIG_FLG_FORCE_IMM_CALL only when crash dumping... */
 #define ERTS_PORT_SIG_FLG_FORCE_IMM_CALL	ERTS_P2P_SIG_DATA_FLG_BAD_OUTPUT
 
@@ -953,7 +953,5 @@ ErtsPortOpResult erts_port_unlink(Process *, Port *, Eterm, Eterm *);
 ErtsPortOpResult erts_port_control(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_call(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_info(Process *, Port *, Eterm, Eterm *);
-ErtsPortOpResult erts_port_set_data(Process *, Port *, Eterm, Eterm *);
-ErtsPortOpResult erts_port_get_data(Process *, Port *, Eterm *);
 
 #endif

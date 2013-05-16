@@ -171,6 +171,11 @@ while [ $# -gt 0 ]; do
 	    cargs="$cargs -debug"
 	    TYPE=.debug
 	    ;;
+	"-frmptr")
+	    shift
+	    cargs="$cargs -frmptr"
+	    TYPE=.frmptr
+	    ;;
 	"-gdb")
 	    shift
 	    GDB=gdb

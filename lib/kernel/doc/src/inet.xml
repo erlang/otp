@@ -559,7 +559,7 @@ fe80::204:acff:fe17:bf38
               <c>[Byte1,Byte2|Binary]</c>.</p>
           </item>
 
-          <tag><c>{high_msgq_watermark, Size}</c> (TCP/IP sockets)</tag>
+          <tag><c>{high_msgq_watermark, Size}</c></tag>
           <item>
 	    <p>The socket message queue will be set into a busy
 	    state when the amount of data queued on the message
@@ -674,7 +674,7 @@ fe80::204:acff:fe17:bf38
 				  the flushing time-out in seconds.</p>
 		  </item>
 
-          <tag><c>{low_msgq_watermark, Size}</c> (TCP/IP sockets)</tag>
+          <tag><c>{low_msgq_watermark, Size}</c></tag>
           <item>
 	    <p>If the socket message queue is in a busy state, the
 	    socket message queue will be set in a not busy state when

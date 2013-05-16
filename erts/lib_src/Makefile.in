@@ -86,10 +86,17 @@ CFLAGS += -DERTS_ENABLE_LOCK_COUNT
 OMIT_FP=true
 PRE_LD=
 else
+ifeq ($(TYPE),frmptr)
+TYPE_SUFFIX = .frmptr
+CFLAGS += -DERTS_FRMPTR
+OMIT_OMIT_FP=yes
+PRE_LD=
+else
 override TYPE=opt
 OMIT_FP=true
 TYPE_SUFFIX=
 PRE_LD=
+endif
 endif
 endif
 endif
@@ -110,6 +117,7 @@ ultrasparcCFLAGS=-Wa,-xarch=v8plusa
 ARCHCFLAGS=$($(ARCH)CFLAGS)
 
 ifeq ($(OMIT_OMIT_FP),yes)
+CFLAGS += -fno-omit-frame-pointer
 OMIT_FP=false
 endif
 

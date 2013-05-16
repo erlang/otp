@@ -4670,6 +4670,8 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online)
 	esdp->reductions = 0;
 
 	init_sched_wall_time(&esdp->sched_wall_time);
+
+	erts_port_task_handle_init(&esdp->nosuspend_port_task_handle);
     }
 
     init_misc_aux_work();
