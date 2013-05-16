@@ -423,57 +423,164 @@ BIF_RETTYPE erts_internal_port_info_2(BIF_ALIST_2)
     }
 }
 
+/*
+ * The erlang:port_set_data()/erlang:port_get_data() operations should
+ * be viewed as operations on a table (inet_db) with data values
+ * associated with port identifier keys. That is, these operations are
+ * *not* signals to/from ports.
+ */
 
-BIF_RETTYPE erts_internal_port_set_data_2(BIF_ALIST_2)
+#if (TAG_PRIMARY_IMMED1 & 0x3) == 0
+# error "erlang:port_set_data()/erlang:port_get_data() needs to be rewritten!"
+#endif
+
+typedef struct {
+    ErtsThrPrgrLaterOp later_op;
+    Uint hsize;
+    Eterm data;
+    ErlOffHeap off_heap;
+    Eterm heap[1];
+} ErtsPortDataHeap;
+
+static void
+free_port_data_heap(void *vpdhp)
 {
-    Eterm ref;
-    Port* prt;
+    erts_cleanup_offheap(&((ErtsPortDataHeap *) vpdhp)->off_heap);
+    erts_free(ERTS_ALC_T_PORT_DATA_HEAP, vpdhp);
+}
 
-    prt = lookup_port(BIF_P, BIF_ARG_1);
-    if (!prt)
-	BIF_RET(am_badarg);
-
-    switch (erts_port_set_data(BIF_P, prt, BIF_ARG_2, &ref)) {
-    case ERTS_PORT_OP_CALLER_EXIT:
-    case ERTS_PORT_OP_BADARG:
-    case ERTS_PORT_OP_DROPPED:
-	BIF_RET(am_badarg);
-    case ERTS_PORT_OP_SCHEDULED:
-	ASSERT(is_internal_ref(ref));
-	BIF_RET(ref);
-    case ERTS_PORT_OP_DONE:
-	BIF_RET(am_true);
-    default:
-	ERTS_INTERNAL_ERROR("Unexpected erts_port_set_data() result");
-	BIF_RET(am_internal_error);
+static ERTS_INLINE void
+cleanup_old_port_data(erts_aint_t data)
+{
+    if ((data & 0x3) != 0) {
+	ASSERT(is_immed((Eterm) data));
+    }
+    else {
+#ifdef ERTS_SMP
+	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
+	size_t size;
+	ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
+	size = sizeof(ErtsPortDataHeap) + pdhp->hsize*(sizeof(Eterm) - 1);
+	erts_schedule_thr_prgr_later_cleanup_op(free_port_data_heap,
+						(void *) pdhp,
+						&pdhp->later_op,
+						size);
+#else
+	free_port_data_heap((void *) data);
+#endif
     }
 }
 
-
-BIF_RETTYPE erts_internal_port_get_data_1(BIF_ALIST_1)
+void
+erts_init_port_data(Port *prt)
 {
-    Eterm retval;
+    erts_smp_atomic_init_nob(&prt->data, (erts_aint_t) am_undefined);
+}
+
+void
+erts_cleanup_port_data(Port *prt)
+{
+    ASSERT(erts_atomic32_read_nob(&prt->state) & ERTS_PORT_SFLGS_INVALID_LOOKUP);
+    cleanup_old_port_data(erts_smp_atomic_read_nob(&prt->data));
+    erts_smp_atomic_set_nob(&prt->data, (erts_aint_t) THE_NON_VALUE);
+}
+
+Uint
+erts_port_data_size(Port *prt)
+{
+    erts_aint_t data = erts_smp_atomic_read_ddrb(&prt->data);
+
+    if ((data & 0x3) != 0) {
+	ASSERT(is_immed((Eterm) (UWord) data));
+	return (Uint) 0;
+    }
+    else {
+	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
+	return (Uint) sizeof(ErtsPortDataHeap) + pdhp->hsize*(sizeof(Eterm)-1);
+    }
+}
+
+ErlOffHeap *
+erts_port_data_offheap(Port *prt)
+{
+    erts_aint_t data = erts_smp_atomic_read_ddrb(&prt->data);
+
+    if ((data & 0x3) != 0) {
+	ASSERT(is_immed((Eterm) (UWord) data));
+	return NULL;
+    }
+    else {
+	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
+	return &pdhp->off_heap;
+    }
+}
+
+BIF_RETTYPE port_set_data_2(BIF_ALIST_2)
+{
+    /*
+     * This is not a signal. See comment above.
+     */
+    erts_aint_t data;
     Port* prt;
 
     prt = lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
-	BIF_RET(am_badarg);
+        BIF_ERROR(BIF_P, BADARG);
 
-    switch (erts_port_get_data(BIF_P, prt, &retval)) {
-    case ERTS_PORT_OP_CALLER_EXIT:
-    case ERTS_PORT_OP_BADARG:
-    case ERTS_PORT_OP_DROPPED:
-	BIF_RET(am_badarg);
-    case ERTS_PORT_OP_SCHEDULED:
-	ASSERT(is_internal_ref(retval));
-	BIF_RET(retval);
-    case ERTS_PORT_OP_DONE:
-	ASSERT(is_not_internal_ref(retval));
-	BIF_RET(retval);
-    default:
-	ERTS_INTERNAL_ERROR("Unexpected erts_port_get_data() result");
-	BIF_RET(am_internal_error);
+    if (is_immed(BIF_ARG_2)) {
+	data = (erts_aint_t) BIF_ARG_2;
+	ASSERT((data & 0x3) != 0);
     }
+    else {
+	ErtsPortDataHeap *pdhp;
+	Uint hsize;
+	Eterm *hp;
+
+	hsize = size_object(BIF_ARG_2);
+	pdhp = erts_alloc(ERTS_ALC_T_PORT_DATA_HEAP,
+			  sizeof(ErtsPortDataHeap) + hsize*(sizeof(Eterm)-1));
+	hp = &pdhp->heap[0];
+	pdhp->off_heap.first = NULL;
+	pdhp->off_heap.overhead = 0;
+	pdhp->data = copy_struct(BIF_ARG_2, hsize, &hp, &pdhp->off_heap);
+	data = (erts_aint_t) pdhp;
+	ASSERT((data & 0x3) == 0);
+    }
+
+    data = erts_smp_atomic_xchg_wb(&prt->data, data);
+
+    cleanup_old_port_data(data);
+
+    BIF_RET(am_true);
+}
+
+
+BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
+{
+    /*
+     * This is not a signal. See comment above.
+     */
+    Eterm res;
+    erts_aint_t data;
+    Port* prt;
+
+    prt = lookup_port(BIF_P, BIF_ARG_1);
+    if (!prt)
+        BIF_ERROR(BIF_P, BADARG);
+
+    data = erts_smp_atomic_read_ddrb(&prt->data);
+
+    if ((data & 0x3) != 0) {
+	res = (Eterm) (UWord) data;
+	ASSERT(is_immed(res));
+    }
+    else {
+	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
+	Eterm *hp = HAlloc(BIF_P, pdhp->hsize);
+	res = copy_struct(pdhp->data, pdhp->hsize, &hp, &MSO(BIF_P));
+    }
+
+    BIF_RET(res);
 }
 
 /* 

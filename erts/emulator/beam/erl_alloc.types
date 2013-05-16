@@ -272,6 +272,7 @@ type	CODE_IX_LOCK_Q  SHORT_LIVED	SYSTEM		code_ix_lock_q
 type	PROC_INTERVAL	LONG_LIVED	SYSTEM		process_interval
 type    BUSY_CALLER_TAB	SHORT_LIVED	SYSTEM		busy_caller_table
 type    BUSY_CALLER	SHORT_LIVED	SYSTEM		busy_caller
+type	PORT_DATA_HEAP	STANDARD	SYSTEM		port_data_heap
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;

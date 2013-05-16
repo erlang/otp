@@ -154,8 +154,10 @@ bif erts_internal:port_command/3
 bif erts_internal:port_control/3
 bif erts_internal:port_close/1
 bif erts_internal:port_connect/2
-bif erts_internal:port_set_data/2
-bif erts_internal:port_get_data/1
+
+# inet_db support
+bif erlang:port_set_data/2
+bif erlang:port_get_data/1
 
 # Tracing & debugging.
 bif erlang:trace_pattern/2
