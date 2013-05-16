@@ -77,33 +77,26 @@
     <p><code>dss_private() =  [key_value()] = [P, Q, G, X] </code></p>
     <p>Where P, Q and G are the dss parameters and X is the private key.</p>
 
-    <p><code>dss_public() =  [key_value()] =[P, Q, G, Y] </code></p>
-
-    <p><code>srp_public() =  key_value() </code></p>
+    <p><code>srp_public() = binary() </code></p>
     <p>Where is <c>A</c> or <c>B</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
 
     <p><code>srp_private() = key_value() </code></p>
     <p>Where is  <c>a</c> or <c>b</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
 
-    <p><code>srp_params() = {user, [Generator::binary(), Prime::binary(), Version::atom()]} |
-    {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}
-    |  {user, [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom() | [Scrambler:binary()]]}
-    | {host,[Verifier::binary(), Prime::binary(), Version::atom() | [Scrambler::binary]]} </code></p>
-
     <p>Where Verifier is <c>v</c>, Generator is <c>g</c> and Prime is<c> N</c>, DerivedKey is <c>X</c>, and Scrambler is
-    <c>u</c> (optional will be genrated if not provided) from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+    <c>u</c> (optional will be generated if not provided) from <url href="http://srp.stanford.edu/design.html">SRP design</url>
     Version = '3' |  '6' |  '6a'
     </p>
 
-    <p><code>dh_public() = key_value() </code></p>
+    <p><code>dh_public() = binary() </code></p>
 
-    <p><code>dh_private() = key_value() </code></p>
+    <p><code>dh_private() = binary() </code></p>
 
     <p><code>dh_params() = [key_value()] = [P, G] </code></p>
 
-    <p><code>ecdh_public() = key_value() </code></p>
+    <p><code>ecdh_public() = binary() </code></p>
 
-    <p><code>ecdh_private() = key_value() </code></p>
+    <p><code>ecdh_private() = integer() </code></p>
 
     <p><code>ecdh_params() =  ec_named_curve() |
     {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(), CoFactor :: none | integer()} </code></p>
@@ -143,10 +136,12 @@
      <p><code>des3_key() = [binary(), binary(), binary()] </code> Each key part is 64 bits (in CBC mode only 8 bits are used)</p>
 
      <p><code>digest_type() =  md5 | sha | sha224 | sha256 | sha384 | sha512</code></p>
-     <p><code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> md4 is aslo supported for hash_init/1 and hash/2.
+
+     <p><code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> md4 is also supported for hash_init/1 and hash/2.
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
-     <p><code> cipher_algorithms() =  des | des3 | aes | blowfish | rc2 | rc4 </code> </p>
+     <p><code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
+     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb128| aes_cbc256 | rc2_cbc | aes_ctr| rc4  </code> </p>
      <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh </code> </p>
      
  </section>
@@ -156,6 +151,7 @@
       <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
       <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
       <type>
+	<v>Type = block_cipher() </v>
 	<v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
         <v>IVec = CipherText = binary()</v>
@@ -171,6 +167,7 @@
       <name>block_decrypt(Type, Key, Ivec, CipherText) -> PlainText</name>
       <fsummary>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher</fsummary>
       <type>
+	<v>Type = block_cipher() </v>
 	<v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
         <v>IVec = CipherText = binary()</v>
@@ -197,13 +194,15 @@
     </func>
 
     <func>
-      <name>compute_key(Type, OthersPublicKey, MyPrivateKey, Params) -> SharedSecret</name>
+      <name>compute_key(Type, OthersPublicKey, MyKey, Params) -> SharedSecret</name>
       <fsummary>Computes the shared secret</fsummary>
       <type>
 	<v> Type = dh | ecdh | srp </v>
 	<v>OthersPublicKey =  dh_public() | ecdh_public() | srp_public() </v>
-	<v>MyPrivate =  dh_private() | ecdh_private() | srp_private()  </v>
-	<v>Params = dh_params() | edhc_params() | srp_params() </v>
+	<v>MyKey = dh_private() | ecdh_private() | {srp_public(),srp_private()}</v>
+	<v>Params = dh_params() | ecdh_params() | SrpUserParams | SrpHostParams</v>
+	<v>SrpUserParams = {user, [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom() | [Scrambler:binary()]]} </v>
+	<v>SrpHostParams = {host, [Verifier::binary(), Prime::binary(), Version::atom() | [Scrambler::binary]]} </v>
 	<v>SharedSecret = binary()</v>
       </type>
       <desc>
@@ -226,14 +225,17 @@
     </func>
 
    <func>
-      <name>generate_key(Type, Params) -> {PublicKey, PrivateKey} </name>
-      <name>generate_key(Type, Params, PrivateKey) -> {PublicKey, PrivateKey} </name>
+      <name>generate_key(Type, Params) -> {PublicKey, PrivKeyOut} </name>
+      <name>generate_key(Type, Params, PrivKeyIn) -> {PublicKey, PrivKeyOut} </name>
       <fsummary>Generates a public keys of type <c>Type</c></fsummary>
       <type>
 	<v> Type = dh | ecdh | srp </v>
-	<v>Params = dh_params() | edhc_params() | srp_params() </v>
+	<v>Params = dh_params() | ecdh_params() | SrpUserParams | SrpHostParams </v>
+	<v>SrpUserParams = {user, [Generator::binary(), Prime::binary(), Version::atom()]}</v>
+	<v>SrpHostParams = {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>PublicKey =  dh_public() | ecdh_public() | srp_public() </v>
-	<v>PrivateKey =  dh_private() | ecdh_private() | srp_private() </v>
+	<v>PrivKeyIn = undefined | dh_private() | srp_private() </v>
+	<v>PrivKeyOut =  dh_private() | ecdh_private() | srp_private() </v>
       </type>
       <desc>
 	<p>Generates public keys of type <c>Type</c>.
@@ -416,16 +418,20 @@
     </func>
 
     <func>
-   <name>next_iv(Type, Data) -> </name>
+   <name>next_iv(Type, Data) -> NextIVec</name>
+   <name>next_iv(Type, Data, IVec) -> NextIVec</name>
    <fsummary></fsummary>
    <type>
-     <v>Type = des_cbc | des3_cbc |aes_cbc | des_cfb</v>
+     <v>Type = des_cbc | des3_cbc | aes_cbc | des_cfb</v>
      <v>Data = iodata()</v>
+     <v>IVec = NextIVec = binary()</v>
    </type>
    <desc>
      <p>Returns the initialization vector to be used in the next
-     iteration of encrypt/decrypt of type <c>Type</c>. Data is the
-     encrypted data from the previous iteration step.</p>
+     iteration of encrypt/decrypt of type <c>Type</c>. <c>Data</c> is the
+     encrypted data from the previous iteration step. The <c>IVec</c>
+     argument is only needed for <c>des_cfb</c> as the vector used
+     in the previous iteration step.</p>
    </desc>
     </func>
 
@@ -558,10 +564,12 @@
 	signed or it is the hashed value of "plain text" i.e. the
 	digest.</d>
 	<v>DigestType = digest_type()</v>
-	<v>Key = rsa_private_key() | dsa_private_key() | ec_private_key()</v>
+	<v>Key = rsa_private() | dss_private() | [ecdh_private(),ecdh_params()]</v>
       </type>
       <desc>
-	<p> Creates a digital signature.</p>
+	<p>Creates a digital signature.</p>
+	<p>Algoritm <c>dss</c> can only be used together with digest type
+	<c>sha</c>.</p>
 	See also <seealso marker="public_key:public_key#sign/3">public_key:sign/3</seealso>
       </desc>
     </func>
@@ -600,10 +608,9 @@
       <name>stream_init(Type, Key) -> State</name>
       <fsummary></fsummary>
       <type>
-	<v>Type rc4 </v>
+	<v>Type = rc4 </v>
         <v>State = opaque() </v>
         <v>Key = iodata()</v>
-        <v>IVec = binary()</v>
       </type>
       <desc>
         <p>Initializes the state for use in RC4 stream encryption
@@ -616,7 +623,7 @@
       <name>stream_init(Type, Key, IVec) -> State</name>
       <fsummary></fsummary>
       <type>
-	<v>Type aes_ctr </v>
+	<v>Type = aes_ctr </v>
         <v>State = opaque() </v>
         <v>Key = iodata()</v>
         <v>IVec = binary()</v>
@@ -686,10 +693,13 @@
         or it is the hashed value of "plain text" i.e. the digest.</d>
 	<v>DigestType = digest_type()</v>
 	<v>Signature = binary()</v>
-	<v>Key = rsa_public_key() | dsa_public_key() | ec_public_key()</v>
+	<v>Key = rsa_public() | dss_public() | [ecdh_public(),ecdh_params()]</v>
       </type>
       <desc>
 	<p>Verifies a digital signature</p>
+	<p>Algoritm <c>dss</c> can only be used together with digest type
+	<c>sha</c>.</p>
+
 	See also <seealso marker="public_key:public_key#sign/3">public_key:verify/3</seealso>
       </desc>
     </func>
