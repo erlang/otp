@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -214,12 +214,12 @@ check_user(User) ->
     case element(?usmUserAuthProtocol, User) of
 	?usmNoAuthProtocol -> ok;
 	?usmHMACMD5AuthProtocol ->
-	    case is_crypto_supported(md5_mac_96) of
+	    case is_crypto_supported(md5) of
 		true -> ok;
 		false -> exit({unsupported_crypto, md5_mac_96})
 	    end;
 	?usmHMACSHAAuthProtocol ->
-	    case is_crypto_supported(sha_mac_96) of
+	    case is_crypto_supported(sha) of
 		true -> ok;
 		false -> exit({unsupported_crypto, sha_mac_96})
 	    end
@@ -227,14 +227,14 @@ check_user(User) ->
     case element(?usmUserPrivProtocol, User) of
 	?usmNoPrivProtocol -> ok;
 	?usmDESPrivProtocol ->
-	    case is_crypto_supported(des_cbc_decrypt) of
+	    case is_crypto_supported(des_cbc) of
 		true -> ok;
-		false -> exit({unsupported_crypto, des_cbc_decrypt})
+		false -> exit({unsupported_crypto, des_cbc})
 	    end;
 	?usmAesCfb128Protocol ->
-	    case is_crypto_supported(aes_cfb_128_decrypt) of
+	    case is_crypto_supported(aes_cfb128) of
 		true -> ok;
-		false -> exit({unsupported_crypto, aes_cfb_128_decrypt})
+		false -> exit({unsupported_crypto, aes_cfb128})
 	    end
     end.
     
@@ -874,13 +874,13 @@ validate_auth_protocol(RowIndex, Cols) ->
 				_ -> inconsistentValue(?usmUserAuthProtocol)
 			    end;
 			?usmHMACMD5AuthProtocol ->
-			    case is_crypto_supported(md5_mac_96) of
+			    case is_crypto_supported(md5) of
 				true -> ok;
 				false ->
 				    wrongValue(?usmUserAuthProtocol)
 			    end;
 			?usmHMACSHAAuthProtocol ->
-			    case is_crypto_supported(sha_mac_96) of
+			    case is_crypto_supported(sha) of
 				true -> ok;
 				false ->
 				    wrongValue(?usmUserAuthProtocol)
@@ -1008,7 +1008,7 @@ validate_priv_protocol(RowIndex, Cols) ->
 			?usmDESPrivProtocol ->
 			    %% The 'catch' handles the case when 'crypto' is
 			    %% not present in the system.
-			    case is_crypto_supported(des_cbc_decrypt) of
+			    case is_crypto_supported(des_cbc) of
 				true ->
 				    case get_auth_proto(RowIndex, Cols) of
 					?usmNoAuthProtocol ->
@@ -1022,7 +1022,7 @@ validate_priv_protocol(RowIndex, Cols) ->
 			?usmAesCfb128Protocol ->
 			    %% The 'catch' handles the case when 'crypto' is
 			    %% not present in the system.
-			    case is_crypto_supported(aes_cfb_128_decrypt) of
+			    case is_crypto_supported(aes_cfb128) of
 				true ->
 				    case get_auth_proto(RowIndex, Cols) of
 					?usmNoAuthProtocol ->
@@ -1164,7 +1164,7 @@ mk_key_change(Hash, OldKey, NewKey) ->
 %% case in the standard where Random is pre-defined.
 mk_key_change(Alg, OldKey, NewKey, KeyLen, Random) ->
     %% OldKey and Random is of length KeyLen...
-    Digest = lists:sublist(binary_to_list(crypto:Alg(OldKey++Random)), KeyLen),
+    Digest = lists:sublist(binary_to_list(crypto:hash(Alg, OldKey++Random)), KeyLen),
     %% ... and so is Digest
     Delta = snmp_misc:str_xor(Digest, NewKey),
     Random ++ Delta.
@@ -1181,7 +1181,7 @@ extract_new_key(Hash, OldKey, KeyChange) ->
 	      sha -> sha
 	  end,
     {Random, Delta} = split(KeyLen, KeyChange, []),
-    Digest = lists:sublist(binary_to_list(crypto:Alg(OldKey++Random)), KeyLen),
+    Digest = lists:sublist(binary_to_list(crypto:hash(Alg, OldKey++Random)), KeyLen),
     NewKey = snmp_misc:str_xor(Digest, Delta),
     NewKey.
 
@@ -1219,10 +1219,13 @@ split(N, [H | T], FirstRev) when N > 0 ->
     split(N-1, T, [H | FirstRev]).
 
 
-is_crypto_supported(Func) ->
+is_crypto_supported(Algo) ->
     %% The 'catch' handles the case when 'crypto' is
     %% not present in the system (or not started).
-    case catch lists:member(Func, crypto:info()) of
+    Supported = crypto:supports(),
+    Hashs = proplists:get_value(hashs, Supported),
+    Ciphers = proplists:get_value(ciphers, Supported),
+    case catch lists:member(Algo, Hashs ++ Ciphers) of
 	true -> true;
 	_ -> false
     end.

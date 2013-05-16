@@ -591,7 +591,7 @@ hmac(sha384, Key, Data) -> sha384_mac(Key, Data);
 hmac(sha512, Key, Data) -> sha512_mac(Key, Data).
 
 hmac(md5, Key, Data, Size)    -> md5_mac_n(Key, Data, Size);
-hmac(sha, Key, Data, Size)    -> sha_mac(Key, Data, Size);
+hmac(sha, Key, Data, Size)    -> sha_mac_n(Key, Data, Size);
 hmac(sha224, Key, Data, Size) -> sha224_mac(Key, Data, Size);
 hmac(sha256, Key, Data, Size) -> sha256_mac(Key, Data, Size);
 hmac(sha384, Key, Data, Size) -> sha384_mac(Key, Data, Size);
