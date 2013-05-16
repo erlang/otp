@@ -1047,7 +1047,7 @@ dh_group1() ->
 
 dh_gen_key(G, P, _) ->
     {Public, Private} = crypto:generate_key(dh, [P, G]),
-    {crypto:binary_to_integer(Private), crypto:binary_to_integer(Public)}.
+    {crypto:bytes_to_integer(Private), crypto:bytes_to_integer(Public)}.
 
 trim_tail(Str) ->
     lists:reverse(trim_head(lists:reverse(Str))).

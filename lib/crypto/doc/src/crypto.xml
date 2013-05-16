@@ -180,7 +180,7 @@
     </func>
     
      <func>
-      <name>binary_to_integer(Bin) -> Integer </name>
+      <name>bytes_to_integer(Bin) -> Integer </name>
       <fsummary>Convert binary representation, of an integer, to an Erlang integer.</fsummary>
       <type>
 	<v>Bin = binary() - as returned by crypto functions</v>
@@ -568,7 +568,7 @@
       </type>
       <desc>
 	<p>Creates a digital signature.</p>
-	<p>Algoritm <c>dss</c> can only be used together with digest type
+	<p>Algorithm <c>dss</c> can only be used together with digest type
 	<c>sha</c>.</p>
 	See also <seealso marker="public_key:public_key#sign/3">public_key:sign/3</seealso>
       </desc>
@@ -697,7 +697,7 @@
       </type>
       <desc>
 	<p>Verifies a digital signature</p>
-	<p>Algoritm <c>dss</c> can only be used together with digest type
+	<p>Algorithm <c>dss</c> can only be used together with digest type
 	<c>sha</c>.</p>
 
 	See also <seealso marker="public_key:public_key#sign/3">public_key:verify/3</seealso>

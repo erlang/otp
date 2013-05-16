@@ -21,7 +21,7 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info_lib/0, supports/0, version/0, binary_to_integer/1]).
+-export([start/0, stop/0, info_lib/0, supports/0, version/0, bytes_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, verify/5]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
@@ -1618,7 +1618,7 @@ int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
 int_to_bin_neg(X,Ds) ->
     int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
 
-binary_to_integer(Bin) ->
+bytes_to_integer(Bin) ->
     bin_to_int(Bin).
 
 bin_to_int(Bin) when is_binary(Bin) ->

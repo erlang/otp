@@ -33,7 +33,7 @@
 
 %% calculate A^B mod M
 ipow(A, B, M) when M > 0, B >= 0 ->
-    crypto:binary_to_integer(crypto:mod_pow(A, B, M)).
+    crypto:bytes_to_integer(crypto:mod_pow(A, B, M)).
 
 
 

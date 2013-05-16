@@ -1072,7 +1072,7 @@ gen_dsa2(LSize, NSize) ->
 	    Y = crypto:mod_pow(G, X, P), %% Calculate y = g^x mod p.
 	    
 	    #'DSAPrivateKey'{version=0, p = P, q = Q, 
-			     g = crypto:binary_to_integer(G), y = crypto:binary_to_integer(Y), x = X}
+			     g = crypto:bytes_to_integer(G), y = crypto:bytes_to_integer(Y), x = X}
     end.
     
 %% See fips_186-3.pdf
@@ -1104,7 +1104,7 @@ is_prime(_, 0) -> true;
 is_prime(Candidate, Test) -> 
     CoPrime = odd_rand(10000, Candidate),
     Result = crypto:mod_pow(CoPrime, Candidate, Candidate) ,
-    is_prime(CoPrime, crypto:binary_to_integer(Result), Candidate, Test).
+    is_prime(CoPrime, crypto:bytes_to_integer(Result), Candidate, Test).
 
 is_prime(CoPrime, CoPrime, Candidate, Test) ->
     is_prime(Candidate, Test-1);
