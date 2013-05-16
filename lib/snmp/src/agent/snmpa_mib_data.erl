@@ -18,10 +18,53 @@
 %%
 -module(snmpa_mib_data).
 
+-include_lib("snmp/include/snmp_types.hrl").
+
 %%%-----------------------------------------------------------------
 %%% This is the behaviour for the MIB server backend internal 
 %%% data storage. 
 %%%-----------------------------------------------------------------
+
+%% These types should really be defined elsewhere...
+-export_type([
+	      oid/0, 
+
+	      mib_storage/0, 
+	      mib_storage_dir/0, 
+	      mib_storage_action/0, 
+
+	      mib_view/0, 
+	      mib_view_elem/0, 
+	      mib_view_mask/0, 
+	      mib_view_inclusion/0
+	     ]).
+
+-type oid() :: [non_neg_integer()].
+
+-type mib_storage() :: ets | 
+		       {ets, Dir :: mib_storage_dir()} | 
+		       {ets, Dir :: mib_storage_dir(), Action :: mib_storage_action()} | 
+		       dets | 
+		       {dets, Dir :: mib_storage_dir()} | 
+		       {dets, Dir :: mib_storage_dir(), Action :: mib_storage_action()} | 
+		       mnesia | 
+		       {mnesia, Nodes :: [node()]} | 
+		       {mnesia, Nodes :: [node()], 
+			Action :: mib_storage_action()}. 
+
+-type mib_storage_dir()    :: default | string().
+-type mib_storage_action() :: clear | keep.
+
+-type mib_view()           :: [mib_view_elem()].
+-type mib_view_elem()      :: {SubTree :: oid(), 
+			       Mask :: [non_neg_integer()], 
+			       Inclusion :: mib_view_inclusion()}.
+-type mib_view_mask()      :: [non_neg_integer()]. 
+-type mib_view_inclusion() :: 1 | 2. % 1 = included, 2 = excluded
+
+-type me() :: #me{}.
+
+-type filename() :: file:filename().
 
 
 -callback new(MibStorage :: mib_storage()) -> State :: term().
@@ -33,12 +76,12 @@
 -callback load_mib(State :: term(), FileName :: string(), 
 		   MeOverride :: boolean(), 
 		   TeOverride :: boolean()) -> 
-    {ok, NewState :: term()} | {error, already_loaded | Reason :: term()}.
+    {ok, NewState :: term()} | {error, Reason :: already_loaded | term()}.
 
 -callback unload_mib(State :: term(), FileName :: string(), 
 		   MeOverride :: boolean(), 
 		   TeOverride :: boolean()) -> 
-    {ok, NewState :: term()} | {error, not_loaded | Reason :: term()}.
+    {ok, NewState :: term()} | {error, Reason :: not_loaded | term()}.
 
 -callback lookup(State :: term(), Oid :: oid()) -> 
     {false, Reason :: term()} | 
@@ -50,14 +93,14 @@
     endOfView | false | 
     {subagent, SubAgentPid :: pid(), SAOid :: oid()} |
     {variable, MibEntry :: me(), VarOid :: oid()} |
-    {table, TableOid :: oid(), TableRestOid :: oid(), MibEntry :: me()}
+    {table, TableOid :: oid(), TableRestOid :: oid(), MibEntry :: me()}.
 
 -callback register_subagent(State :: term(), Oid :: oid(), Pid :: pid()) -> 
     {ok, NewState :: term()} | {error, Reason :: term()}.
 
 -callback unregister_subagent(State :: term(), 
-			      Pid :: pid() | Oid :: oid()) -> 
-    {ok, NewState :: term()}               | % When second arg wa a pid()
+			      PidOrOid :: pid() | oid()) -> 
+    {ok, NewState :: term()}               | % When second arg was a pid()
     {ok, NewState :: term(), Pid :: pid()} | % When second arg was a oid()
     {error, Reason :: term()}.
 
@@ -74,12 +117,14 @@
     {ok, Filename :: string()} | {error, Reason :: term()}.
 
 -callback info(State :: term()) -> list().
--callback info(State :: term(), Item :: atom()) -> term().
 
 -callback backup(State :: term(), BackupDir :: string()) -> 
     ok |  {error, Reason :: term()}.
 
--callback code_change(Direction :: up | down, State :: term()) -> 
+-callback code_change(Direction :: up | down, 
+		      Vsn :: term(), 
+		      Extra :: term(), 
+		      State :: term()) -> 
     NewState :: term().
 
 

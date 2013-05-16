@@ -28,6 +28,7 @@ BEHAVIOUR_MODULES = \
 	snmpa_notification_filter \
 	snmpa_set_mechanism
 
+# snmpa_mib_data_ttln
 MODULES = \
 	$(BEHAVIOUR_MODULES) \
 	snmpa \
@@ -44,7 +45,6 @@ MODULES = \
 	snmpa_local_db \
 	snmpa_mib \
 	snmpa_mib_data_tttn \
-	snmpa_mib_data_ttln \
 	snmpa_mib_lib \
 	snmpa_misc_sup \
 	snmpa_mpd \

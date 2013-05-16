@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,6 +19,9 @@
 -module(snmpa_mib_data_tttn).
 
 %%%-----------------------------------------------------------------
+%%% 
+%%%            TTTN - TupleTreeTupleNodes
+%%% 
 %%% This module implements the MIB internal data structures.
 %%% An MIB Data Structure consists of three items; an ets-table,
 %%% a tree and a list of registered subagents.
@@ -34,16 +37,16 @@
 -include("snmp_types.hrl").
 -include("snmp_debug.hrl").
 
--define(VMODULE,"MDATA").
+-define(VMODULE,"MDATA_TTTN").
 -include("snmp_verbosity.hrl").
 
--define(MIB_DATA,snmpa_mib_data).
--define(MIB_NODE,snmpa_mib_node).
--define(MIB_TREE,snmpa_mib_tree).
--define(DUMMY_TREE_GENERATION,1).
--define(DEFAULT_TREE,{tree,{undefined_node},internal}).
-%%-define(DUMMY_TREE_DB,dummy_tree_db).
-%%-define(DUMMY_TREE_DB_INIT,{?DUMMY_TREE_DB,?DEFAULT_TREE}).
+-behaviour(snmpa_mib_data).
+
+-define(MIB_DATA, snmpa_mib_data).
+-define(MIB_NODE, snmpa_mib_node).
+-define(MIB_TREE, snmpa_mib_tree).
+-define(DUMMY_TREE_GENERATION, 1).
+-define(DEFAULT_TREE, {tree,{undefined_node},internal}).
 
 
 %%%-----------------------------------------------------------------
@@ -69,6 +72,7 @@
 %% tree is the root node (same as ref_tree but with the subagents added).
 %% subagents is a list of {SAPid, Oid}
 %%----------------------------------------------------------------------
+
 -record(mib_data, {mib_db,  % table of #mib_info
 		   node_db, % table of #node_info
 		   tree_db, % table of #tree
@@ -80,16 +84,21 @@
 
 
 %% API
--export([new/0, new/1, sync/1, close/1, 
-	 load_mib/4, unload_mib/4, which_mibs/1, whereis_mib/2, 
+-export([new/1, 
+	 close/1, 
+	 sync/1, 
+	 load_mib/4, 
+	 unload_mib/4, 
+	 lookup/2, 
+	 next/3, 
+	 register_subagent/3, 
+	 unregister_subagent/2, 
+	 dump/2, 
+	 which_mib/2, which_mibs/1, 
+	 whereis_mib/2, 
 	 info/1, info/2,
-	 dump/1, dump/2, 
 	 backup/2, 
-	 lookup/2, next/3, which_mib/2, 
-	 register_subagent/3, unregister_subagent/2]).
-
-%% Internal exports
--export([code_change/2]).
+	 code_change/4]).
 
 
 %%-----------------------------------------------------------------
@@ -123,8 +132,6 @@
 %% Func: new/0, new/1
 %% Returns: A representation of mib data.
 %%-----------------------------------------------------------------
-new() ->
-    new(ets).
 
 %% Where -> A list of nodes where the tables will be created
 new(Storage) ->
@@ -408,10 +415,12 @@ whereis_mib(#mib_data{mib_db = Db}, Name) ->
 %% Purpose: Deletes SA with Pid from all subtrees it handles.
 %% Returns: NewMibData.
 %%----------------------------------------------------------------------
-unregister_subagent(MibData, Pid) when is_pid(Pid) ->
+unregister_subagent(#mib_data{subagents = SAs} = MibData, Pid) 
+  when is_pid(Pid) ->
     SAs = MibData#mib_data.subagents,
     case lists:keysearch(Pid, 1, SAs) of
-	false -> MibData;
+	false -> 
+	    {ok, MibData};
 	{value, {Pid, Oid}} ->
 	    % we should never get an error since Oid is found in MibData.
 	    {ok, NewMibData, _DeletedSA} = unregister_subagent(MibData, Oid),
@@ -424,7 +433,7 @@ unregister_subagent(MibData, Pid) when is_pid(Pid) ->
 %% Returns: {error, Reason} | {ok, NewMibData, DeletedSubagentPid}
 %%----------------------------------------------------------------------
 unregister_subagent(#mib_data{tree = T} = MibData, Oid) when is_list(Oid) ->
-    case catch delete_subagent(T#tree.root, Oid) of
+    case (catch delete_subagent(T#tree.root, Oid)) of
 	{tree, Tree, Info} ->
 	    OldSAs = MibData#mib_data.subagents,
 	    {value, {Pid, _Oid}} = lists:keysearch(Oid, 2, OldSAs),
@@ -434,7 +443,7 @@ unregister_subagent(#mib_data{tree = T} = MibData, Oid) when is_list(Oid) ->
 	     MibData#mib_data{tree = T2, subagents = SAs},
 	     Pid};
 	_ ->
-	    {error, {'invalid oid', Oid}}
+	    {error, {invalid_oid, Oid}}
     end.
 
 %%----------------------------------------------------------------------
@@ -479,6 +488,7 @@ old_format(LoadedMibs) ->
 %%----------------------------------------------------------------------
 %% A total dump for debugging.
 %%----------------------------------------------------------------------
+
 dump(#mib_data{mib_db  = MibDb, 
 	       node_db = NodeDb, 
 	       tree    = Tree}, io) ->
@@ -1346,14 +1356,16 @@ maybe_drop_me(_) -> true.
 %% Code change functions
 %%----------------------------------------------------------------------
 
-code_change(down, State) ->
-    ?d("code_change(down) -> entry",[]),
+code_change(down, _Vsn, _Extra, State) ->
+    ?d("code_change(down) -> entry when"
+       "~n   Vsn:   ~p"
+       "~n   Extra: ~p", [_Vsn, _Extra]),
     State;
 
-code_change(up, State) ->
-    ?d("code_change(up)",[]),
-    State;
-
-code_change(_Vsn, State) ->
+code_change(up, _Vsn, _Extra, State) ->
+    ?d("code_change(up) -> entry when"
+       "~n   Vsn:   ~p"
+       "~n   Extra: ~p", [_Vsn, _Extra]),
     State.
+
 
