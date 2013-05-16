@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -16,9 +16,13 @@
 %% 
 %% %CopyrightEnd%
 %%
--module(snmpa_mib_data).
+
+-module(snmpa_mib_data_ttln).
 
 %%%-----------------------------------------------------------------
+%%% 
+%%%        TTLN - TupleTreeListNodes
+%%% 
 %%% This module implements the MIB internal data structures.
 %%% An MIB Data Structure consists of three items; an ets-table,
 %%% a tree and a list of registered subagents.
@@ -34,16 +38,16 @@
 -include("snmp_types.hrl").
 -include("snmp_debug.hrl").
 
--define(VMODULE,"MDATA").
+-define(VMODULE,"MDATA_TTLN").
 -include("snmp_verbosity.hrl").
 
--define(MIB_DATA,snmpa_mib_data).
--define(MIB_NODE,snmpa_mib_node).
--define(MIB_TREE,snmpa_mib_tree).
--define(DUMMY_TREE_GENERATION,1).
--define(DEFAULT_TREE,{tree,{undefined_node},internal}).
-%%-define(DUMMY_TREE_DB,dummy_tree_db).
-%%-define(DUMMY_TREE_DB_INIT,{?DUMMY_TREE_DB,?DEFAULT_TREE}).
+-behaviour(snmpa_mib_data).
+
+-define(MIB_DATA, snmpa_mib_data).
+-define(MIB_NODE, snmpa_mib_node).
+-define(MIB_TREE, snmpa_mib_tree).
+-define(DUMMY_TREE_GENERATION, 1).
+-define(DEFAULT_TREE, {tree,{undefined_node},internal}).
 
 
 %%%-----------------------------------------------------------------
