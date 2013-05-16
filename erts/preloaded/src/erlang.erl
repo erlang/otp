@@ -2086,7 +2086,7 @@ tuple_to_list(_Tuple) ->
          ({allocator_sizes, Alloc}) -> [_] when %% More or less anything
       Alloc :: atom();
          (build_type) -> opt | debug | purify | quantify | purecov |
-                         gcov | valgrind | gprof | lcnt;
+                         gcov | valgrind | gprof | lcnt | frmptr;
          (c_compiler_used) -> {atom(), term()};
          (check_io) -> [_];
          (compat_rel) -> integer();
