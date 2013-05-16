@@ -572,7 +572,7 @@ copy_file(From, To) ->
 		    FromMode = FromInfo#file_info.mode,
 		    ToMode = ToInfo#file_info.mode,
 		    ToMode2 = FromMode bor ToMode,
-		    FileInfo = FromInfo#file_info{mode = ToMode2},
+		    FileInfo = ToInfo#file_info{mode = ToMode2},
 		    write_file_info(To, FileInfo),
 		    ok;
 		{error, Reason} ->
