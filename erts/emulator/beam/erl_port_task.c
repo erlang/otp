@@ -552,6 +552,19 @@ set_handle(ErtsPortTask *ptp, ErtsPortTaskHandle *pthp)
     }
 }
 
+static ERTS_INLINE void
+set_tmp_handle(ErtsPortTask *ptp, ErtsPortTaskHandle *pthp)
+{
+    ptp->u.alive.handle = NULL;
+    if (pthp) {
+	/*
+	 * IMPORTANT! Task either need to be aborted, or task handle
+	 * need to be detached before thread progress has been made.
+	 */
+	erts_smp_atomic_set_relb(pthp, (erts_aint_t) ptp);
+    }
+}
+
 
 /*
  * Busy port queue management
@@ -1182,6 +1195,13 @@ erl_drv_consume_timeslice(ErlDrvPort dprt, int percent)
     return 1;
 }
 
+void
+erts_port_task_tmp_handle_detach(ErtsPortTaskHandle *pthp)
+{
+    ERTS_SMP_LC_ASSERT(erts_thr_progress_lc_is_delaying());
+    reset_port_task_handle(pthp);
+}
+
 /*
  * Abort a scheduled task.
  */
@@ -1206,7 +1226,7 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 	ERTS_SMP_READ_MEMORY_BARRIER;
 	old_state = erts_smp_atomic32_read_nob(&ptp->state);
 	if (old_state == ERTS_PT_STATE_SCHEDULED) {
-	    ASSERT(saved_pthp == pthp);
+	    ASSERT(!saved_pthp || saved_pthp == pthp);
 	}
 #endif
 
@@ -1226,9 +1246,6 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 		ASSERT(erts_smp_atomic_read_nob(
 			   &erts_port_task_outstanding_io_tasks) > 0);
 		erts_smp_atomic_dec_relb(&erts_port_task_outstanding_io_tasks);
-		break;
-	    case ERTS_PORT_TASK_PROC_SIG:
-		ERTS_INTERNAL_ERROR("Aborted process to port signal");
 		break;
 	    default:
 		break;
@@ -1404,7 +1421,6 @@ erts_port_task_schedule(Eterm id,
     }
     case ERTS_PORT_TASK_PROC_SIG: {
 	va_list argp;
-	ASSERT(!pthp);
 	va_start(argp, type);
 	sigdp = va_arg(argp, ErtsProc2PortSigData *);
 	ptp = p2p_sig_data_to_task(sigdp);
@@ -1412,7 +1428,7 @@ erts_port_task_schedule(Eterm id,
  	ptp->u.alive.flags |= va_arg(argp, int);
 	va_end(argp);
 	if (!(ptp->u.alive.flags & ERTS_PT_FLG_NOSUSPEND))
-	    set_handle(ptp, pthp);
+	    set_tmp_handle(ptp, pthp);
 	else {
 	    ns_pthlp = erts_alloc(ERTS_ALC_T_PT_HNDL_LIST,
 				  sizeof(ErtsPortTaskHandleList));

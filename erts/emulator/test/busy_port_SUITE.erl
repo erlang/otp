@@ -170,6 +170,7 @@ send_3(Config) when is_list(Config) ->
     ?line {Owner,Slave} = get_slave(),
     ?line ok = erlang:send(Slave, {Owner,{command,"set busy"}}, 
 			   [nosuspend]),
+    receive after 100 -> ok end, % ensure command reached port
     ?line nosuspend = erlang:send(Slave, {Owner,{command,"busy"}},
 				  [nosuspend]),
     ?line unlock_slave(),
@@ -563,6 +564,7 @@ scheduling_delay_busy_nosuspend(Config) ->
 	 {2,{call,[{var,1},open_port]}},
 	 {0,{cast,[{var,1},{command,1,100}]}},
 	 {0,{cast,[{var,1},{busy,2}]}},
+	 {0,{timer,sleep,[200]}}, % ensure reached port
 	 {10,{call,[{var,1},{command,3,[nosuspend]}]}},
 	 {0,{timer,sleep,[200]}},
 	 {0,{erlang,port_command,[{var,2},<<$N>>,[force]]}},

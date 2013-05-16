@@ -1441,6 +1441,7 @@ erts_schedule_proc2port_signal(Process *c_p,
 			       Eterm *refp,
 			       ErtsProc2PortSigData *sigdp,
 			       int task_flags,
+			       ErtsPortTaskHandle *pthp,
 			       ErtsProc2PortSigCallback callback)
 {
     int sched_res;
@@ -1490,7 +1491,7 @@ erts_schedule_proc2port_signal(Process *c_p,
 
     /* Schedule port close call for later execution... */
     sched_res = erts_port_task_schedule(prt->common.id,
-					NULL,
+					pthp,
 					ERTS_PORT_TASK_PROC_SIG,
 					sigdp,
 					callback,
@@ -1628,6 +1629,7 @@ bad_port_signal(Process *c_p,
 					  refp,
 					  sigdp,
 					  0,
+					  NULL,
 					  port_badsig);
 }
 
@@ -1837,8 +1839,11 @@ erts_port_output(Process *c_p,
     ErlIOVec *evp = NULL;
     char *buf = NULL;
     int force_immediate_call = (flags & ERTS_PORT_SIG_FLG_FORCE_IMM_CALL);
+    int async_nosuspend;
+    ErtsPortTaskHandle *ns_pthp;
 
     ASSERT((flags & ~(ERTS_PORT_SIG_FLG_BANG_OP
+		      | ERTS_PORT_SIG_FLG_ASYNC
 		      | ERTS_PORT_SIG_FLG_NOSUSPEND
 		      | ERTS_PORT_SIG_FLG_FORCE
 		      | ERTS_PORT_SIG_FLG_FORCE_IMM_CALL)) == 0);
@@ -1859,6 +1864,12 @@ erts_port_output(Process *c_p,
 	return ((sched_flags & ERTS_PTS_FLG_EXIT)
 		? ERTS_PORT_OP_DROPPED
 		: ERTS_PORT_OP_BUSY);
+
+    async_nosuspend = ((flags & (ERTS_PORT_SIG_FLG_ASYNC
+				 | ERTS_PORT_SIG_FLG_NOSUSPEND
+				 | ERTS_PORT_SIG_FLG_FORCE))
+		      == (ERTS_PORT_SIG_FLG_ASYNC
+			  | ERTS_PORT_SIG_FLG_NOSUSPEND));
 
     try_call = (force_immediate_call /* crash dumping */
 		|| !(sched_flags & (invalid_flags
@@ -1994,6 +2005,15 @@ erts_port_output(Process *c_p,
 		return ERTS_PORT_OP_DONE;
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS:
 		sched_flags = try_call_state.sched_flags;
+		if (async_nosuspend
+		    && (sched_flags & (busy_flgs|ERTS_PTS_FLG_EXIT))) {
+		    driver_free_binary(cbin);
+		    if (evp != &ev)
+			erts_free(ERTS_ALC_T_TMP, evp);
+		    return ((sched_flags & ERTS_PTS_FLG_EXIT)
+			    ? ERTS_PORT_OP_DROPPED
+			    : ERTS_PORT_OP_BUSY);
+		}
 	    case ERTS_TRY_IMM_DRV_CALL_BUSY_LOCK:
 		/* Schedule outputv() call instead... */
 		break;
@@ -2141,6 +2161,13 @@ erts_port_output(Process *c_p,
 		return ERTS_PORT_OP_DONE;
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS:
 		sched_flags = try_call_state.sched_flags;
+		if (async_nosuspend
+		    && (sched_flags & (busy_flgs|ERTS_PTS_FLG_EXIT))) {
+		    erts_free(ERTS_ALC_T_TMP, buf);
+		    return ((sched_flags & ERTS_PTS_FLG_EXIT)
+			    ? ERTS_PORT_OP_DROPPED
+			    : ERTS_PORT_OP_BUSY);
+		}
 	    case ERTS_TRY_IMM_DRV_CALL_BUSY_LOCK:
 		/* Schedule outputv() call instead... */
 		break;
@@ -2162,13 +2189,25 @@ erts_port_output(Process *c_p,
 
     task_flags = ERTS_PT_FLG_WAIT_BUSY;
     sigdp->flags |= flags;
+    ns_pthp = NULL;
     if (flags & (ERTS_P2P_SIG_DATA_FLG_FORCE|ERTS_P2P_SIG_DATA_FLG_NOSUSPEND)) {
 	task_flags = 0;
 	if (flags & ERTS_P2P_SIG_DATA_FLG_FORCE)
 	    sigdp->flags &= ~ERTS_P2P_SIG_DATA_FLG_NOSUSPEND;
+	else if (async_nosuspend) {
+	    ErtsSchedulerData *esdp = (c_p
+				       ? ERTS_PROC_GET_SCHDATA(c_p)
+				       : erts_get_scheduler_data());
+	    ASSERT(esdp);
+	    ns_pthp = &esdp->nosuspend_port_task_handle;
+	    sigdp->flags &= ~ERTS_P2P_SIG_DATA_FLG_NOSUSPEND;
+	}
 	else if (flags & ERTS_P2P_SIG_DATA_FLG_NOSUSPEND)
 	    task_flags = ERTS_PT_FLG_NOSUSPEND;
     }
+
+    ASSERT(ns_pthp || !async_nosuspend);
+    ASSERT(async_nosuspend || !ns_pthp);
 
     res = erts_schedule_proc2port_signal(c_p,
 					 prt,
@@ -2176,6 +2215,7 @@ erts_port_output(Process *c_p,
 					 refp,
 					 sigdp,
 					 task_flags,
+					 ns_pthp,
 					 port_sig_callback);
 
     if (res != ERTS_PORT_OP_SCHEDULED) {
@@ -2186,9 +2226,23 @@ erts_port_output(Process *c_p,
 	return res;
     }
 
-    if (!(sched_flags & ERTS_PTS_FLG_EXIT) && (sched_flags & busy_flgs))
-	return ERTS_PORT_OP_BUSY_SCHEDULED;
-
+    if (!(flags & ERTS_PORT_SIG_FLG_FORCE)) {
+	sched_flags = erts_smp_atomic32_read_acqb(&prt->sched.flags);
+	if (!(sched_flags & ERTS_PTS_FLG_BUSY_PORT)) {
+	    if (async_nosuspend)
+		erts_port_task_tmp_handle_detach(ns_pthp);
+	}
+	else {
+	    if (!async_nosuspend)
+		return ERTS_PORT_OP_BUSY_SCHEDULED;
+	    else {
+		if (erts_port_task_abort(ns_pthp) == 0)
+		    return ERTS_PORT_OP_BUSY;
+		else
+		    erts_port_task_tmp_handle_detach(ns_pthp);
+	    }
+	}
+    }
     return res;
 
 bad_value:
@@ -2284,6 +2338,7 @@ erts_port_exit(Process *c_p,
     ErlHeapFragment *bp = NULL;
 
     ASSERT((flags & ~(ERTS_PORT_SIG_FLG_BANG_OP
+		      | ERTS_PORT_SIG_FLG_ASYNC
 		      | ERTS_PORT_SIG_FLG_BROKEN_LINK
 		      | ERTS_PORT_SIG_FLG_FORCE_SCHED)) == 0);
 
@@ -2344,6 +2399,7 @@ erts_port_exit(Process *c_p,
 					 refp,
 					 sigdp,
 					 0,
+					 NULL,
 					 port_sig_exit);
 
     if (res == ERTS_PORT_OP_DROPPED) {
@@ -2459,7 +2515,8 @@ erts_port_connect(Process *c_p,
 					   !refp,
 					   am_connect);
 
-    ASSERT((flags & ~ERTS_PORT_SIG_FLG_BANG_OP) == 0);
+    ASSERT((flags & ~(ERTS_PORT_SIG_FLG_BANG_OP
+		      | ERTS_PORT_SIG_FLG_ASYNC)) == 0);
 
     if (is_not_internal_pid(connect))
 	connect_id = NIL; /* Fail in op (for signal order) */
@@ -2498,6 +2555,7 @@ erts_port_connect(Process *c_p,
 					  refp,
 					  sigdp,
 					  0,
+					  NULL,
 					  port_sig_connect);
 }
 
@@ -2554,6 +2612,7 @@ erts_port_unlink(Process *c_p, Port *prt, Eterm from, Eterm *refp)
 					  refp,
 					  sigdp,
 					  0,
+					  NULL,
 					  port_sig_unlink);
 }
 
@@ -2643,6 +2702,7 @@ erts_port_link(Process *c_p, Port *prt, Eterm to, Eterm *refp)
 					  refp,
 					  sigdp,
 					  0,
+					  NULL,
 					  port_sig_link);
 }
 
@@ -3621,6 +3681,10 @@ erts_port_command(Process *c_p,
     ASSERT(port);
 
     flags |= ERTS_PORT_SIG_FLG_BANG_OP;
+    if (!erts_port_synchronous_ops) {
+	flags |= ERTS_PORT_SIG_FLG_ASYNC;
+	refp = NULL;
+    }
 
     if (is_tuple_arity(command, 2)) {
 	Eterm cntd;
@@ -3628,21 +3692,14 @@ erts_port_command(Process *c_p,
 	cntd = tp[1];
 	if (is_internal_pid(cntd)) {
 	    if (tp[2] == am_close) {
-		if (!erts_port_synchronous_ops)
-		    refp = NULL;
 		flags &= ~ERTS_PORT_SIG_FLG_NOSUSPEND;
 		return erts_port_exit(c_p, flags, port, cntd, am_normal, refp);
 	    } else if (is_tuple_arity(tp[2], 2)) {
 		tp = tuple_val(tp[2]);
 		if (tp[1] == am_command) {
-		    if (!(flags & ERTS_PORT_SIG_FLG_NOSUSPEND)
-			&& !erts_port_synchronous_ops)
-			refp = NULL;
 		    return erts_port_output(c_p, flags, port, cntd, tp[2], refp);
 		}
 		else if (tp[1] == am_connect) {
-		    if (!erts_port_synchronous_ops)
-			refp = NULL;
 		    flags &= ~ERTS_PORT_SIG_FLG_NOSUSPEND;
 		    return erts_port_connect(c_p, flags, port, cntd, tp[2], refp);
 		}
@@ -3651,8 +3708,6 @@ erts_port_command(Process *c_p,
     }
 
     /* badsig */
-    if (!erts_port_synchronous_ops)
-	refp = NULL;
     flags &= ~ERTS_PORT_SIG_FLG_NOSUSPEND;
     return bad_port_signal(c_p, flags, port, c_p->common.id, refp, am_command);
 }
@@ -4049,6 +4104,7 @@ erts_port_control(Process* c_p,
 					 retvalp,
 					 sigdp,
 					 0,
+					 NULL,
 					 port_sig_control);
     if (res != ERTS_PORT_OP_SCHEDULED) {
 	cleanup_scheduled_control(binp, bufp);
@@ -4329,6 +4385,7 @@ erts_port_call(Process* c_p,
 					 retvalp,
 					 sigdp,
 					 0,
+					 NULL,
 					 port_sig_call);
     if (res != ERTS_PORT_OP_SCHEDULED) {
 	cleanup_scheduled_call(bufp);
@@ -4495,6 +4552,7 @@ erts_port_info(Process* c_p,
 					  retvalp,
 					  sigdp,
 					  0,
+					  NULL,
 					  port_sig_info);
 }
 

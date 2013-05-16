@@ -243,7 +243,9 @@ int erts_port_task_execute(ErtsRunQueue *, Port **);
 void erts_port_task_init(void);
 #endif
 
+void erts_port_task_tmp_handle_detach(ErtsPortTaskHandle *);
 int erts_port_task_abort(ErtsPortTaskHandle *);
+
 void erts_port_task_abort_nosuspend_tasks(Port *);
 
 int erts_port_task_schedule(Eterm,
