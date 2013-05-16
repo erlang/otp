@@ -284,8 +284,10 @@ init_per_group(mib_storage_varm_mnesia = GroupName, Config) ->
     init_varm_mib_storage_mnesia(snmp_test_lib:init_group_top_dir(GroupName, 
 								  Config));
 init_per_group(mib_storage_varm_dets = GroupName, Config) -> 
-    init_varm_mib_storage_dets(snmp_test_lib:init_group_top_dir(GroupName, 
-								Config));
+    ?DBG("init_per_group(mib_storage_varm_dets) -> entry with"
+	 "~n   Config: ~p", [Config]),    
+    init_varm_mib_storage_dets(
+      snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(mib_storage_size_check_mnesia = GroupName, Config) -> 
     init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(mib_storage_size_check_dets = GroupName, Config) -> 
@@ -353,9 +355,6 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Config: ~p", [Config]),
 
-    p("Agent Info: "
-      "~n   ~p", [snmpa:info()]),
-
     init_per_testcase1(Case, Config).
 
 init_per_testcase1(otp8395 = Case, Config) when is_list(Config) ->
@@ -399,9 +398,6 @@ init_per_testcase1(_Case, Config) when is_list(Config) ->
 end_per_testcase(Case, Config) when is_list(Config) ->
     ?DBG("end_per_testcase -> entry with"
 	 "~n   Config: ~p", [Config]),
-
-    p("Agent Info: "
-      "~n   ~p", [snmpa:info()]),
 
     display_log(Config),
     
@@ -632,18 +628,20 @@ init_mib_storage_ets(Config) when is_list(Config) ->
     init_ms(Config, [MibStorage]).
 
 init_mib_storage_dets(Config) when is_list(Config) ->
-    ?LOG("init_mib_storage_ets -> entry", []),
+    ?LOG("init_mib_storage_dets -> entry", []),
     ?line AgentDbDir = ?GCONF(agent_db_dir, Config),
     MibStorage = {snmp_mib_storage, {dets, AgentDbDir}},
     init_ms(Config, [MibStorage]).
 
 init_mib_storage_mnesia(Config) when is_list(Config) ->
-    ?LOG("init_mib_storage_ets -> entry", []),
+    ?LOG("init_mib_storage_mnesia -> entry", []),
     MibStorage = {snmp_mib_storage, {mnesia,[]}},
     init_ms(Config, [MibStorage]).
 
 init_ms(Config, Opts) when is_list(Config) ->
-    ?LOG("init_mib_storage_ets -> entry", []),
+    ?LOG("init_ms -> entry with"
+	 "~n   Config: ~p"
+	 "~n   Opts:   ~p", [Config, Opts]),
     ?line SaNode       = ?GCONF(snmp_sa, Config),
     ?line create_tables(SaNode),
     ?line AgentConfDir = ?GCONF(agent_conf_dir, Config),
