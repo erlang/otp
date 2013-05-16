@@ -265,7 +265,7 @@ arity(M, Name, AvpName, Rec) ->
 %% enum/3
 
 enum(M, Name, {_,E}) ->
-    B = <<E:32/integer>>,
+    B = <<E:32>>,
     B = M:avp(encode, E, Name),
     E = M:avp(decode, B, Name).
 
@@ -322,15 +322,15 @@ values('Unsigned64') ->
 values('Float32') ->
     E = (1 bsl  8) - 2,
     F = (1 bsl 23) - 1,
-    <<Mx:32/float>> = <<0:1/integer, E:8/integer, F:23/integer>>,
-    <<Mn:32/float>> = <<1:1/integer, E:8/integer, F:23/integer>>,
+    <<Mx:32/float>> = <<0:1, E:8, F:23>>,
+    <<Mn:32/float>> = <<1:1, E:8, F:23>>,
     {[0.0, infinity, '-infinity', Mx, Mn], [0]};
 
 values('Float64') ->
     E = (1 bsl 11) - 2,
     F = (1 bsl 52) - 1,
-    <<Mx:64/float>> = <<0:1/integer, E:11/integer, F:52/integer>>,
-    <<Mn:64/float>> = <<1:1/integer, E:11/integer, F:52/integer>>,
+    <<Mx:64/float>> = <<0:1, E:11, F:52>>,
+    <<Mn:64/float>> = <<1:1, E:11, F:52>>,
     {[0.0, infinity, '-infinity', Mx, Mn], [0]};
 
 values('Address') ->
