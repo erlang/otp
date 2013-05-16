@@ -331,6 +331,7 @@ print_process_info(int to, void *to_arg, Process *p)
     erts_print(to, to_arg, "Heap unused: %bpu\n", (p->hend - p->htop));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
 	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
+    erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p));
 
     if (garbing) {
 	print_garb_info(to, to_arg, p);
