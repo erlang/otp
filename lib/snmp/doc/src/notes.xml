@@ -34,6 +34,75 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.24</title>
+    <p>Version 4.24 supports code replacement in runtime from/to
+    version 4.23.1 and 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Introduced a documented behaviour for the mib-server 
+	  <seealso marker="snmpa_mib_data">mib-data backend</seealso>. 
+	  At present only the default module (<c>snmpa_mib_data_tttn</c>) is
+	  provided. </p>
+	  <p>A config option for the (agent) 
+	  <seealso marker="snmp_config#agent_mib_server">mib-servers</seealso> 
+	  mib-data backend module has been added to the agent config options, 
+	  <seealso marker="snmp_config#agent_ms_data_module">data_module</seealso>. </p>
+	  <p>Own Id: OTP-11101</p>
+        </item>
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[compiler] Now handles MIBs importing the pesudotype BITS. </p>
+          <p>Own Id: OTP-10799</p>
+        </item>
+
+        <item>
+          <p>[compiler] The MIB compiler could not handle a table index 
+	  that was defined later in the MIB. </p>
+          <p>Own Id: OTP-10808</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.23.1 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.23.1</title>
     <p>Version 4.23.1 supports code replacement in runtime from/to
     version 4.23. </p>
