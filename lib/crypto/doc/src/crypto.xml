@@ -186,6 +186,20 @@
          </p>
       </desc>
     </func>
+    
+     <func>
+      <name>binary_to_integer(Bin) -> Integer </name>
+      <fsummary>Convert binary representation, of an integer, to an Erlang integer.</fsummary>
+      <type>
+	<v>Bin = binary() - as returned by crypto functions</v>
+	
+        <v>Integer = integer() </v>
+      </type>
+      <desc>
+        <p>Convert binary representation, of an integer, to an Erlang integer.
+         </p>
+      </desc>
+    </func>
 
     <func>
       <name>compute_key(Type, OthersPublicKey, MyPrivateKey, Params) -> SharedSecret</name>
@@ -410,7 +424,7 @@
    <name>next_iv(Type, Data) -> </name>
    <fsummary></fsummary>
    <type>
-     <v>Type = des_cbc | aes_cbc</v>
+     <v>Type = des_cbc | des3_cbc |aes_cbc | des_cfb</v>
      <v>Data = iodata()</v>
    </type>
    <desc>

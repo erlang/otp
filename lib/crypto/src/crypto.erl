@@ -21,7 +21,7 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info_lib/0, algorithms/0, version/0]).
+-export([start/0, stop/0, info_lib/0, algorithms/0, version/0, binary_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, verify/5]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
@@ -33,8 +33,8 @@
 -export([stream_init/2, stream_init/3, stream_encrypt/2, stream_decrypt/2]).
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
-
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see
+
 
 %% DEPRECATED
 %% Replaced by hash_*
@@ -1598,6 +1598,8 @@ int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
 int_to_bin_neg(X,Ds) ->
     int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
 
+binary_to_integer(Bin) ->
+    bin_to_int(Bin).
 
 bin_to_int(Bin) when is_binary(Bin) ->
     Bits = bit_size(Bin),

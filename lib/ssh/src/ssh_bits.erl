@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,7 +33,6 @@
 
 %% integer utils
 -export([isize/1]).
--export([irandom/1, irandom/3]).
 -export([random/1]).
 -export([xor_bits/2, fill_bits/2]).
 -export([i2bin/2, bin2i/1]).
@@ -387,31 +386,7 @@ xor_bits(XBits, YBits) ->
     <<Y:Sz, _/binary>> = YBits,
     <<(X bxor Y):Sz>>.
 
-%%
-%% irandom(N)
-%%
-%%  Generate a N bits size random number
-%%  note that the top most bit is always set
-%%  to guarantee that the number is N bits
-%%
-irandom(Bits) ->
-    irandom(Bits, 1, 0).
 
-%%
-%% irandom(N, Top, Bottom)
-%%
-%%  Generate a N bits size random number
-%% Where Top = 0 - do not set top bit
-%%           = 1 - set the most significant bit
-%%           = 2 - set two most significant bits
-%%       Bot = 0 - do not set the least signifcant bit
-%%       Bot = 1 - set the least signifcant bit (i.e always odd)
-%%
-irandom(Bits, Top, Bottom) when is_integer(Top),
-                                0 =< Top, Top =< 2 ->
-    crypto:erlint(crypto:strong_rand_mpint(Bits, Top - 1, Bottom)).
-
-%%
 %% random/1
 %%   Generate N random bytes
 %%
