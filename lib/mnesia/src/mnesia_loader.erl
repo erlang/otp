@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -487,12 +487,22 @@ finish_copy(Storage,Tab,Cs,SenderPid,DatBin,OrigTabRec) ->
 
 subscr_receiver(TabRef = {_, Tab}, RecName) ->
     receive
-	{mnesia_table_event, {Op, Val, _Tid}} ->
+	{mnesia_table_event, {Op, Val, _Tid}}
+	  when element(1, Val) =:= Tab ->
 	    if
 		Tab == RecName ->
 		    handle_event(TabRef, Op, Val);
 		true ->
 		    handle_event(TabRef, Op, setelement(1, Val, RecName))
+	    end,
+	    subscr_receiver(TabRef, RecName);
+
+	{mnesia_table_event, {Op, Val, _Tid}} when element(1, Val) =:= schema ->
+	    %% clear_table is faked via two schema events
+	    %% a schema record delete and a write
+	    case Op of
+		delete -> handle_event(TabRef, clear_table, {Tab, all});
+		_ -> ok
 	    end,
 	    subscr_receiver(TabRef, RecName);
 
