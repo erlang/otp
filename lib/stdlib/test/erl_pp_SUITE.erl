@@ -49,7 +49,7 @@
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
-          otp_10302/1, otp_10820/1]).
+          otp_10302/1, otp_10820/1, otp_11100/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -81,7 +81,7 @@ groups() ->
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
-       otp_10302, otp_10820]}].
+       otp_10302, otp_10820, otp_11100]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1102,6 +1102,45 @@ do_otp_10820(Config, C, PC) ->
 file_attr_is_string("-file(\"" ++ _) -> true;
 file_attr_is_string([_ | L]) ->
     file_attr_is_string(L).
+
+otp_11100(doc) ->
+    "OTP-11100. Fix printing of invalid forms.";
+otp_11100(suite) -> [];
+otp_11100(Config) when is_list(Config) ->
+    %% There are a few places where the added code ("options(none)")
+    %% doesn't make a difference (pp:bit_elem_type/1 is an example).
+
+    %% Cannot trigger the use of the hook function with export/import.
+    "-export([{fy,a}/b]).\n" =
+        pf({attribute,1,export,[{{fy,a},b}]}),
+    "-type foo() :: integer(INVALID-FORM:{foo,bar}:).\n" =
+        pf({attribute,1,type,{foo,{type,1,integer,[{foo,bar}]},[]}}),
+    pf({attribute,1,type,
+        {a,{type,1,range,[{integer,1,1},{foo,bar}]},[]}}),
+    "-type foo(INVALID-FORM:{foo,bar}:) :: A.\n" =
+        pf({attribute,1,type,{foo,{var,1,'A'},[{foo,bar}]}}),
+    "-type foo() :: (INVALID-FORM:{foo,bar}: :: []).\n" =
+        pf({attribute,1,type,
+            {foo,{paren_type,1,
+                  [{ann_type,1,[{foo,bar},{type,1,nil,[]}]}]},
+             []}}),
+    "-type foo() :: <<_:INVALID-FORM:{foo,bar}:>>.\n" =
+        pf({attribute,1,type,
+            {foo,{type,1,binary,[{foo,bar},{integer,1,0}]},[]}}),
+    "-type foo() :: <<_:10, _:_*INVALID-FORM:{foo,bar}:>>.\n" =
+        pf({attribute,1,type,
+            {foo,{type,1,binary,[{integer,1,10},{foo,bar}]},[]}}),
+    "-type foo() :: #r{INVALID-FORM:{foo,bar}: :: integer()}.\n" =
+        pf({attribute,1,type,
+            {foo,{type,1,record,
+                  [{atom,1,r},
+                   {type,1,field_type,
+                    [{foo,bar},{type,1,integer,[]}]}]},
+             []}}),
+    ok.
+
+pf(Form) ->
+    lists:flatten(erl_pp:form(Form,none)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
