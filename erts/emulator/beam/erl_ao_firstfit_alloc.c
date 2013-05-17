@@ -664,7 +664,7 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block)
     AOFF_Carrier_t *blk_crr = (AOFF_Carrier_t*) FBLK_TO_MBC(block);
     Uint blk_sz = AOFF_BLK_SZ(blk);
 
-    ASSERT(allctr == blk_crr->crr.allctr);
+    ASSERT(allctr == ERTS_ALC_CARRIER_TO_ALLCTR(&blk_crr->crr));
     ASSERT(blk_crr->rbt_node.hdr.bhdr == (blk_crr->root ? blk_crr->root->max_sz : 0));
     HARD_CHECK_IS_MEMBER(alc->mbc_root, &blk_crr->rbt_node);
     HARD_CHECK_TREE(&blk_crr->crr, alc->bf_within_carrier, blk_crr->root, 0);
@@ -854,7 +854,7 @@ static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier)
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
     AOFF_RBTree_t **root = &alc->mbc_root;
 
-    ASSERT(allctr == carrier->allctr);
+    ASSERT(allctr == ERTS_ALC_CARRIER_TO_ALLCTR(carrier));
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 
     rbt_delete(root, &crr->rbt_node);
@@ -870,7 +870,7 @@ static UWord aoff_largest_fblk_in_mbc(Allctr_t* allctr, Carrier_t* carrier)
 {
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
 
-    ASSERT(allctr == carrier->allctr);
+    ASSERT(allctr == ERTS_ALC_CARRIER_TO_ALLCTR(carrier));
     ASSERT(crr->rbt_node.hdr.bhdr == (crr->root ? crr->root->max_sz : 0));
     return crr->rbt_node.hdr.bhdr;
 }

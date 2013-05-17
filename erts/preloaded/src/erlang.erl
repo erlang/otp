@@ -3305,6 +3305,9 @@ get_fix_proc([], Acc) ->
 
 fix_proc([{fix_types, SizeList} | _Rest], Acc) ->
     get_fix_proc(SizeList, Acc);
+fix_proc([{fix_types, Mask, SizeList} | _Rest], Acc) ->
+    {A, U} = get_fix_proc(SizeList, Acc),
+    {Mask, A, U};
 fix_proc([_ | Rest], Acc) ->
     fix_proc(Rest, Acc);
 fix_proc([], Acc) ->
@@ -3356,13 +3359,21 @@ au_mem_data(#memory{total = Tot,
 		    processes_used = ProcU,
 		    system = Sys} = Mem,
 	    [{fix_alloc, _, Data} | Rest]) ->
-    {A, U} = fix_proc(Data, {0, 0}),
     Sz = blocks_size(Data, 0),
-    au_mem_data(Mem#memory{total = Tot+Sz,
-			   processes = Proc+A,
-			   processes_used = ProcU+U,
-			   system = Sys+Sz-A},
-		Rest);
+    case fix_proc(Data, {0, 0}) of
+	{A, U} ->
+	    au_mem_data(Mem#memory{total = Tot+Sz,
+				   processes = Proc+A,
+				   processes_used = ProcU+U,
+				   system = Sys+Sz-A},
+			Rest);
+	{Mask, A, U} ->
+	    au_mem_data(Mem#memory{total = Tot+Sz,
+				   processes = Mask band (Proc+A),
+				   processes_used = Mask band (ProcU+U),
+				   system = Mask band (Sys+Sz-A)},
+			Rest)
+    end;
 au_mem_data(#memory{total = Tot,
 		    system = Sys,
 		    low = Low} = Mem,
@@ -3380,7 +3391,7 @@ au_mem_data(EMD, []) ->
 
 au_mem_data(Allocs) ->
     Ref = erlang:make_ref(),
-    erlang:system_info({allocator_sizes, Ref, Allocs}),
+    erlang:system_info({memory_internal, Ref, Allocs}),
     receive_emd(Ref).
 
 receive_emd(_Ref, EMD, 0) ->

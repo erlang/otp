@@ -1671,13 +1671,22 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 
     sel = *tp++;
 
-    if (sel == am_allocator_sizes) {
+    if (sel == am_memory_internal) {
+	switch (arity) {
+	case 3:
+	    if (erts_request_alloc_info(BIF_P, tp[0], tp[1], 1, 1))
+		return am_true;
+	default:
+	    goto badarg;
+	}
+    }
+    else if (sel == am_allocator_sizes) {
 	switch (arity) {
 	case 2:
 	    ERTS_BIF_PREP_TRAP1(ret, alloc_sizes_trap, BIF_P, *tp);
 	    return ret;
 	case 3:
-	    if (erts_request_alloc_info(BIF_P, tp[0], tp[1], 1))
+	    if (erts_request_alloc_info(BIF_P, tp[0], tp[1], 1, 0))
 		return am_true;
 	default:
 	    goto badarg;
@@ -1736,7 +1745,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	    ERTS_BIF_PREP_TRAP1(ret, alloc_info_trap, BIF_P, *tp);
 	    return ret;
 	case 3:
-	    if (erts_request_alloc_info(BIF_P, tp[0], tp[1], 0))
+	    if (erts_request_alloc_info(BIF_P, tp[0], tp[1], 0, 0))
 		return am_true;
 	default:
 	    goto badarg;

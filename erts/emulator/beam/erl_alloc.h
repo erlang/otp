@@ -65,7 +65,7 @@ Eterm erts_allocator_options(void *proc);
 struct process;
 
 int erts_request_alloc_info(struct process *c_p, Eterm ref, Eterm allocs,
-			    int only_sz);
+			    int only_sz, int internal);
 
 #define ERTS_ALLOC_INIT_DEF_OPTS_INITER {0}
 typedef struct {

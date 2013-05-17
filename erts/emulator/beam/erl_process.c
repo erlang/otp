@@ -1327,6 +1327,17 @@ erts_alloc_notify_delayed_dealloc(int ix)
 				       ERTS_SSI_AUX_WORK_DD);
 }
 
+void
+erts_alloc_ensure_handle_delayed_dealloc_call(int ix)
+{
+#ifdef DEBUG
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    ASSERT(!esdp || ix == (int) esdp->no);
+#endif
+    set_aux_work_flags_wakeup_nob(ERTS_SCHED_SLEEP_INFO_IX(ix-1),
+				  ERTS_SSI_AUX_WORK_DD);
+}
+
 static ERTS_INLINE erts_aint32_t
 handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 {

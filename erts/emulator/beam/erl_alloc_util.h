@@ -55,6 +55,7 @@ typedef struct {
     UWord lmbcs;
     UWord smbcs;
     UWord mbcgs;
+    int acul;
 
     void *fix;
     size_t *fix_type_size;
@@ -98,6 +99,7 @@ typedef struct {
     10*1024*1024,	/* (bytes)  lmbcs:  largest mbc size             */\
     1024*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
+    0,			/* (%)      acul:  abandon carrier utilization limit */\
     /* --- Data not options -------------------------------------------- */\
     NULL,		/* (ptr)    fix                                  */\
     NULL		/* (ptr)    fix_type_size                        */\
@@ -130,6 +132,7 @@ typedef struct {
     1024*1024,		/* (bytes)  lmbcs:  largest mbc size             */\
     128*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
+    0,			/* (%)      acul:  abandon carrier utilization limit */\
     /* --- Data not options -------------------------------------------- */\
     NULL,		/* (ptr)    fix                                  */\
     NULL		/* (ptr)    fix_type_size                        */\
@@ -159,8 +162,8 @@ void	erts_alcu_free_thr_pref(ErtsAlcType_t, void *, void *);
 #endif
 Eterm	erts_alcu_au_info_options(int *, void *, Uint **, Uint *);
 Eterm	erts_alcu_info_options(Allctr_t *, int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_sz_info(Allctr_t *, int, int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_info(Allctr_t *, int, int *, void *, Uint **, Uint *);
+Eterm	erts_alcu_sz_info(Allctr_t *, int, int, int *, void *, Uint **, Uint *);
+Eterm	erts_alcu_info(Allctr_t *, int, int, int *, void *, Uint **, Uint *);
 void	erts_alcu_init(AlcUInit_t *);
 void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *,
 			       ErtsAlcUFixInfo_t *, int);
@@ -256,10 +259,10 @@ typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d;} Unit_t;
 typedef struct {
     erts_atomic_t next;
     erts_atomic_t prev;
+    Allctr_t *orig_allctr;
     ErtsThrPrgrVal thr_prgr;
     erts_atomic_t max_size;
     UWord abandon_limit;
-    /* Statistics */
     UWord blocks;
     UWord blocks_size;
 } ErtsAlcCPoolData_t;
@@ -276,6 +279,9 @@ struct Carrier_t_ {
     ErtsAlcCPoolData_t cpool; /* Overwritten by block if sbc */
 #endif
 };
+
+#define ERTS_ALC_CARRIER_TO_ALLCTR(C) \
+  ((Allctr_t *) (erts_smp_atomic_read_nob(&(C)->allctr) & ~FLG_MASK))
 
 typedef struct {
     Carrier_t *first;
@@ -300,6 +306,16 @@ typedef struct {
 
 #define SBC_BLK_HDR_FLG /* Special flag combo for (allocated) SBC blocks */\
     (THIS_FREE_BLK_HDR_FLG | PREV_FREE_BLK_HDR_FLG | LAST_BLK_HDR_FLG)
+
+/*
+ * FREE_LAST_MBC_BLK_HDR_FLGS is a special flag combo used for
+ * distinguishing empty mbc's from allocated blocks in
+ * handle_delayed_dealloc().
+ */
+#define FREE_LAST_MBC_BLK_HDR_FLGS (THIS_FREE_BLK_HDR_FLG | LAST_BLK_HDR_FLG)
+
+#define IS_FREE_LAST_MBC_BLK(B) \
+    (((B)->bhdr & FLG_MASK) == FREE_LAST_MBC_BLK_HDR_FLGS)
 
 #define IS_SBC_BLK(B) (((B)->bhdr & FLG_MASK) == SBC_BLK_HDR_FLG)
 #define IS_MBC_BLK(B) (!IS_SBC_BLK((B)))
@@ -395,10 +411,20 @@ typedef struct {
     size_t type_size;
     SWord list_size;
     void *list;
-    SWord max_used;
-    SWord limit;
-    SWord allocated;
-    SWord used;
+    union {
+	struct {
+	    SWord max_used;
+	    SWord limit;
+	    SWord allocated;
+	    SWord used;
+	} nocpool;
+	struct {
+	    int min_list_size;
+	    int shrink_list;
+	    UWord allocated;
+	    UWord used;
+	} cpool;
+    } u;
 } ErtsAlcFixList_t;
 
 struct Allctr_t_ {
@@ -464,7 +490,7 @@ struct Allctr_t_ {
     struct {
 	CarrierList_t	dc_list;
 	UWord		abandon_limit;
-	CallCounter_t	insert_allowed_cc;
+	int		disable_abandon;
 	int		check_limit_count;
 	int		util_limit;
 	struct {
