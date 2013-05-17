@@ -33,7 +33,6 @@
          %% connect_and_send/2,
          send/2, 
          cancel/3,
-         stream/3, 
          stream_next/1,
          info/1
         ]).
@@ -499,7 +498,7 @@ handle_info({Proto, _Socket, Data},
                                          request = NewRequest}};
             {Module, decode_data,
              [ChunkSize, TotalChunk,
-              {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize, false}]}
+              {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize}]}
               when TotalChunk =/= <<>> orelse BodySoFar =/= <<>> ->
                 ?hcrd("data processed - decode_data", []),
                 %% The response body is chunk-encoded. Steal decoded
@@ -514,7 +513,7 @@ handle_info({Proto, _Socket, Data},
                 NewState = next_body_chunk(State),
                 NewMFA   = {Module, decode_data,
                             [NewChunkSize, NewTotalChunk,
-                             {MaxBodySize, NewBody, AccLength, MaxHeaderSize, false}]},
+                             {MaxBodySize, NewBody, AccLength, MaxHeaderSize}]},
                 {noreply, NewState#state{mfa     = NewMFA,
                                          request = NewRequest}};
             NewMFA ->
