@@ -51,8 +51,8 @@ Allctr_t *erts_aoffalc_start(AOFFAllctr_t *, AOFFAllctrInit_t*, AllctrInit_t *);
 struct AOFFAllctr_t_ {
     Allctr_t		allctr; /* Has to be first! */
 
-    struct AOFF_Carrier_t_* mbc_first;
-    struct AOFF_Carrier_t_* sbmbc_first;
+    struct AOFF_RBTree_t_* mbc_root;
+    struct AOFF_RBTree_t_* sbmbc_root;
     int bf_within_carrier;
 };
 

@@ -29,15 +29,15 @@
  *              This module is a callback-module for erl_alloc_util.c
  *
  * AOFF Algorithm:
- *              The tree nodes are free-blocks ordered in address order.
+ *              The tree nodes are ordered in address order.
  *              Every node also keeps the size of the largest block in its
- *              sub-tree ('max_size'). By that we can start from root and keep
+ *              sub-tree ('max_sz'). By that we can start from root and keep
  *              left (for low addresses) while dismissing entire sub-trees with
  *              too small blocks.
  * AOFFCBF:
  *              The only difference for "bestfit within carrier" is the tree
- *              sorting order. Blocks are first sorted wrt carrier address
- *              and then wrt size if they belong to the same carrier. 
+ *              sorting order. Blocks within the same carrier are sorted
+ *              wrt size instead of address. 
  *
  * Authors: 	Rickard Green/Sverker Eriksson
  */
@@ -90,11 +90,11 @@ typedef struct AOFF_RBTree_t_ AOFF_RBTree_t;
 
 struct AOFF_RBTree_t_ {
     Block_t hdr;
-    Uint flags;
     AOFF_RBTree_t *parent;
     AOFF_RBTree_t *left;
     AOFF_RBTree_t *right;
-    Uint max_sz;  /* of all blocks in this sub-tree */
+    Uint32 flags;
+    Uint32 max_sz;  /* of all blocks in this sub-tree */
 };
 #define AOFF_BLK_SZ(B) MBC_FBLK_SZ(&(B)->hdr)
 
@@ -102,19 +102,33 @@ typedef struct AOFF_Carrier_t_ AOFF_Carrier_t;
 
 struct AOFF_Carrier_t_ {
     Carrier_t crr;
-    AOFF_Carrier_t* next;
-    AOFF_Carrier_t** prevp;
-    AOFF_RBTree_t* root;
+    AOFF_RBTree_t rbt_node;     /* My node in the carrier tree */
+    AOFF_RBTree_t* root;        /* Root of the block tree */
 };
+#define RBT_NODE_TO_MBC(PTR) ((AOFF_Carrier_t*)((char*)(PTR) - offsetof(AOFF_Carrier_t, rbt_node)))
+
+/* 
+   To support carrier migration we keep two kinds of rb-trees:
+   1. One tree of carriers for each allocator instance.
+   2. One tree of free blocks for each carrier. 
+   Both trees use the same node structure AOFF_RBTree_t and implementation.
+   Carrier nodes thus contain a phony Block_t header 'rbt_node.hdr'.
+   The size value of such a phony block is the size of the largest free block in
+   that carrier, i.e same as 'max_sz' of the root node of its block tree.  
+*/
 
 #ifdef HARD_DEBUG
-static void check_carriers(AOFFAllctr_t* alc, AOFF_Carrier_t *crr, Uint32 flags);
-static AOFF_RBTree_t * check_tree(AOFFAllctr_t* alc, AOFF_RBTree_t* root, Uint);
+#  define HARD_CHECK_IS_MEMBER(ROOT,NODE) rbt_assert_is_member(ROOT,NODE)
+#  define HARD_CHECK_TREE(CRR,BF,ROOT,SZ) check_tree(CRR, BF, ROOT, SZ)
+static AOFF_RBTree_t * check_tree(Carrier_t* within_crr, int bestfit, AOFF_RBTree_t* root, Uint);
+#else
+#  define HARD_CHECK_IS_MEMBER(ROOT,NODE)
+#  define HARD_CHECK_TREE(CRR,BF,ROOT,SZ)
 #endif
 
 
-/* Calculate 'max_size' of tree node x by only looking at the direct children
- * of x and x itself.
+/* Calculate 'max_sz' of tree node x by only looking at 'max_sz' of the
+ * direct children of x and the size x itself.
  */
 static ERTS_INLINE Uint node_max_size(AOFF_RBTree_t *x)
 {
@@ -128,7 +142,7 @@ static ERTS_INLINE Uint node_max_size(AOFF_RBTree_t *x)
     return sz;
 }
 
-/* Set new possibly lower 'max_size' of node and propagate change toward root
+/* Set new possibly lower 'max_sz' of node and propagate change toward root
 */
 static ERTS_INLINE void lower_max_size(AOFF_RBTree_t *node,
 				       AOFF_RBTree_t* stop_at)
@@ -147,21 +161,21 @@ static ERTS_INLINE void lower_max_size(AOFF_RBTree_t *node,
     else ASSERT(new_max == old_max);
 }
 
-static ERTS_INLINE SWord cmp_blocks(AOFFAllctr_t* alc,
+static ERTS_INLINE SWord cmp_blocks(int bestfit,
 				    AOFF_RBTree_t* lhs, AOFF_RBTree_t* rhs)
 {
-    ASSERT(FBLK_TO_MBC(&lhs->hdr) == FBLK_TO_MBC(&rhs->hdr));
-    if (alc->bf_within_carrier) {
+    ASSERT(!bestfit || FBLK_TO_MBC(&lhs->hdr) == FBLK_TO_MBC(&rhs->hdr));
+    if (bestfit) {
 	SWord diff = (SWord)AOFF_BLK_SZ(lhs) - (SWord)AOFF_BLK_SZ(rhs);
 	if (diff) return diff;
     }
     return (char*)lhs - (char*)rhs;
 }
 
-static ERTS_INLINE SWord cmp_cand_blk(AOFFAllctr_t* alc,
+static ERTS_INLINE SWord cmp_cand_blk(int bestfit,
 				      Block_t* cand_blk, AOFF_RBTree_t* rhs)
 {
-    if (alc->bf_within_carrier) {
+    if (bestfit) {
 	if (BLK_TO_MBC(cand_blk) == FBLK_TO_MBC(&rhs->hdr)) {
 	    SWord diff = (SWord)MBC_BLK_SZ(cand_blk) - (SWord)MBC_FBLK_SZ(&rhs->hdr);
 	    if (diff) return diff;
@@ -176,7 +190,17 @@ static Block_t*	aoff_get_free_block(Allctr_t *, Uint, Block_t *, Uint, Uint32 fl
 static void aoff_link_free_block(Allctr_t *, Block_t*, Uint32 flags);
 static void aoff_unlink_free_block(Allctr_t *allctr, Block_t *del, Uint32 flags);
 static void aoff_creating_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
-static void aoff_destroying_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
+static void aoff_add_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
+static void aoff_remove_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
+static UWord aoff_largest_fblk_in_mbc(Allctr_t*, Carrier_t*);
+
+/* Generic tree functions used by both carrier and block trees. */
+static void rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del);
+static void rbt_insert(int bestfit, AOFF_RBTree_t** root, AOFF_RBTree_t* blk);
+static AOFF_RBTree_t* rbt_search(AOFF_RBTree_t* root, Uint size);
+#ifdef HARD_DEBUG
+static int rbt_assert_is_member(AOFF_RBTree_t* root, AOFF_RBTree_t* node);
+#endif
 
 static Eterm info_options(Allctr_t *, char *, int *, void *, Uint **, Uint *);
 static void init_atoms(void);
@@ -243,7 +267,10 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
 
     allctr->get_next_mbc_size		= NULL;
     allctr->creating_mbc		= aoff_creating_mbc;
-    allctr->destroying_mbc		= aoff_destroying_mbc;
+    allctr->destroying_mbc		= aoff_remove_mbc;
+    allctr->add_mbc                     = aoff_add_mbc;
+    allctr->remove_mbc                  = aoff_remove_mbc;
+    allctr->largest_fblk_in_mbc         = aoff_largest_fblk_in_mbc;
     allctr->init_atoms			= init_atoms;
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -449,21 +476,45 @@ static void
 aoff_unlink_free_block(Allctr_t *allctr, Block_t *del, Uint32 flags)
 {
 #ifdef HARD_DEBUG
-    AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
+    AOFFAllctr_t* alc = (AOFFAllctr_t*)allctr;
 #endif
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) FBLK_TO_MBC(del);
-    AOFF_RBTree_t **root = &crr->root;
+
+    ASSERT(crr->rbt_node.hdr.bhdr == crr->root->max_sz);
+    HARD_CHECK_IS_MEMBER(((flags & ERTS_ALCU_FLG_SBMBC) ? alc->sbmbc_root : alc->mbc_root),
+			 &crr->rbt_node);
+    HARD_CHECK_TREE(&crr->crr, alc->bf_within_carrier, crr->root, 0);
+
+    rbt_delete(&crr->root, (AOFF_RBTree_t*)del);
+
+    HARD_CHECK_TREE(&crr->crr, alc->bf_within_carrier, crr->root, 0);
+
+   /* Update the carrier tree with a potentially new (lower) max_sz
+    */    
+    if (crr->root) {
+	if (crr->rbt_node.hdr.bhdr == crr->root->max_sz) {
+	    return;
+	}
+	ASSERT(crr->rbt_node.hdr.bhdr > crr->root->max_sz);
+	crr->rbt_node.hdr.bhdr = crr->root->max_sz; 
+    }
+    else {
+	crr->rbt_node.hdr.bhdr = 0;
+    }
+    lower_max_size(&crr->rbt_node, NULL);
+}
+
+static void
+rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del)
+{
     Uint spliced_is_black;
-    AOFF_RBTree_t *x, *y, *z = (AOFF_RBTree_t *) del;
+    AOFF_RBTree_t *x, *y, *z = del;
     AOFF_RBTree_t null_x; /* null_x is used to get the fixup started when we
 			splice out a node without children. */
 
-    null_x.parent = NULL;
+    HARD_CHECK_IS_MEMBER(*root, del);
 
-#ifdef HARD_DEBUG
-    check_carriers(alc, crr, flags);
-    check_tree(alc, *root, 0);
-#endif
+    null_x.parent = NULL;
 
     /* Remove node from tree... */
 
@@ -618,29 +669,47 @@ aoff_unlink_free_block(Allctr_t *allctr, Block_t *del, Uint32 flags)
 	    RBT_ASSERT(!null_x.right);
 	}
     }
-
     DESTROY_TREE_NODE(del);
-
-#ifdef HARD_DEBUG
-    check_tree(alc, *root, 0);
-#endif
 }
 
 static void
 aoff_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
-    AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
+    AOFFAllctr_t* alc = (AOFFAllctr_t*) allctr;
     AOFF_RBTree_t *blk = (AOFF_RBTree_t *) block;
-    AOFF_RBTree_t **root;
+    AOFF_RBTree_t *crr_node;
     AOFF_Carrier_t *blk_crr = (AOFF_Carrier_t*) FBLK_TO_MBC(block);
     Uint blk_sz = AOFF_BLK_SZ(blk);
 
-#ifdef HARD_DEBUG
-    check_carriers(alc, blk_crr, flags);
-    check_tree(alc, blk_crr->root, 0);
-#endif
+    ASSERT(allctr == blk_crr->crr.allctr);
+    ASSERT(blk_crr->rbt_node.hdr.bhdr == (blk_crr->root ? blk_crr->root->max_sz : 0));
 
-    root = &blk_crr->root;
+    HARD_CHECK_IS_MEMBER(((flags & ERTS_ALCU_FLG_SBMBC) ? alc->sbmbc_root : alc->mbc_root),
+			 &blk_crr->rbt_node);
+    HARD_CHECK_TREE(&blk_crr->crr, alc->bf_within_carrier, blk_crr->root, 0);
+
+    rbt_insert(alc->bf_within_carrier, &blk_crr->root, blk);
+
+    /* Update the carrier tree with a potential new (larger) max_sz
+    */
+    crr_node = &blk_crr->rbt_node;
+    if (blk_sz > crr_node->hdr.bhdr) {
+	ASSERT(blk_sz == blk_crr->root->max_sz);
+	crr_node->hdr.bhdr = blk_sz;
+	while (blk_sz > crr_node->max_sz) {
+	    crr_node->max_sz = blk_sz;
+	    crr_node = crr_node->parent;
+	    if (!crr_node) break;
+	}
+    }
+    HARD_CHECK_TREE(&blk_crr->crr, alc->bf_within_carrier, blk_crr->root, 0);
+}
+
+static void
+rbt_insert(int bestfit, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
+{
+    Uint blk_sz = AOFF_BLK_SZ(blk);
+
     blk->flags	= 0;
     blk->left	= NULL;
     blk->right	= NULL;
@@ -657,7 +726,7 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 	    if (x->max_sz < blk_sz) {
 		x->max_sz = blk_sz;
 	    }
-	    if (cmp_blocks(alc, blk, x) < 0) {
+	    if (cmp_blocks(bestfit, blk, x) < 0) {
 		if (!x->left) {
 		    blk->parent = x;
 		    x->left = blk;
@@ -682,10 +751,28 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 	if (IS_RED(blk->parent))
 	    tree_insert_fixup(root, blk);
     }
+}
 
-#ifdef HARD_DEBUG
-    check_tree(alc, *root, 0);
-#endif
+static AOFF_RBTree_t*
+rbt_search(AOFF_RBTree_t* root, Uint size)
+{
+    AOFF_RBTree_t* x = root;
+
+    ASSERT(x);
+    for (;;) {
+	if (x->left && x->left->max_sz >= size) {
+	    x = x->left;
+	}
+	else if (AOFF_BLK_SZ(x) >= size) {
+	    return x;
+	}
+	else {
+	    x = x->right;
+	    if (!x) {
+		return NULL;
+	    }
+	}
+    }
 }
 
 static Block_t *
@@ -693,44 +780,31 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
 		    Block_t *cand_blk, Uint cand_size, Uint32 flags)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
-    AOFF_Carrier_t *crr = ((flags & ERTS_ALCU_FLG_SBMBC)
-			   ? alc->sbmbc_first : alc->mbc_first);
-    AOFF_RBTree_t *x, *blk = NULL;
+    AOFF_RBTree_t *crr_node = ((flags & ERTS_ALCU_FLG_SBMBC)
+			       ? alc->sbmbc_root : alc->mbc_root);
+    AOFF_Carrier_t* crr;
+    AOFF_RBTree_t *blk = NULL;
 #ifdef HARD_DEBUG
     AOFF_RBTree_t* dbg_blk;
 #endif
-
+    
     ASSERT(!cand_blk || cand_size >= size);
 
     /* Get first-fit carrier
      */
-    for (;;) {
-	if (!crr)
-	    return NULL;
-	if (crr->root && crr->root->max_sz >= size)
-	    break;
-	crr = crr->next;
+    if (!crr_node || !(blk=rbt_search(crr_node, size))) {
+	return NULL;
     }
+    crr = RBT_NODE_TO_MBC(blk);
 
     /* Get block within carrier tree
      */
-    x = crr->root;
 #ifdef HARD_DEBUG
-    dbg_blk = check_tree(alc, x, size);
+    dbg_blk = HARD_CHECK_TREE(&crr->crr, alc->bf_within_carrier, crr->root, size);
 #endif
 
-    while (x) {
-	if (x->left && x->left->max_sz >= size) {
-	    x = x->left;
-	}
-	else if (AOFF_BLK_SZ(x) >= size) {
-	    blk = x;
-	    break;
-	}
-	else {
-	    x = x->right;
-	}
-    }
+    blk = rbt_search(crr->root, size);
+    ASSERT(blk);
 
 #ifdef HARD_DEBUG
     ASSERT(blk == dbg_blk);
@@ -739,7 +813,7 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
     if (!blk)
 	return NULL;
 
-    if (cand_blk && cmp_cand_blk(alc, cand_blk, blk) < 0) {
+    if (cand_blk && cmp_cand_blk(alc->bf_within_carrier, cand_blk, blk) < 0) {
 	return NULL; /* cand_blk was better */
     }
 
@@ -752,50 +826,61 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
-    AOFF_Carrier_t **prevp = ((flags & ERTS_ALCU_FLG_SBMBC)
-			      ? &alc->sbmbc_first : &alc->mbc_first);
-    AOFF_Carrier_t *p;
+    AOFF_RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
+			    ? &alc->sbmbc_root : &alc->mbc_root);
 
+    HARD_CHECK_TREE(NULL, 0, *root, 0);
 
-    /* Link carrier in address order
+    /* Link carrier in address order tree
      */
-    for (p = *prevp; p && crr > p; p = p->next) {
-	prevp = &p->next;
-    }
-    ASSERT(crr != p);
-
-    crr->next = p;
-    crr->prevp = prevp;
-    *prevp = crr;
-    if (p) {
-	ASSERT(prevp == p->prevp);
-	p->prevp = &crr->next;
-    }
+    crr->rbt_node.hdr.bhdr = 0;
+    rbt_insert(0, root, &crr->rbt_node);
 
     /* aoff_link_free_block will add free block later */
     crr->root = NULL;
+
+    HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
 
-static void aoff_destroying_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
+static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
-    AOFF_Carrier_t **pp = ((flags & ERTS_ALCU_FLG_SBMBC)
-			   ? &alc->sbmbc_first : &alc->mbc_first);
+    AOFF_RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
+			    ? &alc->sbmbc_root : &alc->mbc_root);
 
-    /* Unlink carrier
+    HARD_CHECK_TREE(NULL, 0, *root, 0);
+
+    /* Link carrier in address order tree
      */
-    while (*pp != crr) {
-	ASSERT(*pp && (*pp)->prevp == pp);
-	pp = &(*pp)->next;
-    }
-    *pp = crr->next;
-    if (crr->next) {
-	ASSERT(crr->next->prevp == &crr->next);
-	crr->next->prevp = crr->prevp;
-    }
+    rbt_insert(0, root, &crr->rbt_node);
+
+    HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
 
+static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
+{
+    AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
+    AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
+    AOFF_RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
+			    ? &alc->sbmbc_root : &alc->mbc_root);
+
+    ASSERT(allctr == carrier->allctr);
+    HARD_CHECK_TREE(NULL, 0, *root, 0);
+
+    rbt_delete(root, &crr->rbt_node);
+
+    HARD_CHECK_TREE(NULL, 0, *root, 0);
+}
+
+static UWord aoff_largest_fblk_in_mbc(Allctr_t* allctr, Carrier_t* carrier)
+{
+    AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
+
+    ASSERT(allctr == carrier->allctr);
+    ASSERT(crr->rbt_node.hdr.bhdr == (crr->root ? crr->root->max_sz : 0));
+    return crr->rbt_node.hdr.bhdr;
+}
 
 /*
  * info_options()
@@ -901,16 +986,10 @@ erts_aoffalc_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
     case 0x501: {
-	AOFF_Carrier_t* crr = ((AOFFAllctr_t *) a1)->mbc_first;
+	AOFF_RBTree_t *node = ((AOFFAllctr_t *) a1)->mbc_root; 
 	Uint size = (Uint) a2;
-	for (;;) {
-	    if (!crr)
-		return (UWord)NULL;
-	    if (crr->root && crr->root->max_sz >= size)
-		break;
-	    crr = crr->next;
-	}	
-	return (UWord) crr->root;
+	node = rbt_search(node, size);
+	return (UWord) (node ? RBT_NODE_TO_MBC(node)->root : NULL);
     }
     case 0x502:	return (UWord) ((AOFF_RBTree_t *) a1)->parent;
     case 0x503:	return (UWord) ((AOFF_RBTree_t *) a1)->left;
@@ -931,22 +1010,15 @@ erts_aoffalc_test(UWord op, UWord a1, UWord a2)
 
 #ifdef HARD_DEBUG
 
-static void check_carriers(AOFFAllctr_t* alc, AOFF_Carrier_t *crr, Uint32 flags)
-{ 
-    AOFF_Carrier_t *p = ((flags & ERTS_ALCU_FLG_SBMBC)
-			 ? alc->sbmbc_first : alc->mbc_first);
-    int found_it = 0;
-
-    for ( ; p; p = p->next) {
-	if (p == crr) {
-	    ASSERT(!found_it);
-	    found_it = 1;
-	}
-	ASSERT(!p->next || p->next > p);
-    }
-    ASSERT(found_it);
+static int rbt_assert_is_member(AOFF_RBTree_t* root, AOFF_RBTree_t* node)
+{
+    while (node != root) {
+	ASSERT(node->parent);
+	ASSERT(node->parent->left == node || node->parent->right == node);
+	node = node->parent;
+    }    
+    return 1;
 }
-
 
 #define IS_LEFT_VISITED(FB)	((FB)->flags & LEFT_VISITED_FLG)
 #define IS_RIGHT_VISITED(FB)	((FB)->flags & RIGHT_VISITED_FLG)
@@ -984,7 +1056,7 @@ static void print_tree(AOFF_RBTree_t*);
  */
 
 static AOFF_RBTree_t *
-check_tree(AOFFAllctr_t* alc, AOFF_RBTree_t* root, Uint size)
+check_tree(Carrier_t* within_crr, int bestfit, AOFF_RBTree_t* root, Uint size)
 {
     AOFF_RBTree_t *res = NULL;
     Sint blacks;
@@ -1046,9 +1118,12 @@ check_tree(AOFFAllctr_t* alc, AOFF_RBTree_t* root, Uint size)
 	if (depth > max_depth)
 	    max_depth = depth;
 
-	crr = FBLK_TO_MBC(&x->hdr);
-	ASSERT((char*)x > (char*)crr);
-	ASSERT(((char*)x + AOFF_BLK_SZ(x)) <= ((char*)crr + CARRIER_SZ(crr)));
+	if (within_crr) {
+	    crr = FBLK_TO_MBC(&x->hdr);
+	    ASSERT(crr == within_crr);
+	    ASSERT((char*)x > (char*)crr);
+	    ASSERT(((char*)x + AOFF_BLK_SZ(x)) <= ((char*)crr + CARRIER_SZ(crr)));
+	}
 
 	if (IS_RED(x)) {
 	    ASSERT(IS_BLACK(x->right));
@@ -1059,13 +1134,13 @@ check_tree(AOFFAllctr_t* alc, AOFF_RBTree_t* root, Uint size)
 
 	if (x->left) {
 	    ASSERT(x->left->parent == x);
-	    ASSERT(cmp_blocks(alc, x->left, x) < 0);
+	    ASSERT(cmp_blocks(bestfit, x->left, x) < 0);
 	    ASSERT(x->left->max_sz <= x->max_sz);	    
 	}
 
 	if (x->right) {
 	    ASSERT(x->right->parent == x);
-	    ASSERT(cmp_blocks(alc, x->right, x) > 0);
+	    ASSERT(cmp_blocks(bestfit, x->right, x) > 0);
 	    ASSERT(x->right->max_sz <= x->max_sz);	    
 	}
 	ASSERT(x->max_sz >= AOFF_BLK_SZ(x));
@@ -1074,7 +1149,7 @@ check_tree(AOFFAllctr_t* alc, AOFF_RBTree_t* root, Uint size)
 	       || x->max_sz == (x->right ? x->right->max_sz : 0));
 
 	if (size && AOFF_BLK_SZ(x) >= size) {
-	    if (!res || cmp_blocks(alc, x, res) < 0) {
+	    if (!res || cmp_blocks(bestfit, x, res) < 0) {
 		res = x;
 	    }
 	}
@@ -1113,9 +1188,9 @@ print_tree_aux(AOFF_RBTree_t *x, int indent)
 	for (i = 0; i < indent; i++) {
 	    putc(' ', stderr);
 	}
-	fprintf(stderr, "%s: sz=%lu addr=0x%lx max_size=%lu\r\n",
+	fprintf(stderr, "%s: sz=%lu addr=0x%lx max_size=%u\r\n",
 		IS_BLACK(x) ? "BLACK" : "RED",
-		AOFF_BLK_SZ(x), (Uint)x, x->max_sz);
+		AOFF_BLK_SZ(x), (Uint)x, (unsigned)x->max_sz);
 	print_tree_aux(x->left,  indent + INDENT_STEP);
     }
 }

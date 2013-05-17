@@ -475,6 +475,12 @@ struct Allctr_t_ {
     Uint		(*get_next_mbc_size)	(Allctr_t *);
     void		(*creating_mbc)		(Allctr_t *, Carrier_t *, Uint32);
     void		(*destroying_mbc)	(Allctr_t *, Carrier_t *, Uint32);
+
+    /* The three callbacks below are needed to support carrier migration */
+    void		(*add_mbc)		(Allctr_t *, Carrier_t *, Uint32);
+    void		(*remove_mbc)	        (Allctr_t *, Carrier_t *, Uint32);
+    UWord		(*largest_fblk_in_mbc)  (Allctr_t *, Carrier_t *);
+
     void		(*init_atoms)		(void);
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
