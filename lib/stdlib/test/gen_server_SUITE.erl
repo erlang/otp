@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1082,13 +1082,23 @@ replace_state(Config) when is_list(Config) ->
 %% Test that the time for a huge message queue is not
 %% significantly slower than with an empty message queue.
 call_with_huge_message_queue(Config) when is_list(Config) ->
+    case test_server:is_native(gen) of
+	true ->
+	    {skip,
+	     "gen is native - huge message queue optimization "
+	     "is not implemented"};
+	false ->
+	    do_call_with_huge_message_queue()
+		end.
+
+do_call_with_huge_message_queue() ->
     ?line Pid = spawn_link(fun echo_loop/0),
 
-    ?line {Time,ok} = tc(fun() -> calls(10, Pid) end),
+    ?line {Time,ok} = tc(fun() -> calls(10000, Pid) end),
 
     ?line [self() ! {msg,N} || N <- lists:seq(1, 500000)],
     erlang:garbage_collect(),
-    ?line {NewTime,ok} = tc(fun() -> calls(10, Pid) end),
+    ?line {NewTime,ok} = tc(fun() -> calls(10000, Pid) end),
     io:format("Time for empty message queue: ~p", [Time]),
     io:format("Time for huge message queue: ~p", [NewTime]),
 
