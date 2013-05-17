@@ -21,6 +21,13 @@
 
 %%%-----------------------------------------------------------------
 %%% 
+%%%           THIS FILE IS JUST A PLACE HOLDER - IGNORE
+%%% 
+%%%-----------------------------------------------------------------
+
+
+%%%-----------------------------------------------------------------
+%%% 
 %%%        TTLN - TupleTreeListNodes
 %%% 
 %%% This module implements the MIB internal data structures.
@@ -34,7 +41,9 @@
 %%%
 %%% When a mib is loaded, the tree is built from the plain list
 %%% in the binary file.
+%%% 
 %%%-----------------------------------------------------------------
+
 -include("snmp_types.hrl").
 -include("snmp_debug.hrl").
 
