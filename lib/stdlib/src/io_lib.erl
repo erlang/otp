@@ -257,7 +257,9 @@ write(T, D) when is_tuple(T) ->
 	     [write(element(1, T), D-1)|
               write_tail(tl(tuple_to_list(T)), D-1, $,)],
 	     $}]
-    end.
+    end;
+%write(Term, D)  when is_map(Term) -> write_map(Term, D);
+write(Term, D) -> write_map(Term, D).
 
 %% write_tail(List, Depth, CharacterBeforeDots)
 %%  Test the terminating case first as this looks better with depth.
@@ -274,6 +276,18 @@ write_port(Port) ->
 
 write_ref(Ref) ->
     erlang:ref_to_list(Ref).
+
+write_map(Map, D) when is_integer(D) ->
+    [$#,${,write_map_body(map:to_list(Map), D),$}].
+
+write_map_body(_, 0) -> "...";
+write_map_body([],_) -> [];
+write_map_body([{K,V}],D) -> write_map_assoc(K,V,D);
+write_map_body([{K,V}|KVs], D) ->
+    [write_map_assoc(K,V,D),$, | write_map_body(KVs,D-1)].
+
+write_map_assoc(K,V,D) ->
+    [write(K,D - 1),"=>",write(V,D-1)].
 
 write_binary(B, D) when is_integer(D) ->
     [$<,$<,write_binary_body(B, D),$>,$>].
