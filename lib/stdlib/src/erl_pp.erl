@@ -35,7 +35,7 @@
                        | fun((Expr :: erl_parse:abstract_expr(),
                               CurrentIndentation :: integer(),
                               CurrentPrecedence :: non_neg_integer(),
-                              HookFunction :: hook_function()) ->
+                              Options :: options()) ->
                                    io_lib:chars())).
 
 -type(option() :: {hook, hook_function()}
@@ -225,7 +225,7 @@ lattribute(module, {M,Vs}, _Opts, _State) ->
 lattribute(module, M, _Opts, _State) ->
     attr("module", [{var,0,pname(M)}]);
 lattribute(export, Falist, _Opts, _State) ->
-    call({var,0,"-export"}, [falist(Falist)], 0, none);
+    call({var,0,"-export"}, [falist(Falist)], 0, options(none));
 lattribute(import, Name, _Opts, _State) when is_list(Name) ->
     attr("import", [{var,0,pname(Name)}]);
 lattribute(import, {From,Falist}, _Opts, _State) ->
@@ -240,10 +240,10 @@ lattribute(Name, Arg, #options{encoding = Encoding}, _State) ->
 
 typeattr(Tag, {TypeName,Type,Args}, _Opts) ->
     {first,leaf("-"++atom_to_list(Tag)++" "),
-     typed(call({atom,0,TypeName}, Args, 0, none), Type)}.
+     typed(call({atom,0,TypeName}, Args, 0, options(none)), Type)}.
 
 ltype({ann_type,_Line,[V,T]}) ->
-    typed(lexpr(V, none), T);
+    typed(lexpr(V, options(none)), T);
 ltype({paren_type,_Line,[T]}) ->
     [$(,ltype(T),$)];
 ltype({type,_Line,union,Ts}) ->
@@ -253,7 +253,7 @@ ltype({type,_Line,list,[T]}) ->
 ltype({type,_Line,nonempty_list,[T]}) ->
     {seq,$[,$],[$,],[ltype(T),leaf("...")]};
 ltype({type,Line,nil,[]}) ->
-    lexpr({nil,Line}, 0, none);
+    lexpr({nil,Line}, 0, options(none));
 ltype({type,Line,tuple,any}) ->
     simple_type({atom,Line,tuple}, []);
 ltype({type,_Line,tuple,Ts}) ->
@@ -261,7 +261,7 @@ ltype({type,_Line,tuple,Ts}) ->
 ltype({type,_Line,record,[{atom,_,N}|Fs]}) ->
     record_type(N, Fs);
 ltype({type,_Line,range,[_I1,_I2]=Es}) ->
-    expr_list(Es, '..', fun lexpr/2, none);
+    expr_list(Es, '..', fun lexpr/2, options(none));
 ltype({type,_Line,binary,[I1,I2]}) ->
     binary_type(I1, I2); % except binary()
 ltype({type,_Line,'fun',[]}) ->
@@ -277,14 +277,14 @@ ltype({remote_type,Line,[M,F,Ts]}) ->
 ltype({atom,_,T}) ->
     leaf(write(T));
 ltype(E) ->
-    lexpr(E, 0, none).
+    lexpr(E, 0, options(none)).
 
 binary_type(I1, I2) ->
     B = [[] || {integer,_,0} <- [I1]] =:= [],
     U = [[] || {integer,_,0} <- [I2]] =:= [],
     P = max_prec(),
-    E1 = [[leaf("_:"),lexpr(I1, P, none)] || B],
-    E2 = [[leaf("_:_*"),lexpr(I2, P, none)] || U],
+    E1 = [[leaf("_:"),lexpr(I1, P, options(none))] || B],
+    E2 = [[leaf("_:_*"),lexpr(I2, P, options(none))] || U],
     {seq,'<<','>>',[$,],E1++E2}.
 
 record_type(Name, Fields) ->
@@ -294,7 +294,7 @@ field_types(Fs) ->
     tuple_type(Fs, fun field_type/1).
 
 field_type({type,_Line,field_type,[Name,Type]}) ->
-    typed(lexpr(Name, none), Type).
+    typed(lexpr(Name, options(none)), Type).
 
 typed(B, {type,_,union,Ts}) ->
     %% Special layout for :: followed by union.
@@ -330,7 +330,8 @@ sig_type(FunType) ->
     fun_type([], FunType).
 
 guard_type(Before, Gs) ->
-    Gl = {list,[{step,'when',expr_list(Gs, [$,], fun constraint/2, none)}]},
+    Opts = options(none),
+    Gl = {list,[{step,'when',expr_list(Gs, [$,], fun constraint/2, Opts)}]},
     {list,[{step,Before,Gl}]}.
 
 constraint({type,_Line,constraint,[Tag,As]}, _Opts) ->
@@ -345,7 +346,7 @@ type_args({type,_line,product,Ts}) ->
     targs(Ts).
 
 simple_type(Tag, Types) ->
-    {first,lexpr(Tag, 0, none),targs(Types)}.
+    {first,lexpr(Tag, 0, options(none)),targs(Types)}.
 
 targs(Ts) ->
     {seq,$(,$),[$,],ltypes(Ts)}.
@@ -357,7 +358,7 @@ ltypes(Ts, F) ->
     [F(T) || T <- Ts].
 
 attr(Name, Args) ->
-    call({var,0,format("-~s", [Name])}, Args, 0, none).
+    call({var,0,format("-~s", [Name])}, Args, 0, options(none)).
 
 pname(['' | As]) ->
     [$. | pname(As)];
@@ -632,11 +633,11 @@ bit_elem_types([T | Rest]) ->
     [bit_elem_type(T), $-|bit_elem_types(Rest)].
 
 bit_elem_type({A,B}) ->
-    [lexpr(erl_parse:abstract(A), none),
+    [lexpr(erl_parse:abstract(A), options(none)),
      $:,
-     lexpr(erl_parse:abstract(B), none)];
+     lexpr(erl_parse:abstract(B), options(none))];
 bit_elem_type(T) ->
-    lexpr(erl_parse:abstract(T), none).
+    lexpr(erl_parse:abstract(T), options(none)).
 
 %% end of BITS
 
