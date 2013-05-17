@@ -90,8 +90,9 @@
     <p>The semantics of them and their exact signatures are 
     explained below. </p>
 
-    <p>Note that some of the data need to be "passed on" to the 
-    symbolic-store for storage, see the default mib-server data 
+    <p>Note that the data extracted from the imported (loaded) 
+    mibs are stored partly by the mib-server and partly by the 
+    symbolic-store server. See the default mib-server data 
     module, <c>snmpa_mib_data_tttn</c> for details. </p>
 
   </description>
