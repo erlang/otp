@@ -37,7 +37,6 @@
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_handshake.hrl").
--include("ssl_srp_primes.hrl").
 
 -include_lib("public_key/include/public_key.hrl"). 
 
