@@ -1803,20 +1803,25 @@ transform_rule(T, Env, St) ->
 
 transform_implicit_fun(T, Env, St) ->
     {T1, St1} = default_transform(T, Env, St),
-    F = erl_syntax_lib:analyze_implicit_fun(T1),
-    {V, Text} = case (Env#code.map)(F) of
-		    F ->
-			%% Not renamed
-			{none, []};
-		    {Atom, Arity} ->
-			%% Renamed
-			N = rewrite(
-			      erl_syntax:implicit_fun_name(T1),
-			      erl_syntax:arity_qualifier(
-				erl_syntax:atom(Atom),
-				erl_syntax:integer(Arity))),
-			T2 = erl_syntax:implicit_fun(N),
-			{{value, T2}, ["function was renamed"]}
+    {V, Text} = case erl_syntax:type(erl_syntax:implicit_fun_name(T1)) of
+		    arity_qualifier ->
+			F = erl_syntax_lib:analyze_implicit_fun(T1),
+			case (Env#code.map)(F) of
+			    F ->
+				%% Not renamed
+				{none, []};
+			    {Atom, Arity} ->
+				%% Renamed
+				N = rewrite(
+				      erl_syntax:implicit_fun_name(T1),
+				      erl_syntax:arity_qualifier(
+					erl_syntax:atom(Atom),
+					erl_syntax:integer(Arity))),
+				T2 = erl_syntax:implicit_fun(N),
+				{{value, T2}, ["function was renamed"]}
+			end;
+		    module_qualifier ->
+			{none, []}
 		end,
     {maybe_modified_quiet(V, T1, 2, Text, Env), St1}.
 
