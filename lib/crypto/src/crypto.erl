@@ -1423,7 +1423,7 @@ generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
   when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
     Private = case PrivArg of
 		  undefined -> random_bytes(32);
-		  _ -> PrivArg
+		  _ -> ensure_int_as_bin(PrivArg)
 	      end,
     host_srp_gen_key(Private, Verifier, Generator, Prime, Version);
 
@@ -1455,7 +1455,6 @@ compute_key(srp, HostPublic, {UserPublic, UserPrivate},
 	    {user, [DerivedKey, Prime, Generator, Version | ScramblerArg]}) when
       is_binary(Prime),
       is_binary(Generator),
-      is_binary(UserPrivate),
       is_atom(Version) ->
     HostPubBin = ensure_int_as_bin(HostPublic),
     Multiplier = srp_multiplier(Version, Generator, Prime),
@@ -1464,21 +1463,21 @@ compute_key(srp, HostPublic, {UserPublic, UserPrivate},
 					HostPubBin, Prime);
 		    [S] -> S
 		end,
-    srp_user_secret_nif(UserPrivate, Scrambler, HostPubBin, Multiplier,
-			  Generator, DerivedKey, Prime);
+    srp_user_secret_nif(ensure_int_as_bin(UserPrivate), Scrambler, HostPubBin,
+			Multiplier, Generator, DerivedKey, Prime);
 
 compute_key(srp, UserPublic, {HostPublic, HostPrivate},
 	    {host,[Verifier, Prime, Version | ScramblerArg]}) when
       is_binary(Verifier),
       is_binary(Prime),
-      is_binary(HostPrivate),
       is_atom(Version) ->
     UserPubBin = ensure_int_as_bin(UserPublic),
     Scrambler = case ScramblerArg of
 		    [] -> srp_scrambler(Version, UserPubBin, ensure_int_as_bin(HostPublic), Prime);
 		    [S] -> S
 		end,
-    srp_host_secret_nif(Verifier, HostPrivate, Scrambler, UserPubBin, Prime);
+    srp_host_secret_nif(Verifier, ensure_int_as_bin(HostPrivate), Scrambler,
+			UserPubBin, Prime);
 
 compute_key(ecdh, Others, My, Curve) ->
     ecdh_compute_key_nif(ensure_int_as_bin(Others),
