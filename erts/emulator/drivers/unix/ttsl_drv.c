@@ -1039,8 +1039,10 @@ static int write_buf(Uint32 *s, int n)
 	    if (octbuff != octtmp) {
 		driver_free(octbuff);
 	    }
+#ifdef HAVE_WCWIDTH
 	} else if (*s & WIDE_TAG) {
 	    --n; s++;
+#endif
 	} else {
 	    DEBUGLOG(("Very unexpected character %d",(int) *s));
 	    ++n;
