@@ -58,7 +58,11 @@ main(_Erule) ->
     roundtrip('InfObj', 'ConstructedPdu',
 	      {'ConstructedPdu',2,{'CONSTRUCTED-DEFAULT_Type',999,false}}),
     roundtrip('InfObj', 'ConstructedPdu',
-	      {'ConstructedPdu',3,true}).
+	      {'ConstructedPdu',3,true}),
+
+    roundtrip('InfObj', 'Seq2',
+	      {'Seq2',42,[true,false,false,true],
+	       [false,true,false]}).
 
 
 roundtrip(M, T, V) ->

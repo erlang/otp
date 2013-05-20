@@ -3322,7 +3322,15 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 			_ ->
 			    MergedTag
 		    end,
-		TempNewDef#newt{type=NewTypeDef,tag=Ct};
+		case TopName of
+		    [] when Type#typedef.name =/= undefined ->
+			%% This is a top-level type.
+			#type{def=Simplified} =
+			    simplify_type(#type{def=NewTypeDef}),
+			TempNewDef#newt{type=Simplified,tag=Ct};
+		    _ ->
+			TempNewDef#newt{type=NewTypeDef,tag=Ct}
+		end;
 
 	    {'TypeFromObject',{object,Object},TypeField} ->
 		CheckedT = get_type_from_object(S,Object,TypeField),
@@ -3355,6 +3363,28 @@ get_non_typedef(S, Tref0) ->
 	    get_non_typedef(S, Tref);
 	{_,Type} ->
 	    Type
+    end.
+
+
+%%
+%% Simplify the backends by getting rid of an #'ObjectClassFieldType'{}
+%% with a type known at compile time.
+%%
+
+simplify_comps(Comps) ->
+    [simplify_comp(Comp) || Comp <- Comps].
+
+simplify_comp(#'ComponentType'{typespec=Type0}=C) ->
+    Type = simplify_type(Type0),
+    C#'ComponentType'{typespec=Type};
+simplify_comp(Other) -> Other.
+
+simplify_type(#type{tag=Tag,def=Inner}=T) ->
+    case Inner of
+	#'ObjectClassFieldType'{type={fixedtypevaluefield,_,Type}} ->
+	    Type#type{tag=Tag};
+	_ ->
+	    T
     end.
 
 %% tablecinf_choose. A SEQUENCE or SET may be inserted in another
@@ -5118,7 +5148,7 @@ iof_associated_type1(S,C) ->
 			  prop=mandatory,
 			  tags=[{'CONTEXT',0}]}],
     #'SEQUENCE'{tablecinf=TableCInf,
-		components=IOFComponents}.
+		components=simplify_comps(IOFComponents)}.
 	   
 
 %% returns the leading attribute, the constraint of the components and
@@ -5278,8 +5308,9 @@ check_sequence(S,Type,Comps)  ->
 	    %% all extensions i.e together with the first Root components
 
 	    NewComps3 = textual_order(CompListWithTblInf),
+	    NewComps4 = simplify_comps(NewComps3),
 	    CompListTuple =
-		complist_as_tuple(is_erule_per(S#state.erule),NewComps3),
+		complist_as_tuple(is_erule_per(S#state.erule), NewComps4),
 	    {CRelInf,CompListTuple};
 	Dupl ->
 	    throw({error,{asn1,{duplicate_components,Dupl}}})
@@ -5391,7 +5422,7 @@ check_unique_sequence_tags1(S,[],Acc) ->
     check_unique_tags(S,lists:reverse(Acc)).
 
 check_sequenceof(S,Type,Component) when is_record(Component,type) ->
-    check_type(S,Type,Component).
+    simplify_type(check_type(S, Type, Component)).
 
 check_set(S,Type,Components) ->
     {TableCInf,NewComponents} = check_sequence(S,Type,Components),
@@ -5613,7 +5644,7 @@ extension({Root1,ExtList,Root2}) ->
 		X = #'ComponentType'{prop=Y}<-ExtList], Root2}.
 
 check_setof(S,Type,Component) when is_record(Component,type) ->
-    check_type(S,Type,Component).
+    simplify_type(check_type(S, Type, Component)).
 
 check_selectiontype(S,Name,#type{def=Eref}) 
   when is_record(Eref,'Externaltypereference') ->
@@ -5677,8 +5708,9 @@ check_choice(S,Type,Components) when is_list(Components) ->
 					('ExtensionAdditionGroupEnd') -> false;
 					(_) -> true
 				     end,NewComps),
-	    check_unique_tags(S,NewComps2),
-	    complist_as_tuple(is_erule_per(S#state.erule),NewComps2);
+	    NewComps3 = simplify_comps(NewComps2),
+	    check_unique_tags(S, NewComps3),
+	    complist_as_tuple(is_erule_per(S#state.erule), NewComps3);
 	Dupl ->
 	    throw({error,{asn1,{duplicate_choice_alternatives,Dupl}}})
     end;
@@ -6056,7 +6088,7 @@ get_simple_table_info1(S,#'ComponentType'{typespec=TS},Cnames,Path) ->
 simple_table_info(S,#'ObjectClassFieldType'{classname=ClRef,
 					    class=ObjectClass,
 					  fieldname=FieldName},Path) ->
-    
+
     ObjectClassFieldName =
 	case FieldName of
 	    {LastFieldName,[]} -> LastFieldName;

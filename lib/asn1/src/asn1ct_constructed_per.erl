@@ -1005,14 +1005,7 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
 		    emit({"'",Mod,"':'enc_",
 			  EType,"'(",Element,")"});
 		{primitive,bif} ->
-		    EncType =
-			case Atype of
-			    {fixedtypevaluefield,_,Btype} ->
-				Btype;
-			    _ ->
-				Type
-			end,
-		    asn1ct_gen_per:gen_encode_prim(Erule, EncType, Element);
+		    asn1ct_gen_per:gen_encode_prim(Erule, Type, Element);
 		'ASN1_OPEN_TYPE' ->
 		    case Type#type.def of
 			#'ObjectClassFieldType'{type=OpenType} ->
@@ -1463,12 +1456,7 @@ gen_dec_line_other(Erule, Atype, TopType, Comp) ->
 		    asn1ct_gen_per:gen_dec_external(Etype, BytesVar)
 	    end;
 	{primitive,bif} ->
-	    case Atype of
-		{fixedtypevaluefield,_,Btype} ->
-		    asn1ct_gen_per:gen_dec_imm(Erule, Btype);
-		_ ->
-		    asn1ct_gen_per:gen_dec_imm(Erule, Type)
-	    end;
+	    asn1ct_gen_per:gen_dec_imm(Erule, Type);
 	'ASN1_OPEN_TYPE' ->
 	    case Type#type.def of
 		#'ObjectClassFieldType'{type=OpenType} ->

@@ -180,6 +180,12 @@ MyPdu ::= SEQUENCE {
     str   MY-CLASS.&stringValue ({MyObjectSet}{@int})
 }
 
+Seq2 ::= SEQUENCE {
+   int MY-CLASS.&integerValue ({MyObjectSet}),
+   seqof SEQUENCE (1..10) OF MY-CLASS.&booleanValue ({MyObjectSet}{@int}),
+   setof SET (1..10) OF MY-CLASS.&booleanValue ({MyObjectSet}{@int})
+}
+
 --
 -- Class with constructed default
 --

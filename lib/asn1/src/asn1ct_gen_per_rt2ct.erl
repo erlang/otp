@@ -115,16 +115,7 @@ gen_encode_prim(Erules, #type{}=D, Value) ->
 			       io_lib:format("iolist_to_binary(~s)",
 					     [Value])
 		     end,
-	    call(Erules, encode_open_type, [NewValue]);
-	#'ObjectClassFieldType'{} ->
-	    case asn1ct_gen:get_inner(D#type.def) of
-		{fixedtypevaluefield,_,InnerType} -> 
-		    gen_encode_prim(Erules, InnerType, Value);
-		T -> %% 'ASN1_OPEN_TYPE'
-		    gen_encode_prim(Erules, D#type{def=T}, Value)
-	    end;
-	XX ->
-	    exit({asn1_error,nyi,XX})
+	    call(Erules, encode_open_type, [NewValue])
     end.
 
 emit_enc_real(Erules, Real) ->

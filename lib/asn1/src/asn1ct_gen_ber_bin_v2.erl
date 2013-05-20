@@ -161,7 +161,7 @@ gen_encode_user(Erules, #typedef{}=D, Wrapper) ->
 	    emit([".",nl])
     end.
 
-gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
+gen_encode_prim(_Erules, #type{}=D, DoTag, Value) ->
     BitStringConstraint = get_size_constraint(D#type.constraint),
     asn1ct_name:new(enumval),
     Type = case D#type.def of
@@ -215,14 +215,7 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	'BMPString' ->
 	    call(encode_BMP_string, [Value,DoTag]);
 	'ASN1_OPEN_TYPE' ->
-	    call(encode_open_type, [Value,DoTag]);
-	#'ObjectClassFieldType'{} ->
-	    case asn1ct_gen:get_inner(D#type.def) of
-		{fixedtypevaluefield,_,InnerType} -> 
-		    gen_encode_prim(Erules,InnerType,DoTag,Value);
-		'ASN1_OPEN_TYPE' ->
-		    call(encode_open_type, [Value,DoTag])
-	    end
+	    call(encode_open_type, [Value,DoTag])
     end.
 
 emit_enc_enumerated_cases({L1,L2}, Tags) ->
@@ -458,7 +451,7 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
     end.
 
 
-gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
+gen_dec_prim(_Erules, Att, BytesVar, DoTag, _TagIn, _Form, _OptOrMand) ->
     Typename = Att#type.def,
 %% Currently not used for BER replaced with [] as place holder
 %%    Constraint = Att#type.constraint,
@@ -552,20 +545,7 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	'ASN1_OPEN_TYPE' ->
 	    emit(["decode_open_type_as_binary(",
 		  BytesVar,","]),
-	    need(decode_open_type_as_binary, 2);
-	#'ObjectClassFieldType'{} ->
-		case asn1ct_gen:get_inner(Att#type.def) of
-		    {fixedtypevaluefield,_,InnerType} -> 
-			gen_dec_prim(Erules,InnerType,BytesVar,DoTag,TagIn,Form,OptOrMand);
-		    'ASN1_OPEN_TYPE' ->
-			emit(["decode_open_type_as_binary(",
-			      BytesVar,","]),
-			need(decode_open_type_as_binary, 2);
-		    Other ->
-			exit({'cannot decode',Other})
-		end;
-	Other ->
-	    exit({'cannot decode',Other})
+	    need(decode_open_type_as_binary, 2)
     end,
 
     TagStr = case DoTag of
@@ -582,12 +562,6 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 		  {call,ber,match_tags,[BytesVar,TagStr]},com,nl,
 		  {call,real_common,decode_real,[{curr,tmpbuf}]},nl,
 		  "end",nl]);
-	#'ObjectClassFieldType'{} ->
-	    case asn1ct_gen:get_inner(Att#type.def) of
-		'ASN1_OPEN_TYPE' ->
-		    emit([TagStr,")"]);
-		_ -> ok
-	    end;
 	_ ->
 	    emit([TagStr,")"])
     end.

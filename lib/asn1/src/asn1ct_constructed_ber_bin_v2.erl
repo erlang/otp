@@ -1004,15 +1004,8 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 	_ ->
 	    case WhatKind of
 		{primitive,bif} ->
-		    EncType =
-			case Type#type.def of
-			    #'ObjectClassFieldType'{type={fixedtypevaluefield,_,Btype}} ->
-				Btype;
-			    _ ->
-				Type
-			end,
-		    ?ASN1CT_GEN_BER:gen_encode_prim(ber,EncType,{asis,Tag},
-						   Element);
+		    ?ASN1CT_GEN_BER:gen_encode_prim(ber, Type, {asis,Tag},
+						    Element);
 		'ASN1_OPEN_TYPE' ->
 		    case Type#type.def of
 			#'ObjectClassFieldType'{} -> %Open Type
@@ -1249,9 +1242,6 @@ gen_dec_call1({primitive,bif},InnerType,Erules,TopType,Cname,Type,BytesVar,
 	    asn1ct:update_gen_state(namelist,Rest),
 	    emit(["{'",asn1ct_gen:list2name([Cname|TopType]),"',",
 		  BytesVar,"}"]);
-	{_,{fixedtypevaluefield,_,Btype}} ->
-	    ?ASN1CT_GEN_BER:gen_dec_prim(Erules,Btype,BytesVar,Tag,[],
-					?PRIMITIVE,OptOrMand);
 	_ ->
 	    ?ASN1CT_GEN_BER:gen_dec_prim(Erules,Type,BytesVar,Tag,[],
 					?PRIMITIVE,OptOrMand)

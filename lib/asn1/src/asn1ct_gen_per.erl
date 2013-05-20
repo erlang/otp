@@ -208,16 +208,7 @@ gen_encode_prim(Erules, #type{}=D, Value) ->
 			       io_lib:format("iolist_to_binary(~s)",
 					     [Value])
 		     end,
-	    call(Erules, encode_open_type, [NewValue]);
-	#'ObjectClassFieldType'{} ->
-	    case asn1ct_gen:get_inner(D#type.def) of
-		{fixedtypevaluefield,_,InnerType} -> 
-		    gen_encode_prim(Erules, InnerType, Value);
-		T -> %% 'ASN1_OPEN_TYPE'
-		    gen_encode_prim(Erules, D#type{def=T}, Value)
-	    end;
-	XX ->
-	    exit({asn1_error,nyi,XX})
+	    call(Erules, encode_open_type, [NewValue])
     end.
 
 emit_enc_real(Erules, Real) ->
@@ -1086,14 +1077,7 @@ gen_dec_imm_1('RELATIVE-OID', _Constraint, Aligned) ->
 gen_dec_imm_1('UTF8String', _Constraint, Aligned) ->
     asn1ct_imm:per_dec_restricted_string(Aligned);
 gen_dec_imm_1('REAL', _Constraint, Aligned) ->
-    asn1ct_imm:per_dec_real(Aligned);
-gen_dec_imm_1(#'ObjectClassFieldType'{}=TypeName, _Constraint, Aligned) ->
-    case asn1ct_gen:get_inner(TypeName) of
-	{fixedtypevaluefield,_,#type{def=InnerType,constraint=C}} ->
-	    gen_dec_imm_1(InnerType, C, Aligned);
-	#type{def=T,constraint=C} ->
-	    gen_dec_imm_1(T, C, Aligned)
-    end.
+    asn1ct_imm:per_dec_real(Aligned).
 
 gen_dec_bit_string(F, Imm) ->
     D = fun(V, Buf) ->
