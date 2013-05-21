@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -111,10 +111,24 @@
 
 -export([print_mib_info/0, print_mib_tables/0, print_mib_variables/0]).
 
+-export_type([
+              me/0
+             ]).
+
+
+
 -include("snmpa_atl.hrl").
 -include("snmpa_internal.hrl").
+-include_lib("snmp/include/snmp_types.hrl"). % type of me needed. 
 
 -define(DISCO_EXTRA_INFO, undefined).
+
+
+%%-----------------------------------------------------------------
+%% Types
+%%-----------------------------------------------------------------
+
+-type me() :: #me{}.
 
 
 %%-----------------------------------------------------------------
