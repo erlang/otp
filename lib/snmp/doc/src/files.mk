@@ -42,6 +42,7 @@ XML_AGENT_REF3_FILES = \
 	snmpa_error_logger.xml \
 	snmpa_local_db.xml \
 	snmpa_mib_data.xml \
+	snmpa_mib_storage.xml \
 	snmpa_mpd.xml \
 	snmpa_network_interface.xml \
 	snmpa_network_interface_filter.xml \

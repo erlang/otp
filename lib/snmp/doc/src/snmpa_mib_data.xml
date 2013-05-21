@@ -122,7 +122,7 @@
 
     <func>
       <name>Module:close(State) -> void()</name>
-      <fsummary>Close the mib-storage</fsummary>
+      <fsummary>Close the mib-server data instance</fsummary>
       <type>
         <v>State = term()</v>
       </type>
