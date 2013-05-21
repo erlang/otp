@@ -33,6 +33,10 @@
 
 -define(eh, ct_test_support_eh).
 
+-define(erl_telnet_server_port,1234).
+-define(erl_telnet_server_user,"telnuser").
+-define(erl_telnet_server_pwd,"telnpwd").
+
 %%--------------------------------------------------------------------
 %% TEST SERVER CALLBACK FUNCTIONS
 %%--------------------------------------------------------------------
@@ -48,17 +52,27 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
 
+init_per_testcase(TestCase, Config) when TestCase=/=unix_telnet->
+    TS = telnet_server:start([{port,?erl_telnet_server_port},
+			      {users,[{?erl_telnet_server_user,
+				       ?erl_telnet_server_pwd}]}]),
+    ct_test_support:init_per_testcase(TestCase, [{telnet_server,TS}|Config]);
 init_per_testcase(TestCase, Config) ->
     ct_test_support:init_per_testcase(TestCase, Config).
 
 end_per_testcase(TestCase, Config) ->
+    case ?config(telnet_server,Config) of
+	undefined -> ok;
+	TS -> telnet_server:stop(TS)
+    end,
     ct_test_support:end_per_testcase(TestCase, Config).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [
-     default
+     unix_telnet,
+     own_server
     ].
 
 %%--------------------------------------------------------------------
@@ -67,18 +81,28 @@ all() ->
 
 %%%-----------------------------------------------------------------
 %%%
-default(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    Suite = filename:join(DataDir, "ct_telnet_basic_SUITE"),
-    Cfg = {unix, ct:get_config(unix)},
-    ok = file:write_file(filename:join(DataDir, "telnet.cfg"), io_lib:write(Cfg) ++ "."),
-    CfgFile = filename:join(DataDir, "telnet.cfg"),
-    {Opts,ERPid} = setup([{suite,Suite},{label,default}, {config, CfgFile}], Config),
-    ok = execute(default, Opts, ERPid, Config).
+unix_telnet(Config) when is_list(Config) ->
+    all_tests_in_suite(unix_telnet,"ct_telnet_basic_SUITE","telnet.cfg",Config).
+
+own_server(Config) ->
+    all_tests_in_suite(own_server,"ct_telnet_own_server_SUITE",
+		       "telnet2.cfg",Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
+
+all_tests_in_suite(TestCase, SuiteName, CfgFileName, Config) ->
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, SuiteName),
+    CfgFile = filename:join(DataDir, CfgFileName),
+    Cfg = telnet_config(TestCase),
+    ok = file:write_file(CfgFile, io_lib:write(Cfg) ++ "."),
+    {Opts,ERPid} = setup([{suite,Suite},
+			  {label,TestCase},
+			  {config,CfgFile}],
+			 Config),
+    ok = execute(TestCase, Opts, ERPid, Config).
 
 setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
@@ -103,19 +127,34 @@ execute(Name, Opts, ERPid, Config) ->
 reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
 
+
+telnet_config(unix_telnet) ->
+    {unix, ct:get_config(unix)};
+telnet_config(_) ->
+    {unix,[{telnet,"localhost"},
+	   {port, ?erl_telnet_server_port},
+	   {username,?erl_telnet_server_user},
+	   {password,?erl_telnet_server_pwd},
+	   {keep_alive,true}]}.
+
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
-events_to_check(default,Config) ->
+events_to_check(unix_telnet,Config) ->
+    all_cases(ct_telnet_basic_SUITE,Config);
+events_to_check(own_server,Config) ->
+    all_cases(ct_telnet_own_server_SUITE,Config).
+
+all_cases(Suite,Config) ->
     {module,_} = code:load_abs(filename:join(?config(data_dir,Config),
-					     ct_telnet_basic_SUITE)),
-    TCs = ct_telnet_basic_SUITE:all(),
-    code:purge(ct_telnet_basic_SUITE),
-    code:delete(ct_telnet_basic_SUITE),
+					     Suite)),
+    TCs = Suite:all(),
+    code:purge(Suite),
+    code:delete(Suite),
 
     OneTest =
 	[{?eh,start_logging,{'DEF','RUNDIR'}}] ++
-	[{?eh,tc_done,{ct_telnet_basic_SUITE,TC,ok}} || TC <- TCs] ++
+	[{?eh,tc_done,{Suite,TC,ok}} || TC <- TCs] ++
 	[{?eh,stop_logging,[]}],
 
     %% 2 tests (ct:run_test + script_start) is default
