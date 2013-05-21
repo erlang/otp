@@ -38,8 +38,7 @@ main(Rule) when Rule =:= per; Rule =:= uper ->
     %% ENUMERATED no extensionmark 
     B64 = <<64>>,
     B64 = roundtrip('Noext', red),
-    ok;
-
+    common();
 main(ber) ->
     io:format("main(ber)~n",[]),
     %% ENUMERATED with extensionmark (value is in root set)
@@ -57,6 +56,15 @@ main(ber) ->
     roundtrip('Globalstate', preop),
     roundtrip('Globalstate', com),
 
+    common().
+
+common() ->
+    roundtrip('Seq', {'Seq',blue,42}),
+    roundtrip('Seq', {'Seq',red,42}),
+    roundtrip('Seq', {'Seq',green,42}),
+    roundtrip('Seq', {'Seq',orange,47}),
+    roundtrip('Seq', {'Seq',black,4711}),
+    roundtrip('Seq', {'Seq',magenta,4712}),
     ok.
 
 roundtrip(Type, Value) ->
