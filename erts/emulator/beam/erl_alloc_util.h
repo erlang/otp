@@ -55,8 +55,6 @@ typedef struct {
     UWord lmbcs;
     UWord smbcs;
     UWord mbcgs;
-    UWord sbmbct;
-    UWord sbmbcs;
 
     void *fix;
     size_t *fix_type_size;
@@ -100,8 +98,6 @@ typedef struct {
     10*1024*1024,	/* (bytes)  lmbcs:  largest mbc size             */\
     1024*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
-    256,	       	/* (bytes)  sbmbct:  small block mbc threshold   */\
-    8*1024,		/* (bytes)  sbmbcs:  small block mbc size        */ \
     /* --- Data not options -------------------------------------------- */\
     NULL,		/* (ptr)    fix                                  */\
     NULL		/* (ptr)    fix_type_size                        */\
@@ -134,8 +130,6 @@ typedef struct {
     1024*1024,		/* (bytes)  lmbcs:  largest mbc size             */\
     128*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
-    256,	       	/* (bytes)  sbmbct:  small block mbc threshold   */\
-    8*1024,		/* (bytes)  sbmbcs:  small block mbc size        */ \
     /* --- Data not options -------------------------------------------- */\
     NULL,		/* (ptr)    fix                                  */\
     NULL		/* (ptr)    fix_type_size                        */\
@@ -181,7 +175,6 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #define ERL_ALLOC_UTIL_IMPL__
 
 #define ERTS_ALCU_FLG_FAIL_REALLOC_MOVE		(((Uint32) 1) << 0)
-#define ERTS_ALCU_FLG_SBMBC			(((Uint32) 1) << 1)
 
 #ifdef USE_THREADS
 #define ERL_THREADS_EMU_INTERNAL__
@@ -245,10 +238,8 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #  define MBC_ABLK_OFFSET_SHIFT  (sizeof(UWord)*8 - MBC_ABLK_OFFSET_BITS)
 #  define MBC_ABLK_OFFSET_MASK   (~((UWord)0) << MBC_ABLK_OFFSET_SHIFT)
 #  define MBC_ABLK_SZ_MASK	(~MBC_ABLK_OFFSET_MASK & ~FLG_MASK)
-#  define HAVE_ERTS_SBMBC 0
 #else
 #  define MBC_ABLK_SZ_MASK	(~FLG_MASK)
-#  define HAVE_ERTS_SBMBC 1
 #endif
 
 #define MBC_ABLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_ABLK_SZ_MASK)
@@ -257,8 +248,6 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 
 #define CARRIER_SZ(C) \
   ((C)->chdr & CARRIER_SZ_MASK)
-
-extern int erts_have_sbmbc_alloc;
 
 typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d;} Unit_t;
 
@@ -332,7 +321,6 @@ typedef struct {
 	    StatValues_t	mseg;
 	    StatValues_t	sys_alloc;
 	} norm;
-	StatValues_t	small_block;
     } curr;
     StatValues_t	max;
     StatValues_t	max_ever;
@@ -443,8 +431,6 @@ struct Allctr_t_ {
     Uint		largest_mbc_size;
     Uint		smallest_mbc_size;
     Uint		mbc_growth_stages;
-    Uint		sbmbc_threshold;
-    Uint		sbmbc_size;
 
 #if HAVE_ERTS_MSEG
     ErtsMsegOpt_t	mseg_opt;
@@ -457,7 +443,6 @@ struct Allctr_t_ {
     Uint		min_block_size;
 
     /* Carriers */
-    CarrierList_t	sbmbc_list;
     CarrierList_t	mbc_list;
     CarrierList_t	sbc_list;
 
@@ -512,8 +497,6 @@ struct Allctr_t_ {
 	CallCounter_t	this_alloc;
 	CallCounter_t	this_free;
 	CallCounter_t	this_realloc;
-	CallCounter_t	sbmbc_alloc;
-	CallCounter_t	sbmbc_free;
 	CallCounter_t	mseg_alloc;
 	CallCounter_t	mseg_dealloc;
 	CallCounter_t	mseg_realloc;
@@ -524,8 +507,7 @@ struct Allctr_t_ {
 
     CarriersStats_t	sbcs;
     CarriersStats_t	mbcs;
-    CarriersStats_t	sbmbcs;
-
+    
 #ifdef DEBUG
 #ifdef USE_THREADS
     struct {

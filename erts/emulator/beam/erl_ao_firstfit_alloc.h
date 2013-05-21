@@ -52,7 +52,6 @@ struct AOFFAllctr_t_ {
     Allctr_t		allctr; /* Has to be first! */
 
     struct AOFF_RBTree_t_* mbc_root;
-    struct AOFF_RBTree_t_* sbmbc_root;
     int bf_within_carrier;
 };
 

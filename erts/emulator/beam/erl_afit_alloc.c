@@ -84,8 +84,6 @@ erts_afalc_start(AFAllctr_t *afallctr,
 
     sys_memcpy((void *) afallctr, (void *) &zero.allctr, sizeof(AFAllctr_t));
 
-    init->sbmbct = 0; /* Small mbc not supported by afit */
-
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;

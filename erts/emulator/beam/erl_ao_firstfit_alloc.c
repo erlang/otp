@@ -466,8 +466,7 @@ aoff_unlink_free_block(Allctr_t *allctr, Block_t *del, Uint32 flags)
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) FBLK_TO_MBC(del);
 
     ASSERT(crr->rbt_node.hdr.bhdr == crr->root->max_sz);
-    HARD_CHECK_IS_MEMBER(((flags & ERTS_ALCU_FLG_SBMBC) ? alc->sbmbc_root : alc->mbc_root),
-			 &crr->rbt_node);
+    HARD_CHECK_IS_MEMBER(alc->mbc_root, &crr->rbt_node);
     HARD_CHECK_TREE(&crr->crr, alc->bf_within_carrier, crr->root, 0);
 
     rbt_delete(&crr->root, (AOFF_RBTree_t*)del);
@@ -667,8 +666,7 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 
     ASSERT(allctr == blk_crr->crr.allctr);
     ASSERT(blk_crr->rbt_node.hdr.bhdr == (blk_crr->root ? blk_crr->root->max_sz : 0));
-    HARD_CHECK_IS_MEMBER(((flags & ERTS_ALCU_FLG_SBMBC) ? alc->sbmbc_root : alc->mbc_root),
-			 &blk_crr->rbt_node);
+    HARD_CHECK_IS_MEMBER(alc->mbc_root, &blk_crr->rbt_node);
     HARD_CHECK_TREE(&blk_crr->crr, alc->bf_within_carrier, blk_crr->root, 0);
 
     rbt_insert(alc->bf_within_carrier, &blk_crr->root, blk);
@@ -763,8 +761,7 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
 		    Block_t *cand_blk, Uint cand_size, Uint32 flags)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
-    AOFF_RBTree_t *crr_node = ((flags & ERTS_ALCU_FLG_SBMBC)
-			       ? alc->sbmbc_root : alc->mbc_root);
+    AOFF_RBTree_t *crr_node = alc->mbc_root;
     AOFF_Carrier_t* crr;
     AOFF_RBTree_t *blk = NULL;
 #ifdef HARD_DEBUG
@@ -809,8 +806,7 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
-    AOFF_RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-			    ? &alc->sbmbc_root : &alc->mbc_root);
+    AOFF_RBTree_t **root = &alc->mbc_root;
 
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 
@@ -829,8 +825,7 @@ static void aoff_destroying_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 fla
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
-    AOFF_RBTree_t *root = ((flags & ERTS_ALCU_FLG_SBMBC)
-			    ? alc->sbmbc_root : alc->mbc_root);
+    AOFF_RBTree_t *root = alc->mbc_root;
 
     if (crr->rbt_node.parent || &crr->rbt_node == root) {
 	aoff_remove_mbc(allctr, carrier, flags);
@@ -842,8 +837,7 @@ static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
-    AOFF_RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-			    ? &alc->sbmbc_root : &alc->mbc_root);
+    AOFF_RBTree_t **root = &alc->mbc_root;
 
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 
@@ -858,8 +852,7 @@ static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
-    AOFF_RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-			    ? &alc->sbmbc_root : &alc->mbc_root);
+    AOFF_RBTree_t **root = &alc->mbc_root;
 
     ASSERT(allctr == carrier->allctr);
     HARD_CHECK_TREE(NULL, 0, *root, 0);

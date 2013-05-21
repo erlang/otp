@@ -5626,10 +5626,9 @@ etsmem() ->
 	 MemInfo ->
 	     CS = lists:foldl(
 		    fun ({instance, _, L}, Acc) ->
-			    {value,{_,SBMBCS}} = lists:keysearch(sbmbcs, 1, L),
 			    {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
 			    {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-			    [SBMBCS,MBCS,SBCS | Acc]
+			    [MBCS,SBCS | Acc]
 		    end,
 		    [],
 		    MemInfo),

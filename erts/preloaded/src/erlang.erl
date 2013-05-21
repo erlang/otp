@@ -3114,8 +3114,8 @@ max(A, _) -> A.
                      | 'atom' | 'atom_used' | 'binary' | 'code' | 'ets'
                      | 'low' | 'maximum'.
 
--define(CARRIER_ALLOCS, [mseg_alloc, sbmbc_alloc, sbmbc_low_alloc]).
--define(LOW_ALLOCS, [sbmbc_low_alloc, ll_low_alloc, std_low_alloc]).
+-define(CARRIER_ALLOCS, [mseg_alloc]).
+-define(LOW_ALLOCS, [ll_low_alloc, std_low_alloc]).
 -define(ALL_NEEDED_ALLOCS, (erlang:system_info(alloc_util_allocators)
 			    -- ?CARRIER_ALLOCS)).
 
@@ -3286,8 +3286,7 @@ get_blocks_size([], Acc) ->
     Acc.
 
 blocks_size([{Carriers, SizeList} | Rest], Acc) when Carriers == mbcs;
-						     Carriers == sbcs;
-						     Carriers == sbmbcs ->
+						     Carriers == sbcs ->
     blocks_size(Rest, get_blocks_size(SizeList, Acc));
 blocks_size([_ | Rest], Acc) ->
     blocks_size(Rest, Acc);

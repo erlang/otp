@@ -415,9 +415,7 @@ tree_delete(Allctr_t *allctr, Block_t *del, Uint32 flags)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
     Uint spliced_is_black;
-    RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-		       ? &bfallctr->sbmbc_root
-		       : &bfallctr->mbc_root);
+    RBTree_t **root = &bfallctr->mbc_root;
     RBTree_t *x, *y, *z = (RBTree_t *) del;
     RBTree_t null_x; /* null_x is used to get the fixup started when we
 			splice out a node without children. */
@@ -593,9 +591,7 @@ static void
 aobf_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
-    RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-		       ? &bfallctr->sbmbc_root
-		       : &bfallctr->mbc_root);
+    RBTree_t **root = &bfallctr->mbc_root;
     RBTree_t *blk = (RBTree_t *) block;
     Uint blk_sz = BF_BLK_SZ(blk);
 
@@ -663,9 +659,7 @@ aobf_get_free_block(Allctr_t *allctr, Uint size,
 		    Uint32 flags)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
-    RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-		       ? &bfallctr->sbmbc_root
-		       : &bfallctr->mbc_root);
+    RBTree_t **root = &bfallctr->mbc_root;
     RBTree_t *x = *root;
     RBTree_t *blk = NULL;
     Uint blk_sz;
@@ -712,9 +706,7 @@ static void
 bf_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
-    RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-		       ? &bfallctr->sbmbc_root
-		       : &bfallctr->mbc_root);
+    RBTree_t **root = &bfallctr->mbc_root;
     RBTree_t *blk = (RBTree_t *) block;
     Uint blk_sz = BF_BLK_SZ(blk);
 
@@ -786,9 +778,7 @@ static ERTS_INLINE void
 bf_unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
-    RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-		       ? &bfallctr->sbmbc_root
-		       : &bfallctr->mbc_root);
+    RBTree_t **root = &bfallctr->mbc_root;
     RBTree_t *x = (RBTree_t *) block;
 
     if (IS_LIST_ELEM(x)) {
@@ -829,9 +819,7 @@ bf_get_free_block(Allctr_t *allctr, Uint size,
 		  Uint32 flags)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
-    RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
-		       ? &bfallctr->sbmbc_root
-		       : &bfallctr->mbc_root);
+    RBTree_t **root = &bfallctr->mbc_root;
     RBTree_t *x = *root;
     RBTree_t *blk = NULL;
     Uint blk_sz;

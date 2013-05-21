@@ -76,11 +76,6 @@
 
 allocator	SYSTEM		true		sys_alloc
 
-allocator	SBMBC		true		sbmbc_alloc
-+if halfword
-allocator	SBMBC_LOW	true		sbmbc_low_alloc
-+endif
-
 +if smp
 
 allocator	TEMPORARY	true		temp_alloc
@@ -146,7 +141,6 @@ class	SYSTEM		system_data
 #
 #	<TYPE>		<ALLOCATOR>	<CLASS>		<DESCRIPTION>
 
-type	SBMBC		SBMBC		SYSTEM		small_block_mbc
 type	PROC		FIXED_SIZE	PROCESSES	proc
 type	PORT		DRIVER		SYSTEM		port
 type	ATOM		LONG_LIVED	ATOM		atom_entry
@@ -351,7 +345,6 @@ type	SSB		SHORT_LIVED	PROCESSES	ssb
 
 +if halfword
 
-type	SBMBC_LOW	SBMBC_LOW	SYSTEM		small_block_mbc_low
 type	DDLL_PROCESS	STANDARD_LOW	SYSTEM		ddll_processes
 type	MONITOR_LH	STANDARD_LOW	PROCESSES	monitor_lh
 type	NLINK_LH	STANDARD_LOW	PROCESSES	nlink_lh

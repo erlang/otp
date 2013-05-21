@@ -101,11 +101,9 @@ typedef union {
     char align_aoffa[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(AOFFAllctr_t))];
 } ErtsAllocatorState_t;
 
-static ErtsAllocatorState_t sbmbc_alloc_state;
 static ErtsAllocatorState_t std_alloc_state;
 static ErtsAllocatorState_t ll_alloc_state;
 #if HALFWORD_HEAP
-static ErtsAllocatorState_t sbmbc_low_alloc_state;
 static ErtsAllocatorState_t std_low_alloc_state;
 static ErtsAllocatorState_t ll_low_alloc_state;
 #endif
@@ -200,7 +198,6 @@ typedef struct {
 	char *mtrace;
 	char *nodename;
     } instr;
-    struct au_init sbmbc_alloc;
     struct au_init sl_alloc;
     struct au_init std_alloc;
     struct au_init ll_alloc;
@@ -211,7 +208,6 @@ typedef struct {
     struct au_init driver_alloc;
     struct au_init fix_alloc;
 #if HALFWORD_HEAP
-    struct au_init sbmbc_low_alloc;
     struct au_init std_low_alloc;
     struct au_init ll_low_alloc;
 #endif
@@ -224,34 +220,6 @@ do {									\
     struct au_init aui__ = ERTS_AU_INIT__;				\
     sys_memcpy((void *) (IP), (void *) &aui__, sizeof(struct au_init));	\
 } while (0)
-
-static void
-set_default_sbmbc_alloc_opts(struct au_init *ip)
-{
-    SET_DEFAULT_ALLOC_OPTS(ip);
-    ip->enable			= 0;
-    ip->thr_spec		= 0;
-    ip->atype			= BESTFIT;
-    ip->init.bf.ao		= 1;
-    ip->init.util.ramv		= 0;
-    ip->init.util.mmsbc		= 0;
-    ip->init.util.mmmbc		= 500;
-    ip->init.util.sbct		= ~((UWord) 0);
-    ip->init.util.name_prefix	= "sbmbc_";
-    ip->init.util.alloc_no	= ERTS_ALC_A_SBMBC;
-#ifndef SMALL_MEMORY
-    ip->init.util.mmbcs 	= 2*1024*1024; /* Main carrier size */
-#else
-    ip->init.util.mmbcs 	= 1*1024*1024; /* Main carrier size */
-#endif
-    ip->init.util.ts 		= ERTS_ALC_MTA_SBMBC;
-    ip->init.util.asbcst	= 0;
-    ip->init.util.rsbcst	= 0;
-    ip->init.util.rsbcmt	= 0;
-    ip->init.util.rmbcmt	= 0;
-    ip->init.util.sbmbct	= 0;
-    ip->init.util.sbmbcs	= 0;
-}
 
 static void
 set_default_sl_alloc_opts(struct au_init *ip)
@@ -319,8 +287,6 @@ set_default_ll_alloc_opts(struct au_init *ip)
     ip->init.util.rsbcst	= 0;
     ip->init.util.rsbcmt	= 0;
     ip->init.util.rmbcmt	= 0;
-    ip->init.util.sbmbct	= 0;
-    ip->init.util.sbmbcs	= 0;
 }
 
 static void
@@ -565,7 +531,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     hdbg_init();
 #endif
 
-    erts_have_sbmbc_alloc = 0;
     ncpu = eaiop->ncpu;
     if (ncpu < 1)
 	ncpu = 1;
@@ -575,7 +540,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     erts_sys_alloc_init();
     erts_init_utils_mem();
 
-    set_default_sbmbc_alloc_opts(&init.sbmbc_alloc);
     set_default_sl_alloc_opts(&init.sl_alloc);
     set_default_std_alloc_opts(&init.std_alloc);
     set_default_ll_alloc_opts(&init.ll_alloc);
@@ -591,7 +555,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	handle_args(argc, argv, &init);
 
 #ifndef ERTS_SMP
-    init.sbmbc_alloc.thr_spec = 0;
     init.sl_alloc.thr_spec = 0;
     init.std_alloc.thr_spec = 0;
     init.ll_alloc.thr_spec = 0;
@@ -604,7 +567,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 
     if (init.erts_alloc_config) {
 	/* Adjust flags that erts_alloc_config won't like */
-	init.sbmbc_alloc.thr_spec = 0;
 	init.temp_alloc.thr_spec = 0;
 	init.sl_alloc.thr_spec = 0;
 	init.std_alloc.thr_spec = 0;
@@ -622,7 +584,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	init.temp_alloc.thr_spec = erts_no_schedulers;
 
     /* Others must use thread preferred interface */
-    adjust_tpref(&init.sbmbc_alloc, erts_no_schedulers);
     adjust_tpref(&init.sl_alloc, erts_no_schedulers);
     adjust_tpref(&init.std_alloc, erts_no_schedulers);
     adjust_tpref(&init.ll_alloc, erts_no_schedulers);
@@ -641,7 +602,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
      * The following allocators cannot be run with afit strategy.
      * Make sure they don't...
      */
-    refuse_af_strategy(&init.sbmbc_alloc);
     refuse_af_strategy(&init.sl_alloc);
     refuse_af_strategy(&init.std_alloc);
     refuse_af_strategy(&init.ll_alloc);
@@ -685,11 +645,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 
 #if HALFWORD_HEAP
     /* Init low memory variants by cloning */
-    init.sbmbc_low_alloc = init.sbmbc_alloc;
-    init.sbmbc_low_alloc.init.util.name_prefix = "sbmbc_low_";
-    init.sbmbc_low_alloc.init.util.alloc_no = ERTS_ALC_A_SBMBC_LOW;
-    init.sbmbc_low_alloc.init.util.low_mem = 1;
-
     init.std_low_alloc = init.std_alloc;
     init.std_low_alloc.init.util.name_prefix	= "std_low_";
     init.std_low_alloc.init.util.alloc_no = ERTS_ALC_A_STANDARD_LOW;
@@ -702,13 +657,11 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     init.ll_low_alloc.init.util.force = 1;
     init.ll_low_alloc.init.util.low_mem = 1;
 
-    set_au_allocator(ERTS_ALC_A_SBMBC_LOW, &init.sbmbc_low_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_STANDARD_LOW, &init.std_low_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_LONG_LIVED_LOW, &init.ll_low_alloc, ncpu);
 #endif /* HALFWORD */
 
     set_au_allocator(ERTS_ALC_A_TEMPORARY, &init.temp_alloc, ncpu);
-    set_au_allocator(ERTS_ALC_A_SBMBC, &init.sbmbc_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_SHORT_LIVED, &init.sl_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_STANDARD, &init.std_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_LONG_LIVED, &init.ll_alloc, ncpu);
@@ -734,20 +687,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     sys_alloc_opt(SYS_ALLOC_OPT_TOP_PAD, init.top_pad);
 
     erts_mtrace_init(init.instr.mtrace, init.instr.nodename);
-
-    /* sbmbc_alloc() needs to be started first */
-    start_au_allocator(ERTS_ALC_A_SBMBC,
-		       &init.sbmbc_alloc,
-		       &sbmbc_alloc_state);
-#if HALFWORD_HEAP
-    start_au_allocator(ERTS_ALC_A_SBMBC_LOW,
-		       &init.sbmbc_low_alloc,
-		       &sbmbc_low_alloc_state);
-    erts_have_sbmbc_alloc = (init.sbmbc_alloc.enable
-			     && init.sbmbc_low_alloc.enable);
-#else
-    erts_have_sbmbc_alloc = init.sbmbc_alloc.enable;
-#endif
 
     start_au_allocator(ERTS_ALC_A_TEMPORARY,
 		       &init.temp_alloc,
@@ -1138,6 +1077,7 @@ get_kb_value(char *param_end, char** argv, int* ip)
 	return ((Uint) tmp)*1024;
 }
 
+#if 0
 static Uint
 get_byte_value(char *param_end, char** argv, int* ip)
 {
@@ -1151,6 +1091,7 @@ get_byte_value(char *param_end, char** argv, int* ip)
 	bad_value(param, param_end, value);
     return (Uint) tmp;
 }
+#endif
 
 static Uint
 get_amount_value(char *param_end, char** argv, int* ip)
@@ -1212,11 +1153,6 @@ handle_au_arg(struct au_init *auip,
 	break;
     case 'e':
 	auip->enable = get_bool_value(sub_param+1, argv, ip);
-#if !HAVE_ERTS_SBMBC
-	if (auip->init.util.alloc_no == ERTS_ALC_A_SBMBC) {
-	    auip->enable = 0;
-	}
-#endif
 	break;
     case 'l':
 	if (has_prefix("lmbcs", sub_param)) {
@@ -1276,18 +1212,6 @@ handle_au_arg(struct au_init *auip,
 	if(has_prefix("sbct", sub_param)) {
 	    auip->init.util.sbct = get_kb_value(sub_param + 4, argv, ip);
 	}
-	else if (has_prefix("sbmbcs", sub_param)) {
-#if HAVE_ERTS_SBMBC
-	    auip->init.util.sbmbcs =
-#endif
-		get_byte_value(sub_param + 6, argv, ip);
-	}
-	else if (has_prefix("sbmbct", sub_param)) {
-#if HAVE_ERTS_SBMBC
-	    auip->init.util.sbmbct =
-#endif
-		get_byte_value(sub_param + 6, argv, ip);
-	}
 	else if (has_prefix("smbcs", sub_param)) {
 	    auip->default_.smbcs = 0;
 	    auip->init.util.smbcs = get_kb_value(sub_param + 5, argv, ip);
@@ -1317,7 +1241,6 @@ static void
 handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 {
     struct au_init *aui[] = {
-	&init->sbmbc_alloc,
 	&init->binary_alloc,
 	&init->std_alloc,
 	&init->ets_alloc,
@@ -1345,9 +1268,6 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		switch (argv[i][2]) {
 		case 'B':
 		    handle_au_arg(&init->binary_alloc, &argv[i][3], argv, &i);
-		    break;
-		case 'C':
-		    handle_au_arg(&init->sbmbc_alloc, &argv[i][3], argv, &i);
 		    break;
 		case 'D':
 		    handle_au_arg(&init->std_alloc, &argv[i][3], argv, &i);
@@ -1453,9 +1373,6 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			else if (strcmp("max", arg) == 0) {
 			    for (a = 0; a < aui_sz; a++)
 				aui[a]->enable = 1;
-#if !HAVE_ERTS_SBMBC
-			    init->sbmbc_alloc.enable = 0;
-#endif
 			}
 			else if (strcmp("config", arg) == 0) {
 			    init->erts_alloc_config = 1;
@@ -2093,15 +2010,11 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	    return am_badarg;
     }
 
-    /* All alloc_util allocators except sbmbc_alloc *have* to be enabled */
+    /* All alloc_util allocators *have* to be enabled */
     
     for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++) {
 	switch (ai) {
 	case ERTS_ALC_A_SYSTEM:
-	case ERTS_ALC_A_SBMBC:
-#if HALFWORD_HEAP
-	case ERTS_ALC_A_SBMBC_LOW:
-#endif
 	    break;
 	default:
 	    if (!erts_allctrs_info[ai].enabled
@@ -2141,12 +2054,6 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		      * Often not thread safe and usually never
 		      * contain any allocated memory.
 		      */
-		case ERTS_ALC_A_SBMBC:
-		    /* Included in other allocators */
-#if HALFWORD_HEAP
-		case ERTS_ALC_A_SBMBC_LOW:
-		    /* Included in other allocators */
-#endif
 		    continue;
 		case ERTS_ALC_A_EHEAP:
 		    save = &size.processes;
@@ -3278,7 +3185,6 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    init.atype = GOODFIT;
 	    init.init.util.name_prefix = (char *) a1;
 	    init.init.util.ts = a2 ? 1 : 0;
-	    init.init.util.sbmbct = 0;
 
 	    if ((char **) a3) {
 		char **argv = (char **) a3;
