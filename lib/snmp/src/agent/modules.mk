@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2004-2009. All Rights Reserved.
+# Copyright Ericsson AB 2004-2013. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -28,10 +28,12 @@ BEHAVIOUR_MODULES = \
 	snmpa_notification_filter \
 	snmpa_set_mechanism
 
+# snmpa is "plain" interface module but also defines some agent specific types
+# and therefor must be compiled before the modules that use them...
 # snmpa_mib_data_ttln
 MODULES = \
-	$(BEHAVIOUR_MODULES) \
 	snmpa \
+	$(BEHAVIOUR_MODULES) \
 	snmpa_acm \
 	snmpa_agent \
 	snmpa_agent_sup \
