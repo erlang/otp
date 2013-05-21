@@ -41,6 +41,7 @@
 %% Process state
 %% -------------
 %% file: The name of the crashdump currently viewed.
+%% dump_vsn: The version number of the crashdump
 %% procs_summary: Process summary represented by a list of 
 %% #proc records. This is used for efficiency reasons when sorting the
 %% process summary table instead of reading all processes from the
@@ -163,7 +164,7 @@
 -define(visible_node,visible_node).
 
 
--record(state,{file,procs_summary,sorted,shared_heap=false,
+-record(state,{file,dump_vsn,procs_summary,sorted,shared_heap=false,
 	       wordsize=4,num_atoms="unknown",binaries,bg_status}).
 
 %%%-----------------------------------------------------------------
@@ -501,6 +502,7 @@ handle_call(filename_frame,_From,State=#state{file=File}) ->
     {reply,Reply,State};
 handle_call(initial_info_frame,_From,State=#state{file=File}) ->
     GenInfo = general_info(File),
+    [{DumpVsn,_}] = lookup_index(?erl_crash_dump),
     NumAtoms = GenInfo#general_info.num_atoms,
     {WS,SH} = parse_vsn_str(GenInfo#general_info.system_vsn,4,false),
     NumProcs = list_to_integer(GenInfo#general_info.num_procs),
@@ -508,7 +510,9 @@ handle_call(initial_info_frame,_From,State=#state{file=File}) ->
 	if NumProcs > ?max_sort_process_num -> too_many;
 	   true -> State#state.procs_summary
 	end,
-    NewState = State#state{shared_heap=SH,
+    NewState = State#state{dump_vsn=[list_to_integer(L) ||
+					L<-string:tokens(DumpVsn,".")],
+			   shared_heap=SH,
 			   wordsize=WS,
 			   num_atoms=NumAtoms,
 			   procs_summary=ProcsSummary},
@@ -579,7 +583,7 @@ handle_call({sort_procs,SessionId,Input}, _From, State) ->
 handle_call({proc_details,Input},_From,State=#state{file=File,shared_heap=SH}) ->
     {ok,Pid} = get_value("pid",httpd:parse_query(Input)),
     Reply = 
-	case get_proc_details(File,Pid) of
+	case get_proc_details(File,Pid,State#state.dump_vsn) of
 	    {ok,Proc} -> 
 		TW = truncated_warning([{?proc,Pid}]),
 		crashdump_viewer_html:proc_details(Pid,Proc,TW,SH);
@@ -1300,7 +1304,6 @@ find_truncated_proc({Tag,Pid}) ->
 is_proc_tag(Tag)  when Tag==?proc;
 		       Tag==?proc_dictionary;
 		       Tag==?proc_messages;
-		       Tag==?proc_dictionary;
 		       Tag==?debug_proc_dictionary;
 		       Tag==?proc_stack;
 		       Tag==?proc_heap ->
@@ -1453,7 +1456,8 @@ count() ->
 %% avoid really big data in the server state.
 procs_summary(SessionId,TW,_,State=#state{procs_summary=too_many}) ->
     chunk_page(SessionId,State#state.file,TW,?proc,processes,
-	       {no_sort,State#state.shared_heap},procs_summary_parsefun()),
+	       {no_sort,State#state.shared_heap,State#state.dump_vsn},
+	       procs_summary_parsefun()),
     State;
 procs_summary(SessionId,TW,SortOn,State) ->
     ProcsSummary = 
@@ -1467,10 +1471,12 @@ procs_summary(SessionId,TW,SortOn,State) ->
 	    PS ->
 		PS
 	end,
-    {SortedPS,NewSorted} = do_sort_procs(SortOn,ProcsSummary,State#state.sorted),
+    {SortedPS,NewSorted} = do_sort_procs(SortOn,ProcsSummary,State),
     HtmlInfo = 
 	crashdump_viewer_html:chunk_page(processes,SessionId,TW,
-					 {SortOn,State#state.shared_heap},
+					 {SortOn,
+					  State#state.shared_heap,
+					  State#state.dump_vsn},
 					 SortedPS),
     crashdump_viewer_html:chunk(SessionId,done,HtmlInfo),
     State#state{procs_summary=ProcsSummary,sorted=NewSorted}.
@@ -1482,15 +1488,14 @@ procs_summary_parsefun() ->
 
 %%-----------------------------------------------------------------
 %% Page with one process
-get_proc_details(File,Pid) ->
-    [{DumpVsn,_}] = lookup_index(?erl_crash_dump),
+get_proc_details(File,Pid,DumpVsn) ->
     case lookup_index(?proc,Pid) of
 	[{_,Start}] ->
 	    Fd = open(File),
 	    pos_bof(Fd,Start),
 	    Proc0 = 
 		case DumpVsn of
-		    "0.0" -> 
+		    [0,0] ->
 			%% Old version (translated)
 			#proc{pid=Pid};
 		    _ ->
@@ -1599,6 +1604,9 @@ get_procinfo(Fd,Fun,Proc) ->
 	    get_procinfo(Fd,Fun,Proc#proc{old_heap_top=val(Fd)});
 	"Old heap end" ->
 	    get_procinfo(Fd,Fun,Proc#proc{old_heap_end=val(Fd)});
+	"Memory" ->
+	    %% stored as integer so we can sort on it
+	    get_procinfo(Fd,Fun,Proc#proc{memory=list_to_integer(val(Fd))});
 	{eof,_} ->
 	    Proc; % truncated file
 	Other ->
@@ -1867,35 +1875,41 @@ parse(Line0, Dict0) ->
     Dict.
 
 
-do_sort_procs("state",Procs,"state") ->
+do_sort_procs("state",Procs,#state{sorted="state"}) ->
     {lists:reverse(lists:keysort(#proc.state,Procs)),"rstate"};
 do_sort_procs("state",Procs,_) ->
     {lists:keysort(#proc.state,Procs),"state"};
-do_sort_procs("pid",Procs,"pid") ->
+do_sort_procs("pid",Procs,#state{sorted="pid"}) ->
     {lists:reverse(Procs),"rpid"};
 do_sort_procs("pid",Procs,_) ->
     {Procs,"pid"};
-do_sort_procs("msg_q_len",Procs,"msg_q_len") ->
+do_sort_procs("msg_q_len",Procs,#state{sorted="msg_q_len"}) ->
     {lists:keysort(#proc.msg_q_len,Procs),"rmsg_q_len"};
 do_sort_procs("msg_q_len",Procs,_) ->
     {lists:reverse(lists:keysort(#proc.msg_q_len,Procs)),"msg_q_len"};
-do_sort_procs("reds",Procs,"reds") ->
+do_sort_procs("reds",Procs,#state{sorted="reds"}) ->
     {lists:keysort(#proc.reds,Procs),"rreds"};
 do_sort_procs("reds",Procs,_) ->
     {lists:reverse(lists:keysort(#proc.reds,Procs)),"reds"};
-do_sort_procs("mem",Procs,"mem") ->
-    {lists:keysort(#proc.stack_heap,Procs),"rmem"};
-do_sort_procs("mem",Procs,_) ->
-    {lists:reverse(lists:keysort(#proc.stack_heap,Procs)),"mem"};
-do_sort_procs("init_func",Procs,"init_func") ->
+do_sort_procs("mem",Procs,#state{sorted="mem",dump_vsn=DumpVsn}) ->
+    KeyPos = if DumpVsn>=?r16b01_dump_vsn -> #proc.memory;
+		true -> #proc.stack_heap
+	     end,
+    {lists:keysort(KeyPos,Procs),"rmem"};
+do_sort_procs("mem",Procs,#state{dump_vsn=DumpVsn}) ->
+    KeyPos = if DumpVsn>=?r16b01_dump_vsn -> #proc.memory;
+		true -> #proc.stack_heap
+	     end,
+    {lists:reverse(lists:keysort(KeyPos,Procs)),"mem"};
+do_sort_procs("init_func",Procs,#state{sorted="init_func"}) ->
     {lists:reverse(lists:keysort(#proc.init_func,Procs)),"rinit_func"};
 do_sort_procs("init_func",Procs,_) ->
     {lists:keysort(#proc.init_func,Procs),"init_func"};
-do_sort_procs("name_func",Procs,"name_func") ->
+do_sort_procs("name_func",Procs,#state{sorted="name_func"}) ->
     {lists:reverse(lists:keysort(#proc.name,Procs)),"rname_func"};
 do_sort_procs("name_func",Procs,_) ->
     {lists:keysort(#proc.name,Procs),"name_func"};
-do_sort_procs("name",Procs,Sorted) ->
+do_sort_procs("name",Procs,#state{sorted=Sorted}) ->
     {No,Yes} = 
 	lists:foldl(fun(P,{N,Y}) ->
 			    case P#proc.name of
