@@ -31,6 +31,7 @@
 #include "bif.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
+#include "erl_map.h"
 #include "packet_parser.h"
 #include "erl_gc.h"
 #define ERTS_WANT_DB_INTERNAL__
@@ -785,10 +786,10 @@ Uint32 make_hash(Eterm term_arg)
     unsigned op;
 
     /* Must not collide with the real tag_val_def's: */
-#define MAKE_HASH_TUPLE_OP 0x10
-#define MAKE_HASH_FUN_OP 0x11
-#define MAKE_HASH_CDR_PRE_OP 0x12
-#define	MAKE_HASH_CDR_POST_OP 0x13
+#define MAKE_HASH_TUPLE_OP 0x11
+#define MAKE_HASH_FUN_OP 0x12
+#define MAKE_HASH_CDR_PRE_OP 0x13
+#define	MAKE_HASH_CDR_POST_OP 0x14
 
     /* 
     ** Convenience macro for calculating a bytewise hash on an unsigned 32 bit 
@@ -2007,6 +2008,18 @@ tailrecur_ne:
 		    ++bb;
 		    goto term_array;
 		}
+	    case MAP_SUBTAG:
+		{
+		    aa = map_val_rel(a, a_base);
+		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
+			goto not_equal;
+		    bb = map_val_rel(b,b_base);
+		    if ((sz = map_get_size((map_t*)aa)) == 0) goto pop_next;
+		    aa += 2;
+		    bb += 2;
+		    sz += 1; /* increment for tuple-keys */
+		    goto term_array;
+		}
 	    case REFC_BINARY_SUBTAG:
 	    case HEAP_BINARY_SUBTAG:
 	    case SUB_BINARY_SUBTAG:
@@ -2281,7 +2294,7 @@ static int cmpbytes(byte *s1, int l1, byte *s2, int l2)
  *
  * According to the Erlang Standard, types are orderered as follows:
  *   numbers < (characters) < atoms < refs < funs < ports < pids <
- *   tuples < [] < conses < binaries.
+ *   tuples < maps < [] < conses < binaries.
  *
  * Note that characters are currently not implemented.
  *
@@ -2464,7 +2477,25 @@ tailrecur_ne:
 		++aa;
 		++bb;
 		goto term_array;
+	    case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
+		if (!is_map_rel(b,b_base)) {
+		    a_tag = MAP_DEF;
+		    goto mixed_types;
+		}
+		aa = (Eterm *)map_val_rel(a,a_base);
+		bb = (Eterm *)map_val_rel(b,b_base);
 
+		i = map_get_size((map_t*)aa);
+		if (i != map_get_size((map_t*)bb)) {
+		    RETURN_NEQ((int)(i - map_get_size((map_t*)bb)));
+		}
+		if (i == 0) {
+		    goto pop_next;
+		}
+		aa += 2;
+		bb += 2;
+		i  += 1; /* increment for tuple-keys */
+		goto term_array;
 	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 		if (!is_float_rel(b,b_base)) {
 		    a_tag = FLOAT_DEF;

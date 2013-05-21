@@ -35,6 +35,7 @@
 #include "bif.h"
 #include "big.h"
 #include "erl_binary.h"
+#include "erl_map.h"
 #include "erl_thr_progress.h"
 
 #include "erl_db_util.h"

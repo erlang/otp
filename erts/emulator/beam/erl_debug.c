@@ -29,6 +29,7 @@
 #include "bif.h"
 #include "beam_catches.h"
 #include "erl_debug.h"
+#include "erl_map.h"
 
 #define WITHIN(ptr, x, y) ((x) <= (ptr) && (ptr) < (y))
 

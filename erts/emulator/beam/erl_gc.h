@@ -20,6 +20,8 @@
 #ifndef __ERL_GC_H__
 #define __ERL_GC_H__
 
+#include "erl_map.h"
+
 /* GC declarations shared by beam/erl_gc.c and hipe/hipe_gc.c */
 
 #if defined(DEBUG) && !ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -42,23 +44,24 @@ do {									\
     HTOP += 2;			/* update tospace htop */		\
 } while(0)
 
-#define MOVE_BOXED(PTR,HDR,HTOP,ORIG)					\
-do {									\
-    Eterm gval;								\
-    Sint nelts;								\
-									\
-    ASSERT(is_header(HDR));						\
-    gval = make_boxed(HTOP);						\
-    *ORIG = gval;							\
-    *HTOP++ = HDR;							\
-    *PTR++ = gval;							\
-    nelts = header_arity(HDR);						\
-    switch ((HDR) & _HEADER_SUBTAG_MASK) {				\
-    case SUB_BINARY_SUBTAG: nelts++; break;				\
-    case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR-1))->num_free+1; break;	\
-    }									\
-    while (nelts--)							\
-	*HTOP++ = *PTR++;						\
+#define MOVE_BOXED(PTR,HDR,HTOP,ORIG)                                   \
+do {                                                                    \
+    Eterm gval;                                                         \
+    Sint nelts;                                                         \
+                                                                        \
+    ASSERT(is_header(HDR));                                             \
+    nelts = header_arity(HDR);                                          \
+    switch ((HDR) & _HEADER_SUBTAG_MASK) {                              \
+    case SUB_BINARY_SUBTAG: nelts++; break;                             \
+    case MAP_SUBTAG: nelts+=map_get_size(PTR) + 1; break;               \
+    case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;   \
+    }                                                                   \
+    gval    = make_boxed(HTOP);                                         \
+    *ORIG   = gval;                                                     \
+    *HTOP++ = HDR;                                                      \
+    *PTR++  = gval;                                                     \
+    while (nelts--) *HTOP++ = *PTR++;                                   \
+                                                                        \
 } while(0)
 
 #define in_area(ptr,start,nbytes) \

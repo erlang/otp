@@ -31,6 +31,7 @@
 #include "erl_process.h"
 #include "bif.h"
 #include "big.h"
+#include "erl_map.h"
 #include "hipe_debug.h"
 #include "hipe_mode_switch.h"
 #include "hipe_arch.h"
