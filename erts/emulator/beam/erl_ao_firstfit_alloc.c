@@ -103,7 +103,7 @@ typedef struct AOFF_Carrier_t_ AOFF_Carrier_t;
 struct AOFF_Carrier_t_ {
     Carrier_t crr;
     AOFF_RBTree_t rbt_node;     /* My node in the carrier tree */
-    AOFF_RBTree_t* root;        /* Root of the block tree */
+    AOFF_RBTree_t* root;        /* Root of my block tree */
 };
 #define RBT_NODE_TO_MBC(PTR) ((AOFF_Carrier_t*)((char*)(PTR) - offsetof(AOFF_Carrier_t, rbt_node)))
 
@@ -164,6 +164,7 @@ static ERTS_INLINE void lower_max_size(AOFF_RBTree_t *node,
 static ERTS_INLINE SWord cmp_blocks(int bestfit,
 				    AOFF_RBTree_t* lhs, AOFF_RBTree_t* rhs)
 {
+    ASSERT(lhs != rhs);
     ASSERT(!bestfit || FBLK_TO_MBC(&lhs->hdr) == FBLK_TO_MBC(&rhs->hdr));
     if (bestfit) {
 	SWord diff = (SWord)AOFF_BLK_SZ(lhs) - (SWord)AOFF_BLK_SZ(rhs);
@@ -190,6 +191,7 @@ static Block_t*	aoff_get_free_block(Allctr_t *, Uint, Block_t *, Uint, Uint32 fl
 static void aoff_link_free_block(Allctr_t *, Block_t*, Uint32 flags);
 static void aoff_unlink_free_block(Allctr_t *allctr, Block_t *del, Uint32 flags);
 static void aoff_creating_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
+static void aoff_destroying_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
 static void aoff_add_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
 static void aoff_remove_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
 static UWord aoff_largest_fblk_in_mbc(Allctr_t*, Carrier_t*);
@@ -204,22 +206,6 @@ static int rbt_assert_is_member(AOFF_RBTree_t* root, AOFF_RBTree_t* node);
 
 static Eterm info_options(Allctr_t *, char *, int *, void *, Uint **, Uint *);
 static void init_atoms(void);
-
-
-
-#ifdef DEBUG
-
-/* Destroy all tree fields */
-#define DESTROY_TREE_NODE(N)						\
-  sys_memset((void *) (((Block_t *) (N)) + 1),				\
-	     0xff,							\
-	     (sizeof(AOFF_RBTree_t) - sizeof(Block_t)))
-
-#else
-
-#define DESTROY_TREE_NODE(N)
-
-#endif
 
 
 static int atoms_initialized = 0;
@@ -267,7 +253,7 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
 
     allctr->get_next_mbc_size		= NULL;
     allctr->creating_mbc		= aoff_creating_mbc;
-    allctr->destroying_mbc		= aoff_remove_mbc;
+    allctr->destroying_mbc		= aoff_destroying_mbc;
     allctr->add_mbc                     = aoff_add_mbc;
     allctr->remove_mbc                  = aoff_remove_mbc;
     allctr->largest_fblk_in_mbc         = aoff_largest_fblk_in_mbc;
@@ -376,7 +362,6 @@ replace(AOFF_RBTree_t **root, AOFF_RBTree_t *x, AOFF_RBTree_t *y)
 
     y->max_sz = x->max_sz;
     lower_max_size(y, NULL);
-    DESTROY_TREE_NODE(x);
 }
 
 static void
@@ -669,7 +654,6 @@ rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del)
 	    RBT_ASSERT(!null_x.right);
 	}
     }
-    DESTROY_TREE_NODE(del);
 }
 
 static void
@@ -683,7 +667,6 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 
     ASSERT(allctr == blk_crr->crr.allctr);
     ASSERT(blk_crr->rbt_node.hdr.bhdr == (blk_crr->root ? blk_crr->root->max_sz : 0));
-
     HARD_CHECK_IS_MEMBER(((flags & ERTS_ALCU_FLG_SBMBC) ? alc->sbmbc_root : alc->mbc_root),
 			 &blk_crr->rbt_node);
     HARD_CHECK_TREE(&blk_crr->crr, alc->bf_within_carrier, blk_crr->root, 0);
@@ -842,6 +825,19 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
 
+static void aoff_destroying_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
+{
+    AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
+    AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
+    AOFF_RBTree_t *root = ((flags & ERTS_ALCU_FLG_SBMBC)
+			    ? alc->sbmbc_root : alc->mbc_root);
+
+    if (crr->rbt_node.parent || &crr->rbt_node == root) {
+	aoff_remove_mbc(allctr, carrier, flags);
+    }
+    /*else already removed */
+}
+
 static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
@@ -869,6 +865,10 @@ static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 
     rbt_delete(root, &crr->rbt_node);
+    crr->rbt_node.parent = NULL;
+    crr->rbt_node.left = NULL;
+    crr->rbt_node.right = NULL;
+    crr->rbt_node.max_sz = crr->rbt_node.hdr.bhdr;
 
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
