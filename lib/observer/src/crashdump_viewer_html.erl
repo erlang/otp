@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -815,12 +815,26 @@ allocator_info_body(Heading,Allocators,TW) ->
     [heading(Heading,"memory"),
      warn(TW),
      p(b("Sizes are in bytes")),
-     lists:map(fun({SubTitle,Allocator}) ->
+     lists:map(fun({Head,Allocator}) ->
+		       TableHead =
+			   case Head of
+			       {SubTitle,Columns} ->
+				   tr("BGCOLOR=\"#8899AA\"",
+				      [th("ALIGN=left",
+					  font("SIZE=+1",SubTitle)) |
+				       lists:map(
+					 fun(CH) ->
+						 th("ALIGN=right",CH)
+					 end,
+					 Columns)]);
+			       SubTitle ->
+				   tr("BGCOLOR=\"#8899AA\"",
+				      th("COLSPAN=10 ALIGN=left",
+					 font("SIZE=+1",SubTitle)))
+			   end,
 		       [table(
 			  "BORDER=4 CELLPADDING=4",
-			  [tr("BGCOLOR=\"#8899AA\"",
-			      th("COLSPAN=10 ALIGN=left", 
-				 font("SIZE=+1",SubTitle))) | 
+			  [TableHead |
 			   lists:map(
 			     fun({Key,Values}) -> 
 				     tr([th("ALIGN=left",Key) |

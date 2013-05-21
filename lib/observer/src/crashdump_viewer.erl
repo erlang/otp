@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -127,6 +127,8 @@
 						 % timers, funs...
 						 % Must be equal to 
 						 % ?max_sort_process_num!
+-define(not_available,"N/A").
+
 
 %% All possible tags - use macros in order to avoid misspelling in the code
 -define(allocated_areas,allocated_areas).
@@ -2349,7 +2351,7 @@ allocator_info(File) ->
 			  end, 
 			  AllAllocators),
 	    close(Fd),
-	    R
+	    [allocator_summary(R) | R]
     end.
 
 get_allocatorinfo(Fd,Start) ->
@@ -2373,6 +2375,205 @@ get_all_vals([],Acc) ->
     [lists:reverse(Acc)];
 get_all_vals([Char|Rest],Acc) ->
     get_all_vals(Rest,[Char|Acc]).
+
+%% Calculate allocator summary:
+%%
+%% System totals:
+%%   blocks size   = sum of mbcs and sbcs blocks size over all allocator
+%%                   instances of all types
+%%   carriers size = sum of mbcs and sbcs carriers size over all allocator
+%%                   instances of all types
+%%
+%% I any allocator except sbmbc_alloc has "option e: false" then don't
+%% present system totals.
+%%
+%% For each allocator type:
+%%   blocks size        = sum of sbmbcs, mbcs and sbcs blocks size over all
+%%                        allocator instances of this type
+%%   carriers size      = sum of sbmbcs, mbcs and sbcs carriers size over all
+%%                        allocator instances of this type
+%%   mseg carriers size = sum of mbcs and sbcs mseg carriers size over all
+%%                        allocator instances of this type
+%%
+
+-define(sbmbcs_blocks_size,"sbmbcs blocks size").
+-define(mbcs_blocks_size,"mbcs blocks size").
+-define(sbcs_blocks_size,"sbcs blocks size").
+-define(sbmbcs_carriers_size,"sbmbcs carriers size").
+-define(mbcs_carriers_size,"mbcs carriers size").
+-define(sbcs_carriers_size,"sbcs carriers size").
+-define(mbcs_mseg_carriers_size,"mbcs mseg carriers size").
+-define(sbcs_mseg_carriers_size,"sbcs mseg carriers size").
+-define(segments_size,"segments_size").
+
+-define(type_blocks_size,[?sbmbcs_blocks_size,
+			  ?mbcs_blocks_size,
+			  ?sbcs_blocks_size]).
+-define(type_carriers_size,[?sbmbcs_carriers_size,
+			    ?mbcs_carriers_size,
+			    ?sbcs_carriers_size]).
+-define(type_mseg_carriers_size,[?mbcs_mseg_carriers_size,
+				 ?sbcs_mseg_carriers_size]).
+-define(total_blocks_size,[?mbcs_blocks_size,
+			   ?sbcs_blocks_size]).
+-define(total_carriers_size,[?mbcs_carriers_size,
+			     ?sbcs_carriers_size]).
+-define(total_mseg_carriers_size,[?mbcs_mseg_carriers_size,
+				  ?sbcs_mseg_carriers_size]).
+-define(interesting_allocator_info, [?sbmbcs_blocks_size,
+				     ?mbcs_blocks_size,
+				     ?sbcs_blocks_size,
+				     ?sbmbcs_carriers_size,
+				     ?mbcs_carriers_size,
+				     ?sbcs_carriers_size,
+				     ?mbcs_mseg_carriers_size,
+				     ?sbcs_mseg_carriers_size,
+				     ?segments_size]).
+-define(mseg_alloc,"mseg_alloc").
+-define(seg_size,"segments_size").
+-define(sbmbc_alloc,"sbmbc_alloc").
+-define(opt_e_false,{"option e","false"}).
+
+allocator_summary(Allocators) ->
+    {Sorted,DoTotal} = sort_allocator_types(Allocators,[],true),
+    {TypeTotals0,Totals} = sum_allocator_data(Sorted,DoTotal),
+    {TotalMCS,TypeTotals} =
+	case lists:keytake(?mseg_alloc,1,TypeTotals0) of
+	    {value,{_,[{?seg_size,SegSize}]},Rest} ->
+		{integer_to_list(SegSize),Rest};
+	    false ->
+		{?not_available,TypeTotals0}
+	end,
+    {TotalBS,TotalCS} =
+	case Totals of
+	    false ->
+		{?not_available,?not_available};
+	    {TBS,TCS} ->
+		{integer_to_list(TBS),integer_to_list(TCS)}
+	end,
+    {{"Summary",["blocks size","carriers size","mseg carriers size"]},
+     [{"total",[TotalBS,TotalCS,TotalMCS]} |
+      format_allocator_summary(lists:reverse(TypeTotals))]}.
+
+format_allocator_summary([{Type,Data}|Rest]) ->
+    [format_allocator_summary(Type,Data) | format_allocator_summary(Rest)];
+format_allocator_summary([]) ->
+    [].
+
+format_allocator_summary(Type,Data) ->
+    BS = get_size_value(blocks_size,Data),
+    CS = get_size_value(carriers_size,Data),
+    MCS = get_size_value(mseg_carriers_size,Data),
+    {Type,[BS,CS,MCS]}.
+
+get_size_value(Key,Data) ->
+    case proplists:get_value(Key,Data) of
+	undefined ->
+	    ?not_available;
+	Int ->
+	    integer_to_list(Int)
+    end.
+
+%% Sort allocator data per type
+%%  Input  = [{Instance,[{Key,Data}]}]
+%%  Output = [{Type,[{Key,Value}]}]
+%% where Key in Output is one of ?interesting_allocator_info
+%% and Value is the sum over all allocator instances of each type.
+sort_allocator_types([{Name,Data}|Allocators],Acc,DoTotal) ->
+    Type =
+	case string:tokens(Name,"[]") of
+	    [T,_Id] -> T;
+	    [Name] -> Name
+	end,
+    TypeData = proplists:get_value(Type,Acc,[]),
+    {NewTypeData,NewDoTotal} = sort_type_data(Type,Data,TypeData,DoTotal),
+    NewAcc = lists:keystore(Type,1,Acc,{Type,NewTypeData}),
+    sort_allocator_types(Allocators,NewAcc,NewDoTotal);
+sort_allocator_types([],Acc,DoTotal) ->
+    {Acc,DoTotal}.
+
+sort_type_data(Type,[?opt_e_false|Data],Acc,_) when Type=/=?sbmbc_alloc->
+    sort_type_data(Type,Data,Acc,false);
+sort_type_data(Type,[{Key,Val0}|Data],Acc,DoTotal) ->
+    case lists:member(Key,?interesting_allocator_info) of
+	true ->
+	    Val = list_to_integer(hd(Val0)),
+	    sort_type_data(Type,Data,update_value(Key,Val,Acc),DoTotal);
+	false ->
+	    sort_type_data(Type,Data,Acc,DoTotal)
+    end;
+sort_type_data(_Type,[],Acc,DoTotal) ->
+    {Acc,DoTotal}.
+
+%% Sum up allocator data in total blocks- and carriers size for all
+%% allocators and per type of allocator.
+%% Input  = Output from sort_allocator_types/3
+%% Output = {[{"mseg_alloc",[{"segments_size",Value}]},
+%%            {Type,[{blocks_size,Value},
+%%                   {carriers_size,Value},
+%%                   {mseg_carriers_size,Value}]},
+%%            ...],
+%%           {TotalBlocksSize,TotalCarriersSize}}
+sum_allocator_data(AllocData,false) ->
+    sum_allocator_data(AllocData,[],false);
+sum_allocator_data(AllocData,true) ->
+    sum_allocator_data(AllocData,[],{0,0}).
+
+sum_allocator_data([{_Type,[]}|AllocData],TypeAcc,Total) ->
+    sum_allocator_data(AllocData,TypeAcc,Total);
+sum_allocator_data([{Type,Data}|AllocData],TypeAcc,Total) ->
+    {TypeSum,NewTotal} = sum_type_data(Data,[],Total),
+    sum_allocator_data(AllocData,[{Type,TypeSum}|TypeAcc],NewTotal);
+sum_allocator_data([],TypeAcc,Total) ->
+    {TypeAcc,Total}.
+
+sum_type_data([{Key,Value}|Data],TypeAcc,Total) ->
+    NewTotal =
+	case Total of
+	    false ->
+		false;
+	    {TotalBS,TotalCS} ->
+		case lists:member(Key,?total_blocks_size) of
+		    true ->
+			{TotalBS+Value,TotalCS};
+		    false ->
+			case lists:member(Key,?total_carriers_size) of
+			    true ->
+				{TotalBS,TotalCS+Value};
+			    false ->
+				{TotalBS,TotalCS}
+			end
+		end
+	end,
+    NewTypeAcc =
+	case lists:member(Key,?type_blocks_size) of
+	    true ->
+		update_value(blocks_size,Value,TypeAcc);
+	    false ->
+		case lists:member(Key,?type_carriers_size) of
+		    true ->
+			update_value(carriers_size,Value,TypeAcc);
+		    false ->
+			case lists:member(Key,?type_mseg_carriers_size) of
+			    true ->
+				update_value(mseg_carriers_size,Value,TypeAcc);
+			    false ->
+				%% "segments_size" for "mseg_alloc"
+				update_value(Key,Value,TypeAcc)
+			end
+		end
+	end,
+    sum_type_data(Data,NewTypeAcc,NewTotal);
+sum_type_data([],TypeAcc,Total) ->
+    {TypeAcc,Total}.
+
+update_value(Key,Value,Acc) ->
+    case lists:keytake(Key,1,Acc) of
+	false ->
+	    [{Key,Value}|Acc];
+	{value,{Key,Old},Acc1} ->
+	    [{Key,Old+Value}|Acc1]
+    end.
 
 %%-----------------------------------------------------------------
 %% Page with hash table information
