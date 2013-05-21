@@ -312,29 +312,31 @@
       </item>
 
       <marker id="agent_mib_storage"></marker>
-      <tag><c><![CDATA[mib_storage() = ets | {ets, Dir} | {ets, Dir, Action} | dets | {dets, Dir} | {dets, Dir, Action} | mnesia | {mnesia, Nodes} | {mnesia, Nodes, Action} <optional>]]></c></tag>
+      <tag><c><![CDATA[mib_storage() = [mib_storage_opt()]]]></c></tag>
       <item>
-        <p>Specifies how info retrieved from the mibs will be stored.</p>
-        <p>If <c>mib_storage</c> is <c>{ets, Dir}</c>, the table will also be 
-          stored on file. If <c>Dir</c> is <c>default</c>, then <c>db_dir</c> 
-          will be used.</p>
-        <p>If <c>mib_storage</c> is <c>dets</c> or if <c>Dir</c> is 
-          <c>default</c>, then <c>db_dir</c> will be used for <c>Dir</c>.</p>
-        <p>If <c>mib_storage</c> is <c>mnesia</c> then <c>erlang:nodes()</c>
-          will be used for <c>Nodes</c>.</p>
-        <p>Default is <c>ets</c>. </p>
-        <p><c>Dir = default | string()</c>. Dir is the directory where the 
-          files will be stored. If <c>default</c>, then <c>db_dir</c> will be 
-          used.</p>
-        <p><c>Nodes = visible | connected | [node()]</c>. 
-          <c>Nodes = visible</c> is translated to 
-          <c>erlang:nodes(visible)</c>. 
-          <c>Nodes = connected</c> is translated to 
-          <c>erlang:nodes(connected)</c>. 
-          If <c>Nodes = []</c> then the own node is assumed.</p>
-        <p><c>Action = clear | keep</c>. Default is <c>keep</c>.
-          <c>Action</c> is used to specify what shall be done if the 
-          mnesia/dets table already exist.</p>
+        <p><c>mib_storage_opt() = {module, mib_storage_module()} |  {options, list()}</c></p>
+        <p>This option specifies how basic mib data is stored. 
+	This option is used by two parts of the snmp agent: 
+	The mib-server and the symbolic-store. </p>
+        <p>Default is <c>[{module, snmpa_mib_storage_ets}]</c>. </p>
+      </item>
+
+       <marker id="agent_mst_module"></marker>
+      <tag><c><![CDATA[mib_storage_module() = snmpa_mib_data_ets | snmpa_mib_data_dets | snmpa_mib_data_mnesia | module() <optional>]]></c></tag>
+      <item>
+        <p>Defines the callback mib data storage module of the 
+	SNMP agent mib-server as defined by the 
+	<seealso marker="snmpa_mib_data">snmpa_mib_data</seealso> 
+	behaviour. </p>
+	<p>At present only the default module is provided with the agent,  
+	<c>snmpa_mib_data_tttn</c>. </p>
+<!--
+	<p>Two modules is provided with the agent 
+	<c>snmpa_mib_data_tttn</c> (this is the old implementation) and 
+	<c>snmpa_mib_data_ttln</c> (for a mib tree with many holes, 
+	this algorithm can be more price efficient). </p>
+-->
+        <p>Default module is <c>snmpa_mib_data_tttn</c>. </p>
       </item>
 
       <marker id="agent_mib_server"></marker>

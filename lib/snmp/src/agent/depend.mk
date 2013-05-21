@@ -88,6 +88,18 @@ $(EBIN)/snmpa_local_db.$(EMULATOR): \
 	../../include/snmp_types.hrl \
 	../../include/STANDARD-MIB.hrl
 
+$(EBIN)/snmpa_mib_storage.$(EMULATOR): \
+	snmpa_mib_storage.erl
+
+$(EBIN)/snmpa_mib_storage_ets.$(EMULATOR): \
+	snmpa_mib_storage_ets.erl
+
+$(EBIN)/snmpa_mib_storage_dets.$(EMULATOR): \
+	snmpa_mib_storage_dets.erl
+
+$(EBIN)/snmpa_mib_storage_mnesia.$(EMULATOR): \
+	snmpa_mib_storage_mnesia.erl
+
 $(EBIN)/snmpa_mib.$(EMULATOR): \
 	snmpa_mib.erl \
 	../misc/snmp_debug.hrl \
