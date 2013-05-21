@@ -137,9 +137,9 @@ compile_source(File) ->
     ok = file:write_file(OutFileTemp, Code),
     file:rename(OutFileTemp, OutFile).
 
-end_per_suite(Conf) when is_list(Conf) ->
-    %% Nothing.
-    Conf.
+end_per_suite(Config) when is_list(Config) ->
+    rh_test_lib:clean_dir(?privdir),
+    Config.
 
 init_per_testcase(link_tar, Config) ->
     case os:type() of

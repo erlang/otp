@@ -20,7 +20,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include("test_lib.hrl").
--include_lib("kernel/include/file.hrl").
 
 -compile(export_all).
 
@@ -1963,49 +1962,7 @@ copy_client(Conf,Master,Sname,Client) ->
 
 clean_priv_dir(Conf,Save) ->
     PrivDir = priv_dir(Conf),
-
-    ?t:format("========  current dir ~tp~n",[PrivDir]),
-    Dirs = filelib:wildcard(filename:join(PrivDir,"*")),
-    ?t:format("========  deleting  ~tp~n",[Dirs]),
-
-    ok = rm_rf(Dirs,Save),
-    Remaining = filelib:wildcard(filename:join(PrivDir,"*")),
-    ?t:format("========  remaining  ~tp~n",[Remaining]),
-
-    case Remaining of
-	[] ->
-	    ok;
-	_ ->
-	    rm_rf(Remaining,Save),
-	    Remaining2 = filelib:wildcard(filename:join(PrivDir,"*")),
-	    ?t:format("========  remaining after second try ~tp~n",[Remaining2])
-    end,
-
-    ok.
-
-
-rm_rf([File|Files],Save) ->
-    case Save andalso filename:basename(File)=="save" of
-	true ->
-	    rm_rf(Files,Save);
-	false ->
-	    case file:read_link_info(File) of
-		{ok,#file_info{type=directory}} ->
-		    MoreFiles = filelib:wildcard(filename:join(File,"*")),
-		    rm_rf(MoreFiles,Save),
-		    file:del_dir(File),
-		    rm_rf(Files,Save);
-		{ok,#file_info{}} ->
-		    file:delete(File),
-		    rm_rf(Files,Save);
-		Other ->
-		    ?t:format("========  could not delete file  ~p~n"
-			      "read_link_info -> ~p~n",[File,Other]),
-		    rm_rf(Files,Save)
-	    end
-    end;
-rm_rf([],_) ->
-    ok.
+    rh_test_lib:clean_dir(PrivDir,Save).
 
 node_name(Sname) when is_atom(Sname) ->
     {ok,Host} = inet:gethostname(),
