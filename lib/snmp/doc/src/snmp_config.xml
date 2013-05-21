@@ -337,7 +337,7 @@
       <marker id="agent_mib_server"></marker>
       <tag><c><![CDATA[mib_server() = [mib_server_opt()] <optional>]]></c></tag>
       <item>
-        <p><c>mib_server_opt() = {mibentry_override, mibentry_override()} |  {trapentry_override, trapentry_override()} |  {verbosity, verbosity()} | {cache, mibs_cache()} | {data_module, mib_data_module()}</c></p>
+        <p><c>mib_server_opt() = {mibentry_override, mibentry_override()} |  {trapentry_override, trapentry_override()} |  {verbosity, verbosity()} | {cache, mibs_cache()} | {data_module, mib_server_data_module()}</c></p>
         <p>Defines options specific for the SNMP agent mib server. </p>
         <p>For defaults see the options in <c>mib_server_opt()</c>.</p>
       </item>
@@ -364,12 +364,12 @@
 
       <marker id="agent_ms_data_module"></marker>
 <!--
-      <tag><c><![CDATA[mib_data_module() = snmpa_mib_data_tttn | snmpa_mib_data_ttln | module() <optional>]]></c></tag>
+      <tag><c><![CDATA[mib_server_data_module() = snmpa_mib_data_tttn | snmpa_mib_data_ttln | module() <optional>]]></c></tag>
 -->
-      <tag><c><![CDATA[mib_data_module() = snmpa_mib_data_tttn | module() <optional>]]></c></tag>
+      <tag><c><![CDATA[mib_server_data_module() = snmpa_mib_data_tttn | module() <optional>]]></c></tag>
       <item>
-        <p>Defines the backend mib_data storage module of the 
-	SNMP agent mib-server as defined by the 
+        <p>Defines the backend data module of the SNMP agent mib-server as 
+	defined by the 
 	<seealso marker="snmpa_mib_data">snmpa_mib_data</seealso> 
 	behaviour. </p>
 	<p>At present only the default module is provided with the agent,  
@@ -403,18 +403,18 @@
       <tag><c><![CDATA[mibs_cache_autogc() = bool() <optional>]]></c></tag>
       <item>
         <p>Defines if the mib server shall perform cache gc automatically or 
-          leave it to the user (see 
-          <seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>). </p>
-        <p>Default is <c>true</c>.</p>
+	leave it to the user (see 
+	<seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>). </p>
+	<p>Default is <c>true</c>.</p>
       </item>
 
       <marker id="agent_ms_cache_age"></marker>
       <tag><c><![CDATA[mibs_cache_age() = integer() > 0 <optional>]]></c></tag>
       <item>
-        <p>Defines how old the entries in the cache will be allowed before 
-          they are GC'ed (assuming GC is performed). Each entry in the 
-          cache is "touched" whenever it is accessed. </p>
-        <p>The age is defined in milliseconds. </p>
+        <p>Defines how old the entries in the cache will be allowed 
+	to become before they are GC'ed (assuming GC is performed). 
+	Each entry in the cache is "touched" whenever it is accessed. </p>
+	<p>The age is defined in milliseconds. </p>
         <p>Default is <c>10 timutes</c>.</p>
       </item>
 
@@ -422,11 +422,11 @@
       <tag><c><![CDATA[mibs_cache_gclimit() = integer() > 0 | infinity <optional>]]></c></tag>
       <item>
         <p>When performing a GC, this is the max number of cache entries 
-          that will be deleted from the cache. </p>
-        <p>The reason for having this limit is that if the cache is 
-          large, the GC can potentially take a long time, during which 
-          the agent is locked. </p>
-        <p>Default is <c>100</c>.</p>
+	that will be deleted from the cache. </p>
+	<p>The reason for having this limit is that if the cache is 
+	large, the GC can potentially take a long time, during which 
+	the agent is locked. </p>
+	<p>Default is <c>100</c>.</p>
       </item>
 
       <marker id="agent_error_report_mod"></marker>
