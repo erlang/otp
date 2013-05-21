@@ -29,9 +29,7 @@
 %%% Command timeout = 10 sec (time to wait for a command to return)
 %%% Max no of reconnection attempts = 3
 %%% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
-%%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)
-%%% Wait for linebreak = true (Will expect answer from server to end with linebreak when 
-%%% using ct_telnet:expect)</pre>
+%%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
 %%% <p>These parameters can be altered by the user with the following
 %%% configuration term:</p>
 %%% <pre>
@@ -39,8 +37,7 @@
 %%%                    {command_timeout,Millisec},
 %%%                    {reconnection_attempts,N},
 %%%                    {reconnection_interval,Millisec},
-%%%                    {keep_alive,Bool},
-%%                     {wait_for_linebreak, Bool}]}.</pre>
+%%%                    {keep_alive,Bool}]}.</pre>
 %%% <p><code>Millisec = integer(), N = integer()</code></p>
 %%% <p>Enter the <code>telnet_settings</code> term in a configuration 
 %%% file included in the test and ct_telnet will retrieve the information
@@ -312,7 +309,7 @@ expect(Connection,Patterns) ->
 %%%      Tag = term()
 %%%      Opts = [Opt]
 %%%      Opt = {timeout,Timeout} | repeat | {repeat,N} | sequence |
-%%%            {halt,HaltPatterns} | ignore_prompt
+%%%            {halt,HaltPatterns} | ignore_prompt | no_prompt_check
 %%%      Timeout = integer()
 %%%      N = integer()
 %%%      HaltPatterns = Patterns
@@ -339,13 +336,27 @@ expect(Connection,Patterns) ->
 %%% will also include the matched <code>Tag</code>. Else, only
 %%% <code>RxMatch</code> is returned.</p>
 %%%
-%%% <p>The function will always return when a prompt is found, unless
-%%% the <code>ignore_prompt</code> options is used.</p>
-%%%
 %%% <p>The <code>timeout</code> option indicates that the function
 %%% shall return if the telnet client is idle (i.e. if no data is
 %%% received) for more than <code>Timeout</code> milliseconds. Default
 %%% timeout is 10 seconds.</p>
+%%%
+%%% <p>The function will always return when a prompt is found, unless
+%%% any of the <code>ignore_prompt</code> or
+%%% <code>no_prompt_check</code> options are used, in which case it
+%%% will return when a match is found or after a timeout.</p>
+%%%
+%%% <p>If the <code>ignore_prompt</code> option is used,
+%%% <code>ct_telnet</code> will ignore any prompt found. This option
+%%% is useful if data sent by the server could include a pattern that
+%%% would match the prompt regexp (as returned by
+%%% <code>TargedMod:get_prompt_regexp/0</code>), but which should not
+%%% cause the function to return.</p>
+%%%
+%%% <p>If the <code>no_prompt_check</code> option is used,
+%%% <code>ct_telnet</code> will not search for a prompt at all. This
+%%% is useful if, for instance, the <code>Pattern</code> itself
+%%% matches the prompt.</p>
 %%%
 %%% <p>The <code>repeat</code> option indicates that the pattern(s)
 %%% shall be matched multiple times. If <code>N</code> is given, the
@@ -732,7 +743,7 @@ teln_get_all_data(Pid,Prx,Data,Acc,LastLine) ->
 	    seq=false,
 	    repeat=false,
 	    found_prompt=false,
-	    wait_for_linebreak=true}).
+	    prompt_check=true}).
 
 %% @hidden
 %% @doc Externally the silent_teln_expect function shall only be used
@@ -758,25 +769,27 @@ silent_teln_expect(Pid,Data,Pattern,Prx,Opts) ->
 %% condition is fullfilled.
 %% 3b) Repeat (sequence): 2) is repeated either N times or until a
 %% halt condition is fullfilled.
-teln_expect(Pid,Data,Pattern0,Prx,Opts) -> 
-    HaltPatterns = case get_ignore_prompt(Opts) of 
-		       true -> 
-			   get_haltpatterns(Opts); 
-		       false -> 
-			   [prompt | get_haltpatterns(Opts)] 
-		   end,
-    WaitForLineBreak = get_line_break_opt(Opts),
+teln_expect(Pid,Data,Pattern0,Prx,Opts) ->
+    HaltPatterns =
+	case get_ignore_prompt(Opts) of
+	    true ->
+		get_haltpatterns(Opts);
+	    false ->
+		[prompt | get_haltpatterns(Opts)]
+	end,
+
+    PromptCheck = get_prompt_check(Opts),
     Seq = get_seq(Opts),
     Pattern = convert_pattern(Pattern0,Seq),
-					   
+
     Timeout = get_timeout(Opts),
-					   
+
     EO = #eo{teln_pid=Pid,
 	     prx=Prx,
 	     timeout=Timeout,
 	     seq=Seq,
 	     haltpatterns=HaltPatterns,
-	     wait_for_linebreak=WaitForLineBreak},
+	     prompt_check=PromptCheck},
     
     case get_repeat(Opts) of
 	false ->
@@ -817,11 +830,6 @@ get_timeout(Opts) ->
 	{value,{timeout,T}} -> T;
 	false -> ?DEFAULT_TIMEOUT
     end.
-get_line_break_opt(Opts) ->
-    case lists:keysearch(wait_for_linebreak,1,Opts) of
-	{value,{wait_for_linebreak,false}} -> false;
-	_ -> true
-    end.
 get_repeat(Opts) ->
     case lists:keysearch(repeat,1,Opts) of
 	{value,{repeat,N}} when is_integer(N) ->
@@ -845,7 +853,9 @@ get_haltpatterns(Opts) ->
     end.
 get_ignore_prompt(Opts) ->    
     lists:member(ignore_prompt,Opts).
-	
+get_prompt_check(Opts) ->
+    not lists:member(no_prompt_check,Opts).
+
 %% Repeat either single or sequence. All match results are accumulated
 %% and returned when a halt condition is fulllfilled.
 repeat_expect(Rest,_Pattern,Acc,#eo{repeat=0}) ->
@@ -906,6 +916,9 @@ get_data1(Pid) ->
 %% lines and each line is matched against each pattern.
 
 %% one_expect: split data chunk at prompts
+one_expect(Data,Pattern,EO) when EO#eo.prompt_check==false ->
+%    io:format("Raw Data ~p Pattern ~p EO ~p ",[Data,Pattern,EO]),
+    one_expect1(Data,Pattern,[],EO#eo{found_prompt=false});
 one_expect(Data,Pattern,EO) ->
     case match_prompt(Data,EO#eo.prx) of
 	{prompt,UptoPrompt,PromptType,Rest} ->
@@ -964,6 +977,8 @@ seq_expect(Data,[],Acc,_EO) ->
     {match,lists:reverse(Acc),Data};
 seq_expect([],Patterns,Acc,_EO) ->
     {continue,Patterns,lists:reverse(Acc),[]};
+seq_expect(Data,Patterns,Acc,EO) when EO#eo.prompt_check==false ->
+    seq_expect1(Data,Patterns,Acc,[],EO#eo{found_prompt=false});
 seq_expect(Data,Patterns,Acc,EO) ->
     case match_prompt(Data,EO#eo.prx) of
 	{prompt,UptoPrompt,PromptType,Rest} ->
@@ -1018,9 +1033,8 @@ seq_expect1(Data,[],Acc,Rest,_EO) ->
 %% Split prompt-chunk at lines
 match_lines(Data,Patterns,EO) ->
     FoundPrompt = EO#eo.found_prompt,
-    NeedLineBreak = EO#eo.wait_for_linebreak,
     case one_line(Data,[]) of
-	{noline,Rest} when FoundPrompt=/=false, NeedLineBreak =:= true ->
+	{noline,Rest} when FoundPrompt=/=false ->
 	    %% This is the line including the prompt
 	    case match_line(Rest,Patterns,FoundPrompt,EO) of
 		nomatch ->
@@ -1028,14 +1042,14 @@ match_lines(Data,Patterns,EO) ->
 		{Tag,Match} ->
 		    {Tag,Match,[]}
 	    end;
-	{noline,Rest} when NeedLineBreak =:= false ->
-	    case match_line(Rest,Patterns,FoundPrompt,EO) of
+	{noline,Rest} when EO#eo.prompt_check==false ->
+	    case match_line(Rest,Patterns,false,EO) of
 		nomatch ->
-		    {nomatch,prompt};
+		    {nomatch,Rest};
 		{Tag,Match} ->
 		    {Tag,Match,[]}
 	    end;
-	{noline, Rest} ->
+	{noline,Rest} ->
 	    {nomatch,Rest};
 	{Line,Rest} ->
 	    case match_line(Line,Patterns,false,EO) of

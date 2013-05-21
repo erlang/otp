@@ -143,7 +143,9 @@ loop(State, Sock, Acc) ->
 				State
 			end;
 		    _ ->
-			Pid ! {data,lists:reverse(lists:append(Acc))},
+			Data = lists:reverse(lists:append(Acc)),
+			dbg("get_data ~p\n",[Data]),
+			Pid ! {data,Data},
 			State
 		end,
 	    loop(NewState, Sock, []);
@@ -161,7 +163,9 @@ loop(State, Sock, Acc) ->
 	    NewAcc = 
 		case erlang:is_process_alive(Pid) of
 		    true ->
-			Pid ! {data,lists:reverse(lists:append(Acc))},
+			Data = lists:reverse(lists:append(Acc)),
+			dbg("get_data_delayed ~p\n",[Data]),
+			Pid ! {data,Data},
 			[];
 		    false ->
 			Acc
