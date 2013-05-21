@@ -276,7 +276,7 @@ init_state_page(Parent, Pid) ->
 				     Misc = [{"Behaviour", B}] ++ [Opt, {"State",OtherFormat}];
 				 {badrpc,{'EXIT',{timeout, _}}} ->
 				     Misc = [{"Information","Timed out"},
-					     {"Tip","system messages are certainly not treated by this process"}]
+					     {"Tip","system messages are probably not treated by this process"}]
 			     end;
 			 _ -> Misc=[], throw(process_undefined)
 		     end,
