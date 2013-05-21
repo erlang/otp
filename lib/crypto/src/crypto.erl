@@ -310,13 +310,13 @@ supports()->
     PubKeyAlgs = 
 	case lists:member(ec, Algs) of
 	    true ->
-		{public_keys, [rsa, dss, ecdsa, dh, ecdh]};
+		{public_keys, [rsa, dss, ecdsa, dh, srp, ecdh]};
 	    false ->
-		{public_keys, [rsa, dss, dh]}
+		{public_keys, [rsa, dss, dh, srp]}
 	end,
     [{hashs, Algs -- [ec]},
      {ciphers, [des_cbc, des_cfb,  des3_cbc, des3_cbf, des_ede3, blowfish_cbc,
-		blowfish_cfb64, aes_cbc128, aes_cfb128, aes_cbc256, rc2_cbc, aes_ctr, rc4
+		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb128, aes_cbc256, rc2_cbc, aes_ctr, rc4
 	       ]},
      PubKeyAlgs
     ].
@@ -746,7 +746,7 @@ block_decrypt(blowfish_cbc, Key, Ivec, Data) ->
     blowfish_cbc_decrypt(Key, Ivec, Data);
 block_decrypt(blowfish_cfb64, Key, Ivec, Data) ->
     blowfish_cfb64_decrypt(Key, Ivec, Data);
-block_decrypt(blowfish_ofb, Key, Ivec, Data) ->
+block_decrypt(blowfish_ofb64, Key, Ivec, Data) ->
     blowfish_ofb64_decrypt(Key, Ivec, Data);
 block_decrypt(aes_cbc128, Key, Ivec, Data) ->
     aes_cbc_128_decrypt(Key, Ivec, Data);
@@ -791,8 +791,8 @@ stream_init(aes_ctr, Key, Ivec) ->
     {aes_ctr, aes_ctr_stream_init(Key, Ivec)}.
 stream_init(rc4, Key) ->
     {rc4, rc4_set_key(Key)}.
-stream_encrypt({aes_ctr, State}, Data) ->
-    {State, Cipher} = aes_ctr_stream_encrypt(State, Data),
+stream_encrypt({aes_ctr, State0}, Data) ->
+    {State, Cipher} = aes_ctr_stream_encrypt(State0, Data),
     {{aes_ctr, State}, Cipher};
 stream_encrypt({rc4, State0}, Data) ->
     {State, Cipher} = rc4_encrypt_with_state(State0, Data),
