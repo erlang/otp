@@ -988,7 +988,7 @@ erts_aoffalc_test(UWord op, UWord a1, UWord a2)
     case 0x501: {
 	AOFF_RBTree_t *node = ((AOFFAllctr_t *) a1)->mbc_root; 
 	Uint size = (Uint) a2;
-	node = rbt_search(node, size);
+	node = node ? rbt_search(node, size) : NULL;
 	return (UWord) (node ? RBT_NODE_TO_MBC(node)->root : NULL);
     }
     case 0x502:	return (UWord) ((AOFF_RBTree_t *) a1)->parent;

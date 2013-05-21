@@ -76,6 +76,8 @@ typedef void* erts_cond;
 #define IS_MBC_FIRST_BLK(A,B)	((Ulong)	ALC_TEST2(0x01a, (A), (B)))
 #define UNIT_SZ			((Ulong)	ALC_TEST0(0x01b))
 #define BLK_TO_MBC(B)		((Carrier_t *)	ALC_TEST1(0x01c, (B)))
+#define ADD_MBC(A, C)        	((void)	ALC_TEST2(0x01d, (A), (C)))
+#define REMOVE_MBC(A, C)       	((void)	ALC_TEST2(0x01e, (A), (C)))
 
 /* From erl_goodfit_alloc.c */
 #define BKT_IX(A, S)		((Ulong)	ALC_TEST2(0x100, (A), (S)))

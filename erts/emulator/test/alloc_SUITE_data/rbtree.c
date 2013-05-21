@@ -375,6 +375,87 @@ test_it(TestCaseState_t *tcs)
 }
 
 
+static int is_single_ablk_in_mbc(Allctr_t* a, void* ptr, void* crr)
+{
+    Block_t* blk = UMEM2BLK(ptr);
+    if (crr == BLK_TO_MBC(blk)) {
+	Block_t* first = MBC_TO_FIRST_BLK(a, crr);
+	if (blk == first || (IS_FREE_BLK(first) && blk == NXT_BLK(first))) {
+	    Block_t* nxt;
+	    if (IS_LAST_BLK(blk)) {
+		return 1;
+	    }
+	    nxt = NXT_BLK(blk);
+	    return IS_FREE_BLK(nxt) && IS_LAST_BLK(nxt);
+	}
+    }
+    return 0;
+}
+
+static void
+test_carrier_migration(TestCaseState_t *tcs)
+{
+    int i, j;
+    Allctr_t* a = ((rbtree_test_data *) tcs->extra)->allocator;
+    void **blk = ((rbtree_test_data *) tcs->extra)->blk;
+    void **fence = ((rbtree_test_data *) tcs->extra)->fence;
+    void *crr, *p, *free_crr;
+    Ulong min_blk_sz;
+
+    min_blk_sz = MIN_BLK_SZ(a);
+
+    for (i = 0; i < NO_BLOCKS; i++) {
+	blk[i] = ALLOC(a, min_blk_sz + i % 500);
+	fence[i] = ALLOC(a, 1);
+	ASSERT(tcs, blk[i] && fence[i]);
+    }
+
+    for (j = 0; j < NO_BLOCKS; j += 997) {
+	crr = BLK_TO_MBC(UMEM2BLK(blk[j]));
+	REMOVE_MBC(a, crr);
+
+	for (i = 0; i < NO_BLOCKS; i++) {
+	    if (i % 3 == 0) {
+		if (is_single_ablk_in_mbc(a, blk[i], crr)) {
+		    crr = NULL; /* about to destroy the removed mbc */
+		}
+		FREE(a, blk[i]);
+		blk[i] = NULL;
+	    }
+	    if (i % (NO_BLOCKS/2) == 0)
+		do_check(tcs, a, 50);
+	}
+	
+	for (i = 0; i < NO_BLOCKS; i++) {
+	    if (i % 3 == 0) {
+		ASSERT(tcs, !blk[i]);
+		blk[i] = ALLOC(a, min_blk_sz + i % 500);
+		ASSERT(tcs, BLK_TO_MBC(UMEM2BLK(blk[i])) != crr);
+	    }
+	    if (i % (NO_BLOCKS/2) == 0)
+		do_check(tcs, a, 50);
+	}
+	if (crr) {
+	    ADD_MBC(a, crr);
+	}
+    }
+	
+    for (crr = FIRST_MBC(a); crr; crr = NEXT_C(crr)) {
+	REMOVE_MBC(a, crr);
+    }
+
+    p = ALLOC(a, 1);
+    free_crr = BLK_TO_MBC(UMEM2BLK(p));
+    FREE(a, p);
+
+    for (crr = FIRST_MBC(a); crr; crr = NEXT_C(crr)) {
+	ASSERT(tcs, free_crr != crr);
+    }
+
+    ASSERT(tcs, !RBT_ROOT(a,0));
+}
+
+
 char *
 testcase_name(void)
 {
@@ -465,6 +546,7 @@ testcase_run(TestCaseState_t *tcs)
     ASSERT(tcs, !IS_CBF(a));
 
     test_it(tcs);
+    test_carrier_migration(tcs);
 
     STOP_ALC(a);
     td->allocator = NULL;
@@ -483,6 +565,7 @@ testcase_run(TestCaseState_t *tcs)
     ASSERT(tcs, IS_CBF(a));
 
     test_it(tcs);
+    test_carrier_migration(tcs);
 
     STOP_ALC(a);
     td->allocator = NULL;
