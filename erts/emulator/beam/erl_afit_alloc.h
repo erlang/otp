@@ -56,7 +56,7 @@ struct AFAllctr_t_ {
     AFFreeBlock_t *	free_list;
 };
 
-unsigned long erts_afalc_test(unsigned long, unsigned long, unsigned long);
+UWord erts_afalc_test(UWord, UWord, UWord);
 
 #endif /* #if defined(GET_ERL_AF_ALLOC_IMPL)
 	      && !defined(ERL_AF_ALLOC_IMPL__) */

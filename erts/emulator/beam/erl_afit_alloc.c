@@ -259,10 +259,10 @@ info_options(Allctr_t *allctr,
  * to erts_afalc_test()                                                      *
 \*                                                                           */
 
-unsigned long
-erts_afalc_test(unsigned long op, unsigned long a1, unsigned long a2)
+UWord
+erts_afalc_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
-    default:	ASSERT(0); return ~((unsigned long) 0);
+    default:	ASSERT(0); return ~((UWord) 0);
     }
 }

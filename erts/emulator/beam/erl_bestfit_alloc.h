@@ -59,7 +59,7 @@ struct BFAllctr_t_ {
     int 		address_order;
 };
 
-unsigned long erts_bfalc_test(unsigned long, unsigned long, unsigned long);
+UWord erts_bfalc_test(UWord, UWord, UWord);
 
 #endif /* #if defined(GET_ERL_BF_ALLOC_IMPL)
 	      && !defined(ERL_BF_ALLOC_IMPL__) */

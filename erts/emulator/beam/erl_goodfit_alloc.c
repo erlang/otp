@@ -589,16 +589,16 @@ info_options(Allctr_t *allctr,
  * to erts_gfalc_test()                                                      *
 \*                                                                           */
 
-unsigned long
-erts_gfalc_test(unsigned long op, unsigned long a1, unsigned long a2)
+UWord
+erts_gfalc_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
-    case 0x100:	return (unsigned long) BKT_IX((GFAllctr_t *) a1, (Uint) a2);
-    case 0x101:	return (unsigned long) BKT_MIN_SZ((GFAllctr_t *) a1, (int) a2);
-    case 0x102:	return (unsigned long) NO_OF_BKTS;
-    case 0x103:	return (unsigned long)
+    case 0x100:	return (UWord) BKT_IX((GFAllctr_t *) a1, (Uint) a2);
+    case 0x101:	return (UWord) BKT_MIN_SZ((GFAllctr_t *) a1, (int) a2);
+    case 0x102:	return (UWord) NO_OF_BKTS;
+    case 0x103:	return (UWord)
 		    find_bucket(&((GFAllctr_t *) a1)->bucket_mask, (int) a2);
-    default:	ASSERT(0); return ~((unsigned long) 0);
+    default:	ASSERT(0); return ~((UWord) 0);
     }
 }
 

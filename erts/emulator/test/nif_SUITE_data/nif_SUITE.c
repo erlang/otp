@@ -40,7 +40,7 @@ typedef struct
     int ref_cnt;
     CallInfo* call_history;
     NifModPrivData* nif_mod;
-    union { ErlNifResourceType* t; long l; } rt_arr[2];
+    union { ErlNifResourceType* t; void* vp; } rt_arr[2];
 } PrivData;
 
 /*
@@ -92,6 +92,23 @@ struct binary_resource {
     unsigned char* data;
     unsigned size;
 };
+
+static int get_pointer(ErlNifEnv* env, ERL_NIF_TERM term, void** pp)
+{
+    ErlNifUInt64 i64;
+    int r = enif_get_uint64(env, term, &i64);
+    if (r) {
+	*pp = (void*)i64;
+    }
+    return r;
+}
+
+static ERL_NIF_TERM make_pointer(ErlNifEnv* env, void* p)
+{
+    ErlNifUInt64 i64 = (ErlNifUInt64) p;
+    return enif_make_uint64(env, i64);
+}
+
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
@@ -224,15 +241,15 @@ static ERL_NIF_TERM call_history(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM hold_nif_mod_priv_data(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     PrivData* data = (PrivData*) enif_priv_data(env);
-    unsigned long ptr_as_ulong;
+    void* ptr;
     
-    if (!enif_get_ulong(env,argv[0],&ptr_as_ulong)) {
+    if (!get_pointer(env,argv[0],&ptr)) {
 	return enif_make_badarg(env);
     }
     if (data->nif_mod != NULL) {
 	NifModPrivData_release(data->nif_mod);
     }
-    data->nif_mod = (NifModPrivData*) ptr_as_ulong;    
+    data->nif_mod = (NifModPrivData*) ptr;    
     return enif_make_int(env,++(data->nif_mod->ref_cnt)); 
 }
 
@@ -696,7 +713,7 @@ static ERL_NIF_TERM last_resource_dtor_call(ErlNifEnv* env, int argc, const ERL_
 	memcpy(enif_make_new_binary(env, resource_dtor_last_sz, &bin),
 	       resource_dtor_last_data, resource_dtor_last_sz);
 	ret = enif_make_tuple3(env,
-				enif_make_long(env, (long)resource_dtor_last),
+				make_pointer(env, resource_dtor_last),
 				bin,  
 				enif_make_int(env, resource_dtor_cnt));
     }
@@ -717,40 +734,40 @@ static ERL_NIF_TERM get_resource_type(ErlNifEnv* env, int argc, const ERL_NIF_TE
     if (!enif_get_int(env, argv[0], &ix) || ix >= 2) {
 	return enif_make_badarg(env);
     }
-    return enif_make_long(env, data->rt_arr[ix].l);
+    return make_pointer(env, data->rt_arr[ix].vp);
 }
 
 static ERL_NIF_TERM alloc_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary data_bin;
-    union { ErlNifResourceType* t; long l; } type;
-    union { void* p; long l;} data;
-    if (!enif_get_long(env, argv[0], &type.l)
+    union { ErlNifResourceType* t; void* vp; } type;
+    void* data;
+    if (!get_pointer(env, argv[0], &type.vp)
 	|| !enif_inspect_binary(env, argv[1], &data_bin)
-	|| (data.p = enif_alloc_resource(type.t, data_bin.size))==NULL) {
+	|| (data = enif_alloc_resource(type.t, data_bin.size))==NULL) {
 
 	return enif_make_badarg(env);
     }
-    memcpy(data.p, data_bin.data, data_bin.size);
-    return enif_make_long(env, data.l);
+    memcpy(data, data_bin.data, data_bin.size);
+    return make_pointer(env, data);
 }
 
 static ERL_NIF_TERM make_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    union { void* p; long l; } data;
-    if (!enif_get_long(env, argv[0], &data.l)) {
+    void* data;
+    if (!get_pointer(env, argv[0], &data)) {
 	return enif_make_badarg(env);
     }
-    return enif_make_resource(env, data.p);
+    return enif_make_resource(env, data);
 }
 
 static ERL_NIF_TERM make_new_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary data_bin;
-    union { ErlNifResourceType* t; long l; } type;
+    union { ErlNifResourceType* t; void* vp; } type;
     void* data;
     ERL_NIF_TERM ret;
-    if (!enif_get_long(env, argv[0], &type.l)
+    if (!get_pointer(env, argv[0], &type.vp)
 	|| !enif_inspect_binary(env, argv[1], &data_bin)
 	|| (data = enif_alloc_resource(type.t, data_bin.size))==NULL) {
 
@@ -765,7 +782,7 @@ static ERL_NIF_TERM make_new_resource(ErlNifEnv* env, int argc, const ERL_NIF_TE
 static ERL_NIF_TERM make_new_resource_binary(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary data_bin;
-    union { struct binary_resource* p; void* vp; long l; } br;
+    union { struct binary_resource* p; void* vp; } br;
     void* buf;
     ERL_NIF_TERM ret;
     if (!enif_inspect_binary(env, argv[0], &data_bin)
@@ -781,7 +798,7 @@ static ERL_NIF_TERM make_new_resource_binary(ErlNifEnv* env, int argc, const ERL
     memcpy(br.p->data, data_bin.data, data_bin.size);    
     ret = enif_make_resource_binary(env, br.vp, br.p->data, br.p->size);    
     enif_release_resource(br.p);
-    return enif_make_tuple2(env, enif_make_long(env,br.l), ret);
+    return enif_make_tuple2(env, make_pointer(env,br.vp), ret);
 }
 
 static void binary_resource_dtor(ErlNifEnv* env, void* obj)
@@ -796,33 +813,33 @@ static void binary_resource_dtor(ErlNifEnv* env, void* obj)
 static ERL_NIF_TERM get_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary data_bin;
-    union { ErlNifResourceType* t; long l; } type;
-    union { void* p; long l; } data;
+    union { ErlNifResourceType* t; void* vp; } type;
+    void* data;
 
     type.t = NULL;
     if (enif_is_identical(argv[0], atom_binary_resource_type)) {
 	type.t = binary_resource_type;
     }
     else {
-	enif_get_long(env, argv[0], &type.l);
+	get_pointer(env, argv[0], &type.vp);
     }
     if (type.t == NULL 
-	|| !enif_get_resource(env, argv[1], type.t, &data.p)) {
+	|| !enif_get_resource(env, argv[1], type.t, &data)) {
 	return enif_make_badarg(env);
     }
-    enif_alloc_binary(enif_sizeof_resource(data.p), &data_bin);    
-    memcpy(data_bin.data, data.p, data_bin.size);
-    return enif_make_tuple2(env, enif_make_long(env,data.l),
+    enif_alloc_binary(enif_sizeof_resource(data), &data_bin);    
+    memcpy(data_bin.data, data, data_bin.size);
+    return enif_make_tuple2(env, make_pointer(env,data),
 			    enif_make_binary(env, &data_bin));
 }
 
 static ERL_NIF_TERM release_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    union { void* p; long l; } data;
-    if (!enif_get_long(env, argv[0], &data.l)) {
+    void* data;
+    if (!get_pointer(env, argv[0], &data)) {
 	return enif_make_badarg(env);
     }
-    enif_release_resource(data.p);
+    enif_release_resource(data);
     return enif_make_atom(env,"ok");
 }
 
