@@ -257,7 +257,7 @@ init([Prio, Mibs, Opts]) ->
 do_init(Prio, Mibs, Opts) ->
     process_flag(priority, Prio),
     process_flag(trap_exit, true),
-    put(sname,ms),
+    put(sname, ms),
     put(verbosity, ?vvalidate(get_verbosity(Opts))),
     ?vlog("starting",[]),
 
@@ -291,8 +291,12 @@ do_init(Prio, Mibs, Opts) ->
     TeOverride = get_te_override(Opts),
     MibStorage = get_mib_storage(Opts),
     MibDataMod = get_data_mod(Opts), 
+    ?vtrace("init -> try create mib data with"
+	    "~n   MeOverride: ~p"
+	    "~n   TeOverride: ~p"
+	    "~n   MibStorage: ~p", [MeOverride, TeOverride, MibStorage]),
     Data       = MibDataMod:new(MibStorage),
-    ?vtrace("init -> mib data created",[]),
+    ?vdebug("init -> mib data created", []),
     case (catch mib_operations(MibDataMod, 
 			       load_mib, Mibs, Data, 
 			       MeOverride, TeOverride, true)) of
@@ -704,7 +708,7 @@ get_te_override(Options) ->
     get_opt(trapentry_override, Options, false).
 
 get_mib_storage(Options) ->
-    get_opt(mib_storage, Options, ets).
+    get_opt(mib_storage, Options).
 
 get_data_mod(Options) ->
     get_opt(data_module, Options, snmpa_mib_data_tttn).
@@ -893,6 +897,9 @@ timestamp() ->
 
 
 %% ----------------------------------------------------------------
+
+get_opt(Key, Options) ->
+    snmp_misc:get_option(Key, Options).
 
 get_opt(Key, Options, Default) ->
     snmp_misc:get_option(Key, Options, Default).
