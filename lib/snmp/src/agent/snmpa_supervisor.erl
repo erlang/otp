@@ -318,7 +318,7 @@ init([AgentType, Opts]) ->
 		Other
 	end,
 
-    ?vdebug("[agent table] store mib storage: ~w",[MibStorage]),
+    ?vdebug("[agent table] store mib storage: ~w", [MibStorage]),
     ets:insert(snmp_agent_table, {mib_storage, MibStorage}),
 
     %% -- Agent mib storage --
@@ -463,7 +463,7 @@ init([AgentType, Opts]) ->
 		     
 		AgentSpec =
 		    worker_spec(snmpa_agent, 
-				[Prio,snmp_master_agent,none,Ref,AgentOpts],
+				[Prio, snmp_master_agent, none, Ref, AgentOpts],
 				Restart, 15000),
 		AgentSupSpec = 
 		    sup_spec(snmpa_agent_sup, [AgentSpec], 
