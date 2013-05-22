@@ -756,14 +756,20 @@ ecdh_rsa_suites() ->
 		 end,
 		 ssl:cipher_suites()).
 
-openssl_rsa_suites() ->
+openssl_rsa_suites(CounterPart) ->
     Ciphers = ssl:cipher_suites(openssl),
+    Names = case is_sane_ecc(CounterPart) of
+		true ->
+		    "DSS | ECDSA";
+		false ->
+		    "DSS | ECDHE | ECDH"
+		end,
     lists:filter(fun(Str) ->
-			 case re:run(Str,"DSS|ECDH-RSA|ECDSA",[]) of
+			 case re:run(Str, Names,[]) of
 			     nomatch ->
-				 true;
+				 false;
 			     _ ->
-				 false
+				 true
 			 end 
 		     end, Ciphers).
 
@@ -987,6 +993,16 @@ is_sane_ecc(openssl) ->
 	"OpenSSL 1.0.0" ++ _ ->  % Known bug in openssl
 	    %% manifests as SSL_CHECK_SERVERHELLO_TLSEXT:tls invalid ecpointformat list
 	    false;
+	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
+	    false;
+	"OpenSSL 0.9.7" ++ _ -> % Does not support ECC
+	    false;
+	_ ->
+	    true
+    end;
+is_sane_ecc(crypto) ->
+    [{_,_, Bin}]  = crypto:info_lib(), 
+    case binary_to_list(Bin) of
 	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
 	    false;
 	"OpenSSL 0.9.7" ++ _ -> % Does not support ECC
