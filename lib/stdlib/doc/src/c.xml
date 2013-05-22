@@ -140,9 +140,9 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
     <func>
       <name name="ls" arity="1"/>
-      <fsummary>List files in a directory</fsummary>
+      <fsummary>List files in a directory or a single file</fsummary>
       <desc>
-        <p>Lists files in directory <c><anno>Dir</anno></c>.</p>
+        <p>Lists files in directory <c><anno>Dir</anno></c> or, if Dir is a file, only list it.</p>
       </desc>
     </func>
     <func>

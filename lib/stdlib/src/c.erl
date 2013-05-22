@@ -713,8 +713,10 @@ ls(Dir) ->
     case file:list_dir(Dir) of
 	{ok, Entries} ->
 	    ls_print(sort(Entries));
-	{error,_E} ->
-	    format("Invalid directory\n")
+	{error, enotdir} ->
+	    ls_print([Dir]);
+	{error, Error} ->
+	    format("~s\n", [file:format_error(Error)])
     end.
 
 ls_print([]) -> ok;
