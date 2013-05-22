@@ -89,21 +89,21 @@
 static RBTree_t * check_tree(RBTree_t, int, Uint);
 #endif
 
-static void tree_delete(Allctr_t *allctr, Block_t *del, Uint32 flags);
+static void tree_delete(Allctr_t *allctr, Block_t *del);
 
 /* Prototypes of callback functions */
 
 /* "address order best fit" specific callback functions */
 static Block_t *	aobf_get_free_block	(Allctr_t *, Uint,
-						 Block_t *, Uint, Uint32);
-static void		aobf_link_free_block	(Allctr_t *, Block_t *, Uint32);
+						 Block_t *, Uint);
+static void		aobf_link_free_block	(Allctr_t *, Block_t *);
 #define			aobf_unlink_free_block	tree_delete
 
 /* "best fit" specific callback functions */
 static Block_t *	bf_get_free_block	(Allctr_t *, Uint,
-						 Block_t *, Uint, Uint32);
-static void		bf_link_free_block	(Allctr_t *, Block_t *, Uint32);
-static ERTS_INLINE void	bf_unlink_free_block	(Allctr_t *, Block_t *, Uint32);
+						 Block_t *, Uint);
+static void		bf_link_free_block	(Allctr_t *, Block_t *);
+static ERTS_INLINE void	bf_unlink_free_block	(Allctr_t *, Block_t *);
 
 
 static Eterm		info_options		(Allctr_t *, char *, int *,
@@ -411,7 +411,7 @@ tree_insert_fixup(RBTree_t **root, RBTree_t *blk)
  * callback function in the address order case.
  */
 static void
-tree_delete(Allctr_t *allctr, Block_t *del, Uint32 flags)
+tree_delete(Allctr_t *allctr, Block_t *del)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
     Uint spliced_is_black;
@@ -588,7 +588,7 @@ tree_delete(Allctr_t *allctr, Block_t *del, Uint32 flags)
 \*                                                                           */
 
 static void
-aobf_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
+aobf_link_free_block(Allctr_t *allctr, Block_t *block)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
     RBTree_t **root = &bfallctr->mbc_root;
@@ -647,16 +647,15 @@ aobf_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 
 #if 0 /* tree_delete() is directly used instead */
 static void
-aobf_unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
+aobf_unlink_free_block(Allctr_t *allctr, Block_t *block)
 {
-    tree_delete(allctr, block, flags);
+    tree_delete(allctr, block);
 }
 #endif
 
 static Block_t *
 aobf_get_free_block(Allctr_t *allctr, Uint size,
-		    Block_t *cand_blk, Uint cand_size,
-		    Uint32 flags)
+		    Block_t *cand_blk, Uint cand_size)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
     RBTree_t **root = &bfallctr->mbc_root;
@@ -692,7 +691,7 @@ aobf_get_free_block(Allctr_t *allctr, Uint size,
 	    return NULL; /* cand_blk was better */
     }
 
-    aobf_unlink_free_block(allctr, (Block_t *) blk, flags);
+    aobf_unlink_free_block(allctr, (Block_t *) blk);
 
     return (Block_t *) blk;
 }
@@ -703,7 +702,7 @@ aobf_get_free_block(Allctr_t *allctr, Uint size,
 \*                                                                           */
 
 static void
-bf_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
+bf_link_free_block(Allctr_t *allctr, Block_t *block)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
     RBTree_t **root = &bfallctr->mbc_root;
@@ -775,7 +774,7 @@ bf_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 }
 
 static ERTS_INLINE void
-bf_unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
+bf_unlink_free_block(Allctr_t *allctr, Block_t *block)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
     RBTree_t **root = &bfallctr->mbc_root;
@@ -806,7 +805,7 @@ bf_unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
     }
     else {
 	/* Remove from tree */
-	tree_delete(allctr, block, flags);
+	tree_delete(allctr, block);
     }
 
     DESTROY_LIST_ELEM(x);
@@ -815,8 +814,7 @@ bf_unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 
 static Block_t *
 bf_get_free_block(Allctr_t *allctr, Uint size,
-		  Block_t *cand_blk, Uint cand_size,
-		  Uint32 flags)
+		  Block_t *cand_blk, Uint cand_size)
 {
     BFAllctr_t *bfallctr = (BFAllctr_t *) allctr;
     RBTree_t **root = &bfallctr->mbc_root;
@@ -859,7 +857,7 @@ bf_get_free_block(Allctr_t *allctr, Uint size,
        the tree node */
     blk = LIST_NEXT(blk) ? LIST_NEXT(blk) : blk;
 
-    bf_unlink_free_block(allctr, (Block_t *) blk, flags);
+    bf_unlink_free_block(allctr, (Block_t *) blk);
     return (Block_t *) blk;
 }
 

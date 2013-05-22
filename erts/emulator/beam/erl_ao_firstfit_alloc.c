@@ -187,13 +187,13 @@ static ERTS_INLINE SWord cmp_cand_blk(int bestfit,
 
 
 /* Prototypes of callback functions */
-static Block_t*	aoff_get_free_block(Allctr_t *, Uint, Block_t *, Uint, Uint32 flags);
-static void aoff_link_free_block(Allctr_t *, Block_t*, Uint32 flags);
-static void aoff_unlink_free_block(Allctr_t *allctr, Block_t *del, Uint32 flags);
-static void aoff_creating_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
-static void aoff_destroying_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
-static void aoff_add_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
-static void aoff_remove_mbc(Allctr_t*, Carrier_t*, Uint32 flags);
+static Block_t*	aoff_get_free_block(Allctr_t *, Uint, Block_t *, Uint);
+static void aoff_link_free_block(Allctr_t *, Block_t*);
+static void aoff_unlink_free_block(Allctr_t *allctr, Block_t *del);
+static void aoff_creating_mbc(Allctr_t*, Carrier_t*);
+static void aoff_destroying_mbc(Allctr_t*, Carrier_t*);
+static void aoff_add_mbc(Allctr_t*, Carrier_t*);
+static void aoff_remove_mbc(Allctr_t*, Carrier_t*);
 static UWord aoff_largest_fblk_in_mbc(Allctr_t*, Carrier_t*);
 
 /* Generic tree functions used by both carrier and block trees. */
@@ -458,7 +458,7 @@ tree_insert_fixup(AOFF_RBTree_t** root, AOFF_RBTree_t *blk)
 }
 
 static void
-aoff_unlink_free_block(Allctr_t *allctr, Block_t *del, Uint32 flags)
+aoff_unlink_free_block(Allctr_t *allctr, Block_t *del)
 {
 #ifdef HARD_DEBUG
     AOFFAllctr_t* alc = (AOFFAllctr_t*)allctr;
@@ -656,7 +656,7 @@ rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del)
 }
 
 static void
-aoff_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
+aoff_link_free_block(Allctr_t *allctr, Block_t *block)
 {
     AOFFAllctr_t* alc = (AOFFAllctr_t*) allctr;
     AOFF_RBTree_t *blk = (AOFF_RBTree_t *) block;
@@ -758,7 +758,7 @@ rbt_search(AOFF_RBTree_t* root, Uint size)
 
 static Block_t *
 aoff_get_free_block(Allctr_t *allctr, Uint size,
-		    Block_t *cand_blk, Uint cand_size, Uint32 flags)
+		    Block_t *cand_blk, Uint cand_size)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_RBTree_t *crr_node = alc->mbc_root;
@@ -797,12 +797,12 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
 	return NULL; /* cand_blk was better */
     }
 
-    aoff_unlink_free_block(allctr, (Block_t *) blk, flags);
+    aoff_unlink_free_block(allctr, (Block_t *) blk);
 
     return (Block_t *) blk;
 }
 
-static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
+static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
@@ -821,25 +821,25 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
 
-static void aoff_destroying_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
+static void aoff_destroying_mbc(Allctr_t *allctr, Carrier_t *carrier)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
     AOFF_RBTree_t *root = alc->mbc_root;
 
     if (crr->rbt_node.parent || &crr->rbt_node == root) {
-	aoff_remove_mbc(allctr, carrier, flags);
+	aoff_remove_mbc(allctr, carrier);
     }
     /*else already removed */
 }
 
-static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
+static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
     AOFF_RBTree_t **root = &alc->mbc_root;
 
-    HARD_CHECK_TREE(NULL, 0, *root, 0);
+    HARD_CHECK_TREE(NULL, 0, *root, 0);   
 
     /* Link carrier in address order tree
      */
@@ -848,7 +848,7 @@ static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
 
-static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier, Uint32 flags)
+static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;

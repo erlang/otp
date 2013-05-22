@@ -451,19 +451,19 @@ struct Allctr_t_ {
 
     /* Callback functions (first 4 are mandatory) */
     Block_t *		(*get_free_block)	(Allctr_t *, Uint,
-						 Block_t *, Uint, Uint32);
-    void		(*link_free_block)	(Allctr_t *, Block_t *, Uint32);
-    void		(*unlink_free_block)	(Allctr_t *, Block_t *, Uint32);
+						 Block_t *, Uint);
+    void		(*link_free_block)	(Allctr_t *, Block_t *);
+    void		(*unlink_free_block)	(Allctr_t *, Block_t *);
     Eterm		(*info_options)		(Allctr_t *, char *, int *,
 						 void *, Uint **, Uint *);
 
     Uint		(*get_next_mbc_size)	(Allctr_t *);
-    void		(*creating_mbc)		(Allctr_t *, Carrier_t *, Uint32);
-    void		(*destroying_mbc)	(Allctr_t *, Carrier_t *, Uint32);
+    void		(*creating_mbc)		(Allctr_t *, Carrier_t *);
+    void		(*destroying_mbc)	(Allctr_t *, Carrier_t *);
 
     /* The three callbacks below are needed to support carrier migration */
-    void		(*add_mbc)		(Allctr_t *, Carrier_t *, Uint32);
-    void		(*remove_mbc)	        (Allctr_t *, Carrier_t *, Uint32);
+    void		(*add_mbc)		(Allctr_t *, Carrier_t *);
+    void		(*remove_mbc)	        (Allctr_t *, Carrier_t *);
     UWord		(*largest_fblk_in_mbc)  (Allctr_t *, Carrier_t *);
 
     void		(*init_atoms)		(void);
