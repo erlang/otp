@@ -98,13 +98,12 @@ static Uint max_mseg_carriers;
 
 #define ONE_GIGA (1000000000)
 
-#define INC_CC(CC) ((CC).no == ONE_GIGA - 1				\
-		    ? ((CC).giga_no++, (CC).no = 0)			\
-		    : (CC).no++)
+#define ERTS_ALC_CC_GIGA_VAL(CC) ((CC) / ONE_GIGA)
+#define ERTS_ALC_CC_VAL(CC) ((CC) % ONE_GIGA)
 
-#define DEC_CC(CC) ((CC).no == 0					\
-		    ? ((CC).giga_no--, (CC).no = ONE_GIGA - 1)		\
-		    : (CC).no--)
+#define INC_CC(CC) ((CC)++)
+
+#define DEC_CC(CC) ((CC)--)
 
 /* Multi block carrier (MBC) memory layout in R16: 
 
@@ -2720,16 +2719,10 @@ info_calls(Allctr_t *allctr,
     if (print_to_p) {
 
 #define PRINT_CC_4(TO, TOA, NAME, CC)					\
-    if ((CC).giga_no == 0)						\
-	erts_print(TO, TOA, "%s calls: %b32u\n", NAME, CC.no);		\
-    else								\
-	erts_print(TO, TOA, "%s calls: %b32u%09lu\n", NAME, CC.giga_no, CC.no)
+	erts_print(TO, TOA, "%s calls: %b64u\n", NAME, CC)
 
 #define PRINT_CC_5(TO, TOA, PRFX, NAME, CC)				\
-    if ((CC).giga_no == 0)						\
-	erts_print(TO, TOA, "%s%s calls: %b32u\n",PRFX,NAME,CC.no);	\
-    else								\
-	erts_print(TO, TOA, "%s%s calls: %b32u%09lu\n",PRFX,NAME,CC.giga_no,CC.no)
+	erts_print(TO, TOA, "%s%s calls: %b64u\n",PRFX,NAME,CC)
 
 	char *prefix = allctr->name_prefix;
 	int to = *print_to_p;
@@ -2765,42 +2758,42 @@ info_calls(Allctr_t *allctr,
 
 	add_3tup(hpp, szp, &res,
 		 am.sys_realloc,
-		 bld_unstable_uint(hpp, szp, allctr->calls.sys_realloc.giga_no),
-		 bld_unstable_uint(hpp, szp, allctr->calls.sys_realloc.no));
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->calls.sys_realloc)),
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->calls.sys_realloc)));
 	add_3tup(hpp, szp, &res,
 		 am.sys_free,
-		 bld_unstable_uint(hpp, szp, allctr->calls.sys_free.giga_no),
-		 bld_unstable_uint(hpp, szp, allctr->calls.sys_free.no));
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->calls.sys_free)),
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->calls.sys_free)));
 	add_3tup(hpp, szp, &res,
 		 am.sys_alloc,
-		 bld_unstable_uint(hpp, szp, allctr->calls.sys_alloc.giga_no),
-		 bld_unstable_uint(hpp, szp, allctr->calls.sys_alloc.no));
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->calls.sys_alloc)),
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->calls.sys_alloc)));
 #if HAVE_ERTS_MSEG
 	add_3tup(hpp, szp, &res,
 		 am.mseg_realloc,
-		 bld_unstable_uint(hpp, szp, allctr->calls.mseg_realloc.giga_no),
-		 bld_unstable_uint(hpp, szp, allctr->calls.mseg_realloc.no));
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->calls.mseg_realloc)),
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->calls.mseg_realloc)));
 	add_3tup(hpp, szp, &res,
 		 am.mseg_dealloc,
-		 bld_unstable_uint(hpp, szp, allctr->calls.mseg_dealloc.giga_no),
-		 bld_unstable_uint(hpp, szp, allctr->calls.mseg_dealloc.no));
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->calls.mseg_dealloc)),
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->calls.mseg_dealloc)));
 	add_3tup(hpp, szp, &res,
 		 am.mseg_alloc,
-		 bld_unstable_uint(hpp, szp, allctr->calls.mseg_alloc.giga_no),
-		 bld_unstable_uint(hpp, szp, allctr->calls.mseg_alloc.no));
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->calls.mseg_alloc)),
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->calls.mseg_alloc)));
 #endif
 	add_3tup(hpp, szp, &res,
 		 allctr->name.realloc,
-		 bld_unstable_uint(hpp, szp, allctr->calls.this_realloc.giga_no),
-		 bld_unstable_uint(hpp, szp, allctr->calls.this_realloc.no));
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->calls.this_realloc)),
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->calls.this_realloc)));
 	add_3tup(hpp, szp, &res,
 		 allctr->name.free,
-		 bld_unstable_uint(hpp, szp, allctr->calls.this_free.giga_no),
-		 bld_unstable_uint(hpp, szp, allctr->calls.this_free.no));
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->calls.this_free)),
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->calls.this_free)));
 	add_3tup(hpp, szp, &res,
 		 allctr->name.alloc,
-		 bld_unstable_uint(hpp, szp, allctr->calls.this_alloc.giga_no),
-		 bld_unstable_uint(hpp, szp, allctr->calls.this_alloc.no));
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->calls.this_alloc)),
+		 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->calls.this_alloc)));
     }
 
     return res;

@@ -305,10 +305,7 @@ typedef struct {
 
 typedef UWord FreeBlkFtr_t; /* Footer of a free block */
 
-typedef struct {
-    UWord giga_no;
-    UWord no;
-} CallCounter_t;
+typedef Uint64 CallCounter_t;
 
 typedef struct {
     UWord		no;
