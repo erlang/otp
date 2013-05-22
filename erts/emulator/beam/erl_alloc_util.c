@@ -293,7 +293,7 @@ MBC after deallocating first block:
 
 /* Carriers ... */
 
-/* #define ERTS_ALC_CPOOL_DEBUG */
+#define ERTS_ALC_CPOOL_DEBUG
 
 #if defined(DEBUG) && !defined(ERTS_ALC_CPOOL_DEBUG)
 #  define ERTS_ALC_CPOOL_DEBUG
@@ -1921,6 +1921,13 @@ typedef union {
 #  error "Carrier pool implementation assumes ERTS_ALC_A_MIN > ERTS_ALC_A_INVALID"
 #endif
 
+/*
+ * The pool is only allowed to be manipulated by managed
+ * threads except in the alloc_SUITE:cpool case. In this
+ * test case carrier_pool[ERTS_ALC_A_INVALID] will be
+ * used.
+ */
+
 static ErtsAlcCrrPool_t carrier_pool[ERTS_ALC_A_MAX+1] erts_align_attribute(ERTS_CACHE_LINE_SIZE);
 
 #define ERTS_ALC_CPOOL_MAX_BACKOFF (1 << 8)
@@ -2051,6 +2058,8 @@ cpool_insert(Allctr_t *allctr, Carrier_t *crr)
     erts_aint_t val;
     ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
 
+    ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_INVALID /* testcase */
+			  || erts_thr_progress_is_managed_thread());
     ERTS_ALC_CPOOL_ASSERT(erts_smp_atomic_read_nob(&crr->allctr)
 			  == (erts_aint_t) allctr);
 
@@ -2135,6 +2144,8 @@ cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
     ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
 #endif
 
+    ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_INVALID /* testcase */
+			  || erts_thr_progress_is_managed_thread());
     ERTS_ALC_CPOOL_ASSERT(sentinel != &crr->cpool);
 
     /* Set mod marker on next ptr of our predecessor */
@@ -2226,6 +2237,9 @@ cpool_fetch(Allctr_t *allctr, UWord size)
     Carrier_t *crr;
     ErtsAlcCPoolData_t *cpdp;
     ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+
+    ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_INVALID /* testcase */
+			  || erts_thr_progress_is_managed_thread());
 
     i = 0;
 
@@ -4646,6 +4660,29 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
     case 0x01c: return (unsigned long) BLK_TO_MBC((Block_t*) a1);
     case 0x01d: ((Allctr_t*) a1)->add_mbc((Allctr_t*)a1, (Carrier_t*)a2); break;
     case 0x01e: ((Allctr_t*) a1)->remove_mbc((Allctr_t*)a1, (Carrier_t*)a2); break;
+#ifdef ERTS_SMP
+    case 0x01f: return (UWord) sizeof(ErtsAlcCrrPool_t);
+    case 0x020:
+	SET_CARRIER_HDR((Carrier_t *) a2, 0, SCH_SYS_ALLOC|SCH_MBC, (Allctr_t *) a1);
+	cpool_init_carrier_data((Allctr_t *) a1, (Carrier_t *) a2);
+	return (UWord) a2;
+    case 0x021:
+	cpool_insert((Allctr_t *) a1, (Carrier_t *) a2);
+	return (UWord) a2;
+    case 0x022:
+	cpool_delete((Allctr_t *) a1, (Allctr_t *) a1, (Carrier_t *) a2);
+	return (UWord) a2;
+    case 0x023: return (UWord) cpool_is_empty((Allctr_t *) a1);
+    case 0x024: return (UWord) cpool_dbg_is_in_pool((Allctr_t *) a1, (Carrier_t *) a2);
+#else
+    case 0x01f: return (UWord) 0;
+    case 0x020: return (UWord) 0;
+    case 0x021: return (UWord) 0;
+    case 0x022: return (UWord) 0;
+    case 0x023: return (UWord) 0;
+    case 0x024: return (UWord) 0;
+#endif
+
     default:	ASSERT(0); return ~((UWord) 0);
     }
     return 0;

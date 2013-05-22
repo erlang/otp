@@ -78,6 +78,12 @@ typedef void* erts_cond;
 #define BLK_TO_MBC(B)		((Carrier_t *)	ALC_TEST1(0x01c, (B)))
 #define ADD_MBC(A, C)        	((void)	ALC_TEST2(0x01d, (A), (C)))
 #define REMOVE_MBC(A, C)       	((void)	ALC_TEST2(0x01e, (A), (C)))
+#define ZERO_CRR_SIZE		((Ulong)	ALC_TEST0(0x01f))
+#define ZERO_CRR_INIT(A,B)	((Carrier_t *)	ALC_TEST2(0x020, (A), (B)))
+#define CPOOL_INSERT(A,B)	((Carrier_t *)	ALC_TEST2(0x021, (A), (B)))
+#define CPOOL_DELETE(A,B)	((Carrier_t *)	ALC_TEST2(0x022, (A), (B)))
+#define CPOOL_IS_EMPTY(A)	((int)		ALC_TEST1(0x023, (A)))
+#define CPOOL_IS_IN_POOL(A,B)	((int)		ALC_TEST2(0x024, (A), (B)))
 
 /* From erl_goodfit_alloc.c */
 #define BKT_IX(A, S)		((Ulong)	ALC_TEST2(0x100, (A), (S)))
@@ -133,5 +139,6 @@ typedef void* erts_cond;
 #define THR_CREATE(F, A)	((erts_thread)	ALC_TEST2(0xf10, (F), (A)))
 #define THR_JOIN(T)		((void)		ALC_TEST1(0xf11, (T)))
 #define THR_EXIT(R)		((void)		ALC_TEST1(0xf12, (R)))
+#define IS_SMP_ENABLED		((int)		ALC_TEST0(0xf13))
 
 #endif

@@ -3311,6 +3311,11 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    ERTS_ALC_TEST_ABORT;
 	    break;
 #endif /* #ifdef USE_THREADS */
+#ifdef ERTS_SMP
+	case 0xf13: return (UWord) 1;
+#else
+	case 0xf13: return (UWord) 0;
+#endif
 	default:
 	    break;
 	}
