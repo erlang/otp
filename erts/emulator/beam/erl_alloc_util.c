@@ -2438,19 +2438,22 @@ ensure_atoms_initialized(Allctr_t *allctr)
  * that would fit a small when size check is done may need to be built
  * as a big when the actual build is performed. Caller is required to
  * HRelease after build.
+ *
+ * Note, bld_unstable_uint() should have been called bld_unstable_uword()
+ * but we do not want to rename it...
  */
 static ERTS_INLINE Eterm
-bld_unstable_uint(Uint **hpp, Uint *szp, Uint ui)
+bld_unstable_uint(Uint **hpp, Uint *szp, UWord ui)
 {
     Eterm res = THE_NON_VALUE;
     if (szp)
-	*szp += BIG_UINT_HEAP_SIZE;
+	*szp += BIG_UWORD_HEAP_SIZE(~((UWord) 0));
     if (hpp) {
 	if (IS_USMALL(0, ui))
 	    res = make_small(ui);
 	else {
-	    res = uint_to_big(ui, *hpp);
-	    *hpp += BIG_UINT_HEAP_SIZE;
+	    res = uword_to_big(ui, *hpp);
+	    *hpp += BIG_UWORD_HEAP_SIZE(ui);
 	}
     }
     return res;
@@ -2528,7 +2531,7 @@ sz_info_carriers(Allctr_t *allctr,
 		 Uint *szp)
 {
     Eterm res = THE_NON_VALUE;
-    Uint curr_size = cs->curr.norm.mseg.size + cs->curr.norm.sys_alloc.size;
+    UWord curr_size = cs->curr.norm.mseg.size + cs->curr.norm.sys_alloc.size;
 
     if (print_to_p) {
 	int to = *print_to_p;
@@ -2542,7 +2545,7 @@ sz_info_carriers(Allctr_t *allctr,
 		   cs->blocks.max_ever.size);
 	erts_print(to,
 		   arg,
-		   "%scarriers size: %beu %bpu %bpu\n",
+		   "%scarriers size: %bpu %bpu %bpu\n",
 		   prefix,
 		   curr_size,
 		   cs->max.size,
@@ -2576,7 +2579,7 @@ info_carriers(Allctr_t *allctr,
 	      Uint *szp)
 {
     Eterm res = THE_NON_VALUE;
-    Uint curr_no, curr_size;
+    UWord curr_no, curr_size;
     
     curr_no = cs->curr.norm.mseg.no + cs->curr.norm.sys_alloc.no;
     curr_size = cs->curr.norm.mseg.size + cs->curr.norm.sys_alloc.size;
@@ -2600,7 +2603,7 @@ info_carriers(Allctr_t *allctr,
 		   cs->blocks.max_ever.size);
 	erts_print(to,
 		   arg,
-		   "%scarriers: %beu %bpu %bpu\n",
+		   "%scarriers: %bpu %bpu %bpu\n",
 		   prefix,
 		   curr_no,
 		   cs->max.no,
@@ -2619,7 +2622,7 @@ info_carriers(Allctr_t *allctr,
 		   cs->curr.norm.sys_alloc.no);
 	erts_print(to,
 		   arg,
-		   "%scarriers size: %beu %bpu %bpu\n",
+		   "%scarriers size: %bpu %bpu %bpu\n",
 		   prefix,
 		   curr_size,
 		   cs->max.size,
