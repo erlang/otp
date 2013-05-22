@@ -3219,10 +3219,7 @@ void *safe_realloc(void *ptr, Uint sz)
 \*                                                                           */
 #define ERTS_ALC_TEST_ABORT erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error\n")
 
-UWord erts_alc_test(UWord op,
-			    UWord a1,
-			    UWord a2,
-			    UWord a3)
+UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 {
     switch (op >> 8) {
     case 0x0:	return erts_alcu_test(op,  a1, a2);

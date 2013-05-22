@@ -52,7 +52,7 @@ void erts_thread_disable_fpe(void)
 int 
 sys_chars_to_double(char *buf, double *fp)
 {
-    char *s = buf, *t, *dp;
+    unsigned char *s = buf, *t, *dp;
     
     /* Robert says that something like this is what he really wanted:
      * (The [.,] radix test is NOT what Robert wanted - it was added later)
@@ -120,7 +120,7 @@ sys_chars_to_double(char *buf, double *fp)
 int
 sys_double_to_chars_ext(double fp, char *buffer, size_t buffer_size, size_t decimals)
 {
-    char *s = buffer;
+    unsigned char *s = buffer;
 
     if (erts_snprintf(buffer, buffer_size, "%.*e", decimals, fp) >= buffer_size)
         return -1;

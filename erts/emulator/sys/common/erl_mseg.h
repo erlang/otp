@@ -109,9 +109,6 @@ Eterm erts_mseg_info(int, int *, void*, int, Uint **, Uint *);
 
 #endif /* #if HAVE_ERTS_MSEG */
 
-unsigned long erts_mseg_test(unsigned long,
-			     unsigned long,
-			     unsigned long,
-			     unsigned long);
+UWord erts_mseg_test(UWord, UWord, UWord, UWord);
 
 #endif /* #ifndef ERL_MSEG_H_ */

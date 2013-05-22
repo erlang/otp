@@ -972,20 +972,20 @@ info_options(Allctr_t *allctr,
  * to erts_bfalc_test()                                                      *
 \*                                                                           */
 
-unsigned long
-erts_bfalc_test(unsigned long op, unsigned long a1, unsigned long a2)
+UWord
+erts_bfalc_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
-    case 0x200:	return (unsigned long) ((BFAllctr_t *) a1)->address_order;
-    case 0x201:	return (unsigned long) ((BFAllctr_t *) a1)->mbc_root;
-    case 0x202:	return (unsigned long) ((RBTree_t *) a1)->parent;
-    case 0x203:	return (unsigned long) ((RBTree_t *) a1)->left;
-    case 0x204:	return (unsigned long) ((RBTree_t *) a1)->right;
-    case 0x205:	return (unsigned long) ((RBTreeList_t *) a1)->next;
-    case 0x206:	return (unsigned long) IS_BLACK((RBTree_t *) a1);
-    case 0x207:	return (unsigned long) IS_TREE_NODE((RBTree_t *) a1);
-    case 0x208:	return (unsigned long) 0; /* IS_AOFF */
-    default:	ASSERT(0); return ~((unsigned long) 0);
+    case 0x200:	return (UWord) ((BFAllctr_t *) a1)->address_order;
+    case 0x201:	return (UWord) ((BFAllctr_t *) a1)->mbc_root;
+    case 0x202:	return (UWord) ((RBTree_t *) a1)->parent;
+    case 0x203:	return (UWord) ((RBTree_t *) a1)->left;
+    case 0x204:	return (UWord) ((RBTree_t *) a1)->right;
+    case 0x205:	return (UWord) ((RBTreeList_t *) a1)->next;
+    case 0x206:	return (UWord) IS_BLACK((RBTree_t *) a1);
+    case 0x207:	return (UWord) IS_TREE_NODE((RBTree_t *) a1);
+    case 0x208:	return (UWord) 0; /* IS_AOFF */
+    default:	ASSERT(0); return ~((UWord) 0);
     }
 }
 

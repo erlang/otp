@@ -54,7 +54,7 @@ struct AOFFAllctr_t_ {
     struct AOFF_RBTree_t_* sbmbc_root;
 };
 
-unsigned long erts_aoffalc_test(unsigned long, unsigned long, unsigned long);
+UWord erts_aoffalc_test(UWord, UWord, UWord);
 
 #endif /* #if defined(GET_ERL_AOFF_ALLOC_IMPL)
 	      && !defined(ERL_AOFF_ALLOC_IMPL__) */

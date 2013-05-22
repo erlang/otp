@@ -58,7 +58,7 @@ void *
 test_thread(void *vsize)
 {
     int i;
-    int size = (int) (long) vsize;
+    int size = (int) (ErlDrvSInt) vsize;
     void *mem;
     mem = driver_alloc(size);
     if (mem)
@@ -88,7 +88,7 @@ ErlDrvSSizeT control(ErlDrvData drv_data, unsigned int command, char *buf,
 	    res = erl_drv_thread_create("test_thread",
 					&tid,
 					test_thread,
-					(void *) (long) size,
+					(void *) (ErlDrvSInt) size,
 					NULL);
 	    if (res == 0) {
 		res = erl_drv_thread_join(tid, NULL);

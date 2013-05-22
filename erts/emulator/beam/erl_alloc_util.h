@@ -501,7 +501,7 @@ void	erts_alcu_stop(Allctr_t *);
 void	erts_alcu_verify_unused(Allctr_t *);
 void	erts_alcu_verify_unused_ts(Allctr_t *allctr);
 
-unsigned long	erts_alcu_test(unsigned long, unsigned long, unsigned long);
+UWord	erts_alcu_test(UWord, UWord, UWord);
 
 #ifdef DEBUG
 int is_sbc_blk(Block_t*);
