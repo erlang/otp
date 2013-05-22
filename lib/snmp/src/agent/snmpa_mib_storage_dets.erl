@@ -33,19 +33,19 @@
 	 write/2, 
 	 delete/1, 
 	 delete/2, 
-	 sync/1, 
-	 backup/2, 
 	 match_object/2, 
 	 match_delete/2, 
 	 tab2list/1, 
-	 info/1
+	 info/1, info/2, 
+	 sync/1, 
+	 backup/2
 	]).
 
 
 -define(VMODULE, "MS-DETS").
 -include("snmp_verbosity.hrl").
 
--record(tab, {id}).
+-record(tab, {id, rec_name}).
 
 
 %% ---------------------------------------------------------------
@@ -62,7 +62,7 @@
 %%                              
 %% ---------------------------------------------------------------
 
-open(Name, _RecName, _Fields, Type, Opts) ->
+open(Name, RecName, _Fields, Type, Opts) ->
     Dir      = snmp_misc:get_option(dir,       Opts), 
     Action   = snmp_misc:get_option(action,    Opts, keep), 
     AutoSave = snmp_misc:get_option(auto_save, Opts, default), 
@@ -80,10 +80,10 @@ open(Name, _RecName, _Fields, Type, Opts) ->
 	end,
     case dets:open_file(Name, OpenOpts) of
 	{ok, ID} when (Action =:= keep) ->
-	    {ok, #tab{id = ID}};
+	    {ok, #tab{id = ID, rec_name = RecName}};
 	{ok, ID} when (Action =:= clear) ->
 	    dets:match_delete(ID, '_'),
-	    {ok, #tab{id = ID}};
+	    {ok, #tab{id = ID, rec_name = RecName}};
 	{error, Reason} ->
 	    {error, {dets_open, Reason}}
     end.
@@ -128,7 +128,8 @@ read(#tab{id = ID}, Key) ->
 %% Write a record to the database table.
 %% ---------------------------------------------------------------
 
-write(#tab{id = ID}, Rec) ->
+write(#tab{id = ID, rec_name = RecName}, Rec) 
+  when (is_tuple(Rec) andalso (element(1, Rec) =:= RecName)) ->
     ?vtrace("write to table ~p", [ID]),
     dets:insert(ID, Rec).
 
@@ -207,6 +208,16 @@ tab2list(#tab{id = ID} = Tab) ->
 info(#tab{id = ID}) ->
     ?vtrace("info -> info of ~p", [ID]),
     dets:info(ID).
+
+
+info(TabId, all = _Item) ->
+    info(TabId);
+info(#tab{id = ID}, memory = _Item) ->
+    ?vtrace("info on ~p (~w)", [ID, _Item]),
+    dets:info(ID, file_size);
+info(#tab{id = ID}, Item) ->
+    ?vtrace("info on ~p (~w)", [ID, Item]),
+    dets:info(ID, Item).
 
 
 %% ---------------------------------------------------------------

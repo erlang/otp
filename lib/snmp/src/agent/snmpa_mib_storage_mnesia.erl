@@ -33,12 +33,12 @@
 	 write/2, 
 	 delete/1, 
 	 delete/2, 
-	 sync/1, 
-	 backup/2, 
 	 match_object/2, 
 	 match_delete/2, 
 	 tab2list/1, 
-	 info/1
+	 info/1, info/2, 
+	 sync/1, 
+	 backup/2
 	]).
 
 
@@ -237,6 +237,10 @@ info(#tab{id = ID}) ->
 	{'EXIT', {aborted, Reason}} ->
 	    {error, Reason}
     end.
+
+
+info(#tab{id = ID}, Item) ->
+    mnesia:table_info(ID, Item).
 
 
 %% ---------------------------------------------------------------

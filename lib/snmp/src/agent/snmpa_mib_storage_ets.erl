@@ -33,19 +33,19 @@
 	 write/2, 
 	 delete/1, 
 	 delete/2, 
-	 sync/1, 
-	 backup/2, 
 	 match_object/2, 
 	 match_delete/2, 
 	 tab2list/1, 
-	 info/1
+	 info/1, info/2, 
+	 sync/1, 
+	 backup/2
 	]).
 
 
 -define(VMODULE,"MS-ETS").
 -include("snmp_verbosity.hrl").
 
--record(tab, {id, file, checksum = false}).
+-record(tab, {id, rec_name, file, checksum = false}).
 
 
 %% ---------------------------------------------------------------
@@ -67,7 +67,7 @@
 %% ---------------------------------------------------------------
 
 %% This function creates the ets table 
-open(Name, _RecName, _Fields, Type, Opts) ->
+open(Name, RecName, _Fields, Type, Opts) ->
     ?vtrace("open table ~p", [Name]),
     case lists:keysearch(dir, 1, Opts) of
 	{value, {dir, Dir}} ->
@@ -80,6 +80,7 @@ open(Name, _RecName, _Fields, Type, Opts) ->
 		    case ets:file2tab(File, [{verify, Checksum}]) of
 			{ok, ID} ->
 			    {ok, #tab{id       = ID, 
+				      rec_name = RecName, 
 				      file     = File, 
 				      checksum = Checksum}};
 			{error, Reason} when (Action =:= keep) ->
@@ -92,6 +93,7 @@ open(Name, _RecName, _Fields, Type, Opts) ->
 			    ID = ets:new(Name, [Type, protected, {keypos, 2}]),
 			    write_ets_file(ID, File, Checksum), 
 			    {ok, #tab{id       = ID, 
+				      rec_name = RecName, 
 				      file     = File, 
 				      checksum = Checksum}}
 		    end;
@@ -105,12 +107,13 @@ open(Name, _RecName, _Fields, Type, Opts) ->
 		    ID = ets:new(Name, [Type, protected, {keypos, 2}]),
 		    write_ets_file(ID, File, Checksum), 
 		    {ok, #tab{id       = ID, 
+			      rec_name = RecName, 
 			      file     = File, 
 			      checksum = Checksum}}
 	    end;
 	false ->
 	    ID = ets:new(Name, [Type, protected, {keypos, 2}]),
-	    {ok, #tab{id = ID}}
+	    {ok, #tab{id = ID, rec_name = RecName}}
     end.
 
 
@@ -150,7 +153,9 @@ read(#tab{id = ID}, Key) ->
 %% Write a record to the mib-storage table.
 %% ---------------------------------------------------------------
 
-write(#tab{id = ID}, Rec) ->
+%% This is a very crude guard test is used instead of: is_record(Rec, RecName)
+write(#tab{id = ID, rec_name = RecName}, Rec) 
+  when (is_tuple(Rec) andalso (element(1, Rec) =:= RecName)) ->
     ?vtrace("write to table ~p", [ID]),
     ets:insert(ID, Rec).
 
@@ -219,7 +224,7 @@ tab2list(#tab{id = ID}) ->
 
 
 %% ---------------------------------------------------------------
-%% info
+%% info/1,2
 %% 
 %% Retrieve implementation dependent mib-storage table 
 %% information.
@@ -232,6 +237,13 @@ info(#tab{id = ID}) ->
 	L ->
 	    L
     end.
+
+
+info(TabId, all = _Item) ->
+    info(TabId);
+info(#tab{id = ID}, Item) ->
+    ?vtrace("info on ~p", [ID]),
+    ets:info(ID, Item).
 
 
 %% ---------------------------------------------------------------

@@ -22,9 +22,7 @@
 -export_type([
 	      mib_storage_fields/0, 
 	      mib_storage_table_type/0, 
-	      mib_storage_table_id/0, 
-
-	      void/0
+	      mib_storage_table_id/0
 	     ]).
 
 
@@ -37,7 +35,6 @@
 -type mib_storage_fields()     :: [atom()].
 -type mib_storage_table_type() :: set | bag. 
 -type mib_storage_table_id()   :: term().
--type void()                   :: term().
 
 
 %% ---------------------------------------------------------------
@@ -99,7 +96,7 @@
 %% ---------------------------------------------------------------
 
 -callback delete(TabId :: mib_storage_table_id()) ->
-    void().
+    snmp:void().
 
 
 %% ---------------------------------------------------------------
@@ -149,14 +146,17 @@
 
 
 %% ---------------------------------------------------------------
-%% info
+%% info/1,2
 %% 
 %% Retrieve implementation dependent mib-storage table 
 %% information.
 %% ---------------------------------------------------------------
 
 -callback info(TabId :: mib_storage_table_id()) ->
-    {ok, Info :: term()} | {error, Reason :: term()}.
+    Info :: term().
+
+-callback info(TabId :: mib_storage_table_id(), Item :: atom()) ->
+    Info :: term().
 
 
 %% ---------------------------------------------------------------
@@ -166,7 +166,7 @@
 %% ---------------------------------------------------------------
 
 -callback sync(TabId :: mib_storage_table_id()) ->
-    ok.
+    snmp:void().
 
 
 %% ---------------------------------------------------------------
