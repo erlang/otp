@@ -285,7 +285,7 @@ etop_collect([P|Ps], Acc) ->
 	[{registered_name,Reg},{initial_call,Initial},{memory,Mem},
 	 {reductions,Reds},{current_function,Current},{message_queue_len,Qlen}] ->
 	    Name = case Reg of
-		       [] -> Initial;
+		       [] -> initial_call(Initial, P);
 		       _ -> Reg
 		   end,
 	    Info = #etop_proc_info{pid=P,mem=Mem,reds=Reds,name=Name,
@@ -293,6 +293,11 @@ etop_collect([P|Ps], Acc) ->
 	    etop_collect(Ps, [Info|Acc])
     end;
 etop_collect([], Acc) -> Acc.
+
+initial_call({proc_lib, init_p, _}, Pid) ->
+    proc_lib:translate_initial_call(Pid);
+initial_call(Initial, _Pid) ->
+    Initial.
 
 %%
 %% ttb backend
