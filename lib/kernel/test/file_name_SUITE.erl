@@ -197,7 +197,10 @@ normal(Config) when is_list(Config) ->
 	put(file_module,prim_file),
 	ok = check_normal(prim_file),
 	put(file_module,file),
-	ok = check_normal(file)
+	ok = check_normal(file),
+	%% If all is good, delete dir again (avoid hanging dir on windows)
+	rm_rf(file,"normal_dir"),
+	ok
     after
 	file:set_cwd(Dir)
     end.
@@ -219,7 +222,10 @@ icky(Config) when is_list(Config) ->
 		put(file_module,prim_file),
 		ok = check_icky(prim_file),
 		put(file_module,file),
-		ok = check_icky(file)
+		ok = check_icky(file),
+		%% If all is good, delete dir again (avoid hanging dir on windows)
+		rm_rf(file,"icky_dir"),
+		ok
 	    after
 		file:set_cwd(Dir)
 	    end
@@ -243,7 +249,11 @@ very_icky(Config) when is_list(Config) ->
 			{skipped,"VM needs to be started in Unicode filename mode"};
 		    ok ->
 			put(file_module,file),
-			ok = check_very_icky(file)
+			ok = check_very_icky(file),
+			%% If all is good, delete dir again
+			%% (avoid hanging dir on windows)
+			rm_rf(file,"very_icky_dir"),
+			ok
 		end
 	    after
 		file:set_cwd(Dir)

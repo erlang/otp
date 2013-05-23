@@ -2651,6 +2651,8 @@ symlinks(Config) when is_list(Config) ->
 		?line #file_info{links=1, type=symlink} = Info2,
 		?line {ok, Name} = ?FILE_MODULE:read_link(Alias),
 		{ok, Name} = ?FILE_MODULE:read_link_all(Alias),
+		%% If all is good, delete dir again (avoid hanging dir on windows)
+		rm_rf(?FILE_MODULE,NewDir),
 		ok
 	  end,
     
@@ -4304,3 +4306,18 @@ disc_free(Path) ->
 memsize() ->
     {Tot,_Used,_}  = memsup:get_memory_data(),
     Tot.
+
+%%%-----------------------------------------------------------------
+%%% Utilities
+rm_rf(Mod,Dir) ->
+    case  Mod:read_link_info(Dir) of
+	{ok, #file_info{type = directory}} ->
+	    {ok, Content} = Mod:list_dir_all(Dir),
+	    [ rm_rf(Mod,filename:join(Dir,C)) || C <- Content ],
+	    Mod:del_dir(Dir),
+	    ok;
+	{ok, #file_info{}} ->
+	    Mod:delete(Dir);
+	_ ->
+	    ok
+    end.
