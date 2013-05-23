@@ -63,8 +63,8 @@
 open(Name, RecName, Fields, Type, Opts) ->
     ?vtrace("open ~p table ~p for record ~p",
 	    [Type, Name, RecName]),
-    Action  = snmp_misc:get_option(action, Opts, keep), 
-    Nodes   = snmp_misc:get_option(nodes,  Opts, erlang:nodes()), 
+    Action  = get_action(Opts), 
+    Nodes   = get_nodes(Opts), 
     case table_exists(Name) of
 	true when (Action =:= keep) -> 
 	    ?vtrace("open table ~p - exist (keep)", [Name]),
@@ -271,5 +271,32 @@ backup(_, _) ->
 	      
 %%----------------------------------------------------------------------
 
+get_action(Opts) ->
+    snmp_misc:get_option(action, Opts, keep). 
+
+get_nodes(Opts) ->
+    case snmp_misc:get_option(nodes, Opts, erlang:nodes()) of
+	[] ->
+	    [node()];
+	Nodes when is_list(Nodes) ->
+	    Nodes;
+	all ->
+	    erlang:nodes();
+	visible ->
+	    erlang:nodes(visible);
+	connected ->
+	    erlang:nodes(connected);
+	db_nodes -> 
+	    try mnesia:system_info(db_nodes) of
+		DbNodes when is_list(DbNodes) ->
+		    DbNodes;
+		_ ->
+		    erlang:nodes()
+	    catch 
+		_:_ ->
+		    erlang:nodes()
+	    end
+    end.
+	    
 %% user_err(F, A) ->
 %%     snmpa_error:user_err(F, A).
