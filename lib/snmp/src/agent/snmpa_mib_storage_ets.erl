@@ -73,19 +73,29 @@ open(Name, RecName, _Fields, Type, Opts) ->
 	{value, {dir, Dir}} ->
 	    Action   = snmp_misc:get_option(action,   Opts, keep),
 	    Checksum = snmp_misc:get_option(checksum, Opts, false),
-	    ?vtrace("open ~p database ~p", [Type, Name]),
+	    ?vtrace("open ~p database ~p - check if file exist", [Type, Name]),
 	    File = filename:join(Dir, atom_to_list(Name) ++ ".db"),
 	    case file:read_file_info(File) of
 		{ok, _} ->
+		    ?vdebug("open ~p database ~p - file exist - try reading", 
+			    [Type, Name]),
 		    case ets:file2tab(File, [{verify, Checksum}]) of
 			{ok, ID} ->
+			    ?vtrace("open ~p database ~p - "
+				    "data read from file", [Type, Name]),
 			    {ok, #tab{id       = ID, 
 				      rec_name = RecName, 
 				      file     = File, 
 				      checksum = Checksum}};
 			{error, Reason} when (Action =:= keep) ->
+			    ?vinfo("open ~p database ~p - "
+				   "failed reading from file (keep)", 
+				   [Type, Name, Reason]),
 			    {error, {file2tab, Reason}};
 			{error, Reason} ->
+			    ?vlog("open ~p database ~p - "
+				  "failed reading from file (clear)", 
+				  [Type, Name, Reason]),
 			    user_err("Warning: could not read file - "
 				     "create new (empty): "
 				     "~n   File:   ~p"
@@ -97,9 +107,26 @@ open(Name, RecName, _Fields, Type, Opts) ->
 				      file     = File, 
 				      checksum = Checksum}}
 		    end;
+		{error, enoent} ->
+		    %% No such file - create it
+		    ?vdebug("open ~p database ~p - "
+			    "file does *not* exist - create", 
+			    [Type, Name]),
+		    ID = ets:new(Name, [Type, protected, {keypos, 2}]),
+		    write_ets_file(ID, File, Checksum), 
+		    {ok, #tab{id       = ID, 
+			      rec_name = RecName, 
+			      file     = File, 
+			      checksum = Checksum}};
 		{error, Reason} when (Action =:= keep) ->
+		    ?vinfo("open ~p database ~p - "
+			   "failed reading file info (keep)", 
+			   [Type, Name, Reason]),
 		    {error, {read_file_info, Reason}};
 		{error, Reason} ->
+		    ?vlog("open ~p database ~p - "
+			  "failed reading file info (clear)", 
+			  [Type, Name, Reason]),
 		    user_err("Warning: could not read file info - "
 			     "create new: "
 			     "~n   File:   ~p"
@@ -112,6 +139,7 @@ open(Name, RecName, _Fields, Type, Opts) ->
 			      checksum = Checksum}}
 	    end;
 	false ->
+	    ?vdebug("open ~p database ~p - ok", [Type, Name]),
 	    ID = ets:new(Name, [Type, protected, {keypos, 2}]),
 	    {ok, #tab{id = ID, rec_name = RecName}}
     end.
