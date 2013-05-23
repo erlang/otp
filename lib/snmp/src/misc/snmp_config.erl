@@ -238,7 +238,7 @@ config_agent_sys() ->
     MibStorage = 
 	case MibStorageType of
 	    ets ->
-		ets;
+		[{module, snmpa_mib_storage_ets}];
 	    dets ->
 		DetsDir = ask("6b. Mib storage directory (absolute path)?",
 			      DbDir, fun verify_dir/1),
@@ -248,13 +248,14 @@ config_agent_sys() ->
 				 "default", fun verify_mib_storage_action/1),
 		case DetsAction of
 		    default ->
-			{dets, DetsDir};
+			[{module, snmpa_mib_storage_dets}, 
+			 {options, [{dir,    DetsDir}]}];
 		    _ ->
-			{dets, DetsDir, DetsAction}
+			[{module, snmpa_mib_storage_dets}, 
+			 {options, [{dir,    DetsDir}, 
+				    {action, DetsAction}]}]
 		end;
 	    mnesia ->
-% 		Nodes = ask("Mib storage nodes?", "none", 
-% 			    fun verify_mib_storage_nodes/1),
 		Nodes = [],
 		MnesiaAction = ask("6b. Mib storage [mnesia] database start "
 				   "action "
@@ -262,11 +263,18 @@ config_agent_sys() ->
 				   "default", fun verify_mib_storage_action/1),
 		case MnesiaAction of
 		    default ->
-			{mnesia, Nodes};
+			[{module, snmpa_mib_storage_mnesia}, 
+			 {options, [{nodes, Nodes}]}];
 		    _ ->
-			{mnesia, Nodes, MnesiaAction}
+			[{module, snmpa_mib_storage_mnesia}, 
+			 {options, [{nodes,  Nodes}, 
+				    {action, MnesiaAction}]}]
 		end
 	end,
+
+    %% Here we should ask about mib-server data module, 
+    %% but as we only have one at the moment...
+
     TargetCacheVerb = ask("7. Target cache verbosity "
 			  "(silence/info/log/debug/trace)?", "silence",
 			  fun verify_verbosity/1),
