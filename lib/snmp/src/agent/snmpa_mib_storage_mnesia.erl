@@ -64,11 +64,13 @@ open(Name, RecName, Fields, Type, Opts) ->
     ?vtrace("open ~p table ~p for record ~p",
 	    [Type, Name, RecName]),
     Action  = snmp_misc:get_option(action, Opts, keep), 
-    Nodes   = snmp_misc:get_option(nodes,  Opts, [node()]), 
+    Nodes   = snmp_misc:get_option(nodes,  Opts, erlang:nodes()), 
     case table_exists(Name) of
 	true when (Action =:= keep) -> 
+	    ?vtrace("open table ~p - exist (keep)", [Name]),
 	    {ok, #tab{id = Name}};
 	true when (Action =:= clear) -> 
+	    ?vtrace("open table ~p - exist (clear)", [Name]),
 	    F = fun() -> mnesia:clear_table(Name) end,
 	    case mnesia:transaction(F) of
 		{aborted, Reason} ->
@@ -77,14 +79,18 @@ open(Name, RecName, Fields, Type, Opts) ->
 		    {ok, #tab{id = Name}}
 	    end;
 	false ->
+	    ?vtrace("open table ~p - does not exist", [Name]),
 	    Args = [{record_name, RecName}, 
 		    {attributes,  Fields},
 		    {type,        Type}, 
 		    {disc_copies, Nodes}],
 	    case mnesia:create_table(Name, Args) of
 		{atomic, ok} ->
+		    ?vtrace("open table ~p - ok", [Name]),
 		    {ok, #tab{id = Name}};
 		{aborted, Reason} ->
+		    ?vinfo("open table ~p - aborted"
+			   "~n   Reason: ~p", [Name, Reason]),
 		    {error, {create, Reason}}
 	    end
     end.
