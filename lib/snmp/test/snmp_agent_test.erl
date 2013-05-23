@@ -94,19 +94,8 @@ all() ->
 
 groups() -> 
     [
-     {all_tcs, [], cases()},
-     {mib_storage, [],
-      [
-       {group, mib_storage_ets}, 
-       {group, mib_storage_dets},
-       {group, mib_storage_mnesia},
-       {group, mib_storage_size_check_ets},
-       {group, mib_storage_size_check_dets},
-       {group, mib_storage_size_check_mnesia},
-       {group, mib_storage_varm_dets},
-       {group, mib_storage_varm_mnesia}
-      ]
-     },
+     {all_tcs,                       [], cases()},
+     {mib_storage,                   [], mib_storage_cases()}, 
      {mib_storage_ets,               [], mib_storage_ets_cases()},
      {mib_storage_dets,              [], mib_storage_dets_cases()},
      {mib_storage_mnesia,            [], mib_storage_mnesia_cases()},
@@ -123,109 +112,18 @@ groups() ->
      {test_multi_threaded,           [], mt_cases()},
      {multiple_reqs,                 [], mul_cases()},
      {multiple_reqs_2,               [], mul_cases_2()},
-     {v2_inform, [], 
-      [
-       v2_inform_i
-      ]
-     },
-     {v3_security, [],
-      [
-       v3_crypto_basic, 
-       v3_md5_auth, 
-       v3_sha_auth,
-       v3_des_priv
-      ]
-     },
-     {standard_mibs, [],
-      [
-       snmp_standard_mib, 
-       snmp_community_mib,
-       snmp_framework_mib, 
-       snmp_target_mib,
-       snmp_notification_mib, 
-       snmp_view_based_acm_mib
-      ]
-     },
-     {standard_mibs_2, [],
-      [
-       snmpv2_mib_2, 
-       snmp_community_mib_2,
-       snmp_framework_mib_2, 
-       snmp_target_mib_2,
-       snmp_notification_mib_2, 
-       snmp_view_based_acm_mib_2
-      ]
-     },
-     {standard_mibs_3, [],
-      [
-       snmpv2_mib_3, 
-       snmp_framework_mib_3, 
-       snmp_mpd_mib_3,
-       snmp_target_mib_3, 
-       snmp_notification_mib_3,
-       snmp_view_based_acm_mib_3, 
-       snmp_user_based_sm_mib_3
-      ]
-     },
-     {reported_bugs, [],
-      [
-       otp_1128, 
-       otp_1129, 
-       otp_1131, 
-       otp_1162, 
-       otp_1222,
-       otp_1298, 
-       otp_1331, 
-       otp_1338, 
-       otp_1342, 
-       otp_2776,
-       otp_2979, 
-       otp_3187, 
-       otp_3725
-      ]
-     },
-     {reported_bugs_2, [],
-      [
-       otp_1128_2, 
-       otp_1129_2, 
-       otp_1131_2, 
-       otp_1162_2,
-       otp_1222_2, 
-       otp_1298_2, 
-       otp_1331_2, 
-       otp_1338_2,
-       otp_1342_2, 
-       otp_2776_2, 
-       otp_2979_2, 
-       otp_3187_2
-      ]
-     },
-     {reported_bugs_3, [],
-      [
-       otp_1128_3, 
-       otp_1129_3, 
-       otp_1131_3, 
-       otp_1162_3,
-       otp_1222_3, 
-       otp_1298_3, 
-       otp_1331_3, 
-       otp_1338_3,
-       otp_1342_3, 
-       otp_2776_3, 
-       otp_2979_3, 
-       otp_3187_3,
-       otp_3542
-      ]
-     },
-     {tickets1, [], 
-      [
-       {group, otp_4394}, 
-       {group, otp_7157}
-      ]
-     },
-     {tickets2, [], [otp8395, otp9884]},
-     {otp_4394, [], [otp_4394_test]},
-     {otp_7157, [], [otp_7157_test]}
+     {v2_inform,                     [], v2_inform_cases()}, 
+     {v3_security,                   [], v3_security_cases()}, 
+     {standard_mibs,                 [], standard_mibs_cases()}, 
+     {standard_mibs_2,               [], standard_mibs2_cases()}, 
+     {standard_mibs_3,               [], standard_mibs3_cases()}, 
+     {reported_bugs,                 [], reported_bugs_cases()}, 
+     {reported_bugs_2,               [], reported_bugs2_cases()}, 
+     {reported_bugs_3,               [], reported_bugs3_cases()}, 
+     {tickets1,                      [], tickets1_cases()}, 
+     {tickets2,                      [], tickets2_cases()}, 
+     {otp_4394,                      [], [otp_4394_test]},
+     {otp_7157,                      [], [otp_7157_test]}
     ].
 
 
@@ -572,6 +470,18 @@ delete_mib_storage_mnesia_tables() ->
 %% versions as well, <base>_N.
 %%-----------------------------------------------------------------
 
+mib_storage_cases() ->
+    [
+     {group, mib_storage_ets}, 
+     {group, mib_storage_dets},
+     {group, mib_storage_mnesia},
+     {group, mib_storage_size_check_ets},
+     {group, mib_storage_size_check_dets},
+     {group, mib_storage_size_check_mnesia},
+     {group, mib_storage_varm_dets},
+     {group, mib_storage_varm_mnesia}
+    ].
+    
 mib_storage_ets_cases() -> 
     [
      mse_simple, 
@@ -2144,6 +2054,10 @@ finish_v3_inform(X) ->
     finish_v2_inform(X).
 
 
+v2_inform_cases() ->
+    [
+     v2_inform_i
+    ].
 
 v2_inform_i(suite) -> [];
 v2_inform_i(Config) when is_list(Config) ->
@@ -2381,6 +2295,15 @@ v3_processing(Config) when is_list(Config) ->
 %% accomplished by the first inform sent.  That one will generate a
 %% report, which makes it in sync.  The notification-generating
 %% application times out, and send again.  This time it'll work.
+
+v3_security_cases() ->
+    [
+     v3_crypto_basic, 
+     v3_md5_auth, 
+     v3_sha_auth,
+     v3_des_priv
+    ].
+
 
 v3_crypto_basic(suite) -> [];
 v3_crypto_basic(_Config) ->
@@ -4262,7 +4185,16 @@ bad_return() ->
 %%% already tested by the normal tests.
 %%%-----------------------------------------------------------------
 
-
+standard_mibs_cases() ->
+    [
+     snmp_standard_mib, 
+     snmp_community_mib,
+     snmp_framework_mib, 
+     snmp_target_mib,
+     snmp_notification_mib, 
+     snmp_view_based_acm_mib
+    ].
+    
 
 %%-----------------------------------------------------------------
 %% For this test, the agent is configured for v1.
@@ -4346,6 +4278,18 @@ std_mib_write() ->
 std_mib_asn_err() ->
     snmp_test_mgr:send_bytes([48,99,67,12,0,0,0,0,0,0,5]).
 
+
+standard_mibs2_cases() ->
+    [
+     snmpv2_mib_2, 
+     snmp_community_mib_2,
+     snmp_framework_mib_2, 
+     snmp_target_mib_2,
+     snmp_notification_mib_2, 
+     snmp_view_based_acm_mib_2
+    ].
+    
+
 %%-----------------------------------------------------------------
 %% For this test, the agent is configured for v2 and v3.
 %% o  Test the counters and control objects in SNMPv2-MIB
@@ -4393,6 +4337,19 @@ snmpv2_mib_2(Config) when is_list(Config) ->
     try_test(snmpv2_mib_test_finish, [], [{community, "bad community"}]),
     
     ?LOG("snmpv2_mib_2 -> done",[]).
+    
+
+standard_mibs3_cases() ->
+    [
+     snmpv2_mib_3, 
+     snmp_framework_mib_3, 
+     snmp_mpd_mib_3,
+     snmp_target_mib_3, 
+     snmp_notification_mib_3,
+     snmp_view_based_acm_mib_3, 
+     snmp_user_based_sm_mib_3
+    ].
+
     
 %% Req. SNMPv2-MIB
 snmpv2_mib_3(suite) -> [];
@@ -5306,7 +5263,57 @@ loop_it_2(Oid, N) ->
 %%% Testing of reported bugs and other tickets.
 %%%-----------------------------------------------------------------
 
+reported_bugs_cases() ->
+    [
+     otp_1128, 
+     otp_1129, 
+     otp_1131, 
+     otp_1162, 
+     otp_1222,
+     otp_1298, 
+     otp_1331, 
+     otp_1338, 
+     otp_1342, 
+     otp_2776,
+     otp_2979, 
+     otp_3187, 
+     otp_3725
+    ].
 
+reported_bugs2_cases() ->
+    [
+     otp_1128_2, 
+     otp_1129_2, 
+     otp_1131_2, 
+     otp_1162_2,
+     otp_1222_2, 
+     otp_1298_2, 
+     otp_1331_2, 
+     otp_1338_2,
+     otp_1342_2, 
+     otp_2776_2, 
+     otp_2979_2, 
+     otp_3187_2
+    ].
+
+reported_bugs3_cases() ->
+    [
+     otp_1128_3, 
+     otp_1129_3, 
+     otp_1131_3, 
+     otp_1162_3,
+     otp_1222_3, 
+     otp_1298_3, 
+     otp_1331_3, 
+     otp_1338_3,
+     otp_1342_3, 
+     otp_2776_3, 
+     otp_2979_3, 
+     otp_3187_3,
+     otp_3542
+    ].
+   
+    
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1128
 %% Slogan: Bug in handling of createAndWait set-requests.
@@ -5783,7 +5790,12 @@ otp_3725_test(MaNode) ->
 %% Slogan: Target mib tag list check invalid
 %%-----------------------------------------------------------------
 
-
+tickets1_cases() ->
+    [
+     {group, otp_4394}, 
+     {group, otp_7157}
+    ].
+    
 
 init_otp_4394(Config) when is_list(Config) ->
     ?DBG("init_otp_4394 -> entry with"
@@ -5944,6 +5956,13 @@ otp_7157_test1(MA) ->
 %% Extra test cases
 %% These cases are started in the new way
 %%-----------------------------------------------------------------
+
+tickets2_cases() ->
+    [
+     otp8395, 
+     otp9884
+    ].
+
 
 otp8395({init, Config}) when is_list(Config) ->
     ?DBG("otp8395(init) -> entry with"

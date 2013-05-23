@@ -441,13 +441,13 @@ start_agent(Config, Vsns, Opts) ->
 	    [{versions,         Vsns}, 
 	     {agent_type,       master},
 	     {agent_verbosity,  trace},
+	     {db_dir,           AgentDbDir},
 	     {audit_trail_log,  [{type, read_write},
 				 {dir,  AgentLogDir},
 				 {size, {10240, 10}}]},
 	     {config,           [{dir, AgentConfDir},
 				 {force_load, false}, 
 				 {verbosity,  trace}]}, 
-	     {db_dir,           AgentDbDir},
 	     {local_db,         [{repair,    true},
 				 {verbosity, log}]}, 
 	     {mib_server,       [{verbosity, log}]},
@@ -478,30 +478,190 @@ start_agent(Config, Vsns, Opts) ->
 app_agent_env_init(Env0, Opts) ->
     ?DBG("app_agent_env_init -> unload snmp",[]),
     ?line application:unload(snmp),
+
     ?DBG("app_agent_env_init -> load snmp",[]),
     ?line application:load(snmp),
-    ?DBG("app_agent_env_init -> initiate (snmp agent) application env",[]),
-    F1 = fun({Key, Val} = New, Acc0) -> 
-                 ?DBG("app_agent_env_init -> "
-		      "updating setting ~p to ~p", [Key, Val]),
-                 case lists:keyreplace(Key, 1, Acc0, New) of
-		     Acc0 ->
-			 [New|Acc0];
-		     Acc ->
-			 Acc
-		 end
-         end, 
-    Env = lists:foldr(F1, Env0, Opts),
-    ?DBG("app_agent_env_init -> Env: ~p", [Env]),
+
+    ?DBG("app_agent_env_init -> "
+	 "merge or maybe replace (snmp agent) app env",[]),
+    Env = add_or_maybe_merge_agent_env(Opts, Env0),
+    ?DBG("app_agent_env_init -> merged env: "
+	 "~n   ~p", [Env]),
+
     %% We put it into the app environment just as 
     %% a precaution, since when starting normally, 
-    %% there is where the environment is taken from.
-    app_set_agent_env(Env),
+    %% this is where the environment is extracted from.
+    app_agent_set_env(Env),
     Env.
 
-app_set_agent_env(Value) ->
+app_agent_set_env(Value) ->
     application_controller:set_env(snmp, agent, Value).
 
+add_or_maybe_merge_agent_env([], Env) ->
+    ?DBG("merging agent env -> merged", []),
+    lists:keysort(1, Env);
+add_or_maybe_merge_agent_env([{Key, Value1}|Opts], Env) ->
+    ?DBG("merging agent env -> add, replace or merge ~p", [Key]),
+    case lists:keysearch(Key, 1, Env) of
+	{value, {Key, Value1}} ->
+	    %% Identical, move on
+	    ?DBG("merging agent env -> "
+		 "no need to merge ~p - identical - keep: "
+		 "~n   ~p", [Key, Value1]),
+	    add_or_maybe_merge_agent_env(Opts, Env);
+	{value, {Key, Value2}} ->
+	    %% Another value, merge or replace
+	    NewValue = merge_or_replace_agent_env(Key, Value1, Value2),
+	    Env2 = lists:keyreplace(Key, 1, Env, {Key, NewValue}), 
+	    add_or_maybe_merge_agent_env(Opts, Env2);
+	false ->
+	    ?DBG("merging agent env -> no old ~p to merge with - add: "
+		 "~n   ~p", [Key, Value1]),
+	    add_or_maybe_merge_agent_env(Opts, [{Key, Value1}|Env])
+    end.
+
+merge_or_replace_agent_env(versions, NewVersions, _OldVersions) ->
+    ?DBG("merging agent env -> versions replaced: ~p -> ~p", 
+	 [NewVersions, _OldVersions]),
+    NewVersions;
+merge_or_replace_agent_env(agent_type, NewType, _OldType) ->
+    ?DBG("merging agent env -> agent type replaced: ~p -> ~p", 
+	 [NewType, _OldType]),
+    NewType;
+merge_or_replace_agent_env(agent_verbosity, NewVerbosity, _OldVerbosity) ->
+    ?DBG("merging agent env -> agent verbosity replaced: ~p -> ~p", 
+	 [NewVerbosity, _OldVerbosity]),
+    NewVerbosity;
+merge_or_replace_agent_env(db_dir, NewDbDir, _OldDbDir) ->
+    ?DBG("merging agent env -> db-dir replaced: ~p -> ~p", 
+	 [NewDbDir, _OldDbDir]),
+    NewDbDir;
+merge_or_replace_agent_env(audit_trail_log, NewATL, OldATL) ->
+    merge_or_replace_agent_env_atl(NewATL, OldATL);
+merge_or_replace_agent_env(config, NewConfig, OldConfig) ->
+    merge_or_replace_agent_env_config(NewConfig, OldConfig);
+merge_or_replace_agent_env(local_db, NewLdb, OldLdb) ->
+    merge_or_replace_agent_env_ldb(NewLdb, OldLdb);
+merge_or_replace_agent_env(mib_storage, NewMst, OldMst) ->
+    merge_or_replace_agent_env_mib_storage(NewMst, OldMst);
+merge_or_replace_agent_env(mib_server, NewMibs, OldMibs) ->
+    merge_or_replace_agent_env_mib_server(NewMibs, OldMibs);
+merge_or_replace_agent_env(symbolic_store, NewSymStore, OldSymStore) ->
+    merge_or_replace_agent_env_symbolic_store(NewSymStore, OldSymStore);
+merge_or_replace_agent_env(note_store, NewNoteStore, OldNoteStore) ->
+    merge_or_replace_agent_env_note_store(NewNoteStore, OldNoteStore);
+merge_or_replace_agent_env(net_if, NewNetIf, OldNetIf) ->
+    merge_or_replace_agent_env_net_if(NewNetIf, OldNetIf);
+merge_or_replace_agent_env(Key, NewValue, OldValue) ->
+    ?FAIL({not_implemented_merge_or_replace, 
+	   Key, NewValue, OldValue}).
+
+merge_or_replace_agent_env_atl(New, Old) ->
+    ATL = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> audit-trail-log merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, ATL]),
+    ATL.
+
+merge_or_replace_agent_env_config(New, Old) ->
+    Config = merge_agent_options(New, Old),
+    case lists:keymember(dir, 1, Config) of
+	true ->
+	    ?DBG("merging agent env -> config merged: "
+		 "~n   ~p | ~p -> ~p", [New, Old, Config]),
+	    Config;
+	false ->
+	    ?FAIL({missing_mandatory_option, {config, dir}})
+    end.
+
+merge_or_replace_agent_env_ldb(New, Old) ->
+    LDB = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> local-db merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, LDB]),
+    LDB.
+
+merge_or_replace_agent_env_mib_storage(NewMibStorage, OldMibStorage) ->
+    %% Shall we merge or replace?
+    %% module is mandatory. We will only merge if NewModule is
+    %% equal to OldModule. 
+    NewModule = 
+	case lists:keysearch(module, 1, NewMibStorage) of
+	    {value, {module, M}} ->
+		M;
+	    false ->
+		?FAIL({missing_mandatory_option, {mib_storage, module}})
+	end,
+    case lists:keysearch(module, 1, OldMibStorage) of
+	{value, {module, NewModule}} ->
+	    %% Same module => merge
+	    %% Non-ex new options => remove
+	    %% Ex new options and non-ex old options => replace
+	    %% Otherwise merge
+	    case lists:keysearch(options, 1, NewMibStorage) of
+		false ->
+		    ?DBG("merging agent env -> "
+			 "no mib-storage ~p merge needed - "
+			 "no new options (= remove old options)", [NewModule]),
+		    NewMibStorage;
+		{value, {options, NewOptions}} ->
+		    case lists:keysearch(options, 1, OldMibStorage) of
+			false ->
+			    ?DBG("merging agent env -> "
+				 "no mib-storage ~p merge needed - "
+				 "no old options", [NewModule]),
+			    NewMibStorage;
+			{value, {options, OldOptions}} ->
+			    MergedOptions = 
+				merge_agent_options(NewOptions, OldOptions), 
+			    ?DBG("merging agent env -> mib-storage ~p merged: "
+				 "~n   Options: ~p | ~p -> ~p", 
+				 [NewModule, 
+				  NewOptions, OldOptions, MergedOptions]),
+			    [{module,  NewModule}, 
+			     {options, MergedOptions}]
+		    end
+	    end;
+	_ ->
+	    %% Diff module => replace
+	    ?DBG("merging agent env -> "
+		 "no mib-storage ~p merge needed - "
+		 "new module", [NewModule]),
+	    NewMibStorage
+    end.
+
+merge_or_replace_agent_env_mib_server(New, Old) ->
+    MibServer = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> mib-server merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, MibServer]),
+    MibServer.
+
+merge_or_replace_agent_env_symbolic_store(New, Old) ->
+    SymbolicStore = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> symbolic-store merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, SymbolicStore]),
+    SymbolicStore.
+
+merge_or_replace_agent_env_note_store(New, Old) ->
+    NoteStore = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> note-store merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, NoteStore]),
+    NoteStore.
+
+merge_or_replace_agent_env_net_if(New, Old) ->
+    NetIf = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> net-if merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, NetIf]),
+    NetIf.
+
+merge_agent_options([], Options) ->
+    lists:keysort(1, Options);
+merge_agent_options([{Key, _Value} = Opt|Opts], Options) ->
+    case lists:keysearch(Key, 1, Options) of
+	{value, _} ->
+	    NewOptions = lists:keyreplace(Key, 1, Options, Opt), 
+	    merge_agent_options(Opts, NewOptions);
+	false ->
+	    merge_agent_options(Opts, [Opt|Options])
+    end.
 
 
 stop_agent(Config) when is_list(Config) ->
