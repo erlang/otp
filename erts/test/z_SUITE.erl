@@ -190,8 +190,13 @@ file_inspect(#core_search_conf{file = File}, Core) ->
 	    probably_a_core
     end.
 
-mk_readable(F) ->
-    catch file:write_file_info(F, #file_info{mode = 8#00444}).
+mk_readable(F) ->    
+    try
+	{ok, Old} = file:read_file_info(F),
+	file:write_file_info(F, Old#file_info{mode = 8#00444})
+    catch	
+	_:_ -> io:format("Failed to \"chmod\" core file ~p\n", [F])
+    end.
 
 ignore_core(C) ->
     filelib:is_regular(filename:join([filename:dirname(C),
