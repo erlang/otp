@@ -28,7 +28,7 @@
 	 start_mt_agent/1,        start_mt_agent/2, 
 	 stop_agent/1,
 
-	 start_sup/0,      stop_sup/2,
+	 %% start_sup/0,      stop_sup/2,
 	 start_subagent/3, stop_subagent/1, 
 	 start_sub_sup/1,  start_sub_sup/2, 
 
@@ -418,10 +418,10 @@ start_bilingual_agent(Config, Opts)
     start_agent(Config, [v1,v2], Opts).
  
 start_mt_agent(Config) when is_list(Config) ->
-    start_agent(Config, [v2], [{snmp_multi_threaded, true}]).
+    start_agent(Config, [v2], [{multi_threaded, true}]).
  
 start_mt_agent(Config, Opts) when is_list(Config) andalso is_list(Opts) ->
-    start_agent(Config, [v2], [{snmp_multi_threaded, true}|Opts]).
+    start_agent(Config, [v2], [{multi_threaded, true}|Opts]).
  
 start_agent(Config, Vsns) ->
     start_agent(Config, Vsns, []).
@@ -437,65 +437,53 @@ start_agent(Config, Vsns, Opts) ->
     ?line AgentDbDir   = ?config(agent_db_dir,   Config),
     ?line SaNode       = ?config(snmp_sa,        Config),
 
-    app_env_init(vsn_init(Vsns) ++ 
-		 [{audit_trail_log,               read_write_log},
-		  {audit_trail_log_dir,           AgentLogDir},
-		  {audit_trail_log_size,          {10240, 10}},
-		  {force_config_reload,           false},
-		  {snmp_agent_type,               master},
-		  {snmp_config_dir,               AgentConfDir},
-		  {snmp_db_dir,                   AgentDbDir},
-		  {snmp_local_db_auto_repair,     true},
-		  {snmp_local_db_verbosity,       log},
-		  {snmp_master_agent_verbosity,   trace},
-		  {snmp_supervisor_verbosity,     trace},
-		  {snmp_mibserver_verbosity,      log},
-		  {snmp_symbolic_store_verbosity, log},
-		  {snmp_note_store_verbosity,     log},
-		  {snmp_net_if_verbosity,         trace}],
-		 Opts),
-
+    Env = app_agent_env_init(
+	    [{versions,         Vsns}, 
+	     {agent_type,       master},
+	     {agent_verbosity,  trace},
+	     {audit_trail_log,  [{type, read_write},
+				 {dir,  AgentLogDir},
+				 {size, {10240, 10}}]},
+	     {config,           [{dir, AgentConfDir},
+				 {force_load, false}, 
+				 {verbosity,  trace}]}, 
+	     {db_dir,           AgentDbDir},
+	     {local_db,         [{repair,    true},
+				 {verbosity, log}]}, 
+	     {mib_server,       [{verbosity, log}]},
+	     {symbolic_store,   [{verbosity, log}]},
+	     {note_store,       [{verbosity, log}]},
+	     {net_if,           [{verbosity, trace}]}],
+	    Opts),
+    
 
     process_flag(trap_exit,true),
 
     {ok, AppSup} = snmp_app_sup:start_link(),
     unlink(AppSup),
-    ?DBG("start_agent -> snmp app supervisor: ~p",[AppSup]),
+    ?DBG("start_agent -> snmp app supervisor: ~p", [AppSup]),
 
-    ?DBG("start_agent -> start master agent (old style)",[]),
-    ?line Sup = start_sup(), 
+    ?DBG("start_agent -> start master agent",[]),
+    ?line Sup = start_sup(Env), 
 
-    ?DBG("start_agent -> unlink from supervisor",[]),
+    ?DBG("start_agent -> unlink from supervisor", []),
     ?line unlink(Sup),
     ?line SaDir = ?config(sa_dir, Config),
-    ?DBG("start_agent -> (rpc) start sub on ~p",[SaNode]),
+    ?DBG("start_agent -> (rpc) start sub on ~p", [SaNode]),
     ?line {ok, Sub} = start_sub_sup(SaNode, SaDir),
     ?DBG("start_agent -> done",[]),
     ?line [{snmp_sup, {Sup, self()}}, {snmp_sub, Sub} | Config].
 
 
-vsn_init(Vsn) ->
-    vsn_init([v1,v2,v3], Vsn, []).
-
-vsn_init([], _Vsn, Acc) ->
-    Acc;
-vsn_init([V|Vsns], Vsn, Acc) ->
-    case lists:member(V, Vsn) of
-        true ->
-            vsn_init(Vsns, Vsn, [{V, true}|Acc]);
-        false ->
-            vsn_init(Vsns, Vsn, [{V, false}|Acc])
-    end.
-
-app_env_init(Env0, Opts) ->
-    ?DBG("app_env_init -> unload snmp",[]),
+app_agent_env_init(Env0, Opts) ->
+    ?DBG("app_agent_env_init -> unload snmp",[]),
     ?line application:unload(snmp),
-    ?DBG("app_env_init -> load snmp",[]),
+    ?DBG("app_agent_env_init -> load snmp",[]),
     ?line application:load(snmp),
-    ?DBG("app_env_init -> initiate (snmp) application env",[]),
+    ?DBG("app_agent_env_init -> initiate (snmp agent) application env",[]),
     F1 = fun({Key, Val} = New, Acc0) -> 
-                 ?DBG("app_env_init -> "
-                     "updating setting ~p to ~p", [Key, Val]),
+                 ?DBG("app_agent_env_init -> "
+		      "updating setting ~p to ~p", [Key, Val]),
                  case lists:keyreplace(Key, 1, Acc0, New) of
 		     Acc0 ->
 			 [New|Acc0];
@@ -504,12 +492,16 @@ app_env_init(Env0, Opts) ->
 		 end
          end, 
     Env = lists:foldr(F1, Env0, Opts),
-    ?DBG("app_env_init -> Env: ~p",[Env]),
-    F2 = fun({Key,Val}) ->
-                 ?DBG("app_env_init -> setting ~p to ~p",[Key, Val]),
-                 application_controller:set_env(snmp, Key, Val)
-         end,
-    lists:foreach(F2, Env).
+    ?DBG("app_agent_env_init -> Env: ~p", [Env]),
+    %% We put it into the app environment just as 
+    %% a precaution, since when starting normally, 
+    %% there is where the environment is taken from.
+    app_set_agent_env(Env),
+    Env.
+
+app_set_agent_env(Value) ->
+    application_controller:set_env(snmp, agent, Value).
+
 
 
 stop_agent(Config) when is_list(Config) ->
@@ -544,8 +536,8 @@ stop_agent(Config) when is_list(Config) ->
     lists:keydelete(snmp_sub, 1, C1).
 
 
-start_sup() ->
-    case (catch snmpa_app:start(normal)) of
+start_sup(Env) ->
+    case (catch snmp_app_sup:start_agent(normal, Env)) of
 	{ok, S} ->
 	    ?DBG("start_agent -> started, Sup: ~p",[S]),
 	    S;
@@ -553,7 +545,7 @@ start_sup() ->
 	Else ->
 	    ?DBG("start_agent -> unknown result: ~n~p",[Else]),
 	    %% Get info about the apps we depend on
-	    ?FAIL({start_failed,Else, ?IS_MNESIA_RUNNING()})
+	    ?FAIL({start_failed, Else, ?IS_MNESIA_RUNNING()})
     end.
 
 stop_sup(Pid, _) when (node(Pid) =:= node()) ->
@@ -594,7 +586,7 @@ start_sub_sup(Node, Dir) ->
     
 start_sub_sup(Dir) ->
     ?DBG("start_sub -> entry",[]),
-    Opts = [{db_dir, Dir}, 
+    Opts = [{db_dir,     Dir}, 
             {supervisor, [{verbosity, trace}]}],
     {ok, P} = snmpa_supervisor:start_sub_sup(Opts),
     unlink(P),

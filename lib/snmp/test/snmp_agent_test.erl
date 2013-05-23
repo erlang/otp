@@ -456,14 +456,14 @@ end_per_testcase2(_Case, Config) ->
 
 cases() -> 
     [
-	{group, misc}, 
-	{group, test_v1}, 
-	{group, test_v2},
-	{group, test_v1_v2}, 
-	{group, test_v3},
-	{group, test_multi_threaded}, 
-	{group, mib_storage},
-	{group, tickets1}
+     {group, misc}, 
+     {group, test_v1}, 
+     {group, test_v2},
+     {group, test_v1_v2}, 
+     {group, test_v3},
+     {group, test_multi_threaded}, 
+     {group, mib_storage},
+     {group, tickets1}
     ].
 
 
@@ -549,7 +549,7 @@ delete_tables() ->
     mnesia:delete_table(kompissTable2),
     mnesia:delete_table(snmp_variables).
 
-%% Creation is done in runtime!
+%% Tables are created in runtime!
 delete_mib_storage_mnesia_tables() ->
     mnesia:delete_table(snmpa_mib_data),
     mnesia:delete_table(snmpa_mib_tree),
@@ -572,40 +572,77 @@ delete_mib_storage_mnesia_tables() ->
 %% versions as well, <base>_N.
 %%-----------------------------------------------------------------
 
-
-
-
-
-
-
-
-
 mib_storage_ets_cases() -> 
-[mse_simple, mse_v1_processing, mse_big, mse_big2,
- mse_loop_mib, mse_api, mse_sa_register, mse_v1_trap,
- mse_sa_error, mse_next_across_sa, mse_undo,
- mse_standard_mib, mse_community_mib, mse_framework_mib,
- mse_target_mib, mse_notification_mib,
- mse_view_based_acm_mib, mse_sparse_table, mse_me_of,
- mse_mib_of].
+    [
+     mse_simple, 
+     mse_v1_processing, 
+     mse_big, 
+     mse_big2,
+     mse_loop_mib, 
+     mse_api, 
+     mse_sa_register, 
+     mse_v1_trap,
+     mse_sa_error, 
+     mse_next_across_sa, 
+     mse_undo,
+     mse_standard_mib, 
+     mse_community_mib, 
+     mse_framework_mib,
+     mse_target_mib, 
+     mse_notification_mib,
+     mse_view_based_acm_mib, 
+     mse_sparse_table, 
+     mse_me_of,
+     mse_mib_of
+    ].
 
 mib_storage_dets_cases() -> 
-[msd_simple, msd_v1_processing, msd_big, msd_big2,
- msd_loop_mib, msd_api, msd_sa_register, msd_v1_trap,
- msd_sa_error, msd_next_across_sa, msd_undo,
- msd_standard_mib, msd_community_mib, msd_framework_mib,
- msd_target_mib, msd_notification_mib,
- msd_view_based_acm_mib, msd_sparse_table, msd_me_of,
- msd_mib_of].
+    [
+     msd_simple, 
+     msd_v1_processing, 
+     msd_big, 
+     msd_big2,
+     msd_loop_mib, 
+     msd_api, 
+     msd_sa_register, 
+     msd_v1_trap,
+     msd_sa_error, 
+     msd_next_across_sa, 
+     msd_undo,
+     msd_standard_mib, 
+     msd_community_mib, 
+     msd_framework_mib,
+     msd_target_mib, 
+     msd_notification_mib,
+     msd_view_based_acm_mib, 
+     msd_sparse_table, 
+     msd_me_of,
+     msd_mib_of
+    ].
 
 mib_storage_mnesia_cases() -> 
-[msm_simple, msm_v1_processing, msm_big, msm_big2,
- msm_loop_mib, msm_api, msm_sa_register, msm_v1_trap,
- msm_sa_error, msm_next_across_sa, msm_undo,
- msm_standard_mib, msm_community_mib, msm_framework_mib,
- msm_target_mib, msm_notification_mib,
- msm_view_based_acm_mib, msm_sparse_table, msm_me_of,
- msm_mib_of].
+    [
+     msm_simple, 
+     msm_v1_processing, 
+     msm_big, 
+     msm_big2,
+     msm_loop_mib, 
+     msm_api, 
+     msm_sa_register, 
+     msm_v1_trap,
+     msm_sa_error, 
+     msm_next_across_sa, 
+     msm_undo,
+     msm_standard_mib, 
+     msm_community_mib, 
+     msm_framework_mib,
+     msm_target_mib, 
+     msm_notification_mib,
+     msm_view_based_acm_mib, 
+     msm_sparse_table, 
+     msm_me_of,
+     msm_mib_of
+    ].
 
 mse_size_check_cases() -> 
     [mse_size_check].
@@ -624,18 +661,21 @@ varm_mib_storage_mnesia_cases() ->
 
 init_mib_storage_ets(Config) when is_list(Config) ->
     ?LOG("init_mib_storage_ets -> entry", []),
-    MibStorage = {snmp_mib_storage,ets},
+    MibStorage = {mib_storage, [{module, snmpa_mib_storage_ets}]},
     init_ms(Config, [MibStorage]).
 
 init_mib_storage_dets(Config) when is_list(Config) ->
     ?LOG("init_mib_storage_dets -> entry", []),
     ?line AgentDbDir = ?GCONF(agent_db_dir, Config),
-    MibStorage = {snmp_mib_storage, {dets, AgentDbDir}},
+    MibStorage = {mib_storage, [{module,  snmpa_mib_storage_dets}, 
+				{options, [{dir, AgentDbDir}]}]},
     init_ms(Config, [MibStorage]).
 
 init_mib_storage_mnesia(Config) when is_list(Config) ->
     ?LOG("init_mib_storage_mnesia -> entry", []),
-    MibStorage = {snmp_mib_storage, {mnesia,[]}},
+    ?line AgentNode = ?GCONF(snmp_master, Config),
+    MibStorage = {mib_storage, [{module, snmpa_mib_storage_mnesia}, 
+				{options, [{nodes, [AgentNode]}]}]},
     init_ms(Config, [MibStorage]).
 
 init_ms(Config, Opts) when is_list(Config) ->
@@ -649,23 +689,26 @@ init_ms(Config, Opts) when is_list(Config) ->
     ?line Ip           = ?GCONF(ip, Config),
     ?line config([v1], MgrDir, AgentConfDir, 
 		 tuple_to_list(Ip), tuple_to_list(Ip)),
-    MasterAgentVerbosity = {snmp_master_agent_verbosity,   trace},
-    MibsVerbosity        = {snmp_mibserver_verbosity,      trace},
-    SymStoreVerbosity    = {snmp_symbolic_store_verbosity, trace},
+    MasterAgentVerbosity = {agent_verbosity, trace},
+    MibsVerbosity        = {mib_server,      [{verbosity, trace}]},
+    SymStoreVerbosity    = {symbolic_store,  [{verbosity, trace}]},
     Opts1 = [MasterAgentVerbosity, MibsVerbosity, SymStoreVerbosity | Opts],
     [{vsn, v1} | start_v1_agent(Config, Opts1)].
 
 init_size_check_mse(Config) when is_list(Config) ->
-    MibStorage = {snmp_mib_storage, ets},
+    MibStorage = {mib_storage, [{module, snmpa_mib_storage_ets}]},
     init_size_check_ms(Config, [MibStorage]).
 
 init_size_check_msd(Config) when is_list(Config) ->
     AgentDbDir = ?GCONF(agent_db_dir, Config),
-    MibStorage = {snmp_mib_storage, {dets, AgentDbDir}},
+    MibStorage = {mib_storage, [{module,  snmpa_mib_storage_dets}, 
+				{options, [{dir, AgentDbDir}]}]},
     init_size_check_ms(Config, [MibStorage]).
 
 init_size_check_msm(Config) when is_list(Config) ->
-    MibStorage = {snmp_mib_storage, {mnesia,[]}},
+    ?line AgentNode = ?GCONF(snmp_master, Config),
+    MibStorage = {mib_storage, [{module, snmpa_mib_storage_mnesia}, 
+				{options, [{nodes, [AgentNode]}]}]},
     init_size_check_ms(Config, [MibStorage]).
 
 init_size_check_ms(Config, Opts) when is_list(Config) ->
@@ -700,12 +743,16 @@ init_varm_mib_storage_dets(Config) when is_list(Config) ->
     ?line Ip           = ?GCONF(ip, Config),
     ?line config([v1], MgrDir, AgentConfDir, 
 		 tuple_to_list(Ip), tuple_to_list(Ip)),
-    MibStorage           = {snmp_mib_storage, {dets, AgentDbDir}},
-    MasterAgentVerbosity = {snmp_master_agent_verbosity,   trace},
-    MibsVerbosity        = {snmp_mibserver_verbosity,      trace},
-    SymStoreVerbosity    = {snmp_symbolic_store_verbosity, trace},
-    Opts = [MibStorage,MasterAgentVerbosity,MibsVerbosity,SymStoreVerbosity],
-    [{vsn, v1}, {agent_opts,Opts} | Config].
+    MibStorage = {mib_storage, [{module,  snmpa_mib_storage_dets}, 
+				{options, [{dir, AgentDbDir}]}]},
+    MasterAgentVerbosity = {agent_verbosity, trace},
+    MibsVerbosity        = {mib_server,      [{verbosity, trace}]},
+    SymStoreVerbosity    = {symbolic_store,  [{verbosity, trace}]},
+    Opts = [MibStorage, 
+	    MasterAgentVerbosity, 
+	    MibsVerbosity, 
+	    SymStoreVerbosity],
+    [{vsn, v1}, {agent_opts, Opts} | Config].
 
 init_varm_mib_storage_mnesia(Config) when is_list(Config) ->
     ?LOG("init_varm_mib_storage_mnesia -> entry", []),
@@ -716,12 +763,17 @@ init_varm_mib_storage_mnesia(Config) when is_list(Config) ->
     ?line Ip           = ?GCONF(ip, Config),
     ?line config([v1], MgrDir, AgentConfDir, 
 		 tuple_to_list(Ip), tuple_to_list(Ip)),
-    MibStorage           = {snmp_mib_storage,{mnesia,[]}},
-    MasterAgentVerbosity = {snmp_master_agent_verbosity,   trace},
-    MibsVerbosity        = {snmp_mibserver_verbosity,      trace},
-    SymStoreVerbosity    = {snmp_symbolic_store_verbosity, trace},
-    Opts = [MibStorage,MasterAgentVerbosity,MibsVerbosity,SymStoreVerbosity],
-    [{vsn, v1}, {agent_opts,Opts} | Config].
+    ?line AgentNode = ?GCONF(snmp_master, Config),
+    MibStorage = {mib_storage, [{module, snmpa_mib_storage_mnesia}, 
+				{options, [{nodes, [AgentNode]}]}]},
+    MasterAgentVerbosity = {agent_verbosity, trace},
+    MibsVerbosity        = {mib_server,      [{verbosity, trace}]},
+    SymStoreVerbosity    = {symbolic_store,  [{verbosity, trace}]},
+    Opts = [MibStorage,
+	    MasterAgentVerbosity,
+	    MibsVerbosity,
+	    SymStoreVerbosity],
+    [{vsn, v1}, {agent_opts, Opts} | Config].
 
 finish_mib_storage_ets(Config) when is_list(Config) ->
     ?LOG("finish_mib_storage_ets -> entry", []),
@@ -1117,7 +1169,10 @@ finish_misc(Config) ->
     finish_v1(Config).
 
 misc_cases() -> 
-[app_info, info_test].
+    [
+     app_info, 
+     info_test
+    ].
 
 app_info(suite) -> [];
 app_info(Config) when is_list(Config) ->
@@ -1816,23 +1871,38 @@ mnesia_2(X) -> ?P(mnesia_2), mnesia(X).
 mnesia_3(X) -> ?P(mnesia_3), mnesia(X).
 
 
-
 mul_cases() -> 
-[mul_get, mul_get_err, mul_next, mul_next_err,
- mul_set_err].
-    
+    [
+     mul_get, 
+     mul_get_err, 
+     mul_next, 
+     mul_next_err,
+     mul_set_err
+    ].
+
 
 multiple_reqs_3(_X) -> 
     {req, [], {conf, init_mul, mul_cases_3(), finish_mul}}.
 
 
 mul_cases_2() -> 
-[mul_get_2, mul_get_err_2, mul_next_2, mul_next_err_2,
- mul_set_err_2].
-    
+    [
+     mul_get_2, 
+     mul_get_err_2, 
+     mul_next_2, 
+     mul_next_err_2,
+     mul_set_err_2
+    ].
+
 
 mul_cases_3() ->
-    [mul_get_3, mul_get_err_3, mul_next_3, mul_next_err_3, mul_set_err_3].
+    [
+     mul_get_3, 
+     mul_get_err_3, 
+     mul_next_3, 
+     mul_next_err_3, 
+     mul_set_err_3
+    ].
     
 
 init_mul(Config) when is_list(Config) ->
@@ -2055,7 +2125,6 @@ v3_trap(Config) when is_list(Config) ->
 
 
 v3_inform(_X) ->
-    %% v2_inform(X).
     {req, [], {conf, init_v3_inform, [v3_inform_i], finish_v3_inform}}. 
 
 init_v2_inform(Config) when is_list(Config) ->
