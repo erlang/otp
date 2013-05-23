@@ -19,7 +19,7 @@
 %%
 
 -module(asn1ct_func).
--export([start_link/0,need/1,call/3,generate/1]).
+-export([start_link/0,need/1,call/3,call_gen/3,call_gen/4,generate/1]).
 -export([init/1,handle_call/3,handle_cast/2,terminate/2]).
 
 start_link() ->
@@ -36,7 +36,15 @@ need(MFA) ->
     asn1ct_rtt:assert_defined(MFA),
     cast({need,MFA}).
 
+call_gen(Prefix, Key, Gen, Args) when is_function(Gen, 2) ->
+    F = req({gen_func,Prefix,Key,Gen}),
+    asn1ct_gen:emit([F,"(",call_args(Args, ""),")"]).
+
+call_gen(Prefix, Key, Gen) when is_function(Gen, 2) ->
+    req({gen_func,Prefix,Key,Gen}).
+
 generate(Fd) ->
+    do_generate(Fd),
     Used0 = req(get_used),
     erase(?MODULE),
     Used = sofs:set(Used0, [mfa]),
@@ -53,10 +61,13 @@ cast(Req) ->
 
 %%% Internal functions.
 
--record(st, {used}).
+-record(st, {used,				%Used functions
+	     gen,				%Dynamically generated functions
+	     gc=1				%Counter for generated functions
+	    }).
 
 init([]) ->
-    St = #st{used=gb_sets:empty()},
+    St = #st{used=gb_sets:empty(),gen=gb_trees:empty()},
     {ok,St}.
 
 handle_cast({need,MFA}, #st{used=Used0}=St) ->
@@ -69,7 +80,20 @@ handle_cast({need,MFA}, #st{used=Used0}=St) ->
     end.
 
 handle_call(get_used, _From, #st{used=Used}=St) ->
-    {stop,normal,gb_sets:to_list(Used),St}.
+    {stop,normal,gb_sets:to_list(Used),St};
+handle_call(get_gen, _From, #st{gen=G0}=St) ->
+    {L,G} = do_get_gen(gb_trees:to_list(G0), [], []),
+    {reply,L,St#st{gen=gb_trees:from_orddict(G)}};
+handle_call({gen_func,Prefix,Key,GenFun}, _From, #st{gen=G0,gc=Gc0}=St) ->
+    case gb_trees:lookup(Key, G0) of
+	none ->
+	    Name = list_to_atom(Prefix ++ integer_to_list(Gc0)),
+	    Gc = Gc0 + 1,
+	    G = gb_trees:insert(Key, {Name,GenFun}, G0),
+	    {reply,Name,St#st{gen=G,gc=Gc}};
+	{value,{Name,_}} ->
+	    {reply,Name,St}
+    end.
 
 terminate(_, _) ->
     ok.
@@ -98,3 +122,22 @@ update_worklist([H|T], Used, Ws) ->
 	    update_worklist(T, Used, Ws)
     end;
 update_worklist([], _, Ws) -> Ws.
+
+do_get_gen([{_,{_,done}}=Keep|T], Gacc, Kacc) ->
+    do_get_gen(T, Gacc, [Keep|Kacc]);
+do_get_gen([{K,{Name,_}=V}|T], Gacc, Kacc) ->
+    do_get_gen(T, [V|Gacc], [{K,{Name,done}}|Kacc]);
+do_get_gen([], Gacc, Kacc) ->
+    {lists:sort(Gacc),lists:reverse(Kacc)}.
+
+do_generate(Fd) ->
+    case req(get_gen) of
+	[] ->
+	    ok;
+	[_|_]=Gen ->
+	    _ = [begin
+		     ok = file:write(Fd, "\n"),
+		     GenFun(Fd, Name)
+		 end || {Name,GenFun} <- Gen],
+	    do_generate(Fd)
+    end.
