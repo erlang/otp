@@ -134,10 +134,10 @@ $(EBIN)/asn1ct.$(EMULATOR):asn1ct.erl
 	 $(V_ERLC) -b$(EMULATOR) -o$(EBIN) $(ERL_COMPILE_FLAGS) -Dvsn=\"$(VSN)\" $<
 
 $(EBIN)/asn1ct_func.$(EMULATOR): asn1ct_func.erl
-	 $(ERLC) -o$(EBIN) $(ERL_COMPILE_FLAGS) -I../rt_templates $<
+	 $(V_ERLC) -o$(EBIN) $(ERL_COMPILE_FLAGS) -I../rt_templates $<
 
 asn1ct_eval_%.erl: asn1ct_eval_%.funcs
-	erl -pa $(EBIN) -noshell -noinput \
+	$(gen_verbose)erl -pa $(EBIN) -noshell -noinput \
 	   -run prepare_templates gen_asn1ct_eval $< >$@
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
@@ -182,14 +182,14 @@ RT_TEMPLATES_ERL = $(RT_TEMPLATES:%=%.erl)
 RT_TEMPLATES_TARGET = $(RT_TEMPLATES:%=%.$(EMULATOR))
 
 asn1ct_rtt.erl: prepare_templates.$(EMULATOR) $(RT_TEMPLATES_TARGET)
-	erl -noshell -noinput -run prepare_templates gen_asn1ct_rtt \
+	$(gen_verbose)erl -noshell -noinput -run prepare_templates gen_asn1ct_rtt \
            $(RT_TEMPLATES_TARGET) >asn1ct_rtt.erl
 
 prepare_templates.$(EMULATOR): prepare_templates.erl
-	erlc prepare_templates.erl
+	$(V_ERLC) prepare_templates.erl
 
 asn1rtt_%.$(EMULATOR): asn1rtt_%.erl
-	erlc +debug_info $<
+	$(V_ERLC) +debug_info $<
 
 $(EVAL_CT_MODULES:%=%.erl): prepare_templates.$(EMULATOR) \
 			    $(EBIN)/asn1ct_rtt.$(EMULATOR)

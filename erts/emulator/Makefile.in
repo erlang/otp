@@ -1021,7 +1021,8 @@ endif
 $(TARGET)/gen_git_version.mk:
 # We touch beam/erl_bif.info.c if we regenerated the git version to force a
 # rebuild.
-	if $(gen_verbose)utils/gen_git_version $@; then touch beam/erl_bif_info.c; fi
+	$(gen_verbose)
+	$(V_at)if utils/gen_git_version $@; then touch beam/erl_bif_info.c; fi
 
 .PHONY: depend
 ifdef VOID_EMULATOR
