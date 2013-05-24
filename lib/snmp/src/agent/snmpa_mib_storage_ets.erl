@@ -89,13 +89,14 @@ open(Name, RecName, _Fields, Type, Opts) ->
 				      checksum = Checksum}};
 			{error, Reason} when (Action =:= keep) ->
 			    ?vinfo("open ~p database ~p - "
-				   "failed reading from file (keep)", 
+				   "failed reading from file (keep): "
+				   "~n   ~p", 
 				   [Type, Name, Reason]),
 			    {error, {file2tab, Reason}};
 			{error, Reason} ->
 			    ?vlog("open ~p database ~p - "
-				  "failed reading from file (clear)", 
-				  [Type, Name, Reason]),
+				  "failed reading from file (clear): "
+				  "~n   ~p", [Type, Name, Reason]),
 			    user_err("Warning: could not read file - "
 				     "create new (empty): "
 				     "~n   File:   ~p"
@@ -120,15 +121,17 @@ open(Name, RecName, _Fields, Type, Opts) ->
 			      checksum = Checksum}};
 		{error, Reason} when (Action =:= keep) ->
 		    ?vinfo("open ~p database ~p - "
-			   "failed reading file info (keep)", 
+			   "failed reading file info (keep): "
+			   "~n   ~p", 
 			   [Type, Name, Reason]),
 		    {error, {read_file_info, Reason}};
 		{error, Reason} ->
 		    ?vlog("open ~p database ~p - "
-			  "failed reading file info (clear)", 
+			  "failed reading file info (clear): "
+			  "~n   ~p", 
 			  [Type, Name, Reason]),
 		    user_err("Warning: could not read file info - "
-			     "create new: "
+			     "create new file: "
 			     "~n   File:   ~p"
 			     "~n   Reason: ~p", [File, Reason]), 
 		    ID = ets:new(Name, [Type, protected, {keypos, 2}]),
