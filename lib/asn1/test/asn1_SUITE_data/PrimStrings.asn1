@@ -5,7 +5,7 @@ BEGIN
   Bs1 ::= BIT STRING
   Bs2 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (7))
   Bs3 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (1..7))
-  Bs4 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (1..32))
+  Bs4 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) }
   Bs5 ::= BIT STRING {su(0), mo(17), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (1..32))
   Bs6 ::= BIT STRING {su(0), mo(17), tu(2), we(3), th(4), fr(5), sa(6)} (SIZE (16..32))
   Bs7 ::= BIT STRING (SIZE (24))

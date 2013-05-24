@@ -80,7 +80,7 @@ bit_string(Rules) ->
     
     roundtrip('Bs3', [mo,tu,fr]),
     bs_roundtrip('Bs3', [0,1,1,0,0,1,0], [mo,tu,fr]),
-    
+
     %%==========================================================
     %% Bs7 ::= BIT STRING (SIZE (24))
     %%==========================================================
@@ -173,7 +173,91 @@ bit_string(Rules) ->
     BSList1024 = BSmaker(BSmaker,0,1024,{1,0},[]),
     bs_roundtrip('BS1024', BSList1024),
 
-    bs_roundtrip('TransportLayerAddress', [0,1,1,0]).
+    bs_roundtrip('TransportLayerAddress', [0,1,1,0]),
+
+    case Rules of
+	ber -> ok;
+	_ -> per_bs_strings()
+    end.
+
+%% The PER encoding rules requires that a BIT STRING with
+%% named positions should never have any trailing zeroes
+%% (except to reach the minimum number of bits as given by
+%% a SIZE constraint).
+
+per_bs_strings() ->
+    bs_roundtrip('Bs3', [0,0,1,0,0,0,0], [tu]),
+    bs_roundtrip('Bs3', <<2#0010000:7>>, [tu]),
+    bs_roundtrip('Bs3', {1,<<2#00100000:8>>}, [tu]),
+
+    bs_roundtrip('Bs4', [0,1,1,0,0,1,0], [mo,tu,fr]),
+    bs_roundtrip('Bs4', <<2#0110010:7>>, [mo,tu,fr]),
+    bs_roundtrip('Bs4', {1,<<2#01100100:8>>}, [mo,tu,fr]),
+
+    bs_roundtrip('Bs4', [0,1,1,0,0,0,0], [mo,tu]),
+    bs_roundtrip('Bs4', <<2#011:3,0:32>>, [mo,tu]),
+    bs_roundtrip('Bs4', {5,<<2#011:3,0:32,0:5>>}, [mo,tu]),
+
+    [per_trailing_zeroes(B) || B <- lists:seq(0, 255)],
+    ok.
+
+%% Trailing zeroes should be removed from BIT STRINGs with named
+%% bit positions.
+
+per_trailing_zeroes(Byte) ->
+    L = lists:reverse(make_bit_list(Byte+16#10000)),
+    L = make_bit_list(Byte+16#10000, []),
+    Pos = positions(L, 0),
+    ExpectedSz = case lists:last(Pos) of
+		     su -> 1;
+		     {bit,LastBitPos} -> LastBitPos+1
+		 end,
+
+    %% List of zeroes and ones.
+    named_roundtrip(L, Pos, ExpectedSz),
+    named_roundtrip(L++[0,0,0,0,0], Pos, ExpectedSz),
+
+    %% Bitstrings.
+    Bs = << <<B:1>> || B <- L >>,
+    Sz = bit_size(Bs),
+    named_roundtrip(Bs, Pos, ExpectedSz),
+    Bin = <<Bs:Sz/bits,0:16,0:7>>,
+    named_roundtrip(Bin, Pos, ExpectedSz),
+
+    %% Compact bitstring.
+    named_roundtrip({7,Bin}, Pos, ExpectedSz),
+
+    %% Integer bitstring (obsolete).
+    IntBs = intlist_to_integer(L, 0, 0),
+    named_roundtrip(IntBs, Pos, ExpectedSz),
+
+    ok.
+
+make_bit_list(0) -> [];
+make_bit_list(B) -> [B band 1|make_bit_list(B bsr 1)].
+
+make_bit_list(0, Acc) -> Acc;
+make_bit_list(B, Acc) -> make_bit_list(B bsr 1, [B band 1|Acc]).
+
+positions([1|T], 0) -> [su|positions(T, 1)];
+positions([1|T], Pos) -> [{bit,Pos}|positions(T, Pos+1)];
+positions([0|T], Pos) -> positions(T, Pos+1);
+positions([], _) -> [].
+
+intlist_to_integer([B|T], Shift, Acc) ->
+    intlist_to_integer(T, Shift+1, (B bsl Shift) + Acc);
+intlist_to_integer([], _, Acc) -> Acc.
+
+named_roundtrip(Value, Expected, ExpectedSz) ->
+    M = 'PrimStrings',
+    Type = 'Bs4',
+    {ok,Encoded} = M:encode(Type, Value),
+    {ok,Encoded} = M:encode(Type, Expected),
+    {ok,Expected} = M:decode(Type, Encoded),
+
+    %% Verify the size in the first byte.
+    <<ExpectedSz:8,_/bits>> = Encoded,
+    ok.
 
 octet_string(Rules) ->
 
@@ -628,6 +712,7 @@ bs_roundtrip(Type, Value) ->
 bs_roundtrip(Type, Value, Expected) ->
     M = 'PrimStrings',
     {ok,Encoded} = M:encode(Type, Value),
+    {ok,Encoded} = M:encode(Type, Expected),
     case M:decode(Type, Encoded) of
 	{ok,Expected} ->
 	    ok;
