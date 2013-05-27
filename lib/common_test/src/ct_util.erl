@@ -421,6 +421,8 @@ loop(Mode,TestData,StartDir) ->
 					 "Reason: ~p\n\n",
 					 [Pid,A,CB,Reason]),
 		    catch CB:close(Pid),
+		    %% in case CB:close failed to do this:
+		    unregister_connection(Pid),
 		    loop(Mode,TestData,StartDir);
 		_ ->
 		    %% Let process crash in case of error, this shouldn't happen!
