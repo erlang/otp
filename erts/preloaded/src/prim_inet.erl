@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -151,30 +151,35 @@ shutdown_pend_loop(S, N0) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 close(S) when is_port(S) ->
-    unlink(S),               %% avoid getting {'EXIT', S, Reason}
     case subscribe(S, [subs_empty_out_q]) of
 	{ok, [{subs_empty_out_q,N}]} when N > 0 ->
 	    close_pend_loop(S, N);   %% wait for pending output to be sent
 	_ ->
-	    catch erlang:port_close(S),
-	    ok
+	    close_port(S)
     end.
 
 close_pend_loop(S, N) ->
     receive
 	{empty_out_q,S} ->
-	    catch erlang:port_close(S), ok
+	    close_port(S)
     after ?INET_CLOSE_TIMEOUT ->
 	    case getstat(S, [send_pend]) of
                 {ok, [{send_pend,N1}]} ->
-                    if N1 =:= N -> catch erlang:port_close(S), ok;
-                       true -> close_pend_loop(S, N1)
+                    if
+			N1 =:= N ->
+			    close_port(S);
+                       true ->
+			    close_pend_loop(S, N1)
                     end;
 		_ ->
-		    catch erlang:port_close(S), ok
+		    close_port(S)
 	    end
     end.
- 
+
+close_port(S) ->
+    catch erlang:port_close(S),
+    receive {'EXIT',S,_} -> ok after 0 -> ok end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% BIND(insock(), IP, Port) -> {ok, integer()} | {error, Reason}
