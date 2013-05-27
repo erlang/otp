@@ -34,6 +34,9 @@ run(Erule) ->
     run3(),
     run3(Erule),
 
+    roundtrip('InlinedSeq', #'InlinedSeq'{s=#'InlinedSeq_s'{a=42,b=true}}),
+    roundtrip('ExtAddGroup1', #'ExtAddGroup1'{x=42,y=1023}),
+
     ok.
 
 %% From X.691 (07/2002) A.4.
