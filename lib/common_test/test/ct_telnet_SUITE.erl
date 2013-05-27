@@ -72,7 +72,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [
      unix_telnet,
-     own_server
+     own_server,
+     timetrap
     ].
 
 %%--------------------------------------------------------------------
@@ -87,6 +88,10 @@ unix_telnet(Config) when is_list(Config) ->
 own_server(Config) ->
     all_tests_in_suite(own_server,"ct_telnet_own_server_SUITE",
 		       "telnet2.cfg",Config).
+
+timetrap(Config) ->
+    all_tests_in_suite(timetrap,"ct_telnet_timetrap_SUITE",
+		       "telnet3.cfg",Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -143,7 +148,13 @@ telnet_config(_) ->
 events_to_check(unix_telnet,Config) ->
     all_cases(ct_telnet_basic_SUITE,Config);
 events_to_check(own_server,Config) ->
-    all_cases(ct_telnet_own_server_SUITE,Config).
+    all_cases(ct_telnet_own_server_SUITE,Config);
+events_to_check(timetrap,_Config) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,tc_done,{ct_telnet_timetrap_SUITE,expect_timetrap,
+		   {failed,{timetrap_timeout,7000}}}},
+     {?eh,tc_done,{ct_telnet_timetrap_SUITE,expect_success,ok}},
+     {?eh,stop_logging,[]}].
 
 all_cases(Suite,Config) ->
     {module,_} = code:load_abs(filename:join(?config(data_dir,Config),
