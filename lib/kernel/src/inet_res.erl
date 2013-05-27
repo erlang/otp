@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -181,8 +181,8 @@ lookup(Name, Class, Type, Opts, Timeout) ->
 
 lookup_filter({ok,#dns_rec{anlist=Answers}}, Class, Type) ->
     [A#dns_rr.data || A <- Answers,
-		      A#dns_rr.class =:= Class,
-		      A#dns_rr.type =:= Type];
+		      Class =:= any orelse A#dns_rr.class =:= Class,
+		      Type =:= any orelse A#dns_rr.type =:= Type];
 lookup_filter({error,_}, _, _) -> [].
 
 %% --------------------------------------------------------------------------

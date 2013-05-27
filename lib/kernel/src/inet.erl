@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -947,21 +947,34 @@ gethostbyname_self(Name, Type) when is_atom(Name) ->
 gethostbyname_self(Name, Type)
   when is_list(Name), Type =:= inet;
        is_list(Name), Type =:= inet6 ->
-    case inet_db:gethostname() of
-	Name ->
-	    {ok,make_hostent(Name,
-			     [translate_ip(loopback, Type)],
-			     [], Type)};
-	Self ->
+    N = inet_db:tolower(Name),
+    Self = inet_db:gethostname(),
+    %%
+    %% This is the final fallback that pretends /etc/hosts has got
+    %% a line for the hostname on the loopback address.
+    %% Lookups into /etc/hosts are case insensitive and return
+    %% what is in the file. Therefore the letter case may differ between
+    %% the returned hostent record and the hostname that was asked for.
+    %%
+    case inet_db:tolower(Self) of
+	N ->
+	    {ok,
+	     make_hostent(
+	       Self, [translate_ip(loopback, Type)], [], Type)};
+	_ ->
 	    case inet_db:res_option(domain) of
-		"" -> {error,nxdomain};
+		"" ->
+		    {error,nxdomain};
 		Domain ->
-		    case lists:append([Self,".",Domain]) of
-			Name ->
-			    {ok,make_hostent(Name,
-					     [translate_ip(loopback, Type)],
-					     [], Type)};
-			_ -> {error,nxdomain}
+		    FQDN = lists:append([Self,".",Domain]),
+		    case inet_db:tolower(FQDN) of
+			N ->
+			    {ok,
+			     make_hostent(
+			       FQDN,
+			       [translate_ip(loopback, Type)], [], Type)};
+			_ ->
+			    {error,nxdomain}
 		    end
 	    end
     end;
