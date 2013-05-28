@@ -115,25 +115,15 @@ per_dec_named_integer(Constraint, NamedList0, Aligned) ->
 per_dec_k_m_string(StringType, Constraint, Aligned) ->
     SzConstr = effective_constraint(bitstring, Constraint),
     N = string_num_bits(StringType, Constraint, Aligned),
-    %% X.691 (07/2002) 27.5.7 says if the upper bound times the number
-    %% of bits is greater than or equal to 16, then the bit field should
-    %% be aligned.
-    Imm = dec_string(SzConstr, N, Aligned, fun(_, Ub) -> Ub >= 16 end),
+    Imm = dec_string(SzConstr, N, Aligned, k_m_string),
     Chars = char_tab(Constraint, StringType, N),
     convert_string(N, Chars, Imm).
 
 per_dec_octet_string(Constraint, Aligned) ->
-    dec_string(Constraint, 8, Aligned,
-	       %% Aligned unless the size is fixed and =< 16.
-	       fun(Sv, Sv) -> Sv > 16;
-		  (_, _) -> true
-	       end).
+    dec_string(Constraint, 8, Aligned, 'OCTET STRING').
 
 per_dec_raw_bitstring(Constraint, Aligned) ->
-    dec_string(Constraint, 1, Aligned,
-	       fun(Sv, Sv) -> Sv > 16;
-		  (_, _) -> true
-	       end).
+    dec_string(Constraint, 1, Aligned, 'BIT STRING').
 
 per_dec_open_type(Aligned) ->
     {get_bits,decode_unconstrained_length(true, Aligned),
@@ -157,21 +147,40 @@ per_dec_restricted_string(Aligned) ->
 %%% Local functions.
 %%%
 
-dec_string(Sv, U, Aligned0, AF) when is_integer(Sv) ->
+%% is_aligned(StringType, LowerBound, UpperBound) -> boolean()
+%%     StringType = 'OCTET STRING' | 'BIT STRING' | k_m_string
+%%     LowerBound = UpperBound = number of bits
+%%  Determine whether a string should be aligned in PER.
+
+is_aligned(T, Lb, Ub) when T =:= 'OCTET STRING'; T =:= 'BIT STRING' ->
+    %% OCTET STRINGs and BIT STRINGs are aligned to a byte boundary
+    %% unless the size is fixed and less than or equal to 16 bits.
+    Lb =/= Ub orelse Lb > 16;
+is_aligned(k_m_string, _Lb, Ub) ->
+    %% X.691 (07/2002) 27.5.7 says if the upper bound times the number
+    %% of bits is greater than or equal to 16, then the bit field should
+    %% be aligned.
+    Ub >= 16.
+
+%%%
+%%% Generating the intermediate format format for decoding.
+%%%
+
+dec_string(Sv, U, Aligned0, T) when is_integer(Sv) ->
     Bits = U*Sv,
-    Aligned = Aligned0 andalso AF(Bits, Bits),
+    Aligned = Aligned0 andalso is_aligned(T, Bits, Bits),
     {get_bits,Sv,[U,binary,{align,Aligned}]};
-dec_string({{Sv,Sv},[]}, U, Aligned, AF) ->
-    bit_case(dec_string(Sv, U, Aligned, AF),
-	     dec_string(no, U, Aligned, AF));
-dec_string({{_,_}=C,[]}, U, Aligned, AF) ->
-    bit_case(dec_string(C, U, Aligned, AF),
-	     dec_string(no, U, Aligned, AF));
-dec_string({Lb,Ub}, U, Aligned0, AF) ->
+dec_string({{Sv,Sv},[]}, U, Aligned, T) ->
+    bit_case(dec_string(Sv, U, Aligned, T),
+	     dec_string(no, U, Aligned, T));
+dec_string({{_,_}=C,[]}, U, Aligned, T) ->
+    bit_case(dec_string(C, U, Aligned, T),
+	     dec_string(no, U, Aligned, T));
+dec_string({Lb,Ub}, U, Aligned0, T) ->
     Len = per_dec_constrained(Lb, Ub, Aligned0),
-    Aligned = Aligned0 andalso AF(Lb*U, Ub*U),
+    Aligned = Aligned0 andalso is_aligned(T, Lb*U, Ub*U),
     {get_bits,Len,[U,binary,{align,Aligned}]};
-dec_string(_, U, Aligned, _AF) ->
+dec_string(_, U, Aligned, _T) ->
     Al = [{align,Aligned}],
     DecRest = fun(V, Buf) ->
 		      asn1ct_func:call(per_common,
