@@ -43,6 +43,7 @@
 	 ip/1, ip/2, 
 	 is_auth/1,
 	 is_BitString/1,
+	 is_crypto_supported/1, 
 	 is_oid/1,
 	 is_priv/1,
 	 is_reportable/1,
@@ -117,12 +118,26 @@ now(sec) ->
 	(element(3,Now) div 1000000).
     
 
+is_crypto_supported(Alg) ->
+    %% The 'try catch' handles the case when 'crypto' is
+    %% not present in the system (or not started).
+    try
+	begin
+	    Supported = crypto:supports(),
+	    Hashs     = proplists:get_value(hashs,   Supported),
+	    Ciphers   = proplists:get_value(ciphers, Supported),
+	    lists:member(Alg, Hashs ++ Ciphers)
+	end
+    catch
+	_:_ ->
+	    false
+    end.
+
 is_string([]) -> true;
 is_string([Tkn | Str]) 
   when is_integer(Tkn) andalso (Tkn >= 0) andalso (Tkn =< 255) ->
     is_string(Str);
 is_string(_) -> false.
-
 
 is_oid([E1, E2| Rest]) 
   when (length(Rest) =< 126) andalso (E1 *40 + E2 =< 255) ->
