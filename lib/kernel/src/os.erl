@@ -126,7 +126,7 @@ verify_executable(Name0, [Ext|Rest], OrigExtensions) ->
     end;
 verify_executable(Name, [], OrigExtensions) when OrigExtensions =/= [""] -> %% Windows
     %% Will only happen on windows, hence case insensitivity
-    case can_be_full_name(string:to_lower(Name),OrigExtensions) of 
+    case can_be_full_name(string:to_lower(Name),OrigExtensions) of
 	true ->
 	    verify_executable(Name,[""],[""]);
 	_ ->
@@ -150,7 +150,7 @@ split_path(Path) ->
 	{win32, _} ->
 	    {ok,Curr} = file:get_cwd(),
 	    split_path(Path, $;, [], [Curr]);
-	_ -> 
+	_ ->
 	    split_path(Path, $:, [], [])
     end.
 
@@ -187,11 +187,14 @@ cmd(Cmd) ->
 	{unix, _} ->
 	    unix_cmd(Cmd);
 	{win32, Wtype} ->
-	    Command = case {os:getenv("COMSPEC"),Wtype} of
+	    Command0 = case {os:getenv("COMSPEC"),Wtype} of
 			  {false,windows} -> lists:concat(["command.com /c", Cmd]);
 			  {false,_} -> lists:concat(["cmd /c", Cmd]);
 			  {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
 		      end,
+            %% open_port/2 awaits string() in Command, but io_lib:chars() can be
+            %% deep lists according to io_lib module description.
+            Command = lists:flatten(Command0),
 	    Port = open_port({spawn, Command}, [stream, in, eof, hide]),
 	    get_data(Port, [])
     end.
@@ -213,7 +216,7 @@ unix_cmd(Cmd) ->
     end.
 
 %% The -s flag implies that only the positional parameters are set,
-%% and the commands are read from standard input. We set the 
+%% and the commands are read from standard input. We set the
 %% $1 parameter for easy identification of the resident shell.
 %%
 -define(SHELL, "/bin/sh -s unix:cmd 2>&1").
@@ -226,7 +229,7 @@ unix_cmd(Cmd) ->
 -spec start_port() -> port().
 start_port() ->
     Ref = make_ref(),
-    Request = {Ref,self()},    
+    Request = {Ref,self()},
     {Pid, Mon} = case whereis(?PORT_CREATOR_NAME) of
 		     undefined ->
 			 spawn_monitor(fun() ->
@@ -273,7 +276,7 @@ start_port_srv_handle({Ref,Client}) ->
 		    Port
 	    catch
 		error:Reason ->
-		    {Reason,erlang:get_stacktrace()}	    
+		    {Reason,erlang:get_stacktrace()}
 	    end,
     Client ! {Ref,Reply}.
 
@@ -355,16 +358,16 @@ get_data(Port, Sofar) ->
 	{Port, {data, Bytes}} ->
 	    get_data(Port, [Sofar|Bytes]);
 	{Port, eof} ->
-	    Port ! {self(), close}, 
+	    Port ! {self(), close},
 	    receive
 		{Port, closed} ->
 		    true
-	    end, 
+	    end,
 	    receive
-		{'EXIT',  Port,  _} -> 
+		{'EXIT',  Port,  _} ->
 		    ok
 	    after 1 ->				% force context switch
 		    ok
-	    end, 
+	    end,
 	    lists:flatten(Sofar)
     end.
