@@ -115,7 +115,7 @@
               me/0
              ]).
 
--deprecated([{old_info_format, 1}]).
+-deprecated([{old_info_format, 1, next_major_release}]).
 
 
 -include("snmpa_atl.hrl").
