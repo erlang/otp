@@ -196,8 +196,16 @@ gen_encode_prim(_Erules, #type{}=D, DoTag, Value) ->
 	    emit(["case ",Value," of",nl]),
 	    emit_enc_enumerated_cases(NamedNumberList,DoTag);
 	'REAL' ->
-	    emit([{call,ber,encode_tags,
-		   [DoTag,{call,real_common,ber_encode_real,[Value]}]}]);
+	    asn1ct_name:new(realval),
+	    asn1ct_name:new(realsize),
+	    emit(["begin",nl,
+		  {curr,realval}," = ",
+		  {call,real_common,ber_encode_real,[Value]},com,nl,
+		  {curr,realsize}," = ",
+		  {call,erlang,byte_size,[{curr,realval}]},com,nl,
+		  {call,ber,encode_tags,
+		   [DoTag,{curr,realval},{curr,realsize}]},nl,
+		  "end"]);
 	{'BIT STRING',NamedNumberList} ->
 	    call(encode_bit_string,
 		 [{asis,BitStringConstraint},Value,

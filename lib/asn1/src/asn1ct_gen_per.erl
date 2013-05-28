@@ -215,9 +215,11 @@ emit_enc_real(Erules, Real) ->
     asn1ct_name:new(tmpval),
     asn1ct_name:new(tmplen),
     emit(["begin",nl,
-	  "{",{curr,tmpval},com,{curr,tmplen},"} = ",
+	  {curr,tmpval}," = ",
 	  {call,real_common,encode_real,[Real]},com,nl,
-	  "[",{call,Erules,encode_length,[{curr,tmplen}]},",",
+	  {curr,tmplen}," = ",
+	  {call,erlang,byte_size,[{curr,tmpval}]},com,nl,
+	  "[",{call,Erules,encode_length,[{curr,tmplen}]},com,nl,
 	  {curr,tmpval},"]",nl,
 	  "end"]).
 
