@@ -40,32 +40,6 @@
 
     <section>
       <title>Improvements and new features</title>
-      <p>-</p>
-
-<!--
-      <list type="bulleted">
-        <item>
-          <p>[agent] Errors in <c>vacmAccessTable</c> RowStatus handling.
-	  There are problems with the handling of vacmAccessTableStatus 
-	  that cause some SNMP test suites to report errors.
-	  Most notably, erroneous set operations frequently cause "genErr" 
-	  errors to be returned. These "genErr" errors are usually caused 
-	  by badmatch exceptions coming from 
-	  <c>{ok, Row} = snmpa_vacm:get_row(RowIndex)</c> 
-	  if the row does not exist. </p>
-	  <p>The semantics of the RowStatus handling in that table has 
-	  been adjusted to be compliant with the RowStatus
-	  textual description of SNPMv2-TC MIB. </p>
-	  <p>Stefan Zegenhagen</p>
-	  <p>Own Id: OTP-10164</p>
-        </item>
-      </list>
--->
-
-    </section>
-
-    <section>
-      <title>Fixed Bugs and Malfunctions</title>
 <!--
       <p>-</p>
 -->
@@ -76,7 +50,35 @@
           <p>Own Id: OTP-11009</p>
         </item>
 
+        <item>
+          <p>[agent] Introduced a documented behaviour for the mib-server 
+	  <seealso marker="snmpa_mib_data">mib-data backend</seealso>. 
+	  At present only the default module (<c>snmpa_mib_data_tttn</c>) is
+	  provided. </p>
+	  <p>A config option for the (agent) 
+	  <seealso marker="snmp_config#agent_mib_server">mib-servers</seealso> 
+	  mib-data backend module has been added to the agent config options, 
+	  <seealso marker="snmp_config#agent_ms_data_module">data_module</seealso>. </p>
+	  <p>Own Id: OTP-11101</p>
+        </item>
+
       </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent,manager] Updated to support the new crypto interface. </p>
+          <p>Own Id: OTP-11009</p>
+        </item>
+
+      </list>
+-->
 
     </section>
 
@@ -1082,135 +1084,6 @@
     </section>
 
   </section> <!-- 4.20 -->
-
-
-  <section>
-    <title>SNMP Development Toolkit 4.19</title>
-    <p>Version 4.19 supports code replacement in runtime from/to
-      version 4.18.</p>
-
-    <section>
-      <title>Improvements and new features</title>
-<!--
-      <p>-</p>
--->
-      <list type="bulleted">
-        <item>
-          <p>[compiler] Added support for textual convention 
-	  <c>AGENT-CAPABILITIES</c> and "full" support for textual 
-          convention MODULE-COMPLIANCE, both defined by the SNMPv2-CONF 
-          mib.</p>
-          <p>The <c>reference</c> and <c>modules</c> part(s) are
-	  stored in the <c>assocList</c> of the mib-entry (<c>me</c>) 
-	  record. 
-	  Only handled <em>if</em> the option(s) <c>agent_capabilities</c>
-	  and <c>module_compliance</c> (respectively) are provided to the 
-	  compiler. </p>
-	  <p>See <seealso marker="snmpc#compile">compile/2</seealso> 
-	  for more info. </p>
-	  <p>For backward compatibillity, the MIBs provided with 
-	  this application are <em>not</em> compiled with these 
-	  options. </p>
-          <p>Own Id: OTP-8966</p>
-        </item>
-
-        <item>
-          <p>[agent] Added a "complete" set of (snmp) table and variable
-          print functions, for each mib handled by the SNMP (agent)
-          application. This will be usefull when debugging a running agent.</p>
-          <p>See
-          <seealso marker="snmpa#print_mib_info">print_mib_info/0</seealso>,
-          <seealso marker="snmpa#print_mib_tables">print_mib_tables/0</seealso>
-          and
-          <seealso marker="snmpa#print_mib_variables">print_mib_variables/0</seealso>
-          for more info. </p>
-          <p>Own Id: OTP-8977</p>
-        </item>
-
-        <item>
-          <p>[compiler] Added a MIB compiler (frontend) escript, 
-          <c>snmpc</c>. </p>
-          <p>Own Id: OTP-9004</p>
-        </item>
-
-      </list>
-    </section>
-
-    <section>
-      <title>Fixed Bugs and Malfunctions</title>
-<!--
-      <p>-</p> 
--->
-      <list type="bulleted">
-        <item>
-          <p>[agent] For the table vacmAccessTable,
-          when performing the is_set_ok and set operation(s),
-          all values of the vacmAccessSecurityModel column was
-          incorrectly translated to <c>any</c>. </p>
-<!--
-that is when calling:
-snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
--->
-          <p>Own Id: OTP-8980</p>
-        </item>
-
-        <item>
-          <p>[agent] When calling
-          <seealso marker="snmp_view_based_acm_mib#reconfigure">snmp_view_based_acm_mib:reconfigure/1</seealso>
-          on a running node, the table <c>vacmAccessTable</c> was not properly
-          cleaned.
-          This meant that if some entries in the vacm.conf file was removed
-          (compared to the <c>current</c> config),
-          while others where modified and/or added, the removed entrie(s)
-          would still exist in the <c>vacmAccessTable</c> table. </p>
-          <p>Own Id: OTP-8981</p>
-          <p>Aux Id: Seq 11750</p>
-        </item>
-
-      </list>
-    </section>
-
-
-    <section>
-      <title>Incompatibilities</title>
-      <p>-</p>
-    </section>
-
-  </section> <!-- 4.19 -->
-
-
-  <section>
-    <title>SNMP Development Toolkit 4.18</title>
-    <p>Version 4.18 supports code replacement in runtime from/to
-      version 4.17.1 and 4.17.</p>
-
-    <section>
-      <title>Improvements and new features</title>
-      <list type="bulleted">
-        <item>
-          <p>Prepared for R14B release.</p>
-        </item>
-      </list>
-    </section>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <p>-</p>
-<!--
-      <list type="bulleted">
-        <item>
-          <p>[agent] When the function FilterMod:accept_recv/2 returned false
-          the SNMP agent stopped collecting messages from UDP.</p>
-          <p>Own Id: OTP-8761</p>
-        </item>
-      </list>
--->
-    </section>
-
-    <section>
-      <title>Incompatibilities</title>
-      <p>-</p>
-    </section>
-  </section> <!-- 4.18 -->
 
 
   <!-- section>

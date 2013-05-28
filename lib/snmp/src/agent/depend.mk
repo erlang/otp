@@ -96,6 +96,10 @@ $(EBIN)/snmpa_mib.$(EMULATOR): \
 
 $(EBIN)/snmpa_mib_data.$(EMULATOR): \
 	snmpa_mib_data.erl \
+	../../include/snmp_types.hrl
+
+$(EBIN)/snmpa_mib_data_tttn.$(EMULATOR): \
+	snmpa_mib_data_tttn.erl \
 	../misc/snmp_debug.hrl \
 	../misc/snmp_verbosity.hrl \
 	../../include/snmp_types.hrl
