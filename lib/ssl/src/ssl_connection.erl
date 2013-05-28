@@ -35,7 +35,6 @@
 -include("ssl_cipher.hrl"). 
 -include("ssl_internal.hrl").
 -include("ssl_srp.hrl").
--include("ssl_srp_primes.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
 %% Internal application API
@@ -2216,7 +2215,7 @@ client_srp_master_secret(Generator, Prime, Salt, ServerPub, ClientKeys,
     case ssl_srp_primes:check_srp_params(Generator, Prime) of
 	ok ->
 	    {Username, Password} = SslOpts#ssl_options.srp_identity,
-	    DerivedKey = crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])]),
+	    DerivedKey = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
 	    case crypto:compute_key(srp, ServerPub, ClientKeys, {user, [DerivedKey, Prime, Generator, '6a']}) of
 		error ->
 		    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);

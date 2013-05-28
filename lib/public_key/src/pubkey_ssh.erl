@@ -362,18 +362,18 @@ comma_list_encode([Option | Rest], Acc) ->
 ssh2_pubkey_encode(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
     TypeStr = <<"ssh-rsa">>,
     StrLen = size(TypeStr),
-    EBin = crypto:mpint(E),
-    NBin = crypto:mpint(N),
+    EBin = mpint(E),
+    NBin = mpint(N),
     <<?UINT32(StrLen), TypeStr:StrLen/binary,
       EBin/binary,
       NBin/binary>>;
 ssh2_pubkey_encode({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     TypeStr = <<"ssh-dss">>,
     StrLen = size(TypeStr),
-    PBin = crypto:mpint(P),
-    QBin = crypto:mpint(Q),
-    GBin = crypto:mpint(G),
-    YBin = crypto:mpint(Y),
+    PBin = mpint(P),
+    QBin = mpint(Q),
+    GBin = mpint(G),
+    YBin = mpint(Y),
     <<?UINT32(StrLen), TypeStr:StrLen/binary,
       PBin/binary,
       QBin/binary,
@@ -476,3 +476,32 @@ split_n(N, Bin, Acc) ->
 	[Last] ->
 	    split_n(0, <<>>, [Last | Acc])
     end.
+%% large integer in a binary with 32bit length
+%% MP representaion  (SSH2)
+mpint(X) when X < 0 -> mpint_neg(X);
+mpint(X) -> mpint_pos(X).
+
+mpint_neg(X) ->
+    Bin = int_to_bin_neg(X, []),
+    Sz = byte_size(Bin),
+    <<?UINT32(Sz), Bin/binary>>.
+    
+mpint_pos(X) ->
+    Bin = int_to_bin_pos(X, []),
+    <<MSB,_/binary>> = Bin,
+    Sz = byte_size(Bin),
+    if MSB band 16#80 == 16#80 ->
+	    <<?UINT32((Sz+1)), 0, Bin/binary>>;
+       true ->
+	    <<?UINT32(Sz), Bin/binary>>
+    end.
+
+int_to_bin_pos(0,Ds=[_|_]) ->
+    list_to_binary(Ds);
+int_to_bin_pos(X,Ds) ->
+    int_to_bin_pos(X bsr 8, [(X band 255)|Ds]).
+
+int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
+    list_to_binary(Ds);
+int_to_bin_neg(X,Ds) ->
+    int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).

@@ -599,7 +599,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, {file,KeyFile}) ->
 
 encrypt_config_file(SrcFileName, EncryptFileName, {key,Key}) ->
     crypto:start(),
-    {K1,K2,K3,IVec} = make_crypto_key(Key),
+    {Key,IVec} = make_crypto_key(Key),
     case file:read_file(SrcFileName) of
 	{ok,Bin0} ->
 	    Bin1 = term_to_binary({SrcFileName,Bin0}),
@@ -607,7 +607,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, {key,Key}) ->
 		       0 -> Bin1;
 		       N -> list_to_binary([Bin1,random_bytes(8-N)])
 		   end,
-	    EncBin = crypto:des3_cbc_encrypt(K1, K2, K3, IVec, Bin2),
+	    EncBin = crypto:block_encrypt(des3_cbc, Key, IVec, Bin2),
 	    case file:write_file(EncryptFileName, EncBin) of
 		ok ->
 		    io:format("~ts --(encrypt)--> ~ts~n",
@@ -638,10 +638,10 @@ decrypt_config_file(EncryptFileName, TargetFileName, {file,KeyFile}) ->
 
 decrypt_config_file(EncryptFileName, TargetFileName, {key,Key}) ->
     crypto:start(),
-    {K1,K2,K3,IVec} = make_crypto_key(Key),
+    {Key,IVec} = make_crypto_key(Key),
     case file:read_file(EncryptFileName) of
 	{ok,Bin} ->
-	    DecBin = crypto:des3_cbc_decrypt(K1, K2, K3, IVec, Bin),
+	    DecBin = crypto:block_decrypt(des3_cbc, Key, IVec, Bin),
 	    case catch binary_to_term(DecBin) of
 		{'EXIT',_} ->
 		    {error,bad_file};
@@ -713,7 +713,7 @@ get_crypt_key_from_file() ->
 make_crypto_key(String) ->
     <<K1:8/binary,K2:8/binary>> = First = erlang:md5(String),
     <<K3:8/binary,IVec:8/binary>> = erlang:md5([First|lists:reverse(String)]),
-    {K1,K2,K3,IVec}.
+    {[K1,K2,K3],IVec}.
 
 random_bytes(N) ->
     {A,B,C} = now(),

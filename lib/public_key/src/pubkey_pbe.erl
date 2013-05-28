@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 -include("public_key.hrl").
 
 -export([encode/4, decode/4, decrypt_parameters/1]). 
--export([pbdkdf1/4, pbdkdf2/6]).
+-export([pbdkdf1/4, pbdkdf2/7]).
 
 -define(DEFAULT_SHA_MAC_KEYLEN, 20).
 -define(ASN1_OCTET_STR_TAG, 4).
@@ -40,16 +40,16 @@
 %%--------------------------------------------------------------------
 encode(Data, Password, "DES-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:des_cbc_encrypt(Key, IV, Data);
+    crypto:block_encrypt(des_cbc, Key, IV, Data);
 
 encode(Data, Password, "DES-EDE3-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
     <<Key1:8/binary, Key2:8/binary, Key3:8/binary>> = Key,
-    crypto:des_ede3_cbc_encrypt(Key1, Key2, Key3, IV, Data);
+    crypto:block_encrypt(des3_cbc, [Key1, Key2, Key3], IV, Data);
 
 encode(Data, Password, "RC2-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:rc2_cbc_encrypt(Key, IV, Data).
+    crypto:block_encrypt(rc2_cbc, Key, IV, Data).
 %%--------------------------------------------------------------------
 -spec decode(binary(), string(), string(), term()) -> binary().
 %%
@@ -57,16 +57,16 @@ encode(Data, Password, "RC2-CBC" = Cipher, KeyDevParams) ->
 %%--------------------------------------------------------------------
 decode(Data, Password,"DES-CBC"= Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:des_cbc_decrypt(Key, IV, Data);
+    crypto:block_decrypt(des_cbc, Key, IV, Data);
 
 decode(Data, Password,"DES-EDE3-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
     <<Key1:8/binary, Key2:8/binary, Key3:8/binary>> = Key,
-    crypto:des_ede3_cbc_decrypt(Key1, Key2, Key3, IV, Data);
+    crypto:block_decrypt(des3_cbc, [Key1, Key2, Key3], IV, Data);
 
 decode(Data, Password,"RC2-CBC"= Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:rc2_cbc_decrypt(Key, IV, Data).
+    crypto:block_decrypt(rc2_cbc, Key, IV, Data).
 
 %%--------------------------------------------------------------------
 -spec pbdkdf1(string(), iodata(), integer(), atom()) -> binary().
@@ -77,21 +77,21 @@ decode(Data, Password,"RC2-CBC"= Cipher, KeyDevParams) ->
 pbdkdf1(_, _, 0, Acc) ->
     Acc;
 pbdkdf1(Password, Salt, Count, Hash) ->
-    Result = crypto:Hash([Password, Salt]),
+    Result = crypto:hash(Hash, [Password, Salt]),
     do_pbdkdf1(Result, Count-1, Result, Hash).
 
 %%--------------------------------------------------------------------
--spec pbdkdf2(string(), iodata(), integer(), integer(), fun(), integer())
+-spec pbdkdf2(string(), iodata(), integer(), integer(), fun(), atom(), integer())
 	     -> binary().
 %%
 %% Description: Implements password based decryption key derive function 2.
 %% Exported mainly for testing purposes.
 %%--------------------------------------------------------------------
-pbdkdf2(Password, Salt, Count, DerivedKeyLen, Prf, PrfOutputLen)->
+pbdkdf2(Password, Salt, Count, DerivedKeyLen, Prf, PrfHash, PrfOutputLen)->
     NumBlocks = ceiling(DerivedKeyLen / PrfOutputLen),
     NumLastBlockOctets = DerivedKeyLen - (NumBlocks - 1) * PrfOutputLen ,
     blocks(NumBlocks, NumLastBlockOctets, 1, Password, Salt, 
-	   Count, Prf, PrfOutputLen, <<>>).
+	   Count, Prf, PrfHash, PrfOutputLen, <<>>).
 %%--------------------------------------------------------------------
 -spec decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}) -> 
 				{Cipher::string(), #'PBES2-params'{}}.
@@ -106,10 +106,10 @@ decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
 %%% Internal functions
 %%--------------------------------------------------------------------
 password_to_key_and_iv(Password, _, #'PBES2-params'{} = Params) ->
-    {Salt, ItrCount, KeyLen, PseudoRandomFunction, PseudoOtputLen, IV} =
+    {Salt, ItrCount, KeyLen, PseudoRandomFunction, PseudoHash, PseudoOtputLen, IV} =
 	key_derivation_params(Params),
     <<Key:KeyLen/binary, _/binary>> = 
-	pbdkdf2(Password, Salt, ItrCount, KeyLen, PseudoRandomFunction, PseudoOtputLen),
+	pbdkdf2(Password, Salt, ItrCount, KeyLen, PseudoRandomFunction, PseudoHash, PseudoOtputLen),
     {Key, IV};
 password_to_key_and_iv(Password, Cipher, Salt) ->
     KeyLen = derived_key_length(Cipher, undefined),
@@ -122,13 +122,13 @@ password_to_key_and_iv(Password, Cipher, Salt) ->
 pem_encrypt(_, _, _, 0, Acc, _) ->
     Acc;
 pem_encrypt(Prev, Password, Salt, Count, Acc, Hash) ->
-    Result = crypto:Hash([Prev, Password, Salt]),
+    Result = crypto:hash(Hash, [Prev, Password, Salt]),
     pem_encrypt(Result, Password, Salt, Count-1 , <<Acc/binary, Result/binary>>, Hash).
 
 do_pbdkdf1(_, 0, Acc, _) ->
     Acc;
 do_pbdkdf1(Prev, Count, Acc, Hash) ->
-    Result = crypto:Hash(Prev),
+    Result = crypto:hash(Hash, Prev),
     do_pbdkdf1(Result, Count-1 , <<Result/binary, Acc/binary>>, Hash).
 
 iv(#'PBES2-params_encryptionScheme'{algorithm = Algo,
@@ -143,23 +143,23 @@ iv(#'PBES2-params_encryptionScheme'{algorithm = ?'rc2CBC',
     {ok, #'RC2-CBC-Parameter'{iv = IV}} = 'PKCS-FRAME':decode('RC2-CBC-Parameter', ASN1IV),
     iolist_to_binary(IV).
 
-blocks(1, N, Index, Password, Salt, Count, Prf, PrfLen, Acc) ->
-    <<XorSum:N/binary, _/binary>> = xor_sum(Password, Salt, Count, Index, Prf, PrfLen),
+blocks(1, N, Index, Password, Salt, Count, Prf, PrfHash, PrfLen, Acc) ->
+    <<XorSum:N/binary, _/binary>> = xor_sum(Password, Salt, Count, Index, Prf, PrfHash, PrfLen),
     <<Acc/binary, XorSum/binary>>;
-blocks(NumBlocks, N, Index, Password, Salt, Count, Prf, PrfLen, Acc) ->
-    XorSum = xor_sum(Password, Salt, Count, Index, Prf, PrfLen),
-    blocks(NumBlocks -1, N, Index +1, Password, Salt, Count, Prf, 
+blocks(NumBlocks, N, Index, Password, Salt, Count, Prf, PrfHash, PrfLen, Acc) ->
+    XorSum = xor_sum(Password, Salt, Count, Index, Prf, PrfHash, PrfLen),
+    blocks(NumBlocks -1, N, Index +1, Password, Salt, Count, Prf, PrfHash, 
 	   PrfLen, <<Acc/binary, XorSum/binary>>).
 
-xor_sum(Password, Salt, Count, Index, Prf, PrfLen) ->
-    Result = Prf(Password, [Salt,<<Index:32/unsigned-big-integer>>], PrfLen),
-    do_xor_sum(Prf, PrfLen, Result, Password, Count-1, Result).
+xor_sum(Password, Salt, Count, Index, Prf, PrfHash, PrfLen) ->
+    Result = Prf(PrfHash, Password, [Salt,<<Index:32/unsigned-big-integer>>], PrfLen),
+    do_xor_sum(Prf, PrfHash, PrfLen, Result, Password, Count-1, Result).
 
-do_xor_sum(_, _, _, _, 0, Acc) ->
+do_xor_sum(_, _, _, _, _, 0, Acc) ->
     Acc;
-do_xor_sum(Prf, PrfLen, Prev, Password, Count, Acc)-> 					   
-    Result = Prf(Password, Prev, PrfLen),
-    do_xor_sum(Prf, PrfLen, Result, Password, Count-1, crypto:exor(Acc, Result)).
+do_xor_sum(Prf, PrfHash, PrfLen, Prev, Password, Count, Acc)-> 					   
+    Result = Prf(PrfHash, Password, Prev, PrfLen),
+    do_xor_sum(Prf, PrfHash, PrfLen, Result, Password, Count-1, crypto:exor(Acc, Result)).
 
 decrypt_parameters(?'id-PBES2', DekParams) ->
     {ok, Params} = 'PKCS-FRAME':decode('PBES2-params', DekParams),
@@ -174,18 +174,18 @@ key_derivation_params(#'PBES2-params'{keyDerivationFunc = KeyDerivationFunc,
 							   keyLength = Length,
 							   prf = Prf}} = KeyDerivationFunc,
     #'PBES2-params_encryptionScheme'{algorithm = Algo} = EncScheme,
-    {PseudoRandomFunction, PseudoOtputLen} = pseudo_random_function(Prf),
+    {PseudoRandomFunction, PseudoHash, PseudoOtputLen} = pseudo_random_function(Prf),
     KeyLen = derived_key_length(Algo, Length),
     {OctetSalt, Count, KeyLen,
-     PseudoRandomFunction, PseudoOtputLen, iv(EncScheme)}.
+     PseudoRandomFunction, PseudoHash, PseudoOtputLen, iv(EncScheme)}.
 
 %% This function currently matches a tuple that ougth to be the value
 %% ?'id-hmacWithSHA1, but we need some kind of ASN1-fix for this.
 pseudo_random_function(#'PBKDF2-params_prf'{algorithm = 
 						{_,_, _,'id-hmacWithSHA1'}}) ->
-    {fun crypto:sha_mac/3, pseudo_output_length(?'id-hmacWithSHA1')};
+    {fun crypto:hmac/4, sha, pseudo_output_length(?'id-hmacWithSHA1')};
 pseudo_random_function(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA1'}) ->
-    {fun crypto:sha_mac/3, pseudo_output_length(?'id-hmacWithSHA1')}.
+    {fun crypto:hmac/4, sha, pseudo_output_length(?'id-hmacWithSHA1')}.
 
 pseudo_output_length(?'id-hmacWithSHA1') ->
     ?DEFAULT_SHA_MAC_KEYLEN.

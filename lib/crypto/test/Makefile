@@ -7,7 +7,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES = \
 	blowfish_SUITE \
-	crypto_SUITE
+	crypto_SUITE \
+	old_crypto_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

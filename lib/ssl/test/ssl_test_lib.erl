@@ -285,7 +285,7 @@ user_lookup(psk, _Identity, UserState) ->
     {ok, UserState};
 user_lookup(srp, Username, _UserState) ->
     Salt = ssl:random_bytes(16),
-    UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, <<"secret">>])]),
+    UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, <<"secret">>])]),
     {ok, {srp_1024, Salt, UserPassHash}}.
 
 cert_options(Config) ->
@@ -405,7 +405,8 @@ make_dsa_cert(Config) ->
      | Config].
 
 make_ecdsa_cert(Config) ->
-    case proplists:get_bool(ec, crypto:algorithms()) of
+    CryptoSupport = crypto:supports(),
+    case proplists:get_bool(ecdsa, proplists:get_value(public_keys, CryptoSupport)) of
 	    true ->
 	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, ec, ec, ""),
 	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, ec, ec, ""),
@@ -429,7 +430,8 @@ make_ecdsa_cert(Config) ->
 %%    This key exchange algorithm is the same as ECDH_ECDSA except that the
 %%    server's certificate MUST be signed with RSA rather than ECDSA.
 make_ecdh_rsa_cert(Config) ->
-    case proplists:get_bool(ec, crypto:algorithms()) of
+    CryptoSupport = crypto:supports(),
+    case proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport)) of
 	true ->
 	    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, rsa, ec, "rsa_"),
 	    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, rsa, ec, "rsa_"),
@@ -754,14 +756,20 @@ ecdh_rsa_suites() ->
 		 end,
 		 ssl:cipher_suites()).
 
-openssl_rsa_suites() ->
+openssl_rsa_suites(CounterPart) ->
     Ciphers = ssl:cipher_suites(openssl),
+    Names = case is_sane_ecc(CounterPart) of
+		true ->
+		    "DSS | ECDSA";
+		false ->
+		    "DSS | ECDHE | ECDH"
+		end,
     lists:filter(fun(Str) ->
-			 case re:run(Str,"DSS|ECDH-RSA|ECDSA",[]) of
+			 case re:run(Str, Names,[]) of
 			     nomatch ->
-				 true;
+				 false;
 			     _ ->
-				 false
+				 true
 			 end 
 		     end, Ciphers).
 
@@ -939,9 +947,11 @@ init_tls_version(Version) ->
     ssl:start().
 
 sufficient_crypto_support('tlsv1.2') ->
-    proplists:get_bool(sha256, crypto:algorithms());
+    CryptoSupport = crypto:supports(),
+    proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport));
 sufficient_crypto_support(ciphers_ec) ->
-    proplists:get_bool(ec, crypto:algorithms());
+    CryptoSupport = crypto:supports(),
+    proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport));
 sufficient_crypto_support(_) ->
     true.
 
@@ -983,6 +993,16 @@ is_sane_ecc(openssl) ->
 	"OpenSSL 1.0.0" ++ _ ->  % Known bug in openssl
 	    %% manifests as SSL_CHECK_SERVERHELLO_TLSEXT:tls invalid ecpointformat list
 	    false;
+	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
+	    false;
+	"OpenSSL 0.9.7" ++ _ -> % Does not support ECC
+	    false;
+	_ ->
+	    true
+    end;
+is_sane_ecc(crypto) ->
+    [{_,_, Bin}]  = crypto:info_lib(), 
+    case binary_to_list(Bin) of
 	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
 	    false;
 	"OpenSSL 0.9.7" ++ _ -> % Does not support ECC

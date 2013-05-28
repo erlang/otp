@@ -1549,7 +1549,7 @@ ciphers_rsa_signed_certs(Config) when is_list(Config) ->
     Version = 
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
 
-    Ciphers = ssl_test_lib:rsa_suites(erlang),
+    Ciphers = ssl_test_lib:rsa_suites(crypto),
     ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, rsa).
 %%-------------------------------------------------------------------
@@ -1559,7 +1559,7 @@ ciphers_rsa_signed_certs_openssl_names() ->
 ciphers_rsa_signed_certs_openssl_names(Config) when is_list(Config) ->
     Version = 
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
-    Ciphers = ssl_test_lib:openssl_rsa_suites(),  
+    Ciphers = ssl_test_lib:openssl_rsa_suites(crypto),  
     ct:log("tls1 openssl cipher suites ~p~n", [Ciphers]),
     run_suites(Ciphers, Version, Config, rsa).
 
