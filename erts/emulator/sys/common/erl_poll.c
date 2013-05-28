@@ -1335,7 +1335,7 @@ static int update_pollset(ErtsPollSet ps, int fd)
     {
 	ErtsPollEvents events = ps->fds_status[fd].events;
 #ifdef _DARWIN_UNLIMITED_SELECT
-	if (FDS_SIZE(fd) > ps->select_fds_len)
+	if (FDS_SIZE(fd+1) > ps->select_fds_len)
 	    grow_select_fds(ps, fd);
 #endif
 	if ((ERTS_POLL_EV_IN & events)
