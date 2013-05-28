@@ -21,7 +21,7 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info_lib/0, algorithms/0, version/0]).
+-export([start/0, stop/0, info_lib/0, supports/0, version/0, bytes_to_integer/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, verify/5]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
@@ -33,8 +33,8 @@
 -export([stream_init/2, stream_init/3, stream_encrypt/2, stream_decrypt/2]).
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
-
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see
+
 
 %% DEPRECATED
 %% Replaced by hash_*
@@ -218,7 +218,7 @@
 		    des_cbc_ivec, des_cfb_ivec,
 		    info,
 		    %%
-		    info_lib, algorithms]).
+		    info_lib, supports]).
 
 -type mpint() :: binary().
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
@@ -226,15 +226,14 @@
 %%-type ecdsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
 -type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
--type ec_key_res() :: any().		%% nif resource
--type ec_named_curve() :: atom().
--type ec_point() :: crypto_integer().
--type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
--type ec_field() :: {prime_field, Prime :: integer()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
--type ec_prime() :: {A :: crypto_integer(), B :: crypto_integer(), Seed :: binary() | none}.
--type ec_curve_spec() :: {Field :: ec_field(), Prime :: ec_prime(), Point :: crypto_integer(), Order :: integer(), CoFactor :: none | integer()}.
--type ec_curve() :: ec_named_curve() | ec_curve_spec().
--type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
+%%-type ec_named_curve() :: atom().
+%%-type ec_point() :: crypto_integer().
+%%-type ec_basis() :: {tpbasis, K :: non_neg_integer()} | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} | onbasis.
+%%-type ec_field() :: {prime_field, Prime :: integer()} | {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
+%%-type ec_prime() :: {A :: crypto_integer(), B :: crypto_integer(), Seed :: binary() | none}.
+%%-type ec_curve_spec() :: {Field :: ec_field(), Prime :: ec_prime(), Point :: crypto_integer(), Order :: integer(), CoFactor :: none | integer()}.
+%%-type ec_curve() :: ec_named_curve() | ec_curve_spec().
+%%-type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -305,6 +304,22 @@ info() ->
 info_lib() -> ?nif_stub.
 
 algorithms() -> ?nif_stub.
+
+supports()->
+    Algs = algorithms(),
+    PubKeyAlgs = 
+	case lists:member(ec, Algs) of
+	    true ->
+		{public_keys, [rsa, dss, ecdsa, dh, srp, ecdh]};
+	    false ->
+		{public_keys, [rsa, dss, dh, srp]}
+	end,
+    [{hashs, Algs -- [ec]},
+     {ciphers, [des_cbc, des_cfb,  des3_cbc, des3_cbf, des_ede3, blowfish_cbc,
+		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb128, aes_cbc256, rc2_cbc, aes_ctr, rc4
+	       ]},
+     PubKeyAlgs
+    ].
 
 %% Crypto app version history:
 %% (no version): Driver implementation
@@ -575,7 +590,7 @@ hmac(sha384, Key, Data) -> sha384_mac(Key, Data);
 hmac(sha512, Key, Data) -> sha512_mac(Key, Data).
 
 hmac(md5, Key, Data, Size)    -> md5_mac_n(Key, Data, Size);
-hmac(sha, Key, Data, Size)    -> sha_mac(Key, Data, Size);
+hmac(sha, Key, Data, Size)    -> sha_mac_n(Key, Data, Size);
 hmac(sha224, Key, Data, Size) -> sha224_mac(Key, Data, Size);
 hmac(sha256, Key, Data, Size) -> sha256_mac(Key, Data, Size);
 hmac(sha384, Key, Data, Size) -> sha384_mac(Key, Data, Size);
@@ -731,7 +746,7 @@ block_decrypt(blowfish_cbc, Key, Ivec, Data) ->
     blowfish_cbc_decrypt(Key, Ivec, Data);
 block_decrypt(blowfish_cfb64, Key, Ivec, Data) ->
     blowfish_cfb64_decrypt(Key, Ivec, Data);
-block_decrypt(blowfish_ofb, Key, Ivec, Data) ->
+block_decrypt(blowfish_ofb64, Key, Ivec, Data) ->
     blowfish_ofb64_decrypt(Key, Ivec, Data);
 block_decrypt(aes_cbc128, Key, Ivec, Data) ->
     aes_cbc_128_decrypt(Key, Ivec, Data);
@@ -756,24 +771,28 @@ block_decrypt(des_ecb, Key, Data) ->
 block_decrypt(blowfish_ecb, Key, Data) ->
     blowfish_ecb_decrypt(Key, Data).
 
--spec next_iv(des_cbc | aes_cbc, Data::iodata()) -> binary().
+-spec next_iv(des_cbc | des3_cbc | aes_cbc, Data::iodata()) -> binary().
 
 next_iv(des_cbc, Data) ->
+    des_cbc_ivec(Data);
+next_iv(des3_cbc, Data) ->
     des_cbc_ivec(Data);
 next_iv(aes_cbc, Data) ->
     aes_cbc_ivec(Data).
 
--spec next_iv(des_cbf, Ivec::binary(), Data::iodata()) -> binary().
+-spec next_iv(des_cfb, Data::iodata(), Ivec::binary()) -> binary().
 
-next_iv(des_cbf, Ivec, Data) ->
-    des_cfb_ivec(Ivec, Data).
+next_iv(des_cfb, Data, Ivec) ->
+    des_cfb_ivec(Ivec, Data);
+next_iv(Type, Data, _Ivec) ->
+    next_iv(Type, Data).
 
 stream_init(aes_ctr, Key, Ivec) ->
     {aes_ctr, aes_ctr_stream_init(Key, Ivec)}.
 stream_init(rc4, Key) ->
     {rc4, rc4_set_key(Key)}.
-stream_encrypt({aes_ctr, State}, Data) ->
-    {State, Cipher} = aes_ctr_stream_encrypt(State, Data),
+stream_encrypt({aes_ctr, State0}, Data) ->
+    {State, Cipher} = aes_ctr_stream_encrypt(State0, Data),
     {{aes_ctr, State}, Cipher};
 stream_encrypt({rc4, State0}, Data) ->
     {State, Cipher} = rc4_encrypt_with_state(State0, Data),
@@ -1068,7 +1087,7 @@ verify(rsa, Type, DataOrDigest, Signature, Key) ->
 	Bool -> Bool
     end;
 verify(ecdsa, Type, DataOrDigest, Signature, [Key, Curve]) ->
-    case ecdsa_verify_nif(Type, DataOrDigest, Signature, term_to_ec_key({Curve, undefined, Key})) of
+    case ecdsa_verify_nif(Type, DataOrDigest, Signature, term_to_ec_key(Curve, undefined, Key)) of
 	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end.
@@ -1135,7 +1154,7 @@ sign(dss, Type, DataOrDigest, Key) ->
 	Sign -> Sign
     end;
 sign(ecdsa, Type, DataOrDigest, [Key, Curve]) ->
-    case ecdsa_sign_nif(Type, DataOrDigest, term_to_ec_key({Curve, Key, undefined})) of
+    case ecdsa_sign_nif(Type, DataOrDigest, term_to_ec_key(Curve, Key, undefined)) of
 	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
 	Sign -> Sign
     end.
@@ -1397,13 +1416,14 @@ generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
 generate_key(dh, DHParameters, PrivateKey) ->
-    dh_generate_key_nif(PrivateKey,  map_ensure_int_as_bin(DHParameters), 0);
+    dh_generate_key_nif(ensure_int_as_bin(PrivateKey),
+			map_ensure_int_as_bin(DHParameters), 0);
 
 generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
   when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
     Private = case PrivArg of
 		  undefined -> random_bytes(32);
-		  _ -> PrivArg
+		  _ -> ensure_int_as_bin(PrivArg)
 	      end,
     host_srp_gen_key(Private, Verifier, Generator, Prime, Version);
 
@@ -1416,14 +1436,16 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
     user_srp_gen_key(Private, Generator, Prime);
 
 generate_key(ecdh, Curve, undefined) ->
-    ec_key_to_term(ec_key_generate(Curve)).
+    ec_key_to_term_nif(ec_key_generate(Curve)).
 
 
 ec_key_generate(_Key) -> ?nif_stub.
 
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
-    case dh_compute_key_nif(OthersPublicKey,MyPrivateKey, map_ensure_int_as_bin(DHParameters)) of
+    case dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
+			    ensure_int_as_bin(MyPrivateKey),
+			    map_ensure_int_as_bin(DHParameters)) of
 	error -> erlang:error(computation_failed,
 			      [OthersPublicKey,MyPrivateKey,DHParameters]);
 	Ret -> Ret
@@ -1433,34 +1455,33 @@ compute_key(srp, HostPublic, {UserPublic, UserPrivate},
 	    {user, [DerivedKey, Prime, Generator, Version | ScramblerArg]}) when
       is_binary(Prime),
       is_binary(Generator),
-      is_binary(UserPublic),
-      is_binary(UserPrivate),
-      is_binary(HostPublic),
       is_atom(Version) ->
+    HostPubBin = ensure_int_as_bin(HostPublic),
     Multiplier = srp_multiplier(Version, Generator, Prime),
     Scrambler = case ScramblerArg of
-		    [] -> srp_scrambler(Version, UserPublic, HostPublic, Prime);
+		    [] -> srp_scrambler(Version, ensure_int_as_bin(UserPublic),
+					HostPubBin, Prime);
 		    [S] -> S
 		end,
-    srp_user_secret_nif(UserPrivate, Scrambler, HostPublic, Multiplier,
-			  Generator, DerivedKey, Prime);
+    srp_user_secret_nif(ensure_int_as_bin(UserPrivate), Scrambler, HostPubBin,
+			Multiplier, Generator, DerivedKey, Prime);
 
 compute_key(srp, UserPublic, {HostPublic, HostPrivate},
 	    {host,[Verifier, Prime, Version | ScramblerArg]}) when
       is_binary(Verifier),
       is_binary(Prime),
-      is_binary(UserPublic),
-      is_binary(HostPublic),
-      is_binary(HostPrivate),
       is_atom(Version) ->
+    UserPubBin = ensure_int_as_bin(UserPublic),
     Scrambler = case ScramblerArg of
-		    [] -> srp_scrambler(Version, UserPublic, HostPublic, Prime);
+		    [] -> srp_scrambler(Version, UserPubBin, ensure_int_as_bin(HostPublic), Prime);
 		    [S] -> S
 		end,
-    srp_host_secret_nif(Verifier, HostPrivate, Scrambler, UserPublic, Prime);
+    srp_host_secret_nif(Verifier, ensure_int_as_bin(HostPrivate), Scrambler,
+			UserPubBin, Prime);
 
 compute_key(ecdh, Others, My, Curve) ->
-    ecdh_compute_key_nif(Others, term_to_ec_key({Curve,My,undefined})).
+    ecdh_compute_key_nif(ensure_int_as_bin(Others),
+			 term_to_ec_key(Curve,My,undefined)).
 
 ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
 
@@ -1468,14 +1489,6 @@ ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
 %%
 %% EC
 %%
-ec_key_to_term(Key) ->
-    case ec_key_to_term_nif(Key) of
-        {PrivKey, PubKey} ->
-            {bin_to_int(PrivKey), PubKey};
-        _ ->
-            erlang:error(conversion_failed)
-    end.
-
 ec_key_to_term_nif(_Key) -> ?nif_stub.
 
 term_to_nif_prime({prime_field, Prime}) ->
@@ -1490,11 +1503,10 @@ term_to_nif_curve_parameters(Curve) when is_atom(Curve) ->
     %% named curve
     Curve.
 
--spec term_to_ec_key(ec_key()) -> ec_key_res().
-term_to_ec_key({Curve, undefined, PubKey}) ->
-    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), undefined, PubKey);
-term_to_ec_key({Curve, PrivKey, PubKey}) ->
-    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve), int_to_bin(PrivKey), PubKey).
+term_to_ec_key(Curve, PrivKey, PubKey) ->
+    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve),
+		       ensure_int_as_bin(PrivKey),
+		       ensure_int_as_bin(PubKey)).
 
 term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 
@@ -1598,6 +1610,8 @@ int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
 int_to_bin_neg(X,Ds) ->
     int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
 
+bytes_to_integer(Bin) ->
+    bin_to_int(Bin).
 
 bin_to_int(Bin) when is_binary(Bin) ->
     Bits = bit_size(Bin),

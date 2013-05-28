@@ -66,7 +66,7 @@ MODULES= \
 
 INTERNAL_HRL_FILES = \
 	 ssl_alert.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_internal.hrl \
-	 ssl_record.hrl ssl_srp.hrl ssl_srp_primes.hrl
+	 ssl_record.hrl ssl_srp.hrl
 
 ERL_FILES= \
 	$(MODULES:%=%.erl) \

@@ -1024,30 +1024,32 @@ filter(DerCert, Ciphers) ->
 %% Description: filter suites for algorithms
 %%-------------------------------------------------------------------
 filter_suites(Suites = [{_,_,_}|_]) ->
-    Algos = crypto:algorithms(),
+    Algos = crypto:supports(),
     lists:filter(fun({KeyExchange, Cipher, Hash}) ->
-			 is_acceptable_keyexchange(KeyExchange, Algos) andalso
-			     is_acceptable_cipher(Cipher, Algos) andalso
-			     is_acceptable_hash(Hash, Algos)
+			 is_acceptable_keyexchange(KeyExchange,  proplists:get_value(public_keys, Algos)) andalso
+			     is_acceptable_cipher(Cipher,  proplists:get_value(ciphers, Algos)) andalso
+			     is_acceptable_hash(Hash,  proplists:get_value(hashs, Algos))
 		 end, Suites);
 
 filter_suites(Suites = [{_,_,_,_}|_]) ->
-    Algos = crypto:algorithms(),
+    Algos = crypto:supports(),
+    Hashs =  proplists:get_value(hashs, Algos),
     lists:filter(fun({KeyExchange, Cipher, Hash, Prf}) ->
-			 is_acceptable_keyexchange(KeyExchange, Algos) andalso
-			     is_acceptable_cipher(Cipher, Algos) andalso
-			     is_acceptable_hash(Hash, Algos) andalso
-			     is_acceptable_prf(Prf, Algos)
+			 is_acceptable_keyexchange(KeyExchange, proplists:get_value(public_keys, Algos)) andalso
+			     is_acceptable_cipher(Cipher, proplists:get_value(ciphers, Algos)) andalso
+			     is_acceptable_hash(Hash, Hashs) andalso
+			     is_acceptable_prf(Prf, Hashs)
 		 end, Suites);
 
 filter_suites(Suites) ->
-    Algos = crypto:algorithms(),
+    Algos = crypto:supports(),
+    Hashs =  proplists:get_value(hashs, Algos),
     lists:filter(fun(Suite) ->
 			 {KeyExchange, Cipher, Hash, Prf} = ssl_cipher:suite_definition(Suite),
-			 is_acceptable_keyexchange(KeyExchange, Algos) andalso
-			     is_acceptable_cipher(Cipher, Algos) andalso
-			     is_acceptable_hash(Hash, Algos) andalso
-			     is_acceptable_prf(Prf, Algos)
+			 is_acceptable_keyexchange(KeyExchange, proplists:get_value(public_keys, Algos)) andalso
+			     is_acceptable_cipher(Cipher,  proplists:get_value(ciphers, Algos)) andalso
+			     is_acceptable_hash(Hash, Hashs) andalso
+			     is_acceptable_prf(Prf, Hashs)
 		 end, Suites).
 
 is_acceptable_keyexchange(KeyExchange, Algos)
@@ -1056,7 +1058,7 @@ is_acceptable_keyexchange(KeyExchange, Algos)
        KeyExchange == ecdh_rsa;
        KeyExchange == ecdhe_rsa;
        KeyExchange == ecdh_anon ->
-    proplists:get_bool(ec, Algos);
+    proplists:get_bool(ecdh, Algos);
 is_acceptable_keyexchange(_, _) ->
     true.
 

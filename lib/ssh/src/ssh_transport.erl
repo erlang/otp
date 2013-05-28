@@ -792,14 +792,14 @@ encrypt(#ssh{encrypt = none} = Ssh, Data) ->
 encrypt(#ssh{encrypt = '3des-cbc',
 	     encrypt_keys = {K1,K2,K3},
 	     encrypt_ctx = IV0} = Ssh, Data) ->
-    Enc = crypto:des3_cbc_encrypt(K1,K2,K3,IV0,Data),
-    IV = crypto:des_cbc_ivec(Enc),
+    Enc = crypto:block_encrypt(des3_cbc, [K1,K2,K3], IV0, Data),
+    IV = crypto:next_iv(des3_cbc, Enc),
     {Ssh#ssh{encrypt_ctx = IV}, Enc};
 encrypt(#ssh{encrypt = 'aes128-cbc',
             encrypt_keys = K,
             encrypt_ctx = IV0} = Ssh, Data) ->
-    Enc = crypto:aes_cbc_128_encrypt(K,IV0,Data),
-    IV = crypto:aes_cbc_ivec(Enc),
+    Enc = crypto:block_encrypt(aes_cbc128, K,IV0,Data),
+    IV = crypto:next_iv(aes_cbc, Enc),
     {Ssh#ssh{encrypt_ctx = IV}, Enc}.
   
 
@@ -846,13 +846,13 @@ decrypt(#ssh{decrypt = none} = Ssh, Data) ->
 decrypt(#ssh{decrypt = '3des-cbc', decrypt_keys = Keys,
 	     decrypt_ctx = IV0} = Ssh, Data) ->
     {K1, K2, K3} = Keys,
-    Dec = crypto:des3_cbc_decrypt(K1,K2,K3,IV0,Data),
-    IV = crypto:des_cbc_ivec(Data),
+    Dec = crypto:block_decrypt(des3_cbc, [K1,K2,K3], IV0, Data),
+    IV = crypto:next_iv(des3_cbc, Data),
     {Ssh#ssh{decrypt_ctx = IV}, Dec};
 decrypt(#ssh{decrypt = 'aes128-cbc', decrypt_keys = Key,
 	     decrypt_ctx = IV0} = Ssh, Data) ->
-    Dec = crypto:aes_cbc_128_decrypt(Key,IV0,Data),
-    IV = crypto:aes_cbc_ivec(Data),
+    Dec = crypto:block_decrypt(aes_cbc128, Key,IV0,Data),
+    IV = crypto:next_iv(aes_cbc, Data),
     {Ssh#ssh{decrypt_ctx = IV}, Dec}.
 
 
@@ -954,22 +954,22 @@ recv_mac_final(SSH) ->
 mac(none, _ , _, _) ->  
     <<>>;
 mac('hmac-sha1', Key, SeqNum, Data) ->
-    crypto:sha_mac(Key, [<<?UINT32(SeqNum)>>, Data]);
+    crypto:hmac(sha, Key, [<<?UINT32(SeqNum)>>, Data]);
 mac('hmac-sha1-96', Key, SeqNum, Data) ->
-    crypto:sha_mac_96(Key, [<<?UINT32(SeqNum)>>, Data]);
+    crypto:hmac(sha, Key, [<<?UINT32(SeqNum)>>, Data], mac_digest_size('hmac-sha1-96'));
 mac('hmac-md5', Key, SeqNum, Data) ->
-    crypto:md5_mac(Key, [<<?UINT32(SeqNum)>>, Data]);
+    crypto:hmac(md5, Key, [<<?UINT32(SeqNum)>>, Data]);
 mac('hmac-md5-96', Key, SeqNum, Data) ->
-    crypto:md5_mac_96(Key, [<<?UINT32(SeqNum)>>, Data]).
+    crypto:hmac(md5, Key, [<<?UINT32(SeqNum)>>, Data], mac_digest_size('hmac-md5-96')).
 
 %% return N hash bytes (HASH)
 hash(SSH, Char, Bits) ->
     HASH =
 	case SSH#ssh.kex of
 	    'diffie-hellman-group1-sha1' ->
-		fun(Data) -> crypto:sha(Data) end;
+		fun(Data) -> crypto:hash(sha, Data) end;
 	    'diffie-hellman-group-exchange-sha1' ->
-		fun(Data) -> crypto:sha(Data) end;
+		fun(Data) -> crypto:hash(sha, Data) end;
 	    _ ->
 		exit({bad_algorithm,SSH#ssh.kex})
 	end,
@@ -998,7 +998,7 @@ kex_h(SSH, K_S, E, F, K) ->
 			 K_S, E,F,K],
 			[string,string,binary,binary,binary,
 			 mpint,mpint,mpint]),
-    crypto:sha(L).
+    crypto:hash(sha,L).
  
 
 kex_h(SSH, K_S, Min, NBits, Max, Prime, Gen, E, F, K) ->
@@ -1019,7 +1019,7 @@ kex_h(SSH, K_S, Min, NBits, Max, Prime, Gen, E, F, K) ->
 				 K_S, Min, NBits, Max,
 				 Prime, Gen, E,F,K], Ts)
 	end,
-    crypto:sha(L).
+    crypto:hash(sha,L).
   
 mac_key_size('hmac-sha1')    -> 20*8;
 mac_key_size('hmac-sha1-96') -> 20*8;
@@ -1045,10 +1045,9 @@ peer_name({Host, _}) ->
 dh_group1() ->
     {2, 16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFF}.
 
-dh_gen_key(G, P, _Bits) ->
-    Private = ssh_bits:irandom(ssh_bits:isize(P)-1, 1, 1),
-    Public = ssh_math:ipow(G, Private, P),
-    {Private,Public}.
+dh_gen_key(G, P, _) ->
+    {Public, Private} = crypto:generate_key(dh, [P, G]),
+    {crypto:bytes_to_integer(Private), crypto:bytes_to_integer(Public)}.
 
 trim_tail(Str) ->
     lists:reverse(trim_head(lists:reverse(Str))).
@@ -1058,3 +1057,5 @@ trim_head([$\t|Cs]) -> trim_head(Cs);
 trim_head([$\n|Cs]) -> trim_head(Cs);
 trim_head([$\r|Cs]) -> trim_head(Cs);
 trim_head(Cs) -> Cs.
+
+

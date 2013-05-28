@@ -712,4 +712,5 @@ mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)
 		      Length, Fragment).
 
 sufficient_tlsv1_2_crypto_support() ->
-    proplists:get_bool(sha256, crypto:algorithms()).
+    CryptoSupport = crypto:supports(),
+    proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)).

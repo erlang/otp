@@ -106,9 +106,9 @@ init_per_suite(Config0) ->
 					      ?config(priv_dir, Config0))),
 		    ct:log("Make certs  ~p~n", [Result]),
 		    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-		    Config = ssl_test_lib:cert_options(Config1),
-		    NewConfig = [{watchdog, Dog} | Config],
-		    ssl_test_lib:cipher_restriction(NewConfig)
+		    Config2 = ssl_test_lib:cert_options(Config1),
+		    Config = [{watchdog, Dog} | Config2],
+		    ssl_test_lib:cipher_restriction(Config)
 		catch _:_  ->
 		    {skip, "Crypto did not start"}
 	    end

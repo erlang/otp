@@ -302,10 +302,10 @@ clear_crypto_key_fun() ->
 -spec make_crypto_key(mode(), string()) ->
         {binary(), binary(), binary(), binary()}.
 
-make_crypto_key(des3_cbc, String) ->
+make_crypto_key(des3_cbc=Type, String) ->
     <<K1:8/binary,K2:8/binary>> = First = erlang:md5(String),
     <<K3:8/binary,IVec:8/binary>> = erlang:md5([First|reverse(String)]),
-    {K1,K2,K3,IVec}.
+    {Type,[K1,K2,K3],IVec,8}.
 
 %%
 %%  Local functions
@@ -864,20 +864,20 @@ mandatory_chunks() ->
 
 -define(CRYPTO_KEY_SERVER, beam_lib__crypto_key_server).
 
-decrypt_abst(Mode, Module, File, Id, AtomTable, Bin) ->
+decrypt_abst(Type, Module, File, Id, AtomTable, Bin) ->
     try
-	KeyString = get_crypto_key({debug_info, Mode, Module, File}),
-	Key = make_crypto_key(des3_cbc, KeyString),
-	Term = decrypt_abst_1(Mode, Key, Bin),
+	KeyString = get_crypto_key({debug_info, Type, Module, File}),
+	Key = make_crypto_key(Type, KeyString),
+	Term = decrypt_abst_1(Key, Bin),
 	{AtomTable, {Id, Term}}
     catch
 	_:_ ->
 	    error({key_missing_or_invalid, File, Id})
     end.
 
-decrypt_abst_1(des3_cbc, {K1, K2, K3, IVec}, Bin) ->
+decrypt_abst_1({Type,Key,IVec,_BlockSize}, Bin) ->
     ok = start_crypto(),
-    NewBin = crypto:des3_cbc_decrypt(K1, K2, K3, IVec, Bin),
+    NewBin = crypto:block_decrypt(Type, Key, IVec, Bin),
     binary_to_term(NewBin).
 
 start_crypto() ->
