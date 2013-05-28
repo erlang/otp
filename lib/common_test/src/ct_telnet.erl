@@ -183,7 +183,8 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 			end;
 		    Bool -> Bool
 		end,
-	    log(heading(open,{KeyOrName,ConnType}),"Opening connection to: ~p",[Addr1]),
+	    log(heading(open,{KeyOrName,ConnType}),
+		"Opening connection to: ~p",[Addr1]),
 	    ct_gen_conn:start(KeyOrName,full_addr(Addr1,ConnType),
 			      {TargetMod,KeepAlive,Extra},?MODULE)
     end.
@@ -591,9 +592,9 @@ terminate(TelnPid,State) ->
 get_handle(Pid) when is_pid(Pid) ->
     {ok,Pid};
 get_handle({Name,Type}) when Type==telnet;Type==ts1;Type==ts2 ->
-    case ct_util:get_connections(Name,?MODULE) of
-	{ok,Conns} when Conns /= [] ->
-	    case get_handle(Type,Conns) of
+    case ct_util:get_connection(Name,?MODULE) of
+	{ok,Conn} ->
+	    case get_handle(Type,Conn) of
 		{ok,Pid} -> 
 		    {ok,Pid};
 		_Error ->
@@ -608,19 +609,15 @@ get_handle({Name,Type}) when Type==telnet;Type==ts1;Type==ts2 ->
 			    Error
 		    end
 	    end;
-	{ok,[]} ->
-	    {error,already_closed};
 	Error ->
 	    Error
     end;
 get_handle(Name) ->
     get_handle({Name,telnet}).
 
-get_handle(Type,[{Pid,{_,_,Type}}|_]) ->
+get_handle(Type,{Pid,{_,_,Type}}) ->
     {ok,Pid};
-get_handle(Type,[_H|T]) ->
-    get_handle(Type,T);
-get_handle(Type,[]) ->
+get_handle(Type,_) ->
     {error,{no_such_connection,Type}}.
 
 full_addr({Ip,Port},Type) ->

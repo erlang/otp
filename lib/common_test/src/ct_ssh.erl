@@ -1328,10 +1328,10 @@ do_recv_response(SSH, Chn, Data, End, Timeout) ->
 get_handle(SSH) when is_pid(SSH) ->
     {ok,SSH};
 get_handle(SSH) ->
-    case ct_util:get_connections(SSH, ?MODULE) of
-	{ok,[{Pid,_}]} ->
+    case ct_util:get_connection(SSH, ?MODULE) of
+	{ok,{Pid,_}} ->
 	    {ok,Pid};
-	{ok,[]} ->
+	{error,no_registered_connection} ->
 	    connect(SSH);
 	Error ->
 	    Error

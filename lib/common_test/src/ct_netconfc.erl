@@ -1164,13 +1164,11 @@ call(Client, Msg, Timeout, WaitStop) ->
 get_handle(Client) when is_pid(Client) ->
     {ok,Client};
 get_handle(Client) ->
-    case ct_util:get_connections(Client, ?MODULE) of
-	{ok,[{Pid,_}]} ->
+    case ct_util:get_connection(Client, ?MODULE) of
+	{ok,{Pid,_}} ->
 	    {ok,Pid};
-	{ok,[]} ->
+	{error,no_registered_connection} ->
 	    {error,{no_connection_found,Client}};
-	{ok,Conns} ->
-	    {error,{multiple_connections_found,Client,Conns}};
 	Error ->
 	    Error
     end.
