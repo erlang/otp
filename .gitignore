@@ -287,13 +287,13 @@ JAVADOC-GENERATED
 
 # otp_mibs
 
-/lib/otp_mibs/include/[A-Z]*.hrl
+/lib/otp_mibs/include/OTP*.hrl
 /lib/otp_mibs/mibs/v1/OTP*.mib.v1
 /lib/otp_mibs/priv/mibs/OTP*.bin
 
 # os_mon
 
-/lib/os_mon/include/[A-Z]*.hrl
+/lib/os_mon/include/OTP*.hrl
 /lib/os_mon/mibs/v1/OTP*.mib.v1
 /lib/os_mon/priv/mibs/OTP*.bin
 
