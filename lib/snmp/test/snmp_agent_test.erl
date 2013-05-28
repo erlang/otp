@@ -94,19 +94,8 @@ all() ->
 
 groups() -> 
     [
-     {all_tcs, [], cases()},
-     {mib_storage, [],
-      [
-       {group, mib_storage_ets}, 
-       {group, mib_storage_dets},
-       {group, mib_storage_mnesia},
-       {group, mib_storage_size_check_ets},
-       {group, mib_storage_size_check_dets},
-       {group, mib_storage_size_check_mnesia},
-       {group, mib_storage_varm_dets},
-       {group, mib_storage_varm_mnesia}
-      ]
-     },
+     {all_tcs,                       [], cases()},
+     {mib_storage,                   [], mib_storage_cases()}, 
      {mib_storage_ets,               [], mib_storage_ets_cases()},
      {mib_storage_dets,              [], mib_storage_dets_cases()},
      {mib_storage_mnesia,            [], mib_storage_mnesia_cases()},
@@ -123,109 +112,18 @@ groups() ->
      {test_multi_threaded,           [], mt_cases()},
      {multiple_reqs,                 [], mul_cases()},
      {multiple_reqs_2,               [], mul_cases_2()},
-     {v2_inform, [], 
-      [
-       v2_inform_i
-      ]
-     },
-     {v3_security, [],
-      [
-       v3_crypto_basic, 
-       v3_md5_auth, 
-       v3_sha_auth,
-       v3_des_priv
-      ]
-     },
-     {standard_mibs, [],
-      [
-       snmp_standard_mib, 
-       snmp_community_mib,
-       snmp_framework_mib, 
-       snmp_target_mib,
-       snmp_notification_mib, 
-       snmp_view_based_acm_mib
-      ]
-     },
-     {standard_mibs_2, [],
-      [
-       snmpv2_mib_2, 
-       snmp_community_mib_2,
-       snmp_framework_mib_2, 
-       snmp_target_mib_2,
-       snmp_notification_mib_2, 
-       snmp_view_based_acm_mib_2
-      ]
-     },
-     {standard_mibs_3, [],
-      [
-       snmpv2_mib_3, 
-       snmp_framework_mib_3, 
-       snmp_mpd_mib_3,
-       snmp_target_mib_3, 
-       snmp_notification_mib_3,
-       snmp_view_based_acm_mib_3, 
-       snmp_user_based_sm_mib_3
-      ]
-     },
-     {reported_bugs, [],
-      [
-       otp_1128, 
-       otp_1129, 
-       otp_1131, 
-       otp_1162, 
-       otp_1222,
-       otp_1298, 
-       otp_1331, 
-       otp_1338, 
-       otp_1342, 
-       otp_2776,
-       otp_2979, 
-       otp_3187, 
-       otp_3725
-      ]
-     },
-     {reported_bugs_2, [],
-      [
-       otp_1128_2, 
-       otp_1129_2, 
-       otp_1131_2, 
-       otp_1162_2,
-       otp_1222_2, 
-       otp_1298_2, 
-       otp_1331_2, 
-       otp_1338_2,
-       otp_1342_2, 
-       otp_2776_2, 
-       otp_2979_2, 
-       otp_3187_2
-      ]
-     },
-     {reported_bugs_3, [],
-      [
-       otp_1128_3, 
-       otp_1129_3, 
-       otp_1131_3, 
-       otp_1162_3,
-       otp_1222_3, 
-       otp_1298_3, 
-       otp_1331_3, 
-       otp_1338_3,
-       otp_1342_3, 
-       otp_2776_3, 
-       otp_2979_3, 
-       otp_3187_3,
-       otp_3542
-      ]
-     },
-     {tickets1, [], 
-      [
-       {group, otp_4394}, 
-       {group, otp_7157}
-      ]
-     },
-     {tickets2, [], [otp8395, otp9884]},
-     {otp_4394, [], [otp_4394_test]},
-     {otp_7157, [], [otp_7157_test]}
+     {v2_inform,                     [], v2_inform_cases()}, 
+     {v3_security,                   [], v3_security_cases()}, 
+     {standard_mibs,                 [], standard_mibs_cases()}, 
+     {standard_mibs_2,               [], standard_mibs2_cases()}, 
+     {standard_mibs_3,               [], standard_mibs3_cases()}, 
+     {reported_bugs,                 [], reported_bugs_cases()}, 
+     {reported_bugs_2,               [], reported_bugs2_cases()}, 
+     {reported_bugs_3,               [], reported_bugs3_cases()}, 
+     {tickets1,                      [], tickets1_cases()}, 
+     {tickets2,                      [], tickets2_cases()}, 
+     {otp_4394,                      [], [otp_4394_test]},
+     {otp_7157,                      [], [otp_7157_test]}
     ].
 
 
@@ -456,14 +354,14 @@ end_per_testcase2(_Case, Config) ->
 
 cases() -> 
     [
-	{group, misc}, 
-	{group, test_v1}, 
-	{group, test_v2},
-	{group, test_v1_v2}, 
-	{group, test_v3},
-	{group, test_multi_threaded}, 
-	{group, mib_storage},
-	{group, tickets1}
+     {group, misc}, 
+     {group, test_v1}, 
+     {group, test_v2},
+     {group, test_v1_v2}, 
+     {group, test_v3},
+     {group, test_multi_threaded}, 
+     {group, mib_storage},
+     {group, tickets1}
     ].
 
 
@@ -549,7 +447,7 @@ delete_tables() ->
     mnesia:delete_table(kompissTable2),
     mnesia:delete_table(snmp_variables).
 
-%% Creation is done in runtime!
+%% Tables are created in runtime!
 delete_mib_storage_mnesia_tables() ->
     mnesia:delete_table(snmpa_mib_data),
     mnesia:delete_table(snmpa_mib_tree),
@@ -572,40 +470,89 @@ delete_mib_storage_mnesia_tables() ->
 %% versions as well, <base>_N.
 %%-----------------------------------------------------------------
 
-
-
-
-
-
-
-
-
+mib_storage_cases() ->
+    [
+     {group, mib_storage_ets}, 
+     {group, mib_storage_dets},
+     {group, mib_storage_mnesia},
+     {group, mib_storage_size_check_ets},
+     {group, mib_storage_size_check_dets},
+     {group, mib_storage_size_check_mnesia},
+     {group, mib_storage_varm_dets},
+     {group, mib_storage_varm_mnesia}
+    ].
+    
 mib_storage_ets_cases() -> 
-[mse_simple, mse_v1_processing, mse_big, mse_big2,
- mse_loop_mib, mse_api, mse_sa_register, mse_v1_trap,
- mse_sa_error, mse_next_across_sa, mse_undo,
- mse_standard_mib, mse_community_mib, mse_framework_mib,
- mse_target_mib, mse_notification_mib,
- mse_view_based_acm_mib, mse_sparse_table, mse_me_of,
- mse_mib_of].
+    [
+     mse_simple, 
+     mse_v1_processing, 
+     mse_big, 
+     mse_big2,
+     mse_loop_mib, 
+     mse_api, 
+     mse_sa_register, 
+     mse_v1_trap,
+     mse_sa_error, 
+     mse_next_across_sa, 
+     mse_undo,
+     mse_standard_mib, 
+     mse_community_mib, 
+     mse_framework_mib,
+     mse_target_mib, 
+     mse_notification_mib,
+     mse_view_based_acm_mib, 
+     mse_sparse_table, 
+     mse_me_of,
+     mse_mib_of
+    ].
 
 mib_storage_dets_cases() -> 
-[msd_simple, msd_v1_processing, msd_big, msd_big2,
- msd_loop_mib, msd_api, msd_sa_register, msd_v1_trap,
- msd_sa_error, msd_next_across_sa, msd_undo,
- msd_standard_mib, msd_community_mib, msd_framework_mib,
- msd_target_mib, msd_notification_mib,
- msd_view_based_acm_mib, msd_sparse_table, msd_me_of,
- msd_mib_of].
+    [
+     msd_simple, 
+     msd_v1_processing, 
+     msd_big, 
+     msd_big2,
+     msd_loop_mib, 
+     msd_api, 
+     msd_sa_register, 
+     msd_v1_trap,
+     msd_sa_error, 
+     msd_next_across_sa, 
+     msd_undo,
+     msd_standard_mib, 
+     msd_community_mib, 
+     msd_framework_mib,
+     msd_target_mib, 
+     msd_notification_mib,
+     msd_view_based_acm_mib, 
+     msd_sparse_table, 
+     msd_me_of,
+     msd_mib_of
+    ].
 
 mib_storage_mnesia_cases() -> 
-[msm_simple, msm_v1_processing, msm_big, msm_big2,
- msm_loop_mib, msm_api, msm_sa_register, msm_v1_trap,
- msm_sa_error, msm_next_across_sa, msm_undo,
- msm_standard_mib, msm_community_mib, msm_framework_mib,
- msm_target_mib, msm_notification_mib,
- msm_view_based_acm_mib, msm_sparse_table, msm_me_of,
- msm_mib_of].
+    [
+     msm_simple, 
+     msm_v1_processing, 
+     msm_big, 
+     msm_big2,
+     msm_loop_mib, 
+     msm_api, 
+     msm_sa_register, 
+     msm_v1_trap,
+     msm_sa_error, 
+     msm_next_across_sa, 
+     msm_undo,
+     msm_standard_mib, 
+     msm_community_mib, 
+     msm_framework_mib,
+     msm_target_mib, 
+     msm_notification_mib,
+     msm_view_based_acm_mib, 
+     msm_sparse_table, 
+     msm_me_of,
+     msm_mib_of
+    ].
 
 mse_size_check_cases() -> 
     [mse_size_check].
@@ -624,18 +571,21 @@ varm_mib_storage_mnesia_cases() ->
 
 init_mib_storage_ets(Config) when is_list(Config) ->
     ?LOG("init_mib_storage_ets -> entry", []),
-    MibStorage = {snmp_mib_storage,ets},
+    MibStorage = {mib_storage, [{module, snmpa_mib_storage_ets}]},
     init_ms(Config, [MibStorage]).
 
 init_mib_storage_dets(Config) when is_list(Config) ->
     ?LOG("init_mib_storage_dets -> entry", []),
     ?line AgentDbDir = ?GCONF(agent_db_dir, Config),
-    MibStorage = {snmp_mib_storage, {dets, AgentDbDir}},
+    MibStorage = {mib_storage, [{module,  snmpa_mib_storage_dets}, 
+				{options, [{dir, AgentDbDir}]}]},
     init_ms(Config, [MibStorage]).
 
 init_mib_storage_mnesia(Config) when is_list(Config) ->
     ?LOG("init_mib_storage_mnesia -> entry", []),
-    MibStorage = {snmp_mib_storage, {mnesia,[]}},
+    ?line AgentNode = ?GCONF(snmp_master, Config),
+    MibStorage = {mib_storage, [{module, snmpa_mib_storage_mnesia}, 
+				{options, [{nodes, [AgentNode]}]}]},
     init_ms(Config, [MibStorage]).
 
 init_ms(Config, Opts) when is_list(Config) ->
@@ -649,23 +599,26 @@ init_ms(Config, Opts) when is_list(Config) ->
     ?line Ip           = ?GCONF(ip, Config),
     ?line config([v1], MgrDir, AgentConfDir, 
 		 tuple_to_list(Ip), tuple_to_list(Ip)),
-    MasterAgentVerbosity = {snmp_master_agent_verbosity,   trace},
-    MibsVerbosity        = {snmp_mibserver_verbosity,      trace},
-    SymStoreVerbosity    = {snmp_symbolic_store_verbosity, trace},
+    MasterAgentVerbosity = {agent_verbosity, trace},
+    MibsVerbosity        = {mib_server,      [{verbosity, trace}]},
+    SymStoreVerbosity    = {symbolic_store,  [{verbosity, trace}]},
     Opts1 = [MasterAgentVerbosity, MibsVerbosity, SymStoreVerbosity | Opts],
     [{vsn, v1} | start_v1_agent(Config, Opts1)].
 
 init_size_check_mse(Config) when is_list(Config) ->
-    MibStorage = {snmp_mib_storage, ets},
+    MibStorage = {mib_storage, [{module, snmpa_mib_storage_ets}]},
     init_size_check_ms(Config, [MibStorage]).
 
 init_size_check_msd(Config) when is_list(Config) ->
     AgentDbDir = ?GCONF(agent_db_dir, Config),
-    MibStorage = {snmp_mib_storage, {dets, AgentDbDir}},
+    MibStorage = {mib_storage, [{module,  snmpa_mib_storage_dets}, 
+				{options, [{dir, AgentDbDir}]}]},
     init_size_check_ms(Config, [MibStorage]).
 
 init_size_check_msm(Config) when is_list(Config) ->
-    MibStorage = {snmp_mib_storage, {mnesia,[]}},
+    ?line AgentNode = ?GCONF(snmp_master, Config),
+    MibStorage = {mib_storage, [{module, snmpa_mib_storage_mnesia}, 
+				{options, [{nodes, [AgentNode]}]}]},
     init_size_check_ms(Config, [MibStorage]).
 
 init_size_check_ms(Config, Opts) when is_list(Config) ->
@@ -700,12 +653,16 @@ init_varm_mib_storage_dets(Config) when is_list(Config) ->
     ?line Ip           = ?GCONF(ip, Config),
     ?line config([v1], MgrDir, AgentConfDir, 
 		 tuple_to_list(Ip), tuple_to_list(Ip)),
-    MibStorage           = {snmp_mib_storage, {dets, AgentDbDir}},
-    MasterAgentVerbosity = {snmp_master_agent_verbosity,   trace},
-    MibsVerbosity        = {snmp_mibserver_verbosity,      trace},
-    SymStoreVerbosity    = {snmp_symbolic_store_verbosity, trace},
-    Opts = [MibStorage,MasterAgentVerbosity,MibsVerbosity,SymStoreVerbosity],
-    [{vsn, v1}, {agent_opts,Opts} | Config].
+    MibStorage = {mib_storage, [{module,  snmpa_mib_storage_dets}, 
+				{options, [{dir, AgentDbDir}]}]},
+    MasterAgentVerbosity = {agent_verbosity, trace},
+    MibsVerbosity        = {mib_server,      [{verbosity, trace}]},
+    SymStoreVerbosity    = {symbolic_store,  [{verbosity, trace}]},
+    Opts = [MibStorage, 
+	    MasterAgentVerbosity, 
+	    MibsVerbosity, 
+	    SymStoreVerbosity],
+    [{vsn, v1}, {agent_opts, Opts} | Config].
 
 init_varm_mib_storage_mnesia(Config) when is_list(Config) ->
     ?LOG("init_varm_mib_storage_mnesia -> entry", []),
@@ -716,12 +673,17 @@ init_varm_mib_storage_mnesia(Config) when is_list(Config) ->
     ?line Ip           = ?GCONF(ip, Config),
     ?line config([v1], MgrDir, AgentConfDir, 
 		 tuple_to_list(Ip), tuple_to_list(Ip)),
-    MibStorage           = {snmp_mib_storage,{mnesia,[]}},
-    MasterAgentVerbosity = {snmp_master_agent_verbosity,   trace},
-    MibsVerbosity        = {snmp_mibserver_verbosity,      trace},
-    SymStoreVerbosity    = {snmp_symbolic_store_verbosity, trace},
-    Opts = [MibStorage,MasterAgentVerbosity,MibsVerbosity,SymStoreVerbosity],
-    [{vsn, v1}, {agent_opts,Opts} | Config].
+    ?line AgentNode = ?GCONF(snmp_master, Config),
+    MibStorage = {mib_storage, [{module, snmpa_mib_storage_mnesia}, 
+				{options, [{nodes, [AgentNode]}]}]},
+    MasterAgentVerbosity = {agent_verbosity, trace},
+    MibsVerbosity        = {mib_server,      [{verbosity, trace}]},
+    SymStoreVerbosity    = {symbolic_store,  [{verbosity, trace}]},
+    Opts = [MibStorage,
+	    MasterAgentVerbosity,
+	    MibsVerbosity,
+	    SymStoreVerbosity],
+    [{vsn, v1}, {agent_opts, Opts} | Config].
 
 finish_mib_storage_ets(Config) when is_list(Config) ->
     ?LOG("finish_mib_storage_ets -> entry", []),
@@ -1117,7 +1079,10 @@ finish_misc(Config) ->
     finish_v1(Config).
 
 misc_cases() -> 
-[app_info, info_test].
+    [
+     app_info, 
+     info_test
+    ].
 
 app_info(suite) -> [];
 app_info(Config) when is_list(Config) ->
@@ -1816,23 +1781,38 @@ mnesia_2(X) -> ?P(mnesia_2), mnesia(X).
 mnesia_3(X) -> ?P(mnesia_3), mnesia(X).
 
 
-
 mul_cases() -> 
-[mul_get, mul_get_err, mul_next, mul_next_err,
- mul_set_err].
-    
+    [
+     mul_get, 
+     mul_get_err, 
+     mul_next, 
+     mul_next_err,
+     mul_set_err
+    ].
+
 
 multiple_reqs_3(_X) -> 
     {req, [], {conf, init_mul, mul_cases_3(), finish_mul}}.
 
 
 mul_cases_2() -> 
-[mul_get_2, mul_get_err_2, mul_next_2, mul_next_err_2,
- mul_set_err_2].
-    
+    [
+     mul_get_2, 
+     mul_get_err_2, 
+     mul_next_2, 
+     mul_next_err_2,
+     mul_set_err_2
+    ].
+
 
 mul_cases_3() ->
-    [mul_get_3, mul_get_err_3, mul_next_3, mul_next_err_3, mul_set_err_3].
+    [
+     mul_get_3, 
+     mul_get_err_3, 
+     mul_next_3, 
+     mul_next_err_3, 
+     mul_set_err_3
+    ].
     
 
 init_mul(Config) when is_list(Config) ->
@@ -2055,7 +2035,6 @@ v3_trap(Config) when is_list(Config) ->
 
 
 v3_inform(_X) ->
-    %% v2_inform(X).
     {req, [], {conf, init_v3_inform, [v3_inform_i], finish_v3_inform}}. 
 
 init_v2_inform(Config) when is_list(Config) ->
@@ -2075,6 +2054,10 @@ finish_v3_inform(X) ->
     finish_v2_inform(X).
 
 
+v2_inform_cases() ->
+    [
+     v2_inform_i
+    ].
 
 v2_inform_i(suite) -> [];
 v2_inform_i(Config) when is_list(Config) ->
@@ -2312,6 +2295,15 @@ v3_processing(Config) when is_list(Config) ->
 %% accomplished by the first inform sent.  That one will generate a
 %% report, which makes it in sync.  The notification-generating
 %% application times out, and send again.  This time it'll work.
+
+v3_security_cases() ->
+    [
+     v3_crypto_basic, 
+     v3_md5_auth, 
+     v3_sha_auth,
+     v3_des_priv
+    ].
+
 
 v3_crypto_basic(suite) -> [];
 v3_crypto_basic(_Config) ->
@@ -4193,7 +4185,16 @@ bad_return() ->
 %%% already tested by the normal tests.
 %%%-----------------------------------------------------------------
 
-
+standard_mibs_cases() ->
+    [
+     snmp_standard_mib, 
+     snmp_community_mib,
+     snmp_framework_mib, 
+     snmp_target_mib,
+     snmp_notification_mib, 
+     snmp_view_based_acm_mib
+    ].
+    
 
 %%-----------------------------------------------------------------
 %% For this test, the agent is configured for v1.
@@ -4277,6 +4278,18 @@ std_mib_write() ->
 std_mib_asn_err() ->
     snmp_test_mgr:send_bytes([48,99,67,12,0,0,0,0,0,0,5]).
 
+
+standard_mibs2_cases() ->
+    [
+     snmpv2_mib_2, 
+     snmp_community_mib_2,
+     snmp_framework_mib_2, 
+     snmp_target_mib_2,
+     snmp_notification_mib_2, 
+     snmp_view_based_acm_mib_2
+    ].
+    
+
 %%-----------------------------------------------------------------
 %% For this test, the agent is configured for v2 and v3.
 %% o  Test the counters and control objects in SNMPv2-MIB
@@ -4324,6 +4337,19 @@ snmpv2_mib_2(Config) when is_list(Config) ->
     try_test(snmpv2_mib_test_finish, [], [{community, "bad community"}]),
     
     ?LOG("snmpv2_mib_2 -> done",[]).
+    
+
+standard_mibs3_cases() ->
+    [
+     snmpv2_mib_3, 
+     snmp_framework_mib_3, 
+     snmp_mpd_mib_3,
+     snmp_target_mib_3, 
+     snmp_notification_mib_3,
+     snmp_view_based_acm_mib_3, 
+     snmp_user_based_sm_mib_3
+    ].
+
     
 %% Req. SNMPv2-MIB
 snmpv2_mib_3(suite) -> [];
@@ -5237,7 +5263,57 @@ loop_it_2(Oid, N) ->
 %%% Testing of reported bugs and other tickets.
 %%%-----------------------------------------------------------------
 
+reported_bugs_cases() ->
+    [
+     otp_1128, 
+     otp_1129, 
+     otp_1131, 
+     otp_1162, 
+     otp_1222,
+     otp_1298, 
+     otp_1331, 
+     otp_1338, 
+     otp_1342, 
+     otp_2776,
+     otp_2979, 
+     otp_3187, 
+     otp_3725
+    ].
 
+reported_bugs2_cases() ->
+    [
+     otp_1128_2, 
+     otp_1129_2, 
+     otp_1131_2, 
+     otp_1162_2,
+     otp_1222_2, 
+     otp_1298_2, 
+     otp_1331_2, 
+     otp_1338_2,
+     otp_1342_2, 
+     otp_2776_2, 
+     otp_2979_2, 
+     otp_3187_2
+    ].
+
+reported_bugs3_cases() ->
+    [
+     otp_1128_3, 
+     otp_1129_3, 
+     otp_1131_3, 
+     otp_1162_3,
+     otp_1222_3, 
+     otp_1298_3, 
+     otp_1331_3, 
+     otp_1338_3,
+     otp_1342_3, 
+     otp_2776_3, 
+     otp_2979_3, 
+     otp_3187_3,
+     otp_3542
+    ].
+   
+    
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1128
 %% Slogan: Bug in handling of createAndWait set-requests.
@@ -5714,7 +5790,12 @@ otp_3725_test(MaNode) ->
 %% Slogan: Target mib tag list check invalid
 %%-----------------------------------------------------------------
 
-
+tickets1_cases() ->
+    [
+     {group, otp_4394}, 
+     {group, otp_7157}
+    ].
+    
 
 init_otp_4394(Config) when is_list(Config) ->
     ?DBG("init_otp_4394 -> entry with"
@@ -5875,6 +5956,13 @@ otp_7157_test1(MA) ->
 %% Extra test cases
 %% These cases are started in the new way
 %%-----------------------------------------------------------------
+
+tickets2_cases() ->
+    [
+     otp8395, 
+     otp9884
+    ].
+
 
 otp8395({init, Config}) when is_list(Config) ->
     ?DBG("otp8395(init) -> entry with"

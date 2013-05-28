@@ -21,6 +21,7 @@ BEHAVIOUR_MODULES = \
 	snmpa_authentication_service \
 	snmpa_discovery_handler \
 	snmpa_error_report \
+	snmpa_mib_storage \
 	snmpa_mib_data \
 	snmpa_network_interface \
 	snmpa_network_interface_filter \
@@ -43,8 +44,10 @@ MODULES = \
 	snmpa_error \
 	snmpa_error_io \
 	snmpa_error_logger \
-	snmpa_general_db \
 	snmpa_local_db \
+	snmpa_mib_storage_ets \
+	snmpa_mib_storage_dets \
+	snmpa_mib_storage_mnesia \
 	snmpa_mib \
 	snmpa_mib_data_tttn \
 	snmpa_mib_lib \

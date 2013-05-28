@@ -18,6 +18,7 @@
 %%
 -module(snmpa_mib_data_tttn).
 
+
 %%%-----------------------------------------------------------------
 %%% 
 %%%            TTTN - TupleTreeTupleNodes
@@ -33,7 +34,9 @@
 %%%
 %%% When a mib is loaded, the tree is built from the plain list
 %%% in the binary file.
+%%% 
 %%%-----------------------------------------------------------------
+
 -include("snmp_types.hrl").
 -include("snmp_debug.hrl").
 
@@ -73,11 +76,15 @@
 %% subagents is a list of {SAPid, Oid}
 %%----------------------------------------------------------------------
 
--record(mib_data, {mib_db,  % table of #mib_info
-		   node_db, % table of #node_info
-		   tree_db, % table of #tree
-		   tree,    % The actual tree
-		   subagents = []}).
+-record(mib_data, 
+	{
+	  module,  % Mib storage module
+	  mib_db,  % table of #mib_info
+	  node_db, % table of #node_info
+	  tree_db, % table of #tree
+	  tree,    % The actual tree
+	  subagents = []
+	 }).
 
 -record(mib_info,  {name, symbolic, file_name}).
 -record(node_info, {oid, mib_name, me}).
@@ -121,7 +128,7 @@
 
 %% This record is what is stored in the database. The 'tree' part
 %% is described above...
--record(tree,{generation = ?DUMMY_TREE_GENERATION, root = ?DEFAULT_TREE}).
+-record(tree, {generation = ?DUMMY_TREE_GENERATION, root = ?DEFAULT_TREE}).
 
 
 %%%======================================================================
@@ -134,32 +141,54 @@
 %%-----------------------------------------------------------------
 
 %% Where -> A list of nodes where the tables will be created
-new(Storage) ->
+new(MibStorage) ->
+    Mod  = snmp_misc:get_option(module,  MibStorage), 
+    Opts = snmp_misc:get_option(options, MibStorage, []), 
+
     %% First we must check if there is already something to read
     %% If a database already exists, then the tree structure has to be read
     ?vtrace("open (mib) database",[]),
-    MibDb = snmpa_general_db:open(Storage, ?MIB_DATA,
-				  mib_info,
-				  record_info(fields,mib_info), set),
+    MibDb = 
+	case Mod:open(?MIB_DATA, mib_info, record_info(fields, mib_info), 
+		      set, Opts) of
+	    {ok, T1} ->
+		T1;
+	    {error, Reason1} ->
+		throw({error, {open, mib_data, Reason1}})
+	end,
+
     ?vtrace("open (mib) node database",[]),
-    NodeDb = snmpa_general_db:open(Storage, ?MIB_NODE,
-				   node_info,
-				   record_info(fields,node_info), set),
+    NodeDb = 
+	case Mod:open(?MIB_NODE, node_info, record_info(fields, node_info), 
+		      set, Opts) of
+	    {ok, T2} ->
+		T2;
+	    {error, Reason2} ->
+		throw({error, {open, mib_node, Reason2}})
+	end,
+
     ?vtrace("open (mib) tree database",[]),
-    TreeDb = snmpa_general_db:open(Storage, ?MIB_TREE,
-				   tree,
-				   record_info(fields,tree), set),
+    TreeDb = 
+	case Mod:open(?MIB_TREE, tree, record_info(fields, tree), 
+		      set, Opts) of
+	    {ok, T3} ->
+		T3;
+	    {error, Reason3} ->
+		throw({error, {open, mib_tree, Reason3}})
+	end,
+
     Tree = 
-	case snmpa_general_db:read(TreeDb, ?DUMMY_TREE_GENERATION) of
+	case Mod:read(TreeDb, ?DUMMY_TREE_GENERATION) of
 	    false ->
 		T = #tree{},
-		snmpa_general_db:write(TreeDb, T),
+		Mod:write(TreeDb, T),
 		T;
 	    {value, T} ->
 		T
 	end,
-    install_mibs(MibDb, NodeDb),
-    #mib_data{mib_db  = MibDb, 
+    install_mibs(Mod, MibDb, NodeDb),
+    #mib_data{module  = Mod, 
+	      mib_db  = MibDb, 
 	      node_db = NodeDb,
 	      tree_db = TreeDb, 
 	      tree    = Tree}.
@@ -168,7 +197,7 @@ new(Storage) ->
 %%----------------------------------------------------------------------
 %% Returns: new mib data | {error, Reason}
 %%----------------------------------------------------------------------
-load_mib(MibData,FileName,MeOverride,TeOverride) 
+load_mib(MibData, FileName, MeOverride, TeOverride) 
   when is_record(MibData,mib_data) andalso is_list(FileName) -> 
     ?vlog("load mib file: ~p",[FileName]),
     ActualFileName = filename:rootname(FileName, ".bin") ++ ".bin",
@@ -180,13 +209,14 @@ do_load_mib(MibData, ActualFileName, MibName, MeOverride, TeOverride) ->
     ?vtrace("do_load_mib -> entry with"
         "~n  ActualFileName: ~s"
         "~n  MibName:        ~p",[ActualFileName, MibName]),
-    #mib_data{mib_db  = MibDb, 
+    #mib_data{module  = Mod, 
+	      mib_db  = MibDb, 
 	      node_db = NodeDb, 
 	      %% tree_db = TreeDb,
 	      tree    = Tree} = MibData,
-    verify_not_loaded(MibDb, MibName),
+    verify_not_loaded(Mod, MibDb, MibName),
     ?vtrace("do_load_mib -> already loaded mibs:"
-	"~n   ~p",[loaded(MibDb)]),
+	    "~n   ~p", [loaded(Mod, MibDb)]),
     Mib = do_read_mib(ActualFileName),
     ?vtrace("do_load_mib -> read mib ~s",[Mib#mib.name]),
     NonInternalMes = 
@@ -208,12 +238,12 @@ do_load_mib(MibData, ActualFileName, MibName, MeOverride, TeOverride) ->
 	    case (catch check_notif_and_mes(TeOverride, MeOverride, Symbolic, 
 					    Mib#mib.traps, NonInternalMes)) of
 		true ->
-		    install_mes(NodeDb, MibName, NonInternalMes),
-		    install_mib(MibDb, Symbolic, Mib, 
+		    install_mes(Mod, NodeDb, MibName, NonInternalMes),
+		    install_mib(Mod, 
+				MibDb, Symbolic, Mib, 
 				MibName, ActualFileName, NonInternalMes),
 		    ?vtrace("installed mib ~s", [Mib#mib.name]),
 		    Tree2 = Tree#tree{root = NewRoot},
-		    %% snmpa_general_db:write(TreeDb, Tree2), %% Store later?
 		    {ok, MibData#mib_data{tree = Tree2}};
 		Else -> 
 		    Else
@@ -221,10 +251,10 @@ do_load_mib(MibData, ActualFileName, MibName, MeOverride, TeOverride) ->
     end.
 
 
-verify_not_loaded(Db, Name) ->
-    case snmpa_general_db:read(Db, Name) of
+verify_not_loaded(Mod, Tab, Name) ->
+    case Mod:read(Tab, Name) of
         {value, #mib_info{name = Name}} -> 
-            throw({error, 'already loaded'});
+            throw({error, already_loaded});
         false ->
             ok
     end.
@@ -233,26 +263,28 @@ do_read_mib(ActualFileName) ->
     case snmp_misc:read_mib(ActualFileName) of
         {error, Reason} -> 
             ?vlog("Failed reading mib file ~p with reason: ~p",
-                [ActualFileName,Reason]),
+		  [ActualFileName, Reason]),
             throw({error, Reason});
         {ok, Mib} ->
             Mib
     end.
 
 %% The Tree DB is handled in a special way since it can be very large.
-sync(#mib_data{mib_db  = M, 
+sync(#mib_data{module  = Mod, 
+	       mib_db  = M, 
 	       node_db = N, 
 	       tree_db = T, tree = Tree, subagents = []}) ->
-    snmpa_general_db:sync(M),
-    snmpa_general_db:sync(N),
-    snmpa_general_db:write(T, Tree),
-    snmpa_general_db:sync(T);
-sync(#mib_data{mib_db  = M, 
+    Mod:sync(M),
+    Mod:sync(N),
+    Mod:write(T, Tree),
+    Mod:sync(T);
+sync(#mib_data{module  = Mod, 
+	       mib_db  = M, 
 	       node_db = N, 
 	       tree_db = T, tree = Tree, subagents = SAs}) ->
 
-    snmpa_general_db:sync(M),
-    snmpa_general_db:sync(N),
+    Mod:sync(M),
+    Mod:sync(N),
 
     %% Ouch. Since the subagent info is dynamic we do not 
     %% want to store the tree containing subagent info. So, we 
@@ -260,8 +292,8 @@ sync(#mib_data{mib_db  = M,
 
     case delete_subagents(Tree, SAs) of
 	{ok, TreeWithoutSAs} ->
-	    snmpa_general_db:write(T, TreeWithoutSAs),
-	    snmpa_general_db:sync(T);
+	    Mod:write(T, TreeWithoutSAs),
+	    Mod:sync(T);
 	Error ->
 	    Error
     end.
@@ -350,30 +382,34 @@ unload_mib(MibData, FileName, _, _) when is_list(FileName) ->
 do_unload_mib(MibData, MibName) ->
     ?vtrace("do_unload_mib -> entry with"
 	"~n   MibName: ~p", [MibName]),
-    #mib_data{mib_db  = MibDb, 
+    #mib_data{module  = Mod, 
+	      mib_db  = MibDb, 
 	      node_db = NodeDb, 
 	      %% tree_db = TreeDb, 
 	      tree    = Tree} = MibData,
-    #mib_info{symbolic = Symbolic} = verify_loaded(MibDb, MibName),
+    #mib_info{symbolic = Symbolic} = verify_loaded(Mod, MibDb, MibName),
     NewRoot = delete_mib_from_tree(MibName, Tree#tree.root),
-    MEs = uninstall_mes(NodeDb, MibName),
-    uninstall_mib(MibDb, Symbolic, MibName, MEs),
+    MEs = uninstall_mes(Mod, NodeDb, MibName),
+    uninstall_mib(Mod, MibDb, Symbolic, MibName, MEs),
     NewMibData = MibData#mib_data{tree = Tree#tree{root = NewRoot}},
     {ok, NewMibData}.
 
-verify_loaded(Db, Name) ->
-    case snmpa_general_db:read(Db, Name) of
+verify_loaded(Mod, Tab, Name) ->
+    case Mod:read(Tab, Name) of
         {value, MibInfo} ->
             MibInfo;
         false ->
-            throw({error, 'not loaded'})
+            throw({error, not_loaded})
     end.
     
     
-close(#mib_data{mib_db = MibDb, node_db = NodeDb, tree_db = TreeDb}) ->
-    snmpa_general_db:close(MibDb),
-    snmpa_general_db:close(NodeDb),
-    snmpa_general_db:close(TreeDb),
+close(#mib_data{module  = Mod, 
+		mib_db  = MibDb, 
+		node_db = NodeDb, 
+		tree_db = TreeDb}) ->
+    Mod:close(MibDb),
+    Mod:close(NodeDb),
+    Mod:close(TreeDb),
     ok.
 
 register_subagent(#mib_data{tree = T} = MibData, Oid, Pid) ->
@@ -392,8 +428,8 @@ register_subagent(#mib_data{tree = T} = MibData, Oid, Pid) ->
 %% Returns: [{Name, File}]
 %%----------------------------------------------------------------------
 
-which_mibs(#mib_data{mib_db = Db}) ->
-    Mibs = snmpa_general_db:tab2list(Db),
+which_mibs(#mib_data{module = Mod, mib_db = Db}) ->
+    Mibs = Mod:tab2list(Db),
     [{Name, File} || #mib_info{name = Name, file_name = File} <- Mibs].
 
 
@@ -402,8 +438,8 @@ which_mibs(#mib_data{mib_db = Db}) ->
 %% Returns: [{Name, File}]
 %%----------------------------------------------------------------------
 
-whereis_mib(#mib_data{mib_db = Db}, Name) ->
-    case snmpa_general_db:read(Db, Name) of
+whereis_mib(#mib_data{module = Mod, mib_db = Db}, Name) ->
+    case Mod:read(Db, Name) of
         {value, #mib_info{file_name = File}} ->
 	    {ok, File};
 	false ->
@@ -451,32 +487,39 @@ unregister_subagent(#mib_data{tree = T} = MibData, Oid) when is_list(Oid) ->
 %%----------------------------------------------------------------------
 info(MibData) ->
     ?vtrace("retrieve info",[]),
-    #mib_data{mib_db = MibDb, node_db = NodeDb, tree_db = TreeDb, 
-	      tree = Tree, subagents = SAs} = MibData,
-    LoadedMibs = old_format(snmpa_general_db:tab2list(MibDb)),
+    #mib_data{module    = Mod, 
+	      mib_db    = MibDb, 
+	      node_db   = NodeDb, 
+	      tree_db   = TreeDb, 
+	      tree      = Tree, 
+	      subagents = SAs} = MibData,
+    LoadedMibs = old_format(Mod:tab2list(MibDb)),
     TreeSize = snmp_misc:mem_size(Tree),
-    {memory, ProcSize} = erlang:process_info(self(),memory),
-    MibDbSize  = snmpa_general_db:info(MibDb,  memory),
-    NodeDbSize = snmpa_general_db:info(NodeDb, memory),
-    TreeDbSize = snmpa_general_db:info(TreeDb, memory),
+    {memory, ProcSize} = erlang:process_info(self(), memory),
+    MibDbSize  = Mod:info(MibDb,  memory),
+    NodeDbSize = Mod:info(NodeDb, memory),
+    TreeDbSize = Mod:info(TreeDb, memory),
     [{loaded_mibs, LoadedMibs}, {subagents, SAs}, {tree_size_bytes, TreeSize},
      {process_memory, ProcSize}, 
      {db_memory, [{mib,MibDbSize},{node,NodeDbSize},{tree,TreeDbSize}]}].
 
-info(#mib_data{mib_db = MibDb}, loaded_mibs) ->
-    Mibs = snmpa_general_db:tab2list(MibDb),
+info(#mib_data{module = Mod, mib_db = MibDb}, loaded_mibs) ->
+    Mibs = Mod:tab2list(MibDb),
     [filename:rootname(FN, ".bin") || #mib_info{file_name = FN} <- Mibs];
 info(#mib_data{tree = Tree}, tree_size_bytes) ->
     snmp_misc:mem_size(Tree);
 info(_, process_memory) ->
     {memory, ProcSize} = erlang:process_info(self(),memory),
     ProcSize;
-info(#mib_data{mib_db = MibDb, node_db = NodeDb, tree_db = TreeDb}, 
+info(#mib_data{module  = Mod, 
+	       mib_db  = MibDb, 
+	       node_db = NodeDb, 
+	       tree_db = TreeDb}, 
      db_memory) ->
-    MibDbSize  = snmpa_general_db:info(MibDb,  memory),
-    NodeDbSize = snmpa_general_db:info(NodeDb, memory),
-    TreeDbSize = snmpa_general_db:info(TreeDb, memory),
-    [{mib,MibDbSize},{node,NodeDbSize},{tree,TreeDbSize}];
+    MibDbSize  = Mod:info(MibDb,  memory),
+    NodeDbSize = Mod:info(NodeDb, memory),
+    TreeDbSize = Mod:info(TreeDb, memory),
+    [{mib, MibDbSize}, {node, NodeDbSize}, {tree, TreeDbSize}];
 info(#mib_data{subagents = SAs}, subagents) ->
     SAs.
 
@@ -489,17 +532,19 @@ old_format(LoadedMibs) ->
 %% A total dump for debugging.
 %%----------------------------------------------------------------------
 
-dump(#mib_data{mib_db  = MibDb, 
+dump(#mib_data{module  = Mod, 
+	       mib_db  = MibDb, 
 	       node_db = NodeDb, 
 	       tree    = Tree}, io) ->
     (catch io:format("MIB-tables:~n~p~n~n", 
-		     [snmpa_general_db:tab2list(MibDb)])),
+		     [Mod:tab2list(MibDb)])),
     (catch io:format("MIB-entries:~n~p~n~n", 
-		     [snmpa_general_db:tab2list(NodeDb)])),
+		     [Mod:tab2list(NodeDb)])),
     (catch io:format("Tree:~n~p~n", [Tree])), % good luck reading it!
     ok;
 
-dump(#mib_data{mib_db  = MibDb, 
+dump(#mib_data{module  = Mod, 
+	       mib_db  = MibDb, 
 	       node_db = NodeDb, 
 	       tree    = Tree}, File) ->
     case file:open(File, [write]) of
@@ -507,9 +552,9 @@ dump(#mib_data{mib_db  = MibDb,
 	    io:format(Fd,"~s~n", 
 		      [snmp:date_and_time_to_string(snmp:date_and_time())]),
 	    (catch io:format(Fd,"MIB-tables:~n~p~n~n",
-			     [snmpa_general_db:tab2list(MibDb)])),
+			     [Mod:tab2list(MibDb)])),
 	    (catch io:format(Fd, "MIB-entries:~n~p~n~n", 
-			     [snmpa_general_db:tab2list(NodeDb)])),
+			     [Mod:tab2list(NodeDb)])),
 	    io:format(Fd,"Tree:~n~p~n", [Tree]), % good luck reading it!
 	    file:close(Fd),
 	    ok;
@@ -520,10 +565,13 @@ dump(#mib_data{mib_db  = MibDb,
     end.
 
 
-backup(#mib_data{mib_db = M, node_db = N, tree_db = T}, BackupDir) ->
-    MRes = snmpa_general_db:backup(M, BackupDir),
-    NRes = snmpa_general_db:backup(N, BackupDir),
-    TRes = snmpa_general_db:backup(T, BackupDir),
+backup(#mib_data{module  = Mod, 
+		 mib_db  = M, 
+		 node_db = N, 
+		 tree_db = T}, BackupDir) ->
+    MRes = Mod:backup(M, BackupDir),
+    NRes = Mod:backup(N, BackupDir),
+    TRes = Mod:backup(T, BackupDir),
     handle_backup_res([{mib_db, MRes}, {node_db, NRes}, {tree_db, TRes}]).
 
 handle_backup_res(Res) ->
@@ -632,9 +680,9 @@ find_node(D, {tree, Tree, {table_entry, _}}, RestOfOid, RevOid) ->
      ?vtrace("find_node(tree,table_entry) -> entry with"
  	"~n   RestOfOid: ~p"
  	"~n   RevOid:    ~p",[RestOfOid, RevOid]),
-    #mib_data{node_db = Db} = D,
+    #mib_data{module = Mod, node_db = Db} = D,
     Oid = lists:reverse(RevOid),
-    case snmpa_general_db:read(Db, Oid) of
+    case Mod:read(Db, Oid) of
 	{value, #node_info{me = ME, mib_name = Mib}} ->
 	    case find_node(D, {tree, Tree, internal}, RestOfOid, RevOid) of
 		{false, ErrorCode} -> {false, ErrorCode};
@@ -659,13 +707,13 @@ find_node(D, {node, {table_column, _}}, RestOfOid, [ColInt | RevOid]) ->
  	"~n   RestOfOid: ~p"
  	"~n   ColInt:    ~p"
  	"~n   RevOid:    ~p",[RestOfOid, ColInt, RevOid]),
-    #mib_data{node_db = Db} = D,
+    #mib_data{module = Mod, node_db = Db} = D,
     Oid = lists:reverse([ColInt | RevOid]),
-    case snmpa_general_db:read(Db, Oid) of
+    case Mod:read(Db, Oid) of
 	{value, #node_info{me = ME}} ->
 	    {ME, lists:reverse(RevOid)}; 
 	false ->
-	    X = snmpa_general_db:read(Db, lists:reverse([ColInt | RevOid])),
+	    X = Mod:read(Db, lists:reverse([ColInt | RevOid])),
 	    ?vinfo("find_node -> could not find table_column ME with"
 		"~n   RevOid: ~p"
 		"~n   trying  [~p|~p]"
@@ -676,10 +724,9 @@ find_node(D, {node, {table_column, _}}, RestOfOid, [ColInt | RevOid]) ->
 find_node(D, {node, {variable, _MibName}}, [0], RevOid) ->
      ?vtrace("find_node(tree,variable,[0]) -> entry with"
  	"~n   RevOid:    ~p",[RevOid]),
-    #mib_data{node_db = Db} = D,
+    #mib_data{module = Mod, node_db = Db} = D,
     Oid = lists:reverse(RevOid),
-    %% {value, #node_info{me = ME}} = snmpa_general_db:read(Db, Oid),
-    case snmpa_general_db:read(Db, Oid) of
+    case Mod:read(Db, Oid) of
 	{value, #node_info{me = ME, mib_name = Mib}} ->
 	    {variable, ME, Mib};
 	false ->
@@ -761,8 +808,8 @@ next_node(D, {tree, Tree, {table_entry, _MibName}},
 	    ?vdebug("next_node(tree,table_entry) -> not in mib view",[]),
 	    false;
 	_ -> 
-	    #mib_data{node_db = Db} = D,
-	    case snmpa_general_db:read(Db, OidSoFar) of
+	    #mib_data{module = Mod, node_db = Db} = D,
+	    case Mod:read(Db, OidSoFar) of
 		false ->
 		    ?vinfo("next_node -> could not find table_entry with"
 			"~n   OidSoFar: ~p", [OidSoFar]),
@@ -834,8 +881,8 @@ next_node(D, {node, {variable, _MibName}}, [], RevOidSoFar, MibView) ->
     OidSoFar = lists:reverse([0 | RevOidSoFar]),
     case snmpa_acm:validate_mib_view(OidSoFar, MibView) of
 	true ->
-	    #mib_data{node_db = Db} = D,
-	    case snmpa_general_db:read(Db, lists:reverse(RevOidSoFar)) of
+	    #mib_data{module = Mod, node_db = Db} = D,
+	    case Mod:read(Db, lists:reverse(RevOidSoFar)) of
 		false ->
 		    ?vinfo("next_node -> could not find variable with"
 			"~n   RevOidSoFar: ~p", [RevOidSoFar]),
@@ -850,6 +897,7 @@ next_node(D, {node, {variable, _MibName}}, [], RevOidSoFar, MibView) ->
 next_node(_D, {node, {variable, _MibName}}, _Oid, _RevOidSoFar, _MibView) ->
     ?vtrace("next_node(node,variable) -> entry", []),
     false.
+
 
 %%-----------------------------------------------------------------
 %% This function is used to find the first leaf from where we
@@ -882,8 +930,8 @@ find_next(D, {tree, _Tree, {table_entry, _MibName}}, _Index,
 	true -> 
 	    false;
 	_ -> 
-	    #mib_data{node_db = Db} = D,
-	    case snmpa_general_db:read(Db, OidSoFar) of
+	    #mib_data{module = Mod, node_db = Db} = D,
+	    case Mod:read(Db, OidSoFar) of
 		false ->
 		    ?vinfo("find_next -> could not find table_entry ME with"
 			"~n   OidSoFar: ~p", [OidSoFar]),
@@ -896,8 +944,8 @@ find_next(D, {node, {variable, _MibName}}, _Idx, RevOidSoFar, MibView) ->
     OidSoFar = lists:reverse([0 | RevOidSoFar]),
     case snmpa_acm:validate_mib_view(OidSoFar, MibView) of
 	true -> 
-	    #mib_data{node_db = Db} = D,
-	    case snmpa_general_db:read(Db, lists:reverse(RevOidSoFar)) of
+	    #mib_data{module = Mod, node_db = Db} = D,
+	    case Mod:read(Db, lists:reverse(RevOidSoFar)) of
 		false ->
 		    ?vinfo("find_next -> could not find variable with"
 			"~n   RevOidSoFar: ~p", [RevOidSoFar]),
@@ -1213,15 +1261,18 @@ build_tree_for_subagent([Index]) ->
 build_tree_for_subagent([Index | T]) ->
     [{Index, {tree, build_tree_for_subagent(T), internal}}].
 
+
 %%----------------------------------------------------------------------
 %% Returns: A new tree where the subagent at Oid (2nd arg) has been deleted.
 %%----------------------------------------------------------------------
+
 delete_subagent({tree, Tree, Info}, [Index]) ->
     {node, subagent} = element(Index+1, Tree),
     {tree, setelement(Index+1, Tree, undefined_node), Info};
 delete_subagent({tree, Tree, Info}, [Index | TI]) ->
     {tree, setelement(Index+1, Tree,
 		      delete_subagent(element(Index+1, Tree), TI)), Info}.
+
 
 %%%======================================================================
 %%% 7. Misc functions
@@ -1232,35 +1283,35 @@ delete_subagent({tree, Tree, Info}, [Index | TI]) ->
 %% Basically calls the instrumentation functions for all non-internal
 %% mib-entries
 %%----------------------------------------------------------------------
-install_mibs(MibDb, NodeDb) ->
-    MibNames = loaded(MibDb),
+install_mibs(Mod, MibDb, NodeDb) ->
+    MibNames = loaded(Mod, MibDb),
     ?vtrace("install_mibs -> found following mibs in database: ~n"
 	"~p", [MibNames]),
-    install_mibs2(NodeDb, MibNames).
+    install_mibs2(Mod, NodeDb, MibNames).
 
-install_mibs2(_, []) ->
+install_mibs2(_, _, []) ->
     ok;
-install_mibs2(NodeDb, [MibName|MibNames]) ->
+install_mibs2(Mod, NodeDb, [MibName|MibNames]) ->
     Pattern = #node_info{oid = '_', mib_name = MibName, me = '_'},
-    Nodes = snmpa_general_db:match_object(NodeDb, Pattern),
+    Nodes = Mod:match_object(NodeDb, Pattern),
     MEs = [ME || #node_info{me = ME} <- Nodes],
     ?vtrace("install_mibs2 -> installing ~p MEs for mib ~p", 
-	[length(MEs),MibName]),
+	    [length(MEs), MibName]),
     NewF = fun(ME) -> call_instrumentation(ME, new) end,
     lists:foreach(NewF, MEs),
-    install_mibs2(NodeDb, MibNames).
+    install_mibs2(Mod, NodeDb, MibNames).
     
     
 %%----------------------------------------------------------------------
 %% Does all side effect stuff during load_mib.
 %%----------------------------------------------------------------------
-install_mib(Db, Symbolic, Mib, MibName, FileName, NonInternalMes) ->
+install_mib(Mod, Db, Symbolic, Mib, MibName, FileName, NonInternalMes) ->
     ?vdebug("install_mib -> entry with"
 	    "~n   Symbolic: ~p"
 	    "~n   MibName:  ~p"
 	    "~n   FileName: ~p", [Symbolic, MibName, FileName]),
     Rec = #mib_info{name = MibName, symbolic = Symbolic, file_name = FileName},
-    snmpa_general_db:write(Db, Rec),
+    Mod:write(Db, Rec),
     install_mib2(Symbolic, MibName, Mib),
     NewF = fun(ME) -> call_instrumentation(ME, new) end,
     lists:foreach(NewF, NonInternalMes).
@@ -1282,23 +1333,31 @@ install_mib2(true, MibName, Mib) ->
 install_mib2(_, _, _) ->
     ok.
 
-install_mes(_Db, _MibName, []) ->
+install_mes(Mod, Db, MibName, MEs) ->
+    Write = fun(#me{oid = Oid} = ME) ->
+		    Node = #node_info{oid      = Oid, 
+				      mib_name = MibName, 
+				      me       = ME},
+		    Mod:write(Db, Node)
+	    end,
+    install_mes(Write, MEs).
+
+install_mes(_Write, []) ->
     ok;
-install_mes(Db, MibName, [ME|MEs]) ->
-    Node = #node_info{oid = ME#me.oid, mib_name = MibName, me = ME},
-    snmpa_general_db:write(Db, Node),
-    install_mes(Db, MibName, MEs).
+install_mes(Write, [ME|MEs]) ->
+    Write(ME),
+    install_mes(Write, MEs).
 
 
 %%----------------------------------------------------------------------
 %% Does all side effect stuff during unload_mib.
 %%----------------------------------------------------------------------
-uninstall_mib(Db, Symbolic, MibName, MEs) ->
+uninstall_mib(Mod, Db, Symbolic, MibName, MEs) ->
     ?vtrace("uninstall_mib -> entry with"
 	"~n   Db:       ~p"
 	"~n   Symbolic: ~p"
 	"~n   MibName:  ~p", [Db, Symbolic, MibName]),
-    Res = snmpa_general_db:delete(Db, MibName),
+    Res = Mod:delete(Db, MibName),
     ?vtrace("uninstall_mib -> (mib) db delete result: ~p", [Res]),
     uninstall_mib2(Symbolic, MibName),
     DelF = fun(ME) -> call_instrumentation(ME, delete) end,
@@ -1313,16 +1372,16 @@ uninstall_mib2(true, MibName) ->
 uninstall_mib2(_, _) ->
     ok.
 
-uninstall_mes(Db, MibName) ->
+uninstall_mes(Mod, Db, MibName) ->
     Pattern = #node_info{oid = '_', mib_name = MibName, me = '_'},
-    snmpa_general_db:match_delete(Db, Pattern).
+    Mod:match_delete(Db, Pattern).
 
 
 %%----------------------------------------------------------------------
 %% Create a list of the names of all the loaded mibs
 %%----------------------------------------------------------------------
-loaded(Db) ->
-    [N || #mib_info{name = N} <- snmpa_general_db:tab2list(Db)].
+loaded(Mod, Db) ->
+    [N || #mib_info{name = N} <- Mod:tab2list(Db)].
     
 
 %%----------------------------------------------------------------------

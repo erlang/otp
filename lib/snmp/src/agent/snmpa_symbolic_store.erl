@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -78,7 +78,7 @@
         gen_server:start_link({local, ?SERVER}, ?MODULE, [Prio, Opts], [])).
 -endif.
   
--record(state,  {db, backup}).
+-record(state,  {module, db, backup}).
 -record(symbol, {key, mib_name, info}).
 
 
@@ -111,6 +111,9 @@ backup(BackupDir) ->
 
 get_db() ->
     call(get_db).
+
+which_module() ->
+    call(which_module).
 
 
 %%----------------------------------------------------------------------
@@ -202,49 +205,63 @@ verbosity(Verbosity) ->
 %%----------------------------------------------------------------------
 %% DB access (read) functions: Returns: {value, Oid} | false
 %%----------------------------------------------------------------------
+
 aliasname_to_oid(Db, Aliasname) ->
-    case snmpa_general_db:read(Db, {alias, Aliasname}) of
+    Mod = which_module(), 
+    aliasname_to_oid(Mod, Db, Aliasname).
+
+aliasname_to_oid(Mod, Db, Aliasname) ->
+    case Mod:read(Db, {alias, Aliasname}) of
 	{value,#symbol{info = {Oid, _Enums}}} -> {value, Oid};
 	false -> false
     end.
 
-oid_to_aliasname(Db,Oid) ->
-    case snmpa_general_db:read(Db, {oid, Oid}) of
+oid_to_aliasname(Db, Oid) ->
+    Mod = which_module(), 
+    oid_to_aliasname(Mod, Db, Oid).
+
+oid_to_aliasname(Mod, Db, Oid) ->
+    case Mod:read(Db, {oid, Oid}) of
 	{value,#symbol{info = Aliasname}} -> {value, Aliasname};
 	_ -> false
     end.
 
-which_notifications(Db) ->
+which_notifications(Mod, Db) ->
     Pattern = #symbol{key = {trap, '_'}, _ = '_'},
-    Symbols = snmpa_general_db:match_object(Db, Pattern),
+    Symbols = Mod:match_object(Db, Pattern),
     [{Name, Mib, Rec} || #symbol{key      = {trap, Name}, 
 				 mib_name = Mib, 
 				 info     = Rec} <- Symbols].
 
-which_aliasnames(Db) ->
+which_aliasnames(Mod, Db) ->
     Pattern = #symbol{key = {alias, '_'}, _ = '_'},
-    Symbols = snmpa_general_db:match_object(Db, Pattern),
+    Symbols = Mod:match_object(Db, Pattern),
     [Alias || #symbol{key = {alias, Alias}} <- Symbols].
 
-which_tables(Db) ->
+which_tables(Mod, Db) ->
     Pattern = #symbol{key = {table_info, '_'}, _ = '_'},
-    Symbols = snmpa_general_db:match_object(Db, Pattern),
+    Symbols = Mod:match_object(Db, Pattern),
     [Name || #symbol{key = {table_info, Name}} <- Symbols].
 
-which_variables(Db) ->
+which_variables(Mod, Db) ->
     Pattern = #symbol{key = {variable_info, '_'}, _ = '_'},
-    Symbols = snmpa_general_db:match_object(Db, Pattern),
+    Symbols = Mod:match_object(Db, Pattern),
     [Name || #symbol{key = {variable_info, Name}} <- Symbols].
 
-int_to_enum(Db,TypeOrObjName,Int) ->
-    case snmpa_general_db:read(Db, {alias, TypeOrObjName}) of
+
+int_to_enum(Db, TypeOrObjName, Int) ->
+    Mod = which_module(), 
+    int_to_enum(Mod, Db, TypeOrObjName, Int).
+
+int_to_enum(Mod, Db, TypeOrObjName, Int) ->
+    case Mod:read(Db, {alias, TypeOrObjName}) of
 	{value,#symbol{info = {_Oid, Enums}}} ->
 	    case lists:keysearch(Int, 2, Enums) of
 		{value, {Enum, _Int}} -> {value, Enum};
 		false -> false
 	    end;
 	false -> % Not an Aliasname ->
-	    case snmpa_general_db:read(Db, {type, TypeOrObjName}) of
+	    case Mod:read(Db, {type, TypeOrObjName}) of
 		{value,#symbol{info = Enums}} ->
 		    case lists:keysearch(Int, 2, Enums) of
 			{value, {Enum, _Int}} -> {value, Enum};
@@ -256,14 +273,18 @@ int_to_enum(Db,TypeOrObjName,Int) ->
     end.
 
 enum_to_int(Db, TypeOrObjName, Enum) ->
-    case snmpa_general_db:read(Db, {alias, TypeOrObjName}) of
+    Mod = which_module(), 
+    enum_to_int(Mod, Db, TypeOrObjName, Enum).
+
+enum_to_int(Mod, Db, TypeOrObjName, Enum) ->
+    case Mod:read(Db, {alias, TypeOrObjName}) of
 	{value,#symbol{info = {_Oid, Enums}}} ->
 	    case lists:keysearch(Enum, 1, Enums) of
 		{value, {_Enum, Int}} -> {value, Int};
 		false -> false
 	    end;
 	false -> % Not an Aliasname
-	    case snmpa_general_db:read(Db, {type, TypeOrObjName}) of
+	    case Mod:read(Db, {type, TypeOrObjName}) of
 		{value,#symbol{info = Enums}} ->
 		    case lists:keysearch(Enum, 1, Enums) of
 			{value, {_Enum, Int}} -> {value, Int};
@@ -278,8 +299,9 @@ enum_to_int(Db, TypeOrObjName, Enum) ->
 %%----------------------------------------------------------------------
 %% DB access (read) functions: Returns: false|{value, Info}
 %%----------------------------------------------------------------------
-table_info(Db,TableName) ->
-    case snmpa_general_db:read(Db, {table_info, TableName}) of
+
+table_info(Mod, Db, TableName) ->
+    case Mod:read(Db, {table_info, TableName}) of
 	{value,#symbol{info = Info}} -> {value, Info};
 	false -> false
     end.
@@ -288,8 +310,8 @@ table_info(Db,TableName) ->
 %%----------------------------------------------------------------------
 %% DB access (read) functions: Returns: false|{value, Info}
 %%----------------------------------------------------------------------
-variable_info(Db,VariableName) ->
-    case snmpa_general_db:read(Db, {variable_info, VariableName}) of
+variable_info(Mod, Db, VariableName) ->
+    case Mod:read(Db, {variable_info, VariableName}) of
 	{value,#symbol{info = Info}} -> {value, Info};
 	false -> false
     end.
@@ -299,7 +321,7 @@ variable_info(Db,VariableName) ->
 %% Implementation
 %%----------------------------------------------------------------------
 
-init([Prio,Opts]) ->
+init([Prio, Opts]) ->
     ?d("init -> entry with"
 	"~n   Prio: ~p"
 	"~n   Opts: ~p", [Prio,Opts]),
@@ -317,102 +339,125 @@ do_init(Prio, Opts) ->
     put(sname,ss),
     put(verbosity,get_verbosity(Opts)),
     ?vlog("starting",[]),
-    Storage = get_mib_storage(Opts),
+    MibStorage = get_mib_storage(Opts),
+    Mod        = snmp_misc:get_option(module,  MibStorage), 
+    MsOpts     = snmp_misc:get_option(options, MibStorage, []), 
+    
     %% type = bag solves the problem with import and multiple
     %% object/type definitions.
-    Db = snmpa_general_db:open(Storage, snmpa_symbolic_store,
-			       symbol, record_info(fields,symbol), bag),
-    S  = #state{db = Db},
-    ?vdebug("started",[]),
-    {ok, S}.
+    case Mod:open(?MODULE, symbol, record_info(fields, symbol), bag, MsOpts) of
+	{ok, Db} ->
+	    S  = #state{module = Mod, db = Db},
+	    ?vdebug("started",[]),
+	    {ok, S};
+	{error, _} = ERROR ->
+	    ERROR
+    end.
 
 
 handle_call(get_db, _From, #state{db = DB} = S) ->
     ?vlog("get db",[]),
     {reply, DB, S};
 
-handle_call({table_info, TableName}, _From, #state{db = DB} = S) ->
+handle_call(which_module, _From, #state{module = Mod} = S) ->
+    ?vlog("which module",[]),
+    {reply, Mod, S};
+
+handle_call({table_info, TableName}, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("table info: ~p",[TableName]),
-    Res = table_info(DB, TableName),
+    Res = table_info(Mod, DB, TableName),
     ?vdebug("table info result: ~p",[Res]),
     {reply, Res, S};
 
-handle_call({variable_info, VariableName}, _From, #state{db = DB} = S) ->
+handle_call({variable_info, VariableName}, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("variable info: ~p",[VariableName]),
-    Res = variable_info(DB, VariableName),
+    Res = variable_info(Mod, DB, VariableName),
     ?vdebug("variable info result: ~p",[Res]),
     {reply, Res, S};
 
-handle_call({aliasname_to_oid, Aliasname}, _From, #state{db = DB} = S) ->
+handle_call({aliasname_to_oid, Aliasname}, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("aliasname to oid: ~p",[Aliasname]),
-    Res = aliasname_to_oid(DB,Aliasname),
+    Res = aliasname_to_oid(Mod, DB, Aliasname),
     ?vdebug("aliasname to oid result: ~p",[Res]),
     {reply, Res, S};
 
-handle_call({oid_to_aliasname, Oid}, _From, #state{db = DB} = S) ->
+handle_call({oid_to_aliasname, Oid}, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("oid to aliasname: ~p",[Oid]),
-    Res = oid_to_aliasname(DB, Oid),
+    Res = oid_to_aliasname(Mod, DB, Oid),
     ?vdebug("oid to aliasname result: ~p",[Res]),
     {reply, Res, S};
 
-handle_call(which_aliasnames, _From, #state{db = DB} = S) ->
+handle_call(which_aliasnames, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("which aliasnames",[]),
-    Res = which_aliasnames(DB),
+    Res = which_aliasnames(Mod, DB),
     ?vdebug("which aliasnames: ~p",[Res]),
     {reply, Res, S};
 
-handle_call(which_tables, _From, #state{db = DB} = S) ->
+handle_call(which_tables, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("which tables",[]),
-    Res = which_tables(DB),
+    Res = which_tables(Mod, DB),
     ?vdebug("which tables: ~p",[Res]),
     {reply, Res, S};
 
-handle_call(which_variables, _From, #state{db = DB} = S) ->
+handle_call(which_variables, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("which variables",[]),
-    Res = which_variables(DB),
+    Res = which_variables(Mod, DB),
     ?vdebug("which variables: ~p",[Res]),
     {reply, Res, S};
 
-handle_call({enum_to_int, TypeOrObjName, Enum}, _From, #state{db = DB} = S) ->
+handle_call({enum_to_int, TypeOrObjName, Enum}, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("enum to int: ~p, ~p",[TypeOrObjName,Enum]),
-    Res = enum_to_int(DB, TypeOrObjName, Enum),
+    Res = enum_to_int(Mod, DB, TypeOrObjName, Enum),
     ?vdebug("enum to int result: ~p",[Res]),
     {reply, Res, S};
 
-handle_call({int_to_enum, TypeOrObjName, Int}, _From, #state{db = DB} = S) ->
+handle_call({int_to_enum, TypeOrObjName, Int}, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("int to enum: ~p, ~p",[TypeOrObjName,Int]),
-    Res = int_to_enum(DB, TypeOrObjName, Int),
+    Res = int_to_enum(Mod, DB, TypeOrObjName, Int),
     ?vdebug("int to enum result: ~p",[Res]),
     {reply, Res, S};
 
-handle_call({set_notification, MibName, Trap}, _From, #state{db = DB} = S) ->
+handle_call({set_notification, MibName, Trap}, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("set notification:"
 	  "~n   ~p~n   ~p", [MibName,Trap]),
-    set_notif(DB, MibName, Trap),
+    set_notif(Mod, DB, MibName, Trap),
     {reply, true, S};
 
-handle_call({delete_notifications, MibName}, _From, #state{db = DB} = S) ->
+handle_call({delete_notifications, MibName}, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("delete notification: ~p",[MibName]),
-    delete_notif(DB, MibName),
+    delete_notif(Mod, DB, MibName),
     {reply, true, S};
 
-handle_call(which_notifications, _From, #state{db = DB} = S) ->
+handle_call(which_notifications, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("which notifications", []),
-    Reply = which_notifications(DB), 
+    Reply = which_notifications(Mod, DB), 
     {reply, Reply, S};
 
-handle_call({get_notification, Key}, _From, #state{db = DB} = S) ->
+handle_call({get_notification, Key}, _From, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("get notification: ~p",[Key]),
-    Res = get_notif(DB, Key),
+    Res = get_notif(Mod, DB, Key),
     ?vdebug("get notification result: ~p",[Res]),
     {reply, Res, S};
 
-handle_call(info, _From, #state{db = DB} = S) ->
+handle_call(info, _From, #state{module = Mod, db = DB} = S) ->
     ?vlog("info",[]),
-    Info = get_info(DB), 
+    Info = get_info(Mod, DB), 
     {reply, Info, S};
 
-handle_call({backup, BackupDir}, From, #state{db = DB} = S) ->
+handle_call({backup, BackupDir}, From, #state{module = Mod, db = DB} = S) ->
     ?vlog("info to ~p",[BackupDir]),
     Pid = self(),
     V   = get(verbosity),
@@ -424,7 +469,7 @@ handle_call({backup, BackupDir}, From, #state{db = DB} = S) ->
 			  put(sname, albs),
 			  put(verbosity, V),
 			  Dir   = filename:join([BackupDir]), 
-			  Reply = snmpa_general_db:backup(DB, Dir),
+			  Reply = Mod:backup(DB, Dir),
 			  Pid ! {backup_done, Reply},
 			  unlink(Pid)
 		  end),	
@@ -446,7 +491,7 @@ handle_call(Req, _From, S) ->
     {reply, Reply, S}.
 
 
-handle_cast({add_types, MibName, Types}, #state{db = DB} = S) ->
+handle_cast({add_types, MibName, Types}, #state{module = Mod, db = DB} = S) ->
     ?vlog("add types for ~p:",[MibName]),
     F = fun(#asn1_type{assocList = Alist, aliasname = Name}) ->
 		case snmp_misc:assq(enums, Alist) of
@@ -455,20 +500,21 @@ handle_cast({add_types, MibName, Types}, #state{db = DB} = S) ->
 			Rec = #symbol{key      = {type, Name}, 
 				      mib_name = MibName, 
 				      info     = Es},
-			snmpa_general_db:write(DB, Rec);
+			Mod:write(DB, Rec);
 		    false -> done
 		end
 	end,
     lists:foreach(F, Types),
     {noreply, S};
 
-handle_cast({delete_types, MibName}, #state{db = DB} = S) ->
+handle_cast({delete_types, MibName}, #state{module = Mod, db = DB} = S) ->
     ?vlog("delete types: ~p",[MibName]),
     Pattern = #symbol{key = {type, '_'}, mib_name = MibName, info = '_'},
-    snmpa_general_db:match_delete(DB, Pattern),
+    Mod:match_delete(DB, Pattern),
     {noreply, S};
 
-handle_cast({add_aliasnames, MibName, MEs}, #state{db = DB} = S) ->
+handle_cast({add_aliasnames, MibName, MEs}, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("add aliasnames for ~p:",[MibName]),
     F = fun(#me{aliasname = AN, oid = Oid, asn1_type = AT}) ->
 		Enums =
@@ -480,20 +526,21 @@ handle_cast({add_aliasnames, MibName, MEs}, #state{db = DB} = S) ->
 			    end;
 			_ -> []
 		    end,
-		write_alias(AN, DB, Enums, MibName, Oid)
+		write_alias(Mod, AN, DB, Enums, MibName, Oid)
 	end,
     lists:foreach(F, MEs),
     {noreply, S};
 
-handle_cast({delete_aliasname, MibName}, #state{db = DB} = S) ->
+handle_cast({delete_aliasname, MibName}, #state{module = Mod, db = DB} = S) ->
     ?vlog("delete aliasname: ~p",[MibName]),
     Pattern1 = #symbol{key = {alias, '_'}, mib_name = MibName, info = '_'},
-    snmpa_general_db:match_delete(DB, Pattern1),
+    Mod:match_delete(DB, Pattern1),
     Pattern2 = #symbol{key = {oid, '_'}, mib_name = MibName, info = '_'},
-    snmpa_general_db:match_delete(DB, Pattern2),
+    Mod:match_delete(DB, Pattern2),
     {noreply, S};
 
-handle_cast({add_table_infos, MibName, TableInfos}, #state{db = DB} = S) ->
+handle_cast({add_table_infos, MibName, TableInfos}, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("add table infos for ~p:",[MibName]),
     F = fun({Name, TableInfo}) ->
 		?vlog("add table info~n   ~p -> ~p",
@@ -501,19 +548,20 @@ handle_cast({add_table_infos, MibName, TableInfos}, #state{db = DB} = S) ->
 		Rec = #symbol{key      = {table_info, Name}, 
 			      mib_name = MibName, 
 			      info     = TableInfo},
-		snmpa_general_db:write(DB, Rec)
+		Mod:write(DB, Rec)
 	end,
     lists:foreach(F, TableInfos),
     {noreply, S};
 
-handle_cast({delete_table_infos, MibName}, #state{db = DB} = S) ->
+handle_cast({delete_table_infos, MibName}, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("delete table infos: ~p",[MibName]),
     Pattern = #symbol{key = {table_info, '_'}, mib_name = MibName, info = '_'},
-    snmpa_general_db:match_delete(DB, Pattern),
+    Mod:match_delete(DB, Pattern),
     {noreply, S};
 
 handle_cast({add_variable_infos, MibName, VariableInfos}, 
-	    #state{db = DB} = S) ->
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("add variable infos for ~p:",[MibName]),
     F = fun({Name, VariableInfo}) ->
 		?vlog("add variable info~n   ~p -> ~p",
@@ -521,17 +569,18 @@ handle_cast({add_variable_infos, MibName, VariableInfos},
 		Rec = #symbol{key      = {variable_info, Name},
 			      mib_name = MibName,
 			      info     = VariableInfo},
-		snmpa_general_db:write(DB, Rec)
+		Mod:write(DB, Rec)
 	end,
     lists:foreach(F, VariableInfos),
     {noreply, S};
 
-handle_cast({delete_variable_infos, MibName}, #state{db = DB} = S) ->
+handle_cast({delete_variable_infos, MibName}, 
+	    #state{module = Mod, db = DB} = S) ->
     ?vlog("delete variable infos: ~p",[MibName]),
     Pattern = #symbol{key      = {variable_info,'_'}, 
 		      mib_name = MibName, 
 		      info     = '_'},
-    snmpa_general_db:match_delete(DB, Pattern),
+    Mod:match_delete(DB, Pattern),
     {noreply, S};
 
 handle_cast({verbosity,Verbosity}, State) ->
@@ -565,9 +614,9 @@ handle_info(Info, S) ->
     {noreply, S}.
 
 
-terminate(Reason, S) ->
-    ?vlog("terminate: ~p",[Reason]),
-    snmpa_general_db:close(S#state.db).
+terminate(Reason, #state{module = Mod, db = DB}) ->
+    ?vlog("terminate: ~p", [Reason]),
+    Mod:close(DB).
 
 
 %%----------------------------------------------------------
@@ -575,18 +624,18 @@ terminate(Reason, S) ->
 %%----------------------------------------------------------
 
 % downgrade
-code_change({down, _Vsn}, #state{db = DB, backup = B}, downgrade_to_pre_4_7) ->
-    ?d("code_change(down) -> entry", []),
-    stop_backup_server(B),
-    S = {state, DB},
-    {ok, S};
+%% code_change({down, _Vsn}, #state{db = DB, backup = B}, downgrade_to_pre_4_7) ->
+%%     ?d("code_change(down) -> entry", []),
+%%     stop_backup_server(B),
+%%     S = {state, DB},
+%%     {ok, S};
 
-% upgrade
-code_change(_Vsn, S, upgrade_from_pre_4_7) ->
-    ?d("code_change(up) -> entry", []),
-    {state, DB} = S,
-    S1 = #state{db = DB},
-    {ok, S1};
+%% % upgrade
+%% code_change(_Vsn, S, upgrade_from_pre_4_7) ->
+%%     ?d("code_change(up) -> entry", []),
+%%     {state, DB} = S,
+%%     S1 = #state{db = DB},
+%%     {ok, S1};
 
 code_change(_Vsn, S, _Extra) ->
     ?d("code_change -> entry [do nothing]", []),
@@ -609,13 +658,13 @@ stop_backup_server({Pid, _}) when is_pid(Pid) ->
 %%-----------------------------------------------------------------
 %% Returns: {value, Value} | undefined
 %%-----------------------------------------------------------------
-get_notif(Db, Key) ->
-    case snmpa_general_db:read(Db, {trap, Key}) of
+get_notif(Mod, Db, Key) ->
+    case Mod:read(Db, {trap, Key}) of
 	{value,#symbol{info = Value}} -> {value, Value};
 	false -> undefined
     end.
 
-set_notif(Db, MibName, Trap) when is_record(Trap, trap) ->
+set_notif(Mod, Db, MibName, Trap) when is_record(Trap, trap) ->
     #trap{trapname = Name} = Trap,
     Rec = #symbol{key = {trap, Name}, mib_name = MibName, info = Trap},
     %% convert old v1 trap to oid
@@ -625,40 +674,41 @@ set_notif(Db, MibName, Trap) when is_record(Trap, trap) ->
 	      Oid0 ->
 		  Oid0 ++ [0, Trap#trap.specificcode]
 	  end,
-    write_alias(Name, Db, MibName, Oid),
-    snmpa_general_db:write(Db, Rec);
-set_notif(Db, MibName, Trap) ->
+    write_alias(Mod, Name, Db, MibName, Oid),
+    Mod:write(Db, Rec);
+set_notif(Mod, Db, MibName, Trap) ->
     #notification{trapname = Name, oid = Oid} = Trap,
     Rec = #symbol{key = {trap, Name}, mib_name = MibName, info = Trap},
-    write_alias(Name, Db, MibName, Oid),
-    snmpa_general_db:write(Db, Rec).
+    write_alias(Mod, Name, Db, MibName, Oid),
+    Mod:write(Db, Rec).
 
-delete_notif(Db, MibName) ->
+delete_notif(Mod, Db, MibName) ->
     Pattern = #symbol{key = {trap, '_'}, mib_name = MibName, info = '_'},
-    snmpa_general_db:match_delete(Db, Pattern).
+    Mod:match_delete(Db, Pattern).
 
 
-write_alias(AN, DB, MibName, Oid) ->
-    write_alias(AN, DB, [], MibName, Oid).
+write_alias(Mod, AN, DB, MibName, Oid) ->
+    write_alias(Mod, AN, DB, [], MibName, Oid).
 
-write_alias(AN, DB, Enums, MibName, Oid) ->
+write_alias(Mod, AN, DB, Enums, MibName, Oid) ->
     ?vlog("add alias~n   ~p -> {~p,~p}",[AN, Oid, Enums]),
     Rec1 = #symbol{key      = {alias, AN}, 
 		   mib_name = MibName, 
 		   info     = {Oid,Enums}},
-    snmpa_general_db:write(DB, Rec1),
+    Mod:write(DB, Rec1),
     ?vlog("add oid~n   ~p -> ~p",[Oid, AN]),
     Rec2 = #symbol{key      = {oid, Oid}, 
 		   mib_name = MibName, 
 		   info     = AN},
-    snmpa_general_db:write(DB, Rec2).
+    Mod:write(DB, Rec2).
+
 
 %% -------------------------------------
 
-get_info(DB) ->
+get_info(Mod, DB) ->
     ProcSize = proc_mem(self()),
-    DbSz     = tab_size(DB),
-    [{process_memory, ProcSize}, {db_memory, DbSz}].
+    DbMemory = Mod:info(DB, memory), 
+    [{process_memory, ProcSize}, {db_memory, DbMemory}].
 
 proc_mem(P) when is_pid(P) ->
     case (catch erlang:process_info(P, memory)) of
@@ -667,26 +717,15 @@ proc_mem(P) when is_pid(P) ->
 	_ ->
 	    undefined
     end.
-%% proc_mem(_) ->
-%%     undefined.
-
-tab_size(DB) ->
-    case (catch snmpa_general_db:info(DB, memory)) of
-        Sz when is_integer(Sz) ->
-            Sz;
-        _ ->
-            undefined
-    end.
-
 
 
 %% -------------------------------------
 
 get_verbosity(L) -> 
-    snmp_misc:get_option(verbosity,L,?default_verbosity).
+    snmp_misc:get_option(verbosity, L, ?default_verbosity).
 
 get_mib_storage(L) -> 
-    snmp_misc:get_option(mib_storage,L,ets).
+    snmp_misc:get_option(mib_storage, L).
 
 
 %% -------------------------------------

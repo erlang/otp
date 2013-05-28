@@ -77,16 +77,24 @@ $(EBIN)/snmpa_error_logger.$(EMULATOR): \
 	snmpa_error_report.erl \
 	snmpa_error_logger.erl
 
-$(EBIN)/snmpa_general_db.$(EMULATOR): \
-	snmpa_general_db.erl \
-	../misc/snmp_verbosity.hrl
-
 $(EBIN)/snmpa_local_db.$(EMULATOR): \
 	snmpa_local_db.erl \
 	../misc/snmp_debug.hrl \
 	../misc/snmp_verbosity.hrl \
 	../../include/snmp_types.hrl \
 	../../include/STANDARD-MIB.hrl
+
+$(EBIN)/snmpa_mib_storage.$(EMULATOR): \
+	snmpa_mib_storage.erl
+
+$(EBIN)/snmpa_mib_storage_ets.$(EMULATOR): \
+	snmpa_mib_storage_ets.erl
+
+$(EBIN)/snmpa_mib_storage_dets.$(EMULATOR): \
+	snmpa_mib_storage_dets.erl
+
+$(EBIN)/snmpa_mib_storage_mnesia.$(EMULATOR): \
+	snmpa_mib_storage_mnesia.erl
 
 $(EBIN)/snmpa_mib.$(EMULATOR): \
 	snmpa_mib.erl \
