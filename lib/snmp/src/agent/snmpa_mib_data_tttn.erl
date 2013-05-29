@@ -16,6 +16,7 @@
 %% 
 %% %CopyrightEnd%
 %%
+
 -module(snmpa_mib_data_tttn).
 
 
@@ -23,25 +24,28 @@
 %%% 
 %%%            TTTN - TupleTreeTupleNodes
 %%% 
-%%% This module implements the MIB internal data structures.
-%%% An MIB Data Structure consists of three items; an ets-table,
-%%% a tree and a list of registered subagents.
+%%% This module implements the MIB (internal) data structures.
+%%% The TTTN MIB Data structure consists of three items: 
+%%% 
+%%%      1) A mib-storage (as specified when new is called) for 
+%%%         the data associated with each variable, table, 
+%%%         table-entry and table-column in the MIB. 
+%%%      2) A tree contains information of the Oids in the MIB. 
+%%%      3) A list of registered subagents. 
+%%% 
 %%% The subagent information is consequently duplicated. It resides
 %%% both in the tree and in the list.
-%%% The ets-table contains all data associated with each variable,
-%%% table, tableentry and tablecolumn in the MIB.
-%%% The tree contains information of the Oids in the MIB.
 %%%
 %%% When a mib is loaded, the tree is built from the plain list
 %%% in the binary file.
 %%% 
 %%%-----------------------------------------------------------------
 
--include("snmp_types.hrl").
--include("snmp_debug.hrl").
+-include_lib("snmp/include/snmp_types.hrl").
+-include_lib("snmp/src/misc/snmp_debug.hrl").
 
 -define(VMODULE,"MDATA_TTTN").
--include("snmp_verbosity.hrl").
+-include_lib("snmp/src/misc/snmp_verbosity.hrl").
 
 -behaviour(snmpa_mib_data).
 
@@ -64,25 +68,31 @@
 %%% 7. Misc functions
 %%%-----------------------------------------------------------------
 
-
-%%----------------------------------------------------------------------
-%% data_db is an database containing loaded mibs as:
-%%    {MibName = atom(), Symbolic = ?, FullFileName = string()}
-%%    it is either ets or mnesia
-%% tree_db is a database containing _one_ record with the tree!
-%% (the reason for this is part to get replication and part out of convenience)
-%% ref_tree is the root node, without any subagent.
-%% tree is the root node (same as ref_tree but with the subagents added).
-%% subagents is a list of {SAPid, Oid}
-%%----------------------------------------------------------------------
-
 -record(mib_data, 
 	{
-	  module,  % Mib storage module
-	  mib_db,  % table of #mib_info
-	  node_db, % table of #node_info
-	  tree_db, % table of #tree
-	  tree,    % The actual tree
+	  %% Mib storage module
+	  module :: snmpa:mib_storage_module(),  
+
+	  %% A database of loaded mibs
+	  %% #mib_info{}
+	  mib_db,  
+
+	  %% A database with information about each node in the tree
+	  %% #node_info{}
+	  node_db, 
+
+	  %% A database containing _one_ record with the tree
+	  %% without the subagent(s). 
+	  %% (the reason for this is part to get replication 
+	  %% and part out of convenience)
+	  %% #tree{}
+	  tree_db, 
+
+	  %% The root node (same as the tree part of the tree_db 
+	  %% but with the subagents added). 
+	  tree, 
+	  
+	  %% A list of {SAPid, Oid}
 	  subagents = []
 	 }).
 
@@ -90,7 +100,7 @@
 -record(node_info, {oid, mib_name, me}).
 
 
-%% API
+%% (behaviour) API
 -export([new/1, 
 	 close/1, 
 	 sync/1, 
@@ -136,7 +146,7 @@
 %%%======================================================================
 
 %%-----------------------------------------------------------------
-%% Func: new/0, new/1
+%% Func: new/1
 %% Returns: A representation of mib data.
 %%-----------------------------------------------------------------
 
@@ -147,7 +157,7 @@ new(MibStorage) ->
 
     %% First we must check if there is already something to read
     %% If a database already exists, then the tree structure has to be read
-    ?vtrace("open (mib) database",[]),
+    ?vdebug("open (mib) database",[]),
     MibDb = 
 	case Mod:open(?MIB_DATA, mib_info, record_info(fields, mib_info), 
 		      set, Opts) of
@@ -157,7 +167,7 @@ new(MibStorage) ->
 		throw({error, {open, mib_data, Reason1}})
 	end,
 
-    ?vtrace("open (mib) node database",[]),
+    ?vdebug("open (mib) node database",[]),
     NodeDb = 
 	case Mod:open(?MIB_NODE, node_info, record_info(fields, node_info), 
 		      set, Opts) of
@@ -167,7 +177,7 @@ new(MibStorage) ->
 		throw({error, {open, mib_node, Reason2}})
 	end,
 
-    ?vtrace("open (mib) tree database",[]),
+    ?vdebug("open (mib) tree database",[]),
     TreeDb = 
 	case Mod:open(?MIB_TREE, tree, record_info(fields, tree), 
 		      set, Opts) of
@@ -177,6 +187,7 @@ new(MibStorage) ->
 		throw({error, {open, mib_tree, Reason3}})
 	end,
 
+    ?vdebug("write the default (mib) tree",[]),
     Tree = 
 	case Mod:read(TreeDb, ?DUMMY_TREE_GENERATION) of
 	    false ->
@@ -186,7 +197,9 @@ new(MibStorage) ->
 	    {value, T} ->
 		T
 	end,
+    ?vdebug("install (existing) mibs",[]),
     install_mibs(Mod, MibDb, NodeDb),
+    ?vdebug("done",[]),
     #mib_data{module  = Mod, 
 	      mib_db  = MibDb, 
 	      node_db = NodeDb,
