@@ -25,11 +25,23 @@
 
 -define(THROW(T), throw({?MODULE, T})).
 
-%%% ---------------------------------------------------------------------------
-%%% # encode_avps/3
-%%%
-%%% Returns: binary()
-%%% ---------------------------------------------------------------------------
+-type parent_name()   :: atom().  %% parent = Message or AVP
+-type parent_record() :: tuple(). %%
+-type avp_name()   :: atom().
+-type avp_record() :: tuple().
+-type avp_values() :: [{avp_name(), term()}].
+
+-type non_grouped_avp() :: #diameter_avp{}.
+-type grouped_avp() :: nonempty_improper_list(#diameter_avp{}, [avp()]).
+-type avp() :: non_grouped_avp() | grouped_avp().
+
+%% ---------------------------------------------------------------------------
+%% # encode_avps/2
+%% ---------------------------------------------------------------------------
+
+-spec encode_avps(parent_name(), parent_record() | avp_values())
+   -> binary()
+    | no_return().
 
 encode_avps(Name, Vals)
   when is_list(Vals) ->
@@ -129,42 +141,26 @@ pack_AVP(Name, #diameter_avp{name = AvpName,
         orelse ?THROW([known_avp_as_AVP, Name, AvpName, Data]),
     e(AvpName, [Data]).
 
-%%% ---------------------------------------------------------------------------
-%%% # decode_avps/2
-%%%
-%%% Returns: {Rec, Avps, Failed}
-%%%
-%%%          Rec  = decoded message record
-%%%          Avps = list of Avp
-%%%          Failed = list of {ResultCode, #diameter_avp{}}
-%%%
-%%%          Avp = #diameter_avp{}    if type is not Grouped
-%%%              | list of Avp        where first element has type Grouped
-%%%                                   and following elements are its component
-%%%                                   AVP's.
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # decode_avps/2
+%% ---------------------------------------------------------------------------
+
+-spec decode_avps(parent_name(), [#diameter_avp{}])
+   -> {parent_record(), [avp()], Failed}
+ when Failed :: [{5000..5999, #diameter_avp{}}].
 
 decode_avps(Name, Recs) ->
-    d_rc(Name, lists:foldl(fun(T,A) -> decode(Name, T, A) end,
-                           {[], {newrec(Name), []}},
-                           Recs)).
+    {Avps, {Rec, Failed}}
+        = lists:foldl(fun(T,A) -> decode(Name, T, A) end,
+                      {[], {newrec(Name), []}},
+                      Recs),
+    {Rec, Avps, Failed ++ missing(Rec, Name)}.
+%% Append 5005 errors so that a 5014 for the same AVP will take
+%% precedence in a Result-Code/Failed-AVP setting.
 
 newrec(Name) ->
     '#new-'(name2rec(Name)).
 
-%% No errors so far: keep looking.
-d_rc(Name, {Avps, {Rec, [] = Failed}}) ->
-    try
-        true = have_required_avps(Rec, Name),
-        {Rec, Avps, Failed}
-    catch
-        throw: {?MODULE, {AvpName, Reason}} ->
-            diameter_lib:log({decode, error},
-                             ?MODULE,
-                             ?LINE,
-                             {AvpName, Reason, Rec}),
-            {Rec, Avps, [{5005, empty_avp(AvpName)}]}
-    end;
 %% 3588:
 %%
 %%   DIAMETER_MISSING_AVP               5005
@@ -175,9 +171,17 @@ d_rc(Name, {Avps, {Rec, [] = Failed}}) ->
 %%      Vendor-Id if applicable.  The value field of the missing AVP
 %%      should be of correct minimum length and contain zeroes.
 
-%% Or not. Only need to report the first error so look no further.
-d_rc(_, {Avps, {Rec, Failed}}) ->
-    {Rec, Avps, lists:reverse(Failed)}.
+missing(Rec, Name) ->
+    [{5005, empty_avp(F)} || F <- '#info-'(element(1, Rec), fields),
+                             A <- [avp_arity(Name, F)],
+                             false <- [have_arity(A, '#get-'(F, Rec))]].
+
+%% Maximum arities have already been checked in building the record.
+
+have_arity({Min, _}, L) ->
+    Min =< length(L);
+have_arity(N, V) ->
+    N /= 1 orelse V /= undefined.
 
 %% empty_avp/1
 
@@ -191,25 +195,6 @@ empty_avp(Name) ->
                   need_encryption = 0 /= (Flags band 2#00100000),
                   data = empty_value(Name),
                   type = Type}.
-
-%% have_required_avps/2
-
-have_required_avps(Rec, Name) ->
-    lists:foreach(fun(F) -> hra(Name, F, Rec) end,
-                  '#info-'(element(1, Rec), fields)),
-    true.
-
-hra(Name, AvpName, Rec) ->
-    Arity = avp_arity(Name, AvpName),
-    hra(Arity, '#get-'(AvpName, Rec))
-        orelse ?THROW({AvpName, {insufficient_arity, Arity}}).
-
-%% Maximum arities have already been checked in building the record.
-
-hra({Min, _}, L) ->
-    Min =< length(L);
-hra(N, V) ->
-    N /= 1 orelse V /= undefined.
 
 %% 3588, ch 7:
 %%
@@ -227,23 +212,22 @@ decode(Name, #diameter_avp{code = Code, vendor_id = Vid} = Avp, Acc) ->
 
 %% decode/4
 
-%% Don't know this AVP: see if it can be packed in an 'AVP' field
-%% undecoded, unless it's mandatory. Need to give Failed-AVP special
-%% treatment since it'll contain any unrecognized mandatory AVP's.
-decode(Name, 'AVP', #diameter_avp{is_mandatory = M} = Avp, {Avps, Acc}) ->
-    {[Avp | Avps], if M, Name /= 'Failed-AVP' ->
-                           unknown(Avp, Acc);
-                      true ->
-                           pack_AVP(Name, Avp, Acc)
-                   end};
-%% Note that the type field is 'undefined' in this case.
-
-%% Or try to decode.
 decode(Name, {AvpName, Type}, Avp, Acc) ->
-    d(Name, Avp#diameter_avp{name = AvpName, type = Type}, Acc).
+    d(Name, Avp#diameter_avp{name = AvpName, type = Type}, Acc);
+
+decode(Name, 'AVP', Avp, Acc) ->
+    decode_AVP(Name, Avp, Acc).
 
 %% d/3
 
+%% Don't try to decode the value of a Failed-AVP component since it
+%% probably won't. Note that matching on 'Failed-AVP' assumes that
+%% this is the RFC AVP, with code 279. Strictly, this doesn't need to
+%% be the case, so we're assuming no one defines another Failed-AVP.
+d('Failed-AVP' = Name, Avp, Acc) ->
+    decode_AVP(Name, Avp, Acc);
+
+%% Or try to decode.
 d(Name, Avp, {Avps, Acc}) ->
     #diameter_avp{name = AvpName,
                   data = Data}
@@ -265,8 +249,16 @@ d(Name, Avp, {Avps, Acc}) ->
                              ?LINE,
                              {Reason, Avp, erlang:get_stacktrace()}),
             {Rec, Failed} = Acc,
-            {[Avp|Avps], {Rec, [{rc(Reason), Avp} | Failed]}}
+            {[Avp|Avps], {Rec, [rc(Reason, Avp) | Failed]}}
     end.
+
+%% decode_AVP/3
+%%
+%% Don't know this AVP: see if it can be packed in an 'AVP' field
+%% undecoded. Note that the type field is 'undefined' in this case.
+
+decode_AVP(Name, Avp, {Avps, Acc}) ->
+    {[Avp | Avps], pack_AVP(Name, Avp, Acc)}.
 
 %% rc/1
 
@@ -274,8 +266,8 @@ d(Name, Avp, {Avps, Acc}) ->
 %% DIAMETER_INVALID_AVP_LENGTH (5014). A module specified to a
 %% @custom_types tag in a spec file can also raise an error of this
 %% form.
-rc({'DIAMETER', RC, _}) ->
-    RC;
+rc({'DIAMETER', 5014 = RC, _}, #diameter_avp{name = AvpName} = Avp) ->
+    {RC, Avp#diameter_avp{data = empty_value(AvpName)}};
 
 %% 3588:
 %%
@@ -283,20 +275,13 @@ rc({'DIAMETER', RC, _}) ->
 %%      The request contained an AVP with an invalid value in its data
 %%      portion.  A Diameter message indicating this error MUST include
 %%      the offending AVPs within a Failed-AVP AVP.
-rc(_) ->
-    5004.
+rc(_, Avp) ->
+    {5004, Avp}.
 
 %% ungroup/2
-%%
-%% Returns: {Avp, Dec}
-%%
-%%          Avp = #diameter_avp{}    if type is not Grouped
-%%              | list of Avp        where first element has type Grouped
-%%                                   and following elements are its component
-%%                                   AVP's.
-%%              = as for decode_avps/2
-%%
-%%          Dec = #diameter_avp{}, either Avp or its head in the list case.
+
+-spec ungroup(term(), #diameter_avp{})
+   -> {avp(), #diameter_avp{}}.
 
 %% The decoded value in the Grouped case is as returned by grouped_avp/3:
 %% a record and a list of component AVP's.
@@ -325,10 +310,18 @@ pack_avp(_, Arity, Avp, Acc) ->
 
 %% pack_AVP/3
 
-pack_AVP(Name, Avp, Acc) ->
+%% Give Failed-AVP special treatment since it'll contain any
+%% unrecognized mandatory AVP's.
+pack_AVP(Name, #diameter_avp{is_mandatory = true} = Avp, Acc)
+  when Name /= 'Failed-AVP' ->
+    {Rec, Failed} = Acc,
+    {Rec, [{5001, Avp} | Failed]};
+
+pack_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, Acc) ->
     case avp_arity(Name, 'AVP') of
         0 ->
-            unknown(Avp, Acc);
+            {Rec, Failed} = Acc,
+            {Rec, [{if M -> 5001; true -> 5008 end, Avp} | Failed]};
         Arity ->
             pack(Arity, 'AVP', Avp, Acc)
     end.
@@ -345,9 +338,6 @@ pack_AVP(Name, Avp, Acc) ->
 %%      A message was received with an AVP that MUST NOT be present.  The
 %%      Failed-AVP AVP MUST be included and contain a copy of the
 %%      offending AVP.
-%%
-unknown(#diameter_avp{is_mandatory = B} = Avp, {Rec, Failed}) ->
-    {Rec, [{if B -> 5001; true -> 5008 end, Avp} | Failed]}.
 
 %% pack/4
 
@@ -386,23 +376,29 @@ value('AVP', Avp) ->
 value(_, Avp) ->
     Avp#diameter_avp.value.
 
-%%% ---------------------------------------------------------------------------
-%%% # grouped_avp/3
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # grouped_avp/3
+%% ---------------------------------------------------------------------------
+
+-spec grouped_avp(decode, avp_name(), binary())
+   -> {avp_record(), [avp()]};
+                 (encode, avp_name(), avp_record() | avp_values())
+   -> binary()
+    | no_return().
 
 grouped_avp(decode, Name, Data) ->
     {Rec, Avps, []} = decode_avps(Name, diameter_codec:collect_avps(Data)),
     {Rec, Avps};
-%% Note that a failed match here will result in 5004. Note that this is
-%% the only AVP type that doesn't just return the decoded value, also
-%% returning the list of component #diameter_avp{}'s.
+%% A failed match here will result in 5004. Note that this is the only
+%% AVP type that doesn't just return the decoded record, also
+%% returning the list of component AVP's.
 
 grouped_avp(encode, Name, Data) ->
     encode_avps(Name, Data).
 
-%%% ---------------------------------------------------------------------------
-%%% # empty_group/1
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # empty_group/1
+%% ---------------------------------------------------------------------------
 
 empty_group(Name) ->
     list_to_binary(empty_body(Name)).
@@ -423,9 +419,9 @@ z(Name) ->
     Bin = diameter_codec:pack_avp(avp_header(Name), empty_value(Name)),
     << <<0>> || <<_>> <= Bin >>.
 
-%%% ---------------------------------------------------------------------------
-%%% # empty/1
-%%% ---------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% # empty/1
+%% ---------------------------------------------------------------------------
 
 empty(AvpName) ->
     avp(encode, zero, AvpName).
