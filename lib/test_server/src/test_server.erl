@@ -716,6 +716,16 @@ end_conf_timeout(_, _) ->
 call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
     Starter = self(),
     Data = {Mod,Func,TCPid,TCExitReason,Loc},
+    case erlang:function_exported(Mod,end_per_testcase,2) of
+	false ->
+	    spawn_link(fun() ->
+			       Starter ! {self(),{call_end_conf,Data,ok}}
+		       end);
+	true ->
+	    do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal)
+    end.
+
+do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal) ->
     EndConfProc =
 	fun() ->
 		process_flag(trap_exit,true), % to catch timetraps
@@ -753,7 +763,8 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 	end,
     spawn_link(EndConfProc).
 
-spawn_fw_call(Mod,{init_per_testcase,Func},CurrConf,Pid,{timetrap_timeout,TVal}=Why,
+spawn_fw_call(Mod,{init_per_testcase,Func},CurrConf,Pid,
+	      {timetrap_timeout,TVal}=Why,
 	      Loc,SendTo) ->
     FwCall =
 	fun() ->
