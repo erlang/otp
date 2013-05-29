@@ -1693,6 +1693,15 @@ receive_streamed_body(RequestId, Body, Pid) ->
     ct:print("~p:receive_streamed_body -> requested next stream ~n", [?MODULE]),
     receive
 	{http, {RequestId, stream, BinBodyPart}} ->
+	    %% Make sure the httpc hasn't sent us the next 'stream'
+	    %% without our request.
+	    receive
+		{http, {RequestId, stream, _}} = Msg ->
+		    ct:fail({unexpected_flood_of_stream, Msg})
+	    after
+		1000 ->
+		    ok
+	    end,
 	    receive_streamed_body(RequestId,
 				  <<Body/binary, BinBodyPart/binary>>,
 				  Pid);

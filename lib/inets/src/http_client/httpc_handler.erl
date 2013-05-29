@@ -33,7 +33,6 @@
          %% connect_and_send/2,
          send/2, 
          cancel/3,
-         stream/3, 
          stream_next/1,
          info/1
         ]).
@@ -65,7 +64,7 @@
           options,                   % #options{}
           timers = #timers{},        % #timers{}
           profile_name,              % atom() - id of httpc_manager process.
-          once                       % send | undefined 
+          once = inactive            % inactive | once
          }).
 
 
@@ -231,6 +230,8 @@ init([Parent, Request, Options, ProfileName]) ->
     ProxyOptions = handle_proxy_options(Request#request.scheme, Options),
     Address = handle_proxy(Request#request.address, ProxyOptions),
     {ok, State} =
+        %% #state.once should initially be 'inactive' because we
+        %% activate the socket at first regardless of the state.
         case {Address /= Request#request.address, Request#request.scheme} of
             {true, https} ->
                 connect_and_send_upgrade_request(Address, Request,
@@ -425,7 +426,9 @@ handle_cast({cancel, RequestId, From},
 
 handle_cast(stream_next, #state{session = Session} = State) ->
     activate_once(Session), 
-    {noreply, State#state{once = once}}.
+    %% Inactivate the #state.once here because we don't want
+    %% next_body_chunk/1 to activate the socket twice.
+    {noreply, State#state{once = inactive}}.
 
 
 %%--------------------------------------------------------------------
@@ -476,6 +479,41 @@ handle_info({Proto, _Socket, Data},
                 
                 NewState = next_body_chunk(State),
                 NewMFA   = {Module, whole_body, [NewBody, NewLength]}, 
+                {noreply, NewState#state{mfa     = NewMFA,
+                                         request = NewRequest}};
+            {Module, decode_size,
+             [TotalChunk, HexList,
+              {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize}]}
+              when BodySoFar =/= <<>> ->
+                ?hcrd("data processed - decode_size", []),
+                %% The response body is chunk-encoded. Steal decoded
+                %% chunks as much as possible to stream.
+                {_, Code, _} = StatusLine,
+                {NewBody, NewRequest} = stream(BodySoFar, Request, Code),
+                NewState = next_body_chunk(State),
+                NewMFA   = {Module, decode_size,
+                            [TotalChunk, HexList,
+                             {MaxBodySize, NewBody, AccLength, MaxHeaderSize}]},
+                {noreply, NewState#state{mfa     = NewMFA,
+                                         request = NewRequest}};
+            {Module, decode_data,
+             [ChunkSize, TotalChunk,
+              {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize}]}
+              when TotalChunk =/= <<>> orelse BodySoFar =/= <<>> ->
+                ?hcrd("data processed - decode_data", []),
+                %% The response body is chunk-encoded. Steal decoded
+                %% chunks as much as possible to stream.
+                ChunkSizeToSteal = min(ChunkSize, byte_size(TotalChunk)),
+                <<StolenChunk:ChunkSizeToSteal/binary, NewTotalChunk/binary>> = TotalChunk,
+                StolenBody   = <<BodySoFar/binary, StolenChunk/binary>>,
+                NewChunkSize = ChunkSize - ChunkSizeToSteal,
+                {_, Code, _} = StatusLine,
+
+                {NewBody, NewRequest} = stream(StolenBody, Request, Code),
+                NewState = next_body_chunk(State),
+                NewMFA   = {Module, decode_data,
+                            [NewChunkSize, NewTotalChunk,
+                             {MaxBodySize, NewBody, AccLength, MaxHeaderSize}]},
                 {noreply, NewState#state{mfa     = NewMFA,
                                          request = NewRequest}};
             NewMFA ->
@@ -1027,11 +1065,15 @@ handle_http_msg({Version, StatusCode, ReasonPharse, Headers, Body},
 					 status_line = StatusLine, 
 					 headers     = Headers})
     end;
-handle_http_msg({ChunkedHeaders, Body}, #state{headers = Headers} = State) ->
+handle_http_msg({ChunkedHeaders, Body},
+                #state{status_line = {_, Code, _}, headers = Headers} = State) ->
     ?hcrt("handle_http_msg", 
 	  [{chunked_headers, ChunkedHeaders}, {headers, Headers}]),
     NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),
-    handle_response(State#state{headers = NewHeaders, body = Body});
+    {NewBody, NewRequest} = stream(Body, State#state.request, Code),
+    handle_response(State#state{headers = NewHeaders,
+                                body    = NewBody,
+                                request = NewRequest});
 handle_http_msg(Body, #state{status_line = {_,Code, _}} = State) ->
     ?hcrt("handle_http_msg", [{code, Code}]),
     {NewBody, NewRequest} = stream(Body, State#state.request, Code),
@@ -1070,8 +1112,7 @@ handle_http_body(Body, #state{headers       = Headers,
         "chunked" ->
 	    ?hcrt("handle_http_body - chunked", []),
 	    case http_chunk:decode(Body, State#state.max_body_size, 
-				   State#state.max_header_size, 
-				   {Code, Request}) of
+				   State#state.max_header_size) of
 		{Module, Function, Args} ->
 		    ?hcrt("handle_http_body - new mfa", 
 			  [{module,   Module}, 
