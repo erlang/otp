@@ -427,6 +427,8 @@ split_avp(Bin) ->
     <<Code:32, Flags:1/binary, Length:24, Rest/bitstring>>
         = Bin,
 
+    8 =< Length orelse ?THROW(invalid_avp_length),
+
     DataSize = Length - 8,        % size(Code+Flags+Length) = 8 octets
     PadSize = (4 - (DataSize rem 4)) rem 4,
 
