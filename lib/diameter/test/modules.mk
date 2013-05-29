@@ -38,6 +38,7 @@ MODULES = \
 	diameter_examples_SUITE \
 	diameter_failover_SUITE \
 	diameter_gen_sctp_SUITE \
+	diameter_gen_tcp_SUITE \
 	diameter_length_SUITE \
 	diameter_reg_SUITE \
 	diameter_relay_SUITE \
