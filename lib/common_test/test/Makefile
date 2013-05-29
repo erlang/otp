@@ -30,6 +30,7 @@ MODULES= \
 	ct_userconfig_callback \
 	telnet_server \
 	ct_smoke_test_SUITE \
+	ct_gen_conn_SUITE \
 	ct_priv_dir_SUITE \
 	ct_event_handler_SUITE \
 	ct_config_info_SUITE \
