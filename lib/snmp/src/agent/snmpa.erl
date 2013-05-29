@@ -112,7 +112,13 @@
 -export([print_mib_info/0, print_mib_tables/0, print_mib_variables/0]).
 
 -export_type([
-              me/0
+              me/0, 
+
+	      %% Agent config types
+	      mib_storage/0, 
+	      mib_storage_opt/0, 
+	      mib_storage_module/0, 
+	      mib_storage_options/0
              ]).
 
 -deprecated([{old_info_format, 1, next_major_release}]).
@@ -130,6 +136,16 @@
 %%-----------------------------------------------------------------
 
 -type me() :: #me{}.
+
+%% Agent config types
+-type mib_storage() :: [mib_storage_opt()].
+-type mib_storage_opt() :: {module,  mib_storage_module()} | 
+                           {options, mib_storage_options()}.
+
+%% Module implementing the snmpa_mib_storage behaviour
+-type mib_storage_module()  :: atom(). 
+%% Options specific to the above module
+-type mib_storage_options() :: list().
 
 
 %%-----------------------------------------------------------------

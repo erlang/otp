@@ -30,7 +30,8 @@ BEHAVIOUR_MODULES = \
 	snmpa_set_mechanism
 
 # snmpa is "plain" interface module but also defines some agent specific types
-# and therefor must be compiled before the modules that use them...
+# and therefor must be compiled before the modules that use them, including
+# the behaviour modules...
 # snmpa_mib_data_ttln
 MODULES = \
 	snmpa \

@@ -27,24 +27,11 @@
 
 %% These types should really be defined elsewhere...
 -export_type([
-	      mib_storage/0, 
-	      mib_storage_opt/0, 
-	      mib_storage_module/0, 
-	      mib_storage_options/0, 
 	      mib_view/0, 
 	      mib_view_elem/0, 
 	      mib_view_mask/0, 
 	      mib_view_inclusion/0
 	     ]).
-
--type mib_storage() :: [mib_storage_opt()].
--type mib_storage_opt() :: {module,  mib_storage_module()} | 
-                           {options, mib_storage_options()}.
-
-%% Module implementing the snmpa_mib_storage behaviour
--type mib_storage_module()  :: atom(). 
-%% Options specific to the above module
--type mib_storage_options() :: list().
 
 -type mib_view()           :: [mib_view_elem()].
 -type mib_view_elem()      :: {SubTree :: snmp:oid(), 
@@ -56,7 +43,7 @@
 -type filename() :: file:filename().
 
 
--callback new(MibStorage :: mib_storage()) -> State :: term().
+-callback new(MibStorage :: snmpa:mib_storage()) -> State :: term().
 
 -callback close(State :: term()) -> ok.
 
