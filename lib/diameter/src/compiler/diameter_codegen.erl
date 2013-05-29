@@ -574,12 +574,12 @@ cs_enumerated_avp({AvpName, Values}) ->
     lists:flatmap(fun(V) -> c_enumerated_avp(AvpName, V) end, Values).
 
 c_enumerated_avp(AvpName, {_,I}) ->
-    [{?clause, [?ATOM(decode), ?Atom(AvpName), ?TERM(<<I:32/integer>>)],
+    [{?clause, [?ATOM(decode), ?Atom(AvpName), ?TERM(<<I:32>>)],
       [],
       [?TERM(I)]},
      {?clause, [?ATOM(encode), ?Atom(AvpName), ?INTEGER(I)],
       [],
-      [?TERM(<<I:32/integer>>)]}].
+      [?TERM(<<I:32>>)]}].
 
 %%% ------------------------------------------------------------------------
 %%% msg_header/1
@@ -700,7 +700,7 @@ c_empty_value({Name, _, _, _}) ->
 c_empty_value({Name, _}) ->
     {?clause, [?Atom(Name)],
      [],
-     [?TERM(<<0:32/integer>>)]}.
+     [?TERM(<<0:32>>)]}.
 
 %%% ------------------------------------------------------------------------
 %%% # dict/0

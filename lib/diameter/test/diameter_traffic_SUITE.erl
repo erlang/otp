@@ -54,6 +54,7 @@
          send_zero_avp_length/1,
          send_invalid_avp_length/1,
          send_invalid_reject/1,
+         send_unrecognized_mandatory/1,
          send_long/1,
          send_nopeer/1,
          send_noapp/1,
@@ -275,6 +276,7 @@ tc() ->
      send_zero_avp_length,
      send_invalid_avp_length,
      send_invalid_reject,
+     send_unrecognized_mandatory,
      send_long,
      send_nopeer,
      send_noapp,
@@ -420,13 +422,14 @@ send_protocol_error(Config) ->
     ?answer_message(?TOO_BUSY)
         = call(Config, Req).
 
-%% Send an ASR with an arbitrary AVP and expect success and the same
-%% AVP in the reply.
+%% Send an ASR with an arbitrary non-mandatory AVP and expect success
+%% and the same AVP in the reply.
 send_arbitrary(Config) ->
-    Req = ['ASR', {'AVP', [#diameter_avp{name = 'Class', value = "XXX"}]}],
+    Req = ['ASR', {'AVP', [#diameter_avp{name = 'Product-Name',
+                                         value = "XXX"}]}],
     ['ASA', _SessionId, {'Result-Code', ?SUCCESS} | Avps]
         = call(Config, Req),
-    {'AVP', [#diameter_avp{name = 'Class',
+    {'AVP', [#diameter_avp{name = 'Product-Name',
                            value = "XXX"}]}
         = lists:last(Avps).
 
@@ -520,6 +523,14 @@ send_invalid_reject(Config) ->
     Req = ['STR', {'Termination-Cause', ?USER_MOVED}],
 
     ?answer_message(?TOO_BUSY)
+        = call(Config, Req).
+
+%% Send an STR containing a known AVP, but one that's not allowed and
+%% sets the M-bit.
+send_unrecognized_mandatory(Config) ->
+    Req = ['STR', {'Termination-Cause', ?LOGOUT}],
+
+    ['STA', _SessionId, {'Result-Code', ?AVP_UNSUPPORTED} | _]
         = call(Config, Req).
 
 %% Send something long that will be fragmented by TCP.
@@ -836,7 +847,7 @@ prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
         = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
     Offset = L - 24,  %% to Auth-Application-Id
     <<H:Offset/binary,
-      Hdr:5/binary, 12:24/integer, Data:4/binary,
+      Hdr:5/binary, 12:24, Data:4/binary,
       T:12/binary>>
         = B,
     AL = case N of
@@ -846,7 +857,7 @@ prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
          end,
     E#diameter_packet{bin = <<H/binary,
                               T/binary,
-                              Hdr/binary, AL:24/integer, Data/binary>>};
+                              Hdr/binary, AL:24, Data/binary>>};
 
 prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
   when N == send_invalid_avp_length;
@@ -859,21 +870,26 @@ prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
         = E
         = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
     Offset = L - 7 - 12,  %% to AVP Length
-    <<H0:Offset/binary, 12:24/integer, T:16/binary>> = B0,
-    <<V, L:24/integer, H/binary>> = H0,  %% assert
-    E#diameter_packet{bin = <<V,
-                              (L+4):24/integer,
-                              H/binary,
-                              16:24/integer,
-                              0:32/integer,
-                              T/binary>>};
+    <<H0:Offset/binary, 12:24, T:16/binary>> = B0,
+    <<V, L:24, H/binary>> = H0,  %% assert
+    E#diameter_packet{bin = <<V, (L+4):24, H/binary, 16:24, 0:32, T/binary>>};
+
+prepare(Pkt, Caps, send_unrecognized_mandatory, #group{client_dict0 = Dict0}
+                                                = Group) ->
+    Req = prepare(Pkt, Caps, Group),
+    #diameter_packet{bin = <<V, Len:24, T/binary>>}
+        = E
+        = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
+    {Code, Flags, undefined} = Dict0:avp_header('Proxy-State'),
+    Avp = <<Code:32, Flags, 8:24>>,
+    E#diameter_packet{bin = <<V, (Len+8):24, T/binary, Avp/binary>>};
 
 prepare(Pkt, Caps, send_unsupported, #group{client_dict0 = Dict0} = Group) ->
     Req = prepare(Pkt, Caps, Group),
     #diameter_packet{bin = <<H:5/binary, _CmdCode:3/binary, T/binary>>}
         = E
         = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
-    E#diameter_packet{bin = <<H/binary, 42:24/integer, T/binary>>};
+    E#diameter_packet{bin = <<H/binary, 42:24, T/binary>>};
 
 prepare(Pkt, Caps, send_unsupported_app, #group{client_dict0 = Dict0}
                                          = Group) ->
@@ -881,7 +897,7 @@ prepare(Pkt, Caps, send_unsupported_app, #group{client_dict0 = Dict0}
     #diameter_packet{bin = <<H:8/binary, _ApplId:4/binary, T/binary>>}
         = E
         = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
-    E#diameter_packet{bin = <<H/binary, ?BAD_APP:32/integer, T/binary>>};
+    E#diameter_packet{bin = <<H/binary, ?BAD_APP:32, T/binary>>};
 
 prepare(Pkt, Caps, send_error_bit, Group) ->
     #diameter_packet{header = Hdr} = Pkt,

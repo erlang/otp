@@ -221,7 +221,9 @@ decode(Name, 'AVP', Avp, Acc) ->
 %% d/3
 
 %% Don't try to decode the value of a Failed-AVP component since it
-%% probably won't.
+%% probably won't. Note that matching on 'Failed-AVP' assumes that
+%% this is the RFC AVP, with code 279. Strictly, this doesn't need to
+%% be the case, so we're assuming no one defines another Failed-AVP.
 d('Failed-AVP' = Name, Avp, Acc) ->
     decode_AVP(Name, Avp, Acc);
 
@@ -253,17 +255,10 @@ d(Name, Avp, {Avps, Acc}) ->
 %% decode_AVP/3
 %%
 %% Don't know this AVP: see if it can be packed in an 'AVP' field
-%% undecoded, unless it's mandatory. Need to give Failed-AVP special
-%% treatment since it'll contain any unrecognized mandatory AVP's.
-%% Note that the type field is 'undefined' in this case.
+%% undecoded. Note that the type field is 'undefined' in this case.
 
-decode_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, {Avps, Acc}) ->
-    {[Avp | Avps], if Name == 'Failed-AVP';
-                      not M ->
-                           pack_AVP(Name, Avp, Acc);
-                      true ->
-                           unknown(Avp, Acc)
-                   end}.
+decode_AVP(Name, Avp, {Avps, Acc}) ->
+    {[Avp | Avps], pack_AVP(Name, Avp, Acc)}.
 
 %% rc/1
 
@@ -315,10 +310,18 @@ pack_avp(_, Arity, Avp, Acc) ->
 
 %% pack_AVP/3
 
-pack_AVP(Name, Avp, Acc) ->
+%% Give Failed-AVP special treatment since it'll contain any
+%% unrecognized mandatory AVP's.
+pack_AVP(Name, #diameter_avp{is_mandatory = true} = Avp, Acc)
+  when Name /= 'Failed-AVP' ->
+    {Rec, Failed} = Acc,
+    {Rec, [{5001, Avp} | Failed]};
+
+pack_AVP(Name, #diameter_avp{is_mandatory = M} = Avp, Acc) ->
     case avp_arity(Name, 'AVP') of
         0 ->
-            unknown(Avp, Acc);
+            {Rec, Failed} = Acc,
+            {Rec, [{if M -> 5001; true -> 5008 end, Avp} | Failed]};
         Arity ->
             pack(Arity, 'AVP', Avp, Acc)
     end.
@@ -335,9 +338,6 @@ pack_AVP(Name, Avp, Acc) ->
 %%      A message was received with an AVP that MUST NOT be present.  The
 %%      Failed-AVP AVP MUST be included and contain a copy of the
 %%      offending AVP.
-%%
-unknown(#diameter_avp{is_mandatory = B} = Avp, {Rec, Failed}) ->
-    {Rec, [{if B -> 5001; true -> 5008 end, Avp} | Failed]}.
 
 %% pack/4
 
