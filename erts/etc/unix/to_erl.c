@@ -339,7 +339,7 @@ int main(int argc, char **argv)
     tty_smode.c_cc[VTIME]     =0;/* Note that VTIME is the same as VEOL! */
     tty_smode.c_cc[VINTR]     =3;
     
-    tcsetattr(0, TCSANOW, &tty_smode);
+    tcsetattr(0, TCSADRAIN, &tty_smode);
     
 #ifdef DEBUG
     show_terminal_settings(&tty_smode);
@@ -484,7 +484,7 @@ int main(int argc, char **argv)
      * Reset terminal characterstics 
      * XXX
      */
-    tcsetattr(0, TCSANOW, &tty_rmode);
+    tcsetattr(0, TCSADRAIN, &tty_rmode);
     return 0;
 }
 
