@@ -405,7 +405,7 @@ send_eval(Config) ->
 send_bad_answer(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 2}],
-    {error, timeout} = call(Config, Req).
+    {timeout, _} = call(Config, Req).
 
 %% Send an ACR that the server callback answers explicitly with a
 %% protocol error.
@@ -455,7 +455,7 @@ send_unknown_mandatory(Config) ->
 %% Send an STR that the server ignores.
 send_noreply(Config) ->
     Req = ['STR', {'Termination-Cause', ?BAD_ANSWER}],
-    {error, timeout} = call(Config, Req).
+    {timeout, _} = call(Config, Req).
 
 %% Send an unsupported command and expect 3001.
 send_unsupported(Config) ->
@@ -552,7 +552,7 @@ send_all_2(Config) ->
 %% Timeout before the server manages an answer.
 send_timeout(Config) ->
     Req = ['RAR', {'Re-Auth-Request-Type', ?AUTHORIZE_ONLY}],
-    {error, timeout} = call(Config, Req, [{timeout, 1000}]).
+    {timeout, _} = call(Config, Req, [{timeout, 1000}]).
 
 %% Explicitly answer with an answer-message and ensure that we
 %% received the Session-Id.
@@ -560,7 +560,7 @@ send_error(Config) ->
     Req = ['RAR', {'Re-Auth-Request-Type', ?AUTHORIZE_AUTHENTICATE}],
     ?answer_message(SId, ?TOO_BUSY)
         = call(Config, Req),
-    undefined /= SId.
+    true = undefined /= SId.
 
 %% Send a request with the detached option and receive it as a message
 %% from handle_answer instead.
@@ -568,7 +568,7 @@ send_detach(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
     Ref = make_ref(),
     ok = call(Config, Req, [{extra, [{self(), Ref}]}, detach]),
-    Ans = receive {Ref, T} -> T after 2000 -> false end,
+    Ans = receive {Ref, T} -> T end,
     ['STA', _SessionId, {'Result-Code', ?SUCCESS} | _]
         = Ans.
 
@@ -683,7 +683,7 @@ call(Config, Req, Opts) ->
     diameter:call(?CLIENT,
                   dict(Req, Dict0),
                   msg(Req, ReqEncoding, Dict0),
-                  [{extra, [Name, Group]} | Opts]).
+                  [{extra, [{Name, Group}, now()]} | Opts]).
 
 origin({A,C}) ->
     2*codec(A) + container(C);
@@ -767,14 +767,14 @@ peer_down(_SvcName, _Peer, State) ->
 
 %% pick_peer/6-7
 
-pick_peer(Peers, _, ?CLIENT, _State, Name, Group)
+pick_peer(Peers, _, ?CLIENT, _State, {Name, Group}, _)
   when Name /= send_detach ->
     find(Group, Peers).
 
-pick_peer(_Peers, _, ?CLIENT, _State, send_nopeer, _, ?EXTRA) ->
+pick_peer(_Peers, _, ?CLIENT, _State, {send_nopeer, _}, _, ?EXTRA) ->
     false;
 
-pick_peer(Peers, _, ?CLIENT, _State, send_detach, Group, {_,_}) ->
+pick_peer(Peers, _, ?CLIENT, _State, {send_detach, Group}, _, {_,_}) ->
     find(Group, Peers).
 
 find(#group{server_encoding = A, server_container = C}, Peers) ->
@@ -789,13 +789,13 @@ id(Id, {Pid, _Caps}) ->
 
 %% prepare_request/5-6
 
-prepare_request(_Pkt, ?CLIENT, {_Ref, _Caps}, send_discard, _) ->
+prepare_request(_Pkt, ?CLIENT, {_Ref, _Caps}, {send_discard, _}, _) ->
     {discard, unprepared};
 
-prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, Name, Group) ->
+prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, {Name, Group}, _) ->
     {send, prepare(Pkt, Caps, Name, Group)}.
 
-prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, send_detach, Group, _) ->
+prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, {send_detach, Group}, _, _) ->
     {eval_packet, {send, prepare(Pkt, Caps, Group)}, [fun log/2, detach]}.
 
 log(#diameter_packet{bin = Bin} = P, T)
@@ -928,10 +928,10 @@ prepare_retransmit(_Pkt, false, _Peer, _Name, _Group) ->
 
 %% handle_answer/6-7
 
-handle_answer(Pkt, Req, ?CLIENT, Peer, Name, Group) ->
+handle_answer(Pkt, Req, ?CLIENT, Peer, {Name, Group}, _) ->
     answer(Pkt, Req, Peer, Name, Group).
 
-handle_answer(Pkt, Req, ?CLIENT, Peer, send_detach = Name, Group, X) ->
+handle_answer(Pkt, Req, ?CLIENT, Peer, {send_detach = Name, Group}, _, X) ->
     {Pid, Ref} = X,
     Pid ! {Ref, answer(Pkt, Req, Peer, Name, Group)}.
 
@@ -959,7 +959,11 @@ app(Req, _, Dict0) ->
 
 %% handle_error/6
 
-handle_error(Reason, _Req, ?CLIENT, _Peer, _Name, _Group) ->
+handle_error(timeout = Reason, _Req, ?CLIENT, _Peer, _, Time) ->
+    Now = now(),
+    {Reason, {Time, Now, timer:now_diff(Now, Time)}};
+
+handle_error(Reason, _Req, ?CLIENT, _Peer, _, _Time) ->
     {error, Reason}.
 
 %% handle_request/3
@@ -1085,7 +1089,6 @@ request(#diameter_base_STR{'Session-Id' = SId},
                     {'Origin-Host', OH},
                     {'Origin-Realm', OR}]};
 
-%% send_error
+%% send_error/send_timeout
 request(#diameter_base_RAR{}, _Caps) ->
-    receive after 2000 -> ok end,
-    {protocol_error, ?TOO_BUSY}.
+    receive after 2000 -> {protocol_error, ?TOO_BUSY} end.
