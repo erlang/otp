@@ -71,6 +71,6 @@ dec('AR', #diameter_packet
 dec('BR', #diameter_packet
            {msg = #recv_BR{'Origin-Host'  = ?HOST,
                            'Origin-Realm' = ?REALM},
-            errors = [{5008, ?NOT_MANDATORY_YYY},
-                      {5001, ?MANDATORY_XXX}]}) ->
+            errors = [{5001, ?MANDATORY_XXX},
+                      {5008, ?NOT_MANDATORY_YYY}]}) ->
     ok.

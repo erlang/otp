@@ -487,31 +487,31 @@ send_unsupported_version(Config) ->
 
 %% Send a request containing an AVP length > data size.
 send_long_avp_length(Config) ->
-    Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-
-    ?answer_message(?INVALID_AVP_BITS)
-        = call(Config, Req).
+    send_invalid_avp_length(Config).
 
 %% Send a request containing an AVP length < data size.
 send_short_avp_length(Config) ->
-    Req = ['STR', {'Termination-Cause', ?LOGOUT}],
+    send_invalid_avp_length(Config).
 
-    ['STA', _SessionId, {'Result-Code', ?INVALID_AVP_LENGTH} | _]
-        = call(Config, Req).
+%% Send a request containing an AVP whose advertised length is < 8.
+send_zero_avp_length(Config) ->
+    send_invalid_avp_length(Config).
 
 %% Send a request containing an AVP length that doesn't match the
 %% AVP's type.
 send_invalid_avp_length(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT}],
 
-    ['STA', _SessionId, {'Result-Code', ?INVALID_AVP_LENGTH} | _]
-        = call(Config, Req).
-
-%% Send a request containing an AVP whose advertised length is < 8.
-send_zero_avp_length(Config) ->
-    Req = ['STR', {'Termination-Cause', ?LOGOUT}],
-
-    ?answer_message(?INVALID_AVP_BITS)
+    ['STA', _SessionId,
+            {'Result-Code', ?INVALID_AVP_LENGTH},
+            _OriginHost,
+            _OriginRealm,
+            _UserName,
+            _Class,
+            _ErrorMessage,
+            _ErrorReportingHost,
+            {'Failed-AVP', [#'diameter_base_Failed-AVP'{'AVP' = [_]}]}
+          | _]
         = call(Config, Req).
 
 %% Send a request containing 5xxx errors that the server rejects with
@@ -828,19 +828,25 @@ prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
        N == send_zero_avp_length ->
     Req = prepare(Pkt, Caps, Group),
     %% Second last AVP in our STR is Auth-Application-Id of type
-    %% Unsigned32: set AVP Length to a value other than 12.
+    %% Unsigned32: set AVP Length to a value other than 12 and place
+    %% it last in the message (so as not to mess with Termination-Cause).
     #diameter_packet{header = #diameter_header{length = L},
                      bin = B}
         = E
         = diameter_codec:encode(Dict0, Pkt#diameter_packet{msg = Req}),
-    Offset = L - 7 - 12,  %% to AVP Length
-    <<H:Offset/binary, 12:24/integer, T:16/binary>> = B,  %% assert
+    Offset = L - 24,  %% to Auth-Application-Id
+    <<H:Offset/binary,
+      Hdr:5/binary, 12:24/integer, Data:4/binary,
+      T:12/binary>>
+        = B,
     AL = case N of
              send_long_avp_length  -> 13;
              send_short_avp_length -> 11;
              send_zero_avp_length  -> 0
          end,
-    E#diameter_packet{bin = <<H/binary, AL:24/integer, T/binary>>};
+    E#diameter_packet{bin = <<H/binary,
+                              T/binary,
+                              Hdr/binary, AL:24/integer, Data/binary>>};
 
 prepare(Pkt, Caps, N, #group{client_dict0 = Dict0} = Group)
   when N == send_invalid_avp_length;
