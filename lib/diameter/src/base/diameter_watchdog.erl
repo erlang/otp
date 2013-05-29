@@ -505,7 +505,9 @@ set_watchdog(#watchdog{tw = TwInit,
                        tref = TRef}
              = S) ->
     cancel(TRef),
-    S#watchdog{tref = erlang:start_timer(tw(TwInit), self(), tw)}.
+    S#watchdog{tref = erlang:start_timer(tw(TwInit), self(), tw)};
+set_watchdog(stop = No) ->
+    No.
 
 cancel(undefined) ->
     ok;
