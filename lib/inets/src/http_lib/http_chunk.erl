@@ -24,7 +24,7 @@
 -include("http_internal.hrl").
 
 %% API
--export([decode/3, decode/4, encode/1, encode_last/0, handle_headers/2]).
+-export([decode/3, encode/1, encode_last/0, handle_headers/2]).
 %% Callback API - used for example if the chunkedbody is received a
 %% little at a time on a socket. 
 -export([decode_size/1, ignore_extensions/1, decode_data/1, decode_trailer/1]).
@@ -34,20 +34,14 @@
 %%%  API
 %%%=========================================================================
 %%-------------------------------------------------------------------------
-%% decode(ChunkedBody, MaxBodySize, MaxHeaderSize, <Stream>) -> 
+%% decode(ChunkedBody, MaxBodySize, MaxHeaderSize) ->
 %%       {ok, {Headers, Body}} | {Module, Function, Args}
 %%
 %%      Headers = ["Header:Value"]
 %%      ChunkedBody = binary()
 %%      MaxBodySize = integer()
 %%      MaxHeaderSize = integer()
-%%      Stream = {Code, Request} - if Request#request.stream =/= none
-%%      and Code == 200 the side effect of sending each decode chunk to the
-%%      client/file before the whole body is received will take place.
 %%
-%% Note: decode/4 should only be used from httpc_handler module.
-%% Otherwhise use the side effect free decode/3.
-%%                                   
 %% Description: Decodes a body encoded by the chunked transfer
 %% encoding. If the ChunkedBody is not compleate it returns {Module,
 %% Function, Args} so that decoding can be continued when more of the
@@ -61,12 +55,9 @@
 %% the next pass in the loop. 
 %%-------------------------------------------------------------------------
 decode(ChunkedBody, MaxBodySize, MaxHeaderSize) ->
-    decode(ChunkedBody, MaxBodySize, MaxHeaderSize, false).
-
-decode(ChunkedBody, MaxBodySize, MaxHeaderSize, Stream) ->
      %% Note decode_size will call decode_data.
-    decode_size([ChunkedBody, <<>>, [], 
-		 {MaxBodySize, <<>>, 0, MaxHeaderSize, Stream}]).
+    decode_size([ChunkedBody, <<>>, [],
+                 {MaxBodySize, <<>>, 0, MaxHeaderSize}]).
 
 %%-------------------------------------------------------------------------
 %% encode(Chunk) -> EncodedChunk
@@ -150,7 +141,7 @@ decode_size(<<>>, HexList, Info) ->
 decode_size(Data = <<?CR, ?LF, ChunkRest/binary>>, HexList, 
 	    {MaxBodySize, Body, 
 	     AccLength,
-	     MaxHeaderSize, Stream}) ->
+	     MaxHeaderSize}) ->
     ChunkSize =  http_util:hexlist_to_integer(lists:reverse(HexList)),
      case ChunkSize of
 	0 -> % Last chunk, there was no data
@@ -164,7 +155,7 @@ decode_size(Data = <<?CR, ?LF, ChunkRest/binary>>, HexList,
 	    %% to this function comes in.
 	    decode_data(ChunkSize, ChunkRest, {MaxBodySize, Body, 
 					       ChunkSize + AccLength , 
-					       MaxHeaderSize, Stream})
+					       MaxHeaderSize})
     end;
 decode_size(<<";", Rest/binary>>, HexList, Info) ->
     %% Note ignore_extensions will call decode_size/1 again when
@@ -189,50 +180,42 @@ ignore_extensions(<<_Octet, Rest/binary>>, NextFunction) ->
     ignore_extensions(Rest, NextFunction).
 
 decode_data(ChunkSize, TotalChunk,
-	    Info = {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize, Stream}) 
+	    Info = {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize}) 
   when ChunkSize =< size(TotalChunk) ->
     case TotalChunk of
 	%% Last chunk
 	<<Data:ChunkSize/binary, ?CR, ?LF, "0", ";">> ->
 	    %% Note ignore_extensions will call decode_trailer/1
 	    %% once it ignored all extensions.
-	    {NewBody, _} = 
-		stream(<<BodySoFar/binary, Data/binary>>, Stream),
 	    {?MODULE, ignore_extensions, 
 	     [<<>>, 
 	      {?MODULE, decode_trailer, [<<>>, [],[], MaxHeaderSize,
-					 NewBody,
+					 <<BodySoFar/binary, Data/binary>>,
 					 integer_to_list(AccLength)]}]};
 	<<Data:ChunkSize/binary, ?CR, ?LF, "0", ";", Rest/binary>> ->
 	    %% Note ignore_extensions will call decode_trailer/1
 	    %% once it ignored all extensions.
-	    {NewBody, _} = stream(<<BodySoFar/binary, Data/binary>>, Stream),
 	    ignore_extensions(Rest, {?MODULE, decode_trailer, 
 				     [<<>>, [],[], MaxHeaderSize,
-				      NewBody,
+				      <<BodySoFar/binary, Data/binary>>,
 				      integer_to_list(AccLength)]});
 	<<Data:ChunkSize/binary, ?CR, ?LF, "0", ?CR, ?LF>> ->
-	    {NewBody, _} = stream(<<BodySoFar/binary, Data/binary>>, Stream),
 	    {?MODULE, decode_trailer, [<<?CR, ?LF>>, [],[], MaxHeaderSize,
-				       NewBody,
+				       <<BodySoFar/binary, Data/binary>>,
 				       integer_to_list(AccLength)]};
 	<<Data:ChunkSize/binary, ?CR, ?LF, "0", ?CR, ?LF, Rest/binary>> ->
-	    {NewBody,_}= stream(<<BodySoFar/binary, Data/binary>>, Stream),
 	    decode_trailer(<<?CR, ?LF, Rest/binary>>, [],[], MaxHeaderSize,
-			   NewBody,
+			   <<BodySoFar/binary, Data/binary>>,
 			   integer_to_list(AccLength));
 	%% There are more chunks, so here we go agin...
 	<<Data:ChunkSize/binary, ?CR, ?LF>> ->
-	    {NewBody, NewStream} = 
-		stream(<<BodySoFar/binary, Data/binary>>, Stream),
-	    {?MODULE, decode_size, [<<>>, [], {MaxBodySize, NewBody, AccLength, MaxHeaderSize, NewStream}]};
+	    NewBody = <<BodySoFar/binary, Data/binary>>,
+	    {?MODULE, decode_size, [<<>>, [], {MaxBodySize, NewBody, AccLength, MaxHeaderSize}]};
 	<<Data:ChunkSize/binary, ?CR, ?LF, Rest/binary>> 
 	when (AccLength < MaxBodySize) or (MaxBodySize == nolimit)  ->
-	    {NewBody, NewStream} = 
-		stream(<<BodySoFar/binary, Data/binary>>, Stream),
 	    decode_size(Rest, [], 
-			{MaxBodySize, NewBody,
-			 AccLength, MaxHeaderSize, NewStream});
+			{MaxBodySize, <<BodySoFar/binary, Data/binary>>,
+			 AccLength, MaxHeaderSize});
 	<<_:ChunkSize/binary, ?CR, ?LF, _/binary>> ->
 	    throw({error, body_too_big});
 	_ ->
@@ -286,9 +269,3 @@ decode_trailer(<<Octet, Rest/binary>>, Header, Headers, MaxHeaderSize, Body,
 	       BodyLength) ->
     decode_trailer(Rest, [Octet | Header], Headers, MaxHeaderSize, 
 		   Body, BodyLength).
-
-stream(BodyPart, false) ->
-    {BodyPart, false};
-stream(BodyPart, {Code, Request}) ->
-    {NewBody, NewRequest} = httpc_handler:stream(BodyPart, Request, Code),
-    {NewBody, {Code, NewRequest}}.
