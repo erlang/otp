@@ -702,7 +702,7 @@ build_answer('CER',
         N -> {cea(CEA, N, Dict0), [fun open/5, Pkt,
                                                SupportedApps,
                                                Caps,
-                                               {accept, hd([_] = IS)}]}
+                                               {accept, inband_security(IS)}]}
     catch
         ?FAILURE(Reason) ->
             rejected(Reason, {'CER', Reason, Caps, Pkt}, S)
@@ -718,6 +718,11 @@ build_answer(Type,
              S) ->
     RC = rc(H, Es),
     {answer(Type, RC, Es, S), post(Type, RC, Pkt, S)}.
+
+inband_security([]) ->
+    ?NO_INBAND_SECURITY;
+inband_security([IS]) ->
+    IS.
 
 cea(CEA, ok, _) ->
     CEA;

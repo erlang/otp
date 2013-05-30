@@ -282,8 +282,25 @@ build_CEA(_, LCaps, RCaps, Dict, CEA) ->
         [] ->
             Dict:'#set-'({'Result-Code', ?NOSECURITY}, CEA);
         [_] = IS ->
-            Dict:'#set-'({'Inband-Security-Id', IS}, CEA)
+            Dict:'#set-'({'Inband-Security-Id', inband_security(IS)}, CEA)
     end.
+
+%% Only set Inband-Security-Id if different from the default, since
+%% RFC 6733 recommends against the AVP:
+%%
+%% 6.10.  Inband-Security-Id AVP
+%%
+%%    The Inband-Security-Id AVP (AVP Code 299) is of type Unsigned32 and
+%%    is used in order to advertise support of the security portion of the
+%%    application.  The use of this AVP in CER and CEA messages is NOT
+%%    RECOMMENDED.  Instead, discovery of a Diameter entity's security
+%%    capabilities can be done either through static configuration or via
+%%    Diameter Peer Discovery as described in Section 5.2.
+
+inband_security([?NO_INBAND_SECURITY]) ->
+    [];
+inband_security([_] = IS) ->
+    IS.
 
 %% common_security/2
 
