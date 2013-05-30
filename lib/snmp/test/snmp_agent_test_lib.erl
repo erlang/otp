@@ -58,7 +58,7 @@
 	 init_all/1, finish_all/1,
 	 init_case/1,
 	 try_test/2, try_test/3, try_test/4,
-	 expect/2, expect/3, expect/4, expect/6, 
+	 expect/3, expect/4, expect/5, expect/7, 
 	 
 	 regs/0,
 	 rpc/3
@@ -842,31 +842,33 @@ agent_info(Sup) ->
 
 
 %% --- 
+%% The first two arguments are simple to be able to find where in the 
+%% (test) code this call is made. 
 
-expect(Id, A) -> 
-    Fun = fun() -> do_expect(A) end,
-    expect2(Id, Fun).
+expect(Mod, Line, What) -> 
+    Fun = fun() -> do_expect(What) end,
+    expect2(Mod, Line, Fun).
 
-expect(Id, A, B) ->          
-    Fun = fun() -> do_expect(A, B) end,
-    expect2(Id, Fun).
+expect(Mod, Line, What, ExpVBs) ->          
+    Fun = fun() -> do_expect(What, ExpVBs) end,
+    expect2(Mod, Line, Fun).
 	 
-expect(Id, A, B, C) -> 
-    Fun = fun() -> do_expect(A, B, C) end,
-    expect2(Id, Fun).
+expect(Mod, Line, Error, Index, ExpVBS) -> 
+    Fun = fun() -> do_expect(Error, Index, ExpVBS) end,
+    expect2(Mod, Line, Fun).
 
-expect(Id, A, B, C, D, E) -> 
-    Fun = fun() -> do_expect(A, B, C, D, E) end,
-    expect2(Id, Fun).
+expect(Mod, Line, Type, Enterp, Generic, Specific, ExpVBs) -> 
+    Fun = fun() -> do_expect(Type, Enterp, Generic, Specific, ExpVBs) end,
+    expect2(Mod, Line, Fun).
 
-expect2(Id, F) ->
-    io:format("EXPECT for ~w~n", [Id]),
+expect2(Mod, Line, F) ->
+    io:format("EXPECT for ~w:~w~n", [Mod, Line]),
     case F() of
 	{error, Reason} ->
-	    io:format("EXPECT failed for ~w: ~n~p~n", [Id, Reason]),
-	    throw({error, {expect, Id, Reason}});
+	    io:format("EXPECT failed at ~w:~w => ~n~p~n", [Mod, Line, Reason]),
+	    throw({error, {expect, Mod, Line, Reason}});
 	Else ->
-	    io:format("EXPECT result for ~w: ~n~p~n", [Id, Else]),
+	    io:format("EXPECT result for ~w:~w => ~n~p~n", [Mod, Line, Else]),
 	    Else
     end.
 
@@ -918,7 +920,8 @@ do_expect({timeout, To}) ->
     end;
 
 do_expect({Err, To}) 
-  when is_atom(Err) andalso (is_integer(To) orelse (To =:= infinity)) ->
+  when (is_atom(Err) andalso 
+	((is_integer(To) andalso To > 0) orelse (To =:= infinity))) ->
     io:format("EXPECT error ~w within ~w~n", [Err, To]),
     do_expect({{error, Err}, To});
 

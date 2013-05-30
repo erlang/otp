@@ -86,6 +86,26 @@
 	       end).
 
 
+-define(expect1(What), 
+	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+				   What)).
+-define(expect2(What, ExpVBs), 
+	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+				   What, ExpVBs)).
+-define(expect3(Err, Idx, ExpVBs), 
+	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+				   Err, Idx, ExpVBs)).
+-define(expect4(Err, Idx, ExpVBs, To), 
+	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+				   Err, Idx, ExpVBs, To)).
+-define(expect5(Type, Ent, Gen, Spec, ExpVBs), 
+	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+				   Type, Ent, Gen, Spec, ExpVBs)).
+-define(expect6(Type, Ent, Gen, Spec, ExpVBs, To), 
+	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+				   Type, Ent, Gen, Spec, ExpVBs)).
+
+
 all() -> 
     %% Reqs  = [mnesia, distribution, {local_slave_nodes, 2}, {time, 360}],
     Conf1 = [{group, all_tcs}],
@@ -2443,9 +2463,9 @@ v3_des_priv(Config) when is_list(Config) ->
 v3_sync(Funcs) ->
     ?DBG("v3_sync -> entry with Funcs: ~p",[Funcs]),
     g([[sysDescr, 0]]),
-    expect(432, report, [{?usmStatsNotInTimeWindows_instance, any}]),
+    ?expect2(report, [{?usmStatsNotInTimeWindows_instance, any}]),
     g([[sysDescr, 0]]),
-    expect(433, [{[sysDescr,0], any}]),
+    ?expect1([{[sysDescr,0], any}]),
     lists:foreach(fun({Func, Args}) -> apply(?MODULE, Func, Args) end, Funcs).
 
 v3_inform_sync(MA) ->
@@ -2456,9 +2476,9 @@ v3_inform_sync(MA) ->
     ?DBG("v3_sync -> wait some time: ",[]),
     ?SLEEP(20000), % more than 1500*10 in target_addr.conf
     ?DBG("v3_sync -> await response",[]),
-    ?line expect(1, {inform, true},
-		 [{[sysUpTime, 0], any},
-		  {[snmpTrapOID, 0], ?system ++ [0,1]}]).
+    ?line ?expect2({inform, true},
+		   [{[sysUpTime, 0], any},
+		    {[snmpTrapOID, 0], ?system ++ [0,1]}]).
 
 
 v2_caps(suite) -> [];
@@ -2474,11 +2494,11 @@ v2_caps_3(X) -> ?P(v2_caps_3), v2_caps(X).
 v2_caps_i(Node) ->
     ?line Idx = rpc:call(Node, snmp, add_agent_caps, [[1,2,3,4,5], "test cap"]),
     g([[sysORID, Idx], [sysORDescr, Idx]]),
-    ?line expect(1, [{[sysORID, Idx], [1,2,3,4,5]},
-		     {[sysORDescr, Idx], "test cap"}]),
+    ?line ?expect1([{[sysORID, Idx], [1,2,3,4,5]}, 
+		    {[sysORDescr, Idx], "test cap"}]),
     ?line rpc:call(Node, snmp, del_agent_caps, [Idx]),
     g([[sysORID, Idx]]),
-    ?line expect(2, [{[sysORID, Idx], noSuchInstance}]).
+    ?line ?expect1([{[sysORID, Idx], noSuchInstance}]).
     
 
 %% Req. Test2
@@ -2494,86 +2514,86 @@ v1_proc() ->
 v1_get_p() ->
     %% 4.1.2:1
     g([[test2]]),
-    ?line expect(10, noSuchName, 1, [{[test2], 'NULL'}]),
+    ?line ?expect3(noSuchName, 1, [{[test2], 'NULL'}]),
     g([[tDescr]]),
-    ?line expect(11, noSuchName, 1, [{[tDescr], 'NULL'}]),
+    ?line ?expect3(noSuchName, 1, [{[tDescr], 'NULL'}]),
     g([[tDescr2,0]]),
-    ?line expect(12, noSuchName, 1, [{[tDescr2,0], 'NULL'}]),
+    ?line ?expect3(noSuchName, 1, [{[tDescr2,0], 'NULL'}]),
     g([[tDescr3,0]]),
-    ?line expect(131, noSuchName, 1, [{[tDescr3,0], 'NULL'}]),
+    ?line ?expect3(noSuchName, 1, [{[tDescr3,0], 'NULL'}]),
     g([[tDescr4,0]]),
-    ?line expect(132, noSuchName, 1, [{[tDescr4,0], 'NULL'}]),
+    ?line ?expect3(noSuchName, 1, [{[tDescr4,0], 'NULL'}]),
     g([[sysDescr, 0], [tDescr,0]]), % Outside mibview
-    ?line expect(14, noSuchName, 2, [{[sysDescr, 0], 'NULL'},
-				     {[tDescr,0], 'NULL'}]),
+    ?line ?expect3(noSuchName, 2, [{[sysDescr, 0], 'NULL'},
+				   {[tDescr,0], 'NULL'}]),
     g([[sysDescr,3]]),
-    ?line expect(15, noSuchName, 1, [{[sysDescr, 3], 'NULL'}]),
+    ?line ?expect3(noSuchName, 1, [{[sysDescr, 3], 'NULL'}]),
     
     %% 4.1.2:2
     g([[tTable]]),
-    ?line expect(20, noSuchName, 1, [{[tTable], 'NULL'}]),
+    ?line ?expect3(noSuchName, 1, [{[tTable], 'NULL'}]),
     g([[tEntry]]),
-    ?line expect(21, noSuchName, 1, [{[tEntry], 'NULL'}]),
+    ?line ?expect3(noSuchName, 1, [{[tEntry], 'NULL'}]),
     
     %% 4.1.2:3
     g([[tTooBig, 0]]),
-    ?line expect(30, tooBig, 0, [{[tTooBig, 0], 'NULL'}]),
+    ?line ?expect3(tooBig, 0, [{[tTooBig, 0], 'NULL'}]),
 
     %% 4.1.2:4
     g([[tGenErr1, 0]]),
-    ?line expect(40, genErr, 1, [{[tGenErr1, 0], 'NULL'}]),
+    ?line ?expect3(genErr, 1, [{[tGenErr1, 0], 'NULL'}]),
     g([[tGenErr2, 0]]),
-    ?line expect(41, genErr, 1, [{[tGenErr2, 0], 'NULL'}]),
+    ?line ?expect3(genErr, 1, [{[tGenErr2, 0], 'NULL'}]),
     g([[sysDescr, 0], [tGenErr3, 0]]),
-    ?line expect(42, genErr, 2, [{[sysDescr, 0], 'NULL'},
-				 {[tGenErr3, 0], 'NULL'}]).
+    ?line ?expect3(genErr, 2, [{[sysDescr, 0], 'NULL'},
+			       {[tGenErr3, 0], 'NULL'}]).
     
     
 v1_get_next_p() ->
     %% 4.1.3:1
     gn([[1,3,7,1]]),
-    ?line expect(10, noSuchName, 1, [{[1,3,7,1], 'NULL'}]),
+    ?line ?expect3(noSuchName, 1, [{[1,3,7,1], 'NULL'}]),
     gn([[tDescr2]]),
-    ?line expect(11, tooBig, 0, any),
+    ?line ?expect3(tooBig, 0, any),
     
     %% 4.1.3:2
     gn([[tTooBig]]),
     io:format("We currently don't handle tooBig correct!!!\n"),
-%    ?line expect(20, tooBig, 0, [{[tTooBig], 'NULL'}]),
-    ?line expect(20, tooBig, 0, any),
+%    ?line ?expect3(tooBig, 0, [{[tTooBig], 'NULL'}]),
+    ?line ?expect3(tooBig, 0, any),
 
     %% 4.1.3:3
     gn([[tGenErr1]]),
 %    ?line expect(40, genErr, 1, [{[tGenErr1], 'NULL'}]),
-    ?line expect(40, genErr, 1, any),
+    ?line ?expect3(genErr, 1, any),
     gn([[tGenErr2]]),
-%    ?line expect(41, genErr, 1, [{[tGenErr2], 'NULL'}]),
-    ?line expect(41, genErr, 1, any),
+%    ?line ?expect3(genErr, 1, [{[tGenErr2], 'NULL'}]),
+    ?line ?expect3(genErr, 1, any),
     gn([[sysDescr], [tGenErr3]]),
-%    ?line expect(42, genErr, 2, [{[sysDescr], 'NULL'},
+%    ?line ?expect3(genErr, 2, [{[sysDescr], 'NULL'},
 %				 {[tGenErr3], 'NULL'}]).
-    ?line expect(42, genErr, 2, any).
+    ?line ?expect3(genErr, 2, any).
     
 v1_set_p() ->
     %% 4.1.5:1
     s([{[1,3,7,0], i, 4}]),
-    ?line expect(10, noSuchName, 1, [{[1,3,7,0], 4}]),
+    ?line ?expect3(noSuchName, 1, [{[1,3,7,0], 4}]),
     s([{[tDescr,0], s, "outside mibview"}]),
-    ?line expect(11, noSuchName, 1, [{[tDescr,0], "outside mibview"}]),
+    ?line ?expect3(noSuchName, 1, [{[tDescr,0], "outside mibview"}]),
     s([{[tDescr3,0], s, "read-only"}]),
-    ?line expect(12, noSuchName, 1, [{[tDescr3,0], "read-only"}]),
+    ?line ?expect3(noSuchName, 1, [{[tDescr3,0], "read-only"}]),
     s([{[tDescr3], s, "noSuchObject"}]),
-    ?line expect(13, noSuchName, 1, [{[tDescr3], "noSuchObject"}]),
+    ?line ?expect3(noSuchName, 1, [{[tDescr3], "noSuchObject"}]),
     s([{[tDescr3,1], s, "noSuchInstance"}]),
-    ?line expect(14, noSuchName, 1, [{[tDescr3,1], "noSuchInstance"}]),
+    ?line ?expect3(noSuchName, 1, [{[tDescr3,1], "noSuchInstance"}]),
     s([{[tDescr2,0], s, "inconsistentName"}]),
-    ?line expect(15, noSuchName, 1, [{[tDescr2,0], "inconsistentName"}]),
+    ?line ?expect3(noSuchName, 1, [{[tDescr2,0], "inconsistentName"}]),
 
     %% 4.1.5:2
     s([{[tDescr2, 0], i, 4}]),
-    ?line expect(20, badValue, 1, [{[tDescr2, 0], 4}]),
+    ?line ?expect3(badValue, 1, [{[tDescr2, 0], 4}]),
     s([{[tDescr2, 0], s, "badValue"}]),
-    ?line expect(21, badValue, 1, [{[tDescr2, 0], "badValue"}]),
+    ?line ?expect3(badValue, 1, [{[tDescr2, 0], "badValue"}]),
     
     %% 4.1.5:3
     %% The standard is quite incorrect here.  The resp pdu was too big.  In
@@ -2583,14 +2603,14 @@ v1_set_p() ->
     %% of the std-like original value.
     s([{[tTooBig, 0], s, ?tooBigStr}]),
     %% according to std:
-%    ?line expect(30, tooBig, 0, [{[tTooBig, 0], ?tooBigStr}]),
-    ?line expect(30, tooBig, 0, [{[tTooBig, 0], 'NULL'}]),
+%    ?line ?expect3(tooBig, 0, [{[tTooBig, 0], ?tooBigStr}]),
+    ?line ?expect3(tooBig, 0, [{[tTooBig, 0], 'NULL'}]),
     
     %% 4.1.5:4
     s([{[tDescr2, 0], s, "is_set_ok_fail"}]),
-    ?line expect(40, genErr, 1, [{[tDescr2, 0], "is_set_ok_fail"}]),
+    ?line ?expect3(genErr, 1, [{[tDescr2, 0], "is_set_ok_fail"}]),
     s([{[tDescr2, 0], s, "commit_fail"}]),
-    ?line expect(41, genErr, 1, [{[tDescr2, 0], "commit_fail"}]).
+    ?line ?expect3(genErr, 1, [{[tDescr2, 0], "commit_fail"}]).
     
 %% Req. Test2
 v2_proc() ->
@@ -2606,183 +2626,183 @@ v2_get_p() ->
     %% 4.2.1:2
     ?DBG("v2_get_p -> entry",[]),
     g([[test2]]),
-    ?line expect(10, [{[test2], noSuchObject}]),
+    ?line ?expect1([{[test2], noSuchObject}]),
     g([[tDescr]]),
-    ?line expect(11, [{[tDescr], noSuchObject}]),
+    ?line ?expect1([{[tDescr], noSuchObject}]),
     g([[tDescr4,0]]),
-    ?line expect(12, [{[tDescr4,0], noSuchObject}]),
+    ?line ?expect1([{[tDescr4,0], noSuchObject}]),
     g([[sysDescr, 0], [tDescr,0]]), % Outside mibview
-    ?line expect(13, [{[sysDescr,0], "Erlang SNMP agent"},
-		      {[tDescr,0], noSuchObject}]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"},
+		    {[tDescr,0], noSuchObject}]),
     g([[tTable]]),
-    ?line expect(14, [{[tTable], noSuchObject}]),
+    ?line ?expect1([{[tTable], noSuchObject}]),
     g([[tEntry]]),
-    ?line expect(15, [{[tEntry], noSuchObject}]),
+    ?line ?expect1([{[tEntry], noSuchObject}]),
     
     %% 4.2.1:3
     g([[tDescr2,0]]), %% instrum ret noSuchName!!!
-    ?line expect(20, [{[tDescr2,0], noSuchInstance}]), 
+    ?line ?expect1([{[tDescr2,0], noSuchInstance}]), 
     g([[tDescr3,0]]),
-    ?line expect(21, [{[tDescr3,0], noSuchInstance}]),
+    ?line ?expect1([{[tDescr3,0], noSuchInstance}]),
     g([[sysDescr,3]]),
-    ?line expect(22, [{[sysDescr, 3], noSuchInstance}]),
+    ?line ?expect1([{[sysDescr, 3], noSuchInstance}]),
     g([[tIndex,1]]),
-    ?line expect(23, [{[tIndex, 1], noSuchInstance}]),
+    ?line ?expect1([{[tIndex, 1], noSuchInstance}]),
 
     %% 4.2.1 - any other error: genErr
     g([[tGenErr1, 0]]),
-    ?line expect(30, genErr, 1, [{[tGenErr1, 0], 'NULL'}]),
+    ?line ?expect3(genErr, 1, [{[tGenErr1, 0], 'NULL'}]),
     g([[tGenErr2, 0]]),
-    ?line expect(31, genErr, 1, [{[tGenErr2, 0], 'NULL'}]),
+    ?line ?expect3(genErr, 1, [{[tGenErr2, 0], 'NULL'}]),
     g([[sysDescr, 0], [tGenErr3, 0]]),
-    ?line expect(32, genErr, 2, [{[sysDescr, 0], 'NULL'},
-				 {[tGenErr3, 0], 'NULL'}]),
+    ?line ?expect3(genErr, 2, [{[sysDescr, 0], 'NULL'},
+			       {[tGenErr3, 0], 'NULL'}]),
     
     %% 4.2.1 - tooBig
     g([[tTooBig, 0]]),
-    ?line expect(40, tooBig, 0, []).
+    ?line ?expect3(tooBig, 0, []).
 
     
 v2_get_next_p() ->
     %% 4.2.2:2
     ?DBG("v2_get_next_p -> entry",[]),
     gn([[1,3,7,1]]),
-    ?line expect(10, [{[1,3,7,1], endOfMibView}]),
+    ?line ?expect1([{[1,3,7,1], endOfMibView}]),
     gn([[sysDescr], [1,3,7,1]]),
-    ?line expect(11, [{[sysDescr, 0], "Erlang SNMP agent"},
-		      {[1,3,7,1], endOfMibView}]),
+    ?line ?expect1([{[sysDescr, 0], "Erlang SNMP agent"},
+		    {[1,3,7,1], endOfMibView}]),
     gn([[tCnt2, 1]]),
-    ?line expect(12, [{[tCnt2,2], 100}]),
+    ?line ?expect1([{[tCnt2,2], 100}]),
     gn([[tCnt2, 2]]),
-    ?line expect(12, [{[tCnt2,2], endOfMibView}]),
+    ?line ?expect1([{[tCnt2,2], endOfMibView}]),
     
     %% 4.2.2 - any other error: genErr
     gn([[tGenErr1]]),
-    ?line expect(20, genErr, 1, [{[tGenErr1], 'NULL'}]),
+    ?line ?expect3(genErr, 1, [{[tGenErr1], 'NULL'}]),
     gn([[tGenErr2]]),
-    ?line expect(21, genErr, 1, [{[tGenErr2], 'NULL'}]),
+    ?line ?expect3(genErr, 1, [{[tGenErr2], 'NULL'}]),
     gn([[sysDescr], [tGenErr3]]),
-    ?line expect(22, genErr, 2, [{[sysDescr], 'NULL'},
-				 {[tGenErr3], 'NULL'}]),
+    ?line ?expect3(genErr, 2, [{[sysDescr], 'NULL'},
+			       {[tGenErr3], 'NULL'}]),
     
     %% 4.2.2 - tooBig
     gn([[tTooBig]]),
-    ?line expect(20, tooBig, 0, []).
+    ?line ?expect3(tooBig, 0, []).
 
 v2_get_bulk_p() ->
     %% 4.2.3
     ?DBG("v2_get_bulk_p -> entry",[]),
     gb(1, 1, []),
-    ?line expect(10, []),
+    ?line ?expect1([]),
     gb(-1, 1, []),
-    ?line expect(11, []),
+    ?line ?expect1([]),
     gb(-1, -1, []),
-    ?line expect(12, []),
+    ?line ?expect1([]),
     gb(-1, -1, []),
-    ?line expect(13, []),
+    ?line ?expect1([]),
     gb(2, 0, [[sysDescr], [1,3,7,1]]),
-    ?line expect(14, [{[sysDescr, 0], "Erlang SNMP agent"},
-		      {[1,3,7,1], endOfMibView}]),
+    ?line ?expect1([{[sysDescr, 0], "Erlang SNMP agent"},
+		    {[1,3,7,1], endOfMibView}]),
     gb(1, 2, [[sysDescr], [1,3,7,1]]),
-    ?line expect(15, [{[sysDescr, 0], "Erlang SNMP agent"},
-		      {[1,3,7,1], endOfMibView}]),
+    ?line ?expect1([{[sysDescr, 0], "Erlang SNMP agent"},
+		    {[1,3,7,1], endOfMibView}]),
     gb(0, 2, [[sysDescr], [1,3,7,1]]),
-    ?line expect(16, [{[sysDescr, 0], "Erlang SNMP agent"},
-		      {[1,3,7,1], endOfMibView},
-		      {[sysObjectID, 0], [1,2,3]},
-		      {[1,3,7,1], endOfMibView}]),
+    ?line ?expect1([{[sysDescr, 0], "Erlang SNMP agent"},
+		    {[1,3,7,1], endOfMibView},
+		    {[sysObjectID, 0], [1,2,3]},
+		    {[1,3,7,1], endOfMibView}]),
     
     gb(2, 2, [[sysDescr], [1,3,7,1], [sysDescr], [1,3,7,1]]),
-    ?line expect(17, [{[sysDescr, 0], "Erlang SNMP agent"},
-		      {[1,3,7,1], endOfMibView},
-		      {[sysDescr, 0], "Erlang SNMP agent"},		      
-		      {[1,3,7,1], endOfMibView},
-		      {[sysObjectID, 0], [1,2,3]},
-		      {[1,3,7,1], endOfMibView}]),
+    ?line ?expect1([{[sysDescr, 0], "Erlang SNMP agent"},
+		    {[1,3,7,1], endOfMibView},
+		    {[sysDescr, 0], "Erlang SNMP agent"},		      
+		    {[1,3,7,1], endOfMibView},
+		    {[sysObjectID, 0], [1,2,3]},
+		    {[1,3,7,1], endOfMibView}]),
     
     gb(1, 2, [[sysDescr], [sysDescr], [tTooBig]]),
-    ?line expect(18, [{[sysDescr, 0], "Erlang SNMP agent"},
-		      {[sysDescr, 0], "Erlang SNMP agent"}]),
+    ?line ?expect1([{[sysDescr, 0], "Erlang SNMP agent"},
+		    {[sysDescr, 0], "Erlang SNMP agent"}]),
     
     gb(1,12, [[tDescr2], [sysDescr]]), % next one after tDescr2 is tTooBig.
-    ?line expect(19, []),
+    ?line ?expect1([]),
     
     gb(2,2, [[sysDescr], [sysObjectID], [tGenErr1], [sysDescr]]),
-    ?line expect(20, genErr, 3, [{[sysDescr], 'NULL'},
-				 {[sysObjectID], 'NULL'},
-				 {[tGenErr1], 'NULL'},
-				 {[sysDescr], 'NULL'}]),
+    ?line ?expect3(genErr, 3, [{[sysDescr], 'NULL'},
+			       {[sysObjectID], 'NULL'},
+			       {[tGenErr1], 'NULL'},
+			       {[sysDescr], 'NULL'}]),
     gb(0, 2, [[tCnt2, 1]]),
-    ?line expect(21, [{[tCnt2,2], 100},
-		      {[tCnt2,2], endOfMibView}]).
+    ?line ?expect1([{[tCnt2,2], 100},
+		    {[tCnt2,2], endOfMibView}]).
     
     
 v2_set_p() ->
     %% 4.2.5:1
     ?DBG("v2_set_p -> entry",[]),
     s([{[1,3,7,0], i, 4}]),
-    ?line expect(10, noAccess, 1, [{[1,3,7,0], 4}]),
+    ?line ?expect3(noAccess, 1, [{[1,3,7,0], 4}]),
     s([{[tDescr,0], s, "outside mibview"}]),
-    ?line expect(11, noAccess, 1, [{[tDescr,0], "outside mibview"}]),
+    ?line ?expect3(noAccess, 1, [{[tDescr,0], "outside mibview"}]),
     
     %% 4.2.5:2
     s([{[1,3,6,1,0], s, "noSuchObject"}]),
-    ?line expect(20, notWritable, 1, [{[1,3,6,1,0], "noSuchObject"}]),
+    ?line ?expect3(notWritable, 1, [{[1,3,6,1,0], "noSuchObject"}]),
     
     %% 4.2.5:3
     s([{[tDescr2, 0], i, 4}]),
-    ?line expect(30, wrongType, 1, [{[tDescr2, 0], 4}]),
+    ?line ?expect3(wrongType, 1, [{[tDescr2, 0], 4}]),
     s([{[tDescr2, 0], s, "badValue"}]),
-    ?line expect(31, badValue, 1, [{[tDescr2, 0], "badValue"}]),
+    ?line ?expect3(badValue, 1, [{[tDescr2, 0], "badValue"}]),
 
     %% 4.2.5:4
     s([{[tStr, 0], s, ""}]),
-    ?line expect(40, wrongLength, 1, [{[tStr, 0], ""}]),
+    ?line ?expect3(wrongLength, 1, [{[tStr, 0], ""}]),
     s([{[tStr, 0], s, "12345"}]),
-    ?line expect(40, wrongLength, 1, [{[tStr, 0], "12345"}]),
+    ?line ?expect3(wrongLength, 1, [{[tStr, 0], "12345"}]),
     
     %% 4.2.5:5 - N/A
 
     %% 4.2.5:6
     s([{[tInt1, 0], i, 0}]),
-    ?line expect(60, wrongValue, 1, [{[tInt1, 0], 0}]),
+    ?line ?expect3(wrongValue, 1, [{[tInt1, 0], 0}]),
     s([{[tInt1, 0], i, 5}]),
-    ?line expect(61, wrongValue, 1, [{[tInt1, 0], 5}]),
+    ?line ?expect3(wrongValue, 1, [{[tInt1, 0], 5}]),
     s([{[tInt2, 0], i, 0}]),
-    ?line expect(62, wrongValue, 1, [{[tInt2, 0], 0}]),
+    ?line ?expect3(wrongValue, 1, [{[tInt2, 0], 0}]),
     s([{[tInt2, 0], i, 5}]),
-    ?line expect(63, wrongValue, 1, [{[tInt2, 0], 5}]),
+    ?line ?expect3(wrongValue, 1, [{[tInt2, 0], 5}]),
     s([{[tInt3, 0], i, 5}]),
-    ?line expect(64, wrongValue, 1, [{[tInt3, 0], 5}]),
+    ?line ?expect3(wrongValue, 1, [{[tInt3, 0], 5}]),
     
     %% 4.2.5:7
     s([{[tDescrX, 1, 1], s, "noCreation"}]),
-    ?line expect(70, noCreation, 1, [{[tDescrX, 1, 1], "noCreation"}]),
+    ?line ?expect3(noCreation, 1, [{[tDescrX, 1, 1], "noCreation"}]),
 
     %% 4.2.5:8
     s([{[tDescrX, 1, 2], s, "inconsistentName"}]),
-    ?line expect(80, inconsistentName, 1,
-		 [{[tDescrX, 1, 2], "inconsistentName"}]),
+    ?line ?expect3(inconsistentName, 1,
+		   [{[tDescrX, 1, 2], "inconsistentName"}]),
     
     %% 4.2.5:9
     s([{[tCnt, 1, 2], i, 5}]),
-    ?line expect(90, notWritable, 1, [{[tCnt, 1, 2], 5}]),
+    ?line ?expect3(notWritable, 1, [{[tCnt, 1, 2], 5}]),
     s([{[tDescr3,0], s, "read-only"}]),
-    ?line expect(90, notWritable, 1, [{[tDescr3,0], "read-only"}]),
+    ?line ?expect3(notWritable, 1, [{[tDescr3,0], "read-only"}]),
 
     %% 4.2.5:10
     s([{[tDescr2,0], s, "inconsistentValue"}]),
-    ?line expect(100, inconsistentValue, 1,
-		 [{[tDescr2,0], "inconsistentValue"}]),
+    ?line ?expect3(inconsistentValue, 1,
+		   [{[tDescr2,0], "inconsistentValue"}]),
     
     %% 4.2.5:11
     s([{[tDescr2,0], s, "resourceUnavailable"}]),
-    ?line expect(110, resourceUnavailable, 1,
-		 [{[tDescr2,0],"resourceUnavailable"}]),
+    ?line ?expect3(resourceUnavailable, 1,
+		   [{[tDescr2,0],"resourceUnavailable"}]),
     
     %% 4.2.5:12
     s([{[tDescr2, 0], s, "is_set_ok_fail"}]),
-    ?line expect(120, genErr, 1, [{[tDescr2, 0], "is_set_ok_fail"}]).
+    ?line ?expect3(genErr, 1, [{[tDescr2, 0], "is_set_ok_fail"}]).
     
     %% commitFailed and undoFailed is tested by the 'undo' case.
     
@@ -2797,101 +2817,101 @@ table_test() ->
     Key1c4 = [intCommunityAccess,get(mip),is("public")],
     EndKey = [intCommunityEntry,[9],get(mip),is("public")],
     gn([[intCommunityEntry]]),
-    ?line expect(7, [{Key1c3, 2}]),
+    ?line ?expect1([{Key1c3, 2}]),
     gn([[intCommunityTable]]),
-    ?line expect(71, [{Key1c3, 2}]),
+    ?line ?expect1([{Key1c3, 2}]),
     gn([[community]]),
-    ?line expect(72, [{Key1c3, 2}]),
+    ?line ?expect1([{Key1c3, 2}]),
     gn([[otpSnmpeaMIB]]),
-    ?line expect(73, [{Key1c3, 2}]),
+    ?line ?expect1([{Key1c3, 2}]),
     gn([[ericsson]]),
-    ?line expect(74, [{Key1c3, 2}]),
+    ?line ?expect1([{Key1c3, 2}]),
     gn([Key1c3]),
-    ?line expect(8, [{Key2c3, 2}]),
+    ?line ?expect1([{Key2c3, 2}]),
     gn([Key2c3]),
-    ?line expect(9, [{Key1c4, 2}]),
+    ?line ?expect1([{Key1c4, 2}]),
     gn([EndKey]),
     AgentIp = [intAgentIpAddress,0], 
-    ?line expect(10, [{AgentIp, any}]),
+    ?line ?expect1([{AgentIp, any}]),
     g([Key1c3]),
-    ?line expect(11, [{Key1c3, 2}]),
+    ?line ?expect1([{Key1c3, 2}]),
     g([EndKey]),
-    ?line ?v1_2(expect(12, noSuchName, 1, any),
-		expect(12, [{EndKey, noSuchObject}])),
+    ?line ?v1_2(?expect3(noSuchName, 1, any),
+		?expect1([{EndKey, noSuchObject}])),
 
     io:format("Testing row creation/deletion on communityTable...~n"),
     NewKeyc3 = [intCommunityViewIndex,get(mip),is("test")],
     NewKeyc4 = [intCommunityAccess,get(mip),is("test")],
     NewKeyc5 = [intCommunityStatus,get(mip),is("test")],
     s([{NewKeyc5, ?createAndGo}]),
-    ?line expect(14, ?v1_2(badValue, inconsistentValue), 1,any),
+    ?line ?expect3(?v1_2(badValue, inconsistentValue), 1, any),
     s([{NewKeyc5, ?createAndGo}, {NewKeyc3, 2}, {NewKeyc4, 2}]),
-    ?line expect(15, [{NewKeyc5, ?createAndGo},{NewKeyc3, 2}, {NewKeyc4, 2}]),
+    ?line ?expect1([{NewKeyc5, ?createAndGo},{NewKeyc3, 2}, {NewKeyc4, 2}]),
     g([NewKeyc4]),
-    ?line expect(16, [{NewKeyc4, 2}]),
+    ?line ?expect1([{NewKeyc4, 2}]),
     s([{NewKeyc5, ?destroy}]),
-    ?line expect(17, [{NewKeyc5, ?destroy}]),
+    ?line ?expect1([{NewKeyc5, ?destroy}]),
     s([{NewKeyc4, 2}]),
-    ?line expect(18, ?v1_2(noSuchName, inconsistentName), 1,[{NewKeyc4, 2}]),
+    ?line ?expect3(?v1_2(noSuchName, inconsistentName), 1, [{NewKeyc4, 2}]),
     s([{NewKeyc5, ?createAndWait}]),
-    ?line expect(19, [{NewKeyc5, ?createAndWait}]),
+    ?line ?expect1([{NewKeyc5, ?createAndWait}]),
     g([NewKeyc5]),
-    ?line expect(20, [{NewKeyc5, ?notReady}]),
+    ?line ?expect1([{NewKeyc5, ?notReady}]),
     s([{NewKeyc4, 2}]),
-    ?line expect(21, [{NewKeyc4, 2}]),
+    ?line ?expect1([{NewKeyc4, 2}]),
     g([NewKeyc5]),
-    ?line expect(22, [{NewKeyc5, ?notReady}]),
+    ?line ?expect1([{NewKeyc5, ?notReady}]),
     s([{NewKeyc3, 2}]),
-    ?line expect(23, [{NewKeyc3, 2}]),
+    ?line ?expect1([{NewKeyc3, 2}]),
     g([NewKeyc5]),
-    ?line expect(24, [{NewKeyc5, ?notInService}]),
+    ?line ?expect1([{NewKeyc5, ?notInService}]),
     s([{NewKeyc5, ?active}]),
-    ?line expect(25, [{NewKeyc5, ?active}]),
+    ?line ?expect1([{NewKeyc5, ?active}]),
     s([{NewKeyc5, ?destroy}]),
-    ?line expect(26, [{NewKeyc5, ?destroy}]),
+    ?line ?expect1([{NewKeyc5, ?destroy}]),
     s([{NewKeyc3, 3}]),
-    ?line expect(27, ?v1_2(noSuchName, inconsistentName), 1,[{NewKeyc3, 3}]),
+    ?line ?expect3(?v1_2(noSuchName, inconsistentName), 1, [{NewKeyc3, 3}]),
     otp_1128().
 
 %% Req. system group
 simple_standard_test() ->
     ?DBG("simple_standard_test -> entry",[]),
     gn([[1,1]]),
-    ?line expect(1, [{[sysDescr,0], "Erlang SNMP agent"}]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"}]),
     gn([[1,3]]),
-    ?line expect(11, [{[sysDescr,0], "Erlang SNMP agent"}]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"}]),
     gn([[1,3,6]]),
-    ?line expect(12, [{[sysDescr,0], "Erlang SNMP agent"}]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"}]),
     gn([[1,3,6,1]]),
-    ?line expect(13, [{[sysDescr,0], "Erlang SNMP agent"}]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"}]),
     gn([[1,3,6,1,2]]),
-    ?line expect(14, [{[sysDescr,0], "Erlang SNMP agent"}]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"}]),
     gn([[1,3,6,1,2,1]]),
-    ?line expect(15, [{[sysDescr,0], "Erlang SNMP agent"}]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"}]),
     gn([[1,3,6,1,2,1,1]]),
-    ?line expect(16, [{[sysDescr,0], "Erlang SNMP agent"}]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"}]),
     gn([[sysDescr]]),
-    ?line expect(17, [{[sysDescr,0], "Erlang SNMP agent"}]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"}]),
     g([[sysDescr,0]]),
-    ?line expect(2, [{[sysDescr,0], "Erlang SNMP agent"}]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"}]),
     g([[sysDescr]]),
-    ?line ?v1_2(expect(3, noSuchName, 1, any),
-		expect(3, [{[sysDescr], noSuchObject}])),
+    ?line ?v1_2(?expect3(noSuchName, 1, any),
+		?expect1([{[sysDescr], noSuchObject}])),
     g([[1,6,7,0]]),
-    ?line ?v1_2(expect(41, noSuchName, 1, any),
-		expect(3, [{[1,6,7,0], noSuchObject}])),
+    ?line ?v1_2(?expect3(noSuchName, 1, any),
+		?expect1([{[1,6,7,0], noSuchObject}])),
     gn([[1,13]]),
-    ?line ?v1_2(expect(4, noSuchName,1, any),
-		expect(4, [{[1,13], endOfMibView}])),
+    ?line ?v1_2(?expect3(noSuchName,1, any),
+		?expect1([{[1,13], endOfMibView}])),
     s([{[sysLocation, 0], "new_value"}]),
-    ?line expect(5, [{[sysLocation, 0], "new_value"}]),
+    ?line ?expect1([{[sysLocation, 0], "new_value"}]),
     g([[sysLocation, 0]]),
-    ?line expect(6, [{[sysLocation, 0], "new_value"}]),
+    ?line ?expect1([{[sysLocation, 0], "new_value"}]),
     io:format("Testing noSuchName and badValue...~n"),
     s([{[sysServices,0], 3}]),
-    ?line expect(61, ?v1_2(noSuchName, notWritable), 1, any),
+    ?line ?expect3(?v1_2(noSuchName, notWritable), 1, any),
     s([{[sysLocation, 0], i, 3}]),
-    ?line expect(62, ?v1_2(badValue, wrongType), 1, any),
+    ?line ?expect3(?v1_2(badValue, wrongType), 1, any),
     ?DBG("simple_standard_test -> done",[]),
     ok.
 
@@ -2908,7 +2928,7 @@ db_notify_client(Config) when is_list(Config) ->
     snmpa_local_db:verbosity(trace),
     Self = self(), 
     ?DBG("db_notify_client -> register self (~p) notify client", [Self]),
-    snmpa_local_db:register_notify_client(self(),?MODULE),
+    snmpa_local_db:register_notify_client(Self, ?MODULE),
 
     %% This call (to the manager) will issue to set operations, so
     %% we expect to receive to notify(insert) calls.
@@ -2933,7 +2953,7 @@ db_notify_client(Config) when is_list(Config) ->
     end,
 
     ?DBG("db_notify_client -> unregister self (~p) notify client", [Self]),
-    snmpa_local_db:unregister_notify_client(self()),
+    snmpa_local_db:unregister_notify_client(Self),
     ?DBG("db_notify_client -> minimize verbosity", []),
     snmpa_local_db:verbosity(silence),
 
@@ -2945,11 +2965,11 @@ db_notify_client(Config) when is_list(Config) ->
 db_notify_client_test() ->
     ?DBG("set first new sysLocation",[]),
     s([{[sysLocation, 0], "new_value"}]),
-    ?line expect(5, [{[sysLocation, 0], "new_value"}]),
+    ?line ?expect1([{[sysLocation, 0], "new_value"}]),
 
     ?DBG("set second new sysLocation",[]),
     s([{[sysLocation, 0], "new_value"}]),
-    ?line expect(5, [{[sysLocation, 0], "new_value"}]).
+    ?line ?expect1([{[sysLocation, 0], "new_value"}]).
 
 notify(Pid, What) -> 
     ?DBG("notify(~p,~p) -> called",[Pid,What]),
@@ -2966,24 +2986,23 @@ big_test() ->
     
     ?DBG("big_test -> testing simple next/get/set @ subagent...",[]),
     gn([[klas1]]),
-    ?line expect(1, [{[fname,0], ""}]),
+    ?line ?expect1([{[fname,0], ""}]),
     g([[fname,0]]),
-    ?line expect(2, [{[fname,0], ""}]),
+    ?line ?expect1([{[fname,0], ""}]),
     s([{[fname,0], s, "test set"}]),
-    ?line expect(3, [{[fname,0], "test set"}]),
+    ?line ?expect1([{[fname,0], "test set"}]),
     g([[fname,0]]),
-    ?line expect(4, [{[fname,0], "test set"}]),
+    ?line ?expect1([{[fname,0], "test set"}]),
     
     ?DBG("big_test -> "
 	"testing next from last instance in master to subagent...",[]),
     gn([[?v1_2(sysServices, sysORLastChange),0]]),
-    ?line expect(5, [{[fname,0], "test set"}]),
-    gn([[1,1],
-	[?v1_2(sysServices, sysORLastChange),0]]),
-    ?line expect(51, [{[sysDescr,0], "Erlang SNMP agent"},
-		{[fname,0], "test set"}]),
+    ?line ?expect1([{[fname,0], "test set"}]),
+    gn([[1,1], [?v1_2(sysServices, sysORLastChange),0]]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"},
+		    {[fname,0], "test set"}]),
     s([{[fname,0], s, ""}]),
-    ?line expect(52, [{[fname,0], ""}]),
+    ?line ?expect1([{[fname,0], ""}]),
     
     table_test(),
 
@@ -2991,14 +3010,14 @@ big_test() ->
     _FTab = [friendsEntry],
     s([{[friendsEntry, [2, 3]], s, "kompis3"},
        {[friendsEntry, [3, 3]], i, ?createAndGo}]),
-    ?line expect(6, [{[friendsEntry, [2, 3]], "kompis3"},
-	       {[friendsEntry, [3, 3]], ?createAndGo}]),
+    ?line ?expect1([{[friendsEntry, [2, 3]], "kompis3"},
+		    {[friendsEntry, [3, 3]], ?createAndGo}]),
     g([[friendsEntry, [2, 3]],
        [friendsEntry, [3, 3]]]),
-    ?line expect(7, [{[friendsEntry, [2, 3]], "kompis3"},
-	       {[friendsEntry, [3, 3]], ?active}]),
+    ?line ?expect1([{[friendsEntry, [2, 3]], "kompis3"},
+		    {[friendsEntry, [3, 3]], ?active}]),
     s([{[friendsEntry, [3, 3]], i, ?destroy}]),
-    ?line expect(8, [{[friendsEntry, [3, 3]], ?destroy}]),
+    ?line ?expect1([{[friendsEntry, [3, 3]], ?destroy}]),
     
     otp_1131(),
 
@@ -3006,28 +3025,28 @@ big_test() ->
        []),
     s([{[kompissEntry, [1, 3]], s, "kompis3"},
        {[kompissEntry, [2, 3]], i, ?createAndGo}]),
-    ?line expect(9, [{[kompissEntry, [1, 3]], "kompis3"},
-	       {[kompissEntry, [2, 3]], ?createAndGo}]),
+    ?line ?expect1([{[kompissEntry, [1, 3]], "kompis3"},
+		    {[kompissEntry, [2, 3]], ?createAndGo}]),
     g([[kompissEntry, [1, 3]],
        [kompissEntry, [2, 3]]]),
-    ?line expect(10, [{[kompissEntry, [1, 3]], "kompis3"},
-		{[kompissEntry, [2, 3]], ?active}]),
+    ?line ?expect1([{[kompissEntry, [1, 3]], "kompis3"},
+		    {[kompissEntry, [2, 3]], ?active}]),
     gn([[kompissEntry, [1]],
 	[kompissEntry, [2]]]),
-    ?line expect(11, [{[kompissEntry, [1, 3]], "kompis3"},
-		{[kompissEntry, [2, 3]], ?active}]),
+    ?line ?expect1([{[kompissEntry, [1, 3]], "kompis3"},
+		    {[kompissEntry, [2, 3]], ?active}]),
     s([{[kompissEntry, [1, 2]], s, "kompis3"},
        {[kompissEntry, [2, 2]], i, ?createAndGo}]),
-    ?line expect(12, [{[kompissEntry, [1, 2]], "kompis3"},
-		{[kompissEntry, [2, 2]], ?createAndGo}]),
+    ?line ?expect1([{[kompissEntry, [1, 2]], "kompis3"},
+		    {[kompissEntry, [2, 2]], ?createAndGo}]),
     gn([[kompissEntry, [1, 1]],
 	[kompissEntry, [2, 1]]]),
-    ?line expect(13, [{[kompissEntry, [1, 2]], "kompis3"},
-		{[kompissEntry, [2, 2]], ?active}]),
+    ?line ?expect1([{[kompissEntry, [1, 2]], "kompis3"},
+		    {[kompissEntry, [2, 2]], ?active}]),
     s([{[kompissEntry, [2, 3]], i, ?destroy}]),
-    ?line expect(14, [{[kompissEntry, [2, 3]], ?destroy}]),
+    ?line ?expect1([{[kompissEntry, [2, 3]], ?destroy}]),
     s([{[kompissEntry, [2, 2]], i, ?destroy}]),
-    ?line expect(15, [{[kompissEntry, [2, 2]], ?destroy}]),
+    ?line ?expect1([{[kompissEntry, [2, 2]], ?destroy}]),
     ?DBG("big_test -> done",[]),
     ok.
 
@@ -3038,23 +3057,22 @@ big_test_2() ->
     
     ?P1("Testing simple next/get/set @ subagent (2)..."),
     gn([[klas2]]),
-    ?line expect(1, [{[fname2,0], ""}]),
+    ?line ?expect1([{[fname2,0], ""}]),
     g([[fname2,0]]),
-    ?line expect(2, [{[fname2,0], ""}]),
+    ?line ?expect1([{[fname2,0], ""}]),
     s([{[fname2,0], s, "test set"}]),
-    ?line expect(3, [{[fname2,0], "test set"}]),
+    ?line ?expect1([{[fname2,0], "test set"}]),
     g([[fname2,0]]),
-    ?line expect(4, [{[fname2,0], "test set"}]),
+    ?line ?expect1([{[fname2,0], "test set"}]),
 
     otp_1298(),
 
     ?P1("Testing next from last object in master to subagent (2)..."),
     gn([[?v1_2(sysServices, sysORLastChange),0]]),
-    ?line expect(5, [{[fname2,0], "test set"}]),
-    gn([[1,1],
-	[?v1_2(sysServices, sysORLastChange),0]]),
-    ?line expect(51, [{[sysDescr,0], "Erlang SNMP agent"},
-		{[fname2,0], "test set"}]),
+    ?line ?expect1([{[fname2,0], "test set"}]),
+    gn([[1,1], [?v1_2(sysServices, sysORLastChange),0]]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"},
+		    {[fname2,0], "test set"}]),
     
     table_test(),
     
@@ -3062,40 +3080,40 @@ big_test_2() ->
     _FTab = [friendsEntry2],
     s([{[friendsEntry2, [2, 3]], s, "kompis3"},
        {[friendsEntry2, [3, 3]], i, ?createAndGo}]),
-    ?line expect(6, [{[friendsEntry2, [2, 3]], "kompis3"},
-	       {[friendsEntry2, [3, 3]], ?createAndGo}]),
+    ?line ?expect1([{[friendsEntry2, [2, 3]], "kompis3"},
+		    {[friendsEntry2, [3, 3]], ?createAndGo}]),
     g([[friendsEntry2, [2, 3]],
        [friendsEntry2, [3, 3]]]),
-    ?line expect(7, [{[friendsEntry2, [2, 3]], "kompis3"},
-	       {[friendsEntry2, [3, 3]], ?active}]),
+    ?line ?expect1([{[friendsEntry2, [2, 3]], "kompis3"},
+		    {[friendsEntry2, [3, 3]], ?active}]),
     s([{[friendsEntry2, [3, 3]], i, ?destroy}]),
-    ?line expect(8, [{[friendsEntry2, [3, 3]], ?destroy}]),
+    ?line ?expect1([{[friendsEntry2, [3, 3]], ?destroy}]),
     
     ?P1("Adding two rows in subagent table with special INDEX (2)"),
     s([{[kompissEntry2, [1, 3]], s, "kompis3"},
        {[kompissEntry2, [2, 3]], i, ?createAndGo}]),
-    ?line expect(9, [{[kompissEntry2, [1, 3]], "kompis3"},
-	       {[kompissEntry2, [2, 3]], ?createAndGo}]),
+    ?line ?expect1([{[kompissEntry2, [1, 3]], "kompis3"},
+		    {[kompissEntry2, [2, 3]], ?createAndGo}]),
     g([[kompissEntry2, [1, 3]],
        [kompissEntry2, [2, 3]]]),
-    ?line expect(10, [{[kompissEntry2, [1, 3]], "kompis3"},
-		{[kompissEntry2, [2, 3]], ?active}]),
+    ?line ?expect1([{[kompissEntry2, [1, 3]], "kompis3"},
+		    {[kompissEntry2, [2, 3]], ?active}]),
     gn([[kompissEntry2, [1]],
 	[kompissEntry2, [2]]]),
-    ?line expect(11, [{[kompissEntry2, [1, 3]], "kompis3"},
-		{[kompissEntry2, [2, 3]], ?active}]),
+    ?line ?expect1([{[kompissEntry2, [1, 3]], "kompis3"},
+		    {[kompissEntry2, [2, 3]], ?active}]),
     s([{[kompissEntry2, [1, 2]], s, "kompis3"},
        {[kompissEntry2, [2, 2]], i, ?createAndGo}]),
-    ?line expect(12, [{[kompissEntry2, [1, 2]], "kompis3"},
-		{[kompissEntry2, [2, 2]], ?createAndGo}]),
+    ?line ?expect1([{[kompissEntry2, [1, 2]], "kompis3"},
+		    {[kompissEntry2, [2, 2]], ?createAndGo}]),
     gn([[kompissEntry2, [1, 1]],
 	[kompissEntry2, [2, 1]]]),
-    ?line expect(13, [{[kompissEntry2, [1, 2]], "kompis3"},
-		{[kompissEntry2, [2, 2]], ?active}]),
+    ?line ?expect1([{[kompissEntry2, [1, 2]], "kompis3"},
+		    {[kompissEntry2, [2, 2]], ?active}]),
     s([{[kompissEntry2, [2, 3]], i, ?destroy}]),
-    ?line expect(14, [{[kompissEntry2, [2, 3]], ?destroy}]),
+    ?line ?expect1([{[kompissEntry2, [2, 3]], ?destroy}]),
     s([{[kompissEntry2, [2, 2]], i, ?destroy}]),
-    ?line expect(15, [{[kompissEntry2, [2, 2]], ?destroy}]),
+    ?line ?expect1([{[kompissEntry2, [2, 2]], ?destroy}]),
     ok.
 
 %% Req. Test1
@@ -3104,26 +3122,26 @@ multi_threaded_test() ->
     g([[multiStr,0]]),
     Pid = get_multi_pid(),
     g([[sysUpTime,0]]),
-    ?line expect(1, [{[sysUpTime,0], any}]),
+    ?line ?expect1([{[sysUpTime,0], any}]),
     s([{[sysLocation, 0], s, "pelle"}]),
-    ?line expect(2, [{[sysLocation, 0], "pelle"}]),
+    ?line ?expect1([{[sysLocation, 0], "pelle"}]),
     Pid ! continue,
-    ?line expect(3, [{[multiStr,0], "ok"}]),
+    ?line ?expect1([{[multiStr,0], "ok"}]),
     
     s([{[multiStr, 0], s, "block"}]),
     Pid2 = get_multi_pid(),    
     g([[sysUpTime,0]]),
-    ?line expect(4, [{[sysUpTime,0], any}]),
+    ?line ?expect1([{[sysUpTime,0], any}]),
     g([[multiStr,0]]),
     Pid3 = get_multi_pid(),
     g([[sysUpTime,0]]),
-    ?line expect(5, [{[sysUpTime,0], any}]),
+    ?line ?expect1([{[sysUpTime,0], any}]),
     s([{[sysLocation, 0], s, "kalle"}]),
     Pid3 ! continue,
-    ?line expect(6, [{[multiStr,0], "ok"}]),
+    ?line ?expect1([{[multiStr,0], "ok"}]),
     Pid2 ! continue,
-    ?line expect(7, [{[multiStr,0], "block"}]),
-    ?line expect(8, [{[sysLocation,0], "kalle"}]).
+    ?line ?expect1([{[multiStr,0], "block"}]),
+    ?line ?expect1([{[sysLocation,0], "kalle"}]).
 
 %% Req. Test1, TestTrapv2
 mt_trap_test(MA) ->
@@ -3131,9 +3149,8 @@ mt_trap_test(MA) ->
     ?DBG("mt_trap_test(01) -> issue testTrapv22 (standard trap)", []),
     snmpa:send_trap(MA, testTrapv22, "standard trap"),
     ?DBG("mt_trap_test(02) -> await v2trap", []),
-    ?line expect(mt_trap_test_1, v2trap, 
-		 [{[sysUpTime, 0],   any},
-		  {[snmpTrapOID, 0], ?system ++ [0,1]}]),
+    ?line ?expect2(v2trap, [{[sysUpTime, 0],   any},
+			    {[snmpTrapOID, 0], ?system ++ [0,1]}]),
 
     ?DBG("mt_trap_test(03) -> issue mtTrap (standard trap)", []),
     snmpa:send_trap(MA, mtTrap, "standard trap"),
@@ -3142,21 +3159,21 @@ mt_trap_test(MA) ->
     g([[sysUpTime,0]]),
 
     ?DBG("mt_trap_test(06) -> await sysUpTime", []),
-    ?line expect(mt_trap_test_2, [{[sysUpTime,0], any}]),
+    ?line ?expect1([{[sysUpTime,0], any}]),
     ?DBG("mt_trap_test(07) -> issue testTrapv22 (standard trap)", []),
     snmpa:send_trap(MA, testTrapv22, "standard trap"),
     ?DBG("mt_trap_test(08) -> await v2trap", []),
-    ?line expect(mt_trap_test_3, v2trap, 
-		 [{[sysUpTime, 0],   any}, 
-		  {[snmpTrapOID, 0], ?system ++ [0,1]}]),
+    ?line ?expect2(v2trap, 
+		   [{[sysUpTime, 0],   any}, 
+		    {[snmpTrapOID, 0], ?system ++ [0,1]}]),
 
     ?DBG("mt_trap_test(09) -> send continue to multi-pid", []),
     Pid ! continue,
 
     ?DBG("mt_trap_test(10) -> await v2trap", []),
-    ?line expect(mt_trap_test_4, v2trap, [{[sysUpTime, 0], any},
-					  {[snmpTrapOID, 0], ?testTrap ++ [2]},
-					  {[multiStr,0], "ok"}]),
+    ?line ?expect2(v2trap, [{[sysUpTime, 0], any},
+			    {[snmpTrapOID, 0], ?testTrap ++ [2]},
+			    {[multiStr,0], "ok"}]),
     ?DBG("mt_trap_test(11) -> done", []),
     ok.
 
@@ -3177,26 +3194,26 @@ types_v2_test() ->
     ?P1("Testing v2 types..."),
 
     s([{[bits1,0], 2#10}]),
-    ?line expect(1, [{[bits1,0], ?str(2#10)}]),
+    ?line ?expect1([{[bits1,0], ?str(2#10)}]),
     g([[bits1,0]]),
-    ?line expect(2, [{[bits1,0], ?str(2#101)}]),
+    ?line ?expect1([{[bits1,0], ?str(2#101)}]),
     
     s([{[bits2,0], 2#11000000110}]),
-    ?line expect(3, [{[bits2,0], ?str(2#11000000110)}]),
+    ?line ?expect1([{[bits2,0], ?str(2#11000000110)}]),
     g([[bits2,0]]),
-    ?line expect(4, [{[bits2,0], ?str(2#11000000110)}]),
+    ?line ?expect1([{[bits2,0], ?str(2#11000000110)}]),
     
     g([[bits3,0]]),
-    ?line expect(50, genErr, 1, any),
+    ?line ?expect3(genErr, 1, any),
     
     g([[bits4,0]]),
-    ?line expect(51, genErr, 1, any),
+    ?line ?expect3(genErr, 1, any),
     
     s([{[bits1,0], s, [2#10]}]),
-    ?line expect(6, ?v1_2(badValue, wrongValue), 1, any),
+    ?line ?expect3(?v1_2(badValue, wrongValue), 1, any),
 
     s([{[bits2,0], 2#11001001101010011}]),
-    ?line expect(7, ?v1_2(badValue, wrongValue), 1, any).
+    ?line ?expect3(?v1_2(badValue, wrongValue), 1, any).
     
 
 %% Req. Test1
@@ -3204,64 +3221,63 @@ implied_test(MA) ->
     ?LOG("implied_test -> start",[]),
     ?P1("Testing IMPLIED..."),
 
-    snmpa:verbosity(MA,trace),
-    snmpa:verbosity(MA,trace),
+    snmpa:verbosity(MA, trace),
 
     %% Create two rows, check that they are get-nexted in correct order.
     Idx1 = "apa",
     Idx2 = "qq",
     ?DBG("implied_test -> (send) create row 1 '~s' in table 1",[Idx1]),
     s([{[testStatus, Idx1], i, ?createAndGo}, {[testDescr, Idx1],s,"row 1"}]),
-    ?line expect(1, [{[testStatus, Idx1], ?createAndGo},
-		     {[testDescr, Idx1], "row 1"}]),
+    ?line ?expect1([{[testStatus, Idx1], ?createAndGo},
+		    {[testDescr, Idx1], "row 1"}]),
     ?DBG("implied_test -> (send) create row 2 '~s' in table 1",[Idx2]),
     s([{[testStatus, Idx2], i, ?createAndGo}, {[testDescr, Idx2],s,"row 2"}]),
-    ?line expect(2, [{[testStatus, Idx2], ?createAndGo},
-		     {[testDescr, Idx2], "row 2"}]),
+    ?line ?expect1([{[testStatus, Idx2], ?createAndGo},
+		    {[testDescr, Idx2], "row 2"}]),
     ?DBG("implied_test -> get-next(testDescr)",[]),
     gn([[testDescr]]),
-    ?line expect(3, [{[testDescr,Idx1], "row 1"}]),
+    ?line ?expect1([{[testDescr,Idx1], "row 1"}]),
     ?DBG("implied_test -> get-next(testDescr) of row 1",[]),
     gn([[testDescr,Idx1]]),
-    ?line expect(4, [{[testDescr,Idx2], "row 2"}]),
+    ?line ?expect1([{[testDescr,Idx2], "row 2"}]),
 
     % Delete the rows
     ?DBG("implied_test -> (send) delete row 1 '~s' from table 1",[Idx1]),
     s([{[testStatus, Idx1], i, ?destroy}]),
-    ?line expect(5, [{[testStatus, Idx1], ?destroy}]),
+    ?line ?expect1([{[testStatus, Idx1], ?destroy}]),
     ?DBG("implied_test -> (send) delete row 2 '~s' from table 1",[Idx2]),
     s([{[testStatus, Idx2], i, ?destroy}]),
-    ?line expect(6, [{[testStatus, Idx2], ?destroy}]),
+    ?line ?expect1([{[testStatus, Idx2], ?destroy}]),
 
     %% Try the same in other table
     Idx3 = [1, "apa"],
     Idx4 = [1, "qq"],
     ?DBG("implied_test -> (send) create row 1 '~s' in table 2",[Idx3]),
     s([{[testStatus2, Idx3], i, ?createAndGo}, {[testDescr2,Idx3],s,"row 1"}]),
-    ?line expect(1, [{[testStatus2, Idx3], ?createAndGo},
-		     {[testDescr2, Idx3], "row 1"}]),
+    ?line ?expect1([{[testStatus2, Idx3], ?createAndGo},
+		    {[testDescr2, Idx3], "row 1"}]),
     ?DBG("implied_test -> (send) create row 2 '~s' in table 2",[Idx4]),
     s([{[testStatus2, Idx4], i, ?createAndGo}, {[testDescr2,Idx4],s,"row 2"}]),
-    ?line expect(2, [{[testStatus2, Idx4], ?createAndGo},
-		     {[testDescr2, Idx4], "row 2"}]),
+    ?line ?expect1([{[testStatus2, Idx4], ?createAndGo},
+		    {[testDescr2, Idx4], "row 2"}]),
     ?DBG("implied_test -> get-next(testDescr2)",[]),
     gn([[testDescr2]]),
-    ?line expect(3, [{[testDescr2,Idx3], "row 1"}]),
+    ?line ?expect1([{[testDescr2,Idx3], "row 1"}]),
     ?DBG("implied_test -> get-next(testDescr2) of row 1",[]),
     gn([[testDescr2,Idx3]]),
-    ?line expect(4, [{[testDescr2,Idx4], "row 2"}]),
+    ?line ?expect1([{[testDescr2,Idx4], "row 2"}]),
 
     % Delete the rows
     ?DBG("implied_test -> (send) delete row 1 '~s' from table 2",[Idx3]),
     s([{[testStatus2, Idx3], i, ?destroy}]),
-    ?line expect(5, [{[testStatus2, Idx3], ?destroy}]),
+    ?line ?expect1([{[testStatus2, Idx3], ?destroy}]),
     ?DBG("implied_test -> (send) delete row 2 '~s' from table 2",[Idx4]),
     s([{[testStatus2, Idx4], i, ?destroy}]),
-    ?line expect(6, [{[testStatus2, Idx4], ?destroy}]),
+    ?line ?expect1([{[testStatus2, Idx4], ?destroy}]),
 
-    snmpa:verbosity(MA,log),
+    snmpa:verbosity(MA, log),
 
-    ?LOG("implied_test -> done",[]).
+    ?LOG("implied_test -> done", []).
     
     
 
@@ -3274,25 +3290,25 @@ sparse_table_test() ->
     Idx2 = 2,
     s([{[sparseStatus, Idx1], i, ?createAndGo},
        {[sparseDescr, Idx1], s, "row 1"}]),
-    ?line expect(1, [{[sparseStatus, Idx1], ?createAndGo},
-		     {[sparseDescr, Idx1], "row 1"}]),
+    ?line ?expect1([{[sparseStatus, Idx1], ?createAndGo},
+		    {[sparseDescr, Idx1], "row 1"}]),
     s([{[sparseStatus, Idx2], i, ?createAndGo},
        {[sparseDescr, Idx2], s, "row 2"}]),
-    ?line expect(2, [{[sparseStatus, Idx2], ?createAndGo},
-		     {[sparseDescr, Idx2], "row 2"}]),
+    ?line ?expect1([{[sparseStatus, Idx2], ?createAndGo},
+		    {[sparseDescr, Idx2], "row 2"}]),
     ?v1_2(gn([[sparseIndex], [sparseDescr,Idx1], [sparseDescr,Idx2],
 	      [sparseStatus,Idx1], [sparseStatus,Idx2]]),
 	  gb(0,5,[[sparseIndex]])),
-    ?line expect(3, [{[sparseDescr,Idx1], "row 1"},
-		     {[sparseDescr,Idx2], "row 2"},
-		     {[sparseStatus,Idx1], ?active},
-		     {[sparseStatus,Idx2], ?active},
-		     {[sparseStr,0], "slut"}]),
-    % Delete the rows
+    ?line ?expect1([{[sparseDescr,Idx1], "row 1"},
+		    {[sparseDescr,Idx2], "row 2"},
+		    {[sparseStatus,Idx1], ?active},
+		    {[sparseStatus,Idx2], ?active},
+		    {[sparseStr,0], "slut"}]),
+    %% Delete the rows
     s([{[sparseStatus, Idx1], i, ?destroy}]),
-    ?line expect(4, [{[sparseStatus, Idx1], ?destroy}]),
+    ?line ?expect1([{[sparseStatus, Idx1], ?destroy}]),
     s([{[sparseStatus, Idx2], i, ?destroy}]),
-    ?line expect(5, [{[sparseStatus, Idx2], ?destroy}]).
+    ?line ?expect1([{[sparseStatus, Idx2], ?destroy}]).
 
 
 %% Req. Test1
@@ -3306,13 +3322,13 @@ cnt_64_test(MA) ->
     ?DBG("get cnt64",[]),
     g([[cnt64,0]]),
     ?DBG("await response",[]),
-    ?line ?v1_2(expect(1, noSuchName, 1, any),
-		expect(1, [{[cnt64,0],18446744073709551615}])),
+    ?line ?v1_2(?expect3(noSuchName, 1, any),
+		?expect1([{[cnt64,0],18446744073709551615}])),
     ?DBG("get-next cnt64",[]),
     gn([[cnt64]]),
     ?DBG("await response",[]),
-    ?line ?v1_2(expect(2, [{[cnt64Str,0], "after cnt64"}]),
-		expect(2, [{[cnt64,0],18446744073709551615}])),
+    ?line ?v1_2(?expect1([{[cnt64Str,0], "after cnt64"}]),
+		?expect1([{[cnt64,0],18446744073709551615}])),
     ?DBG("send cntTrap",[]),
     snmpa:send_trap(MA,cntTrap,"standard trap",[
 						{sysContact,  "pelle"},
@@ -3320,13 +3336,13 @@ cnt_64_test(MA) ->
 						{sysLocation, "here"}
 					       ]),
     ?DBG("await response",[]),
-    ?line ?v1_2(expect(3, trap, [test], 6, 1, [{[sysContact,0], "pelle"},
-					       {[sysLocation,0], "here"}]),
-		expect(3, v2trap, [{[sysUpTime, 0], any},
-				   {[snmpTrapOID, 0], ?testTrap ++ [1]},
-				   {[sysContact,0], "pelle"},
-				   {[cnt64,0], 10},
-				   {[sysLocation,0], "here"}])),
+    ?line ?v1_2(?expect5(trap, [test], 6, 1, [{[sysContact,0], "pelle"},
+					      {[sysLocation,0], "here"}]),
+		?expect2(v2trap, [{[sysUpTime, 0], any},
+				  {[snmpTrapOID, 0], ?testTrap ++ [1]},
+				  {[sysContact,0], "pelle"},
+				  {[cnt64,0], 10},
+				  {[sysLocation,0], "here"}])),
     
     %% Create two rows, check that they are get-nexted in correct order.
     Idx1 = 1,
@@ -3334,27 +3350,27 @@ cnt_64_test(MA) ->
     ?DBG("create row (cntStatus): ~p",[Idx1]),
     s([{[cntStatus, Idx1], i, ?createAndGo}]),
     ?DBG("await response",[]),
-    ?line expect(1, [{[cntStatus, Idx1], ?createAndGo}]),
+    ?line ?expect1([{[cntStatus, Idx1], ?createAndGo}]),
     ?DBG("create row (cntStatus): ~p",[Idx2]),
     s([{[cntStatus, Idx2], i, ?createAndGo}]),
     ?DBG("await response",[]),
-    ?line expect(2, [{[cntStatus, Idx2], ?createAndGo}]),
+    ?line ?expect1([{[cntStatus, Idx2], ?createAndGo}]),
 
     ?DBG("get-next (cntIndex)",[]),
     gn([[cntIndex]]),
     ?DBG("await response",[]),
-    ?line ?v1_2(expect(3, [{[cntStatus,Idx1], ?active}]),
-		expect(3, [{[cntCnt,Idx1], 0}])),
+    ?line ?v1_2(?expect1([{[cntStatus,Idx1], ?active}]),
+		?expect1([{[cntCnt,Idx1], 0}])),
     % Delete the rows
     ?DBG("delete row (cntStatus): ~p",[Idx1]),
     s([{[cntStatus, Idx1], i, ?destroy}]),
     ?DBG("await response",[]),
-    ?line expect(4, [{[cntStatus, Idx1], ?destroy}]),
+    ?line ?expect1([{[cntStatus, Idx1], ?destroy}]),
     ?DBG("delete row (cntStatus): ~p",[Idx2]),
     s([{[cntStatus, Idx2], i, ?destroy}]),
     ?DBG("await response",[]),
-    ?line expect(5, [{[cntStatus, Idx2], ?destroy}]),
-    catch snmpa:verbosity(MA,log),
+    ?line ?expect1([{[cntStatus, Idx2], ?destroy}]),
+    catch snmpa:verbosity(MA, log),
     ?DBG("done",[]),
     ok.
 
@@ -3362,7 +3378,7 @@ cnt_64_test(MA) ->
 opaque_test() ->
     ?P1("Testing Opaque datatype..."),
     g([[opaqueObj,0]]),
-    ?line expect(1, [{[opaqueObj,0], "opaque-data"}]).
+    ?line ?expect1([{[opaqueObj,0], "opaque-data"}]).
     
 %% Req. OLD-SNMPEA-MIB
 api_test(MaNode) ->
@@ -3403,70 +3419,69 @@ api_test(MaNode) ->
 %% Req. Klas3
 api_test2() ->
     g([[fname3,0]]),
-    ?line expect(1, [{[fname3,0], "ok"}]),
+    ?line ?expect1([{[fname3,0], "ok"}]),
     g([[fname4,0]]),
-    ?line expect(2, [{[fname4,0], 1}]).
+    ?line ?expect1([{[fname4,0], 1}]).
 
 api_test3() ->
     g([[fname3,0]]),
-    ?line expect(1, [{[fname3,0], "ok"}]).
+    ?line ?expect1([{[fname3,0], "ok"}]).
     
     
 unreg_test() ->
     gn([[?v1_2(sysServices, sysORLastChange),0]]),
-    ?line expect(1, [{[snmpInPkts, 0], any}]).
+    ?line ?expect1([{[snmpInPkts, 0], any}]).
 
 load_test() ->
     gn([[?v1_2(sysServices, sysORLastChange),0]]),
-    ?line expect(1, [{[fname,0], ""}]).
+    ?line ?expect1([{[fname,0], ""}]).
 
 %% Req. Klas1
 load_test_sa() ->
     gn([[?v1_2(sysServices,sysORLastChange), 0]]),
-    ?line expect(1, [{[fname,0], any}]).
+    ?line ?expect1([{[fname,0], any}]).
     
 %% Req. system group, Klas1, OLD-SNMPEA-MIB
 do_mul_get() ->
     Key1c3 = [intCommunityEntry,[3],get(mip),is("public")],
     Key1c4 = [intCommunityEntry,[4],get(mip),is("public")],
     s([{[fname,0], s, "test set"}]),
-    ?line expect(3, [{[fname,0], "test set"}]),
-    g([[sysDescr,0], Key1c4, [fname,0],Key1c3,
-	       [sysName,0]]),
-    ?line expect(1, [{[sysDescr,0], "Erlang SNMP agent"},
-		     {Key1c4, 2},
-		     {[fname,0], "test set"},
-		     {Key1c3, 2},
-		     {[sysName,0], "test"}]),
+    ?line ?expect1([{[fname,0], "test set"}]),
+    g([[sysDescr,0], Key1c4, [fname,0],Key1c3,[sysName,0]]),
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"},
+		    {Key1c4, 2},
+		    {[fname,0], "test set"},
+		    {Key1c3, 2},
+		    {[sysName,0], "test"}]),
     g([[1,3,7,1], Key1c4, [sysDescr,0], [1,3,7,2], Key1c3, [sysDescr,0]]),
-    ?line ?v1_2(expect(2, noSuchName, [1,4], any),
-		expect(2, [{[1,3,7,1], noSuchObject},
-			   {Key1c4, 2},
-			   {[sysDescr,0], "Erlang SNMP agent"},
-			   {[1,3,7,2], noSuchObject},
-			   {Key1c3, 2},
-			   {[sysDescr,0], "Erlang SNMP agent"}])).
+    ?line ?v1_2(?expect3(noSuchName, [1,4], any),
+		?expect1([{[1,3,7,1], noSuchObject},
+			  {Key1c4, 2},
+			  {[sysDescr,0], "Erlang SNMP agent"},
+			  {[1,3,7,2], noSuchObject},
+			  {Key1c3, 2},
+			  {[sysDescr,0], "Erlang SNMP agent"}])).
 
 %% Req. v1, system group, Klas1, OLD-SNMPEA-MIB, *ej* Klas3.
 do_mul_get_err() ->
     Key1c3 = [intCommunityEntry,[3],get(mip),is("public")],
     Key1c4 = [intCommunityEntry,[4],get(mip),is("public")],
     s([{[fname,0], s, "test set"}]),
-    ?line expect(3, [{[fname,0], "test set"}]),
+    ?line ?expect1([{[fname,0], "test set"}]),
     g([[sysDescr,0],Key1c4,[fname,0], Key1c3, [sysName,2]]),
-    ?line ?v1_2(expect(1, noSuchName, 5, any),
-		expect(1, [{[sysDescr,0], "Erlang SNMP agent"},
-			   {Key1c4, 2},
-			   {[fname,0], "test set"},
-			   {Key1c3, 2},
-			   {[sysName,2], noSuchInstance}])),
+    ?line ?v1_2(?expect3(noSuchName, 5, any),
+		?expect1([{[sysDescr,0], "Erlang SNMP agent"},
+			  {Key1c4, 2},
+			  {[fname,0], "test set"},
+			  {Key1c3, 2},
+			  {[sysName,2], noSuchInstance}])),
     g([[sysDescr,0],Key1c4,[fname3,0], Key1c3, [sysName,1]]),
-    ?line ?v1_2(expect(1, noSuchName, [3,5], any),
-		expect(1, [{[sysDescr,0], "Erlang SNMP agent"},
-			   {Key1c4, 2},
-			   {[fname3,0], noSuchObject},
-			   {Key1c3, 2},
-			   {[sysName,1], noSuchInstance}])).
+    ?line ?v1_2(?expect3(noSuchName, [3,5], any),
+		?expect1([{[sysDescr,0], "Erlang SNMP agent"},
+			  {Key1c4, 2},
+			  {[fname3,0], noSuchObject},
+			  {Key1c3, 2},
+			  {[sysName,1], noSuchInstance}])).
 
 
 %% Req. system group, Klas1, OLD-SNMPEA-MIB
@@ -3476,11 +3491,11 @@ do_mul_next() ->
     Key1c3 = [intCommunityEntry,[3],get(mip),is("public")],
     Key1c4 = [intCommunityEntry,[4],get(mip),is("public")],
     s([{[fname,0], s, "test set"}]),
-    ?line expect(3, [{[fname,0], "test set"}]),
+    ?line ?expect1([{[fname,0], "test set"}]),
     gn([[sysDescr], Key1c4s, [fname],Key1c3s,[sysName]]),
-    ?line expect(1, [{[sysDescr,0], "Erlang SNMP agent"},
-	       {Key1c4, 2}, {[fname,0], "test set"},
-	       {Key1c3, 2}, {[sysName,0], "test"}]).
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"},
+		    {Key1c4, 2}, {[fname,0], "test set"},
+		    {Key1c3, 2}, {[sysName,0], "test"}]).
 
 %% Req. system group, Klas1, OLD-SNMPEA-MIB
 do_mul_next_err() ->
@@ -3489,17 +3504,17 @@ do_mul_next_err() ->
     Key1c3 = [intCommunityEntry,[3],get(mip),is("public")],
     Key1c4 = [intCommunityEntry,[4],get(mip),is("public")],
     s([{[fname,0], s, "test set"}]),
-    ?line expect(3, [{[fname,0], "test set"}]),
+    ?line ?expect1([{[fname,0], "test set"}]),
     gn([[sysDescr], Key1c4s, [1,3,6,999], [fname],[1,3,90], Key1c3s,[sysName]]),
-    ?line ?v1_2(expect(1, noSuchName, [3,5], any),
-		expect(1, [{[sysDescr,0], "Erlang SNMP agent"},
-			   {Key1c4, 2},
-			   {[1,3,6,999], endOfMibView},
-			   {[fname,0], "test set"},
-			   {[1,3,90], endOfMibView},
-			   {Key1c3, 2},
-			   {[sysName,0], "test"}])).
-		
+    ?line ?v1_2(?expect3(noSuchName, [3,5], any),
+		?expect1([{[sysDescr,0], "Erlang SNMP agent"},
+			  {Key1c4, 2},
+			  {[1,3,6,999], endOfMibView},
+			  {[fname,0], "test set"},
+			  {[1,3,90], endOfMibView},
+			  {Key1c3, 2},
+			  {[sysName,0], "test"}])).
+
 
 %% Req. system group, Klas1, OLD-SNMPEA-MIB
 do_mul_set() ->
@@ -3513,24 +3528,24 @@ do_mul_set() ->
        {NewKeyc5, ?createAndGo},
        {NewKeyc4, 2},
        {[friendsEntry, [3, 3]], ?createAndGo}]),
-    ?line expect(1, [{[friendsEntry, [2, 3]], "kompis3"},
-	       {NewKeyc3, 2},
-	       {[sysLocation,0], "new_value"},
-	       {NewKeyc5, ?createAndGo},
-	       {NewKeyc4, 2},
-	       {[friendsEntry, [3, 3]], ?createAndGo}]),
+    ?line ?expect1([{[friendsEntry, [2, 3]], "kompis3"},
+		    {NewKeyc3, 2},
+		    {[sysLocation,0], "new_value"},
+		    {NewKeyc5, ?createAndGo},
+		    {NewKeyc4, 2},
+		    {[friendsEntry, [3, 3]], ?createAndGo}]),
     g([[friendsEntry, [2, 3]],
-	       [sysLocation,0],
-	       [friendsEntry, [3, 3]]]),
-    ?line expect(2, [{[friendsEntry, [2, 3]], "kompis3"},
-	       {[sysLocation,0], "new_value"},
-	       {[friendsEntry, [3, 3]], ?active}]),
+       [sysLocation,0],
+       [friendsEntry, [3, 3]]]),
+    ?line ?expect1([{[friendsEntry, [2, 3]], "kompis3"},
+		    {[sysLocation,0], "new_value"},
+		    {[friendsEntry, [3, 3]], ?active}]),
     g([NewKeyc4]),
-    ?line expect(3, [{NewKeyc4, 2}]),
+    ?line ?expect1([{NewKeyc4, 2}]),
     s([{[friendsEntry, [3, 3]], ?destroy},
        {NewKeyc5, ?destroy}]),
-    ?line expect(4, [{[friendsEntry, [3, 3]], ?destroy},
-	       {NewKeyc5, ?destroy}]).
+    ?line ?expect1([{[friendsEntry, [3, 3]], ?destroy},
+		    {NewKeyc5, ?destroy}]).
 
 %% Req. system group, Klas1, OLD-SNMPEA-MIB
 do_mul_set_err() ->
@@ -3544,53 +3559,48 @@ do_mul_set_err() ->
        {NewKeyc5, ?createAndGo},
        {NewKeyc4, 2},
        {[friendsEntry, [3, 3]], ?createAndGo}]),
-    ?line expect(1, ?v1_2(noSuchName, notWritable), 3, any),
+    ?line ?expect3(?v1_2(noSuchName, notWritable), 3, any),
     g([[friendsEntry, [2, 3]]]),
-    ?line ?v1_2(expect(2, noSuchName, 1, any),
-		expect(2, [{[friendsEntry, [2,3]], noSuchInstance}])),
+    ?line ?v1_2(?expect3(noSuchName, 1, any),
+		?expect1([{[friendsEntry, [2,3]], noSuchInstance}])),
     g([NewKeyc4]),
-    ?line ?v1_2(expect(3, noSuchName, 1, any), 
-		expect(3, [{NewKeyc4, noSuchInstance}])).
+    ?line ?v1_2(?expect3(noSuchName, 1, any), 
+		?expect1([{NewKeyc4, noSuchInstance}])).
 
 %% Req. SA-MIB
 sa_mib() ->
     g([[sa, [2,0]]]),
-    ?line expect(sa_mib_1, [{[sa, [2,0]], 3}]),
+    ?line ?expect1([{[sa, [2,0]], 3}]),
     s([{[sa, [1,0]], s, "sa_test"}]),
-    ?line expect(sa_mib_2, [{[sa, [1,0]], "sa_test"}]),
+    ?line ?expect1([{[sa, [1,0]], "sa_test"}]),
     ok.
 
 ma_trap1(MA) ->
     ok = snmpa:send_trap(MA, testTrap2, "standard trap"), 
-    ?line expect(ma_trap1_1, 
-		 trap, [system], 6, 1, [{[system, [4,0]],
-					 "{mbj,eklas}@erlang.ericsson.se"}]),
+    ?line ?expect5(trap, [system], 6, 1, [{[system, [4,0]],
+					   "{mbj,eklas}@erlang.ericsson.se"}]),
     ok = snmpa:send_trap(MA, testTrap1, "standard trap"),
-    ?line expect(ma_trap1_2, 
-		 trap, [1,2,3] , 1, 0, [{[system, [4,0]],
-					 "{mbj,eklas}@erlang.ericsson.se"}]),
+    ?line ?expect5(trap, [1,2,3] , 1, 0, [{[system, [4,0]],
+					   "{mbj,eklas}@erlang.ericsson.se"}]),
     ok.
 
 ma_trap2(MA) ->
     snmpa:send_trap(MA,testTrap2,"standard trap",[{sysContact,"pelle"}]),
-    ?line expect(ma_trap2_3, 
-		 trap, [system], 6, 1, [{[system, [4,0]], "pelle"}]),
+    ?line ?expect5(trap, [system], 6, 1, [{[system, [4,0]], "pelle"}]),
     ok.
 
 ma_v2_2_v1_trap(MA) ->
     snmpa:send_trap(MA,testTrapv22,"standard trap",[{sysContact,"pelle"}]),
-    ?line expect(ma_v2_2_v1_trap_3, 
-		 trap, [system], 6, 1, [{[system, [4,0]], "pelle"}]),
+    ?line ?expect5(trap, [system], 6, 1, [{[system, [4,0]], "pelle"}]),
     ok.    
 
 ma_v2_2_v1_trap2(MA) ->
     snmpa:send_trap(MA,linkUp,"standard trap",[{ifIndex, [1], 1},
 					      {ifAdminStatus, [1], 1},
 					      {ifOperStatus, [1], 2}]),
-    ?line expect(ma_v2_2_v1_trap2_3, 
-		 trap, [1,2,3], 3, 0, [{[ifIndex, 1], 1},
-				       {[ifAdminStatus, 1], 1},
-				       {[ifOperStatus, 1], 2}]),
+    ?line ?expect5(trap, [1,2,3], 3, 0, [{[ifIndex, 1], 1},
+					 {[ifAdminStatus, 1], 1},
+					 {[ifOperStatus, 1], 2}]),
     ok.
 
 sa_trap1(SA) ->
@@ -3608,47 +3618,44 @@ sa_trap1(SA) ->
     %% io:format("sa_trap1 -> SA trap send: "
     %% 	      "~n   TSRes: ~p"
     %% 	      "~n", [TSRes]),
-    ?line expect(sa_trap1_4, 
-		 trap, [ericsson], 6, 1, [{[system, [4,0]],
-					   "{mbj,eklas}@erlang.ericsson.se"},
-					  {[sa, [1,0]], "sa_test"}]),
+    ?line ?expect5(trap, [ericsson], 6, 1, [{[system, [4,0]],
+					     "{mbj,eklas}@erlang.ericsson.se"},
+					    {[sa, [1,0]], "sa_test"}]),
     snmpa:verbosity(SA, {subagents, silence}),
     ok.
 
 sa_trap2(SA) ->
     snmpa:send_trap(SA, saTrap, "standard trap",[{sysContact,"pelle"}]),
-    ?line expect(sa_trap2_5, 
-		 trap, [ericsson], 6, 1, [{[system, [4,0]], "pelle"},
-					  {[sa, [1,0]], "sa_test"}]),
+    ?line ?expect5(trap, [ericsson], 6, 1, [{[system, [4,0]], "pelle"},
+					    {[sa, [1,0]], "sa_test"}]),
     ok.
 
 sa_trap3(SA) ->
     snmpa:send_trap(SA, saTrap2, "standard trap",
 			 [{intViewSubtree, [4], [1,2,3,4]}]),
-    ?line expect(sa_trap3_6, 
-		 trap, [ericsson], 6, 2, [{[system, [4,0]],
-					   "{mbj,eklas}@erlang.ericsson.se"},
-					  {[sa, [1,0]], "sa_test"},
-					  {[intViewSubtree,4],[1,2,3,4]}]),
+    ?line ?expect5(trap, [ericsson], 6, 2, [{[system, [4,0]],
+					     "{mbj,eklas}@erlang.ericsson.se"},
+					    {[sa, [1,0]], "sa_test"},
+					    {[intViewSubtree,4],[1,2,3,4]}]),
     ok.
 
 ma_v2_trap1(MA) ->
     ?DBG("ma_v2_traps -> entry with MA = ~p => "
 	   "send standard trap: testTrapv22",[MA]),
     snmpa:send_trap(MA, testTrapv22, "standard trap"),
-    ?line expect(1, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?system ++ [0,1]}]),
+    ?line ?expect2(v2trap, [{[sysUpTime, 0], any},
+			    {[snmpTrapOID, 0], ?system ++ [0,1]}]),
     ?DBG("ma_v2_traps -> send standard trap: testTrapv21",[]),
     snmpa:send_trap(MA, testTrapv21, "standard trap"),
-    ?line expect(2, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?snmp ++ [1]}]),
+    ?line ?expect2(v2trap, [{[sysUpTime, 0], any},
+			    {[snmpTrapOID, 0], ?snmp ++ [1]}]),
     ok.
 
 ma_v2_trap2(MA) ->
     snmpa:send_trap(MA,testTrapv22,"standard trap",[{sysContact,"pelle"}]),
-    ?line expect(3, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?system ++ [0,1]},
-			     {[system, [4,0]], "pelle"}]).
+    ?line ?expect2(v2trap, [{[sysUpTime, 0], any},
+			    {[snmpTrapOID, 0], ?system ++ [0,1]},
+			    {[system, [4,0]], "pelle"}]).
 
 %% Note: This test case takes a while... actually a couple of minutes.
 ma_v2_inform1(MA) ->
@@ -3657,11 +3664,10 @@ ma_v2_inform1(MA) ->
 	 "~n   send notification: testTrapv22", [MA]),
 
     CmdExpectInform = 
-	fun(No, Response) ->
-		expect(No, 
-		       {inform, Response},
-		       [{[sysUpTime, 0], any}, 
-			{[snmpTrapOID, 0], ?system ++ [0,1]}])
+	fun(_No, Response) ->
+		?expect2({inform, Response},
+			 [{[sysUpTime, 0], any}, 
+			  {[snmpTrapOID, 0], ?system ++ [0,1]}])
 	end,
 
     CmdExp = 
@@ -3807,11 +3813,10 @@ ma_v2_inform2(MA) ->
 	 "~n   send notification: testTrapv22", [MA]),
 
     CmdExpectInform = 
-	fun(No, Response) ->
-		expect(No, 
-		       {inform, Response},
-		       [{[sysUpTime, 0], any}, 
-			{[snmpTrapOID, 0], ?system ++ [0,1]}])
+	fun(_No, Response) ->
+		?expect2({inform, Response},
+			 [{[sysUpTime, 0], any}, 
+			  {[snmpTrapOID, 0], ?system ++ [0,1]}])
 	end,
 
     CmdExp = 
@@ -3899,17 +3904,17 @@ ma_v2_inform3(MA) ->
 
     CmdExpectInform = 
 	fun(No, Response) ->
-		expect(No, 
-		       {inform, Response},
-		       [{[sysUpTime, 0], any}, 
-			{[snmpTrapOID, 0], ?system ++ [0,1]}])
+		?DBG("CmdExpectInform -> ~p: ~n~p", [No, Response]),
+		?expect2({inform, Response},
+			 [{[sysUpTime, 0], any}, 
+			  {[snmpTrapOID, 0], ?system ++ [0,1]}])
 	end,
 
     CmdExp = 
 	fun(ok) -> 
 		ok;
 	   ({ok, Val}) ->
-		?DBG("ma_v2_inform3 -> [cmd2] Val: ~p", [Val]),
+		?DBG("CmdExp -> Val: ~p", [Val]),
 		ok;
 	   ({error, Id, Extra}) ->
 		{error, {unexpected, Id, Extra}};
@@ -3973,10 +3978,10 @@ ma_v2_inform3(MA) ->
     
     Commands = 
 	[
-	 {15, "Send notification [tag31]",                    Cmd15},
-	 {16, "Expect notification message [tag31]",          Cmd16}, 
-	 {17, "Expect targets message [tag31]",               Cmd17}, 
-	 {18, "Expect notification (no) response message [tag31]", Cmd18}
+	 {15, "Send notification [" ++ atom_to_list(Tag15) ++ "]", Cmd15},
+	 {16, "Expect notification message [" ++ atom_to_list(Tag15) ++ "]", Cmd16}, 
+	 {17, "Expect targets message [" ++ atom_to_list(Tag15) ++ "]", Cmd17}, 
+	 {18, "Expect notification (no) response message [" ++ atom_to_list(Tag15) ++ "]", Cmd18}
 	],
 
     command_handler(Commands).
@@ -4035,40 +4040,40 @@ command_handler([{No, Desc, Cmd}|Rest]) ->
 
 ma_v1_2_v2_trap(MA) ->
     snmpa:send_trap(MA,linkDown,"standard trap",[{ifIndex, [1], 1}]),
-    ?line expect(2, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?snmpTraps ++ [3]},
-			     {[ifIndex, 1], 1},
-			     {[snmpTrapEnterprise, 0], [1,2,3]}]).
+    ?line ?expect2(v2trap, [{[sysUpTime, 0], any},
+			    {[snmpTrapOID, 0], ?snmpTraps ++ [3]},
+			    {[ifIndex, 1], 1},
+			    {[snmpTrapEnterprise, 0], [1,2,3]}]).
 
     
 ma_v1_2_v2_trap2(MA) ->
     snmpa:send_trap(MA,testTrap2,"standard trap",[{sysContact,"pelle"}]),
-    ?line expect(3, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?system ++ [0,1]},
-			     {[system, [4,0]], "pelle"},
-			     {[snmpTrapEnterprise, 0], ?system}]).
+    ?line ?expect2(v2trap, [{[sysUpTime, 0], any},
+			    {[snmpTrapOID, 0], ?system ++ [0,1]},
+			    {[system, [4,0]], "pelle"},
+			    {[snmpTrapEnterprise, 0], ?system}]).
     
 
 sa_v1_2_v2_trap1(SA) ->
     snmpa:verbosity(SA, {subagents, trace}),
     snmpa:send_trap(SA, saTrap, "standard trap"),
-    ?line expect(trap1_4, v2trap, [{[sysUpTime, 0], any},
-				   {[snmpTrapOID, 0], ?ericsson ++ [0, 1]},
-				   {[system, [4,0]],
-				    "{mbj,eklas}@erlang.ericsson.se"},
-				   {[sa, [1,0]], "sa_test"},
-				   {[snmpTrapEnterprise, 0], ?ericsson}]),
+    ?line ?expect2(v2trap, [{[sysUpTime, 0], any},
+			    {[snmpTrapOID, 0], ?ericsson ++ [0, 1]},
+			    {[system, [4,0]],
+			     "{mbj,eklas}@erlang.ericsson.se"},
+			    {[sa, [1,0]], "sa_test"},
+			    {[snmpTrapEnterprise, 0], ?ericsson}]),
     snmpa:verbosity(SA, {subagents, silence}),
     ok.
 
 sa_v1_2_v2_trap2(SA) ->
     snmpa:verbosity(SA, {subagents, trace}),
     snmpa:send_trap(SA, saTrap, "standard trap",[{sysContact,"pelle"}]),
-    ?line expect(trap2_4, v2trap, [{[sysUpTime, 0], any},
-				   {[snmpTrapOID, 0], ?ericsson ++ [0, 1]},
-				   {[system, [4,0]], "pelle"},
-				   {[sa, [1,0]], "sa_test"},
-				   {[snmpTrapEnterprise, 0], ?ericsson}]),
+    ?line ?expect2(v2trap, [{[sysUpTime, 0], any},
+			    {[snmpTrapOID, 0], ?ericsson ++ [0, 1]},
+			    {[system, [4,0]], "pelle"},
+			    {[sa, [1,0]], "sa_test"},
+			    {[snmpTrapEnterprise, 0], ?ericsson}]),
     snmpa:verbosity(SA, {subagents, silence}),
     ok.
 
@@ -4077,13 +4082,13 @@ sa_v1_2_v2_trap3(SA) ->
     snmpa:verbosity(SA, {subagents, trace}),
     snmpa:send_trap(SA, saTrap2, "standard trap",
 			 [{intViewSubtree, [4], [1,2,3,4]}]),
-    ?line expect(trap3_4, v2trap, [{[sysUpTime, 0], any},
-				   {[snmpTrapOID, 0], ?ericsson ++ [0, 2]},
-				   {[system, [4,0]],
-				    "{mbj,eklas}@erlang.ericsson.se"},
-				   {[sa, [1,0]], "sa_test"},
-				   {[intViewSubtree,4],[1,2,3,4]},
-				   {[snmpTrapEnterprise, 0], ?ericsson}]),
+    ?line ?expect2(v2trap, [{[sysUpTime, 0], any},
+			    {[snmpTrapOID, 0], ?ericsson ++ [0, 2]},
+			    {[system, [4,0]],
+			     "{mbj,eklas}@erlang.ericsson.se"},
+			    {[sa, [1,0]], "sa_test"},
+			    {[intViewSubtree,4],[1,2,3,4]},
+			    {[snmpTrapEnterprise, 0], ?ericsson}]),
     snmpa:verbosity(SA, {subagents, silence}),
     ok.
 			     
@@ -4097,15 +4102,15 @@ sa_errs_bad_value() ->
        {[sa, [2,0]], 5}, % badValue (i is_set_ok)
        {NewKeyc5, ?createAndGo},
        {NewKeyc4, 2}]),
-    ?line expect(1, badValue, 2, any),   
+    ?line ?expect3(badValue, 2, any),   
     s([{NewKeyc3, 2},
        {[sa, [2,0]], 6}, % wrongValue (i is_set_ok)
        {NewKeyc5, ?createAndGo},
        {NewKeyc4, 2}]),
-    ?line expect(1, ?v1_2(badValue, wrongValue), 2, any),   
+    ?line ?expect3(?v1_2(badValue, wrongValue), 2, any),   
     g([NewKeyc4]),
-    ?line ?v1_2(expect(2, noSuchName, 1, any),
-		expect(2, [{NewKeyc4, noSuchInstance}])).
+    ?line ?v1_2(?expect3(noSuchName, 1, any),
+		?expect1([{NewKeyc4, noSuchInstance}])).
 
 %% Req. SA-MIB, OLD-SNMPEA-MIB
 sa_errs_gen_err() ->
@@ -4114,23 +4119,23 @@ sa_errs_gen_err() ->
     NewKeyc5 = [intCommunityEntry,[5],get(mip),is("test")],
     s([{NewKeyc3, 2},{NewKeyc4, 2},
        {NewKeyc5, ?createAndGo}, {[sa, [3,0]], 5}]),
-    ?line expect(1, genErr, 4, any),
+    ?line ?expect3(genErr, 4, any),
 % The row might have been added; we don't know.
 % (as a matter of fact we do - it is added, because the agent
 % first sets its own vars, and then th SAs. Lets destroy it.
     s([{NewKeyc5, ?destroy}]),
-    ?line expect(2, [{NewKeyc5, ?destroy}]).
+    ?line ?expect1([{NewKeyc5, ?destroy}]).
 
 %% Req. SA-MIB, OLD-SNMPEA-MIB
 sa_too_big() ->
     g([[sa, [4,0]]]),
-    ?line expect(1, tooBig).
+    ?line ?expect1(tooBig).
 
 %% Req. Klas1, system group, snmp group (v1/v2)
 next_across_sa() ->
     gn([[sysDescr],[klas1,5]]),
-    ?line expect(1, [{[sysDescr,0], "Erlang SNMP agent"},
-	       {[snmpInPkts, 0], any}]).
+    ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"},
+		    {[snmpInPkts, 0], any}]).
 
 %% snmp_test_mgr:s([{[fStatus3, 1], 4}, {[fname3,0], "ok"}]). -> noError
 %% snmp_test_mgr:s([{[fStatus3, 1], 4}, {[fname3,0], "hoj"}]). -> {badValue, 2}
@@ -4141,40 +4146,40 @@ next_across_sa() ->
 %% Req. Klas3, Klas4
 undo_test() ->
     s([{[fStatus3, 1], 4}, {[fname3,0], "ok"}]),
-    ?line expect(1, [{[fStatus3, 1], 4}, {[fname3,0], "ok"}]),
+    ?line ?expect1([{[fStatus3, 1], 4}, {[fname3,0], "ok"}]),
     s([{[fStatus3, 1], 4}, {[fname3,0], "hoj"}]),
-    ?line expect(2, ?v1_2(badValue, inconsistentValue), 2, any), 
+    ?line ?expect3(?v1_2(badValue, inconsistentValue), 2, any), 
     s([{[fStatus3, 3], 4}, {[fname3,0], "hoj"}]),
-    ?line expect(3, ?v1_2(genErr, undoFailed), 1, any), 
+    ?line ?expect3(?v1_2(genErr, undoFailed), 1, any), 
     s([{[fStatus3, 4], 4}, {[fname3,0], "ok"}]),
-    ?line expect(4, ?v1_2(genErr, commitFailed), 1, any), 
+    ?line ?expect3(?v1_2(genErr, commitFailed), 1, any), 
 % unfortunatly we don't know if we'll get undoFailed or commitFailed.
 % it depends on which order the agent traverses the varbind list.
 %    s([{[fStatus3, 4], 4}, {[fname3,0], "ufail"}]),
 %    ?line expect(5, ?v1_2(genErr, undoFailed), 1, any),
     s([{[fStatus3, 1], 4}, {[fname3,0], "xfail"}]),
-    ?line expect(6, genErr, 2, any).
+    ?line ?expect3(genErr, 2, any).
     
 %% Req. Klas3, Klas4
 bad_return() ->
     g([[fStatus4,4],
        [fName4,4]]),
-    ?line expect(4, genErr, 2, any),
+    ?line ?expect3(genErr, 2, any),
     g([[fStatus4,5],
        [fName4,5]]),
-    ?line expect(5, genErr, 1, any),
+    ?line ?expect3(genErr, 1, any),
     g([[fStatus4,6],
        [fName4,6]]),
-    ?line expect(6, genErr, 2, any),
+    ?line ?expect3(genErr, 2, any),
     gn([[fStatus4,7],
        [fName4,7]]),
-    ?line expect(7, genErr, 2, any),
+    ?line ?expect3(genErr, 2, any),
     gn([[fStatus4,8],
        [fName4,8]]),
-    ?line expect(8, genErr, 1, any),
+    ?line ?expect3(genErr, 1, any),
     gn([[fStatus4,9],
        [fName4,9]]),
-    ?line expect(9, genErr, 2, any).
+    ?line ?expect3(genErr, 2, any).
 
 
 %%%-----------------------------------------------------------------
@@ -4246,27 +4251,27 @@ std_mib_init() ->
     %% disable authentication failure traps.  (otherwise w'd get many of
     %% them - this is also a test to see that it works).
     s([{[snmpEnableAuthenTraps,0], 2}]),
-    ?line expect(std_mib_init_1, [{[snmpEnableAuthenTraps, 0], 2}]).
+    ?line ?expect1([{[snmpEnableAuthenTraps, 0], 2}]).
 
 %% Req. SNMP-STANDARD-MIB | SNMPv2-MIB
 std_mib_finish() ->
     %% enable again
     s([{[snmpEnableAuthenTraps,0], 1}]),
-    ?line expect(std_mib_finish_1, [{[snmpEnableAuthenTraps, 0], 1}]).
+    ?line ?expect1([{[snmpEnableAuthenTraps, 0], 1}]).
 
 %% Req. SNMP-STANDARD-MIB
 standard_mib_test_finish() ->
     %% force a authenticationFailure (should result in a trap)
     std_mib_write(),
     %% check that we got a trap
-    ?line expect(standard_mib_test_finish_2, trap, [1,2,3], 4, 0, []).
+    ?line ?expect5(trap, [1,2,3], 4, 0, []).
 
 %% Req. SNMP-STANDARD-MIB | SNMPv2-MIB
 std_mib_read() ->
     ?DBG("std_mib_read -> entry", []),
     g([[sysUpTime,0]]), % try a bad <something>; msg dropped, no reply
     ?DBG("std_mib_read -> await timeout (i.e. no reply)", []),
-    ?line expect(std_mib_read_1, timeout). % make sure we don't get a trap!
+    ?line ?expect1(timeout). % make sure we don't get a trap!
 
 
 %% Req. SNMP-STANDARD-MIB | SNMPv2-MIB
@@ -4382,13 +4387,13 @@ snmpv2_mib_test_finish() ->
 
     %% check that we got a trap
     ?DBG("ma_v2_inform -> await trap",[]),
-    ?line expect(2, v2trap, [{[sysUpTime,0], any},
-			     {[snmpTrapOID,0], ?authenticationFailure}]),
+    ?line ?expect2(v2trap, [{[sysUpTime,0], any},
+			    {[snmpTrapOID,0], ?authenticationFailure}]),
 
     %% and the the inform
     ?DBG("ma_v2_inform -> await inform",[]),
-    ?line expect(2, {inform,true}, [{[sysUpTime,0], any},
-				    {[snmpTrapOID,0],?authenticationFailure}]).
+    ?line ?expect2({inform,true}, [{[sysUpTime,0], any},
+				   {[snmpTrapOID,0],?authenticationFailure}]).
 
 %% Req. SNMP-STANDARD-MIB | SNMPv2-MIB
 std_mib_a() ->
@@ -4426,12 +4431,12 @@ std_mib_c({InBadCommunityNames, InBadCommunityUses, InASNErrs}) ->
 snmpv2_mib_a() ->
     ?line [SetSerial] = get_req(2, [[snmpSetSerialNo,0]]),
     s([{[snmpSetSerialNo,0], SetSerial}, {[sysLocation, 0], "val2"}]),
-    ?line expect(snmpv2_mib_a_3, [{[snmpSetSerialNo,0], SetSerial},
-				  {[sysLocation, 0], "val2"}]),
+    ?line ?expect1([{[snmpSetSerialNo,0], SetSerial},
+		    {[sysLocation, 0], "val2"}]),
     s([{[sysLocation, 0], "val3"}, {[snmpSetSerialNo,0], SetSerial}]),
-    ?line expect(snmpv2_mib_a_4, inconsistentValue, 2,
-		 [{[sysLocation, 0], "val3"},
-		  {[snmpSetSerialNo,0], SetSerial}]),
+    ?line ?expect3(inconsistentValue, 2,
+		   [{[sysLocation, 0], "val3"},
+		    {[snmpSetSerialNo,0], SetSerial}]),
     ?line ["val2"] = get_req(5, [[sysLocation,0]]).
     
     
@@ -4562,7 +4567,7 @@ snmp_mpd_mib_a() ->
 -define(snmpUnknownPDUHandlers_instance, [1,3,6,1,6,3,11,2,1,3,0]).
 snmp_mpd_mib_b() ->
     g([[sysUpTime,0]]),
-    ?line expect(1, report, [{?snmpUnknownPDUHandlers_instance, any}]).
+    ?line ?expect2(report, [{?snmpUnknownPDUHandlers_instance, any}]).
     
 
 snmp_mpd_mib_c(UnknownPDUHs) ->
@@ -4752,49 +4757,50 @@ snmp_view_based_acm_mib() ->
 
 do_set(Row) ->
     s(Row),
-    expect(do_set_1, Row).
+    ?expect1(Row).
     
 add_row(RowStatus) ->
     s([{RowStatus, ?createAndGo}]),
-    expect(add_row_1, [{RowStatus, ?createAndGo}]).
+    ?expect1([{RowStatus, ?createAndGo}]).
 
 del_row(RowStatus) ->
     s([{RowStatus, ?destroy}]),
-    expect(del_row_1, [{RowStatus, ?destroy}]).
+    ?expect1([{RowStatus, ?destroy}]).
     
     
 
 use_no_rights() ->
     g([[xDescr,0]]),
-    ?v1_2_3(expect(use_no_rights_11, noSuchName, 1, any),
-	    expect(use_no_rights_12, [{[xDescr,0], noSuchObject}]),
-	    expect(use_no_rights_13, authorizationError, 1, any)),
+    ?v1_2_3(?expect3(noSuchName, 1, any),
+	    ?expect1([{[xDescr,0], noSuchObject}]),
+	    ?expect3(authorizationError, 1, any)),
     g([[xDescr2,0]]),
-    ?v1_2_3(expect(use_no_rights_21, noSuchName, 1, any),
-	    expect(use_no_rights_22, [{[xDescr2,0], noSuchObject}]),
-	    expect(use_no_rights_23, authorizationError, 1, any)),
+    ?v1_2_3(?expect3(noSuchName, 1, any),
+	    ?expect1([{[xDescr2,0], noSuchObject}]),
+	    ?expect3(authorizationError, 1, any)),
     gn([[xDescr]]),
-    ?v1_2_3(expect(use_no_rights_31, noSuchName, 1, any),
-	    expect(use_no_rights_32, [{[xDescr], endOfMibView}]),
-	    expect(use_no_rights_33, authorizationError, 1, any)),
+    ?v1_2_3(?expect3(noSuchName, 1, any),
+	    ?expect1([{[xDescr], endOfMibView}]),
+	    ?expect3(authorizationError, 1, any)),
     s([{[xDescr,0], "tryit"}]),
-    ?v1_2_3(expect(use_no_rights_41, noSuchName, 1, any),
-	    expect(use_no_rights_42, noAccess, 1, any),
-	    expect(use_no_rights_43, authorizationError, 1, any)).
+    ?v1_2_3(?expect3(noSuchName, 1, any),
+	    ?expect3(noAccess, 1, any),
+	    ?expect3(authorizationError, 1, any)).
 
 
 use_rights() ->
     g([[xDescr,0]]),
-    expect(use_rights_1, [{[xDescr,0], any}]),
+    ?expect1([{[xDescr,0], any}]),
     g([[xDescr2,0]]),
-    expect(use_rights_2, [{[xDescr2,0], any}]),
+    ?expect1([{[xDescr2,0], any}]),
     s([{[xDescr,0], "tryit"}]),
-    expect(use_rights_3, noError, 0, any),
+    ?expect3(noError, 0, any),
     g([[xDescr,0]]),
-    expect(use_rights_4, [{[xDescr,0], "tryit"}]).
+    ?expect1([{[xDescr,0], "tryit"}]).
 
 mk_ln(X) ->
     [length(X) | X].
+
 
 %%-----------------------------------------------------------------
 %% o  add/delete users and try them
@@ -4895,7 +4901,7 @@ usm_add_user1() ->
     Vbs1  = [{[usmUserCloneFrom, NewRowIndex], RowPointer},
 	     {[usmUserStatus, NewRowIndex], ?createAndGo}],
     ?line s(Vbs1),
-    ?line expect(1, Vbs1),
+    ?line ?expect1(Vbs1),
     ok.
     
 usm_use_user() ->
@@ -4914,7 +4920,7 @@ usm_key_change1(ShaKey, DesKey) ->
     Vbs1 = [{[usmUserAuthKeyChange, NewRowIndex], ShaKeyChange},
 	    {[usmUserPrivKeyChange, NewRowIndex], DesKeyChange}],
     s(Vbs1),
-    ?line expect(1, Vbs1).
+    ?line ?expect1(Vbs1).
     
 %% Change own private keys
 usm_key_change2(OldShaKey, OldDesKey, ShaKey, DesKey) ->
@@ -4928,7 +4934,7 @@ usm_key_change2(OldShaKey, OldDesKey, ShaKey, DesKey) ->
     Vbs1 = [{[usmUserOwnAuthKeyChange, NewRowIndex], ShaKeyChange},
 	    {[usmUserOwnPrivKeyChange, NewRowIndex], DesKeyChange}],
     s(Vbs1),
-    ?line expect(1, Vbs1).
+    ?line ?expect1(Vbs1).
     
 %% Change other's public keys
 usm_key_change3(OldShaKey, OldDesKey, ShaKey, DesKey) ->
@@ -4941,16 +4947,16 @@ usm_key_change3(OldShaKey, OldDesKey, ShaKey, DesKey) ->
 							DesKey),
     Vbs1 = [{[usmUserOwnAuthKeyChange, NewRowIndex], ShaKeyChange}],
     s(Vbs1),
-    ?line expect(1, noAccess, 1, any),
+    ?line ?expect3(noAccess, 1, any),
     Vbs2 = [{[usmUserOwnPrivKeyChange, NewRowIndex], DesKeyChange}],
     s(Vbs2),
-    ?line expect(2, noAccess, 1, any),
+    ?line ?expect3(noAccess, 1, any),
     
     
     Vbs3 = [{[usmUserAuthKeyChange, NewRowIndex], ShaKeyChange},
 	    {[usmUserPrivKeyChange, NewRowIndex], DesKeyChange}],
     s(Vbs3),
-    ?line expect(1, Vbs3).
+    ?line ?expect1(Vbs3).
 
 usm_read() ->
     NewRowIndex = [11,"agentEngine", 7, "newUser"],
@@ -4960,13 +4966,12 @@ usm_read() ->
 	     [usmUserOwnAuthKeyChange, NewRowIndex],
 	     [usmUserPrivKeyChange, NewRowIndex],
 	     [usmUserOwnPrivKeyChange, NewRowIndex]]),
-    ?line expect(1, 
-		 [{[usmUserSecurityName, NewRowIndex], "newUser"},
-		  {[usmUserCloneFrom, NewRowIndex], [0,0]},
-		  {[usmUserAuthKeyChange, NewRowIndex], ""},
-		  {[usmUserOwnAuthKeyChange, NewRowIndex], ""},
-		  {[usmUserPrivKeyChange, NewRowIndex], ""},
-		  {[usmUserOwnPrivKeyChange, NewRowIndex], ""}]),
+    ?line ?expect1([{[usmUserSecurityName, NewRowIndex], "newUser"},
+		    {[usmUserCloneFrom, NewRowIndex], [0,0]},
+		    {[usmUserAuthKeyChange, NewRowIndex], ""},
+		    {[usmUserOwnAuthKeyChange, NewRowIndex], ""},
+		    {[usmUserPrivKeyChange, NewRowIndex], ""},
+		    {[usmUserOwnPrivKeyChange, NewRowIndex], ""}]),
     ok.
     
     
@@ -4975,7 +4980,7 @@ usm_del_user() ->
     NewRowIndex = [11,"agentEngine", 7, "newUser"],
     Vbs1  = [{[usmUserStatus, NewRowIndex], ?destroy}],
     ?line s(Vbs1),
-    ?line expect(1, Vbs1),
+    ?line ?expect1(Vbs1),
     ok.
 
 -define(usmUserCloneFrom, [1,3,6,1,6,3,15,1,2,2,1,4]).
@@ -4996,32 +5001,31 @@ usm_bad() ->
     Vbs1  = [{[usmUserCloneFrom, NewRowIndex], RowPointer1},
 	     {[usmUserStatus, NewRowIndex], ?createAndGo}],
     ?line s(Vbs1),
-    ?line expect(1, inconsistentName, 1, any),
+    ?line ?expect3(inconsistentName, 1, any),
 
     RowPointer2 = ?usmUserCloneFrom ++ [11|"agentEngine"] ++ [7|"privDES"],
     Vbs2  = [{[usmUserCloneFrom, NewRowIndex], RowPointer2},
 	     {[usmUserStatus, NewRowIndex], ?createAndGo}],
     ?line s(Vbs2),
-    ?line expect(2, wrongValue, 1, any),
+    ?line ?expect3(wrongValue, 1, any),
 
     RowPointer3 = ?usmUserSecurityName ++ [11|"agentEngine"] ++ [7|"privDES"],
     Vbs3  = [{[usmUserCloneFrom, NewRowIndex], RowPointer3},
 	     {[usmUserStatus, NewRowIndex], ?createAndGo}],
     ?line s(Vbs3),
-    ?line expect(3, Vbs3),
+    ?line ?expect1(Vbs3),
     ?line s([{[usmUserAuthProtocol, NewRowIndex], ?usmNoAuthProtocol}]),
-    ?line expect(4, inconsistentValue, 1, any),
+    ?line ?expect3(inconsistentValue, 1, any),
     ?line s([{[usmUserAuthProtocol, NewRowIndex], ?usmHMACMD5AuthProtocol}]),
-    ?line expect(5, inconsistentValue, 1, any),
+    ?line ?expect3(inconsistentValue, 1, any),
     ?line s([{[usmUserAuthProtocol, NewRowIndex], ?usmDESPrivProtocol}]),
-    ?line expect(6, wrongValue, 1, any),
+    ?line ?expect3(wrongValue, 1, any),
     ?line s([{[usmUserPrivProtocol, NewRowIndex], ?usmHMACSHAAuthProtocol}]),
-    ?line expect(7, wrongValue, 1, any),
+    ?line ?expect3(wrongValue, 1, any),
 
     Vbs4  = [{[usmUserStatus, NewRowIndex], ?destroy}],
     ?line s(Vbs4),
-    ?line expect(1, Vbs4),
-
+    ?line ?expect1(Vbs4),
     ok.
     
 
@@ -5340,15 +5344,15 @@ otp_1128() ->
     NewKeyc5 = [intCommunityStatus,get(mip),is("test")],
 
     s([{NewKeyc5, ?createAndWait}, {NewKeyc4, 2}]),
-    ?line expect(28, [{NewKeyc5, ?createAndWait}, {NewKeyc4, 2}]),
+    ?line ?expect1([{NewKeyc5, ?createAndWait}, {NewKeyc4, 2}]),
     g([NewKeyc5]),
-    ?line expect(29, [{NewKeyc5, ?notReady}]),
+    ?line ?expect1([{NewKeyc5, ?notReady}]),
     s([{NewKeyc5, ?active}, {NewKeyc3, 2}]),
-    ?line expect(30, [{NewKeyc5, ?active}, {NewKeyc3, 2}]),
+    ?line ?expect1([{NewKeyc5, ?active}, {NewKeyc3, 2}]),
     g([NewKeyc5]),
-    ?line expect(31, [{NewKeyc5, ?active}]),
+    ?line ?expect1([{NewKeyc5, ?active}]),
     s([{NewKeyc5, ?destroy}]),
-    ?line expect(32, [{NewKeyc5, ?destroy}]).
+    ?line ?expect1([{NewKeyc5, ?destroy}]).
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1129, OTP-1169
@@ -5370,6 +5374,7 @@ otp_1129_i(MaNode) ->
     io:format("Testing bug reported in ticket OTP-1129...~n"),
     false = rpc:call(MaNode, snmp, int_to_enum, [iso, 1]),
     false = rpc:call(MaNode, snmp, int_to_enum, [isox, 1]).
+
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1131
@@ -5430,7 +5435,7 @@ otp_1131() ->
     io:format("Testing bug reported in ticket OTP-1131...~n"),
     s([{[friendsEntry, [2, 3, 1]], s, "kompis3"},
        {[friendsEntry, [3, 3, 1]], i, ?createAndGo}]),
-    ?line expect(1, ?v1_2(noSuchName, noCreation), 2, any).
+    ?line ?expect3(?v1_2(noSuchName, noCreation), 2, any).
 
 
 %%-----------------------------------------------------------------
@@ -5451,7 +5456,7 @@ otp_1162_3(X) -> ?P(otp_1162_3), otp_1162(X).
 
 otp_1162() ->
     s([{[sa, [2,0]], 6}]), % wrongValue (i is_set_ok)
-    ?line expect(1, ?v1_2(badValue, wrongValue), 1, any).
+    ?line ?expect3(?v1_2(badValue, wrongValue), 1, any).
 
 
 %%-----------------------------------------------------------------
@@ -5475,9 +5480,9 @@ otp_1222_3(X) -> ?P(otp_1222_3), otp_1222(X).
 otp_1222() ->
     io:format("Testing bug reported in ticket OTP-1222...~n"),
     s([{[fStatus4,1], 4}, {[fName4,1], 1}]),
-    ?line expect(1, genErr, 0, any),
+    ?line ?expect3(genErr, 0, any),
     s([{[fStatus4,2], 4}, {[fName4,2], 1}]),
-    ?line expect(2, genErr, 0, any).
+    ?line ?expect3(genErr, 0, any).
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1298
@@ -5499,7 +5504,7 @@ otp_1298_3(X) -> ?P(otp_1298_3), otp_1298(X).
 otp_1298() ->
     io:format("Testing bug reported in ticket OTP-1298...~n"),
     s([{[fint,0], -1}]),
-    ?line expect(1298, [{[fint,0], -1}]).
+    ?line ?expect1([{[fint,0], -1}]).
     
 
 %%-----------------------------------------------------------------
@@ -5522,7 +5527,7 @@ otp_1331_3(X) -> ?P(otp_1331_3), otp_1331(X).
 otp_1331() ->
     NewKeyc5 = [intCommunityStatus,[127,32,0,0],is("test")],
     s([{NewKeyc5, ?destroy}]),
-    ?line expect(1, [{NewKeyc5, ?destroy}]).
+    ?line ?expect1([{NewKeyc5, ?destroy}]).
 
 
 %%-----------------------------------------------------------------
@@ -5544,9 +5549,9 @@ otp_1338_3(X) -> ?P(otp_1338_3), otp_1338(X).
 
 otp_1338() ->
     s([{[kStatus2, 7], i, ?createAndGo}]),
-    ?line expect(1, [{[kStatus2, 7], ?createAndGo}]),
+    ?line ?expect1([{[kStatus2, 7], ?createAndGo}]),
     g([[kName2, 7]]),
-    ?line expect(2, [{[kName2, 7], "JJJ"}]).
+    ?line ?expect1([{[kName2, 7], "JJJ"}]).
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1342
@@ -5569,7 +5574,7 @@ otp_1342() ->
     s([{[fIndex5, 1], i, 1},
        {[fName5, 1], i, 3},
        {[fStatus5, 1], i, ?createAndGo}]),
-    ?line expect(1, ?v1_2(noSuchName, noCreation), 3, any).
+    ?line ?expect3(?v1_2(noSuchName, noCreation), 3, any).
 
 
 %%-----------------------------------------------------------------
@@ -5681,8 +5686,8 @@ otp_2979_3(X) -> ?P(otp_2979_3), otp_2979(X).
 
 otp_2979() ->
     gn([[sparseDescr], [sparseStatus]]),
-    ?line expect(1, [{[sparseStr,0], "slut"},
-		     {[sparseStr,0], "slut"}]).
+    ?line ?expect1([{[sparseStr,0], "slut"},
+		    {[sparseStr,0], "slut"}]).
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-3187
@@ -5941,11 +5946,11 @@ otp_7157_test1(MA) ->
 
     ?DBG("await response",[]),
     %% We don't really care about the values, just the vb order.
-    ?line ok = expect(1, v2trap, [{[sysUpTime,   0], any},
-				  {[snmpTrapOID, 0], any},
-				  {[sysContact,  0], any},
-				  {[cnt64,       0], any},
-				  {[sysLocation, 0], any}]),
+    ?line ok = ?expect2(v2trap, [{[sysUpTime,   0], any},
+				 {[snmpTrapOID, 0], any},
+				 {[sysContact,  0], any},
+				 {[cnt64,       0], any},
+				 {[sysLocation, 0], any}]),
 
     ?DBG("done", []),
     ok.
@@ -6591,10 +6596,10 @@ gn(OidsOrN)      -> snmp_test_mgr:gn(OidsOrN).
 gb(NR, MR, Oids) -> snmp_test_mgr:gb(NR, MR, Oids).
 s(VAV)           -> snmp_test_mgr:s(VAV).
    
-expect(A, B)             -> snmp_agent_test_lib:expect(A, B).
-expect(A, B, C)          -> snmp_agent_test_lib:expect(A, B, C).
-expect(A, B, C, D)       -> snmp_agent_test_lib:expect(A, B, C, D).
-expect(A, B, C, D, E, F) -> snmp_agent_test_lib:expect(A, B, C, D, E, F).
+%% expect(A, B)             -> snmp_agent_test_lib:expect(A, B).
+%% expect(A, B, C)          -> snmp_agent_test_lib:expect(A, B, C).
+%% expect(A, B, C, D)       -> snmp_agent_test_lib:expect(A, B, C, D).
+%% expect(A, B, C, D, E, F) -> snmp_agent_test_lib:expect(A, B, C, D, E, F).
 
 get_req(Id, Vars) ->
     snmp_agent_test_lib:get_req(Id, Vars).
