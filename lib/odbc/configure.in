@@ -167,7 +167,8 @@ AC_SUBST(TARGET_FLAGS)
 			AC_CHECK_SIZEOF(void *)
 			AC_MSG_CHECKING([for odbc in standard locations])
 			for rdir in /usr/local/odbc /usr/local /usr/odbc \
-			            /usr /opt/local/pgm/odbc /usr/local/pgm/odbc; do
+			            /usr /opt/local/pgm/odbc /usr/local/pgm/odbc \
+			            "$with_odbc"; do
 			  test -f "$erl_xcomp_isysroot$rdir/include/sql.h" || continue
 			  is_odbc_std_location=yes
 			  libdir="$erl_xcomp_sysroot$rdir/lib"
