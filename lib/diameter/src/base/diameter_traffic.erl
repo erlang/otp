@@ -780,7 +780,7 @@ failed([MsgName | Values], FailedAvp, Dict) ->
 %% ... or record.
 failed(Rec, FailedAvp, Dict) ->
     try
-        RecName = element(1, Rec),  
+        RecName = element(1, Rec),
         Dict:'#info-'(RecName, {index, 'Failed-AVP'}),
         {'Failed-AVP', [FailedAvp]}
     catch

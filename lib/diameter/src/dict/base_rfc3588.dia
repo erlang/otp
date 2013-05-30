@@ -1,7 +1,7 @@
 ;;
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2010-2011. All Rights Reserved.
+;; Copyright Ericsson AB 2010-2013. All Rights Reserved.
 ;;
 ;; The contents of this file are subject to the Erlang Public License,
 ;; Version 1.1, (the "License"); you may not use this file except in
@@ -421,7 +421,7 @@
    DIAMETER_INVALID_AVP_BIT_COMBO     5016
    DIAMETER_NO_COMMON_SECURITY        5017
 
-@grouped 
+@grouped
 
       Proxy-Info ::= < AVP Header: 284 >
                      { Proxy-Host }
@@ -440,7 +440,7 @@
                                      [ Auth-Application-Id ]
                                      [ Acct-Application-Id ]
 
-;; The E2E-Sequence AVP is defined in RFC 3588 as Grouped, but 
+;; The E2E-Sequence AVP is defined in RFC 3588 as Grouped, but
 ;; there is no definition of the group - only an informal text stating
 ;; that there should be a nonce (an OctetString) and a counter
 ;; (integer)

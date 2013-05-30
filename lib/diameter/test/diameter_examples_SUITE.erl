@@ -149,7 +149,7 @@ to_erl(File, Opts) ->
         No ->
             throw({make, No})
     end.
-    
+
 to_beam(Name) ->
     case compile:file(Name ++ ".erl", [return]) of
         {ok, _, _} ->

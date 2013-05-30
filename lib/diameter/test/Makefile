@@ -1,4 +1,4 @@
-# 
+#
 # %CopyrightBegin%
 #
 # Copyright Ericsson AB 2010-2013. All Rights Reserved.
@@ -76,7 +76,7 @@ any: opt
 	$(MAKE) -i $(SUITES)
 
 clean:
-	rm -f $(TARGET_FILES) 
+	rm -f $(TARGET_FILES)
 	rm -f depend.mk coverspec
 
 realclean: clean
@@ -159,7 +159,7 @@ log:
 
 # ----------------------------------------------------
 # Release Targets
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 
 /%: % force
 	sed -f release.sed $< > "$(RELSYSDIR)$@"
