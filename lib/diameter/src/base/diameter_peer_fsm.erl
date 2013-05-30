@@ -233,20 +233,21 @@ start_transport(Addrs0, T) ->
         {TPid, Addrs, Tmo, Data} ->
             erlang:monitor(process, TPid),
             q_next(TPid, Addrs0, Tmo, Data),
-            {TPid, addrs(Addrs, Addrs0)};
+            {TPid, Addrs};
         No ->
             exit({shutdown, No})
     end.
 
-addrs([], Addrs0) ->
-    Addrs0;
-addrs(Addrs, _) ->
-    Addrs.
-
-svc(Svc, []) ->
-    Svc;
-svc(Svc, Addrs) ->
-    readdr(Svc, Addrs).
+svc(#diameter_service{capabilities = LCaps0} = Svc, Addrs) ->
+    #diameter_caps{host_ip_address = Addrs0}
+        = LCaps0,
+    case Addrs0 of
+        [] ->
+            LCaps = LCaps0#diameter_caps{host_ip_address = Addrs},
+            Svc#diameter_service{capabilities = LCaps};
+        [_|_] ->
+            Svc
+    end.
 
 readdr(#diameter_service{capabilities = LCaps0} = Svc, Addrs) ->
     LCaps = LCaps0#diameter_caps{host_ip_address = Addrs},
@@ -360,7 +361,7 @@ transition({diameter, {TPid, connected, Remote, LAddrs}},
                   service = Svc}
            = S) ->
     transition({diameter, {TPid, connected, Remote}},
-               S#state{service = readdr(Svc, LAddrs)});
+               S#state{service = svc(Svc, LAddrs)});
 
 %% Connection from peer.
 transition({diameter, {TPid, connected}},
