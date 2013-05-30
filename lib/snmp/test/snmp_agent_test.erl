@@ -103,7 +103,7 @@
 				   Type, Ent, Gen, Spec, ExpVBs)).
 -define(expect6(Type, Ent, Gen, Spec, ExpVBs, To), 
 	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
-				   Type, Ent, Gen, Spec, ExpVBs)).
+				   Type, Ent, Gen, Spec, ExpVBs, To)).
 
 
 all() -> 
