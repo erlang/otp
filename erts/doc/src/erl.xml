@@ -657,10 +657,11 @@
 	<p>Se also <seealso marker="stdlib:io#printable_range/0">
 	io:printable_range/0</seealso>.</p>
       </item>
-      <tag><marker id="+P"/><marker id="max_processes"><c><![CDATA[+P Number]]></c></marker></tag>
+      <tag><marker id="+P"/><marker id="max_processes"><c><![CDATA[+P Number|legacy]]></c></marker></tag>
       <item>
 	<p>Sets the maximum number of simultaneously existing processes for this
-          system. Valid range for <c>Number</c> is <c>[1024-134217727]</c></p>
+          system if a <c>Number</c> is passed as value. Valid range for
+	<c>Number</c> is <c>[1024-134217727]</c></p>
 	<p><em>NOTE</em>: The actual maximum chosen may be much larger than
 	the <c>Number</c> passed. Currently the runtime system often,
 	but not always, chooses a value that is a power of 2. This might,
@@ -668,11 +669,19 @@
 	checked by calling
 	<seealso marker="erlang#system_info_process_limit">erlang:system_info(process_limit)</seealso>.</p>
 	<p>The default value is <c>262144</c></p>
+	<p>If <c>legacy</c> is passed as value, the legacy algorithm for
+	allocation of process identifiers will be used. Using the legacy
+	algorithm, identifiers will be allocated in a strictly increasing
+	fashion until largest possible identifier has been reached. Note that
+	this algorithm suffers from performance issues and can under certain
+	circumstances be extremely expensive. The legacy algoritm is deprecated,
+	and the <c>legacy</c> option is scheduled for removal in OTP-R18.</p>
       </item>
-      <tag><marker id="+Q"/><marker id="max_ports"><c><![CDATA[+Q Number]]></c></marker></tag>
+      <tag><marker id="+Q"/><marker id="max_ports"><c><![CDATA[+Q Number|legacy]]></c></marker></tag>
       <item>
 	<p>Sets the maximum number of simultaneously existing ports for this
-          system. Valid range for <c>Number</c> is <c>[1024-134217727]</c></p>
+          system if a Number is passed as value. Valid range for <c>Number</c>
+	is <c>[1024-134217727]</c></p>
 	<p><em>NOTE</em>: The actual maximum chosen may be much larger than
 	the actual <c>Number</c> passed. Currently the runtime system often,
 	but not always, chooses a value that is a power of 2. This might,
@@ -691,6 +700,13 @@
 	for setting the maximum number of simultaneously existing ports. This
 	environment variable is deprecated, and scheduled for removal in
 	OTP-R17, but can still be used.</p>
+	<p>If <c>legacy</c> is passed as value, the legacy algorithm for
+	allocation of port identifiers will be used. Using the legacy
+	algorithm, identifiers will be allocated in a strictly increasing
+	fashion until largest possible identifier has been reached. Note that
+	this algorithm suffers from performance issues and can under certain
+	circumstances be extremely expensive. The legacy algoritm is deprecated,
+	and the <c>legacy</c> option is scheduled for removal in OTP-R18.</p>
       </item>
       <tag><marker id="compat_rel"><c><![CDATA[+R ReleaseNumber]]></c></marker></tag>
       <item>

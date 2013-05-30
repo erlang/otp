@@ -1494,6 +1494,7 @@ processes_bif_cleaner() ->
 
 spawn_initial_hangarounds(Cleaner) ->
     TabSz = erlang:system_info(process_limit),
+    erts_debug:set_internal_state(next_pid,TabSz),
     spawn_initial_hangarounds(Cleaner,
 			      TabSz,
 			      TabSz*2,
@@ -1538,14 +1539,21 @@ hangaround(Cleaner, Type) ->
 spawn_initial_hangarounds(_Cleaner, NP, Max, Len, HAs) when NP > Max ->
     {Len, HAs};
 spawn_initial_hangarounds(Cleaner, NP, Max, Len, HAs) ->
-    erts_debug:set_internal_state(next_pid,NP),
+    Skip = 30,
     HA1 = spawn_opt(?MODULE, hangaround, [Cleaner, initial_hangaround],
 		    [{priority, low}]),
     HA2 = spawn_opt(?MODULE, hangaround, [Cleaner, initial_hangaround],
 		    [{priority, normal}]),
     HA3 = spawn_opt(?MODULE, hangaround, [Cleaner, initial_hangaround],
 		    [{priority, high}]),
-    spawn_initial_hangarounds(Cleaner, NP+30, Max, Len+3, [HA1,HA2,HA3|HAs]).
+    spawn_drop(Skip),
+    spawn_initial_hangarounds(Cleaner, NP+Skip, Max, Len+3, [HA1,HA2,HA3|HAs]).
+
+spawn_drop(N) when N =< 0 ->
+    ok;
+spawn_drop(N) ->
+    spawn(fun () -> ok end),
+    spawn_drop(N-1).
 
 do_processes(WantReds) ->
     erts_debug:set_internal_state(reds_left, WantReds),

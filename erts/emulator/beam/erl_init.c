@@ -131,8 +131,10 @@ extern void ConWaitForExit(void);
 
 static void erl_init(int ncpu,
 		     int proc_tab_sz,
+		     int legacy_proc_tab,
 		     int port_tab_sz,
-		     int port_tab_sz_ignore_files);
+		     int port_tab_sz_ignore_files,
+		     int legacy_port_tab);
 
 static erts_atomic_t exiting;
 
@@ -280,7 +282,9 @@ erts_short_init(void)
     int ncpu = early_init(NULL, NULL);
     erl_init(ncpu,
 	     ERTS_DEFAULT_MAX_PROCESSES,
+	     0,
 	     ERTS_DEFAULT_MAX_PORTS,
+	     0,
 	     0);
     erts_initialized = 1;
 }
@@ -288,8 +292,10 @@ erts_short_init(void)
 static void
 erl_init(int ncpu,
 	 int proc_tab_sz,
+	 int legacy_proc_tab,
 	 int port_tab_sz,
-	 int port_tab_sz_ignore_files)
+	 int port_tab_sz_ignore_files,
+	 int legacy_port_tab)
 {
     init_benchmarking();
 
@@ -297,7 +303,7 @@ erl_init(int ncpu,
     erts_init_gc();
     erts_init_time();
     erts_init_sys_common_misc();
-    erts_init_process(ncpu, proc_tab_sz);
+    erts_init_process(ncpu, proc_tab_sz, legacy_proc_tab);
     erts_init_scheduling(no_schedulers,
 			 no_schedulers_online);
     erts_init_cpu_topology(); /* Must be after init_scheduling */
@@ -327,7 +333,7 @@ erl_init(int ncpu,
     init_dist();
     erl_drv_thr_init();
     erts_init_async();
-    erts_init_io(port_tab_sz, port_tab_sz_ignore_files);
+    erts_init_io(port_tab_sz, port_tab_sz_ignore_files, legacy_port_tab);
     init_load();
     erts_init_bif();
     erts_init_bif_chksum();
@@ -923,6 +929,9 @@ erl_start(int argc, char **argv)
     int proc_tab_sz = ERTS_DEFAULT_MAX_PROCESSES;
     int port_tab_sz = ERTS_DEFAULT_MAX_PORTS;
     int port_tab_sz_ignore_files = 0;
+    int legacy_proc_tab = 0;
+    int legacy_port_tab = 0;
+
 
     envbufsz = sizeof(envbuf);
     if (erts_sys_getenv_raw(ERL_MAX_ETS_TABLES_ENV, envbuf, &envbufsz) == 0)
@@ -1268,27 +1277,35 @@ erl_start(int argc, char **argv)
 
 	case 'P': /* set maximum number of processes */
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
-	    errno = 0;
-	    proc_tab_sz = strtol(arg, NULL, 10);
-	    if (errno != 0
-		|| proc_tab_sz < ERTS_MIN_PROCESSES
-		|| ERTS_MAX_PROCESSES < proc_tab_sz) {
-		erts_fprintf(stderr, "bad number of processes %s\n", arg);
-		erts_usage();
+	    if (strcmp(arg, "legacy") == 0)
+		legacy_proc_tab = 1;
+	    else {
+		errno = 0;
+		proc_tab_sz = strtol(arg, NULL, 10);
+		if (errno != 0
+		    || proc_tab_sz < ERTS_MIN_PROCESSES
+		    || ERTS_MAX_PROCESSES < proc_tab_sz) {
+		    erts_fprintf(stderr, "bad number of processes %s\n", arg);
+		    erts_usage();
+		}
 	    }
 	    break;
 
 	case 'Q': /* set maximum number of ports */
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
-	    errno = 0;
-	    port_tab_sz = strtol(arg, NULL, 10);
-	    if (errno != 0
-		|| port_tab_sz < ERTS_MIN_PROCESSES
-		|| ERTS_MAX_PROCESSES < port_tab_sz) {
-		erts_fprintf(stderr, "bad number of ports %s\n", arg);
-		erts_usage();
+	    if (strcmp(arg, "legacy") == 0)
+		legacy_port_tab = 1;
+	    else {
+		errno = 0;
+		port_tab_sz = strtol(arg, NULL, 10);
+		if (errno != 0
+		    || port_tab_sz < ERTS_MIN_PROCESSES
+		    || ERTS_MAX_PROCESSES < port_tab_sz) {
+		    erts_fprintf(stderr, "bad number of ports %s\n", arg);
+		    erts_usage();
+		}
+		port_tab_sz_ignore_files = 1;
 	    }
-	    port_tab_sz_ignore_files = 1;
 	    break;
 
 	case 'S' : /* Was handled in early_init() just read past it */
@@ -1642,8 +1659,10 @@ erl_start(int argc, char **argv)
 
     erl_init(ncpu,
 	     proc_tab_sz,
+	     legacy_proc_tab,
 	     port_tab_sz,
-	     port_tab_sz_ignore_files);
+	     port_tab_sz_ignore_files,
+	     legacy_port_tab);
 
     load_preloaded();
     erts_end_staging_code_ix();
