@@ -2,7 +2,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,402 @@
 %% * Test fault-tolerance (kill master etc)
 %%
 
--compile(export_all).
+-export([
+	 all/0, 
+	 groups/0, 
+	 init_per_suite/1,    end_per_suite/1, 
+	 init_per_group/2,    end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, 
+
+	 %% all_tcs - misc
+	 app_info/1, 
+	 info_test/1, 
+
+	 %% all_tcs - test_v1
+	 simple/1, 
+	 db_notify_client/1, 
+	 v1_processing/1, 
+	 big/1, 
+	 big2/1,
+	 loop_mib/1, 
+	 api/1, 
+	 subagent/1, 
+	 mnesia/1, 
+	 sa_register/1, 
+	 v1_trap/1, 
+	 sa_error/1, 
+	 next_across_sa/1, 
+	 undo/1,
+	 sparse_table/1, 
+	 cnt_64/1, 
+	 opaque/1, 
+	 change_target_addr_config/1, 
+
+	 %% all_tcs - test_v1 - multiple_reqs
+	 mul_get/1, 
+	 mul_get_err/1, 
+	 mul_next/1, 
+	 mul_next_err/1,
+	 mul_set/1, 
+	 mul_set_err/1, 
+
+	 %% all_tcs - test_v1 - reported_bugs
+	 otp_1128/1, 
+	 otp_1129/1, 
+	 otp_1131/1, 
+	 otp_1162/1, 
+	 otp_1222/1,
+	 otp_1298/1, 
+	 otp_1331/1, 
+	 otp_1338/1, 
+	 otp_1342/1, 
+	 otp_1366/1, 
+	 otp_2776/1,
+	 otp_2979/1, 
+	 otp_3187/1, 
+	 otp_3725/1, 
+
+	 %% all_tcs - test_v1 - standard_mibs
+	 snmp_standard_mib/1, 
+	 snmp_community_mib/1,
+	 snmp_framework_mib/1, 
+	 snmp_target_mib/1,
+	 snmp_notification_mib/1, 
+	 snmp_view_based_acm_mib/1, 
+
+	 %% all_tcs - test_v2
+	 simple_2/1, 
+	 v2_processing/1, 
+	 big_2/1, 
+	 big2_2/1, 
+	 loop_mib_2/1,
+	 api_2/1, 
+	 subagent_2/1, 
+	 mnesia_2/1, 
+	 sa_register_2/1, 
+	 v2_trap/1, 
+	 sa_error_2/1,
+	 next_across_sa_2/1, 
+	 undo_2/1, 
+	 v2_types/1, 
+	 implied/1,
+	 sparse_table_2/1, 
+	 cnt_64_2/1, 
+	 opaque_2/1, 
+	 v2_caps/1,
+
+	 %% all_tcs - test_v2 - multiple_reqs_2
+	 mul_get_2/1, 
+	 mul_get_err_2/1, 
+	 mul_next_2/1, 
+	 mul_next_err_2/1,
+	 mul_set_2/1, 
+	 mul_set_err_2/1, 
+
+	 %% all_tcs - test_v2 - v2_inform
+	 v2_inform_i/1, 
+
+	 %% all_tcs - test_v2 - reported_bugs_2
+	 otp_1128_2/1, 
+	 otp_1129_2/1, 
+	 otp_1131_2/1, 
+	 otp_1162_2/1,
+	 otp_1222_2/1, 
+	 otp_1298_2/1, 
+	 otp_1331_2/1, 
+	 otp_1338_2/1,
+	 otp_1342_2/1, 
+	 otp_1366_2/1, 
+	 otp_2776_2/1, 
+	 otp_2979_2/1, 
+	 otp_3187_2/1, 
+
+	 %% all_tcs - test_v2 - standard_mibs_2
+	 snmpv2_mib_2/1, 
+	 snmp_community_mib_2/1,
+	 snmp_framework_mib_2/1, 
+	 snmp_target_mib_2/1,
+	 snmp_notification_mib_2/1, 
+	 snmp_view_based_acm_mib_2/1,
+
+	 %% all_tcs - test_v1_v2
+	 simple_bi/1, 
+
+	 %% all_tcs - test_v3
+	 simple_3/1, 
+	 v3_processing/1, 
+	 big_3/1, 
+	 big2_3/1, 
+	 api_3/1,
+	 subagent_3/1, 
+	 mnesia_3/1, 
+	 loop_mib_3/1, 
+	 sa_register_3/1, 
+	 v3_trap/1, 
+	 sa_error_3/1,
+	 next_across_sa_3/1, 
+	 undo_3/1, 
+	 v2_types_3/1, 
+	 implied_3/1, 
+	 sparse_table_3/1, 
+	 cnt_64_3/1,
+	 opaque_3/1, 
+	 v2_caps_3/1, 
+
+	 %% all_tcs - test_v3 - multiple_reqs_3
+	 mul_get_3/1, 
+	 mul_get_err_3/1, 
+	 mul_next_3/1, 
+	 mul_next_err_3/1, 
+	 mul_set_3/1,
+	 mul_set_err_3/1,
+
+	 %% all_tcs - test_v3 - v3_inform
+	 v3_inform_i/1, 
+
+	 %% all_tcs - test_v3 - reported_bugs_3
+	 otp_1128_3/1, 
+	 otp_1129_3/1, 
+	 otp_1131_3/1, 
+	 otp_1162_3/1,
+	 otp_1222_3/1, 
+	 otp_1298_3/1, 
+	 otp_1331_3/1, 
+	 otp_1338_3/1,
+	 otp_1342_3/1, 
+	 otp_1366_3/1, 
+	 otp_2776_3/1, 
+	 otp_2979_3/1, 
+	 otp_3187_3/1,
+	 otp_3542/1,
+
+	 %% all_tcs - test_v3 - standard_mibs_3
+	 snmpv2_mib_3/1, 
+	 snmp_framework_mib_3/1, 
+	 snmp_mpd_mib_3/1,
+	 snmp_target_mib_3/1, 
+	 snmp_notification_mib_3/1,
+	 snmp_view_based_acm_mib_3/1, 
+	 snmp_user_based_sm_mib_3/1,
+
+	 %% all_tcs - test_v3 - v3_security
+	 v3_crypto_basic/1, 
+	 v3_md5_auth/1, 
+	 v3_sha_auth/1,
+	 v3_des_priv/1, 
+
+	 %% all_tcs - test_multi_threaded
+	 multi_threaded/1, 
+	 mt_trap/1, 
+	 
+	 %% all_tcs - mib_storage - mib_storage_ets
+	 mse_simple/1, 
+	 mse_v1_processing/1, 
+	 mse_big/1, 
+	 mse_big2/1,
+	 mse_loop_mib/1, 
+	 mse_api/1, 
+	 mse_sa_register/1, 
+	 mse_v1_trap/1,
+	 mse_sa_error/1, 
+	 mse_next_across_sa/1, 
+	 mse_undo/1,
+	 mse_standard_mib/1, 
+	 mse_community_mib/1, 
+	 mse_framework_mib/1,
+	 mse_target_mib/1, 
+	 mse_notification_mib/1,
+	 mse_view_based_acm_mib/1, 
+	 mse_sparse_table/1, 
+	 mse_me_of/1,
+	 mse_mib_of/1, 
+
+	 %% all_tcs - mib_storage - mib_storage_dets
+	 msd_simple/1, 
+	 msd_v1_processing/1, 
+	 msd_big/1, 
+	 msd_big2/1,
+	 msd_loop_mib/1, 
+	 msd_api/1, 
+	 msd_sa_register/1, 
+	 msd_v1_trap/1,
+	 msd_sa_error/1, 
+	 msd_next_across_sa/1, 
+	 msd_undo/1,
+	 msd_standard_mib/1, 
+	 msd_community_mib/1, 
+	 msd_framework_mib/1,
+	 msd_target_mib/1, 
+	 msd_notification_mib/1,
+	 msd_view_based_acm_mib/1, 
+	 msd_sparse_table/1, 
+	 msd_me_of/1,
+	 msd_mib_of/1, 
+
+	 %% all_tcs - mib_storage - mib_storage_mnesia
+	 msm_simple/1, 
+	 msm_v1_processing/1, 
+	 msm_big/1, 
+	 msm_big2/1,
+	 msm_loop_mib/1, 
+	 msm_api/1, 
+	 msm_sa_register/1, 
+	 msm_v1_trap/1,
+	 msm_sa_error/1, 
+	 msm_next_across_sa/1, 
+	 msm_undo/1,
+	 msm_standard_mib/1, 
+	 msm_community_mib/1, 
+	 msm_framework_mib/1,
+	 msm_target_mib/1, 
+	 msm_notification_mib/1,
+	 msm_view_based_acm_mib/1, 
+	 msm_sparse_table/1, 
+	 msm_me_of/1,
+	 msm_mib_of/1, 
+
+	 %% all_tcs - mib_storage - mse_size_check
+	 mse_size_check/1, 
+
+	 %% all_tcs - mib_storage - msd_size_check
+	 msd_size_check/1, 
+
+	 %% all_tcs - mib_storage - msm_size_check
+	 msm_size_check/1, 
+
+	 %% all_tcs - mib_storage - varm_mib_storage_dets
+	 msd_varm_mib_start/1, 
+
+	 %% all_tcs - mib_storage - varm_mib_storage_mnesia
+	 msm_varm_mib_start/1, 
+
+	 %% all_tcs - tickets1 - otp4394
+	 otp_4394/1, 
+
+	 %% all_tcs - tickets1 - otp7157
+	 otp_7157/1, 
+
+	 %% tickets2
+	 otp8395/1, 
+	 otp9884/1
+
+	]).
+
+%% Internal exports
+-export([dummy_manager_init/2, 
+	 v3_sync/1, 
+	 v3_inform_sync/1, 
+	 v2_caps_i/1, 
+	 v1_proc/0, 
+	 v2_proc/0, 
+	 big_test/0, 
+	 big_test_2/0, 
+	 simple_standard_test/0, 
+	 db_notify_client_test/0, 
+	 notify/2, 
+	 multi_threaded_test/0, 
+	 mt_trap_test/1, 
+	 types_v2_test/0, 
+	 implied_test/1, 
+	 sparse_table_test/0, 
+	 cnt_64_test/1, 
+	 opaque_test/0, 
+	 api_test/1, 
+	 unreg_test/0, 
+	 load_test/0, 
+	 load_test_sa/0, 
+	 api_test2/0, 
+	 api_test3/0, 
+	 do_mul_get/0, 
+	 do_mul_get_err/0, 
+	 do_mul_next/0, 
+	 do_mul_next_err/0, 
+	 do_mul_set/0, 
+	 do_mul_set_err/0, 
+	 sa_mib/0, 
+	 ma_trap1/1, 
+	 ma_trap2/1, 
+	 ma_v2_2_v1_trap/1, 
+	 ma_v2_2_v1_trap2/1, 
+	 sa_trap1/1, 
+	 sa_trap2/1, 
+	 sa_trap3/1, 
+	 ma_v2_trap1/1, 
+	 ma_v2_trap2/1, 
+	 ma_v2_inform1/1, 
+	 ma_v2_inform2/1, 
+	 ma_v2_inform3/1, 
+	 delivery_targets/3,  
+	 delivery_info/4, 
+	 ma_v1_2_v2_trap/1, 
+	 ma_v1_2_v2_trap2/1, 
+	 sa_v1_2_v2_trap1/1, 
+	 sa_v1_2_v2_trap2/1, 
+	 sa_v1_2_v2_trap3/1, 
+	 sa_errs_bad_value/0, 
+	 sa_errs_gen_err/0, 
+	 sa_too_big/0, 
+	 next_across_sa_test/0, 
+	 undo_test/0, 
+	 bad_return/0, 
+	 standard_mib_a/0, 
+	 std_mib_read/0, 
+	 std_mib_write/0, 
+	 std_mib_init/0, 
+	 std_mib_finish/0, 
+	 standard_mib_test_finish/0, 
+	 std_mib_asn_err/0, 
+	 snmpv2_mib_test_finish/0, 
+	 std_mib_a/0, 
+	 std_mib_b/1, 
+	 std_mib_c/1, 
+	 snmpv2_mib_a/0, 
+	 snmp_community_mib_test/0, 
+	 snmp_framework_mib_test/0, 
+	 snmp_mpd_mib_a/0, 
+	 snmp_mpd_mib_b/0, 
+	 snmp_mpd_mib_c/1, 
+	 snmp_target_mib_test/0, 
+	 snmp_notification_mib_test/0, 
+	 do_set/1, 
+	 add_row/1, 
+	 del_row/1, 
+	 use_no_rights/0, 
+	 use_rights/0, 
+	 usm_add_user1/0, 
+	 usm_use_user/0, 
+	 usm_key_change1/2, 
+	 usm_key_change2/4, 
+	 usm_key_change3/4, 
+	 usm_read/0, 
+	 usm_del_user/0, 
+	 usm_bad/0, 
+	 loop_mib_1/0, 
+	 loop_mib_2/0, 
+	 otp_1129_i/1, 
+	 otp_1162_test/0, 
+	 otp_1131_test/0, 
+	 otp_1222_test/0, 
+	 otp_1298_test/0, 
+	 otp_1331_test/0, 
+	 otp_1338_test/0, 
+	 otp_1342_test/0, 
+	 otp_1366_test/0, 
+	 otp_1128_test/0, 
+	 otp_2776_test/0, 
+	 otp_2979_test/0, 
+	 otp_3542_test/0, 
+	 otp_3725_test/1, 
+	 otp_4394_test/0, 
+	 otp_7157_test/1, 
+	 otp9884_backup/4, 
+	 agent_log_validation/0, 
+	 mnesia_init/1, 
+	 mnesia_start/0, 
+	 mnesia_stop/0, 
+	 start_stdalone_agent/1, 
+	 do_info/1
+	]).
 
 -define(application, snmp).
 
@@ -132,7 +527,9 @@ groups() ->
      {test_multi_threaded,           [], mt_cases()},
      {multiple_reqs,                 [], mul_cases()},
      {multiple_reqs_2,               [], mul_cases_2()},
+     {multiple_reqs_3,               [], mul_cases_3()},
      {v2_inform,                     [], v2_inform_cases()}, 
+     {v3_inform,                     [], v3_inform_cases()}, 
      {v3_security,                   [], v3_security_cases()}, 
      {standard_mibs,                 [], standard_mibs_cases()}, 
      {standard_mibs_2,               [], standard_mibs2_cases()}, 
@@ -142,8 +539,8 @@ groups() ->
      {reported_bugs_3,               [], reported_bugs3_cases()}, 
      {tickets1,                      [], tickets1_cases()}, 
      {tickets2,                      [], tickets2_cases()}, 
-     {otp_4394,                      [], [otp_4394_test]},
-     {otp_7157,                      [], [otp_7157_test]}
+     {otp4394,                       [], [otp_4394]},
+     {otp7157,                       [], [otp_7157]}
     ].
 
 
@@ -176,15 +573,19 @@ end_per_suite(Config) when is_list(Config) ->
 
 init_per_group(all_tcs = GroupName, Config) ->
     init_all(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(otp_7157 = GroupName, Config) -> 
-    init_otp_7157(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(otp_4394 = GroupName, Config) -> 
-    init_otp_4394(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(otp7157 = GroupName, Config) -> 
+    otp_7157_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(otp4394 = GroupName, Config) -> 
+    otp_4394_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(v2_inform = GroupName, Config) -> 
     init_v2_inform(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(v3_inform = GroupName, Config) -> 
+    init_v3_inform(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(multiple_reqs = GroupName, Config) -> 
+    init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(multiple_reqs_2 = GroupName, Config) -> 
     init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(multiple_reqs = GroupName, Config) -> 
+init_per_group(multiple_reqs_3 = GroupName, Config) -> 
     init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(test_multi_threaded = GroupName, Config) -> 
     init_mt(snmp_test_lib:init_group_top_dir(GroupName, Config));
@@ -224,16 +625,20 @@ init_per_group(GroupName, Config) ->
 
 end_per_group(all_tcs, Config) ->
     finish_all(Config);
-end_per_group(otp_7157, Config) -> 
-	finish_otp_7157(Config);
-end_per_group(otp_4394, Config) -> 
-	finish_otp_4394(Config);
+end_per_group(otp7157, Config) -> 
+    otp_7157_finish(Config);
+end_per_group(otp4394, Config) -> 
+    otp_4394_finish(Config);
 end_per_group(v2_inform, Config) -> 
-	finish_v2_inform(Config);
-end_per_group(multiple_reqs_2, Config) -> 
-	finish_mul(Config);
+    finish_v2_inform(Config);
+end_per_group(v3_inform, Config) -> 
+    finish_v3_inform(Config);
 end_per_group(multiple_reqs, Config) -> 
 	finish_mul(Config);
+end_per_group(multiple_reqs_2, Config) -> 
+    finish_mul(Config);
+end_per_group(multiple_reqs_3, Config) -> 
+    finish_mul(Config);
 end_per_group(test_multi_threaded, Config) -> 
 	finish_mt(Config);
 end_per_group(test_v3, Config) -> 
@@ -285,7 +690,7 @@ init_per_testcase1(otp9884 = Case, Config) when is_list(Config) ->
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [Case, Config]),
     otp9884({init, init_per_testcase2(Case, Config)});
-init_per_testcase1(otp_7157_test = _Case, Config) when is_list(Config) ->
+init_per_testcase1(otp_7157 = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
@@ -368,8 +773,8 @@ init_per_testcase2(Case, Config) ->
      {sub_agent_top_dir, SubAgentTopDir}, 
      {manager_top_dir,   ManagerTopDir} | Config].
 
-end_per_testcase2(_Case, Config) ->
-    Config.
+%% end_per_testcase2(_Case, Config) ->
+%%     Config.
 
 
 cases() -> 
@@ -936,10 +1341,10 @@ varm_mib_start(Config) when is_list(Config) ->
 
     %% Perform the test(s)
     ?DBG("varm_mib_start -> perform the tests", []),
-    try_test(snmp_community_mib),
-    try_test(snmp_framework_mib),
-    try_test(snmp_target_mib),
-    try_test(snmp_notification_mib),
+    try_test(snmp_community_mib_test),
+    try_test(snmp_framework_mib_test),
+    try_test(snmp_target_mib_test),
+    try_test(snmp_notification_mib_test),
 
     %% Stop the agent (without deleting the stored files)
     ?DBG("varm_mib_start -> stop the agent", []),
@@ -1253,10 +1658,10 @@ v3_cases() ->
      subagent_3, 
      mnesia_3, 
      loop_mib_3, 
-     multiple_reqs_3,
+     {group, multiple_reqs_3},
      sa_register_3, 
      v3_trap, 
-     v3_inform, 
+     {group, v3_inform}, 
      sa_error_3,
      next_across_sa_3, 
      undo_3, 
@@ -1609,7 +2014,7 @@ change_target_addr_config(Config) when is_list(Config) ->
 
 dummy_manager_start(MA) ->
     ?DBG("dummy_manager_start -> entry",[]),
-    Pid = spawn(get(mgr_node), ?MODULE,dummy_manager_init,[self(),MA]),
+    Pid = spawn(get(mgr_node), ?MODULE, dummy_manager_init, [self(), MA]),
     ?DBG("dummy_manager_start -> Pid: ~p",[Pid]),
     await_dummy_manager_started(Pid).
 
@@ -1807,12 +2212,13 @@ mul_cases() ->
      mul_get_err, 
      mul_next, 
      mul_next_err,
+     mul_set,
      mul_set_err
     ].
 
 
-multiple_reqs_3(_X) -> 
-    {req, [], {conf, init_mul, mul_cases_3(), finish_mul}}.
+%% multiple_reqs_3(_X) -> 
+%%     {req, [], {conf, init_mul, mul_cases_3(), finish_mul}}.
 
 
 mul_cases_2() -> 
@@ -1821,6 +2227,7 @@ mul_cases_2() ->
      mul_get_err_2, 
      mul_next_2, 
      mul_next_err_2,
+     mul_set_2,
      mul_set_err_2
     ].
 
@@ -1831,6 +2238,7 @@ mul_cases_3() ->
      mul_get_err_3, 
      mul_next_3, 
      mul_next_err_3, 
+     mul_set_3,
      mul_set_err_3
     ].
     
@@ -2054,25 +2462,27 @@ v3_trap(Config) when is_list(Config) ->
     trap2(Config).
 
 
-v3_inform(_X) ->
-    {req, [], {conf, init_v3_inform, [v3_inform_i], finish_v3_inform}}. 
+v3_inform_cases() ->
+    [
+     v3_inform_i
+    ].
+
+init_v3_inform(X) ->
+    init_v2_inform(X).
+
+finish_v3_inform(X) ->
+    finish_v2_inform(X).
+
 
 init_v2_inform(Config) when is_list(Config) ->
     _Dir = ?config(agent_conf_dir, Config),
     %% snmp_internal_mib:configure(Dir),
     Config.
 
-init_v3_inform(X) ->
-    init_v2_inform(X).
-
 finish_v2_inform(Config) when is_list(Config) ->
     _Dir = ?config(agent_conf_dir, Config),
     %% snmp_internal_mib:configure(Dir),
     Config.
-
-finish_v3_inform(X) ->
-    finish_v2_inform(X).
-
 
 v2_inform_cases() ->
     [
@@ -2177,7 +2587,7 @@ next_across_sa(Config) when is_list(Config) ->
     try_test(load_test_sa),
     
     ?P1("Testing next across subagent (endOfMibView from SA)..."),
-    try_test(next_across_sa),
+    try_test(next_across_sa_test),
 
     ?P1("Unloading mib (Klas1)"),
     snmpa:unload_mibs(SA, [MibDir ++ "Klas1"]),
@@ -2187,7 +2597,7 @@ next_across_sa(Config) when is_list(Config) ->
     ?P1("Starting another subagent (2) "),
     ?line {ok, SA2} = start_subagent(SaNode, ?klas1, "Klas1"),
     ?P1("Testing next across subagent (wrong prefix from SA)..."),
-    try_test(next_across_sa),
+    try_test(next_across_sa_test),
     
     ?P1("stop subagent (1)..."),
     stop_subagent(SA),
@@ -2871,7 +3281,7 @@ table_test() ->
     ?line ?expect1([{NewKeyc5, ?destroy}]),
     s([{NewKeyc3, 3}]),
     ?line ?expect3(?v1_2(noSuchName, inconsistentName), 1, [{NewKeyc3, 3}]),
-    otp_1128().
+    otp_1128_test().
 
 %% Req. system group
 simple_standard_test() ->
@@ -2971,6 +3381,7 @@ db_notify_client_test() ->
     s([{[sysLocation, 0], "new_value"}]),
     ?line ?expect1([{[sysLocation, 0], "new_value"}]).
 
+%% Callback function
 notify(Pid, What) -> 
     ?DBG("notify(~p,~p) -> called",[Pid,What]),
     Pid ! {db_notify_test_reply, What}.
@@ -3019,7 +3430,7 @@ big_test() ->
     s([{[friendsEntry, [3, 3]], i, ?destroy}]),
     ?line ?expect1([{[friendsEntry, [3, 3]], ?destroy}]),
     
-    otp_1131(),
+    otp_1131_test(),
 
     ?DBG("big_test -> adding two rows in subagent table with special INDEX",
        []),
@@ -3065,7 +3476,7 @@ big_test_2() ->
     g([[fname2,0]]),
     ?line ?expect1([{[fname2,0], "test set"}]),
 
-    otp_1298(),
+    otp_1298_test(),
 
     ?P1("Testing next from last object in master to subagent (2)..."),
     gn([[?v1_2(sysServices, sysORLastChange),0]]),
@@ -3986,7 +4397,8 @@ ma_v2_inform3(MA) ->
 
     command_handler(Commands).
 		   
-    
+
+%% snmpa_notification_delivery_info_receiver callback function
 delivery_targets(Tag, Addresses, Extra) ->
     io:format("~w:delivery_targets -> entry with"
 	      "~n   Tag:       ~p"
@@ -4003,6 +4415,7 @@ delivery_targets(Tag, Addresses, Extra) ->
     end,
     ok.
 
+%% snmpa_notification_delivery_info_receiver callback function
 delivery_info(Tag, Address, DeliveryResult, Extra) ->
     io:format("~w:delivery_info -> entry with"
 	      "~n   Tag:            ~p"
@@ -4132,7 +4545,7 @@ sa_too_big() ->
     ?line ?expect1(tooBig).
 
 %% Req. Klas1, system group, snmp group (v1/v2)
-next_across_sa() ->
+next_across_sa_test() ->
     gn([[sysDescr],[klas1,5]]),
     ?line ?expect1([{[sysDescr,0], "Erlang SNMP agent"},
 		    {[snmpInPkts, 0], any}]).
@@ -4450,13 +4863,13 @@ snmp_community_mib(Config) when is_list(Config) ->
     ?P(snmp_community_mib), 
     init_case(Config),
     ?line load_master_std("SNMP-COMMUNITY-MIB"),
-    try_test(snmp_community_mib),
+    try_test(snmp_community_mib_test),
     ?line unload_master("SNMP-COMMUNITY-MIB").
 
 snmp_community_mib_2(X) -> ?P(snmp_community_mib_2), snmp_community_mib(X).
 
 %% Req. SNMP-COMMUNITY-MIB
-snmp_community_mib() ->
+snmp_community_mib_test() ->
     ?INF("NOT YET IMPLEMENTED", []),
     nyi.
 
@@ -4468,7 +4881,7 @@ snmp_framework_mib(Config) when is_list(Config) ->
     ?P(snmp_framework_mib), 
     init_case(Config),
     ?line load_master_std("SNMP-FRAMEWORK-MIB"),
-    try_test(snmp_framework_mib),
+    try_test(snmp_framework_mib_test),
     ?line unload_master("SNMP-FRAMEWORK-MIB").
 
 snmp_framework_mib_2(X) -> ?P(snmp_framework_mib_2), snmp_framework_mib(X).
@@ -4477,11 +4890,11 @@ snmp_framework_mib_3(suite) -> [];
 snmp_framework_mib_3(Config) when is_list(Config) ->
     ?P(snmp_framework_mib_3), 
     init_case(Config),
-    try_test(snmp_framework_mib).
+    try_test(snmp_framework_mib_test).
 
 
 %% Req. SNMP-FRAMEWORK-MIB
-snmp_framework_mib() ->
+snmp_framework_mib_test() ->
     ?line ["agentEngine"] = get_req(1, [[snmpEngineID,0]]),
     ?line [EngineTime] = get_req(2, [[snmpEngineTime,0]]),
     ?SLEEP(5000),
@@ -4580,14 +4993,14 @@ snmp_target_mib(Config) when is_list(Config) ->
     ?P(snmp_target_mib), 
     init_case(Config),
     ?line load_master_std("SNMP-TARGET-MIB"),
-    try_test(snmp_target_mib),
+    try_test(snmp_target_mib_test),
     ?line unload_master("SNMP-TARGET-MIB").
 
 snmp_target_mib_2(X) -> ?P(snmp_target_mib_2), snmp_target_mib(X).
 
 snmp_target_mib_3(X) -> ?P(snmp_target_mib_3), snmp_target_mib(X).
 
-snmp_target_mib() ->
+snmp_target_mib_test() ->
     ?INF("NOT YET IMPLEMENTED", []),
     nyi.
 
@@ -4596,7 +5009,7 @@ snmp_notification_mib(Config) when is_list(Config) ->
     ?P(snmp_notification_mib), 
     init_case(Config),
     ?line load_master_std("SNMP-NOTIFICATION-MIB"),
-    try_test(snmp_notification_mib),
+    try_test(snmp_notification_mib_test),
     ?line unload_master("SNMP-NOTIFICATION-MIB").
 
 snmp_notification_mib_2(X) -> ?P(snmp_notification_mib_2), 
@@ -4605,7 +5018,7 @@ snmp_notification_mib_2(X) -> ?P(snmp_notification_mib_2),
 snmp_notification_mib_3(X) -> ?P(snmp_notification_mib_3), 
 			      snmp_notification_mib(X).
 
-snmp_notification_mib() ->
+snmp_notification_mib_test() ->
     ?INF("NOT YET IMPLEMENTED", []),
     nyi.
 
@@ -4881,15 +5294,15 @@ snmp_user_based_sm_mib_3(Config) when is_list(Config) ->
 
     %% Try some read requests
     ?line try_test(v3_sync, [[{usm_read, []}]],
-	      [{sec_level, authPriv}, {user, "privDES"}]),
+		   [{sec_level, authPriv}, {user, "privDES"}]),
 
     %% Delete the new user
     ?line try_test(v3_sync, [[{usm_del_user, []}]],
-	      [{sec_level, authPriv}, {user, "privDES"}]),
+		   [{sec_level, authPriv}, {user, "privDES"}]),
 
     %% Try some bad requests
     ?line try_test(v3_sync, [[{usm_bad, []}]],
-	      [{sec_level, authPriv}, {user, "privDES"}]),
+		   [{sec_level, authPriv}, {user, "privDES"}]),
 
     ?line unload_master("SNMP-USER-BASED-SM-MIB").
 
@@ -5278,6 +5691,7 @@ reported_bugs_cases() ->
      otp_1331, 
      otp_1338, 
      otp_1342, 
+     otp_1366, 
      otp_2776,
      otp_2979, 
      otp_3187, 
@@ -5295,6 +5709,7 @@ reported_bugs2_cases() ->
      otp_1331_2, 
      otp_1338_2,
      otp_1342_2, 
+     otp_1366_2, 
      otp_2776_2, 
      otp_2979_2, 
      otp_3187_2
@@ -5311,6 +5726,7 @@ reported_bugs3_cases() ->
      otp_1331_3, 
      otp_1338_3,
      otp_1342_3, 
+     otp_1366_3, 
      otp_2776_3, 
      otp_2979_3, 
      otp_3187_3,
@@ -5329,14 +5745,14 @@ otp_1128(Config) when is_list(Config) ->
 
     ?line load_master("OLD-SNMPEA-MIB"),
     ?line init_old(),
-    try_test(otp_1128),
+    try_test(otp_1128_test),
     ?line unload_master("OLD-SNMPEA-MIB").
 
 otp_1128_2(X) -> ?P(otp_1128_2), otp_1128(X).
 
 otp_1128_3(X) -> ?P(otp_1128_3), otp_1128(X).
 
-otp_1128() ->
+otp_1128_test() ->
     io:format("Testing bug reported in ticket OTP-1128...~n"),
 
     NewKeyc3 = [intCommunityViewIndex,get(mip),is("test")],
@@ -5353,6 +5769,7 @@ otp_1128() ->
     ?line ?expect1([{NewKeyc5, ?active}]),
     s([{NewKeyc5, ?destroy}]),
     ?line ?expect1([{NewKeyc5, ?destroy}]).
+
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1129, OTP-1169
@@ -5388,7 +5805,7 @@ otp_1131(Config) when is_list(Config) ->
     init_case(Config),
 
     ?line load_master("Klas1"),
-    try_test(otp_1131),
+    try_test(otp_1131_test),
     ?line unload_master("Klas1").
 
 otp_1131_2(X) -> ?P(otp_1131_2), otp_1131(X).
@@ -5431,7 +5848,7 @@ otp_1131_3(X) ->
     ?P(otp_1131_3), 
     otp_1131(X).
 
-otp_1131() ->
+otp_1131_test() ->
     io:format("Testing bug reported in ticket OTP-1131...~n"),
     s([{[friendsEntry, [2, 3, 1]], s, "kompis3"},
        {[friendsEntry, [3, 3, 1]], i, ?createAndGo}]),
@@ -5447,14 +5864,14 @@ otp_1162(Config) when is_list(Config) ->
     ?P(otp_1162), 
     {SaNode, _MgrNode, _MibDir} = init_case(Config),
     ?line {ok, SA} = start_subagent(SaNode, ?sa, "SA-MIB"),
-    try_test(otp_1162),
+    try_test(otp_1162_test),
     stop_subagent(SA).
 
 otp_1162_2(X) -> ?P(otp_1162_2), otp_1162(X).
 
 otp_1162_3(X) -> ?P(otp_1162_3), otp_1162(X).
 
-otp_1162() ->
+otp_1162_test() ->
     s([{[sa, [2,0]], 6}]), % wrongValue (i is_set_ok)
     ?line ?expect3(?v1_2(badValue, wrongValue), 1, any).
 
@@ -5469,7 +5886,7 @@ otp_1222(Config) when is_list(Config) ->
     init_case(Config),
     ?line load_master("Klas3"),
     ?line load_master("Klas4"),
-    try_test(otp_1222),
+    try_test(otp_1222_test),
     ?line unload_master("Klas3"),
     ?line unload_master("Klas4").
 
@@ -5477,12 +5894,13 @@ otp_1222_2(X) -> ?P(otp_1222_2), otp_1222(X).
 
 otp_1222_3(X) -> ?P(otp_1222_3), otp_1222(X).
 
-otp_1222() ->
+otp_1222_test() ->
     io:format("Testing bug reported in ticket OTP-1222...~n"),
     s([{[fStatus4,1], 4}, {[fName4,1], 1}]),
     ?line ?expect3(genErr, 0, any),
     s([{[fStatus4,2], 4}, {[fName4,2], 1}]),
     ?line ?expect3(genErr, 0, any).
+
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1298
@@ -5494,14 +5912,14 @@ otp_1298(Config) when is_list(Config) ->
     init_case(Config),
 
     ?line load_master("Klas2"),
-    try_test(otp_1298),
+    try_test(otp_1298_test),
     ?line unload_master("Klas2").
 
 otp_1298_2(X) -> ?P(otp_1298_2), otp_1298(X).
 
 otp_1298_3(X) -> ?P(otp_1298_3), otp_1298(X).
 
-otp_1298() ->
+otp_1298_test() ->
     io:format("Testing bug reported in ticket OTP-1298...~n"),
     s([{[fint,0], -1}]),
     ?line ?expect1([{[fint,0], -1}]).
@@ -5517,14 +5935,14 @@ otp_1331(Config) when is_list(Config) ->
     init_case(Config),
     ?line load_master("OLD-SNMPEA-MIB"),
     ?line init_old(),
-    try_test(otp_1331),
+    try_test(otp_1331_test),
     ?line unload_master("OLD-SNMPEA-MIB").
 
 otp_1331_2(X) -> ?P(otp_1331_2), otp_1331(X).
 
 otp_1331_3(X) -> ?P(otp_1331_3), otp_1331(X).
 
-otp_1331() ->
+otp_1331_test() ->
     NewKeyc5 = [intCommunityStatus,[127,32,0,0],is("test")],
     s([{NewKeyc5, ?destroy}]),
     ?line ?expect1([{NewKeyc5, ?destroy}]).
@@ -5540,18 +5958,19 @@ otp_1338(Config) when is_list(Config) ->
     init_case(Config),
 
     ?line load_master("Klas2"),
-    try_test(otp_1338),
+    try_test(otp_1338_test),
     ?line unload_master("Klas2").
 
 otp_1338_2(X) -> ?P(otp_1338_2), otp_1338(X).
 
 otp_1338_3(X) -> ?P(otp_1338_3), otp_1338(X).
 
-otp_1338() ->
+otp_1338_test() ->
     s([{[kStatus2, 7], i, ?createAndGo}]),
     ?line ?expect1([{[kStatus2, 7], ?createAndGo}]),
     g([[kName2, 7]]),
     ?line ?expect1([{[kName2, 7], "JJJ"}]).
+
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1342
@@ -5563,14 +5982,14 @@ otp_1342(Config) when is_list(Config) ->
     ?P(otp_1342), 
     init_case(Config),
     ?line load_master("Klas4"),
-    try_test(otp_1342),
+    try_test(otp_1342_test),
     ?line unload_master("Klas4").
 
 otp_1342_2(X) -> ?P(otp_1342_2), otp_1342(X).
 
 otp_1342_3(X) -> ?P(otp_1342_3), otp_1342(X).
 
-otp_1342() ->
+otp_1342_test() ->
     s([{[fIndex5, 1], i, 1},
        {[fName5, 1], i, 3},
        {[fStatus5, 1], i, ?createAndGo}]),
@@ -5589,16 +6008,17 @@ otp_1366(Config) when is_list(Config) ->
     init_case(Config),
     ?line load_master("OLD-SNMPEA-MIB"),
     ?line init_old(),
-    try_test(otp_1366),
+    try_test(otp_1366_test),
     ?line unload_master("OLD-SNMPEA-MIB").
 
 otp_1366_2(X) -> ?P(otp_1366_2), otp_1366(X).
 
 otp_1366_3(X) -> ?P(otp_1366_3), otp_1366(X).
 
-otp_1366() ->
+otp_1366_test() ->
     ?INF("NOT YET IMPLEMENTED", []),
     'NYI'.
+
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-2776
@@ -5608,13 +6028,13 @@ otp_2776(suite) -> [];
 otp_2776(Config) when is_list(Config) ->
     ?P(otp_2776), 
     init_case(Config),
-    try_test(otp_2776).
+    try_test(otp_2776_test).
  
 otp_2776_2(X) -> ?P(otp_2776_2), otp_2776(X).
 
 otp_2776_3(X) -> ?P(otp_2776_3), otp_2776(X).
  
-otp_2776() ->
+otp_2776_test() ->
   io:format("Testing bug reported in ticket OTP-2776...~n"),
  
   Dt01_valid   = [19,98,9,1,1,0,23,0,43,0,0],
@@ -5677,17 +6097,18 @@ otp_2979(Config) when is_list(Config) ->
     init_case(Config),
     ?line load_master("Test1"),
     ?line init_old(),
-    try_test(otp_2979),
+    try_test(otp_2979_test),
     ?line unload_master("Test1").
 
 otp_2979_2(X) -> ?P(otp_2979_2), otp_2979(X).
 
 otp_2979_3(X) -> ?P(otp_2979_3), otp_2979(X).
 
-otp_2979() ->
+otp_2979_test() ->
     gn([[sparseDescr], [sparseStatus]]),
     ?line ?expect1([{[sparseStr,0], "slut"},
 		    {[sparseStr,0], "slut"}]).
+
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-3187
@@ -5699,14 +6120,14 @@ otp_3187(Config) when is_list(Config) ->
     ?P(otp_3187), 
     init_case(Config),
     ?line load_master_std("SNMP-VIEW-BASED-ACM-MIB"),
-    otp_3187(),
+    otp_3187_test(),
     ?line unload_master("SNMP-VIEW-BASED-ACM-MIB").
 
 otp_3187_2(X) -> ?P(otp_3187_2), otp_3187(X).
 
 otp_3187_3(X) -> ?P(otp_3187_3), otp_3187(X).
 
-otp_3187() ->
+otp_3187_test() ->
     ?line Elements =
        snmp_view_based_acm_mib:vacmAccessTable(get_next,[],[4,5,6]),
     lists:foreach(fun(E) ->
@@ -5724,9 +6145,9 @@ otp_3542(suite) -> [];
 otp_3542(Config) when is_list(Config) ->
     ?P(otp_3542), 
     init_case(Config),
-    try_test(otp_3542).
+    try_test(otp_3542_test).
 
-otp_3542() ->
+otp_3542_test() ->
     io:format("SNMP v3 discovery...~n"),
     ?line Res = snmp_test_mgr:d(),
     io:format("SNMP v3 discovery result: ~p~n",[Res]).
@@ -5797,13 +6218,13 @@ otp_3725_test(MaNode) ->
 
 tickets1_cases() ->
     [
-     {group, otp_4394}, 
-     {group, otp_7157}
+     {group, otp4394}, 
+     {group, otp7157}
     ].
     
 
-init_otp_4394(Config) when is_list(Config) ->
-    ?DBG("init_otp_4394 -> entry with"
+otp_4394_init(Config) when is_list(Config) ->
+    ?DBG("otp_4394_init -> entry with"
 	   "~n   Config: ~p", [Config]),
     ?line AgentConfDir = ?config(agent_conf_dir, Config),
     ?line MgrDir       = ?config(mgr_dir,        Config),
@@ -5856,35 +6277,35 @@ otp_4394_config(AgentConfDir, MgrDir, Ip0) ->
     
 
 
-finish_otp_4394(Config) when is_list(Config) ->
+otp_4394_finish(Config) when is_list(Config) ->
     ?DBG("finish_otp_4394 -> entry", []),
     C1 = stop_agent(Config),
     delete_files(C1),
     erase(mgr_node),
     lists:keydelete(vsn, 1, C1).
 
-otp_4394_test(suite) -> [];
-otp_4394_test(Config) ->
-    ?P(otp_4394_test), 
-    ?DBG("otp_4394_test -> entry", []),
+otp_4394(suite) -> [];
+otp_4394(Config) ->
+    ?P(otp_4394), 
+    ?DBG("otp_4394 -> entry", []),
     init_case(Config),
-    try_test(otp_4394_test1),
-    ?DBG("otp_4394_test -> done", []),
+    try_test(otp_4394_test),
+    ?DBG("otp_4394 -> done", []),
     ok.
 
-otp_4394_test1() ->
-    ?DBG("otp_4394_test1 -> entry", []),
+otp_4394_test() ->
+    ?DBG("otp_4394_test -> entry", []),
     gn([[1,1]]),
     Res = 
 	case snmp_test_mgr:expect(1, [{[sysDescr,0],  "Erlang SNMP agent"}]) of
 	    %% {error, 1, {"?",[]}, {"~w",[timeout]}}
 	    {error, 1, _, {_, [timeout]}} ->
-		?DBG("otp_4394_test1 -> expected result: timeout", []),
+		?DBG("otp_4394_test -> expected result: timeout", []),
 		ok;
 	    Else ->
 		Else
 	end,
-    ?DBG("otp_4394_test1 -> done with: ~p", [Res]),
+    ?DBG("otp_4394_test -> done with: ~p", [Res]),
     Res.
 
 
@@ -5895,7 +6316,7 @@ otp_4394_test1() ->
 
 
 
-init_otp_7157(Config) when is_list(Config) ->
+otp_7157_init(Config) when is_list(Config) ->
     %% <CONDITIONAL-SKIP>
     Skippable = [win32],
     Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
@@ -5915,30 +6336,30 @@ init_otp_7157(Config) when is_list(Config) ->
     [{vsn, v2} | start_v2_agent(Config, Opts)].
 
 
-finish_otp_7157(Config) when is_list(Config) ->
+otp_7157_finish(Config) when is_list(Config) ->
     ?DBG("finish_otp_7157 -> entry", []),
     C1 = stop_agent(Config),
     delete_files(C1),
     erase(mgr_node),
     lists:keydelete(vsn, 1, C1).
 
-otp_7157_test(suite) -> [];
-otp_7157_test(Config) ->
-    ?P(otp_7157_test), 
-    ?DBG("otp_7157_test -> entry", []),
+otp_7157(suite) -> [];
+otp_7157(Config) ->
+    ?P(otp_7157), 
+    ?DBG("otp_7157 -> entry", []),
     init_case(Config),
     MA = whereis(snmp_master_agent),
     ?line load_master("Test1"),
-    try_test(otp_7157_test1, [MA]),
+    try_test(otp_7157_test, [MA]),
     ?line unload_master("Test1"),
-    ?DBG("otp_7157_test -> done", []),
+    ?DBG("otp_7157 -> done", []),
     ok.
 
 %% ts:run(snmp, snmp_agent_test, [batch]).
-otp_7157_test1(MA) ->
-    ?LOG("start otp_7157_test1 test (~p)",[MA]),
+otp_7157_test(MA) ->
+    ?LOG("start otp_7157_test test (~p)",[MA]),
     snmpa:verbosity(MA, trace),
-    ?LOG("start otp_7157_test1 test",[]),
+    ?LOG("start otp_7157_test test",[]),
     ?P1("Testing that varbinds in traps/notifications are not reordered"),
     
     ?DBG("send cntTrap",[]),
@@ -6427,13 +6848,13 @@ process_options(Defaults, _Opts) ->
 %% 	{value, {Key, Value}} when is_list->
 	    
 
-snmp_app_env_init(Node, Entity, Conf) ->
-    rpc:call(Node, snmp_app_env_init, [Entity, Conf]).
+%% snmp_app_env_init(Node, Entity, Conf) ->
+%%     rpc:call(Node, snmp_app_env_init, [Entity, Conf]).
 
-snmp_app_env_init(Entity, Conf) ->
-    application:unload(snmp),
-    application:load(snmp),
-    application:set_env(snmp, Entity, Conf).
+%% snmp_app_env_init(Entity, Conf) ->
+%%     application:unload(snmp),
+%%     application:load(snmp),
+%%     application:set_env(snmp, Entity, Conf).
 
 start_stdalone_agent(Node, Config)  ->
     rpc:call(Node, ?MODULE, start_stdalone_agent, [Config]).
@@ -6494,10 +6915,10 @@ info_test(Config) when is_list(Config) ->
 
     ?line load_master("OLD-SNMPEA-MIB"),
     ?line init_old(),
-    try_test(info_test1, [node()]),
+    try_test(do_info, [node()]),
     ?line unload_master("OLD-SNMPEA-MIB").
     
-info_test1(MaNode) ->
+do_info(MaNode) ->
     ?line Info = rpc:call(MaNode, snmpa, info, []),
     ?DBG("info_test1 -> Info: ~n~p", [Info]),
     Keys = [vsns, 
@@ -6573,7 +6994,7 @@ verify_old_info([Key|Keys], Info) ->
 	    ?FAIL({missing_old_info, Key})
     end.
    
-%% string used in index
+%% Index String - string used in index
 is(S) -> [length(S) | S].
 
 try_test(Func) ->
@@ -6591,16 +7012,11 @@ try_test(Func, A, Opts) ->
 
 %% Test manager wrapperfunctions:
 g(Oids)          -> snmp_test_mgr:g(Oids).
-gn()             -> snmp_test_mgr:gn().
+%%gn()             -> snmp_test_mgr:gn().
 gn(OidsOrN)      -> snmp_test_mgr:gn(OidsOrN).
 gb(NR, MR, Oids) -> snmp_test_mgr:gb(NR, MR, Oids).
 s(VAV)           -> snmp_test_mgr:s(VAV).
    
-%% expect(A, B)             -> snmp_agent_test_lib:expect(A, B).
-%% expect(A, B, C)          -> snmp_agent_test_lib:expect(A, B, C).
-%% expect(A, B, C, D)       -> snmp_agent_test_lib:expect(A, B, C, D).
-%% expect(A, B, C, D, E, F) -> snmp_agent_test_lib:expect(A, B, C, D, E, F).
-
 get_req(Id, Vars) ->
     snmp_agent_test_lib:get_req(Id, Vars).
 
@@ -6636,8 +7052,8 @@ rewrite_usm_mgr(Dir, ShaKey, DesKey) ->
 reset_usm_mgr(Dir) ->
     snmp_agent_test_lib:reset_usm_mgr(Dir).
 
-update_community(Vsns, DIr) ->
-    snmp_agent_test_lib:update_community(Vsns, DIr).
+%% update_community(Vsns, Dir) ->
+%%     snmp_agent_test_lib:update_community(Vsns, Dir).
 
 update_vacm(Vsn, Dir) ->
     snmp_agent_test_lib:update_vacm(Vsn, Dir).
@@ -6670,8 +7086,8 @@ reset_target_params_conf(Dir) ->
 write_notify_conf(Dir) -> 
     snmp_agent_test_lib:write_notify_conf(Dir).
 
-write_view_conf(Dir) -> 
-    snmp_agent_test_lib:write_view_conf(Dir).
+%% write_view_conf(Dir) -> 
+%%     snmp_agent_test_lib:write_view_conf(Dir).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6833,8 +7249,8 @@ lists_key1search(Key, List) when is_atom(Key) ->
     end.
 
 
-regs() ->
-    lists:sort(registered()).
+%% regs() ->
+%%     lists:sort(registered()).
 
 
 %% ------
