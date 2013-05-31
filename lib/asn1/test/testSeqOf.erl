@@ -86,6 +86,29 @@ main(_Rules) ->
     
     roundtrip('SeqEmp', #'SeqEmp'{seq1=[#'Empty'{}]}),
 
+    %% Test constrained, extensible size.
+
+    SeqIn = #'SeqIn'{boolIn=true,intIn=978654321},
+    roundtrip('SeqExt', {'SeqExt',true,[],true,[],789}),
+    roundtrip('SeqExt', {'SeqExt',true,lists:duplicate(1, SeqIn),
+			 true,lists:duplicate(0, SeqIn),777}),
+    roundtrip('SeqExt', {'SeqExt',true,lists:duplicate(1, SeqIn),
+			 true,lists:duplicate(1, SeqIn),777}),
+    roundtrip('SeqExt', {'SeqExt',true,lists:duplicate(1, SeqIn),
+			 true,lists:duplicate(127, SeqIn),777}),
+    roundtrip('SeqExt', {'SeqExt',true,lists:duplicate(2, SeqIn),
+			 true,lists:duplicate(128, SeqIn),1777}),
+    roundtrip('SeqExt', {'SeqExt',true,lists:duplicate(2, SeqIn),
+			 true,lists:duplicate(255, SeqIn),7773}),
+    roundtrip('SeqExt', {'SeqExt',true,lists:duplicate(2, SeqIn),
+			 true,lists:duplicate(256, SeqIn),77755}),
+    roundtrip('SeqExt', {'SeqExt',true,lists:duplicate(2, SeqIn),
+			 true,lists:duplicate(257, SeqIn),8888}),
+    roundtrip('SeqExt', {'SeqExt',true,lists:duplicate(3, SeqIn),
+			 true,lists:duplicate(1024, SeqIn),999988888}),
+    roundtrip('SeqExt', {'SeqExt',true,lists:duplicate(15, SeqIn),
+			 true,lists:duplicate(2000, SeqIn),555555}),
+
     %% Test OTP-4590: correct encoding of the length of SEQUENC OF.
     DayNames = ["Monday","Tuesday","Wednesday",
 		"Thursday","Friday","Saturday","Sunday"],
