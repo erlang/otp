@@ -708,7 +708,7 @@ build_answer('CER',
             rejected(Reason, {'CER', Reason, Caps, Pkt}, S)
     end;
 
-%% The error checks below are similar to those in diameter_service for
+%% The error checks below are similar to those in diameter_traffic for
 %% other messages. Should factor out the commonality.
 
 build_answer(Type,
@@ -742,7 +742,14 @@ rejected(N, T, S) ->
     rejected({N, []}, T, S).
 
 answer(Type, RC, Es, S) ->
-    set(answer(Type, RC, S), failed_avp([A || {_,A} <- Es])).
+    set(answer(Type, RC, S), failed_avp(RC, Es)).
+
+failed_avp(RC, [{RC, Avp} | _]) ->
+    [{'Failed-AVP', [{'AVP', [Avp]}]}];
+failed_avp(RC, [_ | Es]) ->
+    failed_avp(RC, Es);
+failed_avp(_, [] = No) ->
+    No.
 
 answer(Type, RC, S) ->
     answer_message(answer(Type, S), RC).
@@ -762,13 +769,6 @@ is_origin({N, _}) ->
         orelse N == 'Origin-Realm'
         orelse N == 'Origin-State-Id'.
 
-%% failed_avp/1
-
-failed_avp([] = No) ->
-    No;
-failed_avp(Avps) ->
-    [{'Failed-AVP', [[{'AVP', Avps}]]}].
-
 %% set/2
 
 set(Ans, []) ->
@@ -784,7 +784,7 @@ rc(#diameter_header{is_error = true}, _) ->
     3008;  %% DIAMETER_INVALID_HDR_BITS
 
 rc(_, [Bs|_])
-  when is_bitstring(Bs) ->
+  when is_bitstring(Bs) ->  %% from old code
     3009;  %% DIAMETER_INVALID_HDR_BITS
 
 rc(#diameter_header{version = ?DIAMETER_VERSION}, Es) ->
