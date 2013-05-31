@@ -688,12 +688,6 @@ void MD5Final(unsigned char [16], MD5_CTX *);
 
 /* ggc.c */
 
-
-typedef struct {
-    Uint garbage_collections;
-    Uint reclaimed;
-} ErtsGCInfo;
-
 void erts_gc_info(ErtsGCInfo *gcip);
 void erts_init_gc(void);
 int erts_garbage_collect(Process*, int, Eterm*, int);

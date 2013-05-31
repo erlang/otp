@@ -45,7 +45,8 @@
 -export([alloc_info/1, alloc_sizes/1]).
 
 -export([gather_sched_wall_time_result/1,
-	 await_sched_wall_time_modifications/2]).
+	 await_sched_wall_time_modifications/2,
+	 gather_gc_info_result/1]).
 
 -deprecated([hash/2]).
 
@@ -3536,3 +3537,20 @@ sched_wall_time(Ref, N, Acc) ->
 	{Ref, undefined} -> sched_wall_time(Ref, N-1, undefined);
 	{Ref, SWT} -> sched_wall_time(Ref, N-1, [SWT|Acc])
     end.
+
+-spec erlang:gather_gc_info_result(Ref) -> [{pos_integer(),
+					     pos_integer(),
+					     0}] when
+      Ref :: reference().
+
+gather_gc_info_result(Ref) when erlang:is_reference(Ref) ->
+    gc_info(Ref, erlang:system_info(schedulers), {0,0}).
+
+gc_info(_Ref, 0, {Colls,Recl}) ->
+    {Colls,Recl,0};
+gc_info(Ref, N, {OrigColls,OrigRecl}) ->
+    receive
+	{Ref, {_,Colls, Recl}} -> 
+	    gc_info(Ref, N-1, {Colls+OrigColls,Recl+OrigRecl})
+    end.
+

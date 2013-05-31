@@ -300,13 +300,13 @@ erl_init(int ncpu,
     init_benchmarking();
 
     erts_init_monitors();
-    erts_init_gc();
     erts_init_time();
     erts_init_sys_common_misc();
     erts_init_process(ncpu, proc_tab_sz, legacy_proc_tab);
     erts_init_scheduling(no_schedulers,
 			 no_schedulers_online);
     erts_init_cpu_topology(); /* Must be after init_scheduling */
+    erts_init_gc(); /* Must be after init_scheduling */
     erts_alloc_late_init();
 
     H_MIN_SIZE      = erts_next_heap_size(H_MIN_SIZE, 0);

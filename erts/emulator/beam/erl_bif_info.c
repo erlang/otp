@@ -59,6 +59,7 @@ static Export* alloc_info_trap = NULL;
 static Export* alloc_sizes_trap = NULL;
 
 static Export *gather_sched_wall_time_res_trap;
+static Export *gather_gc_info_res_trap;
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
@@ -3103,18 +3104,10 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	res = TUPLE2(hp, cs, SMALL_ZERO);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_garbage_collection) {
-	Uint hsz = 4;
-	ErtsGCInfo gc_info;
-	Eterm gcs;
-	Eterm recl;
-	erts_gc_info(&gc_info);
-	(void) erts_bld_uint(NULL, &hsz, gc_info.garbage_collections);
-	(void) erts_bld_uint(NULL, &hsz, gc_info.reclaimed);
-	hp = HAlloc(BIF_P, hsz);
-	gcs = erts_bld_uint(&hp, NULL, gc_info.garbage_collections);
-	recl = erts_bld_uint(&hp, NULL, gc_info.reclaimed);
-	res = TUPLE3(hp, gcs, recl, SMALL_ZERO);
-	BIF_RET(res);
+	res = erts_gc_info_request(BIF_P);
+	if (is_non_value(res))
+	    BIF_RET(am_undefined);
+	BIF_TRAP1(gather_gc_info_res_trap, BIF_P, res);
     } else if (BIF_ARG_1 == am_reductions) {
 	Uint reds;
 	Uint diff;
@@ -4082,6 +4075,8 @@ erts_bif_info_init(void)
     alloc_sizes_trap = erts_export_put(am_erlang, am_alloc_sizes, 1);
     gather_sched_wall_time_res_trap
 	= erts_export_put(am_erlang, am_gather_sched_wall_time_result, 1);
+    gather_gc_info_res_trap
+	= erts_export_put(am_erlang, am_gather_gc_info_result, 1);
     process_info_init();
     os_info_init();
 }
