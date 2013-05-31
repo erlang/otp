@@ -511,11 +511,32 @@ gen_encode_sof(Erule,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 		""
 	end,
     gen_encode_length(Erule, SizeConstraint),
-    emit({indent(3),"'enc_",asn1ct_gen:list2name(Typename),
-	      "_components'(Val",ObjFun,", [])"}),
-    emit({nl,"].",nl}),
-    gen_encode_sof_components(Erule, Typename, SeqOrSetOf, ComponentType).
-
+    emit(["[begin",nl]),
+    Constructed_Suffix =
+	asn1ct_gen:constructed_suffix(SeqOrSetOf,
+				      ComponentType#type.def),
+    Conttype = asn1ct_gen:get_inner(ComponentType#type.def),
+    Currmod = get(currmod),
+    case asn1ct_gen:type(Conttype) of
+	{primitive,bif} ->
+	    asn1ct_gen_per:gen_encode_prim(Erule, ComponentType, "Comp");
+	{constructed,bif} ->
+	    NewTypename = [Constructed_Suffix|Typename],
+	    emit(["'enc_",asn1ct_gen:list2name(NewTypename),
+		  "'(Comp",ObjFun,")"]);
+	#'Externaltypereference'{module=Currmod,type=Ename} ->
+	    emit(["'enc_",Ename,"'(Comp)"]);
+	#'Externaltypereference'{module=EMod,type=EType} ->
+	    emit(["'",EMod,"':'enc_",EType,"'(Comp)"]);
+	'ASN1_OPEN_TYPE' ->
+	    asn1ct_gen_per:gen_encode_prim(Erule,
+					   #type{def='ASN1_OPEN_TYPE'},
+					   "Comp");
+	_ ->
+	    emit(["'enc_",Conttype,"'(Comp)"])
+    end,
+    emit([nl,
+	  "end || Comp <- Val]].",nl,nl]).
 
 %% Logic copied from asn1_per_bin_rt2ct:encode_constrained_number
 gen_encode_length(per, {Lb,Ub}) when Ub =< 65535, Lb >= 0 ->
@@ -585,46 +606,6 @@ gen_decode_length(Constraint, Erule) ->
     emit(["%% Length with constraint ",{asis,Constraint},nl]),
     Imm = asn1ct_imm:per_dec_length(Constraint, true, is_aligned(Erule)),
     asn1ct_imm:dec_slim_cg(Imm, "Bytes").
-
-gen_encode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
-    {ObjFun,ObjFun_Var} =
-	case Cont#type.tablecinf of
-	    [{objfun,_}|_R] ->
-		{", ObjFun",", _"};
-	    _ ->
-		{"",""}
-	end,
-    emit({"'enc_",asn1ct_gen:list2name(Typename),"_components'([]",
-	  ObjFun_Var,", Acc) -> lists:reverse(Acc);",nl,nl}),
-    emit({"'enc_",asn1ct_gen:list2name(Typename),"_components'([H|T]",
-	  ObjFun,", Acc) ->",nl}),
-    emit({"'enc_",asn1ct_gen:list2name(Typename),"_components'(T"}), 
-    emit({ObjFun,", ["}),
-    %% the component encoder
-    Constructed_Suffix = asn1ct_gen:constructed_suffix(SeqOrSetOf,
-						       Cont#type.def),
-    
-    Conttype = asn1ct_gen:get_inner(Cont#type.def),
-    Currmod = get(currmod),
-    case asn1ct_gen:type(Conttype) of
-	{primitive,bif} ->
-	    asn1ct_gen_per:gen_encode_prim(Erule, Cont, "H");
-	{constructed,bif} ->
-	    NewTypename = [Constructed_Suffix|Typename],
-	    emit({"'enc_",asn1ct_gen:list2name(NewTypename),"'(H",
-		  ObjFun,")",nl,nl});
-	#'Externaltypereference'{module=Currmod,type=Ename} ->
-	    emit({"'enc_",Ename,"'(H)",nl,nl});
-	#'Externaltypereference'{module=EMod,type=EType} ->
-	    emit({"'",EMod,"':'enc_",EType,"'(H)",nl,nl});
-	'ASN1_OPEN_TYPE' ->
-	    asn1ct_gen_per:gen_encode_prim(Erule,
-					   #type{def='ASN1_OPEN_TYPE'},
-					   "H");
-	_ ->
-	    emit({"'enc_",Conttype,"'(H)",nl,nl})
-    end,
-    emit({" | Acc]).",nl}).
 
 gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
     {ObjFun,ObjFun_Var} =
