@@ -269,6 +269,13 @@ file(Name) ->
 %%       is typically most useful if the `verbose' flag is enabled, to
 %%       generate reports about the program files without affecting
 %%       them. The default value is `false'.</dd>
+%%
+%%   <dt>{stdout, boolean()}</dt>
+%%
+%%      <dd>If the value is `true', instead of the file being written
+%%      to disk it will be printed to stdout. The default value is
+%%      `false'.</dd>
+%%
 %% </dl>
 %%
 %% See the function `module/2' for further options.
