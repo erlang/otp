@@ -311,7 +311,7 @@ file_2(Name, Opts) ->
         false ->
 			case proplists:get_bool(stdout, Opts1) of
 				true ->
-					print_module(Tree, Name, Opts1),
+					print_module(Tree, Opts1),
 					ok;
 				false ->
 					write_module(Tree, Name, Opts1),
