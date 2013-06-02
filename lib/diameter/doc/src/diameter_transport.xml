@@ -137,15 +137,14 @@ passed to the former.</p>
 
 <p>
 The start function should use the <c>Host-IP-Address</c> list in
-<c>Svc</c> and/or <c>Config</c> to select an appropriate list of local
-IP addresses, and should return this list if different from the
-<c>Svc</c> addresses.
+<c>Svc</c> and/or <c>Config</c> to select and return an appropriate
+list of local IP addresses.
 In the connecting case, the local address list can instead be
 communicated in a <c>connected</c> message (see &MESSAGES; below)
 following connection establishment.
 In either case, the local address list is used to populate
 <c>Host-IP-Address</c> AVPs in outgoing capabilities exchange
-messages.</p>
+messages if <c>Host-IP-Address</c> is unspecified.</p>
 
 <p>
 A transport process must implement the message interface documented below.
