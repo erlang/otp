@@ -479,10 +479,9 @@ answer_message(RC,
                #diameter_caps{origin_host  = {OH,_},
                               origin_realm = {OR,_}},
                Dict0,
-               #diameter_packet{avps = Avps}
-               = Pkt) ->
+               Pkt) ->
     ?LOG({error, RC}, Pkt),
-    {Dict0, answer_message(OH, OR, RC, Dict0, Avps)}.
+    {Dict0, answer_message(OH, OR, RC, Dict0, Pkt)}.
 
 %% resend/7
 
@@ -861,12 +860,14 @@ failed(Rec, FailedAvp, Dict) ->
 
 %% answer_message/5
 
-answer_message(OH, OR, RC, Dict0, Avps) ->
+answer_message(OH, OR, RC, Dict0, #diameter_packet{avps = Avps,
+                                                   errors = Es}) ->
     {Code, _, Vid} = Dict0:avp_header('Session-Id'),
     ['answer-message', {'Origin-Host', OH},
                        {'Origin-Realm', OR},
-                       {'Result-Code', RC}
-                       | session_id(Code, Vid, Dict0, Avps)].
+                       {'Result-Code', RC}]
+        ++ session_id(Code, Vid, Dict0, Avps)
+        ++ failed_avp(RC, Es).
 
 session_id(Code, Vid, Dict0, Avps)
   when is_list(Avps) ->
@@ -877,6 +878,15 @@ session_id(Code, Vid, Dict0, Avps)
         error: _ ->
             []
     end.
+
+%% Note that this should only match 5xxx result codes currently but
+%% don't bother distinguishing this case.
+failed_avp(RC, [{RC, Avp} | _]) ->
+    [{'Failed-AVP', [{'AVP', [Avp]}]}];
+failed_avp(RC, [_ | Es]) ->
+    failed_avp(RC, Es);
+failed_avp(_, [] = No) ->
+    No.
 
 %% find_avp/3
 

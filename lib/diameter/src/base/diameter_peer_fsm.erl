@@ -233,20 +233,21 @@ start_transport(Addrs0, T) ->
         {TPid, Addrs, Tmo, Data} ->
             erlang:monitor(process, TPid),
             q_next(TPid, Addrs0, Tmo, Data),
-            {TPid, addrs(Addrs, Addrs0)};
+            {TPid, Addrs};
         No ->
             exit({shutdown, No})
     end.
 
-addrs([], Addrs0) ->
-    Addrs0;
-addrs(Addrs, _) ->
-    Addrs.
-
-svc(Svc, []) ->
-    Svc;
-svc(Svc, Addrs) ->
-    readdr(Svc, Addrs).
+svc(#diameter_service{capabilities = LCaps0} = Svc, Addrs) ->
+    #diameter_caps{host_ip_address = Addrs0}
+        = LCaps0,
+    case Addrs0 of
+        [] ->
+            LCaps = LCaps0#diameter_caps{host_ip_address = Addrs},
+            Svc#diameter_service{capabilities = LCaps};
+        [_|_] ->
+            Svc
+    end.
 
 readdr(#diameter_service{capabilities = LCaps0} = Svc, Addrs) ->
     LCaps = LCaps0#diameter_caps{host_ip_address = Addrs},
@@ -360,7 +361,7 @@ transition({diameter, {TPid, connected, Remote, LAddrs}},
                   service = Svc}
            = S) ->
     transition({diameter, {TPid, connected, Remote}},
-               S#state{service = readdr(Svc, LAddrs)});
+               S#state{service = svc(Svc, LAddrs)});
 
 %% Connection from peer.
 transition({diameter, {TPid, connected}},
@@ -702,13 +703,13 @@ build_answer('CER',
         N -> {cea(CEA, N, Dict0), [fun open/5, Pkt,
                                                SupportedApps,
                                                Caps,
-                                               {accept, hd([_] = IS)}]}
+                                               {accept, inband_security(IS)}]}
     catch
         ?FAILURE(Reason) ->
             rejected(Reason, {'CER', Reason, Caps, Pkt}, S)
     end;
 
-%% The error checks below are similar to those in diameter_service for
+%% The error checks below are similar to those in diameter_traffic for
 %% other messages. Should factor out the commonality.
 
 build_answer(Type,
@@ -718,6 +719,11 @@ build_answer(Type,
              S) ->
     RC = rc(H, Es),
     {answer(Type, RC, Es, S), post(Type, RC, Pkt, S)}.
+
+inband_security([]) ->
+    ?NO_INBAND_SECURITY;
+inband_security([IS]) ->
+    IS.
 
 cea(CEA, ok, _) ->
     CEA;
@@ -742,7 +748,14 @@ rejected(N, T, S) ->
     rejected({N, []}, T, S).
 
 answer(Type, RC, Es, S) ->
-    set(answer(Type, RC, S), failed_avp([A || {_,A} <- Es])).
+    set(answer(Type, RC, S), failed_avp(RC, Es)).
+
+failed_avp(RC, [{RC, Avp} | _]) ->
+    [{'Failed-AVP', [{'AVP', [Avp]}]}];
+failed_avp(RC, [_ | Es]) ->
+    failed_avp(RC, Es);
+failed_avp(_, [] = No) ->
+    No.
 
 answer(Type, RC, S) ->
     answer_message(answer(Type, S), RC).
@@ -762,13 +775,6 @@ is_origin({N, _}) ->
         orelse N == 'Origin-Realm'
         orelse N == 'Origin-State-Id'.
 
-%% failed_avp/1
-
-failed_avp([] = No) ->
-    No;
-failed_avp(Avps) ->
-    [{'Failed-AVP', [[{'AVP', Avps}]]}].
-
 %% set/2
 
 set(Ans, []) ->
@@ -784,7 +790,7 @@ rc(#diameter_header{is_error = true}, _) ->
     3008;  %% DIAMETER_INVALID_HDR_BITS
 
 rc(_, [Bs|_])
-  when is_bitstring(Bs) ->
+  when is_bitstring(Bs) ->  %% from old code
     3009;  %% DIAMETER_INVALID_HDR_BITS
 
 rc(#diameter_header{version = ?DIAMETER_VERSION}, Es) ->
