@@ -43,6 +43,7 @@
          send_invalid_hdr_bits/1,
          send_missing_avp/1,
          send_ignore_missing_avp/1,
+         send_5xxx_missing_avp/1,
          send_double_error/1,
          send_3xxx/1,
          send_5xxx/1,
@@ -139,6 +140,7 @@ tc() ->
      send_invalid_hdr_bits,
      send_missing_avp,
      send_ignore_missing_avp,
+     send_5xxx_missing_avp,
      send_double_error,
      send_3xxx,
      send_5xxx].
@@ -279,6 +281,32 @@ send_ignore_missing_avp([_,_]) ->
 send_ignore_missing_avp(Config) ->
     send_ignore_missing_avp(?group(Config)).
 
+%% send_5xxx_missing_avp/1
+%%
+%% Send a request with a missing AVP that a callback answers
+%% with {answer_message, 5005}.
+
+%% RFC 6733 allows 5xxx in an answer-message.
+send_5xxx_missing_avp([_, rfc6733]) ->
+    #'diameter_base_answer-message'{'Result-Code' = 5005,  %% MISSING_AVP
+                                    'Failed-AVP' = [_],
+                                    'AVP' = []}
+        = call();
+
+%% RFC 3588 doesn't: sending answer fails.
+send_5xxx_missing_avp([_, rfc3588]) ->
+    {error, timeout} = call();
+
+%% Callback answers, ignores the error
+send_5xxx_missing_avp([_,_]) ->
+    #diameter_base_STA{'Result-Code' = 2001,  %% SUCCESS
+                       'Failed-AVP' = [],
+                       'AVP' = []}
+        = call();
+
+send_5xxx_missing_avp(Config) ->
+    send_5xxx_missing_avp(?group(Config)).
+
 %% send_double_error/1
 %%
 %% Send a request with both an invalid E-bit and a missing AVP.
@@ -403,7 +431,8 @@ prepare(Pkt0, Caps, send_double_error) ->
 
 prepare(Pkt, Caps, T)
   when T == send_missing_avp;
-       T == send_ignore_missing_avp ->
+       T == send_ignore_missing_avp;
+       T == send_5xxx_missing_avp ->
     Req = sta(Pkt, Caps),
     dehost(diameter_codec:encode(?DICT, Pkt#diameter_packet{msg = Req})).
 
@@ -487,7 +516,10 @@ request(T, Req, Caps)
 
 request(send_ignore_missing_avp, Req, Caps) ->
     {reply, #diameter_packet{msg = answer(Req, Caps),
-                             errors = false}}.  %% ignore errors
+                             errors = false}};  %% ignore errors
+
+request(send_5xxx_missing_avp, _Req, _Caps) ->
+    {answer_message, 5005}.  %% MISSING_AVP
 
 answer(Req, Caps) ->
     #diameter_base_STR{'Session-Id' = SId}

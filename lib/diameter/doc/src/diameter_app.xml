@@ -565,7 +565,8 @@ Equivalent to</p>
 </pre>
 <p>
 where <c>Avps</c> sets the Origin-Host, Origin-Realm, the specified
-Result-Code and (if the request contained one) Session-Id AVP's.</p>
+Result-Code and (if the request contained one) Session-Id AVP's, and
+possibly Failed-AVP as described below.</p>
 
 <p>
 Returning a value other than 3xxx or 5xxx will cause the request
@@ -573,6 +574,14 @@ process in question to fail, as will returning a 5xxx value if the
 peer connection in question has been configured with the RFC 3588
 common dictionary <c>diameter_gen_base_rfc3588</c>.
 (Since RFC 3588 only allows 3xxx values in an answer-message.)</p>
+
+<p>
+When returning 5xxx, Failed-AVP will be populated with the AVP of the
+first matching Result-Code/AVP pair in the <c>errors</c> field of the
+argument &packet;, if found.
+If this is not appropriate then an answer-message should be
+constructed explicitly and returned in a <c>reply</c> tuple
+instead.</p>
 </item>
 
 <tag><c>{relay, Opts}</c></tag>
@@ -592,8 +601,7 @@ header of the relayed request.</p>
 The returned <c>Opts</c> should not specify <c>detach</c>.
 A subsequent &handle_answer;
 callback for the relayed request must return its first
-argument, the <c>#diameter_packet{}</c> record containing the answer
-message.
+argument, the &packet; containing the answer message.
 Note that the <c>extra</c> option can be specified to supply arguments
 that can distinguish the relay case from others if so desired.
 Any other return value (for example, from a
