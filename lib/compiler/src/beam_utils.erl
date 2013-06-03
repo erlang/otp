@@ -734,6 +734,8 @@ live_opt([{loop_rec,_Fail,_Dst}=I|Is], _, D, Acc) ->
     live_opt(Is, 0, D, [I|Acc]);
 live_opt([timeout=I|Is], _, D, Acc) ->
     live_opt(Is, 0, D, [I|Acc]);
+live_opt([{wait,_}=I|Is], _, D, Acc) ->
+    live_opt(Is, 0, D, [I|Acc]);
 
 %% Transparent instructions - they neither use nor modify x registers.
 live_opt([{deallocate,_}=I|Is], Regs, D, Acc) ->
@@ -743,8 +745,6 @@ live_opt([{kill,_}=I|Is], Regs, D, Acc) ->
 live_opt([{try_end,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{loop_rec_end,_}=I|Is], Regs, D, Acc) ->
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{wait,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{wait_timeout,_,{Tag,_}}=I|Is], Regs, D, Acc) when Tag =/= x ->
     live_opt(Is, Regs, D, [I|Acc]);
