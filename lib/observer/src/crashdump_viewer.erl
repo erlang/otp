@@ -2393,19 +2393,19 @@ get_all_vals([Char|Rest],Acc) ->
 %% Calculate allocator summary:
 %%
 %% System totals:
-%%   blocks size   = sum of mbcs and sbcs blocks size over all allocator
-%%                   instances of all types
-%%   carriers size = sum of mbcs and sbcs carriers size over all allocator
-%%                   instances of all types
+%%   blocks size   = sum of mbcs, mbcs_pool and sbcs blocks size over
+%%                   all allocator instances of all types
+%%   carriers size = sum of mbcs, mbcs_pool and sbcs carriers size over
+%%                   all allocator instances of all types
 %%
 %% I any allocator except sbmbc_alloc has "option e: false" then don't
 %% present system totals.
 %%
 %% For each allocator type:
-%%   blocks size        = sum of sbmbcs, mbcs and sbcs blocks size over all
-%%                        allocator instances of this type
-%%   carriers size      = sum of sbmbcs, mbcs and sbcs carriers size over all
-%%                        allocator instances of this type
+%%   blocks size        = sum of sbmbcs, mbcs, mbcs_pool and sbcs blocks
+%%                        size over all allocator instances of this type
+%%   carriers size      = sum of sbmbcs, mbcs, mbcs_pool and sbcs carriers
+%%                        size over all allocator instances of this type
 %%   mseg carriers size = sum of mbcs and sbcs mseg carriers size over all
 %%                        allocator instances of this type
 %%
@@ -2419,28 +2419,36 @@ get_all_vals([Char|Rest],Acc) ->
 -define(mbcs_mseg_carriers_size,"mbcs mseg carriers size").
 -define(sbcs_mseg_carriers_size,"sbcs mseg carriers size").
 -define(segments_size,"segments_size").
+-define(mbcs_pool_blocks_size,"mbcs_pool blocks size").
+-define(mbcs_pool_carriers_size,"mbcs_pool carriers size").
 
 -define(type_blocks_size,[?sbmbcs_blocks_size,
 			  ?mbcs_blocks_size,
+			  ?mbcs_pool_blocks_size,
 			  ?sbcs_blocks_size]).
 -define(type_carriers_size,[?sbmbcs_carriers_size,
 			    ?mbcs_carriers_size,
+			    ?mbcs_pool_carriers_size,
 			    ?sbcs_carriers_size]).
 -define(type_mseg_carriers_size,[?mbcs_mseg_carriers_size,
 				 ?sbcs_mseg_carriers_size]).
 -define(total_blocks_size,[?mbcs_blocks_size,
+			   ?mbcs_pool_blocks_size,
 			   ?sbcs_blocks_size]).
 -define(total_carriers_size,[?mbcs_carriers_size,
+			     ?mbcs_pool_carriers_size,
 			     ?sbcs_carriers_size]).
 -define(total_mseg_carriers_size,[?mbcs_mseg_carriers_size,
 				  ?sbcs_mseg_carriers_size]).
 -define(interesting_allocator_info, [?sbmbcs_blocks_size,
 				     ?mbcs_blocks_size,
+				     ?mbcs_pool_blocks_size,
 				     ?sbcs_blocks_size,
 				     ?sbmbcs_carriers_size,
 				     ?mbcs_carriers_size,
 				     ?sbcs_carriers_size,
 				     ?mbcs_mseg_carriers_size,
+				     ?mbcs_pool_carriers_size,
 				     ?sbcs_mseg_carriers_size,
 				     ?segments_size]).
 -define(mseg_alloc,"mseg_alloc").
