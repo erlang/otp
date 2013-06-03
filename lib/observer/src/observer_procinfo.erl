@@ -64,6 +64,7 @@ init([Pid, ParentFrame, Parent]) ->
 	MessagePage = init_panel(Notebook, "Messages", Pid, fun init_message_page/2),
 	DictPage    = init_panel(Notebook, "Dictionary", Pid, fun init_dict_page/2),
 	StackPage   = init_panel(Notebook, "Stack Trace", Pid, fun init_stack_page/2),
+	StatePage   = init_panel(Notebook, "State", Pid, fun init_state_page/2),
 
 	wxFrame:connect(Frame, close_window),
 	wxMenu:connect(Frame, command_menu_selected),
@@ -72,7 +73,7 @@ init([Pid, ParentFrame, Parent]) ->
 	{Frame, #state{parent=Parent,
 		       pid=Pid,
 		       frame=Frame,
-		       pages=[ProcessPage,MessagePage,DictPage,StackPage]
+		       pages=[ProcessPage,MessagePage,DictPage,StackPage,StatePage]
 		      }}
     catch error:{badrpc, _} ->
 	    observer_wx:return_to_localnode(ParentFrame, node(Pid)),
@@ -234,6 +235,59 @@ init_stack_page(Parent, Pid) ->
     wxListCtrl:connect(LCtrl, size, [{callback, Resize}]),
     Update(),
     {LCtrl, Update}.
+
+
+init_state_page(Parent, Pid) ->
+    Text = init_text_page(Parent),
+    Update = fun() ->
+		     %% First, test if sys:get_status/2 have any chance to return an answer
+		     case rpc:call(node(Pid), proc_lib, translate_initial_call, [Pid])
+		     of
+			 %% Not a gen process
+			 {proc_lib,init_p,5} -> Misc = [{"Information", "Not available"}];
+			 %% May be a gen process
+			 {M, _F, _A} ->
+			     %% Get the behavio(u)r
+			     I = rpc:call(node(Pid), M, module_info, [attributes]),
+			     case lists:keyfind(behaviour, 1, I) of
+				 false -> case lists:keyfind(behavior, 1, I) of
+					      false		-> B = undefined;
+					      {behavior, [B]}	-> B
+					  end;
+				 {behaviour, [B]} -> B
+			     end,
+			     %% but not sure that system messages are treated by this process
+			     %% so using a rpc with a small timeout in order not to lag the display
+			     case rpc:call(node(Pid), sys, get_status, [Pid, 200])
+			     of
+				 {status, _, {module, _}, [_PDict, _SysState, _Parent, _Dbg,
+							   [Header,{data, First},{data, Second}]]} ->
+				     Misc = [{"Behaviour", B}] ++ [Header] ++ First ++ Second;
+				 {status, _, {module, _}, [_PDict, _SysState, _Parent, _Dbg,
+							   [Header,{data, First}, OtherFormat]]} ->
+				     Misc = [{"Behaviour", B}] ++ [Header] ++ First ++ [{"State",OtherFormat}];
+				 {status, _, {module, _}, [_PDict, _SysState, _Parent, _Dbg,
+							   OtherFormat]} ->
+				     %% Formatted status ?
+				     case lists:keyfind(format_status, 1, rpc:call(node(Pid), M, module_info, [exports])) of
+					 false	-> Opt = {"Format", unknown};
+					 _	-> Opt = {"Format", overriden}
+				     end,
+				     Misc = [{"Behaviour", B}] ++ [Opt, {"State",OtherFormat}];
+				 {badrpc,{'EXIT',{timeout, _}}} ->
+				     Misc = [{"Information","Timed out"},
+					     {"Tip","system messages are probably not treated by this process"}]
+			     end;
+			 _ -> Misc=[], throw(process_undefined)
+		     end,
+		     Dict = [io_lib:format("~-20.s ~tp~n", [K, V]) || {K, V} <- Misc],
+		     Last = wxTextCtrl:getLastPosition(Text),
+		     wxTextCtrl:remove(Text, 0, Last),
+		     wxTextCtrl:writeText(Text, Dict)
+	     end,
+    Update(),
+    {Text, Update}.
+
 
 create_menus(MenuBar) ->
     Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]},
