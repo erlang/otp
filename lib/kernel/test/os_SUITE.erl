@@ -20,7 +20,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
--export([space_in_cwd/1, quoting/1, space_in_name/1, bad_command/1,
+-export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1, evil/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -28,9 +28,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [space_in_cwd, quoting, space_in_name, bad_command,
-     find_executable, unix_comment_in_command, deep_list_command,
-     evil].
+    [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
+     find_executable, unix_comment_in_command, deep_list_command, evil].
 
 groups() ->
     [].
@@ -94,6 +93,21 @@ quoting(Config) when is_list(Config) ->
     ?t:sleep(5),
     ?line [] = receive_all(),
     ok.
+
+
+cmd_unicode(doc) -> "Test that unicode arguments work.";
+cmd_unicode(suite) -> [];
+cmd_unicode(Config) when is_list(Config) ->
+    ?line DataDir = ?config(data_dir, Config),
+    ?line Echo = filename:join(DataDir, "my_echo"),
+
+    ?line comp("one", os:cmd(Echo ++ " one")),
+    ?line comp("one::two", os:cmd(Echo ++ " one two")),
+    ?line comp("åäö::ϼΩ", os:cmd(Echo ++ " åäö " ++ [1020, 937])),
+    ?t:sleep(5),
+    ?line [] = receive_all(),
+    ok.
+
 
 space_in_name(doc) ->
     "Test that program with a space in its name can be executed.";
@@ -302,8 +316,8 @@ comp(Expected, Got) ->
 	Expected ->
 	    ok;
 	Other ->
-	    ok = io:format("Expected: ~s\n", [Expected]),
-	    ok = io:format("Got:      ~s\n", [Other]),
+	    ok = io:format("Expected: ~ts\n", [Expected]),
+	    ok = io:format("Got:      ~ts\n", [Other]),
 	    test_server:fail()
     end.
 
