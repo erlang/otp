@@ -164,6 +164,8 @@
 -export([info/0]).
 -deprecated({info, 0, next_major_release}).
 
+-define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
+
 -type mpint() :: binary().
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha'.
@@ -221,6 +223,11 @@ info_lib() -> ?nif_stub.
 
 -spec hash(_, iodata()) -> binary().
 
+hash(Hash, Data0) ->
+    Data = iolist_to_binary(Data0),
+    MaxByts = max_bytes(),
+    hash(Hash, Data, erlang:byte_size(Data), MaxByts, initial).
+
 -spec hash_init('md5'|'md4'|'ripemd160'|
                 'sha'|'sha224'|'sha256'|'sha384'|'sha512') -> any().
 
@@ -232,6 +239,49 @@ hash_init(sha224)    -> {sha224, sha224_init()};
 hash_init(sha256)    -> {sha256, sha256_init()};
 hash_init(sha384)    -> {sha384, sha384_init()};
 hash_init(sha512)    -> {sha512, sha512_init()}.
+
+-spec hash_update(_, iodata()) -> any().
+
+hash_update(State, Data0) ->
+    Data = iolist_to_binary(Data0),
+    MaxBytes = max_bytes(),
+    hash_update(State, Data, erlang:byte_size(Data), MaxBytes).
+
+-spec hash_final(_) -> binary().
+
+hash_final({md5,Context})       -> md5_final(Context);
+hash_final({md4,Context})       -> md4_final(Context);
+hash_final({sha,Context})       -> sha_final(Context);
+hash_final({ripemd160,Context}) -> ripemd160_final(Context);
+hash_final({sha224,Context})    -> sha224_final(Context);
+hash_final({sha256,Context})    -> sha256_final(Context);
+hash_final({sha384,Context})    -> sha384_final(Context);
+hash_final({sha512,Context})    -> sha512_final(Context).
+
+
+-spec hmac(_, iodata(), iodata()) -> binary().
+-spec hmac(_, iodata(), iodata(), integer()) -> binary().
+-spec hmac_init(atom(), iodata()) -> binary().
+-spec hmac_update(binary(), iodata()) -> binary().
+-spec hmac_final(binary()) -> binary().
+-spec hmac_final_n(binary(), integer()) -> binary().
+
+hmac(Type, Key, Data0) ->
+    Data = iolist_to_binary(Data0),
+    hmac(Type, Key, Data, undefined, erlang:byte_size(Data), max_bytes(), initial).
+hmac(Type, Key, Data0, MacSize) ->
+    Data = iolist_to_binary(Data0),
+    hmac(Type, Key, Data, MacSize, erlang:byte_size(Data), max_bytes(), initial).
+
+
+hmac_init(_Type, _Key) -> ?nif_stub.
+
+hmac_update(State, Data0) ->
+    Data = iolist_to_binary(Data0),
+    hmac_update(State, Data, erlang:byte_size(Data), max_bytes()).
+hmac_final(_Context) -> ? nif_stub.
+hmac_final_n(_Context, _HashLen) -> ? nif_stub.
+
 %% Ecrypt/decrypt %%%
 
 -spec block_encrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
@@ -322,8 +372,21 @@ next_iv(des_cfb, Data, Ivec) ->
 next_iv(Type, Data, _Ivec) ->
     next_iv(Type, Data).
 
+stream_init(aes_ctr, Key, Ivec) ->
+    {aes_ctr, aes_ctr_stream_init(Key, Ivec)}.
+stream_init(rc4, Key) ->
+    {rc4, rc4_set_key(Key)}.
 
--spec hash_update(_, iodata()) -> any().
+stream_encrypt(State, Data0) ->
+    Data = iolist_to_binary(Data0),
+    MaxByts = max_bytes(),
+    stream_crypt(fun do_stream_encrypt/2, State, Data, erlang:byte_size(Data), MaxByts, []).
+
+stream_decrypt(State, Data0) ->
+    Data = iolist_to_binary(Data0),
+    MaxByts = max_bytes(),
+    stream_crypt(fun do_stream_decrypt/2, State, Data, erlang:byte_size(Data), MaxByts, []).
+
 %%
 %% RAND - pseudo random numbers using RN_ functions in crypto lib
 %%
@@ -379,10 +442,12 @@ mod_pow(Base, Exponent, Prime) ->
 	<<0>> -> error;
 	R -> R
     end.
-
+verify(dss, none, Data, Signature, Key) when is_binary(Data) ->
+    verify(dss, sha, {digest, Data}, Signature, Key);
+verify(Alg, Type, Data, Signature, Key) when is_binary(Data) ->
+    verify(Alg, Type,  {digest, hash(Type, Data)}, Signature, Key);
 verify(dss, Type, Data, Signature, Key) ->
     dss_verify_nif(Type, Data, Signature, map_ensure_int_as_bin(Key));
-
 verify(rsa, Type, DataOrDigest, Signature, Key) ->
     case rsa_verify_nif(Type, DataOrDigest, Signature, map_ensure_int_as_bin(Key)) of
 	notsup -> erlang:error(notsup);
@@ -393,7 +458,10 @@ verify(ecdsa, Type, DataOrDigest, Signature, [Key, Curve]) ->
 	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end.
-
+sign(dss, none, Data, Key) when is_binary(Data) ->
+    sign(dss, sha, {digest, Data}, Key);
+sign(Alg, Type, Data, Key) when is_binary(Data) ->
+    sign(Alg, Type, {digest, hash(Type, Data)}, Key);
 sign(rsa, Type, DataOrDigest, Key) ->
     case rsa_sign_nif(Type, DataOrDigest, map_ensure_int_as_bin(Key)) of
 	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
@@ -409,7 +477,6 @@ sign(ecdsa, Type, DataOrDigest, [Key, Curve]) ->
 	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
 	Sign -> Sign
     end.
-
 
 -spec public_encrypt(rsa, binary(), [binary()], rsa_padding()) ->
 				binary().
@@ -451,6 +518,19 @@ public_decrypt(rsa, BinMesg, Key, Padding) ->
 	    erlang:error(decrypt_failed, [BinMesg,Key, Padding]);
 	Sign -> Sign
     end.
+
+%%
+%% XOR - xor to iolists and return a binary
+%% NB doesn't check that they are the same size, just concatenates
+%% them and sends them to the driver
+%%
+-spec exor(iodata(), iodata()) -> binary().
+
+exor(Bin1, Bin2) ->
+    Data1 = iolist_to_binary(Bin1),
+    Data2 = iolist_to_binary(Bin2),
+    MaxBytes = max_bytes(),
+    exor(Data1, Data2, erlang:byte_size(Data1), MaxBytes, []).
 
 generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
@@ -582,16 +662,52 @@ on_load() ->
 	    Status
     end.
 %%--------------------------------------------------------------------
--spec hash_final(_) -> binary().
+%%% Internal functions (some internal API functions are part of the deprecated API)
+%%--------------------------------------------------------------------
+max_bytes() ->
+    ?MAX_BYTES_TO_NIF.
 
-hash_final({md5,Context})       -> md5_final(Context);
-hash_final({md4,Context})       -> md4_final(Context);
-hash_final({sha,Context})       -> sha_final(Context);
-hash_final({ripemd160,Context}) -> ripemd160_final(Context);
-hash_final({sha224,Context})    -> sha224_final(Context);
-hash_final({sha256,Context})    -> sha256_final(Context);
-hash_final({sha384,Context})    -> sha384_final(Context);
-hash_final({sha512,Context})    -> sha512_final(Context).
+%% HASH --------------------------------------------------------------------
+hash(Hash, Data, Size, Max, initial) when Size =< Max ->
+    do_hash(Hash, Data);
+hash(State0, Data, Size, Max, continue) when Size =< Max ->
+    State = do_hash_update(State0, Data),
+    hash_final(State);
+hash(Hash, Data, _Size, Max, initial) ->
+    <<Increment:Max/binary, Rest/binary>> = Data,
+    State0 = hash_init(Hash),
+    State = do_hash_update(State0, Increment),
+    hash(State, Rest, erlang:byte_size(Rest), max_bytes(), continue);
+hash(State0, Data, _Size, MaxByts, continue) ->
+    <<Increment:MaxByts/binary, Rest/binary>> = Data,
+    State = do_hash_update(State0, Increment),
+    hash(State, Rest, erlang:byte_size(Rest), max_bytes(), continue).
+
+do_hash(md5, Data)          -> md5(Data);
+do_hash(md4, Data)          -> md4(Data);
+do_hash(sha, Data)          -> sha(Data);
+do_hash(ripemd160, Data)    -> ripemd160(Data);
+do_hash(sha224, Data)       -> sha224(Data);
+do_hash(sha256, Data)       -> sha256(Data);
+do_hash(sha384, Data)       -> sha384(Data);
+do_hash(sha512, Data)       -> sha512(Data).
+
+hash_update(State, Data, Size, MaxBytes)  when Size =< MaxBytes ->
+    do_hash_update(State, Data);
+hash_update(State0, Data, _, MaxBytes) ->
+    <<Increment:MaxBytes/binary, Rest/binary>> = Data,
+    State = do_hash_update(State0, Increment),
+    hash_update(State, Rest, erlang:byte_size(Rest), MaxBytes).
+
+do_hash_update({md5,Context}, Data)       -> {md5, md5_update(Context,Data)};
+do_hash_update({md4,Context}, Data)       -> {md4, md4_update(Context,Data)};
+do_hash_update({sha,Context}, Data)       -> {sha, sha_update(Context,Data)};
+do_hash_update({ripemd160,Context}, Data) -> {ripemd160, ripemd160_update(Context,Data)};
+do_hash_update({sha224,Context}, Data)    -> {sha224, sha224_update(Context,Data)};
+do_hash_update({sha256,Context}, Data)    -> {sha256, sha256_update(Context,Data)};
+do_hash_update({sha384,Context}, Data)    -> {sha384, sha384_update(Context,Data)};
+do_hash_update({sha512,Context}, Data)    -> {sha512, sha512_update(Context,Data)}.
+
 
 %%
 %%  MD5
@@ -784,40 +900,55 @@ sha512_update_nif(_Context, _Data) -> ?nif_stub.
 sha512_final_nif(_Context) -> ?nif_stub.
 
 %% HMAC --------------------------------------------------------------------
-%%
-%%  MESSAGE AUTHENTICATION CODES
-%%
 
-%%
-%%  HMAC (multiple hash options)
-%%
+hmac(Type, Key, Data, MacSize, Size, MaxBytes, initial) when Size =< MaxBytes ->
+    case MacSize of
+	undefined ->
+	    do_hmac(Type, Key, Data);
+	_ ->
+	    do_hmac(Type, Key, Data, MacSize)
+    end;
+hmac(Type, Key, Data, MacSize, _, MaxBytes, initial) ->
+    <<Increment:MaxBytes/binary, Rest/binary>> = Data,
+    State0 = hmac_init(Type, Key),
+    State = hmac_update(State0, Increment),
+    hmac(State, Rest, MacSize, erlang:byte_size(Rest), max_bytes(), continue).
+hmac(State0, Data, MacSize, Size, MaxBytes, continue) when Size =< MaxBytes ->
+    State = hmac_update(State0, Data),
+    case MacSize of
+	undefined ->
+	    hmac_final(State);
+	 _ ->
+	    hmac_final_n(State, MacSize)
+	end;
+hmac(State0, Data, MacSize, _Size, MaxBytes, continue) ->
+    <<Increment:MaxBytes/binary, Rest/binary>> = Data,
+    State = hmac_update(State0, Increment),
+    hmac(State, Rest, MacSize, erlang:byte_size(Rest), max_bytes(), continue).
 
--spec hmac(_, iodata(), iodata()) -> binary().
--spec hmac(_, iodata(), iodata(), integer()) -> binary().
--spec hmac_init(atom(), iodata()) -> binary().                             
--spec hmac_update(binary(), iodata()) -> binary().
--spec hmac_final(binary()) -> binary().                             
--spec hmac_final_n(binary(), integer()) -> binary().                             
+hmac_update(State, Data, Size, MaxBytes)  when Size =< MaxBytes ->
+    do_hmac_update(State, Data);
+hmac_update(State0, Data, _, MaxBytes) ->
+    <<Increment:MaxBytes/binary, Rest/binary>> = Data,
+    State = do_hmac_update(State0, Increment),
+    hmac_update(State, Rest, erlang:byte_size(Rest), MaxBytes).
 
-hmac(md5, Key, Data)    -> md5_mac(Key, Data);
-hmac(sha, Key, Data)    -> sha_mac(Key, Data);
-hmac(sha224, Key, Data) -> sha224_mac(Key, Data);
-hmac(sha256, Key, Data) -> sha256_mac(Key, Data);
-hmac(sha384, Key, Data) -> sha384_mac(Key, Data);
-hmac(sha512, Key, Data) -> sha512_mac(Key, Data).
+do_hmac(md5, Key, Data)    -> md5_mac(Key, Data);
+do_hmac(sha, Key, Data)    -> sha_mac(Key, Data);
+do_hmac(sha224, Key, Data) -> sha224_mac(Key, Data);
+do_hmac(sha256, Key, Data) -> sha256_mac(Key, Data);
+do_hmac(sha384, Key, Data) -> sha384_mac(Key, Data);
+do_hmac(sha512, Key, Data) -> sha512_mac(Key, Data).
 
-hmac(md5, Key, Data, Size)    -> md5_mac_n(Key, Data, Size);
-hmac(sha, Key, Data, Size)    -> sha_mac_n(Key, Data, Size);
-hmac(sha224, Key, Data, Size) -> sha224_mac(Key, Data, Size);
-hmac(sha256, Key, Data, Size) -> sha256_mac(Key, Data, Size);
-hmac(sha384, Key, Data, Size) -> sha384_mac(Key, Data, Size);
-hmac(sha512, Key, Data, Size) -> sha512_mac(Key, Data, Size).
+do_hmac(md5, Key, Data, Size)    -> md5_mac_n(Key, Data, Size);
+do_hmac(sha, Key, Data, Size)    -> sha_mac_n(Key, Data, Size);
+do_hmac(sha224, Key, Data, Size) -> sha224_mac(Key, Data, Size);
+do_hmac(sha256, Key, Data, Size) -> sha256_mac(Key, Data, Size);
+do_hmac(sha384, Key, Data, Size) -> sha384_mac(Key, Data, Size);
+do_hmac(sha512, Key, Data, Size) -> sha512_mac(Key, Data, Size).
 
-hmac_init(_Type, _Key) -> ?nif_stub.
-hmac_update(_Context, _Data) -> ? nif_stub.
-hmac_final(_Context) -> ? nif_stub.
-hmac_final_n(_Context, _HashLen) -> ? nif_stub.
-     
+do_hmac_update(_Context, _Data) -> ? nif_stub.
+
 %%
 %%  MD5_MAC
 %%
@@ -914,7 +1045,6 @@ sha512_mac(Key, Data, MacSz) ->
 sha512_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
 %% CIPHERS --------------------------------------------------------------------
-
 
 %%
 %% DES - in electronic codebook mode (ECB)
@@ -1122,6 +1252,33 @@ aes_cbc_ivec(Data) when is_binary(Data) ->
 aes_cbc_ivec(Data) when is_list(Data) ->
     aes_cbc_ivec(list_to_binary(Data)).
 
+
+%% Stream ciphers --------------------------------------------------------------------
+
+stream_crypt(Fun, State, Data, Size, MaxByts, []) when Size =< MaxByts ->
+    Fun(State, Data);
+stream_crypt(Fun, State0, Data, Size, MaxByts, Acc) when Size =< MaxByts ->
+    {State, Cipher} = Fun(State0, Data),
+    {State, list_to_binary(lists:reverse([Cipher | Acc]))};
+stream_crypt(Fun, State0, Data, _, MaxByts, Acc) ->
+    <<Increment:MaxByts/binary, Rest/binary>> = Data,
+    {State, CipherText} = Fun(State0, Increment),
+    stream_crypt(Fun, State, Rest, erlang:byte_size(Rest), MaxByts, [CipherText | Acc]).
+
+do_stream_encrypt({aes_ctr, State0}, Data) ->
+    {State, Cipher} = aes_ctr_stream_encrypt(State0, Data),
+    {{aes_ctr, State}, Cipher};
+do_stream_encrypt({rc4, State0}, Data) ->
+    {State, Cipher} = rc4_encrypt_with_state(State0, Data),
+    {{rc4, State}, Cipher}.
+
+do_stream_decrypt({aes_ctr, State0}, Data) ->
+    {State, Text} = aes_ctr_stream_decrypt(State0, Data),
+    {{aes_ctr, State}, Text};
+do_stream_decrypt({rc4, State0}, Data) ->
+    {State, Text} = rc4_encrypt_with_state(State0, Data),
+    {{rc4, State}, Text}.
+
 %%
 %% AES - in counter mode (CTR)
 %%
@@ -1129,7 +1286,7 @@ aes_cbc_ivec(Data) when is_list(Data) ->
 				 binary().
 -spec aes_ctr_decrypt(iodata(), binary(), iodata()) ->
 				 binary().
- 
+
 aes_ctr_encrypt(_Key, _IVec, _Data) -> ?nif_stub.
 aes_ctr_decrypt(_Key, _IVec, _Cipher) -> ?nif_stub.
 
@@ -1325,6 +1482,21 @@ term_to_ec_key(Curve, PrivKey, PubKey) ->
 term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 
 
+%% MISC --------------------------------------------------------------------
+
+exor(Data1, Data2, Size, MaxByts, [])  when Size =< MaxByts ->
+    do_exor(Data1, Data2);
+exor(Data1, Data2, Size, MaxByts, Acc) when Size =< MaxByts ->
+    Result = do_exor(Data1, Data2),
+    list_to_binary(lists:reverse([Result | Acc]));
+exor(Data1, Data2, _Size, MaxByts, Acc) ->
+     <<Increment1:MaxByts/binary, Rest1/binary>> = Data1,
+     <<Increment2:MaxByts/binary, Rest2/binary>> = Data2,
+    Result = do_exor(Increment1, Increment2),
+    exor(Rest1, Rest2, erlang:byte_size(Rest1), MaxByts, [Result | Acc]).
+
+do_exor(_A, _B) -> ?nif_stub.
+
 algorithms() -> ?nif_stub.
 
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
@@ -1364,7 +1536,6 @@ map_to_norm_bin([H|_]=List) when is_integer(H) ->
     lists:map(fun(E) -> int_to_bin(E) end, List);
 map_to_norm_bin(List) ->
     lists:map(fun(E) -> mpint_to_bin(E) end, List).
-
 
 %%--------------------------------------------------------------------
 %%% Deprecated
