@@ -35,7 +35,8 @@ init_per_suite(Config) ->
     application:start(sasl),
     Config.
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    clean_priv_dir(Config,true),
     ok.
 
 all() -> 
@@ -163,7 +164,6 @@ end_per_group(release, Config) ->
 	{win32,_} -> delete_all_services();
 	_ -> ok
     end,
-    clean_priv_dir(Config,true),
     ?t:timetrap_cancel(Dog),
     Config;
 end_per_group(_GroupName, Config) ->
@@ -1962,7 +1962,11 @@ copy_client(Conf,Master,Sname,Client) ->
 
 clean_priv_dir(Conf,Save) ->
     PrivDir = priv_dir(Conf),
-    rh_test_lib:clean_dir(PrivDir,Save).
+    rh_test_lib:clean_dir(PrivDir,Save),
+    case file:list_dir(PrivDir) of
+	{ok,[]} -> _ = file:del_dir(PrivDir);
+	_ -> ok
+    end.
 
 node_name(Sname) when is_atom(Sname) ->
     {ok,Host} = inet:gethostname(),
