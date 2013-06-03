@@ -23,7 +23,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1]).
+	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
+	 wait/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -44,7 +45,7 @@ all() ->
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [recv,coverage,otp_7980,ref_opt,export]}].
+      [recv,coverage,otp_7980,ref_opt,export,wait]}].
 
 
 init_per_suite(Config) ->
@@ -251,5 +252,21 @@ export_1(Reference) ->
     %% by beam_block.
     id({build,self()}),
     Result.
+
+wait(Config) when is_list(Config) ->
+    self() ! <<42>>,
+    <<42>> = wait_1(r, 1, 2),
+    {1,2,3} = wait_1(1, 2, 3),
+    ok.
+
+wait_1(r, _, _) ->
+    receive
+	B when byte_size(B) > 0 ->
+	    B
+    end;
+%% beam_utils would wrongly assume that wait/1 could fall through
+%% to the next clause.
+wait_1(A, B, C) ->
+    {A,B,C}.
 
 id(I) -> I.
