@@ -147,6 +147,9 @@ sum_alloc_one_instance([{sbmbcs,[{blocks_size,BS,_,_},{carriers_size,CS,_,_}]}|
 sum_alloc_one_instance([{_,[{blocks_size,BS,_,_},{carriers_size,CS,_,_}]}|
 			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
     sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
+sum_alloc_one_instance([{_,[{blocks_size,BS},{carriers_size,CS}]}|
+			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
+    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
 sum_alloc_one_instance([_|Rest],BS,CS,TotalBS,TotalCS) ->
     sum_alloc_one_instance(Rest,BS,CS,TotalBS,TotalCS);
 sum_alloc_one_instance([],BS,CS,TotalBS,TotalCS) ->
