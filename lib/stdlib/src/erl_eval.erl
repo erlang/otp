@@ -245,10 +245,10 @@ expr({'case',_,E,Cs}, Bs0, Lf, Ef, RBs) ->
 expr({'try',_,B,Cases,Catches,AB}, Bs, Lf, Ef, RBs) ->
     try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs);
 expr({'receive',_,Cs}, Bs, Lf, Ef, RBs) ->
-    receive_clauses(Cs, Bs, Lf, Ef, [], RBs);
+    receive_clauses(Cs, Bs, Lf, Ef, RBs);
 expr({'receive',_, Cs, E, TB}, Bs0, Lf, Ef, RBs) ->
     {value,T,Bs} = expr(E, Bs0, Lf, Ef, none),
-    receive_clauses(T, Cs, {TB,Bs}, Bs0, Lf, Ef, [], RBs);
+    receive_clauses(T, Cs, {TB,Bs}, Bs0, Lf, Ef, RBs);
 expr({'fun',_Line,{function,Mod0,Name0,Arity0}}, Bs0, Lf, Ef, RBs) ->
     {[Mod,Name,Arity],Bs} = expr_list([Mod0,Name0,Arity0], Bs0, Lf, Ef),
     F = erlang:make_fun(Mod, Name, Arity),
@@ -807,65 +807,23 @@ case_clauses(Val, Cs, Bs, Lf, Ef, RBs) ->
     end.
 
 %%
-%% receive_clauses(Clauses, Bindings, LocalFuncHnd,ExtFuncHnd, Messages, RBs) 
+%% receive_clauses(Clauses, Bindings, LocalFuncHnd,ExtFuncHnd, RBs)
 %%
-receive_clauses(Cs, Bs, Lf, Ef, Ms, RBs) ->
-    receive
-	Val ->
-	    case match_clause(Cs, [Val], Bs, Lf, Ef) of
-		{B, Bs1} ->
-		    merge_queue(Ms),
-		    exprs(B, Bs1, Lf, Ef, RBs);
-		nomatch ->
-		    receive_clauses(Cs, Bs, Lf, Ef, [Val|Ms], RBs)
-	    end
-    end.
+receive_clauses(Cs, Bs, Lf, Ef, RBs) ->
+    receive_clauses(infinity, Cs, unused, Bs, Lf, Ef, RBs).
 %%
 %% receive_clauses(TimeOut, Clauses, TimeoutBody, Bindings, 
 %%                 ExternalFuncHandler, LocalFuncHandler, RBs)
 %%
-receive_clauses(T, Cs, TB, Bs, Lf, Ef, Ms, RBs) ->
-    {_,_} = statistics(runtime),
-    receive
-	Val ->
-	    case match_clause(Cs, [Val], Bs, Lf, Ef) of
-		{B, Bs1} ->
-		    merge_queue(Ms),
-		    exprs(B, Bs1, Lf, Ef, RBs);
-		nomatch ->
-		    {_,T1} = statistics(runtime),
-		    if
-			T =:= infinity ->
-			    receive_clauses(T, Cs, TB,Bs,Lf,Ef,[Val|Ms],RBs);
-			T-T1 =< 0 ->
-			    receive_clauses(0, Cs, TB,Bs,Lf,Ef,[Val|Ms],RBs);
-			true ->
-			    receive_clauses(T-T1, Cs,TB,Bs,Lf,Ef,[Val|Ms],RBs)
-		    end
-	    end
-    after T ->
-	    merge_queue(Ms),
+receive_clauses(T, Cs, TB, Bs, Lf, Ef, RBs) ->
+    F = fun (M) -> match_clause(Cs, [M], Bs, Lf, Ef) end,
+    case prim_eval:'receive'(F, T) of
+	{B, Bs1} ->
+	    exprs(B, Bs1, Lf, Ef, RBs);
+	timeout ->
 	    {B, Bs1} = TB,
 	    exprs(B, Bs1, Lf, Ef, RBs)
     end.
-
-merge_queue([]) -> 
-    true;
-merge_queue(Ms) ->
-    send_all(recv_all(Ms), self()).
-
-recv_all(Xs) ->
-    receive
-	X -> recv_all([X|Xs])
-    after 0 ->
-	    reverse(Xs)
-    end.
-
-send_all([X|Xs], Self) ->
-    Self ! X,
-    send_all(Xs, Self);
-send_all([], _) -> true.
-
 
 %% match_clause -> {Body, Bindings} or nomatch
 

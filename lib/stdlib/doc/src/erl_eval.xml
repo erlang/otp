@@ -288,10 +288,7 @@ Func(FuncSpec, Arguments)        </code>
 
   <section>
     <title>Bugs</title>
-    <p>The evaluator is not complete. <c>receive</c> cannot be
-      handled properly.
-      </p>
-    <p>Any undocumented functions in <c>erl_eval</c> should not be used.</p>
+    <p>Undocumented functions in <c>erl_eval</c> should not be used.</p>
   </section>
 </erlref>
 
