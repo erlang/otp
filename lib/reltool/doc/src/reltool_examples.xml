@@ -261,7 +261,8 @@ Eshell V5.7.3  (abort with ^G)
 8&gt;  reltool:get_script(Server, "NAME").
 {ok,{script,{"NAME","VSN"},
             [{preLoaded,[erl_prim_loader,erlang,init,otp_ring0,
-                         prim_file,prim_inet,prim_zip,zlib]},
+                         prim_eval,prim_file,prim_inet,prim_zip,
+                         zlib]},
              {progress,preloaded},
              {path,["$ROOT/lib/kernel-2.13/ebin",
                     "$ROOT/lib/stdlib-1.16/ebin"]},

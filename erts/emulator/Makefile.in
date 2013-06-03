@@ -559,13 +559,14 @@ GENERATE += $(TTF_DIR)/driver_tab.c
 # Preloaded code.
 # 
 # This list must be consistent with PRE_LOADED_MODULES in
-# lib/kernel/src/Makefile.
+# erts/preloaded/src/Makefile.
 ifeq ($(TARGET),win32)
 # On windows the preloaded objects are in a resource object.
 PRELOAD_OBJ = $(OBJDIR)/beams.$(RES_EXT)
 PRELOAD_SRC = $(TARGET)/beams.rc
 $(PRELOAD_SRC): $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
@@ -579,6 +580,7 @@ PRELOAD_OBJ = $(OBJDIR)/preload.o
 PRELOAD_SRC = $(TARGET)/preload.c
 $(PRELOAD_SRC): $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
