@@ -882,7 +882,7 @@ static UWord aoff_largest_fblk_in_mbc(Allctr_t* allctr, Carrier_t* carrier)
 static struct {
     Eterm as;
     Eterm aoff;
-    Eterm aoffcbf;
+    Eterm aoffcaobf;
 #ifdef DEBUG
     Eterm end_of_atoms;
 #endif
@@ -911,7 +911,7 @@ init_atoms(void)
 #endif
     AM_INIT(as);
     AM_INIT(aoff);
-    AM_INIT(aoffcbf);
+    AM_INIT(aoffcaobf);
 
 #ifdef DEBUG
     for (atom = (Eterm *) &am; atom < &am.end_of_atoms; atom++) {
@@ -949,7 +949,7 @@ info_options(Allctr_t *allctr,
 		   print_to_arg,
 		   "%sas: %s\n",
 		   prefix,
-		   alc->bf_within_carrier ? "aoffcbf" : "aoff");
+		   alc->bf_within_carrier ? "aoffcaobf" : "aoff");
     }
 
     if (hpp || szp) {
@@ -960,7 +960,7 @@ info_options(Allctr_t *allctr,
 
 	res = NIL;
 	add_2tup(hpp, szp, &res, am.as,
-		 alc->bf_within_carrier ? am.aoffcbf : am.aoff);
+		 alc->bf_within_carrier ? am.aoffcaobf : am.aoff);
     }
 
     return res;

@@ -2545,6 +2545,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 #define ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT	100
 #define ERTS_ALC_CPOOL_MAX_NO_CARRIERS		5
 #define ERTS_ALC_CPOOL_INSERT_ALLOWED_OFFSET	100
+#define ERTS_ALC_CPOOL_MAX_FAILED_STAT_READS	3
 
 #define ERTS_ALC_CPOOL_PTR_MOD_MRK		(((erts_aint_t) 1) << 0)
 #define ERTS_ALC_CPOOL_PTR_DEL_MRK		(((erts_aint_t) 1) << 1)
@@ -3118,6 +3119,52 @@ abandon_carrier(Allctr_t *allctr, Carrier_t *crr)
     set_new_allctr_abandon_limit(allctr);
 }
 
+static void
+cpool_read_stat(Allctr_t *allctr, UWord *nocp, UWord *cszp, UWord *nobp, UWord *bszp)
+{
+    int i;
+    UWord noc = 0, csz = 0, nob = 0, bsz = 0;
+
+    /*
+     * We try to get consistent values, but after
+     * ERTS_ALC_CPOOL_MAX_FAILED_STAT_READS failed
+     * tries we give up and present what we got...
+     */
+    for (i = 0; i <= ERTS_ALC_CPOOL_MAX_FAILED_STAT_READS; i++) {
+	UWord tnoc, tcsz, tnob, tbsz;
+
+	tnoc = (UWord) (nocp
+			? erts_atomic_read_nob(&allctr->cpool.stat.no_carriers)
+			: 0);
+	tcsz = (UWord) (cszp
+			? erts_atomic_read_nob(&allctr->cpool.stat.carriers_size)
+			: 0);
+	tnob = (UWord) (nobp
+			? erts_atomic_read_nob(&allctr->cpool.stat.no_blocks)
+			: 0);
+	tbsz = (UWord) (bszp
+			? erts_atomic_read_nob(&allctr->cpool.stat.blocks_size)
+			: 0);
+	if (tnoc == noc && tcsz == csz && tnob == nob && tbsz == bsz)
+	    break;
+	noc = tnoc;
+	csz = tcsz;
+	nob = tnob;
+	bsz = tbsz;
+	ERTS_THR_READ_MEMORY_BARRIER;
+    }
+
+    if (nocp)
+	*nocp = noc;
+    if (cszp)
+	*cszp = csz;
+    if (nobp)
+	*nobp = nob;
+    if (bszp)
+	*bszp = bsz;
+}
+
+
 #endif /* ERTS_SMP */
 
 #ifdef DEBUG
@@ -3606,6 +3653,7 @@ static struct {
     Eterm lmbcs;
     Eterm smbcs;
     Eterm mbcgs;
+    Eterm acul;
 
 #if HAVE_ERTS_MSEG
     Eterm mmc;
@@ -3615,6 +3663,9 @@ static struct {
     Eterm fix_types;
 
     Eterm mbcs;
+#ifdef ERTS_SMP
+    Eterm mbcs_pool;
+#endif
     Eterm sbcs;
 
     Eterm sys_alloc_carriers_size;
@@ -3694,6 +3745,7 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(lmbcs);
 	AM_INIT(smbcs);
 	AM_INIT(mbcgs);
+	AM_INIT(acul);
 
 #if HAVE_ERTS_MSEG
 	AM_INIT(mmc);
@@ -3703,6 +3755,9 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(fix_types);
 
 	AM_INIT(mbcs);
+#ifdef ERTS_SMP
+	AM_INIT(mbcs_pool);
+#endif
 	AM_INIT(sbcs);
 
 	AM_INIT(sys_alloc_carriers_size);
@@ -3952,6 +4007,62 @@ sz_info_carriers(Allctr_t *allctr,
     return res;
 }
 
+#ifdef ERTS_SMP
+
+static Eterm
+info_cpool(Allctr_t *allctr,
+	   int sz_only,
+	   char *prefix,
+	   int *print_to_p,
+	   void *print_to_arg,
+	   Uint **hpp,
+	   Uint *szp)
+{
+    Eterm res = THE_NON_VALUE;
+    UWord noc, csz, nob, bsz;
+
+    noc = csz = nob = bsz = ~0;
+    if (print_to_p || hpp) {
+	if (sz_only)
+	    cpool_read_stat(allctr, NULL, &csz, NULL, &bsz);
+	else
+	    cpool_read_stat(allctr, &noc, &csz, &nob, &bsz);
+    }
+
+    if (print_to_p) {
+	int to = *print_to_p;
+	void *arg = print_to_arg;
+	if (!sz_only)
+	    erts_print(to, arg, "%sblocks: %bpu\n", prefix, nob);
+	erts_print(to, arg, "%sblocks size: %bpu\n", prefix, bsz);
+	if (!sz_only)
+	    erts_print(to, arg, "%scarriers: %bpu\n", prefix, noc);
+	erts_print(to, arg, "%scarriers size: %bpu\n", prefix, csz);
+    }
+
+    if (hpp || szp) {
+	res = NIL;
+	add_2tup(hpp, szp, &res,
+		 am.carriers_size,
+		 bld_unstable_uint(hpp, szp, csz));
+	if (!sz_only)
+	    add_2tup(hpp, szp, &res,
+		     am.carriers,
+		     bld_unstable_uint(hpp, szp, noc));
+	add_2tup(hpp, szp, &res,
+		 am.blocks_size,
+		 bld_unstable_uint(hpp, szp, bsz));
+	if (!sz_only)
+	    add_2tup(hpp, szp, &res,
+		     am.blocks,
+		     bld_unstable_uint(hpp, szp, nob));
+    }
+
+    return res;
+}
+
+#endif /* ERTS_SMP */
+
 static Eterm
 info_carriers(Allctr_t *allctr,
 	      CarriersStats_t *cs,
@@ -4193,6 +4304,7 @@ info_options(Allctr_t *allctr,
 	     Uint *szp)
 {
     Eterm res = THE_NON_VALUE;
+    int acul;
 
     if (!allctr) {
 	if (print_to_p)
@@ -4203,6 +4315,12 @@ info_options(Allctr_t *allctr,
 	}
 	return res;
     }
+
+#ifdef ERTS_SMP
+    acul = allctr->cpool.util_limit;
+#else
+    acul = 0;
+#endif
 
     if (print_to_p) {
 	char topt[21]; /* Enough for any 64-bit integer */
@@ -4233,6 +4351,7 @@ info_options(Allctr_t *allctr,
 		   "option lmbcs: %beu\n"
 		   "option smbcs: %beu\n"
 		   "option mbcgs: %beu\n",
+		   "option acul: %d\n",
 		   topt,
 		   allctr->ramv ? "true" : "false",
 #if HALFWORD_HEAP
@@ -4252,13 +4371,17 @@ info_options(Allctr_t *allctr,
 #endif
 		   allctr->largest_mbc_size,
 		   allctr->smallest_mbc_size,
-		   allctr->mbc_growth_stages);
+		   allctr->mbc_growth_stages,
+		   acul);
     }
 
     res = (*allctr->info_options)(allctr, "option ", print_to_p, print_to_arg,
 				  hpp, szp);
 
     if (hpp || szp) {
+	add_2tup(hpp, szp, &res,
+		 am.acul,
+		 bld_uint(hpp, szp, (UWord) acul));
 	add_2tup(hpp, szp, &res,
 		 am.mbcgs,
 		 bld_uint(hpp, szp, allctr->mbc_growth_stages));
@@ -4412,6 +4535,9 @@ erts_alcu_sz_info(Allctr_t *allctr,
 		  Uint *szp)
 {
     Eterm res, mbcs, sbcs, fix = THE_NON_VALUE;
+#ifdef ERTS_SMP
+    Eterm mbcs_pool;
+#endif
 
     res  = THE_NON_VALUE;
 
@@ -4447,12 +4573,23 @@ erts_alcu_sz_info(Allctr_t *allctr,
 	fix = sz_info_fix(allctr, internal, print_to_p, print_to_arg, hpp, szp);
     mbcs = sz_info_carriers(allctr, &allctr->mbcs, "mbcs ", print_to_p,
 			    print_to_arg, hpp, szp);
+#ifdef ERTS_SMP
+    if (ERTS_ALC_IS_CPOOL_ENABLED(allctr))
+	mbcs_pool = info_cpool(allctr, 1, "mbcs_pool ", print_to_p,
+			       print_to_arg, hpp, szp);
+    else
+	mbcs_pool = THE_NON_VALUE; /* shut up annoying warning... */
+#endif
     sbcs = sz_info_carriers(allctr, &allctr->sbcs, "sbcs ", print_to_p,
 			    print_to_arg, hpp, szp);
 
     if (hpp || szp) {
 	res = NIL;
 	add_2tup(hpp, szp, &res, am.sbcs, sbcs);
+#ifdef ERTS_SMP
+	if (ERTS_ALC_IS_CPOOL_ENABLED(allctr))
+	    add_2tup(hpp, szp, &res, am.mbcs_pool, mbcs_pool);
+#endif
 	add_2tup(hpp, szp, &res, am.mbcs, mbcs);
 	add_fix_types(allctr, internal, hpp, szp, &res, fix);
     }
@@ -4484,6 +4621,9 @@ erts_alcu_info(Allctr_t *allctr,
 	       Uint *szp)
 {
     Eterm res, sett, mbcs, sbcs, calls, fix = THE_NON_VALUE;
+#ifdef ERTS_SMP
+    Eterm mbcs_pool;
+#endif
 
     res  = THE_NON_VALUE;
 
@@ -4528,6 +4668,13 @@ erts_alcu_info(Allctr_t *allctr,
 	fix = sz_info_fix(allctr, internal, print_to_p, print_to_arg, hpp, szp);
     mbcs = info_carriers(allctr, &allctr->mbcs, "mbcs ", print_to_p,
 			 print_to_arg, hpp, szp);
+#ifdef ERTS_SMP
+    if (ERTS_ALC_IS_CPOOL_ENABLED(allctr))
+	mbcs_pool = info_cpool(allctr, 0, "mbcs_pool ", print_to_p,
+			       print_to_arg, hpp, szp);
+    else
+	mbcs_pool = THE_NON_VALUE; /* shut up annoying warning... */
+#endif
     sbcs = info_carriers(allctr, &allctr->sbcs, "sbcs ", print_to_p,
 			 print_to_arg, hpp, szp);
     calls = info_calls(allctr, print_to_p, print_to_arg, hpp, szp);
@@ -4537,6 +4684,10 @@ erts_alcu_info(Allctr_t *allctr,
 
 	add_2tup(hpp, szp, &res, am.calls, calls);
 	add_2tup(hpp, szp, &res, am.sbcs, sbcs);
+#ifdef ERTS_SMP
+	if (ERTS_ALC_IS_CPOOL_ENABLED(allctr))
+	    add_2tup(hpp, szp, &res, am.mbcs_pool, mbcs_pool);
+#endif
 	add_2tup(hpp, szp, &res, am.mbcs, mbcs);
 	add_fix_types(allctr, internal, hpp, szp, &res, fix);
 	add_2tup(hpp, szp, &res, am.options, sett);
@@ -4579,6 +4730,15 @@ erts_alcu_current_size(Allctr_t *allctr, AllctrSize_t *size, ErtsAlcUFixInfo_t *
 
     size->blocks = allctr->mbcs.blocks.curr.size;
     size->blocks += allctr->sbcs.blocks.curr.size;
+
+#ifdef ERTS_SMP
+    if (ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
+	UWord csz, bsz;
+	cpool_read_stat(allctr, NULL, &csz, NULL, &bsz);
+	size->blocks += bsz;
+	size->carriers += csz;
+    }
+#endif
 
     if (fi) {
 	int ix;
