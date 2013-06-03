@@ -2028,7 +2028,7 @@ verify_usm_user_auth(usmNoAuthProtocol, AuthKey) ->
     end;
 verify_usm_user_auth(usmHMACMD5AuthProtocol, AuthKey) 
   when is_list(AuthKey) andalso (length(AuthKey) =:= 16) ->
-    case is_crypto_supported(md5_mac_96) of
+    case is_crypto_supported(md5) of
 	true -> 
 	    case snmp_conf:all_integer(AuthKey) of
 		true ->
@@ -2037,7 +2037,7 @@ verify_usm_user_auth(usmHMACMD5AuthProtocol, AuthKey)
 		    error({invalid_auth_key, usmHMACMD5AuthProtocol})
 	    end;
 	false -> 
-	    error({unsupported_crypto, md5_mac_96})
+	    error({unsupported_crypto, md5})
     end;    
 verify_usm_user_auth(usmHMACMD5AuthProtocol, AuthKey) when is_list(AuthKey) ->
     Len = length(AuthKey),
@@ -2046,7 +2046,7 @@ verify_usm_user_auth(usmHMACMD5AuthProtocol, _AuthKey) ->
     error({invalid_auth_key, usmHMACMD5AuthProtocol});
 verify_usm_user_auth(usmHMACSHAAuthProtocol, AuthKey) 
   when is_list(AuthKey) andalso (length(AuthKey) =:= 20) ->
-    case is_crypto_supported(sha_mac_96) of
+    case is_crypto_supported(sha) of
 	true -> 
 	    case snmp_conf:all_integer(AuthKey) of
 		true ->
@@ -2055,7 +2055,7 @@ verify_usm_user_auth(usmHMACSHAAuthProtocol, AuthKey)
 		    error({invalid_auth_key, usmHMACSHAAuthProtocol})
 	    end;
 	false -> 
-	    error({unsupported_crypto, sha_mac_96})
+	    error({unsupported_crypto, sha})
     end;
 verify_usm_user_auth(usmHMACSHAAuthProtocol, AuthKey) when is_list(AuthKey) ->
     Len = length(AuthKey),
@@ -2074,7 +2074,7 @@ verify_usm_user_priv(usmNoPrivProtocol, PrivKey) ->
     end;
 verify_usm_user_priv(usmDESPrivProtocol, PrivKey) 
   when (length(PrivKey) =:= 16) ->
-    case is_crypto_supported(des_cbc_decrypt) of
+    case is_crypto_supported(des_cbc) of
 	true -> 
 	    case snmp_conf:all_integer(PrivKey) of
 		true ->
@@ -2083,7 +2083,7 @@ verify_usm_user_priv(usmDESPrivProtocol, PrivKey)
 		    error({invalid_priv_key, usmDESPrivProtocol})
 	    end;
 	false -> 
-	    error({unsupported_crypto, des_cbc_decrypt})
+	    error({unsupported_crypto, des_cbc})
     end;
 verify_usm_user_priv(usmDESPrivProtocol, PrivKey) when is_list(PrivKey) ->
     Len = length(PrivKey),
@@ -2092,7 +2092,7 @@ verify_usm_user_priv(usmDESPrivProtocol, _PrivKey) ->
     error({invalid_priv_key, usmDESPrivProtocol});
 verify_usm_user_priv(usmAesCfb128Protocol, PrivKey) 
   when (length(PrivKey) =:= 16) ->
-    case is_crypto_supported(aes_cfb_128_decrypt) of
+    case is_crypto_supported(aes_cfb128) of
 	true -> 
 	    case snmp_conf:all_integer(PrivKey) of
 		true ->
@@ -2101,7 +2101,7 @@ verify_usm_user_priv(usmAesCfb128Protocol, PrivKey)
 		    error({invalid_priv_key, usmAesCfb128Protocol})
 	    end;
 	false -> 
-	    error({unsupported_crypto, aes_cfb_128_decrypt})
+	    error({unsupported_crypto, aes_cfb128})
     end;
 verify_usm_user_priv(usmAesCfb128Protocol, PrivKey) when is_list(PrivKey) ->
     Len = length(PrivKey),
@@ -2111,13 +2111,10 @@ verify_usm_user_priv(usmAesCfb128Protocol, _PrivKey) ->
 verify_usm_user_priv(PrivP, _PrivKey) ->
     error({invalid_priv_protocol, PrivP}).
     
+
+-compile({inline, [{is_crypto_supported,1}]}).
 is_crypto_supported(Func) ->
-    %% The 'catch' handles the case when 'crypto' is
-    %% not present in the system (or not started).
-    case (catch lists:member(Func, crypto:info())) of
-        true -> true;
-        _ -> false
-    end.
+    snmp_misc:is_crypto_supported(Func). 
  
 
 read_manager_config_file(Dir) ->
@@ -2879,11 +2876,11 @@ do_update_usm_user_info(Key,
 			#usm_user{auth = usmHMACMD5AuthProtocol} = User, 
 			auth_key, Val) 
   when length(Val) =:= 16 ->
-    case is_crypto_supported(md5_mac_96) of
+    case is_crypto_supported(md5) of
 	true -> 
 	    do_update_usm_user_info(Key, User#usm_user{auth_key = Val});
 	false -> 
-	    {error, {unsupported_crypto, md5_mac_96}}
+	    {error, {unsupported_crypto, md5}}
     end;    
 do_update_usm_user_info(_Key, 
 			#usm_user{auth = usmHMACMD5AuthProtocol}, 
@@ -2898,11 +2895,11 @@ do_update_usm_user_info(Key,
 			#usm_user{auth = usmHMACSHAAuthProtocol} = User, 
 			auth_key, Val) 
   when length(Val) =:= 20 ->
-    case is_crypto_supported(sha_mac_96) of
+    case is_crypto_supported(sha) of
 	true -> 
 	    do_update_usm_user_info(Key, User#usm_user{auth_key = Val});
 	false -> 
-	    {error, {unsupported_crypto, sha_mac_96}}
+	    {error, {unsupported_crypto, sha}}
     end;    
 do_update_usm_user_info(_Key, 
 			#usm_user{auth = usmHMACSHAAuthProtocol}, 
@@ -2933,21 +2930,21 @@ do_update_usm_user_info(Key,
 			#usm_user{priv = usmDESPrivProtocol} = User, 
 			priv_key, Val) 
   when length(Val) =:= 16 ->
-    case is_crypto_supported(des_cbc_decrypt) of
+    case is_crypto_supported(des_cbc) of
 	true -> 
 	    do_update_usm_user_info(Key, User#usm_user{priv_key = Val});
 	false -> 
-	    {error, {unsupported_crypto, des_cbc_decrypt}}
+	    {error, {unsupported_crypto, des_cbc}}
     end;    
 do_update_usm_user_info(Key, 
 			#usm_user{priv = usmAesCfb128Protocoll} = User, 
 			priv_key, Val) 
   when length(Val) =:= 16 ->
-    case is_crypto_supported(aes_cfb_128_decrypt) of
+    case is_crypto_supported(aes_cfb128) of
 	true -> 
 	    do_update_usm_user_info(Key, User#usm_user{priv_key = Val});
 	false -> 
-	    {error, {unsupported_crypto, aes_cfb_128_decrypt}}
+	    {error, {unsupported_crypto, aes_cfb128}}
     end;    
 do_update_usm_user_info(_Key, 
 			#usm_user{auth = usmHMACSHAAuthProtocol}, 

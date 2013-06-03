@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2004-2009. All Rights Reserved.
+# Copyright Ericsson AB 2004-2013. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -21,15 +21,21 @@ BEHAVIOUR_MODULES = \
 	snmpa_authentication_service \
 	snmpa_discovery_handler \
 	snmpa_error_report \
+	snmpa_mib_storage \
+	snmpa_mib_data \
 	snmpa_network_interface \
 	snmpa_network_interface_filter \
 	snmpa_notification_delivery_info_receiver \
 	snmpa_notification_filter \
 	snmpa_set_mechanism
 
+# snmpa is "plain" interface module but also defines some agent specific types
+# and therefor must be compiled before the modules that use them, including
+# the behaviour modules...
+# snmpa_mib_data_ttln
 MODULES = \
-	$(BEHAVIOUR_MODULES) \
 	snmpa \
+	$(BEHAVIOUR_MODULES) \
 	snmpa_acm \
 	snmpa_agent \
 	snmpa_agent_sup \
@@ -39,10 +45,12 @@ MODULES = \
 	snmpa_error \
 	snmpa_error_io \
 	snmpa_error_logger \
-	snmpa_general_db \
 	snmpa_local_db \
+	snmpa_mib_storage_ets \
+	snmpa_mib_storage_dets \
+	snmpa_mib_storage_mnesia \
 	snmpa_mib \
-	snmpa_mib_data \
+	snmpa_mib_data_tttn \
 	snmpa_mib_lib \
 	snmpa_misc_sup \
 	snmpa_mpd \

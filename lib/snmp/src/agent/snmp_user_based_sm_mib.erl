@@ -1219,16 +1219,10 @@ split(N, [H | T], FirstRev) when N > 0 ->
     split(N-1, T, [H | FirstRev]).
 
 
-is_crypto_supported(Algo) ->
-    %% The 'catch' handles the case when 'crypto' is
-    %% not present in the system (or not started).
-    Supported = crypto:supports(),
-    Hashs = proplists:get_value(hashs, Supported),
-    Ciphers = proplists:get_value(ciphers, Supported),
-    case catch lists:member(Algo, Hashs ++ Ciphers) of
-	true -> true;
-	_ -> false
-    end.
+-compile({inline, [{is_crypto_supported,1}]}).
+is_crypto_supported(Func) ->
+    snmp_misc:is_crypto_supported(Func). 
+
 
 inconsistentValue(V) -> throw({inconsistentValue, V}).
 inconsistentName(N)  -> throw({inconsistentName,  N}).

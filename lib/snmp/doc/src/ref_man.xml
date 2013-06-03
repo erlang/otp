@@ -44,6 +44,8 @@
   <xi:include href="snmpa_error_io.xml"/>
   <xi:include href="snmpa_error_logger.xml"/>
   <xi:include href="snmpa_local_db.xml"/>
+  <xi:include href="snmpa_mib_data.xml"/>
+  <xi:include href="snmpa_mib_storage.xml"/>
   <xi:include href="snmpa_mpd.xml"/>
   <xi:include href="snmpa_network_interface.xml"/>
   <xi:include href="snmpa_network_interface_filter.xml"/>

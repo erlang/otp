@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,13 +19,17 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose:
+%% Purpose: Test suite of the agent mib-server.
+%%          Some of these tests should really be in a mib-storage suite.
 %%----------------------------------------------------------------------
+
 -module(snmp_agent_mibs_test).
+
 
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
+
 -include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
@@ -39,13 +43,25 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
-         init_per_testcase/2, end_per_testcase/2,
-	 init_per_suite/1, end_per_suite/1, 
+	 all/0,
+	 groups/0,
+
+	 init_per_suite/1, 
+	 end_per_suite/1, 
+
+	 init_per_group/2,
+	 end_per_group/2, 
+
+         init_per_testcase/2, 
+	 end_per_testcase/2,
 
 	 start_and_stop/1,
 	
-	 size_check_ets/1,
+	 size_check_ets1/1,
+	 size_check_ets2/1,
+	 size_check_ets2_bad_file1/1,
+	 size_check_ets3/1,
+	 size_check_ets3_bad_file1/1,
 	 size_check_dets/1,
 	 size_check_mnesia/1,
 	 load_unload/1,
@@ -54,6 +70,7 @@
 	 cache_test/1
 
 	]).
+
 
 %%----------------------------------------------------------------------
 %% Internal exports
@@ -71,18 +88,51 @@
 %% External functions
 %%======================================================================
 
-init_per_testcase(size_check_dets, Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
-    DetsDir = join(Dir, "dets_dir/"),
-    ?line ok = file:make_dir(DetsDir),
-    [{dets_dir, DetsDir}|Config];
-init_per_testcase(size_check_mnesia, Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
-    MnesiaDir = join(Dir, "mnesia_dir/"),
-    ?line ok = file:make_dir(MnesiaDir),
-    mnesia_start([{dir, MnesiaDir}]),
-    [{mnesia_dir, MnesiaDir}|Config];
-init_per_testcase(cache_test, Config) when is_list(Config) ->
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?DBG("init_per_suite -> entry with"
+         "~n   Config0: ~p", [Config0]),
+
+    Config1 = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+
+    ?DBG("init_per_suite -> done when"
+         "~n   Config1: ~p", [Config1]),
+
+    Config1.
+
+end_per_suite(Config) when is_list(Config) ->
+
+    ?DBG("end_per_suite -> entry with"
+         "~n   Config: ~p", [Config]),
+
+    Config.
+
+
+init_per_testcase(Case, Config0) when is_list(Config0) ->
+    Config1    = snmp_test_lib:fix_data_dir(Config0),
+    CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config1), 
+    DbDir      = join(CaseTopDir, "db_dir/"),
+    ?line ok   = file:make_dir(DbDir),
+    init_per_testcase2(Case, [{db_dir,       DbDir}, 
+			      {case_top_dir, CaseTopDir} | Config1]).
+
+init_per_testcase2(size_check_ets2_bad_file1, Config) when is_list(Config) ->
+    DbDir = ?config(db_dir, Config),
+    %% Create a ad file
+    ok = file:write_file(join(DbDir, "snmpa_symbolic_store.db"), 
+			 "calvin and hoppes play chess"),
+    Config;
+init_per_testcase2(size_check_ets3_bad_file1, Config) when is_list(Config) ->
+    DbDir = ?config(db_dir, Config),
+    %% Create a ad file
+    ok = file:write_file(join(DbDir, "snmpa_symbolic_store.db"), 
+			 "calvin and hoppes play chess"),
+    Config;
+init_per_testcase2(size_check_mnesia, Config) when is_list(Config) ->
+    DbDir = ?config(db_dir, Config),
+    mnesia_start([{dir, DbDir}]),
+    Config;
+init_per_testcase2(cache_test, Config) when is_list(Config) ->
     Min = timer:minutes(5), 
     Timeout = 
 	case lists:keysearch(tc_timeout, 1, Config) of
@@ -95,18 +145,26 @@ init_per_testcase(cache_test, Config) when is_list(Config) ->
 	end,
     Dog = test_server:timetrap(Timeout), 
     [{watchdog, Dog} | Config];
-init_per_testcase(_Case, Config) when is_list(Config) ->
+init_per_testcase2(_Case, Config) when is_list(Config) ->
     Config.
 
-end_per_testcase(size_check_dets, Config) when is_list(Config) ->
-    Dir = ?config(dets_dir, Config),
-    ?line ok = ?DEL_DIR(Dir),
-    lists:keydelete(dets_dir, 1, Config);
+%% end_per_testcase(EtsCase, Config) 
+%%   when (is_list(Config) andalso 
+%% 	((EtsCase =:= size_check_ets2) orelse 
+%% 	 (EtsCase =:= size_check_ets3))) ->
+%%     Dir = ?config(ets_dir, Config),
+%%     ?line ok = ?DEL_DIR(Dir),
+%%     lists:keydelete(ets_dir, 1, Config);
+%% end_per_testcase(size_check_dets, Config) when is_list(Config) ->
+%%     Dir = ?config(dets_dir, Config),
+%%     ?line ok = ?DEL_DIR(Dir),
+%%     lists:keydelete(dets_dir, 1, Config);
 end_per_testcase(size_check_mnesia, Config) when is_list(Config) ->
     mnesia_stop(),
-    Dir = ?config(mnesia_dir, Config),
-    ?line ok = ?DEL_DIR(Dir),
-    lists:keydelete(mnesia_dir, 1, Config);
+    %% Dir = ?config(db_dir, Config),
+    %% ?line ok = ?DEL_DIR(Dir),
+    %% lists:keydelete(mnesia_dir, 1, Config);
+    Config;
 end_per_testcase(cache_test, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
@@ -120,33 +178,40 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%======================================================================
 
 all() -> 
-cases().
+    cases().
 
 groups() -> 
     [{size_check, [],
-  [size_check_ets, size_check_dets, size_check_mnesia]}].
+      [
+       size_check_ets1,            % Plain ets
+       size_check_ets2,            % ets with a file
+       size_check_ets2_bad_file1,  % ets with a bad file
+       size_check_ets3,            % ets with a checksummed file
+       size_check_ets3_bad_file1,  % ets with bad file (checksummed) 
+       size_check_dets,            % Plain dets
+       size_check_mnesia           % Plain mnesia
+      ]
+     }].
 
-init_per_group(_GroupName, Config) ->
-	Config.
+
+init_per_group(GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(GroupName, Config).
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    %% Do we really need to do this?
+    %% lists:keydelete(snmp_group_top_dir, 1, Config).
+    Config.
 
 
 cases() -> 
-[start_and_stop, load_unload, {group, size_check},
- me_lookup, which_mib, cache_test].
-
-init_per_suite(Config) when is_list(Config) ->
-    %% Data dir points wrong
-    DataDir0     = ?config(data_dir, Config),
-    DataDir1     = filename:split(filename:absname(DataDir0)),
-    [_|DataDir2] = lists:reverse(DataDir1),
-    DataDir      = filename:join(lists:reverse(DataDir2) ++ [?snmp_test_data]),
-    [{snmp_data_dir, DataDir ++ "/"}|Config].
-
-end_per_suite(Config) when is_list(Config) ->
-    lists:keydelete(snmp_data_dir, 1, Config).
+    [
+     start_and_stop, 
+     load_unload, 
+     {group, size_check},
+     me_lookup, 
+     which_mib, 
+     cache_test
+    ].
 
 
 %%======================================================================
@@ -175,8 +240,7 @@ load_unload(suite) -> [];
 load_unload(Config) when is_list(Config) ->
     Prio       = normal,
     Verbosity  = log,
-    %% MibStorage = ets,
-    MibDir     = ?config(snmp_data_dir, Config),
+    MibDir     = ?config(data_dir, Config),
 
     ?DBG("load_unload -> start symbolic store", []),
     ?line sym_start(Prio, Verbosity),
@@ -221,30 +285,74 @@ load_unload(Config) when is_list(Config) ->
 %% ---------------------------------------------------------------------
 
 
-size_check_ets(suite) ->
+size_check_ets1(suite) ->
     [];
-size_check_ets(Config) when is_list(Config) ->
-    do_size_check([{mib_storage, ets}|Config]).
+size_check_ets1(Config) when is_list(Config) ->
+    MibStorage = [{module, snmpa_mib_storage_ets}], 
+    do_size_check([{mib_storage, MibStorage}|Config]).
+
+size_check_ets2(suite) ->
+    [];
+size_check_ets2(Config) when is_list(Config) ->
+    Dir = ?config(db_dir, Config),    
+    MibStorage = [{module,  snmpa_mib_storage_ets}, 
+		  {options, [{dir, Dir}]}], 
+    do_size_check([{mib_storage, MibStorage}|Config]).
+
+size_check_ets2_bad_file1(suite) ->
+    [];
+size_check_ets2_bad_file1(Config) when is_list(Config) ->
+    Dir = ?config(db_dir, Config),    
+    %% Ensure that the bad file does not cause any problems (action = clear)
+    MibStorage = [{module,  snmpa_mib_storage_ets}, 
+		  {options, [{dir,    Dir}, 
+			     {action, clear}]}], 
+    do_size_check([{mib_storage, MibStorage}|Config]).
+
+size_check_ets3(suite) ->
+    [];
+size_check_ets3(Config) when is_list(Config) ->
+    Dir = ?config(db_dir, Config),    
+    MibStorage = [{module,  snmpa_mib_storage_ets}, 
+		  {options, [{dir,      Dir}, 
+			     {checksum, true}]}], 
+    do_size_check([{mib_storage, MibStorage}|Config]).
+
+size_check_ets3_bad_file1(suite) ->
+    [];
+size_check_ets3_bad_file1(Config) when is_list(Config) ->
+    Dir = ?config(db_dir, Config),    
+    %% Ensure that the bad file does not cause any problems (action = clear)
+    MibStorage = [{module,  snmpa_mib_storage_ets}, 
+		  {options, [{dir,      Dir}, 
+			     {action,   clear}, 
+			     {checksum, true}]}], 
+    do_size_check([{mib_storage, MibStorage}|Config]).
 
 size_check_dets(suite) ->
     [];
 size_check_dets(Config) when is_list(Config) ->
-    Dir = ?config(dets_dir, Config),
-    do_size_check([{mib_storage, {dets, Dir}}|Config]).
+    Dir = ?config(db_dir, Config),
+    MibStorage = [{module,  snmpa_mib_storage_dets}, 
+		  {options, [{dir, Dir}]}], 
+    do_size_check([{mib_storage, MibStorage}|Config]).
 
 size_check_mnesia(suite) ->
     [];
 size_check_mnesia(Config) when is_list(Config) ->
-    do_size_check([{mib_storage, {mnesia, [node()]}}|Config]).
+    MibStorage = [{module,  snmpa_mib_storage_mnesia}, 
+		  {options, [{nodes, [node()]}]}], 
+    do_size_check([{mib_storage, MibStorage}|Config]).
 
 do_size_check(Config) ->
-    ?DBG("do_size_check -> start", []),
+    ?DBG("do_size_check -> start with"
+	 "~n   Config: ~p", [Config]),
     Prio      = normal,
     Verbosity = trace,
 
     MibStorage = ?config(mib_storage, Config),
     ?DBG("do_size_check -> MibStorage: ~p", [MibStorage]),
-    MibDir     = ?config(snmp_data_dir, Config),
+    MibDir     = ?config(data_dir, Config),
     StdMibDir  = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
     
     ?DBG("do_size_check -> start symbolic store", []),
@@ -294,8 +402,7 @@ me_lookup(suite) -> [];
 me_lookup(Config) when is_list(Config) ->
     Prio       = normal,
     Verbosity  = trace,
-    %% MibStorage = ets,
-    MibDir     = ?config(snmp_data_dir, Config),
+    MibDir     = ?config(data_dir, Config),
     StdMibDir  = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
     Mibs    = ["Test2", "TestTrap", "TestTrapv2"],
     StdMibs = ["OTP-SNMPEA-MIB",
@@ -348,8 +455,7 @@ which_mib(suite) -> [];
 which_mib(Config) when is_list(Config) ->
     Prio       = normal,
     Verbosity  = trace,
-    %% MibStorage = ets,
-    MibDir     = ?config(snmp_data_dir, Config),
+    MibDir     = ?config(data_dir, Config),
     StdMibDir  = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
     Mibs    = ["Test2", "TestTrap", "TestTrapv2"],
     StdMibs = ["OTP-SNMPEA-MIB",
@@ -406,28 +512,28 @@ cache_test(Config) when is_list(Config) ->
     ?DBG("cache_test -> start", []),
     Prio       = normal,
     Verbosity  = trace,
-    MibStorage = ets,
-    MibDir     = ?config(snmp_data_dir, Config),
+    MibStorage = [{module, snmpa_mib_storage_ets}],
+    MibDir     = ?config(data_dir, Config),
     StdMibDir  = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
-    Mibs    = ["Test2", "TestTrap", "TestTrapv2"],
-    StdMibs = ["OTP-SNMPEA-MIB",
-	       "SNMP-COMMUNITY-MIB",
-	       "SNMP-FRAMEWORK-MIB",
-	       "SNMP-MPD-MIB",
-	       "SNMP-NOTIFICATION-MIB",
-	       "SNMP-TARGET-MIB",
-	       %% "SNMP-USER-BASED-SM-MIB",
-	       "SNMP-VIEW-BASED-ACM-MIB",
-	       "SNMPv2-MIB",
-	       "SNMPv2-TC",
-	       "SNMPv2-TM"],
+    Mibs       = ["Test2", "TestTrap", "TestTrapv2"],
+    StdMibs    = ["OTP-SNMPEA-MIB",
+		  "SNMP-COMMUNITY-MIB",
+		  "SNMP-FRAMEWORK-MIB",
+		  "SNMP-MPD-MIB",
+		  "SNMP-NOTIFICATION-MIB",
+		  "SNMP-TARGET-MIB",
+		  %% "SNMP-USER-BASED-SM-MIB",
+		  "SNMP-VIEW-BASED-ACM-MIB",
+		  "SNMPv2-MIB",
+		  "SNMPv2-TC",
+		  "SNMPv2-TM"],
 
     ?DBG("cache_test -> start symbolic store", []),
     ?line sym_start(Prio, MibStorage, Verbosity),
 
     ?DBG("cache_test -> start mib server", []),
-    GcLimit = 2, 
-    Age     = timer:seconds(10), 
+    GcLimit   = 2, 
+    Age       = timer:seconds(10), 
     CacheOpts = [{autogc, false}, {age, Age}, {gclimit, GcLimit}],
     ?line MibsPid = mibs_start(Prio, MibStorage, [], Verbosity, CacheOpts), 
     
@@ -537,7 +643,7 @@ mnesia_stop() ->
 %% - Symbolic Store mini interface
 
 sym_start(Prio, Verbosity) ->
-    sym_start(Prio, ets, Verbosity).
+    sym_start(Prio, mib_storage(), Verbosity).
 
 sym_start(Prio, MibStorage, Verbosity) ->
     Opts = [{mib_storage, MibStorage}, {verbosity,Verbosity}],
@@ -554,7 +660,7 @@ sym_info() ->
 %% -- MIB server mini interface 
 		   
 mibs_start(Prio, Verbosity) when is_atom(Prio) andalso is_atom(Verbosity) ->
-    mibs_start(Prio, ets, [], Verbosity).
+    mibs_start(Prio, mib_storage(), [], Verbosity).
 
 mibs_start(Prio, MibStorage, Verbosity) 
   when is_atom(Prio) andalso is_atom(Verbosity) ->
@@ -669,6 +775,11 @@ which_mib(M, M) ->
     ok;
 which_mib(M1, M2) ->
     {error, {invalid_mib, M1, M2}}.
+
+
+%% Default mib-storage
+mib_storage() ->
+    [{module, snmpa_mib_storage_ets}].
 
 
 %% -- 

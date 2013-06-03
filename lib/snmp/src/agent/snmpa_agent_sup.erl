@@ -29,10 +29,12 @@
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
+%% Always use plain ets for sub-agents
 -ifdef(snmp_debug).
--define(DEFAULT_OPTS, [{verbosity, trace}]).
+-define(DEFAULT_SA_OPTS, [{mib_storage, [{module, snmpa_mib_storage_ets}]}, 
+			  {verbosity, trace}]).
 -else.
--define(DEFAULT_OPTS, []).
+-define(DEFAULT_SA_OPTS, [{mib_storage, [{module, snmpa_mib_storage_ets}]}]).
 -endif.
 
 
@@ -63,8 +65,8 @@ start_subagent(ParentAgent, Subtree, Mibs) ->
     Ref = make_ref(),
     ?d("start_subagent -> Ref: ~p", [Ref]),
     Options = [{priority, Prio}, 
-	       {mibs, Mibs}, 
-	       {misc_sup, snmpa_misc_sup} | ?DEFAULT_OPTS],
+	       {mibs,     Mibs}, 
+	       {misc_sup, snmpa_misc_sup} | ?DEFAULT_SA_OPTS],
     Agent = {{sub_agent, Max},
 	     {snmpa_agent, start_link,
 	      [Prio, ParentAgent, Ref, Options]},
