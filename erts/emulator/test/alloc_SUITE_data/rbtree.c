@@ -85,7 +85,7 @@ print_tree(TestCaseState_t *tcs, RBT_t *root)
 static RBT_t *
 check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 {
-    enum { BF, AOBF, AOFF, AOFFCBF }type;
+    enum { BF, AOBF, AOFF, AOFFCAOBF }type;
     int i, max_i;
     char stk[128];
     RBT_t *root, *x, *y, *res;
@@ -99,7 +99,7 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 	else type = BF;
     }
     else { /* AOFF_ALGO */
-	if (IS_CBF(alc)) type = AOFFCBF;
+	if (IS_CBF(alc)) type = AOFFCAOBF;
 	else type = AOFF;
     }
 
@@ -193,7 +193,7 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 		ASSERT(tcs, y < x);
 		ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
 		break;
-	    case AOFFCBF:
+	    case AOFFCAOBF:
 		{
 		    void* x_crr = BLK_TO_MBC(x);
 		    void* y_crr = BLK_TO_MBC(y);
@@ -221,7 +221,7 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 		ASSERT(tcs, y > x);
 		ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
 		break;
-	    case AOFFCBF:
+	    case AOFFCAOBF:
 		{
 		    void* x_crr = BLK_TO_MBC(x);
 		    void* y_crr = BLK_TO_MBC(y);
@@ -262,7 +262,7 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 			res = x;
 		    }
 		    break;
-		case AOFFCBF:
+		case AOFFCAOBF:
 		    if (BLK_TO_MBC(x) != BLK_TO_MBC(res) || x_sz == y_sz) {
 			if (x < res) {
 			    res = x;
@@ -484,7 +484,7 @@ testcase_run(TestCaseState_t *tcs)
     char *argv1[] = {"-tasbf", NULL};
     char *argv2[] = {"-tasaobf", NULL};
     char *argv3[] = {"-tasaoff", NULL};
-    char *argv4[] = {"-tasaoffcbf", NULL};
+    char *argv4[] = {"-tasaoffcaobf", NULL};
     Allctr_t *a;
     rbtree_test_data *td;
 
@@ -555,10 +555,10 @@ testcase_run(TestCaseState_t *tcs)
 
     /* Address order first fit, best fit within carrier */
 
-    testcase_printf(tcs, "Starting test of aoffcbf...\n");
+    testcase_printf(tcs, "Starting test of aoffcaobf...\n");
 
     current_rbt_type_op_base = AO_FIRSTFIT_OP_BASE;
-    td->allocator = a = START_ALC("rbtree_aoffcbf_", 0, argv4);
+    td->allocator = a = START_ALC("rbtree_aoffcaobf_", 0, argv4);
 
     ASSERT(tcs, a);
     ASSERT(tcs, !IS_BF_ALGO(a));
@@ -570,6 +570,6 @@ testcase_run(TestCaseState_t *tcs)
     STOP_ALC(a);
     td->allocator = NULL;
 
-    testcase_printf(tcs, "aoffcbf test succeeded!\n");
+    testcase_printf(tcs, "aoffcaobf test succeeded!\n");
 
 }

@@ -1140,7 +1140,7 @@ handle_au_arg(struct au_init *auip,
 		auip->atype = AOFIRSTFIT;
 		auip->init.aoff.bf_within_carrier = 0;
 	    }
-	    else if (strcmp("aoffcbf", alg) == 0) {
+	    else if (strcmp("aoffcaobf", alg) == 0) {
 		auip->atype = AOFIRSTFIT;
 		auip->init.aoff.bf_within_carrier = 1;
 	    }

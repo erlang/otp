@@ -267,7 +267,7 @@ void
 testcase_run(TestCaseState_t *tcs)
 {
     char *argv_org[] = {"-tsmbcs511","-tmmbcs511", "-tsbct512", "-trmbcmt100", "-tas", NULL, NULL};
-    char *alg[] = {"af", "gf", "bf", "aobf", "aoff", "aoffcbf", NULL};
+    char *alg[] = {"af", "gf", "bf", "aobf", "aoff", "aoffcaobf", NULL};
     int i;
 
     for (i = 0; alg[i]; i++) {
