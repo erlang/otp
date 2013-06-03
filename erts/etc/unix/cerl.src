@@ -31,6 +31,8 @@
 #   -debug      Run debug compiled emulator
 #   -gdb        Run the debug compiled emulator in emacs and gdb.
 #               You have to start beam in gdb using "run".
+#   -rgdb       Run the debug compiled emulator in gdb.
+#               You have to start beam in gdb using "run".
 #   -break F    Run the debug compiled emulator in emacs and gdb and set break.
 #               The session is started, i.e. "run" is already don for you.
 #   -xxgdb      FIXME currently disabled
@@ -178,6 +180,10 @@ while [ $# -gt 0 ]; do
 	    ;;
 	"-gdb")
 	    shift
+	    GDB=egdb
+	    ;;
+	"-rgdb")
+	    shift
 	    GDB=gdb
 	    ;;
 	"-break")
@@ -187,6 +193,12 @@ while [ $# -gt 0 ]; do
 	    shift
 	    ;;
 	"-core")
+	    shift
+	    GDB=egdb
+	    core="$1"
+	    shift
+	    ;;
+	"-rcore")
 	    shift
 	    GDB=gdb
 	    core="$1"
@@ -285,6 +297,27 @@ if [ "x$GDB" = "x" ]; then
     else
 	exec $EXEC $eeargs $xargs ${1+"$@"}
     fi
+elif [ "x$GDB" = "xgdb" ]; then
+    case "x$core" in
+	x)
+	    # Get emu args to use from erlexec...
+	    beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+	    gdbcmd="--args $EMU_NAME $beam_args"
+	    ;;
+	x/*)
+	    gdbcmd="$EMU_NAME ${core}"
+	    GDBBP=
+	    ;;
+	*)
+	    dir=`pwd`
+	    gdbcmd="$EMU_NAME ${dir}/${core}"
+	    GDBBP=
+	    ;;
+    esac
+    cmdfile="/tmp/.cerlgdb.$$"
+    echo "source $ROOTDIR/erts/etc/unix/etp-commands" > $cmdfile
+    # Fire up gdb in emacs...
+    exec gdb $GDBBP -x $cmdfile $gdbcmd
 else
     if [ "x$EMACS" = "x" ]; then
 	EMACS=emacs
