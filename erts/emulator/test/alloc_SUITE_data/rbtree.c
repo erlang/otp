@@ -297,13 +297,16 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 }
 
 static void
-do_check(TestCaseState_t *tcs, Allctr_t *a, Ulong size)
+do_check(TestCaseState_t *tcs, Allctr_t *a, Ulong size, int ignore_null)
 {
     Ulong sz = ((size + 7) / 8)*8;
     void *tmp;
     Block_t *x, *y;
 
     x = (Block_t *) check_tree(tcs, a, sz);
+    if (!x && ignore_null)
+	return;
+
     tmp = ALLOC(a, sz - ABLK_HDR_SZ);
     ASSERT(tcs, tmp);
     y = UMEM2BLK(tmp);
@@ -340,7 +343,7 @@ test_it(TestCaseState_t *tcs)
 	    blk[i] = NULL;
 	}
 	if (i % (NO_BLOCKS/2) == 0)
-	    do_check(tcs, a, 50);
+	    do_check(tcs, a, 50, 0);
     }
 
     for (i = 0; i < NO_BLOCKS; i++) {
@@ -349,7 +352,7 @@ test_it(TestCaseState_t *tcs)
 	    blk[i] = NULL;
 	}
 	if (i % (NO_BLOCKS/2) == 0)
-	    do_check(tcs, a, 200);
+	    do_check(tcs, a, 200, 0);
     }
 
     for (i = 0; i < NO_BLOCKS; i++) {
@@ -358,15 +361,15 @@ test_it(TestCaseState_t *tcs)
 	    blk[i] = NULL;
 	}
 	if (i % (NO_BLOCKS/2) == 0)
-	    do_check(tcs, a, 100);
+	    do_check(tcs, a, 100, 0);
     }
 
-    do_check(tcs, a, 250);
+    do_check(tcs, a, 250, 0);
 
     for (i = 0; i < NO_BLOCKS; i++) {
 	FREE(a, fence[i]);
 	if (i % (NO_BLOCKS/3) == 0)
-	    do_check(tcs, a, 300);
+	    do_check(tcs, a, 300, 0);
     }
 
     ASSERT(tcs, RBT_ROOT(a,0));
@@ -423,7 +426,7 @@ test_carrier_migration(TestCaseState_t *tcs)
 		blk[i] = NULL;
 	    }
 	    if (i % (NO_BLOCKS/2) == 0)
-		do_check(tcs, a, 50);
+		do_check(tcs, a, 50, 1);
 	}
 	
 	for (i = 0; i < NO_BLOCKS; i++) {
@@ -433,7 +436,7 @@ test_carrier_migration(TestCaseState_t *tcs)
 		ASSERT(tcs, BLK_TO_MBC(UMEM2BLK(blk[i])) != crr);
 	    }
 	    if (i % (NO_BLOCKS/2) == 0)
-		do_check(tcs, a, 50);
+		do_check(tcs, a, 50, 1);
 	}
 	if (crr) {
 	    ADD_MBC(a, crr);
