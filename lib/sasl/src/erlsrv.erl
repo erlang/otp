@@ -71,11 +71,14 @@ write_all_data(Port,[]) ->
     Port ! {self(), {command, io_lib:nl()}},
     ok;
 write_all_data(Port,[H|T]) ->
-    Port ! {self(), {command, H ++ io_lib:nl()}},
+    Port ! {self(), {command, unicode:characters_to_binary([H,io_lib:nl()])}},
     write_all_data(Port,T).
 
 read_all_data(Port) ->
-	lists:reverse(read_all_data(Port,[],[])).
+    Data0 = lists:reverse(read_all_data(Port,[],[])),
+    %% Convert from utf8 to a list of chars
+    [unicode:characters_to_list(list_to_binary(Data)) || Data <- Data0].
+
 read_all_data(Port,Line,Lines) ->
     receive
 	{Port, {data, {noeol,Data}}} ->
@@ -178,7 +181,7 @@ get_service(EVer, ServiceName) ->
 				[]
 			end
 		end,
-	    %%% First split by Env:
+            %%% First split by Env:
 	    {Before, After} = split_by_env(Data),
 	    FirstPass = lists:flatten(lists:map(F,Before)),
 	    %%% If the arguments are there, split them to

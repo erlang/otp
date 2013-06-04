@@ -121,9 +121,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%----------------------------------------------------------------------
 
 start_portprogram(Identifier) ->
-    Command =
-	filename:join([code:priv_dir(os_mon),"bin","nteventlog.exe"]) ++
-	" " ++ make_list(Identifier),
+    Command = "\"" ++ filename:join([code:priv_dir(os_mon),"bin","nteventlog.exe"]) ++
+	"\" " ++ make_list(Identifier),
     open_port({spawn,Command},[{packet,2}]).
 
 make_list(X) when is_atom(X) ->
