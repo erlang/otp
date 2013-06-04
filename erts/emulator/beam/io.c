@@ -4814,7 +4814,8 @@ int async_ready(Port *p, void* data)
 static void
 report_missing_drv_callback(Port *p, char *drv_type, char *callback)
 {
-    ErtsPortNames *pnp = erts_get_port_names(p->common.id);
+    ErtsPortNames *pnp = erts_get_port_names(p->common.id,
+					     ERTS_Port2ErlDrvPort(p));
     char *unknown = "<unknown>";
     char *drv_name = pnp->driver_name ? pnp->driver_name : unknown;
     char *prt_name = pnp->name ? pnp->name : unknown;
@@ -4829,14 +4830,24 @@ report_missing_drv_callback(Port *p, char *drv_type, char *callback)
 
 void
 erts_stale_drv_select(Eterm port,
+		      ErlDrvPort drv_port,
 		      ErlDrvEvent hndl,
 		      int mode,
 		      int deselect)
 {
     char *type;
-    ErlDrvPort drv_port = ERTS_Port2ErlDrvPort(erts_port_lookup_raw(port));
-    ErtsPortNames *pnp = erts_get_port_names(port);
+    ErtsPortNames *pnp;
     erts_dsprintf_buf_t *dsbufp;
+
+    if (drv_port == ERTS_INVALID_ERL_DRV_PORT) {
+	Port *prt = erts_port_lookup_raw(port);
+	if (prt)
+	    drv_port = ERTS_Port2ErlDrvPort(port);
+	else
+	    drv_port = ERTS_INVALID_ERL_DRV_PORT;
+    }
+
+    pnp = erts_get_port_names(port, drv_port);
 
     switch (mode) {
     case ERL_DRV_READ | ERL_DRV_WRITE:
@@ -4872,11 +4883,15 @@ erts_stale_drv_select(Eterm port,
 }
 
 ErtsPortNames *
-erts_get_port_names(Eterm id)
+erts_get_port_names(Eterm id, ErlDrvPort drv_port)
 {
-    Port *prt = erts_port_lookup_raw(id);
+    Port *prt;
     ErtsPortNames *pnp;
     ASSERT(is_nil(id) || is_internal_port(id));
+
+    prt = ERTS_ErlDrvPort2Port(drv_port);
+    if (prt == ERTS_INVALID_ERL_DRV_PORT)
+	prt = erts_port_lookup_raw(id);
 
     if (!prt) {
 	pnp = erts_alloc(ERTS_ALC_T_PORT_NAMES, sizeof(ErtsPortNames));
@@ -4889,6 +4904,7 @@ erts_get_port_names(Eterm id)
 	size_t pnp_len = sizeof(ErtsPortNames);
 #ifndef DEBUG
 	pnp_len += 100; /* In most cases 100 characters will be enough... */
+	ASSERT(prt->common.id == id);
 #endif
 	pnp = erts_alloc(ERTS_ALC_T_PORT_NAMES, pnp_len);
 	do {

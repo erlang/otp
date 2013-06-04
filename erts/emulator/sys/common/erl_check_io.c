@@ -874,7 +874,7 @@ need2steal(ErtsDrvEventState *state, int mode)
 static void
 print_driver_name(erts_dsprintf_buf_t *dsbufp, Eterm id)
 {
-    ErtsPortNames *pnp = erts_get_port_names(id);
+    ErtsPortNames *pnp = erts_get_port_names(id, ERTS_INVALID_ERL_DRV_PORT);
     if (!pnp->name && !pnp->driver_name)
 	erts_dsprintf(dsbufp, "%s ", "<unknown>");
     else {
@@ -1357,8 +1357,8 @@ bad_fd_in_pollset(ErtsDrvEventState *state, Eterm inport,
 		      "Bad %s fd in erts_poll()! fd=%d, ",
 		      io_str, (int) state->fd);
 	if (is_nil(port)) {
-	    ErtsPortNames *ipnp = erts_get_port_names(inport);
-	    ErtsPortNames *opnp = erts_get_port_names(outport);
+	    ErtsPortNames *ipnp = erts_get_port_names(inport, ERTS_INVALID_ERL_DRV_PORT);
+	    ErtsPortNames *opnp = erts_get_port_names(outport, ERTS_INVALID_ERL_DRV_PORT);
 	    erts_dsprintf(dsbufp, "ports=%T/%T, drivers=%s/%s, names=%s/%s\n",
 			  is_nil(inport) ? am_undefined : inport,
 			  is_nil(outport) ? am_undefined : outport,
@@ -1370,7 +1370,7 @@ bad_fd_in_pollset(ErtsDrvEventState *state, Eterm inport,
 	    erts_free_port_names(opnp);
 	}
 	else {
-	    ErtsPortNames *pnp = erts_get_port_names(port);
+	    ErtsPortNames *pnp = erts_get_port_names(port, ERTS_INVALID_ERL_DRV_PORT);
 	    erts_dsprintf(dsbufp, "port=%T, driver=%s, name=%s\n",
 			  is_nil(port) ? am_undefined : port,
 			  pnp->driver_name ? pnp->driver_name : "<unknown>",
@@ -1390,7 +1390,7 @@ bad_fd_in_pollset(ErtsDrvEventState *state, Eterm inport,
 static void
 stale_drv_select(Eterm id, ErtsDrvEventState *state, int mode)
 {
-    erts_stale_drv_select(id, (ErlDrvEvent) state->fd, mode, 0);
+    erts_stale_drv_select(id, ERTS_INVALID_ERL_DRV_PORT, (ErlDrvEvent) state->fd, mode, 0);
     deselect(state, mode);
 }
 
@@ -1774,7 +1774,7 @@ static void doit_erts_check_io_debug(void *vstate, void *vcounters)
 		    err = 1;
 		}
 		else {
-		    ErtsPortNames *pnp = erts_get_port_names(id);
+		    ErtsPortNames *pnp = erts_get_port_names(id, ERTS_INVALID_ERL_DRV_PORT);
 		    erts_printf(" inport=%T inname=%s indrv=%s ",
 				id,
 				pnp->name ? pnp->name : "unknown",
@@ -1791,7 +1791,7 @@ static void doit_erts_check_io_debug(void *vstate, void *vcounters)
 		    err = 1;
 		}
 		else {
-		    ErtsPortNames *pnp = erts_get_port_names(id);
+		    ErtsPortNames *pnp = erts_get_port_names(id, ERTS_INVALID_ERL_DRV_PORT);
 		    erts_printf(" outport=%T outname=%s outdrv=%s ",
 				id,
 				pnp->name ? pnp->name : "unknown",
@@ -1827,7 +1827,7 @@ static void doit_erts_check_io_debug(void *vstate, void *vcounters)
 		err = 1;
 	    }
 	    else {
-		ErtsPortNames *pnp = erts_get_port_names(id);
+		ErtsPortNames *pnp = erts_get_port_names(id, ERTS_INVALID_ERL_DRV_PORT);
 		erts_printf(" port=%T name=%s drv=%s ",
 			    id,
 			    pnp->name ? pnp->name : "unknown",
