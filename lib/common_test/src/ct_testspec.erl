@@ -253,7 +253,7 @@ collect_tests_from_file(Specs,Nodes,Relaxed) when is_list(Nodes) ->
     Specs2 = [filename:absname(S) || S <- Specs1],
     TS0 = #testspec{nodes=NodeRefs},
 
-    try create_specs(Specs2,TS0,Relaxed,Join) of
+    try create_testspecs(Specs2,TS0,Relaxed,Join) of
 	{{[],_},SeparateTestSpecs} ->
 	    filter_and_convert(SeparateTestSpecs);
 	{{_,#testspec{tests=[]}},SeparateTestSpecs} ->
@@ -295,9 +295,13 @@ delete_dups1([E|Es],Keep) ->
 delete_dups1([],Keep) ->
     Keep.
 
-create_specs(Specs,TestSpec,Relaxed,Join) ->
-    SpecsTree = create_spec_tree(Specs,TestSpec,Join,[]),   
-    create_specs(SpecsTree,TestSpec,Relaxed).
+create_testspecs(Specs,TestSpec,Relaxed,Join) ->
+    %% SpecsTree = {SpecAbsName, TermsInSpec,
+    %%              IncludedJoinTree, IncludedSeparateTree,
+    %%              JoinSpecWithRest, RestSpecsTree}
+    SpecsTree = create_spec_tree(Specs,TestSpec,Join,[]),
+    AllSpecs = create_specs(SpecsTree,TestSpec,TestSpec,Relaxed),
+    AllSpecs.
 
 create_spec_tree([Spec|Specs],TS,JoinWithNext,Known) ->
     SpecDir = filename:dirname(filename:absname(Spec)),
@@ -327,27 +331,31 @@ create_spec_tree([],_TS,_JoinWithNext,_Known) ->
     [].
 
 create_specs({Spec,Terms,InclJoin,InclSep,JoinWithNext,NextSpec},
-	     TestSpec,Relaxed) ->
+	     TestSpec,TestSpec0,Relaxed) ->
     SpecDir = filename:dirname(filename:absname(Spec)),
     TestSpec1 = create_spec(Terms,TestSpec#testspec{spec_dir=SpecDir},
 			    JoinWithNext,Relaxed),
 
-    {{JoinSpecs1,JoinTS1},Separate1} = create_specs(InclJoin,TestSpec1,Relaxed),
+    {{JoinSpecs1,JoinTS1},Separate1} = create_specs(InclJoin,TestSpec1,
+						    TestSpec0,Relaxed),
 
     {{JoinSpecs2,JoinTS2},Separate2} =
 	case JoinWithNext of
 	    true ->
-		create_specs(NextSpec,JoinTS1,Relaxed);
+		create_specs(NextSpec,JoinTS1,
+			     TestSpec0,Relaxed);
 	    false ->
 		{{[],JoinTS1},[]}
 	end,
-    {SepJoinSpecs,Separate3} = create_specs(InclSep,TestSpec,Relaxed),
+    {SepJoinSpecs,Separate3} = create_specs(InclSep,TestSpec0,
+					    TestSpec0,Relaxed),
     {SepJoinSpecs1,Separate4} =
 	case JoinWithNext of
 	    true ->
 		{{[],TestSpec},[]};
 	    false ->
-		create_specs(NextSpec,TestSpec,Relaxed)
+		create_specs(NextSpec,TestSpec0,
+			     TestSpec0,Relaxed)
 	end,            
 
     SpecInfo = {Spec,TestSpec1#testspec.merge_tests},
@@ -368,7 +376,8 @@ create_specs({Spec,Terms,InclJoin,InclSep,JoinWithNext,NextSpec},
 	    {{[SpecInfo|(JoinSpecs1++JoinSpecs2)],JoinTS2},
 	     AllSeparate}
     end;
-create_specs([],TestSpec,_Relaxed) ->
+
+create_specs([],TestSpec,_,_Relaxed) ->
     {{[],TestSpec},[]}.
 		
 create_spec(Terms,TestSpec,JoinedByPrev,Relaxed) ->
