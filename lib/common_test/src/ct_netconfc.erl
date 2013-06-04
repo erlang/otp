@@ -1302,7 +1302,8 @@ handle_data(NewData,#state{connection=Connection,buff=Buff} = State) ->
 	    decode(Simple,State#state{buff=Rest});
 	{fatal_error,_Loc,Reason,_EndTags,_EventState} ->
 	    ?error(Connection#connection.name,[{parse_error,Reason},
-					       {data,Data}]),
+					       {buffer,Buff},
+					       {new_data,NewData}]),
 	    case Reason of
 		{could_not_fetch_data,Msg} ->
 		    handle_msg(Msg,State#state{buff = <<>>});

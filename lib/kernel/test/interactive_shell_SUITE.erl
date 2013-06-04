@@ -211,7 +211,7 @@ job_control_remote(Config) when is_list(Config) ->
 				{sleep,timeout(short)},
 				{putline,""},
 				{getline," -->"},
-				{putline,"r "++MyNode},
+				{putline,"r '"++MyNode++"'"},
 				{putline,"c"},
 				{putline_raw,""},
 				{getline,"Eshell"},
@@ -265,7 +265,7 @@ job_control_remote_noshell(Config) when is_list(Config) ->
 				{sleep,timeout(short)},
 				{putline,""},
 				{getline," -->"},
-				{putline,"r "++NSNodeStr},
+				{putline,"r '"++NSNodeStr++"'"},
 				{putline,"c"},
 				{putline_raw,""},
 				{getline,"Eshell"},
@@ -721,4 +721,4 @@ get_default_shell() ->
     end.
 
 atom2list(A) ->
-    lists:flatten(io_lib:format("~w", [A])).
+    lists:flatten(io_lib:format("~s", [A])).

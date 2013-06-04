@@ -2039,6 +2039,8 @@ symlinks(Config, Handle, Suffix) ->
 		    ?PRIM_FILE_call(read_link, Handle, [Alias]),
 		{ok, Name} =
 		    ?PRIM_FILE_call(read_link_all, Handle, [Alias]),
+		%% If all is good, delete dir again (avoid hanging dir on windows)
+		rm_rf(?PRIM_FILE,NewDir),
 		ok
 	end,
     
@@ -2245,3 +2247,18 @@ zip_data([], Bs) ->
     Bs;
 zip_data(As, []) ->
     As.
+
+%%%-----------------------------------------------------------------
+%%% Utilities
+rm_rf(Mod,Dir) ->
+    case  Mod:read_link_info(Dir) of
+	{ok, #file_info{type = directory}} ->
+	    {ok, Content} = Mod:list_dir_all(Dir),
+	    [ rm_rf(Mod,filename:join(Dir,C)) || C <- Content ],
+	    Mod:del_dir(Dir),
+	    ok;
+	{ok, #file_info{}} ->
+	    Mod:delete(Dir);
+	_ ->
+	    ok
+    end.
