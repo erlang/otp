@@ -262,8 +262,10 @@ collect_tests_from_file(Specs,Nodes,Relaxed) when is_list(Nodes) ->
 	    [filter_and_convert(Joined) |
 	     filter_and_convert(SeparateTestSpecs)]
     catch
+	_:Error={error,_} ->
+	    Error;
 	_:Error ->
-	    Error
+	    {error,Error}
     end.
 
 filter_and_convert(Joined) when is_tuple(Joined) ->
