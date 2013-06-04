@@ -48,7 +48,7 @@ all() ->
      {group, des_cfb},
      {group, des3_cbc},
      {group, des3_cbf},
-     %%{group, des_ede3},
+     {group, des_ede3},
      {group, blowfish_cbc},
      {group, blowfish_ecb},
      {group, blowfish_cfb64},
@@ -60,7 +60,8 @@ all() ->
      {group, rc4}, 
      {group, aes_ctr},
      mod_pow,
-     exor
+     exor,
+     rand_uniform
     ].
 
 groups() -> 
@@ -83,6 +84,7 @@ groups() ->
      {des_cbc, [], [block]},
      {des_cfb, [], [block]},
      {des3_cbc,[], [block]},
+     {des_ede3,[], [block]},
      {des3_cbf,[], [block]},
      {rc2_cbc,[], [block]},
      {aes_cbc128,[], [block]},
@@ -220,7 +222,13 @@ exor(Config) when is_list(Config) ->
     Z2 = crypto:exor(B2, B2),
     R = xor_bytes(B1, B2),
     R = crypto:exor(B1, B2).
-
+%%--------------------------------------------------------------------
+rand_uniform() ->
+    [{doc, "rand_uniform and random_bytes testing"}].
+rand_uniform(Config) when is_list(Config) ->
+    rand_uniform_aux_test(10),
+    10 = byte_size(crypto:rand_bytes(10)),
+    10 = byte_size(crypto:strong_rand_bytes(10)).
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -398,16 +406,19 @@ negative_verify(Type, Hash, Msg, Signature, Public) ->
     end.
 
 do_public_encrypt({Type, Public, Private, Msg, Padding}) ->
-    PublicEcn = crypto:public_encrypt(Type, Msg, Public, Padding),
+    PublicEcn = (catch crypto:public_encrypt(Type, Msg, Public, Padding)),
     case crypto:private_decrypt(Type, PublicEcn, Private, Padding) of
 	Msg ->
 	    ok;
 	Other ->
 	    ct:fail({{crypto, private_decrypt, [Type, PublicEcn, Private, Padding]}, {expected, Msg}, {got, Other}})
     end. 
+
+do_private_encrypt({_Type, _Public, _Private, _Msg, rsa_pkcs1_oaep_padding}) ->
+    ok; %% Not supported by openssl
 do_private_encrypt({Type, Public, Private, Msg, Padding}) ->
-    PrivEcn = crypto:private_encrypt(Type, Msg, Private, Padding),
-    case crypto:public_decrypt(Type, PrivEcn, Public, Padding) of
+    PrivEcn = (catch crypto:private_encrypt(Type, Msg, Private, Padding)),
+    case crypto:public_decrypt(rsa, PrivEcn, Public, Padding) of
 	Msg ->
 	    ok;
 	Other ->
@@ -451,8 +462,6 @@ mkint(C) when $A =< C, C =< $F ->
 mkint(C) when $a =< C, C =< $f ->
     C - $a + 10.
 
-is_supported(cipher) ->
-   true;
 is_supported(Group) ->
     lists:member(Group, lists:append([Algo ||  {_, Algo}  <- crypto:supports()])). 
 
@@ -471,6 +480,8 @@ do_block_iolistify({des_cbc = Type, Key, IV, PlainText}) ->
 do_block_iolistify({des3_cbc = Type, Key, IV, PlainText}) ->
     {Type, Key, IV, des_iolistify(PlainText)};
 do_block_iolistify({des3_cbf = Type, Key, IV, PlainText}) ->
+    {Type, Key, IV, des_iolistify(PlainText)};
+do_block_iolistify({des_ede3 = Type, Key, IV, PlainText}) ->
     {Type, Key, IV, des_iolistify(PlainText)};
 do_block_iolistify({Type, Key, PlainText}) ->
     {Type, iolistify(Key), iolistify(PlainText)};
@@ -545,6 +556,25 @@ xor_bytes([], [], Acc) ->
     lists:reverse(Acc);
 xor_bytes([N1 | Tl1], [N2 | Tl2], Acc) ->
     xor_bytes(Tl1, Tl2, [N1 bxor N2 | Acc]).
+rand_uniform_aux_test(0) ->
+    ok;
+rand_uniform_aux_test(N) ->
+    L = N*1000,
+    H = N*100000+1,
+    crypto_rand_uniform(L, H),
+    crypto_rand_uniform(-L, L),
+    crypto_rand_uniform(-H, -L),
+    crypto_rand_uniform(-H, L),
+    rand_uniform_aux_test(N-1).
+
+crypto_rand_uniform(L,H) ->
+    R1 = crypto:rand_uniform(L, H),
+    case (R1 >= L) and (R1 < H) of
+	true  ->
+	    ok;
+	false ->
+	    ct:fail({"Not in interval", R1, L, H})
+    end.
 
 %%--------------------------------------------------------------------
 %% Test data ------------------------------------------------
@@ -603,17 +633,13 @@ group_config(rsa = Type, Config) ->
     Msg = rsa_plain(),
     Public = rsa_public(),
     Private = rsa_private(),
-    SignVerify = [{Type, md5, Public, Private, Msg},
-		  {Type, sha, Public, Private, Msg},
-		  {Type, sha224,  Public, Private,Msg},
-		  {Type, sha256,  Public, Private,Msg} 
-		  %% {Type, sha384,  Public, Private,Msg},
-		  %% {Type, sha512, Public, Private, Msg}
-		 ],
+    PublicS = rsa_public_stronger(),
+    PrivateS = rsa_private_stronger(),
+    SignVerify = sign_verify_tests(Type, Msg, Public, Private, PublicS, PrivateS),
     MsgPubEnc = <<"7896345786348 Asldi">>,
-    PubPrivEnc = [{rsa, Public, Private, MsgPubEnc, rsa_pkcs1_padding}
-		  %%{rsa, Public, Private, MsgPubEnc, rsa_pkcs1_oaep_padding}
-		  %%{rsa, Public, Private, MsgPubEnc, rsa_no_padding}
+    PubPrivEnc = [{rsa, Public, Private, MsgPubEnc, rsa_pkcs1_padding},
+		  rsa_oaep(),
+		  no_padding()
 		 ],
     [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc} | Config];
 group_config(dss = Type, Config) ->
@@ -649,6 +675,9 @@ group_config(des3_cbc, Config) ->
 group_config(des3_cbf, Config) ->
     Block = des3_cbf(),
     [{block, Block} | Config];
+group_config(des_ede3, Config) ->
+    Block = des_ede3(),
+    [{block, Block} | Config];
 group_config(rc2_cbc, Config) ->
     Block = rc2_cbc(),
     [{block, Block} | Config];
@@ -681,6 +710,20 @@ group_config(aes_ctr, Config) ->
     [{stream, Stream} | Config];
 group_config(_, Config) ->
     Config.
+
+sign_verify_tests(Type, Msg, Public, Private, PublicS, PrivateS) ->
+    sign_verify_tests(Type, [md5, sha, sha224, sha256], Msg, Public, Private) ++
+	sign_verify_tests(Type, [sha384, sha512], Msg, PublicS, PrivateS).
+
+sign_verify_tests(Type, Hashs, Msg, Public, Private) ->
+    lists:foldl(fun(Hash, Acc) -> 
+			case is_supported(Hash) of
+			    true ->
+				[{Type, Hash,  Public, Private, Msg}|Acc];
+			    false ->
+			      Acc
+			end
+		end, [], Hashs).
 
 rfc_1321_msgs() ->
     [<<"">>, 
@@ -950,6 +993,15 @@ des3_cbc() ->
      <<"Now is the time for all ">>
      }].
 
+des_ede3() ->
+    [{des_ede3,
+     [hexstr2bin("8000000000000000"),
+      hexstr2bin("4000000000000000"),
+      hexstr2bin("2000000000000000")],
+      hexstr2bin("7AD16FFB79C45926"),
+      hexstr2bin("0000000000000000")
+     }].
+
 des3_cbf() ->
     [{des3_cbf,
      [hexstr2bin("0123456789abcdef"), 
@@ -1196,6 +1248,12 @@ rsa_public() ->
 rsa_private() ->
     rsa_public() ++ [7531712708607620783801185371644749935066152052780368689827275932079815492940396744378735701395659435842364793962992309884847527234216715366607660219930945].
 
+rsa_public_stronger() ->
+    [65537, 24629450921918866883077380602720734920775458960049554761386137065662137652635369332143446151320538248280934442179850504891395344346514465469955766163141133564033962851182759993807898821114734943339732032639891483186089941567854227407119560631150779000222837755424893038740314247760600374970909894211201220612920040986106639419467243909950276018045907029941478599124238353052062083560294570722081552510960894164859765695309596889747541376908786225647625736062865138957717982693312699025417086612046330464651009693307624955796202070510577399561730651967517158452930742355327167632521808183383868100102455048819375344881].
+
+rsa_private_stronger() ->
+    rsa_public_stronger() ++ [13565232776562604620467234237694854016819673873109064019820773052201665024482754648718278717031083946624786145611240731564761987114634269887293030432042088547345315212418830656522115993209293567218379960177754901461542373481136856927955012596579314262051109321754382091434920473734937991286600905464814063189230779981494358415076362038786197620360127262110530926733754185204773610295221669711309000953136320804528874719105049753061737780710448207922456570922652651354760939379096788728229638142403068102990416717272880560951246813789730402978652924934794503277969128609831043469924881848849409122972426787999886557185].
+
 dss_plain() ->
     rsa_plain().
 dss_public() ->
@@ -1355,3 +1413,37 @@ ecdh() ->
 
 dh() ->
     {dh, 0087761979513264537414556992123116644042638206717762626089877284926656954974893442000747478454809111207351620687968672207938731607963470779396984752680274820156266685080223616226905101126463253150237669547023934604953898814222890239130021414026118792251620881355456432549881723310342870016961804255746630219, 2}.
+
+rsa_oaep() ->
+    %% ftp://ftp.rsa.com/pub/rsalabs/tmp/pkcs1v15crypt-vectors.txt
+    Public = [hexstr2bin("010001"),
+	      hexstr2bin("a8b3b284af8eb50b387034a860f146c4919f318763cd6c5598c8ae4811a1e0abc4c7e0b082d693a5e7fced675cf4668512772c0cbc64a742c6c630f533c8cc72f62ae833c40bf25842e984bb78bdbf97c0107d55bdb662f5c4e0fab9845cb5148ef7392dd3aaff93ae1e6b667bb3d4247616d4f5ba10d4cfd226de88d39f16fb")],
+    Private = Public ++ [hexstr2bin("53339cfdb79fc8466a655c7316aca85c55fd8f6dd898fdaf119517ef4f52e8fd8e258df93fee180fa0e4ab29693cd83b152a553d4ac4d1812b8b9fa5af0e7f55fe7304df41570926f3311f15c4d65a732c483116ee3d3d2d0af3549ad9bf7cbfb78ad884f84d5beb04724dc7369b31def37d0cf539e9cfcdd3de653729ead5d1"),
+			 hexstr2bin("d32737e7267ffe1341b2d5c0d150a81b586fb3132bed2f8d5262864a9cb9f30af38be448598d413a172efb802c21acf1c11c520c2f26a471dcad212eac7ca39d"),
+			 hexstr2bin("cc8853d1d54da630fac004f471f281c7b8982d8224a490edbeb33d3e3d5cc93c4765703d1dd791642f1f116a0dd852be2419b2af72bfe9a030e860b0288b5d77"),
+			 hexstr2bin("0e12bf1718e9cef5599ba1c3882fe8046a90874eefce8f2ccc20e4f2741fb0a33a3848aec9c9305fbecbd2d76819967d4671acc6431e4037968db37878e695c1"),
+			 hexstr2bin("95297b0f95a2fa67d00707d609dfd4fc05c89dafc2ef6d6ea55bec771ea333734d9251e79082ecda866efef13c459e1a631386b7e354c899f5f112ca85d71583"),
+			 hexstr2bin("4f456c502493bdc0ed2ab756a3a6ed4d67352a697d4216e93212b127a63d5411ce6fa98d5dbefd73263e3728142743818166ed7dd63687dd2a8ca1d2f4fbd8e1")],
+    %%Msg = hexstr2bin("6628194e12073db03ba94cda9ef9532397d50dba79b987004afefe34"),
+    Msg =  hexstr2bin("750c4047f547e8e41411856523298ac9bae245efaf1397fbe56f9dd5"),
+    {rsa, Public, Private, Msg, rsa_pkcs1_oaep_padding}.
+
+no_padding() ->
+    Public = [_, Mod] = rsa_public(),
+    Private = rsa_private(),
+    MsgLen = erlang:byte_size(int_to_bin(Mod)),
+    Msg = list_to_binary(lists:duplicate(MsgLen, $X)),
+    {rsa, Public, Private, Msg, rsa_no_padding}.
+
+int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
+int_to_bin(X) -> int_to_bin_pos(X, []).
+
+int_to_bin_pos(0,Ds=[_|_]) ->
+    list_to_binary(Ds);
+int_to_bin_pos(X,Ds) ->
+    int_to_bin_pos(X bsr 8, [(X band 255)|Ds]).
+
+int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
+    list_to_binary(Ds);
+int_to_bin_neg(X,Ds) ->
+    int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
