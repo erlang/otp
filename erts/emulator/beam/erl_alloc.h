@@ -65,7 +65,7 @@ Eterm erts_allocator_options(void *proc);
 struct process;
 
 int erts_request_alloc_info(struct process *c_p, Eterm ref, Eterm allocs,
-			    int only_sz);
+			    int only_sz, int internal);
 
 #define ERTS_ALLOC_INIT_DEF_OPTS_INITER {0}
 typedef struct {
@@ -99,14 +99,6 @@ UWord erts_alc_test(UWord,
 #define ERTS_ALC_E_NOALLCTR		2
 
 #define ERTS_ALC_MIN_LONG_LIVED_TIME	(10*60*1000)
-
-#if HALFWORD_HEAP
-#define ERTS_IS_SBMBC_ALLOCATOR_NO__(NO) \
-  ((NO) == ERTS_ALC_A_SBMBC || (NO) == ERTS_ALC_A_SBMBC_LOW)
-#else
-#define ERTS_IS_SBMBC_ALLOCATOR_NO__(NO) \
-  ((NO) == ERTS_ALC_A_SBMBC)
-#endif
 
 typedef struct {
     int alloc_util;

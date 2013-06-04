@@ -150,7 +150,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
     {	"alcu_allocator",			"index"			},
-    {	"sbmbc_alloc",				"index"			},
     {	"mseg",					NULL			},
 #if HALFWORD_HEAP
     {	"pmmap",				NULL			},

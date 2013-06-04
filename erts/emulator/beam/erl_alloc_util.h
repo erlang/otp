@@ -55,8 +55,7 @@ typedef struct {
     UWord lmbcs;
     UWord smbcs;
     UWord mbcgs;
-    UWord sbmbct;
-    UWord sbmbcs;
+    int acul;
 
     void *fix;
     size_t *fix_type_size;
@@ -100,8 +99,7 @@ typedef struct {
     10*1024*1024,	/* (bytes)  lmbcs:  largest mbc size             */\
     1024*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
-    256,	       	/* (bytes)  sbmbct:  small block mbc threshold   */\
-    8*1024,		/* (bytes)  sbmbcs:  small block mbc size        */ \
+    0,			/* (%)      acul:  abandon carrier utilization limit */\
     /* --- Data not options -------------------------------------------- */\
     NULL,		/* (ptr)    fix                                  */\
     NULL		/* (ptr)    fix_type_size                        */\
@@ -134,8 +132,7 @@ typedef struct {
     1024*1024,		/* (bytes)  lmbcs:  largest mbc size             */\
     128*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
-    256,	       	/* (bytes)  sbmbct:  small block mbc threshold   */\
-    8*1024,		/* (bytes)  sbmbcs:  small block mbc size        */ \
+    0,			/* (%)      acul:  abandon carrier utilization limit */\
     /* --- Data not options -------------------------------------------- */\
     NULL,		/* (ptr)    fix                                  */\
     NULL		/* (ptr)    fix_type_size                        */\
@@ -165,8 +162,8 @@ void	erts_alcu_free_thr_pref(ErtsAlcType_t, void *, void *);
 #endif
 Eterm	erts_alcu_au_info_options(int *, void *, Uint **, Uint *);
 Eterm	erts_alcu_info_options(Allctr_t *, int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_sz_info(Allctr_t *, int, int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_info(Allctr_t *, int, int *, void *, Uint **, Uint *);
+Eterm	erts_alcu_sz_info(Allctr_t *, int, int, int *, void *, Uint **, Uint *);
+Eterm	erts_alcu_info(Allctr_t *, int, int, int *, void *, Uint **, Uint *);
 void	erts_alcu_init(AlcUInit_t *);
 void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *,
 			       ErtsAlcUFixInfo_t *, int);
@@ -181,7 +178,6 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #define ERL_ALLOC_UTIL_IMPL__
 
 #define ERTS_ALCU_FLG_FAIL_REALLOC_MOVE		(((Uint32) 1) << 0)
-#define ERTS_ALCU_FLG_SBMBC			(((Uint32) 1) << 1)
 
 #ifdef USE_THREADS
 #define ERL_THREADS_EMU_INTERNAL__
@@ -221,8 +217,15 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #define MBC_FBLK_SZ_MASK        UNIT_MASK
 #define CARRIER_SZ_MASK         UNIT_MASK
 
-
 #if HAVE_ERTS_MSEG
+
+#  define MSEG_UNIT_SHIFT         MSEG_ALIGN_BITS
+#  define MSEG_UNIT_SZ            (1 << MSEG_UNIT_SHIFT)
+#  define MSEG_UNIT_MASK		((~(UWord)0) << MSEG_UNIT_SHIFT)
+
+#  define MSEG_UNIT_FLOOR(X)	((X) & MSEG_UNIT_MASK)
+#  define MSEG_UNIT_CEILING(X)	MSEG_UNIT_FLOOR((X) + ~MSEG_UNIT_MASK)
+
 #  ifdef ARCH_64 
 #    define MBC_ABLK_OFFSET_BITS   24
 #  elif HAVE_SUPER_ALIGNED_MB_CARRIERS
@@ -238,10 +241,8 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #  define MBC_ABLK_OFFSET_SHIFT  (sizeof(UWord)*8 - MBC_ABLK_OFFSET_BITS)
 #  define MBC_ABLK_OFFSET_MASK   (~((UWord)0) << MBC_ABLK_OFFSET_SHIFT)
 #  define MBC_ABLK_SZ_MASK	(~MBC_ABLK_OFFSET_MASK & ~FLG_MASK)
-#  define HAVE_ERTS_SBMBC 0
 #else
 #  define MBC_ABLK_SZ_MASK	(~FLG_MASK)
-#  define HAVE_ERTS_SBMBC 1
 #endif
 
 #define MBC_ABLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_ABLK_SZ_MASK)
@@ -251,17 +252,36 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #define CARRIER_SZ(C) \
   ((C)->chdr & CARRIER_SZ_MASK)
 
-extern int erts_have_sbmbc_alloc;
-
 typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d;} Unit_t;
+
+#ifdef ERTS_SMP
+
+typedef struct {
+    erts_atomic_t next;
+    erts_atomic_t prev;
+    Allctr_t *orig_allctr;
+    ErtsThrPrgrVal thr_prgr;
+    erts_atomic_t max_size;
+    UWord abandon_limit;
+    UWord blocks;
+    UWord blocks_size;
+} ErtsAlcCPoolData_t;
+
+#endif
 
 typedef struct Carrier_t_ Carrier_t;
 struct Carrier_t_ {
     UWord chdr;
     Carrier_t *next;
     Carrier_t *prev;
-    Allctr_t  *allctr;
+    erts_smp_atomic_t allctr;
+#ifdef ERTS_SMP
+    ErtsAlcCPoolData_t cpool; /* Overwritten by block if sbc */
+#endif
 };
+
+#define ERTS_ALC_CARRIER_TO_ALLCTR(C) \
+  ((Allctr_t *) (erts_smp_atomic_read_nob(&(C)->allctr) & ~FLG_MASK))
 
 typedef struct {
     Carrier_t *first;
@@ -280,12 +300,46 @@ typedef struct {
 #endif
 } Block_t;
 
+#define THIS_FREE_BLK_HDR_FLG 	(((UWord) 1) << 0)
+#define PREV_FREE_BLK_HDR_FLG 	(((UWord) 1) << 1)
+#define LAST_BLK_HDR_FLG 	(((UWord) 1) << 2)
+
+#define SBC_BLK_HDR_FLG /* Special flag combo for (allocated) SBC blocks */\
+    (THIS_FREE_BLK_HDR_FLG | PREV_FREE_BLK_HDR_FLG | LAST_BLK_HDR_FLG)
+
+/*
+ * FREE_LAST_MBC_BLK_HDR_FLGS is a special flag combo used for
+ * distinguishing empty mbc's from allocated blocks in
+ * handle_delayed_dealloc().
+ */
+#define FREE_LAST_MBC_BLK_HDR_FLGS (THIS_FREE_BLK_HDR_FLG | LAST_BLK_HDR_FLG)
+
+#define IS_FREE_LAST_MBC_BLK(B) \
+    (((B)->bhdr & FLG_MASK) == FREE_LAST_MBC_BLK_HDR_FLGS)
+
+#define IS_SBC_BLK(B) (((B)->bhdr & FLG_MASK) == SBC_BLK_HDR_FLG)
+#define IS_MBC_BLK(B) (!IS_SBC_BLK((B)))
+#define IS_FREE_BLK(B) (ASSERT(IS_MBC_BLK(B)), \
+			(B)->bhdr & THIS_FREE_BLK_HDR_FLG)
+
+#if MBC_ABLK_OFFSET_BITS
+#  define FBLK_TO_MBC(B) (ASSERT(IS_MBC_BLK(B) && IS_FREE_BLK(B)), \
+			  (B)->u.carrier)
+#  define ABLK_TO_MBC(B) \
+    (ASSERT(IS_MBC_BLK(B) && !IS_FREE_BLK(B)), \
+     (Carrier_t*)((MSEG_UNIT_FLOOR((UWord)(B)) - \
+		  (((B)->bhdr >> MBC_ABLK_OFFSET_SHIFT) << MSEG_UNIT_SHIFT))))
+#  define BLK_TO_MBC(B) (IS_FREE_BLK(B) ? FBLK_TO_MBC(B) : ABLK_TO_MBC(B))
+#else
+#  define FBLK_TO_MBC(B) ((B)->carrier)
+#  define ABLK_TO_MBC(B) ((B)->carrier)
+#  define BLK_TO_MBC(B)  ((B)->carrier)
+#endif
+#define MBC_BLK_SZ(B) (IS_FREE_BLK(B) ? MBC_FBLK_SZ(B) : MBC_ABLK_SZ(B))
+
 typedef UWord FreeBlkFtr_t; /* Footer of a free block */
 
-typedef struct {
-    UWord giga_no;
-    UWord no;
-} CallCounter_t;
+typedef Uint64 CallCounter_t;
 
 typedef struct {
     UWord		no;
@@ -298,7 +352,6 @@ typedef struct {
 	    StatValues_t	mseg;
 	    StatValues_t	sys_alloc;
 	} norm;
-	StatValues_t	small_block;
     } curr;
     StatValues_t	max;
     StatValues_t	max_ever;
@@ -358,10 +411,20 @@ typedef struct {
     size_t type_size;
     SWord list_size;
     void *list;
-    SWord max_used;
-    SWord limit;
-    SWord allocated;
-    SWord used;
+    union {
+	struct {
+	    SWord max_used;
+	    SWord limit;
+	    SWord allocated;
+	    SWord used;
+	} nocpool;
+	struct {
+	    int min_list_size;
+	    int shrink_list;
+	    UWord allocated;
+	    UWord used;
+	} cpool;
+    } u;
 } ErtsAlcFixList_t;
 
 struct Allctr_t_ {
@@ -409,37 +472,56 @@ struct Allctr_t_ {
     Uint		largest_mbc_size;
     Uint		smallest_mbc_size;
     Uint		mbc_growth_stages;
-    Uint		sbmbc_threshold;
-    Uint		sbmbc_size;
 
 #if HAVE_ERTS_MSEG
     ErtsMsegOpt_t	mseg_opt;
 #endif
 
     /* */
+    Uint		mbc_header_size;
     Uint		min_mbc_size;
     Uint		min_mbc_first_free_size;
     Uint		min_block_size;
 
     /* Carriers */
-    CarrierList_t	sbmbc_list;
     CarrierList_t	mbc_list;
     CarrierList_t	sbc_list;
+#ifdef ERTS_SMP
+    struct {
+	CarrierList_t	dc_list;
+	UWord		abandon_limit;
+	int		disable_abandon;
+	int		check_limit_count;
+	int		util_limit;
+	struct {
+	    erts_atomic_t	blocks_size;
+	    erts_atomic_t	no_blocks;
+	    erts_atomic_t	carriers_size;
+	    erts_atomic_t	no_carriers;
+	} stat;
+    } cpool;
+#endif
 
     /* Main carrier (if there is one) */
     Carrier_t *		main_carrier;
 
     /* Callback functions (first 4 are mandatory) */
     Block_t *		(*get_free_block)	(Allctr_t *, Uint,
-						 Block_t *, Uint, Uint32);
-    void		(*link_free_block)	(Allctr_t *, Block_t *, Uint32);
-    void		(*unlink_free_block)	(Allctr_t *, Block_t *, Uint32);
+						 Block_t *, Uint);
+    void		(*link_free_block)	(Allctr_t *, Block_t *);
+    void		(*unlink_free_block)	(Allctr_t *, Block_t *);
     Eterm		(*info_options)		(Allctr_t *, char *, int *,
 						 void *, Uint **, Uint *);
 
     Uint		(*get_next_mbc_size)	(Allctr_t *);
-    void		(*creating_mbc)		(Allctr_t *, Carrier_t *, Uint32);
-    void		(*destroying_mbc)	(Allctr_t *, Carrier_t *, Uint32);
+    void		(*creating_mbc)		(Allctr_t *, Carrier_t *);
+    void		(*destroying_mbc)	(Allctr_t *, Carrier_t *);
+
+    /* The three callbacks below are needed to support carrier migration */
+    void		(*add_mbc)		(Allctr_t *, Carrier_t *);
+    void		(*remove_mbc)	        (Allctr_t *, Carrier_t *);
+    UWord		(*largest_fblk_in_mbc)  (Allctr_t *, Carrier_t *);
+
     void		(*init_atoms)		(void);
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -471,8 +553,6 @@ struct Allctr_t_ {
 	CallCounter_t	this_alloc;
 	CallCounter_t	this_free;
 	CallCounter_t	this_realloc;
-	CallCounter_t	sbmbc_alloc;
-	CallCounter_t	sbmbc_free;
 	CallCounter_t	mseg_alloc;
 	CallCounter_t	mseg_dealloc;
 	CallCounter_t	mseg_realloc;
@@ -483,8 +563,7 @@ struct Allctr_t_ {
 
     CarriersStats_t	sbcs;
     CarriersStats_t	mbcs;
-    CarriersStats_t	sbmbcs;
-
+    
 #ifdef DEBUG
 #ifdef USE_THREADS
     struct {
@@ -502,6 +581,8 @@ void	erts_alcu_verify_unused(Allctr_t *);
 void	erts_alcu_verify_unused_ts(Allctr_t *allctr);
 
 UWord	erts_alcu_test(UWord, UWord, UWord);
+
+void erts_alcu_assert_failed(char* expr, char* file, int line, char *func);
 
 #ifdef DEBUG
 int is_sbc_blk(Block_t*);

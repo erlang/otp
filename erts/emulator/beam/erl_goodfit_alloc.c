@@ -163,10 +163,10 @@ BKT_MIN_SZ(GFAllctr_t *gfallctr, int ix)
 
 /* Prototypes of callback functions */
 static Block_t *	get_free_block		(Allctr_t *, Uint,
-						 Block_t *, Uint, Uint32);
-static void		link_free_block		(Allctr_t *, Block_t *, Uint32);
-static void		unlink_free_block	(Allctr_t *, Block_t *, Uint32);
-static void		update_last_aux_mbc	(Allctr_t *, Carrier_t *, Uint32);
+						 Block_t *, Uint);
+static void		link_free_block		(Allctr_t *, Block_t *);
+static void		unlink_free_block	(Allctr_t *, Block_t *);
+static void		update_last_aux_mbc	(Allctr_t *, Carrier_t *);
 static Eterm		info_options		(Allctr_t *, char *, int *,
 						 void *, Uint **, Uint *);
 static void		init_atoms		(void);
@@ -203,8 +203,7 @@ erts_gfalc_start(GFAllctr_t *gfallctr,
 
     sys_memcpy((void *) gfallctr, (void *) &zero.allctr, sizeof(GFAllctr_t));
 
-    init->sbmbct = 0; /* Small mbc not yet supported by goodfit */
-
+    allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= sizeof(GFFreeBlock_t);
@@ -222,7 +221,9 @@ erts_gfalc_start(GFAllctr_t *gfallctr,
     allctr->get_next_mbc_size		= NULL;
     allctr->creating_mbc		= update_last_aux_mbc;
     allctr->destroying_mbc		= update_last_aux_mbc;
-
+    allctr->add_mbc		        = NULL;
+    allctr->remove_mbc		        = NULL;
+    allctr->largest_fblk_in_mbc         = NULL;
     allctr->init_atoms			= init_atoms;
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -384,7 +385,7 @@ search_bucket(Allctr_t *allctr, int ix, Uint size)
 
 static Block_t *
 get_free_block(Allctr_t *allctr, Uint size,
-	       Block_t *cand_blk, Uint cand_size, Uint32 flags)
+	       Block_t *cand_blk, Uint cand_size)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
     int unsafe_bi, min_bi;
@@ -403,7 +404,7 @@ get_free_block(Allctr_t *allctr, Uint size,
 	if (blk) {
 	    if (cand_blk && cand_size <= MBC_FBLK_SZ(blk))
 		return NULL; /* cand_blk was better */
-	    unlink_free_block(allctr, blk, flags);
+	    unlink_free_block(allctr, blk);
 	    return blk;
 	}
 	if (min_bi < NO_OF_BKTS - 1) {
@@ -423,14 +424,14 @@ get_free_block(Allctr_t *allctr, Uint size,
     ASSERT(blk);
     if (cand_blk && cand_size <= MBC_FBLK_SZ(blk))
 	return NULL; /* cand_blk was better */
-    unlink_free_block(allctr, blk, flags);
+    unlink_free_block(allctr, blk);
     return blk;
 }
 
 
 
 static void
-link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
+link_free_block(Allctr_t *allctr, Block_t *block)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
     GFFreeBlock_t *blk = (GFFreeBlock_t *) block;
@@ -451,7 +452,7 @@ link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 }
 
 static void
-unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
+unlink_free_block(Allctr_t *allctr, Block_t *block)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
     GFFreeBlock_t *blk = (GFFreeBlock_t *) block;
@@ -472,7 +473,7 @@ unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 }
 
 static void
-update_last_aux_mbc(Allctr_t *allctr, Carrier_t *mbc, Uint32 flags)
+update_last_aux_mbc(Allctr_t *allctr, Carrier_t *mbc)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
 

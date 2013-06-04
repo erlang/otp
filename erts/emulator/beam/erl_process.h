@@ -1340,6 +1340,7 @@ int erts_is_multi_scheduling_blocked(void);
 Eterm erts_multi_scheduling_blockers(Process *);
 void erts_start_schedulers(void);
 void erts_alloc_notify_delayed_dealloc(int);
+void erts_alloc_ensure_handle_delayed_dealloc_call(int);
 void erts_smp_notify_check_children_needed(void);
 #endif
 #if ERTS_USE_ASYNC_READY_Q

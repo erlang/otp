@@ -3114,8 +3114,8 @@ max(A, _) -> A.
                      | 'atom' | 'atom_used' | 'binary' | 'code' | 'ets'
                      | 'low' | 'maximum'.
 
--define(CARRIER_ALLOCS, [mseg_alloc, sbmbc_alloc, sbmbc_low_alloc]).
--define(LOW_ALLOCS, [sbmbc_low_alloc, ll_low_alloc, std_low_alloc]).
+-define(CARRIER_ALLOCS, [mseg_alloc]).
+-define(LOW_ALLOCS, [ll_low_alloc, std_low_alloc]).
 -define(ALL_NEEDED_ALLOCS, (erlang:system_info(alloc_util_allocators)
 			    -- ?CARRIER_ALLOCS)).
 
@@ -3282,12 +3282,16 @@ get_blocks_size([{blocks_size, Sz, _, _} | Rest], Acc) ->
     get_blocks_size(Rest, Acc+Sz);
 get_blocks_size([{_, _, _, _} | Rest], Acc) ->
     get_blocks_size(Rest, Acc);
+get_blocks_size([{blocks_size, Sz} | Rest], Acc) ->
+    get_blocks_size(Rest, Acc+Sz);
+get_blocks_size([{_, _} | Rest], Acc) ->
+    get_blocks_size(Rest, Acc);
 get_blocks_size([], Acc) ->
     Acc.
 
 blocks_size([{Carriers, SizeList} | Rest], Acc) when Carriers == mbcs;
-						     Carriers == sbcs;
-						     Carriers == sbmbcs ->
+						     Carriers == mbcs_pool;
+						     Carriers == sbcs ->
     blocks_size(Rest, get_blocks_size(SizeList, Acc));
 blocks_size([_ | Rest], Acc) ->
     blocks_size(Rest, Acc);
@@ -3306,6 +3310,9 @@ get_fix_proc([], Acc) ->
 
 fix_proc([{fix_types, SizeList} | _Rest], Acc) ->
     get_fix_proc(SizeList, Acc);
+fix_proc([{fix_types, Mask, SizeList} | _Rest], Acc) ->
+    {A, U} = get_fix_proc(SizeList, Acc),
+    {Mask, A, U};
 fix_proc([_ | Rest], Acc) ->
     fix_proc(Rest, Acc);
 fix_proc([], Acc) ->
@@ -3357,13 +3364,21 @@ au_mem_data(#memory{total = Tot,
 		    processes_used = ProcU,
 		    system = Sys} = Mem,
 	    [{fix_alloc, _, Data} | Rest]) ->
-    {A, U} = fix_proc(Data, {0, 0}),
     Sz = blocks_size(Data, 0),
-    au_mem_data(Mem#memory{total = Tot+Sz,
-			   processes = Proc+A,
-			   processes_used = ProcU+U,
-			   system = Sys+Sz-A},
-		Rest);
+    case fix_proc(Data, {0, 0}) of
+	{A, U} ->
+	    au_mem_data(Mem#memory{total = Tot+Sz,
+				   processes = Proc+A,
+				   processes_used = ProcU+U,
+				   system = Sys+Sz-A},
+			Rest);
+	{Mask, A, U} ->
+	    au_mem_data(Mem#memory{total = Tot+Sz,
+				   processes = Mask band (Proc+A),
+				   processes_used = Mask band (ProcU+U),
+				   system = Mask band (Sys+Sz-A)},
+			Rest)
+    end;
 au_mem_data(#memory{total = Tot,
 		    system = Sys,
 		    low = Low} = Mem,
@@ -3381,7 +3396,7 @@ au_mem_data(EMD, []) ->
 
 au_mem_data(Allocs) ->
     Ref = erlang:make_ref(),
-    erlang:system_info({allocator_sizes, Ref, Allocs}),
+    erlang:system_info({memory_internal, Ref, Allocs}),
     receive_emd(Ref).
 
 receive_emd(_Ref, EMD, 0) ->

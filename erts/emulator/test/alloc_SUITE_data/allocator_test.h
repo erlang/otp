@@ -75,6 +75,15 @@ typedef void* erts_cond;
 #define PREV_BLK(B)		((Block_t *)	ALC_TEST1(0x019, (B)))
 #define IS_MBC_FIRST_BLK(A,B)	((Ulong)	ALC_TEST2(0x01a, (A), (B)))
 #define UNIT_SZ			((Ulong)	ALC_TEST0(0x01b))
+#define BLK_TO_MBC(B)		((Carrier_t *)	ALC_TEST1(0x01c, (B)))
+#define ADD_MBC(A, C)        	((void)	ALC_TEST2(0x01d, (A), (C)))
+#define REMOVE_MBC(A, C)       	((void)	ALC_TEST2(0x01e, (A), (C)))
+#define ZERO_CRR_SIZE		((Ulong)	ALC_TEST0(0x01f))
+#define ZERO_CRR_INIT(A,B)	((Carrier_t *)	ALC_TEST2(0x020, (A), (B)))
+#define CPOOL_INSERT(A,B)	((Carrier_t *)	ALC_TEST2(0x021, (A), (B)))
+#define CPOOL_DELETE(A,B)	((Carrier_t *)	ALC_TEST2(0x022, (A), (B)))
+#define CPOOL_IS_EMPTY(A)	((int)		ALC_TEST1(0x023, (A)))
+#define CPOOL_IS_IN_POOL(A,B)	((int)		ALC_TEST2(0x024, (A), (B)))
 
 /* From erl_goodfit_alloc.c */
 #define BKT_IX(A, S)		((Ulong)	ALC_TEST2(0x100, (A), (S)))
@@ -84,15 +93,16 @@ typedef void* erts_cond;
 
 /* From erl_bestfit_alloc.c and erl_ao_firstfit_alloc.c */
 #define IS_AOBF(A)		((Ulong)	ALC_TEST1(RBT_OP(0), (A)))
-#define RBT_ROOT(A)		((RBT_t *)	ALC_TEST1(RBT_OP(1), (A)))
+#define RBT_ROOT(A,SZ)		((RBT_t *)	ALC_TEST2(RBT_OP(1), (A), (SZ)))
 #define RBT_PARENT(T)		((RBT_t *)	ALC_TEST1(RBT_OP(2), (T)))
 #define RBT_LEFT(T)		((RBT_t *)	ALC_TEST1(RBT_OP(3), (T)))
 #define RBT_RIGHT(T)		((RBT_t *)	ALC_TEST1(RBT_OP(4), (T)))
 #define RBT_NEXT(T)		((RBTL_t *)	ALC_TEST1(RBT_OP(5), (T)))
 #define RBT_IS_BLACK(T)		((Ulong)	ALC_TEST1(RBT_OP(6), (T)))
 #define RBT_IS_TREE(T)		((Ulong)	ALC_TEST1(RBT_OP(7), (T)))
-#define IS_AOFF(A)		((Ulong)	ALC_TEST1(RBT_OP(8), (A)))
+#define IS_BF_ALGO(A)		((Ulong)	ALC_TEST1(RBT_OP(8), (A)))
 #define RBT_MAX_SZ(T)		((Ulong)	ALC_TEST1(RBT_OP(9), (T)))
+#define IS_CBF(A)		((Ulong)	ALC_TEST1(RBT_OP(0xa), (A)))
 
 /* From erl_mseg.c */
 #define HAVE_MSEG()		((int)		ALC_TEST0(0x400))
@@ -129,5 +139,6 @@ typedef void* erts_cond;
 #define THR_CREATE(F, A)	((erts_thread)	ALC_TEST2(0xf10, (F), (A)))
 #define THR_JOIN(T)		((void)		ALC_TEST1(0xf11, (T)))
 #define THR_EXIT(R)		((void)		ALC_TEST1(0xf12, (R)))
+#define IS_SMP_ENABLED		((int)		ALC_TEST0(0xf13))
 
 #endif

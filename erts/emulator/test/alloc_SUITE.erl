@@ -28,7 +28,8 @@
 	 bucket_index/1,
 	 bucket_mask/1,
 	 rbtree/1,
-	 mseg_clear_cache/1]).
+	 mseg_clear_cache/1,
+	 cpool/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -40,7 +41,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,
-     bucket_mask, rbtree, mseg_clear_cache].
+     bucket_mask, rbtree, mseg_clear_cache, cpool].
 
 groups() -> 
     [].
@@ -104,6 +105,10 @@ rbtree(Cfg) -> ?line drv_case(Cfg).
 mseg_clear_cache(suite) -> [];
 mseg_clear_cache(doc) ->   [];
 mseg_clear_cache(Cfg) -> ?line drv_case(Cfg).
+
+cpool(suite) -> [];
+cpool(doc) ->   [];
+cpool(Cfg) -> ?line drv_case(Cfg).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                        %%
