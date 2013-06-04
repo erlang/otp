@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,6 +41,7 @@
 %% Process state
 %% -------------
 %% file: The name of the crashdump currently viewed.
+%% dump_vsn: The version number of the crashdump
 %% procs_summary: Process summary represented by a list of 
 %% #proc records. This is used for efficiency reasons when sorting the
 %% process summary table instead of reading all processes from the
@@ -127,6 +128,8 @@
 						 % timers, funs...
 						 % Must be equal to 
 						 % ?max_sort_process_num!
+-define(not_available,"N/A").
+
 
 %% All possible tags - use macros in order to avoid misspelling in the code
 -define(allocated_areas,allocated_areas).
@@ -161,7 +164,7 @@
 -define(visible_node,visible_node).
 
 
--record(state,{file,procs_summary,sorted,shared_heap=false,
+-record(state,{file,dump_vsn,procs_summary,sorted,shared_heap=false,
 	       wordsize=4,num_atoms="unknown",binaries,bg_status}).
 
 %%%-----------------------------------------------------------------
@@ -499,6 +502,7 @@ handle_call(filename_frame,_From,State=#state{file=File}) ->
     {reply,Reply,State};
 handle_call(initial_info_frame,_From,State=#state{file=File}) ->
     GenInfo = general_info(File),
+    [{DumpVsn,_}] = lookup_index(?erl_crash_dump),
     NumAtoms = GenInfo#general_info.num_atoms,
     {WS,SH} = parse_vsn_str(GenInfo#general_info.system_vsn,4,false),
     NumProcs = list_to_integer(GenInfo#general_info.num_procs),
@@ -506,7 +510,9 @@ handle_call(initial_info_frame,_From,State=#state{file=File}) ->
 	if NumProcs > ?max_sort_process_num -> too_many;
 	   true -> State#state.procs_summary
 	end,
-    NewState = State#state{shared_heap=SH,
+    NewState = State#state{dump_vsn=[list_to_integer(L) ||
+					L<-string:tokens(DumpVsn,".")],
+			   shared_heap=SH,
 			   wordsize=WS,
 			   num_atoms=NumAtoms,
 			   procs_summary=ProcsSummary},
@@ -577,7 +583,7 @@ handle_call({sort_procs,SessionId,Input}, _From, State) ->
 handle_call({proc_details,Input},_From,State=#state{file=File,shared_heap=SH}) ->
     {ok,Pid} = get_value("pid",httpd:parse_query(Input)),
     Reply = 
-	case get_proc_details(File,Pid) of
+	case get_proc_details(File,Pid,State#state.dump_vsn) of
 	    {ok,Proc} -> 
 		TW = truncated_warning([{?proc,Pid}]),
 		crashdump_viewer_html:proc_details(Pid,Proc,TW,SH);
@@ -1298,7 +1304,6 @@ find_truncated_proc({Tag,Pid}) ->
 is_proc_tag(Tag)  when Tag==?proc;
 		       Tag==?proc_dictionary;
 		       Tag==?proc_messages;
-		       Tag==?proc_dictionary;
 		       Tag==?debug_proc_dictionary;
 		       Tag==?proc_stack;
 		       Tag==?proc_heap ->
@@ -1451,7 +1456,8 @@ count() ->
 %% avoid really big data in the server state.
 procs_summary(SessionId,TW,_,State=#state{procs_summary=too_many}) ->
     chunk_page(SessionId,State#state.file,TW,?proc,processes,
-	       {no_sort,State#state.shared_heap},procs_summary_parsefun()),
+	       {no_sort,State#state.shared_heap,State#state.dump_vsn},
+	       procs_summary_parsefun()),
     State;
 procs_summary(SessionId,TW,SortOn,State) ->
     ProcsSummary = 
@@ -1465,10 +1471,12 @@ procs_summary(SessionId,TW,SortOn,State) ->
 	    PS ->
 		PS
 	end,
-    {SortedPS,NewSorted} = do_sort_procs(SortOn,ProcsSummary,State#state.sorted),
+    {SortedPS,NewSorted} = do_sort_procs(SortOn,ProcsSummary,State),
     HtmlInfo = 
 	crashdump_viewer_html:chunk_page(processes,SessionId,TW,
-					 {SortOn,State#state.shared_heap},
+					 {SortOn,
+					  State#state.shared_heap,
+					  State#state.dump_vsn},
 					 SortedPS),
     crashdump_viewer_html:chunk(SessionId,done,HtmlInfo),
     State#state{procs_summary=ProcsSummary,sorted=NewSorted}.
@@ -1480,15 +1488,14 @@ procs_summary_parsefun() ->
 
 %%-----------------------------------------------------------------
 %% Page with one process
-get_proc_details(File,Pid) ->
-    [{DumpVsn,_}] = lookup_index(?erl_crash_dump),
+get_proc_details(File,Pid,DumpVsn) ->
     case lookup_index(?proc,Pid) of
 	[{_,Start}] ->
 	    Fd = open(File),
 	    pos_bof(Fd,Start),
 	    Proc0 = 
 		case DumpVsn of
-		    "0.0" -> 
+		    [0,0] ->
 			%% Old version (translated)
 			#proc{pid=Pid};
 		    _ ->
@@ -1597,6 +1604,9 @@ get_procinfo(Fd,Fun,Proc) ->
 	    get_procinfo(Fd,Fun,Proc#proc{old_heap_top=val(Fd)});
 	"Old heap end" ->
 	    get_procinfo(Fd,Fun,Proc#proc{old_heap_end=val(Fd)});
+	"Memory" ->
+	    %% stored as integer so we can sort on it
+	    get_procinfo(Fd,Fun,Proc#proc{memory=list_to_integer(val(Fd))});
 	{eof,_} ->
 	    Proc; % truncated file
 	Other ->
@@ -1865,35 +1875,41 @@ parse(Line0, Dict0) ->
     Dict.
 
 
-do_sort_procs("state",Procs,"state") ->
+do_sort_procs("state",Procs,#state{sorted="state"}) ->
     {lists:reverse(lists:keysort(#proc.state,Procs)),"rstate"};
 do_sort_procs("state",Procs,_) ->
     {lists:keysort(#proc.state,Procs),"state"};
-do_sort_procs("pid",Procs,"pid") ->
+do_sort_procs("pid",Procs,#state{sorted="pid"}) ->
     {lists:reverse(Procs),"rpid"};
 do_sort_procs("pid",Procs,_) ->
     {Procs,"pid"};
-do_sort_procs("msg_q_len",Procs,"msg_q_len") ->
+do_sort_procs("msg_q_len",Procs,#state{sorted="msg_q_len"}) ->
     {lists:keysort(#proc.msg_q_len,Procs),"rmsg_q_len"};
 do_sort_procs("msg_q_len",Procs,_) ->
     {lists:reverse(lists:keysort(#proc.msg_q_len,Procs)),"msg_q_len"};
-do_sort_procs("reds",Procs,"reds") ->
+do_sort_procs("reds",Procs,#state{sorted="reds"}) ->
     {lists:keysort(#proc.reds,Procs),"rreds"};
 do_sort_procs("reds",Procs,_) ->
     {lists:reverse(lists:keysort(#proc.reds,Procs)),"reds"};
-do_sort_procs("mem",Procs,"mem") ->
-    {lists:keysort(#proc.stack_heap,Procs),"rmem"};
-do_sort_procs("mem",Procs,_) ->
-    {lists:reverse(lists:keysort(#proc.stack_heap,Procs)),"mem"};
-do_sort_procs("init_func",Procs,"init_func") ->
+do_sort_procs("mem",Procs,#state{sorted="mem",dump_vsn=DumpVsn}) ->
+    KeyPos = if DumpVsn>=?r16b01_dump_vsn -> #proc.memory;
+		true -> #proc.stack_heap
+	     end,
+    {lists:keysort(KeyPos,Procs),"rmem"};
+do_sort_procs("mem",Procs,#state{dump_vsn=DumpVsn}) ->
+    KeyPos = if DumpVsn>=?r16b01_dump_vsn -> #proc.memory;
+		true -> #proc.stack_heap
+	     end,
+    {lists:reverse(lists:keysort(KeyPos,Procs)),"mem"};
+do_sort_procs("init_func",Procs,#state{sorted="init_func"}) ->
     {lists:reverse(lists:keysort(#proc.init_func,Procs)),"rinit_func"};
 do_sort_procs("init_func",Procs,_) ->
     {lists:keysort(#proc.init_func,Procs),"init_func"};
-do_sort_procs("name_func",Procs,"name_func") ->
+do_sort_procs("name_func",Procs,#state{sorted="name_func"}) ->
     {lists:reverse(lists:keysort(#proc.name,Procs)),"rname_func"};
 do_sort_procs("name_func",Procs,_) ->
     {lists:keysort(#proc.name,Procs),"name_func"};
-do_sort_procs("name",Procs,Sorted) ->
+do_sort_procs("name",Procs,#state{sorted=Sorted}) ->
     {No,Yes} = 
 	lists:foldl(fun(P,{N,Y}) ->
 			    case P#proc.name of
@@ -2349,7 +2365,7 @@ allocator_info(File) ->
 			  end, 
 			  AllAllocators),
 	    close(Fd),
-	    R
+	    [allocator_summary(R) | R]
     end.
 
 get_allocatorinfo(Fd,Start) ->
@@ -2373,6 +2389,213 @@ get_all_vals([],Acc) ->
     [lists:reverse(Acc)];
 get_all_vals([Char|Rest],Acc) ->
     get_all_vals(Rest,[Char|Acc]).
+
+%% Calculate allocator summary:
+%%
+%% System totals:
+%%   blocks size   = sum of mbcs, mbcs_pool and sbcs blocks size over
+%%                   all allocator instances of all types
+%%   carriers size = sum of mbcs, mbcs_pool and sbcs carriers size over
+%%                   all allocator instances of all types
+%%
+%% I any allocator except sbmbc_alloc has "option e: false" then don't
+%% present system totals.
+%%
+%% For each allocator type:
+%%   blocks size        = sum of sbmbcs, mbcs, mbcs_pool and sbcs blocks
+%%                        size over all allocator instances of this type
+%%   carriers size      = sum of sbmbcs, mbcs, mbcs_pool and sbcs carriers
+%%                        size over all allocator instances of this type
+%%   mseg carriers size = sum of mbcs and sbcs mseg carriers size over all
+%%                        allocator instances of this type
+%%
+
+-define(sbmbcs_blocks_size,"sbmbcs blocks size").
+-define(mbcs_blocks_size,"mbcs blocks size").
+-define(sbcs_blocks_size,"sbcs blocks size").
+-define(sbmbcs_carriers_size,"sbmbcs carriers size").
+-define(mbcs_carriers_size,"mbcs carriers size").
+-define(sbcs_carriers_size,"sbcs carriers size").
+-define(mbcs_mseg_carriers_size,"mbcs mseg carriers size").
+-define(sbcs_mseg_carriers_size,"sbcs mseg carriers size").
+-define(segments_size,"segments_size").
+-define(mbcs_pool_blocks_size,"mbcs_pool blocks size").
+-define(mbcs_pool_carriers_size,"mbcs_pool carriers size").
+
+-define(type_blocks_size,[?sbmbcs_blocks_size,
+			  ?mbcs_blocks_size,
+			  ?mbcs_pool_blocks_size,
+			  ?sbcs_blocks_size]).
+-define(type_carriers_size,[?sbmbcs_carriers_size,
+			    ?mbcs_carriers_size,
+			    ?mbcs_pool_carriers_size,
+			    ?sbcs_carriers_size]).
+-define(type_mseg_carriers_size,[?mbcs_mseg_carriers_size,
+				 ?sbcs_mseg_carriers_size]).
+-define(total_blocks_size,[?mbcs_blocks_size,
+			   ?mbcs_pool_blocks_size,
+			   ?sbcs_blocks_size]).
+-define(total_carriers_size,[?mbcs_carriers_size,
+			     ?mbcs_pool_carriers_size,
+			     ?sbcs_carriers_size]).
+-define(total_mseg_carriers_size,[?mbcs_mseg_carriers_size,
+				  ?sbcs_mseg_carriers_size]).
+-define(interesting_allocator_info, [?sbmbcs_blocks_size,
+				     ?mbcs_blocks_size,
+				     ?mbcs_pool_blocks_size,
+				     ?sbcs_blocks_size,
+				     ?sbmbcs_carriers_size,
+				     ?mbcs_carriers_size,
+				     ?sbcs_carriers_size,
+				     ?mbcs_mseg_carriers_size,
+				     ?mbcs_pool_carriers_size,
+				     ?sbcs_mseg_carriers_size,
+				     ?segments_size]).
+-define(mseg_alloc,"mseg_alloc").
+-define(seg_size,"segments_size").
+-define(sbmbc_alloc,"sbmbc_alloc").
+-define(opt_e_false,{"option e","false"}).
+
+allocator_summary(Allocators) ->
+    {Sorted,DoTotal} = sort_allocator_types(Allocators,[],true),
+    {TypeTotals0,Totals} = sum_allocator_data(Sorted,DoTotal),
+    {TotalMCS,TypeTotals} =
+	case lists:keytake(?mseg_alloc,1,TypeTotals0) of
+	    {value,{_,[{?seg_size,SegSize}]},Rest} ->
+		{integer_to_list(SegSize),Rest};
+	    false ->
+		{?not_available,TypeTotals0}
+	end,
+    {TotalBS,TotalCS} =
+	case Totals of
+	    false ->
+		{?not_available,?not_available};
+	    {TBS,TCS} ->
+		{integer_to_list(TBS),integer_to_list(TCS)}
+	end,
+    {{"Summary",["blocks size","carriers size","mseg carriers size"]},
+     [{"total",[TotalBS,TotalCS,TotalMCS]} |
+      format_allocator_summary(lists:reverse(TypeTotals))]}.
+
+format_allocator_summary([{Type,Data}|Rest]) ->
+    [format_allocator_summary(Type,Data) | format_allocator_summary(Rest)];
+format_allocator_summary([]) ->
+    [].
+
+format_allocator_summary(Type,Data) ->
+    BS = get_size_value(blocks_size,Data),
+    CS = get_size_value(carriers_size,Data),
+    MCS = get_size_value(mseg_carriers_size,Data),
+    {Type,[BS,CS,MCS]}.
+
+get_size_value(Key,Data) ->
+    case proplists:get_value(Key,Data) of
+	undefined ->
+	    ?not_available;
+	Int ->
+	    integer_to_list(Int)
+    end.
+
+%% Sort allocator data per type
+%%  Input  = [{Instance,[{Key,Data}]}]
+%%  Output = [{Type,[{Key,Value}]}]
+%% where Key in Output is one of ?interesting_allocator_info
+%% and Value is the sum over all allocator instances of each type.
+sort_allocator_types([{Name,Data}|Allocators],Acc,DoTotal) ->
+    Type =
+	case string:tokens(Name,"[]") of
+	    [T,_Id] -> T;
+	    [Name] -> Name
+	end,
+    TypeData = proplists:get_value(Type,Acc,[]),
+    {NewTypeData,NewDoTotal} = sort_type_data(Type,Data,TypeData,DoTotal),
+    NewAcc = lists:keystore(Type,1,Acc,{Type,NewTypeData}),
+    sort_allocator_types(Allocators,NewAcc,NewDoTotal);
+sort_allocator_types([],Acc,DoTotal) ->
+    {Acc,DoTotal}.
+
+sort_type_data(Type,[?opt_e_false|Data],Acc,_) when Type=/=?sbmbc_alloc->
+    sort_type_data(Type,Data,Acc,false);
+sort_type_data(Type,[{Key,Val0}|Data],Acc,DoTotal) ->
+    case lists:member(Key,?interesting_allocator_info) of
+	true ->
+	    Val = list_to_integer(hd(Val0)),
+	    sort_type_data(Type,Data,update_value(Key,Val,Acc),DoTotal);
+	false ->
+	    sort_type_data(Type,Data,Acc,DoTotal)
+    end;
+sort_type_data(_Type,[],Acc,DoTotal) ->
+    {Acc,DoTotal}.
+
+%% Sum up allocator data in total blocks- and carriers size for all
+%% allocators and per type of allocator.
+%% Input  = Output from sort_allocator_types/3
+%% Output = {[{"mseg_alloc",[{"segments_size",Value}]},
+%%            {Type,[{blocks_size,Value},
+%%                   {carriers_size,Value},
+%%                   {mseg_carriers_size,Value}]},
+%%            ...],
+%%           {TotalBlocksSize,TotalCarriersSize}}
+sum_allocator_data(AllocData,false) ->
+    sum_allocator_data(AllocData,[],false);
+sum_allocator_data(AllocData,true) ->
+    sum_allocator_data(AllocData,[],{0,0}).
+
+sum_allocator_data([{_Type,[]}|AllocData],TypeAcc,Total) ->
+    sum_allocator_data(AllocData,TypeAcc,Total);
+sum_allocator_data([{Type,Data}|AllocData],TypeAcc,Total) ->
+    {TypeSum,NewTotal} = sum_type_data(Data,[],Total),
+    sum_allocator_data(AllocData,[{Type,TypeSum}|TypeAcc],NewTotal);
+sum_allocator_data([],TypeAcc,Total) ->
+    {TypeAcc,Total}.
+
+sum_type_data([{Key,Value}|Data],TypeAcc,Total) ->
+    NewTotal =
+	case Total of
+	    false ->
+		false;
+	    {TotalBS,TotalCS} ->
+		case lists:member(Key,?total_blocks_size) of
+		    true ->
+			{TotalBS+Value,TotalCS};
+		    false ->
+			case lists:member(Key,?total_carriers_size) of
+			    true ->
+				{TotalBS,TotalCS+Value};
+			    false ->
+				{TotalBS,TotalCS}
+			end
+		end
+	end,
+    NewTypeAcc =
+	case lists:member(Key,?type_blocks_size) of
+	    true ->
+		update_value(blocks_size,Value,TypeAcc);
+	    false ->
+		case lists:member(Key,?type_carriers_size) of
+		    true ->
+			update_value(carriers_size,Value,TypeAcc);
+		    false ->
+			case lists:member(Key,?type_mseg_carriers_size) of
+			    true ->
+				update_value(mseg_carriers_size,Value,TypeAcc);
+			    false ->
+				%% "segments_size" for "mseg_alloc"
+				update_value(Key,Value,TypeAcc)
+			end
+		end
+	end,
+    sum_type_data(Data,NewTypeAcc,NewTotal);
+sum_type_data([],TypeAcc,Total) ->
+    {TypeAcc,Total}.
+
+update_value(Key,Value,Acc) ->
+    case lists:keytake(Key,1,Acc) of
+	false ->
+	    [{Key,Value}|Acc];
+	{value,{Key,Old},Acc1} ->
+	    [{Key,Old+Value}|Acc1]
+    end.
 
 %%-----------------------------------------------------------------
 %% Page with hash table information

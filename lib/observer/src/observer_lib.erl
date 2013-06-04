@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -122,7 +122,10 @@ fill_info([{Str, Key}|Rest], Data) when is_atom(Key); is_function(Key) ->
     [{Str, get_value(Key, Data)} | fill_info(Rest, Data)];
 fill_info([{Str, {Format, Key}}|Rest], Data)
   when is_atom(Key); is_function(Key), is_atom(Format) ->
-    [{Str, {Format, get_value(Key,Data)}} | fill_info(Rest, Data)];
+    case get_value(Key, Data) of
+	undefined -> [{Str, undefined} | fill_info(Rest, Data)];
+	Value -> [{Str, {Format, Value}} | fill_info(Rest, Data)]
+    end;
 fill_info([{Str,SubStructure}|Rest], Data) when is_list(SubStructure) ->
     [{Str, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
 fill_info([{Str,Attrib,SubStructure}|Rest], Data) ->

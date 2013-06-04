@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,7 +18,7 @@
 %%
 -define(space, "&nbsp;").
 -define(unknown, "unknown").
-
+-define(r16b01_dump_vsn, [0,2]). % =erl_crash_dump:0.2
 
 -record(menu_item,{index,picture,text,depth,children,state,target}).
 
@@ -83,6 +83,7 @@
 	 old_heap_start=?space,
 	 old_heap_top=?space,
 	 old_heap_end=?space,
+	 memory,
 	 stack_dump=?space}).
 
 -record(port,

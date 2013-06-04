@@ -49,6 +49,10 @@ vsn() ->
 %% observer backend
 %%
 sys_info() ->
+    MemInfo = try erlang:memory() of
+		  Mem -> Mem
+	      catch _:_ -> []
+	      end,
     {{_,Input},{_,Output}} = erlang:statistics(io),
     [{process_count, erlang:system_info(process_count)},
      {process_limit, erlang:system_info(process_limit)},
@@ -68,9 +72,16 @@ sys_info() ->
      {threads, erlang:system_info(threads)},
      {thread_pool_size, erlang:system_info(thread_pool_size)},
      {wordsize_internal, erlang:system_info({wordsize, internal})},
-     {wordsize_external, erlang:system_info({wordsize, external})} |
-     erlang:memory()
-    ].
+     {wordsize_external, erlang:system_info({wordsize, external})},
+     {alloc_info, alloc_info()}
+     | MemInfo].
+
+alloc_info() ->
+    {_,_,AllocTypes,_} = erlang:system_info(allocator),
+    try erlang:system_info({allocator_sizes,AllocTypes}) of
+	Allocators -> Allocators
+    catch _:_ -> []
+    end.
 
 get_table(Parent, Table, Module) ->
     spawn(fun() ->
@@ -274,7 +285,7 @@ etop_collect([P|Ps], Acc) ->
 	[{registered_name,Reg},{initial_call,Initial},{memory,Mem},
 	 {reductions,Reds},{current_function,Current},{message_queue_len,Qlen}] ->
 	    Name = case Reg of
-		       [] -> Initial;
+		       [] -> initial_call(Initial, P);
 		       _ -> Reg
 		   end,
 	    Info = #etop_proc_info{pid=P,mem=Mem,reds=Reds,name=Name,
@@ -282,6 +293,11 @@ etop_collect([P|Ps], Acc) ->
 	    etop_collect(Ps, [Info|Acc])
     end;
 etop_collect([], Acc) -> Acc.
+
+initial_call({proc_lib, init_p, _}, Pid) ->
+    proc_lib:translate_initial_call(Pid);
+initial_call(Initial, _Pid) ->
+    Initial.
 
 %%
 %% ttb backend
