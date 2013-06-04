@@ -249,7 +249,7 @@
       <name>hash(Type, Data) -> Digest</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = md4 | message_digest_algorithms()</v>
+	<v>Type = md4 | hash_algorithms()</v>
 	<v>Data = iodata()</v>
 	<v>Digest = binary()</v>
       </type>
@@ -264,7 +264,7 @@
       <name>hash_init(Type) -> Context</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = md4 | message_digest_algorithms()</v>
+	<v>Type = md4 | hash_algorithms()</v>
       </type>
       <desc>
         <p>Initializes the context for streaming hash operations. <c>Type</c> determines
@@ -308,7 +308,7 @@
       <name>hmac(Type, Key, Data, MacLength) -> Mac</name>
       <fsummary></fsummary>
       <type>
-	<v>Type = message_digest_algorithms() </v>
+	<v>Type = hash_algorithms() - except ripemd160</v>
         <v>Key = iodata()</v>
 	<v>Data = iodata()</v>
         <v>MacLength = integer()</v>
@@ -325,7 +325,7 @@
       <name>hmac_init(Type, Key) -> Context</name>
       <fsummary></fsummary>
       <type>
-        <v>Type = message_digest_algorithms()</v>
+	<v>Type = hash_algorithms() - except ripemd160</v>
         <v>Key = iodata()</v>
         <v>Context = binary()</v>
       </type>
@@ -475,7 +475,7 @@
 	  used mode.
 	  The size of the <c>Msg</c> must be less than <c>byte_size(N)-11</c> if
 	  <c>rsa_pkcs1_padding</c> is used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
-	  is used.
+	  is used, where N is public modulus of the RSA key.
 	  See also <seealso marker="public_key:public_key#encrypt_private/2">public_key:encrypt_private/[2,3]</seealso>
 	</p>
       </desc>
@@ -513,18 +513,20 @@
         <v>ChipherText = binary()</v>
       </type>
       <desc>
-	<p>Encrypts the <c>PlainText</c> (usually a session key) using the <c>PublicKey</c>
-	  and returns the <c>CipherText</c>. The <c>Padding</c> decides what padding mode is used,
-	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
-	  used mode and <c>rsa_pkcs1_oaep_padding</c> is EME-OAEP as
-	  defined in PKCS #1 v2.0 with SHA-1, MGF1 and an empty encoding
-	  parameter. This mode is recommended for all new applications.
-	  The size of the <c>Msg</c> must be less
-	  than <c>byte_size(N)-11</c> if
-	  <c>rsa_pkcs1_padding</c> is used, <c>byte_size(N)-41</c> if
-	  <c>rsa_pkcs1_oaep_padding</c> is used and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
-	  is used.
-	  See also <seealso marker="public_key:public_key#encrypt_public/2">public_key:encrypt_public/[2,3]</seealso>
+	<p>Encrypts the <c>PlainText</c> (usually a session key) using
+	the <c>PublicKey</c> and returns the <c>CipherText</c>. The
+	<c>Padding</c> decides what padding mode is used,
+	<c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
+	used mode and <c>rsa_pkcs1_oaep_padding</c> is EME-OAEP as
+	defined in PKCS #1 v2.0 with SHA-1, MGF1 and an empty encoding
+	parameter. This mode is recommended for all new
+	applications. The size of the <c>Msg</c> must be less than
+	<c>byte_size(N)-11</c> if <c>rsa_pkcs1_padding</c> is
+	used, <c>byte_size(N)-41</c> if
+	<c>rsa_pkcs1_oaep_padding</c> is used and
+	<c>byte_size(N)</c> if <c>rsa_no_padding</c> is used, where N is public modulus of the RSA key.
+	See also <seealso
+	marker="public_key:public_key#encrypt_public/2">public_key:encrypt_public/[2,3]</seealso>
 	</p>
       </desc>
     </func>
