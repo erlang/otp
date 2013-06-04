@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -224,26 +224,101 @@ init([AgentType, Opts]) ->
     ets:insert(snmp_agent_table, {error_report_mod, ErrorReportMod}),
 
     %% -- mib storage --
+    %% MibStorage has only one mandatory part: module
+    %% Everything else is module dependent and therefor 
+    %% put in a special option: options
     MibStorage = 
-	case get_opt(mib_storage, Opts, ets) of
-	    dets ->
-		{dets, DbDir};
-	    {dets, default} ->
-		{dets, DbDir};
-	    {dets, default, Act} ->
-		{dets, DbDir, Act};
+	case get_opt(mib_storage, Opts, [{module, snmpa_mib_storage_ets}]) of
+
+	    %% --- ETS wrappers ---
+
+	    ets ->
+		[{module, snmpa_mib_storage_ets}];
 	    {ets, default} ->
-		{ets, DbDir};
+		[{module,  snmpa_mib_storage_ets}, 
+		 {options, [{dir,    filename:join([DbDir])}, 
+			    {action, keep}]}];
+	    {ets, Dir} when is_list(Dir) ->
+		[{module,  snmpa_mib_storage_ets}, 
+		 {options, [{dir,    filename:join([Dir])}, 
+			    {action, keep}]}];
+	    {ets, default, Action} when ((Action =:= keep) orelse 
+					 (Action =:= clear)) ->
+		[{module,  snmpa_mib_storage_ets}, 
+		 {options, [{dir,    filename:join([DbDir])}, 
+			    {action, Action}]}];
+	    {ets, Dir, Action} when is_list(Dir) andalso 
+				    ((Action =:= keep) orelse 
+				     (Action =:= clear)) ->
+		[{module,  snmpa_mib_storage_ets}, 
+		 {options, [{dir,    filename:join([Dir])}, 
+			    {action, Action}]}];
+
+	    %% --- DETS wrappers ---
+
+	    dets ->
+		[{module,  snmpa_mib_storage_dets}, 
+		 {options, [{dir,    filename:join([DbDir])}, 
+			    {action, keep}]}];
+	    {dets, default} ->
+		[{module,  snmpa_mib_storage_dets}, 
+		 {options, [{dir,    filename:join([DbDir])}, 
+			    {action, keep}]}];
+	    {dets, default, Action} when ((Action =:= keep) orelse 
+					  (Action =:= clear)) ->
+		[{module,  snmpa_mib_storage_dets}, 
+		 {options, [{dir,    filename:join([DbDir])}, 
+			    {action, Action}]}];
+	    {dets, Dir, Action} when is_list(Dir) andalso 
+				     ((Action =:= keep) orelse 
+				      (Action =:= clear)) ->
+		[{module,  snmpa_mib_storage_dets}, 
+		 {options, [{dir,    filename:join([Dir])}, 
+			    {action, Action}]}];
+
+	    %% --- Mnesia wrappers ---
+
 	    mnesia ->
-		{mnesia, erlang:nodes()};
-	    {mnesia, visible} ->
-		{mnesia, erlang:nodes(visible)};
-	    {mnesia, connected} ->
-		{mnesia, erlang:nodes(connected)};
-	    Other ->
+		[{module,  snmpa_mib_storage_mnesia}, 
+		 {options, [{nodes,  erlang:nodes()}, 
+			    {action, keep}]}];
+	    {mnesia, Nodes0} ->
+		Nodes = 
+		    if
+			Nodes0 =:= visible ->
+			    erlang:nodes(visible);
+			Nodes0 =:= connected ->
+			    erlang:nodes(connected);
+			Nodes0 =:= [] ->
+			    [node()];
+			true ->
+			    Nodes0
+		    end,
+		[{module, snmpa_mib_storage_mnesia}, 
+		 {options, [{nodes,  Nodes}, 
+			    {action, keep}]}];
+	    {mnesia, Nodes0, Action} when ((Action =:= keep) orelse 
+					   (Action =:= clear)) ->
+		Nodes = 
+		    if
+			Nodes0 =:= visible ->
+			    erlang:nodes(visible);
+			Nodes0 =:= connected ->
+			    erlang:nodes(connected);
+			Nodes0 =:= [] ->
+			    [node()];
+			true ->
+			    Nodes0
+		    end,
+		[{module,  snmpa_mib_storage_mnesia}, 
+		 {options, [{nodes,  Nodes}, 
+			    {action, Action}]}];
+
+	    Other when is_list(Other) ->
 		Other
 	end,
-    ?vdebug("[agent table] store mib storage: ~w",[MibStorage]),
+
+    ?vdebug("[agent table] store mib storage: ~w", [MibStorage]),
     ets:insert(snmp_agent_table, {mib_storage, MibStorage}),
 
     %% -- Agent mib storage --
@@ -388,7 +463,7 @@ init([AgentType, Opts]) ->
 		     
 		AgentSpec =
 		    worker_spec(snmpa_agent, 
-				[Prio,snmp_master_agent,none,Ref,AgentOpts],
+				[Prio, snmp_master_agent, none, Ref, AgentOpts],
 				Restart, 15000),
 		AgentSupSpec = 
 		    sup_spec(snmpa_agent_sup, [AgentSpec], 

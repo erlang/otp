@@ -39,17 +39,18 @@ compile_all(Files, Config, Options) ->
 
 compile_file(File, Options) ->
     try
-        ok = asn1ct:compile(File, Options),
+        ok = asn1ct:compile(File, [warnings_as_errors|Options]),
         case should_load(File, Options) of
             false ->
                 ok;
             {module, Module} ->
                 code:purge(Module),
-                true = code:soft_purge(Module),
-                {module, Module} = code:load_file(Module)
+                {module, Module} = code:load_file(Module),
+		code:purge(Module)
         end
     catch
         Class:Reason ->
+	    ct:print("Failed to compile ~s\n", [File]),
             erlang:error({compile_failed, {File, Options}, {Class, Reason}})
     end.
 
@@ -58,7 +59,7 @@ compile_erlang(Mod, Config, Options) ->
     CaseDir = ?config(case_dir, Config),
     M = list_to_atom(Mod),
     {ok, M} = compile:file(filename:join(DataDir, Mod),
-                           [{i, CaseDir}, {outdir, CaseDir}|Options]).
+                           [report,{i,CaseDir},{outdir,CaseDir}|Options]).
 
 should_load(File, Options) ->
     case lists:member(abs, Options) of

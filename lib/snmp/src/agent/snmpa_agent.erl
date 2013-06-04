@@ -159,12 +159,15 @@
 %% it is sent to the worker, and the worker is marked as busy.
 %% If a request is received when the worker is busy, a new temporary
 %% worker is spawned.
+%% 
 %% Code change
 %% ===========
 %% Note that the worker(s) execute the same module as the master
 %% agent. For code change we have two options - ignore the workers,
 %% or send them a code change message.
+%% 
 %%-----------------------------------------------------------------
+
 -record(state, {type, 
 		parent, 
 		worker, 
@@ -219,22 +222,19 @@
 %%-----------------------------------------------------------------
 start_link(Prio, Parent, Ref, Options) ->
     ?d("start_link -> entry with"
-	"~n   Prio:    ~p"
-	"~n   Parent:  ~p"
-	"~n   Ref:     ~p"
-	"~n   Options: ~p", [Prio, Parent, Ref, Options]),
-    %% gen_server:start_link(?MODULE, [Prio, Parent, Ref, Options], []).
+       "~n   Prio:    ~p"
+       "~n   Parent:  ~p"
+       "~n   Ref:     ~p"
+       "~n   Options: ~p", [Prio, Parent, Ref, Options]),
     ?GS_START_LINK3(Prio, Parent, Ref, Options).
 
 start_link(Prio, Name, Parent, Ref, Options) ->
     ?d("start_link -> entry with"
-	"~n   Prio:    ~p"
-	"~n   Name:    ~p"
-	"~n   Parent:  ~p"
-	"~n   Ref:     ~p"
-	"~n   Options: ~p", [Prio, Name, Parent, Ref, Options]),
-%     gen_server:start_link({local, Name}, ?MODULE, 
-% 			  [Prio, Parent, Ref, Options], []).
+       "~n   Prio:    ~p"
+       "~n   Name:    ~p"
+       "~n   Parent:  ~p"
+       "~n   Ref:     ~p"
+       "~n   Options: ~p", [Prio, Name, Parent, Ref, Options]),
     ?GS_START_LINK4(Prio, Name, Parent, Ref, Options).
 
 stop(Agent) -> call(Agent, stop).
@@ -335,10 +335,10 @@ increment_counter(Counter, Initial, Max) ->
 
 init([Prio, Parent, Ref, Options]) ->
     ?d("init -> entry with"
-	"~n   Prio:    ~p"
-	"~n   Parent:  ~p"
-	"~n   Ref:     ~p"
-	"~n   Options: ~p", [Prio, Parent, Ref, Options]),
+       "~n   Prio:    ~p"
+       "~n   Parent:  ~p"
+       "~n   Ref:     ~p"
+       "~n   Options: ~p", [Prio, Parent, Ref, Options]),
     case (catch do_init(Prio, Parent, Ref, Options)) of
 	{ok, State} ->
 	    ?vdebug("started",[]),
@@ -1457,80 +1457,80 @@ handle_mibs_cache_request(MibServer, Req) ->
 
 %% Downgrade
 %%
-code_change({down, _Vsn}, S1, downgrade_to_pre_4_17_3) ->
-    #state{type               = Type, 
-	   parent             = Parent, 
-	   worker             = Worker, 
-	   worker_state       = WorkerState,
-	   set_worker         = SetWorker, 
-	   multi_threaded     = MT, 
-	   ref                = Ref, 
-	   vsns               = Vsns,
-	   nfilters           = NF,
-	   note_store         = NoteStore,
-	   mib_server         = MS, 
-	   net_if             = NetIf, 
-	   net_if_mod         = NetIfMod, 
-	   backup             = Backup,
-	   disco              = Disco,
-	   mibs_cache_request = MCR} = S1, 
-    S2 = {state, 
-	  type               = Type, 
-	  parent             = Parent, 
-	  worker             = Worker, 
-	  worker_state       = WorkerState,
-	  set_worker         = SetWorker, 
-	  multi_threaded     = MT, 
-	  ref                = Ref, 
-	  vsns               = Vsns,
-	  nfilters           = NF,
-	  note_store         = NoteStore,
-	  mib_server         = MS, 
-	  net_if             = NetIf, 
-	  net_if_mod         = NetIfMod, 
-	  backup             = Backup,
-	  disco              = Disco,
-	  mibs_cache_request = MCR}, 
-    {ok, S2};
+%% code_change({down, _Vsn}, S1, downgrade_to_pre_4_17_3) ->
+%%     #state{type               = Type, 
+%% 	   parent             = Parent, 
+%% 	   worker             = Worker, 
+%% 	   worker_state       = WorkerState,
+%% 	   set_worker         = SetWorker, 
+%% 	   multi_threaded     = MT, 
+%% 	   ref                = Ref, 
+%% 	   vsns               = Vsns,
+%% 	   nfilters           = NF,
+%% 	   note_store         = NoteStore,
+%% 	   mib_server         = MS, 
+%% 	   net_if             = NetIf, 
+%% 	   net_if_mod         = NetIfMod, 
+%% 	   backup             = Backup,
+%% 	   disco              = Disco,
+%% 	   mibs_cache_request = MCR} = S1, 
+%%     S2 = {state, 
+%% 	  type               = Type, 
+%% 	  parent             = Parent, 
+%% 	  worker             = Worker, 
+%% 	  worker_state       = WorkerState,
+%% 	  set_worker         = SetWorker, 
+%% 	  multi_threaded     = MT, 
+%% 	  ref                = Ref, 
+%% 	  vsns               = Vsns,
+%% 	  nfilters           = NF,
+%% 	  note_store         = NoteStore,
+%% 	  mib_server         = MS, 
+%% 	  net_if             = NetIf, 
+%% 	  net_if_mod         = NetIfMod, 
+%% 	  backup             = Backup,
+%% 	  disco              = Disco,
+%% 	  mibs_cache_request = MCR}, 
+%%     {ok, S2};
 
-%% Upgrade
-%%
-code_change(_Vsn, S1, upgrade_from_pre_4_17_3) ->
-    {state, 
-     type               = Type, 
-     parent             = Parent, 
-     worker             = Worker, 
-     worker_state       = WorkerState,
-     set_worker         = SetWorker, 
-     multi_threaded     = MT, 
-     ref                = Ref, 
-     vsns               = Vsns,
-     nfilters           = NF,
-     note_store         = NoteStore,
-     mib_server         = MS, 
-     net_if             = NetIf, 
-     net_if_mod         = NetIfMod, 
-     backup             = Backup,
-     disco              = Disco,
-     mibs_cache_request = MCR} = S1,
-    S2 = #state{type               = Type, 
-		parent             = Parent, 
-		worker             = Worker, 
-		worker_state       = WorkerState,
-		set_worker         = SetWorker, 
-		multi_threaded     = MT, 
-		ref                = Ref, 
-		vsns               = Vsns,
-		nfilters           = NF,
-		note_store         = NoteStore,
-		mib_server         = MS, 
-		net_if             = NetIf, 
-		net_if_mod         = NetIfMod, 
-		backup             = Backup,
-		disco              = Disco,
-		mibs_cache_request = MCR,
-		gb_max_vbs         = ?DEFAULT_GB_MAX_VBS}, 
-    {ok, S2};
+%% %% Upgrade
+%% %%
+%% code_change(_Vsn, S1, upgrade_from_pre_4_17_3) ->
+%%     {state, 
+%%      type               = Type, 
+%%      parent             = Parent, 
+%%      worker             = Worker, 
+%%      worker_state       = WorkerState,
+%%      set_worker         = SetWorker, 
+%%      multi_threaded     = MT, 
+%%      ref                = Ref, 
+%%      vsns               = Vsns,
+%%      nfilters           = NF,
+%%      note_store         = NoteStore,
+%%      mib_server         = MS, 
+%%      net_if             = NetIf, 
+%%      net_if_mod         = NetIfMod, 
+%%      backup             = Backup,
+%%      disco              = Disco,
+%%      mibs_cache_request = MCR} = S1,
+%%     S2 = #state{type               = Type, 
+%% 		parent             = Parent, 
+%% 		worker             = Worker, 
+%% 		worker_state       = WorkerState,
+%% 		set_worker         = SetWorker, 
+%% 		multi_threaded     = MT, 
+%% 		ref                = Ref, 
+%% 		vsns               = Vsns,
+%% 		nfilters           = NF,
+%% 		note_store         = NoteStore,
+%% 		mib_server         = MS, 
+%% 		net_if             = NetIf, 
+%% 		net_if_mod         = NetIfMod, 
+%% 		backup             = Backup,
+%% 		disco              = Disco,
+%% 		mibs_cache_request = MCR,
+%% 		gb_max_vbs         = ?DEFAULT_GB_MAX_VBS}, 
+%%     {ok, S2};
 
 code_change(_Vsn, S, _Extra) ->
     {ok, S}.
@@ -4411,7 +4411,7 @@ get_mibs(Opts) ->
     get_option(mibs, Opts, []).
 
 get_mib_storage(Opts) ->
-    get_option(mib_storage, Opts, ets).
+    get_option(mib_storage, Opts).
 
 get_set_mechanism(Opts) ->
     get_option(set_mechanism, Opts, snmpa_set).
@@ -4449,6 +4449,9 @@ net_if_verbosity(Pid,Verbosity) when is_pid(Pid) ->
 net_if_verbosity(_Pid,_Verbosity) ->
     ok.
 
+
+get_option(Key, Opts) ->
+    snmp_misc:get_option(Key, Opts).
 
 get_option(Key, Opts, Default) ->
     snmp_misc:get_option(Key, Opts, Default).

@@ -122,13 +122,61 @@ int_constraints(Rules) ->
     range_error(Rules, 'X1', 21),
 
     %%==========================================================
+    %%  SemiConstrained
+    %%==========================================================
+
+    roundtrip('SemiConstrained', 100),
+    roundtrip('SemiConstrained', 397249742397243),
+    roundtrip('NegSemiConstrained', -128),
+    roundtrip('NegSemiConstrained', -1),
+    roundtrip('NegSemiConstrained', 500),
+
+    roundtrip('SemiConstrainedExt', -65536),
+    roundtrip('SemiConstrainedExt', 0),
+    roundtrip('SemiConstrainedExt', 42),
+    roundtrip('SemiConstrainedExt', 100),
+    roundtrip('SemiConstrainedExt', 47777789),
+    roundtrip('NegSemiConstrainedExt', -1023),
+    roundtrip('NegSemiConstrainedExt', -128),
+    roundtrip('NegSemiConstrainedExt', -1),
+    roundtrip('NegSemiConstrainedExt', 500),
+
+    %%==========================================================
     %%  SIZE Constraint (Duboisson p. 268)
     %%  T ::=  IA5String (SIZE (1|2, ..., SIZE (1|2|3)))
     %%  T2 ::= IA5String (SIZE (1|2, ..., 3))
     %%==========================================================
 
     roundtrip('T', "IA"),
-    roundtrip('T2', "IA").
+    roundtrip('T', "IAB"),
+    roundtrip('T', "IABC"),
+    roundtrip('T2', "IA"),
+    roundtrip('T2', "IAB"),
+    roundtrip('T2', "IABC"),
+
+    %%==========================================================
+    %%  More SIZE Constraints
+    %%==========================================================
+
+    roundtrip('FixedSize', "0123456789"),
+    roundtrip('FixedSize2', "0123456789"),
+    roundtrip('FixedSize2', "0123456789abcdefghij"),
+
+    range_error(Rules, 'FixedSize', "short"),
+    range_error(Rules, 'FixedSize2', "short"),
+
+    [roundtrip('VariableSize', lists:seq($A, $A+L-1)) ||
+	L <- lists:seq(1, 10)],
+
+    roundtrip_enc('ShorterExt', "a", shorter_ext(Rules, "a")),
+    roundtrip('ShorterExt', "abcde"),
+    roundtrip('ShorterExt', "abcdef"),
+
+    ok.
+
+shorter_ext(per, "a") -> <<16#80,16#01,16#61>>;
+shorter_ext(uper, "a") -> <<16#80,16#E1>>;
+shorter_ext(ber, _) -> none.
 
 refed_NNL_name(_Erule) ->
     ?line {ok,_} = asn1_wrapper:encode('Constraints','AnotherThing',fred),
@@ -143,11 +191,20 @@ roundtrip(Module, Type, Value) ->
     {ok,Value} = Module:decode(Type, Encoded),
     ok.
 
+roundtrip_enc(Type, Value, Enc) ->
+    Module = 'Constraints',
+    {ok,Encoded} = Module:encode(Type, Value),
+    {ok,Value} = Module:decode(Type, Encoded),
+    case Enc of
+	none -> ok;
+	Encoded -> ok
+    end.
+
 range_error(ber, Type, Value) ->
     %% BER: Values outside the effective range should be rejected
     %% on decode.
     {ok,Encoded} = 'Constraints':encode(Type, Value),
-    {error,{asn1,{integer_range,_,_}}} = 'Constraints':decode(Type, Encoded),
+    {error,{asn1,_}} = 'Constraints':decode(Type, Encoded),
     ok;
 range_error(Per, Type, Value) when Per =:= per; Per =:= uper ->
     %% (U)PER: Values outside the effective range should be rejected

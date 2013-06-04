@@ -250,10 +250,12 @@ obsolete_1(snmp, N, A) ->
 	false ->
 	    no;
 	true ->
-	    {deprecated,"Deprecated; use snmpa:"++atom_to_list(N)++"/"++
+	    {deprecated, "Deprecated (will be removed in R17B); use snmpa:"++atom_to_list(N)++"/"++
 	     integer_to_list(A)++" instead"}
     end;
 
+obsolete_1(snmpa, old_info_format, 1) ->
+    {deprecated, "Deprecated; (will be removed in R17B); use \"new\" format instead"};
 obsolete_1(snmpm, agent_info, 3) ->
     {removed, {snmpm, agent_info, 2}, "R16B"};
 obsolete_1(snmpm, update_agent_info, 5) ->

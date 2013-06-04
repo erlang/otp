@@ -311,36 +311,125 @@
         <p>Default is <c>[]</c>.</p>
       </item>
 
-      <marker id="agent_mib_storage"></marker>
-      <tag><c><![CDATA[mib_storage() = ets | {ets, Dir} | {ets, Dir, Action} | dets | {dets, Dir} | {dets, Dir, Action} | mnesia | {mnesia, Nodes} | {mnesia, Nodes, Action} <optional>]]></c></tag>
+     <marker id="agent_mib_storage"></marker>
+      <tag><c><![CDATA[mib_storage() = [mib_storage_opt()] <optional>]]></c></tag>
       <item>
-        <p>Specifies how info retrieved from the mibs will be stored.</p>
-        <p>If <c>mib_storage</c> is <c>{ets, Dir}</c>, the table will also be 
-          stored on file. If <c>Dir</c> is <c>default</c>, then <c>db_dir</c> 
-          will be used.</p>
-        <p>If <c>mib_storage</c> is <c>dets</c> or if <c>Dir</c> is 
-          <c>default</c>, then <c>db_dir</c> will be used for <c>Dir</c>.</p>
-        <p>If <c>mib_storage</c> is <c>mnesia</c> then <c>erlang:nodes()</c>
-          will be used for <c>Nodes</c>.</p>
-        <p>Default is <c>ets</c>. </p>
-        <p><c>Dir = default | string()</c>. Dir is the directory where the 
-          files will be stored. If <c>default</c>, then <c>db_dir</c> will be 
-          used.</p>
-        <p><c>Nodes = visible | connected | [node()]</c>. 
-          <c>Nodes = visible</c> is translated to 
-          <c>erlang:nodes(visible)</c>. 
-          <c>Nodes = connected</c> is translated to 
-          <c>erlang:nodes(connected)</c>. 
-          If <c>Nodes = []</c> then the own node is assumed.</p>
-        <p><c>Action = clear | keep</c>. Default is <c>keep</c>.
-          <c>Action</c> is used to specify what shall be done if the 
-          mnesia/dets table already exist.</p>
+        <p><c>mib_storage_opt() = {module, mib_storage_module()} |  {options, mib_storage_options()}</c></p>
+        <p>This option specifies how basic mib data is stored. 
+	This option is used by two parts of the snmp agent: 
+	The mib-server and the symbolic-store. </p>
+        <p>Default is <c>[{module, snmpa_mib_storage_ets}]</c>. </p>
+      </item>
+
+       <marker id="agent_mst_module"></marker>
+      <tag><c><![CDATA[mib_storage_module() = snmpa_mib_data_ets | snmpa_mib_data_dets | snmpa_mib_data_mnesia | module()]]></c></tag>
+      <item>
+        <p>Defines the mib storage module of the SNMP agent as defined by the 
+	<seealso marker="snmpa_mib_storage">snmpa_mib_storage</seealso> 
+	behaviour. </p>
+	<p>Several entities (<c>mib-server</c> via the its data module and 
+	the <c>symbolic-store</c>) of the snmp agent uses this for storage 
+	of miscelaneous mib related data retrieved while loading a mib. </p>
+	<p>There are several implementations provided with the agent: 
+	<c>snmpa_mib_storage_ets</c>, <c>snmpa_mib_storage_dets</c> and 
+	<c>snmpa_mib_storage_mnesia</c>. </p>
+        <p>Default module is <c>snmpa_mib_storage_ets</c>. </p>
+      </item>
+
+       <marker id="agent_mst_options"></marker>
+      <tag><c><![CDATA[mib_storage_options() = list() <optional>]]></c></tag>
+      <item>
+        <p>This is implementattion depended. That is, it depends on the 
+	module. For each module a specific set of options are valid. 
+	For the module provided with the app, these options are supported: </p>
+        <list type="bulleted">
+          <item>
+	    <p><c>snmpa_mib_storage_ets</c>: <c>{dir, filename()} | {action, keep | clear}, {checksum, boolean()}</c></p>
+	    <list>
+	      <item>
+		<p><c>dir</c> - If present, points to a directory where a file 
+		to which all data in the ets table is "synced". </p>
+		<p>Also, when a table is opened this file is read, 
+		if it exists. </p>
+		<p>By default, this will <em>not</em> be used. </p> 
+	      </item>
+	      <item>
+		<p><c>action</c> - Specifies the behaviour when a non-empty 
+		file is found: Keep its content or clear it out. </p>
+		<p>Default is <c>keep</c>. </p> 
+	      </item>
+	      <item>
+		<p><c>checksum</c> - Defines if the file is checksummed 
+		or not. </p>
+		<p>Default is <c>false</c>. </p> 
+	      </item>
+	    </list>
+	  </item>
+          <item>
+	    <p><c>snmpa_mib_storage_dets</c>: <c>{dir, filename()} | {action, keep | clear}, {auto_save, default | pos_integer()} | {repair, force | boolean()}</c></p>
+	    <list>
+	      <item>
+		<p><c>dir</c> - This <em>mandatory</em> option points to a 
+		directory where to place the file of a dets table. </p>
+	      </item>
+	      <item>
+		<p><c>action</c> - Specifies the behaviour when a non-empty 
+		file is found: Keep its content or clear it out. </p>
+		<p>Default is <c>keep</c>. </p> 
+	      </item>
+	      <item>
+		<p><c>auto_save</c> - Defines the dets auto-save frequency. </p>
+		<p>Default is <c>default</c>. </p> 
+	      </item>
+	      <item>
+		<p><c>repair</c> - Defines the dets repair behaviour. </p>
+		<p>Default is <c>false</c>. </p> 
+	      </item>
+	    </list>
+	  </item>
+          <item>
+	    <p><c>snmpa_mib_storage_mnesia</c>: <c>{action, keep | clear}, {nodes, [node()]}</c></p>
+	    <list>
+	      <item>
+		<p><c>action</c> - Specifies the behaviour when a non-empty, 
+		already existing, table: Keep its content or clear it out. </p>
+		<p>Default is <c>keep</c>. </p>
+	      </item>
+	      <item>
+		<p><c>nodes</c> - A list of node names (or an atom 
+		describing a list of nodes) defining where to open the table. 
+		Its up to the user to ensure that mnesia is actually running 
+		on the specified nodes. </p>
+		<p>The following distinct values are recognised: </p>
+		<list>
+		  <item>
+		    <p><c>[]</c> - Translated into a list of the own node: <c>[node()]</c></p>
+		  </item>
+		  <item>
+		    <p><c>all</c> - <c>erlang:nodes()</c></p>
+		  </item>
+		  <item>
+		    <p><c>visible</c> - <c>erlang:nodes(visible)</c></p>
+		  </item>
+		  <item>
+		    <p><c>connected</c> - <c>erlang:nodes(connected)</c></p>
+		  </item>
+		  <item>
+		    <p><c>db_nodes</c> - <c>mnesia:system_info(db_nodes)</c></p>
+		  </item>
+		</list>
+		
+		<p>Default is the result of the call: <c>erlang:nodes()</c>. </p>
+	      </item>
+	    </list>
+	  </item>
+        </list>
       </item>
 
       <marker id="agent_mib_server"></marker>
       <tag><c><![CDATA[mib_server() = [mib_server_opt()] <optional>]]></c></tag>
       <item>
-        <p><c>mib_server_opt() = {mibentry_override, mibentry_override()} |  {trapentry_override, trapentry_override()} |  {verbosity, verbosity()} | {cache, mibs_cache()}</c></p>
+        <p><c>mib_server_opt() = {mibentry_override, mibentry_override()} |  {trapentry_override, trapentry_override()} |  {verbosity, verbosity()} | {cache, mibs_cache()} | {data_module, mib_server_data_module()}</c></p>
         <p>Defines options specific for the SNMP agent mib server. </p>
         <p>For defaults see the options in <c>mib_server_opt()</c>.</p>
       </item>
@@ -365,7 +454,28 @@
         <p>Default is <c>false</c>.</p>
       </item>
 
-      <marker id="agent_ms_cache"></marker>
+       <marker id="agent_ms_data_module"></marker>
+<!--
+      <tag><c><![CDATA[mib_server_data_module() = snmpa_mib_data_tttn | snmpa_mib_data_ttln | module() <optional>]]></c></tag>
+-->
+      <tag><c><![CDATA[mib_server_data_module() = snmpa_mib_data_tttn | module() <optional>]]></c></tag>
+      <item>
+        <p>Defines the backend data module of the SNMP agent mib-server as 
+	defined by the 
+	<seealso marker="snmpa_mib_data">snmpa_mib_data</seealso> 
+	behaviour. </p>
+	<p>At present only the default module is provided with the agent,  
+	<c>snmpa_mib_data_tttn</c>. </p>
+<!--
+	<p>Two modules is provided with the agent 
+	<c>snmpa_mib_data_tttn</c> (this is the old implementation) and 
+	<c>snmpa_mib_data_ttln</c> (for a mib tree with many holes, 
+	this algorithm can be more price efficient). </p>
+-->
+        <p>Default module is <c>snmpa_mib_data_tttn</c>. </p>
+      </item>
+
+     <marker id="agent_ms_cache"></marker>
       <tag><c><![CDATA[mibs_cache() = bool() | mibs_cache_opts() <optional>]]></c></tag>
       <item>
         <p>Shall the agent utilize the mib server lookup cache or not.</p>
@@ -385,30 +495,30 @@
       <tag><c><![CDATA[mibs_cache_autogc() = bool() <optional>]]></c></tag>
       <item>
         <p>Defines if the mib server shall perform cache gc automatically or 
-          leave it to the user (see 
-          <seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>). </p>
+	leave it to the user (see 
+	<seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>). </p>
         <p>Default is <c>true</c>.</p>
       </item>
 
       <marker id="agent_ms_cache_age"></marker>
       <tag><c><![CDATA[mibs_cache_age() = integer() > 0 <optional>]]></c></tag>
       <item>
-        <p>Defines how old the entries in the cache will be allowed before 
-          they are GC'ed (assuming GC is performed). Each entry in the 
-          cache is "touched" whenever it is accessed. </p>
-        <p>The age is defined in milliseconds. </p>
-        <p>Default is <c>10 timutes</c>.</p>
+        <p>Defines how old the entries in the cache will be allowed 
+	to become before they are GC'ed (assuming GC is performed). 
+	Each entry in the cache is "touched" whenever it is accessed. </p>
+	<p>The age is defined in milliseconds. </p>
+	<p>Default is <c>10 timutes</c>.</p>
       </item>
 
       <marker id="agent_ms_cache_gclimit"></marker>
       <tag><c><![CDATA[mibs_cache_gclimit() = integer() > 0 | infinity <optional>]]></c></tag>
       <item>
         <p>When performing a GC, this is the max number of cache entries 
-          that will be deleted from the cache. </p>
+	that will be deleted from the cache. </p>
         <p>The reason for having this limit is that if the cache is 
-          large, the GC can potentially take a long time, during which 
-          the agent is locked. </p>
-        <p>Default is <c>100</c>.</p>
+	large, the GC can potentially take a long time, during which 
+	the agent is locked. </p>
+	<p>Default is <c>100</c>.</p>
       </item>
 
       <marker id="agent_error_report_mod"></marker>

@@ -25,6 +25,7 @@
 	 per_dec_length/3,per_dec_named_integer/3,
 	 per_dec_octet_string/2,per_dec_open_type/1,per_dec_real/1,
 	 per_dec_restricted_string/1]).
+-export([per_dec_constrained/3,per_dec_normally_small_number/1]).
 -export([optimize_alignment/1,optimize_alignment/2,
 	 dec_slim_cg/2,dec_code_gen/2]).
 -export([effective_constraint/2]).
@@ -94,18 +95,16 @@ per_dec_integer(Constraint0, Aligned) ->
 
 per_dec_length(SingleValue, _, _Aligned) when is_integer(SingleValue) ->
     {value,SingleValue};
-per_dec_length({S,S}, _, _Aligned) when is_integer(S) ->
-    {value,S};
-per_dec_length({{_,_}=Constr,_}, AllowZero, Aligned) ->
+per_dec_length({{Fixed,Fixed},[]}, AllowZero, Aligned) ->
+    bit_case(per_dec_length(Fixed, AllowZero, Aligned),
+	     per_dec_length(no, AllowZero, Aligned));
+per_dec_length({{_,_}=Constr,[]}, AllowZero, Aligned) ->
     bit_case(per_dec_length(Constr, AllowZero, Aligned),
-	     per_dec_length(undefined, AllowZero, Aligned));
+	     per_dec_length(no, AllowZero, Aligned));
 per_dec_length({Lb,Ub}, _AllowZero, Aligned) when is_integer(Lb),
-						  is_integer(Lb),
-						  Ub =< 65535 ->
+						  is_integer(Lb) ->
     per_dec_constrained(Lb, Ub, Aligned);
-per_dec_length({_,_}, AllowZero, Aligned) ->
-    decode_unconstrained_length(AllowZero, Aligned);
-per_dec_length(undefined, AllowZero, Aligned) ->
+per_dec_length(no, AllowZero, Aligned) ->
     decode_unconstrained_length(AllowZero, Aligned).
 
 per_dec_named_integer(Constraint, NamedList0, Aligned) ->
@@ -114,17 +113,27 @@ per_dec_named_integer(Constraint, NamedList0, Aligned) ->
     {map,Int,NamedList}.
 
 per_dec_k_m_string(StringType, Constraint, Aligned) ->
-    SzConstr = get_constraint(Constraint, 'SizeConstraint'),
+    SzConstr = effective_constraint(bitstring, Constraint),
     N = string_num_bits(StringType, Constraint, Aligned),
-    Imm = dec_string(SzConstr, N, Aligned),
+    %% X.691 (07/2002) 27.5.7 says if the upper bound times the number
+    %% of bits is greater than or equal to 16, then the bit field should
+    %% be aligned.
+    Imm = dec_string(SzConstr, N, Aligned, fun(_, Ub) -> Ub >= 16 end),
     Chars = char_tab(Constraint, StringType, N),
     convert_string(N, Chars, Imm).
 
 per_dec_octet_string(Constraint, Aligned) ->
-    dec_string(Constraint, 8, Aligned).
+    dec_string(Constraint, 8, Aligned,
+	       %% Aligned unless the size is fixed and =< 16.
+	       fun(Sv, Sv) -> Sv > 16;
+		  (_, _) -> true
+	       end).
 
 per_dec_raw_bitstring(Constraint, Aligned) ->
-    dec_string(Constraint, 1, Aligned).
+    dec_string(Constraint, 1, Aligned,
+	       fun(Sv, Sv) -> Sv > 16;
+		  (_, _) -> true
+	       end).
 
 per_dec_open_type(Aligned) ->
     {get_bits,decode_unconstrained_length(true, Aligned),
@@ -148,21 +157,21 @@ per_dec_restricted_string(Aligned) ->
 %%% Local functions.
 %%%
 
-dec_string(Sv, U, _Aligned) when is_integer(Sv), U*Sv =< 16 ->
-    {get_bits,Sv,[U,binary]};
-dec_string(Sv, U, Aligned) when is_integer(Sv), Sv < 16#10000 ->
+dec_string(Sv, U, Aligned0, AF) when is_integer(Sv) ->
+    Bits = U*Sv,
+    Aligned = Aligned0 andalso AF(Bits, Bits),
     {get_bits,Sv,[U,binary,{align,Aligned}]};
-dec_string([_|_]=C, U, Aligned) when is_list(C) ->
-    dec_string({hd(C),lists:max(C)}, U, Aligned);
-dec_string({Sv,Sv}, U, Aligned) ->
-    dec_string(Sv, U, Aligned);
-dec_string({{_,_}=C,_}, U, Aligned) ->
-    bit_case(dec_string(C, U, Aligned),
-	     dec_string(no, U, Aligned));
-dec_string({Lb,Ub}, U, Aligned) when Ub < 16#10000 ->
-    Len = per_dec_constrained(Lb, Ub, Aligned),
+dec_string({{Sv,Sv},[]}, U, Aligned, AF) ->
+    bit_case(dec_string(Sv, U, Aligned, AF),
+	     dec_string(no, U, Aligned, AF));
+dec_string({{_,_}=C,[]}, U, Aligned, AF) ->
+    bit_case(dec_string(C, U, Aligned, AF),
+	     dec_string(no, U, Aligned, AF));
+dec_string({Lb,Ub}, U, Aligned0, AF) ->
+    Len = per_dec_constrained(Lb, Ub, Aligned0),
+    Aligned = Aligned0 andalso AF(Lb*U, Ub*U),
     {get_bits,Len,[U,binary,{align,Aligned}]};
-dec_string(_, U, Aligned) ->
+dec_string(_, U, Aligned, _AF) ->
     Al = [{align,Aligned}],
     DecRest = fun(V, Buf) ->
 		      asn1ct_func:call(per_common,
@@ -189,7 +198,7 @@ per_dec_enumerated_fix_list([], Tail, _) -> Tail.
 per_dec_integer_1([{'SingleValue',Value}], _Aligned) ->
     {value,Value};
 per_dec_integer_1([{'ValueRange',{Lb,'MAX'}}], Aligned) when is_integer(Lb) ->
-    per_dec_unconstrained(Aligned);
+    per_decode_semi_constrained(Lb, Aligned);
 per_dec_integer_1([{'ValueRange',{Lb,Ub}}], Aligned) when is_integer(Lb),
 						    is_integer(Ub) ->
     per_dec_constrained(Lb, Ub, Aligned);
@@ -700,7 +709,27 @@ effective_constraint(integer, C) ->
     VR = effective_constr('ValueRange', VRs),
     greatest_common_range(SV, VR);
 effective_constraint(bitstring, C) ->
-    get_constraint(C, 'SizeConstraint').
+    case get_constraint(C, 'SizeConstraint') of
+	{{Lb,Ub},[]}=Range when is_integer(Lb) ->
+	    if
+		is_integer(Ub), Ub < 16#10000 ->
+		    Range;
+		true ->
+		    no
+	    end;
+	{Lb,Ub}=Range when is_integer(Lb) ->
+	    if
+		is_integer(Ub), Ub < 16#10000 ->
+		    if
+			Lb =:= Ub -> Lb;
+			true -> Range
+		    end;
+		true ->
+		    no
+	    end;
+	no ->
+	    no
+    end.
 
 effective_constr(_, []) -> [];
 effective_constr('SingleValue', List) ->

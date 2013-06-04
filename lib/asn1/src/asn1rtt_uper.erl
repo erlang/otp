@@ -21,7 +21,7 @@
 
 -export([setext/1, fixoptionals/3,
 	 fixextensions/2,
-	 skipextensions/3, getbit/1, getchoice/3 ]).
+	 skipextensions/3]).
 -export([set_choice/3, encode_integer/2, encode_integer/3]).
 -export([encode_small_number/1, encode_constrained_number/2,
 	 encode_boolean/1,
@@ -34,17 +34,17 @@
 
  -export([encode_open_type/1]).
 
- -export([encode_UniversalString/2,
-	 encode_PrintableString/2,
+ -export([encode_UniversalString/3,
+	 encode_PrintableString/3,
 	 encode_GeneralString/2,
 	 encode_GraphicString/2,
 	 encode_TeletexString/2,
 	 encode_VideotexString/2,
-	 encode_VisibleString/2,
+	 encode_VisibleString/3,
 	 encode_UTF8String/1,
-	 encode_BMPString/2,
-	 encode_IA5String/2,
-	 encode_NumericString/2,
+	 encode_BMPString/3,
+	 encode_IA5String/3,
+	 encode_NumericString/3,
 	 encode_ObjectDescriptor/2
 	]).
 
@@ -123,29 +123,6 @@ skipextensions(Bytes0, Nr, ExtensionBitstr) when is_bitstring(ExtensionBitstr) -
     end.
 
 
-getchoice(Bytes,1,0) -> % only 1 alternative is not encoded
-    {0,Bytes};
-getchoice(Bytes,_,1) ->
-    decode_small_number(Bytes);
-getchoice(Bytes,NumChoices,0) ->
-    decode_constrained_number(Bytes,{0,NumChoices-1}).
-
-
-getbit(Buffer) ->
-    <<B:1,Rest/bitstring>> = Buffer,
-    {B,Rest}.
-
-getbits(Buffer, Num) when is_bitstring(Buffer) ->
-    <<Bs:Num,Rest/bitstring>> = Buffer,
-    {Bs,Rest}.
-
-
-%% Pick the first Num octets.
-%% Returns octets as an integer with bit significance as in buffer.
-getoctets(Buffer, Num) when is_bitstring(Buffer) ->
-    <<Val:Num/integer-unit:8,RestBitStr/bitstring>> = Buffer,
-    {Val,RestBitStr}.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% set_choice(Alt,Choices,Altnum) -> ListofBitSettings
 %% Alt = atom()
@@ -198,9 +175,7 @@ set_choice_tag(_Alt,[],_Tag) ->
 %%         | binary
 %% Contraint = not used in this version
 %%
-encode_open_type(Val) when is_list(Val) ->
-    encode_open_type(list_to_binary(Val));
-encode_open_type(Val) when is_binary(Val) ->
+encode_open_type(Val) ->
     [encode_length(byte_size(Val)),Val].
 
 
@@ -248,7 +223,7 @@ encode_integer1(C, Val) ->
     case VR = get_constraint(C, 'ValueRange') of
 	no ->
 	    encode_unconstrained_number(Val);
-	{Lb,'MAX'} ->
+	{Lb,'MAX'} when Lb =< Val ->
 	    encode_semi_constrained_number(Lb, Val);
 	%% positive with range
 	{Lb,Ub} when Val >= Lb, Ub >= Val ->
@@ -265,15 +240,6 @@ encode_small_number(Val) when Val < 64 ->
 encode_small_number(Val) ->
     [<<1:1>>|encode_semi_constrained_number(0, Val)].
 
-decode_small_number(Bytes) ->
-    {Bit,Bytes2} = getbit(Bytes),
-    case Bit of
-	0 ->
-	    getbits(Bytes2,6);
-	1 ->
-	    decode_semi_constrained_number(Bytes2)
-    end.
-
 %% X.691:10.7 Encoding of a semi-constrained whole number
 encode_semi_constrained_number(Lb, Val) ->
     %% encoding in minimum number of octets preceeded by a length
@@ -289,11 +255,6 @@ encode_semi_constrained_number(Lb, Val) ->
 	    [encode_length(Size),Bin]
     end.
 
-decode_semi_constrained_number(Bytes) ->
-    {Len,Bytes2} = decode_length(Bytes),
-    {V,Bytes3} = getoctets(Bytes2,Len),
-    {V,Bytes3}.
-
 encode_constrained_number({Lb,Ub}, Val) when Val >= Lb, Ub >= Val ->
     Range = Ub - Lb + 1,
     Val2 = Val - Lb,
@@ -301,13 +262,6 @@ encode_constrained_number({Lb,Ub}, Val) when Val >= Lb, Ub >= Val ->
     <<Val2:NumBits>>;
 encode_constrained_number(Range,Val) ->
     exit({error,{asn1,{integer_range,Range,value,Val}}}).
-
-
-decode_constrained_number(Buffer, {Lb,Ub}) ->
-    Range = Ub - Lb + 1,
-    NumBits = num_bits(Range),
-    {Val,Remain} = getbits(Buffer,NumBits),
-    {Val+Lb,Remain}.
 
 %% X.691:10.8 Encoding of an unconstrained whole number
 
@@ -390,22 +344,18 @@ encode_length(Len) -> % un-constrained
 	    error({error,{asn1,{encode_length,{nyi,above_16k}}}})
     end.
 
-encode_length(undefined, Len) ->		% unconstrained
-    encode_length(Len);
-encode_length({0,'MAX'},Len) ->
-    encode_length(undefined, Len);
-encode_length({Lb,Ub}=Vr, Len) when Ub =< 65535, Lb >= 0 -> % constrained
-    encode_constrained_number(Vr,Len);
-encode_length({Lb,_Ub}, Len) when is_integer(Lb), Lb >= 0 -> % Ub > 65535
-    encode_length(Len);
-encode_length({{Lb,Ub}=Vr,Ext},Len)
-  when Ub =< 65535, Lb >= 0, Len =< Ub, is_list(Ext) ->
-    %% constrained extensible
-    [<<0:1>>,encode_constrained_number(Vr,Len)];
-encode_length({{Lb,_Ub},Ext}, Len) when is_list(Ext) ->
-    [<<1:1>>,encode_semi_constrained_number(Lb, Len)];
-encode_length(SingleValue, _Len) when is_integer(SingleValue) ->
-    [].
+encode_length({C,[]}, Len) ->
+    case C of
+	{Lb,Ub}=Vr when Lb =< Len, Len =< Ub ->
+	    [<<0:1>>|encode_constrained_number(Vr, Len)];
+	_ ->
+	    [<<1:1>>|encode_length(Len)]
+    end;
+encode_length(Len, Len) ->
+    [];
+encode_length(Vr, Len) ->
+    encode_constrained_number(Vr, Len).
+
 
 %% X.691 10.9.3.4 (only used for length of bitmap that prefixes extension
 %% additions in a sequence or set
@@ -687,10 +637,6 @@ encode_octet_string(Val) ->
 
 encode_octet_string(C, Val) ->
     case C of
-	1 ->
-	    list_to_binary(Val);
-	2 ->
-	    list_to_binary(Val);
 	{_,_}=VR  ->
 	    try
 		[encode_length(VR, length(Val)),list_to_binary(Val)]
@@ -699,20 +645,7 @@ encode_octet_string(C, Val) ->
 		    encode_fragmented_octet_string(Val)
 	    end;
 	Sv when is_integer(Sv), Sv =:= length(Val) -> % fixed length
-	    if
-		Sv =< 65535 ->
-		    list_to_binary(Val);
-		true ->
-		    encode_fragmented_octet_string(Val)
-	    end;
-	Sv when is_list(Sv) ->
-	    try
-		[encode_length({hd(Sv),lists:max(Sv)},
-			       length(Val)),list_to_binary(Val)]
-	    catch
-		error:{error,{asn1,{encode_length,_}}} ->
-		    encode_fragmented_octet_string(Val)
-	    end
+	    list_to_binary(Val)
     end.
 
 
@@ -742,41 +675,34 @@ efos_1(<<B/bitstring>>) ->
 encode_restricted_string(Val) when is_list(Val)->
     [encode_length(length(Val)),list_to_binary(Val)].
 
-encode_known_multiplier_string(StringType, C, Val) ->
-    Result = chars_encode(C, StringType, Val),
-    NumBits = get_NumBits(C, StringType),
-    case get_constraint(C, 'SizeConstraint') of
-	Ub when is_integer(Ub), Ub*NumBits =< 16  ->
+encode_known_multiplier_string(StringType, C, Pa, Val) ->
+    Result = chars_encode(Pa, StringType, Val),
+    case C of
+	Ub when is_integer(Ub) ->
 	    Result;
-	0 ->
-	    [];
-	Ub when is_integer(Ub),Ub =<65535 -> % fixed length
-	    Result;
-	{Ub,Lb} ->
-	    [encode_length({Ub,Lb}, length(Val)),Result];
-	Vl when is_list(Vl) ->
-	    [encode_length({lists:min(Vl),lists:max(Vl)}, length(Val)),Result];
+	{_,_}=Range ->
+	    [encode_length(Range, length(Val)),Result];
 	no  ->
 	    [encode_length(length(Val)),Result]
     end.
 
-encode_NumericString(C,Val) ->
-    encode_known_multiplier_string('NumericString',C,Val).
+encode_NumericString(C, Pa, Val) ->
+    encode_known_multiplier_string('NumericString', C, Pa, Val).
 
-encode_PrintableString(C,Val) ->
-    encode_known_multiplier_string('PrintableString',C,Val).
+encode_PrintableString(C, Pa, Val) ->
+    encode_known_multiplier_string('PrintableString', C, Pa, Val).
 
-encode_VisibleString(C,Val) -> % equivalent with ISO646String
-    encode_known_multiplier_string('VisibleString',C,Val).
+encode_VisibleString(C, Pa, Val) -> % equivalent with ISO646String
+    encode_known_multiplier_string('VisibleString', C, Pa, Val).
 
-encode_IA5String(C,Val) ->
-    encode_known_multiplier_string('IA5String',C,Val).
+encode_IA5String(C, Pa, Val) ->
+    encode_known_multiplier_string('IA5String', C, Pa, Val).
 
-encode_BMPString(C,Val) ->
-    encode_known_multiplier_string('BMPString',C,Val).
+encode_BMPString(C, Pa, Val) ->
+    encode_known_multiplier_string('BMPString', C, Pa, Val).
 
-encode_UniversalString(C,Val) ->
-    encode_known_multiplier_string('UniversalString',C,Val).
+encode_UniversalString(C, Pa, Val) ->
+    encode_known_multiplier_string('UniversalString', C, Pa, Val).
 
 
 %% end of known-multiplier strings for which PER visible constraints are
@@ -805,14 +731,15 @@ encode_VideotexString(_C,Val) ->
 %% into account.
 %% This function does only encode the value part and NOT the length
 
-chars_encode(C,StringType,Value) ->
-    case {StringType,get_constraint(C,'PermittedAlphabet')} of
+chars_encode(Pa, StringType, Value) ->
+    case {StringType,Pa} of
 	{'UniversalString',{_,_Sv}} ->
 	    exit({error,{asn1,{'not implemented',"UniversalString with PermittedAlphabet constraint"}}});
 	{'BMPString',{_,_Sv}} ->
 	    exit({error,{asn1,{'not implemented',"BMPString with PermittedAlphabet constraint"}}});
 	_ ->
-	    {NumBits,CharOutTab} = {get_NumBits(C,StringType),get_CharOutTab(C,StringType)},
+	    {NumBits,CharOutTab} = {get_NumBits(Pa, StringType),
+				    get_CharOutTab(Pa, StringType)},
 	    chars_encode2(Value,NumBits,CharOutTab)
     end.
 
@@ -839,8 +766,8 @@ exit_if_false(V,false)->
 exit_if_false(_,V) ->V.
 
 
-get_NumBits(C,StringType) ->
-    case get_constraint(C,'PermittedAlphabet') of
+get_NumBits(Pa, StringType) ->
+    case Pa of
 	{'SingleValue',Sv} ->
 	    charbits(length(Sv));
 	no ->
@@ -860,22 +787,23 @@ get_NumBits(C,StringType) ->
 	    end
     end.
 
-get_CharOutTab(C,StringType) ->
-    case get_constraint(C,'PermittedAlphabet') of
+get_CharOutTab(Pa, StringType) ->
+    case Pa of
 	{'SingleValue',Sv} ->
-	    get_CharTab2(C,StringType,hd(Sv),lists:max(Sv),Sv);
+	    get_CharTab2(Pa, StringType, hd(Sv), lists:max(Sv), Sv);
 	no ->
 	    case StringType of
 		'IA5String' ->
 		    {0,16#7F,notab};
 		'VisibleString' ->
-		    get_CharTab2(C,StringType,16#20,16#7F,notab);
+		    get_CharTab2(Pa, StringType, 16#20, 16#7F, notab);
 		'PrintableString' ->
 		    Chars = lists:sort(
 			      " '()+,-./0123456789:=?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"),
-		    get_CharTab2(C,StringType,hd(Chars),lists:max(Chars),Chars);
+		    get_CharTab2(Pa, StringType, hd(Chars),
+				 lists:max(Chars), Chars);
 		'NumericString' ->
-		    get_CharTab2(C,StringType,16#20,$9," 0123456789");
+		    get_CharTab2(Pa, StringType, 16#20, $9, " 0123456789");
 		'UniversalString' ->
 		    {0,16#FFFFFFFF,notab};
 		'BMPString' ->

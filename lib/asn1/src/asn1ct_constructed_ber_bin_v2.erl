@@ -114,30 +114,16 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
 				   usedclassfield=UniqueFieldName,
 				   uniqueclassfield=UniqueFieldName,
 				   valueindex=ValueIndex} -> %% N is index of attribute that determines constraint
-		OSDef =
-		    case ObjectSetRef of
-			{Module,OSName} ->
-			    asn1_db:dbget(Module,OSName);
-			OSName ->
-			    asn1_db:dbget(get(currmod),OSName)
-		    end,
-%		io:format("currmod: ~p~nOSName: ~p~nAttrN: ~p~nN: ~p~nUniqueFieldName: ~p~n",
-%			  [get(currmod),OSName,AttrN,N,UniqueFieldName]),
+		{ObjSetMod,ObjSetName} = ObjectSetRef,
+		OSDef = asn1_db:dbget(ObjSetMod, ObjSetName),
 		case (OSDef#typedef.typespec)#'ObjectSet'.gen of
 		    true ->
 			ObjectEncode = 
 			    asn1ct_gen:un_hyphen_var(lists:concat(['Obj',
 								   AttrN])),
-			{ObjSetMod,ObjSetName} =
-			    case ObjectSetRef of
-				{M,O} ->
-				    {{asis,M},O};
-				_ ->
-				    {"?MODULE",ObjectSetRef}
-			    end,
-			emit([ObjectEncode," = ",nl]),
-			emit(["   ",ObjSetMod,":'getenc_",ObjSetName,"'(",{asis,UniqueFieldName},
-			      ", ",nl]),
+			emit([ObjectEncode," = ",nl,
+			     "   ",{asis,ObjSetMod},":'getenc_",ObjSetName,
+			     "'(",{asis,UniqueFieldName},", ",nl]),
 			ValueMatch = value_match(ValueIndex,
 						 lists:concat(["Cindex",N])),
 			emit([indent(35),ValueMatch,"),",nl]),
@@ -183,7 +169,6 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
 
 gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
-    asn1ct_name:clear(),
     asn1ct_name:new(tag),
     #'SEQUENCE'{tablecinf=TableConsInfo,components=CList0} = D#type.def,
 
@@ -258,15 +243,9 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
 		{[{ObjSetRef,LeadingAttr,Term}],PostponedDecArgs} ->
 		    DecObj = asn1ct_gen:un_hyphen_var(lists:concat(['DecObj',LeadingAttr,Term])),
 		    ValueMatch = value_match(ValueIndex,Term),
-		    {ObjSetMod,ObjSetName} =
-			case ObjSetRef of
-			    {M,O} ->
-				{{asis,M},O};
-			    _ ->
-				{"?MODULE",ObjSetRef}
-			end,
+		    {ObjSetMod,ObjSetName} = ObjSetRef,
 		    emit([DecObj," =",nl,
-			  "   ",ObjSetMod,":'getdec_",ObjSetName,"'(",
+			  "   ",{asis,ObjSetMod},":'getdec_",ObjSetName,"'(",
 			  {asis,UniqueFName},", ",ValueMatch,"),",nl]),
 		    gen_dec_postponed_decs(DecObj,PostponedDecArgs)
 	    end,
@@ -349,7 +328,6 @@ gen_encode_set(Erules,Typename,D) when is_record(D,type) ->
 
 gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
-    asn1ct_name:clear(),
 %%    asn1ct_name:new(term),
     asn1ct_name:new(tag),
     #'SET'{tablecinf=TableConsInfo,components=TCompList0} = D#type.def,
@@ -444,15 +422,9 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
 		{[{ObjSetRef,LeadingAttr,Term}],PostponedDecArgs} ->
 		    DecObj = asn1ct_gen:un_hyphen_var(lists:concat(['DecObj',LeadingAttr,Term])),
 		    ValueMatch = value_match(ValueIndex,Term),
-		    {ObjSetMod,ObjSetName} =
-			case ObjSetRef of
-			    {M,O} ->
-				{{asis,M},O};
-			    _ ->
-				{"?MODULE",ObjSetRef}
-			end,
+		    {ObjSetMod,ObjSetName} = ObjSetRef,
 		    emit([DecObj," =",nl,
-			  "   ",ObjSetMod,":'getdec_",ObjSetName,"'(",
+			  "   ",{asis,ObjSetMod},":'getdec_",ObjSetName,"'(",
 			  {asis,UniqueFName},", ",ValueMatch,"),",nl]),
 		    gen_dec_postponed_decs(DecObj,PostponedDecArgs)
 	    end,
@@ -504,7 +476,6 @@ gen_encode_sof(Erules,Typename,_InnerTypename,D) when is_record(D,type) ->
 
 gen_decode_sof(Erules,TypeName,_InnerTypeName,D) when is_record(D,type) ->
     asn1ct_name:start(),
-    asn1ct_name:clear(),
     {SeqOrSetOf, _TypeTag, Cont} = 
 	case D#type.def of
 	    {'SET OF',_Cont} -> {'SET OF','SET',_Cont};
@@ -1002,9 +973,7 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 	 {componentrelation,_,_}} ->
 	    {_LeadingAttrName,Fun} = EncObj,
 	    case RefedFieldName of
-%% 		{notype,T} ->
-%% 		    throw({error,{notype,type_from_object,T}});
-		{Name,RestFieldNames} when is_atom(Name), Name =/= notype ->
+		{Name,RestFieldNames} when is_atom(Name) ->
 		    case OptOrMand of
 			mandatory -> ok;
 			_ ->
@@ -1035,17 +1004,8 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 	_ ->
 	    case WhatKind of
 		{primitive,bif} ->
-		    EncType =
-			case Type#type.def of
-			    #'ObjectClassFieldType'{type={fixedtypevaluefield,_,Btype}} ->
-				Btype;
-			    _ ->
-				Type
-			end,
-		    ?ASN1CT_GEN_BER:gen_encode_prim(ber,EncType,{asis,Tag},
-						   Element);
-%% 		{notype,_} ->
-%% 		    emit(["'enc_",InnerType,"'(",Element,", ",{asis,Tag},")"]);
+		    ?ASN1CT_GEN_BER:gen_encode_prim(ber, Type, {asis,Tag},
+						    Element);
 		'ASN1_OPEN_TYPE' ->
 		    case Type#type.def of
 			#'ObjectClassFieldType'{} -> %Open Type
@@ -1266,15 +1226,9 @@ gen_dec_call(InnerType,Erules,TopType,Cname,Type,BytesVar,Tag,PrimOptOrMand,
 	{Cname,{_,OSet,UniqueFName,ValIndex}} ->
 	    Term = asn1ct_gen:mk_var(asn1ct_name:curr(term)),
 	    ValueMatch = value_match(ValIndex,Term),
-	    {ObjSetMod,ObjSetName} =
-		case OSet of
-		    {M,O} ->
-			{{asis,M},O};
-		    _ ->
-			{"?MODULE",OSet}
-		end,
-	    emit([",",nl,"ObjFun = ",ObjSetMod,":'getdec_",ObjSetName,"'(",
-		  {asis,UniqueFName},", ",ValueMatch,")"]);
+	    {ObjSetMod,ObjSetName} = OSet,
+	    emit([",",nl,"ObjFun = ",{asis,ObjSetMod},":'getdec_",ObjSetName,
+		  "'(",{asis,UniqueFName},", ",ValueMatch,")"]);
 	_ ->
 	    ok
     end,
@@ -1288,9 +1242,6 @@ gen_dec_call1({primitive,bif},InnerType,Erules,TopType,Cname,Type,BytesVar,
 	    asn1ct:update_gen_state(namelist,Rest),
 	    emit(["{'",asn1ct_gen:list2name([Cname|TopType]),"',",
 		  BytesVar,"}"]);
-	{_,{fixedtypevaluefield,_,Btype}} ->
-	    ?ASN1CT_GEN_BER:gen_dec_prim(Erules,Btype,BytesVar,Tag,[],
-					?PRIMITIVE,OptOrMand);
 	_ ->
 	    ?ASN1CT_GEN_BER:gen_dec_prim(Erules,Type,BytesVar,Tag,[],
 					?PRIMITIVE,OptOrMand)
@@ -1458,9 +1409,7 @@ print_attribute_comment(InnerType,Pos,Cname,Prop) ->
     CommentLine = "%%-------------------------------------------------",
     emit([nl,CommentLine]),
     case InnerType of
-	{typereference,_,Name} -> 
-	    emit([nl,"%% attribute ",Cname,"(",Pos,") with type ",Name]);
-	{'Externaltypereference',_,XModule,Name} -> 
+	#'Externaltypereference'{module=XModule,type=Name} ->
 	    emit([nl,"%% attribute ",Cname,"(",Pos,")   External ",XModule,":",Name]);
 	_ ->
 	    emit([nl,"%% attribute ",Cname,"(",Pos,") with type ",InnerType])

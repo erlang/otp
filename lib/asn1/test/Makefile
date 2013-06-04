@@ -114,7 +114,8 @@ MODULES= \
 	asn1_app_test \
 	asn1_appup_test \
 	asn1_wrapper \
-	asn1_SUITE
+	asn1_SUITE \
+	error_SUITE
 
 SUITE= asn1_SUITE.erl
 

@@ -28,7 +28,7 @@
 	 start_mt_agent/1,        start_mt_agent/2, 
 	 stop_agent/1,
 
-	 start_sup/0,      stop_sup/2,
+	 %% start_sup/0,      stop_sup/2,
 	 start_subagent/3, stop_subagent/1, 
 	 start_sub_sup/1,  start_sub_sup/2, 
 
@@ -58,7 +58,7 @@
 	 init_all/1, finish_all/1,
 	 init_case/1,
 	 try_test/2, try_test/3, try_test/4,
-	 expect/2, expect/3, expect/4, expect/6, 
+	 expect/3, expect/4, expect/5, expect/7, 
 	 
 	 regs/0,
 	 rpc/3
@@ -418,10 +418,10 @@ start_bilingual_agent(Config, Opts)
     start_agent(Config, [v1,v2], Opts).
  
 start_mt_agent(Config) when is_list(Config) ->
-    start_agent(Config, [v2], [{snmp_multi_threaded, true}]).
+    start_agent(Config, [v2], [{multi_threaded, true}]).
  
 start_mt_agent(Config, Opts) when is_list(Config) andalso is_list(Opts) ->
-    start_agent(Config, [v2], [{snmp_multi_threaded, true}|Opts]).
+    start_agent(Config, [v2], [{multi_threaded, true}|Opts]).
  
 start_agent(Config, Vsns) ->
     start_agent(Config, Vsns, []).
@@ -437,79 +437,231 @@ start_agent(Config, Vsns, Opts) ->
     ?line AgentDbDir   = ?config(agent_db_dir,   Config),
     ?line SaNode       = ?config(snmp_sa,        Config),
 
-    app_env_init(vsn_init(Vsns) ++ 
-		 [{audit_trail_log,               read_write_log},
-		  {audit_trail_log_dir,           AgentLogDir},
-		  {audit_trail_log_size,          {10240, 10}},
-		  {force_config_reload,           false},
-		  {snmp_agent_type,               master},
-		  {snmp_config_dir,               AgentConfDir},
-		  {snmp_db_dir,                   AgentDbDir},
-		  {snmp_local_db_auto_repair,     true},
-		  {snmp_local_db_verbosity,       log},
-		  {snmp_master_agent_verbosity,   trace},
-		  {snmp_supervisor_verbosity,     trace},
-		  {snmp_mibserver_verbosity,      log},
-		  {snmp_symbolic_store_verbosity, log},
-		  {snmp_note_store_verbosity,     log},
-		  {snmp_net_if_verbosity,         trace}],
-		 Opts),
-
+    Env = app_agent_env_init(
+	    [{versions,         Vsns}, 
+	     {agent_type,       master},
+	     {agent_verbosity,  trace},
+	     {db_dir,           AgentDbDir},
+	     {audit_trail_log,  [{type, read_write},
+				 {dir,  AgentLogDir},
+				 {size, {10240, 10}}]},
+	     {config,           [{dir, AgentConfDir},
+				 {force_load, false}, 
+				 {verbosity,  trace}]}, 
+	     {local_db,         [{repair,    true},
+				 {verbosity, log}]}, 
+	     {mib_server,       [{verbosity, log}]},
+	     {symbolic_store,   [{verbosity, log}]},
+	     {note_store,       [{verbosity, log}]},
+	     {net_if,           [{verbosity, trace}]}],
+	    Opts),
+    
 
     process_flag(trap_exit,true),
 
     {ok, AppSup} = snmp_app_sup:start_link(),
     unlink(AppSup),
-    ?DBG("start_agent -> snmp app supervisor: ~p",[AppSup]),
+    ?DBG("start_agent -> snmp app supervisor: ~p", [AppSup]),
 
-    ?DBG("start_agent -> start master agent (old style)",[]),
-    ?line Sup = start_sup(), 
+    ?DBG("start_agent -> start master agent",[]),
+    ?line Sup = start_sup(Env), 
 
-    ?DBG("start_agent -> unlink from supervisor",[]),
+    ?DBG("start_agent -> unlink from supervisor", []),
     ?line unlink(Sup),
     ?line SaDir = ?config(sa_dir, Config),
-    ?DBG("start_agent -> (rpc) start sub on ~p",[SaNode]),
+    ?DBG("start_agent -> (rpc) start sub on ~p", [SaNode]),
     ?line {ok, Sub} = start_sub_sup(SaNode, SaDir),
     ?DBG("start_agent -> done",[]),
     ?line [{snmp_sup, {Sup, self()}}, {snmp_sub, Sub} | Config].
 
 
-vsn_init(Vsn) ->
-    vsn_init([v1,v2,v3], Vsn, []).
+app_agent_env_init(Env0, Opts) ->
+    ?DBG("app_agent_env_init -> unload snmp",[]),
+    ?line application:unload(snmp),
 
-vsn_init([], _Vsn, Acc) ->
-    Acc;
-vsn_init([V|Vsns], Vsn, Acc) ->
-    case lists:member(V, Vsn) of
-        true ->
-            vsn_init(Vsns, Vsn, [{V, true}|Acc]);
-        false ->
-            vsn_init(Vsns, Vsn, [{V, false}|Acc])
+    ?DBG("app_agent_env_init -> load snmp",[]),
+    ?line application:load(snmp),
+
+    ?DBG("app_agent_env_init -> "
+	 "merge or maybe replace (snmp agent) app env",[]),
+    Env = add_or_maybe_merge_agent_env(Opts, Env0),
+    ?DBG("app_agent_env_init -> merged env: "
+	 "~n   ~p", [Env]),
+
+    %% We put it into the app environment just as 
+    %% a precaution, since when starting normally, 
+    %% this is where the environment is extracted from.
+    app_agent_set_env(Env),
+    Env.
+
+app_agent_set_env(Value) ->
+    application_controller:set_env(snmp, agent, Value).
+
+add_or_maybe_merge_agent_env([], Env) ->
+    ?DBG("merging agent env -> merged", []),
+    lists:keysort(1, Env);
+add_or_maybe_merge_agent_env([{Key, Value1}|Opts], Env) ->
+    ?DBG("merging agent env -> add, replace or merge ~p", [Key]),
+    case lists:keysearch(Key, 1, Env) of
+	{value, {Key, Value1}} ->
+	    %% Identical, move on
+	    ?DBG("merging agent env -> "
+		 "no need to merge ~p - identical - keep: "
+		 "~n   ~p", [Key, Value1]),
+	    add_or_maybe_merge_agent_env(Opts, Env);
+	{value, {Key, Value2}} ->
+	    %% Another value, merge or replace
+	    NewValue = merge_or_replace_agent_env(Key, Value1, Value2),
+	    Env2 = lists:keyreplace(Key, 1, Env, {Key, NewValue}), 
+	    add_or_maybe_merge_agent_env(Opts, Env2);
+	false ->
+	    ?DBG("merging agent env -> no old ~p to merge with - add: "
+		 "~n   ~p", [Key, Value1]),
+	    add_or_maybe_merge_agent_env(Opts, [{Key, Value1}|Env])
     end.
 
-app_env_init(Env0, Opts) ->
-    ?DBG("app_env_init -> unload snmp",[]),
-    ?line application:unload(snmp),
-    ?DBG("app_env_init -> load snmp",[]),
-    ?line application:load(snmp),
-    ?DBG("app_env_init -> initiate (snmp) application env",[]),
-    F1 = fun({Key, Val} = New, Acc0) -> 
-                 ?DBG("app_env_init -> "
-                     "updating setting ~p to ~p", [Key, Val]),
-                 case lists:keyreplace(Key, 1, Acc0, New) of
-		     Acc0 ->
-			 [New|Acc0];
-		     Acc ->
-			 Acc
-		 end
-         end, 
-    Env = lists:foldr(F1, Env0, Opts),
-    ?DBG("app_env_init -> Env: ~p",[Env]),
-    F2 = fun({Key,Val}) ->
-                 ?DBG("app_env_init -> setting ~p to ~p",[Key, Val]),
-                 application_controller:set_env(snmp, Key, Val)
-         end,
-    lists:foreach(F2, Env).
+merge_or_replace_agent_env(versions, NewVersions, _OldVersions) ->
+    ?DBG("merging agent env -> versions replaced: ~p -> ~p", 
+	 [NewVersions, _OldVersions]),
+    NewVersions;
+merge_or_replace_agent_env(agent_type, NewType, _OldType) ->
+    ?DBG("merging agent env -> agent type replaced: ~p -> ~p", 
+	 [NewType, _OldType]),
+    NewType;
+merge_or_replace_agent_env(agent_verbosity, NewVerbosity, _OldVerbosity) ->
+    ?DBG("merging agent env -> agent verbosity replaced: ~p -> ~p", 
+	 [NewVerbosity, _OldVerbosity]),
+    NewVerbosity;
+merge_or_replace_agent_env(db_dir, NewDbDir, _OldDbDir) ->
+    ?DBG("merging agent env -> db-dir replaced: ~p -> ~p", 
+	 [NewDbDir, _OldDbDir]),
+    NewDbDir;
+merge_or_replace_agent_env(audit_trail_log, NewATL, OldATL) ->
+    merge_or_replace_agent_env_atl(NewATL, OldATL);
+merge_or_replace_agent_env(config, NewConfig, OldConfig) ->
+    merge_or_replace_agent_env_config(NewConfig, OldConfig);
+merge_or_replace_agent_env(local_db, NewLdb, OldLdb) ->
+    merge_or_replace_agent_env_ldb(NewLdb, OldLdb);
+merge_or_replace_agent_env(mib_storage, NewMst, OldMst) ->
+    merge_or_replace_agent_env_mib_storage(NewMst, OldMst);
+merge_or_replace_agent_env(mib_server, NewMibs, OldMibs) ->
+    merge_or_replace_agent_env_mib_server(NewMibs, OldMibs);
+merge_or_replace_agent_env(symbolic_store, NewSymStore, OldSymStore) ->
+    merge_or_replace_agent_env_symbolic_store(NewSymStore, OldSymStore);
+merge_or_replace_agent_env(note_store, NewNoteStore, OldNoteStore) ->
+    merge_or_replace_agent_env_note_store(NewNoteStore, OldNoteStore);
+merge_or_replace_agent_env(net_if, NewNetIf, OldNetIf) ->
+    merge_or_replace_agent_env_net_if(NewNetIf, OldNetIf);
+merge_or_replace_agent_env(Key, NewValue, OldValue) ->
+    ?FAIL({not_implemented_merge_or_replace, 
+	   Key, NewValue, OldValue}).
+
+merge_or_replace_agent_env_atl(New, Old) ->
+    ATL = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> audit-trail-log merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, ATL]),
+    ATL.
+
+merge_or_replace_agent_env_config(New, Old) ->
+    Config = merge_agent_options(New, Old),
+    case lists:keymember(dir, 1, Config) of
+	true ->
+	    ?DBG("merging agent env -> config merged: "
+		 "~n   ~p | ~p -> ~p", [New, Old, Config]),
+	    Config;
+	false ->
+	    ?FAIL({missing_mandatory_option, {config, dir}})
+    end.
+
+merge_or_replace_agent_env_ldb(New, Old) ->
+    LDB = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> local-db merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, LDB]),
+    LDB.
+
+merge_or_replace_agent_env_mib_storage(NewMibStorage, OldMibStorage) ->
+    %% Shall we merge or replace?
+    %% module is mandatory. We will only merge if NewModule is
+    %% equal to OldModule. 
+    NewModule = 
+	case lists:keysearch(module, 1, NewMibStorage) of
+	    {value, {module, M}} ->
+		M;
+	    false ->
+		?FAIL({missing_mandatory_option, {mib_storage, module}})
+	end,
+    case lists:keysearch(module, 1, OldMibStorage) of
+	{value, {module, NewModule}} ->
+	    %% Same module => merge
+	    %% Non-ex new options => remove
+	    %% Ex new options and non-ex old options => replace
+	    %% Otherwise merge
+	    case lists:keysearch(options, 1, NewMibStorage) of
+		false ->
+		    ?DBG("merging agent env -> "
+			 "no mib-storage ~p merge needed - "
+			 "no new options (= remove old options)", [NewModule]),
+		    NewMibStorage;
+		{value, {options, NewOptions}} ->
+		    case lists:keysearch(options, 1, OldMibStorage) of
+			false ->
+			    ?DBG("merging agent env -> "
+				 "no mib-storage ~p merge needed - "
+				 "no old options", [NewModule]),
+			    NewMibStorage;
+			{value, {options, OldOptions}} ->
+			    MergedOptions = 
+				merge_agent_options(NewOptions, OldOptions), 
+			    ?DBG("merging agent env -> mib-storage ~p merged: "
+				 "~n   Options: ~p | ~p -> ~p", 
+				 [NewModule, 
+				  NewOptions, OldOptions, MergedOptions]),
+			    [{module,  NewModule}, 
+			     {options, MergedOptions}]
+		    end
+	    end;
+	_ ->
+	    %% Diff module => replace
+	    ?DBG("merging agent env -> "
+		 "no mib-storage ~p merge needed - "
+		 "new module", [NewModule]),
+	    NewMibStorage
+    end.
+
+merge_or_replace_agent_env_mib_server(New, Old) ->
+    MibServer = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> mib-server merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, MibServer]),
+    MibServer.
+
+merge_or_replace_agent_env_symbolic_store(New, Old) ->
+    SymbolicStore = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> symbolic-store merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, SymbolicStore]),
+    SymbolicStore.
+
+merge_or_replace_agent_env_note_store(New, Old) ->
+    NoteStore = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> note-store merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, NoteStore]),
+    NoteStore.
+
+merge_or_replace_agent_env_net_if(New, Old) ->
+    NetIf = merge_agent_options(New, Old),
+    ?DBG("merging agent env -> net-if merged: "
+	 "~n   ~p | ~p -> ~p", [New, Old, NetIf]),
+    NetIf.
+
+merge_agent_options([], Options) ->
+    lists:keysort(1, Options);
+merge_agent_options([{Key, _Value} = Opt|Opts], Options) ->
+    case lists:keysearch(Key, 1, Options) of
+	{value, _} ->
+	    NewOptions = lists:keyreplace(Key, 1, Options, Opt), 
+	    merge_agent_options(Opts, NewOptions);
+	false ->
+	    merge_agent_options(Opts, [Opt|Options])
+    end.
 
 
 stop_agent(Config) when is_list(Config) ->
@@ -544,8 +696,8 @@ stop_agent(Config) when is_list(Config) ->
     lists:keydelete(snmp_sub, 1, C1).
 
 
-start_sup() ->
-    case (catch snmpa_app:start(normal)) of
+start_sup(Env) ->
+    case (catch snmp_app_sup:start_agent(normal, Env)) of
 	{ok, S} ->
 	    ?DBG("start_agent -> started, Sup: ~p",[S]),
 	    S;
@@ -553,7 +705,7 @@ start_sup() ->
 	Else ->
 	    ?DBG("start_agent -> unknown result: ~n~p",[Else]),
 	    %% Get info about the apps we depend on
-	    ?FAIL({start_failed,Else, ?IS_MNESIA_RUNNING()})
+	    ?FAIL({start_failed, Else, ?IS_MNESIA_RUNNING()})
     end.
 
 stop_sup(Pid, _) when (node(Pid) =:= node()) ->
@@ -594,7 +746,7 @@ start_sub_sup(Node, Dir) ->
     
 start_sub_sup(Dir) ->
     ?DBG("start_sub -> entry",[]),
-    Opts = [{db_dir, Dir}, 
+    Opts = [{db_dir,     Dir}, 
             {supervisor, [{verbosity, trace}]}],
     {ok, P} = snmpa_supervisor:start_sub_sup(Opts),
     unlink(P),
@@ -690,31 +842,33 @@ agent_info(Sup) ->
 
 
 %% --- 
+%% The first two arguments are simple to be able to find where in the 
+%% (test) code this call is made. 
 
-expect(Id, A) -> 
-    Fun = fun() -> do_expect(A) end,
-    expect2(Id, Fun).
+expect(Mod, Line, What) -> 
+    Fun = fun() -> do_expect(What) end,
+    expect2(Mod, Line, Fun).
 
-expect(Id, A, B) ->          
-    Fun = fun() -> do_expect(A, B) end,
-    expect2(Id, Fun).
+expect(Mod, Line, What, ExpVBs) ->          
+    Fun = fun() -> do_expect(What, ExpVBs) end,
+    expect2(Mod, Line, Fun).
 	 
-expect(Id, A, B, C) -> 
-    Fun = fun() -> do_expect(A, B, C) end,
-    expect2(Id, Fun).
+expect(Mod, Line, Error, Index, ExpVBS) -> 
+    Fun = fun() -> do_expect(Error, Index, ExpVBS) end,
+    expect2(Mod, Line, Fun).
 
-expect(Id, A, B, C, D, E) -> 
-    Fun = fun() -> do_expect(A, B, C, D, E) end,
-    expect2(Id, Fun).
+expect(Mod, Line, Type, Enterp, Generic, Specific, ExpVBs) -> 
+    Fun = fun() -> do_expect(Type, Enterp, Generic, Specific, ExpVBs) end,
+    expect2(Mod, Line, Fun).
 
-expect2(Id, F) ->
-    io:format("EXPECT for ~w~n", [Id]),
+expect2(Mod, Line, F) ->
+    io:format("EXPECT for ~w:~w~n", [Mod, Line]),
     case F() of
 	{error, Reason} ->
-	    io:format("EXPECT failed for ~w: ~n~p~n", [Id, Reason]),
-	    throw({error, {expect, Id, Reason}});
+	    io:format("EXPECT failed at ~w:~w => ~n~p~n", [Mod, Line, Reason]),
+	    throw({error, {expect, Mod, Line, Reason}});
 	Else ->
-	    io:format("EXPECT result for ~w: ~n~p~n", [Id, Else]),
+	    io:format("EXPECT result for ~w:~w => ~n~p~n", [Mod, Line, Else]),
 	    Else
     end.
 
@@ -766,7 +920,8 @@ do_expect({timeout, To}) ->
     end;
 
 do_expect({Err, To}) 
-  when is_atom(Err) andalso (is_integer(To) orelse (To =:= infinity)) ->
+  when (is_atom(Err) andalso 
+	((is_integer(To) andalso To > 0) orelse (To =:= infinity))) ->
     io:format("EXPECT error ~w within ~w~n", [Err, To]),
     do_expect({{error, Err}, To});
 

@@ -150,4 +150,6 @@ roundtrip(Type, Val1, Val2) ->
 roundtrip_1(Mod, Type, In, Out) ->
     {ok,Encoded} = Mod:encode(Type, In),
     {ok,Out} = Mod:decode(Type, Encoded),
+    %% Test that compact BIT STRINGs can be encoded.
+    {ok,Encoded} = Mod:encode(Type, Out),
     ok.

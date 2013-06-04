@@ -1,8 +1,0 @@
-Pattern DEFINITIONS AUTOMATIC TAGS ::=
-
-BEGIN
-
-DateAndTime ::= VisibleString (PATTERN "\d#2/\d#2/\d#4-\d#2:\d#2") 
--- DD/MM/YYY-HH:MM
-
-END

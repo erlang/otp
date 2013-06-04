@@ -22,8 +22,6 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
-
 -record('InitiatingMessage',{procedureCode,criticality,value}).
 -record('InitiatingMessage2',{procedureCode,criticality,value}).
 -record('Iu-ReleaseCommand',{first,second}).
@@ -34,22 +32,11 @@ main(_Erule) ->
 				value=#'Iu-ReleaseCommand'{
 				  first=13,
 				  second=true}},
-    ?line {ok,Bytes1} = 
-	asn1_wrapper:encode('RANAPextract1','InitiatingMessage',Val1),
-    
-    ?line {ok,{'InitiatingMessage',1,ignore,{'Iu-ReleaseCommand',13,true}}}=
-	asn1_wrapper:decode('RANAPextract1','InitiatingMessage',Bytes1),
-    
-    ?line {ok,Bytes2} =
-	asn1_wrapper:encode('InfObj','InitiatingMessage',Val1),
-    
-    ?line {ok,Val1} =
-	asn1_wrapper:decode('InfObj','InitiatingMessage',Bytes2),
+    roundtrip('RANAPextract1', 'InitiatingMessage', Val1),
+    roundtrip('InfObj', 'InitiatingMessage', Val1),
 
     Val2 = Val1#'InitiatingMessage'{procedureCode=2},
-    
-    ?line {error,_R1} =
-	asn1_wrapper:encode('InfObj','InitiatingMessage',Val2),
+    {error,_R1} = 'InfObj':encode('InitiatingMessage', Val2),
     
 
     %% Test case for OTP-4275
@@ -59,10 +46,26 @@ main(_Erule) ->
 				   first=13,
 				   second=true}},
 
-    ?line {ok,Bytes3} = 
-	asn1_wrapper:encode('RANAPextract1','InitiatingMessage2',Val3),
+    roundtrip('RANAPextract1', 'InitiatingMessage2', Val3),
 
-    
-    ?line {ok,{'InitiatingMessage2',3,reject,{'Iu-ReleaseCommand',13,true}}}=
-	asn1_wrapper:decode('RANAPextract1','InitiatingMessage2',Bytes3).
-    
+    roundtrip('InfObj', 'MyPdu', {'MyPdu',42,12,false,"string"}),
+    roundtrip('InfObj', 'MyPdu', {'MyPdu',{'Seq',1023,"hello"},
+				  42,true,"longer string"}),
+    roundtrip('InfObj', 'MyPdu', {'MyPdu',"75712346",43,true,"string"}),
+
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',1,{'CONSTRUCTED-DEFAULT_Type',-2001,true}}),
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',2,{'CONSTRUCTED-DEFAULT_Type',999,false}}),
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',3,true}),
+
+    roundtrip('InfObj', 'Seq2',
+	      {'Seq2',42,[true,false,false,true],
+	       [false,true,false]}).
+
+
+roundtrip(M, T, V) ->
+    {ok,Enc} = M:encode(T, V),
+    {ok,V} = M:decode(T, Enc),
+    ok.

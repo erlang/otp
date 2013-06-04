@@ -300,7 +300,7 @@ clear_crypto_key_fun() ->
     call_crypto_server(clear_crypto_key_fun).
 
 -spec make_crypto_key(mode(), string()) ->
-        {binary(), binary(), binary(), binary()}.
+        {mode(), [binary()], binary(), integer()}.
 
 make_crypto_key(des3_cbc=Type, String) ->
     <<K1:8/binary,K2:8/binary>> = First = erlang:md5(String),

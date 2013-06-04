@@ -142,32 +142,33 @@ auth_out(?usmHMACSHAAuthProtocol, AuthKey, Message, UsmSecParams) ->
     sha_auth_out(AuthKey, Message, UsmSecParams).
 
 md5_auth_out(AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("md5_auth_out -> entry with"
+    %%  	    "~n   AuthKey:      ~w"
+    %% 	    "~n   Message:      ~w"
+    %%  	    "~n   UsmSecParams: ~w", [AuthKey, Message, UsmSecParams]),
     %% 6.3.1.1
     Message2 = set_msg_auth_params(Message, UsmSecParams, ?twelwe_zeros),
-    Packet = snmp_pdus:enc_message_only(Message2),
+    Packet   = snmp_pdus:enc_message_only(Message2),
     %% 6.3.1.2-4 is done by the crypto function
     %% 6.3.1.4
     MAC = binary_to_list(crypto:hmac(md5, AuthKey, Packet, 12)),
-    ?vtrace("md5_auth_out -> entry with"
-    	    "~n   Packet:    ~w"
-     	    "~n   AuthKey:   ~w"
-     	    "~n   MAC:       ~w"
-    , [Packet, AuthKey, MAC]),
+    %% ?vtrace("md5_auth_out -> crypto (md5) encoded"
+    %%  	    "~n   MAC: ~w", [MAC]),
     %% 6.3.1.5
     set_msg_auth_params(Message, UsmSecParams, MAC).
 
 md5_auth_in(AuthKey, AuthParams, Packet) when length(AuthParams) == 12 ->
+    %% ?vtrace("md5_auth_in -> entry with"
+    %%  	    "~n   AuthKey:    ~w"
+    %%  	    "~n   AuthParams: ~w"
+    %%  	    "~n   Packet:     ~w", [AuthKey, AuthParams, Packet]),
     %% 6.3.2.3
     Packet2 = patch_packet(binary_to_list(Packet)),
     %% 6.3.2.5
     MAC = binary_to_list(crypto:hmac(md5, AuthKey, Packet2, 12)),
     %% 6.3.2.6
-    ?vtrace("md5_auth_in -> entry with"
-     	    "~n   Packet2:    ~w"
-     	    "~n   AuthKey:    ~w"
-     	    "~n   AuthParams: ~w"
-     	    "~n   MAC:        ~w"
-     	    , [Packet2, AuthKey, AuthParams, MAC]),
+    %% ?vtrace("md5_auth_in -> crypto (md5) encoded"
+    %%  	    "~n   MAC: ~w", [MAC]),
     MAC == AuthParams;
 md5_auth_in(_AuthKey, _AuthParams, _Packet) ->
     %% 6.3.2.1
