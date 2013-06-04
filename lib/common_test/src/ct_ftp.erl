@@ -348,10 +348,10 @@ terminate(FtpPid,State) ->
 get_handle(Pid) when is_pid(Pid) ->
     {ok,Pid};
 get_handle(Name) ->
-    case ct_util:get_connections(Name,?MODULE) of
-	{ok,[{Pid,_}|_]} ->
+    case ct_util:get_connection(Name,?MODULE) of
+	{ok,{Pid,_}} ->
 	    {ok,Pid};
-	{ok,[]} ->
+	{error,no_registered_connection} ->
 	    open(Name);
 	Error ->
 	    Error

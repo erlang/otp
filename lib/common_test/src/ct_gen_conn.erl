@@ -26,7 +26,7 @@
 
 -compile(export_all).
 
--export([start/4, stop/1]).
+-export([start/4, stop/1, get_conn_pid/1]).
 -export([call/2, call/3, return/2, do_within_time/2]).
 
 -ifdef(debug).
@@ -120,8 +120,16 @@ start(Name,Address,InitData,CallbackMod) ->
 %%%      Handle = handle()
 %%%
 %%% @doc Close the connection and stop the process managing it.
-stop(Pid) ->
-    call(Pid,stop,5000).
+stop(Handle) ->
+    call(Handle,stop,5000).
+
+%%%-----------------------------------------------------------------
+%%% @spec get_conn_pid(Handle) -> ok
+%%%      Handle = handle()
+%%%
+%%% @doc Return the connection pid associated with Handle
+get_conn_pid(Handle) ->
+    call(Handle,get_conn_pid).
 
 %%%-----------------------------------------------------------------
 %%% @spec log(Heading,Format,Args) -> ok
@@ -222,7 +230,8 @@ do_start(Opts) ->
     receive
 	{connected,Pid} ->
 	    erlang:demonitor(MRef, [flush]),
-	    ct_util:register_connection(Opts#gen_opts.name, Opts#gen_opts.address,
+	    ct_util:register_connection(Opts#gen_opts.name,
+					Opts#gen_opts.address,
 					Opts#gen_opts.callback, Pid),
 	    {ok,Pid};
 	{Error,Pid} ->
@@ -315,10 +324,12 @@ loop(Opts) ->
 			{ok, NewPid, NewState} ->
 			    link(NewPid),
 			    put(conn_pid,NewPid),
-			    loop(Opts#gen_opts{conn_pid=NewPid,cb_state=NewState});
+			    loop(Opts#gen_opts{conn_pid=NewPid,
+					       cb_state=NewState});
 			Error ->
 			    ct_util:unregister_connection(self()),
-			    log("Reconnect failed. Giving up!","Reason: ~p\n",
+			    log("Reconnect failed. Giving up!",
+				"Reason: ~p\n",
 				[Error])
 		    end;
 		false ->
@@ -338,7 +349,8 @@ loop(Opts) ->
 					       Opts#gen_opts.cb_state),
 	    return(From,ok),
 	    ok;
-	{{retry,{Error,_Name,CPid,_Msg}}, From} when CPid == Opts#gen_opts.conn_pid ->
+	{{retry,{Error,_Name,CPid,_Msg}}, From} when 
+	      CPid == Opts#gen_opts.conn_pid ->
 	    %% only retry if failure is because of a reconnection
 	    Return = case Error of
 			 {error,_} -> Error;
@@ -347,12 +359,16 @@ loop(Opts) ->
 	    return(From, Return),
 	    loop(Opts);
 	{{retry,{_Error,_Name,_CPid,Msg}}, From} ->
-	    log("Rerunning command","Connection reestablished. Rerunning command...",[]),
+	    log("Rerunning command","Connection reestablished. "
+		"Rerunning command...",[]),
 	    {Return,NewState} =
 		(Opts#gen_opts.callback):handle_msg(Msg,Opts#gen_opts.cb_state),
 	    return(From, Return),
 	    loop(Opts#gen_opts{cb_state=NewState});
-	{Msg,From={Pid,_Ref}} when is_pid(Pid), Opts#gen_opts.old==true ->
+	{get_conn_pid, From} ->
+	    return(From, Opts#gen_opts.conn_pid),
+	    loop(Opts);
+	{Msg, From={Pid,_Ref}} when is_pid(Pid), Opts#gen_opts.old==true ->
 	    {Return,NewState} =
 		(Opts#gen_opts.callback):handle_msg(Msg,Opts#gen_opts.cb_state),
 	    return(From, Return),
@@ -372,7 +388,8 @@ loop(Opts) ->
 		    return(From,Reply)
 	    end;
 	Msg when Opts#gen_opts.forward==true ->
-	    case (Opts#gen_opts.callback):handle_msg(Msg,Opts#gen_opts.cb_state) of
+	    case (Opts#gen_opts.callback):handle_msg(Msg,
+						     Opts#gen_opts.cb_state) of
 		{noreply,NewState} ->
 		    loop(Opts#gen_opts{cb_state=NewState});
 		{stop,NewState} ->
