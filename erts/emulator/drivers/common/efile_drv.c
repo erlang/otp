@@ -1679,10 +1679,10 @@ static void invoke_pwritev(void *data) {
 	    d->again = 0;
 	}
     } else
-      ASSERT(written == FILE_SEGMENT_WRITE);
+      ASSERT(written >= FILE_SEGMENT_WRITE);
       
     MUTEX_LOCK(d->c.writev.q_mtx);
-    driver_deq(d->c.pwritev.port, size);
+    driver_deq(d->c.pwritev.port, written);
     MUTEX_UNLOCK(d->c.writev.q_mtx);
  done:
     EF_FREE(iov); /* Free our copy of the vector, nothing to restore */

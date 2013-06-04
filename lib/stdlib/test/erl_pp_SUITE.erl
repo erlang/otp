@@ -43,7 +43,7 @@
 	  receive_after/1, bits/1, head_tail/1,
 	  cond1/1, block/1, case1/1, ops/1, messages/1,
 	  old_mnemosyne_syntax/1,
-	  import_export/1, misc_attrs/1,
+	  import_export/1, misc_attrs/1, dialyzer_attrs/1,
 	  hook/1,
 	  neg_indent/1,
 
@@ -77,7 +77,7 @@ groups() ->
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
        messages, old_mnemosyne_syntax]},
-     {attributes, [], [misc_attrs, import_export]},
+     {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
@@ -595,6 +595,15 @@ misc_attrs(Config) when is_list(Config) ->
     ?line ok = pp_forms(<<"-record(' a ', {}). ">>),
     ?line ok = pp_forms(<<"-record(' a ', {foo = foo:bar()}). ">>),
 
+    ok.
+
+dialyzer_attrs(suite) ->
+    [];
+dialyzer_attrs(Config) when is_list(Config) ->
+    ok = pp_forms(<<"-type foo() :: #bar{}. ">>),
+    ok = pp_forms(<<"-opaque foo() :: {bar, fun((X, [42,...]) -> X)}. ">>),
+    ok = pp_forms(<<"-spec foo(bar(), qux()) -> [T | baz(T)]. ">>),
+    ok = pp_forms(<<"-callback foo(<<_:32,_:_*4>>, T) -> T. ">>),
     ok.
 
 hook(suite) ->
