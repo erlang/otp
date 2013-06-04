@@ -42,6 +42,9 @@
 -export([ports/0,
          ports/1]).
 
+-export_type([listen_option/0,
+              connect_option/0]).
+
 -include_lib("kernel/include/inet_sctp.hrl").
 -include_lib("diameter/include/diameter.hrl").
 
@@ -61,6 +64,11 @@
 %% How long to wait for a transport process to attach after
 %% association establishment.
 -define(ACCEPT_TIMEOUT, 5000).
+
+-type connect_option() :: {raddr, inet:ip_address()}
+                        | {rport, inet:port_number()}
+                        | gen_sctp:open_option().
+-type listen_option() :: gen_sctp:open_option().
 
 -type uint() :: non_neg_integer().
 
@@ -101,6 +109,13 @@
 %% ---------------------------------------------------------------------------
 %% # start/3
 %% ---------------------------------------------------------------------------
+
+-spec start({accept, Ref}, #diameter_service{}, [listen_option()])
+   -> {ok, pid(), [inet:ip_address()]}
+ when Ref :: diameter:transport_ref();
+           ({connect, Ref}, #diameter_service{}, [connect_option()])
+   -> {ok, pid(), [inet:ip_address()]}
+ when Ref :: diameter:transport_ref().
 
 start(T, #diameter_service{capabilities = Caps}, Opts)
   when is_list(Opts) ->

@@ -42,6 +42,9 @@
 -export([ports/0,
          ports/1]).
 
+-export_type([connect_option/0,
+              listen_option/0]).
+
 -include_lib("diameter/include/diameter.hrl").
 
 %% Keys into process dictionary.
@@ -80,6 +83,21 @@
 -type frag()   :: {length(), size(), binary(), list(binary())}
                 | binary().
 
+-type connect_option() :: {raddr, inet:ip_address()}
+                        | {rport, pos_integer()}
+                        | option()
+                        | {ssl_options, true | [ssl:connect_option()]}
+                        | ssl:connect_option()
+                        | gen_tcp:connect_option().
+
+-type listen_option() :: option()
+                       | {ssl_options, true | [ssl:listen_option()]}
+                       | ssl:listen_option()
+                       | gen_tcp:listen_option().
+
+-type option() :: {port, non_neg_integer()}
+                | {fragment_timer, 0..16#FFFFFFFF}.
+
 %% Accepting/connecting transport process state.
 -record(transport,
         {socket  :: inet:socket() | ssl:sslsocket(), %% accept/connect socket
@@ -100,17 +118,13 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
--spec start({accept, Ref}, Svc, [Opt])
+-spec start({accept, Ref}, #diameter_service{}, [listen_option()])
    -> {ok, pid(), [inet:ip_address()]}
- when Ref :: diameter:transport_ref(),
-      Svc :: #diameter_service{},
-      Opt :: diameter:transport_opt();
-           ({connect, Ref}, Svc, [Opt])
+ when Ref :: diameter:transport_ref();
+           ({connect, Ref}, #diameter_service{}, [connect_option()])
    -> {ok, pid(), [inet:ip_address()]}
     | {ok, pid()}
- when Ref :: diameter:transport_ref(),
-      Svc :: #diameter_service{},
-      Opt :: diameter:transport_opt().
+ when Ref :: diameter:transport_ref().
 
 start({T, Ref}, #diameter_service{capabilities = Caps}, Opts) ->
     diameter_tcp_sup:start(),  %% start tcp supervisors on demand
