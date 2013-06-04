@@ -74,4 +74,15 @@ SeqIn ::= SEQUENCE
   intIn  INTEGER DEFAULT 12
 }
 
+SeqExp ::= SEQUENCE
+{
+  bool BOOLEAN,
+  ...,
+  int INTEGER
+}
+
+SeqDef4 ::= SEQUENCE {
+  seq SeqExp DEFAULT { bool TRUE, int 42 }
+}
+
 END

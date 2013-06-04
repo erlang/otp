@@ -62,4 +62,13 @@ Empty ::= SEQUENCE
 {
 }
 
+SeqExt ::= SEQUENCE
+{
+  b1 BOOLEAN,
+  s1 SEQUENCE SIZE (1..3, ...) OF SeqIn,
+  b2 BOOLEAN,
+  s2 SEQUENCE SIZE (0..1024, ...) OF SeqIn,
+  magic INTEGER
+}
+
 END

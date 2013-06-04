@@ -27,7 +27,8 @@
 	 skip_ExtensionAdditions/2]).
 -export([encode_boolean/2,decode_boolean/2,
 	 encode_integer/2,encode_integer/3,
-	 decode_integer/3,decode_integer/4,
+	 decode_integer/2,decode_integer/3,
+	 decode_named_integer/3,decode_named_integer/4,
 	 encode_enumerated/2,decode_enumerated/3,
 	 encode_bit_string/4,
 	 decode_named_bit_string/3,
@@ -41,9 +42,7 @@
 	 decode_restricted_string/2,decode_restricted_string/3,
 	 encode_universal_string/2,decode_universal_string/3,
 	 encode_UTF8_string/2,decode_UTF8_string/2,
-	 encode_BMP_string/2,decode_BMP_string/3,
-	 encode_generalized_time/2,decode_generalized_time/3,
-	 encode_utc_time/2,decode_utc_time/3]).
+	 encode_BMP_string/2,decode_BMP_string/3]).
 
 -export([encode_open_type/2,decode_open_type/2,
 	 decode_open_type_as_binary/2]).
@@ -700,10 +699,19 @@ encode_integer_neg(N, Acc) ->
 %%    (Buffer, Range, NamedNumberList, HasTag, TotalLen) -> {Integer, Remain, RemovedBytes}
 %%===============================================================================
 
-decode_integer(Tlv, Range, NamedNumberList, TagIn) ->
+decode_named_integer(Tlv, NamedNumberList, TagIn) ->
+    V = match_tags(Tlv, TagIn),
+    Int = decode_integer(V),
+    number2name(Int, NamedNumberList).
+
+decode_named_integer(Tlv, Range, NamedNumberList, TagIn) ->
     V = match_tags(Tlv, TagIn),
     Int = range_check_integer(decode_integer(V), Range),
     number2name(Int, NamedNumberList).
+
+decode_integer(Tlv, TagIn) ->
+    V = match_tags(Tlv, TagIn),
+    decode_integer(V).
 
 decode_integer(Tlv, Range, TagIn) ->
     V = match_tags(Tlv, TagIn),
@@ -715,21 +723,10 @@ decode_integer(Bin) ->
     <<Int:Len/signed-unit:8>> = Bin,
     Int.
 
+range_check_integer(Int, {Lb,Ub}) when Lb =< Int, Int =< Ub ->
+    Int;
 range_check_integer(Int, Range) ->
-    case Range of
-	[] -> % No length constraint
-	    Int;
-	{Lb,Ub} when Int >= Lb, Ub >= Int -> % variable length constraint
-	    Int;
-	{_,_} ->
-	    exit({error,{asn1,{integer_range,Range,Int}}});
-	Int -> % fixed value constraint
-	    Int;
-	SingleValue when is_integer(SingleValue) ->
-	    exit({error,{asn1,{integer_range,Range,Int}}});
-	_ -> % some strange constraint that we don't support yet
-	    Int
-    end.
+    exit({error,{asn1,{integer_range,Range,Int}}}).
 
 number2name(Int, []) ->
     Int;
@@ -838,8 +835,8 @@ int_to_bitlist(Int) when is_integer(Int), Int >= 0 ->
 %% and BinBits is a binary representing the BIT STRING.
 %%=================================================================
 encode_bin_bit_string(C,{Unused,BinBits},_NamedBitList,TagIn)->
-    case get_constraint(C,'SizeConstraint') of
-	no ->
+    case C of
+	[] ->
 	    remove_unused_then_dotag(TagIn, Unused, BinBits);
 	{_Min,Max} ->
 	    BBLen = (byte_size(BinBits)*8)-Unused,
@@ -885,8 +882,8 @@ remove_unused_then_dotag(TagIn,Unused,BinBits) ->
 encode_bit_string_named(C, [FirstVal | RestVal], NamedBitList, TagIn) ->
     ToSetPos = get_all_bitposes([FirstVal | RestVal], NamedBitList, []),
     Size =
-	case get_constraint(C,'SizeConstraint') of
-	    no ->
+	case C of
+	    [] ->
 		lists:max(ToSetPos)+1;
 	    {_Min,Max} ->
 		Max;
@@ -943,8 +940,8 @@ make_and_set_list(Len, [], XPos) ->
 %% Encode bit string for lists of ones and zeroes
 %%=================================================================
 encode_bit_string_bits(C, BitListVal, _NamedBitList, TagIn) when is_list(BitListVal) ->
-    case get_constraint(C,'SizeConstraint') of
-	no ->
+    case C of
+	[] ->
 	    {Len, Unused, OctetList} = encode_bitstring(BitListVal),
 	    %%add unused byte to the Len
 	    encode_tags(TagIn, [Unused | OctetList], Len+1);
@@ -957,7 +954,7 @@ encode_bit_string_bits(C, BitListVal, _NamedBitList, TagIn) when is_list(BitList
 	Constr={{_,_},{_,_}} ->%{{Min1,Max1},{Min2,Max2}}
 	    %% constraint with extension mark
 	    encode_constr_bit_str_bits(Constr,BitListVal,TagIn);
-	Size ->
+	Size when is_integer(Size) ->
 	    case length(BitListVal) of
 		BitSize when BitSize == Size ->
 		    {Len, Unused, OctetList} = encode_bitstring(BitListVal),
@@ -1266,27 +1263,14 @@ decode_restricted_string(Tlv, Range, TagsIn) ->
     Bin = match_and_collect(Tlv, TagsIn),
     check_restricted_string(binary_to_list(Bin), byte_size(Bin), Range).
 
-check_restricted_string(Val, StrLen, Range) ->
-    case Range of
-	{Lb,Ub} when StrLen >= Lb, Ub >= StrLen -> % variable length constraint
-	    Val;
-	{{Lb,_Ub},[]} when StrLen >= Lb ->
-	    Val;
-	{{Lb,_Ub},_Ext=[Min|_]} when StrLen >= Lb; StrLen >= Min ->
-	    Val;
-	{{Lb1,Ub1},{Lb2,Ub2}} when StrLen >= Lb1, StrLen =< Ub1;
-				   StrLen =< Ub2, StrLen >= Lb2 ->
-	    Val;
-	StrLen -> % fixed length constraint
-	    Val;
-	{_,_} ->
-	    exit({error,{asn1,{length,Range,Val}}});
-	_Len when is_integer(_Len) ->
-	    exit({error,{asn1,{length,Range,Val}}});
-	_ -> % some strange constraint that we don't support yet
-	    Val
-    end.
-
+check_restricted_string(Val, _Len, []) ->
+    Val;
+check_restricted_string(Val, Len, {Lb,Ub}) when Lb =< Len, Len =< Ub ->
+    Val;
+check_restricted_string(Val, Len, Len) ->
+    Val;
+check_restricted_string(Val, _Len, Range) ->
+    exit({error,{asn1,{length,Range,Val}}}).
 
 %%============================================================================
 %% encode Universal string
@@ -1390,56 +1374,6 @@ mk_BMP_string([0,B|T], US) ->
 mk_BMP_string([C,D|T], US) ->
     mk_BMP_string(T, [{0,0,C,D}|US]).
 
-
-%%============================================================================
-%% Generalized time, ITU_T X.680 Chapter 39
-%%
-%% encode Generalized time
-%%============================================================================
-
-encode_generalized_time(OctetList, TagIn) ->
-    encode_tags(TagIn, OctetList, length(OctetList)).
-
-%%============================================================================
-%% decode Generalized time
-%%    (Buffer, Range, HasTag, TotalLen) -> {String, Remain, RemovedBytes}
-%%============================================================================
-
-decode_generalized_time(Tlv, _Range, Tags) ->
-    Val = match_tags(Tlv, Tags),
-    NewVal = case Val of
-		 [_H|_T]=PartList ->		% constructed
-		     collect_parts(PartList);
-		 Bin ->
-		     Bin
-	     end,
-    binary_to_list(NewVal).
-
-%%============================================================================
-%% Universal time, ITU_T X.680 Chapter 40
-%%
-%% encode UTC time
-%%============================================================================
-
-encode_utc_time(OctetList, TagIn) ->
-    encode_tags(TagIn, OctetList, length(OctetList)).
-
-%%============================================================================
-%% decode UTC time
-%%    (Buffer, Range, HasTag, TotalLen) -> {String, Remain, RemovedBytes}
-%%============================================================================
-
-decode_utc_time(Tlv, _Range, Tags) ->
-    Val = match_tags(Tlv, Tags),
-    NewVal = case Val of
-		 [_|_]=PartList -> % constructed
-		     collect_parts(PartList);
-		 Bin ->
-		     Bin
-	     end,
-    binary_to_list(NewVal).
-
-
 %%============================================================================
 %% Length handling
 %%
@@ -1533,14 +1467,6 @@ match_and_collect(Tlv, TagsIn) ->
 	    collect_parts(PartList);
 	Bin when is_binary(Bin) ->
 	    Bin
-    end.
-
-get_constraint(C, Key) ->
-    case lists:keyfind(Key, 1, C) of
-	false ->
-	    no;
-	{_,V} ->
-	    V
     end.
 
 collect_parts(TlvList) ->

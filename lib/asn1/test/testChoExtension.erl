@@ -42,6 +42,11 @@ extension(_Rules) ->
     roundtrip('ChoExt3', {int,33}),
     roundtrip('ChoExt4', {str,"abc"}),
 
+    roundtrip('ChoEmptyRoot', {bool,false}),
+    roundtrip('ChoEmptyRoot', {bool,true}),
+    roundtrip('ChoEmptyRoot', {int,0}),
+    roundtrip('ChoEmptyRoot', {int,7}),
+
     ok.
 
 

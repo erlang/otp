@@ -47,5 +47,15 @@ BEGIN
     b Bool,
     i4 INTEGER (0..63)
   }    
-    
+
+  ASeq ::= SEQUENCE {
+    e254 BOOLEAN,
+    i254 INTEGER (0..254),
+    e255 BOOLEAN,
+    i255 INTEGER (0..255),
+    e256 BOOLEAN,
+    i256 INTEGER (0..256),
+    e BOOLEAN,
+    magic INTEGER
+  }
 END

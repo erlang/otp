@@ -19,7 +19,7 @@
 -module(asn1rtt_per).
 
 -export([setext/1, fixextensions/2,
-	 skipextensions/3, getbit/1, getchoice/3,
+	 skipextensions/3,
 	 set_choice/3,encode_integer/2,
 	 encode_small_number/1,
 	 encode_constrained_number/2,
@@ -36,7 +36,7 @@
 	 encode_VideotexString/2,
 	 encode_ObjectDescriptor/2,
 	 encode_UTF8String/1,
-	 encode_octet_string/3,
+	 encode_octet_string/2,
 	 encode_known_multiplier_string/4,
 	 octets_to_complete/2]).
 
@@ -88,51 +88,12 @@ skipextensions(Bytes0, Nr, ExtensionBitstr) when is_bitstring(ExtensionBitstr) -
 	    Bytes0
     end.
 
-
-getchoice(Bytes, 1, 0) -> % only 1 alternative is not encoded
-    {0,Bytes};
-getchoice(Bytes, _, 1) ->
-    decode_small_number(Bytes);
-getchoice(Bytes, NumChoices, 0) ->
-    decode_constrained_number(Bytes, {0,NumChoices-1}).
-
-
-getbit(Buffer) ->
-    <<B:1,Rest/bitstring>> = Buffer,
-    {B,Rest}.
-
-getbits(Buffer, Num) when is_bitstring(Buffer) ->
-    <<Bs:Num,Rest/bitstring>> = Buffer,
-    {Bs,Rest}.
-
 align(Bin) when is_binary(Bin) ->
     Bin;
 align(BitStr) when is_bitstring(BitStr) ->
     AlignBits = bit_size(BitStr) rem 8,
     <<_:AlignBits,Rest/binary>> = BitStr,
     Rest.
-
-
-%% First align buffer, then pick the first Num octets.
-%% Returns octets as an integer with bit significance as in buffer.
-getoctets(Buffer, Num) when is_binary(Buffer) ->
-    <<Val:Num/integer-unit:8,RestBin/binary>> = Buffer,
-    {Val,RestBin};
-getoctets(Buffer, Num) when is_bitstring(Buffer) ->
-    AlignBits = bit_size(Buffer) rem 8,
-    <<_:AlignBits,Val:Num/integer-unit:8,RestBin/binary>> = Buffer,
-    {Val,RestBin}.
-
-
-%% First align buffer, then pick the first Num octets.
-%% Returns octets as a binary
-getoctets_as_bin(Bin,Num) when is_binary(Bin) ->
-    <<Octets:Num/binary,RestBin/binary>> = Bin,
-    {Octets,RestBin};
-getoctets_as_bin(Bin,Num) when is_bitstring(Bin) ->
-    AlignBits = bit_size(Bin) rem 8,
-    <<_:AlignBits,Val:Num/binary,RestBin/binary>> = Bin,
-    {Val,RestBin}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% set_choice(Alt,Choices,Altnum) -> ListofBitSettings
@@ -185,15 +146,7 @@ set_choice_tag(_Alt,[],_Tag) ->
 %%         | binary
 %% Contraint = not used in this version
 %%
-encode_open_type(Val) when is_list(Val) ->
-    Bin = list_to_binary(Val),
-    case byte_size(Bin) of
-	Size when Size > 255 ->
-	    [encode_length(Size),21,<<Size:16>>,Bin];
-	Size ->
-	    [encode_length(Size),20,Size,Bin]
-    end;
-encode_open_type(Val) when is_binary(Val) ->
+encode_open_type(Val) ->
     case byte_size(Val) of
 	Size when Size > 255 ->
 	    [encode_length(Size),21,<<Size:16>>,Val]; % octets implies align
@@ -220,7 +173,7 @@ encode_integer([{'ValueRange',{Lb,Ub}=VR,Range,PreEnc}],Val)
   when Val >= Lb, Ub >= Val ->
     %% this case when NamedNumberList
     encode_constrained_number(VR, Range, PreEnc, Val);
-encode_integer([{'ValueRange',{Lb,'MAX'}}], Val) ->
+encode_integer([{'ValueRange',{Lb,'MAX'}}], Val) when Lb =< Val ->
     encode_semi_constrained_number(Lb, Val);
 encode_integer([{'ValueRange',{'MIN',_}}], Val) ->
     encode_unconstrained_number(Val);
@@ -238,15 +191,6 @@ encode_small_number(Val) when Val < 64 ->
 encode_small_number(Val) ->
     [1|encode_semi_constrained_number(0, Val)].
 
-decode_small_number(Bytes) ->
-    {Bit,Bytes2} = getbit(Bytes),
-    case Bit of
-	0 ->
-	    getbits(Bytes2, 6);
-	1 ->
-	    decode_semi_constrained_number(Bytes2)
-    end.
-
 %% X.691:10.7 Encoding of a semi-constrained whole number
 encode_semi_constrained_number(Lb, Val) ->
     Val2 = Val - Lb,
@@ -260,10 +204,6 @@ encode_semi_constrained_number(Lb, Val) ->
 	true ->
 	    [encode_length(Len),21,<<Len:16>>|Oct]
     end.
-
-decode_semi_constrained_number(Bytes) ->
-    {Len,Bytes2} = decode_length(Bytes),
-    getoctets(Bytes2, Len).
 
 encode_constrained_number({Lb,_Ub},_Range,{bits,N},Val) ->
     Val2 = Val-Lb,
@@ -333,47 +273,6 @@ encode_constrained_number({Lb,Ub}, Val) when Val >= Lb, Ub >= Val ->
 encode_constrained_number({_,_},Val) ->
     exit({error,{asn1,{illegal_value,Val}}}).
 
-decode_constrained_number(Buffer,VR={Lb,Ub}) ->
-    Range = Ub - Lb + 1,
-    decode_constrained_number(Buffer,VR,Range).
-
-decode_constrained_number(Buffer,{Lb,_Ub},Range) ->
-						%    Val2 = Val - Lb,
-    {Val,Remain} =
-	if
-	    Range  == 1 ->
-		{0,Buffer};
-	    Range  == 2 ->
-		getbits(Buffer,1);
-	    Range  =< 4 ->
-		getbits(Buffer,2);
-	    Range  =< 8 ->
-		getbits(Buffer,3);
-	    Range  =< 16 ->
-		getbits(Buffer,4);
-	    Range  =< 32 ->
-		getbits(Buffer,5);
-	    Range  =< 64 ->
-		getbits(Buffer,6);
-	    Range  =< 128 ->
-		getbits(Buffer,7);
-	    Range  =< 255 ->
-		getbits(Buffer,8);
-	    Range  =< 256 ->
-		getoctets(Buffer,1);
-	    Range  =< 65536 ->
-		getoctets(Buffer,2);
-            Range =< (1 bsl (255*8))  ->
-                OList = binary:bin_to_list(binary:encode_unsigned(Range - 1)),
-                RangeOctLen = length(OList),
-                {Len, Bytes} = decode_length(Buffer, {1, RangeOctLen}),
-                {Octs, RestBytes} = getoctets_as_bin(Bytes, Len),
-                {binary:decode_unsigned(Octs), RestBytes};
-	    true  ->
-		exit({not_supported,{integer_range,Range}})
-	end,
-    {Val+Lb,Remain}.
-
 %% For some reason the minimum bits needed in the length field in
 %% the encoding of constrained whole numbers must always be at least 2?
 minimum_bits(N) when N < 4 -> 2;
@@ -440,22 +339,17 @@ encode_length(Len) ->				% unconstrained
 	    exit({error,{asn1,{encode_length,{nyi,above_16k}}}})
     end.
 
-encode_length(undefined, Len) -> % un-constrained
-    encode_length(Len);
-encode_length({0,'MAX'},Len) ->
-    encode_length(undefined,Len);
-encode_length({Lb,Ub}=Vr, Len) when Ub =< 65535 ,Lb >= 0 -> % constrained
-    encode_constrained_number(Vr,Len);
-encode_length({Lb,_Ub}, Len) when is_integer(Lb), Lb >= 0 -> % Ub > 65535
-    encode_length(Len);
-encode_length({{Lb,Ub}=Vr,Ext}, Len)
-  when Ub =< 65535 ,Lb >= 0,Len=<Ub, is_list(Ext) ->
-    %% constrained extensible
-    [0|encode_constrained_number(Vr,Len)];
-encode_length({{Lb,_},Ext},Len) when is_list(Ext) ->
-    [1|encode_semi_constrained_number(Lb, Len)];
-encode_length(SingleValue, _Len) when is_integer(SingleValue) ->
-    [].
+encode_length({C,[]}, Len) ->
+    case C of
+	{Lb,Ub}=Vr when Lb =< Len, Len =< Ub ->
+	    [0|encode_constrained_number(Vr, Len)];
+	_ ->
+	    [1|encode_length(Len)]
+    end;
+encode_length(Len, Len) ->
+    [];
+encode_length(Vr, Len) ->
+    encode_constrained_number(Vr, Len).
 
 %% X.691 10.9.3.4 (only used for length of bitmap that prefixes extension
 %% additions in a sequence or set
@@ -475,11 +369,6 @@ decode_length(Buffer)  -> % un-constrained
 	    %% this case should be fixed
 	    exit({error,{asn1,{decode_length,{nyi,above_16k}}}})
     end.
-
-decode_length(Buffer, {Lb,Ub}) when Ub =< 65535, Lb >= 0 -> % constrained
-    decode_constrained_number(Buffer, {Lb,Ub});
-decode_length(Buffer, {Lb,_Ub}) when is_integer(Lb), Lb >= 0 -> % Ub > 65535
-    decode_length(Buffer).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% bitstring NamedBitList
@@ -758,12 +647,23 @@ make_and_set_list([], _) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% X.691:16
-%% encode_octet_string(Constraint,ExtensionMarker,Val)
+%% encode_octet_string(Constraint, Val)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-encode_octet_string(_C, true, _Val) ->
-    exit({error,{asn1,{'not_supported',extensionmarker}}});
-encode_octet_string({_,_}=SZ, false, Val) ->
+encode_octet_string({{Sv,Sv},Ext}=SZ, Val) when is_list(Ext), Sv =< 2 ->
+    Len = length(Val),
+    try
+        case encode_length(SZ, Len) of
+            [0|_]=EncLen ->
+                [EncLen,45,Sv*8,Sv,Val];
+            [_|_]=EncLen ->
+                [EncLen|octets_to_complete(Len, Val)]
+        end
+    catch
+	exit:{error,{asn1,{encode_length,_}}} ->
+	    encode_fragmented_octet_string(Val)
+    end;
+encode_octet_string({_,_}=SZ, Val) ->
     Len = length(Val),
     try
 	[encode_length(SZ, Len),2|octets_to_complete(Len, Val)]
@@ -771,27 +671,16 @@ encode_octet_string({_,_}=SZ, false, Val) ->
 	exit:{error,{asn1,{encode_length,_}}} ->
 	    encode_fragmented_octet_string(Val)
     end;
-encode_octet_string(SZ, false, Val) when is_list(SZ) ->
-    Len = length(Val),
-    try
-	[encode_length({hd(SZ),lists:max(SZ)},Len),2|
-	 octets_to_complete(Len,Val)]
-    catch
-	exit:{error,{asn1,{encode_length,_}}} ->
-	    encode_fragmented_octet_string(Val)
-    end;
-encode_octet_string(Sv, false, Val) when is_integer(Sv) ->
+encode_octet_string(Sv, Val) when is_integer(Sv) ->
     encode_fragmented_octet_string(Val);
-encode_octet_string(no, false, Val) ->
+encode_octet_string(no, Val) ->
     Len = length(Val),
     try
 	[encode_length(Len),2|octets_to_complete(Len, Val)]
     catch
 	exit:{error,{asn1,{encode_length,_}}} ->
 	    encode_fragmented_octet_string(Val)
-    end;
-encode_octet_string(C, _, _) ->
-    exit({error,{not_implemented,C}}).
+    end.
 
 encode_fragmented_octet_string(Val) ->
     Bin = iolist_to_binary(Val),
@@ -825,12 +714,24 @@ encode_restricted_string(Val) when is_list(Val)->
 encode_known_multiplier_string(SizeC, NumBits, CharOutTab, Val) ->
     Result = chars_encode2(Val, NumBits, CharOutTab),
     case SizeC of
-	Ub when is_integer(Ub), Ub*NumBits =< 16  ->
+	Ub when is_integer(Ub), Ub*NumBits < 16  ->
 	    Result;
-	Ub when is_integer(Ub), Ub =<65535 -> % fixed length
+	Ub when is_integer(Ub) ->
 	    [2,Result];
-	{Ub,Lb} ->
-	    [encode_length({Ub,Lb},length(Val)),2,Result];
+	{{_,Ub},Ext}=SZ when is_list(Ext) ->
+	    Len = length(Val),
+	    case encode_length(SZ, Len) of
+		[0|_]=EncLen when Ub*NumBits < 16 ->
+		    [EncLen,45,Len*NumBits,Len,Val];
+		[_|_]=EncLen ->
+		    [EncLen,2|Result]
+	    end;
+	{_,Ub}=Range ->
+	    [encode_length(Range, length(Val))|
+	     if
+		 Ub*NumBits < 16 -> Result;
+		 true -> [2|Result]
+	     end];
 	no  ->
 	    [encode_length(length(Val)),2,Result]
     end.

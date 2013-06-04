@@ -40,53 +40,40 @@ main(_Erule) ->
 	      {any,"DK"},
 	      {final,"NO"}]}},
 
-    ?line {ok,Bytes1} = 
-	asn1_wrapper:encode('TConstrChoice','FilterItem',Val1),
-    
-    ?line {error,Reason} = asn1_wrapper:decode('TConstrChoice','FilterItem',Bytes1),
-    
+    {ok,Bytes1} = 'TConstrChoice':encode('FilterItem', Val1),
+    {error,Reason} = asn1_wrapper:decode('TConstrChoice','FilterItem',Bytes1),
     io:format("Reason: ~p~n~n",[Reason]),
-    
-    ?line {ok,Bytes2} = 
-	asn1_wrapper:encode('TConstrChoice','FilterItem',Val2),
-    
-    ?line {ok,Res} = asn1_wrapper:decode('TConstrChoice','FilterItem',Bytes2),
-    
-
+    {ok,Bytes2} = 'TConstrChoice':encode('FilterItem', Val2),
+    {ok,Res} = 'TConstrChoice':decode('FilterItem', Bytes2),
 
     %% test of OTP-4248.
-    ?line {ok,Bytes3} =
-	asn1_wrapper:encode('TConstrChoice','Seq',{'Seq',3,Bytes2}),
-
-    ?line {ok,{'Seq',3,Bytes4}} =
-	asn1_wrapper:decode('TConstrChoice','Seq',Bytes3),
-    
-    ?line {ok,Res} = asn1_wrapper:decode('TConstrChoice','FilterItem',Bytes4),
+    {ok,Bytes3} = 'TConstrChoice':encode('Seq', {'Seq',3,Bytes2}),
+    {ok,{'Seq',3,Bytes4}} = 'TConstrChoice':decode('Seq', Bytes3),
+    {ok,Res} = 'TConstrChoice':decode('FilterItem', Bytes4),
     
     %% test of TConstr
 
-    Seq1Val = {'Seq1',{'Seq1_a',12,{2,4}},{'Seq1_b',13,{'Type-object1',14,true}}},
-    ?line {ok,Bytes5} =
-	asn1_wrapper:encode('TConstr','Seq1',Seq1Val),
-    
-    ?line {ok,Seq1Val} =
-	asn1_wrapper:decode('TConstr','Seq1',Bytes5),
+    Seq1Val = {'Seq1',{'Seq1_a',12,{2,4}},
+	       {'Seq1_b',13,{'Type-object1',14,true}}},
+    roundtrip('TConstr', 'Seq1', Seq1Val),
     
 
     Seq2Val = {'Seq2',123,{'Seq2_content',{2,6,7},
 			   {first,{'Type-object3_first',false,47}},
 			   false}},
-    
-    ?line {ok,Bytes6} =
-	asn1_wrapper:encode('TConstr','Seq2',Seq2Val),
+    roundtrip('TConstr', 'Seq2', Seq2Val),
 
-    ?line {ok,Seq2Val} =
-	asn1_wrapper:decode('TConstr','Seq2',Bytes6),
+    roundtrip('TConstr', 'Info', {'Info',{'Info_xyz',{1,2}},1234}),
 
-    InfoVal = {'Info',{'Info_xyz',{1,2}},1234},
-    
-    ?line {ok,Bytes7} =
-	asn1_wrapper:encode('TConstr','Info',InfoVal),
+    roundtrip('TConstr', 'Deeper',
+	      {'Deeper',
+	       {'Deeper_a',12,
+		{'Deeper_a_s',{2,4},42}},
+	       {'Deeper_b',13,{'Type-object1',14,true}}}),
+    ok.
 
-    ?line {ok,InfoVal} =
-	asn1_wrapper:decode('TConstr','Info',Bytes7).
+
+roundtrip(M, T, V) ->
+    {ok,E} = M:encode(T, V),
+    {ok,V} = M:decode(T, E),
+    ok.

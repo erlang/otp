@@ -41,4 +41,10 @@ ChoExt4 ::= CHOICE
   str OCTET STRING
 }
 
+ChoEmptyRoot ::= CHOICE {
+  ...,
+  bool BOOLEAN,
+  int INTEGER (0..7)
+}
+
 END

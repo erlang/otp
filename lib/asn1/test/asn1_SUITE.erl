@@ -139,7 +139,6 @@ groups() ->
        testSetOfCho,
        testEnumExt,
        value_test,
-       value_bad_enum_test,
        testSeq2738,
        % Uses 'Constructed'
        {group, [], [constructed,
@@ -177,6 +176,7 @@ groups() ->
                     testX420]},
        testTcapsystem,
        testNBAPsystem,
+       testS1AP,
        test_compile_options,
        testDoubleEllipses,
        test_x691,
@@ -655,7 +655,6 @@ constraint_equivalence(Config) ->
     AbsFile = filename:join(CaseDir, Asn1Spec++".abs"),
     {ok,Terms} = file:consult(AbsFile),
     Cs = [begin
-	      'INTEGER' = element(3, Type),	%Assertion.
 	      Constraints = element(4, Type),
 	      Name1 = atom_to_list(Name0),
 	      {Name,_} = lists:splitwith(fun(C) -> C =/= $X end, Name1),
@@ -740,11 +739,6 @@ value_test(Config, Rule, Opts) ->
     asn1_test_lib:compile("ObjIdValues", Config, [Rule|Opts]),
     {ok, _} = asn1ct:test('ObjIdValues', 'ObjIdType',
                           'ObjIdValues':'mobileDomainId'()).
-
-value_bad_enum_test(Config) ->
-    {error, _} = asn1ct:compile(?config(data_dir, Config) ++
-				    "BadEnumValue1",
-				[{outdir, ?config(case_dir, Config)}]).
 
 constructed(Config) ->
     test(Config, fun constructed/3, [ber]).
@@ -860,7 +854,7 @@ testInvokeMod(Config, Rule, Opts) ->
     {ok, _Result2} = 'PrimStrings':encode('Bs1', [1, 0, 1, 0]).
 
 testExport(Config) ->
-    {error, {asn1, _Reason}} =
+    {error, _} =
 	asn1ct:compile(filename:join(?config(data_dir, Config),
 				     "IllegalExport"),
 		       [{outdir, ?config(case_dir, Config)}]).
@@ -906,8 +900,8 @@ testOpenTypeImplicitTag(Config, Rule, Opts) ->
 duplicate_tags(Config) ->
     DataDir = ?config(data_dir, Config),
     CaseDir = ?config(case_dir, Config),
-    {error, {asn1, [{error, {type, _, _, 'SeqOpt1Imp',
-			     {asn1, {duplicates_of_the_tags, _}}}}]}} =
+    {error, [{error, {type, _, _, 'SeqOpt1Imp',
+			     {asn1, {duplicates_of_the_tags, _}}}}]} =
 	asn1ct:compile(filename:join(DataDir, "SeqOptional2"),
 		       [abs, {outdir, CaseDir}]).
 
@@ -1024,6 +1018,16 @@ testNBAPsystem(Config, Rule, Opts) ->
     testNBAPsystem:compile(Config, [Rule|Opts]),
     testNBAPsystem:test(Rule, Config).
 
+testS1AP(Config) -> test(Config, fun testS1AP/3).
+testS1AP(Config, Rule, Opts) ->
+    S1AP = ["S1AP-CommonDataTypes",
+	    "S1AP-Constants",
+	    "S1AP-Containers",
+	    "S1AP-IEs",
+	    "S1AP-PDU-Contents",
+	    "S1AP-PDU-Descriptions"],
+    asn1_test_lib:compile_all(S1AP, Config, [Rule|Opts]).
+
 test_compile_options(Config) ->
     ok = test_compile_options:wrong_path(Config),
     ok = test_compile_options:path(Config),
@@ -1077,17 +1081,14 @@ ticket_6143(Config) ->
     ok = test_compile_options:ticket_6143(Config).
 
 testExtensionAdditionGroup(Config) ->
-    %% FIXME problems with automatic tags [ber_bin], [ber_bin, optimize]
-    test(Config, fun testExtensionAdditionGroup/3, [per, uper]).
+    test(Config, fun testExtensionAdditionGroup/3).
 testExtensionAdditionGroup(Config, Rule, Opts) ->
     asn1_test_lib:compile("Extension-Addition-Group", Config, [Rule|Opts]),
     asn1_test_lib:compile_erlang("extensionAdditionGroup", Config,
                                  [debug_info]),
-    extensionAdditionGroup:run([Rule|Opts]),
-    extensionAdditionGroup:run2([Rule|Opts]),
-    extensionAdditionGroup:run3(),
-    asn1_test_lib:compile("EUTRA-RRC-Definitions", Config, [Rule, {record_name_prefix, "RRC-"}|Opts]),
-    extensionAdditionGroup:run3([Rule|Opts]).
+    asn1_test_lib:compile("EUTRA-RRC-Definitions", Config,
+			  [Rule,{record_name_prefix,"RRC-"}|Opts]),
+    extensionAdditionGroup:run(Rule).
 
 % parse_modules() ->
 %   ["ImportsFrom"].
@@ -1097,11 +1098,8 @@ per_modules() ->
 
 ber_modules() ->
     [X || X <- test_modules(),
-          X =/= "CommonDataTypes",
-          X =/= "DS-EquipmentUser-CommonFunctionOrig-TransmissionPath",
           X =/= "H323-MESSAGES",
-          X =/= "H235-SECURITY-MESSAGES",
-          X =/= "MULTIMEDIA-SYSTEM-CONTROL"].
+          X =/= "H235-SECURITY-MESSAGES"].
 
 test_modules() ->
     ["BitStr",

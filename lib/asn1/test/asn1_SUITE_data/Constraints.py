@@ -12,6 +12,12 @@ ContainedSubtype ::= INTEGER (INCLUDES Range10to20)
 -- Some ranges for additional constrained number testing.
 LongLong ::= INTEGER (0..18446744073709551615)
 Range256to65536 ::= INTEGER (256..65536)
+SemiConstrained ::= INTEGER (100..MAX)
+NegSemiConstrained ::= INTEGER (-128..MAX)
+SemiConstrainedExt ::= INTEGER (42..MAX, ...)
+NegSemiConstrainedExt ::= INTEGER (-128..MAX, ...)
+
+-- Other constraints
 FixedSize ::= OCTET STRING (SIZE(10)) 
 FixedSize2 ::= OCTET STRING (SIZE(10|20)) 
 VariableSize ::= OCTET STRING (SIZE(1..10)) 
@@ -86,5 +92,6 @@ Document ::= OCTET STRING (ENCODED BY pdf)
 
 pdf OBJECT IDENTIFIER ::= {1,2,3,4,5}
 
+ShorterExt ::= IA5String (SIZE (5, ...))
 
 END

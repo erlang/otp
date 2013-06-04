@@ -37,9 +37,13 @@ need(MFA) ->
     cast({need,MFA}).
 
 generate(Fd) ->
-    req({generate,Fd}),
+    Used0 = req(get_used),
     erase(?MODULE),
-    ok.
+    Used = sofs:set(Used0, [mfa]),
+    Code = sofs:relation(asn1ct_rtt:code(), [{mfa,code}]),
+    Funcs0 = sofs:image(Code, Used),
+    Funcs = sofs:to_external(Funcs0),
+    ok = file:write(Fd, Funcs).
 
 req(Req) ->
     gen_server:call(get(?MODULE), Req, infinity).
@@ -64,9 +68,8 @@ handle_cast({need,MFA}, #st{used=Used0}=St) ->
 	    {noreply,St}
     end.
 
-handle_call({generate,Fd}, _From, #st{used=Used}=St) ->
-    generate(Fd, Used),
-    {stop,normal,ok,St}.
+handle_call(get_used, _From, #st{used=Used}=St) ->
+    {stop,normal,gb_sets:to_list(Used),St}.
 
 terminate(_, _) ->
     ok.
@@ -74,14 +77,6 @@ terminate(_, _) ->
 call_args([A|As], Sep) ->
     [Sep,A|call_args(As, ", ")];
 call_args([], _) -> [].
-
-generate(Fd, Used0) ->
-    Used1 = gb_sets:to_list(Used0),
-    Used = sofs:set(Used1, [mfa]),
-    Code = sofs:relation(asn1ct_rtt:code(), [{mfa,code}]),
-    Funcs0 = sofs:image(Code, Used),
-    Funcs = sofs:to_external(Funcs0),
-    io:put_chars(Fd, Funcs).
 
 pull_in_deps(Ws0, Used0) ->
     case gb_sets:is_empty(Ws0) of

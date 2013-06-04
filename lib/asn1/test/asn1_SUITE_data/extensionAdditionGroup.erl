@@ -1,9 +1,3 @@
-%%%-------------------------------------------------------------------
-%%% File    : extensionAdditionGroup.erl
-%%% Author  : Kenneth Lundin
-%%% Description :
-%%%
-%%% Created : 18 May 2010 by kenneth
 %%
 %% %CopyrightBegin%
 %%
@@ -25,36 +19,38 @@
 %%%-------------------------------------------------------------------
 -module(extensionAdditionGroup).
 -include("Extension-Addition-Group.hrl").
-
+-export([run/1]).
 
 -compile(export_all).
 
 run(Erule) ->
-    Val = #'Ax'{a=253, b = true, c= {e,true}, g="123", h = true},
-    io:format("~p:~p~n",[Erule,Val]),
-    {ok,List}= asn1rt:encode('Extension-Addition-Group','Ax',Val),
-    Enc = iolist_to_binary(List),
-    io:format("~p~n",[Enc]),
-    {ok,Val2} = asn1rt:decode('Extension-Addition-Group','Ax',Enc),
-    io:format("~p~n",[Val2]),
-    case Val2 of
-	Val -> ok;
-	_ -> exit({expected,Val, got, Val2})
-    end.
+    Val = #'Ax'{a=253,b=true,c={e,true},g="123",h=true},
+    Enc = hex_to_binary(encoded_ax(Erule)),
+    roundtrip('Ax', Val, Enc),
 
-run2(Erule) ->
-    Val = #'Ax3'{a=253, b = true, s = #'Ax3_s'{sa = 11, sb = true, sextaddgroup = 17}},
-    io:format("~p:~p~n",[Erule,Val]),
-    {ok,List}= asn1rt:encode('Extension-Addition-Group','Ax3',Val),
-    Enc = iolist_to_binary(List),
-    io:format("~p~n",[Enc]),
-    {ok,Val2} = asn1rt:decode('Extension-Addition-Group','Ax3',Enc),
-    io:format("~p~n",[Val2]),
-    case Val2 of
-	Val -> ok;
-	_ -> exit({expected,Val, got, Val2})
-    end.
+    Val2 = #'Ax3'{a=253,b=true,s=#'Ax3_s'{sa=11,sb=true,sextaddgroup=17}},
+    roundtrip('Ax3', Val2),
 
+    run3(),
+    run3(Erule),
+
+    ok.
+
+%% From X.691 (07/2002) A.4.
+encoded_ax(per) ->  "9E000180 010291A4";
+encoded_ax(uper) -> "9E000600 040A4690";
+encoded_ax(ber) ->  none.
+
+hex_to_binary(none) ->
+    none;
+hex_to_binary(L) ->
+    << <<(hex_digit_to_binary(D)):4>> || D <- L, D =/= $\s >>.
+
+hex_digit_to_binary(D) ->
+    if
+	$0 =< D, D =< $9 -> D - $0;
+	$A =< D, D =< $F -> D - ($A-10)
+    end.
 run3(Erule) ->
     Val = 
 {'RRC-DL-DCCH-Message',
@@ -141,15 +137,23 @@ run3() ->
                  'ac-BarringFactor' = p00,
                  'ac-BarringTime' = s4,
                  'ac-BarringForSpecialAC' = <<0:5>>},
-    roundtrip(SI),
-    roundtrip(SI#'SystemInformationBlockType2'{
-		'ssac-BarringForMMTEL-Voice-r9'=Barring}),
-    roundtrip(SI#'SystemInformationBlockType2'{
+    T = 'SystemInformationBlockType2',
+    roundtrip(T, SI),
+    roundtrip(T, SI#'SystemInformationBlockType2'{
+		   'ssac-BarringForMMTEL-Voice-r9'=Barring}),
+    roundtrip(T, SI#'SystemInformationBlockType2'{
 		'ssac-BarringForMMTEL-Video-r9'=Barring}),
-    roundtrip(SI#'SystemInformationBlockType2'{
-		'ac-BarringForCSFB-r10'=Barring}).
+    roundtrip(T, SI#'SystemInformationBlockType2'{
+		   'ac-BarringForCSFB-r10'=Barring}).
 
-roundtrip(V) ->
+roundtrip(T, V) ->
+    roundtrip(T, V, none).
+
+roundtrip(T, V, Expected) ->
     Mod = 'Extension-Addition-Group',
-    {ok,E} = Mod:encode('SystemInformationBlockType2', V),
-    {ok,V} = Mod:decode('SystemInformationBlockType2', iolist_to_binary(E)).
+    {ok,E} = Mod:encode(T, V),
+    {ok,V} = Mod:decode(T, E),
+    case Expected of
+	none -> ok;
+	E -> ok
+    end.

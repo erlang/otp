@@ -8,6 +8,9 @@ BEGIN
  SingleValueX5 ::= INTEGER ((42) INTERSECTION (MIN..MAX))
  SingleValueX6 ::= INTEGER ((42) INTERSECTION (40..49))
  SingleValueX7 ::= INTEGER (42..42)
+ SingleValueX8 ::= INTEGER (integer42)
+ SingleValueX9 ::= INTEGER (integer42..integer42)
+ SingleValueX10 ::= INTEGER ((integer42) INTERSECTION (40..49))
 
  UnconstrainedX0 ::= INTEGER
  UnconstrainedX1 ::= INTEGER (MIN..MAX)
@@ -24,6 +27,7 @@ BEGIN
  RangeX04 ::= INTEGER (5|6|7|8|9|10)
  RangeX05 ::= INTEGER (10|9|8|7|6|5)
  RangeX06 ::= INTEGER (5|6|7..10)
+ RangeX07 ::= INTEGER (integer4<..<integer11)
 
  RangeX10 ::= INTEGER ((5..6) UNION (7..8) UNION (9|10))
  RangeX11 ::= INTEGER ((5|6) UNION (7..8) UNION (9|10))
@@ -38,5 +42,21 @@ BEGIN
  RangeX22 ::= INTEGER (0..10) (5..20) (MIN..MAX)
  RangeX23 ::= INTEGER ((0..10) INTERSECTION (5..20) ^ (MIN..MAX))
  RangeX24 ::= INTEGER ((5|6|7|8|9|10) INTERSECTION (5..20) ^ (MIN..MAX))
+
+ UnconstrainedStringX00 ::= IA5String
+ UnconstrainedStringX01 ::= IA5String (SIZE (0..MAX))
+
+ ConstrainedStringX00 ::= IA5String (SIZE (0..5))
+ ConstrainedStringX01 ::= IA5String (SIZE (0|1|2|3|4|5))
+
+ -- Note: None of the back-ends care about the exact values
+ -- outside of the root range.
+ ExtConstrainedStringX00 ::= IA5String (SIZE (1..2, ...))
+ ExtConstrainedStringX01 ::= IA5String (SIZE (1|2, ..., 3))
+ ExtConstrainedStringX02 ::= IA5String (SIZE (1|2, ..., 3|4|5))
+
+ integer4 INTEGER ::= 4
+ integer11 INTEGER ::= 11
+ integer42 INTEGER ::= 42
 
 END
