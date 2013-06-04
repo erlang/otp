@@ -102,8 +102,8 @@ typedef struct {
     size_t sz;
     fd_set* ptr;
 }ERTS_fd_set;
-#  define ERTS_FD_CLR(fd, fds)	do { ensure_select_fds((fd),(fds)); FD_CLR((fd), (fds)->ptr); }while(0)
-#  define ERTS_FD_SET(fd, fds)	do { ensure_select_fds((fd),(fds)); FD_SET((fd), (fds)->ptr); }while(0)
+#  define ERTS_FD_CLR(fd, fds)	FD_CLR((fd), (fds)->ptr)
+#  define ERTS_FD_SET(fd, fds)	FD_SET((fd), (fds)->ptr)
 #  define ERTS_FD_ISSET(fd,fds) FD_ISSET((fd), (fds)->ptr)
 #  define ERTS_FD_ZERO(fds)	memset((fds)->ptr, 0, (fds)->sz)
 #  define ERTS_FD_SIZE(n)	((((n)+NFDBITS-1)/NFDBITS)*sizeof(fd_mask))
@@ -123,10 +123,13 @@ static ERTS_INLINE
 int ERTS_SELECT(int nfds, ERTS_fd_set *readfds, ERTS_fd_set *writefds,
 		ERTS_fd_set *exceptfds, struct timeval *timeout)
 {
+    ASSERT(!readfds || readfds->sz >= nfds);
+    ASSERT(!writefds || writefds->sz >= nfds);
+    ASSERT(!exceptfds);
     return select(nfds, 
 		  (readfds ? readfds->ptr : NULL ),
 		  (writefds ? writefds->ptr : NULL),
-		  (exceptfds ? exceptfds->ptr : NULL),
+		  NULL,
 		  timeout);
 }
 
@@ -689,11 +692,16 @@ grow_select_fds(int fd, ERTS_fd_set* fds)
     fds->sz = new_len;
 }
 static ERTS_INLINE void
-ensure_select_fds(int fd, ERTS_fd_set* fds)
+ensure_select_fds(int fd, ERTS_fd_set* in, ERTS_fd_set* out)
 {
-    if (ERTS_FD_SIZE(fd+1) > fds->sz)
-	grow_select_fds(fd, fds);
+    ASSERT(in->sz == out->sz);
+    if (ERTS_FD_SIZE(fd+1) > in->sz) {
+	grow_select_fds(fd, in);
+	grow_select_fds(fd, out);
+    }
 }
+#else
+#  define ensure_select_fds(fd, in, out) do {} while(0)
 #endif /* _DARWIN_UNLIMITED_SELECT */
 
 static void
@@ -1362,6 +1370,7 @@ static int update_pollset(ErtsPollSet ps, int fd)
 #elif ERTS_POLL_USE_SELECT	/* --- select ------------------------------ */
     {
 	ErtsPollEvents events = ps->fds_status[fd].events;
+	ensure_select_fds(fd, &ps->input_fds, &ps->output_fds);
 	if ((ERTS_POLL_EV_IN & events)
 	    != (ERTS_POLL_EV_IN & ps->fds_status[fd].used_events)) {
 	    if (ERTS_POLL_EV_IN & events) {
