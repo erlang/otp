@@ -214,7 +214,9 @@ lattribute({attribute,_Line,type,Type}, Opts, _State) ->
 lattribute({attribute,_Line,opaque,Type}, Opts, _State) ->
     [typeattr(opaque, Type, Opts),leaf(".\n")];
 lattribute({attribute,_Line,spec,Arg}, _Opts, _State) ->
-    [specattr(Arg),leaf(".\n")];
+    [specattr(spec, Arg),leaf(".\n")];
+lattribute({attribute,_Line,callback,Arg}, _Opts, _State) ->
+    [specattr(callback, Arg),leaf(".\n")];
 lattribute({attribute,_Line,Name,Arg}, Opts, State) ->
     [lattribute(Name, Arg, Opts, State),leaf(".\n")].
 
@@ -311,14 +313,14 @@ union_elem(T) ->
 tuple_type(Ts, F) ->
     {seq,${,$},[$,],ltypes(Ts, F)}.
 
-specattr({FuncSpec,TypeSpecs}) ->
+specattr(SpecKind, {FuncSpec,TypeSpecs}) ->
     Func = case FuncSpec of
                {F,_A} ->
                    format("~w", [F]);
                {M,F,_A} ->
                    format("~w:~w", [M, F])
            end,
-    {first,leaf("-spec "),
+    {first,leaf(lists:concat(["-", SpecKind, " "])),
      {list,[{first,leaf(Func),spec_clauses(TypeSpecs)}]}}.
 
 spec_clauses(TypeSpecs) ->
