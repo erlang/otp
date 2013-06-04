@@ -85,7 +85,7 @@ print_tree(TestCaseState_t *tcs, RBT_t *root)
 static RBT_t *
 check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 {
-    enum { BF, AOBF, AOFF }type;
+    enum { BF, AOBF, AOFF, AOFFCAOBF }type;
     int i, max_i;
     char stk[128];
     RBT_t *root, *x, *y, *res;
@@ -94,11 +94,16 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 
     res = NULL;
 
-    if      (IS_AOBF(alc)) type = AOBF;
-    else if (IS_AOFF(alc)) type = AOFF;
-    else type = BF;
+    if (IS_BF_ALGO(alc)) {
+	if (IS_AOBF(alc)) type = AOBF;
+	else type = BF;
+    }
+    else { /* AOFF_ALGO */
+	if (IS_CBF(alc)) type = AOFFCAOBF;
+	else type = AOFF;
+    }
 
-    root = RBT_ROOT(alc);
+    root = RBT_ROOT(alc, size);
 
 #ifdef PRINT_TREE
     print_tree(tcs, root);
@@ -188,6 +193,15 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 		ASSERT(tcs, y < x);
 		ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
 		break;
+	    case AOFFCAOBF:
+		{
+		    void* x_crr = BLK_TO_MBC(x);
+		    void* y_crr = BLK_TO_MBC(y);
+		    ASSERT(tcs, (y < x && (x_crr != y_crr || x_sz == y_sz))
+			   || (y_sz < x_sz && x_crr == y_crr));
+		    ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
+		    break;
+		}
 	    }
 	}
 
@@ -207,6 +221,15 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 		ASSERT(tcs, y > x);
 		ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
 		break;
+	    case AOFFCAOBF:
+		{
+		    void* x_crr = BLK_TO_MBC(x);
+		    void* y_crr = BLK_TO_MBC(y);
+		    ASSERT(tcs, (y > x && (x_crr != y_crr || x_sz == y_sz))
+			   || (y_sz > x_sz && x_crr == y_crr));
+		    ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
+		    break;
+		}
 	    }
 	}
 
@@ -239,7 +262,18 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 			res = x;
 		    }
 		    break;
+		case AOFFCAOBF:
+		    if (BLK_TO_MBC(x) != BLK_TO_MBC(res) || x_sz == y_sz) {
+			if (x < res) {
+			    res = x;
+			}
+		    }
+		    else if (x_sz < y_sz) {
+			res = x;
+		    }
+		    break;
 		}
+
 	    }
 	}
 
@@ -263,17 +297,20 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 }
 
 static void
-do_check(TestCaseState_t *tcs, Allctr_t *a, Ulong size)
+do_check(TestCaseState_t *tcs, Allctr_t *a, Ulong size, int ignore_null)
 {
     Ulong sz = ((size + 7) / 8)*8;
     void *tmp;
     Block_t *x, *y;
 
     x = (Block_t *) check_tree(tcs, a, sz);
+    if (!x && ignore_null)
+	return;
+
     tmp = ALLOC(a, sz - ABLK_HDR_SZ);
     ASSERT(tcs, tmp);
     y = UMEM2BLK(tmp);
-    if (IS_AOBF(a)) {
+    if (!(IS_BF_ALGO(a) && !IS_AOBF(a))) {
 	ASSERT(tcs, x == y);
     }
     else {
@@ -306,7 +343,7 @@ test_it(TestCaseState_t *tcs)
 	    blk[i] = NULL;
 	}
 	if (i % (NO_BLOCKS/2) == 0)
-	    do_check(tcs, a, 50);
+	    do_check(tcs, a, 50, 0);
     }
 
     for (i = 0; i < NO_BLOCKS; i++) {
@@ -315,7 +352,7 @@ test_it(TestCaseState_t *tcs)
 	    blk[i] = NULL;
 	}
 	if (i % (NO_BLOCKS/2) == 0)
-	    do_check(tcs, a, 200);
+	    do_check(tcs, a, 200, 0);
     }
 
     for (i = 0; i < NO_BLOCKS; i++) {
@@ -324,20 +361,101 @@ test_it(TestCaseState_t *tcs)
 	    blk[i] = NULL;
 	}
 	if (i % (NO_BLOCKS/2) == 0)
-	    do_check(tcs, a, 100);
+	    do_check(tcs, a, 100, 0);
     }
 
-    do_check(tcs, a, 250);
+    do_check(tcs, a, 250, 0);
 
     for (i = 0; i < NO_BLOCKS; i++) {
 	FREE(a, fence[i]);
 	if (i % (NO_BLOCKS/3) == 0)
-	    do_check(tcs, a, 300);
+	    do_check(tcs, a, 300, 0);
     }
 
-    ASSERT(tcs, RBT_ROOT(a));
-    ASSERT(tcs, !RBT_LEFT(RBT_ROOT(a)));
-    ASSERT(tcs, !RBT_RIGHT(RBT_ROOT(a)));
+    ASSERT(tcs, RBT_ROOT(a,0));
+    ASSERT(tcs, !RBT_LEFT(RBT_ROOT(a,0)));
+    ASSERT(tcs, !RBT_RIGHT(RBT_ROOT(a,0)));
+}
+
+
+static int is_single_ablk_in_mbc(Allctr_t* a, void* ptr, void* crr)
+{
+    Block_t* blk = UMEM2BLK(ptr);
+    if (crr == BLK_TO_MBC(blk)) {
+	Block_t* first = MBC_TO_FIRST_BLK(a, crr);
+	if (blk == first || (IS_FREE_BLK(first) && blk == NXT_BLK(first))) {
+	    Block_t* nxt;
+	    if (IS_LAST_BLK(blk)) {
+		return 1;
+	    }
+	    nxt = NXT_BLK(blk);
+	    return IS_FREE_BLK(nxt) && IS_LAST_BLK(nxt);
+	}
+    }
+    return 0;
+}
+
+static void
+test_carrier_migration(TestCaseState_t *tcs)
+{
+    int i, j;
+    Allctr_t* a = ((rbtree_test_data *) tcs->extra)->allocator;
+    void **blk = ((rbtree_test_data *) tcs->extra)->blk;
+    void **fence = ((rbtree_test_data *) tcs->extra)->fence;
+    void *crr, *p, *free_crr;
+    Ulong min_blk_sz;
+
+    min_blk_sz = MIN_BLK_SZ(a);
+
+    for (i = 0; i < NO_BLOCKS; i++) {
+	blk[i] = ALLOC(a, min_blk_sz + i % 500);
+	fence[i] = ALLOC(a, 1);
+	ASSERT(tcs, blk[i] && fence[i]);
+    }
+
+    for (j = 0; j < NO_BLOCKS; j += 997) {
+	crr = BLK_TO_MBC(UMEM2BLK(blk[j]));
+	REMOVE_MBC(a, crr);
+
+	for (i = 0; i < NO_BLOCKS; i++) {
+	    if (i % 3 == 0) {
+		if (is_single_ablk_in_mbc(a, blk[i], crr)) {
+		    crr = NULL; /* about to destroy the removed mbc */
+		}
+		FREE(a, blk[i]);
+		blk[i] = NULL;
+	    }
+	    if (i % (NO_BLOCKS/2) == 0)
+		do_check(tcs, a, 50, 1);
+	}
+	
+	for (i = 0; i < NO_BLOCKS; i++) {
+	    if (i % 3 == 0) {
+		ASSERT(tcs, !blk[i]);
+		blk[i] = ALLOC(a, min_blk_sz + i % 500);
+		ASSERT(tcs, BLK_TO_MBC(UMEM2BLK(blk[i])) != crr);
+	    }
+	    if (i % (NO_BLOCKS/2) == 0)
+		do_check(tcs, a, 50, 1);
+	}
+	if (crr) {
+	    ADD_MBC(a, crr);
+	}
+    }
+	
+    for (crr = FIRST_MBC(a); crr; crr = NEXT_C(crr)) {
+	REMOVE_MBC(a, crr);
+    }
+
+    p = ALLOC(a, 1);
+    free_crr = BLK_TO_MBC(UMEM2BLK(p));
+    FREE(a, p);
+
+    for (crr = FIRST_MBC(a); crr; crr = NEXT_C(crr)) {
+	ASSERT(tcs, free_crr != crr);
+    }
+
+    ASSERT(tcs, !RBT_ROOT(a,0));
 }
 
 
@@ -369,6 +487,7 @@ testcase_run(TestCaseState_t *tcs)
     char *argv1[] = {"-tasbf", NULL};
     char *argv2[] = {"-tasaobf", NULL};
     char *argv3[] = {"-tasaoff", NULL};
+    char *argv4[] = {"-tasaoffcaobf", NULL};
     Allctr_t *a;
     rbtree_test_data *td;
 
@@ -390,6 +509,7 @@ testcase_run(TestCaseState_t *tcs)
     td->allocator = a = START_ALC("rbtree_bf_", 0, argv1);
 
     ASSERT(tcs, a);
+    ASSERT(tcs, IS_BF_ALGO(a));
     ASSERT(tcs, !IS_AOBF(a));
 
     test_it(tcs);
@@ -407,6 +527,7 @@ testcase_run(TestCaseState_t *tcs)
     td->allocator = a = START_ALC("rbtree_aobf_", 0, argv2);
 
     ASSERT(tcs, a);
+    ASSERT(tcs, IS_BF_ALGO(a));
     ASSERT(tcs, IS_AOBF(a));
 
     test_it(tcs);
@@ -424,11 +545,34 @@ testcase_run(TestCaseState_t *tcs)
     td->allocator = a = START_ALC("rbtree_aoff_", 0, argv3);
 
     ASSERT(tcs, a);
+    ASSERT(tcs, !IS_BF_ALGO(a));
+    ASSERT(tcs, !IS_CBF(a));
 
     test_it(tcs);
+    test_carrier_migration(tcs);
 
     STOP_ALC(a);
     td->allocator = NULL;
 
     testcase_printf(tcs, "Address order first fit test succeeded!\n");
+
+    /* Address order first fit, best fit within carrier */
+
+    testcase_printf(tcs, "Starting test of aoffcaobf...\n");
+
+    current_rbt_type_op_base = AO_FIRSTFIT_OP_BASE;
+    td->allocator = a = START_ALC("rbtree_aoffcaobf_", 0, argv4);
+
+    ASSERT(tcs, a);
+    ASSERT(tcs, !IS_BF_ALGO(a));
+    ASSERT(tcs, IS_CBF(a));
+
+    test_it(tcs);
+    test_carrier_migration(tcs);
+
+    STOP_ALC(a);
+    td->allocator = NULL;
+
+    testcase_printf(tcs, "aoffcaobf test succeeded!\n");
+
 }

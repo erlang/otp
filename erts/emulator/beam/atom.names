@@ -323,6 +323,7 @@ atom maximum
 atom max_tables max_processes
 atom mbuf_size
 atom memory
+atom memory_internal
 atom memory_types
 atom message
 atom message_binary

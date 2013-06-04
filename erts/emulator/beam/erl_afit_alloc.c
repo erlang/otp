@@ -48,10 +48,9 @@ struct AFFreeBlock_t_ {
 #define MIN_MBC_FIRST_FREE_SZ	(4*1024)
 
 /* Prototypes of callback functions */
-static Block_t *	get_free_block		(Allctr_t *, Uint,
-						 Block_t *, Uint, Uint32);
-static void		link_free_block		(Allctr_t *, Block_t *, Uint32);
-static void		unlink_free_block	(Allctr_t *, Block_t *, Uint32);
+static Block_t *	get_free_block		(Allctr_t *, Uint, Block_t *, Uint);
+static void		link_free_block		(Allctr_t *, Block_t *);
+static void		unlink_free_block	(Allctr_t *, Block_t *);
 
 
 static Eterm		info_options		(Allctr_t *, char *, int *,
@@ -84,8 +83,7 @@ erts_afalc_start(AFAllctr_t *afallctr,
 
     sys_memcpy((void *) afallctr, (void *) &zero.allctr, sizeof(AFAllctr_t));
 
-    init->sbmbct = 0; /* Small mbc not supported by afit */
-
+    allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= sizeof(AFFreeBlock_t);
@@ -100,6 +98,9 @@ erts_afalc_start(AFAllctr_t *afallctr,
     allctr->get_next_mbc_size		= NULL;
     allctr->creating_mbc		= NULL;
     allctr->destroying_mbc		= NULL;
+    allctr->add_mbc                     = NULL;
+    allctr->remove_mbc                  = NULL;
+    allctr->largest_fblk_in_mbc         = NULL;
     allctr->init_atoms			= init_atoms;
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -116,8 +117,7 @@ erts_afalc_start(AFAllctr_t *afallctr,
 }
 
 static Block_t *
-get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size,
-	       Uint32 flags)
+get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size)
 {
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;
 
@@ -135,7 +135,7 @@ get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size,
 }
 
 static void
-link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
+link_free_block(Allctr_t *allctr, Block_t *block)
 {
     AFFreeBlock_t *blk = (AFFreeBlock_t *) block;
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;
@@ -156,7 +156,7 @@ link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 }
 
 static void
-unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
+unlink_free_block(Allctr_t *allctr, Block_t *block)
 {
     AFFreeBlock_t *blk = (AFFreeBlock_t *) block;
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;
