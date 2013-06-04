@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -333,7 +333,13 @@ proc_details_body(Heading,Proc,TW,SharedHeap) ->
 	   td("COLSPAN=1",href_proc_port(Proc#proc.parent))]),
 	tr(
 	  [td("NOWRAP=true",b("Reductions")),
-	   td("COLSPAN=3",integer_to_list(Proc#proc.reds))]),
+	   td("COLSPAN=1",integer_to_list(Proc#proc.reds))] ++
+	      case Proc#proc.memory of
+		  undefined -> []; % before R16B01
+		  Mem ->
+		      [td("NOWRAP=true",b("Memory (bytes)")),
+		       td("COLSPAN=1",integer_to_list(Mem))]
+	      end),
 	if SharedHeap ->
 		Stack = case Proc#proc.stack_heap of
 			    -1 -> "unknown";
@@ -815,12 +821,26 @@ allocator_info_body(Heading,Allocators,TW) ->
     [heading(Heading,"memory"),
      warn(TW),
      p(b("Sizes are in bytes")),
-     lists:map(fun({SubTitle,Allocator}) ->
+     lists:map(fun({Head,Allocator}) ->
+		       TableHead =
+			   case Head of
+			       {SubTitle,Columns} ->
+				   tr("BGCOLOR=\"#8899AA\"",
+				      [th("ALIGN=left",
+					  font("SIZE=+1",SubTitle)) |
+				       lists:map(
+					 fun(CH) ->
+						 th("ALIGN=right",CH)
+					 end,
+					 Columns)]);
+			       SubTitle ->
+				   tr("BGCOLOR=\"#8899AA\"",
+				      th("COLSPAN=10 ALIGN=left",
+					 font("SIZE=+1",SubTitle)))
+			   end,
 		       [table(
 			  "BORDER=4 CELLPADDING=4",
-			  [tr("BGCOLOR=\"#8899AA\"",
-			      th("COLSPAN=10 ALIGN=left", 
-				 font("SIZE=+1",SubTitle))) | 
+			  [TableHead |
 			   lists:map(
 			     fun({Key,Values}) -> 
 				     tr([th("ALIGN=left",Key) |
@@ -1243,8 +1263,8 @@ replace_insrt([],[],Acc) ->
 %%% Create a page with one table by delivering chunk by chunk to
 %%% inets. crashdump_viewer first calls chunk_page/5 once, then
 %%% chunk/3 multiple times until all data is delivered.
-chunk_page(processes,SessionId,TW,{Sorted,SharedHeap},FirstChunk) ->
-    Columns = procs_summary_table_head(Sorted,SharedHeap),
+chunk_page(processes,SessionId,TW,{Sorted,SharedHeap,DumpVsn},FirstChunk) ->
+    Columns = procs_summary_table_head(Sorted,SharedHeap,DumpVsn),
     chunk_page(SessionId, "Process Information", TW, FirstChunk,
 	       "processes", Columns, fun procs_summary_table/1);
 chunk_page(ports,SessionId,TW,_,FirstChunk) ->
@@ -1321,35 +1341,45 @@ deliver(SessionId,IoList) ->
 
 %%%-----------------------------------------------------------------
 %%% Page specific stuff for chunk pages
-procs_summary_table_head(Sorted,SharedHeap) ->
+procs_summary_table_head(Sorted,SharedHeap,DumpVsn) ->
     MemHeading =
-	if SharedHeap ->
-		"Stack";
+	if DumpVsn>=?r16b01_dump_vsn ->
+		"Memory (bytes)";
 	   true ->
-		"Stack+heap"
+		if SharedHeap ->
+			"Stack";
+		   true ->
+			"Stack+heap"
+		end
 	end,
-    [procs_summary_table_head("pid","Pid",Sorted),
-     procs_summary_table_head("name_func","Name/Spawned as",Sorted),
-     procs_summary_table_head("state","State",Sorted),
-     procs_summary_table_head("reds","Reductions",Sorted),
-     procs_summary_table_head("mem",MemHeading,Sorted),
-     procs_summary_table_head("msg_q_len","MsgQ Length",Sorted)].
+    [procs_summary_table_head1("pid","Pid",Sorted),
+     procs_summary_table_head1("name_func","Name/Spawned as",Sorted),
+     procs_summary_table_head1("state","State",Sorted),
+     procs_summary_table_head1("reds","Reductions",Sorted),
+     procs_summary_table_head1("mem",MemHeading,Sorted),
+     procs_summary_table_head1("msg_q_len","MsgQ Length",Sorted)].
 
-procs_summary_table_head(_,Text,no_sort) ->
+procs_summary_table_head1(_,Text,no_sort) ->
     Text;
-procs_summary_table_head(Sorted,Text,Sorted) ->
+procs_summary_table_head1(Sorted,Text,Sorted) ->
     %% Mark the sorted column (bigger and italic)
     font("SIZE=\"+1\"",em(href("./sort_procs?sort="++Sorted,Text)));
-procs_summary_table_head(SortOn,Text,_Sorted) ->
+procs_summary_table_head1(SortOn,Text,_Sorted) ->
     href("./sort_procs?sort="++SortOn,Text).
 
 procs_summary_table(Proc) ->
     #proc{pid=Pid,name=Name,state=State,
-	  reds=Reds,stack_heap=Mem0,msg_q_len=MsgQLen}=Proc,
-    Mem = case Mem0 of
-	      -1 -> "unknown";
-	      _ -> integer_to_list(Mem0)
-	  end,
+	  reds=Reds,stack_heap=Stack,memory=Memory,msg_q_len=MsgQLen}=Proc,
+    Mem =
+	case Memory of
+	    undefined -> % assuming pre-R16B01
+		case Stack of
+		    -1 -> "unknown";
+		    _ -> integer_to_list(Stack)
+		end;
+	    _ ->
+		integer_to_list(Memory)
+	end,
     tr(
       [td(href(["./proc_details?pid=",Pid],Pid)),
        td(Name),
