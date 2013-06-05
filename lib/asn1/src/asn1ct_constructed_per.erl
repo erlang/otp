@@ -97,31 +97,7 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
     Ext = extensible_enc(CompList),
     case Ext of
 	{ext,_,NumExt} when NumExt > 0 ->
-	    case extgroup_pos_and_length(CompList) of
-		{extgrouppos,[]} -> % no extenstionAdditionGroup
-		    ok;
-		{extgrouppos,ExtGroupPosLenList} ->
-		    ExtGroupFun = 
-			fun({ExtActualGroupPos,ExtGroupVirtualPos,ExtGroupLen}) ->
-				Elements = 
-				    make_elements(ExtGroupVirtualPos+1,
-						  "Val1",
-						  lists:seq(1,ExtGroupLen)),
-				emit([
-				      {next,val}," = case [X || X <- [",Elements,
-				      "],X =/= asn1_NOVALUE] of",nl,
-				      "[] -> setelement(",
-				      {asis,ExtActualGroupPos+1},",",
-				      {curr,val},",",
-				      "asn1_NOVALUE);",nl,
-				      "_ -> setelement(",{asis,ExtActualGroupPos+1},",",
-				      {curr,val},",",
-				      "{extaddgroup,", Elements,"})",nl,
-				      "end,",nl]),
-				asn1ct_name:new(val)
-			end,
-		    lists:foreach(ExtGroupFun,ExtGroupPosLenList)
-	    end,
+	    gen_encode_extaddgroup(CompList),
 	    asn1ct_name:new(tmpval),
 	    emit(["Extensions = ",
 		  {call,Erule,fixextensions,[{asis,Ext},{curr,val}]},
@@ -194,6 +170,34 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
     gen_enc_components_call(Erule,Typename,CompList,MaybeComma2,EncObj,Ext),
     emit({"].",nl}).
 
+gen_encode_extaddgroup(CompList) ->
+    case extgroup_pos_and_length(CompList) of
+	{extgrouppos,[]} ->
+	    ok;
+	{extgrouppos,ExtGroupPosLenList} ->
+	    _ = [do_gen_encode_extaddgroup(G) || G <- ExtGroupPosLenList],
+	    ok
+    end.
+
+do_gen_encode_extaddgroup({ActualGroupPos,GroupVirtualPos,GroupLen}) ->
+    Val = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
+    Elements = make_elements(GroupVirtualPos+1,
+			     Val,
+			     lists:seq(1, GroupLen)),
+    Expr = any_non_value(GroupVirtualPos+1, Val, GroupLen, ""),
+    emit([{next,val}," = case ",Expr," of",nl,
+	  "false -> setelement(",{asis,ActualGroupPos+1},", ",
+	  {curr,val},", asn1_NOVALUE);",nl,
+	  "true -> setelement(",{asis,ActualGroupPos+1},", ",
+	  {curr,val},", {extaddgroup,", Elements,"})",nl,
+	  "end,",nl]),
+    asn1ct_name:new(val).
+
+any_non_value(_, _, 0, _) ->
+    [];
+any_non_value(Pos, Val, N, Sep) ->
+    Sep ++ [make_element(Pos, Val)," =/= asn1_NOVALUE"] ++
+	any_non_value(Pos+1, Val, N-1, [" orelse",nl]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% generate decode function for SEQUENCE and SET
