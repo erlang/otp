@@ -402,7 +402,8 @@ script_start2(Opts = #opts{vts = undefined,
 	    Relaxed = get_start_opt(allow_user_terms, true, false, Args),
 	    case catch ct_testspec:collect_tests_from_file(Specs1, Relaxed) of
 		{E,Reason} when E == error ; E == 'EXIT' ->
-		    {error,Reason};
+		    StackTrace = erlang:get_stacktrace(),
+		    {error,{invalid_testspec,{Reason,StackTrace}}};
 		TestSpecData ->
 		    execute_all_specs(TestSpecData, Opts, Args, [])
 	    end;
@@ -1101,7 +1102,8 @@ run_spec_file(Relaxed,
     AbsSpecs1 = get_start_opt(join_specs, [AbsSpecs], AbsSpecs, StartOpts),
     case catch ct_testspec:collect_tests_from_file(AbsSpecs1, Relaxed) of
 	{Error,CTReason} when Error == error ; Error == 'EXIT' ->
-	    exit({error,CTReason});
+	    StackTrace = erlang:get_stacktrace(),
+	    exit({error,{invalid_testspec,{CTReason,StackTrace}}});
 	TestSpecData ->
 	    run_all_specs(TestSpecData, Opts, StartOpts, [])
     end.
