@@ -99,7 +99,6 @@ init_per_suite(Config0) ->
 	    catch crypto:stop(),
 	    try crypto:start() of
 		ok ->
-		    application:start(public_key),
 		    ssl:start(),
 		    Result =
 			(catch make_certs:all(?config(data_dir, Config0),

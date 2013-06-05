@@ -113,12 +113,14 @@ groups() ->
 init_per_suite(Config) ->
     try crypto:start() of
 	ok ->
+	    application:start(asn1),
 	    crypto_support_check(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
 
 end_per_suite(_Config) ->
+    application:stop(asn1),
     application:stop(crypto).
 
 %%--------------------------------------------------------------------

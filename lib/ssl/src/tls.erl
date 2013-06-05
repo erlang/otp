@@ -94,11 +94,13 @@
 %%--------------------------------------------------------------------
 start() ->
     application:start(crypto),
+    application:start(asn1),
     application:start(public_key),
     application:start(ssl).
 
 start(Type) ->
     application:start(crypto, Type),
+    application:start(asn1),
     application:start(public_key, Type),
     application:start(ssl, Type).
 
