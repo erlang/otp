@@ -34,6 +34,7 @@
 	 system_monitor_args/1, more_system_monitor_args/1,
 	 system_monitor_long_gc_1/1, system_monitor_long_gc_2/1, 
 	 system_monitor_large_heap_1/1, system_monitor_large_heap_2/1,
+	 system_monitor_long_schedule/1,
 	 bad_flag/1, trace_delivered/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -52,6 +53,7 @@ all() ->
      set_on_first_spawn, system_monitor_args,
      more_system_monitor_args, system_monitor_long_gc_1,
      system_monitor_long_gc_2, system_monitor_large_heap_1,
+      system_monitor_long_schedule,
      system_monitor_large_heap_2, bad_flag, trace_delivered].
 
 groups() -> 
@@ -507,6 +509,65 @@ try_l(Val) ->
 
     ?line {Self,Comb1} = erlang:system_monitor(undefined),
     ?line [{large_heap,Val},{long_gc,Arbitrary2}] = lists:sort(Comb1).
+
+monitor_sys(Parent) ->
+    receive 
+	{monitor,Pid,long_schedule,Data} when is_pid(Pid) -> 
+	    io:format("Long schedule of ~w: ~w~n",[Pid,Data]),
+	    Parent ! {Pid,Data},
+	    monitor_sys(Parent);
+	{monitor,Port,long_schedule,Data} when is_port(Port) -> 
+	    {name,Name} = erlang:port_info(Port,name),
+	    io:format("Long schedule of ~w (~p): ~w~n",[Port,Name,Data]),
+	    Parent ! {Port,Data},
+	    monitor_sys(Parent);
+	Other ->
+	    erlang:display(Other)
+    end.
+
+start_monitor() ->
+    Parent = self(),
+    Mpid = spawn_link(fun() -> monitor_sys(Parent) end),
+    erlang:system_monitor(Mpid,[{long_schedule,100}]),
+    erlang:yield(), % Need to be rescheduled for the trace to take
+    ok.
+
+system_monitor_long_schedule(suite) ->
+    [];
+system_monitor_long_schedule(doc) ->
+    ["Tests erlang:system_monitor(Pid, [{long_schedule,Time}])"];
+system_monitor_long_schedule(Config) when is_list(Config) ->
+    Path = ?config(data_dir, Config),
+    erl_ddll:start(),
+    case (catch load_driver(Path, slow_drv)) of
+	ok ->
+	    do_system_monitor_long_schedule();
+	_Error ->
+	    {skip, "Unable to load slow_drv (windows or no usleep()?)"}
+    end.
+do_system_monitor_long_schedule() ->
+    start_monitor(),
+    Port = open_port({spawn_driver,slow_drv}, []),
+    "ok" = erlang:port_control(Port,0,[]),
+    Self = self(),
+    receive
+	{Self,L} when is_list(L) ->
+	    ok
+    after 1000 ->
+	    ?t:fail(no_trace_of_pid)
+    end,
+    "ok" = erlang:port_control(Port,1,[]),
+    "ok" = erlang:port_control(Port,2,[]),
+    receive
+	{Port,LL} when is_list(LL) ->
+	    ok
+    after 1000 ->
+	    ?t:fail(no_trace_of_port)
+    end,
+    port_close(Port),
+    erlang:system_monitor(undefined),
+    ok.
+
 
 -define(LONG_GC_SLEEP, 670).
 
@@ -1521,3 +1582,11 @@ issue_non_empty_runq_warning(DeadLine, RQLen) ->
 	      "         Processes info: ~p~n",
 	      [DeadLine div 1000, RQLen, self(), PIs]),
     receive after 1000 -> ok end.
+
+load_driver(Dir, Driver) ->
+    case erl_ddll:load_driver(Dir, Driver) of
+	ok -> ok;
+	{error, Error} = Res ->
+	    io:format("~s\n", [erl_ddll:format_error(Error)]),
+	    Res
+    end.
