@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,7 @@ current_version() ->
 run_erlsrv(Command) ->
     run_erlsrv(current_version(),Command).
 run_erlsrv(EVer, Command) ->
-    case catch(open_port({spawn, erlsrv(EVer) ++ " " ++ Command}, 
+    case catch(open_port({spawn, "\"" ++ erlsrv(EVer) ++ "\" " ++ Command},
 			 [{line,1000}, in, eof])) of
 	{'EXIT',{Reason,_}} ->
 	    {port_error, Reason};
@@ -53,7 +53,7 @@ run_erlsrv(EVer, Command) ->
     end.
 
 run_erlsrv_interactive(EVer, Commands) ->
-    case catch(open_port({spawn, erlsrv(EVer) ++ " readargs"}, 
+    case catch(open_port({spawn, "\""++ erlsrv(EVer) ++ "\" readargs"},
 			 [{line,1000}, eof])) of
 	{'EXIT',{Reason,_}} ->
 	    {port_error, Reason};
