@@ -52,12 +52,14 @@
     <func>
       <name>start_profiling(Rootset) -> profiling | {error, Reason}</name>
       <name>start_profiling(Rootset,Pattern) -> profiling | {error, Reason}</name>
+      <name>start_profiling(Rootset,Pattern,Options) -> profiling | {error, Reason}</name>
       <fsummary>Start profiling.</fsummary>
       <type>
         <v>Rootset = [atom() | pid()]</v>
-	<v>Pattern = {Module, Function, Arity}</v>
-	<v>Module = Function = atom()</v>
-	<v>Arity = integer()</v>
+		<v>Pattern = {Module, Function, Arity}</v>
+		<v>Module = Function = atom()</v>
+		<v>Arity = integer()</v>
+		<v>Options = [set_on_spawn]</v>
         <v>Reason = term()</v>
       </type>
       <desc>
@@ -70,6 +72,9 @@
         <p>A pattern can be selected to narrow the profiling. For instance a
           specific module can be selected, and only the code executed in that
           module will be profiled.</p>
+	    <p>The <c>set_on_spawn</c> option will active call time tracing for
+			all processes spawned by processes in the rootset. This is
+			the default behaviour.</p>
       </desc>
     </func>
     <func>
@@ -82,19 +87,22 @@
     </func>
     <func>
       <name>profile(Fun) -> profiling | {error, Reason}</name>
+      <name>profile(Fun, Options) -> profiling | {error, Reason}</name>
       <name>profile(Rootset) -> profiling | {error, Reason}</name>
       <name>profile(Rootset,Fun) -> {ok, Value} | {error,Reason}</name>
       <name>profile(Rootset,Fun,Pattern) -> {ok, Value} | {error, Reason}</name>
       <name>profile(Rootset,Module,Function,Args) -> {ok, Value} | {error, Reason}</name>
       <name>profile(Rootset,Module,Function,Args,Pattern) -> {ok, Value} | {error, Reason}</name>
+      <name>profile(Rootset,Module,Function,Args,Pattern,Options) -> {ok, Value} | {error, Reason}</name>
       <fsummary>Start profiling.</fsummary>
       <type>
         <v>Rootset = [atom() | pid()]</v>
-        <v>Fun = fun() -> term()</v>
-	<v>Pattern = {Module, Function, Arity}</v>
+        <v>Fun = fun() -> term() end</v>
+		<v>Pattern = {Module, Function, Arity}</v>
         <v>Module = Function = atom()</v>
         <v>Args = [term()]</v>
-	<v>Arity = integer()</v>
+		<v>Arity = integer()</v>
+		<v>Options = [set_on_spawn]</v>
         <v>Value = Reason = term()</v>
       </type>
       <desc>
@@ -108,8 +116,11 @@
           <c>Rootset</c>, the function returns <c>{ok,Value}</c> when
           <c>Fun()</c>/<c>apply</c> returns with the value <c>Value</c>, or
           <c>{error,Reason}</c> if <c>Fun()</c>/<c>apply</c> fails with
-	  exit reason <c>Reason</c>. Otherwise it returns <c>{error, Reason}</c>
+		  exit reason <c>Reason</c>. Otherwise it returns <c>{error, Reason}</c>
           immediately.</p>
+	    <p>The <c>set_on_spawn</c> option will active call time tracing for
+			all processes spawned by processes in the rootset. This is
+			the default behaviour.</p>
         <p>The programmer must ensure that the function given as argument
           is truly synchronous and that no work continues after
           the function has returned a value.</p>
