@@ -164,6 +164,7 @@
 -export([info/0]).
 -deprecated({info, 0, next_major_release}).
 
+%% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
 
 -type mpint() :: binary().
