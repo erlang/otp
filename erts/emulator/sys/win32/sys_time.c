@@ -63,6 +63,8 @@
  
 static SysHrTime wrap = 0;
 static DWORD last_tick_count = 0;
+static erts_smp_mtx_t wrap_lock;
+static ULONGLONG (WINAPI *pGetTickCount64)(void) = NULL;
 
 /* Getting timezone information is a heavy operation, so we want to do this 
    only once */
@@ -77,11 +79,23 @@ static int days_in_month[2][13] = {
 int 
 sys_init_time(void)
 {
+    char kernel_dll_name[] = "kernel32";
+    HMODULE module;
+
+    module = GetModuleHandle(kernel_dll_name);
+    pGetTickCount64 = (module != NULL) ? 
+	(ULONGLONG (WINAPI *)(void)) 
+	GetProcAddress(module,"GetTickCount64") : 
+	NULL;
+
     if(GetTimeZoneInformation(&static_tzi) && 
        static_tzi.StandardDate.wMonth != 0 &&
        static_tzi.DaylightDate.wMonth != 0) {
 	have_static_tzi = 1;
     }
+
+    erts_smp_mtx_init(&wrap_lock, "sys_gethrtime");
+
     return 1;
 }
 
@@ -363,15 +377,39 @@ sys_gettimeofday(SysTimeval *tv)
 			 EPOCH_JULIAN_DIFF);
 }
 
+extern int erts_initialized;
 SysHrTime 
 sys_gethrtime(void) 
 {
-    DWORD ticks = (SysHrTime) (GetTickCount() & 0x7FFFFFFF);
-    if (ticks < (SysHrTime) last_tick_count) {
-	wrap += LL_LITERAL(1) << 31;
+    if (pGetTickCount64 != NULL) {
+	return ((SysHrTime) pGetTickCount64()) * LL_LITERAL(1000000);
+    } else {
+	DWORD ticks;
+	SysHrTime res;
+	erts_smp_mtx_lock(&wrap_lock);
+	ticks = (SysHrTime) (GetTickCount() & 0x7FFFFFFF);
+	if (ticks < (SysHrTime) last_tick_count) {
+	    /* Detect a race that should no longer be here... */
+	    if ((((SysHrTime) last_tick_count) - ((SysHrTime) ticks)) > 1000) {
+		wrap += LL_LITERAL(1) << 31;
+	    } else {
+		/* 
+		 * XXX Debug: Violates locking order, remove all this,
+		 * after testing!
+		 */
+		erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
+		erts_dsprintf(dsbufp, "Did not wrap when last_tick %d "
+			      "and tick %d", 
+			      last_tick_count, ticks);
+		erts_send_error_to_logger_nogl(dsbufp);
+		ticks = last_tick_count;
+	    }
+	}
+	last_tick_count = ticks;
+	res = ((((LONGLONG) ticks) + wrap) * LL_LITERAL(1000000));
+	erts_smp_mtx_unlock(&wrap_lock);
+	return res;
     }
-    last_tick_count = ticks;
-    return ((((LONGLONG) ticks) + wrap) * LL_LITERAL(1000000));
 }
 
 clock_t 
