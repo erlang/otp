@@ -25,7 +25,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -include("ssl_internal.hrl").
--include("ssl_record.hrl").
+-include("tls_record.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_alert.hrl").
 

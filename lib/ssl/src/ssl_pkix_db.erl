@@ -21,7 +21,7 @@
 %% Purpose: Storage for trusted certificates 
 %%----------------------------------------------------------------------
 
--module(ssl_certificate_db).
+-module(ssl_pkix_db).
 
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").

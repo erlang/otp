@@ -240,7 +240,7 @@ find_issuer(OtpCert, CertDbHandle) ->
 			  Acc
 		  end,
 
-    try ssl_certificate_db:foldl(IsIssuerFun, issuer_not_found, CertDbHandle) of
+    try ssl_pkix_db:foldl(IsIssuerFun, issuer_not_found, CertDbHandle) of
 	issuer_not_found ->
 	    {error, issuer_not_found}
     catch 

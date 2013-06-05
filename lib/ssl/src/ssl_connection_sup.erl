@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -56,10 +56,10 @@ init(_O) ->
     MaxT = 3600,
    
     Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {ssl_connection, start_link, []},
+    StartFunc = {tls_connection, start_link, []},
     Restart = temporary, % E.g. should not be restarted
     Shutdown = 4000,
-    Modules = [ssl_connection],
+    Modules = [tls_connection],
     Type = worker,
     
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
