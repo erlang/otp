@@ -151,7 +151,16 @@ unused_vars_warn_basic(Config) when is_list(Config) ->
              {22,erl_lint,{unused_var,'N'}},
              {23,erl_lint,{shadowed_var,'N','fun'}},
              {28,erl_lint,{unused_var,'B'}},
-             {29,erl_lint,{unused_var,'B'}}]}}],
+             {29,erl_lint,{unused_var,'B'}}]}},
+          {basic2,
+           <<"-record(r, {x,y}).
+              f({X,Y}) -> {Z=X,Z=Y};
+              f([H|T]) -> [Z=H|Z=T];
+              f(#r{x=X,y=Y}) -> #r{x=A=X,y=A=Y}.
+              g({M, F}) -> (Z=M):(Z=F)();
+              g({M, F, Arg}) -> (Z=M):F(Z=Arg).
+              h(X, Y) -> (Z=X) + (Z=Y).">>,
+           [warn_unused_vars], []}],
     ?line [] = run(Config, Ts),
     ok.
 
@@ -537,7 +546,21 @@ unused_vars_warn_rec(Config) when is_list(Config) ->
                   end.
            ">>,
            [warn_unused_vars],
-           {warnings,[{22,erl_lint,{unused_var,'Same'}}]}}],
+           {warnings,[{22,erl_lint,{unused_var,'Same'}}]}},
+          {rec2,
+           <<"-record(r, {a,b}).
+              f(X, Y) -> #r{a=[K || K <- Y], b=[K || K <- Y]}.
+              g(X, Y) -> #r{a=lists:map(fun (K) -> K end, Y),
+                            b=lists:map(fun (K) -> K end, Y)}.
+              h(X, Y) -> #r{a=case Y of _ when is_list(Y) -> Y end,
+                            b=case Y of _ when is_list(Y) -> Y end}.
+              i(X, Y) -> #r{a=if is_list(Y) -> Y end, b=if is_list(Y) -> Y end}.
+             ">>,
+           [warn_unused_vars],
+           {warnings,[{2,erl_lint,{unused_var,'X'}},
+                      {3,erl_lint,{unused_var,'X'}},
+                      {5,erl_lint,{unused_var,'X'}},
+                      {7,erl_lint,{unused_var,'X'}}]}}],
     ?line [] = run(Config, Ts),
     ok.
 
