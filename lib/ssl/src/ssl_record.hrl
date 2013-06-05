@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -143,34 +143,6 @@
 
 -define(LOWEST_MAJOR_SUPPORTED_VERSION, 3).
 	
--record(ssl_tls, {   %% From inet driver
-	  port,
-	  type,
-	  version, 
-	  fragment
-	 }).
-
-%% -record(tls_plain_text, {
-%% 	  type, 
-%% 	  version,   % #protocol_version{} 
-%% 	  length,    % unit 16  
-%% 	  fragment   % opaque  
-%% 	 }).
-
-%% -record(tls_compressed, {
-%% 	  type,
-%% 	  version,
-%% 	  length,    % unit 16  
-%% 	  fragment   % opaque  
-%% 	 }).
-
-%% -record(tls_cipher_text, {
-%%           type,
-%%           version,
-%%           length,
-%%           cipher,
-%%           fragment
-%%          }).
 
 -record(generic_stream_cipher, {
           content,  % opaque content[TLSCompressed.length];

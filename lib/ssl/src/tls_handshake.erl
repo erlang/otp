@@ -21,10 +21,10 @@
 %% Purpose: Help funtions for handling the SSL-handshake protocol
 %%----------------------------------------------------------------------
 
--module(ssl_handshake).
+-module(tls_handshake).
 
--include("ssl_handshake.hrl").
--include("ssl_record.hrl").
+-include("tls_handshake.hrl").
+-include("tls_record.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
@@ -64,8 +64,8 @@ client_hello(Host, Port, ConnectionStates,
 			  ciphers = UserSuites
 			 } = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
-    Version = ssl_record:highest_protocol_version(Versions),
-    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
+    Version = tls_record:highest_protocol_version(Versions),
+    Pending = tls_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
     Ciphers = available_suites(UserSuites, Version),
     SRP = srp_user(SslOpts),
@@ -76,7 +76,7 @@ client_hello(Host, Port, ConnectionStates,
     #client_hello{session_id = Id,
 		  client_version = Version,
 		  cipher_suites = cipher_suites(Ciphers, Renegotiation),
-		  compression_methods = ssl_record:compressions(),
+		  compression_methods = tls_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
 
 		  renegotiation_info =
@@ -109,7 +109,7 @@ encode_protocols_advertised_on_server(Protocols) ->
 %%--------------------------------------------------------------------
 server_hello(SessionId, Version, ConnectionStates, Renegotiation,
 	     ProtocolsAdvertisedOnServer, EcPointFormats, EllipticCurves) ->
-    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
+    Pending = tls_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
     #server_hello{server_version = Version,
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
@@ -153,7 +153,7 @@ hello(#server_hello{cipher_suite = CipherSuite, server_version = Version,
 		   versions = SupportedVersions},
       ConnectionStates0, Renegotiation) ->
     %%TODO: select hash and signature algorigthm
-    case ssl_record:is_acceptable_version(Version, SupportedVersions) of
+    case tls_record:is_acceptable_version(Version, SupportedVersions) of
 	true ->
 	    case handle_renegotiation_info(client, Info, ConnectionStates0, 
 					   Renegotiation, SecureRenegotation, []) of
@@ -179,7 +179,7 @@ hello(#client_hello{client_version = ClientVersion} = Hello,
       {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
     %% TODO: select hash and signature algorithm
     Version = select_version(ClientVersion, Versions),
-    case ssl_record:is_acceptable_version(Version, Versions) of
+    case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
 	    %% TODO: need to take supported Curves into Account when selecting the CipherSuite....
 	    %%       if whe have an ECDSA cert with an unsupported curve, we need to drop ECDSA ciphers
@@ -357,7 +357,7 @@ verify_signature(_Version, Hash, {HashAlgo, ecdsa}, Signature, {?'id-ecPublicKey
 certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
     #connection_state{security_parameters = 
 		      #security_parameters{cipher_suite = CipherSuite}} =
-	ssl_record:pending_connection_state(ConnectionStates, read),
+	tls_record:pending_connection_state(ConnectionStates, read),
     Types = certificate_types(CipherSuite),
     HashSigns = default_hash_signs(),
     Authorities = certificate_authorities(CertDbHandle, CertDbRef),
@@ -499,7 +499,7 @@ enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
 master_secret(Version, #session{master_secret = Mastersecret}, 
 	      ConnectionStates, Role) ->
     ConnectionState = 
-	ssl_record:pending_connection_state(ConnectionStates, read),
+	tls_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     try master_secret(Version, Mastersecret, SecParams, 
 		      ConnectionStates, Role)
@@ -513,7 +513,7 @@ master_secret(Version, #session{master_secret = Mastersecret},
 
 master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
     ConnectionState = 
-	ssl_record:pending_connection_state(ConnectionStates, read),
+	tls_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{prf_algorithm = PrfAlgo,
 			 client_random = ClientRandom,
@@ -760,7 +760,7 @@ srp_user(_) ->
 renegotiation_info(client, _, false) ->
     #renegotiation_info{renegotiated_connection = undefined};
 renegotiation_info(server, ConnectionStates, false) ->
-    CS  = ssl_record:current_connection_state(ConnectionStates, read),
+    CS  = tls_record:current_connection_state(ConnectionStates, read),
     case CS#connection_state.secure_renegotiation of
 	true ->
 	    #renegotiation_info{renegotiated_connection = ?byte(0)};
@@ -768,7 +768,7 @@ renegotiation_info(server, ConnectionStates, false) ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
 renegotiation_info(client, ConnectionStates, true) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
+    CS = tls_record:current_connection_state(ConnectionStates, read),
     case CS#connection_state.secure_renegotiation of
 	true ->
 	    Data = CS#connection_state.client_verify_data,
@@ -778,7 +778,7 @@ renegotiation_info(client, ConnectionStates, true) ->
     end;
 
 renegotiation_info(server, ConnectionStates, true) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
+    CS = tls_record:current_connection_state(ConnectionStates, read),
     case CS#connection_state.secure_renegotiation of
 	true ->
 	    CData = CS#connection_state.client_verify_data,
@@ -873,22 +873,22 @@ handle_ecc_curves_extension(Version, _) ->
 
 handle_renegotiation_info(_, #renegotiation_info{renegotiated_connection = ?byte(0)}, 
 			  ConnectionStates, false, _, _) ->
-    {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
+    {ok, tls_record:set_renegotiation_flag(true, ConnectionStates)};
 
 handle_renegotiation_info(server, undefined, ConnectionStates, _, _, CipherSuites) -> 
     case is_member(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV, CipherSuites) of
 	true ->
-	    {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
+	    {ok, tls_record:set_renegotiation_flag(true, ConnectionStates)};
 	false ->
-	    {ok, ssl_record:set_renegotiation_flag(false, ConnectionStates)}
+	    {ok, tls_record:set_renegotiation_flag(false, ConnectionStates)}
     end;
 
 handle_renegotiation_info(_, undefined, ConnectionStates, false, _, _) ->
-    {ok, ssl_record:set_renegotiation_flag(false, ConnectionStates)};
+    {ok, tls_record:set_renegotiation_flag(false, ConnectionStates)};
 
 handle_renegotiation_info(client, #renegotiation_info{renegotiated_connection = ClientServerVerify}, 
 			  ConnectionStates, true, _, _) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
+    CS = tls_record:current_connection_state(ConnectionStates, read),
     CData = CS#connection_state.client_verify_data,
     SData = CS#connection_state.server_verify_data,    
     case <<CData/binary, SData/binary>> == ClientServerVerify of
@@ -904,7 +904,7 @@ handle_renegotiation_info(server, #renegotiation_info{renegotiated_connection = 
 	  true ->
 	      ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE);
 	  false ->	
-	      CS = ssl_record:current_connection_state(ConnectionStates, read),
+	      CS = tls_record:current_connection_state(ConnectionStates, read),
 	      Data = CS#connection_state.client_verify_data,
 	      case Data == ClientVerify of
 		  true ->
@@ -926,7 +926,7 @@ handle_renegotiation_info(server, undefined, ConnectionStates, true, SecureReneg
      end.
 
 handle_renegotiation_info(ConnectionStates, SecureRenegotation) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
+    CS = tls_record:current_connection_state(ConnectionStates, read),
     case {SecureRenegotation, CS#connection_state.secure_renegotiation} of
 	{_, true} ->
 	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE);
@@ -943,9 +943,9 @@ handle_renegotiation_info(ConnectionStates, SecureRenegotation) ->
 hello_pending_connection_states(Role, Version, CipherSuite, Random, Compression,
 				 ConnectionStates) ->    
     ReadState =  
-	ssl_record:pending_connection_state(ConnectionStates, read),
+	tls_record:pending_connection_state(ConnectionStates, read),
     WriteState = 
-	ssl_record:pending_connection_state(ConnectionStates, write),
+	tls_record:pending_connection_state(ConnectionStates, write),
     
     NewReadSecParams = 
 	hello_security_parameters(Role, Version, ReadState, CipherSuite,
@@ -955,7 +955,7 @@ hello_pending_connection_states(Role, Version, CipherSuite, Random, Compression,
 	hello_security_parameters(Role, Version, WriteState, CipherSuite,
 			    Random, Compression),
  
-    ssl_record:update_security_params(NewReadSecParams,
+    tls_record:update_security_params(NewReadSecParams,
 				    NewWriteSecParams,
 				    ConnectionStates).
 
@@ -978,8 +978,8 @@ hello_security_parameters(server, Version, ConnectionState, CipherSuite, Random,
      }.
 
 select_version(ClientVersion, Versions) ->   
-    ServerVersion = ssl_record:highest_protocol_version(Versions),
-    ssl_record:lowest_protocol_version(ClientVersion, ServerVersion).
+    ServerVersion = tls_record:highest_protocol_version(Versions),
+    tls_record:lowest_protocol_version(ClientVersion, ServerVersion).
 
 select_cipher_suite([], _) ->
    no_suite;
@@ -1011,15 +1011,15 @@ master_secret(Version, MasterSecret, #security_parameters{
 	setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom,
 		   ClientRandom, HashSize, KML, EKML, IVS),
 
-    ConnStates1 = ssl_record:set_master_secret(MasterSecret, ConnectionStates),
+    ConnStates1 = tls_record:set_master_secret(MasterSecret, ConnectionStates),
     ConnStates2 =
-	ssl_record:set_mac_secret(ClientWriteMacSecret, ServerWriteMacSecret,
+	tls_record:set_mac_secret(ClientWriteMacSecret, ServerWriteMacSecret,
 				  Role, ConnStates1),
 
     ClientCipherState = #cipher_state{iv = ClientIV, key = ClientWriteKey},
     ServerCipherState = #cipher_state{iv = ServerIV, key = ServerWriteKey}, 
     {MasterSecret, 
-     ssl_record:set_pending_cipher_state(ConnStates2, ClientCipherState, 
+     tls_record:set_pending_cipher_state(ConnStates2, ClientCipherState, 
 					 ServerCipherState, Role)}.
 
 
@@ -1685,7 +1685,7 @@ certificate_authorities_from_db(CertDbHandle, CertDbRef) ->
 			 (_, Acc) ->
 			      Acc
 		      end,
-    ssl_certificate_db:foldl(ConnectionCerts, [], CertDbHandle).
+    ssl_pkix_db:foldl(ConnectionCerts, [], CertDbHandle).
 
 
 digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->

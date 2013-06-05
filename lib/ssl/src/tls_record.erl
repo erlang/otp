@@ -23,12 +23,12 @@
 %% 
 %%----------------------------------------------------------------------
 
--module(ssl_record).
+-module(tls_record).
 
--include("ssl_record.hrl").
+-include("tls_record.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_alert.hrl").
--include("ssl_handshake.hrl").
+-include("tls_handshake.hrl").
 -include("ssl_cipher.hrl").
 
 %% Connection state handling

@@ -25,7 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssl_internal.hrl").
--include("ssl_handshake.hrl").
+-include("tls_handshake.hrl").
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -55,20 +55,20 @@ decode_hello_handshake(_Config) ->
 	16#70, 16#64, 16#79, 16#2f, 16#32>>,
 	
 	Version = {3, 0},
-	{Records, _Buffer} = ssl_handshake:get_tls_handshake(Version, HelloPacket, <<>>),
+	{Records, _Buffer} = tls_handshake:get_tls_handshake(Version, HelloPacket, <<>>),
 	
 	{Hello, _Data} = hd(Records),
 	#renegotiation_info{renegotiated_connection = <<0>>} = Hello#server_hello.renegotiation_info.
 	
 decode_single_hello_extension_correctly(_Config) -> 
 	Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-	Extensions = ssl_handshake:dec_hello_extensions(Renegotiation, []),
+	Extensions = tls_handshake:dec_hello_extensions(Renegotiation, []),
 	[{renegotiation_info,#renegotiation_info{renegotiated_connection = <<0>>}}] = Extensions.
 	
 
 decode_unknown_hello_extension_correctly(_Config) ->
 	FourByteUnknown = <<16#CA,16#FE, ?UINT16(4), 3, 0, 1, 2>>,
 	Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-	Extensions = ssl_handshake:dec_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>, []),
+	Extensions = tls_handshake:dec_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>, []),
 	[{renegotiation_info,#renegotiation_info{renegotiated_connection = <<0>>}}] = Extensions.
 	

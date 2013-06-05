@@ -20,7 +20,7 @@
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Record and constant defenitions for the SSL-handshake protocol
-%% see RFC 4346
+%% see RFC 5246. Also includes supported hello extensions.
 %%----------------------------------------------------------------------
 
 -ifndef(ssl_handshake).
@@ -91,21 +91,10 @@
 % -define(NULL, 0). %% Already defined by ssl_internal.hrl
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Hello messages - RFC 4346 section 7.4.2
+%%% Hello messages - RFC 5246 section 7.4.1
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--record(client_hello, {
-	  client_version,
-	  random,             
-	  session_id,         % opaque SessionID<0..32>
-	  cipher_suites,      % cipher_suites<2..2^16-1>
-	  compression_methods, % compression_methods<1..2^8-1>,
-	  renegotiation_info,
-	  srp,                % srp username to send
-	  hash_signs,          % supported combinations of hashes/signature algos
-	  ec_point_formats,    % supported ec point formats
-	  elliptic_curves,     % supported elliptic curver
-	  next_protocol_negotiation = undefined % [binary()]
-	 }).
+
+%% client_hello defined in tls_handshake.hrl and dtls_handshake.hrl
 
 -record(server_hello, {
 	  server_version,
@@ -121,7 +110,7 @@
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Server authentication and key exchange messages - RFC 4346 section 7.4.3
+%%% Server authentication and key exchange messages - RFC 5246 section 7.4.3
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% opaque ASN.1Cert<2^24-1>;
@@ -193,7 +182,7 @@
 -record(server_hello_done, {}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Certificate request  - RFC 4346 section 7.4.4
+%%% Certificate request  - RFC 5246 section 7.4.4
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%    enum {

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2012. All Rights Reserved.
+# Copyright Ericsson AB 1999-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -58,8 +58,10 @@ HRL_FILES =
 HRL_FILES_SRC = \
 	ssl_internal.hrl\
 	ssl_alert.hrl \
+	tls_handshake.hrl \
 	ssl_handshake.hrl \
 	ssl_cipher.hrl \
+	tls_record.hrl \
 	ssl_record.hrl
 
 HRL_FILES_INC = 

@@ -1,7 +1,20 @@
 {application, ssl,
    [{description, "Erlang/OTP SSL application"},
     {vsn, "%VSN%"},
-    {modules, [ssl,
+    {modules, [
+	       %% TLS/SSL 
+	       tls,
+	       tls_connection,
+	       tls_handshake,
+	       tls_record,
+	       %% DTLS
+	       dtls_record,
+	       dtls_handshake,
+	       dtls_connection,
+	       dtls,	
+	       %% Backwards compatibility
+               ssl,
+	       %% Both TLS/SSL and DTLS
 	       ssl_app,
 	       ssl_sup,
 	       inet_tls_dist,
@@ -14,14 +27,14 @@
 	       ssl_session_cache_api,
 	       ssl_session_cache,
 	       ssl_socket,	
-	       ssl_record,
+	       %%ssl_record,
 	       ssl_manager,
-	       ssl_handshake,
+	       %%ssl_handshake,
 	       ssl_connection_sup,
-	       ssl_connection,
+	       %%ssl_connection,
 	       ssl_cipher,
 	       ssl_srp_primes,
-	       ssl_certificate_db,
+	       ssl_pkix_db,
 	       ssl_certificate,
 	       ssl_alert
 	       ]},
@@ -29,7 +42,5 @@
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}}]}.
-
-
 
 
