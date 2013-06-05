@@ -1723,14 +1723,14 @@ static BIF_RETTYPE do_bif_utf8_to_list(Process *p,
     if (b_sz) {
 	ErlSubBin *sb;
 	Eterm orig;
-	ERTS_DECLARE_DUMMY(Uint offset);
+	Uint offset;
 	ASSERT(state != ERTS_UTF8_OK);
 	hp = HAlloc(p, ERL_SUB_BIN_SIZE);
 	sb = (ErlSubBin *) hp;
 	ERTS_GET_REAL_BIN(orig_bin, orig, offset, bitoffs, bitsize);
 	sb->thing_word = HEADER_SUB_BIN;
 	sb->size = b_sz;
-	sb->offs = num_bytes_to_process + num_processed_bytes;
+	sb->offs = offset + num_bytes_to_process + num_processed_bytes;
 	sb->orig = orig;
 	sb->bitoffs = bitoffs;
 	sb->bitsize = bitsize;

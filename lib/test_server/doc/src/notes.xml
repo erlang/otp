@@ -226,8 +226,6 @@
 	    unicode:characters_to_binary for conversion between
 	    binaries and strings instead of binary_to_list and
 	    list_to_binary. </item> </list></p>
-          <p>
-	    Own Id: OTP-10783</p>
         </item>
       </list>
     </section>
