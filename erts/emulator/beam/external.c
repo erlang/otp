@@ -1667,6 +1667,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		/* To make absolutely sure that zlib does not barf on a reallocated context, 
 		   we make sure it's "exported" before doing anything compession-like */
 		EXPORT_CONTEXT();
+		bytes = (byte *) result_bin->orig_bytes; /* result_bin is reallocated */
 		if (erl_zlib_deflate_start(&(context->s.cc.stream),bytes+1,real_size-1,level) 
 		    != Z_OK) {
 		    goto return_normal;
