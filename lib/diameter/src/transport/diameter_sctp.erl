@@ -57,6 +57,9 @@
 %% The default port for a listener.
 -define(DEFAULT_PORT, 3868).  %% RFC 3588, ch 2.1
 
+%% Remote addresses to accept connections from.
+-define(DEFAULT_ACCEPT, []).  %% any
+
 %% How long a listener with no associations lives before offing
 %% itself.
 -define(LISTENER_TIMEOUT, 30000).
@@ -68,7 +71,13 @@
 -type connect_option() :: {raddr, inet:ip_address()}
                         | {rport, inet:port_number()}
                         | gen_sctp:open_option().
--type listen_option() :: gen_sctp:open_option().
+
+-type match() :: inet:ip_address()
+               | string()
+               | [match()].
+
+-type listen_option() :: {accept, match()}
+                       | gen_sctp:open_option().
 
 -type uint() :: non_neg_integer().
 
@@ -77,7 +86,7 @@
         {parent  :: pid(),
          mode :: {accept, pid()}
                | accept
-               | {connect, {list(inet:ip_address()), uint(), list()}}
+               | {connect, {[inet:ip_address()], uint(), list()}}
                         %% {RAs, RP, Errors}
                | connect,
          socket   :: gen_sctp:sctp_socket(),
@@ -94,7 +103,8 @@
          tmap = ets:new(?MODULE, []) :: ets:tid(),
              %% {MRef, Pid|AssocId}, {AssocId, Pid}
          pending = {0, ets:new(?MODULE, [ordered_set])},
-         tref      :: reference()}).
+         tref      :: reference(),
+         accept    :: [match()]}).
 %% Field tmap is used to map an incoming message or event to the
 %% relevent transport process. Field pending implements a queue of
 %% transport processes to which an association has been assigned (at
@@ -184,12 +194,14 @@ init(T) ->
 
 %% A process owning a listening socket.
 i({listen, Ref, {Opts, Addrs}}) ->
-    {LAs, Sock} = AS = open(Addrs, Opts, ?DEFAULT_PORT),
+    {[Matches], Rest} = proplists:split(Opts, [accept]),
+    {LAs, Sock} = AS = open(Addrs, Rest, ?DEFAULT_PORT),
     proc_lib:init_ack({ok, self(), LAs}),
     ok = gen_sctp:listen(Sock, true),
     true = diameter_reg:add_new({?MODULE, listener, {Ref, AS}}),
     start_timer(#listener{ref = Ref,
-                          socket = Sock});
+                          socket = Sock,
+                          accept = accept(Matches)});
 
 %% A connecting transport.
 i({connect, Pid, Opts, Addrs, Ref}) ->
@@ -326,6 +338,9 @@ handle_call({{accept, Ref}, Pid}, _, #listener{ref = Ref,
     {TPid, NewS} = accept(Ref, Pid, S),
     {reply, {ok, TPid}, NewS#listener{count = N+1}};
 
+handle_call(T, From, {listener,_,_,_,_,_,_} = S) -> % started in old code
+    handle_call(T, From, upgrade(S));
+
 handle_call(_, _, State) ->
     {reply, nok, State}.
 
@@ -344,7 +359,10 @@ handle_info(T, #transport{} = S) ->
     {noreply, #transport{} = t(T,S)};
 
 handle_info(T, #listener{} = S) ->
-    {noreply, #listener{} = l(T,S)}.
+    {noreply, #listener{} = l(T,S)};
+
+handle_info(T, {listener,_,_,_,_,_,_} = S) -> % started in old code
+    handle_info(T, upgrade(S)).
 
 %% ---------------------------------------------------------------------------
 %% # code_change/3
@@ -378,6 +396,9 @@ terminate(_, #listener{socket = Sock}) ->
 
 %% ---------------------------------------------------------------------------
 
+upgrade(S) ->
+    #listener{} = erlang:append_element(S, ?DEFAULT_ACCEPT).
+
 putr(Key, Val) ->
     put({?MODULE, Key}, Val).
 
@@ -401,7 +422,7 @@ l({sctp, Sock, _RA, _RP, Data} = Msg, #listener{socket = Sock} = S) ->
 
     try find(Id, Data, S) of
         {TPid, NewS} ->
-            TPid ! {peeloff, peeloff(Sock, Id, TPid), Msg},
+            TPid ! {peeloff, peeloff(Sock, Id, TPid), Msg, S#listener.accept},
             NewS;
         false ->
             S
@@ -475,11 +496,14 @@ t(T,S) ->
 %% transition/2
 
 %% Listening process is transfering ownership of an association.
-transition({peeloff, Sock, {sctp, LSock, _RA, _RP, _Data} = Msg},
+transition({peeloff, Sock, {sctp, LSock, _RA, _RP, _Data} = Msg, Matches},
            #transport{mode = {accept, _},
                       socket = LSock}
            = S) ->
+    ok = accept_peer(Sock, Matches),
     transition(Msg, S#transport{socket = Sock});
+transition({peeloff = T, _Sock, _Msg} = T, #transport{} = S) ->% from old code
+    transition(erlang:append_element(T, ?DEFAULT_ACCEPT), S);
 
 %% Incoming message.
 transition({sctp, _Sock, _RA, _RP, Data}, #transport{socket = Sock} = S) ->
@@ -524,6 +548,27 @@ transition({resolve_port, Pid}, #transport{socket = Sock})
     ok.
 
 %% Crash on anything unexpected.
+
+ok({ok, T}) ->
+    T;
+ok(T) ->
+    x(T).
+
+%% accept_peer/2
+
+accept_peer(_, []) ->
+    ok;
+
+accept_peer(Sock, Matches) ->
+    {RAddrs, _} = ok(inet:peername(Sock)),
+    diameter_peer:match(RAddrs, Matches)
+        orelse x({accept, RAddrs, Matches}),
+    ok.
+
+%% accept/1
+
+accept(Opts) ->
+    [[M] || {accept, M} <- Opts].
 
 %% accept/3
 %%

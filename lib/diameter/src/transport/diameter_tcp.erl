@@ -85,12 +85,16 @@
 
 -type connect_option() :: {raddr, inet:ip_address()}
                         | {rport, pos_integer()}
-                        | option()
                         | {ssl_options, true | [ssl:connect_option()]}
+                        | option()
                         | ssl:connect_option()
                         | gen_tcp:connect_option().
 
--type listen_option() :: option()
+-type match() :: inet:ip_address()
+               | string()
+               | [match()].
+
+-type listen_option() :: {accept, match()}
                        | {ssl_options, true | [ssl:listen_option()]}
                        | ssl:listen_option()
                        | gen_tcp:listen_option().
@@ -241,8 +245,8 @@ laddr([{ip, Addr}], _, _) ->
     Addr.
 
 own(Opts) ->
-    {Own, Rest} = proplists:split(Opts, [fragment_timer]),
-    {lists:append(Own), Rest}.
+    {[Own], Rest} = proplists:split(Opts, [fragment_timer]),
+    {Own, Rest}.
 
 ssl(Opts) ->
     {[SslOpts], Rest} = proplists:split(Opts, [ssl_options]),
@@ -271,9 +275,11 @@ init(Type, Ref, Mod, Pid, _, Opts, Addrs) ->
 %% init/6
 
 init(accept = T, Ref, Mod, Pid, Opts, Addrs) ->
-    {LAddr, LSock} = listener(Ref, {Mod, Opts, Addrs}),
+    {[Matches], Rest} = proplists:split(Opts, [accept]),
+    {LAddr, LSock} = listener(Ref, {Mod, Rest, Addrs}),
     proc_lib:init_ack({ok, self(), [LAddr]}),
     Sock = ok(accept(Mod, LSock)),
+    ok = accept_peer(Mod, Sock, accept(Matches)),
     publish(Mod, T, Ref, Sock),
     diameter_peer:up(Pid),
     Sock;
@@ -311,6 +317,22 @@ ok(No) ->
 
 x(Reason) ->
     exit({shutdown, Reason}).
+
+%% accept_peer/3
+
+accept_peer(_Mod, _Sock, []) ->
+    ok;
+
+accept_peer(Mod, Sock, Matches) ->
+    {RAddr, _} = ok(peername(Mod, Sock)),
+    diameter_peer:match([RAddr], Matches)
+        orelse x({accept, RAddr, Matches}),
+    ok.
+
+%% accept/1
+
+accept(Opts) ->
+    [[M] || {accept, M} <- Opts].
 
 %% listener/2
 

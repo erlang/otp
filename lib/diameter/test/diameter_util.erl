@@ -336,7 +336,7 @@ opts(Prot, T) ->
      {transport_config, [{ip, ?ADDR}, {port, 0} | opts(T)]}].
 
 opts(listen) ->
-    [];
+    [{accept, M} || M <- [{256,0,0,1}, ["256.0.0.1", ["^.+$"]]]];
 opts(PortNr) ->
     [{raddr, ?ADDR}, {rport, PortNr}].
 

@@ -70,10 +70,15 @@ and implements the behaviour documented in
 <v>Type = connect | accept</v>
 <v>Ref = &mod_transport_ref;</v>
 <v>Svc = #diameter_service{}</v>
-<v>Opt = {raddr, &ip_address;} | {rport, integer()} | term()</v>
+<v>Opt = OwnOpt | SctpOpt</v>
 <v>Pid = pid()</v>
 <v>LAddr = &ip_address;</v>
 <v>Reason = term()</v>
+<v>OwnOpt = {raddr, &ip_address;}
+          | {rport, integer()}
+          | {accept, Match}</v>
+<v>SctpOpt = term()</v>
+<v>Match = &ip_address; | string() | [Match]</v>
 </type>
 <desc>
 
@@ -85,9 +90,20 @@ Options <c>raddr</c> and <c>rport</c> specify the remote address
 and port for a connecting transport and not valid for a listening
 transport: the former is required while latter defaults to 3868 if
 unspecified.
-More than one <c>raddr</c> option can be specified, in which case the
+Mupltiple <c>raddr</c> options can be specified, in which case the
 connecting transport in question attempts each in sequence until
-an association is established.
+an association is established.</p>
+
+<p>
+Option <c>accept</c> specifies remote addresses for a listening
+transport and is not valid for a connecting transport.
+If specified, a remote address that does not match one of the
+specified addresses causes the association to be aborted.
+Multiple <c>accept</c> options can be specified.
+A string-valued <c>Match</c> that does not parse as an address is
+interpreted as a regular expression.</p>
+
+<p>
 Remaining options are any accepted by &gen_sctp_open1;, with the exception
 of options <c>mode</c>, <c>binary</c>, <c>list</c>, <c>active</c>
 and <c>sctp_events</c>.
