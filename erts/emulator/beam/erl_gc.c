@@ -1964,14 +1964,19 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
         ++n;
     }
 
-    // Check if a suspended bif has live working data.
-    // How do we know n is small enough to fit in roots[32?]?
+    /*
+     * A trapping BIF can add to rootset by setting the extra_root
+     * in the process_structure.
+     */
     if (p->extra_root != NULL) {
-      printf("GC with extra_root 0x%xl\n", p->extra_root);
-        roots[n].v = p->extra_root;
-        roots[n].sz = p->extra_root_sz;
-        ++n;
+#ifdef HARDDEBUG
+	erts_fprintf(stderr,"GC with extra root 0x%xl\n", p->extra_root->objv);
+#endif
+	roots[n].v = p->extra_root->objv;
+	roots[n].sz = p->extra_root->sz;
+	++n;
     }
+
 
     ASSERT((is_nil(p->seq_trace_token) ||
 	    is_tuple(follow_moved(p->seq_trace_token)) ||

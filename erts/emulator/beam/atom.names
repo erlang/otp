@@ -197,7 +197,6 @@ atom elib_malloc
 atom emulator
 atom enable_trace
 atom enabled
-atom enc_term_cont
 atom endian
 atom env
 atom eof
@@ -531,7 +530,7 @@ atom system_version
 atom system_architecture
 atom SYSTEM='SYSTEM'
 atom table
-atom term_to_binary_of_size
+atom term_to_binary_trap
 atom this
 atom thread_pool_size
 atom threads
