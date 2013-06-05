@@ -184,14 +184,18 @@ wait_ack(Port) ->
 loop(Parent, Port, Cmd) ->
     _ = send_heart_beat(Port),
     receive
-	{From, set_cmd, NewCmd} when length(NewCmd) < 2047 ->
-	    _ = send_heart_cmd(Port, NewCmd),
-	    _ = wait_ack(Port),
-	    From ! {heart, ok},
-	    loop(Parent, Port, NewCmd);
-	{From, set_cmd, NewCmd} ->
-	    From ! {heart, {error, {bad_cmd, NewCmd}}},
-	    loop(Parent, Port, Cmd);
+	{From, set_cmd, NewCmd0} ->
+	    Enc = file:native_name_encoding(),
+	    case catch unicode:characters_to_binary(NewCmd0,Enc,Enc) of
+		NewCmd when is_binary(NewCmd), byte_size(NewCmd) < 2047 ->
+		    _ = send_heart_cmd(Port, NewCmd),
+		    _ = wait_ack(Port),
+		    From ! {heart, ok},
+		    loop(Parent, Port, NewCmd);
+		_ ->
+		    From ! {heart, {error, {bad_cmd, NewCmd0}}},
+		    loop(Parent, Port, Cmd)
+	    end;
 	{From, clear_cmd} ->
 	    From ! {heart, ok},
 	    _ = send_heart_cmd(Port, ""),
