@@ -2149,7 +2149,7 @@ enc_term_int(Process *p,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dfla
 	    ESTACK_PUSH(s,obj); /* push back current object, to be popped on restore */
 	    WSTACK_PUSH(com,((UWord) ep));
 	    if (p->extra_root == NULL) {
-		/* NB. Allocate an arroy of two "extra-roots", of which only the first element
+		/* NB. Allocate an array of two "extra-roots", of which only the first element
 		   is seen and handled by the GC. Index 1 holds the Wstack. */
 		p->extra_root = erts_alloc(ERTS_ALC_T_EXTRA_ROOT, sizeof(ErlExtraRootSet)*2);
 		p->extra_root->objv = NULL;

@@ -2555,6 +2555,12 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
 		    p->dictionary->used, 
 		    offs, area, area_size);
     }
+    if (p->extra_root != NULL) {
+	offset_heap_ptr(p->extra_root->objv, 
+			p->extra_root->sz, 
+			offs, area, area_size);
+    }
+
     offset_heap_ptr(&p->fvalue, 1, offs, area, area_size);
     offset_heap_ptr(&p->ftrace, 1, offs, area, area_size);
     offset_heap_ptr(&p->seq_trace_token, 1, offs, area, area_size);
