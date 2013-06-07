@@ -214,8 +214,8 @@ prf(Socket, Secret, Label, Seed, WantedLength) ->
 clear_pem_cache() ->
     tls:clear_pem_cache().
 
-format_error(Reason) when is_list(Reason) ->
-    tls:format_error(Reason).
+format_error(Error)  ->
+    tls:format_error(Error).
 
 random_bytes(N) ->
    tls:random_bytes(N).
