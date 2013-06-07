@@ -1,1 +1,1 @@
-SSL_VSN = 5.2.1
+SSL_VSN = 5.3
