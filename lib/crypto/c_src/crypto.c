@@ -143,13 +143,16 @@
 }
 
 /* This shall correspond to the similar macro in crypto.erl */
-#define MAX_BYTES_TO_NIF 20000 /* Current value is: erlang:system_info(context_reductions) * 10 */
+/* Current value is: erlang:system_info(context_reductions) * 10 */
+#define MAX_BYTES_TO_NIF 20000 
 
 #define CONSUME_REDS(NifEnv, Ibin)			\
 do {							\
-    int _cost = ((Ibin).size  * 100) / MAX_BYTES_TO_NIF;	\
-    (void) enif_consume_timeslice((NifEnv),		\
-	      (_cost > 100) ? 100 : _cost);		\
+    int _cost = ((Ibin).size  * 100) / MAX_BYTES_TO_NIF;\
+    if (_cost) {                                        \
+        (void) enif_consume_timeslice((NifEnv),		\
+	          (_cost > 100) ? 100 : _cost);		\
+    }                                                   \
  } while (0)
 
 /* NIF interface declarations */
