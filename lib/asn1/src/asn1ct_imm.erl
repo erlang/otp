@@ -86,7 +86,7 @@ per_dec_enumerated(BaseNamedList, NamedListExt0, Aligned) ->
     bit_case(Base, Ext).
 
 per_dec_extension_map(Aligned) ->
-    Len = {add,per_dec_normally_small_number(Aligned),1},
+    Len = per_dec_normally_small_length(Aligned),
     {get_bits,Len,[1,bitstring]}.
 
 per_dec_integer(Constraint0, Aligned) ->
@@ -238,6 +238,11 @@ add_lb(Lb, Get) -> {add,Get,Lb}.
 per_dec_normally_small_number(Aligned) ->
     Small = {get_bits,6,[1]},
     Unlimited = per_decode_semi_constrained(0, Aligned),
+    bit_case(Small, Unlimited).
+
+per_dec_normally_small_length(Aligned) ->
+    Small = {add,{get_bits,6,[1]},1},
+    Unlimited = decode_unconstrained_length(false, Aligned),
     bit_case(Small, Unlimited).
 
 per_decode_semi_constrained(Lb, Aligned) ->
