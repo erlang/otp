@@ -250,7 +250,8 @@ emit_enc_enumerated_case(Erules, C, EnumName, Count) ->
 enc_ext_and_val(per, E, F, Args) ->
     [E|apply(asn1ct_eval_per, F, Args)];
 enc_ext_and_val(uper, E, F, Args) ->
-    <<E:1,(apply(asn1ct_eval_uper, F, Args))/bitstring>>.
+    Bs = list_to_bitstring([apply(asn1ct_eval_uper, F, Args)]),
+    <<E:1,Bs/bitstring>>.
 
 
 %% Object code generating for encoding and decoding
