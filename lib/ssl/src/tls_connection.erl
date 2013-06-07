@@ -673,8 +673,7 @@ certify_client_key_exchange(#encrypted_premaster_secret{premaster_secret= EncPMS
 
 certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPublicDhKey},
 			    #state{negotiated_version = Version,
-				   diffie_hellman_params = #'DHParameter'{prime = P,
-									  base = G} = Params,
+				   diffie_hellman_params = #'DHParameter'{} = Params,
 				   diffie_hellman_keys = {_, ServerDhPrivateKey}} = State0) ->
     case dh_master_secret(Params, ClientPublicDhKey, ServerDhPrivateKey, State0) of
 	#state{} = State1 ->
