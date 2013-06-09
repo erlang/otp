@@ -706,8 +706,6 @@ emit_term_tlv('OPTIONAL',InnerType,DecObjInf) ->
     emit_term_tlv(opt_or_def,InnerType,DecObjInf);
 emit_term_tlv(Prop,{typefield,_},DecObjInf) ->
     emit_term_tlv(Prop,type_or_object_field,DecObjInf);
-emit_term_tlv(Prop,{objectfield,_,_},DecObjInf) ->
-    emit_term_tlv(Prop,type_or_object_field,DecObjInf);
 emit_term_tlv(opt_or_def,type_or_object_field,NotFalse) 
   when NotFalse /= false ->
     asn1ct_name:new(tmpterm),
@@ -1212,10 +1210,6 @@ gen_dec_call({typefield,_},_,_,Cname,Type,BytesVar,Tag,_,_,_DecObjInf,OptOrMandC
 % 				  tableconstraint_info),
 	(Type#type.def)#'ObjectClassFieldType'.fieldname,
     [{Cname,RefedFieldName,asn1ct_gen:mk_var(asn1ct_name:curr(term)),
-      asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),Tag,OptOrMandComp}];
-gen_dec_call({objectfield,PrimFieldName,PFNList},_,_,Cname,_,BytesVar,Tag,_,_,_,OptOrMandComp) ->
-    call(decode_open_type, [BytesVar,{asis,Tag}]),
-    [{Cname,{PrimFieldName,PFNList},asn1ct_gen:mk_var(asn1ct_name:curr(term)),
       asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),Tag,OptOrMandComp}];
 gen_dec_call(InnerType,Erules,TopType,Cname,Type,BytesVar,Tag,PrimOptOrMand,
 	     OptOrMand,DecObjInf,_) ->

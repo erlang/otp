@@ -988,16 +988,6 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
 			    throw({asn1,{'internal error',Other}})
 		    end
 	    end;
-	{objectfield,PrimFieldName1,PFNList} ->
-	    case DynamicEnc of
-		{_LeadingAttrName,Fun} ->
-		    asn1ct_func:need({Erule,complete,1}),
-		    asn1ct_func:need({Erule,encode_open_type,1}),
-		    emit({"encode_open_type("
-			  "complete(",nl}),
-		    emit({"   ",Fun,"(",{asis,PrimFieldName1},
-			  ", ",Element,", ",{asis,PFNList},")))"})
-	    end;
 	_ ->
 	    CurrMod = get(currmod),
 	    case asn1ct_gen:type(Atype) of
@@ -1138,14 +1128,6 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
 		%% DecInfObj /= {"got objfun through args","ObjFun"} |
 		%% (DecInfObj == {"got objfun through args","ObjFun"} &
 		%% Ext == noext & Prop == mandatory)
-		fun(St) ->
-			asn1ct_name:new(term),
-			asn1ct_name:new(tmpterm),
-			emit(["{",{curr,tmpterm},", ",{next,bytes},"} = "]),
-			St
-		end;
-	%%{objectfield,_,_} when Ext == noext, Prop == mandatory ->
-	    {{objectfield,_,_},true} ->
 		fun(St) ->
 			asn1ct_name:new(term),
 			asn1ct_name:new(tmpterm),
@@ -1405,19 +1387,6 @@ gen_dec_line_special(Erule, {typefield,_}, _TopType, Comp,
 		       asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),
 		       Prop}],PrevSt}
 	    end
-    end;
-gen_dec_line_special(Erule, {objectfield,PrimFieldName1,PFNList}, _TopType,
-		     Comp, _DecInfObj) ->
-    fun({_BytesVar,PrevSt}) ->
-	    Imm = asn1ct_imm:per_dec_open_type(is_aligned(Erule)),
-	    BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(bytes)),
-	    asn1ct_imm:dec_code_gen(Imm, BytesVar),
-	    #'ComponentType'{name=Cname,prop=Prop} = Comp,
-	    SaveBytes = [{Cname,{PrimFieldName1,PFNList},
-			  asn1ct_gen:mk_var(asn1ct_name:curr(term)),
-			  asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),
-			  Prop}],
-	    {SaveBytes,PrevSt}
     end;
 gen_dec_line_special(Erule, Atype, TopType, Comp, DecInfObj) ->
     case gen_dec_line_other(Erule, Atype, TopType, Comp) of
