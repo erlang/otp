@@ -1969,9 +1969,6 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
      * in the process_structure.
      */
     if (p->extra_root != NULL) {
-#ifdef HARDDEBUG
-	erts_fprintf(stderr,"GC with extra root 0x%xl\n", p->extra_root->objv);
-#endif
 	roots[n].v = p->extra_root->objv;
 	roots[n].sz = p->extra_root->sz;
 	++n;

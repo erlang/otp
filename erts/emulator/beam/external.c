@@ -1469,12 +1469,13 @@ erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags) {
     return erts_term_to_binary_simple(p, Term, size, level, flags);
 }
 
-#define EXTREME_TTB_TRAPPING 1
+/* Define for testing */
+/* #define EXTREME_TTB_TRAPPING 1 */
 
 #ifndef EXTREME_TTB_TRAPPING
-#define TERM_TO_BINARY_LOOP_FACTOR 10
-#define TERM_TO_BINARY_SIZE_FACTOR 10000
-#define TERM_TO_BINARY_COMPRESS_CHUNK 10000
+#define TERM_TO_BINARY_LOOP_FACTOR 500
+#define TERM_TO_BINARY_SIZE_FACTOR 500000
+#define TERM_TO_BINARY_COMPRESS_CHUNK 500000
 #else
 #define TERM_TO_BINARY_LOOP_FACTOR 1
 #define TERM_TO_BINARY_SIZE_FACTOR 10
@@ -1556,7 +1557,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 #ifndef EXTREME_TTB_TRAPPING
     Sint reds = (Sint) (ERTS_BIF_REDS_LEFT(p) * TERM_TO_BINARY_LOOP_FACTOR);
 #else
-    Sint reds = 20; /* XXX */
+    Sint reds = 20; /* For testing */
 #endif
     Sint initial_reds = reds; 
     TTBContext c_buff;
