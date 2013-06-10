@@ -154,8 +154,8 @@
 <funcs>    
 
   <func>
-    <name> compute_key(OthersKey, MyKey)-></name>
-    <name> compute_key(OthersKey, MyKey, Params)-></name>
+    <name>compute_key(OthersKey, MyKey)-></name>
+    <name>compute_key(OthersKey, MyKey, Params)-></name>
     <fsummary> Compute shared secret</fsummary>
     <type>
       <v>OthersKey = #'ECPoint'{} | binary(), MyKey = #'ECPrivateKey'{} | binary()</v>
@@ -176,7 +176,8 @@
       <v>Options = public_crypt_options()</v>
   </type> 
   <desc> 
-    <p>Public key decryption using the private key.</p> 
+    <p>Public key decryption using the private key. See also <seealso
+	marker="crypto:crypto#private_decrypt/4">crypto:private_decrypt/4</seealso></p> 
   </desc> 
   </func>
 
@@ -190,7 +191,8 @@
       <v>Options = public_crypt_options()</v>
   </type> 
   <desc> 
-    <p> Public key decryption using the public key.</p> 
+    <p> Public key decryption using the public key. See also <seealso
+	marker="crypto:crypto#public_decrypt/4">crypto:public_decrypt/4</seealso></p> 
   </desc> 
   </func> 
 
@@ -304,7 +306,9 @@
       <v>Key = rsa_private_key()</v> 
   </type> 
   <desc> 
-    <p> Public key encryption using the private key.</p> 
+    <p> Public key encryption using the private key.
+     See also <seealso
+	marker="crypto:crypto#private_encrypt/4">crypto:private_encrypt/4</seealso></p> 
   </desc> 
   </func>   
 
@@ -316,7 +320,8 @@
       <v>Key = rsa_public_key()</v> 
   </type> 
   <desc> 
-    <p> Public key encryption using the public key.</p> 
+    <p> Public key encryption using the public key.  See also <seealso
+	marker="crypto:crypto#public_encrypt/4">crypto:public_encrypt/4</seealso></p> 
   </desc> 
   </func>   
   
