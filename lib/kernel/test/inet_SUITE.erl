@@ -183,80 +183,74 @@ t_gethostbyname(Config) when is_list(Config) ->
 				 h_addr_list = [IP]},
     ?line HEntF_ = HEntF,
     ?line check_elems([{HEnt#hostent.h_aliases,[[],Aliases]}]),
+    %%
+    ?line FullNameU = toupper(FullName),
+    ?line {ok,HEntU} = inet:gethostbyname(FullNameU),
+    ?line FullNameU = toupper(HEntU#hostent.h_name),
+    ?line #hostent{
+       h_addrtype = inet,
+       h_length = 4,
+       h_addr_list = [IP]} = HEntU,
+    ?line check_elems(
+	    [{[toupper(H) || H <- HEntU#hostent.h_aliases],
+	      [[],[toupper(A) || A <- Aliases]]}]),
 
     ?line {DName, _DFullName, _DIPStr, _DIP, _, _, _} =
 	ct:get_config(test_dummy_host),
     ?line {error,nxdomain} = inet:gethostbyname(DName),
-    ?line {error,nxdomain} = inet:gethostbyname(IP_46_Str).
+    ?line {error,nxdomain} = inet:gethostbyname(IP_46_Str),
+    ok.
 
 t_gethostbyname_v6() -> required(v6).
 t_gethostbyname_v6(doc) -> "Test the inet:gethostbyname/1 inet6 function.";
 t_gethostbyname_v6(suite) -> [];
 t_gethostbyname_v6(Config) when is_list(Config) ->
-    ?line {Name, _, _, _,Aliases,IP_46_Str,IP_46} =
-	ct:get_config(test_host_ipv4_only),
+    {Name, FullName, IPStr, IP, Aliases} =
+	ct:get_config(test_host_ipv6_only),
 
-    case {inet:gethostbyname(IP_46_Str, inet6),
-	  inet:gethostbyname(Name, inet6)} of
-	{{ok,HEnt46},{ok,_}} -> 
-	    ?line HEnt46_ = HEnt46#hostent{h_name = IP_46_Str,
-					   h_addrtype = inet6,
-					   h_length = 16,
-					   h_addr_list = [IP_46]},
-	    ?line HEnt46_ = HEnt46,
-	    ?line check_elems([{HEnt46#hostent.h_aliases,[[],Aliases]}]),		  
+    case inet:gethostbyname(Name, inet6) of
+	{ok,HEnt} ->
+	    {ok,_} = inet:gethostbyname(IPStr, inet6),
+	    {ok,HEnt} = inet:gethostbyname(list_to_atom(Name), inet6),
+	    case HEnt#hostent.h_addr_list of
+		[IP] -> % IPv6 address
+		    #hostent{h_addrtype = inet6,
+			     h_length = 16} = HEnt,
+		    check_elems(
+		      [{HEnt#hostent.h_name,[Name,FullName]},
+		       {HEnt#hostent.h_aliases,[[],Aliases]}]);
+		[IP46] -> % IPv4 compatible address
+		    {ok,HEnt4} = inet:gethostbyname(Name, inet),
+		    #hostent{h_addrtype = inet,
+			     h_length = 4,
+			     h_addr_list = [IP4]} = HEnt4,
+		    {ok,IP46} =
+			inet_parse:ipv6_address(
+			  "::ffff:" ++ inet_parse:ntoa(IP4)),
+		    check_elems(
+		      [{HEnt#hostent.h_name,[Name,FullName]}])
+	    end,
 
-	    ?line {Name6, FullName6, IPStr6, IP6, Aliases6} =
-		      	ct:get_config(test_host_ipv6_only),
-	    ?line {ok,_} = inet:gethostbyname(IPStr6, inet6),
-	    ?line {ok,HEnt6} = inet:gethostbyname(Name6, inet6),
-	    ?line {ok,HEnt6} = inet:gethostbyname(list_to_atom(Name6), inet6),
-	    ?line case HEnt6#hostent.h_addr_list of
-		      [IP6] ->				% ipv6 ok
-			  ?line HEnt6_ = HEnt6#hostent{h_addrtype = inet6,
-						       h_length = 16,
-						       h_addr_list = [IP6]},
-			  ?line HEnt6_ = HEnt6,	    
-			  ?line check_elems([{HEnt6#hostent.h_name,[Name6,FullName6]},
-					     {HEnt6#hostent.h_aliases,[[],Aliases6]}]);
-		      _ ->				% ipv4 compatible addr
-			  ?line {ok,HEnt4} = inet:gethostbyname(Name6, inet),
-			  ?line [IP4] = HEnt4#hostent.h_addr_list,
-			  ?line {ok,IP46_2} = 
-			      inet_parse:ipv6_address("::ffff:"++inet_parse:ntoa(IP4)),
-			  ?line HEnt6_ = HEnt6#hostent{h_addrtype = inet6,
-						       h_length = 16,
-						       h_addr_list = [IP46_2]},
-			  ?line HEnt6_ = HEnt6,
-			  ?line check_elems([{HEnt6#hostent.h_name,[Name6,FullName6]}])
-		  end,
-	    
-	    ?line {ok,HEntF6} = inet:gethostbyname(FullName6, inet6),
-	    ?line case HEntF6#hostent.h_addr_list of
-		      [IP6] ->				% ipv6 ok
-			  ?line HEntF6_ = HEntF6#hostent{h_name = FullName6,
-							 h_addrtype = inet6,
-							 h_length = 16,
-							 h_addr_list = [IP6]},
-			  ?line HEntF6_ = HEntF6,
-			  ?line check_elems([{HEntF6#hostent.h_aliases,[[],Aliases6]}]);
-		      _ ->				% ipv4 compatible addr
-			  ?line {ok,HEntF4} = inet:gethostbyname(FullName6, inet),
-			  ?line [IPF4] = HEntF4#hostent.h_addr_list,
-			  ?line {ok,IPF46_2} = 
-			      inet_parse:ipv6_address("::ffff:"++inet_parse:ntoa(IPF4)),
-			  ?line HEntF6_ = HEntF6#hostent{h_addrtype = inet6,
-							 h_length = 16,
-							 h_addr_list = [IPF46_2]},
-			  ?line HEntF6_ = HEntF6,
-			  ?line check_elems([{HEntF6#hostent.h_name,[Name6,FullName6]}])
-		  end,
-	    
-	    ?line {DName6, _DFullName6, _DIPStr6, _DIP6, _} =
-		      ct:get_config(test_dummy_ipv6_host),
-	    ?line {error,nxdomain} = inet:gethostbyname(DName6, inet6),
-	    ok;
-	{_,_} ->
+	    {ok,HEntF} = inet:gethostbyname(FullName, inet6),
+	    case HEntF#hostent.h_addr_list of
+		[IP] -> % IPv6 address
+		    #hostent{h_name = FullName,
+			     h_addrtype = inet6,
+			     h_length = 16} = HEntF,
+		    check_elems(
+		      [{HEnt#hostent.h_aliases,[[],Aliases]}]);
+		[IP46F] -> % IPv4 compatible address
+		    {ok,HEnt4F} = inet:gethostbyname(FullName, inet),
+		    #hostent{h_addrtype = inet,
+			     h_length = 4,
+			     h_addr_list = [IP4F]} = HEnt4F,
+		    {ok,IP46F} =
+			inet_parse:ipv6_address(
+			  "::ffff:" ++ inet_parse:ntoa(IP4F)),
+		    check_elems(
+		      [{HEntF#hostent.h_name,[Name,FullName]}])
+	    end;
+	_ ->
 	    {skip, "IPv6 is not supported on this host"}
     end.
 
@@ -290,47 +284,35 @@ t_getaddr(Config) when is_list(Config) ->
     ?line {error,nxdomain} = inet:getaddr(DName, inet),
     ?line {error,nxdomain} = inet:getaddr(DFullName, inet),
     ?line {ok,DIP} = inet:getaddr(DIPStr, inet),
-    ?line {ok,DIP} = inet:getaddr(DIP, inet).
+    ?line {ok,DIP} = inet:getaddr(DIP, inet),
+    ok.
 
 t_getaddr_v6() -> required(v4) ++ required(v6).
 t_getaddr_v6(doc) -> "Test the inet:getaddr/2 function.";
 t_getaddr_v6(suite) -> [];
 t_getaddr_v6(Config) when is_list(Config) ->
-    ?line {Name,FullName,IPStr,_IP,_,IP_46_Str,IP46} =
-	ct:get_config(test_host_ipv4_only),
-    case {inet:getaddr(IP_46_Str, inet6),inet:getaddr(Name, inet6)} of
-	{{ok,IP46},{ok,V4Addr}} when V4Addr /= {0,0,0,0,0,0,0,1} ->
-	    %% Since we suceeded in parsing an IPv6 address string and
-	    %% look up the name, this computer fully supports IPv6.
-	    ?line {ok,IP46} = inet:getaddr(IP46, inet6),
-	    ?line {ok,IP46} = inet:getaddr(Name, inet6),
-	    ?line {ok,IP46} = inet:getaddr(FullName, inet6),
-	    ?line {ok,IP46} = inet:getaddr(IPStr, inet6),
-%% 	    ?line IP4toIP6 = inet:getaddr(IPStr, inet6),
-%% 	    ?line case IP4toIP6 of
-%% 		      {ok,IP46} ->
-%% 			  ?line ok;
-%% 		      {error,nxdomain} ->
-%% 			  ?line false =
-%% 			      lists:member(native,
-%% 					   inet_db:res_option(lookup))
-%% 		  end,
-	    ?line {Name6, FullName6, IPStr6, IP6, _} =
-				      	ct:get_config(test_host_ipv6_only),
-	    ?line {ok,_} = inet:getaddr(list_to_atom(Name6), inet6),
-	    ?line {ok,_} = inet:getaddr(Name6, inet6),
-	    ?line {ok,_} = inet:getaddr(FullName6, inet6),
-	    ?line {ok,IP6} = inet:getaddr(IP6, inet6),
-	    ?line {ok,IP6} = inet:getaddr(IPStr6, inet6),
+    {Name,FullName,IPStr,IP,_} =
+	ct:get_config(test_host_ipv6_only),
 
-	    ?line {DName6, DFullName6, DIPStr6, DIP6, _} =
+    case inet:getaddr(Name, inet6) of
+	{ok,Addr} ->
+	    IP = Addr,
+	    {ok,IP} = inet:getaddr(toupper(Name), inet6),
+	    {ok,IP} = inet:getaddr(list_to_atom(Name), inet6),
+	    {ok,IP} = inet:getaddr(list_to_atom(toupper(Name)), inet6),
+	    {ok,IP} = inet:getaddr(FullName, inet6),
+	    {ok,IP} = inet:getaddr(toupper(FullName), inet6),
+	    {ok,IP} = inet:getaddr(IP, inet6),
+	    {ok,IP} = inet:getaddr(IPStr, inet6),
+	    %%
+	    {DName,DFullName,DIPStr,DIP,_} =
 		ct:get_config(test_dummy_ipv6_host),
-	    ?line {error,nxdomain} = inet:getaddr(DName6, inet6),
-	    ?line {error,nxdomain} = inet:getaddr(DFullName6, inet6),
-	    ?line {ok,DIP6} = inet:getaddr(DIPStr6, inet6),
-	    ?line {ok,DIP6} = inet:getaddr(DIP6, inet6),
+	    {error,nxdomain} = inet:getaddr(DName, inet6),
+	    {error,nxdomain} = inet:getaddr(DFullName, inet6),
+	    {ok,DIP} = inet:getaddr(DIPStr, inet6),
+	    {ok,DIP} = inet:getaddr(DIP, inet6),
 	    ok;
-	{_,_} ->
+	_ ->
  	    {skip, "IPv6 is not supported on this host"}
     end.
 
@@ -608,8 +590,12 @@ t_parse_address(Func, [String|L]) ->
     t_parse_address(Func, L).
 
 parse_strict_address(Config) when is_list(Config) ->
-    {ok, Ipv4} = inet:parse_strict_address("127.0.0.1"),
-    {ok, Ipv6} = inet:parse_strict_address("c11:0c22:5c33:c440:55c0:c66c:77:0088").
+    {ok, {127,0,0,1}} =
+	inet:parse_strict_address("127.0.0.1"),
+    {ok, {3089,3106,23603,50240,21952,50796,119,136}} =
+	inet:parse_strict_address("c11:0c22:5c33:c440:55c0:c66c:77:0088"),
+    {ok, {3089,3106,23603,50240,0,0,119,136}} =
+	inet:parse_strict_address("c11:0c22:5c33:c440::077:0088").
 
 t_gethostnative(suite) ->[];
 t_gethostnative(doc) ->[];
@@ -1102,3 +1088,14 @@ ip_member({127,_,_,_}, [{127,_,_,_}|_]) -> true;
 ip_member(K, [K|_]) -> true;
 ip_member(K, [_|T]) -> ip_member(K, T);
 ip_member(_, []) -> false.
+
+%% Case fold to upper case according to RFC 4343
+%%
+toupper([C|Cs]) when is_integer(C) ->
+    if  $a =< C, C =< $z ->
+	    [(C - $a + $A)|toupper(Cs)];
+	true ->
+	    [C|toupper(Cs)]
+    end;
+toupper([]) ->
+    [].

@@ -43,8 +43,8 @@ naptr.resolve.otptest	IN NAPTR	10 5 "S" "HTTP" "" _srv._tcp.resolve.otptest
 txt.resolve.otptest	IN TXT		"Hej " "du " "glade "
 txt.resolve.otptest	IN TXT		"ta " "en " "spade!"
 mb.resolve.otptest	IN MB		mx.resolve.otptest
-mg.resolve.otptest	IN MG		lsa.otptest
-mr.resolve.otptest	IN MR		lsa.otptest
-minfo.resolve.otptest	IN MINFO	minfo-owner.resolve.otptest minfo-bounce.resolve.otptest
+mg.resolve.otptest	IN MG		Lsa.otptest
+mr.resolve.otptest	IN MR		LSA.otptest
+minfo.resolve.otptest	IN MINFO	minfo-OWNER.resolve.otptest MinfoBounce.resolve.otptest
 
 ns.otptest	IN A		127.0.0.254

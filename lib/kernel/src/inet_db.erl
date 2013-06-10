@@ -845,7 +845,8 @@ init([]) ->
     process_flag(trap_exit, true),
     Db = ets:new(inet_db, [public, named_table]),
     reset_db(Db),
-    Cache = ets:new(inet_cache, [public, bag, {keypos,2}, named_table]),
+    CacheOpts = [public, bag, {keypos,#dns_rr.domain}, named_table],
+    Cache = ets:new(inet_cache, CacheOpts),
     BynameOpts = [protected, bag, named_table, {keypos,1}],
     ByaddrOpts = [protected, bag, named_table, {keypos,3}],
     HostsByname = ets:new(inet_hosts_byname, BynameOpts),
@@ -901,15 +902,21 @@ reset_db(Db) ->
 handle_call(Request, From, #state{db=Db}=State) ->
     case Request of
 	{load_hosts_file,IPNmAs} when is_list(IPNmAs) ->
-	    NIPs = lists:flatten([ [{N,if tuple_size(IP) =:= 4 -> inet;
-					  tuple_size(IP) =:= 8 -> inet6
-				       end,IP} || N <- [Nm|As]]
-				   || {IP,Nm,As} <- IPNmAs]),
+	    NIPs =
+		lists:flatten(
+		  [ [{N,
+		      if tuple_size(IP) =:= 4 -> inet;
+			 tuple_size(IP) =:= 8 -> inet6
+		      end,IP} || N <- [Nm|As]]
+		    || {IP,Nm,As} <- IPNmAs]),
 	    Byname = State#state.hosts_file_byname,
 	    Byaddr = State#state.hosts_file_byaddr,
 	    ets:delete_all_objects(Byname),
 	    ets:delete_all_objects(Byaddr),
-	    ets:insert(Byname, NIPs),
+	    %% Byname has lowercased names while Byaddr keep the name casing.
+	    %% This is to be able to reconstruct the original
+	    %% /etc/hosts entry.
+	    ets:insert(Byname, [{tolower(N),Type,IP} || {N,Type,IP} <- NIPs]),
 	    ets:insert(Byaddr, NIPs),
 	    {reply, ok, State};
 
@@ -938,16 +945,14 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    {reply, ok, State};
 
 	{add_rr, RR} when is_record(RR, dns_rr) ->
-	    RR1 = lower_rr(RR),
-	    ?dbg("add_rr: ~p~n", [RR1]),
-	    do_add_rr(RR1, Db, State),
+	    ?dbg("add_rr: ~p~n", [RR]),
+	    do_add_rr(RR, Db, State),
 	    {reply, ok, State};
 
 	{del_rr, RR} when is_record(RR, dns_rr) ->
-	    RR1 = lower_rr(RR),
 	    %% note. del_rr will handle wildcards !!!
 	    Cache = State#state.cache,
-	    ets:match_delete(Cache, RR1),
+	    ets:match_delete(Cache, RR),
 	    {reply, ok, State};
 
 	{lookup_rr, Domain, Class, Type} ->
@@ -1225,15 +1230,19 @@ handle_set_file(ParseFun, Bin, From, State) ->
 	    handle_rc_list(Opts, From, State)
     end.
 
+%% Byname has lowercased names while Byaddr keep the name casing.
+%% This is to be able to reconstruct the original /etc/hosts entry.
+
 do_add_host(Byname, Byaddr, Names, Type, IP) ->
     do_del_host(Byname, Byaddr, IP),
-    NIPs = [{tolower(N),Type,IP} || N <- Names],
-    ets:insert(Byname, NIPs),
-    ets:insert(Byaddr, NIPs),
+    ets:insert(Byname, [{tolower(N),Type,IP} || N <- Names]),
+    ets:insert(Byaddr, [{N,Type,IP} || N <- Names]),
     ok.
 
 do_del_host(Byname, Byaddr, IP) ->
-    _ = [ets:delete_object(Byname, NIP) || NIP <- ets:lookup(Byaddr, IP)],
+    _ =
+	[ets:delete_object(Byname, {tolower(Name),Type,Addr}) ||
+	    {Name,Type,Addr} <- ets:lookup(Byaddr, IP)],
     ets:delete(Byaddr, IP),
     ok.
 
@@ -1369,7 +1378,7 @@ times() ->
 %% lookup and remove old entries
 
 do_lookup_rr(Domain, Class, Type) ->
-    match_rr(#dns_rr{domain = tolower(Domain), class = Class,type = Type,
+    match_rr(#dns_rr{domain = Domain, class = Class,type = Type,
 		     cnt = '_', tm = '_', ttl = '_',
 		     bm = '_', func = '_', data = '_'}).
 
@@ -1393,23 +1402,20 @@ filter_rr([], _Time) ->  [].
 
 
 %%
-%% Lower case the domain name before storage 
+%% Case fold upper-case to lower-case according to RFC 4343
+%% "Domain Name System (DNS) Case Insensitivity Clarification".
 %%
-lower_rr(RR) ->
-    Dn = RR#dns_rr.domain,
-    if is_list(Dn) ->
-	    RR#dns_rr { domain = tolower(Dn) };
-       true -> RR
-    end.
-
-%%
-%% Map upper-case to lower-case
 %% NOTE: this code is in kernel and we don't want to relay
-%% to much on stdlib
+%% to much on stdlib. Furthermore string:to_lower/1
+%% does not follow RFC 4343.
 %%
 tolower([]) -> [];
-tolower([C|Cs]) when C >= $A, C =< $Z -> [(C-$A)+$a|tolower(Cs)];
-tolower([C|Cs]) -> [C|tolower(Cs)].
+tolower([C|Cs]) when is_integer(C) ->
+    if  C >= $A, C =< $Z ->
+	    [(C-$A)+$a|tolower(Cs)];
+	true ->
+	    [C|tolower(Cs)]
+    end.
 
 dn_ip6_int(A,B,C,D,E,F,G,H) ->
     dnib(H) ++ dnib(G) ++ dnib(F) ++ dnib(E) ++ 
