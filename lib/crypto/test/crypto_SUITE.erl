@@ -212,16 +212,8 @@ mod_pow(Config) when is_list(Config) ->
 exor() ->
     [{doc, "Test the exor function"}].
 exor(Config) when is_list(Config) ->
-    B = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>>,
-    Z1 = zero_bin(B),
-    Z1 = crypto:exor(B, B),
-    B1 = crypto:rand_bytes(100),
-    B2 = crypto:rand_bytes(100),
-    Z2 = zero_bin(B1),
-    Z2 = crypto:exor(B1, B1),
-    Z2 = crypto:exor(B2, B2),
-    R = xor_bytes(B1, B2),
-    R = crypto:exor(B1, B2).
+    do_exor(<<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>>),
+    do_exor(term_to_binary(lists:seq(1, 1000000))).
 %%--------------------------------------------------------------------
 rand_uniform() ->
     [{doc, "rand_uniform and random_bytes testing"}].
@@ -229,10 +221,10 @@ rand_uniform(Config) when is_list(Config) ->
     rand_uniform_aux_test(10),
     10 = byte_size(crypto:rand_bytes(10)),
     10 = byte_size(crypto:strong_rand_bytes(10)).
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-
 hash(_, [], []) ->
     ok;
 hash(Type, [Msg | RestMsg], [Digest| RestDigest]) ->
@@ -491,7 +483,7 @@ do_block_iolistify({Type, Key, IV, PlainText}) ->
 iolistify(<<"Test With Truncation">>)->
     %% Do not iolistify as it spoils this special case
     <<"Test With Truncation">>;
-iolistify(Msg)->    
+iolistify(Msg) when is_binary(Msg) ->
     Length = erlang:byte_size(Msg),
     Split = Length div 2,
     List0 = binary_to_list(Msg),
@@ -500,7 +492,9 @@ iolistify(Msg)->
 	   [[Element], List1, List2];
        {List1, List2}->
 	   [List1, List2]
-   end.
+   end;
+iolistify(Msg) ->
+    iolistify(list_to_binary(Msg)).
 
 des_iolistify(Msg) ->    
     des_iolist(erlang:byte_size(Msg) div 8, Msg, []).
@@ -539,6 +533,17 @@ ipow(A, B, M, Prod)  ->
        true ->
 	    ipow(A1, B1, M, (A*Prod) rem M)
     end.
+
+do_exor(B) ->
+    Z1 = zero_bin(B),
+    Z1 = crypto:exor(B, B),
+    B1 = crypto:rand_bytes(100),
+    B2 = crypto:rand_bytes(100),
+    Z2 = zero_bin(B1),
+    Z2 = crypto:exor(B1, B1),
+    Z2 = crypto:exor(B2, B2),
+    R = xor_bytes(B1, B2),
+    R = crypto:exor(B1, B2).
 
 zero_bin(N) when is_integer(N) ->
     N8 = N * 8,
@@ -586,20 +591,20 @@ group_config(md4 = Type, Config) ->
 group_config(md5 = Type, Config) ->
     Msgs = rfc_1321_msgs(),
     Digests = rfc_1321_md5_digests(),
-    Keys = rfc_2202_md5_keys(),
-    Data = rfc_2202_msgs(),
-    Hmac = rfc_2202_hmac_md5(),
+    Keys = rfc_2202_md5_keys() ++ [long_hmac_key(md5)],
+    Data = rfc_2202_msgs() ++ [long_msg()],
+    Hmac = rfc_2202_hmac_md5()  ++ [long_hmac(md5)],
     [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}} | Config];
 group_config(ripemd160 = Type, Config) ->
     Msgs = ripemd160_msgs(),
     Digests = ripemd160_digests(),
    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha = Type, Config) ->
-    Msgs = [rfc_4634_test1(), rfc_4634_test2_1()], 
-    Digests = rfc_4634_sha_digests(),
-    Keys = rfc_2202_sha_keys(),
-    Data = rfc_2202_msgs(),
-    Hmac = rfc_2202_hmac_sha(),
+    Msgs = [rfc_4634_test1(), rfc_4634_test2_1(),long_msg()],
+    Digests = rfc_4634_sha_digests() ++ [long_sha_digest()],
+    Keys = rfc_2202_sha_keys() ++ [long_hmac_key(sha)],
+    Data = rfc_2202_msgs() ++ [long_msg()],
+    Hmac = rfc_2202_hmac_sha()  ++ [long_hmac(sha)],
     [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}} | Config];
 group_config(sha224 = Type, Config) ->
     Msgs = [rfc_4634_test1(), rfc_4634_test2_1()], 
@@ -609,25 +614,25 @@ group_config(sha224 = Type, Config) ->
     Hmac = rfc4231_hmac_sha224(),
    [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
 group_config(sha256 = Type, Config) ->
-    Msgs =   [rfc_4634_test1(), rfc_4634_test2_1()], 
-    Digests = rfc_4634_sha256_digests(),
-    Keys = rfc_4231_keys(),
-    Data = rfc_4231_msgs(),
-    Hmac = rfc4231_hmac_sha256(),
+    Msgs =   [rfc_4634_test1(), rfc_4634_test2_1(), long_msg()],
+    Digests = rfc_4634_sha256_digests()  ++ [long_sha256_digest()],
+    Keys = rfc_4231_keys() ++ [long_hmac_key(sha256)],
+    Data = rfc_4231_msgs()  ++ [long_msg()],
+    Hmac = rfc4231_hmac_sha256()  ++ [long_hmac(sha256)],
     [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
 group_config(sha384 = Type, Config) ->
-    Msgs =  [rfc_4634_test1(), rfc_4634_test2()],
-    Digests = rfc_4634_sha384_digests(),
-    Keys = rfc_4231_keys(),
-    Data = rfc_4231_msgs(),
-    Hmac = rfc4231_hmac_sha384(),
+    Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
+    Digests = rfc_4634_sha384_digests()  ++ [long_sha384_digest()],
+    Keys = rfc_4231_keys() ++ [long_hmac_key(sha384)],
+    Data = rfc_4231_msgs()  ++ [long_msg()],
+    Hmac = rfc4231_hmac_sha384()  ++ [long_hmac(sha384)],
     [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
 group_config(sha512 = Type, Config) ->
-    Msgs =  [rfc_4634_test1(), rfc_4634_test2()],
-    Digests = rfc_4634_sha512_digests(),
-    Keys = rfc_4231_keys(),
-    Data = rfc_4231_msgs(),
-    Hmac = rfc4231_hmac_sha512(),
+    Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
+    Digests = rfc_4634_sha512_digests() ++ [long_sha512_digest()],
+    Keys = rfc_4231_keys() ++ [long_hmac_key(sha512)],
+    Data = rfc_4231_msgs() ++ [long_msg()],
+    Hmac = rfc4231_hmac_sha512() ++ [long_hmac(sha512)],
     [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
 group_config(rsa = Type, Config) ->
     Msg = rsa_plain(),
@@ -789,6 +794,23 @@ rfc_4634_sha512_digests() ->
 		"454D4423643CE80E2A9AC94FA54CA49F"),
      hexstr2bin("8E959B75DAE313DA8CF4F72814FC143F8F7779C6EB9F7FA17299AEADB6889018501D289E4900F7E4331B99DEC4B5433AC7D329EEB6DD26545E96E55B874BE909")].
 
+long_msg() ->
+    lists:duplicate(1000000, $a).
+
+long_sha_digest() ->
+    hexstr2bin("34aa973c" "d4c4daa4" "f61eeb2b" "dbad2731" "6534016f").
+
+long_sha256_digest() ->
+    hexstr2bin("cdc76e5c" "9914fb92" "81a1c7e2" "84d73e67" "f1809a48" "a497200e" "046d39cc" "c7112cd0").
+
+long_sha384_digest() ->
+    hexstr2bin("9d0e1809716474cb" "086e834e310a4a1c" "ed149e9c00f24852" "7972cec5704c2a5b"
+	       "07b8b3dc38ecc4eb" "ae97ddd87f3d8985").
+
+long_sha512_digest() ->
+    hexstr2bin("e718483d0ce76964" "4e2e42c7bc15b463" "8e1f98b13b204428" "5632a803afa973eb"
+	       "de0ff244877ea60a" "4cb0432ce577c31b" "eb009c5c2c49aa2e" "4eadb217ad8cc09b").
+
 ripemd160_msgs() ->
     [<<"">>,
      <<"a">>,
@@ -851,6 +873,35 @@ hmac_key(_) ->
 	       "0c0d0e0f1c1d1e1f2c2d2e2f3c3d3e3f").
 hmac_inc(_) ->
     [<<"Sampl">>, <<"e #1">>].
+
+%% https://www.cosic.esat.kuleuven.be/nessie/testvectors/
+long_hmac_key(Type) when Type == sha384;
+			 Type == sha512 ->
+    hexstr2bin("00112233445566778899AABBCCDDEEFF"
+	       "0123456789ABCDEF0011223344556677"
+	       "8899AABBCCDDEEFF0123456789ABCDEF"
+	       "00112233445566778899AABBCCDDEEFF");
+long_hmac_key(_) ->
+    hexstr2bin("0123456789ABCDEF0123456789ABCDEF"
+	       "0123456789ABCDEF0123456789ABCDEF"
+	       "0123456789ABCDEF0123456789ABCDEF"
+	       "0123456789ABCDEF0123456789ABCDEF").
+long_hmac(md5) ->
+    hexstr2bin("82FDDA30202CB6ACC6F24D4F8A50EB7A");
+long_hmac(sha) ->
+    hexstr2bin("61D1D0B6459860755FDA892938C23DD401E54A7E");
+long_hmac(sha256) ->
+    hexstr2bin("50008B8DC7ED3926936347FDC1A01E9D"
+	       "5220C6CC4B038B482C0F28A4CD88CA37");
+long_hmac(sha384) ->
+    hexstr2bin("C1EB08DAFA015833D3FC6B29A387558B"
+	       "3F6FA1524AA1A8EB64798D5A76A39D6E"
+	       "A1465525342E060EE996277B4FFCDDC9");
+long_hmac(sha512) ->
+    hexstr2bin("D116BF471AAE1264854F1906025E846A"
+	       "61618A965FCA30B695220EA2D6E547E3"
+	       "F3B5A4B54E6778928C26D5D3D810498E"
+	       "8DF86CB3CC1E9F66A00419B13B6B0C9A").
 
 rfc_2202_hmac_md5() ->
     [
@@ -1193,7 +1244,8 @@ blowfish_ofb64() ->
 
 rc4() ->
     [{rc4, <<"apaapa">>, <<"Yo baby yo">>},
-     {rc4, <<"apaapa">>, list_to_binary(lists:seq(0, 255))}
+     {rc4, <<"apaapa">>, list_to_binary(lists:seq(0, 255))},
+     {rc4, <<"apaapa">>, lists:duplicate(1000000, $a)}
     ].
 
 aes_ctr() ->
@@ -1237,7 +1289,11 @@ aes_ctr() ->
 	hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
        {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
 	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff02"), 
-	hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
+	hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
+
+       {aes_ctr,  hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"),
+	lists:duplicate(1000000, $a)}
     ].
 
 rsa_plain() ->
