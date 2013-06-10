@@ -912,27 +912,9 @@ gen_enc_component_default(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext,DefaultVal
     emit({nl,"%% attribute number ",Pos," with type ",
 	      InnerType,nl}),
     NextElement = asn1ct_gen:mk_var(asn1ct_name:curr(tmpval)),
-    gen_enc_line(Erule,TopType,Cname,Type,NextElement, Pos,DynamicEnc,Ext),
+    gen_enc_line(Erule, TopType, Cname, Type, NextElement, DynamicEnc, Ext),
     emit({nl,"end"}).
 
-gen_enc_component_optional(Erule,TopType,Cname,
-			   Type=#type{def=#'SEQUENCE'{
-					extaddgroup=Number,
-					components=_ExtGroupCompList}},
-			   Pos,DynamicEnc,Ext) when is_integer(Number) ->
-
-    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
-    emit({"case ",Element," of",nl}),
-
-    emit({"asn1_NOVALUE -> [];",nl}),
-    asn1ct_name:new(tmpval),
-    emit({{curr,tmpval}," ->",nl}),
-    InnerType = asn1ct_gen:get_inner(Type#type.def),
-    emit({nl,"%% attribute number ",Pos," with type ",
-	      InnerType,nl}),
-    NextElement = asn1ct_gen:mk_var(asn1ct_name:curr(tmpval)),
-    gen_enc_line(Erule,TopType,Cname,Type,NextElement, Pos,DynamicEnc,Ext),
-    emit({nl,"end"});
 gen_enc_component_optional(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext) ->
     Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
     emit({"case ",Element," of",nl}),
@@ -944,19 +926,17 @@ gen_enc_component_optional(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext) ->
     emit({nl,"%% attribute number ",Pos," with type ",
 	      InnerType,nl}),
     NextElement = asn1ct_gen:mk_var(asn1ct_name:curr(tmpval)),
-    gen_enc_line(Erule,TopType,Cname,Type,NextElement, Pos,DynamicEnc,Ext),
+    gen_enc_line(Erule, TopType, Cname, Type, NextElement, DynamicEnc, Ext),
     emit({nl,"end"}).
 
 gen_enc_component_mandatory(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext) ->
+    Element = make_element(Pos+1, asn1ct_gen:mk_var(asn1ct_name:curr(val))),
     InnerType = asn1ct_gen:get_inner(Type#type.def),
     emit({nl,"%% attribute number ",Pos," with type ",
 	      InnerType,nl}),
-    gen_enc_line(Erule,TopType,Cname,Type,[],Pos,DynamicEnc,Ext).
+    gen_enc_line(Erule, TopType, Cname, Type, Element, DynamicEnc, Ext).
 
-gen_enc_line(Erule,TopType, Cname, Type, [], Pos,DynamicEnc,Ext) ->
-    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
-    gen_enc_line(Erule,TopType,Cname,Type,Element, Pos,DynamicEnc,Ext);
-gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
+gen_enc_line(Erule, TopType, Cname, Type, Element, DynamicEnc, Ext) ->
     Atype = 
 	case Type of
 	    #type{def=#'ObjectClassFieldType'{type=InnerType}} ->
@@ -1518,7 +1498,7 @@ gen_enc_choice2(Erule, TopType, [H|T], Pos, Sep0, Ext) ->
 		_ -> Ext
 	    end,
     gen_enc_line(Erule, TopType, Cname, Type, "element(2, Val)",
-		 Pos+1, EncObj, DoExt),
+		 EncObj, DoExt),
     Sep = [";",nl],
     gen_enc_choice2(Erule, TopType, T, Pos+1, Sep, Ext);
 gen_enc_choice2(_, _, [], _, _, _)  -> ok.
