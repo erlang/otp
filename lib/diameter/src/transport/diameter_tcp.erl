@@ -111,7 +111,7 @@
  when Ref :: diameter:transport_ref(),
       Svc :: #diameter_service{},
       Opt :: diameter:transport_opt().
-                   
+
 start({T, Ref}, #diameter_service{capabilities = Caps}, Opts) ->
     diameter_tcp_sup:start(),  %% start tcp supervisors on demand
     {Mod, Rest} = split(Opts),
@@ -225,7 +225,7 @@ laddr([], Mod, Sock) ->
     Addr;
 laddr([{ip, Addr}], _, _) ->
     Addr.
-    
+
 own(Opts) ->
     {Own, Rest} = proplists:split(Opts, [fragment_timer]),
     {lists:append(Own), Rest}.
@@ -282,7 +282,7 @@ init_rc([]) ->
 
 up(Pid, Remote, [{ip, _Addr}], _, _) ->
     diameter_peer:up(Pid, Remote);
-up(Pid, Remote, [], Mod, Sock) -> 
+up(Pid, Remote, [], Mod, Sock) ->
     {Addr, _Port} = ok(sockname(Mod, Sock)),
     diameter_peer:up(Pid, Remote, [Addr]).
 
