@@ -43,7 +43,8 @@
     <title>public_key</title>
 
     <list type="bulleted">
-      <item>public_key requires the crypto application.</item>
+      <item>public_key requires the crypto and asn1 applications, the latter since R16 (hopefully the runtime dependency on asn1 will
+      be removed again in the future).</item>
 
       <item>Supports <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280 </url> -
       Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile </item>
