@@ -75,7 +75,7 @@
     <title>Reserved Words</title>
     <p>The following are reserved words in Erlang:</p>
     <p>after and andalso band begin bnot bor bsl bsr bxor case catch
-      cond div end fun if let not of or orelse query receive rem try
+      cond div end fun if let not of or orelse receive rem try
       when xor</p>
   </section>
 
