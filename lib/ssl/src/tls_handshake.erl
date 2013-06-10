@@ -866,7 +866,7 @@ handle_ecc_point_fmt_extension(undefined) ->
 handle_ecc_point_fmt_extension(_) ->
     #ec_point_formats{ec_point_format_list = [?ECPOINT_UNCOMPRESSED]}.
 
-handle_ecc_curves_extension(Version, undefined) ->
+handle_ecc_curves_extension(_Version, undefined) ->
     undefined;
 handle_ecc_curves_extension(Version, _) ->
     #elliptic_curves{elliptic_curve_list = ssl_tls1:ecc_curves(Version)}.
