@@ -3554,8 +3554,8 @@ sched_wall_time(Ref, N, Acc) ->
 	{Ref, SWT} -> sched_wall_time(Ref, N-1, [SWT|Acc])
     end.
 
--spec erlang:gather_gc_info_result(Ref) -> [{number(),number(),0}] when
-      Ref :: reference().
+-spec erlang:gather_gc_info_result(Ref) ->
+   {number(),number(),0} when Ref :: reference().
 
 gather_gc_info_result(Ref) when erlang:is_reference(Ref) ->
     gc_info(Ref, erlang:system_info(schedulers), {0,0}).
