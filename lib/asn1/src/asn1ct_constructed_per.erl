@@ -354,8 +354,7 @@ gen_dec_constructed_imm_2(Typename, CompList,
     %% we don't return named lists any more   Cnames = mkcnamelist(CompList), 
     demit({"Result = "}), %dbg
     %% return value as record
-    RecordName = lists:concat([get_record_name_prefix(),
-			       asn1ct_gen:list2rname(Typename)]),
+    RecordName = record_name(Typename),
     case Typename of
 	['EXTERNAL'] ->
 	    emit({"   OldFormat={'",RecordName,
@@ -376,6 +375,29 @@ gen_dec_constructed_imm_2(Typename, CompList,
 	    emit("},")
     end,
     emit({{curr,bytes},"}"}).
+
+%% record_name([TypeName]) -> RecordNameString
+%%  Construct a record name for the constructed type, ignoring any
+%%  fake sequences that are used to represent an extension addition
+%%  group. Such fake sequences never appear as a top type, and their
+%%  name always start with "ExtAddGroup".
+
+record_name(Typename0) ->
+    [TopType|Typename1] = lists:reverse(Typename0),
+    Typename = filter_ext_add_groups(Typename1, [TopType]),
+    lists:concat([get_record_name_prefix(),
+		  asn1ct_gen:list2rname(Typename)]).
+
+filter_ext_add_groups([H|T], Acc) when is_atom(H) ->
+    case atom_to_list(H) of
+	"ExtAddGroup"++_ ->
+	    filter_ext_add_groups(T, Acc);
+	_ ->
+	    filter_ext_add_groups(T, [H|Acc])
+    end;
+filter_ext_add_groups([H|T], Acc) ->
+    filter_ext_add_groups(T, [H|Acc]);
+filter_ext_add_groups([], Acc) -> Acc.
 
 textual_order([#'ComponentType'{textual_order=undefined}|_],TermList) ->
     TermList;
