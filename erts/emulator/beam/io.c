@@ -5005,7 +5005,7 @@ erts_stale_drv_select(Eterm port,
     if (drv_port == ERTS_INVALID_ERL_DRV_PORT) {
 	Port *prt = erts_port_lookup_raw(port);
 	if (prt)
-	    drv_port = ERTS_Port2ErlDrvPort(port);
+	    drv_port = ERTS_Port2ErlDrvPort(prt);
 	else
 	    drv_port = ERTS_INVALID_ERL_DRV_PORT;
     }
