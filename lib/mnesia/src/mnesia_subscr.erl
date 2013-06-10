@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -447,8 +447,12 @@ deactivate(ClientPid, What, Var, SubscrTab) ->
 	{'EXIT', _} ->
 	    unlink(ClientPid)
     end,
-    del_subscr(Var, What, ClientPid),
-    {ok, node()}.
+    try
+	del_subscr(Var, What, ClientPid),
+	{ok, node()}
+    catch _:_ ->
+	    {error, badarg}
+    end.
 
 del_subscr(subscribers, _What, Pid) ->
     mnesia_lib:del(subscribers, Pid);
