@@ -1985,6 +1985,10 @@ subscribe_standard(Config) when is_list(Config)->
     ?match({atomic, ok}, mnesia:create_table(Tab, Def)),
 
     %% Check system events
+    ?match({error, {badarg, foo}}, mnesia:unsubscribe(foo)),
+    ?match({error, badarg}, mnesia:unsubscribe({table, foo})),
+    ?match(_, mnesia:unsubscribe(activity)),
+
     ?match({ok, N1}, mnesia:subscribe(system)),
     ?match({ok, N1}, mnesia:subscribe(activity)),
 
