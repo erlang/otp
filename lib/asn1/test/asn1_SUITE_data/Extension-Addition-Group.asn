@@ -118,4 +118,23 @@ AC-BarringConfig ::= SEQUENCE {
   ac-BarringForSpecialAC BIT STRING (SIZE(5))
 }
 
+InlinedSeq ::= SEQUENCE {
+     ...,
+     [[
+        s SEQUENCE {
+	   a INTEGER,
+	   b BOOLEAN
+        }
+     ]]
+}
+
+-- 'ExtAddGroup1' is used internally to represent fake sequences for
+-- extension addition groups. Make sure that a real sequence with that
+-- name at the top-level doesn't cause a problem.
+
+ExtAddGroup1 ::= SEQUENCE {
+    x INTEGER,
+    y INTEGER
+}
+
 END

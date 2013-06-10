@@ -22,6 +22,7 @@
 -export([compile/3]).
 -export([compile_all/3]).
 -export([compile_erlang/3]).
+-export([hex_to_bin/1]).
 
 -export([ticket_7407_compile/2,ticket_7407_code/1, ticket_7678/2,
          ticket_7708/2, ticket_7763/1, ticket_7876/3]).
@@ -61,6 +62,13 @@ compile_erlang(Mod, Config, Options) ->
     {ok, M} = compile:file(filename:join(DataDir, Mod),
                            [report,{i,CaseDir},{outdir,CaseDir}|Options]).
 
+hex_to_bin(S) ->
+    << <<(hex2num(C)):4>> || C <- S, C =/= $\s >>.
+
+%%%
+%%% Internal functions.
+%%%
+
 should_load(File, Options) ->
     case lists:member(abs, Options) of
 	true ->
@@ -78,6 +86,10 @@ strip_extension(File, Ext) when Ext == ".asn"; Ext == ".set"; Ext == ".asn1"->
     strip_extension(filename:rootname(File));
 strip_extension(File, _Ext) ->
     File.
+
+hex2num(C) when $0 =< C, C =< $9 -> C - $0;
+hex2num(C) when $A =< C, C =< $F -> C - $A + 10;
+hex2num(C) when $a =< C, C =< $f -> C - $a + 10.
 
 ticket_7407_compile(Config,Option) ->
 
