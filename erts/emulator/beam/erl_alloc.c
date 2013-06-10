@@ -240,6 +240,10 @@ do {									\
     sys_memcpy((void *) (IP), (void *) &aui__, sizeof(struct au_init));	\
 } while (0)
 
+#if ERTS_ALC_DEFAULT_ACUL \
+    || ERTS_ALC_DEFAULT_ACUL_LL_ALLOC \
+    || ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC
+
 static ERTS_INLINE void
 set_default_acul(struct au_init *ip, int acul)
 {
@@ -248,6 +252,8 @@ set_default_acul(struct au_init *ip, int acul)
     ip->init.aoff.bf_within_carrier = 1;
     ip->init.util.acul = acul;
 }
+
+#endif
 
 static void
 set_default_sl_alloc_opts(struct au_init *ip)
