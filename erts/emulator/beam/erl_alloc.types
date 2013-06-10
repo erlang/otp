@@ -397,6 +397,7 @@ type	POLLSET_UPDREQ	SHORT_LIVED	SYSTEM		pollset_update_req
 type	POLL_FDS	LONG_LIVED	SYSTEM		poll_fds
 type	POLL_RES_EVS	LONG_LIVED	SYSTEM		poll_result_events
 type	FD_STATUS	LONG_LIVED	SYSTEM		fd_status
+type	SELECT_FDS	LONG_LIVED	SYSTEM		select_fds
 
 +if unix
 
