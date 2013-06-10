@@ -1753,7 +1753,8 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	if (IS_FREE_LAST_MBC_BLK(blk)) {
 	    /*
 	     * A multiblock carrier that previously has been migrated away
-	     * from us and now is back to be deallocated...
+	     * from us and now is back to be deallocated. For more info
+	     * see schedule_dealloc_carrier().
 	     *
 	     * Note that we cannot use FBLK_TO_MBC(blk) since it
 	     * data has been overwritten by the queue.
@@ -1761,6 +1762,12 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	    Carrier_t *crr = FIRST_BLK_TO_MBC(allctr, blk);
 	    ERTS_ALC_CPOOL_ASSERT(ERTS_ALC_IS_CPOOL_ENABLED(allctr));
 	    ERTS_ALC_CPOOL_ASSERT(allctr == crr->cpool.orig_allctr);
+	    ERTS_ALC_CPOOL_ASSERT(((erts_aint_t) allctr)
+				  != (erts_smp_atomic_read_nob(&crr->allctr)
+				      & ~FLG_MASK));
+
+	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
+
 	    schedule_dealloc_carrier(allctr, crr);
 	}
 	else {
@@ -3001,7 +3008,7 @@ check_pending_dealloc_carrier(Allctr_t *allctr,
 static void
 schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 {
-    Allctr_t *used_allctr;
+    Allctr_t *orig_allctr;
     int check_pending_dealloc;
     erts_aint_t max_size;
 
@@ -3010,25 +3017,37 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 	return;
     }
 
-    used_allctr = crr->cpool.orig_allctr;
+    orig_allctr = crr->cpool.orig_allctr;
 
-    if (allctr != used_allctr) {
+    if (allctr != orig_allctr) {
 	Block_t *blk = MBC_TO_FIRST_BLK(allctr, crr);
-	int cinit = used_allctr->dd.ix - allctr->dd.ix;
+	int cinit = orig_allctr->dd.ix - allctr->dd.ix;
 
 	/*
-	 * Receiver will recognize that this is a carrier to
-	 * deallocate since the block is an mbc block that
-	 * is free and last in carrier...
+	 * We send the carrier to its origin for deallocation.
+	 * This in order:
+	 * - not to complicate things for the thread specific
+	 *   instances of mseg_alloc, and
+	 * - to ensure that we always only reuse empty carriers
+	 *   originating from our own thread specific mseg_alloc
+	 *   instance which is beneficial on NUMA systems.
+	 *
+	 * The receiver will recognize that this is a carrier to
+	 * deallocate (and not a block which is the common case)
+	 * since the block is an mbc block that is free and last
+	 * in the carrier.
 	 */
 	ERTS_ALC_CPOOL_ASSERT(IS_FREE_LAST_MBC_BLK(blk));
 
 	ERTS_ALC_CPOOL_ASSERT(IS_MBC_FIRST_ABLK(allctr, blk));
 	ERTS_ALC_CPOOL_ASSERT(crr == FBLK_TO_MBC(blk));
-	ERTS_ALC_CPOOL_ASSERT(crr == FIRST_BLK_TO_MBC(used_allctr, blk));
+	ERTS_ALC_CPOOL_ASSERT(crr == FIRST_BLK_TO_MBC(allctr, blk));
+	ERTS_ALC_CPOOL_ASSERT(((erts_aint_t) allctr)
+			      == (erts_smp_atomic_read_nob(&crr->allctr)
+				  & ~FLG_MASK));
 
-	if (ddq_enqueue(&used_allctr->dd.q, BLK2UMEM(blk), cinit))
-	    erts_alloc_notify_delayed_dealloc(used_allctr->ix);
+	if (ddq_enqueue(&orig_allctr->dd.q, BLK2UMEM(blk), cinit))
+	    erts_alloc_notify_delayed_dealloc(orig_allctr->ix);
 	return;
     }
 
