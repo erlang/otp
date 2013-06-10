@@ -1435,7 +1435,7 @@ erts_ptab_test_next_id(ErtsPTab *ptab, int set, Uint next)
 		aid_ix = max_ix;
 	    else
 		aid_ix--;
-	    ASSERT((aid_ix & max_ix) == (((Uint32) erts_atomic32_read_nob(&ptab->vola.tile.fid_ix)) & max_ix));
+	    ASSERT((aid_ix & max_ix) == (((Uint32) erts_smp_atomic32_read_nob(&ptab->vola.tile.fid_ix)) & max_ix));
 #endif
 	}
 
