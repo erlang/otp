@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,9 +38,12 @@ gethostbyname(_) -> {error, formerr}.
 
 
 gethostbyname(Name, Type) when is_list(Name), is_atom(Type) ->
-    case gethostbyname(Name, Type, inet_hosts_byname, inet_hosts_byaddr) of
+    %% Byname has lowercased names while Byaddr keep the name casing.
+    %% This is to be able to reconstruct the original /etc/hosts entry.
+    N = inet_db:tolower(Name),
+    case gethostbyname(N, Type, inet_hosts_byname, inet_hosts_byaddr) of
 	false ->
-	    case gethostbyname(Name, Type,
+	    case gethostbyname(N, Type,
 			       inet_hosts_file_byname,
 			       inet_hosts_file_byaddr) of
 		false -> {error,nxdomain};
