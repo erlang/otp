@@ -628,7 +628,7 @@ iter_max_ports(Config) when is_list(Config) ->
     
     
 iter_max_ports_test(Config) ->
-    Dog = test_server:timetrap(test_server:minutes(20)),
+    Dog = test_server:timetrap(test_server:minutes(30)),
     PortTest = port_test(Config),
     Command = lists:concat([PortTest, " -h0 -q"]),
     Iters = case os:type() of
