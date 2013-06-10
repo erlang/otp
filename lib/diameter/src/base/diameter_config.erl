@@ -549,6 +549,9 @@ opt({watchdog_timer, Tmo}) ->
 opt({watchdog_config, L}) ->
     is_list(L) andalso lists:all(fun wdopt/1, L);
 
+opt({spawn_opt, Opts}) ->
+    is_list(Opts);
+
 %% Options that we can't validate.
 opt({K, _})
   when K == transport_config;
@@ -632,7 +635,8 @@ make_config(SvcName, Opts) ->
                          {false, use_shared_peers},
                          {false, monitor},
                          {?NOMASK, sequence},
-                         {nodes, restrict_connections}]),
+                         {nodes, restrict_connections},
+                         {[], spawn_opt}]),
 
     #service{name = SvcName,
              rec = #diameter_service{applications = Apps,
@@ -646,6 +650,9 @@ make_opts(Opts, Defs) ->
     [] == Unknown orelse ?THROW({invalid, hd(Unknown)}),
 
     [{K, opt(K,V)} || {K,V} <- Known].
+
+opt(spawn_opt, L) ->
+    is_list(L);
 
 opt(K, false = B)
   when K /= sequence ->

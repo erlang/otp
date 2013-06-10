@@ -306,7 +306,8 @@ call(SvcName, App, Message) ->
     | {restrict_connections, restriction()}
     | {sequence, sequence() | evaluable()}
     | {share_peers, remotes()}
-    | {use_shared_peers, remotes()}.
+    | {use_shared_peers, remotes()}
+    | {spawn_opt, list()}.
 
 -type application_opt()
    :: {alias, app_alias()}
@@ -345,6 +346,7 @@ call(SvcName, App, Message) ->
     | {reconnect_timer, 'Unsigned32'()}
     | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
     | {watchdog_config, [{okay|suspect, non_neg_integer()}]}
+    | {spawn_opt, list()}
     | {private, any()}.
 
 %% Predicate passed to remove_transport/2

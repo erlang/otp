@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY spawn_opt
+  '<seealso marker="erts:erlang#spawn_opt-2">erlang:spawn_opt/2</seealso>'>
   <!ENTITY nodes
   '<seealso marker="erts:erlang#nodes-0">erlang:nodes/0</seealso>'>
   <!ENTITY make_ref
@@ -871,6 +873,17 @@ of a single Diameter node across multiple Erlang nodes.</p>
 </note>
 </item>
 
+<tag><c>{spawn_opt, [term()]}</c></tag>
+<item>
+<p>
+An options list passed to &spawn_opt; when spawning a process for an
+incoming Diameter request, unless the transport in question
+specifies another value.</p>
+
+<p>
+Defaults to the empty list.</p>
+</item>
+
 <tag><c>{use_shared_peers, boolean() | [node()] | evaluable()}</c></tag>
 <item>
 <p>
@@ -1159,6 +1172,17 @@ than its peer's Tw plus jitter.</p>
 <p>
 Defaults to 30000 for a connecting transport and 60000 for a listening
 transport.</p>
+</item>
+
+<marker id="spawn_opt"/>
+<tag><c>{spawn_opt, [term()]}</c></tag>
+<item>
+<p>
+An options list passed to &spawn_opt; when spawning a process for an
+incoming Diameter request.</p>
+
+<p>
+Defaults to the list configured on the service if not specified.</p>
 </item>
 
 <marker id="transport_config"/>
