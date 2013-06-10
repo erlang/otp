@@ -126,19 +126,29 @@ int_constraints(Rules) ->
     %%==========================================================
 
     roundtrip('SemiConstrained', 100),
+    v_roundtrip(Rules, 'SemiConstrained', 100+128),
     roundtrip('SemiConstrained', 397249742397243),
+    roundtrip('SemiConstrained', 100 + 1 bsl 128*8),
+    roundtrip('SemiConstrained', 100 + 1 bsl 256*8),
+
     roundtrip('NegSemiConstrained', -128),
+    v_roundtrip(Rules, 'NegSemiConstrained', 0),
     roundtrip('NegSemiConstrained', -1),
     roundtrip('NegSemiConstrained', 500),
 
     roundtrip('SemiConstrainedExt', -65536),
     roundtrip('SemiConstrainedExt', 0),
     roundtrip('SemiConstrainedExt', 42),
+    v_roundtrip(Rules, 'SemiConstrainedExt', 42+128),
     roundtrip('SemiConstrainedExt', 100),
     roundtrip('SemiConstrainedExt', 47777789),
+    roundtrip('SemiConstrainedExt', 42 + 1 bsl 128*8),
+    roundtrip('SemiConstrainedExt', 42 + 1 bsl 256*8),
+
     roundtrip('NegSemiConstrainedExt', -1023),
     roundtrip('NegSemiConstrainedExt', -128),
     roundtrip('NegSemiConstrainedExt', -1),
+    v_roundtrip(Rules, 'NegSemiConstrainedExt', 0),
     roundtrip('NegSemiConstrainedExt', 500),
 
     %%==========================================================
@@ -174,6 +184,21 @@ int_constraints(Rules) ->
 
     ok.
 
+%% PER: Ensure that if the lower bound is Lb, Lb+16#80 is encoded
+%% in two bytes as 16#0180. (Not in three bytes as 16#010080.)
+v(ber, 'SemiConstrained', 100+128) -> "020200E4";
+v(per, 'SemiConstrained', 100+128) -> "0180";
+v(uper, 'SemiConstrained', 100+128) -> "0180";
+v(ber, 'NegSemiConstrained', 0) -> "020100";
+v(per, 'NegSemiConstrained', 0) -> "0180";
+v(uper, 'NegSemiConstrained', 0) -> "0180";
+v(ber, 'SemiConstrainedExt', 42+128) -> "020200AA";
+v(per, 'SemiConstrainedExt', 42+128) -> "000180";
+v(uper, 'SemiConstrainedExt', 42+128) -> "00C000";
+v(ber, 'NegSemiConstrainedExt', 0) -> "020100";
+v(per, 'NegSemiConstrainedExt', 0) -> "000180";
+v(uper, 'NegSemiConstrainedExt', 0) -> "00C000".
+
 shorter_ext(per, "a") -> <<16#80,16#01,16#61>>;
 shorter_ext(uper, "a") -> <<16#80,16#E1>>;
 shorter_ext(ber, _) -> none.
@@ -183,13 +208,17 @@ refed_NNL_name(_Erule) ->
     ?line {error,_Reason} = 
 	asn1_wrapper:encode('Constraints','AnotherThing',fred3).
 
+v_roundtrip(Erule, Type, Value) ->
+    Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type, Value)),
+    Encoded = roundtrip('Constraints', Type, Value).
+
 roundtrip(Type, Value) ->
     roundtrip('Constraints', Type, Value).
 
 roundtrip(Module, Type, Value) ->
     {ok,Encoded} = Module:encode(Type, Value),
     {ok,Value} = Module:decode(Type, Encoded),
-    ok.
+    Encoded.
 
 roundtrip_enc(Type, Value, Enc) ->
     Module = 'Constraints',

@@ -38,7 +38,7 @@ main(Rule) when Rule =:= per; Rule =:= uper ->
     %% ENUMERATED no extensionmark 
     B64 = <<64>>,
     B64 = roundtrip('Noext', red),
-    common();
+    common(Rule);
 main(ber) ->
     io:format("main(ber)~n",[]),
     %% ENUMERATED with extensionmark (value is in root set)
@@ -56,18 +56,38 @@ main(ber) ->
     roundtrip('Globalstate', preop),
     roundtrip('Globalstate', com),
 
-    common().
+    common(ber).
 
-common() ->
+common(Erule) ->
     roundtrip('Seq', {'Seq',blue,42}),
     roundtrip('Seq', {'Seq',red,42}),
     roundtrip('Seq', {'Seq',green,42}),
     roundtrip('Seq', {'Seq',orange,47}),
     roundtrip('Seq', {'Seq',black,4711}),
     roundtrip('Seq', {'Seq',magenta,4712}),
+
+    [begin
+	 S = io_lib:format("e~2.016.0b", [I]),
+	 E = list_to_atom(lists:flatten(S)),
+	 roundtrip('SeqBig', {'SeqBig',true,E,9357})
+     end || I <- lists:seq(0, 128)],
+
+    v_roundtrip(Erule, 'SeqBig', {'SeqBig',true,e40,9357}),
+    v_roundtrip(Erule, 'SeqBig', {'SeqBig',true,e80,9357}),
     ok.
 
 roundtrip(Type, Value) ->
     {ok,Encoded} = 'EnumExt':encode(Type, Value),
     {ok,Value} = 'EnumExt':decode(Type, Encoded),
     Encoded.
+
+v_roundtrip(Erule, Type, Value) ->
+    Encoded = roundtrip(Type, Value),
+    Encoded = asn1_test_lib:hex_to_bin(v(Erule, Value)).
+
+v(ber, {'SeqBig',true,e40,9357}) -> "300A8001 FF810141 8202248D";
+v(ber, {'SeqBig',true,e80,9357}) -> "300B8001 FF810200 81820224 8D";
+v(per, {'SeqBig',true,e40,9357}) -> "E0014002 248D";
+v(per, {'SeqBig',true,e80,9357}) -> "E0018002 248D";
+v(uper, {'SeqBig',true,e40,9357}) -> "E0280044 91A0";
+v(uper, {'SeqBig',true,e80,9357}) -> "E0300044 91A0".

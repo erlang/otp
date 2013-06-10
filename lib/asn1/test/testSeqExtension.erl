@@ -20,7 +20,7 @@
 -module(testSeqExtension).
 
 -include("External.hrl").
--export([main/2]).
+-export([main/3]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -32,7 +32,7 @@
 -record('SeqExt6',{i1,i2,i3,i4,i5,i6,i7}).
 -record('SuperSeq',{s1,s2,s3,s4,s5,s6,i}).
 
-main(DataDir, Opts) ->
+main(Erule, DataDir, Opts) ->
     roundtrip('SeqExt1', #'SeqExt1'{}),
 
     roundtrip('SeqExt2', #'SeqExt2'{bool=true,int=99}),
@@ -92,9 +92,38 @@ main(DataDir, Opts) ->
 		s5={'SeqExt5'},
 		s6={'SeqExt6',531,601,999,777,11953},
 		i=BigInt} = DecodedSuperSeq,
+
+
+    %% Test more than 64 extensions.
+    roundtrip2('SeqExt66',
+	       list_to_tuple(['SeqExt66'|lists:seq(0, 65)])),
+    v_roundtrip2(Erule, 'SeqExt66',
+		 list_to_tuple(['SeqExt66'|
+				lists:duplicate(65, asn1_NOVALUE)++[125]])),
+    roundtrip2('SeqExt130',
+	       list_to_tuple(['SeqExt130'|lists:seq(0, 129)])),
+    v_roundtrip2(Erule, 'SeqExt130',
+		 list_to_tuple(['SeqExt130'|
+				lists:duplicate(129, asn1_NOVALUE)++[199]])),
     ok.
 
 roundtrip(Type, Value) ->
     {ok,Encoded} = 'SeqExtension':encode(Type, Value),
     {ok,Value} = 'SeqExtension':decode(Type, Encoded),
     ok.
+
+v_roundtrip2(Erule, Type, Value) ->
+    Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type)),
+    Encoded = roundtrip2(Type, Value).
+
+roundtrip2(Type, Value) ->
+    {ok,Encoded} = 'SeqExtension2':encode(Type, Value),
+    {ok,Value} = 'SeqExtension2':decode(Type, Encoded),
+    Encoded.
+
+v(ber, 'SeqExt66') ->  "30049F41 017D";
+v(per, 'SeqExt66') ->  "C0420000 00000000 00004001 FA";
+v(uper, 'SeqExt66') -> "D0800000 00000000 00101FA0";
+v(ber, 'SeqExt130') ->  "30069F81 010200C7";
+v(per, 'SeqExt130') ->  "C0808200 00000000 00000000 00000000 00000040 01C7";
+v(uper, 'SeqExt130') -> "E0208000 00000000 00000000 00000000 0000101C 70".
