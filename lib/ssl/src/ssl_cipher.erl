@@ -1190,14 +1190,16 @@ hash_size(md5) ->
     16;
 hash_size(sha) ->
     20;
-hash_size(sha224) ->
-    28;
+%% Uncomment when adding cipher suite that needs it
+%% hash_size(sha224) ->
+%%     28;
 hash_size(sha256) ->
     32;
 hash_size(sha384) ->
-    48;
-hash_size(sha512) ->
-    64.
+    48.
+%% Uncomment when adding cipher suite that needs it
+%% hash_size(sha512) ->
+%%     64.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%

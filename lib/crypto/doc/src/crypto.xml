@@ -208,7 +208,7 @@
       </type>
       <desc>
 	<p>Computes the shared secret from the private key and the other party's public key.
-	 See also <seealso marker="public_key:public_key#compute_key/2">public_key:compute_key/2</seealso>
+	 See also <seealso marker="public_key:public_key#compute_key-2">public_key:compute_key/2</seealso>
 	</p>
       </desc>
     </func>
@@ -240,7 +240,7 @@
       </type>
       <desc>
 	<p>Generates public keys of type <c>Type</c>.
-	See also <seealso marker="public_key:public_key#generate_key/1">public_key:generate_key/1</seealso>
+	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>
 	</p>
       </desc>
     </func>
@@ -269,7 +269,7 @@
       <desc>
         <p>Initializes the context for streaming hash operations. <c>Type</c> determines
         which digest to use. The returned context should be used as argument
-	to <seealso marker="#hash_update/2">hash_update</seealso>.</p>
+	to <seealso marker="#hash_update-2">hash_update</seealso>.</p>
 	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
 	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
@@ -283,10 +283,10 @@
       </type>
       <desc>
         <p>Updates the digest represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
-        must have been generated using <seealso marker="#hash_init/1">hash_init</seealso>
+        must have been generated using <seealso marker="#hash_init-1">hash_init</seealso>
 	or a previous call to this function. <c>Data</c> can be any length. <c>NewContext</c>
         must be passed into the next call to <c>hash_update</c>
-	or <seealso marker="#hash_final/1">hash_final</seealso>.</p>
+	or <seealso marker="#hash_final-1">hash_final</seealso>.</p>
       </desc>
     </func>
     <func>
@@ -297,7 +297,7 @@
       </type>
       <desc>
         <p>Finalizes the hash operation referenced by <c>Context</c> returned
-	from a previous call to <seealso marker="#hash_update/2">hash_update</seealso>.
+	from a previous call to <seealso marker="#hash_update-2">hash_update</seealso>.
 	The size of <c>Digest</c> is determined by the type of hash
 	function used to generate it.</p>
       </desc>
@@ -346,10 +346,10 @@
       <desc>
         <p>Updates the HMAC represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
         must have been generated using an HMAC init function (such as 
-        <seealso marker="#hmac_init/2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
+        <seealso marker="#hmac_init-2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
         must be passed into the next call to <c>hmac_update</c>
-	or to one of the functions <seealso marker="#hmac_final/1">hmac_final</seealso> and
-	<seealso marker="#hmac_final_n/1">hmac_final_n</seealso>
+	or to one of the functions <seealso marker="#hmac_final-1">hmac_final</seealso> and
+	<seealso marker="#hmac_final_n-2">hmac_final_n</seealso>
 	</p>
 
       </desc>
@@ -447,36 +447,36 @@
         <v>PlainText = binary()</v>
       </type>
       <desc>
-	<p>Decrypts the <c>ChipherText</c> (usually a session key encrypted with
-	  <seealso marker="#public_encrypt/3">public_encrypt/3</seealso>)
-	  using the <c>PrivateKey</c> and returns the
-	  message. The <c>Padding</c> is the padding mode that was
-	  used to encrypt the data,
-	  see <seealso marker="#public_encrypt/3">public_encrypt/3</seealso>.
-	  See also <seealso marker="public_key:public_key#decrypt_private/2">public_key:decrypt_private/[2,3]</seealso>
+	<p>Decrypts the <c>ChipherText</c>, encrypted with
+	<seealso marker="#public_encrypt-4">public_encrypt/4</seealso> (or equivalent function)
+	  using the <c>PrivateKey</c>, and returns the
+	  plaintext (message digest). This is a low level signature  verification operation
+	used for instance by older versions of the SSL protocol.
+	  See also <seealso marker="public_key:public_key#decrypt_private-2">public_key:decrypt_private/[2,3]</seealso>
 	</p>
       </desc>
     </func>
-
+    
     <func>
       <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> ChipherText</name>
-      <fsummary>Encrypts Msg using the private Key.</fsummary>
+      <fsummary>Encrypts PlainText using the private Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
 	<v>PlainText = binary()</v>
+	<d> The size of the <c>PlainText</c> must be less
+	than <c>byte_size(N)-11</c> if <c>rsa_pkcs1_padding</c> is
+	used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c> is
+	used, where N is public modulus of the RSA key.</d>
 	<v>PrivateKey = rsa_private()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
         <v>ChipherText = binary()</v>
       </type>
       <desc>
 	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
-	  and returns the cipher. The <c>Padding</c> decides what padding mode is used,
-	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
-	  used mode.
-	  The size of the <c>Msg</c> must be less than <c>byte_size(N)-11</c> if
-	  <c>rsa_pkcs1_padding</c> is used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c>
-	  is used, where N is public modulus of the RSA key.
-	  See also <seealso marker="public_key:public_key#encrypt_private/2">public_key:encrypt_private/[2,3]</seealso>
+	and returns the ciphertext. This is a low level signature operation
+	used for instance by older versions of the SSL protocol. See
+	also <seealso
+	marker="public_key:public_key#encrypt_private-2">public_key:encrypt_private/[2,3]</seealso>
 	</p>
       </desc>
     </func>
@@ -491,42 +491,35 @@
         <v>PlainText = binary()</v>
       </type>
       <desc>
-	<p>Decrypts the <c>ChipherText</c> (encrypted with
-	  <seealso marker="#private_encrypt/3">private_encrypt/3</seealso>)
-	  using the <c>PrivateKey</c> and returns the
-	  message. The <c>Padding</c> is the padding mode that was
-	  used to encrypt the data,
-	  see <seealso marker="#private_encrypt/3">private_encrypt/3</seealso>.
-	  See also <seealso marker="public_key:public_key#decrypt_public/2">public_key:decrypt_public/[2,3]</seealso>
+	<p>Decrypts the <c>ChipherText</c>, encrypted with
+	<seealso marker="#private_encrypt-4">private_encrypt/4</seealso>(or equivalent function)
+	  using the <c>PrivateKey</c>, and returns the
+	  plaintext (message digest). This is a low level signature verification operation
+	  used for instance by older versions of the SSL protocol.
+	  See also <seealso marker="public_key:public_key#decrypt_public-2">public_key:decrypt_public/[2,3]</seealso>
 	</p>
       </desc>
     </func>
 
     <func>
       <name>public_encrypt(Type, PlainText, PublicKey, Padding) -> ChipherText</name>
-      <fsummary>Encrypts Msg using the public Key.</fsummary>
+      <fsummary>Encrypts PlainText using the public Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
 	<v>PlainText = binary()</v>
+	<d> The size of the <c>PlainText</c> must be less
+	than <c>byte_size(N)-11</c> if <c>rsa_pkcs1_padding</c> is
+	used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c> is
+	used, where N is public modulus of the RSA key.</d>
 	<v>PublicKey = rsa_public()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
         <v>ChipherText = binary()</v>
       </type>
       <desc>
-	<p>Encrypts the <c>PlainText</c> (usually a session key) using
-	the <c>PublicKey</c> and returns the <c>CipherText</c>. The
-	<c>Padding</c> decides what padding mode is used,
-	<c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
-	used mode and <c>rsa_pkcs1_oaep_padding</c> is EME-OAEP as
-	defined in PKCS #1 v2.0 with SHA-1, MGF1 and an empty encoding
-	parameter. This mode is recommended for all new
-	applications. The size of the <c>Msg</c> must be less than
-	<c>byte_size(N)-11</c> if <c>rsa_pkcs1_padding</c> is
-	used, <c>byte_size(N)-41</c> if
-	<c>rsa_pkcs1_oaep_padding</c> is used and
-	<c>byte_size(N)</c> if <c>rsa_no_padding</c> is used, where N is public modulus of the RSA key.
-	See also <seealso
-	marker="public_key:public_key#encrypt_public/2">public_key:encrypt_public/[2,3]</seealso>
+	<p>Encrypts the <c>PlainText</c> (message digest) using the <c>PublicKey</c>
+	and returns the <c>CipherText</c>. This is a low level signature operation
+	used for instance by older versions of the SSL protocol. See also <seealso
+	marker="public_key:public_key#encrypt_public-2">public_key:encrypt_public/[2,3]</seealso>
 	</p>
       </desc>
     </func>
@@ -563,9 +556,9 @@
       <type>
 	<v>Algorithm = rsa | dss | ecdsa </v>
 	<v>Msg = binary() | {digest,binary()}</v>
-	<d>The msg is either the binary "plain text" data to be
-	signed or it is the hashed value of "plain text" i.e. the
-	digest.</d>
+	<d>The msg is either the binary "cleartext" data to be
+	signed or it is the hashed value of "cleartext" i.e. the
+	digest (plaintext).</d>
 	<v>DigestType = digest_type()</v>
 	<v>Key = rsa_private() | dss_private() | [ecdh_private(),ecdh_params()]</v>
       </type>
@@ -573,7 +566,7 @@
 	<p>Creates a digital signature.</p>
 	<p>Algorithm <c>dss</c> can only be used together with digest type
 	<c>sha</c>.</p>
-	See also <seealso marker="public_key:public_key#sign/3">public_key:sign/3</seealso>
+	See also <seealso marker="public_key:public_key#sign-3">public_key:sign/3</seealso>
       </desc>
     </func>
 
@@ -617,8 +610,8 @@
       </type>
       <desc>
         <p>Initializes the state for use in RC4 stream encryption
-        <seealso marker="#stream_encrypt/2">stream_encrypt</seealso> and
-        <seealso marker="#stream_decrypt/2">stream_decrypt</seealso></p>
+        <seealso marker="#stream_encrypt-2">stream_encrypt</seealso> and
+        <seealso marker="#stream_decrypt-2">stream_decrypt</seealso></p>
       </desc>
     </func>
 
@@ -635,8 +628,8 @@
         <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
         <c>Key</c> is the AES key and must be either 128, 192, or 256 bts long. <c>IVec</c> is
         an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
-        <seealso marker="#stream_encrypt/2">stream_encrypt</seealso> and
-        <seealso marker="#stream_decrypt/2">stream_decrypt</seealso>.</p>
+        <seealso marker="#stream_encrypt-2">stream_encrypt</seealso> and
+        <seealso marker="#stream_decrypt-2">stream_decrypt</seealso>.</p>
       </desc>
     </func>
 
@@ -650,7 +643,7 @@
       <desc>
 	<p>Encrypts <c>PlainText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
 	<c>Text</c> can be any number of bytes. The initial <c>State</c> is created using
-        <seealso marker="#stream_init/2">stream_init</seealso>.
+        <seealso marker="#stream_init-2">stream_init</seealso>.
 	<c>NewState</c> must be passed into the next call to <c>stream_encrypt</c>.</p>
       </desc>
     </func>
@@ -665,7 +658,7 @@
       <desc>
 	<p>Decrypts <c>CipherText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
 	<c>PlainText</c> can be any number of bytes. The initial <c>State</c> is created using
-        <seealso marker="#stream_init/2">stream_init</seealso>.
+        <seealso marker="#stream_init-2">stream_init</seealso>.
 	<c>NewState</c> must be passed into the next call to <c>stream_encrypt</c>.</p>
       </desc>
     </func>
@@ -692,8 +685,8 @@
       <type>
 	<v> Algorithm = rsa | dss | ecdsa </v>
 	<v>Msg = binary() | {digest,binary()}</v>
-	<d>The msg is either the binary "plain text" data
-        or it is the hashed value of "plain text" i.e. the digest.</d>
+	<d>The msg is either the binary "cleartext" data
+        or it is the hashed value of "cleartext" i.e. the digest (plaintext).</d>
 	<v>DigestType = digest_type()</v>
 	<v>Signature = binary()</v>
 	<v>Key = rsa_public() | dss_public() | [ecdh_public(),ecdh_params()]</v>
@@ -703,7 +696,7 @@
 	<p>Algorithm <c>dss</c> can only be used together with digest type
 	<c>sha</c>.</p>
 
-	See also <seealso marker="public_key:public_key#sign/3">public_key:verify/3</seealso>
+	See also <seealso marker="public_key:public_key#verify-4">public_key:verify/4</seealso>
       </desc>
     </func>
 

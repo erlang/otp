@@ -252,8 +252,7 @@ decrypt_private(CipherText, Key) ->
     decrypt_private(CipherText, Key, []).
 
 decrypt_private(CipherText,
-		#'RSAPrivateKey'{modulus = N, publicExponent = E,
-				 privateExponent = D} = Key,
+		#'RSAPrivateKey'{} = Key,
 		Options)
   when is_binary(CipherText),
        is_list(Options) ->
