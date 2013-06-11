@@ -185,15 +185,15 @@ erts_set_hole_marker(Eterm* ptr, Uint sz)
  * Helper function for the ESTACK macros defined in global.h.
  */
 void
-erl_grow_stack(Eterm** start, Eterm** sp, Eterm** end)
+erl_grow_stack(ErtsAlcType_t a_type, Eterm** start, Eterm** sp, Eterm** end)
 {
     Uint old_size = (*end - *start);
     Uint new_size = old_size * 2;
     Uint sp_offs = *sp - *start;
     if (new_size > 2 * DEF_ESTACK_SIZE) {
-	*start = erts_realloc(ERTS_ALC_T_ESTACK, (void *) *start, new_size*sizeof(Eterm));
+	*start = erts_realloc(a_type, (void *) *start, new_size*sizeof(Eterm));
     } else {
-	Eterm* new_ptr = erts_alloc(ERTS_ALC_T_ESTACK, new_size*sizeof(Eterm));
+	Eterm* new_ptr = erts_alloc(a_type, new_size*sizeof(Eterm));
 	sys_memcpy(new_ptr, *start, old_size*sizeof(Eterm));
 	*start = new_ptr;
     }
@@ -204,15 +204,15 @@ erl_grow_stack(Eterm** start, Eterm** sp, Eterm** end)
  * Helper function for the ESTACK macros defined in global.h.
  */
 void
-erl_grow_wstack(UWord** start, UWord** sp, UWord** end)
+erl_grow_wstack(ErtsAlcType_t a_type, UWord** start, UWord** sp, UWord** end)
 {
     Uint old_size = (*end - *start);
     Uint new_size = old_size * 2;
     Uint sp_offs = *sp - *start;
     if (new_size > 2 * DEF_ESTACK_SIZE) {
-	*start = erts_realloc(ERTS_ALC_T_ESTACK, (void *) *start, new_size*sizeof(UWord));
+	*start = erts_realloc(a_type, (void *) *start, new_size*sizeof(UWord));
     } else {
-	UWord* new_ptr = erts_alloc(ERTS_ALC_T_ESTACK, new_size*sizeof(UWord));
+	UWord* new_ptr = erts_alloc(a_type, new_size*sizeof(UWord));
 	sys_memcpy(new_ptr, *start, old_size*sizeof(UWord));
 	*start = new_ptr;
     }

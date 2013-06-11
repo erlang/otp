@@ -1964,6 +1964,17 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
         ++n;
     }
 
+    /*
+     * A trapping BIF can add to rootset by setting the extra_root
+     * in the process_structure.
+     */
+    if (p->extra_root != NULL) {
+	roots[n].v = p->extra_root->objv;
+	roots[n].sz = p->extra_root->sz;
+	++n;
+    }
+
+
     ASSERT((is_nil(p->seq_trace_token) ||
 	    is_tuple(follow_moved(p->seq_trace_token)) ||
 	    is_atom(p->seq_trace_token)));
@@ -2541,6 +2552,12 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
 		    p->dictionary->used, 
 		    offs, area, area_size);
     }
+    if (p->extra_root != NULL) {
+	offset_heap_ptr(p->extra_root->objv, 
+			p->extra_root->sz, 
+			offs, area, area_size);
+    }
+
     offset_heap_ptr(&p->fvalue, 1, offs, area, area_size);
     offset_heap_ptr(&p->ftrace, 1, offs, area, area_size);
     offset_heap_ptr(&p->seq_trace_token, 1, offs, area, area_size);

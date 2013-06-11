@@ -44,6 +44,48 @@ void erl_zlib_zfree_callback (voidpf opaque, voidpf ptr)
     erts_free(ERTS_ALC_T_ZLIB, ptr);
 }
 
+/*
+ * Initialize a z_stream with a source, to later *chunk* data into a destination 
+ * Returns Z_OK or Error.
+ */
+int ZEXPORT erl_zlib_deflate_start(z_stream *streamp, const Bytef* source, 
+				   uLong sourceLen, int level) 
+{
+    streamp->next_in = (Bytef*)source;
+    streamp->avail_in = (uInt)sourceLen;
+    streamp->total_out = streamp->avail_out = 0;
+    streamp->next_out = NULL;
+    erl_zlib_alloc_init(streamp);
+    return deflateInit(streamp, level);
+}
+/* 
+ * Deflate a chunk, The destination length is the limit.
+ * Returns Z_OK if more to process, Z_STREAM_END if we are done.
+ */
+int ZEXPORT erl_zlib_deflate_chunk(z_stream *streamp, Bytef* dest, uLongf* destLen) 
+{
+    int err;
+    uLongf last_tot = streamp->total_out;
+
+    streamp->next_out = dest;
+    streamp->avail_out = (uInt)*destLen;
+    
+    if ((uLong)streamp->avail_out != *destLen) return Z_BUF_ERROR;
+    
+    err = deflate(streamp, Z_FINISH);
+    *destLen = streamp->total_out - last_tot;
+    return err; 
+}
+
+
+/*
+ * When we are done, free up the deflate structure
+ * Retyurns Z_OK or Error
+ */
+int ZEXPORT erl_zlib_deflate_finish(z_stream *streamp)
+{
+    return deflateEnd(streamp);
+}
 
 int ZEXPORT erl_zlib_compress2 (Bytef* dest, uLongf* destLen,
 				const Bytef* source, uLong sourceLen,
