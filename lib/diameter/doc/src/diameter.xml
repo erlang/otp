@@ -878,7 +878,8 @@ of a single Diameter node across multiple Erlang nodes.</p>
 <p>
 An options list passed to &spawn_opt; when spawning a process for an
 incoming Diameter request, unless the transport in question
-specifies another value.</p>
+specifies another value.
+Options <c>monitor</c> and <c>link</c> are ignored.</p>
 
 <p>
 Defaults to the empty list.</p>
@@ -1179,7 +1180,8 @@ transport.</p>
 <item>
 <p>
 An options list passed to &spawn_opt; when spawning a process for an
-incoming Diameter request.</p>
+incoming Diameter request.
+Options <c>monitor</c> and <c>link</c> are ignored.</p>
 
 <p>
 Defaults to the list configured on the service if not specified.</p>
