@@ -171,7 +171,8 @@
          {'Product-Name', "OTP/diameter"},
          {'Auth-Application-Id', [?DIAMETER_APP_ID_COMMON]},
          {'Acct-Application-Id', [?DIAMETER_APP_ID_ACCOUNTING]},
-         {restrict_connections, false}
+         {restrict_connections, false},
+         {spawn_opt, [{min_heap_size, 5000}]}
          | [{application, [{dictionary, D},
                            {module, ?MODULE},
                            {answer_errors, callback}]}
@@ -321,6 +322,7 @@ add_transports(Config) ->
     LRef = ?util:listen(?SERVER,
                         tcp,
                         [{capabilities_cb, fun capx/2},
+                         {spawn_opt, [{min_heap_size, 8096}]},
                          {applications, apps(rfc3588)}]),
     Cs = [?util:connect(?CLIENT,
                         tcp,
