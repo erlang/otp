@@ -1,4 +1,4 @@
-# 
+#
 # %CopyrightBegin%
 #
 # Copyright Ericsson AB 2010-2013. All Rights Reserved.
@@ -117,7 +117,7 @@ info:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 
 include $(ERL_TOP)/make/otp_release_targets.mk
 

@@ -204,7 +204,7 @@ msg_header(Mod, 'answer-message' = MsgName, Header) ->
     #diameter_header{application_id = Aid,
                      cmd_code = Code}
         = Header,
-    {-1, Flags, ?DIAMETER_APP_ID_COMMON} = Mod:msg_header(MsgName),
+    {-1, Flags, ?APP_ID_COMMON} = Mod:msg_header(MsgName),
     {Code, Flags, Aid};
 
 msg_header(Mod, MsgName, _) ->
