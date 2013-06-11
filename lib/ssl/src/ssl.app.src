@@ -29,7 +29,7 @@
 	       ssl_socket,	
 	       %%ssl_record,
 	       ssl_manager,
-	       %%ssl_handshake,
+	       ssl_handshake,
 	       ssl_connection_sup,
 	       %%ssl_connection,
 	       ssl_cipher,

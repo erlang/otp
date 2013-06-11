@@ -34,12 +34,9 @@
 	  cipher_suites,       % cipher_suites<2..2^16-1>
 	  compression_methods, % compression_methods<1..2^8-1>,
 	  %% Extensions
-	  renegotiation_info,
-	  hash_signs,          % supported combinations of hashes/signature algos
-	  next_protocol_negotiation = undefined, % [binary()]
-	  srp,
-	  ec_point_formats,
-	  elliptic_curves
+	  extensions
 	 }).
+
+-type tls_handshake() :: #client_hello{} | ssl_handshake().
 
 -endif. % -ifdef(tls_handshake).

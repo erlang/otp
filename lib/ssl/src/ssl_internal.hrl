@@ -50,6 +50,7 @@
 -define(UINT16(X),   X:16/unsigned-big-integer).
 -define(UINT24(X),   X:24/unsigned-big-integer).
 -define(UINT32(X),   X:32/unsigned-big-integer).
+-define(UINT48(X),   X:48/unsigned-big-integer).
 -define(UINT64(X),   X:64/unsigned-big-integer).
 -define(STRING(X),   ?UINT32((size(X))), (X)/binary).
 
@@ -57,6 +58,7 @@
 -define(uint16(X), << ?UINT16(X) >> ).
 -define(uint24(X), << ?UINT24(X) >> ).
 -define(uint32(X), << ?UINT32(X) >> ).
+-define(uint48(X), << ?UINT48(X) >> ).
 -define(uint64(X), << ?UINT64(X) >> ).
 
 -define(CDR_MAGIC, "GIOP").
@@ -71,6 +73,8 @@
 
 -define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
 -define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1, sslv3]).
+-define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
+-define(MIN_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 
 -record(ssl_options, {
 	  versions,   % 'tlsv1.2' | 'tlsv1.1' | tlsv1 | sslv3
@@ -124,6 +128,10 @@
 	  active = true
 	 }).
 
+-type state_name()           :: hello | abbreviated | certify | cipher | connection.
+-type gen_fsm_state_return() :: {next_state, state_name(), term()} |
+				{next_state, state_name(), term(), timeout()} |
+				{stop, term(), term()}.
 -endif. % -ifdef(ssl_internal).
 
 

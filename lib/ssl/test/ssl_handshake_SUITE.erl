@@ -32,43 +32,44 @@
 %%--------------------------------------------------------------------
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> [
-	decode_hello_handshake,
-	decode_single_hello_extension_correctly,
-	decode_unknown_hello_extension_correctly].
+all() -> [decode_hello_handshake,
+	  decode_single_hello_extension_correctly,
+	  decode_unknown_hello_extension_correctly].
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 decode_hello_handshake(_Config) ->
-	HelloPacket = <<16#02, 16#00, 16#00,
-	16#44, 16#03, 16#03, 16#4e, 16#7f, 16#c1, 16#03, 16#35,
-	16#c2, 16#07, 16#b9, 16#4a, 16#58, 16#af, 16#34, 16#07,
-	16#a6, 16#7e, 16#ef, 16#52, 16#cb, 16#e0, 16#ea, 16#b7,
-	16#aa, 16#47, 16#c8, 16#c2, 16#2c, 16#66, 16#fa, 16#f8,
-	16#09, 16#42, 16#cf, 16#00, 16#c0, 16#30, 16#00, 16#00,
-	16#1c, 
-	16#00, 16#0b, 16#00, 16#04, 16#03, 16#00, 16#01, 16#02, % ec_point_formats
-	16#ff, 16#01, 16#00, 16#01, 16#00, %% renegotiate 
-	16#00, 16#23,
-	16#00, 16#00, 16#33, 16#74, 16#00, 16#07, 16#06, 16#73,
-	16#70, 16#64, 16#79, 16#2f, 16#32>>,
+    HelloPacket = <<16#02, 16#00, 16#00,
+		    16#44, 16#03, 16#03, 16#4e, 16#7f, 16#c1, 16#03, 16#35,
+		    16#c2, 16#07, 16#b9, 16#4a, 16#58, 16#af, 16#34, 16#07,
+		    16#a6, 16#7e, 16#ef, 16#52, 16#cb, 16#e0, 16#ea, 16#b7,
+		    16#aa, 16#47, 16#c8, 16#c2, 16#2c, 16#66, 16#fa, 16#f8,
+		    16#09, 16#42, 16#cf, 16#00, 16#c0, 16#30, 16#00, 16#00,
+		    16#1c,
+		    16#00, 16#0b, 16#00, 16#04, 16#03, 16#00, 16#01, 16#02, % ec_point_formats
+		    16#ff, 16#01, 16#00, 16#01, 16#00, %% renegotiate
+		    16#00, 16#23,
+		    16#00, 16#00, 16#33, 16#74, 16#00, 16#07, 16#06, 16#73,
+		    16#70, 16#64, 16#79, 16#2f, 16#32>>,
 	
-	Version = {3, 0},
-	{Records, _Buffer} = tls_handshake:get_tls_handshake(Version, HelloPacket, <<>>),
-	
-	{Hello, _Data} = hd(Records),
-	#renegotiation_info{renegotiated_connection = <<0>>} = Hello#server_hello.renegotiation_info.
-	
+    Version = {3, 0},
+    {Records, _Buffer} = tls_handshake:get_tls_handshake(Version, HelloPacket, <<>>),
+
+    {Hello, _Data} = hd(Records),
+    #renegotiation_info{renegotiated_connection = <<0>>}
+	= (Hello#server_hello.extensions)#hello_extensions.renegotiation_info.
+
 decode_single_hello_extension_correctly(_Config) -> 
-	Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-	Extensions = tls_handshake:dec_hello_extensions(Renegotiation, []),
-	[{renegotiation_info,#renegotiation_info{renegotiated_connection = <<0>>}}] = Extensions.
-	
+    Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
+    Extensions = ssl_handshake:decode_hello_extensions(Renegotiation),
+    #renegotiation_info{renegotiated_connection = <<0>>}
+	= Extensions#hello_extensions.renegotiation_info.
+
 
 decode_unknown_hello_extension_correctly(_Config) ->
-	FourByteUnknown = <<16#CA,16#FE, ?UINT16(4), 3, 0, 1, 2>>,
-	Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-	Extensions = tls_handshake:dec_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>, []),
-	[{renegotiation_info,#renegotiation_info{renegotiated_connection = <<0>>}}] = Extensions.
-	
+    FourByteUnknown = <<16#CA,16#FE, ?UINT16(4), 3, 0, 1, 2>>,
+    Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
+    Extensions = ssl_handshake:decode_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>),
+     #renegotiation_info{renegotiated_connection = <<0>>}
+	= Extensions#hello_extensions.renegotiation_info.

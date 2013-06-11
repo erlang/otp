@@ -21,20 +21,80 @@
 -include("dtls_record.hrl").
 -include("ssl_internal.hrl").
 
--export([get_dtls_handshake/2,
+-export([client_hello/9, hello/3, get_dtls_handshake/2,
 	 dtls_handshake_new_flight/1, dtls_handshake_new_epoch/1,
 	 encode_handshake/4]).
-
--record(dtls_hs_state, {current_read_seq, starting_read_seq, highest_record_seq, fragments, completed}).
-
--type dtls_handshake() :: #client_hello{} | #server_hello{} |   #hello_verify_request{} |
-			 #server_hello_done{} | #certificate{} | #certificate_request{} |
-			 #client_key_exchange{} | #finished{} | #certificate_verify{} |
-			 #hello_request{} | #next_protocol{}.
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
+
+%%--------------------------------------------------------------------
+-spec client_hello(host(), inet:port_number(), term(), #connection_states{},
+		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
+			  #client_hello{}.
+%%
+%% Description: Creates a client hello message.
+%%--------------------------------------------------------------------
+client_hello(Host, Port, Cookie, ConnectionStates,
+	     #ssl_options{versions = Versions,
+			  ciphers = UserSuites
+			 } = SslOpts,
+	     Cache, CacheCb, Renegotiation, OwnCert) ->
+    Version = dtls_record:highest_protocol_version(Versions),
+    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
+    SecParams = Pending#connection_state.security_parameters,
+    CipherSuites = ssl_handshake:available_suites(UserSuites, Version),
+
+    Extensions = ssl_handshake:client_hello_extensions(Version, CipherSuites,
+						SslOpts, ConnectionStates, Renegotiation),
+
+    Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
+
+    #client_hello{session_id = Id,
+		  client_version = Version,
+		  cipher_suites = ssl_handshake:cipher_suites(CipherSuites, Renegotiation),
+		  compression_methods = tls_record:compressions(),
+		  random = SecParams#security_parameters.client_random,
+		  cookie = Cookie,
+		  extensions = Extensions
+		 }.
+
+hello(Address, Port,
+      #ssl_tls{epoch = Epoch, record_seq = Seq,
+	       version = Version} = Record) ->
+    {[{Hello, _}], _, _} =
+	ssl_handshake:get_dtls_handshake(Record,
+					 ssl_handshake:dtls_handshake_new_flight(undefined)),
+    #client_hello{client_version = {Major, Minor},
+		  random = Random,
+		  session_id = SessionId,
+		  cipher_suites = CipherSuites,
+		  compression_methods = CompressionMethods} = Hello,
+    CookieData = [address_to_bin(Address, Port),
+		  <<?BYTE(Major), ?BYTE(Minor)>>,
+		  Random, SessionId, CipherSuites, CompressionMethods],
+    Cookie = crypto:hmac(sha, <<"secret">>, CookieData),
+
+    case Hello of
+	#client_hello{cookie = Cookie} ->
+	    accept;
+	_ ->
+	    %% generate HelloVerifyRequest
+	    {RequestFragment, _} = ssl_handshake:encode_handshake(
+				     ssl_handshake:hello_verify_request(Cookie),
+				     Version, 0, 1400),
+	    HelloVerifyRequest =
+		ssl_record:encode_tls_cipher_text(?HANDSHAKE, Version, Epoch, Seq, RequestFragment),
+	    {reply, HelloVerifyRequest}
+    end.
+
+address_to_bin({A,B,C,D}, Port) ->
+    <<0:80,16#ffff:16,A,B,C,D,Port:16>>;
+address_to_bin({A,B,C,D,E,F,G,H}, Port) ->
+    <<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16,Port:16>>.
+
+%%--------------------------------------------------------------------
 encode_handshake(Package, Version, MsgSeq, Mss) ->
     {MsgType, Bin} = enc_hs(Package, Version),
     Len = byte_size(Bin),
@@ -130,7 +190,7 @@ get_dtls_handshake_aux(_Version, _SeqNo, <<>>, HsState) ->
 dec_dtls_fragment(Version, SeqNo, Type, Length, MessageSeq, MsgBody,
 		  HsState = #dtls_hs_state{highest_record_seq = HighestSeqNo, completed = Acc}) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), ?UINT16(MessageSeq), ?UINT24(0), ?UINT24(Length), MsgBody/binary>>,
-    H = dec_hs(Version, Type, MsgBody),
+    H = decode_handshake(Version, Type, MsgBody),
     HsState#dtls_hs_state{completed = [{H,Raw}|Acc], highest_record_seq = erlang:max(HighestSeqNo, SeqNo)}.
 
 process_dtls_fragments(Version,
@@ -305,45 +365,6 @@ merge_fragment_list([{HStart, HEnd}|Rest], _Frag = {FStart, FEnd}, Acc)
 add_fragment(List, {FragmentOffset, FragmentLength}) ->
     merge_fragment_list(List, {FragmentOffset, FragmentOffset + FragmentLength}, []).
 
-
-dec_hs(_Version, ?HELLO_VERIFY_REQUEST, <<?BYTE(Major), ?BYTE(Minor),
-		       ?BYTE(CookieLength), Cookie:CookieLength/binary>>)
-  when Major >= 128 ->
-
-    #hello_verify_request{
-	protocol_version = {Major, Minor},
-        cookie = Cookie};
-
-dec_hs(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
-		       ?BYTE(SID_length), Session_ID:SID_length/binary,
-		       ?BYTE(Cookie_length), Cookie:Cookie_length/binary,
-		       ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
-		       ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
-		       Extensions/binary>>)
-  when Major >= 128 ->
-
-    DecodedExtensions = tls_handshake:dec_hello_extensions(Extensions),
-    RenegotiationInfo = proplists:get_value(renegotiation_info, DecodedExtensions, undefined),
-    SRP = proplists:get_value(srp, DecodedExtensions, undefined),
-    HashSigns = proplists:get_value(hash_signs, DecodedExtensions, undefined),
-    EllipticCurves = proplists:get_value(elliptic_curves, DecodedExtensions,
-					 undefined),
-    NextProtocolNegotiation = proplists:get_value(next_protocol_negotiation, DecodedExtensions, undefined),
-
-    #client_hello{
-       client_version = {Major,Minor},
-       random = Random,
-       session_id = Session_ID,
-       cookie = Cookie,
-       cipher_suites = tls_handshake:decode_suites('2_bytes', CipherSuites),
-       compression_methods = Comp_methods,
-       renegotiation_info = RenegotiationInfo,
-       srp = SRP,
-       hash_signs = HashSigns,
-       elliptic_curves = EllipticCurves,
-       next_protocol_negotiation = NextProtocolNegotiation
-      }.
-
 enc_hs(#hello_verify_request{protocol_version = {Major, Minor},
 			     cookie = Cookie}, _Version) ->
     CookieLength = byte_size(Cookie),
@@ -357,68 +378,53 @@ enc_hs(#client_hello{client_version = {Major, Minor},
 		     cookie = Cookie,
 		     cipher_suites = CipherSuites,
 		     compression_methods = CompMethods,
-		     renegotiation_info = RenegotiationInfo,
-		     srp = SRP,
-		     hash_signs = HashSigns,
-		     ec_point_formats = EcPointFormats,
-		     elliptic_curves = EllipticCurves,
-		     next_protocol_negotiation = NextProtocolNegotiation}, Version) ->
+		     extensions = HelloExtensions}, Version) ->
     SIDLength = byte_size(SessionID),
     BinCookie = enc_client_hello_cookie(Version, Cookie),
     BinCompMethods = list_to_binary(CompMethods),
     CmLength = byte_size(BinCompMethods),
     BinCipherSuites = list_to_binary(CipherSuites),
     CsLength = byte_size(BinCipherSuites),
-    Extensions = tls_handshake:hello_extensions(RenegotiationInfo, SRP, NextProtocolNegotiation)
-	++ tls_handshake:ec_hello_extensions(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites), EcPointFormats)
-	++ tls_handshake:ec_hello_extensions(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites), EllipticCurves)
-	++ tls_handshake:hello_extensions(HashSigns),
-    ExtensionsBin = tls_handshake:enc_hello_extensions(Extensions),
+    ExtensionsBin = ssl_handshake:encode_hello_extensions(HelloExtensions),
 
     {?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		      ?BYTE(SIDLength), SessionID/binary,
 		      BinCookie/binary,
-		      ?UINT16(CsLength), BinCipherSuites/binary,
-		     ?BYTE(CmLength), BinCompMethods/binary, ExtensionsBin/binary>>}.
+				?UINT16(CsLength), BinCipherSuites/binary,
+		      ?BYTE(CmLength), BinCompMethods/binary, ExtensionsBin/binary>>};
+enc_hs(HandshakeMsg, Version) ->
+    ssl_handshake:encode_handshake(HandshakeMsg, Version).
 
+enc_client_hello_cookie(_, <<>>) ->
+    <<>>;
 enc_client_hello_cookie(_, Cookie) ->
     CookieLength = byte_size(Cookie),
-    <<?BYTE(CookieLength), Cookie/binary>>;
-enc_client_hello_cookie(_, _) ->
-    <<>>.
+    <<?BYTE(CookieLength), Cookie/binary>>.
 
-dec_hs(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
+decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		       ?BYTE(SID_length), Session_ID:SID_length/binary,
 		       ?BYTE(Cookie_length), Cookie:Cookie_length/binary,
 		       ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
 		       ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
 		       Extensions/binary>>) ->
 
-    DecodedExtensions = dec_hello_extensions(Extensions),
-    RenegotiationInfo = proplists:get_value(renegotiation_info, DecodedExtensions, undefined),
-    SRP = proplists:get_value(srp, DecodedExtensions, undefined),
-    HashSigns = proplists:get_value(hash_signs, DecodedExtensions, undefined),
-    EllipticCurves = proplists:get_value(elliptic_curves, DecodedExtensions,
-					 undefined),
-    NextProtocolNegotiation = proplists:get_value(next_protocol_negotiation, DecodedExtensions, undefined),
+    DecodedExtensions = ssl_handshake:decode_hello_extensions(Extensions),
 
     #client_hello{
        client_version = {Major,Minor},
        random = Random,
        session_id = Session_ID,
        cookie = Cookie,
-       cipher_suites = from_2bytes(CipherSuites),
+       cipher_suites = tls_handshake:decode_suites('2_bytes', CipherSuites),
        compression_methods = Comp_methods,
-       renegotiation_info = RenegotiationInfo,
-	srp = SRP,
-       hash_signs = HashSigns,
-       elliptic_curves = EllipticCurves,
-       next_protocol_negotiation = NextProtocolNegotiation
+       extensions = DecodedExtensions
       };
 
-dec_hs(_Version, ?HELLO_VERIFY_REQUEST, <<?BYTE(Major), ?BYTE(Minor),
-		       ?BYTE(CookieLength), Cookie:CookieLength/binary>>) ->
+decode_handshake(_Version, ?HELLO_VERIFY_REQUEST, <<?BYTE(Major), ?BYTE(Minor),
+					  ?BYTE(CookieLength), Cookie:CookieLength/binary>>) ->
 
     #hello_verify_request{
-	server_version = {Major,Minor},
+       protocol_version = {Major,Minor},
        cookie = Cookie};
+decode_handshake(Version, Tag, Msg) ->
+    ssl_handshake:decode_handshake(Version, Tag, Msg).

@@ -58,6 +58,7 @@ MODULES= \
 	ssl_connection_sup \
 	tls_handshake \
 	dtls_handshake\
+	ssl_handshake\
 	ssl_manager \
 	ssl_session \
 	ssl_session_cache \
