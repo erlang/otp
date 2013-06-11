@@ -218,6 +218,10 @@ static erts_smp_atomic32_t function_calls;
 #ifdef ERTS_SMP
 static erts_smp_atomic32_t doing_sys_schedule;
 static erts_smp_atomic32_t no_empty_run_queues;
+long erts_runq_supervision_interval = 0;
+static ethr_event runq_supervision_event;
+static erts_tid_t runq_supervisor_tid;
+static erts_atomic_t runq_supervisor_sleeping;
 #else /* !ERTS_SMP */
 ErtsSchedulerData *erts_scheduler_data;
 #endif
@@ -1885,7 +1889,13 @@ empty_runq(ErtsRunQueue *rq)
 	 */
 	ASSERT(0 <= empty && empty < 2*erts_no_run_queues);
 #endif
-	erts_smp_atomic32_inc_relb(&no_empty_run_queues);
+	if (!erts_runq_supervision_interval)
+	    erts_smp_atomic32_inc_relb(&no_empty_run_queues);
+	else {
+	    erts_smp_atomic32_inc_mb(&no_empty_run_queues);
+	    if (erts_atomic_read_nob(&runq_supervisor_sleeping))
+		ethr_event_set(&runq_supervision_event);
+	}
     }
 }
 
@@ -1903,7 +1913,14 @@ non_empty_runq(ErtsRunQueue *rq)
 	 */
 	ASSERT(0 < empty && empty <= 2*erts_no_run_queues);
 #endif
-	erts_smp_atomic32_dec_relb(&no_empty_run_queues);
+	if (!erts_runq_supervision_interval)
+	    erts_smp_atomic32_dec_relb(&no_empty_run_queues);
+	else {
+	    erts_aint32_t no;
+	    no = erts_smp_atomic32_dec_read_mb(&no_empty_run_queues);
+	    if (no > 0 && erts_atomic_read_nob(&runq_supervisor_sleeping))
+		ethr_event_set(&runq_supervision_event);
+	}
     }
 }
 
@@ -2504,7 +2521,6 @@ try_inc_no_active_runqs(int active)
     }
     return 0;
 }
-
 
 static ERTS_INLINE int
 chk_wake_sched(ErtsRunQueue *crq, int ix, int activate)
@@ -3827,6 +3843,53 @@ set_wakeup_other_data(void)
 	wakeup_other_set_limit_legacy();
 	break;
     }
+}
+
+static int
+no_runqs_to_supervise(void)
+{
+    int used;
+    erts_aint32_t nerq = erts_smp_atomic32_read_acqb(&no_empty_run_queues);
+    if (nerq <= 0)
+	return 0;
+    get_no_runqs(NULL, &used);
+    if (nerq >= used)
+	return 0;
+    return used;
+}
+
+static void *
+runq_supervisor(void *unused)
+{
+    while (1) {
+	int ix, no_rqs;
+
+	erts_milli_sleep(erts_runq_supervision_interval);
+	no_rqs = no_runqs_to_supervise();
+	if (!no_rqs) {
+	    erts_atomic_set_nob(&runq_supervisor_sleeping, 1);
+	    while (1) {
+		ethr_event_reset(&runq_supervision_event);
+		no_rqs = no_runqs_to_supervise();
+		if (no_rqs) {
+		    erts_atomic_set_nob(&runq_supervisor_sleeping, 0);
+		    break;
+		}
+		ethr_event_wait(&runq_supervision_event);
+	    }
+	}
+
+	for (ix = 0; ix < no_rqs; ix++) {
+	    ErtsRunQueue *rq = ERTS_RUNQ_IX(ix);
+	    if (ERTS_RUNQ_FLGS_GET(rq) & ERTS_RUNQ_FLG_NONEMPTY) {
+		erts_smp_runq_lock(rq);
+		if (rq->len != 0)
+		    wake_scheduler_on_empty_runq(rq); /* forced wakeup... */
+		erts_smp_runq_unlock(rq);
+	    }
+	}
+    }
+    return NULL;
 }
 
 #endif
@@ -5235,6 +5298,22 @@ erts_start_schedulers(void)
     ethr_thr_opts opts = ETHR_THR_OPTS_DEFAULT_INITER;
 
     opts.detached = 1;
+
+#ifdef ERTS_SMP
+    if (erts_runq_supervision_interval) {
+	opts.suggested_stack_size = 16;
+	erts_atomic_init_nob(&runq_supervisor_sleeping, 0);
+	if (0 != ethr_event_init(&runq_supervision_event))
+	    erl_exit(1, "Failed to create run-queue supervision event\n");
+	if (0 != ethr_thr_create(&runq_supervisor_tid,
+				 runq_supervisor,
+				 NULL,
+				 &opts))
+	    erl_exit(1, "Failed to create run-queue supervision thread\n");
+
+    }
+#endif
+
     opts.suggested_stack_size = erts_sched_thread_suggested_stack_size;
 
     if (wanted < 1)

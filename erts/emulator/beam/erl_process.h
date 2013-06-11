@@ -371,6 +371,10 @@ struct ErtsRunQueue_ {
     } ports;
 };
 
+#ifdef ERTS_SMP
+extern long erts_runq_supervision_interval;
+#endif
+
 typedef union {
     ErtsRunQueue runq;
     char align[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsRunQueue))];

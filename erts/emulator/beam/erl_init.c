@@ -1240,6 +1240,22 @@ erl_start(int argc, char **argv)
 			("suggested scheduler thread stack size %d kilo words\n",
 			 erts_sched_thread_suggested_stack_size));
 	    }
+	    else if (has_prefix("fwi", sub_param)) {
+		long val;
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+		errno = 0;
+		val = strtol(arg, NULL, 10);
+		if (errno != 0 || val < 0) {
+		    erts_fprintf(stderr,
+				 "bad scheduler forced wakeup "
+				 "interval %s\n",
+				 arg);
+		    erts_usage();
+		}
+#ifdef ERTS_SMP
+		erts_runq_supervision_interval = val;
+#endif
+	    }
 	    else {
 		erts_fprintf(stderr, "bad scheduling option %s\n", argv[i]);
 		erts_usage();
