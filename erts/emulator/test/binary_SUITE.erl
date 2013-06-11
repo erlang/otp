@@ -57,10 +57,10 @@
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
 	 otp_6817/1,deep/1,obsolete_funs/1,robustness/1,otp_8117/1,
-	 otp_8180/1]).
+	 otp_8180/1, ttb_trap/1]).
 
 %% Internal exports.
--export([sleeper/0]).
+-export([sleeper/0,ttb_loop/2]).
 
 suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap,{minutes,2}}].
@@ -75,7 +75,7 @@ all() ->
      bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
-     obsolete_funs, robustness, otp_8180].
+     obsolete_funs, robustness, otp_8180, ttb_trap].
 
 groups() -> 
     [].
@@ -1321,6 +1321,38 @@ run_otp_8180(Name) ->
 	 ?line {'EXIT',{badarg,_}} = (catch binary_to_term(Bin))
      end || Bin <- Bins],
     ok.
+
+%% Test that exit and GC during term_to_binary trap does not crash.
+ttb_trap(Config) when is_list(Config)->
+    case erlang:system_info(wordsize) of
+	N when N < 8 ->
+	    {skipped, "Only on 64bit machines"};
+	_ ->
+	    do_ttb_trap(5)
+    end.
+
+do_ttb_trap(0) ->
+    ok;
+do_ttb_trap(N) ->
+    Pid = spawn(?MODULE,ttb_loop,[1000,self()]),
+    receive ok -> ok end,
+    receive after 100 -> ok end,
+    erlang:garbage_collect(Pid),
+    receive after 100 -> ok end,
+    exit(Pid,kill),
+    receive after 1 -> ok end,
+    do_ttb_trap(N-1).
+
+ttb_loop(N,Pid) ->
+    Term = lists:duplicate(2000000,2000000),
+    Pid ! ok,
+    ttb_loop2(N,Term).
+ttb_loop2(0,_T) ->
+    ok;
+ttb_loop2(N,T) ->
+    apply(erlang,term_to_binary,[T]),
+    ttb_loop2(N-1,T).
+
 
 %% Utilities.
 
