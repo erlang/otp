@@ -48,6 +48,7 @@
 -define(BASE,  ?DIAMETER_DICT_COMMON).  %% Note: the RFC 3588 dictionary
 
 -define(DEFAULT_TIMEOUT, 5000).  %% for outgoing requests
+-define(DEFAULT_SPAWN_OPTS, []).
 
 %% Table containing outgoing requests for which a reply has yet to be
 %% received.
@@ -153,13 +154,8 @@ receive_message(TPid, Pkt, Dict0, RecvData)
          RecvData).
 
 %% Incoming request ...
-recv(true, false, TPid, Pkt, Dict0, RecvData) ->
-    try
-        spawn(fun() -> recv_request(TPid, Pkt, Dict0, RecvData) end)
-    catch
-        error: system_limit = E ->  %% discard
-            ?LOG({error, E}, now())
-    end;
+recv(true, false, TPid, Pkt, Dict0, T) ->
+    spawn_request(TPid, Pkt, Dict0, T);
 
 %% ... answer to known request ...
 recv(false, #request{ref = Ref, handler = Pid} = Req, _, Pkt, Dict0, _) ->
@@ -176,6 +172,21 @@ recv(false, #request{ref = Ref, handler = Pid} = Req, _, Pkt, Dict0, _) ->
 %% ... or not.
 recv(false, false, _, _, _, _) ->
     ok.
+
+%% spawn_request/4
+
+spawn_request(TPid, Pkt, Dict0, {Opts, RecvData}) ->
+    spawn_request(TPid, Pkt, Dict0, Opts, RecvData);
+spawn_request(TPid, Pkt, Dict0, RecvData) ->
+    spawn_request(TPid, Pkt, Dict0, ?DEFAULT_SPAWN_OPTS, RecvData).
+
+spawn_request(TPid, Pkt, Dict0, Opts, RecvData) ->
+    try
+        spawn_opt(fun() -> recv_request(TPid, Pkt, Dict0, RecvData) end, Opts)
+    catch
+        error: system_limit = E ->  %% discard
+            ?LOG({error, E}, now())
+    end.
 
 %% ---------------------------------------------------------------------------
 %% recv_request/4
@@ -780,7 +791,7 @@ failed([MsgName | Values], FailedAvp, Dict) ->
 %% ... or record.
 failed(Rec, FailedAvp, Dict) ->
     try
-        RecName = element(1, Rec),  
+        RecName = element(1, Rec),
         Dict:'#info-'(RecName, {index, 'Failed-AVP'}),
         {'Failed-AVP', [FailedAvp]}
     catch

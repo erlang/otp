@@ -770,10 +770,8 @@ start(Ref, Type, Opts, #state{watchdogT = WatchdogT,
         = Svc
         = merge_service(Opts, Svc0),
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
-    Pid = s(Type, Ref, {diameter_traffic:make_recvdata([SvcName,
-                                                        PeerT,
-                                                        Apps,
-                                                        Mask]),
+    RecvData = diameter_traffic:make_recvdata([SvcName, PeerT, Apps, Mask]),
+    Pid = s(Type, Ref, {{spawn_opts([Opts, SvcOpts]), RecvData},
                         Opts,
                         SvcOpts,
                         Svc}),
@@ -786,6 +784,12 @@ start(Ref, Type, Opts, #state{watchdogT = WatchdogT,
 %% Note that the service record passed into the watchdog is the merged
 %% record so that each watchdog may get a different record. This
 %% record is what is passed back into application callbacks.
+
+spawn_opts(Optss) ->
+    SpawnOpts = get_value(spawn_opt, Optss, []),
+    [T || T <- SpawnOpts,
+          T /= link,
+          T /= monitor].
 
 s(Type, Ref, T) ->
     {_MRef, Pid} = diameter_watchdog:start({Type, Ref}, T),
@@ -984,6 +988,18 @@ keyfind([Key | Rest], Pos, L) ->
             keyfind(Rest, Pos, L);
         T ->
             T
+    end.
+
+%% get_value/3
+
+get_value(_, [], Def) ->
+    Def;
+get_value(Key, [L | Rest], Def) ->
+    case lists:keyfind(Key, 1, L) of
+        {_,V} ->
+            V;
+        _ ->
+            get_value(Key, Rest, Def)
     end.
 
 %% find_outgoing_app/2

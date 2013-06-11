@@ -42,6 +42,9 @@
 -export([ports/0,
          ports/1]).
 
+-export_type([connect_option/0,
+              listen_option/0]).
+
 -include_lib("diameter/include/diameter.hrl").
 
 %% Keys into process dictionary.
@@ -80,6 +83,25 @@
 -type frag()   :: {length(), size(), binary(), list(binary())}
                 | binary().
 
+-type connect_option() :: {raddr, inet:ip_address()}
+                        | {rport, pos_integer()}
+                        | {ssl_options, true | [ssl:connect_option()]}
+                        | option()
+                        | ssl:connect_option()
+                        | gen_tcp:connect_option().
+
+-type match() :: inet:ip_address()
+               | string()
+               | [match()].
+
+-type listen_option() :: {accept, match()}
+                       | {ssl_options, true | [ssl:listen_option()]}
+                       | ssl:listen_option()
+                       | gen_tcp:listen_option().
+
+-type option() :: {port, non_neg_integer()}
+                | {fragment_timer, 0..16#FFFFFFFF}.
+
 %% Accepting/connecting transport process state.
 -record(transport,
         {socket  :: inet:socket() | ssl:sslsocket(), %% accept/connect socket
@@ -100,18 +122,14 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
--spec start({accept, Ref}, Svc, [Opt])
+-spec start({accept, Ref}, #diameter_service{}, [listen_option()])
    -> {ok, pid(), [inet:ip_address()]}
- when Ref :: diameter:transport_ref(),
-      Svc :: #diameter_service{},
-      Opt :: diameter:transport_opt();
-           ({connect, Ref}, Svc, [Opt])
+ when Ref :: diameter:transport_ref();
+           ({connect, Ref}, #diameter_service{}, [connect_option()])
    -> {ok, pid(), [inet:ip_address()]}
     | {ok, pid()}
- when Ref :: diameter:transport_ref(),
-      Svc :: #diameter_service{},
-      Opt :: diameter:transport_opt().
-                   
+ when Ref :: diameter:transport_ref().
+
 start({T, Ref}, #diameter_service{capabilities = Caps}, Opts) ->
     diameter_tcp_sup:start(),  %% start tcp supervisors on demand
     {Mod, Rest} = split(Opts),
@@ -225,10 +243,10 @@ laddr([], Mod, Sock) ->
     Addr;
 laddr([{ip, Addr}], _, _) ->
     Addr.
-    
+
 own(Opts) ->
-    {Own, Rest} = proplists:split(Opts, [fragment_timer]),
-    {lists:append(Own), Rest}.
+    {[Own], Rest} = proplists:split(Opts, [fragment_timer]),
+    {Own, Rest}.
 
 ssl(Opts) ->
     {[SslOpts], Rest} = proplists:split(Opts, [ssl_options]),
@@ -257,9 +275,11 @@ init(Type, Ref, Mod, Pid, _, Opts, Addrs) ->
 %% init/6
 
 init(accept = T, Ref, Mod, Pid, Opts, Addrs) ->
-    {LAddr, LSock} = listener(Ref, {Mod, Opts, Addrs}),
+    {[Matches], Rest} = proplists:split(Opts, [accept]),
+    {LAddr, LSock} = listener(Ref, {Mod, Rest, Addrs}),
     proc_lib:init_ack({ok, self(), [LAddr]}),
     Sock = ok(accept(Mod, LSock)),
+    ok = accept_peer(Mod, Sock, accept(Matches)),
     publish(Mod, T, Ref, Sock),
     diameter_peer:up(Pid),
     Sock;
@@ -282,7 +302,7 @@ init_rc([]) ->
 
 up(Pid, Remote, [{ip, _Addr}], _, _) ->
     diameter_peer:up(Pid, Remote);
-up(Pid, Remote, [], Mod, Sock) -> 
+up(Pid, Remote, [], Mod, Sock) ->
     {Addr, _Port} = ok(sockname(Mod, Sock)),
     diameter_peer:up(Pid, Remote, [Addr]).
 
@@ -297,6 +317,22 @@ ok(No) ->
 
 x(Reason) ->
     exit({shutdown, Reason}).
+
+%% accept_peer/3
+
+accept_peer(_Mod, _Sock, []) ->
+    ok;
+
+accept_peer(Mod, Sock, Matches) ->
+    {RAddr, _} = ok(peername(Mod, Sock)),
+    diameter_peer:match([RAddr], Matches)
+        orelse x({accept, RAddr, Matches}),
+    ok.
+
+%% accept/1
+
+accept(Opts) ->
+    [[M] || {accept, M} <- Opts].
 
 %% listener/2
 

@@ -96,10 +96,12 @@ before configuring TLS capability on diameter transports.</p>
 <v>Reason = term()</v>
 <v>OwnOpt = {raddr, &ip_address;}
           | {rport, integer()}
+          | {accept, Match}
           | {port, integer()}
           | {fragment_timer, infinity | 0..16#FFFFFFFF}</v>
 <v>SslOpt = {ssl_options, true | list()}</v>
 <v>TcpOpt = term()</v>
+<v>Match = &ip_address; | string() | [Match]</v>
 </type>
 <desc>
 
@@ -109,7 +111,18 @@ The start function required by &man_transport;.</p>
 <p>
 Options <c>raddr</c> and <c>rport</c> specify the remote address
 and port for a connecting transport and are not valid for a listening
-transport.
+transport.</p>
+
+<p>
+Option <c>accept</c> specifies remote addresses for a listening
+transport and is not valid for a connecting transport.
+If specified, a remote address that does not match one of the
+specified addresses causes the connection to be aborted.
+Multiple <c>accept</c> options can be specified.
+A string-valued <c>Match</c> that does not parse as an address is
+interpreted as a regular expression.</p>
+
+<p>
 Option <c>ssl_options</c> must be specified for a transport
 that should support TLS: a value of <c>true</c> results in a
 TLS handshake immediately upon connection establishment while
