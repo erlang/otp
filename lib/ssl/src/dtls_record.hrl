@@ -28,6 +28,18 @@
 
 -include("ssl_record.hrl"). %% Common TLS and DTLS records and Constantes
 
+-define(INITIAL_BYTES, 5).
+
+-record(connection_states, {
+	  min_read_epoch,
+	  previous_read,
+	  current_read,
+	  pending_read,
+	  previous_write,
+	  current_write,
+	  pending_write
+	 }).
+
 %% Used to handle tls_plain_text, tls_compressed and tls_cipher_text
 
 -record(ssl_tls, {   

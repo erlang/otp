@@ -27,6 +27,12 @@
 -define(tls_record, true).
 
 -include("ssl_record.hrl"). %% Common TLS and DTLS records and Constantes
+-record(connection_states, {
+	  current_read,
+	  pending_read,
+	  current_write,
+	  pending_write
+	 }).
 
 %% Used to handle tls_plain_text, tls_compressed and tls_cipher_text
 
