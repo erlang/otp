@@ -590,6 +590,14 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
 	return 0;
     }
+
+#if defined(HAVE_EC)
+    res_type_ec_key = enif_open_resource_type(env,NULL,"crypto.EC_KEY",
+					      ec_key_dtor,
+					      ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+					      NULL);
+#endif
+
     if (library_refc > 0) {
 	/* Repeated loading of this library (module upgrade).
 	 * Atoms and callbacks are already set, we are done.
@@ -633,11 +641,6 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 
     for (i = 0; i < EC_CURVES_CNT; i++)
 	    ec_curves[i].atom =  enif_make_atom(env,ec_curves[i].name);
-
-    res_type_ec_key = enif_open_resource_type(env,NULL,"crypto.EC_KEY",
-					      ec_key_dtor,
-					      ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
-					      NULL);
 #endif
 
     init_digest_types(env);
