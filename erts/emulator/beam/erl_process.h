@@ -699,6 +699,14 @@ struct ErtsPendingSuspend_ {
 
 #endif
 
+
+typedef struct ErlExtraRootSet_ ErlExtraRootSet;
+struct ErlExtraRootSet_ {
+    Eterm *objv;
+    Uint sz;
+    void (*cleanup)(ErlExtraRootSet *);
+};
+
 /* Defines to ease the change of memory architecture */
 #  define HEAP_START(p)     (p)->heap
 #  define HEAP_TOP(p)       (p)->htop
@@ -791,6 +799,8 @@ struct process {
 					     erlang:suspend_process/1 */
 
     ErlMessageQueue msg;	/* Message queue */
+
+    ErlExtraRootSet *extra_root;   /* Used by trapping BIF's */
 
     union {
 	ErtsBifTimer *bif_timers;	/* Bif timers aiming at this process */
@@ -1975,6 +1985,7 @@ erts_sched_poke(ErtsSchedulerSleepInfo *ssi)
 	erts_sched_finish_poke(ssi, flags);
     }
 }
+
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 

@@ -31,6 +31,14 @@
     (s)->zfree = erl_zlib_zfree_callback;   \
   } while (0)
 
+/*
+ * Chunked interface, used by term_to_binary among others.
+ */
+int ZEXPORT erl_zlib_deflate_start(z_stream *streamp, const Bytef* source, 
+				   uLong sourceLen, int level);
+int ZEXPORT erl_zlib_deflate_chunk(z_stream *streamp, Bytef* dest, uLongf* destLen);
+int ZEXPORT erl_zlib_deflate_finish(z_stream *streamp);
+
 /* Use instead of compress
 */
 #define erl_zlib_compress(dest,destLen,source,sourceLen) \
