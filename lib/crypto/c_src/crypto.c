@@ -475,7 +475,7 @@ static struct nid_map ec_curves[] = {
 struct nif_ec_key {
     EC_KEY *key;
 };
-#endif
+#endif /* HAVE_EC */
 
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 
@@ -528,9 +528,8 @@ static ERL_NIF_TERM atom_none;
 static ERL_NIF_TERM atom_notsup;
 static ERL_NIF_TERM atom_digest;
 
-static ERL_NIF_TERM atom_ec;
-
 #if defined(HAVE_EC)
+static ERL_NIF_TERM atom_ec;
 static ERL_NIF_TERM atom_prime_field;
 static ERL_NIF_TERM atom_characteristic_two_field;
 static ERL_NIF_TERM atom_tpbasis;
@@ -570,7 +569,6 @@ static void error_handler(void* null, const char* errstr)
 
 static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
-    int i;
     ErlNifSysInfo sys_info;
     get_crypto_callbacks_t* funcp;
     struct crypto_callbacks* ccb;
@@ -639,8 +637,11 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_ppbasis = enif_make_atom(env,"ppbasis");
     atom_onbasis = enif_make_atom(env,"onbasis");
 
-    for (i = 0; i < EC_CURVES_CNT; i++)
+    {
+	int i;
+	for (i = 0; i < EC_CURVES_CNT; i++)
 	    ec_curves[i].atom =  enif_make_atom(env,ec_curves[i].name);
+    }
 #endif
 
     init_digest_types(env);
@@ -1440,7 +1441,7 @@ static ERL_NIF_TERM hmac_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     HMAC_CTX_cleanup(&ctx);
 
     if (argc == 2 && req_len < mac_len) { 
-        // Only truncate to req_len bytes if asked.
+        /* Only truncate to req_len bytes if asked. */
         mac_len = req_len;
     }
     mac_bin = enif_make_new_binary(env, mac_len, &ret);
@@ -2939,7 +2940,7 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 	     && c_arity == 5
 	     && get_bn_from_bin(env, curve[3], &bn_order)
 	     && (curve[4] != atom_none && get_bn_from_bin(env, curve[4], &cofactor))) {
-	//* {Field, Prime, Point, Order, CoFactor} = Curve */
+	/* {Field, Prime, Point, Order, CoFactor} = Curve */
 
 	int f_arity = -1;
 	const ERL_NIF_TERM* field;
