@@ -3077,7 +3077,7 @@ static ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
     dlen = BN_num_bytes(bn);
     ptr = enif_make_new_binary(env, dlen, &ret);
     BN_bn2bin(bn, ptr);
-
+    ERL_VALGRIND_MAKE_MEM_DEFINED(ptr, dlen);
     return ret;
 }
 
@@ -3100,7 +3100,7 @@ static ERL_NIF_TERM point2term(ErlNifEnv* env,
 	enif_release_binary(&bin);
 	return enif_make_badarg(env);
     }
-
+    ERL_VALGRIND_MAKE_MEM_DEFINED(bin.data, bin.size);
     return enif_make_binary(env, &bin);
 }
 
