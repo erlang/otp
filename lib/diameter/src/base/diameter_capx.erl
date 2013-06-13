@@ -419,12 +419,13 @@ app_union(#diameter_caps{auth_application_id = U,
                          vendor_specific_application_id = V}) ->
     set_list(U ++ C ++ lists:flatmap(fun vsa_apps/1, V)).
 
-vsa_apps([_ | [_,_] = Ids]) ->
-    lists:append(Ids);
+vsa_apps(Vals)
+  when is_list(Vals) ->
+    lists:flatmap(fun({'Vendor-Id', _}) -> []; ({_, Ids}) -> Ids end, Vals);
 vsa_apps(Rec)
   when is_tuple(Rec) ->
-    [_|T] = tuple_to_list(Rec),
-    vsa_apps(T).
+    [_Name, _VendorId | Idss] = tuple_to_list(Rec),
+    lists:append(Idss).
 
 %% It's a configuration error for a locally advertised application not
 %% to be represented in Apps. Don't just match on lists:keyfind/3 in
