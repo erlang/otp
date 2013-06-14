@@ -175,7 +175,7 @@ request(Method,
 request(Method, 
 	{Url, Headers, ContentType, Body}, 
 	HTTPOptions, Options, Profile) 
-  when ((Method =:= post) orelse (Method =:= put)) andalso 
+  when ((Method =:= post) orelse (Method =:= put) orelse (Method =:= delete)) andalso 
        (is_atom(Profile) orelse is_pid(Profile)) ->
     ?hcrt("request", [{method,       Method}, 
 		      {url,          Url},
