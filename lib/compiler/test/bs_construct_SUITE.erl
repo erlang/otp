@@ -319,6 +319,8 @@ in_guard(Config) when is_list(Config) ->
     ?line 1 = in_guard_1(<<16#74ad:16>>, 16#e95, 5),
     ?line 2 = in_guard_1(<<16#3A,16#F7,"hello">>, 16#3AF7, <<"hello">>),
     ?line 3 = in_guard_1(<<16#FBCD:14,3.1415/float,3:2>>, 16#FBCD, 3.1415),
+    ?line 3 = in_guard_1(<<16#FBCD:14,3/float,3:2>>, 16#FBCD, 3),
+    ?line 3 = in_guard_1(<<16#FBCD:14,(2 bsl 226)/float,3:2>>, 16#FBCD, 2 bsl 226),
     ?line nope = in_guard_1(<<1>>, 42, b),
     ?line nope = in_guard_1(<<1>>, a, b),
     ?line nope = in_guard_1(<<1,2>>, 1, 1),
