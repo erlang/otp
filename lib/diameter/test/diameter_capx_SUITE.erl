@@ -27,6 +27,8 @@
 -export([suite/0,
          all/0,
          groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
          init_per_group/2,
          end_per_group/2,
          init_per_testcase/2,
@@ -56,6 +58,11 @@
          peer_down/4]).
 
 -include("diameter.hrl").
+-include("diameter_gen_base_rfc3588.hrl").
+%% Use only the Vendor-Specific-Application-Id record from the base
+%% include, to test the independence of capabilities configuration
+%% from the different definitions of Vendor-Id in RFC's 3588 and RFC
+%% 6733.
 
 %% ===========================================================================
 
@@ -68,6 +75,11 @@
 
 -define(REALM, "erlang.org").
 -define(HOST(Name), Name ++ "." ++ ?REALM).
+
+%% Application id's that are never agreed upon at capabilities
+%% exchange. Testcase no_common_application references them in order
+%% to exercise Vendor-Specific-Application-Id handling.
+-define(NOAPPS, [1111, 2222, 3333, 4444]).
 
 %% Config for diameter:start_service/2.
 -define(SERVICE,
@@ -83,7 +95,10 @@
             || {A,D} <- [{base3588, diameter_gen_base_rfc3588},
                          {acct3588, diameter_gen_base_accounting},
                          {base6733, diameter_gen_base_rfc6733},
-                         {acct6733, diameter_gen_acct_rfc6733}]]]).
+                         {acct6733, diameter_gen_acct_rfc6733}]]]
+        ++ [{application, [{dictionary, dict(N)},
+                           {module, not_really}]}
+            || N <- ?NOAPPS]).
 
 -define(A, list_to_atom).
 -define(L, atom_to_list).
@@ -115,6 +130,16 @@ all() -> [start,
 groups() ->
     Tc = lists:flatmap(fun tc/1, tc()),
     [{D, [], Tc} || D <- ?DICTS].
+
+init_per_suite(Config) ->
+    lists:foreach(fun load_dict/1, ?NOAPPS),
+    Config.
+
+end_per_suite(_Config) ->
+    [] = [Mod || N <- ?NOAPPS,
+                 Mod <- [dict(N)],
+                 false <- [code:delete(Mod)]],
+    ok.
 
 %% Generate a unique hostname for each testcase so that watchdogs
 %% don't prevent a connection from being brought up immediately.
@@ -160,7 +185,7 @@ start(_Config) ->
     ok = diameter:start().
 
 %% Ensure that both integer and list-valued vendor id's can be
-%% configured in a 'Vendor-Specific-Application-Id, the arity having
+%% configured in a Vendor-Specific-Application-Id, the arity having
 %% changed between RFC 3588 and RFC 6733.
 vendor_id(_Config) ->
     [] = ?util:run([[fun vid/1, V] || V <- [1, [1], [1,2], x]]).
@@ -188,13 +213,13 @@ add_listeners(Config) ->
     Acct = [listen(?SERVER,
                    [{capabilities, [{'Origin-Host', ?HOST(H)},
                                     {'Auth-Application-Id', []}]},
-                    {applications, [A]},
+                    {applications, [A | noapps()]},
                     {capabilities_cb, [fun server_capx/3, acct]}])
             || {A,H} <- [{acct3588, "acct3588-srv"},
                          {acct6733, "acct6733-srv"}]],
     Base = [listen(?SERVER,
                    [{capabilities, [{'Origin-Host', ?HOST(H)}]},
-                    {applications, A},
+                    {applications, A ++ noapps()},
                     {capabilities_cb, [fun server_capx/3, base]}])
             || {A,H} <- [{[base3588, acct3588], "base3588-srv"},
                          {[base6733, acct6733], "base6733-srv"}]],
@@ -224,15 +249,33 @@ stop(_Config) ->
 %% DIAMETER_NO_COMMON_APPLICATION = 5010.
 
 s_no_common_application(Config) ->
-    server_closed(Config, fun no_common_application/1, 5010).
+    Vs = [[{'Vendor-Id', 111},
+           {'Auth-Application-Id', [1111]}],
+          #'diameter_base_Vendor-Specific-Application-Id'
+           {'Vendor-Id' = [222],
+            'Acct-Application-Id' = [2222]}],
+    server_closed(Config,
+                  fun(C) -> no_common_application(C,Vs) end,
+                  5010).
 
 c_no_common_application(Config) ->
-    client_closed(Config, "acct-srv", fun no_common_application/1, 5010).
+    Vs = [#'diameter_base_Vendor-Specific-Application-Id'
+          {'Vendor-Id' = 333,
+           'Auth-Application-Id' = [3333]},
+          [{'Vendor-Id', [444]},
+           {'Acct-Application-Id', [4444]}]],
+    client_closed(Config,
+                  "acct-srv",
+                  fun(C) -> no_common_application(C,Vs) end,
+                  5010).
 
-no_common_application(Config) ->
+no_common_application(Config, Vs) ->
     [Common, _Acct] = apps(Config),
-    connect(Config, acct, [{capabilities, [{'Acct-Application-Id', []}]},
-                           {applications, [Common]}]).
+    connect(Config,
+            acct,
+            [{capabilities, [{'Acct-Application-Id', []},
+                             {'Vendor-Specific-Application-Id', Vs}]},
+             {applications, [Common | noapps()]}]).
 
 %% ====================
 %% Ask the base server to speak accounting with an unknown security
@@ -323,6 +366,25 @@ client_reject(Config) ->
                            {applications, apps(Config)}]).
 
 %% ===========================================================================
+
+noapps() ->
+    lists:map(fun dict/1, ?NOAPPS).
+
+dict(N) ->
+    ?A(?L(?MODULE) ++ "_" ++ integer_to_list(N)).
+
+%% Compile and load minimal dictionary modules. These actually have to
+%% exists since diameter will call their id/0 to extract application
+%% id's, failing with app_not_configured if it can't.
+load_dict(N) ->
+    Mod = dict(N),
+    Forms = [{attribute, 1, module, Mod},
+             {attribute, 2, compile, [export_all]},
+             {function, 3, id, 0,
+              [{clause, 4, [], [], [{integer, 4, N}]}]}],
+    {ok, Mod, Bin, []} = compile:forms(Forms, [return]),
+    {module, Mod} = code:load_binary(Mod, Mod, Bin),
+    N = Mod:id().
 
 %% server_closed/3
 
