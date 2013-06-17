@@ -30,6 +30,36 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.10.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix the title of hipe_app documentation page. Thanks to
+	    Loïc Hoguin.</p>
+          <p>
+	    Own Id: OTP-10904</p>
+        </item>
+        <item>
+          <p>
+	    Fix native code compiler crash involving bs_match_string.
+	    Thanks to Kostis Sagonas.</p>
+          <p>
+	    Own Id: OTP-10985</p>
+        </item>
+        <item>
+          <p>
+	    Loosen the assumptions of code that handles escaping
+	    functions. Thanks to Kostis Sagonas</p>
+          <p>
+	    Own Id: OTP-11031</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.10.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

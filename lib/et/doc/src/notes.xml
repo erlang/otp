@@ -36,6 +36,29 @@
   one section in this document. The title of each section is the
   version number of <c>Event Tracer (ET)</c>.</p>
 
+<section><title>ET 1.4.4.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use erlang:demonitor(Ref, [flush]) where applicable.
+	    Thanks to Loïc Hoguin.</p>
+          <p>
+	    Own Id: OTP-11039</p>
+        </item>
+        <item>
+          <p>
+	    Rename and document lists:zf/2 as lists:filtermap/2.
+	    Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11078</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>ET 1.4.4.3</title>
 
     <section><title>Improvements and New Features</title>

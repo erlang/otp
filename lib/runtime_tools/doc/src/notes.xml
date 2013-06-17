@@ -31,6 +31,37 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some bugs related to calculation of CPU/scheduler
+	    utilization in observer are corrected.</p>
+          <p>
+	    Current function for a process is accepted to be
+	    'undefined' when running hipe.</p>
+          <p>
+	    Own Id: OTP-10894</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Erlang source files with non-ASCII characters are now
+	    encoded in UTF-8 (instead of latin1).</p>
+          <p>
+	    Own Id: OTP-11041 Aux Id: OTP-10907 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

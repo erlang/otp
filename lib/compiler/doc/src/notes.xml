@@ -31,6 +31,57 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Compiling functions with complex boolean operations in
+	    guards could be very slow. (Thanks to Magnus Muller for
+	    reporting this issue.)</p>
+          <p>
+	    Own Id: OTP-10939</p>
+        </item>
+        <item>
+          <p>
+	    Certain guard expressions used in a receive statement
+	    could cause the compiler to crash.</p>
+          <p>
+	    Own Id: OTP-11119 Aux Id: seq12342 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix optimization of some binary comprehensions. Thanks to
+	    Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11005</p>
+        </item>
+        <item>
+          <p>
+	    Use a set to store ref registers in beam_receive. Thanks
+	    to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11069</p>
+        </item>
+        <item>
+          <p>
+	    Fix renaming of bs_put_string instructions. Thanks to
+	    Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11129</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

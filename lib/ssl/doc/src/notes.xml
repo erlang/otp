@@ -26,7 +26,80 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
   
-  <section><title>SSL 5.2.1</title>
+  <section><title>SSL 5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Honor the versions option to ssl:connect and ssl:listen.</p>
+          <p>
+	    Own Id: OTP-10905</p>
+        </item>
+        <item>
+          <p>
+	    Next protocol negotiation with reused sessions will now
+	    succeed</p>
+          <p>
+	    Own Id: OTP-10909</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for PSK (Pre Shared Key) and SRP (Secure
+	    Remote Password) chipher suits, thanks to Andreas
+	    Schultz.</p>
+          <p>
+	    Own Id: OTP-10450 Aux Id: kunagi-269 [180] </p>
+        </item>
+        <item>
+          <p>
+	    Fix SSL Next Protocol Negotiation documentation. Thanks
+	    to Julien Barbot.</p>
+          <p>
+	    Own Id: OTP-10955</p>
+        </item>
+        <item>
+          <p>
+	    Fix ssl_connection to support reading proxy/chain
+	    certificates. Thanks to Valentin Kuznetsov.</p>
+          <p>
+	    Own Id: OTP-10980</p>
+        </item>
+        <item>
+          <p>
+	    Integrate elliptic curve contribution from Andreas
+	    Schultz </p>
+          <p>
+	    In order to be able to support elliptic curve cipher
+	    suites in SSL/TLS, additions to handle elliptic curve
+	    infrastructure has been added to public_key and crypto.</p>
+          <p>
+	    This also has resulted in a rewrite of the crypto API to
+	    gain consistency and remove unnecessary overhead. All OTP
+	    applications using crypto has been updated to use the new
+	    API.</p>
+          <p>
+	    Impact: Elliptic curve cryptography (ECC) offers
+	    equivalent security with smaller key sizes than other
+	    public key algorithms. Smaller key sizes result in
+	    savings for power, memory, bandwidth, and computational
+	    cost that make ECC especially attractive for constrained
+	    environments.</p>
+          <p>
+	    Own Id: OTP-11009</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.2.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

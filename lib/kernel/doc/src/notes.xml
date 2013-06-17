@@ -30,6 +30,91 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.16.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug in prim_inet has been corrected. If the port owner
+	    was killed at a bad time while closing the socket port
+	    the port could become orphaned hence causing port and
+	    socket leaking. Reported by Fred Herbert, Dmitry Belyaev
+	    and others.</p>
+          <p>
+	    Own Id: OTP-10497 Aux Id: OTP-10562 </p>
+        </item>
+        <item>
+          <p>
+	    A few bugs regarding case sensitivity for hostname
+	    resolution while using e.g the internal lookup types
+	    'file' and 'dns' has been corrected. When looking up
+	    hostnames ASCII letters a-z are to be regarded as the
+	    same as A-Z according to RFC 4343 "Domain Name System
+	    (DNS) Case Insensitivity Clarification", and this was not
+	    always the case.</p>
+          <p>
+	    Own Id: OTP-10689 Aux Id: seq12227 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>application:ensure_started/1,2</c>. It is
+	    equivavlent to <c>application:start/1,2</c> except it
+	    returns <c>ok</c> for already started applications.</p>
+          <p>
+	    Own Id: OTP-10910</p>
+        </item>
+        <item>
+          <p>
+	    Optimize communication with file io server. Thanks to
+	    Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11040</p>
+        </item>
+        <item>
+	    <p>Erlang source files with non-ASCII characters are now
+	    encoded in UTF-8 (instead of latin1).</p>
+          <p>
+	    Own Id: OTP-11041 Aux Id: OTP-10907 </p>
+        </item>
+        <item>
+          <p>
+	    Optimization of simultaneous <c>inet_db</c> operations on
+	    the same socket by using a lock free implementation.</p>
+          <p>
+	    Impact on the characteristics of the system: Improved
+	    performance.</p>
+          <p>
+	    Own Id: OTP-11074</p>
+        </item>
+        <item>
+          <p>
+	    The <c>high_msgq_watermark</c> and
+	    <c>low_msgq_watermark</c> <c>inet</c> socket options
+	    introduced in OTP-R16A could only be set on TCP sockets.
+	    These options are now generic and can be set on all types
+	    of sockets.</p>
+          <p>
+	    Own Id: OTP-11075 Aux Id: OTP-10336 </p>
+        </item>
+        <item>
+          <p>
+	    Fix deep list argument error under Windows in os:cmd/1.
+	    Thanks to Aleksandr Vinokurov .</p>
+          <p>
+	    Own Id: OTP-11104</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.16.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
