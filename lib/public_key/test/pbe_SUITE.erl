@@ -42,6 +42,7 @@ groups() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    application:stop(crypto),
     try crypto:start() of
 	ok ->
 	    Config
