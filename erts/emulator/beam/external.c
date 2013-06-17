@@ -1662,6 +1662,9 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		    pb->flags = 0;
 		    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
 		    erts_refc_inc(&result_bin->refc, 1);
+		    if (context_b && erts_refc_read(&context_b->refc,0) == 0) {
+			erts_bin_free(context_b);
+		    }
 		    return make_binary(pb);
 		}
 		/* Continue with compression... */
@@ -1736,6 +1739,9 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 			context->s.cc.result_bin = NULL;
 			context->alive = 0;
 			BUMP_REDS(p, (this_time * CONTEXT_REDS) / TERM_TO_BINARY_COMPRESS_CHUNK);
+			if (context_b && erts_refc_read(&context_b->refc,0) == 0) {
+			    erts_bin_free(context_b);
+			}
 			return make_binary(pb);
 		    }
 		default: /* Compression error, revert to uncompressed binary (still in 
@@ -1758,6 +1764,9 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		    context->s.cc.destination_bin = NULL;
 		    context->alive = 0;
 		    BUMP_REDS(p, (this_time * CONTEXT_REDS) / TERM_TO_BINARY_COMPRESS_CHUNK);
+		    if (context_b && erts_refc_read(&context_b->refc,0) == 0) {
+			erts_bin_free(context_b);
+		    }
 		    return make_binary(pb);
 		}
 	    }
