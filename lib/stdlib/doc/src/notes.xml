@@ -30,6 +30,179 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.19.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The Erlang scanner no longer accepts floating point
+	    numbers in the input string. </p>
+          <p>
+	    Own Id: OTP-10990</p>
+        </item>
+        <item>
+          <p>
+	    When converting a faulty binary to a list with
+	    unicode:characters_to_list, the error return value could
+	    contain a faulty "rest", i.e. the io_list of characters
+	    that could not be converted was wrong. This happened only
+	    if input was a sub binary and conversion was from utf8.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-11080</p>
+        </item>
+        <item>
+	    <p>The type <c>hook_function()</c> has been corrected in
+	    <c>erl_pp</c>, the Erlang Pretty Printer. </p>
+	    <p>The printing of invalid forms, e.g. record field
+	    types, has also been fixed. It has been broken since
+	    R16B. </p>
+	    <p> (Thanks to Tom&#225;&#353; Janou&#353;ek.) </p>
+          <p>
+	    Own Id: OTP-11100</p>
+        </item>
+        <item>
+          <p>
+	    Fix receive support in erl_eval with a BEAM module.
+	    Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11137</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Delete obsolete note about simple-one-for-one supervisor.
+	    Thanks to Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-10938</p>
+        </item>
+        <item>
+	    <p> When selecting encoding of a script written in Erlang
+	    (<c>escript</c>) the optional directive on the second
+	    line is now recognized. </p>
+          <p>
+	    Own Id: OTP-10951</p>
+        </item>
+        <item>
+	    <p> The function <c>erl_parse:abstract/2</c> has been
+	    documented. </p>
+          <p>
+	    Own Id: OTP-10992</p>
+        </item>
+        <item>
+          <p>
+	    Integrate elliptic curve contribution from Andreas
+	    Schultz </p>
+          <p>
+	    In order to be able to support elliptic curve cipher
+	    suites in SSL/TLS, additions to handle elliptic curve
+	    infrastructure has been added to public_key and crypto.</p>
+          <p>
+	    This also has resulted in a rewrite of the crypto API to
+	    gain consistency and remove unnecessary overhead. All OTP
+	    applications using crypto has been updated to use the new
+	    API.</p>
+          <p>
+	    Impact: Elliptic curve cryptography (ECC) offers
+	    equivalent security with smaller key sizes than other
+	    public key algorithms. Smaller key sizes result in
+	    savings for power, memory, bandwidth, and computational
+	    cost that make ECC especially attractive for constrained
+	    environments.</p>
+          <p>
+	    Own Id: OTP-11009</p>
+        </item>
+        <item>
+          <p>
+	    Added sys:get_state/1,2 and sys:replace_state/2,3. Thanks
+	    to Steve Vinoski.</p>
+          <p>
+	    Own Id: OTP-11013</p>
+        </item>
+        <item>
+          <p>
+	    Optimizations to gen mechanism. Thanks to Loïc Hoguin.</p>
+          <p>
+	    Own Id: OTP-11025</p>
+        </item>
+        <item>
+          <p>
+	    Optimizations to gen.erl. Thanks to Loïc Hoguin.</p>
+          <p>
+	    Own Id: OTP-11035</p>
+        </item>
+        <item>
+          <p>
+	    Use erlang:demonitor(Ref, [flush]) where applicable.
+	    Thanks to Loïc Hoguin.</p>
+          <p>
+	    Own Id: OTP-11039</p>
+        </item>
+        <item>
+	    <p>Erlang source files with non-ASCII characters are now
+	    encoded in UTF-8 (instead of latin1).</p>
+          <p>
+	    Own Id: OTP-11041 Aux Id: OTP-10907 </p>
+        </item>
+        <item>
+          <p>
+	    Fix rest_for_one and one_for_all restarting a child not
+	    terminated. Thanks to James Fish.</p>
+          <p>
+	    Own Id: OTP-11042</p>
+        </item>
+        <item>
+          <p>
+	    Fix excessive CPU consumption of timer_server. Thanks to
+	    Aliaksey Kandratsenka.</p>
+          <p>
+	    Own Id: OTP-11053</p>
+        </item>
+        <item>
+          <p>
+	    Rename and document lists:zf/2 as lists:filtermap/2.
+	    Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11078</p>
+        </item>
+        <item>
+          <p>
+	    Fixed an inconsistent state in epp. Thanks to Anthony
+	    Ramine</p>
+          <p>
+	    Own Id: OTP-11079</p>
+        </item>
+        <item>
+          <p>
+	    c:ls(File) will now print File, similar to ls(1) in Unix.
+	    The error messages have also been improved. (Thanks to
+	    Bengt Kleberg.)</p>
+          <p>
+	    Own Id: OTP-11108</p>
+        </item>
+        <item>
+          <p>
+	    Support callback attributes in erl_pp. Thanks to Anthony
+	    Ramine.</p>
+          <p>
+	    Own Id: OTP-11140</p>
+        </item>
+        <item>
+          <p>
+	    Improve erl_lint performance. Thanks to José Valim.</p>
+          <p>
+	    Own Id: OTP-11143</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.19.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

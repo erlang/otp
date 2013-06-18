@@ -30,7 +30,23 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.3.1</title>
+   <section><title>IC 4.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed some compilation warnings on miscellaneous
+	    platforms. Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11086</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

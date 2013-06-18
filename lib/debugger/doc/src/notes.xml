@@ -32,6 +32,32 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 3.2.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> A new checkbox has been added. When it is checked,
+	    the range set by the <c>erl</c> flag <c>+pc</c> is used
+	    for determining when to print lists of integers as
+	    strings. When it is unchecked, integer lists are never
+	    printed as strings. </p> <p>A minor incompatibility:
+	    settings saved by Erlang R16B01 or later cannot be read
+	    by Erlang R16B or earlier.</p>
+          <p>
+	    Own Id: OTP-10899</p>
+        </item>
+        <item>
+	    <p>Erlang source files with non-ASCII characters are now
+	    encoded in UTF-8 (instead of latin1).</p>
+          <p>
+	    Own Id: OTP-11041 Aux Id: OTP-10907 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 3.2.10</title>
 
     <section><title>Improvements and New Features</title>

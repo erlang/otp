@@ -32,6 +32,158 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A design flaw in the generic connection handling in
+	    Common Test made it impossible to implement a connection
+	    handler that could map multiple connection names (i.e.
+	    configuration variable aliases) to single connection
+	    pids. This problem has been solved.</p>
+          <p>
+	    Own Id: OTP-10126 Aux Id: kunagi-178 [89] </p>
+        </item>
+        <item>
+          <p>
+	    If a telnet connection is hanging, then a call to
+	    ct_telnet:close/1 will time out after 5 seconds and the
+	    connection process is brutally killed. In some cases the
+	    connection would not be unregistered and attempts at
+	    opening a new connection with the same name would make
+	    common_test try to reuse the same connection since it
+	    believed that it was still alive. This has been corrected
+	    - a killed connection is now always unregistered.</p>
+          <p>
+	    Own Id: OTP-10648 Aux Id: seq12212 </p>
+        </item>
+        <item>
+          <p>
+	    Test performance has been improved by means of a cache
+	    for the top level HTML index logs (all_runs.html and
+	    index.html, in the logdir directory). This solves
+	    problems with slow start up times and test execution
+	    times increasing with the number of ct_run directories
+	    stored in logdir. The cached index entries are stored in
+	    RAM during test execution and are saved to file in logdir
+	    (for faster start up times) whenever a test run finishes.</p>
+          <p>
+	    Own Id: OTP-10855</p>
+        </item>
+        <item>
+          <p>
+	    Testing of the test specification functionality has been
+	    improved and a couple of minor bugs have been discovered
+	    and corrected.</p>
+          <p>
+	    Own Id: OTP-10857</p>
+        </item>
+        <item>
+          <p>
+	    Links to the top level index files in some HTML footers
+	    had disappeared. This error has been corrected. Also, a
+	    problem with the suite overview log file not being closed
+	    properly has been solved.</p>
+          <p>
+	    Own Id: OTP-11046</p>
+        </item>
+        <item>
+          <p>
+	    Common Test would, in case of timetrap error, print a
+	    warning in the log if end_per_testcase wasn't implemented
+	    in the suite, even though it's an optional function. This
+	    printout has been removed.</p>
+          <p>
+	    Own Id: OTP-11052</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    If it could not be decided which test case a certain log
+	    printout belonged to, the common test framework log was
+	    earlier used. Such printouts are now instead sent to
+	    unexpected_io.log.html in test_server so that there is
+	    only one place to look for "missing" printouts.</p>
+          <p>
+	    Own Id: OTP-10494 Aux Id: kunagi-319 [230] </p>
+        </item>
+        <item>
+          <p>
+	    Make cover smarter about finding source from beam.</p>
+          <p>
+	    In particular, search using the source path in
+	    module_info if the current heuristic fails.</p>
+          <p>
+	    Own Id: OTP-10902</p>
+        </item>
+        <item>
+          <p>
+	    Add a variant of ct_slave:start/2 that starts a node with
+	    specified options on the local host.</p>
+          <p>
+	    Own Id: OTP-10920</p>
+        </item>
+        <item>
+          <p>
+	    Integrate elliptic curve contribution from Andreas
+	    Schultz </p>
+          <p>
+	    In order to be able to support elliptic curve cipher
+	    suites in SSL/TLS, additions to handle elliptic curve
+	    infrastructure has been added to public_key and crypto.</p>
+          <p>
+	    This also has resulted in a rewrite of the crypto API to
+	    gain consistency and remove unnecessary overhead. All OTP
+	    applications using crypto has been updated to use the new
+	    API.</p>
+          <p>
+	    Impact: Elliptic curve cryptography (ECC) offers
+	    equivalent security with smaller key sizes than other
+	    public key algorithms. Smaller key sizes result in
+	    savings for power, memory, bandwidth, and computational
+	    cost that make ECC especially attractive for constrained
+	    environments.</p>
+          <p>
+	    Own Id: OTP-11009</p>
+        </item>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+        <item>
+          <p>
+	    A link is added from the red error printout in a test
+	    case log (for a failed test case) to the full error
+	    description at the end of the log. The reason for this is
+	    that the error description in the red field is sometimes
+	    truncated at 50 characters in order to keep the log as
+	    short and easy to read as possible.</p>
+          <p>
+	    Own Id: OTP-11044 Aux Id: seq12304 </p>
+        </item>
+        <item>
+          <p>
+	    A new option 'no_prompt_check' is added to
+	    ct_telnet:expect/3. If this option is used, ct_telnet
+	    will not wait for a prompt or a newline before attempting
+	    to match the given pattern.</p>
+          <p>
+	    Own Id: OTP-11095</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,65 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Integrate elliptic curve contribution from Andreas
+	    Schultz </p>
+          <p>
+	    In order to be able to support elliptic curve cipher
+	    suites in SSL/TLS, additions to handle elliptic curve
+	    infrastructure has been added to public_key and crypto.</p>
+          <p>
+	    This also has resulted in a rewrite of the crypto API to
+	    gain consistency and remove unnecessary overhead. All OTP
+	    applications using crypto has been updated to use the new
+	    API.</p>
+          <p>
+	    Impact: Elliptic curve cryptography (ECC) offers
+	    equivalent security with smaller key sizes than other
+	    public key algorithms. Smaller key sizes result in
+	    savings for power, memory, bandwidth, and computational
+	    cost that make ECC especially attractive for constrained
+	    environments.</p>
+          <p>
+	    Own Id: OTP-11009</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a spelling mistake in crypto docs. Thanks to Klaus
+	    Trainer</p>
+          <p>
+	    Own Id: OTP-11058</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Make the crypto functions interruptible by chunking input
+	    when it is very large and bumping reductions in the nifs.</p>
+          <p>
+	    Not yet implemented for block_encrypt|decrypt/4</p>
+          <p>
+	    Impact: Individual calls to crypto functions may take
+	    longer time but over all system performance should
+	    improve as crypto calls will not become throughput
+	    bottlenecks.</p>
+          <p>
+	    Own Id: OTP-11142</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 2.3</title>
 
     <section><title>Improvements and New Features</title>

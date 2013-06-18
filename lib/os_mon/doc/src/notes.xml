@@ -30,6 +30,34 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Compilation fixes for NetBSD. Thanks to YAMAMOTO Takashi.</p>
+          <p>
+	    Own Id: OTP-10941</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed disksup:get_disk_data for SUSv3, specifically OS X
+	    ML. Thanks to Sriram Melkote.</p>
+          <p>
+	    Own Id: OTP-10945</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.2.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

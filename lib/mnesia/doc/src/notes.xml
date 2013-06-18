@@ -38,7 +38,37 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.8</title>
+  <section><title>Mnesia 4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If mnesia:clear_table/2 was called during a table load on
+	    that table, the schema record was written to the table
+	    instead of clearing table.</p>
+          <p>
+	    Own Id: OTP-11030 Aux Id: seq12267 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimize index creation for Mnesia set tables. Thanks to
+	    Nick Marino.</p>
+          <p>
+	    Own Id: OTP-11103</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

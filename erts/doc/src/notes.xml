@@ -30,6 +30,369 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.10.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug in prim_inet has been corrected. If the port owner
+	    was killed at a bad time while closing the socket port
+	    the port could become orphaned hence causing port and
+	    socket leaking. Reported by Fred Herbert, Dmitry Belyaev
+	    and others.</p>
+          <p>
+	    Own Id: OTP-10497 Aux Id: OTP-10562 </p>
+        </item>
+        <item>
+          <p>
+	    Compilation fixes for NetBSD. Thanks to YAMAMOTO Takashi.</p>
+          <p>
+	    Own Id: OTP-10941</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a race condition when using delayed_write when
+	    writing to a file which would cause the same data to be
+	    written multiple times.</p>
+          <p>
+	    Own Id: OTP-10984</p>
+        </item>
+        <item>
+          <p>
+	    Fix small memory leak from tracing with option
+	    <c>meta</c>.</p>
+          <p>
+	    Own Id: OTP-10997</p>
+        </item>
+        <item>
+          <p>
+	    Correct typo in erlsrv usage. Thanks to Bryan Hunter</p>
+          <p>
+	    Own Id: OTP-11002</p>
+        </item>
+        <item>
+          <p>
+	    ct_run: delete unused function. Thanks to Tuncer Ayaz.</p>
+          <p>
+	    Own Id: OTP-11003</p>
+        </item>
+        <item>
+          <p>
+	    Corrections to run_erl/to_erl handshake behaviour.</p>
+          <p>
+	    Own Id: OTP-11012</p>
+        </item>
+        <item>
+          <p>
+	    Fix typo in type: erlang:process_info_item(). Thanks to
+	    Andrew Tunnell-Jones.</p>
+          <p>
+	    Own Id: OTP-11024</p>
+        </item>
+        <item>
+          <p>
+	    Fix src/dest overlap issue in ttsl driver. Thanks to
+	    Steve Vinoski.</p>
+          <p>
+	    Own Id: OTP-11064</p>
+        </item>
+        <item>
+          <p>
+	    When sending to a port using <c>erlang:send(Port, Msg,
+	    [nosuspend])</c>, the send operation was performed
+	    synchronously. This bug has now been fixed.</p>
+          <p>
+	    Own Id: OTP-11076 Aux Id: OTP-10336 </p>
+        </item>
+        <item>
+          <p>
+	    When converting a faulty binary to a list with
+	    unicode:characters_to_list, the error return value could
+	    contain a faulty "rest", i.e. the io_list of characters
+	    that could not be converted was wrong. This happened only
+	    if input was a sub binary and conversion was from utf8.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-11080</p>
+        </item>
+        <item>
+          <p>
+	    Runtime system could crash when reporting stale
+	    <c>driver_select()</c>.</p>
+          <p>
+	    Own Id: OTP-11084</p>
+        </item>
+        <item>
+          <p>
+	    Fix lock order violation for memory instrumentation
+	    (+Mim, +Mis, +Mit).</p>
+          <p>
+	    Own Id: OTP-11085</p>
+        </item>
+        <item>
+          <p>
+	    Fixed some compilation warnings on miscellaneous
+	    platforms. Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11086</p>
+        </item>
+        <item>
+          <p>
+	    Fixed issue when flushing i/o during shutdown on windows
+	    where the Erlang VM would sometime hang due to a race
+	    condition.</p>
+          <p>
+	    Own Id: OTP-11096</p>
+        </item>
+        <item>
+          <p>
+	    Fixed issue where repeated calls to erlang:nodes() could
+	    cause unnecessary contention in the dist_table lock.</p>
+          <p>
+	    Own Id: OTP-11097</p>
+        </item>
+        <item>
+          <p>
+	    Properly guard WIDE_TAG use with HAVE_WCWIDTH in
+	    ttsl_drv. Thanks to Anthony Ramine</p>
+          <p>
+	    Own Id: OTP-11106</p>
+        </item>
+        <item>
+          <p>
+	    Fix some Makefile rules that didn't support silent rules.
+	    Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11111</p>
+        </item>
+        <item>
+          <p>
+	    Fix receive support in erl_eval with a BEAM module.
+	    Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11137</p>
+        </item>
+        <item>
+          <p>
+	    erlang:now() could suddenly jump ~24 days into the future
+	    on Windows. This is now corrected. Thanks to Garret Smith
+	    for reporting and testing fixes.</p>
+          <p>
+	    Own Id: OTP-11146</p>
+        </item>
+        <item>
+          <p>
+	    erlang:term_to_binary will now cost an appropriate amount
+	    of reductions and will interrupt (yield) for reschedule
+	    if the term is big. This avoids too long schedules when
+	    term_to_binary is used. </p>
+          <p>
+	    Impact: Programs running term_to_binary on large terms
+	    will run more smothly, but rescheduling will impact the
+	    single process performance of the BIF. Single threaded
+	    benchmarks will show degraded performance of the BIF when
+	    called with very large terms, while general system
+	    behaviour will be improved. The overhead for allowing
+	    restart and reduction counting also degrades local
+	    performance of the BIF with between 5% and 10% even for
+	    small terms.</p>
+          <p>
+	    Own Id: OTP-11163</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Replaced the lock protecting gathering of garbage
+	    collection statistics with a lock-free solution.</p>
+          <p>
+	    Own Id: OTP-10271 Aux Id: kunagi-108
+	    [04c5410f-9cc4-4696-8639-36bf98686c7a-7] </p>
+        </item>
+        <item>
+	    <p>Support for migration of memory carriers between
+	    memory allocator instances has been introduced.</p>
+	    <p>By default this feature is not enabled and do not
+	    effect the characteristics of the system. When enabled it
+	    has the following impact on the characteristics of the
+	    system:</p> <list> <item>Reduced memory footprint when
+	    the memory load is unevenly distributed between scheduler
+	    specific allocator instances.</item> <item>Depending on
+	    the default allocaton strategy used on a specific
+	    allocator there might or might not be a slight
+	    performance loss.</item> <item>When enabled on the
+	    <c>fix_alloc</c> allocator, a different strategy for
+	    management of fix blocks will be used.</item> <item>The
+	    information returned from <seealso
+	    marker="erlang:system_info_allocator_tuple"><c>erlang:system_info({allocator,
+	    A})</c></seealso>, and <seealso
+	    marker="erlang:system_info_allocator_sizes"><c>erlang:system_info({allocator_sizes,
+	    A})</c></seealso> will be slightly different when this
+	    feature has been enabled. An <c>mbcs_pool</c> tuple will
+	    be present giving information about abandoned carriers,
+	    and in the <c>fix_alloc</c> case no <c>fix_types</c>
+	    tuple will be present. </item></list>
+	    <p>For more information, see the documentation of the
+	    <seealso
+	    marker="erts_alloc#M_acul"><c>+M&lt;S&gt;acul</c></seealso>
+	    command line argument.</p>
+          <p>
+	    Own Id: OTP-10279</p>
+        </item>
+        <item>
+          <p>
+	    Change specs for spawn_opt to use the process_level()
+	    type declaration instead of re-defining it in various
+	    places. Thanks to Kostis Sagonas.</p>
+          <p>
+	    Own Id: OTP-11008</p>
+        </item>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+        <item>
+	    <p>Erlang source files with non-ASCII characters are now
+	    encoded in UTF-8 (instead of latin1).</p>
+          <p>
+	    Own Id: OTP-11041 Aux Id: OTP-10907 </p>
+        </item>
+        <item>
+          <p>
+	    Optimization of simultaneous <c>inet_db</c> operations on
+	    the same socket by using a lock free implementation.</p>
+          <p>
+	    Impact on the characteristics of the system: Improved
+	    performance.</p>
+          <p>
+	    Own Id: OTP-11074</p>
+        </item>
+        <item>
+          <p>
+	    The <c>high_msgq_watermark</c> and
+	    <c>low_msgq_watermark</c> <c>inet</c> socket options
+	    introduced in OTP-R16A could only be set on TCP sockets.
+	    These options are now generic and can be set on all types
+	    of sockets.</p>
+          <p>
+	    Own Id: OTP-11075 Aux Id: OTP-10336 </p>
+        </item>
+        <item>
+	    <p>A new better algorithm for management of the process,
+	    and port tables has been introduced.</p>
+	    <p>Impact on the characteristics of the system:</p>
+	    <list> <item>The new algorithm ensures that both insert
+	    and delete operations can be made in O(1) time
+	    complexity. Previously used algorithm either caused
+	    insert or delete to be O(N).</item> <item>The new
+	    algorithm will also ensure that reuse of identifiers will
+	    be less frequent than when the old algorithm was
+	    used.</item> <item>Previously used algorithm ensured that
+	    the latest created identifier compared as the largest
+	    when comparing two identifiers of the same type that had
+	    been created on the same node as long as no identifiers
+	    had been reused. Since identifiers can be reused quite
+	    fast, one has never been able to rely on this property.
+	    Due to the introduction of this new algorithm this
+	    property will not hold even if no identifiers has been
+	    reused yet. This could be considered as an
+	    incompatibility.</item> </list>
+	    <p>Due to the above mensioned potential incompatibility,
+	    it will still be possible to enable the old algorithm for
+	    some time. The command line argument <seealso
+	    marker="erl#+P"><c>+P legacy</c></seealso> will enable
+	    the old algorithm on the process table, and <seealso
+	    marker="erl#+Q"><c>+Q legacy</c></seealso> will do the
+	    same for the port table. These command line arguments are
+	    however deprecated as of their introduction and have been
+	    scheduled for removal in OTP-R18.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11077</p>
+        </item>
+        <item>
+          <p>
+	    Support wide characters in the shell through wcwidth().
+	    Thanks to Anthony Ramine. Reported by Loïc Hoguin.</p>
+          <p>
+	    Own Id: OTP-11088</p>
+        </item>
+        <item>
+          <p>
+	    Added total used memory for each process in erlang crash
+	    dumps.</p>
+          <p>
+	    Own Id: OTP-11098</p>
+        </item>
+        <item>
+          <p>
+	    Added support for hipe on Raspberry Pi (armv6l). Thanks
+	    to Klaus Alfert.</p>
+          <p>
+	    Own Id: OTP-11125</p>
+        </item>
+        <item>
+          <p>
+	    Remove 'query' from the list of reserved words in docs.
+	    Thanks to Matthias Endler and Loïc Hoguin.</p>
+          <p>
+	    Own Id: OTP-11158</p>
+        </item>
+        <item>
+          <p>
+	    Lift static limitation (FD_SETSIZE) for file descriptors
+	    on Mac OS X. (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11159</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+	    <p>Miscellaneous native code in OTP misbehave either due
+	    to lengthy execution, or due to not bumping reductions
+	    properly. Problems typically occur when passing huge sets
+	    of data to a misbehaving BIF. Fixing this has high
+	    priority and is being worked on, but there will remain
+	    issues like this for some time.</p>
+	    <p>In order to alleviate problems with scheduling which
+	    might occur when executing misbehaving native code, the
+	    command line argument <seealso
+	    marker="erl#+sfwi">+sfwi</seealso> has been
+	    introduced.</p>
+	    <p>By default this feature is disabled and you are
+	    advised not to enable it if you do not encounter problems
+	    with misbehaving native code.</p>
+	    <p>When enabled it has the following impact on the
+	    characteristics of the system:</p> <list> <item>Work will
+	    always be distributed between schedulers even when
+	    executing misbehaving native code.</item> <item>It may
+	    cause an increased amount of processes and/or ports
+	    bouncing between schedulers which in turn will cause a
+	    performance loss.</item> <item>It may cause reduced
+	    performance due to reduced or lost work compaction when
+	    all schedulers do not execute under full load.</item>
+	    <item>An increased contention on run queue locks.</item>
+	    </list>
+          <p>
+	    Own Id: OTP-11164</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.10.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

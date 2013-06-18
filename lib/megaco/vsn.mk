@@ -18,6 +18,6 @@
 # %CopyrightEnd%
 
 APPLICATION = megaco
-MEGACO_VSN  = 3.17
+MEGACO_VSN  = 3.17.0.1
 PRE_VSN     =
 APP_VSN     = "$(APPLICATION)-$(MEGACO_VSN)$(PRE_VSN)"

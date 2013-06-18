@@ -37,7 +37,48 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.6.3</title>
+  <section><title>Reltool 0.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix receive support in erl_eval with a BEAM module.
+	    Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11137</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Reltool used to fail if an application was mentioned in
+	    the config file which was not found in the file system,
+	    even if the application was explicitly excluded in the
+	    config. This has been changed and will only produce a
+	    warning. If the application is not explicitly excluded it
+	    will still cause reltool to fail. Thanks to Håkan
+	    Mattsson!</p>
+          <p>
+	    Own Id: OTP-10988</p>
+        </item>
+        <item>
+          <p>
+	    Fix possibly "not owner" error while file copy with
+	    reltool. Thanks to Alexey Saltanov.</p>
+          <p>
+	    Own Id: OTP-11099</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.6.3</title>
 
     <section><title>Improvements and New Features</title>
       <list>

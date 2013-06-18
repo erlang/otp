@@ -31,6 +31,77 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A bug that made it impossible to do any analyses from
+	    the GUI has been fixed. </p>
+          <p>
+	    Own Id: OTP-11057 Aux Id: seq12313 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Include module, function and arity in Dialyzer's
+	    "overlapping domain" warnings. Thanks to Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-10918</p>
+        </item>
+        <item>
+          <p>
+	    Improve Dialyzer output for scan errors. Thanks to Magnus
+	    Henoch.</p>
+          <p>
+	    Own Id: OTP-10996</p>
+        </item>
+        <item>
+          <p>
+	    Integrate elliptic curve contribution from Andreas
+	    Schultz </p>
+          <p>
+	    In order to be able to support elliptic curve cipher
+	    suites in SSL/TLS, additions to handle elliptic curve
+	    infrastructure has been added to public_key and crypto.</p>
+          <p>
+	    This also has resulted in a rewrite of the crypto API to
+	    gain consistency and remove unnecessary overhead. All OTP
+	    applications using crypto has been updated to use the new
+	    API.</p>
+          <p>
+	    Impact: Elliptic curve cryptography (ECC) offers
+	    equivalent security with smaller key sizes than other
+	    public key algorithms. Smaller key sizes result in
+	    savings for power, memory, bandwidth, and computational
+	    cost that make ECC especially attractive for constrained
+	    environments.</p>
+          <p>
+	    Own Id: OTP-11009</p>
+        </item>
+        <item>
+          <p>
+	    Bitstring type inference and duplicate module error
+	    message fixes. Thanks to Stavros Aronis.</p>
+          <p>
+	    Own Id: OTP-11027</p>
+        </item>
+        <item>
+	    <p>Erlang source files with non-ASCII characters are now
+	    encoded in UTF-8 (instead of latin1).</p>
+          <p>
+	    Own Id: OTP-11041 Aux Id: OTP-10907 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.6</title>
 
     <section><title>Improvements and New Features</title>

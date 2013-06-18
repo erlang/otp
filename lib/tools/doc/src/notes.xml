@@ -30,6 +30,72 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When cover:stop(Node) was called on a non-existing node,
+	    a process waiting for cover data from the node would hang
+	    forever. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-10979</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make cover smarter about finding source from beam.</p>
+          <p>
+	    In particular, search using the source path in
+	    module_info if the current heuristic fails.</p>
+          <p>
+	    Own Id: OTP-10902</p>
+        </item>
+        <item>
+          <p>
+	    Remove Flymake dependency in erlang-pkg.el. Thanks to
+	    Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-10930</p>
+        </item>
+        <item>
+          <p>
+	    Erlang-mode: Add autoload cookies for file extension
+	    associations. Thanks to Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-10999</p>
+        </item>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+        <item>
+          <p>
+	    Fix a race condition when there're several applications
+	    in apps directory. Thanks to Manuel Rubio.</p>
+          <p>
+	    Own Id: OTP-11028</p>
+        </item>
+        <item>
+          <p>
+	    New option for eprof, 'set_on_spawn'. This option was
+	    previously always on and is also the default.</p>
+          <p>
+	    Own Id: OTP-11144</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.10</title>
 
     <section><title>Improvements and New Features</title>

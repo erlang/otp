@@ -33,7 +33,22 @@
   </header>
 
 
-  <section><title>Orber 3.6.26</title>
+  <section><title>Orber 3.6.26.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.6.26</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

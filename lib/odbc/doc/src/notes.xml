@@ -31,7 +31,36 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.15</title>
+  <section><title>ODBC 2.10.16</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix a 64bit related bug in odbcserver. Thanks to Satoshi
+	    Kinoshita.</p>
+          <p>
+	    Own Id: OTP-10993</p>
+        </item>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+        <item>
+          <p>
+	    Fix checking for odbc in standard locations when
+	    "with-odbc" flag present. Thanks to Alexey Saltanov.</p>
+          <p>
+	    Own Id: OTP-11126</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.15</title>
 
     <section><title>Improvements and New Features</title>
       <list>

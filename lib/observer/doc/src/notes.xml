@@ -31,6 +31,69 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 1.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some bugs related to calculation of CPU/scheduler
+	    utilization in observer are corrected.</p>
+          <p>
+	    Current function for a process is accepted to be
+	    'undefined' when running hipe.</p>
+          <p>
+	    Own Id: OTP-10894</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    <list> <item> The new Memory field from a crash dump is
+	    now presented by crashdump viewer, both in the process
+	    overview and in the process detail page. </item> <item> A
+	    summary of blocks- and carriers sizes is added to the
+	    allocator information page in the crashdump viewer.
+	    </item> </list></p>
+          <p>
+	    Own Id: OTP-10604 Aux Id: kunagi-336 [247] </p>
+        </item>
+        <item>
+          <p>
+	    Use "open" as default browser for crashdump viewer on Mac
+	    OS X. Thanks to Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-10929</p>
+        </item>
+        <item>
+          <p>
+	    Fix observer table viewer crash on formatting improper
+	    lists. Thanks to Andrey Tsirulev</p>
+          <p>
+	    Own Id: OTP-10931</p>
+        </item>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+        <item>
+          <p>
+	    Add processes state view in observer. Thanks to Eric
+	    Pailleau.</p>
+          <p>
+	    Own Id: OTP-11136</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 1.3</title>
 
     <section><title>Improvements and New Features</title>

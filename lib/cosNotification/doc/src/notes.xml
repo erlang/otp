@@ -31,7 +31,22 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>cosNotification 1.1.19</title>
+  <section><title>cosNotification 1.1.20</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>cosNotification 1.1.19</title>
 
     <section><title>Improvements and New Features</title>
       <list>

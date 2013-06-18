@@ -33,7 +33,66 @@
   </header>
   
   
-  <section><title>Inets 5.9.4</title>
+  <section><title>Inets 5.9.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reverted incorrect commit that broke cookie handling when
+	    using httpc-profiles.</p>
+          <p>
+	    Own Id: OTP-10956</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix http_request:http_headers/1 to send content-length
+	    when length is zero. Thanks to CA Meijer.</p>
+          <p>
+	    Own Id: OTP-10934</p>
+        </item>
+        <item>
+          <p>
+	    Integrate elliptic curve contribution from Andreas
+	    Schultz </p>
+          <p>
+	    In order to be able to support elliptic curve cipher
+	    suites in SSL/TLS, additions to handle elliptic curve
+	    infrastructure has been added to public_key and crypto.</p>
+          <p>
+	    This also has resulted in a rewrite of the crypto API to
+	    gain consistency and remove unnecessary overhead. All OTP
+	    applications using crypto has been updated to use the new
+	    API.</p>
+          <p>
+	    Impact: Elliptic curve cryptography (ECC) offers
+	    equivalent security with smaller key sizes than other
+	    public key algorithms. Smaller key sizes result in
+	    savings for power, memory, bandwidth, and computational
+	    cost that make ECC especially attractive for constrained
+	    environments.</p>
+          <p>
+	    Own Id: OTP-11009</p>
+        </item>
+        <item>
+          <p>
+	    Fix {stream, {self, once}} in httpc to work as expected.
+	    Thanks to Masatake Daimon</p>
+          <p>
+	    Own Id: OTP-11122</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>

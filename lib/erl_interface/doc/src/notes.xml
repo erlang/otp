@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A guard was added to check if file descriptor is valid
+	    before closing it.</p>
+          <p>
+	    Own Id: OTP-11167</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

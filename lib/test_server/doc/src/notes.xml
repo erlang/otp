@@ -32,6 +32,56 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some unused code related to remote targets is removed,
+	    and documentation is updated.</p>
+          <p>
+	    Own Id: OTP-10607 Aux Id: kunagi-338 [249] </p>
+        </item>
+        <item>
+          <p>
+	    A bug in test_server_gl caused io requests containing
+	    invalid data (i.e. not unicode:chardata()) to hang, since
+	    no io reply was sent. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-10991</p>
+        </item>
+        <item>
+          <p>
+	    Common Test would, in case of timetrap error, print a
+	    warning in the log if end_per_testcase wasn't implemented
+	    in the suite, even though it's an optional function. This
+	    printout has been removed.</p>
+          <p>
+	    Own Id: OTP-11052</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The '-force_stop' flag to use with time-limited repeats
+	    of test runs can now be used with a new 'skip_rest'
+	    option which causes the rest of the test cases in the
+	    ongoing test job to be skipped when the time limit is
+	    reached. E.g. 'ct_run -spec xxx -duration 010000
+	    -force_stop skip_rest'</p>
+          <p>
+	    Own Id: OTP-10856 Aux Id: OTP-10832 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,21 @@
   </header>
   <p>This document describes the changes made to the Percept application.</p>
 
+<section><title>Percept 0.8.8.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Postscript files no longer needed for the generation
+	    of PDF files have been removed. </p>
+          <p>
+	    Own Id: OTP-11016</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Percept 0.8.8</title>
 
     <section><title>Improvements and New Features</title>
