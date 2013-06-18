@@ -2813,6 +2813,9 @@ Return nil if inside string, t if in a comment."
 			     (- (+ previous erlang-argument-indent) 1))))
 		   	(t
 		   	 (nth 2 stack-top))))
+		 ((= (following-char) ?,)
+		  ;; a comma at the start of the line: line up with opening parenthesis.
+		  (nth 2 stack-top))
 		 (t 
 		  (goto-char (nth 1 stack-top))
 		  (let ((base (cond ((looking-at "[({]\\s *\\($\\|%\\)")
