@@ -22,7 +22,7 @@
 %% Purpose: Handles tls1 encryption.
 %%----------------------------------------------------------------------
 
--module(ssl_tls1).
+-module(tls_v1).
 
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
@@ -86,7 +86,7 @@ certificate_verify(HashAlgo, _Version, Handshake) ->
 
 -spec setup_keys(integer(), integer(), binary(), binary(), binary(), integer(),
 		 integer(), integer()) -> {binary(), binary(), binary(),
-					  binary(), binary(), binary()}.  
+					  binary(), binary(), binary()}.
 
 setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 	   KeyMatLen, IVSize)
@@ -106,7 +106,7 @@ setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize
     WantedLength = 2 * (HashSize + KeyMatLen + IVSize),
     KeyBlock = prf(?MD5SHA, MasterSecret, "key expansion",
 		   [ServerRandom, ClientRandom], WantedLength),
-    <<ClientWriteMacSecret:HashSize/binary, 
+    <<ClientWriteMacSecret:HashSize/binary,
      ServerWriteMacSecret:HashSize/binary,
      ClientWriteKey:KeyMatLen/binary, ServerWriteKey:KeyMatLen/binary,
      ClientIV:IVSize/binary, ServerIV:IVSize/binary>> = KeyBlock,
@@ -167,22 +167,22 @@ setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
      ServerWriteKey, ClientIV, ServerIV}.
 
 -spec mac_hash(integer(), binary(), integer(), integer(), tls_version(),
-	       integer(), binary()) -> binary(). 
+	       integer(), binary()) -> binary().
 
-mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor}, 
+mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 	 Length, Fragment) ->
     %% RFC 2246 & 4346 - 6.2.3.1.
     %% HMAC_hash(MAC_write_secret, seq_num + TLSCompressed.type +
     %%              TLSCompressed.version + TLSCompressed.length +
     %%              TLSCompressed.fragment));
-    Mac = hmac_hash(Method, Mac_write_secret, 
-		    [<<?UINT64(Seq_num), ?BYTE(Type), 
-		      ?BYTE(Major), ?BYTE(Minor), ?UINT16(Length)>>, 
+    Mac = hmac_hash(Method, Mac_write_secret,
+		    [<<?UINT64(Seq_num), ?BYTE(Type),
+		      ?BYTE(Major), ?BYTE(Minor), ?UINT16(Length)>>,
 		     Fragment]),
     Mac.
 
 -spec suites(1|2|3) -> [cipher_suite()].
-    
+
 suites(Minor) when Minor == 1; Minor == 2->
     case sufficent_ec_support() of
 	true ->
@@ -199,8 +199,8 @@ suites(Minor) when Minor == 3 ->
 	    no_ec_suites(3) ++ no_ec_suites(2)
     end.
 
-all_suites(Minor) when Minor == 1; Minor == 2->		
-    [ 
+all_suites(Minor) when Minor == 1; Minor == 2->
+    [
       ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
       ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
       ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
@@ -224,7 +224,7 @@ all_suites(Minor) when Minor == 1; Minor == 2->
       ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
       ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_RSA_WITH_AES_128_CBC_SHA,
-      
+
       ?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
       ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
       ?TLS_RSA_WITH_RC4_128_SHA,
@@ -232,32 +232,32 @@ all_suites(Minor) when Minor == 1; Minor == 2->
       ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
       ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
       ?TLS_ECDH_RSA_WITH_RC4_128_SHA,
-      
+
       ?TLS_RSA_WITH_DES_CBC_SHA
     ];
-all_suites(3) ->	
+all_suites(3) ->
     [
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
      ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
      ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
-     
+
      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
      ?TLS_RSA_WITH_AES_256_CBC_SHA256,
-     
+
      ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
      ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
      ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
-     
+
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA256
     ].
 
-no_ec_suites(Minor) when Minor == 1; Minor == 2->		
-    [ 
+no_ec_suites(Minor) when Minor == 1; Minor == 2->
+    [
       ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
       ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
       ?TLS_RSA_WITH_AES_256_CBC_SHA,
@@ -272,7 +272,7 @@ no_ec_suites(Minor) when Minor == 1; Minor == 2->
       ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
       ?TLS_RSA_WITH_DES_CBC_SHA
     ];
-no_ec_suites(3) ->	
+no_ec_suites(3) ->
     [
      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
@@ -323,7 +323,7 @@ p_hash(Secret, Seed, WantedLength, Method, N, Acc) ->
 
 %% ... Where  A(0) = seed
 %%            A(i) = HMAC_hash(secret, A(i-1))
-%% a(0, _Secret, Seed, _Method) -> 
+%% a(0, _Secret, Seed, _Method) ->
 %%     Seed.
 %% a(N, Secret, Seed, Method) ->
 %%     hmac_hash(Method, Secret, a(N-1, Secret, Seed, Method)).

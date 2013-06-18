@@ -575,6 +575,7 @@ encode_hello_extensions([#renegotiation_info{renegotiated_connection = Info} | R
     encode_hello_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), ?BYTE(InfoLen),
 				    Info/binary, Acc/binary>>);
 encode_hello_extensions([#elliptic_curves{elliptic_curve_list = EllipticCurves} | Rest], Acc) ->
+
     EllipticCurveList = << <<(tls_v1:oid_to_enum(X)):16>> || X <- EllipticCurves>>,
     ListLen = byte_size(EllipticCurveList),
     Len = ListLen + 2,
@@ -752,7 +753,7 @@ dec_server_key(<<?BYTE(?NAMED_CURVE), ?UINT16(CurveID),
 		 ?BYTE(PointLen), ECPoint:PointLen/binary,
 		 _/binary>> = KeyStruct,
 	       ?KEY_EXCHANGE_EC_DIFFIE_HELLMAN, Version) ->
-    Params = #server_ecdh_params{curve = {namedCurve, ssl_tls1:enum_to_oid(CurveID)},
+    Params = #server_ecdh_params{curve = {namedCurve, tls_v1:enum_to_oid(CurveID)},
 				 public = ECPoint},
     {BinMsg, HashSign, Signature} = dec_server_key_params(PointLen + 4, KeyStruct, Version),
     #server_key_params{params = Params,
@@ -1445,10 +1446,11 @@ dec_hello_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
     EllipticCurveListLen = Len - 2,
     <<?UINT16(EllipticCurveListLen), EllipticCurveList/binary>> = ExtData,
     EllipticCurves = [tls_v1:enum_to_oid(X) || <<X:16>> <= EllipticCurveList],
-    dec_hello_extensions(Rest, Acc#hello_extensions{elliptic_curves =
-							#elliptic_curves{elliptic_curve_list =
-									     EllipticCurves}});
-dec_hello_extensions(<<?UINT16(?EC_POINT_FORMATS_EXT), ?UINT16(Len), ?BYTE(_),
+
+    dec_hello_extensions(Rest, [{elliptic_curves,
+				 #elliptic_curves{elliptic_curve_list = EllipticCurves}} | Acc]);
+
+dec_hello_extensions(<<?UINT16(?EC_POINT_FORMATS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
     %%ECPointFormatListLen = Len - 1,
     <<?BYTE(_), ECPointFormatList/binary>> = ExtData,

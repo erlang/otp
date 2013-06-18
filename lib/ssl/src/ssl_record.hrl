@@ -42,6 +42,13 @@
 	  server_verify_data
 	 }).
 
+-record(connection_states, {
+	  current_read,
+	  pending_read,
+	  current_write,
+	  pending_write
+	 }).
+
 -record(security_parameters, {
           cipher_suite,
           connection_end,

@@ -195,9 +195,9 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 %% Description: Returns a list of supported cipher suites.
 %%--------------------------------------------------------------------
 suites({3, 0}) ->
-    ssl_ssl3:suites();
+    ssl_v3:suites();
 suites({3, N}) ->
-    ssl_tls1:suites(N).
+    tls_v1:suites(N).
 
 %%--------------------------------------------------------------------
 -spec anonymous_suites() -> [cipher_suite()].

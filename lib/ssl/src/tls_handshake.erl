@@ -33,7 +33,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([client_hello/8, server_hello/4, hello/4,
-	 get_tls_handshake/3, encode_handshake/2,
+	 get_tls_handshake/3, encode_handshake/2, decode_handshake/3,
 	 init_handshake_history/0, update_handshake_history/2]).
 
 %%====================================================================
@@ -197,16 +197,21 @@ update_handshake_history(Handshake, % special-case SSL2 client hello
 update_handshake_history({Handshake0, _Prev}, Data) ->
     {[Data|Handshake0], Handshake0}.
 
-%%--------------------------------------------------------------------
-%%% Internal functions
-%%--------------------------------------------------------------------
+
 get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
 			Body:Length/binary,Rest/binary>>, Acc) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
-    H = decode_handshake(Version, Type, Body),
-    get_tls_handshake_aux(Version, Rest, [{H,Raw} | Acc]);
+    Handshake = decode_handshake(Version, Type, Body),
+    get_tls_handshake_aux(Version, Rest, [{Handshake,Raw} | Acc]);
 get_tls_handshake_aux(_Version, Data, Acc) ->
     {lists:reverse(Acc), Data}.
+
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+
+decode_handshake(_, ?HELLO_REQUEST, <<>>) ->
+    #hello_request{};
 
 %% Client hello v2.
 %% The server must be able to receive such messages, from clients that
@@ -217,7 +222,7 @@ decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor),
 				  CipherSuites:CSLength/binary,
 				  ChallengeData:CDLength/binary>>) ->
     #client_hello{client_version = {Major, Minor},
-		  random = ssl_ssl2:client_random(ChallengeData, CDLength),
+		  random = ssl_v2:client_random(ChallengeData, CDLength),
 		  session_id = 0,
 		  cipher_suites =  ssl_handshake:decode_suites('3_bytes', CipherSuites),
 		  compression_methods = [?NULL],

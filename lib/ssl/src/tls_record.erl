@@ -77,7 +77,7 @@
 init_connection_states(Role) ->
     ConnectionEnd = record_protocol_role(Role),
     Current = initial_connection_state(ConnectionEnd),
-    Pending = empty_connection_state(ConnectionEnd),
+    Pending = ssl_record:empty_connection_state(ConnectionEnd),
     #connection_states{current_read = Current,
 		       pending_read = Pending,
 		       current_write = Current,
@@ -265,7 +265,7 @@ activate_pending_connection_state(States =
     NewCurrent = Pending#connection_state{sequence_number = 0},
     SecParams = Pending#connection_state.security_parameters,
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    EmptyPending = empty_connection_state(ConnectionEnd),
+    EmptyPending = ssl_record:empty_connection_state(ConnectionEnd),
     SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
     NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
     States#connection_states{current_read = NewCurrent,
@@ -278,7 +278,7 @@ activate_pending_connection_state(States =
     NewCurrent = Pending#connection_state{sequence_number = 0},
     SecParams = Pending#connection_state.security_parameters,
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    EmptyPending = empty_connection_state(ConnectionEnd),
+    EmptyPending = ssl_record:empty_connection_state(ConnectionEnd),
     SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
     NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
     States#connection_states{current_write = NewCurrent,
@@ -591,21 +591,6 @@ initial_security_params(ConnectionEnd) ->
     ssl_cipher:security_parameters(highest_protocol_version(), ?TLS_NULL_WITH_NULL_NULL,
 				   SecParams).
 
-empty_connection_state(ConnectionEnd) ->
-    SecParams = empty_security_params(ConnectionEnd),
-    #connection_state{security_parameters = SecParams}.
-
-empty_security_params(ConnectionEnd = ?CLIENT) ->
-    #security_parameters{connection_end = ConnectionEnd,
-                         client_random = random()};
-empty_security_params(ConnectionEnd = ?SERVER) ->
-    #security_parameters{connection_end = ConnectionEnd,
-                         server_random = random()}.
-random() ->
-    Secs_since_1970 = calendar:datetime_to_gregorian_seconds(
-			calendar:universal_time()) - 62167219200,
-    Random_28_bytes = crypto:rand_bytes(28),
-    <<?UINT32(Secs_since_1970), Random_28_bytes/binary>>.
 
 record_protocol_role(client) ->
     ?CLIENT;
@@ -667,7 +652,7 @@ decipher(TLS=#ssl_tls{type=Type, version=Version, fragment=Fragment}, CS0) ->
 	    CS1 = CS0#connection_state{cipher_state = CipherS1},
 	    TLength = size(T),
 	    {MacHash, CS2} = hash_and_bump_seqno(CS1, Type, Version, TLength, T),
-	    case is_correct_mac(Mac, MacHash) of
+	    case ssl_record:is_correct_mac(Mac, MacHash) of
 		true ->		  
 		    {TLS#ssl_tls{fragment = T}, CS2};
 		false ->
@@ -696,19 +681,15 @@ hash_and_bump_seqno(#connection_state{sequence_number = SeqNo,
 		    Length, Fragment),
     {Hash, CS0#connection_state{sequence_number = SeqNo+1}}.
 
-is_correct_mac(Mac, Mac) ->
-    true;
-is_correct_mac(_M,_H) ->
-    false.
 
 mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 	 _Length, _Fragment) ->
     <<>>;
 mac_hash({3, 0}, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
-    ssl_ssl3:mac_hash(MacAlg, MacSecret, SeqNo, Type, Length, Fragment);
+    ssl_v3:mac_hash(MacAlg, MacSecret, SeqNo, Type, Length, Fragment);
 mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)  
   when N =:= 1; N =:= 2; N =:= 3 ->
-    ssl_tls1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version, 
+    tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
 		      Length, Fragment).
 
 sufficient_tlsv1_2_crypto_support() ->

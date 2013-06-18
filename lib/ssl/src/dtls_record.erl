@@ -30,7 +30,7 @@
 %% Misc.
 -export([protocol_version/1, lowest_protocol_version/2,
 	 highest_protocol_version/1, supported_protocol_versions/0,
-	 is_acceptable_version/2]).
+	 is_acceptable_version/2, cipher/4, decipher/2]).
 
 %%--------------------------------------------------------------------
 -spec init_connection_state_seq(tls_version(), #connection_states{}) ->
@@ -71,16 +71,10 @@ current_connection_state_epoch(#connection_states{current_write = Current},
 %% Description: Returns the instance of the connection_state record
 %% that is defined by the Epoch.
 %%--------------------------------------------------------------------
-connection_state_by_epoch(#connection_states{previous_read = CS}, Epoch, read)
-  when CS#connection_state.epoch == Epoch ->
-    CS;
 connection_state_by_epoch(#connection_states{current_read = CS}, Epoch, read)
   when CS#connection_state.epoch == Epoch ->
     CS;
 connection_state_by_epoch(#connection_states{pending_read = CS}, Epoch, read)
-  when CS#connection_state.epoch == Epoch ->
-    CS;
-connection_state_by_epoch(#connection_states{previous_write = CS}, Epoch, write)
   when CS#connection_state.epoch == Epoch ->
     CS;
 connection_state_by_epoch(#connection_states{current_write = CS}, Epoch, write)
@@ -89,7 +83,6 @@ connection_state_by_epoch(#connection_states{current_write = CS}, Epoch, write)
 connection_state_by_epoch(#connection_states{pending_write = CS}, Epoch, write)
   when CS#connection_state.epoch == Epoch ->
     CS.
-
 %%--------------------------------------------------------------------
 -spec set_connection_state_by_epoch(#connection_states{},
 				    #connection_state{}, read | write) -> ok.
@@ -97,12 +90,6 @@ connection_state_by_epoch(#connection_states{pending_write = CS}, Epoch, write)
 %% Description: Returns the instance of the connection_state record
 %% that is defined by the Epoch.
 %%--------------------------------------------------------------------
-set_connection_state_by_epoch(ConnectionStates0 =
-				  #connection_states{previous_read = CS},
-			      NewCS = #connection_state{epoch = Epoch}, read)
-  when CS#connection_state.epoch == Epoch ->
-    ConnectionStates0#connection_states{previous_read = NewCS};
-
 set_connection_state_by_epoch(ConnectionStates0 =
 				  #connection_states{current_read = CS},
 			      NewCS = #connection_state{epoch = Epoch}, read)
@@ -116,12 +103,6 @@ set_connection_state_by_epoch(ConnectionStates0 =
     ConnectionStates0#connection_states{pending_read = NewCS};
 
 set_connection_state_by_epoch(ConnectionStates0 =
-				  #connection_states{previous_write = CS},
-			      NewCS = #connection_state{epoch = Epoch}, write)
-  when CS#connection_state.epoch == Epoch ->
-    ConnectionStates0#connection_states{previous_write = NewCS};
-
-set_connection_state_by_epoch(ConnectionStates0 =
 				  #connection_states{current_write = CS},
 			      NewCS = #connection_state{epoch = Epoch}, write)
   when CS#connection_state.epoch == Epoch ->
@@ -132,7 +113,6 @@ set_connection_state_by_epoch(ConnectionStates0 =
 			      NewCS = #connection_state{epoch = Epoch}, write)
   when CS#connection_state.epoch == Epoch ->
     ConnectionStates0#connection_states{pending_write = NewCS}.
-
 
 %%--------------------------------------------------------------------
 -spec protocol_version(tls_atom_version() | tls_version()) ->
@@ -283,20 +263,21 @@ supported_connection_protocol_versions([]) ->
 is_acceptable_version(Version, Versions) ->
     lists:member(Version, Versions).
 
-%%--------------------------------------------------------------------
--spec clear_previous_epoch(#connection_states{}) ->
-				  #connection_states{}.
-%%
-%% Description: Advance to min_read_epoch to the current read epoch.
-%%--------------------------------------------------------------------
-clear_previous_epoch(States =
-			 #connection_states{current_read = Current}) ->
-    States#connection_states{min_read_epoch = Current#connection_state.epoch}.
 
-
+cipher(Type, Version, Fragment, CS0) ->
+    Length = erlang:iolist_size(Fragment),
+    {MacHash, CS1=#connection_state{cipher_state = CipherS0,
+				 security_parameters=
+				 #security_parameters{bulk_cipher_algorithm =
+						      BCA}
+				}} =
+	hash_and_bump_seqno(CS0, Type, Version, Length, Fragment),
+    {Ciphered, CipherS1} = ssl_cipher:cipher(BCA, CipherS0, MacHash, Fragment, Version),
+    CS2 = CS1#connection_state{cipher_state=CipherS1},
+    {Ciphered, CS2}.
 
 decipher(TLS=#ssl_tls{type=Type, version=Version={254, _},
-		      epoch = Epoch, sequence = SeqNo,
+		      epoch = Epoch, record_seq = SeqNo,
 		      fragment=Fragment}, CS0) ->
     SP = CS0#connection_state.security_parameters,
     BCA = SP#security_parameters.bulk_cipher_algorithm,
@@ -307,7 +288,7 @@ decipher(TLS=#ssl_tls{type=Type, version=Version={254, _},
 	    CS1 = CS0#connection_state{cipher_state = CipherS1},
 	    TLength = size(T),
 	    MacHash = hash_with_seqno(CS1, Type, Version, Epoch, SeqNo, TLength, T),
-	    case is_correct_mac(Mac, MacHash) of
+	    case ssl_record:is_correct_mac(Mac, MacHash) of
 		true ->
 		    {TLS#ssl_tls{fragment = T}, CS1};
 		false ->
@@ -338,3 +319,7 @@ hash_and_bump_seqno(#connection_state{epoch = Epoch,
 		    MacSecret, (Epoch bsl 48) + SeqNo, Type,
 		    Length, Fragment),
     {Hash, CS0#connection_state{sequence_number = SeqNo+1}}.
+
+mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
+    dtls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
+		     Length, Fragment).

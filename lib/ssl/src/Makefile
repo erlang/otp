@@ -65,9 +65,10 @@ MODULES= \
 	ssl_socket \
 	tls_record \
 	dtls_record \
-	ssl_ssl2 \
-	ssl_ssl3 \
-	ssl_tls1 \
+	ssl_record \
+	ssl_v2 \
+	ssl_v3 \
+	tls_v1 \
 	ssl_tls_dist_proxy
 
 INTERNAL_HRL_FILES = \
