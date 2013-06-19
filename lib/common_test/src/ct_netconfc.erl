@@ -540,21 +540,50 @@ get_capabilities(Client) ->
 get_capabilities(Client, Timeout) ->
     call(Client, get_capabilities, Timeout).
 
-%% @private
+%%----------------------------------------------------------------------
+%% @spec send(Client, SimpleXml) -> Result
+%% @equiv send(Client, SimpleXml, infinity)
 send(Client, SimpleXml) ->
     send(Client, SimpleXml, ?DEFAULT_TIMEOUT).
-%% @private
+
+%%----------------------------------------------------------------------
+-spec send(Client, SimpleXml, Timeout) -> Result when
+      Client :: client(),
+      SimpleXml :: simple_xml(),
+      Timeout :: timeout(),
+      Result :: ok | {error,error_reason()}.
+%% @doc Send an XML document to the server.
+%%
+%% The given XML document is sent as is to the server. This function
+%% can be used for sending XML documents that can not be expressed by
+%% other interface functions in this module.
 send(Client, SimpleXml, Timeout) ->
     call(Client,{send, Timeout, SimpleXml}).
 
-%% @private
+%%----------------------------------------------------------------------
+%% @spec send_rpc(Client, SimpleXml) -> Result
+%% @equiv send_rpc(Client, SimpleXml, infinity)
 send_rpc(Client, SimpleXml) ->
     send_rpc(Client, SimpleXml, ?DEFAULT_TIMEOUT).
-%% @private
+
+%%----------------------------------------------------------------------
+-spec send_rpc(Client, SimpleXml, Timeout) -> Result when
+      Client :: client(),
+      SimpleXml :: simple_xml(),
+      Timeout :: timeout(),
+      Result :: ok | {error,error_reason()}.
+%% @doc Send a Netconf <code>rpc</code> request to the server.
+%%
+%% The given XML document is wrapped in a valid Netconf
+%% <code>rpc</code> request and sent to the server. The
+%% <code>message-id</code> and namespace attributes are added to the
+%% <code>rpc</code> element.
+%%
+%% This function can be used for sending <code>rpc</code> requests
+%% that can not be expressed by other interface functions in this
+%% module.
 send_rpc(Client, SimpleXml, Timeout) ->
     call(Client,{send_rpc, SimpleXml, Timeout}).
-
-
 
 %%----------------------------------------------------------------------
 %% @spec lock(Client, Target) -> Result
