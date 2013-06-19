@@ -120,6 +120,17 @@
       'addr' | 'broadaddr' | 'dstaddr' | 
       'mtu' | 'netmask' | 'flags' |'hwaddr'.
 
+-type if_getopt_result() ::
+      {'addr', ip_address()} |
+      {'broadaddr', ip_address()} |
+      {'dstaddr', ip_address()} |
+      {'mtu', non_neg_integer()} |
+      {'netmask', ip_address()} |
+      {'flags', ['up' | 'down' | 'broadcast' | 'no_broadcast' |
+		 'pointtopoint' | 'no_pointtopoint' | 
+		 'running' | 'multicast' | 'loopback']} |
+      {'hwaddr', ether_address()}.
+
 -type address_family() :: 'inet' | 'inet6'.
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
@@ -248,13 +259,13 @@ getiflist() ->
 -spec ifget(Socket :: socket(),
             Name :: string() | atom(),
 	    Opts :: [if_getopt()]) ->
-	{'ok', [if_setopt()]} | {'error', posix()}.
+	{'ok', [if_getopt_result()]} | {'error', posix()}.
 
 ifget(Socket, Name, Opts) -> 
     prim_inet:ifget(Socket, Name, Opts).
 
 -spec ifget(Name :: string() | atom(), Opts :: [if_getopt()]) ->
-	{'ok', [if_setopt()]} | {'error', posix()}.
+	{'ok', [if_getopt_result()]} | {'error', posix()}.
 
 ifget(Name, Opts) ->
     withsocket(fun(S) -> prim_inet:ifget(S, Name, Opts) end).
