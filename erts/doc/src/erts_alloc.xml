@@ -344,7 +344,7 @@
 	<seealso marker="#M_t">multiple thread specific instances</seealso>
 	to be enabled. When enabling this feature, multiple thread specific
 	instances will be enabled if not already enabled, and the
-	<c>aoffcaobf</c> strategy will be enabled if current strategy does not
+	<c>aoffcbf</c> strategy will be enabled if current strategy does not
 	support abandoned carriers. This feature can be enabled on all
 	allocators based on the <c>alloc_util</c> framework with the
 	exception of <c>temp_alloc</c> (which would be pointless).

@@ -245,7 +245,7 @@ set_default_acul(struct au_init *ip, int acul)
 {
     ip->thr_spec = 1;
     ip->atype = AOFIRSTFIT;
-    ip->init.aoff.flavor = AOFF_AOBF;
+    ip->init.aoff.flavor = AOFF_BF;
     ip->init.util.acul = acul;
 }
 
@@ -581,9 +581,9 @@ ensure_carrier_migration_support(struct au_init *auip)
      * default to a strategy that can...
      */
     if (!strategy_support_carrier_migration(auip)) {
-	/* Default to aoffcaobf */
+	/* Default to aoffcbf */
 	auip->atype = AOFIRSTFIT;
-	auip->init.aoff.flavor = AOFF_AOBF;
+	auip->init.aoff.flavor = AOFF_BF;
     }
 }
 
