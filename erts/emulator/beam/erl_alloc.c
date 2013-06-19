@@ -245,7 +245,7 @@ set_default_acul(struct au_init *ip, int acul)
 {
     ip->thr_spec = 1;
     ip->atype = AOFIRSTFIT;
-    ip->init.aoff.bf_within_carrier = 1;
+    ip->init.aoff.flavor = AOFF_AOBF;
     ip->init.util.acul = acul;
 }
 
@@ -558,7 +558,7 @@ static ERTS_INLINE int
 strategy_support_carrier_migration(struct au_init *auip)
 {
     /*
-     * Currently only aoff and aoffcaobf support carrier
+     * Currently only aoff, aoffcbf and aoffcaobf support carrier
      * migration, i.e, type AOFIRSTFIT.
      */
     return auip->atype == AOFIRSTFIT;
@@ -583,7 +583,7 @@ ensure_carrier_migration_support(struct au_init *auip)
     if (!strategy_support_carrier_migration(auip)) {
 	/* Default to aoffcaobf */
 	auip->atype = AOFIRSTFIT;
-	auip->init.aoff.bf_within_carrier = 1;
+	auip->init.aoff.flavor = AOFF_AOBF;
     }
 }
 
@@ -1284,11 +1284,15 @@ handle_au_arg(struct au_init *auip,
 	    }
 	    else if (strcmp("aoff", alg) == 0) {
 		auip->atype = AOFIRSTFIT;
-		auip->init.aoff.bf_within_carrier = 0;
+		auip->init.aoff.flavor = AOFF_AOFF;
+	    }
+	    else if (strcmp("aoffcbf", alg) == 0) {
+		auip->atype = AOFIRSTFIT;
+		auip->init.aoff.flavor = AOFF_BF;
 	    }
 	    else if (strcmp("aoffcaobf", alg) == 0) {
 		auip->atype = AOFIRSTFIT;
-		auip->init.aoff.bf_within_carrier = 1;
+		auip->init.aoff.flavor = AOFF_AOBF;
 	    }
 	    else {
 		bad_value(param, sub_param + 1, alg);

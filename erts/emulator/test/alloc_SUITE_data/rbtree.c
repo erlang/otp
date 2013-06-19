@@ -85,23 +85,21 @@ print_tree(TestCaseState_t *tcs, RBT_t *root)
 static RBT_t *
 check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 {
-    enum { BF, AOBF, AOFF, AOFFCAOBF }type;
+    enum { BF, AOBF, AOFF } type;
     int i, max_i;
     char stk[128];
     RBT_t *root, *x, *y, *res;
     Ulong x_sz, y_sz, is_x_black;
     long blacks, curr_blacks;
+    int have_max_sz;
 
     res = NULL;
 
-    if (IS_BF_ALGO(alc)) {
-	if (IS_AOBF(alc)) type = AOBF;
-	else type = BF;
-    }
-    else { /* AOFF_ALGO */
-	if (IS_CBF(alc)) type = AOFFCAOBF;
-	else type = AOFF;
-    }
+    if (IS_AOBF(alc)) type = AOBF;
+    else if (IS_BF(alc)) type = BF;
+    else type = AOFF;
+
+    have_max_sz = !IS_BF_ALGO(alc);
 
     root = RBT_ROOT(alc, size);
 
@@ -191,17 +189,10 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 		break;
 	    case AOFF:
 		ASSERT(tcs, y < x);
-		ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
 		break;
-	    case AOFFCAOBF:
-		{
-		    void* x_crr = BLK_TO_MBC(x);
-		    void* y_crr = BLK_TO_MBC(y);
-		    ASSERT(tcs, (y < x && (x_crr != y_crr || x_sz == y_sz))
-			   || (y_sz < x_sz && x_crr == y_crr));
-		    ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
-		    break;
-		}
+	    }
+	    if (have_max_sz) {
+		ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
 	    }
 	}
 
@@ -219,27 +210,22 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 		break;
 	    case AOFF:
 		ASSERT(tcs, y > x);
-		ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
 		break;
-	    case AOFFCAOBF:
-		{
-		    void* x_crr = BLK_TO_MBC(x);
-		    void* y_crr = BLK_TO_MBC(y);
-		    ASSERT(tcs, (y > x && (x_crr != y_crr || x_sz == y_sz))
-			   || (y_sz > x_sz && x_crr == y_crr));
-		    ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
-		    break;
-		}
+	    }
+	    if (have_max_sz) {
+		ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
 	    }
 	}
 
 	if (type == BF) {
 	    Ulong l_sz;
-	    RBTL_t *l = RBT_NEXT(x);
+	    RBTL_t *l, *prev=x;
 	    for (l = RBT_NEXT(x); l; l = RBT_NEXT(l)) {
 		l_sz = BLK_SZ(l);
 		ASSERT(tcs, l_sz == x_sz);
 		ASSERT(tcs, !RBT_IS_TREE(l));
+		ASSERT(tcs, RBT_PREV(l) == prev);
+		prev = l;
 	    }
 	}
 
@@ -262,18 +248,7 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 			res = x;
 		    }
 		    break;
-		case AOFFCAOBF:
-		    if (BLK_TO_MBC(x) != BLK_TO_MBC(res) || x_sz == y_sz) {
-			if (x < res) {
-			    res = x;
-			}
-		    }
-		    else if (x_sz < y_sz) {
-			res = x;
-		    }
-		    break;
 		}
-
 	    }
 	}
 
@@ -310,7 +285,7 @@ do_check(TestCaseState_t *tcs, Allctr_t *a, Ulong size, int ignore_null)
     tmp = ALLOC(a, sz - ABLK_HDR_SZ);
     ASSERT(tcs, tmp);
     y = UMEM2BLK(tmp);
-    if (!(IS_BF_ALGO(a) && !IS_AOBF(a))) {
+    if (!IS_BF(a)) {
 	ASSERT(tcs, x == y);
     }
     else {
@@ -488,6 +463,7 @@ testcase_run(TestCaseState_t *tcs)
     char *argv2[] = {"-tasaobf", NULL};
     char *argv3[] = {"-tasaoff", NULL};
     char *argv4[] = {"-tasaoffcaobf", NULL};
+    char *argv5[] = {"-tasaoffcbf", NULL};
     Allctr_t *a;
     rbtree_test_data *td;
 
@@ -511,6 +487,7 @@ testcase_run(TestCaseState_t *tcs)
     ASSERT(tcs, a);
     ASSERT(tcs, IS_BF_ALGO(a));
     ASSERT(tcs, !IS_AOBF(a));
+    ASSERT(tcs, IS_BF(a));
 
     test_it(tcs);
 
@@ -529,6 +506,7 @@ testcase_run(TestCaseState_t *tcs)
     ASSERT(tcs, a);
     ASSERT(tcs, IS_BF_ALGO(a));
     ASSERT(tcs, IS_AOBF(a));
+    ASSERT(tcs, !IS_BF(a));
 
     test_it(tcs);
 
@@ -546,7 +524,8 @@ testcase_run(TestCaseState_t *tcs)
 
     ASSERT(tcs, a);
     ASSERT(tcs, !IS_BF_ALGO(a));
-    ASSERT(tcs, !IS_CBF(a));
+    ASSERT(tcs, !IS_AOBF(a));
+    ASSERT(tcs, !IS_BF(a));
 
     test_it(tcs);
     test_carrier_migration(tcs);
@@ -556,7 +535,7 @@ testcase_run(TestCaseState_t *tcs)
 
     testcase_printf(tcs, "Address order first fit test succeeded!\n");
 
-    /* Address order first fit, best fit within carrier */
+    /* Address order first fit, aobf within carrier */
 
     testcase_printf(tcs, "Starting test of aoffcaobf...\n");
 
@@ -565,7 +544,28 @@ testcase_run(TestCaseState_t *tcs)
 
     ASSERT(tcs, a);
     ASSERT(tcs, !IS_BF_ALGO(a));
-    ASSERT(tcs, IS_CBF(a));
+    ASSERT(tcs, IS_AOBF(a));
+    ASSERT(tcs, !IS_BF(a));
+
+    test_it(tcs);
+    test_carrier_migration(tcs);
+
+    STOP_ALC(a);
+    td->allocator = NULL;
+
+    testcase_printf(tcs, "aoffcaobf test succeeded!\n");
+
+    /* Address order first fit, bf within carrier */
+
+    testcase_printf(tcs, "Starting test of aoffcbf...\n");
+
+    current_rbt_type_op_base = AO_FIRSTFIT_OP_BASE;
+    td->allocator = a = START_ALC("rbtree_aoffcbf_", 0, argv5);
+
+    ASSERT(tcs, a);
+    ASSERT(tcs, !IS_BF_ALGO(a));
+    ASSERT(tcs, !IS_AOBF(a));
+    ASSERT(tcs, IS_BF(a));
 
     test_it(tcs);
     test_carrier_migration(tcs);

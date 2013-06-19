@@ -966,15 +966,17 @@ UWord
 erts_bfalc_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
-    case 0x200:	return (UWord) ((BFAllctr_t *) a1)->address_order;
+    case 0x200:	return (UWord) ((BFAllctr_t *) a1)->address_order; /* IS_AOBF */
     case 0x201:	return (UWord) ((BFAllctr_t *) a1)->mbc_root;
     case 0x202:	return (UWord) ((RBTree_t *) a1)->parent;
     case 0x203:	return (UWord) ((RBTree_t *) a1)->left;
     case 0x204:	return (UWord) ((RBTree_t *) a1)->right;
-    case 0x205:	return (UWord) ((RBTreeList_t *) a1)->next;
+    case 0x205:	return (UWord) LIST_NEXT(a1);
     case 0x206:	return (UWord) IS_BLACK((RBTree_t *) a1);
     case 0x207:	return (UWord) IS_TREE_NODE((RBTree_t *) a1);
     case 0x208:	return (UWord) 1; /* IS_BF_ALGO */
+    case 0x20a: return (UWord) !((BFAllctr_t *) a1)->address_order; /* IS_BF */
+    case 0x20b:	return (UWord) LIST_PREV(a1);
     default:	ASSERT(0); return ~((UWord) 0);
     }
 }

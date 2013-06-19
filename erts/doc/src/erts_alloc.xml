@@ -170,6 +170,15 @@
           used. The time complexity is proportional to log N, where
           N is the number of free blocks.</p>
       </item>
+      <tag>Address order first fit carrier best fit</tag>
+      <item>
+        <p>Strategy: Find the <em>carrier</em> with the lowest address that
+	can satisfy the requested block size, then find a block within
+	that carrier using the "best fit" strategy.</p>
+        <p>Implementation: Balanced binary search trees are
+          used. The time complexity is proportional to log N, where
+          N is the number of free blocks.</p>
+      </item>
       <tag>Address order first fit carrier address order best fit</tag>
       <item>
         <p>Strategy: Find the <em>carrier</em> with the lowest address that
@@ -330,7 +339,7 @@
 	fetched it will function as an ordinary carrier. This feature has
 	special requirements on the
 	<seealso marker="#M_as">allocation strategy</seealso> used. Currently
-	only the <c>aoff</c> and the <c>aoffcaobf</c> strategies support
+	only the strategies <c>aoff</c>, <c>aoffcbf</c> and <c>aoffcaobf</c> support
 	abandoned carriers. This feature also requires
 	<seealso marker="#M_t">multiple thread specific instances</seealso>
 	to be enabled. When enabling this feature, multiple thread specific
@@ -340,10 +349,11 @@
 	allocators based on the <c>alloc_util</c> framework with the
 	exception of <c>temp_alloc</c> (which would be pointless).
       </item>
-      <tag><marker id="M_as"><c><![CDATA[+M<S>as bf|aobf|aoff|aoffcaobf|gf|af]]></c></marker></tag>
+      <tag><marker id="M_as"><c><![CDATA[+M<S>as bf|aobf|aoff|aoffcbf|aoffcaobf|gf|af]]></c></marker></tag>
       <item>
        Allocation strategy. Valid strategies are <c>bf</c> (best fit),
       <c>aobf</c> (address order best fit), <c>aoff</c> (address order first fit),
+      <c>aoffcbf</c> (address order first fit carrier best fit),
       <c>aoffcaobf</c> (address order first fit carrier address order best fit),
       <c>gf</c> (good fit), and <c>af</c> (a fit). See 
       <seealso marker="#strategy">the description of allocation strategies</seealso> in "the <c>alloc_util</c> framework" section.</item>
