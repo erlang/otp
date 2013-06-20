@@ -24,12 +24,17 @@
 #include "erl_alloc_util.h"
 
 #define ERTS_ALC_AOFF_ALLOC_VSN_STR "0.9"
-#define ERTS_ALC_AOFF_CBF_ALLOC_VSN_STR "0.9"
 
 typedef struct AOFFAllctr_t_ AOFFAllctr_t;
 
+enum AOFF_Flavor {
+    AOFF_AOFF = 0,
+    AOFF_AOBF = 1,
+    AOFF_BF   = 2
+};
+
 typedef struct {
-    int bf_within_carrier;
+    enum AOFF_Flavor flavor;
 } AOFFAllctrInit_t;
 
 #define ERTS_DEFAULT_AOFF_ALLCTR_INIT {0/*dummy*/}
@@ -52,7 +57,7 @@ struct AOFFAllctr_t_ {
     Allctr_t		allctr; /* Has to be first! */
 
     struct AOFF_RBTree_t_* mbc_root;
-    int bf_within_carrier;
+    enum AOFF_Flavor flavor;
 };
 
 UWord erts_aoffalc_test(UWord, UWord, UWord);

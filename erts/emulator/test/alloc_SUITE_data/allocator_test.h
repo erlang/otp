@@ -102,7 +102,8 @@ typedef void* erts_cond;
 #define RBT_IS_TREE(T)		((Ulong)	ALC_TEST1(RBT_OP(7), (T)))
 #define IS_BF_ALGO(A)		((Ulong)	ALC_TEST1(RBT_OP(8), (A)))
 #define RBT_MAX_SZ(T)		((Ulong)	ALC_TEST1(RBT_OP(9), (T)))
-#define IS_CBF(A)		((Ulong)	ALC_TEST1(RBT_OP(0xa), (A)))
+#define IS_BF(A)		((Ulong)	ALC_TEST1(RBT_OP(0xa), (A)))
+#define RBT_PREV(T)		((RBTL_t *)	ALC_TEST1(RBT_OP(0xb), (T)))
 
 /* From erl_mseg.c */
 #define HAVE_MSEG()		((int)		ALC_TEST0(0x400))
