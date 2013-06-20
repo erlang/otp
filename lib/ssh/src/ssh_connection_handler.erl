@@ -426,10 +426,10 @@ userauth(#ssh_msg_userauth_info_response{} = Msg,
 						  language = "en"}, State)
     end;
 			
-userauth(#ssh_msg_userauth_success{}, #state{ssh_params = #ssh{role = client},
+userauth(#ssh_msg_userauth_success{}, #state{ssh_params = #ssh{role = client} = Ssh,
 					     manager = Pid} = State) ->
     Pid ! ssh_connected,
-    {next_state, connected, next_packet(State)};
+    {next_state, connected, next_packet(State#state{ssh_params = Ssh#ssh{authenticated = true}})};
 
 userauth(#ssh_msg_userauth_failure{},  
 	 #state{ssh_params = #ssh{role = client,
