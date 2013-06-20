@@ -455,7 +455,7 @@ verify(rsa, Type, DataOrDigest, Signature, Key) ->
 	Bool -> Bool
     end;
 verify(ecdsa, Type, DataOrDigest, Signature, [Key, Curve]) ->
-    case ecdsa_verify_nif(Type, DataOrDigest, Signature, term_to_ec_key(Curve, undefined, Key)) of
+    case ecdsa_verify_nif(Type, DataOrDigest, Signature, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
 	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end.
@@ -474,7 +474,7 @@ sign(dss, Type, DataOrDigest, Key) ->
 	Sign -> Sign
     end;
 sign(ecdsa, Type, DataOrDigest, [Key, Curve]) ->
-    case ecdsa_sign_nif(Type, DataOrDigest, term_to_ec_key(Curve, Key, undefined)) of
+    case ecdsa_sign_nif(Type, DataOrDigest, nif_curve_params(Curve), ensure_int_as_bin(Key)) of
 	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
 	Sign -> Sign
     end.
@@ -557,7 +557,7 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
     user_srp_gen_key(Private, Generator, Prime);
 
 generate_key(ecdh, Curve, undefined) ->
-    ec_key_to_term_nif(ec_key_generate(Curve)).
+    ec_key_generate(Curve).
 
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
@@ -599,7 +599,8 @@ compute_key(srp, UserPublic, {HostPublic, HostPrivate},
 
 compute_key(ecdh, Others, My, Curve) ->
     ecdh_compute_key_nif(ensure_int_as_bin(Others),
-			 term_to_ec_key(Curve,My,undefined)).
+			 nif_curve_params(Curve),
+			 ensure_int_as_bin(My)).
 
 
 random_bytes(N) ->
@@ -1399,11 +1400,11 @@ srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_s
 %% Digital signatures  --------------------------------------------------------------------
 rsa_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
 dss_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
-ecdsa_sign_nif(_Type, _DataOrDigest, _Key) -> ?nif_stub.
+ecdsa_sign_nif(_Type, _DataOrDigest, _Curve, _Key) -> ?nif_stub.
 
 dss_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
 rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
-ecdsa_verify_nif(_Type, _DataOrDigest, _Signature, _Key) -> ?nif_stub.
+ecdsa_verify_nif(_Type, _DataOrDigest, _Signature, _Curve, _Key) -> ?nif_stub.
 
 %% Public Keys  --------------------------------------------------------------------
 %% DH Diffie-Hellman functions
@@ -1456,12 +1457,11 @@ dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
 ec_key_generate(_Key) -> ?nif_stub.
 
-ecdh_compute_key_nif(_Others, _My) -> ?nif_stub.
+ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
 %%
 %% EC
 %%
-ec_key_to_term_nif(_Key) -> ?nif_stub.
 
 term_to_nif_prime({prime_field, Prime}) ->
     {prime_field, int_to_bin(Prime)};
@@ -1469,18 +1469,11 @@ term_to_nif_prime(PrimeField) ->
     PrimeField.
 term_to_nif_curve({A, B, Seed}) ->
     {ensure_int_as_bin(A), ensure_int_as_bin(B), Seed}.
-term_to_nif_curve_parameters({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
+nif_curve_params({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
     {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), ensure_int_as_bin(BasePoint), int_to_bin(Order), int_to_bin(CoFactor)};
-term_to_nif_curve_parameters(Curve) when is_atom(Curve) ->
+nif_curve_params(Curve) when is_atom(Curve) ->
     %% named curve
     Curve.
-
-term_to_ec_key(Curve, PrivKey, PubKey) ->
-    term_to_ec_key_nif(term_to_nif_curve_parameters(Curve),
-		       ensure_int_as_bin(PrivKey),
-		       ensure_int_as_bin(PubKey)).
-
-term_to_ec_key_nif(_Curve, _PrivKey, _PubKey) -> ?nif_stub.
 
 
 %% MISC --------------------------------------------------------------------
