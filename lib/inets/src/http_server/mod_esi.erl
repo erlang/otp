@@ -440,7 +440,7 @@ receive_headers(Timeout) ->
     end.
 
 send_headers(ModData, StatusCode, HTTPHeaders) ->
-    ExtraHeaders = httpd_response:cache_headers(ModData),
+    ExtraHeaders = httpd_response:cache_headers(ModData, erl_script_nocache),
     httpd_response:send_header(ModData, StatusCode, 
 			       ExtraHeaders ++ HTTPHeaders).
 
