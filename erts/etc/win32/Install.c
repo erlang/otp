@@ -46,7 +46,7 @@ int main(int argc, char **argv)
     HANDLE module = GetModuleHandle(NULL);
     char *binaries[] = { "erl.exe", "werl.exe", "erlc.exe",
 			 "dialyzer.exe", "typer.exe",
-			 "escript.exe", "ct_run.exe", NULL };
+			 "escript.exe", "reltool", "ct_run.exe", NULL };
     char *scripts[] = { "start_clean.boot", "start_sasl.boot", NULL };
     char fromname[MAX_PATH];
     char toname[MAX_PATH];

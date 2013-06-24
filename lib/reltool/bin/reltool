@@ -1,0 +1,289 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2010. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%%
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
+%% %CopyrightEnd%
+
+-include_lib("reltool/src/reltool.hrl").
+
+main(Args) ->
+    process_flag(trap_exit, true),
+    try
+        Tokens = scan_args(Args, [], []),
+        {Options, Actions} = parse_args(Tokens, []),
+        case invoke(Options, Actions) of
+            ok ->
+                safe_stop(0);
+            {error, ReasonStr} ->
+                fatal_error(ReasonStr, 1)
+        end
+    catch
+        throw:usage ->
+            usage(),
+            safe_stop(1);
+        throw:help ->
+            usage(),
+            safe_stop(0);
+        throw:{error, ReasonStr2} ->
+            fatal_error(ReasonStr2, 1);
+        exit:Reason ->
+            ReasonStr2 = lists:flatten(io_lib:format("EXIT: ~p", [Reason])),
+            fatal_error(ReasonStr2, 2)
+    end.
+
+usage() ->
+    Usage =
+        [
+         "[Config] --gui                                       (start GUI)",
+         "[Config] --get_config [-defaults] [-derived] [File]  (retrieve config info)",
+         "[Config] --get_rel RelName [File]                    (retrieve release info)",
+         "[Config] --get_script RelName [File]                 (retrieve boot script)",
+         "[Config] --create_target TargetDir                   (create target system)",
+         "[Config] --get_target_spec [File]                    (retrieve target spec)",
+         "--eval_target_spec Spec RootDir TargetDir            (evaluate target spec)",
+         "--help                                               (display this help)"
+        ],
+    Script = script_name(),
+    Signature = lists:flatten([[Script, " ", U, "\n"] || U <- Usage]),
+    io:format("Reltool is the release management tool of Erlang/OTP\n"
+              "\n"
+              "It analyses a given Erlang/OTP installation and determines\n"
+              "various dependencies between its applications. The graphical\n"
+              "frontend depicts the dependencies and enables interactive\n"
+              "customization of a target system. The backend provides a\n"
+              "batch interface for generation of customized target systems.\n"
+              "\n"
+              "~s"
+              "\n"
+              "Config    = File | 'sys()'\n"
+              "File      = filename()\n"
+              "RelName   = rel_name()\n"
+              "TargetDir = target_dir()\n"
+              "Spec      = File | 'target_spec()'\n"
+              "RootDir   = root_dir()\n"
+              "\n"
+              "Exit status:\n"
+              "  0 - OK\n"
+              "  1 - error\n"
+              "  2 - internal error\n"
+              "\n"
+              "See the User's guide and Reference manual of reltool"
+              " for more info.\n",
+              [Signature]).
+
+safe_stop(Code) ->
+    init:stop(Code),
+    timer:sleep(infinity).
+
+invoke(Options, Actions) ->
+    case Actions of
+        [["--gui"]] ->
+            start_window(Options);
+        [["--get_config" | OptArgs]] ->
+            OptArgs2 = OptArgs -- ["-defaults"],
+            OptArgs3 = OptArgs2 -- ["-derived"],
+            InclDef = OptArgs2 =/= OptArgs,
+            InclDeriv = OptArgs3 =/= OptArgs2,
+            {ok, Config} = do_invoke(Options, reltool, get_config,
+                                     [InclDef, InclDeriv]),
+            String = pretty("config", Config),
+            case OptArgs3 of
+                [] ->
+                    format("~s", [String]);
+                [ConfigFile] ->
+                    write_file(ConfigFile, String);
+                _ ->
+                    throw(usage)
+            end;
+        [["--get_rel", RelName | OptArgs]] ->
+            {ok, Rel} = do_invoke(Options, reltool, get_rel, [RelName]),
+            String = pretty("rel", Rel),
+            case OptArgs of
+                [] ->
+                    format("~s", [String]);
+                [RelFile] ->
+                    write_file(RelFile, String);
+                _ ->
+                    throw(usage)
+            end;
+        [["--get_script", RelName | OptArgs]] ->
+            {ok, Script} = do_invoke(Options, reltool, get_script, [RelName]),
+            String = pretty("script", Script),
+            case OptArgs of
+                [] ->
+                    format("~s", [String]);
+                [ScriptFile] ->
+                    write_file(ScriptFile, String);
+                _ ->
+                    throw(usage)
+            end;
+        [["--create_target", TargetDir]] ->
+            do_invoke(Options, reltool, create_target, [TargetDir]);
+        [["--get_target_spec" | OptArgs]] ->
+            {ok, Script} = do_invoke(Options, reltool, get_target_spec, []),
+            String = pretty("target_spec", Script),
+            case OptArgs of
+                [] ->
+                    format("~s", [String]);
+                [SpecFile] ->
+                    write_file(SpecFile, String);
+                _ ->
+                    throw(usage)
+            end;
+        [["--eval_target_spec", TargetSpec0, RootDir, TargetDir]] ->
+            {spec, TargetSpec} = read_term(TargetSpec0, spec),
+            case reltool:eval_target_spec(TargetSpec, RootDir, TargetDir) of
+                ok ->
+                    ok;
+                {error, ReasonStr} ->
+                    throw({error, ReasonStr})
+            end;
+        _ ->
+            throw(usage)
+    end.
+
+do_invoke(Options, M, F, A) ->
+    case reltool:start_server(Options) of
+        {ok, ServerPid} ->
+            case reltool:get_status(ServerPid) of
+                {ok, Warnings} ->
+                    [io:format(standard_error,
+                               "WARNING: ~s\n", [W]) || W <- Warnings],
+                    Res = apply(M, F, [ServerPid | A]),
+                    _StopRes = reltool:stop(ServerPid),
+                    case Res of
+                        {error, ReasonStr} ->
+                            throw({error, ReasonStr});
+                        _ ->
+                            Res
+                    end;
+                {error, ReasonStr} ->
+                    throw({error, ReasonStr})
+            end;
+        {error, ReasonStr} ->
+            throw({error, ReasonStr})
+    end.
+
+start_window(Options) ->
+    case reltool:start_link(Options) of
+        {ok, WinPid} ->
+            receive
+                {'EXIT', WinPid, shutdown} ->
+                    ok;
+                {'EXIT', WinPid, normal} ->
+                    ok;
+                {'EXIT', WinPid, Reason} ->
+                    exit(Reason)
+            end;
+        {error, ReasonStr} ->
+            throw({error, ReasonStr})
+    end.
+
+read_term("-"++_, _Tag) ->
+    throw(usage);
+read_term(String, Tag) ->
+    case file:consult(String) of
+        {ok, [{Tag, _} = Term]} ->
+            Term;
+        {ok, Terms} ->
+            ReasonStr = lists:flatten(io_lib:format("Illegal ~p: ~p",
+                                                    [Tag, Terms])),
+            throw({error, ReasonStr});
+        {error, FileReason} ->
+            try
+                {ok, Tokens, _} = erl_scan:string(String ++ ". "),
+                {ok, {Tag, _} = Term} = erl_parse:parse_term(Tokens),
+                Term
+            catch
+                error:{badmatch, _} ->
+                    Text = file:format_error(FileReason),
+                    throw({error, String ++ ": " ++ Text})
+            end
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Helpers
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+script_name() ->
+    filename:basename(escript:script_name(), ".escript").
+
+fatal_error(String, Code) ->
+    io:format(standard_error, "~s: ~s\n", [script_name(), String]),
+    safe_stop(Code).
+
+write_file(File, IoList) ->
+    case file:write_file(File, IoList) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            {error, file:format_error(Reason)}
+    end.
+
+format(Format, Args) ->
+    io:format(Format, Args),
+    %% Wait a while for the I/O to be processed
+    timer:sleep(timer:seconds(1)).
+
+pretty(Tag, Term) ->
+    lists:flatten(io_lib:format("%% ~s generated at ~w ~w\n~p.\n\n",
+                                [Tag, date(), time(), Term])).
+
+scan_args([H | T], Single, Multi) ->
+    case H of
+        "--" ++ _ when Single =:= [] ->
+            scan_args(T, [H], Multi);
+        "--" ++ _ ->
+            scan_args(T, [H], [lists:reverse(Single) | Multi]);
+        _ ->
+            scan_args(T, [H | Single], Multi)
+    end;
+scan_args([], [], Multi) ->
+    lists:reverse(Multi);
+scan_args([], Single, Multi) ->
+    lists:reverse([lists:reverse(Single) | Multi]).
+
+parse_args([H | T] = Args, Options) ->
+    case H of
+        ["--help"] ->
+            throw(help);
+        ["--wx_debug" | Levels] ->
+            Dbg =
+                fun(L) ->
+                        case catch list_to_integer(L) of
+                            {'EXIT', _} ->
+                                case catch list_to_atom(L) of
+                                    {'EXIT', _} ->
+                                        exit("Illegal wx debug level: " ++ L);
+                                    Atom ->
+                                                Atom
+                                end;
+                            Int ->
+                                Int
+                        end
+                end,
+            Levels2 = lists:map(Dbg, Levels),
+            parse_args(T, [{wx_debug, Levels2} | Options]);
+        ["--" ++ _ | _] ->
+            %% No more options
+            {lists:reverse(Options), Args};
+        [Config0] ->
+            Sys = read_term(Config0, sys),
+            parse_args(T, [{config, Sys} | Options])
+    end;
+parse_args([], Options) ->
+    {lists:reverse(Options), []}.

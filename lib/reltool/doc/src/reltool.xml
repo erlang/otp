@@ -39,7 +39,7 @@
 
     <p><em>Reltool</em> is a release management tool. It analyses a
     given Erlang/OTP installation and determines various dependencies
-    between applications. The <c>graphical</c> frontend depicts the
+    between its applications. The <c>graphical</c> frontend depicts the
     dependencies and enables interactive customization of a target
     system. The backend provides a <c>batch</c> interface for
     generation of customized target systems.</p>
@@ -697,7 +697,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>get_script(Server, Relname) -> {ok, ScriptFile | {error, Reason}</name>
+      <name>get_script(Server, Relname) -> {ok, ScriptFile} | {error, Reason}</name>
       <fsummary>Get contents of a boot script file</fsummary>
       <type>
         <v>Server     = server()</v>

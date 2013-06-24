@@ -40,7 +40,8 @@ include files.mk
 # ----------------------------------------------------
 
 XML_FILES = \
-	$(BOOK_FILES)  $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
+	$(BOOK_FILES)  $(XML_APPLICATION_FILES) \
+	$(XML_REF1_FILES) $(XML_REF3_FILES) \
 	$(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
 HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
@@ -48,17 +49,17 @@ HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
 
 INFO_FILE = ../../info
 
+MAN1_FILES = $(XML_REF1_FILES:%.xml=$(MAN1DIR)/%.1)
 MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
 
 HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
-
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
+XML_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -74,11 +75,12 @@ pdf: $(TOP_PDF_FILE)
 
 html:images $(HTML_REF_MAN_FILE)
 
-man: $(MAN3_FILES)
+man: $(MAN1_FILES) $(MAN3_FILES)
+	mv $(MAN1DIR)/reltool_escript.1 $(MAN1DIR)/reltool.1
 
 images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	for file in $(XML_FILES); do \
@@ -87,13 +89,13 @@ clean clean_docs:
                   fi \
         done
 	rm -rf $(HTMLDIR)/*
-	rm -f $(MAN3DIR)/*
+	rm -f $(MAN3DIR)/* $(MAN1DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
@@ -103,7 +105,8 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(HTMLDIR)/* "$(RELSYSDIR)/doc/html"
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
+	$(INSTALL_DATA) $(MAN1DIR)/* "$(RELEASE_PATH)/man/man1"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man1"
 	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
 
 release_spec:
-
