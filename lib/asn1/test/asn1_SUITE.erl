@@ -186,8 +186,7 @@ groups() ->
      {performance, [],
       [testTimer_ber,
        testTimer_per,
-       testTimer_uper,
-       smp]}].
+       testTimer_uper]}].
 
 parallel(Options) ->
     case erlang:system_info(smp_support) andalso
@@ -1229,70 +1228,6 @@ ticket_7407(Config) ->
     asn1_test_lib:compile("EUTRA-extract-7407", Config,
                           [uper, no_final_padding]),
     asn1_test_lib:ticket_7407_code(false).
-
-smp(suite) -> [];
-smp(Config)  ->
-    case erlang:system_info(smp_support) of
-        true ->
-            NumOfProcs = erlang:system_info(schedulers),
-            io:format("smp starting ~p workers\n",[NumOfProcs]),
-
-            Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-            ok = testNBAPsystem:compile(Config, [per]),
-
-            enc_dec(NumOfProcs,Msg,2),
-
-            N = 10000,
-
-            {Time1,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
-            {Time1S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
-
-            ok = testNBAPsystem:compile(Config, [ber]),
-            {Time3,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
-
-            {Time3S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
-
-            {comment,lists:flatten(
-                       io_lib:format(
-                         "Encode/decode time parallell with ~p cores: ~p [microsecs]~n"
-                         "Encode/decode time sequential: ~p [microsecs]",
-                         [NumOfProcs,Time1+Time3,Time1S+Time3S]))};
-        false ->
-            {skipped,"No smp support"}
-    end.
-
-enc_dec(1, Msg, N) ->
-    worker_loop(N, Msg);
-enc_dec(NumOfProcs,Msg, N) ->
-    pforeach(fun(_) ->
-                     worker_loop(N, Msg)
-             end, [I || I <- lists:seq(1,NumOfProcs)]).
-
-worker_loop(0, _Msg) ->
-    ok;
-worker_loop(N, Msg) ->
-    {ok,B}=asn1_wrapper:encode('NBAP-PDU-Discriptions',
-                                     'NBAP-PDU',
-                                     Msg),
-    {ok,_Msg}=asn1_wrapper:decode('NBAP-PDU-Discriptions',
-                                        'NBAP-PDU',
-                                        B),
-    worker_loop(N - 1, Msg).
-
-
-pforeach(Fun, List) ->
-    pforeach(Fun, List, []).
-pforeach(Fun, [], [{Pid,Ref}|Pids]) ->
-    receive
-        {'DOWN', Ref, process, Pid, normal} ->
-            pforeach(Fun, [], Pids)
-    end;
-pforeach(Fun, [H|T], Pids) ->
-    Pid = spawn(fun() -> Fun(H) end),
-    Ref = erlang:monitor(process, Pid),
-    pforeach(Fun, T, [{Pid, Ref}|Pids]);
-pforeach(_Fun,[],[]) ->
-    ok.
 
 -record('InitiatingMessage',{procedureCode,criticality,value}).
 -record('Iu-ReleaseCommand',{first,second}).
