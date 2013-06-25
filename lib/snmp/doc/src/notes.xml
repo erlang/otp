@@ -34,6 +34,80 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.24.1</title>
+    <p>Version 4.24.1 supports code replacement in runtime from/to
+    version 4.24, 4.23.1 and 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent,manager] Updated to support the new crypto interface. </p>
+          <p>Own Id: OTP-11009</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Reading the value of the vacmViewTreeFamilyMask returns 
+	  it in the wrong (internal bitlist) format. </p>
+	  <p>The vacmViewTreeFamilyMask is defined as a bit string in the MIB
+	  (OCTET STRING). Internally a bitlist (list of 1's and 0's, 
+	  see <seealso marker="snmp_agent_config_files#vacm">vacm config file</seealso>
+	  for more info) is used. 
+	  However, the MIB implementation assumed the latter, effectively
+	  rendering all attempts to read/set masks via SNMP unsuccessful. </p>
+	  <p>Since the mask is used in hot paths (e.g. access permission checks 
+	  for each SNMP operation, the bitlist representation of the mask has 
+	  benefits (e.g. faster processing). Reading/writing the view mask 
+	  objects is less time-critical. Therefore, to fix the issue, convert 
+	  between the bitlist (internal) representation and bitstring 
+	  (external) when the vacmViewTreeFamilyMask objects are accessed. </p>
+	  <p>Also, the check of the vacm config file was invalid with 
+	  regard to the mask value. It was assumed to be a proper oid, which 
+	  is not strictly the case (see bitlist above). </p>
+          <p>Own Id: OTP-11177</p>
+	  <p>Stefan Zegenhagen</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.24.1 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.24</title>
     <p>Version 4.24 supports code replacement in runtime from/to
     version 4.23.1 and 4.23. </p>

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,6 +47,14 @@
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
 -endif.
+
+
+-type internal_view_mask()         :: null | [internal_view_mask_element()].
+-type internal_view_mask_element() :: 0 | 1.
+
+-type external_view_mask() :: octet_string(). % At most length of 16 octet
+-type octet_string()       :: [octet()].
+-type octet()              :: byte().
 
 
 %%-----------------------------------------------------------------
@@ -160,14 +168,7 @@ check_vacm({vacmViewTreeFamily, ViewName, Tree, Type, Mask}) ->
     {ok, TypeVal} =
         snmp_conf:check_atom(Type, [{included, ?view_included},
 				    {excluded, ?view_excluded}]),
-    MaskVal = 
-        case (catch snmp_conf:check_atom(Mask, [{null, []}])) of
-            {error, _}  -> 
-                snmp_conf:check_oid(Mask),
-                Mask;
-	    {ok, X} ->
-		X
-	end,
+    {ok, MaskVal} = snmp_conf:check_imask(Mask), 
     Vacm = {ViewName, Tree, MaskVal, TypeVal, 
 	    ?'StorageType_nonVolatile', ?'RowStatus_active'},
     {ok, {vacmViewTreeFamily, Vacm}};
@@ -194,8 +195,8 @@ init_tabs(Sec2Group, Access, View) ->
     ok.
     
 init_sec2group_table([Row | T]) ->
-%%      ?vtrace("init security-to-group table: "
-%%  	    "~n   Row: ~p",[Row]),    
+    %% ?vtrace("init security-to-group table: "
+    %%         "~n   Row: ~p",[Row]),    
     Key1 = element(1, Row),
     Key2 = element(2, Row),
     Key = [Key1, length(Key2) | Key2],
@@ -953,13 +954,23 @@ verify_vacmViewTreeFamilyTable_col(?vacmViewTreeFamilySubtree, Tree) ->
 	    wrongValue(?vacmViewTreeFamilySubtree)
     end;
 verify_vacmViewTreeFamilyTable_col(?vacmViewTreeFamilyMask, Mask) ->
+    %% Mask here is in the "external" format. That is, according 
+    %% to the MIB, which means that its an OCTET STRING of max 16 
+    %% octets. 
+    %% We however store the mask as a list of 1's (exact) and 
+    %% 0's (wildcard), which means we have to convert the mask. 
     case Mask of
-	null -> [];
-	[]   -> [];
+	%% The Mask can only have this value if the vacmViewTreeFamilyTable
+	%% is called locally!
+	null -> 
+	    []; 
+	[] -> 
+	    [];
 	_ ->
-	    case (catch check_mask(Mask)) of
-		ok ->
-		    mask2oid(Mask);
+	    %% Check and convert to our internal format
+	    case check_mask(Mask) of
+		{ok, IMask} ->
+		    IMask;
 	        _ ->
 		    wrongValue(?vacmViewTreeFamilyMask)
 	    end
@@ -975,53 +986,60 @@ verify_vacmViewTreeFamilyTable_col(?vacmViewTreeFamilyType, Type) ->
     end;
 verify_vacmViewTreeFamilyTable_col(_, Val) ->
     Val.
+	    
 
+check_mask(Mask) when is_list(Mask) andalso (length(Mask) =< 16) ->
+    try
+	begin
+	    {ok, emask2imask(Mask)}
+	end
+    catch
+	throw:{error, _} ->
+	    {error, {bad_mask, Mask}};
+	T:E ->
+	    {error, {bad_mask, Mask, T, E}}
+    end;
+check_mask(BadMask) ->
+    {error, {bad_mask, BadMask}}.
 
-check_mask([]) ->
-    ok;
-check_mask([Head | Tail]) when is_integer(Head) ->
-% we can cause exception here because the caller catches
-    if
-        Head > -1 andalso Head < 256 ->
-            check_mask(Tail)
-    end.
+-spec emask2imask(EMask :: external_view_mask()) ->
+    IMask :: internal_view_mask().
 
-% internally (for easier computations), the mask is stored
-% as OID and not as bit-field. Therefore, we have to convert
-% the bitstring to a list of integers before storing it.
-mask2oid(Mask) ->
-    Func = fun(Byte) ->
-            % what's a nice syntax for extracting bits
-            % from a byte???
-            <<A:1, B:1, C:1, D:1, E:1, F:1, G:1, H:1>> = <<Byte>>,
-            [A, B, C, D, E, F, G, H]
-    end,
-    lists:flatten(lists:map(Func, Mask)).
+%% Convert an External Mask (OCTET STRING) to Internal Mask (list of 0 or 1)
+emask2imask(EMask) ->
+    lists:flatten([octet2bits(Octet) || Octet <- EMask]).
 
-oid2mask(Oid) ->
-    % convert all suboids to either 1 or 0 for sure
-    Func = fun
-        (0) -> 0;
-        (_) -> 1
-    end,
-    oid2mask(lists:map(Func, Oid), []).
+octet2bits(Octet) 
+  when is_integer(Octet) andalso (Octet >= 16#00) andalso (16#FF >= Octet) ->
+    <<A:1, B:1, C:1, D:1, E:1, F:1, G:1, H:1>> = <<Octet>>,
+    [A, B, C, D, E, F, G, H];
+octet2bits(BadOctet) ->
+    throw({error, {bad_octet, BadOctet}}).
 
-oid2mask([], Mask) ->
-    % end-of-list, return bitstring
-    lists:reverse(Mask);
-oid2mask(Oid, Mask) ->
-    % check whether we've got at least 8 sub-identifiers. if not,
-    % extend with 1's until there are enough to fill a byte
-    NOid = case length(Oid) of
-        Small when Small < 8 ->
-            Oid ++ lists:duplicate(8-Small, 1);
-        _ ->
-            Oid
-    end,
-    % extract sufficient suboids for 8 bits
-    [A, B, C, D, E, F, G, H | Tail] = NOid,
-    <<Byte:8>> = <<A:1, B:1, C:1, D:1, E:1, F:1, G:1, H:1>>,
-    oid2mask(Tail, [Byte | Mask]).
+-spec imask2emask(IMask :: internal_view_mask()) ->
+    EMask :: external_view_mask().
+
+%% Convert an Internal Mask (list of 0 or 1) to External Mask (OCTET STRING) 
+imask2emask(IMask) ->
+    imask2emask(IMask, []).
+
+imask2emask([], EMask) ->
+    lists:reverse(EMask);
+imask2emask(IMask, EMask) ->
+    %% Make sure we have atleast 8 bits
+    %% (maybe extend with 1's)
+    IMask2 = 
+	case length(IMask) of
+	    Small when Small < 8 ->
+		IMask ++ lists:duplicate(8-Small, 1);
+	    _ ->
+		IMask
+	end, 
+    %% Extract 8 bits
+    [A, B, C, D, E, F, G, H | IMaskRest] = IMask2,
+    <<Octet:8>> = <<A:1, B:1, C:1, D:1, E:1, F:1, G:1, H:1>>,
+    imask2emask(IMaskRest, [Octet | EMask]). 
+
 
 
 table_next(Name, RestOid) ->
@@ -1061,42 +1079,40 @@ stc(vacmSecurityToGroupTable) -> ?vacmSecurityToGroupStorageType;
 stc(vacmViewTreeFamilyTable) -> ?vacmViewTreeFamilyStorageType.
  
 next(Name, RowIndex, Cols) ->
-    Ans = snmp_generic:handle_table_next(db(Name), RowIndex, Cols,
-                                   fa(Name), foi(Name), noc(Name)),
-    patch_next(Name, Ans).
+    Result = snmp_generic:handle_table_next(db(Name), RowIndex, Cols,
+					    fa(Name), foi(Name), noc(Name)),
+    externalize_next(Name, Result).
  
 get(Name, RowIndex, Cols) ->
-    Ans = snmp_generic:handle_table_get(db(Name), RowIndex, Cols, foi(Name)),
-    patch(Name, Cols, Ans).
+    Result = snmp_generic:handle_table_get(db(Name), RowIndex, Cols, 
+					   foi(Name)),
+    externalize_get(Name, Cols, Result).
 
 
-patch(Name, Cols, Ans) when is_list(Ans) ->
-    % function to patch returned values
-    Func = fun
-        ({Col, {value, Val}}) ->    {value, do_patch(Name, Col, Val)};
-        ({_, Other}) ->             Other
-    end,
-    % merge column numbers and return values. there must be as much
-    % return values as there are columns requested
-    Tmp = lists:zip(Cols, Ans),
-    % and patch all values
-    lists:map(Func, Tmp);
-patch(_, _, Ans) ->
-    Ans.
+externalize_next(Name, Result) when is_list(Result) ->
+    F = fun({[Col | _] = Idx, Val}) -> {Idx, externalize(Name, Col, Val)};
+	   (Other)                  -> Other
+	end,
+    [F(R) || R <- Result];
+externalize_next(_, Result) ->
+    Result.
 
-patch_next(Name, Ans) when is_list(Ans) ->
-    Func = fun
-        ({[C | _] = Idx, Val}) ->   {Idx, do_patch(Name, C, Val)};
-        (Other) ->                  Other
-    end,
-    lists:map(Func, Ans);
-patch_next(_, Ans) ->
-    Ans.
 
-do_patch(vacmViewTreeFamilyTable, ?vacmViewTreeFamilyMask, Val) ->
-    oid2mask(Val);
-do_patch(_, _, Val) ->
-    Val.
+externalize_get(Name, Cols, Result) when is_list(Result) ->
+    %% Patch returned values
+    F = fun({Col, {value, Val}}) -> {value, externalize(Name, Col, Val)};
+	   ({_, Other}) ->          Other
+	end,
+    %% Merge column numbers and return values. there must be as much
+    %% return values as there are columns requested. And then patch all values
+    [F(R) || R <- lists:zip(Cols, Result)];
+externalize_get(_, _, Result) ->
+    Result. 
+
+externalize(vacmViewTreeFamilyTable, ?vacmViewTreeFamilyMask, Val) ->
+    imask2emask(Val);
+externalize(_, _, Val) ->
+    Val. 
 
 
 wrongValue(V) -> throw({wrongValue, V}).
