@@ -1133,28 +1133,13 @@ bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
     %%Anno = Anno0#a{anno=[compiler_generated|A]},
     {set_anno(E, Anno),Pre,St}.
 
-append_tail_segment(Segs, St) ->
-    app_tail_seg(Segs, St, []).
-
-app_tail_seg([#c_bitstr{val=Var0,size=#c_literal{val=all}}=Seg0]=L,
-	     St0, Acc) ->
-    case Var0 of
-	#c_var{name='_'} ->
-	    {Var,St} = new_var(St0),
-	    Seg = Seg0#c_bitstr{val=Var},
-	    {reverse(Acc, [Seg]),Var,St};
-	#c_var{} ->
-	    {reverse(Acc, L),Var0,St0}
-    end;
-app_tail_seg([H|T], St, Acc) ->
-    app_tail_seg(T, St, [H|Acc]);
-app_tail_seg([], St0, Acc) ->
+append_tail_segment(Segs, St0) ->
     {Var,St} = new_var(St0),
     Tail = #c_bitstr{val=Var,size=#c_literal{val=all},
 		     unit=#c_literal{val=1},
 		     type=#c_literal{val=binary},
 		     flags=#c_literal{val=[unsigned,big]}},
-    {reverse(Acc, [Tail]),Var,St}.
+    {Segs++[Tail],Var,St}.
 
 emasculate_segments(Segs, St) ->
     emasculate_segments(Segs, St, []).
