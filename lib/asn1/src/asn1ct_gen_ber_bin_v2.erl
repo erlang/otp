@@ -1080,8 +1080,7 @@ gen_objset_enc(_,_,{unique,undefined},_,_,_,_,_) ->
 gen_objset_enc(Erules, ObjSetName, UniqueName,
 	       [{ObjName,Val,Fields}|T], ClName, ClFields,
 	       NthObj,Acc)->
-    emit(["'getenc_",ObjSetName,"'(",{asis,UniqueName},",",{asis,Val},
-	  ") ->",nl]),
+    emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl]),
     CurrMod = get(currmod),
     {InternalFunc,NewNthObj}=
 	case ObjName of
@@ -1103,7 +1102,7 @@ gen_objset_enc(Erules, ObjSetName, UniqueName,
 %% See X.681 Annex E for the following case
 gen_objset_enc(_,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
 	       _ClFields,_NthObj,Acc) ->
-    emit({"'getenc_",ObjSetName,"'(_, _) ->",nl}),
+    emit(["'getenc_",ObjSetName,"'(_) ->",nl]),
     emit({indent(3),"fun(_, Val, _RestPrimFieldName) ->",nl}),
     emit({indent(6),"Len = case Val of",nl,indent(9),
 	  "Bin when is_binary(Bin) -> byte_size(Bin);",nl,indent(9),
@@ -1121,7 +1120,7 @@ emit_ext_fun(EncDec,ModuleName,Name) ->
 	  Name,"'(T,V,O) end"]).
     
 emit_default_getenc(ObjSetName,UniqueName) ->
-    emit(["'getenc_",ObjSetName,"'(",{asis,UniqueName},", ErrV) ->",nl]),
+    emit(["'getenc_",ObjSetName,"'(ErrV) ->",nl]),
     emit([indent(3),"fun(C,V,_) -> exit({'Type not compatible with table constraint',{component,C},{value,V}, {unique_name_and_value,",{asis,UniqueName},", ErrV}}) end"]).
 
 %% gen_inlined_enc_funs for each object iterates over all fields of a
@@ -1248,8 +1247,7 @@ gen_objset_dec(_,_,{unique,undefined},_,_,_,_) ->
     ok;
 gen_objset_dec(Erules, ObjSName, UniqueName, [{ObjName,Val,Fields}|T],
 	       ClName, ClFields, NthObj)->
-    emit(["'getdec_",ObjSName,"'(",{asis,UniqueName},",",
-	  {asis,Val},") ->",nl]),
+    emit(["'getdec_",ObjSName,"'(",{asis,Val},") ->",nl]),
     CurrMod = get(currmod),
     NewNthObj=
 	case ObjName of
@@ -1270,7 +1268,7 @@ gen_objset_dec(Erules, ObjSName, UniqueName, [{ObjName,Val,Fields}|T],
 		   ClFields, NewNthObj);
 gen_objset_dec(_,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
 	       _ClFields,_NthObj) ->
-    emit(["'getdec_",ObjSetName,"'(_, _) ->",nl]),
+    emit(["'getdec_",ObjSetName,"'(_) ->",nl]),
     emit([indent(2),"fun(_,Bytes, _RestPrimFieldName) ->",nl]),
     
     emit([indent(4),"case Bytes of",nl,
@@ -1287,7 +1285,7 @@ gen_objset_dec(_, ObjSetName, UniqueName, [], _, _, _) ->
     ok.
 
 emit_default_getdec(ObjSetName,UniqueName) ->
-    emit(["'getdec_",ObjSetName,"'(",{asis,UniqueName},", ErrV) ->",nl]),
+    emit(["'getdec_",ObjSetName,"'(ErrV) ->",nl]),
     emit([indent(2), "fun(C,V,_) -> exit({{component,C},{value,V},{unique_name_and_value,",{asis,UniqueName},", ErrV}}) end"]).
 
 gen_inlined_dec_funs(Fields, ClFields, ObjSetName, NthObj) ->

@@ -130,8 +130,7 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 			ValueMatch = value_match(ValueIndex, El),
 			emit([ObjectEncode," =",nl,
 			      "  ",{asis,Module},":'getenc_",ObjSetName,"'(",
-			      {asis,UniqueFieldName},", ",nl,
-			      "  ",ValueMatch,"),",nl]),
+			      ValueMatch,"),",nl]),
 			{AttrN,ObjectEncode};
 		    false ->
 			false
@@ -340,7 +339,7 @@ gen_dec_constructed_imm(Erule, Typename, #type{}=D) ->
 
 gen_dec_constructed_imm_2(Typename, CompList,
 			  ObjSetInfo, AccTerm, AccBytes) ->
-    {_,UniqueFName,ValueIndex} = ObjSetInfo,
+    {_,_UniqueFName,ValueIndex} = ObjSetInfo,
     case {AccTerm,AccBytes} of
 	{[],[]} ->
 	    ok;
@@ -352,7 +351,7 @@ gen_dec_constructed_imm_2(Typename, CompList,
 	    {ObjSetMod,ObjSetName} = ObjSet,
 	    emit([DecObj," =",nl,
 		  "   ",{asis,ObjSetMod},":'getdec_",ObjSetName,"'(",
-		  {asis,UniqueFName},", ",ValueMatch,"),",nl]),
+		  ValueMatch,"),",nl]),
 	    gen_dec_listofopentypes(DecObj,ListOfOpenTypes,false)
     end,
     %% we don't return named lists any more   Cnames = mkcnamelist(CompList), 
@@ -1392,14 +1391,14 @@ gen_dec_line_special(Erule, Atype, TopType, Comp, DecInfObj) ->
 gen_dec_line_dec_inf(Comp, DecInfObj) ->
     #'ComponentType'{name=Cname} = Comp,
     case DecInfObj of
-	{Cname,{_,OSet,UniqueFName,ValIndex}} ->
+	{Cname,{_,OSet,_UniqueFName,ValIndex}} ->
 	    Term = asn1ct_gen:mk_var(asn1ct_name:curr(term)),
 	    ValueMatch = value_match(ValIndex,Term),
 	    {ObjSetMod,ObjSetName} = OSet,
 	    emit([",",nl,
 		  "ObjFun = ",{asis,ObjSetMod},
 		  ":'getdec_",ObjSetName,"'(",
-		  {asis,UniqueFName},", ",ValueMatch,")"]);
+		  ValueMatch,")"]);
 	_ ->
 	    ok
     end.

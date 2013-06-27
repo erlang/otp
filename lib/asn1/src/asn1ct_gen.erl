@@ -834,9 +834,9 @@ pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
 	[] -> ok;
 	_ ->
 	    emit({"-export([",nl}),
-	    gen_exports1(ObjectSets,"getenc_",2),
+	    gen_exports1(ObjectSets, "getenc_",1),
 	    emit({"-export([",nl}),
-	    gen_exports1(ObjectSets,"getdec_",2)
+	    gen_exports1(ObjectSets, "getdec_",1)
     end,
     emit({"-export([info/0]).",nl}),
     gen_partial_inc_decode_exports(),
