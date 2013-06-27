@@ -36,6 +36,8 @@
 	 verify_events/3, verify_events/4, reformat/2, log_events/4,
 	 join_abs_dirs/2]).
 
+-export([start_slave/3, slave_stop/1]).
+
 -export([ct_test_halt/1]).
 
 -include_lib("kernel/include/file.hrl").
@@ -66,10 +68,14 @@ init_per_suite(Config, Level) ->
     
     start_slave(Config, Level).
 
-start_slave(Config,Level) ->
+start_slave(Config, Level) ->
+    start_slave(ct, Config, Level).
+
+start_slave(NodeName, Config, Level) ->
     [_,Host] = string:tokens(atom_to_list(node()), "@"),
-    test_server:format(0, "Trying to start ~s~n", ["ct@"++Host]),
-    case slave:start(Host, ct, []) of
+    test_server:format(0, "Trying to start ~s~n",
+		       [atom_to_list(NodeName)++"@"++Host]),
+    case slave:start(Host, NodeName, []) of
 	{error,Reason} ->
 	    test_server:fail(Reason);
 	{ok,CTNode} ->
@@ -77,7 +83,7 @@ start_slave(Config,Level) ->
 	    IsCover = test_server:is_cover(),
 	    if IsCover ->
 		    cover:start(CTNode);
-	       true->
+	       true ->
 		    ok
 	    end,
 
