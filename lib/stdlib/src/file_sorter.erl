@@ -547,7 +547,7 @@ files(_I, L, _LSz, #w{seq = 1, out = Out}=W, []) ->
             NW = close_input(W1),
             outfun(close, NW);
         Out ->
-            write_run(L, W, Out),
+            _ = write_run(L, W, Out),
             ok
     end;
 files(_I, L, _LSz, W, []) ->
@@ -638,7 +638,7 @@ last_merge(R, W) when length(R) =< W#w.no_files ->
             NW = close_input(W2),
             outfun(close, NW);
         Out ->
-            merge_files(R, W, Out),
+            _ = merge_files(R, W, Out),
             ok
     end;
 last_merge(R, W) ->
@@ -1110,10 +1110,12 @@ read_fun2(Fd, Bin, Size, FileName, Owner) ->
     end.
        
 close_read_fun(Fd, _FileName, user) ->
-    file:close(Fd);
+    _ = file:close(Fd),
+    ok;
 close_read_fun(Fd, FileName, fsort) ->
-    file:close(Fd),
-    file:delete(FileName).
+    _ = file:close(Fd),
+    _ = file:delete(FileName),
+    ok.
 
 read_objs(Fd, FileName, I, L, Bin0, Size0, LSz, W) ->
     Max = erlang:max(Size0, ?CHUNKSIZE),
@@ -1481,10 +1483,10 @@ cleanup(W) ->
     F = fun(IFun) when is_function(IFun) -> 
                 IFun(close);
            ({Fd,FileName}) ->
-                file:close(Fd),
-                file:delete(FileName);
+                _ = file:close(Fd),
+                _= file:delete(FileName);
            (FileName) -> 
-                file:delete(FileName)
+                _= file:delete(FileName)
         end,
     lists:foreach(F, W1#w.temp).
 
@@ -1502,8 +1504,12 @@ close_out(_) ->
 close_file(Fd, W) ->
     {Fd, FileName} = lists:keyfind(Fd, 1, W#w.temp),
     ?DEBUG("closing ~tp~n", [FileName]),
-    file:close(Fd),
-    W#w{temp = [FileName | lists:keydelete(Fd, 1, W#w.temp)]}.
+    case file:close(Fd) of
+        ok ->
+            W#w{temp = [FileName | lists:keydelete(Fd, 1, W#w.temp)]};
+        Error ->
+            file_error(FileName, Error, W)
+    end.
 
 %%%
 %%% Format 'term'.
@@ -1536,10 +1542,10 @@ file_rterms2(Fd, L, LSz, FileName, Files) when LSz < ?CHUNKSIZE ->
             B = term_to_binary(Term),
             file_rterms2(Fd, [B | L], LSz + byte_size(B), FileName, Files);
         eof ->
-            file:close(Fd),
+            _ = file:close(Fd),
             {lists:reverse(L), file_rterms(no_file, Files)};
         _Error ->
-            file:close(Fd),
+            _ = file:close(Fd),
             {error, {bad_term, FileName}}
     end;
 file_rterms2(Fd, L, _LSz, FileName, Files) ->
@@ -1568,7 +1574,7 @@ write_terms(Fd, F, [B | Bs], Args) ->
         ok -> 
             write_terms(Fd, F, Bs, Args);
         {error, Reason} ->
-            file:close(Fd),
+            _ = file:close(Fd),
             {error, {file_error, F, Reason}}
     end;
 write_terms(Fd, F, [], Args) ->

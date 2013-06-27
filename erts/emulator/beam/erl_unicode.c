@@ -1981,9 +1981,19 @@ BIF_RETTYPE binary_to_existing_atom_2(BIF_ALIST_2)
  * string routines, that will certainly fail on some OS.
  */
 
-char *erts_convert_filename_to_native(Eterm name, char *statbuf, size_t statbuf_size, ErtsAlcType_t alloc_type, int allow_empty, int allow_atom, Sint *used)
+char *erts_convert_filename_to_native(Eterm name, char *statbuf, size_t statbuf_size,
+				      ErtsAlcType_t alloc_type, int allow_empty,
+				      int allow_atom, Sint *used)
 {
     int encoding = erts_get_native_filename_encoding();
+    return erts_convert_filename_to_encoding(name, statbuf, statbuf_size, alloc_type,
+					     allow_empty, allow_atom, encoding, used);
+}
+
+char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbuf_size,
+					ErtsAlcType_t alloc_type, int allow_empty,
+					int allow_atom, int encoding, Sint *used)
+{
     char* name_buf = NULL;
 
     if ((allow_atom && is_atom(name)) || 

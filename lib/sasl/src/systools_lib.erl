@@ -34,8 +34,10 @@
 file_term2binary(FileIn, FileOut) ->
     case read_term(FileIn) of
 	{ok, Term} ->
-	    file:write_file(FileOut, term_to_binary(Term)),
-	    ok;
+	    case file:write_file(FileOut, term_to_binary(Term)) of
+		ok -> ok;
+		{error,Error} -> {error,{open,FileOut,Error}}
+	    end;
 	Other ->
 	    Other
     end.
@@ -51,8 +53,10 @@ read_term(File) ->
     case file:open(File, [read]) of
 	{ok, Stream} ->
 	    Res = read_term_from_stream(Stream, File),
-	    file:close(Stream),
-	    Res;
+	    case file:close(Stream) of
+		ok -> Res;
+		{error,Error} -> {error,{close,File,Error}}
+	    end;
 	{error, Error} ->
 	    {error, {open,File,Error}}
     end.

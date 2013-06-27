@@ -623,7 +623,7 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
 	{stop, Reason, Reply, NState} ->
 	    {'EXIT', R} = 
 		(catch terminate(Reason, Name, Msg, Mod, NState, Debug)),
-	    reply(Name, From, Reply, NState, Debug),
+	    _ = reply(Name, From, Reply, NState, Debug),
 	    exit(R);
 	Other ->
 	    handle_common_reply(Other, Parent, Name, Msg, Mod, State, Debug)

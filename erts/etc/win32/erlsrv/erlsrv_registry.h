@@ -20,20 +20,20 @@
 #define _ERLSRV_REGISTRY_H
 
 typedef struct _reg_entry {
-  char *name;
+  wchar_t *name;
   DWORD type;
   union {
-    char *bytes;
+    wchar_t *string;
     DWORD value;
     struct {
-      char *bytes;
-      char *unexpanded;
+      wchar_t *string;
+      wchar_t *unexpanded;
     } expand;
   } data;
 } RegEntry;
 
 typedef struct _reg_entry_desc {
-  char *servicename;
+  wchar_t *servicename;
   RegEntry *entries;
 } RegEntryDesc;
 
@@ -67,10 +67,10 @@ extern int num_reg_entries;
 RegEntry *empty_reg_tab(void);
 void free_keys(RegEntry *keys);
 void free_all_keys(RegEntryDesc *descs);
-RegEntry *get_keys(char *servicename);
-int set_keys(char *servicename, RegEntry *keys);
+RegEntry *get_keys(wchar_t *servicename);
+int set_keys(wchar_t *servicename, RegEntry *keys);
 RegEntryDesc *get_all_keys(void);
-int remove_keys(char *servicename);
+int remove_keys(wchar_t *servicename);
 int register_logkeys(void);
 #endif /* _ERLSRV_REGISTRY_H */
 

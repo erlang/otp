@@ -23,7 +23,8 @@
 	 init_per_suite/1,end_per_suite/1]).
 -export([undefined_functions/1,deprecated_not_in_obsolete/1,
 	 obsolete_but_not_deprecated/1,call_to_deprecated/1,
-         call_to_size_1/1,strong_components/1]).
+         call_to_size_1/1,strong_components/1,
+	 erl_file_encoding/1,xml_file_encoding/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -34,7 +35,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [undefined_functions, deprecated_not_in_obsolete,
      obsolete_but_not_deprecated, call_to_deprecated,
-     call_to_size_1, strong_components].
+     call_to_size_1, strong_components,
+     erl_file_encoding, xml_file_encoding].
 
 groups() -> 
     [].
@@ -319,6 +321,64 @@ strong_components(Config) when is_list(Config) ->
     ?line {ok,Cs} = xref:q(Server, "components AE"),
     io:format("\n\nStrong components:\n\n~p\n", [Cs]),
     ok.
+
+erl_file_encoding(_Config) ->
+    Root = code:root_dir(),
+    Wc = filename:join([Root,"**","*.erl"]),
+    ErlFiles = ordsets:subtract(ordsets:from_list(filelib:wildcard(Wc)),
+				release_files(Root, "*.erl")),
+    Fs = [F || F <- ErlFiles,
+	       case epp:read_encoding(F) of
+		   none -> false;
+		   _ -> true
+	       end],
+    case Fs of
+	[] ->
+	    ok;
+	[_|_] ->
+	    io:put_chars("Files with \"coding:\":\n"),
+	    [io:put_chars(F) || F <- Fs],
+	    ?t:fail()
+    end.
+
+xml_file_encoding(_Config) ->
+    XmlFiles = xml_files(),
+    Fs = [F || F <- XmlFiles, is_bad_encoding(F)],
+    case Fs of
+	[] ->
+	    ok;
+	[_|_] ->
+	    io:put_chars("Encoding should be \"utf-8\" or \"UTF-8\":\n"),
+	    [io:put_chars(F) || F <- Fs],
+	    ?t:fail()
+    end.
+
+xml_files() ->
+    Root = code:root_dir(),
+    AllWc = filename:join([Root,"**","*.xml"]),
+    AllXmlFiles = ordsets:from_list(filelib:wildcard(AllWc)),
+    TestsWc = filename:join([Root,"lib","*","test","**","*.xml"]),
+    TestXmlFiles = ordsets:from_list(filelib:wildcard(TestsWc)),
+    XmerlWc = filename:join([Root,"lib","xmerl","**","*.xml"]),
+    XmerlXmlFiles = ordsets:from_list(filelib:wildcard(XmerlWc)),
+    Ignore = ordsets:union([TestXmlFiles,XmerlXmlFiles,
+			    release_files(Root, "*.xml")]),
+    ordsets:subtract(AllXmlFiles, Ignore).
+
+release_files(Root, Ext) ->
+    Wc = filename:join([Root,"release","**",Ext]),
+    filelib:wildcard(Wc).
+
+is_bad_encoding(File) ->
+    {ok,Bin} = file:read_file(File),
+    case Bin of
+	<<"<?xml version=\"1.0\" encoding=\"utf-8\"",_/binary>> ->
+	    false;
+	<<"<?xml version=\"1.0\" encoding=\"UTF-8\"",_/binary>> ->
+	    false;
+	_ ->
+	    true
+    end.
 
 %%%
 %%% Common help functions.

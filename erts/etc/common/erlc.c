@@ -114,20 +114,31 @@ get_env(char *key)
 {
 #ifdef __WIN32__
     DWORD size = 32;
-    char *value = NULL;
+    char  *value=NULL;
+    wchar_t *wcvalue = NULL;
+    wchar_t wckey[256];
+    int len; 
+
+    MultiByteToWideChar(CP_UTF8, 0, key, -1, wckey, 256);
+    
     while (1) {
 	DWORD nsz;
-	if (value)
-	    free(value);
-	value = emalloc(size);
+	if (wcvalue)
+	    free(wcvalue);
+	wcvalue = (wchar_t *) emalloc(size*sizeof(wchar_t));
 	SetLastError(0);
-	nsz = GetEnvironmentVariable((LPCTSTR) key, (LPTSTR) value, size);
+	nsz = GetEnvironmentVariableW(wckey, wcvalue, size);
 	if (nsz == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
-	    free(value);
+	    free(wcvalue);
 	    return NULL;
 	}
-	if (nsz <= size)
+	if (nsz <= size) {
+	    len = WideCharToMultiByte(CP_UTF8, 0, wcvalue, -1, NULL, 0, NULL, NULL);
+	    value = emalloc(len*sizeof(char));
+	    WideCharToMultiByte(CP_UTF8, 0, wcvalue, -1, value, len, NULL, NULL);
+	    free(wcvalue);
 	    return value;
+	}
 	size = nsz;
     }
 #else
@@ -144,15 +155,31 @@ free_env_val(char *value)
 #endif
 }
 
-
-int
-main(int argc, char** argv)
+#ifdef __WIN32__
+int wmain(int argc, wchar_t **wcargv)
 {
-    char cwd[MAXPATHLEN];	/* Current working directory. */
+    char** argv;
+#else
+int main(int argc, char** argv)
+{
+#endif
     int eargv_size;
     int eargc_base;		/* How many arguments in the base of eargv. */
     char* emulator;
     char *env;
+
+#ifdef __WIN32__
+    int i;
+    int len;
+    /* Convert argv to utf8 */
+    argv = malloc((argc+1) * sizeof(char*));
+    for (i=0; i<argc; i++) {
+	len = WideCharToMultiByte(CP_UTF8, 0, wcargv[i], -1, NULL, 0, NULL, NULL);
+	argv[i] = malloc(len*sizeof(char));
+	WideCharToMultiByte(CP_UTF8, 0, wcargv[i], -1, argv[i], len, NULL, NULL);
+    }
+    argv[argc] = NULL;
+#endif
 
     env = get_env("ERLC_EMULATOR");
     emulator = env ? env : get_default_emulator(argv[0]);
@@ -194,20 +221,7 @@ main(int argc, char** argv)
 
     /*
      * Push standard arguments to Erlang.
-     *
-     * The @cwd argument was once needed, but from on R13B02 is optional.
-     * For maximum compatibility between erlc and erl of different versions,
-     * still provide the @cwd argument, unless it is too long to be
-     * represented as an atom.
      */
-    if (getcwd(cwd, sizeof(cwd)) == NULL)
-	error("Failed to get current working directory: %s", strerror(errno));
-#ifdef __WIN32__
-    (void) GetShortPathName(cwd, cwd, sizeof(cwd));
-#endif    
-    if (strlen(cwd) < 256) {
-	PUSH2("@cwd", cwd);
-    }
 
     /*
      * Parse all command line switches.
@@ -520,48 +534,50 @@ push_words(char* src)
 	PUSH(strsave(sbuf));
 }
 #ifdef __WIN32__
-char *make_commandline(char **argv)
+wchar_t *make_commandline(char **argv)
 {
-    static char *buff = NULL;
+    static wchar_t *buff = NULL;
     static int siz = 0;
-    int num = 0;
-    char **arg, *p;
+    int num = 0, len;
+    char **arg;
+    wchar_t *p;
 
     if (*argv == NULL) { 
-	return "";
+	return L"";
     }
     for (arg = argv; *arg != NULL; ++arg) {
 	num += strlen(*arg)+1;
     }
     if (!siz) {
 	siz = num;
-	buff = malloc(siz*sizeof(char));
+	buff = (wchar_t *) emalloc(siz*sizeof(wchar_t));
     } else if (siz < num) {
 	siz = num;
-	buff = realloc(buff,siz*sizeof(char));
+	buff = (wchar_t *) realloc(buff,siz*sizeof(wchar_t));
     }
     p = buff;
+    num=0;
     for (arg = argv; *arg != NULL; ++arg) {
-	strcpy(p,*arg);
-	p+=strlen(*arg);
-	*p++=' ';
+	len = MultiByteToWideChar(CP_UTF8, 0, *arg, -1, p, siz);
+	p+=(len-1);
+	*p++=L' ';
     }
-    *(--p) = '\0';
+    *(--p) = L'\0';
 
     if (debug) {
-	printf("Processed commandline:%s\n",buff);
+	printf("Processed command line:%S\n",buff);
     }
     return buff;
 }
 
 int my_spawnvp(char **argv)
 {
-    STARTUPINFO siStartInfo;
+    STARTUPINFOW siStartInfo;
     PROCESS_INFORMATION piProcInfo;
     DWORD ec;
 
-    memset(&siStartInfo,0,sizeof(STARTUPINFO));
-    siStartInfo.cb = sizeof(STARTUPINFO); 
+    memset(&siStartInfo,0,sizeof(STARTUPINFOW));
+    siStartInfo.cb = sizeof(STARTUPINFOW); 
     siStartInfo.dwFlags = STARTF_USESTDHANDLES;
     siStartInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     siStartInfo.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -570,7 +586,7 @@ int my_spawnvp(char **argv)
     siStartInfo.dwFlags |= STARTF_USESHOWWINDOW;
 
 
-    if (!CreateProcess(NULL, 
+    if (!CreateProcessW(NULL, 
 		       make_commandline(argv),
 		       NULL, 
 		       NULL, 
@@ -709,6 +725,18 @@ strsave(char* string)
   return p;
 }
 
+static int 
+file_exists(char *progname) 
+{
+#ifdef __WIN32__
+    wchar_t wcsbuf[MAXPATHLEN];
+    MultiByteToWideChar(CP_UTF8, 0, progname, -1, wcsbuf, MAXPATHLEN);
+    return (_waccess(wcsbuf, 0) != -1);
+#else
+    return (access(progname, 1) != -1);
+#endif
+}
+
 static char*
 get_default_emulator(char* progname)
 {
@@ -722,15 +750,8 @@ get_default_emulator(char* progname)
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {
 	if (IS_DIRSEP(*s)) {
 	    strcpy(s+1, ERL_NAME);
-#ifdef __WIN32__
-	    if (_access(sbuf, 0) != -1) {
+	    if(file_exists(sbuf))
 		return strsave(sbuf);
-	    }
-#else
-	    if (access(sbuf, 1) != -1) {
-		return strsave(sbuf);
-	    }
-#endif
 	    break;
 	}
     }

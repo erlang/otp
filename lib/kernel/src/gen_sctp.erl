@@ -274,7 +274,7 @@ do_connect(S, Addr, Port, Opts, Timeout, ConnWait) when is_port(S), is_list(Opts
 				    Mod:connect(S, IP, Port, Opts, ConnectTimer);
 				Error -> Error
 			    after
-				inet:stop_timer(Timer)
+				_ = inet:stop_timer(Timer)
 			    end
 		    catch
 			error:badarg ->

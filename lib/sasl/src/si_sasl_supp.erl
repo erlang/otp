@@ -162,7 +162,7 @@ handle_call(stop, _From, State) ->
     {stop, normal, stopped, State}.
 
 terminate(_Reason, _State) ->
-    close_device(get(device)),
+    _ = close_device(get(device)),
     ok.
 
 handle_cast(_Msg, State) ->
@@ -190,7 +190,7 @@ open_log_file(undefined, NewFile) ->
 open_log_file(standard_io, NewFile) ->
     open_log_file(NewFile);
 open_log_file(OldFile, NewFile) ->
-    file:close(OldFile),
+    _ = file:close(OldFile),
     open_log_file(NewFile).
 
 open_log_file(standard_io) -> standard_io;
@@ -317,7 +317,7 @@ pi_impl(Opt, XPid) ->
 		{status_info, Pid, {module, Module}, Data} ->
 		    do_best_printout(Opt, Pid, Module, Data);
 		{error, Reason} ->
-		    ppi_impl(Pid),
+		    _ = ppi_impl(Pid),
 		    {error, {"can not get status info from process:",
 			     XPid,
 			     Reason}}
@@ -335,7 +335,7 @@ do_best_printout(Opt, Pid, Mod, Data) when is_pid(Pid) ->
     case print_info(get(device), Pid, {Mod, format_status}, Opt, Data) of
 	ok -> ok;
 	{error, Reason} ->
-	    ppi_impl(Pid),
+	    _ = ppi_impl(Pid),
 	    {error, Reason}
     end.
 

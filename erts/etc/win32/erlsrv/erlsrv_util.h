@@ -19,30 +19,30 @@
 #ifndef _ERLSRV_UTIL_H
 #define _ERLSRV_UTIL_H
 
-extern char *service_name;
-extern char *real_service_name;
-void log_warning(char *mess);
-void log_error(char *mess);
-void log_info(char *mess);
+extern wchar_t *service_name;
+extern wchar_t *real_service_name;
+void log_warning(wchar_t *mess);
+void log_error(wchar_t *mess);
+void log_info(wchar_t *mess);
 
-char *envdup(char *env);
+wchar_t *envdup(wchar_t *env);
 /*
 ** Call before env_to_arg to get a 'freeable' environment block.
 */
 
-char *arg_to_env(char **arg);
+wchar_t *arg_to_env(wchar_t **arg);
 /*
 ** Frees the argument list before returning!
 */
 
-char **env_to_arg(char *env);
+wchar_t **env_to_arg(wchar_t *env);
 /*
 ** Frees the environment block before returning!
 */
 
 
 #ifndef NDEBUG
-void log_debug(char *mess);
+void log_debug(wchar_t *mess);
 #else
 #define log_debug(mess) /* Debug removed */
 #endif

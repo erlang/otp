@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -309,11 +309,11 @@ scan_files(RptDir, Max, Type) ->
 	{ok, Fd} ->
 	    case catch file:read(Fd, 1) of
 		{ok, [LastWritten]} -> 
-		    file:close(Fd),
+		    ok = file:close(Fd),
 		    Files = make_file_list(RptDir, LastWritten),
 		    scan_files(RptDir, Files, Max, Type);		
 		_X ->
-		    file:close(Fd),
+		    _ = file:close(Fd),
 		    exit("cannot read the index file")
 	    end;
 	_X -> exit("cannot read the index file")
@@ -386,7 +386,7 @@ read_reports(No, Fd, Fname, Max, Type) ->
     io:format("rb: reading report..."),
     case catch read_reports(Fd, [], Type) of
 	{ok, Res} -> 
-	    file:close(Fd),
+	    ok = file:close(Fd),
 	    io:format("done.~n"),
 	    NewRes = 
 		if
@@ -397,7 +397,7 @@ read_reports(No, Fd, Fname, Max, Type) ->
 		end,
 	    add_report_data(NewRes, No, Fname);
 	{error, [Problem | Res]} ->
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    io:format("Error: ~p~n",[Problem]),
 	    io:format("Salvaged ~p entries from corrupt report file ~s...~n",
 		      [length(Res),Fname]),
@@ -898,7 +898,7 @@ handle_bad_form(Date, Msg, Device, Abort, Log) ->
     end.
 
 read_rep_msg(Fd, FilePosition) ->
-    file:position(Fd, {bof, FilePosition}),
+    {ok,_} = file:position(Fd, {bof, FilePosition}),
     Res = 
 	case catch read_report(Fd) of
 	    {ok, Report} ->
@@ -906,5 +906,5 @@ read_rep_msg(Fd, FilePosition) ->
 		{Date, Report};
 	    _ -> error
 	end,
-    file:close(Fd),
+    ok = file:close(Fd),
     Res.
