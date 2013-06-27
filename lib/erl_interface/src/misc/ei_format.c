@@ -442,23 +442,15 @@ static int read_args(const char* fmt, va_list ap, union arg **argp)
     return 0;
 }
        
-int ei_x_format(ei_x_buff* x, const char* fmt, ... )
+int ei_x_vformat_wo_ver(ei_x_buff* x, const char* fmt, va_list ap)
 {
-    va_list ap;
+    int res;
     union arg* args;
     union arg* saved_args; 
-    int res;
 
-    res = ei_x_encode_version(x);
-    if (res < 0) return res;
-
-    va_start(ap, fmt);
     res = read_args(fmt,ap,&args);
     saved_args = args;
-    va_end(ap);
-    if (res < 0) {
-	return -1;
-    }
+    if (res < 0) return -1;
 
     res = eiformat(&fmt, &args, x);
     ei_free(saved_args);
@@ -466,22 +458,35 @@ int ei_x_format(ei_x_buff* x, const char* fmt, ... )
     return res;
 }
 
-int ei_x_format_wo_ver(ei_x_buff* x, const char* fmt, ... )
+int ei_x_vformat(ei_x_buff* x, const char* fmt, va_list ap)
+{
+    int res;
+
+    res = ei_x_encode_version(x);
+    if (res < 0) return res;
+    return ei_x_vformat_wo_ver(x,fmt,ap);
+}
+
+int ei_x_format(ei_x_buff* x, const char* fmt, ... )
 {
     va_list ap;
-    union arg* args; 
-    union arg* saved_args; 
     int res;
 
     va_start(ap, fmt);
-    res = read_args(fmt,ap,&args);
-    saved_args = args;
+    res = ei_x_vformat(x,fmt,ap);
     va_end(ap);
-    if (res < 0) {
-	return -1;
-    }
-    res = eiformat(&fmt, &args, x);
-    ei_free(saved_args);
+
+    return res;
+}
+
+int ei_x_format_wo_ver(ei_x_buff* x, const char* fmt, ... )
+{
+    va_list ap;
+    int res;
+
+    va_start(ap, fmt);
+    res = ei_x_vformat_wo_ver(x,fmt,ap);
+    va_end(ap);
 
     return res;
 }

@@ -525,11 +525,13 @@ int ei_print_term(FILE *fp, const char* buf, int* index);
 int ei_s_print_term(char** s, const char* buf, int* index);
 
 /*
- * format to build binary format terms a bit like printf
+ * format to build binary format terms a bit like printf & vprintf
  */
 
 int ei_x_format(ei_x_buff* x, const char* fmt, ...);
 int ei_x_format_wo_ver(ei_x_buff* x, const char *fmt, ...);
+int ei_x_vformat(ei_x_buff* x, const char* fmt, va_list args);
+int ei_x_vformat_wo_ver(ei_x_buff* x, const char *fmt, va_list args);
 
 int ei_x_new(ei_x_buff* x);
 int ei_x_new_with_version(ei_x_buff* x);
