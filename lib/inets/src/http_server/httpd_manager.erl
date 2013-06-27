@@ -505,37 +505,8 @@ code_change(_FromVsn, State, _Extra) ->
 
 check_connections(#state{connections = []} = State, _Pid, _Reason) ->
     State;
-check_connections(#state{admin_state = shutting_down,
-			 connections = Connections} = State, Pid, Reason) ->
-    %% Could be a crashing request handler
-    case lists:delete(Pid, Connections) of
-	[] -> % Crashing request handler => block complete
-	    String = 
-		lists:flatten(
-		  io_lib:format("request handler (~p) crashed:"
-				"~n   ~p", [Pid, Reason])),
-	    report_error(State, String),
-	    demonitor_blocker(State#state.blocker_ref),
-	    {Tmr,From,Ref} = State#state.blocking_tmr,
-	    stop_block_tmr(Tmr),
-	    From ! {block_reply,ok,Ref},
-	    State#state{admin_state = blocked, connections = [],
-			blocker_ref = undefined};
-	Connections1 ->
-	    State#state{connections = Connections1}
-    end;
-check_connections(#state{connections = Connections} = State, Pid, Reason) ->
-    case lists:delete(Pid, Connections) of
-	Connections -> % Not a request handler, so ignore
-	    State;
-        NewConnections ->
-	    String = 
-		lists:flatten(
-		  io_lib:format("request handler (~p) crashed:"
-				"~n   ~p", [Pid, Reason])),
-	    report_error(State, String),
-	    State#state{connections = NewConnections}
-    end.
+check_connections(#state{connections = Connections} = State, Pid, _Reason) ->
+	    State#state{connections = lists:delete(Pid, Connections)}.
 
 
 %% -------------------------------------------------------------------------
