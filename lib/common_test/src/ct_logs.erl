@@ -446,6 +446,8 @@ tc_print(Category,Importance,Format,Args) ->
 		   ct_util:get_verbosity('$unspecified');
 	       {error,bad_invocation} ->
 		   ?MAX_VERBOSITY;
+	       {error,_Failure} ->
+		   ?MAX_VERBOSITY;
 	       Val ->
 		   Val
 	   end,
@@ -3072,4 +3074,12 @@ unexpected_io(Pid,ct_internal,List,#logger_state{ct_log_fd=Fd}=State) ->
 unexpected_io(Pid,_Category,List,State) ->
     IoFun = create_io_fun(Pid,State),
     Data = io_lib:format("~ts", [lists:foldl(IoFun, [], List)]),
-    test_server_io:print_unexpected(Data).
+    %% if unexpected io comes in during startup or shutdown, test_server
+    %% might not be running - if so (noproc exit), simply ignore the printout
+    try test_server_io:print_unexpected(Data) of
+	_ ->
+	    ok
+    catch
+	_:{noproc,_} -> ok;
+	_:Reason     -> exit(Reason)
+    end.
