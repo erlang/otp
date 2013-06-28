@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2012</year>
+      <year>2002</year><year>2014</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,6 @@
     <file>notes.xml</file>
   </header>
   
-  
   <section><title>Inets 5.9.2.2</title>
 
     <section><title>Improvements and New Features</title>
@@ -50,7 +49,6 @@
 </section>
 
 <section><title>Inets 5.9.2.1</title>
-
     <section><title>Improvements and New Features</title>
       <list>
         <item>
