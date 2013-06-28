@@ -419,10 +419,16 @@ userauth(#ssh_msg_userauth_failure{authentications = Methodes},
 	 #state{ssh_params = #ssh{role = client,
 				  userauth_methods = none} = Ssh0} = State) ->
     AuthMethods = string:tokens(Methodes, ","),
-    {Msg, Ssh} = ssh_auth:userauth_request_msg(
-	 	   Ssh0#ssh{userauth_methods = AuthMethods}),
-    send_msg(Msg, State),
-    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})};
+    case ssh_auth:userauth_request_msg(
+	   Ssh0#ssh{userauth_methods = AuthMethods}) of
+	{disconnect,  DisconnectMsg,{Msg, Ssh}} ->
+	    send_msg(Msg, State),
+	    handle_disconnect(DisconnectMsg, State#state{ssh_params = Ssh});
+	{Msg, Ssh} ->
+	    send_msg(Msg, State),
+	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})}
+    end;
+
 
 %% The prefered authentication method failed try next method 
 userauth(#ssh_msg_userauth_failure{},  
