@@ -692,14 +692,15 @@ logger_loop(State) ->
 				false ->
 				    %% Group leader is dead, so write to the
 				    %% CtLog or unexpected_io log instead
-				    unexpected_io(Pid,Category,List,State),
+				    unexpected_io(Pid,Category,Importance,
+						  List,State),
 				    logger_loop(State)			    
 			    end;
 			{ct_log,_Fd,TCGLs} ->
 			    %% If category is ct_internal then write
 			    %% to ct_log, else write to unexpected_io
 			    %% log
-			    unexpected_io(Pid,Category,List,State),
+			    unexpected_io(Pid,Category,Importance,List,State),
 			    logger_loop(State#logger_state{
 					  tc_groupleaders = TCGLs})
 		    end;
@@ -800,7 +801,7 @@ print_to_log(sync, FromPid, Category, TCGL, List, State) ->
 	    IoFun = create_io_fun(FromPid, State),
 	    io:format(TCGL,"~ts", [lists:foldl(IoFun, [], List)]);
        true ->
-	    unexpected_io(FromPid,Category,List,State)
+	    unexpected_io(FromPid,Category,?MAX_IMPORTANCE,List,State)
     end,
     State;
 
@@ -816,7 +817,8 @@ print_to_log(async, FromPid, Category, TCGL, List, State) ->
 		end;
 	   true ->
 		fun() ->
-			unexpected_io(FromPid,Category,List,State)
+			unexpected_io(FromPid,Category,?MAX_IMPORTANCE,
+				      List,State)
 		end
 	end,
     case State#logger_state.async_print_jobs of
@@ -3068,18 +3070,20 @@ html_encoding(latin1) ->
 html_encoding(utf8) ->
     "utf-8".
 
-unexpected_io(Pid,ct_internal,List,#logger_state{ct_log_fd=Fd}=State) ->
+unexpected_io(Pid,ct_internal,_Importance,List,State) ->
     IoFun = create_io_fun(Pid,State),
-    io:format(Fd, "~ts", [lists:foldl(IoFun, [], List)]);
-unexpected_io(Pid,_Category,List,State) ->
+    io:format(State#logger_state.ct_log_fd, "~ts",
+	      [lists:foldl(IoFun, [], List)]);
+unexpected_io(Pid,Category,Importance,List,State) ->
     IoFun = create_io_fun(Pid,State),
     Data = io_lib:format("~ts", [lists:foldl(IoFun, [], List)]),
     %% if unexpected io comes in during startup or shutdown, test_server
-    %% might not be running - if so (noproc exit), simply ignore the printout
+    %% might not be running - if so (noproc exit), simply print to
+    %% stdout instead (will result in double printouts when pal is used)
     try test_server_io:print_unexpected(Data) of
 	_ ->
 	    ok
     catch
-	_:{noproc,_} -> ok;
+	_:{noproc,_} -> tc_print(Category,Importance,Data,[]);
 	_:Reason     -> exit(Reason)
     end.
