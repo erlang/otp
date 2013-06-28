@@ -33,7 +33,22 @@
   </header>
   
   
-  <section><title>Inets 5.9.2</title>
+  <section><title>Inets 5.9.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed obsolete error report in inets.</p>
+          <p>
+	    Own Id: OTP-11185 Aux Id: seq12357 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>
