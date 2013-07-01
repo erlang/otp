@@ -1680,8 +1680,6 @@ enc_cg({apply,F0,As0,Dst}) ->
     As = enc_call_args(As0, ""),
     emit([mk_val(Dst)," = "]),
     case F0 of
-	{var,F} ->
-	    emit([F,"(",As,")"]);
 	{M,F} ->
 	    emit([{asis,M},":",{asis,F},"(",As,")"]);
 	F when is_atom(F) ->
@@ -2028,6 +2026,7 @@ enc_opt_al_cond_1([[C|Act0]|Cs0], Al0, CAcc, AAcc) ->
     enc_opt_al_cond_1(Cs0, Al0, [[C|Act]|CAcc], [Al|AAcc]);
 enc_opt_al_cond_1([], _, CAcc, AAcc) ->
     Al = case lists:usort(AAcc) of
+	     [] -> unknown;
 	     [Al0] -> Al0;
 	     [_|_] -> unknown
 	 end,

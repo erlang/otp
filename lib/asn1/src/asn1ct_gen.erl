@@ -824,10 +824,7 @@ pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
 	_ ->
 	    case erule(Erules) of
 		per ->
-		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"enc_",3),
-		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"dec_",4);
+		    ok;
 		ber ->
 		    emit({"-export([",nl}),
 		    gen_exports1(Objects,"enc_",3),
@@ -838,10 +835,15 @@ pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
     case ObjectSets of
 	[] -> ok;
 	_ ->
-	    emit({"-export([",nl}),
-	    gen_exports1(ObjectSets, "getenc_",1),
-	    emit({"-export([",nl}),
-	    gen_exports1(ObjectSets, "getdec_",1)
+	    case erule(Erules) of
+		per ->
+		    ok;
+		ber ->
+		    emit({"-export([",nl}),
+		    gen_exports1(ObjectSets, "getenc_",1),
+		    emit({"-export([",nl}),
+		    gen_exports1(ObjectSets, "getdec_",1)
+	    end
     end,
     emit({"-export([info/0]).",nl}),
     gen_partial_inc_decode_exports(),
