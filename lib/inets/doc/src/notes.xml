@@ -32,7 +32,6 @@
     <file>notes.xml</file>
   </header>
   
-  
   <section><title>Inets 5.9.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -93,7 +92,6 @@
 </section>
 
 <section><title>Inets 5.9.4</title>
-
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -159,6 +157,19 @@
       </list>
     </section>
 
+</section>
+
+<section><title>Inets 5.9.2.1</title>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed obsolete error report in inets.</p>
+	  <p>
+	    Own Id: OTP-11185 Aux Id: seq12357 </p>
+	</item>
+      </list>
+    </section>
 </section>
 
 <section><title>Inets 5.9.2</title>

@@ -195,8 +195,6 @@
         </item>
       </list>
     </section>
-
-
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -251,7 +249,20 @@
     </section>
 
 </section>
+<section><title>Ssh 2.1.2.1</title>
+<section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed error report in ssh_connection_handler triggered
+	    by badmatch failure.</p>
+          <p>
+	    Own Id: OTP-11188</p>
+        </item>
+      </list>
+    </section>
 
+</section>
 <section><title>Ssh 2.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
