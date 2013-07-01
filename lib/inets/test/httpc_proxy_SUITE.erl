@@ -69,6 +69,7 @@ local_proxy_cases() ->
      http_post,
      http_put,
      http_delete,
+     http_delete_body,
      http_headers,
      http_proxy_auth,
      http_doesnotexist,
@@ -258,6 +259,22 @@ http_delete(Config) when is_list(Config) ->
     Opts = [],
     {ok,{{_,405,_},[_|_],[_|_]}} =
 	httpc:request(Method, Request, HttpOpts, Opts),
+    ok.
+
+%%--------------------------------------------------------------------
+
+http_delete_body(doc) ->
+    ["Perform a DELETE request with a content body. The server will not allow it "
+     "but we only test sending the request."];
+http_delete_body(Config) when is_list(Config) ->
+    Method = delete,
+    URL = url("/delete.html", Config),
+    Content = "foo=bar",
+    Request = {URL,[],"application/x-www-form-urlencoded",Content},
+    HttpOpts = [],
+    Opts = [],
+    {ok,{{_,405,_},[_|_],[_|_]}} =
+    httpc:request(Method, Request, HttpOpts, Opts),
     ok.
 
 %%--------------------------------------------------------------------
