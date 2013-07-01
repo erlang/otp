@@ -935,13 +935,14 @@ get_constraint(C,Key) ->
 %% Should be applied as the last step at encode of a complete ASN.1 type
 %%
 complete(InList) when is_list(InList) ->
-    case complete1(InList) of
+    case list_to_bitstring(InList) of
 	<<>> ->
 	    <<0>>;
 	Res ->
-	    case bit_size(Res) band 7 of
+	    Sz = bit_size(Res),
+	    case Sz band 7 of
 		0 -> Res;
-		Bits -> <<Res/bitstring,0:(8-Bits)>>
+		Bits -> <<Res:Sz/bitstring,0:(8-Bits)>>
 	end
     end;
 complete(Bin) when is_binary(Bin) ->
@@ -950,11 +951,9 @@ complete(Bin) when is_binary(Bin) ->
 	_ -> Bin
     end;
 complete(InList) when is_bitstring(InList) ->
-    PadLen = 8 - (bit_size(InList) band 7),
-    <<InList/bitstring,0:PadLen>>.
-
-complete1(L) when is_list(L) ->
-    list_to_bitstring(L).
+    Sz = bit_size(InList),
+    PadLen = 8 - (Sz band 7),
+    <<InList:Sz/bitstring,0:PadLen>>.
 
 %% Special version of complete that does not align the completed message.
 complete_NFP(InList) when is_list(InList) ->
