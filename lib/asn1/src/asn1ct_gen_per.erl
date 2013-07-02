@@ -650,13 +650,13 @@ gen_objset_enc(Erule, ObjSetName, UniqueName, [{ObjName,Val,Fields}|T],
 				     ObjSetName, NthObj);
 	    {CurrMod,Name} ->
 		emit({"    fun 'enc_",Name,"'/3"}),
-		{[],0};
+		{[],NthObj};
 	    {ModName,Name} ->
 		emit_ext_encfun(ModName,Name),
-		{[],0};
+		{[],NthObj};
 	    _Other ->
 		emit({"    fun 'enc_",ObjName,"'/3"}),
-		{[],0}
+		{[],NthObj}
 	end,
     emit({";",nl}),
     gen_objset_enc(Erule, ObjSetName, UniqueName, T, ClName, ClFields,

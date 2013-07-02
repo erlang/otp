@@ -59,6 +59,43 @@ main(_Erule) ->
 	      {'ConstructedPdu',2,{'CONSTRUCTED-DEFAULT_Type',999,false}}),
     roundtrip('InfObj', 'ConstructedPdu',
 	      {'ConstructedPdu',3,true}),
+    {'ConstructedPdu',4,{_,42,<<13:7>>}} =
+	enc_dec('InfObj', 'ConstructedPdu',
+		{'ConstructedPdu',4,{'',42,<<13:7>>}}),
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',5,{i,-250138}}),
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',5,{b,<<13456:15>>}}),
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',6,[]}),
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',6,[10,7,16,1,5,13,12]}),
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',7,[]}),
+    roundtrip('InfObj', 'ConstructedPdu',
+	      {'ConstructedPdu',7,[64,1,19,17,35]}),
+
+    roundtrip('InfObj', 'ConstructedSet',
+	      {'ConstructedSet',1,{'CONSTRUCTED-DEFAULT_Type',-2001,true}}),
+    roundtrip('InfObj', 'ConstructedSet',
+	      {'ConstructedSet',2,{'CONSTRUCTED-DEFAULT_Type',999,false}}),
+    roundtrip('InfObj', 'ConstructedSet',
+	      {'ConstructedSet',3,true}),
+    {'ConstructedSet',4,{_,42,<<13:7>>}} =
+	enc_dec('InfObj', 'ConstructedSet',
+		{'ConstructedSet',4,{'',42,<<13:7>>}}),
+    roundtrip('InfObj', 'ConstructedSet',
+	      {'ConstructedSet',5,{i,-250138}}),
+    roundtrip('InfObj', 'ConstructedSet',
+	      {'ConstructedSet',5,{b,<<13456:15>>}}),
+    roundtrip('InfObj', 'ConstructedSet',
+	      {'ConstructedSet',6,[]}),
+    roundtrip('InfObj', 'ConstructedSet',
+	      {'ConstructedSet',6,[10,7,16,1,5,13,12]}),
+    roundtrip('InfObj', 'ConstructedSet',
+	      {'ConstructedSet',7,[]}),
+    roundtrip('InfObj', 'ConstructedSet',
+	      {'ConstructedSet',7,[64,1,19,17,35]}),
 
     roundtrip('InfObj', 'Seq2',
 	      {'Seq2',42,[true,false,false,true],
@@ -69,3 +106,8 @@ roundtrip(M, T, V) ->
     {ok,Enc} = M:encode(T, V),
     {ok,V} = M:decode(T, Enc),
     ok.
+
+enc_dec(M, T, V0) ->
+    {ok,Enc} = M:encode(T, V0),
+    {ok,V} = M:decode(T, Enc),
+    V.

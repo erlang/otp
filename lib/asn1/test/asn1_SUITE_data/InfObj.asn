@@ -202,12 +202,21 @@ constructed2 CONSTRUCTED-DEFAULT ::= { &id 2, &ok false }
 ConstructedDefaultSet CONSTRUCTED-DEFAULT ::= {
   constructed1 |
   constructed2 |
-  { &id 3, &Type BOOLEAN }
+  { &id 3, &Type BOOLEAN } |
+  { &id 4, &Type SET { a INTEGER, b BIT STRING } } |
+  { &id 5, &Type CHOICE { i INTEGER, b BIT STRING } } |
+  { &id 6, &Type SEQUENCE OF INTEGER (1..16) } |
+  { &id 7, &Type SET OF INTEGER (1..64) }
 }
 
 ConstructedPdu ::= SEQUENCE {
   id CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
   content CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
+}
+
+ConstructedSet ::= SET {
+  id [0] CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content [1] CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
 }
 
 END
