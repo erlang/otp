@@ -28,10 +28,13 @@ Here are the [instructions for submitting patches] [2].
 In short:
 
 *   We prefer to receive proposed updates via email on the
-    [`erlang-patches`] [3] mailing list rather than through a pull request.
-    Pull requests are not practical because we have a strict policy never to
-    merge any untested changes to the development branch (the only exception
-    being **obviously** correct changes, such as corrections of typos).
+    [`erlang-patches`] [3] mailing list or through a pull request.
+
+*   Pull requests will be handled once everyday and there will be 
+    essential testing before we will take a decision on the outcome
+    of the request. If the essential testings fails, the pull request
+    will be closed and you will have to fix the problem and submit another
+    pull request when this is done.
 
 *   We merge all proposed updates to the `pu` (*proposed updates*) branch,
     typically within one working day.
