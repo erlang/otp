@@ -916,15 +916,23 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 		{["complete(encode_disp(Type, Data))"],"Bytes"}
 	end,
     emit(["encode(Type,Data) ->",nl,
-	  "case catch ",Call," of",nl,
-	  "  {'EXIT',{error,Reason}} ->",nl,
-	  "    {error,Reason};",nl,
-	  "  {'EXIT',Reason} ->",nl,
-	  "    {error,{asn1,Reason}};",nl,
-	  "  {Bytes,_Len} ->",nl,
-	  "    {ok,",BytesAsBinary,"};",nl,
-	  "  Bytes ->",nl,
-	  "    {ok,",BytesAsBinary,"}",nl,
+	  "try ",Call," of",nl,
+	  case erule(Erules) of
+	      ber ->
+		  ["  {Bytes,_Len} ->",nl,
+		   "    {ok,",BytesAsBinary,"}",nl];
+	      per ->
+		  ["  Bytes ->",nl,
+		   "    {ok,",BytesAsBinary,"}",nl]
+	  end,
+	  "  catch",nl,
+	  "    Class:Exception when Class =:= error; Class =:= exit ->",nl,
+          "      case Exception of",nl,
+	  "        {error,Reason}=Error ->",nl,
+	  "          Error;",nl,
+	  "        Reason ->",nl,
+	  "         {error,{asn1,Reason}}",nl,
+	  "      end",nl,
 	  "end.",nl,nl]),
 
     Return_rest = lists:member(undec_rest,get(encoding_options)),
