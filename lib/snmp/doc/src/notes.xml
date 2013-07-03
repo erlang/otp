@@ -34,6 +34,64 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.24.1</title>
+    <p>Version 4.24.1 supports code replacement in runtime from/to
+    version 4.24, 4.23.1 and 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent,manager] Updated to support the new crypto interface. </p>
+          <p>Own Id: OTP-11009</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] The counter increment function in the local-db was  
+	  incorrect. It did not handle counter wrap correctly. </p>
+          <p>Own Id: OTP-11192</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.24.1 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.24</title>
     <p>Version 4.24 supports code replacement in runtime from/to
     version 4.23.1 and 4.23. </p>
