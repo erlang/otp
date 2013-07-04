@@ -139,6 +139,7 @@ atom caseless
 atom catchlevel
 atom cd
 atom cdr
+atom cflags
 atom characters_to_binary_int
 atom characters_to_list_int
 atom clear
@@ -150,6 +151,7 @@ atom compact
 atom compat_rel
 atom compile
 atom compressed
+atom config_h
 atom connect
 atom connected
 atom connection_closed
@@ -301,6 +303,7 @@ atom label
 atom large_heap
 atom last_calls
 atom latin1
+atom ldflags
 atom Le='=<'
 atom lf
 atom line

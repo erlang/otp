@@ -937,7 +937,7 @@ char* Sint_to_buf(Sint, struct Sint_buf*);
 #define ERTS_IOLIST_OVERFLOW 1
 #define ERTS_IOLIST_TYPE 2
 
-Eterm buf_to_intlist(Eterm**, char*, size_t, Eterm); /* most callers pass plain char*'s */
+Eterm buf_to_intlist(Eterm**, const char*, size_t, Eterm); /* most callers pass plain char*'s */
 
 #define ERTS_IOLIST_TO_BUF_OVERFLOW	(~((ErlDrvSizeT) 0))
 #define ERTS_IOLIST_TO_BUF_TYPE_ERROR	(~((ErlDrvSizeT) 1))

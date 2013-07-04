@@ -387,6 +387,13 @@ else
 UNIX_ONLY_BUILDS =
 endif
 
+ifeq ($(TARGET), win32)
+TMPVAR := $(shell LANG=C $(PERL) utils/make_compiler_flags -o $(TTF_DIR)/erl_compile_flags.h -v CONFIG_H "N/A" -v CFLAGS "$(CFLAGS)" -v LDFLAGS "$(LDFLAGS)")
+else
+# We force this to be run every time this makefile is executed
+TMPVAR := $(shell LANG=C $(PERL) utils/make_compiler_flags -o $(TTF_DIR)/erl_compile_flags.h -f CONFIG_H "$(ERL_TOP)/erts/$(TARGET)/config.h" -v CFLAGS "$(CFLAGS)" -v LDFLAGS "$(LDFLAGS)")
+endif
+
 .PHONY: all
 ifdef VOID_EMULATOR
 all:
@@ -959,6 +966,7 @@ SED_REPL_TTF_DIR=s|$(TTF_DIR)/|$$(TTF_DIR)/|g
 SED_REPL_ERL_TOP=s|\([ 	]\)$(ERL_TOP)/|\1$$(ERL_TOP)/|g;s|^$(ERL_TOP)/|$$(ERL_TOP)/|g
 SED_REPL_POLL=s|$$(OBJDIR)/erl_poll.o|$$(OBJDIR)/erl_poll.kp.o $$(OBJDIR)/erl_poll.nkp.o|g
 SED_REPL_CHK_IO=s|$$(OBJDIR)/erl_check_io.o|$$(OBJDIR)/erl_check_io.kp.o $$(OBJDIR)/erl_check_io.nkp.o|g
+SED_REPL_TTF_COMP_FLAGS=s|\([^/]\)erl_compile_flags\.h|\1$$(TTF_DIR)/erl_compile_flags\.h|g
 
 ifeq ($(TARGET),win32)
 #SED_PREFIX=$(SED_REPL_WIN_DRIVE);
@@ -973,7 +981,7 @@ else
 SED_SUFFIX=
 endif
 
-SED_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_O);$(SED_REPL_TTF_DIR);$(SED_REPL_ERL_TOP)$(SED_SUFFIX)'
+SED_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_O);$(SED_REPL_TTF_DIR);$(SED_REPL_ERL_TOP)$(SED_SUFFIX);$(SED_REPL_TTF_COMP_FLAGS)'
 SED_DEPEND_ZLIB=sed '$(SED_PREFIX)$(SED_REPL_O_ZLIB)'
 
 ifdef HIPE_ENABLED

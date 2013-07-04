@@ -2075,6 +2075,33 @@ document etp-system-info
 %---------------------------------------------------------------------------
 end
 
+define etp-compile-info
+  printf "--------------- Compile Information ---------------\n"
+  printf "CFLAGS: %s\n", erts_build_flags_CFLAGS
+  printf "LDFLAGS: %s\n", erts_build_flags_LDFLAGS
+  printf "Use etp-config-h-info to dump config.h\n"
+end
+
+document etp-compile-info
+%---------------------------------------------------------------------------
+% etp-compile-info
+%
+% Print information about how the system was compiled
+%---------------------------------------------------------------------------
+end
+
+define etp-config-h-info
+  printf "%s", erts_build_flags_CONFIG_H
+end
+
+document etp-config-h-info
+%---------------------------------------------------------------------------
+% etp-config-h-info
+%
+% Dump the contents of config.h when the system was compiled
+%---------------------------------------------------------------------------
+end
+
 define etp-dictdump
 # Args: ProcDict*
 #
