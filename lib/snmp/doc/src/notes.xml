@@ -83,6 +83,12 @@
 	  <p>Stefan Zegenhagen</p>
         </item>
 
+        <item>
+          <p>[agent] The counter increment function in the local-db was  
+	  incorrect. It did not handle counter wrap correctly. </p>
+          <p>Own Id: OTP-11192</p>
+        </item>
+
       </list>
 
     </section>
