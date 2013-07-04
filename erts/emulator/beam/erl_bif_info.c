@@ -2646,6 +2646,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #endif
 	BIF_RET(am_true);
     }
+    else if (ERTS_IS_ATOM_STR("emu_args", BIF_ARG_1)) {
+	BIF_RET(erts_get_emu_args(BIF_P));
+    }
     else if (ERTS_IS_ATOM_STR("dynamic_trace", BIF_ARG_1)) {
 #if defined(USE_DTRACE)
 	DECL_AM(dtrace);

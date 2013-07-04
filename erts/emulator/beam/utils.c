@@ -3466,6 +3466,97 @@ erts_free_read_env(void *value)
 	erts_free(ERTS_ALC_T_TMP, value);
 }
 
+
+typedef struct {
+    size_t sz;
+    char *ptr;
+} ErtsEmuArg;
+
+typedef struct {
+    int argc;
+    ErtsEmuArg *arg;
+    size_t no_bytes;
+} ErtsEmuArgs;
+
+ErtsEmuArgs saved_emu_args = {0};
+
+void
+erts_save_emu_args(int argc, char **argv)
+{
+#ifdef DEBUG
+    char *end_ptr;
+#endif
+    char *ptr;
+    int i;
+    size_t arg_sz[100];
+    size_t size;
+
+    ASSERT(!saved_emu_args.argc);
+
+    size = sizeof(ErtsEmuArg)*argc;
+    for (i = 0; i < argc; i++) {
+	size_t sz = sys_strlen(argv[i]);
+	if (i < sizeof(arg_sz)/sizeof(arg_sz[0]))
+	    arg_sz[i] = sz;
+	size += sz+1;
+    } 
+    ptr = (char *) malloc(size);
+#ifdef DEBUG
+    end_ptr = ptr + size;
+#endif
+    saved_emu_args.arg = (ErtsEmuArg *) ptr;
+    ptr += sizeof(ErtsEmuArg)*argc;
+    saved_emu_args.argc = argc;
+    saved_emu_args.no_bytes = 0;
+    for (i = 0; i < argc; i++) {
+	size_t sz;
+	if (i < sizeof(arg_sz)/sizeof(arg_sz[0]))
+	    sz = arg_sz[i];
+	else
+	    sz = sys_strlen(argv[i]);
+	saved_emu_args.arg[i].ptr = ptr;
+	saved_emu_args.arg[i].sz = sz;
+	saved_emu_args.no_bytes += sz;
+	ptr += sz+1;
+	sys_strcpy(saved_emu_args.arg[i].ptr, argv[i]);
+    }
+    ASSERT(ptr == end_ptr);
+}
+
+Eterm
+erts_get_emu_args(Process *c_p)
+{
+#ifdef DEBUG
+    Eterm *end_hp;
+#endif
+    int i;
+    Uint hsz;
+    Eterm *hp, res;
+
+    hsz = saved_emu_args.no_bytes*2;
+    hsz += saved_emu_args.argc*2;
+
+    hp = HAlloc(c_p, hsz);
+#ifdef DEBUG
+    end_hp = hp + hsz;
+#endif
+    res = NIL;
+
+    for (i = saved_emu_args.argc-1; i >= 0; i--) {
+	Eterm arg = buf_to_intlist(&hp,
+				   saved_emu_args.arg[i].ptr,
+				   saved_emu_args.arg[i].sz,
+				   NIL);
+	res = CONS(hp, arg, res);
+	hp += 2;
+    }
+
+    ASSERT(hp == end_hp);
+
+    return res;
+}
+
+
 /*
  * To be used to silence unused result warnings, but do not abuse it.
  */

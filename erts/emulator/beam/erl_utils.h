@@ -24,6 +24,8 @@
 #include "erl_smp.h"
 #include "erl_printf.h"
 
+struct process;
+
 typedef struct {
 #ifdef DEBUG
     int smp_api;
@@ -155,6 +157,8 @@ Uint32 block_hash(byte *, unsigned, Uint32);
 Uint32 make_hash2(Eterm);
 Uint32 make_hash(Eterm);
 
+void erts_save_emu_args(int argc, char **argv);
+Eterm erts_get_emu_args(struct process *c_p);
 
 Eterm erts_bld_atom(Uint **hpp, Uint *szp, char *str);
 Eterm erts_bld_uint(Uint **hpp, Uint *szp, Uint ui);
