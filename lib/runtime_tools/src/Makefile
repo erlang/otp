@@ -42,6 +42,7 @@ MODULES= \
 	dbg \
 	dyntrace \
 	percept_profile \
+	system_information \
 	observer_backend \
 	ttb_autostart
 HRL_FILES= ../include/observer_backend.hrl
