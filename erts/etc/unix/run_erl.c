@@ -1142,6 +1142,14 @@ static void daemon_init(void)
 	sf_close(i);
     }
 
+    /* Necessary on some platforms */
+
+    open("/dev/null", O_RDONLY); /* Order is important! */
+    open("/dev/null", O_WRONLY);
+    open("/dev/null", O_WRONLY);
+
+    errno = 0;  /* if set by open */
+
     OPEN_SYSLOG();
     run_daemon = 1;
 }
