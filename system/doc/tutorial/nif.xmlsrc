@@ -29,7 +29,7 @@
     <file>nif.xml</file>
   </header>
   <p>This is an example of how to solve the <seealso marker="example">example problem</seealso>
-     by using NIFs. NIFs where introduced in R13B03 as an experimental
+     by using NIFs. NIFs were introduced in R13B03 as an experimental
      feature. It is a simpler and more efficient way of calling C-code
      than using port drivers. NIFs are most suitable for synchronous functions like
      <c>foo</c> and <c>bar</c> in the example, that does some
@@ -85,7 +85,7 @@
     <p>The function arguments passed to a NIF appears in an array <c>argv</c>,
       with <c>argc</c> as the length of the array and thus the arity of the
       function. The Nth argument of the function can be accessed as
-      <c>argv[N-1]</c>. NIFs also takes an environment argument that
+      <c>argv[N-1]</c>. NIFs also take an environment argument that
       serves as an opaque handle that is needed to be passed on to
       most API functions. The environment contains information about
       the calling Erlang process.</p>
@@ -98,7 +98,7 @@
       structures containing name, arity and function pointer of
       each NIF. The other arguments are pointers to callback functions
       that can be used to initialize the library. We do not use them
-      is this simple example so we set them all to <c>NULL</c>.</p>
+      in this simple example so we set them all to <c>NULL</c>.</p>
     <p>Function arguments and return values are represented as values
       of type <c>ERL_NIF_TERM</c>. We use functions like <c>enif_get_int</c> 
       and <c>enif_make_int</c> to convert between Erlang term and C-type. 
