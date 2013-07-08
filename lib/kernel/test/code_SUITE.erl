@@ -1462,37 +1462,28 @@ create_big_boot(Config) ->
 % The following apps cannot be loaded 
 % hipe .app references (or can reference) files that have no
 % corresponding beam file (if hipe is not enabled)
-filter_app("hipe",_) ->
-    false;
+filter_app("hipe",_) -> false;
 % Dialyzer and typer depends on hipe
-filter_app("dialyzer",_) ->
-    false;
-filter_app("typer",_) ->
-    false;
+filter_app("dialyzer",_) -> false;
+filter_app("typer",_) -> false;
 % Orber requires explicit configuration
-filter_app("orber",_) ->
-    false;
+filter_app("orber",_) -> false;
 % cos* depends on orber
-filter_app("cos"++_,_) ->
-    false;
+filter_app("cos"++_,_) -> false;
 % ic has a mod instruction in the app file but no corresponding start function
-filter_app("ic",_) ->
-    false;
+filter_app("ic",_) -> false;
 % Netconf has some dependency that I really do not understand (maybe like orber)
-filter_app("netconf",_) ->
-    false;
+filter_app("netconf",_) -> false;
 % Safe has the same kind of error in the .app file as ic
-filter_app("safe",_) ->
-    false;
+filter_app("safe",_) -> false;
 % Comte cannot be started in the "usual" way
-filter_app("comte",_) ->
-    false;
+filter_app("comte",_) -> false;
 % OS_mon does not find it's port program when running cerl
-filter_app("os_mon",true) ->
-    false;
+filter_app("os_mon",true) -> false;
+% erts is not a "real" app either =/
+filter_app("erts",_) -> false;
 % Other apps should be OK.
-filter_app(_,_) ->
-    true.
+filter_app(_,_) -> true.
 create_big_script(Config,Local) ->
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Name = filename:join(PrivDir,"full_script_test"),
