@@ -288,6 +288,14 @@ Some of the available `configure` options are:
     implementation available, you typically want to try using the
     `libatomic_ops` library. It can be downloaded from
     <http://www.hpl.hp.com/research/linux/atomic_ops/>.
+*   `--disable-smp-require-native-atomics` - By default `configure` will
+    fail if an SMP runtime system is about to be built, and no implementation
+    for native atomic memory accesses can be found. If this happens, you are
+    encouraged to find a native atomic implementation that can be used, e.g.,
+    using `libatomic_ops`, but by passing `--disable-smp-require-native-atomics`
+    you can build using a fallback implementation based on mutexes or spinlocks.
+    Performance of the SMP runtime system will however suffer immensely without
+    an implementation for native atomic memory accesses.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.

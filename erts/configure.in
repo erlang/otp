@@ -150,6 +150,14 @@ AS_HELP_STRING([--disable-smp-support], [disable smp support]),
     *)  enable_smp_support=yes ;;
   esac ], enable_smp_support=unknown)
 
+AC_ARG_ENABLE(smp-require-native-atomics,
+	      AS_HELP_STRING([--disable-smp-require-native-atomics],
+                             [disable the SMP requirement of a native atomic implementation]),
+[ case "$enableval" in
+    no) smp_require_native_atomics=no ;;
+    *)  smp_require_native_atomics=yes ;;
+  esac ], smp_require_native_atomics=yes)
+
 AC_ARG_WITH(termcap,
 AS_HELP_STRING([--with-termcap], [use termcap (default)])
 AS_HELP_STRING([--without-termcap],
@@ -1043,11 +1051,15 @@ if test $ERTS_BUILD_SMP_EMU = yes; then
 
 	AC_DEFINE(ERTS_HAVE_SMP_EMU, 1, [Define if the smp emulator is built])
 
-	case "$ethr_have_native_atomics-$ethr_have_native_spinlock" in
+	case "$ethr_have_native_atomics-$smp_require_native_atomics-$ethr_have_native_spinlock" in
 	  yes-*)
 		;;
 
-	  no-yes)
+	  no-yes-*)
+		AC_MSG_ERROR([No native atomic implementation found. See INSTALL.md for more information.])
+		;;
+
+	  no-no-yes)
 
 		test -f "$ERL_TOP/erts/CONF_INFO" ||
 		    echo "" > "$ERL_TOP/erts/CONF_INFO"
@@ -1056,12 +1068,13 @@ if test $ERTS_BUILD_SMP_EMU = yes; then
                  No native atomic implementation available.
                  Fallbacks implemented using spinlocks will be
                  used. Note that the performance of the SMP
-                 runtime system will suffer due to this.
+                 runtime system will suffer immensely due to
+		 this.
 
 EOF
 		;;
 
-	  no-no)
+	  no-no-no)
 
 		test -f "$ERL_TOP/erts/CONF_INFO" ||
 		    echo "" > "$ERL_TOP/erts/CONF_INFO"
@@ -1071,7 +1084,7 @@ EOF
                  spinlock implementation available. Fallbacks
                  implemented using mutexes will be used. Note
                  that the performance of the SMP runtime system
-                 will suffer much due to this.
+                 will suffer immensely due to this.
 
 EOF
 		;;
