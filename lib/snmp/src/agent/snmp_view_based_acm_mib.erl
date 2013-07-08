@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,6 +47,14 @@
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
 -endif.
+
+
+-type internal_view_mask()         :: null | [internal_view_mask_element()].
+-type internal_view_mask_element() :: 0 | 1.
+
+-type external_view_mask() :: octet_string(). % At most length of 16 octet
+-type octet_string()       :: [octet()].
+-type octet()              :: byte().
 
 
 %%-----------------------------------------------------------------
@@ -160,14 +168,7 @@ check_vacm({vacmViewTreeFamily, ViewName, Tree, Type, Mask}) ->
     {ok, TypeVal} =
         snmp_conf:check_atom(Type, [{included, ?view_included},
 				    {excluded, ?view_excluded}]),
-    MaskVal = 
-        case (catch snmp_conf:check_atom(Mask, [{null, []}])) of
-            {error, _}  -> 
-                snmp_conf:check_oid(Mask),
-                Mask;
-	    {ok, X} ->
-		X
-	end,
+    {ok, MaskVal} = snmp_conf:check_imask(Mask), 
     Vacm = {ViewName, Tree, MaskVal, TypeVal, 
 	    ?'StorageType_nonVolatile', ?'RowStatus_active'},
     {ok, {vacmViewTreeFamily, Vacm}};
@@ -194,8 +195,8 @@ init_tabs(Sec2Group, Access, View) ->
     ok.
     
 init_sec2group_table([Row | T]) ->
-%%      ?vtrace("init security-to-group table: "
-%%  	    "~n   Row: ~p",[Row]),    
+    %% ?vtrace("init security-to-group table: "
+    %%         "~n   Row: ~p",[Row]),    
     Key1 = element(1, Row),
     Key2 = element(2, Row),
     Key = [Key1, length(Key2) | Key2],
@@ -953,13 +954,23 @@ verify_vacmViewTreeFamilyTable_col(?vacmViewTreeFamilySubtree, Tree) ->
 	    wrongValue(?vacmViewTreeFamilySubtree)
     end;
 verify_vacmViewTreeFamilyTable_col(?vacmViewTreeFamilyMask, Mask) ->
+    %% Mask here is in the "external" format. That is, according 
+    %% to the MIB, which means that its an OCTET STRING of max 16 
+    %% octets. 
+    %% We however store the mask as a list of 1's (exact) and 
+    %% 0's (wildcard), which means we have to convert the mask. 
     case Mask of
-	null -> [];
-	[]   -> [];
+	%% The Mask can only have this value if the vacmViewTreeFamilyTable
+	%% is called locally!
+	null -> 
+	    []; 
+	[] -> 
+	    [];
 	_ ->
-	    case (catch snmp_conf:check_oid(Mask)) of
-		ok ->
-		    Mask;
+	    %% Check and convert to our internal format
+	    case check_mask(Mask) of
+		{ok, IMask} ->
+		    IMask;
 	        _ ->
 		    wrongValue(?vacmViewTreeFamilyMask)
 	    end
@@ -976,6 +987,60 @@ verify_vacmViewTreeFamilyTable_col(?vacmViewTreeFamilyType, Type) ->
 verify_vacmViewTreeFamilyTable_col(_, Val) ->
     Val.
 	    
+
+check_mask(Mask) when is_list(Mask) andalso (length(Mask) =< 16) ->
+    try
+	begin
+	    {ok, emask2imask(Mask)}
+	end
+    catch
+	throw:{error, _} ->
+	    {error, {bad_mask, Mask}};
+	T:E ->
+	    {error, {bad_mask, Mask, T, E}}
+    end;
+check_mask(BadMask) ->
+    {error, {bad_mask, BadMask}}.
+
+-spec emask2imask(EMask :: external_view_mask()) ->
+    IMask :: internal_view_mask().
+
+%% Convert an External Mask (OCTET STRING) to Internal Mask (list of 0 or 1)
+emask2imask(EMask) ->
+    lists:flatten([octet2bits(Octet) || Octet <- EMask]).
+
+octet2bits(Octet) 
+  when is_integer(Octet) andalso (Octet >= 16#00) andalso (16#FF >= Octet) ->
+    <<A:1, B:1, C:1, D:1, E:1, F:1, G:1, H:1>> = <<Octet>>,
+    [A, B, C, D, E, F, G, H];
+octet2bits(BadOctet) ->
+    throw({error, {bad_octet, BadOctet}}).
+
+-spec imask2emask(IMask :: internal_view_mask()) ->
+    EMask :: external_view_mask().
+
+%% Convert an Internal Mask (list of 0 or 1) to External Mask (OCTET STRING) 
+imask2emask(IMask) ->
+    imask2emask(IMask, []).
+
+imask2emask([], EMask) ->
+    lists:reverse(EMask);
+imask2emask(IMask, EMask) ->
+    %% Make sure we have atleast 8 bits
+    %% (maybe extend with 1's)
+    IMask2 = 
+	case length(IMask) of
+	    Small when Small < 8 ->
+		IMask ++ lists:duplicate(8-Small, 1);
+	    _ ->
+		IMask
+	end, 
+    %% Extract 8 bits
+    [A, B, C, D, E, F, G, H | IMaskRest] = IMask2,
+    <<Octet:8>> = <<A:1, B:1, C:1, D:1, E:1, F:1, G:1, H:1>>,
+    imask2emask(IMaskRest, [Octet | EMask]). 
+
+
 
 table_next(Name, RestOid) ->
     snmp_generic:table_next(db(Name), RestOid).
@@ -1014,11 +1079,41 @@ stc(vacmSecurityToGroupTable) -> ?vacmSecurityToGroupStorageType;
 stc(vacmViewTreeFamilyTable) -> ?vacmViewTreeFamilyStorageType.
  
 next(Name, RowIndex, Cols) ->
-    snmp_generic:handle_table_next(db(Name), RowIndex, Cols,
-                                   fa(Name), foi(Name), noc(Name)).
+    Result = snmp_generic:handle_table_next(db(Name), RowIndex, Cols,
+					    fa(Name), foi(Name), noc(Name)),
+    externalize_next(Name, Result).
  
 get(Name, RowIndex, Cols) ->
-    snmp_generic:handle_table_get(db(Name), RowIndex, Cols, foi(Name)).
+    Result = snmp_generic:handle_table_get(db(Name), RowIndex, Cols, 
+					   foi(Name)),
+    externalize_get(Name, Cols, Result).
+
+
+externalize_next(Name, Result) when is_list(Result) ->
+    F = fun({[Col | _] = Idx, Val}) -> {Idx, externalize(Name, Col, Val)};
+	   (Other)                  -> Other
+	end,
+    [F(R) || R <- Result];
+externalize_next(_, Result) ->
+    Result.
+
+
+externalize_get(Name, Cols, Result) when is_list(Result) ->
+    %% Patch returned values
+    F = fun({Col, {value, Val}}) -> {value, externalize(Name, Col, Val)};
+	   ({_, Other}) ->          Other
+	end,
+    %% Merge column numbers and return values. there must be as much
+    %% return values as there are columns requested. And then patch all values
+    [F(R) || R <- lists:zip(Cols, Result)];
+externalize_get(_, _, Result) ->
+    Result. 
+
+externalize(vacmViewTreeFamilyTable, ?vacmViewTreeFamilyMask, Val) ->
+    imask2emask(Val);
+externalize(_, _, Val) ->
+    Val. 
+
 
 wrongValue(V) -> throw({wrongValue, V}).
 

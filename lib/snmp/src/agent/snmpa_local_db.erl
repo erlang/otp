@@ -583,7 +583,7 @@ handle_cast({variable_inc, Name, Db, N}, State) ->
 	    {value, Val} -> Val;
 	    _ -> 0 
 	end,
-    insert(Db, Name, M+N rem 4294967296, State),
+    insert(Db, Name, (M+N) rem 4294967296, State),
     {noreply, State};
     
 handle_cast({verbosity,Verbosity}, State) ->
