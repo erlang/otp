@@ -247,7 +247,11 @@
 
 -define(is_timeout(T), (is_integer(T) orelse T==infinity)).
 -define(is_filter(F),
-	(is_atom(F) orelse (is_tuple(F) andalso is_atom(element(1,F))))).
+	(?is_simple_xml(F)
+	 orelse (F==[])
+	 orelse (is_list(F) andalso ?is_simple_xml(hd(F))))).
+-define(is_simple_xml(Xml),
+	(is_atom(Xml) orelse (is_tuple(Xml) andalso is_atom(element(1,Xml))))).
 -define(is_string(S), (is_list(S) andalso is_integer(hd(S)))).
 
 %%----------------------------------------------------------------------
@@ -790,7 +794,7 @@ create_subscription(Client,Timeout)
   when ?is_timeout(Timeout) ->
     create_subscription(Client,?DEFAULT_STREAM,Timeout);
 create_subscription(Client,Stream)
-  when is_list(Stream) ->
+  when ?is_string(Stream) ->
     create_subscription(Client,Stream,?DEFAULT_TIMEOUT);
 create_subscription(Client,Filter)
   when ?is_filter(Filter) ->
@@ -798,14 +802,14 @@ create_subscription(Client,Filter)
 			?DEFAULT_TIMEOUT).
 
 create_subscription(Client,Stream,Timeout)
-  when is_list(Stream) andalso
+  when ?is_string(Stream) andalso
        ?is_timeout(Timeout) ->
     call(Client,{send_rpc_op,{create_subscription,self()},
 		 [Stream,undefined,undefined,undefined],
 		 Timeout});
 create_subscription(Client,StartTime,StopTime)
-  when is_list(StartTime) andalso
-       is_list(StopTime) ->
+  when ?is_string(StartTime) andalso
+       ?is_string(StopTime) ->
     create_subscription(Client,?DEFAULT_STREAM,StartTime,StopTime,
 			?DEFAULT_TIMEOUT);
 create_subscription(Client,Filter,Timeout)
@@ -813,28 +817,28 @@ create_subscription(Client,Filter,Timeout)
        ?is_timeout(Timeout) ->
     create_subscription(Client,?DEFAULT_STREAM,Filter,Timeout);
 create_subscription(Client,Stream,Filter)
-  when is_list(Stream) andalso
+  when ?is_string(Stream) andalso
        ?is_filter(Filter) ->
     create_subscription(Client,Stream,Filter,?DEFAULT_TIMEOUT).
 
 create_subscription(Client,StartTime,StopTime,Timeout)
-  when is_list(StartTime) andalso
-       is_list(StopTime) andalso
+  when ?is_string(StartTime) andalso
+       ?is_string(StopTime) andalso
        ?is_timeout(Timeout) ->
     create_subscription(Client,?DEFAULT_STREAM,StartTime,StopTime,Timeout);
 create_subscription(Client,Stream,StartTime,StopTime)
-  when is_list(Stream) andalso
-       is_list(StartTime) andalso
-       is_list(StopTime) ->
+  when ?is_string(Stream) andalso
+       ?is_string(StartTime) andalso
+       ?is_string(StopTime) ->
     create_subscription(Client,Stream,StartTime,StopTime,?DEFAULT_TIMEOUT);
 create_subscription(Client,Filter,StartTime,StopTime)
   when ?is_filter(Filter) andalso
-       is_list(StartTime) andalso
-       is_list(StopTime) ->
+       ?is_string(StartTime) andalso
+       ?is_string(StopTime) ->
     create_subscription(Client,?DEFAULT_STREAM,Filter,
 			StartTime,StopTime,?DEFAULT_TIMEOUT);
 create_subscription(Client,Stream,Filter,Timeout)
-  when is_list(Stream) andalso
+  when ?is_string(Stream) andalso
        ?is_filter(Filter) andalso
        ?is_timeout(Timeout) ->
     call(Client,{send_rpc_op,{create_subscription,self()},
@@ -842,18 +846,18 @@ create_subscription(Client,Stream,Filter,Timeout)
 		 Timeout}).
 
 create_subscription(Client,Stream,StartTime,StopTime,Timeout)
-  when is_list(Stream) andalso
-       is_list(StartTime) andalso
-       is_list(StopTime) andalso
+  when ?is_string(Stream) andalso
+       ?is_string(StartTime) andalso
+       ?is_string(StopTime) andalso
        ?is_timeout(Timeout) ->
     call(Client,{send_rpc_op,{create_subscription,self()},
 		 [Stream,undefined,StartTime,StopTime],
 		 Timeout});
 create_subscription(Client,Stream,Filter,StartTime,StopTime)
-  when is_list(Stream) andalso
+  when ?is_string(Stream) andalso
        ?is_filter(Filter) andalso
-       is_list(StartTime) andalso
-       is_list(StopTime) ->
+       ?is_string(StartTime) andalso
+       ?is_string(StopTime) ->
     create_subscription(Client,Stream,Filter,StartTime,StopTime,?DEFAULT_TIMEOUT).
 
 %%----------------------------------------------------------------------
@@ -861,7 +865,7 @@ create_subscription(Client,Stream,Filter,StartTime,StopTime)
 				 Result when
       Client :: client(),
       Stream :: stream_name(),
-      Filter :: simple_xml(),
+      Filter :: simple_xml() | [simple_xml()],
       StartTime :: xs_datetime(),
       StopTime :: xs_datetime(),
       Timeout :: timeout(),
@@ -884,8 +888,7 @@ create_subscription(Client,Stream,Filter,StartTime,StopTime)
 %%   possible events is of interest.  The format of this parameter is
 %%   the same as that of the filter parameter in the NETCONF protocol
 %%   operations.  If not present, all events not precluded by other
-%%   parameters will be sent.  See section 3.6 for more information on
-%%   filters.</dd>
+%%   parameters will be sent.</dd>
 %%
 %%   <dt>StartTime:</dt>
 %%   <dd>An optional parameter used to trigger the replay feature and
@@ -1270,8 +1273,10 @@ filter(undefined) ->
     [];
 filter({xpath,Filter}) when ?is_string(Filter) ->
     [{filter,[{type,"xpath"},{select, Filter}],[]}];
+filter(Filter) when is_list(Filter) ->
+    [{filter,[{type,"subtree"}],Filter}];
 filter(Filter) ->
-    [{filter,[{type,"subtree"}],[Filter]}].
+    filter([Filter]).
 
 maybe_element(_,undefined) ->
     [];
