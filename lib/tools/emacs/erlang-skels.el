@@ -457,7 +457,7 @@ Please see the function `tempo-define-template'.")
     "handle_info/2," n>
     "terminate/2, code_change/3])." n n
 
-    "-define(SERVER, ?MODULE). " n n
+    "-define(SERVER, ?MODULE)." n n
 
     "-record(state, {})." n n
 
@@ -572,7 +572,7 @@ Please see the function `tempo-define-template'.")
     "-export([init/1, handle_event/2, handle_call/2, " n>
     "handle_info/2, terminate/2, code_change/3])." n n
 
-    "-define(SERVER, ?MODULE). " n n
+    "-define(SERVER, ?MODULE)." n n
 
     "-record(state, {})." n n
 
