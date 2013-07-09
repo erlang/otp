@@ -886,6 +886,19 @@ create_subscription(Config) ->
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client8),
 
+    %% Multiple filters
+    {ok,Client9} = open_success(DataDir),
+    ?NS:expect_reply({'create-subscription',[stream,filter]},ok),
+    MultiFilters = [{event,[{xmlns,"http://my.namespaces.com/event"}],
+		     [{eventClass,["fault"]},
+		      {severity,["critical"]}]},
+		    {event,[{xmlns,"http://my.namespaces.com/event"}],
+		     [{eventClass,["fault"]},
+		      {severity,["major"]}]}],
+    ?ok = ct_netconfc:create_subscription(Client9,MultiFilters),
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client9),
+
     ok.
 
 receive_event(Config) ->
