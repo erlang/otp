@@ -68,7 +68,8 @@ init([Shell]) ->
 handle_ssh_msg({ssh_cm, _ConnectionManager, 
 		{data, _ChannelId, _Type, Data}}, 
 	       #state{group = Group} = State) ->
-    Group ! {self(), {data, binary_to_list(Data)}},
+    List = binary_to_list(Data),
+    to_group(List, Group),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, ConnectionManager, 
@@ -187,6 +188,22 @@ terminate(_Reason, _State) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+to_group([], _Group) ->
+    ok;
+to_group([$\^C | Tail], Group) ->
+    exit(Group, interrupt),
+    to_group(Tail, Group);
+to_group(Data, Group) ->
+    Func = fun(C) -> C /= $\^C end,
+    Tail = case lists:splitwith(Func, Data) of
+        {[], Right} ->
+            Right;
+        {Left, Right} ->
+            Group ! {self(), {data, Left}},
+            Right
+    end,
+    to_group(Tail, Group).
 
 exec(Cmd) ->
     case eval(parse(scan(Cmd))) of
