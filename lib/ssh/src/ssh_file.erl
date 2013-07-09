@@ -315,5 +315,12 @@ default_user_dir()->
     {ok,[[Home|_]]} = init:get_argument(home),
     UserDir = filename:join(Home, ".ssh"),
     ok = filelib:ensure_dir(filename:join(UserDir, "dummy")),
-    ok = file:change_mode(UserDir, ?PERM_700),
+    {ok,Info} = file:read_file_info(UserDir),
+    #file_info{mode=Mode} = Info,
+    case (Mode band 8#777) of
+	?PERM_700 ->
+	    ok;
+	_Other ->
+	    ok = file:change_mode(UserDir, ?PERM_700)
+    end,
     UserDir.
