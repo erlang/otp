@@ -59,6 +59,7 @@
 -export([otp_6226_outdir/1]).
 -export([init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
+-export([delete_tree/1]).
 
 -import(lists, [foldl/3]).
 
@@ -298,6 +299,11 @@ unicode_script(Config) when is_list(Config) ->
 
     %% 3. path (directory name where unicode_app.tgz is extracted)
     true = lists:member({path,[P1]},Instr),
+
+    %% If all is good, delete the unicode dir to avoid lingering files
+    %% on windows.
+    rpc:call(Node,code,add_pathz,[filename:dirname(code:which(?MODULE))]),
+    rpc:call(Node,?MODULE,delete_tree,[UnicodeLibDir]),
 
     ok.
 
