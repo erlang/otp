@@ -1042,6 +1042,8 @@ extern erts_driver_t vanilla_driver;
 extern erts_driver_t spawn_driver;
 extern erts_driver_t fd_driver;
 
+int erts_beam_jump_table(void);
+
 /* Should maybe be placed in erl_message.h, but then we get an include mess. */
 ERTS_GLB_INLINE Eterm *
 erts_alloc_message_heap_state(Uint size,

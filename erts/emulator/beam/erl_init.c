@@ -637,6 +637,8 @@ early_init(int *argc, char **argv) /*
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
 
+    erts_save_emu_args(*argc, argv);
+
     erts_sched_compact_load = 1;
     erts_printf_eterm_func = erts_printf_term;
     erts_disable_tolerant_timeofday = 0;
