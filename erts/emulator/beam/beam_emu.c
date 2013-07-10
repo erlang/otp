@@ -6256,3 +6256,12 @@ erts_current_reductions(Process *current, Process *p)
     }
 }
 
+int
+erts_beam_jump_table(void)
+{
+#if defined(NO_JUMP_TABLE)
+    return 0;
+#else
+    return 1;
+#endif
+}

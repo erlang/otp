@@ -419,6 +419,7 @@ if test "$files" != "$pattern" || test -f erts/CONF_INFO; then
   echo '**********************  APPLICATIONS INFORMATION  *******************'
   echo '*********************************************************************'
   echo
+  test "$files" != "$pattern" || files=""
   test ! -f erts/CONF_INFO || files="$files erts/CONF_INFO"
   for infofile in $files; do
     app=`dirname $infofile`; app=`basename $app`

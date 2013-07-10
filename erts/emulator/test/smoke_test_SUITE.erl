@@ -26,14 +26,14 @@
 	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
--export([boot_combo/1]).
+-export([boot_combo/1, native_atomics/1, jump_table/1]).
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(2)).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [boot_combo].
+    [boot_combo, native_atomics, jump_table].
 
 groups() -> 
     [].
@@ -104,6 +104,41 @@ boot_combo(Config) when is_list(Config) ->
 				    _ -> ZFlags
 				end)
     end.
+
+native_atomics(Config) when is_list(Config) ->
+    NA32Key = "32-bit native atomics",
+    NA64Key = "64-bit native atomics",
+    DWNAKey = "Double word native atomics",
+    EthreadInfo = erlang:system_info(ethread_info),
+    ?t:format("~p~n", [EthreadInfo]),
+    {value,{NA32Key, NA32, _}} = lists:keysearch(NA32Key, 1, EthreadInfo),
+    {value,{NA64Key, NA64, _}} = lists:keysearch(NA64Key, 1, EthreadInfo),
+    {value,{DWNAKey, DWNA, _}} = lists:keysearch(DWNAKey, 1, EthreadInfo),
+    case {erlang:system_info(build_type), erlang:system_info(smp_support), NA32, NA64, DWNA} of
+	{opt, true, "no", "no", _} ->
+	    ?t:fail(optimized_smp_runtime_without_native_atomics);
+	{_, false, "no", "no", _} ->
+	    {comment, "No native atomics"};
+	_ ->
+	    {comment,
+	     NA32 ++ " 32-bit, "
+	     ++ NA64 ++ " 64-bit, and "
+	     ++ DWNA ++ " double word native atomics"}
+    end.
+
+jump_table(Config) when is_list(Config) ->
+    case erlang:system_info(beam_jump_table) of
+	true ->
+	    ok;
+	false ->
+	    case erlang:system_info(build_type) of
+		opt ->
+		    ?t:fail(optimized_without_beam_jump_table);
+		BT ->
+		    {comment, "No beam jump table, but build type is " ++ atom_to_list(BT)}
+	    end
+    end.
+	    
 
 %%%
 %%% Aux functions --------------------------------------------------------------

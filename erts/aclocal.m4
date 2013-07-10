@@ -954,6 +954,40 @@ dnl
 AC_DEFUN(ERL_FIND_ETHR_LIB,
 [
 
+AC_ARG_ENABLE(native-ethr-impls,
+	      AS_HELP_STRING([--disable-native-ethr-impls],
+                             [disable native ethread implementations]),
+[ case "$enableval" in
+    no) disable_native_ethr_impls=yes ;;
+    *)  disable_native_ethr_impls=no ;;
+  esac ], disable_native_ethr_impls=no)
+
+test "X$disable_native_ethr_impls" = "Xyes" &&
+  AC_DEFINE(ETHR_DISABLE_NATIVE_IMPLS, 1, [Define if you want to disable native ethread implementations])
+
+AC_ARG_ENABLE(x86-out-of-order,
+	      AS_HELP_STRING([--enable-x86-out-of-order],
+                             [enable x86/x84_64 out of order support (default disabled)]))
+
+AC_ARG_ENABLE(prefer-gcc-native-ethr-impls,
+	      AS_HELP_STRING([--enable-prefer-gcc-native-ethr-impls],
+			     [prefer gcc native ethread implementations]),
+[ case "$enableval" in
+    yes) enable_prefer_gcc_native_ethr_impls=yes ;;
+    *)  enable_prefer_gcc_native_ethr_impls=no ;;
+  esac ], enable_prefer_gcc_native_ethr_impls=no)
+
+test $enable_prefer_gcc_native_ethr_impls = yes &&
+  AC_DEFINE(ETHR_PREFER_GCC_NATIVE_IMPLS, 1, [Define if you prefer gcc native ethread implementations])
+
+AC_ARG_WITH(libatomic_ops,
+	    AS_HELP_STRING([--with-libatomic_ops=PATH],
+			   [specify and prefer usage of libatomic_ops in the ethread library]))
+
+AC_ARG_WITH(with_sparc_memory_order,
+	    AS_HELP_STRING([--with-sparc-memory-order=TSO|PSO|RMO],
+			   [specify sparc memory order (defaults to RMO)]))
+
 LM_CHECK_THR_LIB
 ERL_INTERNAL_LIBS
 
@@ -1003,40 +1037,44 @@ case "$THR_LIB_NAME" in
 
 	AC_DEFINE(ETHR_WIN32_THREADS, 1, [Define if you have win32 threads])
 
-	ETHR_CHK_INTERLOCKED([_InterlockedDecrement], [1], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT, 1, [Define if you have _InterlockedDecrement()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedDecrement_rel], [1], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT_REL, 1, [Define if you have _InterlockedDecrement_rel()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedIncrement], [1], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDINCREMENT, 1, [Define if you have _InterlockedIncrement()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedIncrement_acq], [1], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDINCREMENT_ACQ, 1, [Define if you have _InterlockedIncrement_acq()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedExchangeAdd], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGEADD, 1, [Define if you have _InterlockedExchangeAdd()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedExchangeAdd_acq], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGEADD_ACQ, 1, [Define if you have _InterlockedExchangeAdd_acq()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedAnd], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDAND, 1, [Define if you have _InterlockedAnd()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedOr], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDOR, 1, [Define if you have _InterlockedOr()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedExchange], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGE, 1, [Define if you have _InterlockedExchange()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE, 1, [Define if you have _InterlockedCompareExchange()]))
-	test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_acq], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_ACQ, 1, [Define if you have _InterlockedCompareExchange_acq()]))
-	test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_rel], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_REL, 1, [Define if you have _InterlockedCompareExchange_rel()]))
-	test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
+	if test "X$disable_native_ethr_impls" = "Xyes"; then
+	    have_interlocked_op=no
+	    ethr_have_native_atomics=no
+	else
+	    ETHR_CHK_INTERLOCKED([_InterlockedDecrement], [1], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT, 1, [Define if you have _InterlockedDecrement()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedDecrement_rel], [1], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT_REL, 1, [Define if you have _InterlockedDecrement_rel()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedIncrement], [1], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDINCREMENT, 1, [Define if you have _InterlockedIncrement()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedIncrement_acq], [1], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDINCREMENT_ACQ, 1, [Define if you have _InterlockedIncrement_acq()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedExchangeAdd], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGEADD, 1, [Define if you have _InterlockedExchangeAdd()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedExchangeAdd_acq], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGEADD_ACQ, 1, [Define if you have _InterlockedExchangeAdd_acq()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedAnd], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDAND, 1, [Define if you have _InterlockedAnd()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedOr], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDOR, 1, [Define if you have _InterlockedOr()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedExchange], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGE, 1, [Define if you have _InterlockedExchange()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE, 1, [Define if you have _InterlockedCompareExchange()]))
+	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_acq], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_ACQ, 1, [Define if you have _InterlockedCompareExchange_acq()]))
+	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_rel], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_REL, 1, [Define if you have _InterlockedCompareExchange_rel()]))
+	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
 
-	ETHR_CHK_INTERLOCKED([_InterlockedDecrement64], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT64, 1, [Define if you have _InterlockedDecrement64()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedDecrement64_rel], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT64_REL, 1, [Define if you have _InterlockedDecrement64_rel()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedIncrement64], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDINCREMENT64, 1, [Define if you have _InterlockedIncrement64()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedIncrement64_acq], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDINCREMENT64_ACQ, 1, [Define if you have _InterlockedIncrement64_acq()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedExchangeAdd64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGEADD64, 1, [Define if you have _InterlockedExchangeAdd64()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedExchangeAdd64_acq], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGEADD64_ACQ, 1, [Define if you have _InterlockedExchangeAdd64_acq()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedAnd64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDAND64, 1, [Define if you have _InterlockedAnd64()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedOr64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDOR64, 1, [Define if you have _InterlockedOr64()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedExchange64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGE64, 1, [Define if you have _InterlockedExchange64()]))
-	ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64, 1, [Define if you have _InterlockedCompareExchange64()]))
-	test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_acq], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_ACQ, 1, [Define if you have _InterlockedCompareExchange64_acq()]))
-	test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_rel], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_REL, 1, [Define if you have _InterlockedCompareExchange64_rel()]))
-	test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
+	    ETHR_CHK_INTERLOCKED([_InterlockedDecrement64], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT64, 1, [Define if you have _InterlockedDecrement64()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedDecrement64_rel], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT64_REL, 1, [Define if you have _InterlockedDecrement64_rel()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedIncrement64], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDINCREMENT64, 1, [Define if you have _InterlockedIncrement64()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedIncrement64_acq], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDINCREMENT64_ACQ, 1, [Define if you have _InterlockedIncrement64_acq()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedExchangeAdd64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGEADD64, 1, [Define if you have _InterlockedExchangeAdd64()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedExchangeAdd64_acq], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGEADD64_ACQ, 1, [Define if you have _InterlockedExchangeAdd64_acq()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedAnd64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDAND64, 1, [Define if you have _InterlockedAnd64()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedOr64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDOR64, 1, [Define if you have _InterlockedOr64()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedExchange64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGE64, 1, [Define if you have _InterlockedExchange64()]))
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64, 1, [Define if you have _InterlockedCompareExchange64()]))
+	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_acq], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_ACQ, 1, [Define if you have _InterlockedCompareExchange64_acq()]))
+	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_rel], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_REL, 1, [Define if you have _InterlockedCompareExchange64_rel()]))
+	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
 
-	ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange128], [4], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE128, 1, [Define if you have _InterlockedCompareExchange128()]))
-
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange128], [4], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE128, 1, [Define if you have _InterlockedCompareExchange128()]))
+	fi
 	test "$ethr_have_native_atomics" = "yes" && ethr_have_native_spinlock=yes
 	;;
 
@@ -1303,92 +1341,97 @@ case "$THR_LIB_NAME" in
 	    int128="__int128_t"
 	fi
 
-	ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP32, 1, [Define if you have __sync_val_compare_and_swap() for 32-bit integers]))
-	test "$have_sync_op" = "yes" && ethr_have_native_atomics=yes
-	ETHR_CHK_SYNC_OP([__sync_add_and_fetch], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_ADD_AND_FETCH32, 1, [Define if you have __sync_add_and_fetch() for 32-bit integers]))
-	ETHR_CHK_SYNC_OP([__sync_fetch_and_and], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_AND32, 1, [Define if you have __sync_fetch_and_and() for 32-bit integers]))
-	ETHR_CHK_SYNC_OP([__sync_fetch_and_or], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_OR32, 1, [Define if you have __sync_fetch_and_or() for 32-bit integers]))
+	if test "X$disable_native_ethr_impls" = "Xyes"; then
+	    ethr_have_native_atomics=no
+	else
+	    ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP32, 1, [Define if you have __sync_val_compare_and_swap() for 32-bit integers]))
+	    test "$have_sync_op" = "yes" && ethr_have_native_atomics=yes
+	    ETHR_CHK_SYNC_OP([__sync_add_and_fetch], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_ADD_AND_FETCH32, 1, [Define if you have __sync_add_and_fetch() for 32-bit integers]))
+	    ETHR_CHK_SYNC_OP([__sync_fetch_and_and], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_AND32, 1, [Define if you have __sync_fetch_and_and() for 32-bit integers]))
+	    ETHR_CHK_SYNC_OP([__sync_fetch_and_or], [2], [32], [$int32], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_OR32, 1, [Define if you have __sync_fetch_and_or() for 32-bit integers]))
 
-	ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP64, 1, [Define if you have __sync_val_compare_and_swap() for 64-bit integers]))
-	test "$have_sync_op" = "yes" && ethr_have_native_atomics=yes
-	ETHR_CHK_SYNC_OP([__sync_add_and_fetch], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_ADD_AND_FETCH64, 1, [Define if you have __sync_add_and_fetch() for 64-bit integers]))
-	ETHR_CHK_SYNC_OP([__sync_fetch_and_and], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_AND64, 1, [Define if you have __sync_fetch_and_and() for 64-bit integers]))
-	ETHR_CHK_SYNC_OP([__sync_fetch_and_or], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_OR64, 1, [Define if you have __sync_fetch_and_or() for 64-bit integers]))
+	    ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP64, 1, [Define if you have __sync_val_compare_and_swap() for 64-bit integers]))
+	    test "$have_sync_op" = "yes" && ethr_have_native_atomics=yes
+	    ETHR_CHK_SYNC_OP([__sync_add_and_fetch], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_ADD_AND_FETCH64, 1, [Define if you have __sync_add_and_fetch() for 64-bit integers]))
+	    ETHR_CHK_SYNC_OP([__sync_fetch_and_and], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_AND64, 1, [Define if you have __sync_fetch_and_and() for 64-bit integers]))
+	    ETHR_CHK_SYNC_OP([__sync_fetch_and_or], [2], [64], [$int64], AC_DEFINE(ETHR_HAVE___SYNC_FETCH_AND_OR64, 1, [Define if you have __sync_fetch_and_or() for 64-bit integers]))
 
-	if test $int128 != no; then
-	    ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [128], [$int128], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP128, 1, [Define if you have __sync_val_compare_and_swap() for 128-bit integers]))
-	fi
-
-	AC_MSG_CHECKING([for a usable libatomic_ops implementation])
-	case "x$with_libatomic_ops" in
-	    xno | xyes | x)
-		libatomic_ops_include=
-		;;
-	    *)
-		if test -d "${with_libatomic_ops}/include"; then
-		    libatomic_ops_include="-I$with_libatomic_ops/include"
-		    CPPFLAGS="$CPPFLAGS $libatomic_ops_include"
-		else
-		    AC_MSG_ERROR([libatomic_ops include directory $with_libatomic_ops/include not found])
-		fi;;
-	esac
-	ethr_have_libatomic_ops=no
-	AC_TRY_LINK([#include "atomic_ops.h"],
-		    [
-			volatile AO_t x;
-			AO_t y;
-			int z;
-
-			AO_nop_full();
-			AO_store(&x, (AO_t) 0);
-			z = AO_load(&x);
-			z = AO_compare_and_swap_full(&x, (AO_t) 0, (AO_t) 1);
-		    ],
-		    [ethr_have_native_atomics=yes
-		     ethr_have_libatomic_ops=yes])
-	AC_MSG_RESULT([$ethr_have_libatomic_ops])
-	if test $ethr_have_libatomic_ops = yes; then
-	    AC_CHECK_SIZEOF(AO_t, ,
-			    [
-				#include <stdio.h>
-				#include "atomic_ops.h"
-			    ])
-	    AC_DEFINE_UNQUOTED(ETHR_SIZEOF_AO_T, $ac_cv_sizeof_AO_t, [Define to the size of AO_t if libatomic_ops is used])
-
-	    AC_DEFINE(ETHR_HAVE_LIBATOMIC_OPS, 1, [Define if you have libatomic_ops atomic operations])
-	    if test "x$with_libatomic_ops" != "xno" && test "x$with_libatomic_ops" != "x"; then
-		AC_DEFINE(ETHR_PREFER_LIBATOMIC_OPS_NATIVE_IMPLS, 1, [Define if you prefer libatomic_ops native ethread implementations])
+	    if test $int128 != no; then
+	        ETHR_CHK_SYNC_OP([__sync_val_compare_and_swap], [3], [128], [$int128], AC_DEFINE(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP128, 1, [Define if you have __sync_val_compare_and_swap() for 128-bit integers]))
 	    fi
-	    ETHR_DEFS="$ETHR_DEFS $libatomic_ops_include"
-	elif test "x$with_libatomic_ops" != "xno" && test "x$with_libatomic_ops" != "x"; then
-	    AC_MSG_ERROR([No usable libatomic_ops implementation found])
-	fi
 
-	case "$host_cpu" in
-	  sparc | sun4u | sparc64 | sun4v)
-		case "$with_sparc_memory_order" in
-		    "TSO")
-			AC_DEFINE(ETHR_SPARC_TSO, 1, [Define if only run in Sparc TSO mode]);;
-		    "PSO")
-			AC_DEFINE(ETHR_SPARC_PSO, 1, [Define if only run in Sparc PSO, or TSO mode]);;
-		    "RMO"|"")
-			AC_DEFINE(ETHR_SPARC_RMO, 1, [Define if run in Sparc RMO, PSO, or TSO mode]);;
-		    *)
-			AC_MSG_ERROR([Unsupported Sparc memory order: $with_sparc_memory_order]);;
-		esac
-		ethr_have_native_atomics=yes;; 
-	  i86pc | i*86 | x86_64 | amd64)
-		if test "$enable_x86_out_of_order" = "yes"; then
-			AC_DEFINE(ETHR_X86_OUT_OF_ORDER, 1, [Define if x86/x86_64 out of order instructions should be synchronized])
-		fi
-		ethr_have_native_atomics=yes;;
-	  macppc | ppc | "Power Macintosh")
-		ethr_have_native_atomics=yes;;
-	  tile)
-		ethr_have_native_atomics=yes;;
-	  *)
-		;;
-	esac
+	    AC_MSG_CHECKING([for a usable libatomic_ops implementation])
+	    case "x$with_libatomic_ops" in
+	        xno | xyes | x)
+	    	    libatomic_ops_include=
+	    	    ;;
+	        *)
+	    	    if test -d "${with_libatomic_ops}/include"; then
+	    	        libatomic_ops_include="-I$with_libatomic_ops/include"
+	    	        CPPFLAGS="$CPPFLAGS $libatomic_ops_include"
+	    	    else
+	    	        AC_MSG_ERROR([libatomic_ops include directory $with_libatomic_ops/include not found])
+	    	    fi;;
+	    esac
+	    ethr_have_libatomic_ops=no
+	    AC_TRY_LINK([#include "atomic_ops.h"],
+	    	        [
+	    	    	    volatile AO_t x;
+	    	    	    AO_t y;
+	    	    	    int z;
+
+	    	    	    AO_nop_full();
+	    	    	    AO_store(&x, (AO_t) 0);
+	    	    	    z = AO_load(&x);
+	    	    	    z = AO_compare_and_swap_full(&x, (AO_t) 0, (AO_t) 1);
+	    	        ],
+	    	        [ethr_have_native_atomics=yes
+	    	         ethr_have_libatomic_ops=yes])
+	    AC_MSG_RESULT([$ethr_have_libatomic_ops])
+	    if test $ethr_have_libatomic_ops = yes; then
+	        AC_CHECK_SIZEOF(AO_t, ,
+	    	    	        [
+	    	    	    	    #include <stdio.h>
+	    	    	    	    #include "atomic_ops.h"
+	    	    	        ])
+	        AC_DEFINE_UNQUOTED(ETHR_SIZEOF_AO_T, $ac_cv_sizeof_AO_t, [Define to the size of AO_t if libatomic_ops is used])
+
+	        AC_DEFINE(ETHR_HAVE_LIBATOMIC_OPS, 1, [Define if you have libatomic_ops atomic operations])
+	        if test "x$with_libatomic_ops" != "xno" && test "x$with_libatomic_ops" != "x"; then
+	    	    AC_DEFINE(ETHR_PREFER_LIBATOMIC_OPS_NATIVE_IMPLS, 1, [Define if you prefer libatomic_ops native ethread implementations])
+	        fi
+	        ETHR_DEFS="$ETHR_DEFS $libatomic_ops_include"
+	    elif test "x$with_libatomic_ops" != "xno" && test "x$with_libatomic_ops" != "x"; then
+	        AC_MSG_ERROR([No usable libatomic_ops implementation found])
+	    fi
+
+	    case "$host_cpu" in
+	      sparc | sun4u | sparc64 | sun4v)
+	    	    case "$with_sparc_memory_order" in
+	    	        "TSO")
+	    	    	    AC_DEFINE(ETHR_SPARC_TSO, 1, [Define if only run in Sparc TSO mode]);;
+	    	        "PSO")
+	    	    	    AC_DEFINE(ETHR_SPARC_PSO, 1, [Define if only run in Sparc PSO, or TSO mode]);;
+	    	        "RMO"|"")
+	    	    	    AC_DEFINE(ETHR_SPARC_RMO, 1, [Define if run in Sparc RMO, PSO, or TSO mode]);;
+	    	        *)
+	    	    	    AC_MSG_ERROR([Unsupported Sparc memory order: $with_sparc_memory_order]);;
+	    	    esac
+	    	    ethr_have_native_atomics=yes;; 
+	      i86pc | i*86 | x86_64 | amd64)
+	    	    if test "$enable_x86_out_of_order" = "yes"; then
+	    	    	    AC_DEFINE(ETHR_X86_OUT_OF_ORDER, 1, [Define if x86/x86_64 out of order instructions should be synchronized])
+	    	    fi
+	    	    ethr_have_native_atomics=yes;;
+	      macppc | ppc | "Power Macintosh")
+	    	    ethr_have_native_atomics=yes;;
+	      tile)
+	    	    ethr_have_native_atomics=yes;;
+	      *)
+	    	    ;;
+	    esac
+
+	fi
 
 	test ethr_have_native_atomics = "yes" && ethr_have_native_spinlock=yes
 
@@ -1450,40 +1493,6 @@ case X$erl_xcomp_double_middle_endian in
 esac
 
 AC_C_DOUBLE_MIDDLE_ENDIAN
-
-AC_ARG_ENABLE(native-ethr-impls,
-	      AS_HELP_STRING([--disable-native-ethr-impls],
-                             [disable native ethread implementations]),
-[ case "$enableval" in
-    no) disable_native_ethr_impls=yes ;;
-    *)  disable_native_ethr_impls=no ;;
-  esac ], disable_native_ethr_impls=no)
-
-AC_ARG_ENABLE(x86-out-of-order,
-	      AS_HELP_STRING([--enable-x86-out-of-order],
-                             [enable x86/x84_64 out of order support (default disabled)]))
-
-test "X$disable_native_ethr_impls" = "Xyes" &&
-  AC_DEFINE(ETHR_DISABLE_NATIVE_IMPLS, 1, [Define if you want to disable native ethread implementations])
-
-AC_ARG_ENABLE(prefer-gcc-native-ethr-impls,
-	      AS_HELP_STRING([--enable-prefer-gcc-native-ethr-impls],
-			     [prefer gcc native ethread implementations]),
-[ case "$enableval" in
-    yes) enable_prefer_gcc_native_ethr_impls=yes ;;
-    *)  enable_prefer_gcc_native_ethr_impls=no ;;
-  esac ], enable_prefer_gcc_native_ethr_impls=no)
-
-test $enable_prefer_gcc_native_ethr_impls = yes &&
-  AC_DEFINE(ETHR_PREFER_GCC_NATIVE_IMPLS, 1, [Define if you prefer gcc native ethread implementations])
-
-AC_ARG_WITH(libatomic_ops,
-	    AS_HELP_STRING([--with-libatomic_ops=PATH],
-			   [specify and prefer usage of libatomic_ops in the ethread library]))
-
-AC_ARG_WITH(with_sparc_memory_order,
-	    AS_HELP_STRING([--with-sparc-memory-order=TSO|PSO|RMO],
-			   [specify sparc memory order (defaults to RMO)]))
 
 ETHR_X86_SSE2_ASM=no
 case "$GCC-$ac_cv_sizeof_void_p-$host_cpu" in
