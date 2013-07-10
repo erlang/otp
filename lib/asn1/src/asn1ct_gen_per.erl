@@ -255,6 +255,8 @@ enc_ext_and_val(uper, E, F, Args) ->
     Bs = list_to_bitstring([apply(asn1ct_eval_uper, F, Args)]),
     <<E:1,Bs/bitstring>>.
 
+dec_func(Tname) ->
+    list_to_atom(lists:concat(["dec_",Tname])).
 
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------
@@ -539,15 +541,15 @@ gen_decode_field_call(Erules, ObjName, FieldName, Bytes, Type) ->
 	    [];
 	{constructed,bif} ->
 	    emit({"   'dec_",ObjName,'_',FieldName,
-		  "'(",Bytes,",telltype)"}),
+		  "'(",Bytes,")"}),
 %%	    [Type#typedef{name=list_to_atom(lists:concat([ObjName,'_',FieldName]))}];
 	    [Type#typedef{name=[FieldName,ObjName]}];
 	{ExtMod,TypeName} ->
 	    emit({"   '",ExtMod,"':'dec_",TypeName,
-		  "'(",Bytes,", telltype)"}),
+		  "'(",Bytes,")"}),
 	    [];
 	TypeName ->
-	    emit({"   'dec_",TypeName,"'(",Bytes,", telltype)"}),
+	    emit({"   'dec_",TypeName,"'(",Bytes,")"}),
 	    []
     end.
 
@@ -555,8 +557,8 @@ gen_decode_default_call(Erules, ClassName, FieldName, Bytes, Type) ->
     InnerType = asn1ct_gen:get_inner(Type#type.def),
     case asn1ct_gen:type(InnerType) of
     	{constructed,bif} ->
-	    emit(["   'dec_",ClassName,'_',FieldName,"'(",Bytes,", telltype)"]),
-%%	    [#typedef{name=list_to_atom(lists:concat([ClassName,'_',FieldName])),
+	    DecFunc = dec_func(lists:concat([ClassName,'_',FieldName])),
+	    emit(["   ",{asis,DecFunc},"(",Bytes,")"]),
 	    [#typedef{name=[FieldName,ClassName],
 		      typespec=Type}];
 	{primitive,bif} ->
@@ -876,11 +878,11 @@ emit_inner_of_decfun(Erule, #typedef{name={ExtName,Name},typespec=Type},
 		  asn1ct_gen:list2name(InternalDefFunName),"'(Val)"}),
 	    1;
 	_ ->
-	    emit({indent(12),"'",ExtName,"':'dec_",Name,"'(Val, telltype)"}),
+	    emit({indent(12),"'",ExtName,"':'dec_",Name,"'(Val)"}),
 	    0
     end;
 emit_inner_of_decfun(_Erule, #typedef{name=Name}, _) ->
-    emit({indent(12),"'dec_",Name,"'(Val, telltype)"}),
+    emit({indent(12),"'dec_",Name,"'(Val)"}),
     0;
 emit_inner_of_decfun(Erule, #type{}=Type, _) ->
     CurrMod = get(currmod),
@@ -910,12 +912,11 @@ gen_internal_funcs(Erules,[TypeDef|Rest]) ->
 %% DECODING *****************************
 %%***************************************
 
-gen_decode(Erules,Type) when is_record(Type,typedef) ->
-    D = Type,
-    emit({nl,nl}),
-    emit({"'dec_",Type#typedef.name,"'(Bytes,_) ->",nl}),
+gen_decode(Erules, #typedef{}=Type) ->
+    DecFunc = dec_func(Type#typedef.name),
+    emit([nl,nl,{asis,DecFunc},"(Bytes) ->",nl]),
     dbdec(Type#typedef.name),
-    gen_decode_user(Erules,D).
+    gen_decode_user(Erules, Type).
 
 gen_decode(Erules,Tname,#'ComponentType'{name=Cname,typespec=Type}) ->
     NewTname = [Cname|Tname],
@@ -932,8 +933,9 @@ gen_decode(Erules,Typename,Type) when is_record(Type,type) ->
 		    _ ->
 			""
 		end,
-	    emit({nl,"'dec_",asn1ct_gen:list2name(Typename),
-		  "'(Bytes,_",ObjFun,") ->",nl}),
+	    emit([nl,
+		  {asis,dec_func(asn1ct_gen:list2name(Typename))},
+		  "(Bytes",ObjFun,") ->",nl]),
 	    dbdec(Typename),
 	    asn1ct_gen:gen_decode_constructed(Erules,Typename,InnerType,Type);
 	_ ->
@@ -970,8 +972,8 @@ gen_dec_external(Ext, BytesVar) ->
     #'Externaltypereference'{module=Mod,type=Type} = Ext,
     emit([case CurrMod of
 	      Mod -> [];
-	      _ -> ["'",Mod,"':"]
-	  end,"'dec_",Type,"'(",BytesVar,",telltype)"]).
+	      _ -> [{asis,Mod},":"]
+	  end,{asis,dec_func(Type)},"(",BytesVar,")"]).
 
 gen_dec_imm(Erule, #type{def=Name,constraint=C}) ->
     Aligned = case Erule of
@@ -1158,7 +1160,7 @@ imm_dec_open_type_1(Type, Aligned) ->
 		asn1ct_name:new(tmpval),
 		emit(["begin",nl,
 		      "{",{curr,tmpval},",_} = ",
-		      "dec_",Type,"(",OpenType,", mandatory),",nl,
+		      {asis,dec_func(Type)},"(",OpenType,"),",nl,
 		      "{",{curr,tmpval},com,Buf,"}",nl,
 		      "end"])
 	end,

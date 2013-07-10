@@ -635,7 +635,7 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
 	{constructed,bif} ->
 	    NewTypename = [Constructed_Suffix|Typename],
 	    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
-		  "'(Bytes, telltype",ObjFun,"),",nl});
+		  "'(Bytes",ObjFun,"),",nl});
 	#'Externaltypereference'{}=Etype ->
 	    asn1ct_gen_per:gen_dec_external(Etype, "Bytes"),
 	    emit([com,nl]);
@@ -644,7 +644,7 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
 				  "Bytes"),
 	    emit({com,nl});
 	_ ->
-	    emit({"'dec_",Conttype,"'(Bytes,telltype),",nl})
+	    emit({"'dec_",Conttype,"'(Bytes),",nl})
     end,
     emit({indent(3),"'dec_",asn1ct_gen:list2name(Typename),
 	  "_components'(Num-1, Remain",ObjFun,", [Term|Acc]).",nl}).
@@ -1425,12 +1425,12 @@ gen_dec_line_other(Erule, Atype, TopType, Comp) ->
 		[{objfun,_}|_R] ->
 		    fun(BytesVar) ->
 			    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
-				  "'(",BytesVar,", telltype, ObjFun)"})
+				  "'(",BytesVar,", ObjFun)"})
 		    end;
 		_ ->
 		    fun(BytesVar) ->
 			    emit({"'dec_",asn1ct_gen:list2name(NewTypename),
-				  "'(",BytesVar,", telltype)"})
+				  "'(",BytesVar,")"})
 		    end
 	    end
     end.

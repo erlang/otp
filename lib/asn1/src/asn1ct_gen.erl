@@ -798,7 +798,12 @@ pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
 		    gen_exports1(Types,"enc_",1)
 	    end,
 	    emit({"-export([",nl}),
-	    gen_exports1(Types,"dec_",2)
+	    case Erules of
+		ber ->
+		    gen_exports1(Types, "dec_", 2);
+		_ ->
+		    gen_exports1(Types, "dec_", 1)
+	    end
     end,
     case [X || {n2n,X} <- get(encoding_options)] of
 	[] -> ok;
@@ -1007,7 +1012,7 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	    gen_partial_inc_dispatcher();
 	_PerOrPer_bin -> 
 	    gen_dispatcher(Types,"encode_disp","enc_",""),
-	    gen_dispatcher(Types,"decode_disp","dec_",",mandatory")
+	    gen_dispatcher(Types,"decode_disp","dec_","")
     end,
     emit([nl]),
     emit({nl,nl}).
