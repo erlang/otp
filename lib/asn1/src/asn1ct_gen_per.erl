@@ -295,9 +295,6 @@ gen_encode_objectfields(Erule, ClassName,
 % 	  ", Val, _RestPrimFieldName) ->",nl]),
     MaybeConstr =
 	case {get_object_field(Name,ObjectFields),OptOrMand} of
-	    {false,'MANDATORY'} -> %% this case is illegal
-		exit({error,{asn1,{"missing mandatory field in object",
-				   ObjName}}});
 	    {false,'OPTIONAL'} ->
 		EmitFuncClause("Val"),
 		case Erule of
@@ -341,9 +338,6 @@ gen_encode_objectfields(Erule,ClassName,[{objectfield,Name,_,_,OptOrMand}|Rest],
 %     emit(["'enc_",ObjName,"'(",{asis,Name},
 % 	  ", Val,[H|T]) ->",nl]),
     case {get_object_field(Name,ObjectFields),OptOrMand} of
-	{false,'MANDATORY'} ->
-	    exit({error,{asn1,{"missing mandatory field in object",
-			       ObjName}}});
 	{false,'OPTIONAL'} ->
 	    EmitFuncClause("_,_"),
 	    emit(["  exit({error,{'use of missing field in object', ",{asis,Name},
@@ -459,9 +453,6 @@ gen_decode_objectfields(Erules, ClassName,
 	end,
     MaybeConstr=
 	case {get_object_field(Name,ObjectFields),OptOrMand} of
-	    {false,'MANDATORY'} -> %% this case is illegal
-		exit({error,{asn1,{"missing mandatory field in object",
-				   ObjName}}});
 	    {false,'OPTIONAL'} ->
 		EmitFuncClause("Bytes"),
 		emit(["   {Bytes,[]}"]),
@@ -496,9 +487,6 @@ gen_decode_objectfields(Erules, ClassName,
 %     emit(["'dec_",ObjName,"'(",{asis,Name},
 % 	  ", Bytes,_,[H|T]) ->",nl]),
     case {get_object_field(Name,ObjectFields),OptOrMand} of
-	{false,'MANDATORY'} ->
-	    exit({error,{asn1,{"missing mandatory field in object",
-			       ObjName}}});
 	{false,'OPTIONAL'} ->
 	    EmitFuncClause("_,_,_"),
 	    emit(["  exit({error,{'illegal use of missing field in object', ",{asis,Name},

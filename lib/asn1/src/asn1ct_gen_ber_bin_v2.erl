@@ -645,9 +645,6 @@ gen_encode_objectfields(ClassName,[{typefield,Name,OptOrMand}|Rest],
 % 	  ", Val, RestPrimFieldName) ->",nl]),
     MaybeConstr=
 	case {get_object_field(Name,ObjectFields),OptOrMand} of
-	    {false,'MANDATORY'} -> %% this case is illegal
-		exit({error,{asn1,{"missing mandatory field in object",
-				   ObjName}}});
 	    {false,'OPTIONAL'} ->
 		EmitFuncClause("Val"),
 		emit(["   {Val,0}"]),
@@ -680,9 +677,6 @@ gen_encode_objectfields(ClassName,[{objectfield,Name,_,_,OptOrMand}|Rest],
 %     emit(["'enc_",ObjName,"'(",{asis,Name},
 % 	  ", Val,[H|T]) ->",nl]),
     case {get_object_field(Name,ObjectFields),OptOrMand} of
-	{false,'MANDATORY'} ->
-	    exit({error,{asn1,{"missing mandatory field in object",
-			       ObjName}}});
 	{false,'OPTIONAL'} ->
 	    EmitFuncClause("_,_"),
 	    emit(["  exit({error,{'use of missing field in object', ",{asis,Name},
@@ -815,9 +809,6 @@ gen_decode_objectfields(ClassName,[{typefield,Name,OptOrMand}|Rest],
 % 	  ", Bytes, RestPrimFieldName) ->",nl]),
     MaybeConstr=
 	case {get_object_field(Name,ObjectFields),OptOrMand} of
-	    {false,'MANDATORY'} -> %% this case is illegal
-		exit({error,{asn1,{"missing mandatory field in object",
-				   ObjName}}});
 	    {false,'OPTIONAL'} ->
 		EmitFuncClause(" Bytes"),
 		emit(["   Bytes"]),
@@ -852,9 +843,6 @@ gen_decode_objectfields(ClassName,[{objectfield,Name,_,_,OptOrMand}|Rest],
 % 	  ", Bytes,[H|T]) ->",nl]),
 %     emit_tlv_format("Bytes"),
     case {get_object_field(Name,ObjectFields),OptOrMand} of
-	{false,'MANDATORY'} ->
-	    exit({error,{asn1,{"missing mandatory field in object",
-			       ObjName}}});
 	{false,'OPTIONAL'} ->
 	    EmitFuncClause("_,_"),
 	    emit(["  exit({error,{'illegal use of missing field in object', ",{asis,Name},
