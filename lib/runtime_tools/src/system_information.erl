@@ -30,9 +30,7 @@
 -export([
 	report/0,
 	from_file/1,
-	to_file/1,
-	code/0,
-	get_value/2
+	to_file/1
     ]).
 -export([
 	start/0, stop/0,
@@ -84,6 +82,7 @@ report() -> [
 	{code,              code()},
 	{system_info,       erlang_system_info()},
 	{erts_compile_info, erlang:system_info(compile_info)},
+	{beam_dynamic_libraries, get_dynamic_libraries()},
 	{environment_erts,  os_getenv_erts_specific()},
 	{environment,       [split_env(Env) || Env <- os:getenv()]}
     ].
@@ -456,3 +455,21 @@ get_compiler_version(B) ->
 	    proplists:get_value(version, Info);
 	_ -> undefined
     end.
+
+get_dynamic_libraries() ->
+    Beam = filename:join([os:getenv("BINDIR"),get_beam_name()]),
+    case os:type() of
+	{unix, darwin} -> os:cmd("otool -L " ++ Beam);
+	_ -> os:cmd("ldd " ++ Beam)
+    end.
+
+get_beam_name() ->
+    Type = case erlang:system_info(build_type) of
+	opt -> "";
+	TypeName -> "." ++ atom_to_list(TypeName)
+    end,
+    Flavor = case erlang:system_info(smp_support) of
+	false -> "";
+	true -> ".smp"
+    end,
+    os:getenv("EMU") ++ Type ++ Flavor.
