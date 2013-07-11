@@ -472,4 +472,8 @@ get_beam_name() ->
 	false -> "";
 	true -> ".smp"
     end,
-    os:getenv("EMU") ++ Type ++ Flavor.
+    Beam = case os:getenv("EMU") of
+	false -> "beam";
+	Value -> Value
+    end,
+    Beam ++ Type ++ Flavor.
