@@ -371,7 +371,7 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
 	  children.</p>
 
         <p>If the supervisor is <c>simple_one_for_one</c>, <c><anno>Id</anno></c>
-          must be the child process' <c>pid()</c>. I the specified
+          must be the child process' <c>pid()</c>. If the specified
           process is alive, but is not a child of the given
           supervisor, the function will return
           <c>{error,not_found}</c>. If the child specification
