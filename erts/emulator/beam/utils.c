@@ -1319,7 +1319,7 @@ make_hash2(Eterm term)
 	    {
 		FloatDef ff;
 		GET_DOUBLE(term, ff);
-#if defined(WORDS_BIGENDIAN)
+#if defined(WORDS_BIGENDIAN) || defined(DOUBLE_MIDDLE_ENDIAN)
 		UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
 #else
 		UINT32_HASH_2(ff.fw[1], ff.fw[0], HCONST_12);
