@@ -411,6 +411,7 @@ extern ethr_runtime_t ethr_runtime__;
 
 #ifdef VALGRIND  /* mutex as fallback for spinlock for VALGRIND */
 #  undef ETHR_HAVE_NATIVE_SPINLOCKS
+#  undef ETHR_HAVE_NATIVE_RWSPINLOCKS
 #else
 #  include "ethr_optimized_fallbacks.h"
 #endif
@@ -693,7 +694,7 @@ static ETHR_INLINE int
 ETHR_INLINE_FUNC_NAME_(ethr_rwlock_destroy)(ethr_rwlock_t *lock)
 {
 #ifdef ETHR_HAVE_NATIVE_RWSPINLOCKS
-    return 0;
+    return ethr_native_rwlock_destroy(lock);
 #else
     return ethr_rwmutex_destroy((ethr_rwmutex *) lock);
 #endif
