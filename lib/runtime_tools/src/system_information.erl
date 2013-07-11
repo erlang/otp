@@ -38,7 +38,8 @@
 	applications/0, applications/1,
 	application/1, application/2,
 	environment/0, environment/1,
-	module/1, module/2
+	module/1, module/2,
+	modules/1
     ]).
 
 %% gen_server callbacks
@@ -126,6 +127,8 @@ module(M) when is_atom(M) -> module(M, []).
 module(M, Opts) when is_atom(M), is_list(Opts) ->
     gen_server:call(?SERVER, {module, M, Opts}).
 
+modules(Opt) when is_atom(Opt) ->
+    gen_server:call(?SERVER, {modules, Opt}).
 
 %%===================================================================
 %% gen_server callbacks
@@ -167,6 +170,11 @@ handle_call({environment, Opts}, _From, #state{ report = Report } = S) ->
 handle_call({module, M, Opts}, _From, #state{ report = Report } = S) ->
     Mods = find_modules_from_code(M, get_value([code], Report)),
     print_modules_from_code(M, Mods, Opts),
+    {reply, ok, S};
+
+handle_call({modules, native}, _From, #state{ report = Report } = S) ->
+    Codes = get_native_modules_from_code(get_value([code],Report)),
+    io:format("~p~n", [Codes]),
     {reply, ok, S};
 
 
@@ -215,6 +223,31 @@ find_modules_from_code(_, []) -> [].
 find_modules(M, [{M, _}=Info|Ms]) -> [Info|find_modules(M,Ms)];
 find_modules(M, [_|Ms]) -> find_modules(M, Ms);
 find_modules(_, []) -> [].
+
+get_native_modules_from_code([{application, {App, Info}}|Cs]) ->
+    case get_native_modules(get_value([modules], Info)) of
+	[] -> get_native_modules_from_code(Cs);
+	Mods ->
+	    Path = get_value([path], Info),
+	    Vsn  = get_value([vsn], Info),
+	    [{App, Vsn, Path, Mods}|get_native_modules_from_code(Cs)]
+    end;
+get_native_modules_from_code([{code, Info}|Cs]) ->
+    case get_native_modules(get_value([modules], Info)) of
+	[] -> get_native_modules_from_code(Cs);
+	Mods ->
+	    Path = get_value([path], Info),
+	    [{Path, Mods}|get_native_modules_from_code(Cs)]
+    end;
+get_native_modules_from_code([]) -> [].
+
+get_native_modules([]) -> [];
+get_native_modules([{Mod, Info}|Ms]) ->
+    case proplists:get_value(native, Info) of
+	false -> get_native_modules(Ms);
+	_     -> [Mod|get_native_modules(Ms)]
+    end.
+
 
 %% print information
 
@@ -437,10 +470,10 @@ get_modules_from_path(Path) ->
 		    _     -> true
 		end,
 		{Mod, [
-			{loaded, Loaded},
-			{native, code:is_module_native(Mod)},
+			{loaded,   Loaded},
+			{native,   beam_is_native_compiled(Beam)},
 			{compiler, get_compiler_version(Beam)},
-			{md5, hexstring(Md5)}
+			{md5,      hexstring(Md5)}
 		    ]}
 	end || Beam <- filelib:wildcard(filename:join(Path, "*.beam"))
     ].
@@ -448,13 +481,55 @@ get_modules_from_path(Path) ->
 hexstring(Bin) when is_binary(Bin) ->
     lists:flatten([io_lib:format("~2.16.0b", [V]) || <<V>> <= Bin]).
 
-get_compiler_version(B) ->
-    {ok, Bin} = file:read_file(B),
-    case beam_lib:chunks(Bin, [compile_info]) of
+%% inspect beam files for information
+
+get_compiler_version(Beam) ->
+    case beam_lib:chunks(Beam, [compile_info]) of
 	{ok,{_,[{compile_info, Info}]}} ->
 	    proplists:get_value(version, Info);
 	_ -> undefined
     end.
+
+%% we don't know the specific chunk names of native code
+%% we don't want to load the code to check it
+beam_is_native_compiled(Beam) ->
+    Chunks = get_value([chunks], beam_lib:info(Beam)),
+    case check_known_hipe_chunks(Chunks) of
+	[] -> false;
+	[Arch] -> {true, Arch};
+	Archs  -> {true, Archs}
+    end.
+
+
+check_known_hipe_chunks([{Tag,_,_}|Cs]) ->
+    case is_chunk_tag_hipe_arch(Tag) of
+	false -> check_known_hipe_chunks(Cs);
+	{true, Arch} -> [Arch|check_known_hipe_chunks(Cs)]
+    end;
+check_known_hipe_chunks([]) -> [].
+
+%% these values are taken from hipe_unified_loader
+%% perhaps these should be exported in that module?
+
+-define(HS8P_TAG,"HS8P").
+-define(HPPC_TAG,"HPPC").
+-define(HP64_TAG,"HP64").
+-define(HARM_TAG,"HARM").
+-define(HX86_TAG,"HX86").
+-define(HA64_TAG,"HA64").
+
+is_chunk_tag_hipe_arch(Tag) ->
+    case Tag of
+	?HA64_TAG -> {true, amd64};       %% HiPE, x86_64, (implicit: 64-bit, Unix)
+	?HARM_TAG -> {true, arm};         %% HiPE, arm, v5 (implicit: 32-bit, Linux)
+	?HPPC_TAG -> {true, powerpc};     %% HiPE, PowerPC (implicit: 32-bit, Linux)
+	?HP64_TAG -> {true, ppc64};       %% HiPE, ppc64 (implicit: 64-bit, Linux)
+	?HS8P_TAG -> {true, ultrasparc};  %% HiPE, SPARC, V8+ (implicit: 32-bit)
+	%% Future:     HSV9               %% HiPE, SPARC, V9 (implicit: 64-bit)
+	%%             HW32               %% HiPE, x86, Win32
+	_ -> false
+    end.
+
 
 get_dynamic_libraries() ->
     Beam = filename:join([os:getenv("BINDIR"),get_beam_name()]),

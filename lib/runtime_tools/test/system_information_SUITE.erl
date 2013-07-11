@@ -274,6 +274,7 @@ validate_loaded_report() ->
     ok = system_information:application(kernel,[full]),
     ok = system_information:module(gen_server),
     ok = system_information:module(gen_server,[full]),
+    ok = system_information:modules(native),
     ok.
 
 
