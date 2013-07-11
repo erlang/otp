@@ -1463,7 +1463,7 @@ handle_info({'DOWN', _Ref, _Type, Process, Reason}, State) ->
 
 handle_info({'EXIT', Pid, Reason}, #state{progress = Pid} = State) ->
     Report = io_lib:format("Progress reporting stopped for reason ~p~n",
-			   Reason),
+			   [Reason]),
     error_logger:info_report(Report),
     {noreply, State#state{progress = ignore}};
    
