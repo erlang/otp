@@ -1,0 +1,79 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%%
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
+%% %CopyrightEnd%
+-module(cdv_int_tab_wx).
+
+-export([get_info/0]).
+
+-include_lib("wx/include/wx.hrl").
+-include("crashdump_viewer.hrl").
+
+get_info() ->
+    [{"Hash Tables",cdv_table_page,get_hash_info()},
+     {"Index Tables",cdv_table_page,get_index_info()},
+     {"Internal ETS Tables",cdv_table_page,get_internal_ets_info()}].
+
+%%%-----------------------------------------------------------------
+%%% Hash tables
+get_hash_info() ->
+    {ok,Info0,TW} = crashdump_viewer:hash_tables(),
+    Columns = hash_columns(),
+    Info = [crashdump_viewer:to_value_list(R) || R <- Info0],
+    {Columns,Info,TW}.
+
+hash_columns() ->
+    [{"Name",   ?wxLIST_FORMAT_LEFT,  150},
+     {"Size",   ?wxLIST_FORMAT_RIGHT, 100},
+     {"Used",   ?wxLIST_FORMAT_RIGHT, 100},
+     {"Objects",?wxLIST_FORMAT_RIGHT, 100},
+     {"Depth",  ?wxLIST_FORMAT_RIGHT, 100}].
+
+%%%-----------------------------------------------------------------
+%%% Index tables
+get_index_info() ->
+    {ok,Info0,TW} = crashdump_viewer:index_tables(),
+    Columns = index_columns(),
+    Info = [crashdump_viewer:to_value_list(R) || R <- Info0],
+    {Columns,Info,TW}.
+
+index_columns() ->
+    [{"Name",   ?wxLIST_FORMAT_LEFT,  150},
+     {"Size",   ?wxLIST_FORMAT_RIGHT, 100},
+     {"Limit",  ?wxLIST_FORMAT_RIGHT, 100},
+     {"Used",   ?wxLIST_FORMAT_RIGHT, 100},
+     {"Rate",   ?wxLIST_FORMAT_RIGHT, 100},
+     {"Entries",?wxLIST_FORMAT_RIGHT, 100}].
+
+%%%-----------------------------------------------------------------
+%%% Internal ets tables
+get_internal_ets_info() ->
+    {ok,Info0,TW} = crashdump_viewer:internal_ets_tables(),
+    Columns = int_ets_columns(),
+    Info = [begin
+		[_,_|Data] = crashdump_viewer:to_value_list(R), %skip pid and slot
+		[Desc|Data]
+	    end || {Desc,R} <- Info0],
+    {Columns,Info,TW}.
+
+int_ets_columns() ->
+    [{"Description", ?wxLIST_FORMAT_LEFT,  170},
+     {"Id",          ?wxLIST_FORMAT_LEFT,  80},
+     {"Name",        ?wxLIST_FORMAT_LEFT,  80},
+     {"Type",        ?wxLIST_FORMAT_LEFT,  80},
+     {"Buckets",     ?wxLIST_FORMAT_RIGHT, 80},
+     {"Objects",     ?wxLIST_FORMAT_RIGHT, 80},
+     {"Memory",      ?wxLIST_FORMAT_RIGHT, 80}].

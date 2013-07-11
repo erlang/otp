@@ -31,6 +31,7 @@
 	 menu_frame/0,
 	 general_info/1,
 	 pretty_info_page/2,
+	 plain_page/1,
 	 info_page/2,
 	 proc_details/4,
 	 expanded_memory/2,
@@ -47,6 +48,7 @@
 	 hash_tables/2,
 	 index_tables/2,
 	 error/2,
+	 warning/1,
 	 chunk_page/5,
 	 chunk/3]).
 
@@ -262,6 +264,23 @@ error(Text,Args) ->
 error_body(Str) ->
     [h1("An error occured:"),Str,"\n"].
 
+%%%-----------------------------------------------------------------
+%%% Display the given information as is, no heading
+%%% Empty body if no info exists.
+warning(Info) ->
+    header(body(warning_body(Info))).
+
+warning_body(Info) ->
+    [warn(Info)].
+
+%%%-----------------------------------------------------------------
+%%% Display the given information as is, no heading
+%%% Empty body if no info exists.
+plain_page(Info) ->
+    header(body(plain_body(Info))).
+
+plain_body(Info) ->
+    [pre(href_proc_port(lists:flatten(Info)))].
 
 %%%-----------------------------------------------------------------
 %%% Display the given information as is
@@ -412,7 +431,6 @@ proc_details_body(Heading,Proc,TW,SharedHeap) ->
 	%% These are displayed only if data exist
 	display_or_link_to_expand("MsgQueue",Proc#proc.msg_q,Pid),
 	display_or_link_to_expand("Dictionary",Proc#proc.dict,Pid),
-	display_or_link_to_expand("DebugDictionary",Proc#proc.debug_dict,Pid),
 	display_or_link_to_expand("LastCalls",Proc#proc.last_calls,Pid),
 	display_or_link_to_expand("StackDump",Proc#proc.stack_dump,Pid)]),
 
@@ -477,16 +495,13 @@ expanded_memory(Heading,Expanded) ->
     header(Heading,body(expanded_memory_body(Heading,Expanded))).
     
 expanded_memory_body(Heading,[]) ->
-    [heading(Heading,"processes"),
-     case Heading of
+    [case Heading of
 	 "MsgQueue" -> "No messages were found";
 	 "StackDump" -> "No stack dump was found";
-	 "Dictionary" -> "No dictionary was found";
-	 "DebugDictionary" -> "No debug dictionary was found"
+	 "Dictionary" -> "No dictionary was found"
      end];
 expanded_memory_body(Heading,Expanded) ->
-    [heading(Heading,"processes"),
-     case Heading of
+    [case Heading of
 	 "MsgQueue" ->
 	     table(
 	       "BORDER=4 CELLPADDING=4",
@@ -512,7 +527,7 @@ expanded_memory_body(Heading,Expanded) ->
 
 msgq_table({Msg0,Token0}) ->
     Token = case Token0 of
-		[] -> ?space;
+		[] -> "";
 		_ -> io_lib:fwrite("~w",[Token0])
 	    end,
     Msg = href_proc_port(lists:flatten(io_lib:format("~p",[Msg0]))),
@@ -924,18 +939,13 @@ index_tables_table(IndexTable) ->
 %%%-----------------------------------------------------------------
 %%% Internal library
 start_html_page(Title) ->
-    [only_http_header(),
-     start_html(),
+    [start_html(),
      only_html_header(Title),
      start_html_body()].
 
 stop_html_page() ->
     [stop_html_body(),
      stop_html()].
-
-only_http_header() ->
-    ["Pragma:no-cache\r\n",
-     "Content-type: text/html\r\n\r\n"].
 
 only_html_header(Title) -> 
     only_html_header(Title,"").
@@ -959,7 +969,7 @@ header(Body) ->
 header(Title,Body) ->
     header(Title,"",Body).
 header(Title,JavaScript,Body) ->
-    [only_http_header(),
+    [%only_http_header(),
      html_header(Title,JavaScript,Body)].
 
 html_header(Title,JavaScript,Body) ->    
@@ -1048,34 +1058,30 @@ href_proc_port([$#,$F,$u,$n,$<|T],Acc) ->
     %% No links to funs
     href_proc_port(T,[$;,$t,$l,$&,$n,$u,$F,$#|Acc]);
 href_proc_port([$#,$P,$o,$r,$t,$<|T],Acc) ->
-    {[$#|Port]=HashPort,Rest} = to_gt(T,[$;,$t,$l,$&,$t,$r,$o,$P,$#]),
-    href_proc_port(Rest,[href("TARGET=\"main\"",
-			      ["./port?port=",Port],HashPort)|Acc]);
+    {Port,Rest} = to_gt(T,[$;,$t,$l,$&,$t,$r,$o,$P,$#]),
+    href_proc_port(Rest,[href(Port,Port)|Acc]);
 href_proc_port([$<,$<|T],Acc) ->
     %% No links to binaries
     href_proc_port(T,[$;,$t,$l,$&,$;,$t,$l,$&|Acc]);
 href_proc_port([$<,C|T],Acc) when $0 =< C, C =< $9 ->
     %% Pid
     {Pid,Rest} = to_gt(T,[C,$;,$t,$l,$&]),
-    href_proc_port(Rest,[href("TARGET=\"main\"",
-			      ["./proc_details?pid=",Pid],Pid)|Acc]);
+    href_proc_port(Rest,[href(Pid,Pid)|Acc]);
 href_proc_port([$",$#,$C,$D,$V,$B,$i,$n,$<|T],Acc) ->
     %% Binary written by crashdump_viewer:parse_heap_term(...)
     {SizeAndPos,[$"|Rest]} = split($>,T),
     {Size,Pos} = split($,,SizeAndPos),
     href_proc_port(Rest,[href("TARGET=\"expanded\"",
-			      ["./expand_binary?pos=",Pos],
+			      ["#Binary<",Pos,">"],
 			      ["&lt;&lt; ",Size," bytes &gt;&gt;"]) | Acc]);
 href_proc_port([$",$#,$C,$D,$V,$P,$o,$r,$t,$<|T],Acc) ->
     %% Port written by crashdump_viewer:parse_term(...)
-    {[$#|Port]=HashPort,[$"|Rest]} = to_gt(T,[$;,$t,$l,$&,$t,$r,$o,$P,$#]),
-    href_proc_port(Rest,[href("TARGET=\"main\"",
-			      ["./port?port=",Port],HashPort)|Acc]);
+    {Port,[$"|Rest]} = to_gt(T,[$;,$t,$l,$&,$t,$r,$o,$P,$#]),
+    href_proc_port(Rest,[href(Port,Port)|Acc]);
 href_proc_port([$",$#,$C,$D,$V,$P,$i,$d,$<|T],Acc) ->
     %% Pid written by crashdump_viewer:parse_term(...)
     {Pid,[$"|Rest]} = to_gt(T,[$;,$t,$l,$&]),
-    href_proc_port(Rest,[href("TARGET=\"main\"",
-			      ["./proc_details?pid=",Pid],Pid)|Acc]);
+    href_proc_port(Rest,[href(Pid,Pid)|Acc]);
 href_proc_port([$',$#,$C,$D,$V,$I,$n,$c,$o,$m,$p,$l,$e,$t,$e,$H,$e,$a,$p,$'|T],
 	       Acc)->
     %% The heap is incomplete! Written by crashdump_viewer:deref_pts(...)
@@ -1437,4 +1443,5 @@ funs_table(Fu) ->
        td("ALIGN=right",Index),
        td(Address),
        td(NativeAddress),
-       td("ALIGN=right",Refc)]).
+       td("ALIGN=right",Refc)])
+.

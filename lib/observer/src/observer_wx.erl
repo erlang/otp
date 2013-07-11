@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,6 +36,7 @@
 -define(ID_PING, 1).
 -define(ID_CONNECT, 2).
 -define(ID_NOTEBOOK, 3).
+-define(ID_CDV,      4).
 
 -define(FIRST_NODES_MENU_ID, 1000).
 -define(LAST_NODES_MENU_ID,  2000).
@@ -130,7 +131,6 @@ setup(#state{frame = Frame} = State) ->
     wxFrame:connect(Frame, close_window, [{skip, true}]),
     wxMenu:connect(Frame, command_menu_selected),
     wxFrame:show(Frame),
-
     %% I postpone the creation of the other tabs so they can query/use
     %% the window size
 
@@ -157,6 +157,8 @@ setup(#state{frame = Frame} = State) ->
 
     %% Force redraw (window needs it)
     wxWindow:refresh(Panel),
+    wxFrame:raise(Frame),
+    wxFrame:setFocus(Frame),
 
     SysPid = wx_object:get_pid(SysPanel),
     SysPid ! {active, node()},
@@ -205,6 +207,10 @@ handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changing}},
 
 handle_event(#wx{event = #wxClose{}}, State) ->
     {stop, normal, State};
+
+handle_event(#wx{id = ?ID_CDV, event = #wxCommand{type = command_menu_selected}}, State) ->
+    crashdump_viewer:start(),
+    {noreply, State};
 
 handle_event(#wx{id = ?wxID_EXIT, event = #wxCommand{type = command_menu_selected}}, State) ->
     {stop, normal, State};
@@ -517,9 +523,11 @@ create_connect_dialog(connect, #state{frame = Frame}) ->
     end.
 
 default_menus(NodesMenuItems) ->
+    CDV   = #create_menu{id = ?ID_CDV, text = "Examine Crashdump"},
     Quit  = #create_menu{id = ?wxID_EXIT, text = "Quit"},
     About = #create_menu{id = ?wxID_ABOUT, text = "About"},
     Help  = #create_menu{id = ?wxID_HELP},
+    FileMenu = {"File", [CDV, Quit]},
     NodeMenu = case erlang:is_alive() of
 		   true ->  {"Nodes", NodesMenuItems ++
 				 [#create_menu{id = ?ID_PING, text = "Connect Node"}]};
@@ -528,15 +536,15 @@ default_menus(NodesMenuItems) ->
 	       end,
     case os:type() =:= {unix, darwin} of
 	false ->
-	    FileMenu = {"File", [Quit]},
+	    FileMenu = {"File", [CDV, Quit]},
 	    HelpMenu = {"Help", [About,Help]},
 	    [FileMenu, NodeMenu, HelpMenu];
 	true ->
 	    %% On Mac quit and about will be moved to the "default' place
 	    %% automagicly, so just add them to a menu that always exist.
 	    %% But not to the help menu for some reason
-	    {Tag, Menus} = NodeMenu,
-	    [{Tag, Menus ++ [Quit,About]}, {"&Help", [Help]}]
+	    {Tag, Menus} = FileMenu,
+	    [{Tag, Menus ++ [About]}, NodeMenu, {"&Help", [Help]}]
     end.
 
 clean_menus(Menus, MenuBar) ->

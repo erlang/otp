@@ -37,6 +37,24 @@ RELSYSDIR = $(RELEASE_PATH)/lib/observer-$(VSN)
 MODULES= \
 	crashdump_viewer \
 	crashdump_viewer_html \
+	crashdump_viewer_wx \
+	cdv_info_page \
+	cdv_virtual_list \
+	cdv_detail_win \
+	cdv_table_page \
+	cdv_multi_panel \
+	cdv_gen_wx \
+	cdv_proc_wx \
+	cdv_port_wx \
+	cdv_ets_multi_wx \
+	cdv_ets_wx \
+	cdv_timer_wx \
+	cdv_fun_wx \
+	cdv_atom_wx \
+	cdv_dist_wx \
+	cdv_mod_wx \
+	cdv_mem_wx \
+	cdv_int_tab_wx \
 	etop \
 	etop_gui \
 	etop_tr \
