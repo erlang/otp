@@ -2325,7 +2325,7 @@ enc_term_int(Process *p,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dfla
 	    GET_DOUBLE(obj, f);
 	    if (dflags & DFLAG_NEW_FLOATS) {
 		*ep++ = NEW_FLOAT_EXT;
-#ifdef WORDS_BIGENDIAN
+#if defined(WORDS_BIGENDIAN) || defined(DOUBLE_MIDDLE_ENDIAN)
 		put_int32(f.fw[0], ep);
 		ep += 4;
 		put_int32(f.fw[1], ep);
@@ -2804,7 +2804,7 @@ dec_term_atom_common:
 		volatile unsigned long *fpexnp = erts_get_current_fp_exception();
 #endif
 
-#ifdef WORDS_BIGENDIAN
+#if defined(WORDS_BIGENDIAN) || defined(DOUBLE_MIDDLE_ENDIAN)
 		ff.fw[0] = get_int32(ep);
 		ep += 4;
 		ff.fw[1] = get_int32(ep);

@@ -47,7 +47,8 @@
 	 copy_terms/1, conversions/1, deep_lists/1, deep_bitstr_lists/1,
 	 bad_list_to_binary/1, bad_binary_to_list/1,
 	 t_split_binary/1, bad_split/1,
-	 terms/1, terms_float/1, external_size/1, t_iolist_size/1,
+	 terms/1, terms_float/1, float_middle_endian/1,
+	 external_size/1, t_iolist_size/1,
 	 t_hash/1,
 	 bad_size/1,
 	 bad_term_to_binary/1,
@@ -69,7 +70,7 @@ all() ->
     [copy_terms, conversions, deep_lists, deep_bitstr_lists,
      t_split_binary, bad_split,
      bad_list_to_binary, bad_binary_to_list, terms,
-     terms_float, external_size, t_iolist_size,
+     terms_float, float_middle_endian, external_size, t_iolist_size,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
@@ -485,6 +486,11 @@ terms_float(Config) when is_list(Config) ->
                   true = (Size0 =:= Size00),
                   true = Size1 < Size0
 		      end).
+
+float_middle_endian(Config) when is_list(Config) ->
+    %% Testing for roundtrip is not enough.
+    ?line <<131,70,63,240,0,0,0,0,0,0>> = term_to_binary(1.0, [{minor_version,1}]),
+    ?line 1.0 = binary_to_term(<<131,70,63,240,0,0,0,0,0,0>>).
 
 external_size(Config) when is_list(Config) ->
     %% Build a term whose external size only fits in a big num (on 32-bit CPU).

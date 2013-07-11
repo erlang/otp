@@ -484,8 +484,16 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
 	ERTS_FP_ERROR_THOROUGH(p, f32, return THE_NON_VALUE);
 	f.fd = f32;
     } else {
+#ifdef DOUBLE_MIDDLE_ENDIAN
+	FloatDef ftmp;
+	ftmp.fd = f64;
+	f.fw[0] = ftmp.fw[1];
+	f.fw[1] = ftmp.fw[0];
+	ERTS_FP_ERROR_THOROUGH(p, f.fd, return THE_NON_VALUE);
+#else
 	ERTS_FP_ERROR_THOROUGH(p, f64, return THE_NON_VALUE);
 	f.fd = f64;
+#endif
     }
     mb->offset += num_bits;
     hp = HeapOnlyAlloc(p, FLOAT_SIZE_OBJECT);
@@ -1014,8 +1022,13 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 #endif
 	    } else if (is_small(arg)) {
 		u.f64 = (double) signed_val(arg);
+#ifdef DOUBLE_MIDDLE_ENDIAN
+		a = u.i32[1];
+		b = u.i32[0];
+#else
 		a = u.i32[0];
 		b = u.i32[1];
+#endif
 	    } else if (is_big(arg)) {
 		if (big_to_double(arg, &u.f64) < 0) {
 		    return 0;
@@ -1118,21 +1131,42 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	byte *bptr;
 	double f64;
 	float f32;
+#ifdef DOUBLE_MIDDLE_ENDIAN
+	FloatDef fbuf, ftmp;
+#endif
 	
 	if (num_bits == 64) {
 	    if (is_float(arg)) {
+#ifdef DOUBLE_MIDDLE_ENDIAN
+		FloatDef *fdp = (FloatDef*)(float_val(arg) + 1);
+		ftmp = *fdp;
+#else
 		bptr = (byte *) (float_val(arg) + 1);
+#endif
 	    } else if (is_small(arg)) {
 		f64 = (double) signed_val(arg);
+#ifdef DOUBLE_MIDDLE_ENDIAN
+		ftmp.fd = f64;
+#else
 		bptr = (byte *) &f64;
+#endif
 	    } else if (is_big(arg)) {
 		if (big_to_double(arg, &f64) < 0) {
 		    return 0;
 		}
+#ifdef DOUBLE_MIDDLE_ENDIAN
+		ftmp.fd = f64;
+#else
 		bptr = (byte *) &f64;
+#endif
 	    } else {
 		return 0;
 	    }
+#ifdef DOUBLE_MIDDLE_ENDIAN
+	    fbuf.fw[0] = ftmp.fw[1];
+	    fbuf.fw[1] = ftmp.fw[0];
+	    bptr = fbuf.fb;
+#endif
 	} else if (num_bits == 32) {
 	    if (is_float(arg)) {
 		FloatDef f;
