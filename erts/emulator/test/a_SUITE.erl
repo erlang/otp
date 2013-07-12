@@ -68,6 +68,9 @@ pollset_size(doc) ->
 pollset_size(suite) ->
     [];
 pollset_size(Config) when is_list(Config) ->
+    %% Ensure inet_gethost_native port program started, in order to
+    %% allow other suites to use it...
+    inet_gethost_native:gethostbyname("localhost"),
     ?line Parent = self(),
     ?line Go = make_ref(),
     ?line spawn(fun () ->
