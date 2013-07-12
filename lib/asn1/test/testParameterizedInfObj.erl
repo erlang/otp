@@ -86,7 +86,17 @@ param(Erule) ->
 		asn1_wrapper:encode('Param','OS1',[1,2,3,4])
     end,
 
+    roundtrip('Scl', {'Scl',42,{a,9738654}}),
+    roundtrip('Scl', {'Scl',42,{b,false}}),
+    roundtrip('Scl', {'Scl',42,{b,true}}),
+
     ok.
+
+roundtrip(T, V) ->
+    {ok,Enc} = 'Param':encode(T, V),
+    {ok,V} = 'Param':decode(T, Enc),
+    ok.
+
 
 ranap(_Erule) ->    
     PIEVal2 = [{'ProtocolIE-Field',4,ignore,{radioNetwork,'rab-pre-empted'}}],
