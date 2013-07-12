@@ -1423,7 +1423,7 @@ case "$THR_LIB_NAME" in
 	    	    	    AC_DEFINE(ETHR_X86_OUT_OF_ORDER, 1, [Define if x86/x86_64 out of order instructions should be synchronized])
 	    	    fi
 	    	    ethr_have_native_atomics=yes;;
-	      macppc | ppc | "Power Macintosh")
+	      macppc | ppc | powerpc | "Power Macintosh")
 	    	    ethr_have_native_atomics=yes;;
 	      tile)
 	    	    ethr_have_native_atomics=yes;;
