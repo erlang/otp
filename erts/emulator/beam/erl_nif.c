@@ -310,9 +310,6 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     Process* rp;
     Process* c_p;
     ErlHeapFragment* frags;
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-    ErtsProcLocks rp_had_locks;
-#endif
     Eterm receiver = to_pid->pid;
     int flush_me = 0;
     int scheduler = erts_get_scheduler_id() != 0;
@@ -331,10 +328,6 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	erl_exit(ERTS_ABORT_EXIT,"enif_send: env==NULL on non-SMP VM");
 #endif
     }    
-
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-    rp_had_locks = rp_locks;
-#endif
 
     rp = (scheduler
 	  ? erts_proc_lookup(receiver)

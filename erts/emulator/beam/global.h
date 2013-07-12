@@ -1225,6 +1225,13 @@ erts_alloc_message_heap(Uint size,
 #  define UnUseTmpHeapNoproc(Size) /* Nothing */
 #endif /* HEAP_ON_C_STACK */
 
+ERTS_GLB_INLINE void dtrace_pid_str(Eterm pid, char *process_buf);
+ERTS_GLB_INLINE void dtrace_proc_str(Process *process, char *process_buf);
+ERTS_GLB_INLINE void dtrace_port_str(Port *port, char *port_buf);
+ERTS_GLB_INLINE void dtrace_fun_decode(Process *process,
+				       Eterm module, Eterm function, int arity,
+				       char *process_buf, char *mfa_buf);
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 #include "dtrace-wrapper.h"

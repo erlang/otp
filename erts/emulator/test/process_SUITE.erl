@@ -90,9 +90,19 @@ groups() ->
        otp_7738_resume]}].
 
 init_per_suite(Config) ->
-    Config.
+    A0 = case application:start(sasl) of
+	     ok -> [sasl];
+	     _ -> []
+	 end,
+    A = case application:start(os_mon) of
+	     ok -> [os_mon|A0];
+	     _ -> A0
+	 end,
+    [{started_apps, A}|Config].
 
 end_per_suite(Config) ->
+    As = ?config(started_apps, Config),
+    lists:foreach(fun (A) -> application:stop(A) end, As),
     catch erts_debug:set_internal_state(available_internal_state, false),
     Config.
 
@@ -101,7 +111,6 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
-
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(10)),
@@ -1379,6 +1388,9 @@ processes_large_tab(doc) ->
 processes_large_tab(suite) ->
     [];
 processes_large_tab(Config) when is_list(Config) ->
+    sys_mem_cond_run(2048, fun () -> processes_large_tab_test(Config) end).
+
+processes_large_tab_test(Config) ->
     enable_internal_state(),
     MaxDbgLvl = 20,
     MinProcTabSize = 2*(1 bsl 15),
@@ -1430,6 +1442,9 @@ processes_default_tab(doc) ->
 processes_default_tab(suite) ->
     [];
 processes_default_tab(Config) when is_list(Config) ->
+    sys_mem_cond_run(1024, fun () -> processes_default_tab_test(Config) end).
+
+processes_default_tab_test(Config) ->
     {ok, DefaultNode} = start_node(Config, ""),
     Res = rpc:call(DefaultNode, ?MODULE, processes_bif_test, []),
     stop_node(DefaultNode),
@@ -1452,7 +1467,7 @@ processes_this_tab(doc) ->
 processes_this_tab(suite) ->
     [];
 processes_this_tab(Config) when is_list(Config) ->
-    chk_processes_bif_test_res(processes_bif_test()).
+    sys_mem_cond_run(1024, fun () -> chk_processes_bif_test_res(processes_bif_test()) end).
 
 chk_processes_bif_test_res(ok) -> ok;
 chk_processes_bif_test_res({comment, _} = Comment) -> Comment;
@@ -2095,6 +2110,9 @@ otp_7738_resume(Config) when is_list(Config) ->
     otp_7738_test(resume).
 
 otp_7738_test(Type) ->
+    sys_mem_cond_run(3072, fun () -> do_otp_7738_test(Type) end).
+
+do_otp_7738_test(Type) ->
     T = self(),
     S = spawn_link(fun () ->
 		receive
@@ -2238,4 +2256,32 @@ enable_internal_state() ->
     case catch erts_debug:get_internal_state(available_internal_state) of
 	true -> true;
 	_ -> erts_debug:set_internal_state(available_internal_state, true)
+    end.
+
+sys_mem_cond_run(ReqSizeMB, TestFun) when is_integer(ReqSizeMB) ->
+    case total_memory() of
+	TotMem when is_integer(TotMem), TotMem >= ReqSizeMB ->
+	    TestFun();
+	TotMem when is_integer(TotMem) ->
+	    {skipped, "Not enough memory ("++integer_to_list(TotMem)++" MB)"};
+	undefined ->
+	    {skipped, "Could not retrieve memory information"}
+    end.
+
+
+total_memory() ->
+    %% Totat memory in MB.
+    try
+	MemoryData = memsup:get_system_memory_data(),
+	case lists:keysearch(total_memory, 1, MemoryData) of
+	    {value, {total_memory, TM}} ->
+		TM div (1024*1024);
+	    false ->
+		{value, {system_total_memory, STM}} =
+		    lists:keysearch(system_total_memory, 1, MemoryData),
+		STM div (1024*1024)
+	end
+    catch
+	_ : _ ->
+	    undefined
     end.
