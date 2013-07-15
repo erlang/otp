@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,6 +50,7 @@
 	 check_packet_size/1, 
 
 	 check_oid/1,
+	 check_imask/1, check_emask/1, 
 	 
 	 check_mp_model/1, 
 	 check_sec_model/1, check_sec_model/2, check_sec_model/3, 
@@ -488,6 +489,7 @@ do_check_timer(WaitFor, Factor, Incr, Retry) ->
     check_integer(Retry,   {gte, 0}),
     ok.
 
+
 %% ---------
 
 all_domains() ->
@@ -614,6 +616,37 @@ check_oid([E1,E2|_] = X) when E1 * 40 + E2 =< 255 ->
     end;
 check_oid(X) -> 
     error({invalid_object_identifier, X}).
+
+
+%% ---------
+
+%% Check a (view) mask in the internal form (all 0 and 1): 
+check_imask(null) ->
+    {ok, []};
+check_imask(IMask) when is_list(IMask) ->
+    do_check_imask(IMask), 
+    {ok, IMask}.
+
+do_check_imask([0|IMask]) ->
+    do_check_imask(IMask);
+do_check_imask([1|IMask]) ->
+    do_check_imask(IMask);
+do_check_imask([X|_]) ->
+    error({invalid_internal_mask_element, X}).
+
+
+%% Check a (view) mask in the external form (according to MIB, 
+%% an OCTET STRING of at most length 16). 
+check_emask(EMask) when is_list(EMask) andalso (length(EMask) =< 16) ->
+    do_check_emask(EMask).
+
+do_check_emask([]) ->
+    ok;
+do_check_emask([X|EMask]) 
+  when is_integer(X) andalso (X >= 16#00) andalso (X =< 16#FF) ->
+    do_check_emask(EMask);
+do_check_emask([X|_]) ->
+    error({invalid_external_mask_element, X}).
 
 
 %% ---------
