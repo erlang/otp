@@ -2983,7 +2983,7 @@ char* Sint_to_buf(Sint n, struct Sint_buf *buf)
 */
 
 Eterm
-buf_to_intlist(Eterm** hpp, char *buf, size_t len, Eterm tail)
+buf_to_intlist(Eterm** hpp, const char *buf, size_t len, Eterm tail)
 {
     Eterm* hp = *hpp;
     size_t i = len;

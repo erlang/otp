@@ -30,6 +30,7 @@
 #include "bif.h"
 #include "big.h"
 #include "erl_version.h"
+#include "erl_compile_flags.h"
 #include "erl_db_util.h"
 #include "erl_message.h"
 #include "erl_binary.h"
@@ -2610,6 +2611,31 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(am_true);
     }
 #endif
+    else if (ERTS_IS_ATOM_STR("compile_info",BIF_ARG_1)) {
+	Uint  sz;
+	Eterm res = NIL, tup, text;
+	Eterm *hp = HAlloc(BIF_P, 3*(2 + 3) + /* three 2-tuples and three cons */
+		2*(strlen(erts_build_flags_CONFIG_H) +
+		   strlen(erts_build_flags_CFLAGS) +
+		   strlen(erts_build_flags_LDFLAGS)));
+
+	sz   = strlen(erts_build_flags_CONFIG_H);
+	text = buf_to_intlist(&hp, erts_build_flags_CONFIG_H, sz, NIL);
+	tup  = TUPLE2(hp, am_config_h, text); hp += 3;
+	res  = CONS(hp, tup, res); hp += 2;
+
+	sz   = strlen(erts_build_flags_CFLAGS);
+	text = buf_to_intlist(&hp, erts_build_flags_CFLAGS, sz, NIL);
+	tup  = TUPLE2(hp, am_cflags, text); hp += 3;
+	res  = CONS(hp, tup, res); hp += 2;
+
+	sz   = strlen(erts_build_flags_LDFLAGS);
+	text = buf_to_intlist(&hp, erts_build_flags_LDFLAGS, sz, NIL);
+	tup  = TUPLE2(hp, am_ldflags, text); hp += 3;
+	res  = CONS(hp, tup, res); hp += 2;
+
+	BIF_RET(res);
+    }
 
     BIF_ERROR(BIF_P, BADARG);
 }
