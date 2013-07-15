@@ -47,12 +47,16 @@
   <section>
     <title>Normal Mode</title>
     <p>In normal mode keystrokes from the user are collected and interpreted by <c><![CDATA[tty]]></c>. Most of the <em>emacs</em> line editing commands are supported. The following is a complete list of the supported line editing commands.<br></br></p>
-    <p><em>Note:</em>	The notation <c><![CDATA[C-a]]></c> means pressing the control key and the letter <c><![CDATA[a]]></c> simultaneously. <c><![CDATA[M-f]]></c> means pressing the <c><![CDATA[ESC]]></c> key followed by the letter <c><![CDATA[f]]></c>. 
+    <p><em>Note:</em>	The notation <c><![CDATA[C-a]]></c> means pressing the control key and the letter <c><![CDATA[a]]></c> simultaneously. <c><![CDATA[M-f]]></c> means pressing the <c><![CDATA[ESC]]></c> key followed by the letter <c><![CDATA[f]]></c>. <c><![CDATA[Home]]></c> and <c><![CDATA[End]]></c> represent the keys with the same name on the keyboard, whereas <c><![CDATA[Left]]></c> and <c><![CDATA[Right]]></c> represent the corresponding cursor keys.
       </p>
     <table>
       <row>
         <cell align="left" valign="middle"><em>Key Sequence</em></cell>
         <cell align="left" valign="middle"><em>Function</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Home</cell>
+        <cell align="left" valign="middle">Beginning of line</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-a</cell>
@@ -61,6 +65,10 @@
       <row>
         <cell align="left" valign="middle">C-b</cell>
         <cell align="left" valign="middle">Backward character</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-Left</cell>
+        <cell align="left" valign="middle">Backward word</cell>
       </row>
       <row>
         <cell align="left" valign="middle">M-b</cell>
@@ -75,12 +83,20 @@
         <cell align="left" valign="middle">Delete word</cell>
       </row>
       <row>
+        <cell align="left" valign="middle">End</cell>
+        <cell align="left" valign="middle">End of line</cell>
+      </row>
+      <row>
         <cell align="left" valign="middle">C-e</cell>
         <cell align="left" valign="middle">End of line</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-f</cell>
         <cell align="left" valign="middle">Forward character</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-Right</cell>
+        <cell align="left" valign="middle">Forward word</cell>
       </row>
       <row>
         <cell align="left" valign="middle">M-f</cell>
@@ -93,6 +109,10 @@
       <row>
         <cell align="left" valign="middle">C-k</cell>
         <cell align="left" valign="middle">Kill line</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-u</cell>
+        <cell align="left" valign="middle">Backward kill line</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-l</cell>
@@ -109,6 +129,10 @@
       <row>
         <cell align="left" valign="middle">C-t</cell>
         <cell align="left" valign="middle">Transpose characters</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-w</cell>
+        <cell align="left" valign="middle">Backward kill word</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-y</cell>
