@@ -71,8 +71,13 @@ Returns:           0 if data returned, negative on error
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_config(int what, void *where)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_config(int what, void *where)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_config(int what, void *where)

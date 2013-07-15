@@ -1327,8 +1327,13 @@ Returns:    pointer to a pcre[16]_extra block, with study_data filled in and
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN erts_pcre_extra * PCRE_CALL_CONVENTION
+erts_pcre_study(const pcre *external_re, int options, const char **errorptr)
+#else
 PCRE_EXP_DEFN pcre_extra * PCRE_CALL_CONVENTION
 pcre_study(const pcre *external_re, int options, const char **errorptr)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN pcre16_extra * PCRE_CALL_CONVENTION
 pcre16_study(const pcre16 *external_re, int options, const char **errorptr)
@@ -1390,9 +1395,15 @@ if ((re->options & PCRE_ANCHORED) == 0 &&
   tables = re->tables;
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+  if (tables == NULL)
+    (void)erts_pcre_fullinfo(external_re, NULL, PCRE_INFO_DEFAULT_TABLES,
+    (void *)(&tables));
+#else
   if (tables == NULL)
     (void)pcre_fullinfo(external_re, NULL, PCRE_INFO_DEFAULT_TABLES,
     (void *)(&tables));
+#endif
 #elif defined COMPILE_PCRE16
   if (tables == NULL)
     (void)pcre16_fullinfo(external_re, NULL, PCRE_INFO_DEFAULT_TABLES,
@@ -1514,7 +1525,11 @@ if (bits_set || min > 0 || (options & (
       (options & PCRE_STUDY_EXTRA_NEEDED) == 0)
     {
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+    erts_pcre_free_study(extra);
+#else
     pcre_free_study(extra);
+#endif
 #elif defined COMPILE_PCRE16
     pcre16_free_study(extra);
 #elif defined COMPILE_PCRE32
@@ -1540,8 +1555,13 @@ Returns:    nothing
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN void
+erts_pcre_free_study(erts_pcre_extra *extra)
+#else
 PCRE_EXP_DEFN void
 pcre_free_study(pcre_extra *extra)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN void
 pcre16_free_study(pcre16_extra *extra)

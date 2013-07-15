@@ -81,8 +81,13 @@ pre-processor time. This hack uses a standard trick for avoiding calling
 the STRING macro with an empty argument when doing the test. */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN const char * PCRE_CALL_CONVENTION
+erts_pcre_version(void)
+#else
 PCRE_EXP_DEFN const char * PCRE_CALL_CONVENTION
 pcre_version(void)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN const char * PCRE_CALL_CONVENTION
 pcre16_version(void)

@@ -68,8 +68,13 @@ Returns:     pointer to the contiguous block of data
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+const unsigned char *
+erts_pcre_maketables(void)
+#else
 const unsigned char *
 pcre_maketables(void)
+#endif
 #elif defined COMPILE_PCRE16
 const unsigned char *
 pcre16_maketables(void)

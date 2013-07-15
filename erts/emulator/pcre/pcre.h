@@ -375,7 +375,11 @@ const char *. */
 such as way as to be extensible. Always add new fields at the end, in order to
 remain compatible. */
 
+#if defined(ERLANG_INTEGRATION)
+typedef struct erts_pcre_extra {
+#else
 typedef struct pcre_extra {
+#endif
   unsigned long int flags;        /* Bits for which fields are set */
   void *study_data;               /* Opaque data from pcre_study() */
   unsigned long int match_limit;  /* Maximum number of calls to match() */
@@ -389,8 +393,10 @@ typedef struct pcre_extra {
   unsigned long *loop_counter_return;
   void **restart_data; /* in/out */
   int restart_flags;
-#endif
+} erts_pcre_extra;
+#else
 } pcre_extra;
+#endif
 
 /* Same structure as above, but with 16 bit char pointers. */
 
@@ -423,7 +429,11 @@ structure so that new fields can be added on the end in future versions,
 without changing the API of the function, thereby allowing old clients to work
 without modification. */
 
+#if defined(ERLANG_INTEGRATION)
+typedef struct erts_pcre_callout_block {
+#else
 typedef struct pcre_callout_block {
+#endif
   int          version;           /* Identifies version of block */
   /* ------------------------ Version 0 ------------------------------- */
   int          callout_number;    /* Number compiled into pattern */
@@ -441,8 +451,11 @@ typedef struct pcre_callout_block {
   /* ------------------- Added for Version 2 -------------------------- */
   const unsigned char *mark;      /* Pointer to current mark or NULL    */
   /* ------------------------------------------------------------------ */
+#if defined(ERLANG_INTEGRATION)
+} erts_pcre_callout_block;
+#else
 } pcre_callout_block;
-
+#endif
 /* Same structure as above, but with 16 bit char pointers. */
 
 typedef struct pcre16_callout_block {
@@ -494,12 +507,19 @@ that is triggered by the (?) regex item. For Virtual Pascal, these definitions
 have to take another form. */
 
 #ifndef VPCOMPAT
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void *(*erts_pcre_malloc)(size_t);
+PCRE_EXP_DECL void  (*erts_pcre_free)(void *);
+PCRE_EXP_DECL void *(*erts_pcre_stack_malloc)(size_t);
+PCRE_EXP_DECL void  (*erts_pcre_stack_free)(void *);
+PCRE_EXP_DECL int   (*erts_pcre_callout)(erts_pcre_callout_block *);
+#else
 PCRE_EXP_DECL void *(*pcre_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre_free)(void *);
 PCRE_EXP_DECL void *(*pcre_stack_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre_stack_free)(void *);
 PCRE_EXP_DECL int   (*pcre_callout)(pcre_callout_block *);
-
+#endif
 PCRE_EXP_DECL void *(*pcre16_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre16_free)(void *);
 PCRE_EXP_DECL void *(*pcre16_stack_malloc)(size_t);
@@ -512,11 +532,19 @@ PCRE_EXP_DECL void *(*pcre32_stack_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre32_stack_free)(void *);
 PCRE_EXP_DECL int   (*pcre32_callout)(pcre32_callout_block *);
 #else   /* VPCOMPAT */
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void *erts_pcre_malloc(size_t);
+PCRE_EXP_DECL void  erts_pcre_free(void *);
+PCRE_EXP_DECL void *erts_pcre_stack_malloc(size_t);
+PCRE_EXP_DECL void  erts_pcre_stack_free(void *);
+PCRE_EXP_DECL int   erts_pcre_callout(erts_pcre_callout_block *);
+#else
 PCRE_EXP_DECL void *pcre_malloc(size_t);
 PCRE_EXP_DECL void  pcre_free(void *);
 PCRE_EXP_DECL void *pcre_stack_malloc(size_t);
 PCRE_EXP_DECL void  pcre_stack_free(void *);
 PCRE_EXP_DECL int   pcre_callout(pcre_callout_block *);
+#endif
 
 PCRE_EXP_DECL void *pcre16_malloc(size_t);
 PCRE_EXP_DECL void  pcre16_free(void *);
@@ -539,112 +567,214 @@ typedef pcre32_jit_stack *(*pcre32_jit_callback)(void *);
 
 /* Exported PCRE functions */
 
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL pcre *erts_pcre_compile(const char *, int, const char **, int *,
+                  const unsigned char *);
+#else
 PCRE_EXP_DECL pcre *pcre_compile(const char *, int, const char **, int *,
                   const unsigned char *);
+#endif
 PCRE_EXP_DECL pcre16 *pcre16_compile(PCRE_SPTR16, int, const char **, int *,
                   const unsigned char *);
 PCRE_EXP_DECL pcre32 *pcre32_compile(PCRE_SPTR32, int, const char **, int *,
                   const unsigned char *);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL pcre *erts_pcre_compile2(const char *, int, int *, const char **,
+                  int *, const unsigned char *);
+#else
 PCRE_EXP_DECL pcre *pcre_compile2(const char *, int, int *, const char **,
                   int *, const unsigned char *);
+#endif
 PCRE_EXP_DECL pcre16 *pcre16_compile2(PCRE_SPTR16, int, int *, const char **,
                   int *, const unsigned char *);
 PCRE_EXP_DECL pcre32 *pcre32_compile2(PCRE_SPTR32, int, int *, const char **,
                   int *, const unsigned char *);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_config(int, void *);
+#else
 PCRE_EXP_DECL int  pcre_config(int, void *);
+#endif
 PCRE_EXP_DECL int  pcre16_config(int, void *);
 PCRE_EXP_DECL int  pcre32_config(int, void *);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_copy_named_substring(const pcre *, const char *,
+                  int *, int, const char *, char *, int);
+#else
 PCRE_EXP_DECL int  pcre_copy_named_substring(const pcre *, const char *,
                   int *, int, const char *, char *, int);
+#endif
 PCRE_EXP_DECL int  pcre16_copy_named_substring(const pcre16 *, PCRE_SPTR16,
                   int *, int, PCRE_SPTR16, PCRE_UCHAR16 *, int);
 PCRE_EXP_DECL int  pcre32_copy_named_substring(const pcre32 *, PCRE_SPTR32,
                   int *, int, PCRE_SPTR32, PCRE_UCHAR32 *, int);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_copy_substring(const char *, int *, int, int,
+                  char *, int);
+#else
 PCRE_EXP_DECL int  pcre_copy_substring(const char *, int *, int, int,
                   char *, int);
+#endif
 PCRE_EXP_DECL int  pcre16_copy_substring(PCRE_SPTR16, int *, int, int,
                   PCRE_UCHAR16 *, int);
 PCRE_EXP_DECL int  pcre32_copy_substring(PCRE_SPTR32, int *, int, int,
                   PCRE_UCHAR32 *, int);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_dfa_exec(const pcre *, const erts_pcre_extra *,
+                  const char *, int, int, int, int *, int , int *, int);
+#else
 PCRE_EXP_DECL int  pcre_dfa_exec(const pcre *, const pcre_extra *,
                   const char *, int, int, int, int *, int , int *, int);
+#endif
 PCRE_EXP_DECL int  pcre16_dfa_exec(const pcre16 *, const pcre16_extra *,
                   PCRE_SPTR16, int, int, int, int *, int , int *, int);
 PCRE_EXP_DECL int  pcre32_dfa_exec(const pcre32 *, const pcre32_extra *,
                   PCRE_SPTR32, int, int, int, int *, int , int *, int);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_exec(const pcre *, const erts_pcre_extra *, PCRE_SPTR,
+                   int, int, int, int *, int);
+#else
 PCRE_EXP_DECL int  pcre_exec(const pcre *, const pcre_extra *, PCRE_SPTR,
                    int, int, int, int *, int);
+#endif
 PCRE_EXP_DECL int  pcre16_exec(const pcre16 *, const pcre16_extra *,
                    PCRE_SPTR16, int, int, int, int *, int);
 PCRE_EXP_DECL int  pcre32_exec(const pcre32 *, const pcre32_extra *,
                    PCRE_SPTR32, int, int, int, int *, int);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_jit_exec(const pcre *, const erts_pcre_extra *,
+                   PCRE_SPTR, int, int, int, int *, int,
+                   pcre_jit_stack *);
+#else
 PCRE_EXP_DECL int  pcre_jit_exec(const pcre *, const pcre_extra *,
                    PCRE_SPTR, int, int, int, int *, int,
                    pcre_jit_stack *);
+#endif
 PCRE_EXP_DECL int  pcre16_jit_exec(const pcre16 *, const pcre16_extra *,
                    PCRE_SPTR16, int, int, int, int *, int,
                    pcre16_jit_stack *);
 PCRE_EXP_DECL int  pcre32_jit_exec(const pcre32 *, const pcre32_extra *,
                    PCRE_SPTR32, int, int, int, int *, int,
                    pcre32_jit_stack *);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void erts_pcre_free_substring(const char *);
+#else
 PCRE_EXP_DECL void pcre_free_substring(const char *);
+#endif
 PCRE_EXP_DECL void pcre16_free_substring(PCRE_SPTR16);
 PCRE_EXP_DECL void pcre32_free_substring(PCRE_SPTR32);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void erts_pcre_free_substring_list(const char **);
+#else
 PCRE_EXP_DECL void pcre_free_substring_list(const char **);
+#endif
 PCRE_EXP_DECL void pcre16_free_substring_list(PCRE_SPTR16 *);
 PCRE_EXP_DECL void pcre32_free_substring_list(PCRE_SPTR32 *);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_fullinfo(const pcre *, const erts_pcre_extra *, int,
+                  void *);
+#else
 PCRE_EXP_DECL int  pcre_fullinfo(const pcre *, const pcre_extra *, int,
                   void *);
+#endif
 PCRE_EXP_DECL int  pcre16_fullinfo(const pcre16 *, const pcre16_extra *, int,
                   void *);
 PCRE_EXP_DECL int  pcre32_fullinfo(const pcre32 *, const pcre32_extra *, int,
                   void *);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_get_named_substring(const pcre *, const char *,
+                  int *, int, const char *, const char **);
+#else
 PCRE_EXP_DECL int  pcre_get_named_substring(const pcre *, const char *,
                   int *, int, const char *, const char **);
+#endif
 PCRE_EXP_DECL int  pcre16_get_named_substring(const pcre16 *, PCRE_SPTR16,
                   int *, int, PCRE_SPTR16, PCRE_SPTR16 *);
 PCRE_EXP_DECL int  pcre32_get_named_substring(const pcre32 *, PCRE_SPTR32,
                   int *, int, PCRE_SPTR32, PCRE_SPTR32 *);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_get_stringnumber(const pcre *, const char *);
+#else
 PCRE_EXP_DECL int  pcre_get_stringnumber(const pcre *, const char *);
+#endif
 PCRE_EXP_DECL int  pcre16_get_stringnumber(const pcre16 *, PCRE_SPTR16);
 PCRE_EXP_DECL int  pcre32_get_stringnumber(const pcre32 *, PCRE_SPTR32);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_get_stringtable_entries(const pcre *, const char *,
+                  char **, char **);
+#else
 PCRE_EXP_DECL int  pcre_get_stringtable_entries(const pcre *, const char *,
                   char **, char **);
+#endif
 PCRE_EXP_DECL int  pcre16_get_stringtable_entries(const pcre16 *, PCRE_SPTR16,
                   PCRE_UCHAR16 **, PCRE_UCHAR16 **);
 PCRE_EXP_DECL int  pcre32_get_stringtable_entries(const pcre32 *, PCRE_SPTR32,
                   PCRE_UCHAR32 **, PCRE_UCHAR32 **);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_get_substring(const char *, int *, int, int,
+                  const char **);
+#else
 PCRE_EXP_DECL int  pcre_get_substring(const char *, int *, int, int,
                   const char **);
+#endif
 PCRE_EXP_DECL int  pcre16_get_substring(PCRE_SPTR16, int *, int, int,
                   PCRE_SPTR16 *);
 PCRE_EXP_DECL int  pcre32_get_substring(PCRE_SPTR32, int *, int, int,
                   PCRE_SPTR32 *);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_get_substring_list(const char *, int *, int,
+                  const char ***);
+#else
 PCRE_EXP_DECL int  pcre_get_substring_list(const char *, int *, int,
                   const char ***);
+#endif
 PCRE_EXP_DECL int  pcre16_get_substring_list(PCRE_SPTR16, int *, int,
                   PCRE_SPTR16 **);
 PCRE_EXP_DECL int  pcre32_get_substring_list(PCRE_SPTR32, int *, int,
                   PCRE_SPTR32 **);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL const unsigned char *erts_pcre_maketables(void);
+#else
 PCRE_EXP_DECL const unsigned char *pcre_maketables(void);
+#endif
 PCRE_EXP_DECL const unsigned char *pcre16_maketables(void);
 PCRE_EXP_DECL const unsigned char *pcre32_maketables(void);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_refcount(pcre *, int);
+#else
 PCRE_EXP_DECL int  pcre_refcount(pcre *, int);
+#endif
 PCRE_EXP_DECL int  pcre16_refcount(pcre16 *, int);
 PCRE_EXP_DECL int  pcre32_refcount(pcre32 *, int);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL erts_pcre_extra *erts_pcre_study(const pcre *, int, const char **);
+#else
 PCRE_EXP_DECL pcre_extra *pcre_study(const pcre *, int, const char **);
+#endif
 PCRE_EXP_DECL pcre16_extra *pcre16_study(const pcre16 *, int, const char **);
 PCRE_EXP_DECL pcre32_extra *pcre32_study(const pcre32 *, int, const char **);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void erts_pcre_free_study(erts_pcre_extra *);
+#else
 PCRE_EXP_DECL void pcre_free_study(pcre_extra *);
+#endif
 PCRE_EXP_DECL void pcre16_free_study(pcre16_extra *);
 PCRE_EXP_DECL void pcre32_free_study(pcre32_extra *);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL const char *erts_pcre_version(void);
+#else
 PCRE_EXP_DECL const char *pcre_version(void);
+#endif
 PCRE_EXP_DECL const char *pcre16_version(void);
 PCRE_EXP_DECL const char *pcre32_version(void);
 
 /* Utility functions for byte order swaps. */
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL int  erts_pcre_pattern_to_host_byte_order(pcre *, erts_pcre_extra *,
+                  const unsigned char *);
+#else
 PCRE_EXP_DECL int  pcre_pattern_to_host_byte_order(pcre *, pcre_extra *,
                   const unsigned char *);
+#endif
 PCRE_EXP_DECL int  pcre16_pattern_to_host_byte_order(pcre16 *, pcre16_extra *,
                   const unsigned char *);
 PCRE_EXP_DECL int  pcre32_pattern_to_host_byte_order(pcre32 *, pcre32_extra *,
@@ -656,14 +786,27 @@ PCRE_EXP_DECL int  pcre32_utf32_to_host_byte_order(PCRE_UCHAR32 *,
 
 /* JIT compiler related functions. */
 
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL pcre_jit_stack *erts_pcre_jit_stack_alloc(int, int);
+#else
 PCRE_EXP_DECL pcre_jit_stack *pcre_jit_stack_alloc(int, int);
+#endif
 PCRE_EXP_DECL pcre16_jit_stack *pcre16_jit_stack_alloc(int, int);
 PCRE_EXP_DECL pcre32_jit_stack *pcre32_jit_stack_alloc(int, int);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void erts_pcre_jit_stack_free(pcre_jit_stack *);
+#else
 PCRE_EXP_DECL void pcre_jit_stack_free(pcre_jit_stack *);
+#endif
 PCRE_EXP_DECL void pcre16_jit_stack_free(pcre16_jit_stack *);
 PCRE_EXP_DECL void pcre32_jit_stack_free(pcre32_jit_stack *);
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void erts_pcre_assign_jit_stack(erts_pcre_extra *,
+                  pcre_jit_callback, void *);
+#else
 PCRE_EXP_DECL void pcre_assign_jit_stack(pcre_extra *,
                   pcre_jit_callback, void *);
+#endif
 PCRE_EXP_DECL void pcre16_assign_jit_stack(pcre16_extra *,
                   pcre16_jit_callback, void *);
 PCRE_EXP_DECL void pcre32_assign_jit_stack(pcre32_extra *,

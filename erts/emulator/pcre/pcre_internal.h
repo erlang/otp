@@ -2600,11 +2600,20 @@ total length. */
 /* Internal function and data prefixes. */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+#ifndef PUBL
+#define PUBL(name) erts_pcre_##name
+#endif
+#ifndef PRIV
+#define PRIV(name) _erts_pcre_##name
+#endif
+#else
 #ifndef PUBL
 #define PUBL(name) pcre_##name
 #endif
 #ifndef PRIV
 #define PRIV(name) _pcre_##name
+#endif
 #endif
 #elif defined COMPILE_PCRE16
 #ifndef PUBL

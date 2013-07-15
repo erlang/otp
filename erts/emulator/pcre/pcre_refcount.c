@@ -70,8 +70,13 @@ Returns:        the (possibly updated) count value (a non-negative number), or
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_refcount(pcre *argument_re, int adjust)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_refcount(pcre *argument_re, int adjust)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_refcount(pcre16 *argument_re, int adjust)

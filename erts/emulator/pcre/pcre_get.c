@@ -67,8 +67,13 @@ Returns:      the number of the named parentheses, or a negative number
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_get_stringnumber(const pcre *code, const char *stringname)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_get_stringnumber(const pcre *code, const char *stringname)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_get_stringnumber(const pcre16 *code, PCRE_SPTR16 stringname)
@@ -83,6 +88,16 @@ int top, bot;
 pcre_uchar *nametable;
 
 #ifdef COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+if ((rc = erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMECOUNT, &top)) != 0)
+  return rc;
+if (top <= 0) return PCRE_ERROR_NOSUBSTRING;
+
+if ((rc = erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMEENTRYSIZE, &entrysize)) != 0)
+  return rc;
+if ((rc = erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMETABLE, &nametable)) != 0)
+  return rc;
+#else
 if ((rc = pcre_fullinfo(code, NULL, PCRE_INFO_NAMECOUNT, &top)) != 0)
   return rc;
 if (top <= 0) return PCRE_ERROR_NOSUBSTRING;
@@ -91,6 +106,7 @@ if ((rc = pcre_fullinfo(code, NULL, PCRE_INFO_NAMEENTRYSIZE, &entrysize)) != 0)
   return rc;
 if ((rc = pcre_fullinfo(code, NULL, PCRE_INFO_NAMETABLE, &nametable)) != 0)
   return rc;
+#endif
 #endif
 #ifdef COMPILE_PCRE16
 if ((rc = pcre16_fullinfo(code, NULL, PCRE_INFO_NAMECOUNT, &top)) != 0)
@@ -147,9 +163,15 @@ Returns:      the length of each entry, or a negative number
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_get_stringtable_entries(const pcre *code, const char *stringname,
+  char **firstptr, char **lastptr)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_get_stringtable_entries(const pcre *code, const char *stringname,
   char **firstptr, char **lastptr)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_get_stringtable_entries(const pcre16 *code, PCRE_SPTR16 stringname,
@@ -166,6 +188,16 @@ int top, bot;
 pcre_uchar *nametable, *lastentry;
 
 #ifdef COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+if ((rc = erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMECOUNT, &top)) != 0)
+  return rc;
+if (top <= 0) return PCRE_ERROR_NOSUBSTRING;
+
+if ((rc = erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMEENTRYSIZE, &entrysize)) != 0)
+  return rc;
+if ((rc = erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMETABLE, &nametable)) != 0)
+  return rc;
+#else
 if ((rc = pcre_fullinfo(code, NULL, PCRE_INFO_NAMECOUNT, &top)) != 0)
   return rc;
 if (top <= 0) return PCRE_ERROR_NOSUBSTRING;
@@ -174,6 +206,7 @@ if ((rc = pcre_fullinfo(code, NULL, PCRE_INFO_NAMEENTRYSIZE, &entrysize)) != 0)
   return rc;
 if ((rc = pcre_fullinfo(code, NULL, PCRE_INFO_NAMETABLE, &nametable)) != 0)
   return rc;
+#endif
 #endif
 #ifdef COMPILE_PCRE16
 if ((rc = pcre16_fullinfo(code, NULL, PCRE_INFO_NAMECOUNT, &top)) != 0)
@@ -280,9 +313,15 @@ PCRE_UCHAR32 *first, *last;
 #endif
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+if ((re->options & PCRE_DUPNAMES) == 0 && (re->flags & PCRE_JCHANGED) == 0)
+  return erts_pcre_get_stringnumber(code, stringname);
+entrysize = erts_pcre_get_stringtable_entries(code, stringname, &first, &last);
+#else
 if ((re->options & PCRE_DUPNAMES) == 0 && (re->flags & PCRE_JCHANGED) == 0)
   return pcre_get_stringnumber(code, stringname);
 entrysize = pcre_get_stringtable_entries(code, stringname, &first, &last);
+#endif
 #elif defined COMPILE_PCRE16
 if ((re->options & PCRE_DUPNAMES) == 0 && (re->flags & PCRE_JCHANGED) == 0)
   return pcre16_get_stringnumber(code, stringname);
@@ -332,9 +371,15 @@ Returns:         if successful:
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_copy_substring(const char *subject, int *ovector, int stringcount,
+  int stringnumber, char *buffer, int size)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_copy_substring(const char *subject, int *ovector, int stringcount,
   int stringnumber, char *buffer, int size)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_copy_substring(PCRE_SPTR16 subject, int *ovector, int stringcount,
@@ -387,10 +432,17 @@ Returns:         if successful:
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_copy_named_substring(const pcre *code, const char *subject,
+  int *ovector, int stringcount, const char *stringname,
+  char *buffer, int size)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_copy_named_substring(const pcre *code, const char *subject,
   int *ovector, int stringcount, const char *stringname,
   char *buffer, int size)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_copy_named_substring(const pcre16 *code, PCRE_SPTR16 subject,
@@ -406,7 +458,11 @@ pcre32_copy_named_substring(const pcre32 *code, PCRE_SPTR32 subject,
 int n = get_first_set(code, stringname, ovector);
 if (n <= 0) return n;
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+return erts_pcre_copy_substring(subject, ovector, stringcount, n, buffer, size);
+#else
 return pcre_copy_substring(subject, ovector, stringcount, n, buffer, size);
+#endif
 #elif defined COMPILE_PCRE16
 return pcre16_copy_substring(subject, ovector, stringcount, n, buffer, size);
 #elif defined COMPILE_PCRE32
@@ -438,9 +494,15 @@ Returns:         if successful: 0
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_get_substring_list(const char *subject, int *ovector, int stringcount,
+  const char ***listptr)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_get_substring_list(const char *subject, int *ovector, int stringcount,
   const char ***listptr)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_get_substring_list(PCRE_SPTR16 subject, int *ovector, int stringcount,
@@ -500,8 +562,13 @@ Returns:    nothing
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN void PCRE_CALL_CONVENTION
+erts_pcre_free_substring_list(const char **pointer)
+#else
 PCRE_EXP_DEFN void PCRE_CALL_CONVENTION
 pcre_free_substring_list(const char **pointer)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN void PCRE_CALL_CONVENTION
 pcre16_free_substring_list(PCRE_SPTR16 *pointer)
@@ -541,9 +608,15 @@ Returns:         if successful:
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_get_substring(const char *subject, int *ovector, int stringcount,
+  int stringnumber, const char **stringptr)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_get_substring(const char *subject, int *ovector, int stringcount,
   int stringnumber, const char **stringptr)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_get_substring(PCRE_SPTR16 subject, int *ovector, int stringcount,
@@ -604,10 +677,17 @@ Returns:         if successful:
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_get_named_substring(const pcre *code, const char *subject,
+  int *ovector, int stringcount, const char *stringname,
+  const char **stringptr)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_get_named_substring(const pcre *code, const char *subject,
   int *ovector, int stringcount, const char *stringname,
   const char **stringptr)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_get_named_substring(const pcre16 *code, PCRE_SPTR16 subject,
@@ -623,7 +703,11 @@ pcre32_get_named_substring(const pcre32 *code, PCRE_SPTR32 subject,
 int n = get_first_set(code, stringname, ovector);
 if (n <= 0) return n;
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+return erts_pcre_get_substring(subject, ovector, stringcount, n, stringptr);
+#else
 return pcre_get_substring(subject, ovector, stringcount, n, stringptr);
+#endif
 #elif defined COMPILE_PCRE16
 return pcre16_get_substring(subject, ovector, stringcount, n, stringptr);
 #elif defined COMPILE_PCRE32
@@ -647,8 +731,13 @@ Returns:    nothing
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN void PCRE_CALL_CONVENTION
+erts_pcre_free_substring(const char *pointer)
+#else
 PCRE_EXP_DEFN void PCRE_CALL_CONVENTION
 pcre_free_substring(const char *pointer)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN void PCRE_CALL_CONVENTION
 pcre16_free_substring(PCRE_SPTR16 pointer)

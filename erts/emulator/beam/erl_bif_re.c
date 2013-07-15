@@ -492,7 +492,7 @@ typedef struct _return_info {
 } ReturnInfo;
 
 typedef struct _restart_context {
-    pcre_extra extra;
+    erts_pcre_extra extra;
     void *restart_data;
     Uint32 flags;
     char *subject; /* to be able to free it when done */

@@ -3099,10 +3099,17 @@ Returns:          > 0 => number of match offset pairs placed in offsets
 */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_dfa_exec(const pcre *argument_re, const erts_pcre_extra *extra_data,
+  const char *subject, int length, int start_offset, int options, int *offsets,
+  int offsetcount, int *workspace, int wscount)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_dfa_exec(const pcre *argument_re, const pcre_extra *extra_data,
   const char *subject, int length, int start_offset, int options, int *offsets,
   int offsetcount, int *workspace, int wscount)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_dfa_exec(const pcre16 *argument_re, const pcre16_extra *extra_data,

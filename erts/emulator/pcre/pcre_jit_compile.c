@@ -9528,10 +9528,17 @@ return retval;
 }
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_jit_exec(const pcre *argument_re, const pcre_extra *extra_data,
+  PCRE_SPTR subject, int length, int start_offset, int options,
+  int *offsets, int offset_count, pcre_jit_stack *stack)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_jit_exec(const pcre *argument_re, const pcre_extra *extra_data,
   PCRE_SPTR subject, int length, int start_offset, int options,
   int *offsets, int offset_count, pcre_jit_stack *stack)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_jit_exec(const pcre16 *argument_re, const pcre16_extra *extra_data,
@@ -9641,8 +9648,13 @@ return sljit_get_platform_name();
 }
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL pcre_jit_stack *
+erts_pcre_jit_stack_alloc(int startsize, int maxsize)
+#else
 PCRE_EXP_DECL pcre_jit_stack *
 pcre_jit_stack_alloc(int startsize, int maxsize)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DECL pcre16_jit_stack *
 pcre16_jit_stack_alloc(int startsize, int maxsize)
@@ -9661,8 +9673,13 @@ return (PUBL(jit_stack)*)sljit_allocate_stack(startsize, maxsize);
 }
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void
+erts_pcre_jit_stack_free(pcre_jit_stack *stack)
+#else
 PCRE_EXP_DECL void
 pcre_jit_stack_free(pcre_jit_stack *stack)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DECL void
 pcre16_jit_stack_free(pcre16_jit_stack *stack)
@@ -9675,8 +9692,13 @@ sljit_free_stack((struct sljit_stack *)stack);
 }
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void
+erts_pcre_assign_jit_stack(pcre_extra *extra, pcre_jit_callback callback, void *userdata)
+#else
 PCRE_EXP_DECL void
 pcre_assign_jit_stack(pcre_extra *extra, pcre_jit_callback callback, void *userdata)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DECL void
 pcre16_assign_jit_stack(pcre16_extra *extra, pcre16_jit_callback callback, void *userdata)
@@ -9702,8 +9724,13 @@ if (extra != NULL &&
 being compiled. */
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL pcre_jit_stack *
+erts_pcre_jit_stack_alloc(int startsize, int maxsize)
+#else
 PCRE_EXP_DECL pcre_jit_stack *
 pcre_jit_stack_alloc(int startsize, int maxsize)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DECL pcre16_jit_stack *
 pcre16_jit_stack_alloc(int startsize, int maxsize)
@@ -9718,8 +9745,13 @@ return NULL;
 }
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void
+erts_pcre_jit_stack_free(pcre_jit_stack *stack)
+#else
 PCRE_EXP_DECL void
 pcre_jit_stack_free(pcre_jit_stack *stack)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DECL void
 pcre16_jit_stack_free(pcre16_jit_stack *stack)
@@ -9732,8 +9764,13 @@ pcre32_jit_stack_free(pcre32_jit_stack *stack)
 }
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DECL void
+erts_pcre_assign_jit_stack(erts_pcre_extra *extra, pcre_jit_callback callback, void *userdata)
+#else
 PCRE_EXP_DECL void
 pcre_assign_jit_stack(pcre_extra *extra, pcre_jit_callback callback, void *userdata)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DECL void
 pcre16_assign_jit_stack(pcre16_extra *extra, pcre16_jit_callback callback, void *userdata)

@@ -6681,10 +6681,17 @@ typedef struct {
    
 
 #if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
+erts_pcre_exec(const pcre *argument_re, const erts_pcre_extra *extra_data,
+  PCRE_SPTR subject, int length, int start_offset, int options, int *offsets,
+  int offsetcount)
+#else
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre_exec(const pcre *argument_re, const pcre_extra *extra_data,
   PCRE_SPTR subject, int length, int start_offset, int options, int *offsets,
   int offsetcount)
+#endif
 #elif defined COMPILE_PCRE16
 PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
 pcre16_exec(const pcre16 *argument_re, const pcre16_extra *extra_data,
@@ -6804,7 +6811,7 @@ pcre_uchar req_char;
  } else {
    if (extra_data != NULL && 
        (extra_data->flags & PCRE_EXTRA_LOOP_LIMIT)) {
-     exec_context = (PcreExecContext *) (PUBL(malloc))(sizeof(PcreExecContext));
+     exec_context = (PcreExecContext *) (erts_pcre_malloc)(sizeof(PcreExecContext));
      *(extra_data->restart_data) = (void *) exec_context; 
      /* need freeing by special routine from client */
    } else {
