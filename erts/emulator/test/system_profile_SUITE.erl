@@ -198,7 +198,9 @@ check_multi_scheduling_block(Nodes) ->
     Pid = start_profiler_process(),
     undefined = erlang:system_profile(Pid, [scheduler]),
     {ok, Supervisor} = start_load(Nodes),
+    wait(600),
     erlang:system_flag(multi_scheduling, block),
+    wait(600),
     erlang:system_flag(multi_scheduling, unblock),
     {Pid, [scheduler]} = erlang:system_profile(undefined, []),
     Events = get_profiler_events(),
@@ -213,7 +215,6 @@ check_block_system(Nodes) ->
     Pid = start_profiler_process(),
     undefined = erlang:system_profile(Pid, [scheduler]),
     {ok, Supervisor} = start_load(Nodes),
-    % FIXME: remove wait !!
     wait(300),
     undefined = erlang:system_monitor(Dummy, [busy_port]),
     {Dummy, [busy_port]} = erlang:system_monitor(undefined, []),
