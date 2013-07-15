@@ -18,7 +18,6 @@
 # 
 include $(ERL_TOP)/make/target.mk
 
-
 SUB_DIRECTORIES = src
 
 include $(ERL_TOP)/make/otp_subdir.mk
