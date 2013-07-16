@@ -634,6 +634,13 @@ con_opt([Opt | Opts], R, As) ->
 	{tcp_module,_}  -> con_opt(Opts, R, As);
 	inet        -> con_opt(Opts, R, As);
 	inet6       -> con_opt(Opts, R, As);
+	{netns,NS} ->
+	    case prim_inet:is_sockopt_val(netns, NS) of
+		true ->
+		    con_opt(Opts, R#connect_opts { fd = [Opt] }, As);
+		false ->
+		    {error, badarg}
+	    end;
 	{Name,Val} when is_atom(Name) -> con_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -692,6 +699,13 @@ list_opt([Opt | Opts], R, As) ->
 	{tcp_module,_}  -> list_opt(Opts, R, As);
 	inet         -> list_opt(Opts, R, As);
 	inet6        -> list_opt(Opts, R, As);
+	{netns,NS} ->
+	    case prim_inet:is_sockopt_val(netns, NS) of
+		true ->
+		    list_opt(Opts, R#listen_opts { fd = [Opt] }, As);
+		false ->
+		    {error, badarg}
+	    end;
 	{Name,Val} when is_atom(Name) -> list_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -738,6 +752,13 @@ udp_opt([Opt | Opts], R, As) ->
 	{udp_module,_} -> udp_opt(Opts, R, As);
 	inet        -> udp_opt(Opts, R, As);
 	inet6       -> udp_opt(Opts, R, As);
+	{netns,NS} ->
+	    case prim_inet:is_sockopt_val(netns, NS) of
+		true ->
+		    list_opt(Opts, R#udp_opts { fd = [Opt] }, As);
+		false ->
+		    {error, badarg}
+	    end;
 	{Name,Val} when is_atom(Name) -> udp_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -1063,7 +1084,7 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	Result -> Result
     end.
 
--spec open(Fd :: integer(),
+-spec open(Fd_or_OpenOpts :: integer() | list(),
 	   Addr :: ip_address(),
 	   Port :: port_number(),
 	   Opts :: [socket_setopt()],
@@ -1073,8 +1094,14 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	   Module :: atom()) ->
 	{'ok', socket()} | {'error', posix()}.
 
-open(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) when Fd < 0 ->
-    case prim_inet:open(Protocol, Family, Type) of
+open(FdO, Addr, Port, Opts, Protocol, Family, Type, Module)
+  when is_integer(FdO), FdO < 0;
+       is_list(FdO) ->
+    OpenOpts =
+	if  is_list(FdO) -> FdO;
+	    true -> []
+	end,
+    case prim_inet:open(Protocol, Family, Type, OpenOpts) of
 	{ok,S} ->
 	    case prim_inet:setopts(S, Opts) of
 		ok ->
@@ -1097,7 +1124,8 @@ open(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) when Fd < 0 ->
 	Error ->
 	    Error
     end;
-open(Fd, _Addr, _Port, Opts, Protocol, Family, Type, Module) ->
+open(Fd, _Addr, _Port, Opts, Protocol, Family, Type, Module)
+  when is_integer(Fd) ->
     fdopen(Fd, Opts, Protocol, Family, Type, Module).
 
 bindx(S, [Addr], Port0) ->
