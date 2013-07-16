@@ -1194,6 +1194,7 @@ static ErlDrvTermData am_dontroute;
 static ErlDrvTermData am_priority;
 static ErlDrvTermData am_tos;
 static ErlDrvTermData am_ipv6_v6only;
+static ErlDrvTermData am_netns;
 #endif
 
 /* speical errors for bad ports and sequences */
@@ -3511,6 +3512,7 @@ static void inet_init_sctp(void) {
     INIT_ATOM(priority);
     INIT_ATOM(tos);
     INIT_ATOM(ipv6_v6only);
+    INIT_ATOM(netns);
     
     /* Option names */
     INIT_ATOM(sctp_rtoinfo);
@@ -3921,14 +3923,21 @@ static int erl_inet_close(inet_descriptor* desc)
 static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 				  char** rbuf, ErlDrvSizeT rsize)
 {
+    int save_errno;
 #ifdef HAVE_SETNS
-    int current_ns, new_ns, save_errno;
-    current_ns = new_ns = save_errno = 0;
+    int current_ns, new_ns;
+    current_ns = new_ns = 0;
 #endif
+    save_errno = 0;
+
     if (desc->state != INET_STATE_CLOSED)
 	return ctl_xerror(EXBADSEQ, rbuf, rsize);
+
 #ifdef HAVE_SETNS
     if (desc->netns != NULL) {
+	/* Temporarily change network namespace for this thread
+	 * while creating the socket
+	 */
 	current_ns = open("/proc/self/ns/net", O_RDONLY);
 	if (current_ns == INVALID_SOCKET)
 	    return ctl_error(sock_errno(), rbuf, rsize);
@@ -3954,11 +3963,18 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
     }
 #endif
     if ((desc->s = sock_open(domain, type, desc->sprotocol)) == INVALID_SOCKET)
-	return ctl_error(sock_errno(), rbuf, rsize);
+	save_errno = sock_errno();
 #ifdef HAVE_SETNS
     if (desc->netns != NULL) {
+	/* Restore network namespace */
 	if (setns(current_ns, CLONE_NEWNET) != 0) {
-	    save_errno = sock_errno();
+	    /* XXX Failed to restore network namespace.
+	     * What to do? Tidy up and return an error...
+	     * Note that the thread now might still be in the namespace.
+	     * Can this even happen? Should the emulator be aborted?
+	     */
+	    if (desc->s != INVALID_SOCKET)
+		save_errno = sock_errno();
 	    while (close(desc->s) == INVALID_SOCKET &&
 		   sock_errno() == EINTR);
 	    desc->s = INVALID_SOCKET;
@@ -3972,8 +3988,16 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 	}
     }
 #endif
-    if ((desc->event = sock_create_event(desc)) == INVALID_EVENT)
-	return ctl_error(sock_errno(), rbuf, rsize);
+    if (desc->s == INVALID_SOCKET)
+	return ctl_error(save_errno, rbuf, rsize);
+
+    if ((desc->event = sock_create_event(desc)) == INVALID_EVENT) {
+	save_errno = sock_errno();
+	while (close(desc->s) == INVALID_SOCKET &&
+	       sock_errno() == EINTR);
+	desc->s = INVALID_SOCKET;
+	return ctl_error(save_errno, rbuf, rsize);
+    }
     SET_NONBLOCKING(desc->s);
 #ifdef __WIN32__
     driver_select(desc->port, desc->event, ERL_DRV_READ, 1);
@@ -5932,6 +5956,21 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    res = 0;
 	    continue;
 
+#ifdef HAVE_SETNS
+	case INET_LOPT_NETNS:
+	{
+	    size_t ns_len;
+	    ns_len = get_int32(curr);                   curr += 4;
+	    CHKLEN(curr, ns_len);
+	    if (desc->netns != NULL) FREE(desc->netns);
+	    desc->netns = ALLOC(ns_len + 1);
+	    memcpy(desc->netns, curr, ns_len);
+	    desc->netns[ns_len] = '\0';
+	    curr += ns_len;
+	}
+	    continue;
+#endif
+
 	/* SCTP options and applicable generic INET options: */
 
 	case SCTP_OPT_RTOINFO:
@@ -6826,6 +6865,22 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    i = LOAD_TUPLE (spec, i, 2);
 	    break;
 	}
+
+#ifdef HAVE_SETNS
+	case INET_LOPT_NETNS:
+	    if (desc->netns != NULL) {
+		PLACE_FOR
+		    (spec, i,
+		     LOAD_ATOM_CNT + LOAD_BUF2BINARY_CNT + LOAD_TUPLE_CNT);
+		i = LOAD_ATOM (spec, i, am_netns);
+		i = LOAD_BUF2BINARY
+		    (spec, i, desc->netns, strlen(desc->netns));
+		i = LOAD_TUPLE (spec, i, 2);
+		break;
+	    }
+	    else
+		continue; /* Ignore */
+#endif
 
 	/* SCTP and generic INET options: */
 

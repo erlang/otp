@@ -828,6 +828,13 @@ sctp_opt([Opt|Opts], Mod, R, As) ->
 	{sctp_module,_}	-> sctp_opt (Opts, Mod, R, As); % Done with
 	inet		-> sctp_opt (Opts, Mod, R, As); % Done with
 	inet6		-> sctp_opt (Opts, Mod, R, As); % Done with
+	{netns,NS} ->
+	    case prim_inet:is_sockopt_val(netns, NS) of
+		true ->
+		    sctp_opt(Opts, Mod, R#sctp_opts { fd = [Opt] }, As);
+		false ->
+		    {error, badarg}
+	    end;
 	{Name,Val}	-> sctp_opt (Opts, Mod, R, As, Name, Val);
 	_ -> {error,badarg}
     end;
