@@ -38,10 +38,10 @@
 	 gethostnative_debug_level/0, gethostnative_debug_level/1,
 	 getif/1,
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
-	 parse_strict_address/1]).
+	 parse_strict_address/1, simple_netns/1]).
 
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
-	 kill_gethost/0, parallell_gethost/0]).
+	 kill_gethost/0, parallell_gethost/0, test_netns/0]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -53,7 +53,7 @@ all() ->
      t_gethostnative, gethostnative_parallell, cname_loop,
      gethostnative_debug_level, gethostnative_soft_restart,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
-     getifaddrs, parse_strict_address].
+     getifaddrs, parse_strict_address, simple_netns].
 
 groups() -> 
     [{parse, [], [parse_hosts, parse_address]}].
@@ -1099,3 +1099,96 @@ toupper([C|Cs]) when is_integer(C) ->
     end;
 toupper([]) ->
     [].
+
+
+simple_netns(Config) when is_list(Config) ->
+    {ok,U} = gen_udp:open(0),
+    case inet:setopts(U, [{netns,""}]) of
+	ok ->
+	    jog_netns_opt(U),
+	    ok = gen_udp:close(U),
+	    %%
+	    {ok,L} = gen_tcp:listen(0, []),
+	    jog_netns_opt(L),
+	    ok = gen_tcp:close(L),
+	    %%
+	    {ok,S} = gen_sctp:open(),
+	    jog_netns_opt(S),
+	    ok = gen_sctp:close(S);
+	{error,einval} ->
+	    {skip,"setns() not supported"}
+    end.
+
+jog_netns_opt(S) ->
+    %% This is just jogging the option mechanics
+    ok = inet:setopts(S, [{netns,""}]),
+    {ok,[{netns,""}]} = inet:getopts(S, [netns]),
+    ok = inet:setopts(S, [{netns,"/proc/self/ns/net"}]),
+    {ok,[{netns,"/proc/self/ns/net"}]} = inet:getopts(S, [netns]),
+    ok.
+
+
+%% Manual test to be run outside test_server in an emulator
+%% started by root, in a machine with setns() support...
+test_netns() ->
+    DefaultIF = v1,
+    DefaultIP = {192,168,1,17},
+    Namespace = "test",
+    NamespaceIF = v2,
+    NamespaceIP = {192,168,1,18},
+    %%
+    DefaultIPString = inet_parse:ntoa(DefaultIP),
+    NamespaceIPString = inet_parse:ntoa(NamespaceIP),
+    cmd("ip netns add ~s",
+	[Namespace]),
+    cmd("ip link add name ~w type veth peer name ~w netns ~s",
+        [DefaultIF,NamespaceIF,Namespace]),
+    cmd("ip netns exec ~s ip addr add ~s/30 dev ~w",
+	[Namespace,NamespaceIPString,NamespaceIF]),
+    cmd("ip netns exec ~s ip link set ~w up",
+	[Namespace,NamespaceIF]),
+    cmd("ip addr add ~s/30 dev ~w",
+	[DefaultIPString,DefaultIF]),
+    cmd("ip link set ~w up",
+	[DefaultIF]),
+    try test_netns(
+	  {DefaultIF,DefaultIP},
+	  filename:join("/var/run/netns/", Namespace),
+	  {NamespaceIF,NamespaceIP}) of
+	Result ->
+	    io:put_chars(["#### Test done",io_lib:nl()]),
+	    Result
+    after
+	cmd("ip link delete ~w type veth",
+	    [DefaultIF]),
+	cmd("ip netns delete ~s",
+	    [Namespace])
+    end.
+
+test_netns({DefaultIF,DefaultIP}, Namespace, {NamespaceIF,NamespaceIP}) ->
+    {ok,ListenSocket} = gen_tcp:listen(0, [{active,false}]),
+    {ok,[{addr,DefaultIP}]} = inet:ifget(ListenSocket, DefaultIF, [addr]),
+    {ok,ListenPort} = inet:port(ListenSocket),
+    {ok,ConnectSocket} =
+	gen_tcp:connect(
+	  DefaultIP, ListenPort, [{active,false},{netns,Namespace}], 3000),
+    {ok,[{addr,NamespaceIP}]} = inet:ifget(ConnectSocket, NamespaceIF, [addr]),
+    {ok,ConnectPort} = inet:port(ConnectSocket),
+    {ok,AcceptSocket} = gen_tcp:accept(ListenSocket, 0),
+    {ok,AcceptPort} = inet:port(AcceptSocket),
+    {ok,{NamespaceIP,ConnectPort}} = inet:peername(AcceptSocket),
+    {ok,{DefaultIP,AcceptPort}} = inet:peername(ConnectSocket),
+    ok = gen_tcp:send(ConnectSocket, "data"),
+    ok = gen_tcp:close(ConnectSocket),
+    {ok,"data"} = gen_tcp:recv(AcceptSocket, 4, 1000),
+    {error,closed} = gen_tcp:recv(AcceptSocket, 1, 1000),
+    ok = gen_tcp:close(AcceptSocket),
+    ok = gen_tcp:close(ListenSocket).
+
+cmd(Cmd, Args) ->
+    cmd(io_lib:format(Cmd, Args)).
+%%
+cmd(CmdString) ->
+    io:put_chars(["# ",CmdString,io_lib:nl()]),
+    io:put_chars([os:cmd(CmdString++" ; echo '  =>' $?")]),
+    ok.
