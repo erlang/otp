@@ -266,7 +266,7 @@ check_disk_space({unix, freebsd}, Port, Threshold) ->
     Result = my_cmd("/bin/df -k -l", Port),
     check_disks_solaris(skip_to_eol(Result), Threshold);
 check_disk_space({unix, openbsd}, Port, Threshold) ->
-    Result = my_cmd("/bin/df -k -t ffs", Port),
+    Result = my_cmd("/bin/df -k -l", Port),
     check_disks_solaris(skip_to_eol(Result), Threshold);
 check_disk_space({unix, netbsd}, Port, Threshold) ->
     Result = my_cmd("/bin/df -k -t ffs", Port),
