@@ -126,20 +126,20 @@
         </item>
         <item>
           <p>
-	    Optimizations to gen mechanism. Thanks to Loïc Hoguin.</p>
+	    Optimizations to gen mechanism. Thanks to LoÃ¯c Hoguin.</p>
           <p>
 	    Own Id: OTP-11025</p>
         </item>
         <item>
           <p>
-	    Optimizations to gen.erl. Thanks to Loïc Hoguin.</p>
+	    Optimizations to gen.erl. Thanks to LoÃ¯c Hoguin.</p>
           <p>
 	    Own Id: OTP-11035</p>
         </item>
         <item>
           <p>
 	    Use erlang:demonitor(Ref, [flush]) where applicable.
-	    Thanks to Loïc Hoguin.</p>
+	    Thanks to LoÃ¯c Hoguin.</p>
           <p>
 	    Own Id: OTP-11039</p>
         </item>
@@ -194,7 +194,7 @@
         </item>
         <item>
           <p>
-	    Improve erl_lint performance. Thanks to José Valim.</p>
+	    Improve erl_lint performance. Thanks to JosÃ© Valim.</p>
           <p>
 	    Own Id: OTP-11143</p>
         </item>
