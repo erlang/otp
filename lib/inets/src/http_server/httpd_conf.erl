@@ -798,6 +798,8 @@ store({log_format, LogFormat}, _ConfigList)
 store({server_tokens, ServerTokens} = Entry, _ConfigList) ->
     Server = server(ServerTokens), 
     {ok, [Entry, {server, Server}]};
+store({keep_alive_timeout, KeepAliveTimeout}, _ConfigList) ->
+    {ok, {keep_alive_timeout, KeepAliveTimeout * 1000}};
 store(ConfigListEntry, _ConfigList) ->
     {ok, ConfigListEntry}.
 
