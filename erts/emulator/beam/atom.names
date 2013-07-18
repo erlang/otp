@@ -71,6 +71,7 @@ atom ac
 atom active
 atom all
 atom all_but_first
+atom all_names
 atom alloc_info
 atom alloc_sizes
 atom allocated
@@ -348,11 +349,13 @@ atom multi_scheduling
 atom multiline
 atom name
 atom named_table
+atom namelist
 atom native_addresses
 atom Neq='=/='
 atom Neqeq='/='
 atom net_kernel
 atom net_kernel_terminated
+atom never_utf
 atom new
 atom new_index
 atom new_uniq
@@ -378,6 +381,7 @@ atom nosuspend
 atom no_float
 atom no_integer
 atom no_network
+atom no_start_optimize
 atom not
 atom not_a_list
 atom not_loaded
@@ -388,6 +392,7 @@ atom notalive
 atom notbol
 atom noteol
 atom notempty
+atom notempty_atstart
 atom notify
 atom notsup
 atom nouse_stdio
@@ -554,6 +559,7 @@ atom true
 atom tuple
 atom type
 atom ucompile
+atom ucp
 atom undef
 atom ungreedy
 atom unicode

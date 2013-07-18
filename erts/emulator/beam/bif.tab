@@ -574,6 +574,12 @@ bif erlang:binary_to_float/1
 bif io:printable_range/0
 
 #
+# New in R17A
+#
+
+bif re:inspect/2
+
+#
 # Obsolete
 #
 

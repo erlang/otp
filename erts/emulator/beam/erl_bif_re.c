@@ -288,6 +288,10 @@ parse_options(Eterm listp, /* in */
 		    eopt |= PCRE_NOTEMPTY; 
 		    fl |= PARSE_FLAG_UNIQUE_EXEC_OPT;
 		    break;
+		case am_notempty_atstart:
+		    eopt |= PCRE_NOTEMPTY_ATSTART; 
+		    fl |= PARSE_FLAG_UNIQUE_EXEC_OPT;
+		    break;
 		case am_notbol:
 		    eopt |= PCRE_NOTBOL; 
 		    fl |= PARSE_FLAG_UNIQUE_EXEC_OPT;
@@ -295,6 +299,10 @@ parse_options(Eterm listp, /* in */
 		case am_noteol:
 		    eopt |= PCRE_NOTEOL; 
 		    fl |= PARSE_FLAG_UNIQUE_EXEC_OPT;
+		    break;
+		case am_no_start_optimize:
+		    copt |= PCRE_NO_START_OPTIMIZE; 
+		    fl |= PARSE_FLAG_UNIQUE_COMPILE_OPT;
 		    break;
 		case am_caseless:
 		    copt |= PCRE_CASELESS; 
@@ -332,6 +340,14 @@ parse_options(Eterm listp, /* in */
 		    copt |= PCRE_UNGREEDY; 
 		    fl |= PARSE_FLAG_UNIQUE_COMPILE_OPT;
 		    break;
+		case am_ucp:
+		    copt |= PCRE_UCP; 
+		    fl |= PARSE_FLAG_UNIQUE_COMPILE_OPT;
+		    break;
+		case am_never_utf:
+		    copt |= PCRE_NEVER_UTF; 
+		    fl |= PARSE_FLAG_UNIQUE_COMPILE_OPT;
+		    break;
 		case am_unicode:
 		    copt |= PCRE_UTF8; 
 		    fl |= (PARSE_FLAG_UNIQUE_COMPILE_OPT | PARSE_FLAG_UNICODE);
@@ -359,7 +375,7 @@ parse_options(Eterm listp, /* in */
     if (compile_options != NULL) {
 	*compile_options = copt;
     }
-    if (exec_options != NULL) {
+   if (exec_options != NULL) {
 	*exec_options = eopt;
     }
     if (flags != NULL) {
@@ -585,6 +601,17 @@ static Eterm build_exec_return(Process *p, int rc, RestartContext *restartp, Ete
 				      ri->num_spec * 2 * sizeof(Eterm));
 		for (i = 0; i < ri->num_spec; ++i) {
 		    x = ri->v[i];
+		    if (x < -1) {
+			int n = i-x+1;
+			int j;
+			for (j = i+1; j < ri->num_spec && j < n; ++j) {
+			    if (restartp->ovector[(ri->v[j])*2] >= 0) {
+				x = ri->v[j];
+				break;
+			    }
+			}
+			i = n-1;
+		    }
 		    if (x < rc && x >= 0) {
 			tmp_vect[n*2] = make_signed_integer(restartp->ovector[x*2],p);
 			tmp_vect[n*2+1] = make_signed_integer(restartp->ovector[x*2+1]-restartp->ovector[x*2],p);
@@ -666,6 +693,17 @@ static Eterm build_exec_return(Process *p, int rc, RestartContext *restartp, Ete
 				      ri->num_spec * sizeof(Eterm));
 		for (i = 0; i < ri->num_spec; ++i) {
 		    x = ri->v[i];
+		    if (x < -1) {
+			int n = i-x+1;
+			int j;
+			for (j = i+1; j < ri->num_spec && j < n; ++j) {
+			    if (restartp->ovector[(ri->v[j])*2] >= 0) {
+				x = ri->v[j];
+				break;
+			    }
+			}
+			i = n-1;
+		    }
 		    if (x < rc && x >= 0) {
 			char *cp;
 			int len;
@@ -730,6 +768,49 @@ static Eterm build_exec_return(Process *p, int rc, RestartContext *restartp, Ete
  */
 
 #define RINFO_SIZ(Num) (sizeof(ReturnInfo) + (sizeof(int) * (Num - 1)))
+#define PICK_INDEX(NameEntry)					        \
+    ((int) ((((unsigned) ((unsigned char *) (NameEntry))[0]) << 8) +	\
+	    ((unsigned) ((unsigned char *) (NameEntry))[1])))
+
+
+static void build_one_capture(const pcre *code, ReturnInfo **ri, int *sallocated, int has_dupnames, char *name) 
+{
+    ReturnInfo *r = (*ri);
+    if (has_dupnames) {
+	/* Build a sequence of positions, starting with -size if
+	   more than one, otherwise just put the index there... */
+	char *first,*last;
+	int esize = erts_pcre_get_stringtable_entries(code,name,&first,&last);
+	if (esize == PCRE_ERROR_NOSUBSTRING) {
+	    r->v[r->num_spec - 1] = -1;
+	} else if(last == first) {
+	    r->v[r->num_spec - 1] = PICK_INDEX(first);
+	} else {
+	    int num = ((last - first) / esize) + 1;
+	    int i;
+	    ASSERT(num > 1);
+	    r->v[r->num_spec - 1] = -num; /* A value less than -1 means
+					       multiple indexes for same name */
+	    for (i = 0; i < num; ++i) {
+		++(r->num_spec);
+		if(r->num_spec > (*sallocated)) {
+		    (*sallocated) += 10;
+		    r = erts_realloc(ERTS_ALC_T_RE_SUBJECT, r, 
+				      RINFO_SIZ((*sallocated)));
+		}
+		r->v[r->num_spec - 1] = PICK_INDEX(first);
+		first += esize;
+	    }
+	}
+    } else {
+	/* Use the faster binary search if no duplicate names are present */  
+	if ((r->v[r->num_spec - 1] = erts_pcre_get_stringnumber(code,name)) ==
+	    PCRE_ERROR_NOSUBSTRING) {
+	    r->v[r->num_spec - 1] = -1;
+	}
+    }
+    *ri = r;
+}    
 
 static ReturnInfo *
 build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
@@ -778,6 +859,53 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 	}
 	ri->v[ri->num_spec - 1] = 0;
 	break;
+    case am_all_names:
+	{
+	    int rc,i,top;
+	    int entrysize;
+	    char *nametable, *last = NULL;
+	    int has_dupnames;
+	    unsigned long options;
+
+	    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_OPTIONS, &options) != 0)
+		goto error;
+	    if ((rc = erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMECOUNT, &top)) != 0)
+		goto error;
+	    if (top <= 0) {
+		ri->num_spec = 0;
+		ri->type = RetNone;
+		break;
+	    }
+	    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMEENTRYSIZE, &entrysize) != 0)
+		goto error;
+	    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMETABLE, (unsigned char **) &nametable) != 0)
+		goto error;
+	    
+	    has_dupnames = ((options & PCRE_DUPNAMES) != 0);
+
+	    for(i=0;i<top;++i) {
+		if (last == NULL || !has_dupnames || strcmp(last+2,nametable+2)) {
+		    if (ri->num_spec < 0)
+			ri->num_spec = 0;
+		    ++(ri->num_spec);
+		    if(ri->num_spec > sallocated) {
+			sallocated += 10;
+			ri = erts_realloc(ERTS_ALC_T_RE_SUBJECT, ri, RINFO_SIZ(sallocated));
+		    }
+		    if (has_dupnames) {
+			/* This could be more effective, we actually have 
+			   the names and could fill in the vector
+			   immediately. Now we lookup the name again. */
+			build_one_capture(code,&ri,&sallocated,has_dupnames,nametable+2);
+		    } else {
+			ri->v[ri->num_spec - 1] = PICK_INDEX(nametable);	
+		    }
+		}
+		last = nametable;
+		nametable += entrysize;
+	    }
+	    break;
+	}
     default:
 	if (is_list(capture_spec[CAPSPEC_VALUES])) {
 	    for(l=capture_spec[CAPSPEC_VALUES];is_list(l);l = CDR(list_val(l))) {
@@ -793,6 +921,11 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 		if (term_to_int(val,&x)) {
 		    ri->v[ri->num_spec - 1] = x;
 		} else if (is_atom(val) || is_binary(val) || is_list(val)) {
+		    int has_dupnames;
+		    unsigned long options;
+		    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_OPTIONS, &options) != 0)
+			goto error;
+		    has_dupnames = ((options & PCRE_DUPNAMES) != 0);
 		    if (is_atom(val)) {
 			Atom *ap = atom_tab(atom_val(val));
 			if ((ap->len + 1) > tmpbsiz) {
@@ -823,10 +956,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 			}
 			tmpb[slen] = '\0';
 		    }
-		    if ((ri->v[ri->num_spec - 1] = erts_pcre_get_stringnumber(code,tmpb)) ==
-			PCRE_ERROR_NOSUBSTRING) {
-			ri->v[ri->num_spec - 1] = -1;
-		    }
+		    build_one_capture(code,&ri,&sallocated,has_dupnames,tmpb);
 		} else {
 		    goto error;
 		}
@@ -1159,6 +1289,99 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
     BIF_RET(res);
 }
     
+BIF_RETTYPE
+re_inspect_2(BIF_ALIST_2) 
+{
+    Eterm *tp,*tmp_vec,*hp;
+    int rc,i,top,j;
+    int entrysize;
+    char *nametable, *last,*name;
+    int has_dupnames;
+    unsigned long options;
+    int num_names;
+    Eterm res;
+    const pcre *code;
+    byte *temp_alloc = NULL;
+
+    if (is_not_tuple(BIF_ARG_1) || (arityval(*tuple_val(BIF_ARG_1)) != 5)) {
+	goto error;
+    }
+    tp = tuple_val(BIF_ARG_1);
+    if (tp[1] != am_re_pattern || is_not_small(tp[2]) || 
+	is_not_small(tp[3]) || is_not_small(tp[4]) || 
+	is_not_binary(tp[5])) {
+	goto error;
+    }
+    if (BIF_ARG_2 != am_namelist) {
+	goto error;
+    }
+    if ((code = (const pcre *) 
+	 erts_get_aligned_binary_bytes(tp[5], &temp_alloc)) == NULL) {
+	goto error;
+    }
+
+    /* OK, so let's try to get some info */
+    
+    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_OPTIONS, &options) != 0)
+	goto error;
+    if ((rc = erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMECOUNT, &top)) != 0)
+	goto error;
+    if (top <= 0) {
+	hp = HAlloc(BIF_P, 3);
+	res = TUPLE2(hp,am_namelist,NIL);
+	erts_free_aligned_binary_bytes(temp_alloc);
+	BIF_RET(res);
+    }
+    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMEENTRYSIZE, &entrysize) != 0)
+	goto error;
+    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMETABLE, (unsigned char **) &nametable) != 0)
+	goto error;
+    
+    has_dupnames = ((options & PCRE_DUPNAMES) != 0);
+    /* First, count the names */
+    num_names = 0;
+    last = NULL;
+    name = nametable;
+    for(i=0;i<top;++i) {
+	if (last == NULL || !has_dupnames || strcmp(last+2,name+2)) {
+	    ++num_names;
+	}
+	last = name;
+	name += entrysize;
+    }
+    tmp_vec =  erts_alloc(ERTS_ALC_T_RE_TMP_BUF, 
+			  num_names * sizeof(Eterm));
+    /* Re-iterate and fill tmp_vec */
+    last = NULL;
+    name = nametable;
+    j = 0;
+    for(i=0;i<top;++i) {
+	if (last == NULL || !has_dupnames || strcmp(last+2,name+2)) {
+	    tmp_vec[j++] = new_binary(BIF_P, (byte *) name+2, strlen(name+2));
+	}
+	last = name;
+	name += entrysize;
+    }
+    ASSERT(j == num_names);
+    hp = HAlloc(BIF_P, 3+2*j);
+    res = NIL;
+    for(i = j-1 ;i >= 0; --i) {
+	res = CONS(hp,tmp_vec[i],res);
+	hp += 2;
+    }
+    res = TUPLE2(hp,am_namelist,res);
+    erts_free_aligned_binary_bytes(temp_alloc);
+    erts_free(ERTS_ALC_T_RE_TMP_BUF, tmp_vec);
+    BIF_RET(res);
+
+ error:
+    /* tmp_vec never allocated when we reach here */
+    erts_free_aligned_binary_bytes(temp_alloc);
+    BIF_ERROR(BIF_P,BADARG);
+}
+    
+
+	
     
 
 	

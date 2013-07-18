@@ -28,11 +28,12 @@
                         | dotall | extended | firstline | multiline
                         | no_auto_capture | dupnames | ungreedy
                         | {newline, nl_spec()}| bsr_anycrlf
+                        | no_start_optimize | ucp | never_utf
                         | bsr_unicode.
 
 %%% BIFs
 
--export([compile/1, compile/2, run/2, run/3]).
+-export([compile/1, compile/2, run/2, run/3, inspect/2]).
 
 -spec compile(Regexp) -> {ok, MP} | {error, ErrSpec} when
       Regexp :: iodata(),
@@ -67,13 +68,13 @@ run(_, _) ->
       Subject :: iodata() | unicode:charlist(),
       RE :: mp() | iodata() | unicode:charlist(),
       Options :: [Option],
-      Option :: anchored | global | notbol | noteol | notempty
+      Option :: anchored | global | notbol | noteol | notempty | notempty_atstart
               | {offset, non_neg_integer()} |
                 {newline, NLSpec :: nl_spec()} |
                 bsr_anycrlf | bsr_unicode | {capture, ValueSpec} |
                 {capture, ValueSpec, Type} | CompileOpt,
       Type :: index | list | binary,
-      ValueSpec :: all | all_but_first | first | none | ValueList,
+      ValueSpec :: all | all_but_first | all_names | first | none | ValueList,
       ValueList :: [ValueID],
       ValueID :: integer() | string() | atom(),
       CompileOpt :: compile_option(),
@@ -87,6 +88,14 @@ run(_, _) ->
 
 run(_, _, _) ->
     erlang:nif_error(undef).
+
+-spec inspect(MP,Item) -> {namelist, [ binary() ]} when
+      MP :: mp(),
+      Item :: namelist.
+
+inspect(_,_) ->
+    erlang:nif_error(undef).
+    
 
 %%% End of BIFs
 
@@ -102,7 +111,7 @@ split(Subject,RE) ->
       Subject :: iodata() | unicode:charlist(),
       RE :: mp() | iodata() | unicode:charlist(),
       Options :: [ Option ],
-      Option :: anchored | notbol | noteol | notempty
+      Option :: anchored | notbol | noteol | notempty | notempty_atstart
               | {offset, non_neg_integer()} | {newline, nl_spec()}
               | bsr_anycrlf | bsr_unicode | {return, ReturnType}
               | {parts, NumParts} | group | trim | CompileOpt,
@@ -295,7 +304,7 @@ replace(Subject,RE,Replacement) ->
       RE :: mp() | iodata() | unicode:charlist(),
       Replacement :: iodata() | unicode:charlist(),
       Options :: [Option],
-      Option :: anchored | global | notbol | noteol | notempty
+      Option :: anchored | global | notbol | noteol | notempty | notempty_atstart
               | {offset, non_neg_integer()} | {newline, NLSpec} | bsr_anycrlf
               | bsr_unicode | {return, ReturnType} | CompileOpt,
       ReturnType :: iodata | list | binary,
@@ -509,7 +518,9 @@ check_for_crlf(_,L) ->
 % SelectReturn = false | all | stirpfirst | none 
 % ConvertReturn = index | list | binary
 % {capture, all} -> all (untouchded)
-% {capture, first} -> kept in argumentt list and Select all
+% {capture, all_names} -> if names are present: treated as a name {capture, [...]} 
+%                                      else:    same as {capture, []}
+% {capture, first} -> kept in argument list and Select all
 % {capture, all_but_first} -> removed from argument list and selects stripfirst
 % {capture, none} ->  removed from argument list and selects none
 % {capture, []} -> removed from argument list and selects none
@@ -518,23 +529,30 @@ check_for_crlf(_,L) ->
 
 % Call as process_parameters([],0,false,index,NeedClean)
 
-process_parameters([],InitialOffset, SelectReturn, ConvertReturn,_) ->
+process_parameters([],InitialOffset, SelectReturn, ConvertReturn,_,_) ->
     {[], InitialOffset, SelectReturn, ConvertReturn};
-process_parameters([{offset, N} | T],_Init0,Select0,Return0,CC) ->
-    process_parameters(T,N,Select0,Return0,CC);
-process_parameters([global | T],Init0,Select0,Return0,CC) ->
-    process_parameters(T,Init0,Select0,Return0,CC);
-process_parameters([{capture,Values,Type}|T],Init0,Select0,_Return0,CC) ->
-    process_parameters([{capture,Values}|T],Init0,Select0,Type,CC);
-process_parameters([{capture,Values}|T],Init0,Select0,Return0,CC) ->
+process_parameters([{offset, N} | T],_Init0,Select0,Return0,CC,RE) ->
+    process_parameters(T,N,Select0,Return0,CC,RE);
+process_parameters([global | T],Init0,Select0,Return0,CC,RE) ->
+    process_parameters(T,Init0,Select0,Return0,CC,RE);
+process_parameters([{capture,Values,Type}|T],Init0,Select0,_Return0,CC,RE) ->
+    process_parameters([{capture,Values}|T],Init0,Select0,Type,CC,RE);
+process_parameters([{capture,Values}|T],Init0,Select0,Return0,CC,RE) ->
     % First process the rest to see if capture was already present
     {NewTail, Init1, Select1, Return1} = 
-	process_parameters(T,Init0,Select0,Return0,CC),
+	process_parameters(T,Init0,Select0,Return0,CC,RE),
     case Select1 of
 	false ->
 	    case Values of
 		all ->
 		    {[{capture,all} | NewTail], Init1, all, Return0}; 
+		all_names ->
+		    case re:inspect(RE,namelist) of
+			{namelist, []} ->
+			    {[{capture,first} | NewTail], Init1, none, Return0};
+			{namelist, List} ->
+			    {[{capture,[0|List]} | NewTail], Init1, stripfirst, Return0}
+		    end; 
 		first ->
 		    {[{capture,first} | NewTail], Init1, all, Return0};
 		all_but_first ->
@@ -553,20 +571,20 @@ process_parameters([{capture,Values}|T],Init0,Select0,Return0,CC) ->
 	    % Found overriding further down list, ignore this one
 	    {NewTail, Init1, Select1, Return1}
     end;
-process_parameters([H|T],Init0,Select0,Return0,true) ->
+process_parameters([H|T],Init0,Select0,Return0,true,RE) ->
     case copt(H) of
 	true ->
-	    process_parameters(T,Init0,Select0,Return0,true);
+	    process_parameters(T,Init0,Select0,Return0,true,RE);
 	false ->
 	    {NewT,Init,Select,Return} =
-		process_parameters(T,Init0,Select0,Return0,true),	
+		process_parameters(T,Init0,Select0,Return0,true,RE),	
 	    {[H|NewT],Init,Select,Return}
     end;
-process_parameters([H|T],Init0,Select0,Return0,false) ->
+process_parameters([H|T],Init0,Select0,Return0,false,RE) ->
     {NewT,Init,Select,Return} =
-		process_parameters(T,Init0,Select0,Return0,false),
+		process_parameters(T,Init0,Select0,Return0,false,RE),
     {[H|NewT],Init,Select,Return};
-process_parameters(_,_,_,_,_) ->
+process_parameters(_,_,_,_,_,_) ->
     throw(badlist).
 
 postprocess({match,[]},_,_,_,_) ->
@@ -723,7 +741,7 @@ do_grun(FlatSubject,Subject,Unicode,CRLF,RE,{Options0,NeedClean}) ->
     {StrippedOptions, InitialOffset,
      SelectReturn, ConvertReturn} = 
 	case (catch 
-		  process_parameters(Options0, 0, false, index, NeedClean)) of
+		  process_parameters(Options0, 0, false, index, NeedClean,RE)) of
 	    badlist ->
 		erlang:error(badarg,[Subject,RE,Options0]);
 	    CorrectReturn ->
@@ -747,7 +765,7 @@ loopexec(Subject,RE,X,Y,Unicode,CRLF,Options) ->
 			loopexec(Subject,RE,A+B,Y,Unicode,CRLF,Options);
 		    false ->
 			{match,M} = 
-			    case re:run(Subject,RE,[{offset,X},notempty,
+			    case re:run(Subject,RE,[{offset,X},notempty_atstart,
 						anchored]++Options) of
 				nomatch ->
 				    {match,[]};
@@ -803,6 +821,12 @@ forward2(Chal,A,N,true,CRLF) ->
 
 copt(caseless) ->
     true;
+copt(no_start_optimize) ->
+    true;
+copt(never_utf) ->
+    true;
+copt(ucp) ->
+    true;
 copt(dollar_endonly) ->
     true;
 copt(dotall) ->
@@ -832,6 +856,8 @@ copt(_) ->
 %    false.
 
 runopt(notempty) ->
+    true;
+runopt(notempty_atstart) ->
     true;
 runopt(notbol) ->
     true;

@@ -25,7 +25,8 @@
 	 split_autogen/1,split_options/1,split_specials/1,
 	 error_handling/1,pcre_cve_2008_2371/1,
 	 pcre_compile_workspace_overflow/1,re_infinite_loop/1, 
-	 re_backwards_accented/1]).
+	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
+	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -37,7 +38,9 @@ all() ->
      replace_autogen, global_capture, replace_input_types,
      replace_return, split_autogen, split_options,
      split_specials, error_handling, pcre_cve_2008_2371,
-     pcre_compile_workspace_overflow, re_infinite_loop, re_backwards_accented].
+     pcre_compile_workspace_overflow, re_infinite_loop, 
+     re_backwards_accented, opt_dupnames, opt_all_names, 
+     inspect, opt_no_start_optimize,opt_never_utf,opt_ucp].
 
 groups() -> 
     [].
@@ -619,4 +622,156 @@ re_backwards_accented(Config) when is_list(Config) ->
 			 <<"\\X?abc">>,
 			 [unicode,{capture,none}]),
     ?t:timetrap_cancel(Dog),
+    ok.
+opt_dupnames(doc) ->
+    "Check correct handling of dupnames option to re";
+opt_dupnames(Config) when is_list(Config) ->
+    Days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+    _ = [ begin
+	      Short = lists:sublist(Day,3),
+	      {match,[Short]} =
+		  re:run(Day,
+			 "(?<DN>Mon|Fri|Sun)(?:day)?|(?<DN>Tue)(?:sday)?|"
+			 "(?<DN>Wed)(?:nesday)?|(?<DN>Thu)(?:rsday)?|"
+			 "(?<DN>Sat)(?:urday)?",
+			 [dupnames, {capture, ['DN'], list}])
+	  end || Day <- Days ],
+    _ = [ begin
+	      Short = list_to_binary(lists:sublist(Day,3)),
+	      {match,[Short]} =
+		  re:run(Day,
+			 "(?<DN>Mon|Fri|Sun)(?:day)?|(?<DN>Tue)(?:sday)?|"
+			 "(?<DN>Wed)(?:nesday)?|(?<DN>Thu)(?:rsday)?|"
+			 "(?<DN>Sat)(?:urday)?",
+			 [dupnames, {capture, ['DN'], binary}])
+	  end || Day <- Days ],
+    _ = [ begin
+	      {match,[{0,3}]} =
+		  re:run(Day,
+			 "(?<DN>Mon|Fri|Sun)(?:day)?|(?<DN>Tue)(?:sday)?|"
+			 "(?<DN>Wed)(?:nesday)?|(?<DN>Thu)(?:rsday)?|"
+			 "(?<DN>Sat)(?:urday)?",
+			 [dupnames, {capture, ['DN'], index}])
+	  end || Day <- Days ],
+    {match,[{0,1},{1,3},{7,1}]} = re:run("SMondayX","(?<Skrap>.)(?<DN>Mon|Fri|Sun)(?:day)?(?<Skrap2>.)|"
+					 "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
+					 "(?<DN>Sat)(?:urday)?",
+					 [dupnames, {capture, ['Skrap','DN','Skrap2'],index}]),
+    {match,[{-1,0},{0,3},{-1,0}]} = re:run("Wednesday","(?<Skrap>.)(?<DN>Mon|Fri|Sun)(?:day)?(?<Skrap2>.)|"
+					 "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
+					 "(?<DN>Sat)(?:urday)?",
+					 [dupnames, {capture, ['Skrap','DN','Skrap2'],index}]),
+    nomatch = re:run("Wednsday","(?<Skrap>.)(?<DN>Mon|Fri|Sun)(?:day)?(?<Skrap2>.)|"
+		     "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
+		     "(?<DN>Sat)(?:urday)?",
+		     [dupnames, {capture, ['Skrap','DN','Skrap2'],index}]),
+    ok.
+
+opt_all_names(doc) ->
+    "Test capturing of all_names";
+opt_all_names(Config) when is_list(Config) ->
+    Days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+    {match,[{1,3},{0,1},{7,1}]} = re:run("SMondayX","(?<Skrap>.)(?<DN>Mon|Fri|Sun)(?:day)?(?<Skrap2>.)|"
+					 "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
+					 "(?<DN>Sat)(?:urday)?",
+					 [dupnames, {capture, all_names,index}]),
+    {match,[{0,3},{-1,0},{-1,0}]} = re:run("Wednesday","(?<Skrap>.)(?<DN>Mon|Fri|Sun)(?:day)?(?<Skrap2>.)|"
+					 "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
+					 "(?<DN>Sat)(?:urday)?",
+					 [dupnames, {capture, all_names,index}]),
+    
+    _ = [ begin
+	      {match,[{0,3}]} =
+		  re:run(Day,
+			 "(?<DN>Mon|Fri|Sun)(?:day)?|(?<DN>Tue)(?:sday)?|"
+			 "(?<DN>Wed)(?:nesday)?|(?<DN>Thu)(?:rsday)?|"
+			 "(?<DN>Sat)(?:urday)?",
+			 [dupnames, {capture, all_names, index}])
+	  end || Day <- Days ],
+    _ = [ begin
+	      match =
+		  re:run(Day,
+			 "(Mon|Fri|Sun)(?:day)?|(Tue)(?:sday)?|"
+			 "(Wed)(?:nesday)?|(Thu)(?:rsday)?|"
+			 "(Sat)(?:urday)?",
+			 [dupnames, {capture, all_names, index}])
+	  end || Day <- Days ],
+    {match,[{0,1},{-1,0},{-1,0}]} = re:run("A","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, index}]),
+    {match,[{-1,0},{0,1},{-1,0}]} = re:run("B","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, index}]),
+    {match,[{-1,0},{-1,0},{0,1}]} = re:run("C","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, index}]),
+    {match,[<<"A">>,<<>>,<<>>]} = re:run("A","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, binary}]),
+    {match,[<<>>,<<"B">>,<<>>]} = re:run("B","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, binary}]),
+    {match,[<<>>,<<>>,<<"C">>]} = re:run("C","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, binary}]),
+    {match,["A",[],[]]} = re:run("A","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, list}]),
+    {match,[[],"B",[]]} = re:run("B","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, list}]),
+    {match,[[],[],"C"]} = re:run("C","(?<A>A)|(?<B>B)|(?<C>C)",[{capture, all_names, list}]),
+    {match,[{-1,0},{-1,0},{0,1}]} = re:run("A","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, index}]),
+    {match,[{-1,0},{0,1},{-1,0}]} = re:run("B","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, index}]),
+    {match,[{0,1},{-1,0},{-1,0}]} = re:run("C","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, index}]),
+    {match,[<<>>,<<>>,<<"A">>]} = re:run("A","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, binary}]),
+    {match,[<<>>,<<"B">>,<<>>]} = re:run("B","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, binary}]),
+    {match,[<<"C">>,<<>>,<<>>]} = re:run("C","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, binary}]),
+    {match,[[],[],"A"]} = re:run("A","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, list}]),
+    {match,[[],"B",[]]} = re:run("B","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, list}]),
+    {match,["C",[],[]]} = re:run("C","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, list}]),
+    {match,[[<<>>,<<>>,<<"C">>],
+	    [<<>>,<<>>,<<"C">>],
+	    [<<>>,<<>>,<<"C">>]]} = re:run("CCC","(?<A>A)|(?<B>B)|(?<C>C)",
+				       [global,{capture, all_names, binary}]),
+    {match,[[<<"C">>,<<>>],
+	    [<<>>,<<"B">>],
+	    [<<"C">>,<<>>]]} = re:run("CBC","(?<A>A)|(?<B>B)|(?<A>C)",
+				      [global,dupnames,{capture, all_names, binary}]),
+    {match,[[]]} = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A'],list}]),
+    {match,["D"]} = re:run("ABCDE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A'],list}]),
+    {match,["F"]} = re:run("ABCFE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A'],list}]),
+    {match,["F",[]]} = re:run("ABCFE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A','B'],list}]),
+    {match,[[],"E"]} = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A','B'],list}]),
+    {match,[[],"E"]} = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,all_names,list}]),
+    {match,[{-1,0},{3,1}]}  = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,all_names,index}]),
+    ok.
+
+inspect(doc) ->
+    "Test the minimal inspect function";
+inspect(Config) when is_list(Config)->
+    {ok,MP} = re:compile("(?<A>A)|(?<B>B)|(?<C>C)."),
+    {namelist,[<<"A">>,<<"B">>,<<"C">>]} = re:inspect(MP,namelist),
+    {ok,MPD} = re:compile("(?<A>A)|(?<B>B)|(?<A>C).",[dupnames]),
+    {namelist,[<<"A">>,<<"B">>]} = re:inspect(MPD,namelist),
+    {ok,MPN} = re:compile("(A)|(B)|(C)."),
+    {namelist,[]} = re:inspect(MPN,namelist),
+    {'EXIT',{badarg,_}} = (catch re:inspect(MPD,namelistk)),
+    {'EXIT',{badarg,_}} = (catch re:inspect({re_pattern,3,0,0,<<"kalle">>},namelist)),
+    ok.
+
+opt_no_start_optimize(doc) ->
+    "Test that the no_start_optimize compilation flag works";
+opt_no_start_optimize(Config) when is_list(Config) ->
+    {match, [{3,3}]} = re:run("DEFABC","(*COMMIT)ABC",[]), % Start optimization makes this result wrong!
+    nomatch = re:run("DEFABC","(*COMMIT)ABC",[no_start_optimize]), % This is the correct result...
+    ok.
+
+opt_never_utf(doc) ->
+    "Check that the never_utf option works";
+opt_never_utf(Config) when is_list(Config) ->
+    {match,[{0,3}]} = re:run("ABC","ABC",[never_utf]),
+    {match,[{0,3}]} = re:run("ABC","(*UTF)ABC",[]),
+    {ok,_} = re:compile("(*UTF)ABC"),
+    {ok,_} = re:compile("(*UTF)ABC",[unicode]),
+    {ok,_} = re:compile("(*UTF8)ABC"),
+    {'EXIT',{badarg,_}} = (catch re:run("ABC","ABC",[unicode,never_utf])),
+    {'EXIT',{badarg,_}} = (catch re:run("ABC","(*UTF)ABC",[never_utf])),
+    {'EXIT',{badarg,_}} = (catch re:run("ABC","(*UTF8)ABC",[never_utf])),
+    {error,_} = (catch re:compile("ABC",[unicode,never_utf])),
+    {error,_} = (catch re:compile("(*UTF)ABC",[never_utf])),
+    {error,_} = (catch re:compile("(*UTF8)ABC",[never_utf])),
+    ok.
+opt_ucp(doc) ->
+    "Check that the ucp option is passed to PCRE";
+opt_ucp(Config) when is_list(Config) ->
+    {match,[{0,1}]} = re:run([$a],"\\w",[unicode]),
+    {match,[{0,2}]} = re:run([229],"\\w",[unicode]), % Latin1 works without UCP, as we have a default 
+						     % Latin1 table
+    nomatch = re:run([1024],"\\w",[unicode]), % Latin1 word characters only, 1024 is not latin1
+    {match,[{0,2}]} = re:run([1024],"\\w",[unicode,ucp]), % Any Unicode word character works with 'ucp'
     ok.
