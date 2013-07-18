@@ -78,19 +78,28 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-api(suite) ->
-    [];
-api(doc) ->
-    ["Test of API functions"];
+api(suite) -> [];
+api(doc) -> ["Test of API functions"];
 api(Config) when is_list(Config) ->
 
     %% get_disk_data()
-    ?line [{Id, KByte, Capacity}|_] = disksup:get_disk_data(),
-    ?line true = io_lib:printable_list(Id),
-    ?line true = is_integer(KByte),
-    ?line true = is_integer(Capacity),
-    ?line true = KByte>0,
-    ?line true = Capacity>0,
+    Data = disksup:get_disk_data(),
+    case lists:keysearch("/ldisk", 1, Data) of
+	{value,{Id,KByte,Capacity}} ->
+	    true = io_lib:printable_list(Id),
+	    true = is_integer(KByte),
+	    true = is_integer(Capacity),
+	    true = Capacity>0,
+	    true = KByte>0;
+	_ ->
+	    [{Id, KByte, Capacity}|_] = Data,
+	    true = io_lib:printable_list(Id),
+	    true = is_integer(KByte),
+	    true = is_integer(Capacity),
+	    % can be zero
+	    % true = Capacity>0,
+	    true = KByte>0
+    end,
 
     %% get_check_interval()
     ?line 1800000 = disksup:get_check_interval(),
