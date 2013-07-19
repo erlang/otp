@@ -27,9 +27,9 @@
 -type compile_option() :: unicode | anchored | caseless | dollar_endonly
                         | dotall | extended | firstline | multiline
                         | no_auto_capture | dupnames | ungreedy
-                        | {newline, nl_spec()}| bsr_anycrlf
-                        | no_start_optimize | ucp | never_utf
-                        | bsr_unicode.
+                        | {newline, nl_spec()}
+                        | bsr_anycrlf | bsr_unicode
+                        | no_start_optimize | ucp | never_utf.
 
 %%% BIFs
 
