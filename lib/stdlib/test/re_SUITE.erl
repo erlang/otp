@@ -24,7 +24,8 @@
 	 global_capture/1,replace_input_types/1,replace_return/1,
 	 split_autogen/1,split_options/1,split_specials/1,
 	 error_handling/1,pcre_cve_2008_2371/1,
-	 pcre_compile_workspace_overflow/1,re_infinite_loop/1]).
+	 pcre_compile_workspace_overflow/1,re_infinite_loop/1, 
+	 re_backwards_accented/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -36,7 +37,7 @@ all() ->
      replace_autogen, global_capture, replace_input_types,
      replace_return, split_autogen, split_options,
      split_specials, error_handling, pcre_cve_2008_2371,
-     pcre_compile_workspace_overflow, re_infinite_loop].
+     pcre_compile_workspace_overflow, re_infinite_loop, re_backwards_accented].
 
 groups() -> 
     [].
@@ -485,13 +486,13 @@ error_handling() ->
     ?line {match,[[{1,1},{1,1}]]} = re:run("apa",RE,[global]),
     ?line {'EXIT',{badarg,[{re,run,
 			    [<<"apa">>,
-			     {re_pattern,1,0,_},
+			     {re_pattern,1,0,_,_},
 			     [global,unicode]],_},
 			   {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run(<<"apa">>,RE,[global,unicode])),
     ?line {'EXIT',{badarg,[{re,run,
 			    ["apa",
-			     {re_pattern,1,0,_},
+			     {re_pattern,1,0,_,_},
 			     [global,unicode]],_},
 			   {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run("apa",RE,[global,unicode])),
@@ -506,7 +507,7 @@ error_handling() ->
 	(catch re:replace("apa",{1,2,3,4},"X",[global])),
     ?line {'EXIT',{badarg,[{re,replace,
 			    ["apa",
-			     {re_pattern,1,0,_},
+			     {re_pattern,1,0,_,_},
 			     "X",
 			     [unicode]],_},
 			   {?MODULE,error_handling,0,_} | _]}} =
@@ -607,5 +608,15 @@ re_infinite_loop(Config) when is_list(Config) ->
         ++ "([a-zA-Z]{2}|com|org|net|gov|mil"
         ++ "|biz|info|mobi|name|aero|jobs|museum)",
     ?line nomatch = re:run(Str, EMail_regex),
+    ?t:timetrap_cancel(Dog),
+    ok.
+re_backwards_accented(doc) ->
+    "Check for nasty bug where accented graphemes can make PCRE back past "
+	"beginning of subject";
+re_backwards_accented(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(1)),
+    ?line match = re:run(<<65,204,128,65,204,128,97,98,99>>,
+			 <<"\\X?abc">>,
+			 [unicode,{capture,none}]),
     ?t:timetrap_cancel(Dog),
     ok.
