@@ -19,8 +19,8 @@
 -module(re).
 -export([grun/3,urun/3,ucompile/2,replace/3,replace/4,split/2,split/3]).
 
-%-opaque mp() :: {re_pattern, _, _, _}.
--type mp() :: {re_pattern, _, _, _}.
+%-opaque mp() :: {re_pattern, _, _, _, _}.
+-type mp() :: {re_pattern, _, _, _, _}.
 
 -type nl_spec() :: cr | crlf | lf | anycrlf | any.
 
@@ -266,7 +266,7 @@ extend_subpatterns([],N) ->
 extend_subpatterns([H|T],N) ->
     [H | extend_subpatterns(T,N-1)].
 
-compile_split({re_pattern,N,_,_} = Comp, Options) ->
+compile_split({re_pattern,N,_,_,_} = Comp, Options) ->
     {Comp,N,Options};
 compile_split(Pat,Options0) when not is_tuple(Pat) ->
     Options = lists:filter(fun(O) ->
@@ -275,7 +275,7 @@ compile_split(Pat,Options0) when not is_tuple(Pat) ->
     case re:compile(Pat,Options) of
 	{error,Err} ->
 	    {error,Err};
-	{ok, {re_pattern,N,_,_} = Comp} ->
+	{ok, {re_pattern,N,_,_,_} = Comp} ->
 	    NewOpt = lists:filter(fun(OO) -> (not copt(OO)) end, Options0),
 	    {Comp,N,NewOpt}
     end;
@@ -487,12 +487,24 @@ do_replace(Subject,Repl,SubExprs0) ->
       end || Part <- Repl ].
 
 
-check_for_unicode({re_pattern,_,1,_},_) ->
+check_for_unicode({re_pattern,_,1,_,_},_) ->
     true;
-check_for_unicode({re_pattern,_,0,_},_) ->
+check_for_unicode({re_pattern,_,0,_,_},_) ->
     false;
 check_for_unicode(_,L) ->
     lists:member(unicode,L).
+
+check_for_crlf({re_pattern,_,_,1,_},_) ->
+    true;
+check_for_crlf({re_pattern,_,_,0,_},_) ->
+    false;
+check_for_crlf(_,L) ->
+    case lists:keysearch(newline,1,L) of
+	{value,{newline,any}} -> true;
+	{value,{newline,crlf}} -> true;
+	{value,{newline,anycrlf}} -> true;
+	_ -> false
+    end.
     
 % SelectReturn = false | all | stirpfirst | none 
 % ConvertReturn = index | list | binary
@@ -662,7 +674,7 @@ urun2(Subject0,RE0,Options0) ->
     RE = case RE0 of
 	     BinRE when is_binary(BinRE) ->
 		 BinRE;
-	     {re_pattern,_,_,_} = ReCompiled ->
+	     {re_pattern,_,_,_,_} = ReCompiled ->
 		 ReCompiled;
 	     ListRE ->
 		 unicode:characters_to_binary(ListRE,unicode)
@@ -703,10 +715,11 @@ grun(Subject,RE,{Options,NeedClean,OrigRE}) ->
 
 grun2(Subject,RE,{Options,NeedClean}) ->
     Unicode = check_for_unicode(RE,Options),
+    CRLF = check_for_crlf(RE,Options),
     FlatSubject = to_binary(Subject, Unicode),
-    do_grun(FlatSubject,Subject,Unicode,RE,{Options,NeedClean}).
+    do_grun(FlatSubject,Subject,Unicode,CRLF,RE,{Options,NeedClean}).
 
-do_grun(FlatSubject,Subject,Unicode,RE,{Options0,NeedClean}) ->
+do_grun(FlatSubject,Subject,Unicode,CRLF,RE,{Options0,NeedClean}) ->
     {StrippedOptions, InitialOffset,
      SelectReturn, ConvertReturn} = 
 	case (catch 
@@ -718,12 +731,12 @@ do_grun(FlatSubject,Subject,Unicode,RE,{Options0,NeedClean}) ->
 	end,
     postprocess(loopexec(FlatSubject,RE,InitialOffset,
 			 byte_size(FlatSubject),
-			 Unicode,StrippedOptions),
+			 Unicode,CRLF,StrippedOptions),
 		SelectReturn,ConvertReturn,FlatSubject,Unicode).
 
-loopexec(_,_,X,Y,_,_) when X > Y ->
+loopexec(_,_,X,Y,_,_,_) when X > Y ->
     {match,[]};
-loopexec(Subject,RE,X,Y,Unicode,Options) ->
+loopexec(Subject,RE,X,Y,Unicode,CRLF,Options) ->
     case re:run(Subject,RE,[{offset,X}]++Options) of
 	nomatch ->
 	    {match,[]};
@@ -731,7 +744,7 @@ loopexec(Subject,RE,X,Y,Unicode,Options) ->
 	    {match,Rest} = 
 		case B>0 of
 		    true ->
-			loopexec(Subject,RE,A+B,Y,Unicode,Options);
+			loopexec(Subject,RE,A+B,Y,Unicode,CRLF,Options);
 		    false ->
 			{match,M} = 
 			    case re:run(Subject,RE,[{offset,X},notempty,
@@ -745,10 +758,10 @@ loopexec(Subject,RE,X,Y,Unicode,Options) ->
 				   [{_,NStep}|_] when NStep > 0 ->
 				       A+NStep;
 				   _ ->
-				       forward(Subject,A,1,Unicode)
+				       forward(Subject,A,1,Unicode,CRLF)
 			       end,
 			{match,MM} = loopexec(Subject,RE,NewA,Y,
-					      Unicode,Options),
+					      Unicode,CRLF,Options),
 			case M of 
 			    [] ->
 				{match,MM};
@@ -759,11 +772,22 @@ loopexec(Subject,RE,X,Y,Unicode,Options) ->
 	    {match,[[{A,B}|More] | Rest]}
     end.
     
-forward(_Chal,A,0,_) ->
+forward(_Chal,A,0,_,_) ->
     A;
-forward(_Chal,A,N,false) ->
-    A+N;
-forward(Chal,A,N,true) ->
+forward(Chal,A,N,U,true) ->
+    <<_:A/binary,Tl/binary>> = Chal,
+    case Tl of
+	<<$\r,$\n,_/binary>> ->
+	    forward(Chal,A+2,N-1,U,true);
+	_ -> 
+	    forward2(Chal,A,N,U,true)
+    end;
+forward(Chal,A,N,U,false) ->
+    forward2(Chal,A,N,U,false).
+
+forward2(Chal,A,N,false,CRLF) ->
+    forward(Chal,A+1,N-1,false,CRLF);
+forward2(Chal,A,N,true,CRLF) ->
     <<_:A/binary,Tl/binary>> = Chal,
     Forw = case Tl of
 	       <<1:1,1:1,0:1,_:5,_/binary>>  ->
@@ -775,7 +799,7 @@ forward(Chal,A,N,true) ->
 	       _ ->
 		   1
 	   end,
-    forward(Chal,A+Forw,N-1,true).
+    forward(Chal,A+Forw,N-1,true,CRLF).
 
 copt(caseless) ->
     true;

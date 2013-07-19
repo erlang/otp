@@ -379,6 +379,8 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
     Eterm ret;
     size_t pattern_size;
     int capture_count;
+    int use_crlf;
+    unsigned long options;
     if (!result) {
 	/* Return {error_tag, {Code, String, Offset}} */
 	int elen = sys_strlen(errstr);
@@ -393,14 +395,20 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
     } else {
 	erts_pcre_fullinfo(result, NULL, PCRE_INFO_SIZE, &pattern_size);
 	erts_pcre_fullinfo(result, NULL, PCRE_INFO_CAPTURECOUNT, &capture_count);
+	erts_pcre_fullinfo(result, NULL, PCRE_INFO_OPTIONS, &options);
+	options &= PCRE_NEWLINE_CR|PCRE_NEWLINE_LF | PCRE_NEWLINE_CRLF |
+               PCRE_NEWLINE_ANY | PCRE_NEWLINE_ANYCRLF;
+	use_crlf = (options == PCRE_NEWLINE_ANY ||
+		    options == PCRE_NEWLINE_CRLF ||
+		    options == PCRE_NEWLINE_ANYCRLF);
 	/* XXX: Optimize - keep in offheap binary to allow this to 
 	   be kept across traps w/o need of copying */
 	ret = new_binary(p, (byte *) result, pattern_size);
 	erts_pcre_free(result);
-	hp = HAlloc(p, (with_ok) ? (3+5) : 5);
-	ret = TUPLE4(hp,am_re_pattern, make_small(capture_count), make_small(unicode),ret);
+	hp = HAlloc(p, (with_ok) ? (3+6) : 6);
+	ret = TUPLE5(hp,am_re_pattern, make_small(capture_count), make_small(unicode),make_small(use_crlf),ret);
 	if (with_ok) {
-	    hp += 5;
+	    hp += 6;
 	    ret = TUPLE2(hp,am_ok,ret);
 	}	    
     }
@@ -875,7 +883,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     is_list_cap = ((pflags & PARSE_FLAG_CAPTURE_OPT) && 
 		   (capture[CAPSPEC_TYPE] == am_list));
 
-    if (is_not_tuple(arg2) || (arityval(*tuple_val(arg2)) != 4)) {
+    if (is_not_tuple(arg2) || (arityval(*tuple_val(arg2)) != 5)) {
 	if (is_binary(arg2) || is_list(arg2) || is_nil(arg2)) {
 	    /* Compile from textual RE */
 	    ErlDrvSizeT slen;
@@ -947,7 +955,8 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 
 	tp = tuple_val(arg2);
 	if (tp[1] != am_re_pattern || is_not_small(tp[2]) || 
-	    is_not_small(tp[3]) || is_not_binary(tp[4])) {
+	    is_not_small(tp[3]) || is_not_small(tp[4]) || 
+	    is_not_binary(tp[5])) {
 	    BIF_ERROR(p,BADARG);
 	}
 
@@ -967,9 +976,9 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 	}
 
 	ovsize = 3*(unsigned_val(tp[2])+1);
-	code_size = binary_size(tp[4]);
+	code_size = binary_size(tp[5]);
 	if ((code_tmp = (const pcre *) 
-	     erts_get_aligned_binary_bytes(tp[4], &temp_alloc)) == NULL) {
+	     erts_get_aligned_binary_bytes(tp[5], &temp_alloc)) == NULL) {
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BIF_ERROR(p, BADARG);
 	}
@@ -1055,9 +1064,10 @@ handle_iolist:
 #ifdef DEBUG
     loop_count = 0xFFFFFFFF;
 #endif
-    
-    rc = erts_pcre_exec(restart.code, &(restart.extra), restart.subject, slength, startoffset, 
-		   options, restart.ovector, ovsize);
+
+    rc = erts_pcre_exec(restart.code, &(restart.extra), restart.subject, 
+			slength, startoffset, 
+			options, restart.ovector, ovsize);
     ASSERT(loop_count != 0xFFFFFFFF);
     BUMP_REDS(p, loop_count / LOOP_FACTOR);
     if (rc == PCRE_ERROR_LOOP_LIMIT) {
