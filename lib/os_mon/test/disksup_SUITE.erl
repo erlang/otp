@@ -83,23 +83,12 @@ api(doc) -> ["Test of API functions"];
 api(Config) when is_list(Config) ->
 
     %% get_disk_data()
-    Data = disksup:get_disk_data(),
-    case lists:keysearch("/ldisk", 1, Data) of
-	{value,{Id,KByte,Capacity}} ->
-	    true = io_lib:printable_list(Id),
-	    true = is_integer(KByte),
-	    true = is_integer(Capacity),
-	    true = Capacity>0,
-	    true = KByte>0;
-	_ ->
-	    [{Id, KByte, Capacity}|_] = Data,
-	    true = io_lib:printable_list(Id),
-	    true = is_integer(KByte),
-	    true = is_integer(Capacity),
-	    % can be zero
-	    % true = Capacity>0,
-	    true = KByte>0
-    end,
+    [{Id,KByte,Capacity}|_] = get_disk_data(),
+    true = io_lib:printable_list(Id),
+    true = is_integer(KByte),
+    true = is_integer(Capacity),
+    true = Capacity>0,
+    true = KByte>0,
 
     %% get_check_interval()
     1800000 = disksup:get_check_interval(),
@@ -315,8 +304,7 @@ port(Config) when is_list(Config) ->
 
 		    %% Give os_mon_sup time to restart disksup
 		    ?t:sleep(?t:seconds(3)),
-		    [{_Disk2,Kbyte2,_Cap2}|_] =
-		    disksup:get_disk_data(),
+		    [{_Disk2,Kbyte2,_Cap2}|_] = disksup:get_disk_data(),
 		    true = Kbyte2>0,
 
 		    ok;
@@ -395,8 +383,7 @@ otp_5910(Config) when is_list(Config) ->
     Data3   = disksup:get_disk_data(),
     Alarms2 = get_alarms(),
     if
-	length(Alarms2)==length(Alarms) ->
-	    ok;
+	length(Alarms2)==length(Alarms) -> ok;
 	true ->
 	    dump_info(),
 	    ?t:fail({bad_alarms,Threshold,Data3,Alarms,Alarms2})
@@ -419,3 +406,16 @@ otp_5910(Config) when is_list(Config) ->
 
 dump_info() ->
     io:format("Status: ~p~n", [sys:get_status(disksup)]).
+
+% filter get_disk_data and remove entriew with zero capacity
+% "non-normal" filesystems report zero capacity
+% - Perhaps errorneous 'df -k -l'?
+% - Always list filesystems by type '-t ufs,zfs,..' instead?
+% It is unclear what the intention was from the beginning.
+get_disk_data() ->
+    get_disk_data(disksup:get_disk_data()).
+
+get_disk_data([{"none",0,0}=E]) -> [E];
+get_disk_data([{_,_,0}|Es]) -> get_disk_data(Es);
+get_disk_data([E|Es]) -> [E|get_disk_data(Es)];
+get_disk_data([]) -> [].
