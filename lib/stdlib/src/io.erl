@@ -40,7 +40,7 @@
 %%-------------------------------------------------------------------------
 
 -type device() :: atom() | pid().
--type prompt() :: atom() | string().
+-type prompt() :: atom() | unicode:chardata().
 
 %% ErrorDescription is whatever the I/O-server sends.
 -type server_no_data() :: {'error', ErrorDescription :: term()} | 'eof'.
