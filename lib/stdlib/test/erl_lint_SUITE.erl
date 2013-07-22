@@ -1098,7 +1098,24 @@ unsafe_vars_try(Config) when is_list(Config) ->
 		    {10,erl_lint,{unsafe_var,'Ra',{'try',3}}},
 		    {10,erl_lint,{unsafe_var,'Rc',{'try',3}}},
 		    {10,erl_lint,{unsafe_var,'Ro',{'try',3}}}],
-	    []}}],
+	    []}},
+          {unsafe_try5,
+           <<"bang() ->
+                case 1 of
+                  nil ->
+                    Acc = 2;
+                  _ ->
+                    try
+                      Acc = 3,
+                      Acc
+                    catch _:_ ->
+                      ok
+                    end
+                end,
+                Acc.
+           ">>,
+           [],
+           {errors,[{13,erl_lint,{unsafe_var,'Acc',{'try',6}}}],[]}}],
         ?line [] = run(Config, Ts),
     ok.
 
