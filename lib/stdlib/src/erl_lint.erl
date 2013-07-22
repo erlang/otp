@@ -2108,7 +2108,7 @@ expr({'try',Line,Es,Scs,Ccs,As}, Vt, St0) ->
     {Evt0,St1} = exprs(Es, Vt, St0),
     TryLine = {'try',Line},
     Uvt = vtunsafe(vtnames(vtnew(Evt0, Vt)), TryLine, []),
-    Evt1 = vtupdate(Uvt, Evt0),
+    Evt1 = vtupdate(Uvt, vtsubtract(Evt0, Uvt)),
     {Sccs,St2} = icrt_clauses(Scs++Ccs, TryLine, vtupdate(Evt1, Vt), St1),
     Rvt0 = Sccs,
     Rvt1 = vtupdate(vtunsafe(vtnames(vtnew(Rvt0, Vt)), TryLine, []), Rvt0),
