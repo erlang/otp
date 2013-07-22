@@ -86,7 +86,7 @@ RELSYSDIR = $(RELEASE_PATH)/snmp_test
 # SNMP FLAGS
 # ----------------------------------------------------
 ifeq ($(SNMP_DEBUG),)
-  SNMP_DEBUG = d
+  # SNMP_DEBUG = d
 endif
 
 ifeq ($(SNMP_DEBUG),e)
