@@ -25,25 +25,25 @@ IMPORTS
     ;
 
 otpRegModule MODULE-IDENTITY
-    LAST-UPDATED "0305090900Z"
+    LAST-UPDATED "200305090900Z"
     ORGANIZATION "Ericsson"
     CONTACT-INFO
        "Contact:  Erlang Support see license agreement for Erlang/OTP."
     DESCRIPTION
        "The root MIB module for OTP."
 
-    REVISION        "0305090900Z"
+    REVISION     "200305090900Z"
     DESCRIPTION
         "Changed CONTACT-INFO as it was outdated, made it more generic
 	to avoid such changes in the future."
   
-    REVISION    "9902020900Z"
+    REVISION     "199902020900Z"
     DESCRIPTION
        "Cleaned up OBJECT IDENTIFIER registration.  Changed the name
        of the MODULE-IDENTITY of this module to non-conflicting name
        otpRegModule."
 
-    REVISION    "9712010900Z"
+    REVISION     "199712010900Z"
     DESCRIPTION
        "The initial revision of MIB module OTP-REG."
     ::= { otpModules 1 }

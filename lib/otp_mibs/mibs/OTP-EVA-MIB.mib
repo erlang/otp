@@ -34,7 +34,7 @@ IMPORTS
     ;
 
 otpEvaModule MODULE-IDENTITY
-    LAST-UPDATED "0305090900Z"
+    LAST-UPDATED "200305090900Z"
     ORGANIZATION "Ericsson"
     CONTACT-INFO
        "Contact:  Erlang Support see license agreement for Erlang/OTP."
@@ -42,19 +42,19 @@ otpEvaModule MODULE-IDENTITY
 	"This MIB is part of the OTP MIB.  It defines MIB objects
 	for the eva application in OTP."
    
-    REVISION	"0305090900Z"
+    REVISION	"200305090900Z"
     DESCRIPTION		
         "Changed CONTACT-INFO as it was outdated, made it more generic
 	to avoid such changes in the future."
     
-    REVISION     "9801270900Z"
+    REVISION     "199801270900Z"
     DESCRIPTION
         "Changed erroneous defintion of alarmCleared notification.
         Changed erroneous name of this module to otpEvaModule."
-    REVISION     "9712010900Z"
+    REVISION     "199712010900Z"
     DESCRIPTION
         "Converted to v2 SMI and placed in the OTP tree."
-    REVISION     "9705020900Z"
+    REVISION     "199705020900Z"
     DESCRIPTION
         "The initial version of this MIB module.  It is very much
         inspired by the ANS-ALM-MIB and Axd301Eva-OMS mibs."
