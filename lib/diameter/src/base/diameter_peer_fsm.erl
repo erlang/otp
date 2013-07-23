@@ -28,7 +28,8 @@
 -behaviour(gen_server).
 
 %% Interface towards diameter_watchdog.
--export([start/3]).
+-export([start/3,
+         result_code/2]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -62,7 +63,6 @@
 %% Keys in process dictionary.
 -define(CB_KEY, cb).         %% capabilities callback
 -define(DPR_KEY, dpr).       %% disconnect callback
--define(DWA_KEY, dwa).       %% outgoing DWA
 -define(REF_KEY, ref).       %% transport_ref()
 -define(Q_KEY, q).           %% transport start queue
 -define(START_KEY, start).   %% start of connected transport
@@ -177,14 +177,9 @@ init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
 
-i({Ack, WPid, {M, Ref} = T, Opts, {Mask,
-                                   Nodes,
-                                   Dict0,
-                                   #diameter_service{capabilities = LCaps}
-                                   = Svc}}) ->
+i({Ack, WPid, {M, Ref} = T, Opts, {Mask, Nodes, Dict0, Svc}}) ->
     erlang:monitor(process, WPid),
     wait(Ack, WPid),
-    putr(?DWA_KEY, dwa(LCaps)),
     diameter_stats:reg(Ref),
     {[Cs,Ds], Rest} = proplists:split(Opts, [capabilities_cb, disconnect_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Cs]}),
@@ -612,9 +607,7 @@ rcv(Name, _, #state{state = PS})
        Name == 'CEA' ->
     {stop, {Name, PS}};
 
-rcv(N, Pkt, S)
-  when N == 'DWR';
-       N == 'DPR' ->
+rcv('DPR' = N, Pkt, S) ->
     handle_request(N, Pkt, S);
 
 %% DPA in response to DPR and with the expected identifiers.
@@ -717,8 +710,8 @@ build_answer(Type,
                               errors = Es}
              = Pkt,
              S) ->
-    RC = rc(H, Es),
-    {answer(Type, RC, Es, S), post(Type, RC, Pkt, S)}.
+    {RC, FailedAVP} = result_code(H, Es),
+    {answer(Type, RC, FailedAVP, S), post(Type, RC, Pkt, S)}.
 
 inband_security([]) ->
     ?NO_INBAND_SECURITY;
@@ -734,7 +727,7 @@ cea(CEA, RC, Dict0) ->
 
 post('CER' = T, RC, Pkt, S) ->
     {T, caps(S), {RC, Pkt}};
-post(_, _, _, _) ->
+post('DPR', _, _, _) ->
     ok.
 
 rejected({capabilities_cb, _F, Reason}, T, S) ->
@@ -743,12 +736,9 @@ rejected({capabilities_cb, _F, Reason}, T, S) ->
 rejected(discard, T, _) ->
     close(T);
 rejected({N, Es}, T, S) ->
-    {answer('CER', N, Es, S), T};
+    {answer('CER', N, failed_avp(N, Es), S), T};
 rejected(N, T, S) ->
     rejected({N, []}, T, S).
-
-answer(Type, RC, Es, S) ->
-    set(answer(Type, RC, S), failed_avp(RC, Es)).
 
 failed_avp(RC, [{RC, Avp} | _]) ->
     [{'Failed-AVP', [{'AVP', [Avp]}]}];
@@ -756,6 +746,9 @@ failed_avp(RC, [_ | Es]) ->
     failed_avp(RC, Es);
 failed_avp(_, [] = No) ->
     No.
+
+answer(Type, RC, FailedAVP, S) ->
+    set(answer(Type, RC, S), FailedAVP).
 
 answer(Type, RC, S) ->
     answer_message(answer(Type, S), RC).
@@ -784,29 +777,29 @@ set(['answer-message' | _] = Ans, FailedAvp) ->
 set([_|_] = Ans, FailedAvp) ->
     Ans ++ FailedAvp.
 
-%% rc/2
+%% result_code/2
 
-rc(#diameter_header{is_error = true}, _) ->
-    3008;  %% DIAMETER_INVALID_HDR_BITS
+result_code(#diameter_header{is_error = true}, _) ->
+    {3008, []};  %% DIAMETER_INVALID_HDR_BITS
 
-rc(_, [Bs|_])
+result_code(_, [Bs|_])
   when is_bitstring(Bs) ->  %% from old code
-    3009;  %% DIAMETER_INVALID_HDR_BITS
+    {3009, []};  %% DIAMETER_INVALID_HDR_BITS
 
-rc(#diameter_header{version = ?DIAMETER_VERSION}, Es) ->
+result_code(#diameter_header{version = ?DIAMETER_VERSION}, Es) ->
     rc(Es);
 
-rc(_, _) ->
-    5011.  %% DIAMETER_UNSUPPORTED_VERSION
+result_code(_, _) ->
+    {5011, []}.  %% DIAMETER_UNSUPPORTED_VERSION
 
 %% rc/1
 
 rc([]) ->
-    2001;  %% DIAMETER_SUCCESS
-rc([{RC,_}|_]) ->
-    RC;
+    {2001, []};  %% DIAMETER_SUCCESS
+rc([{RC, _} | _] = Es) ->
+    {RC, failed_avp(RC, Es)};
 rc([RC|_]) ->
-    RC.
+    {RC, []}.
 
 %%   DIAMETER_INVALID_HDR_BITS          3008
 %%      A request was received whose bits in the Diameter header were
@@ -831,9 +824,6 @@ rc([RC|_]) ->
 %%      number is unsupported.
 
 %% answer/2
-
-answer('DWR', _) ->
-    getr(?DWA_KEY);
 
 answer(Name, #state{service = #diameter_service{capabilities = Caps}}) ->
     a(Name, Caps).
@@ -1018,15 +1008,6 @@ report({M, _, _, _, _} = T)
     diameter_lib:error_report(failure, T);
 report(_) ->
     ok.
-
-%% dwa/1
-
-dwa(#diameter_caps{origin_host = OH,
-                   origin_realm = OR,
-                   origin_state_id = OSI}) ->
-    ['DWA', {'Origin-Host', OH},
-            {'Origin-Realm', OR},
-            {'Origin-State-Id', OSI}].
 
 %% dpr/2
 %%

@@ -201,7 +201,7 @@ common_dictionary(Apps) ->
             %% means a user won't be able either send of receive
             %% messages in the common dictionary: incoming request
             %% will be answered with 3007 and outgoing requests cannot
-            %% be sent. The dictionary returned here is oly used for
+            %% be sent. The dictionary returned here is only used for
             %% messages diameter sends and receives: CER/CEA, DPR/DPA
             %% and DWR/DWA.
             ?BASE
@@ -545,10 +545,15 @@ recv(Name, Pkt, S) ->
 
 %% rcv/3
 
+rcv('DWR', Pkt, #watchdog{transport = TPid,
+                          dictionary = Dict0,
+                          sequence = Mask}) ->
+    send(TPid, {send, encode(dwa(Pkt), Mask, Dict0)}),
+    ?LOG(send, 'DWA');
+
 rcv(N, _, _)
   when N == 'CER';
        N == 'CEA';
-       N == 'DWR';
        N == 'DWA';
        N == 'DPR';
        N == 'DPA' ->
@@ -641,6 +646,9 @@ rcv('DWA', #watchdog{status = reopen,
                pending = false};
 
 %%   REOPEN        Receive non-DWA      Throwaway()          REOPEN
+
+rcv('DWR', #watchdog{status = reopen} = S) ->
+    S;  %% ensure DWA: the RFC isn't explicit about answering
 
 rcv(_, #watchdog{status = reopen} = S) ->
     throwaway(S).
@@ -781,6 +789,13 @@ dwr(#diameter_caps{origin_host = OH,
     ['DWR', {'Origin-Host', OH},
             {'Origin-Realm', OR},
             {'Origin-State-Id', OSI}].
+
+%% dwa/1
+
+dwa(#diameter_packet{header = H, errors = Es}) ->
+    {RC, FailedAVP} = diameter_peer_fsm:result_code(H, Es),
+    ['DWA', {'Result-Code', RC}
+          | tl(getr(dwr)) ++ FailedAVP].
 
 %% restrict_nodes/1
 
