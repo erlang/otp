@@ -180,12 +180,13 @@ reconnect({listen, Ref}) ->
     [_] = diameter_reg:wait({diameter_tcp, listener, {LRef, '_'}}),
     true = diameter_reg:add_new({?MODULE, Ref, LRef}),
 
-    %% Wait for partner to request transport death: kill to force the
-    %% peer to reconnect.
+    %% Wait for partner to request transport death.
     TPid = abort(SvcName, LRef, Ref),
 
+    %% Kill transport to force the peer to reconnect.
     exit(TPid, kill),
 
+    %% Wait for the partner again.
     abort(SvcName, LRef, Ref);
 
 reconnect({connect, Ref}) ->
@@ -200,7 +201,7 @@ reconnect({connect, Ref}) ->
     %% reconnection attempts.
     abort(SvcName, Pid, Ref),
 
-    %% Transport does down and is reestablished.
+    %% Transport goes down and is reestablished.
     ?RECV(#diameter_event{service = SvcName, info = {down, CRef, _, _}}),
     ?RECV(#diameter_event{service = SvcName, info = {reconnect, CRef, _}}),
     ?RECV(#diameter_event{service = SvcName, info = {up, CRef, _, _, _}}),
