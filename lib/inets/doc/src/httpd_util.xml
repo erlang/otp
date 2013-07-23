@@ -337,10 +337,10 @@
 
     <func>
       <name>rfc1123_date() -> RFC1123Date</name>
-      <name>rfc1123_date({{YYYY,MM,DD},{Hour,Min,Sec}}}) -> RFC1123Date</name>
+      <name>rfc1123_date({{YYYY,MM,DD},{Hour,Min,Sec}}) -> RFC1123Date</name>
       <fsummary>Return the current date in RFC 1123 format.</fsummary>
       <type>
-        <v>YYYY = MM = DD = Hour = Min =Sec = integer()</v>
+        <v>YYYY = MM = DD = Hour = Min = Sec = integer()</v>
         <v>RFC1123Date = string()</v>
       </type>
       <desc>

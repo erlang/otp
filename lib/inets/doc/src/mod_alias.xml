@@ -118,7 +118,7 @@
     </func>
 
     <func>
-      <name>real_script_name(ConfigDB,RequestURI,ScriptAliases) -> Ret</name>
+      <name>real_script_name(ConfigDB, RequestURI, ScriptAliases) -> Ret</name>
       <fsummary>Expand a request uri using ScriptAlias config directives.</fsummary>
       <type>
         <v>ConfigDB = config_db()</v>
@@ -129,7 +129,7 @@
       </type>
       <desc>
         <marker id="real_script_name"></marker>
-        <p><c>real_name/3</c> traverses <c>ScriptAliases</c>,
+        <p><c>real_script_name/3</c> traverses <c>ScriptAliases</c>,
 	typically extracted from <c>ConfigDB</c>, and matches each
 	<c>FakeName</c> with <c>RequestURI</c>. If a match is found
 	<c>FakeName</c> is replaced with <c>RealName</c> in the
