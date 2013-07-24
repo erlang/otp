@@ -41,6 +41,9 @@
 -type filename() :: file:name().
 -type dirname() :: filename().
 
+-type filename_all() :: file:name_all().
+-type dirname_all() :: filename_all().
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec wildcard(Wildcard) -> [file:filename()] when
@@ -62,29 +65,29 @@ wildcard(Pattern, Cwd, Mod)
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, Mod)).
 
 -spec is_dir(Name) -> boolean() when
-      Name :: filename() | dirname().
+      Name :: filename_all() | dirname_all().
 is_dir(Dir) ->
     do_is_dir(Dir, file).
 
--spec is_dir(file:name(), atom()) -> boolean().
+-spec is_dir(file:name_all(), atom()) -> boolean().
 is_dir(Dir, Mod) when is_atom(Mod) ->
     do_is_dir(Dir, Mod).
 
 -spec is_file(Name) -> boolean() when
-      Name :: filename() | dirname().
+      Name :: filename_all() | dirname_all().
 is_file(File) ->
     do_is_file(File, file).
 
--spec is_file(file:name(), atom()) -> boolean().
+-spec is_file(file:name_all(), atom()) -> boolean().
 is_file(File, Mod) when is_atom(Mod) ->
     do_is_file(File, Mod).
 
 -spec is_regular(Name) -> boolean() when
-      Name :: filename().
+      Name :: filename_all().
 is_regular(File) ->
     do_is_regular(File, file).
     
--spec is_regular(file:name(), atom()) -> boolean().
+-spec is_regular(file:name_all(), atom()) -> boolean().
 is_regular(File, Mod) when is_atom(Mod) ->
     do_is_regular(File, Mod).
     
@@ -103,16 +106,16 @@ fold_files(Dir, RegExp, Recursive, Fun, Acc, Mod) when is_atom(Mod) ->
     do_fold_files(Dir, RegExp, Recursive, Fun, Acc, Mod).
 
 -spec last_modified(Name) -> file:date_time() | 0 when
-      Name :: filename() | dirname().
+      Name :: filename_all() | dirname_all().
 last_modified(File) ->
     do_last_modified(File, file).
 
--spec last_modified(file:name(), atom()) -> file:date_time() | 0.
+-spec last_modified(file:name_all(), atom()) -> file:date_time() | 0.
 last_modified(File, Mod) when is_atom(Mod) ->
     do_last_modified(File, Mod).
 
 -spec file_size(Filename) -> non_neg_integer() when
-      Filename :: filename().
+      Filename :: filename_all().
 file_size(File) ->
     do_file_size(File, file).
 
@@ -218,7 +221,7 @@ do_file_size(File, Mod) ->
 %% ensures that the directory name required to create D exists
 
 -spec ensure_dir(Name) -> 'ok' | {'error', Reason} when
-      Name :: filename() | dirname(),
+      Name :: filename_all() | dirname_all(),
       Reason :: file:posix().
 ensure_dir("/") ->
     ok;
