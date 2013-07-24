@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -360,7 +360,7 @@ v6enc([], B) ->
     'UTF8String'(M, []);
 
 'UTF8String'(encode, S) ->
-    uenc(S, []).
+    uenc(if is_binary(S) -> [S]; true -> S end, []).
 
 udec(<<>>, Acc) ->
     lists:reverse(Acc);
@@ -368,19 +368,19 @@ udec(<<>>, Acc) ->
 udec(<<C/utf8, Rest/binary>>, Acc) ->
     udec(Rest, [C | Acc]).
 
-uenc(E, Acc)
-  when E == [];
-       E == <<>> ->
+uenc([], Acc) ->
     list_to_binary(lists:reverse(Acc));
 
-uenc(<<C/utf8, Rest/binary>>, Acc) ->
-    uenc(Rest, [<<C/utf8>> | Acc]);
-
-uenc([[] | Rest], Acc) ->
+uenc([E | Rest], Acc)
+  when E == <<>>;
+       E == [] ->
     uenc(Rest, Acc);
 
 uenc([[H|T] | Rest], Acc) ->
     uenc([H, T | Rest], Acc);
+
+uenc([<<C/utf8, T/binary>> | Rest], Acc) ->
+    uenc([C, T | Rest], Acc);
 
 uenc([C | Rest], Acc) ->
     uenc(Rest, [<<C/utf8>> | Acc]).

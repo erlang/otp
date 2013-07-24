@@ -1,3 +1,4 @@
+%% coding: utf-8
 %%
 %% %CopyrightBegin%
 %%
@@ -19,7 +20,9 @@
 
 -module(diameter_codec_test).
 
--compile(export_all).
+-export([base/0,
+         gen/1,
+         lib/0]).
 
 %%
 %% Test encode/decode of dictionary-related modules.
@@ -38,28 +41,27 @@
 %% Interface.
 
 base() ->
-    [] = run([{?MODULE, [base, T]} || T <- [zero, decode]]).
+    [] = run([[fun base/1, T] || T <- [zero, decode]]).
 
 gen(Mod) ->
     Fs = [{Mod, F, []} || F <- [name, id, vendor_id, vendor_name]],
-    [] = run(Fs ++ [{?MODULE, [gen, Mod, T]} || T <- [messages,
-                                                      command_codes,
-                                                      avp_types,
-                                                      grouped,
-                                                      enum,
-                                                      import_avps,
-                                                      import_groups,
-                                                      import_enums]]).
+    [] = run(Fs ++ [[fun gen/2, Mod, T] || T <- [messages,
+                                                 command_codes,
+                                                 avp_types,
+                                                 grouped,
+                                                 enum,
+                                                 import_avps,
+                                                 import_groups,
+                                                 import_enums]]).
 
 lib() ->
-    Vs = {_,_} = values('Address'),
-    [] = run([[fun lib/2, N, Vs] || N <- [1,2]]).
+    Vs = {_,_,_} = values('Address'),
+    [] = run([[fun lib/2, N, Vs] || N <- [{1, true}, {3, false}]]).
 
 %% ===========================================================================
 %% Internal functions.
 
-lib(N, {_,_} = T) ->
-    B = 1 == N rem 2,
+lib({N,B}, {_,_,_} = T) ->
     [] = run([[fun lib/2, A, B] || A <- element(N,T)]);
 
 lib(IP, B) ->
@@ -90,7 +92,7 @@ ip([_,_,_,_,_,_,_,_] = A) ->
 %% ------------------------------------------------------------------------
 
 base(T) ->
-    [] = run([{?MODULE, [base, T, F]} || F <- types()]).
+    [] = run([[fun base/2, T, F] || F <- types()]).
 
 %% Ensure that 'zero' values encode only zeros.
 base(zero = T, F) ->
@@ -100,31 +102,22 @@ base(zero = T, F) ->
 %% Ensure that we can decode what we encode and vice-versa, and that
 %% we can't decode invalid values.
 base(decode, F) ->
-    {Eq, Vs, Ns} = b(values(F)),
-    [] = run([{?MODULE, [base_decode, F, Eq, V]}  || V <- Vs]),
-    [] = run([{?MODULE, [base_invalid, F, Eq, V]} || V <- Ns]).
+    {Ts, Fs, Is} = values(F),
+    [] = run([[fun base_decode/3, F, true, V]  || V <- Ts]),
+    [] = run([[fun base_decode/3, F, false, V] || V <- Fs]),
+    [] = run([[fun base_invalid/2, F, V]       || V <- Is]).
 
 base_decode(F, Eq, Value) ->
     d(fun(X,V) -> diameter_types:F(X,V) end, Eq, Value).
 
-base_invalid(F, Eq, Value) ->
+base_invalid(F, Value) ->
     try
-        base_decode(F, Eq, Value),
+        base_decode(F, false, Value),
         exit(nok)
     catch
         error: _ ->
             ok
     end.
-
-b({_,_,_} = T) ->
-    T;
-b({B,Vs})
-  when is_atom(B) ->
-    {B,Vs,[]};
-b({Vs,Ns}) ->
-    {true, Vs, Ns};
-b(Vs) ->
-    {true, Vs, []}.
 
 types() ->
     [F || {F,2} <- diameter_types:module_info(exports)].
@@ -136,7 +129,7 @@ types() ->
 %% ------------------------------------------------------------------------
 
 gen(M, T) ->
-    [] = run(lists:map(fun(X) -> {?MODULE, [gen, M, T, X]} end,
+    [] = run(lists:map(fun(X) -> [fun gen/3, M, T, X] end,
                        fetch(T, dict(M)))).
 
 fetch(T, Spec) ->
@@ -197,18 +190,20 @@ gen(M, enum = T, {Name, ED})
     gen(M, T, {?A(Name), lists:map(fun({E,D}) -> {?A(E), D} end, ED)});
 
 gen(M, enum, {Name, ED}) ->
-    [] = run([{?MODULE, [enum, M, Name, T]} || T <- ED]);
+    [] = run([[fun enum/3, M, Name, T] || T <- ED]);
 
 gen(M, Tag, {_Mod, L}) ->
     T = retag(Tag),
-    [] = run([{?MODULE, [gen, M, T, I]} || I <- L]).
+    [] = run([[fun gen/3, M, T, I] || I <- L]).
 
 %% avp_decode/3
 
 avp_decode(Mod, Type, Name) ->
-    {Eq, Vs, _} = b(values(Type, Name, Mod)),
-    [] = run([{?MODULE, [avp_decode, Mod, Name, Type, Eq, V]}
-              || V <- v(Vs)]).
+    {Ts, Fs, _} = values(Type, Name, Mod),
+    [] = run([[fun avp_decode/5, Mod, Name, Type, true, V]
+              || V <- v(Ts)]),
+    [] = run([[fun avp_decode/5, Mod, Name, Type, false, V]
+              || V <- v(Fs)]).
 
 avp_decode(Mod, Name, Type, Eq, Value) ->
     d(fun(X,V) -> avp(Mod, X, V, Name, Type) end, Eq, Value).
@@ -250,7 +245,7 @@ v(N, Ord, E, Acc) ->
 
 arity(M, Name, Rname) ->
     Rec = M:'#new-'(Rname),
-    [] = run([{?MODULE, [arity, M, Name, F, Rec]}
+    [] = run([[fun arity/4, M, Name, F, Rec]
               || F <- M:'#info-'(Rname, fields)]).
 
 arity(M, Name, AvpName, Rec) ->
@@ -299,68 +294,93 @@ z(B) ->
 %% tested.)
 
 values('OctetString' = T) ->
-    {["", atom_to_list(T)], [-1, 256]};
+    {["", atom_to_list(T)],
+     [],
+     [-1, 256]};
 
 values('Integer32') ->
     Mx = (1 bsl 31) - 1,
     Mn = -1*Mx,
-    {[Mn, 0, random(Mn,Mx), Mx], [Mn - 1, Mx + 1]};
+    {[Mn, 0, random(Mn,Mx), Mx],
+     [],
+     [Mn - 1, Mx + 1]};
 
 values('Integer64') ->
     Mx = (1 bsl 63) - 1,
     Mn = -1*Mx,
-    {[Mn, 0, random(Mn,Mx), Mx], [Mn - 1, Mx + 1]};
+    {[Mn, 0, random(Mn,Mx), Mx],
+     [],
+     [Mn - 1, Mx + 1]};
 
 values('Unsigned32') ->
     M = (1 bsl 32) - 1,
-    {[0, random(M), M], [-1, M + 1]};
+    {[0, random(M), M],
+     [],
+     [-1, M + 1]};
 
 values('Unsigned64') ->
     M = (1 bsl 64) - 1,
-    {[0, random(M), M], [-1, M + 1]};
+    {[0, random(M), M],
+     [],
+     [-1, M + 1]};
 
 values('Float32') ->
     E = (1 bsl  8) - 2,
     F = (1 bsl 23) - 1,
     <<Mx:32/float>> = <<0:1, E:8, F:23>>,
     <<Mn:32/float>> = <<1:1, E:8, F:23>>,
-    {[0.0, infinity, '-infinity', Mx, Mn], [0]};
+    {[0.0, infinity, '-infinity', Mx, Mn],
+     [],
+     [0]};
 
 values('Float64') ->
     E = (1 bsl 11) - 2,
     F = (1 bsl 52) - 1,
     <<Mx:64/float>> = <<0:1, E:11, F:52>>,
     <<Mn:64/float>> = <<1:1, E:11, F:52>>,
-    {[0.0, infinity, '-infinity', Mx, Mn], [0]};
+    {[0.0, infinity, '-infinity', Mx, Mn],
+     [],
+     [0]};
 
 values('Address') ->
     {[{255,0,random(16#FF),1}, {65535,0,0,random(16#FFFF),0,0,0,1}],
+     [],
      [{256,0,0,1}, {65536,0,0,0,0,0,0,1}]};
 
 values('DiameterIdentity') ->
-    {["x", "diameter.com"], [""]};
+    {["x", "diameter.com"],
+     [],
+     [""]};
 
 values('DiameterURI') ->
-    {false, ["aaa" ++ S ++ "://diameter.se" ++ P ++ Tr ++ Pr
-             || S  <- ["", "s"],
-                P  <- ["", ":1234"],
-                Tr <- ["" | [";transport=" ++ X
-                             || X <- ["tcp", "sctp", "udp"]]],
-                Pr <- ["" | [";protocol=" ++ X
-                             || X <- ["diameter","radius","tacacs+"]]]]};
+    {[],
+     ["aaa" ++ S ++ "://diameter.se" ++ P ++ Tr ++ Pr
+      || S  <- ["", "s"],
+         P  <- ["", ":1234"],
+         Tr <- ["" | [";transport=" ++ X
+                      || X <- ["tcp", "sctp", "udp"]]],
+         Pr <- ["" | [";protocol=" ++ X
+                      || X <- ["diameter","radius","tacacs+"]]]],
+     []};
 
 values(T)
   when T == 'IPFilterRule';
        T == 'QoSFilterRule' ->
-    ["deny in 0 from 127.0.0.1 to 10.0.0.1"];
+    {["deny in 0 from 127.0.0.1 to 10.0.0.1"],
+     [],
+     []};
 
 %% RFC 3629 defines the UTF-8 encoding of U+0000 through U+10FFFF with the
 %% exception of U+D800 through U+DFFF.
 values('UTF8String') ->
+    S = "ᚠᚢᚦᚨᚱᚲ",
+    B = unicode:characters_to_binary(S),
     {[[],
+      S,
       lists:seq(0,16#1FF),
       [0,16#D7FF,16#E000,16#10FFFF],
       [random(16#D7FF), random(16#E000,16#10FFFF)]],
+     [B, [B, S, hd(S)], [S, B]],
      [[-1],
       [16#D800],
       [16#DFFF],
@@ -372,6 +392,7 @@ values('Time') ->
       {{2036,2,7},{6,28,15}},
       {{2036,2,7},{6,28,16}},    %% 19000101T000000 + 2 bsl 31
       {{2104,2,26},{9,42,23}}],
+     [],
      [{{1968,1,20},{3,14,7}},
       {{2104,2,26},{9,42,24}}]}. %% 19000101T000000 + 3 bsl 31
 
@@ -382,18 +403,24 @@ values('Time') ->
 
 values('Enumerated', Name, Mod) ->
     {_Name, Vals} = lists:keyfind(?S(Name), 1, types(enum, Mod)),
-    lists:map(fun({_,N}) -> N end, Vals);
+    {lists:map(fun({_,N}) -> N end, Vals),
+     [],
+     []};
 
 values('Grouped', Name, Mod) ->
     Rname = Mod:name2rec(Name),
     Rec = Mod:'#new-'(Rname),
     Avps = Mod:'#info-'(Rname, fields),
-    Enum = diameter_enum:combine(lists:map(fun({_,Vs,_}) -> to_enum(Vs) end,
+    Enum = diameter_enum:combine(lists:map(fun({Vs,_,_}) -> to_enum(Vs) end,
                                            [values(F, Mod) || F <- Avps])),
-    {false, diameter_enum:append(group(Mod, Name, Rec, Avps, Enum))};
+    {[],
+     diameter_enum:append(group(Mod, Name, Rec, Avps, Enum)),
+     []};
 
 values(_, 'Framed-IP-Address', _) ->
-    [{127,0,0,1}];
+    {[{127,0,0,1}],
+     [],
+     []};
 
 values(Type, _, _) ->
     values(Type).
@@ -407,12 +434,14 @@ to_enum(E) ->
 %% values/2
 
 values('AVP', _) ->
-    {true, [#diameter_avp{code = 0, data = <<0>>}], []};
+    {[#diameter_avp{code = 0, data = <<0>>}],
+     [],
+     []};
 
 values(Name, Mod) ->
     Avps = types(avp_types, Mod),
     {_Name, _Code, Type, _Flags} = lists:keyfind(?S(Name), 1, Avps),
-    b(values(?A(Type), Name, Mod)).
+    values(?A(Type), Name, Mod).
 
 %% group/5
 %%
