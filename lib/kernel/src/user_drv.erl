@@ -418,7 +418,7 @@ list_commands(Iport, Oport) ->
 		  true -> 
 		      [];
 		  false ->
-		      [{put_chars,unicode,"  q        - quit erlang\n"}]
+		      [{put_chars, unicode,"  q                 - quit erlang\n"}]
 	      end,
     io_requests([{put_chars, unicode,"  c [nn]            - connect to job\n"},
 		 {put_chars, unicode,"  i [nn]            - interrupt job\n"},
