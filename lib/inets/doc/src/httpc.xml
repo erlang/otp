@@ -300,11 +300,11 @@ filename()       = string()
 	    process or to a file. When streaming to the calling process 
 	    using the option <c>self</c> the following stream messages
 	    will be sent to that process: <c>{http, {RequestId,
-	    stream_start, Headers}, {http, {RequestId, stream,
-	    BinBodyPart}, {http, {RequestId, stream_end, Headers}</c>. When
+	    stream_start, Headers}}, {http, {RequestId, stream,
+	    BinBodyPart}}, {http, {RequestId, stream_end, Headers}}</c>. When
 	    streaming to to the calling processes using the option
 	    <c>{self, once}</c> the first message will have an additional
-	    element e.i. <c>{http, {RequestId, stream_start, Headers, Pid}</c>,
+	    element e.i. <c>{http, {RequestId, stream_start, Headers, Pid}}</c>,
 	    this is the process id that should be used as an argument to
 	    <c>http:stream_next/1</c> to trigger the next message to be sent to
 	    the calling process. </p>

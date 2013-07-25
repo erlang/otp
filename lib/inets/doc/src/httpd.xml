@@ -406,7 +406,7 @@ bytes
 	begins with url-path is mapped to local files that begins with
 	directory-filename, for example:
 	
-	<code>{alias, {"/image", "/ftp/pub/image"}</code>
+	<code>{alias, {"/image", "/ftp/pub/image"}}</code>
 	
 	and an access to http://your.server.org/image/foo.gif would refer to
 	the file /ftp/pub/image/foo.gif. </p>
@@ -421,7 +421,7 @@ bytes
         by re:replace/3 to produce a path in the local filesystem.
         For example:
 	
-	<code>{re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}</code>
+	<code>{re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}}</code>
 	
 	and an access to http://your.server.org/~bob/foo.gif would refer to
 	the file /home/bob/public/foo.gif.
@@ -468,7 +468,7 @@ bytes
 	scripts. URLs with a path beginning with url-path are mapped to
 	scripts beginning with directory-filename, for example:
 	
-	<code>{script_alias, {"/cgi-bin/", "/web/cgi-bin/"}</code>
+	<code>{script_alias, {"/cgi-bin/", "/web/cgi-bin/"}}</code>
 	
 	and an access to http://your.server.org/cgi-bin/foo would cause
 	the server to run the script /web/cgi-bin/foo. </p>
@@ -483,7 +483,7 @@ bytes
 	scripts. URLs with a path beginning with url-path are mapped to
 	scripts beginning with directory-filename, for example:
 	
-	<code>{script_re_write, {"^/cgi-bin/(\\d+)/", "/web/\\1/cgi-bin/"}</code>
+	<code>{script_re_write, {"^/cgi-bin/(\\d+)/", "/web/\\1/cgi-bin/"}}</code>
 	
 	and an access to http://your.server.org/cgi-bin/17/foo would cause
 	the server to run the script /web/17/cgi-bin/foo. </p>
@@ -517,7 +517,7 @@ bytes
 	the standard CGI PATH_INFO and PATH_TRANSLATED environment
 	variables.
 
-	<code>{action, {"text/plain", "/cgi-bin/log_and_deliver_text"}</code>
+	<code>{action, {"text/plain", "/cgi-bin/log_and_deliver_text"}}</code>
 	</p>
       </item>
 
@@ -532,7 +532,7 @@ bytes
 	the standard CGI PATH_INFO and PATH_TRANSLATED environment
 	variables.
 	
-	<code>{script, {"PUT", "/cgi-bin/put"}</code>
+	<code>{script, {"PUT", "/cgi-bin/put"}}</code>
 	</p>
 	
       </item>
@@ -549,7 +549,7 @@ bytes
 	scheme scripts. A matching URL is mapped into a specific module
 	and function. For example:
 	
-	<code>{erl_script_alias, {"/cgi-bin/example", [httpd_example]}
+	<code>{erl_script_alias, {"/cgi-bin/example", [httpd_example]}}
 	</code>
 	
 	and a request to
@@ -706,7 +706,7 @@ bytes
 	
 	For example:
 	
-	<code>{allow_from, ["123.34.56.11", "150.100.23"] </code>
+	<code>{allow_from, ["123.34.56.11", "150.100.23"]}</code>
           
 	The host 123.34.56.11 and all machines on the 150.100.23
 	subnet are allowed access. </p>
@@ -719,7 +719,7 @@ bytes
 	which should be denied access to a given directory.
 	For example:
 	
-	<code>{deny_from, ["123.34.56.11", "150.100.23"] </code>
+	<code>{deny_from, ["123.34.56.11", "150.100.23"]}</code>
           
 	The host 123.34.56.11 and all machines on the 150.100.23
 	subnet are not allowed access. </p>
@@ -835,7 +835,7 @@ bytes
     <p><em>Security properties - requires mod_security </em></p>
  
     <marker id="prop_sec_dir"></marker>
-    <p><em>{security_directory, {path(), [{property(), term()}]}</em></p>
+    <p><em>{security_directory, {path(), [{property(), term()}]}}</em></p>
        
     <marker id="props_sdir"></marker>
     <p>Here follows the valid properties for security directories</p>
@@ -1067,7 +1067,7 @@ bytes
       <fsummary>Called for each request to the Web server.</fsummary>
       <type>
         <v>OldData = list()</v>
-        <v>NewData = [{response,{StatusCode,Body}}] | [{response,{response,Head,Body}}] |  [{response,{already_sent,Statuscode,Size}] </v>
+        <v>NewData = [{response,{StatusCode,Body}}] | [{response,{response,Head,Body}}] |  [{response,{already_sent,Statuscode,Size}}] </v>
         <v>StausCode = integer()</v>
         <v>Body = io_list() | nobody | {Fun, Arg}</v>
         <v>Head = [HeaderOption]</v>
