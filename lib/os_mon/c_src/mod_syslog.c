@@ -47,7 +47,7 @@
 #define		TRUE		1
 #define		WAIT		1
 
-main(int argc, char *argv[])
+int	main(int argc, char *argv[])
 /*	usage: mod_syslog mode ownpath syslogconf */
 {
     int	syslogd_pid, n_lines_copied=0;
@@ -128,6 +128,7 @@ main(int argc, char *argv[])
        make_exit(PIPE_NOT_FOUND);
        else */
     make_exit(OK);
+    return 0;
 }
 
 void	make_exit(int exit_code)

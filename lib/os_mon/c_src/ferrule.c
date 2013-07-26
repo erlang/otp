@@ -50,7 +50,7 @@
 #define		FDS_STDIN	0
 #define		FDS_PIPE	1
 
-main(int argc, char *argv[])
+int	main(int argc, char *argv[])
 /*	usage: ferrule ownpath */
 {
     int		i, pipe_fd;
