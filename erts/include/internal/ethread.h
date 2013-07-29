@@ -361,6 +361,10 @@ extern ethr_runtime_t ethr_runtime__;
 #  endif
 #endif /* !ETHR_DISABLE_NATIVE_IMPLS */
 
+#if !defined(ETHR_HAVE_NATIVE_ATOMIC32) && !defined(ETHR_HAVE_NATIVE_ATOMIC64) && !defined(ETHR_DISABLE_NATIVE_IMPLS) && defined(ETHR_SMP_REQUIRE_NATIVE_IMPLS)
+#error "No native ethread implementation found. If you want to use fallbacks you have to disable native ethread support with configure."
+#endif
+
 #include "ethr_atomics.h" /* The atomics API */
 
 #if defined(__GNUC__)
