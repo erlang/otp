@@ -5818,7 +5818,7 @@ for (;;)
           }
         }
 
-      /* Match extended Unicode sequences. We will get here only if the
+      /* Match extended Unicode grapheme clusters. We will get here only if the
       support is in the binary; otherwise a compile-time error occurs. */
 
       else if (ctype == OP_EXTUNI)
@@ -5855,21 +5855,43 @@ for (;;)
         /* eptr is now past the end of the maximum run */
 
         if (possessive) continue;    /* No backtracking */
+         
         for(;;) /* LOOP_COUNT: Ok */
           {
-          if (eptr == pp) goto TAIL_RECURSE;
+#ifndef ERLANG_INTEGRATION
+          int lgb, rgb; 
+#endif
+          PCRE_PUCHAR fptr;
+            
+          if (eptr == pp) goto TAIL_RECURSE;   /* At start of char run */
           RMATCH(eptr, ecode, offset_top, md, eptrb, RM45);
           if (rrc != MATCH_NOMATCH) RRETURN(rrc);
+
+          /* Backtracking over an extended grapheme cluster involves inspecting
+          the previous two characters (if present) to see if a break is
+          permitted between them. */
+ 
           eptr--;
-          for (;;)                        /* Move back over one extended */  /* LOOP_COUNT: COST */
+          if (!utf) c = *eptr; else
             {
-            if (!utf) c = *eptr; else
+            BACKCHAR(eptr);
+            GETCHAR(c, eptr);
+            }
+          rgb = UCD_GRAPHBREAK(c);
+
+          for (;;) /* LOOP_COUNT: COST */
+            {
+            if (eptr == pp) goto TAIL_RECURSE;   /* At start of char run */
+            fptr = eptr - 1;
+            if (!utf) c = *fptr; else
               {
-              BACKCHAR(eptr);
-              GETCHAR(c, eptr);
+              BACKCHAR(fptr);
+              GETCHAR(c, fptr);
               }
-            if (UCD_CATEGORY(c) != ucp_M) break;
-            eptr--;
+            lgb = UCD_GRAPHBREAK(c);        
+            if ((PRIV(ucp_gbtable)[lgb] & (1 << rgb)) == 0) break;
+            eptr = fptr;
+            rgb = lgb;
 	    COST(1);
             }
           }
