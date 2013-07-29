@@ -36,7 +36,7 @@ all() ->
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [attribute,bsdecode,bsdes,barnes2,decode1,smith,
+      [attribute,bsdecode,bsdes,barnes2,decode1,smith,fname,
        itracer,pseudoknot,comma_splitter,lists,really_inlined,otp_7223,
        coverage]}].
 
@@ -84,6 +84,7 @@ attribute(Config) when is_list(Config) ->
 ?comp(itracer).
 ?comp(pseudoknot).
 ?comp(comma_splitter).
+?comp(fname).
 
 try_inline(Mod, Config) ->
     Node = ?config(testing_node, Config),

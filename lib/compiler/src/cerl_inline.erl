@@ -52,7 +52,7 @@
 	       clause_pats/1, clause_vars/1, concrete/1, cons_hd/1,
 	       cons_tl/1, data_arity/1, data_es/1, data_type/1,
 	       fun_body/1, fun_vars/1, get_ann/1, int_val/1,
-	       is_c_atom/1, is_c_cons/1, is_c_fun/1, is_c_int/1,
+	       is_c_atom/1, is_c_cons/1, is_c_fname/1, is_c_int/1,
 	       is_c_list/1, is_c_seq/1, is_c_tuple/1, is_c_var/1,
 	       is_data/1, is_literal/1, is_literal_term/1, let_arg/1,
 	       let_body/1, let_vars/1, letrec_body/1, letrec_defs/1,
@@ -1578,7 +1578,7 @@ make_let_binding_1(R, E, S) ->
 %%  completely.
 
 copy(R, Opnd, E, Ctxt, Env, S) ->
-    case is_c_var(E) of
+    case is_c_var(E) andalso not is_c_fname(E) of
         true ->
 	    %% The operand reduces to another variable - get its
 	    %% ref-structure and attempt to propagate further.
@@ -1628,12 +1628,12 @@ copy_var(R, Ctxt, Env, S) ->
     end.
 
 copy_1(R, Opnd, E, Ctxt, Env, S) ->
-    %% Fun-expression (lambdas) are a bit special; they are copyable,
-    %% but should preferably not be duplicated, so they should not be
-    %% copy propagated except into application contexts, where they can
-    %% be inlined.
-    case is_c_fun(E) of
-        true ->
+    case type(E) of
+        'fun' ->
+            %% Fun-expression (lambdas) are a bit special; they are copyable,
+            %% but should preferably not be duplicated, so they should not be
+            %% copy propagated except into application contexts, where they can
+            %% be inlined.
             case Ctxt of
                 #app{} ->
                     %% First test if the operand is "outer-pending"; if
@@ -1649,7 +1649,28 @@ copy_1(R, Opnd, E, Ctxt, Env, S) ->
                 _ ->
                     residualize_var(R, S)
             end;
-        false ->
+        var ->
+            %% Variables at this point only refer to local functions; they are
+            %% copyable but can't appear in guards, so they should not be
+            %% copy propagated except into application contexts, where they can
+            %% be inlined.
+            case Ctxt of
+                #app{} ->
+                    %% First test if the operand is "outer-pending"; if
+                    %% so, don't inline.
+                    case st__test_outer_pending(Opnd#opnd.loc, S) of
+                        false ->
+                            R1 = env__get(var_name(E), Opnd#opnd.env),
+                            copy_var(R1, Ctxt, Env, S);
+                        true ->
+                            %% Cyclic reference forced inlining to stop
+                            %% (avoiding infinite unfolding).
+                            residualize_var(R, S)
+                    end;
+                _ ->
+                    residualize_var(R, S)
+            end;
+        _ ->
             %% We have no other cases to handle here
             residualize_var(R, S)
     end.
