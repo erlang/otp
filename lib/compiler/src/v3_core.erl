@@ -956,7 +956,8 @@ lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
 		    args=[],
 		    clauses=[#iclause{anno=LAnno,pats=[],
 				      guard=Gs,body=Lps ++ [Lc]}],
-		    fc=#iclause{anno=LAnno,pats=[],guard=[],body=[Mc]}},
+		    fc=#iclause{anno=LAnno#a{anno=[compiler_generated|LA]},
+				pats=[],guard=[],body=[Mc]}},
 	     [],St2};
 	false ->
 	    {Lc,Lps,St1} = lc_tq(Line, E, Qs0, Mc, St0),
@@ -1101,7 +1102,8 @@ bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
 		    clauses=[#iclause{anno=LAnno,
 				      pats=[],
 				      guard=Gs,body=Bps ++ [Bc]}],
-		    fc=#iclause{anno=LAnno,pats=[],guard=[],body=[AccVar]}},
+		    fc=#iclause{anno=LAnno#a{anno=[compiler_generated|LA]},
+				pats=[],guard=[],body=[AccVar]}},
 	     [],St};
 	false ->
 	    {Bc,Bps,St1} = bc_tq1(Line, E, Qs0, AccVar, St0),
