@@ -354,36 +354,13 @@ v6enc([], B) ->
 %% --------------------
 
 'UTF8String'(decode, Bin) ->
-    udec(Bin, []);
+    tl([0|_] = unicode:characters_to_list([0, Bin])); %% assert list return
 
 'UTF8String'(encode = M, zero) ->
     'UTF8String'(M, []);
 
 'UTF8String'(encode, S) ->
-    uenc(if is_binary(S) -> [S]; true -> S end, []).
-
-udec(<<>>, Acc) ->
-    lists:reverse(Acc);
-
-udec(<<C/utf8, Rest/binary>>, Acc) ->
-    udec(Rest, [C | Acc]).
-
-uenc([], Acc) ->
-    list_to_binary(lists:reverse(Acc));
-
-uenc([E | Rest], Acc)
-  when E == <<>>;
-       E == [] ->
-    uenc(Rest, Acc);
-
-uenc([[H|T] | Rest], Acc) ->
-    uenc([H, T | Rest], Acc);
-
-uenc([<<C/utf8, T/binary>> | Rest], Acc) ->
-    uenc([C, T | Rest], Acc);
-
-uenc([C | Rest], Acc) ->
-    uenc(Rest, [<<C/utf8>> | Acc]).
+    <<_/binary>> = unicode:characters_to_binary(S).   %% assert binary return
 
 %% --------------------
 
