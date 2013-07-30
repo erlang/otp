@@ -532,7 +532,7 @@ getservbyname(Name, Protocol) when is_atom(Name) ->
 -spec ntoa(IpAddress) ->
 	{ok, Address} | {error, einval} when
       Address :: string(),
-      IPv4Address :: ip_address().
+      IpAddress :: ip_address().
 ntoa(Addr) ->
     inet_parse:ntoa(Addr).
 
