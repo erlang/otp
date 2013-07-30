@@ -62,15 +62,13 @@ lib() ->
 %% Internal functions.
 
 lib({N,B}, {_,_,_} = T) ->
-    [] = run([[fun lib/2, A, B] || A <- element(N,T)]);
+    [] = run([[fun lib/2, A, B] || A <- element(N,T), is_tuple(A)]);
 
 lib(IP, B) ->
-    LA = tuple_to_list(IP),
-    {SA,Fun} = ip(LA),
-    [] = run([[fun lib/4, IP, B, Fun, A] || A <- [IP, SA]]).
+    [] = run([[fun lib/3, IP, B, A] || A <- [IP, ntoa(tuple_to_list(IP))]]).
 
-lib(IP, B, Fun, A) ->
-    try Fun(A) of
+lib(IP, B, A) ->
+    try diameter_lib:ipaddr(A) of
         IP when B ->
             ok
     catch
@@ -78,12 +76,12 @@ lib(IP, B, Fun, A) ->
             ok
     end.
 
-ip([_,_,_,_] = A) ->
+ntoa([_,_,_,_] = A) ->
     [$.|S] = lists:append(["." ++ integer_to_list(N) || N <- A]),
-    {S, fun diameter_lib:ipaddr/1};
-ip([_,_,_,_,_,_,_,_] = A) ->
+    S;
+ntoa([_,_,_,_,_,_,_,_] = A) ->
     [$:|S] = lists:flatten([":" ++ io_lib:format("~.16B", [N]) || N <- A]),
-    {S, fun diameter_lib:ipaddr/1}.
+    S.
 
 %% ------------------------------------------------------------------------
 %% base/1
@@ -344,8 +342,8 @@ values('Float64') ->
 
 values('Address') ->
     {[{255,0,random(16#FF),1}, {65535,0,0,random(16#FFFF),0,0,0,1}],
-     [],
-     [{256,0,0,1}, {65536,0,0,0,0,0,0,1}]};
+     ["127.0.0.1", "FFFF:FF::1.2.3.4"],
+     [{256,0,0,1}, {65536,0,0,0,0,0,0,1}, "256.0.0.1", "10000::1"]};
 
 values('DiameterIdentity') ->
     {["x", "diameter.com"],

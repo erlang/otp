@@ -250,13 +250,10 @@
 'Address'(encode, zero) ->
     <<0:48>>;
 
-'Address'(decode, <<1:16, B/binary>>)
-  when size(B) == 4 ->
-    list_to_tuple(binary_to_list(B));
-
-'Address'(decode, <<2:16, B/binary>>)
-  when size(B) == 16 ->
-    list_to_tuple(v6dec(B, []));
+'Address'(decode, <<A:16, B/binary>>)
+  when 1 == A,  4 == size(B);
+       2 == A, 16 == size(B) ->
+    list_to_tuple([N || <<N:A/unit:8>> <= B]);
 
 'Address'(decode, <<A:16, _/binary>> = B)
   when 1 == A;
@@ -264,30 +261,10 @@
     ?INVALID_LENGTH(B);
 
 'Address'(encode, T) ->
-    ipenc(diameter_lib:ipaddr(T)).
-
-ipenc(T)
-  when is_tuple(T), size(T) == 4 ->
-    B = list_to_binary(tuple_to_list(T)),
-    <<1:16, B/binary>>;
-
-ipenc(T)
-  when is_tuple(T), size(T) == 8 ->
-    B = v6enc(lists:reverse(tuple_to_list(T)), <<>>),
-    <<2:16, B/binary>>.
-
-v6dec(<<N:16, B/binary>>, Acc) ->
-    v6dec(B, [N | Acc]);
-
-v6dec(<<>>, Acc) ->
-    lists:reverse(Acc).
-
-v6enc([N | Rest], B)
-  when ?UINT(16,N) ->
-    v6enc(Rest, <<N:16, B/binary>>);
-
-v6enc([], B) ->
-    B.
+    Ns = tuple_to_list(diameter_lib:ipaddr(T)),  %% length 4 or 8
+    A = length(Ns) div 4,                        %% 1 or 2
+    B = << <<N:A/unit:8>> || N <- Ns >>,
+    <<A:16, B/binary>>.
 
 %% --------------------
 
