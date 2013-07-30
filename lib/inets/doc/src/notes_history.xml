@@ -834,7 +834,7 @@
     <list type="bulleted">
       <item>
 	<p>[ftp, client] - A new option {progress, {CBmodule,
-	  CBFunction, InitProgressTerm} has been added to allow
+	  CBFunction, InitProgressTerm}} has been added to allow
 	  users to create things such as progress bars in there
 	  GUI's. The option affects ftp:send/[3,4] and
 	  ftp:recv/[3,4].</p>
