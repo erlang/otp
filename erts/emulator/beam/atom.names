@@ -320,6 +320,8 @@ atom low
 atom Lt='<'
 atom machine
 atom match
+atom match_limit
+atom match_limit_recursion
 atom match_spec
 atom max
 atom maximum
@@ -477,6 +479,7 @@ atom register
 atom registered_name
 atom reload
 atom rem
+atom report_errors
 atom reset
 atom restart
 atom return_from

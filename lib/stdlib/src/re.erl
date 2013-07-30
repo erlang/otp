@@ -64,11 +64,13 @@ run(_, _) ->
 
 -spec run(Subject, RE, Options) -> {match, Captured} |
                                    match |
-                                   nomatch when
+                                   nomatch |
+				   {error, ErrType} when
       Subject :: iodata() | unicode:charlist(),
       RE :: mp() | iodata() | unicode:charlist(),
       Options :: [Option],
-      Option :: anchored | global | notbol | noteol | notempty | notempty_atstart
+      Option :: anchored | global | notbol | noteol | notempty 
+	      | notempty_atstart | report_errors
               | {offset, non_neg_integer()} |
                 {newline, NLSpec :: nl_spec()} |
                 bsr_anycrlf | bsr_unicode | {capture, ValueSpec} |
@@ -84,7 +86,9 @@ run(_, _) ->
                    | binary(),
       ListConversionData :: string()
                           | {error, string(), binary()}
-                          | {incomplete, string(), binary()}.
+                          | {incomplete, string(), binary()},
+      ErrType :: match_limit | match_limit_recursion | {compile,  CompileErr}, 
+      CompileErr :: {ErrString :: string(), Position :: non_neg_integer()}.
 
 run(_, _, _) ->
     erlang:nif_error(undef).
@@ -304,7 +308,8 @@ replace(Subject,RE,Replacement) ->
       RE :: mp() | iodata() | unicode:charlist(),
       Replacement :: iodata() | unicode:charlist(),
       Options :: [Option],
-      Option :: anchored | global | notbol | noteol | notempty | notempty_atstart
+      Option :: anchored | global | notbol | noteol | notempty 
+	      | notempty_atstart
               | {offset, non_neg_integer()} | {newline, NLSpec} | bsr_anycrlf
               | bsr_unicode | {return, ReturnType} | CompileOpt,
       ReturnType :: iodata | list | binary,
@@ -361,6 +366,8 @@ process_repl_params([],Convert,Unicode) ->
 process_repl_params([unicode|T],C,_U) ->
     {NT,NC,NU} = process_repl_params(T,C,true), 
     {[unicode|NT],NC,NU};
+process_repl_params([report_errors|_],_,_) ->
+    throw(badopt);
 process_repl_params([{capture,_,_}|_],_,_) ->
     throw(badopt);
 process_repl_params([{capture,_}|_],_,_) ->
@@ -395,6 +402,8 @@ process_split_params([{parts,_}|_],_,_,_,_,_) ->
 process_split_params([group|T],C,U,L,S,_G) ->
     process_split_params(T,C,U,L,S,true); 
 process_split_params([global|_],_,_,_,_,_) ->
+    throw(badopt);
+process_split_params([report_errors|_],_,_,_,_,_) ->
     throw(badopt);
 process_split_params([{capture,_,_}|_],_,_,_,_,_) ->
     throw(badopt);
@@ -747,15 +756,22 @@ do_grun(FlatSubject,Subject,Unicode,CRLF,RE,{Options0,NeedClean}) ->
 	    CorrectReturn ->
 		CorrectReturn
 	end,
-    postprocess(loopexec(FlatSubject,RE,InitialOffset,
-			 byte_size(FlatSubject),
-			 Unicode,CRLF,StrippedOptions),
-		SelectReturn,ConvertReturn,FlatSubject,Unicode).
+    try
+	postprocess(loopexec(FlatSubject,RE,InitialOffset,
+			     byte_size(FlatSubject),
+			     Unicode,CRLF,StrippedOptions),
+		    SelectReturn,ConvertReturn,FlatSubject,Unicode)
+    catch
+	throw:ErrTuple ->
+	    ErrTuple
+    end.
 
 loopexec(_,_,X,Y,_,_,_) when X > Y ->
     {match,[]};
 loopexec(Subject,RE,X,Y,Unicode,CRLF,Options) ->
     case re:run(Subject,RE,[{offset,X}]++Options) of
+	{error, Err} ->
+	    throw({error,Err});
 	nomatch ->
 	    {match,[]};
 	{match,[{A,B}|More]} ->

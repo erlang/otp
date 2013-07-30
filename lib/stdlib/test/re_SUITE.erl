@@ -472,115 +472,125 @@ error_handling() ->
     % The malformed precomiled RE is detected after 
     % the trap to re:grun from grun, in the grun function clause
     % that handles precompiled expressions
-    ?line {'EXIT',{badarg,[{re,run,["apa",{1,2,3,4},[global]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,run,["apa",{1,2,3,4},[global]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run("apa",{1,2,3,4},[global])),
     % An invalid capture list will also cause a badarg late, 
     % but with a non pre compiled RE, the exception should be thrown by the
     % grun function clause that handles RE's compiled implicitly by
     % the run/3 BIF before trapping.
-    ?line {'EXIT',{badarg,[{re,run,["apa","p",[{capture,[1,{a}]},global]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,run,["apa","p",[{capture,[1,{a}]},global]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run("apa","p",[{capture,[1,{a}]},global])),
     % And so the case of a precompiled expression together with
     % a compile-option (binary and list subject):
-    ?line {ok,RE} = re:compile("(p)"),
-    ?line {match,[[{1,1},{1,1}]]} = re:run(<<"apa">>,RE,[global]),
-    ?line {match,[[{1,1},{1,1}]]} = re:run("apa",RE,[global]),
-    ?line {'EXIT',{badarg,[{re,run,
-			    [<<"apa">>,
-			     {re_pattern,1,0,_,_},
-			     [global,unicode]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {ok,RE} = re:compile("(p)"),
+    {match,[[{1,1},{1,1}]]} = re:run(<<"apa">>,RE,[global]),
+    {match,[[{1,1},{1,1}]]} = re:run("apa",RE,[global]),
+    {'EXIT',{badarg,[{re,run,
+		      [<<"apa">>,
+		       {re_pattern,1,0,_,_},
+		       [global,unicode]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run(<<"apa">>,RE,[global,unicode])),
-    ?line {'EXIT',{badarg,[{re,run,
-			    ["apa",
-			     {re_pattern,1,0,_,_},
-			     [global,unicode]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,run,
+		      ["apa",
+		       {re_pattern,1,0,_,_},
+		       [global,unicode]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run("apa",RE,[global,unicode])),
-    ?line {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[])),
-    ?line {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[global])),
+    {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[])),
+    {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors]),
+    {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[global])),
+    {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors,global]),
     % The replace errors:
-    ?line {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:replace("apa",{1,2,3,4},"X",[])),
-    ?line {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[global]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[global]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:replace("apa",{1,2,3,4},"X",[global])),
-    ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa",
-			     {re_pattern,1,0,_,_},
-			     "X",
-			     [unicode]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa",
+		       {re_pattern,1,0,_,_},
+		       "X",
+		       [unicode]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:replace("apa",RE,"X",[unicode])),
-    ?line <<"aXa">> = iolist_to_binary(re:replace("apa","p","X",[])),
-    ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","p","X",[{capture,all,binary}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    <<"aXa">> = iolist_to_binary(re:replace("apa","p","X",[])),
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa","p","X",[report_errors]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
-					  [{capture,all,binary}]))),
-    ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","p","X",[{capture,all}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+					   [report_errors]))),
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa","p","X",[{capture,all,binary}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
-					  [{capture,all}]))),
-    ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","p","X",[{return,banana}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+					   [{capture,all,binary}]))),
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa","p","X",[{capture,all}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
-					  [{return,banana}]))),
-    ?line {'EXIT',{badarg,_}} = (catch re:replace("apa","(p","X",[])),
+					   [{capture,all}]))),
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa","p","X",[{return,banana}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
+	(catch iolist_to_binary(re:replace("apa","p","X",
+					   [{return,banana}]))),
+    {'EXIT',{badarg,_}} = (catch re:replace("apa","(p","X",[])),
     % Badarg, not compile error.
-    ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","(p","X",[{return,banana}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,replace,
+		      ["apa","(p","X",[{return,banana}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","(p","X",
-					  [{return,banana}]))),
+					   [{return,banana}]))),
     % And the split errors:
-    ?line [<<"a">>,<<"a">>] = (catch re:split("apa","p",[])),
-    ?line [<<"a">>,<<"p">>,<<"a">>] = (catch re:split("apa",RE,[])),
-    ?line {'EXIT',{badarg,[{re,split,["apa","p",[global]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    [<<"a">>,<<"a">>] = (catch re:split("apa","p",[])),
+    [<<"a">>,<<"p">>,<<"a">>] = (catch re:split("apa",RE,[])),
+    {'EXIT',{badarg,[{re,split,["apa","p",[report_errors]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
+	(catch re:split("apa","p",[report_errors])),
+    {'EXIT',{badarg,[{re,split,["apa","p",[global]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa","p",[global])),
-    ?line {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa","p",[{capture,all}])),
-    ?line {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all,binary}]],_},
-			   {?MODULE, error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all,binary}]],_},
+		     {?MODULE, error_handling,0,_} | _]}} =
 	(catch re:split("apa","p",[{capture,all,binary}])),
-    ?line {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",{1,2,3,4})),
-    ?line {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",{1,2,3,4},[])),
-    ?line {'EXIT',{badarg,[{re,split,
-			    ["apa",
-			     RE,
-			     [unicode]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,
+		      ["apa",
+		       RE,
+		       [unicode]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",RE,[unicode])),
-    ?line {'EXIT',{badarg,[{re,split,
-			    ["apa",
-			     RE,
-			     [{return,banana}]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,
+		      ["apa",
+		       RE,
+		       [{return,banana}]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",RE,[{return,banana}])),
-    ?line {'EXIT',{badarg,[{re,split,
-			    ["apa",
-			     RE,
-			     [banana]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,
+		      ["apa",
+		       RE,
+		       [banana]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",RE,[banana])),
-    ?line {'EXIT',{badarg,_}} = (catch re:split("apa","(p")),
+    {'EXIT',{badarg,_}} = (catch re:split("apa","(p")),
     %Exception on bad argument, not compilation error
-    ?line {'EXIT',{badarg,[{re,split,
-			    ["apa",
-			     "(p",
-			     [banana]],_},
-			   {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,
+		      ["apa",
+		       "(p",
+		       [banana]],_},
+		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa","(p",[banana])),
     ?t:timetrap_cancel(Dog),
     ok.
@@ -603,14 +613,17 @@ re_infinite_loop(doc) ->
     "Make sure matches that really loop infinitely actually fail";
 re_infinite_loop(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(1)),
-    ?line Str =
+    Str =
         "http:/www.flickr.com/slideShow/index.gne?group_id=&user_id=69845378@N0",
-    ?line EMail_regex = "[a-z0-9!#$%&'*+/=?^_`{|}~-]+"
+    EMail_regex = "[a-z0-9!#$%&'*+/=?^_`{|}~-]+"
         ++ "(\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
         ++ "@.*([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+"
         ++ "([a-zA-Z]{2}|com|org|net|gov|mil"
         ++ "|biz|info|mobi|name|aero|jobs|museum)",
-    ?line nomatch = re:run(Str, EMail_regex),
+    nomatch = re:run(Str, EMail_regex),
+    nomatch = re:run(Str, EMail_regex, [global]),
+    {error,match_limit} = re:run(Str, EMail_regex,[report_errors]),
+    {error,match_limit} = re:run(Str, EMail_regex,[report_errors,global]),
     ?t:timetrap_cancel(Dog),
     ok.
 re_backwards_accented(doc) ->

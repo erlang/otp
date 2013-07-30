@@ -180,6 +180,7 @@ static Eterm make_signed_integer(int x, Process *p)
 #define PARSE_FLAG_STARTOFFSET 8
 #define PARSE_FLAG_CAPTURE_OPT 16
 #define PARSE_FLAG_GLOBAL 32
+#define PARSE_FLAG_REPORT_ERRORS 64
 
 #define CAPSPEC_VALUES 0
 #define CAPSPEC_TYPE 1
@@ -276,7 +277,7 @@ parse_options(Eterm listp, /* in */
 		default:
 		    return -1; 
 		}
-	    }else if (is_not_atom(item)) {
+	    } else if (is_not_atom(item)) {
 		return -1;
 	    } else {
 		switch(item) {
@@ -348,6 +349,10 @@ parse_options(Eterm listp, /* in */
 		    copt |= PCRE_NEVER_UTF; 
 		    fl |= PARSE_FLAG_UNIQUE_COMPILE_OPT;
 		    break;
+		case am_report_errors:
+		    fl |= (PARSE_FLAG_UNIQUE_EXEC_OPT | 
+			   PARSE_FLAG_REPORT_ERRORS);
+		    break;
 		case am_unicode:
 		    copt |= PCRE_UTF8; 
 		    fl |= (PARSE_FLAG_UNIQUE_COMPILE_OPT | PARSE_FLAG_UNICODE);
@@ -389,7 +394,7 @@ parse_options(Eterm listp, /* in */
  */
 
 static Eterm 
-build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, const char *errstr, int errofset, int unicode, int with_ok) 
+build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, const char *errstr, int errofset, int unicode, int with_ok, Eterm extra_err_tag) 
 {
     Eterm *hp;
     Eterm ret;
@@ -402,11 +407,18 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
 	int elen = sys_strlen(errstr);
 	int need = 3 /* tuple of 2 */ + 
 	    3 /* tuple of 2 */ + 
-	    (2 * elen) /* The error string list */;
+	    (2 * elen) /* The error string list */ +
+	    ((extra_err_tag != NIL) ? 3 : 0);
 	hp = HAlloc(p, need);
 	ret = buf_to_intlist(&hp, (char *) errstr, elen, NIL);
 	ret = TUPLE2(hp, ret, make_small(errofset));
 	hp += 3;
+	if (extra_err_tag != NIL) {
+	    /* Return {error_tag, {extra_tag, 
+	       {Code, String, Offset}}} instead */
+	    ret =  TUPLE2(hp, extra_err_tag, ret);
+	    hp += 3;
+	}
 	ret = TUPLE2(hp, error_tag, ret);
     } else {
 	erts_pcre_fullinfo(result, NULL, PCRE_INFO_SIZE, &pattern_size);
@@ -478,7 +490,7 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
 			   &errstr, &errofset, default_table);
 
     ret = build_compile_result(p, am_error, result, errcode,
-			       errstr, errofset, unicode, 1);
+			       errstr, errofset, unicode, 1, NIL);
     erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
     BIF_RET(ret);
 }
@@ -526,6 +538,7 @@ typedef struct _restart_context {
 } RestartContext;
 
 #define RESTART_FLAG_SUBJECT_IN_BINARY 0x1
+#define RESTART_FLAG_REPORT_MATCH_LIMIT 0x2
 
 static void cleanup_restart_context(RestartContext *rc) 
 {
@@ -566,7 +579,19 @@ static Eterm build_exec_return(Process *p, int rc, RestartContext *restartp, Ete
     Eterm res;
     Eterm *hp;
     if (rc <= 0) {
-	res = am_nomatch;
+	if (restartp->flags & RESTART_FLAG_REPORT_MATCH_LIMIT) {
+	    if (rc == PCRE_ERROR_MATCHLIMIT) {
+		hp = HAlloc(p,3);
+		res = TUPLE2(hp,am_error,am_match_limit);
+	    } else if (rc == PCRE_ERROR_RECURSIONLIMIT) {
+		hp = HAlloc(p,3);
+		res = TUPLE2(hp,am_error,am_match_limit_recursion);
+	    } else {
+		res = am_nomatch;
+	    }
+	} else {
+	    res = am_nomatch;
+	}
     } else {
 	ReturnInfo *ri = restartp->ret_info; 
 	ReturnInfo defri = {RetIndex,0,{0}};
@@ -1043,10 +1068,20 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 	    result = erts_pcre_compile2(expr, comp_options, &errcode, 
 				   &errstr, &errofset, default_table);
 	    if (!result) {
-		erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
 		/* Compilation error gives badarg except in the compile 
-		   function */
-		BIF_ERROR(p,BADARG);
+		   function or if we have PARSE_FLAG_REPORT_ERRORS */
+		if (pflags &  PARSE_FLAG_REPORT_ERRORS) {
+		    res = build_compile_result(p, am_error, result, errcode,
+					       errstr, errofset, 
+					       (pflags & 
+						PARSE_FLAG_UNICODE) ? 1 : 0, 
+					       1, am_compile);
+		    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
+		    BIF_RET(res);
+		} else {
+		    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
+		    BIF_ERROR(p,BADARG);
+		}
 	    }
 	    if (pflags & PARSE_FLAG_GLOBAL) {
 		Eterm precompiled = 
@@ -1055,7 +1090,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 					 errstr, errofset, 
 					 (pflags & 
 					  PARSE_FLAG_UNICODE) ? 1 : 0,
-					 0);
+					 0, NIL);
 		Eterm *hp,r;
 		erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
 		hp = HAlloc(p,4);
@@ -1190,6 +1225,9 @@ handle_iolist:
 	}
     }
 
+    if (pflags & PARSE_FLAG_REPORT_ERRORS) {
+	restart.flags |= RESTART_FLAG_REPORT_MATCH_LIMIT;
+    }
 
 #ifdef DEBUG
     loop_count = 0xFFFFFFFF;
