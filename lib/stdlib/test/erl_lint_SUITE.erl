@@ -560,7 +560,14 @@ unused_vars_warn_rec(Config) when is_list(Config) ->
            {warnings,[{2,erl_lint,{unused_var,'X'}},
                       {3,erl_lint,{unused_var,'X'}},
                       {5,erl_lint,{unused_var,'X'}},
-                      {7,erl_lint,{unused_var,'X'}}]}}],
+                      {7,erl_lint,{unused_var,'X'}}]}},
+          {rec3,
+           <<"-record(r, {a}).
+              t() -> X = 1, #r{a=foo, a=bar}.
+             ">>,
+           [warn_unused_vars],
+           {error,[{2,erl_lint,{redefine_field,r,a}}],
+                  [{2,erl_lint,{unused_var,'X'}}]}}],
     ?line [] = run(Config, Ts),
     ok.
 

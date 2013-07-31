@@ -2306,7 +2306,7 @@ check_fields(Fs, Name, Fields, Vt, St0, CheckFun) ->
 check_field({record_field,Lf,{atom,La,F},Val}, Name, Fields,
             Vt, St, Sfs, CheckFun) ->
     case member(F, Sfs) of
-        true -> {Sfs,{Vt,add_error(Lf, {redefine_field,Name,F}, St)}};
+        true -> {Sfs,{[],add_error(Lf, {redefine_field,Name,F}, St)}};
         false ->
             {[F|Sfs],
              case find_field(F, Fields) of
