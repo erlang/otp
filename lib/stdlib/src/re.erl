@@ -72,6 +72,8 @@ run(_, _) ->
       Option :: anchored | global | notbol | noteol | notempty 
 	      | notempty_atstart | report_errors
               | {offset, non_neg_integer()} |
+		{match_limit, non_neg_integer()} |
+		{match_limit_recursion, non_neg_integer()} |
                 {newline, NLSpec :: nl_spec()} |
                 bsr_anycrlf | bsr_unicode | {capture, ValueSpec} |
                 {capture, ValueSpec, Type} | CompileOpt,
@@ -117,6 +119,8 @@ split(Subject,RE) ->
       Options :: [ Option ],
       Option :: anchored | notbol | noteol | notempty | notempty_atstart
               | {offset, non_neg_integer()} | {newline, nl_spec()}
+              | {match_limit, non_neg_integer()} 
+              | {match_limit_recursion, non_neg_integer()}
               | bsr_anycrlf | bsr_unicode | {return, ReturnType}
               | {parts, NumParts} | group | trim | CompileOpt,
       NumParts :: non_neg_integer() | infinity,
@@ -311,6 +315,8 @@ replace(Subject,RE,Replacement) ->
       Option :: anchored | global | notbol | noteol | notempty 
 	      | notempty_atstart
               | {offset, non_neg_integer()} | {newline, NLSpec} | bsr_anycrlf
+              | {match_limit, non_neg_integer()} 
+              | {match_limit_recursion, non_neg_integer()}
               | bsr_unicode | {return, ReturnType} | CompileOpt,
       ReturnType :: iodata | list | binary,
       CompileOpt :: compile_option(),
@@ -886,6 +892,10 @@ runopt({capture,_,_}) ->
 runopt({capture,_}) ->
     true;
 runopt(global) ->
+    true;
+runopt({match_limit,_}) ->
+    true;
+runopt({match_limit_recursion,_}) ->
     true;
 runopt(_) ->
     false.

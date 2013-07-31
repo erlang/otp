@@ -26,7 +26,8 @@
 	 error_handling/1,pcre_cve_2008_2371/1,
 	 pcre_compile_workspace_overflow/1,re_infinite_loop/1, 
 	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
-	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1]).
+	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
+	 match_limit/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -40,7 +41,8 @@ all() ->
      split_specials, error_handling, pcre_cve_2008_2371,
      pcre_compile_workspace_overflow, re_infinite_loop, 
      re_backwards_accented, opt_dupnames, opt_all_names, 
-     inspect, opt_no_start_optimize,opt_never_utf,opt_ucp].
+     inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
+     match_limit].
 
 groups() -> 
     [].
@@ -787,4 +789,40 @@ opt_ucp(Config) when is_list(Config) ->
 						     % Latin1 table
     nomatch = re:run([1024],"\\w",[unicode]), % Latin1 word characters only, 1024 is not latin1
     {match,[{0,2}]} = re:run([1024],"\\w",[unicode,ucp]), % Any Unicode word character works with 'ucp'
+    ok.
+match_limit(doc) ->
+    "Check that the match_limit and match_limit_recursion options work";
+match_limit(Config) when is_list(Config) ->
+    nomatch = re:run("aaaaaaaaaaaaaz","(a+)*zz",[]),
+    nomatch = re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit,3000}]),
+    nomatch = re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit_recursion,10}]),
+    nomatch = re:run("aaaaaaaaaaaaaz","(a+)*zz",[report_errors]),
+    {error,match_limit} = re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit,3000},
+						 report_errors]),
+    {error,match_limit_recursion} = 
+	re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit_recursion,10},
+					   report_errors]),
+    {error,match_limit} = re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit,3000},
+						 report_errors,global]),
+    {error,match_limit_recursion} = 
+	re:run("aaaaaaaaaaaaaz","(a+)*zz",[{match_limit_recursion,10},
+					   report_errors,global]),
+    ["aaaaaaaaaaaaaz"] = re:split("aaaaaaaaaaaaaz","(a+)*zz",
+				  [{match_limit_recursion,10},{return,list}]),
+    ["aaaaaaaaaaaaaz"] = re:split("aaaaaaaaaaaaaz","(a+)*zz",
+				  [{match_limit,3000},{return,list}]),
+    "aaaaaaaaaaaaaz" = re:replace("aaaaaaaaaaaaaz","(a+)*zz","!",
+				  [{match_limit_recursion,10},{return,list}]),
+    "aaaaaaaaaaaaaz" = re:replace("aaaaaaaaaaaaaz","(a+)*zz","!",
+				  [{match_limit,3000},{return,list}]),
+    {'EXIT', {badarg,_}} = (catch re:replace("aaaaaaaaaaaaaz","(a+)*zz","!",
+				  [{match_limit_recursion,-1},{return,list}])),
+    {'EXIT', {badarg,_}} = (catch re:replace("aaaaaaaaaaaaaz","(a+)*zz","!",
+				  [{match_limit,-1},{return,list}])),
+    {'EXIT', {badarg,_}} = (catch re:run("aaaaaaaaaaaaaz","(a+)*zz",
+					 [{match_limit_recursion,-1},
+					  report_errors,global])),
+    {'EXIT', {badarg,_}} = (catch re:run("aaaaaaaaaaaaaz","(a+)*zz",
+					 [{match_limit,-1},
+					  report_errors,global])),
     ok.
