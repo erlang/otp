@@ -218,13 +218,18 @@ This option makes it possible to include comments inside complicated patterns. N
 
       <p>If the regular expression is previously compiled, the option
       list can only contain the options <c>anchored</c>,
-      <c>global</c>, <c>notbol</c>, <c>noteol</c>,
-      <c>notempty</c>, <c>notempty_atstart</c>, <c>{offset, integer() >= 0}</c>, <c>{newline,
-      <anno>NLSpec</anno>}</c> and <c>{capture, <anno>ValueSpec</anno>}/{capture, <anno>ValueSpec</anno>,
+      <c>global</c>, <c>notbol</c>, <c>noteol</c>, <c>report_errors</c>,
+      <c>notempty</c>, <c>notempty_atstart</c>, <c>{offset, integer() >= 0}</c>,
+      <c>{match_limit, integer() >= 0}</c>, 
+      <c>{match_limit_recursion, integer() >= 0}</c>, 
+      <c>{newline,
+      <anno>NLSpec</anno>}</c> and 
+      <c>{capture, <anno>ValueSpec</anno>}/{capture, <anno>ValueSpec</anno>,
       <anno>Type</anno>}</c>.  Otherwise all options valid for the
       <c>re:compile/2</c> function are allowed as well. Options
       allowed both for compilation and execution of a match, namely
-      <c>anchored</c> and <c>{newline, <anno>NLSpec</anno>}</c>, will affect both
+      <c>anchored</c> and <c>{newline, <anno>NLSpec</anno>}</c>, 
+      will affect both
       the compilation and execution if present together with a non
       pre-compiled regular expression.</p>
 
@@ -253,6 +258,17 @@ This option makes it possible to include comments inside complicated patterns. N
       <c>{match, <anno>ValueList</anno>}</c> is returned. Disabling capturing can
       be done either by specifying <c>none</c> or an empty list as
       <c><anno>ValueSpec</anno></c>.</p>
+
+      <p>The <c>report_errors</c> option adds the possibility that an
+      error tuple is returned. The tuple will either indicate a
+      matching error (<c>match_limit</c> or
+      <c>match_limit_recursion</c>) or a compilation error, where the
+      error tuple has the format <c>{error, {compile,
+      <anno>CompileErr</anno>}}</c>. Note that if the option
+      <c>report_errors</c> is not given, the function never returns
+      error tuples, but will report compilation errors as a badarg
+      exception and failed matches due to exceeded match limits simply
+      as <c>nomatch</c>.</p>
 
       <p>The options relevant for execution are:</p>
 
@@ -368,6 +384,116 @@ This option makes it possible to include comments inside complicated patterns. N
       behavior of the dollar metacharacter. It does not affect \Z or
       \z.</item>
 
+      <tag><c>report_errors</c></tag>
+
+      <item><p>This option gives better control of the error handling in <c>re:run/3</c>. When it is given, compilation errors (if the regular expression isn't already compiled) as well as run-time errors are explicitly returned as an error tuple.</p> 
+      <p>The possible run-time errors are:</p>
+      <taglist>
+	<tag><c>match_limit</c></tag>
+
+	<item>The PCRE library sets a limit on how many times the
+	internal match function can be called. The default value for
+	this is 10000000 in the library compiled for Erlang. If
+	<c>{error, match_limit}</c> is returned, it means that the
+	execution of the regular expression has reached this
+	limit. Normally this is to be regarded as a <c>nomatch</c>,
+	which is the default return value when this happens, but by
+	specifying <c>report_errors</c>, you will get informed when
+	the match fails due to to many internal calls.</item>
+
+	<tag><c>match_limit_recursion</c></tag>
+
+	<item>This error is very similar to <c>match_limit</c>, but
+	occurs when the internal match function of PCRE is
+	"recursively" called more times than the
+	"match_limit_recursion" limit, which is by default 10000000 as
+	well. Note that as long as the <c>match_limit</c> and
+	<c>match_limit_default</c> values are kept at the default
+	values, the <c>match_limit_recursion</c> error can not occur,
+	as the <c>match_limit</c> error will occur before that (each
+	recursive call is also a call, but not vice versa). Both
+	limits can however be changed, either by setting limits
+	directly in the regular expression string (see reference
+	section below) or by giving options to <c>re:run/3</c></item>
+
+      </taglist>
+      <p>It is important to understand that what is referred to as
+      "recursion" when limiting matches is not actually recursion on
+      the C stack of the Erlang machine, neither is it recursion on
+      the Erlang process stack. The version of PCRE compiled into the
+      Erlang VM uses machine "heap" memory to store values that needs to be
+      kept over recursion in regular expression matches.</p>
+      </item>
+      <tag><c>{match_limit, integer() >= 0}</c></tag>
+
+      <item><p>This option limits the execution time of a match in an
+      implementation-specific way. It is described in the following
+      way by the PCRE documentation:</p>
+
+      <code>
+The match_limit field provides a means of preventing PCRE from using
+up a vast amount of resources when running patterns that are not going
+to match, but which have a very large number of possibilities in their
+search trees. The classic example is a pattern that uses nested
+unlimited repeats.
+
+Internally, pcre_exec() uses a function called match(), which it calls
+repeatedly (sometimes recursively). The limit set by match_limit is
+imposed on the number of times this function is called during a match,
+which has the effect of limiting the amount of backtracking that can
+take place. For patterns that are not anchored, the count restarts
+from zero for each position in the subject string.</code>
+
+      <p>This means that runaway regular expression matches can fail
+      faster if the limit is lowered using this option. The default
+      value compiled into the Erlang virtual machine is 10000000</p>
+
+      <note><p>This option does in no way affect the execution of the
+      Erlang virtual machine in terms of "long running
+      BIF's". <c>re:run</c> always give control back to the scheduler
+      of Erlang processes at intervals that ensures the real time
+      properties of the Erlang system.</p></note>
+      </item>
+      
+      <tag><c>{match_limit_recursion, integer() >= 0}</c></tag>
+
+      <item><p>This option limits the execution time and memory
+      consumption of a match in an implementation-specific way, very
+      similar to <c>match_limit</c>. It is described in the following
+      way by the PCRE documentation:</p>
+
+      <code>
+The match_limit_recursion field is similar to match_limit, but instead
+of limiting the total number of times that match() is called, it
+limits the depth of recursion. The recursion depth is a smaller number
+than the total number of calls, because not all calls to match() are
+recursive. This limit is of use only if it is set smaller than
+match_limit.
+
+Limiting the recursion depth limits the amount of machine stack that
+can be used, or, when PCRE has been compiled to use memory on the heap
+instead of the stack, the amount of heap memory that can be
+used.</code>
+
+      <p>The Erlang virtual machine uses a PCRE library where heap
+      memory is used when regular expression match recursion happens,
+      why this limits the usage of machine heap, not C stack.</p>
+
+      <p>Specifying a lower value may result in matches with deep recursion failing, when they should actually have matched:</p>
+      <code type="none">
+1&gt; re:run("aaaaaaaaaaaaaz","(a+)*z").
+{match,[{0,14},{0,13}]}
+2&gt; re:run("aaaaaaaaaaaaaz","(a+)*z",[{match_limit_recursion,5}]).
+nomatch
+3&gt; re:run("aaaaaaaaaaaaaz","(a+)*z",[{match_limit_recursion,5},report_errors]).
+{error,match_limit_recursion}</code>
+
+      <p>This option, as well as the <c>match_limit</c> option should
+      only be used in very rare cases. Understanding of the PCRE
+      library internals is recommended before tampering with these
+      limits.</p>
+      </item>
+
       <tag><c>{offset, integer() >= 0}</c></tag>
 
       <item>Start matching at the offset (position) given in the
@@ -442,7 +568,7 @@ This option makes it possible to include comments inside complicated patterns. N
         <item>All captured subpatterns including the complete matching string. This is the default.</item>
         <tag><c>all_names</c></tag>
         <item>All <em>named</em> subpatterns in the regular expression, as if a <c>list()</c> 
-	of all the names <em>in alphabetical order</em> was given. The list of all names can also be retrieved with the <seealso marker="#inspect_2">inspect/2</seealso> function.</item>
+	of all the names <em>in alphabetical order</em> was given. The list of all names can also be retrieved with the <seealso marker="#inspect/2">inspect/2</seealso> function.</item>
         <tag><c>first</c></tag>
         <item>Only the first captured subpattern, which is always the complete matching part of the subject. All explicitly captured subpatterns are discarded.</item>
         <tag><c>all_but_first</c></tag>
@@ -894,27 +1020,19 @@ below. A change of \R setting can be combined with a change of newline
 convention.</p>
 
 <p><em>Setting match and recursion limits</em></p>
-<p>The internal limits on how many calls (and recursive calls) can be done to the internal matching 
-engine of PCRE during one call to <c>re:run/{2,3}</c>,
-can be set by items at the start of the pattern:</p>
+
+<p>The caller of <c>re:run/3</c> can set a limit on the number of times the internal match() function is called and on the maximum depth of recursive calls. These facilities are provided to catch runaway matches that are provoked by patterns with huge matching trees (a typical example is a pattern with nested unlimited repeats) and to avoid running out of system stack by too much recursion. When one of these limits is reached, pcre_exec() gives an error return. The limits can also be set by items at the start of the pattern of the form</p>
 <quote>
 <p>    (*LIMIT_MATCH=d)</p>
 <p>    (*LIMIT_RECURSION=d)</p>
 </quote>
-<p>where <c>d</c> is any number of decimal digits. However, the value of the setting must
-be less than the value set by the Erlang virtual machine for it to have
-any effect. In other words, the pattern writer can lower the limit set by the
-VM, but not raise it. If there is more than one setting of one of these
-limits, the lower value is used.
-</p>
+<p>where d is any number of decimal digits. However, the value of the setting must be less than the value set by the caller of <c>re:run/3</c> for it to have any effect. In other words, the pattern writer can lower the limit set by the programmer, but not raise it. If there is more than one setting of one of these limits, the lower value is used.</p>
 
-<p>The current value for both the limits are 10000000 in the Erlang
+<p>The current default value for both the limits are 10000000 in the Erlang
 VM. Note that the recursion limit does not actually affect the stack
 depth of the VM, as PCRE for Erlang is compiled in such a way that the
-match function is never called recursively.</p> 
+match function never does recursion on the "C-stack".</p> 
 
-<p>Basically, tampering with these limits is seldom useful.</p>
- 
 </section>
 
 <section><marker id="sect2"></marker><title>Characters and metacharacters</title>
