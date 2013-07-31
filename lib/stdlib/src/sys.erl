@@ -390,10 +390,20 @@ do_cmd(_, suspend, _Parent, _Mod, Debug, Misc) ->
     {suspended, ok, Debug, Misc};
 do_cmd(_, resume, _Parent, _Mod, Debug, Misc) ->
     {running, ok, Debug, Misc};
+%% For backward compatibility the State could be included in a tuple with Misc.
 do_cmd(SysState, get_state, _Parent, _Mod, Debug, {State, Misc}) ->
     {SysState, State, Debug, Misc};
+do_cmd(SysState, get_state, _Parent, Mod, Debug, Misc) ->
+    {Res, NMisc} = do_get_state(Mod, Misc),
+    {SysState, Res, Debug, NMisc};
+%% For backward compatibility the State could have been replaced by Mod and
+%% included in a tuple with Misc. In this case the system message was
+%% {replace_state, StateFun} but replace_state is passed by Mod.
 do_cmd(SysState, replace_state, _Parent, _Mod, Debug, {State, Misc}) ->
     {SysState, State, Debug, Misc};
+do_cmd(SysState, {replace_state, StateFun},  _Parent, Mod, Debug, Misc) ->
+    {Res, NMisc} = do_replace_state(StateFun, Mod, Misc),
+    {SysState, Res, Debug, NMisc};
 do_cmd(SysState, get_status, Parent, Mod, Debug, Misc) ->
     Res = get_status(SysState, Parent, Mod, Debug, Misc),
     {SysState, Res, Debug, Misc};
@@ -406,6 +416,22 @@ do_cmd(suspended, {change_code, Module, Vsn, Extra}, _Parent,
     {suspended, Res, Debug, NMisc};
 do_cmd(SysState, Other, _Parent, _Mod, Debug, Misc) ->
     {SysState, {error, {unknown_system_msg, Other}}, Debug, Misc}.
+
+do_get_state(Mod, Misc) ->
+    case catch Mod:system_get_state(Misc) of
+	{ok, State, NMisc} ->
+	    {State, NMisc};
+	{'EXIT', Reason} ->
+	    {{error, Reason}, Misc}
+    end.
+
+do_replace_state(StateFun, Mod, Misc) ->
+    case catch Mod:system_replace_state(StateFun, Misc) of
+	{ok, State, NMisc} ->
+	    {State, NMisc};
+	{'EXIT', Reason} ->
+	    {{error, Reason}, Misc}
+    end.
 
 get_status(SysState, Parent, Mod, Debug, Misc) ->
     PDict = get(),

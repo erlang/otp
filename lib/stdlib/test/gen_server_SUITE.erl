@@ -1049,6 +1049,9 @@ get_state(Config) when is_list(Config) ->
     {ok, Pid} = gen_server:start_link(?MODULE, {state,State}, []),
     State = sys:get_state(Pid),
     State = sys:get_state(Pid, 5000),
+    ok = sys:suspend(Pid),
+    State = sys:get_state(Pid),
+    ok = sys:resume(Pid),
     ok.
 
 %% Verify that sys:replace_state correctly replaces gen_server state
@@ -1077,6 +1080,14 @@ replace_state(Config) when is_list(Config) ->
     Replace3 = fun(_) -> throw(fail) end,
     NState2 = sys:replace_state(Pid, Replace3),
     NState2 = sys:get_state(Pid, 5000),
+    %% verify state replaced if process sys suspended
+    ok = sys:suspend(Pid),
+    Suffix2 = " and again",
+    NState3 = NState2 ++ Suffix2,
+    Replace3 = fun(S) -> S ++ Suffix2 end,
+    NState3 = sys:replace_state(Pid, Replace3),
+    ok = sys:resume(Pid),
+    NState3 = sys:get_state(Pid, 5000),
     ok.
 
 %% Test that the time for a huge message queue is not
