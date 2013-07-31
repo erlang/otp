@@ -609,7 +609,9 @@ UTF8String() = [integer()]
 <p>
 List elements are the UTF-8 encodings of the individual characters
 in the string.
-Invalid codepoints will result in encode/decode failure.</p>
+Invalid codepoints will result in encode/decode failure.
+On encode, a UTF8String() can be specified as a binary, or as a nested
+list of binaries and codepoints.</p>
 
 <marker id="DiameterIdentity"/>
 <pre>
