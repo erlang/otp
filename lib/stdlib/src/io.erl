@@ -554,6 +554,8 @@ request(Request) ->
 
 request(standard_io, Request) ->
     request(group_leader(), Request);
+request(Pid, Request) when Pid=:=self() ->
+    execute_request(group_leader(), io_request(Pid, Request));
 request(Pid, Request) when is_pid(Pid) ->
     execute_request(Pid, io_request(Pid, Request));
 request(Name, Request) when is_atom(Name) ->
