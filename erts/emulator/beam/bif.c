@@ -3934,7 +3934,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 {
     Sint code;
     Eterm optlist = BIF_ARG_2;
-    int flush = 0;
+    int flush = 1;
 
     for (optlist = BIF_ARG_2;
 	 is_list(optlist);
