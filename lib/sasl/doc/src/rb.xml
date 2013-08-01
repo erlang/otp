@@ -138,6 +138,24 @@
       </desc>
     </func>
     <func>
+      <name>log_list()</name>
+      <name>log_list(Type)</name>
+      <fsummary>Log reports list</fsummary>
+      <type>
+        <v>Type = type()</v>
+        <v>type() = error | error_report | info_msg | info_report |
+        warning_msg | warning_report | crash_report |
+        supervisor_report | progress</v>
+      </type>
+      <desc>
+	<p>Same as <c>list/0</c> or <c>list/1</c> functions 
+	   but result is printed to logfile, if set, otherwise to standard_io.
+          </p>
+        <p>If no <c>Type</c> is given, all reports are listed.
+          </p>
+      </desc>
+    </func>
+    <func>
       <name>rescan()</name>
       <name>rescan(Options)</name>
       <fsummary>Rescan the report directory</fsummary>
@@ -172,7 +190,7 @@
       <type>
         <v>Options = [opt()]</v>
         <v>opt() = {start_log, FileName} | {max, MaxNoOfReports} | {report_dir, DirString} | {type, ReportType} | {abort_on_error, Bool}</v>
-        <v>FileName = string() | standard_io</v>
+        <v>FileName = string() | atom() | pid()</v>
         <v>MaxNoOfReports = int() | all</v>
         <v>DirString = string()</v>
         <v>ReportType = type() | [type()] | all</v>
@@ -185,11 +203,13 @@
           reports can be browsed. When the <c>rb_server</c> is
           started, the files in the specified directory are
           scanned. The other functions assume that the server has
-          started.
+	  started.
           </p>
-        <p><c>{start_log, FileName}</c> starts logging to file. All
-          reports will be printed to the named file. The default is
-          <c>standard_io</c>.
+	  <p><c>{start_log, FileName}</c> starts logging to file, 
+	  registered name or io_device. All reports will be printed 
+	  to the named file. The default is <c>standard_io</c>. 
+	  The option {start_log, standard_error} is not allowed and 
+	  will be replaced by default standard_io.
           </p>
         <p><c>{max, MaxNoOfReports}</c>. Controls how many reports the
           <c>rb_server</c> should read on start-up. This option is
@@ -226,11 +246,11 @@
       <name>start_log(FileName)</name>
       <fsummary>Redirect all output to <c>FileName</c></fsummary>
       <type>
-        <v>FileName = string()</v>
+        <v>FileName = string() | atom() | pid()</v>
       </type>
       <desc>
         <p>Redirects all report output from the RB tool to the
-          specified file.
+          specified file, registered name or io_device.
           </p>
       </desc>
     </func>
