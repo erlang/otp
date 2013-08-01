@@ -28,6 +28,7 @@ MODULES= \
 	reltool_app_SUITE \
 	reltool_wx_SUITE \
 	reltool_server_SUITE \
+	reltool_escript_SUITE \
 	reltool_manual_gui_SUITE \
 	reltool_test_lib
 

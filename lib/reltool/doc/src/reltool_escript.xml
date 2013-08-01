@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>2013</year>
+      <year>2013</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>erl</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>reltool_escript.xml</file>
+  </header>
+  <com>reltool</com>
+  <comsummary>Erlang/OTP release management tool</comsummary>
+  <description>
+    <p><em>Reltool</em> is a release management tool. It analyses a
+    given Erlang/OTP installation and determines various dependencies
+    between its applications. The <c>graphical</c> frontend depicts the
+    dependencies and enables interactive customization of a target
+    system. The backend provides a <c>batch</c> interface for
+    generation of customized target systems.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>reltool --gui></name>
+      <fsummary>Start GUI</fsummary>
+      <desc>
+        <p>Starts the graphical user interface. See <em>reltool:start/1</em>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>reltool [Config] --get_config [-defaults] [-derived] [File]></name>
+      <fsummary>Retrieves actual config</fsummary>
+      <desc>
+        <p>See <em>reltool:get_config/3</em>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>reltool [Config] --get_rel RelName [File]></name>
+      <fsummary>Retrieves actual release info</fsummary>
+      <desc>
+        <p>See <em>reltool:get_rel/2</em>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>reltool [Config] --get_script RelName [File]></name>
+      <fsummary>Retrieves actual boot script</fsummary>
+      <desc>
+        <p>See <em>reltool:get_script/2</em>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>reltool [Config] --create_target TargetDir></name>
+      <fsummary>Generate a target system</fsummary>
+      <desc>
+        <p>See <em>reltool:create_target/2</em>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>reltool [Config] --get_target_spec [SpecFile]</name>
+      <fsummary>Retrieve spec of target system</fsummary>
+      <desc>
+        <p>See <em>reltool:get_target_spec/1</em>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>reltool --eval_target_spec Spec RootDir TargetDir</name>
+      <fsummary>Generate target system from spec</fsummary>
+      <desc>
+        <p>See <em>reltool:eval_target_spec/3</em>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+   <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="reltool">reltool(3)</seealso></p>
+  </section>
+</comref>

@@ -60,6 +60,7 @@ end_per_testcase(Func,Config) ->
 	    ok;
 	_Fail ->
 	    SaveDir = "save."++atom_to_list(Func),
+            ok = rm_files([SaveDir]),
 	    ok = file:make_dir(SaveDir),
 	    save_test_result(Files,SaveDir)
     end,

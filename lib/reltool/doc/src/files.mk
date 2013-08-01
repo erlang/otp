@@ -23,6 +23,9 @@ XML_APPLICATION_FILES = \
 XML_REF3_FILES = \
 	reltool.xml
 
+XML_REF1_FILES = \
+	reltool_escript.xml
+
 XML_PART_FILES = \
 	part.xml
 
@@ -35,4 +38,3 @@ XML_CHAPTER_FILES = \
 BOOK_FILES = book.xml
 
 IMAGE_FILES =
-

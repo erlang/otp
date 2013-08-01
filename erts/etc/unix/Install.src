@@ -91,6 +91,7 @@ cp -p "$ERL_ROOT/erts-%I_VSN%/bin/dialyzer" .
 cp -p "$ERL_ROOT/erts-%I_VSN%/bin/typer" .
 cp -p "$ERL_ROOT/erts-%I_VSN%/bin/ct_run" .
 cp -p "$ERL_ROOT/erts-%I_VSN%/bin/escript" .
+cp -p "reltool" "$ERL_ROOT/erts-%I_VSN%/bin/"
 
 #
 # Set a soft link to epmd

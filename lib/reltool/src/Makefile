@@ -52,6 +52,8 @@ APPUP_FILE   = reltool.appup
 APPUP_SRC    = $(APPUP_FILE).src
 APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 
+ESCRIPT_FILE = reltool
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
@@ -103,6 +105,7 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(APP_TARGET) $(APPUP_TARGET) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/bin"
+	$(INSTALL_PROGRAM) ../bin/$(ESCRIPT_FILE) "$(RELEASE_PATH)/bin/$(ESCRIPT_FILE)"
 
 release_docs_spec:
-
