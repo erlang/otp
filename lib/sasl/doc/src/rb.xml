@@ -138,7 +138,6 @@
       </desc>
     </func>
     <func>
-    <func>
       <name>log_list()</name>
       <name>log_list(Type)</name>
       <fsummary>Log reports list</fsummary>
