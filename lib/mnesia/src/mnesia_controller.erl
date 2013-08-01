@@ -1676,9 +1676,13 @@ add_active_replica(Tab, Node, Cs = #cstruct{}) ->
 
 block_table(Tab) ->
     Var = {Tab, where_to_commit},
-    Old = val(Var),
-    New = {blocked, Old},
-    set(Var, New). % where_to_commit
+    case is_tab_blocked(val(Var)) of
+        {false, Old}->
+            New = {blocked, Old},
+            set(Var, New); % where_to_commit
+        {true, _Old}-> % already blocked
+            ignore
+    end.
 
 unblock_table(Tab) ->
     call({unblock_table, Tab}).
