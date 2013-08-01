@@ -79,6 +79,14 @@ edit([C|Cs], P, {Bef,Aft}, Prefix, Rs0) ->
     case key_map(C, Prefix) of
 	meta ->
 	    edit(Cs, P, {Bef,Aft}, meta, Rs0);
+    meta_o ->
+        edit(Cs, P, {Bef,Aft}, meta_o, Rs0);
+    meta_csi ->
+        edit(Cs, P, {Bef,Aft}, meta_csi, Rs0);
+    meta_meta ->
+        edit(Cs, P, {Bef,Aft}, meta_meta, Rs0);
+    {csi, _} = Csi ->
+        edit(Cs, P, {Bef,Aft}, Csi, Rs0);
 	meta_left_sq_bracket ->
 	    edit(Cs, P, {Bef,Aft}, meta_left_sq_bracket, Rs0);
 	search_meta ->
@@ -178,6 +186,7 @@ key_map($\^U, none) -> ctlu;
 key_map($\^], none) -> auto_blink;
 key_map($\^X, none) -> ctlx;
 key_map($\^Y, none) -> yank;
+key_map($\^W, none) -> backward_kill_word;
 key_map($\e, none) -> meta;
 key_map($), Prefix) when Prefix =/= meta,
                          Prefix =/= search,
@@ -198,11 +207,29 @@ key_map($d, meta) -> kill_word;
 key_map($f, meta) -> forward_word;
 key_map($t, meta) -> transpose_word;
 key_map($y, meta) -> yank_pop;
+key_map($O, meta) -> meta_o;
+key_map($H, meta_o) -> beginning_of_line;
+key_map($F, meta_o) -> end_of_line;
 key_map($\177, none) -> backward_delete_char;
 key_map($\177, meta) -> backward_kill_word;
 key_map($[, meta) -> meta_left_sq_bracket;
 key_map($D, meta_left_sq_bracket) -> backward_char;
 key_map($C, meta_left_sq_bracket) -> forward_char;
+% support a few <CTRL>+<CURSOR LEFT|RIGHT> combinations...
+%  - forward:  \e\e[C, \e[5C, \e[1;5C
+%  - backward: \e\e[D, \e[5D, \e[1;5D
+key_map($\e, meta) -> meta_meta;
+key_map($[, meta_meta) -> meta_csi;
+key_map($C, meta_csi) -> forward_word;
+key_map($D, meta_csi) -> backward_word;
+key_map($1, meta_left_sq_bracket) -> {csi, "1"};
+key_map($5, meta_left_sq_bracket) -> {csi, "5"};
+key_map($5, {csi, "1;"}) -> {csi, "1;5"};
+key_map($C, {csi, "5"}) -> forward_word;
+key_map($C, {csi, "1;5"}) -> forward_word;
+key_map($D, {csi, "5"})  -> backward_word;
+key_map($D, {csi, "1;5"}) -> backward_word;
+key_map($;, {csi, "1"}) -> {csi, "1;"};
 key_map(C, none) when C >= $\s ->
     {insert,C};
 %% for search, we need smarter line handling and so
@@ -363,6 +390,9 @@ do_op(end_of_line, Bef, [C|Aft], Rs) ->
     {{reverse(Aft, [C|Bef]),[]},[{move_rel,length(Aft)+1}|Rs]};
 do_op(end_of_line, Bef, [], Rs) ->
     {{Bef,[]},Rs};
+do_op(ctlu, Bef, Aft, Rs) ->
+    put(kill_buffer, Bef),
+    {{[], Aft}, [{delete_chars, -length(Bef)} | Rs]};
 do_op(beep, Bef, Aft, Rs) ->
     {{Bef,Aft},[beep|Rs]};
 do_op(_, Bef, Aft, Rs) ->
