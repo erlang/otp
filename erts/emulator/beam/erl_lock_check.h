@@ -35,6 +35,11 @@
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 
+#ifndef ERTS_ENABLE_LOCK_POSITION
+/* Enable in order for _x variants of mtx functions to be used. */
+#define ERTS_ENABLE_LOCK_POSITION 1
+#endif
+
 typedef struct {
     int inited;
     Sint16 id;
@@ -79,13 +84,16 @@ void erts_lc_have_locks(int *resv, erts_lc_lock_t *lcks, int len);
 void erts_lc_have_lock_ids(int *resv, int *ids, int len);
 void erts_lc_check_no_locked_of_type(Uint16 flags);
 int erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, Uint16 op_flags);
-void erts_lc_trylock_flg(int locked, erts_lc_lock_t *lck, Uint16 op_flags);
-void erts_lc_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags);
+void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, Uint16 op_flags,
+			   char *file, unsigned int line);
+void erts_lc_lock_flg_x(erts_lc_lock_t *lck, Uint16 op_flags,
+			char *file, unsigned int line);
 void erts_lc_unlock_flg(erts_lc_lock_t *lck, Uint16 op_flags);
 void erts_lc_might_unlock_flg(erts_lc_lock_t *lck, Uint16 op_flags);
 int erts_lc_trylock_force_busy(erts_lc_lock_t *lck);
-void erts_lc_trylock(int locked, erts_lc_lock_t *lck);
-void erts_lc_lock(erts_lc_lock_t *lck);
+void erts_lc_trylock_x(int locked, erts_lc_lock_t *lck,
+		     char* file, unsigned int line);
+void erts_lc_lock_x(erts_lc_lock_t *lck, char* file, unsigned int line);
 void erts_lc_unlock(erts_lc_lock_t *lck);
 void erts_lc_might_unlock(erts_lc_lock_t *lck);
 void erts_lc_init_lock(erts_lc_lock_t *lck, char *name, Uint16 flags);
@@ -96,10 +104,11 @@ int erts_lc_assert_failed(char *file, int line, char *assertion);
 void erts_lc_set_thread_name(char *thread_name);
 void erts_lc_pll(void);
 
-void erts_lc_require_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags);
+void erts_lc_require_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags,
+			      char *file, unsigned int line);
 void erts_lc_unrequire_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags);
 
-void erts_lc_require_lock(erts_lc_lock_t *lck);
+void erts_lc_require_lock(erts_lc_lock_t *lck, char *file, unsigned int line);
 void erts_lc_unrequire_lock(erts_lc_lock_t *lck);
 
 int erts_lc_is_emu_thr(void);
@@ -115,5 +124,10 @@ int erts_lc_is_emu_thr(void);
 #define ERTS_SMP_LC_ASSERT(A) ((void) 1)
 #define ERTS_LC_ASSERT(A) ((void) 1)
 #endif /* #ifdef ERTS_ENABLE_LOCK_CHECK */
+
+#define erts_lc_lock(lck) erts_lc_lock_x(lck,__FILE__,__LINE__)
+#define erts_lc_trylock(res,lck) erts_lc_trylock_x(res,lck,__FILE__,__LINE__)
+#define erts_lc_lock_flg(lck) erts_lc_lock_flg_x(lck,__FILE__,__LINE__)
+#define erts_lc_trylock_flg(res,lck) erts_lc_trylock_flg_x(res,lck,__FILE__,__LINE__)
 
 #endif /* #ifndef ERTS_LOCK_CHECK_H__ */

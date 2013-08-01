@@ -247,11 +247,13 @@ static ERTS_INLINE void port_init_instr(Port *prt
     ASSERT(prt->drv_ptr && prt->lock);
     if (!prt->drv_ptr->lock) {
 	char *lock_str = "port_lock";
+	erts_mtx_init_locked_x(prt->lock, lock_str, id,
 #ifdef ERTS_ENABLE_LOCK_COUNT
-	if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK))
-	    lock_str = NULL;
+			       (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
+#else
+			       0
 #endif
-	erts_mtx_init_locked_x(prt->lock, lock_str, id);
+			       );
     }
 #endif
     erts_port_task_init_sched(&prt->sched, id);
@@ -7310,10 +7312,11 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 			    erts_atom_put((byte *) drv->name,
 					  sys_strlen(drv->name),
 					  ERTS_ATOM_ENC_LATIN1,
-					  1)
+					  1),
 #else
-			NIL
+			NIL,
 #endif
+			1
 	    );
     }
 #endif

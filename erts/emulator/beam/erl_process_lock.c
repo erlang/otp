@@ -117,7 +117,7 @@ erts_init_proc_lock(int cpus)
     for (i = 0; i < ERTS_NO_OF_PIX_LOCKS; i++) {
 #ifdef ERTS_ENABLE_LOCK_COUNT
 	erts_mtx_init_x(&erts_pix_locks[i].u.mtx,
-			"pix_lock", make_small(i));
+			"pix_lock", make_small(i), 1);
 #else
 	erts_mtx_init(&erts_pix_locks[i].u.mtx, "pix_lock");
 #endif
@@ -901,7 +901,7 @@ erts_pid2proc_opt(Process *c_p,
 		busy = (int) erts_smp_proc_raw_trylock__(proc, need_locks);
 
 #if ERTS_PROC_LOCK_OWN_IMPL && defined(ERTS_ENABLE_LOCK_CHECK)
-		erts_proc_lc_trylock(proc, need_locks, !busy);
+		erts_proc_lc_trylock(proc, need_locks, !busy, __FILE__,__LINE__);
 #endif
 #ifdef ERTS_PROC_LOCK_DEBUG
 		if (!busy)
@@ -1013,25 +1013,33 @@ erts_proc_lock_init(Process *p)
     for (i = 0; i <= ERTS_PROC_LOCK_MAX_BIT; i++)
 	p->lock.queue[i] = NULL;
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_proc_lc_trylock(p, ERTS_PROC_LOCKS_ALL, 1);
+    erts_proc_lc_trylock(p, ERTS_PROC_LOCKS_ALL, 1,__FILE__,__LINE__);
 #endif
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
-    erts_mtx_init_x(&p->lock.main, "proc_main", p->common.id);
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    int do_lock_count = 1;
+#else
+    int do_lock_count = 0;
+#endif
+
+    erts_mtx_init_x(&p->lock.main, "proc_main", p->common.id, do_lock_count);
     ethr_mutex_lock(&p->lock.main.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.main.lc);
 #endif
-    erts_mtx_init_x(&p->lock.link, "proc_link", p->common.id);
+    erts_mtx_init_x(&p->lock.link, "proc_link", p->common.id, do_lock_count);
     ethr_mutex_lock(&p->lock.link.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.link.lc);
 #endif
-    erts_mtx_init_x(&p->lock.msgq, "proc_msgq", p->common.id);
+    erts_mtx_init_x(&p->lock.msgq, "proc_msgq", p->common.id, do_lock_count);
     ethr_mutex_lock(&p->lock.msgq.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.msgq.lc);
 #endif
-    erts_mtx_init_x(&p->lock.status, "proc_status", p->common.id);
+    erts_mtx_init_x(&p->lock.status, "proc_status", p->common.id,
+		    do_lock_count);
     ethr_mutex_lock(&p->lock.status.mtx);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_trylock(1, &p->lock.status.lc);
@@ -1210,50 +1218,51 @@ void erts_lcnt_enable_proc_lock_count(int enable)
 #if ERTS_PROC_LOCK_OWN_IMPL
 
 void
-erts_proc_lc_lock(Process *p, ErtsProcLocks locks)
+erts_proc_lc_lock(Process *p, ErtsProcLocks locks, char *file, unsigned int line)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
 					   p->common.id,
 					   ERTS_LC_FLG_LT_PROCLOCK);
     if (locks & ERTS_PROC_LOCK_MAIN) {
 	lck.id = lc_id.proc_lock_main;
-	erts_lc_lock(&lck);
+	erts_lc_lock_x(&lck,file,line);
     }
     if (locks & ERTS_PROC_LOCK_LINK) {
 	lck.id = lc_id.proc_lock_link;
-	erts_lc_lock(&lck);
+	erts_lc_lock_x(&lck,file,line);
     }
     if (locks & ERTS_PROC_LOCK_MSGQ) {
 	lck.id = lc_id.proc_lock_msgq;
-	erts_lc_lock(&lck);
+	erts_lc_lock_x(&lck,file,line);
     }
     if (locks & ERTS_PROC_LOCK_STATUS) {
 	lck.id = lc_id.proc_lock_status;
-	erts_lc_lock(&lck);
+	erts_lc_lock_x(&lck,file,line);
     }
 }
 
 void
-erts_proc_lc_trylock(Process *p, ErtsProcLocks locks, int locked)
+erts_proc_lc_trylock(Process *p, ErtsProcLocks locks, int locked,
+		     char* file, unsigned int line)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
 					   p->common.id,
 					   ERTS_LC_FLG_LT_PROCLOCK);
     if (locks & ERTS_PROC_LOCK_MAIN) {
 	lck.id = lc_id.proc_lock_main;
-	erts_lc_trylock(locked, &lck);
+	erts_lc_trylock_x(locked, &lck, file, line);
     }
     if (locks & ERTS_PROC_LOCK_LINK) {
 	lck.id = lc_id.proc_lock_link;
-	erts_lc_trylock(locked, &lck);
+	erts_lc_trylock_x(locked, &lck, file, line);
     }
     if (locks & ERTS_PROC_LOCK_MSGQ) {
 	lck.id = lc_id.proc_lock_msgq;
-	erts_lc_trylock(locked, &lck);
+	erts_lc_trylock_x(locked, &lck, file, line);
     }
     if (locks & ERTS_PROC_LOCK_STATUS) {
 	lck.id = lc_id.proc_lock_status;
-	erts_lc_trylock(locked, &lck);
+	erts_lc_trylock_x(locked, &lck, file, line);
     }
 }
 
@@ -1319,7 +1328,8 @@ erts_proc_lc_might_unlock(Process *p, ErtsProcLocks locks)
 }
 
 void
-erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks)
+erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks, char *file,
+			  unsigned int line)
 {
 #if ERTS_PROC_LOCK_OWN_IMPL
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
@@ -1327,29 +1337,29 @@ erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks)
 					   ERTS_LC_FLG_LT_PROCLOCK);
     if (locks & ERTS_PROC_LOCK_MAIN) {
 	lck.id = lc_id.proc_lock_main;
-	erts_lc_require_lock(&lck);
+	erts_lc_require_lock(&lck, file, line);
     }
     if (locks & ERTS_PROC_LOCK_LINK) {
 	lck.id = lc_id.proc_lock_link;
-	erts_lc_require_lock(&lck);
+	erts_lc_require_lock(&lck, file, line);
     }
     if (locks & ERTS_PROC_LOCK_MSGQ) {
 	lck.id = lc_id.proc_lock_msgq;
-	erts_lc_require_lock(&lck);
+	erts_lc_require_lock(&lck, file, line);
     }
     if (locks & ERTS_PROC_LOCK_STATUS) {
 	lck.id = lc_id.proc_lock_status;
-	erts_lc_require_lock(&lck);
+	erts_lc_require_lock(&lck, file, line);
     }
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
     if (locks & ERTS_PROC_LOCK_MAIN)
-	erts_lc_require_lock(&p->lock.main.lc);
+	erts_lc_require_lock(&p->lock.main.lc, file, line);
     if (locks & ERTS_PROC_LOCK_LINK)
-	erts_lc_require_lock(&p->lock.link.lc);
+	erts_lc_require_lock(&p->lock.link.lc, file, line);
     if (locks & ERTS_PROC_LOCK_MSGQ)
-	erts_lc_require_lock(&p->lock.msgq.lc);
+	erts_lc_require_lock(&p->lock.msgq.lc, file, line);
     if (locks & ERTS_PROC_LOCK_STATUS)
-	erts_lc_require_lock(&p->lock.status.lc);
+	erts_lc_require_lock(&p->lock.status.lc, file, line);
 #endif
 }
 

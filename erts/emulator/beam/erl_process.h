@@ -2009,12 +2009,6 @@ erts_get_runq_current(ErtsSchedulerData *esdp)
 #endif
 }
 
-#ifdef ERTS_ENABLE_LOCK_COUNT
-
-#define erts_smp_runq_lock(rq)	erts_smp_mtx_lock_x(&(rq)->mtx, __FILE__, __LINE__)
-
-#else
-
 ERTS_GLB_INLINE void
 erts_smp_runq_lock(ErtsRunQueue *rq)
 {
@@ -2022,6 +2016,10 @@ erts_smp_runq_lock(ErtsRunQueue *rq)
     erts_smp_mtx_lock(&rq->mtx);
 #endif
 }
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+
+#define erts_smp_runq_lock(rq)	erts_smp_mtx_lock_x(&(rq)->mtx, __FILE__, __LINE__)
 
 #endif
 

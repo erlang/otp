@@ -71,7 +71,8 @@ do {									\
     	ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());		\
 } while (0)
 #    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
-        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)
+        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,\
+					   __FILE__, __LINE__)
 #    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 #  else

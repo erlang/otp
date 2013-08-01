@@ -61,7 +61,13 @@
 #define ERTS_LOCK_COUNT_H__
 
 #ifdef  ERTS_ENABLE_LOCK_COUNT
+#ifndef ERTS_ENABLE_LOCK_POSITION
+/* Enable in order for _x variants of mtx functions to be used. */
+#define ERTS_ENABLE_LOCK_POSITION 1
+#endif
+
 #include "ethread.h"
+
 
 #define ERTS_LCNT_MAX_LOCK_LOCATIONS (10)
 
