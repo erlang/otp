@@ -172,10 +172,12 @@ get_password(Io) ->
 -type encoding()   :: 'latin1' | 'unicode' | 'utf8' | 'utf16' | 'utf32'
                     | {'utf16', 'big' | 'little'} | {'utf32','big' | 'little'}.
 -type expand_fun() :: fun((term()) -> {'yes'|'no', string(), [string(), ...]}).
+-type max_length() :: 'unlimited' | pos_integer().
 -type opt_pair()   :: {'binary', boolean()}
                     | {'echo', boolean()}
                     | {'expand_fun', expand_fun()}
-                    | {'encoding', encoding()}.
+                    | {'encoding', encoding()}
+                    | {'max_length', max_length()}.
 
 -spec getopts() -> [opt_pair()].
 

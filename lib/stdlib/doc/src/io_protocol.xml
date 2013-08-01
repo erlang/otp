@@ -334,10 +334,12 @@ understands the following options:</p>
 <em>{echo, boolean()}</em><br/>
 <em>{expand_fun, fun()}</em><br/>
 <em>{encoding, unicode/latin1}</em> (or <em>unicode</em>/<em>latin1</em>)
+<em>{max_length, integer()}</em><br/>
 </p>
 
 <p>- of which the <c>binary</c> and <c>encoding</c> options are common for all
-I/O servers in OTP, while <c>echo</c> and <c>expand</c> are valid only for this
+I/O servers in OTP, while <c>echo</c>, <c>expand</c> and <c>max_length</c>
+are valid only for this
 I/O server. It is worth noting that the <c>unicode</c> option notifies how
 characters are actually put on the physical IO device, i.e. if the
 terminal per se is Unicode aware, it does not affect how characters
