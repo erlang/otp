@@ -100,7 +100,7 @@ typedef struct {
 
 typedef struct {
     erts_smp_atomic_t *tab;
-    Uint32 *free_id_data;
+    erts_smp_atomic32_t *free_id_data;
     Uint32 max;
     Uint32 pix_mask;
     Uint32 pix_cl_mask;
