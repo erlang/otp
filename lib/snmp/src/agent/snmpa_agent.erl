@@ -28,7 +28,8 @@
 %% External exports
 -export([start_link/4, start_link/5, stop/1]).
 -export([subagent_set/2, 
-	 load_mibs/2, unload_mibs/2, which_mibs/1, whereis_mib/2, info/1,
+	 load_mibs/3, unload_mibs/3, 
+	 which_mibs/1, whereis_mib/2, info/1,
 	 register_subagent/3, unregister_subagent/2,
 	 send_notification/3, 
          register_notification_filter/5,
@@ -71,7 +72,8 @@
 	 handle_pdu/8, worker/2, worker_loop/1, 
 	 do_send_trap/7, do_send_trap/8]).
 %% <BACKWARD-COMPAT>
--export([handle_pdu/7]).
+-export([handle_pdu/7, 
+	 load_mibs/2, unload_mibs/2]).
 %% </BACKWARD-COMPAT>
 
 -include("snmpa_internal.hrl").
@@ -528,12 +530,22 @@ subagent_set(SubAgent, Arguments) ->
 
 
 %% Called by administrator (not agent; deadlock would occur)
+%% <BACKWARD-COMPAT>
 load_mibs(Agent, Mibs) ->
-    call(Agent, {load_mibs, Mibs}).
+    load_mibs(Agent, Mibs, false).
+%% </BACKWARD-COMPAT>
+
+load_mibs(Agent, Mibs, Force) ->
+    call(Agent, {load_mibs, Mibs, Force}).
 
 %% Called by administrator (not agent; deadlock would occur)
+%% <BACKWARD-COMPAT>
 unload_mibs(Agent, Mibs) ->
-    call(Agent, {unload_mibs, Mibs}).
+    unload_mibs(Agent, Mibs, false).
+%% </BACKWARD-COMPAT>
+
+unload_mibs(Agent, Mibs, Force) ->
+    call(Agent, {unload_mibs, Mibs, Force}).
 
 which_mibs(Agent) ->
     call(Agent, which_mibs).
@@ -1216,13 +1228,25 @@ handle_call({unregister_subagent, SubTreeOid}, _From, S) ->
 	end,
     {reply, Reply, S};
 
+%% <BACKWARD-COMPAT>
 handle_call({load_mibs, Mibs}, _From, S) ->
     ?vlog("load mibs ~p", [Mibs]),
     {reply, snmpa_mib:load_mibs(get(mibserver), Mibs), S};
+%% </BACKWARD-COMPAT>
 
+handle_call({load_mibs, Mibs, Force}, _From, S) ->
+    ?vlog("[~w] load mibs ~p", [Force, Mibs]),
+    {reply, snmpa_mib:load_mibs(get(mibserver), Mibs, Force), S};
+
+%% <BACKWARD-COMPAT>
 handle_call({unload_mibs, Mibs}, _From, S) ->
     ?vlog("unload mibs ~p", [Mibs]),
     {reply, snmpa_mib:unload_mibs(get(mibserver), Mibs), S};
+%% </BACKWARD-COMPAT>
+
+handle_call({unload_mibs, Mibs, Force}, _From, S) ->
+    ?vlog("[~w] unload mibs ~p", [Force, Mibs]),
+    {reply, snmpa_mib:unload_mibs(get(mibserver), Mibs, Force), S};
 
 handle_call(which_mibs, _From, S) ->
     ?vlog("which mibs", []),

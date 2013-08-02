@@ -29,12 +29,22 @@
 %% {add_module,  snmpm_net_if_mt}
 
  [
+  {"4.24.1", 
+   [
+    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]}, 
+    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_agent]}, 
+    {update, snmpa_mib,   soft, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"4.24", 
    [
     {load_module, snmp_conf,               soft_purge, soft_purge, []}, 
     {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, 
      [snmp_conf]}, 
-    {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
+    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]}, 
+    {update, snmpa_local_db, soft, soft_purge, soft_purge, []}, 
+    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_agent]}, 
+    {update, snmpa_mib,   soft, soft_purge, soft_purge, []}
    ]
   }, 
   {"4.23.1", [{restart_application, snmp}]}, 
@@ -47,12 +57,22 @@
 %% {remove, {snmpm_net_if_mt, soft_purge, soft_purge}}
 
  [
+  {"4.24.1", 
+   [
+    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]}, 
+    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_agent]}, 
+    {update, snmpa_mib,   soft, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"4.24", 
    [
     {load_module, snmp_conf,               soft_purge, soft_purge, []}, 
     {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, 
      [snmp_conf]}, 
-    {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
+    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]}, 
+    {update, snmpa_local_db, soft, soft_purge, soft_purge, []}, 
+    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_agent]}, 
+    {update, snmpa_mib,   soft, soft_purge, soft_purge, []}
    ]
   }, 
   {"4.23.1", [{restart_application, snmp}]}, 

@@ -238,6 +238,8 @@ start_and_stop(Config) when is_list(Config) ->
 
 load_unload(suite) -> [];
 load_unload(Config) when is_list(Config) ->
+    ?DBG("load_unload -> start", []),
+
     Prio       = normal,
     Verbosity  = log,
     MibDir     = ?config(data_dir, Config),
@@ -253,8 +255,10 @@ load_unload(Config) when is_list(Config) ->
     ?line ok = load_mibs(MibsPid, MibDir, ["Test2"]),
     ?line ok = verify_loaded_mibs(MibsPid, MibDir, ["Test2"]),
     
-    ?DBG("load_unload -> load one already loaded mib", []),
-    ?line {error, _} = load_mibs(MibsPid, MibDir, ["Test2"]),
+    ?DBG("load_unload -> try load one *already loaded* mib", []),
+    EMib = join(MibDir, "Test2"), 
+    ?line {error, {'load aborted at', EMib, already_loaded}} = 
+	load_mibs(MibsPid, MibDir, ["Test2"]),
 
     ?DBG("load_unload -> load 2 not already loaded mibs", []),
     ?line ok = load_mibs(MibsPid, MibDir, ["TestTrap", "TestTrapv2"]),
@@ -266,7 +270,8 @@ load_unload(Config) when is_list(Config) ->
     ?line ok = verify_loaded_mibs(MibsPid, MibDir, ["TestTrap", "TestTrapv2"]),
     
     ?DBG("load_unload -> try unload two loaded mibs and one not loaded", []),
-    ?line {error, _} = unload_mibs(MibsPid, ["TestTrap","Test2","TestTrapv2"]),
+    ?line {error, {'unload aborted at', "Test2", not_loaded}} = 
+	   unload_mibs(MibsPid, ["TestTrap","Test2","TestTrapv2"]),
     ?line ok = verify_loaded_mibs(MibsPid, MibDir, ["TestTrapv2"]),
     
     ?DBG("load_unload -> unload the remaining loaded mib", []),
@@ -279,6 +284,7 @@ load_unload(Config) when is_list(Config) ->
     ?DBG("load_unload -> stop symbolic store", []),
     ?line sym_stop(),
 
+    ?DBG("load_unload -> done", []),
     ok.
 
 
@@ -691,10 +697,16 @@ mibs_info(Pid) ->
 
 load_mibs(Pid, Dir, Mibs0) ->
     Mibs = [join(Dir, Mib) || Mib <- Mibs0],
-    snmpa_mib:load_mibs(Pid, Mibs).
+    Res = snmpa_mib:load_mibs(Pid, Mibs),
+    %% ?DBG("load_mibs -> "
+    %% 	 "~n   Res: ~p", [Res]),
+    Res.
 
 unload_mibs(Pid, Mibs) ->
-    snmpa_mib:unload_mibs(Pid, Mibs).
+    Res = snmpa_mib:unload_mibs(Pid, Mibs),
+    %% ?DBG("unload_mibs -> "
+    %% 	 "~n   Res: ~p", [Res]),
+    Res.
 
 verify_loaded_mibs(Pid, Dir, ExpectedMibs0) ->
     ExpectedMibs = [join(Dir, Mib) || Mib <- ExpectedMibs0],
