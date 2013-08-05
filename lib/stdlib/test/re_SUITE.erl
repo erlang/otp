@@ -27,7 +27,7 @@
 	 pcre_compile_workspace_overflow/1,re_infinite_loop/1, 
 	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
-	 match_limit/1]).
+	 match_limit/1,sub_binaries/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -42,7 +42,7 @@ all() ->
      pcre_compile_workspace_overflow, re_infinite_loop, 
      re_backwards_accented, opt_dupnames, opt_all_names, 
      inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
-     match_limit].
+     match_limit, sub_binaries].
 
 groups() -> 
     [].
@@ -505,6 +505,33 @@ error_handling() ->
     {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors]),
     {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[global])),
     {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors,global]),
+    % Badly formed options
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,["global"])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{offset,-1}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{offset,ett}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{captore,[1,2],binary}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{capture,[1,2],binary,list}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{capture,[1,2],bunary}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{capture,{1,2},binary}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{newline,3}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{newline,apa}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{njuline,cr}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{<<"newline">>,cr}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[global|dupnames])),
+    {'EXIT',{badarg,_}} = (catch re:run([<<"ap">>|$a],RE,[])), % Not an IO-list
+    {'EXIT',{badarg,_}} = (catch re:compile([<<"ap">>|$a],[])), % Not an IO-list
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{capture,[0|1],binary}])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,
+					[{capture,[<<"apa">>|1],binary}])), 
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,
+					[{capture,[[<<"ap">>|$a]],binary}])), 
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,[<<"(p">>|41],[])), 
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,{re_pattern,3,0,0,[]},[])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,{re_pattern,3,0,0,<<"apa">>},[])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,{re_pattern,3,0,0,<<"apa",3:2>>},[])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa",2:2>>,<<"(p)">>,[{capture,[0,1],binary}])), 
+    <<_:4,Temp:3/binary,_:4>> = <<38,23,6,18>>,
+    {match,[{1,1},{1,1}]} = re:run(Temp,<<"(p)">>,[]), % Unaligned works 
     % The replace errors:
     {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[]],_},
 		     {?MODULE,error_handling,0,_} | _]}} =
@@ -680,6 +707,51 @@ opt_dupnames(Config) when is_list(Config) ->
 		     "(?<DN>Tue)(?:sday)?|(?<DN>Wed)nesday|(?<DN>Thu)(?:rsday)?|"
 		     "(?<DN>Sat)(?:urday)?",
 		     [dupnames, {capture, ['Skrap','DN','Skrap2'],index}]),
+    {match,[<<>>]} = re:run("Subject","b",[dupnames,{capture,['B'],binary}]),
+    {match,[<<"S">>,<<"u">>,<<"b">>,<<"j">>,<<"e">>,<<"c">>,
+	    <<"t">>,<<"I">>,<<"s">>,<<"M">>,<<"o">>,<<"r">>,<<"e">>,
+	    <<"T">>,<<"h">>,<<"a">>,<<"n">>,<<"T">>,<<"e">>,<<"n">>]} =
+	re:run("SubjectIsMoreThanTen",
+	       "(?<S>S)(?<u>u)(?<b>b)(?<j>j)(?<e>e)(?<c>c)(?<t>t)"
+	       "(?<I>I)(?<s>s)(?<M>M)(?<o>o)(?<r>r)(?<e>e)(?<T>T)"
+	       "(?<h>h)(?<a>a)(?<n>n)(?<T>T)(?<e>e)(?<n>n)",
+	       [dupnames,{capture,['S','u','b','j','e','c','t',
+				   'I','s','M','o','r','e','T',
+				   'h','a','n','T','e','n'],binary}]),
+    {match,[<<"S">>,<<"u">>,<<"b">>,<<"j">>,<<"e">>,<<"c">>,
+	    <<"t">>,<<"I">>,<<"s">>,<<"M">>,<<"o">>,<<"r">>,<<"e">>,
+	    <<"T">>,<<"h">>,<<"a">>,<<"n">>,<<"T">>,<<"e">>,<<"n">>]} =
+	re:run("SubjectIsMoreThanTen",
+	       "(?<S>S)(?<u>u)(?<b>b)(?<j>j)(?<e>e)(?<c>c)(?<t>t)"
+	       "(?<I>I)(?<s>s)(?<M>M)(?<o>o)(?<r>r)(?<e>e)(?<T>T)"
+	       "(?<h>h)(?<a>a)(?<n>n)(?<T>T)(?<e>e)(?<n>n)",
+	       [dupnames,
+		{capture,all_but_first,list},
+		{capture,['S','u','b','j','e','c','t',
+			  'I','s','M','o','r','e','T',
+			  'h','a','n','T','e','n'],binary}]),
+    {match,[<<"S">>,<<"u">>,<<"b">>,<<"j">>,<<"e">>,<<"c">>,
+	    <<"t">>,<<"I">>,<<"s">>,<<"M">>,<<"o">>,<<"r">>,<<"e">>,
+	    <<"T">>,<<"h">>,<<"a">>,<<"n">>,<<"T">>,<<"e">>,<<"n">>]} =
+	re:run("SubjectIsMoreThanTen",
+	       "(?<S>S)(?<u>u)(?<b>b)(?<j>j)(?<e>e)(?<c>c)(?<t>t)"
+	       "(?<I>I)(?<s>s)(?<M>M)(?<o>o)(?<r>r)(?<e>e)(?<T>T)"
+	       "(?<h>h)(?<a>a)(?<n>n)(?<T>T)(?<e>e)(?<n>n)",
+	       [dupnames,
+		{capture,["S","u","b","j","e","c","t",
+			  "I","s","M","o","r","e","T",
+			  "h","a","n","T","e","n"],binary}]), 
+    {match,[<<"S">>,<<"u">>,<<"b">>,<<"j">>,<<"e">>,<<"c">>,
+	    <<"t">>,<<"I">>,<<"s">>,<<"M">>,<<"o">>,<<"r">>,<<"e">>,
+	    <<"T">>,<<"h">>,<<"a">>,<<"n">>,<<"T">>,<<"e">>,<<"n">>]} =
+	re:run("SubjectIsMoreThanTen",
+	       "(?<S>S)(?<u>u)(?<b>b)(?<j>j)(?<e>e)(?<c>c)(?<t>t)"
+	       "(?<I>I)(?<s>s)(?<M>M)(?<o>o)(?<r>r)(?<e>e)(?<T>T)"
+	       "(?<h>h)(?<a>a)(?<n>n)(?<T>T)(?<e>e)(?<then>n)",
+	       [dupnames,
+		{capture,["S","u","b","j","e","c","t",
+			  "I","s","M","o","r","e","T",
+			  "h","a","n","T","e","then"],binary}]), 
     ok.
 
 opt_all_names(doc) ->
@@ -724,6 +796,7 @@ opt_all_names(Config) when is_list(Config) ->
     {match,[{-1,0},{0,1},{-1,0}]} = re:run("B","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, index}]),
     {match,[{0,1},{-1,0},{-1,0}]} = re:run("C","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, index}]),
     {match,[<<>>,<<>>,<<"A">>]} = re:run("A","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, binary}]),
+    {match,[<<>>,<<>>,<<"A">>]} = re:run("A","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_but_first, binary},{capture, all_names, binary}]),
     {match,[<<>>,<<"B">>,<<>>]} = re:run("B","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, binary}]),
     {match,[<<"C">>,<<>>,<<>>]} = re:run("C","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, binary}]),
     {match,[[],[],"A"]} = re:run("A","(?<C>A)|(?<B>B)|(?<A>C)",[{capture, all_names, list}]),
@@ -744,6 +817,14 @@ opt_all_names(Config) when is_list(Config) ->
     {match,[[],"E"]} = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,['A','B'],list}]),
     {match,[[],"E"]} = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,all_names,list}]),
     {match,[{-1,0},{3,1}]}  = re:run("ABCE","(?<A>D)|(?<B>E)|(?<A>F)",[dupnames,{capture,all_names,index}]),
+    match = re:run("Subject","b",[dupnames,{capture,all_names,binary}]),
+    {match,[<<"I">>,<<"M">>,<<"S">>,<<"T">>,<<"a">>,<<"b">>,              
+	    <<"c">>,<<"e">>,<<"h">>,<<"j">>,<<"n">>,<<"o">>,<<"r">>,
+	    <<"s">>,<<"t">>,<<"u">>]} =
+	re:run("SubjectIsMoreThanTen","(?<S>S)(?<u>u)(?<b>b)(?<j>j)"
+	       "(?<e>e)(?<c>c)(?<t>t)(?<I>I)(?<s>s)(?<M>M)(?<o>o)(?<r>r)"
+	       "(?<e>e)(?<T>T)(?<h>h)(?<a>a)(?<n>n)(?<T>T)(?<e>e)(?<n>n)",
+	       [dupnames,{capture,all_names,binary}]),
     ok.
 
 inspect(doc) ->
@@ -757,6 +838,7 @@ inspect(Config) when is_list(Config)->
     {namelist,[]} = re:inspect(MPN,namelist),
     {'EXIT',{badarg,_}} = (catch re:inspect(MPD,namelistk)),
     {'EXIT',{badarg,_}} = (catch re:inspect({re_pattern,3,0,0,<<"kalle">>},namelist)),
+    {'EXIT',{badarg,_}} = (catch re:inspect({re_pattern,3,0,0,<<"kalle",2:2>>},namelist)),
     ok.
 
 opt_no_start_optimize(doc) ->
@@ -825,4 +907,15 @@ match_limit(Config) when is_list(Config) ->
     {'EXIT', {badarg,_}} = (catch re:run("aaaaaaaaaaaaaz","(a+)*zz",
 					 [{match_limit,-1},
 					  report_errors,global])),
+    ok.
+sub_binaries(doc) ->
+    "test that we get sub-binaries if subject is a binary and we "
+	"capture binaries";
+sub_binaries(Config) when is_list(Config) ->
+    Bin = list_to_binary(lists:seq(1,255)),
+    {match,[B,C]}=re:run(Bin,"(a)",[{capture,all,binary}]),
+    255 = binary:referenced_byte_size(B),
+    255 = binary:referenced_byte_size(C),
+    {match,[D]}=re:run(Bin,"(a)",[{capture,[1],binary}]),
+    255 = binary:referenced_byte_size(D),
     ok.
