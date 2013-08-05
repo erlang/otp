@@ -32,7 +32,7 @@
 	 ip/1, stats/0, options/0, 
 	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1, 
 	 parse_ipv4_address/1, parse_ipv6_address/1, parse_ipv4strict_address/1,
-	 parse_ipv6strict_address/1, parse_address/1, parse_strict_address/1]).
+	 parse_ipv6strict_address/1, parse_address/1, parse_strict_address/1, ntoa/1]).
 
 -export([connect_options/2, listen_options/2, udp_options/2, sctp_options/2]).
 
@@ -528,6 +528,13 @@ getservbyname(Name, Protocol) when is_atom(Name) ->
 	    Res;
 	Error -> Error
     end.
+
+-spec ntoa(IpAddress) ->
+	{ok, Address} | {error, einval} when
+      Address :: string(),
+      IpAddress :: ip_address().
+ntoa(Addr) ->
+    inet_parse:ntoa(Addr).
 
 -spec parse_ipv4_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
