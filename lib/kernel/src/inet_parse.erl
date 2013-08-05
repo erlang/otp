@@ -722,7 +722,9 @@ ntoa({0,0,0,0,0,16#ffff,A,B}) ->
     "::FFFF:" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
 ntoa({_,_,_,_,_,_,_,_}=T) ->
     %% Find longest sequence of zeros, at least 2, to replace with "::"
-    ntoa(tuple_to_list(T), []).
+    ntoa(tuple_to_list(T), []);
+ntoa(_) ->
+    {error, einval}.
 
 %% Find first double zero
 ntoa([], R) ->

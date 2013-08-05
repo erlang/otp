@@ -226,7 +226,7 @@ t_gethostbyname_v6(Config) when is_list(Config) ->
 			     h_addr_list = [IP4]} = HEnt4,
 		    {ok,IP46} =
 			inet_parse:ipv6_address(
-			  "::ffff:" ++ inet_parse:ntoa(IP4)),
+			  "::ffff:" ++ inet:ntoa(IP4)),
 		    check_elems(
 		      [{HEnt#hostent.h_name,[Name,FullName]}])
 	    end,
@@ -246,7 +246,7 @@ t_gethostbyname_v6(Config) when is_list(Config) ->
 			     h_addr_list = [IP4F]} = HEnt4F,
 		    {ok,IP46F} =
 			inet_parse:ipv6_address(
-			  "::ffff:" ++ inet_parse:ntoa(IP4F)),
+			  "::ffff:" ++ inet:ntoa(IP4F)),
 		    check_elems(
 		      [{HEntF#hostent.h_name,[Name,FullName]}])
 	    end;
