@@ -3021,6 +3021,14 @@ buf_to_intlist(Eterm** hpp, char *buf, size_t len, Eterm tail)
 ** Return remaining bytes in buffer on success
 **        ERTS_IOLIST_TO_BUF_OVERFLOW on overflow
 **        ERTS_IOLIST_TO_BUF_TYPE_ERROR on type error (including that result would not be a whole number of bytes)
+**
+** Note! 
+** Do not detect indata errors in this fiunction that are not detected by erts_iolist_size!
+**
+** A caller should be able to rely on a successful return from erts_iolist_to_buf
+** if erts_iolist_size is previously successfully called and erts_iolist_to_buf 
+** is called with a buffer at least as large as the value given by erts_iolist_size.
+** 
 */
 
 ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
@@ -3127,6 +3135,11 @@ ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
 
 /*
  * Return 0 if successful, and non-zero if unsuccessful.
+ *
+ * It is vital that if erts_iolist_to_buf would return an error for
+ * any type of term data, this function should do so as well.
+ * Any input term error detected in erts_iolist_to_buf should also
+ * be detected in this function!
  */
 int erts_iolist_size(Eterm obj, ErlDrvSizeT* sizep)
 {
