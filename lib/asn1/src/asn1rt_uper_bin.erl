@@ -323,10 +323,21 @@ decode_fragmented_octets(<<0:1,Len:7,BitStr/bitstring>>,C,Acc) ->
 %%         | binary
 %% Contraint = not used in this version
 %%
-encode_open_type(C, Val) when is_list(Val) ->
-    encode_open_type(C, list_to_binary(Val));
-encode_open_type(_C, Val) when is_binary(Val) ->
-    [encode_length(undefined,size(Val)),Val].
+encode_open_type(_Constraint, Val) when is_list(Val) ->
+    encode_open_type_1(list_to_binary(Val));
+encode_open_type(_Constraint, Val) when is_binary(Val) ->
+    encode_open_type_1(Val).
+
+encode_open_type_1(Val0) ->
+    case byte_size(Val0) of
+	Size when Size < 16384 ->
+	    [encode_length(undefined, Size),Val0];
+	Size ->
+	    F = min(Size bsr 14, 4),
+	    SegSz = F * ?'16K',
+	    <<Val:SegSz/binary,T/binary>> = Val0,
+	    [<<3:2,F:6>>,Val|encode_open_type_1(T)]
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -335,9 +346,20 @@ encode_open_type(_C, Val) when is_binary(Val) ->
 %% Buffer = [byte] with PER encoded data 
 %% Value = [byte] with decoded data (which must be decoded again as some type)
 %%
-decode_open_type(Bytes, _C) ->
-    {Len,Bytes2} = decode_length(Bytes,undefined),
-    getoctets_as_bin(Bytes2,Len).
+decode_open_type(Bytes, _Constraint) ->
+    decode_open_type_1(Bytes, []).
+
+decode_open_type_1(Bytes0, Acc) ->
+    case decode_length_unlimited(Bytes0) of
+	{Len,Bytes} when Len < ?'16K', Acc =:= [] ->
+	    getoctets_as_bin(Bytes, Len);
+	{Len,Bytes1} when Len < ?'16K' ->
+	    {Bin,Bytes} = getoctets_as_bin(Bytes1, Len),
+	    {iolist_to_binary([Acc,Bin]),Bytes};
+	{Len,Bytes1} ->
+	    <<Bin:Len/binary,Bytes/bitstring>> = Bytes1,
+	    decode_open_type_1(Bytes, [Acc,Bin])
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% encode_integer(Constraint,Value,NamedNumberList) -> CompleteList
@@ -631,6 +653,14 @@ decode_small_length(Buffer) ->
 	{1,Remain} -> 
 	    decode_length(Remain,undefined)
     end.
+
+decode_length_unlimited(<<0:1,Oct:7,Rest/bitstring>>) ->
+    {Oct,Rest};
+decode_length_unlimited(<<1:1,0:1,Val:14,Rest/bitstring>>) ->
+    {Val,Rest};
+decode_length_unlimited(<<1:1,1:1,F:6,Rest/bitstring>>) ->
+    SegSz = F * ?'16K',
+    {SegSz,Rest}.
 
 decode_length(Buffer) ->
     decode_length(Buffer,undefined).

@@ -109,6 +109,7 @@ MODULES= \
 	test_modified_x420 \
 	testX420 \
 	test_x691 \
+	testFragmented \
 	asn1_test_lib \
 	asn1_app_test \
 	asn1_appup_test \
