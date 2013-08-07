@@ -409,9 +409,9 @@ Data =
       specification but the basic functionality. For all details see
       the <seealso marker="xmerl_xs">reference manual</seealso></p>
     <p>First, some words about the xmerl_xs functionality:</p>
-    <p>You need to wright template functions to be able to control
+    <p>You need to write template functions to be able to control
       what kind of output you want. Thus if you want to encapsulate a
-      <c>bike</c> element in &lt;p&gt; tags you simply wright a
+      <c>bike</c> element in &lt;p&gt; tags you simply write a
       function:</p>
     <pre>
 template(E = #xmlElement{name='bike'}) ->
