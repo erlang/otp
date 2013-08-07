@@ -25,6 +25,9 @@
 #ifndef ETHREAD_GCC_H__
 #define ETHREAD_GCC_H__
 
+#if defined(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP32) \
+     || defined(ETHR_HAVE___SYNC_VAL_COMPARE_AND_SWAP64)
+
 #ifndef ETHR_MEMBAR
 #  include "ethr_membar.h"
 #endif
@@ -43,6 +46,8 @@
      && !(ETHR_SIZEOF_PTR == 4 && defined(ETHR_HAVE_NATIVE_ATOMIC64)) \
      && !(ETHR_SIZEOF_PTR == 8 && defined(ETHR_HAVE_NATIVE_ATOMIC128)))
 #  include "ethr_dw_atomic.h"
+#endif
+
 #endif
 
 #endif
