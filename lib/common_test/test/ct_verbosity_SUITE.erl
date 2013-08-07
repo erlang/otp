@@ -53,9 +53,19 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
 
+init_per_testcase(no_crashing, Config) ->
+    Opts = ct_test_support:start_slave(ctX, Config, 50),
+    XNode = proplists:get_value(ct_node, Opts),
+    ct:pal("Node ~p started!", [XNode]),
+    [{xnode,XNode} | Config];
 init_per_testcase(TestCase, Config) ->
     ct_test_support:init_per_testcase(TestCase, Config).
 
+end_per_testcase(no_crashing, Config) ->
+    XNode = proplists:get_value(xnode, Config),
+    ct_test_support:slave_stop(XNode),
+    ct:pal("Node ~p stopped!", [XNode]),
+    ok;
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
@@ -72,7 +82,8 @@ all() ->
      combine_categories,
      testspec_only,
      merge_with_testspec,
-     possible_deadlock
+     possible_deadlock,
+     no_crashing
     ].
 
 %%--------------------------------------------------------------------
@@ -187,6 +198,19 @@ possible_deadlock(Config) ->
 			  {event_handler,[simple_evh]}], Config),
     ok = execute(TC, Opts, ERPid, Config).
     
+
+%%%-----------------------------------------------------------------
+%%%
+no_crashing(Config) ->
+    XNode = proplists:get_value(xnode, Config),
+    ok = rpc:call(XNode, ct, print, ["hello",[]]),
+    ok = rpc:call(XNode, ct, pal, ["hello",[]]),
+    ok = rpc:call(XNode, ct, log, ["hello",[]]),
+    Data = io_lib:format("hello", []),
+    {badrpc,{'EXIT',{noproc,_}}} =
+	(catch rpc:call(XNode, test_server_io, print_unexpected, [Data])),
+    ok.	
+
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS

@@ -286,14 +286,23 @@ get_start_dir() ->
 %% handle verbosity outside ct_util_server (let the client read
 %% the verbosity table) to avoid possible deadlock situations
 set_verbosity(Elem = {_Category,_Level}) ->
-    ets:insert(?verbosity_table, Elem),
-    ok.
+    try ets:insert(?verbosity_table, Elem) of
+	_ ->
+	    ok
+    catch
+	_:Reason ->
+	    {error,Reason}
+    end.
+	
 get_verbosity(Category) ->
-    case ets:lookup(?verbosity_table, Category) of
+    try ets:lookup(?verbosity_table, Category) of
 	[{Category,Level}] -> 
 	    Level;
 	_ ->
 	    undefined
+    catch
+	_:Reason ->
+	    {error,Reason}
     end.
 
 loop(Mode,TestData,StartDir) ->
