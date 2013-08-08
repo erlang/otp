@@ -2757,6 +2757,10 @@ document etp-run
 %---------------------------------------------------------------------------
 end
 
+define etp-thr
+  source @ERL_TOP@/erts/etc/unix/etp-thr.py
+end
+
 ############################################################################
 # Toolbox parameter handling
 #
