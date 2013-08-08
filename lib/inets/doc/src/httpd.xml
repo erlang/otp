@@ -251,14 +251,14 @@
       </item>
       
       <marker id="prop_max_uri"></marker>
-      <tag>{max_uri, integer()}</tag>
+      <tag>{max_uri_size, integer()}</tag>
       <item>
 	<p>Limits the size of the HTTP request URI. By
 	default there is no limit. </p>
       </item>
       
       <marker id="prop_max_keep_alive_req"></marker>
-      <tag>{max_keep_alive_requests, integer()}</tag>
+      <tag>{max_keep_alive_request, integer()}</tag>
       <item>
 	<p>The number of request that a client can do on one
 	connection. When the server has responded to the number of
@@ -632,7 +632,7 @@ bytes
       </item>
 
       <marker id="prop_edlog"></marker>
-      <tag>{error_disk_log, internal | external}</tag>
+      <tag>{error_disk_log, path()}</tag>
       <item>
 	<p>Defines the filename of the (disk_log(3)) error log file
 	to be used to log server errors. If the filename does not begin
