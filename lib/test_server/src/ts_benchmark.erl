@@ -30,12 +30,7 @@
 
 benchmarks() ->
     {ok, Cwd} = file:get_cwd(),
-    Benches = filelib:wildcard(
-		filename:join([Cwd,"..","*_test","*_bench.spec"])),
-    [begin
-	 Base = filename:basename(N),
-	 list_to_atom(string:substr(Base,1,string:rstr(Base,"_")-1))
-     end || N <- Benches].
+    ts_lib:specialized_specs(Cwd,"bench").
 
 run(Specs, Opts, Vars) ->
     {ok, Cwd} = file:get_cwd(),

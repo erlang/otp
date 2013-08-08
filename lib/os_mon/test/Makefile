@@ -85,7 +85,8 @@ release_spec:
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) os_mon.spec os_mon.cover $(EMAKEFILE) $(SOURCE) "$(RELSYSDIR)"
+	$(INSTALL_DATA) os_mon.spec os_mon.cover os_mon_smoke.spec \
+		$(EMAKEFILE) $(SOURCE) "$(RELSYSDIR)"
 	$(INSTALL_DATA) os_mon_mib_SUITE.cfg "$(RELSYSDIR)"
 
 ##	tar chf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

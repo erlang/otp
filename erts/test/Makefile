@@ -79,7 +79,7 @@ release_spec:
 
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) system.spec system.dynspec \
+	$(INSTALL_DATA) system.spec system.dynspec system_smoke.spec \
 		$(ERL_FILES) $(TARGET_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	tar cf - *_SUITE_data utils | (cd "$(RELSYSDIR)"; tar xf -)

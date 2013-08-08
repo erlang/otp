@@ -140,7 +140,8 @@ EMAKEFILE=Emakefile
 
 TEST_SPEC_FILES= emulator.spec \
 		 emulator.spec.win \
-		 emulator_bench.spec
+		 emulator_bench.spec \
+		 emulator_smoke.spec
 
 # ----------------------------------------------------
 # Release directory specification

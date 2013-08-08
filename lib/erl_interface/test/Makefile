@@ -42,7 +42,7 @@ MODULES= \
 	runner
 
 SPEC_FILES = \
-	erl_interface.spec
+	erl_interface.spec erl_interface_smoke.spec
 
 COVER_FILE = erl_interface.cover
 
