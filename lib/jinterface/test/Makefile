@@ -32,7 +32,7 @@ RELSYSDIR = $(RELEASE_PATH)/jinterface_test
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-TEST_SPEC_FILE = jinterface.spec
+TEST_SPEC_FILE = jinterface.spec jinterface_smoke.spec
 COVER_FILE = jinterface.cover
 
 MODULES = nc_SUITE \

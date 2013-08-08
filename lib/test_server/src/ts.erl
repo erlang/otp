@@ -28,6 +28,7 @@
 	 tests/0, tests/1,
 	 install/0, install/1,
 	 bench/0, bench/1, bench/2, benchmarks/0,
+	 smoke_test/0, smoke_test/1,smoke_test/2, smoke_tests/0,
 	 estone/0, estone/1,
 	 cross_cover_analyse/1,
 	 compile_testcases/0, compile_testcases/1,
@@ -174,6 +175,13 @@ help(installed) ->
 	 "  ts:bench(Spec)    - Runs all benchmarks in the given spec file.\n"
 	 "                      The spec file is actually ../*_test/Spec_bench.spec\n\n"
 	 "                      ts:bench can take the same Options argument as ts:run.\n"
+	 "Smoke test functions:\n"
+	 "  ts:smoke_tests()  - Get all available families of smoke tests\n"
+	 "  ts:smoke_test()   - Runs all smoke tests\n"
+	 "  ts:smoke_test(Spec)\n"
+	 "                    - Runs all smoke tests in the given spec file.\n"
+	 "                      The spec file is actually ../*_test/Spec_smoke.spec\n\n"
+	 "                      ts:smoke_test can take the same Options argument as ts:run.\n"
 	 "\n"
 	 "Installation (already done):\n"
 	],
@@ -258,6 +266,7 @@ run(List, Opts) when is_list(List), is_list(Opts) ->
 %% Runs one test spec with Options
 run(Testspec, Config) when is_atom(Testspec), is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
+    IsSmoke=proplists:get_value(smoke,Config),
     File=atom_to_list(Testspec),
     WhatToDo =
 	case Testspec of
@@ -293,6 +302,8 @@ run(Testspec, Config) when is_atom(Testspec), is_list(Config) ->
 	case WhatToDo of
 	    skip ->
 		create_skip_spec(Testspec, tests(Testspec));
+	    test when IsSmoke ->
+		File++"_smoke.spec";
 	    test ->
 		File++".spec"
 	end,
@@ -507,7 +518,22 @@ bench(Specs, Opts) ->
 benchmarks() ->
     ts_benchmark:benchmarks().
 
+smoke_test() ->
+    smoke_test([]).
 
+smoke_test(Opts) when is_list(Opts) ->
+    smoke_test(smoke_tests(),Opts);
+smoke_test(Spec) ->
+    smoke_test([Spec],[]).
+
+smoke_test(Spec, Opts) when is_atom(Spec) ->
+    smoke_test([Spec],Opts);
+smoke_test(Specs, Opts) ->
+    run(Specs, [{smoke,true}|Opts]).
+
+smoke_tests() ->
+    {ok, Cwd} = file:get_cwd(),
+    ts_lib:specialized_specs(Cwd,"smoke").
 
 %% 
 %% estone/0, estone/1

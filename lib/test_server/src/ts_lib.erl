@@ -27,6 +27,7 @@
 	 erlang_type/1,
 	 initial_capital/1,
 	 specs/1, suites/2,
+	 specialized_specs/2,
 	 subst_file/3, subst/2, print_data/1,
 	 make_non_erlang/2,
 	 maybe_atom_to_list/1, progress/4,
@@ -91,13 +92,22 @@ initial_capital([C|Rest]) when $a =< C, C =< $z ->
 initial_capital(String) ->
     String.
 
+specialized_specs(Dir,PostFix) ->
+    Specs = filelib:wildcard(filename:join([filename:dirname(Dir),
+					    "*_test", "*_"++PostFix++".spec"])),
+    sort_tests([begin
+		    Base = filename:basename(Name),
+		    list_to_atom(string:substr(Base,1,string:rstr(Base,"_")-1))
+		end || Name <- Specs]).
+
 specs(Dir) ->
     Specs = filelib:wildcard(filename:join([filename:dirname(Dir),
 					    "*_test", "*.{dyn,}spec"])),
-    % Filter away all spec which end with _bench.spec
+    % Filter away all spec which end with {_bench,_smoke}.spec
     NoBench = fun(SpecName) ->
 		      case lists:reverse(SpecName) of
 			  "ceps.hcneb_"++_ -> false;
+			  "ceps.ekoms_"++_ -> false;
 			  _ -> true
 		      end
 	      end,

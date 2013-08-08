@@ -33,7 +33,7 @@ RELSYSDIR = $(RELEASE_PATH)/ic_test
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-TEST_SPEC_FILE = ic.spec
+TEST_SPEC_FILE = ic.spec ic_smoke.spec
 
 
 IDL_FILES = 
