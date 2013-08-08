@@ -18,8 +18,6 @@
 #
 
 def get_thread_name(t):
-    if t.name != None:
-        return t.name;
     f = gdb.newest_frame();
     while f:
         if f.name() == "async_main":
