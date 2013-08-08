@@ -1631,8 +1631,8 @@ header_decode_one_byte_active(Config) when is_list(Config) ->
 					{from, self()},
 					{mfa, {?MODULE, client_header_decode_active,
 					       [Data, [11 | <<"Hello world">> ]]}},
-					{options, [{active, true}, {header, 1},
-						   binary | ClientOpts]}]),
+					{options, [{active, true}, binary, {header, 1}
+						    | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -1688,7 +1688,7 @@ header_decode_two_bytes_two_sent_active(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
 					{mfa, {?MODULE, server_header_decode_active,
-					       [Data, [$H, $e]]}},
+					       [Data, [$H, $e | <<>>]]}},
 					{options, [{active, true}, binary, 
 						   {header,2}|ServerOpts]}]),
 
@@ -1697,7 +1697,7 @@ header_decode_two_bytes_two_sent_active(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()},
 					{mfa, {?MODULE, client_header_decode_active,
-					       [Data, [$H, $e]]}},
+					       [Data, [$H, $e | <<>>]]}},
 					{options, [{active, true}, {header, 2},
 						   binary | ClientOpts]}]),
 
@@ -1765,8 +1765,8 @@ header_decode_one_byte_passive(Config) when is_list(Config) ->
 					{from, self()},
 					{mfa, {?MODULE, client_header_decode_passive,
 					       [Data, [11 | <<"Hello world">> ]]}},
-					{options, [{active, false}, {header, 1},
-						   binary | ClientOpts]}]),
+					{options, [{active, false}, binary, {header, 1}
+						   | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -1822,7 +1822,7 @@ header_decode_two_bytes_two_sent_passive(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
 					{mfa, {?MODULE, server_header_decode_passive,
-					       [Data, [$H, $e]]}},
+					       [Data, [$H, $e | <<>>]]}},
 					{options, [{active, false}, binary,
 						   {header,2}|ServerOpts]}]),
 
@@ -1831,7 +1831,7 @@ header_decode_two_bytes_two_sent_passive(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()},
 					{mfa, {?MODULE, client_header_decode_passive,
-					       [Data, [$H, $e]]}},
+					       [Data, [$H, $e | <<>>]]}},
 					{options, [{active, false}, {header, 2},
 						   binary | ClientOpts]}]),
 
@@ -2124,10 +2124,14 @@ client_header_decode_passive(Socket, Packet, Result) ->
 %% option and the bitsynax makes it obsolete!
 check_header_result([Byte1 | _], [Byte1]) ->
     ok;
+check_header_result([Byte1 | _], [Byte1| <<>>]) ->
+    ok;
 check_header_result([Byte1, Byte2 | _], [Byte1, Byte2]) ->
     ok;
-check_header_result(_,Got) ->
-    exit({?LINE, Got}).
+check_header_result([Byte1, Byte2 | _], [Byte1, Byte2 | <<>>]) ->
+    ok;
+check_header_result(Expected,Got) ->
+    exit({?LINE, {Expected, Got}}).
     
 server_line_packet_decode(Socket, Packet) when is_binary(Packet) ->
     [L1, L2] = string:tokens(binary_to_list(Packet), "\n"),

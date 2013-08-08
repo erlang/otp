@@ -2458,7 +2458,7 @@ do_format_reply(list, _,_, Data) ->
     binary_to_list(Data).
 
 header(0, <<>>) ->
-    [];
+    <<>>;
 header(_, <<>>) ->
     [];
 header(0, Binary) ->
