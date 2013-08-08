@@ -138,8 +138,7 @@ per_dec_raw_bitstring(Constraint, Aligned) ->
     dec_string(Constraint, 1, Aligned, 'BIT STRING').
 
 per_dec_open_type(Aligned) ->
-    {get_bits,decode_unconstrained_length(true, Aligned),
-     [8,binary,{align,Aligned}]}.
+    dec_string(no, 8, Aligned, open_type).
 
 per_dec_real(Aligned) ->
     Dec = fun(V, Buf) ->

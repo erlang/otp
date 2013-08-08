@@ -150,6 +150,7 @@ groups() ->
        per_open_type,
        testInfObjectClass,
        testParameterizedInfObj,
+       testFragmented,
        testMergeCompile,
        testobj,
        testDeepTConstr,
@@ -829,6 +830,12 @@ testParameterizedInfObj(Config, Rule, Opts) ->
     Files = ["Param","Param2"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     testParameterizedInfObj:main(Config, Rule).
+
+testFragmented(Config) ->
+    test(Config, fun testFragmented/3).
+testFragmented(Config, Rule, Opts) ->
+    asn1_test_lib:compile("Fragmented", Config, [Rule|Opts]),
+    testFragmented:main(Rule).
 
 testMergeCompile(Config) -> test(Config, fun testMergeCompile/3).
 testMergeCompile(Config, Rule, Opts) ->
