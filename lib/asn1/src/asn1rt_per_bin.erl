@@ -505,12 +505,21 @@ decode_fragmented_octets(<<0:1,Len:7,Bin/binary>>,C,Acc) ->
 %%         | binary
 %% Contraint = not used in this version
 %%
-encode_open_type(_C, Val) when is_list(Val) ->
-    Bin = list_to_binary(Val),
-    [encode_length(undefined,size(Bin)),{octets,Bin}]; % octets implies align
-encode_open_type(_C, Val) when is_binary(Val) ->
-    [encode_length(undefined,size(Val)),{octets,Val}]. % octets implies align
-%% the binary_to_list is not optimal but compatible with the current solution
+encode_open_type(_Constraint, Val) when is_list(Val) ->
+    encode_open_type_1(list_to_binary(Val));
+encode_open_type(_Constraint, Val) when is_binary(Val) ->
+    encode_open_type_1(Val).
+
+encode_open_type_1(Val0) ->
+    case byte_size(Val0) of
+	Size when Size < 16384 ->
+	    [encode_length(undefined, Size),{octets,Val0}];
+	Size ->
+	    F = min(Size bsr 14, 4),
+	    SegSz = F * ?'16K',
+	    <<Val:SegSz/binary,T/binary>> = Val0,
+	    [{octets,<<3:2,F:6>>},{octets,Val}|encode_open_type_1(T)]
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% decode_open_type(Buffer,Constraint) -> Value
@@ -518,9 +527,20 @@ encode_open_type(_C, Val) when is_binary(Val) ->
 %% Buffer = [byte] with PER encoded data 
 %% Value = [byte] with decoded data (which must be decoded again as some type)
 %%
-decode_open_type(Bytes, _C) ->
-    {Len,Bytes2} = decode_length(Bytes,undefined),
-    getoctets_as_bin(Bytes2,Len).
+decode_open_type(Bytes, _Constraint) ->
+    decode_open_type_1(Bytes, []).
+
+decode_open_type_1(Bytes0, Acc) ->
+    case decode_length_unlimited(Bytes0) of
+	{Len,Bytes} when Len < ?'16K', Acc =:= [] ->
+	    getoctets_as_bin(Bytes, Len);
+	{Len,Bytes1} when Len < ?'16K' ->
+	    {Bin,Bytes} = getoctets_as_bin(Bytes1, Len),
+	    {iolist_to_binary([Acc,Bin]),Bytes};
+	{Len,Bytes1} ->
+	    {Bin,Bytes} = getoctets_as_bin(Bytes1, Len),
+	    decode_open_type_1(Bytes, [Acc,Bin])
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% encode_integer(Constraint,Value,NamedNumberList) -> CompleteList
@@ -882,6 +902,17 @@ decode_small_length(Buffer) ->
 	    {Bits+1,Remain2};
 	{1,Remain} -> 
 	    decode_length(Remain,undefined)
+    end.
+
+decode_length_unlimited(Buffer) ->
+    case align(Buffer) of
+	{0,<<0:1,Oct:7,Rest/binary>>} ->
+	    {Oct,{0,Rest}};
+	{0,<<1:1,0:1,Val:14,Rest/binary>>} ->
+	    {Val,{0,Rest}};
+	{0,<<1:1,1:1,F:6,Rest/binary>>} ->
+	    SegSz = F * ?'16K',
+	    {SegSz,{0,Rest}}
     end.
 
 decode_length(Buffer) ->

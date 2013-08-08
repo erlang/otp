@@ -378,21 +378,32 @@ decode_fragmented_octets(<<0:1,Len:7,Bin/binary>>,C,Acc) ->
 %% Contraint = not used in this version
 %%
 encode_open_type(_Constraint, Val) when is_list(Val) ->
-    Bin = list_to_binary(Val),
-    case size(Bin) of 
-	Size when Size>255 ->
-	    [encode_length(undefined,Size),[21,<<Size:16>>,Bin]];
-	Size ->
-	    [encode_length(undefined,Size),[20,Size,Bin]]
-    end;
+    encode_open_type_1(list_to_binary(Val));
 encode_open_type(_Constraint, Val) when is_binary(Val) ->
-    case size(Val) of
-	Size when Size>255 ->
-	    [encode_length(undefined,size(Val)),[21,<<Size:16>>,Val]]; % octets implies align
+    encode_open_type_1(Val).
+
+encode_open_type_1(Val) ->
+    case byte_size(Val) of
+	Size when Size < 256 ->
+	    [encode_length(undefined, Size),20,Size,Val];
+	Size when Size < 16384 ->
+	    [encode_length(undefined, Size),21,<<Size:16>>,Val];
 	Size ->
-	    [encode_length(undefined,Size),[20,Size,Val]]
+	    encode_fragmented(Val, Size)
     end.
-%% the binary_to_list is not optimal but compatible with the current solution
+
+encode_fragmented(Val0, Size) ->
+    case Size bsr 14 of
+	F when F >= 4 ->
+	    <<Val1:16#8000/binary,Val2:16#8000/binary,T/binary>> = Val0,
+	    [20,1,16#C4,<<21,16#8000:16>>,Val1,
+	     <<21,16#8000:16>>,Val2|encode_open_type_1(T)];
+	F ->
+	    SegSz = F * ?'16K',
+	    <<Val:SegSz/binary,T/binary>> = Val0,
+	    [<<20,1,3:2,F:6,21,SegSz:16>>,Val|encode_open_type_1(T)]
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% decode_open_type(Buffer,Constraint) -> Value
@@ -401,8 +412,19 @@ encode_open_type(_Constraint, Val) when is_binary(Val) ->
 %% Value = [byte] with decoded data (which must be decoded again as some type)
 %%
 decode_open_type(Bytes, _Constraint) ->
-    {Len,Bytes2} = decode_length(Bytes,undefined),
-    getoctets_as_bin(Bytes2,Len).
+    decode_open_type_1(Bytes, []).
+
+decode_open_type_1(Bytes0, Acc) ->
+    case decode_length_unlimited(Bytes0) of
+	{Len,Bytes} when Len < ?'16K', Acc =:= [] ->
+	    getoctets_as_bin(Bytes, Len);
+	{Len,Bytes1} when Len < ?'16K' ->
+	    {Bin,Bytes} = getoctets_as_bin(Bytes1, Len),
+	    {iolist_to_binary([Acc,Bin]),Bytes};
+	{Len,Bytes1} ->
+	    <<Bin:Len/binary,Bytes/binary>> = Bytes1,
+	    decode_open_type_1(Bytes, [Acc,Bin])
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% encode_integer(Constraint,Value,NamedNumberList) -> CompleteList
@@ -786,6 +808,17 @@ decode_small_length(Buffer) ->
 	    {Bits+1,Remain2};
 	{1,Remain} -> 
 	    decode_length(Remain,undefined)
+    end.
+
+decode_length_unlimited(Buffer) ->
+    case align(Buffer) of
+	<<0:1,Oct:7,Rest/binary>> ->
+	    {Oct,Rest};
+	<<1:1,0:1,Val:14,Rest/binary>> ->
+	    {Val,Rest};
+	<<1:1,1:1,F:6,Rest/binary>> ->
+	    SegSz = F * ?'16K',
+	    {SegSz,Rest}
     end.
 
 decode_length(Buffer) ->
