@@ -1051,12 +1051,15 @@ if test $ERTS_BUILD_SMP_EMU = yes; then
 
 	AC_DEFINE(ERTS_HAVE_SMP_EMU, 1, [Define if the smp emulator is built])
 
+	test "X$smp_require_native_atomics" = "Xyes" &&
+	     AC_DEFINE(ETHR_SMP_REQUIRE_NATIVE_IMPLS, 1, [Define if you want to enable check for native ethread implementations])
+
 	case "$ethr_have_native_atomics-$smp_require_native_atomics-$ethr_have_native_spinlock" in
 	  yes-*)
 		;;
 
 	  no-yes-*)
-		AC_MSG_ERROR([No native atomic implementation found. See INSTALL.md for more information.])
+		AC_MSG_ERROR([No native atomic implementation found. See Configuring section in INSTALL.md for more information.])
 		;;
 
 	  no-no-yes)
