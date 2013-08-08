@@ -978,7 +978,7 @@ handle_sync_event(negotiated_next_protocol, _From, StateName, #state{next_protoc
 handle_sync_event(negotiated_next_protocol, _From, StateName, #state{next_protocol = NextProtocol} = State) ->
     {reply, {ok, NextProtocol}, StateName, State, get_timeout(State)};
 
-handle_sync_event({set_opts, Opts0}, _From, StateName, 
+handle_sync_event({set_opts, Opts0}, _From, StateName0, 
 		  #state{socket_options = Opts1, 
 			 socket = Socket,
 			 transport_cb = Transport,
@@ -987,11 +987,12 @@ handle_sync_event({set_opts, Opts0}, _From, StateName,
     State1 = State0#state{socket_options = Opts},
     if 
 	Opts#socket_options.active =:= false ->
-	    {reply, Reply, StateName, State1, get_timeout(State1)};
+	    {reply, Reply, StateName0, State1, get_timeout(State1)};
 	Buffer =:= <<>>, Opts1#socket_options.active =:= false ->
             %% Need data, set active once
 	    {Record, State2} = next_record_if_active(State1),
-	    case next_state(StateName, StateName, Record, State2) of
+	    %% Note: Renogotiation may cause StateName0 =/= StateName
+	    case next_state(StateName0, StateName0, Record, State2) of
 		{next_state, StateName, State, Timeout} ->
 		    {reply, Reply, StateName, State, Timeout};
 		{stop, Reason, State} ->
@@ -999,13 +1000,14 @@ handle_sync_event({set_opts, Opts0}, _From, StateName,
 	    end;
 	Buffer =:= <<>> ->
             %% Active once already set 
-	    {reply, Reply, StateName, State1, get_timeout(State1)};
+	    {reply, Reply, StateName0, State1, get_timeout(State1)};
 	true ->
 	    case read_application_data(<<>>, State1) of
 		Stop = {stop,_,_} ->
 		    Stop;
 		{Record, State2} ->
-		    case next_state(StateName, StateName, Record, State2) of
+		    %% Note: Renogotiation may cause StateName0 =/= StateName
+		    case next_state(StateName0, StateName0, Record, State2) of
 			{next_state, StateName, State, Timeout} ->
 			    {reply, Reply, StateName, State, Timeout};
 			{stop, Reason, State} ->
