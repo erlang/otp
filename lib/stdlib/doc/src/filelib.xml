@@ -49,6 +49,12 @@
     <datatype>
       <name name="dirname"/>
     </datatype>
+    <datatype>
+      <name name="dirname_all"/>
+    </datatype>
+    <datatype>
+      <name name="filename_all"/>
+    </datatype>
   </datatypes>
 
   <funcs>
