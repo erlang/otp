@@ -22,7 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, not_run/1]).
 -export([test_1/1, test_2/1, test_3/1, bad_match_spec_bin/1,
-	 trace_control_word/1, silent/1, silent_no_ms/1, 
+	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
 	 ms_trace2/1, ms_trace3/1, boxed_and_small/1,
 	 destructive_in_test_bif/1, guard_exceptions/1,
 	 unary_plus/1, unary_minus/1, moving_labels/1]).
@@ -55,7 +55,7 @@ all() ->
     case test_server:is_native(match_spec_SUITE) of
 	false ->
 	    [test_1, test_2, test_3, bad_match_spec_bin,
-	     trace_control_word, silent, silent_no_ms, ms_trace2,
+	     trace_control_word, silent, silent_no_ms, silent_test, ms_trace2,
 	     ms_trace3, boxed_and_small, destructive_in_test_bif,
 	     guard_exceptions, unary_plus, unary_minus, fpe,
 	     moving_labels,
@@ -500,6 +500,14 @@ silent_no_ms(Config) when is_list(Config) ->
 			 {trace,Tracee,call,{?MODULE,f2,[h,i]}},
 			 {trace,Tracee,return_to,{?MODULE,f3,2}}]
 	    end).
+
+silent_test(doc) ->
+    ["Test that match_spec_test does not activate silent"];
+silent_test(_Config) ->
+    {flags,[]} = erlang:trace_info(self(),flags),
+    erlang:match_spec_test([],[{'_',[],[{silent,true}]}],trace),
+    {flags,[]} = erlang:trace_info(self(),flags).
+
 
 ms_trace2(doc) ->
     ["Test the match spec functions {trace/2}"];

@@ -2319,6 +2319,8 @@ restart:
 	    break;
 	case matchSilent:
 	    --esp;
+	    if (in_flags & ERTS_PAM_IGNORE_TRACE_SILENT)
+	      break;
 	    if (*esp == am_true) {
 		erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		ERTS_TRACE_FLAGS(c_p) |= F_TRACE_SILENT;
@@ -4971,7 +4973,8 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	    save_cp = p->cp;
 	    p->cp = NULL;
 	    res = erts_match_set_run(p, mps, arr, n,
-				     ERTS_PAM_COPY_RESULT, &ret_flags);
+		      ERTS_PAM_COPY_RESULT|ERTS_PAM_IGNORE_TRACE_SILENT,
+		      &ret_flags);
 	    p->cp = save_cp;
 	} else {
 	    n = 0;
