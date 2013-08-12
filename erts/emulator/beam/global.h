@@ -1024,9 +1024,10 @@ Eterm erts_match_set_lint(Process *p, Eterm matchexpr);
 extern void erts_match_set_release_result(Process* p);
 
 enum erts_pam_run_flags {
-    ERTS_PAM_TMP_RESULT=0,
-    ERTS_PAM_COPY_RESULT=1,
-    ERTS_PAM_CONTIGUOUS_TUPLE=2
+    ERTS_PAM_TMP_RESULT=1,
+    ERTS_PAM_COPY_RESULT=2,
+    ERTS_PAM_CONTIGUOUS_TUPLE=4,
+    ERTS_PAM_IGNORE_TRACE_SILENT=8
 };
 extern Eterm erts_match_set_run(Process *p, Binary *mpsp, 
 				Eterm *args, int num_args,
