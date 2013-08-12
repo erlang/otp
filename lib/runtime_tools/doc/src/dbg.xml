@@ -244,7 +244,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           </item>
           <tag><c>all</c></tag>
           <item>
-            <p>Sets all flags.</p>
+            <p>Sets all flags except <c>silent</c>.</p>
           </item>
           <tag><c>clear</c></tag>
           <item>
