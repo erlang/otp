@@ -27,12 +27,20 @@ use File::Basename;
 # usage: make_driver_tab [-o filename] drivers...
 
 my $file = "";
+my $nif = "";
 my @drivers = ();
+my @nifs = ();
 
 while (@ARGV) {
     my $d = shift;
     if ( $d =~ /^-o$/ ) {
 	$file = shift or die("-o requires argument");
+	next;
+    }
+    if ( $d =~ /^.*\.a$/ ) {
+	$d = basename $d;
+	$d =~ s/\.a$//;	# strip .a
+	push(@nifs, $d);
 	next;
     }
     $d = basename $d;
@@ -52,6 +60,7 @@ print <<EOF;
 #include <stdio.h>
 #include "global.h"
 
+
 EOF
 
 # "extern" declarations
@@ -67,5 +76,51 @@ foreach (@drivers) {
 }
 
 print "    NULL\n};\n";
+
+print <<EOF;
+
+typedef struct ErtsStaticNifEntry_ {
+    const char *nif_name;
+    ErtsStaticNifInitFPtr nif_init;
+} ErtsStaticNifEntry;
+
+EOF
+
+# prototypes
+foreach (@nifs) {
+    my $d = ${_};
+    $d =~ s/\.debug//; # strip .debug
+    print "void *".$d."_nif_init(void);\n";
+}
+
+# The array itself
+print "static ErtsStaticNifEntry static_nif_tab[DRIVER_TAB_SIZE] =\n{\n";
+
+foreach (@nifs) {
+    my $d = ${_};
+    $d =~ s/\.debug//; # strip .debug
+    print "{\"${_}\",&".$d."_nif_init},\n";
+}
+
+print "    {NULL,NULL}\n};\n";
+
+print <<EOF;
+ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name) {
+    int i;
+    for (i = 0; static_nif_tab[i].nif_name != NULL; i++)
+      if (strcmp(name,static_nif_tab[i].nif_name) == 0)
+        return static_nif_tab[i].nif_init;
+    return NULL;
+}
+
+int erts_is_static_nif(void *handle) {
+    int i;
+    for (i = 0; static_nif_tab[i].nif_name != NULL; i++)
+	if (((void*)static_nif_tab[i].nif_init) == handle)
+	return 1;
+    return 0;
+}
+
+EOF
 
 # That's it
