@@ -32,11 +32,11 @@
 
 
 from_type(M,Typename) ->
-    case asn1_db:dbget(M,Typename) of
-	undefined -> 
+    case asn1_db:dbload(M) of
+	error ->
 	    {error,{not_found,{M,Typename}}};
-	Tdef when is_record(Tdef,typedef) ->
-	    Type = Tdef#typedef.typespec,
+	ok ->
+	    #typedef{typespec=Type} = asn1_db:dbget(M, Typename),
 	    from_type(M,[Typename],Type);
     Vdef when is_record(Vdef,valuedef) ->
         from_value(Vdef);

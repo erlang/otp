@@ -893,17 +893,23 @@ parse_and_save(Module,S) ->
     Options = S#state.options,
     SourceDir = S#state.sourcedir,
     Includes = [I || {i,I} <- Options],
+    Erule = S#state.erule,
     case get_input_file(Module, [SourceDir|Includes]) of
 	%% search for asn1 source
 	{file,SuffixedASN1source} ->
-	    case dbfile_uptodate(SuffixedASN1source,Options) of
-		false ->
-		    parse_and_save1(S, SuffixedASN1source, Options);
-		_ -> ok
+	    Mtime = filelib:last_modified(SuffixedASN1source),
+	    case asn1_db:dbload(Module, Erule, Mtime) of
+		ok -> ok;
+		error -> parse_and_save1(S, SuffixedASN1source, Options)
 	    end;
 	Err ->
-	    warning("could not do a consistency check of the ~p file: no asn1 source file was found.~n",
-		    [lists:concat([Module,".asn1db"])],Options),
+	    case asn1_db:dbload(Module) of
+		ok ->
+		    warning("could not do a consistency check of the ~p file: no asn1 source file was found.~n",
+			    [lists:concat([Module,".asn1db"])],Options);
+		error ->
+		    ok
+	    end,
 	    {error,{asn1,input_file_error,Err}}
     end.
 
@@ -928,48 +934,6 @@ get_input_file(Module,[I|Includes]) ->
 	_ -> 
 	    get_input_file(Module,Includes)
     end.
-
-dbfile_uptodate(File,Options) ->
-    EncodingRule = get_rule(Options),
-    Ext = filename:extension(File),
-    Base = filename:basename(File,Ext),
-    DbFile = outfile(Base,"asn1db",Options),
-    case file:read_file_info(DbFile) of
-	{error,enoent} ->
-	    false;
-	{ok,FileInfoDb} ->
-	    %% file exists, check date and finally encodingrule
-	    {ok,FileInfoAsn} = file:read_file_info(File),
-	    case FileInfoDb#file_info.mtime < FileInfoAsn#file_info.mtime of
-		true ->
-		    %% date of asn1 spec newer than db file
-		    false;
-		_ -> 
-		    %% date ok,check that same erule was used
-		    Obase = case lists:keysearch(outdir, 1, Options) of
-				{value, {outdir, Odir}} -> 
-				    Odir;
-				_NotFound -> ""
-			    end,
-		    BeamFileName = outfile(Base,"beam",Options),
-		    case file:read_file_info(BeamFileName) of
-			{ok,_} ->
-			    code:add_path(Obase),
-			    BeamFile = list_to_atom(Base),
-			    BeamInfo = (catch BeamFile:info()),
-			    case catch lists:keysearch(options,1,BeamInfo) of
-				{value,{options,OldOptions}} ->
-				    case get_rule(OldOptions) of
-					EncodingRule -> true;
-					_ -> false
-				    end;
-				_ -> false
-			    end;
-			_ -> false
-		    end
-	    end
-    end.
-
 
 input_file_type(Name,I) ->
    case input_file_type(Name) of
@@ -1374,10 +1338,11 @@ get_value(Module, Type) ->
     end.
 
 check(Module, Includes) ->
-    case asn1_db:dbget(Module,'MODULE') of
-        undefined ->
-            {error, {file_not_found, lists:concat([Module, ".asn1db"])}};
-        M ->
+    case asn1_db:dbload(Module) of
+	error ->
+            {error,asn1db_missing_or_out_of_date};
+	ok ->
+	    M = asn1_db:dbget(Module, 'MODULE'),
             TypeOrVal =  M#module.typeorval,
             State = #state{mname = M#module.name,
                            module = M#module{typeorval=[]},

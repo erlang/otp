@@ -6826,7 +6826,7 @@ merge_tags2([], Acc) ->
 storeindb(S,M) when is_record(M,module) ->
     TVlist = M#module.typeorval,
     NewM = M#module{typeorval=findtypes_and_values(TVlist)},
-    asn1_db:dbnew(NewM#module.name),
+    asn1_db:dbnew(NewM#module.name, S#state.erule),
     asn1_db:dbput(NewM#module.name,'MODULE',  NewM),
     Res = storeindb(#state{mname=NewM#module.name}, TVlist, []),
     include_default_class(S,NewM#module.name),
