@@ -118,7 +118,7 @@
 
      <p><code>stream_cipher() = rc4 | aes_ctr </code></p>
 
-     <p><code>block_cipher() =  aes_cbc128 | aes_cfb128 | blowfish_cbc |
+     <p><code>block_cipher() =  aes_cbc128 | aes_cfb128 | aes_ige256 | blowfish_cbc |
      blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf
      | des_ede3 | rc2_cbc </code></p>
 
@@ -142,7 +142,7 @@
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
      <p><code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
-     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb128| aes_cbc256 | rc2_cbc | aes_ctr| rc4  </code> </p>
+     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb128| aes_cbc256 | aes_ige256 | rc2_cbc | aes_ctr| rc4  </code> </p>
      <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh </code> </p>
      
  </section>

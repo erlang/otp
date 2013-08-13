@@ -215,7 +215,7 @@ supports()->
     [{hashs, Algs -- [ec]},
      {ciphers, [des_cbc, des_cfb,  des3_cbc, des3_cbf, des_ede3, blowfish_cbc,
 		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb128,
-		aes_cbc256, rc2_cbc, aes_ctr, rc4
+		aes_cbc256, aes_ige256, rc2_cbc, aes_ctr, rc4
 	       ]},
      PubKeyAlgs
     ].
@@ -309,13 +309,16 @@ block_encrypt(aes_cbc128, Key, Ivec, Data) ->
     aes_cbc_128_encrypt(Key, Ivec, Data);
 block_encrypt(aes_cbc256, Key, Ivec, Data) ->
     aes_cbc_256_encrypt(Key, Ivec, Data);
+block_encrypt(aes_ige256, Key, Ivec, Data) ->
+    aes_ige_256_encrypt(Key, Ivec, Data);
 block_encrypt(aes_cfb128, Key, Ivec, Data) ->
     aes_cfb_128_encrypt(Key, Ivec, Data);
 block_encrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_encrypt(Key, Ivec, Data).
 
 -spec block_decrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
-	      blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_cfb128 | rc2_cbc,
+	      blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_ige256 |
+          aes_cfb128 | rc2_cbc,
 	      Key::iodata(), Ivec::binary(), Data::iodata()) -> binary().
 
 block_decrypt(des_cbc, Key, Ivec, Data) ->
@@ -338,6 +341,8 @@ block_decrypt(aes_cbc128, Key, Ivec, Data) ->
     aes_cbc_128_decrypt(Key, Ivec, Data);
 block_decrypt(aes_cbc256, Key, Ivec, Data) ->
     aes_cbc_256_decrypt(Key, Ivec, Data);
+block_decrypt(aes_ige256, Key, Ivec, Data) ->
+    aes_ige_256_decrypt(Key, Ivec, Data);
 block_decrypt(aes_cfb128, Key, Ivec, Data) ->
     aes_cfb_128_decrypt(Key, Ivec, Data);
 block_decrypt(rc2_cbc, Key, Ivec, Data) ->
@@ -357,14 +362,16 @@ block_decrypt(des_ecb, Key, Data) ->
 block_decrypt(blowfish_ecb, Key, Data) ->
     blowfish_ecb_decrypt(Key, Data).
 
--spec next_iv(des_cbc | des3_cbc | aes_cbc, Data::iodata()) -> binary().
+-spec next_iv(des_cbc | des3_cbc | aes_cbc | aes_ige, Data::iodata()) -> binary().
 
 next_iv(des_cbc, Data) ->
     des_cbc_ivec(Data);
 next_iv(des3_cbc, Data) ->
     des_cbc_ivec(Data);
 next_iv(aes_cbc, Data) ->
-    aes_cbc_ivec(Data).
+    aes_cbc_ivec(Data);
+next_iv(aes_ige, Data) ->
+    aes_ige_ivec(Data).
 
 -spec next_iv(des_cfb, Data::iodata(), Ivec::binary()) -> binary().
 
@@ -1253,6 +1260,35 @@ aes_cbc_ivec(Data) when is_binary(Data) ->
     IVec;
 aes_cbc_ivec(Data) when is_list(Data) ->
     aes_cbc_ivec(list_to_binary(Data)).
+
+
+%%
+%% AES - with 256 bit key in infinite garble extension mode (IGE)
+%%
+
+-spec aes_ige_256_decrypt(iodata(), binary(), iodata()) ->
+                 binary().
+
+aes_ige_256_encrypt(Key, IVec, Data) ->
+    aes_ige_crypt(Key, IVec, Data, true).
+
+aes_ige_256_decrypt(Key, IVec, Data) ->
+    aes_ige_crypt(Key, IVec, Data, false).
+
+aes_ige_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
+
+%%
+%% aes_ige_ivec(Data) -> binary()
+%%
+%% Returns the IVec to be used in the next iteration of
+%% aes_ige_*_[encrypt|decrypt].
+%% IVec size: 32 bytes
+%%
+aes_ige_ivec(Data) when is_binary(Data) ->
+    {_, IVec} = split_binary(Data, size(Data) - 32),
+    IVec;
+aes_ige_ivec(Data) when is_list(Data) ->
+    aes_ige_ivec(list_to_binary(Data)).
 
 
 %% Stream ciphers --------------------------------------------------------------------

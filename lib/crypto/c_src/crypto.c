@@ -221,6 +221,7 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_ige_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -349,6 +350,7 @@ static ErlNifFunc nif_funcs[] = {
     {"dss_verify_nif", 4, dss_verify_nif},
     {"rsa_verify_nif", 4, rsa_verify_nif},
     {"aes_cbc_crypt", 4, aes_cbc_crypt},
+    {"aes_ige_crypt", 4, aes_ige_crypt},
     {"do_exor", 2, do_exor},
     {"rc4_encrypt", 2, rc4_encrypt},
     {"rc4_set_key", 1, rc4_set_key},
@@ -2086,6 +2088,41 @@ static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
     memcpy(ivec, ivec_bin.data, 16); /* writable copy */
     AES_cbc_encrypt(data_bin.data, ret_ptr, data_bin.size, &aes_key, ivec, i);
+    CONSUME_REDS(env,data_bin);
+    return ret;
+}
+
+static ERL_NIF_TERM aes_ige_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IVec, Data, IsEncrypt) */
+    ErlNifBinary key_bin, ivec_bin, data_bin;
+    AES_KEY aes_key;
+    unsigned char ivec[32];
+    int i;
+    unsigned char* ret_ptr;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
+       || (key_bin.size != 16 && key_bin.size != 32)
+       || !enif_inspect_binary(env, argv[1], &ivec_bin)
+       || ivec_bin.size != 32
+       || !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)
+       || data_bin.size % 16 != 0) {
+
+       return enif_make_badarg(env);
+    }
+
+    if (argv[3] == atom_true) {
+       i = AES_ENCRYPT;
+       AES_set_encrypt_key(key_bin.data, key_bin.size*8, &aes_key);
+    }
+    else {
+       i = AES_DECRYPT;
+       AES_set_decrypt_key(key_bin.data, key_bin.size*8, &aes_key);
+    }
+
+    ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
+    memcpy(ivec, ivec_bin.data, 32); /* writable copy */
+    AES_ige_encrypt(data_bin.data, ret_ptr, data_bin.size, &aes_key, ivec, i);
     CONSUME_REDS(env,data_bin);
     return ret;
 }
