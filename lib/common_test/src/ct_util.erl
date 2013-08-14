@@ -187,6 +187,7 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	false ->
 	    ok
     end,
+
     {StartTime,TestLogDir} = ct_logs:init(Mode, Verbosity),
 
     ct_event:notify(#event{name=test_start,
@@ -392,6 +393,14 @@ loop(Mode,TestData,StartDir) ->
 	    return(From,StartDir),
 	    loop(From,TestData,StartDir);
 	{{stop,Info},From} ->
+	    test_server_io:reset_state(),
+	    {MiscIoName,MiscIoDivider,MiscIoFooter} =
+		proplists:get_value(misc_io_log,TestData),
+	    {ok,MiscIoFd} = file:open(MiscIoName,
+				      [append,{encoding,utf8}]),
+	    io:put_chars(MiscIoFd, MiscIoDivider),
+	    test_server_io:set_fd(unexpected_io, MiscIoFd),
+
 	    Time = calendar:local_time(),
 	    ct_event:sync_notify(#event{name=test_done,
 					node=node(),
@@ -405,6 +414,11 @@ loop(Mode,TestData,StartDir) ->
 	    ets:delete(?board_table),
 	    ets:delete(?suite_table),
 	    ets:delete(?verbosity_table),
+
+	    io:put_chars(MiscIoFd, "\n</pre>\n"++MiscIoFooter),
+	    test_server_io:stop([unexpected_io]),
+	    test_server_io:finish(),
+
 	    ct_logs:close(Info, StartDir),
 	    ct_event:stop(),
 	    ct_config:stop(),

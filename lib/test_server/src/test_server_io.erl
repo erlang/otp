@@ -32,27 +32,39 @@
 -export([start_link/0,stop/1,get_gl/1,set_fd/2,
 	 start_transaction/0,end_transaction/0,
 	 print_buffered/1,print/3,print_unexpected/1,
-	 set_footer/1,set_job_name/1,set_gl_props/1]).
+	 set_footer/1,set_job_name/1,set_gl_props/1,
+	 reset_state/0,finish/0]).
 
 -export([init/1,handle_call/3,handle_info/2,terminate/2]).
 
--record(st, {fds,				%Singleton fds (gb_tree)
-	     shared_gl :: pid(),		%Shared group leader
-	     gls,				%Group leaders (gb_set)
-	     io_buffering=false,		%I/O buffering
-	     buffered,				%Buffered I/O requests
-	     html_footer,			%HTML footer
-	     job_name,				%Name of current job.
-	     gl_props,				%Properties for GL.
-	     stopping
+-record(st, {fds,			    % Singleton fds (gb_tree)
+	     tags=[],                       % Known tag types   
+	     shared_gl :: pid(),	    % Shared group leader
+	     gls,			    % Group leaders (gb_set)
+	     io_buffering=false,	    % I/O buffering
+	     buffered,			    % Buffered I/O requests
+	     html_footer,		    % HTML footer
+	     job_name,			    % Name of current job.
+	     gl_props,			    % Properties for GL
+	     phase,                         % Indicates current mode
+	     offline_buffer,                % Buffer I/O during startup
+	     stopping,                      % Reply to when process stopped
+	     pending_ops                    % Perform when process idle 
 	    }).
 
 start_link() ->
-    case gen_server:start_link({local,?MODULE}, ?MODULE, [], []) of
-	{ok,Pid} ->
-	    {ok,Pid};
-	Other ->
-	    Other
+    case whereis(?MODULE) of
+	undefined ->
+	    case gen_server:start_link({local,?MODULE}, ?MODULE, [], []) of
+		{ok,Pid} ->
+		    {ok,Pid};
+		Other ->
+		    Other
+	    end;
+	Pid ->
+	    %% already running, reset the state
+	    reset_state(),
+	    {ok,Pid}
     end.
 
 stop(FilesToClose) ->
@@ -61,6 +73,9 @@ stop(FilesToClose) ->
     req({stop,FilesToClose}),
     group_leader(OldGL, self()),
     ok.
+
+finish() ->
+    req(finish).
 
 %% get_gl(Shared) -> Pid
 %%  Shared = boolean()
@@ -142,19 +157,27 @@ set_footer(Footer) ->
     req({set_footer,Footer}).
 
 %% set_job_name(Name)
+%%
 %%  Set a name for the currently running job. The name will be used
 %%  when printing to 'stdout'.
 %%
+
 set_job_name(Name) ->
     req({set_job_name,Name}).
 
 %% set_gl_props(PropList)
+%%
 %%  Set properties for group leader processes. When a group_leader process
 %%  is created, test_server_gl:set_props(PropList) will be called.
 
 set_gl_props(PropList) ->
     req({set_gl_props,PropList}).
 
+%% reset_state
+%%
+%% Reset the initial state
+reset_state() ->
+    req(reset_state).
 
 %%% Internal functions.
 
@@ -167,7 +190,10 @@ init([]) ->
 	    buffered=Empty,
 	    html_footer="</body>\n</html>\n",
 	    job_name="<name not set>",
-	    gl_props=[]}}.
+	    gl_props=[],
+	    phase=starting,
+	    offline_buffer=[],
+	    pending_ops=[]}}.
 
 req(Req) ->
     gen_server:call(?MODULE, Req, infinity).
@@ -178,9 +204,24 @@ handle_call({get_gl,false}, _From, #st{gls=Gls,gl_props=Props}=St) ->
     {reply,Pid,St#st{gls=gb_sets:insert(Pid, Gls)}};
 handle_call({get_gl,true}, _From, #st{shared_gl=Shared}=St) ->
     {reply,Shared,St};
-handle_call({set_fd,Tag,Fd}, _From, #st{fds=Fds0}=St) ->
+handle_call({set_fd,Tag,Fd}, _From, #st{fds=Fds0,tags=Tags0,
+					offline_buffer=OfflineBuff}=St) ->
     Fds = gb_trees:enter(Tag, Fd, Fds0),
-    {reply,ok,St#st{fds=Fds}};
+    St1 = St#st{fds=Fds,tags=[Tag|lists:delete(Tag, Tags0)]},
+    OfflineBuff1 =
+	if OfflineBuff == [] ->
+		[];
+	   true ->
+		%% Fd ready, print anything buffered for associated Tag
+		lists:filtermap(fun({T,From,Str}) when T == Tag ->
+					output(From, Tag, Str, St1),
+					false;
+				   (_) ->
+					true
+				end, lists:reverse(OfflineBuff))
+	end,
+    {reply,ok,St1#st{phase=started,
+		     offline_buffer=lists:reverse(OfflineBuff1)}};
 handle_call({start_transaction,Pid}, _From, #st{io_buffering=Buffer0,
 						buffered=Buf0}=St) ->
     Buf = case gb_trees:is_defined(Pid, Buf0) of
@@ -213,12 +254,15 @@ handle_call({set_job_name,Name}, _From, St) ->
 handle_call({set_gl_props,Props}, _From, #st{shared_gl=Shared}=St) ->
     test_server_gl:set_props(Shared, Props),
     {reply,ok,St#st{gl_props=Props}};
-handle_call({stop,FdTags}, From, #st{fds=Fds,shared_gl=SGL,gls=Gls0}=St0) ->
-    St = St0#st{gls=gb_sets:insert(SGL, Gls0),stopping=From},
-    gc(St),
-    %% Give the users of the surviving group leaders some
-    %% time to finish.
-    erlang:send_after(2000, self(), stop_group_leaders),
+handle_call(reset_state, From, #st{phase=stopping,pending_ops=Ops}=St) ->
+    %% can't reset during stopping phase, save op for later
+    Op = fun(NewSt) -> 
+		 {_,Result,NewSt1} = handle_call(reset_state, From, NewSt),
+		 {Result,NewSt1}
+	 end,
+    {noreply,St#st{pending_ops=[{From,Op}|Ops]}};
+handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,gls=Gls,
+				    offline_buffer=OfflineBuff}) ->
     %% close open log files
     lists:foreach(fun(Tag) ->
 			  case gb_trees:lookup(Tag, Fds) of
@@ -227,8 +271,44 @@ handle_call({stop,FdTags}, From, #st{fds=Fds,shared_gl=SGL,gls=Gls0}=St0) ->
 			      {value,Fd} ->
 				  file:close(Fd)
 			  end
-		  end, FdTags),
-    {noreply,St}.
+		  end, Tags),
+    GlList = gb_sets:to_list(Gls),
+    [test_server_gl:stop(GL) || GL <- GlList],
+    timer:sleep(2000),
+    [exit(GL, kill) || GL <- GlList],
+    Empty = gb_trees:empty(),
+    {ok,Shared} = test_server_gl:start_link(),
+    {reply,ok,#st{fds=Empty,shared_gl=Shared,gls=gb_sets:empty(),
+		  io_buffering=gb_sets:empty(),
+		  buffered=Empty,
+		  html_footer="</body>\n</html>\n",
+		  job_name="<name not set>",
+		  gl_props=[],
+		  phase=starting,
+		  offline_buffer=OfflineBuff,
+		  pending_ops=[]}};
+handle_call({stop,FdTags}, From, #st{fds=Fds0,tags=Tags0,
+				     shared_gl=SGL,gls=Gls0}=St0) ->
+    St = St0#st{gls=gb_sets:insert(SGL, Gls0),phase=stopping,stopping=From},
+    gc(St),
+    %% close open log files
+    {Fds1,Tags1} = lists:foldl(fun(Tag, {Fds,Tags}) ->
+			       case gb_trees:lookup(Tag, Fds) of
+				   none ->
+				       {Fds,Tags};
+				   {value,Fd} ->
+				       file:close(Fd),
+				       {gb_trees:delete(Tag, Fds),
+					lists:delete(Tag, Tags)}
+			       end
+		       end, {Fds0,Tags0}, FdTags),
+    %% Give the users of the surviving group leaders some
+    %% time to finish.
+    erlang:send_after(2000, self(), stop_group_leaders),    
+    {noreply,St#st{fds=Fds1,tags=Tags1}};
+handle_call(finish, From, St) ->
+    gen_server:reply(From, ok),
+    {stop,normal,St}.
 
 handle_info({'EXIT',Pid,normal}, #st{gls=Gls0,stopping=From}=St) ->
     Gls = gb_sets:delete_any(Pid, Gls0),
@@ -236,10 +316,10 @@ handle_info({'EXIT',Pid,normal}, #st{gls=Gls0,stopping=From}=St) ->
 	true ->
 	    %% No more group leaders left.
 	    gen_server:reply(From, ok),
-	    {stop,normal,St#st{gls=Gls,stopping=undefined}};
+	    {noreply,St#st{gls=Gls,phase=stopping,stopping=undefined}};
 	false ->
 	    %% Wait for more group leaders to finish.
-	    {noreply,St#st{gls=Gls}}
+	    {noreply,St#st{gls=Gls,phase=stopping}}
     end;
 handle_info({'EXIT',_Pid,Reason}, _St) ->
     exit(Reason);
@@ -248,10 +328,21 @@ handle_info(stop_group_leaders, #st{gls=Gls}=St) ->
     [test_server_gl:stop(GL) || GL <- gb_sets:to_list(Gls)],
     erlang:send_after(2000, self(), kill_group_leaders),
     {noreply,St};
-handle_info(kill_group_leaders, #st{gls=Gls,stopping=From}=St) ->
+handle_info(kill_group_leaders, #st{gls=Gls,stopping=From,
+				    pending_ops=Ops}=St) ->
     [exit(GL, kill) || GL <- gb_sets:to_list(Gls)],
-    gen_server:reply(From, ok),
-    {stop,normal,St};
+    if From /= undefined ->
+	    gen_server:reply(From, ok);
+       true ->					% reply has been sent already
+	    ok
+    end,
+    %% we're idle, check if any ops are pending
+    St1 = lists:foldr(fun({ReplyTo,Op},NewSt) ->
+			      {Result,NewSt1} = Op(NewSt),
+			      gen_server:reply(ReplyTo, Result),
+			      NewSt1
+		      end, St#st{phase=idle,pending_ops=[]}, Ops),
+    {noreply,St1};
 handle_info(Other, St) ->
     io:format("Ignoring: ~p\n", [Other]),
     {noreply,St}.
@@ -259,11 +350,19 @@ handle_info(Other, St) ->
 terminate(_, _) ->
     ok.
 
-output(From, Tag, Str, #st{io_buffering=Buffered,buffered=Buf0}=St) ->
+output(From, Tag, Str, #st{io_buffering=Buffered,buffered=Buf0,
+			   phase=Phase,offline_buffer=OfflineBuff}=St) ->
     case gb_sets:is_member(From, Buffered) of
 	false ->
-	    do_output(Tag, Str, St),
-	    St;
+	    case do_output(Tag, Str, Phase, St) of
+		buffer when length(OfflineBuff)>500 ->
+		    %% something's wrong, clear buffer
+		    St#st{offline_buffer=[]};
+		buffer ->
+		    St#st{offline_buffer=[{Tag,From,Str}|OfflineBuff]};
+		_ ->
+		    St
+	    end;
 	true ->
 	    Q0 = gb_trees:get(From, Buf0),
 	    Q = queue:in({Tag,Str}, Q0),
@@ -271,17 +370,19 @@ output(From, Tag, Str, #st{io_buffering=Buffered,buffered=Buf0}=St) ->
 	    St#st{buffered=Buf}
     end.
 
-do_output(stdout, Str, #st{job_name=undefined}) ->
+do_output(stdout, Str, _, #st{job_name=undefined}) ->
     io:put_chars(Str);
-do_output(stdout, Str0, #st{job_name=Name}) ->
+do_output(stdout, Str0, _, #st{job_name=Name}) ->
     Str = io_lib:format("Testing ~ts: ~ts\n", [Name,Str0]),
     io:put_chars(Str);
-do_output(Tag, Str, #st{fds=Fds}=St) ->
+do_output(Tag, Str, Phase, #st{fds=Fds}=St) ->
     case gb_trees:lookup(Tag, Fds) of
+	none when Phase /= started ->
+	    buffer;
 	none ->
 	    S = io_lib:format("\n*** ERROR: ~w, line ~w: No known '~p' log file\n",
 			      [?MODULE,?LINE,Tag]),
-	    do_output(stdout, [S,Str], St);
+	    do_output(stdout, [S,Str], Phase, St);
 	{value,Fd} ->
 	    try
 		io:put_chars(Fd, Str),
@@ -293,14 +394,14 @@ do_output(Tag, Str, #st{fds=Fds}=St) ->
 		    S = io_lib:format("\n*** ERROR: ~w, line ~w: Error writing to "
 				      "log file '~p': ~p\n",
 				      [?MODULE,?LINE,Tag,Error]),
-		    do_output(stdout, [S,Str], St)
+		    do_output(stdout, [S,Str], Phase, St)
 	    end
     end.
 
 finalise_table(Fd, #st{html_footer=Footer}) ->
     case file:position(Fd, {cur,0}) of
 	{ok,Pos} ->
-	    %% We are writing to a seekable file.  Finalise so
+	    %% We are writing to a seekable file. Finalise so
 	    %% we get complete valid (and viewable) HTML code.
 	    %% Then rewind to overwrite the finalising code.
 	    io:put_chars(Fd, ["\n</table>\n",Footer]),
@@ -319,7 +420,7 @@ do_print_buffered(Q0, St) ->
 	eot ->
 	    Q;
 	{Tag,Str} ->
-	    do_output(Tag, Str, St),
+	    do_output(Tag, Str, undefined, St),
 	    do_print_buffered(Q, St)
     end.
 

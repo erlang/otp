@@ -61,6 +61,7 @@
 -define(index_name, "index.html").
 -define(totals_name, "totals.info").
 -define(log_cache_name, "ct_log_cache").
+-define(misc_io_log, "misc_io.log.html").
 
 -define(table_color1,"#ADD8E6").
 -define(table_color2,"#E4F0FE").
@@ -617,6 +618,34 @@ logger(Parent, Mode, Verbosity) ->
 		    end
 	    end
     end,
+
+    test_server_io:start_link(),
+    MiscIoName = filename:join(Dir, ?misc_io_log),
+    {ok,MiscIoFd} = file:open(MiscIoName,
+			      [write,{encoding,utf8}]),
+    test_server_io:set_fd(unexpected_io, MiscIoFd),
+
+    {MiscIoHeader,MiscIoFooter} =
+	case get_ts_html_wrapper("Pre/post-test I/O log", Dir, false,
+				 Dir, undefined, utf8) of
+	    {basic_html,UH,UF} ->
+		{UH,UF};
+	    {xhtml,UH,UF} ->
+		{UH,UF}
+	end,
+    io:put_chars(MiscIoFd,
+		 [MiscIoHeader,
+		  "<a name=\"pretest\"></a>\n",
+		  xhtml("<br>\n<h2>Pre-test Log</h2>",
+			"<br />\n<h3>PRE-TEST LOG</h3>"),
+		  "\n<pre>\n"]),
+    MiscIoDivider =
+	"\n<a name=\"posttest\"></a>\n"++
+	xhtml("</pre>\n<br><br><h2>Post-test Log</h2>\n<pre>\n",
+	      "</pre>\n<br /><br />\n<h3>POST-TEST LOG</h3>\n<pre>\n"),
+    ct_util:set_testdata_async({misc_io_log,{filename:absname(MiscIoName),
+					     MiscIoDivider,MiscIoFooter}}),
+
     ct_event:notify(#event{name=start_logging,node=node(),
 			   data=AbsDir}),
     make_all_runs_index(start),
@@ -627,7 +656,7 @@ logger(Parent, Mode, Verbosity) ->
     end,
     file:set_cwd(Dir),
     make_last_run_index(Time),
-    CtLogFd = open_ctlog(),
+    CtLogFd = open_ctlog(?misc_io_log),
     io:format(CtLogFd,int_header()++int_footer(),
 	      [log_timestamp(now()),"Common Test Logger started"]),
     Parent ! {started,self(),{Time,filename:absname("")}},
@@ -922,7 +951,7 @@ set_evmgr_gl(GL) ->
 	EvMgrPid -> group_leader(GL,EvMgrPid)
     end.
 
-open_ctlog() ->
+open_ctlog(MiscIoName) ->
     {ok,Fd} = file:open(?ct_log_name,[write,{encoding,utf8}]),
     io:format(Fd, header("Common Test Framework Log", {[],[1,2],[]}), []),
     case file:consult(ct_run:variables_file_name("../")) of
@@ -937,10 +966,21 @@ open_ctlog() ->
 		      "No configuration found for test!!\n",
 		      [Variables,Reason])
     end,
+    io:format(Fd, 
+	      xhtml("<br><br><h2>Pre/post-test I/O Log</h2>\n",
+		    "<br /><br />\n<h4>PRE/POST TEST I/O LOG</h4>\n"), []),    
+    io:format(Fd,
+	      "\n<ul>\n"
+	      "<li><a href=\"~ts#pretest\">"
+	      "View I/O logged before the test run</a></li>\n"
+	      "<li><a href=\"~ts#posttest\">"
+	      "View I/O logged after the test run</a></li>\n</ul>\n",
+	      [MiscIoName,MiscIoName]),
+
     print_style(Fd,undefined),
     io:format(Fd, 
-	      xhtml("<br><br><h2>Progress Log</h2>\n<pre>\n",
-		    "<br /><br /><h4>PROGRESS LOG</h4>\n<pre>\n"), []),
+	      xhtml("<br><h2>Progress Log</h2>\n<pre>\n",
+		    "<br />\n<h4>PROGRESS LOG</h4>\n<pre>\n"), []),
     Fd.
 
 print_style(Fd,undefined) ->
@@ -2856,6 +2896,9 @@ make_relative1(DirTs, CwdTs) ->
 %%% @doc
 %%%
 get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding) ->
+    get_ts_html_wrapper(TestName, undefined, PrintLabel, Cwd, TableCols, Encoding).
+
+get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
     TestName1 = if is_list(TestName) ->
 			lists:flatten(TestName);
 		   true ->
@@ -2876,7 +2919,12 @@ get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding) ->
 		end
 	end,
     CTPath = code:lib_dir(common_test),
-    {ok,CtLogdir} = get_log_dir(true),
+
+    {ok,CtLogdir} =
+	if Logdir == undefined -> get_log_dir(true);
+	   true -> {ok,Logdir}
+	end,
+
     AllRuns = make_relative(filename:join(filename:dirname(CtLogdir),
 					  ?all_runs_name), Cwd),
     TestIndex = make_relative(filename:join(filename:dirname(CtLogdir),
@@ -3074,16 +3122,8 @@ unexpected_io(Pid,ct_internal,_Importance,List,State) ->
     IoFun = create_io_fun(Pid,State),
     io:format(State#logger_state.ct_log_fd, "~ts",
 	      [lists:foldl(IoFun, [], List)]);
-unexpected_io(Pid,Category,Importance,List,State) ->
+unexpected_io(Pid,_Category,_Importance,List,State) ->
     IoFun = create_io_fun(Pid,State),
     Data = io_lib:format("~ts", [lists:foldl(IoFun, [], List)]),
-    %% if unexpected io comes in during startup or shutdown, test_server
-    %% might not be running - if so (noproc exit), simply print to
-    %% stdout instead (will result in double printouts when pal is used)
-    try test_server_io:print_unexpected(Data) of
-	_ ->
-	    ok
-    catch
-	_:{noproc,_} -> tc_print(Category,Importance,Data,[]);
-	_:Reason     -> exit(Reason)
-    end.
+    test_server_io:print_unexpected(Data),
+    ok.
