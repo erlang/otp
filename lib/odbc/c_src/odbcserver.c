@@ -277,11 +277,15 @@ int main(void)
     msg = receive_erlang_port_msg();
 
     temp = strtok(msg, ";");
+    if (temp == NULL)
+	DO_EXIT(EXIT_STDIN_BODY);
     length = strlen(temp);
     supervisor_port = safe_malloc(length + 1);
     strcpy(supervisor_port, temp);
 
     temp = strtok(NULL, ";");
+    if (temp == NULL)
+	DO_EXIT(EXIT_STDIN_BODY);
     length = strlen(temp);
     odbc_port = safe_malloc(length + 1);
     strcpy(odbc_port, temp);
@@ -1819,9 +1823,17 @@ static byte * receive_erlang_port_msg(void)
 	len |= lengthstr[i];
     }
     
+    if (len <= 0 || len > 1024) {
+	DO_EXIT(EXIT_STDIN_HEADER);
+    }
+
     buffer = (byte *)safe_malloc(len);
     
     if (read_exact(buffer, len) <= 0) {
+	DO_EXIT(EXIT_STDIN_BODY);
+    }
+
+    if (buffer[len-1] != '\0') {
 	DO_EXIT(EXIT_STDIN_BODY);
     }
 
