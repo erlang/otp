@@ -27,6 +27,7 @@
 -compile(export_all).
 
 -record(sslsocket, { fd = nil, pid = nil}).
+-define(SLEEP, 1000).
 
 %% For now always run locally
 run_where(_) ->
@@ -949,7 +950,10 @@ init_tls_version(Version) ->
 sufficient_crypto_support('tlsv1.2') ->
     CryptoSupport = crypto:supports(),
     proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport));
-sufficient_crypto_support(ciphers_ec) ->
+sufficient_crypto_support(Group) when Group == ciphers_ec;     %% From ssl_basic_SUITE
+				      Group == erlang_server;  %% From ssl_ECC_SUITE
+				      Group == erlang_client;  %% From ssl_ECC_SUITE
+				      Group == erlang ->       %% From ssl_ECC_SUITE
     CryptoSupport = crypto:supports(),
     proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport));
 sufficient_crypto_support(_) ->
@@ -1026,3 +1030,39 @@ cipher_restriction(Config0) ->
 	true ->
 	    Config0
     end.
+
+check_sane_openssl_version(Version) ->
+    case {Version, os:cmd("openssl version")} of
+	{_, "OpenSSL 1.0.1" ++ _} ->
+	    true;
+	{'tlsv1.2', "OpenSSL 1.0" ++ _} ->
+	    false;
+	{'tlsv1.1', "OpenSSL 1.0" ++ _} ->
+	    false;
+	{'tlsv1.2', "OpenSSL 0" ++ _} ->
+	    false;
+	{'tlsv1.1', "OpenSSL 0" ++ _} ->
+	    false;
+	{_, _} ->
+	    true
+    end.
+
+wait_for_openssl_server() ->
+    receive
+	{Port, {data, Debug}} when is_port(Port) ->
+	    ct:log("openssl ~s~n",[Debug]),
+	    %% openssl has started make sure
+	    %% it will be in accept. Parsing
+	    %% output is too error prone. (Even
+	    %% more so than sleep!)
+	    ct:sleep(?SLEEP)
+    end.
+
+version_flag(tlsv1) ->
+    " -tls1 ";
+version_flag('tlsv1.1') ->
+    " -tls1_1 ";
+version_flag('tlsv1.2') ->
+    " -tls1_2 ";
+version_flag(sslv3) ->
+    " -ssl3 ".
