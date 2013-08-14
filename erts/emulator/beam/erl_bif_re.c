@@ -628,11 +628,15 @@ static Eterm build_exec_return(Process *p, int rc, RestartContext *restartp, Ete
 	    res = am_nomatch;
 	}
     } else {
-	ReturnInfo *ri = restartp->ret_info; 
+	ReturnInfo *ri;
 	ReturnInfo defri = {RetIndex,0,{0}};
-	if (ri == NULL) {
+
+	if (restartp->ret_info == NULL) {
 	    ri = &defri;
+	} else {
+	    ri = restartp->ret_info;
 	}
+
 	if (ri->type == RetNone) {
 	    res = am_match;
 	} else if (ri->type == RetIndex){
@@ -923,7 +927,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 	{
 	    int rc,i,top;
 	    int entrysize;
-	    char *nametable, *last = NULL;
+	    unsigned char *nametable, *last = NULL;
 	    int has_dupnames;
 	    unsigned long options;
 
@@ -938,13 +942,13 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 	    }
 	    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMEENTRYSIZE, &entrysize) != 0)
 		goto error;
-	    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMETABLE, (unsigned char **) &nametable) != 0)
+	    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMETABLE, &nametable) != 0)
 		goto error;
 	    
 	    has_dupnames = ((options & PCRE_DUPNAMES) != 0);
 
 	    for(i=0;i<top;++i) {
-		if (last == NULL || !has_dupnames || strcmp(last+2,nametable+2)) {
+		if (last == NULL || !has_dupnames || strcmp((char *) last+2,(char *) nametable+2)) {
 		    ASSERT(ri->num_spec >= 0);
 		    ++(ri->num_spec);
 		    if(ri->num_spec > sallocated) {
@@ -955,7 +959,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 			/* This could be more effective, we actually have 
 			   the names and could fill in the vector
 			   immediately. Now we lookup the name again. */
-			build_one_capture(code,&ri,&sallocated,has_dupnames,nametable+2);
+			build_one_capture(code,&ri,&sallocated,has_dupnames,(char *) nametable+2);
 		    } else {
 			ri->v[ri->num_spec - 1] = PICK_INDEX(nametable);	
 		    }
@@ -1236,7 +1240,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 	    BIF_ERROR(p,BADARG);
 	}
     }
-	    
+
     /*  Optimized - if already in binary off heap, keep that and avoid
        copying, also binary returns can be sub binaries in that case */
 
@@ -1398,7 +1402,7 @@ re_inspect_2(BIF_ALIST_2)
     Eterm *tp,*tmp_vec,*hp;
     int i,top,j;
     int entrysize;
-    char *nametable, *last,*name;
+    unsigned char *nametable, *last,*name;
     int has_dupnames;
     unsigned long options;
     int num_names;
@@ -1455,7 +1459,7 @@ re_inspect_2(BIF_ALIST_2)
 #ifdef DEBUG
     infores =
 #endif
-    erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMETABLE, (unsigned char **) &nametable);
+    erts_pcre_fullinfo(code, NULL, PCRE_INFO_NAMETABLE, &nametable);
 
     ASSERT(infores == 0);
     
@@ -1465,7 +1469,8 @@ re_inspect_2(BIF_ALIST_2)
     last = NULL;
     name = nametable;
     for(i=0;i<top;++i) {
-	if (last == NULL || !has_dupnames || strcmp(last+2,name+2)) {
+	if (last == NULL || !has_dupnames || strcmp((char *) last+2,
+						    (char *) name+2)) {
 	    ++num_names;
 	}
 	last = name;
@@ -1478,8 +1483,9 @@ re_inspect_2(BIF_ALIST_2)
     name = nametable;
     j = 0;
     for(i=0;i<top;++i) {
-	if (last == NULL || !has_dupnames || strcmp(last+2,name+2)) {
-	    tmp_vec[j++] = new_binary(BIF_P, (byte *) name+2, strlen(name+2));
+	if (last == NULL || !has_dupnames || strcmp((char *) last+2,
+						    (char *) name+2)) {
+	    tmp_vec[j++] = new_binary(BIF_P, (byte *) name+2, strlen((char *) name+2));
 	}
 	last = name;
 	name += entrysize;
