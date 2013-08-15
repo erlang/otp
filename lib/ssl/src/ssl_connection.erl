@@ -87,7 +87,6 @@
           cert_db_ref,         % ref()
           bytes_to_read,       % integer(), # bytes to read in passive mode
           user_data_buffer,    % binary()
-	  log_alert,           % boolean() 
 	  renegotiation,       % {boolean(), From | internal | peer}
 	  start_or_recv_from,  % "gen_fsm From"
 	  timer,               % start_or_recv_timer
@@ -2123,7 +2122,6 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   tls_cipher_texts = [],
 	   user_application = {Monitor, User},
 	   user_data_buffer = <<>>,
-	   log_alert = true,
 	   session_cache_cb = SessionCacheCb,
 	   renegotiation = {false, first},
 	   start_or_recv_from = undefined,
@@ -2230,11 +2228,10 @@ handle_alerts([Alert | Alerts], {next_state, StateName, State, _Timeout}) ->
     handle_alerts(Alerts, handle_alert(Alert, StateName, State)).
 
 handle_alert(#alert{level = ?FATAL} = Alert, StateName,
-	     #state{start_or_recv_from = From, host = Host, port = Port, session = Session,
-		    user_application = {_Mon, Pid},
-		    log_alert = Log, role = Role, socket_options = Opts} = State) ->
+	     #state{ssl_options = SslOpts, start_or_recv_from = From, host = Host, port = Port, session = Session,
+		    user_application = {_Mon, Pid}, role = Role, socket_options = Opts} = State) ->
     invalidate_session(Role, Host, Port, Session),
-    log_alert(Log, StateName, Alert),
+    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
     alert_user(StateName, Opts, Pid, From, Alert, Role),
     {stop, normal, State};
 
@@ -2244,21 +2241,21 @@ handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert,
     {stop, {shutdown, peer_close}, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
-	     #state{log_alert = Log, renegotiation = {true, internal}} = State) ->
-    log_alert(Log, StateName, Alert),
+	     #state{ssl_options = SslOpts, renegotiation = {true, internal}} = State) ->
+    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
     handle_normal_shutdown(Alert, StateName, State),
     {stop, {shutdown, peer_close}, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
-	     #state{log_alert = Log, renegotiation = {true, From}} = State0) ->
-    log_alert(Log, StateName, Alert),
+	     #state{ssl_options = SslOpts, renegotiation = {true, From}} = State0) ->
+    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
     gen_fsm:reply(From, {error, renegotiation_rejected}),
     {Record, State} = next_record(State0),
     next_state(StateName, connection, Record, State);
 
 handle_alert(#alert{level = ?WARNING, description = ?USER_CANCELED} = Alert, StateName, 
-	     #state{log_alert = Log} = State0) ->
-    log_alert(Log, StateName, Alert),
+	     #state{ssl_options = SslOpts} = State0) ->
+    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
     {Record, State} = next_record(State0),
     next_state(StateName, StateName, Record, State).
 
@@ -2296,7 +2293,7 @@ handle_own_alert(Alert, Version, StateName,
 		 #state{transport_cb = Transport,
 			socket = Socket,
 			connection_states = ConnectionStates,
-			log_alert = Log} = State) ->
+			ssl_options = SslOpts} = State) ->
     try %% Try to tell the other side
 	{BinMsg, _} =
 	encode_alert(Alert, Version, ConnectionStates),
@@ -2306,7 +2303,7 @@ handle_own_alert(Alert, Version, StateName,
 	    ignore
     end,
     try %% Try to tell the local user
-	log_alert(Log, StateName, Alert),
+	log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
 	handle_normal_shutdown(Alert,StateName, State)
     catch _:_ ->
 	    ok
