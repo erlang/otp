@@ -1052,11 +1052,7 @@ local_uninstall_fallback(Master, FA) ->
             Tmp = FA2#fallback_args.fallback_tmp,
             Bup = FA2#fallback_args.fallback_bup,
             file:delete(Tmp),
-            Res =
-                case fallback_exists(Bup) of
-                    true -> file:delete(Bup);
-                    false -> ok
-                end,
+            Res = file:delete(Bup),
             ?eval_debug_fun({?MODULE, uninstall_fallback2, post_delete}, []),
             Master ! {self(), Res},
             unlink(Master),
