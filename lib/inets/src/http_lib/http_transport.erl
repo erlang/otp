@@ -159,7 +159,7 @@ listen(ip_comm = _SocketType, Addr, Port, Fd, IpFamily) ->
     listen_ip_comm(Addr, Port, Fd, IpFamily);
 
 listen({essl, SSLConfig}, Addr, Port, Fd, IpFamily) ->
-    listen_ssl(Addr, Port, Fd, SSLConfig, IpFamily).
+    listen_ssl(Addr, Port, Fd, SSLConfig, IpFamily, []).
 
 listen(ip_comm = _SocketType, Addr, Port, IpFamily) ->
     listen_ip_comm(Addr, Port, undefined, IpFamily);
