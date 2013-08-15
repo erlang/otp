@@ -110,6 +110,8 @@
     <p>When the driver has passed the <c>driver_entry</c> over to
       the emulator, the driver is <em>not</em> allowed to modify the
       <c>driver_entry</c>.</p>
+    <p>If compiling a driver for static inclusion via --enable-static-drivers you
+    have to define STATIC_ERLANG_DRIVER before the DRIVER_INIT declaration.</p>
     <note>
       <p>Do <em>not</em> declare the <c>driver_entry</c> <c>const</c>. This since the emulator needs to
         modify the <c>handle</c>, and the <c>handle2</c>

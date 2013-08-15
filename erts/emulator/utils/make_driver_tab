@@ -28,8 +28,10 @@ use File::Basename;
 
 my $file = "";
 my $nif = "";
-my @drivers = ();
+my @emu_drivers = ();
+my @static_drivers = ();
 my @nifs = ();
+my $mode = 1;
 
 while (@ARGV) {
     my $d = shift;
@@ -37,15 +39,28 @@ while (@ARGV) {
 	$file = shift or die("-o requires argument");
 	next;
     }
+    if ( $d =~ /^-nifs$/ ) {
+	$mode = 2;
+	next;
+    }
+    if ( $d =~ /^-drivers$/ ) {
+	$mode = 1;
+	next;
+    }
     if ( $d =~ /^.*\.a$/ ) {
 	$d = basename $d;
 	$d =~ s/\.a$//;	# strip .a
-	push(@nifs, $d);
+	if ($mode == 1) {
+	    push(@static_drivers, $d);
+	}
+	if ($mode == 2) {
+	    push(@nifs, $d);
+	}
 	next;
     }
     $d = basename $d;
     $d =~ s/drv(\..*|)$//;	# strip drv.* or just drv
-    push(@drivers, $d);
+    push(@emu_drivers, $d);
 }
 
 # Did we want output to a file?
@@ -64,18 +79,35 @@ print <<EOF;
 EOF
 
 # "extern" declarations
-foreach (@drivers) {
+foreach (@emu_drivers) {
     print "extern ErlDrvEntry ${_}driver_entry;\n";
+}
+
+foreach (@static_drivers) {
+    print "ErlDrvEntry *${_}_driver_init(void);\n";
 }
 
 # The array itself
 print "\nErlDrvEntry *driver_tab[DRIVER_TAB_SIZE] =\n{\n";
 
-foreach (@drivers) {
+foreach (@emu_drivers) {
     print "    &${_}driver_entry,\n";
 }
 
+foreach (@static_drivers) {
+    print "    NULL, /* ${_} */\n";
+}
 print "    NULL\n};\n";
+
+print "void erts_init_static_drivers() {\n";
+
+my $index = 0;
+foreach (@static_drivers) {
+    print "    driver_tab[".(scalar @emu_drivers+$index)."] = ${_}_driver_init();\n";
+    $index++;
+}
+
+print "}\n";
 
 print <<EOF;
 

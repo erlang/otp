@@ -856,6 +856,7 @@ void erts_lcnt_enable_io_lock_count(int enable);
 typedef void *(*ErtsStaticNifInitFPtr)(void);
 ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name);
 int erts_is_static_nif(void *handle);
+void erts_init_static_drivers(void);
 
 /* erl_drv_thread.c */
 void erl_drv_thr_init(void);
