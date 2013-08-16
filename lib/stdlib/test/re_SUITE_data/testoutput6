@@ -1,3 +1,6 @@
+/-- This set of tests is for Unicode property support. It is compatible with
+    Perl >= 5.15. --/
+
 /^\pC\pL\pM\pN\pP\pS\pZ</8
     \x7f\x{c0}\x{30f}\x{660}\x{66c}\x{f01}\x{1680}<
  0: \x{7f}\x{c0}\x{30f}\x{660}\x{66c}\x{f01}\x{1680}<
@@ -93,14 +96,6 @@ No match
 /^\p{Co}/8
     \x{f8ff}
  0: \x{f8ff}
-    ** Failers
-No match
-    \x{09f} 
-No match
-  
-/^\p{Cs}/8
-    \?\x{dfff}
- 0: \x{dfff}
     ** Failers
 No match
     \x{09f} 
@@ -338,18 +333,6 @@ No match
     \x{f3b}
 No match
   
-/^\p{Sc}+/8
-    $\x{a2}\x{a3}\x{a4}\x{a5}\x{a6}
- 0: $\x{a2}\x{a3}\x{a4}\x{a5}
-    \x{9f2}
- 0: \x{9f2}
-    ** Failers
-No match
-    X
-No match
-    \x{2c2}
-No match
-  
 /^\p{Sk}/8
     \x{2c2}
  0: \x{2c2}
@@ -400,26 +383,6 @@ No match
     X
 No match
     \x{2028}
-No match
-  
-/^\p{Zs}/8
-    \ \
- 0:  
-    \x{a0}
- 0: \x{a0}
-    \x{1680}
- 0: \x{1680}
-    \x{180e}
- 0: \x{180e}
-    \x{2000}
- 0: \x{2000}
-    \x{2001}     
- 0: \x{2001}
-    ** Failers
-No match
-    \x{2028}
-No match
-    \x{200d} 
 No match
   
 /\p{Nd}+(..)/8
@@ -494,34 +457,6 @@ No match
       \x{660}\x{661}\x{662}ABC
 No match
   
-/\p{Lu}/8i
-    A
- 0: A
-    a\x{10a0}B 
- 0: \x{10a0}
-    ** Failers 
- 0: F
-    a
-No match
-    \x{1d00}  
-No match
-
-/\p{^Lu}/8i
-    1234
- 0: 1
-    ** Failers
- 0: *
-    ABC 
-No match
-
-/\P{Lu}/8i
-    1234
- 0: 1
-    ** Failers
- 0: *
-    ABC 
-No match
-
 /(?<=A\p{Nd})XYZ/8
     A2XYZ
  0: XYZ
@@ -546,103 +481,6 @@ No match
     ** Failers
 No match
     WXYZ 
-No match
-
-/[\p{L}]/DZ
-------------------------------------------------------------------
-        Bra
-        [\p{L}]
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-No options
-No first char
-No need char
-
-/[\p{^L}]/DZ
-------------------------------------------------------------------
-        Bra
-        [\P{L}]
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-No options
-No first char
-No need char
-
-/[\P{L}]/DZ
-------------------------------------------------------------------
-        Bra
-        [\P{L}]
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-No options
-No first char
-No need char
-
-/[\P{^L}]/DZ
-------------------------------------------------------------------
-        Bra
-        [\p{L}]
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-No options
-No first char
-No need char
-
-/[abc\p{L}\x{0660}]/8DZ
-------------------------------------------------------------------
-        Bra
-        [a-c\p{L}\x{660}]
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: utf8
-No first char
-No need char
-
-/[\p{Nd}]/8DZ
-------------------------------------------------------------------
-        Bra
-        [\p{Nd}]
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: utf8
-No first char
-No need char
-    1234
- 0: 1
-
-/[\p{Nd}+-]+/8DZ
-------------------------------------------------------------------
-        Bra
-        [+\-\p{Nd}]+
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Partial matching not supported
-Options: utf8
-No first char
-No need char
-    1234
- 0: 1234
-    12-34
- 0: 12-34
-    12+\x{661}-34  
- 0: 12+\x{661}-34
-    ** Failers
-No match
-    abcd  
 No match
 
 /[\P{Nd}]+/8
@@ -725,28 +563,6 @@ No match
     ABC   
 No match
 
-/\p{Ll}/8i 
-    a
- 0: a
-    Az
- 0: z
-    ** Failers
- 0: a
-    ABC   
-No match
-
-/^\x{c0}$/8i
-    \x{c0}
- 0: \x{c0}
-    \x{e0} 
- 0: \x{e0}
-
-/^\x{e0}$/8i
-    \x{c0}
- 0: \x{c0}
-    \x{e0} 
- 0: \x{e0}
-
 /A\x{391}\x{10427}\x{ff3a}\x{1fb0}/8
     A\x{391}\x{10427}\x{ff3a}\x{1fb0}
  0: A\x{391}\x{10427}\x{ff3a}\x{1fb0}
@@ -777,54 +593,6 @@ No match
     A\x{391}\x{10427}\x{ff3a}\x{1fb8}
  0: A\x{391}\x{10427}\x{ff3a}\x{1fb8}
 
-/A\x{391}\x{10427}\x{ff3a}\x{1fb0}/8iDZ
-------------------------------------------------------------------
-        Bra
-     NC A\x{391}\x{10427}\x{ff3a}\x{1fb0}
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: caseless utf8
-First char = 'A' (caseless)
-No need char
-
-/A\x{391}\x{10427}\x{ff3a}\x{1fb0}/8DZ
-------------------------------------------------------------------
-        Bra
-        A\x{391}\x{10427}\x{ff3a}\x{1fb0}
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: utf8
-First char = 'A'
-Need char = 176
-
-/AB\x{1fb0}/8DZ
-------------------------------------------------------------------
-        Bra
-        AB\x{1fb0}
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: utf8
-First char = 'A'
-Need char = 176
-
-/AB\x{1fb0}/8DZi
-------------------------------------------------------------------
-        Bra
-     NC AB\x{1fb0}
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: caseless utf8
-First char = 'A' (caseless)
-Need char = 'B' (caseless)
-
 /\x{391}+/8i
     \x{391}\x{3b1}\x{3b1}\x{3b1}\x{391}
  0: \x{391}\x{3b1}\x{3b1}\x{3b1}\x{391}
@@ -849,98 +617,6 @@ Need char = 'B' (caseless)
     \x{ff5a}   
  0: \x{ff5a}
     
-/[\x{c0}\x{391}]/8i
-    \x{c0}
- 0: \x{c0}
-    \x{e0} 
- 0: \x{e0}
-
-/[\x{105}-\x{109}]/8iDZ
-------------------------------------------------------------------
-        Bra
-        [\x{104}-\x{109}]
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: caseless utf8
-No first char
-No need char
-    \x{104}
- 0: \x{104}
-    \x{105}
- 0: \x{105}
-    \x{109}  
- 0: \x{109}
-    ** Failers
-No match
-    \x{100}
-No match
-    \x{10a} 
-No match
-    
-/[z-\x{100}]/8iDZ 
-------------------------------------------------------------------
-        Bra
-        [Z\x{39c}\x{178}z-\x{101}]
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: caseless utf8
-No first char
-No need char
-    Z
- 0: Z
-    z
- 0: z
-    \x{39c}
- 0: \x{39c}
-    \x{178}
- 0: \x{178}
-    |
- 0: |
-    \x{80}
- 0: \x{80}
-    \x{ff}
- 0: \x{ff}
-    \x{100}
- 0: \x{100}
-    \x{101} 
- 0: \x{101}
-    ** Failers
-No match
-    \x{102}
-No match
-    Y
-No match
-    y           
-No match
-
-/[z-\x{100}]/8DZi
-------------------------------------------------------------------
-        Bra
-        [Z\x{39c}\x{178}z-\x{101}]
-        Ket
-        End
-------------------------------------------------------------------
-Capturing subpattern count = 0
-Options: caseless utf8
-No first char
-No need char
-
-/^\X/8
-    A
- 0: A
-    A\x{300}BC 
- 0: A\x{300}
-    A\x{300}\x{301}\x{302}BC 
- 0: A\x{300}\x{301}\x{302}
-    *** Failers
- 0: *
-    \x{300}  
-No match
-
 /^[\X]/8
     X123
  0: X
@@ -1019,7 +695,17 @@ No match
     A\x{300}\x{301}B\x{300}C\x{300}\x{301}DA\x{300}X
  0: A\x{300}\x{301}B\x{300}C
  1: C
-    
+
+/^\X/8
+    A
+ 0: A
+    A\x{300}BC 
+ 0: A\x{300}
+    A\x{300}\x{301}\x{302}BC 
+ 0: A\x{300}\x{301}\x{302}
+    \x{300}  
+ 0: \x{300}
+
 /^\p{Han}+/8
     \x{2e81}\x{3007}\x{2f804}\x{31a0}
  0: \x{2e81}\x{3007}\x{2f804}
@@ -1408,41 +1094,9 @@ No match
  1: L=abc
  2: abc
 
-/The next two should be Perl-compatible, but it fails to match \x{e0}. PCRE
-will match it only with UCP support, because without that it has no notion
-of case for anything other than the ASCII letters. / 
-
-/((?i)[\x{c0}])/8
-    \x{c0}
- 0: \x{c0}
- 1: \x{c0}
-    \x{e0} 
- 0: \x{e0}
- 1: \x{e0}
-
-/(?i:[\x{c0}])/8
-    \x{c0}
- 0: \x{c0}
-    \x{e0} 
- 0: \x{e0}
-    
 /^\p{Balinese}\p{Cuneiform}\p{Nko}\p{Phags_Pa}\p{Phoenician}/8
     \x{1b00}\x{12000}\x{7c0}\x{a840}\x{10900}
  0: \x{1b00}\x{12000}\x{7c0}\x{a840}\x{10900}
-
-/The next two are special cases where the lengths of the different cases of the 
-same character differ. The first went wrong with heap fram storage; the 2nd
-was broken in all cases./
-
-/^\x{023a}+?(\x{0130}+)/8i
-  \x{023a}\x{2c65}\x{0130}
- 0: \x{23a}\x{2c65}\x{130}
- 1: \x{130}
-  
-/^\x{023a}+([^X])/8i
-  \x{023a}\x{2c65}X
- 0: \x{23a}\x{2c65}
- 1: \x{2c65}
 
 /Check property support in non-UTF-8 mode/
  
@@ -1468,61 +1122,9 @@ No match
     A\x80
  0: A\x80
 
-/(?:[\PPa*]*){8,}/
-
-/[\P{Any}]/BZ
-------------------------------------------------------------------
-        Bra
-        [\P{Any}]
-        Ket
-        End
-------------------------------------------------------------------
-
-/[\P{Any}\E]/BZ
-------------------------------------------------------------------
-        Bra
-        [\P{Any}]
-        Ket
-        End
-------------------------------------------------------------------
-
-/(\P{Yi}+\277)/
-
-/(\P{Yi}+\277)?/
-
-/(?<=\P{Yi}{3}A)X/
-
-/\p{Yi}+(\P{Yi}+)(?1)/
-
-/(\P{Yi}{2}\277)?/
-
-/[\P{Yi}A]/
-
-/[\P{Yi}\P{Yi}\P{Yi}A]/
-
-/[^\P{Yi}A]/
-
-/[^\P{Yi}\P{Yi}\P{Yi}A]/
-
-/(\P{Yi}*\277)*/
-
-/(\P{Yi}*?\277)*/
-
-/(\p{Yi}*+\277)*/
-
-/(\P{Yi}?\277)*/
-
-/(\P{Yi}??\277)*/
-
-/(\p{Yi}?+\277)*/
-
-/(\P{Yi}{0,3}\277)*/
-
-/(\P{Yi}{0,3}?\277)*/
-
-/(\p{Yi}{0,3}+\277)*/
-
 /^[\p{Arabic}]/8
+    \x{604}
+ 0: \x{604}
     \x{60e} 
  0: \x{60e}
     \x{656} 
@@ -1543,6 +1145,8 @@ No match
  0: \x{65d}
     \x{65e} 
  0: \x{65e}
+    \x{65f}
+ 0: \x{65f}
     \x{66a} 
  0: \x{66a}
     \x{6e9} 
@@ -1552,8 +1156,6 @@ No match
     \x{6fa}  
  0: \x{6fa}
     ** Failers
-No match
-    \x{600}
 No match
     \x{650}
 No match
@@ -1566,8 +1168,6 @@ No match
     \x{654} 
 No match
     \x{655} 
-No match
-    \x{65f}  
 No match
     
 /^\p{Cyrillic}/8
@@ -1585,8 +1185,6 @@ No match
  0: \x{964}
     \x{965}  
  0: \x{965}
-    \x{970}  
- 0: \x{970}
 
 /^\p{Inherited}/8
     \x{64b}
@@ -1634,49 +1232,918 @@ No match
     \x{104aa}           
 No match
 
-/\p{Zl}{2,3}+/8BZ
-------------------------------------------------------------------
-        Bra
-        prop Zl {2}
-        prop Zl ?+
-        Ket
-        End
-------------------------------------------------------------------
-    \xe2\x80\xa8\xe2\x80\xa8
- 0: \x{2028}\x{2028}
-    \x{2028}\x{2028}\x{2028}
- 0: \x{2028}\x{2028}\x{2028}
+/\p{Carian}\p{Cham}\p{Kayah_Li}\p{Lepcha}\p{Lycian}\p{Lydian}\p{Ol_Chiki}\p{Rejang}\p{Saurashtra}\p{Sundanese}\p{Vai}/8
+    \x{102A4}\x{AA52}\x{A91D}\x{1C46}\x{10283}\x{1092E}\x{1C6B}\x{A93B}\x{A8BF}\x{1BA0}\x{A50A}====
+ 0: \x{102a4}\x{aa52}\x{a91d}\x{1c46}\x{10283}\x{1092e}\x{1c6b}\x{a93b}\x{a8bf}\x{1ba0}\x{a50a}
+
+/\x{a77d}\x{1d79}/8i
+    \x{a77d}\x{1d79}
+ 0: \x{a77d}\x{1d79}
+    \x{1d79}\x{a77d} 
+ 0: \x{1d79}\x{a77d}
+
+/\x{a77d}\x{1d79}/8
+    \x{a77d}\x{1d79}
+ 0: \x{a77d}\x{1d79}
+    ** Failers 
+No match
+    \x{1d79}\x{a77d} 
+No match
+
+/(A)\1/8i
+    AA
+ 0: AA
+ 1: A
+    Aa
+ 0: Aa
+ 1: A
+    aa
+ 0: aa
+ 1: a
+    aA
+ 0: aA
+ 1: a
+
+/(\x{10a})\1/8i
+    \x{10a}\x{10a}
+ 0: \x{10a}\x{10a}
+ 1: \x{10a}
+    \x{10a}\x{10b}
+ 0: \x{10a}\x{10b}
+ 1: \x{10a}
+    \x{10b}\x{10b}
+ 0: \x{10b}\x{10b}
+ 1: \x{10b}
+    \x{10b}\x{10a}
+ 0: \x{10b}\x{10a}
+ 1: \x{10b}
     
-/\p{Zl}/8BZ
-------------------------------------------------------------------
-        Bra
-        prop Zl
-        Ket
-        End
-------------------------------------------------------------------
+/The next two tests are for property support in non-UTF-8 mode/
 
-/\p{Lu}{3}+/8BZ
-------------------------------------------------------------------
-        Bra
-        prop Lu {3}
-        Ket
-        End
-------------------------------------------------------------------
+/(?:\p{Lu}|\x20)+/
+    \x41\x20\x50\xC2\x54\xC9\x20\x54\x4F\x44\x41\x59
+ 0: A P\xc2T\xc9 TODAY
 
-/\pL{2}+/8BZ
-------------------------------------------------------------------
-        Bra
-        prop L {2}
-        Ket
-        End
-------------------------------------------------------------------
+/[\p{Lu}\x20]+/
+    \x41\x20\x50\xC2\x54\xC9\x20\x54\x4F\x44\x41\x59
+ 0: A P\xc2T\xc9 TODAY
 
-/\p{Cc}{2}+/8BZ
-------------------------------------------------------------------
-        Bra
-        prop Cc {2}
-        Ket
-        End
-------------------------------------------------------------------
+/\p{Avestan}\p{Bamum}\p{Egyptian_Hieroglyphs}\p{Imperial_Aramaic}\p{Inscriptional_Pahlavi}\p{Inscriptional_Parthian}\p{Javanese}\p{Kaithi}\p{Lisu}\p{Meetei_Mayek}\p{Old_South_Arabian}\p{Old_Turkic}\p{Samaritan}\p{Tai_Tham}\p{Tai_Viet}/8
+    \x{10b00}\x{a6ef}\x{13007}\x{10857}\x{10b78}\x{10b58}\x{a980}\x{110c1}\x{a4ff}\x{abc0}\x{10a7d}\x{10c48}\x{0800}\x{1aad}\x{aac0}
+ 0: \x{10b00}\x{a6ef}\x{13007}\x{10857}\x{10b78}\x{10b58}\x{a980}\x{110c1}\x{a4ff}\x{abc0}\x{10a7d}\x{10c48}\x{800}\x{1aad}\x{aac0}
 
-/ End of testinput6 /
+/^\w+/8W
+    Az_\x{aa}\x{c0}\x{1c5}\x{2b0}\x{3b6}\x{1d7c9}\x{2fa1d}1\x{660}\x{bef}\x{16ee}
+ 0: Az_\x{aa}\x{c0}\x{1c5}\x{2b0}\x{3b6}\x{1d7c9}\x{2fa1d}1\x{660}\x{bef}\x{16ee}
+
+/^[[:xdigit:]]*/8W
+    1a\x{660}\x{bef}\x{16ee}
+ 0: 1a
+  
+/^\d+/8W
+    1\x{660}\x{bef}\x{16ee}
+ 0: 1\x{660}\x{bef}
+  
+/^[[:digit:]]+/8W
+    1\x{660}\x{bef}\x{16ee}
+ 0: 1\x{660}\x{bef}
+
+/^>\s+/8W
+    >\x{20}\x{a0}\x{1680}\x{2028}\x{2029}\x{202f}\x{9}\x{b} 
+ 0: > \x{a0}\x{1680}\x{2028}\x{2029}\x{202f}\x{09}
+  
+/^>\pZ+/8W
+    >\x{20}\x{a0}\x{1680}\x{2028}\x{2029}\x{202f}\x{9}\x{b} 
+ 0: > \x{a0}\x{1680}\x{2028}\x{2029}\x{202f}
+  
+/^>[[:space:]]*/8W
+    >\x{20}\x{a0}\x{1680}\x{2028}\x{2029}\x{202f}\x{9}\x{b} 
+ 0: > \x{a0}\x{1680}\x{2028}\x{2029}\x{202f}\x{09}\x{0b}
+
+/^>[[:blank:]]*/8W
+    >\x{20}\x{a0}\x{1680}\x{180e}\x{2000}\x{202f}\x{9}\x{b}\x{2028} 
+ 0: > \x{a0}\x{1680}\x{180e}\x{2000}\x{202f}\x{09}
+
+/^[[:alpha:]]*/8W
+    Az\x{aa}\x{c0}\x{1c5}\x{2b0}\x{3b6}\x{1d7c9}\x{2fa1d}
+ 0: Az\x{aa}\x{c0}\x{1c5}\x{2b0}\x{3b6}\x{1d7c9}\x{2fa1d}
+
+/^[[:alnum:]]*/8W
+    Az\x{aa}\x{c0}\x{1c5}\x{2b0}\x{3b6}\x{1d7c9}\x{2fa1d}1\x{660}\x{bef}\x{16ee}
+ 0: Az\x{aa}\x{c0}\x{1c5}\x{2b0}\x{3b6}\x{1d7c9}\x{2fa1d}1\x{660}\x{bef}\x{16ee}
+
+/^[[:cntrl:]]*/8W
+    \x{0}\x{09}\x{1f}\x{7f}\x{9f} 
+ 0: \x{00}\x{09}\x{1f}\x{7f}
+
+/^[[:graph:]]*/8W
+    A\x{a1}\x{a0}
+ 0: A
+
+/^[[:print:]]*/8W
+    A z\x{a0}\x{a1}
+ 0: A z
+
+/^[[:punct:]]*/8W
+    .+\x{a1}\x{a0}
+ 0: .+
+
+/\p{Zs}*?\R/
+    ** Failers
+No match
+    a\xFCb   
+No match
+
+/\p{Zs}*\R/                                                                    
+    ** Failers 
+No match
+    a\xFCb   
+No match
+
+/ⱥ/8i
+    ⱥ
+ 0: \x{2c65}
+    Ⱥx 
+ 0: \x{23a}
+    Ⱥ 
+ 0: \x{23a}
+
+/[ⱥ]/8i
+    ⱥ
+ 0: \x{2c65}
+    Ⱥx 
+ 0: \x{23a}
+    Ⱥ 
+ 0: \x{23a}
+
+/Ⱥ/8i
+    Ⱥ
+ 0: \x{23a}
+    ⱥ
+ 0: \x{2c65}
+    
+/-- These are tests for extended grapheme clusters --/ 
+
+/^\X/8+
+    G\x{34e}\x{34e}X
+ 0: G\x{34e}\x{34e}
+ 0+ X
+    \x{34e}\x{34e}X
+ 0: \x{34e}\x{34e}
+ 0+ X
+    \x04X
+ 0: \x{04}
+ 0+ X
+    \x{1100}X
+ 0: \x{1100}
+ 0+ X
+    \x{1100}\x{34e}X
+ 0: \x{1100}\x{34e}
+ 0+ X
+    \x{1b04}\x{1b04}X 
+ 0: \x{1b04}\x{1b04}
+ 0+ X
+    *These match up to the roman letters
+ 0: *
+ 0+ These match up to the roman letters
+    \x{1111}\x{1111}L,L
+ 0: \x{1111}\x{1111}
+ 0+ L,L
+    \x{1111}\x{1111}\x{1169}L,L,V
+ 0: \x{1111}\x{1111}\x{1169}
+ 0+ L,L,V
+    \x{1111}\x{ae4c}L, LV
+ 0: \x{1111}\x{ae4c}
+ 0+ L, LV
+    \x{1111}\x{ad89}L, LVT
+ 0: \x{1111}\x{ad89}
+ 0+ L, LVT
+    \x{1111}\x{ae4c}\x{1169}L, LV, V
+ 0: \x{1111}\x{ae4c}\x{1169}
+ 0+ L, LV, V
+    \x{1111}\x{ae4c}\x{1169}\x{1169}L, LV, V, V
+ 0: \x{1111}\x{ae4c}\x{1169}\x{1169}
+ 0+ L, LV, V, V
+    \x{1111}\x{ae4c}\x{1169}\x{11fe}L, LV, V, T
+ 0: \x{1111}\x{ae4c}\x{1169}\x{11fe}
+ 0+ L, LV, V, T
+    \x{1111}\x{ad89}\x{11fe}L, LVT, T
+ 0: \x{1111}\x{ad89}\x{11fe}
+ 0+ L, LVT, T
+    \x{1111}\x{ad89}\x{11fe}\x{11fe}L, LVT, T, T
+ 0: \x{1111}\x{ad89}\x{11fe}\x{11fe}
+ 0+ L, LVT, T, T
+    \x{ad89}\x{11fe}\x{11fe}LVT, T, T
+ 0: \x{ad89}\x{11fe}\x{11fe}
+ 0+ LVT, T, T
+    *These match just the first codepoint (invalid sequence)
+ 0: *
+ 0+ These match just the first codepoint (invalid sequence)
+    \x{1111}\x{11fe}L, T
+ 0: \x{1111}
+ 0+ \x{11fe}L, T
+    \x{ae4c}\x{1111}LV, L
+ 0: \x{ae4c}
+ 0+ \x{1111}LV, L
+    \x{ae4c}\x{ae4c}LV, LV
+ 0: \x{ae4c}
+ 0+ \x{ae4c}LV, LV
+    \x{ae4c}\x{ad89}LV, LVT
+ 0: \x{ae4c}
+ 0+ \x{ad89}LV, LVT
+    \x{1169}\x{1111}V, L
+ 0: \x{1169}
+ 0+ \x{1111}V, L
+    \x{1169}\x{ae4c}V, LV
+ 0: \x{1169}
+ 0+ \x{ae4c}V, LV
+    \x{1169}\x{ad89}V, LVT
+ 0: \x{1169}
+ 0+ \x{ad89}V, LVT
+    \x{ad89}\x{1111}LVT, L
+ 0: \x{ad89}
+ 0+ \x{1111}LVT, L
+    \x{ad89}\x{1169}LVT, V
+ 0: \x{ad89}
+ 0+ \x{1169}LVT, V
+    \x{ad89}\x{ae4c}LVT, LV
+ 0: \x{ad89}
+ 0+ \x{ae4c}LVT, LV
+    \x{ad89}\x{ad89}LVT, LVT
+ 0: \x{ad89}
+ 0+ \x{ad89}LVT, LVT
+    \x{11fe}\x{1111}T, L
+ 0: \x{11fe}
+ 0+ \x{1111}T, L
+    \x{11fe}\x{1169}T, V
+ 0: \x{11fe}
+ 0+ \x{1169}T, V
+    \x{11fe}\x{ae4c}T, LV
+ 0: \x{11fe}
+ 0+ \x{ae4c}T, LV
+    \x{11fe}\x{ad89}T, LVT
+ 0: \x{11fe}
+ 0+ \x{ad89}T, LVT
+    *Test extend and spacing mark
+ 0: *
+ 0+ Test extend and spacing mark
+    \x{1111}\x{ae4c}\x{0711}L, LV, extend
+ 0: \x{1111}\x{ae4c}\x{711}
+ 0+ L, LV, extend
+    \x{1111}\x{ae4c}\x{1b04}L, LV, spacing mark
+ 0: \x{1111}\x{ae4c}\x{1b04}
+ 0+ L, LV, spacing mark
+    \x{1111}\x{ae4c}\x{1b04}\x{0711}\x{1b04}L, LV, spacing mark, extend, spacing mark
+ 0: \x{1111}\x{ae4c}\x{1b04}\x{711}\x{1b04}
+ 0+ L, LV, spacing mark, extend, spacing mark
+    *Test CR, LF, and control
+ 0: *
+ 0+ Test CR, LF, and control
+    \x0d\x{0711}CR, extend
+ 0: \x{0d}
+ 0+ \x{711}CR, extend
+    \x0d\x{1b04}CR, spacingmark
+ 0: \x{0d}
+ 0+ \x{1b04}CR, spacingmark
+    \x0a\x{0711}LF, extend
+ 0: \x{0a}
+ 0+ \x{711}LF, extend
+    \x0a\x{1b04}LF, spacingmark
+ 0: \x{0a}
+ 0+ \x{1b04}LF, spacingmark
+    \x0b\x{0711}Control, extend
+ 0: \x{0b}
+ 0+ \x{711}Control, extend
+    \x09\x{1b04}Control, spacingmark
+ 0: \x{09}
+ 0+ \x{1b04}Control, spacingmark
+    *There are no Prepend characters, so we can't test Prepend, CR
+ 0: *
+ 0+ There are no Prepend characters, so we can't test Prepend, CR
+    
+/^(?>\X{2})X/8+
+    \x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0: \x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0+ 
+    
+/^\X{2,4}X/8+
+    \x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0: \x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0+ 
+    \x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0: \x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0+ 
+    \x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0: \x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0+ 
+
+/^\X{2,4}?X/8+
+    \x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0: \x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0+ 
+    \x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0: \x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0+ 
+    \x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0: \x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}\x{1111}\x{ae4c}X
+ 0+ 
+
+/-- --/
+
+/\x{1e9e}+/8i
+    \x{1e9e}\x{00df}
+ 0: \x{1e9e}\x{df}
+
+/[z\x{1e9e}]+/8i
+    \x{1e9e}\x{00df}
+ 0: \x{1e9e}\x{df}
+
+/\x{00df}+/8i
+    \x{1e9e}\x{00df}
+ 0: \x{1e9e}\x{df}
+
+/[z\x{00df}]+/8i
+    \x{1e9e}\x{00df}
+ 0: \x{1e9e}\x{df}
+
+/\x{1f88}+/8i
+    \x{1f88}\x{1f80} 
+ 0: \x{1f88}\x{1f80}
+
+/[z\x{1f88}]+/8i
+    \x{1f88}\x{1f80} 
+ 0: \x{1f88}\x{1f80}
+    
+/-- Characters with more than one other case; test in classes --/
+
+/[z\x{00b5}]+/8i
+    \x{00b5}\x{039c}\x{03bc}
+ 0: \x{b5}\x{39c}\x{3bc}
+
+/[z\x{039c}]+/8i
+    \x{00b5}\x{039c}\x{03bc}
+ 0: \x{b5}\x{39c}\x{3bc}
+
+/[z\x{03bc}]+/8i
+    \x{00b5}\x{039c}\x{03bc}
+ 0: \x{b5}\x{39c}\x{3bc}
+
+/[z\x{00c5}]+/8i
+    \x{00c5}\x{00e5}\x{212b}
+ 0: \x{c5}\x{e5}\x{212b}
+
+/[z\x{00e5}]+/8i
+    \x{00c5}\x{00e5}\x{212b}
+ 0: \x{c5}\x{e5}\x{212b}
+
+/[z\x{212b}]+/8i
+    \x{00c5}\x{00e5}\x{212b}
+ 0: \x{c5}\x{e5}\x{212b}
+
+/[z\x{01c4}]+/8i
+    \x{01c4}\x{01c5}\x{01c6}
+ 0: \x{1c4}\x{1c5}\x{1c6}
+
+/[z\x{01c5}]+/8i
+    \x{01c4}\x{01c5}\x{01c6}
+ 0: \x{1c4}\x{1c5}\x{1c6}
+
+/[z\x{01c6}]+/8i
+    \x{01c4}\x{01c5}\x{01c6}
+ 0: \x{1c4}\x{1c5}\x{1c6}
+
+/[z\x{01c7}]+/8i
+    \x{01c7}\x{01c8}\x{01c9}
+ 0: \x{1c7}\x{1c8}\x{1c9}
+
+/[z\x{01c8}]+/8i
+    \x{01c7}\x{01c8}\x{01c9}
+ 0: \x{1c7}\x{1c8}\x{1c9}
+
+/[z\x{01c9}]+/8i
+    \x{01c7}\x{01c8}\x{01c9}
+ 0: \x{1c7}\x{1c8}\x{1c9}
+
+/[z\x{01ca}]+/8i
+    \x{01ca}\x{01cb}\x{01cc}
+ 0: \x{1ca}\x{1cb}\x{1cc}
+
+/[z\x{01cb}]+/8i
+    \x{01ca}\x{01cb}\x{01cc}
+ 0: \x{1ca}\x{1cb}\x{1cc}
+
+/[z\x{01cc}]+/8i
+    \x{01ca}\x{01cb}\x{01cc}
+ 0: \x{1ca}\x{1cb}\x{1cc}
+
+/[z\x{01f1}]+/8i
+    \x{01f1}\x{01f2}\x{01f3}
+ 0: \x{1f1}\x{1f2}\x{1f3}
+
+/[z\x{01f2}]+/8i
+    \x{01f1}\x{01f2}\x{01f3}
+ 0: \x{1f1}\x{1f2}\x{1f3}
+
+/[z\x{01f3}]+/8i
+    \x{01f1}\x{01f2}\x{01f3}
+ 0: \x{1f1}\x{1f2}\x{1f3}
+
+/[z\x{0345}]+/8i
+    \x{0345}\x{0399}\x{03b9}\x{1fbe}
+ 0: \x{345}\x{399}\x{3b9}\x{1fbe}
+
+/[z\x{0399}]+/8i
+    \x{0345}\x{0399}\x{03b9}\x{1fbe}
+ 0: \x{345}\x{399}\x{3b9}\x{1fbe}
+
+/[z\x{03b9}]+/8i
+    \x{0345}\x{0399}\x{03b9}\x{1fbe}
+ 0: \x{345}\x{399}\x{3b9}\x{1fbe}
+
+/[z\x{1fbe}]+/8i
+    \x{0345}\x{0399}\x{03b9}\x{1fbe}
+ 0: \x{345}\x{399}\x{3b9}\x{1fbe}
+
+/[z\x{0392}]+/8i
+    \x{0392}\x{03b2}\x{03d0}
+ 0: \x{392}\x{3b2}\x{3d0}
+
+/[z\x{03b2}]+/8i
+    \x{0392}\x{03b2}\x{03d0}
+ 0: \x{392}\x{3b2}\x{3d0}
+
+/[z\x{03d0}]+/8i
+    \x{0392}\x{03b2}\x{03d0}
+ 0: \x{392}\x{3b2}\x{3d0}
+
+/[z\x{0395}]+/8i
+    \x{0395}\x{03b5}\x{03f5}
+ 0: \x{395}\x{3b5}\x{3f5}
+
+/[z\x{03b5}]+/8i
+    \x{0395}\x{03b5}\x{03f5}
+ 0: \x{395}\x{3b5}\x{3f5}
+
+/[z\x{03f5}]+/8i
+    \x{0395}\x{03b5}\x{03f5}
+ 0: \x{395}\x{3b5}\x{3f5}
+
+/[z\x{0398}]+/8i
+    \x{0398}\x{03b8}\x{03d1}\x{03f4}
+ 0: \x{398}\x{3b8}\x{3d1}\x{3f4}
+
+/[z\x{03b8}]+/8i
+    \x{0398}\x{03b8}\x{03d1}\x{03f4}
+ 0: \x{398}\x{3b8}\x{3d1}\x{3f4}
+
+/[z\x{03d1}]+/8i
+    \x{0398}\x{03b8}\x{03d1}\x{03f4}
+ 0: \x{398}\x{3b8}\x{3d1}\x{3f4}
+
+/[z\x{03f4}]+/8i
+    \x{0398}\x{03b8}\x{03d1}\x{03f4}
+ 0: \x{398}\x{3b8}\x{3d1}\x{3f4}
+
+/[z\x{039a}]+/8i
+    \x{039a}\x{03ba}\x{03f0}
+ 0: \x{39a}\x{3ba}\x{3f0}
+
+/[z\x{03ba}]+/8i
+    \x{039a}\x{03ba}\x{03f0}
+ 0: \x{39a}\x{3ba}\x{3f0}
+
+/[z\x{03f0}]+/8i
+    \x{039a}\x{03ba}\x{03f0}
+ 0: \x{39a}\x{3ba}\x{3f0}
+
+/[z\x{03a0}]+/8i
+    \x{03a0}\x{03c0}\x{03d6} 
+ 0: \x{3a0}\x{3c0}\x{3d6}
+
+/[z\x{03c0}]+/8i
+    \x{03a0}\x{03c0}\x{03d6} 
+ 0: \x{3a0}\x{3c0}\x{3d6}
+
+/[z\x{03d6}]+/8i
+    \x{03a0}\x{03c0}\x{03d6} 
+ 0: \x{3a0}\x{3c0}\x{3d6}
+
+/[z\x{03a1}]+/8i
+    \x{03a1}\x{03c1}\x{03f1}
+ 0: \x{3a1}\x{3c1}\x{3f1}
+
+/[z\x{03c1}]+/8i
+    \x{03a1}\x{03c1}\x{03f1}
+ 0: \x{3a1}\x{3c1}\x{3f1}
+
+/[z\x{03f1}]+/8i
+    \x{03a1}\x{03c1}\x{03f1}
+ 0: \x{3a1}\x{3c1}\x{3f1}
+
+/[z\x{03a3}]+/8i
+    \x{03A3}\x{03C2}\x{03C3}
+ 0: \x{3a3}\x{3c2}\x{3c3}
+
+/[z\x{03c2}]+/8i
+    \x{03A3}\x{03C2}\x{03C3}
+ 0: \x{3a3}\x{3c2}\x{3c3}
+
+/[z\x{03c3}]+/8i
+    \x{03A3}\x{03C2}\x{03C3}
+ 0: \x{3a3}\x{3c2}\x{3c3}
+
+/[z\x{03a6}]+/8i
+    \x{03a6}\x{03c6}\x{03d5} 
+ 0: \x{3a6}\x{3c6}\x{3d5}
+
+/[z\x{03c6}]+/8i
+    \x{03a6}\x{03c6}\x{03d5} 
+ 0: \x{3a6}\x{3c6}\x{3d5}
+
+/[z\x{03d5}]+/8i
+    \x{03a6}\x{03c6}\x{03d5} 
+ 0: \x{3a6}\x{3c6}\x{3d5}
+
+/[z\x{03c9}]+/8i
+    \x{03c9}\x{03a9}\x{2126}
+ 0: \x{3c9}\x{3a9}\x{2126}
+
+/[z\x{03a9}]+/8i
+    \x{03c9}\x{03a9}\x{2126}
+ 0: \x{3c9}\x{3a9}\x{2126}
+
+/[z\x{2126}]+/8i
+    \x{03c9}\x{03a9}\x{2126}
+ 0: \x{3c9}\x{3a9}\x{2126}
+
+/[z\x{1e60}]+/8i
+    \x{1e60}\x{1e61}\x{1e9b}
+ 0: \x{1e60}\x{1e61}\x{1e9b}
+
+/[z\x{1e61}]+/8i
+    \x{1e60}\x{1e61}\x{1e9b}
+ 0: \x{1e60}\x{1e61}\x{1e9b}
+
+/[z\x{1e9b}]+/8i
+    \x{1e60}\x{1e61}\x{1e9b}
+ 0: \x{1e60}\x{1e61}\x{1e9b}
+
+/-- Perl 5.12.4 gets these wrong, but 5.15.3 is OK --/
+
+/[z\x{004b}]+/8i
+    \x{004b}\x{006b}\x{212a}
+ 0: Kk\x{212a}
+
+/[z\x{006b}]+/8i
+    \x{004b}\x{006b}\x{212a}
+ 0: Kk\x{212a}
+
+/[z\x{212a}]+/8i
+    \x{004b}\x{006b}\x{212a}
+ 0: Kk\x{212a}
+
+/[z\x{0053}]+/8i
+    \x{0053}\x{0073}\x{017f}
+ 0: Ss\x{17f}
+
+/[z\x{0073}]+/8i
+    \x{0053}\x{0073}\x{017f}
+ 0: Ss\x{17f}
+
+/[z\x{017f}]+/8i
+    \x{0053}\x{0073}\x{017f}
+ 0: Ss\x{17f}
+    
+/-- --/ 
+
+/(ΣΆΜΟΣ) \1/8i
+    ΣΆΜΟΣ ΣΆΜΟΣ
+ 0: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3} \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}
+ 1: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}
+    ΣΆΜΟΣ σάμος
+ 0: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3} \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+ 1: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}
+    σάμος σάμος
+ 0: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2} \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+ 1: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+    σάμος σάμοσ
+ 0: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2} \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c3}
+ 1: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+    σάμος ΣΆΜΟΣ  
+ 0: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2} \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}
+ 1: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+
+/(σάμος) \1/8i
+    ΣΆΜΟΣ ΣΆΜΟΣ
+ 0: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3} \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}
+ 1: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}
+    ΣΆΜΟΣ σάμος
+ 0: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3} \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+ 1: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}
+    σάμος σάμος
+ 0: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2} \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+ 1: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+    σάμος σάμοσ
+ 0: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2} \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c3}
+ 1: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+    σάμος ΣΆΜΟΣ  
+ 0: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2} \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}
+ 1: \x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+
+/(ΣΆΜΟΣ) \1*/8i
+    ΣΆΜΟΣ\x20
+ 0: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3} 
+ 1: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}
+    ΣΆΜΟΣ ΣΆΜΟΣσάμοςσάμος
+ 0: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3} \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}\x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}\x{3c3}\x{3ac}\x{3bc}\x{3bf}\x{3c2}
+ 1: \x{3a3}\x{386}\x{39c}\x{39f}\x{3a3}
+
+/-- Perl matches these --/
+
+/\x{00b5}+/8i
+    \x{00b5}\x{039c}\x{03bc}
+ 0: \x{b5}\x{39c}\x{3bc}
+
+/\x{039c}+/8i
+    \x{00b5}\x{039c}\x{03bc}
+ 0: \x{b5}\x{39c}\x{3bc}
+
+/\x{03bc}+/8i
+    \x{00b5}\x{039c}\x{03bc}
+ 0: \x{b5}\x{39c}\x{3bc}
+
+
+/\x{00c5}+/8i
+    \x{00c5}\x{00e5}\x{212b}
+ 0: \x{c5}\x{e5}\x{212b}
+
+/\x{00e5}+/8i
+    \x{00c5}\x{00e5}\x{212b}
+ 0: \x{c5}\x{e5}\x{212b}
+
+/\x{212b}+/8i
+    \x{00c5}\x{00e5}\x{212b}
+ 0: \x{c5}\x{e5}\x{212b}
+
+
+/\x{01c4}+/8i
+    \x{01c4}\x{01c5}\x{01c6}
+ 0: \x{1c4}\x{1c5}\x{1c6}
+
+/\x{01c5}+/8i
+    \x{01c4}\x{01c5}\x{01c6}
+ 0: \x{1c4}\x{1c5}\x{1c6}
+
+/\x{01c6}+/8i
+    \x{01c4}\x{01c5}\x{01c6}
+ 0: \x{1c4}\x{1c5}\x{1c6}
+
+
+/\x{01c7}+/8i
+    \x{01c7}\x{01c8}\x{01c9}
+ 0: \x{1c7}\x{1c8}\x{1c9}
+
+/\x{01c8}+/8i
+    \x{01c7}\x{01c8}\x{01c9}
+ 0: \x{1c7}\x{1c8}\x{1c9}
+
+/\x{01c9}+/8i
+    \x{01c7}\x{01c8}\x{01c9}
+ 0: \x{1c7}\x{1c8}\x{1c9}
+
+
+/\x{01ca}+/8i
+    \x{01ca}\x{01cb}\x{01cc}
+ 0: \x{1ca}\x{1cb}\x{1cc}
+
+/\x{01cb}+/8i
+    \x{01ca}\x{01cb}\x{01cc}
+ 0: \x{1ca}\x{1cb}\x{1cc}
+
+/\x{01cc}+/8i
+    \x{01ca}\x{01cb}\x{01cc}
+ 0: \x{1ca}\x{1cb}\x{1cc}
+
+
+/\x{01f1}+/8i
+    \x{01f1}\x{01f2}\x{01f3}
+ 0: \x{1f1}\x{1f2}\x{1f3}
+
+/\x{01f2}+/8i
+    \x{01f1}\x{01f2}\x{01f3}
+ 0: \x{1f1}\x{1f2}\x{1f3}
+
+/\x{01f3}+/8i
+    \x{01f1}\x{01f2}\x{01f3}
+ 0: \x{1f1}\x{1f2}\x{1f3}
+
+
+/\x{0345}+/8i
+    \x{0345}\x{0399}\x{03b9}\x{1fbe}
+ 0: \x{345}\x{399}\x{3b9}\x{1fbe}
+
+/\x{0399}+/8i
+    \x{0345}\x{0399}\x{03b9}\x{1fbe}
+ 0: \x{345}\x{399}\x{3b9}\x{1fbe}
+
+/\x{03b9}+/8i
+    \x{0345}\x{0399}\x{03b9}\x{1fbe}
+ 0: \x{345}\x{399}\x{3b9}\x{1fbe}
+
+/\x{1fbe}+/8i
+    \x{0345}\x{0399}\x{03b9}\x{1fbe}
+ 0: \x{345}\x{399}\x{3b9}\x{1fbe}
+
+
+/\x{0392}+/8i
+    \x{0392}\x{03b2}\x{03d0}
+ 0: \x{392}\x{3b2}\x{3d0}
+
+/\x{03b2}+/8i
+    \x{0392}\x{03b2}\x{03d0}
+ 0: \x{392}\x{3b2}\x{3d0}
+
+/\x{03d0}+/8i
+    \x{0392}\x{03b2}\x{03d0}
+ 0: \x{392}\x{3b2}\x{3d0}
+    
+
+/\x{0395}+/8i
+    \x{0395}\x{03b5}\x{03f5}
+ 0: \x{395}\x{3b5}\x{3f5}
+
+/\x{03b5}+/8i
+    \x{0395}\x{03b5}\x{03f5}
+ 0: \x{395}\x{3b5}\x{3f5}
+
+/\x{03f5}+/8i
+    \x{0395}\x{03b5}\x{03f5}
+ 0: \x{395}\x{3b5}\x{3f5}
+
+
+/\x{0398}+/8i
+    \x{0398}\x{03b8}\x{03d1}\x{03f4}
+ 0: \x{398}\x{3b8}\x{3d1}\x{3f4}
+
+/\x{03b8}+/8i
+    \x{0398}\x{03b8}\x{03d1}\x{03f4}
+ 0: \x{398}\x{3b8}\x{3d1}\x{3f4}
+
+/\x{03d1}+/8i
+    \x{0398}\x{03b8}\x{03d1}\x{03f4}
+ 0: \x{398}\x{3b8}\x{3d1}\x{3f4}
+
+/\x{03f4}+/8i
+    \x{0398}\x{03b8}\x{03d1}\x{03f4}
+ 0: \x{398}\x{3b8}\x{3d1}\x{3f4}
+    
+
+/\x{039a}+/8i
+    \x{039a}\x{03ba}\x{03f0}
+ 0: \x{39a}\x{3ba}\x{3f0}
+
+/\x{03ba}+/8i
+    \x{039a}\x{03ba}\x{03f0}
+ 0: \x{39a}\x{3ba}\x{3f0}
+
+/\x{03f0}+/8i
+    \x{039a}\x{03ba}\x{03f0}
+ 0: \x{39a}\x{3ba}\x{3f0}
+    
+
+/\x{03a0}+/8i
+    \x{03a0}\x{03c0}\x{03d6} 
+ 0: \x{3a0}\x{3c0}\x{3d6}
+
+/\x{03c0}+/8i
+    \x{03a0}\x{03c0}\x{03d6} 
+ 0: \x{3a0}\x{3c0}\x{3d6}
+
+/\x{03d6}+/8i
+    \x{03a0}\x{03c0}\x{03d6} 
+ 0: \x{3a0}\x{3c0}\x{3d6}
+
+
+/\x{03a1}+/8i
+    \x{03a1}\x{03c1}\x{03f1}
+ 0: \x{3a1}\x{3c1}\x{3f1}
+
+/\x{03c1}+/8i
+    \x{03a1}\x{03c1}\x{03f1}
+ 0: \x{3a1}\x{3c1}\x{3f1}
+
+/\x{03f1}+/8i
+    \x{03a1}\x{03c1}\x{03f1}
+ 0: \x{3a1}\x{3c1}\x{3f1}
+
+
+/\x{03a3}+/8i
+    \x{03A3}\x{03C2}\x{03C3}
+ 0: \x{3a3}\x{3c2}\x{3c3}
+
+/\x{03c2}+/8i
+    \x{03A3}\x{03C2}\x{03C3}
+ 0: \x{3a3}\x{3c2}\x{3c3}
+
+/\x{03c3}+/8i
+    \x{03A3}\x{03C2}\x{03C3}
+ 0: \x{3a3}\x{3c2}\x{3c3}
+    
+
+/\x{03a6}+/8i
+    \x{03a6}\x{03c6}\x{03d5} 
+ 0: \x{3a6}\x{3c6}\x{3d5}
+
+/\x{03c6}+/8i
+    \x{03a6}\x{03c6}\x{03d5} 
+ 0: \x{3a6}\x{3c6}\x{3d5}
+
+/\x{03d5}+/8i
+    \x{03a6}\x{03c6}\x{03d5} 
+ 0: \x{3a6}\x{3c6}\x{3d5}
+
+
+/\x{03c9}+/8i
+    \x{03c9}\x{03a9}\x{2126}
+ 0: \x{3c9}\x{3a9}\x{2126}
+
+/\x{03a9}+/8i
+    \x{03c9}\x{03a9}\x{2126}
+ 0: \x{3c9}\x{3a9}\x{2126}
+
+/\x{2126}+/8i
+    \x{03c9}\x{03a9}\x{2126}
+ 0: \x{3c9}\x{3a9}\x{2126}
+    
+
+/\x{1e60}+/8i
+    \x{1e60}\x{1e61}\x{1e9b}
+ 0: \x{1e60}\x{1e61}\x{1e9b}
+
+/\x{1e61}+/8i
+    \x{1e60}\x{1e61}\x{1e9b}
+ 0: \x{1e60}\x{1e61}\x{1e9b}
+
+/\x{1e9b}+/8i
+    \x{1e60}\x{1e61}\x{1e9b}
+ 0: \x{1e60}\x{1e61}\x{1e9b}
+    
+
+/\x{1e9e}+/8i
+    \x{1e9e}\x{00df}
+ 0: \x{1e9e}\x{df}
+
+/\x{00df}+/8i
+    \x{1e9e}\x{00df}
+ 0: \x{1e9e}\x{df}
+    
+
+/\x{1f88}+/8i
+    \x{1f88}\x{1f80} 
+ 0: \x{1f88}\x{1f80}
+
+/\x{1f80}+/8i
+    \x{1f88}\x{1f80} 
+ 0: \x{1f88}\x{1f80}
+
+
+/-- Perl 5.12.4 gets these wrong, but 5.15.3 is OK --/
+
+/\x{004b}+/8i
+    \x{004b}\x{006b}\x{212a}
+ 0: Kk\x{212a}
+
+/\x{006b}+/8i
+    \x{004b}\x{006b}\x{212a}
+ 0: Kk\x{212a}
+
+/\x{212a}+/8i
+    \x{004b}\x{006b}\x{212a}
+ 0: Kk\x{212a}
+
+
+/\x{0053}+/8i
+    \x{0053}\x{0073}\x{017f}
+ 0: Ss\x{17f}
+
+/\x{0073}+/8i
+    \x{0053}\x{0073}\x{017f}
+ 0: Ss\x{17f}
+
+/\x{017f}+/8i
+    \x{0053}\x{0073}\x{017f}
+ 0: Ss\x{17f}
+
+/^\p{Any}*\d{4}/8
+    1234
+ 0: 1234
+    123 
+No match
+ 
+/^\X*\w{4}/8
+    1234
+ 0: 1234
+    123  
+No match
+    
+/-- End of testinput6 --/
