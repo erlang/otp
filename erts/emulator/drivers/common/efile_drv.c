@@ -772,6 +772,7 @@ file_init(void)
     return 0;
 }
 
+
 /*********************************************************************
  * Driver entry point -> start
  */
@@ -788,7 +789,7 @@ file_start(ErlDrvPort port, char* command)
     }
     desc->fd = FILE_FD_INVALID;
     desc->port = port;
-    desc->key = (unsigned int) (UWord) port;
+    desc->key = driver_async_port_key(port);
     desc->flags = 0;
     desc->invoke = NULL;
     desc->d = NULL;

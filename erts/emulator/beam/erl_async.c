@@ -583,6 +583,20 @@ int erts_async_ready_clean(void *varq, void *val)
 #endif
 
 /*
+** Generate a fair async key prom an ErlDrvPort
+** The port data gives a fair distribution grom port pointer
+** to unsigned integer - to be used in key for driver_async below.
+*/
+unsigned int driver_async_port_key(ErlDrvPort port)
+{
+    ErlDrvTermData td = driver_mk_port(port);
+    if (td == (ErlDrvTermData) NIL) {
+	return 0;
+    }
+    return (unsigned int) (UWord) internal_port_data(td);
+}
+
+/*
 ** Schedule async_invoke on a worker thread
 ** NOTE will be syncrounous when threads are unsupported
 ** return values:
