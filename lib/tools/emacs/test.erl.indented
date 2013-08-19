@@ -700,3 +700,34 @@ some_function_name_xyz(xyzzy, #some_record{
 			       field2 = Field1,
 			       field2 = Field2}}),
     {ok, SomeVariable}.
+
+commas_first() ->
+    {abc, [ {some_var, 1}
+	  , {some_other_var, 2}
+	  , {erlang_ftw, 9}
+	  , {erlang_cookie, 'cookie'}
+	  , {cmds,
+	     [ {one,   "sudo ls"}
+	     , {one,   "sudo ls"}
+	     , {two,   "sudo ls"}
+	     , {three, "sudo ls"}
+	     , {four,  "sudo ls"}
+	     , {three, "sudo ls"}
+	     ] }
+	  , {ssh_username, "yow"}
+	  , {cluster,
+	     [ {aaaa, [ {"10.198.55.12" , "" }
+		      , {"10.198.55.13" , "" }
+		      ] }
+	     , {bbbb, [ {"10.198.55.151", "" }
+		      , {"10.198.55.123", "" }
+		      , {"10.198.55.34" , "" }
+		      , {"10.198.55.85" , "" }
+		      , {"10.198.55.67" , "" }
+		      ] }
+	     , {cccc, [ {"10.198.55.68" , "" }
+		      , {"10.198.55.69" , "" }
+		      ] }
+	     ] }
+	  ]
+    }.
