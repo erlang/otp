@@ -813,7 +813,15 @@ and_guard(Config) when is_list(Config) ->
 
     ?line ok = relprod({'Set',a,b}, {'Set',a,b}),
     
+    ok = and_same_var(42),
+    {'EXIT',{if_clause,_}} = (catch and_same_var(x)),
     ok.
+
+and_same_var(V) ->
+    B = is_integer(V),
+    if
+	B or B -> ok
+    end.
 
 relprod(R1, R2) when (erlang:size(R1) =:= 3) and (erlang:element(1,R1) =:= 'Set'), (erlang:size(R2) =:= 3) and (erlang:element(1,R2) =:= 'Set') ->
     ok.

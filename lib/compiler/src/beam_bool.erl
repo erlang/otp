@@ -425,6 +425,9 @@ bopt_tree([], Forest, Pre) ->
 safe_bool_op(N, Ar) ->
     erl_internal:new_type_test(N, Ar) orelse erl_internal:comp_op(N, Ar).
 
+bopt_bool_args([V0,V0], Forest0) ->
+    {V,Forest} = bopt_bool_arg(V0, Forest0),
+    {[V,V],Forest};
 bopt_bool_args(As, Forest) ->
     mapfoldl(fun bopt_bool_arg/2, Forest, As).
 
