@@ -3219,7 +3219,8 @@ modify_line(T, F0) ->
 
 %% Forms.
 modify_line1({function,F,A}, _Mf) -> {function,F,A};
-modify_line1({function,M,F,A}, _Mf) -> {function,M,F,A};
+modify_line1({function,M,F,A}, Mf) ->
+    {function,modify_line1(M, Mf),modify_line1(F, Mf),modify_line1(A, Mf)};
 modify_line1({attribute,L,record,{Name,Fields}}, Mf) ->
     {attribute,Mf(L),record,{Name,modify_line1(Fields, Mf)}};
 modify_line1({attribute,L,spec,{Fun,Types}}, Mf) ->
