@@ -23,7 +23,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, compile_erl/1,
 	 compile_yecc/1, compile_script/1,
-	 compile_mib/1, good_citizen/1, deep_cwd/1, arg_overflow/1]).
+	 compile_mib/1, good_citizen/1, deep_cwd/1, arg_overflow/1,
+	 make_dep_options/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -31,7 +32,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [compile_erl, compile_yecc, compile_script, compile_mib,
-     good_citizen, deep_cwd, arg_overflow].
+     good_citizen, deep_cwd, arg_overflow, make_dep_options].
 
 groups() -> 
     [].
@@ -255,13 +256,89 @@ erlc() ->
 	Erlc ->
 	    "\"" ++ Erlc ++ "\""
     end.
-	    
+
+make_dep_options(Config) ->
+    {SrcDir,OutDir,Cmd} = get_cmd(Config),
+    FileName = filename:join(SrcDir, "erl_test_ok.erl"),
+
+
+    DepRE = ["/erl_test_ok[.]beam: \\\\$",
+	     "/system_test/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
+	     "/system_test/erlc_SUITE_data/include/erl_test[.]hrl$",
+	     "_OK_"],
+
+    DepRETarget =
+	["^target: \\\\$",
+	 "/system_test/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
+	 "/system_test/erlc_SUITE_data/include/erl_test[.]hrl$",
+	 "_OK_"],
+
+    DepREMP =
+	["/erl_test_ok[.]beam: \\\\$",
+	 "/system_test/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
+	 "/system_test/erlc_SUITE_data/include/erl_test[.]hrl$",
+	 [],
+	 "/system_test/erlc_SUITE_data/include/erl_test.hrl:$",
+	 "_OK_"],
+
+    DepREMissing =
+	["/erl_test_missing_header[.]beam: \\\\$",
+	 "/system_test/erlc_SUITE_data/src/erl_test_missing_header[.]erl \\\\$",
+	 "/system_test/erlc_SUITE_data/include/erl_test[.]hrl \\\\$",
+	 "missing.hrl$",
+	 "_OK_"],
+
+    %% Test plain -M
+    run(Config, Cmd, FileName, "-M", DepRE),
+
+    %% Test -MF File
+    DepFile = filename:join(OutDir, "my.deps"),
+    run(Config, Cmd, FileName, "-MF "++DepFile, ["_OK_"]),
+    {ok,MFBin} = file:read_file(DepFile),
+    verify_result(binary_to_list(MFBin)++["_OK_"], DepRE),
+
+    %% Test -MD
+    run(Config, Cmd, FileName, "-MD", ["_OK_"]),
+    MDFile = filename:join(OutDir, "erl_test_ok.Pbeam"),
+    {ok,MFBin} = file:read_file(MDFile),
+
+    %% Test -M -MT Target
+    run(Config, Cmd, FileName, "-M -MT target", DepRETarget),
+
+    %% Test -MF File -MT Target
+    TargetDepFile = filename:join(OutDir, "target.deps"),
+    run(Config, Cmd, FileName, "-MF "++TargetDepFile++" -MT target",
+	["_OK_"]),
+    {ok,TargetBin} = file:read_file(TargetDepFile),
+    verify_result(binary_to_list(TargetBin)++["_OK_"], DepRETarget),
+
+    %% Test -MD -MT Target
+    run(Config, Cmd, FileName, "-MD -MT target", ["_OK_"]),
+    TargetMDFile = filename:join(OutDir, "erl_test_ok.Pbeam"),
+    {ok,TargetBin} = file:read_file(TargetMDFile),
+
+    %% Test -M -MQ Target. (Note: Passing a $ on the command line
+    %% portably for Unix and Windows is tricky, so we will just test
+    %% that MQ works at all.)
+    run(Config, Cmd, FileName, "-M -MQ target", DepRETarget),
+
+    %% Test -M -MP
+    run(Config, Cmd, FileName, "-M -MP", DepREMP),
+
+    %% Test -M -MG
+    MissingHeader = filename:join(SrcDir, "erl_test_missing_header.erl"),
+    run(Config, Cmd, MissingHeader, "-M -MG", DepREMissing),
+    ok.
+
 %% Runs a command.
 
 run(Config, Cmd0, Name, Options, Expect) ->
     Cmd = Cmd0 ++ " " ++ Options ++ " " ++ Name,
     io:format("~s", [Cmd]),
     Result = run_command(Config, Cmd),
+    verify_result(Result, Expect).
+
+verify_result(Result, Expect) ->
     Messages = split(Result, [], []),
     io:format("Result: ~p", [Messages]),
     io:format("Expected: ~p", [Expect]),
