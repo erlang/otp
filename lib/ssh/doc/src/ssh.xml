@@ -88,6 +88,7 @@
 	number for SSH.</d>
 	<v>Options = [{Option, Value}]</v>
 	<v>Timeout = infinity | integer(milliseconds)</v>
+	<d>Negotiation timeout, for connection timeout use the option <c>{connect_timeout, timeout()}</c>.</d>
       </type>
       <desc>
 	<p>Connects to an SSH server. No channel is started. This is done
