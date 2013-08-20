@@ -48,8 +48,8 @@ all() ->
      close].
 
 groups() -> 
-    [{dsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time, rekey]},
-     {rsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time, rekey]},
+    [{dsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time, rekey, openssh_zlib_basic_test]},
+     {rsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time, rekey, openssh_zlib_basic_test]},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {internal_error, [], [internal_error]}
@@ -493,7 +493,24 @@ close(Config) when is_list(Config) ->
     
     exit(CM, {shutdown, normal}),
     ok = ssh:close(CM).
-    
+
+openssh_zlib_basic_test() ->
+    [{doc, "Test basic connection with openssh_zlib"}].
+openssh_zlib_basic_test(Config) ->
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false},
+					  {compression, openssh_zlib}]),
+    ok = ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
