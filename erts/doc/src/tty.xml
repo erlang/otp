@@ -47,7 +47,7 @@
   <section>
     <title>Normal Mode</title>
     <p>In normal mode keystrokes from the user are collected and interpreted by <c><![CDATA[tty]]></c>. Most of the <em>emacs</em> line editing commands are supported. The following is a complete list of the supported line editing commands.<br></br></p>
-    <p><em>Note:</em>	The notation <c><![CDATA[C-a]]></c> means pressing the control key and the letter <c><![CDATA[a]]></c> simultaneously. <c><![CDATA[M-f]]></c> means pressing the <c><![CDATA[ESC]]></c> key followed by the letter <c><![CDATA[f]]></c>. <c><![CDATA[Home]]></c> and <c><![CDATA[End]]></c> represent the keys with the same name on the keyboard, whereas <c><![CDATA[Left]]></c> and <c><![CDATA[Right]]></c> represent the corresponding cursor keys.
+    <p><em>Note:</em>	The notation <c><![CDATA[C-a]]></c> means pressing the control key and the letter <c><![CDATA[a]]></c> simultaneously. <c><![CDATA[M-f]]></c> means pressing the <c><![CDATA[ESC]]></c> key followed by the letter <c><![CDATA[f]]></c>. <c><![CDATA[Home]]></c> and <c><![CDATA[End]]></c> represent the keys with the same name on the keyboard, whereas <c><![CDATA[Left]]></c> and <c><![CDATA[Right]]></c> represent the corresponding arrow keys.
       </p>
     <table>
       <row>
