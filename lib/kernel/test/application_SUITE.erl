@@ -35,7 +35,7 @@
 
 -export([config_change/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
-	 ensure_started/1,
+	 ensure_started/1, ensure_all_started/1,
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1]).
 
 -define(TESTCASE, testcase_name).
@@ -52,7 +52,7 @@ all() ->
     [failover, failover_comp, permissions, load,
      load_use_cache, ensure_started, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
-     permit_false_start_dist, get_key, get_env,
+     permit_false_start_dist, get_key, get_env, ensure_all_started,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout].
 
 groups() -> 
@@ -978,6 +978,85 @@ ensure_started(Conf) ->
     ok = application:unload(app1),
     ok.
 
+ensure_all_started(suite) -> [];
+ensure_all_started(doc) -> ["Test application:ensure_all_started/1-2."];
+ensure_all_started(Conf) ->
+
+    {ok, Fd1} = file:open("app1.app", [write]),
+    w_app1(Fd1),
+    file:close(Fd1),
+    {ok, Fd9} = file:open("app9.app", [write]),
+    w_app9(Fd9),
+    file:close(Fd9),
+    {ok, Fd10} = file:open("app10.app", [write]),
+    w_app10_dep9(Fd10),
+    file:close(Fd10),
+    {ok, FdErr} = file:open("app_chain_error.app", [write]),
+    w_app(FdErr, app_chain_error()),
+    file:close(FdErr),
+    {ok, FdErr2} = file:open("app_chain_error2.app", [write]),
+    w_app(FdErr2, app_chain_error2()),
+    file:close(FdErr2),
+
+    %% Single app start/stop
+    false = lists:keyfind(app1, 1, application:which_applications()),
+    {ok, [app1]} = application:ensure_all_started(app1), % app1 started
+    {app1, _, _} = lists:keyfind(app1, 1, application:which_applications()),
+    {ok, []} = application:ensure_all_started(app1), % no start needed
+    ok = application:stop(app1),
+    false = lists:keyfind(app1, 1, application:which_applications()),
+    ok = application:unload(app1),
+
+    %% App or dependency not found.
+    Name = hopefully_not_an_existing_app_file,
+    {error,{Name, {"no such file or directory", _ }}} =
+	application:ensure_all_started(Name),
+
+    %% Start dependencies.
+    {error, {not_started, app9}} = application:start(app10),
+    {ok, [app9,app10]} = application:ensure_all_started(app10, temporary),
+    {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
+    {app10, _, _} = lists:keyfind(app10, 1, application:which_applications()),
+    %% Only report apps/dependencies that actually needed to start
+    ok = application:stop(app10),
+    ok = application:unload(app10),
+    {ok, [app10]} = application:ensure_all_started(app10, temporary),
+    ok = application:stop(app9),
+    ok = application:unload(app9),
+    ok = application:stop(app10),
+    ok = application:unload(app10),
+
+    %% Deeper failure chain. We have the following dependencies:
+    %% app_chain_error -> app_chain_error2
+    %% app_chain_error2 -> app10
+    %% app_chain_error2 -> hopefully_not_an_existing_app
+    %% app10 -> app 9
+    %% First we have none running and we expect to have neither app9
+    %% nor app10 running after failing to start
+    %% hopefully_not_an_existing_app
+    {error, {hopefully_not_an_existing_app, {"no such file or directory", _}}}=
+	application:ensure_all_started(app_chain_error),
+    false = lists:keyfind(app9, 1, application:which_applications()),
+    false = lists:keyfind(app10, 1, application:which_applications()),
+    false = lists:keyfind(app_chain_error2,1,application:which_applications()),
+    false = lists:keyfind(app_chain_error, 1, application:which_applications()),
+    %% Here we will have app9 already running, and app10 should be
+    %% able to boot fine.
+    %% In this dependency failing, we expect app9 to still be running, but
+    %% not app10 after failing to start hopefully_not_an_existing_app
+    {ok, [app9]} = application:ensure_all_started(app9, temporary),
+    {error, {hopefully_not_an_existing_app, {"no such file or directory", _}}}=
+	application:ensure_all_started(app_chain_error),
+    {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
+    false = lists:keyfind(app10, 1, application:which_applications()),
+    false = lists:keyfind(app_chain_error2,1,application:which_applications()),
+    false = lists:keyfind(app_chain_error, 1, application:which_applications()),
+    ok = application:stop(app9),
+    ok = application:unload(app9),
+    ok = application:unload(app10),
+    ok = application:unload(app_chain_error2),
+    ok = application:unload(app_chain_error),
+    ok.
 
 %%%-----------------------------------------------------------------
 %%% Testing of reported bugs and other tickets.
@@ -2125,6 +2204,24 @@ app_start_error() ->
       {applications, [kernel]},
       {mod, {app_start_error, []}}]}.
 
+app_chain_error() ->
+    {application, app_chain_error,
+     [{description, "ERTS  CXC 138 ce"},
+      {vsn, "2.0"},
+      {modules, []},
+      {registered, []},
+      {applications, [kernel, app_chain_error2]},
+      {mod, {ch_sup, {app_chain_error, 20,20}}}]}.
+
+app_chain_error2() ->
+    {application, app_chain_error2,
+     [{description, "ERTS  CXC 138 ce2"},
+      {vsn, "2.0"},
+      {modules, []},
+      {registered, []},
+      {applications, [kernel, app10, hopefully_not_an_existing_app]},
+      {mod, {ch_sup, {app_chain_error2, 21,21}}}]}.
+
 app_group_leader() ->
     {application, group_leader,
      [{description, "GROUP_LEADER  CXC 138 11"},
@@ -2373,6 +2470,12 @@ w_app7(Fd) ->
 
 w_app8(Fd) ->
     io:format(Fd, "~p.\n", [app8()]).
+
+w_app9(Fd) ->
+    io:format(Fd, "~p.\n", [app9()]).
+
+w_app10_dep9(Fd) ->
+    io:format(Fd, "~p.\n", [app10_dep9()]).
 
 w_app_start_error(Fd) ->
     io:format(Fd, "~p.\n", [app_start_error()]).
