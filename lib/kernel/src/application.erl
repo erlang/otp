@@ -18,7 +18,8 @@
 %%
 -module(application).
 
--export([start/1, start/2, start_boot/1, start_boot/2, stop/1, 
+-export([ensure_all_started/1, ensure_all_started/2, start/1, start/2,
+	 start_boot/1, start_boot/2, stop/1, 
 	 load/1, load/2, unload/1, takeover/2,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, permit/2]).
@@ -112,6 +113,46 @@ load1(Application, DistNodes) ->
 
 unload(Application) ->
     application_controller:unload_application(Application).
+
+
+-spec ensure_all_started(Application) -> {'ok', Started} | {'error', Reason} when
+      Application :: atom(),
+      Started :: [atom()],
+      Reason :: term().
+ensure_all_started(Application) ->
+    ensure_all_started(Application, temporary).
+
+-spec ensure_all_started(Application, Type) -> {'ok', Started} | {'error', Reason} when
+      Application :: atom(),
+      Type :: restart_type(),
+      Started :: [atom()],
+      Reason :: term().
+ensure_all_started(Application, Type) ->
+    case ensure_all_started(Application, Type, []) of
+	{ok, Started} ->
+	    {ok, lists:reverse(Started)};
+	{error, Reason, Started} ->
+	    [stop(App) || App <- Started],
+	    {error, Reason}
+    end.
+
+ensure_all_started(Application, Type, Started) ->
+    case start(Application, Type) of
+	ok ->
+	    {ok, [Application | Started]};
+	{error, {already_started, Application}} ->
+	    {ok, Started};
+	{error, {not_started, Dependency}} ->
+	    case ensure_all_started(Dependency, Type, Started) of
+		{ok, NewStarted} ->
+		    ensure_all_started(Application, Type, NewStarted);
+		Error ->
+		    Error
+	    end;
+	{error, Reason} ->
+	    {error, {Application, Reason}, Started}
+    end.
+
 
 -spec start(Application) -> 'ok' | {'error', Reason} when
       Application :: atom(),
