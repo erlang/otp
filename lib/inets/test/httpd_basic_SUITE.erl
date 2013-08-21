@@ -33,7 +33,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [
      uri_too_long_414, 
-     header_too_long_413, 
+     header_too_long_413,
+     erl_script_nocache_opt,
      escaped_url_in_error_body,
      slowdose
     ].
@@ -178,6 +179,28 @@ header_too_long_413(Config) when is_list(Config) ->
  				        {version, "HTTP/1.1"}]),
     inets:stop(httpd, Pid).
    
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
+erl_script_nocache_opt(doc) ->
+    ["Test that too long headers's get 413 HTTP code"];
+erl_script_nocache_opt(suite) ->
+    [];
+erl_script_nocache_opt(Config) when is_list(Config) ->
+    HttpdConf   = ?config(httpd_conf, Config),
+    {ok, Pid}   = inets:start(httpd, [{port, 0}, {erl_script_nocache, true} | HttpdConf]),
+    Info        = httpd:info(Pid),
+    Port        = proplists:get_value(port,         Info),
+    _Address    = proplists:get_value(bind_address, Info),
+    URL1        = ?URL_START ++ integer_to_list(Port),
+    case httpc:request(get, {URL1 ++ "/dummy.html", []},
+		       [{url_encode,  false}, 
+			{version,     "HTTP/1.0"}],
+		       [{full_result, false}]) of
+	{ok, {200, _}} ->
+	    ok
+    end,
+    inets:stop(httpd, Pid).
 
 %%-------------------------------------------------------------------------
 %%-------------------------------------------------------------------------
