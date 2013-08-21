@@ -83,7 +83,8 @@
 -export([write_unicode_string/1, write_unicode_char/1,
          deep_unicode_char_list/1]).
 
--export_type([chars/0, latin1_string/0, continuation/0, fread_error/0]).
+-export_type([chars/0, latin1_string/0, continuation/0,
+              fread_error/0, fread_item/0]).
 
 %%----------------------------------------------------------------------
 
@@ -106,6 +107,8 @@
                      | 'string'
                      | 'unsigned'.
 
+-type fread_item() :: string() | atom() | integer() | float().
+
 %%----------------------------------------------------------------------
 
 %% Interface calls to sub-modules.
@@ -120,7 +123,7 @@ fwrite(Format, Args) ->
 -spec fread(Format, String) -> Result when
       Format :: string(),
       String :: string(),
-      Result :: {'ok', InputList :: [term()], LeftOverChars :: string()}
+      Result :: {'ok', InputList :: [fread_item()], LeftOverChars :: string()}
               | {'more', RestFormat :: string(),
                  Nchars :: non_neg_integer(),
                  InputStack :: chars()}
@@ -135,7 +138,7 @@ fread(Chars, Format) ->
       Format :: string(),
       Return :: {'more', Continuation1 :: continuation()}
               | {'done', Result, LeftOverChars :: string()},
-      Result :: {'ok', InputList :: [term()]}
+      Result :: {'ok', InputList :: [fread_item()]}
               | 'eof'
               | {'error', {'fread', What :: fread_error()}}.
 

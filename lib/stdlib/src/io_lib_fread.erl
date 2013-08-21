@@ -41,9 +41,9 @@
       Format :: string(),
       Return :: {'more', Continuation1 :: io_lib:continuation()}
               | {'done', Result, LeftOverChars :: string()},
-      Result :: {'ok', InputList :: io_lib:chars()}
+      Result :: {'ok', InputList :: [io_lib:fread_item()]}
               | 'eof'
-              | {'error', {'read', What :: io_lib:fread_error()}}.
+              | {'error', {'fread', What :: io_lib:fread_error()}}.
 
 fread([], Chars, Format) ->
     %%io:format("FREAD: ~w `~s'~n", [Format,Chars]),
@@ -101,11 +101,12 @@ fread_line(Format0, Line, N0, Results0, More, Newline) ->
 -spec fread(Format, String) -> Result when
       Format :: string(),
       String :: string(),
-      Result :: {'ok', InputList :: io_lib:chars(), LeftOverChars :: string()}
+      Result :: {'ok', InputList :: [io_lib:fread_item()],
+                 LeftOverChars :: string()}
               | {'more', RestFormat :: string(),
                  Nchars :: non_neg_integer(),
                  InputStack :: io_lib:chars()}
-              | {'error', What :: term()}.
+              | {'error', {'fread', What :: io_lib:fread_error()}}.
 
 fread(Format, Line) ->
     fread(Format, Line, 0, []).
