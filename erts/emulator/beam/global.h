@@ -852,11 +852,18 @@ Port *erts_get_heart_port(void);
 void erts_lcnt_enable_io_lock_count(int enable);
 #endif
 
+/* driver_tab.c */
+typedef void *(*ErtsStaticNifInitFPtr)(void);
+ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name);
+int erts_is_static_nif(void *handle);
+void erts_init_static_drivers(void);
+
 /* erl_drv_thread.c */
 void erl_drv_thr_init(void);
 
 /* utils.c */
 void erts_cleanup_offheap(ErlOffHeap *offheap);
+const char *erts_basename(const char* path, char* buff);
 
 Uint64 erts_timestamp_millis(void);
 

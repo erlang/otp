@@ -136,6 +136,28 @@ endif
 endif
 endif
 
+comma:=,
+space:=
+space+=
+
+STATIC_NIFS=@STATIC_NIFS@
+ifneq ($(STATIC_NIFS),no)
+ifeq ($(STATIC_NIFS),yes)
+STATIC_NIFS=$(ERL_TOP)/lib/asn1/priv/lib/$(TARGET)/asn1rt_nif.a \
+	$(ERL_TOP)/lib/crypto/priv/lib/$(TARGET)/crypto$(TYPEMARKER).a
+endif
+STATIC_NIFS:=$(subst $(comma),$(space),$(STATIC_NIFS))
+endif
+
+STATIC_DRIVERS=@STATIC_DRIVERS@
+ifneq ($(STATIC_DRIVERS),no)
+ifeq ($(STATIC_DRIVERS),yes)
+STATIC_DRIVERS=
+endif
+STATIC_DRIVERS:=$(subst $(comma),$(space),$(STATIC_DRIVERS))
+endif
+
+
 #
 # NOTE: When adding a new type update ERL_BUILD_TYPE_MARKER in sys/unix/sys.c
 #
@@ -557,8 +579,8 @@ $(TARGET)/erl_version.h: ../vsn.mk
 GENERATE += $(TARGET)/erl_version.h
 
 # driver table
-$(TTF_DIR)/driver_tab.c: Makefile.in
-	$(gen_verbose)LANG=C $(PERL) utils/make_driver_tab -o $@ $(DRV_OBJS)
+$(TTF_DIR)/driver_tab.c: Makefile.in utils/make_driver_tab
+	$(gen_verbose)LANG=C $(PERL) utils/make_driver_tab -o $@ -nifs $(STATIC_NIF_LIBS) -drivers $(DRV_OBJS) $(STATIC_DRIVER_LIBS)
 GENERATE += $(TTF_DIR)/driver_tab.c
 
 
@@ -797,6 +819,28 @@ endif
 
 	DRV_OBJS += $(OBJDIR)/ttsl_drv.o
 
+ifneq ($(STATIC_NIFS),no)
+STATIC_NIF_LIBS = $(STATIC_NIFS)
+DEPLIBS += $(STATIC_NIF_LIBS)
+COMPILE_STATIC_LIBS = yes
+else
+STATIC_NIF_LIBS=
+endif
+
+ifneq ($(STATIC_DRIVERS),no)
+STATIC_DRIVER_LIBS = $(STATIC_DRIVERS)
+DEPLIBS += $(STATIC_DRIVER_LIBS)
+COMPILE_STATIC_LIBS = yes
+else
+STATIC_DRIVER_LIBS=
+endif
+
+ifeq ($(COMPILE_STATIC_LIBS),yes)
+
+$(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS):
+	$(MAKE) BUILD_STATIC_LIBS=1 TYPE=$(TYPE) -C $(ERL_TOP)/lib/ static_lib
+endif
+
 ifeq ($(ERTS_ENABLE_KERNEL_POLL),yes)
 OS_OBJS += 	$(OBJDIR)/erl_poll.kp.o \
 		$(OBJDIR)/erl_check_io.kp.o \
@@ -935,18 +979,20 @@ $(OBJDIR)/hipe_arm.o:           hipe/hipe_arm.c
 
 # ----------------------------------------------------------------------
 # The emulator itself
+#
 
 ifeq ($(TARGET), win32)
 # Only the basic erlang to begin with eh?
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 	$(ld_verbose)$(PURIFY) $(LD) -dll -def:sys/$(ERLANG_OSTYPE)/erl.def -implib:$(BINDIR)/erl_dll.lib -o $(BINDIR)/$(EMULATOR_EXECUTABLE) \
-	$(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) $(LIBS)
+	$(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) $(STATIC_NIF_LIBS) \
+	$(STATIC_DRIVER_LIBS) $(LIBS)
 else
-
-
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
+	echo $(DEPLIBS)
 	$(ld_verbose)$(PURIFY) $(LD) -o $(BINDIR)/$(EMULATOR_EXECUTABLE) \
-	$(HIPEBEAMLDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) $(LIBS)
+	$(HIPEBEAMLDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) \
+	$(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS) $(LIBS)
 
 endif
 

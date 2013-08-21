@@ -330,6 +330,8 @@ ok
       <c>upgrade</c> will be called to initialize the library.
       <c>unload</c> is called to release the library. They are all
       described individually below.</p>
+      <p>If compiling a nif for static inclusion via --enable-static-nifs you
+      have to define STATIC_ERLANG_NIF before the ERL_NIF_INIT declaration.</p>
       </item>
 
       <tag><marker id="load"/>int (*load)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)</tag>
