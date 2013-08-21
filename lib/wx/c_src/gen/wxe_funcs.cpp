@@ -8849,16 +8849,14 @@ case wxStatusBar_Create: { // wxStatusBar::Create
  break;
 }
 case wxStatusBar_GetFieldRect: { // wxStatusBar::GetFieldRect
+ wxRect rect;
  wxStatusBar *This = (wxStatusBar *) getPtr(bp,memenv); bp += 4;
  int * i = (int *) bp; bp += 4;
- int * rectX = (int *) bp; bp += 4;
- int * rectY = (int *) bp; bp += 4;
- int * rectW = (int *) bp; bp += 4;
- int * rectH = (int *) bp; bp += 4;
- wxRect rect = wxRect(*rectX,*rectY,*rectW,*rectH);
  if(!This) throw wxe_badarg(0);
  bool Result = This->GetFieldRect(*i,rect);
  rt.addBool(Result);
+ rt.add(rect);
+ rt.addTupleCount(2);
  break;
 }
 case wxStatusBar_GetFieldsCount: { // wxStatusBar::GetFieldsCount
