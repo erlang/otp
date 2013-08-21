@@ -52,7 +52,7 @@
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
          otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
-         otp_8923/1, otp_9282/1]).
+         otp_8923/1, otp_9282/1, otp_11245/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -109,7 +109,7 @@ all() ->
 	many_clients, otp_4906, otp_5402, simultaneous_open,
 	insert_new, repair_continuation, otp_5487, otp_6206,
 	otp_6359, otp_4738, otp_7146, otp_8070, otp_8856, otp_8898,
-	otp_8899, otp_8903, otp_8923, otp_9282
+	otp_8899, otp_8903, otp_8923, otp_9282, otp_11245
     ].
 
 groups() -> 
@@ -3897,6 +3897,28 @@ some_calls(Tab, Config) ->
     ok = dets:close(T),
     file:delete(File).
 
+
+otp_11245(doc) ->
+    ["OTP-11245. Tables remained fixed after traversal"];
+otp_11245(suite) ->
+    [];
+otp_11245(Config) when is_list(Config) ->
+    Tab = otp_11245,
+    File = filename(Tab, Config),
+    {ok, Tab} = dets:open_file(Tab, [{file,File}]),
+    N = 1024,
+    ins(Tab, N),
+    N = length(dets:match(Tab, '_')),
+    false = dets:info(Tab, safe_fixed),
+    dets:traverse(Tab, fun(_) -> continue end),
+    false = dets:info(Tab, safe_fixed),
+    N = dets:foldl(fun(_, N2) -> N2+1 end, 0, Tab),
+    false = dets:info(Tab, safe_fixed),
+    N = dets:foldr(fun(_, N2) -> N2+1 end, 0, Tab),
+    false = dets:info(Tab, safe_fixed),
+    ok = dets:close(Tab),
+    file:delete(File),
+    ok.
 
 %%
 %% Parts common to several test cases

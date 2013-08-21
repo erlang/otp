@@ -951,10 +951,10 @@ do_trav(Proc, Acc, Fun) ->
 	    Error
     end.
     
-do_trav(#dets_cont{bin = eof}, _Proc, Acc, _Fun) ->
-    Acc;
 do_trav(State, Proc, Acc, Fun) ->
     case req(Proc, {match_init, State, safe}) of
+        '$end_of_table'->
+            Acc;
 	{cont, {Bins, NewState}} ->
 	    do_trav_bins(NewState, Proc, Acc, Fun, lists:reverse(Bins));
 	Error ->
