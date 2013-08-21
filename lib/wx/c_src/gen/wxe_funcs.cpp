@@ -31358,7 +31358,7 @@ case wxAuiManagerEvent_CanVeto: { // wxAuiManagerEvent::CanVeto
 }
 case wxLogNull_new: { // wxLogNull::wxLogNull
  wxLogNull * Result = new wxLogNull();
- newPtr((void *) Result, 224, memenv);
+ newPtr((void *) Result, 225, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLogNull");
  break;
 }
@@ -31448,7 +31448,7 @@ void WxeApp::delete_object(void *ptr, wxeRefData *refd) {
   case 211: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
   case 212: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
   case 213: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 224: delete (wxLogNull *) ptr; break;
+  case 225: delete (wxLogNull *) ptr; break;
   default: delete (wxObject *) ptr;
 }}
 
