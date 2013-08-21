@@ -390,6 +390,13 @@ load("SSLCertificateFile " ++ SSLCertificateFile, []) ->
 	    {error, ?NICE(clean(SSLCertificateFile)++
 			  " is an invalid SSLCertificateFile")}
     end;
+load("SSLLogLevel " ++ SSLLogAlert, []) ->
+    case SSLLogAlert of
+	"none" ->
+	    {ok, [], {ssl_log_alert, false}};
+	_ ->
+	    {ok, [], {ssl_log_alert, true}}
+    end;
 load("SSLCertificateKeyFile " ++ SSLCertificateKeyFile, []) ->
     case is_file(clean(SSLCertificateKeyFile)) of
 	{ok, File} ->
@@ -942,7 +949,8 @@ ssl_config(ConfigDB) ->
 	ssl_ciphers(ConfigDB) ++
 	ssl_password(ConfigDB) ++
 	ssl_verify_depth(ConfigDB) ++
-	ssl_ca_certificate_file(ConfigDB).
+	ssl_ca_certificate_file(ConfigDB) ++
+	ssl_log_level(ConfigDB).
 	    
     
 
@@ -1206,6 +1214,14 @@ ssl_certificate_key_file(ConfigDB) ->
 	    [];
 	SSLCertificateKeyFile ->
 	    [{keyfile,SSLCertificateKeyFile}]
+    end.
+
+ssl_log_level(ConfigDB) ->
+    case httpd_util:lookup(ConfigDB,ssl_log_alert) of
+	undefined ->
+	    [];
+	SSLLogLevel ->
+	    [{log_alert,SSLLogLevel}]
     end.
 
 ssl_verify_client(ConfigDB) ->

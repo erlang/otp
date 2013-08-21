@@ -174,7 +174,13 @@ listen({essl, SSLConfig}, Addr, Port) ->
 	  [{addr,       Addr}, 
 	   {port,       Port}, 
 	   {ssl_config, SSLConfig}]),
-    listen_ssl(Addr, Port, [{ssl_imp, new}, {reuseaddr, true} | SSLConfig]).
+    {SSLConfig2, ExtraOpts} = case proplists:get_value(log_alert, SSLConfig, undefined) of
+		    undefined ->
+			{SSLConfig, []};
+		    LogAlert ->
+			{proplists:delete(log_alert, SSLConfig), [{log_alert, LogAlert}]}
+		end,
+    listen_ssl(Addr, Port, [{ssl_imp, new}, {reuseaddr, true} | SSLConfig2], ExtraOpts).
 
 
 listen(ip_comm, Addr, Port, Fd) ->
@@ -222,24 +228,24 @@ do_listen_ip_comm(Addr, Port, Fd) ->
     end.
 
 
-listen_ssl(Addr, Port, Opts0) ->
+listen_ssl(Addr, Port, Opts0, ExtraOpts) ->
     IpFamily = ipfamily_default(Addr, Port), 
     BaseOpts = [{backlog, 128}, {reuseaddr, true} | Opts0], 
     Opts     = sock_opts(Addr, BaseOpts),
     case IpFamily of
 	inet6fb4 -> 
-	    Opts2 = [inet6 | Opts], 
+	    Opts2 = [inet6 | Opts] ++ ExtraOpts, 
 	    ?hlrt("try ipv6 listen", [{opts, Opts2}]),
 	    case (catch ssl:listen(Port, Opts2)) of
 		{error, Reason} when ((Reason =:= nxdomain) orelse 
 				      (Reason =:= eafnosupport)) ->
-		    Opts3 = [inet | Opts], 
+		    Opts3 = [inet | Opts] ++ ExtraOpts, 
 		    ?hlrt("ipv6 listen failed - try ipv4 instead", 
 			  [{reason, Reason}, {opts, Opts3}]),
 		    ssl:listen(Port, Opts3);
 		
 		{'EXIT', Reason} -> 
-		    Opts3 = [inet | Opts], 
+		    Opts3 = [inet | Opts] ++ ExtraOpts, 
 		    ?hlrt("ipv6 listen exit - try ipv4 instead", 
 			  [{reason, Reason}, {opts, Opts3}]),
 		    ssl:listen(Port, Opts3); 
@@ -252,7 +258,7 @@ listen_ssl(Addr, Port, Opts0) ->
 	_ ->
 	    Opts2 = [IpFamily | Opts],
 	    ?hlrt("listen", [{opts, Opts2}]),
-	    ssl:listen(Port, Opts2)
+	    ssl:listen(Port, Opts2 ++ ExtraOpts)
     end.
 
 

@@ -1,6 +1,11 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
+  {"5.1.2", 
+   [
+    {restart_application, inets}
+   ]
+  },
   {"5.1.1", [{restart_application, ssl}]
   },
   {"5.1", [
@@ -12,6 +17,11 @@
   {<<"3\\.*">>, [{restart_application, ssl}]}
  ], 
  [
+  {"5.1.2", 
+   [
+    {restart_application, inets}
+   ]
+  },
   {"5.1.1", [{restart_application, ssl}]
   },
   {"5.1", [

@@ -596,7 +596,8 @@ handle_options(Opts0, _Role) ->
       renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
       debug      = handle_option(debug, Opts, []),
       hibernate_after = handle_option(hibernate_after, Opts, undefined),
-      erl_dist = handle_option(erl_dist, Opts, false)
+      erl_dist = handle_option(erl_dist, Opts, false),
+      log_alert = handle_option(log_alert, Opts, true)
      },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),    
@@ -605,7 +606,7 @@ handle_options(Opts0, _Role) ->
 		  depth, cert, certfile, key, keyfile,
 		  password, cacerts, cacertfile, dh, dhfile, ciphers,
 		  debug, reuse_session, reuse_sessions, ssl_imp,
-		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after, erl_dist],
+		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after, erl_dist, log_alert],
     
     SockOpts = lists:foldl(fun(Key, PropList) -> 
 				   proplists:delete(Key, PropList)
@@ -731,6 +732,9 @@ validate_option(hibernate_after, undefined) ->
 validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
     Value;
 validate_option(erl_dist,Value) when Value == true; 
+				     Value == false ->
+    Value;
+validate_option(log_alert,Value) when Value == true; 
 				     Value == false ->
     Value;
 validate_option(Opt, Value) ->

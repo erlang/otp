@@ -106,7 +106,7 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     case http_transport:negotiate(SocketType, Socket, TimeOut) of
 	{error, Error} ->
 	    ?hdrd("negotiation failed", [{error, Error}]),
-	    exit(Error); %% Can be 'normal'.
+	    exit(shutdown); %% Can be 'normal'.
 	ok ->
 	    ?hdrt("negotiation successfull", []),
 	    NewTimeout = TimeOut - timer:now_diff(now(),Then) div 1000,
