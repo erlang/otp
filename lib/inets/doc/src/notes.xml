@@ -33,7 +33,23 @@
   </header>
   
   
-  <section><title>Inets 5.9.2.1</title>
+  <section><title>Inets 5.9.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make log_alert configurable as option in ssl, SSLLogLevel
+	    added as option to inets conf file</p>
+          <p>
+	    Own Id: OTP-11259</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.2.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
