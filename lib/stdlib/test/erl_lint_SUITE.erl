@@ -51,7 +51,7 @@
 	  unsized_binary_in_bin_gen_pattern/1,
 	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
 	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
-	  otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1,
+	  otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1, otp_11254/1,
           export_all/1,
 	  bif_clash/1,
 	  behaviour_basic/1, behaviour_multiple/1,
@@ -84,7 +84,7 @@ all() ->
      unsized_binary_in_bin_gen_pattern,
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
      otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
-     otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, export_all,
+     otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,export_all,
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors].
@@ -2447,6 +2447,20 @@ otp_10436(Config) when is_list(Config) ->
     {warnings,[{3,erl_lint,{underspecified_opaque,{t1,0}}},
                {4,erl_lint,{underspecified_opaque,{t2,0}}}]} =
         run_test2(Config, Ts2, []),
+    ok.
+
+otp_11254(doc) ->
+    "OTP-11254. Warnings for opaque types.";
+otp_11254(suite) -> [];
+otp_11254(Config) when is_list(Config) ->
+    Ts = <<"-module(p2).
+            -export([manifest/2]).
+            manifest(Module, Name) ->
+              fun Module:Nine/1.
+         ">>,
+    {error,[{4,erl_lint,{unbound_var,'Nine'}}],
+     [{3,erl_lint,{unused_var,'Name'}}]} =
+        run_test2(Config, Ts, []),
     ok.
 
 export_all(doc) ->
