@@ -553,8 +553,10 @@ efile_ev_get_char(ErlIOVec *ev, char *p, int *pp, int *qp) {
     *(p) = *EV_CHAR_P(ev, *(pp), *(qp));
     if (*(pp)+1 < (ev)->iov[*(qp)].iov_len)
       *(pp) = *(pp)+1;
-    else
+    else {
       (*(qp))++;
+      *pp = 0;
+    }
     return !0;
   }
   return 0;
@@ -575,8 +577,10 @@ efile_ev_get_uint32(ErlIOVec *ev, Uint32 *p, int *pp, int *qp) {
       | (EV_UINT32(ev, *(pp)+3, *(qp)));
     if (*(pp)+4 < (ev)->iov[*(qp)].iov_len)
       *(pp) = *(pp)+4;
-    else
+    else {
       (*(qp))++;
+      *pp = 0;
+    }
     return !0;
   }
   return 0;
@@ -601,8 +605,10 @@ efile_ev_get_uint64(ErlIOVec *ev, Uint64 *p, int *pp, int *qp) {
       | (EV_UINT64(ev, *(pp)+7, *(qp)));
     if (*(pp)+8 < (ev)->iov[*(qp)].iov_len)
       *(pp) = *(pp)+8;
-    else
+    else {
       (*(qp))++;
+      *pp = 0;
+    }
     return !0;
   }
   return 0;
