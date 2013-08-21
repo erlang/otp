@@ -206,6 +206,7 @@ key_exchange_init_msg(Ssh0) ->
 kex_init(#ssh{role = Role, opts = Opts, available_host_keys = HostKeyAlgs}) ->
     Random = ssh_bits:random(16),
     Compression = case proplists:get_value(compression, Opts, none) of
+		      openssh_zlib -> ["zlib@openssh.com", "none"];
 		      zlib -> ["zlib", "none"];
 		      none -> ["none", "zlib"]
 		  end,
@@ -855,13 +856,14 @@ decrypt(#ssh{decrypt = 'aes128-cbc', decrypt_keys = Key,
     IV = crypto:next_iv(aes_cbc, Data),
     {Ssh#ssh{decrypt_ctx = IV}, Dec}.
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Compression
 %%
-%%     none     REQUIRED        no compression
-%%     zlib     OPTIONAL        ZLIB (LZ77) compression
+%%     none             REQUIRED        no compression
+%%     zlib             OPTIONAL        ZLIB (LZ77) compression
+%%     openssh_zlib     OPTIONAL        ZLIB (LZ77) compression
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 compress_init(SSH) ->
     compress_init(SSH, 1).
 
@@ -870,18 +872,31 @@ compress_init(#ssh{compress = none} = Ssh, _) ->
 compress_init(#ssh{compress = zlib} = Ssh, Level) ->
     Zlib = zlib:open(),
     ok = zlib:deflateInit(Zlib, Level),
+    {ok, Ssh#ssh{compress_ctx = Zlib}};
+compress_init(#ssh{compress = 'zlib@openssh.com'} = Ssh, Level) ->
+    Zlib = zlib:open(),
+    ok = zlib:deflateInit(Zlib, Level),
     {ok, Ssh#ssh{compress_ctx = Zlib}}.
-
 
 compress_final(#ssh{compress = none} = Ssh) ->
     {ok, Ssh};
 compress_final(#ssh{compress = zlib, compress_ctx = Context} = Ssh) ->
+    zlib:close(Context),
+    {ok, Ssh#ssh{compress = none, compress_ctx = undefined}};
+compress_final(#ssh{compress = 'zlib@openssh.com', authenticated = false} = Ssh) ->
+    {ok, Ssh};
+compress_final(#ssh{compress = 'zlib@openssh.com', compress_ctx = Context, authenticated = true} = Ssh) ->
     zlib:close(Context),
     {ok, Ssh#ssh{compress = none, compress_ctx = undefined}}.
 
 compress(#ssh{compress = none} = Ssh, Data) ->
     {Ssh, Data};
 compress(#ssh{compress = zlib, compress_ctx = Context} = Ssh, Data) ->
+    Compressed = zlib:deflate(Context, Data, sync),
+    {Ssh, list_to_binary(Compressed)};
+compress(#ssh{compress = 'zlib@openssh.com', authenticated = false} = Ssh, Data) ->
+    {Ssh, Data};
+compress(#ssh{compress = 'zlib@openssh.com', compress_ctx = Context, authenticated = true} = Ssh, Data) ->
     Compressed = zlib:deflate(Context, Data, sync),
     {Ssh, list_to_binary(Compressed)}.
 
@@ -894,17 +909,31 @@ decompress_init(#ssh{decompress = none} = Ssh) ->
 decompress_init(#ssh{decompress = zlib} = Ssh) ->
     Zlib = zlib:open(),
     ok = zlib:inflateInit(Zlib),
+    {ok, Ssh#ssh{decompress_ctx = Zlib}};
+decompress_init(#ssh{decompress = 'zlib@openssh.com'} = Ssh) ->
+    Zlib = zlib:open(),
+    ok = zlib:inflateInit(Zlib),
     {ok, Ssh#ssh{decompress_ctx = Zlib}}.
 
 decompress_final(#ssh{decompress = none} = Ssh) ->
     {ok, Ssh};
 decompress_final(#ssh{decompress = zlib, decompress_ctx = Context} = Ssh) ->
     zlib:close(Context),
+    {ok, Ssh#ssh{decompress = none, decompress_ctx = undefined}};
+decompress_final(#ssh{decompress = 'zlib@openssh.com', authenticated = false} = Ssh) ->
+    {ok, Ssh};
+decompress_final(#ssh{decompress = 'zlib@openssh.com', decompress_ctx = Context, authenticated = true} = Ssh) ->
+    zlib:close(Context),
     {ok, Ssh#ssh{decompress = none, decompress_ctx = undefined}}.
 
 decompress(#ssh{decompress = none} = Ssh, Data) ->
     {Ssh, Data};
 decompress(#ssh{decompress = zlib, decompress_ctx = Context} = Ssh, Data) ->
+    Decompressed = zlib:inflate(Context, Data),
+    {Ssh, list_to_binary(Decompressed)};
+decompress(#ssh{decompress = 'zlib@openssh.com', authenticated = false} = Ssh, Data) ->
+    {Ssh, Data};
+decompress(#ssh{decompress = 'zlib@openssh.com', decompress_ctx = Context, authenticated = true} = Ssh, Data) ->
     Decompressed = zlib:inflate(Context, Data),
     {Ssh, list_to_binary(Decompressed)}.
 

@@ -127,7 +127,8 @@
 	  userauth_supported_methods , %  
 	  userauth_methods,
 	  userauth_preference,
-	  available_host_keys
+	  available_host_keys,
+	  authenticated = false
 	 }).
 
 -record(alg,
