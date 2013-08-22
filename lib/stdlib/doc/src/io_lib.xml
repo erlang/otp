@@ -54,6 +54,9 @@
       <name name="fread_error"/>
     </datatype>
     <datatype>
+      <name name="fread_item"/>
+    </datatype>
+    <datatype>
       <name name="latin1_string"/>
     </datatype>
   </datatypes>
