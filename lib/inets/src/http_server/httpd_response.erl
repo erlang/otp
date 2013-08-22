@@ -20,7 +20,7 @@
 -module(httpd_response).
 -export([generate_and_send_response/1, send_status/3, send_header/3, 
 	 send_body/3, send_chunk/3, send_final_chunk/2, split_header/2,
-	 is_disable_chunked_send/1, cache_headers/1]).
+	 is_disable_chunked_send/1, cache_headers/2]).
 -export([map_status_code/2]).
 
 -include("httpd.hrl").
@@ -266,8 +266,8 @@ get_connection(false,"HTTP/1.1") ->
 get_connection(_,_) ->
     "".
 
-cache_headers(#mod{config_db = Db}) ->
-    case httpd_util:lookup(Db, script_nocache, false) of
+cache_headers(#mod{config_db = Db}, NoCacheType) ->
+    case httpd_util:lookup(Db, NoCacheType, false) of
 	true ->
 	    Date = httpd_util:rfc1123_date(),
 	    [{"cache-control", "no-cache"},
