@@ -663,7 +663,8 @@ handle_options(Opts0, _Role) ->
 			handle_option(next_protocols_advertised, Opts, undefined),
       next_protocol_selector = 
 			make_next_protocol_selector(
-			  handle_option(client_preferred_next_protocols, Opts, undefined))
+			  handle_option(client_preferred_next_protocols, Opts, undefined)),
+      log_alert = handle_option(log_alert, Opts, true)
      },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),    
@@ -675,7 +676,7 @@ handle_options(Opts0, _Role) ->
 		  reuse_session, reuse_sessions, ssl_imp,
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after, 
 		  erl_dist, next_protocols_advertised,
-		  client_preferred_next_protocols],
+		  client_preferred_next_protocols, log_alert],
     
     SockOpts = lists:foldl(fun(Key, PropList) -> 
 				   proplists:delete(Key, PropList)
@@ -840,6 +841,9 @@ validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredPro
 	
 validate_option(client_preferred_next_protocols, undefined) ->
     undefined;
+validate_option(log_alert, Value) when Value == true;
+				       Value == false ->
+    Value;
 validate_option(next_protocols_advertised = Opt, Value) when is_list(Value) ->
     case tls_record:highest_protocol_version([]) of
 	{3,0} ->

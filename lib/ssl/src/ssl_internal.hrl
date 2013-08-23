@@ -111,7 +111,8 @@
 	  %% This option should only be set to true by inet_tls_dist
 	  erl_dist = false,
 	  next_protocols_advertised = undefined, %% [binary()],
-	  next_protocol_selector = undefined  %% fun([binary()]) -> binary())
+	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
+	  log_alert
 	  }).
 
 -record(socket_options,
