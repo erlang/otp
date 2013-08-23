@@ -362,11 +362,28 @@ start_stop_log(Config) ->
     StdioResult = [_|_] = capture(fun() -> rb:show(1) end),
     {ok,<<>>} = file:read_file(OutFile),
 
-    %% Start log and check that show is printed to log and not to standad_io
+    %% Start log and check that show is printed to log and not to standard_io
     ok = rb:start_log(OutFile),
     [] = capture(fun() -> rb:show(1) end),
     {ok,Bin} = file:read_file(OutFile),
     true = (Bin =/= <<>>),
+
+    %% Start log with atom standard_io and check that show is printed to standard_io
+    ok = rb:stop_log(),
+    ok = file:write_file(OutFile,[]),
+    ok = rb:start_log(standard_io),
+    StdioResult = [_|_] = capture(fun() -> rb:show(1) end),
+    {ok,<<>>} = file:read_file(OutFile),
+
+    %% Start log and check that show is printed to iodevice log and not to standard_io
+    ok = rb:stop_log(),
+    ok = file:write_file(OutFile,[]),
+    {ok, IoOutFile} = file:open(OutFile,[write]),
+    ok = rb:start_log(IoOutFile),
+    [] = capture(fun() -> rb:show(1) end),
+    {ok,Bin} = file:read_file(OutFile),
+    true = (Bin =/= <<>>),
+    ok = file:close(IoOutFile),
 
     %% Stop log and check that show is printed to standard_io and not to log
     ok = rb:stop_log(),
@@ -374,6 +391,19 @@ start_stop_log(Config) ->
     StdioResult = capture(fun() -> rb:show(1) end),
     {ok,<<>>} = file:read_file(OutFile),
 
+    %% Start log and check that list is printed to log and not to standard_io
+    ok = file:write_file(OutFile,[]),
+    ok = rb:start_log(OutFile),
+    [] = capture(fun() -> rb:log_list() end),
+    {ok,Bin2} = file:read_file(OutFile),
+    true = (Bin2 =/= <<>>),
+
+    %% Stop log and check that list is printed to standard_io and not to log
+    ok = rb:stop_log(),
+    ok = file:write_file(OutFile,[]),
+    StdioResult2 = capture(fun() -> rb:log_list() end),
+    {ok,<<>>} = file:read_file(OutFile),
+    
     %% Test that standard_io is used if log file can not be opened
     ok = rb:start_log(filename:join(nonexistingdir,"newfile.txt")),
     StdioResult = capture(fun() -> rb:show(1) end),

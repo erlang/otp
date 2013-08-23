@@ -22,7 +22,7 @@
 
 %% External exports
 -export([start/0, start/1, stop/0, rescan/0, rescan/1]).
--export([list/0, list/1, show/0, show/1, grep/1, filter/1, filter/2, start_log/1, stop_log/0]).
+-export([list/0, list/1, log_list/0, log_list/1, show/0, show/1, grep/1, filter/1, filter/2, start_log/1, stop_log/0]).
 -export([h/0, help/0]).
 
 %% Internal exports
@@ -62,6 +62,9 @@ rescan(Options) ->
 list() -> list(all).
 list(Type) -> call({list, Type}).
 
+log_list() -> log_list(all).
+log_list(Type) -> call({log_list, Type}).
+
 show() -> 
     call(show).
 
@@ -93,6 +96,8 @@ help() ->
     io:format("rb:help()          - print this help~n"),
     io:format("rb:list()          - list all reports~n"),
     io:format("rb:list(Type)      - list all reports of type Type~n"),
+    io:format("rb:log_list()      - log list of all reports~n"),
+    io:format("rb:log_list(Type)  - log list of all reports of type Type~n"),
     io:format("      currently supported types are:~n"),
     print_types(),
     io:format("rb:grep(RegExp)      - print reports containing RegExp.~n"),
@@ -113,7 +118,7 @@ help() ->
     io:format("rb:show(Number)    - print report no Number~n"),
     io:format("rb:show(Type)      - print all reports of type Type~n"),
     io:format("rb:show()          - print all reports~n"),
-    io:format("rb:start_log(File) - redirect all reports to file~n"),
+    io:format("rb:start_log(File) - redirect all reports to file or io_device~n"),
     io:format("rb:stop_log()      - close the log file and redirect to~n"),
     io:format("                     standard_io~n"),
     io:format("rb:stop            - stop the rb_server~n").
@@ -207,7 +212,10 @@ handle_call({rescan, Options}, _From, State) ->
 handle_call(_, _From, #state{data = undefined}) ->
     {reply, {error, no_data}, #state{}};
 handle_call({list, Type}, _From, State) ->
-    print_list(State#state.data, Type),
+    print_list(standard_io, State#state.data, Type),
+    {reply, ok, State};
+handle_call({log_list, Type}, _From, State) ->
+    print_list(State#state.device, State#state.data, Type),
     {reply, ok, State};
 handle_call({start_log, FileName}, _From, State) ->
     NewDevice = open_log_file(FileName),
@@ -262,7 +270,16 @@ code_change(_OldVsn, State, _Extra) ->
 %% Returns: A Device for later use in call to io:format
 %%-----------------------------------------------------------------
 open_log_file(standard_io) -> standard_io;
-open_log_file(FileName) ->
+open_log_file(Fd) when is_atom(Fd),Fd=/=standard_error -> 
+    case whereis(Fd) of
+	undefined -> io:format("rb: Registered name not found '~s'.~n",
+		      [Fd]),
+	             io:format("rb: Using standard_io~n"),
+                     open_log_file(standard_io);
+	Pid       -> open_log_file(Pid)	
+    end;
+open_log_file(Fd) when is_pid(Fd)-> Fd;
+open_log_file(FileName) when is_list(FileName) ->
     case file:open(FileName, [write,append]) of
 	{ok, Fd} -> Fd;
 	Error -> 
@@ -270,7 +287,10 @@ open_log_file(FileName) ->
 		      [FileName, Error]),
 	    io:format("rb: Using standard_io~n"),
 	    standard_io
-    end.
+    end;
+open_log_file(standard_error) -> 
+	    io:format("rb: Using standard_io~n"),
+	    standard_io.
 
 close_device(Fd) when is_pid(Fd) ->
     catch file:close(Fd);
@@ -550,18 +570,18 @@ local_time_to_universal_time({Date,Time}) ->
     end.
 
 
-print_list(Data, Type) ->
+print_list(Fd, Data, Type) ->
     Header = {"No", "Type", "Process", "Date     Time"},
     Width = find_width([Header | Data], 0)+1,
     DateWidth = find_date_width([Header | Data], 0) +1,
     Format = lists:concat(["~4s~20s ~", Width, "s~20s~n"]),
-    io:format(Format, tuple_to_list(Header)),
-    io:format(Format, ["==", "====", "=======", "====     ===="]),
-    print_list(Data, Type, Width, DateWidth).
-print_list([], _, _, _) -> true;
-print_list([H|T], Type, Width, DateWidth) ->
-    print_one_report(H, Type, Width, DateWidth),
-    print_list(T, Type, Width, DateWidth).
+    io:format(Fd, Format, tuple_to_list(Header)),
+    io:format(Fd, Format, ["==", "====", "=======", "====     ===="]),
+    print_list(Fd, Data, Type, Width, DateWidth).
+print_list(_, [], _, _, _) -> true;
+print_list(Fd, [H|T], Type, Width, DateWidth) ->
+    print_one_report(Fd, H, Type, Width, DateWidth),
+    print_list(Fd, T, Type, Width, DateWidth).
 
 find_width([], Width) -> Width;
 find_width([H|T], Width) ->
@@ -578,22 +598,22 @@ find_date_width([H|T], Width) ->
 	true -> find_date_width(T, Width)
     end.
 
-print_one_report({No, RealType, ShortDescr, Date, _Fname, _FilePos},
+print_one_report(Fd, {No, RealType, ShortDescr, Date, _Fname, _FilePos},
 		 WantedType,
 		 Width, DateWidth) ->
     if
 	WantedType == all ->
-	    print_short_descr(No, RealType, ShortDescr, Date, Width, 
+	    print_short_descr(Fd, No, RealType, ShortDescr, Date, Width, 
 			      DateWidth);
 	WantedType == RealType ->
-	    print_short_descr(No, RealType, ShortDescr, Date, Width, 
+	    print_short_descr(Fd, No, RealType, ShortDescr, Date, Width, 
 			      DateWidth);
 	true -> ok
     end.
 
-print_short_descr(No, Type, ShortDescr, Date, Width, DateWidth) ->
+print_short_descr(Fd, No, Type, ShortDescr, Date, Width, DateWidth) ->
     Format = lists:concat(["~4w~20w ~", Width, "s~", DateWidth,"s~n"]),
-    io:format(Format, [No,
+    io:format(Fd, Format, [No,
 		       Type, 
 		       io_lib:format("~s", [ShortDescr]),
 		       Date]).
