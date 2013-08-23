@@ -159,7 +159,7 @@ listen(ip_comm = _SocketType, Addr, Port, Fd, IpFamily) ->
     listen_ip_comm(Addr, Port, Fd, IpFamily);
   
 listen({essl, SSLConfig}, Addr, Port, Fd, IpFamily) ->
-    listen_ssl(Addr, Port, Fd, SSLConfig, IpFamily).
+    listen_ssl(Addr, Port, Fd, SSLConfig, IpFamily, []).
 
 listen(ip_comm = _SocketType, Addr, Port, IpFamily) ->
     listen_ip_comm(Addr, Port, undefined, IpFamily);
@@ -178,7 +178,13 @@ listen({essl, SSLConfig}, Addr, Port, IpFamily) ->
 	  [{addr,       Addr}, 
 	   {port,       Port}, 
 	   {ssl_config, SSLConfig}]),
-    listen_ssl(Addr, Port, undefined, SSLConfig, IpFamily).
+    {SSLConfig2, ExtraOpts} = case proplists:get_value(log_alert, SSLConfig, undefined) of
+		    undefined ->
+			{SSLConfig, []};
+		    LogAlert ->
+			{proplists:delete(log_alert, SSLConfig), [{log_alert, LogAlert}]}
+		end,
+    listen_ssl(Addr, Port, undefined, SSLConfig2, IpFamily, ExtraOpts).
 
 listen_ip_comm(Addr, Port, Fd, IpFamily) ->
     case (catch do_listen_ip_comm(Addr, Port, Fd, IpFamily)) of
@@ -221,24 +227,23 @@ do_listen_ip_comm(Addr, Port, Fd, IpFamily) ->
 	    gen_tcp:listen(NewPort, Opts2)
     end.
 
-
-listen_ssl(Addr, Port, Fd, Opts0, IpFamily) ->
+listen_ssl(Addr, Port, Fd, Opts0, IpFamily, ExtraOpts) ->
     {NewPort, SockOpt} = get_socket_info(Addr, Port, Fd),
     Opts = SockOpt ++ Opts0,
     case IpFamily of
 	inet6fb4 -> 
-	    Opts2 = [inet6 | Opts], 
+	    Opts2 = [inet6 | Opts] ++ ExtraOpts, 
 	    ?hlrt("try ipv6 listen", [{opts, Opts2}]),
 	    case (catch ssl:listen(Port, Opts2)) of
 		{error, Reason} when ((Reason =:= nxdomain) orelse 
 				      (Reason =:= eafnosupport)) ->
-		    Opts3 = [inet | Opts], 
+		    Opts3 = [inet | Opts] ++ ExtraOpts, 
 		    ?hlrt("ipv6 listen failed - try ipv4 instead", 
 			  [{reason, Reason}, {opts, Opts3}]),
 		    ssl:listen(NewPort, Opts3);
 		
 		{'EXIT', Reason} -> 
-		    Opts3 = [inet | Opts], 
+		    Opts3 = [inet | Opts] ++ ExtraOpts, 
 		    ?hlrt("ipv6 listen exit - try ipv4 instead", 
 			  [{reason, Reason}, {opts, Opts3}]),
 		    ssl:listen(NewPort, Opts3); 
@@ -251,7 +256,7 @@ listen_ssl(Addr, Port, Fd, Opts0, IpFamily) ->
 	_ ->
 	    Opts2 = [IpFamily | Opts],
 	    ?hlrt("listen", [{opts, Opts2}]),
-	    ssl:listen(NewPort, Opts2)
+	    ssl:listen(NewPort, Opts2 ++ ExtraOpts)
     end.
 
 
