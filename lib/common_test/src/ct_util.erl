@@ -693,8 +693,14 @@ reset_silent_connections() ->
 %%% @see ct
 stop(Info) ->
     case whereis(ct_util_server) of
-	undefined -> ok;
-	_ -> call({stop,Info})
+	undefined -> 
+	    ok;
+	CtUtilPid ->
+	    Ref = monitor(process, CtUtilPid),
+	    call({stop,Info}),
+	    receive
+		{'DOWN',Ref,_,_,_} -> ok
+	    end
     end.
 
 %%%-----------------------------------------------------------------

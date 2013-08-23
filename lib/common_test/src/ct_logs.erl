@@ -641,8 +641,8 @@ logger(Parent, Mode, Verbosity) ->
 		  "\n<pre>\n"]),
     MiscIoDivider =
 	"\n<a name=\"posttest\"></a>\n"++
-	xhtml("</pre>\n<br><br><h2>Post-test Log</h2>\n<pre>\n",
-	      "</pre>\n<br /><br />\n<h3>POST-TEST LOG</h3>\n<pre>\n"),
+	xhtml("</pre>\n<br><h2>Post-test Log</h2>\n<pre>\n",
+	      "</pre>\n<br />\n<h3>POST-TEST LOG</h3>\n<pre>\n"),
     ct_util:set_testdata_async({misc_io_log,{filename:absname(MiscIoName),
 					     MiscIoDivider,MiscIoFooter}}),
 

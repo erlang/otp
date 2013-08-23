@@ -50,7 +50,7 @@
 -spec init(State :: term()) -> ok |
 			       {fail, Reason :: term()}.
 init(Opts) ->
-    call(get_new_hooks(Opts, undefined) ++ get_builtin_hooks(Opts),
+    call(get_builtin_hooks(Opts) ++ get_new_hooks(Opts, undefined),
 	 ok, init, []).
 		      
 
