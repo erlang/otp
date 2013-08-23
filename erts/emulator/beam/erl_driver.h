@@ -133,7 +133,7 @@ typedef struct {
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
 #define ERL_DRV_EXTENDED_MAJOR_VERSION	2
-#define ERL_DRV_EXTENDED_MINOR_VERSION	1
+#define ERL_DRV_EXTENDED_MINOR_VERSION	2
 
 /*
  * The emulator will refuse to load a driver with different major
@@ -638,6 +638,8 @@ EXTERN int erl_drv_send_term(ErlDrvTermData port,
 			     int len);
 
 /* Async IO functions */
+EXTERN unsigned int driver_async_port_key(ErlDrvPort port);
+
 EXTERN long driver_async(ErlDrvPort ix,
 			 unsigned int* key,
 			 void (*async_invoke)(void*), 
