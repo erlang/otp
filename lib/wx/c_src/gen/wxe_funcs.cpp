@@ -2218,6 +2218,12 @@ case wxPanel_InitDialog: { // wxPanel::InitDialog
  This->InitDialog();
  break;
 }
+case wxPanel_SetFocusIgnoringChildren: { // wxPanel::SetFocusIgnoringChildren
+ wxPanel *This = (wxPanel *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetFocusIgnoringChildren();
+ break;
+}
 case wxScrolledWindow_new_0: { // wxScrolledWindow::wxScrolledWindow
  wxScrolledWindow * Result = new EwxScrolledWindow();
  newPtr((void *) Result, 0, memenv);
