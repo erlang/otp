@@ -4369,7 +4369,7 @@ info_options(Allctr_t *allctr,
 #endif
 		   "option lmbcs: %beu\n"
 		   "option smbcs: %beu\n"
-		   "option mbcgs: %beu\n",
+		   "option mbcgs: %beu\n"
 		   "option acul: %d\n",
 		   topt,
 		   allctr->ramv ? "true" : "false",
