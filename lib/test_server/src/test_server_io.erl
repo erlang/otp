@@ -274,8 +274,14 @@ handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,gls=Gls,
 		  end, Tags),
     GlList = gb_sets:to_list(Gls),
     [test_server_gl:stop(GL) || GL <- GlList],
-    timer:sleep(2000),
-    [exit(GL, kill) || GL <- GlList],
+    timer:sleep(100),
+    case lists:filter(fun(GlPid) -> is_process_alive(GlPid) end, GlList) of
+	[] ->
+	    ok;
+	_ ->
+	    timer:sleep(2000),
+	    [exit(GL, kill) || GL <- GlList]
+    end,
     Empty = gb_trees:empty(),
     {ok,Shared} = test_server_gl:start_link(),
     {reply,ok,#st{fds=Empty,shared_gl=Shared,gls=gb_sets:empty(),
@@ -304,7 +310,7 @@ handle_call({stop,FdTags}, From, #st{fds=Fds0,tags=Tags0,
 		       end, {Fds0,Tags0}, FdTags),
     %% Give the users of the surviving group leaders some
     %% time to finish.
-    erlang:send_after(2000, self(), stop_group_leaders),    
+    erlang:send_after(1000, self(), stop_group_leaders),    
     {noreply,St#st{fds=Fds1,tags=Tags1}};
 handle_call(finish, From, St) ->
     gen_server:reply(From, ok),
@@ -325,8 +331,15 @@ handle_info({'EXIT',_Pid,Reason}, _St) ->
     exit(Reason);
 handle_info(stop_group_leaders, #st{gls=Gls}=St) ->
     %% Stop the remaining group leaders.
-    [test_server_gl:stop(GL) || GL <- gb_sets:to_list(Gls)],
-    erlang:send_after(2000, self(), kill_group_leaders),
+    GlPids = gb_sets:to_list(Gls),
+    [test_server_gl:stop(GL) || GL <- GlPids],
+    timer:sleep(100),
+    Wait = 
+	case lists:filter(fun(GlPid) -> is_process_alive(GlPid) end, GlPids) of
+	    [] -> 0;
+	    _  -> 2000
+	end,
+    erlang:send_after(Wait, self(), kill_group_leaders),
     {noreply,St};
 handle_info(kill_group_leaders, #st{gls=Gls,stopping=From,
 				    pending_ops=Ops}=St) ->
