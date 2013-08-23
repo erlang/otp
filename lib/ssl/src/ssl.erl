@@ -219,4 +219,3 @@ format_error(Error)  ->
 
 random_bytes(N) ->
    tls:random_bytes(N).
-
