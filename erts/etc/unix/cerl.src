@@ -283,6 +283,19 @@ if [ "x$GDB" = "x" ]; then
 	else
 	    valgrind_misc_flags="$VALGRIND_MISC_FLAGS"
 	fi
+	if which taskset > /dev/null && test -e /proc/cpuinfo; then
+	    # We only let valgrind utilize one core with "taskset 1" as it can be very slow
+	    # on multiple cores (especially with async threads). Valgrind only run one pthread
+	    # at a time anyway so there is no point letting it utilize more than one core.
+	    # Use $sched_arg to force all schedulers online to emulate multicore.
+	    taskset1="taskset 1"
+	    ncpu=`cat /proc/cpuinfo | grep -w processor | wc -l`
+	    sched_arg="-S$ncpu:$ncpu"
+	else
+	    taskset1=
+	    sched_arg=
+	fi
+
 	beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
 
 	# Time for some argument passing voodoo:
@@ -293,7 +306,7 @@ if [ "x$GDB" = "x" ]; then
 '
 	set -- $beam_args
 	IFS="$SAVE_IFS"
-	exec valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $emu_xargs "$@" -pz $PRELOADED
+	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" -pz $PRELOADED
     else
 	exec $EXEC $eeargs $xargs ${1+"$@"}
     fi
