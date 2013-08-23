@@ -20,11 +20,57 @@
 #  include "config.h"
 #endif
 
-#include <sys.h>
-#include <erl_mmap.h>
+#include "sys.h"
 #include <stddef.h>
+#include "erl_smp.h"
+#include "erl_mmap.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || 0
+#  undef ERTS_MMAP_DEBUG
+#  define ERTS_MMAP_DEBUG
+#endif
+
+/* #define ERTS_MMAP_DEBUG_FILL_AREAS */
+
+#ifdef ERTS_MMAP_DEBUG
+#  define ERTS_MMAP_ASSERT(A)						\
+    ((void) (!(A)							\
+	     ? erts_mmap_assert_failed(#A, __func__, __FILE__, __LINE__)\
+	     : 1))
+static int
+erts_mmap_assert_failed(const char *a, const char *func, const char *file, int line)
+{
+    erts_fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
+		 (char *) file, line, (char *) func, (char *) a);
+    abort();
+    return 0;
+}
+#else
+#  define ERTS_MMAP_ASSERT(A) ((void) 1)
+#endif
+
+/*
+ * `mmap_state.sa.bot` and `mmap_state.sua.top` are read only after
+ * initialization, but the other pointers are not; i.e., only
+ * ERTS_MMAP_IN_SUPERCARRIER() is allowed without the mutex held.
+ */
+#define ERTS_MMAP_IN_SUPERCARRIER(PTR)					\
+    (((UWord) (PTR)) - ((UWord) mmap_state.sa.bot)			\
+     < ((UWord) mmap_state.sua.top) - ((UWord) mmap_state.sa.bot))
+#define ERTS_MMAP_IN_SUPERALIGNED_AREA(PTR)				\
+    (ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&mmap_state.mtx)),	\
+     (((UWord) (PTR)) - ((UWord) mmap_state.sa.bot)			\
+      < ((UWord) mmap_state.sa.top) - ((UWord) mmap_state.sa.bot)))
+#define ERTS_MMAP_IN_SUPERUNALIGNED_AREA(PTR)				\
+    (ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&mmap_state.mtx)),	\
+     (((UWord) (PTR)) - ((UWord) mmap_state.sua.bot)			\
+      < ((UWord) mmap_state.sua.top) - ((UWord) mmap_state.sua.bot)))
+
+int erts_have_erts_mmap;
+UWord erts_page_inv_mask;
+
+#if defined(DEBUG) || defined(ERTS_MMAP_DEBUG)
+#  undef RBT_DEBUG
 #  define RBT_DEBUG
 #endif
 #ifdef RBT_DEBUG
@@ -60,7 +106,7 @@ typedef struct {
 #define SET_RED(N)   ((N)->flags |= RED_FLG)
 #define SET_BLACK(N) ((N)->flags &= ~RED_FLG)
 
-#define HARD_DEBUG /*SVERK*/
+/* #define HARD_DEBUG */
 #ifdef HARD_DEBUG
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE) rbt_assert_is_member(ROOT,NODE)
 #  define HARD_CHECK_TREE(TREE,SZ) check_tree(TREE, SZ)
@@ -79,6 +125,134 @@ typedef struct {
     char* end;
 }ErtsFreeSegDesc;
 
+typedef struct {
+    RBTree stree;
+    RBTree atree;
+}ErtsFreeSegMap;
+
+static struct {
+    int (*reserve_physical)(char *, UWord);
+    void (*unreserve_physical)(char *, UWord);
+    int supercarrier;
+    int no_os_mmap;
+    /*
+     * Super unaligend area is located above super aligned
+     * area. That is, `sa.bot` is beginning of the super
+     * carrier, `sua.top` is the end of the super carrier,
+     * and sa.top and sua.bot moves towards eachother.
+     */
+    struct {
+	char *top;
+	char *bot;
+	ErtsFreeSegMap map;
+    } sua;
+    struct {
+	char *top;
+	char *bot;
+	ErtsFreeSegMap map;
+    } sa;
+#if HAVE_MMAP && (!defined(MAP_ANON) && !defined(MAP_ANONYMOUS))
+    int mmap_fd;
+#endif
+    erts_smp_mtx_t mtx;
+    char *desc_free_list;
+    struct {
+	struct {
+	    UWord total;
+	    struct {
+		UWord total;
+		UWord sa;
+		UWord sua;
+	    } used;
+	} supercarrier;
+	struct {
+	    UWord used;
+	} os;
+    } size;
+} mmap_state;
+
+#define ERTS_MMAP_SIZE_SC_SA_INC(SZ) 						\
+    do {									\
+	mmap_state.size.supercarrier.used.total += (SZ);			\
+	mmap_state.size.supercarrier.used.sa += (SZ);				\
+	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.total		\
+			 <= mmap_state.size.supercarrier.total);		\
+	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.sa			\
+			 <= mmap_state.size.supercarrier.used.total);		\
+    } while (0)
+#define ERTS_MMAP_SIZE_SC_SA_DEC(SZ) 						\
+    do {									\
+	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.total >= (SZ));	\
+	mmap_state.size.supercarrier.used.total -= (SZ);			\
+	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.sa >= (SZ));		\
+	mmap_state.size.supercarrier.used.sa -= (SZ);				\
+    } while (0)
+#define ERTS_MMAP_SIZE_SC_SUA_INC(SZ) 						\
+    do {									\
+	mmap_state.size.supercarrier.used.total += (SZ);			\
+	mmap_state.size.supercarrier.used.sua += (SZ);				\
+	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.total		\
+			 <= mmap_state.size.supercarrier.total);		\
+	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.sua			\
+			 <= mmap_state.size.supercarrier.used.total);		\
+    } while (0)
+#define ERTS_MMAP_SIZE_SC_SUA_DEC(SZ) 						\
+    do {									\
+	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.total >= (SZ));	\
+	mmap_state.size.supercarrier.used.total -= (SZ);			\
+	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.sua >= (SZ));	\
+	mmap_state.size.supercarrier.used.sua -= (SZ);				\
+    } while (0)
+#define ERTS_MMAP_SIZE_OS_INC(SZ)						\
+    do {									\
+	ERTS_MMAP_ASSERT(mmap_state.size.os.used + (SZ) >= (SZ));		\
+	mmap_state.size.os.used += (SZ);					\
+    } while (0)
+#define ERTS_MMAP_SIZE_OS_DEC(SZ) 						\
+    do {									\
+	ERTS_MMAP_ASSERT(mmap_state.size.os.used >= (SZ));			\
+	mmap_state.size.os.used -= (SZ);					\
+    } while (0)
+
+static void
+add_free_desc_area(char *start, char *end)
+{
+    if (end > start && sizeof(ErtsFreeSegDesc) <= end - start) {
+	ErtsFreeSegDesc *prev_desc, *desc;
+	char *desc_end;
+
+	prev_desc = (ErtsFreeSegDesc *) start;
+	prev_desc->start = mmap_state.desc_free_list;
+	desc = (ErtsFreeSegDesc *) (start + sizeof(ErtsFreeSegDesc));
+	desc_end = start + 2*sizeof(ErtsFreeSegDesc);
+
+	while (desc_end <= end) {
+	    desc->start = (char *) prev_desc;
+	    prev_desc = desc;
+	    desc = (ErtsFreeSegDesc *) desc_end;
+	    desc_end += sizeof(ErtsFreeSegDesc);
+	}
+	mmap_state.desc_free_list = (char *) prev_desc;
+    }
+}
+
+static ERTS_INLINE ErtsFreeSegDesc *
+alloc_desc(void)
+{
+    ErtsFreeSegDesc *res;
+    res = (ErtsFreeSegDesc *) mmap_state.desc_free_list;
+    if (res)
+	mmap_state.desc_free_list = res->start;
+    return res;
+}
+
+static ERTS_INLINE void
+free_desc(ErtsFreeSegDesc *desc)
+{
+    desc->start = mmap_state.desc_free_list;
+    mmap_state.desc_free_list = (char *) desc;
+}
+
 static ERTS_INLINE ErtsFreeSegDesc* anode_to_desc(RBTNode* anode)
 {
     return (ErtsFreeSegDesc*) ((char*)anode - offsetof(ErtsFreeSegDesc, anode));
@@ -93,12 +267,6 @@ static ERTS_INLINE ErtsFreeSegDesc* node_to_desc(enum SortOrder order, RBTNode* 
 {
     return order==ADDR_ORDER ? anode_to_desc(node) : snode_to_desc(node);
 }
-
-typedef struct {
-    RBTree stree;
-    RBTree atree;
-}ErtsFreeSegMap;
-
 
 #ifdef HARD_DEBUG
 static ERTS_INLINE SWord cmp_blocks(enum SortOrder order,
@@ -671,19 +839,927 @@ static ErtsFreeSegDesc* lookup_free_seg(ErtsFreeSegMap* map, SWord need_sz)
     return best_desc;
 }
 
+#if ERTS_HAVE_OS_MMAP
+/* Implementation of os_mmap()/os_munmap()/os_mremap()... */
 
-void erts_mmap_init(ErtsMMapInit* init)
+#if HAVE_MMAP
+#  define ERTS_MMAP_PROT		(PROT_READ|PROT_WRITE)
+#  if defined(MAP_ANONYMOUS)
+#    define ERTS_MMAP_FLAGS		(MAP_ANON|MAP_PRIVATE)
+#    define ERTS_MMAP_FD		(-1)
+#  elif defined(MAP_ANON)
+#    define ERTS_MMAP_FLAGS		(MAP_ANON|MAP_PRIVATE)
+#    define ERTS_MMAP_FD		(-1)
+#  else
+#    define ERTS_MMAP_FLAGS		(MAP_PRIVATE)
+#    define ERTS_MMAP_FD		mmap_state.mmap_fd
+#  endif
+#endif
+
+static ERTS_INLINE void *
+os_mmap(UWord size, int try_superalign)
 {
-#ifdef HARD_DEBUG
-    erts_fprintf(stderr, "SVERK: scs = %bpu\n", init->scs);
-    erts_fprintf(stderr, "SVERK: sco = %i\n", init->sco);
-    erts_fprintf(stderr, "SVERK: scmgc = %i\n", init->scmgc);
+#if HAVE_MMAP
+    void *res;
+#ifdef MAP_ALIGN
+    if (try_superalign)
+	res = mmap((void *) ERTS_SUPERALIGNED_SIZE, size, ERTS_MMAP_PROT,
+		   ERTS_MMAP_FLAGS|MAP_ALIGN, ERTS_MMAP_FD, 0);
+    else
+#endif
+	res = mmap((void *) 0, size, ERTS_MMAP_PROT,
+		   ERTS_MMAP_FLAGS, ERTS_MMAP_FD, 0);
+    if (res == MAP_FAILED)
+	return NULL;
+    return res;
+#elif HAVE_VIRTUALALLOC
+    return (void *) VirtualAlloc(NULL, (SIZE_T) size,
+				 MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+#else
+#  error "missing mmap() or similar"
+#endif
+}
 
+static ERTS_INLINE void
+os_munmap(void *ptr, UWord size)
+{
+#if HAVE_MMAP
+#ifdef ERTS_MMAP_DEBUG
+    int res =
+#endif
+	munmap(ptr, size);
+    ERTS_MMAP_ASSERT(res == 0);
+#elif HAVE_VIRTUALALLOC
+#ifdef DEBUG
+    BOOL res =
+#endif
+	VirtualFree((LPVOID) ptr, (SIZE_T) 0, MEM_RELEASE);
+    ERTS_MMAP_ASSERT(res != 0);
+#else
+#  error "missing munmap() or similar"
+#endif
+}
+
+#ifdef ERTS_HAVE_OS_MREMAP
+#  if HAVE_MREMAP
+#    if defined(__NetBSD__)
+#      define ERTS_MREMAP_FLAGS  (0)
+#    else
+#      define ERTS_MREMAP_FLAGS  (MREMAP_MAYMOVE)
+#    endif
+#  endif
+static ERTS_INLINE void *
+os_mremap(void *ptr, UWord old_size, UWord new_size, int try_superalign)
+{
+    void *new_seg;
+#if HAVE_MREMAP
+    new_seg = mremap(ptr, (size_t) old_size,
+#  if defined(__NetBSD__)
+		     NULL,
+#  endif
+		     (size_t) new_size, ERTS_MREMAP_FLAGS);
+    if (new_seg == (void *) MAP_FAILED)
+	return NULL;
+    return new_seg;
+#else
+#  error "missing mremap() or similar"
+#endif
+}
+#endif
+
+#ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
+#if HAVE_MMAP
+
+#define ERTS_MMAP_RESERVE_PROT		(ERTS_MMAP_PROT)
+#define ERTS_MMAP_RESERVE_FLAGS		(ERTS_MMAP_FLAGS|MAP_FIXED)
+#define ERTS_MMAP_UNRESERVE_PROT	(PROT_NONE)
+#define ERTS_MMAP_UNRESERVE_FLAGS	(ERTS_MMAP_FLAGS|MAP_NORESERVE|MAP_FIXED)
+#define ERTS_MMAP_VIRTUAL_PROT		(PROT_NONE)
+#define ERTS_MMAP_VIRTUAL_FLAGS		(ERTS_MMAP_FLAGS|MAP_NORESERVE)
+
+static int
+os_reserve_physical(char *ptr, UWord size)
+{
+    void *res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_RESERVE_PROT,
+		     ERTS_MMAP_RESERVE_FLAGS, ERTS_MMAP_FD, 0);
+    if (res == (void *) MAP_FAILED)
+	return 0;
+    return 1;
+}
+
+static void
+os_unreserve_physical(char *ptr, UWord size)
+{
+    void *res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_UNRESERVE_PROT,
+		     ERTS_MMAP_UNRESERVE_FLAGS, ERTS_MMAP_FD, 0);
+    if (res == (void *) MAP_FAILED)
+	erl_exit(ERTS_ABORT_EXIT, "Failed to unreserve memory");
+}
+
+static void *
+os_mmap_virtual(char *ptr, UWord size)
+{
+    void *res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_VIRTUAL_PROT,
+		     ERTS_MMAP_VIRTUAL_FLAGS, ERTS_MMAP_FD, 0);
+    if (res == (void *) MAP_FAILED)
+	return NULL;
+    return res;
+}
+
+#else
+#error "Missing reserve/unreserve physical memory implementation"
+#endif
+#endif /* ERTS_HAVE_OS_RESERVE_PHYSICAL_MEMORY */
+
+#endif /* ERTS_HAVE_OS_MMAP */
+
+static int reserve_noop(char *ptr, UWord size)
+{
+#ifdef ERTS_MMAP_DEBUG_FILL_AREAS
+    Uint32 *uip, *end = (Uint32 *) (ptr + size);
+
+    for (uip = (Uint32 *) ptr; uip < end; uip++)
+	ERTS_MMAP_ASSERT(*uip == (Uint32) 0xdeadbeef);
+    for (uip = (Uint32 *) ptr; uip < end; uip++)
+	*uip = (Uint32) 0xfeedfeed;
+#endif
+    return 1;
+}
+
+static void unreserve_noop(char *ptr, UWord size)
+{
+#ifdef ERTS_MMAP_DEBUG_FILL_AREAS
+    Uint32 *uip, *end = (Uint32 *) (ptr + size);
+
+    for (uip = (Uint32 *) ptr; uip < end; uip++)
+	*uip = (Uint32) 0xdeadbeef;
+#endif
+}
+
+void *
+erts_mmap(Uint32 flags, UWord *sizep)
+{
+    char *seg;
+    UWord asize = ERTS_PAGEALIGNED_CEILING(*sizep);
+
+    /* Map in premapped supercarrier */
+    if (mmap_state.supercarrier && !(ERTS_MMAPFLG_OS_ONLY & flags)) {
+	char *end;
+	ErtsFreeSegDesc *desc;
+	Uint32 superaligned = (ERTS_MMAPFLG_SUPERALIGNED & flags);
+
+	erts_smp_mtx_lock(&mmap_state.mtx);
+
+	if (!superaligned) {
+	    desc = lookup_free_seg(&mmap_state.sua.map, asize);
+	    if (desc) {
+		seg = desc->start;
+		end = seg+asize;
+		if (!mmap_state.reserve_physical(seg, asize))
+		    goto supercarrier_reserve_failure;
+		if (desc->end == end) {
+		    delete_free_seg(&mmap_state.sua.map, desc);
+		    free_desc(desc);
+		}
+		else {
+		    ERTS_MMAP_ASSERT(end < desc->end);
+		    resize_free_seg(&mmap_state.sua.map, desc, end, desc->end);
+		}
+		ERTS_MMAP_SIZE_SC_SUA_INC(asize);
+		goto supercarrier_success;
+	    }
+
+	    if (asize <= mmap_state.sua.bot - mmap_state.sa.top) {
+		if (!mmap_state.reserve_physical(mmap_state.sua.bot - asize,
+						 asize))
+		    goto supercarrier_reserve_failure;
+		mmap_state.sua.bot -= asize;
+		seg = mmap_state.sua.bot;
+		ERTS_MMAP_SIZE_SC_SUA_INC(asize);
+		goto supercarrier_success;
+	    }
+	}
+
+	asize = ERTS_SUPERALIGNED_CEILING(asize);
+
+	desc = lookup_free_seg(&mmap_state.sa.map, asize);
+	if (desc) {
+	    seg = desc->start;
+	    end = seg+asize;
+	    if (!mmap_state.reserve_physical(seg, asize))
+		goto supercarrier_reserve_failure;
+	    if (desc->end == end) {
+		delete_free_seg(&mmap_state.sa.map, desc);
+		free_desc(desc);
+	    }
+	    else {
+		ERTS_MMAP_ASSERT(end < desc->end);
+		resize_free_seg(&mmap_state.sa.map, desc, end, desc->end);
+	    }
+	    ERTS_MMAP_SIZE_SC_SA_INC(asize);
+	    goto supercarrier_success;
+	}
+
+	if (superaligned) {
+
+	    if (asize <= mmap_state.sua.bot - mmap_state.sa.top) {
+		seg = (void *) mmap_state.sa.top;
+		if (!mmap_state.reserve_physical(seg, asize))
+		    goto supercarrier_reserve_failure;
+		mmap_state.sa.top += asize;
+		ERTS_MMAP_SIZE_SC_SA_INC(asize);
+		goto supercarrier_success;
+	    }
+
+	    desc = lookup_free_seg(&mmap_state.sua.map, asize + ERTS_SUPERALIGNED_SIZE);
+	    if (desc) {
+		char *org_start = desc->start;
+		char *org_end = desc->end;
+
+		seg = (char *) ERTS_SUPERALIGNED_CEILING(org_start);
+		end = seg + asize;
+		if (!mmap_state.reserve_physical(seg, asize))
+		    goto supercarrier_reserve_failure;
+		if (org_start != seg) {
+		    ERTS_MMAP_ASSERT(org_start < seg);
+		    resize_free_seg(&mmap_state.sua.map, desc, org_start, seg);
+		    desc = NULL;
+		}
+		if (end != org_end) {
+		    ERTS_MMAP_ASSERT(end < org_end);
+		    if (desc)
+			resize_free_seg(&mmap_state.sua.map, desc, end, org_end);
+		    else {
+			desc = alloc_desc();
+			if (!desc)
+			    add_free_desc_area(end, org_end);
+			else
+			    insert_free_seg(&mmap_state.sua.map, desc, end, org_end);
+		    }
+		}
+		ERTS_MMAP_SIZE_SC_SA_INC(asize);
+		goto supercarrier_success;
+	    }
+	}
+
+	erts_smp_mtx_unlock(&mmap_state.mtx);
+    }
+
+#if ERTS_HAVE_OS_MMAP
+    /* Map using OS primitives */
+    if (!(ERTS_MMAPFLG_SUPERCARRIER_ONLY & flags) && !mmap_state.no_os_mmap) {
+	if (!(ERTS_MMAPFLG_SUPERALIGNED & flags)) {
+	    seg = os_mmap(asize, 0);
+	    if (!seg)
+		return NULL;
+	}
+	else {
+	    asize = ERTS_SUPERALIGNED_CEILING(*sizep);
+	    seg = os_mmap(asize, 1);
+	    if (!seg)
+		return NULL;
+
+	    if (!ERTS_IS_SUPERALIGNED(seg)) {
+		char *ptr;
+		UWord sz;
+
+		os_munmap(seg, asize);
+
+		ptr = os_mmap(asize + ERTS_SUPERALIGNED_SIZE, 1);
+		if (!ptr)
+		    return NULL;
+
+		seg = (char *) ERTS_SUPERALIGNED_CEILING(ptr);
+		sz = (UWord) (seg - ptr);
+		ERTS_MMAP_ASSERT(sz <= ERTS_SUPERALIGNED_SIZE);
+		if (sz)
+		    os_munmap(ptr, sz);
+		sz = ERTS_SUPERALIGNED_SIZE - sz; 
+		if (sz)
+		    os_munmap(seg+asize, sz);
+	    }
+	}
+
+	ERTS_MMAP_SIZE_OS_INC(asize);
+	*sizep = asize;
+	return (void *) seg;
+    }
+#endif
+    *sizep = 0;
+    return NULL;
+
+supercarrier_success:
+
+#ifdef ERTS_MMAP_DEBUG
+    if ((ERTS_MMAPFLG_SUPERALIGNED & flags)
+	|| ERTS_MMAP_IN_SUPERALIGNED_AREA(seg)) {
+	ERTS_MMAP_ASSERT(ERTS_IS_SUPERALIGNED(seg));
+	ERTS_MMAP_ASSERT(ERTS_IS_SUPERALIGNED(asize));
+    }
+    else {
+	ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(seg));
+	ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(asize));
+    }
+#endif
+
+    erts_smp_mtx_unlock(&mmap_state.mtx);
+
+    *sizep = asize;
+    return (void *) seg;
+
+supercarrier_reserve_failure:
+    erts_smp_mtx_unlock(&mmap_state.mtx);
+
+    *sizep = 0;
+    return NULL;
+
+}
+
+void
+erts_munmap(Uint32 flags, void **ptrp, UWord *sizep)
+{
+    void *ptr = *ptrp;
+    UWord size = *sizep;
+    ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(ptr));
+    ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(size));
+    if (!ERTS_MMAP_IN_SUPERCARRIER(ptr)) {
+	ERTS_MMAP_ASSERT(!mmap_state.no_os_mmap);
+#if ERTS_HAVE_OS_MMAP
+	ERTS_MMAP_SIZE_OS_DEC(size);
+	os_munmap(ptr, size);
+#endif
+    }
+    else {
+	char *start, *end;
+	ErtsFreeSegMap *map;
+	ErtsFreeSegDesc *prev, *next, *desc;
+
+	ERTS_MMAP_ASSERT(mmap_state.supercarrier);
+
+	start = (char *) ptr;
+	end = start + size;
+
+	erts_smp_mtx_lock(&mmap_state.mtx);
+
+	if (ERTS_MMAP_IN_SUPERALIGNED_AREA(ptr)) {
+
+	    start = (char *) ERTS_SUPERALIGNED_CEILING(start);
+	    end = (char *) ERTS_SUPERALIGNED_FLOOR(end);
+
+	    size = (UWord) (end - start);
+	    *ptrp = start;
+	    *sizep = size;
+
+	    map = &mmap_state.sa.map;
+	    adjacent_free_seg(map, start, end, &prev, &next);
+
+	    ERTS_MMAP_SIZE_SC_SA_DEC(size);
+	    if (end == mmap_state.sa.top) {
+		ERTS_MMAP_ASSERT(!next);
+		if (prev) {
+		    start = prev->start;
+		    delete_free_seg(map, prev);
+		    free_desc(prev);
+		}
+		mmap_state.sa.top = start;
+		goto supercarrier_success;
+	    }
+	}
+	else {
+	    ERTS_MMAP_ASSERT(ERTS_MMAP_IN_SUPERUNALIGNED_AREA(ptr));
+
+	    map = &mmap_state.sua.map;
+	    adjacent_free_seg(map, start, end, &prev, &next);
+
+	    ERTS_MMAP_SIZE_SC_SUA_DEC(size);
+	    if (start == mmap_state.sua.bot) {
+		ERTS_MMAP_ASSERT(!prev);
+		if (next) {
+		    end = next->end;
+		    delete_free_seg(map, next);
+		    free_desc(next);
+		}
+		mmap_state.sua.bot = end;
+		goto supercarrier_success;
+	    }
+	}
+
+	desc = NULL;
+
+	if (next) {
+	    ERTS_MMAP_ASSERT(end < next->end);
+	    end = next->end;
+	    if (prev) {
+		delete_free_seg(map, next);
+		free_desc(next);
+		goto save_prev;
+	    }
+	    desc = next;
+	} else if (prev) {
+	save_prev:
+	    ERTS_MMAP_ASSERT(prev->start < start);
+	    start = prev->start;
+	    desc = prev;
+	}
+
+	if (desc)
+	    resize_free_seg(map, desc, start, end);
+	else {
+	    desc = alloc_desc();
+	    if (desc)
+		insert_free_seg(map, desc, start, end);
+	    else {
+		if (map == &mmap_state.sa.map)
+		    ERTS_MMAP_SIZE_SC_SA_INC(size);
+		else
+		    ERTS_MMAP_SIZE_SC_SUA_INC(size);
+		add_free_desc_area(start, end);
+	    }
+	}
+
+    supercarrier_success:
+	erts_smp_mtx_unlock(&mmap_state.mtx);
+
+	mmap_state.unreserve_physical((char *) ptr, size);
+    }
+}
+
+static void *
+remap_move(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
+{
+    UWord size = *sizep;
+    UWord um_size = old_size;
+    void *um_ptr = ptr;
+    void *new_ptr = erts_mmap(flags, &size);
+    if (!new_ptr)
+	return NULL;
+    *sizep = size;
+    if (old_size < size)
+	size = old_size;
+    sys_memcpy(new_ptr, ptr, (size_t) size);
+    erts_munmap(flags, &um_ptr, &um_size);
+    ERTS_MMAP_ASSERT(um_ptr == ptr);
+    ERTS_MMAP_ASSERT(um_size == old_size);
+    return new_ptr;
+}
+
+void *
+erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
+{
+    void *new_ptr;
+    Uint32 superaligned;
+    UWord asize;
+
+    ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(ptr));
+    ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(old_size));
+    ERTS_MMAP_ASSERT(sizep && ERTS_IS_PAGEALIGNED(*sizep));
+
+    if (!ERTS_MMAP_IN_SUPERCARRIER(ptr)) {
+
+	ERTS_MMAP_ASSERT(!mmap_state.no_os_mmap);
+
+	if (!(ERTS_MMAPFLG_OS_ONLY & flags) && mmap_state.supercarrier) {
+	    new_ptr = remap_move(ERTS_MMAPFLG_SUPERCARRIER_ONLY|flags, ptr,
+				 old_size, sizep);
+	    if (new_ptr)
+		return new_ptr;
+	}
+
+	if (ERTS_MMAPFLG_SUPERCARRIER_ONLY & flags)
+	    return NULL;
+
+#if ERTS_HAVE_OS_MREMAP || ERTS_HAVE_GENUINE_OS_MMAP
+	superaligned = (ERTS_MMAPFLG_SUPERALIGNED & flags);
+
+	if (superaligned) {
+	    asize = ERTS_SUPERALIGNED_CEILING(*sizep);
+	    if (asize == old_size && ERTS_IS_SUPERALIGNED(ptr)) {
+		*sizep = asize;
+		return ptr;
+	    }
+	}
+	else {
+	    asize = ERTS_PAGEALIGNED_CEILING(*sizep);
+	    if (asize == old_size) {
+		*sizep = asize;
+		return ptr;
+	    }
+	}
+
+#if ERTS_HAVE_GENUINE_OS_MMAP
+	if (asize < old_size
+	    && (!superaligned
+		|| ERTS_IS_SUPERALIGNED(ptr))) {
+	    UWord um_sz;
+	    new_ptr = ((char *) ptr) + asize;
+	    ERTS_MMAP_ASSERT((((char *)ptr) + old_size) > (char *) new_ptr);
+	    um_sz = (UWord) ((((char *) ptr) + old_size) - (char *) new_ptr); 
+	    ERTS_MMAP_SIZE_OS_DEC(um_sz);
+	    os_munmap(new_ptr, um_sz);
+	    *sizep = asize;
+	    return ptr;
+	}
+#endif
+#if ERTS_HAVE_OS_MREMAP
+	if (superaligned)
+	    return remap_move(flags, new_ptr, old_size, sizep);
+	else {
+	    new_ptr = os_mremap(ptr, old_size, asize, 0);
+	    if (!new_ptr)
+		return NULL;
+	    if (asize > old_size)
+		ERTS_MMAP_SIZE_OS_INC(asize - old_size);
+	    else
+		ERTS_MMAP_SIZE_OS_DEC(old_size - asize);
+	    *sizep = asize;
+	    return new_ptr;
+	}
+#endif
+#endif
+    }
+    else { /* In super carrier */
+	char *start, *end, *new_end;
+	ErtsFreeSegMap *map;
+	ErtsFreeSegDesc *prev, *next, *desc;
+
+	ERTS_MMAP_ASSERT(mmap_state.supercarrier);
+
+	if (ERTS_MMAPFLG_OS_ONLY & flags)
+	    return remap_move(flags, ptr, old_size, sizep);
+
+	superaligned = (ERTS_MMAPFLG_SUPERALIGNED & flags);
+
+	asize = (superaligned
+		 ? ERTS_SUPERALIGNED_CEILING(*sizep)
+		 : ERTS_PAGEALIGNED_CEILING(*sizep));
+
+	erts_smp_mtx_lock(&mmap_state.mtx);
+
+	if (ERTS_MMAP_IN_SUPERALIGNED_AREA(ptr)
+	    ? (!superaligned && lookup_free_seg(&mmap_state.sua.map, asize))
+	    : (superaligned && lookup_free_seg(&mmap_state.sa.map, asize))) {
+	    erts_smp_mtx_unlock(&mmap_state.mtx);
+	    /*
+	     * Segment currently in wrong area (due to a previous memory
+	     * shortage), move it to the right area.
+	     * (remap_move() will succeed)
+	     */
+	    return remap_move(ERTS_MMAPFLG_SUPERCARRIER_ONLY|flags, ptr,
+			      old_size, sizep);
+	}
+
+	if (asize == old_size) {
+	    new_ptr = ptr;
+	    goto supercarrier_resize_success;
+	}
+
+	start = (char *) ptr;
+	end = start + old_size;
+	new_end = start+asize;
+
+	if (asize < old_size) {
+	    new_ptr = ptr;
+	    if (!ERTS_MMAP_IN_SUPERALIGNED_AREA(ptr)) {
+		ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(ptr));
+		ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(old_size));
+		ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(asize));
+		map = &mmap_state.sua.map;
+		ERTS_MMAP_SIZE_SC_SUA_DEC(old_size - asize);
+	    }
+	    else {
+		ERTS_MMAP_ASSERT(ERTS_IS_SUPERALIGNED(ptr));
+		ERTS_MMAP_ASSERT(ERTS_IS_SUPERALIGNED(old_size));
+		if (!superaligned) {
+		    /* must be a superaligned size in this area */
+		    asize = ERTS_SUPERALIGNED_CEILING(asize);
+		    ERTS_MMAP_ASSERT(asize <= old_size);
+		    if (asize == old_size)
+			goto supercarrier_resize_success;
+		    new_end = start+asize;
+		}
+		ERTS_MMAP_ASSERT(ERTS_IS_SUPERALIGNED(asize));
+		if (end == mmap_state.sa.top) {
+		    mmap_state.sa.top = new_end;
+		    mmap_state.unreserve_physical(((char *) ptr) + asize,
+						  old_size - asize);
+		    goto supercarrier_resize_success;
+		}
+		ERTS_MMAP_SIZE_SC_SA_DEC(old_size - asize);
+		map = &mmap_state.sa.map;
+	    }
+	    
+	    adjacent_free_seg(map, start, end, &prev, &next);
+
+	    if (next)
+		resize_free_seg(map, next, new_end, next->end);
+	    else {
+		desc = alloc_desc();
+		if (desc)
+		    insert_free_seg(map, desc, new_end, end);
+		else {
+		    if (map == &mmap_state.sa.map)
+			ERTS_MMAP_SIZE_SC_SA_INC(old_size - asize);
+		    else
+			ERTS_MMAP_SIZE_SC_SUA_INC(old_size - asize);
+		    add_free_desc_area(new_end, end);
+		    goto supercarrier_resize_success;
+		}
+	    }
+	    mmap_state.unreserve_physical(((char *) ptr) + asize,
+					  old_size - asize);
+	    goto supercarrier_resize_success;
+	}
+
+	if (!ERTS_MMAP_IN_SUPERALIGNED_AREA(ptr)) {
+	    ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(ptr));
+	    ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(old_size));
+	    ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(asize));
+
+	    adjacent_free_seg(&mmap_state.sua.map, start, end, &prev, &next);
+
+	    if (next && new_end <= next->end) {
+		if (!mmap_state.reserve_physical(((char *) ptr) + old_size,
+						 asize - old_size))
+		    goto supercarrier_reserve_failure;
+		if (new_end < next->end)
+		    resize_free_seg(&mmap_state.sua.map, next, new_end, next->end);
+		else {
+		    delete_free_seg(&mmap_state.sua.map, next);
+		    free_desc(next);
+		}
+		new_ptr = ptr;
+		ERTS_MMAP_SIZE_SC_SUA_INC(asize - old_size);
+		goto supercarrier_resize_success;
+	    }
+	}
+	else { /* Superaligned area */
+	    ERTS_MMAP_ASSERT(ERTS_IS_SUPERALIGNED(ptr));
+	    ERTS_MMAP_ASSERT(ERTS_IS_SUPERALIGNED(old_size));
+
+	    if (!superaligned) {
+		/* must be a superaligned size in this area */
+		asize = ERTS_PAGEALIGNED_CEILING(asize);
+		new_end = start+asize;
+	    }
+
+	    ERTS_MMAP_ASSERT(ERTS_IS_SUPERALIGNED(asize));
+
+	    if (end == mmap_state.sa.top) {
+		if (new_end <= mmap_state.sua.bot) {
+		    if (!mmap_state.reserve_physical(((char *) ptr) + old_size,
+						     asize - old_size))
+			goto supercarrier_reserve_failure;
+		    mmap_state.sa.top = new_end;
+		    new_ptr = ptr;
+		    ERTS_MMAP_SIZE_SC_SA_INC(asize - old_size);
+		    goto supercarrier_resize_success;
+		}
+	    }
+	    else {
+		adjacent_free_seg(&mmap_state.sa.map, start, end, &prev, &next);
+		if (next && new_end <= next->end) {
+		    if (!mmap_state.reserve_physical(((char *) ptr) + old_size,
+						     asize - old_size))
+			goto supercarrier_reserve_failure;
+		    if (new_end < next->end)
+			resize_free_seg(&mmap_state.sa.map, next, new_end, next->end);
+		    else {
+			delete_free_seg(&mmap_state.sa.map, next);
+			free_desc(next);
+		    }
+		    new_ptr = ptr;
+		    ERTS_MMAP_SIZE_SC_SA_INC(asize - old_size);
+		    goto supercarrier_resize_success;
+		}
+	    }
+	}
+	erts_smp_mtx_unlock(&mmap_state.mtx);
+
+	/* Failed to resize... */
+    }
+
+    return remap_move(flags, ptr, old_size, sizep);
+
+supercarrier_resize_success:
+
+#ifdef ERTS_MMAP_DEBUG
+    if ((ERTS_MMAPFLG_SUPERALIGNED & flags)
+	|| ERTS_MMAP_IN_SUPERALIGNED_AREA(new_ptr)) {
+	ERTS_MMAP_ASSERT(ERTS_IS_SUPERALIGNED(new_ptr));
+	ERTS_MMAP_ASSERT(ERTS_IS_SUPERALIGNED(asize));
+    }
+    else {
+	ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(new_ptr));
+	ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(asize));
+    }
+#endif
+
+    erts_smp_mtx_unlock(&mmap_state.mtx);
+
+    *sizep = asize;
+    return new_ptr;
+
+supercarrier_reserve_failure:
+
+    erts_smp_mtx_unlock(&mmap_state.mtx);
+    *sizep = 0;
+    return NULL;
+    
+}
+
+int erts_mmap_in_supercarrier(void *ptr)
+{
+    return ERTS_MMAP_IN_SUPERCARRIER(ptr);
+}
+
+void
+erts_mmap_init(ErtsMMapInit *init)
+{
+    int virtual_map = 0;
+    char *start = NULL, *end = NULL;
+    UWord pagesize;
+#if defined(__WIN32__)
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    pagesize = (UWord) sysinfo.dwPageSize;
+#elif defined(_SC_PAGESIZE)
+    pagesize = (UWord) sysconf(_SC_PAGESIZE);
+#elif defined(HAVE_GETPAGESIZE)
+    pagesize = (UWord) getpagesize();
+#else
+#  error "Do not know how to get page size"
+#endif
+#if defined(HARD_DEBUG)  || 0
+    erts_fprintf(stderr, "erts_mmap: scs = %bpu\n", init->scs);
+    erts_fprintf(stderr, "erts_mmap: sco = %i\n", init->sco);
+    erts_fprintf(stderr, "erts_mmap: scmgc = %i\n", init->scmgc);
+#endif
+    erts_page_inv_mask = pagesize - 1;
+    if (pagesize & erts_page_inv_mask)
+	erl_exit(-1, "erts_mmap: Invalid pagesize: %bpu\n",
+		 pagesize);
+
+    erts_have_erts_mmap = 0;
+
+    mmap_state.reserve_physical = reserve_noop;
+    mmap_state.unreserve_physical = unreserve_noop;
+
+#if HAVE_MMAP && !defined(MAP_ANON)
+    mmap_state.mmap_fd = open("/dev/zero", O_RDWR);
+    if (mmap_state.mmap_fd < 0)
+	erl_exit(-1, "erts_mmap: Failed to open /dev/zero\n");
+#endif
+
+    erts_smp_mtx_init(&mmap_state.mtx, "erts_mmap");
+
+#ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
+    if (init->virtual_range.start) {
+	char *ptr;
+	UWord sz;
+	ptr = (char *) ERTS_PAGEALIGNED_CEILING(init->virtual_range.start);
+	end = (char *) ERTS_PAGEALIGNED_FLOOR(init->virtual_range.end);
+	sz = end - ptr;
+	start = os_mmap_virtual(ptr, sz);
+	if (!start || start > ptr || start >= end)
+	    erl_exit(-1,
+		     "erts_mmap: Failed to create virtual range for super carrier\n");
+	sz = start - ptr;
+	if (sz)
+	    os_munmap(end, sz);
+	mmap_state.reserve_physical = os_reserve_physical;
+	mmap_state.unreserve_physical = os_unreserve_physical;
+	virtual_map = 1;
+    }
+    else
+#endif
+	if (init->predefined_area.start) {
+	    start = init->predefined_area.start;
+	    end = init->predefined_area.end;
+	    if (end != (void *) 0 && end < start)
+		end = start;
+    }
+#if ERTS_HAVE_OS_MMAP
+    else if (init->scs) {
+	UWord sz;
+	sz = ERTS_PAGEALIGNED_CEILING(init->scs);
+#ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
+	if (!init->scrpm) {
+	    start = os_mmap_virtual(NULL, sz);
+	    mmap_state.reserve_physical = os_reserve_physical;
+	    mmap_state.unreserve_physical = os_unreserve_physical;
+	    virtual_map = 1;
+	}
+	else
+#endif
+	{
+	    /*
+	     * The whole supercarrier will by physically
+	     * reserved all the time.
+	     */
+	    start = os_mmap(sz, 1);
+	}
+	if (!start)
+	    erl_exit(-1,
+		     "erts_mmap: Failed to create super carrier of size %bpu MB\n",
+		     init->scs/1024/1024);
+	end = start + sz;
+#ifdef ERTS_MMAP_DEBUG_FILL_AREAS
+	if (!virtual_map) {
+	    Uint32 *uip;
+
+	    for (uip = (Uint32 *) start; uip < (Uint32 *) end; uip++)
+		*uip = (Uint32) 0xdeadbeef;
+	}
+#endif
+    }
+    if (!mmap_state.no_os_mmap)
+	erts_have_erts_mmap |= ERTS_HAVE_ERTS_OS_MMAP;
+#endif
+
+    mmap_state.size.supercarrier.total = 0;
+    mmap_state.size.supercarrier.used.total = 0;
+    mmap_state.size.supercarrier.used.sa = 0;
+    mmap_state.size.supercarrier.used.sua = 0;
+    mmap_state.size.os.used = 0;
+
+    if (!start) {
+	mmap_state.sa.bot = NULL;
+	mmap_state.sua.top = NULL;
+	mmap_state.sa.bot = NULL;
+	mmap_state.sua.top = NULL;
+	mmap_state.no_os_mmap = 0;
+    }
+    else {
+	size_t desc_size;
+
+	mmap_state.no_os_mmap = init->sco;
+
+	desc_size = init->scmgc;
+	if (desc_size < 100)
+	    desc_size = 100;
+	desc_size *= sizeof(ErtsFreeSegDesc);
+	if ((desc_size
+	     + ERTS_SUPERALIGNED_SIZE
+	     + ERTS_PAGEALIGNED_SIZE) > end - start)
+	    erl_exit(-1, "erts_mmap: No space for segments in super carrier\n");
+
+	mmap_state.sa.bot = start;
+	mmap_state.sa.bot += desc_size;
+	mmap_state.sa.bot = (char *) ERTS_SUPERALIGNED_CEILING(mmap_state.sa.bot);
+	mmap_state.sa.top = mmap_state.sa.bot;
+	mmap_state.sua.top = (char *) ERTS_SUPERALIGNED_FLOOR(end);
+	mmap_state.sua.bot = mmap_state.sua.top;
+
+	mmap_state.size.os.used += (UWord) (mmap_state.sa.bot - start);
+
+	if (end == (void *) 0) {
+	    /*
+	     * Very unlikely, but we need a guarantee
+	     * that `mmap_state.sua.top` always will
+	     * compare as larger than all segment pointers
+	     * into the super carrier...
+	     */
+	    mmap_state.sua.top -= ERTS_PAGEALIGNED_SIZE;
+	    mmap_state.size.os.used += ERTS_PAGEALIGNED_SIZE;
+	}
+
+	mmap_state.size.supercarrier.total = (UWord) (mmap_state.sua.top - mmap_state.sa.bot);
+
+	/*
+	 * Area before (and after) super carrier
+	 * will be used for free segment descritors.
+	 */
+	mmap_state.desc_free_list = NULL;
+#ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
+	if (virtual_map && mmap_state.sa.bot - start > 0)
+	    os_reserve_physical(start, mmap_state.sa.bot - start);
+#endif
+	add_free_desc_area(start, mmap_state.sa.bot);
+#ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
+	if (virtual_map && end - mmap_state.sua.top > 0)
+	    os_reserve_physical(mmap_state.sua.top, end - mmap_state.sua.top);
+#endif
+	add_free_desc_area(mmap_state.sua.top, end);
+
+	init_free_seg_map(&mmap_state.sa.map, 0);
+	init_free_seg_map(&mmap_state.sua.map, 1);
+
+	mmap_state.supercarrier = 1;
+	erts_have_erts_mmap |= ERTS_HAVE_ERTS_SUPERCARRIER_MMAP;
+
+
+#ifdef HARD_DEBUG
     {
         void test_it(void);
         test_it();
     }
 #endif
+
+    }
+#if !ERTS_HAVE_OS_MMAP
+    mmap_state.no_os_mmap = 1;
+#endif
+
 }
 
 
@@ -897,12 +1973,6 @@ print_tree(enum SortOrder order, RBTNode* root)
 
 #endif /* PRINT_TREE */
 
-
-static ErtsFreeSegDesc* new_desc(void)
-{
-    return (ErtsFreeSegDesc*) malloc(sizeof(ErtsFreeSegDesc));
-}
-
 void test_it(void)
 {
     ErtsFreeSegMap map;
@@ -912,13 +1982,13 @@ void test_it(void)
     for (i=0; i<2; i++) {
         init_free_seg_map(&map, i);
 
-        insert_free_seg(&map, new_desc(), (char*)0x11000, (char*)0x12000);
+        insert_free_seg(&map, alloc_desc(), (char*)0x11000, (char*)0x12000);
         check_tree(&map.atree, 0); check_tree(&map.stree, 0);
-        insert_free_seg(&map, new_desc(), (char*)0x13000, (char*)0x14000);
+        insert_free_seg(&map, alloc_desc(), (char*)0x13000, (char*)0x14000);
         check_tree(&map.atree, 0); check_tree(&map.stree, 0);
-        insert_free_seg(&map, new_desc(), (char*)0x15000, (char*)0x17000);
+        insert_free_seg(&map, alloc_desc(), (char*)0x15000, (char*)0x17000);
         check_tree(&map.atree, 0); check_tree(&map.stree, 0);
-        insert_free_seg(&map, new_desc(), (char*)0x8000, (char*)0x10000);
+        insert_free_seg(&map, alloc_desc(), (char*)0x8000, (char*)0x10000);
         check_tree(&map.atree, 0); check_tree(&map.stree, 0);
 
         desc = lookup_free_seg(&map, 0x500);

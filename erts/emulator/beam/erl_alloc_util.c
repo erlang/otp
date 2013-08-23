@@ -756,8 +756,9 @@ static ERTS_INLINE void *
 alcu_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
     void *res;
-
-    res = erts_mseg_alloc_opt(allctr->alloc_no, size_p, flags, &allctr->mseg_opt);
+    UWord size = (UWord) *size_p;
+    res = erts_mseg_alloc_opt(allctr->alloc_no, &size, flags, &allctr->mseg_opt);
+    *size_p = (Uint) size;
     INC_CC(allctr->calls.mseg_alloc);
     return res;
 }
@@ -766,9 +767,10 @@ static ERTS_INLINE void *
 alcu_mseg_realloc(Allctr_t *allctr, void *seg, Uint old_size, Uint *new_size_p)
 {
     void *res;
-
-    res = erts_mseg_realloc_opt(allctr->alloc_no, seg, old_size, new_size_p,
+    UWord new_size = (UWord) *new_size_p;
+    res = erts_mseg_realloc_opt(allctr->alloc_no, seg, (UWord) old_size, &new_size,
 				ERTS_MSEG_FLG_NONE, &allctr->mseg_opt);
+    *new_size_p = (Uint) new_size;
     INC_CC(allctr->calls.mseg_realloc);
     return res;
 }
@@ -776,7 +778,7 @@ alcu_mseg_realloc(Allctr_t *allctr, void *seg, Uint old_size, Uint *new_size_p)
 static ERTS_INLINE void
 alcu_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
 {
-    erts_mseg_dealloc_opt(allctr->alloc_no, seg, size, flags, &allctr->mseg_opt);
+    erts_mseg_dealloc_opt(allctr->alloc_no, seg, (UWord) size, flags, &allctr->mseg_opt);
     INC_CC(allctr->calls.mseg_dealloc);
 }
 
@@ -3223,10 +3225,12 @@ static void CHECK_1BLK_CARRIER(Allctr_t* A, int SBC, int MSEGED, Carrier_t* C,
 	ASSERT(IS_MBC_BLK((B)));
 	ASSERT(IS_MB_CARRIER((C)));
 	ASSERT(FBLK_TO_MBC(B) == (C));
+	if ((MSEGED)) {
+	    ASSERT_ERTS_SACRR_UNIT_SIZE_MULTIPLE((CSZ));
+	}
     }
     if ((MSEGED)) {
 	ASSERT(IS_MSEG_CARRIER((C)));
-	ASSERT_ERTS_SACRR_UNIT_SIZE_MULTIPLE((CSZ));
     }
     else {
 	ASSERT(IS_SYS_ALLOC_CARRIER((C)));
@@ -3598,7 +3602,6 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 
 #if HAVE_ERTS_MSEG
 	if (IS_MSEG_CARRIER(crr)) {
-	    ASSERT(crr_sz % ERTS_SACRR_UNIT_SZ == 0);
 	    STAT_MSEG_SBC_FREE(allctr, crr_sz, blk_sz);
 	}
 	else

@@ -185,7 +185,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "sys_gethrtime",                        NULL                    },
 #endif
 #endif
-    {	"erts_alloc_hard_debug",		NULL			}
+    {	"erts_alloc_hard_debug",		NULL			},
+    {	"erts_mmap",				NULL			}
 };
 
 #define ERTS_LOCK_ORDER_SIZE \

@@ -718,6 +718,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     init.mseg.nos = erts_no_schedulers;
     erts_mseg_init(&init.mseg);
 #endif
+
     erts_alcu_init(&init.alloc_util);
     erts_afalc_init();
     erts_bfalc_init();
@@ -1178,7 +1179,7 @@ static UWord
 get_mb_value(char *param_end, char** argv, int* ip)
 {
     SWord tmp;
-    UWord max = ((~((Uint) 0))/(1024*1024)) + 1;
+    UWord max = ((~((UWord) 0))/(1024*1024)) + 1;
     char *rest;
     char *param = argv[*ip]+1;
     char *value = get_value(param_end, argv, ip);
@@ -1478,6 +1479,12 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			init->mseg.mmap.sco =
 #endif
 			    get_bool_value(argv[i]+6, argv, &i);
+		    }
+		    else if (has_prefix("scrpm", argv[i]+3)) {
+#if HAVE_ERTS_MSEG
+			init->mseg.mmap.scrpm =
+#endif
+			    get_bool_value(argv[i]+8, argv, &i);
 		    }
 		    else if (has_prefix("scmgc", argv[i]+3)) {
 #if HAVE_ERTS_MSEG

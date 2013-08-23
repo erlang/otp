@@ -24,14 +24,14 @@
 #include "erl_alloc_types.h"
 #include "erl_mmap.h"
 
-#ifndef HAVE_MMAP
-#  define HAVE_MMAP 0
-#endif
-#ifndef HAVE_MREMAP
-#  define HAVE_MREMAP 0
-#endif
-
-#if HAVE_MMAP
+/*
+ * We currently only enable mseg_alloc if we got
+ * a genuine mmap()/munmap() primitive. It is possible
+ * to utilize erts_mmap() withiout a mmap support but
+ * alloc_util needs to be prepared before we can do
+ * that.
+ */
+#ifdef ERTS_HAVE_GENUINE_OS_MMAP
 #  define HAVE_ERTS_MSEG 1
 #  define ERTS_HAVE_MSEG_SUPER_ALIGNED 1
 #else
@@ -40,8 +40,7 @@
 #endif
 
 #if ERTS_HAVE_MSEG_SUPER_ALIGNED
-#  define MSEG_ALIGN_BITS (18)
-   /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
+#  define MSEG_ALIGN_BITS ERTS_MMAP_SUPERALIGNED_BITS
 #else
 /* If we don't use super aligned multiblock carriers
  * we will mmap with page size alignment (and thus use corresponding
@@ -77,7 +76,8 @@ typedef struct {
     4*1024*1024,	/* amcbf: Absolute max cache bad fit	*/	\
     20,			/* rmcbf: Relative max cache bad fit	*/	\
     10,			/* mcs:   Max cache size		*/	\
-    1000		/* cci:   Cache check interval		*/	\
+    1000,		/* cci:   Cache check interval		*/	\
+    ERTS_MMAP_INIT_DEFAULT_INITER					\
 }
 
 typedef struct {
@@ -93,12 +93,12 @@ typedef struct {
 
 extern const ErtsMsegOpt_t erts_mseg_default_opt;
 
-void *erts_mseg_alloc(ErtsAlcType_t, Uint *, Uint);
-void *erts_mseg_alloc_opt(ErtsAlcType_t, Uint *, Uint, const ErtsMsegOpt_t *);
-void  erts_mseg_dealloc(ErtsAlcType_t, void *, Uint, Uint);
-void  erts_mseg_dealloc_opt(ErtsAlcType_t, void *, Uint, Uint, const ErtsMsegOpt_t *);
-void *erts_mseg_realloc(ErtsAlcType_t, void *, Uint, Uint *, Uint);
-void *erts_mseg_realloc_opt(ErtsAlcType_t, void *, Uint, Uint *, Uint, const ErtsMsegOpt_t *);
+void *erts_mseg_alloc(ErtsAlcType_t, UWord *, Uint);
+void *erts_mseg_alloc_opt(ErtsAlcType_t, UWord *, Uint, const ErtsMsegOpt_t *);
+void  erts_mseg_dealloc(ErtsAlcType_t, void *, UWord, Uint);
+void  erts_mseg_dealloc_opt(ErtsAlcType_t, void *, UWord, Uint, const ErtsMsegOpt_t *);
+void *erts_mseg_realloc(ErtsAlcType_t, void *, UWord, UWord *, Uint);
+void *erts_mseg_realloc_opt(ErtsAlcType_t, void *, UWord, UWord *, Uint, const ErtsMsegOpt_t *);
 void  erts_mseg_clear_cache(void);
 void  erts_mseg_cache_check(void);
 Uint  erts_mseg_no( const ErtsMsegOpt_t *);
