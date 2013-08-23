@@ -1981,7 +1981,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
           thread, the following call can be used:</p>
         <p></p>
         <code type="none"><![CDATA[
-    unsigned int myKey = (unsigned int) myPort;
+    unsigned int myKey = driver_async_port_key(myPort);
 
     r = driver_async(myPort, &myKey, myData, myFunc);
         ]]></code>
@@ -2022,6 +2022,24 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
       </desc>
     </func>
     <func>
+      <name><ret>unsigned int</ret><nametext>driver_async_port_key (ErlDrvPort port)</nametext></name>
+      <fsummary>Calculate an async key from an ErlDrvPort</fsummary>
+      <desc>
+        <marker id="driver_async_port_key"></marker>
+        <p>This function calculates a key for later use in <seealso
+        marker="#driver_async">driver_async()</seealso>. The keys are
+        evenly distributed so that a fair mapping between port id's
+        and async thread id's is achieved.</p>
+	<note>
+	<p>Before OTP-R16, the actual port id could be used as a key
+	with proper casting, but after the rewrite of the port
+	subsystem, this is no longer the case. With this function, you
+	can achieve the same distribution based on port id's as before
+	OTP-R16.</p>
+	</note>
+      </desc>
+    </func>
+    <func>
       <name><ret>int</ret><nametext>driver_async_cancel(long id)</nametext></name>
       <fsummary>Cancel an asynchronous call</fsummary>
       <desc>
@@ -2033,10 +2051,10 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
 	   The user had to implement synchronization of cancellation anyway.
 	   It also unnecessarily complicated the implementation. Therefore,
 	   as of OTP-R15B <c>driver_async_cancel()</c> is deprecated, and
-	   scheduled for removal in OTP-R16. It will currently always fail,
+	   scheduled for removal in OTP-R17. It will currently always fail,
 	   and return 0.</p>
 	<warning><p><c>driver_async_cancel()</c> is deprecated and will
-	            be removed in the OTP-R16 release.</p>
+	            be removed in the OTP-R17 release.</p>
 	</warning>
 
       </desc>

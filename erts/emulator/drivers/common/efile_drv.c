@@ -772,6 +772,7 @@ file_init(void)
     return 0;
 }
 
+
 /*********************************************************************
  * Driver entry point -> start
  */
@@ -788,7 +789,7 @@ file_start(ErlDrvPort port, char* command)
     }
     desc->fd = FILE_FD_INVALID;
     desc->port = port;
-    desc->key = (unsigned int) (UWord) port;
+    desc->key = driver_async_port_key(port);
     desc->flags = 0;
     desc->invoke = NULL;
     desc->d = NULL;
@@ -3133,25 +3134,25 @@ file_flush(ErlDrvData e) {
 
 /*********************************************************************
  * Driver entry point -> control
+ * Only debug functionality...
  */
 static ErlDrvSSizeT
 file_control(ErlDrvData e, unsigned int command, 
 	     char* buf, ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen) {
-    /*
-     *  warning: variable ‘desc’ set but not used 
-     *  [-Wunused-but-set-variable]
-     *  ... no kidding ...
-     *
-     *
     file_descriptor *desc = (file_descriptor *)e;
     switch (command) {
+    case 'K' :
+	if (rlen < 4) {
+	    *rbuf = EF_ALLOC(4);
+	}
+	(*rbuf)[0] = ((desc->key) >> 24) & 0xFF;
+	(*rbuf)[1] = ((desc->key) >> 16) & 0xFF;
+	(*rbuf)[2] = ((desc->key) >> 8) & 0xFF;
+	(*rbuf)[3] = (desc->key) & 0xFF;
+	return 4;
     default:
 	return 0;
-    } 
-    ASSERT(0);
-    desc = NULL; 
-    */
-    return 0;
+    }
 }
 
 /*********************************************************************

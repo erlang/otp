@@ -772,6 +772,7 @@ efile_may_openfile(Efile_error* errInfo, char *name) {
     DWORD attr;
 
     if ((attr = GetFileAttributesW(wname)) == INVALID_FILE_ATTRIBUTES) {
+	errno = ENOENT;
 	return check_error(-1, errInfo);
     }
 
