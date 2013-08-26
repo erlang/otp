@@ -778,7 +778,8 @@ retainer_loop(Cp = #checkpoint_args{is_activated=false, name=Name}) ->
 	{From, {activate, Pending}} ->
             StillPending = mnesia_recover:still_pending(Pending),
             enter_still_pending(StillPending, Cp#checkpoint_args.pending_tab),
-            Cp2 = maybe_activate(Cp#checkpoint_args{wait_for_old = StillPending}),
+	    Local = [Tid || #tid{pid=Pid} = Tid <- StillPending, node(Pid) =/= node()],
+            Cp2 = maybe_activate(Cp#checkpoint_args{wait_for_old = Local}),
 
             reply(From, Name, activated),
 	    retainer_loop(Cp2);
@@ -889,11 +890,8 @@ retainer_loop(Cp = #checkpoint_args{name=Name}) ->
 	    reply(From, Name, ok),
 	    retainer_loop(Cp#checkpoint_args{iterators = Iters});
 
-	{_From, {exit_pending, Tid}} ->
-	    StillPending = lists:delete(Tid, Cp#checkpoint_args.wait_for_old),
-	    Cp2 = Cp#checkpoint_args{wait_for_old = StillPending},
-	    Cp3 = maybe_activate(Cp2),
-	    retainer_loop(Cp3);
+	{_From, {exit_pending, _Tid}} ->
+	    retainer_loop(Cp);
 
 	{From, deactivate} ->
 	    do_stop(Cp),
