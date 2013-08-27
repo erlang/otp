@@ -46,6 +46,7 @@
 -define(INET_PASSIVE, 0).
 -define(INET_ACTIVE,  1).
 -define(INET_ONCE,    2). % Active once then passive
+-define(INET_MULTI,   3). % Active N then passive
 
 %% state codes (getstatus, INET_REQ_GETSTATUS)
 -define(INET_F_OPEN,         16#0001).
