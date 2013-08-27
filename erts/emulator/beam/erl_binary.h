@@ -153,7 +153,7 @@ do {									\
 #define binary_bytes(Bin)						\
   (*binary_val(Bin) == HEADER_PROC_BIN ?				\
    ((ProcBin *) binary_val(Bin))->bytes :				\
-   (ASSERT_EXPR(thing_subtag(*binary_val(Bin)) == HEAP_BINARY_SUBTAG),	\
+   (ASSERT(thing_subtag(*binary_val(Bin)) == HEAP_BINARY_SUBTAG),	\
    (byte *)(&(((ErlHeapBin *) binary_val(Bin))->data))))
 
 void erts_init_binary(void);

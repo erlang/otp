@@ -158,7 +158,6 @@ void erl_assert_error(char* expr, char* file, int line);
 #else
 #  define ASSERT(e) ((void) 1)
 #endif
-#define ASSERT_EXPR ASSERT
 
 /*
  * Microsoft C/C++: We certainly want to use stdarg.h and prototypes.

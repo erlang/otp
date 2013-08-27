@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -98,7 +98,7 @@
  * failing that, in a heap fragment.
  */
 #define HAllocX(p, sz, xtra)		                              \
-    (ASSERT_EXPR((sz) >= 0),					      \
+  (ASSERT((sz) >= 0),					              \
      ErtsHAllocLockCheck(p),					      \
      (IS_FORCE_HEAP_FRAGS || (((HEAP_LIMIT(p) - HEAP_TOP(p)) < (sz))) \
       ? erts_heap_alloc((p),(sz),(xtra))                              \
@@ -135,14 +135,14 @@
  */
 #ifdef CHECK_FOR_HOLES
 # define HeapOnlyAlloc(p, sz)					\
-    (ASSERT_EXPR((sz) >= 0),					\
-     (ASSERT_EXPR(((HEAP_LIMIT(p) - HEAP_TOP(p)) >= (sz))),	\
+    (ASSERT((sz) >= 0),					        \
+     (ASSERT(((HEAP_LIMIT(p) - HEAP_TOP(p)) >= (sz))),	        \
       (erts_set_hole_marker(HEAP_TOP(p), (sz)),			\
        (HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz)))))
 #else
 # define HeapOnlyAlloc(p, sz)					\
-    (ASSERT_EXPR((sz) >= 0),					\
-     (ASSERT_EXPR(((HEAP_LIMIT(p) - HEAP_TOP(p)) >= (sz))),	\
+    (ASSERT((sz) >= 0),					        \
+     (ASSERT(((HEAP_LIMIT(p) - HEAP_TOP(p)) >= (sz))),	        \
       (HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
 #endif
 
