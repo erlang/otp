@@ -2106,8 +2106,8 @@ output_state_actions(St0, State, State, {Actions, Jump}, SI) ->
 output_state_actions(St, State, JState, _XActions, _SI) ->
     fwrite(St, <<"%% yeccpars2_~w: see yeccpars2_~w\n\n">>, [State, JState]).
 
-output_state_actions1(St, State, [], _IsFirst, normal, _SI) ->
-    output_state_actions_fini(State, St);
+output_state_actions1(St, State, [], IsFirst, normal, _SI) ->
+    output_state_actions_fini(State, IsFirst, St);
 output_state_actions1(St0, State, [], IsFirst, {to, ToS}, _SI) ->
     St = delim(St0, IsFirst),
     fwrite(St, 
@@ -2151,9 +2151,9 @@ output_call_to_includefile(NewState, St) ->
     fwrite(St, <<" yeccpars1(S, ~w, Ss, Stack, T, Ts, Tzr)">>, 
            [NewState]).
 
-output_state_actions_fini(State, St0) ->
+output_state_actions_fini(State, IsFirst, St0) ->
     %% Backward compatible.
-    St10 = delim(St0, false),
+    St10 = delim(St0, IsFirst),
     St = fwrite(St10, <<"yeccpars2_~w(_, _, _, _, T, _, _) ->\n">>, [State]),
     fwrite(St, <<" yeccerror(T).\n\n">>, []).
 
