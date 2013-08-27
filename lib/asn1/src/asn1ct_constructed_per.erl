@@ -597,10 +597,15 @@ gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 		""
 	end,
     {Num,Buf} = gen_decode_length(SizeConstraint, Erules),
+    Key = erlang:md5(term_to_binary({Typename,SeqOrSetOf,ComponentType})),
+    Gen = fun(_Fd, Name) ->
+		  gen_decode_sof_components(Erules, Name,
+					    Typename, SeqOrSetOf,
+					    ComponentType)
+	  end,
+    F = asn1ct_func:call_gen("dec_components", Key, Gen),
     emit([",",nl,
-	  "'dec_",asn1ct_gen:list2name(Typename),
-	  "_components'(",Num,", ",Buf,ObjFun,", []).",nl,nl]),
-    gen_decode_sof_components(Erules, Typename, SeqOrSetOf, ComponentType).
+	  {asis,F},"(",Num,", ",Buf,ObjFun,", []).",nl,nl]).
 
 is_aligned(per) -> true;
 is_aligned(uper) -> false.
@@ -610,7 +615,7 @@ gen_decode_length(Constraint, Erule) ->
     Imm = asn1ct_imm:per_dec_length(Constraint, true, is_aligned(Erule)),
     asn1ct_imm:dec_slim_cg(Imm, "Bytes").
 
-gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
+gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont) ->
     {ObjFun,ObjFun_Var} =
 	case Cont#type.tablecinf of
 	    [{objfun,_}|_R] ->
@@ -618,12 +623,10 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
 	    _ ->
 		{"",""}
 	end,
-    emit({"'dec_",asn1ct_gen:list2name(Typename),
-	  "_components'(0, Bytes",ObjFun_Var,", Acc) ->",nl,
-	  indent(3),"{lists:reverse(Acc), Bytes};",nl}),
-    emit({"'dec_",asn1ct_gen:list2name(Typename),
-	  "_components'(Num, Bytes",ObjFun,", Acc) ->",nl}),
-    emit({indent(3),"{Term,Remain} = "}),
+    emit([{asis,Name},"(0, Bytes",ObjFun_Var,", Acc) ->",nl,
+	  "{lists:reverse(Acc),Bytes};",nl,
+	  {asis,Name},"(Num, Bytes",ObjFun,", Acc) ->",nl,
+	  "{Term,Remain} = "]),
     Constructed_Suffix = asn1ct_gen:constructed_suffix(SeqOrSetOf,
 						       Cont#type.def),
     Conttype = asn1ct_gen:get_inner(Cont#type.def),
@@ -646,8 +649,7 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
 	_ ->
 	    emit({"'dec_",Conttype,"'(Bytes),",nl})
     end,
-    emit({indent(3),"'dec_",asn1ct_gen:list2name(Typename),
-	  "_components'(Num-1, Remain",ObjFun,", [Term|Acc]).",nl}).
+    emit([{asis,Name},"(Num-1, Remain",ObjFun,", [Term|Acc]).",nl]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
