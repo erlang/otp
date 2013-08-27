@@ -2638,8 +2638,6 @@ int fd;
 }
 
 
-#ifdef DEBUG
-
 extern int erts_initialized;
 void
 erl_assert_error(char* expr, char* file, int line)
@@ -2660,6 +2658,8 @@ erl_assert_error(char* expr, char* file, int line)
 #endif
     abort();
 }
+
+#ifdef DEBUG
 
 void
 erl_debug(char* fmt, ...)

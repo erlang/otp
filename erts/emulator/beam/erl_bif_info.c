@@ -2091,7 +2091,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_sequential_tracer) {
 	val = erts_get_system_seq_tracer();
-	ASSERT(is_internal_pid(val) || is_internal_port(val) || val==am_false)
+	ASSERT(is_internal_pid(val) || is_internal_port(val) || val==am_false);
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_sequential_tracer, val);
 	BIF_RET(res);

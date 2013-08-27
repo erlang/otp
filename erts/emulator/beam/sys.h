@@ -149,20 +149,16 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_EXIT_AFTER_DUMP exit
 #endif
 
-#ifdef DEBUG
-#  define ASSERT(e) \
-  if (e) { \
-     ; \
-  } else { \
-     erl_assert_error(#e, __FILE__, __LINE__); \
-  }
-#  define ASSERT_EXPR(e) \
+#define ERTS_ASSERT(e) \
     ((void) ((e) ? 1 : (erl_assert_error(#e, __FILE__, __LINE__), 0)))
 void erl_assert_error(char* expr, char* file, int line);
+
+#ifdef DEBUG
+#  define ASSERT(e) ERTS_ASSERT(e)
 #else
-#  define ASSERT(e)
-#  define ASSERT_EXPR(e) ((void) 1)
+#  define ASSERT(e) ((void) 1)
 #endif
+#define ASSERT_EXPR ASSERT
 
 /*
  * Microsoft C/C++: We certainly want to use stdarg.h and prototypes.

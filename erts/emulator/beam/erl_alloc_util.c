@@ -87,9 +87,6 @@ static int initialized = 0;
 #define SYS_ALLOC_CARRIER_CEILING(X) \
   SYS_ALLOC_CARRIER_FLOOR((X) + INV_SYS_ALLOC_CARRIER_MASK)
 
-#undef ASSERT
-#define ASSERT ASSERT_EXPR
-
 #if 0
 /* Can be useful for debugging */
 #define MBC_REALLOC_ALWAYS_MOVES
