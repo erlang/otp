@@ -496,9 +496,11 @@
       orthogonal to the sets of TCP, UDP and generic INET options:
       only those options which are explicitly listed below are allowed
       for SCTP sockets. Options can be set on the socket using
-      <c>gen_sctp:open/1,2</c> or <c>inet:setopts/2</c>,
-      retrieved using <c>inet:getopts/2</c>, and when calling
-      <c>gen_sctp:connect/4,5</c> options can be changed.</p>
+      <seealso marker="#open/1"><c>gen_sctp:open/1,2</c></seealso>
+      or <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>,
+      retrieved using <seealso marker="inet#getopts/2"><c>inet:getopts/2</c></seealso>,
+      and when calling <seealso marker="#connect/4"><c>gen_sctp:connect/4,5</c></seealso>
+      options can be changed.</p>
     <marker id="option-binary"></marker>
     <marker id="option-list"></marker>
     <taglist>
@@ -507,7 +509,7 @@
         <p>Determines the type of data returned from <c>gen_sctp:recv/1,2</c>.</p>
         <marker id="option-active"></marker>
       </item>
-      <tag><c>{active, true|false|once}</c></tag>
+      <tag><c>{active, true|false|once|N}</c></tag>
       <item>
         <list type="bulleted">
           <item>
@@ -524,10 +526,27 @@
           </item>
           <item>
             <p>If <c>once</c>, only one message is automatically placed
-              in the message queue, after that the mode is automatically
-              re-set to passive. This provides flow control as well as
+              in the message queue, and after that the mode is automatically
+              reset to passive. This provides flow control as well as
               the possibility for the receiver to listen for its incoming
               SCTP data interleaved with other inter-process messages.</p>
+          </item>
+          <item>
+            <p>If <c>active</c> is specified as an integer <c>N</c> in the
+              range -32768 to 32767 (inclusive), then that number is added to
+              the socket's count of the number of data messages to be
+              delivered to the controlling process. If the result of the
+              addition would be negative, the count is set to 0. Once the
+              count reaches 0, either through the delivery of messages or by
+              being explicitly set with <seealso
+              marker="inet#setopts/2">inet:setopts/2</seealso>, the socket's
+              mode is automatically reset to passive (<c>{active,
+              false}</c>) mode. When a socket in this active mode transitions to
+              passive mode, the message <c>{sctp_passive, Socket}</c> is sent
+              to the controlling process to notify it that if it wants to
+              receive more data messages from the socket, it must call
+              <seealso marker="inet#setopts/2">inet:setopts/2</seealso> to set
+              the socket back into an active mode.</p>
           </item>
         </list>
       </item>

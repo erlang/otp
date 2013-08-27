@@ -36,7 +36,7 @@
 
 -type assoc_id() :: term().
 -type option() ::
-        {active, true | false | once} |
+        {active, true | false | once | -32768..32767} |
         {buffer, non_neg_integer()} |
         {dontroute, boolean()} |
         {high_msgq_watermark, pos_integer()} |

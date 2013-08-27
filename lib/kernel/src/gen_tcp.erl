@@ -30,7 +30,7 @@
 -include("file.hrl").
 
 -type option() ::
-        {active,          true | false | once} |
+        {active,          true | false | once | -32768..32767} |
         {buffer,          non_neg_integer()} |
         {delay_send,      boolean()} |
         {deliver,         port | term} |
