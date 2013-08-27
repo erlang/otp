@@ -1838,6 +1838,16 @@ release_port(void *vport)
 {
     erts_port_dec_refc((Port *) vport);
 }
+
+static void
+schedule_release_port(void *vport) {
+  Port *pp = (Port*)vport;
+  /* This is only used when a port release was ordered from a non-scheduler */
+  erts_schedule_thr_prgr_later_op(release_port,
+				  (void *) pp,
+				  &pp->common.u.release);
+}
+
 #endif
 
 static void
@@ -2033,10 +2043,15 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
      * Schedule cleanup of port structure...
      */
 #ifdef ERTS_SMP
-    /* Has to be more or less immediate to release any driver */
-    erts_schedule_thr_prgr_later_op(release_port,
-				    (void *) pp,
-				    &pp->common.u.release);
+    /* We might not be a scheduler, eg. traceing to port we are sys_msg_dispatcher */
+    if (!erts_get_scheduler_data()) {
+      erts_schedule_misc_aux_work(1, schedule_release_port, (void*)pp);
+    } else {
+      /* Has to be more or less immediate to release any driver */
+      erts_schedule_thr_prgr_later_op(release_port,
+				      (void *) pp,
+				      &pp->common.u.release);
+    }
 #else
     pp->cleanup = 1;
 #endif
