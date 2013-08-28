@@ -186,11 +186,6 @@ extern void erts_ddll_remove_monitor(Process *p,
 extern Eterm erts_ddll_monitor_driver(Process *p,
 				      Eterm description,
 				      ErtsProcLocks plocks);
-/*
- * Max no. of drivers (linked in and dynamically loaded). Each table
- * entry uses 4 bytes.
- */
-#define DRIVER_TAB_SIZE 32
 
 /*
 ** Just like the driver binary but with initial flags
