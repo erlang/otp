@@ -48,7 +48,7 @@
 	 
 	 otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
 	 
-	 otp_7292/1, otp_7969/1, otp_8919/1, otp_10302/1]).
+	 otp_7292/1, otp_7969/1, otp_8919/1, otp_10302/1, otp_11269/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -75,7 +75,8 @@ groups() ->
       [empty, prec, yeccpre, lalr, old_yecc, other_examples]},
      {bugs, [],
       [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
-     {improvements, [], [otp_7292, otp_7969, otp_8919, otp_10302]}].
+     {improvements, [], [otp_7292, otp_7969, otp_8919, otp_10302,
+                         otp_11269]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1960,6 +1961,38 @@ otp_10302(Config) when is_list(Config) ->
                ok.
           ">>,default,ok}],
     run(Config, Ts),
+    ok.
+
+otp_11269(doc) ->
+    "OTP-11269. A bug.";
+otp_11269(suite) -> [];
+otp_11269(Config) when is_list(Config) ->
+    Dir = ?privdir,
+    Filename = filename:join(Dir, "OTP-11269.yrl"),
+    Ret = [return, {report, false}],
+    Pai = <<"Nonterminals
+             list list0 list1 newline_list.
+
+             Terminals
+             '\n' semi.
+
+             Rootsymbol  list.
+
+             Endsymbol '$end'.
+
+             list ->   newline_list list0 : '$2'.
+
+             list0 -> list1 '\n' newline_list : '$1'.
+
+             list1 -> list1 semi newline_list list1 :
+                           {command_connect, '$1', '$4', semi}.
+
+             newline_list -> newline_list '\n' : nil.">>,
+    ok = file:write_file(Filename, Pai),
+    {ok,ErlFile,[{_YrlFile,[{none,yecc,{conflicts,1,0}}]}]} =
+        yecc:file(Filename, Ret),
+    Opts = [return, warn_unused_vars,{outdir,Dir}],
+    {ok,'OTP-11269',_Warnings} = compile:file(ErlFile, Opts),
     ok.
 
 yeccpre_size() ->
