@@ -5368,7 +5368,7 @@ There exists two workarounds for this bug:
   (inferior-erlang-prepare-for-input)
   (let* ((dir (inferior-erlang-compile-outdir))
 ;;; (file (file-name-nondirectory (buffer-file-name)))
-	 (noext (substring (buffer-file-name) 0 -4))
+	 (noext (substring (erlang-local-buffer-file-name) 0 -4))
 	 (opts (append (list (cons 'outdir dir))
 		       (if current-prefix-arg
 			   (list 'debug_info 'export_all))
@@ -5406,7 +5406,7 @@ unless the optional NO-DISPLAY is non-nil."
 (defun inferior-erlang-compile-outdir ()
   "Return the directory to compile the current buffer into."
   (let* ((buffer-dir (directory-file-name
-		      (file-name-directory (buffer-file-name))))
+		      (file-name-directory (erlang-local-buffer-file-name))))
 	 (parent-dir (directory-file-name
 		      (file-name-directory buffer-dir)))
          (ebin-dir (concat (file-name-as-directory parent-dir) "ebin"))
@@ -5424,11 +5424,11 @@ unless the optional NO-DISPLAY is non-nil."
 	(res (inferior-erlang-compute-erl-compile-command module-name opts))
 	ccfn-entry
 	done)
-    (if (not (null (buffer-file-name)))
+    (if (not (null (erlang-local-buffer-file-name)))
 	(while (and (not done) (not (null ccfn)))
 	  (setq ccfn-entry (car ccfn))
 	  (setq ccfn (cdr ccfn))
-	  (if (string-match (car ccfn-entry) (buffer-file-name))
+	  (if (string-match (car ccfn-entry) (erlang-local-buffer-file-name))
 	      (let ((c-fn (cdr ccfn-entry)))
 		(setq done t)
 		(if (not (null c-fn))
@@ -5460,7 +5460,7 @@ unless the optional NO-DISPLAY is non-nil."
 	 tmpvar tmpvar tmpvar2)))))
 
 (defun inferior-erlang-compute-leex-compile-command (module-name opts)
-  (let ((file-name        (buffer-file-name))
+  (let ((file-name        (erlang-local-buffer-file-name))
 	(erl-compile-expr (inferior-erlang-remove-any-trailing-dot
 			   (inferior-erlang-compute-erl-compile-command
 			    module-name opts))))
@@ -5479,7 +5479,7 @@ unless the optional NO-DISPLAY is non-nil."
 	    erl-compile-expr)))
 
 (defun inferior-erlang-compute-yecc-compile-command (module-name opts)
-  (let ((file-name        (buffer-file-name))
+  (let ((file-name        (erlang-local-buffer-file-name))
 	(erl-compile-expr (inferior-erlang-remove-any-trailing-dot
 			   (inferior-erlang-compute-erl-compile-command
 			    module-name opts))))
@@ -5530,6 +5530,36 @@ unless the optional NO-DISPLAY is non-nil."
       (setq strs (cdr strs)))
     result))
 
+(defun erlang-local-buffer-file-name ()
+  ;; When editing a file remotely via tramp,
+  ;; the buffer's file name may be for example
+  ;; "/ssh:host.example.com:/some/path/x.erl"
+  ;;
+  ;; If I try to compile such a file using C-c C-k, an
+  ;; erlang shell on the remote host is automatically
+  ;; started if needed, but for it to successfully compile
+  ;; the file, the c(...)  command that is sent must contain
+  ;; the file name "/some/path/x.erl" without the
+  ;; tramp-prefix "/ssh:host.example.com:".
+  (cond ((null (buffer-file-name))
+	 nil)
+	((erlang-tramp-remote-file-p)
+	 (erlang-tramp-get-localname))
+	(t
+	 (buffer-file-name))))
+
+(defun erlang-tramp-remote-file-p ()
+  (and (fboundp 'tramp-tramp-file-p)
+       (tramp-tramp-file-p (buffer-file-name))))
+
+(defun erlang-tramp-get-localname ()
+  (let ((tramp-info (tramp-dissect-file-name (buffer-file-name))))
+    (if (fboundp 'tramp-file-name-localname)
+	(tramp-file-name-localname tramp-info)
+      ;; In old versions of tramp, it was `tramp-file-name-path'
+      ;; instead of the newer `tramp-file-name-localname'
+      (tramp-file-name-path tramp-info))))
+
 ;; `next-error' only accepts buffers with major mode `compilation-mode'
 ;; or with the minor mode `compilation-minor-mode' activated.
 ;; (To activate the minor mode is out of the question, since it will
@@ -5564,7 +5594,7 @@ Capable of finding error messages in an inferior Erlang buffer."
   "Make the inferior Erlang change directory.
 The default is to go to the directory of the current buffer."
   (interactive)
-  (or dir (setq dir (file-name-directory (buffer-file-name))))
+  (or dir (setq dir (file-name-directory (erlang-local-buffer-file-name))))
   (or (inferior-erlang-running-p)
       (error "No inferior Erlang is running"))
   (inferior-erlang-display-buffer)
