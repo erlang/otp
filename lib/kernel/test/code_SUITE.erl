@@ -653,7 +653,7 @@ clash(Config) when is_list(Config) ->
     DDir = ?config(data_dir,Config)++"clash/",
     P = code:get_path(),
     [TestServerPath|_] = [Path || Path <- code:get_path(),
-				  re:run(Path,"test_server/?$",[]) /= nomatch],
+				  re:run(Path,"test_server/?$",[unicode]) /= nomatch],
 
     %% test non-clashing entries
 
@@ -1527,7 +1527,10 @@ create_big_script(Config,Local) ->
 	      Leftover <- UnloadFix,
 	      lists:keymember(Leftover,1,InitialApplications) ],
     %% Now we should have only "real" applications...
-    [application:load(list_to_atom(Y)) || {match,[Y]} <- [ re:run(X,code:lib_dir()++"/"++"([^/-]*).*/ebin",[{capture,[1],list}]) || X <- code:get_path()],filter_app(Y,Local)],
+    [application:load(list_to_atom(Y))
+     || {match,[Y]} <- [ re:run(X,code:lib_dir()++"/"++"([^/-]*).*/ebin",
+				[{capture,[1],list, unicode}]) ||
+			   X <- code:get_path()],filter_app(Y,Local)],
     Apps = [ {N,V} || {N,_,V} <- application:loaded_applications()],
     {ok,Fd} = file:open(Name ++ ".rel", [write]),
     io:format(Fd,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -433,10 +433,10 @@ verify_not_args(Xs, Ys) ->
 		  Xs).
 
 emu_args(CmdLineArgs) ->
-    io:format("CmdLineArgs = ~s~n", [CmdLineArgs]),
+    io:format("CmdLineArgs = ~ts~n", [CmdLineArgs]),
     {ok,[[Erl]]} = init:get_argument(progname),
     EmuCL = os:cmd(Erl ++ " -emu_args_exit " ++ CmdLineArgs),
-    io:format("EmuCL = ~s", [EmuCL]),
+    io:format("EmuCL = ~ts", [EmuCL]),
     split_emu_clt(string:tokens(EmuCL, [$ ,$\t,$\n,$\r])).
 
 split_emu_clt(EmuCLT) ->
