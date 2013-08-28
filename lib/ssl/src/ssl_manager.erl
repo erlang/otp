@@ -30,7 +30,7 @@
 	 lookup_trusted_cert/4,
 	 new_session_id/1, clean_cert_db/2,
 	 register_session/2, register_session/3, invalidate_session/2,
-	 invalidate_session/3, clear_pem_cache/0]).
+	 invalidate_session/3, clear_pem_cache/0, manager_name/1]).
 
 % Spawn export
 -export([init_session_validator/1]).
@@ -64,6 +64,18 @@
 %%====================================================================
 %% API
 %%====================================================================
+
+%%--------------------------------------------------------------------
+-spec manager_name(normal | dist) -> atom().
+%%
+%% Description: Returns the registered name of the ssl manager process
+%% in the operation modes 'normal' and 'dist'.
+%%--------------------------------------------------------------------
+manager_name(normal) ->
+    ?MODULE;
+manager_name(dist) ->
+    list_to_atom(atom_to_list(?MODULE) ++ "dist").
+
 %%--------------------------------------------------------------------
 -spec start_link(list()) -> {ok, pid()} | ignore | {error, term()}.
 %%
@@ -71,7 +83,8 @@
 %% and certificate caching.
 %%--------------------------------------------------------------------
 start_link(Opts) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [?MODULE, Opts], []).
+    DistMangerName = manager_name(normal),
+    gen_server:start_link({local, DistMangerName}, ?MODULE, [DistMangerName, Opts], []).
 
 %%--------------------------------------------------------------------
 -spec start_link_dist(list()) -> {ok, pid()} | ignore | {error, term()}.
@@ -80,7 +93,8 @@ start_link(Opts) ->
 %% be used by the erlang distribution. Note disables soft upgrade!
 %%--------------------------------------------------------------------
 start_link_dist(Opts) ->
-    gen_server:start_link({local, ssl_manager_dist}, ?MODULE, [ssl_manager_dist, Opts], []).
+    DistMangerName = manager_name(dist),
+    gen_server:start_link({local, DistMangerName}, ?MODULE, [DistMangerName, Opts], []).
 
 %%--------------------------------------------------------------------
 -spec connection_init(binary()| {der, list()}, client | server) ->
@@ -100,7 +114,7 @@ connection_init(Trustedcerts, Role) ->
 %%--------------------------------------------------------------------
 -spec cache_pem_file(binary(), term()) -> {ok, term()} | {error, reason()}.
 %%		    
-%% Description: Cach a pem file and return its content.
+%% Description: Cache a pem file and return its content.
 %%--------------------------------------------------------------------
 cache_pem_file(File, DbHandle) ->
     MD5 = crypto:hash(md5, File),
@@ -120,7 +134,7 @@ cache_pem_file(File, DbHandle) ->
 %%--------------------------------------------------------------------
 clear_pem_cache() ->
     %% Not supported for distribution at the moement, should it be?
-    put(ssl_manager, ssl_manager),
+    put(ssl_manager, manager_name(normal)),
     call(unconditionally_clear_pem_cache).
 
 %%--------------------------------------------------------------------
