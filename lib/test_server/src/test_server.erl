@@ -389,7 +389,6 @@ run_test_case_apply({CaseNum,Mod,Func,Args,Name,
 	    os:putenv("VALGRIND_LOGFILE_INFIX",atom_to_list(Mod)++"."++
 		      atom_to_list(Func)++"-")
     end,
-    test_server_h:testcase({Mod,Func,1}),
     ProcBef = erlang:system_info(process_count),
     Result = run_test_case_apply(Mod, Func, Args, Name, RunInit,
 				 TimetrapData),
