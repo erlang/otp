@@ -1239,9 +1239,9 @@ ssl_init(SslOpts, Role) ->
     {ok, CertDbRef, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, PrivateKey, DHParams}.
 
 init_manager_name(false) ->
-    put(ssl_manager, ssl_manager);
+    put(ssl_manager, ssl_manager:manager_name(normal));
 init_manager_name(true) ->
-    put(ssl_manager, ssl_manager_dist).
+    put(ssl_manager, ssl_manager:manager_name(dist)).
 
 init_certificates(#ssl_options{cacerts = CaCerts,
 			       cacertfile = CACertFile,
