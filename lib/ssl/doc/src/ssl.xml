@@ -86,7 +86,8 @@
       {user_lookup_fun, {fun(), term()}}, {psk_identity, string()}, {srp_identity, {string(), string()}} |
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
       {next_protocols_advertised, [binary()]} |
-      {client_preferred_next_protocols, client | server, [binary()]}
+      {client_preferred_next_protocols, client | server, [binary()]} |
+      {log_alert, boolean()}
     </c></p>
 
     <p><c>transportoption() = {cb_info, {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom(), ErrTag:atom()}}
@@ -446,7 +447,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <tag>{psk_identity, string()}</tag>
       <item>Specifies the server identity hint the server presents to the client.
       </item>
-
+      <tag>{log_alert, boolean()}</tag>
+      <item>If false, error reports will not be displayed.</item>
     </taglist>
   </section>
   
