@@ -99,7 +99,15 @@ main(_Erule) ->
 
     roundtrip('InfObj', 'Seq2',
 	      {'Seq2',42,[true,false,false,true],
-	       [false,true,false]}).
+	       [false,true,false]}),
+
+    roundtrip('InfObj', 'OptionalInSeq', {'OptionalInSeq',3,true}),
+    roundtrip('InfObj', 'OptionalInSeq', {'OptionalInSeq',3,asn1_NOVALUE}),
+
+    roundtrip('InfObj', 'DefaultInSeq', {'DefaultInSeq',3,false}),
+    roundtrip('InfObj', 'DefaultInSeq', {'DefaultInSeq',3,true}),
+    {'DefaultInSeq',3,true} =
+	enc_dec('InfObj', 'DefaultInSeq', {'DefaultInSeq',3,asn1_DEFAULT}).
 
 
 roundtrip(M, T, V) ->

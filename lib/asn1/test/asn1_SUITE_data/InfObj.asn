@@ -219,6 +219,19 @@ ConstructedSet ::= SET {
   content [1] CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
 }
 
+-- Test OPTIONAL and DEFAULT
+
+OptionalInSeq ::= SEQUENCE {
+  id CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id}) OPTIONAL
+}
+
+DefaultInSeq ::= SEQUENCE {
+  id CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
+          DEFAULT BOOLEAN:TRUE
+}
+
 END
 
 
