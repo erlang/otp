@@ -78,7 +78,7 @@
 	    _ ->  apply(?PRIM_FILE, F, [H | A])
 	end).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [].
 
 all() -> 
     [read_write_file, {group, dirs}, {group, files},
@@ -407,11 +407,11 @@ cur_dir_1(Config, Handle) ->
     ?line Dog = test_server:timetrap(test_server:seconds(5)),
 
     ?line case os:type() of
-	      {unix, _} ->
-		  ?line {error, enotsup} = 
-		      ?PRIM_FILE_call(get_cwd, Handle, ["d:"]);
 	      {win32, _} ->
-		  win_cur_dir_1(Config, Handle)
+		  win_cur_dir_1(Config, Handle);
+	      _ ->
+		  ?line {error, enotsup} =
+		      ?PRIM_FILE_call(get_cwd, Handle, ["d:"])
 	  end,
     ?line test_server:timetrap_cancel(Dog),
     ok.
@@ -843,7 +843,7 @@ file_info_basic_directory(Config, Handle) ->
 		  ?line test_directory("/", read_write, Handle),
 		  ?line test_directory("c:/", read_write, Handle),
 		  ?line test_directory("c:\\", read_write, Handle);
-	      {unix, _} ->
+	      _ ->
 		  ?line test_directory("/", read, Handle)
 	  end,
     ?line test_server:timetrap_cancel(Dog).
@@ -1568,15 +1568,15 @@ e_delete(Config) when is_list(Config) ->
 
     %% No permission.
     ?line case os:type() of
-	      {unix, _} ->
+	      {win32, _} ->
+		  %% Remove a character device.
+		  ?line {error, eacces} = ?PRIM_FILE:delete("nul");
+	      _ ->
 		  ?line ?PRIM_FILE:write_file_info(
 			   Base, #file_info {mode=0}),
 		  ?line {error, eacces} = ?PRIM_FILE:delete(Afile),
 		  ?line ?PRIM_FILE:write_file_info(
-			   Base, #file_info {mode=8#600});
-	      {win32, _} ->
-		  %% Remove a character device.
-		  ?line {error, eacces} = ?PRIM_FILE:delete("nul")
+			   Base, #file_info {mode=8#600})
 	  end,
 
     ?line test_server:timetrap_cancel(Dog),
@@ -1656,7 +1656,12 @@ e_rename(Config) when is_list(Config) ->
     %% XXX - Gross hack!
     ?line Comment = 
     case os:type() of
-	{unix, _} ->
+	{win32, _} ->
+	    %% At least Windows NT can
+	    %% successfully move a file to
+	    %% another drive.
+	    ok;
+	_ ->
 	    OtherFs = "/tmp",
 	    ?line NameOnOtherFs =
 	    filename:join(OtherFs, 
@@ -1680,12 +1685,7 @@ e_rename(Config) when is_list(Config) ->
 		Else ->
 		    Else
 	    end,
-	    Com;
-	{win32, _} ->
-	    %% At least Windows NT can 
-	    %% successfully move a file to
-	    %% another drive.
-	    ok
+	    Com
     end,
     ?line test_server:timetrap_cancel(Dog),
     Comment.
@@ -1714,14 +1714,14 @@ e_make_dir(Config) when is_list(Config) ->
 
     %% No permission (on Unix only).
     case os:type() of
-	{unix, _} ->
+	{win32, _} ->
+	    ok;
+	_ ->
 	    ?line ?PRIM_FILE:write_file_info(Base, #file_info {mode=0}),
 	    ?line {error, eacces} = 
 		?PRIM_FILE:make_dir(filename:join(Base, "xxxx")),
 	    ?line 
-		?PRIM_FILE:write_file_info(Base, #file_info {mode=8#600});
-	{win32, _} ->
-	    ok
+		?PRIM_FILE:write_file_info(Base, #file_info {mode=8#600})
     end,
     ?line test_server:timetrap_cancel(Dog),
     ok.
@@ -1767,15 +1767,15 @@ e_del_dir(Config) when is_list(Config) ->
 
     %% No permission.
     case os:type() of
-	{unix, _} ->
+	{win32, _} ->
+	    ok;
+	_ ->
 	    ?line ADirectory = filename:join(Base, "no_perm"),
 	    ?line ok = ?PRIM_FILE:make_dir(ADirectory),
 	    ?line ?PRIM_FILE:write_file_info(Base, #file_info {mode=0}),
 	    ?line {error, eacces} = ?PRIM_FILE:del_dir(ADirectory),
 	    ?line ?PRIM_FILE:write_file_info(
-		     Base, #file_info {mode=8#600});
-	{win32, _} ->
-	    ok
+		     Base, #file_info {mode=8#600})
     end,
     ?line test_server:timetrap_cancel(Dog),
     ok.
