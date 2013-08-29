@@ -1344,16 +1344,14 @@ dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 
 dec_hello_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
-    EllipticCurveListLen = Len - 2,
-    <<?UINT16(EllipticCurveListLen), EllipticCurveList/binary>> = ExtData,
+    <<?UINT16(_), EllipticCurveList/binary>> = ExtData,
     EllipticCurves = [ssl_tls1:enum_to_oid(X) || <<X:16>> <= EllipticCurveList],
     dec_hello_extensions(Rest, [{elliptic_curves,
 				 #elliptic_curves{elliptic_curve_list = EllipticCurves}} | Acc]);
 
 dec_hello_extensions(<<?UINT16(?EC_POINT_FORMATS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
-    ECPointFormatListLen = Len - 1,
-    <<?BYTE(ECPointFormatListLen), ECPointFormatList/binary>> = ExtData,
+    <<?BYTE(_), ECPointFormatList/binary>> = ExtData,
     ECPointFormats = binary_to_list(ECPointFormatList),
     dec_hello_extensions(Rest, [{ec_point_formats,
 				 #ec_point_formats{ec_point_format_list = ECPointFormats}} | Acc]);
