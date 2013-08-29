@@ -243,57 +243,60 @@ void initEventTable()
    {wxEVT_COMMAND_TREE_ITEM_MENU, 208, "command_tree_item_menu"},
    {wxEVT_COMMAND_NOTEBOOK_PAGE_CHANGED, 209, "command_notebook_page_changed"},
    {wxEVT_COMMAND_NOTEBOOK_PAGE_CHANGING, 209, "command_notebook_page_changing"},
-   {wxEVT_COMMAND_SPINCTRL_UPDATED, 215, "command_spinctrl_updated"},
+   {wxEVT_COMMAND_TEXT_COPY, 215, "command_text_copy"},
+   {wxEVT_COMMAND_TEXT_CUT, 215, "command_text_cut"},
+   {wxEVT_COMMAND_TEXT_PASTE, 215, "command_text_paste"},
+   {wxEVT_COMMAND_SPINCTRL_UPDATED, 216, "command_spinctrl_updated"},
    {wxEVT_SCROLL_LINEUP + wxEVT_USER_FIRST, 165, "spin_up"},
    {wxEVT_SCROLL_LINEDOWN + wxEVT_USER_FIRST, 165, "spin_down"},
    {wxEVT_SCROLL_THUMBTRACK + wxEVT_USER_FIRST, 165, "spin"},
-   {wxEVT_COMMAND_SPLITTER_SASH_POS_CHANGED, 217, "command_splitter_sash_pos_changed"},
-   {wxEVT_COMMAND_SPLITTER_SASH_POS_CHANGING, 217, "command_splitter_sash_pos_changing"},
-   {wxEVT_COMMAND_SPLITTER_DOUBLECLICKED, 217, "command_splitter_doubleclicked"},
-   {wxEVT_COMMAND_SPLITTER_UNSPLIT, 217, "command_splitter_unsplit"},
-   {wxEVT_COMMAND_HTML_LINK_CLICKED, 219, "command_html_link_clicked"},
-   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CLOSE, 222, "command_auinotebook_page_close"},
-   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CHANGED, 222, "command_auinotebook_page_changed"},
-   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CHANGING, 222, "command_auinotebook_page_changing"},
-   {wxEVT_COMMAND_AUINOTEBOOK_BUTTON, 222, "command_auinotebook_button"},
-   {wxEVT_COMMAND_AUINOTEBOOK_BEGIN_DRAG, 222, "command_auinotebook_begin_drag"},
-   {wxEVT_COMMAND_AUINOTEBOOK_END_DRAG, 222, "command_auinotebook_end_drag"},
-   {wxEVT_COMMAND_AUINOTEBOOK_DRAG_MOTION, 222, "command_auinotebook_drag_motion"},
-   {wxEVT_COMMAND_AUINOTEBOOK_ALLOW_DND, 222, "command_auinotebook_allow_dnd"},
+   {wxEVT_COMMAND_SPLITTER_SASH_POS_CHANGED, 218, "command_splitter_sash_pos_changed"},
+   {wxEVT_COMMAND_SPLITTER_SASH_POS_CHANGING, 218, "command_splitter_sash_pos_changing"},
+   {wxEVT_COMMAND_SPLITTER_DOUBLECLICKED, 218, "command_splitter_doubleclicked"},
+   {wxEVT_COMMAND_SPLITTER_UNSPLIT, 218, "command_splitter_unsplit"},
+   {wxEVT_COMMAND_HTML_LINK_CLICKED, 220, "command_html_link_clicked"},
+   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CLOSE, 223, "command_auinotebook_page_close"},
+   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CHANGED, 223, "command_auinotebook_page_changed"},
+   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CHANGING, 223, "command_auinotebook_page_changing"},
+   {wxEVT_COMMAND_AUINOTEBOOK_BUTTON, 223, "command_auinotebook_button"},
+   {wxEVT_COMMAND_AUINOTEBOOK_BEGIN_DRAG, 223, "command_auinotebook_begin_drag"},
+   {wxEVT_COMMAND_AUINOTEBOOK_END_DRAG, 223, "command_auinotebook_end_drag"},
+   {wxEVT_COMMAND_AUINOTEBOOK_DRAG_MOTION, 223, "command_auinotebook_drag_motion"},
+   {wxEVT_COMMAND_AUINOTEBOOK_ALLOW_DND, 223, "command_auinotebook_allow_dnd"},
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_TAB_MIDDLE_DOWN, 222, "command_auinotebook_tab_middle_down"},
+   {wxEVT_COMMAND_AUINOTEBOOK_TAB_MIDDLE_DOWN, 223, "command_auinotebook_tab_middle_down"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_TAB_MIDDLE_UP, 222, "command_auinotebook_tab_middle_up"},
+   {wxEVT_COMMAND_AUINOTEBOOK_TAB_MIDDLE_UP, 223, "command_auinotebook_tab_middle_up"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_TAB_RIGHT_DOWN, 222, "command_auinotebook_tab_right_down"},
+   {wxEVT_COMMAND_AUINOTEBOOK_TAB_RIGHT_DOWN, 223, "command_auinotebook_tab_right_down"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_TAB_RIGHT_UP, 222, "command_auinotebook_tab_right_up"},
+   {wxEVT_COMMAND_AUINOTEBOOK_TAB_RIGHT_UP, 223, "command_auinotebook_tab_right_up"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CLOSED, 222, "command_auinotebook_page_closed"},
+   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CLOSED, 223, "command_auinotebook_page_closed"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_DRAG_DONE, 222, "command_auinotebook_drag_done"},
+   {wxEVT_COMMAND_AUINOTEBOOK_DRAG_DONE, 223, "command_auinotebook_drag_done"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_BG_DCLICK, 222, "command_auinotebook_bg_dclick"},
+   {wxEVT_COMMAND_AUINOTEBOOK_BG_DCLICK, 223, "command_auinotebook_bg_dclick"},
 #endif
-   {wxEVT_AUI_PANE_BUTTON, 223, "aui_pane_button"},
-   {wxEVT_AUI_PANE_CLOSE, 223, "aui_pane_close"},
-   {wxEVT_AUI_PANE_MAXIMIZE, 223, "aui_pane_maximize"},
-   {wxEVT_AUI_PANE_RESTORE, 223, "aui_pane_restore"},
-   {wxEVT_AUI_RENDER, 223, "aui_render"},
-   {wxEVT_AUI_FIND_MANAGER, 223, "aui_find_manager"},
-   {wxEVT_TASKBAR_MOVE, 226, "taskbar_move"},
-   {wxEVT_TASKBAR_LEFT_DOWN, 226, "taskbar_left_down"},
-   {wxEVT_TASKBAR_LEFT_UP, 226, "taskbar_left_up"},
-   {wxEVT_TASKBAR_RIGHT_DOWN, 226, "taskbar_right_down"},
-   {wxEVT_TASKBAR_RIGHT_UP, 226, "taskbar_right_up"},
-   {wxEVT_TASKBAR_LEFT_DCLICK, 226, "taskbar_left_dclick"},
-   {wxEVT_TASKBAR_RIGHT_DCLICK, 226, "taskbar_right_dclick"},
+   {wxEVT_AUI_PANE_BUTTON, 224, "aui_pane_button"},
+   {wxEVT_AUI_PANE_CLOSE, 224, "aui_pane_close"},
+   {wxEVT_AUI_PANE_MAXIMIZE, 224, "aui_pane_maximize"},
+   {wxEVT_AUI_PANE_RESTORE, 224, "aui_pane_restore"},
+   {wxEVT_AUI_RENDER, 224, "aui_render"},
+   {wxEVT_AUI_FIND_MANAGER, 224, "aui_find_manager"},
+   {wxEVT_TASKBAR_MOVE, 227, "taskbar_move"},
+   {wxEVT_TASKBAR_LEFT_DOWN, 227, "taskbar_left_down"},
+   {wxEVT_TASKBAR_LEFT_UP, 227, "taskbar_left_up"},
+   {wxEVT_TASKBAR_RIGHT_DOWN, 227, "taskbar_right_down"},
+   {wxEVT_TASKBAR_RIGHT_UP, 227, "taskbar_right_up"},
+   {wxEVT_TASKBAR_LEFT_DCLICK, 227, "taskbar_left_dclick"},
+   {wxEVT_TASKBAR_RIGHT_DCLICK, 227, "taskbar_right_dclick"},
    {-1, 0, }
   };
   for(int i=0; event_types[i].ev_type != -1; i++) {
@@ -743,7 +746,14 @@ case 209: {// wxNotebookEvent
     rt.addTupleCount(2);
   break;
 }
-case 215: {// wxSpinEvent
+case 215: {// wxClipboardTextEvent
+    evClass = (char*)"wxClipboardTextEvent";
+    rt.addAtom((char*)"wxClipboardText");
+    rt.addAtom(Etype->eName);
+    rt.addTupleCount(2);
+  break;
+}
+case 216: {// wxSpinEvent
  wxSpinEvent * ev = (wxSpinEvent *) event;
     evClass = (char*)"wxSpinEvent";
     rt.addAtom((char*)"wxSpin");
@@ -752,14 +762,14 @@ case 215: {// wxSpinEvent
     rt.addTupleCount(3);
   break;
 }
-case 217: {// wxSplitterEvent
+case 218: {// wxSplitterEvent
     evClass = (char*)"wxSplitterEvent";
     rt.addAtom((char*)"wxSplitter");
     rt.addAtom(Etype->eName);
     rt.addTupleCount(2);
   break;
 }
-case 219: {// wxHtmlLinkEvent
+case 220: {// wxHtmlLinkEvent
  wxHtmlLinkEvent * ev = (wxHtmlLinkEvent *) event;
     evClass = (char*)"wxHtmlLinkEvent";
     rt.addAtom((char*)"wxHtmlLink");
@@ -768,7 +778,7 @@ case 219: {// wxHtmlLinkEvent
     rt.addTupleCount(3);
   break;
 }
-case 222: {// wxAuiNotebookEvent
+case 223: {// wxAuiNotebookEvent
  wxAuiNotebookEvent * ev = (wxAuiNotebookEvent *) event;
  wxAuiNotebook * GetDragSource = ev->GetDragSource();
     evClass = (char*)"wxAuiNotebookEvent";
@@ -780,7 +790,7 @@ case 222: {// wxAuiNotebookEvent
     rt.addTupleCount(5);
   break;
 }
-case 223: {// wxAuiManagerEvent
+case 224: {// wxAuiManagerEvent
  wxAuiManagerEvent * ev = (wxAuiManagerEvent *) event;
  wxAuiManager * GetManager = ev->GetManager();
  wxAuiPaneInfo * GetPane = ev->GetPane();
@@ -797,7 +807,7 @@ case 223: {// wxAuiManagerEvent
     rt.addTupleCount(8);
   break;
 }
-case 226: {// wxTaskBarIconEvent
+case 227: {// wxTaskBarIconEvent
     evClass = (char*)"wxTaskBarIconEvent";
     rt.addAtom((char*)"wxTaskBarIcon");
     rt.addAtom(Etype->eName);

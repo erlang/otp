@@ -50,7 +50,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [calendarCtrl, treeCtrl, notebook, staticBoxSizer,
      clipboard, helpFrame, htmlWindow, listCtrlSort, listCtrlVirtual,
-     radioBox, systemSettings, taskBarIcon].
+     radioBox, systemSettings, taskBarIcon, toolbar].
 
 groups() ->
     [].
@@ -492,4 +492,21 @@ taskBarIcon(Config) ->
     wxWindow:show(Frame),
     wxTaskBarIcon:connect(TBI, taskbar_left_down, [{callback, fun(Ev,_) -> io:format("Left clicked: ~p~n",[Ev]) end}]),
     wxTaskBarIcon:connect(TBI, taskbar_right_down, [{callback,fun(Ev,_) -> io:format("Right clicked: ~p~n",[Ev]) end}]),
+    wx_test_lib:wx_destroy(Frame,Config).
+
+toolbar(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+toolbar(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
+    TB = wxFrame:createToolBar(Frame),
+    wxToolBar:addTool(TB, 747, "PressMe", wxArtProvider:getBitmap("wxART_COPY", [{size, {16,16}}]),
+		      [{shortHelp, "Press Me"}]),
+
+    Add = fun(#wx{}, _) ->
+		  wxToolBar:addTool(TB, -1, "Added", wxArtProvider:getBitmap("wxART_TICK_MARK", [{size, {16,16}}]),
+				    [{shortHelp, "Test 2 popup text"}])
+	  end,
+
+    wxFrame:connect(Frame, command_menu_selected, [{callback, Add}, {id, 747}]),
+    wxFrame:show(Frame),
     wx_test_lib:wx_destroy(Frame,Config).

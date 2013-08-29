@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,7 +47,9 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [connect, disconnect, connect_msg_20, connect_cb_20,
-     mouse_on_grid, spin_event, connect_in_callback, recursive].
+     mouse_on_grid, spin_event, connect_in_callback, recursive,
+     char_events
+    ].
 
 groups() -> 
     [].
@@ -394,6 +396,26 @@ recursive(Config) ->
 				end,
 				io:format("Size done ~n",[])
 			end}]),
+    wxFrame:show(Frame),
+    wx_test_lib:flush(),
+
+    wx_test_lib:wx_destroy(Frame, Config).
+
+
+char_events(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+char_events(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Press any key"),
+    Panel = wxPanel:new(Frame, []),
+    wxFrame:connect(Frame, enter_window, [{callback, fun(_,_) ->
+							     io:format("Set focus~n"),
+							     wxWindow:setFocus(Panel)
+						     end}]),
+    KeyEvent = fun(Ev,Obj) -> io:format("Got ~p~n",[Ev]), wxEvent:skip(Obj) end,
+    [wxWindow:connect(Panel, Types, [{callback,KeyEvent}])
+     || Types <- [key_down, key_up, char]],
+    wxWindow:connect(Frame, char_hook, [{callback,KeyEvent}]),
+
     wxFrame:show(Frame),
     wx_test_lib:flush(),
 

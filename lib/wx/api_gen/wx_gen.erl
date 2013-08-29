@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1350,7 +1350,11 @@ extract_enum3([#xmlElement{name=name,content=[#xmlText{value=Name}]}|R], Id, Acc
     end;
 
 extract_enum3([#xmlElement{name=initializer,content=Cs}|_],_Id,[{Name,_}|Acc]) ->
-    String = extract_def2(Cs),
+    String = case extract_def2(Cs) of
+		 "= " ++ Str0 -> Str0;  %% Doxygen 1.8.3.1 keeps the '=' sign
+		 "=" ++ Str0 -> Str0;  %% Doxygen 1.8.3.1 keeps the '=' sign
+		 Str0 -> Str0
+	     end,
     Val0 = gen_util:tokens(String,"<& "),
     try
 	case Val0 of
