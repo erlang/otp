@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,7 @@
 
 -module(wxPanel).
 -include("wxe.hrl").
--export([destroy/1,initDialog/1,new/0,new/1,new/2,new/5,new/6]).
+-export([destroy/1,initDialog/1,new/0,new/1,new/2,new/5,new/6,setFocusIgnoringChildren/1]).
 
 %% inherited exports
 -export([cacheBestSize/2,captureMouse/1,center/1,center/2,centerOnParent/1,
@@ -135,6 +135,14 @@ new(#wx_ref{type=ParentT,ref=ParentRef},X,Y,Width,Height, Options)
 initDialog(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPanel),
   wxe_util:cast(?wxPanel_InitDialog,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpanel.html#wxpanelsetfocusignoringchildren">external documentation</a>.
+-spec setFocusIgnoringChildren(This) -> ok when
+	This::wxPanel().
+setFocusIgnoringChildren(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxPanel),
+  wxe_util:cast(?wxPanel_SetFocusIgnoringChildren,
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again

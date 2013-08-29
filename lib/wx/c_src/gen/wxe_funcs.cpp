@@ -2218,6 +2218,12 @@ case wxPanel_InitDialog: { // wxPanel::InitDialog
  This->InitDialog();
  break;
 }
+case wxPanel_SetFocusIgnoringChildren: { // wxPanel::SetFocusIgnoringChildren
+ wxPanel *This = (wxPanel *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetFocusIgnoringChildren();
+ break;
+}
 case wxScrolledWindow_new_0: { // wxScrolledWindow::wxScrolledWindow
  wxScrolledWindow * Result = new EwxScrolledWindow();
  newPtr((void *) Result, 0, memenv);
@@ -8849,16 +8855,14 @@ case wxStatusBar_Create: { // wxStatusBar::Create
  break;
 }
 case wxStatusBar_GetFieldRect: { // wxStatusBar::GetFieldRect
+ wxRect rect;
  wxStatusBar *This = (wxStatusBar *) getPtr(bp,memenv); bp += 4;
  int * i = (int *) bp; bp += 4;
- int * rectX = (int *) bp; bp += 4;
- int * rectY = (int *) bp; bp += 4;
- int * rectW = (int *) bp; bp += 4;
- int * rectH = (int *) bp; bp += 4;
- wxRect rect = wxRect(*rectX,*rectY,*rectW,*rectH);
  if(!This) throw wxe_badarg(0);
  bool Result = This->GetFieldRect(*i,rect);
  rt.addBool(Result);
+ rt.add(rect);
+ rt.addTupleCount(2);
  break;
 }
 case wxStatusBar_GetFieldsCount: { // wxStatusBar::GetFieldsCount
@@ -31360,7 +31364,7 @@ case wxAuiManagerEvent_CanVeto: { // wxAuiManagerEvent::CanVeto
 }
 case wxLogNull_new: { // wxLogNull::wxLogNull
  wxLogNull * Result = new wxLogNull();
- newPtr((void *) Result, 224, memenv);
+ newPtr((void *) Result, 225, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLogNull");
  break;
 }
@@ -31450,7 +31454,7 @@ void WxeApp::delete_object(void *ptr, wxeRefData *refd) {
   case 211: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
   case 212: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
   case 213: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 224: delete (wxLogNull *) ptr; break;
+  case 225: delete (wxLogNull *) ptr; break;
   default: delete (wxObject *) ptr;
 }}
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,7 @@
 
 -module(wxStatusBar).
 -include("wxe.hrl").
--export([create/2,create/3,destroy/1,getFieldRect/3,getFieldsCount/1,getStatusText/1,
+-export([create/2,create/3,destroy/1,getFieldRect/2,getFieldsCount/1,getStatusText/1,
   getStatusText/2,new/0,new/1,new/2,popStatusText/1,popStatusText/2,pushStatusText/2,
   pushStatusText/3,setFieldsCount/2,setFieldsCount/3,setMinHeight/2,
   setStatusStyles/2,setStatusText/2,setStatusText/3,setStatusWidths/2]).
@@ -132,13 +132,14 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbargetfieldrect">external documentation</a>.
--spec getFieldRect(This, I, Rect) -> boolean() when
-	This::wxStatusBar(), I::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
-getFieldRect(#wx_ref{type=ThisT,ref=ThisRef},I,{RectX,RectY,RectW,RectH})
- when is_integer(I),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
+-spec getFieldRect(This, I) -> Result when
+	Result ::{Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
+	This::wxStatusBar(), I::integer().
+getFieldRect(#wx_ref{type=ThisT,ref=ThisRef},I)
+ when is_integer(I) ->
   ?CLASS(ThisT,wxStatusBar),
   wxe_util:call(?wxStatusBar_GetFieldRect,
-  <<ThisRef:32/?UI,I:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI>>).
+  <<ThisRef:32/?UI,I:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbargetfieldscount">external documentation</a>.
 -spec getFieldsCount(This) -> integer() when
