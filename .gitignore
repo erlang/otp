@@ -150,6 +150,7 @@ JAVADOC-GENERATED
 /erts/epmd/test/Emakefile
 
 /lib/*/SKIP
+/lib/SKIP-APPLICATIONS
 
 /lib/*/doc/html/*.html
 /lib/*/doc/html/*.css

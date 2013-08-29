@@ -52,6 +52,10 @@ else
   endif
 endif
 
+# Any applications listed in SKIP-APPLICATIONS should be skipped
+SKIP_FILE := $(wildcard SKIP-APPLICATIONS)
+SKIP_APPLICATIONS := $(if $(SKIP_FILE),$(shell cat $(SKIP_FILE)))
+SUB_DIRECTORIES := $(filter-out $(SKIP_APPLICATIONS),$(SUB_DIRECTORIES))
 
 # ----------------------------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
