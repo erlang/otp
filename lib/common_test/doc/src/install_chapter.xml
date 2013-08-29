@@ -56,13 +56,13 @@
       shell script version run_test, however, this script needs to be
       generated first, according to the instructions below.</p>
 
-    <p><note>Before reading on, please note that since Common Test version
+    <note><p>Before reading on, please note that since Common Test version
 	1.5, the run_test shell script is no longer required for starting
 	tests with Common Test from the OS command line. The ct_run
 	program (descibed above) is the new recommended command line interface
 	for Common Test. The shell script exists mainly for legacy reasons and
 	may not be updated in future releases of Common Test. It may even be removed.
-    </note></p>
+    </p></note>
 
     <p>Optional step to generate a shell script for starting Common Test:</p>
     <p>To generate the run_test shell script, navigate to the

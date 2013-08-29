@@ -105,8 +105,8 @@
       RPC from a remote node.</p>
   </section>
 
-  <marker id="ct_run"></marker>
   <section>
+  <marker id="ct_run"></marker>
     <title>Running tests from the OS command line</title>
     
     <p>The <c>ct_run</c> program can be used for running tests from
@@ -225,15 +225,15 @@
     
     <p>Common Test provides an Erlang API for running tests. The main (and most
       flexible) function for specifying and executing tests is called
-      <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>.
+      <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>.
       This function takes the same start parameters as
-      the <c><seealso marker="run_test_chapter#ct_run">ct_run</seealso></c>
+      the <seealso marker="run_test_chapter#ct_run"><c>ct_run</c></seealso>
       program described above, only the flags are instead
       given as options in a list of key-value tuples. E.g. a test specified 
       with <c>ct_run</c> like:</p>
 
       <p><c>$ ct_run -suite ./my_SUITE -logdir ./results</c></p> 
-      <p>is with <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c> specified as:</p>
+      <p>is with <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso> specified as:</p>
       <p><c>1> ct:run_test([{suite,"./my_SUITE"},{logdir,"./results"}]).</c></p>
 
       <p>The function returns the test result, represented by the tuple:
@@ -245,7 +245,7 @@
 	<section>
 	  <title>Releasing the Erlang shell</title>
 	  <p>During execution of tests, started with
-	  <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>,
+	  <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>,
 	  the Erlang shell process, controlling stdin, will remain the top
 	  level process of the Common Test system of processes. The result
 	  is that the Erlang shell is not available for interaction during
@@ -260,19 +260,19 @@
 	  <c>ct:run_test/1</c> returns the pid of this process rather than the
 	  test result - which instead is printed to tty at the end of the test run.</p>
 	  <note><p>Note that in order to use the
-	  <c><seealso marker="ct#break-1">ct:break/1/2</seealso></c> and
-	  <c><seealso marker="ct#continue-0">ct:continue/0/1</seealso></c> functions,
+	  <seealso marker="ct#break-1"><c>ct:break/1/2</c></seealso> and
+	  <seealso marker="ct#continue-0"><c>ct:continue/0/1</c></seealso> functions,
 	  <c>release_shell</c> <em>must</em> be set to <c>true</c>.</p></note>
 	</section>
         
       <p>For detailed documentation about
-        <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>,
+        <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>,
         please see the
-        <c><seealso marker="ct#run_test-1">ct</seealso></c> manual page.</p>    
+        <seealso marker="ct#run_test-1"><c>ct</c></seealso> manual page.</p>    
   </section>
   
-  <marker id="group_execution"></marker>
    <section>
+    <marker id="group_execution"></marker>
     <title>Test case group execution</title>
     
     <p>With the <c>ct_run</c> flag, or <c>ct:run_test/1</c> option <c>group</c>,
@@ -442,9 +442,9 @@
       for trying out various operations during test suite development.</p>
 
     <p>To invoke the interactive shell mode, you can start an Erlang shell 
-      manually and call <c><seealso marker="ct#install-1">ct:install/1</seealso></c> to install any configuration
+      manually and call <seealso marker="ct#install-1"><c>ct:install/1</c></seealso> to install any configuration
       data you might need (use <c>[]</c> as argument otherwise), then
-      call <c><seealso marker="ct#start_interactive-0">ct:start_interactive/0</seealso></c> to start Common Test. If you use
+      call <seealso marker="ct#start_interactive-0"><c>ct:start_interactive/0</c></seealso> to start Common Test. If you use
       the <c>ct_run</c> program, you may start the Erlang shell and Common Test
       in the same go by using the <c>-shell</c> and, optionally, the <c>-config</c>
       and/or <c>-userconfig</c> flag. Examples:
@@ -463,8 +463,8 @@
     
     <p>If any functions using "required config data" (e.g. ct_telnet or
       ct_ftp functions) are to be called from the erlang shell, config
-      data must first be required with <c><seealso marker="ct#require-1">
-      ct:require/1/2</seealso></c>. This is
+      data must first be required with <seealso marker="ct#require-1"><c>
+      ct:require/1/2</c></seealso>. This is
       equivalent to a <c>require</c> statement in the <seealso
 	marker="write_test_chapter#suite">Test Suite Info 
 	Function</seealso> or in the <seealso
@@ -491,11 +491,11 @@
       is not supported.</p>
     
     <p>If you wish to exit the interactive mode (e.g. to start an
-      automated test run with <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>), call the function
-      <c><seealso marker="ct#stop_interactive-0">ct:stop_interactive/0</seealso></c>. This shuts down the
+      automated test run with <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>), call the function
+      <seealso marker="ct#stop_interactive-0"><c>ct:stop_interactive/0</c></seealso>. This shuts down the
       running <c>ct</c> application. Associations between
       configuration names and data created with <c>require</c> are 
-      consequently deleted. <c><seealso marker="ct#start_interactive-0">ct:start_interactive/0</seealso></c> will get you
+      consequently deleted. <seealso marker="ct#start_interactive-0"><c>ct:start_interactive/0</c></seealso> will get you
       back into interactive mode, but the previous state is not restored.</p>
   </section>
 
@@ -503,7 +503,7 @@
     <title>Step by step execution of test cases with the Erlang Debugger</title>
    
     <p>By means of <c>ct_run -step [opts]</c>, or by passing the 
-       <c>{step,Opts}</c> option to <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>, it is possible
+       <c>{step,Opts}</c> option to <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>, it is possible
        to get the Erlang Debugger started automatically and use its
        graphical interface to investigate the state of the current test 
        case and to execute it step by step and/or set execution breakpoints.</p>
@@ -527,17 +527,17 @@
        with <c>dir</c>.</p>       
   </section>
 
-  <marker id="test_specifications"></marker>
   <section>
+  <marker id="test_specifications"></marker>
     <title>Test Specifications</title>
     <section>
 	<title>General description</title>
 	<p>The most flexible way to specify what to test, is to use a so
 	called test specification. A test specification is a sequence of
 	Erlang terms. The terms are normally declared in one or more text files
-	(see <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>), but
+	(see <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>), but
 	may also be passed to Common Test on the form of a list (see
-	<c><seealso marker="ct#run_testspec-1">ct:run_testspec/1</seealso></c>).
+	<seealso marker="ct#run_testspec-1"><c>ct:run_testspec/1</c></seealso>).
 	There are two general types of terms: configuration terms and test
 	specification terms.</p>
 	<p>With configuration terms it is possible to e.g. label the test
@@ -989,7 +989,7 @@
 	  <c>ct_run</c>. This forces Common Test to ignore unrecognizable terms.
 	  Note that in this mode, Common Test is not able to check the specification 
 	  for errors as efficiently as if the scanner runs in default mode. 
-	  If <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c> is used
+	  If <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso> is used
 	  for starting the tests, the relaxed scanner
 	  mode is enabled by means of the tuple: <c>{allow_user_terms,true}</c></p>
 	</section>
@@ -999,7 +999,7 @@
     <title>Running tests from the Web based GUI</title>
     
     <p>The web based GUI, VTS, is started with the
-      <c><seealso marker="run_test_chapter#ct_run">ct_run</seealso></c>
+      <seealso marker="run_test_chapter#ct_run"><c>ct_run</c></seealso>
       program. From the GUI you can load config files, and select
       directories, suites and cases to run. You can also state the
       config files, directories, suites and cases on the command line
