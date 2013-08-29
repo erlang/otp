@@ -70,6 +70,21 @@ main(_Erule) ->
 	       {'Deeper_a',12,
 		{'Deeper_a_s',{2,4},42}},
 	       {'Deeper_b',13,{'Type-object1',14,true}}}),
+
+    roundtrip('TConstr', 'Seq3',
+	      {'Seq3',
+	       {'Seq3_a',42,'TConstr':'id-object1'()},
+	       {'Seq3_b',
+		{'Type-object1',-777,true},
+		12345,
+		{'Seq3_b_bc',12345789,{'Type-object1',-999,true}}}}),
+    roundtrip('TConstr', 'Seq3-Opt',
+	      {'Seq3-Opt',
+	       {'Seq3-Opt_a',42,'TConstr':'id-object1'()},
+	       {'Seq3-Opt_b',
+		{'Type-object1',-777,true},
+		12345,
+		{'Seq3-Opt_b_bc',12345789,{'Type-object1',-999,true}}}}),
     ok.
 
 
