@@ -1174,6 +1174,25 @@ get_kb_value(char *param_end, char** argv, int* ip)
 	return ((Uint) tmp)*1024;
 }
 
+static UWord
+get_mb_value(char *param_end, char** argv, int* ip)
+{
+    SWord tmp;
+    UWord max = ((~((Uint) 0))/(1024*1024)) + 1;
+    char *rest;
+    char *param = argv[*ip]+1;
+    char *value = get_value(param_end, argv, ip);
+    errno = 0;
+    tmp = (SWord) ErtsStrToSint(value, &rest, 10);
+    if (errno != 0 || rest == value || tmp < 0 || max < ((UWord) tmp))
+	bad_value(param, param_end, value);
+    if (max == (UWord) tmp)
+	return ~((UWord) 0);
+    else
+	return ((UWord) tmp)*1024*1024;
+}
+
+
 #if 0
 static Uint
 get_byte_value(char *param_end, char** argv, int* ip)
@@ -1447,6 +1466,24 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			init->mseg.mcs =
 #endif
 			    get_amount_value(argv[i]+6, argv, &i);
+		    }
+		    else if (has_prefix("scs", argv[i]+3)) {
+#if HAVE_ERTS_MSEG
+			init->mseg.mmap.scs =
+#endif
+			    get_mb_value(argv[i]+6, argv, &i);
+		    }
+		    else if (has_prefix("sco", argv[i]+3)) {
+#if HAVE_ERTS_MSEG
+			init->mseg.mmap.sco =
+#endif
+			    get_bool_value(argv[i]+6, argv, &i);
+		    }
+		    else if (has_prefix("scmgc", argv[i]+3)) {
+#if HAVE_ERTS_MSEG
+			init->mseg.mmap.scmgc =
+#endif
+			    get_amount_value(argv[i]+8, argv, &i);
 		    }
 		    else {
 			bad_param(param, param+2);

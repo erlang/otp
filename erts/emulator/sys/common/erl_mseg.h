@@ -22,6 +22,7 @@
 
 #include "sys.h"
 #include "erl_alloc_types.h"
+#include "erl_mmap.h"
 
 #ifndef HAVE_MMAP
 #  define HAVE_MMAP 0
@@ -68,6 +69,7 @@ typedef struct {
     Uint rmcbf;
     Uint mcs;
     Uint nos;
+    ErtsMMapInit mmap;
 } ErtsMsegInit_t;
 
 #define ERTS_MSEG_INIT_DEFAULT_INITIALIZER				\

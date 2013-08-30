@@ -1668,8 +1668,12 @@ erts_mseg_init(ErtsMsegInit_t *init)
 	erl_exit(ERTS_ABORT_EXIT, "erts_mseg: unable to open /dev/zero\n");
 #endif
 
-#if HAVE_MMAP && HALFWORD_HEAP
+#if HAVE_MMAP
+# if HALFWORD_HEAP
     initialize_pmmap();
+# else
+    erts_mmap_init(&init->mmap);
+# endif
 #endif
 
     if (!IS_2POW(GET_PAGE_SIZE))
