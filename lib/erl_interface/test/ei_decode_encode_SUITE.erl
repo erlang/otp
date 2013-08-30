@@ -68,6 +68,8 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     Port  = case os:type() of
 		{win32,_} ->
 		    open_port({spawn,"sort"},[]);
+		{unix, darwin} ->
+		    open_port({spawn,"/usr/bin/true"},[]);
 		_ ->
 		    open_port({spawn,"/bin/true"},[])
 	    end,
