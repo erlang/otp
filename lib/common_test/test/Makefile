@@ -51,6 +51,7 @@ MODULES= \
 	ct_master_SUITE \
 	ct_misc_1_SUITE \
 	ct_hooks_SUITE \
+	ct_pre_post_test_io_SUITE \
 	ct_netconfc_SUITE \
 	ct_basic_html_SUITE \
 	ct_auto_compile_SUITE \

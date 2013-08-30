@@ -38,7 +38,7 @@
 
 -export([start_slave/3, slave_stop/1]).
 
--export([ct_test_halt/1]).
+-export([ct_test_halt/1, ct_rpc/2]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -376,6 +376,16 @@ wait_for_ct_stop(Retries, CTNode) ->
 	    timer:sleep(5000),
 	    wait_for_ct_stop(Retries-1, CTNode)
     end.
+
+%%%-----------------------------------------------------------------
+%%% ct_rpc/1
+ct_rpc({M,F,A}, Config) ->
+    CTNode = proplists:get_value(ct_node, Config),
+    Level = proplists:get_value(trace_level, Config),
+    test_server:format(Level, "~nCalling ~w:~w(~p) on ~p...",
+		       [M,F,A, CTNode]),
+    rpc:call(CTNode, M, F, A).
+
 
 %%%-----------------------------------------------------------------
 %%% EVENT HANDLING
