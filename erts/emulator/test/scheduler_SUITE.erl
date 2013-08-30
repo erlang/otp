@@ -52,6 +52,7 @@
 	 update_cpu_info/1,
 	 sct_cmd/1,
 	 sbt_cmd/1,
+	 scheduler_threads/1,
 	 scheduler_suspend/1,
 	 reader_groups/1]).
 
@@ -66,7 +67,7 @@ all() ->
      equal_with_part_time_max,
      equal_and_high_with_part_time_max, equal_with_high,
      equal_with_high_max, bound_process,
-     {group, scheduler_bind}, scheduler_suspend,
+     {group, scheduler_bind}, scheduler_threads, scheduler_suspend,
      reader_groups].
 
 groups() -> 
@@ -1039,7 +1040,66 @@ sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
 		      tuple_to_list(SB)),
     ?line stop_node(Node),
     ?line ok.
-    
+
+scheduler_threads(Config) when is_list(Config) ->
+    SmpSupport = erlang:system_info(smp_support),
+    {Sched, SchedOnln, _} = get_sstate(Config, ""),
+    %% Configure half the number of both the scheduler threads and
+    %% the scheduler threads online.
+    {HalfSched, HalfSchedOnln} = case SmpSupport of
+                                     false -> {1,1};
+                                     true ->
+                                         {Sched div 2,
+                                          SchedOnln div 2}
+                                 end,
+    {HalfSched, HalfSchedOnln, _} = get_sstate(Config, "+SP 50:50"),
+    %% Use +S to configure 4x the number of scheduler threads and
+    %% 4x the number of scheduler threads online, but alter that
+    %% setting using +SP to 50% scheduler threads and 25% scheduler
+    %% threads online. The result should be 2x scheduler threads and
+    %% 1x scheduler threads online.
+    TwiceSched = case SmpSupport of
+                     false -> 1;
+                     true -> Sched*2
+                 end,
+    FourSched = integer_to_list(Sched*4),
+    FourSchedOnln = integer_to_list(SchedOnln*4),
+    CombinedCmd1 = "+S "++FourSched++":"++FourSchedOnln++" +SP50:25",
+    {TwiceSched, SchedOnln, _} = get_sstate(Config, CombinedCmd1),
+    %% Now do the same test but with the +S and +SP options in the
+    %% opposite order, since order shouldn't matter.
+    CombinedCmd2 = "+SP50:25 +S "++FourSched++":"++FourSchedOnln,
+    {TwiceSched, SchedOnln, _} = get_sstate(Config, CombinedCmd2),
+    %% Apply two +SP options to make sure the second overrides the first
+    TwoCmd = "+SP 25:25 +SP 100:100",
+    {Sched, SchedOnln, _} = get_sstate(Config, TwoCmd),
+    %% Configure 50% of scheduler threads online only
+    {Sched, HalfSchedOnln, _} = get_sstate(Config, "+SP:50"),
+    %% Configure 2x scheduler threads only
+    {TwiceSched, SchedOnln, _} = get_sstate(Config, "+SP 200"),
+    %% Test resetting the scheduler counts
+    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
+    {Sched, SchedOnln, _} = get_sstate(Config, ResetCmd),
+    %% Test negative +S settings, but only for SMP-enabled emulators
+    case SmpSupport of
+        false -> ok;
+        true ->
+            SchedMinus1 = Sched-1,
+            SchedOnlnMinus1 = SchedOnln-1,
+            {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
+            {Sched, SchedOnlnMinus1, _} = get_sstate(Config, "+S :-1"),
+            {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1:-1")
+    end,
+    ok.
+
+get_sstate(Config, Cmd) ->
+    {ok, Node} = start_node(Config, Cmd),
+    [SState] = mcall(Node, [fun () ->
+                                    erlang:system_info(schedulers_state)
+                            end]),
+    stop_node(Node),
+    SState.
+
 scheduler_suspend(Config) when is_list(Config) ->
     ?line Dog = ?t:timetrap(?t:minutes(5)),
     ?line lists:foreach(fun (S) -> scheduler_suspend_test(Config, S) end,

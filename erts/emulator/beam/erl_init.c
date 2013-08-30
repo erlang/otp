@@ -549,9 +549,12 @@ void erts_usage(void)
 		 ERTS_SCHED_THREAD_MAX_STACK_SIZE);
     erts_fprintf(stderr, "-spp Bool   set port parallelism scheduling hint\n");
     erts_fprintf(stderr, "-S n1:n2    set number of schedulers (n1), and number of\n");
-    erts_fprintf(stderr, "            schedulers online (n2), valid range for both\n");
-    erts_fprintf(stderr, "            numbers are [1-%d]\n",
+    erts_fprintf(stderr, "            schedulers online (n2), maximum for both\n");
+    erts_fprintf(stderr, "            numbers is %d\n",
 		 ERTS_MAX_NO_OF_SCHEDULERS);
+    erts_fprintf(stderr, "-SP p1:p2   specify schedulers (p1) and schedulers online (p2)\n");
+    erts_fprintf(stderr, "	      as percentages of logical processors configured and logical\n");
+    erts_fprintf(stderr, "	      processors available, respectively\n");
     erts_fprintf(stderr, "-t size     set the maximum number of atoms the "
 			 "emulator can handle\n");
     erts_fprintf(stderr, "            valid range is [%d-%d]\n",
@@ -631,6 +634,8 @@ early_init(int *argc, char **argv) /*
     int ncpuavail;
     int schdlrs;
     int schdlrs_onln;
+    int schdlrs_percentage = 100;
+    int schdlrs_onln_percentage = 100;
     int max_main_threads;
     int max_reader_groups;
     int reader_groups;
@@ -758,63 +763,128 @@ early_init(int *argc, char **argv) /*
 		    }
 		    break;
 		}
-		case 'S' : {
-		    int tot, onln;
-		    char *arg = get_arg(argv[i]+2, argv[i+1], &i);
-		    switch (sscanf(arg, "%d:%d", &tot, &onln)) {
-		    case 0:
-			switch (sscanf(arg, ":%d", &onln)) {
+		case 'S' :
+		    if (argv[i][2] == 'P') {
+			int ptot, ponln;
+			char *arg = get_arg(argv[i]+3, argv[i+1], &i);
+			switch (sscanf(arg, "%d:%d", &ptot, &ponln)) {
+			case 0:
+			    switch (sscanf(arg, ":%d", &ponln)) {
+			    case 1:
+				if (ponln < 0)
+				    goto bad_SP;
+				ptot = 100;
+				goto chk_SP;
+			    default:
+				goto bad_SP;
+			    }
 			case 1:
-			    tot = no_schedulers;
-			    goto chk_S;
+			    if (ptot < 0)
+				goto bad_SP;
+			    ponln = ptot < 100 ? ptot : 100;
+			    goto chk_SP;
+			case 2:
+			    if (ptot < 0 || ponln < 0)
+				goto bad_SP;
+			chk_SP:
+			    schdlrs_percentage = ptot;
+			    schdlrs_onln_percentage = ponln;
+			    break;
 			default:
-			    goto bad_S;
-			}
-		    case 1:
-			onln = tot < schdlrs_onln ? tot : schdlrs_onln;
-		    case 2:
-		    chk_S:
-			if (tot > 0)
-			    schdlrs = tot;
-			else
-			    schdlrs = no_schedulers + tot;
-			if (onln > 0)
-			    schdlrs_onln = onln;
-			else
-			    schdlrs_onln = no_schedulers_online + onln;
-			if (schdlrs < 1 || ERTS_MAX_NO_OF_SCHEDULERS < schdlrs) {
-			    erts_fprintf(stderr,
-					 "bad amount of schedulers %d\n",
-					 tot);
-			    erts_usage();
-			}
-			if (schdlrs_onln < 1 || schdlrs < schdlrs_onln) {
-			    erts_fprintf(stderr,
-					 "bad amount of schedulers online %d "
-					 "(total amount of schedulers %d)\n",
-					 schdlrs_onln, schdlrs);
-			    erts_usage();
-			}
-			break;
-		    default:
-		    bad_S:
-			erts_fprintf(stderr,
-				     "bad amount of schedulers %s\n",
-				     arg);
-			erts_usage();
-			break;
-		    }
+                        bad_SP:
+                            erts_fprintf(stderr,
+                                         "bad schedulers percentage specifier %s\n",
+                                         arg);
+                            erts_usage();
+                            break;
+                        }
 
-		    VERBOSE(DEBUG_SYSTEM,
-			    ("using %d:%d scheduler(s)\n", tot, onln));
-		    break;
-		}
+                        VERBOSE(DEBUG_SYSTEM,
+                                ("using %d:%d scheduler percentages\n",
+                                 schdlrs_percentage, schdlrs_onln_percentage));
+                    } else {
+			int tot, onln;
+			char *arg = get_arg(argv[i]+2, argv[i+1], &i);
+			switch (sscanf(arg, "%d:%d", &tot, &onln)) {
+			case 0:
+			    switch (sscanf(arg, ":%d", &onln)) {
+			    case 1:
+				tot = no_schedulers;
+				goto chk_S;
+			    default:
+				goto bad_S;
+			    }
+			case 1:
+			    onln = tot < schdlrs_onln ? tot : schdlrs_onln;
+			case 2:
+			chk_S:
+			    if (tot > 0)
+				schdlrs = tot;
+			    else
+				schdlrs = no_schedulers + tot;
+			    if (onln > 0)
+				schdlrs_onln = onln;
+			    else
+				schdlrs_onln = no_schedulers_online + onln;
+			    if (schdlrs < 1 || ERTS_MAX_NO_OF_SCHEDULERS < schdlrs) {
+				erts_fprintf(stderr,
+					     "bad amount of schedulers %d\n",
+					     tot);
+				erts_usage();
+			    }
+			    if (schdlrs_onln < 1 || schdlrs < schdlrs_onln) {
+				erts_fprintf(stderr,
+					     "bad amount of schedulers online %d "
+					     "(total amount of schedulers %d)\n",
+					     schdlrs_onln, schdlrs);
+				erts_usage();
+			    }
+			    break;
+			default:
+			bad_S:
+			    erts_fprintf(stderr,
+					 "bad amount of schedulers %s\n",
+					 arg);
+			    erts_usage();
+			    break;
+			}
+
+			VERBOSE(DEBUG_SYSTEM,
+				("using %d:%d scheduler(s)\n", tot, onln));
+		    }
+                    break;
 		default:
 		    break;
 		}
 	    }
 	    i++;
 	}
+
+#ifdef ERTS_SMP
+	/* apply any scheduler percentages */
+	if (schdlrs_percentage != 100 || schdlrs_onln_percentage != 100) {
+	    schdlrs = schdlrs * schdlrs_percentage / 100;
+	    schdlrs_onln = schdlrs_onln * schdlrs_onln_percentage / 100;
+	    if (schdlrs < 1)
+                schdlrs = 1;
+            if (ERTS_MAX_NO_OF_SCHEDULERS < schdlrs) {
+		erts_fprintf(stderr,
+			     "bad schedulers percentage %d "
+			     "(total amount of schedulers %d)\n",
+			     schdlrs_percentage, schdlrs);
+		erts_usage();
+	    }
+	    if (schdlrs_onln < 1)
+                schdlrs_onln = 1;
+            if (schdlrs < schdlrs_onln) {
+		erts_fprintf(stderr,
+			     "bad schedulers online percentage %d "
+			     "(total amount of schedulers %d, online %d)\n",
+			     schdlrs_onln_percentage, schdlrs, schdlrs_onln);
+		erts_usage();
+	    }
+	}
+#endif
     }
 
 #ifndef USE_THREADS
@@ -1312,7 +1382,10 @@ erl_start(int argc, char **argv)
 	    break;
 
 	case 'S' : /* Was handled in early_init() just read past it */
-	    (void) get_arg(argv[i]+2, argv[i+1], &i);
+	    if (argv[i][2] == 'P')
+		(void) get_arg(argv[i]+3, argv[i+1], &i);
+	    else
+		(void) get_arg(argv[i]+2, argv[i+1], &i);
 	    break;
 
 	case 's' : {
