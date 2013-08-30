@@ -646,10 +646,9 @@ gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont, NeedRest) ->
     Constructed_Suffix = asn1ct_gen:constructed_suffix(SeqOrSetOf,
 						       Cont#type.def),
     Conttype = asn1ct_gen:get_inner(Cont#type.def),
-    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     case asn1ct_gen:type(Conttype) of
 	{primitive,bif} ->
-	    Ctgenmod:gen_dec_prim(Erule,Cont,"Bytes"),
+	    asn1ct_gen_per:gen_dec_prim(Erule, Cont, "Bytes"),
 	    emit({com,nl});
 	{constructed,bif} ->
 	    NewTypename = [Constructed_Suffix|Typename],
@@ -659,8 +658,8 @@ gen_decode_sof_components(Erule, Name, Typename, SeqOrSetOf, Cont, NeedRest) ->
 	    asn1ct_gen_per:gen_dec_external(Etype, "Bytes"),
 	    emit([com,nl]);
 	'ASN1_OPEN_TYPE' ->
-	    Ctgenmod:gen_dec_prim(Erule,#type{def='ASN1_OPEN_TYPE'},
-				  "Bytes"),
+	    asn1ct_gen_per:gen_dec_prim(Erule, #type{def='ASN1_OPEN_TYPE'},
+					"Bytes"),
 	    emit({com,nl});
 	_ ->
 	    emit({"'dec_",Conttype,"'(Bytes),",nl})
