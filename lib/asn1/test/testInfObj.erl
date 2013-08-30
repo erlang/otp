@@ -107,8 +107,18 @@ main(_Erule) ->
     roundtrip('InfObj', 'DefaultInSeq', {'DefaultInSeq',3,false}),
     roundtrip('InfObj', 'DefaultInSeq', {'DefaultInSeq',3,true}),
     {'DefaultInSeq',3,true} =
-	enc_dec('InfObj', 'DefaultInSeq', {'DefaultInSeq',3,asn1_DEFAULT}).
+	enc_dec('InfObj', 'DefaultInSeq', {'DefaultInSeq',3,asn1_DEFAULT}),
 
+    roundtrip('InfObj', 'Multiple-Optionals',
+	      {'Multiple-Optionals',1,42,true,"abc"}),
+    roundtrip('InfObj', 'Multiple-Optionals',
+	      {'Multiple-Optionals',1,asn1_NOVALUE,true,"abc"}),
+    roundtrip('InfObj', 'Multiple-Optionals',
+	      {'Multiple-Optionals',1,42,asn1_NOVALUE,"abc"}),
+    roundtrip('InfObj', 'Multiple-Optionals',
+	      {'Multiple-Optionals',1,42,true,asn1_NOVALUE}),
+    roundtrip('InfObj', 'Multiple-Optionals',
+	      {'Multiple-Optionals',1,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE}).
 
 roundtrip(M, T, V) ->
     {ok,Enc} = M:encode(T, V),

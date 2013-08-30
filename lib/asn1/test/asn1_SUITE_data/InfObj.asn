@@ -232,6 +232,29 @@ DefaultInSeq ::= SEQUENCE {
           DEFAULT BOOLEAN:TRUE
 }
 
+-- Test more than one optional typefield table constraint in a SEQUENCE.
+
+MULTIPLE-OPTIONALS ::= CLASS {
+   &id INTEGER UNIQUE,
+   &T1,
+   &T2,
+   &T3
+}
+
+multiple-optionals-1 MULTIPLE-OPTIONALS ::=
+   {&id 1, &T1 INTEGER, &T2 BOOLEAN, &T3 OCTET STRING}
+
+Multiple-Optionals-Set MULTIPLE-OPTIONALS ::= {
+   multiple-optionals-1
+}
+
+Multiple-Optionals ::= SEQUENCE {
+   id MULTIPLE-OPTIONALS.&id ({Multiple-Optionals-Set}),
+   t1 [0] MULTIPLE-OPTIONALS.&T1 ({Multiple-Optionals-Set}{@id}) OPTIONAL,
+   t2 [1] MULTIPLE-OPTIONALS.&T2 ({Multiple-Optionals-Set}{@id}) OPTIONAL,
+   t3 [2] MULTIPLE-OPTIONALS.&T3 ({Multiple-Optionals-Set}{@id}) OPTIONAL
+}
+
 END
 
 

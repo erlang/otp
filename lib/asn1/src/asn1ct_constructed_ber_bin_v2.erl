@@ -577,6 +577,8 @@ gen_decode_choice(Erules,Typename,D) when is_record(D,type) ->
 gen_enc_sequence_call(Erules,TopType,[#'ComponentType'{name=Cname,typespec=Type,prop=Prop,textual_order=Order}|Rest],Pos,Ext,EncObj) ->
     asn1ct_name:new(encBytes),
     asn1ct_name:new(encLen),
+    asn1ct_name:new(tmpBytes),
+    asn1ct_name:new(tmpLen),
     CindexPos =
 	case Order of
 	    undefined ->
@@ -787,6 +789,7 @@ gen_enc_choice2(Erules,TopType,[H1|T]) when is_record(H1,'ComponentType') ->
 						      componentrelation)} of
 	    {#'ObjectClassFieldType'{},{componentrelation,_,_}} ->
 		asn1ct_name:new(tmpBytes),
+		asn1ct_name:new(tmpLen),
 		asn1ct_name:new(encBytes),
 		asn1ct_name:new(encLen),
 		Emit = ["{",{curr,tmpBytes},", _} = "],
@@ -927,7 +930,6 @@ gen_enc_line(Erules,TopType,Cname,
   when is_list(Element) ->
     case asn1ct_gen:get_constraint(C,componentrelation) of
 	{componentrelation,_,_} ->
-	    asn1ct_name:new(tmpBytes),
 	    gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,
 			 ["{",{curr,tmpBytes},",_} = "],EncObj);
 	_ ->
@@ -989,12 +991,8 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 				  {call,ber,encode_open_type,
 				   [{curr,tmpBytes},{asis,Tag}]},nl]);
 			_ ->
-			    emit(["{",{next,tmpBytes},",",{curr,tmpLen},
-				  "} = ",
-				  {call,ber,encode_open_type,
-				   [{curr,tmpBytes},{asis,Tag}]},com,nl]),
-			    emit(IndDeep),
-			    emit(["{",{next,tmpBytes},", ",{curr,tmpLen},"}"])
+			    emit([{call,ber,encode_open_type,
+				   [{curr,tmpBytes},{asis,Tag}]}])
 		    end;
 		Err ->
 		    throw({asn1,{'internal error',Err}})
