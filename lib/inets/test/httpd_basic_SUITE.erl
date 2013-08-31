@@ -19,6 +19,7 @@
 %%
 -module(httpd_basic_SUITE).
 
+-include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").
 
@@ -35,6 +36,7 @@ all() ->
      uri_too_long_414, 
      header_too_long_413,
      erl_script_nocache_opt,
+     script_nocache,
      escaped_url_in_error_body,
      slowdose
     ].
@@ -63,6 +65,7 @@ init_per_suite(Config) ->
 	"~n   Config: ~p", [Config]),
     ok = inets:start(),
     PrivDir = ?config(priv_dir, Config),
+    DataDir = ?config(data_dir, Config),
 
     Dummy = 
 "<HTML>
@@ -75,6 +78,18 @@ DUMMY
 </HTML>",
 
     DummyFile = filename:join([PrivDir,"dummy.html"]),
+    CgiDir =  filename:join(PrivDir, "cgi-bin"),
+    ok = file:make_dir(CgiDir),
+    Cgi = case test_server:os_type() of
+	      {win32, _} ->
+		  "printenv.bat";
+	      _ ->
+		  "printenv.sh"
+	  end,
+    inets_test_lib:copy_file(Cgi, DataDir, CgiDir),
+    AbsCgi = filename:join([CgiDir, Cgi]),
+    {ok, FileInfo} = file:read_file_info(AbsCgi),
+    ok = file:write_file_info(AbsCgi, FileInfo#file_info{mode = 8#00755}),
     {ok, Fd}  = file:open(DummyFile, [write]),
     ok        = file:write(Fd, Dummy),
     ok        = file:close(Fd), 
@@ -85,7 +100,7 @@ DUMMY
 		 {document_root, PrivDir}, 
 		 {bind_address,  "localhost"}],
 
-    [{httpd_conf, HttpdConf} |  Config].
+    [{httpd_conf, HttpdConf}, {cgi_dir, CgiDir}, {cgi_script, Cgi} |  Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
@@ -201,6 +216,52 @@ erl_script_nocache_opt(Config) when is_list(Config) ->
 	    ok
     end,
     inets:stop(httpd, Pid).
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
+script_nocache(doc) ->
+    ["Test nocache option for mod_cgi and mod_esi"];
+script_nocache(suite) ->
+    [];
+script_nocache(Config) when is_list(Config) ->
+    Normal = {no_header, "cache-control"},
+    NoCache = {header, "cache-control", "no-cache"},
+    verify_script_nocache(Config, false, false, Normal, Normal),
+    verify_script_nocache(Config, true, false, NoCache, Normal),
+    verify_script_nocache(Config, false, true, Normal, NoCache),
+    verify_script_nocache(Config, true, true, NoCache, NoCache),
+    ok.
+
+verify_script_nocache(Config, CgiNoCache, EsiNoCache, CgiOption, EsiOption) ->
+    HttpdConf = ?config(httpd_conf, Config),
+    CgiScript = ?config(cgi_script, Config),
+    CgiDir = ?config(cgi_dir, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0},
+				    {script_alias,
+				     {"/cgi-bin/", CgiDir ++ "/"}},
+				    {script_nocache, CgiNoCache},
+				    {erl_script_alias,
+				     {"/cgi-bin/erl", [httpd_example,io]}},
+				    {erl_script_nocache, EsiNoCache}
+				    | HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    Address = proplists:get_value(bind_address, Info),
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
+				       "GET /cgi-bin/" ++ CgiScript ++
+					   " HTTP/1.0\r\n\r\n",
+				       [{statuscode, 200},
+					CgiOption,
+					{version, "HTTP/1.0"}]),
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
+				       "GET /cgi-bin/erl/httpd_example:get "
+				       "HTTP/1.0\r\n\r\n",
+				       [{statuscode, 200},
+					EsiOption,
+					{version, "HTTP/1.0"}]),
+    inets:stop(httpd, Pid).
+
 
 %%-------------------------------------------------------------------------
 %%-------------------------------------------------------------------------

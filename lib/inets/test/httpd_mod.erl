@@ -842,6 +842,14 @@ cgi(Type, Port, Host, Node) ->
 				       {version, "HTTP/1.0"}]),
 
 %%     tsp("cgi -> done"),
+
+    %% Check "ScriptNoCache" directive (default: false)
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
+				       "GET /cgi-bin/" ++ Script ++
+				       " HTTP/1.0\r\n\r\n",
+				       [{statuscode, 200},
+					{no_header, "cache-control"},
+					{version, "HTTP/1.0"}]),
     ok.
 
 
@@ -898,6 +906,13 @@ esi(Type, Port, Host, Node) ->
 					"GET /cgi-bin/erl/httpd_example/yahoo"
 					" HTTP/1.0\r\n\r\n",
 					[{statuscode, 302},
+					{version, "HTTP/1.0"}]),
+    %% Check "ErlScriptNoCache" directive (default: false)
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
+				       "GET /cgi-bin/erl/httpd_example:get"
+				       " HTTP/1.0\r\n\r\n",
+				       [{statuscode, 200},
+					{no_header, "cache-control"},
 					{version, "HTTP/1.0"}]),
     ok.
 
