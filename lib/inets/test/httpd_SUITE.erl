@@ -1919,7 +1919,7 @@ ticket_5865(Config) ->
 					       " HTTP/1.1\r\nHost:"
 					       ++Host++"\r\n\r\n", 
 					       [{statuscode, 200},
-						{no_last_modified,
+						{no_header,
 						 "last-modified"}]),
 	    ok;
 	{error, Reason} ->
