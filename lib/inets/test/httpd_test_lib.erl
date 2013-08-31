@@ -361,7 +361,7 @@ do_validate(Header, [{header, HeaderField, Value}|Rest],N,P) ->
 	    tsf({wrong_header_field_value, LowerHeaderField, Header})
     end,
     do_validate(Header, Rest, N, P);
-do_validate(Header,[{no_last_modified, HeaderField}|Rest],N,P) ->
+do_validate(Header,[{no_header, HeaderField}|Rest],N,P) ->
     case lists:keysearch(HeaderField,1,Header) of
 	{value,_} ->
 	    tsf({wrong_header_field_value, HeaderField, Header});
