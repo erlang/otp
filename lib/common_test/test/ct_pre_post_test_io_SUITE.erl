@@ -48,7 +48,8 @@ init_per_suite(Config) ->
     CTH = filename:join(DataDir, "cth_ctrl.erl"),
     ct:pal("Compiling ~p: ~p",
 	   [CTH,compile:file(CTH,[{outdir,DataDir},debug_info])]),
-    ct_test_support:init_per_suite([{path_dirs,[DataDir]} | Config]).
+    ct_test_support:init_per_suite([{path_dirs,[DataDir]},
+				    {start_sasl,true} | Config]).
 
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
@@ -76,20 +77,117 @@ pre_post_io(Config) ->
     TC = pre_post_io,
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "dummy_SUITE"),
-    {Opts,ERPid} = setup([{suite,Suite},{label,TC},{ct_hooks,cth_ctrl}], Config),
+    {Opts,ERPid} = setup([{suite,Suite},{label,TC},{ct_hooks,[cth_ctrl]}],
+			 Config),
+    
+    %%!--------------------------------------------------------------------
+    %%! Note that error reports will not start showing up in the pre-test
+    %%! io log until handle_remote_events has been set to true (see below).
+    %%! The reason is that the error logger has its group leader on the
+    %%! test_server node (not the ct node) and cth_log_redirect ignores
+    %%! events with remote destination until told otherwise.
+    %%!--------------------------------------------------------------------
+
+    spawn(fun() ->
+		  %% --- test run 1 ---
+		  ct:sleep(3000),
+		  ct_test_support:ct_rpc({cth_log_redirect,
+					  handle_remote_events,
+					  [true]}, Config),
+		  ct:sleep(2000),
+		  io:format(user, "Starting test run!~n", []),
+		  ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
+		  ct:sleep(6000),
+		  io:format(user, "Finishing off!~n", []),
+		  ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
+		  %% --- test run 2 ---
+		  ct:sleep(3000),
+		  ct_test_support:ct_rpc({cth_log_redirect,
+					  handle_remote_events,
+					  [true]}, Config),
+		  ct:sleep(2000),
+		  io:format(user, "Starting test run!~n", []),
+		  ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
+		  ct:sleep(6000),
+		  io:format(user, "Finishing off!~n", []),
+		  ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config)
+	  end),
     ct_test_support:run(Opts, Config),
-    ct:sleep(2000),
-    ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
-    ct:sleep(4000),
-    ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
-    ct:sleep(2000),
     Events = ct_test_support:get_events(ERPid, Config),
     ct_test_support:log_events(TC,
 			       reformat(Events, ?eh),
 			       ?config(priv_dir, Config),
 			       Opts),
     TestEvents = events_to_check(TC),
-    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+    ok = ct_test_support:verify_events(TestEvents, Events, Config),
+    
+    LogDirs = lists:flatmap(fun({_EH,#event{name=start_logging,data=Dir}}) ->
+				    [Dir];
+			       (_) ->
+				    []
+			    end, Events),
+    PrePostIoFiles =
+	[filename:join(LogDir, "misc_io.log.html") || LogDir <- LogDirs],
+    lists:foreach(
+      fun(PrePostIoFile) ->
+	      ct:log("Reading Pre/Post Test IO Log file: ~ts", [PrePostIoFile]),
+	      {ok,Bin} = file:read_file(PrePostIoFile),
+	      Ts = string:tokens(binary_to_list(Bin),[$\n]),
+	      PrePostIOEntries =
+		  lists:foldl(fun([$L,$o,$g,$g,$e,$r|_],
+				  {pre,PreLogN,PreErrN,0,0}) ->
+				      {pre,PreLogN+1,PreErrN,0,0};
+				 ([$=,$E,$R,$R,$O,$R|_],
+				  {pre,PreLogN,PreErrN,0,0}) ->
+				      {pre,PreLogN,PreErrN+1,0,0};
+				 ([_,_,_,_,$P,$O,$S,$T,$-,$T,$E,$S,$T|_],
+				  {pre,PreLogN,PreErrN,0,0}) ->
+				      {post,PreLogN,PreErrN,0,0};
+				 ([$L,$o,$g,$g,$e,$r|_],
+				  {post,PreLogN,PreErrN,PostLogN,PostErrN}) ->
+				      {post,PreLogN,PreErrN,PostLogN+1,PostErrN};
+				 ([$=,$E,$R,$R,$O,$R|_],
+				  {post,PreLogN,PreErrN,PostLogN,PostErrN}) ->
+				      {post,PreLogN,PreErrN,PostLogN,PostErrN+1};
+				 (_, Counters) ->
+				      Counters
+			      end, {pre,0,0,0,0}, Ts),
+	      [_|Counters] = tuple_to_list(PrePostIOEntries),
+	      ct:log("Entries in the Pre/Post Test IO Log: ~p", [Counters]),
+	      case [C || C <- Counters, C < 2] of
+		  [] ->
+		      ok;
+		  _ ->
+		      exit("Not enough entries in the Pre/Post Test IO Log!")
+	      end
+      end, PrePostIoFiles), 
+
+    UnexpIoFiles =
+	[filelib:wildcard(
+	   filename:join(LogDir,
+			 "*dummy_SUITE.logs/run.*/"
+			 "unexpected_io.log.html")) || LogDir <- LogDirs],
+    lists:foreach(
+      fun(UnexpIoFile) ->
+	      ct:log("Reading Unexpected IO Log file: ~ts", [UnexpIoFile]),
+	      {ok,Bin} = file:read_file(UnexpIoFile),
+	      Ts = string:tokens(binary_to_list(Bin),[$\n]),
+	      UnexpIOEntries =
+		  lists:foldl(fun([$L,$o,$g,$g,$e,$r|_], [LogN,ErrN]) ->
+				      [LogN+1,ErrN];
+				 ([$=,$E,$R,$R,$O,$R|_], [LogN,ErrN]) ->
+				      [LogN,ErrN+1];
+				 (_, Counters) -> Counters
+			      end, [0,0], Ts),
+	      ct:log("Entries in the Unexpected IO Log: ~p", [UnexpIOEntries]),
+	      case [N || N <- UnexpIOEntries, N < 2] of
+		  [] ->
+		      ok;
+		  _ ->
+		      exit("Not enough entries in the Unexpected IO Log!")
+	      end
+      end, UnexpIoFiles),
+    ok.
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -110,5 +208,45 @@ reformat(Events, EH) ->
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
 
-events_to_check(_Test) ->
-    [].
+events_to_check(pre_post_io) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,7}},
+     {?eh,tc_start,{dummy_SUITE,init_per_suite}},
+     {?eh,tc_done,{dummy_SUITE,init_per_suite,ok}},
+     {parallel,
+      [{?eh,tc_start,{dummy_SUITE,{init_per_group,g1,[parallel]}}},
+       {?eh,tc_done,
+	{dummy_SUITE,{init_per_group,g1,[parallel]},ok}},
+       {?eh,tc_start,{dummy_SUITE,tc1}},
+       {?eh,tc_start,{dummy_SUITE,tc2}},
+       {?eh,tc_start,{dummy_SUITE,tc3}},
+       {?eh,tc_done,{dummy_SUITE,tc2,ok}},
+       {?eh,tc_done,{dummy_SUITE,tc1,ok}},
+       {?eh,tc_done,{dummy_SUITE,tc3,ok}},
+       {?eh,test_stats,{1,0,{0,0}}},
+       {?eh,test_stats,{2,0,{0,0}}},
+       {?eh,test_stats,{3,0,{0,0}}},
+       {?eh,tc_start,{dummy_SUITE,{end_per_group,g1,[parallel]}}},
+       {?eh,tc_done,{dummy_SUITE,{end_per_group,g1,[parallel]},ok}}]},
+     {?eh,tc_start,{dummy_SUITE,tc1}},
+     {?eh,tc_done,{dummy_SUITE,tc1,ok}},
+     {?eh,test_stats,{4,0,{0,0}}},
+     {?eh,tc_start,{dummy_SUITE,tc2}},
+     {?eh,tc_done,{dummy_SUITE,tc2,ok}},
+     {?eh,test_stats,{5,0,{0,0}}},
+     [{?eh,tc_start,{dummy_SUITE,{init_per_group,g2,[]}}},
+      {?eh,tc_done,{dummy_SUITE,{init_per_group,g2,[]},ok}},
+      {?eh,tc_start,{dummy_SUITE,tc4}},
+      {?eh,tc_done,{dummy_SUITE,tc4,ok}},
+      {?eh,test_stats,{6,0,{0,0}}},
+      {?eh,tc_start,{dummy_SUITE,tc5}},
+      {?eh,tc_done,{dummy_SUITE,tc5,ok}},
+      {?eh,test_stats,{7,0,{0,0}}},
+      {?eh,tc_start,{dummy_SUITE,{end_per_group,g2,[]}}},
+      {?eh,tc_done,{dummy_SUITE,{end_per_group,g2,[]},ok}}],
+     {?eh,tc_start,{dummy_SUITE,end_per_suite}},
+     {?eh,tc_done,{dummy_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}].

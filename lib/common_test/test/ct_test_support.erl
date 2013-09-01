@@ -65,7 +65,6 @@ init_per_suite(Config, Level) ->
 	_ ->
 	    ok
     end,
-    
     start_slave(Config, Level).
 
 start_slave(Config, Level) ->
@@ -103,6 +102,14 @@ start_slave(NodeName, Config, Level) ->
 	    test_server:format(Level, "Dirs added to code path (on ~w):~n",
 			       [CTNode]),
 	    [io:format("~s~n", [D]) || D <- PathDirs],
+	    
+	    case proplists:get_value(start_sasl, Config) of
+		true ->
+		    rpc:call(CTNode, application, start, [sasl]),
+		    test_server:format(Level, "SASL started on ~w~n", [CTNode]);
+		_ ->
+		    ok
+	    end,
 
 	    TraceFile = filename:join(DataDir, "ct.trace"),
 	    case file:read_file_info(TraceFile) of

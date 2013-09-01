@@ -32,12 +32,19 @@ proceed() ->
 %% Hook functions
 %%--------------------------------------------------------------------
 init(_Id, _Opts) ->
+    case lists:keyfind(sasl, 1, application:which_applications()) of
+	false ->
+	    exit(sasl_not_started);
+	_Else ->
+	    ok
+    end,
     WhoAmI = self(),
     DispPid = spawn_link(fun() -> dispatcher(WhoAmI) end),
     register(?MODULE, DispPid),
     io:format(user,
-	      "~n~n+++ Startup finished, call ~w:proceed() to run tests!~n~n",
-	      [?MODULE]),
+	      "~n~n+++ Startup of ~w on ~p finished, "
+	      "call ~w:proceed() to run tests...~n",
+	      [?MODULE,node(),?MODULE]),
     start_external_logger(cth_logger),
     receive
 	{?MODULE,proceed} -> ok
@@ -49,7 +56,7 @@ init(_Id, _Opts) ->
 
 terminate(_State) ->
     io:format(user,
-	      "~n~n+++ Tests finished, call ~w:proceed() to shut down!~n~n",
+	      "~n~n+++ Tests finished, call ~w:proceed() to shut down...~n",
 	      [?MODULE]),
     receive
 	{?MODULE,proceed} -> ok

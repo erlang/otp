@@ -524,7 +524,7 @@ int_footer() ->
 div_header(Class) ->
     div_header(Class,"User").
 div_header(Class,Printer) ->
-    "<div class=\"" ++ atom_to_list(Class) ++ "\"><b>*** " ++ Printer ++
+    "\n<div class=\"" ++ atom_to_list(Class) ++ "\"><b>*** " ++ Printer ++
     " " ++ log_timestamp(now()) ++ " ***</b>".
 div_footer() ->
     "</div>".

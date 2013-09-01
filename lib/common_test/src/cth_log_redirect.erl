@@ -36,13 +36,17 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/1]).
 
+%% Other
+-export([handle_remote_events/1]).
+
 -include("ct.hrl").
 
 -record(eh_state, {log_func,
 		   curr_suite,
 		   curr_group,
 		   curr_func,
-		   parallel_tcs = false}).
+		   parallel_tcs = false,
+		   handle_remote_events = false}).
 
 id(_Opts) ->
     ?MODULE.
@@ -50,7 +54,6 @@ id(_Opts) ->
 init(?MODULE, _Opts) ->
     error_logger:add_report_handler(?MODULE),
     tc_log_async.
-
 
 pre_init_per_suite(Suite, Config, State) ->
     set_curr_func({Suite,init_per_suite}, Config),
@@ -104,7 +107,8 @@ post_end_per_group(_Group, Config, Return, State) ->
 init(_Type) ->
     {ok, #eh_state{log_func = tc_log_async}}.
 
-handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
+handle_event({_Type,GL,_Msg}, #eh_state{handle_remote_events = false} = State)
+  when node(GL) /= node() ->
     {ok, State};
 handle_event(Event, #eh_state{log_func = LogFunc} = State) ->
     case lists:keyfind(sasl, 1, application:which_applications()) of
@@ -160,8 +164,11 @@ handle_call({set_curr_func,undefined,_Config}, State) ->
 handle_call({set_curr_func,TC,_Config}, State) ->
     {ok, ok, State#eh_state{curr_func = TC}};
 
-handle_call({set_logfunc,NewLogFunc},State) ->
+handle_call({set_logfunc,NewLogFunc}, State) ->
     {ok, NewLogFunc, State#eh_state{log_func = NewLogFunc}};
+
+handle_call({handle_remote_events,Bool}, State) ->
+    {ok, ok, State#eh_state{handle_remote_events = Bool}};
 
 handle_call(_Query, _State) ->
     {error, bad_query}.
@@ -179,7 +186,15 @@ set_curr_func(CurrFunc, Config) ->
 set_log_func(Func) ->
     gen_event:call(error_logger, ?MODULE, {set_logfunc, Func}).
 
+handle_remote_events(Bool) ->
+    gen_event:call(error_logger, ?MODULE, {handle_remote_events, Bool}).
+
 %%%-----------------------------------------------------------------
+
+format_header(#eh_state{curr_suite = undefined,
+			curr_group = undefined,
+			curr_func = undefined}) ->
+    io_lib:format("System report", []);
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = undefined,

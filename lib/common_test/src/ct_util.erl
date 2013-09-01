@@ -199,12 +199,26 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	ok ->
 	    Parent ! {self(),started};
 	{fail,CTHReason} ->
-	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
+	    ErrorInfo = if is_atom(CTHReason) ->
+				io_lib:format("{~p,~p}",
+					      [CTHReason,
+					       erlang:get_stacktrace()]);
+			   true ->
+				CTHReason
+			end,
+	    ct_logs:tc_print('Suite Callback',ErrorInfo,[]),
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
     catch
 	_:CTHReason ->
-	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
+	    ErrorInfo = if is_atom(CTHReason) ->
+				io_lib:format("{~p,~p}",
+					      [CTHReason,
+					       erlang:get_stacktrace()]);
+			   true ->
+				CTHReason
+			end,
+	    ct_logs:tc_print('Suite Callback',ErrorInfo,[]),
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
     end,
@@ -405,9 +419,15 @@ loop(Mode,TestData,StartDir) ->
 	    ct_event:sync_notify(#event{name=test_done,
 					node=node(),
 					data=Time}),
-	    Callbacks = ets:lookup_element(?suite_table,
-					   ct_hooks,
-					   #suite_data.value),
+	    Callbacks =
+		try ets:lookup_element(?suite_table,
+				       ct_hooks,
+				       #suite_data.value) of
+		    CTHMods -> CTHMods
+		catch
+		    %% this is because ct_util failed in init
+		    error:badarg -> []
+		end,
 	    ct_hooks:terminate(Callbacks),
 	    close_connections(ets:tab2list(?conn_table)),
 	    ets:delete(?conn_table),
