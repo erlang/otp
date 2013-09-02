@@ -83,16 +83,43 @@ UWord erts_page_inv_mask;
 
 typedef struct RBTNode_ RBTNode;
 struct RBTNode_ {
-    RBTNode *parent;
+    UWord parent_and_color;     /* color in bit 0 of parent ptr */
     RBTNode *left;
     RBTNode *right;
+#ifdef HARD_DEBUG
     int flags;
+#endif
 };
 
+#define RED_FLG      (1)
+#define IS_RED(N)    ((N) && ((N)->parent_and_color & RED_FLG))
+#define IS_BLACK(N)  (!IS_RED(N))
+#define SET_RED(N)   ((N)->parent_and_color |= RED_FLG)
+#define SET_BLACK(N) ((N)->parent_and_color &= ~RED_FLG)
+
+static ERTS_INLINE RBTNode* parent(RBTNode* node)
+{
+    return (RBTNode*) (node->parent_and_color & ~RED_FLG);
+}
+
+static ERTS_INLINE void set_parent(RBTNode* node, RBTNode* parent)
+{
+    RBT_ASSERT(!((UWord)parent & RED_FLG));
+    node->parent_and_color = ((UWord)parent) | (node->parent_and_color & RED_FLG);
+}
+
+static ERTS_INLINE UWord parent_and_color(RBTNode* parent, int color)
+{
+    RBT_ASSERT(!((UWord)parent & RED_FLG));
+    RBT_ASSERT(!(color & ~RED_FLG));
+    return ((UWord)parent) | color;
+}
+
+
 enum SortOrder {
-    ADDR_ORDER,
-    SZ_ADDR_ORDER,
-    SZ_REVERSE_ADDR_ORDER
+    ADDR_ORDER,             /* only address order */
+    SZ_ADDR_ORDER,          /* first size then address order as tiebreaker */
+    SZ_REVERSE_ADDR_ORDER   /* first size then reverse address order */
 };
 
 typedef struct {
@@ -100,13 +127,6 @@ typedef struct {
     enum SortOrder order;
 }RBTree;
 
-#define RED_FLG      (1)
-#define IS_RED(N)    ((N) && ((N)->flags & RED_FLG))
-#define IS_BLACK(N)  (!IS_RED(N))
-#define SET_RED(N)   ((N)->flags |= RED_FLG)
-#define SET_BLACK(N) ((N)->flags &= ~RED_FLG)
-
-/* #define HARD_DEBUG */
 #ifdef HARD_DEBUG
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE) rbt_assert_is_member(ROOT,NODE)
 #  define HARD_CHECK_TREE(TREE,SZ) check_tree(TREE, SZ)
@@ -318,20 +338,20 @@ left_rotate(RBTNode **root, RBTNode *x)
     RBTNode *y = x->right;
     x->right = y->left;
     if (y->left)
-	y->left->parent = x;
-    y->parent = x->parent;
-    if (!y->parent) {
+	set_parent(y->left, x);
+    set_parent(y, parent(x));
+    if (!parent(y)) {
 	RBT_ASSERT(*root == x);
 	*root = y;
     }
-    else if (x == x->parent->left)
-	x->parent->left = y;
+    else if (x == parent(x)->left)
+	parent(x)->left = y;
     else {
-	RBT_ASSERT(x == x->parent->right);
-	x->parent->right = y;
+	RBT_ASSERT(x == parent(x)->right);
+	parent(x)->right = y;
     }
     y->left = x;
-    x->parent = y;
+    set_parent(x, y);
 
     /*SVERK y->max_sz = x->max_sz;
     x->max_sz = node_max_size(x);
@@ -344,20 +364,20 @@ right_rotate(RBTNode **root, RBTNode *x)
     RBTNode *y = x->left;
     x->left = y->right;
     if (y->right)
-	y->right->parent = x;
-    y->parent = x->parent;
-    if (!y->parent) {
+	set_parent(y->right, x);
+    set_parent(y, parent(x));
+    if (!parent(y)) {
 	RBT_ASSERT(*root == x);
 	*root = y;
     }
-    else if (x == x->parent->right)
-	x->parent->right = y;
+    else if (x == parent(x)->right)
+	parent(x)->right = y;
     else {
-	RBT_ASSERT(x == x->parent->left);
-	x->parent->left = y;
+	RBT_ASSERT(x == parent(x)->left);
+	parent(x)->left = y;
     }
     y->right = x;
-    x->parent = y;
+    set_parent(x, y);
     /*SVERK y->max_sz = x->max_sz;
     x->max_sz = node_max_size(x);
     ASSERT(y->max_sz >= x->max_sz);*/
@@ -371,27 +391,27 @@ static ERTS_INLINE void
 replace(RBTNode **root, RBTNode *x, RBTNode *y)
 {
 
-    if (!x->parent) {
+    if (!parent(x)) {
 	RBT_ASSERT(*root == x);
 	*root = y;
     }
-    else if (x == x->parent->left)
-	x->parent->left = y;
+    else if (x == parent(x)->left)
+	parent(x)->left = y;
     else {
-	RBT_ASSERT(x == x->parent->right);
-	x->parent->right = y;
+	RBT_ASSERT(x == parent(x)->right);
+	parent(x)->right = y;
     }
     if (x->left) {
-	RBT_ASSERT(x->left->parent == x);
-	x->left->parent = y;
+	RBT_ASSERT(parent(x->left) == x);
+	set_parent(x->left, y);
     }
     if (x->right) {
-	RBT_ASSERT(x->right->parent == x);
-	x->right->parent = y;
+	RBT_ASSERT(parent(x->right) == x);
+	set_parent(x->right, y);
     }
 
-    y->flags	= x->flags;
-    y->parent	= x->parent;
+    /*y->flags	= x->flags;*/
+    y->parent_and_color	= x->parent_and_color;
     y->right	= x->right;
     y->left	= x->left;
     /*SVERK y->max_sz   = x->max_sz;*/
@@ -406,7 +426,7 @@ tree_insert_fixup(RBTNode** root, RBTNode *blk)
      * Rearrange the tree so that it satisfies the Red-Black Tree properties
      */
 
-    RBT_ASSERT(x != *root && IS_RED(x->parent));
+    RBT_ASSERT(x != *root && IS_RED(parent(x)));
     do {
 
 	/*
@@ -415,77 +435,77 @@ tree_insert_fixup(RBTNode** root, RBTNode *blk)
 	 */
 
 	RBT_ASSERT(IS_RED(x));
-	RBT_ASSERT(IS_BLACK(x->parent->parent));
-	RBT_ASSERT(x->parent->parent);
+	RBT_ASSERT(IS_BLACK(parent(parent(x))));
+	RBT_ASSERT(parent(parent(x)));
 
-	if (x->parent == x->parent->parent->left) {
-	    y = x->parent->parent->right;
+	if (parent(x) == parent(parent(x))->left) {
+	    y = parent(parent(x))->right;
 	    if (IS_RED(y)) {
 		SET_BLACK(y);
-		x = x->parent;
+		x = parent(x);
 		SET_BLACK(x);
-		x = x->parent;
+		x = parent(x);
 		SET_RED(x);
 	    }
 	    else {
 
-		if (x == x->parent->right) {
-		    x = x->parent;
+		if (x == parent(x)->right) {
+		    x = parent(x);
 		    left_rotate(root, x);
 		}
 
-		RBT_ASSERT(x == x->parent->parent->left->left);
+		RBT_ASSERT(x == parent(parent(x))->left->left);
 		RBT_ASSERT(IS_RED(x));
-		RBT_ASSERT(IS_RED(x->parent));
-		RBT_ASSERT(IS_BLACK(x->parent->parent));
+		RBT_ASSERT(IS_RED(parent(x)));
+		RBT_ASSERT(IS_BLACK(parent(parent(x))));
 		RBT_ASSERT(IS_BLACK(y));
 
-		SET_BLACK(x->parent);
-		SET_RED(x->parent->parent);
-		right_rotate(root, x->parent->parent);
+		SET_BLACK(parent(x));
+		SET_RED(parent(parent(x)));
+		right_rotate(root, parent(parent(x)));
 
-		RBT_ASSERT(x == x->parent->left);
+		RBT_ASSERT(x == parent(x)->left);
 		RBT_ASSERT(IS_RED(x));
-		RBT_ASSERT(IS_RED(x->parent->right));
-		RBT_ASSERT(IS_BLACK(x->parent));
+		RBT_ASSERT(IS_RED(parent(x)->right));
+		RBT_ASSERT(IS_BLACK(parent(x)));
 		break;
 	    }
 	}
 	else {
-	    RBT_ASSERT(x->parent == x->parent->parent->right);
-	    y = x->parent->parent->left;
+	    RBT_ASSERT(parent(x) == parent(parent(x))->right);
+	    y = parent(parent(x))->left;
 	    if (IS_RED(y)) {
 		SET_BLACK(y);
-		x = x->parent;
+		x = parent(x);
 		SET_BLACK(x);
-		x = x->parent;
+		x = parent(x);
 		SET_RED(x);
 	    }
 	    else {
 
-		if (x == x->parent->left) {
-		    x = x->parent;
+		if (x == parent(x)->left) {
+		    x = parent(x);
 		    right_rotate(root, x);
 		}
 
-		RBT_ASSERT(x == x->parent->parent->right->right);
+		RBT_ASSERT(x == parent(parent(x))->right->right);
 		RBT_ASSERT(IS_RED(x));
-		RBT_ASSERT(IS_RED(x->parent));
-		RBT_ASSERT(IS_BLACK(x->parent->parent));
+		RBT_ASSERT(IS_RED(parent(x)));
+		RBT_ASSERT(IS_BLACK(parent(parent(x))));
 		RBT_ASSERT(IS_BLACK(y));
 
-		SET_BLACK(x->parent);
-		SET_RED(x->parent->parent);
-		left_rotate(root, x->parent->parent);
+		SET_BLACK(parent(x));
+		SET_RED(parent(parent(x)));
+		left_rotate(root, parent(parent(x)));
 
-		RBT_ASSERT(x == x->parent->right);
+		RBT_ASSERT(x == parent(x)->right);
 		RBT_ASSERT(IS_RED(x));
-		RBT_ASSERT(IS_RED(x->parent->left));
-		RBT_ASSERT(IS_BLACK(x->parent));
+		RBT_ASSERT(IS_RED(parent(x)->left));
+		RBT_ASSERT(IS_BLACK(parent(x)));
 		break;
 	    }
 	}
-    } while (x != *root && IS_RED(x->parent));
+    } while (x != *root && IS_RED(parent(x)));
 
     SET_BLACK(*root);
 }
@@ -500,7 +520,7 @@ rbt_delete(RBTNode** root, RBTNode* del)
 
     HARD_CHECK_IS_MEMBER(*root, del);
 
-    null_x.parent = NULL;
+    null_x.parent_and_color = parent_and_color(NULL, !RED_FLG);
 
     /* Remove node from tree... */
 
@@ -514,29 +534,29 @@ rbt_delete(RBTNode** root, RBTNode* del)
     x = y->left ? y->left : y->right;
     spliced_is_black = IS_BLACK(y);
     if (x) {
-	x->parent = y->parent;
+	set_parent(x, parent(y));
     }
     else if (spliced_is_black) {
 	x = &null_x;
-	x->flags = 0;
-	SET_BLACK(x);
+        /*x->flags = 0;
+	SET_BLACK(x);*/
 	x->right = x->left = NULL;
         /*SVERK x->max_sz = 0;*/
-	x->parent = y->parent;
+	x->parent_and_color = parent_and_color(parent(y), !RED_FLG);
 	y->left = x;
     }
 
-    if (!y->parent) {
+    if (!parent(y)) {
 	RBT_ASSERT(*root == y);
 	*root = x;
     }
     else {
-	if (y == y->parent->left) {
-	    y->parent->left = x;
+	if (y == parent(y)->left) {
+	    parent(y)->left = x;
 	}
 	else {
-	    RBT_ASSERT(y == y->parent->right);
-	    y->parent->right = x;
+	    RBT_ASSERT(y == parent(y)->right);
+	    parent(y)->right = x;
 	}
 	/*SVERK if (y->parent != z) {
 	    lower_max_size(y->parent, (y==z ? NULL : z));
@@ -553,7 +573,7 @@ rbt_delete(RBTNode** root, RBTNode* del)
 	/* We removed a black node which makes the resulting tree
 	   violate the Red-Black Tree properties. Fixup tree... */
 
-	while (IS_BLACK(x) && x->parent) {
+	while (IS_BLACK(x) && parent(x)) {
 
 	    /*
 	     * x has an "extra black" which we move up the tree
@@ -562,78 +582,78 @@ rbt_delete(RBTNode** root, RBTNode* del)
 	     * y is the sibbling of x
 	     */
 
-	    if (x == x->parent->left) {
-		y = x->parent->right;
+	    if (x == parent(x)->left) {
+		y = parent(x)->right;
 		RBT_ASSERT(y);
 		if (IS_RED(y)) {
 		    RBT_ASSERT(y->right);
 		    RBT_ASSERT(y->left);
 		    SET_BLACK(y);
-		    RBT_ASSERT(IS_BLACK(x->parent));
-		    SET_RED(x->parent);
-		    left_rotate(root, x->parent);
-		    y = x->parent->right;
+		    RBT_ASSERT(IS_BLACK(parent(x)));
+		    SET_RED(parent(x));
+		    left_rotate(root, parent(x));
+		    y = parent(x)->right;
 		}
 		RBT_ASSERT(y);
 		RBT_ASSERT(IS_BLACK(y));
 		if (IS_BLACK(y->left) && IS_BLACK(y->right)) {
 		    SET_RED(y);
-		    x = x->parent;
+		    x = parent(x);
 		}
 		else {
 		    if (IS_BLACK(y->right)) {
 			SET_BLACK(y->left);
 			SET_RED(y);
 			right_rotate(root, y);
-			y = x->parent->right;
+			y = parent(x)->right;
 		    }
 		    RBT_ASSERT(y);
-		    if (IS_RED(x->parent)) {
+		    if (IS_RED(parent(x))) {
 
-			SET_BLACK(x->parent);
+			SET_BLACK(parent(x));
 			SET_RED(y);
 		    }
 		    RBT_ASSERT(y->right);
 		    SET_BLACK(y->right);
-		    left_rotate(root, x->parent);
+		    left_rotate(root, parent(x));
 		    x = *root;
 		    break;
 		}
 	    }
 	    else {
-		RBT_ASSERT(x == x->parent->right);
-		y = x->parent->left;
+		RBT_ASSERT(x == parent(x)->right);
+		y = parent(x)->left;
 		RBT_ASSERT(y);
 		if (IS_RED(y)) {
 		    RBT_ASSERT(y->right);
 		    RBT_ASSERT(y->left);
 		    SET_BLACK(y);
-		    RBT_ASSERT(IS_BLACK(x->parent));
-		    SET_RED(x->parent);
-		    right_rotate(root, x->parent);
-		    y = x->parent->left;
+		    RBT_ASSERT(IS_BLACK(parent(x)));
+		    SET_RED(parent(x));
+		    right_rotate(root, parent(x));
+		    y = parent(x)->left;
 		}
 		RBT_ASSERT(y);
 		RBT_ASSERT(IS_BLACK(y));
 		if (IS_BLACK(y->right) && IS_BLACK(y->left)) {
 		    SET_RED(y);
-		    x = x->parent;
+		    x = parent(x);
 		}
 		else {
 		    if (IS_BLACK(y->left)) {
 			SET_BLACK(y->right);
 			SET_RED(y);
 			left_rotate(root, y);
-			y = x->parent->left;
+			y = parent(x)->left;
 		    }
 		    RBT_ASSERT(y);
-		    if (IS_RED(x->parent)) {
-			SET_BLACK(x->parent);
+		    if (IS_RED(parent(x))) {
+			SET_BLACK(parent(x));
 			SET_RED(y);
 		    }
 		    RBT_ASSERT(y->left);
 		    SET_BLACK(y->left);
-		    right_rotate(root, x->parent);
+		    right_rotate(root, parent(x));
 		    x = *root;
 		    break;
 		}
@@ -641,12 +661,12 @@ rbt_delete(RBTNode** root, RBTNode* del)
 	}
 	SET_BLACK(x);
 
-	if (null_x.parent) {
-	    if (null_x.parent->left == &null_x)
-		null_x.parent->left = NULL;
+	if (parent(&null_x)) {
+	    if (parent(&null_x)->left == &null_x)
+		parent(&null_x)->left = NULL;
 	    else {
-		RBT_ASSERT(null_x.parent->right == &null_x);
-		null_x.parent->right = NULL;
+		RBT_ASSERT(parent(&null_x)->right == &null_x);
+		parent(&null_x)->right = NULL;
 	    }
 	    RBT_ASSERT(!null_x.left);
 	    RBT_ASSERT(!null_x.right);
@@ -671,14 +691,14 @@ rbt_insert(enum SortOrder order, RBTNode** root, RBTNode* blk)
     SWord blk_sz = desc->end - desc->start;
     /*SVERK Uint blk_sz = AOFF_BLK_SZ(blk);*/
 
-    blk->flags  = 0;
+    /*blk->flags  = 0;*/
     blk->left	= NULL;
     blk->right	= NULL;
     /*SVERK blk->max_sz = blk_sz;*/
 
     if (!*root) {
-	blk->parent = NULL;
-	SET_BLACK(blk);
+	blk->parent_and_color = parent_and_color(NULL, !RED_FLG);
+        /*SET_BLACK(blk);*/
 	*root = blk;
     }
     else {
@@ -692,7 +712,7 @@ rbt_insert(enum SortOrder order, RBTNode** root, RBTNode* blk)
 	    if (diff < 0) {
                 IF_RBT_DEBUG(dbg_over = node_to_desc(order, x));
 		if (!x->left) {
-		    blk->parent = x;
+		    blk->parent_and_color = parent_and_color(x, RED_FLG);
 		    x->left = blk;
 		    break;
 		}
@@ -702,7 +722,7 @@ rbt_insert(enum SortOrder order, RBTNode** root, RBTNode* blk)
                 RBT_ASSERT(diff > 0);
                 IF_RBT_DEBUG(dbg_under = node_to_desc(order, x));
                 if (!x->right) {
-                    blk->parent = x;
+                    blk->parent_and_color = parent_and_color(x, RED_FLG);
                     x->right = blk;
                     break;
                 }
@@ -723,15 +743,16 @@ rbt_insert(enum SortOrder order, RBTNode** root, RBTNode* blk)
 	}
 
 	/* Insert block into size tree */
-	RBT_ASSERT(blk->parent);
+	RBT_ASSERT(parent(blk));
 #ifdef RBT_DEBUG
         if (!order) {
             RBT_ASSERT(!dbg_under || dbg_under->end < desc->start);
             RBT_ASSERT(!dbg_over || dbg_over->start > desc->end);
         }
 #endif
-	SET_RED(blk);
-	if (IS_RED(blk->parent))
+	/*SET_RED(blk);*/
+        RBT_ASSERT(IS_RED(blk));
+	if (IS_RED(parent(blk)))
 	    tree_insert_fixup(root, blk);
     }
     /*SVERK if (flavor == AOFF_BF) {
@@ -1746,20 +1767,11 @@ erts_mmap_init(ErtsMMapInit *init)
 
 	mmap_state.supercarrier = 1;
 	erts_have_erts_mmap |= ERTS_HAVE_ERTS_SUPERCARRIER_MMAP;
-
-
-#ifdef HARD_DEBUG
-    {
-        void test_it(void);
-        test_it();
     }
-#endif
 
-    }
 #if !ERTS_HAVE_OS_MMAP
     mmap_state.no_os_mmap = 1;
 #endif
-
 }
 
 
@@ -1773,9 +1785,9 @@ erts_mmap_init(ErtsMMapInit *init)
 static int rbt_assert_is_member(RBTNode* root, RBTNode* node)
 {
     while (node != root) {
-	RBT_ASSERT(node->parent);
-	RBT_ASSERT(node->parent->left == node || node->parent->right == node);
-	node = node->parent;
+	RBT_ASSERT(parent(node));
+	RBT_ASSERT(parent(node)->left == node || parent(node)->right == node);
+	node = parent(node);
     }
     return 1;
 }
@@ -1841,7 +1853,7 @@ check_tree(RBTree* tree, Uint size)
 
     x = tree->root;
     RBT_ASSERT(IS_BLACK(x));
-    RBT_ASSERT(!x->parent);
+    RBT_ASSERT(!parent(x));
     curr_blacks = 1;
     blacks = -1;
     depth = 1;
@@ -1877,15 +1889,15 @@ check_tree(RBTree* tree, Uint size)
                 RBT_ASSERT(IS_BLACK(x->left));
             }
 
-            RBT_ASSERT(x->parent || x == tree->root);
+            RBT_ASSERT(parent(x) || x == tree->root);
 
             if (x->left) {
-                RBT_ASSERT(x->left->parent == x);
+                RBT_ASSERT(parent(x->left) == x);
                 RBT_ASSERT(cmp_blocks(tree->order, x->left, x) < 0);
             }
 
             if (x->right) {
-                RBT_ASSERT(x->right->parent == x);
+                RBT_ASSERT(parent(x->right) == x);
                 RBT_ASSERT(cmp_blocks(tree->order, x->right, x) > 0);
             }
 
@@ -1923,7 +1935,7 @@ check_tree(RBTree* tree, Uint size)
         UNSET_RIGHT_VISITED(x);
 	if (IS_BLACK(x))
 	    curr_blacks--;
-	x = x->parent;
+	x = parent(x);
 	--depth;
     }
     RBT_ASSERT(depth == 0 || (!tree->root && depth==1));
@@ -1936,6 +1948,8 @@ check_tree(RBTree* tree, Uint size)
 
     return res;
 }
+
+#endif /* HARD_DEBUG */
 
 
 #ifdef PRINT_TREE
@@ -1983,13 +1997,13 @@ void test_it(void)
         init_free_seg_map(&map, i);
 
         insert_free_seg(&map, alloc_desc(), (char*)0x11000, (char*)0x12000);
-        check_tree(&map.atree, 0); check_tree(&map.stree, 0);
+        HARD_CHECK_TREE(&map.atree, 0); HARD_CHECK_TREE(&map.stree, 0);
         insert_free_seg(&map, alloc_desc(), (char*)0x13000, (char*)0x14000);
-        check_tree(&map.atree, 0); check_tree(&map.stree, 0);
+        HARD_CHECK_TREE(&map.atree, 0); HARD_CHECK_TREE(&map.stree, 0);
         insert_free_seg(&map, alloc_desc(), (char*)0x15000, (char*)0x17000);
-        check_tree(&map.atree, 0); check_tree(&map.stree, 0);
+        HARD_CHECK_TREE(&map.atree, 0); HARD_CHECK_TREE(&map.stree, 0);
         insert_free_seg(&map, alloc_desc(), (char*)0x8000, (char*)0x10000);
-        check_tree(&map.atree, 0); check_tree(&map.stree, 0);
+        HARD_CHECK_TREE(&map.atree, 0); HARD_CHECK_TREE(&map.stree, 0);
 
         desc = lookup_free_seg(&map, 0x500);
         ERTS_ASSERT(desc->start == (char*)(i?0x13000L:0x11000L));
@@ -2026,17 +2040,15 @@ void test_it(void)
         ERTS_ASSERT(d1->start == (char*)(i?0x13000L:0x11000L));
 
         resize_free_seg(&map, d1, d1->start - 0x800, (char*)d1->end);
-        check_tree(&map.atree, 0); check_tree(&map.stree, 0);
+        HARD_CHECK_TREE(&map.atree, 0); HARD_CHECK_TREE(&map.stree, 0);
 
         d2 = lookup_free_seg(&map, 0x1200);
         ERTS_ASSERT(d2 == d1);
 
         delete_free_seg(&map, d1);
-        check_tree(&map.atree, 0); check_tree(&map.stree, 0);
+        HARD_CHECK_TREE(&map.atree, 0); HARD_CHECK_TREE(&map.stree, 0);
 
         d1 = lookup_free_seg(&map, 0x1200);
         ERTS_ASSERT(d1->start == (char*)0x15000);
     }
 }
-
-#endif /* HARD_DEBUG */
