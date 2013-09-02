@@ -49,7 +49,8 @@
 	 
 	 otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
 	 
-	 otp_7292/1, otp_7969/1, otp_8919/1, otp_10302/1, otp_11269/1]).
+	 otp_7292/1, otp_7969/1, otp_8919/1, otp_10302/1, otp_11269/1,
+         otp_11286/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -77,7 +78,7 @@ groups() ->
      {bugs, [],
       [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
      {improvements, [], [otp_7292, otp_7969, otp_8919, otp_10302,
-                         otp_11269]}].
+                         otp_11269, otp_11286]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1995,6 +1996,64 @@ otp_11269(Config) when is_list(Config) ->
     Opts = [return, warn_unused_vars,{outdir,Dir}],
     {ok,'OTP-11269',_Warnings} = compile:file(ErlFile, Opts),
     ok.
+
+otp_11286(doc) ->
+    "OTP-11286. A Unicode filename bug; both Leex and Yecc.";
+otp_11286(suite) -> [];
+otp_11286(Config) when is_list(Config) ->
+    Node = start_node(otp_11286, "+fnu"),
+    Dir = ?privdir,
+    UName = [1024] ++ "u",
+    UDir = filename:join(Dir, UName),
+    ok = rpc:call(Node, file, make_dir, [UDir]),
+
+    %% Note: Cannot use UName as filename since the filename is used
+    %% as module name. To be fixed in R18.
+    Filename = filename:join(UDir, 'OTP-11286.yrl'),
+    Ret = [return, {report, false}, time],
+
+    Mini1 = <<"%% coding: utf-8
+               Terminals t.
+               Nonterminals nt.
+               Rootsymbol  nt.
+               nt -> t.">>,
+    ok = rpc:call(Node, file, write_file, [Filename, Mini1]),
+    {ok,ErlFile,[]} = rpc:call(Node, yecc, file, [Filename, Ret]),
+    Opts = [return, warn_unused_vars,{outdir,Dir}],
+    {ok,_,_Warnings} = rpc:call(Node, compile, file, [ErlFile, Opts]),
+
+    Mini2 = <<"Terminals t.
+               Nonterminals nt.
+               Rootsymbol  nt.
+               nt -> t.">>,
+    ok = rpc:call(Node, file, write_file, [Filename, Mini2]),
+    {ok,ErlFile,[]} = rpc:call(Node, yecc, file, [Filename, Ret]),
+    Opts = [return, warn_unused_vars,{outdir,Dir}],
+    {ok,_,_Warnings} = rpc:call(Node, compile, file, [ErlFile, Opts]),
+
+    Mini3 = <<"%% coding: latin-1
+               Terminals t.
+               Nonterminals nt.
+               Rootsymbol  nt.
+               nt -> t.">>,
+    ok = rpc:call(Node, file, write_file, [Filename, Mini3]),
+    {ok,ErlFile,[]} = rpc:call(Node, yecc, file, [Filename, Ret]),
+    Opts = [return, warn_unused_vars,{outdir,Dir}],
+    {ok,_,_Warnings} = rpc:call(Node, compile, file, [ErlFile, Opts]),
+
+    true = test_server:stop_node(Node),
+    ok.
+
+start_node(Name, Args) ->
+    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    ct:log("Trying to start ~w@~s~n", [Name,Host]),
+    case test_server:start_node(Name, peer, [{args,Args}]) of
+	{error,Reason} ->
+	    test_server:fail(Reason);
+	{ok,Node} ->
+	    ct:log("Node ~p started~n", [Node]),
+	    Node
+    end.
 
 yeccpre_size() ->
     yeccpre_size(default_yeccpre()).

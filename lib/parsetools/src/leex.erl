@@ -1645,10 +1645,14 @@ output_encoding_comment(File, #leex{encoding = Encoding}) ->
 
 output_file_directive(File, Filename, Line) ->
     io:fwrite(File, <<"-file(~ts, ~w).\n">>,
-              [format_filename(Filename), Line]).
+              [format_filename(Filename, File), Line]).
 
-format_filename(Filename) ->
-    io_lib:write_string(filename:flatten(Filename)).
+format_filename(Filename0, File) ->
+    Filename = filename:flatten(Filename0),
+    case lists:keyfind(encoding, 1, io:getopts(File)) of
+        {encoding, unicode} -> io_lib:write_string(Filename);
+        _ ->                   io_lib:write_string_as_latin1(Filename)
+    end.
 
 quote($^)  -> "\\^";
 quote($.)  -> "\\.";

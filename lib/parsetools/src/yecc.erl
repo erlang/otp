@@ -482,7 +482,7 @@ generate(St0) ->
     F = case member(time, St1#yecc.options) of
             true -> 
                 io:fwrite(<<"Generating parser from grammar in ~ts\n">>,
-                          [format_filename(St1#yecc.infile)]),
+                          [format_filename(St1#yecc.infile, St1)]),
                 fun timeit/3;
             false ->
                 fun(_Name, Fn, St) -> Fn(St) end
@@ -2519,7 +2519,7 @@ output_encoding_comment(#yecc{encoding = Encoding}=St) ->
 
 output_file_directive(St, Filename, Line) when St#yecc.file_attrs ->
     fwrite(St, <<"-file(~ts, ~w).\n">>,
-           [format_filename(Filename), Line]);
+           [format_filename(Filename, St), Line]);
 output_file_directive(St, _Filename, _Line) ->
     St.
 
@@ -2547,8 +2547,12 @@ nl(#yecc{outport = Outport, line = Line}=St) ->
     io:nl(Outport),
     St#yecc{line = Line + 1}.
 
-format_filename(Filename) ->
-    io_lib:write_string(filename:flatten(Filename)).
+format_filename(Filename0, St) ->
+    Filename = filename:flatten(Filename0),
+    case lists:keyfind(encoding, 1, io:getopts(St#yecc.outport)) of
+        {encoding, unicode} -> io_lib:write_string(Filename);
+        _ ->                   io_lib:write_string_as_latin1(Filename)
+    end.
 
 format_assoc(left) ->
     "Left";
