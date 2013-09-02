@@ -479,12 +479,6 @@ init([]) ->
 	    test_server_sup:call_trace(TraceSpec)
     end,
     process_flag(trap_exit, true),
-    case lists:keysearch(sasl, 1, application:which_applications()) of
-	{value,_} ->
-	    test_server_h:install();
-	false ->
-	    ok
-    end,
     %% copy format_exception setting from init arg to application environment
     case init:get_argument(test_server_format_exception) of
 	{ok,[[TSFE]]} ->
@@ -1067,12 +1061,6 @@ terminate(_Reason, State) ->
     end,
     kill_all_jobs(State#state.jobs),
     test_server_node:kill_nodes(),
-    case lists:keysearch(sasl, 1, application:which_applications()) of
-	{value,_} ->
-	    test_server_h:restore();
-	_ ->
-	    ok
-    end,
     ok.
 
 kill_all_jobs([{_Name,JobPid}|Jobs]) ->

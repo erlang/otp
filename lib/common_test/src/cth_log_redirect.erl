@@ -25,8 +25,11 @@
 
 
 %% CTH Callbacks
--export([id/1, init/2, post_init_per_group/4, pre_end_per_group/3,
-	 post_end_per_testcase/4]).
+-export([id/1, init/2,
+	 pre_init_per_suite/3, pre_end_per_suite/3, post_end_per_suite/4,
+	 pre_init_per_group/3, post_init_per_group/4,
+	 pre_end_per_group/3, post_end_per_group/4,
+	 pre_init_per_testcase/3, post_end_per_testcase/4]).
 
 %% Event handler Callbacks
 -export([init/1,
@@ -35,12 +38,35 @@
 
 -include("ct.hrl").
 
+-record(eh_state, {log_func,
+		   curr_suite,
+		   curr_group,
+		   curr_func,
+		   parallel_tcs = false}).
+
 id(_Opts) ->
     ?MODULE.
 
 init(?MODULE, _Opts) ->
     error_logger:add_report_handler(?MODULE),
     tc_log_async.
+
+
+pre_init_per_suite(Suite, Config, State) ->
+    set_curr_func({Suite,init_per_suite}, Config),
+    {Config, State}.
+
+pre_end_per_suite(Suite, Config, State) ->
+    set_curr_func({Suite,end_per_suite}, Config),
+    {Config, State}.
+
+post_end_per_suite(_Suite, Config, Return, State) ->
+    set_curr_func(undefined, Config),
+    {Return, State}.
+
+pre_init_per_group(Group, Config, State) ->
+    set_curr_func({group,Group,init_per_group}, Config),
+    {Config, State}.
 
 post_init_per_group(Group, Config, Result, tc_log_async) ->
     case lists:member(parallel,proplists:get_value(
@@ -53,6 +79,10 @@ post_init_per_group(Group, Config, Result, tc_log_async) ->
 post_init_per_group(_Group, _Config, Result, State) ->
     {Result, State}.
 
+pre_init_per_testcase(TC, Config, State) ->
+    set_curr_func(TC, Config),
+    {Config, State}.
+
 post_end_per_testcase(_TC, _Config, Result, State) ->
     %% Make sure that the event queue is flushed
     %% before ending this test case.
@@ -60,18 +90,23 @@ post_end_per_testcase(_TC, _Config, Result, State) ->
     {Result, State}.
 
 pre_end_per_group(Group, Config, {tc_log, Group}) ->
+    set_curr_func({group,Group,end_per_group}, Config),
     {Config, set_log_func(tc_log_async)};
-pre_end_per_group(_Group, Config, State) ->
+pre_end_per_group(Group, Config, State) ->
+    set_curr_func({group,Group,end_per_group}, Config),
     {Config, State}.
 
+post_end_per_group(_Group, Config, Return, State) ->
+    set_curr_func({group,undefined}, Config),
+    {Return, State}.
 
 %% Copied and modified from sasl_report_tty_h.erl
 init(_Type) ->
-    {ok, tc_log_async}.
+    {ok, #eh_state{log_func = tc_log_async}}.
 
 handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
-handle_event(Event, LogFunc) ->
+handle_event(Event, #eh_state{log_func = LogFunc} = State) ->
     case lists:keyfind(sasl, 1, application:which_applications()) of
 	false ->
 	    sasl_not_started;
@@ -80,7 +115,8 @@ handle_event(Event, LogFunc) ->
 	    SReport = sasl_report:format_report(group_leader(), ErrLogType,
 						tag_event(Event)),
 	    if is_list(SReport) ->
-		    ct_logs:LogFunc(sasl, ?STD_IMPORTANCE, "System", SReport, []);
+		    SaslHeader = format_header(State),
+		    ct_logs:LogFunc(sasl, ?STD_IMPORTANCE, SaslHeader, SReport, []);
 	       true -> %% Report is an atom if no logging is to be done
 		    ignore
 	    end
@@ -88,20 +124,47 @@ handle_event(Event, LogFunc) ->
     EReport = error_logger_tty_h:write_event(
 		tag_event(Event),io_lib),
     if is_list(EReport) ->
-	    ct_logs:LogFunc(error_logger, ?STD_IMPORTANCE, "System", EReport, []);
+	    ErrHeader = format_header(State),
+	    ct_logs:LogFunc(error_logger, ?STD_IMPORTANCE, ErrHeader, EReport, []);
        true -> %% Report is an atom if no logging is to be done
 	    ignore
     end,
-    {ok, LogFunc}.
+    {ok, State}.
 
 
 handle_info(_,State) -> {ok, State}.
 
 handle_call(flush,State) ->
     {ok, ok, State};
-handle_call({set_logfunc,NewLogFunc},_) ->
-    {ok, NewLogFunc, NewLogFunc};
-handle_call(_Query, _State) -> {error, bad_query}.
+
+handle_call({set_curr_func,{group,Group,Conf},Config}, State) ->
+    Parallel = case proplists:get_value(tc_group_properties, Config) of
+		   undefined -> false;
+		   Props -> lists:member(parallel, Props)
+	       end,
+    {ok, ok, State#eh_state{curr_group = Group,
+			    curr_func = Conf,
+			    parallel_tcs = Parallel}};
+handle_call({set_curr_func,{group,undefined},_Config}, State) ->
+    {ok, ok, State#eh_state{curr_group = undefined,
+			    curr_func = undefined,
+			    parallel_tcs = false}};
+handle_call({set_curr_func,{Suite,Conf},_Config}, State) ->
+    {ok, ok, State#eh_state{curr_suite = Suite,
+			    curr_func = Conf,
+			    parallel_tcs = false}};
+handle_call({set_curr_func,undefined,_Config}, State) ->
+    {ok, ok, State#eh_state{curr_suite = undefined,
+			    curr_func = undefined,
+			    parallel_tcs = false}};
+handle_call({set_curr_func,TC,_Config}, State) ->
+    {ok, ok, State#eh_state{curr_func = TC}};
+
+handle_call({set_logfunc,NewLogFunc},State) ->
+    {ok, NewLogFunc, State#eh_state{log_func = NewLogFunc}};
+
+handle_call(_Query, _State) ->
+    {error, bad_query}.
 
 terminate(_State) ->
     error_logger:delete_report_handler(?MODULE),
@@ -110,5 +173,40 @@ terminate(_State) ->
 tag_event(Event) ->
     {calendar:local_time(), Event}.
 
+set_curr_func(CurrFunc, Config) ->
+    gen_event:call(error_logger, ?MODULE, {set_curr_func, CurrFunc, Config}).
+
 set_log_func(Func) ->
     gen_event:call(error_logger, ?MODULE, {set_logfunc, Func}).
+
+%%%-----------------------------------------------------------------
+
+format_header(#eh_state{curr_suite = Suite,
+			curr_group = undefined,
+			curr_func = undefined}) ->
+    io_lib:format("System report during ~w", [Suite]);
+
+format_header(#eh_state{curr_suite = Suite,
+			curr_group = undefined,
+			curr_func = TcOrConf}) ->
+    io_lib:format("System report during ~w:~w/1",
+		  [Suite,TcOrConf]);
+
+format_header(#eh_state{curr_suite = Suite,
+			curr_group = Group,
+			curr_func = Conf}) when Conf == init_per_group;
+						Conf == end_per_group ->
+    io_lib:format("System report during ~w:~w/2 for ~w",
+		  [Suite,Conf,Group]);
+
+format_header(#eh_state{curr_suite = Suite,
+			curr_group = Group,
+			parallel_tcs = true}) ->
+    io_lib:format("System report during ~w in ~w",
+		  [Group,Suite]);
+
+format_header(#eh_state{curr_suite = Suite,
+			curr_group = Group,
+			curr_func = TC}) ->
+    io_lib:format("System report during ~w:~w/1 in ~w",
+		  [Suite,TC,Group]).
