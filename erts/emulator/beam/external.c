@@ -529,7 +529,7 @@ Uint erts_encode_ext_size(Eterm term)
 
 Uint erts_encode_ext_size_2(Eterm term, unsigned dflags)
 {
-    return encode_size_struct2(NULL, term, TERM_TO_BINARY_DFLAGS|dflags)
+    return encode_size_struct2(NULL, term, dflags)
         + 1 /* VERSION_MAGIC */;
 }
 
@@ -1099,10 +1099,10 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 	    if (tp[1] == am_minor_version && is_small(tp[2])) {
 		switch (signed_val(tp[2])) {
 		case 0:
-		    flags = TERM_TO_BINARY_DFLAGS;
+		    flags = TERM_TO_BINARY_DFLAGS & ~DFLAG_NEW_FLOATS;
 		    break;
 		case 1:
-		    flags = TERM_TO_BINARY_DFLAGS|DFLAG_NEW_FLOATS;
+		    flags = TERM_TO_BINARY_DFLAGS;
 		    break;
 		default:
 		    goto error;
@@ -1605,9 +1605,9 @@ external_size_2(BIF_ALIST_2)
             if (tp[1] == am_minor_version && is_small(tp[2])) {
                 switch (signed_val(tp[2])) {
                 case 0:
+                    flags &= ~DFLAG_NEW_FLOATS;
                     break;
                 case 1:
-                    flags |= DFLAG_NEW_FLOATS;
                     break;
                 default:
                     goto error;

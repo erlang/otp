@@ -474,16 +474,16 @@ terms_compression_levels(_, _, _) -> ok.
 
 terms_float(Config) when is_list(Config) ->
     ?line test_floats(fun(Term) ->
-			      Bin0 = term_to_binary(Term),
 			      Bin0 = term_to_binary(Term, [{minor_version,0}]),
 			      Term = binary_to_term_stress(Bin0),
+			      Bin1 = term_to_binary(Term),
 			      Bin1 = term_to_binary(Term, [{minor_version,1}]),
 			      Term = binary_to_term_stress(Bin1),
 			      true = size(Bin1) < size(Bin0),
-                  Size0 = erlang:external_size(Term),
-                  Size00 = erlang:external_size(Term, [{minor_version, 0}]),
-                  Size1 = erlang:external_size(Term, [{minor_version, 1}]),
-                  true = (Size0 =:= Size00),
+                  Size0 = erlang:external_size(Term, [{minor_version, 0}]),
+                  Size1 = erlang:external_size(Term),
+                  Size11 = erlang:external_size(Term, [{minor_version, 1}]),
+                  true = (Size1 =:= Size11),
                   true = Size1 < Size0
 		      end).
 
