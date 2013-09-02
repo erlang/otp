@@ -45,7 +45,6 @@ MODULES= test_server_ctrl \
 	 test_server_node \
 	 test_server \
 	 test_server_sup \
-	 test_server_h \
 	 erl2html2
 
 TS_MODULES= \
