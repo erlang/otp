@@ -46,7 +46,7 @@ post_init_per_group(Group, Config, Result, tc_log_async) ->
     case lists:member(parallel,proplists:get_value(
 				 tc_group_properties,Config,[])) of
 	true ->
-	    {Result, {set_log_func(ct_log),Group}};
+	    {Result, {set_log_func(tc_log),Group}};
 	false ->
 	    {Result, tc_log_async}
     end;
@@ -59,7 +59,7 @@ post_end_per_testcase(_TC, _Config, Result, State) ->
     gen_event:call(error_logger, ?MODULE, flush, 300000),
     {Result, State}.
 
-pre_end_per_group(Group, Config, {ct_log, Group}) ->
+pre_end_per_group(Group, Config, {tc_log, Group}) ->
     {Config, set_log_func(tc_log_async)};
 pre_end_per_group(_Group, Config, State) ->
     {Config, State}.
