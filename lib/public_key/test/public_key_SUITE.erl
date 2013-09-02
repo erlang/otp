@@ -46,7 +46,7 @@ all() ->
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, encrypted_pem,
-			      dh_pem, cert_pem, pkcs10_pem]},
+			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem]},
      {ssh_public_key_decode_encode, [],
       [ssh_rsa_public_key, ssh_dsa_public_key, ssh_rfc4716_rsa_comment,
        ssh_rfc4716_dsa_comment, ssh_rfc4716_rsa_subject, ssh_known_hosts,
@@ -188,15 +188,9 @@ dh_pem() ->
     [{doc, "DH parametrs PEM-file decode/encode"}].
 dh_pem(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
-    [{'DHParameter', DerDH, not_encrypted} = Entry] =
+    [{'DHParameter', _DerDH, not_encrypted} = Entry] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "dh.pem")),
-
-    erl_make_certs:der_to_pem(filename:join(Datadir, "new_dh.pem"), [Entry]),
-
-    DHParameter = public_key:der_decode('DHParameter', DerDH),
-    DHParameter = public_key:pem_entry_decode(Entry),
-
-    Entry = public_key:pem_entry_encode('DHParameter', DHParameter).
+    asn1_encode_decode(Entry).
 
 %%--------------------------------------------------------------------
 
@@ -204,57 +198,38 @@ pkcs10_pem() ->
    [{doc, "PKCS-10 PEM-file decode/encode"}].
 pkcs10_pem(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
-    [{'CertificationRequest', DerPKCS10, not_encrypted} = Entry] =
+    [{'CertificationRequest', _DerPKCS10, not_encrypted} = Entry] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "req.pem")),
-
-    erl_make_certs:der_to_pem(filename:join(Datadir, "new_req.pem"), [Entry]),
-
-    PKCS10 = public_key:der_decode('CertificationRequest', DerPKCS10),
-    PKCS10 = public_key:pem_entry_decode(Entry),
-
-    Entry = public_key:pem_entry_encode('CertificationRequest', PKCS10).
-
+    asn1_encode_decode(Entry).
 %%--------------------------------------------------------------------
 pkcs7_pem() ->
     [{doc, "PKCS-7 PEM-file decode/encode"}].
 pkcs7_pem(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
-    [{'ContentInfo', DerPKCS7, not_encrypted} = Entry] =
+    [{'ContentInfo', _, not_encrypted} = Entry0] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "pkcs7_cert.pem")),
-
-    erl_make_certs:der_to_pem(filename:join(Datadir, "new_pkcs7_cert.pem"), [Entry]),
-
-    PKCS7 = public_key:der_decode('ContentInfo', DerPKCS7),
-    PKCS7 = public_key:pem_entry_decode(Entry),
-
-    Entry = public_key:pem_entry_encode('ContentInfo', PKCS7).
-
+    [{'ContentInfo', _, not_encrypted} = Entry1] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "pkcs7_ext.pem")),
+    asn1_encode_decode(Entry0),
+    asn1_encode_decode(Entry1).
+      
 %%--------------------------------------------------------------------
 cert_pem() ->
     [{doc, "Certificate PEM-file decode/encode"}].
 cert_pem(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
-
-    [Entry0] =
-	erl_make_certs:pem_to_der(filename:join(Datadir, "dsa.pem")),
-
-    [{'Certificate', DerCert, not_encrypted} = Entry7] =  
+   
+    [{'Certificate', _, not_encrypted} = Entry0] =  
 	erl_make_certs:pem_to_der(filename:join(Datadir, "client_cert.pem")),
     
-    Cert = public_key:der_decode('Certificate', DerCert),
-    Cert = public_key:pem_entry_decode(Entry7),
+    asn1_encode_decode(Entry0),
     
-    CertEntries = [{'Certificate', _, not_encrypted} = CertEntry0, 
-		   {'Certificate', _, not_encrypted} = CertEntry1] = 
+    [{'Certificate', _, not_encrypted} = Entry1, 
+     {'Certificate', _, not_encrypted} = Entry2] = 
         erl_make_certs:pem_to_der(filename:join(Datadir, "cacerts.pem")),
-
-    ok = erl_make_certs:der_to_pem(filename:join(Datadir, "wcacerts.pem"), CertEntries), 
-    ok = erl_make_certs:der_to_pem(filename:join(Datadir, "wdsa.pem"), [Entry0]), 
     
-     NewCertEntries = erl_make_certs:pem_to_der(filename:join(Datadir, "wcacerts.pem")),
-     true = lists:member(CertEntry0, NewCertEntries),
-     true = lists:member(CertEntry1, NewCertEntries),
-    [Entry0] = erl_make_certs:pem_to_der(filename:join(Datadir, "wdsa.pem")).
+    asn1_encode_decode(Entry1),
+    asn1_encode_decode(Entry2).
 
 %%--------------------------------------------------------------------
 ssh_rsa_public_key() ->
@@ -720,6 +695,12 @@ pkix_iso_dsa_oid(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+asn1_encode_decode({Asn1Type, Der, not_encrypted} = Entry) ->
+    Decoded = public_key:der_decode(Asn1Type, Der),
+    Decoded = public_key:pem_entry_decode(Entry),
+    Entry = public_key:pem_entry_encode(Asn1Type, Decoded),
+    ok.
+    
 check_countryname({rdnSequence,DirName}) ->
     do_check_countryname(DirName).
 do_check_countryname([]) ->
