@@ -866,8 +866,12 @@ release: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/misc"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/prog"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/registry"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/lib"
 	$(INSTALL_DATA) $(HEADERS)     "$(RELSYSDIR)/include"
+	$(INSTALL_DATA) $(HEADERS)     "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DATA) $(OBJ_TARGETS) "$(RELSYSDIR)/lib"
+	$(INSTALL_DATA) $(OBJ_TARGETS) "$(RELEASE_PATH)/usr/lib"
 ifneq ($(EXE_TARGETS),)
 	$(INSTALL_PROGRAM) $(EXE_TARGETS) "$(RELSYSDIR)/bin"
 endif
