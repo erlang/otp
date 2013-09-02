@@ -34,11 +34,12 @@
 -export([master_secret/4, client_hello/8, server_hello/7, hello/4,
 	 hello_request/0, certify/7, certificate/4,
 	 client_certificate_verify/6, certificate_verify/6, verify_signature/5,
-	 certificate_request/3, key_exchange/3, server_key_exchange_hash/2,
+	 certificate_request/4, key_exchange/3, server_key_exchange_hash/2,
 	 finished/5, verify_connection/6, get_tls_handshake/3,
 	 decode_client_key/3, decode_server_key/3, server_hello_done/0,
 	 encode_handshake/2, init_handshake_history/0, update_handshake_history/2,
-	 decrypt_premaster_secret/2, prf/5, next_protocol/1]).
+	 decrypt_premaster_secret/2, prf/5, next_protocol/1, select_hashsign/2,
+	 select_cert_hashsign/3, default_hash_signs/0]).
 
 -export([dec_hello_extensions/2]).
 
@@ -82,7 +83,7 @@ client_hello(Host, Port, ConnectionStates,
 		  renegotiation_info =
 		      renegotiation_info(client, ConnectionStates, Renegotiation),
 		  srp = SRP,
-		  hash_signs = default_hash_signs(),
+		  hash_signs = advertised_hash_signs(Version),
 		  ec_point_formats = EcPointFormats,
 		  elliptic_curves = EllipticCurves,
 		  next_protocol_negotiation =
@@ -152,7 +153,6 @@ hello(#server_hello{cipher_suite = CipherSuite, server_version = Version,
       #ssl_options{secure_renegotiate = SecureRenegotation, next_protocol_selector = NextProtocolSelector,
 		   versions = SupportedVersions},
       ConnectionStates0, Renegotiation) ->
-    %%TODO: select hash and signature algorigthm
     case tls_record:is_acceptable_version(Version, SupportedVersions) of
 	true ->
 	    case handle_renegotiation_info(client, Info, ConnectionStates0, 
@@ -177,7 +177,6 @@ hello(#server_hello{cipher_suite = CipherSuite, server_version = Version,
 hello(#client_hello{client_version = ClientVersion} = Hello,
       #ssl_options{versions = Versions} = SslOpts,
       {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
-    %% TODO: select hash and signature algorithm
     Version = select_version(ClientVersion, Versions),
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
@@ -298,7 +297,7 @@ client_certificate_verify(undefined, _, _, _, _, _) ->
 client_certificate_verify(_, _, _, _, undefined, _) ->
     ignore;
 client_certificate_verify(OwnCert, MasterSecret, Version,
-			  {HashAlgo, SignAlgo},
+			  {HashAlgo, _} = HashSign,
 			  PrivateKey, {Handshake, _}) ->
     case public_key:pkix_is_fixed_dh_cert(OwnCert) of
 	true ->
@@ -307,7 +306,7 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
 	    Hashes =
 		calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
 	    Signed = digitally_signed(Version, Hashes, HashAlgo, PrivateKey),
-	    #certificate_verify{signature = Signed, hashsign_algorithm = {HashAlgo, SignAlgo}}
+	    #certificate_verify{signature = Signed, hashsign_algorithm = HashSign}
     end.
 
 %%--------------------------------------------------------------------
@@ -349,17 +348,17 @@ verify_signature(_Version, Hash, {HashAlgo, ecdsa}, Signature, {?'id-ecPublicKey
     public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
 
 %%--------------------------------------------------------------------
--spec certificate_request(#connection_states{}, db_handle(), certdb_ref()) ->
+-spec certificate_request(#connection_states{}, db_handle(), certdb_ref(), tls_version()) ->
     #certificate_request{}.
 %%
 %% Description: Creates a certificate_request message, called by the server.
 %%--------------------------------------------------------------------
-certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
+certificate_request(ConnectionStates, CertDbHandle, CertDbRef, Version) ->
     #connection_state{security_parameters = 
 		      #security_parameters{cipher_suite = CipherSuite}} =
 	tls_record:pending_connection_state(ConnectionStates, read),
     Types = certificate_types(CipherSuite),
-    HashSigns = default_hash_signs(),
+    HashSigns = advertised_hash_signs(Version),
     Authorities = certificate_authorities(CertDbHandle, CertDbRef),
     #certificate_request{
 		    certificate_types = Types,
@@ -686,6 +685,54 @@ prf({3,1}, Secret, Label, Seed, WantedLength) ->
     {ok, ssl_tls1:prf(?MD5SHA, Secret, Label, Seed, WantedLength)};
 prf({3,_N}, Secret, Label, Seed, WantedLength) ->
     {ok, ssl_tls1:prf(?SHA256, Secret, Label, Seed, WantedLength)}.
+
+
+%%--------------------------------------------------------------------
+-spec select_hashsign(#hash_sign_algos{}| undefined,  undefined | term()) ->
+			      [{atom(), atom()}] | undefined.
+
+%%
+%% Description:
+%%--------------------------------------------------------------------
+select_hashsign(_, undefined) ->
+    {null, anon};
+select_hashsign(undefined,  Cert) ->
+    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+    select_cert_hashsign(undefined, Algo, {undefined, undefined});
+select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert) ->
+    #'OTPCertificate'{tbsCertificate = TBSCert} =public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+    DefaultHashSign = {_, Sign} = select_cert_hashsign(undefined, Algo, {undefined, undefined}),
+    case lists:filter(fun({sha, dsa}) ->
+			      true;
+			 ({_, dsa}) ->
+			      false;
+			 ({Hash, S}) when  S == Sign ->
+			      ssl_cipher:is_acceptable_hash(Hash,  proplists:get_value(hashs, crypto:supports()));
+			 (_)  ->
+			      false
+		      end, HashSigns) of
+	[] ->
+	    DefaultHashSign;
+	[HashSign| _] ->
+	    HashSign
+    end.
+%%--------------------------------------------------------------------
+-spec select_cert_hashsign(#hash_sign_algos{}| undefined, oid(), tls_version()) ->
+				  [{atom(), atom()}].
+
+%%
+%% Description:
+%%--------------------------------------------------------------------
+select_cert_hashsign(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso Major >= 3 andalso Minor >= 3 ->
+    HashSign;
+select_cert_hashsign(undefined,?'id-ecPublicKey', _) ->
+    {sha, ecdsa};
+select_cert_hashsign(undefined, ?rsaEncryption, _) ->
+    {md5sha, rsa};
+select_cert_hashsign(undefined, ?'id-dsa', _) ->
+    {sha, dsa}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -1066,7 +1113,7 @@ dec_hs(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
        cipher_suites = from_2bytes(CipherSuites),
        compression_methods = Comp_methods,
        renegotiation_info = RenegotiationInfo,
-	srp = SRP,
+       srp = SRP,
        hash_signs = HashSigns,
        elliptic_curves = EllipticCurves,
        next_protocol_negotiation = NextProtocolNegotiation
@@ -1179,12 +1226,12 @@ dec_ske_params(Len, Keys, Version) ->
 
 dec_ske_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
 			    ?UINT16(0)>>, {Major, Minor})
-  when Major == 3, Minor >= 3 ->
+  when Major >= 3, Minor >= 3 ->
     HashSign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)},
     {Params, HashSign, <<>>};
 dec_ske_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
 			    ?UINT16(Len), Signature:Len/binary>>, {Major, Minor})
-  when Major == 3, Minor >= 3 ->
+  when Major >= 3, Minor >= 3 ->
     HashSign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)},
     {Params, HashSign, Signature};
 dec_ske_signature(Params, <<>>, _) ->
@@ -1219,11 +1266,11 @@ dec_server_key(<<?BYTE(?NAMED_CURVE), ?UINT16(CurveID),
 		       params_bin = BinMsg,
 		       hashsign = HashSign,
 		       signature = Signature};
-dec_server_key(<<?UINT16(Len), PskIdentityHint:Len/binary>> = KeyStruct,
+dec_server_key(<<?UINT16(Len), PskIdentityHint:Len/binary, _/binary>> = KeyStruct,
 	       KeyExchange, Version)
   when KeyExchange == ?KEY_EXCHANGE_PSK; KeyExchange == ?KEY_EXCHANGE_RSA_PSK ->
     Params = #server_psk_params{
-      hint = PskIdentityHint},
+		hint = PskIdentityHint},
     {BinMsg, HashSign, Signature} = dec_ske_params(Len + 2, KeyStruct, Version),
     #server_key_params{params = Params,
 		       params_bin = BinMsg,
@@ -1236,8 +1283,8 @@ dec_server_key(<<?UINT16(Len), IdentityHint:Len/binary,
 	       ?KEY_EXCHANGE_DHE_PSK, Version) ->
     DHParams = #server_dh_params{dh_p = P, dh_g = G, dh_y = Y},
     Params = #server_dhe_psk_params{
-      hint = IdentityHint,
-      dh_params = DHParams},
+		hint = IdentityHint,
+		dh_params = DHParams},
     {BinMsg, HashSign, Signature} = dec_ske_params(Len + PLen + GLen + YLen + 8, KeyStruct, Version),
     #server_key_params{params = Params,
 		       params_bin = BinMsg,
@@ -1297,16 +1344,14 @@ dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 
 dec_hello_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
-    EllipticCurveListLen = Len - 2,
-    <<?UINT16(EllipticCurveListLen), EllipticCurveList/binary>> = ExtData,
+    <<?UINT16(_), EllipticCurveList/binary>> = ExtData,
     EllipticCurves = [ssl_tls1:enum_to_oid(X) || <<X:16>> <= EllipticCurveList],
     dec_hello_extensions(Rest, [{elliptic_curves,
 				 #elliptic_curves{elliptic_curve_list = EllipticCurves}} | Acc]);
 
 dec_hello_extensions(<<?UINT16(?EC_POINT_FORMATS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
-    ECPointFormatListLen = Len - 1,
-    <<?BYTE(ECPointFormatListLen), ECPointFormatList/binary>> = ExtData,
+    <<?BYTE(_), ECPointFormatList/binary>> = ExtData,
     ECPointFormats = binary_to_list(ECPointFormatList),
     dec_hello_extensions(Rest, [{ec_point_formats,
 				 #ec_point_formats{ec_point_format_list = ECPointFormats}} | Acc]);
@@ -1825,3 +1870,8 @@ handle_srp_extension(#srp{username = Username}, Session) ->
 int_to_bin(I) ->
     L = (length(integer_to_list(I, 16)) + 1) div 2,
     <<I:(L*8)>>.
+
+advertised_hash_signs({Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
+    default_hash_signs();
+advertised_hash_signs(_) ->
+    undefined.

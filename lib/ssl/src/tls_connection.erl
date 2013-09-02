@@ -76,7 +76,8 @@
           negotiated_version,   % tls_version()
           client_certificate_requested = false,
 	  key_algorithm,       % atom as defined by cipher_suite
-	  hashsign_algorithm,  % atom as defined by cipher_suite
+	  hashsign_algorithm = {undefined, undefined},
+	  cert_hashsign_algorithm,
           public_key_info,     % PKIX: {Algorithm, PublicKey, PublicKeyParams}
           private_key,         % PKIX: #'RSAPrivateKey'{}
 	  diffie_hellman_params, % PKIX: #'DHParameter'{} relevant for server side
@@ -366,6 +367,7 @@ hello(#hello_request{}, #state{role = client} = State0) ->
     next_state(hello, hello, Record, State);
 
 hello(#server_hello{cipher_suite = CipherSuite,
+		    hash_signs = HashSign,
 		    compression_method = Compression} = Hello,
       #state{session = #session{session_id = OldId},
 	     connection_states = ConnectionStates0,
@@ -388,9 +390,10 @@ hello(#server_hello{cipher_suite = CipherSuite,
 				  _ ->
 				      NextProtocol
 			      end,
-	    
+
 	    State = State0#state{key_algorithm = KeyAlgorithm,
-				 hashsign_algorithm = default_hashsign(Version, KeyAlgorithm),
+				 hashsign_algorithm =
+				     negotiated_hashsign(HashSign, KeyAlgorithm, Version),
 				 negotiated_version = Version,
 				 connection_states = ConnectionStates,
 				 premaster_secret = PremasterSecret,
@@ -406,22 +409,28 @@ hello(#server_hello{cipher_suite = CipherSuite,
 	    end
     end;
 
-hello(Hello = #client_hello{client_version = ClientVersion},
+hello(Hello = #client_hello{client_version = ClientVersion,
+			    hash_signs = HashSigns},
       State = #state{connection_states = ConnectionStates0,
 		     port = Port, session = #session{own_certificate = Cert} = Session0,
 		     renegotiation = {Renegotiation, _},
 		     session_cache = Cache,		  
 		     session_cache_cb = CacheCb,
 		     ssl_options = SslOpts}) ->
+
+    HashSign = tls_handshake:select_hashsign(HashSigns, Cert),
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 				     ConnectionStates0, Cert}, Renegotiation) of
-        {Version, {Type, Session}, ConnectionStates, ProtocolsToAdvertise,
+        {Version, {Type,  #session{cipher_suite = CipherSuite} = Session}, ConnectionStates, ProtocolsToAdvertise,
 	 EcPointFormats, EllipticCurves} ->
+	    {KeyAlgorithm, _, _, _} = ssl_cipher:suite_definition(CipherSuite),
+	    NH = negotiated_hashsign(HashSign, KeyAlgorithm, Version),
             do_server_hello(Type, ProtocolsToAdvertise,
 			    EcPointFormats, EllipticCurves,
 			    State#state{connection_states  = ConnectionStates,
 					negotiated_version = Version,
 					session = Session,
+					hashsign_algorithm = NH,
 					client_ecc = {EllipticCurves, EcPointFormats}});
         #alert{} = Alert ->
             handle_own_alert(Alert, ClientVersion, hello, State)
@@ -526,7 +535,7 @@ certify(#certificate{} = Cert,
 			       Opts#ssl_options.verify,
 			       Opts#ssl_options.verify_fun, Role) of
         {PeerCert, PublicKeyInfo} ->
-	    handle_peer_cert(PeerCert, PublicKeyInfo, 
+	    handle_peer_cert(Role, PeerCert, PublicKeyInfo,
 			     State#state{client_certificate_requested = false});
 	#alert{} = Alert ->
             handle_own_alert(Alert, Version, certify, State)
@@ -552,9 +561,11 @@ certify(#server_key_exchange{} = Msg,
         #state{role = client, key_algorithm = rsa} = State) -> 
     handle_unexpected_message(Msg, certify_server_keyexchange, State);
 
-certify(#certificate_request{}, State0) ->
+certify(#certificate_request{hashsign_algorithms = HashSigns},
+	#state{session = #session{own_certificate = Cert}} = State0) ->
+    HashSign = tls_handshake:select_hashsign(HashSigns, Cert),
     {Record, State} = next_record(State0#state{client_certificate_requested = true}),
-    next_state(certify, certify, Record, State);
+    next_state(certify, certify, Record, State#state{cert_hashsign_algorithm = HashSign});
 
 %% PSK and RSA_PSK might bypass the Server-Key-Exchange
 certify(#server_hello_done{},
@@ -757,21 +768,18 @@ cipher(#hello_request{}, State0) ->
 
 cipher(#certificate_verify{signature = Signature, hashsign_algorithm = CertHashSign},
        #state{role = server, 
-	      public_key_info = PublicKeyInfo,
+	      public_key_info = {Algo, _, _} =PublicKeyInfo,
 	      negotiated_version = Version,
 	      session = #session{master_secret = MasterSecret},
-	      hashsign_algorithm = ConnectionHashSign,
 	      tls_handshake_history = Handshake
 	     } = State0) -> 
-    HashSign = case CertHashSign of
-		   {_, _} -> CertHashSign;
-		   _      -> ConnectionHashSign
-	       end,
+
+    HashSign = tls_handshake:select_cert_hashsign(CertHashSign, Algo, Version),
     case tls_handshake:certificate_verify(Signature, PublicKeyInfo,
 					  Version, HashSign, MasterSecret, Handshake) of
 	valid ->
 	    {Record, State} = next_record(State0),
-	    next_state(cipher, cipher, Record, State);
+	    next_state(cipher, cipher, Record, State#state{cert_hashsign_algorithm = HashSign});
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, cipher, State0)
     end;
@@ -1369,24 +1377,33 @@ sync_send_all_state_event(FsmPid, Event) ->
 	    {error, closed}
     end.
 
-%% We do currently not support cipher suites that use fixed DH.
-%% If we want to implement that we should add a code
-%% here to extract DH parameters form cert.
-handle_peer_cert(PeerCert, PublicKeyInfo, 
-		 #state{session = Session} = State0) ->
+handle_peer_cert(Role, PeerCert, PublicKeyInfo,
+		 #state{session = #session{cipher_suite = CipherSuite} = Session} = State0) ->
     State1 = State0#state{session = 
 			 Session#session{peer_certificate = PeerCert},
 			 public_key_info = PublicKeyInfo},
-    State2 = case PublicKeyInfo of
-		 {?'id-ecPublicKey',  #'ECPoint'{point = _ECPoint} = PublicKey, PublicKeyParams} ->
-		     ECDHKey = public_key:generate_key(PublicKeyParams),
-		     State3 = State1#state{diffie_hellman_keys = ECDHKey},
-		     ec_dh_master_secret(ECDHKey, PublicKey, State3);
+    {KeyAlg,_,_,_} = ssl_cipher:suite_definition(CipherSuite),
+    State2 = handle_peer_cert_key(Role, PeerCert, PublicKeyInfo, KeyAlg, State1),
 
-		 _ -> State1
-	     end,
     {Record, State} = next_record(State2),
     next_state(certify, certify, Record, State).
+
+handle_peer_cert_key(client, _,
+		     {?'id-ecPublicKey',  #'ECPoint'{point = _ECPoint} = PublicKey, PublicKeyParams},
+		     KeyAlg, State)  when KeyAlg == ecdh_rsa;
+					  KeyAlg == ecdh_ecdsa ->
+    ECDHKey = public_key:generate_key(PublicKeyParams),
+    ec_dh_master_secret(ECDHKey, PublicKey, State#state{diffie_hellman_keys = ECDHKey});
+
+%% We do currently not support cipher suites that use fixed DH.
+%% If we want to implement that the following clause can be used
+%% to extract DH parameters form cert.
+%% handle_peer_cert_key(client, _PeerCert, {?dhpublicnumber, PublicKey, PublicKeyParams}, {_,SignAlg},
+%% 		     #state{diffie_hellman_keys = {_, MyPrivatKey}} = State) when SignAlg == dh_rsa;
+%% 										  SignAlg == dh_dss ->
+%%     dh_master_secret(PublicKeyParams, PublicKey, MyPrivatKey, State);
+handle_peer_cert_key(_, _, _, _, State) ->
+    State.
 
 certify_client(#state{client_certificate_requested = true, role = client,
                       connection_states = ConnectionStates0,
@@ -1414,10 +1431,9 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
 			  private_key = PrivateKey,
 			  session = #session{master_secret = MasterSecret,
 					     own_certificate = OwnCert},
-			  hashsign_algorithm = HashSign,
+			  cert_hashsign_algorithm = HashSign,
 			  tls_handshake_history = Handshake0} = State) ->
 
-    %%TODO: for TLS 1.2 we can choose a different/stronger HashSign combination for this.
     case tls_handshake:client_certificate_verify(OwnCert, MasterSecret, 
 						 Version, HashSign, PrivateKey, Handshake0) of
         #certificate_verify{} = Verified ->
@@ -1560,8 +1576,7 @@ server_hello(ServerHello, #state{transport_cb = Transport,
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates1,
                 tls_handshake_history = Handshake1,
-                key_algorithm = KeyAlgorithm,
-                hashsign_algorithm = default_hashsign(Version, KeyAlgorithm)}.
+                key_algorithm = KeyAlgorithm}.
    
 server_hello_done(#state{transport_cb = Transport,
                          socket = Socket,
@@ -1937,7 +1952,7 @@ request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer},
 			   negotiated_version = Version,
 			   socket = Socket,
 			   transport_cb = Transport} = State) ->
-    Msg = tls_handshake:certificate_request(ConnectionStates0, CertDbHandle, CertDbRef),
+    Msg = tls_handshake:certificate_request(ConnectionStates0, CertDbHandle, CertDbRef, Version),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
     Transport:send(Socket, BinMsg),
@@ -2014,12 +2029,13 @@ handle_server_key(#server_key_exchange{exchange_keys = Keys},
 		  #state{key_algorithm = KeyAlg,
 			 negotiated_version = Version} = State) ->
     Params = tls_handshake:decode_server_key(Keys, KeyAlg, Version),
-    HashSign = connection_hashsign(Params#server_key_params.hashsign, State),
-    case HashSign of
-	{_, SignAlgo} when SignAlgo == anon; SignAlgo == ecdh_anon ->
-	    server_master_secret(Params#server_key_params.params, State);
-	_ ->
-	    verify_server_key(Params, HashSign, State)
+    HashSign = negotiated_hashsign(Params#server_key_params.hashsign, KeyAlg, Version),
+    case is_anonymous(KeyAlg) of
+	true ->
+	    server_master_secret(Params#server_key_params.params,
+				 State#state{hashsign_algorithm = HashSign});
+	false ->
+	    verify_server_key(Params, HashSign, State#state{hashsign_algorithm = HashSign})
     end.
 
 verify_server_key(#server_key_params{params = Params,
@@ -2995,11 +3011,6 @@ get_pending_connection_state_prf(CStates, Direction) ->
 	CS = tls_record:pending_connection_state(CStates, Direction),
 	CS#connection_state.security_parameters#security_parameters.prf_algorithm.
 
-connection_hashsign(HashSign = {_, _}, _State) ->
-    HashSign;
-connection_hashsign(_, #state{hashsign_algorithm = HashSign}) ->
-    HashSign.
-
 %% RFC 5246, Sect. 7.4.1.4.1.  Signature Algorithms
 %% If the client does not send the signature_algorithms extension, the
 %% server MUST do the following:
@@ -3014,12 +3025,18 @@ connection_hashsign(_, #state{hashsign_algorithm = HashSign}) ->
 %% -  If the negotiated key exchange algorithm is one of (ECDH_ECDSA,
 %%    ECDHE_ECDSA), behave as if the client had sent value {sha1,ecdsa}.
 
+negotiated_hashsign(undefined, Algo, Version) ->
+    default_hashsign(Version, Algo);
+negotiated_hashsign(HashSign = {_, _}, _, _) ->
+    HashSign.
+
 default_hashsign(_Version = {Major, Minor}, KeyExchange)
-  when Major == 3 andalso Minor >= 3 andalso
+  when Major >= 3 andalso Minor >= 3 andalso
        (KeyExchange == rsa orelse
 	KeyExchange == dhe_rsa orelse
 	KeyExchange == dh_rsa orelse
 	KeyExchange == ecdhe_rsa orelse
+	KeyExchange == ecdh_rsa orelse
 	KeyExchange == srp_rsa) ->
     {sha, rsa};
 default_hashsign(_Version, KeyExchange)
@@ -3027,12 +3044,12 @@ default_hashsign(_Version, KeyExchange)
        KeyExchange == dhe_rsa;
        KeyExchange == dh_rsa;
        KeyExchange == ecdhe_rsa;
+       KeyExchange == ecdh_rsa;
        KeyExchange == srp_rsa ->
     {md5sha, rsa};
 default_hashsign(_Version, KeyExchange)
   when KeyExchange == ecdhe_ecdsa;
-       KeyExchange == ecdh_ecdsa;
-       KeyExchange == ecdh_rsa ->
+       KeyExchange == ecdh_ecdsa ->
     {sha, ecdsa};
 default_hashsign(_Version, KeyExchange)
   when KeyExchange == dhe_dss;
@@ -3081,3 +3098,13 @@ select_curve(#state{client_ecc = {[Curve|_], _}}) ->
     {namedCurve, Curve};
 select_curve(_) ->
     {namedCurve, ?secp256k1}.
+
+is_anonymous(Algo) when Algo == dh_anon;
+			Algo == ecdh_anon;
+			Algo == psk;
+			Algo == dhe_psk;
+			Algo == rsa_psk;
+			Algo == srp_anon ->
+    true;
+is_anonymous(_) ->
+    false.

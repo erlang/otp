@@ -36,7 +36,7 @@
 	 decipher/5, cipher/5,
 	 suite/1, suites/1, anonymous_suites/0, psk_suites/1, srp_suites/0,
 	 openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
-	 hash_algorithm/1, sign_algorithm/1]).
+	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2]).
 
 -compile(inline).
 
@@ -1009,6 +1009,7 @@ filter(DerCert, Ciphers) ->
 		filter_keyuse(OtpCert, (Ciphers -- rsa_keyed_suites()) -- dsa_signed_suites(),
 			      [], ecdhe_ecdsa_suites())
 	end,
+
     case public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm) of
 	{_, rsa} ->
 	    Ciphers1 -- ecdsa_signed_suites();
@@ -1191,15 +1192,15 @@ hash_size(md5) ->
 hash_size(sha) ->
     20;
 %% Uncomment when adding cipher suite that needs it
-%% hash_size(sha224) ->
-%%     28;
+hash_size(sha224) ->
+    28;
 hash_size(sha256) ->
     32;
 hash_size(sha384) ->
-    48.
+    48;
 %% Uncomment when adding cipher suite that needs it
-%% hash_size(sha512) ->
-%%     64.
+hash_size(sha512) ->
+    64.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%
@@ -1259,15 +1260,15 @@ generic_stream_cipher_from_bin(T, HashSz) ->
 %% SSL 3.0 and TLS 1.0 as it is not strictly required and breaks
 %% interopability with for instance Google. 
 is_correct_padding(#generic_block_cipher{padding_length = Len,
-										 padding = Padding}, {3, N})
+					 padding = Padding}, {3, N})
   when N == 0; N == 1 ->
     Len == byte_size(Padding); 
 %% Padding must be check in TLS 1.1 and after  
 is_correct_padding(#generic_block_cipher{padding_length = Len,
-										 padding = Padding}, _) ->
+					 padding = Padding}, _) ->
     Len == byte_size(Padding) andalso
 		list_to_binary(lists:duplicate(Len, Len)) == Padding.
-										      
+
 get_padding(Length, BlockSize) ->
     get_padding_aux(BlockSize, Length rem BlockSize).
 
@@ -1291,7 +1292,7 @@ next_iv(Bin, IV) ->
 rsa_signed_suites() ->
     dhe_rsa_suites() ++ rsa_suites() ++
 	psk_rsa_suites() ++ srp_rsa_suites() ++
-	ecdh_rsa_suites().
+	ecdh_rsa_suites() ++ ecdhe_rsa_suites().
 
 rsa_keyed_suites() ->
     dhe_rsa_suites() ++ rsa_suites() ++
