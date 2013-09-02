@@ -390,6 +390,15 @@ if test X${enable_native_libs} = Xyes -a X${enable_hipe} != Xno; then
 fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
 
+
+rm -f $ERL_TOP/lib/SKIP-APPLICATIONS
+for app in `cd lib && ls -d *`; do
+    var="with_$app"
+    if test X${!var} == Xno; then
+       echo "$app" >> $ERL_TOP/lib/SKIP-APPLICATIONS
+     fi
+done
+
 export ERL_TOP
 AC_CONFIG_SUBDIRS(lib erts)
 
@@ -400,15 +409,22 @@ AC_OUTPUT
 
 pattern="lib/*/SKIP"
 files=`echo $pattern`
-if test "$files" != "$pattern"; then
+if test "$files" != "$pattern" || test -f $ERL_TOP/lib/SKIP-APPLICATIONS; then
   echo '*********************************************************************'
   echo '**********************  APPLICATIONS DISABLED  **********************'
   echo '*********************************************************************'
   echo
-  for skipfile in $files; do
-    app=`dirname $skipfile`; app=`basename $app`
-    printf "%-15s: " $app; cat $skipfile
-  done
+  if test "$files" != "$pattern"; then
+    for skipfile in $files; do
+      app=`dirname $skipfile`; app=`basename $app`
+      printf "%-15s: " $app; cat $skipfile
+    done
+  fi
+  if test -f $ERL_TOP/lib/SKIP-APPLICATIONS; then
+    for skipapp in `cat $ERL_TOP/lib/SKIP-APPLICATIONS`; do
+      printf "%-15s: User gave --without-%s option\n" $skipapp $skipapp
+    done
+  fi
   echo
   echo '*********************************************************************'
 fi
