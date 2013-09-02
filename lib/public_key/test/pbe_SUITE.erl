@@ -218,6 +218,14 @@ encrypted_private_key_info(Config) when is_list(Config) ->
     [{'PrivateKeyInfo', _, {"RC2-CBC",_}} = PubEntry2] = PemRc2Entry,
     KeyInfo = public_key:pem_entry_decode(PubEntry2, "password"),
 
+    %% key generated with ssh-keygen -N hello_aes -f aes_128_cbc_enc_key
+    {ok, PemAesCbc} = file:read_file(filename:join(Datadir, "aes_128_cbc_enc_key")),
+
+    PemAesCbcEntry = public_key:pem_decode(PemAesCbc),
+    ct:print("Pem entry: ~p" , [PemAesCbcEntry]),
+    [{'RSAPrivateKey', _, {"AES-128-CBC",_}} = PubAesCbcEntry] = PemAesCbcEntry,
+    #'RSAPrivateKey'{} = public_key:pem_entry_decode(PubAesCbcEntry, "hello_aes"),
+
     check_key_info(KeyInfo).
 
 
