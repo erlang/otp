@@ -66,7 +66,13 @@ decode(Data, Password,"DES-EDE3-CBC" = Cipher, KeyDevParams) ->
 
 decode(Data, Password,"RC2-CBC"= Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_decrypt(rc2_cbc, Key, IV, Data).
+    crypto:block_decrypt(rc2_cbc, Key, IV, Data);
+
+decode(Data, Password,"AES-128-CBC"= Cipher, IV) ->
+    %% PKCS5_SALT_LEN is 8 bytes
+    <<Salt:8/binary,_/binary>> = IV,
+    {Key, _} = password_to_key_and_iv(Password, Cipher, Salt),
+    crypto:block_decrypt(aes_cbc128, Key, IV, Data).
 
 %%--------------------------------------------------------------------
 -spec pbdkdf1(string(), iodata(), integer(), atom()) -> binary().
@@ -200,7 +206,9 @@ derived_key_length(Cipher,_) when (Cipher == ?'rc2CBC') or
     16;
 derived_key_length(Cipher,_) when (Cipher == ?'des-EDE3-CBC') or 
 				  (Cipher == "DES-EDE3-CBC") ->
-    24.
+    24;
+derived_key_length(Cipher,_) when (Cipher == "AES-128-CBC") ->
+    16.
 
 cipher(#'PBES2-params_encryptionScheme'{algorithm = ?'desCBC'}) ->
     "DES-CBC";
