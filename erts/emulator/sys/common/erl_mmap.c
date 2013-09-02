@@ -86,9 +86,6 @@ struct RBTNode_ {
     UWord parent_and_color;     /* color in bit 0 of parent ptr */
     RBTNode *left;
     RBTNode *right;
-#ifdef HARD_DEBUG
-    int flags;
-#endif
 };
 
 #define RED_FLG      (1)
@@ -1792,22 +1789,6 @@ static int rbt_assert_is_member(RBTNode* root, RBTNode* node)
     return 1;
 }
 
-#define LEFT_VISITED_FLG 0x1000
-#define THIS_VISITED_FLG 0x100
-#define RIGHT_VISITED_FLG 0x10
-#define IS_LEFT_VISITED(FB)	((FB)->flags & LEFT_VISITED_FLG)
-#define IS_THIS_VISITED(FB)	((FB)->flags & THIS_VISITED_FLG)
-#define IS_RIGHT_VISITED(FB)	((FB)->flags & RIGHT_VISITED_FLG)
-
-#define SET_LEFT_VISITED(FB)	((FB)->flags |= LEFT_VISITED_FLG)
-#define SET_THIS_VISITED(FB)	((FB)->flags |= THIS_VISITED_FLG)
-#define SET_RIGHT_VISITED(FB)	((FB)->flags |= RIGHT_VISITED_FLG)
-
-#define UNSET_LEFT_VISITED(FB)	((FB)->flags &= ~LEFT_VISITED_FLG)
-#define UNSET_THIS_VISITED(FB)	((FB)->flags &= ~THIS_VISITED_FLG)
-#define UNSET_RIGHT_VISITED(FB)	((FB)->flags &= ~RIGHT_VISITED_FLG)
-
-
 
 #if 1 /*SVERK*/
 #  define PRINT_TREE
@@ -1843,6 +1824,7 @@ check_tree(RBTree* tree, Uint size)
     Uint depth, max_depth, node_cnt;
     ErtsFreeSegDesc* seg = NULL;
     ErtsFreeSegDesc* prev_seg = NULL;
+    enum { RECURSE_LEFT, CHECK_NODE, RECURSE_RIGHT, RETURN_TO_PARENT }state;
 
 #ifdef PRINT_TREE
     print_tree(tree->order, tree->root);
@@ -1859,27 +1841,29 @@ check_tree(RBTree* tree, Uint size)
     depth = 1;
     max_depth = 0;
     node_cnt = 0;
+    state = RECURSE_LEFT;
 
     /* Traverse tree in sorting order */
     while (x) {
-	if (!IS_LEFT_VISITED(x)) {
-	    SET_LEFT_VISITED(x);
-	    if (x->left) {
-		x = x->left;
-		++depth;
-		if (IS_BLACK(x))
-		    curr_blacks++;
-		continue;
-	    }
-	    else {
-		if (blacks < 0)
-		    blacks = curr_blacks;
-		RBT_ASSERT(blacks == curr_blacks);
-	    }
-	}
+        switch (state) {
+        case RECURSE_LEFT:
+            if (x->left) {
+                RBT_ASSERT(parent(x->left) == x);
+                x = x->left;
+                ++depth;
+                if (IS_BLACK(x))
+                    curr_blacks++;
+                state = RECURSE_LEFT;
+            }
+            else {
+                if (blacks < 0)
+                    blacks = curr_blacks;
+                RBT_ASSERT(blacks == curr_blacks);
+                state = CHECK_NODE;
+            }
+            break;
 
-        if (!IS_THIS_VISITED(x)) {
-            SET_THIS_VISITED(x);
+        case CHECK_NODE:
             ++node_cnt;
             if (depth > max_depth)
                 max_depth = depth;
@@ -1892,12 +1876,9 @@ check_tree(RBTree* tree, Uint size)
             RBT_ASSERT(parent(x) || x == tree->root);
 
             if (x->left) {
-                RBT_ASSERT(parent(x->left) == x);
                 RBT_ASSERT(cmp_blocks(tree->order, x->left, x) < 0);
             }
-
             if (x->right) {
-                RBT_ASSERT(parent(x->right) == x);
                 RBT_ASSERT(cmp_blocks(tree->order, x->right, x) > 0);
             }
 
@@ -1912,39 +1893,46 @@ check_tree(RBTree* tree, Uint size)
                 RBT_ASSERT(!prev_seg || prev_seg->end < seg->start);
                 prev_seg = seg;
             }
+            state = RECURSE_RIGHT;
+            break;
 
+        case RECURSE_RIGHT:
+            if (x->right) {
+                RBT_ASSERT(parent(x->right) == x);
+                x = x->right;
+                ++depth;
+                if (IS_BLACK(x))
+                    curr_blacks++;
+                state = RECURSE_LEFT;
+            }
+            else {
+                if (blacks < 0)
+                    blacks = curr_blacks;
+                RBT_ASSERT(blacks == curr_blacks);
+                state = RETURN_TO_PARENT;
+            }
+            break;
+
+        case RETURN_TO_PARENT:
+            if (parent(x)) {
+                if (x == parent(x)->left) {
+                    state = CHECK_NODE;
+                }
+                else {
+                    RBT_ASSERT(x == parent(x)->right);
+                    state = RETURN_TO_PARENT;
+                }
+            }
+            if (IS_BLACK(x))
+                curr_blacks--;
+            x = parent(x);
+            --depth;
+            break;
         }
-	if (!IS_RIGHT_VISITED(x)) {
-	    SET_RIGHT_VISITED(x);
-	    if (x->right) {
-		x = x->right;
-		++depth;
-		if (IS_BLACK(x))
-		    curr_blacks++;
-		continue;
-	    }
-	    else {
-		if (blacks < 0)
-		    blacks = curr_blacks;
-		RBT_ASSERT(blacks == curr_blacks);
-	    }
-	}
-
-	UNSET_LEFT_VISITED(x);
-        UNSET_THIS_VISITED(x);
-        UNSET_RIGHT_VISITED(x);
-	if (IS_BLACK(x))
-	    curr_blacks--;
-	x = parent(x);
-	--depth;
     }
     RBT_ASSERT(depth == 0 || (!tree->root && depth==1));
     RBT_ASSERT(curr_blacks == 0);
     RBT_ASSERT((1 << (max_depth/2)) <= node_cnt);
-
-    UNSET_LEFT_VISITED(tree->root);
-    UNSET_THIS_VISITED(tree->root);
-    UNSET_RIGHT_VISITED(tree->root);
 
     return res;
 }
