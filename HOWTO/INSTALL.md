@@ -308,6 +308,12 @@ Some of the available `configure` options are:
     If your nif/driver depends on some other dynamic library, you now have to link
     that to the Erlang VM binary. This is easily achived by passing `LIBS=-llibname`
     to configure.
+*   `--without-$app` - By default all applications in Erlang/OTP will be included
+	in a release. If this is not wanted it is possible to specify that Erlang/OTP
+	should be compiled without that applications, i.e. `--without-wx`. There is
+	no automatic dependency handling inbetween applications. So if you disable
+	an application that another depends on, you also have to disable the
+	dependant application.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.

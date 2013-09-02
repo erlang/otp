@@ -19,20 +19,32 @@
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-ERTS_SUB_DIRECTORIES = stdlib sasl kernel compiler
-OTHER_SUB_DIRECTORIES = tools test_server common_test runtime_tools \
+
+# These have to be built first
+ERTS_APPLICATIONS = stdlib sasl kernel compiler
+
+# Then these have to be build
+ERLANG_APPLICATIONS = tools test_server common_test runtime_tools \
 			inets xmerl edoc erl_docgen
+
+# These are only build if -a is given to otp_build or make is used directly
+ALL_ERLANG_APPLICATIONS = snmp otp_mibs appmon erl_interface asn1 jinterface \
+	          wx debugger reltool gs \
+	          ic mnesia crypto orber os_mon parsetools syntax_tools \
+	          pman public_key ssl toolbar tv observer odbc diameter \
+	          cosTransactions cosEvent cosTime cosNotification \
+	          cosProperty cosFileTransfer cosEventDomain et megaco webtool \
+		  eunit ssh typer percept eldap dialyzer hipe
+
 ifdef BUILD_ALL
-  OTHER_SUB_DIRECTORIES += \
-          snmp otp_mibs appmon erl_interface asn1 jinterface \
-          wx debugger reltool gs \
-          ic mnesia crypto orber os_mon parsetools syntax_tools \
-          pman public_key ssl toolbar tv observer odbc diameter \
-          cosTransactions cosEvent cosTime cosNotification \
-          cosProperty cosFileTransfer cosEventDomain et megaco webtool \
-	  eunit ssh typer percept eldap dialyzer hipe
-  EXTRA_FILE := $(wildcard EXTRA-APPLICATIONS)
-  EXTRA_APPLICATIONS := $(if $(EXTRA_FILE),$(shell cat $(EXTRA_FILE)))
+  ERLANG_APPLICATIONS += $(ALL_ERLANG_APPLICATIONS)
+
+# We use whildcard */ to figure out if there are any other applications
+# in here.
+  EXPECTED_APPLICATIONS := $(ERTS_APPLICATIONS) $(ERLANG_APPLICATIONS) \
+	autom4te.cache
+  EXTRA_APPLICATIONS += $(filter-out $(EXPECTED_APPLICATIONS),\
+				$(subst /,,$(wildcard */)))
 endif
 
 ifdef BUILD_STATIC_LIBS
@@ -48,13 +60,18 @@ else
       ifdef TERTIARY_BOOTSTRAP
         SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
       else # Not bootstrap build
-        SUB_DIRECTORIES = $(ERTS_SUB_DIRECTORIES) \
-			  $(OTHER_SUB_DIRECTORIES) \
+        SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
+			  $(ERLANG_APPLICATIONS) \
 			  $(EXTRA_APPLICATIONS)
       endif
     endif
   endif
 endif
+
+# Any applications listed in SKIP-APPLICATIONS should be skipped
+SKIP_FILE := $(wildcard SKIP-APPLICATIONS)
+SKIP_APPLICATIONS := $(if $(SKIP_FILE),$(shell cat $(SKIP_FILE)))
+SUB_DIRECTORIES := $(filter-out $(SKIP_APPLICATIONS),$(SUB_DIRECTORIES))
 
 # ----------------------------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
