@@ -884,6 +884,10 @@ early_init(int *argc, char **argv) /*
 		erts_usage();
 	    }
 	}
+#else
+	/* Silence gcc warnings */
+	(void)schdlrs_percentage;
+	(void)schdlrs_onln_percentage;
 #endif
     }
 
