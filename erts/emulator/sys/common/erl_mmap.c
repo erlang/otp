@@ -772,6 +772,8 @@ rbt_foreach_node(RBTree* tree,
     Sint blacks = -1;
     Sint curr_blacks = 1;
     Uint depth = 1;
+    Uint max_depth = 0;
+    Uint node_cnt = 0;
 #endif
     enum { RECURSE_LEFT, DO_NODE, RECURSE_RIGHT, RETURN_TO_PARENT }state;
     RBTNode *x = tree->root;
@@ -803,7 +805,12 @@ rbt_foreach_node(RBTree* tree,
             break;
 
         case DO_NODE:
-            (*fn) (x, arg);
+          #ifdef HARD_DEBUG
+            ++node_cnt;
+            if (depth > max_depth)
+                max_depth = depth;
+          #endif
+            (*fn) (x, arg); /* Do it! */
             state = reverse ? RECURSE_LEFT : RECURSE_RIGHT;
             break;
 
@@ -847,6 +854,11 @@ rbt_foreach_node(RBTree* tree,
             break;
         }
     }
+#ifdef HARD_DEBUG
+    RBT_ASSERT(depth == 0 || (!tree->root && depth==1));
+    RBT_ASSERT(curr_blacks == 0);
+    RBT_ASSERT((1 << (max_depth/2)) <= node_cnt);
+#endif
 }
 
 
@@ -1947,127 +1959,70 @@ static void print_tree(enum SortOrder order, RBTNode*);
  *
  */
 
+struct check_arg_t {
+    RBTree* tree;
+    ErtsFreeSegDesc* prev_seg;
+    Uint size;
+    RBTNode *res;
+};
+static void check_node(RBTNode* x, void* arg);
+
+
 static RBTNode *
 check_tree(RBTree* tree, Uint size)
 {
-    RBTNode *res = NULL;
-    Sint blacks;
-    Sint curr_blacks;
-    RBTNode *x;
-    Uint depth, max_depth, node_cnt;
-    ErtsFreeSegDesc* seg = NULL;
-    ErtsFreeSegDesc* prev_seg = NULL;
-    enum { RECURSE_LEFT, CHECK_NODE, RECURSE_RIGHT, RETURN_TO_PARENT }state;
+    struct check_arg_t carg;
+    carg.tree = tree;
+    carg.prev_seg = NULL;
+    carg.size = size;
+    carg.res = NULL;
 
 #ifdef PRINT_TREE
     print_tree(tree->order, tree->root);
 #endif
 
     if (!tree->root)
-	return res;
+	return NULL;
 
-    x = tree->root;
-    RBT_ASSERT(IS_BLACK(x));
-    RBT_ASSERT(!parent(x));
-    curr_blacks = 1;
-    blacks = -1;
-    depth = 1;
-    max_depth = 0;
-    node_cnt = 0;
-    state = RECURSE_LEFT;
+    RBT_ASSERT(IS_BLACK(tree->root));
+    RBT_ASSERT(!parent(tree->root));
 
-    /* Traverse tree in sorting order */
-    while (x) {
-        switch (state) {
-        case RECURSE_LEFT:
-            if (x->left) {
-                RBT_ASSERT(parent(x->left) == x);
-                x = x->left;
-                ++depth;
-                if (IS_BLACK(x))
-                    curr_blacks++;
-                state = RECURSE_LEFT;
-            }
-            else {
-                if (blacks < 0)
-                    blacks = curr_blacks;
-                RBT_ASSERT(blacks == curr_blacks);
-                state = CHECK_NODE;
-            }
-            break;
+    rbt_foreach_node(tree, check_node, &carg, 0);
 
-        case CHECK_NODE:
-            ++node_cnt;
-            if (depth > max_depth)
-                max_depth = depth;
+    return carg.res;
+}
 
-            if (IS_RED(x)) {
-                RBT_ASSERT(IS_BLACK(x->right));
-                RBT_ASSERT(IS_BLACK(x->left));
-            }
+/* callback */
+static void check_node(RBTNode* x, void* arg)
+{
+    struct check_arg_t* a = (struct check_arg_t*) arg;
+    ErtsFreeSegDesc* seg;
 
-            RBT_ASSERT(parent(x) || x == tree->root);
+    if (IS_RED(x)) {
+        RBT_ASSERT(IS_BLACK(x->right));
+        RBT_ASSERT(IS_BLACK(x->left));
+    }
 
-            if (x->left) {
-                RBT_ASSERT(cmp_blocks(tree->order, x->left, x) < 0);
-            }
-            if (x->right) {
-                RBT_ASSERT(cmp_blocks(tree->order, x->right, x) > 0);
-            }
+    RBT_ASSERT(parent(x) || x == a->tree->root);
 
-            seg = node_to_desc(tree->order, x);
-            RBT_ASSERT(seg->start < seg->end);
-            if (size && (seg->end - seg->start) >= size) {
-                if (!res || cmp_blocks(tree->order, x, res) < 0) {
-                    res = x;
-                }
-            }
-            if (tree->order == ADDR_ORDER) {
-                RBT_ASSERT(!prev_seg || prev_seg->end < seg->start);
-                prev_seg = seg;
-            }
-            state = RECURSE_RIGHT;
-            break;
+    if (x->left) {
+        RBT_ASSERT(cmp_blocks(a->tree->order, x->left, x) < 0);
+    }
+    if (x->right) {
+        RBT_ASSERT(cmp_blocks(a->tree->order, x->right, x) > 0);
+    }
 
-        case RECURSE_RIGHT:
-            if (x->right) {
-                RBT_ASSERT(parent(x->right) == x);
-                x = x->right;
-                ++depth;
-                if (IS_BLACK(x))
-                    curr_blacks++;
-                state = RECURSE_LEFT;
-            }
-            else {
-                if (blacks < 0)
-                    blacks = curr_blacks;
-                RBT_ASSERT(blacks == curr_blacks);
-                state = RETURN_TO_PARENT;
-            }
-            break;
-
-        case RETURN_TO_PARENT:
-            if (parent(x)) {
-                if (x == parent(x)->left) {
-                    state = CHECK_NODE;
-                }
-                else {
-                    RBT_ASSERT(x == parent(x)->right);
-                    state = RETURN_TO_PARENT;
-                }
-            }
-            if (IS_BLACK(x))
-                curr_blacks--;
-            x = parent(x);
-            --depth;
-            break;
+    seg = node_to_desc(a->tree->order, x);
+    RBT_ASSERT(seg->start < seg->end);
+    if (a->size && (seg->end - seg->start) >= a->size) {
+        if (!a->res || cmp_blocks(a->tree->order, x, a->res) < 0) {
+            a->res = x;
         }
     }
-    RBT_ASSERT(depth == 0 || (!tree->root && depth==1));
-    RBT_ASSERT(curr_blacks == 0);
-    RBT_ASSERT((1 << (max_depth/2)) <= node_cnt);
-
-    return res;
+    if (a->tree->order == ADDR_ORDER) {
+        RBT_ASSERT(!a->prev_seg || a->prev_seg->end < seg->start);
+        a->prev_seg = seg;
+    }
 }
 
 #endif /* HARD_DEBUG */
