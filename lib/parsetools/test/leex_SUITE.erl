@@ -44,7 +44,7 @@
 	 
 	 pt/1, man/1, ex/1, ex2/1, not_yet/1,
 
-         otp_10302/1]).
+         otp_10302/1, otp_11286/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -66,7 +66,7 @@ all() ->
 groups() -> 
     [{checks, [], [file, compile, syntax]},
      {examples, [], [pt, man, ex, ex2, not_yet]},
-     {tickets, [], [otp_10302]}].
+     {tickets, [], [otp_10302, otp_11286]}].
 
 init_per_suite(Config) ->
     Config.
@@ -981,6 +981,68 @@ otp_10302(Config) when is_list(Config) ->
     run(Config, Ts),
 
     ok.
+
+otp_11286(doc) ->
+    "OTP-11286. A Unicode filename bug; both Leex and Yecc.";
+otp_11286(suite) -> [];
+otp_11286(Config) when is_list(Config) ->
+    Node = start_node(otp_11286, "+fnu"),
+    Dir = ?privdir,
+    UName = [1024] ++ "u",
+    UDir = filename:join(Dir, UName),
+    ok = rpc:call(Node, file, make_dir, [UDir]),
+
+    %% Note: Cannot use UName as filename since the filename is used
+    %% as module name. To be fixed in R18.
+    Filename = filename:join(UDir, 'OTP-11286.xrl'),
+    Scannerfile = filename:join(UDir, 'OTP-11286.erl'),
+    Options = [return, {scannerfile, Scannerfile}],
+
+    Mini1 = <<"%% coding: utf-8\n"
+              "Definitions.\n"
+              "D  = [0-9]\n"
+              "Rules.\n"
+              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
+              "Erlang code.\n">>,
+    ok = rpc:call(Node, file, write_file, [Filename, Mini1]),
+    {ok, _, []} = rpc:call(Node, leex, file, [Filename, Options]),
+    {ok,_,_} = rpc:call(Node, compile, file,
+                  [Scannerfile,[basic_validation,return]]),
+
+    Mini2 = <<"Definitions.\n"
+              "D  = [0-9]\n"
+              "Rules.\n"
+              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
+              "Erlang code.\n">>,
+    ok = rpc:call(Node, file, write_file, [Filename, Mini2]),
+    {ok, _, []} = rpc:call(Node, leex, file, [Filename, Options]),
+    {ok,_,_} = rpc:call(Node, compile, file,
+                  [Scannerfile,[basic_validation,return]]),
+
+    Mini3 = <<"%% coding: latin-1\n"
+              "Definitions.\n"
+              "D  = [0-9]\n"
+              "Rules.\n"
+              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
+              "Erlang code.\n">>,
+    ok = rpc:call(Node, file, write_file, [Filename, Mini3]),
+    {ok, _, []} = rpc:call(Node, leex, file, [Filename, Options]),
+    {ok,_,_} = rpc:call(Node, compile, file,
+                  [Scannerfile,[basic_validation,return]]),
+
+    true = test_server:stop_node(Node),
+    ok.
+
+start_node(Name, Args) ->
+    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    ct:log("Trying to start ~w@~s~n", [Name,Host]),
+    case test_server:start_node(Name, peer, [{args,Args}]) of
+	{error,Reason} ->
+	    test_server:fail(Reason);
+	{ok,Node} ->
+	    ct:log("Node ~p started~n", [Node]),
+	    Node
+    end.
 
 unwritable(Fname) ->
     {ok, Info} = file:read_file_info(Fname),
