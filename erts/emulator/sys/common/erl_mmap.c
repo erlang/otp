@@ -419,13 +419,14 @@ replace(RBTNode **root, RBTNode *x, RBTNode *y)
 static void
 tree_insert_fixup(RBTNode** root, RBTNode *blk)
 {
-    RBTNode *x = blk, *y;
+    RBTNode *x = blk, *y, *papa_x, *granpa_x;
 
     /*
      * Rearrange the tree so that it satisfies the Red-Black Tree properties
      */
 
-    RBT_ASSERT(x != *root && IS_RED(parent(x)));
+    papa_x = parent(x);
+    RBT_ASSERT(x != *root && IS_RED(papa_x));
     do {
 
 	/*
@@ -433,35 +434,36 @@ tree_insert_fixup(RBTNode** root, RBTNode *blk)
 	 * until we get to the root or until we can separate them.
 	 */
 
+        granpa_x = parent(papa_x);
 	RBT_ASSERT(IS_RED(x));
-	RBT_ASSERT(IS_BLACK(parent(parent(x))));
-	RBT_ASSERT(parent(parent(x)));
+	RBT_ASSERT(IS_BLACK(granpa_x));
+	RBT_ASSERT(granpa_x);
 
-	if (parent(x) == parent(parent(x))->left) {
-	    y = parent(parent(x))->right;
+	if (papa_x == granpa_x->left) {
+	    y = granpa_x->right;
 	    if (IS_RED(y)) {
 		SET_BLACK(y);
-		x = parent(x);
-		SET_BLACK(x);
-		x = parent(x);
-		SET_RED(x);
+		SET_BLACK(papa_x);
+		SET_RED(granpa_x);
+                x = granpa_x;
 	    }
 	    else {
 
-		if (x == parent(x)->right) {
-		    x = parent(x);
-		    left_rotate(root, x);
+		if (x == papa_x->right) {
+		    left_rotate(root, papa_x);
+                    papa_x = x;
+                    x = papa_x->left;
 		}
 
-		RBT_ASSERT(x == parent(parent(x))->left->left);
+		RBT_ASSERT(x == granpa_x->left->left);
 		RBT_ASSERT(IS_RED(x));
-		RBT_ASSERT(IS_RED(parent(x)));
-		RBT_ASSERT(IS_BLACK(parent(parent(x))));
+		RBT_ASSERT(IS_RED(papa_x));
+		RBT_ASSERT(IS_BLACK(granpa_x));
 		RBT_ASSERT(IS_BLACK(y));
 
-		SET_BLACK(parent(x));
-		SET_RED(parent(parent(x)));
-		right_rotate(root, parent(parent(x)));
+		SET_BLACK(papa_x);
+		SET_RED(granpa_x);
+		right_rotate(root, granpa_x);
 
 		RBT_ASSERT(x == parent(x)->left);
 		RBT_ASSERT(IS_RED(x));
@@ -471,31 +473,31 @@ tree_insert_fixup(RBTNode** root, RBTNode *blk)
 	    }
 	}
 	else {
-	    RBT_ASSERT(parent(x) == parent(parent(x))->right);
-	    y = parent(parent(x))->left;
+	    RBT_ASSERT(papa_x == granpa_x->right);
+	    y = granpa_x->left;
 	    if (IS_RED(y)) {
 		SET_BLACK(y);
-		x = parent(x);
-		SET_BLACK(x);
-		x = parent(x);
-		SET_RED(x);
+		SET_BLACK(papa_x);
+		SET_RED(granpa_x);
+                x = granpa_x;
 	    }
 	    else {
 
-		if (x == parent(x)->left) {
-		    x = parent(x);
-		    right_rotate(root, x);
+		if (x == papa_x->left) {
+		    right_rotate(root, papa_x);
+                    papa_x = x;
+                    x = papa_x->right;
 		}
 
-		RBT_ASSERT(x == parent(parent(x))->right->right);
+		RBT_ASSERT(x == granpa_x->right->right);
 		RBT_ASSERT(IS_RED(x));
-		RBT_ASSERT(IS_RED(parent(x)));
-		RBT_ASSERT(IS_BLACK(parent(parent(x))));
+		RBT_ASSERT(IS_RED(papa_x));
+		RBT_ASSERT(IS_BLACK(granpa_x));
 		RBT_ASSERT(IS_BLACK(y));
 
-		SET_BLACK(parent(x));
-		SET_RED(parent(parent(x)));
-		left_rotate(root, parent(parent(x)));
+		SET_BLACK(papa_x);
+		SET_RED(granpa_x);
+		left_rotate(root, granpa_x);
 
 		RBT_ASSERT(x == parent(x)->right);
 		RBT_ASSERT(IS_RED(x));
@@ -504,7 +506,7 @@ tree_insert_fixup(RBTNode** root, RBTNode *blk)
 		break;
 	    }
 	}
-    } while (x != *root && IS_RED(parent(x)));
+    } while (x != *root && (papa_x=parent(x), IS_RED(papa_x)));
 
     SET_BLACK(*root);
 }
@@ -513,7 +515,7 @@ static void
 rbt_delete(RBTNode** root, RBTNode* del)
 {
     Uint spliced_is_black;
-    RBTNode *x, *y, *z = del;
+    RBTNode *x, *y, *z = del, *papa_y;
     RBTNode null_x; /* null_x is used to get the fixup started when we
 			splice out a node without children. */
 
@@ -532,8 +534,9 @@ rbt_delete(RBTNode** root, RBTNode* del)
     /* splice out y */
     x = y->left ? y->left : y->right;
     spliced_is_black = IS_BLACK(y);
+    papa_y = parent(y);
     if (x) {
-	set_parent(x, parent(y));
+	set_parent(x, papa_y);
     }
     else if (spliced_is_black) {
 	x = &null_x;
@@ -541,21 +544,21 @@ rbt_delete(RBTNode** root, RBTNode* del)
 	SET_BLACK(x);*/
 	x->right = x->left = NULL;
         /*SVERK x->max_sz = 0;*/
-	x->parent_and_color = parent_and_color(parent(y), !RED_FLG);
+	x->parent_and_color = parent_and_color(papa_y, !RED_FLG);
 	y->left = x;
     }
 
-    if (!parent(y)) {
+    if (!papa_y) {
 	RBT_ASSERT(*root == y);
 	*root = x;
     }
     else {
-	if (y == parent(y)->left) {
-	    parent(y)->left = x;
+	if (y == papa_y->left) {
+	    papa_y->left = x;
 	}
 	else {
-	    RBT_ASSERT(y == parent(y)->right);
-	    parent(y)->right = x;
+	    RBT_ASSERT(y == papa_y->right);
+	    papa_y->right = x;
 	}
 	/*SVERK if (y->parent != z) {
 	    lower_max_size(y->parent, (y==z ? NULL : z));
@@ -569,10 +572,12 @@ rbt_delete(RBTNode** root, RBTNode* del)
     }
 
     if (spliced_is_black) {
+        RBTNode* papa_x;
 	/* We removed a black node which makes the resulting tree
 	   violate the Red-Black Tree properties. Fixup tree... */
 
-	while (IS_BLACK(x) && parent(x)) {
+        papa_x = parent(x);
+	while (IS_BLACK(x) && papa_x) {
 
 	    /*
 	     * x has an "extra black" which we move up the tree
@@ -581,91 +586,96 @@ rbt_delete(RBTNode** root, RBTNode* del)
 	     * y is the sibbling of x
 	     */
 
-	    if (x == parent(x)->left) {
-		y = parent(x)->right;
+	    if (x == papa_x->left) {
+		y = papa_x->right;
 		RBT_ASSERT(y);
 		if (IS_RED(y)) {
 		    RBT_ASSERT(y->right);
 		    RBT_ASSERT(y->left);
 		    SET_BLACK(y);
-		    RBT_ASSERT(IS_BLACK(parent(x)));
-		    SET_RED(parent(x));
-		    left_rotate(root, parent(x));
-		    y = parent(x)->right;
+		    RBT_ASSERT(IS_BLACK(papa_x));
+		    SET_RED(papa_x);
+		    left_rotate(root, papa_x);
+                    RBT_ASSERT(papa_x == parent(x));
+		    y = papa_x->right;
 		}
 		RBT_ASSERT(y);
 		RBT_ASSERT(IS_BLACK(y));
 		if (IS_BLACK(y->left) && IS_BLACK(y->right)) {
 		    SET_RED(y);
-		    x = parent(x);
 		}
 		else {
 		    if (IS_BLACK(y->right)) {
 			SET_BLACK(y->left);
 			SET_RED(y);
 			right_rotate(root, y);
-			y = parent(x)->right;
+                        RBT_ASSERT(papa_x == parent(x));
+			y = papa_x->right;
 		    }
 		    RBT_ASSERT(y);
-		    if (IS_RED(parent(x))) {
+		    if (IS_RED(papa_x)) {
 
-			SET_BLACK(parent(x));
+			SET_BLACK(papa_x);
 			SET_RED(y);
 		    }
 		    RBT_ASSERT(y->right);
 		    SET_BLACK(y->right);
-		    left_rotate(root, parent(x));
+		    left_rotate(root, papa_x);
 		    x = *root;
 		    break;
 		}
 	    }
 	    else {
-		RBT_ASSERT(x == parent(x)->right);
-		y = parent(x)->left;
+		RBT_ASSERT(x == papa_x->right);
+		y = papa_x->left;
 		RBT_ASSERT(y);
 		if (IS_RED(y)) {
 		    RBT_ASSERT(y->right);
 		    RBT_ASSERT(y->left);
 		    SET_BLACK(y);
-		    RBT_ASSERT(IS_BLACK(parent(x)));
-		    SET_RED(parent(x));
-		    right_rotate(root, parent(x));
-		    y = parent(x)->left;
+		    RBT_ASSERT(IS_BLACK(papa_x));
+		    SET_RED(papa_x);
+		    right_rotate(root, papa_x);
+                    RBT_ASSERT(papa_x == parent(x));
+		    y = papa_x->left;
 		}
 		RBT_ASSERT(y);
 		RBT_ASSERT(IS_BLACK(y));
 		if (IS_BLACK(y->right) && IS_BLACK(y->left)) {
 		    SET_RED(y);
-		    x = parent(x);
 		}
 		else {
 		    if (IS_BLACK(y->left)) {
 			SET_BLACK(y->right);
 			SET_RED(y);
 			left_rotate(root, y);
-			y = parent(x)->left;
+                        RBT_ASSERT(papa_x == parent(x));
+			y = papa_x->left;
 		    }
 		    RBT_ASSERT(y);
-		    if (IS_RED(parent(x))) {
-			SET_BLACK(parent(x));
+		    if (IS_RED(papa_x)) {
+			SET_BLACK(papa_x);
 			SET_RED(y);
 		    }
 		    RBT_ASSERT(y->left);
 		    SET_BLACK(y->left);
-		    right_rotate(root, parent(x));
+		    right_rotate(root, papa_x);
 		    x = *root;
 		    break;
 		}
 	    }
+            x = papa_x;
+            papa_x = parent(x);
 	}
 	SET_BLACK(x);
 
-	if (parent(&null_x)) {
-	    if (parent(&null_x)->left == &null_x)
-		parent(&null_x)->left = NULL;
+        papa_x = parent(&null_x);
+	if (papa_x) {
+	    if (papa_x->left == &null_x)
+		papa_x->left = NULL;
 	    else {
-		RBT_ASSERT(parent(&null_x)->right == &null_x);
-		parent(&null_x)->right = NULL;
+		RBT_ASSERT(papa_x->right == &null_x);
+		papa_x->right = NULL;
 	    }
 	    RBT_ASSERT(!null_x.left);
 	    RBT_ASSERT(!null_x.right);
