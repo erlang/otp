@@ -2889,8 +2889,84 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
 	beginning of this document.</p>
       </desc>
     </func>
-  </funcs>
 
+	<func>
+		<name><ret>char *</ret><nametext>erl_drv_cond_name(ErlDrvCond *cnd)</nametext></name>
+		<fsummary>Get name of driver mutex.</fsummary>
+		<desc>
+			<marker id="erl_drv_cnd_name"></marker>
+			<p>Arguments:</p>
+			<taglist>
+				<tag><c>cnd</c></tag>
+				<item>A pointer to an initialized condition.</item>
+			</taglist>
+			<p>
+				Returns a pointer to the name of the condition.
+			</p>
+			<note>
+				<p>This function is intended for debugging purposes only.</p>
+			</note>
+		</desc>
+	</func>
+
+	<func>
+		<name><ret>char *</ret><nametext>erl_drv_mutex_name(ErlDrvMutex *mtx)</nametext></name>
+		<fsummary>Get name of driver mutex.</fsummary>
+		<desc>
+			<marker id="erl_drv_mutex_name"></marker>
+			<p>Arguments:</p>
+			<taglist>
+				<tag><c>mtx</c></tag>
+				<item>A pointer to an initialized mutex.</item>
+			</taglist>
+			<p>
+				Returns a pointer to the name of the mutex.
+			</p>
+			<note>
+				<p>This function is intended for debugging purposes only.</p>
+			</note>
+		</desc>
+	</func>
+
+	<func>
+		<name><ret>char *</ret><nametext>erl_drv_rwlock_name(ErlDrvRWLock *rwlck)</nametext></name>
+		<fsummary>Get name of driver mutex.</fsummary>
+		<desc>
+			<marker id="erl_drv_rwlock_name"></marker>
+			<p>Arguments:</p>
+			<taglist>
+				<tag><c>rwlck</c></tag>
+				<item>A pointer to an initialized r/w-lock.</item>
+			</taglist>
+			<p>
+				Returns a pointer to the name of the r/w-lock.
+			</p>
+			<note>
+				<p>This function is intended for debugging purposes only.</p>
+			</note>
+		</desc>
+	</func>
+
+	<func>
+		<name><ret>char *</ret><nametext>erl_drv_thread_name(ErlDrvTid tid)</nametext></name>
+		<fsummary>Get name of driver mutex.</fsummary>
+		<desc>
+			<marker id="erl_drv_rwlock_name"></marker>
+			<p>Arguments:</p>
+			<taglist>
+				<tag><c>tid</c></tag>
+				<item>A thread identifier.</item>
+			</taglist>
+			<p>
+				Returns a pointer to the name of the thread.
+			</p>
+			<note>
+				<p>This function is intended for debugging purposes only.</p>
+			</note>
+		</desc>
+	</func>
+
+  </funcs>
   <section>
     <title>SEE ALSO</title>
     <p><seealso marker="driver_entry">driver_entry(3)</seealso>,
