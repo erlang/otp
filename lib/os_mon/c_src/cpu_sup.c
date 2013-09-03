@@ -293,10 +293,10 @@ static unsigned int misc_measure(char* name) {
   if(!entry)
     return -1;
   
-  if(entry->data_type != KSTAT_DATA_ULONG)
+  if(entry->data_type != KSTAT_DATA_UINT32)
     return -1;
 
-  return entry->value.ul;
+  return entry->value.ui32;
 }
 
 
