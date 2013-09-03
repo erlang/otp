@@ -84,6 +84,7 @@ debug opt: $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)
+	rm -rf $(OBJDIR)
 	rm -f core *~
 
 docs:
