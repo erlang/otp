@@ -363,7 +363,6 @@ hello(#hello_request{}, #state{role = client} = State0) ->
     next_state(hello, hello, Record, State);
 
 hello(#server_hello{cipher_suite = CipherSuite,
-		    hash_signs = HashSign,
 		    compression_method = Compression} = Hello,
       #state{session = #session{session_id = OldId},
 	     connection_states = ConnectionStates0,
@@ -388,8 +387,6 @@ hello(#server_hello{cipher_suite = CipherSuite,
 			      end,
 
 	    State = State0#state{key_algorithm = KeyAlgorithm,
-				 hashsign_algorithm =
-				     negotiated_hashsign(HashSign, KeyAlgorithm, Version),
 				 negotiated_version = Version,
 				 connection_states = ConnectionStates,
 				 premaster_secret = PremasterSecret,
@@ -406,27 +403,27 @@ hello(#server_hello{cipher_suite = CipherSuite,
     end;
 
 hello(Hello = #client_hello{client_version = ClientVersion,
-			    hash_signs = HashSigns},
+			    extensions = #hello_extensions{hash_signs = HashSigns}},
       State = #state{connection_states = ConnectionStates0,
 		     port = Port, session = #session{own_certificate = Cert} = Session0,
 		     renegotiation = {Renegotiation, _},
-		     session_cache = Cache,		  
+		     session_cache = Cache,
 		     session_cache_cb = CacheCb,
 		     ssl_options = SslOpts}) ->
-
     HashSign = ssl_handshake:select_hashsign(HashSigns, Cert),
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 				     ConnectionStates0, Cert}, Renegotiation) of
-        {Version, {Type,  #session{cipher_suite = CipherSuite} = Session}, ConnectionStates,
+        {Version, {Type,  #session{cipher_suite = CipherSuite} = Session},
+	 ConnectionStates,
 	 #hello_extensions{ec_point_formats = EcPointFormats,
 			   elliptic_curves = EllipticCurves} = ServerHelloExt} ->
-	    {KeyAlgorithm, _, _, _} = ssl_cipher:suite_definition(CipherSuite),
-	    NH = negotiated_hashsign(HashSign, KeyAlgorithm, Version),
+	    {KeyAlg, _, _, _} = ssl_cipher:suite_definition(CipherSuite),
+	    NegotiatedHashSign = negotiated_hashsign(HashSign, KeyAlg, Version),
             do_server_hello(Type, ServerHelloExt,
 			    State#state{connection_states  = ConnectionStates,
 					negotiated_version = Version,
 					session = Session,
-					hashsign_algorithm = NH,
+					hashsign_algorithm = NegotiatedHashSign,
 					client_ecc = {EllipticCurves, EcPointFormats}});
         #alert{} = Alert ->
             handle_own_alert(Alert, ClientVersion, hello, State)
@@ -559,7 +556,7 @@ certify(#server_key_exchange{} = Msg,
 
 certify(#certificate_request{hashsign_algorithms = HashSigns},
 	#state{session = #session{own_certificate = Cert}} = State0) ->
-    HashSign = tls_handshake:select_hashsign(HashSigns, Cert),
+    HashSign = ssl_handshake:select_hashsign(HashSigns, Cert),
     {Record, State} = next_record(State0#state{client_certificate_requested = true}),
     next_state(certify, certify, Record, State#state{cert_hashsign_algorithm = HashSign});
 
@@ -770,7 +767,7 @@ cipher(#certificate_verify{signature = Signature, hashsign_algorithm = CertHashS
 	      tls_handshake_history = Handshake
 	     } = State0) -> 
 
-    HashSign = tls_handshake:select_cert_hashsign(CertHashSign, Algo, Version),
+    HashSign = ssl_handshake:select_cert_hashsign(CertHashSign, Algo, Version),
     case ssl_handshake:certificate_verify(Signature, PublicKeyInfo,
 					  Version, HashSign, MasterSecret, Handshake) of
 	valid ->
@@ -1430,7 +1427,7 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
 			  cert_hashsign_algorithm = HashSign,
 			  tls_handshake_history = Handshake0} = State) ->
 
-    case tls_handshake:client_certificate_verify(OwnCert, MasterSecret, 
+    case ssl_handshake:client_certificate_verify(OwnCert, MasterSecret,
 						 Version, HashSign, PrivateKey, Handshake0) of
         #certificate_verify{} = Verified ->
             {BinVerified, ConnectionStates, Handshake} =
@@ -1947,7 +1944,7 @@ request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer},
     #connection_state{security_parameters =
 			  #security_parameters{cipher_suite = CipherSuite}} =
 	tls_record:pending_connection_state(ConnectionStates0, read),
-    Msg = ssl_handshake:certificate_request(CipherSuite, CertDbHandle, CertDbRef),
+    Msg = ssl_handshake:certificate_request(CipherSuite, CertDbHandle, CertDbRef, Version),
 
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
@@ -3008,6 +3005,39 @@ get_pending_connection_state_prf(CStates, Direction) ->
 	CS = tls_record:pending_connection_state(CStates, Direction),
 	CS#connection_state.security_parameters#security_parameters.prf_algorithm.
 
+start_or_recv_cancel_timer(infinity, _RecvFrom) ->
+    undefined;
+start_or_recv_cancel_timer(Timeout, RecvFrom) ->
+    erlang:send_after(Timeout, self(), {cancel_start_or_recv, RecvFrom}).
+
+cancel_timer(undefined) ->
+    ok;
+cancel_timer(Timer) ->
+    erlang:cancel_timer(Timer),
+    ok.
+
+handle_unrecv_data(StateName, #state{socket = Socket, transport_cb = Transport} = State) ->
+    ssl_socket:setopts(Transport, Socket, [{active, false}]),
+    case Transport:recv(Socket, 0, 0) of
+	{error, closed} ->
+	    ok;
+	{ok, Data} ->
+	    handle_close_alert(Data, StateName, State)
+    end.
+
+handle_close_alert(Data, StateName, State0) ->
+    case next_tls_record(Data, State0) of
+	{#ssl_tls{type = ?ALERT, fragment = EncAlerts}, State} ->
+	    [Alert|_] = decode_alerts(EncAlerts),
+	    handle_normal_shutdown(Alert, StateName, State);
+	_ ->
+	    ok
+    end.
+negotiated_hashsign(undefined, Algo, Version) ->
+    default_hashsign(Version, Algo);
+negotiated_hashsign(HashSign = {_, _}, _, _) ->
+    HashSign.
+
 %% RFC 5246, Sect. 7.4.1.4.1.  Signature Algorithms
 %% If the client does not send the signature_algorithms extension, the
 %% server MUST do the following:
@@ -3021,11 +3051,6 @@ get_pending_connection_state_prf(CStates, Direction) ->
 %%
 %% -  If the negotiated key exchange algorithm is one of (ECDH_ECDSA,
 %%    ECDHE_ECDSA), behave as if the client had sent value {sha1,ecdsa}.
-
-negotiated_hashsign(undefined, Algo, Version) ->
-    default_hashsign(Version, Algo);
-negotiated_hashsign(HashSign = {_, _}, _, _) ->
-    HashSign.
 
 default_hashsign(_Version = {Major, Minor}, KeyExchange)
   when Major >= 3 andalso Minor >= 3 andalso
@@ -3061,35 +3086,6 @@ default_hashsign(_Version, KeyExchange)
        KeyExchange == rsa_psk;
        KeyExchange == srp_anon ->
     {null, anon}.
-
-start_or_recv_cancel_timer(infinity, _RecvFrom) ->
-    undefined;
-start_or_recv_cancel_timer(Timeout, RecvFrom) ->
-    erlang:send_after(Timeout, self(), {cancel_start_or_recv, RecvFrom}).
-
-cancel_timer(undefined) ->
-    ok;
-cancel_timer(Timer) ->
-    erlang:cancel_timer(Timer),
-    ok.
-
-handle_unrecv_data(StateName, #state{socket = Socket, transport_cb = Transport} = State) ->
-    ssl_socket:setopts(Transport, Socket, [{active, false}]),
-    case Transport:recv(Socket, 0, 0) of
-	{error, closed} ->
-	    ok;
-	{ok, Data} ->
-	    handle_close_alert(Data, StateName, State)
-    end.
-
-handle_close_alert(Data, StateName, State0) ->
-    case next_tls_record(Data, State0) of
-	{#ssl_tls{type = ?ALERT, fragment = EncAlerts}, State} ->
-	    [Alert|_] = decode_alerts(EncAlerts),
-	    handle_normal_shutdown(Alert, StateName, State);
-	_ ->
-	    ok
-    end.
 
 select_curve(#state{client_ecc = {[Curve|_], _}}) ->
     {namedCurve, Curve};

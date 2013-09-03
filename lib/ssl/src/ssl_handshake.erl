@@ -32,7 +32,7 @@
 
 %% Handshake messages
 -export([hello_request/0, server_hello_done/0,
-	 certificate/4, certificate_request/3, key_exchange/3,
+	 certificate/4, certificate_request/4, key_exchange/3,
 	 finished/5,  next_protocol/1]).
 
 %% Handle handshake messages
@@ -58,7 +58,8 @@
 	]).
 
 %% MISC
--export([select_version/3, prf/5, decrypt_premaster_secret/2]).
+-export([select_version/3, prf/5, select_hashsign/2, select_cert_hashsign/3,
+	 decrypt_premaster_secret/2]).
 
 %%====================================================================
 %% Internal application API
@@ -83,7 +84,7 @@ hello_request() ->
 server_hello_done() ->
     #server_hello_done{}.
 
-client_hello_extensions(Version = {Major, Minor}, CipherSuites, SslOpts, ConnectionStates, Renegotiation) ->
+client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renegotiation) ->
     {EcPointFormats, EllipticCurves} =
 	case advertises_ec_ciphers(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites)) of
 	    true ->
@@ -91,21 +92,13 @@ client_hello_extensions(Version = {Major, Minor}, CipherSuites, SslOpts, Connect
 	    false ->
 		{undefined, undefined}
 	end,
-
-    HashSign = if
-		   Major == 3, Minor >=3 ->
-		       default_hash_signs();
-		   true ->
-		       undefined
-	       end,
-
     SRP = srp_user(SslOpts),
 
     #hello_extensions{
        renegotiation_info = renegotiation_info(tls_record, client,
 					       ConnectionStates, Renegotiation),
        srp = SRP,
-       hash_signs = HashSign,
+       hash_signs = advertised_hash_signs(Version),
        ec_point_formats = EcPointFormats,
        elliptic_curves = EllipticCurves,
        next_protocol_negotiation =
@@ -172,14 +165,14 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_request(erl_cipher_suite(), db_handle(), certdb_ref()) ->
+-spec certificate_request(erl_cipher_suite(), db_handle(), certdb_ref(), tls_version()) ->
     #certificate_request{}.
 %%
 %% Description: Creates a certificate_request message, called by the server.
 %%--------------------------------------------------------------------
-certificate_request(CipherSuite, CertDbHandle, CertDbRef) ->
+certificate_request(CipherSuite, CertDbHandle, CertDbRef, Version) ->
     Types = certificate_types(CipherSuite),
-    HashSigns = default_hash_signs(),
+    HashSigns = advertised_hash_signs(Version),
     Authorities = certificate_authorities(CertDbHandle, CertDbRef),
     #certificate_request{
 		    certificate_types = Types,
@@ -447,6 +440,52 @@ prf({3,1}, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(?MD5SHA, Secret, Label, Seed, WantedLength)};
 prf({3,_N}, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(?SHA256, Secret, Label, Seed, WantedLength)}.
+%%--------------------------------------------------------------------
+-spec select_hashsign(#hash_sign_algos{}| undefined,  undefined | term()) ->
+			      [{atom(), atom()}] | undefined.
+
+%%
+%% Description:
+%%--------------------------------------------------------------------
+select_hashsign(_, undefined) ->
+    {null, anon};
+select_hashsign(undefined,  Cert) ->
+    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+    select_cert_hashsign(undefined, Algo, {undefined, undefined});
+select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert) ->
+    #'OTPCertificate'{tbsCertificate = TBSCert} =public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+    DefaultHashSign = {_, Sign} = select_cert_hashsign(undefined, Algo, {undefined, undefined}),
+    case lists:filter(fun({sha, dsa}) ->
+			      true;
+			 ({_, dsa}) ->
+			      false;
+			 ({Hash, S}) when  S == Sign ->
+			      ssl_cipher:is_acceptable_hash(Hash,  proplists:get_value(hashs, crypto:supports()));
+			 (_)  ->
+			      false
+		      end, HashSigns) of
+	[] ->
+	    DefaultHashSign;
+	[HashSign| _] ->
+	    HashSign
+    end.
+%%--------------------------------------------------------------------
+-spec select_cert_hashsign(#hash_sign_algos{}| undefined, oid(), tls_version()) ->
+				  [{atom(), atom()}].
+
+%%
+%% Description:
+%%--------------------------------------------------------------------
+select_cert_hashsign(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso Major >= 3 andalso Minor >= 3 ->
+    HashSign;
+select_cert_hashsign(undefined,?'id-ecPublicKey', _) ->
+    {sha, ecdsa};
+select_cert_hashsign(undefined, ?rsaEncryption, _) ->
+    {md5sha, rsa};
+select_cert_hashsign(undefined, ?'id-dsa', _) ->
+    {sha, dsa}.
 
 %%--------------------------------------------------------------------
 -spec master_secret(atom(), tls_version(), #session{} | binary(), #connection_states{},
@@ -699,7 +738,7 @@ decode_handshake({Major, Minor}, ?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
 	?UINT16(HashSignsLen), HashSigns:HashSignsLen/binary,
 	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>)
-  when Major == 3, Minor >= 3 ->
+  when Major >= 3, Minor >= 3 ->
     HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
 			<<?BYTE(Hash), ?BYTE(Sign)>> <= HashSigns],
     #certificate_request{certificate_types = CertTypes,
@@ -760,11 +799,11 @@ dec_server_key(<<?BYTE(?NAMED_CURVE), ?UINT16(CurveID),
 		       params_bin = BinMsg,
 		       hashsign = HashSign,
 		       signature = Signature};
-dec_server_key(<<?UINT16(Len), PskIdentityHint:Len/binary>> = KeyStruct,
+dec_server_key(<<?UINT16(Len), PskIdentityHint:Len/binary, _/binary>> = KeyStruct,
 	       KeyExchange, Version)
   when KeyExchange == ?KEY_EXCHANGE_PSK; KeyExchange == ?KEY_EXCHANGE_RSA_PSK ->
     Params = #server_psk_params{
-      hint = PskIdentityHint},
+		hint = PskIdentityHint},
     {BinMsg, HashSign, Signature} = dec_server_key_params(Len + 2, KeyStruct, Version),
     #server_key_params{params = Params,
 		       params_bin = BinMsg,
@@ -1066,26 +1105,6 @@ handle_ecc_curves_extension(_Version, undefined) ->
     undefined;
 handle_ecc_curves_extension(Version, _) ->
     #elliptic_curves{elliptic_curve_list = tls_v1:ecc_curves(Version)}.
-
--define(TLSEXT_SIGALG_RSA(MD), {MD, rsa}).
--define(TLSEXT_SIGALG_DSA(MD), {MD, dsa}).
--define(TLSEXT_SIGALG_ECDSA(MD), {MD, ecdsa}).
-
--define(TLSEXT_SIGALG(MD), ?TLSEXT_SIGALG_ECDSA(MD), ?TLSEXT_SIGALG_RSA(MD)).
-
-default_hash_signs() ->
-    HashSigns = [?TLSEXT_SIGALG(sha512),
-		 ?TLSEXT_SIGALG(sha384),
-		 ?TLSEXT_SIGALG(sha256),
-		 ?TLSEXT_SIGALG(sha224),
-		 ?TLSEXT_SIGALG(sha),
-		 ?TLSEXT_SIGALG_DSA(sha),
-		 ?TLSEXT_SIGALG_RSA(md5)],
-    CryptoSupport = proplists:get_value(public_keys, crypto:supports()),
-    HasECC = proplists:get_bool(ecdsa, CryptoSupport),
-    #hash_sign_algos{hash_sign_algos =
-			 lists:filter(fun({_, ecdsa}) -> HasECC;
-					 (_) -> true end, HashSigns)}.
 
 advertises_ec_ciphers([]) ->
     false;
@@ -1407,14 +1426,11 @@ dec_server_key_signature(Params, <<?UINT16(Len), Signature:Len/binary>>, _) ->
 dec_server_key_signature(_, _, _) ->
     throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)).
 
-
 dec_hello_extensions(<<>>, Acc) ->
     Acc;
-dec_hello_extensions(<<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len), ExtensionData:Len/binary,
-		       Rest/binary>>, Acc) ->
-    dec_hello_extensions(Rest,
-			 Acc#hello_extensions{next_protocol_negotiation =
-						  #next_protocol_negotiation{extension_data = ExtensionData}});
+dec_hello_extensions(<<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len), ExtensionData:Len/binary, Rest/binary>>, Acc) ->
+    NextP = #next_protocol_negotiation{extension_data = ExtensionData},
+    dec_hello_extensions(Rest, Acc#hello_extensions{next_protocol_negotiation = NextP});
 dec_hello_extensions(<<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info:Len/binary, Rest/binary>>, Acc) ->
     RenegotiateInfo = case Len of
 			  1 ->  % Initial handshake
@@ -1424,13 +1440,13 @@ dec_hello_extensions(<<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info:Len/binar
 			      <<?BYTE(VerifyLen), VerifyInfo/binary>> = Info,
 			      VerifyInfo
 		      end,
-    dec_hello_extensions(Rest,
-			 Acc#hello_extensions{renegotiation_info =
-						  #renegotiation_info{renegotiated_connection = RenegotiateInfo}});
+    dec_hello_extensions(Rest, Acc#hello_extensions{renegotiation_info =
+							#renegotiation_info{renegotiated_connection =
+										RenegotiateInfo}});
 
 dec_hello_extensions(<<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen), SRP:SRPLen/binary, Rest/binary>>, Acc)
   when Len == SRPLen + 2 ->
-    dec_hello_extensions(Rest, Acc#hello_extensions{srp = #srp{username = SRP}});
+    dec_hello_extensions(Rest,  Acc#hello_extensions{srp = #srp{username = SRP}});
 
 dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
@@ -1439,26 +1455,22 @@ dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
     HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
 			<<?BYTE(Hash), ?BYTE(Sign)>> <= SignAlgoList],
     dec_hello_extensions(Rest, Acc#hello_extensions{hash_signs =
-							#hash_sign_algos{hash_sign_algos = HashSignAlgos}});
+						    #hash_sign_algos{hash_sign_algos = HashSignAlgos}});
 
 dec_hello_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
-    EllipticCurveListLen = Len - 2,
-    <<?UINT16(EllipticCurveListLen), EllipticCurveList/binary>> = ExtData,
+    <<?UINT16(_), EllipticCurveList/binary>> = ExtData,
     EllipticCurves = [tls_v1:enum_to_oid(X) || <<X:16>> <= EllipticCurveList],
-
-    dec_hello_extensions(Rest, [{elliptic_curves,
-				 #elliptic_curves{elliptic_curve_list = EllipticCurves}} | Acc]);
-
+    dec_hello_extensions(Rest, Acc#hello_extensions{elliptic_curves =
+							#elliptic_curves{elliptic_curve_list =
+									     EllipticCurves}});
 dec_hello_extensions(<<?UINT16(?EC_POINT_FORMATS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
-    %%ECPointFormatListLen = Len - 1,
     <<?BYTE(_), ECPointFormatList/binary>> = ExtData,
     ECPointFormats = binary_to_list(ECPointFormatList),
-    dec_hello_extensions(Rest,
-			 Acc#hello_extensions{ec_point_formats =
-						  #ec_point_formats{ec_point_format_list = ECPointFormats}});
-
+    dec_hello_extensions(Rest, Acc#hello_extensions{ec_point_formats =
+							#ec_point_formats{ec_point_format_list =
+									      ECPointFormats}});
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
 
@@ -1609,3 +1621,26 @@ is_member(Suite, SupportedSuites) ->
 
 select_compression(_CompressionMetodes) ->
     ?NULL.
+
+-define(TLSEXT_SIGALG_RSA(MD), {MD, rsa}).
+-define(TLSEXT_SIGALG_DSA(MD), {MD, dsa}).
+-define(TLSEXT_SIGALG_ECDSA(MD), {MD, ecdsa}).
+
+-define(TLSEXT_SIGALG(MD), ?TLSEXT_SIGALG_ECDSA(MD), ?TLSEXT_SIGALG_RSA(MD)).
+
+advertised_hash_signs({Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
+    HashSigns = [?TLSEXT_SIGALG(sha512),
+		 ?TLSEXT_SIGALG(sha384),
+		 ?TLSEXT_SIGALG(sha256),
+		 ?TLSEXT_SIGALG(sha224),
+		 ?TLSEXT_SIGALG(sha),
+		 ?TLSEXT_SIGALG_DSA(sha),
+		 ?TLSEXT_SIGALG_RSA(md5)],
+    CryptoSupport = crypto:supports(),
+    HasECC = proplists:get_bool(ecdsa,  proplists:get_value(public_keys, CryptoSupport)),
+    Hashs = proplists:get_value(hashs, CryptoSupport),
+    #hash_sign_algos{hash_sign_algos =
+			 lists:filter(fun({Hash, ecdsa}) -> HasECC andalso proplists:get_bool(Hash, Hashs);
+					 ({Hash, _}) -> proplists:get_bool(Hash, Hashs) end, HashSigns)};
+advertised_hash_signs(_) ->
+    undefined.
