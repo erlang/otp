@@ -21,9 +21,10 @@
 #endif
 
 #include "sys.h"
-#include <stddef.h>
+#include "erl_process.h"
 #include "erl_smp.h"
 #include "erl_mmap.h"
+#include <stddef.h>
 
 #if defined(DEBUG) || 0
 #  undef ERTS_MMAP_DEBUG
@@ -145,6 +146,7 @@ typedef struct {
 typedef struct {
     RBTree stree;
     RBTree atree;
+    Uint nseg;
 }ErtsFreeSegMap;
 
 static struct {
@@ -758,6 +760,96 @@ rbt_insert(enum SortOrder order, RBTNode** root, RBTNode* blk)
     }*/
 }
 
+/*
+ * Traverse tree in (reverse) sorting order
+ */
+static void
+rbt_foreach_node(RBTree* tree,
+                 void (*fn)(RBTNode*,void*),
+                 void* arg, int reverse)
+{
+#ifdef HARD_DEBUG
+    Sint blacks = -1;
+    Sint curr_blacks = 1;
+    Uint depth = 1;
+#endif
+    enum { RECURSE_LEFT, DO_NODE, RECURSE_RIGHT, RETURN_TO_PARENT }state;
+    RBTNode *x = tree->root;
+
+    RBT_ASSERT(!parent(x));
+
+    state = reverse ? RECURSE_RIGHT : RECURSE_LEFT;
+    while (x) {
+        switch (state) {
+        case RECURSE_LEFT:
+            if (x->left) {
+                RBT_ASSERT(parent(x->left) == x);
+              #ifdef HARD_DEBUG
+                ++depth;
+                if (IS_BLACK(x->left))
+                    curr_blacks++;
+              #endif
+                x = x->left;
+                state = reverse ? RECURSE_RIGHT : RECURSE_LEFT;
+            }
+            else {
+              #ifdef HARD_DEBUG
+                if (blacks < 0)
+                    blacks = curr_blacks;
+                RBT_ASSERT(blacks == curr_blacks);
+              #endif
+                state = reverse ? RETURN_TO_PARENT : DO_NODE;
+            }
+            break;
+
+        case DO_NODE:
+            (*fn) (x, arg);
+            state = reverse ? RECURSE_LEFT : RECURSE_RIGHT;
+            break;
+
+        case RECURSE_RIGHT:
+            if (x->right) {
+                RBT_ASSERT(parent(x->right) == x);
+              #ifdef HARD_DEBUG
+                ++depth;
+                if (IS_BLACK(x->right))
+                    curr_blacks++;
+              #endif
+                x = x->right;
+                state = reverse ? RECURSE_RIGHT : RECURSE_LEFT;
+            }
+            else {
+              #ifdef HARD_DEBUG
+                if (blacks < 0)
+                    blacks = curr_blacks;
+                RBT_ASSERT(blacks == curr_blacks);
+              #endif
+                state = reverse ? DO_NODE : RETURN_TO_PARENT;
+            }
+            break;
+
+        case RETURN_TO_PARENT:
+          #ifdef HARD_DEBUG
+            if (IS_BLACK(x))
+                curr_blacks--;
+            --depth;
+          #endif
+            if (parent(x)) {
+                if (x == parent(x)->left) {
+                    state = reverse ? RETURN_TO_PARENT : DO_NODE;
+                }
+                else {
+                    RBT_ASSERT(x == parent(x)->right);
+                    state = reverse ? DO_NODE : RETURN_TO_PARENT;
+                }
+            }
+            x = parent(x);
+            break;
+        }
+    }
+}
+
+
 
 /* The API to keep track of a bunch of separated free segments
    (non-overlapping and non-adjacent).
@@ -777,6 +869,7 @@ static void init_free_seg_map(ErtsFreeSegMap* map, int reverse_ao)
     map->atree.order = ADDR_ORDER;
     map->stree.root = NULL;
     map->stree.order = reverse_ao ? SZ_REVERSE_ADDR_ORDER : SZ_ADDR_ORDER;
+    map->nseg = 0;
 }
 
 static void adjacent_free_seg(ErtsFreeSegMap* map, char* start, char* end,
@@ -813,6 +906,7 @@ static void insert_free_seg(ErtsFreeSegMap* map, ErtsFreeSegDesc* desc,
     desc->end = end;
     rbt_insert(map->atree.order, &map->atree.root, &desc->anode);
     rbt_insert(map->stree.order, &map->stree.root, &desc->snode);
+    map->nseg++;
 }
 
 static void resize_free_seg(ErtsFreeSegMap* map, ErtsFreeSegDesc* desc,
@@ -835,6 +929,7 @@ static void delete_free_seg(ErtsFreeSegMap* map, ErtsFreeSegDesc* desc)
 {
     rbt_delete(&map->atree.root, &desc->anode);
     rbt_delete(&map->stree.root, &desc->snode);
+    map->nseg--;
 }
 
 static ErtsFreeSegDesc* lookup_free_seg(ErtsFreeSegMap* map, SWord need_sz)
@@ -855,6 +950,44 @@ static ErtsFreeSegDesc* lookup_free_seg(ErtsFreeSegMap* map, SWord need_sz)
 	}
     }
     return best_desc;
+}
+
+struct build_arg_t
+{
+    Process* p;
+    Eterm* hp;
+    Eterm acc;
+};
+
+static void build_free_seg_tuple(RBTNode* node, void* arg)
+{
+    struct build_arg_t* a = (struct build_arg_t*)arg;
+    ErtsFreeSegDesc* desc = anode_to_desc(node);
+    Eterm start= erts_bld_uword(&a->hp, NULL, (UWord)desc->start);
+    Eterm end = erts_bld_uword(&a->hp, NULL, (UWord)desc->end);
+    Eterm tpl = TUPLE2(a->hp, start, end);
+
+    a->hp += 3;
+    a->acc = CONS(a->hp, tpl, a->acc);
+    a->hp += 2;
+}
+
+static
+Eterm build_free_seg_list(Process* p, ErtsFreeSegMap* map)
+{
+    struct build_arg_t barg;
+    Eterm* hp_end;
+    const Uint may_need = map->nseg * (2 + 3 + 2*2);  /* cons + tuple + bigs */
+
+    barg.p = p;
+    barg.hp = HAlloc(p, may_need);
+    hp_end = barg.hp + may_need;
+    barg.acc = NIL;
+    rbt_foreach_node(&map->atree, build_free_seg_tuple, &barg, 1);
+
+    RBT_ASSERT(barg.hp <= hp_end);
+    HRelease(p, hp_end, barg.hp);
+    return barg.acc;
 }
 
 #if ERTS_HAVE_OS_MMAP
@@ -1974,6 +2107,7 @@ print_tree(enum SortOrder order, RBTNode* root)
 }
 
 #endif /* PRINT_TREE */
+
 
 void test_it(void)
 {
