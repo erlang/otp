@@ -39,7 +39,7 @@
 	 decode_client_key/3, decode_server_key/3, server_hello_done/0,
 	 encode_handshake/2, init_handshake_history/0, update_handshake_history/2,
 	 decrypt_premaster_secret/2, prf/5, next_protocol/1, select_hashsign/2,
-	 select_cert_hashsign/3, default_hash_signs/0]).
+	 select_cert_hashsign/3]).
 
 -export([dec_hello_extensions/2]).
 
@@ -1800,26 +1800,6 @@ apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
 	    {unknown, {SslState, UserState}}
     end.
 
--define(TLSEXT_SIGALG_RSA(MD), {MD, rsa}).
--define(TLSEXT_SIGALG_DSA(MD), {MD, dsa}).
--define(TLSEXT_SIGALG_ECDSA(MD), {MD, ecdsa}).
-
--define(TLSEXT_SIGALG(MD), ?TLSEXT_SIGALG_ECDSA(MD), ?TLSEXT_SIGALG_RSA(MD)).
-
-default_hash_signs() ->
-    HashSigns = [?TLSEXT_SIGALG(sha512),
-		 ?TLSEXT_SIGALG(sha384),
-		 ?TLSEXT_SIGALG(sha256),
-		 ?TLSEXT_SIGALG(sha224),
-		 ?TLSEXT_SIGALG(sha),
-		 ?TLSEXT_SIGALG_DSA(sha),
-		 ?TLSEXT_SIGALG_RSA(md5)],
-    CryptoSupport = proplists:get_value(public_keys, crypto:supports()),
-    HasECC = proplists:get_bool(ecdsa, CryptoSupport),
-    #hash_sign_algos{hash_sign_algos =
-			 lists:filter(fun({_, ecdsa}) -> HasECC;
-					 (_) -> true end, HashSigns)}.
-
 handle_hello_extensions(#client_hello{random = Random,
 				      cipher_suites = CipherSuites,
 				      renegotiation_info = Info,
@@ -1871,7 +1851,25 @@ int_to_bin(I) ->
     L = (length(integer_to_list(I, 16)) + 1) div 2,
     <<I:(L*8)>>.
 
+-define(TLSEXT_SIGALG_RSA(MD), {MD, rsa}).
+-define(TLSEXT_SIGALG_DSA(MD), {MD, dsa}).
+-define(TLSEXT_SIGALG_ECDSA(MD), {MD, ecdsa}).
+
+-define(TLSEXT_SIGALG(MD), ?TLSEXT_SIGALG_ECDSA(MD), ?TLSEXT_SIGALG_RSA(MD)).
+
 advertised_hash_signs({Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
-    default_hash_signs();
+    HashSigns = [?TLSEXT_SIGALG(sha512),
+		 ?TLSEXT_SIGALG(sha384),
+		 ?TLSEXT_SIGALG(sha256),
+		 ?TLSEXT_SIGALG(sha224),
+		 ?TLSEXT_SIGALG(sha),
+		 ?TLSEXT_SIGALG_DSA(sha),
+		 ?TLSEXT_SIGALG_RSA(md5)],
+    CryptoSupport = crypto:supports(),
+    HasECC = proplists:get_bool(ecdsa,  proplists:get_value(public_keys, CryptoSupport)),
+    Hashs = proplists:get_value(hashs, CryptoSupport),
+    #hash_sign_algos{hash_sign_algos =		 
+			 lists:filter(fun({Hash, ecdsa}) -> HasECC andalso proplists:get_bool(Hash, Hashs);
+					 ({Hash, _}) -> proplists:get_bool(Hash, Hashs) end, HashSigns)};
 advertised_hash_signs(_) ->
     undefined.
