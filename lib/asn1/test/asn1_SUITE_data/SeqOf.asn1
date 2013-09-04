@@ -31,7 +31,43 @@ Seq4 ::= SEQUENCE
   seq43 [43] SEQUENCE OF SeqIn DEFAULT {}
 }
 
+Seq5 ::= SEQUENCE {
+  b BOOLEAN,
+  s SEQUENCE SIZE (0..3) OF OCTET STRING (SIZE (0..3)),
+  -- If 's' is empty, 'magic' should not be aligned.
+  magic INTEGER (0..127)
+}
 
+Seq6 ::= SEQUENCE {
+  a SEQUENCE OF INTEGER (0..7),
+  b SEQUENCE (SIZE (0..7)) OF INTEGER (0..7),
+  -- 'magic' should never be aligned.
+  magic INTEGER (0..127)
+}
+
+Seq7 ::= SEQUENCE {
+  a SEQUENCE OF INTEGER (1..512),
+  b SEQUENCE (SIZE (0..255)) OF INTEGER (1..512),
+  i INTEGER
+}
+
+Seq8 ::= SEQUENCE {
+    sof SEQUENCE (SIZE (0..3)) OF OCTET STRING (SIZE (3)),
+    -- Not aligned here if the size of 'sof' is zero.
+    i INTEGER (0..127)
+}
+
+Seq9 ::= SEQUENCE {
+  b BOOLEAN,
+  s SEQUENCE SIZE (0..3) OF OCTET STRING (SIZE (0..3)),
+  magic INTEGER (0..127)
+}
+
+Seq10 ::= SEQUENCE {
+  b BOOLEAN,
+  s SEQUENCE SIZE (1..3) OF OCTET STRING (SIZE (0..3)),
+  magic INTEGER (0..127)
+}
 
 SeqIn ::= SEQUENCE 
 {
@@ -49,9 +85,6 @@ SeqCho ::= SEQUENCE OF CHOICE {bool BOOLEAN,
                                last NULL}
 
 SeqOfInt ::= SEQUENCE OF INTEGER
-
-
-
 
 SeqEmp ::= SEQUENCE 
 {

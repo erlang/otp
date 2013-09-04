@@ -202,12 +202,57 @@ constructed2 CONSTRUCTED-DEFAULT ::= { &id 2, &ok false }
 ConstructedDefaultSet CONSTRUCTED-DEFAULT ::= {
   constructed1 |
   constructed2 |
-  { &id 3, &Type BOOLEAN }
+  { &id 3, &Type BOOLEAN } |
+  { &id 4, &Type SET { a INTEGER, b BIT STRING } } |
+  { &id 5, &Type CHOICE { i INTEGER, b BIT STRING } } |
+  { &id 6, &Type SEQUENCE OF INTEGER (1..16) } |
+  { &id 7, &Type SET OF INTEGER (1..64) }
 }
 
 ConstructedPdu ::= SEQUENCE {
   id CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
   content CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
+}
+
+ConstructedSet ::= SET {
+  id [0] CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content [1] CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
+}
+
+-- Test OPTIONAL and DEFAULT
+
+OptionalInSeq ::= SEQUENCE {
+  id CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id}) OPTIONAL
+}
+
+DefaultInSeq ::= SEQUENCE {
+  id CONSTRUCTED-DEFAULT.&id ({ConstructedDefaultSet}),
+  content CONSTRUCTED-DEFAULT.&Type ({ConstructedDefaultSet}{@id})
+          DEFAULT BOOLEAN:TRUE
+}
+
+-- Test more than one optional typefield table constraint in a SEQUENCE.
+
+MULTIPLE-OPTIONALS ::= CLASS {
+   &id INTEGER UNIQUE,
+   &T1,
+   &T2,
+   &T3
+}
+
+multiple-optionals-1 MULTIPLE-OPTIONALS ::=
+   {&id 1, &T1 INTEGER, &T2 BOOLEAN, &T3 OCTET STRING}
+
+Multiple-Optionals-Set MULTIPLE-OPTIONALS ::= {
+   multiple-optionals-1
+}
+
+Multiple-Optionals ::= SEQUENCE {
+   id MULTIPLE-OPTIONALS.&id ({Multiple-Optionals-Set}),
+   t1 [0] MULTIPLE-OPTIONALS.&T1 ({Multiple-Optionals-Set}{@id}) OPTIONAL,
+   t2 [1] MULTIPLE-OPTIONALS.&T2 ({Multiple-Optionals-Set}{@id}) OPTIONAL,
+   t3 [2] MULTIPLE-OPTIONALS.&T3 ({Multiple-Optionals-Set}{@id}) OPTIONAL
 }
 
 END

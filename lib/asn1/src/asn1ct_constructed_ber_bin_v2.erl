@@ -122,8 +122,8 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
 			    asn1ct_gen:un_hyphen_var(lists:concat(['Obj',
 								   AttrN])),
 			emit([ObjectEncode," = ",nl,
-			     "   ",{asis,ObjSetMod},":'getenc_",ObjSetName,
-			     "'(",{asis,UniqueFieldName},", ",nl]),
+			      "   ",{asis,ObjSetMod},":'getenc_",ObjSetName,
+			      "'("]),
 			ValueMatch = value_match(ValueIndex,
 						 lists:concat(["Cindex",N])),
 			emit([indent(35),ValueMatch,"),",nl]),
@@ -198,7 +198,7 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:new(tlv),
     asn1ct_name:new(v),
 
-    {DecObjInf,UniqueFName,ValueIndex} =
+    {DecObjInf,ValueIndex} =
 	case TableConsInfo of
 	    #simpletableattributes{objectsetname=ObjectSetRef,
 				   c_name=AttrN,
@@ -217,12 +217,12 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
 			%% relation from a component to another components
 			%% subtype component
 			{{AttrN,{deep,ObjectSetRef,UniqueFieldName,ValIndex}},
-			 UniqueFieldName,ValIndex};
+			 ValIndex};
 		    false ->
-			{{AttrN,ObjectSetRef},UniqueFieldName,ValIndex}
+			{{AttrN,ObjectSetRef},ValIndex}
 		end;
 	    _ ->
-		{false,false,false}
+		{false,false}
 	end,
     RecordName = lists:concat([get_record_name_prefix(),
 			       asn1ct_gen:list2rname(Typename)]),
@@ -246,7 +246,7 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
 		    {ObjSetMod,ObjSetName} = ObjSetRef,
 		    emit([DecObj," =",nl,
 			  "   ",{asis,ObjSetMod},":'getdec_",ObjSetName,"'(",
-			  {asis,UniqueFName},", ",ValueMatch,"),",nl]),
+			  ValueMatch,"),",nl]),
 		    gen_dec_postponed_decs(DecObj,PostponedDecArgs)
 	    end,
 	    demit(["Result = "]), %dbg
@@ -357,7 +357,7 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:new(v),
 
 
-    {DecObjInf,UniqueFName,ValueIndex} =
+    {DecObjInf,ValueIndex} =
 	case TableConsInfo of
 %%	    {ObjectSetRef,AttrN,_N,UniqueFieldName} ->%% N is index of attribute that determines constraint
 	    #simpletableattributes{objectsetname=ObjectSetRef,
@@ -378,12 +378,12 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
 			%% relation from a component to another components
 			%% subtype component
 			{{AttrN,{deep,ObjectSetRef,UniqueFieldName,ValIndex}},
-			 UniqueFieldName,ValIndex};
+			 ValIndex};
 		    false ->
-			{{AttrN,ObjectSetRef},UniqueFieldName,ValIndex}
+			{{AttrN,ObjectSetRef},ValIndex}
 		end;
 	    _ ->
-		{false,false,false}
+		{false,false}
 	end,
 
     case CompList of
@@ -425,7 +425,7 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
 		    {ObjSetMod,ObjSetName} = ObjSetRef,
 		    emit([DecObj," =",nl,
 			  "   ",{asis,ObjSetMod},":'getdec_",ObjSetName,"'(",
-			  {asis,UniqueFName},", ",ValueMatch,"),",nl]),
+			  ValueMatch,"),",nl]),
 		    gen_dec_postponed_decs(DecObj,PostponedDecArgs)
 	    end,
 	    demit(["Result = "]), %dbg
@@ -577,6 +577,8 @@ gen_decode_choice(Erules,Typename,D) when is_record(D,type) ->
 gen_enc_sequence_call(Erules,TopType,[#'ComponentType'{name=Cname,typespec=Type,prop=Prop,textual_order=Order}|Rest],Pos,Ext,EncObj) ->
     asn1ct_name:new(encBytes),
     asn1ct_name:new(encLen),
+    asn1ct_name:new(tmpBytes),
+    asn1ct_name:new(tmpLen),
     CindexPos =
 	case Order of
 	    undefined ->
@@ -706,8 +708,6 @@ emit_term_tlv('OPTIONAL',InnerType,DecObjInf) ->
     emit_term_tlv(opt_or_def,InnerType,DecObjInf);
 emit_term_tlv(Prop,{typefield,_},DecObjInf) ->
     emit_term_tlv(Prop,type_or_object_field,DecObjInf);
-emit_term_tlv(Prop,{objectfield,_,_},DecObjInf) ->
-    emit_term_tlv(Prop,type_or_object_field,DecObjInf);
 emit_term_tlv(opt_or_def,type_or_object_field,NotFalse) 
   when NotFalse /= false ->
     asn1ct_name:new(tmpterm),
@@ -789,6 +789,7 @@ gen_enc_choice2(Erules,TopType,[H1|T]) when is_record(H1,'ComponentType') ->
 						      componentrelation)} of
 	    {#'ObjectClassFieldType'{},{componentrelation,_,_}} ->
 		asn1ct_name:new(tmpBytes),
+		asn1ct_name:new(tmpLen),
 		asn1ct_name:new(encBytes),
 		asn1ct_name:new(encLen),
 		Emit = ["{",{curr,tmpBytes},", _} = "],
@@ -929,7 +930,6 @@ gen_enc_line(Erules,TopType,Cname,
   when is_list(Element) ->
     case asn1ct_gen:get_constraint(C,componentrelation) of
 	{componentrelation,_,_} ->
-	    asn1ct_name:new(tmpBytes),
 	    gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,
 			 ["{",{curr,tmpBytes},",_} = "],EncObj);
 	_ ->
@@ -991,12 +991,8 @@ gen_enc_line(Erules,TopType,Cname,Type,Element,Indent,OptOrMand,Assign,EncObj)
 				  {call,ber,encode_open_type,
 				   [{curr,tmpBytes},{asis,Tag}]},nl]);
 			_ ->
-			    emit(["{",{next,tmpBytes},",",{curr,tmpLen},
-				  "} = ",
-				  {call,ber,encode_open_type,
-				   [{curr,tmpBytes},{asis,Tag}]},com,nl]),
-			    emit(IndDeep),
-			    emit(["{",{next,tmpBytes},", ",{curr,tmpLen},"}"])
+			    emit([{call,ber,encode_open_type,
+				   [{curr,tmpBytes},{asis,Tag}]}])
 		    end;
 		Err ->
 		    throw({asn1,{'internal error',Err}})
@@ -1213,22 +1209,18 @@ gen_dec_call({typefield,_},_,_,Cname,Type,BytesVar,Tag,_,_,_DecObjInf,OptOrMandC
 	(Type#type.def)#'ObjectClassFieldType'.fieldname,
     [{Cname,RefedFieldName,asn1ct_gen:mk_var(asn1ct_name:curr(term)),
       asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),Tag,OptOrMandComp}];
-gen_dec_call({objectfield,PrimFieldName,PFNList},_,_,Cname,_,BytesVar,Tag,_,_,_,OptOrMandComp) ->
-    call(decode_open_type, [BytesVar,{asis,Tag}]),
-    [{Cname,{PrimFieldName,PFNList},asn1ct_gen:mk_var(asn1ct_name:curr(term)),
-      asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),Tag,OptOrMandComp}];
 gen_dec_call(InnerType,Erules,TopType,Cname,Type,BytesVar,Tag,PrimOptOrMand,
 	     OptOrMand,DecObjInf,_) ->
     WhatKind = asn1ct_gen:type(InnerType),
     gen_dec_call1(WhatKind,InnerType,Erules,TopType,Cname,Type,BytesVar,Tag,
 		  PrimOptOrMand,OptOrMand),
     case DecObjInf of
-	{Cname,{_,OSet,UniqueFName,ValIndex}} ->
+	{Cname,{_,OSet,_UniqueFName,ValIndex}} ->
 	    Term = asn1ct_gen:mk_var(asn1ct_name:curr(term)),
 	    ValueMatch = value_match(ValIndex,Term),
 	    {ObjSetMod,ObjSetName} = OSet,
 	    emit([",",nl,"ObjFun = ",{asis,ObjSetMod},":'getdec_",ObjSetName,
-		  "'(",{asis,UniqueFName},", ",ValueMatch,")"]);
+		  "'(",ValueMatch,")"]);
 	_ ->
 	    ok
     end,

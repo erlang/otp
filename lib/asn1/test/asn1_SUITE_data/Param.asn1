@@ -88,6 +88,28 @@ POS2 {CONFIG-DATA:obj} ::= OCTET STRING (SIZE(obj.&minLevel .. obj.&maxLevel))
 
 OS2 ::= POS2 {config-data}
 
+--
+-- Test a CLASS without the user-friendly syntax.
+--
+
+CL ::= CLASS {
+  &code INTEGER UNIQUE,
+  &Data
+}
+
+P{T} ::= CHOICE { a INTEGER, b T }
+
+o1 CL ::= {
+   &code 42,
+   &Data P{BOOLEAN}
+}
+
+SetCL CL ::= { o1 }
+
+Scl ::= SEQUENCE {
+    code CL.&code ({SetCL}),
+    data CL.&Data ({SetCL}{@code})
+}
 
 END
 
