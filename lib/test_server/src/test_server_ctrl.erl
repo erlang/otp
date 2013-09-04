@@ -1171,7 +1171,13 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	  "<td>~.3fs</td><td><b>~ts</b></td><td>~w Ok, ~w Failed~ts of ~w</td></tr>\n"
 	  "</tfoot>\n",
 	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]),
-    test_server_io:stop([major,html,unexpected_io]).
+
+    test_server_io:stop([major,html,unexpected_io]),
+    {UnexpectedIoName,UnexpectedIoFooter} = get(test_server_unexpected_footer),
+    {ok,UnexpectedIoFd} = open_html_file(UnexpectedIoName, [append]),
+    io:put_chars(UnexpectedIoFd, "\n</pre>\n"++UnexpectedIoFooter),
+    file:close(UnexpectedIoFd),
+    ok.
 
 report_severe_error(Reason) ->
     test_server_sup:framework_call(report, [severe_error,Reason]).
@@ -1630,15 +1636,13 @@ start_log_file() ->
 		    FilenameMode),
     ok = write_file(?last_file, TestDir1 ++ "\n", FilenameMode),
     put(test_server_log_dir_base,TestDir1),
+
     MajorName = filename:join(TestDir1, ?suitelog_name),
     HtmlName = MajorName ++ ?html_ext,
     UnexpectedName = filename:join(TestDir1, ?unexpected_io_log),
+
     {ok,Major} = open_utf8_file(MajorName),
     {ok,Html}  = open_html_file(HtmlName),
-    {ok,Unexpected}  = open_html_file(UnexpectedName),
-    test_server_io:set_fd(major, Major),
-    test_server_io:set_fd(html, Html),
-    test_server_io:set_fd(unexpected_io, Unexpected),
 
     {UnexpHeader,UnexpFooter} =
 	case test_server_sup:framework_call(get_html_wrapper,
@@ -1651,8 +1655,17 @@ start_log_file() ->
 	    {xhtml,UH,UF} ->
 		{UH,UF}
 	end,
-    io:put_chars(Unexpected, UnexpHeader++"\n<pre>\n"),
-    put(test_server_unexpected_footer,UnexpFooter),
+
+    {ok,Unexpected} = open_html_file(UnexpectedName),
+    io:put_chars(Unexpected, [UnexpHeader,			      
+			      xhtml("<br>\n<h2>Unexpected I/O</h2>",
+				    "<br />\n<h3>Unexpected I/O</h3>"),
+			      "\n<pre>\n"]),
+    put(test_server_unexpected_footer,{UnexpectedName,UnexpFooter}),
+
+    test_server_io:set_fd(major, Major),
+    test_server_io:set_fd(html, Html),
+    test_server_io:set_fd(unexpected_io, Unexpected),
 
     make_html_link(filename:absname(?last_test ++ ?html_ext),
 		   HtmlName, filename:basename(Dir)),
@@ -5287,6 +5300,9 @@ html_header(Title) ->
 open_html_file(File) ->
     open_utf8_file(File).
 
+open_html_file(File,Opts) ->
+    open_utf8_file(File,Opts).
+
 write_html_file(File,Content) ->
     write_file(File,Content,utf8).
 
@@ -5294,6 +5310,9 @@ write_html_file(File,Content) ->
 %% with utf8 encoding
 open_utf8_file(File) ->
     file:open(File,[write,{encoding,utf8}]).
+
+open_utf8_file(File,Opts) ->
+    file:open(File,[{encoding,utf8}|Opts]).
 
 %% Write a file with specified encoding
 write_file(File,Content,latin1) ->
