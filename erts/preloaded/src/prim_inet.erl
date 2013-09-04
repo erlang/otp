@@ -25,7 +25,7 @@
 
 %% Primitive inet_drv interface
 
--export([open/3, fdopen/4, close/1]).
+-export([open/3, open/4, fdopen/4, close/1]).
 -export([bind/3, listen/1, listen/2, peeloff/2]).
 -export([connect/3, connect/4, async_connect/4]).
 -export([accept/1, accept/2, async_accept/2]).
@@ -64,22 +64,31 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 open(Protocol, Family, Type) ->
-    open(Protocol, Family, Type, ?INET_REQ_OPEN, []).
+    open(Protocol, Family, Type, [], ?INET_REQ_OPEN, []).
+
+open(Protocol, Family, Type, Opts) ->
+    open(Protocol, Family, Type, Opts, ?INET_REQ_OPEN, []).
 
 fdopen(Protocol, Family, Type, Fd) when is_integer(Fd) ->
-    open(Protocol, Family, Type, ?INET_REQ_FDOPEN, ?int32(Fd)).
+    open(Protocol, Family, Type, [], ?INET_REQ_FDOPEN, ?int32(Fd)).
 
-open(Protocol, Family, Type, Req, Data) ->
+open(Protocol, Family, Type, Opts, Req, Data) ->
     Drv = protocol2drv(Protocol),
     AF = enc_family(Family),
     T = enc_type(Type),
     try erlang:open_port({spawn_driver,Drv}, [binary]) of
 	S ->
-	    case ctl_cmd(S, Req, [AF,T,Data]) of
-		{ok,_} -> {ok,S};
-		{error,_}=Error ->
+	    case setopts(S, Opts) of
+		ok ->
+		    case ctl_cmd(S, Req, [AF,T,Data]) of
+			{ok,_} -> {ok,S};
+			{error,_}=E1 ->
+			    close(S),
+			    E1
+		    end;
+		{error,_}=E2 ->
 		    close(S),
-		    Error
+		    E2
 	    end
     catch
 	%% The only (?) way to get here is to try to open
@@ -1108,6 +1117,7 @@ enc_opt(send_timeout_close) -> ?INET_LOPT_TCP_SEND_TIMEOUT_CLOSE;
 enc_opt(delay_send)      -> ?INET_LOPT_TCP_DELAY_SEND;
 enc_opt(packet_size)     -> ?INET_LOPT_PACKET_SIZE;
 enc_opt(read_packets)    -> ?INET_LOPT_READ_PACKETS;
+enc_opt(netns)           -> ?INET_LOPT_NETNS;
 enc_opt(raw)             -> ?INET_OPT_RAW;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
@@ -1164,6 +1174,7 @@ dec_opt(?INET_LOPT_TCP_SEND_TIMEOUT_CLOSE) -> send_timeout_close;
 dec_opt(?INET_LOPT_TCP_DELAY_SEND)   -> delay_send;
 dec_opt(?INET_LOPT_PACKET_SIZE)      -> packet_size;
 dec_opt(?INET_LOPT_READ_PACKETS)     -> read_packets;
+dec_opt(?INET_LOPT_NETNS)           -> netns;
 dec_opt(?INET_OPT_RAW)              -> raw;
 dec_opt(I) when is_integer(I)     -> undefined.
 
@@ -1261,6 +1272,7 @@ type_opt_1(send_timeout_close) -> bool;
 type_opt_1(delay_send)      -> bool;
 type_opt_1(packet_size)     -> uint;
 type_opt_1(read_packets)    -> uint;
+type_opt_1(netns)           -> binary;
 %% 
 %% SCTP options (to be set). If the type is a record type, the corresponding
 %% record signature is returned, otherwise, an "elementary" type tag 
@@ -1487,9 +1499,12 @@ type_value_2({bitenumlist,List,_}, EnumList) ->
 	Ls when is_list(Ls)                         -> true;
 	false                                       -> false
     end;
-type_value_2(binary,Bin) when is_binary(Bin) -> true;
-type_value_2(binary_or_uint,Bin) when is_binary(Bin) -> true;
-type_value_2(binary_or_uint,Int) when is_integer(Int), Int >= 0 -> true;
+type_value_2(binary,Bin)
+  when is_binary(Bin), byte_size(Bin) < (1 bsl 32)  -> true;
+type_value_2(binary_or_uint,Bin)
+  when is_binary(Bin), byte_size(Bin) < (1 bsl 32)  -> true;
+type_value_2(binary_or_uint,Int)
+  when is_integer(Int), Int >= 0                    -> true;
 %% Type-checking of SCTP options
 type_value_2(sctp_assoc_id, X)
   when X band 16#ffffffff =:= X                     -> true;
