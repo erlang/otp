@@ -34,18 +34,7 @@
 /* #define ERTS_MMAP_DEBUG_FILL_AREAS */
 
 #ifdef ERTS_MMAP_DEBUG
-#  define ERTS_MMAP_ASSERT(A)						\
-    ((void) (!(A)							\
-	     ? erts_mmap_assert_failed(#A, __func__, __FILE__, __LINE__)\
-	     : 1))
-static int
-erts_mmap_assert_failed(const char *a, const char *func, const char *file, int line)
-{
-    erts_fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
-		 (char *) file, line, (char *) func, (char *) a);
-    abort();
-    return 0;
-}
+#  define ERTS_MMAP_ASSERT ERTS_ASSERT
 #else
 #  define ERTS_MMAP_ASSERT(A) ((void) 1)
 #endif

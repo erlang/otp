@@ -2640,11 +2640,11 @@ int fd;
 
 extern int erts_initialized;
 void
-erl_assert_error(char* expr, char* file, int line)
+erl_assert_error(const char* expr, const char* func, const char* file, int line)
 {   
     fflush(stdout);
-    fprintf(stderr, "Assertion failed: %s in %s, line %d\n",
-	    expr, file, line);
+    fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
+            file, line, func, expr);
     fflush(stderr);
 #if !defined(ERTS_SMP) && 0
     /* Writing a crashdump from a failed assertion when smp support

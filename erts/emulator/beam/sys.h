@@ -150,8 +150,8 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #endif
 
 #define ERTS_ASSERT(e) \
-    ((void) ((e) ? 1 : (erl_assert_error(#e, __FILE__, __LINE__), 0)))
-void erl_assert_error(char* expr, char* file, int line);
+    ((void) ((e) ? 1 : (erl_assert_error(#e, __func__, __FILE__, __LINE__), 0)))
+void erl_assert_error(const char* expr, const char *func, const char* file, int line);
 
 #ifdef DEBUG
 #  define ASSERT(e) ERTS_ASSERT(e)
