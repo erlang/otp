@@ -5500,6 +5500,9 @@ ok
       <name name="system_info" arity="1" clause_i="49"/>
       <name name="system_info" arity="1" clause_i="50"/>
       <name name="system_info" arity="1" clause_i="51"/>
+      <name name="system_info" arity="1" clause_i="52"/>
+      <name name="system_info" arity="1" clause_i="53"/>
+      <name name="system_info" arity="1" clause_i="54"/>
       <fsummary>Information about the system</fsummary>
       <desc>
         <p>Returns various information about the current system
@@ -5576,6 +5579,13 @@ ok
               information see the <seealso marker="erts:crash_dump">"How to interpret the Erlang crash dumps"</seealso>
               chapter in the ERTS User's Guide.</p>
           </item>
+          <tag><marker id="system_info_dist_buf_busy_limit"><c>dist_buf_busy_limit</c></marker></tag>
+          <item>
+            <p>Returns the value of the distribution buffer busy limit
+	    in bytes. This limit can be set on startup by passing the
+	    <seealso marker="erts:erl#+zdbbl">+zdbbl</seealso> command line
+	    flag to <c>erl</c>.</p>
+          </item>
           <tag><c>dist_ctrl</c></tag>
           <item>
             <p>Returns a list of tuples
@@ -5622,12 +5632,14 @@ ok
 	      The return value will always be <c>false</c> since
 	      the elib_malloc allocator has been removed.</p>
           </item>
-          <tag><marker id="system_info_dist_buf_busy_limit"><c>dist_buf_busy_limit</c></marker></tag>
+          <tag><c>ets_limit</c></tag>
           <item>
-            <p>Returns the value of the distribution buffer busy limit
-	    in bytes. This limit can be set on startup by passing the
-	    <seealso marker="erts:erl#+zdbbl">+zdbbl</seealso> command line
-	    flag to <c>erl</c>.</p>
+            <p>Returns the maximum number of ETS tables allowed. This limit
+              can be increased on startup by passing the <seealso
+              marker="erts:erl#+e">+e</seealso> command line flag to
+              <c>erl</c> or by setting the environment variable
+              <c>ERL_MAX_ETS_TABLES</c> before starting the Erlang runtime
+              system.</p>
           </item>
           <tag><c>fullsweep_after</c></tag>
           <item>
