@@ -126,15 +126,15 @@ static RBTNode* check_tree(RBTree* tree, Uint);
 
 
 typedef struct {
-    RBTNode snode;
-    RBTNode anode;
+    RBTNode snode;      /* node in 'stree' */
+    RBTNode anode;      /* node in 'atree' */
     char* start;
     char* end;
 }ErtsFreeSegDesc;
 
 typedef struct {
-    RBTree stree;
-    RBTree atree;
+    RBTree stree;       /* size ordered tree */
+    RBTree atree;       /* address ordered tree */
     Uint nseg;
 }ErtsFreeSegMap;
 
@@ -277,8 +277,8 @@ static ERTS_INLINE ErtsFreeSegDesc* node_to_desc(enum SortOrder order, RBTNode* 
 }
 
 #ifdef HARD_DEBUG
-static ERTS_INLINE SWord cmp_blocks(enum SortOrder order,
-                                     RBTNode* lhs, RBTNode* rhs)
+static ERTS_INLINE SWord cmp_nodes(enum SortOrder order,
+                                   RBTNode* lhs, RBTNode* rhs)
 {
     ErtsFreeSegDesc* ldesc = node_to_desc(order, lhs);
     ErtsFreeSegDesc* rdesc = node_to_desc(order, rhs);
@@ -296,10 +296,10 @@ static ERTS_INLINE SWord cmp_blocks(enum SortOrder order,
         return (char*)rdesc->start - (char*)ldesc->start;
     }
 }
-#endif
+#endif  /* HARD_DEBUG */
 
-static ERTS_INLINE SWord cmp_with_block(enum SortOrder order,
-                                        SWord sz, char* addr, RBTNode* rhs)
+static ERTS_INLINE SWord cmp_with_node(enum SortOrder order,
+                                       SWord sz, char* addr, RBTNode* rhs)
 {
     ErtsFreeSegDesc* rdesc;
     if (order != ADDR_ORDER) {
@@ -340,10 +340,6 @@ left_rotate(RBTNode **root, RBTNode *x)
     }
     y->left = x;
     set_parent(x, y);
-
-    /*SVERK y->max_sz = x->max_sz;
-    x->max_sz = node_max_size(x);
-    ASSERT(y->max_sz >= x->max_sz);*/
 }
 
 static ERTS_INLINE void
@@ -366,14 +362,11 @@ right_rotate(RBTNode **root, RBTNode *x)
     }
     y->right = x;
     set_parent(x, y);
-    /*SVERK y->max_sz = x->max_sz;
-    x->max_sz = node_max_size(x);
-    ASSERT(y->max_sz >= x->max_sz);*/
 }
 
 /*
  * Replace node x with node y
- * NOTE: block header of y is not changed
+ * NOTE: segment descriptor of y is not changed
  */
 static ERTS_INLINE void
 replace(RBTNode **root, RBTNode *x, RBTNode *y)
@@ -398,17 +391,15 @@ replace(RBTNode **root, RBTNode *x, RBTNode *y)
 	set_parent(x->right, y);
     }
 
-    /*y->flags	= x->flags;*/
     y->parent_and_color	= x->parent_and_color;
     y->right	= x->right;
     y->left	= x->left;
-    /*SVERK y->max_sz   = x->max_sz;*/
 }
 
 static void
-tree_insert_fixup(RBTNode** root, RBTNode *blk)
+tree_insert_fixup(RBTNode** root, RBTNode *node)
 {
-    RBTNode *x = blk, *y, *papa_x, *granpa_x;
+    RBTNode *x = node, *y, *papa_x, *granpa_x;
 
     /*
      * Rearrange the tree so that it satisfies the Red-Black Tree properties
@@ -501,14 +492,15 @@ tree_insert_fixup(RBTNode** root, RBTNode *blk)
 }
 
 static void
-rbt_delete(RBTNode** root, RBTNode* del)
+rbt_delete(RBTree* tree, RBTNode* del)
 {
     Uint spliced_is_black;
     RBTNode *x, *y, *z = del, *papa_y;
     RBTNode null_x; /* null_x is used to get the fixup started when we
 			splice out a node without children. */
 
-    HARD_CHECK_IS_MEMBER(*root, del);
+    HARD_CHECK_IS_MEMBER(tree->root, del);
+    HARD_CHECK_TREE(tree, 0);
 
     null_x.parent_and_color = parent_and_color(NULL, !RED_FLG);
 
@@ -529,17 +521,14 @@ rbt_delete(RBTNode** root, RBTNode* del)
     }
     else if (spliced_is_black) {
 	x = &null_x;
-        /*x->flags = 0;
-	SET_BLACK(x);*/
 	x->right = x->left = NULL;
-        /*SVERK x->max_sz = 0;*/
 	x->parent_and_color = parent_and_color(papa_y, !RED_FLG);
 	y->left = x;
     }
 
     if (!papa_y) {
-	RBT_ASSERT(*root == y);
-	*root = x;
+	RBT_ASSERT(tree->root == y);
+	tree->root = x;
     }
     else {
 	if (y == papa_y->left) {
@@ -549,15 +538,11 @@ rbt_delete(RBTNode** root, RBTNode* del)
 	    RBT_ASSERT(y == papa_y->right);
 	    papa_y->right = x;
 	}
-	/*SVERK if (y->parent != z) {
-	    lower_max_size(y->parent, (y==z ? NULL : z));
-	}*/
     }
     if (y != z) {
 	/* We spliced out the successor of z; replace z by the successor */
 	RBT_ASSERT(z != &null_x);
-	replace(root, z, y);
-	/*SVERK lower_max_size(y, NULL);*/
+	replace(&tree->root, z, y);
     }
 
     if (spliced_is_black) {
@@ -584,7 +569,7 @@ rbt_delete(RBTNode** root, RBTNode* del)
 		    SET_BLACK(y);
 		    RBT_ASSERT(IS_BLACK(papa_x));
 		    SET_RED(papa_x);
-		    left_rotate(root, papa_x);
+		    left_rotate(&tree->root, papa_x);
                     RBT_ASSERT(papa_x == parent(x));
 		    y = papa_x->right;
 		}
@@ -597,7 +582,7 @@ rbt_delete(RBTNode** root, RBTNode* del)
 		    if (IS_BLACK(y->right)) {
 			SET_BLACK(y->left);
 			SET_RED(y);
-			right_rotate(root, y);
+			right_rotate(&tree->root, y);
                         RBT_ASSERT(papa_x == parent(x));
 			y = papa_x->right;
 		    }
@@ -609,8 +594,8 @@ rbt_delete(RBTNode** root, RBTNode* del)
 		    }
 		    RBT_ASSERT(y->right);
 		    SET_BLACK(y->right);
-		    left_rotate(root, papa_x);
-		    x = *root;
+		    left_rotate(&tree->root, papa_x);
+		    x = tree->root;
 		    break;
 		}
 	    }
@@ -624,7 +609,7 @@ rbt_delete(RBTNode** root, RBTNode* del)
 		    SET_BLACK(y);
 		    RBT_ASSERT(IS_BLACK(papa_x));
 		    SET_RED(papa_x);
-		    right_rotate(root, papa_x);
+		    right_rotate(&tree->root, papa_x);
                     RBT_ASSERT(papa_x == parent(x));
 		    y = papa_x->left;
 		}
@@ -637,7 +622,7 @@ rbt_delete(RBTNode** root, RBTNode* del)
 		    if (IS_BLACK(y->left)) {
 			SET_BLACK(y->right);
 			SET_RED(y);
-			left_rotate(root, y);
+			left_rotate(&tree->root, y);
                         RBT_ASSERT(papa_x == parent(x));
 			y = papa_x->left;
 		    }
@@ -648,8 +633,8 @@ rbt_delete(RBTNode** root, RBTNode* del)
 		    }
 		    RBT_ASSERT(y->left);
 		    SET_BLACK(y->left);
-		    right_rotate(root, papa_x);
-		    x = *root;
+		    right_rotate(&tree->root, papa_x);
+		    x = tree->root;
 		    break;
 		}
 	    }
@@ -669,49 +654,44 @@ rbt_delete(RBTNode** root, RBTNode* del)
 	    RBT_ASSERT(!null_x.left);
 	    RBT_ASSERT(!null_x.right);
 	}
-	else if (*root == &null_x) {
-	    *root = NULL;
+	else if (tree->root == &null_x) {
+	    tree->root = NULL;
 	    RBT_ASSERT(!null_x.left);
 	    RBT_ASSERT(!null_x.right);
 	}
     }
+    HARD_CHECK_TREE(tree, 0);
 }
 
 
 static void
-rbt_insert(enum SortOrder order, RBTNode** root, RBTNode* blk)
+rbt_insert(enum SortOrder order, RBTree* tree, RBTNode* node)
 {
 #ifdef RBT_DEBUG
     ErtsFreeSegDesc *dbg_under=NULL, *dbg_over=NULL;
 #endif
-    ErtsFreeSegDesc* desc = node_to_desc(order, blk);
-    char* blk_addr = desc->start;
-    SWord blk_sz = desc->end - desc->start;
-    /*SVERK Uint blk_sz = AOFF_BLK_SZ(blk);*/
+    ErtsFreeSegDesc* desc = node_to_desc(order, node);
+    char* seg_addr = desc->start;
+    SWord seg_sz = desc->end - desc->start;
 
-    /*blk->flags  = 0;*/
-    blk->left	= NULL;
-    blk->right	= NULL;
-    /*SVERK blk->max_sz = blk_sz;*/
+    HARD_CHECK_TREE(tree, 0);
 
-    if (!*root) {
-	blk->parent_and_color = parent_and_color(NULL, !RED_FLG);
-        /*SET_BLACK(blk);*/
-	*root = blk;
+    node->left	= NULL;
+    node->right	= NULL;
+
+    if (!tree->root) {
+	node->parent_and_color = parent_and_color(NULL, !RED_FLG);
+	tree->root = node;
     }
     else {
-	RBTNode *x = *root;
+	RBTNode *x = tree->root;
 	while (1) {
-	    SWord diff;
-	    /*SVERK if (x->max_sz < blk_sz) {
-		x->max_sz = blk_sz;
-	    }*/
-	    diff = cmp_with_block(order, blk_sz, blk_addr, x);
+	    SWord diff = cmp_with_node(order, seg_sz, seg_addr, x);
 	    if (diff < 0) {
                 IF_RBT_DEBUG(dbg_over = node_to_desc(order, x));
 		if (!x->left) {
-		    blk->parent_and_color = parent_and_color(x, RED_FLG);
-		    x->left = blk;
+		    node->parent_and_color = parent_and_color(x, RED_FLG);
+		    x->left = node;
 		    break;
 		}
 		x = x->left;
@@ -720,43 +700,26 @@ rbt_insert(enum SortOrder order, RBTNode** root, RBTNode* blk)
                 RBT_ASSERT(diff > 0);
                 IF_RBT_DEBUG(dbg_under = node_to_desc(order, x));
                 if (!x->right) {
-                    blk->parent_and_color = parent_and_color(x, RED_FLG);
-                    x->right = blk;
+                    node->parent_and_color = parent_and_color(x, RED_FLG);
+                    x->right = node;
                     break;
                 }
                 x = x->right;
             }
-	    /*SVERK else {
-		ASSERT(flavor == AOFF_BF);
-		ASSERT(blk->flags & IS_BF_FLG);
-		ASSERT(x->flags & IS_BF_FLG);
-		SET_LIST_ELEM(blk);
-		LIST_NEXT(blk) = LIST_NEXT(x);
-		LIST_PREV(blk) = x;
-		if (LIST_NEXT(x))
-		    LIST_PREV(LIST_NEXT(x)) = blk;
-		LIST_NEXT(x) = blk;
-		return;
-	    }*/
 	}
 
-	/* Insert block into size tree */
-	RBT_ASSERT(parent(blk));
+	RBT_ASSERT(parent(node));
 #ifdef RBT_DEBUG
-        if (!order) {
+        if (order == ADDR_ORDER) {
             RBT_ASSERT(!dbg_under || dbg_under->end < desc->start);
             RBT_ASSERT(!dbg_over || dbg_over->start > desc->end);
         }
 #endif
-	/*SET_RED(blk);*/
-        RBT_ASSERT(IS_RED(blk));
-	if (IS_RED(parent(blk)))
-	    tree_insert_fixup(root, blk);
+        RBT_ASSERT(IS_RED(node));
+	if (IS_RED(parent(node)))
+	    tree_insert_fixup(&tree->root, node);
     }
-    /*SVERK if (flavor == AOFF_BF) {
-	SET_TREE_NODE(blk);
-	LIST_NEXT(blk) = NULL;
-    }*/
+    HARD_CHECK_TREE(tree, 0);
 }
 
 /*
@@ -860,9 +823,39 @@ rbt_foreach_node(RBTree* tree,
 #endif
 }
 
+#ifdef RBT_DEBUG
+static RBTNode* rbt_prev_node(RBTNode* node)
+{
+    RBTNode* x;
+    if (node->left) {
+        for (x=node->left; x->right; x=x->right)
+            ;
+        return x;
+    }
+    for (x=node; parent(x); x=parent(x)) {
+        if (parent(x)->right == x)
+            return parent(x);
+    }
+    return NULL;
+}
+static RBTNode* rbt_next_node(RBTNode* node)
+{
+    RBTNode* x;
+    if (node->right) {
+        for (x=node->right; x->left; x=x->left)
+            ;
+        return x;
+    }
+    for (x=node; parent(x); x=parent(x)) {
+        if (parent(x)->left == x)
+            return parent(x);
+    }
+    return NULL;
+}
+#endif /* RBT_DEBUG */
 
 
-/* The API to keep track of a bunch of separated free segments
+/* The API to keep track of a bunch of separated (free) segments
    (non-overlapping and non-adjacent).
  */
 static void init_free_seg_map(ErtsFreeSegMap*, int reverse_ao);
@@ -883,6 +876,9 @@ static void init_free_seg_map(ErtsFreeSegMap* map, int reverse_ao)
     map->nseg = 0;
 }
 
+/* Lookup directly adjacent free segments to the given area [start->end].
+ * The given area must not contain any free segments.
+ */
 static void adjacent_free_seg(ErtsFreeSegMap* map, char* start, char* end,
                               ErtsFreeSegDesc** under, ErtsFreeSegDesc** over)
 {
@@ -910,39 +906,49 @@ static void adjacent_free_seg(ErtsFreeSegMap* map, char* start, char* end,
     }
 }
 
+/* Initialize 'desc' and insert as new free segment [start->end].
+ * The new segment must not contain or be adjacent to any free segment in 'map'.
+ */
 static void insert_free_seg(ErtsFreeSegMap* map, ErtsFreeSegDesc* desc,
                             char* start, char* end)
 {
     desc->start = start;
     desc->end = end;
-    rbt_insert(map->atree.order, &map->atree.root, &desc->anode);
-    rbt_insert(map->stree.order, &map->stree.root, &desc->snode);
+    rbt_insert(map->atree.order, &map->atree, &desc->anode);
+    rbt_insert(map->stree.order, &map->stree, &desc->snode);
     map->nseg++;
 }
 
+/* Resize existing free segment 'desc' to [start->end].
+ * The new segment location must overlap the old location and
+ * it must not contain or be adjacent to any other free segment in 'map'.
+ */
 static void resize_free_seg(ErtsFreeSegMap* map, ErtsFreeSegDesc* desc,
                             char* start, char* end)
 {
-#ifdef DEBUG
-    ErtsFreeSegDesc *dbg_under, *dbg_over;
-    rbt_delete(&map->atree.root, &desc->anode);
-    adjacent_free_seg(map, start, end, &dbg_under, &dbg_over);
-    RBT_ASSERT(dbg_under == NULL && dbg_over == NULL);
-    rbt_insert(map->atree.order, &map->atree.root, &desc->anode);
+#ifdef RBT_DEBUG
+    RBTNode* prev = rbt_prev_node(&desc->anode);
+    RBTNode* next = rbt_next_node(&desc->anode);
+    RBT_ASSERT(!prev || anode_to_desc(prev)->end < start);
+    RBT_ASSERT(!next || anode_to_desc(next)->start > end);
 #endif
-    rbt_delete(&map->stree.root, &desc->snode);
+    rbt_delete(&map->stree, &desc->snode);
     desc->start = start;
     desc->end = end;
-    rbt_insert(map->stree.order, &map->stree.root, &desc->snode);
+    rbt_insert(map->stree.order, &map->stree, &desc->snode);
 }
 
+/* Delete existing free segment 'desc' from 'map'.
+ */
 static void delete_free_seg(ErtsFreeSegMap* map, ErtsFreeSegDesc* desc)
 {
-    rbt_delete(&map->atree.root, &desc->anode);
-    rbt_delete(&map->stree.root, &desc->snode);
+    rbt_delete(&map->atree, &desc->anode);
+    rbt_delete(&map->stree, &desc->snode);
     map->nseg--;
 }
 
+/* Lookup a free segment in 'map' with a size of at least 'need_sz' bytes.
+ */
 static ErtsFreeSegDesc* lookup_free_seg(ErtsFreeSegMap* map, SWord need_sz)
 {
     RBTNode* x = map->stree.root;
@@ -1934,7 +1940,7 @@ static int rbt_assert_is_member(RBTNode* root, RBTNode* node)
 }
 
 
-#if 1 /*SVERK*/
+#if 0
 #  define PRINT_TREE
 #else
 #  undef PRINT_TREE
@@ -1964,7 +1970,7 @@ struct check_arg_t {
     Uint size;
     RBTNode *res;
 };
-static void check_node(RBTNode* x, void* arg);
+static void check_node_callback(RBTNode* x, void* arg);
 
 
 static RBTNode *
@@ -1986,13 +1992,12 @@ check_tree(RBTree* tree, Uint size)
     RBT_ASSERT(IS_BLACK(tree->root));
     RBT_ASSERT(!parent(tree->root));
 
-    rbt_foreach_node(tree, check_node, &carg, 0);
+    rbt_foreach_node(tree, check_node_callback, &carg, 0);
 
     return carg.res;
 }
 
-/* callback */
-static void check_node(RBTNode* x, void* arg)
+static void check_node_callback(RBTNode* x, void* arg)
 {
     struct check_arg_t* a = (struct check_arg_t*) arg;
     ErtsFreeSegDesc* seg;
@@ -2005,16 +2010,16 @@ static void check_node(RBTNode* x, void* arg)
     RBT_ASSERT(parent(x) || x == a->tree->root);
 
     if (x->left) {
-        RBT_ASSERT(cmp_blocks(a->tree->order, x->left, x) < 0);
+        RBT_ASSERT(cmp_nodes(a->tree->order, x->left, x) < 0);
     }
     if (x->right) {
-        RBT_ASSERT(cmp_blocks(a->tree->order, x->right, x) > 0);
+        RBT_ASSERT(cmp_nodes(a->tree->order, x->right, x) > 0);
     }
 
     seg = node_to_desc(a->tree->order, x);
     RBT_ASSERT(seg->start < seg->end);
     if (a->size && (seg->end - seg->start) >= a->size) {
-        if (!a->res || cmp_blocks(a->tree->order, x, a->res) < 0) {
+        if (!a->res || cmp_nodes(a->tree->order, x, a->res) < 0) {
             a->res = x;
         }
     }
@@ -2062,6 +2067,8 @@ print_tree(enum SortOrder order, RBTNode* root)
 
 #endif /* PRINT_TREE */
 
+
+#ifdef FREE_SEG_API_SMOKE_TEST
 
 void test_it(void)
 {
@@ -2128,3 +2135,5 @@ void test_it(void)
         ERTS_ASSERT(d1->start == (char*)0x15000);
     }
 }
+
+#endif /* FREE_SEG_API_SMOKE_TEST */
