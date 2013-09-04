@@ -124,6 +124,7 @@
   List :: list(Type)                        %% Proper list ([]-terminated)
         | improper_list(Type1, Type2)       %% Type1=contents, Type2=termination
         | maybe_improper_list(Type1, Type2) %% Type1 and Type2 as above
+        | nonempty_list(Type)               %% Proper non-empty list
 
   Tuple :: tuple()                          %% stands for a tuple of any size
          | {}
@@ -146,9 +147,8 @@
   </p>
   <p>
     Because lists are commonly used, they have shorthand type notations. 
-    The type <c>list(T)</c> has the shorthand <c>[T]</c>.
-    The shorthand <c>[T,...]</c> stands for 
-    the set of non-empty proper lists whose elements are of type <c>T</c>. 
+    The types <c>list(T)</c> and <c>nonempty_list(T)</c> have the shorthands
+    <c>[T]</c> and <c>[T,...]</c>, respectively.
     The only difference between the two shorthands is that <c>[T]</c> may be an 
     empty list but <c>[T,...]</c> may not.
   </p>
@@ -194,7 +194,7 @@
       <cell><c>maybe_improper_list()</c></cell><cell><c>maybe_improper_list(any(), any())</c></cell>
     </row>
     <row> 
-      <cell><c>maybe_improper_list(T)</c></cell><cell><c>maybe_improper_list(T, any())</c></cell> 
+      <cell><c>nonempty_list()</c></cell><cell><c>nonempty_list(any())</c></cell>
     </row>
     <row>
       <cell><c>string()</c></cell><cell><c>[char()]</c></cell>
@@ -203,13 +203,19 @@
       <cell><c>nonempty_string()</c></cell><cell><c>[char(),...]</c></cell>
     </row>
     <row> 
+      <cell><c>iodata()</c></cell><cell><c>iolist() | binary()</c></cell>
+    </row>
+    <row>
       <cell><c>iolist()</c></cell><cell><c>maybe_improper_list(byte() | binary() | iolist(), binary() | [])</c></cell>
     </row>
     <row>
       <cell><c>module()</c></cell><cell><c>atom()</c></cell>
     </row>
     <row> 
-      <cell><c>mfa()</c></cell><cell><c>{atom(),atom(),byte()}</c></cell>
+      <cell><c>mfa()</c></cell><cell><c>{atom(),atom(),arity()}</c></cell>
+    </row>
+    <row>
+      <cell><c>arity()</c></cell><cell><c>0..255</c></cell>
     </row>
     <row>
       <cell><c>node()</c></cell><cell><c>atom()</c></cell>
@@ -253,15 +259,13 @@
     but they are expected to be rarely used. Hence, they have long names:
   </note>
   <pre>
-  nonempty_maybe_improper_list(Type) :: nonempty_maybe_improper_list(Type, any())
-  nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any())</pre>
-  <p>
-    where the following two types
-    define the set of Erlang terms one would expect:
-  </p>
-  <pre>
+  nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any(), any())
   nonempty_improper_list(Type1, Type2)
   nonempty_maybe_improper_list(Type1, Type2)</pre>
+  <p>
+    where the last two types
+    define the set of Erlang terms one would expect.
+  </p>
   <p>
     Also for convenience, we allow for record notation to be used. 
     Records are just shorthands for the corresponding tuples.
