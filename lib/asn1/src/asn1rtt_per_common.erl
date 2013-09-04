@@ -28,7 +28,16 @@
 	 decode_chars/2,decode_chars/3,
 	 decode_chars_16bit/1,
 	 decode_big_chars/2,
-	 decode_oid/1,decode_relative_oid/1]).
+	 decode_oid/1,decode_relative_oid/1,
+	 encode_chars/2,encode_chars/3,
+	 encode_chars_16bit/1,encode_big_chars/1,
+	 encode_fragmented/2,
+	 encode_oid/1,encode_relative_oid/1,
+	 encode_unconstrained_number/1,
+	 bitstring_from_positions/1,bitstring_from_positions/2,
+	 to_bitstring/1,to_bitstring/2,
+	 to_named_bitstring/1,to_named_bitstring/2,
+	 extension_bitmap/3]).
 
 -define('16K',16384).
 
@@ -90,6 +99,182 @@ decode_oid(Octets) ->
 decode_relative_oid(Octets) ->
     list_to_tuple(dec_subidentifiers(Octets, 0, [])).
 
+encode_chars(Val, NumBits) ->
+    << <<C:NumBits>> || C <- Val >>.
+
+encode_chars(Val, NumBits, {Lb,Tab}) ->
+    << <<(enc_char(C, Lb, Tab)):NumBits>> || C <- Val >>.
+
+encode_chars_16bit(Val) ->
+    L = [case C of
+	     {0,0,A,B} -> [A,B];
+	     C when is_integer(C) -> [0,C]
+	 end || C <- Val],
+    iolist_to_binary(L).
+
+encode_big_chars(Val) ->
+    L = [case C of
+	     {_,_,_,_} -> tuple_to_list(C);
+	     C when is_integer(C) -> [<<0,0,0>>,C]
+	 end || C <- Val],
+    iolist_to_binary(L).
+
+encode_fragmented(Bin, Unit) ->
+    encode_fragmented_1(Bin, Unit, 4).
+
+encode_oid(Val) when is_tuple(Val) ->
+    encode_oid(tuple_to_list(Val));
+encode_oid(Val) ->
+    iolist_to_binary(e_object_identifier(Val)).
+
+encode_relative_oid(Val) when is_tuple(Val) ->
+    encode_relative_oid(tuple_to_list(Val));
+encode_relative_oid(Val) when is_list(Val) ->
+    list_to_binary([e_object_element(X)||X <- Val]).
+
+encode_unconstrained_number(Val) when Val >= 0 ->
+    if
+	Val < 16#80 ->
+	    [1,Val];
+	Val < 16#100 ->
+	    [<<2,0>>,Val];
+	true ->
+	    case binary:encode_unsigned(Val) of
+		<<0:1,_/bitstring>>=Bin ->
+		    case byte_size(Bin) of
+			Sz when Sz < 128 ->
+			    [Sz,Bin];
+			Sz when Sz < 16384 ->
+			    [<<2:2,Sz:14>>,Bin]
+		    end;
+		<<1:1,_/bitstring>>=Bin ->
+		    case byte_size(Bin)+1 of
+			Sz when Sz < 128 ->
+			    [Sz,0,Bin];
+			Sz when Sz < 16384 ->
+			    [<<2:2,Sz:14,0:8>>,Bin]
+		    end
+	    end
+    end;
+encode_unconstrained_number(Val) ->
+    Oct = enint(Val, []),
+    Len = length(Oct),
+    if
+        Len < 128 ->
+            [Len|Oct];
+        Len < 16384 ->
+            [<<2:2,Len:14>>|Oct]
+    end.
+
+%% bitstring_from_positions([Position]) -> BitString
+%%  Given an unsorted list of bit positions (0..MAX), construct
+%%  a BIT STRING. The rightmost bit will always be a one.
+
+bitstring_from_positions([]) -> <<>>;
+bitstring_from_positions([_|_]=L0) ->
+    L1 = lists:sort(L0),
+    L = diff(L1, -1),
+    << <<1:(N+0)>> || N <- L >>.
+
+%% bitstring_from_positions([Position], Lb) -> BitString
+%%  Given an unsorted list of bit positions (0..MAX) and a lower bound
+%%  for the number of bits, construct BIT STRING (zero-padded on the
+%%  right side if needed).
+
+bitstring_from_positions(L0, Lb) ->
+    L1 = lists:sort(L0),
+    L = diff(L1, -1, Lb-1),
+    << <<B:(N+0)>> || {B,N} <- L >>.
+
+%% to_bitstring(Val) -> BitString
+%%    Val = BitString | {Unused,Binary} | [OneOrZero] | Integer
+%%  Given one of the possible representations for a BIT STRING,
+%%  return a bitstring (without adding or removing any zero bits
+%%  at the right end).
+
+to_bitstring({0,Bs}) when is_binary(Bs) ->
+    Bs;
+to_bitstring({Unused,Bs0}) when is_binary(Bs0) ->
+    Sz = bit_size(Bs0) - Unused,
+    <<Bs:Sz/bits,_/bits>> = Bs0,
+    Bs;
+to_bitstring(Bs) when is_bitstring(Bs) ->
+    Bs;
+to_bitstring(Int) when is_integer(Int), Int >= 0 ->
+    L = int_to_bitlist(Int),
+    << <<B:1>> || B <- L >>;
+to_bitstring(L) when is_list(L) ->
+    << <<B:1>> || B <- L >>.
+
+%% to_bitstring(Val, Lb) -> BitString
+%%    Val = BitString | {Unused,Binary} | [OneOrZero] | Integer
+%%    Lb = Integer
+%%  Given one of the possible representations for a BIT STRING
+%%  and the lower bound for the number of bits,
+%%  return a bitstring at least Lb bits long (padded with zeroes
+%%  if needed).
+
+to_bitstring({0,Bs}, Lb) when is_binary(Bs) ->
+    case bit_size(Bs) of
+	Sz when Sz < Lb ->
+	    <<Bs/bits,0:(Lb-Sz)>>;
+	_ ->
+	    Bs
+    end;
+to_bitstring({Unused,Bs0}, Lb) when is_binary(Bs0) ->
+    Sz = bit_size(Bs0) - Unused,
+    if
+	Sz < Lb ->
+	    <<Bs0:Sz/bits,0:(Lb-Sz)>>;
+	true ->
+	    <<Bs:Sz/bits,_/bits>> = Bs0,
+	    Bs
+    end;
+to_bitstring(Bs, Lb) when is_bitstring(Bs) ->
+    adjust_size(Bs, Lb);
+to_bitstring(Int, Lb) when is_integer(Int), Int >= 0 ->
+    L = int_to_bitlist(Int),
+    Bs = << <<B:1>> || B <- L >>,
+    adjust_size(Bs, Lb);
+to_bitstring(L, Lb) when is_list(L) ->
+    Bs = << <<B:1>> || B <- L >>,
+    adjust_size(Bs, Lb).
+
+%% to_named_bitstring(Val) -> BitString
+%%    Val = BitString | {Unused,Binary} | [OneOrZero] | Integer
+%%  Given one of the possible representations for a BIT STRING,
+%%  return a bitstring where any trailing zeroes have been stripped.
+
+to_named_bitstring(Val) ->
+    Bs = to_bitstring(Val),
+    bs_drop_trailing_zeroes(Bs).
+
+%% to_named_bitstring(Val, Lb) -> BitString
+%%    Val = BitString | {Unused,Binary} | [OneOrZero] | Integer
+%%    Lb = Integer
+%%  Given one of the possible representations for a BIT STRING
+%%  and the lower bound for the number of bits,
+%%  return a bitstring that is at least Lb bits long. There will
+%%  be zeroes at the right only if needed to reach the lower bound
+%%  for the number of bits.
+
+to_named_bitstring({0,Bs}, Lb) when is_binary(Bs) ->
+    adjust_trailing_zeroes(Bs, Lb);
+to_named_bitstring({Unused,Bs0}, Lb) when is_binary(Bs0) ->
+    Sz = bit_size(Bs0) - Unused,
+    <<Bs:Sz/bits,_/bits>> = Bs0,
+    adjust_trailing_zeroes(Bs, Lb);
+to_named_bitstring(Bs, Lb) when is_bitstring(Bs) ->
+    adjust_trailing_zeroes(Bs, Lb);
+to_named_bitstring(Val, Lb) ->
+    %% Obsolete representations: list or integer. Optimize
+    %% for correctness, not speed.
+    adjust_trailing_zeroes(to_bitstring(Val), Lb).
+
+
+extension_bitmap(Val, Pos, Limit) ->
+    extension_bitmap(Val, Pos, Limit, 0).
+
 %%%
 %%% Internal functions.
 %%%
@@ -124,3 +309,149 @@ dec_subidentifiers([H|T], Av, Al) ->
     dec_subidentifiers(T, 0, [(Av bsl 7) bor H|Al]);
 dec_subidentifiers([], _Av, Al) ->
     lists:reverse(Al).
+
+enc_char(C0, Lb, Tab) ->
+    try	element(C0-Lb, Tab) of
+	ill ->
+	    illegal_char_error();
+	C ->
+	    C
+    catch
+	error:badarg ->
+	    illegal_char_error()
+    end.
+
+illegal_char_error() ->
+    error({error,{asn1,"value forbidden by FROM constraint"}}).
+
+encode_fragmented_1(Bin, Unit, N) ->
+    SegSz = Unit * N * ?'16K',
+    case Bin of
+	<<B:SegSz/bitstring,T/bitstring>> ->
+	    [<<3:2,N:6>>,B|encode_fragmented_1(T, Unit, N)];
+	_ when N > 1 ->
+	    encode_fragmented_1(Bin, Unit, N-1);
+	_ ->
+	    case bit_size(Bin) div Unit of
+		Len when Len < 128 ->
+		    [Len,Bin];
+		Len when Len < 16384 ->
+		    [<<2:2,Len:14>>,Bin]
+	    end
+    end.
+
+%% E1 = 0|1|2 and (E2 < 40 when E1 = 0|1)
+e_object_identifier([E1,E2|Tail]) when E1 >= 0, E1 < 2, E2 < 40; E1 =:= 2 ->
+    Head = 40*E1 + E2,
+    e_object_elements([Head|Tail], []);
+e_object_identifier([_,_|_Tail]=Oid) ->
+    exit({error,{asn1,{'illegal_value',Oid}}}).
+
+e_object_elements([], Acc) ->
+    lists:reverse(Acc);
+e_object_elements([H|T], Acc) ->
+    e_object_elements(T, [e_object_element(H)|Acc]).
+
+e_object_element(Num) when Num < 128 ->
+    [Num];
+e_object_element(Num) ->
+    [e_o_e(Num bsr 7)|[Num band 2#1111111]].
+
+e_o_e(Num) when Num < 128 ->
+    Num bor 2#10000000;
+e_o_e(Num) ->
+    [e_o_e(Num bsr 7)|[(Num band 2#1111111) bor 2#10000000]].
+
+enint(-1, [B1|T]) when B1 > 127 ->
+    [B1|T];
+enint(N, Acc) ->
+    enint(N bsr 8, [N band 16#ff|Acc]).
+
+diff([H|T], Prev) ->
+    [H-Prev|diff(T, H)];
+diff([], _) -> [].
+
+diff([H|T], Prev, Last) ->
+    [{1,H-Prev}|diff(T, H, Last)];
+diff([], Prev, Last) when Last >= Prev ->
+    [{0,Last-Prev}];
+diff([], _, _) -> [].
+
+int_to_bitlist(0) -> [];
+int_to_bitlist(Int) -> [Int band 1|int_to_bitlist(Int bsr 1)].
+
+adjust_size(Bs, Lb) ->
+    case bit_size(Bs) of
+	Sz when Sz < Lb ->
+	    <<Bs:Sz/bits,0:(Lb-Sz)>>;
+	_ ->
+	    Bs
+    end.
+
+adjust_trailing_zeroes(Bs0, Lb) ->
+    case bit_size(Bs0) of
+	Sz when Sz < Lb ->
+	    %% Too short - pad with zeroes.
+	    <<Bs0:Sz/bits,0:(Lb-Sz)>>;
+	Lb ->
+	    %% Exactly the right size - nothing to do.
+	    Bs0;
+	_ ->
+	    %% Longer than the lower bound - drop trailing zeroes.
+	    <<_:Lb/bits,Tail/bits>> = Bs0,
+	    Sz = Lb + bit_size(bs_drop_trailing_zeroes(Tail)),
+	    <<Bs:Sz/bits,_/bits>> = Bs0,
+	    Bs
+    end.
+
+bs_drop_trailing_zeroes(Bs) ->
+    bs_drop_trailing_zeroes(Bs, bit_size(Bs)).
+
+bs_drop_trailing_zeroes(Bs0, Sz0) when Sz0 < 8 ->
+    <<Byte:Sz0>> = Bs0,
+    Sz = Sz0 - ntz(Byte),
+    <<Bs:Sz/bits,_/bits>> = Bs0,
+    Bs;
+bs_drop_trailing_zeroes(Bs0, Sz0) ->
+    Sz1 = Sz0 - 8,
+    <<Bs1:Sz1/bits,Byte:8>> = Bs0,
+    case ntz(Byte) of
+	8 ->
+	    bs_drop_trailing_zeroes(Bs1, Sz1);
+	Ntz ->
+	    Sz = Sz0 - Ntz,
+	    <<Bs:Sz/bits,_:Ntz/bits>> = Bs0,
+	    Bs
+    end.
+
+%% ntz(Byte) -> Number of trailing zeroes.
+ntz(Byte) ->
+    %% The table was calculated like this:
+    %%   NTZ = fun (B, N, NTZ) when B band 1 =:= 0 -> NTZ(B bsr 1, N+1, NTZ); (_, N, _) -> N end.
+    %%   io:format("~w\n", [list_to_tuple([NTZ(B+256, 0, NTZ) || B <- lists:seq(0, 255)])]).
+    T = {8,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 7,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0},
+    element(Byte+1, T).
+
+extension_bitmap(_Val, Pos, Limit, Acc) when Pos >= Limit ->
+    Acc;
+extension_bitmap(Val, Pos, Limit, Acc) ->
+    Bit = case element(Pos, Val) of
+	      asn1_NOVALUE -> 0;
+	      _ -> 1
+	  end,
+    extension_bitmap(Val, Pos+1, Limit, (Acc bsl 1) bor Bit).

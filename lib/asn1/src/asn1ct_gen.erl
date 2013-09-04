@@ -798,7 +798,12 @@ pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
 		    gen_exports1(Types,"enc_",1)
 	    end,
 	    emit({"-export([",nl}),
-	    gen_exports1(Types,"dec_",2)
+	    case Erules of
+		ber ->
+		    gen_exports1(Types, "dec_", 2);
+		_ ->
+		    gen_exports1(Types, "dec_", 1)
+	    end
     end,
     case [X || {n2n,X} <- get(encoding_options)] of
 	[] -> ok;
@@ -819,10 +824,7 @@ pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
 	_ ->
 	    case erule(Erules) of
 		per ->
-		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"enc_",3),
-		    emit({"-export([",nl}),
-		    gen_exports1(Objects,"dec_",4);
+		    ok;
 		ber ->
 		    emit({"-export([",nl}),
 		    gen_exports1(Objects,"enc_",3),
@@ -833,10 +835,15 @@ pgen_exports(Erules,_Module,{Types,Values,_,_,Objects,ObjectSets}) ->
     case ObjectSets of
 	[] -> ok;
 	_ ->
-	    emit({"-export([",nl}),
-	    gen_exports1(ObjectSets,"getenc_",2),
-	    emit({"-export([",nl}),
-	    gen_exports1(ObjectSets,"getdec_",2)
+	    case erule(Erules) of
+		per ->
+		    ok;
+		ber ->
+		    emit({"-export([",nl}),
+		    gen_exports1(ObjectSets, "getenc_",1),
+		    emit({"-export([",nl}),
+		    gen_exports1(ObjectSets, "getdec_",1)
+	    end
     end,
     emit({"-export([info/0]).",nl}),
     gen_partial_inc_decode_exports(),
@@ -916,15 +923,23 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 		{["complete(encode_disp(Type, Data))"],"Bytes"}
 	end,
     emit(["encode(Type,Data) ->",nl,
-	  "case catch ",Call," of",nl,
-	  "  {'EXIT',{error,Reason}} ->",nl,
-	  "    {error,Reason};",nl,
-	  "  {'EXIT',Reason} ->",nl,
-	  "    {error,{asn1,Reason}};",nl,
-	  "  {Bytes,_Len} ->",nl,
-	  "    {ok,",BytesAsBinary,"};",nl,
-	  "  Bytes ->",nl,
-	  "    {ok,",BytesAsBinary,"}",nl,
+	  "try ",Call," of",nl,
+	  case erule(Erules) of
+	      ber ->
+		  ["  {Bytes,_Len} ->",nl,
+		   "    {ok,",BytesAsBinary,"}",nl];
+	      per ->
+		  ["  Bytes ->",nl,
+		   "    {ok,",BytesAsBinary,"}",nl]
+	  end,
+	  "  catch",nl,
+	  "    Class:Exception when Class =:= error; Class =:= exit ->",nl,
+          "      case Exception of",nl,
+	  "        {error,Reason}=Error ->",nl,
+	  "          Error;",nl,
+	  "        Reason ->",nl,
+	  "         {error,{asn1,Reason}}",nl,
+	  "      end",nl,
 	  "end.",nl,nl]),
 
     Return_rest = lists:member(undec_rest,get(encoding_options)),
@@ -999,7 +1014,7 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	    gen_partial_inc_dispatcher();
 	_PerOrPer_bin -> 
 	    gen_dispatcher(Types,"encode_disp","enc_",""),
-	    gen_dispatcher(Types,"decode_disp","dec_",",mandatory")
+	    gen_dispatcher(Types,"decode_disp","dec_","")
     end,
     emit([nl]),
     emit({nl,nl}).

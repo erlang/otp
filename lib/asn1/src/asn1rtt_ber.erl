@@ -22,8 +22,7 @@
 %% encoding / decoding of BER
 
 -export([ber_decode_nif/1,ber_decode_erlang/1,match_tags/2,ber_encode/1]).
--export([encode_tags/2,
-	 encode_tags/3,
+-export([encode_tags/3,
 	 skip_ExtensionAdditions/2]).
 -export([encode_boolean/2,decode_boolean/2,
 	 encode_integer/2,encode_integer/3,

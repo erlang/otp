@@ -105,8 +105,7 @@ encode_real(_C, {Mantissa, Base, Exponent}) when Base =:= 2 ->
 		     true    -> list_to_binary(real_mininum_octets(-(Man))) % signbit keeps track of sign
 		  end,
     %%    ok = io:format("LenMask: ~w EOctets: ~w~nFirstOctet: ~w OctMantissa: ~w OctExpLen: ~w~n", [LenMask, EOctets, FirstOctet, OctMantissa, OctExpLen]),
-    Bin = <<FirstOctet/binary, EOctets/binary, OctMantissa/binary>>,
-    {Bin, size(Bin)};
+    <<FirstOctet/binary, EOctets/binary, OctMantissa/binary>>;
 encode_real(C, {Mantissa,Base,Exponent})
   when Base =:= 10, is_integer(Mantissa), is_integer(Exponent) ->
     %% always encode as NR3 due to DER on the format
@@ -176,8 +175,7 @@ encode_real_as_string(_C, Mantissa, Exponent)
 	end,
     ManBin = list_to_binary(TruncMant),
     NR3 = 3,
-    {<<NR3,ManBin/binary,$.,ExpBin/binary>>,
-     2 + byte_size(ManBin) + byte_size(ExpBin)}.
+    <<NR3,ManBin/binary,$.,ExpBin/binary>>.
 
 remove_trailing_zeros(IntStr) ->
     case lists:dropwhile(fun($0)-> true;

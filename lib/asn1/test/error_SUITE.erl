@@ -19,7 +19,7 @@
 
 -module(error_SUITE).
 -export([suite/0,all/0,groups/0,
-	 already_defined/1,enumerated/1]).
+	 already_defined/1,enumerated/1,objects/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -30,7 +30,8 @@ all() ->
 
 groups() ->
     [{p,parallel(),[already_defined,
-		    enumerated]}].
+		    enumerated,
+		    objects]}].
 
 parallel() ->
     case erlang:system_info(schedulers) > 1 of
@@ -91,6 +92,48 @@ enumerated(Config) ->
       {structured_error,{'Enumerated',5},asn1ct_check,{undefined,z}},
       {structured_error,{'Enumerated',10},asn1ct_check,{undefined,aa}},
       {structured_error,{'Enumerated',13},asn1ct_check,{undefined,xyz}}
+     ]
+    } = run(P, Config),
+    ok.
+
+objects(Config) ->
+    M = 'Objects',
+    P = {M,
+	 <<"Objects DEFINITIONS AUTOMATIC TAGS ::= BEGIN\n"
+	   "  obj1 CL ::= { &wrong 42 }\n"
+	   "  obj2 CL ::= { &wrong 1, &Wrong INTEGER }\n"
+	   "  obj3 CL ::= { &Data OCTET STRING }\n"
+	   "  obj4 SMALL ::= { &code 42 }\n"
+	   "  InvalidSet CL ::= { obj1 }\n"
+
+	   "  CL ::= CLASS {\n"
+	   "    &code INTEGER UNIQUE,\n"
+	   "    &enum ENUMERATED { a, b, c},\n"
+	   "    &Data,\n"
+	   "    &object CL,\n"
+	   "    &Set CL,\n"
+	   "    &vartypevalue &Data,\n"
+	   "    &VarTypeValue &Data\n"
+	   "  }\n"
+
+	   "  SMALL ::= CLASS {\n"
+	   "    &code INTEGER UNIQUE,\n"
+           "    &i INTEGER\n"
+           "  }\n"
+	   "END\n">>},
+    {error,
+     [
+      {structured_error,{M,2},asn1ct_check,
+       {invalid_fields,[wrong],obj1}},
+      {structured_error,{M,3},asn1ct_check,
+       {invalid_fields,['Wrong',wrong],obj2}},
+      {structured_error,{M,4},asn1ct_check,
+       {missing_mandatory_fields,['Set','VarTypeValue',code,
+				  enum,object,vartypevalue],obj3}},
+      {structured_error,{M,5},asn1ct_check,
+       {missing_mandatory_fields,[i],obj4}},
+      {structured_error,{M,6},asn1ct_check,
+       {invalid_fields,[wrong],'InvalidSet'}}
      ]
     } = run(P, Config),
     ok.

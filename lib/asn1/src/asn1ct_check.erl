@@ -1557,21 +1557,32 @@ check_objectdefn(S,Def,CDef) when is_record(CDef,classdef) ->
 	    exit({error,{objectdefn,Other}})
     end.
 
-check_defaultfields(S,Fields,ClassFields) ->
-    check_defaultfields(S,Fields,ClassFields,[]).
-
-check_defaultfields(_S,[],_ClassFields,Acc) ->
-    {object,defaultsyntax,lists:reverse(Acc)};
-check_defaultfields(S,[{FName,Spec}|Fields],ClassFields,Acc) ->
-    case lists:keysearch(FName,2,ClassFields) of
-	{value,CField} ->
-	    {NewField,RestFields} = 
-		convert_to_defaultfield(S,FName,[Spec|Fields],CField),
-	    check_defaultfields(S,RestFields,ClassFields,[NewField|Acc]);
-	_ ->
-	    throw({error,{asn1,{'unvalid field in object',FName}}})
+check_defaultfields(S, Fields, ClassFields) ->
+    Present = ordsets:from_list([F || {F,_} <- Fields]),
+    Mandatory0 = get_mandatory_class_fields(ClassFields),
+    Mandatory = ordsets:from_list(Mandatory0),
+    All = ordsets:from_list([element(2, F) || F <- ClassFields]),
+    #state{type=T,tname=Obj} = S,
+    case ordsets:subtract(Present, All) of
+	[] ->
+	    ok;
+	[_|_]=Invalid ->
+	    throw(asn1_error(S, T, {invalid_fields,Invalid,Obj}))
+    end,
+    case ordsets:subtract(Mandatory, Present) of
+	[] ->
+	    check_defaultfields_1(S, Fields, ClassFields, []);
+	[_|_]=Missing ->
+	    throw(asn1_error(S, T, {missing_mandatory_fields,Missing,Obj}))
     end.
-%%    {object,defaultsyntax,Fields}.
+
+check_defaultfields_1(_S, [], _ClassFields, Acc) ->
+    {object,defaultsyntax,lists:reverse(Acc)};
+check_defaultfields_1(S, [{FName,Spec}|Fields], ClassFields, Acc) ->
+    CField = lists:keyfind(FName, 2, ClassFields),
+    {NewField,RestFields} =
+	convert_to_defaultfield(S, FName, [Spec|Fields], CField),
+    check_defaultfields_1(S, RestFields, ClassFields, [NewField|Acc]).
 
 convert_definedsyntax(_S,[],[],_ClassFields,Acc) ->
     lists:reverse(Acc);
@@ -1586,6 +1597,23 @@ convert_definedsyntax(S,Fields,WithSyntax,ClassFields,Acc) ->
 	    convert_definedsyntax(S,RestFields,RestWS,ClassFields,
 				  [MatchedField|Acc])
     end.
+
+get_mandatory_class_fields([{fixedtypevaluefield,Name,_,_,'MANDATORY'}|T]) ->
+    [Name|get_mandatory_class_fields(T)];
+get_mandatory_class_fields([{objectfield,Name,_,_,'MANDATORY'}|T]) ->
+    [Name|get_mandatory_class_fields(T)];
+get_mandatory_class_fields([{objectsetfield,Name,_,'MANDATORY'}|T]) ->
+    [Name|get_mandatory_class_fields(T)];
+get_mandatory_class_fields([{typefield,Name,'MANDATORY'}|T]) ->
+    [Name|get_mandatory_class_fields(T)];
+get_mandatory_class_fields([{variabletypevaluefield,Name,_,'MANDATORY'}|T]) ->
+    [Name|get_mandatory_class_fields(T)];
+get_mandatory_class_fields([{variabletypevaluesetfield,
+			     Name,_,'MANDATORY'}|T]) ->
+    [Name|get_mandatory_class_fields(T)];
+get_mandatory_class_fields([_|T]) ->
+    get_mandatory_class_fields(T);
+get_mandatory_class_fields([]) -> [].
 
 match_field(S,Fields,WithSyntax,ClassFields) ->
     match_field(S,Fields,WithSyntax,ClassFields,[]).
@@ -6798,7 +6826,7 @@ merge_tags2([], Acc) ->
 storeindb(S,M) when is_record(M,module) ->
     TVlist = M#module.typeorval,
     NewM = M#module{typeorval=findtypes_and_values(TVlist)},
-    asn1_db:dbnew(NewM#module.name),
+    asn1_db:dbnew(NewM#module.name, S#state.erule),
     asn1_db:dbput(NewM#module.name,'MODULE',  NewM),
     Res = storeindb(#state{mname=NewM#module.name}, TVlist, []),
     include_default_class(S,NewM#module.name),
@@ -6867,10 +6895,21 @@ asn1_error(#state{mname=Where}, Item, Error) ->
 format_error({already_defined,Name,PrevLine}) ->
     io_lib:format("the name ~p has already been defined at line ~p",
 		  [Name,PrevLine]);
+format_error({invalid_fields,Fields,Obj}) ->
+    io_lib:format("invalid ~s in ~p", [format_fields(Fields),Obj]);
+format_error({missing_mandatory_fields,Fields,Obj}) ->
+    io_lib:format("missing mandatory ~s in ~p",
+		  [format_fields(Fields),Obj]);
 format_error({undefined,Name}) ->
     io_lib:format("'~s' is referenced, but is not defined", [Name]);
 format_error(Other) ->
     io_lib:format("~p", [Other]).
+
+format_fields([F]) ->
+    io_lib:format("field &~s", [F]);
+format_fields([H|T]) ->
+    [io_lib:format("fields &~s", [H])|
+     [io_lib:format(", &~s", [F]) || F <- T]].
 
 error({_,{structured_error,_,_,_}=SE,_}) ->
     SE;

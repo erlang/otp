@@ -43,9 +43,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/asn1-$(VSN)
 
 EBIN = ../ebin
 
-EVAL_CT_MODULES = asn1ct_eval_ext \
-		  asn1ct_eval_per \
-		  asn1ct_eval_uper
+EVAL_CT_MODULES = asn1ct_eval_ext
 
 CT_MODULES= \
 	asn1ct \
@@ -55,7 +53,6 @@ CT_MODULES= \
 	asn1ct_func \
 	asn1ct_gen \
 	asn1ct_gen_per \
-	asn1ct_gen_per_rt2ct \
 	asn1ct_name \
 	asn1ct_constructed_per \
 	asn1ct_constructed_ber_bin_v2 \

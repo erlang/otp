@@ -28,8 +28,45 @@
 -export([bmp_string/1]).
 -export([times/1]).
 -export([utf8_string/1]).
+-export([fragmented/1]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+fragmented(Rules) ->
+    Lens = fragmented_lengths(),
+    fragmented_octet_string(Rules, Lens),
+    case Rules of
+	per ->
+	    %% NYI.
+	    ok;
+	_ ->
+	    fragmented_strings(Lens)
+    end.
+
+fragmented_strings(Lens) ->
+    Types = ['Ns','Ps','Ps11','Vis','IA5'],
+    [fragmented_strings(Len, Types) || Len <- Lens],
+    ok.
+
+fragmented_strings(Len, Types) ->
+    Str = make_ns_value(Len),
+    [roundtrip(Type, Str) || Type <- Types],
+    ok.
+
+make_ns_value(0) -> [];
+make_ns_value(N) -> [($0 - 1) + random:uniform(10)|make_ns_value(N-1)].
+
+fragmented_lengths() ->
+    K16 = 1 bsl 14,
+    K32 = K16 + K16,
+    K48 = K32 + K16,
+    K64 = K48 + K16,
+    [0,1,14,15,16,17,127,128,
+     K16-1,K16,K16+1,K16+(1 bsl 7)-1,K16+(1 bsl 7),K16+(1 bsl 7)+1,
+     K32-1,K32,K32+1,K32+(1 bsl 7)-1,K32+(1 bsl 7),K32+(1 bsl 7)+1,
+     K48-1,K48,K48+1,K48+(1 bsl 7)-1,K48+(1 bsl 7),K48+(1 bsl 7)+1,
+     K64-1,K64,K64+1,K64+(1 bsl 7)-1,K64+(1 bsl 7),K64+(1 bsl 7)+1,
+     K64+K16-1,K64+K16,K64+K16+1].
 
 bit_string(Rules) ->
     
@@ -311,8 +348,6 @@ octet_string(Rules) ->
 	    ok
     end,
 
-    fragmented_octet_string(Rules),
-
     S255 = lists:seq(1, 255),
     Strings = {type,true,"","1","12","345",true,
 	       S255,[$a|S255],[$a,$b|S255],397},
@@ -324,17 +359,7 @@ octet_string(Rules) ->
     p_roundtrip('OsVarStringsExt', ShortenedStrings),
     ok.
 
-fragmented_octet_string(Erules) ->
-    K16 = 1 bsl 14,
-    K32 = K16 + K16,
-    K48 = K32 + K16,
-    K64 = K48 + K16,
-    Lens = [0,1,14,15,16,17,127,128,
-	    K16-1,K16,K16+1,K16+(1 bsl 7)-1,K16+(1 bsl 7),K16+(1 bsl 7)+1,
-	    K32-1,K32,K32+1,K32+(1 bsl 7)-1,K32+(1 bsl 7),K32+(1 bsl 7)+1,
-	    K48-1,K48,K48+1,K48+(1 bsl 7)-1,K48+(1 bsl 7),K48+(1 bsl 7)+1,
-	    K64-1,K64,K64+1,K64+(1 bsl 7)-1,K64+(1 bsl 7),K64+(1 bsl 7)+1,
-	    K64+K16-1,K64+K16,K64+K16+1],
+fragmented_octet_string(Erules, Lens) ->
     Types = ['Os','OsFrag','OsFragExt'],
     [fragmented_octet_string(Erules, Types, L) || L <- Lens],
     fragmented_octet_string(Erules, ['FixedOs65536'], 65536),

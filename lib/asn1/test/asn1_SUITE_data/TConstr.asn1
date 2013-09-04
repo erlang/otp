@@ -58,6 +58,40 @@ Deeper ::= SEQUENCE {
   b  SEQUENCE {ba INTEGER, bb MYCLASS.&Type ({ObjectSet}{@a.s.ab})}
 }
 
+Seq3 ::= SEQUENCE {
+  a SEQUENCE {
+              aa INTEGER,
+	      ab MYCLASS.&id ({ObjectSet})
+    },
+  -- Multiple references from the same SEQUENCE...
+  b SEQUENCE {
+              ba MYCLASS.&Type ({ObjectSet}{@a.ab}),
+              bb MYCLASS.&Result ({ObjectSet}{@a.ab}),
+	      -- ... and references from multiple SEQUENCEs...
+	      bc SEQUENCE {
+	         bca MYCLASS.&Result ({ObjectSet}{@a.ab}),
+		 bcb MYCLASS.&Type ({ObjectSet}{@a.ab})
+              }
+    }
+}
+
+Seq3-Opt ::= SEQUENCE {
+  a SEQUENCE {
+              aa INTEGER,
+	      ab MYCLASS.&id ({ObjectSet})
+    },
+  -- Multiple references from the same SEQUENCE...
+  b SEQUENCE {
+              ba MYCLASS.&Type ({ObjectSet}{@a.ab}) OPTIONAL,
+              bb MYCLASS.&Result ({ObjectSet}{@a.ab}) OPTIONAL,
+	      -- ... and references from multiple SEQUENCEs...
+	      bc SEQUENCE {
+	         bca MYCLASS.&Result ({ObjectSet}{@a.ab}),
+		 bcb MYCLASS.&Type ({ObjectSet}{@a.ab})
+              } OPTIONAL
+    }
+}
+
 -- following from Peter's definitions
 
 
