@@ -91,7 +91,7 @@ server_hello(SessionId, Version, ConnectionStates, Extensions) ->
 %%--------------------------------------------------------------------
 -spec hello(#server_hello{} | #client_hello{}, #ssl_options{},
 	    #connection_states{} | {inet:port_number(), #session{}, db_handle(),
-				    atom(), #connection_states{}, binary()},
+				    atom(), #connection_states{}, binary() | undefined},
 	    boolean()) ->
 			  {tls_version(), session_id(), #connection_states{}, binary() | undefined}|
 			  {tls_version(), {resumed | new, #session{}}, #connection_states{},
@@ -264,7 +264,7 @@ enc_handshake(#client_hello{client_version = {Major, Minor},
     ExtensionsBin = ssl_handshake:encode_hello_extensions(HelloExtensions),
 
     {?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
-		     ?BYTE(SIDLength), SessionID/binary,
+		      ?BYTE(SIDLength), SessionID/binary,
 		      ?UINT16(CsLength), BinCipherSuites/binary,
 		      ?BYTE(CmLength), BinCompMethods/binary, ExtensionsBin/binary>>};
 

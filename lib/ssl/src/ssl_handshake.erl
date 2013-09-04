@@ -229,15 +229,15 @@ key_exchange(client, _Version, {psk_premaster_secret, PskIdentity, Secret, {_, P
     EncPremasterSecret =
 	encrypted_premaster_secret(Secret, PublicKey),
     #client_key_exchange{
-		exchange_keys = #client_rsa_psk_identity{
-				   identity = PskIdentity,
-		  exchange_keys = EncPremasterSecret}};
+       exchange_keys = #client_rsa_psk_identity{
+			  identity = PskIdentity,
+			  exchange_keys = EncPremasterSecret}};
 
 key_exchange(client, _Version, {srp, PublicKey}) ->
     #client_key_exchange{
-	      exchange_keys = #client_srp_public{
-		srp_a = PublicKey}
-	       };
+       exchange_keys = #client_srp_public{
+			  srp_a = PublicKey}
+      };
 
 key_exchange(server, Version, {dh, {PublicKey, _},
 			       #'DHParameter'{prime = P, base = G},
@@ -441,7 +441,7 @@ prf({3,1}, Secret, Label, Seed, WantedLength) ->
 prf({3,_N}, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(?SHA256, Secret, Label, Seed, WantedLength)}.
 %%--------------------------------------------------------------------
--spec select_hashsign(#hash_sign_algos{}| undefined,  undefined | term()) ->
+-spec select_hashsign(#hash_sign_algos{}| undefined,  undefined | binary()) ->
 			      [{atom(), atom()}] | undefined.
 
 %%
@@ -472,11 +472,14 @@ select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert) ->
 	    HashSign
     end.
 %%--------------------------------------------------------------------
--spec select_cert_hashsign(#hash_sign_algos{}| undefined, oid(), tls_version()) ->
-				  [{atom(), atom()}].
+-spec select_cert_hashsign(#hash_sign_algos{}| undefined, oid(), tls_version() | {undefined, undefined}) ->
+				  {atom(), atom()}.
 
 %%
-%% Description:
+%% Description: For TLS 1.2 selected cert_hash_sign will be recived
+%% in the handshake message, for previous versions use appropriate defaults.
+%% This function is also used by select_hashsign to extract
+%% the alogrithm of the server cert key.
 %%--------------------------------------------------------------------
 select_cert_hashsign(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso Major >= 3 andalso Minor >= 3 ->
     HashSign;
@@ -765,7 +768,7 @@ decode_handshake(_, _, _) ->
     throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)).
 
 %%--------------------------------------------------------------------
--spec decode_hello_extensions(binary()) -> #hello_extensions{}.
+-spec decode_hello_extensions({client, binary()} | binary()) -> #hello_extensions{}.
 %%
 %% Description: Decodes TLS hello extensions
 %%--------------------------------------------------------------------
