@@ -123,8 +123,8 @@ static ERTS_INLINE
 int ERTS_SELECT(int nfds, ERTS_fd_set *readfds, ERTS_fd_set *writefds,
 		ERTS_fd_set *exceptfds, struct timeval *timeout)
 {
-    ASSERT(!readfds || readfds->sz >= nfds);
-    ASSERT(!writefds || writefds->sz >= nfds);
+    ASSERT(!readfds || readfds->sz >= ERTS_FD_SIZE(nfds));
+    ASSERT(!writefds || writefds->sz >= ERTS_FD_SIZE(nfds));
     ASSERT(!exceptfds);
     return select(nfds, 
 		  (readfds ? readfds->ptr : NULL ),
