@@ -215,7 +215,7 @@ INETS_FILES = inets.config $(INETS_SPECS)
 # 	inets_tftp_suite
 
 INETS_DATADIRS = inets_SUITE_data inets_sup_SUITE_data 
-HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data
+HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data
 HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
 FTP_DATADIRS   = ftp_SUITE_data  
 
