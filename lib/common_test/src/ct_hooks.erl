@@ -50,9 +50,8 @@
 -spec init(State :: term()) -> ok |
 			       {fail, Reason :: term()}.
 init(Opts) ->
-    call(get_new_hooks(Opts, undefined) ++ get_builtin_hooks(Opts),
+    call(get_builtin_hooks(Opts) ++ get_new_hooks(Opts, undefined),
 	 ok, init, []).
-		      
 
 %% @doc Called after all suites are done.
 -spec terminate(Hooks :: term()) ->
@@ -276,8 +275,10 @@ get_new_hooks(Config, Fun) ->
 		end, get_new_hooks(Config)).
 
 get_new_hooks(Config) when is_list(Config) ->
-    lists:flatmap(fun({?config_name, HookConfigs}) ->
+    lists:flatmap(fun({?config_name, HookConfigs}) when is_list(HookConfigs) ->
 			  HookConfigs;
+		     ({?config_name, HookConfig}) when is_atom(HookConfig) ->
+			  [HookConfig];
 		     (_) ->
 			  []
 		  end, Config);

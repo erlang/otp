@@ -187,6 +187,7 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	false ->
 	    ok
     end,
+
     {StartTime,TestLogDir} = ct_logs:init(Mode, Verbosity),
 
     ct_event:notify(#event{name=test_start,
@@ -198,12 +199,26 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	ok ->
 	    Parent ! {self(),started};
 	{fail,CTHReason} ->
-	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
+	    ErrorInfo = if is_atom(CTHReason) ->
+				io_lib:format("{~p,~p}",
+					      [CTHReason,
+					       erlang:get_stacktrace()]);
+			   true ->
+				CTHReason
+			end,
+	    ct_logs:tc_print('Suite Callback',ErrorInfo,[]),
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
     catch
 	_:CTHReason ->
-	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
+	    ErrorInfo = if is_atom(CTHReason) ->
+				io_lib:format("{~p,~p}",
+					      [CTHReason,
+					       erlang:get_stacktrace()]);
+			   true ->
+				CTHReason
+			end,
+	    ct_logs:tc_print('Suite Callback',ErrorInfo,[]),
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
     end,
@@ -392,19 +407,38 @@ loop(Mode,TestData,StartDir) ->
 	    return(From,StartDir),
 	    loop(From,TestData,StartDir);
 	{{stop,Info},From} ->
+	    test_server_io:reset_state(),
+	    {MiscIoName,MiscIoDivider,MiscIoFooter} =
+		proplists:get_value(misc_io_log,TestData),
+	    {ok,MiscIoFd} = file:open(MiscIoName,
+				      [append,{encoding,utf8}]),
+	    io:put_chars(MiscIoFd, MiscIoDivider),
+	    test_server_io:set_fd(unexpected_io, MiscIoFd),
+
 	    Time = calendar:local_time(),
 	    ct_event:sync_notify(#event{name=test_done,
 					node=node(),
 					data=Time}),
-	    Callbacks = ets:lookup_element(?suite_table,
-					   ct_hooks,
-					   #suite_data.value),
+	    Callbacks =
+		try ets:lookup_element(?suite_table,
+				       ct_hooks,
+				       #suite_data.value) of
+		    CTHMods -> CTHMods
+		catch
+		    %% this is because ct_util failed in init
+		    error:badarg -> []
+		end,
 	    ct_hooks:terminate(Callbacks),
 	    close_connections(ets:tab2list(?conn_table)),
 	    ets:delete(?conn_table),
 	    ets:delete(?board_table),
 	    ets:delete(?suite_table),
 	    ets:delete(?verbosity_table),
+
+	    io:put_chars(MiscIoFd, "\n</pre>\n"++MiscIoFooter),
+	    test_server_io:stop([unexpected_io]),
+	    test_server_io:finish(),
+
 	    ct_logs:close(Info, StartDir),
 	    ct_event:stop(),
 	    ct_config:stop(),
@@ -679,8 +713,14 @@ reset_silent_connections() ->
 %%% @see ct
 stop(Info) ->
     case whereis(ct_util_server) of
-	undefined -> ok;
-	_ -> call({stop,Info})
+	undefined -> 
+	    ok;
+	CtUtilPid ->
+	    Ref = monitor(process, CtUtilPid),
+	    call({stop,Info}),
+	    receive
+		{'DOWN',Ref,_,_,_} -> ok
+	    end
     end.
 
 %%%-----------------------------------------------------------------
