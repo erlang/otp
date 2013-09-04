@@ -722,6 +722,59 @@ fe80::204:acff:fe17:bf38
 			  <p>Received <c>Packet</c> is delivered as defined by Mode.</p>
 		  </item>
 
+	  <tag><c>{netns, Namespace :: file:filename_all()}</c></tag>
+	  <item>
+	    <p>Set a network namespace for the socket. The <c>Namespace</c>
+	    parameter is a filename defining the namespace for example
+	    <c>"/var/run/netns/example"</c> typically created by the command
+	    <c>ip netns add example</c>. This option must be used in a
+	    function call that creates a socket i.e
+	    <seealso marker="gen_tcp#connect/3">
+	      gen_tcp:connect/3,4</seealso>,
+	    <seealso marker="gen_tcp#listen/2">
+	      gen_tcp:listen/2</seealso>,
+	    <seealso marker="gen_udp#open/1">
+	      gen_udp:open/1,2</seealso> or
+	    <seealso marker="gen_sctp#open/0">
+	      gen_sctp:open/0-2</seealso>.
+	    </p>
+	    <p>This option uses the Linux specific syscall
+	    <c>setns()</c> such as in Linux kernel 3.0 or later
+	    and therefore only exists when the runtime system
+	    has been compiled for such an operating system.
+	    </p>
+	    <p>
+	    The virtual machine also needs elevated privileges either
+	    running as superuser or (for Linux) having the capability
+	    <c>CAP_SYS_ADMIN</c> according to the documentation for setns(2).
+	    However, during testing also <c>CAP_SYS_PTRACE</c>
+	    and <c>CAP_DAC_READ_SEARCH</c> has proven to be necessary.
+	    Example:<code>
+setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
+</code>
+            Note also that the filesystem containing the virtual machine
+	    executable (<c>beam.smp</c> in the example above) has to be local,
+	    mounted without the <c>nosetuid</c> flag,
+	    support extended attributes and that
+	    the kernel has to support file capabilities.
+	    All this runs out of the box on at least Ubuntu 12.04 LTS,
+	    except that SCTP sockets appears to not support
+	    network namespaces.
+	    </p>
+	    <p>The <c>Namespace</c> is a file name and is encoded
+	    and decoded as discussed in
+	    <seealso marker="file">file</seealso>
+	    except that the emulator flag <c>+fnu</c> is ignored and
+	    <seealso marker="#getopts/2">getopts/2</seealso>
+	    for this option will return a binary for the filename
+	    if the stored filename can not be decoded,
+	    which should only happen if you set the option using a binary
+	    that can not be decoded with the emulator's filename encoding:
+	    <seealso marker="file#native_name_encoding/0">
+	      file:native_name_encoding/0</seealso>.
+	    </p>
+	  </item>
+
 		  <tag><c>list</c></tag>
           <item>
 			  <p>Received <c>Packet</c> is delivered as a list.</p>

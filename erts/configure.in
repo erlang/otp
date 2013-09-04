@@ -1679,6 +1679,10 @@ if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
         ])
 fi
 
+dnl Check for setns
+AC_CHECK_HEADERS(sched.h setns.h)
+AC_CHECK_FUNCS([setns])
+
 HAVE_VALGRIND=no
 AC_CHECK_HEADER(valgrind/valgrind.h, HAVE_VALGRIND=yes)
 AC_SUBST(HAVE_VALGRIND)

@@ -200,7 +200,14 @@ send(Socket, Packet) ->
       Options :: [socket_setopt()].
 
 setopts(Socket, Opts) -> 
-    prim_inet:setopts(Socket, Opts).
+    SocketOpts =
+	[case Opt of
+	     {netns,NS} ->
+		 {netns,filename2binary(NS)};
+	     _ ->
+		 Opt
+	 end || Opt <- Opts],
+    prim_inet:setopts(Socket, SocketOpts).
 
 -spec getopts(Socket, Options) ->
 	{'ok', OptionValues} | {'error', posix()} when
@@ -209,7 +216,18 @@ setopts(Socket, Opts) ->
       OptionValues :: [socket_setopt()].
 
 getopts(Socket, Opts) ->
-    prim_inet:getopts(Socket, Opts).
+    case prim_inet:getopts(Socket, Opts) of
+	{ok,OptionValues} ->
+	    {ok,
+	     [case OptionValue of
+		  {netns,Bin} ->
+		      {netns,binary2filename(Bin)};
+		  _ ->
+		      OptionValue
+	      end || OptionValue <- OptionValues]};
+	Other ->
+	    Other
+    end.
 
 -spec getifaddrs(Socket :: socket()) ->
 	{'ok', [string()]} | {'error', posix()}.
@@ -641,6 +659,14 @@ con_opt([Opt | Opts], R, As) ->
 	{tcp_module,_}  -> con_opt(Opts, R, As);
 	inet        -> con_opt(Opts, R, As);
 	inet6       -> con_opt(Opts, R, As);
+	{netns,NS} ->
+	    BinNS = filename2binary(NS),
+	    case prim_inet:is_sockopt_val(netns, BinNS) of
+		true ->
+		    con_opt(Opts, R#connect_opts { fd = [{netns,BinNS}] }, As);
+		false ->
+		    {error, badarg}
+	    end;
 	{Name,Val} when is_atom(Name) -> con_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -699,6 +725,14 @@ list_opt([Opt | Opts], R, As) ->
 	{tcp_module,_}  -> list_opt(Opts, R, As);
 	inet         -> list_opt(Opts, R, As);
 	inet6        -> list_opt(Opts, R, As);
+	{netns,NS} ->
+	    BinNS = filename2binary(NS),
+	    case prim_inet:is_sockopt_val(netns, BinNS) of
+		true ->
+		    list_opt(Opts, R#listen_opts { fd = [{netns,BinNS}] }, As);
+		false ->
+		    {error, badarg}
+	    end;
 	{Name,Val} when is_atom(Name) -> list_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -745,6 +779,14 @@ udp_opt([Opt | Opts], R, As) ->
 	{udp_module,_} -> udp_opt(Opts, R, As);
 	inet        -> udp_opt(Opts, R, As);
 	inet6       -> udp_opt(Opts, R, As);
+	{netns,NS} ->
+	    BinNS = filename2binary(NS),
+	    case prim_inet:is_sockopt_val(netns, BinNS) of
+		true ->
+		    list_opt(Opts, R#udp_opts { fd = [{netns,BinNS}] }, As);
+		false ->
+		    {error, badarg}
+	    end;
 	{Name,Val} when is_atom(Name) -> udp_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -814,6 +856,17 @@ sctp_opt([Opt|Opts], Mod, R, As) ->
 	{sctp_module,_}	-> sctp_opt (Opts, Mod, R, As); % Done with
 	inet		-> sctp_opt (Opts, Mod, R, As); % Done with
 	inet6		-> sctp_opt (Opts, Mod, R, As); % Done with
+	{netns,NS} ->
+	    BinNS = filename2binary(NS),
+	    case prim_inet:is_sockopt_val(netns, BinNS) of
+		true ->
+		    sctp_opt(
+		      Opts, Mod,
+		      R#sctp_opts { fd = [{netns,BinNS}] },
+		      As);
+		false ->
+		    {error, badarg}
+	    end;
 	{Name,Val}	-> sctp_opt (Opts, Mod, R, As, Name, Val);
 	_ -> {error,badarg}
     end;
@@ -857,6 +910,39 @@ add_opt(Name, Val, Opts, As) ->
 	false -> {error,badarg}
     end.
 	
+
+%% Passthrough all unknown - catch type errors later
+filename2binary(List) when is_list(List) ->
+    OutEncoding = file:native_name_encoding(),
+    try unicode:characters_to_binary(List, unicode, OutEncoding) of
+	Bin when is_binary(Bin) ->
+	    Bin;
+	_ ->
+	    List
+    catch
+	error:badarg ->
+	    List
+    end;
+filename2binary(Bin) ->
+    Bin.
+
+binary2filename(Bin) ->
+    InEncoding = file:native_name_encoding(),
+    case unicode:characters_to_list(Bin, InEncoding) of
+	Filename when is_list(Filename) ->
+	    Filename;
+	_ ->
+	    %% For getopt/setopt of netns this should only happen if
+	    %% a binary with wrong encoding was used when setting the
+	    %% option, hence the user shall eat his/her own medicine.
+	    %%
+	    %% I.e passthrough here too for now.
+	    %% Future usecases will most probably not want this,
+	    %% rather Unicode error or warning
+	    %% depending on emulator flag instead.
+	    Bin
+    end.
+
 
 translate_ip(any,      inet) -> {0,0,0,0};
 translate_ip(loopback, inet) -> {127,0,0,1};
@@ -1070,7 +1156,7 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	Result -> Result
     end.
 
--spec open(Fd :: integer(),
+-spec open(Fd_or_OpenOpts :: integer() | list(),
 	   Addr :: ip_address(),
 	   Port :: port_number(),
 	   Opts :: [socket_setopt()],
@@ -1080,8 +1166,14 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	   Module :: atom()) ->
 	{'ok', socket()} | {'error', posix()}.
 
-open(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) when Fd < 0 ->
-    case prim_inet:open(Protocol, Family, Type) of
+open(FdO, Addr, Port, Opts, Protocol, Family, Type, Module)
+  when is_integer(FdO), FdO < 0;
+       is_list(FdO) ->
+    OpenOpts =
+	if  is_list(FdO) -> FdO;
+	    true -> []
+	end,
+    case prim_inet:open(Protocol, Family, Type, OpenOpts) of
 	{ok,S} ->
 	    case prim_inet:setopts(S, Opts) of
 		ok ->
@@ -1104,7 +1196,8 @@ open(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) when Fd < 0 ->
 	Error ->
 	    Error
     end;
-open(Fd, _Addr, _Port, Opts, Protocol, Family, Type, Module) ->
+open(Fd, _Addr, _Port, Opts, Protocol, Family, Type, Module)
+  when is_integer(Fd) ->
     fdopen(Fd, Opts, Protocol, Family, Type, Module).
 
 bindx(S, [Addr], Port0) ->
