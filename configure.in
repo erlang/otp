@@ -393,8 +393,8 @@ AC_SUBST(NATIVE_LIBS_ENABLED)
 
 rm -f $ERL_TOP/lib/SKIP-APPLICATIONS
 for app in `cd lib && ls -d *`; do
-    var="with_$app"
-    if test X${!var} == Xno; then
+    var=`eval echo \\$with_$app`
+    if test X${var} == Xno; then
        echo "$app" >> $ERL_TOP/lib/SKIP-APPLICATIONS
      fi
 done
