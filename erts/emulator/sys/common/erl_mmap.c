@@ -23,6 +23,7 @@
 #include "sys.h"
 #include "erl_process.h"
 #include "erl_smp.h"
+#include "atom.h"
 #include "erl_mmap.h"
 #include <stddef.h>
 
@@ -741,7 +742,7 @@ rbt_foreach_node(RBTree* tree,
     enum { RECURSE_LEFT, DO_NODE, RECURSE_RIGHT, RETURN_TO_PARENT }state;
     RBTNode *x = tree->root;
 
-    RBT_ASSERT(!parent(x));
+    RBT_ASSERT(!x || !parent(x));
 
     state = reverse ? RECURSE_RIGHT : RECURSE_LEFT;
     while (x) {
@@ -1940,6 +1941,51 @@ erts_mmap_init(ErtsMMapInit *init)
 #if !ERTS_HAVE_OS_MMAP
     mmap_state.no_os_mmap = 1;
 #endif
+}
+
+Eterm erts_mmap_info(Process* p)
+{
+    if (mmap_state.supercarrier) {
+        ERTS_DECL_AM(sabot);
+        ERTS_DECL_AM(satop);
+        ERTS_DECL_AM(suabot);
+        ERTS_DECL_AM(suatop);
+        Eterm sa_list, sua_list, list;
+        Eterm tags[] = { AM_sabot, AM_satop, AM_suabot, AM_suatop };
+        UWord values[4];
+        Eterm *hp, *hp_end;
+        Uint may_need;
+        const Uint PTR_BIG_SZ = HALFWORD_HEAP ? 3 : 2;
+
+        erts_smp_mtx_lock(&mmap_state.mtx);
+        values[0] = (UWord)mmap_state.sa.bot;
+        values[1] = (UWord)mmap_state.sa.top;
+        values[2] = (UWord)mmap_state.sua.bot;
+        values[3] = (UWord)mmap_state.sua.top;
+        sa_list = build_free_seg_list(p, &mmap_state.sa.map);
+        sua_list = build_free_seg_list(p, &mmap_state.sua.map);
+        erts_smp_mtx_unlock(&mmap_state.mtx);
+
+        may_need = 4*(2+3+PTR_BIG_SZ) + 2*(2+3);
+        hp = HAlloc(p, may_need);
+        hp_end = hp + may_need;
+
+        list = erts_bld_atom_uint_2tup_list(&hp, NULL,
+                                            sizeof(values)/sizeof(*values),
+                                            tags, values);
+
+        sa_list = TUPLE2(hp, am_atom_put("sa_free_segs",12), sa_list); hp+=3;
+        sua_list = TUPLE2(hp, am_atom_put("sua_free_segs",13), sua_list); hp+=3;
+        list = CONS(hp, sua_list, list); hp+=2;
+        list = CONS(hp, sa_list, list); hp+=2;
+
+        ASSERT(hp <= hp_end);
+        HRelease(p, hp_end, hp);
+        return list;
+    }
+    else {
+        return am_undefined;
+    }
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\

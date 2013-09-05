@@ -3289,6 +3289,9 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    erts_smp_thr_progress_unblock();
 	    BIF_RET(res);
 	}
+        else if (ERTS_IS_ATOM_STR("mmap", BIF_ARG_1)) {
+            BIF_RET(erts_mmap_info(BIF_P));
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);
