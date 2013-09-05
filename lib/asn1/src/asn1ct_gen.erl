@@ -85,6 +85,8 @@ pgen_module(OutFile,Erules,Module,
 	  "%%%",nl]),
     asn1ct_func:generate(Fid),
     file:close(Fid),
+    _ = erase(gen_file_out),
+    _ = erase(outfile),
     asn1ct:verbose("--~p--~n",[{generated,ErlFile}],Options).
 
 
