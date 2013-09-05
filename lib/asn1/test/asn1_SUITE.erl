@@ -86,8 +86,7 @@ groups() ->
                     per,
                     ber_other,
 		    der,
-                    h323test,
-                    per_GeneralString]},
+                    h323test]},
        testChoPrim,
        testChoExtension,
        testChoOptional,
@@ -759,14 +758,6 @@ h323test(Config, Rule, Opts) ->
              "MULTIMEDIA-SYSTEM-CONTROL"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     h323test:run(Rule).
-
-per_GeneralString(Config) ->
-    test(Config, fun per_GeneralString/3, [per]).
-per_GeneralString(Config, Rule, Opts) ->
-    asn1_test_lib:compile("MULTIMEDIA-SYSTEM-CONTROL", Config, [Rule|Opts]),
-    UI = [109, 64, 1, 57],
-    {ok, _V} = asn1_wrapper:decode('MULTIMEDIA-SYSTEM-CONTROL',
-                                   'MultimediaSystemControlMessage', UI).
 
 per_open_type(Config) -> test(Config, fun per_open_type/3, [per]).
 per_open_type(Config, Rule, Opts) ->

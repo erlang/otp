@@ -28,6 +28,7 @@ run(_Rules)  -> ok.
 run() ->
     alerting(),
     connect(),
+    general_string(),
     ok.
 
 dec_alerting() ->
@@ -58,6 +59,11 @@ connect() ->
     {ok,B} = enc_connect(V),
     ByteList = lists:flatten(B),
     {ok,V} = asn1_wrapper:decode('H323-MESSAGES','H323-UserInformation',ByteList).
+
+general_string() ->
+    Type = 'MultimediaSystemControlMessage',
+    UI = <<109,64,1,57>>,
+    {ok, _V} = 'MULTIMEDIA-SYSTEM-CONTROL':decode(Type, UI).
 
 hexstr2bytes([D1,D2|T]) ->
     [dig2num(D1)*16+dig2num(D2)|hexstr2bytes(T)];
