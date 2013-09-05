@@ -542,84 +542,84 @@ static void *ef_safe_realloc(void *op, Uint s)
  */
 
 /* char EV_CHAR_P(ErlIOVec *ev, int p, int q) */
-#define EV_CHAR_P(ev, p, q)                   \
-    (((char *)(ev)->iov[(q)].iov_base) + (p))
+#define EV_CHAR_P(ev, p, q)			\
+    (((char *)(ev)->iov[q].iov_base) + (p))
 
 /* int EV_GET_CHAR(ErlIOVec *ev, char *p, int *pp, int *qp) */
 #define EV_GET_CHAR(ev, p, pp, qp) efile_ev_get_char(ev, p ,pp, qp)
 static int
-efile_ev_get_char(ErlIOVec *ev, char *p, int *pp, int *qp) {
-  if (*(pp)+1 <= (ev)->iov[*(qp)].iov_len) {
-    *(p) = *EV_CHAR_P(ev, *(pp), *(qp));
-    if (*(pp)+1 < (ev)->iov[*(qp)].iov_len)
-      *(pp) = *(pp)+1;
-    else {
-      (*(qp))++;
-      *pp = 0;
+efile_ev_get_char(ErlIOVec *ev, char *p, size_t *pp, size_t *qp) {
+    if (*pp + 1 <= ev->iov[*qp].iov_len) {
+	*p = *EV_CHAR_P(ev, *pp, *qp);
+	if (*pp + 1 < ev->iov[*qp].iov_len)
+	    *pp += 1;
+	else {
+	    *qp += 1;
+	    *pp = 0;
+	}
+	return !0;
     }
-    return !0;
-  }
-  return 0;
+    return 0;
 }
 
 /* Uint32 EV_UINT32(ErlIOVec *ev, int p, int q)*/
-#define EV_UINT32(ev, p, q) \
-    ((Uint32) *(((unsigned char *)(ev)->iov[(q)].iov_base) + (p)))
+#define EV_UINT32(ev, p, q)						\
+    ((Uint32) ((unsigned char *)(ev)->iov[q].iov_base)[p])
 
 /* int EV_GET_UINT32(ErlIOVec *ev, Uint32 *p, int *pp, int *qp) */
-#define EV_GET_UINT32(ev, p, pp, qp) efile_ev_get_uint32(ev,p,pp,qp)
+#define EV_GET_UINT32(ev, p, pp, qp) efile_ev_get_uint32(ev, p, pp, qp)
 static int
-efile_ev_get_uint32(ErlIOVec *ev, Uint32 *p, int *pp, int *qp) {
-  if (*(pp)+4 <= (ev)->iov[*(qp)].iov_len) {
-    *(p) = (EV_UINT32(ev, *(pp),   *(qp)) << 24)
-      | (EV_UINT32(ev, *(pp)+1, *(qp)) << 16)		  
-      | (EV_UINT32(ev, *(pp)+2, *(qp)) << 8)		  
-      | (EV_UINT32(ev, *(pp)+3, *(qp)));
-    if (*(pp)+4 < (ev)->iov[*(qp)].iov_len)
-      *(pp) = *(pp)+4;
-    else {
-      (*(qp))++;
-      *pp = 0;
+efile_ev_get_uint32(ErlIOVec *ev, Uint32 *p, size_t *pp, size_t *qp) {
+    if (*pp + 4 <= ev->iov[*qp].iov_len) {
+	*p = (EV_UINT32(ev, *pp,   *qp) << 24)
+	    | (EV_UINT32(ev, *pp + 1, *qp) << 16)
+	    | (EV_UINT32(ev, *pp + 2, *qp) << 8)
+	    | (EV_UINT32(ev, *pp + 3, *qp));
+	if (*pp + 4 < ev->iov[*qp].iov_len)
+	    *pp += 4;
+	else {
+	    *qp += 1;
+	    *pp = 0;
+	}
+	return !0;
     }
-    return !0;
-  }
-  return 0;
+    return 0;
 }
 
 /* Uint64 EV_UINT64(ErlIOVec *ev, int p, int q)*/
-#define EV_UINT64(ev, p, q) \
-    ((Uint64) *(((unsigned char *)(ev)->iov[(q)].iov_base) + (p)))
+#define EV_UINT64(ev, p, q)						\
+    ((Uint64) ((unsigned char *)(ev)->iov[q].iov_base)[p])
 
 /* int EV_GET_UINT64(ErlIOVec *ev, Uint64 *p, int *pp, int *qp) */
-#define EV_GET_UINT64(ev, p, pp, qp) efile_ev_get_uint64(ev,p,pp,qp)
+#define EV_GET_UINT64(ev, p, pp, qp) efile_ev_get_uint64(ev, p, pp, qp)
 static int
-efile_ev_get_uint64(ErlIOVec *ev, Uint64 *p, int *pp, int *qp) {
-  if (*(pp)+8 <= (ev)->iov[*(qp)].iov_len) {
-    *(p) = (EV_UINT64(ev, *(pp),   *(qp)) << 56)
-      | (EV_UINT64(ev, *(pp)+1, *(qp)) << 48)
-      | (EV_UINT64(ev, *(pp)+2, *(qp)) << 40)
-      | (EV_UINT64(ev, *(pp)+3, *(qp)) << 32)
-      | (EV_UINT64(ev, *(pp)+4, *(qp)) << 24)
-      | (EV_UINT64(ev, *(pp)+5, *(qp)) << 16)
-      | (EV_UINT64(ev, *(pp)+6, *(qp)) << 8)
-      | (EV_UINT64(ev, *(pp)+7, *(qp)));
-    if (*(pp)+8 < (ev)->iov[*(qp)].iov_len)
-      *(pp) = *(pp)+8;
-    else {
-      (*(qp))++;
-      *pp = 0;
+efile_ev_get_uint64(ErlIOVec *ev, Uint64 *p, size_t *pp, size_t *qp) {
+    if (*pp + 8 <= ev->iov[*qp].iov_len) {
+	*p = (EV_UINT64(ev, *pp, *qp) << 56)
+	    | (EV_UINT64(ev, *pp + 1, *qp) << 48)
+	    | (EV_UINT64(ev, *pp + 2, *qp) << 40)
+	    | (EV_UINT64(ev, *pp + 3, *qp) << 32)
+	    | (EV_UINT64(ev, *pp + 4, *qp) << 24)
+	    | (EV_UINT64(ev, *pp + 5, *qp) << 16)
+	    | (EV_UINT64(ev, *pp + 6, *qp) << 8)
+	    | (EV_UINT64(ev, *pp + 7, *qp));
+	if (*pp + 8 < ev->iov[*qp].iov_len)
+	    *pp += 8;
+	else {
+	    *qp += 1;
+	    *pp = 0;
+	}
+	return !0;
     }
-    return !0;
-  }
-  return 0;
+    return 0;
 }
 
 /* int EV_GET_SINT64(ErlIOVec *ev, Uint64 *p, int *pp, int *qp) */
-#define EV_GET_SINT64(ev, p, pp, qp) efile_ev_get_sint64(ev,p,pp,qp)
+#define EV_GET_SINT64(ev, p, pp, qp) efile_ev_get_sint64(ev, p, pp, qp)
 static int
-efile_ev_get_sint64(ErlIOVec *ev, Sint64 *p, int *pp, int *qp) {
-  Uint64 *tmp = (Uint64*)p;
-  return EV_GET_UINT64(ev,tmp,pp,qp);
+efile_ev_get_sint64(ErlIOVec *ev, Sint64 *p, size_t *pp, size_t *qp) {
+    Uint64 *tmp = (Uint64*)p;
+    return EV_GET_UINT64(ev, tmp, pp, qp);
 }
 
 #if 0
@@ -1139,7 +1139,7 @@ static void invoke_read(void *data)
 	read_size = erts_gzread((gzFile)d->fd, 
 				d->c.read.binp->orig_bytes + d->c.read.bin_offset,
 				size);
-	status = (read_size != -1);
+	status = (read_size != (size_t) -1);
 	if (!status) {
 	    d->errInfo.posix_errno = EIO;
 	}
@@ -1213,7 +1213,7 @@ static void invoke_read_line(void *data)
 				    d->c.read_line.binp->orig_bytes + 
 				    d->c.read_line.read_offset + d->c.read_line.read_size,
 				    size);
-	    status = (read_size != -1);
+	    status = (read_size != (size_t) -1);
 	    if (!status) {
 		d->errInfo.posix_errno = EIO;
 	    }
@@ -1707,8 +1707,9 @@ static void invoke_pwritev(void *data) {
 	    ASSERT(written == size);
 	    d->again = 0;
 	}
-    } else
+    } else {
       ASSERT(written >= FILE_SEGMENT_WRITE);
+    }
       
     MUTEX_LOCK(d->c.writev.q_mtx);
     driver_deq(d->c.pwritev.port, written);
@@ -3205,7 +3206,7 @@ static void
 file_outputv(ErlDrvData e, ErlIOVec *ev) {
     file_descriptor* desc = (file_descriptor*)e;
     char command;
-    int p, q;
+    size_t p, q;
     int err;
     struct t_data *d = NULL;
 #ifdef USE_VM_PROBES
