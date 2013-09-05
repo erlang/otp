@@ -188,6 +188,17 @@ erl_drv_mutex_destroy(ErlDrvMutex *dmtx)
 #endif
 }
 
+
+char *
+erl_drv_mutex_name(ErlDrvMutex *dmtx)
+{
+#ifdef USE_THREADS
+    return dmtx ? dmtx->name : NULL;
+#else
+    return NULL;
+#endif
+}
+
 int
 erl_drv_mutex_trylock(ErlDrvMutex *dmtx)
 {
@@ -258,6 +269,15 @@ erl_drv_cond_destroy(ErlDrvCond *dcnd)
 #endif
 }
 
+char *
+erl_drv_cond_name(ErlDrvCond *dcnd)
+{
+#ifdef USE_THREADS
+    return dcnd ? dcnd->name : NULL;
+#else
+    return NULL;
+#endif
+}
 
 void
 erl_drv_cond_signal(ErlDrvCond *dcnd)
@@ -328,6 +348,16 @@ erl_drv_rwlock_destroy(ErlDrvRWLock *drwlck)
     if (res != 0)
 	fatal_error(res, "erl_drv_rwlock_destroy()");
     erts_free(ERTS_ALC_T_DRV_RWLCK, (void *) drwlck);
+#endif
+}
+
+char *
+erl_drv_rwlock_name(ErlDrvRWLock *drwlck)
+{
+#ifdef USE_THREADS
+    return drwlck ? drwlck->name : NULL;
+#else
+    return NULL;
 #endif
 }
 
@@ -616,6 +646,18 @@ erl_drv_thread_create(char *name,
     return ENOTSUP;
 #endif
 }
+
+char *
+erl_drv_thread_name(ErlDrvTid tid)
+{
+#ifdef USE_THREADS
+    struct ErlDrvTid_ *dtid = (struct ErlDrvTid_ *) tid;
+    return dtid ? dtid->name : NULL;
+#else
+    return NULL;
+#endif
+}
+
 
 ErlDrvTid
 erl_drv_thread_self(void)
