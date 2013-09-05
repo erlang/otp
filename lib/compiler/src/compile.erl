@@ -41,7 +41,8 @@
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
--type err_info() :: {erl_scan:line(), module(), term()}. %% ErrorDescriptor
+-type err_info() :: {erl_scan:line() | 'none',
+		     module(), term()}. %% ErrorDescriptor
 -type errors()   :: [{file:filename(), [err_info()]}].
 -type warnings() :: [{file:filename(), [err_info()]}].
 -type mod_ret()  :: {'ok', module()}
@@ -1290,10 +1291,10 @@ native_compile_1(St) ->
 	{error,R} ->
 	    case IgnoreErrors of
 		true ->
-		    Ws = [{St#compile.ifile,[{?MODULE,{native,R}}]}],
+		    Ws = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
 		    {ok,St#compile{warnings=St#compile.warnings ++ Ws}};
 		false ->
-		    Es = [{St#compile.ifile,[{?MODULE,{native,R}}]}],
+		    Es = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
 		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end
     catch
@@ -1302,7 +1303,7 @@ native_compile_1(St) ->
 	    case IgnoreErrors of
 		true ->
 		    Ws = [{St#compile.ifile,
-			   [{?MODULE,{native_crash,R,Stk}}]}],
+			   [{none,?MODULE,{native_crash,R,Stk}}]}],
 		    {ok,St#compile{warnings=St#compile.warnings ++ Ws}};
 		false ->
 		    erlang:raise(Class, R, Stk)
@@ -1349,7 +1350,7 @@ save_binary(#compile{module=Mod,ofile=Outfile,
 		    save_binary_1(St);
 		_ ->
 		    Es = [{St#compile.ofile,
-			   [{?MODULE,{module_name,Mod,Base}}]}],
+			   [{none,?MODULE,{module_name,Mod,Base}}]}],
 		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end
     end.
@@ -1363,20 +1364,20 @@ save_binary_1(St) ->
 		ok ->
 		    {ok,St};
 		{error,RenameError} ->
-		    Es0 = [{Ofile,[{?MODULE,{rename,Tfile,Ofile,
-					     RenameError}}]}],
+		    Es0 = [{Ofile,[{none,?MODULE,{rename,Tfile,Ofile,
+						  RenameError}}]}],
 		    Es = case file:delete(Tfile) of
 			     ok -> Es0;
 			     {error,DeleteError} ->
 				 Es0 ++
 				     [{Ofile,
-				       [{?MODULE,{delete_temp,Tfile,
-						  DeleteError}}]}]
+				       [{none,?MODULE,{delete_temp,Tfile,
+						       DeleteError}}]}]
 			 end,
 		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end;
 	{error,_Error} ->
-	    Es = [{Tfile,[{compile,write_error}]}],
+	    Es = [{Tfile,[{none,compile,write_error}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
 
@@ -1419,6 +1420,9 @@ report_warnings(#compile{options=Opts,warnings=Ws0}) ->
 	false -> ok
     end.
 
+format_message(F, P, [{none,Mod,E}|Es]) ->
+    M = {none,io_lib:format("~ts: ~s~ts\n", [F,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
 format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
     M = {{F,Loc},io_lib:format("~ts:~w:~w ~s~ts\n",
                                 [F,Line,Column,P,Mod:format_error(E)])},
@@ -1428,12 +1432,17 @@ format_message(F, P, [{Line,Mod,E}|Es]) ->
                                 [F,Line,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(F, P, [{Mod,E}|Es]) ->
+    %% Not documented and not expected to be used any more, but
+    %% keep a while just in case.
     M = {none,io_lib:format("~ts: ~s~ts\n", [F,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(_, _, []) -> [].
 
 %% list_errors(File, ErrorDescriptors) -> ok
 
+list_errors(F, [{none,Mod,E}|Es]) ->
+    io:fwrite("~ts: ~ts\n", [F,Mod:format_error(E)]),
+    list_errors(F, Es);
 list_errors(F, [{{Line,Column},Mod,E}|Es]) ->
     io:fwrite("~ts:~w:~w: ~ts\n", [F,Line,Column,Mod:format_error(E)]),
     list_errors(F, Es);
@@ -1441,6 +1450,8 @@ list_errors(F, [{Line,Mod,E}|Es]) ->
     io:fwrite("~ts:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(F, [{Mod,E}|Es]) ->
+    %% Not documented and not expected to be used any more, but
+    %% keep a while just in case.
     io:fwrite("~ts: ~ts\n", [F,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(_F, []) -> ok.

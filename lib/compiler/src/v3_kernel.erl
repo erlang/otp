@@ -1875,7 +1875,7 @@ format_error(bad_segment_size) ->
 
 add_warning(none, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),
-    St#kern{ws=[{File,[{?MODULE,Term}]}|Ws]};
+    St#kern{ws=[{File,[{none,?MODULE,Term}]}|Ws]};
 add_warning(Line, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),
     St#kern{ws=[{File,[{Line,?MODULE,Term}]}|Ws]}.
