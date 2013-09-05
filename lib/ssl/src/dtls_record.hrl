@@ -28,8 +28,6 @@
 
 -include("ssl_record.hrl"). %% Common TLS and DTLS records and Constantes
 
--define(INITIAL_BYTES, 5).
-
 %% Used to handle tls_plain_text, tls_compressed and tls_cipher_text
 
 -record(ssl_tls, {   

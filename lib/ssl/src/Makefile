@@ -69,6 +69,7 @@ MODULES= \
 	ssl_v2 \
 	ssl_v3 \
 	tls_v1 \
+	dtls_v1 \
 	ssl_tls_dist_proxy
 
 INTERNAL_HRL_FILES = \

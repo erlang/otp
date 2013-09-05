@@ -333,3 +333,9 @@
 %% timestamp() ->
 %%     {Mega, Sec, Micro} = erlang:now(),
 %%     Mega * 1000000 * 1000 + Sec * 1000 + (Micro div 1000).
+
+%% encode_handshake_rec(HandshakeRec, Version, MsgSeq, BinMsgs0, CS0) ->
+%%     {_, Fragments} = ssl_handshake:encode_handshake(HandshakeRec, Version, MsgSeq, 1400),
+%%     lists:foldl(fun(F, {Bin, C0}) ->
+%% 			{B, C1} = ssl_record:encode_handshake(F, Version, C0),
+%% 		{[B|Bin], C1} end, {BinMsgs0, CS0}, Fragments).

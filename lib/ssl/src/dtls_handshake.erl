@@ -54,18 +54,18 @@ client_hello(Host, Port, Cookie, ConnectionStates,
     #client_hello{session_id = Id,
 		  client_version = Version,
 		  cipher_suites = ssl_handshake:cipher_suites(CipherSuites, Renegotiation),
-		  compression_methods = tls_record:compressions(),
+		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
 		  cookie = Cookie,
 		  extensions = Extensions
 		 }.
 
 hello(Address, Port,
-      #ssl_tls{epoch = Epoch, record_seq = Seq,
+      #ssl_tls{epoch = _Epoch, record_seq = _Seq,
 	       version = Version} = Record) ->
     {[{Hello, _}], _, _} =
-	ssl_handshake:get_dtls_handshake(Record,
-					 ssl_handshake:dtls_handshake_new_flight(undefined)),
+	get_dtls_handshake(Record,
+			   dtls_handshake_new_flight(undefined)),
     #client_hello{client_version = {Major, Minor},
 		  random = Random,
 		  session_id = SessionId,
@@ -81,11 +81,9 @@ hello(Address, Port,
 	    accept;
 	_ ->
 	    %% generate HelloVerifyRequest
-	    {RequestFragment, _} = ssl_handshake:encode_handshake(
-				     ssl_handshake:hello_verify_request(Cookie),
-				     Version, 0, 1400),
-	    HelloVerifyRequest =
-		ssl_record:encode_tls_cipher_text(?HANDSHAKE, Version, Epoch, Seq, RequestFragment),
+	    HelloVerifyRequest = encode_handshake(#hello_verify_request{protocol_version = Version,
+									  cookie = Cookie},
+						    Version, 0, 1400),
 	    {reply, HelloVerifyRequest}
     end.
 
@@ -415,7 +413,7 @@ decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:3
        random = Random,
        session_id = Session_ID,
        cookie = Cookie,
-       cipher_suites = tls_handshake:decode_suites('2_bytes', CipherSuites),
+       cipher_suites = ssl_handshake:decode_suites('2_bytes', CipherSuites),
        compression_methods = Comp_methods,
        extensions = DecodedExtensions
       };

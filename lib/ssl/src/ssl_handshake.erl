@@ -17,7 +17,8 @@
 %% %CopyrightEnd%
 
 %----------------------------------------------------------------------
-%% Purpose: Help funtions for handling the SSL-handshake protocol
+%% Purpose: Help funtions for handling the SSL-handshake protocol (common
+%% to SSL/TLS and DTLS
 %%----------------------------------------------------------------------
 
 -module(ssl_handshake).
@@ -501,7 +502,7 @@ select_cert_hashsign(undefined, ?'id-dsa', _) ->
 master_secret(RecordCB, Version, #session{master_secret = Mastersecret},
 	      ConnectionStates, Role) ->
     ConnectionState =
-	RecordCB:pending_connection_state(ConnectionStates, read),
+	ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     try master_secret(RecordCB, Version, Mastersecret, SecParams,
 		      ConnectionStates, Role)
@@ -515,7 +516,7 @@ master_secret(RecordCB, Version, #session{master_secret = Mastersecret},
 
 master_secret(RecordCB, Version, PremasterSecret, ConnectionStates, Role) ->
     ConnectionState =
-	RecordCB:pending_connection_state(ConnectionStates, read),
+	ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{prf_algorithm = PrfAlgo,
 			 client_random = ClientRandom,
@@ -969,16 +970,16 @@ select_version(RecordCB, ClientVersion, Versions) ->
 
 renegotiation_info(_, client, _, false) ->
     #renegotiation_info{renegotiated_connection = undefined};
-renegotiation_info(RecordCB, server, ConnectionStates, false) ->
-    CS  = RecordCB:current_connection_state(ConnectionStates, read),
+renegotiation_info(_RecordCB, server, ConnectionStates, false) ->
+    CS  = ssl_record:current_connection_state(ConnectionStates, read),
     case CS#connection_state.secure_renegotiation of
 	true ->
 	    #renegotiation_info{renegotiated_connection = ?byte(0)};
 	false ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
-renegotiation_info(RecordCB, client, ConnectionStates, true) ->
-    CS = RecordCB:current_connection_state(ConnectionStates, read),
+renegotiation_info(_RecordCB, client, ConnectionStates, true) ->
+    CS = ssl_record:current_connection_state(ConnectionStates, read),
     case CS#connection_state.secure_renegotiation of
 	true ->
 	    Data = CS#connection_state.client_verify_data,
@@ -987,8 +988,8 @@ renegotiation_info(RecordCB, client, ConnectionStates, true) ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
 
-renegotiation_info(RecordCB, server, ConnectionStates, true) ->
-    CS = RecordCB:current_connection_state(ConnectionStates, read),
+renegotiation_info(_RecordCB, server, ConnectionStates, true) ->
+    CS = ssl_record:current_connection_state(ConnectionStates, read),
     case CS#connection_state.secure_renegotiation of
 	true ->
 	    CData = CS#connection_state.client_verify_data,
@@ -998,24 +999,24 @@ renegotiation_info(RecordCB, server, ConnectionStates, true) ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end.
 
-handle_renegotiation_info(RecordCB, _, #renegotiation_info{renegotiated_connection = ?byte(0)},
+handle_renegotiation_info(_RecordCB, _, #renegotiation_info{renegotiated_connection = ?byte(0)},
 			  ConnectionStates, false, _, _) ->
-    {ok, RecordCB:set_renegotiation_flag(true, ConnectionStates)};
+    {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
 
-handle_renegotiation_info(RecordCB, server, undefined, ConnectionStates, _, _, CipherSuites) ->
+handle_renegotiation_info(_RecordCB, server, undefined, ConnectionStates, _, _, CipherSuites) ->
     case is_member(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV, CipherSuites) of
 	true ->
-	    {ok, RecordCB:set_renegotiation_flag(true, ConnectionStates)};
+	    {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
 	false ->
-	    {ok, RecordCB:set_renegotiation_flag(false, ConnectionStates)}
+	    {ok, ssl_record:set_renegotiation_flag(false, ConnectionStates)}
     end;
 
-handle_renegotiation_info(RecordCB, _, undefined, ConnectionStates, false, _, _) ->
-    {ok, RecordCB:set_renegotiation_flag(false, ConnectionStates)};
+handle_renegotiation_info(_RecordCB, _, undefined, ConnectionStates, false, _, _) ->
+    {ok, ssl_record:set_renegotiation_flag(false, ConnectionStates)};
 
-handle_renegotiation_info(RecordCB, client, #renegotiation_info{renegotiated_connection = ClientServerVerify},
+handle_renegotiation_info(_RecordCB, client, #renegotiation_info{renegotiated_connection = ClientServerVerify},
 			  ConnectionStates, true, _, _) ->
-    CS = RecordCB:current_connection_state(ConnectionStates, read),
+    CS = ssl_record:current_connection_state(ConnectionStates, read),
     CData = CS#connection_state.client_verify_data,
     SData = CS#connection_state.server_verify_data,
     case <<CData/binary, SData/binary>> == ClientServerVerify of
@@ -1024,14 +1025,14 @@ handle_renegotiation_info(RecordCB, client, #renegotiation_info{renegotiated_con
 	false ->
 	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)
     end;
-handle_renegotiation_info(RecordCB, server, #renegotiation_info{renegotiated_connection = ClientVerify},
+handle_renegotiation_info(_RecordCB, server, #renegotiation_info{renegotiated_connection = ClientVerify},
 			  ConnectionStates, true, _, CipherSuites) ->
 
       case is_member(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV, CipherSuites) of
 	  true ->
 	      ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE);
 	  false ->
-	      CS = RecordCB:current_connection_state(ConnectionStates, read),
+	      CS = ssl_record:current_connection_state(ConnectionStates, read),
 	      Data = CS#connection_state.client_verify_data,
 	      case Data == ClientVerify of
 		  true ->
@@ -1052,8 +1053,8 @@ handle_renegotiation_info(RecordCB, server, undefined, ConnectionStates, true, S
 	     handle_renegotiation_info(RecordCB, ConnectionStates, SecureRenegotation)
      end.
 
-handle_renegotiation_info(RecordCB, ConnectionStates, SecureRenegotation) ->
-    CS = RecordCB:current_connection_state(ConnectionStates, read),
+handle_renegotiation_info(_RecordCB, ConnectionStates, SecureRenegotation) ->
+    CS = ssl_record:current_connection_state(ConnectionStates, read),
     case {SecureRenegotation, CS#connection_state.secure_renegotiation} of
 	{_, true} ->
 	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE);
@@ -1186,7 +1187,7 @@ calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
 calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
     tls_v1:finished(Role, N, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
 
-master_secret(RecordCB, Version, MasterSecret,
+master_secret(_RecordCB, Version, MasterSecret,
 	      #security_parameters{
 		 client_random = ClientRandom,
 		 server_random = ServerRandom,
@@ -1201,15 +1202,15 @@ master_secret(RecordCB, Version, MasterSecret,
 	setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom,
 		   ClientRandom, HashSize, KML, EKML, IVS),
 
-    ConnStates1 = RecordCB:set_master_secret(MasterSecret, ConnectionStates),
+    ConnStates1 = ssl_record:set_master_secret(MasterSecret, ConnectionStates),
     ConnStates2 =
-	RecordCB:set_mac_secret(ClientWriteMacSecret, ServerWriteMacSecret,
+	ssl_record:set_mac_secret(ClientWriteMacSecret, ServerWriteMacSecret,
 				  Role, ConnStates1),
 
     ClientCipherState = #cipher_state{iv = ClientIV, key = ClientWriteKey},
     ServerCipherState = #cipher_state{iv = ServerIV, key = ServerWriteKey},
     {MasterSecret,
-     RecordCB:set_pending_cipher_state(ConnStates2, ClientCipherState,
+     ssl_record:set_pending_cipher_state(ConnStates2, ClientCipherState,
 					 ServerCipherState, Role)}.
 
 setup_keys({3,0}, _PrfAlgo, MasterSecret,
@@ -1248,12 +1249,12 @@ handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, CipherSuit
 %% hello messages
 %% NOTE : Role is the role of the receiver of the hello message
 %%        currently being processed.
-hello_pending_connection_states(RecordCB, Role, Version, CipherSuite, Random, Compression,
+hello_pending_connection_states(_RecordCB, Role, Version, CipherSuite, Random, Compression,
 				 ConnectionStates) ->
     ReadState =
-	RecordCB:pending_connection_state(ConnectionStates, read),
+	ssl_record:pending_connection_state(ConnectionStates, read),
     WriteState =
-	RecordCB:pending_connection_state(ConnectionStates, write),
+	ssl_record:pending_connection_state(ConnectionStates, write),
 
     NewReadSecParams =
 	hello_security_parameters(Role, Version, ReadState, CipherSuite,
@@ -1263,7 +1264,7 @@ hello_pending_connection_states(RecordCB, Role, Version, CipherSuite, Random, Co
 	hello_security_parameters(Role, Version, WriteState, CipherSuite,
 			    Random, Compression),
 
-    RecordCB:update_security_params(NewReadSecParams,
+    ssl_record:set_security_params(NewReadSecParams,
 				    NewWriteSecParams,
 				    ConnectionStates).
 

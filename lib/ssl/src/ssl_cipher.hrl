@@ -29,6 +29,7 @@
 -type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
 			   | aes_128_cbc |  aes_256_cbc.
 -type hash()              :: null | sha | md5 | sha224 | sha256 | sha384 | sha512.
+-type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
 -type erl_cipher_suite()  :: {key_algo(), cipher(), hash()}.
 -type int_cipher_suite()  :: {key_algo(), cipher(), hash(), hash() | default_prf}.
 -type cipher_suite()      :: binary().

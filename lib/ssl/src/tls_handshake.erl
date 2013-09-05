@@ -52,7 +52,7 @@ client_hello(Host, Port, ConnectionStates,
 			 } = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
     Version = tls_record:highest_protocol_version(Versions),
-    Pending = tls_record:pending_connection_state(ConnectionStates, read),
+    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
     CipherSuites = ssl_handshake:available_suites(UserSuites, Version),
 
@@ -64,7 +64,7 @@ client_hello(Host, Port, ConnectionStates,
     #client_hello{session_id = Id,
 		  client_version = Version,
 		  cipher_suites = ssl_handshake:cipher_suites(CipherSuites, Renegotiation),
-		  compression_methods = tls_record:compressions(),
+		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
 		  extensions = Extensions
 		 }.
@@ -76,7 +76,7 @@ client_hello(Host, Port, ConnectionStates,
 %% Description: Creates a server hello message.
 %%--------------------------------------------------------------------
 server_hello(SessionId, Version, ConnectionStates, Extensions) ->
-    Pending = tls_record:pending_connection_state(ConnectionStates, read),
+    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
 
     #server_hello{server_version = Version,
