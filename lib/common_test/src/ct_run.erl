@@ -1883,7 +1883,7 @@ verify_suites(TestSuites) ->
 								  atom_to_list(
 								    Suite)),
 						io:format(user,
-							  "Suite ~w not found"
+							  "Suite ~w not found "
 							  "in directory ~ts~n",
 							  [Suite,TestDir]),
 						{Found,[{DS,[Name]}|NotFound]}
