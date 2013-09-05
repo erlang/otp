@@ -100,18 +100,8 @@ groups() ->
        testOpt,
        testSeqDefault,
        % Uses 'External'
-       {group, [], [testChoExternal,
-                    testPrimExternal,
-                    testSeqExtension,
-                    testSeqExternal,
-                    testSeqOfExternal,
-                    testSeqOfTag,
-                    testSeqTag,
-                    testSetExtension,
-                    testSetExternal,
-                    testSetOfExternal,
-                    testSetOfTag,
-                    testSetTag]},
+       {group, [], [testExternal,
+                    testSeqExtension]},
        testSeqOptional,
        testSeqPrim,
        testSeqTypeRefCho,
@@ -353,15 +343,33 @@ testPrimStrings_cases(Rule) ->
     testPrimStrings:utf8_string(Rule),
     testPrimStrings:fragmented(Rule).
 
-testPrimExternal(Config) -> test(Config, fun testPrimExternal/3).
-testPrimExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "PrimExternal"], Config,
-                              [Rule|Opts]),
+testExternal(Config) -> test(Config, fun testExternal/3).
+testExternal(Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(["External",
+			       "ChoExternal",
+			       "PrimExternal",
+			       "SeqExternal",
+			       "SeqOfExternal",
+			       "SeqOfTag",
+			       "SeqTag",
+			       "SetExtension",
+			       "SetExternal",
+			       "SetOfExternal",
+			       "SetOfTag",
+			       "SetTag"],
+			      Config, [Rule|Opts]),
+    testChoExternal:external(Rule),
     testPrimExternal:external(Rule),
-    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
-			      [Rule|Opts]),
-    testPrimStrings_cases(Rule),
-    testPrimStrings:more_strings(Rule).
+    testSeqExternal:main(Rule),
+    testSeqOfExternal:main(Rule),
+    testSeqOfTag:main(Rule),
+    testSeqTag:main(Rule),
+    testSetExtension:main(Rule),
+    testSetExternal:main(Rule),
+    testSetOfExternal:main(Rule),
+    testSetOfTag:main(Rule),
+    testSetTag:main(Rule).
+
 
 testChoPrim(Config) -> test(Config, fun testChoPrim/3).
 testChoPrim(Config, Rule, Opts) ->
@@ -373,11 +381,6 @@ testChoExtension(Config) -> test(Config, fun testChoExtension/3).
 testChoExtension(Config, Rule, Opts) ->
     asn1_test_lib:compile("ChoExtension", Config, [Rule|Opts]),
     testChoExtension:extension(Rule).
-
-testChoExternal(Config) -> test(Config, fun testChoExternal/3).
-testChoExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "ChoExternal"], Config, [Rule|Opts]),
-    testChoExternal:external(Rule).
 
 testChoOptional(Config) -> test(Config, fun testChoOptional/3).
 testChoOptional(Config, Rule, Opts) ->
@@ -453,11 +456,6 @@ testSeqExtension(Config, Rule, Opts) ->
     DataDir = ?config(data_dir, Config),
     testSeqExtension:main(Rule, DataDir, [Rule|Opts]).
 
-testSeqExternal(Config) -> test(Config, fun testSeqExternal/3).
-testSeqExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SeqExternal"], Config, [Rule|Opts]),
-    testSeqExternal:main(Rule).
-
 testSeqOptional(Config) -> test(Config, fun testSeqOptional/3).
 testSeqOptional(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqOptional", Config, [Rule|Opts]),
@@ -473,11 +471,6 @@ testSeq2738(Config) -> test(Config, fun testSeq2738/3).
 testSeq2738(Config, Rule, Opts) ->
     asn1_test_lib:compile("Seq2738", Config, [Rule|Opts]),
     testSeq2738:main(Rule).
-
-testSeqTag(Config) -> test(Config, fun testSeqTag/3).
-testSeqTag(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SeqTag"], Config, [Rule|Opts]),
-    testSeqTag:main(Rule).
 
 testSeqTypeRefCho(Config) -> test(Config, fun testSeqTypeRefCho/3).
 testSeqTypeRefCho(Config, Rule, Opts) ->
@@ -519,17 +512,6 @@ testSeqOfIndefinite(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     testSeqOfIndefinite:main().
 
-testSeqOfExternal(Config) -> test(Config, fun testSeqOfExternal/3).
-testSeqOfExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SeqOfExternal"], Config,
-                              [Rule|Opts]),
-    testSeqOfExternal:main(Rule).
-
-testSeqOfTag(Config) -> test(Config, fun testSeqOfTag/3).
-testSeqOfTag(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SeqOfTag"], Config, [Rule|Opts]),
-    testSeqOfTag:main(Rule).
-
 testSetDefault(Config) -> test(Config, fun testSetDefault/3).
 testSetDefault(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetDefault", Config, [Rule|Opts]),
@@ -539,17 +521,6 @@ testParamBasic(Config) -> test(Config, fun testParamBasic/3).
 testParamBasic(Config, Rule, Opts) ->
     asn1_test_lib:compile("ParamBasic", Config, [Rule|Opts]),
     testParamBasic:main(Rule).
-
-testSetExtension(Config) -> test(Config, fun testSetExtension/3).
-testSetExtension(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SetExtension"], Config,
-                              [Rule|Opts]),
-    testSetExtension:main(Rule).
-
-testSetExternal(Config) -> test(Config, fun testSetExternal/3).
-testSetExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SetExternal"], Config, [Rule|Opts]),
-    testSetExternal:main(Rule).
 
 testSetOptional(Config) -> test(Config, fun testSetOptional/3).
 testSetOptional(Config, Rule, Opts) ->
@@ -561,11 +532,6 @@ testSetPrim(Config) -> test(Config, fun testSetPrim/3).
 testSetPrim(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetPrim", Config, [Rule|Opts]),
     testSetPrim:main(Rule).
-
-testSetTag(Config) -> test(Config, fun testSetTag/3).
-testSetTag(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SetTag"], Config, [Rule|Opts]),
-    testSetTag:main(Rule).
 
 testSetTypeRefCho(Config) -> test(Config, fun testSetTypeRefCho/3).
 testSetTypeRefCho(Config, Rule, Opts) ->
@@ -596,17 +562,6 @@ testSetOfCho(Config) -> test(Config, fun testSetOfCho/3).
 testSetOfCho(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetOfCho", Config, [Rule|Opts]),
     testSetOfCho:main(Rule).
-
-testSetOfExternal(Config) -> test(Config, fun testSetOfExternal/3).
-testSetOfExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SetOfExternal"], Config,
-                              [Rule|Opts]),
-    testSetOfExternal:main(Rule).
-
-testSetOfTag(Config) -> test(Config, fun testSetOfTag/3).
-testSetOfTag(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SetOfTag"], Config, [Rule|Opts]),
-    testSetOfTag:main(Rule).
 
 c_syntax(Config) ->
     DataDir = ?config(data_dir, Config),
