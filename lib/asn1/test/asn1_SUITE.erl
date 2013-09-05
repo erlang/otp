@@ -283,13 +283,6 @@ replace_path(PathA, PathB) ->
 join(Rule, Opts) ->
     string:join([atom_to_list(Rule)|lists:map(fun atom_to_list/1, Opts)], "_").
 
-case_dir([], _Dir) ->
-    exit(no_case_dir);
-case_dir([{case_dir, _}|Config], Dir) ->
-    [{case_dir, Dir}|Config];
-case_dir([C|Config], Opt) ->
-    [C|case_dir(Config, Opt)].
-
 %%------------------------------------------------------------------------------
 %% Test cases
 %%------------------------------------------------------------------------------
