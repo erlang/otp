@@ -222,6 +222,7 @@ static struct {
 	mmap_state.size.os.used -= (SZ);					\
     } while (0)
 
+
 static void
 add_free_desc_area(char *start, char *end)
 {
@@ -1164,6 +1165,39 @@ static void unreserve_noop(char *ptr, UWord size)
 #endif
 }
 
+static ERTS_INLINE UWord
+alloc_desc_insert_free_seg(ErtsFreeSegMap *map, char* start, char* end)
+{
+    UWord ad_sz;
+    char *new_end;
+    ErtsFreeSegDesc *desc = alloc_desc();
+    if (desc) {
+	insert_free_seg(map, desc, start, end);
+	return 0;
+    }
+
+    /* Use part of the free segment for descriptors */
+
+    if (map == &mmap_state.sa.map) {
+	ERTS_MMAP_SIZE_SC_SA_INC(ERTS_SUPERALIGNED_SIZE);
+	ad_sz = ERTS_SUPERALIGNED_SIZE;
+    }
+    else {
+	ERTS_MMAP_SIZE_SC_SUA_INC(ERTS_PAGEALIGNED_SIZE);
+	ad_sz = ERTS_PAGEALIGNED_SIZE;
+    }
+
+    new_end = end - ad_sz;
+    ERTS_MMAP_ASSERT(start <= new_end);
+    if (start != new_end) {
+	desc = alloc_desc();
+	ERTS_MMAP_ASSERT(desc);
+	insert_free_seg(map, desc, start, new_end);
+    }
+
+    return ad_sz;
+}
+
 void *
 erts_mmap(Uint32 flags, UWord *sizep)
 {
@@ -1248,6 +1282,7 @@ erts_mmap(Uint32 flags, UWord *sizep)
 		end = seg + asize;
 		if (!mmap_state.reserve_physical(seg, asize))
 		    goto supercarrier_reserve_failure;
+		ERTS_MMAP_SIZE_SC_SUA_INC(asize);
 		if (org_start != seg) {
 		    ERTS_MMAP_ASSERT(org_start < seg);
 		    resize_free_seg(&mmap_state.sua.map, desc, org_start, seg);
@@ -1257,15 +1292,10 @@ erts_mmap(Uint32 flags, UWord *sizep)
 		    ERTS_MMAP_ASSERT(end < org_end);
 		    if (desc)
 			resize_free_seg(&mmap_state.sua.map, desc, end, org_end);
-		    else {
-			desc = alloc_desc();
-			if (!desc)
-			    add_free_desc_area(end, org_end);
-			else
-			    insert_free_seg(&mmap_state.sua.map, desc, end, org_end);
-		    }
+		    else
+			alloc_desc_insert_free_seg(&mmap_state.sua.map,
+						   end, org_end);
 		}
-		ERTS_MMAP_SIZE_SC_SA_INC(asize);
 		goto supercarrier_success;
 	    }
 	}
@@ -1361,6 +1391,7 @@ erts_munmap(Uint32 flags, void **ptrp, UWord *sizep)
 	char *start, *end;
 	ErtsFreeSegMap *map;
 	ErtsFreeSegDesc *prev, *next, *desc;
+	UWord ad_sz = 0;
 
 	ERTS_MMAP_ASSERT(mmap_state.supercarrier);
 
@@ -1432,23 +1463,19 @@ erts_munmap(Uint32 flags, void **ptrp, UWord *sizep)
 
 	if (desc)
 	    resize_free_seg(map, desc, start, end);
-	else {
-	    desc = alloc_desc();
-	    if (desc)
-		insert_free_seg(map, desc, start, end);
-	    else {
-		if (map == &mmap_state.sa.map)
-		    ERTS_MMAP_SIZE_SC_SA_INC(size);
-		else
-		    ERTS_MMAP_SIZE_SC_SUA_INC(size);
-		add_free_desc_area(start, end);
-	    }
+	else
+	    ad_sz = alloc_desc_insert_free_seg(map, start, end);
+	
+    supercarrier_success: {
+	    UWord unres_sz;
+
+	    erts_smp_mtx_unlock(&mmap_state.mtx);
+
+	    ERTS_MMAP_ASSERT(size >= ad_sz);
+	    unres_sz = size - ad_sz;
+	    if (unres_sz)
+		mmap_state.unreserve_physical((char *) ptr, unres_sz);
 	}
-
-    supercarrier_success:
-	erts_smp_mtx_unlock(&mmap_state.mtx);
-
-	mmap_state.unreserve_physical((char *) ptr, size);
     }
 }
 
@@ -1548,7 +1575,8 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
     else { /* In super carrier */
 	char *start, *end, *new_end;
 	ErtsFreeSegMap *map;
-	ErtsFreeSegDesc *prev, *next, *desc;
+	ErtsFreeSegDesc *prev, *next;
+	UWord ad_sz = 0;
 
 	ERTS_MMAP_ASSERT(mmap_state.supercarrier);
 
@@ -1586,6 +1614,7 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 	new_end = start+asize;
 
 	if (asize < old_size) {
+	    UWord unres_sz;
 	    new_ptr = ptr;
 	    if (!ERTS_MMAP_IN_SUPERALIGNED_AREA(ptr)) {
 		ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(ptr));
@@ -1620,21 +1649,13 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 
 	    if (next)
 		resize_free_seg(map, next, new_end, next->end);
-	    else {
-		desc = alloc_desc();
-		if (desc)
-		    insert_free_seg(map, desc, new_end, end);
-		else {
-		    if (map == &mmap_state.sa.map)
-			ERTS_MMAP_SIZE_SC_SA_INC(old_size - asize);
-		    else
-			ERTS_MMAP_SIZE_SC_SUA_INC(old_size - asize);
-		    add_free_desc_area(new_end, end);
-		    goto supercarrier_resize_success;
-		}
-	    }
-	    mmap_state.unreserve_physical(((char *) ptr) + asize,
-					  old_size - asize);
+	    else
+		ad_sz = alloc_desc_insert_free_seg(map, new_end, end);
+	    ERTS_MMAP_ASSERT(old_size - asize >= ad_sz);
+	    unres_sz = old_size - asize - ad_sz;
+	    if (unres_sz)
+		mmap_state.unreserve_physical(((char *) ptr) + asize,
+					      unres_sz);
 	    goto supercarrier_resize_success;
 	}
 
@@ -1920,7 +1941,6 @@ erts_mmap_init(ErtsMMapInit *init)
     mmap_state.no_os_mmap = 1;
 #endif
 }
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Debug functions                                                           *
