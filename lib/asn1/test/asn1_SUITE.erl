@@ -82,7 +82,6 @@ groups() ->
        {group, [], [testPrim,
                     rtUI,
                     testPrimStrings,
-                    testInvokeMod,
                     per,
                     ber_other,
 		    der,
@@ -840,11 +839,6 @@ testDeepTConstr(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["TConstrChoice", "TConstr"], Config,
                               [Rule|Opts]),
     testDeepTConstr:main(Rule).
-
-testInvokeMod(Config) -> test(Config, fun testInvokeMod/3).
-testInvokeMod(Config, Rule, Opts) ->
-    asn1_test_lib:compile("PrimStrings", Config, [Rule|Opts]),
-    {ok, _Result2} = 'PrimStrings':encode('Bs1', [1, 0, 1, 0]).
 
 testExport(Config) ->
     {error, _} =
