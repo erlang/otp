@@ -88,6 +88,7 @@ load_api(Config) when is_list(Config) ->
     ?line N = cpu_sup:nprocs(),
     ?line true = is_integer(N),
     ?line true = N>0,
+    ?line true = N<1000000,
 
     %% avg1()
     ?line Load1 = cpu_sup:avg1(),
