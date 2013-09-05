@@ -100,7 +100,6 @@ MODULES= \
 	test_special_decode_performance \
 	testTCAP \
 	testSSLspecs \
-	test_driver_load \
 	testSelectionTypes \
 	test_undecoded_rest \
 	testTcapsystem \

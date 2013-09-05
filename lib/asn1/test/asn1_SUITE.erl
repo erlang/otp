@@ -70,7 +70,6 @@ groups() ->
        {group, ber},
        % Uses 'P-Record', 'Constraints', 'MEDIA-GATEWAY-CONTROL'...
        {group, [], [parse,
-                    test_driver_load,
                     test_undecoded_rest,
                     specialized_decodes,
                     special_decode_performance,
@@ -971,13 +970,6 @@ special_decode_performance(Config, Rule, Opts) ->
     Files = ["MEDIA-GATEWAY-CONTROL", "PartialDecSeq"],
     asn1_test_lib:compile_all(Files, Config, [Rule, asn1config|Opts]),
     test_special_decode_performance:go(all).
-
-
-test_driver_load(Config) ->
-    test(Config, fun test_driver_load/3, [per]).
-test_driver_load(Config, Rule, Opts) ->
-    asn1_test_lib:compile("P-Record", Config, [Rule|Opts]),
-    test_driver_load:test(5).
 
 test_ParamTypeInfObj(Config) ->
     asn1_test_lib:compile("IN-CS-1-Datatypes", Config, [ber]).
