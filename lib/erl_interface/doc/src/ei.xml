@@ -695,11 +695,13 @@ ei_x_encode_empty_list(&amp;x);
     </func>
     <func>
       <name><ret>int</ret><nametext>ei_x_format(ei_x_buff* x, const char* fmt, ...)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_format_wo_ver(ei_x_buff* x, const char *fmt, ... )</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_format_wo_ver(ei_x_buff* x, const char *fmt, ...)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_vformat(ei_x_buff* x, const char* fmt, va_list ap)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_vformat_wo_ver(ei_x_buff* x, const char *fmt, va_list ap)</nametext></name>
       <fsummary>Format a term from a format string and parameters.</fsummary>
       <desc>
         <p>Format a term, given as a string, to a buffer. This
-          functions works like a sprintf for erlang terms. The
+          functions works like a sprintf and svprintf for erlang terms. The
           <c><![CDATA[fmt]]></c> contains a format string, with arguments like
           <c><![CDATA[~d]]></c>, to insert terms from variables. The following
           formats are supported (with the C types given):</p>
