@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -219,7 +219,7 @@
       <list>
         <item>
 	    <p> Add encoding when parsing Wiki text. EDoc used to
-	    fail on strings such as "äåö". (Thanks to Richard
+	    fail on strings such as "Ã¤Ã¥Ã¶". (Thanks to Richard
 	    Carlsson.) </p>
           <p>
 	    Own Id: OTP-9109</p>
