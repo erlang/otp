@@ -77,6 +77,8 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) when is_list(Config) ->
+    file:write_file(filename:join([proplists:get_value(priv_dir,Config),
+				   "..","..","..","ignore_core_files"]),""),
     case odbc_test_lib:skip() of
 	true ->
 	    {skip, "ODBC not supported"};
