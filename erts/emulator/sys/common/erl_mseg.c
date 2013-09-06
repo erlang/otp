@@ -515,7 +515,7 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, UWord *size_p, Uint flag
     if (MSEG_FLG_IS_2POW(flags)) {
 
 	int i, ix = SIZE_TO_CACHE_AREA_IDX(size);
-	void *seg;
+	char *seg;
 	cache_t *c;
 	Uint csize;
 
@@ -533,7 +533,7 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, UWord *size_p, Uint flag
 	    ASSERT(MAP_IS_ALIGNED(c->seg));
 
 	    csize = c->size;
-	    seg   = c->seg;
+	    seg   = (char*) c->seg;
 
 	    mk->cache_size--;
 	    mk->cache_hits++;
@@ -545,11 +545,11 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, UWord *size_p, Uint flag
 	    ASSERT(!(mk->cache_size < 0));
 
 	    if (csize != size) {
-		void *destr_seg = ((char *) seg) + size;
+		char *destr_seg = seg + size;
 		UWord destr_size = csize - size;
-		mseg_destroy(mk->ma, ERTS_MSEG_FLG_2POW, mk, &destr_seg, &destr_size);
+		mseg_destroy(mk->ma, ERTS_MSEG_FLG_2POW, mk, (void**)&destr_seg, &destr_size);
 		*size_p = (UWord) (destr_seg - seg);
-		ASSERT(c->seg + c->size == destr_seg + destr_size);
+		ASSERT(seg + csize == destr_seg + destr_size);
 	    }
 
 	    return seg;
