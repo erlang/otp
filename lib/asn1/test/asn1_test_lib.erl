@@ -40,15 +40,7 @@ compile_all(Files, Config, Options) ->
 
 compile_file(File, Options) ->
     try
-        ok = asn1ct:compile(File, [warnings_as_errors|Options]),
-        case should_load(File, Options) of
-            false ->
-                ok;
-            {module, Module} ->
-                code:purge(Module),
-                {module, Module} = code:load_file(Module),
-		code:purge(Module)
-        end
+        ok = asn1ct:compile(File, [warnings_as_errors|Options])
     catch
         Class:Reason ->
 	    ct:print("Failed to compile ~s\n", [File]),
@@ -68,24 +60,6 @@ hex_to_bin(S) ->
 %%%
 %%% Internal functions.
 %%%
-
-should_load(File, Options) ->
-    case lists:member(abs, Options) of
-	true ->
-	    false;
-	false ->
-	    {module,list_to_atom(strip_extension(filename:basename(File)))}
-    end.
-
-strip_extension(File) ->
-    strip_extension(File, filename:extension(File)).
-
-strip_extension(File, "") ->
-    File;
-strip_extension(File, Ext) when Ext == ".asn"; Ext == ".set"; Ext == ".asn1"->
-    strip_extension(filename:rootname(File));
-strip_extension(File, _Ext) ->
-    File.
 
 hex2num(C) when $0 =< C, C =< $9 -> C - $0;
 hex2num(C) when $A =< C, C =< $F -> C - $A + 10;
