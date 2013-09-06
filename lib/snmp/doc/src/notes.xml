@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -147,7 +147,7 @@
 	  <seealso marker="snmpa_mib_storage">mib storage</seealso>. 
 	  At present there are three simple modules 
 	  (<c>snmpa_mib_storage_ets</c>, <c>snmpa_mib_storage_dets</c> and 
-	  <c>snmpa_mib_storage_mnesia</c>) implementíng this behaviour, 
+	  <c>snmpa_mib_storage_mnesia</c>) implementing this behaviour,
 	  provided with the app. </p>
 	  <p>A config option for the (agent) 
 	  <seealso marker="snmp_config#agent_mib_storage">mib storage</seealso> 
