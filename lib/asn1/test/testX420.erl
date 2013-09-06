@@ -26,22 +26,12 @@
 -include_lib("test_server/include/test_server.hrl").
 
 
-compile(Erule, Options, Config) ->
-    Specs = specs(),
-    99 = length(Specs),
-    ok = compile_loop(Erule,Specs,Options,Config).
-
-compile_loop(_Erule, [], _Options, _Config) ->
-    ok;
-compile_loop(Erule, [Spec|Specs], Options, Config)
-  when Erule =:= ber; Erule =:= per ->
+compile(Erule, Options, Config) when Erule =:= ber; Erule =:= per ->
+    Specs0 = specs(),
+    99 = length(Specs0),
     CaseDir = ?config(case_dir, Config),
-    asn1_test_lib:compile(filename:join([x420, Spec]), Config,
-                          [Erule, {i, CaseDir} | Options]),
-    compile_loop(Erule, Specs, Options, Config);
-compile_loop(_Erule, _Specs, _Options, _Config) ->
-    ok.
-
+    Specs = [filename:join(x420, Spec) || Spec <- Specs0],
+    asn1_test_lib:compile_all(Specs, Config, [Erule,{i,CaseDir}|Options]).
 
 specs() ->
     ["ACSE-1", "AuthenticationFramework", "BasicAccessControl",
