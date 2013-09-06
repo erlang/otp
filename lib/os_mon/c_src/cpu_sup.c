@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #if defined(__sun__)
 #include <kstat.h>
@@ -120,7 +121,9 @@ typedef struct {
 
 static void util_measure(unsigned int **result_vec, int *result_sz);
 
+#if defined(__sun__)
 static unsigned int misc_measure(char* name);
+#endif
 static void send(unsigned int data);
 static void sendv(unsigned int data[], int ints);
 static void error(char* err_msg);
@@ -140,7 +143,9 @@ int main(int argc, char** argv) {
   int rc;
   int sz;
   unsigned int *rv;
+#if defined(__linux__)
   unsigned int no_of_cpus = 0;
+#endif
 
 #if defined(__sun__)
   kstat_ctl = kstat_open();
@@ -288,10 +293,10 @@ static unsigned int misc_measure(char* name) {
   if(!entry)
     return -1;
   
-  if(entry->data_type != KSTAT_DATA_ULONG)
+  if(entry->data_type != KSTAT_DATA_UINT32)
     return -1;
 
-  return entry->value.ul;
+  return entry->value.ui32;
 }
 
 
