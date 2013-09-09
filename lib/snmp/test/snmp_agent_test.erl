@@ -553,7 +553,7 @@ init_per_suite(Config0) when is_list(Config0) ->
 
     %% Mib-dirs
     MibDir    = snmp_test_lib:lookup(data_dir, Config2),
-    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+    StdMibDir = join([code:priv_dir(snmp), "mibs"]),
 
     Config3 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2],
 
@@ -747,21 +747,21 @@ init_per_testcase2(Case, Config) ->
     CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config), 
 
     %% Create agent top-dir(s)
-    AgentTopDir = filename:join([CaseTopDir, agent]),
+    AgentTopDir = join([CaseTopDir, agent]),
     ok = file:make_dir(AgentTopDir),
-    AgentConfDir = filename:join([AgentTopDir, config]),
+    AgentConfDir = join([AgentTopDir, config]),
     ok = file:make_dir(AgentConfDir),
-    AgentDbDir = filename:join([AgentTopDir, db]),
+    AgentDbDir = join([AgentTopDir, db]),
     ok = file:make_dir(AgentDbDir),
-    AgentLogDir = filename:join([AgentTopDir, log]),
+    AgentLogDir = join([AgentTopDir, log]),
     ok = file:make_dir(AgentLogDir),
 
     %% Create sub-agent top-dir(s)
-    SubAgentTopDir = filename:join([CaseTopDir, sub_agent]),
+    SubAgentTopDir = join([CaseTopDir, sub_agent]),
     ok = file:make_dir(SubAgentTopDir),
 
     %% Create manager top-dir(s)
-    ManagerTopDir = filename:join([CaseTopDir, manager]),
+    ManagerTopDir = join([CaseTopDir, manager]),
     ok = file:make_dir(ManagerTopDir),
 
     [{case_top_dir,      CaseTopDir}, 
@@ -1737,19 +1737,19 @@ init_case(Config) ->
 load_master(Mib) ->
     ?DBG("load_master -> entry with"
 	"~n   Mib: ~p", [Mib]),
-    snmpa:unload_mibs(snmp_master_agent, [Mib]),	% Unload for safety
-    ok = snmpa:load_mibs(snmp_master_agent, [get(mib_dir) ++ Mib]).
+    snmpa:unload_mib(snmp_master_agent, Mib),	% Unload for safety
+    ok = snmpa:load_mib(snmp_master_agent, join(get(mib_dir), Mib)).
 
 load_master_std(Mib) ->
     ?DBG("load_master_std -> entry with"
 	"~n   Mib: ~p", [Mib]),
-    snmpa:unload_mibs(snmp_master_agent, [Mib]),	% Unload for safety
-    ok = snmpa:load_mibs(snmp_master_agent, [get(std_mib_dir) ++ Mib]).
+    snmpa:unload_mib(snmp_master_agent, Mib),	% Unload for safety
+    ok = snmpa:load_mib(snmp_master_agent, join(get(std_mib_dir), Mib)).
 
 unload_master(Mib) ->
     ?DBG("unload_master -> entry with"
 	"~n   Mib: ~p", [Mib]),
-    ok = snmpa:unload_mibs(snmp_master_agent, [Mib]).
+    ok = snmpa:unload_mib(snmp_master_agent, Mib).
 
 loaded_mibs() ->
     ?DBG("loaded_mibs -> entry",[]),
@@ -2154,11 +2154,11 @@ subagent(Config) when is_list(Config) ->
     try_test(unreg_test),
 
     ?P1("Loading previous subagent mib in master and testing..."),
-    ?line ok = snmpa:load_mibs(MA, [MibDir ++ "Klas1"]),
+    ?line ok = snmpa:load_mib(MA, join(MibDir, "Klas1")),
     try_test(load_test),
 
     ?P1("Unloading previous subagent mib in master and testing..."),
-    ?line ok = snmpa:unload_mibs(MA, [MibDir ++ "Klas1"]),
+    ?line ok = snmpa:unload_mib(MA, join(MibDir, "Klas1")),
     try_test(unreg_test),
     ?P1("Testing register subagent..."),
     rpc:call(SaNode, snmp, register_subagent,
@@ -2354,11 +2354,11 @@ sa_register(Config) when is_list(Config) ->
 
     ?P1("Unloading Klas1..."),
     ?DBG("sa_register -> unload mibs", []),
-    snmpa:unload_mibs(SA, [MibDir ++ "Klas1"]),
+    snmpa:unload_mib(SA, join(MibDir, "Klas1")),
 
     ?P1("Loading SA-MIB..."),
     ?DBG("sa_register -> unload mibs", []),
-    snmpa:load_mibs(SA, [MibDir ++ "SA-MIB"]),
+    snmpa:load_mib(SA, join(MibDir, "SA-MIB")),
     
     ?P1("register subagent..."),
     ?DBG("sa_register -> register subagent", []),
@@ -2577,7 +2577,7 @@ next_across_sa(Config) when is_list(Config) ->
     ?line {ok, SA} = start_subagent(SaNode, ?sa, "SA-MIB"),
 
     ?P1("Loading another subagent mib (Klas1)..."),
-    ?line ok = snmpa:load_mibs(SA, [MibDir ++ "Klas1"]),
+    ?line ok = snmpa:load_mib(SA, MibDir ++ "Klas1"),
 
     ?P1("register subagent..."), 
     rpc:call(SaNode, snmp, register_subagent, [MA, ?klas1, SA]),
@@ -2589,7 +2589,7 @@ next_across_sa(Config) when is_list(Config) ->
     try_test(next_across_sa_test),
 
     ?P1("Unloading mib (Klas1)"),
-    snmpa:unload_mibs(SA, [MibDir ++ "Klas1"]),
+    snmpa:unload_mib(SA, join(MibDir, "Klas1")),
     rpc:call(SaNode, snmp, unregister_subagent, [MA, ?klas1]),
     try_test(unreg_test),
 
@@ -2630,25 +2630,25 @@ undo(Config) when is_list(Config) ->
     ?line {ok, SA} = start_subagent(SaNode, ?sa, "SA-MIB"),
 
     ?P1("Load Klas3 & Klas4..."),
-    ?line ok = snmpa:load_mibs(MA, [MibDir ++ "Klas3"]),
-    ?line ok = snmpa:load_mibs(MA, [MibDir ++ "Klas4"]),
+    ?line ok = snmpa:load_mib(MA, join(MibDir, "Klas3")),
+    ?line ok = snmpa:load_mib(MA, join(MibDir, "Klas4")),
 
     ?P1("Testing undo phase at master agent..."),
     try_test(undo_test),
     try_test(api_test2),
 
     ?P1("Unload Klas3..."),
-    ?line ok = snmpa:unload_mibs(MA, [MibDir ++ "Klas3"]),
+    ?line ok = snmpa:unload_mib(MA, join(MibDir, "Klas3")),
 
     ?P1("Testing bad return values from instrum. funcs..."),
     try_test(bad_return),
 
     ?P1("Unload Klas4..."),
-    ?line ok = snmpa:unload_mibs(MA, [MibDir ++ "Klas4"]),
+    ?line ok = snmpa:unload_mib(MA, join(MibDir, "Klas4")),
 
     ?P1("Testing undo phase at subagent..."),
-    ?line ok = snmpa:load_mibs(SA, [MibDir ++ "Klas3"]),
-    ?line ok = snmpa:load_mibs(SA, [MibDir ++ "Klas4"]),
+    ?line ok = snmpa:load_mib(SA, join(MibDir, "Klas3")),
+    ?line ok = snmpa:load_mib(SA, join(MibDir, "Klas4")),
     ?line ok = snmpa:register_subagent(MA, ?klas3, SA),
     ?line ok = snmpa:register_subagent(MA, ?klas4, SA),
     try_test(undo_test),
@@ -6246,8 +6246,8 @@ otp_4394_config(AgentConfDir, MgrDir, Ip0) ->
 					     "OTP-4394 test"),
     ?line case update_usm(Vsn, AgentConfDir) of
 	true ->
-	    ?line copy_file(filename:join(AgentConfDir, "usm.conf"),
-			    filename:join(MgrDir, "usm.conf")),
+	    ?line copy_file(join(AgentConfDir, "usm.conf"),
+			    join(MgrDir, "usm.conf")),
 	    ?line update_usm_mgr(Vsn, MgrDir);
 	false ->
 	    ?line ok
@@ -6406,11 +6406,11 @@ otp8395({init, Config}) when is_list(Config) ->
     %% 
 
     AgentDbDir = ?config(agent_db_dir, Config),
-    AgentMnesiaDir = filename:join([AgentDbDir, "mnesia"]),
+    AgentMnesiaDir = join([AgentDbDir, "mnesia"]),
     mnesia_init(AgentNode, AgentMnesiaDir),
 
     %% SubAgentDir = ?config(sub_agent_dir, Config),
-    %% SubAgentMnesiaDir = filename:join([SubAgentDir, "mnesia"]),
+    %% SubAgentMnesiaDir = join([SubAgentDir, "mnesia"]),
     %% mnesia_init(SubAgentNode, SubAgentMnesiaDir),
 
     %% ok = mnesia_create_schema(AgentNode, [AgentNode, SubAgentNode]), 
@@ -6540,7 +6540,7 @@ otp8395(Config) when is_list(Config) ->
     ?SLEEP(1000),
     AgentNode   = ?config(agent_node, Config),
     AgentLogDir = ?config(agent_log_dir, Config),
-    OutFile     = filename:join([AgentLogDir, "otp8395.txt"]),
+    OutFile     = join([AgentLogDir, "otp8395.txt"]),
     {ok, LogInfo} = rpc:call(AgentNode, snmpa, log_info, []),
     ?DBG("otp8395 -> LogInfo: ~p", [LogInfo]), 
 
@@ -6578,7 +6578,7 @@ otp9884({init, Config}) when is_list(Config) ->
     %% 
 
     AgentDbDir = ?config(agent_db_dir, Config),
-    AgentMnesiaDir = filename:join([AgentDbDir, "mnesia"]),
+    AgentMnesiaDir = join([AgentDbDir, "mnesia"]),
     mnesia_init(AgentNode, AgentMnesiaDir),
 
     mnesia_create_schema(AgentNode, [AgentNode]),
@@ -6608,8 +6608,8 @@ otp9884({init, Config}) when is_list(Config) ->
     ManagerConfDir = ?config(manager_top_dir, Config),
     AgentConfDir   = ?config(agent_conf_dir, Config),
     AgentTopDir    = ?config(agent_top_dir, Config),
-    AgentBkpDir1   = filename:join([AgentTopDir, backup1]),
-    AgentBkpDir2   = filename:join([AgentTopDir, backup2]),
+    AgentBkpDir1   = join([AgentTopDir, backup1]),
+    AgentBkpDir2   = join([AgentTopDir, backup2]),
     ok = file:make_dir(AgentBkpDir1),
     ok = file:make_dir(AgentBkpDir2),
     AgentBkpDirs = [AgentBkpDir1, AgentBkpDir2], 
@@ -7104,7 +7104,7 @@ display_log(Config) ->
 		{value, {_, Node}} ->
 		    LogDir  = Dir, 
 		    Mibs    = [], 
-		    OutFile = filename:join(LogDir, "snmpa_log.txt"), 
+		    OutFile = join(LogDir, "snmpa_log.txt"), 
 		    p("~n"
 		      "========================="
 		      "  < Audit Trail Log >  "
@@ -7250,6 +7250,14 @@ lists_key1search(Key, List) when is_atom(Key) ->
 
 %% regs() ->
 %%     lists:sort(registered()).
+
+%% ------
+
+join(Parts) ->
+    filename:join(Parts).
+
+join(Dir, File) ->
+    filename:join(Dir, File).
 
 
 %% ------

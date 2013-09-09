@@ -39,8 +39,10 @@
 	 enum_to_int/2, enum_to_int/3,
 
 	 info/0, info/1, old_info_format/1, 
-	 load_mibs/1, load_mibs/2, 
-	 unload_mibs/1, unload_mibs/2, 
+	 load_mib/1, load_mib/2, 
+	 load_mibs/1, load_mibs/2, load_mibs/3, 
+	 unload_mib/1, unload_mib/2, 
+	 unload_mibs/1, unload_mibs/2, unload_mibs/3, 
 	 which_mibs/0, which_mibs/1, 
 	 whereis_mib/1, whereis_mib/2, 
 	 dump_mibs/0, dump_mibs/1,
@@ -300,18 +302,74 @@ backup(Agent, BackupDir) ->
 dump_mibs()     -> snmpa_agent:dump_mibs(snmp_master_agent).
 dump_mibs(File) -> snmpa_agent:dump_mibs(snmp_master_agent, File).
 
+
+load_mib(Mib) ->
+    load_mib(snmp_master_agent, Mib).
+
+-spec load_mib(Agent :: pid() | atom(), Mib :: string()) ->
+    ok | {error, Reason :: already_loaded | term()}.
+
+load_mib(Agent, Mib) ->
+    case load_mibs(Agent, [Mib]) of
+	{error, {'load aborted at', Mib, Reason}} ->
+	    {error, Reason};
+	Else ->
+	    Else
+    end.
+
 load_mibs(Mibs) ->
-    load_mibs(snmp_master_agent, Mibs).
+    load_mibs(snmp_master_agent, Mibs, false).
 load_mibs(Agent, Mibs) when is_list(Mibs) -> 
-    snmpa_agent:load_mibs(Agent, Mibs).
+    snmpa_agent:load_mibs(Agent, Mibs, false);
+load_mibs(Mibs, Force) 
+  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) ->
+    load_mibs(snmp_master_agent, Mibs, Force).
+
+-spec load_mibs(Agent :: pid() | atom(), 
+		Mibs  :: [MibName :: string()], 
+		Force :: boolean()) ->
+    ok | {error, {'load aborted at', MibName :: string(), InternalReason :: already_loaded | term()}}.
+
+load_mibs(Agent, Mibs, Force) 
+  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) -> 
+    snmpa_agent:load_mibs(Agent, Mibs, Force).
+
+
+unload_mib(Mib) ->
+    unload_mib(snmp_master_agent, Mib).
+
+-spec unload_mib(Agent :: pid() | atom(), Mib :: string()) ->
+    ok | {error, Reason :: not_loaded | term()}.
+
+unload_mib(Agent, Mib) ->
+    case unload_mibs(Agent, [Mib]) of
+	{error, {'unload aborted at', Mib, Reason}} ->
+	    {error, Reason};
+	Else ->
+	    Else
+    end.
 
 unload_mibs(Mibs) ->
-    unload_mibs(snmp_master_agent, Mibs).
+    unload_mibs(snmp_master_agent, Mibs, false).
 unload_mibs(Agent, Mibs) when is_list(Mibs) -> 
-    snmpa_agent:unload_mibs(Agent, Mibs).
+    snmpa_agent:unload_mibs(Agent, Mibs);
+unload_mibs(Mibs, Force) 
+  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) ->
+    unload_mibs(snmp_master_agent, Mibs, Force).
+
+-spec unload_mibs(Agent :: pid() | atom(), 
+		  Mibs  :: [MibName :: string()], 
+		  Force :: boolean()) ->
+    ok | {error, {'unload aborted at', MibName :: string(), InternalReason :: not_loaded | term()}}.
+
+unload_mibs(Agent, Mibs, Force) 
+  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) ->
+    snmpa_agent:unload_mibs(Agent, Mibs, Force).
+
 
 which_mibs()      -> which_mibs(snmp_master_agent).
 which_mibs(Agent) -> snmpa_agent:which_mibs(Agent).
+
 
 whereis_mib(Mib) ->
     whereis_mib(snmp_master_agent, Mib).
