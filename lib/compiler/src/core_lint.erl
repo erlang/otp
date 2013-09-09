@@ -68,7 +68,7 @@
                   | {'undefined_function', fa(), fa()}
                   | {'tail_segment_not_at_end', fa()}.
 
--type error()    :: {module(), err_desc()}.
+-type error()    :: {'none', module(), err_desc()}.
 -type warning()  :: {module(), term()}.
 
 %%-----------------------------------------------------------------------
