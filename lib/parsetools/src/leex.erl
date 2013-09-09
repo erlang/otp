@@ -436,7 +436,7 @@ parse_defs(_, {eof,L}, St) ->
 parse_defs(Ifile, {ok,Chars,L}=Line, Ms, St) ->
     %% This little beauty matches out a macro definition, RE's are so clear.
     MS = "^[ \t]*([A-Z_][A-Za-z0-9_]*)[ \t]*=[ \t]*([^ \t\r\n]*)[ \t\r\n]*\$",
-    case re:run(Chars, MS, [{capture,all_but_first,list}]) of
+    case re:run(Chars, MS, [{capture,all_but_first,list},unicode]) of
         {match,[Name,Def]} ->
             %%io:fwrite("~p = ~p\n", [Name,Def]),
             parse_defs(Ifile, nextline(Ifile, L, St), [{Name,Def}|Ms], St);
