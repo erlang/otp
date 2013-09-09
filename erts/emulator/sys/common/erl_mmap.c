@@ -106,9 +106,12 @@ static ERTS_INLINE UWord parent_and_color(RBTNode* parent, int color)
 
 enum SortOrder {
     ADDR_ORDER,             /* only address order */
-    SZ_ADDR_ORDER,          /* first size then address order as tiebreaker */
+    SA_SZ_ADDR_ORDER,        /* first super-aligned size then address order */
     SZ_REVERSE_ADDR_ORDER   /* first size then reverse address order */
 };
+#ifdef HARD_DEBUG
+static const char* sort_order_names[] = {"Address","SuperAlignedSize-Address","Size-RevAddress"};
+#endif
 
 typedef struct {
     RBTNode* root;
@@ -286,9 +289,17 @@ static ERTS_INLINE SWord cmp_nodes(enum SortOrder order,
     ErtsFreeSegDesc* rdesc = node_to_desc(order, rhs);
     RBT_ASSERT(lhs != rhs);
     if (order != ADDR_ORDER) {
-        SWord lsz = ldesc->end - ldesc->start;
-        SWord rsz = rdesc->end - rdesc->start;
-	SWord diff = lsz - rsz;
+        SWord lsz, rsz, diff;
+        if (order == SA_SZ_ADDR_ORDER) {
+            lsz = ERTS_SUPERALIGNED_FLOOR(ldesc->end) - ERTS_SUPERALIGNED_CEILING(ldesc->start);
+            rsz = ERTS_SUPERALIGNED_FLOOR(rdesc->end) - ERTS_SUPERALIGNED_CEILING(rdesc->start);
+        }
+        else {
+            RBT_ASSERT(order == SZ_REVERSE_ADDR_ORDER);
+            lsz = ldesc->end - ldesc->start;
+            rsz = rdesc->end - rdesc->start;
+        }
+        diff = lsz - rsz;
 	if (diff) return diff;
     }
     if (order != SZ_REVERSE_ADDR_ORDER) {
@@ -305,12 +316,14 @@ static ERTS_INLINE SWord cmp_with_node(enum SortOrder order,
 {
     ErtsFreeSegDesc* rdesc;
     if (order != ADDR_ORDER) {
+        SWord rhs_sz, diff;
         rdesc = snode_to_desc(rhs);
-        {
-            SWord rhs_sz = rdesc->end - rdesc->start;
-            SWord diff = sz - rhs_sz;
-            if (diff) return diff;
-        }
+        if (order == SA_SZ_ADDR_ORDER)
+            rhs_sz = ERTS_SUPERALIGNED_FLOOR(rdesc->end) - ERTS_SUPERALIGNED_CEILING(rdesc->start);
+        else
+            rhs_sz = rdesc->end - rdesc->start;
+        diff = sz - rhs_sz;
+        if (diff) return diff;
     }
     else
         rdesc = anode_to_desc(rhs);
@@ -860,7 +873,7 @@ static RBTNode* rbt_next_node(RBTNode* node)
 /* The API to keep track of a bunch of separated (free) segments
    (non-overlapping and non-adjacent).
  */
-static void init_free_seg_map(ErtsFreeSegMap*, int reverse_ao);
+static void init_free_seg_map(ErtsFreeSegMap*, enum SortOrder);
 static void adjacent_free_seg(ErtsFreeSegMap*, char* start, char* end,
                               ErtsFreeSegDesc** under, ErtsFreeSegDesc** over);
 static void insert_free_seg(ErtsFreeSegMap*, ErtsFreeSegDesc*, char* start, char* end);
@@ -869,12 +882,12 @@ static void delete_free_seg(ErtsFreeSegMap*, ErtsFreeSegDesc*);
 static ErtsFreeSegDesc* lookup_free_seg(ErtsFreeSegMap*, SWord sz);
 
 
-static void init_free_seg_map(ErtsFreeSegMap* map, int reverse_ao)
+static void init_free_seg_map(ErtsFreeSegMap* map, enum SortOrder order)
 {
     map->atree.root = NULL;
     map->atree.order = ADDR_ORDER;
     map->stree.root = NULL;
-    map->stree.order = reverse_ao ? SZ_REVERSE_ADDR_ORDER : SZ_ADDR_ORDER;
+    map->stree.order = order;
     map->nseg = 0;
 }
 
@@ -1931,8 +1944,8 @@ erts_mmap_init(ErtsMMapInit *init)
 #endif
 	add_free_desc_area(mmap_state.sua.top, end);
 
-	init_free_seg_map(&mmap_state.sa.map, 0);
-	init_free_seg_map(&mmap_state.sua.map, 1);
+	init_free_seg_map(&mmap_state.sa.map, SA_SZ_ADDR_ORDER);
+	init_free_seg_map(&mmap_state.sua.map, SZ_REVERSE_ADDR_ORDER);
 
 	mmap_state.supercarrier = 1;
 	erts_have_erts_mmap |= ERTS_HAVE_ERTS_SUPERCARRIER_MMAP;
@@ -2125,10 +2138,9 @@ print_tree_aux(enum SortOrder order, RBTNode *x, int indent)
 static void
 print_tree(enum SortOrder order, RBTNode* root)
 {
-    static const char* type[] = {"Address","Size-Address","Size-RevAddress"};
-    fprintf(stderr, " --- %s ordered tree begin ---\r\n", type[order]);
+    fprintf(stderr, " --- %s ordered tree begin ---\r\n", sort_order_names[order]);
     print_tree_aux(order, root, 0);
-    fprintf(stderr, " --- %s ordered tree end ---\r\n", type[order]);
+    fprintf(stderr, " --- %s ordered tree end ---\r\n", sort_order_names[order]);
 }
 
 #endif /* PRINT_TREE */
@@ -2140,10 +2152,10 @@ void test_it(void)
 {
     ErtsFreeSegMap map;
     ErtsFreeSegDesc *desc, *under, *over, *d1, *d2;
-    int i;
+    const int i = 1; /* reverse addr order */
 
-    for (i=0; i<2; i++) {
-        init_free_seg_map(&map, i);
+    {
+        init_free_seg_map(&map, SZ_REVERSE_ADDR_ORDER);
 
         insert_free_seg(&map, alloc_desc(), (char*)0x11000, (char*)0x12000);
         HARD_CHECK_TREE(&map.atree, 0); HARD_CHECK_TREE(&map.stree, 0);
