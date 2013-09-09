@@ -330,7 +330,7 @@ mseg_create(ErtsMsegAllctr_t *ma, Uint flags, MemKind* mk, UWord *sizep)
 }
 
 static ERTS_INLINE void
-mseg_destroy(ErtsMsegAllctr_t *ma, Uint flags, MemKind* mk, void **seg_pp, UWord *size_p) {
+mseg_destroy(ErtsMsegAllctr_t *ma, Uint flags, MemKind* mk, void *seg_p, UWord size) {
     
     Uint32 mmap_flags = 0;
 #if HALFWORD_HEAP
@@ -341,11 +341,11 @@ mseg_destroy(ErtsMsegAllctr_t *ma, Uint flags, MemKind* mk, void **seg_pp, UWord
     if (MSEG_FLG_IS_2POW(flags))
 	 mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
 
-    erts_munmap(mmap_flags, seg_pp, size_p);
+    erts_munmap(mmap_flags, seg_p, size);
 #ifdef ERTS_PRINT_ERTS_MMAP
     erts_fprintf(stderr, "erts_munmap(%s, %p, %bpu);\n",
 		 (mmap_flags & ERTS_MMAPFLG_SUPERALIGNED) ? "sa" : "sua",
-		 *seg_pp, *size_p);
+		 seg_p, *size);
 #endif
     INC_CC(ma, destroy);
 
@@ -446,19 +446,13 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
 
 	return 1;
     } else if (!MSEG_FLG_IS_2POW(flags) && !erts_circleq_is_empty(&(mk->cache_unpowered_node))) {
-	void *destr_seg;
-	UWord destr_size;
 	/* No free slots.
 	 * Evict oldest slot from unpowered cache so we can cache an unpowered (sbc) segment  */
 
 	c = erts_circleq_tail(&(mk->cache_unpowered_node));
 	erts_circleq_remove(c);
 
-	destr_seg = c->seg;
-	destr_size = c->size;
-	mseg_destroy(mk->ma, ERTS_MSEG_FLG_NONE, mk, &destr_seg, &destr_size);
-	ASSERT(destr_seg == c->seg);
-	ASSERT(destr_size == c->size);
+	mseg_destroy(mk->ma, ERTS_MSEG_FLG_NONE, mk, c->seg, c->size);
 	mseg_cache_clear_node(c);
 
 	c->seg  = seg;
@@ -478,19 +472,13 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
 	int i;
 
 	for( i = 0; i < CACHE_AREAS; i++) {
-	    void *destr_seg;
-	    UWord destr_size;
 	    if (erts_circleq_is_empty(&(mk->cache_powered_node[i])))
 		continue;
 
 	    c = erts_circleq_tail(&(mk->cache_powered_node[i]));
 	    erts_circleq_remove(c);
 
-	    destr_seg = seg;
-	    destr_size = c->size;
-	    mseg_destroy(mk->ma, ERTS_MSEG_FLG_2POW, mk, &destr_seg, &destr_size);
-	    ASSERT(destr_seg == c->seg);
-	    ASSERT(destr_size == c->size);
+	    mseg_destroy(mk->ma, ERTS_MSEG_FLG_2POW, mk, c->seg, c->size);
 
 	    mseg_cache_clear_node(c);
 
@@ -544,13 +532,8 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, UWord *size_p, Uint flag
 
 	    ASSERT(!(mk->cache_size < 0));
 
-	    if (csize != size) {
-		char *destr_seg = seg + size;
-		UWord destr_size = csize - size;
-		mseg_destroy(mk->ma, ERTS_MSEG_FLG_2POW, mk, (void**)&destr_seg, &destr_size);
-		*size_p = (UWord) (destr_seg - seg);
-		ASSERT(seg + csize == destr_seg + destr_size);
-	    }
+	    if (csize != size)
+		mseg_destroy(mk->ma, ERTS_MSEG_FLG_2POW, mk, seg + size, csize - size);
 
 	    return seg;
 	}
@@ -625,8 +608,6 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, UWord *size_p, Uint flag
  */
 
 static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, Uint flags, cache_t *head) {
-    void *destr_seg;
-    UWord destr_size;
     cache_t *c = NULL;
 
     c = erts_circleq_tail(head);
@@ -635,11 +616,7 @@ static ERTS_INLINE Uint mseg_drop_one_memkind_cache_size(MemKind *mk, Uint flags
     if (erts_mtrace_enabled)
 	erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
 
-    destr_seg = c->seg;
-    destr_size = c->size;
-    mseg_destroy(mk->ma, flags, mk, &destr_seg, &destr_size);
-    ASSERT(destr_seg == c->seg);
-    ASSERT(destr_size == c->size);
+    mseg_destroy(mk->ma, flags, mk, c->seg, c->size);
     mseg_cache_clear_node(c);
     erts_circleq_push_head(&(mk->cache_free), c);
 
@@ -655,8 +632,6 @@ static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, Uint flags, ca
     cache_t *c = NULL;
 
     while (!erts_circleq_is_empty(head)) {
-	void *destr_seg;
-	UWord destr_size;
 
 	c = erts_circleq_tail(head);
 	erts_circleq_remove(c);
@@ -664,11 +639,7 @@ static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, Uint flags, ca
 	if (erts_mtrace_enabled)
 	    erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
 
-	destr_seg = c->seg;
-	destr_size = c->size;
-	mseg_destroy(mk->ma, flags, mk, &destr_seg, &destr_size);
-	ASSERT(destr_seg == c->seg);
-	ASSERT(destr_size == c->size);
+	mseg_destroy(mk->ma, flags, mk, c->seg, c->size);
 
 	mseg_cache_clear_node(c);
 	erts_circleq_push_head(&(mk->cache_free), c);
@@ -813,12 +784,14 @@ mseg_alloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, UWord *size_p,
 
     INC_CC(ma, alloc);
 
-    if (!MSEG_FLG_IS_2POW(flags) && !IS_2POW(size))
+    if (!MSEG_FLG_IS_2POW(flags))
 	size = ERTS_PAGEALIGNED_CEILING(*size_p);
     else {
 	size = ALIGNED_CEILING(*size_p);
-	/* Cache optim (if applicable) */
-	size = ceil_2pow(size);
+	if (!IS_2POW(size)) {
+	    /* Cache optim (if applicable) */
+	    size = ceil_2pow(size);
+	}
     }
 
     if (opt->cache && mk->cache_size > 0 && (seg = cache_get_segment(mk, &size, flags)) != NULL)
@@ -845,8 +818,6 @@ static void
 mseg_dealloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg, UWord size,
 	     Uint flags, const ErtsMsegOpt_t *opt)
 {
-    void *destr_seg;
-    UWord destr_size;
     MemKind* mk = memkind(ma, opt);
 
     ERTS_MSEG_DEALLOC_STAT(mk,size);
@@ -859,11 +830,7 @@ mseg_dealloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg, UWord size,
     if (erts_mtrace_enabled)
 	erts_mtrace_crr_free(atype, SEGTYPE, seg);
 
-    destr_seg = seg;
-    destr_size = size;
-    mseg_destroy(ma, flags, mk, &destr_seg, &destr_size);
-    ASSERT(destr_seg == seg);
-    ASSERT(destr_size == size);
+    mseg_destroy(ma, flags, mk, seg, size);
 
 done:
 
@@ -896,13 +863,14 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
     mk = memkind(ma, opt);
     new_seg = seg;
 
-
     if (!MSEG_FLG_IS_2POW(flags))
 	new_size = ERTS_PAGEALIGNED_CEILING(*new_size_p);
     else {
 	new_size = ALIGNED_CEILING(*new_size_p);
-	/* Cache optim (if applicable) */
-	new_size = ceil_2pow(new_size);
+	if (!IS_2POW(new_size)) {
+	    /* Cache optim (if applicable) */
+	    new_size = ceil_2pow(new_size);
+	}
     }
 
     if (new_size > old_size) {

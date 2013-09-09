@@ -53,7 +53,7 @@ typedef struct {
     {{NULL, NULL}, {NULL, NULL}, 0, 1, (1 << 16), 1}
 
 void *erts_mmap(Uint32 flags, UWord *sizep);
-void erts_munmap(Uint32 flags, void **ptrp, UWord *sizep);
+void erts_munmap(Uint32 flags, void *ptr, UWord size);
 void *erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep);
 int erts_mmap_in_supercarrier(void *ptr);
 void erts_mmap_init(ErtsMMapInit*);
