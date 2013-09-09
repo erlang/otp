@@ -799,6 +799,7 @@ int main(int argc, char **argv)
 		  case 'a':
 		  case 'A':
 		  case 'b':
+		  case 'e':
 		  case 'i':
 		  case 'n':
 		  case 'P':
