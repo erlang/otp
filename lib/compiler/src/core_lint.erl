@@ -162,7 +162,7 @@ return_status(St) ->
 %% add_warning(ErrorDescriptor, State) -> State'
 %%  Note that we don't use line numbers here.
 
-add_error(E, St) -> St#lint{errors=[{?MODULE,E}|St#lint.errors]}.
+add_error(E, St) -> St#lint{errors=[{none,?MODULE,E}|St#lint.errors]}.
 
 %%add_warning(W, St) -> St#lint{warnings=[{none,core_lint,W}|St#lint.warnings]}.
 

@@ -139,8 +139,8 @@ forms_2(Config) when is_list(Config) ->
 module_mismatch(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line File = filename:join(DataDir, "wrong_module_name.erl"),
-    ?line {error,[{"wrong_module_name.beam",
-		   [{compile,{module_name,arne,"wrong_module_name"}}]}],
+    {error,[{"wrong_module_name.beam",
+	     [{none,compile,{module_name,arne,"wrong_module_name"}}]}],
 	   []} = compile:file(File, [return]),
     ?line error = compile:file(File, [report]),
 

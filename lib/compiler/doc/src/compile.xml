@@ -859,6 +859,10 @@ pi() -> 3.1416.
 {ErrorLine, Module, ErrorDescriptor}
     </code>
 
+    <p><c>ErrorLine</c> will be the atom <c>none</c> if the error does
+    not correspond to a specific line (e.g. if the source file does
+    not exist).</p>
+
     <p>A string describing the error is obtained with the following
       call:</p>
     <code>

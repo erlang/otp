@@ -299,7 +299,7 @@ unused_multiple_values_error(Config) when is_list(Config) ->
     Opts = [no_copt,clint,return,from_core,{outdir,PrivDir}
 	   |test_lib:opt_opts(?MODULE)],
     {error,[{unused_multiple_values_error,
-        [{core_lint,{return_mismatch,{hello,1}}}]}],
+	     [{none,core_lint,{return_mismatch,{hello,1}}}]}],
      []} = c:c(Core, Opts),
     ok.
 
