@@ -380,7 +380,7 @@
       <desc>
         <p>Perform a code-change (upgrade or downgrade). </p>
         <p>See 
-	<seealso marker="gen_server">gen_server</seealso>
+	<seealso marker="stdlib:gen_server">gen_server</seealso>
 	for more info regarding the <c>Vsn</c> and <c>Extra</c> arguments. </p>
 
       </desc>

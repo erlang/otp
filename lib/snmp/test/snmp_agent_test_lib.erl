@@ -139,31 +139,31 @@ init_all(Config) when is_list(Config) ->
     SuiteTopDir = ?config(snmp_suite_top_dir, Config),
     ?DBG("init_all -> SuiteTopDir ~p", [SuiteTopDir]),
 
-    AgentDir = filename:join(SuiteTopDir, "agent/"), 
+    AgentDir = join(SuiteTopDir, "agent/"), 
     ?line ok = file:make_dir(AgentDir),
     ?DBG("init_all -> AgentDir ~p", [AgentDir]),
 
-    AgentDbDir = filename:join(AgentDir, "db/"), 
+    AgentDbDir = join(AgentDir, "db/"), 
     ?line ok   = file:make_dir(AgentDbDir),
     ?DBG("init_all -> AgentDbDir ~p", [AgentDbDir]),
 
-    AgentLogDir = filename:join(AgentDir, "log/"), 
+    AgentLogDir = join(AgentDir, "log/"), 
     ?line ok    = file:make_dir(AgentLogDir),
     ?DBG("init_all -> AgentLogDir ~p", [AgentLogDir]),
 
-    AgentConfDir = filename:join(AgentDir, "conf/"), 
+    AgentConfDir = join(AgentDir, "conf/"), 
     ?line ok     = file:make_dir(AgentConfDir),
     ?DBG("init_all -> AgentConfDir ~p", [AgentConfDir]),
 
-    MgrDir   = filename:join(SuiteTopDir, "mgr/"), 
+    MgrDir   = join(SuiteTopDir, "mgr/"), 
     ?line ok = file:make_dir(MgrDir),
     ?DBG("init_all -> MgrDir ~p", [MgrDir]),
 
-    SaDir    = filename:join(SuiteTopDir, "sa/"), 
+    SaDir    = join(SuiteTopDir, "sa/"), 
     ?line ok = file:make_dir(SaDir),
     ?DBG("init_all -> SaDir ~p", [SaDir]),
 
-    SaDbDir  = filename:join(SaDir, "db/"), 
+    SaDbDir  = join(SaDir, "db/"), 
     ?line ok = file:make_dir(SaDbDir),
     ?DBG("init_all -> SaDbDir ~p", [SaDbDir]),
 
@@ -183,11 +183,11 @@ init_all(Config) when is_list(Config) ->
     
     ?DBG("init_all -> application mnesia: set_env dir",[]),
     ?line application_controller:set_env(mnesia, dir, 
-					 filename:join(AgentDbDir, "Mnesia1")),
+					 join(AgentDbDir, "Mnesia1")),
 
     ?DBG("init_all -> application mnesia: set_env dir on node ~p",[SaNode]),
     ?line rpc:call(SaNode, application_controller, set_env, 
-		   [mnesia, dir,  filename:join(SaDir, "Mnesia2")]),
+		   [mnesia, dir,  join(SaDir, "Mnesia2")]),
 
     ?DBG("init_all -> create mnesia schema",[]),
     ?line ok = mnesia:create_schema([SaNode, node()]),
@@ -253,7 +253,7 @@ init_case(Config) when is_list(Config) ->
     
     MibDir = ?config(mib_dir, Config),
     put(mib_dir, MibDir),
-    StdM = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
+    StdM = join(code:priv_dir(snmp), "mibs") ++ "/",
     put(std_mib_dir, StdM),
 
     MgrDir = ?config(mgr_dir, Config),
@@ -341,7 +341,7 @@ run(Mod, Func, Args, Opts) ->
     Crypto = ?CRYPTO_START(),
     ?DBG("run -> Crypto: ~p", [Crypto]),
     catch snmp_test_mgr:stop(), % If we had a running mgr from a failed case
-    StdM = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
+    StdM = join(code:priv_dir(snmp), "mibs") ++ "/",
     Vsn = get(vsn), 
     ?DBG("run -> config:"
 	   "~n   M:           ~p"
@@ -763,7 +763,7 @@ start_subagent(SaNode, RegTree, Mib) ->
     MA = whereis(snmp_master_agent),
     ?DBG("start_subagent -> MA: ~p", [MA]),
     MibDir = get(mib_dir),
-    Mib1   = join(MibDir,Mib),
+    Mib1   = join(MibDir, Mib),
     Mod    = snmpa_supervisor,
     Func   = start_sub_agent,
     Args   = [MA, RegTree, [Mib1]], 
@@ -800,28 +800,25 @@ mibs(StdMibDir,MibDir) ->
      join(MibDir, "Test2.bin"),
      join(MibDir, "TestTrapv2.bin")].
 
-join(D,F) ->
-    filename:join(D,F).
-
 
 %% --- various mib load/unload functions ---
 
 load_master(Mib) ->
     ?DBG("load_master -> entry with"
 	"~n   Mib: ~p", [Mib]),
-    snmpa:unload_mibs(snmp_master_agent, [Mib]),	% Unload for safety
-    ok = snmpa:load_mibs(snmp_master_agent, [get(mib_dir) ++ Mib]).
+    snmpa:unload_mib(snmp_master_agent, Mib),	% Unload for safety
+    ok = snmpa:load_mib(snmp_master_agent, join(get(mib_dir), Mib)).
 
 load_master_std(Mib) ->
     ?DBG("load_master_std -> entry with"
 	"~n   Mib: ~p", [Mib]),
-    snmpa:unload_mibs(snmp_master_agent, [Mib]),	% Unload for safety
-    ok = snmpa:load_mibs(snmp_master_agent, [get(std_mib_dir) ++ Mib]).
+    snmpa:unload_mib(snmp_master_agent, Mib),	% Unload for safety
+    ok = snmpa:load_mibs(snmp_master_agent, join(get(std_mib_dir), Mib)).
 
 unload_master(Mib) ->
     ?DBG("unload_master -> entry with"
 	"~n   Mib: ~p", [Mib]),
-    ok = snmpa:unload_mibs(snmp_master_agent, [Mib]).
+    ok = snmpa:unload_mib(snmp_master_agent, Mib).
 
 loaded_mibs() ->
     ?DBG("loaded_mibs -> entry",[]),
@@ -1383,8 +1380,8 @@ config(Vsns, MgrDir, AgentConfDir, MIp, AIp) ->
  					     "test"),
     ?line case update_usm(Vsns, AgentConfDir) of
 	      true ->
-		  ?line copy_file(filename:join(AgentConfDir, "usm.conf"),
-				  filename:join(MgrDir, "usm.conf")),
+		  ?line copy_file(join(AgentConfDir, "usm.conf"),
+				  join(MgrDir, "usm.conf")),
 		  ?line update_usm_mgr(Vsns, MgrDir);
 	      false ->
 		  ?line ok
@@ -1403,9 +1400,9 @@ delete_files(Config) ->
 delete_files(_AgentFiles, []) ->
     ok;
 delete_files(AgentDir, [DirName|DirNames]) ->
-    Dir = filename:join(AgentDir, DirName),
+    Dir = join(AgentDir, DirName),
     {ok, Files} = file:list_dir(Dir),
-    lists:foreach(fun(FName) -> file:delete(filename:join(Dir, FName)) end,
+    lists:foreach(fun(FName) -> file:delete(join(Dir, FName)) end,
 		  Files),
     delete_files(AgentDir, DirNames).
 
@@ -1481,8 +1478,8 @@ update_usm_mgr(Vsns, Dir) ->
     end.
 
 rewrite_usm_mgr(Dir, ShaKey, DesKey) -> 
-    ?line ok = file:rename(filename:join(Dir,"usm.conf"),
-			   filename:join(Dir,"usm.old")),
+    ?line ok = file:rename(join(Dir,"usm.conf"),
+			   join(Dir,"usm.old")),
     Conf = [{"agentEngine", "newUser", "newUser", zeroDotZero, 
 	     usmHMACSHAAuthProtocol, "", "", 
 	     usmDESPrivProtocol, "", "", "", ShaKey, DesKey}, 
@@ -1492,8 +1489,8 @@ rewrite_usm_mgr(Dir, ShaKey, DesKey) ->
     ok = snmp_config:write_agent_usm_config(Dir, "", Conf).
 
 reset_usm_mgr(Dir) ->
-    ?line ok = file:rename(filename:join(Dir,"usm.old"),
-			   filename:join(Dir,"usm.conf")).
+    ?line ok = file:rename(join(Dir,"usm.old"),
+			   join(Dir,"usm.conf")).
 
 
 update_community([v3], _Dir) -> 
@@ -1526,7 +1523,7 @@ write_target_addr_conf(Dir, ManagerIp, UDP, Vsns) ->
 rewrite_target_addr_conf(Dir, NewPort) -> 
     ?DBG("rewrite_target_addr_conf -> entry with"
 	 "~n   NewPort: ~p", [NewPort]),
-    TAFile = filename:join(Dir, "target_addr.conf"),
+    TAFile = join(Dir, "target_addr.conf"),
     case file:read_file_info(TAFile) of
 	{ok, _} -> 
 	    ok;
@@ -1546,8 +1543,8 @@ rewrite_target_addr_conf(Dir, NewPort) ->
     
     ?DBG("rewrite_target_addr_conf -> NewAddrs: ~p",[NewAddrs]),
 
-    ?line ok = file:rename(filename:join(Dir,"target_addr.conf"),
-			   filename:join(Dir,"target_addr.old")),
+    ?line ok = file:rename(join(Dir,"target_addr.conf"),
+			   join(Dir,"target_addr.old")),
 
     ?line ok = snmp_config:write_agent_target_addr_config(Dir, "", NewAddrs).
 
@@ -1565,8 +1562,8 @@ rewrite_target_addr_conf2(_NewPort,O) ->
     O.
 
 reset_target_addr_conf(Dir) ->
-    ?line ok = file:rename(filename:join(Dir, "target_addr.old"),
-			   filename:join(Dir, "target_addr.conf")).
+    ?line ok = file:rename(join(Dir, "target_addr.old"),
+			   join(Dir, "target_addr.conf")).
 
 write_target_params_conf(Dir, Vsns) -> 
     F = fun(v1) -> {"target_v1", v1,  v1,  "all-rights", noAuthNoPriv};
@@ -1578,14 +1575,14 @@ write_target_params_conf(Dir, Vsns) ->
 
 rewrite_target_params_conf(Dir, SecName, SecLevel) 
   when is_list(SecName) andalso is_atom(SecLevel) -> 
-    ?line ok = file:rename(filename:join(Dir,"target_params.conf"),
-			   filename:join(Dir,"target_params.old")),
+    ?line ok = file:rename(join(Dir,"target_params.conf"),
+			   join(Dir,"target_params.old")),
     Conf = [{"target_v3", v3, usm, SecName, SecLevel}],
     snmp_config:write_agent_target_params_config(Dir, "", Conf).
 
 reset_target_params_conf(Dir) ->
-    ?line ok = file:rename(filename:join(Dir,"target_params.old"),
-			   filename:join(Dir,"target_params.conf")).
+    ?line ok = file:rename(join(Dir,"target_params.old"),
+			   join(Dir,"target_params.conf")).
 
 write_notify_conf(Dir) -> 
     Conf = [{"standard trap",   "std_trap",   trap}, 
@@ -1647,6 +1644,9 @@ regs() ->
 rpc(Node, F, A) ->
     rpc:call(Node, snmpa, F, A).
 
+
+join(Dir, File) ->
+    filename:join(Dir, File).
 
 %% await_pdu(To) ->
 %%     await_response(To, pdu).
