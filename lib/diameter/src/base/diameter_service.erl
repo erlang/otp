@@ -673,7 +673,8 @@ service_options(Opts) ->
      {use_shared_peers, get_value(use_shared_peers, Opts)},
      {restrict_connections, proplists:get_value(restrict_connections,
                                                 Opts,
-                                                ?RESTRICT)}].
+                                                ?RESTRICT)},
+     {spawn_opt, proplists:get_value(spawn_opt, Opts, [])}].
 %% The order of options is significant since we match against the list.
 
 mref(false = No) ->

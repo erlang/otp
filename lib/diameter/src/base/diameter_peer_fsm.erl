@@ -741,7 +741,7 @@ rejected(N, T, S) ->
     rejected({N, []}, T, S).
 
 failed_avp(RC, [{RC, Avp} | _]) ->
-    [{'Failed-AVP', [{'AVP', [Avp]}]}];
+    [{'Failed-AVP', [[{'AVP', [Avp]}]]}];
 failed_avp(RC, [_ | Es]) ->
     failed_avp(RC, Es);
 failed_avp(_, [] = No) ->
