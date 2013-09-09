@@ -26,7 +26,6 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES= \
 	h323test \
-	choice_extension \
 	ber_decode_error \
 	testPrim \
 	testPrimStrings \
