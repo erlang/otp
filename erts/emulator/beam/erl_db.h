@@ -79,6 +79,8 @@ extern erts_smp_atomic_t erts_ets_misc_mem_size;
 
 Eterm erts_ets_colliding_names(Process*, Eterm name, Uint cnt);
 
+Uint erts_db_get_max_tabs(void);
+
 #endif
 
 #if defined(ERTS_WANT_DB_INTERNAL__) && !defined(ERTS_HAVE_DB_INTERNAL__)

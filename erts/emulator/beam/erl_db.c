@@ -3811,6 +3811,13 @@ erts_db_foreach_offheap(DbTable *tb,
     tb->common.meth->db_foreach_offheap(tb, func, arg);
 }
 
+/* retrieve max number of ets tables */
+Uint
+erts_db_get_max_tabs()
+{
+    return db_max_tabs;
+}
+
 /*
  * For testing of meta tables only.
  *
