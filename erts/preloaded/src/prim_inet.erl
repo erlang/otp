@@ -1237,7 +1237,8 @@ type_opt_1(buffer)          -> int;
 type_opt_1(active) ->
     {enum,[{false, ?INET_PASSIVE}, 
 	   {true, ?INET_ACTIVE}, 
-	   {once, ?INET_ONCE}]};
+	   {once, ?INET_ONCE},
+           {multi, ?INET_MULTI}]};
 type_opt_1(packet) -> 
     {enum,[{0, ?TCP_PB_RAW},
 	   {1, ?TCP_PB_1},
@@ -1716,11 +1717,14 @@ encode_opt_val(Opts) ->
 	Reason -> {error,Reason}
     end.
 
+%% {active, once} and {active, N} are specially optimized because they will
+%% be used for every packet or every N packets, not only once when
+%% initializing the socket.  Measurements show that this optimization is
+%% worthwhile.
 enc_opt_val([{active,once}|Opts], Acc) ->
-    %% Specially optimized because {active,once} will be used for
-    %% every packet, not only once when initializing the socket.
-    %% Measurements show that this optimization is worthwhile.
     enc_opt_val(Opts, [<<?INET_LOPT_ACTIVE:8,?INET_ONCE:32>>|Acc]);
+enc_opt_val([{active,N}|Opts], Acc) when is_integer(N), N < 32768, N >= -32768 ->
+    enc_opt_val(Opts, [<<?INET_LOPT_ACTIVE:8,?INET_MULTI:32,N:16>>|Acc]);
 enc_opt_val([{raw,P,O,B}|Opts], Acc) ->
     enc_opt_val(Opts, Acc, raw, {P,O,B});
 enc_opt_val([{Opt,Val}|Opts], Acc) ->
@@ -1810,6 +1814,14 @@ dec_opt_val([]) -> [].
 dec_opt_val(Buf, raw, Type) ->
     {{P,O,B},T} = dec_value(Type, Buf),
     [{raw,P,O,B}|dec_opt_val(T)];
+dec_opt_val(Buf, active, Type) ->
+    case dec_value(Type, Buf) of
+        {multi,[M0,M1|T]} ->
+            <<N:16>> = list_to_binary([M0,M1]),
+            [{active,N}|dec_opt_val(T)];
+        {Val,T} ->
+            [{active,Val}|dec_opt_val(T)]
+    end;
 dec_opt_val(Buf, Opt, Type) ->
     {Val,T} = dec_value(Type, Buf),
     [{Opt,Val}|dec_opt_val(T)].

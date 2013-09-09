@@ -26,7 +26,7 @@
 -include("inet_int.hrl").
 
 -type option() ::
-        {active,          true | false | once} |
+        {active,          true | false | once | -32768..32767} |
         {add_membership,  {inet:ip_address(), inet:ip_address()}} |
         {broadcast,       boolean()} |
         {buffer,          non_neg_integer()} |
