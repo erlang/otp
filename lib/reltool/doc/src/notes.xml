@@ -61,7 +61,7 @@
 	    even if the application was explicitly excluded in the
 	    config. This has been changed and will only produce a
 	    warning. If the application is not explicitly excluded it
-	    will still cause reltool to fail. Thanks to Håkan
+	    will still cause reltool to fail. Thanks to HÃ¥kan
 	    Mattsson!</p>
           <p>
 	    Own Id: OTP-10988</p>

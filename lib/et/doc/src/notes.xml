@@ -43,7 +43,7 @@
         <item>
           <p>
 	    Use erlang:demonitor(Ref, [flush]) where applicable.
-	    Thanks to Loïc Hoguin.</p>
+	    Thanks to LoÃ¯c Hoguin.</p>
           <p>
 	    Own Id: OTP-11039</p>
         </item>

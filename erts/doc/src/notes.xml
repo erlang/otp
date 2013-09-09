@@ -321,7 +321,7 @@
         <item>
           <p>
 	    Support wide characters in the shell through wcwidth().
-	    Thanks to Anthony Ramine. Reported by Loïc Hoguin.</p>
+	    Thanks to Anthony Ramine. Reported by LoÃ¯c Hoguin.</p>
           <p>
 	    Own Id: OTP-11088</p>
         </item>
@@ -342,7 +342,7 @@
         <item>
           <p>
 	    Remove 'query' from the list of reserved words in docs.
-	    Thanks to Matthias Endler and Loïc Hoguin.</p>
+	    Thanks to Matthias Endler and LoÃ¯c Hoguin.</p>
           <p>
 	    Own Id: OTP-11158</p>
         </item>
