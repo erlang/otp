@@ -651,8 +651,9 @@ make_opts(Opts, Defs) ->
 
     [{K, opt(K,V)} || {K,V} <- Known].
 
-opt(spawn_opt, L) ->
-    is_list(L);
+opt(spawn_opt, L)
+  when is_list(L) ->
+    L;
 
 opt(K, false = B)
   when K /= sequence ->
