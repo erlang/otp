@@ -356,11 +356,11 @@ File3.asn        </pre>
           </item>
         </list>
 
-        <p>Schematically the following happens for each type in the module:
+        <p>Schematically the following happens for each type in the module:</p>
         <code type="none">
 {ok, Value} = asn1ct:value(Module, Type),
 {ok, Bytes} = asn1ct:encode(Module, Type, Value),
-{ok, Value} = asn1ct:decode(Module, Type, Bytes).</code></p>
+{ok, Value} = asn1ct:decode(Module, Type, Bytes).</code>
 
         <p>The <c>test</c> functions utilizes the <c>*.asn1db</c> files
           for all included modules. If they are located in a different

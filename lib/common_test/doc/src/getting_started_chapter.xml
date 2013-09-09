@@ -61,13 +61,11 @@
     <title>Test case execution</title>
     <p>Execution of test cases is handled this way:</p>
     
-    <p>
     <image file="tc_execution.gif">
       <icaption>
 	Successful vs unsuccessful test case execution.
       </icaption>
     </image>
-    </p>
 
     <p>For each test case that Common Test is told to execute, it spawns a
       dedicated process on which the test case function in question starts
@@ -90,7 +88,7 @@
     <p>As you can understand from the illustration above, Common Test requires
       that a test case generates a runtime error to indicate failure (e.g.
       by causing a bad match error or by calling <c>exit/1</c>, preferrably
-      through the <c><seealso marker="ct#fail-1">ct:fail/1,2</seealso></c> help function). A succesful execution is
+      through the <seealso marker="ct#fail-1"><c>ct:fail/1,2</c></seealso> help function). A succesful execution is
       indicated by means of a normal return from the test case function.
     </p>
     </section>
@@ -100,13 +98,15 @@
     <p>As you've seen in the basics chapter, the test suite module implements
       <seealso marker="common_test">callback functions</seealso>
       (mandatory or optional) for various purposes, e.g:
+    </p>
       <list>
 	<item>Init/end configuration function for the test suite</item>
 	<item>Init/end configuration function for a test case</item>
 	<item>Init/end configuration function for a test case group</item>
 	<item>Test cases</item>
       </list>
-      The configuration functions are optional and if you don't need them for
+    <p> 
+     The configuration functions are optional and if you don't need them for
       your test, a test suite with one simple test case could look like this:
     </p>
     <pre>
@@ -136,13 +136,11 @@
       "lower level"). The data flow looks like this:
     </p>
 
-    <p>
     <image file="config.gif">
       <icaption>
 	Config data flow in the suite.
       </icaption>
     </image>
-    </p>
 
     <p>
       Here's an example of a test suite which uses configuration functions
@@ -203,13 +201,11 @@
       shows the log file structure:
     </p>
 
-    <p>
     <image file="html_logs.gif">
       <icaption>
 	HTML log file structure.
       </icaption>
     </image>
-    </p>
   </section>
 
   <section>

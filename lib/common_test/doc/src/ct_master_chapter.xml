@@ -220,6 +220,7 @@
 
     <p>The default <seealso marker="ct_slave">ct_slave</seealso> callback module,
       which is part of the Common Test application, has the following features:
+    </p>
     <list>
      <item>Starting Erlang target nodes on local or remote hosts
        (ssh is used for communication).
@@ -237,7 +238,6 @@
         Functions can be given as a list of {Module, Function, Arguments} tuples.
      </item>
     </list>
-    </p>
     <p>Note that it is possible to specify an <c>eval</c> term for the node as well
     as <c>startup_functions</c> in the <c>node_start</c> options list. In this
     case first the node will be started, then the <c>startup_functions</c> are
