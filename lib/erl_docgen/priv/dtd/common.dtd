@@ -67,7 +67,7 @@
 
 <!-- References -->
 
-<!ELEMENT seealso             (#PCDATA) >
+<!ELEMENT seealso             (#PCDATA|c|em)* >
 <!ATTLIST seealso             marker CDATA #REQUIRED >
 <!ELEMENT url                 (#PCDATA) >
 <!ATTLIST url                 href CDATA #REQUIRED >
