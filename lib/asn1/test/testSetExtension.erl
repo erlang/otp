@@ -21,7 +21,6 @@
 
 
 -include("External.hrl").
--export([compile/3]).
 -export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -30,17 +29,6 @@
 -record('SetExt2',{bool, int}).
 -record('SetExt3',{bool, int}).
 -record('SetExt4',{bool, int}).
-
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "SetExtension",
-			      [Rules,{outdir,OutDir}]++Options).
-
-
 
 main(_Rules) ->
     

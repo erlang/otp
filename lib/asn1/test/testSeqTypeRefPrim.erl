@@ -18,23 +18,11 @@
 %%
 %%
 -module(testSeqTypeRefPrim).
-
--export([compile/3]).
 -export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 -record('SeqTR',{octStr, octStrI, octStrE, 'octStr-I', 'octStrI-I', 'octStrE-I', 'octStr-E', 'octStrI-E', 'octStrE-E'}).
-
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "SeqTypeRefPrim",[Rules,{outdir,OutDir}]++Options).
-
-
 
 main(_Rules) ->
 

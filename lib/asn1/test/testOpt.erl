@@ -18,8 +18,6 @@
 %%
 %%
 -module(testOpt).
-
--export([compile/2]).
 -export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -38,16 +36,6 @@
 		bool31 = asn1_NOVALUE, 
 		bool32 = asn1_NOVALUE, 
 		bool33 = asn1_NOVALUE}).
-
-
-compile(Config,Rules) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "Opt",[Rules,{outdir,OutDir}]).
-
-
 
 main(_Rules) ->
     

@@ -18,9 +18,6 @@
 %%
 %%
 -module(testSeqOfExternal).
-
-
--export([compile/3]).
 -export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -29,17 +26,6 @@
 -record('NT',{os, bool}).
 -record('Imp',{os, bool}).
 -record('Exp',{os, bool}).
-
-
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "SeqOfExternal",[Rules,{outdir,OutDir}]++Options).
-
-
 
 main(_Rules) ->
     
