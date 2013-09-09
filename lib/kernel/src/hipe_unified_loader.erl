@@ -85,7 +85,7 @@ chunk_name(Architecture) ->
 %%========================================================================
 
 -spec load_native_code(Mod, binary()) -> 'no_native' | {'module', Mod}
-					  when is_subtype(Mod, atom()).
+					  when Mod :: atom().
 %% @doc
 %%    Loads the native code of a module Mod.
 %%    Returns {module,Mod} on success (for compatibility with
@@ -148,8 +148,8 @@ version_check(Version, Mod) when is_atom(Mod) ->
 
 %%========================================================================
 
--spec load_module(Mod, binary(), _) -> 'bad_crc' | {'module',Mod}
-	     				when is_subtype(Mod,atom()).
+-spec load_module(Mod, binary(), _) -> 'bad_crc' | {'module', Mod}
+					when Mod :: atom().
 load_module(Mod, Bin, Beam) ->
   erlang:system_flag(multi_scheduling, block),
   try
@@ -169,8 +169,8 @@ load_module(Mod, Bin, Beam, OldReferencesToPatch) ->
 
 %%========================================================================
 
--spec load(Mod, binary()) -> 'bad_crc' | {'module',Mod}
-			      when is_subtype(Mod,atom()).
+-spec load(Mod, binary()) -> 'bad_crc' | {'module', Mod} when Mod :: atom().
+
 load(Mod, Bin) ->
   erlang:system_flag(multi_scheduling, block),
   try
@@ -204,15 +204,17 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
       bad_crc;
     true ->
       %% Create data segment
-      {ConstAddr,ConstMap2} = create_data_segment(ConstAlign, ConstSize, ConstMap),
+      {ConstAddr,ConstMap2} =
+	create_data_segment(ConstAlign, ConstSize, ConstMap),
       %% Find callees for which we may need trampolines.
       CalleeMFAs = find_callee_mfas(Refs),
       %% Write the code to memory.
-      {CodeAddress,Trampolines} = enter_code(CodeSize, CodeBinary, CalleeMFAs, Mod, Beam),
+      {CodeAddress,Trampolines} =
+	enter_code(CodeSize, CodeBinary, CalleeMFAs, Mod, Beam),
       %% Construct CalleeMFA-to-trampoline mapping.
       TrampolineMap = mk_trampoline_map(CalleeMFAs, Trampolines),
       %% Patch references to code labels in data seg.
-      patch_consts(LabelMap, ConstAddr, CodeAddress),
+      ok = patch_consts(LabelMap, ConstAddr, CodeAddress),
       %% Find out which functions are being loaded (and where).
       %% Note: Addresses are sorted descending.
       {MFAs,Addresses} = exports(ExportMap, CodeAddress),
@@ -221,7 +223,7 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch) ->
       ok = remove_refs_from(MFAs),
       %% Patch all dynamic references in the code.
       %%  Function calls, Atoms, Constants, System calls
-      patch(Refs, CodeAddress, ConstMap2, Addresses, TrampolineMap),
+      ok = patch(Refs, CodeAddress, ConstMap2, Addresses, TrampolineMap),
       %% Tell the system where the loaded funs are. 
       %%  (patches the BEAM code to redirect to native.)
       case Beam of
@@ -322,7 +324,7 @@ trampoline_map_get(MFA, Map) -> gb_trees:get(MFA, Map).
 trampoline_map_lookup(_, []) -> []; % archs not using trampolines
 trampoline_map_lookup(Primop, Map) ->
   case gb_trees:lookup(Primop, Map) of
-    {value,X} -> X;
+    {value, X} -> X;
     _ -> []
   end.
 
@@ -369,7 +371,7 @@ offsets_to_addresses(Os, Base) ->
 find_closure_patches([{Type,Refs} | Rest]) ->
   case ?EXT2PATCH_TYPE(Type) of 
     load_address -> 
-      find_closure_refs(Refs,Rest);
+      find_closure_refs(Refs, Rest);
     _ ->
       find_closure_patches(Rest)
   end;
@@ -404,16 +406,17 @@ export_funs([FunDef | Addresses]) ->
   hipe_bifs:set_native_address(MFA, Address, IsClosure),
   export_funs(Addresses);
 export_funs([]) ->
-  true.
+  ok.
 
 export_funs(Mod, Beam, Addresses, ClosuresToPatch) ->
- Fs = [{F,A,Address} || #fundef{address=Address, mfa={_M,F,A}} <- Addresses],
- code:make_stub_module(Mod, Beam, {Fs,ClosuresToPatch}).
+  Fs = [{F,A,Address} || #fundef{address=Address, mfa={_M,F,A}} <- Addresses],
+  Mod = code:make_stub_module(Mod, Beam, {Fs,ClosuresToPatch}),
+  ok.
 
 %%========================================================================
 %% Patching 
 %%  @spec patch(refs(), BaseAddress::integer(), ConstAndZone::term(),
-%%              Addresses::term(), TrampolineMap::term()) -> term()
+%%              Addresses::term(), TrampolineMap::term()) -> 'ok'.
 %%   @type refs()=[{RefType::integer(), Reflist::reflist()} | refs()]
 %%
 %%   @type reflist()=   [{Data::term(), Offsets::offests()}|reflist()]
@@ -426,7 +429,7 @@ export_funs(Mod, Beam, Addresses, ClosuresToPatch) ->
 %%
 
 patch([{Type,SortedRefs}|Rest], CodeAddress, ConstMap2, Addresses, TrampolineMap) ->
- ?debug_msg("Patching ~w at [~w+offset] with ~w\n",
+  ?debug_msg("Patching ~w at [~w+offset] with ~w\n",
 	     [Type,CodeAddress,SortedRefs]),
   case ?EXT2PATCH_TYPE(Type) of 
     call_local -> 
@@ -437,7 +440,7 @@ patch([{Type,SortedRefs}|Rest], CodeAddress, ConstMap2, Addresses, TrampolineMap
       patch_all(Other, SortedRefs, CodeAddress, {ConstMap2,CodeAddress}, Addresses)
   end,
   patch(Rest, CodeAddress, ConstMap2, Addresses, TrampolineMap);
-patch([], _, _, _, _) -> true.
+patch([], _, _, _, _) -> ok.
 
 %%----------------------------------------------------------------
 %% Handle a 'call_local' or 'call_remote' patch.
@@ -459,14 +462,14 @@ patch_call([{DestMFA,Offsets}|SortedRefs], BaseAddress, Addresses, RemoteOrLocal
   end,
   patch_call(SortedRefs, BaseAddress, Addresses, RemoteOrLocal, TrampolineMap);
 patch_call([], _, _, _, _) ->
-  true.
+  ok.
 
 patch_bif_call_list([Offset|Offsets], BaseAddress, BifAddress, Trampoline) ->
   CallAddress = BaseAddress+Offset,
   ?ASSERT(assert_local_patch(CallAddress)),
   patch_call_insn(CallAddress, BifAddress, Trampoline),
   patch_bif_call_list(Offsets, BaseAddress, BifAddress, Trampoline);
-patch_bif_call_list([], _, _, _) -> [].
+patch_bif_call_list([], _, _, _) -> ok.
 
 patch_mfa_call_list([Offset|Offsets], BaseAddress, DestMFA, DestAddress, Addresses, RemoteOrLocal, Trampoline) ->
   CallAddress = BaseAddress+Offset,
@@ -474,7 +477,7 @@ patch_mfa_call_list([Offset|Offsets], BaseAddress, DestMFA, DestAddress, Address
   ?ASSERT(assert_local_patch(CallAddress)),
   patch_call_insn(CallAddress, DestAddress, Trampoline),
   patch_mfa_call_list(Offsets, BaseAddress, DestMFA, DestAddress, Addresses, RemoteOrLocal, Trampoline);
-patch_mfa_call_list([], _, _, _, _, _, _) -> [].
+patch_mfa_call_list([], _, _, _, _, _, _) -> ok.
 
 patch_call_insn(CallAddress, DestAddress, Trampoline) ->
   %% This assertion is false when we're called from redirect/2.
@@ -487,7 +490,7 @@ patch_call_insn(CallAddress, DestAddress, Trampoline) ->
 patch_all(Type, [{Dest,Offsets}|Rest], BaseAddress, ConstAndZone, Addresses)->
   patch_all_offsets(Type, Dest, Offsets, BaseAddress, ConstAndZone, Addresses),
   patch_all(Type, Rest, BaseAddress, ConstAndZone, Addresses);
-patch_all(_, [], _, _, _) -> true.
+patch_all(_, [], _, _, _) -> ok.
 
 patch_all_offsets(Type, Data, [Offset|Offsets], BaseAddress,
 		  ConstAndZone, Addresses) ->
@@ -497,7 +500,7 @@ patch_all_offsets(Type, Data, [Offset|Offsets], BaseAddress,
   patch_offset(Type, Data, Address, ConstAndZone, Addresses),
   ?debug_msg("Patching done\n",[]),
   patch_all_offsets(Type, Data, Offsets, BaseAddress, ConstAndZone, Addresses);
-patch_all_offsets(_, _, [], _, _, _) -> true.
+patch_all_offsets(_, _, [], _, _, _) -> ok.
 
 %%----------------------------------------------------------------
 %% Handle any patch type except 'call_local' or 'call_remote'.
