@@ -20,88 +20,9 @@
 
 -module(testMegaco).
 
--export([compile/3,main/2,msg11/0]).
+-export([compile/3,main/2]).
 
 -include_lib("test_server/include/test_server.hrl").
--define(MID, {ip4Address, #'IP4Address'{address = [124, 124, 124, 222],
-                                            portNumber = 55555}}).
--define(A4444, ["11111111"]).
-
--record('MegacoMessage',
-        {
-          authHeader = asn1_NOVALUE,
-          mess
-         }).
-
--record('Message',
-        {
-          version, 
-          mId, 
-          messageBody
-         }). % with extension mark
-
--record('IP4Address',
-        {
-          address,
-          portNumber = asn1_NOVALUE
-         }).
-
--record('TransactionRequest',
-        {
-          transactionId, 
-          actions = []
-         }). % with extension mark
-
--record('ActionRequest',
-        {
-          contextId, 
-          contextRequest = asn1_NOVALUE, 
-          contextAttrAuditReq = asn1_NOVALUE, 
-          commandRequests = []
-         }).
-
--record('CommandRequest',
-        {
-          command, 
-          optional = asn1_NOVALUE, 
-          wildcardReturn = asn1_NOVALUE
-         }). % with extension mark
-
--record('NotifyRequest',
-        {
-          terminationID, 
-          observedEventsDescriptor, 
-          errorDescriptor = asn1_NOVALUE
-         }). % with extension mark
-
--record('ObservedEventsDescriptor',
-        {
-          requestId, 
-          observedEventLst = []
-         }).
-
--record('ObservedEvent',
-        {
-          eventName, 
-          streamID = asn1_NOVALUE, 
-          eventParList = [], 
-          timeNotation = asn1_NOVALUE
-         }). % with extension mark
-
--record('EventParameter',
-        {
-          eventParameterName, 
-          value
-         }).
-
--record('TimeNotation',
-        {
-          date, 
-          time
-         }).
-
--record(megaco_term_id, {contains_wildcards = ["f"], id}).
-
 
 compile(_Config,ber,[optimize]) ->
     {ok,no_module,no_module};
@@ -115,7 +36,6 @@ compile(Config,Erule,Options) ->
 
 main(no_module,_) -> ok;
 main('OLD-MEDIA-GATEWAY-CONTROL',Config) ->
-%    Msg = msg11(),
     CaseDir = ?config(case_dir, Config),
     {ok,Msg} = asn1ct:value('OLD-MEDIA-GATEWAY-CONTROL','MegacoMessage',
                             [{i, CaseDir}]),
@@ -154,31 +74,3 @@ read_msg(File) ->
         _ -> 
 	    io:format("couldn't read file ~p~n",[File])
     end.
-
-
-request(Mid, TransId, ContextId, CmdReq) when is_list(CmdReq) ->
-    Actions = [#'ActionRequest'{contextId = ContextId,
-                                commandRequests = CmdReq}],
-    Req = {transactions,
-           [{transactionRequest,
-             #'TransactionRequest'{transactionId = TransId,
-                                   actions = Actions}}]},
-    #'MegacoMessage'{mess = #'Message'{version = 1,
-                                       mId = Mid,
-                                       messageBody = Req}}.
-
-msg11() ->
-    TimeStamp = #'TimeNotation'{date = "19990729",
-                                time = "22012001"},
-    Parm = #'EventParameter'{eventParameterName = "ds",
-                             value = "916135551212"},
-
-    Event = #'ObservedEvent'{eventName = "ddce",
-                             timeNotation = TimeStamp,
-                             eventParList = [Parm]},
-    Desc = #'ObservedEventsDescriptor'{requestId = 2223,
-                                       observedEventLst = [Event]},
-    NotifyReq = #'NotifyRequest'{terminationID = [#megaco_term_id{id = ?A4444}],
-                                 observedEventsDescriptor = Desc},
-    CmdReq = #'CommandRequest'{command = {notifyReq, NotifyReq}},
-    request(?MID, 10002, 0, [CmdReq]).
