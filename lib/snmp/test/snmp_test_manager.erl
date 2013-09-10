@@ -47,7 +47,8 @@
          handle_pdu/4,
          handle_trap/3,
          handle_inform/3,
-         handle_report/3
+         handle_report/3, 
+	 handle_invalid_result/3
 	]).
 
 
@@ -279,10 +280,16 @@ handle_info({snmp_inform, TargetName, Info, Pid},
 handle_info({snmp_report, TargetName, Info, Pid}, 
 	    #state{parent = P} = State) ->
     info_msg("received snmp report: "
-	      "~n   TargetName: ~p"
-	      "~n   Info:       ~p", [TargetName, Info]),
+	     "~n   TargetName: ~p"
+	     "~n   Info:       ~p", [TargetName, Info]),
     Pid ! {snmp_report_reply, ignore, self()},
     P ! {snmp_report, TargetName, Info}, 
+    {noreply, State};
+
+handle_info({snmp_invalid_result, In, Out}, State) ->
+    error_msg("Callback failure: "
+	      "~n   In:  ~p"
+	      "~n   Out: ~p", [In, Out]),
     {noreply, State};
 
 handle_info(Info, State) ->
@@ -369,7 +376,12 @@ handle_report(TargetName, SnmpInfo, Pid) ->
     after 10000 ->
 	    ignore
     end.
-    
+
+
+handle_invalid_result(In, Out, Pid) ->
+    Pid ! {snmp_invalid_result, In, Out},
+    ignore.
+
 
 %%----------------------------------------------------------------------
          

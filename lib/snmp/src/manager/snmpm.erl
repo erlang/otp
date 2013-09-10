@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -111,6 +111,12 @@
 -export([start_link/3, snmpm_start_verify/2, snmpm_start_verify/3]).
 -export([target_name/1, target_name/2]).
 
+-export_type([
+	      register_timeout/0, 
+	      agent_config/0, 
+	      target_name/0
+	     ]).
+
 
 -include_lib("snmp/src/misc/snmp_debug.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
@@ -119,6 +125,25 @@
 -include("snmp_verbosity.hrl").
 
 -define(DEFAULT_AGENT_PORT, 161).
+
+
+%%-----------------------------------------------------------------
+%% Types
+%%-----------------------------------------------------------------
+
+-type register_timeout() :: pos_integer() | snmp:snmp_timer().
+-type agent_config() :: {engine_id,        snmp:engine_id()}   | % Mandatory
+			{address,          inet:ip_address()}  | % Mandatory
+			{port,             inet:port_number()} | % Optional
+			{tdomain,          snmp:tdomain()}     | % Optional
+			{community,        snmp:community()}   | % Optional
+			{timeout,          register_timeout()} | % Optional
+			{max_message_size, snmp:mms()}         | % Optional
+			{version,          snmp:version()}     | % Optional
+			{sec_moduel,       snmp:sec_model()}   | % Optional
+			{sec_name,         snmp:sec_name()}    | % Optional
+			{sec_level,        snmp:sec_level()}.    % Optional
+-type target_name() :: string().
 
 
 %% This function is called when the snmp application

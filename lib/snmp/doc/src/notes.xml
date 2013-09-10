@@ -34,6 +34,91 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.25</title>
+    <p>Version 4.25 supports code replacement in runtime from/to
+    version 4.24.1, 4.24, 4.23.1 and 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[manager] Improved handling of unexpected return values from
+	  <seealso marker="snmpm_user">snmpm_user</seealso>
+	  callback functions. </p>
+	  <p>Violations of the documented API (crashes or invalid return 
+	  values) will now result in an error message. </p>
+          <p>Own Id: OTP-11307</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Reading the value of the vacmViewTreeFamilyMask returns 
+	  it in the wrong (internal bitlist) format. </p>
+	  <p>The vacmViewTreeFamilyMask is defined as a bit string in the MIB
+	  (OCTET STRING). Internally a bitlist (list of 1's and 0's, 
+	  see <seealso marker="snmp_agent_config_files#vacm">vacm config file</seealso>
+	  for more info) is used. 
+	  However, the MIB implementation assumed the latter, effectively
+	  rendering all attempts to read/set masks via SNMP unsuccessful. </p>
+	  <p>Since the mask is used in hot paths (e.g. access permission checks 
+	  for each SNMP operation, the bitlist representation of the mask has 
+	  benefits (e.g. faster processing). Reading/writing the view mask 
+	  objects is less time-critical. Therefore, to fix the issue, convert 
+	  between the bitlist (internal) representation and bitstring 
+	  (external) when the vacmViewTreeFamilyMask objects are accessed. </p>
+	  <p>Also, the check of the vacm config file was invalid with 
+	  regard to the mask value. It was assumed to be a proper oid, which 
+	  is not strictly the case (see bitlist above). </p>
+          <p>Own Id: OTP-11177</p>
+	  <p>Stefan Zegenhagen</p>
+        </item>
+
+        <item>
+          <p>[agent] The counter increment function in the local-db was  
+	  incorrect. It did not handle counter wrap correctly. </p>
+          <p>Own Id: OTP-11192</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[manager] The 
+	  <seealso marker="snmpm_user">snmpm_user</seealso> 
+	  callback functions are no longer allowed to "return" via
+	  exit or throw. </p>
+          <p>Own Id: OTP-11307</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 4.25 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.24.1</title>
     <p>Version 4.24.1 supports code replacement in runtime from/to
     version 4.24, 4.23.1 and 4.23. </p>

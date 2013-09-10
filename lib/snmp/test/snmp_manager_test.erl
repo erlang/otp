@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1615,10 +1615,10 @@ simple_sync_get1(Config) when is_list(Config) ->
     ok.
 
 do_simple_sync_get(Node, Addr, Port, Oids) ->
-    ?line {ok, Reply, Rem} = mgr_user_sync_get(Node, Addr, Port, Oids),
+    ?line {ok, Reply, _Rem} = mgr_user_sync_get(Node, Addr, Port, Oids),
 
     ?DBG("~n   Reply: ~p"
-	 "~n   Rem:   ~w", [Reply, Rem]),
+	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to seach 
@@ -1682,10 +1682,10 @@ do_simple_sync_get2(Config, Get, PostVerify) ->
 
 do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify) 
   when is_function(Get, 3) andalso is_function(PostVerify, 0) ->
-    ?line {ok, Reply, Rem} = Get(Node, TargetName, Oids),
+    ?line {ok, Reply, _Rem} = Get(Node, TargetName, Oids),
 
     ?DBG("~n   Reply: ~p"
-	 "~n   Rem:   ~w", [Reply, Rem]),
+	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to seach 
@@ -2061,10 +2061,10 @@ simple_sync_get_next1(Config) when is_list(Config) ->
 do_simple_get_next(N, Node, Addr, Port, Oids, Verify) ->
     p("issue get-next command ~w", [N]),
     case mgr_user_sync_get_next(Node, Addr, Port, Oids) of
-	{ok, Reply, Rem} ->
+	{ok, Reply, _Rem} ->
 	    ?DBG("get-next ok:"
 		 "~n   Reply: ~p"
-		 "~n   Rem:   ~w", [Reply, Rem]),
+		 "~n   Rem:   ~w", [Reply, _Rem]),
 	    Verify(Reply);
 
 	Error ->
@@ -2217,10 +2217,10 @@ do_simple_sync_get_next2(Config, GetNext, PostVerify)
 do_simple_get_next(N, Node, TargetName, Oids, Verify, GetNext, PostVerify) ->
     p("issue get-next command ~w", [N]),
     case GetNext(Node, TargetName, Oids) of
-	{ok, Reply, Rem} ->
+	{ok, Reply, _Rem} ->
 	    ?DBG("get-next ok:"
 		 "~n   Reply: ~p"
-		 "~n   Rem:   ~w", [Reply, Rem]),
+		 "~n   Rem:   ~w", [Reply, _Rem]),
 	    PostVerify(Verify(Reply));
 
 	Error ->
@@ -2551,10 +2551,10 @@ simple_sync_set1(Config) when is_list(Config) ->
 
 do_simple_set1(Node, Addr, Port, VAVs) ->
     [SysName, SysLoc] = value_of_vavs(VAVs),
-    ?line {ok, Reply, Rem} = mgr_user_sync_set(Node, Addr, Port, VAVs),
+    ?line {ok, Reply, _Rem} = mgr_user_sync_set(Node, Addr, Port, VAVs),
 
     ?DBG("~n   Reply: ~p"
-	 "~n   Rem:   ~w", [Reply, Rem]),
+	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to seach 
@@ -2631,10 +2631,10 @@ do_simple_sync_set2(Config, Set, PostVerify)
 
 do_simple_set2(Node, TargetName, VAVs, Set, PostVerify) ->
     [SysName, SysLoc] = value_of_vavs(VAVs),
-    ?line {ok, Reply, Rem} = Set(Node, TargetName, VAVs),
+    ?line {ok, Reply, _Rem} = Set(Node, TargetName, VAVs),
 
     ?DBG("~n   Reply: ~p"
-	 "~n   Rem:   ~w", [Reply, Rem]),
+	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to seach 
@@ -3026,10 +3026,10 @@ fl(L) ->
 do_simple_get_bulk1(N, Node, Addr, Port, NonRep, MaxRep, Oids, Verify) ->
     p("issue get-bulk command ~w", [N]),
     case mgr_user_sync_get_bulk(Node, Addr, Port, NonRep, MaxRep, Oids) of
-	{ok, Reply, Rem} ->
+	{ok, Reply, _Rem} ->
 	    ?DBG("get-bulk ok:"
 		 "~n   Reply: ~p"
-		 "~n   Rem:   ~w", [Reply, Rem]),
+		 "~n   Rem:   ~w", [Reply, _Rem]),
 	    Verify(Reply);
 
 	Error ->
@@ -3213,10 +3213,10 @@ do_simple_get_bulk2(N,
        is_function(PostVerify) ->
     p("issue get-bulk command ~w", [N]),
     case GetBulk(NonRep, MaxRep, Oids) of
-	{ok, Reply, Rem} ->
+	{ok, Reply, _Rem} ->
 	    ?DBG("get-bulk ok:"
 		 "~n   Reply: ~p"
-		 "~n   Rem:   ~w", [Reply, Rem]),
+		 "~n   Rem:   ~w", [Reply, _Rem]),
 	    PostVerify(Verify(Reply));
 
 	Error ->
@@ -5609,11 +5609,11 @@ init_mgr_user_data1(Conf) ->
 				       [{address,   Addr},
 					{port,      Port},
 					{engine_id, "agentEngine"}]),
-    Agents = mgr_user_which_own_agents(Node),
-    ?DBG("Own agents: ~p", [Agents]),
+    _Agents = mgr_user_which_own_agents(Node),
+    ?DBG("Own agents: ~p", [_Agents]),
 
-    ?line {ok, DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
-    ?DBG("Default agent config: ~n~p", [DefAgentConf]),
+    ?line {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    ?DBG("Default agent config: ~n~p", [_DefAgentConf]),
 
     ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  community, "all-rights"),
@@ -5624,8 +5624,8 @@ init_mgr_user_data1(Conf) ->
     ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  max_message_size, 1024),
 
-    ?line {ok, AgentConf} = mgr_user_agent_info(Node, TargetName, all),
-    ?DBG("Updated agent config: ~n~p", [AgentConf]),
+    ?line {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    ?DBG("Updated agent config: ~n~p", [_AgentConf]),
     Conf.
 
 init_mgr_user_data2(Conf) ->
@@ -5639,11 +5639,11 @@ init_mgr_user_data2(Conf) ->
 				       [{address,   Addr}, 
 					{port,      Port},
 					{engine_id, "agentEngine"}]),
-    Agents = mgr_user_which_own_agents(Node),
-    ?DBG("Own agents: ~p", [Agents]),
+    _Agents = mgr_user_which_own_agents(Node),
+    ?DBG("Own agents: ~p", [_Agents]),
 
-    ?line {ok, DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
-    ?DBG("Default agent config: ~n~p", [DefAgentConf]),
+    ?line {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    ?DBG("Default agent config: ~n~p", [_DefAgentConf]),
 
     ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  community, "all-rights"),
@@ -5652,8 +5652,8 @@ init_mgr_user_data2(Conf) ->
     ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  max_message_size, 1024),
 
-    ?line {ok, AgentConf} = mgr_user_agent_info(Node, TargetName, all),
-    ?DBG("Updated agent config: ~n~p", [AgentConf]),
+    ?line {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    ?DBG("Updated agent config: ~n~p", [_AgentConf]),
     Conf.
 
 fin_mgr_user_data1(Conf) ->
@@ -5853,12 +5853,12 @@ mgr_user_name_to_oid(Node, Name) ->
 
 start_manager(Node, Vsns, Config) ->
     start_manager(Node, Vsns, Config, []).
-start_manager(Node, Vsns, Conf0, Opts) ->
+start_manager(Node, Vsns, Conf0, _Opts) ->
     ?DBG("start_manager -> entry with"
 	 "~n   Node:   ~p"
 	 "~n   Vsns:   ~p"
 	 "~n   Conf0:  ~p"
-	 "~n   Opts:   ~p", [Node, Vsns, Conf0, Opts]),
+	 "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
     
     AtlDir  = ?config(manager_log_dir,  Conf0),
     ConfDir = ?config(manager_conf_dir, Conf0),
@@ -5908,12 +5908,12 @@ stop_manager(Node, Conf) ->
 
 start_agent(Node, Vsns, Config) ->
     start_agent(Node, Vsns, Config, []).
-start_agent(Node, Vsns, Conf0, Opts) ->
+start_agent(Node, Vsns, Conf0, _Opts) ->
     ?DBG("start_agent -> entry with"
 	 "~n   Node:   ~p"
 	 "~n   Vsns:   ~p"
 	 "~n   Conf0:  ~p"
-	 "~n   Opts:   ~p", [Node, Vsns, Conf0, Opts]),
+	 "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
     
     AtlDir  = ?config(agent_log_dir,  Conf0),
     ConfDir = ?config(agent_conf_dir, Conf0),

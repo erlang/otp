@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -43,7 +43,8 @@
          handle_pdu/4,
          handle_trap/3,
          handle_inform/3,
-         handle_report/3]).
+         handle_report/3, 
+	 handle_invalid_result/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -404,6 +405,10 @@ handle_inform(TargetName, SnmpInform, Server) when is_pid(Server) ->
 
 handle_report(TargetName, SnmpReport, Server) when is_pid(Server) ->
     report_callback(Server, handle_inform, {TargetName, SnmpReport}),
+    ok.
+
+handle_invalid_result(In, Out, Server) when is_pid(Server) ->
+    report_callback(Server, handle_invalid_result, {In, Out}),
     ok.
 
 report_callback(Pid, Tag, Info) ->

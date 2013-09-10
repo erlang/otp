@@ -488,7 +488,7 @@ cancel_async_request(UserId, ReqId) ->
 %% discovery(UserId, BAddr, Port, Config, Expire, ExtraInfo) ->
 %%     call({discovery, self(), UserId, BAddr, Port, Config, Expire, ExtraInfo}).
 
-    
+
 verbosity(Verbosity) ->
     case ?vvalidate(Verbosity) of
 	Verbosity ->
@@ -1851,7 +1851,17 @@ handle_snmp_error(Addr, Port, ReqId, Reason, State) ->
 handle_error(_UserId, Mod, Reason, ReqId, Data, _State) ->
     ?vtrace("handle_error -> entry when"
 	    "~n   Mod: ~p", [Mod]),
-    F = fun() -> (catch Mod:handle_error(ReqId, Reason, Data)) end,
+    F = fun() ->
+		try 
+		    begin
+			Mod:handle_error(ReqId, Reason, Data)
+		    end
+		catch
+		    T:E ->
+			CallbackArgs = [ReqId, Reason, Data], 
+			handle_invalid_result(handle_error, CallbackArgs, T, E)
+		end
+	end,
     handle_callback(F),
     ok.
 
@@ -2031,7 +2041,15 @@ handle_pdu(_UserId, Mod, target_name = _RegType, TargetName, _Addr, _Port,
     ?vtrace("handle_pdu(target_name) -> entry when"
 	    "~n   Mod: ~p", [Mod]),
     F = fun() ->
-		(catch Mod:handle_pdu(TargetName, ReqId, SnmpResponse, Data))
+		try
+		    begin
+			Mod:handle_pdu(TargetName, ReqId, SnmpResponse, Data)
+		    end
+		catch
+		    T:E ->
+			CallbackArgs = [TargetName, ReqId, SnmpResponse, Data], 
+			handle_invalid_result(handle_pdu, CallbackArgs, T, E) 
+		end
 	end,
     handle_callback(F),
     ok;
@@ -2064,8 +2082,37 @@ do_handle_agent(DefUserId, DefMod,
 		SnmpInfo, DefData, State) ->
     ?vdebug("do_handle_agent -> entry when"
 	    "~n   DefUserId: ~p", [DefUserId]),
-    case (catch DefMod:handle_agent(Addr, Port, Type, SnmpInfo, DefData)) of
-	{'EXIT', {undef, _}} when Type =:= pdu ->
+    try DefMod:handle_agent(Addr, Port, Type, SnmpInfo, DefData) of
+	{register, UserId2, TargetName, Config} ->  
+	    ?vtrace("do_handle_agent -> register: "
+		    "~n   UserId2:    ~p"
+		    "~n   TargetName: ~p"
+		    "~n   Config:     ~p", 
+		    [UserId2, TargetName, Config]),
+	    Config2 = ensure_present([{address, Addr}, {port, Port}], Config),
+	    Config3 = [{reg_type, target_name} | Config2], 
+	    case snmpm_config:register_agent(UserId2, 
+					     TargetName, Config3) of
+		ok ->
+		    ok;
+		{error, Reason} ->
+		    error_msg("failed registering agent - "
+			      "handling agent "
+			      "~p <~p,~p>: ~n~w", 
+			      [TargetName, Addr, Port, Reason]),
+		    ok
+	    end;
+	
+	ignore ->
+	    ?vdebug("do_handle_agent -> ignore", []),
+	    ok;
+
+	InvalidResult ->
+	    CallbackArgs = [Addr, Port, Type, SnmpInfo, DefData], 
+	    handle_invalid_result(handle_agent, CallbackArgs, InvalidResult) 
+
+    catch
+	error:{undef, _} when Type =:= pdu ->
 	    %% Maybe, still on the old API
 	    ?vdebug("do_handle_agent -> maybe still on the old api", []),
 	    case (catch DefMod:handle_agent(Addr, Port, SnmpInfo, DefData)) of
@@ -2113,10 +2160,10 @@ do_handle_agent(DefUserId, DefMod,
 		    ok
 	    end;
 
-	{'EXIT', {undef, _}} ->
+	error:{undef, _} ->
 	    %% If the user does not implement the new API (but the
 	    %% old), then this clause catches all non-pdu handle_agent 
-	    %% calls. These calls was previously never made,so we make 
+	    %% calls. These calls was previously never made, so we make 
 	    %% a best-effert call (using reg-type target_name) to the 
 	    %% various callback functions, and leave it to the user to
 	    %% figure out
@@ -2148,31 +2195,11 @@ do_handle_agent(DefUserId, DefMod,
 			      "regarding agent "
 			      "<~p,~p>: ~n~w", [Type, Addr, Port, SnmpInfo])
 	    end;
-
-	{register, UserId2, TargetName, Config} ->  
-	    ?vtrace("do_handle_agent -> register: "
-		    "~n   UserId2:    ~p"
-		    "~n   TargetName: ~p"
-		    "~n   Config:     ~p", 
-		    [UserId2, TargetName, Config]),
-	    Config2 = ensure_present([{address, Addr}, {port, Port}], Config),
-	    Config3 = [{reg_type, target_name} | Config2], 
-	    case snmpm_config:register_agent(UserId2, 
-					     TargetName, Config3) of
-		ok ->
-		    ok;
-		{error, Reason} ->
-		    error_msg("failed registering agent - "
-			      "handling agent "
-			      "~p <~p,~p>: ~n~w", 
-			      [TargetName, Addr, Port, Reason]),
-		    ok
-	    end;
 	
-	_Ignore ->
-	    ?vdebug("do_handle_agent -> ignore", []),
-	    ok
-
+	T:E ->
+	    CallbackArgs = [Addr, Port, Type, SnmpInfo, DefData], 
+	    handle_invalid_result(handle_agent, CallbackArgs, T, E)
+	    
     end.
 
 ensure_present([], Config) ->
@@ -2305,15 +2332,17 @@ do_handle_trap(UserId, Mod,
 	       RegType, Target, Addr, Port, SnmpTrapInfo, Data, _State) ->
     ?vdebug("do_handle_trap -> entry with"
 	    "~n   UserId: ~p", [UserId]),
-    HandleTrap = 
+    {HandleTrap, CallbackArgs} = 
 	case RegType of
 	    target_name ->
-		fun() -> Mod:handle_trap(Target, SnmpTrapInfo, Data) end;
+		{fun() -> Mod:handle_trap(Target, SnmpTrapInfo, Data) end, 
+		 [Target, SnmpTrapInfo, Data]};
 	    addr_port ->
-		fun() -> Mod:handle_trap(Addr, Port, SnmpTrapInfo, Data) end
+		{fun() -> Mod:handle_trap(Addr, Port, SnmpTrapInfo, Data) end, 
+		 [Addr, Port, SnmpTrapInfo, Data]}
 	end,
 
-    case (catch HandleTrap()) of
+    try HandleTrap() of
 	{register, UserId2, Config} -> 
 	    ?vtrace("do_handle_trap -> register: "
 		    "~n   UserId2: ~p"
@@ -2362,9 +2391,17 @@ do_handle_trap(UserId, Mod,
 			      [Addr, Port, Reason]),
 		    ok
 	    end;	    
-	_Ignore ->
+	ignore ->
 	    ?vtrace("do_handle_trap -> ignore", []),
-	    ok
+	    ok;
+
+	InvalidResult ->
+	    handle_invalid_result(handle_trap, CallbackArgs, InvalidResult)
+
+    catch
+	T:E ->
+	    handle_invalid_result(handle_trap, CallbackArgs, T, E)
+
     end.
 
 
@@ -2465,16 +2502,18 @@ do_handle_inform(UserId, Mod, Ref,
 		 RegType, Target, Addr, Port, SnmpInform, Data, State) ->
     ?vdebug("do_handle_inform -> entry with"
 	    "~n   UserId: ~p", [UserId]),
-    HandleInform = 
+    {HandleInform, CallbackArgs} = 
 	case RegType of
 	    target_name ->
-		fun() -> Mod:handle_inform(Target, SnmpInform, Data) end;
+		{fun() -> Mod:handle_inform(Target, SnmpInform, Data) end, 
+		 [Target, SnmpInform, Data]};
 	    addr_port ->
-		fun() -> Mod:handle_inform(Addr, Port, SnmpInform, Data) end
+		{fun() -> Mod:handle_inform(Addr, Port, SnmpInform, Data) end, 
+		 [Addr, Port, SnmpInform, Data]}
 	end,
 
      Rep = 
-	case (catch HandleInform()) of
+	try HandleInform() of
 	    {register, UserId2, Config} -> 
 		?vtrace("do_handle_inform -> register: "
 			"~n   UserId2: ~p"
@@ -2494,6 +2533,7 @@ do_handle_inform(UserId, Mod, Ref,
 				  [Target2, Addr, Port, Reason]),
 			reply
 		end;
+
 	    {register, UserId2, Target2, Config} -> 
 		?vtrace("do_handle_inform -> register: "
 			"~n   UserId2: ~p"
@@ -2512,6 +2552,7 @@ do_handle_inform(UserId, Mod, Ref,
 				  [Target2, Addr, Port, Reason]),
 			reply
 		end;
+
 	    unregister ->
 		?vtrace("do_handle_inform -> unregister", []),
 		case snmpm_config:unregister_agent(UserId, 
@@ -2525,12 +2566,25 @@ do_handle_inform(UserId, Mod, Ref,
 				  [Addr, Port, Reason]),
 			reply
 		end;	    
+
 	    no_reply ->
 		?vtrace("do_handle_inform -> no_reply", []),
 		no_reply;
-	    _Ignore ->
+
+	    ignore ->
 		?vtrace("do_handle_inform -> ignore", []),
+		reply;
+
+	    InvalidResult ->
+		handle_invalid_result(handle_inform, CallbackArgs, 
+				      InvalidResult), 
 		reply
+
+	catch
+	    T:E ->
+		handle_invalid_result(handle_inform, CallbackArgs, T, E), 
+		reply
+
 	end,
     handle_inform_response(Rep, Ref, Addr, Port, State),
     ok.
@@ -2760,15 +2814,17 @@ do_handle_report(UserId, Mod,
 		 RegType, Target, Addr, Port, SnmpReport, Data, _State) ->
     ?vdebug("do_handle_report -> entry with"
 	    "~n   UserId: ~p", [UserId]),
-    HandleReport = 
+    {HandleReport, CallbackArgs} = 
 	case RegType of
 	    target_name ->
-		fun() -> Mod:handle_report(Target, SnmpReport, Data) end;
+		{fun() -> Mod:handle_report(Target, SnmpReport, Data) end, 
+		 [Target, SnmpReport, Data]};
 	    addr_port ->
-		fun() -> Mod:handle_report(Addr, Port, SnmpReport, Data) end
+		{fun() -> Mod:handle_report(Addr, Port, SnmpReport, Data) end,
+		 [Addr, Port, SnmpReport, Data]}
 	end,
 
-    case (catch HandleReport()) of
+    try HandleReport() of
 	{register, UserId2, Config} -> 
 	    ?vtrace("do_handle_report -> register: "
 		    "~n   UserId2: ~p"
@@ -2788,6 +2844,7 @@ do_handle_report(UserId, Mod,
 			      [Addr, Port, Reason]),
 		    ok
 	    end;
+
 	{register, UserId2, Target2, Config} -> 
 	    ?vtrace("do_handle_report -> register: "
 		    "~n   UserId2: ~p"
@@ -2806,6 +2863,7 @@ do_handle_report(UserId, Mod,
 			      [Target2, Addr, Port, Reason]),
 		    reply
 	    end;
+
 	unregister ->
 	    ?vtrace("do_handle_trap -> unregister", []),
 	    case snmpm_config:unregister_agent(UserId, 
@@ -2819,9 +2877,20 @@ do_handle_report(UserId, Mod,
 			      [Addr, Port, Reason]),
 		    ok
 	    end;	    
-	_Ignore ->
+
+	ignore ->
 	    ?vtrace("do_handle_report -> ignore", []),
-	    ok
+	    ok;
+
+	InvalidResult ->
+	    handle_invalid_result(handle_report, CallbackArgs, InvalidResult), 
+	    reply
+
+    catch
+	T:E ->
+	    handle_invalid_result(handle_report, CallbackArgs, T, E),
+	    reply
+
     end.
 
 
@@ -2835,6 +2904,25 @@ handle_callback(F) ->
       end).
 
     
+
+handle_invalid_result(Func, Args, T, E) ->
+    Stacktrace = ?STACK(), 
+    error_msg("Callback function failed: "
+	      "~n   Function:   ~p"
+	      "~n   Args:       ~p"
+	      "~n   Error Type: ~p"
+	      "~n   Error:      ~p"
+	      "~n   Stacktrace: ~p", 
+	      [Func, Args, T, E, Stacktrace]). 
+
+handle_invalid_result(Func, Args, InvalidResult) ->
+    error_msg("Callback function returned invalid result: "
+	      "~n   Function:       ~p"
+	      "~n   Args:           ~p"
+	      "~n   Invalid result: ~p", 
+	      [Func, Args, InvalidResult]).
+
+	    
 handle_down(MonRef) ->
     (catch do_handle_down(MonRef)).
 
