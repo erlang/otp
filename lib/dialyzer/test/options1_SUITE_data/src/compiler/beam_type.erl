@@ -456,7 +456,7 @@ are_live_regs_determinable([{'%live',_}|_]) -> true;
 are_live_regs_determinable([_|Is]) -> are_live_regs_determinable(Is);
 are_live_regs_determinable([]) -> false.
 
-
+
 %%% Routines for maintaining a type database.  The type database
 %%% associates type information with registers.
 %%%

@@ -745,7 +745,7 @@ static Sint16 get_sint16(char *s)
 {
     return ((*s << 8) | ((byte*)s)[1]);
 }
-
+
 static int start_lbuf(void)
 {
     if (!lbuf && !(lbuf = ( Uint32*) driver_alloc(lbuf_size * sizeof(Uint32))))
@@ -1091,7 +1091,7 @@ static int move_cursor(int from, int to)
       move_left(-dc);
     return TRUE;
 }
-
+
 static int start_termcap(void)
 {
     int eres;
@@ -1187,7 +1187,7 @@ static int move_down(int n)
       tputs(down, 1, outc);
     return TRUE;
 }
-		    
+
 
 /*
  * Updates cols if terminal has resized (SIGWINCH). Should be called
@@ -1209,7 +1209,7 @@ static void update_cols(void)
 	cols = width;
     }
 }
-		    
+
 
 /*
  * Put a terminal device into non-canonical mode with ECHO off.

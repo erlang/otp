@@ -593,7 +593,7 @@ sub_first_match(S, {regexp,RE}) ->
 	nomatch -> nomatch
     end.
 
-
+
 %% This is the regular expression grammar used. It is equivalent to the
 %% one used in AWK, except that we allow ^ $ to be used anywhere and fail
 %% in the matching.
@@ -961,7 +961,7 @@ re_apply_or(never_match, R2) -> R2;
 re_apply_or(R1, never_match) -> R1;
 re_apply_or(nomatch, R2) -> R2;
 re_apply_or(R1, nomatch) -> R1.
-
+
 %% Record definitions for the NFA, DFA and compiler.
 
 -record(nfa_state, {no,edges=[],accept=no}).
@@ -1026,7 +1026,7 @@ parse_reas([{RegExp,A}|REAs], S) ->
 	{error,E} -> {error,E}
     end;
 parse_reas([], Stack) -> {ok,reverse(Stack)}.
-
+
 %% build_combined_nfa(RegExpActionList) -> {NFA,StartState}.
 %%  Build the combined NFA using Thompson's construction straight out
 %%  of the book. Build the separate NFAs in the same order as the
@@ -1147,7 +1147,7 @@ nfa_comp_class(Cc) ->
 comp_crs([{C1,C2}|Crs], Last) ->
     [{Last,C1-1}|comp_crs(Crs, C2+1)];
 comp_crs([], Last) -> [{Last,maxchar}].
-
+
 %% build_dfa(NFA, NfaStartState) -> {DFA,DfaStartState}.
 %%  Build a DFA from an NFA using "subset construction". The major
 %%  difference from the book is that we keep the marked and unmarked
@@ -1282,7 +1282,7 @@ accept([St|Sts], NFA) ->
 	#nfa_state{accept=no} -> accept(Sts, NFA)
     end;
 accept([], _NFA) -> no.
-
+
 %% minimise_dfa(DFA, StartState, FirstState) -> {DFA,StartState}.
 %%  Minimise the DFA by removing equivalent states. We consider a
 %%  state if both the transitions and the their accept state is the
@@ -1331,7 +1331,7 @@ pack_dfa([D|DFA], NewN, Rs, PDFA) ->
     pack_dfa(DFA, NewN+1, [{D#dfa_state.no,NewN}|Rs],
 	     [D#dfa_state{no=NewN}|PDFA]);
 pack_dfa([], _NewN, Rs, PDFA) -> {PDFA,Rs}.
-
+
 %% comp_apply(String, StartPos, DFAReg) -> {match,RestPos,Rest} | nomatch.
 %% Apply the DFA of a regular expression to a string.  If
 %%  there is a match return the position of the remaining string and

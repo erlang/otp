@@ -80,7 +80,7 @@ add_to_work_list(F, {Fs,Used}=Sets) ->
 	false -> {[F|Fs],sets:add_element(F, Used)}
     end.
 
-
+
 %%%
 %%% Coalesce adjacent labels. Renumber all labels to eliminate gaps.
 %%% This cleanup will slightly reduce file size and slightly speed up loading.

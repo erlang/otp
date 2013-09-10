@@ -1216,7 +1216,7 @@ int flags;
     return 1;
 }
 
-
+
 /*
  * is_root_unc_name - returns TRUE if the argument is a UNC name specifying
  *      a root share.  That is, if it is of the form \\server\share\.

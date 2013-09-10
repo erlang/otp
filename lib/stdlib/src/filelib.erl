@@ -248,7 +248,7 @@ ensure_dir(F) ->
 	    end
     end.
 
-
+
 %%%
 %%% Pattern matching using a compiled wildcard.
 %%%
@@ -360,7 +360,7 @@ do_alt([], _File) ->
 
 do_list_dir(Dir, Mod) ->     eval_list_dir(Dir, Mod).
 
-	    
+	    
 %%% Compiling a wildcard.
 
 %% Only for debugging.

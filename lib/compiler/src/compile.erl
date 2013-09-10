@@ -1556,7 +1556,7 @@ restore_expand_module([F|Fs]) ->
     [F|restore_expand_module(Fs)];
 restore_expand_module([]) -> [].
 
-
+
 -spec options() -> 'ok'.
 
 options() ->
@@ -1593,7 +1593,7 @@ help([_|T]) ->
 help(_) ->
     ok.
 
-
+
 %% compile(AbsFileName, Outfilename, Options)
 %%   Compile entry point for erl_compile.
 

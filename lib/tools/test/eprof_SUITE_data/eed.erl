@@ -146,7 +146,7 @@ format_error({'EXIT', {Code, {Mod, Func, Args}}}) ->
 				[{Code, {Mod, Func, length(Args)}}]));
 format_error(A) -> atom_to_list(A).
 
-
+
 
 %%% Parsing commands.
 
@@ -327,7 +327,7 @@ when 0 =< Num1, Num1 =< Num2, Num2 =< State#state.lines ->
 check_lines(_, _, _, _) ->
     error(bad_linenum).
 
-
+
 %%% Executing commands.
 
 %% ($)= - print line number
@@ -657,7 +657,7 @@ undo_command(_, _, _) ->
 write_command(_Cmd, [_First, _Last], _St) ->
     error(not_implemented).
     
-
+
 %%% Primitive buffer operations.
 
 print_current(St) ->
@@ -717,7 +717,7 @@ wrap_next_line(State) when State#state.dot == State#state.lines ->
 wrap_next_line(State) ->
     next_line(State).
 
-
+
 %%% Utilities.
 
 get_pattern(End, Cmd, State) ->

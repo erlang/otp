@@ -990,7 +990,7 @@ listing(LFun, Ext, St) ->
 	    Es = [{Lfile,[{none,compile,write_error}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
-
+
 options() ->
     help(standard_passes()).
 
@@ -1022,7 +1022,7 @@ help([_|T]) ->
 help(_) ->
     ok.
 
-
+
 %% compile(AbsFileName, Outfilename, Options)
 %%   Compile entry point for erl_compile.
 
