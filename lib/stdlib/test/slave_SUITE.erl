@@ -230,7 +230,7 @@ rsh_test(ResultTo) ->
     link(ResultTo),
     ?line {error, no_rsh} = slave:start(super, slave3).
 
-
+
 %%% Utilities.    
 
 

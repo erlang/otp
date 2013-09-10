@@ -622,7 +622,7 @@ run_test(File, Args, Options) ->
 run_test(File, Args, Options, Vars) ->
     ts_run:run(File, Args, Options, Vars).
 
-
+
 %% This module provides some convenient shortcuts to running
 %% the test server from within a started Erlang shell.
 %% (This are here for backwards compatibility.)

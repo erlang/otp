@@ -600,7 +600,7 @@ checkerror_1([], OrigIs) -> OrigIs.
 
 checkerror_2(OrigIs) -> [{set,[],[],fcheckerror}|OrigIs].
 
-
+
 %%% Routines for maintaining a type database.  The type database 
 %%% associates type information with registers.
 %%%

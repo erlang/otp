@@ -1025,7 +1025,7 @@ behaviour.")
 (defvar erlang-mode-syntax-table nil
   "Syntax table in use in Erlang-mode buffers.")
 
-
+
 
 (defvar erlang-skel-file "erlang-skels"
   "The type of erlang-skeletons that should be used, default
@@ -1272,7 +1272,7 @@ Unfortunately, XEmacs hasn't got support for a special Font
 Lock syntax table.  The effect is that `apply' in the atom
 `foo_apply' will be highlighted as a bif.")
 
-
+
 ;;; Avoid errors while compiling this file.
 
 ;; `eval-when-compile' is not defined in Emacs 18.  We define it as a
@@ -1321,7 +1321,7 @@ Lock syntax table.  The effect is that `apply' in the atom
 	(require 'tempo)
 	(require 'compile))))
 
-
+
 (defun erlang-version ()
   "Return the current version of Erlang mode."
   (interactive)
@@ -1516,7 +1516,7 @@ Other commands:
   (set (make-local-variable 'outline-level) (lambda () 1))
   (set (make-local-variable 'add-log-current-defun-function)
        'erlang-current-defun))
-
+
 (defun erlang-font-lock-init ()
   "Initialize Font Lock for Erlang mode."
   (or erlang-font-lock-syntax-table
@@ -1686,7 +1686,7 @@ plus variables, macros and records."
   (font-lock-mode 1)
   (funcall (symbol-function 'font-lock-fontify-buffer)))
 
-
+
 (defun erlang-menu-init ()
   "Init menus for Erlang mode.
 
@@ -1905,7 +1905,7 @@ Example:
 The new menu is returned.  No guarantee is given that the original
 menu is left unchanged."
   (delq entry items))
-
+
 ;; Man code:
 
 (defun erlang-man-init ()
@@ -2228,7 +2228,7 @@ For example:
 
 After installing the line, kill and restart Emacs, or restart Erlang
 mode with the command `M-x erlang-mode RET'.")))
-
+
 ;; Skeleton code:
 
 ;; This code is based on the package `tempo' which is part of modern
@@ -2349,7 +2349,7 @@ The first character of DD is space if the value is less than 10."
 	    (erlang-string-to-int (substring date 8 10))
 	    (substring date 4 7)
 	    (substring date -4))))
-
+
 ;; Indentation code:
 
 (defun erlang-indent-command (&optional whole-exp)
@@ -3132,7 +3132,7 @@ commands."
 	   (skip-chars-backward " \t")
 	   (max (if (bolp) 0 (1+ (current-column)))
 		comment-column)))))
-
+
 ;;; Erlang movement commands
 
 ;; All commands below work as movement commands.  I.e. if the point is
@@ -3336,7 +3336,7 @@ With negative argument go towards the beginning of the buffer."
       (forward-sexp 1)
       (buffer-substring start (point)))))
 
-
+
 ;;; Miscellaneous
 
 (defun erlang-fill-paragraph (&optional justify)
@@ -3445,7 +3445,7 @@ at the end."
 	(error "Can't clone argument list"))
     (insert args)
     (set-mark p)))
-
+
 ;;; Information retrieval functions.
 
 (defun erlang-buffer-substring (beg end)
@@ -3772,7 +3772,7 @@ exported function."
       (store-match-data old-match-data)
       (member (cons name arity) exports))))
 
-
+
 ;;; Check module name
 
 ;; The function `write-file', bound to C-x C-w, calls
@@ -3835,7 +3835,7 @@ This function is normally placed in the hook `local-write-file-hooks'."
   ;; Must return nil since it is added to `local-write-file-hook'.
   nil)
 
-
+
 ;;; Electric functions.
 
 (defun erlang-electric-semicolon (&optional arg)
@@ -4229,7 +4229,7 @@ This function is designed to be a member of a criteria list."
     (erlang-skip-blank)
     (looking-at "end[^_a-zA-Z0-9]")))
 
-
+
 ;; Erlang tags support which is aware of erlang modules.
 ;;
 ;; Not yet implemented under XEmacs.  (Hint:  The Emacs 19 etags
@@ -4539,7 +4539,7 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
 		(or default (error "There is no default tag"))
 	      spec)))))
 
-
+
 ;; Search tag functions which are aware of Erlang modules.  The tactic
 ;; is to store new search functions into the local variables of the
 ;; TAGS buffers.  The variables are restored directly after the
@@ -4715,7 +4715,7 @@ for a tag on the form `module:tag'."
 	     (string= mod (erlang-get-module-from-file-name
 			   (file-of-tag)))))))
 
-
+
 ;;; Tags completion, Emacs 19 `etags' specific.
 ;;;
 ;;; The basic idea is to create a second completion table `erlang-tags-
@@ -4834,7 +4834,7 @@ about Erlang modules."
 		;; Only the first one will be stored in the table.
 		(intern (concat module ":") table))))))
     table))
-
+
 ;;;
 ;;; Prepare for other methods to run an Erlang slave process.
 ;;;
@@ -4916,7 +4916,7 @@ future, a new shell on an already running host will be started."
   (call-interactively erlang-next-error-function))
 
 
-
+
 ;;;
 ;;; Erlang Shell Mode -- Major mode used for Erlang shells.
 ;;;
@@ -5052,7 +5052,7 @@ Selects Comint or Compilation mode command as appropriate."
   (define-key map "\M-\C-m"  'compile-goto-error)
   (unless inferior-erlang-use-cmm
     (define-key map "\C-x`"    'erlang-next-error)))
-
+
 ;;;
 ;;; Inferior Erlang -- Run an Erlang shell as a subprocess.
 ;;;
