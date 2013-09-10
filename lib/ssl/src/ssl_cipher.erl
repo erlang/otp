@@ -72,7 +72,7 @@ security_parameters(Version, CipherSuite, SecParams) ->
       hash_size = hash_size(Hash)}.
 
 %%--------------------------------------------------------------------
--spec cipher(cipher_enum(), #cipher_state{}, binary(), binary(), tls_version()) ->
+-spec cipher(cipher_enum(), #cipher_state{}, binary(), iolist(), tls_version()) ->
 		    {binary(), #cipher_state{}}. 
 %%
 %% Description: Encrypts the data and the MAC using chipher described

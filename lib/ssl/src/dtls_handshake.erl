@@ -87,11 +87,6 @@ hello(Address, Port,
 	    {reply, HelloVerifyRequest}
     end.
 
-address_to_bin({A,B,C,D}, Port) ->
-    <<0:80,16#ffff:16,A,B,C,D,Port:16>>;
-address_to_bin({A,B,C,D,E,F,G,H}, Port) ->
-    <<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16,Port:16>>.
-
 %%--------------------------------------------------------------------
 encode_handshake(Package, Version, MsgSeq, Mss) ->
     {MsgType, Bin} = enc_hs(Package, Version),
@@ -426,3 +421,8 @@ decode_handshake(_Version, ?HELLO_VERIFY_REQUEST, <<?BYTE(Major), ?BYTE(Minor),
        cookie = Cookie};
 decode_handshake(Version, Tag, Msg) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
+
+address_to_bin({A,B,C,D}, Port) ->
+    <<0:80,16#ffff:16,A,B,C,D,Port:16>>;
+address_to_bin({A,B,C,D,E,F,G,H}, Port) ->
+    <<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16,Port:16>>.

@@ -121,17 +121,20 @@ get_tls_records_aux(Data, Acc) ->
 	    ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)
 	end.
 
-encode_plain_text(Type, Version, Data, ConnectionStates) ->
-    #connection_states{current_write=#connection_state{
-			 compression_state=CompS0,
-			 security_parameters=
-			 #security_parameters{compression_algorithm=CompAlg}
-			}=CS0} = ConnectionStates,
+encode_plain_text(Type, Version, Data,
+		  #connection_states{current_write =
+					 #connection_state{
+					    sequence_number = Seq,
+					    compression_state=CompS0,
+					    security_parameters=
+						#security_parameters{compression_algorithm=CompAlg}
+					   }= WriteState0} = ConnectionStates) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
-    CS1 = CS0#connection_state{compression_state = CompS1},
-    {CipherFragment, CS2} = cipher(Type, Version, Comp, CS1),
-    CTBin = encode_tls_cipher_text(Type, Version, CipherFragment),
-    {CTBin, ConnectionStates#connection_states{current_write = CS2}}.
+    WriteState1 = WriteState0#connection_state{compression_state = CompS1},
+    MacHash = calc_mac_hash(Type, Version, Comp, WriteState1),
+    {CipherFragment, WriteState} = ssl_record:cipher(Version, Comp, WriteState1, MacHash),
+    CipherText = encode_tls_cipher_text(Type, Version, CipherFragment),
+    {CipherText, ConnectionStates#connection_states{current_write = WriteState#connection_state{sequence_number = Seq +1}}}.
 
 %%--------------------------------------------------------------------
 -spec decode_cipher_text(#ssl_tls{}, #connection_states{}) ->
@@ -143,19 +146,23 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 			    fragment = CipherFragment} = CipherText, ConnnectionStates0) ->
     ReadState0 = ConnnectionStates0#connection_states.current_read,
     #connection_state{compression_state = CompressionS0,
+		      sequence_number = Seq,
 		      security_parameters = SecParams} = ReadState0,
     CompressAlg = SecParams#security_parameters.compression_algorithm,
-   case decipher(Type, Version, CipherFragment, ReadState0) of
-       {PlainFragment, ReadState1} ->
-	   {Plain, CompressionS1} = ssl_record:uncompress(CompressAlg,
-							  PlainFragment, CompressionS0),
-	   ConnnectionStates = ConnnectionStates0#connection_states{
-				 current_read = ReadState1#connection_state{
-						  compression_state = CompressionS1}},
-	   {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
-       #alert{} = Alert ->
-	   Alert
-   end.
+    {PlainFragment, Mac, ReadState1} = ssl_record:decipher(Version, CipherFragment, ReadState0),
+    MacHash = calc_mac_hash(Type, Version, PlainFragment, ReadState1),
+    case ssl_record:is_correct_mac(Mac, MacHash) of
+	true ->
+	    {Plain, CompressionS1} = ssl_record:uncompress(CompressAlg,
+							   PlainFragment, CompressionS0),
+	    ConnnectionStates = ConnnectionStates0#connection_states{
+				  current_read = ReadState1#connection_state{
+						   sequence_number = Seq + 1,
+						   compression_state = CompressionS1}},
+	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
+	false ->
+	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+    end.
 
 %%--------------------------------------------------------------------
 -spec protocol_version(tls_atom_version() | tls_version()) -> 
@@ -280,39 +287,6 @@ encode_tls_cipher_text(Type, {MajVer, MinVer}, Fragment) ->
     Length = erlang:iolist_size(Fragment),
     [<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>, Fragment].
 
-cipher(Type, Version, Fragment,
-       #connection_state{cipher_state = CipherS0,
-			 sequence_number = SeqNo,
-			 security_parameters=
-			     #security_parameters{bulk_cipher_algorithm =
-						      BCA}
-			} = WriteState0) ->
-    MacHash = calc_mac_hash(Type, Version, Fragment, WriteState0),
-    {CipherFragment, CipherS1} =
-	ssl_cipher:cipher(BCA, CipherS0, MacHash, Fragment, Version),
-    WriteState = WriteState0#connection_state{cipher_state=CipherS1},
-    {CipherFragment, WriteState#connection_state{sequence_number = SeqNo+1}}.
-
-decipher(Type, Version, CipherFragment,
-	 #connection_state{sequence_number = SeqNo} = ReadState) ->
-    SP = ReadState#connection_state.security_parameters,
-    BCA = SP#security_parameters.bulk_cipher_algorithm, 
-    HashSz = SP#security_parameters.hash_size,
-    CipherS0 = ReadState#connection_state.cipher_state,
-    case ssl_cipher:decipher(BCA, HashSz, CipherS0, CipherFragment, Version) of
-	{PlainFragment, Mac, CipherS1} ->
-	    CS1 = ReadState#connection_state{cipher_state = CipherS1},
-	    MacHash = calc_mac_hash(Type, Version, PlainFragment, ReadState),
-	    case ssl_record:is_correct_mac(Mac, MacHash) of
-		true ->
-		    {PlainFragment,
-		     CS1#connection_state{sequence_number = SeqNo+1}};
-		false ->
-		    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
-	    end;
-	#alert{} = Alert ->
-	    Alert
-    end.
 
 mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 	 _Length, _Fragment) ->

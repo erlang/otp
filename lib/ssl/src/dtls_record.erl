@@ -40,8 +40,9 @@
 %% Protocol version handling
 -export([protocol_version/1, lowest_protocol_version/2,
 	 highest_protocol_version/1, supported_protocol_versions/0,
-	 is_acceptable_version/2, cipher/4, decipher/2]).
+	 is_acceptable_version/2]).
 
+%% DTLS Epoch handling
 -export([init_connection_state_seq/2, current_connection_state_epoch/2,
 	 set_connection_state_by_epoch/3, connection_state_by_epoch/3]).
 
@@ -114,35 +115,44 @@ get_dtls_records_aux(Data, Acc) ->
     end.
 
 encode_plain_text(Type, Version, Data,
-		  #connection_state{
-		     compression_state = CompS0,
-		     epoch = Epoch,
-		     sequence_number = Seq,
-		     security_parameters=
-			 #security_parameters{compression_algorithm = CompAlg}
-		    }= CS0) ->
+		  #connection_states{current_write=#connection_state{
+						      epoch = Epoch,
+						      sequence_number = Seq,
+						      compression_state=CompS0,
+						      security_parameters=
+							  #security_parameters{compression_algorithm=CompAlg}
+						     }= WriteState0} = ConnectionStates) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
-    CS1 = CS0#connection_state{compression_state = CompS1},
-    {CipherText, CS2} = cipher(Type, Version, Comp, CS1),
-    CTBin = encode_tls_cipher_text(Type, Version, Epoch, Seq, CipherText),
-    {CTBin, CS2}.
+    WriteState1 = WriteState0#connection_state{compression_state = CompS1},
+    MacHash = calc_mac_hash(WriteState1, Type, Version, Epoch, Seq, Comp),
+    {CipherFragment, WriteState} = ssl_record:cipher(Version, Comp, WriteState1, MacHash),
+    CipherText = encode_tls_cipher_text(Type, Version, Epoch, Seq, CipherFragment),
+    {CipherText, ConnectionStates#connection_states{current_write =
+							WriteState#connection_state{sequence_number = Seq +1}}}.
 
-decode_cipher_text(CipherText, ConnnectionStates0) ->
-    ReadState0 = ConnnectionStates0#connection_states.current_read,
-    #connection_state{compression_state = CompressionS0,
-		      security_parameters = SecParams} = ReadState0,
+decode_cipher_text(#ssl_tls{type = Type, version = Version,
+			    epoch = Epoch,
+			    record_seq = Seq,
+			    fragment = CipherFragment} = CipherText,
+		   #connection_states{current_read =
+					  #connection_state{compression_state = CompressionS0,
+							    security_parameters = SecParams} = ReadState0}
+		   = ConnnectionStates0) ->
     CompressAlg = SecParams#security_parameters.compression_algorithm,
-   case decipher(CipherText, ReadState0) of
-       {Compressed, ReadState1} ->
-	   {Plain, CompressionS1} = ssl_record:uncompress(CompressAlg,
-					       Compressed, CompressionS0),
-	   ConnnectionStates = ConnnectionStates0#connection_states{
-				 current_read = ReadState1#connection_state{
-						  compression_state = CompressionS1}},
-	   {Plain, ConnnectionStates};
-       #alert{} = Alert ->
-	   Alert
-   end.
+    {PlainFragment, Mac, ReadState1} = ssl_record:decipher(dtls_v1:corresponding_tls_version(Version),
+							   CipherFragment, ReadState0),
+    MacHash = calc_mac_hash(Type, Version, Epoch, Seq, PlainFragment, ReadState1),
+    case ssl_record:is_correct_mac(Mac, MacHash) of
+	true ->
+	    {Plain, CompressionS1} = ssl_record:uncompress(CompressAlg,
+							   PlainFragment, CompressionS0),
+	    ConnnectionStates = ConnnectionStates0#connection_states{
+				  current_read = ReadState1#connection_state{
+						   compression_state = CompressionS1}},
+	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
+	false ->
+	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+    end.
 
 %%--------------------------------------------------------------------
 -spec protocol_version(tls_atom_version() | tls_version()) ->
@@ -323,61 +333,12 @@ encode_tls_cipher_text(Type, {MajVer, MinVer}, Epoch, Seq, Fragment) ->
     [<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Epoch),
        ?UINT48(Seq), ?UINT16(Length)>>, Fragment].
 
-cipher(Type, Version, Fragment, CS0) ->
+calc_mac_hash(#connection_state{mac_secret = MacSecret,
+				security_parameters = #security_parameters{mac_algorithm = MacAlg}},
+	      Type, Version, Epoch, SeqNo, Fragment) ->
     Length = erlang:iolist_size(Fragment),
-    {MacHash, CS1=#connection_state{cipher_state = CipherS0,
-				    security_parameters=
-					#security_parameters{bulk_cipher_algorithm =
-								 BCA}
-				   }} =
-	hash_and_bump_seqno(CS0, Type, Version, Length, Fragment),
-    {Ciphered, CipherS1} = ssl_cipher:cipher(BCA, CipherS0, MacHash, Fragment, Version),
-    CS2 = CS1#connection_state{cipher_state=CipherS1},
-    {Ciphered, CS2}.
-
-decipher(TLS=#ssl_tls{type=Type, version=Version={254, _},
-		      epoch = Epoch, record_seq = SeqNo,
-		      fragment=Fragment}, CS0) ->
-    SP = CS0#connection_state.security_parameters,
-    BCA = SP#security_parameters.bulk_cipher_algorithm,
-    HashSz = SP#security_parameters.hash_size,
-    CipherS0 = CS0#connection_state.cipher_state,
-    case ssl_cipher:decipher(BCA, HashSz, CipherS0, Fragment, Version) of
-	{T, Mac, CipherS1} ->
-	    CS1 = CS0#connection_state{cipher_state = CipherS1},
-	    TLength = size(T),
-	    MacHash = hash_with_seqno(CS1, Type, Version, Epoch, SeqNo, TLength, T),
-	    case ssl_record:is_correct_mac(Mac, MacHash) of
-		true ->
-		    {TLS#ssl_tls{fragment = T}, CS1};
-		false ->
-		    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
-	    end;
-	#alert{} = Alert ->
-	    Alert
-    end.
-
-hash_with_seqno(#connection_state{mac_secret = MacSecret,
-				 security_parameters =
-				     SecPars},
-	       Type, Version = {254, _},
-	       Epoch, SeqNo, Length, Fragment) ->
-    mac_hash(Version,
-	     SecPars#security_parameters.mac_algorithm,
-	     MacSecret, (Epoch bsl 48) + SeqNo, Type,
+    mac_hash(Version, MacAlg, MacSecret, (Epoch bsl 48) + SeqNo, Type,
 	     Length, Fragment).
-
-hash_and_bump_seqno(#connection_state{epoch = Epoch,
-				      sequence_number = SeqNo,
-				      mac_secret = MacSecret,
-				      security_parameters =
-				      SecPars} = CS0,
-		    Type, Version = {254, _}, Length, Fragment) ->
-    Hash = mac_hash(Version,
-		    SecPars#security_parameters.mac_algorithm,
-		    MacSecret, (Epoch bsl 48) + SeqNo, Type,
-		    Length, Fragment),
-    {Hash, CS0#connection_state{sequence_number = SeqNo+1}}.
 
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
     dtls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
