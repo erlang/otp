@@ -236,7 +236,7 @@ flatlength([H|T], L) when list(H) ->
 flatlength([H|T], L) ->
     flatlength(T, L + 1);
 flatlength([], L) -> L.
-
+
 %% keymember(Key, Index, [Tuple])
 %% keysearch(Key, Index, [Tuple])
 %% keydelete(Key, Index, [Tuple])
@@ -298,7 +298,7 @@ keymap(Fun, ExtraArgs, Index, [Tup|Tail]) ->
    [setelement(Index, Tup, apply(Fun, [element(Index, Tup)|ExtraArgs]))|
     keymap(Fun, ExtraArgs, Index, Tail)];
 keymap( _, _ , _, []) -> [].
-
+
 %% all(Predicate, List)
 %% any(Predicate, List)
 %% map(Function, List)

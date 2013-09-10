@@ -367,7 +367,7 @@ compare(Got, Expected) ->
 	    ?t:fail(got_bad_data)
     end.
 
-
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 		Driver timer test suites
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -515,7 +515,7 @@ try_change_timer(Port, Timeout) ->
 	    ?line test_server:fail("driver failed to timeout")
     end.
 
-
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 		Queue test suites
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -719,7 +719,7 @@ deq(Port, Size) ->
 read_head(Port, Size) ->
     erlang:port_control(Port, ?READ_HEAD, <<Size:32>>).
 
-
+
 driver_unloaded(doc) ->
     [];
 driver_unloaded(suite) ->

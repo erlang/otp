@@ -1127,7 +1127,7 @@ new_in_all([Le|Les]) ->
     foldl(fun (L, Ns) -> intersection((core_lib:get_anno(L))#a.ns, Ns) end,
 	  (core_lib:get_anno(Le))#a.ns, Les);
 new_in_all([]) -> [].
-
+
 %% The AfterVars are the variables which are used afterwards.  We need
 %% this to work out which variables are actually exported and used
 %% from case/receive.  In subblocks/clauses the AfterVars of the block

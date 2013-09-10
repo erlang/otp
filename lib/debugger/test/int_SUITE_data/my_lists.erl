@@ -237,7 +237,7 @@ flatlength([H|T], L) when list(H) ->
 flatlength([H|T], L) ->
     flatlength(T, L + 1);
 flatlength([], L) -> L.
-
+
 %% keymember(Key, Index, [Tuple])
 %% keysearch(Key, Index, [Tuple])
 %% keydelete(Key, Index, [Tuple])
@@ -299,7 +299,7 @@ keymap(Fun, ExtraArgs, Index, [Tup|Tail]) ->
    [setelement(Index, Tup, apply(Fun, [element(Index, Tup)|ExtraArgs]))|
     keymap(Fun, ExtraArgs, Index, Tail)];
 keymap( _, _ , _, []) -> [].
-
+
 %% all(Predicate, List)
 %% any(Predicate, List)
 %% map(Function, List)
@@ -698,7 +698,7 @@ flatlength_1([H|T], L) when list(H) ->
 flatlength_1([H|T], L) ->
     flatlength_1(T, L + 1);
 flatlength_1([], L) -> L.
-
+
 %% keymember(Key, Index, [Tuple])
 %% keysearch(Key, Index, [Tuple])
 %% keydelete(Key, Index, [Tuple])
@@ -760,7 +760,7 @@ keymap_1(Fun, ExtraArgs, Index, [Tup|Tail]) ->
    [setelement(Index, Tup, apply(Fun, [element(Index, Tup)|ExtraArgs]))|
     keymap_1(Fun, ExtraArgs, Index, Tail)];
 keymap_1( _, _ , _, []) -> [].
-
+
 %% all(Predicate, List)
 %% any(Predicate, List)
 %% map(Function, List)
@@ -1162,7 +1162,7 @@ flatlength_2([H|T], L) when list(H) ->
 flatlength_2([H|T], L) ->
     flatlength_2(T, L + 1);
 flatlength_2([], L) -> L.
-
+
 %% keymember_2(Key, Index, [Tuple])
 %% keysearch_2(Key, Index, [Tuple])
 %% keydelete_2(Key, Index, [Tuple])
@@ -1224,7 +1224,7 @@ keymap_2(Fun, ExtraArgs, Index, [Tup|Tail]) ->
    [setelement(Index, Tup, apply(Fun, [element(Index, Tup)|ExtraArgs]))|
     keymap_2(Fun, ExtraArgs, Index, Tail)];
 keymap_2( _, _ , _, []) -> [].
-
+
 %% all_2(Predicate, List)
 %% any_2(Predicate, List)
 %% map_2(Function, List)
@@ -1624,7 +1624,7 @@ flatlength_3([H|T], L) when list(H) ->
 flatlength_3([H|T], L) ->
     flatlength_3(T, L + 1);
 flatlength_3([], L) -> L.
-
+
 %% keymember_3(Key, Index, [Tuple])
 %% keysearch_3(Key, Index, [Tuple])
 %% keydelete_3(Key, Index, [Tuple])
@@ -1686,7 +1686,7 @@ keymap_3(Fun, ExtraArgs, Index, [Tup|Tail]) ->
    [setelement(Index, Tup, apply(Fun, [element(Index, Tup)|ExtraArgs]))|
     keymap_3(Fun, ExtraArgs, Index, Tail)];
 keymap_3( _, _ , _, []) -> [].
-
+
 %% all_3(Predicate, List)
 %% any_3(Predicate, List)
 %% map_3(Function, List)

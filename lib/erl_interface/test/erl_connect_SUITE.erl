@@ -106,7 +106,7 @@ erl_reg_send(Config) when is_list(Config) ->
     ?line runner:recv_eot(P),
     ok.
 
-
+
 %%% Interface functions for erl_interface functions.
 
 erl_connect_init(P, Num, Cookie, Creation) ->

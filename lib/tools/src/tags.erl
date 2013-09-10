@@ -292,7 +292,7 @@ word_char(C) when C >= $0, C =< $9 -> true;
 word_char($_) -> true;
 word_char(_) -> false.
 
-
+
 %%% Output routines
 
 %% Check the options `outfile' and `outdir'.
@@ -323,7 +323,7 @@ genout(Os, Name, Entries) ->
     io:put_chars(Os, lists:reverse(Entries)).
 
 
-    
+    
 %%% help routines
 
 %% Flatten and reverse a nested list.

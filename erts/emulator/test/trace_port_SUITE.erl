@@ -648,7 +648,7 @@ fun_spawn(Fun, Opts) ->
 % 	    []
 %     end.
 
-
+
 %%% Models for various kinds of processes.
 
 %% Sends messages when ordered to.

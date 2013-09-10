@@ -655,7 +655,7 @@ sub_repl([[{St, L}] |Ss], Fun, Acc0, S, Pos) ->
         {string:substr(S, Pos+1, St-Pos) ++ Rep ++ Rs, NewAcc};
 sub_repl([], _Fun, Acc, S, Pos) -> {string:substr(S, Pos+1), Acc}.
 
-
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Error and warnings

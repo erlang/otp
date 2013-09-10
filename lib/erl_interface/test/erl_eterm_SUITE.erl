@@ -108,7 +108,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%%	1.   B a s i c    t e s t s
@@ -196,7 +196,7 @@ t_erl_free_compound(Config) when is_list(Config) ->
     ?line runner:test(?t_erl_free_compound),
     ok.
 
-
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%%	2.   C o n s t r u c t i n g   t e r m s
@@ -521,7 +521,7 @@ t_erl_cons(Config) when is_list(Config) ->
 
 
 
-
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%%	3.   E x t r a c t i n g  &   i n f o    f u n c t i o n s
@@ -669,7 +669,7 @@ t_erl_element(Config) when is_list(Config) ->
     ok.
 
 
-
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%%	4.   I / O   l i s t   f u n c t i o n s
@@ -894,7 +894,7 @@ iolist_to_string(Port, Term) ->
 	'NULL'       -> 'NULL'
     end.
 
-
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%%	5.   M i s c e l l a n o u s   T e s t s
