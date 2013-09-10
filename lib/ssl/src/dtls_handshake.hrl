@@ -27,6 +27,8 @@
 
 -include("ssl_handshake.hrl"). %% Common TLS and DTLS records and Constantes
 
+-define(HELLO_VERIFY_REQUEST, 3).
+
 -record(client_hello, {
 	  client_version,
 	  random,             
@@ -35,16 +37,22 @@
 	  cipher_suites,       % cipher_suites<2..2^16-1>
 	  compression_methods, % compression_methods<1..2^8-1>,
 	  %% Extensions
-	  renegotiation_info,
-	  hash_signs,          % supported combinations of hashes/signature algos
-	  next_protocol_negotiation = undefined % [binary()]
+	  extensions
 	 }).
 
--record(hello_verify_request  {
+-record(hello_verify_request, {
 	  protocol_version,
 	  cookie
 	 }).
 
--define(HELLO_VERIFY_REQUEST, 3).
+-record(dtls_hs_state,
+	{current_read_seq,
+	 starting_read_seq,
+	 highest_record_seq,
+	 fragments,
+	 completed
+	}).
+
+-type dtls_handshake() :: #client_hello{} | #hello_verify_request{} | ssl_handshake().
 
 -endif. % -ifdef(dtls_handshake).

@@ -22,14 +22,14 @@
 %% Purpose: Handles sslv3 encryption.
 %%----------------------------------------------------------------------
 
--module(ssl_ssl3).
+-module(ssl_v3).
 
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl"). 			% MD5 and SHA
 
 -export([master_secret/3, finished/3, certificate_verify/3,
-	 mac_hash/6, setup_keys/7, 
+	 mac_hash/6, setup_keys/7,
 	 suites/0]).
 -compile(inline).
 
@@ -40,7 +40,7 @@
 -spec master_secret(binary(), binary(), binary()) -> binary().
 
 master_secret(PremasterSecret, ClientRandom, ServerRandom) ->
-    %%  draft-ietf-tls-ssl-version3-00 - 6.2.2 
+    %%  draft-ietf-tls-ssl-version3-00 - 6.2.2
     %% key_block =
     %%   MD5(master_secret + SHA(`A' + master_secret +
     %%                           ServerHello.random +
@@ -62,7 +62,7 @@ finished(Role, MasterSecret, Handshake) ->
    %%      opaque md5_hash[16];
    %%      opaque sha_hash[20];
    %%  } Finished;
-   %% 
+   %%
    %%   md5_hash       MD5(master_secret + pad2 +
    %%                     MD5(handshake_messages + Sender +
    %%                         master_secret + pad1));
@@ -95,23 +95,23 @@ certificate_verify(sha, MasterSecret, Handshake) ->
 
     handshake_hash(?SHA, MasterSecret, undefined, Handshake).
 
--spec mac_hash(integer(), binary(), integer(), integer(), integer(), binary()) -> binary(). 
+-spec mac_hash(integer(), binary(), integer(), integer(), integer(), binary()) -> binary().
 
 mac_hash(Method, Mac_write_secret, Seq_num, Type, Length, Fragment) ->
-    %% draft-ietf-tls-ssl-version3-00 - 5.2.3.1 
+    %% draft-ietf-tls-ssl-version3-00 - 5.2.3.1
     %% hash(MAC_write_secret + pad_2 +
     %%      hash(MAC_write_secret + pad_1 + seq_num +
     %%           SSLCompressed.type + SSLCompressed.length +
     %%           SSLCompressed.fragment));
-    Mac = mac_hash(Method, Mac_write_secret, 
-		   [<<?UINT64(Seq_num), ?BYTE(Type), 
+    Mac = mac_hash(Method, Mac_write_secret,
+		   [<<?UINT64(Seq_num), ?BYTE(Type),
 		     ?UINT16(Length)>>, Fragment]),
     Mac.
 
--spec setup_keys(binary(), binary(), binary(),  
-		 integer(), integer(), term(), integer()) -> 
-			{binary(), binary(), binary(), 
-			 binary(), binary(), binary()}.  
+-spec setup_keys(binary(), binary(), binary(),
+		 integer(), integer(), term(), integer()) ->
+			{binary(), binary(), binary(),
+			 binary(), binary(), binary()}.
 
 setup_keys(MasterSecret, ServerRandom, ClientRandom, HS, KML, _EKML, IVS) ->
     KeyBlock = generate_keyblock(MasterSecret, ServerRandom, ClientRandom,
@@ -133,7 +133,7 @@ setup_keys(MasterSecret, ServerRandom, ClientRandom, HS, KML, _EKML, IVS) ->
 -spec suites() -> [cipher_suite()].
 
 suites() ->
-    [ 
+    [
       ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
       ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
       ?TLS_RSA_WITH_AES_256_CBC_SHA,
@@ -143,7 +143,7 @@ suites() ->
       ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
       ?TLS_RSA_WITH_AES_128_CBC_SHA,
-      %%?TLS_RSA_WITH_IDEA_CBC_SHA, 
+      %%?TLS_RSA_WITH_IDEA_CBC_SHA,
       ?TLS_RSA_WITH_RC4_128_SHA,
       ?TLS_RSA_WITH_RC4_128_MD5,
       ?TLS_RSA_WITH_DES_CBC_SHA

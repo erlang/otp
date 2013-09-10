@@ -32,7 +32,7 @@
 -include("ssl_alert.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([security_parameters/3, suite_definition/1,
+-export([security_parameters/2, security_parameters/3, suite_definition/1,
 	 decipher/5, cipher/5,
 	 suite/1, suites/1, anonymous_suites/0, psk_suites/1, srp_suites/0,
 	 openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
@@ -41,7 +41,17 @@
 -compile(inline).
 
 %%--------------------------------------------------------------------
--spec security_parameters(tls_version(), cipher_suite(), #security_parameters{}) ->
+-spec security_parameters(cipher_suite(), #security_parameters{}) ->
+				 #security_parameters{}.
+%% Only security_parameters/2 should call security_parameters/3 with undefined as
+%% first argument.
+%%--------------------------------------------------------------------
+
+security_parameters(?TLS_NULL_WITH_NULL_NULL = CipherSuite, SecParams) ->
+    security_parameters(undefined, CipherSuite, SecParams).
+
+%%--------------------------------------------------------------------
+-spec security_parameters(tls_version() | undefined, cipher_suite(), #security_parameters{}) ->
 				 #security_parameters{}.
 %%
 %% Description: Returns a security parameters record where the
@@ -195,9 +205,9 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 %% Description: Returns a list of supported cipher suites.
 %%--------------------------------------------------------------------
 suites({3, 0}) ->
-    ssl_ssl3:suites();
+    ssl_v3:suites();
 suites({3, N}) ->
-    ssl_tls1:suites(N).
+    tls_v1:suites(N).
 
 %%--------------------------------------------------------------------
 -spec anonymous_suites() -> [cipher_suite()].
@@ -1192,15 +1202,15 @@ hash_size(md5) ->
 hash_size(sha) ->
     20;
 %% Uncomment when adding cipher suite that needs it
-hash_size(sha224) ->
-    28;
+%hash_size(sha224) ->
+%    28;
 hash_size(sha256) ->
     32;
 hash_size(sha384) ->
-    48;
+    48.
 %% Uncomment when adding cipher suite that needs it
-hash_size(sha512) ->
-    64.
+%hash_size(sha512) ->
+%    64.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%
