@@ -1,6 +1,7 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
+  {<<"5.3\\*">>, [{restart_application, ssl}]},
   {<<"5.2\\*">>, [{restart_application, ssl}]},
   {<<"5.1\\*">>, [{restart_application, ssl}]},
   {<<"5.0\\*">>, [{restart_application, ssl}]},
@@ -8,6 +9,7 @@
   {<<"3\\.*">>, [{restart_application, ssl}]}
  ], 
  [
+  {<<"5.3\\*">>, [{restart_application, ssl}]},
   {<<"5.2\\*">>, [{restart_application, ssl}]},
   {<<"5.1\\*">>, [{restart_application, ssl}]},
   {<<"5.0\\*">>, [{restart_application, ssl}]},
