@@ -29,6 +29,18 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Connection states - RFC 4346 section 6.1
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-record(connection_state, {
+	  security_parameters,
+	  compression_state,
+	  cipher_state,
+	  mac_secret,
+	  epoch, %% Only used by DTLS
+	  sequence_number,
+	  %% RFC 5746
+	  secure_renegotiation,
+	  client_verify_data,
+	  server_verify_data
+	 }).
 
 -record(connection_states, {
 	  current_read,
@@ -56,17 +68,7 @@
           exportable				% boolean
        }). 
 
--record(connection_state, {
-	  security_parameters,
-	  compression_state,
-	  cipher_state,
-	  mac_secret,
-	  sequence_number,
-	  %% RFC 5746
-	  secure_renegotiation,
-	  client_verify_data,
-	  server_verify_data
-	 }).
+-define(INITIAL_BYTES, 5).
 
 -define(MAX_SEQENCE_NUMBER, 18446744073709552000). %% math:pow(2, 64) - 1 = 1.8446744073709552e19
 %% Sequence numbers can not wrap so when max is about to be reached we should renegotiate.

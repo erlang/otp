@@ -58,15 +58,18 @@ MODULES= \
 	ssl_connection_sup \
 	tls_handshake \
 	dtls_handshake\
+	ssl_handshake\
 	ssl_manager \
 	ssl_session \
 	ssl_session_cache \
 	ssl_socket \
 	tls_record \
 	dtls_record \
-	ssl_ssl2 \
-	ssl_ssl3 \
-	ssl_tls1 \
+	ssl_record \
+	ssl_v2 \
+	ssl_v3 \
+	tls_v1 \
+	dtls_v1 \
 	ssl_tls_dist_proxy
 
 INTERNAL_HRL_FILES = \
