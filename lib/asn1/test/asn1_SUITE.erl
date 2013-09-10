@@ -67,6 +67,7 @@ groups() ->
 
      {parallel, parallel([]),
       [cover,
+       xref,
        {group, ber},
        % Uses 'P-Record', 'Constraints', 'MEDIA-GATEWAY-CONTROL'...
        {group, [], [parse,
@@ -1269,3 +1270,17 @@ ticket7904(Config) ->
 
     {ok,_} = 'RANAPextract1':encode('InitiatingMessage', Val1),
     {ok,_} = 'RANAPextract1':encode('InitiatingMessage', Val1).
+
+xref(_Config) ->
+    xref:start(s),
+    xref:set_default(s, [{verbose,false},{warnings,false},{builtins,true}]),
+    Test = filename:dirname(code:which(?MODULE)),
+    {ok,_PMs} = xref:add_directory(s, Test),
+    UnusedExports = "X - XU - asn1_appup_test - asn1_app_test - \".*_SUITE\" : Mod",
+    case xref:q(s, UnusedExports) of
+	{ok,[]} ->
+	    ok;
+	{ok,[_|_]=Res} ->
+	    io:format("Exported, but unused: ~p\n", [Res]),
+	    ?t:fail()
+    end.
