@@ -19,7 +19,7 @@
 %%
 -module(testNBAPsystem).
 
--export([compile/2,test/2,cell_setup_req_msg/0]).
+-export([compile/2,test/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 

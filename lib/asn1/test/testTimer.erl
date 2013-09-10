@@ -18,9 +18,7 @@
 %%
 %%
 -module(testTimer).
-
--compile(export_all).
-%%-export([Function/Arity, ...]).
+-export([go/2,encode/4,decode/5]).
 
 -include_lib("test_server/include/test_server.hrl").
 
