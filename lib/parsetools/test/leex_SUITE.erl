@@ -45,7 +45,7 @@
 	 
 	 pt/1, man/1, ex/1, ex2/1, not_yet/1,
 
-         otp_10302/1, otp_11286/1]).
+         otp_10302/1, otp_11286/1, unicode/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -66,7 +66,7 @@ all() ->
 
 groups() -> 
     [{checks, [], [file, compile, syntax]},
-     {examples, [], [pt, man, ex, ex2, not_yet]},
+     {examples, [], [pt, man, ex, ex2, not_yet, unicode]},
      {tickets, [], [otp_10302, otp_11286]}].
 
 init_per_suite(Config) ->
@@ -395,6 +395,24 @@ pt(Config) when is_list(Config) ->
             "t() ->
                  {ok,[{word,1,\"sture\"},{integer,1,123}],1} =
                      string(\"abc123\"), ok. ">>,
+           default,
+           ok}],
+
+    ?line run(Config, Ts),
+    ok.
+
+unicode(suite) ->
+    [];
+unicode(Config) when is_list(Config) ->
+    Ts = [{unicode_1, 
+	   <<"%% -*- coding: utf-8 -*-\n"
+	     "Definitions.\n"
+	     "RTLarrow    = (←)\n"
+	     "Rules.\n"
+	     "{RTLarrow}  : {token,{'<-',TokenLine}}.\n"
+	     "Erlang code.\n"
+	     "-export([t/0]).\n"
+	     "t() -> {ok, [{'<-', 1}], 1} = string(\"←\"), ok.">>,
            default,
            ok}],
 
@@ -1076,7 +1094,7 @@ run_test(Config, Def, Pre) ->
     XrlFile = filename:join(DataDir, DefFile),
     ErlFile = filename:join(DataDir, Filename),
     Opts = [return, warn_unused_vars,{outdir,DataDir}],
-    ok = file:write_file(XrlFile, Def),
+    ok = file:write_file(XrlFile, Def, [{encoding, unicode}]),
     LOpts = [return, {report, false} | 
              case Pre of
                  default ->
