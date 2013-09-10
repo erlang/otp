@@ -116,8 +116,6 @@ MODULES= \
 	asn1_SUITE \
 	error_SUITE
 
-SUITE= asn1_SUITE.erl
-
 ERL_FILES= $(MODULES:%=%.erl)
 
 HRL_FILES= External.hrl
@@ -142,7 +140,7 @@ EBIN = .
 $(EMAKEFILE): $(ERL_FILES) $(HRL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) $(ERL_FILES) >$(EMAKEFILE)
 
-tests debug opt: $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2) $(EMAKEFILE)
+tests debug opt: $(EMAKEFILE)
 
 clean:
 	rm -f core
@@ -159,7 +157,7 @@ release_spec: opt
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELSYSDIR)/asn1_SUITE_data"
-	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) asn1.spec asn1.cover $(INSTALL_PROGS) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	cd asn1_SUITE_data; tar cfh "$(RELSYSDIR)/asn1_SUITE_data.tar" *
