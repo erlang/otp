@@ -967,7 +967,20 @@ testS1AP(Config, Rule, Opts) ->
 	    "S1AP-IEs",
 	    "S1AP-PDU-Contents",
 	    "S1AP-PDU-Descriptions"],
-    asn1_test_lib:compile_all(S1AP, Config, [Rule|Opts]).
+    asn1_test_lib:compile_all(S1AP, Config, [Rule|Opts]),
+
+    %% OTP-7876.
+    case Rule of
+	per ->
+	    Enc = <<0,2,64,49,0,0,5,0,0,0,4,128,106,56,197,0,8,0,3,64,2,134,0,
+		    100,64,8,0,66,240,153,0,7,192,16,0,67,64,6,0,66,240,153,70,
+		    1,0,107,64,5,0,0,0,0,0>>,
+	    {ok,{initiatingMessage,_}} = 'S1AP-PDU-Descriptions':decode('S1AP-PDU', Enc);
+	uper ->
+	    ok;
+	ber ->
+	    ok
+    end.
 
 test_compile_options(Config) ->
     ok = test_compile_options:wrong_path(Config),
@@ -1015,8 +1028,27 @@ test_x691(Config, Rule, Opts) ->
                               uper -> unaligned;
                               _ -> aligned
                           end),
-    asn1_test_lib:ticket_7708(Config, []),
-    asn1_test_lib:ticket_7763(Config).
+
+    %% OTP-7708.
+    asn1_test_lib:compile("EUTRA-extract-55", Config, [Rule|Opts]),
+
+    %% OTP-7763.
+    Val = {'Seq',15,lists:duplicate(8, 0),[0],lists:duplicate(28, 0),15,true},
+    CompactVal = {'Seq',15,{0,<<0>>},{7,<<0>>},{4,<<0,0,0,0>>},15,true},
+    {ok,Bin} = 'EUTRA-extract-55':encode('Seq', Val),
+    {ok,Bin} = 'EUTRA-extract-55':encode('Seq', CompactVal),
+
+    %% OTP-7678.
+    asn1_test_lib:compile("UPERDefault", Config, [Rule|Opts]),
+    DefVal = 'UPERDefault':seq(),
+    {ok,DefBin} = 'UPERDefault':encode('Seq', DefVal),
+    {ok,DefVal} = 'UPERDefault':decode('Seq', DefBin),
+    case Rule of
+	uper -> <<0,6,0>> = DefBin;
+	_ -> ok
+    end,
+
+    ok.
 
 ticket_6143(Config) ->
     ok = test_compile_options:ticket_6143(Config).
@@ -1162,11 +1194,66 @@ testName2Number(Config) ->
 
 ticket_7407(Config) ->
     asn1_test_lib:compile("EUTRA-extract-7407", Config, [uper]),
-    asn1_test_lib:ticket_7407_code(true),
+    ticket_7407_code(true),
+    asn1_test_lib:compile("EUTRA-extract-7407", Config, [uper,no_final_padding]),
+    ticket_7407_code(false).
 
-    asn1_test_lib:compile("EUTRA-extract-7407", Config,
-                          [uper, no_final_padding]),
-    asn1_test_lib:ticket_7407_code(false).
+ticket_7407_code(FinalPadding) ->
+    Msg1 = {Type1,_} = eutra1(msg),
+    {ok,B1} = 'EUTRA-extract-7407':encode(Type1, Msg1),
+    B1 = eutra1(result, FinalPadding),
+
+    Msg2 = {Type2,_} = eutra2(msg),
+    {ok,B2} = 'EUTRA-extract-7407':encode(Type2, Msg2),
+    B2 = eutra2(result, FinalPadding),
+    ok.
+
+eutra1(msg) ->
+    {'BCCH-BCH-Message',
+     {'MasterInformationBlock',[0,1,0,1],[1,0,1,0],
+      {'PHICH-Configuration',short,ffs},[1,0,1,0,0,0,0,0]}}.
+
+eutra1(result, true) ->
+    <<90,80,0>>;
+eutra1(result, false) ->
+    <<90,80,0:1>>.
+
+eutra2(msg) ->
+    {'BCCH-DL-SCH-Message',
+     {c1,
+      {systemInformation1,
+       {'SystemInformationBlockType1',
+	{'SystemInformationBlockType1_cellAccessRelatedInformation',
+	 [{'SystemInformationBlockType1_cellAccessRelatedInformation_plmn-IdentityList_SEQOF',
+	   {'PLMN-Identity'},true},
+	  {'SystemInformationBlockType1_cellAccessRelatedInformation_plmn-IdentityList_SEQOF',
+	   {'PLMN-Identity'},false},
+	  {'SystemInformationBlockType1_cellAccessRelatedInformation_plmn-IdentityList_SEQOF',
+	   {'PLMN-Identity'},true}],
+	 {'TrackingAreaCode'},
+	 {'CellIdentity'},
+	 false,
+	 true,
+	 true,
+	 true
+	},
+	{'SystemInformationBlockType1_cellSelectionInfo',-50},
+	24,
+	[{'SystemInformationBlockType1_schedulinInformation_SEQOF',
+	  {'SystemInformationBlockType1_schedulinInformation_SEQOF_si-MessageType'},
+	  ms320,
+	  {'SystemInformationBlockType1_schedulinInformation_SEQOF_sib-MappingInfo'}}],
+	0
+       }
+      }
+     }
+    }.
+
+eutra2(result, true) ->
+%% 55 5C A5 E0
+    <<85,92,165,224>>;
+eutra2(result, false) ->
+    <<85,92,165,14:4>>.
 
 -record('InitiatingMessage',{procedureCode,criticality,value}).
 -record('Iu-ReleaseCommand',{first,second}).
