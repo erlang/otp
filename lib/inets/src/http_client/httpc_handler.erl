@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,7 +32,7 @@
          start_link/4,
          %% connect_and_send/2,
          send/2,
-         cancel/3,
+         cancel/2,
          stream_next/1,
          info/1
         ]).
@@ -117,8 +117,8 @@ send(Request, Pid) ->
 %% Description: Cancels a request. Intended to be called by the httpc
 %% manager process.
 %%--------------------------------------------------------------------
-cancel(RequestId, Pid, From) ->
-    cast({cancel, RequestId, From}, Pid).
+cancel(RequestId, Pid) ->
+    cast({cancel, RequestId}, Pid).
 
 
 %%--------------------------------------------------------------------
@@ -400,19 +400,17 @@ handle_call(info, _, State) ->
 %% handle_keep_alive_queue/2 on the other hand will just skip the
 %% request as if it was never issued as in this case the request will
 %% not have been sent. 
-handle_cast({cancel, RequestId, From},
+handle_cast({cancel, RequestId},
             #state{request      = #request{id = RequestId} = Request,
                    profile_name = ProfileName,
                    canceled     = Canceled} = State) ->
     ?hcrv("cancel current request", [{request_id, RequestId}, 
                                      {profile,    ProfileName},
                                      {canceled,   Canceled}]),
-    httpc_manager:request_canceled(RequestId, ProfileName, From),
-    ?hcrv("canceled", []),
     {stop, normal, 
      State#state{canceled = [RequestId | Canceled],
                  request  = Request#request{from = answer_sent}}};
-handle_cast({cancel, RequestId, From},
+handle_cast({cancel, RequestId},
             #state{profile_name = ProfileName,
                    request      = #request{id = CurrId},
                    canceled     = Canceled} = State) ->
@@ -420,8 +418,6 @@ handle_cast({cancel, RequestId, From},
                      {curr_req_id, CurrId},
                      {profile, ProfileName},
                      {canceled,   Canceled}]),
-    httpc_manager:request_canceled(RequestId, ProfileName, From),
-    ?hcrv("canceled", []),
     {noreply, State#state{canceled = [RequestId | Canceled]}};
 
 handle_cast(stream_next, #state{session = Session} = State) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2014. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -208,15 +208,7 @@ cancel_request(RequestId) ->
 cancel_request(RequestId, Profile) 
   when is_atom(Profile) orelse is_pid(Profile) ->
     ?hcrt("cancel request", [{request_id, RequestId}, {profile, Profile}]),
-    ok = httpc_manager:cancel_request(RequestId, profile_name(Profile)), 
-    receive  
-	%% If the request was already fulfilled throw away the 
-	%% answer as the request has been canceled.
-	{http, {RequestId, _}} ->
-	    ok 
-    after 0 ->
-	    ok
-    end.
+    httpc_manager:cancel_request(RequestId, profile_name(Profile)).
 
 
 %%--------------------------------------------------------------------------
