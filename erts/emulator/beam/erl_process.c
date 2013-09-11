@@ -7237,7 +7237,7 @@ erts_sched_stat_modify(int what)
 	break;
     case ERTS_SCHED_STAT_MODIFY_DISABLE:
 	erts_smp_thr_progress_block();
-	erts_sched_stat.enabled = 1;
+	erts_sched_stat.enabled = 0;
 	erts_smp_thr_progress_unblock();
 	break;
     case ERTS_SCHED_STAT_MODIFY_CLEAR:
