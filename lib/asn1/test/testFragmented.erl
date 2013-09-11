@@ -37,6 +37,4 @@ main(_Erule) ->
     ok.
 
 roundtrip(T, V) ->
-    {ok,E} = 'Fragmented':encode(T, V),
-    {ok,V} = 'Fragmented':decode(T, E),
-    ok.
+    asn1_test_lib:roundtrip('Fragmented', T, V).

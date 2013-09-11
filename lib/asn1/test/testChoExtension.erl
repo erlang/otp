@@ -51,6 +51,4 @@ extension(_Rules) ->
 
 
 roundtrip(Type, Value) ->
-    {ok,Encoded} = 'ChoExtension':encode(Type, Value),
-    {ok,Value} = 'ChoExtension':decode(Type, Encoded),
-    ok.
+    asn1_test_lib:roundtrip('ChoExtension', Type, Value).

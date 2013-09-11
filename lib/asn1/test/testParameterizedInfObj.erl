@@ -93,9 +93,7 @@ param(Erule) ->
     ok.
 
 roundtrip(T, V) ->
-    {ok,Enc} = 'Param':encode(T, V),
-    {ok,V} = 'Param':decode(T, Enc),
-    ok.
+    asn1_test_lib:roundtrip('Param', T, V).
 
 
 ranap(_Erule) ->    
@@ -160,6 +158,4 @@ param2(Config, Erule) ->
 
 
 roundtrip2(T, V) ->
-    {ok,Enc} = asn1_wrapper:encode('Param2', T, V),
-    {ok,V} = asn1_wrapper:decode('Param2', T, Enc),
-    Enc.
+    asn1_test_lib:roundtrip_enc('Param2', T, V).

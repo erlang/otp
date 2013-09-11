@@ -77,9 +77,7 @@ common(Erule) ->
     ok.
 
 roundtrip(Type, Value) ->
-    {ok,Encoded} = 'EnumExt':encode(Type, Value),
-    {ok,Value} = 'EnumExt':decode(Type, Encoded),
-    Encoded.
+    asn1_test_lib:roundtrip_enc('EnumExt', Type, Value).
 
 v_roundtrip(Erule, Type, Value) ->
     Encoded = roundtrip(Type, Value),

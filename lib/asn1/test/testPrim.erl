@@ -134,9 +134,7 @@ null(_Rules) ->
     ok.
 
 roundtrip(T, V) ->
-    {ok,E} = 'Prim':encode(T, V),
-    {ok,V} = 'Prim':decode(T, E),
-    E.
+    asn1_test_lib:roundtrip_enc('Prim', T, V).
 
 real(_Rules) ->
     %%==========================================================

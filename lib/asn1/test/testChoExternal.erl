@@ -45,6 +45,4 @@ external(_Rules) ->
     ok.
 
 roundtrip(Type, Value) ->
-    {ok,Encoded} = 'ChoExternal':encode(Type, Value),
-    {ok,Value} = 'ChoExternal':decode(Type, Encoded),
-    ok.
+    asn1_test_lib:roundtrip('ChoExternal', Type, Value).

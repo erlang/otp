@@ -216,14 +216,10 @@ roundtrip(Type, Value) ->
     roundtrip('Constraints', Type, Value).
 
 roundtrip(Module, Type, Value) ->
-    {ok,Encoded} = Module:encode(Type, Value),
-    {ok,Value} = Module:decode(Type, Encoded),
-    Encoded.
+    asn1_test_lib:roundtrip_enc(Module, Type, Value).
 
 roundtrip_enc(Type, Value, Enc) ->
-    Module = 'Constraints',
-    {ok,Encoded} = Module:encode(Type, Value),
-    {ok,Value} = Module:decode(Type, Encoded),
+    Encoded = asn1_test_lib:roundtrip_enc('Constraints', Type, Value),
     case Enc of
 	none -> ok;
 	Encoded -> ok

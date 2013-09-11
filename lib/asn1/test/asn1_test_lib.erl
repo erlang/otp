@@ -19,10 +19,9 @@
 %%
 -module(asn1_test_lib).
 
--export([compile/3]).
--export([compile_all/3]).
--export([compile_erlang/3]).
--export([hex_to_bin/1]).
+-export([compile/3,compile_all/3,compile_erlang/3,
+	 hex_to_bin/1,
+	 roundtrip/3,roundtrip/4,roundtrip_enc/3,roundtrip_enc/4]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -53,6 +52,22 @@ compile_erlang(Mod, Config, Options) ->
 
 hex_to_bin(S) ->
     << <<(hex2num(C)):4>> || C <- S, C =/= $\s >>.
+
+roundtrip(Mod, Type, Value) ->
+    roundtrip(Mod, Type, Value, Value).
+
+roundtrip(Mod, Type, Value, ExpectedValue) ->
+    {ok,Encoded} = Mod:encode(Type, Value),
+    {ok,ExpectedValue} = Mod:decode(Type, Encoded),
+    ok.
+
+roundtrip_enc(Mod, Type, Value) ->
+    roundtrip_enc(Mod, Type, Value, Value).
+
+roundtrip_enc(Mod, Type, Value, ExpectedValue) ->
+    {ok,Encoded} = Mod:encode(Type, Value),
+    {ok,ExpectedValue} = Mod:decode(Type, Encoded),
+    Encoded.
 
 %%%
 %%% Internal functions.
