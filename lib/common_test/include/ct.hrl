@@ -32,3 +32,7 @@
 -define(STD_VERBOSITY, 50 ).
 -define(HI_VERBOSITY,  75 ).
 -define(MAX_VERBOSITY, 100).
+
+%% name of process executing the CT Hook init and terminate function
+-define(CT_HOOK_INIT_PROCESS, ct_util_server).
+-define(CT_HOOK_TERMINATE_PROCESS, ct_util_server).

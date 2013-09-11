@@ -21,7 +21,7 @@
 
     </legalnotice>
 
-    <title>Running Tests</title>
+    <title>Running Tests and Analyzing Results</title>
     <prepared>Peter Andersson, Kenneth Lundin</prepared>
     <docno></docno>
     <date></date>
@@ -1087,18 +1087,18 @@
       </list>
       
       <p>On the test run index page there is a link to the Common Test
-	Framework log file in which information about imported
-	configuration data and general test progress is written. This
-	log file is useful to get snapshot information about the test
-	run during execution. It can also be very helpful when
-	analyzing test results or debugging test suites.</p>
+        Framework Log file in which information about imported
+        configuration data and general test progress is written. This
+        log file is useful to get snapshot information about the test
+        run during execution. It can also be very helpful when
+        analyzing test results or debugging test suites.</p>
 
       <p>On the test run index page it is noted if a test has missing
         suites (i.e. suites that Common Test has failed to
         compile). Names of the missing suites can be found in the
-        Common Test Framework log file.</p>
+        Common Test Framework Log file.</p>
 
-      <p>The major logfile shows a detailed report of the test run. It
+      <p>The major log file shows a detailed report of the test run. It
         includes test suite and test case names, execution time, the 
 	exact reason for failures etc. The information is available in both
 	a file with textual and with HTML representation. The HTML file shows a 
@@ -1171,6 +1171,40 @@
 	    uses the <url href="http://jquery.com">jQuery</url> library and the
 	    <url href="http://tablesorter.com">tablesorter</url> plugin, with customized sorting
 	    functions, for this implementation.</p>
+	</section>
+
+	<section>
+	  <title>The Unexpected I/O Log</title>
+	  <p>On the test suites overview page you find a link to the Unexpected I/O Log.
+	  In this log, Common Test saves printouts made with
+	  <c>ct:log/2</c> and <c>ct:pal/2</c>, as well as captured system error- and
+	  progress reports, that cannot be associated with particular test cases and
+	  therefore cannot be written to individual test case log files. This happens e.g.
+	  if a log printout is made from an external process (not a test case process),
+	  or if an error- or progress report comes in, during a short interval while Common
+	  Test is not executing a test case or configuration function, <em>or</em> while
+	  Common Test is currently executing a parallell test case group.</p>
+	</section>
+
+	<section>
+	  <marker id="pre_post_test_io_log"></marker>
+	  <title>The Pre- and Post Test I/O Log</title>
+	  <p>On the Common Test Framework Log page you find links to the so called
+	  Pre- and Post Test I/O Log. In this log, Common Test saves printouts made with
+	  <c>ct:log/2</c> and <c>ct:pal/2</c>, as well as captured system error-
+	  and progress reports, that take place before - and after - the actual test run.
+	  Examples of this are printouts from a CT hook init- or terminate function, or
+	  progress reports generated when an OTP application is started from a CT hook
+	  init function. Another example is an error report generated due to
+	  a failure when an external application is stopped from a CT hook terminate function.
+	  All information in these examples ends up in the Pre- and Post Test I/O Log.
+	  For more information on how to synchronize test runs with external user
+	  applications, please see the
+	  <seealso marker="ct_hooks_chapter#synchronizing">Synchronizing</seealso>
+	  section in the Common Test Hooks chapter.</p>
+	  <p>Note that logging to file with <c>ct:log/2</c> or <c>ct:pal/2</c>
+	  only works when Common Test is running. Printouts with <c>ct:pal/2</c>
+	  are however always displayed on screen.</p>
 	</section>
       </section>
   
