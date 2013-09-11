@@ -521,19 +521,12 @@ handle_info({Proto, _Socket, Data},
                 activate_once(Session),
                 {noreply, State#state{mfa = NewMFA}}
         catch
-            exit:_Exit ->
-                ?hcrd("data processing exit", [{exit, _Exit}]),
+            _:_Reason ->
+                ?hcrd("data processing exit", [{exit, _Reason}]),
                 ClientReason = {could_not_parse_as_http, Data}, 
                 ClientErrMsg = httpc_response:error(Request, ClientReason),
                 NewState     = answer_request(Request, ClientErrMsg, State),
-                {stop, normal, NewState};
-            error:_Error ->    
-                ?hcrd("data processing error", [{error, _Error}]),
-                ClientReason = {could_not_parse_as_http, Data}, 
-                ClientErrMsg = httpc_response:error(Request, ClientReason),
-                NewState     = answer_request(Request, ClientErrMsg, State),   
                 {stop, normal, NewState}
-        
         end,
     ?hcri("data processed", [{final_result, FinalResult}]),
     FinalResult;
