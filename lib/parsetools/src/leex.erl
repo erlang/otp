@@ -436,7 +436,7 @@ parse_defs(_, {eof,L}, St) ->
 parse_defs(Ifile, {ok,Chars,L}=Line, Ms, St) ->
     %% This little beauty matches out a macro definition, RE's are so clear.
     MS = "^[ \t]*([A-Z_][A-Za-z0-9_]*)[ \t]*=[ \t]*([^ \t\r\n]*)[ \t\r\n]*\$",
-    case re:run(Chars, MS, [{capture,all_but_first,list}]) of
+    case re:run(Chars, MS, [{capture,all_but_first,list},unicode]) of
         {match,[Name,Def]} ->
             %%io:fwrite("~p = ~p\n", [Name,Def]),
             parse_defs(Ifile, nextline(Ifile, L, St), [{Name,Def}|Ms], St);
@@ -491,7 +491,7 @@ parse_rules_end(_, NextLine, REAs, As, St) ->
 
 collect_rule(Ifile, Chars, L0) ->
     %% Erlang strings are 1 based, but re 0 :-(
-    {match,[{St0,Len}|_]} = re:run(Chars, "[^ \t\r\n]+"),
+    {match,[{St0,Len}|_]} = re:run(Chars, "[^ \t\r\n]+", [unicode]),
     St = St0 + 1,
     %%io:fwrite("RE = ~p~n", [substr(Chars, St, Len)]),
     case collect_action(Ifile, substr(Chars, St+Len), L0, []) of
@@ -548,7 +548,7 @@ var_used(Name, Toks) ->
 %% here as it uses info in replace string (&).
 
 parse_rule_regexp(RE0, [{M,Exp}|Ms], St) ->
-    Split= re:split(RE0, "\\{" ++ M ++ "\\}", [{return,list}]),
+    Split= re:split(RE0, "\\{" ++ M ++ "\\}", [{return,list},unicode]),
     RE1 = string:join(Split, Exp),
     parse_rule_regexp(RE1, Ms, St);
 parse_rule_regexp(RE, [], St) ->
