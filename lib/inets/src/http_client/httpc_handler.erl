@@ -1124,7 +1124,7 @@ handle_http_body(Body, #state{headers       = Headers,
 
 handle_response(#state{status = new} = State) ->
     ?hcrd("handle response - status = new", []),
-    handle_response(try_to_enable_pipeline_or_keep_alive(State));
+    handle_response(check_persistent(State));
 
 handle_response(#state{request      = Request,
 		       status       = Status,
@@ -1399,39 +1399,22 @@ is_keep_alive_enabled_server(_,_) ->
 is_keep_alive_connection(Headers, #session{client_close = ClientClose}) ->
     (not ((ClientClose) orelse httpc_response:is_server_closing(Headers))).
 
-try_to_enable_pipeline_or_keep_alive(
-  #state{session      = Session, 
-	 request      = #request{method = Method},
+check_persistent(
+  #state{session      = #session{type = Type} = Session,
 	 status_line  = {Version, _, _},
 	 headers      = Headers,
 	 profile_name = ProfileName} = State) ->
-    ?hcrd("try to enable pipeline or keep-alive", 
-	  [{version, Version}, 
-	   {headers, Headers}, 
-	   {session, Session}]),
     case is_keep_alive_enabled_server(Version, Headers) andalso 
-	  is_keep_alive_connection(Headers, Session) of
+	is_keep_alive_connection(Headers, Session) of
 	true ->
-	    case (is_pipeline_enabled_client(Session) andalso 
-		  httpc_request:is_idempotent(Method)) of
-		true ->
-		    insert_session(Session, ProfileName),
-		    State#state{status = pipeline};
-		false ->
-		    insert_session(Session, ProfileName),
-		    %% Make sure type is keep_alive in session
-		    %% as it in this case might be pipeline
-		    NewSession = Session#session{type = keep_alive}, 
-		    State#state{status  = keep_alive,
-				session = NewSession}
-	    end;
+	    mark_persistent(ProfileName, Session),
+	    State#state{status = Type};
 	false ->
 	    State#state{status = close}
     end.
 
 answer_request(#request{id = RequestId, from = From} = Request, Msg, 
-	       #state{session      = Session, 
-		      timers       = Timers, 
+	       #state{timers       = Timers,
 		      profile_name = ProfileName} = State) -> 
     ?hcrt("answer request", [{request, Request}, {msg, Msg}]),
     httpc_response:send(From, Msg),
@@ -1441,19 +1424,14 @@ answer_request(#request{id = RequestId, from = From} = Request, Msg,
     Timer = {RequestId, TimerRef},
     cancel_timer(TimerRef, {timeout, Request#request.id}),
     httpc_manager:request_done(RequestId, ProfileName),
-    NewSession = maybe_make_session_available(ProfileName, Session), 
     Timers2 = Timers#timers{request_timers = lists:delete(Timer, 
 							  RequestTimers)}, 
     State#state{request = Request#request{from = answer_sent},
-		session = NewSession, 
 		timers  = Timers2}.
 
-maybe_make_session_available(ProfileName, 
-			     #session{available = false} = Session) ->
-    update_session(ProfileName, Session, #session.available, true),
-    Session#session{available = true};
-maybe_make_session_available(_ProfileName, Session) ->
-    Session.
+mark_persistent(ProfileName, Session) ->
+    update_session(ProfileName, Session, #session.persistent, true),
+    Session#session{persistent = true}.
     
 cancel_timers(#timers{request_timers = ReqTmrs, queue_timer = QTmr}) ->
     cancel_timer(QTmr, timeout_queue),
