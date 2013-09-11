@@ -199,6 +199,7 @@ static char* outbuf_in;
 
 #ifndef HAVE_SYSLOG_H
 #    define OPEN_SYSLOG() ((void) 0)
+#    define LOG_ERR NULL
 #else
 #    define OPEN_SYSLOG() openlog(simple_basename(program_name),   \
                                   LOG_PID|LOG_CONS|LOG_NOWAIT,LOG_USER)
