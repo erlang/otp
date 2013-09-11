@@ -60,7 +60,7 @@
 #include <dirent.h>
 #include <termios.h>
 #include <time.h>
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
 #  include <syslog.h>
 #endif
 #ifdef HAVE_PTY_H
@@ -197,7 +197,7 @@ static char* outbuf_in;
 #endif
 
 
-#ifdef NO_SYSLOG
+#ifndef HAVE_SYSLOG_H
 #    define OPEN_SYSLOG() ((void) 0)
 #else
 #    define OPEN_SYSLOG() openlog(simple_basename(program_name),   \
@@ -415,7 +415,7 @@ int main(int argc, char **argv)
     }
 #endif
 
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
     /* Before fiddling with file descriptors we make sure syslog is turned off
        or "closed". In the single case where we might want it again, 
        we will open it again instead. Would not want syslog to
@@ -1163,7 +1163,7 @@ static void error_logf(int priority, int line, const char *format, ...)
     va_list args;
     va_start(args, format);
 
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
     if (run_daemon) {
 	vsyslog(priority,format,args);
     }

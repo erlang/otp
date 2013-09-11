@@ -82,7 +82,6 @@
 #define NO_ERF
 #define NO_ERFC
 
-#define NO_SYSLOG
 #define NO_SYSCONF
 #define NO_DAEMON
 #define NO_PWD
