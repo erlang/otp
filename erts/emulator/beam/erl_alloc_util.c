@@ -76,14 +76,14 @@ static int initialized = 0;
 
 int erts_have_sbmbc_alloc;
 
-#if HAVE_ERTS_MSEG
+#if ERTS_SA_MB_CARRIERS
 
-#define MSEG_UNIT_SHIFT         MSEG_ALIGN_BITS
-#define MSEG_UNIT_SZ            (1 << MSEG_UNIT_SHIFT)
-#define MSEG_UNIT_MASK		((~(UWord)0) << MSEG_UNIT_SHIFT)
+#define ERTS_SACRR_UNIT_SHIFT		ERTS_SUPER_ALIGN_BITS
+#define ERTS_SACRR_UNIT_SZ		(1 << ERTS_SACRR_UNIT_SHIFT)
+#define ERTS_SACRR_UNIT_MASK		((~(UWord)0) << ERTS_SACRR_UNIT_SHIFT)
 
-#define MSEG_UNIT_FLOOR(X)	((X) & MSEG_UNIT_MASK)
-#define MSEG_UNIT_CEILING(X)	MSEG_UNIT_FLOOR((X) + ~MSEG_UNIT_MASK)
+#define ERTS_SACRR_UNIT_FLOOR(X)	((X) & ERTS_SACRR_UNIT_MASK)
+#define ERTS_SACRR_UNIT_CEILING(X)	ERTS_SACRR_UNIT_FLOOR((X) + ~ERTS_SACRR_UNIT_MASK)
 
 #endif
 
@@ -208,9 +208,9 @@ MBC after deallocating first block:
 
 #if MBC_ABLK_OFFSET_BITS
 
-#  define MBC_SZ_MAX_LIMIT ((((UWord)1 << MBC_ABLK_OFFSET_BITS) - 1) << MSEG_ALIGN_BITS)
+#  define MBC_SZ_MAX_LIMIT ((((UWord)1 << MBC_ABLK_OFFSET_BITS) - 1) << ERTS_SUPER_ALIGN_BITS)
 
-#  define BLK_CARRIER_OFFSET(B, C) (((char*)(B) - (char*)(C)) >> MSEG_UNIT_SHIFT)
+#  define BLK_CARRIER_OFFSET(B, C) (((char*)(B) - (char*)(C)) >> ERTS_SACRR_UNIT_SHIFT)
 
 #  define SET_MBC_ABLK_HDR(B, Sz, F, C) \
     (ASSERT(((Sz) & ~MBC_ABLK_SZ_MASK) == 0), \
@@ -225,8 +225,8 @@ MBC after deallocating first block:
 
 #  define ABLK_TO_MBC(B) \
     (ASSERT(IS_MBC_BLK(B) && IS_ALLOCED_BLK(B)), \
-     (Carrier_t*)((MSEG_UNIT_FLOOR((UWord)(B)) - \
-		  (((B)->bhdr >> MBC_ABLK_OFFSET_SHIFT) << MSEG_UNIT_SHIFT))))
+     (Carrier_t*)((ERTS_SACRR_UNIT_FLOOR((UWord)(B)) - \
+		  (((B)->bhdr >> MBC_ABLK_OFFSET_SHIFT) << ERTS_SACRR_UNIT_SHIFT))))
 
 #  define FBLK_TO_MBC(B) \
     (ASSERT(IS_MBC_BLK(B) && IS_FREE_BLK(B)), \
@@ -235,7 +235,7 @@ MBC after deallocating first block:
 #  define BLK_TO_MBC(B) (IS_FREE_BLK(B) ? FBLK_TO_MBC(B) : ABLK_TO_MBC(B))
 
 #  define IS_MBC_FIRST_ABLK(AP,B) \
-  ((((UWord)(B) & ~MSEG_UNIT_MASK) == MBC_HEADER_SIZE(AP)) \
+  ((((UWord)(B) & ~ERTS_SACRR_UNIT_MASK) == MBC_HEADER_SIZE(AP)) \
    && ((B)->bhdr & MBC_ABLK_OFFSET_MASK) == 0)
 
 #  define IS_MBC_FIRST_FBLK(AP,B) \
@@ -652,11 +652,15 @@ alcu_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
 #endif
 
 static ERTS_INLINE void *
-alcu_sys_alloc(Allctr_t *allctr, Uint size)
+alcu_sys_alloc(Allctr_t *allctr, Uint size, int superalign)
 {
     void *res;
-
-    res = erts_sys_alloc(0, NULL, size);
+#if ERTS_SA_MB_CARRIERS && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
+    if (superalign)
+	res = erts_sys_aligned_alloc(ERTS_SACRR_UNIT_SZ, size);
+    else
+#endif
+	res = erts_sys_alloc(0, NULL, size);
     INC_CC(allctr->calls.sys_alloc);
     if (erts_mtrace_enabled)
 	erts_mtrace_crr_alloc(res, allctr->alloc_no, ERTS_ALC_A_SYSTEM, size);
@@ -664,11 +668,16 @@ alcu_sys_alloc(Allctr_t *allctr, Uint size)
 }
 
 static ERTS_INLINE void *
-alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint size)
+alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint size, Uint old_size, int superalign)
 {
     void *res;
 
-    res = erts_sys_realloc(0, NULL, ptr, size);
+#if ERTS_SA_MB_CARRIERS && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
+    if (superalign)
+	res = erts_sys_aligned_realloc(ERTS_SACRR_UNIT_SZ, ptr, size, old_size);
+    else
+#endif
+	res = erts_sys_realloc(0, NULL, ptr, size);
     INC_CC(allctr->calls.sys_realloc);
     if (erts_mtrace_enabled)
 	erts_mtrace_crr_realloc(res,
@@ -680,9 +689,14 @@ alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint size)
 }
 
 static ERTS_INLINE void
-alcu_sys_free(Allctr_t *allctr, void *ptr)
+alcu_sys_free(Allctr_t *allctr, void *ptr, int superalign)
 {
-    erts_sys_free(0, NULL, ptr);
+#if ERTS_SA_MB_CARRIERS && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
+    if (superalign)
+	erts_sys_aligned_free(ERTS_SACRR_UNIT_SZ, ptr);
+    else
+#endif
+	erts_sys_free(0, NULL, ptr);
     INC_CC(allctr->calls.sys_free);
     if (erts_mtrace_enabled)
 	erts_mtrace_crr_free(allctr->alloc_no, ERTS_ALC_A_SYSTEM, ptr);
@@ -1321,7 +1335,7 @@ mbc_alloc_block(Allctr_t *allctr, Uint size, Uint *blk_szp, Uint32 *alcu_flgsp)
 	    blk = create_sbmbc(allctr, get_blk_sz);
 	else {
 	    blk = create_carrier(allctr, get_blk_sz, CFLG_MBC);
-#if !HALFWORD_HEAP && !HAVE_SUPER_ALIGNED_MB_CARRIERS
+#if !HALFWORD_HEAP && !ERTS_SUPER_ALIGNED_MSEG_ONLY
 	    if (!blk) {
 		/* Emergency! We couldn't create the carrier as we wanted.
 		   Try to place it in a sys_alloced sbc. */
@@ -1927,10 +1941,10 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 
 #ifdef DEBUG
 
-#if HAVE_ERTS_MSEG
-#define ASSERT_MSEG_UNIT_SIZE_MULTIPLE(CSZ) ASSERT((CSZ) % MSEG_UNIT_SZ == 0)
+#if ERTS_SA_MB_CARRIERS
+#define ASSERT_ERTS_SACRR_UNIT_SIZE_MULTIPLE(CSZ) ASSERT((CSZ) % ERTS_SACRR_UNIT_SZ == 0)
 #else
-#define ASSERT_MSEG_UNIT_SIZE_MULTIPLE(CSZ)
+#define ASSERT_ERTS_SACRR_UNIT_SIZE_MULTIPLE(CSZ)
 #endif
 
 static void CHECK_1BLK_CARRIER(Allctr_t* A, int SBC, int MSEGED, Carrier_t* C,
@@ -1955,7 +1969,7 @@ static void CHECK_1BLK_CARRIER(Allctr_t* A, int SBC, int MSEGED, Carrier_t* C,
     }
     if ((MSEGED)) {
 	ASSERT(IS_MSEG_CARRIER((C)));
-	ASSERT_MSEG_UNIT_SIZE_MULTIPLE((CSZ));
+	ASSERT_ERTS_SACRR_UNIT_SIZE_MULTIPLE((CSZ));
     }
     else {
 	ASSERT(IS_SYS_ALLOC_CARRIER((C)));
@@ -2058,7 +2072,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 
 #if HALFWORD_HEAP
     flags |= CFLG_FORCE_MSEG;
-#elif HAVE_SUPER_ALIGNED_MB_CARRIERS
+#elif ERTS_SUPER_ALIGNED_MSEG_ONLY
     if (flags & CFLG_MBC) {
 	flags |= CFLG_FORCE_MSEG;
     }
@@ -2083,7 +2097,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	if (allctr->sbcs.curr.norm.mseg.no >= allctr->max_mseg_sbcs)
 	    goto try_sys_alloc;
     }
-#if !HAVE_SUPER_ALIGNED_MB_CARRIERS
+#if !ERTS_SUPER_ALIGNED_MSEG_ONLY
     else {
 	if (allctr->mbcs.curr.norm.mseg.no >= allctr->max_mseg_mbcs)
 	    goto try_sys_alloc;
@@ -2146,12 +2160,12 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	      ? UNIT_CEILING(bcrr_sz)
 	      : SYS_ALLOC_CARRIER_CEILING(bcrr_sz));
 
-    crr = (Carrier_t *) alcu_sys_alloc(allctr, crr_sz);
+    crr = (Carrier_t *) alcu_sys_alloc(allctr, crr_sz, flags & CFLG_MBC);
 	
     if (!crr) {
 	if (crr_sz > UNIT_CEILING(bcrr_sz)) {
 	    crr_sz = UNIT_CEILING(bcrr_sz);
-	    crr = (Carrier_t *) alcu_sys_alloc(allctr, crr_sz);
+	    crr = (Carrier_t *) alcu_sys_alloc(allctr, crr_sz, flags & CFLG_MBC);
 	}
 	if (!crr) {
 #if HAVE_ERTS_MSEG
@@ -2245,7 +2259,7 @@ resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
 	if (!(flags & CFLG_FORCE_SYS_ALLOC)) {
 
 	    new_crr_sz = new_blk_sz + SBC_HEADER_SIZE;
-	    new_crr_sz = MSEG_UNIT_CEILING(new_crr_sz);
+	    new_crr_sz = ERTS_SACRR_UNIT_CEILING(new_crr_sz);
 	    new_crr = (Carrier_t *) alcu_mseg_realloc(allctr,
 						      old_crr,
 						      old_crr_sz,
@@ -2295,7 +2309,9 @@ resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
 
 	    new_crr = (Carrier_t *) alcu_sys_realloc(allctr,
 						     (void *) old_crr,
-						     new_crr_sz);
+						     new_crr_sz,
+						     old_crr_sz,
+						     0);
 	    if (new_crr) {
 	    sys_realloc_success:
 		SET_CARRIER_SZ(new_crr, new_crr_sz);
@@ -2314,7 +2330,9 @@ resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
 		new_crr_sz = UNIT_CEILING(new_crr_sz);
 		new_crr = (Carrier_t *) alcu_sys_realloc(allctr,
 							 (void *) old_crr,
-							 new_crr_sz);
+							 new_crr_sz,
+							 old_crr_sz,
+							 0);
 		if (new_crr)
 		    goto sys_realloc_success;
 	    }
@@ -2333,7 +2351,7 @@ resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
 		       (void *) BLK2UMEM(old_blk),
 		       MIN(new_blk_sz, old_blk_sz) - ABLK_HDR_SZ);
 	    unlink_carrier(&allctr->sbc_list, old_crr);
-	    alcu_sys_free(allctr, old_crr);
+	    alcu_sys_free(allctr, old_crr, 0);
 	}
 	else {
 	    /* Old carrier unchanged; restore... */
@@ -2350,6 +2368,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk)
 {
     Uint crr_sz;
     Carrier_t *crr;
+    int is_mbc;
 #if HAVE_ERTS_MSEG
     Uint is_mseg = 0;
     Uint mseg_flags = ERTS_MSEG_FLG_NONE;
@@ -2357,6 +2376,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk)
 
     if (IS_SBC_BLK(blk)) {
 	Uint blk_sz = SBC_BLK_SZ(blk);
+	is_mbc = 0;
 	crr = BLK_TO_SBC(blk);
 	crr_sz = CARRIER_SZ(crr);
 
@@ -2367,7 +2387,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk)
 #if HAVE_ERTS_MSEG
 	if (IS_MSEG_CARRIER(crr)) {
 	    is_mseg++;
-	    ASSERT(crr_sz % MSEG_UNIT_SZ == 0);
+	    ASSERT(crr_sz % ERTS_SACRR_UNIT_SZ == 0);
 	    STAT_MSEG_SBC_FREE(allctr, crr_sz, blk_sz);
 	}
 	else
@@ -2378,6 +2398,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk)
 
     }
     else {
+	is_mbc = 1;
 	ASSERT(IS_MBC_FIRST_FBLK(allctr, blk));
 	crr = FIRST_BLK_TO_MBC(allctr, blk);
 	crr_sz = CARRIER_SZ(crr);
@@ -2397,7 +2418,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk)
 #if HAVE_ERTS_MSEG
 	if (IS_MSEG_CARRIER(crr)) {
 	    is_mseg++;
-	    ASSERT(crr_sz % MSEG_UNIT_SZ == 0);
+	    ASSERT(crr_sz % ERTS_SACRR_UNIT_SZ == 0);
 	    STAT_MSEG_MBC_FREE(allctr, crr_sz);
 	    mseg_flags = ERTS_MSEG_FLG_2POW;
 	}
@@ -2417,7 +2438,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk)
     }
     else
 #endif
-	alcu_sys_free(allctr, crr);
+	alcu_sys_free(allctr, crr, is_mbc);
 }
 
 
@@ -3833,7 +3854,7 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 		crr_sz = SYS_ALLOC_CARRIER_CEILING(used_sz);
 #if HAVE_ERTS_MSEG
 	    else
-		crr_sz = MSEG_UNIT_CEILING(used_sz);
+		crr_sz = ERTS_SACRR_UNIT_CEILING(used_sz);
 #endif
 	    diff_sz_val = crr_sz - used_sz;
 	    if (diff_sz_val < (~((Uint) 0) / 100))
@@ -4175,7 +4196,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     allctr->mbc_move_threshold		= init->rmbcmt;
 #if HAVE_ERTS_MSEG
     allctr->max_mseg_sbcs		= init->mmsbc;
-# if HAVE_SUPER_ALIGNED_MB_CARRIERS
+# if ERTS_SUPER_ALIGNED_MSEG_ONLY
     allctr->max_mseg_mbcs		= ~(Uint)0;
 # else
     allctr->max_mseg_mbcs		= init->mmmbc;
@@ -4300,7 +4321,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 			     allctr->main_carrier_size,
 			     CFLG_MBC
 			     | CFLG_FORCE_SIZE
-#if !HALFWORD_HEAP && !HAVE_SUPER_ALIGNED_MB_CARRIERS
+#if !HALFWORD_HEAP && !ERTS_SUPER_ALIGNED_MSEG_ONLY
 			     | CFLG_FORCE_SYS_ALLOC
 #endif
 			     | CFLG_MAIN_CARRIER);
@@ -4369,9 +4390,9 @@ erts_alcu_init(AlcUInit_t *init)
 {
     ASSERT(SBC_BLK_SZ_MASK == MBC_FBLK_SZ_MASK); /* see BLK_SZ */
 #if HAVE_ERTS_MSEG
-    ASSERT(erts_mseg_unit_size() == MSEG_UNIT_SZ);
+    ASSERT(erts_mseg_unit_size() == ERTS_SACRR_UNIT_SZ);
     max_mseg_carriers = init->mmc;
-    sys_alloc_carrier_size = MSEG_UNIT_CEILING(init->ycs);
+    sys_alloc_carrier_size = ERTS_SACRR_UNIT_CEILING(init->ycs);
 #else /* #if HAVE_ERTS_MSEG */
     sys_alloc_carrier_size = ((init->ycs + 4095) / 4096) * 4096;
 #endif
@@ -4493,7 +4514,7 @@ check_blk_carrier(Allctr_t *allctr, Block_t *iblk)
 	ASSERT(CARRIER_SZ(sbc) - SBC_HEADER_SIZE >= SBC_BLK_SZ(iblk));
 #if HAVE_ERTS_MSEG
 	if (IS_MSEG_CARRIER(sbc)) {
-	    ASSERT(CARRIER_SZ(sbc) % MSEG_UNIT_SZ == 0);
+	    ASSERT(CARRIER_SZ(sbc) % ERTS_SACRR_UNIT_SZ == 0);
 	}
 #endif
 	crr = sbc;
@@ -4578,7 +4599,7 @@ check_blk_carrier(Allctr_t *allctr, Block_t *iblk)
 
 #if HAVE_ERTS_MSEG
 	if (IS_MSEG_CARRIER(crr)) {
-	    ASSERT(CARRIER_SZ(crr) % MSEG_UNIT_SZ == 0);
+	    ASSERT(CARRIER_SZ(crr) % ERTS_SACRR_UNIT_SZ == 0);
 	}
 #endif
 	cl = &allctr->mbc_list;

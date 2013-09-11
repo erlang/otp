@@ -76,7 +76,7 @@ typedef struct {
 
 #define ERTS_DEFAULT_ALCU_INIT {                                           \
     1024*1024,		/* (bytes)  ycs:    sys_alloc carrier size       */\
-    1024      		/* (amount) mmc:    max mseg carriers            */\
+    ~((UWord) 0)	/* (amount) mmc:    max mseg carriers            */ \
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
@@ -96,7 +96,7 @@ typedef struct {
     50,			/* (%)      rmbcmt: rel mbc move threshold       */\
     1024*1024,		/* (bytes)  mmbcs:  main multiblock carrier size */\
     256,		/* (amount) mmsbc:  max mseg sbcs                */\
-    10,			/* (amount) mmmbc:  max mseg mbcs                */\
+    ~((UWord) 0),	/* (amount) mmmbc:  max mseg mbcs                */ \
     10*1024*1024,	/* (bytes)  lmbcs:  largest mbc size             */\
     1024*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
@@ -130,7 +130,7 @@ typedef struct {
     80,			/* (%)      rsbcmt: rel sbc move threshold       */\
     128*1024,		/* (bytes)  mmbcs:  main multiblock carrier size */\
     256,		/* (amount) mmsbc:  max mseg sbcs                */\
-    10,			/* (amount) mmmbc:  max mseg mbcs                */\
+    ~((UWord) 0),	/* (amount) mmmbc:  max mseg mbcs                */ \
     1024*1024,		/* (bytes)  lmbcs:  largest mbc size             */\
     128*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
@@ -221,17 +221,28 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #define MBC_FBLK_SZ_MASK        UNIT_MASK
 #define CARRIER_SZ_MASK         UNIT_MASK
 
-
-#if HAVE_ERTS_MSEG
+#if ERTS_HAVE_MSEG_SUPER_ALIGNED \
+    || (!HAVE_ERTS_MSEG && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC)
+#  ifndef MSEG_ALIGN_BITS
+#    define ERTS_SUPER_ALIGN_BITS MSEG_ALIGN_BITS
+#  else
+#    define ERTS_SUPER_ALIGN_BITS 18
+#  endif
 #  ifdef ARCH_64 
 #    define MBC_ABLK_OFFSET_BITS   24
-#  elif HAVE_SUPER_ALIGNED_MB_CARRIERS
+#  else
 #    define MBC_ABLK_OFFSET_BITS   9
      /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
 #  endif
-#endif
-#ifndef MBC_ABLK_OFFSET_BITS
+#  define ERTS_SA_MB_CARRIERS 1
+#else
+#  define ERTS_SA_MB_CARRIERS 0
 #  define MBC_ABLK_OFFSET_BITS   0 /* no carrier offset in block header */
+#endif
+#if ERTS_HAVE_MSEG_SUPER_ALIGNED && !ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
+#  define ERTS_SUPER_ALIGNED_MSEG_ONLY 1
+#else
+#  define ERTS_SUPER_ALIGNED_MSEG_ONLY 0
 #endif
 
 #if MBC_ABLK_OFFSET_BITS

@@ -1012,6 +1012,9 @@ void erl_bin_write(unsigned char *, int, int);
 #define ERTS_SMALL_ABS(Small) labs(Small) 
 #endif
 
+#ifndef ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
+#  define ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC 0
+#endif
 
 #ifdef __WIN32__
 void call_break_handler(void);
