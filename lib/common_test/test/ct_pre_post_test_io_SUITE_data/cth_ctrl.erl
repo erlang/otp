@@ -21,6 +21,8 @@
 -export([proceed/0,
 	 init/2, terminate/1]).
 
+-include_lib("common_test/include/ct.hrl").
+
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -39,12 +41,12 @@ init(_Id, _Opts) ->
 	    ok
     end,
     WhoAmI = self(),
+    WhoAmI = whereis(?CT_HOOK_INIT_PROCESS),
     DispPid = spawn_link(fun() -> dispatcher(WhoAmI) end),
     register(?MODULE, DispPid),
-    io:format(user,
-	      "~n~n+++ Startup of ~w on ~p finished, "
-	      "call ~w:proceed() to run tests...~n",
-	      [?MODULE,node(),?MODULE]),
+    ct:pal("~n~n+++ Startup of ~w on ~p finished, "
+	   "call ~w:proceed() to run tests...~n",
+	   [?MODULE,node(),?MODULE]),
     start_external_logger(cth_logger),
     receive
 	{?MODULE,proceed} -> ok
@@ -55,9 +57,10 @@ init(_Id, _Opts) ->
     {ok,[],ct_last}.
 
 terminate(_State) ->
-    io:format(user,
-	      "~n~n+++ Tests finished, call ~w:proceed() to shut down...~n",
-	      [?MODULE]),
+    WhoAmI = whereis(?CT_HOOK_TERMINATE_PROCESS),
+    WhoAmI = self(),
+    ct:pal("~n~n+++ Tests finished, call ~w:proceed() to shut down...~n",
+	   [?MODULE]),
     receive
 	{?MODULE,proceed} -> ok
     after

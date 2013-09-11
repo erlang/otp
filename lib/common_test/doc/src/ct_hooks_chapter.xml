@@ -322,6 +322,34 @@ post_end_per_testcase(_TC, Config, Return, CTHState) -&gt;
 
   </section>
 
+  <marker id="synchronizing"/>
+  <section>
+    <title>Synchronizing external user applications with Common Test</title>
+    <p>CTHs can be used to synchronize test runs with external user applications.
+    The init function may e.g. start and/or communicate with an application that
+    has the purpose of preparing the SUT for an upcoming test run, or maybe
+    initialize a database for saving test data to during the test run. The
+    terminate function may similarly order such an application to reset the SUT
+    after the test run, and/or tell the application to finish active sessions
+    and terminate.
+    Any system error- or progress reports generated during the init- or
+    termination stage will be saved in the 
+    <seealso marker="run_test_chapter#pre_post_test_io_log">Pre-
+    and post test I/O log</seealso>. (This is also true for any printouts made
+    with <c>ct:log/2</c> and <c>ct:pal/2</c>).</p>
+    <p>In order to ensure that Common Test doesn't start executing tests, or
+    closes its log files and shuts down, before the external application
+    is ready for it, Common Test may be synchronized with the application. 
+    During startup and shutdown, Common Test can be suspended, simply by
+    having a CTH evaluate a <c>receive</c> expression in the init- or terminate
+    function. The macros <c>?CT_HOOK_INIT_PROCESS</c> (the process executing the hook
+    init function) and <c>?CT_HOOK_TERMINATE_PROCESS</c> (the process executing
+    the hook terminate function), each specifies the name of the correct Common Test
+    process to send a message to in order to return from the <c>receive</c>.
+    These macros are defined in <c>ct.hrl</c>.
+    </p>
+  </section>
+
   <marker id="example"/>
   <section>
      <title>Example CTH</title>
