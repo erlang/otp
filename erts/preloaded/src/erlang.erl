@@ -2891,22 +2891,23 @@ integer_to_binary(I, Base)
   when erlang:is_integer(I), erlang:is_integer(Base),
        Base >= 2, Base =< 1+$Z-$A+10 ->
     if I < 0 ->
-	    <<"$-",(integer_to_binary(-I, Base, []))/binary>>;
+	    <<$-,(integer_to_binary(-I, Base, <<>>))/binary>>;
        true ->
 	    integer_to_binary(I, Base, <<>>)
     end;
 integer_to_binary(I, Base) ->
     erlang:error(badarg, [I, Base]).
 
-integer_to_binary(0, _Base, R0) ->
-    R0;
 integer_to_binary(I0, Base, R0) ->
     D = I0 rem Base,
     I1 = I0 div Base,
-    if D >= 10 ->
-	    integer_to_binary(I1,Base,<<(D-10+$A),R0/binary>>);
-       true ->
-	    integer_to_binary(I1,Base,<<(D+$0),R0/binary>>)
+    R1 = if
+             D >= 10 -> <<(D-10+$A),R0/binary>>;
+             true -> <<(D+$0),R0/binary>>
+         end,
+    if
+        I1 =:= 0 -> R1;
+        true -> integer_to_binary(I1, Base, R1)
     end.
 
 %% erlang:flush_monitor_message/2 is for internal use only!

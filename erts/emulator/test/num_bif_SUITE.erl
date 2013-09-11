@@ -350,11 +350,33 @@ t_integer_to_string(Config) when is_list(Config) ->
 			      (catch erlang:integer_to_list(Value))
 		  end,[atom,1.2,0.0,[$1,[$2]]]),
 
+    %% Base-2 integers
+    test_its("0", 0, 2),
+    test_its("1", 1, 2),
+    test_its("110110", 54, 2),
+    test_its("-1000000", -64, 2),
+    %% Base-16 integers
+    test_its("0", 0, 16),
+    test_its("A", 10, 16),
+    test_its("D4BE", 54462, 16),
+    test_its("-D4BE", -54462, 16),
+
+    lists:foreach(fun(Value) ->
+			  {'EXIT', {badarg, _}} =
+			      (catch erlang:integer_to_binary(Value, 8)),
+			  {'EXIT', {badarg, _}} =
+			      (catch erlang:integer_to_list(Value, 8))
+		  end,[atom,1.2,0.0,[$1,[$2]]]),
+
     ok.
 
 test_its(List,Int) ->
     Int = list_to_integer(List),
     Int = binary_to_integer(list_to_binary(List)).
+
+test_its(List,Int,Base) ->
+    Int = list_to_integer(List, Base),
+    Int = binary_to_integer(list_to_binary(List), Base).
 
 %% Tests binary_to_integer/1.
 
