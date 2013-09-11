@@ -208,16 +208,8 @@ cancel_request(RequestId) ->
 cancel_request(RequestId, Profile) 
   when is_atom(Profile) orelse is_pid(Profile) ->
     ?hcrt("cancel request", [{request_id, RequestId}, {profile, Profile}]),
-    ok = httpc_manager:cancel_request(RequestId, profile_name(Profile)), 
-    receive  
-	%% If the request was already fulfilled throw away the 
-	%% answer as the request has been canceled.
-	{http, {RequestId, _}} ->
-	    ok 
-    after 0 ->
-	    ok
-    end.
-
+    httpc_manager:cancel_request(RequestId, profile_name(Profile)).
+   
 
 %%--------------------------------------------------------------------------
 %% set_options(Options) -> ok | {error, Reason}
