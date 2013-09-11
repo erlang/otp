@@ -483,6 +483,19 @@ indent_fun() ->
 			Y = true andalso
 			    kalle
 		end),
+    %% check EEP37 named funs
+    Fn1 = fun Fact(N) when N > 0 ->
+		  F = Fact(N-1),
+		  N * F;
+	      Fact(0) ->
+		  1
+	  end,
+    %% check anonymous funs too
+    Fn2 = fun(0) ->
+		  1;
+	     (N) ->
+		  N
+	  end,
     ok.
 
 indent_try_catch() ->
