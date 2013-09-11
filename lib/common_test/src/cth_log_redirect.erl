@@ -135,8 +135,19 @@ handle_event(Event, #eh_state{log_func = LogFunc} = State) ->
     end,
     {ok, State}.
 
+handle_info({'EXIT',User,killed}, State) ->
+    case whereis(user) of
+	%% init:stop/1/2 has been called, let's finish!
+	undefined ->
+	    remove_handler;
+	User ->
+	    remove_handler;
+	_ ->
+	    {ok,State}
+    end;
 
-handle_info(_,State) -> {ok, State}.
+handle_info(_, State) -> 
+    {ok,State}.
 
 handle_call(flush,State) ->
     {ok, ok, State};
