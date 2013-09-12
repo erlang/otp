@@ -760,20 +760,21 @@ node_test({name, {_Tag, Prefix, Local}},
 node_test({name, {Tag,_Prefix,_Local}}, 
 	  #xmlNode{node = #xmlAttribute{name = Tag}}, _Context) -> 
     true;
-node_test({name, {_Tag, Prefix, Local}}, 
-	  #xmlNode{node = #xmlAttribute{expanded_name = {URI, Local},
-					nsinfo = {_Prefix1, _},
-					namespace = NS}}, _Context) -> 
-    NSNodes = NS#xmlNamespace.nodes,
-    case lists:keysearch(Prefix, 1, NSNodes) of
-	{value, {_, URI}} ->
-	    ?dbg("node_test(~, ~p) -> true.~n", 
-		 [{_Tag, Prefix, Local}, write_node(NSNodes)]),
-	    true;
-	false ->
-	    ?dbg("node_test(~, ~p) -> false.~n", 
-		 [{_Tag, Prefix, Local}, write_node(NSNodes)]),
-	    false
+node_test({name, {Tag, Prefix, Local}},
+          #xmlNode{node = #xmlAttribute{name = Name,
+                                        expanded_name = EExpName
+                                       }}, Context) ->
+    case expanded_name(Prefix, Local, Context) of
+        [] ->
+            Res = (Tag == Name),
+            ?dbg("node_test(~p, ~p) -> ~p.~n",
+                 [{Tag, Prefix, Local}, write_node(Name), Res]),
+            Res;
+        ExpName ->
+            Res = (ExpName == EExpName),
+            ?dbg("node_test(~p, ~p) -> ~p.~n",
+                 [{Tag, Prefix, Local}, write_node(Name), Res]),
+            Res
     end;
 node_test({name, {_Tag, [], Local}},
 	  #xmlNode{node = #xmlNsNode{prefix = Local}}, _Context) ->
