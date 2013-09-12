@@ -881,12 +881,12 @@ rbt_delete(RBTree* tree, RBTNode* del)
 
 
 static void
-rbt_insert(enum SortOrder order, RBTree* tree, RBTNode* node)
+rbt_insert(RBTree* tree, RBTNode* node)
 {
 #ifdef RBT_DEBUG
     ErtsFreeSegDesc *dbg_under=NULL, *dbg_over=NULL;
 #endif
-    ErtsFreeSegDesc* desc = node_to_desc(order, node);
+    ErtsFreeSegDesc* desc = node_to_desc(tree->order, node);
     char* seg_addr = desc->start;
     SWord seg_sz = desc->end - desc->start;
 
@@ -902,9 +902,9 @@ rbt_insert(enum SortOrder order, RBTree* tree, RBTNode* node)
     else {
 	RBTNode *x = tree->root;
 	while (1) {
-	    SWord diff = cmp_with_node(order, seg_sz, seg_addr, x);
+	    SWord diff = cmp_with_node(tree->order, seg_sz, seg_addr, x);
 	    if (diff < 0) {
-                IF_RBT_DEBUG(dbg_over = node_to_desc(order, x));
+                IF_RBT_DEBUG(dbg_over = node_to_desc(tree->order, x));
 		if (!x->left) {
 		    node->parent_and_color = parent_and_color(x, RED_FLG);
 		    x->left = node;
@@ -914,7 +914,7 @@ rbt_insert(enum SortOrder order, RBTree* tree, RBTNode* node)
 	    }
 	    else {
                 RBT_ASSERT(diff > 0);
-                IF_RBT_DEBUG(dbg_under = node_to_desc(order, x));
+                IF_RBT_DEBUG(dbg_under = node_to_desc(tree->order, x));
                 if (!x->right) {
                     node->parent_and_color = parent_and_color(x, RED_FLG);
                     x->right = node;
@@ -926,7 +926,7 @@ rbt_insert(enum SortOrder order, RBTree* tree, RBTNode* node)
 
 	RBT_ASSERT(parent(node));
 #ifdef RBT_DEBUG
-        if (order == ADDR_ORDER) {
+        if (tree->order == ADDR_ORDER) {
             RBT_ASSERT(!dbg_under || dbg_under->end < desc->start);
             RBT_ASSERT(!dbg_over || dbg_over->start > desc->end);
         }
@@ -1130,8 +1130,8 @@ static void insert_free_seg(ErtsFreeSegMap* map, ErtsFreeSegDesc* desc,
 {
     desc->start = start;
     desc->end = end;
-    rbt_insert(map->atree.order, &map->atree, &desc->anode);
-    rbt_insert(map->stree.order, &map->stree, &desc->snode);
+    rbt_insert(&map->atree, &desc->anode);
+    rbt_insert(&map->stree, &desc->snode);
     map->nseg++;
 }
 
@@ -1151,7 +1151,7 @@ static void resize_free_seg(ErtsFreeSegMap* map, ErtsFreeSegDesc* desc,
     rbt_delete(&map->stree, &desc->snode);
     desc->start = start;
     desc->end = end;
-    rbt_insert(map->stree.order, &map->stree, &desc->snode);
+    rbt_insert(&map->stree, &desc->snode);
 }
 
 /* Delete existing free segment 'desc' from 'map'.
