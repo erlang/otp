@@ -160,7 +160,7 @@
   <p>
     For convenience, the following types are also built-in. 
     They can be thought as predefined aliases for the type unions also shown in 
-    the table. (Some type unions below slightly abuse the syntax of types.)
+    the table.
   </p>
   <table>
     <row>
@@ -170,10 +170,10 @@
       <cell><c>term()</c></cell><cell><c>any()</c></cell>
     </row>
     <row>
-      <cell><c>binary()</c></cell><cell><c>&lt;&lt;_:*8&gt;&gt;</c></cell>
+      <cell><c>binary()</c></cell><cell><c>&lt;&lt;_:_*8&gt;&gt;</c></cell>
     </row>
     <row>
-      <cell><c>bitstring()</c></cell><cell><c>&lt;&lt;_:*1&gt;&gt;</c></cell>
+      <cell><c>bitstring()</c></cell><cell><c>&lt;&lt;_:_*1&gt;&gt;</c></cell>
     </row>
     <row> 
       <cell><c>boolean()</c></cell><cell><c>'false' | 'true'</c></cell>
@@ -251,8 +251,6 @@
     Users are not allowed to define types with the same names as the
     predefined or built-in ones. This is checked by the compiler and
     its violation results in a compilation error. 
-    (For bootstrapping purposes, it can also result to just a warning
-    if this involves a built-in type which has just been introduced.)
   </p>
   <note>
     The following built-in list types also exist, 
