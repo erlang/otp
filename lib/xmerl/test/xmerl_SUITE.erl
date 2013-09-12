@@ -42,7 +42,7 @@
 %%----------------------------------------------------------------------
 all() -> 
     [{group, cpd_tests}, xpath_text1, xpath_main,
-     xpath_abbreviated_syntax, xpath_functions,
+     xpath_abbreviated_syntax, xpath_functions, xpath_namespaces,
      {group, misc}, {group, eventp_tests},
      {group, ticket_tests}, {group, app_test},
      {group, appup_test}].
@@ -204,6 +204,11 @@ xpath_functions(suite) -> [];
 xpath_functions(Config) ->
     ?line file:set_cwd(filename:join(?config(data_dir,Config),xpath)),
     ?line ok = xpath_abbrev:functions().
+
+xpath_namespaces(suite) -> [];
+xpath_namespaces(Config) ->
+    ?line file:set_cwd(filename:join(?config(data_dir,Config),xpath)),
+    ?line ok = xpath_abbrev:namespaces().
 
 %%----------------------------------------------------------------------
 
