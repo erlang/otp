@@ -28,12 +28,8 @@
 -record('SetSeqImp',{seqInt, seqOs}).
 -record('SetSeqExp',{seqInt, seqOs}).
 
-
-
 main(_Rules) ->
-    
-    ?line {ok,Bytes41} = 
-	asn1_wrapper:encode('SetTypeRefSeq','SetTRseq',
+    roundtrip('SetTRseq',
 		      #'SetTRseq'{'setSeq' = #'SetSeq'{seqOs = "A1",
 						       seqInt = 2},
 				  'setSeqI' = #'SetSeq'{seqOs = "A2",
@@ -52,15 +48,7 @@ main(_Rules) ->
 							     seqInt = 2},
 				  'setSeqE-E' = #'SetSeqExp'{seqOs = "A9",
 							     seqInt = 2}}),
-    ?line {ok,{'SetTRseq',{'SetSeq',2,"A1"},
-	       {'SetSeq',2,"A2"},
-	       {'SetSeq',2,"A3"},
-	       {'SetSeqImp',2,"A4"},
-	       {'SetSeqImp',2,"A5"},
-	       {'SetSeqImp',2,"A6"},
-	       {'SetSeqExp',2,"A7"},
-	       {'SetSeqExp',2,"A8"},
-	       {'SetSeqExp',2,"A9"}}} = 
-	asn1_wrapper:decode('SetTypeRefSeq','SetTRseq',lists:flatten(Bytes41)),
-    
     ok.
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SetTypeRefSeq', T, V).

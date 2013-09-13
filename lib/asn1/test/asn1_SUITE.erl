@@ -653,10 +653,7 @@ ber_optional(Config, Rule, Opts) ->
     V = {'S', {'A', 10, asn1_NOVALUE, asn1_NOVALUE},
               {'B', asn1_NOVALUE, asn1_NOVALUE, asn1_NOVALUE},
               {'C', asn1_NOVALUE, 111, asn1_NOVALUE}},
-    {ok, B} = asn1_wrapper:encode('SOpttest', 'S', V),
-    Bytes = lists:flatten(B),
-    V2 = asn1_wrapper:decode('SOpttest', 'S', Bytes),
-    V = element(2, V2).
+    asn1_test_lib:roundtrip('SOpttest', 'S', V).
 
 %% records used by test-case default
 -record('Def1', {bool0,
@@ -667,14 +664,16 @@ ber_optional(Config, Rule, Opts) ->
 default(Config) -> test(Config, fun default/3).
 default(Config, Rule, Opts) ->
     asn1_test_lib:compile("Def", Config, [Rule|Opts]),
-    {ok, Bytes1} = asn1_wrapper:encode('Def', 'Def1', #'Def1'{bool0 = true}),
-    {ok, {'Def1', true, false, false, false}} =
-        asn1_wrapper:decode('Def', 'Def1', lists:flatten(Bytes1)),
-
-    {ok, Bytes2} = asn1_wrapper:encode('Def', 'Def1', #'Def1'{bool0 = true,
-                                                              bool2 = false}),
-    {ok, {'Def1', true, false, false, false}} =
-        asn1_wrapper:decode('Def', 'Def1', lists:flatten(Bytes2)).
+    asn1_test_lib:roundtrip('Def',
+			    'Def1',
+			    #'Def1'{bool0=true},
+			    #'Def1'{bool0=true,bool1=false,
+				    bool2=false,bool3=false}),
+    asn1_test_lib:roundtrip('Def',
+			    'Def1',
+			    #'Def1'{bool0=true,bool2=false},
+			    #'Def1'{bool0=true,bool1=false,
+				    bool2=false,bool3=false}).
 
 value_test(Config) -> test(Config, fun value_test/3).
 value_test(Config, Rule, Opts) ->
@@ -686,12 +685,13 @@ constructed(Config) ->
     test(Config, fun constructed/3, [ber]).
 constructed(Config, Rule, Opts) ->
     asn1_test_lib:compile("Constructed", Config, [Rule|Opts]),
-    {ok, B} = asn1_wrapper:encode('Constructed', 'S', {'S', false}),
-    [40, 3, 1, 1, 0] = lists:flatten(B),
-    {ok, B1} = asn1_wrapper:encode('Constructed', 'S2', {'S2', false}),
-    [40, 5, 48, 3, 1, 1, 0] = lists:flatten(B1),
-    {ok, B2} = asn1_wrapper:encode('Constructed', 'I', 10),
-    [136, 1, 10] = lists:flatten(B2).
+    <<40,3,1,1,0>> =
+	asn1_test_lib:roundtrip_enc('Constructed', 'S', {'S',false}),
+    <<40,5,48,3,1,1,0>> =
+	asn1_test_lib:roundtrip_enc('Constructed', 'S2', {'S2',false}),
+    <<136,1,10>> =
+	asn1_test_lib:roundtrip_enc('Constructed', 'I', 10),
+    ok.
 
 ber_decode_error(Config) ->
     test(Config, fun ber_decode_error/3, [ber]).
@@ -920,7 +920,7 @@ test_Defed_ObjectIdentifier(Config, Rule, Opts) ->
 testSelectionType(Config) -> test(Config, fun testSelectionType/3).
 testSelectionType(Config, Rule, Opts) ->
     asn1_test_lib:compile("SelectionType", Config, [Rule|Opts]),
-    {ok, _}  = testSelectionTypes:test().
+    testSelectionTypes:test().
 
 testSSLspecs(Config) ->
     test(Config, fun testSSLspecs/3, [ber]).
@@ -1017,10 +1017,7 @@ test_x691(Config) ->
 test_x691(Config, Rule, Opts) ->
     Files = ["P-RecordA1", "P-RecordA2", "P-RecordA3"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
-    test_x691:cases(Rule, case Rule of
-                              uper -> unaligned;
-                              _ -> aligned
-                          end),
+    test_x691:cases(Rule),
 
     %% OTP-7708.
     asn1_test_lib:compile("EUTRA-extract-55", Config, [Rule|Opts]),
@@ -1149,9 +1146,7 @@ testTimer_uper(Config) ->
 testComment(suite) -> [];
 testComment(Config) ->
     asn1_test_lib:compile("Comment", Config, []),
-    {ok,Enc} = asn1_wrapper:encode('Comment','Seq',{'Seq',12,true}),
-    {ok,{'Seq',12,true}} = asn1_wrapper:decode('Comment','Seq',Enc),
-    ok.
+    asn1_test_lib:roundtrip('Comment', 'Seq', {'Seq',12,true}).
 
 testName2Number(suite) -> [];
 testName2Number(Config) ->

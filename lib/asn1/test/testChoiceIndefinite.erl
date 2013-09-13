@@ -32,6 +32,6 @@ main(ber) ->
     Bi = [48,128,160,128,128,1,11,0,0,129,1,12,0,0],
     %% the value which is encoded
     V = {'Seq',{ca,11},12},
-    ?line {ok,V} = asn1_wrapper:decode('ChoiceIndef','Seq',B),
-    ?line {ok,V} = asn1_wrapper:decode('ChoiceIndef','Seq',Bi),
+    {ok,V} = 'ChoiceIndef':decode('Seq', B),
+    {ok,V} = 'ChoiceIndef':decode('Seq', Bi),
     ok.

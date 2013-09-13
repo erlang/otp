@@ -31,36 +31,17 @@
 
 
 main(_Rules) ->
-    
-    ?line {ok,Bytes41} = 
-	asn1_wrapper:encode('SeqTypeRefSet','SeqTRset',
-		      #'SeqTRset'{'seqSet' = #'SeqSet'{setOs = "A1",
-						       setInt = 2},
-				  'seqSetI' = #'SeqSet'{setOs = "A2",
-							setInt = 2},
-				  'seqSetE' = #'SeqSet'{setOs = "A3",
-							setInt = 2},
-				  'seqSet-I' = #'SeqSetImp'{setOs = "A4",
-							    setInt = 2},
-				  'seqSetI-I' = #'SeqSetImp'{setOs = "A5",
-							     setInt = 2},
-				  'seqSetE-I' = #'SeqSetImp'{setOs = "A6",
-							     setInt = 2},
-				  'seqSet-E' = #'SeqSetExp'{setOs = "A7",
-							    setInt = 2},
-				  'seqSetI-E' = #'SeqSetExp'{setOs = "A8",
-							     setInt = 2},
-				  'seqSetE-E' = #'SeqSetExp'{setOs = "A9",
-							     setInt = 2}}),
-    ?line {ok,{'SeqTRset',{'SeqSet',2,"A1"},
-	       {'SeqSet',2,"A2"},
-	       {'SeqSet',2,"A3"},
-	       {'SeqSetImp',2,"A4"},
-	       {'SeqSetImp',2,"A5"},
-	       {'SeqSetImp',2,"A6"},
-	       {'SeqSetExp',2,"A7"},
-	       {'SeqSetExp',2,"A8"},
-	       {'SeqSetExp',2,"A9"}}} = 
-	asn1_wrapper:decode('SeqTypeRefSet','SeqTRset',lists:flatten(Bytes41)),
-    
+    roundtrip('SeqTRset',
+	      #'SeqTRset'{seqSet=#'SeqSet'{setInt=2,setOs="A1"},
+			  seqSetI=#'SeqSet'{setInt=2,setOs="A2"},
+			  seqSetE=#'SeqSet'{setInt=2,setOs="A3"},
+			  'seqSet-I'=#'SeqSetImp'{setInt=2,setOs="A4"},
+			  'seqSetI-I'=#'SeqSetImp'{setInt=2,setOs="A5"},
+			  'seqSetE-I'=#'SeqSetImp'{setInt=2,setOs="A6"},
+			  'seqSet-E'=#'SeqSetExp'{setInt=2,setOs="A7"},
+			  'seqSetI-E'=#'SeqSetExp'{setInt=2,setOs="A8"},
+			  'seqSetE-E'=#'SeqSetExp'{setInt=2,setOs="A9"}}),
     ok.
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SeqTypeRefSet', T, V).

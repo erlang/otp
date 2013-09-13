@@ -28,14 +28,13 @@ main(per) -> ok;
 main(ber) ->
     
     %% normal encoding
-    B = [49,20,1,1,255,49,9,1,1,255,2,4,251,35,238,194,2,4,251,55,236,161],
+    B = <<49,20,1,1,255,49,9,1,1,255,2,4,251,35,238,194,2,4,251,55,236,161>>,
     %% indefinite length encoding
-    Bi = [49,22,1,1,255,49,128,1,1,255,2,4,251,35,238,194,0,0,2,4,251,55,236,161],
+    Bi = <<49,22,1,1,255,49,128,1,1,255,2,4,251,35,238,194,0,0,2,4,251,55,236,161>>,
+
     %% the value which is encoded
     V = {'SetS3',true,{'SetS3_setS3',true,-81531198},-80221023},
-    ?line {ok,V} = asn1_wrapper:decode('SeqSetIndefinite','SetS3',B),
-    ?line {ok,V} = asn1_wrapper:decode('SeqSetIndefinite','SetS3',Bi),
+    {ok,V} = 'SeqSetIndefinite':decode('SetS3', B),
+    {ok,V} = 'SeqSetIndefinite':decode('SetS3', Bi),
+
     ok.
-
-
-

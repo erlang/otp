@@ -25,80 +25,44 @@
 -include_lib("test_server/include/test_server.hrl").
 
 bool(Rules) ->
-    
-    ?line {ok,Bytes11} = asn1_wrapper:encode('ChoPrim','ChoCon',{bool0,true}),
-    ?line {ok,{bool0,true}} = asn1_wrapper:decode('ChoPrim','ChoCon',lists:flatten(Bytes11)),
-
-    ?line {ok,Bytes12} = asn1_wrapper:encode('ChoPrim','ChoCon',{bool1,true}),
-    ?line {ok,{bool1,true}} = asn1_wrapper:decode('ChoPrim','ChoCon',lists:flatten(Bytes12)),
-
-    ?line {ok,Bytes13} = asn1_wrapper:encode('ChoPrim','ChoCon',{int2,233}),
-    ?line {ok,{int2,233}} = asn1_wrapper:decode('ChoPrim','ChoCon',lists:flatten(Bytes13)),
-
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber ->
-		  ?line {error,{asn1,{invalid_choice_type,wrong}}} = 
-		      case catch asn1_wrapper:encode('ChoPrim','ChoCon',{wrong,233}) of 
-			  X1 -> X1 end,
-		  ?line {error,{asn1,{invalid_choice_tag,_WrongTag}}} = 
-		      case catch asn1_wrapper:decode('ChoPrim','ChoCon',[131,2,0,233]) of 
-			  X2 -> X2 end,
-		  ok;
-
-	      per ->
-		  ok
-	  end,
-
+    roundtrip('ChoCon', {bool0,true}),
+    roundtrip('ChoCon', {bool1,true}),
+    roundtrip('ChoCon', {int2,233}),
+    case Rules of
+	ber ->
+	    {error,{asn1,{invalid_choice_type,wrong}}} =
+		(catch 'ChoPrim':encode('ChoCon', {wrong,233})),
+	    {error,{asn1,{invalid_choice_tag,_WrongTag}}} =
+		(catch 'ChoPrim':decode('ChoCon', <<131,2,0,233>>));
+	per ->
+	    ok;
+	uper ->
+	    ok
+    end,
     ok.
-
-
 
 int(Rules) ->
+    roundtrip('ChoExp', {int10,1}, {int10,first}),
+    roundtrip('ChoExp', {int10,first}),
+    roundtrip('ChoExp', {int10,last}),
+    roundtrip('ChoExp', {bool11,true}),
+    roundtrip('ChoExp', {enum12,one}),
+    roundtrip('ChoExp', {bool11,true}),
 
-    ?line {ok,Bytes21} = asn1_wrapper:encode('ChoPrim','ChoExp',{int10,1}),
-    ?line {ok,{int10,first}} = asn1_wrapper:decode('ChoPrim','ChoExp',lists:flatten(Bytes21)),
-
-    ?line {ok,Bytes22} = asn1_wrapper:encode('ChoPrim','ChoExp',{int10,first}),
-    ?line {ok,{int10,first}} = asn1_wrapper:decode('ChoPrim','ChoExp',lists:flatten(Bytes22)),
-
-    ?line {ok,Bytes23} = asn1_wrapper:encode('ChoPrim','ChoExp',{int10,last}),
-    ?line {ok,{int10,last}} = asn1_wrapper:decode('ChoPrim','ChoExp',lists:flatten(Bytes23)),
-
-    ?line {ok,Bytes24} = asn1_wrapper:encode('ChoPrim','ChoExp',{bool11,true}),
-    ?line {ok,{bool11,true}} = asn1_wrapper:decode('ChoPrim','ChoExp',lists:flatten(Bytes24)),
-
-
-    ?line {ok,Bytes26} = asn1_wrapper:encode('ChoPrim','ChoExp',{enum12,one}),
-    ?line {ok,{enum12,one}} = asn1_wrapper:decode('ChoPrim','ChoExp',lists:flatten(Bytes26)),
-
-    ?line {ok,Bytes25} = asn1_wrapper:encode('ChoPrim','ChoExp',{bool11,true}),
-    ?line {ok,{bool11,true}} = 
-	asn1_wrapper:decode('ChoPrim','ChoExp',lists:flatten(Bytes25)),
-    
-    ?line {error,{asn1,_}} = 
-	case catch asn1_wrapper:encode('ChoPrim','ChoExp',{enum12,four}) of 
-	    X3 -> X3 end,
-    
-    ?line {error,{asn1,_}} = 
-	case catch asn1_wrapper:encode('ChoPrim','ChoExp',{wrong,233}) of 
-	    X4 -> io:format("error reason = ~p~n",[X4]), X4 end,
-		  
-    ?line case asn1_wrapper:erule(Rules) of
-	      ber ->
-		  ?line {error,{asn1,_}} = 
-		      case catch asn1_wrapper:decode('ChoPrim','ChoExp',[107,3,2,1,1]) of 
-			  X5 -> X5 end,
-		  ok;
-
-	      per ->
-		  ok
-	  end,
+    {error,{asn1,_}} = (catch 'ChoPrim':encode('ChoExp', {enum12,four})),
+    {error,{asn1,_}} = (catch 'ChoPrim':encode('ChoExp', {wrong,233})),
+    case Rules of
+	ber ->
+	    {error,{asn1,_}} = (catch 'ChoPrim':decode('ChoExp', <<107,3,2,1,1>>));
+	per ->
+	    ok;
+	uper ->
+	    ok
+    end,
     ok.
 
+roundtrip(Type, Value) ->
+    roundtrip(Type, Value, Value).
 
-
-
-
-
-
-
+roundtrip(Type, Value, ExpectedValue) ->
+    asn1_test_lib:roundtrip('ChoPrim', Type, Value, ExpectedValue).

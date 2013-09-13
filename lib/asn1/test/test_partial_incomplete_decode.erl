@@ -25,84 +25,57 @@
 
 test(Config) ->
     FMsg = msg('F'),
-    ?line {ok,Bytes} = asn1_wrapper:encode('PartialDecSeq','F',FMsg),
-    ?line {ok,_} = asn1_wrapper:decode('PartialDecSeq','F',Bytes),
-    ?line {ok,IncFMsg} =
-	'PartialDecSeq':decode_F_fb_incomplete(list_to_binary(Bytes)),
-    ?line decode_parts('F',IncFMsg),
+    Bytes1 = roundtrip('PartialDecSeq', 'F', FMsg),
+    {ok,IncFMsg} = 'PartialDecSeq':decode_F_fb_incomplete(Bytes1),
+    decode_parts('F', IncFMsg),
+    {ok,IncF2Msg} = 'PartialDecSeq':decode_F_fb_exclusive2(Bytes1),
+    decode_parts('F2', IncF2Msg),
     
     DMsg = msg('D'),
-    ?line {ok,Bytes2} = asn1_wrapper:encode('PartialDecSeq','D',DMsg),
-    ?line {ok,_} = asn1_wrapper:decode('PartialDecSeq','D',Bytes2),
-    ?line {ok,IncDMsg} =
-	'PartialDecSeq':decode_D_incomplete(list_to_binary(Bytes2)),
-    ?line decode_parts('D',IncDMsg),
-    
-    ?line {ok,IncF2Msg} =
-	'PartialDecSeq':decode_F_fb_exclusive2(list_to_binary(Bytes)),
-    ?line decode_parts('F2',IncF2Msg),
+    Bytes2 = roundtrip('PartialDecSeq', 'D', DMsg),
+    {ok,IncDMsg} = 'PartialDecSeq':decode_D_incomplete(Bytes2),
+    decode_parts('D', IncDMsg),
 
     F3Msg = msg('F3'),
-    ?line {ok,BytesF3} = asn1_wrapper:encode('PartialDecSeq','F',F3Msg),
-    ?line {ok,_} = asn1_wrapper:decode('PartialDecSeq','F',BytesF3),
-    ?line {ok,IncF3Msg} =
-	'PartialDecSeq':decode_F_fb_exclusive3(list_to_binary(BytesF3)),
-    ?line decode_parts('F3',IncF3Msg),
+    BytesF3 = roundtrip('PartialDecSeq', 'F', F3Msg),
+    {ok,IncF3Msg} = 'PartialDecSeq':decode_F_fb_exclusive3(BytesF3),
+    decode_parts('F3', IncF3Msg),
 
-
-    AMsg =msg('A'),
-    ?line {ok,Bytes3} = asn1_wrapper:encode('PartialDecSeq2','A',AMsg),
-    ?line {ok,_} = asn1_wrapper:decode('PartialDecSeq2','A',Bytes3),
-    ?line {ok,IncFMsg3} =
-	'PartialDecSeq2':decode_A_c_b_incomplete(list_to_binary(Bytes3)),
-    ?line decode_parts('A',IncFMsg3),
+    AMsg = msg('A'),
+    Bytes3 = roundtrip('PartialDecSeq2', 'A', AMsg),
+    {ok,IncFMsg3} = 'PartialDecSeq2':decode_A_c_b_incomplete(Bytes3),
+    decode_parts('A', IncFMsg3),
     
     MyHTTPMsg = msg('GetRequest'),
-    ?line {ok,Bytes4} = asn1_wrapper:encode('PartialDecMyHTTP',
-					    'GetRequest',MyHTTPMsg),
-    ?line {ok,_} = asn1_wrapper:decode('PartialDecMyHTTP','GetRequest',
-				       Bytes4),
-    ?line {ok,IncFMsg4} =
-	'PartialDecMyHTTP':decode_GetRequest_incomplete(list_to_binary(Bytes4)),
-    ?line decode_parts('GetRequest',IncFMsg4),
+    Bytes4 = roundtrip('PartialDecMyHTTP', 'GetRequest', MyHTTPMsg),
+    {ok,IncFMsg4} = 'PartialDecMyHTTP':decode_GetRequest_incomplete(Bytes4),
+    decode_parts('GetRequest', IncFMsg4),
     
     MsgS1_1 = msg('S1_1'),
-    ?line {ok,Bytes5} = asn1_wrapper:encode('PartialDecSeq3','S1',MsgS1_1),
-    ?line {ok,_} = asn1_wrapper:decode('PartialDecSeq3','S1',Bytes5),
-    ?line {ok,IncFMsg5} =
-	'PartialDecSeq3':decode_S1_incomplete(list_to_binary(Bytes5)),
-    ?line decode_parts('S1_1',IncFMsg5),
+    Bytes5 = roundtrip('PartialDecSeq3', 'S1', MsgS1_1),
+    {ok,IncFMsg5} = 'PartialDecSeq3':decode_S1_incomplete(Bytes5),
+    decode_parts('S1_1', IncFMsg5),
 
     MsgS1_2 = msg('S1_2'),
-    ?line {ok,Bytes6} = asn1_wrapper:encode('PartialDecSeq3','S1',MsgS1_2),
-    ?line {ok,IncFMsg6} =
-	'PartialDecSeq3':decode_S1_incomplete(list_to_binary(Bytes6)),
-    ?line ok = decode_parts('S1_2',IncFMsg6),
+    Bytes6 = roundtrip('PartialDecSeq3', 'S1', MsgS1_2),
+    {ok,IncFMsg6} = 'PartialDecSeq3':decode_S1_incomplete(Bytes6),
+    decode_parts('S1_2', IncFMsg6),
 
     %% test of MEDIA-GATEWAY-CONTROL
     test_megaco(Config),
     ok.
 
 test_megaco(Config) ->
-    ?line DataDir = ?config(data_dir,Config),
-    Mod='MEDIA-GATEWAY-CONTROL',
-    ?line {ok,FilenameList} = file:list_dir(filename:join([DataDir,
-							   megacomessages])),
-    %% remove any junk files that may be in the megacomessage directory
-    Pred = fun(X) ->
-		   case lists:reverse(X) of
-		       [$l,$a,$v,$.|_R] ->true;
-		       _ -> false
-		   end
-	   end,
-    MegacoMsgFilenameList = lists:filter(Pred,FilenameList),
-    Fun = fun(F) ->
-                  M = read_msg(filename:join([DataDir,megacomessages,F])),
-		  ?line {ok,B} = asn1_wrapper:encode(Mod,element(1,M),M),
-		  ?line exclusive_decode(list_to_binary(B),F)
-	  end,
-    ?line lists:foreach(Fun,MegacoMsgFilenameList),
-    ok.
+    DataDir = ?config(data_dir, Config),
+    Files = filelib:wildcard(filename:join([DataDir,megacomessages,"*.val"])),
+    Mod = 'MEDIA-GATEWAY-CONTROL',
+    lists:foreach(fun(File) ->
+			  {ok,Bin} = file:read_file(File),
+			  V = binary_to_term(Bin),
+			  T = element(1, V),
+			  Enc = roundtrip(Mod, T, V),
+			  exclusive_decode(Enc, File)
+		  end, Files).
 
 exclusive_decode(Bin,F) ->
     Mod='MEDIA-GATEWAY-CONTROL',
@@ -112,15 +85,6 @@ exclusive_decode(Bin,F) ->
     ?line {ok,_} = Mod:decode_part(MsgMidKey,MsgMid),
     ?line {ok,_} = Mod:decode_part(MsgMBodyKey,MsgMBody),
     ok.
-
-
-read_msg(File) ->
-    case file:read_file(File) of
-        {ok,Bin} ->
-            binary_to_term(Bin);
-        _ -> 
-	    io:format("couldn't read file ~p~n",[File])
-    end.
 
 decode_parts('F',PartDecMsg) ->
     ?line {fb,{'E',35,{NameE_b,ListBinE_b},false,{NameE_d,BinE_d}}} = PartDecMsg,
@@ -200,7 +164,10 @@ msg('A') ->
     {'A',12,{c,{'S',true,false}},{b,{'A_c_b',false,false}}};
 
 msg('GetRequest') ->
-    {'GetRequest',true,false,{'AcceptTypes',[1,1,1,1],["hell","othe","reho","peyo","uare","fine"]},"IamfineThankYOu"};
+    {'GetRequest',true,false,
+     {'AcceptTypes',[html,'plain-text',gif,jpeg],
+      ["hell","othe","reho","peyo","uare","fine"]},
+     "IamfineThankYOu"};
 
 msg('S1_1') ->
     {'S1',14,msg('S2'),msg('C1_a'),msg('SO1')};
@@ -213,10 +180,13 @@ msg('C1_a') ->
 msg('C1_b') ->
     {b,{'C1_b',11,true,msg('S4')}};
 msg('S3') ->
-    {'S3',10,"PrintableString","OCTETSTRING",[1,1,1,1]};
+    {'S3',10,"PrintableString","OCTETSTRING",[one,two,three,four]};
 msg('S4') ->
     {'S4',msg('Name'),"MSc"};
 msg('SO1') ->
     [msg('Name'),msg('Name'),msg('Name')];
 msg('Name') ->
     {'Name',"Hans","HCA","Andersen"}.
+
+roundtrip(M, T, V) ->
+    asn1_test_lib:roundtrip_enc(M, T, V).

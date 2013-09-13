@@ -24,13 +24,15 @@
 -record('Seq', {octstr, int, bool, enum, bitstr, null, oid, vstr}).
 
 main(_Rule, _Option) ->
-    Value1 = #'Seq'{octstr = [1, 2, 3, 4],
-                    int = 12,
-                    bool = true,
-                    enum = a,
-                    bitstr = <<2#1010:4>>,
-                    null = 'NULL',
-                    oid = {1, 2, 55},
-                    vstr = "Hello World"},
-    {ok, Bytes} = asn1_wrapper:encode('SeqTypeRefPrim', 'Seq', Value1),
-    {ok, Value1} = asn1_wrapper:decode('SeqTypeRefPrim', 'Seq', Bytes).
+    Value = #'Seq'{octstr = [1, 2, 3, 4],
+		   int = 12,
+		   bool = true,
+		   enum = a,
+		   bitstr = <<2#1010:4>>,
+		   null = 'NULL',
+		   oid = {1, 2, 55},
+		   vstr = "Hello World"},
+    roundtrip('Seq', Value).
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SeqTypeRefPrim', T, V).

@@ -83,9 +83,9 @@ specs() ->
 ticket7759(_Erule,_Config) ->
     Encoded = encoded_msg(),
     io:format("Testing ticket7759 ...~n",[]),
-    ?line {ok, ContentInfo} = asn1_wrapper:decode('PKCS7','ContentInfo',Encoded),
-    ?line {'ContentInfo',_Id,PKCS7_content} = ContentInfo,
-    ?line {ok,_} = asn1_wrapper:decode('PKCS7','SignedData',PKCS7_content),
+    {ok, ContentInfo} = 'PKCS7':decode('ContentInfo',Encoded),
+    {'ContentInfo',_Id,PKCS7_content} = ContentInfo,
+    {ok,_} = 'PKCS7':decode('SignedData',PKCS7_content),
     ok.
 
 

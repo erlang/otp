@@ -27,58 +27,15 @@
 -record('Empty',{}).
 
 main(_Rules) ->
-    
-    
-
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SeqPrim','Seq',#'Seq'{bool = true,
-					       boolCon = true,
-					       boolPri = true,
-					       boolApp = true,
-					       boolExpCon = true,
-					       boolExpPri = true,
-					       boolExpApp = true}),
-    ?line {ok,{'Seq',true,true,true,true,true,true,true}} = 
-	asn1_wrapper:decode('SeqPrim','Seq',lists:flatten(Bytes11)),
-    
-    
-    
-    
-    ?line {ok,Bytes12} = 
-	asn1_wrapper:encode('SeqPrim','Seq',#'Seq'{bool = false,
-					       boolCon = false,
-					       boolPri = false,
-					       boolApp = false,
-					       boolExpCon = false,
-					       boolExpPri = false,
-					       boolExpApp = false}),
-    ?line {ok,{'Seq',false,false,false,false,false,false,false}} = 
-	asn1_wrapper:decode('SeqPrim','Seq',lists:flatten(Bytes12)),
-    
-    
-    
-    
-    ?line {ok,Bytes13} = 
-	asn1_wrapper:encode('SeqPrim','Seq',#'Seq'{bool = false,
-					       boolCon = true,
-					       boolPri = false,
-					       boolApp = true,
-					       boolExpCon = false,
-					       boolExpPri = true,
-					       boolExpApp = false}),
-    ?line {ok,{'Seq',false,true,false,true,false,true,false}} = 
-	asn1_wrapper:decode('SeqPrim','Seq',lists:flatten(Bytes13)),
-    
-    
-    
-    
-    
-    ?line {ok,Bytes21} = 
-	asn1_wrapper:encode('SeqPrim','Empty',#'Empty'{}),
-    ?line {ok,{'Empty'}} = 
-	asn1_wrapper:decode('SeqPrim','Empty',lists:flatten(Bytes21)),
-
-
-
+    roundtrip('Seq', #'Seq'{bool=true,boolCon=true,boolPri=true,boolApp=true,
+			    boolExpCon=true,boolExpPri=true,boolExpApp=true}),
+    roundtrip('Seq', #'Seq'{bool=false,boolCon=false,boolPri=false,
+			    boolApp=false,boolExpCon=false,
+			    boolExpPri=false,boolExpApp=false}),
+    roundtrip('Seq', #'Seq'{bool=false,boolCon=true,boolPri=false,boolApp=true,
+			    boolExpCon=false,boolExpPri=true,boolExpApp=false}),
+    roundtrip('Empty', #'Empty'{}),
     ok.
 
+roundtrip(Type, Value) ->
+    asn1_test_lib:roundtrip('SeqPrim', Type, Value).

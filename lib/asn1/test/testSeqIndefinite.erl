@@ -27,21 +27,13 @@ main(per) -> ok;
 main(ber) ->
     
     %% normal encoding
-    B = [48,20,1,1,255,48,9,1,1,255,2,4,251,35,238,194,2,4,251,55,236,161],
+    B = <<48,20,1,1,255,48,9,1,1,255,2,4,251,35,238,194,2,4,251,55,236,161>>,
     %% indefinite length encoding
-    Bi = [48,22,1,1,255,48,128,1,1,255,2,4,251,35,238,194,0,0,2,4,251,55,236,161],
+    Bi = <<48,22,1,1,255,48,128,1,1,255,2,4,251,35,238,194,0,0,2,4,251,55,236,161>>,
     %% the value which is encoded
     V = {'SeqS3',true,{'SeqS3_seqS3',true,-81531198},-80221023},
-    ?line {ok,V} = asn1_wrapper:decode('SeqSetIndefinite','SeqS3',B),
-    ?line {ok,V} = asn1_wrapper:decode('SeqSetIndefinite','SeqS3',Bi),
-
-    %% normal encoding but with unknown extension component
-    _Be = [48,23,1,1,255,48,12,1,1,255,2,4,251,35,238,194,1,1,255,2,4,251,55,236,161],
-    %% indefinite length encoding but with unknown extension component
-    _Bei = [48,25,1,1,255,48,128,1,1,255,2,4,251,35,238,194,1,1,255,0,0,2,4,251,55,236,161],
-
-    ?line {ok,V} = asn1_wrapper:decode('SeqSetIndefinite','SeqS3',B),
-    ?line {ok,V} = asn1_wrapper:decode('SeqSetIndefinite','SeqS3',Bi),
+    {ok,V} = 'SeqSetIndefinite':decode('SeqS3', B),
+    {ok,V} = 'SeqSetIndefinite':decode('SeqS3', Bi),
     ok.
 
 

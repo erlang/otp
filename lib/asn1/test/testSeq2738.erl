@@ -18,27 +18,16 @@
 %%
 %%
 -module(testSeq2738).
-
 -export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-%-record('SeqOpt',{int, opt = asn1_NOVALUE}).
 -record('SeqOptFake',{int, opt = asn1_NOVALUE}).
-%-record('OptSeq',{int=17}).
 -record('OptSeqFake',{bool = false}).
 
-
-
-
 main(_Rules) ->
-    
-    ?line {ok,Bytes} = 
-	asn1_wrapper:encode('Seq2738','SeqOptFake',
-		      #'SeqOptFake'{int = 10,
-				opt = #'OptSeqFake'{}}),
-    ?line {ok,#'SeqOptFake'{int=10,opt=#'OptSeqFake'{bool=false}}} = 
-	asn1_wrapper:decode('Seq2738','SeqOptFake',lists:flatten(Bytes)),
-    ?line {error,_} = 
-	asn1_wrapper:decode('Seq2738','SeqOpt',lists:flatten(Bytes)),
+    Enc = asn1_test_lib:roundtrip_enc('Seq2738',
+				      'SeqOptFake',
+				      #'SeqOptFake'{int=10,opt=#'OptSeqFake'{}}),
+    {error,_} = 'Seq2738':decode('SeqOpt', Enc),
     ok.

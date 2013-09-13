@@ -18,46 +18,23 @@
 %%
 %%
 -module(testINSTANCE_OF).
-
 -export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-main(Erule) ->
+main(_Erule) ->
+    Int = roundtrip('Int', 3),
 
-    ?line {ok,Integer} = asn1_wrapper:encode('INSTANCEOF','Int',3),
-    Int = list_to_binary(Integer),
     ValotherName = {otherName,{'INSTANCE OF',{2,4},Int}},
+    _ = roundtrip('GeneralName', ValotherName),
+
     VallastName1 = {lastName,{'GeneralName_lastName',{2,4},12}},
+    _ = roundtrip('GeneralName', VallastName1),
+
     VallastName2 = {lastName,{'GeneralName_lastName',{2,3,4},
 			      {'Seq',12,true}}},
-    ?line {ok,BytesoN}=
-	asn1_wrapper:encode('INSTANCEOF','GeneralName',ValotherName),
-    ?line {ok,Res1={otherName,_}} = 
-	asn1_wrapper:decode('INSTANCEOF','GeneralName',BytesoN),
-    ?line ok = test_encdec(Erule,Int,Res1),
+    _ = roundtrip('GeneralName', VallastName2),
+    ok.
 
-    ?line {ok,ByteslN1}=
-	asn1_wrapper:encode('INSTANCEOF','GeneralName',VallastName1),
-    ?line {ok,Res2={lastName,_}} = 
-	asn1_wrapper:decode('INSTANCEOF','GeneralName',ByteslN1),
-    ?line test_encdec(Erule,Res2),
-
-    ?line {ok,ByteslN2}=
-	asn1_wrapper:encode('INSTANCEOF','GeneralName',VallastName2),
-    ?line {ok,Res3={lastName,_}} = 
-	asn1_wrapper:decode('INSTANCEOF','GeneralName',ByteslN2),
-    ?line test_encdec(Erule,Res3).
-
-test_encdec(_Erule,Int,{otherName,{'INSTANCE OF',{2,4},Int}}) ->
-    ok;
-test_encdec(Erule,Int,R={otherName,{'INSTANCE OF',{2,4},_Int2}}) ->
-    {error,{Erule,Int,R}}.
-
-test_encdec(_Erule,{lastName,{'GeneralName_lastName',{2,4},12}}) ->
-    ok;
-test_encdec(_Erule,{lastName,{'GeneralName_lastName',{2,3,4},
-			     {'Seq',12,true}}}) ->
-    ok;
-test_encdec(Erule,Res) ->
-    {error,{Erule,Res}}.
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip_enc('INSTANCEOF', T, V).

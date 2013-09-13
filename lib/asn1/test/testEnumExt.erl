@@ -33,7 +33,7 @@ main(Rule) when Rule =:= per; Rule =:= uper ->
     %% ENUMERATED with extensionmark (value is an extensionvalue)
     Or = roundtrip('Ext1', orange),
     %% unknown extensionvalue
-    {ok,{asn1_enum,0}} = asn1_wrapper:decode('EnumExt','Ext',Or),
+    {ok,{asn1_enum,0}} = 'EnumExt':decode('Ext', Or),
 
     %% ENUMERATED no extensionmark 
     B64 = <<64>>,
@@ -45,12 +45,12 @@ main(ber) ->
     roundtrip('Ext', red),
 
     %% value is an extensionvalue
-    {ok,Bytes1_1} = asn1_wrapper:encode('EnumExt','Ext1',orange),
-    {ok,{asn1_enum,7}} = asn1_wrapper:decode('EnumExt','Ext',lists:flatten(Bytes1_1)),
+    {ok,Bytes1_1} = 'EnumExt':encode('Ext1', orange),
+    {ok,{asn1_enum,7}} = 'EnumExt':decode('Ext', Bytes1_1),
 
     %% ENUMERATED no extensionmark
     roundtrip('Noext', red),
-    ?line {error,{asn1,_}} = (catch asn1_wrapper:encode('EnumExt','Noext',orange)),
+    {error,{asn1,_}} = (catch 'EnumExt':encode('Noext', orange)),
     
     %% ENUMERATED with atom 'com'
     roundtrip('Globalstate', preop),

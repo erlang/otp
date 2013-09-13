@@ -28,17 +28,12 @@
 
 
 main(_Rules) ->
-    
-
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SetTypeRefCho','SetTRcho',
-		      #'SetTRcho'{'setCho' = {choOs,"A string 1"},
-				  'setChoE' = {choOs,"A string 3"},
-				  'setCho-E' = {choOs,"A string 7"},
-				  'setChoE-E' = {choOs,"A string 9"}}),
-    ?line {ok,{'SetTRcho',{choOs,"A string 1"},{choOs,"A string 3"},{choOs,"A string 7"},{choOs,"A string 9"}}} = 
-	asn1_wrapper:decode('SetTypeRefCho','SetTRcho',lists:flatten(Bytes11)),
-
-
-
+    roundtrip('SetTRcho',
+	      #'SetTRcho'{'setCho' = {choOs,"A string 1"},
+			  'setChoE' = {choOs,"A string 3"},
+			  'setCho-E' = {choOs,"A string 7"},
+			  'setChoE-E' = {choOs,"A string 9"}}),
     ok.
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SetTypeRefCho', T, V).

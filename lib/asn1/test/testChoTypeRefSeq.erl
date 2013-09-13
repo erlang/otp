@@ -23,82 +23,21 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--record('ChoSeq',{seqInt, seqOs}).
--record('ChoSeqImp',{seqInt, seqOs}).
--record('ChoSeqExp',{seqInt, seqOs}).
+-record('ChoSeq', {seqInt, seqOs}).
+-record('ChoSeqImp', {seqInt, seqOs}).
+-record('ChoSeqExp', {seqInt, seqOs}).
 
 seq(_Rules) ->
-    
-    ?line {ok,Bytes1} = 
-	asn1_wrapper:encode('ChoTypeRefSeq','ChoTRseq',
-		      {choSeq,#'ChoSeq'{seqInt = 88,
-					seqOs = "A string"}}),
-    ?line {ok,{choSeq,{'ChoSeq',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSeq','ChoTRseq',lists:flatten(Bytes1)),
-    
-    
-    ?line {ok,Bytes2} = 
-	asn1_wrapper:encode('ChoTypeRefSeq','ChoTRseq',
-		      {choSeqI,#'ChoSeq'{seqInt = 88,
-					 seqOs = "A string"}}),
-    ?line {ok,{choSeqI,{'ChoSeq',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSeq','ChoTRseq',lists:flatten(Bytes2)),
-    
-    
-    ?line {ok,Bytes3} = 
-	asn1_wrapper:encode('ChoTypeRefSeq','ChoTRseq',
-		      {choSeqE,#'ChoSeq'{seqInt = 88,
-					 seqOs = "A string"}}),
-    ?line {ok,{choSeqE,{'ChoSeq',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSeq','ChoTRseq',lists:flatten(Bytes3)),
-    
-    
-    ?line {ok,Bytes4} = 
-	asn1_wrapper:encode('ChoTypeRefSeq','ChoTRseq',
-		      {'choSeq-I',#'ChoSeqImp'{seqInt = 88,
-					       seqOs = "A string"}}),
-    ?line {ok,{'choSeq-I',{'ChoSeqImp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSeq','ChoTRseq',lists:flatten(Bytes4)),
-    
-    
-    ?line {ok,Bytes5} = 
-	asn1_wrapper:encode('ChoTypeRefSeq','ChoTRseq',
-		      {'choSeqI-I',#'ChoSeqImp'{seqInt = 88,
-						seqOs = "A string"}}),
-    ?line {ok,{'choSeqI-I',{'ChoSeqImp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSeq','ChoTRseq',lists:flatten(Bytes5)),
-    
-    
-    ?line {ok,Bytes6} = 
-	asn1_wrapper:encode('ChoTypeRefSeq','ChoTRseq',
-		      {'choSeqE-I',#'ChoSeqImp'{seqInt = 88,
-						seqOs = "A string"}}),
-    ?line {ok,{'choSeqE-I',{'ChoSeqImp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSeq','ChoTRseq',lists:flatten(Bytes6)),
-    
-    
-    ?line {ok,Bytes7} = 
-	asn1_wrapper:encode('ChoTypeRefSeq','ChoTRseq',
-		      {'choSeq-E',#'ChoSeqExp'{seqInt = 88,
-					       seqOs = "A string"}}),
-    ?line {ok,{'choSeq-E',{'ChoSeqExp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSeq','ChoTRseq',lists:flatten(Bytes7)),
-    
-    
-    ?line {ok,Bytes8} = 
-	asn1_wrapper:encode('ChoTypeRefSeq','ChoTRseq',
-		      {'choSeqI-E',#'ChoSeqExp'{seqInt = 88,
-						seqOs = "A string"}}),
-    ?line {ok,{'choSeqI-E',{'ChoSeqExp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSeq','ChoTRseq',lists:flatten(Bytes8)),
-    
-    
-    ?line {ok,Bytes9} = 
-	asn1_wrapper:encode('ChoTypeRefSeq','ChoTRseq',
-		      {'choSeqE-E',#'ChoSeqExp'{seqInt = 88,
-						seqOs = "A string"}}),
-    ?line {ok,{'choSeqE-E',{'ChoSeqExp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSeq','ChoTRseq',lists:flatten(Bytes9)),
-    
-    
+    roundtrip('ChoTRseq', {choSeq,#'ChoSeq'{seqInt=88,seqOs="A string"}}),
+    roundtrip('ChoTRseq', {choSeqI,#'ChoSeq'{seqInt=88,seqOs="A string"}}),
+    roundtrip('ChoTRseq', {choSeqE,#'ChoSeq'{seqInt=88,seqOs="A string"}}),
+    roundtrip('ChoTRseq', {'choSeq-I',#'ChoSeqImp'{seqInt=88,seqOs="A string"}}),
+    roundtrip('ChoTRseq', {'choSeqI-I',#'ChoSeqImp'{seqInt=88,seqOs="A string"}}),
+    roundtrip('ChoTRseq', {'choSeqE-I',#'ChoSeqImp'{seqInt=88,seqOs="A string"}}),
+    roundtrip('ChoTRseq', {'choSeq-E',#'ChoSeqExp'{seqInt=88,seqOs="A string"}}),
+    roundtrip('ChoTRseq', {'choSeqI-E',#'ChoSeqExp'{seqInt=88,seqOs="A string"}}),
+    roundtrip('ChoTRseq', {'choSeqE-E',#'ChoSeqExp'{seqInt=88,seqOs="A string"}}),
     ok.
+
+roundtrip(Type, Value) ->
+    asn1_test_lib:roundtrip('ChoTypeRefSeq', Type, Value).

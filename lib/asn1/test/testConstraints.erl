@@ -204,9 +204,8 @@ shorter_ext(uper, "a") -> <<16#80,16#E1>>;
 shorter_ext(ber, _) -> none.
 
 refed_NNL_name(_Erule) ->
-    ?line {ok,_} = asn1_wrapper:encode('Constraints','AnotherThing',fred),
-    ?line {error,_Reason} = 
-	asn1_wrapper:encode('Constraints','AnotherThing',fred3).
+    roundtrip('AnotherThing', fred),
+    {error,_Reason} = 'Constraints':encode('AnotherThing', fred3).
 
 v_roundtrip(Erule, Type, Value) ->
     Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type, Value)),
