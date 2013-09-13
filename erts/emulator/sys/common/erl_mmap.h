@@ -110,4 +110,15 @@ Eterm erts_mmap_info(struct process*);
 #  define ERTS_HAVE_OS_MMAP 1
 #endif
 
+/*#define HARD_DEBUG_MSEG*/
+#ifdef HARD_DEBUG_MSEG
+#  define HARD_DBG_INSERT_MSEG hard_dbg_insert_mseg
+#  define HARD_DBG_REMOVE_MSEG hard_dbg_remove_mseg
+void hard_dbg_insert_mseg(void* seg, UWord sz);
+void hard_dbg_remove_mseg(void* seg, UWord sz);
+#else
+#  define HARD_DBG_INSERT_MSEG(SEG,SZ)
+#  define HARD_DBG_REMOVE_MSEG(SEG,SZ)
+#endif
+
 #endif /* ERL_MMAP_H__ */

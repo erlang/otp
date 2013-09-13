@@ -1356,6 +1356,7 @@ erts_mseg_alloc_opt(ErtsAlcType_t atype, UWord *size_p, Uint flags, const ErtsMs
     ERTS_DBG_MA_CHK_THR_ACCESS(ma);
     seg = mseg_alloc(ma, atype, size_p, flags, opt);
     ERTS_MSEG_UNLOCK(ma);
+    HARD_DBG_INSERT_MSEG(seg, *size_p);
     return seg;
 }
 
@@ -1370,6 +1371,8 @@ erts_mseg_dealloc_opt(ErtsAlcType_t atype, void *seg,
 		      UWord size, Uint flags, const ErtsMsegOpt_t *opt)
 {
     ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_OPT(opt);
+
+    HARD_DBG_REMOVE_MSEG(seg, size);
     ERTS_MSEG_LOCK(ma);
     ERTS_DBG_MA_CHK_THR_ACCESS(ma);
     mseg_dealloc(ma, atype, seg, size, flags, opt);
@@ -1390,10 +1393,13 @@ erts_mseg_realloc_opt(ErtsAlcType_t atype, void *seg,
 {
     ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_OPT(opt);
     void *new_seg;
+
+    HARD_DBG_REMOVE_MSEG(seg, old_size);
     ERTS_MSEG_LOCK(ma);
     ERTS_DBG_MA_CHK_THR_ACCESS(ma);
     new_seg = mseg_realloc(ma, atype, seg, old_size, new_size_p, flags, opt);
     ERTS_MSEG_UNLOCK(ma);
+    HARD_DBG_INSERT_MSEG(new_seg, *new_size_p);
     return new_seg;
 }
 

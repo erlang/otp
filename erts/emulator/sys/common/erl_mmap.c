@@ -1039,7 +1039,7 @@ rbt_foreach_node(RBTree* tree,
 #endif
 }
 
-#ifdef RBT_DEBUG
+#if defined(RBT_DEBUG) || defined(HARD_DEBUG_MSEG)
 static RBTNode* rbt_prev_node(RBTNode* node)
 {
     RBTNode* x;
@@ -1068,7 +1068,7 @@ static RBTNode* rbt_next_node(RBTNode* node)
     }
     return NULL;
 }
-#endif /* RBT_DEBUG */
+#endif /* RBT_DEBUG || HARD_DEBUG_MSEG */
 
 
 /* The API to keep track of a bunch of separated (free) segments
@@ -2041,6 +2041,10 @@ int erts_mmap_in_supercarrier(void *ptr)
     return ERTS_MMAP_IN_SUPERCARRIER(ptr);
 }
 
+#ifdef HARD_DEBUG_MSEG
+static void hard_dbg_mseg_init(void);
+#endif
+
 void
 erts_mmap_init(ErtsMMapInit *init)
 {
@@ -2232,6 +2236,10 @@ erts_mmap_init(ErtsMMapInit *init)
 
 #if !ERTS_HAVE_OS_MMAP
     mmap_state.no_os_mmap = 1;
+#endif
+
+#ifdef HARD_DEBUG_MSEG
+    hard_dbg_mseg_init();
 #endif
 }
 
@@ -2494,3 +2502,133 @@ void test_it(void)
 }
 
 #endif /* FREE_SEG_API_SMOKE_TEST */
+
+
+#ifdef HARD_DEBUG_MSEG
+
+/*
+ * Debug stuff used by erl_mseg to check that it does the right thing.
+ * The reason for keeping it here is that we (ab)use the rb-tree code
+ * for keeping track of *allocated* segments.
+ */
+
+typedef struct ErtsFreeSegDesc_fake_ {
+    /*RBTNode snode;    Save memory by skipping unused size tree node */
+    RBTNode anode;      /* node in 'atree' */
+    union {
+        char* start;
+        struct ErtsFreeSegDesc_fake_* next_free;
+    }u;
+    char* end;
+}ErtsFreeSegDesc_fake;
+
+static ErtsFreeSegDesc_fake hard_dbg_mseg_desc_pool[10000];
+static ErtsFreeSegDesc_fake* hard_dbg_mseg_desc_first;
+RBTree hard_dbg_mseg_tree;
+
+static erts_mtx_t hard_dbg_mseg_mtx;
+
+static void hard_dbg_mseg_init(void)
+{
+    ErtsFreeSegDesc_fake* p;
+
+    erts_mtx_init(&hard_dbg_mseg_mtx, "hard_dbg_mseg");
+    hard_dbg_mseg_tree.root = NULL;
+    hard_dbg_mseg_tree.order = ADDR_ORDER;
+
+    p = &hard_dbg_mseg_desc_pool[(sizeof(hard_dbg_mseg_desc_pool) /
+                                  sizeof(*hard_dbg_mseg_desc_pool)) - 1];
+    p->u.next_free = NULL;
+    while (--p >= hard_dbg_mseg_desc_pool) {
+        p->u.next_free = (p+1);
+    }
+    hard_dbg_mseg_desc_first = &hard_dbg_mseg_desc_pool[0];
+}
+
+static ErtsFreeSegDesc* hard_dbg_alloc_desc(void)
+{
+    ErtsFreeSegDesc_fake* p = hard_dbg_mseg_desc_first;
+    ERTS_ASSERT(p || !"HARD_DEBUG_MSEG: Out of mseg descriptors");
+    hard_dbg_mseg_desc_first = p->u.next_free;
+
+    /* Creative pointer arithmetic to return something that looks like
+     * a ErtsFreeSegDesc as long as we don't use the absent 'snode'.
+     */
+    return (ErtsFreeSegDesc*) ((char*)p - offsetof(ErtsFreeSegDesc,anode));
+}
+
+static void hard_dbg_free_desc(ErtsFreeSegDesc* desc)
+{
+    ErtsFreeSegDesc_fake* p = (ErtsFreeSegDesc_fake*) &desc->anode;
+    memset(p, 0xfe, sizeof(*p));
+    p->u.next_free = hard_dbg_mseg_desc_first;
+    hard_dbg_mseg_desc_first = p;
+}
+
+static void check_seg_writable(void* seg, UWord sz)
+{
+    UWord* seg_end = (UWord*)((char*)seg + sz);
+    volatile UWord* p;
+    ERTS_ASSERT(ERTS_IS_PAGEALIGNED(seg));
+    ERTS_ASSERT(ERTS_IS_PAGEALIGNED(sz));
+    for (p=(UWord*)seg; p<seg_end; p += (ERTS_INV_PAGEALIGNED_MASK+1)/sizeof(UWord)) {
+        UWord write_back = *p;
+        *p = 0xfade2b1acc;
+        *p = write_back;
+    }
+}
+
+void hard_dbg_insert_mseg(void* seg, UWord sz)
+{
+    check_seg_writable(seg, sz);
+    erts_mtx_lock(&hard_dbg_mseg_mtx);
+    {
+        ErtsFreeSegDesc *desc = hard_dbg_alloc_desc();
+        RBTNode *prev, *next;
+        desc->start = (char*)seg;
+        desc->end = desc->start + sz - 1; /* -1 to allow adjacent segments in tree */
+        rbt_insert(&hard_dbg_mseg_tree, &desc->anode);
+        prev = rbt_prev_node(&desc->anode);
+        next = rbt_next_node(&desc->anode);
+        ERTS_ASSERT(!prev || anode_to_desc(prev)->end < desc->start);
+        ERTS_ASSERT(!next || anode_to_desc(next)->start > desc->end);
+    }
+    erts_mtx_unlock(&hard_dbg_mseg_mtx);
+}
+
+static ErtsFreeSegDesc* hard_dbg_lookup_seg_at(RBTree* tree, char* start)
+{
+    RBTNode* x = tree->root;
+
+    while (x) {
+        ErtsFreeSegDesc* desc = anode_to_desc(x);
+	if (start < desc->start) {
+            x = x->left;
+	}
+        else if (start > desc->start) {
+            ERTS_ASSERT(start > desc->end);
+            x = x->right;
+        }
+	else
+            return desc;
+    }
+    return NULL;
+}
+
+void hard_dbg_remove_mseg(void* seg, UWord sz)
+{
+    check_seg_writable(seg, sz);
+    erts_mtx_lock(&hard_dbg_mseg_mtx);
+    {
+        ErtsFreeSegDesc* desc = hard_dbg_lookup_seg_at(&hard_dbg_mseg_tree, (char*)seg);
+        ERTS_ASSERT(desc);
+        ERTS_ASSERT(desc->start == (char*)seg);
+        ERTS_ASSERT(desc->end == (char*)seg + sz - 1);
+
+        rbt_delete(&hard_dbg_mseg_tree, &desc->anode);
+        hard_dbg_free_desc(desc);
+    }
+    erts_mtx_unlock(&hard_dbg_mseg_mtx);
+}
+
+#endif /* HARD_DEBUG_MSEG */
