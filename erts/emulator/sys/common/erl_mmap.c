@@ -1762,12 +1762,12 @@ erts_munmap(Uint32 flags, void *ptr, UWord size)
     supercarrier_success: {
 	    UWord unres_sz;
 
-	    erts_smp_mtx_unlock(&mmap_state.mtx);
-
 	    ERTS_MMAP_ASSERT(size >= ad_sz);
 	    unres_sz = size - ad_sz;
 	    if (unres_sz)
 		mmap_state.unreserve_physical(((char *) ptr) + ad_sz, unres_sz);
+
+            erts_smp_mtx_unlock(&mmap_state.mtx);
 	}
     }
 }
