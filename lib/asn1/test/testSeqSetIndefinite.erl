@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,15 +17,16 @@
 %% %CopyrightEnd%
 %%
 %%
--module(testSeqIndefinite).
-
--export([main/1]).
+-module(testSeqSetIndefinite).
+-export([main/0]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-main(per) -> ok;
-main(ber) ->
-    
+main() ->
+    seq_indefinite(),
+    set_indefinite().
+
+seq_indefinite() ->
     %% normal encoding
     B = <<48,20,1,1,255,48,9,1,1,255,2,4,251,35,238,194,2,4,251,55,236,161>>,
     %% indefinite length encoding
@@ -34,7 +35,18 @@ main(ber) ->
     V = {'SeqS3',true,{'SeqS3_seqS3',true,-81531198},-80221023},
     {ok,V} = 'SeqSetIndefinite':decode('SeqS3', B),
     {ok,V} = 'SeqSetIndefinite':decode('SeqS3', Bi),
+
     ok.
 
+set_indefinite() ->
+    %% normal encoding
+    B = <<49,20,1,1,255,49,9,1,1,255,2,4,251,35,238,194,2,4,251,55,236,161>>,
+    %% indefinite length encoding
+    Bi = <<49,22,1,1,255,49,128,1,1,255,2,4,251,35,238,194,0,0,2,4,251,55,236,161>>,
 
+    %% the value which is encoded
+    V = {'SetS3',true,{'SetS3_setS3',true,-81531198},-80221023},
+    {ok,V} = 'SeqSetIndefinite':decode('SetS3', B),
+    {ok,V} = 'SeqSetIndefinite':decode('SetS3', Bi),
 
+    ok.

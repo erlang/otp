@@ -49,12 +49,12 @@ MODULES= \
 	testSeqOptional \
 	testSeq2738 \
 	testSeqPrim \
+	testSeqSetIndefinite \
 	testSeqTag \
 	testSeqTypeRefCho \
 	testSeqTypeRefPrim \
 	testSeqTypeRefSeq \
 	testSeqTypeRefSet \
-	testSeqIndefinite \
 	testSeqOf \
 	testSeqOfIndefinite \
 	testSeqOfCho \
@@ -70,7 +70,6 @@ MODULES= \
 	testSetTypeRefPrim \
 	testSetTypeRefSeq \
 	testSetTypeRefSet \
-	testSetIndefinite \
 	testChoiceIndefinite \
 	testSetOf \
 	testSetOfCho \

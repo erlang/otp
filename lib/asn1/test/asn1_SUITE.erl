@@ -130,9 +130,7 @@ groups() ->
        % Uses 'Constructed'
        {group, [], [constructed,
                     ber_decode_error]},
-       % Uses 'SeqSetIndefinite'
-       {group, [], [testSeqIndefinite,
-                    testSetIndefinite]},
+       testSeqSetIndefinite,
        testChoiceIndefinite,
        per_open_type,
        testInfObjectClass,
@@ -721,21 +719,11 @@ testConstraints(Config, Rule, Opts) ->
 	_ -> testConstraints:refed_NNL_name(Rule)
     end.
 
-testSeqIndefinite(Config) ->
-    test(Config, fun testSeqIndefinite/3, [ber]).
-
-testSeqIndefinite(Config, Rule, Opts) ->
+testSeqSetIndefinite(Config) ->
+    test(Config, fun testSeqSetIndefinite/3, [ber]).
+testSeqSetIndefinite(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqSetIndefinite", Config, [Rule|Opts]),
-    testSeqIndefinite:main(Rule).
-
-
-testSetIndefinite(Config) ->
-    test(Config, fun testSetIndefinite/3, [ber]).
-
-testSetIndefinite(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SeqSetIndefinite", Config, [Rule|Opts]),
-    testSetIndefinite:main(Rule).
-
+    testSeqSetIndefinite:main().
 
 testChoiceIndefinite(Config) ->
     test(Config, fun testChoiceIndefinite/3, [ber]).
