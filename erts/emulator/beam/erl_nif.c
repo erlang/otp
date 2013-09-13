@@ -1568,9 +1568,10 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     void* init_func = NULL;
     ErlNifEntry* entry = NULL;
     ErlNifEnv env;
-    int len, i, err;
+    int i, err;
     Module* mod;
     Eterm mod_atom;
+    const Atom* mod_atomp;
     Eterm f_atom;
     BeamInstr* caller;
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
@@ -1578,20 +1579,12 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     int veto;
     struct erl_module_nif* lib = NULL;
     int reload_warning = 0;
-    char tmp_buf[255];
 
-    len = list_length(BIF_ARG_1);
-    if (len < 0) {
+    lib_name = erts_convert_filename_to_native(BIF_ARG_1, NULL, 0,
+                                               ERTS_ALC_T_TMP, 1, 0, NULL);
+    if (!lib_name) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-
-    lib_name = (char *) erts_alloc(ERTS_ALC_T_TMP, len + 1);
-
-    if (intlist_to_buf(BIF_ARG_1, lib_name, len) != len) {
-	erts_free(ERTS_ALC_T_TMP, lib_name);
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    lib_name[len] = '\0';
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
 	erts_free(ERTS_ALC_T_TMP, lib_name);
@@ -1615,7 +1608,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     mod=erts_get_module(mod_atom, erts_active_code_ix());
     ASSERT(mod != NULL);
 
-    init_func = erts_static_nif_get_nif_init(erts_basename(lib_name,tmp_buf));
+    mod_atomp = atom_tab(atom_val(mod_atom));
+    init_func = erts_static_nif_get_nif_init(mod_atomp->name, mod_atomp->len);
     if (init_func != NULL)
       handle = init_func;
 
