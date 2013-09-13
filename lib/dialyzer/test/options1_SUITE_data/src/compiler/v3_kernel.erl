@@ -129,7 +129,7 @@ function(#c_def{anno=Af,name=#c_fname{id=F,arity=Arity},val=Body}, St0) ->
     %%B1 = B0, St3 = St2,				%Null second pass
     {#k_fdef{anno=#k{us=[],ns=[],a=Af ++ Ab},
 	     func=F,arity=Arity,vars=Kvs,body=B1},St3}.
-
+
 %% body(Cexpr, Sub, State) -> {Kexpr,[PreKepxr],State}.
 %%  Do the main sequence of a body.  A body ends in an atomic value or
 %%  values.  Must check if vector first so do expr.
@@ -719,7 +719,7 @@ last([_|T]) -> last(T).
 
 first([_]) -> [];
 first([H|T]) -> [H|first(T)].
-
+
 %% This code implements the algorithm for an optimizing compiler for
 %% pattern matching given "The Implementation of Functional
 %% Programming Languages" by Simon Peyton Jones. The code is much
@@ -1143,7 +1143,7 @@ arg_val(Arg) ->
 	#k_bin_end{} -> 0;
 	#k_binary{} -> 0
     end.
-
+
 %% ubody(Expr, Break, State) -> {Expr,[UsedVar],State}.
 %%  Tag the body sequence with its used variables.  These bodies
 %%  either end with a #k_break{}, or with #k_return{} or an expression

@@ -75,7 +75,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-
+
 %%% Testing statistics(wall_clock).
 
 
@@ -121,7 +121,7 @@ wall_clock_update1(N) when N > 0 ->
 wall_clock_update1(0) ->
     ok.
 
-
+
 %%% Test statistics(runtime).
 
 
@@ -199,7 +199,7 @@ do_much(N) ->
     _ = 4784728478274827 * 72874284728472,
     do_much(N-1).
 
-
+
 reductions(doc) ->
     "Test that statistics(reductions) is callable, and that "
 	"Total_Reductions and Reductions_Since_Last_Call make sense. "
@@ -246,7 +246,7 @@ reductions_big_loop() ->
 	    reductions_big_loop()
     end.
 
-
+
 %%% Tests of statistics(run_queue).
 
 
@@ -295,7 +295,7 @@ hog_iter(N, Mon) when N > 0 ->
     end;
 hog_iter(0, Mon) ->
     ?line hog_iter(10000, Mon).
-
+
 %%% Tests of statistics(scheduler_wall_time).
 
 scheduler_wall_time(doc) ->
@@ -363,7 +363,7 @@ load_percentage([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
     [100*(WN-WP) div (TN-TP)|load_percentage(Ss, Ps)];
 load_percentage([], []) -> [].
 
-
+
 garbage_collection(doc) ->
     "Tests that statistics(garbage_collection) is callable. "
     "It is not clear how to test anything more.";

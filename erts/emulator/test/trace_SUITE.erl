@@ -1427,7 +1427,7 @@ receive_nothing() ->
 	    ok
     end.
 
-
+
 %%% Models for various kinds of processes.
 
 process(Dest) ->

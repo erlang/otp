@@ -77,7 +77,7 @@ run_tests(char* argv0, TestCase test_cases[], unsigned number)
     }
 }
 
-
+
 /***********************************************************************
  *
  * R e a d i n g   p a c k e t s
@@ -182,7 +182,7 @@ char *read_packet(int *len)
     return io_buf;
 }
 
-
+
 /***********************************************************************
  * S e n d i n g   r e p l i e s
  *
