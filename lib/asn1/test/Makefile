@@ -35,7 +35,6 @@ MODULES= \
 	testChoExtension \
 	testChoExternal \
 	testChoOptional \
-	testChoOptionalImplicitTag \
 	testChoRecursive \
 	testChoTypeRefCho \
 	testChoTypeRefPrim \

@@ -90,7 +90,6 @@ groups() ->
        testChoPrim,
        testChoExtension,
        testChoOptional,
-       testChoOptionalImplicitTag,
        testChoRecursive,
        testChoTypeRefCho,
        testChoTypeRefPrim,
@@ -385,16 +384,9 @@ testChoExtension(Config, Rule, Opts) ->
 
 testChoOptional(Config) -> test(Config, fun testChoOptional/3).
 testChoOptional(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ChoOptional", Config, [Rule|Opts]),
-    testChoOptional:optional(Rule).
-
-testChoOptionalImplicitTag(Config) ->
-    test(Config, fun testChoOptionalImplicitTag/3,
-	 [ber]).
-testChoOptionalImplicitTag(Config, Rule, Opts) ->
-    %% Only meaningful for ber & co
-    asn1_test_lib:compile("ChoOptionalImplicitTag", Config, [Rule|Opts]),
-    testChoOptionalImplicitTag:optional(Rule).
+    asn1_test_lib:compile_all(["ChoOptional",
+			       "ChoOptionalImplicitTag"], Config, [Rule|Opts]),
+    testChoOptional:run().
 
 testChoRecursive(Config) -> test(Config, fun testChoRecursive/3).
 testChoRecursive(Config, Rule, Opts) ->
