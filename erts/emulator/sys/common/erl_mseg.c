@@ -132,7 +132,7 @@ typedef struct {
 typedef struct cache_t_ cache_t;
 
 struct cache_t_ {
-    Uint size;
+    UWord size;
     void *seg;
     cache_t *next;
     cache_t *prev;
@@ -408,7 +408,7 @@ static ERTS_INLINE void mseg_cache_clear_node(cache_t *c) {
     c->prev = c;
 }
 
-static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Uint flags) {
+static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, UWord size, Uint flags) {
 
     cache_t *c;
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
@@ -496,7 +496,7 @@ static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size, Ui
 
 static ERTS_INLINE void *cache_get_segment(MemKind *mk, UWord *size_p, Uint flags) {
 
-    Uint size = (UWord) *size_p;
+    UWord size = *size_p;
 
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
 
@@ -505,7 +505,7 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, UWord *size_p, Uint flag
 	int i, ix = SIZE_TO_CACHE_AREA_IDX(size);
 	char *seg;
 	cache_t *c;
-	Uint csize;
+	UWord csize;
 
 	ASSERT(IS_2POW(size));
 
@@ -542,10 +542,10 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, UWord *size_p, Uint flag
 	void *seg;
 	cache_t *c;
 	cache_t *best = NULL;
-	Uint bdiff = 0;
-	Uint csize;
-	Uint bad_max_abs = mk->ma->abs_max_cache_bad_fit;
-	Uint bad_max_rel = mk->ma->rel_max_cache_bad_fit;
+	UWord bdiff = 0;
+	UWord csize;
+	UWord bad_max_abs = mk->ma->abs_max_cache_bad_fit;
+	UWord bad_max_rel = mk->ma->rel_max_cache_bad_fit;
 
 	erts_circleq_foreach(c, &(mk->cache_unpowered_node)) {
 	    csize = c->size;
@@ -562,7 +562,7 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, UWord *size_p, Uint flag
 		    mseg_cache_clear_node(c);
 		    erts_circleq_push_head(&(mk->cache_free), c);
 
-		    *size_p = (UWord) csize;
+		    *size_p = csize;
 
 		    return seg;
 
@@ -593,7 +593,7 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, UWord *size_p, Uint flag
 	    ASSERT((size % GET_PAGE_SIZE) == 0);
 	    ASSERT((best->size % GET_PAGE_SIZE) == 0);
 
-	    *size_p = (UWord) size;
+	    *size_p = size;
 
 	    return seg;
 
@@ -822,7 +822,7 @@ mseg_dealloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg, UWord size,
 
     ERTS_MSEG_DEALLOC_STAT(mk,size);
 
-    if (opt->cache && cache_bless_segment(mk, seg, (Uint) size, flags)) {
+    if (opt->cache && cache_bless_segment(mk, seg, size, flags)) {
 	schedule_cache_check(ma);
 	goto done;
     }
