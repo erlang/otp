@@ -24,7 +24,7 @@
 %% If Emakefile is missing the current directory is used.
 -module(make).
 
--export([all/0,all/1,files/1,files/2]).
+-export([all/0,all/1,with/1,with/2,files/1,files/2]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -41,6 +41,14 @@ all(Options) ->
 	error ->
 	    error
     end.
+
+with(Emake) ->
+    with(Emake, []).
+
+with(Emake,Options) ->
+    {MakeOpts,CompileOpts} = sort_options(Options,[],[]),
+    Files = transform(Emake,CompileOpts,[],[]),
+    do_make_files(Files,MakeOpts).
 
 files(Fs) ->
     files(Fs, []).
