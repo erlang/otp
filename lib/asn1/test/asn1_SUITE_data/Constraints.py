@@ -17,6 +17,11 @@ NegSemiConstrained ::= INTEGER (-128..MAX)
 SemiConstrainedExt ::= INTEGER (42..MAX, ...)
 NegSemiConstrainedExt ::= INTEGER (-128..MAX, ...)
 
+-- Union of single values
+Sv1 ::= INTEGER (2|3|17)
+Sv2 ::= INTEGER (2|3|17, ...)
+Sv3 ::= INTEGER {a(2),b(3),z(17)} (2|3|17, ...)
+
 -- Other constraints
 FixedSize ::= OCTET STRING (SIZE(10)) 
 FixedSize2 ::= OCTET STRING (SIZE(10|20)) 
