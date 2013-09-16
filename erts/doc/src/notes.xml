@@ -30,6 +30,44 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.9.3.3</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+	    <p>Miscellaneous native code in OTP misbehave either due
+	    to lengthy execution, or due to not bumping reductions
+	    properly. Problems typically occur when passing huge sets
+	    of data to a misbehaving BIF. Fixing this has high
+	    priority and is being worked on, but there will remain
+	    issues like this for some time.</p>
+	    <p>In order to alleviate problems with scheduling which
+	    might occur when executing misbehaving native code, the
+	    command line argument <seealso
+	    marker="erl#+sfwi">+sfwi</seealso> has been
+	    introduced.</p>
+	    <p>By default this feature is disabled and you are
+	    advised not to enable it if you do not encounter problems
+	    with misbehaving native code.</p>
+	    <p>When enabled it has the following impact on the
+	    characteristics of the system:</p> <list> <item>Work will
+	    always be distributed between schedulers even when
+	    executing misbehaving native code.</item> <item>It may
+	    cause an increased amount of processes and/or ports
+	    bouncing between schedulers which in turn will cause a
+	    performance loss.</item> <item>It may cause reduced
+	    performance due to reduced or lost work compaction when
+	    all schedulers do not execute under full load.</item>
+	    <item>An increased contention on run queue locks.</item>
+	    </list>
+          <p>
+	    Own Id: OTP-11164</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.9.3.2</title>
 
     <section><title>Improvements and New Features</title>
