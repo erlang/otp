@@ -122,6 +122,42 @@ int_constraints(Rules) ->
     range_error(Rules, 'X1', 21),
 
     %%==========================================================
+    %%  Union of single values
+    %%  Sv1 ::= INTEGER (2|3|17)
+    %%  Sv2 ::= INTEGER (2|3|17, ...)
+    %%  Sv3 ::= INTEGER {a(2),b(3),z(17)} (2|3|17, ...)
+    %%==========================================================
+
+    range_error(Rules, 'Sv1', 1),
+    range_error(Rules, 'Sv1', 18),
+    roundtrip('Sv1', 2),
+    roundtrip('Sv1', 3),
+    roundtrip('Sv1', 7),
+
+    %% Encoded as root
+    v_roundtrip(Rules, 'Sv2', 2),
+    v_roundtrip(Rules, 'Sv2', 3),
+    v_roundtrip(Rules, 'Sv2', 17),
+
+    %% Encoded as extension
+    v_roundtrip(Rules, 'Sv2', 1),
+    v_roundtrip(Rules, 'Sv2', 4),
+    v_roundtrip(Rules, 'Sv2', 18),
+
+    %% Encoded as root
+    v_roundtrip(Rules, 'Sv3', a),
+    v_roundtrip(Rules, 'Sv3', b),
+    v_roundtrip(Rules, 'Sv3', z),
+    v_roundtrip(Rules, 'Sv3', 2, a),
+    v_roundtrip(Rules, 'Sv3', 3, b),
+    v_roundtrip(Rules, 'Sv3', 17, z),
+
+    %% Encoded as extension
+    v_roundtrip(Rules, 'Sv3', 1),
+    v_roundtrip(Rules, 'Sv3', 4),
+    v_roundtrip(Rules, 'Sv3', 18),
+
+    %%==========================================================
     %%  SemiConstrained
     %%==========================================================
 
@@ -197,7 +233,29 @@ v(per, 'SemiConstrainedExt', 42+128) -> "000180";
 v(uper, 'SemiConstrainedExt', 42+128) -> "00C000";
 v(ber, 'NegSemiConstrainedExt', 0) -> "020100";
 v(per, 'NegSemiConstrainedExt', 0) -> "000180";
-v(uper, 'NegSemiConstrainedExt', 0) -> "00C000".
+v(uper, 'NegSemiConstrainedExt', 0) -> "00C000";
+v(ber, 'Sv2', 1) -> "020101";
+v(per, 'Sv2', 1) -> "800101";
+v(uper, 'Sv2', 1) -> "808080";
+v(ber, 'Sv2', 2) -> "020102";
+v(per, 'Sv2', 2) -> "00";
+v(uper, 'Sv2', 2) -> "00";
+v(ber, 'Sv2', 3) -> "020103";
+v(per, 'Sv2', 3) -> "08";
+v(uper, 'Sv2', 3) -> "08";
+v(ber, 'Sv2', 4) -> "020104";
+v(per, 'Sv2', 4) -> "800104";
+v(uper, 'Sv2', 4) -> "808200";
+v(ber, 'Sv2', 17) -> "020111";
+v(per, 'Sv2', 17) -> "78";
+v(uper, 'Sv2', 17) -> "78";
+v(ber, 'Sv2', 18) -> "020112";
+v(per, 'Sv2', 18) -> "800112";
+v(uper, 'Sv2', 18) -> "808900";
+v(Rule, 'Sv3', a) -> v(Rule, 'Sv2', 2);
+v(Rule, 'Sv3', b) -> v(Rule, 'Sv2', 3);
+v(Rule, 'Sv3', z) -> v(Rule, 'Sv2', 17);
+v(Rule, 'Sv3', Val) when is_integer(Val) -> v(Rule, 'Sv2', Val).
 
 shorter_ext(per, "a") -> <<16#80,16#01,16#61>>;
 shorter_ext(uper, "a") -> <<16#80,16#E1>>;
@@ -210,6 +268,10 @@ refed_NNL_name(_Erule) ->
 v_roundtrip(Erule, Type, Value) ->
     Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type, Value)),
     Encoded = roundtrip('Constraints', Type, Value).
+
+v_roundtrip(Erule, Type, Value, Expected) ->
+    Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type, Value)),
+    Encoded = asn1_test_lib:roundtrip_enc('Constraints', Type, Value, Expected).
 
 roundtrip(Type, Value) ->
     roundtrip('Constraints', Type, Value).
