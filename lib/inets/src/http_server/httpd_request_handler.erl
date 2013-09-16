@@ -316,7 +316,10 @@ terminate(normal, State) ->
     do_terminate(State);
 terminate(Reason, #state{response_sent = false, mod = ModData} = State) ->
     httpd_response:send_status(ModData, 500, none),
-    error_log(httpd_util:reason_phrase(500), ModData),
+     ReasonStr =
+	lists:flatten(io_lib:format("~s - ~p",
+				    [httpd_util:reason_phrase(500), Reason])),
+    error_log(ReasonStr, ModData),
     terminate(Reason, State#state{response_sent = true, mod = ModData});
 terminate(_Reason, State) ->
     do_terminate(State).
