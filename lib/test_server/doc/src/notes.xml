@@ -32,6 +32,62 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Test Server installed an error handler (test_server_h)
+	    only to be able to write the name of the current test
+	    case to stdout whenever it received an error- or progress
+	    report. This functionality was not useful and has been
+	    removed. The built-in Common Test hook, cth_log_redirect,
+	    has instead been improved to now also tag all error- and
+	    progress reports in the log with suite-, group-, and/or
+	    test case name.</p>
+          <p>
+	    Own Id: OTP-11263 Aux Id: seq12251 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new log, the "Pre- and Post Test I/O Log", has been
+	    introduced, which makes it possible to capture error- and
+	    progress reports, as well as printouts made with ct:log/2
+	    and ct:pal/2, before and after a test run. (Some minor
+	    improvements of the logging system have been made at the
+	    same time). Links to the new log are found on the Common
+	    Test Framework Log page. The Common Test User's Guide has
+	    been updated with information about the new log and also
+	    with a new section on how to synchronize external
+	    applications with Common Test by means of the CT Hook
+	    init and terminate functions.</p>
+          <p>
+	    Own Id: OTP-11272</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Test Server: Report auto_skipped in major log.</p>
+          <p>
+	    Own Id: OTP-11297</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,22 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Wrap eunit macros into begin ... end blocks. Thanks to
+	    Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11217</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.2.4</title>
 
     <section><title>Improvements and New Features</title>

@@ -31,6 +31,44 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 2.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Open types greater than 16383 bytes will now be correctly
+	    encoded and decoded.</p>
+          <p>
+	    Own Id: OTP-11262 Aux Id: seq12386, OTP-11223 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>For the PER and UPER formats, code generation
+	    especially for encoding has been improved.</p>
+	    <p>When encoding BIT STRINGs, values longer than the
+	    maximum size for the BIT STRING type would be truncated
+	    silently - they now cause an exception.</p>
+	    <p>Open types greater than 16383 bytes will now be
+	    correctly encoded and decoded.</p>
+	    <p>IMPORTANT NOTE: For ASN.1 specifications that depend
+	    on each other, such as the S1AP-* specifications, it is
+	    important to recompile all specifications (compiling some
+	    with this version of the compiler and some with an older
+	    version will not work).</p>
+          <p>
+	    Own Id: OTP-11300</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 2.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,43 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.2.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Use 'df -k -l' to query FreeBSD and OpenBSD about
+	    diskspace on local disks. Previously 'df' -k -t ufs' was
+	    used but this will not handle zfs or other disks. Just
+	    use '-l' instead of listing potential filesystems.</p>
+          <p>
+	    Own Id: OTP-11207</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix compilation on Solaris. Thanks to Maciej Malecki.</p>
+          <p>
+	    Own Id: OTP-11213</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken cpu_sup:nprocs and others on Solaris 64-bit.
+	    Thanks to Simon Cornish.</p>
+          <p>
+	    Own Id: OTP-11298</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.2.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

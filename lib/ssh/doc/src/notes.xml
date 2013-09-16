@@ -29,6 +29,41 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.1.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Do not chmod ~/.ssh unnecessarily.</p>
+          <p>
+	    Own Id: OTP-11189</p>
+        </item>
+        <item>
+          <p>
+	    Make ssh_cli.erl handle CTRL+C. Thanks to Stefan
+	    Zegenhagen.</p>
+          <p>
+	    Own Id: OTP-11199</p>
+        </item>
+        <item>
+          <p>
+	    Clarified timeout options in documentation.</p>
+          <p>
+	    Own Id: OTP-11249</p>
+        </item>
+        <item>
+          <p>
+	    Add openssh_zlib compression type to ssh_transport.
+	    Thanks to Louis-Philippe Gauthier.</p>
+          <p>
+	    Own Id: OTP-11256</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 2.1.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

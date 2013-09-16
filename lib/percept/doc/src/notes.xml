@@ -32,6 +32,23 @@
   </header>
   <p>This document describes the changes made to the Percept application.</p>
 
+<section><title>Percept 0.8.8.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The encoding of the <c>notes.xml</c> file has been
+	    changed from latin1 to utf-8 to avoid future merge
+	    problems.</p>
+          <p>
+	    Own Id: OTP-11310</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Percept 0.8.8.1</title>
 
     <section><title>Improvements and New Features</title>

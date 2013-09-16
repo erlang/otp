@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Refactor ecdsa cipher to simplify code and improve
+	    performance.</p>
+          <p>
+	    Own Id: OTP-11320</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.0</title>
 
     <section><title>Improvements and New Features</title>

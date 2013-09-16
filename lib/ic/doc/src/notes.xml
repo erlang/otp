@@ -30,7 +30,25 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.3.2</title>
+   <section><title>IC 4.3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Header and library files from ic and erl_interface are
+	    now installed into usr/{include,lib}. Note that these
+	    directories are unversioned, so the latest installed
+	    version will be the one in the directory.</p>
+          <p>
+	    Own Id: OTP-11284</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -36,7 +36,23 @@
     section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.17.0.1</title>
+  <section><title>Megaco 3.17.0.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Introduced functionality for inspection of system and
+	    build configuration.</p>
+          <p>
+	    Own Id: OTP-11196</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.17.0.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

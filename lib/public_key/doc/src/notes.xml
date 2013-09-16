@@ -34,6 +34,29 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.20</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extend PKCS-7 to support SCEP (Simple Certificate
+	    Enrollment Protocol).</p>
+          <p>
+	    Own Id: OTP-10874</p>
+        </item>
+        <item>
+          <p>
+	    public_key:pem_entry_decode/2 now handles AES-128-CBC
+	    ciphered keys. Thanks to Simon Cornish.</p>
+          <p>
+	    Own Id: OTP-11281</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.19</title>
 
     <section><title>Improvements and New Features</title>

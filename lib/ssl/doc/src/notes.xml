@@ -25,7 +25,69 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 5.3</title>
+  <section><title>SSL 5.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Setopts during renegotiation caused the renegotiation to
+	    be unsuccessful.</p>
+          <p>
+	    If calling setopts during a renegotiation the FSM state
+	    might change during the handling of the setopts messages,
+	    this is now handled correctly.</p>
+          <p>
+	    Own Id: OTP-11228</p>
+        </item>
+        <item>
+          <p>
+	    Now handles signature_algorithm field in digitally_signed
+	    properly with proper defaults. Prior to this change some
+	    elliptic curve cipher suites could fail reporting the
+	    error "bad certificate".</p>
+          <p>
+	    Own Id: OTP-11229</p>
+        </item>
+        <item>
+          <p>
+	    The code emulating the inet header option was changed in
+	    the belief that it made it inet compatible. However the
+	    testing is a bit hairy as the inet option is actually
+	    broken, now the tests are corrected and the header option
+	    should work in the same broken way as inet again,
+	    preferably use the bitsyntax instead.</p>
+          <p>
+	    Own Id: OTP-11230</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make the ssl manager name for erlang distribution over
+	    SSL/TLS relative to the module name of the ssl_manager.</p>
+          <p>
+	    This can be beneficial when making tools that rename
+	    modules for internal processing in the tool.</p>
+          <p>
+	    Own Id: OTP-11255</p>
+        </item>
+        <item>
+          <p>
+	    Add documentation regarding log_alert option.</p>
+          <p>
+	    Own Id: OTP-11271</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
