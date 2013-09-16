@@ -907,6 +907,20 @@
 	    <p>For more information, see
 	    <seealso marker="erlang#system_info_cpu_topology">erlang:system_info(cpu_topology)</seealso>.</p>
           </item>
+          <tag><marker id="+sfwi"><c>+sfwi Interval</c></marker></tag>
+          <item>
+            <p>Set scheduler forced wakeup interval. All run queues will
+	    be scanned each <c>Interval</c> milliseconds. While there are
+	    sleeping schedulers in the system, one scheduler will be woken
+	    for each non-empty run queue found. An <c>Interval</c> of zero
+	    disables this feature, which also is the default.
+	    </p>
+	    <p>This feature has been introduced as a temporary workaround
+	    for lengthy executing native code, and native code that do not
+	    bump reductions properly in OTP. When these bugs have be fixed
+	    the <c>+sfwi</c> flag will be removed.
+	    </p>
+	  </item>
 	  <tag><marker id="+sws"><c>+sws default|legacy|proposal</c></marker></tag>
 	  <item>
              <p>Set scheduler wakeup strategy. Default is <c>legacy</c> (has been
