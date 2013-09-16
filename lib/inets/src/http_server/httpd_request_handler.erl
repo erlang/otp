@@ -267,7 +267,7 @@ handle_info({ssl_error, _, _} = Reason, State) ->
     {stop, Reason, State};
 
 %% Timeouts
-handle_info(timeout, #state{mod = ModData, mfa = {_, parse, _}} = State) ->
+handle_info(timeout, #state{mfa = {_, parse, _}} = State) ->
     %% error_log("No request received on keep-alive connection "
     %% 	      "before server side timeout", ModData),
     %% No response should be sent!

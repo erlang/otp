@@ -39,14 +39,21 @@
 		   Size       :: 0 | pos_integer() | string()) ->
 			  {Log :: atom() | pid(), Entry :: string()} | term() .
 
-access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode, SizeStr) 
-  when is_list(SizeStr) ->
+%% Somethime the size in the form of the content_length is put here, which
+%% is actually in the form of a string
+%% So it can either be the size as an integer, the size as a string
+%% or, worst case scenario, bytes.
+access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode,
+	     SizeStrOrBytes)
+  when is_list(SizeStrOrBytes) ->
     Size = 
-	case (catch list_to_integer(SizeStr)) of
+	case (catch list_to_integer(SizeStrOrBytes)) of
 	    I when is_integer(I) ->
+		%% This is from using the content_length (which is a string)
 		I;
 	    _ ->
-		SizeStr % This is better then nothing
+		%% This is better than nothing
+		httpd_util:flatlength(SizeStrOrBytes)
 	end,
     access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode, Size);
 access_entry(Log, NoLog, 
