@@ -3881,7 +3881,7 @@ runq_supervisor(void *unused)
 
 	for (ix = 0; ix < no_rqs; ix++) {
 	    ErtsRunQueue *rq = ERTS_RUNQ_IX(ix);
-	    if (ERTS_RUNQ_FLGS_GET(rq) & ERTS_RUNQ_FLG_NONEMPTY) {
+	    if (erts_smp_atomic32_read_acqb(&rq->info_flags) & ERTS_RUNQ_IFLG_NONEMPTY) {
 		erts_smp_runq_lock(rq);
 		if (rq->len != 0)
 		    wake_scheduler_on_empty_runq(rq); /* forced wakeup... */
