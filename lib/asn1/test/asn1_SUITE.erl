@@ -993,12 +993,10 @@ testX420(Config) ->
 	"sparc-sun-solaris2.10" ->
 	    {skip,"Too slow for an old Sparc"};
 	_ ->
-	    test(Config, fun testX420/3, [ber])
+	    Rule = ber,
+	    testX420:compile(Rule, [der], Config),
+	    ok = testX420:ticket7759(Rule, Config)
     end.
-testX420(Config, Rule, Opts) ->
-    testX420:compile(Rule, [der|Opts], Config),
-    ok = testX420:ticket7759(Rule, Config),
-    testX420:compile(Rule, Opts, Config).
 
 test_x691(Config) ->
     test(Config, fun test_x691/3, [per, uper]).

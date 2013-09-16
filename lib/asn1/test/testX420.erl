@@ -26,7 +26,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 
-compile(Erule, Options, Config) when Erule =:= ber; Erule =:= per ->
+compile(Erule, Options, Config) ->
     Specs0 = specs(),
     99 = length(Specs0),
     CaseDir = ?config(case_dir, Config),
