@@ -274,7 +274,7 @@ tagdef(Tag,Pos,Parents,Args,CBs) ->
 callbacks(Module) ->
     Result = check_inheritance(Module, []),
 %%%     io:format("callbacks = ~p~n", [lists:reverse(Result)]),
-    lists:reverse(Result).
+    gather_exports(Result, []).
 
 callbacks([M|Mods], Visited) ->
     case lists:member(M, Visited) of
@@ -296,6 +296,11 @@ check_inheritance(M, Visited) ->
 	    callbacks(Mods, [M|Visited])
     end.
 
+gather_exports([M|Mods], Acc) ->
+    gather_exports(Mods, [{M, M:module_info(exports)}|Acc]);
+gather_exports([], Acc) ->
+    Acc.
+
 apply_text_cb(Ms, Text) ->
     apply_cb(Ms, '#text#', '#text#', [Text]).
 
@@ -305,14 +310,12 @@ apply_tag_cb(Ms, F, Args) ->
 apply_cb(Ms, F, Df, Args) ->
     apply_cb(Ms, F, Df, Args, Ms).
 
-apply_cb([M|Ms], F, Df, Args, Ms0) ->
-    case catch apply(M, F, Args) of
-	{'EXIT', {undef,[{M,F,_,_}|_]}} ->
-	    apply_cb(Ms, F, Df, Args, Ms0);
-	{'EXIT', Reason} ->
-	    exit(Reason);
-	Res ->
-	    Res
+apply_cb([{M, Exports}|Ms], F, Df, Args, Ms0) ->
+    case lists:member({F, length(Args)}, Exports) of
+        true ->
+            apply(M, F, Args);
+        false ->
+	    apply_cb(Ms, F, Df, Args, Ms0)
     end;
 apply_cb([], Df, Df, Args, _Ms0) ->
     exit({unknown_tag, {Df, Args}});
