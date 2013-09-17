@@ -32,13 +32,15 @@
 -include_lib("public_key/include/public_key.hrl").
 
 %% Handshake messages
--export([hello_request/0, server_hello_done/0,
+-export([hello_request/0, server_hello/4, server_hello_done/0,
 	 certificate/4, certificate_request/4, key_exchange/3,
 	 finished/5,  next_protocol/1]).
 
 %% Handle handshake messages
 -export([certify/7, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
-	 master_secret/5, server_key_exchange_hash/2, verify_connection/6]).
+	 master_secret/5, server_key_exchange_hash/2, verify_connection/6,
+	 init_handshake_history/0, update_handshake_history/2
+	]).
 
 %% Encode/Decode
 -export([encode_handshake/2, encode_hello_extensions/1,
@@ -76,6 +78,25 @@
 %%--------------------------------------------------------------------
 hello_request() ->
     #hello_request{}.
+
+%%--------------------------------------------------------------------
+-spec server_hello(#session{}, tls_version(), #connection_states{},
+		   #hello_extensions{}) -> #server_hello{}.
+%%
+%% Description: Creates a server hello message.
+%%--------------------------------------------------------------------
+server_hello(SessionId, Version, ConnectionStates, Extensions) ->
+    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
+    SecParams = Pending#connection_state.security_parameters,
+
+    #server_hello{server_version = Version,
+		  cipher_suite = SecParams#security_parameters.cipher_suite,
+                  compression_method =
+		  SecParams#security_parameters.compression_algorithm,
+		  random = SecParams#security_parameters.server_random,
+		  session_id = SessionId,
+		  extensions = Extensions
+		 }.
 
 %%--------------------------------------------------------------------
 -spec server_hello_done() ->  #server_hello_done{}.
@@ -405,6 +426,37 @@ verify_connection(Version, #finished{verify_data = Data},
 	_ ->
 	    ?ALERT_REC(?FATAL, ?DECRYPT_ERROR)
     end.
+
+%%--------------------------------------------------------------------
+-spec init_handshake_history() -> tls_handshake_history().
+
+%%
+%% Description: Initialize the empty handshake history buffer.
+%%--------------------------------------------------------------------
+init_handshake_history() ->
+    {[], []}.
+
+%%--------------------------------------------------------------------
+-spec update_handshake_history(tls_handshake_history(), Data ::term()) ->
+				      tls_handshake_history().
+%%
+%% Description: Update the handshake history buffer with Data.
+%%--------------------------------------------------------------------
+update_handshake_history(Handshake, % special-case SSL2 client hello
+			 <<?CLIENT_HELLO, ?UINT24(_), ?BYTE(Major), ?BYTE(Minor),
+			   ?UINT16(CSLength), ?UINT16(0),
+			   ?UINT16(CDLength),
+			   CipherSuites:CSLength/binary,
+			   ChallengeData:CDLength/binary>>) ->
+    update_handshake_history(Handshake,
+			     <<?CLIENT_HELLO, ?BYTE(Major), ?BYTE(Minor),
+			       ?UINT16(CSLength), ?UINT16(0),
+			       ?UINT16(CDLength),
+			       CipherSuites:CSLength/binary,
+			       ChallengeData:CDLength/binary>>);
+update_handshake_history({Handshake0, _Prev}, Data) ->
+    {[Data|Handshake0], Handshake0}.
+
 %%--------------------------------------------------------------------
 -spec decrypt_premaster_secret(binary(), #'RSAPrivateKey'{}) -> binary().
 

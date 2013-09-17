@@ -21,13 +21,26 @@
 -include("dtls_record.hrl").
 -include("ssl_internal.hrl").
 
--export([client_hello/9, hello/3, get_dtls_handshake/2,
+-export([client_hello/8, client_hello/9, hello/3,
+	 get_dtls_handshake/2,
 	 dtls_handshake_new_flight/1, dtls_handshake_new_epoch/1,
 	 encode_handshake/4]).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
+%%--------------------------------------------------------------------
+-spec client_hello(host(), inet:port_number(), #connection_states{},
+		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
+			  #client_hello{}.
+%%
+%% Description: Creates a client hello message.
+%%--------------------------------------------------------------------
+client_hello(Host, Port, ConnectionStates, SslOpts,
+	     Cache, CacheCb, Renegotiation, OwnCert) ->
+    %% First client hello (two sent in DTLS ) uses empty Cookie
+    client_hello(Host, Port, <<>>, ConnectionStates, SslOpts,
+		 Cache, CacheCb, Renegotiation, OwnCert).
 
 %%--------------------------------------------------------------------
 -spec client_hello(host(), inet:port_number(), term(), #connection_states{},

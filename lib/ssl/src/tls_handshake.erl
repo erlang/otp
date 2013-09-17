@@ -30,9 +30,8 @@
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([client_hello/8, server_hello/4, hello/4,
-	 get_tls_handshake/3, encode_handshake/2, decode_handshake/3,
-	 init_handshake_history/0, update_handshake_history/2]).
+-export([client_hello/8, hello/4,
+	 get_tls_handshake/3, encode_handshake/2, decode_handshake/3]).
 
 %%====================================================================
 %% Internal application API
@@ -64,25 +63,6 @@ client_hello(Host, Port, ConnectionStates,
 		  cipher_suites = ssl_handshake:cipher_suites(CipherSuites, Renegotiation),
 		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
-		  extensions = Extensions
-		 }.
-
-%%--------------------------------------------------------------------
--spec server_hello(binary(), tls_version(), #connection_states{},
-		   #hello_extensions{}) -> #server_hello{}.
-%%
-%% Description: Creates a server hello message.
-%%--------------------------------------------------------------------
-server_hello(SessionId, Version, ConnectionStates, Extensions) ->
-    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = Pending#connection_state.security_parameters,
-
-    #server_hello{server_version = Version,
-		  cipher_suite = SecParams#security_parameters.cipher_suite,
-                  compression_method = 
-		  SecParams#security_parameters.compression_algorithm,
-		  random = SecParams#security_parameters.server_random,
-		  session_id = SessionId,
 		  extensions = Extensions
 		 }.
 
@@ -165,36 +145,8 @@ get_tls_handshake(Version, Data, Buffer) ->
     get_tls_handshake_aux(Version, list_to_binary([Buffer, Data]), []).
 
 %%--------------------------------------------------------------------
--spec init_handshake_history() -> tls_handshake_history().
-
-%%
-%% Description: Initialize the empty handshake history buffer.
+%%% Internal functions
 %%--------------------------------------------------------------------
-init_handshake_history() ->
-    {[], []}.
-
-%%--------------------------------------------------------------------
--spec update_handshake_history(tls_handshake_history(), Data ::term()) ->
-				      tls_handshake_history().
-%%
-%% Description: Update the handshake history buffer with Data.
-%%--------------------------------------------------------------------
-update_handshake_history(Handshake, % special-case SSL2 client hello
-			 <<?CLIENT_HELLO, ?UINT24(_), ?BYTE(Major), ?BYTE(Minor),
-			   ?UINT16(CSLength), ?UINT16(0),
-			   ?UINT16(CDLength),
-			   CipherSuites:CSLength/binary,
-			   ChallengeData:CDLength/binary>>) ->
-    update_handshake_history(Handshake,
-			     <<?CLIENT_HELLO, ?BYTE(Major), ?BYTE(Minor),
-			       ?UINT16(CSLength), ?UINT16(0),
-			       ?UINT16(CDLength),
-			       CipherSuites:CSLength/binary,
-			       ChallengeData:CDLength/binary>>);
-update_handshake_history({Handshake0, _Prev}, Data) ->
-    {[Data|Handshake0], Handshake0}.
-
-
 get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
 			Body:Length/binary,Rest/binary>>, Acc) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
@@ -202,10 +154,6 @@ get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
     get_tls_handshake_aux(Version, Rest, [{Handshake,Raw} | Acc]);
 get_tls_handshake_aux(_Version, Data, Acc) ->
     {lists:reverse(Acc), Data}.
-
-%%--------------------------------------------------------------------
-%%% Internal functions
-%%--------------------------------------------------------------------
 
 decode_handshake(_, ?HELLO_REQUEST, <<>>) ->
     #hello_request{};

@@ -55,6 +55,7 @@ MODULES= \
 	ssl_srp_primes \
 	tls_connection \
 	dtls_connection \
+	ssl_connection \
 	ssl_connection_sup \
 	tls_handshake \
 	dtls_handshake\
@@ -73,8 +74,9 @@ MODULES= \
 	ssl_tls_dist_proxy
 
 INTERNAL_HRL_FILES = \
-	ssl_alert.hrl ssl_cipher.hrl ssl_handshake.hrl tls_handshake.hrl \
-	dtls_handshake.hrl ssl_internal.hrl \
+	ssl_alert.hrl ssl_cipher.hrl \
+	tls_connection.hrl dtls_connection.hrl ssl_connection.hrl \
+        ssl_handshake.hrl tls_handshake.hrl dtls_handshake.hrl ssl_internal.hrl \
         ssl_record.hrl tls_record.hrl dtls_record.hrl ssl_srp.hrl
 
 ERL_FILES= \
@@ -148,9 +150,10 @@ $(EBIN)/ssl_alert.$(EMULATOR): ssl_alert.hrl ssl_record.hrl
 $(EBIN)/ssl_certificate.$(EMULATOR): ssl_internal.hrl ssl_alert.hrl ssl_handshake.hrl ../../public_key/include/public_key.hrl
 $(EBIN)/ssl_certificate_db.$(EMULATOR): ssl_internal.hrl ../../public_key/include/public_key.hrl ../../kernel/include/file.hrl
 $(EBIN)/ssl_cipher.$(EMULATOR): ssl_internal.hrl ssl_record.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
-$(EBIN)/tls_connection.$(EMULATOR): ssl_internal.hrl tls_record.hrl ssl_cipher.hrl tls_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
-$(EBIN)/dtls_connection.$(EMULATOR): ssl_internal.hrl dtls_record.hrl ssl_cipher.hrl dtls_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
+$(EBIN)/tls_connection.$(EMULATOR): ssl_internal.hrl tls_connection.hrl tls_record.hrl ssl_cipher.hrl tls_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
+$(EBIN)/dtls_connection.$(EMULATOR): ssl_internal.hrl dtls_connection.hrl dtls_record.hrl ssl_cipher.hrl dtls_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
 $(EBIN)/tls_handshake.$(EMULATOR): ssl_internal.hrl tls_record.hrl ssl_cipher.hrl tls_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
+$(EBIN)/tls_handshake.$(EMULATOR): ssl_internal.hrl ssl_connection.hrl ssl_record.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
 $(EBIN)/ssl_manager.$(EMULATOR): ssl_internal.hrl ssl_handshake.hrl ../../kernel/include/file.hrl
 $(EBIN)/ssl_record.$(EMULATOR):  ssl_internal.hrl ssl_record.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_alert.hrl
 $(EBIN)/ssl_session.$(EMULATOR):  ssl_internal.hrl ssl_handshake.hrl
