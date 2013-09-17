@@ -1498,8 +1498,21 @@ pattern({tuple,L,Ps}, St) ->
 pattern({map,L,Ps}, St) ->
     #c_map{anno=lineno_anno(L, St),es=sort(pattern_list(Ps, St))};
 pattern({map_field,L,K,V}, St) ->
+    %% FIXME: Better way to construct literals? or missing case
+    %% {Key,_,_} = expr(K, St),
+    Key = case K of
+	{bin,L,Es0} ->
+	    case constant_bin(Es0) of
+		error ->
+		    throw(badmatch);
+		Bin ->
+		    #c_literal{anno=lineno_anno(L,St),val=Bin}
+	    end;
+	_ ->
+	    pattern(K,St)
+    end,
     #c_map_pair{anno=lineno_anno(L, St),
-		key=pattern(K, St),
+		key=Key,
 		val=pattern(V, St)};
 pattern({bin,L,Ps}, St) ->
     %% We don't create a #ibinary record here, since there is

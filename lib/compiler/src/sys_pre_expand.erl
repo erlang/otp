@@ -231,9 +231,10 @@ pattern({tuple,Line,Ps}, St0) ->
 pattern({map,Line,Ps}, St0) ->
     {TPs,St1} = pattern_list(Ps, St0),
     {{map,Line,TPs},St1};
-pattern({map_field,Line,Key,V0}, St0) ->
-    {V,St1} = pattern(V0, St0),
-    {{map_field,Line,Key,V},St1};
+pattern({map_field,Line,K0,V0}, St0) ->
+    {K,St1} = pattern(K0, St0),
+    {V,St2} = pattern(V0, St1),
+    {{map_field,Line,K,V},St2};
 %%pattern({struct,Line,Tag,Ps}, St0) ->
 %%    {TPs,TPsvs,St1} = pattern_list(Ps, St0),
 %%    {{tuple,Line,[{atom,Line,Tag}|TPs]},TPsvs,St1};

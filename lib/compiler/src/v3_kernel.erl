@@ -662,10 +662,10 @@ pattern(#c_tuple{anno=A,es=Ces}, Isub, Osub0, St0) ->
 pattern(#c_map{anno=A,es=Ces}, Isub, Osub0, St0) ->
     {Kes,Osub1,St1} = pattern_list(Ces, Isub, Osub0, St0),
     {#k_map{anno=A,es=Kes},Osub1,St1};
-pattern(#c_map_pair{anno=A,key=Kk0,val=Cv},Isub, Osub0, St0) ->
-    Kk = #k_atom{val=Kk0#c_literal.val},
-    {Kv,Osub1,St1} = pattern(Cv, Isub, Osub0, St0),
-    {#k_map_pair{anno=A,key=Kk,val=Kv},Osub1,St1};
+pattern(#c_map_pair{anno=A,key=Ck,val=Cv},Isub, Osub0, St0) ->
+    {Kk,Osub1,St1} = pattern(Ck, Isub, Osub0, St0),
+    {Kv,Osub2,St2} = pattern(Cv, Isub, Osub1, St1),
+    {#k_map_pair{anno=A,key=Kk,val=Kv},Osub2,St2};
 pattern(#c_binary{anno=A,segments=Cv}, Isub, Osub0, St0) ->
     {Kv,Osub1,St1} = pattern_bin(Cv, Isub, Osub0, St0),
     {#k_binary{anno=A,segs=Kv},Osub1,St1};
@@ -1270,12 +1270,9 @@ group_value(k_cons, Cs) -> [Cs];		%These are single valued
 group_value(k_nil, Cs) -> [Cs];
 group_value(k_binary, Cs) -> [Cs];
 group_value(k_bin_end, Cs) -> [Cs];
-group_value(k_bin_seg, Cs) ->
-    group_bin_seg(Cs);
-group_value(k_bin_int, Cs) ->
-    [Cs];
-group_value(k_map, Cs) ->
-    group_map(Cs);
+group_value(k_bin_seg, Cs) -> group_bin_seg(Cs);
+group_value(k_bin_int, Cs) -> [Cs];
+group_value(k_map, Cs) -> group_map(Cs);
 group_value(_, Cs) ->
     %% group_value(Cs).
     Cd = foldl(fun (C, Gcs0) -> dict:append(clause_val(C), C, Gcs0) end,
@@ -1467,7 +1464,7 @@ arg_val(Arg, C) ->
 	    end;
 	#k_map{es=Es} ->
 	    Keys = [begin
-			#k_map_pair{key=#k_atom{val=Key}} = Pair,
+			#k_map_pair{key=#k_literal{val=Key}} = Pair,
 			Key
 		    end || Pair <- Es],
 	    ordsets:from_list(Keys)
