@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 3.2.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix matching of floating point middle-endian machines.
+	    Thanks to Johannes Weissl.</p>
+          <p>
+	    Own Id: OTP-11201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 3.2.11</title>
 
     <section><title>Improvements and New Features</title>

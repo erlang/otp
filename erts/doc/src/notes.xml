@@ -30,6 +30,232 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.10.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The documentation of predefined types and built-in
+	    types has been corrected. </p>
+          <p>
+	    Own Id: OTP-11090</p>
+        </item>
+        <item>
+          <p>
+	    Fix changing terminal parameters in to_erl</p>
+          <p>
+	    Change the behaviour of to_erl to use TCSADRAIN instead
+	    of TCSANOW when changing terminal parameters. This makes
+	    the serial driver wait for the output queues to be empty
+	    before applying the terminal parameter change. Thanks to
+	    Stefan Zegenhagen.</p>
+          <p>
+	    Own Id: OTP-11206</p>
+        </item>
+        <item>
+          <p>
+	    The default value of {flush, boolean()} in erlang:halt/2
+	    is documented to be 'true' if the status is an integer.
+	    The implementation behaviour was reversed. The
+	    Implementation is now corrected to adhere to the
+	    documentation. Thanks to Jose Valim for reporting the
+	    error.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11218</p>
+        </item>
+        <item>
+          <p>
+	    Fix serious race bug in R16B01 that could cause PID
+	    mix-ups when a lot of processes were spawned and
+	    terminated in a very rapid pace on an SMP emulator with
+	    at least two scheduler threads.</p>
+          <p>
+	    Own Id: OTP-11225</p>
+        </item>
+        <item>
+          <p>
+	    Validating a trace pattern with the option silent no
+	    longer incorrectly enables/disables the silent option of
+	    the calling process.</p>
+          <p>
+	    Own Id: OTP-11232</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where GCC 4.8 and later use a more aggressive
+	    loop optimization algorithm that broke some previously
+	    working code in the efile driver. Thanks to Tomas
+	    Abrahamsson for reporting this issue.</p>
+          <p>
+	    Own Id: OTP-11246</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug when printing memory allocator acul option in
+	    crash dump.</p>
+          <p>
+	    Own Id: OTP-11264</p>
+        </item>
+        <item>
+          <p>
+	    Opening a new compressed file on Windows could in rare
+	    (random) cases result in {error,eisdir} or other error
+	    codes although it should have succeeded. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-11265</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a race condition when closing a trace port that
+	    would cause the emulator to crash.</p>
+          <p>
+	    Own Id: OTP-11290</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    There is a new somewhat experimental socket option
+	    'netns' that can set the network namespace for a socket
+	    on Linux:es where it is supported. See the documentation.</p>
+          <p>
+	    Own Id: OTP-11157</p>
+        </item>
+        <item>
+          <p>
+	    New allocator strategy <c>aoffcbf</c> (address order
+	    first fit carrier best fit). Supports carrier migration
+	    but with better CPU performance than <c>aoffcaobf</c>.</p>
+          <p>
+	    Own Id: OTP-11174</p>
+        </item>
+        <item>
+          <p>
+	    Introduced functionality for inspection of system and
+	    build configuration.</p>
+          <p>
+	    Own Id: OTP-11196</p>
+        </item>
+        <item>
+          <p>
+	    Fix matching of floating point middle-endian machines.
+	    Thanks to Johannes Weissl.</p>
+          <p>
+	    Own Id: OTP-11201</p>
+        </item>
+        <item>
+          <p>
+	    Fix compile error on ARM and GCC versions greater than
+	    4.1.0. Thanks to Johannes Weissl.</p>
+          <p>
+	    Own Id: OTP-11214</p>
+        </item>
+        <item>
+          <p>
+	    run_erl: Redirect standard streams to /dev/null. Thanks
+	    to Johannes Weissl.</p>
+          <p>
+	    Own Id: OTP-11215</p>
+        </item>
+        <item>
+          <p>
+	    Misc. corrections in documentation for erl_driver. Thanks
+	    to Giacomo Olgeni.</p>
+          <p>
+	    Own Id: OTP-11227</p>
+        </item>
+        <item>
+          <p>
+	    Fix documentation regarding binary_part.</p>
+          <p>
+	    Own Id: OTP-11239</p>
+        </item>
+        <item>
+          <p>
+	    Make edlin understand a few important control keys.
+	    Thanks to Stefan Zegenhagen.</p>
+          <p>
+	    Own Id: OTP-11251</p>
+        </item>
+        <item>
+          <p>
+	    Export type zlib:zstream/0. Thanks to Loic Hoguin.</p>
+          <p>
+	    Own Id: OTP-11278</p>
+        </item>
+        <item>
+          <p>
+	    Add erl option to set schedulers by percentages. </p>
+          <p>
+	    For applications where measurements show enhanced
+	    performance from the use of a non-default number of
+	    emulator scheduler threads, having to accurately set the
+	    right number of scheduler threads across multiple hosts
+	    each with different numbers of logical processors is
+	    difficult because the erl +S option requires absolute
+	    numbers of scheduler threads and scheduler threads online
+	    to be specified.</p>
+          <p>
+	    To address this issue, add a +SP option to erl, similar
+	    to the existing +S option but allowing the number of
+	    scheduler threads and scheduler threads online to be set
+	    as percentages of logical processors configured and
+	    logical processors available, respectively. For example,
+	    "+SP 50:25" sets the number of scheduler threads to 50%
+	    of the logical processors configured, and the number of
+	    scheduler threads online to 25% of the logical processors
+	    available. The +SP option also interacts with any
+	    settings specified with the +S option, such that the
+	    combination of options "+S 4:4 +SP 50:50" (in either
+	    order) results in 2 scheduler threads and 2 scheduler
+	    threads online.</p>
+          <p>
+	    Thanks to Steve Vinoski</p>
+          <p>
+	    Own Id: OTP-11282</p>
+        </item>
+        <item>
+          <p>
+	    Extend erl_driver interface with lock names</p>
+          <p>
+	    Lock and thread names are already a feature in the driver
+	    interface. This extension will let developers read these
+	    names which eases debugging.</p>
+          <p>
+	    Own Id: OTP-11303</p>
+        </item>
+        <item>
+          <p>
+	    Fix incorrect values returned by integer_to_binary/2.
+	    Thanks to Juan Jose Comellas.</p>
+          <p>
+	    Own Id: OTP-11311</p>
+        </item>
+        <item>
+          <p>
+	    Fix system_flag scheduling_statistics - disable . Thanks
+	    to Steve Vinoski.</p>
+          <p>
+	    Own Id: OTP-11317</p>
+        </item>
+        <item>
+	    <p> The documentation of predefined types has been
+	    corrected Thanks to Kostis Sagonas. </p>
+          <p>
+	    Own Id: OTP-11321</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.10.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

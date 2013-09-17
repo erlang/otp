@@ -30,6 +30,37 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove trailing spaces in Emacs templates. Thanks to
+	    Roberto Aloi.</p>
+          <p>
+	    Own Id: OTP-11198</p>
+        </item>
+        <item>
+          <p>
+	    Fixed the Emacs erlang-mode to accommodate the coding
+	    style where lists written across several lines have each
+	    line starting with a comma. Thanks to Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-11242</p>
+        </item>
+        <item>
+          <p>
+	    Make the Emacs Erlang mode TRAMP-aware when compiling.
+	    Thanks to Tomas Abrahamsson.</p>
+          <p>
+	    Own Id: OTP-11270</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

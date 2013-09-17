@@ -30,6 +30,41 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.0.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A bug causing Yecc to generate badly formed parsers
+	    when encountering very simple recursive rules has been
+	    fixed. (Thanks to Eric Pailleau.) </p>
+          <p>
+	    Own Id: OTP-11269</p>
+        </item>
+        <item>
+	    <p> A bug where Unicode filenames combined with Latin-1
+	    encoding could crash Yecc and Leex has been fixed. </p>
+          <p>
+	    Own Id: OTP-11286</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix leex module`s inability to build unicode-aware
+	    lexers. Thanks to Pierre Fenoll.</p>
+          <p>
+	    Own Id: OTP-11313</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.0.9</title>
 
     <section><title>Improvements and New Features</title>

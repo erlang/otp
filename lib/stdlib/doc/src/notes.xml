@@ -30,6 +30,86 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.19.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The functions <c>dets:foldl/3</c>,
+	    <c>dets:foldr/3</c>, and <c>dets:traverse/2</c> did not
+	    release the table after having traversed the table to the
+	    end. The bug was introduced in R16B. (Thanks to Manuel
+	    Duran Aguete.) </p>
+          <p>
+	    Own Id: OTP-11245</p>
+        </item>
+        <item>
+	    <p> If the <c>fun M:F/A</c> construct was used
+	    erroneously the linter could crash. (Thanks to Mikhail
+	    Sobolev.) </p>
+          <p>
+	    Own Id: OTP-11254</p>
+        </item>
+        <item>
+	    <p> The specifications of <c>io_lib:fread/2,3</c> have
+	    been corrected. (Thanks to Chris King and Kostis Sagonas
+	    for pinpointing the bug.) </p>
+          <p>
+	    Own Id: OTP-11261</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed type typo in gen_server.</p>
+          <p>
+	    Own Id: OTP-11200</p>
+        </item>
+        <item>
+          <p>
+	    Update type specs in filelib and io_prompt. Thanks to
+	    Jose Valim.</p>
+          <p>
+	    Own Id: OTP-11208</p>
+        </item>
+        <item>
+          <p>
+	    Fix typo in abcast() function comment. Thanks to Johannes
+	    Weissl.</p>
+          <p>
+	    Own Id: OTP-11219</p>
+        </item>
+        <item>
+          <p>
+	    Make edlin understand a few important control keys.
+	    Thanks to Stefan Zegenhagen.</p>
+          <p>
+	    Own Id: OTP-11251</p>
+        </item>
+        <item>
+          <p>
+	    Export the edge/0 type from the digraph module. Thanks to
+	    Alex Ronne Petersen.</p>
+          <p>
+	    Own Id: OTP-11266</p>
+        </item>
+        <item>
+          <p>
+	    Fix variable usage tracking in erl_lint and fixed unsafe
+	    variable tracking in try expressions. Thanks to Anthony
+	    Ramine.</p>
+          <p>
+	    Own Id: OTP-11268</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.19.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

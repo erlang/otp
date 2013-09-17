@@ -42,6 +42,52 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix UTF8String encode.</p>
+          <p>
+	    Encode now accepts any nested list of codepoints and
+	    binaries. A list containing a binary was previously
+	    misinterpreted and the documentation was incomplete.</p>
+          <p>
+	    Own Id: OTP-11172</p>
+        </item>
+        <item>
+          <p>
+	    Ensure DWR isn't sent immediately after DWA.</p>
+          <p>
+	    This was possible if the timing was unfortunate. An
+	    incoming DWR now properly resets the watchdog timer.</p>
+          <p>
+	    Own Id: OTP-11184</p>
+        </item>
+        <item>
+          <p>
+	    Fix faulty encode of Failed-AVP</p>
+          <p>
+	    Reception of a CER, DWR or DPR that has decode failures
+	    caused encode of the corresponding answer message to
+	    fail.</p>
+          <p>
+	    Own Id: OTP-11293</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken service_opt() spawn_opt.</p>
+          <p>
+	    The option was ignored.</p>
+          <p>
+	    Own Id: OTP-11299</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -38,7 +38,36 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.9</title>
+  <section><title>Mnesia 4.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix timing issues in checkpoint creation.</p>
+          <p>
+	    Own Id: OTP-10957</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a problem where the fallback BUP file is removed
+	    when calling mnesia:uninstall_fallback and mnesia is not
+	    started.</p>
+          <p>
+	    Own Id: OTP-11241</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

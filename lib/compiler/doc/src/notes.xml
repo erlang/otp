@@ -31,6 +31,67 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Expressions such as <c>'B = is_integer(V), if B and B
+	    -&gt; ok end'</c> would crash the compiler.</p>
+          <p>
+	    Own Id: OTP-11240</p>
+        </item>
+        <item>
+          <p>
+	    <c>compile:file2/2</c> with the option
+	    <c>report_errors</c> could return ErrorInfo tuples with
+	    only two elements, while the documentation says that the
+	    ErrorInfo tuple always has three elements. Also updated
+	    the documentation to add that the first element may be
+	    '<c>none</c>' if no line number is applicable.</p>
+          <p>
+	    Own Id: OTP-11304 Aux Id: seq12412 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix matching of floating point middle-endian machines.
+	    Thanks to Johannes Weissl.</p>
+          <p>
+	    Own Id: OTP-11201</p>
+        </item>
+        <item>
+          <p>
+	    Restrict inlining of local fun references. Thanks to
+	    Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11211</p>
+        </item>
+        <item>
+          <p>
+	    Silence a misleading warning with some comprehensions.
+	    Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11212</p>
+        </item>
+        <item>
+          <p>
+	    Forbid returning a match context in beam_validator.
+	    Thanks to Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11247</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

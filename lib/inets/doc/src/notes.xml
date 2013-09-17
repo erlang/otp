@@ -32,7 +32,51 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.9.5</title>
+  <section><title>Inets 5.9.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    httpc: Allow content body in DELETE requests. Thanks to
+	    James Wheare.</p>
+          <p>
+	    Own Id: OTP-11190</p>
+        </item>
+        <item>
+          <p>
+	    Add missing brackets to report formatting on ftp_progress
+	    process exit. Thanks to Artur Wilniewczyc.</p>
+          <p>
+	    Own Id: OTP-11202</p>
+        </item>
+        <item>
+          <p>
+	    Fix some errors in the inets documentation. Thanks to
+	    Johannes Weissl.</p>
+          <p>
+	    Own Id: OTP-11210</p>
+        </item>
+        <item>
+          <p>
+	    Fix various typos in httpd, inets. Thanks to Tomohiko
+	    Aono.</p>
+          <p>
+	    Own Id: OTP-11226</p>
+        </item>
+        <item>
+          <p>
+	    Fix httpd config option 'erl_script_nocache'. Thanks to
+	    Johannes Weissl.</p>
+          <p>
+	    Own Id: OTP-11260</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

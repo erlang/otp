@@ -30,6 +30,66 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.16.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix indentation of User switch command help in Erlang
+	    shell. Thanks to Sylvain Benner.</p>
+          <p>
+	    Own Id: OTP-11209</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The previous undocumented function ntoa/1 has been added
+	    to inet docs and exported in the inet module.</p>
+          <p>
+	    Own Id: OTP-10676 Aux Id: OTP-10314 </p>
+        </item>
+        <item>
+          <p>
+	    Fix typo in abcast() function comment. Thanks to Johannes
+	    Weissl.</p>
+          <p>
+	    Own Id: OTP-11219</p>
+        </item>
+        <item>
+          <p>
+	    Add application:ensure_all_started/1-2. Thanks to Fred
+	    Hebert.</p>
+          <p>
+	    Own Id: OTP-11250</p>
+        </item>
+        <item>
+          <p>
+	    Make edlin understand a few important control keys.
+	    Thanks to Stefan Zegenhagen.</p>
+          <p>
+	    Own Id: OTP-11251</p>
+        </item>
+        <item>
+          <p>
+	    Cleanup of hipe_unified_loader, eliminating uses of
+	    is_subtype/2 in specs, change module-local void functions
+	    to return 'ok' instead of [] and made sure there are no
+	    dialyzer warnings with --Wunmatched_returns. Thanks to
+	    Kostis Sagonas.</p>
+          <p>
+	    Own Id: OTP-11301</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.16.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

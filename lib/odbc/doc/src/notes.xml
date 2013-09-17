@@ -31,7 +31,44 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.16</title>
+  <section><title>ODBC 2.10.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The format of the xml source for documentation is
+	    corrected in order to conform to the DTDs and to pass
+	    xmllint without errors.</p>
+          <p>
+	    Own Id: OTP-11193</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Introduced functionality for inspection of system and
+	    build configuration.</p>
+          <p>
+	    Own Id: OTP-11196</p>
+        </item>
+        <item>
+          <p>
+	    Prevent odbcserver crash if it's executed and supplied
+	    incorrect data to stdin. Thanks to Sergei Golovan.</p>
+          <p>
+	    Own Id: OTP-11233</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.16</title>
 
     <section><title>Improvements and New Features</title>
       <list>
