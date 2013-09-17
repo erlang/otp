@@ -596,14 +596,13 @@ top_level_block(Keis, Bef, MaxRegs, _St) ->
 %%   number to the outer catch, which is wrong.
 
 turn_yregs(0, Tp, _) -> Tp;
-turn_yregs(El, Tp, MaxY) when element(1, element(El, Tp)) =:= yy ->
-    turn_yregs(El-1, setelement(El, Tp, {y,MaxY-element(2, element(El, Tp))}), MaxY);
-turn_yregs(El, Tp, MaxY) when is_list(element(El, Tp)) ->
-    New = map(fun ({yy,YY}) -> {y,MaxY-YY};
-		  (Other) -> Other end, element(El, Tp)),
-    turn_yregs(El-1, setelement(El, Tp, New), MaxY);
 turn_yregs(El, Tp, MaxY) ->
-    turn_yregs(El-1, Tp, MaxY).
+    turn_yregs(El-1,setelement(El,Tp,turn_yreg(element(El,Tp),MaxY)),MaxY).
+
+turn_yreg({yy,YY},MaxY) -> {y,MaxY-YY};
+turn_yreg({list,Ls},MaxY) -> {list, turn_yreg(Ls,MaxY)};
+turn_yreg(Ts,MaxY) when is_list(Ts) -> [turn_yreg(T,MaxY)||T<-Ts];
+turn_yreg(Other,_MaxY) -> Other.
 
 %% select_cg(Sclause, V, TypeFail, ValueFail, StackReg, State) ->
 %%      {Is,StackReg,State}.
