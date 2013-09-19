@@ -538,16 +538,17 @@ static ERL_NIF_TERM atom_onbasis;
 #define PRINTF_ERR1(FMT,A1)
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
-static int change_basename(char* buf, int bufsz, const char* newfile)
+static int change_basename(ErlNifBinary* bin, char* buf, int bufsz, const char* newfile)
 {
-    char* p = strrchr(buf, '/');
-    p = (p == NULL) ? buf : p + 1;
+    const unsigned char* p = (unsigned char*)strrchr((char*)bin->data, '/');
+    int i = (p == NULL) ? 0 : (p+1) - bin->data;
     
-    if ((p - buf) + strlen(newfile) >= bufsz) {
+    if (i + strlen(newfile) >= bufsz) {
 	PRINTF_ERR0("CRYPTO: lib name too long");
 	return 0;
     }
-    strcpy(p, newfile);
+    memcpy(buf, bin->data, i);
+    strcpy(buf+i, newfile);
     return 1;
 }
 
@@ -566,14 +567,15 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     int tpl_arity;
     const ERL_NIF_TERM* tpl_array;
     int vernum;
+    ErlNifBinary lib_bin;
     char lib_buf[1000];
 
-    /* load_info: {201, "/full/path/of/this/library"} */
+    /* load_info: {301, <<"/full/path/of/this/library">>} */
     if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)
 	|| tpl_arity != 2
 	|| !enif_get_int(env, tpl_array[0], &vernum)
-	|| vernum != 201
-	|| enif_get_string(env, tpl_array[1], lib_buf, sizeof(lib_buf), ERL_NIF_LATIN1) <= 0) {
+	|| vernum != 301
+	|| !enif_inspect_binary(env, tpl_array[1], &lib_bin)) {
 
 	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
 	return 0;
@@ -633,7 +635,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     {
 	void* handle;
-	if (!change_basename(lib_buf, sizeof(lib_buf), "crypto_callback")) {
+	if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), "crypto_callback")) {
 	    return 0;
 	}
 	if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {

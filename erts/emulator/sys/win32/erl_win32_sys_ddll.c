@@ -38,7 +38,7 @@
 #include "erl_nif.h"
 
 #define EXT_LEN          4
-#define FILE_EXT         ".dll"
+#define FILE_EXT_WCHAR   L".dll"
 
 static DWORD tls_index = 0;
 static TWinDynDriverCallbacks wddc;
@@ -57,11 +57,14 @@ void erl_sys_ddll_init(void) {
 
 /* 
  * Open a shared object
+ * Expecting 'full_name' as an UTF-8 string.
  */
 int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* err)
 {
+    HINSTANCE hinstance;
     int len;
     char dlname[MAXPATHLEN + 1];
+    char* wcp;
     
     if ((len = sys_strlen(full_name)) >= MAXPATHLEN - EXT_LEN) {
 	if (err != NULL) {
@@ -69,10 +72,23 @@ int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* 
 	}
 	return ERL_DE_LOAD_ERROR_NAME_TO_LONG;
     }
-    sys_strcpy(dlname, full_name);
-    sys_strcpy(dlname+len, FILE_EXT);
-    return erts_sys_ddll_open_noext(dlname, handle, err);
+
+    wcp = erts_convert_filename_to_wchar(full_name, len, dlname, sizeof(dlname),
+                                         ERTS_ALC_T_TMP, &used, EXT_LEN);
+    wcscpy(&wcp[used], FILE_EXT_WCHAR);
+
+    if ((hinstance = LoadLibraryW(wcp)) == NULL) {
+	int code = ERL_DE_DYNAMIC_ERROR_OFFSET - GetLastError();
+	if (err != NULL) {
+	    err->str = erts_sys_ddll_error(code);
+	}
+	return code;
+    }
+
+    *handle = (void *) hinstance;
+    return ERL_DE_NO_ERROR;
 }
+
 int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
 {
     HINSTANCE hinstance;

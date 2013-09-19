@@ -1568,7 +1568,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     void* init_func = NULL;
     ErlNifEntry* entry = NULL;
     ErlNifEnv env;
-    int i, err;
+    int i, err, encoding;
     Module* mod;
     Eterm mod_atom;
     const Atom* mod_atomp;
@@ -1580,8 +1580,14 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     struct erl_module_nif* lib = NULL;
     int reload_warning = 0;
 
-    lib_name = erts_convert_filename_to_native(BIF_ARG_1, NULL, 0,
-                                               ERTS_ALC_T_TMP, 1, 0, NULL);
+    encoding = erts_get_native_filename_encoding();
+    if (encoding == ERL_FILENAME_WIN_WCHAR) {
+        /* Do not convert the lib name to utf-16le yet, do that in win32 specific code */
+        /* since lib_name is used in error messages */
+        encoding = ERL_FILENAME_UTF8;
+    }
+    lib_name = erts_convert_filename_to_encoding(BIF_ARG_1, NULL, 0,
+                                                 ERTS_ALC_T_TMP, 1, 0, encoding, NULL);
     if (!lib_name) {
 	BIF_ERROR(BIF_P, BADARG);
     }

@@ -183,7 +183,7 @@
 %%-type ec_key() :: {Curve :: ec_curve(), PrivKey :: binary() | undefined, PubKey :: ec_point() | undefined}.
 
 -on_load(on_load/0).
--define(CRYPTO_NIF_VSN,201).
+-define(CRYPTO_NIF_VSN,301).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 nif_stub_error(Line) ->
@@ -640,7 +640,7 @@ on_load() ->
 		      end
 	      end,
     Lib = filename:join([PrivDir, "lib", LibName]),
-    Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,Lib}) of
+    Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,path2bin(Lib)}) of
 		 ok -> ok;
 		 {error, {load_failed, _}}=Error1 ->
 		     ArchLibDir =
@@ -652,7 +652,7 @@ on_load() ->
 			 [] -> Error1;
 			 _ ->
 			     ArchLib = filename:join([ArchLibDir, LibName]),
-			     erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN,ArchLib})
+			     erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN,path2bin(ArchLib)})
 		     end;
 		 Error1 -> Error1
 	     end,
@@ -663,6 +663,14 @@ on_load() ->
 				   "OpenSSL might not be installed on this system.~n",[E,Str]),
 	    Status
     end.
+
+path2bin(Path) when is_list(Path) ->
+    Encoding = file:native_name_encoding(),
+    case unicode:characters_to_binary(Path,Encoding,Encoding) of
+	Bin when is_binary(Bin) ->
+	    Bin
+    end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions (some internal API functions are part of the deprecated API)
 %%--------------------------------------------------------------------
