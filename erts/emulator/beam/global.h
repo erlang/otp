@@ -998,6 +998,7 @@ Eterm erts_gc_length_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_size_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_bit_size_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_byte_size_1(Process* p, Eterm* reg, Uint live);
+Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_float_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_round_1(Process* p, Eterm* reg, Uint live);

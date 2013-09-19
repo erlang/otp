@@ -5080,6 +5080,8 @@ translate_gc_bif(void* gcf)
 	return bit_size_1;
     } else if (gcf == erts_gc_byte_size_1) {
 	return byte_size_1;
+    } else if (gcf == erts_gc_map_size_1) {
+	return map_size_1;
     } else if (gcf == erts_gc_abs_1) {
 	return abs_1;
     } else if (gcf == erts_gc_float_1) {

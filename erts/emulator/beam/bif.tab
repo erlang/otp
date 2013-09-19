@@ -579,6 +579,7 @@ bif os:unsetenv/1
 bif re:inspect/2
 
 ubif erlang:is_map/1
+ubif erlang:map_size/1
 bif map:to_list/1
 bif map:new/0
 bif map:get/2

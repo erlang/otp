@@ -3783,6 +3783,8 @@ gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 	op->a[1].val = (BeamInstr) (void *) erts_gc_bit_size_1;
     } else if (bf == byte_size_1) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_byte_size_1;
+    } else if (bf == map_size_1) {
+	op->a[1].val = (BeamInstr) (void *) erts_gc_map_size_1;
     } else if (bf == abs_1) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_abs_1;
     } else if (bf == float_1) {

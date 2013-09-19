@@ -30,9 +30,7 @@
 #include "error.h"
 #include "bif.h"
 
-
 #include "erl_map.h"
-
 
 BIF_RETTYPE map_to_list_1(BIF_ALIST_1) {
     if (is_map(BIF_ARG_1)) {
@@ -53,6 +51,27 @@ BIF_RETTYPE map_to_list_1(BIF_ALIST_1) {
 	}
 
 	BIF_RET(res);
+    }
+
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+
+/* erlang:map_size/1
+ * the corresponding instruction is implemented in:
+ *     beam/erl_bif_guard.c
+ */
+
+BIF_RETTYPE map_size_1(BIF_ALIST_1) {
+    if (is_map(BIF_ARG_1)) {
+	Eterm *hp;
+	Uint hsz  = 0;
+	map_t *mp = (map_t*)map_val(BIF_ARG_1);
+	Uint n    = map_get_size(mp);
+
+	erts_bld_uint(NULL, &hsz, n);
+	hp = HAlloc(BIF_P, hsz);
+	BIF_RET(erts_bld_uint(&hp, NULL, n));
     }
 
     BIF_ERROR(BIF_P, BADARG);
