@@ -1609,7 +1609,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     ASSERT(mod != NULL);
 
     mod_atomp = atom_tab(atom_val(mod_atom));
-    init_func = erts_static_nif_get_nif_init(mod_atomp->name, mod_atomp->len);
+    init_func = erts_static_nif_get_nif_init((char*)mod_atomp->name, mod_atomp->len);
     if (init_func != NULL)
       handle = init_func;
 
