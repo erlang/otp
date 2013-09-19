@@ -39,7 +39,7 @@
 %% Handle handshake messages
 -export([certify/7, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
 	 master_secret/5, server_key_exchange_hash/2, verify_connection/6,
-	 init_handshake_history/0, update_handshake_history/2
+	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5
 	]).
 
 %% Encode/Decode
@@ -62,7 +62,7 @@
 
 %% MISC
 -export([select_version/3, prf/5, select_hashsign/2, select_cert_hashsign/3,
-	 decrypt_premaster_secret/2]).
+	 premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %%====================================================================
 %% Internal application API
@@ -315,6 +315,22 @@ finished(Version, Role, PrfAlgo, MasterSecret, {Handshake, _}) -> % use the curr
 
 %% ---------- Handle handshake messages  ----------
 
+verify_server_key(#server_key_params{params = Params,
+				     params_bin = EncParams,
+				     signature = Signature},
+		  HashSign = {HashAlgo, _},
+		  ConnectionStates, Version, PubKeyInfo) ->
+    ConnectionState =
+	ssl_record:pending_connection_state(ConnectionStates, read),
+    SecParams = ConnectionState#connection_state.security_parameters,
+    #security_parameters{client_random = ClientRandom,
+			 server_random = ServerRandom} = SecParams,
+    Hash = server_key_exchange_hash(HashAlgo,
+				    <<ClientRandom/binary,
+				      ServerRandom/binary,
+				      EncParams/binary>>),
+    verify_signature(Version, Hash, HashSign, Signature, PubKeyInfo).
+
 %%--------------------------------------------------------------------
 -spec certificate_verify(binary(), public_key_info(), tls_version(), term(),
 			 binary(), tls_handshake_history()) -> valid | #alert{}.
@@ -457,14 +473,83 @@ update_handshake_history(Handshake, % special-case SSL2 client hello
 update_handshake_history({Handshake0, _Prev}, Data) ->
     {[Data|Handshake0], Handshake0}.
 
-%%--------------------------------------------------------------------
--spec decrypt_premaster_secret(binary(), #'RSAPrivateKey'{}) -> binary().
+%% %%--------------------------------------------------------------------
+%% -spec decrypt_premaster_secret(binary(), #'RSAPrivateKey'{}) -> binary().
 
-%%
-%% Description: Public key decryption using the private key.
-%%--------------------------------------------------------------------
-decrypt_premaster_secret(Secret, RSAPrivateKey) ->
-    try public_key:decrypt_private(Secret, RSAPrivateKey,
+%% %%
+%% %% Description: Public key decryption using the private key.
+%% %%--------------------------------------------------------------------
+%% decrypt_premaster_secret(Secret, RSAPrivateKey) ->
+%%     try public_key:decrypt_private(Secret, RSAPrivateKey,
+%% 				   [{rsa_pad, rsa_pkcs1_padding}])
+%%     catch
+%% 	_:_ ->
+%% 	    throw(?ALERT_REC(?FATAL, ?DECRYPT_ERROR))
+%%     end.
+
+premaster_secret(OtherPublicDhKey, MyPrivateKey, #'DHParameter'{} = Params) ->
+    public_key:compute_key(OtherPublicDhKey, MyPrivateKey, Params);
+
+premaster_secret(PublicDhKey, PrivateDhKey, #server_dh_params{dh_p = Prime, dh_g = Base}) ->
+    crypto:compute_key(dh, PublicDhKey, PrivateDhKey, [Prime, Base]);
+premaster_secret(#client_srp_public{srp_a = ClientPublicKey}, ServerKey, #srp_user{prime = Prime,
+										   verifier = Verifier}) ->
+    case crypto:compute_key(srp, ClientPublicKey, ServerKey, {host, [Verifier, Prime, '6a']}) of
+	error ->
+	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+	PremasterSecret ->
+	    PremasterSecret
+    end;
+
+premaster_secret(#server_srp_params{srp_n = Prime, srp_g = Generator, srp_s = Salt, srp_b = Public},
+		 ClientKeys, {Username, Password}) ->
+    case ssl_srp_primes:check_srp_params(Generator, Prime) of
+	ok ->
+	    DerivedKey = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
+	    case crypto:compute_key(srp, Public, ClientKeys, {user, [DerivedKey, Prime, Generator, '6a']}) of
+		error ->
+		    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+		PremasterSecret ->
+		    PremasterSecret
+	    end;
+	_ ->
+	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
+    end;
+
+premaster_secret(#client_rsa_psk_identity{
+		    identity = PSKIdentity,
+		    exchange_keys = #encrypted_premaster_secret{premaster_secret = EncPMS}
+		   }, #'RSAPrivateKey'{} = Key, PSKLookup) ->
+    PremasterSecret = premaster_secret(EncPMS, Key),
+    psk_secret(PSKIdentity, PSKLookup, PremasterSecret);
+
+premaster_secret(#server_dhe_psk_params{
+		    hint = IdentityHint,
+		    dh_params =  #server_dh_params{dh_y = PublicDhKey} = Params},
+		    PrivateDhKey,
+		    LookupFun) ->
+    PremasterSecret = premaster_secret(PublicDhKey, PrivateDhKey, Params),
+    psk_secret(IdentityHint, LookupFun, PremasterSecret);
+
+premaster_secret({rsa_psk, PSKIdentity}, PSKLookup, RSAPremasterSecret) ->
+    psk_secret(PSKIdentity, PSKLookup, RSAPremasterSecret).
+
+premaster_secret(#client_dhe_psk_identity{
+		    identity =  PSKIdentity,
+		    dh_public = PublicDhKey}, PrivateKey, #'DHParameter'{} = Params, PSKLookup) ->
+    PremasterSecret = premaster_secret(PublicDhKey, PrivateKey, Params),
+    psk_secret(PSKIdentity, PSKLookup, PremasterSecret).
+
+premaster_secret(#client_psk_identity{identity = PSKIdentity}, PSKLookup) ->
+    psk_secret(PSKIdentity, PSKLookup);
+
+premaster_secret({psk, PSKIdentity}, PSKLookup) ->
+    psk_secret(PSKIdentity, PSKLookup);
+
+premaster_secret(#'ECPoint'{} = ECPoint, #'ECPrivateKey'{} = ECDHKeys) ->
+    public_key:compute_key(ECPoint, ECDHKeys);
+premaster_secret(EncSecret, #'RSAPrivateKey'{} = RSAPrivateKey) ->
+    try public_key:decrypt_private(EncSecret, RSAPrivateKey,
 				   [{rsa_pad, rsa_pkcs1_padding}])
     catch
 	_:_ ->
@@ -516,7 +601,8 @@ select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert) ->
 			 ({_, dsa}) ->
 			      false;
 			 ({Hash, S}) when  S == Sign ->
-			      ssl_cipher:is_acceptable_hash(Hash,  proplists:get_value(hashs, crypto:supports()));
+			      ssl_cipher:is_acceptable_hash(Hash,
+							    proplists:get_value(hashs, crypto:supports()));
 			 (_)  ->
 			      false
 		      end, HashSigns) of
@@ -535,7 +621,8 @@ select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert) ->
 %% This function is also used by select_hashsign to extract
 %% the alogrithm of the server cert key.
 %%--------------------------------------------------------------------
-select_cert_hashsign(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso Major >= 3 andalso Minor >= 3 ->
+select_cert_hashsign(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso
+						       Major >= 3 andalso Minor >= 3 ->
     HashSign;
 select_cert_hashsign(undefined,?'id-ecPublicKey', _) ->
     {sha, ecdsa};
@@ -1749,3 +1836,31 @@ advertised_hash_signs({Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
 advertised_hash_signs(_) ->
     undefined.
 
+psk_secret(PSKIdentity, PSKLookup) ->
+    case handle_psk_identity(PSKIdentity, PSKLookup) of
+	{ok, PSK} when is_binary(PSK) ->
+	    Len = erlang:byte_size(PSK),
+	    <<?UINT16(Len), 0:(Len*8), ?UINT16(Len), PSK/binary>>;
+	#alert{} = Alert ->
+	    Alert;
+	_ ->
+	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
+    end.
+
+psk_secret(PSKIdentity, PSKLookup, PremasterSecret) ->
+    case handle_psk_identity(PSKIdentity, PSKLookup) of
+	{ok, PSK} when is_binary(PSK) ->
+	    Len = erlang:byte_size(PremasterSecret),
+	    PSKLen = erlang:byte_size(PSK),
+	    <<?UINT16(Len), PremasterSecret/binary, ?UINT16(PSKLen), PSK/binary>>;
+	#alert{} = Alert ->
+	    Alert;
+	_ ->
+	    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
+    end.
+
+handle_psk_identity(_PSKIdentity, LookupFun)
+  when LookupFun == undefined ->
+    error;
+handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
+    Fun(psk, PSKIdentity, UserState).
