@@ -417,7 +417,11 @@ error_string(9) ->
 error_string(10) ->
     "Cookie Received While Shutting Down";
 error_string(11) ->
+    "Restart of an Association with New Addresses";
+error_string(12) ->
     "User Initiated Abort";
+error_string(13) ->
+    "Protocol Violation";
 %% For more info on principal SCTP error codes: phone +44 7981131933
 error_string(N) when is_integer(N) ->
     unknown_error;
