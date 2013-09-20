@@ -50,7 +50,7 @@ usage() ->
       "      -i dir    = set an include directory for inherited beams~n"
       "      -E        = no .erl output~n"
       "      -H        = no .hrl output~n"
-      "      -d        = write intermediate files (.spec and .forms)~n",
+      "      -d        = write intermediate files (.D and .F)~n",
       [?MODULE]).
 
 main(Args) ->

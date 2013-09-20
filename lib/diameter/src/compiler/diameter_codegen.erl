@@ -121,7 +121,7 @@ mod(_, {ok, Mod}) ->
     Mod.
 
 gen(spec, Spec, _Mod, Path) ->
-    write_term(Path ++ ".spec", [?VERSION | Spec]);
+    write_term(Path ++ ".D", [?VERSION | Spec]);
 
 gen(hrl, Spec, Mod, Path) ->
     gen_hrl(Path ++ ".hrl", Mod, Spec);
@@ -173,7 +173,7 @@ gen(erl, Spec, Mod, Path) ->
     gen_erl(Path, insert_hrl_forms(Spec, Forms)).
 
 gen_erl(Path, Forms) ->
-    getr(debug) andalso write_term(Path ++ ".forms", Forms),
+    getr(debug) andalso write_term(Path ++ ".F", Forms),
     write(Path ++ ".erl",
           header() ++ erl_prettypr:format(erl_syntax:form_list(Forms))).
 
