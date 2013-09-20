@@ -57,6 +57,7 @@
 	 start_with_invalid_users_conf_file1/1,
 	 start_with_invalid_agents_conf_file1/1,
 	 start_with_invalid_usm_conf_file1/1,
+         start_with_create_db_and_dir_opt/1,
 
 	
 
@@ -139,8 +140,13 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 	file:make_dir(MgrTopDir  = filename:join(CaseTopDir, "manager/")),
     ?line ok = 
 	file:make_dir(MgrConfDir = filename:join(MgrTopDir,   "conf/")),
-    ?line ok = 
-	file:make_dir(MgrDbDir   = filename:join(MgrTopDir,   "db/")),
+    MgrDbDir = filename:join(MgrTopDir, "db/"),
+    case Case of
+	start_with_create_db_and_dir_opt ->
+	    ok;
+	_ ->
+	    ?line ok = file:make_dir(MgrDbDir)
+    end,
     ?line ok = 
 	file:make_dir(MgrLogDir  = filename:join(MgrTopDir,   "log/")),
     [{case_top_dir,     CaseTopDir},
@@ -174,6 +180,7 @@ groups() ->
        start_without_mandatory_opts2,
        start_with_all_valid_opts, start_with_unknown_opts,
        start_with_incorrect_opts,
+       start_with_create_db_and_dir_opt,
        start_with_invalid_manager_conf_file1,
        start_with_invalid_users_conf_file1,
        start_with_invalid_agents_conf_file1,
@@ -332,7 +339,8 @@ start_with_all_valid_opts(Conf) when is_list(Conf) ->
 			       {no_reuse, false}]}],
     ServerOpts = [{timeout, 10000}, {verbosity, trace}],
     NoteStoreOpts = [{timeout, 20000}, {verbosity, trace}],
-    ConfigOpts = [{dir, ConfDir}, {verbosity, trace}, {db_dir, DbDir}],
+    ConfigOpts = [{dir, ConfDir}, {verbosity, trace},
+                  {db_dir, DbDir}, {db_init_error, create}],
     Mibs = [join(StdMibDir, "SNMP-NOTIFICATION-MIB"),
 	    join(StdMibDir, "SNMP-USER-BASED-SM-MIB")],
     Prio = normal,
@@ -1674,7 +1682,34 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
 %% ---
 %% 
 
+start_with_create_db_and_dir_opt(suite) -> [];
+start_with_create_db_and_dir_opt(doc) ->
+    "Start the snmp manager config process with the\n"
+        "create_db_and_dir option.";
+start_with_create_db_and_dir_opt(Conf) when is_list(Conf) ->
+    put(tname, swcdado),
+    p("start"),
+    process_flag(trap_exit, true),
+    ConfDir = ?config(manager_conf_dir, Conf),
+    DbDir = ?config(manager_db_dir, Conf),
+    true = not filelib:is_dir(DbDir) and not filelib:is_file(DbDir),
+    write_manager_conf(ConfDir),
 
+    p("verify nonexistent db_dir"),
+    ConfigOpts01 = [{verbosity,trace}, {dir, ConfDir}, {db_dir, DbDir}],
+    {error, Reason01} = config_start([{config, ConfigOpts01}]),
+    p("nonexistent db_dir res: ~p", [Reason01]),
+    {invalid_conf_db_dir, _, not_found} = Reason01,
+
+    p("verify nonexistent db_dir gets created"),
+    ConfigOpts02 = [{db_init_error, create_db_and_dir} | ConfigOpts01],
+    {ok, _Pid} = config_start([{config, ConfigOpts02}]),
+    true = filelib:is_dir(DbDir),
+    p("verified: nonexistent db_dir was correctly created"),
+    ok = config_stop(),
+
+    p("done"),
+    ok.
 
 %% 
 %% ---

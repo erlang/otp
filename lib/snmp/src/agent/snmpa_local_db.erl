@@ -191,6 +191,12 @@ dets_open(DbDir, DbInitError, Opts) ->
 		    end
 	    end;
 	_ ->
+	    case DbInitError of
+		create_db_and_dir ->
+		    ok = filelib:ensure_dir(Filename);
+		_ ->
+		    ok
+	    end,
 	    case do_dets_open(Name, Filename, Opts) of
 		{ok, Dets} ->
 		    ?vdebug("dets open done",[]),
