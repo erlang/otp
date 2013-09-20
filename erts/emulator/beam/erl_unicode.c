@@ -2174,16 +2174,31 @@ Sint erts_native_filename_need(Eterm ioterm, int encoding)
 	ap = atom_tab(atom_val(ioterm));
 	switch (encoding) {
 	case ERL_FILENAME_LATIN1:
-	    need = ap->len;
+	    need = ap->latin1_chars;  /* May be -1 */
 	    break;
 	case ERL_FILENAME_UTF8_MAC:
 	case ERL_FILENAME_UTF8:
-	    for (i = 0; i < ap->len; i++) {
-		need += (ap->name[i] >= 0x80) ? 2 : 1;
-	    }
+	    need = ap->len;
 	    break;
 	case ERL_FILENAME_WIN_WCHAR:
-	    need = 2*(ap->len);
+            if (ap->latin1_chars >= 0) {
+		need = 2* ap->latin1_chars;
+            }
+	    else {
+		for (i = 0; i < ap->len; ) {
+                    if (ap->name[i] < 0x80) {
+			i++;
+                    } else if (ap->name[i] < 0xE0) {
+			i += 2;
+                    } else if (ap->name[i] < 0xF0) {
+			i += 3;
+                    } else {
+			need = -1;
+			break;
+		    }
+		    need += 2;
+		}
+	    }
 	    break;
 	default:
 	    need = -1;
@@ -2313,26 +2328,36 @@ void erts_native_filename_put(Eterm ioterm, int encoding, byte *p)
 	switch (encoding) {
 	case ERL_FILENAME_LATIN1:
 	    for (i = 0; i < ap->len; i++) {
-		*p++ = ap->name[i];
+		if (ap->name[i] < 0x80) {
+		    *p++ = ap->name[i];
+		} else {
+		    ASSERT(ap->name[i] < 0xC4);
+		    *p++ = ((ap->name[i] & 3) << 6) | (ap->name[i+1] & 0x3F);
+		    i++;
+		}
 	    }
 	    break;
 	case ERL_FILENAME_UTF8_MAC:
 	case ERL_FILENAME_UTF8:
-	    for (i = 0; i < ap->len; i++) {
-		if(ap->name[i] < 0x80) {
-		    *p++ = ap->name[i];
-		} else {
-		    *p++ = (((ap->name[i]) >> 6) | ((byte) 0xC0));
-		    *p++ = (((ap->name[i]) & 0x3F) | ((byte) 0x80));
-		}
-	    }
+	    sys_memcpy(p, ap->name, ap->len);
 	    break;
 	case ERL_FILENAME_WIN_WCHAR:
 	    for (i = 0; i < ap->len; i++) {
 		/* Little endian */
-		*p++ = ap->name[i];
-		*p++ = 0;
-	    }
+                if (ap->name[i] < 0x80) {
+		    *p++ = ap->name[i];
+		    *p++ = 0;
+                } else if (ap->name[i] < 0xE0) {
+		    *p++ = ((ap->name[i] & 3) << 6) | (ap->name[i+1] & 0x3F);
+		    *p++ = ((ap->name[i] & 0x1C) >> 2);
+		    i++;
+                } else {
+		    ASSERT(ap->name[i] < 0xF0);
+		    *p++ = ((ap->name[i+1] & 3) << 6) | (ap->name[i+2] & 0x3C);
+		    *p++ = ((ap->name[i] & 0xF) << 4) | ((ap->name[i+1] & 0x3C) >> 2);
+		    i += 2;
+		}
+            }
 	    break;
 	default:
 	    ASSERT(0);
