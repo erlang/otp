@@ -455,8 +455,11 @@ basic_block([Le|Les], Acc) ->
 	    end;
 	no_block -> {reverse(Acc, [Le]),Les}
     end.
+
+%% sets that may garbage collect are not allowed in basic blocks.
 	
 collect_block({set,_,{binary,_}})    -> no_block;
+collect_block({set,_,{map,_,_}})     -> no_block;
 collect_block({set,_,_})             -> include;
 collect_block({call,{var,_}=Var,As,_Rs}) -> {block_end,As++[Var]};
 collect_block({call,Func,As,_Rs})   -> {block_end,As++func_vars(Func)};
