@@ -98,17 +98,6 @@ file(F, Outdir, Mode) ->
 get_value(Key, Plist) ->
     proplists:get_value(Key, Plist, []).
 
-write(Path, Str) ->
-    w(Path, Str, "~s").
-
-write_term(Path, T) ->
-    w(Path, T, "~p.").
-
-w(Path, T, Fmt) ->
-    {ok, Fd} = file:open(Path, [write]),
-    io:fwrite(Fd, Fmt ++ "~n", [T]),
-    file:close(Fd).
-
 codegen(File, Spec, Outdir, Mode) ->
     Mod = mod(File, orddict:find(name, Spec)),
     Path = filename:join(Outdir, Mod),  %% minus extension
@@ -124,67 +113,70 @@ gen(spec, Spec, _Mod, Path) ->
     write_term(Path ++ ".D", [?VERSION | Spec]);
 
 gen(hrl, Spec, Mod, Path) ->
-    gen_hrl(Path ++ ".hrl", Mod, Spec);
+    write(Path ++ ".hrl", gen_hrl(Mod, Spec));
 
 gen(erl, Spec, Mod, Path) ->
-    Forms = [{?attribute, module, Mod},
-             {?attribute, compile, {parse_transform, diameter_exprecs}},
-             {?attribute, compile, nowarn_unused_function},
-             {?attribute, export, [{name, 0},
-                                   {id, 0},
-                                   {vendor_id, 0},
-                                   {vendor_name, 0},
-                                   {decode_avps, 2}, %% in diameter_gen.hrl
-                                   {encode_avps, 2}, %%
-                                   {msg_name, 2},
-                                   {msg_header, 1},
-                                   {rec2msg, 1},
-                                   {msg2rec, 1},
-                                   {name2rec, 1},
-                                   {avp_name, 2},
-                                   {avp_arity, 2},
-                                   {avp_header, 1},
-                                   {avp, 3},
-                                   {grouped_avp, 3},
-                                   {enumerated_avp, 3},
-                                   {empty_value, 1},
-                                   {dict, 0}]},
-             %% diameter.hrl is included for #diameter_avp
-             {?attribute, include_lib, "diameter/include/diameter.hrl"},
-             {?attribute, include_lib, "diameter/include/diameter_gen.hrl"},
-             f_name(Mod),
-             f_id(Spec),
-             f_vendor_id(Spec),
-             f_vendor_name(Spec),
-             f_msg_name(Spec),
-             f_msg_header(Spec),
-             f_rec2msg(Spec),
-             f_msg2rec(Spec),
-             f_name2rec(Spec),
-             f_avp_name(Spec),
-             f_avp_arity(Spec),
-             f_avp_header(Spec),
-             f_avp(Spec),
-             f_enumerated_avp(Spec),
-             f_empty_value(Spec),
-             f_dict(Spec),
-             {eof, ?LINE}],
+    Forms = erl_forms(Mod, Spec),
+    getr(debug) andalso write_term(Path ++ ".F", [Forms]),
+    write(Path ++ ".erl", [header(), prettypr(Forms), $\n]).
 
-    gen_erl(Path, insert_hrl_forms(Spec, Forms)).
+write(Path, T) ->
+    write(Path, "~s", T).
 
-gen_erl(Path, Forms) ->
-    getr(debug) andalso write_term(Path ++ ".F", Forms),
-    write(Path ++ ".erl",
-          header() ++ erl_prettypr:format(erl_syntax:form_list(Forms))).
+write_term(Path, T) ->
+    write(Path, "~p.~n", T).
 
-insert_hrl_forms(Spec, Forms) ->
-    {H,T} = lists:splitwith(fun is_header/1, Forms),
-    H ++ make_hrl_forms(Spec) ++ T.
+write(Path, Fmt, T) ->
+    {ok, Fd} = file:open(Path, [write]),
+    io:fwrite(Fd, Fmt, [T]),
+    file:close(Fd).
 
-is_header({attribute, _, export, _}) ->
-    false;
-is_header(_) ->
-    true.
+erl_forms(Mod, Spec) ->
+    Forms = [[{?attribute, module, Mod},
+              {?attribute, compile, {parse_transform, diameter_exprecs}},
+              {?attribute, compile, nowarn_unused_function}],
+             make_hrl_forms(Spec),
+             [{?attribute, export, [{name, 0},
+                                    {id, 0},
+                                    {vendor_id, 0},
+                                    {vendor_name, 0},
+                                    {decode_avps, 2}, %% in diameter_gen.hrl
+                                    {encode_avps, 2}, %%
+                                    {msg_name, 2},
+                                    {msg_header, 1},
+                                    {rec2msg, 1},
+                                    {msg2rec, 1},
+                                    {name2rec, 1},
+                                    {avp_name, 2},
+                                    {avp_arity, 2},
+                                    {avp_header, 1},
+                                    {avp, 3},
+                                    {grouped_avp, 3},
+                                    {enumerated_avp, 3},
+                                    {empty_value, 1},
+                                    {dict, 0}]},
+              %% diameter.hrl is included for #diameter_avp
+              {?attribute, include_lib, "diameter/include/diameter.hrl"},
+              {?attribute, include_lib, "diameter/include/diameter_gen.hrl"},
+              f_name(Mod),
+              f_id(Spec),
+              f_vendor_id(Spec),
+              f_vendor_name(Spec),
+              f_msg_name(Spec),
+              f_msg_header(Spec),
+              f_rec2msg(Spec),
+              f_msg2rec(Spec),
+              f_name2rec(Spec),
+              f_avp_name(Spec),
+              f_avp_arity(Spec),
+              f_avp_header(Spec),
+              f_avp(Spec),
+              f_enumerated_avp(Spec),
+              f_empty_value(Spec),
+              f_dict(Spec),
+              {eof, ?LINE}]],
+
+    lists:append(Forms).
 
 make_hrl_forms(Spec) ->
     {_Prefix, MsgRecs, GrpRecs, ImportedGrpRecs}
@@ -208,7 +200,7 @@ make_record_forms(Spec) ->
     ImportedGrpRecs = [{M, a_record(Prefix, fun grp_proj/1, Gs)}
                        || {M,Gs} <- get_value(import_groups, Spec)],
 
-    {Prefix, MsgRecs, GrpRecs, ImportedGrpRecs}.
+    {to_upper(Prefix), MsgRecs, GrpRecs, ImportedGrpRecs}.
 
 msg_proj({Name, _, _, _, Avps}) ->
     {Name, Avps}.
@@ -711,67 +703,47 @@ f_dict(Spec) ->
      [{?clause, [], [], [?TERM([?VERSION | Spec])]}]}.
 
 %%% ------------------------------------------------------------------------
-%%% # gen_hrl/3
+%%% # gen_hrl/2
 %%% ------------------------------------------------------------------------
 
-gen_hrl(Path, Mod, Spec) ->
-    {ok, Fd} = file:open(Path, [write]),
-
+gen_hrl(Mod, Spec) ->
     {Prefix, MsgRecs, GrpRecs, ImportedGrpRecs}
         = make_record_forms(Spec),
 
-    file:write(Fd, hrl_header(Mod)),
+    [hrl_header(Mod),
+     forms("Message records",     MsgRecs),
+     forms("Grouped AVP records", GrpRecs),
+     lists:map(fun({M,Fs}) ->
+                       forms("Grouped AVP records from " ++ atom_to_list(M),
+                             Fs)
+               end,
+               ImportedGrpRecs),
+     format("ENUM Macros", m_enums(Prefix, false, get_value(enum, Spec))),
+     format("DEFINE Macros", m_enums(Prefix, false, get_value(define, Spec))),
+     lists:map(fun({M,Es}) ->
+                       format("ENUM Macros from " ++ atom_to_list(M),
+                              m_enums(Prefix, true, Es))
+               end,
+               get_value(import_enums, Spec))].
 
-    forms("Message records",     Fd, MsgRecs),
-    forms("Grouped AVP records", Fd, GrpRecs),
+forms(_, [] = No) ->
+    No;
+forms(Banner, Forms) ->
+    format(Banner, prettypr(Forms)).
 
-    lists:foreach(fun({M,Fs}) ->
-                          forms("Grouped AVP records from " ++ atom_to_list(M),
-                                Fd,
-                                Fs)
-                  end,
-                  ImportedGrpRecs),
-
-    PREFIX = to_upper(Prefix),
-
-    write("ENUM Macros",
-          Fd,
-          m_enums(PREFIX, false, get_value(enum, Spec))),
-    write("DEFINE Macros",
-          Fd,
-          m_enums(PREFIX, false, get_value(define, Spec))),
-
-    lists:foreach(fun({M,Es}) ->
-                          write("ENUM Macros from " ++ atom_to_list(M),
-                                Fd,
-                                m_enums(PREFIX, true, Es))
-                  end,
-                  get_value(import_enums, Spec)),
-
-    file:close(Fd).
-
-forms(_, _, []) ->
-    ok;
-forms(Banner, Fd, Forms) ->
-    write(Banner, Fd, prettypr(Forms)).
-
-write(_, _, []) ->
-    ok;
-write(Banner, Fd, Str) ->
-    banner(Fd, Banner),
-    io:fwrite(Fd, "~s~n", [Str]).
+format(_, [] = No) ->
+    No;
+format(Banner, Str) ->
+    [banner(Banner), Str, $\n].
 
 prettypr(Forms) ->
     erl_prettypr:format(erl_syntax:form_list(Forms)).
 
-banner(Fd, Heading) ->
-    file:write(Fd, banner(Heading)).
-
 banner(Heading) ->
-    ("\n\n"
+    ["\n\n"
      "%%% -------------------------------------------------------\n"
-     "%%% " ++ Heading ++ ":\n"
-     "%%% -------------------------------------------------------\n\n").
+     "%%% ", Heading, ":\n"
+     "%%% -------------------------------------------------------\n\n"].
 
 z(S) ->
     string:join(string:tokens(S, "\s\t"), "\s").
