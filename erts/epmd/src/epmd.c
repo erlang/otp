@@ -286,7 +286,7 @@ static void run_daemon(EpmdVars *g)
     /* fork to make sure first child is not a process group leader */
     if (( child_pid = fork()) < 0)
       {
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
 	syslog(LOG_ERR,"erlang mapper daemon cant fork %m");
 #endif
 	epmd_cleanup_exit(g,1);
@@ -312,7 +312,7 @@ static void run_daemon(EpmdVars *g)
 
     if ((child_pid = fork()) < 0)
       {
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
 	syslog(LOG_ERR,"erlang mapper daemon cant fork 2'nd time %m");
 #endif
 	epmd_cleanup_exit(g,1);
@@ -483,7 +483,7 @@ static void dbg_gen_printf(int onsyslog,int perr,int from_level,
 
   if (g->is_daemon)
     {
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
       if (onsyslog)
 	{
 	  erts_vsnprintf(buf, DEBUG_BUFFER_SIZE, format, args);
