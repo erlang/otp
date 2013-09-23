@@ -61,7 +61,8 @@ codec(File, Opts) ->
             make(File,
                  Opts,
                  Dict,
-                 [dict || lists:member(debug, Opts)] ++ [erl, hrl]);
+                 lists:append([[dict, forms] || lists:member(debug, Opts)])
+                 ++ [erl, hrl]);
         {error, _} = E ->
             E
     end.

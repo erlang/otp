@@ -53,12 +53,11 @@
  when File :: string(),
       ParseD :: orddict:orddict(),
       Opts :: list(),
-      Mode :: dict | erl | hrl.
+      Mode :: dict | forms | erl | hrl.
 
 from_dict(File, ParseD, Opts, Mode) ->
     Outdir = proplists:get_value(outdir, Opts, "."),
     putr(verbose, lists:member(verbose, Opts)),
-    putr(debug,   lists:member(debug, Opts)),
     codegen(File, ParseD, Outdir, Mode).
 
 %% Optional reports when running verbosely.
@@ -115,10 +114,11 @@ gen(dict, ParseD, _Mod, Path) ->
 gen(hrl, ParseD, Mod, Path) ->
     write(Path ++ ".hrl", gen_hrl(Mod, ParseD));
 
+gen(forms, ParseD, Mod, Path) ->
+    write_term(Path ++ ".F", [erl_forms(Mod, ParseD)]);
+
 gen(erl, ParseD, Mod, Path) ->
-    Forms = erl_forms(Mod, ParseD),
-    getr(debug) andalso write_term(Path ++ ".F", [Forms]),
-    write(Path ++ ".erl", [header(), prettypr(Forms), $\n]).
+    write(Path ++ ".erl", [header(), prettypr(erl_forms(Mod, ParseD)), $\n]).
 
 write(Path, T) ->
     write(Path, "~s", T).

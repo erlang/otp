@@ -137,9 +137,8 @@ arg(["-E" | Args], #argv{output = Output} = A) ->
 arg(["-H" | Args], #argv{output = Output} = A) ->
     arg(Args, A#argv{output = lists:delete(hrl, Output)});
 
-arg(["-d" | Args], #argv{options = Opts, output = Output} = A) ->
-    arg(Args, A#argv{options = [debug | Opts],
-                     output = [dict | Output]});
+arg(["-d" | Args], #argv{output = Output} = A) ->
+    arg(Args, A#argv{output = [dict, forms | Output]});
 
 arg([[$- = M, C, H | T] | Args], A)  %% clustered options
   when C /= $i, C /= $o, C /= $- ->
