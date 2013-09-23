@@ -35,7 +35,7 @@
          dict/1,
          dict/2,
          format/1,
-         reformat/1]).
+         flatten/1]).
 
 -export_type([opt/0]).
 
@@ -144,23 +144,27 @@ is_path(Bin) ->
 format(Dict) ->
     diameter_dict_util:format(Dict).
 
-%% reformat/1
+%% flatten/1
 %%
-%% Parse a dictionary file and return its formatted equivalent.
+%% Reconstitute a dictionary without @inherits.
 
--spec reformat(File)
-   -> {ok, iolist()}
-    | {error, Reason}
- when File :: dict(),
-      Reason :: string().
+-spec flatten(orddict:orddict())
+   -> orddict:orddict().
 
-reformat(File) ->
-    case dict(File) of
-        {ok, Dict} ->
-            {ok, format(Dict)};
-        {error, _} = No ->
-            No
-    end.
+flatten(Dict) ->
+    lists:foldl(fun flatten/2, Dict, [[avp_types, import_avps],
+                                      [grouped, import_groups],
+                                      [enum, import_enums]]).
+
+flatten([_,_] = Keys, Dict) ->
+    [Values, Imports] = [orddict:fetch(K, Dict) || K <- Keys],
+    Vs = lists:append([Values | [V || {_,V} <- Imports]]),
+    lists:foldl(fun store/2,
+                Dict,
+                lists:zip([inherits | Keys], [[], Vs, []])).
+
+store({Key, Value}, Dict) ->
+    orddict:store(Key, Value, Dict).
 
 %% ===========================================================================
 
