@@ -55,8 +55,6 @@ In short:
 Copyright and License
 ---------------------
 
-> %CopyrightBegin%
->
 > Copyright Ericsson AB 2010-2012. All Rights Reserved.
 >
 > The contents of this file are subject to the Erlang Public License,
@@ -70,7 +68,7 @@ Copyright and License
 > the License for the specific language governing rights and limitations
 > under the License.
 >
-> %CopyrightEnd%
+> 
 
 
 
