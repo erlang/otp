@@ -70,14 +70,14 @@
 
 -type connect_option() :: {raddr, inet:ip_address()}
                         | {rport, inet:port_number()}
-                        | gen_sctp:open_option().
+                        | gen_sctp:option().
 
 -type match() :: inet:ip_address()
                | string()
                | [match()].
 
 -type listen_option() :: {accept, match()}
-                       | gen_sctp:open_option().
+                       | gen_sctp:option().
 
 -type uint() :: non_neg_integer().
 
