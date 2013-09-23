@@ -50,6 +50,7 @@
 
 -spec from_dict(File, ParseD, Opts, Mode)
    -> ok
+    | list()
  when File :: string(),
       ParseD :: orddict:orddict(),
       Opts :: list(),
@@ -57,12 +58,50 @@
 
 from_dict(File, ParseD, Opts, Mode) ->
     Outdir = proplists:get_value(outdir, Opts, "."),
+    Return = proplists:get_value(return, Opts, false),
+    Mod = mod(File, orddict:find(name, ParseD)),
     putr(verbose, lists:member(verbose, Opts)),
     try
-        codegen(File, ParseD, Outdir, Mode)
+        maybe_write(Return, Mode, Outdir, Mod, gen(Mode, ParseD, ?A(Mod)))
     after
         eraser(verbose)
     end.
+
+mod(File, error) ->
+    filename:rootname(filename:basename(File));
+mod(_, {ok, Mod}) ->
+    Mod.
+
+maybe_write(true, _, _, _, T) ->
+    T;
+maybe_write(_, Mode, Outdir, Mod, T) ->
+    Path = filename:join(Outdir, Mod),  %% minus extension
+    do_write(Mode, [Path, $., ext(Mode)], T).
+
+ext(dict) ->
+    "D";
+ext(forms) ->
+    "F";
+ext(T) ->
+    ?S(T).
+
+do_write(M, Path, T)
+  when M == dict;
+       M == forms ->
+    write_term(Path, T);
+do_write(_, Path, T) ->
+    write(Path, T).
+
+write(Path, T) ->
+    write(Path, "~s", T).
+
+write_term(Path, T) ->
+    write(Path, "~p.~n", T).
+
+write(Path, Fmt, T) ->
+    {ok, Fd} = file:open(Path, [write]),
+    io:fwrite(Fd, Fmt, [T]),
+    ok = file:close(Fd).
 
 %% Optional reports when running verbosely.
 report(What, Data) ->
@@ -104,39 +143,17 @@ file(F, Outdir, Mode) ->
 get_value(Key, Plist) ->
     proplists:get_value(Key, Plist, []).
 
-codegen(File, ParseD, Outdir, Mode) ->
-    Mod = mod(File, orddict:find(name, ParseD)),
-    Path = filename:join(Outdir, Mod),  %% minus extension
-    gen(Mode, ParseD, ?A(Mod), Path),
-    ok.
+gen(dict, ParseD, _Mod) ->
+    [?VERSION | ParseD];
 
-mod(File, error) ->
-    filename:rootname(filename:basename(File));
-mod(_, {ok, Mod}) ->
-    Mod.
+gen(hrl, ParseD, Mod) ->
+    gen_hrl(Mod, ParseD);
 
-gen(dict, ParseD, _Mod, Path) ->
-    write_term(Path ++ ".D", [?VERSION | ParseD]);
+gen(forms, ParseD, Mod) ->
+    erl_forms(Mod, ParseD);
 
-gen(hrl, ParseD, Mod, Path) ->
-    write(Path ++ ".hrl", gen_hrl(Mod, ParseD));
-
-gen(forms, ParseD, Mod, Path) ->
-    write_term(Path ++ ".F", [erl_forms(Mod, ParseD)]);
-
-gen(erl, ParseD, Mod, Path) ->
-    write(Path ++ ".erl", [header(), prettypr(erl_forms(Mod, ParseD)), $\n]).
-
-write(Path, T) ->
-    write(Path, "~s", T).
-
-write_term(Path, T) ->
-    write(Path, "~p.~n", T).
-
-write(Path, Fmt, T) ->
-    {ok, Fd} = file:open(Path, [write]),
-    io:fwrite(Fd, Fmt, [T]),
-    file:close(Fd).
+gen(erl, ParseD, Mod) ->
+    [header(), prettypr(erl_forms(Mod, ParseD)), $\n].
 
 erl_forms(Mod, ParseD) ->
     Forms = [[{?attribute, module, Mod},

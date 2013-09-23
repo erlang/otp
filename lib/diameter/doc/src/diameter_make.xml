@@ -64,12 +64,15 @@ interface.</p>
 <funcs>
 
 <func>
-<name>codec(Path::string(), [Opt]) -> ok | {error, Reason}</name>
+<name>codec(File :: iolist() | binary(), [Opt]) -> ok | {ok, Ret} | {error, Reason}</name>
 <fsummary>Compile a dictionary file into Erlang source.</fsummary>
 <desc>
 
 <p>
 Compile a single dictionary file to Erlang source.
+The input <c>File</c> can be either a path or a literal dictionary,
+the occurrence of newline (ascii NL) or carriage return (ascii CR)
+identifying the latter.
 <c>Opt</c> can have the following types.</p>
 
 <taglist>
@@ -91,6 +94,13 @@ Multiple <c>include</c> options can be specified.</p>
 <p>
 Write generated source to the specified directory.
 Defaults to the current working directory.</p>
+</item>
+
+<tag><c>return</c></tag>
+<item>
+<p>
+Return erl and hrl source as two iolists rather than writing them to
+the filesystem.</p>
 </item>
 
 <tag><c>{name|prefix, string()}</c></tag>
@@ -126,6 +136,13 @@ Multiple <c>inherits</c> options can be specified.</p>
 </item>
 
 </taglist>
+
+<p>
+Note that a dictionary's <c>&dict_name;</c>, together with the
+<c>outdir</c> option, determine the output paths when the
+<c>return</c> option is not specified.
+The <c>&dict_name;</c> of a literal input dictionary defaults to
+<c>dictionary</c>.</p>
 
 </desc>
 </func>

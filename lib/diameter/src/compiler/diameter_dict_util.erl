@@ -46,7 +46,7 @@
 -spec parse(File, Opts)
    -> {ok, orddict:orddict()}
     | {error, term()}
- when File :: {path, string()}
+ when File :: {path, file:name_all()}
             | iolist()
             | binary(),
       Opts :: list().
