@@ -473,9 +473,6 @@ pack(true, Arity, Avp, Value, Acc) ->
 pack(false, Arity, Avp, Value, Acc) ->
     min(Arity, Avp, Value, Acc).
 
-all(Mod, Name, Avp, V) ->
-    all(Mod:avp_arity(Name, Avp), Avp, V).
-
 all(1, Avp, V) ->
     {Avp, V};
 all({0,'*'}, Avp, V) ->
@@ -488,9 +485,6 @@ all({_,N}, Avp, V) ->
 a(N, Avp, V)
   when N /= 0 ->
     {Avp, lists:duplicate(N,V)}.
-
-min(Mod, Name, Avp, V, Acc) ->
-    min(Mod:avp_arity(Name, Avp), Avp, V, Acc).
 
 min(1, Avp, V, Acc) ->
     [{Avp, V} | Acc];
