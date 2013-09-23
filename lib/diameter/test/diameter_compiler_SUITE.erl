@@ -45,7 +45,7 @@
 %% RE/Replacement (in the sense of re:replace/4) pairs for morphing
 %% base_rfc3588.dia. The key is 'ok' or the the expected error as
 %% returned in the first element of the error tuple returned by
-%% diameter_dict_util:parse/2.
+%% diameter_make:codec/2.
 -define(REPLACE,
         [{ok,
           "",
@@ -361,9 +361,17 @@ format(Config) ->
 
 format(Mods, Bin) ->
     B = modify(Bin, Mods),
-    {ok, Dict} = diameter_dict_util:parse(B, []),
-    {ok, D} = diameter_dict_util:parse(diameter_dict_util:format(Dict), []),
+    {ok, Dict} = make(B, []),
+    {ok, D} = make(diameter_make:format(Dict), []),
     {Dict, Dict} = {Dict, D}.
+
+make(File, Opts) ->
+    case diameter_make:codec(File, [return, debug | Opts]) of
+        {ok, [_E,_H,_F,[_Vsn|Dict]]} ->
+            {ok, Dict};
+        {error, _} = E ->
+            E
+    end.
 
 %% ===========================================================================
 %% replace/1
@@ -379,13 +387,10 @@ replace(Config) ->
 
 replace({E, Mods}, Bin) ->
     B = modify(Bin, Mods),
-    case {E, diameter_dict_util:parse(B, [{include, here()}]), Mods} of
+    case {E, make(B, [{include, here()}]), Mods} of
         {ok, {ok, Dict}, _} ->
             Dict;
-        {_, {error, {E,_} = T}, _} ->
-            S = diameter_dict_util:format_error(T),
-            true = nochar($", S, E),
-            true = nochar($', S, E),
+        {_, {error, S}, _} ->
             S
     end.
 
@@ -407,7 +412,7 @@ generate(Config) ->
 
 generate(Mods, Bin, N, Mode) ->
     B = modify(Bin, Mods ++ [{"@name .*", "@name dict" ++ ?L(N)}]),
-    {ok, Dict} = diameter_dict_util:parse(B, []),
+    {ok, Dict} = make(B, []),
     File = "dict" ++ integer_to_list(N),
     {_, ok} = {Dict, diameter_codegen:from_dict("dict",
                                                 Dict,
@@ -427,9 +432,6 @@ norm({E, RE, Repl}) ->
     {E, [{RE, Repl}]};
 norm({_,_} = T) ->
     T.
-
-nochar(Char, Str, Err) ->
-    Err == parse orelse not lists:member(Char, Str) orelse Str.
 
 here() ->
     filename:dirname(code:which(?MODULE)).
