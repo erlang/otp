@@ -58,7 +58,11 @@
 from_dict(File, ParseD, Opts, Mode) ->
     Outdir = proplists:get_value(outdir, Opts, "."),
     putr(verbose, lists:member(verbose, Opts)),
-    codegen(File, ParseD, Outdir, Mode).
+    try
+        codegen(File, ParseD, Outdir, Mode)
+    after
+        eraser(verbose)
+    end.
 
 %% Optional reports when running verbosely.
 report(What, Data) ->
@@ -75,6 +79,9 @@ putr(Key, Value) ->
 
 getr(Key) ->
     get({?MODULE, Key}).
+
+eraser(Key) ->
+    erase({?MODULE, Key}).
 
 %% ===========================================================================
 %% ===========================================================================
