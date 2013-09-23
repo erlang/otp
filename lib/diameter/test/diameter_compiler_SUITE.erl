@@ -403,7 +403,7 @@ generate(Config) ->
     [] = ?util:run([{?MODULE, [generate, M, Bin, N, T]}
                     || {E,N} <- Rs,
                        {ok, M} <- [norm(E)],
-                       T <- [erl, hrl, spec]]).
+                       T <- [erl, hrl, dict]]).
 
 generate(Mods, Bin, N, Mode) ->
     B = modify(Bin, Mods ++ [{"@name .*", "@name dict" ++ ?L(N)}]),

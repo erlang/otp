@@ -74,10 +74,10 @@ gen(Args) ->
 
 compile(#argv{file = File, options = Opts} = A) ->
     try diameter_dict_util:parse({path, File}, Opts) of
-        {ok, Spec} ->
-            maybe_output(A, Spec, Opts, spec), %% the spec file
-            maybe_output(A, Spec, Opts, erl),  %% the erl file
-            maybe_output(A, Spec, Opts, hrl),  %% The hrl file
+        {ok, Dict} ->
+            maybe_output(A, Dict, Opts, dict), %% parsed dictionary
+            maybe_output(A, Dict, Opts, erl),  %% the erl file
+            maybe_output(A, Dict, Opts, hrl),  %% The hrl file
             0;
         {error, Reason} ->
             error_msg(diameter_dict_util:format_error(Reason), []),
@@ -139,7 +139,7 @@ arg(["-H" | Args], #argv{output = Output} = A) ->
 
 arg(["-d" | Args], #argv{options = Opts, output = Output} = A) ->
     arg(Args, A#argv{options = [debug | Opts],
-                     output = [spec | Output]});
+                     output = [dict | Output]});
 
 arg([[$- = M, C, H | T] | Args], A)  %% clustered options
   when C /= $i, C /= $o, C /= $- ->
