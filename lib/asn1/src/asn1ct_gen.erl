@@ -934,15 +934,7 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 		  ["  Bytes ->",nl,
 		   "    {ok,",BytesAsBinary,"}",nl]
 	  end,
-	  "  catch",nl,
-	  "    Class:Exception when Class =:= error; Class =:= exit ->",nl,
-          "      case Exception of",nl,
-	  "        {error,Reason}=Error ->",nl,
-	  "          Error;",nl,
-	  "        Reason ->",nl,
-	  "         {error,{asn1,Reason}}",nl,
-	  "      end",nl,
-	  "end.",nl,nl]),
+	  try_catch(),nl,nl]),
 
     Return_rest = lists:member(undec_rest,get(encoding_options)),
     Data = case {Erules,Return_rest} of
@@ -969,43 +961,22 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 		  _ -> "Data"
 	      end,
 	    
-    emit(["case catch decode_disp(Type,",DecWrap,") of",nl,
-	  "  {'EXIT',{error,Reason}} ->",nl,
-	  "    {error,Reason};",nl,
-	  "  {'EXIT',Reason} ->",nl,
-	  "    {error,{asn1,Reason}};",nl]),
-    case {Erules,Return_rest} of 
-	{ber,false} ->
+    emit(["try decode_disp(Type, ",DecWrap,") of",nl]),
+    case erule(Erules) of
+	ber ->
 	    emit(["  Result ->",nl,
-		  "    {ok,Result}",nl]);
-	{ber,true} ->
-	    emit(["  Result ->",nl,
-		  "    {ok,Result,Rest}",nl]);
-	{_,false} ->
-	    emit(["  {X,_Rest} ->",nl,
-		  "    {ok,X};",nl,
-		  "  {X,_Rest,_Len} ->",nl,
-		  "    {ok,X}",nl]);
-	{per,true} ->
-	    emit(["  {X,{_,Rest}} ->",nl,
-		  "    {ok,X,Rest};",nl,
-		  "  {X,{_,Rest},_Len} ->",nl,
-		  "    {ok,X,Rest};",nl,
-		  "  {X,Rest} ->",nl,
-		  "    {ok,X,Rest};",nl,
-		  "  {X,Rest,_Len} ->",nl,
-		  "    {ok,X,Rest}",nl]);
-	{uper,true} ->
-	    emit(["  {X,{_,Rest}} ->",nl,
-		  "    {ok,X,Rest};",nl,
-		  "  {X,{_,Rest},_Len} ->",nl,
-		  "    {ok,X,Rest};",nl,
-		  "  {X,Rest} ->",nl,
-		  "    {ok,X,Rest};",nl,
-		  "  {X,Rest,_Len} ->",nl,
-		  "    {ok,X,Rest}",nl])
+		  case Return_rest of
+		      false -> "    {ok,Result}";
+		      true ->  "    {ok,Result,Rest}"
+		  end,nl]);
+	per ->
+	    emit(["  {Result,Rest} ->",nl,
+		  case Return_rest of
+		      false -> "    {ok,Result}";
+		      true ->  "    {ok,Result,Rest}"
+		  end,nl])
     end,
-    emit(["end.",nl,nl]),
+    emit([try_catch(),nl,nl]),
 
     gen_decode_partial_incomplete(Erules),
 
@@ -1020,6 +991,17 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     end,
     emit([nl]),
     emit({nl,nl}).
+
+try_catch() ->
+    ["  catch",nl,
+     "    Class:Exception when Class =:= error; Class =:= exit ->",nl,
+     "      case Exception of",nl,
+     "        {error,Reason}=Error ->",nl,
+     "          Error;",nl,
+     "        Reason ->",nl,
+     "         {error,{asn1,Reason}}",nl,
+     "      end",nl,
+     "end."].
 
 gen_info_functions(Erules) ->
     emit(["encoding_rule() -> ",
