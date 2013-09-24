@@ -63,8 +63,9 @@ int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* 
 {
     HINSTANCE hinstance;
     int len;
-    char dlname[MAXPATHLEN + 1];
-    char* wcp;
+    wchar_t* wcp;
+    Sint used;
+    int code;
     
     if ((len = sys_strlen(full_name)) >= MAXPATHLEN - EXT_LEN) {
 	if (err != NULL) {
@@ -73,20 +74,23 @@ int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* 
 	return ERL_DE_LOAD_ERROR_NAME_TO_LONG;
     }
 
-    wcp = erts_convert_filename_to_wchar(full_name, len, dlname, sizeof(dlname),
-                                         ERTS_ALC_T_TMP, &used, EXT_LEN);
-    wcscpy(&wcp[used], FILE_EXT_WCHAR);
+    wcp = (wchar_t*)erts_convert_filename_to_wchar((byte*)full_name, len,
+						   NULL, 0,
+						   ERTS_ALC_T_TMP, &used, EXT_LEN);
+    wcscpy(&wcp[used/2 - 1], FILE_EXT_WCHAR);
 
     if ((hinstance = LoadLibraryW(wcp)) == NULL) {
-	int code = ERL_DE_DYNAMIC_ERROR_OFFSET - GetLastError();
+	code = ERL_DE_DYNAMIC_ERROR_OFFSET - GetLastError();
 	if (err != NULL) {
 	    err->str = erts_sys_ddll_error(code);
 	}
-	return code;
     }
-
-    *handle = (void *) hinstance;
-    return ERL_DE_NO_ERROR;
+    else {
+        code = ERL_DE_NO_ERROR;
+	*handle = (void *) hinstance;
+    }
+    erts_free(ERTS_ALC_T_TMP, wcp);
+    return code;
 }
 
 int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
