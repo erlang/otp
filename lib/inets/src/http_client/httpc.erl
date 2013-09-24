@@ -233,14 +233,7 @@ set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
     ?hcrt("set options", [{options, Options}, {profile, Profile}]),
     case validate_options(Options) of
 	{ok, Opts} ->
-	    try 
-		begin
-		    httpc_manager:set_options(Opts, profile_name(Profile))
-		end
-	    catch
-		exit:{noproc, _} ->
-		    {error, inets_not_started}
-	    end;
+	    httpc_manager:set_options(Opts, profile_name(Profile));
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -335,8 +328,6 @@ store_cookies(SetCookieHeaders, Url, Profile)
 	    ok
 	end
     catch 
-	exit:{noproc, _} ->
-	    {error, {not_started, Profile}};
 	error:{badmatch, Bad} ->
 	    {error, {parse_failed, Bad}}
     end.
