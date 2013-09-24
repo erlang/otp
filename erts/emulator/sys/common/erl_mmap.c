@@ -482,6 +482,14 @@ static ERTS_INLINE ErtsFreeSegDesc* node_to_desc(enum SortOrder order, RBTNode* 
     return order==ADDR_ORDER ? anode_to_desc(node) : snode_to_desc(node);
 }
 
+static ERTS_INLINE SWord usable_size(enum SortOrder order,
+                                     ErtsFreeSegDesc* desc)
+{
+    return ((order == SA_SZ_ADDR_ORDER) ?
+            ERTS_SUPERALIGNED_FLOOR(desc->end) - ERTS_SUPERALIGNED_CEILING(desc->start)
+            : desc->end - desc->start);
+}
+
 #ifdef HARD_DEBUG
 static ERTS_INLINE SWord cmp_nodes(enum SortOrder order,
                                    RBTNode* lhs, RBTNode* rhs)
@@ -490,17 +498,7 @@ static ERTS_INLINE SWord cmp_nodes(enum SortOrder order,
     ErtsFreeSegDesc* rdesc = node_to_desc(order, rhs);
     RBT_ASSERT(lhs != rhs);
     if (order != ADDR_ORDER) {
-        SWord lsz, rsz, diff;
-        if (order == SA_SZ_ADDR_ORDER) {
-            lsz = ERTS_SUPERALIGNED_FLOOR(ldesc->end) - ERTS_SUPERALIGNED_CEILING(ldesc->start);
-            rsz = ERTS_SUPERALIGNED_FLOOR(rdesc->end) - ERTS_SUPERALIGNED_CEILING(rdesc->start);
-        }
-        else {
-            RBT_ASSERT(order == SZ_REVERSE_ADDR_ORDER);
-            lsz = ldesc->end - ldesc->start;
-            rsz = rdesc->end - rdesc->start;
-        }
-        diff = lsz - rsz;
+        SWord diff = usable_size(order, ldesc) - usable_size(order, rdesc);
 	if (diff) return diff;
     }
     if (order != SZ_REVERSE_ADDR_ORDER) {
@@ -517,13 +515,9 @@ static ERTS_INLINE SWord cmp_with_node(enum SortOrder order,
 {
     ErtsFreeSegDesc* rdesc;
     if (order != ADDR_ORDER) {
-        SWord rhs_sz, diff;
+        SWord diff;
         rdesc = snode_to_desc(rhs);
-        if (order == SA_SZ_ADDR_ORDER)
-            rhs_sz = ERTS_SUPERALIGNED_FLOOR(rdesc->end) - ERTS_SUPERALIGNED_CEILING(rdesc->start);
-        else
-            rhs_sz = rdesc->end - rdesc->start;
-        diff = sz - rhs_sz;
+        diff = sz - usable_size(order, rdesc);
         if (diff) return diff;
     }
     else
@@ -1163,16 +1157,17 @@ static void delete_free_seg(ErtsFreeSegMap* map, ErtsFreeSegDesc* desc)
     map->nseg--;
 }
 
-/* Lookup a free segment in 'map' with a size of at least 'need_sz' bytes.
+/* Lookup a free segment in 'map' with a size of at least 'need_sz' usable bytes.
  */
 static ErtsFreeSegDesc* lookup_free_seg(ErtsFreeSegMap* map, SWord need_sz)
 {
     RBTNode* x = map->stree.root;
     ErtsFreeSegDesc* best_desc = NULL;
+    const enum SortOrder order = map->stree.order;
 
     while (x) {
         ErtsFreeSegDesc* desc = snode_to_desc(x);
-        SWord seg_sz = desc->end - desc->start;
+        SWord seg_sz = usable_size(order, desc);
 
 	if (seg_sz < need_sz) {
 	    x = x->right;
