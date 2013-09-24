@@ -909,41 +909,45 @@ pgen_dispatcher(Erules,_Module,{[],_Values,_,_,_Objects,_ObjectSets}) ->
 pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     emit(["-export([encode/2,decode/2]).",nl,nl]),
     gen_info_functions(Erules),
-    NoFinalPadding = lists:member(no_final_padding,get(encoding_options)),
-    {Call,BytesAsBinary} =
-	case Erules of
-	    per ->
-		asn1ct_func:need({Erules,complete,1}),
-		{["complete(encode_disp(Type, Data))"],"Bytes"};
-	    ber ->
-		{"encode_disp(Type,Data)","iolist_to_binary(Bytes)"};
-	    uper when NoFinalPadding == true ->
-		asn1ct_func:need({Erules,complete_NFP,1}),
-		{"complete_NFP(encode_disp(Type, Data))","Bytes"};
-	    uper ->
-		asn1ct_func:need({Erules,complete,1}),
-		{["complete(encode_disp(Type, Data))"],"Bytes"}
-	end,
-    emit(["encode(Type,Data) ->",nl,
-	  "try ",Call," of",nl,
-	  case erule(Erules) of
-	      ber ->
-		  ["  {Bytes,_Len} ->",nl,
-		   "    {ok,",BytesAsBinary,"}",nl];
-	      per ->
-		  ["  Bytes ->",nl,
-		   "    {ok,",BytesAsBinary,"}",nl]
-	  end,
-	  try_catch(),nl,nl]),
 
-    Return_rest = lists:member(undec_rest,get(encoding_options)),
+    Options = get(encoding_options),
+    NoFinalPadding = lists:member(no_final_padding, Options),
+    NoOkWrapper = proplists:get_bool(no_ok_wrapper, Options),
+
+    Call = case Erules of
+	       per ->
+		   asn1ct_func:need({Erules,complete,1}),
+		   "complete(encode_disp(Type, Data))";
+	       ber ->
+		   "iolist_to_binary(element(1, encode_disp(Type, Data)))";
+	       uper when NoFinalPadding == true ->
+		   asn1ct_func:need({Erules,complete_NFP,1}),
+		   "complete_NFP(encode_disp(Type, Data))";
+	       uper ->
+		   asn1ct_func:need({Erules,complete,1}),
+		   "complete(encode_disp(Type, Data))"
+	   end,
+
+    emit(["encode(Type, Data) ->",nl]),
+    case NoOkWrapper of
+	true ->
+	    emit(["  ",Call,"."]);
+	false ->
+	    emit(["try ",Call," of",nl,
+		  "  Bytes ->",nl,
+		  "    {ok,Bytes}",nl,
+		  try_catch()])
+    end,
+    emit([nl,nl]),
+
+    Return_rest = proplists:get_bool(undec_rest, Options),
     Data = case {Erules,Return_rest} of
 	       {ber,true} -> "Data0";
 	       _ -> "Data"
 	   end,
 
     emit(["decode(Type,",Data,") ->",nl]),
-    DecAnonymous =
+    DecWrap =
 	case {Erules,Return_rest} of
 	    {ber,false} ->
 		asn1ct_func:need({ber,ber_decode_nif,1}),
@@ -955,28 +959,26 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	    _ ->
 		"Data"
 	end,
-    DecWrap = case Erules of
-		  ber ->
-		      DecAnonymous;
-		  _ -> "Data"
-	      end,
-	    
-    emit(["try decode_disp(Type, ",DecWrap,") of",nl]),
+    emit([case NoOkWrapper of
+	      false -> "try";
+	      true -> "case"
+	  end, " decode_disp(Type, ",DecWrap,") of",nl]),
     case erule(Erules) of
 	ber ->
-	    emit(["  Result ->",nl,
-		  case Return_rest of
-		      false -> "    {ok,Result}";
-		      true ->  "    {ok,Result,Rest}"
-		  end,nl]);
+	    emit(["  Result ->",nl]);
 	per ->
-	    emit(["  {Result,Rest} ->",nl,
-		  case Return_rest of
-		      false -> "    {ok,Result}";
-		      true ->  "    {ok,Result,Rest}"
-		  end,nl])
+	    emit(["  {Result,Rest} ->",nl])
     end,
-    emit([try_catch(),nl,nl]),
+    case Return_rest of
+	false -> result_line(NoOkWrapper, ["Result"]);
+	true ->  result_line(NoOkWrapper, ["Result","Rest"])
+    end,
+    case NoOkWrapper of
+	false ->
+	    emit([nl,try_catch(),nl,nl]);
+	true ->
+	    emit([nl,"end.",nl,nl])
+    end,
 
     gen_decode_partial_incomplete(Erules),
 
@@ -989,8 +991,19 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	    gen_dispatcher(Types,"encode_disp","enc_",""),
 	    gen_dispatcher(Types,"decode_disp","dec_","")
     end,
-    emit([nl]),
-    emit({nl,nl}).
+    emit([nl,nl]).
+
+result_line(NoOkWrapper, Items) ->
+    S = ["    "|case NoOkWrapper of
+		    false -> result_line_1(["ok"|Items]);
+		    true -> result_line_1(Items)
+		end],
+    emit(lists:flatten(S)).
+
+result_line_1([SingleItem]) ->
+    SingleItem;
+result_line_1(Items) ->
+    ["{",string:join(Items, ","),"}"].
 
 try_catch() ->
     ["  catch",nl,

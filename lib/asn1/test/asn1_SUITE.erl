@@ -297,7 +297,15 @@ cover(_) ->
 
 testPrim(Config) -> test(Config, fun testPrim/3).
 testPrim(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["Prim", "Real"], Config, [Rule|Opts]),
+    Files = ["Prim","Real"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
+    do_test_prim(Rule, false),
+    asn1_test_lib:compile_all(Files, Config, [no_ok_wrapper,Rule|Opts]),
+    do_test_prim(Rule, true).
+
+do_test_prim(Rule, NoOkWrapper) ->
+    io:format("No ok wrapper: ~p\n", [NoOkWrapper]),
+    put(no_ok_wrapper, NoOkWrapper),
     testPrim:bool(Rule),
     testPrim:int(Rule),
     testPrim:enum(Rule),
@@ -925,10 +933,14 @@ testNortel(Config, Rule, Opts) ->
 
 test_undecoded_rest(Config) -> test(Config, fun test_undecoded_rest/3).
 test_undecoded_rest(Config, Rule, Opts) ->
+    do_test_undecoded_rest(Config, Rule, Opts),
+    do_test_undecoded_rest(Config, Rule, [no_ok_wrapper|Opts]),
+    do_test_undecoded_rest(Config, Rule, [undec_rest|Opts]),
+    do_test_undecoded_rest(Config, Rule, [no_ok_wrapper,undec_rest|Opts]).
+
+do_test_undecoded_rest(Config, Rule, Opts) ->
     asn1_test_lib:compile("P-Record", Config, [Rule|Opts]),
-    ok = test_undecoded_rest:test([], Config),
-    asn1_test_lib:compile("P-Record", Config, [Rule,undec_rest|Opts]),
-    test_undecoded_rest:test(undec_rest, Config).
+    test_undecoded_rest:test(Opts, Config).
 
 testTcapsystem(Config) ->
     test(Config, fun testTcapsystem/3).

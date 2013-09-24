@@ -26,21 +26,42 @@
 
 %% testing OTP-5104
 
-test(Opt, Config) ->
+test(Opts, Config) ->
     {ok,Msg} = asn1ct:value('P-Record', 'PersonnelRecord',
 			    [{i,?config(case_dir, Config)}]),
-    {ok,Bytes0} = 'P-Record':encode('PersonnelRecord', Msg),
+    Bytes0 = encode(Opts, 'PersonnelRecord', Msg),
     Bytes1 = iolist_to_binary([Bytes0, <<55,55,55>>]),
-    case Opt of
-        undec_rest ->
-            {ok,Msg,R} = 'P-Record':decode('PersonnelRecord', Bytes1),
+    case proplists:get_bool(undec_rest, Opts) of
+	true ->
+            {Msg,R} = decode(Opts, 'PersonnelRecord', Bytes1),
             case R of
-                <<55,55,55>> -> ok;
+                <<55,55,55>> ->
+		    ok;
                 BStr when is_bitstring(BStr) ->
                     PadLen = (8 - (bit_size(BStr) rem 8)) rem 8,
                     <<0,55,55,55>> = <<0:PadLen, BStr/bitstring>>
             end;
-        _ ->
-            {ok,Msg} = 'P-Record':decode('PersonnelRecord', Bytes1)
+        false ->
+            Msg = decode(Opts, 'PersonnelRecord', Bytes1)
     end,
     ok.
+
+encode(Opts, T, V) ->
+    M = 'P-Record',
+    case proplists:get_bool(no_ok_wrapper, Opts) of
+	false ->
+	    {ok,Enc} = M:encode(T, V),
+	    Enc;
+	true ->
+	    Enc = M:encode(T, V),
+	    true = is_binary(Enc),
+	    Enc
+    end.
+
+decode(Opts, T, E) ->
+    M = 'P-Record',
+    case {proplists:get_bool(no_ok_wrapper, Opts),M:decode(T, E)} of
+	{false,{ok,Val}} -> Val;
+	{false,{ok,Val,Rest}} -> {Val,Rest};
+	{true,Result} -> Result
+    end.
