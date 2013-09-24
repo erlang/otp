@@ -25,13 +25,11 @@
    definitions ourselves */
 
 #ifdef __WIN32__
-#define NO_SYSLOG
 #define NO_SYSCONF
 #define NO_DAEMON
 #endif
 
 #ifdef VXWORKS
-#define NO_SYSLOG
 #define NO_SYSCONF
 #define NO_DAEMON
 #define NO_FCNTL
@@ -98,7 +96,7 @@
 
 #include <errno.h>
 
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
 #  include <syslog.h>
 #endif
 
