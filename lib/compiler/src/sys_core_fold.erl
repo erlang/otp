@@ -418,8 +418,31 @@ expr(#c_try{anno=A,arg=E0,vars=Vs0,body=B0,evars=Evs0,handler=H0}=Try, _, Sub0) 
 expr_list(Es, Ctxt, Sub) ->
     [expr(E, Ctxt, Sub) || E <- Es].
 
+%% traverse pairs in reverse
+%% - remove later literals since they will be overwritten.
+
 pair_list(Es, Ctxt, Sub) ->
-    [pair(E, Ctxt, Sub) || E <- Es].
+    pair_list_reversed(lists:reverse(Es), Ctxt, Sub, [], gb_sets:empty()).
+
+pair_list_reversed([],_,_,Es,_) -> Es;
+pair_list_reversed([E|Es],Ctxt,Sub,Out,Keys) ->
+    Pair = pair(E,Ctxt,Sub),
+    case map_has_key(Pair,Keys) of
+	{false,Keys1} ->
+	    pair_list_reversed(Es,Ctxt,Sub,[Pair|Out],Keys1);
+	{true,K} ->
+	    add_warning(E, {map_pair_key_overloaded,K}),
+	    pair_list_reversed(Es,Ctxt,Sub,Out,Keys)
+    end.
+
+%% check if key already is present in map, i.e. #{ a=>1, a=>2 }
+%% where 'a' is duplicate. Update maps set with the key if not present.
+
+map_has_key(#c_map_pair{key=#c_literal{val=K}},Ks) ->
+    case gb_sets:is_element(K,Ks) of
+	false -> {false, gb_sets:add(K,Ks)};
+	true  -> {true, K}
+    end.
 
 pair(#c_map_pair{key=K,val=V}, effect, Sub) ->
     make_effect_seq([K,V], Sub);
@@ -697,7 +720,7 @@ useless_call(effect, #c_call{anno=Anno,
 useless_call(_, _) -> no.
 
 %% make_effect_seq([Expr], Sub) -> #c_seq{}|void()
-%%  Convert a list of epressions evaluated in effect context to a chain of
+%%  Convert a list of expressions evaluated in effect context to a chain of
 %%  #c_seq{}. The body in the innermost #c_seq{} will be void().
 %%  Anything that will not have any effect will be thrown away.
 
@@ -3019,6 +3042,9 @@ format_error(result_ignored) ->
 	"(suppress the warning by assigning the expression to the _ variable)";
 format_error(useless_building) ->
     "a term is constructed, but never used";
+format_error({map_pair_key_overloaded,K}) ->
+    M = io_lib:format("the key ~p is used multiple times in map value association",[K]),
+    flatten(M);
 format_error(bin_opt_alias) ->
     "INFO: the '=' operator will prevent delayed sub binary optimization";
 format_error(bin_partition) ->
