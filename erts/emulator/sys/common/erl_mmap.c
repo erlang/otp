@@ -2265,7 +2265,7 @@ Eterm erts_mmap_info(Process* p)
         hp = HAlloc(p, may_need);
         hp_end = hp + may_need;
 
-        list = erts_bld_atom_uint_2tup_list(&hp, NULL,
+        list = erts_bld_atom_uword_2tup_list(&hp, NULL,
                                             sizeof(values)/sizeof(*values),
                                             tags, values);
 

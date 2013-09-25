@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2013. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -175,8 +175,8 @@ Eterm erts_bld_list(Uint **hpp, Uint *szp, Sint length, Eterm terms[]);
 Eterm erts_bld_2tup_list(Uint **hpp, Uint *szp,
 			 Sint length, Eterm terms1[], Uint terms2[]);
 Eterm
-erts_bld_atom_uint_2tup_list(Uint **hpp, Uint *szp,
-			     Sint length, Eterm atoms[], Uint uints[]);
+erts_bld_atom_uword_2tup_list(Uint **hpp, Uint *szp,
+			     Sint length, Eterm atoms[], UWord uints[]);
 Eterm
 erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
 			      Eterm atoms[], Uint uints1[], Uint uints2[]);

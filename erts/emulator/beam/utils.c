@@ -576,8 +576,8 @@ erts_bld_2tup_list(Uint **hpp, Uint *szp,
 }
 
 Eterm
-erts_bld_atom_uint_2tup_list(Uint **hpp, Uint *szp,
-			     Sint length, Eterm atoms[], Uint uints[])
+erts_bld_atom_uword_2tup_list(Uint **hpp, Uint *szp,
+                              Sint length, Eterm atoms[], UWord uints[])
 {
     Sint i;
     Eterm res = THE_NON_VALUE;
