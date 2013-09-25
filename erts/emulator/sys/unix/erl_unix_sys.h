@@ -107,6 +107,10 @@
 #endif
 #include <netdb.h>
 
+#ifdef HAVE_POSIX_MEMALIGN
+#  define ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC 1
+#endif
+
 /*
  * Make sure that MAXPATHLEN is defined.
  */
