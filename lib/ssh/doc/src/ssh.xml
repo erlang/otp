@@ -334,6 +334,20 @@
     </func>
 
     <func>
+      <name>peername(ConnectionRef) -> {ok, {Address,Port}} | {error,Error} </name>
+      <fsummary> </fsummary>
+      <type>
+	<v> ConnectionRef = ssh_connection_ref()</v>
+        <v> Address = ip_address()</v>
+	<v> Port = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the address and port for the other end of a connection.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name>shell(Host) -> </name>
       <name>shell(Host, Option) -> </name>
       <name>shell(Host, Port, Option) -> _</name>

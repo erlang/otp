@@ -22,6 +22,7 @@
 -module(ssh_basic_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("kernel/include/inet.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -48,7 +49,7 @@ all() ->
      close].
 
 groups() -> 
-    [{dsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time, rekey, openssh_zlib_basic_test]},
+    [{dsa_key, [], [send, peername, exec, exec_compressed, shell, known_hosts, idle_time, rekey, openssh_zlib_basic_test]},
      {rsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time, rekey, openssh_zlib_basic_test]},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
@@ -470,6 +471,37 @@ send(Config) when is_list(Config) ->
     ok = ssh_connection:send(ConnectionRef, ChannelId, <<"Data">>),
     ok = ssh_connection:send(ConnectionRef, ChannelId, << >>),
     ssh:stop_daemon(Pid).
+
+
+%%--------------------------------------------------------------------
+peername() ->
+    [{doc, "Test ssh:peername/1"}].
+peername(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    {ok,{IP,Port}} = ssh:peername(ConnectionRef),
+    host_equal(Host,IP),
+    ssh:stop_daemon(Pid).
+
+
+host_equal(Name, IP) when is_list(Name), is_tuple(IP) ->
+    Family = if size(IP)==4 -> inet;
+		size(IP)==8 -> inet6
+	     end,
+    {ok,#hostent{h_addr_list=IPs}} = inet:gethostbyname(Name,Family),
+    lists:any(fun(X) -> X==IP end, IPs);
+host_equal(IP, Name) when is_list(Name), is_tuple(IP) ->
+    host_equal(Name, IP);
+host_equal(X,Y) -> X==Y.
 
 
 %%--------------------------------------------------------------------
