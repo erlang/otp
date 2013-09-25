@@ -78,8 +78,17 @@ ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
     ethr_sint32_t val = ethr_atomic32_xchg_mb(&e->state, ETHR_EVENT_ON__);
     if (val == ETHR_EVENT_OFF_WAITER__) {
-        ETHR_ASSERT(get_fsem(e->proc) == -1);
-	signal_fsem(e->proc);
+#ifdef DEBUG
+      OSFSEMVAL fsem_val = get_fsem(e->proc);
+
+      /* There is a race in this assert.
+	 This is because the state is set before the wait call in wait__.
+	 We hope that a delay of 10 ms is enough */
+      if (fsem_val == 0)
+	delay(10);
+      ETHR_ASSERT(get_fsem(e->proc) == -1);
+#endif
+      signal_fsem(e->proc);
     }
 }
 

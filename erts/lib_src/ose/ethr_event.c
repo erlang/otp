@@ -127,6 +127,12 @@ wait__(ethr_event *e, int spincount)
 #else
 /* --- OSE implementation of events ---------------------------- */
 
+#ifdef DEBUG
+union SIGNAL {
+  SIGSELECT signo;
+};
+#endif
+
 int
 ethr_event_init(ethr_event *e)
 {
@@ -180,8 +186,26 @@ wait__(ethr_event *e, int spincount)
 	ETHR_ASSERT(val == ETHR_EVENT_OFF__);
       }
 
-
+#if defined(DEBUG)
+      while (1) {
+	/* In debug we also receive any signals to make sure that we do
+	   not get any! redir tables should send all to scheduler_1 */
+	SIGSELECT sigsel[] = {0};
+	union SIGNAL *sig = receive_fsem(OSE_NO_TIMEOUT,sigsel,1);
+	//ETHR_ASSERT(sig == OS_RCV_FSEM);
+	if (sig != OS_RCV_FSEM) {
+	  int i;
+	  printf("0x%x: Got signal in wait: %u ",current_process(),sig->signo);
+	  for (i = 0; i < (sigsize(&sig) / sizeof(SIGSELECT)) && i < 5; i++) {
+	    printf("%x ",sig[i+1]);
+	  }
+	  printf("\n");
+	} else
+	  break;
+      }
+#else
       wait_fsem(1);
+#endif
       ETHR_ASSERT(get_fsem(current_process()) == 0);
     }
 }
