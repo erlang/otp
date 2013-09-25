@@ -1467,7 +1467,9 @@ arg_val(Arg, C) ->
 			#k_map_pair{key=#k_literal{val=Key}} = Pair,
 			Key
 		    end || Pair <- Es],
-	    ordsets:from_list(Keys)
+	    %% multiple keys may have the same name
+	    %% do not use ordsets
+	    lists:sort(Keys)
     end.
 
 %% ubody_used_vars(Expr, State) -> [UsedVar]
