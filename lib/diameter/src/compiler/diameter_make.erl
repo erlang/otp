@@ -30,27 +30,35 @@
 
 -module(diameter_make).
 
--export([codec/1,
-         codec/2,
-         dict/1,
-         dict/2,
+-export([codec/2,
+         codec/1,
          format/1,
          flatten/1]).
 
 -export_type([opt/0]).
 
+-include("diameter_vsn.hrl").
+
 %% Options passed to codec/2.
 -type opt() :: {include|outdir|name|prefix|inherits, string()}
              | return
              | verbose
-             | debug.
+             | parse  %% internal parsed form
+             | forms  %% abstract format from which erl is generated
+             | beam   %% compiled directly from preprocessed forms
+             | erl
+             | hrl.
+
+%% Internal parsed format with a version tag.
+-type parsed() :: maybe_improper_list(integer(), orddict:orddict()).
 
 %% Literal dictionary or path. A NL of CR identifies the former.
 -type dict() :: iolist()
-              | binary().
+              | binary()
+              | parsed().  %% as returned by codec/2
 
 %% Name of a literal dictionary if otherwise unspecified.
--define(DEFAULT_DICT_NAME, "dictionary.dia").
+-define(DEFAULT_DICT_FILE, "dictionary.dia").
 
 %% ===========================================================================
 
@@ -63,98 +71,45 @@
 
 -spec codec(File, [opt()])
    -> ok
-    | {ok, Ret}
+    | {ok, list()}   %% with option 'return', one element for each output
     | {error, Reason}
- when File :: dict(),
-      Ret  :: list(),  %% [Erl, Hrl | Debug], Debug = [] | [ParseD, Forms]
+ when File :: dict()
+            | {path, file:name_all()},
       Reason :: string().
 
 codec(File, Opts) ->
-    case to_dict(File, Opts) of
-        {ok, {Dict, Dictish}} ->
-            make(file(Dictish), Opts, Dict);
-        {error, _} = E ->
-            E
+    {Dict, Path} = identify(File),
+    case parse(Dict, Opts) of
+        {ok, ParseD} ->
+            make(Path, default(Opts), ParseD);
+        {error = E, Reason} ->
+            {E, diameter_dict_util:format_error(Reason)}
     end.
 
 codec(File) ->
     codec(File, []).
 
-file({path, Path}) ->
-    Path;
-file(_) ->
-    ?DEFAULT_DICT_NAME.
-
-%% dict/2
-%%
-%% Parse a dictionary file and return the orddict that a codec module
-%% returns from dict/0.
-
--spec dict(File, [opt()])
-   -> {ok, orddict:orddict()}
-    | {error, string()}
-  when File :: dict().
-
-dict(File, Opts) ->
-    case to_dict(File, Opts) of
-        {ok, {Dict, _}} ->
-            {ok, Dict};
-        {error, _} = E ->
-            E
-    end.
-
-dict(File) ->
-    dict(File, []).
-
-%% to_dict/2
-
-to_dict(File, Opts) ->
-    Dictish = maybe_path(File),
-    case diameter_dict_util:parse(Dictish, Opts) of
-        {ok, Dict} ->
-            {ok, {Dict, Dictish}};
-        {error = E, Reason} ->
-            {E, diameter_dict_util:format_error(Reason)}
-    end.
-
-maybe_path(File) ->
-    Bin = iolist_to_binary([File]),
-    case is_path(Bin) of
-        true  -> {path, File};
-        false -> Bin
-    end.
-
-%% Interpret anything containing \n or \r as a literal dictionary,
-%% otherwise a path. (Which might be the wrong guess in the worst case.)
-is_path(Bin) ->
-    try
-        [throw(C) || <<C>> <= Bin, $\n == C orelse $\r == C],
-        true
-    catch
-        throw:_ -> false
-    end.
-
 %% format/1
 %%
 %% Turn an orddict returned by dict/1-2 back into a dictionary.
 
--spec format(orddict:orddict())
+-spec format(parsed())
    -> iolist().
 
-format(Dict) ->
+format([?VERSION | Dict]) ->
     diameter_dict_util:format(Dict).
 
 %% flatten/1
 %%
 %% Reconstitute a dictionary without @inherits.
 
--spec flatten(orddict:orddict())
-   -> orddict:orddict().
+-spec flatten(parsed())
+   -> parsed().
 
-flatten(Dict) ->
-    lists:foldl(fun flatten/2, Dict, [[avp_types, import_avps],
-                                      [grouped, import_groups],
-                                      [enum, import_enums]]).
+flatten([?VERSION = V | Dict]) ->
+    [V | lists:foldl(fun flatten/2, Dict, [[avp_types, import_avps],
+                                           [grouped, import_groups],
+                                           [enum, import_enums]])].
 
 flatten([_,_] = Keys, Dict) ->
     [Values, Imports] = [orddict:fetch(K, Dict) || K <- Keys],
@@ -168,20 +123,57 @@ store({Key, Value}, Dict) ->
 
 %% ===========================================================================
 
+parse({dict, ParseD}, _) ->
+    {ok, ParseD};
+parse(File, Opts) ->
+    diameter_dict_util:parse(File, Opts).
+
+default(Opts) ->
+    def(modes(Opts), Opts).
+
+def([], Opts) ->
+    [erl, hrl | Opts];
+def(_, Opts) ->
+    Opts.
+
+modes(Opts) ->
+    lists:filter(fun is_mode/1, Opts).
+
+is_mode(T) ->
+    lists:member(T, [erl, hrl, parse, forms, beam]).
+
+identify([Vsn | [T|_] = ParseD])
+  when is_tuple(T) ->
+    ?VERSION == Vsn orelse erlang:error({version, {Vsn, ?VERSION}}),
+    {{dict, ParseD}, ?DEFAULT_DICT_FILE};
+identify({path, File} = T) ->
+    {T, File};
+identify(File) ->
+    Bin = iolist_to_binary([File]),
+    case is_path(Bin) of
+        true  -> {{path, File}, File};
+        false -> {Bin, ?DEFAULT_DICT_FILE}
+    end.
+
+%% Interpret anything containing \n or \r as a literal dictionary,
+%% otherwise a path. (Which might be the wrong guess in the worst case.)
+is_path(Bin) ->
+    try
+        [throw(C) || <<C>> <= Bin, $\n == C orelse $\r == C],
+        true
+    catch
+        throw:_ -> false
+    end.
+
 make(File, Opts, Dict) ->
     ok(lists:foldl(fun(M,A) -> [make(File, Opts, Dict, M) | A] end,
                    [],
-                   lists:append([[dict, forms] || lists:member(debug, Opts)])
-                   ++ [erl, hrl])).
-%% The order in which results are generated (dict/forms/erl/hrl) is
-%% intentional, in order of more processing (except for hrl, which
-%% isn't needed by diameter itself), since an error raises an
-%% exception. The order of return results is the reverse.
+                   modes(Opts))).
 
-ok([ok,_|_]) ->
+ok([ok|_]) ->
     ok;
-ok([_,_|_] = L) ->
-    {ok, L}.
+ok([_|_] = L) ->
+    {ok, lists:reverse(L)}.
 
 make(File, Opts, Dict, Mode) ->
     try

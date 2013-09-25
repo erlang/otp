@@ -366,8 +366,8 @@ format(Mods, Bin) ->
     {Dict, Dict} = {Dict, D}.
 
 make(File, Opts) ->
-    case diameter_make:codec(File, [return, debug | Opts]) of
-        {ok, [_E,_H,_F,[_Vsn|Dict]]} ->
+    case diameter_make:codec(File, [parse, hrl, return | Opts]) of
+        {ok, [Dict, _]} ->
             {ok, Dict};
         {error, _} = E ->
             E
@@ -408,20 +408,30 @@ generate(Config) ->
     [] = ?util:run([{?MODULE, [generate, M, Bin, N, T]}
                     || {E,N} <- Rs,
                        {ok, M} <- [norm(E)],
-                       T <- [erl, hrl, dict]]).
+                       T <- [erl, hrl, parse, forms]]).
 
 generate(Mods, Bin, N, Mode) ->
     B = modify(Bin, Mods ++ [{"@name .*", "@name dict" ++ ?L(N)}]),
     {ok, Dict} = make(B, []),
     File = "dict" ++ integer_to_list(N),
-    {_, ok} = {Dict, diameter_codegen:from_dict("dict",
-                                                Dict,
-                                                [{name, File},
-                                                 {prefix, "base"},
-                                                 debug],
-                                                Mode)},
-    Mode == erl
-        andalso ({ok, _} = compile:file(File ++ ".erl", [return_errors])).
+    {_, ok} = {Dict, diameter_make:codec(Dict,
+                                         [{name, File},
+                                          {prefix, "base"},
+                                          Mode])},
+    generate(Mode, File, Dict).
+
+generate(erl, File, _) ->
+    {ok, _} = compile:file(File ++ ".erl", [return_errors]);
+
+generate(forms, File, _) ->
+    {ok, [_]} = file:consult(File ++ ".F");
+
+generate(parse, File, Dict) ->
+    {ok, [Dict]} = file:consult(File ++ ".D"),  %% assert
+    {ok, [_]} = diameter_make:codec(Dict, [beam, return]);
+
+generate(hrl, _, _) ->
+    ok.
 
 %% ===========================================================================
 
