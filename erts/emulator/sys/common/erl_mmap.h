@@ -57,8 +57,18 @@ void erts_munmap(Uint32 flags, void *ptr, UWord size);
 void *erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep);
 int erts_mmap_in_supercarrier(void *ptr);
 void erts_mmap_init(ErtsMMapInit*);
+struct erts_mmap_info_struct
+{
+    UWord sizes[6];
+    UWord segs[6];
+    UWord os_used;
+};
+Eterm erts_mmap_info(int *print_to_p, void *print_to_arg,
+                     Eterm** hpp, Uint* szp, struct erts_mmap_info_struct*);
+Eterm erts_mmap_info_options(char *prefix, int *print_to_p, void *print_to_arg,
+                             Uint **hpp, Uint *szp);
 struct process;
-Eterm erts_mmap_info(struct process*);
+Eterm erts_mmap_debug_info(struct process*);
 
 #define ERTS_SUPERALIGNED_SIZE \
     (1 << ERTS_MMAP_SUPERALIGNED_BITS)

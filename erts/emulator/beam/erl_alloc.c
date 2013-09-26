@@ -2712,6 +2712,7 @@ erts_allocator_info(int to, void *arg)
 
 #if HAVE_ERTS_MSEG
     {
+	struct erts_mmap_info_struct emis;
 #ifdef ERTS_SMP
 	int max = (int) erts_no_schedulers;
 #else
@@ -2722,6 +2723,8 @@ erts_allocator_info(int to, void *arg)
 	    erts_print(to, arg, "=allocator:mseg_alloc[%d]\n", i);
 	    erts_mseg_info(i, &to, arg, 0, NULL, NULL);
 	}
+	erts_print(to, arg, "=allocator:mseg_alloc.erts_mmap\n");
+	erts_mmap_info(&to, arg, NULL, NULL, &emis);
     }
 #endif
 
@@ -2948,6 +2951,7 @@ reply_alloc_info(void *vair)
     Uint sz, *szp;
     ErlOffHeap *ohp = NULL;
     ErlHeapFragment *bp = NULL;
+    struct erts_mmap_info_struct emis;
     int i;
     Eterm (*info_func)(Allctr_t *,
 		       int,
@@ -3064,11 +3068,19 @@ reply_alloc_info(void *vair)
                                             alloc_atom,
                                             make_small(0),
                                             ainfo);
+
+		    ai_list = erts_bld_cons(hpp, szp,
+					    ainfo, ai_list);
+		    ainfo = (air->only_sz ? NIL : erts_mmap_info(NULL, NULL, hpp, szp, &emis));
+		    ainfo = erts_bld_tuple3(hpp, szp,
+                                            alloc_atom,
+                                            erts_bld_atom(hpp,szp,"erts_mmap"),
+                                            ainfo);
 #else
 		    ainfo = erts_bld_tuple2(hpp, szp, alloc_atom,
                                             am_false);
 #endif
-			break;
+		    break;
 		default:
 		    alloc_atom = erts_bld_atom(hpp, szp,
 					       (char *) ERTS_ALC_A2AD(ai));

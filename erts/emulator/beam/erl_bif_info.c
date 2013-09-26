@@ -3290,7 +3290,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    BIF_RET(res);
 	}
         else if (ERTS_IS_ATOM_STR("mmap", BIF_ARG_1)) {
-            BIF_RET(erts_mmap_info(BIF_P));
+            BIF_RET(erts_mmap_debug_info(BIF_P));
         }
     }
     else if (is_tuple(BIF_ARG_1)) {

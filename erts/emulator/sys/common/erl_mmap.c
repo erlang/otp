@@ -323,6 +323,7 @@ static struct {
 	char *unused_start;
 	char *unused_end;
 	char *new_area_hint;
+        Uint reserved;
     } desc;
     struct {
 	UWord free_seg_descs;
@@ -2190,6 +2191,7 @@ erts_mmap_init(ErtsMMapInit *init)
 	mmap_state.size.os.used += (UWord) (mmap_state.sa.bot - start);
 
 	mmap_state.desc.free_list = NULL;
+        mmap_state.desc.reserved = 0;
 
 	if (end == (void *) 0) {
 	    /*
@@ -2204,6 +2206,7 @@ erts_mmap_init(ErtsMMapInit *init)
 	    if (!virtual_map || os_reserve_physical(mmap_state.sua.top, ERTS_PAGEALIGNED_SIZE))
 #endif
 		add_free_desc_area(mmap_state.sua.top, end);
+            mmap_state.desc.reserved += (end - mmap_state.sua.top) / sizeof(ErtsFreeSegDesc);
 	}
 
 	mmap_state.size.supercarrier.total = (UWord) (mmap_state.sua.top - mmap_state.sa.bot);
@@ -2218,6 +2221,8 @@ erts_mmap_init(ErtsMMapInit *init)
 #endif
 	mmap_state.desc.unused_start = start;
 	mmap_state.desc.unused_end = mmap_state.sa.bot;
+        mmap_state.desc.reserved += ((mmap_state.desc.unused_end - start)
+                                     / sizeof(ErtsFreeSegDesc));
 
 	init_free_seg_map(&mmap_state.sa.map, SA_SZ_ADDR_ORDER);
 	init_free_seg_map(&mmap_state.sua.map, SZ_REVERSE_ADDR_ORDER);
@@ -2238,7 +2243,192 @@ erts_mmap_init(ErtsMMapInit *init)
 #endif
 }
 
-Eterm erts_mmap_info(Process* p)
+static struct {
+    Eterm total;
+    Eterm total_sa;
+    Eterm total_sua;
+    Eterm used;
+    Eterm used_sa;
+    Eterm used_sua;
+    Eterm max;
+    Eterm allocated;
+    Eterm reserved;
+    Eterm sizes;
+    Eterm free_segs;
+    Eterm supercarrier;
+    Eterm os;
+    Eterm scs;
+    Eterm sco;
+    Eterm scrpm;
+    Eterm scmgc;
+
+    int is_initialized;
+}am;
+
+static void ERTS_INLINE atom_init(Eterm *atom, char *name)
+{
+    *atom = am_atom_put(name, strlen(name));
+}
+#define AM_INIT(AM) atom_init(&am.AM, #AM)
+
+static void init_atoms(void)
+{
+    AM_INIT(total);
+    AM_INIT(total_sa);
+    AM_INIT(total_sua);
+    AM_INIT(used);
+    AM_INIT(used_sa);
+    AM_INIT(used_sua);
+    AM_INIT(max);
+    AM_INIT(allocated);
+    AM_INIT(reserved);
+    AM_INIT(sizes);
+    AM_INIT(free_segs);
+    AM_INIT(supercarrier);
+    AM_INIT(os);
+    AM_INIT(scs);
+    AM_INIT(sco);
+    AM_INIT(scrpm);
+    AM_INIT(scmgc);
+    am.is_initialized = 1;
+};
+
+
+static ERTS_INLINE void
+add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
+{
+    *lp = erts_bld_cons(hpp, szp, erts_bld_tuple(hpp, szp, 2, el1, el2), *lp);
+}
+
+Eterm erts_mmap_info(int *print_to_p,
+                     void *print_to_arg,
+                     Eterm** hpp, Uint* szp,
+                     struct erts_mmap_info_struct* emis)
+{
+    Eterm size_tags[] = { am.total, am.total_sa, am.total_sua, am.used, am.used_sa, am.used_sua };
+    Eterm seg_tags[] = { am.used, am.max, am.allocated, am.reserved, am.used_sa, am.used_sua };
+    Eterm group[2];
+    Eterm group_tags[] = { am.sizes, am.free_segs };
+    Eterm list[2];
+    Eterm list_tags[2]; /* { am.supercarrier, am.os } */
+    int lix;
+    Eterm res = THE_NON_VALUE;
+
+    if (!hpp) {
+        erts_smp_mtx_lock(&mmap_state.mtx);
+        emis->sizes[0] = mmap_state.size.supercarrier.total;
+        emis->sizes[1] = mmap_state.sa.top  - mmap_state.sa.bot;
+        emis->sizes[2] = mmap_state.sua.top - mmap_state.sua.bot;
+        emis->sizes[3] = mmap_state.size.supercarrier.used.total;
+        emis->sizes[4] = mmap_state.size.supercarrier.used.sa;
+        emis->sizes[5] = mmap_state.size.supercarrier.used.sua;
+
+        emis->segs[0] = mmap_state.no.free_segs.curr;
+        emis->segs[1] = mmap_state.no.free_segs.max;
+        emis->segs[2] = mmap_state.no.free_seg_descs;
+        emis->segs[3] = mmap_state.desc.reserved;
+        emis->segs[4] = mmap_state.sa.map.nseg;
+        emis->segs[5] = mmap_state.sua.map.nseg;
+
+        emis->os_used = mmap_state.size.os.used;
+        erts_smp_mtx_unlock(&mmap_state.mtx);
+    }
+
+    if (print_to_p) {
+        int to = *print_to_p;
+	void *arg = print_to_arg;
+        if (mmap_state.supercarrier) {
+            const char* prefix = "supercarrier ";
+            erts_print(to, arg, "%stotal size: %bpu\n", prefix, emis->sizes[0]);
+            erts_print(to, arg, "%stotal sa size: %bpu\n", prefix, emis->sizes[1]);
+            erts_print(to, arg, "%stotal sua size: %bpu\n", prefix, emis->sizes[2]);
+            erts_print(to, arg, "%sused size: %bpu\n", prefix, emis->sizes[3]);
+            erts_print(to, arg, "%sused sa size: %bpu\n", prefix, emis->sizes[4]);
+            erts_print(to, arg, "%sused sua size: %bpu\n", prefix, emis->sizes[5]);
+            erts_print(to, arg, "%sused free segs: %bpu\n", prefix, emis->segs[0]);
+            erts_print(to, arg, "%smax free segs: %bpu\n", prefix, emis->segs[1]);
+            erts_print(to, arg, "%sallocated free segs: %bpu\n", prefix, emis->segs[2]);
+            erts_print(to, arg, "%sreserved free segs: %bpu\n", prefix, emis->segs[3]);
+            erts_print(to, arg, "%ssa free segs: %bpu\n", prefix, emis->segs[4]);
+            erts_print(to, arg, "%ssua free segs: %bpu\n", prefix, emis->segs[5]);
+        }
+        if (!mmap_state.no_os_mmap) {
+            erts_print(to, arg, "os mmap size used: %bpu\n", emis->os_used);
+        }
+    }
+
+
+    if (hpp || szp) {
+        if (!am.is_initialized) {
+            init_atoms();
+        }
+
+        lix = 0;
+        if (mmap_state.supercarrier) {
+            group[0] = erts_bld_atom_uword_2tup_list(hpp, szp,
+                                                     sizeof(size_tags)/sizeof(Eterm),
+                                                     size_tags, emis->sizes);
+            group[1] = erts_bld_atom_uword_2tup_list(hpp, szp,
+                                                     sizeof(seg_tags)/sizeof(Eterm),
+                                                     seg_tags, emis->segs);
+            list[lix] = erts_bld_2tup_list(hpp, szp, 2, group_tags, group);
+            list_tags[lix] = am.supercarrier;
+            lix++;
+        }
+
+        if (!mmap_state.no_os_mmap) {
+            group[0] = erts_bld_atom_uword_2tup_list(hpp, szp,
+                                                      1, &am.used, &emis->os_used);
+            list[lix] = erts_bld_2tup_list(hpp, szp, 1, group_tags, group);
+            list_tags[lix] = am.os;
+            lix++;
+        }
+        res = erts_bld_2tup_list(hpp, szp, lix, list_tags, list);
+    }
+    return res;
+}
+
+Eterm erts_mmap_info_options(char *prefix,
+                             int *print_to_p,
+                             void *print_to_arg,
+                             Uint **hpp,
+                             Uint *szp)
+{
+    const UWord scs = mmap_state.sua.top - mmap_state.sa.bot;
+    const Eterm sco = mmap_state.no_os_mmap ? am_true : am_false;
+    const Eterm scrpm = (mmap_state.reserve_physical == reserve_noop) ? am_true : am_false;
+    Eterm res = THE_NON_VALUE;
+
+    if (print_to_p) {
+        int to = *print_to_p;
+	void *arg = print_to_arg;
+        erts_print(to, arg, "%sscs: %bpu\n", prefix, scs);
+        if (mmap_state.supercarrier) {
+            erts_print(to, arg, "%ssco: %T\n", prefix, sco);
+            erts_print(to, arg, "%sscrpm: %T\n", prefix, scrpm);
+            erts_print(to, arg, "%sscmgc: %beu\n", prefix, mmap_state.desc.reserved);
+        }
+    }
+
+    if (hpp || szp) {
+        if (!am.is_initialized) {
+            init_atoms();
+        }
+
+        res = NIL;
+        if (mmap_state.supercarrier) {
+            add_2tup(hpp, szp, &res, am.scmgc,
+                     erts_bld_uint(hpp,szp, mmap_state.desc.reserved));
+            add_2tup(hpp, szp, &res, am.scrpm, scrpm);
+            add_2tup(hpp, szp, &res, am.sco, sco);
+        }
+        add_2tup(hpp, szp, &res, am.scs, erts_bld_uword(hpp, szp, scs));
+    }
+    return res;
+}
+
+
+Eterm erts_mmap_debug_info(Process* p)
 {
     if (mmap_state.supercarrier) {
         ERTS_DECL_AM(sabot);
@@ -2282,6 +2472,7 @@ Eterm erts_mmap_info(Process* p)
         return am_undefined;
     }
 }
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Debug functions                                                           *

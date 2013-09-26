@@ -1070,7 +1070,9 @@ info_options(ErtsMsegAllctr_t *ma,
 	     Uint **hpp,
 	     Uint *szp)
 {
-    Eterm res = THE_NON_VALUE;
+    Eterm res;
+
+    res = erts_mmap_info_options(prefix, print_to_p, print_to_arg, hpp, szp);
 
     if (print_to_p) {
 	int to = *print_to_p;
@@ -1085,7 +1087,6 @@ info_options(ErtsMsegAllctr_t *ma,
 	if (!atoms_initialized)
 	    init_atoms(ma);
 
-	res = NIL;
 	add_2tup(hpp, szp, &res,
 		 am.mcs,
 		 bld_uint(hpp, szp, ma->max_cache_size));
