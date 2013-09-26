@@ -168,6 +168,10 @@ Eterm erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64);
 Eterm erts_bld_sint64(Uint **hpp, Uint *szp, Sint64 si64);
 Eterm erts_bld_cons(Uint **hpp, Uint *szp, Eterm car, Eterm cdr);
 Eterm erts_bld_tuple(Uint **hpp, Uint *szp, Uint arity, ...);
+#define erts_bld_tuple2(H,S,E1,E2) erts_bld_tuple(H,S,2,E1,E2)
+#define erts_bld_tuple3(H,S,E1,E2,E3) erts_bld_tuple(H,S,3,E1,E2,E3)
+#define erts_bld_tuple4(H,S,E1,E2,E3,E4) erts_bld_tuple(H,S,4,E1,E2,E3,E4)
+#define erts_bld_tuple5(H,S,E1,E2,E3,E4,E5) erts_bld_tuple(H,S,5,E1,E2,E3,E4,E5)
 Eterm erts_bld_tuplev(Uint **hpp, Uint *szp, Uint arity, Eterm terms[]);
 Eterm erts_bld_string_n(Uint **hpp, Uint *szp, const char *str, Sint len);
 #define erts_bld_string(hpp,szp,str) erts_bld_string_n(hpp,szp,str,strlen(str))

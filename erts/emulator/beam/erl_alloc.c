@@ -3060,13 +3060,13 @@ reply_alloc_info(void *vair)
 			     ? NIL
 			     : erts_mseg_info(0, NULL, NULL, hpp != NULL,
 					      hpp, szp));
-		    ainfo = erts_bld_tuple(hpp, szp, 3,
-					   alloc_atom,
-					   make_small(0),
-					   ainfo);
+		    ainfo = erts_bld_tuple3(hpp, szp,
+                                            alloc_atom,
+                                            make_small(0),
+                                            ainfo);
 #else
-		    ainfo = erts_bld_tuple(hpp, szp, 2, alloc_atom,
-					   am_false);
+		    ainfo = erts_bld_tuple2(hpp, szp, alloc_atom,
+                                            am_false);
 #endif
 			break;
 		default:
