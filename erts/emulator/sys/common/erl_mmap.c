@@ -1394,15 +1394,17 @@ alloc_desc_insert_free_seg(ErtsFreeSegMap *map, char* start, char* end)
      */
 
 #if ERTS_HAVE_OS_MMAP
-    ptr = os_mmap(mmap_state.desc.new_area_hint, ERTS_PAGEALIGNED_SIZE, 0);
-    if (ptr) {
-	mmap_state.desc.new_area_hint = ptr+ERTS_PAGEALIGNED_SIZE;
-	ERTS_MMAP_SIZE_OS_INC(ERTS_PAGEALIGNED_SIZE);
-	add_free_desc_area(ptr, ptr+ERTS_PAGEALIGNED_SIZE);
-	desc = alloc_desc();
-	ERTS_MMAP_ASSERT(desc);
-	insert_free_seg(map, desc, start, end);
-	return 0;
+    if (!mmap_state.no_os_mmap) {
+        ptr = os_mmap(mmap_state.desc.new_area_hint, ERTS_PAGEALIGNED_SIZE, 0);
+        if (ptr) {
+            mmap_state.desc.new_area_hint = ptr+ERTS_PAGEALIGNED_SIZE;
+            ERTS_MMAP_SIZE_OS_INC(ERTS_PAGEALIGNED_SIZE);
+            add_free_desc_area(ptr, ptr+ERTS_PAGEALIGNED_SIZE);
+            desc = alloc_desc();
+            ERTS_MMAP_ASSERT(desc);
+            insert_free_seg(map, desc, start, end);
+            return 0;
+        }
     }
 #endif
 
@@ -2166,6 +2168,7 @@ erts_mmap_init(ErtsMMapInit *init)
 	mmap_state.sa.bot = NULL;
 	mmap_state.sua.top = NULL;
 	mmap_state.no_os_mmap = 0;
+        mmap_state.supercarrier = 0;
     }
     else {
 	size_t desc_size;
@@ -2185,10 +2188,10 @@ erts_mmap_init(ErtsMMapInit *init)
 	mmap_state.sa.bot += desc_size;
 	mmap_state.sa.bot = (char *) ERTS_SUPERALIGNED_CEILING(mmap_state.sa.bot);
 	mmap_state.sa.top = mmap_state.sa.bot;
-	mmap_state.sua.top = (char *) ERTS_SUPERALIGNED_FLOOR(end);
+	mmap_state.sua.top = end;
 	mmap_state.sua.bot = mmap_state.sua.top;
 
-	mmap_state.size.os.used += (UWord) (mmap_state.sa.bot - start);
+	mmap_state.size.supercarrier.used.total += (UWord) (mmap_state.sa.bot - start);
 
 	mmap_state.desc.free_list = NULL;
         mmap_state.desc.reserved = 0;
@@ -2201,7 +2204,7 @@ erts_mmap_init(ErtsMMapInit *init)
 	     * into the super carrier...
 	     */
 	    mmap_state.sua.top -= ERTS_PAGEALIGNED_SIZE;
-	    mmap_state.size.os.used += ERTS_PAGEALIGNED_SIZE;
+	    mmap_state.size.supercarrier.used.total += ERTS_PAGEALIGNED_SIZE;
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
 	    if (!virtual_map || os_reserve_physical(mmap_state.sua.top, ERTS_PAGEALIGNED_SIZE))
 #endif
@@ -2209,7 +2212,7 @@ erts_mmap_init(ErtsMMapInit *init)
             mmap_state.desc.reserved += (end - mmap_state.sua.top) / sizeof(ErtsFreeSegDesc);
 	}
 
-	mmap_state.size.supercarrier.total = (UWord) (mmap_state.sua.top - mmap_state.sa.bot);
+	mmap_state.size.supercarrier.total = (UWord) (mmap_state.sua.top - start);
 
 	/*
 	 * Area before (and after) super carrier
