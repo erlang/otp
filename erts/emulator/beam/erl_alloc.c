@@ -267,7 +267,6 @@ set_default_sl_alloc_opts(struct au_init *ip)
     ip->atype			= GOODFIT;
 #endif
     ip->init.util.name_prefix	= "sl_";
-    ip->init.util.mmmbc		= 5;
     ip->init.util.alloc_no	= ERTS_ALC_A_SHORT_LIVED;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
@@ -295,7 +294,6 @@ set_default_std_alloc_opts(struct au_init *ip)
     ip->atype			= BESTFIT;
 #endif
     ip->init.util.name_prefix	= "std_";
-    ip->init.util.mmmbc		= 5;
     ip->init.util.alloc_no	= ERTS_ALC_A_STANDARD;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
@@ -319,7 +317,6 @@ set_default_ll_alloc_opts(struct au_init *ip)
 #endif
     ip->init.util.ramv		= 0;
     ip->init.util.mmsbc		= 0;
-    ip->init.util.mmmbc		= 0;
     ip->init.util.sbct		= ~((UWord) 0);
     ip->init.util.name_prefix	= "ll_";
     ip->init.util.alloc_no	= ERTS_ALC_A_LONG_LIVED;
@@ -370,7 +367,6 @@ set_default_eheap_alloc_opts(struct au_init *ip)
     ip->thr_spec		= 1;
     ip->atype			= GOODFIT;
 #endif
-    ip->init.util.mmmbc		= 100;
     ip->init.util.name_prefix	= "eheap_";
     ip->init.util.alloc_no	= ERTS_ALC_A_EHEAP;
 #ifndef SMALL_MEMORY
@@ -397,7 +393,6 @@ set_default_binary_alloc_opts(struct au_init *ip)
     ip->thr_spec		= 1;
     ip->atype			= BESTFIT;
 #endif
-    ip->init.util.mmmbc		= 50;
     ip->init.util.name_prefix	= "binary_";
     ip->init.util.alloc_no	= ERTS_ALC_A_BINARY;
 #ifndef SMALL_MEMORY
@@ -419,7 +414,6 @@ set_default_ets_alloc_opts(struct au_init *ip)
     ip->thr_spec		= 1;
     ip->atype			= BESTFIT;
 #endif
-    ip->init.util.mmmbc		= 100;
     ip->init.util.name_prefix	= "ets_";
     ip->init.util.alloc_no	= ERTS_ALC_A_ETS;
 #ifndef SMALL_MEMORY
@@ -495,13 +489,6 @@ adjust_tpref(struct au_init *ip, int no_sched)
 	/* ... shrink smallest multi-block carrier size */
 	if (ip->default_.smbcs)
 	    ip->init.util.smbcs /= ERTS_MIN(4, no_sched);
-	/* ... and more than three allocators shrink
-	   max mseg multi-block carriers */
-	if (ip->default_.mmmbc && no_sched > 2) {
-	    ip->init.util.mmmbc /= ERTS_MIN(4, no_sched - 1);
-	    if (ip->init.util.mmmbc < 3)
-		ip->init.util.mmmbc = 3;
-	}
     }
 }
 
@@ -1560,7 +1547,6 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 				aui[a]->thr_spec = 0;
 				check_disable_carrier_migration(aui[a]);
 				aui[a]->init.util.ramv = 0;
-				aui[a]->init.util.mmmbc = 10;
 				aui[a]->init.util.lmbcs = 5*1024*1024;
 			    }
 			}
@@ -2716,8 +2702,8 @@ erts_allocator_options(void *proc)
 #endif
     Uint sz, *szp, *hp, **hpp;
     Eterm res, features, settings;
-    Eterm atoms[ERTS_ALC_A_MAX-ERTS_ALC_A_MIN+5];
-    Uint terms[ERTS_ALC_A_MAX-ERTS_ALC_A_MIN+5];
+    Eterm atoms[ERTS_ALC_A_MAX-ERTS_ALC_A_MIN+6];
+    Uint terms[ERTS_ALC_A_MAX-ERTS_ALC_A_MIN+6];
     int a, length;
     SysAllocStat sas;
     Uint *endp = NULL;
@@ -2829,6 +2815,9 @@ erts_allocator_options(void *proc)
 #if HAVE_ERTS_MSEG
     if (use_mseg)
 	terms[length++] = am_atom_put("mseg_alloc", 10);
+#endif
+#if ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
+    terms[length++] = am_atom_put("sys_aligned_alloc", 17);
 #endif
 
     features = length ? erts_bld_list(hpp, szp, length, terms) : NIL;
