@@ -93,6 +93,4 @@ ticket_7533(_) ->
     ok.
 
 roundtrip(Type, Value) ->
-    {ok,Encoded} = 'SetOptional':encode(Type, Value),
-    {ok,Value} = 'SetOptional':decode(Type, Encoded),
-    ok.
+    asn1_test_lib:roundtrip('SetOptional', Type, Value).

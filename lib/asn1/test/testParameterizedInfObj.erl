@@ -41,49 +41,39 @@ param(Erule) ->
        iE_Extensions = 
        [#'ProtocolExtensionField'{id=14,
 				  criticality=reject,
-				  extensionValue=open_type(Erule,[0])},
+				  extensionValue= <<0>>},
 	#'ProtocolExtensionField'{id=2,
 				  criticality=ignore,
-				  extensionValue=open_type(Erule,[1])}]},
+				  extensionValue= <<1>>}]},
     BERVal = #'AllocationOrRetentionPriority'
       {priorityLevel = true,
        iE_Extensions = 
        [#'ProtocolExtensionField'{id=14,
 				  criticality=reject,
-				  extensionValue=[2,1,0]},
+				  extensionValue= <<2,1,0>>},
 	#'ProtocolExtensionField'{id=2,
 				  criticality=ignore,
-				  extensionValue=[2,1,1]}]},
-    ?line {ok,Bytes1} = 
-	case asn1_wrapper:erule(Erule) of
-	    per ->
-		asn1_wrapper:encode('Param','AllocationOrRetentionPriority',
-				    PERVal);
-	    _ ->
-		asn1_wrapper:encode('Param','AllocationOrRetentionPriority',
-				    BERVal)
-	end,
-
-    ?line {ok,{'AllocationOrRetentionPriority',true,[_R1,_R2]}} =
-	asn1_wrapper:decode('Param','AllocationOrRetentionPriority',Bytes1),
+				  extensionValue= <<2,1,1>>}]},
+    case Erule of
+	ber ->
+	    roundtrip('AllocationOrRetentionPriority', BERVal);
+	per ->
+	    roundtrip('AllocationOrRetentionPriority', PERVal);
+	uper ->
+	    roundtrip('AllocationOrRetentionPriority', PERVal)
+    end,
 
     %% test code for OTP-4242, ValueFromObject
 
-    case asn1_wrapper:erule(Erule) of
+    case Erule of
 	ber ->
-	    ?line {ok,_Val3} = asn1_wrapper:decode('Param','OS1',[4,2,1,2]),
-	    ?line {error,_Reason1} = 
-		asn1_wrapper:decode('Param','OS1',[4,4,1,2,3,4]),
-	    ?line {error,_Reason2} = 
-		asn1_wrapper:decode('Param','OS2',[4,4,1,2,3,4]),
-	    ?line {ok,_Val4} = asn1_wrapper:decode('Param','OS1',[4,2,1,2]);
-	per ->
-	    ?line {ok,Bytes3} =
-		asn1_wrapper:encode('Param','OS1',[1,2]),
-	    ?line {ok,[1,2]} =
-		asn1_wrapper:decode('Param','OS1',Bytes3),
-	    ?line {error,_Reason3} =
-		asn1_wrapper:encode('Param','OS1',[1,2,3,4])
+	    {ok,_Val3} = 'Param':decode('OS1', [4,2,1,2]),
+	    {error,_Reason1} = 'Param':decode('OS1',[4,4,1,2,3,4]),
+	    {error,_Reason2} = 'Param':decode('OS2',[4,4,1,2,3,4]),
+	    {ok,_Val4} = 'Param':decode('OS1',[4,2,1,2]);
+	_ ->					%per/uper
+	    roundtrip('OS1', [1,2]),
+	    {error,_Reason3} = 'Param':encode('OS1', [1,2,3,4])
     end,
 
     roundtrip('Scl', {'Scl',42,{a,9738654}}),
@@ -93,9 +83,7 @@ param(Erule) ->
     ok.
 
 roundtrip(T, V) ->
-    {ok,Enc} = 'Param':encode(T, V),
-    {ok,V} = 'Param':decode(T, Enc),
-    ok.
+    asn1_test_lib:roundtrip('Param', T, V).
 
 
 ranap(_Erule) ->    
@@ -106,15 +94,10 @@ ranap(_Erule) ->
 			     value=#'Iu-ReleaseCommand'{protocolIEs=PIEVal2,
 							protocolExtensions=asn1_NOVALUE}},
     
-    ?line {ok,Bytes2} = asn1_wrapper:encode('RANAP','InitiatingMessage',Val2),
-    ?line {ok,_Ret2} = asn1_wrapper:decode('RANAP','InitiatingMessage',Bytes2),
+    {ok,Bytes2} = 'RANAP':encode('InitiatingMessage', Val2),
+    {ok,_Ret2} = 'RANAP':decode('InitiatingMessage', Bytes2),
     
     ok.
-
-open_type(uper,Val) when is_list(Val) ->
-    list_to_binary(Val);
-open_type(_,Val) ->
-    Val.
 
 param2(Config, Erule) ->
     roundtrip2('HandoverRequired',
@@ -148,7 +131,7 @@ param2(Config, Erule) ->
 			     {'ProtocolIE-Field',2,-42},
 			     {'ProtocolIE-Field',100,Open100},
 			     {'ProtocolIE-Field',101,Open101}]}} =
-	asn1_wrapper:decode('Param2', 'HandoverRequired', Enc),
+	'Param2':decode('HandoverRequired', Enc),
     true = is_binary(Open100),
     true = is_binary(Open101),
 
@@ -160,6 +143,4 @@ param2(Config, Erule) ->
 
 
 roundtrip2(T, V) ->
-    {ok,Enc} = asn1_wrapper:encode('Param2', T, V),
-    {ok,V} = asn1_wrapper:decode('Param2', T, Enc),
-    Enc.
+    asn1_test_lib:roundtrip_enc('Param2', T, V).

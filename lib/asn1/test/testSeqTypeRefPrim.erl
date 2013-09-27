@@ -18,40 +18,24 @@
 %%
 %%
 -module(testSeqTypeRefPrim).
-
--export([compile/3]).
 -export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 -record('SeqTR',{octStr, octStrI, octStrE, 'octStr-I', 'octStrI-I', 'octStrE-I', 'octStr-E', 'octStrI-E', 'octStrE-E'}).
 
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "SeqTypeRefPrim",[Rules,{outdir,OutDir}]++Options).
-
-
-
 main(_Rules) ->
-
-
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SeqTypeRefPrim','SeqTR',#'SeqTR'{'octStr' = "A string 1",
-						       'octStrI' = "A string 2",
-						       'octStrE' = "A string 3",
-						       'octStr-I' = "A string 4",
-						       'octStrI-I' = "A string 5",
-						       'octStrE-I' = "A string 6",
-						       'octStr-E' = "A string 7",
-						       'octStrI-E' = "A string 8",
-						       'octStrE-E' = "A string 9"}) ,
-    ?line {ok,{'SeqTR',"A string 1","A string 2","A string 3","A string 4","A string 5","A string 6","A string 7","A string 8","A string 9"}} = 
-	asn1_wrapper:decode('SeqTypeRefPrim','SeqTR',lists:flatten(Bytes11)),
-
-
-
+    roundtrip('SeqTR',
+	      #'SeqTR'{'octStr' = "A string 1",
+		       'octStrI' = "A string 2",
+		       'octStrE' = "A string 3",
+		       'octStr-I' = "A string 4",
+		       'octStrI-I' = "A string 5",
+		       'octStrE-I' = "A string 6",
+		       'octStr-E' = "A string 7",
+		       'octStrI-E' = "A string 8",
+		       'octStrE-E' = "A string 9"}),
     ok.
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SeqTypeRefPrim', T, V).

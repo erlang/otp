@@ -31,10 +31,7 @@ extension(_Rules) ->
     %% A trick to encode with another compatible CHOICE type to test reception
     %% extension alternative
 
-    {ok,Bytes2x} = asn1_wrapper:encode('ChoExtension','ChoExt1x',{str,"abc"}),
-    {ok,Val2x} =
-	asn1_wrapper:decode('ChoExtension','ChoExt1',lists:flatten(Bytes2x)),
-    io:format("Choice extension alternative = ~p~n",[Val2x]),
+    roundtrip('ChoExt1x', {str,"abc"}),
 
     roundtrip('ChoExt2', {bool,true}),
     roundtrip('ChoExt2', {int,33}),
@@ -51,6 +48,4 @@ extension(_Rules) ->
 
 
 roundtrip(Type, Value) ->
-    {ok,Encoded} = 'ChoExtension':encode(Type, Value),
-    {ok,Value} = 'ChoExtension':decode(Type, Encoded),
-    ok.
+    asn1_test_lib:roundtrip('ChoExtension', Type, Value).

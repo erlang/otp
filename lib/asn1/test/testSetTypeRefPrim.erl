@@ -27,21 +27,17 @@
 
 
 main(_Rules) ->
-
-
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SetTypeRefPrim','SetTR',#'SetTR'{'octStr' = "A string 1",
-						       'octStrI' = "A string 2",
-						       'octStrE' = "A string 3",
-						       'octStr-I' = "A string 4",
-						       'octStrI-I' = "A string 5",
-						       'octStrE-I' = "A string 6",
-						       'octStr-E' = "A string 7",
-						       'octStrI-E' = "A string 8",
-						       'octStrE-E' = "A string 9"}),
-    ?line {ok,{'SetTR',"A string 1","A string 2","A string 3","A string 4","A string 5","A string 6","A string 7","A string 8","A string 9"}} = 
-	asn1_wrapper:decode('SetTypeRefPrim','SetTR',lists:flatten(Bytes11)),
-
-
-
+    roundtrip('SetTR',
+	      #'SetTR'{'octStr' = "A string 1",
+		       'octStrI' = "A string 2",
+		       'octStrE' = "A string 3",
+		       'octStr-I' = "A string 4",
+		       'octStrI-I' = "A string 5",
+		       'octStrE-I' = "A string 6",
+		       'octStr-E' = "A string 7",
+		       'octStrI-E' = "A string 8",
+		       'octStrE-E' = "A string 9"}),
     ok.
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SetTypeRefPrim', T, V).

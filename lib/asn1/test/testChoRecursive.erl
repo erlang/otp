@@ -43,6 +43,4 @@ recursive(_Rules) ->
     ok.
 
 roundtrip(Type, Value) ->
-    {ok,Encoded} = 'ChoRecursive':encode(Type, Value),
-    {ok,Value} = 'ChoRecursive':decode(Type, Encoded),
-    ok.
+    asn1_test_lib:roundtrip('ChoRecursive', Type, Value).

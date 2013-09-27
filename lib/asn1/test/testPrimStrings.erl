@@ -722,14 +722,10 @@ p_roundtrip(Type, Value0) ->
     roundtrip(Type, Value).
 
 roundtrip(Type, Value) ->
-    {ok,Encoded} = 'PrimStrings':encode(Type, Value),
-    {ok,Value} = 'PrimStrings':decode(Type, Encoded),
-    ok.
+    roundtrip(Type, Value, Value).
 
 roundtrip(Type, Value, Expected) ->
-    {ok,Encoded} = 'PrimStrings':encode(Type, Value),
-    {ok,Expected} = 'PrimStrings':decode(Type, Encoded),
-    ok.
+    asn1_test_lib:roundtrip('PrimStrings', Type, Value, Expected).
 
 bs_roundtrip(Type, Value) ->
     bs_roundtrip(Type, Value, Value).

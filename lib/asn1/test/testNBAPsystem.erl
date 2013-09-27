@@ -19,7 +19,7 @@
 %%
 -module(testNBAPsystem).
 
--export([compile/2,test/2,cell_setup_req_msg/0]).
+-export([compile/2,test/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -96,23 +96,16 @@ test(_Erule,Config) ->
 
 ticket_5812(Config) ->
     ?line Msg = v_5812(),
-    ?line {ok,B2} = asn1_wrapper:encode('NBAP-PDU-Discriptions',
-				  'NBAP-PDU',
-				  Msg),
+    {ok,B2} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
     V = <<0,28,74,0,3,48,0,0,1,0,123,64,41,0,0,0,126,64,35,95,208,2,89,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,145,0,1,205,0,0,0,0,2,98,64,1,128>>,
     ?line ok = compare(V,B2),
-    ?line {ok,Msg2} = asn1_wrapper:decode('NBAP-PDU-Discriptions',
-				  'NBAP-PDU',B2),
+    {ok,Msg2} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B2),
     ?line ok = check_record_names(Msg2,Config).
 
 enc_audit_req_msg() ->
     Msg = {initiatingMessage, audit_req_msg()},
-    ?line {ok,B}=asn1_wrapper:encode('NBAP-PDU-Discriptions',
-				     'NBAP-PDU',
-				     Msg),
-    ?line {ok,_Msg}=asn1_wrapper:decode('NBAP-PDU-Discriptions',
-				     'NBAP-PDU',
-				     B),
+    {ok,B} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
+    {ok,_Msg} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B),
     ?line {initiatingMessage,
 	   #'InitiatingMessage'{value=#'AuditRequest'{protocolIEs=[{_,114,ignore,_}],
 						      protocolExtensions = asn1_NOVALUE}}} = _Msg,
@@ -121,12 +114,8 @@ enc_audit_req_msg() ->
     
 cell_setup_req_msg_test() ->
     Msg = {initiatingMessage, cell_setup_req_msg()},
-    ?line {ok,B}=asn1_wrapper:encode('NBAP-PDU-Discriptions',
-				     'NBAP-PDU',
-				     Msg),
-    ?line {ok,_Msg}=asn1_wrapper:decode('NBAP-PDU-Discriptions',
-				     'NBAP-PDU',
-				     B),
+    {ok,B} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
+    {ok,_Msg} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B),
     io:format("Msg: ~P~n~n_Msg: ~P~n",[Msg,15,_Msg,15]),
     ok.
     

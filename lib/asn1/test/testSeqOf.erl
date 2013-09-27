@@ -149,15 +149,9 @@ roundtrip(T, V) ->
     roundtrip(T, V, V).
 
 roundtrip(Type, Val, Expected) ->
-    M = 'SeqOf',
-    {ok,Enc} = M:encode(Type, Val),
-    {ok,Expected} = M:decode(Type, Enc),
-    ok.
+    asn1_test_lib:roundtrip('SeqOf', Type, Val, Expected).
 
 xroundtrip(T1, T2, Val) ->
-    M = 'XSeqOf',
-    {ok,Enc} = M:encode(T1, Val),
-    {ok,Enc} = M:encode(T2, Val),
-    {ok,Val} = M:decode(T1, Enc),
-    {ok,Val} = M:decode(T2, Enc),
+    Enc = asn1_test_lib:roundtrip_enc('XSeqOf', T1, Val),
+    Enc = asn1_test_lib:roundtrip_enc('XSeqOf', T2, Val),
     ok.

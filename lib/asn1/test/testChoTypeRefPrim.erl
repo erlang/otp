@@ -24,60 +24,20 @@
 -include_lib("test_server/include/test_server.hrl").
 
 prim(_Rules) ->
-    
-    ?line {ok,Bytes11} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR',{bool,true}),
-    ?line {ok,{bool,true}} = asn1_wrapper:decode('ChoTypeRefPrim','ChoTR',lists:flatten(Bytes11)),
-    
-    ?line {ok,Bytes12} = 
-	asn1_wrapper:encode('ChoTypeRefPrim','ChoTR',{octStr,[11,12,13,14,15,16,17]}),
-    ?line {ok,{octStr,[11,12,13,14,15,16,17]}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR',lists:flatten(Bytes12)),
-    
-    ?line {ok,Bytes13} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR',{int,233}),
-    ?line {ok,{int,233}} = asn1_wrapper:decode('ChoTypeRefPrim','ChoTR',lists:flatten(Bytes13)),
-    
-    ?line {ok,Bytes14} = 
-	asn1_wrapper:encode('ChoTypeRefPrim','ChoTR',{octStr,"Stringing in the rain"}),
-    ?line {ok,{octStr,"Stringing in the rain"}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR',lists:flatten(Bytes14)),
-    
-    
-    
-    ?line {ok,Bytes21} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR2',{'octStr',"A string"}),
-    ?line {ok,{'octStr',"A string"}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR2',lists:flatten(Bytes21)),
-    
-    ?line {ok,Bytes22} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR2',{'octStrI',"A string"}),
-    ?line {ok,{'octStrI',"A string"}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR2',lists:flatten(Bytes22)),
-    
-    ?line {ok,Bytes23} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR2',{'octStrE',"A string"}),
-    ?line {ok,{'octStrE',"A string"}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR2',lists:flatten(Bytes23)),
-    
-    ?line {ok,Bytes24} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR2',{'octStr-I',"A string"}),
-    ?line {ok,{'octStr-I',"A string"}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR2',lists:flatten(Bytes24)),
-    
-    ?line {ok,Bytes25} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR2',{'octStrI-I',"A string"}),
-    ?line {ok,{'octStrI-I',"A string"}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR2',lists:flatten(Bytes25)),
-    
-    ?line {ok,Bytes26} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR2',{'octStrE-I',"A string"}),
-    ?line {ok,{'octStrE-I',"A string"}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR2',lists:flatten(Bytes26)),
-    
-    ?line {ok,Bytes27} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR2',{'octStr-E',"A string"}),
-    ?line {ok,{'octStr-E',"A string"}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR2',lists:flatten(Bytes27)),
-    
-    ?line {ok,Bytes28} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR2',{'octStrI-E',"A string"}),
-    ?line {ok,{'octStrI-E',"A string"}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR2',lists:flatten(Bytes28)),
-    
-    ?line {ok,Bytes29} = asn1_wrapper:encode('ChoTypeRefPrim','ChoTR2',{'octStrE-E',"A string"}),
-    ?line {ok,{'octStrE-E',"A string"}} = 
-	asn1_wrapper:decode('ChoTypeRefPrim','ChoTR2',lists:flatten(Bytes29)),
-    
-    
+    roundtrip('ChoTR', {bool,true}),
+    roundtrip('ChoTR', {octStr,[11,12,13,14,15,16,17]}),
+    roundtrip('ChoTR', {int,233}),
+    roundtrip('ChoTR', {octStr,"Stringing in the rain"}),
+    roundtrip('ChoTR2', {octStr,"A string"}),
+    roundtrip('ChoTR2', {octStrI,"A string"}),
+    roundtrip('ChoTR2', {octStrE,"A string"}),
+    roundtrip('ChoTR2', {'octStr-I',"A string"}),
+    roundtrip('ChoTR2', {'octStrI-I',"A string"}),
+    roundtrip('ChoTR2', {'octStrE-I',"A string"}),
+    roundtrip('ChoTR2', {'octStr-E',"A string"}),
+    roundtrip('ChoTR2', {'octStrI-E',"A string"}),
+    roundtrip('ChoTR2', {'octStrE-E',"A string"}),
     ok.
+
+roundtrip(Type, Value) ->
+    asn1_test_lib:roundtrip('ChoTypeRefPrim', Type, Value).

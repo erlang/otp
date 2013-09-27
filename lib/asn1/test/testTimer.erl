@@ -18,9 +18,7 @@
 %%
 %%
 -module(testTimer).
-
--compile(export_all).
-%%-export([Function/Arity, ...]).
+-export([go/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -127,7 +125,7 @@ val() ->
                         {'H323-UserInformation_user-data',24,"O"}}.
     
 
-go(Config,Enc) ->
+go(Config, _Enc) ->
     ?line true = code:add_patha(?config(priv_dir,Config)),
 
     Module = 'H323-MESSAGES',
@@ -137,13 +135,12 @@ go(Config,Enc) ->
 
     CompileOptions = compile_options(),
     
-    ?line {ValWr, done} = timer:tc(?MODULE, encode, [?times, Module, Type, Value]),
+    {ValWr,done} = timer:tc(fun() -> encode(?times, Module, Type, Value) end),
     ?line io:format("ASN1 encode ~p: ~p micro~n", [CompileOptions, ValWr / ?times]),
 
-    ?line done = decode(2,Module,Type,Bytes,Enc),
+    done = decode(2, Module, Type, Bytes),
 
-    ?line {ValRead, done} = timer:tc(?MODULE, decode, [?times, Module, 
-						 Type, Bytes,Enc]),
+    {ValRead,done} = timer:tc(fun() -> decode(?times, Module, Type, Bytes) end),
     ?line io:format("ASN1 decode ~p: ~p micro~n", [CompileOptions, ValRead /?times]),
 
 
@@ -162,11 +159,11 @@ encode(N, Module,Type,Value) ->
          end,
     encode(N-1, Module,Type,Value).
 
-decode(0, _Module,_Type,_Value,_Erule) ->
+decode(0, _Module, _Type, _Value) ->
     done;
-decode(N, Module,Type,Value,Erule) ->
-    {ok,_B} = asn1rt:decode(Module,Type,Value),
-    decode(N-1, Module,Type,Value,Erule).
+decode(N, Module, Type, Value) ->
+    {ok,_B} = asn1rt:decode(Module, Type, Value),
+    decode(N-1, Module, Type, Value).
 
 compile_options() ->
     {ok,Info} = asn1rt:info('H323-MESSAGES'),

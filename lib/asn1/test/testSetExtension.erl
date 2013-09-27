@@ -18,10 +18,7 @@
 %%
 %%
 -module(testSetExtension).
-
-
 -include("External.hrl").
--export([compile/3]).
 -export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -31,76 +28,20 @@
 -record('SetExt3',{bool, int}).
 -record('SetExt4',{bool, int}).
 
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "SetExtension",
-			      [Rules,{outdir,OutDir}]++Options).
-
-
-
 main(_Rules) ->
-    
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SetExtension','SetExt1',#'SetExt1'{}), 
-    ?line {ok,{'SetExt1'}} = 
-	asn1_wrapper:decode('SetExtension','SetExt1',lists:flatten(Bytes11)),
-
-    ?line {ok,Bytes21} = 
-	asn1_wrapper:encode('SetExtension','SetExt2',#'SetExt2'{bool = true,int = 99}), 
-    ?line {ok,{'SetExt2',true,99}} = 
-	asn1_wrapper:decode('SetExtension','SetExt2',lists:flatten(Bytes21)),
-
-    ?line {ok,Bytes22} = 
-	asn1_wrapper:encode('SetExtension','SetExt2',#'SetExt2'{int = 99,bool = true}), 
-    ?line {ok,{'SetExt2',true,99}} = 
-	asn1_wrapper:decode('SetExtension','SetExt2',lists:flatten(Bytes22)),
-
-    ?line {ok,Bytes31} = 
-	asn1_wrapper:encode('SetExtension','SetExt3',#'SetExt3'{bool = true,int = 99}), 
-    ?line {ok,{'SetExt3',true,99}} = 
-	asn1_wrapper:decode('SetExtension','SetExt3',lists:flatten(Bytes31)),
-
-    ?line {ok,Bytes32} = 
-	asn1_wrapper:encode('SetExtension','SetExt3',#'SetExt3'{int = 99,bool = true}), 
-    ?line {ok,{'SetExt3',true,99}} = 
-	asn1_wrapper:decode('SetExtension','SetExt3',lists:flatten(Bytes32)),
-
-    ?line {ok,Bytes41} = 
-	asn1_wrapper:encode('SetExtension','SetExt4',#'SetExt4'{bool = true,int = 99}), 
-    ?line {ok,{'SetExt4',true,99}} = 
-	asn1_wrapper:decode('SetExtension','SetExt4',lists:flatten(Bytes41)),
-
-    ?line {ok,Bytes42} = 
-	asn1_wrapper:encode('SetExtension','SetExt4',#'SetExt4'{int = 99,bool = true}), 
-    ?line {ok,{'SetExt4',true,99}} = 
-	asn1_wrapper:decode('SetExtension','SetExt4',lists:flatten(Bytes42)),
-
-
-    %% Test of extension , needs to be improved and extended
-    
-     ?line {ok,BytesX11} = 
-	asn1_wrapper:encode('SetExtension','SetExt1',#'SetExt1'{}), 
-    ?line {ok,{'SetExt1'}} = 
-	asn1_wrapper:decode('SetExtension','SetExt1',lists:flatten(BytesX11)),
-
-    ?line {ok,BytesX21} = 
-	asn1_wrapper:encode('SetExtension','SetExt2',#'SetExt2'{bool = true,int = 99}), 
-    ?line {ok,{'SetExt2',true,99}} = 
-	asn1_wrapper:decode('SetExtension','SetExt2',lists:flatten(BytesX21)),
-
-    ?line {ok,BytesX22} = 
-	asn1_wrapper:encode('SetExtension','SetExt2',#'SetExt2'{int = 99,bool = true}), 
-    ?line {ok,{'SetExt2',true,99}} = 
-	asn1_wrapper:decode('SetExtension','SetExt2',lists:flatten(BytesX22)),
-
-   
-    
-     
-
+    roundtrip('SetExt1', #'SetExt1'{}),
+    roundtrip('SetExt2', #'SetExt2'{bool=true,int=99}),
+    roundtrip('SetExt2', #'SetExt2'{bool=true,int=99}),
+    roundtrip('SetExt3', #'SetExt3'{bool=true,int=99}),
+    roundtrip('SetExt3', #'SetExt3'{bool=true,int=99}),
+    roundtrip('SetExt4', #'SetExt4'{bool=true,int=99}),
+    roundtrip('SetExt4', #'SetExt4'{bool=true,int=99}),
+    roundtrip('SetExt1', #'SetExt1'{}),
+    roundtrip('SetExt2', #'SetExt2'{bool=true,int=99}),
+    roundtrip('SetExt2', #'SetExt2'{bool=true,int=99}),
     ok.
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SetExtension', T, V).
 
 

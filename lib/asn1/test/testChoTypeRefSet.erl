@@ -23,83 +23,21 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--record('ChoSet',{setInt, setOs}).
--record('ChoSetImp',{setInt, setOs}).
--record('ChoSetExp',{setInt, setOs}).
+-record('ChoSet', {setInt, setOs}).
+-record('ChoSetImp', {setInt, setOs}).
+-record('ChoSetExp', {setInt, setOs}).
 
 set(_Rules) ->
-
-    ?line {ok,Bytes1} = 
-	asn1_wrapper:encode('ChoTypeRefSet','ChoTRset',
-		      {choSet,#'ChoSet'{setInt = 88,
-					setOs = "A string"}}),
-    ?line {ok,{choSet,{'ChoSet',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSet','ChoTRset',lists:flatten(Bytes1)),
-    
-    
-    ?line {ok,Bytes2} = 
-	asn1_wrapper:encode('ChoTypeRefSet','ChoTRset',
-		      {choSetI,#'ChoSet'{setInt = 88,
-					 setOs = "A string"}}),
-    ?line {ok,{choSetI,{'ChoSet',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSet','ChoTRset',lists:flatten(Bytes2)),
-    
-    
-    ?line {ok,Bytes3} = 
-	asn1_wrapper:encode('ChoTypeRefSet','ChoTRset',
-		      {choSetE,#'ChoSet'{setInt = 88,
-					 setOs = "A string"}}),
-    ?line {ok,{choSetE,{'ChoSet',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSet','ChoTRset',lists:flatten(Bytes3)),
-    
-    
-    ?line {ok,Bytes4} = 
-	asn1_wrapper:encode('ChoTypeRefSet','ChoTRset',
-		      {'choSet-I',#'ChoSetImp'{setInt = 88,
-					       setOs = "A string"}}),
-    ?line {ok,{'choSet-I',{'ChoSetImp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSet','ChoTRset',lists:flatten(Bytes4)),
-    
-    
-    ?line {ok,Bytes5} = 
-	asn1_wrapper:encode('ChoTypeRefSet','ChoTRset',
-		      {'choSetI-I',#'ChoSetImp'{setInt = 88,
-						setOs = "A string"}}),
-    ?line {ok,{'choSetI-I',{'ChoSetImp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSet','ChoTRset',lists:flatten(Bytes5)),
-    
-    
-    ?line {ok,Bytes6} = 
-	asn1_wrapper:encode('ChoTypeRefSet','ChoTRset',
-		      {'choSetE-I',#'ChoSetImp'{setInt = 88,
-						setOs = "A string"}}),
-    ?line {ok,{'choSetE-I',{'ChoSetImp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSet','ChoTRset',lists:flatten(Bytes6)),
-    
-    
-    ?line {ok,Bytes7} = 
-	asn1_wrapper:encode('ChoTypeRefSet','ChoTRset',
-		      {'choSet-E',#'ChoSetExp'{setInt = 88,
-					       setOs = "A string"}}),
-    ?line {ok,{'choSet-E',{'ChoSetExp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSet','ChoTRset',lists:flatten(Bytes7)),
-    
-    
-    ?line {ok,Bytes8} = 
-	asn1_wrapper:encode('ChoTypeRefSet','ChoTRset',
-		      {'choSetI-E',#'ChoSetExp'{setInt = 88,
-						setOs = "A string"}}),
-    ?line {ok,{'choSetI-E',{'ChoSetExp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSet','ChoTRset',lists:flatten(Bytes8)),
-    
-    
-    ?line {ok,Bytes9} = 
-	asn1_wrapper:encode('ChoTypeRefSet','ChoTRset',
-		      {'choSetE-E',#'ChoSetExp'{setInt = 88,
-						setOs = "A string"}}),
-    ?line {ok,{'choSetE-E',{'ChoSetExp',88,"A string"}}} = 
-	asn1_wrapper:decode('ChoTypeRefSet','ChoTRset',lists:flatten(Bytes9)),
-    
-    
-    
+    roundtrip('ChoTRset', {choSet,#'ChoSet'{setInt=88,setOs="A string"}}),
+    roundtrip('ChoTRset', {choSetI,#'ChoSet'{setInt=88,setOs="A string"}}),
+    roundtrip('ChoTRset', {choSetE,#'ChoSet'{setInt=88,setOs="A string"}}),
+    roundtrip('ChoTRset', {'choSet-I',#'ChoSetImp'{setInt=88,setOs="A string"}}),
+    roundtrip('ChoTRset', {'choSetI-I',#'ChoSetImp'{setInt=88,setOs="A string"}}),
+    roundtrip('ChoTRset', {'choSetE-I',#'ChoSetImp'{setInt=88,setOs="A string"}}),
+    roundtrip('ChoTRset', {'choSet-E',#'ChoSetExp'{setInt=88,setOs="A string"}}),
+    roundtrip('ChoTRset', {'choSetI-E',#'ChoSetExp'{setInt=88,setOs="A string"}}),
+    roundtrip('ChoTRset', {'choSetE-E',#'ChoSetExp'{setInt=88,setOs="A string"}}),
     ok.
+
+roundtrip(Type, Value) ->
+    asn1_test_lib:roundtrip('ChoTypeRefSet', Type, Value).

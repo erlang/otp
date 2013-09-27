@@ -108,18 +108,14 @@ main(Erule, DataDir, Opts) ->
     ok.
 
 roundtrip(Type, Value) ->
-    {ok,Encoded} = 'SeqExtension':encode(Type, Value),
-    {ok,Value} = 'SeqExtension':decode(Type, Encoded),
-    ok.
+    asn1_test_lib:roundtrip('SeqExtension', Type, Value).
 
 v_roundtrip2(Erule, Type, Value) ->
     Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type)),
     Encoded = roundtrip2(Type, Value).
 
 roundtrip2(Type, Value) ->
-    {ok,Encoded} = 'SeqExtension2':encode(Type, Value),
-    {ok,Value} = 'SeqExtension2':decode(Type, Encoded),
-    Encoded.
+    asn1_test_lib:roundtrip_enc('SeqExtension2', Type, Value).
 
 v(ber, 'SeqExt66') ->  "30049F41 017D";
 v(per, 'SeqExt66') ->  "C0420000 00000000 00004001 FA";

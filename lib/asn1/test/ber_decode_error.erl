@@ -22,15 +22,15 @@
 -export([run/1]).
 
 run([]) ->
-    {ok,B}  = asn1_wrapper:encode('Constructed','S3',{'S3',17}),
-    [T,L|V] = lists:flatten(B),
-    Bytes = [T,L+3|V] ++ [2,1,3],
-    case asn1_wrapper:decode('Constructed','S3',Bytes) of
+    {ok,B}  = 'Constructed':encode('S3', {'S3',17}),
+    [T,L|V] = binary_to_list(B),
+    Bytes = list_to_binary([T,L+3|V] ++ [2,1,3]),
+    case 'Constructed':decode('S3', Bytes) of
 	{error,{asn1,{unexpected,_}}} -> ok
     end,
 
     %% Unexpected bytes must be accepted if there is an extensionmark
-    {ok,{'S3ext',17}} = asn1_wrapper:decode('Constructed','S3ext',Bytes),
+    {ok,{'S3ext',17}} = 'Constructed':decode('S3ext', Bytes),
 
     %% Truncated tag.
     {error,{asn1,{invalid_tag,_}}} =

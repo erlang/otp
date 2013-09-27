@@ -38,6 +38,7 @@ parse(Tokens) ->
 	    {error,{Reason,hd(Tokens)}};
 	{ModuleDefinition,Rest1} ->
 	    {Types,Rest2} = parse_AssignmentList(Rest1),
+	    clean_process_dictionary(),
 	    case Rest2 of
 		[{'END',_}|_Rest3] ->
 		    {ok,ModuleDefinition#module{typeorval = Types}};
@@ -47,6 +48,13 @@ parse(Tokens) ->
 			    hd(Rest2)}}
 	    end
     end.
+
+clean_process_dictionary() ->
+    Mod = erase(asn1_module),
+    _ = erase({Mod,imports}),
+    _ = erase(tagdefault),
+    _ = erase(extensiondefault),
+    ok.
 
 parse_ModuleDefinition([{typereference,L1,ModuleIdentifier}|Rest0]) ->
     put(asn1_module,ModuleIdentifier),

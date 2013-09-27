@@ -27,21 +27,11 @@
 
 
 compile(Erule, Options, Config) ->
-    Specs = specs(),
-    99 = length(Specs),
-    ok = compile_loop(Erule,Specs,Options,Config).
-
-compile_loop(_Erule, [], _Options, _Config) ->
-    ok;
-compile_loop(Erule, [Spec|Specs], Options, Config)
-  when Erule =:= ber; Erule =:= per ->
+    Specs0 = specs(),
+    99 = length(Specs0),
     CaseDir = ?config(case_dir, Config),
-    asn1_test_lib:compile(filename:join([x420, Spec]), Config,
-                          [Erule, {i, CaseDir} | Options]),
-    compile_loop(Erule, Specs, Options, Config);
-compile_loop(_Erule, _Specs, _Options, _Config) ->
-    ok.
-
+    Specs = [filename:join(x420, Spec) || Spec <- Specs0],
+    asn1_test_lib:compile_all(Specs, Config, [Erule,{i,CaseDir}|Options]).
 
 specs() ->
     ["ACSE-1", "AuthenticationFramework", "BasicAccessControl",
@@ -93,9 +83,9 @@ specs() ->
 ticket7759(_Erule,_Config) ->
     Encoded = encoded_msg(),
     io:format("Testing ticket7759 ...~n",[]),
-    ?line {ok, ContentInfo} = asn1_wrapper:decode('PKCS7','ContentInfo',Encoded),
-    ?line {'ContentInfo',_Id,PKCS7_content} = ContentInfo,
-    ?line {ok,_} = asn1_wrapper:decode('PKCS7','SignedData',PKCS7_content),
+    {ok, ContentInfo} = 'PKCS7':decode('ContentInfo',Encoded),
+    {'ContentInfo',_Id,PKCS7_content} = ContentInfo,
+    {ok,_} = 'PKCS7':decode('SignedData',PKCS7_content),
     ok.
 
 

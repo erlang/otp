@@ -27,59 +27,17 @@
 -record('Empty',{}).
 
 main(_Rules) ->
-    
-    
-
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SetPrim','Set',#'Set'{bool = true,
-					       boolCon = true,
-					       boolPri = true,
-					       boolApp = true,
-					       boolExpCon = true,
-					       boolExpPri = true,
-					       boolExpApp = true}),
-    ?line {ok,{'Set',true,true,true,true,true,true,true}} = 
-	asn1_wrapper:decode('SetPrim','Set',lists:flatten(Bytes11)),
-    
-    
-    
-    
-    ?line {ok,Bytes12} = 
-	asn1_wrapper:encode('SetPrim','Set',#'Set'{bool = false,
-					       boolCon = false,
-					       boolPri = false,
-					       boolApp = false,
-					       boolExpCon = false,
-					       boolExpPri = false,
-					       boolExpApp = false}),
-    ?line {ok,{'Set',false,false,false,false,false,false,false}} = 
-	asn1_wrapper:decode('SetPrim','Set',lists:flatten(Bytes12)),
-    
-    
-    
-    
-    ?line {ok,Bytes13} = 
-	asn1_wrapper:encode('SetPrim','Set',#'Set'{bool = false,
-					       boolCon = true,
-					       boolPri = false,
-					       boolApp = true,
-					       boolExpCon = false,
-					       boolExpPri = true,
-					       boolExpApp = false}),
-    ?line {ok,{'Set',false,true,false,true,false,true,false}} = 
-	asn1_wrapper:decode('SetPrim','Set',lists:flatten(Bytes13)),
-    
-    
-    
-    
-    
-    ?line {ok,Bytes21} = 
-	asn1_wrapper:encode('SetPrim','Empty',#'Empty'{}),
-    ?line {ok,{'Empty'}} = 
-	asn1_wrapper:decode('SetPrim','Empty',lists:flatten(Bytes21)),
-
-
-
+    roundtrip('Set',
+	      #'Set'{bool=true,boolCon=true,boolPri=true,boolApp=true,
+		     boolExpCon=true,boolExpPri=true,boolExpApp=true}),
+    roundtrip('Set',
+	      #'Set'{bool=false,boolCon=false,boolPri=false,boolApp=false,
+		     boolExpCon=false,boolExpPri=false,boolExpApp=false}),
+    roundtrip('Set',
+	      #'Set'{bool=false,boolCon=true,boolPri=false,boolApp=true,
+		     boolExpCon=false,boolExpPri=true,boolExpApp=false}),
+    roundtrip('Empty', #'Empty'{}),
     ok.
 
-
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SetPrim', T, V).
