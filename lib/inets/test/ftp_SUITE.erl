@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,110 +18,88 @@
 %%
 %%
 
+%% 
+%% ct:run("../inets_test", ftp_SUITE).
+%%
+
 -module(ftp_SUITE).
 
+-include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
+-include("inets_test_lib.hrl").
 
-%% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
-% -export([init_per_testcase/2, end_per_testcase/2]).
--export([init_per_suite/1, end_per_suite/1]).
-
--define(FTP_USER, "anonymous").
--define(FTP_PASS, passwd()).
--define(FTP_PORT, 21).
-
--define(BAD_HOST, "badhostname").
--define(BAD_USER, "baduser").
--define(BAD_DIR,  "baddirectory").
-
--ifdef(ftp_debug_client).
--define(ftp_open(Host, Flags), do_ftp_open(Host, [debug] ++ Flags)).
--else.
--ifdef(ftp_trace_client).
--define(ftp_open(Host, Flags), do_ftp_open(Host, [trace] ++ Flags)).
--else.
--define(ftp_open(Host, Flags), do_ftp_open(Host, [verbose] ++ Flags)).
--endif.
--endif.
-
+%% Note: This directive should only be used in test suites.
+-compile(export_all).
 
 %%--------------------------------------------------------------------
-%% all(Arg) -> [Doc] | [Case] | {skip, Comment}
-%% Arg - doc | suite
-%% Doc - string()
-%% Case - atom() 
-%%	Name of a test case function. 
-%% Comment - string()
-%% Description: Returns documentation/test cases in this test suite
-%%		or a skip tuple if the platform is not supported.  
+%% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-suite() -> [{ct_hooks, [ts_install_cth]}].
-
-all() -> 
+all() ->
     [
-     {group, solaris8_test},   
-     {group, solaris9_test},
-     {group, solaris10_test}, 
-     {group, linux_x86_test},
-     {group, linux_ppc_test}, 
-     {group, macosx_x86_test},
-     {group, macosx_ppc_test}, 
-     {group, openbsd_test},
-     {group, freebsd_test}, 
-     {group, netbsd_test},
-     {group, windows_xp_test},
-     {group, windows_2003_server_test},
-     {group, ticket_tests}
+     {group, ftp_passive},
+     {group, ftp_active},
+     {group, ftps_passive},
+     {group, ftps_active}
     ].
 
-groups() -> 
+groups() ->
     [
-     {solaris8_test,            [], [{ftp_solaris8_sparc_test, all}]},
-     {solaris9_test,            [], [{ftp_solaris9_sparc_test, all}]},
-     {solaris10_test,           [], [{ftp_solaris10_sparc_test, all},
-				     {ftp_solaris10_x86_test, all}]},
-     {linux_x86_test,           [], [{ftp_linux_x86_test, all}]},
-     {linux_ppc_test,           [], [{ftp_linux_ppc_test, all}]},
-     {macosx_x86_test,          [], [{ftp_macosx_x86_test, all}]},
-     {macosx_ppc_test,          [], [{ftp_macosx_ppc_test, all}]},
-     {openbsd_test,             [], [{ftp_openbsd_x86_test, all}]},
-     {freebsd_test,             [], [{ftp_freebsd_x86_test, all}]},
-     {netbsd_test,              [], [{ftp_netbsd_x86_test, all}]},
-     {windows_xp_test,          [], [{ftp_windows_xp_test, all}]},
-     {windows_2003_server_test, [], [{ftp_windows_2003_server_test, all}]},
-     {ticket_tests,             [], [{ftp_ticket_test, all}]}
+     {ftp_passive, [], ftp_tests()},
+     {ftp_active, [], ftp_tests()},
+     {ftps_passive, [], ftp_tests()},
+     {ftps_active, [], ftp_tests()}
     ].
 
-init_per_group(_GroupName, Config) ->
-	Config.
+ftp_tests()->
+    [
+     user, 
+     pwd, 
+     cd, 
+     lcd,
+     ls, 
+     nlist, 
+     rename, 
+     delete, 
+     mkdir, 
+     send, 
+     send_bin, 
+     send_chunk, 
+     append, 
+     append_bin,
+     append_chunk, 
+     recv, 
+     recv_bin, 
+     recv_chunk, 
+     type, 
+     quote, 
+     ip_v6_disabled
+    ].
 
-end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
-
-%%--------------------------------------------------------------------
-%% Function: init_per_suite(Config) -> Config
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Initiation before the whole suite
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    inets:start(),
     Config.
 
-%%--------------------------------------------------------------------
-%% Function: end_per_suite(Config) -> _
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after the whole suite
-%%--------------------------------------------------------------------
 end_per_suite(_Config) ->
-    inets:stop(),
     ok.
+
+%%--------------------------------------------------------------------
+init_per_group(_Group, Config) ->
+    Config.
+
+end_per_group(_, _Config) ->
+    ok.
+
+%%--------------------------------------------------------------------
+init_per_testcase(_Case, Config) ->
+    Config.
+
+end_per_testcase(_Case, _Config) ->
+    ok.
+
+%%--------------------------------------------------------------------
+%% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+
+%%--------------------------------------------------------------------
+%% Internal functions  -----------------------------------------------
+%%--------------------------------------------------------------------

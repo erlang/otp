@@ -150,6 +150,7 @@ INETS_ROOT = ../../inets
 MODULES =                 		\
 	inets_test_lib    		\
 	erl_make_certs                  \
+	old_ftp_SUITE                   \
 	ftp_SUITE 	  		\
 	ftp_format_SUITE  		\
 	ftp_solaris8_sparc_test		\

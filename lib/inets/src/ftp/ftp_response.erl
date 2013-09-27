@@ -175,6 +175,7 @@ error_string(Reason) ->
 
 %% Positive Preleminary Reply
 interpret_status(?POS_PREL,_,_)                   -> pos_prel; 
+interpret_status(?POS_COMPL, ?AUTH_ACC, 3)        -> tls_upgrade; 
 %% Positive Completion Reply
 interpret_status(?POS_COMPL,_,_)                  -> pos_compl;
 %% Positive Intermediate Reply nedd account
