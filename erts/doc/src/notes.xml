@@ -30,6 +30,30 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.10.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Memory allocators will be able to create <c>sys_alloc</c>
+	    carriers as fallback, if <c>mseg_alloc</c> cannot create
+	    more carriers, on systems with <c>posix_memalign()</c>
+	    support. This is similar to how it worked in pre-R16
+	    releases.</p>
+          <p>
+	    Windows systems will create carriers using
+	    <c>_aligned_malloc()</c> and can by this use the new
+	    optimized allocator header scheme introduced in R16 on
+	    other platforms.</p>
+          <p>
+	    Own Id: OTP-11318</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.10.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
