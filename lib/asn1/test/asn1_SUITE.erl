@@ -96,7 +96,6 @@ groups() ->
        testChoTypeRefSeq,
        testChoTypeRefSet,
        testMultipleLevels,
-       testDef,
        testOpt,
        testSeqDefault,
        % Uses 'External'
@@ -141,9 +140,9 @@ groups() ->
        testDeepTConstr,
        testExport,
        testImport,
-       % Uses 'ParamBasic'
-       {group, [], [testParamBasic,
-                    testDER]},
+       testParamBasic,
+       testDER,
+       testDEFAULT,
        testMvrasn6,
        testContextSwitchingTypes,
        testOpenTypeImplicitTag,
@@ -326,20 +325,21 @@ testCompactBitString(Config, Rule, Opts) ->
 			  [Rule, compact_bit_string|Opts]),
     testCompactBitString:otp_4869(Rule).
 
-testPrimStrings(Config) -> test(Config, fun testPrimStrings/3).
+testPrimStrings(Config) ->
+    test(Config, fun testPrimStrings/3, [ber,{ber,[der]},per,uper]).
 testPrimStrings(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config, [Rule|Opts]),
-    testPrimStrings_cases(Rule),
+    testPrimStrings_cases(Rule, Opts),
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
 			      [legacy_bit_string,Rule|Opts]),
-    testPrimStrings:bit_string(Rule),
+    testPrimStrings:bit_string(Rule, Opts),
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
 			      [compact_bit_string,Rule|Opts]),
-    testPrimStrings:bit_string(Rule),
+    testPrimStrings:bit_string(Rule, Opts),
     testPrimStrings:more_strings(Rule).
 
-testPrimStrings_cases(Rule) ->
-    testPrimStrings:bit_string(Rule),
+testPrimStrings_cases(Rule, Opts) ->
+    testPrimStrings:bit_string(Rule, Opts),
     testPrimStrings:octet_string(Rule),
     testPrimStrings:numeric_string(Rule),
     testPrimStrings:other_strings(Rule),
@@ -429,6 +429,13 @@ testDef(Config, Rule, Opts) ->
     asn1_test_lib:compile("Def", Config, [Rule|Opts]),
     testDef:main(Rule).
 
+testDEFAULT(Config) ->
+    test(Config, fun testDEFAULT/3, [ber,{ber,[der]},per,uper]).
+testDEFAULT(Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(["Def","Default"], Config, [Rule|Opts]),
+    testDef:main(Rule),
+    testSeqSetDefaultVal:main(Rule, Opts).
+
 testOpt(Config) -> test(Config, fun testOpt/3).
 testOpt(Config, Rule, Opts) ->
     asn1_test_lib:compile("Opt", Config, [Rule|Opts]),
@@ -516,7 +523,8 @@ testSetDefault(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetDefault", Config, [Rule|Opts]),
     testSetDefault:main(Rule).
 
-testParamBasic(Config) -> test(Config, fun testParamBasic/3).
+testParamBasic(Config) ->
+    test(Config, fun testParamBasic/3, [ber,{ber,[der]},per,uper]).
 testParamBasic(Config, Rule, Opts) ->
     asn1_test_lib:compile("ParamBasic", Config, [Rule|Opts]),
     testParamBasic:main(Rule).
@@ -873,11 +881,7 @@ testDER(Config) ->
     test(Config, fun testDER/3, [ber]).
 testDER(Config, Rule, Opts) ->
     asn1_test_lib:compile("DERSpec", Config, [Rule, der|Opts]),
-    testDER:test(),
-    asn1_test_lib:compile("ParamBasic", Config, [Rule, der|Opts]),
-    testParamBasic:main(der),
-    asn1_test_lib:compile("Default", Config, [Rule, der|Opts]),
-    testSeqSetDefaultVal:main(Rule).
+    testDER:test().
 
 specialized_decodes(Config) ->
     test(Config, fun specialized_decodes/3, [ber]).

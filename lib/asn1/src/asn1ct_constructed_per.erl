@@ -770,8 +770,10 @@ optionals(L) -> optionals(L,[],2).
 
 optionals([#'ComponentType'{prop='OPTIONAL'}|Rest], Acc, Pos) ->
     optionals(Rest, [Pos|Acc], Pos+1);
-optionals([#'ComponentType'{prop={'DEFAULT',Val}}|Rest], Acc, Pos) ->
-    optionals(Rest, [{Pos,Val}|Acc], Pos+1);
+optionals([#'ComponentType'{typespec=T,prop={'DEFAULT',Val}}|Rest],
+	  Acc, Pos) ->
+    Vals = def_values(T, Val),
+    optionals(Rest, [{Pos,Vals}|Acc], Pos+1);
 optionals([#'ComponentType'{}|Rest], Acc, Pos) ->
     optionals(Rest, Acc, Pos+1);
 optionals([], Acc, _) ->
@@ -888,7 +890,8 @@ gen_enc_components_call1(Erule,TopType,
 	       optional ->
 		   asn1ct_imm:enc_absent(Element, [asn1_NOVALUE], Imm1);
 	       {default,Def} ->
-		   asn1ct_imm:enc_absent(Element, [asn1_DEFAULT,Def], Imm1)
+		   DefValues = def_values(Type, Def),
+		   asn1ct_imm:enc_absent(Element, DefValues, Imm1)
 	   end,
     Imm = case Imm2 of
 	      [] -> [];
@@ -898,6 +901,38 @@ gen_enc_components_call1(Erule,TopType,
 gen_enc_components_call1(_Erule,_TopType,[],Pos,_,_, Acc) ->
     ImmList = lists:reverse(Acc),
     {ImmList,Pos}.
+
+def_values(#type{def=#'Externaltypereference'{module=Mod,type=Type}}, Def) ->
+    #typedef{typespec=T} = asn1_db:dbget(Mod, Type),
+    def_values(T, Def);
+def_values(#type{def={'BIT STRING',[]}}, Bs) when is_bitstring(Bs) ->
+    ListBs = [B || <<B:1>> <= Bs],
+    IntBs = lists:foldl(fun(B, A) ->
+				(A bsl 1) bor B
+			end, 0, lists:reverse(ListBs)),
+    Sz = bit_size(Bs),
+    Compact = case 8 - Sz rem 8 of
+		  8 ->
+		      {0,Bs};
+		  Unused ->
+		      {Unused,<<Bs:Sz/bits,0:Unused>>}
+	      end,
+    [asn1_DEFAULT,Bs,Compact,ListBs,IntBs];
+def_values(#type{def={'BIT STRING',[_|_]=Ns}}, List) when is_list(List) ->
+    Bs = asn1ct_gen:named_bitstring_value(List, Ns),
+    ListBs = [B || <<B:1>> <= Bs],
+    IntBs = lists:foldl(fun(B, A) ->
+				(A bsl 1) bor B
+			end, 0, lists:reverse(ListBs)),
+    Args = [List,Bs,ListBs,IntBs],
+    {call,per_common,is_default_bitstring,Args};
+def_values(#type{def={'INTEGER',Ns}}, Def) ->
+    [asn1_DEFAULT,Def|case lists:keyfind(Def, 2, Ns) of
+			  false -> [];
+			  {Val,Def} -> [Val]
+		      end];
+def_values(_, Def) ->
+    [asn1_DEFAULT,Def].
 
 gen_enc_line_imm(Erule, TopType, Cname, Type, Element, DynamicEnc, Ext) ->
     Imm0 = gen_enc_line_imm_1(Erule, TopType, Cname, Type,
@@ -1207,7 +1242,8 @@ gen_dec_comp_call(Comp, Erule, TopType, Tpos, OptTable, DecInfObj,
 
 comp_call_pre_post(noext, mandatory, _, _, _, _, _, _) ->
     {[],[]};
-comp_call_pre_post(noext, Prop, _, _, TextPos, OptTable, NumOptionals, Ext) ->
+comp_call_pre_post(noext, Prop, _, Type, TextPos,
+		   OptTable, NumOptionals, Ext) ->
     %% OPTIONAL or DEFAULT
     OptPos = get_optionality_pos(TextPos, OptTable),
     Element = case NumOptionals - OptPos of
@@ -1225,7 +1261,7 @@ comp_call_pre_post(noext, Prop, _, _, TextPos, OptTable, NumOptionals, Ext) ->
 	      emit([";",nl,
 		    "0 ->",nl,
 		    "{"]),
-	      gen_dec_component_no_val(Ext, Prop),
+	      gen_dec_component_no_val(Ext, Type, Prop),
 	      emit([",",{curr,bytes},"}",nl,
 		    "end"]),
 	      St
@@ -1247,10 +1283,10 @@ comp_call_pre_post({ext,_,_}, Prop, Pos, Type, _, _, _, Ext) ->
 			       components=ExtGroupCompList2}}
 		    when is_integer(Number2)->
 		      emit("{extAddGroup,"),
-		      gen_dec_extaddGroup_no_val(Ext, ExtGroupCompList2),
+		      gen_dec_extaddGroup_no_val(Ext, Type, ExtGroupCompList2),
 		      emit("}");
 		  _ ->
-		      gen_dec_component_no_val(Ext, Prop)
+		      gen_dec_component_no_val(Ext, Type, Prop)
 	      end,
 	      emit([",",{curr,bytes},"}",nl,
 		    "end"]),
@@ -1265,21 +1301,22 @@ is_mandatory_predef_tab_c(_, _, {"got objfun through args","ObjFun"}) ->
 is_mandatory_predef_tab_c(_,_,_) ->
     true.
 
-gen_dec_extaddGroup_no_val(Ext,[#'ComponentType'{prop=Prop}])->
-    gen_dec_component_no_val(Ext,Prop),
+gen_dec_extaddGroup_no_val(Ext, Type, [#'ComponentType'{prop=Prop}])->
+    gen_dec_component_no_val(Ext, Type, Prop),
     ok;
-gen_dec_extaddGroup_no_val(Ext,[#'ComponentType'{prop=Prop}|Rest])->
-    gen_dec_component_no_val(Ext,Prop),
-    emit({","}),
-    gen_dec_extaddGroup_no_val(Ext,Rest);
-gen_dec_extaddGroup_no_val(_, []) ->
+gen_dec_extaddGroup_no_val(Ext, Type, [#'ComponentType'{prop=Prop}|Rest])->
+    gen_dec_component_no_val(Ext, Type, Prop),
+    emit(","),
+    gen_dec_extaddGroup_no_val(Ext, Type, Rest);
+gen_dec_extaddGroup_no_val(_, _, []) ->
     ok.
 
-gen_dec_component_no_val(_,{'DEFAULT',DefVal}) ->
+gen_dec_component_no_val(_, Type, {'DEFAULT',DefVal0}) ->
+    DefVal = asn1ct_gen:conform_value(Type, DefVal0),
     emit([{asis,DefVal}]);
-gen_dec_component_no_val(_,'OPTIONAL') ->
+gen_dec_component_no_val(_, _, 'OPTIONAL') ->
     emit({"asn1_NOVALUE"});
-gen_dec_component_no_val({ext,_,_},mandatory) ->
+gen_dec_component_no_val({ext,_,_}, _, mandatory) ->
     emit({"asn1_NOVALUE"}).
     
 

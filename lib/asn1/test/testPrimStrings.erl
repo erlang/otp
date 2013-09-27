@@ -19,7 +19,7 @@
 %%
 -module(testPrimStrings).
 
--export([bit_string/1]).
+-export([bit_string/2]).
 -export([octet_string/1]).
 -export([numeric_string/1]).
 -export([other_strings/1]).
@@ -68,7 +68,7 @@ fragmented_lengths() ->
      K64-1,K64,K64+1,K64+(1 bsl 7)-1,K64+(1 bsl 7),K64+(1 bsl 7)+1,
      K64+K16-1,K64+K16,K64+K16+1].
 
-bit_string(Rules) ->
+bit_string(Rules, Opts) ->
     
     %%==========================================================
     %% Bs1 ::= BIT STRING
@@ -90,9 +90,10 @@ bit_string(Rules) ->
     bs_roundtrip('Bs1', [0,1,0,0,1,0]),
     bs_roundtrip('Bs1', [1,0,0,0,0,0,0,0,0]),
     bs_roundtrip('Bs1', [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1]),
-    
-    case Rules of
-	ber ->
+
+
+    case {Rules,Opts} of
+	{ber,[]} ->
 	    bs_decode('Bs1', <<35,8,3,2,0,73,3,2,4,32>>,
 		      [0,1,0,0,1,0,0,1,0,0,1,0]),
 	    bs_decode('Bs1', <<35,9,3,2,0,234,3,3,7,156,0>>,
@@ -100,7 +101,17 @@ bit_string(Rules) ->
 	    bs_decode('Bs1', <<35,128,3,2,0,234,3,3,7,156,0,0,0>>,
 		      [1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,0]);
 	_ ->
-	    ok
+	    %% DER, PER, UPER
+	    consistent_def_enc('BsDef1',
+			       [2#111101,
+				[1,0,1,1,1,1],
+				{2,<<2#101111:6,0:2>>},
+				<<2#101111:6>>]),
+	    consistent_def_enc('BsDef2',
+			       [[1,1,0,1, 1,1,1,0, 1,0,1,0, 1,1,0,1,
+				 1,0,1,1, 1,1,1,0, 1,1,1,0, 1,1,1,1],
+				{0,<<16#DEADBEEF:4/unit:8>>},
+				<<16#DEADBEEF:4/unit:8>>])
     end,
 
     
@@ -216,6 +227,24 @@ bit_string(Rules) ->
 	ber -> ok;
 	_ -> per_bs_strings()
     end.
+
+consistent_def_enc(Type, Vs) ->
+    M = 'PrimStrings',
+    {ok,Enc} = M:encode(Type, {Type,asn1_DEFAULT}),
+    {ok,Val} = M:decode(Type, Enc),
+
+    %% Ensure that the value has the correct format.
+    case {M:bit_string_format(),Val} of
+	{bitstring,{_,Bs}} when is_bitstring(Bs) -> ok;
+	{compact,{_,{Unused,Bin}}} when is_integer(Unused),
+					is_binary(Bin) -> ok;
+	{legacy,{_,Bs}} when is_list(Bs) -> ok
+    end,
+
+    %% All values should be recognized and encoded as the
+    %% the default value (i.e. not encoded at all).
+    _ = [{ok,Enc} = M:encode(Type, {Type,V}) || V <- Vs],
+    ok.
 
 %% The PER encoding rules requires that a BIT STRING with
 %% named positions should never have any trailing zeroes

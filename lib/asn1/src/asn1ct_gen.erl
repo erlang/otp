@@ -33,7 +33,9 @@
 	 insert_once/2,
 	 ct_gen_module/1,
 	 index2suffix/1,
-	 get_record_name_prefix/0]).
+	 get_record_name_prefix/0,
+	 conform_value/2,
+	 named_bitstring_value/2]).
 -export([pgen/5,
 	 mk_var/1, 
 	 un_hyphen_var/1]).
@@ -1485,8 +1487,14 @@ gen_prim_check_call(PrimType, Default, Element, Type) ->
 		  end,
 	    check_call(check_int, [Default,Element,{asis,NNL}]);
 	'BIT STRING' ->
-	    {_,NBL} = Type#type.def,
-	    check_call(check_bitstring, [Default,Element,{asis,NBL}]);
+	    case Type#type.def of
+		{_,[]} ->
+		    check_call(check_bitstring,
+			       [Default,Element]);
+		{_,[_|_]=NBL} ->
+		    check_call(check_named_bitstring,
+			       [Default,Element,{asis,NBL}])
+	    end;
 	'OCTET STRING' ->
 	    check_call(check_octetstring, [Default,Element]);
 	'NULL' ->
@@ -1640,9 +1648,33 @@ unify_if_string(PrimType) ->
 	Other -> Other
     end.
 
+conform_value(#type{def={'BIT STRING',[]}}, Bs) ->
+    case asn1ct:get_bit_string_format() of
+	compact when is_binary(Bs) ->
+	    {0,Bs};
+	compact when is_bitstring(Bs) ->
+	    Sz = bit_size(Bs),
+	    Unused = 8 - bit_size(Bs),
+	    {Unused,<<Bs:Sz/bits,0:Unused>>};
+	legacy ->
+	    [B || <<B:1>> <= Bs];
+	bitstring when is_bitstring(Bs) ->
+	    Bs
+    end;
+conform_value(_, Value) -> Value.
 
-	
-	
+named_bitstring_value(List, Names) ->
+    Int = lists:foldl(fun(N, A) ->
+			      {N,Pos} = lists:keyfind(N, 1, Names),
+			      A bor (1 bsl Pos)
+		      end, 0, List),
+    named_bitstring_value_1(<<>>, Int).
+
+named_bitstring_value_1(Bs, 0) ->
+    Bs;
+named_bitstring_value_1(Bs, Int) ->
+    B = Int band 1,
+    named_bitstring_value_1(<<Bs/bitstring,B:1>>, Int bsr 1).
 
 get_inner(A) when is_atom(A) -> A;    
 get_inner(Ext) when is_record(Ext,'Externaltypereference') -> Ext;    

@@ -37,6 +37,7 @@
 	 bitstring_from_positions/1,bitstring_from_positions/2,
 	 to_bitstring/1,to_bitstring/2,
 	 to_named_bitstring/1,to_named_bitstring/2,
+	 is_default_bitstring/5,
 	 extension_bitmap/3]).
 
 -define('16K',16384).
@@ -271,6 +272,36 @@ to_named_bitstring(Val, Lb) ->
     %% for correctness, not speed.
     adjust_trailing_zeroes(to_bitstring(Val), Lb).
 
+is_default_bitstring(asn1_DEFAULT, _, _, _, _) ->
+    true;
+is_default_bitstring({Unused,Bin}, V0, V1, V2, V3) when is_integer(Unused) ->
+    %% Convert compact bitstring to a bitstring.
+    Sz = bit_size(Bin) - Unused,
+    <<Bs:Sz/bitstring,_:Unused>> = Bin,
+    is_default_bitstring(Bs, V0, V1, V2, V3);
+is_default_bitstring(Named, Named, _, _, _) ->
+    true;
+is_default_bitstring(Bs, _, Bs, _, _) ->
+    true;
+is_default_bitstring(List, _, _, List, _) ->
+    true;
+is_default_bitstring(Int, _, _, _, Int) ->
+    true;
+is_default_bitstring(Val, _, Def, _, _) when is_bitstring(Val) ->
+    Sz = bit_size(Def),
+    case Val of
+	<<Def:Sz/bitstring,T/bitstring>> ->
+	    NumZeroes = bit_size(T),
+	    case T of
+		<<0:NumZeroes>> -> true;
+		_ -> false
+	    end;
+	_ ->
+	    false
+    end;
+is_default_bitstring(Val, _, _, List, _) when is_list(Val) ->
+    is_default_bitstring_list(List, Val);
+is_default_bitstring(_, _, _, _, _) -> false.
 
 extension_bitmap(Val, Pos, Limit) ->
     extension_bitmap(Val, Pos, Limit, 0).
@@ -446,6 +477,16 @@ ntz(Byte) ->
 	 5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
 	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0},
     element(Byte+1, T).
+
+is_default_bitstring_list([H|Def], [H|Val]) ->
+    is_default_bitstring_list(Def, Val);
+is_default_bitstring_list([], []) ->
+    true;
+is_default_bitstring_list([], [_|_]=Val) ->
+    lists:all(fun(0) -> true;
+		 (_) -> false
+	      end, Val);
+is_default_bitstring_list(_, _) -> false.
 
 extension_bitmap(_Val, Pos, Limit, Acc) when Pos >= Limit ->
     Acc;

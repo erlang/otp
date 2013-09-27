@@ -20,7 +20,7 @@
 
 -export([check_bool/2,
 	 check_int/3,
-	 check_bitstring/3,
+	 check_bitstring/2,check_named_bitstring/3,
 	 check_octetstring/2,
 	 check_null/2,
 	 check_objectidentifier/2,
@@ -50,31 +50,54 @@ check_int(DefValue, Value, NNL) when is_atom(Value) ->
 check_int(DefaultValue, _Value, _) ->
     throw({error,DefaultValue}).
 
-%% Two equal lists or integers
-check_bitstring(_, asn1_DEFAULT, _) ->
+%% check_bitstring(Default, UserBitstring) -> true|false
+%%  Default = bitstring()
+%%  UserBitstring = integeger() | list(0|1) | {Unused,binary()} | bitstring()
+check_bitstring(_, asn1_DEFAULT) ->
     true;
-check_bitstring(V, V, _) ->
-    true;
-%% Default value as a list of 1 and 0 and user value as an integer
-check_bitstring(L=[H|T], Int, _) when is_integer(Int), is_integer(H) ->
-    case bit_list_to_int(L, length(T)) of
-	Int -> true;
-	_ -> throw({error,L,Int})
+check_bitstring(DefVal, {Unused,Binary}) ->
+    %% User value in compact format.
+    Sz = bit_size(Binary) - Unused,
+    <<Val:Sz/bitstring,_:Unused>> = Binary,
+    check_bitstring(DefVal, Val);
+check_bitstring(DefVal, Val) when is_bitstring(Val) ->
+    case Val =:= DefVal of
+	false -> throw(error);
+	true -> true
     end;
-%% Default value as an integer, val as list
-check_bitstring(Int, Val, NBL) when is_integer(Int), is_list(Val) ->
-    BL = int_to_bit_list(Int, [], length(Val)),
-    check_bitstring(BL, Val, NBL);
+check_bitstring(Def, Val) when is_list(Val) ->
+    check_bitstring_list(Def, Val);
+check_bitstring(Def, Val) when is_integer(Val) ->
+    check_bitstring_integer(Def, Val).
+
+check_bitstring_list(<<H:1,T1/bitstring>>, [H|T2]) ->
+    check_bitstring_list(T1, T2);
+check_bitstring_list(<<>>, []) ->
+    true;
+check_bitstring_list(_, _) ->
+    throw(error).
+
+check_bitstring_integer(<<H:1,T1/bitstring>>, Int) when H =:= Int band 1 ->
+    check_bitstring_integer(T1, Int bsr 1);
+check_bitstring_integer(<<>>, 0) ->
+    true;
+check_bitstring_integer(_, _) ->
+    throw(error).
+
+check_named_bitstring(_, asn1_DEFAULT, _) ->
+    true;
+check_named_bitstring(V, V, _) ->
+    true;
 %% Default value and user value as lists of ones and zeros
-check_bitstring(L1=[H1|_T1], L2=[H2|_T2], NBL=[_H|_T]) when is_integer(H1), is_integer(H2) ->
+check_named_bitstring(L1=[H1|_T1], L2=[H2|_T2], NBL=[_H|_T]) when is_integer(H1), is_integer(H2) ->
     L2new = remove_trailing_zeros(L2),
-    check_bitstring(L1, L2new, NBL);
+    check_named_bitstring(L1, L2new, NBL);
 %% Default value as a list of 1 and 0 and user value as a list of atoms
-check_bitstring(L1=[H1|_T1], L2=[H2|_T2], NBL) when is_integer(H1), is_atom(H2) ->
+check_named_bitstring(L1=[H1|_T1], L2=[H2|_T2], NBL) when is_integer(H1), is_atom(H2) ->
     L3 = bit_list_to_nbl(L1, NBL, 0, []),
-    check_bitstring(L3, L2, NBL);
+    check_named_bitstring(L3, L2, NBL);
 %% Both default value and user value as a list of atoms
-check_bitstring(L1=[H1|T1], L2=[H2|_T2], _)
+check_named_bitstring(L1=[H1|T1], L2=[H2|_T2], _)
   when is_atom(H1), is_atom(H2), length(L1) =:= length(L2) ->
     case lists:member(H1, L2) of
 	true ->
@@ -82,27 +105,29 @@ check_bitstring(L1=[H1|T1], L2=[H2|_T2], _)
 	false -> throw({error,L2})
     end;
 %% Default value as a list of atoms and user value as a list of 1 and 0
-check_bitstring(L1=[H1|_T1], L2=[H2|_T2], NBL) when is_atom(H1), is_integer(H2) ->
+check_named_bitstring(L1=[H1|_T1], L2=[H2|_T2], NBL) when is_atom(H1), is_integer(H2) ->
     L3 = bit_list_to_nbl(L2, NBL, 0, []),
-    check_bitstring(L1, L3, NBL);
+    check_named_bitstring(L1, L3, NBL);
 %% User value in compact format
-check_bitstring(DefVal,CBS={_,_}, NBL) ->
+check_named_bitstring(DefVal,CBS={_,_}, NBL) ->
     NewVal = cbs_to_bit_list(CBS),
-    check_bitstring(DefVal, NewVal, NBL);
-check_bitstring(DV, V, _) ->
+    check_named_bitstring(DefVal, NewVal, NBL);
+%% User value as a binary
+check_named_bitstring(DefVal, CBS, NBL) when is_binary(CBS) ->
+    NewVal = cbs_to_bit_list({0,CBS}),
+    check_named_bitstring(DefVal, NewVal, NBL);
+%% User value as a bitstring
+check_named_bitstring(DefVal, CBS, NBL) when is_bitstring(CBS) ->
+    BitSize = bit_size(CBS),
+    Unused = 8 - (BitSize band 7),
+    NewVal = cbs_to_bit_list({Unused,<<CBS:BitSize/bits,0:Unused>>}),
+    check_named_bitstring(DefVal, NewVal, NBL);
+check_named_bitstring(DV, V, _) ->
     throw({error,DV,V}).
-
-
-bit_list_to_int([0|Bs], ShL)->
-    bit_list_to_int(Bs, ShL-1) + 0;
-bit_list_to_int([1|Bs], ShL) ->
-    bit_list_to_int(Bs, ShL-1) + (1 bsl ShL);
-bit_list_to_int([], _) ->
-    0.
 
 int_to_bit_list(0, Acc, 0) ->
     Acc;
-int_to_bit_list(Int, Acc, Len) ->
+int_to_bit_list(Int, Acc, Len) when Len > 0 ->
     int_to_bit_list(Int bsr 1, [Int band 1|Acc], Len - 1).
 
 bit_list_to_nbl([0|T], NBL, Pos, Acc) ->
