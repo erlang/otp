@@ -24,43 +24,15 @@
 -include_lib("test_server/include/test_server.hrl").
 
 choice(_Rules) ->
-    
-    ?line {ok,Bytes11} = asn1_wrapper:encode('ChoTypeRefCho','ChoTRcho',{choCho,{choInt,88}}),
-    ?line {ok,{choCho,{choInt,88}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoTRcho',lists:flatten(Bytes11)),
-    
-    ?line {ok,Bytes12} = asn1_wrapper:encode('ChoTypeRefCho','ChoTRcho',{choChoE,{choInt,88}}),
-    ?line {ok,{choChoE,{choInt,88}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoTRcho',lists:flatten(Bytes12)),
-    
-    ?line {ok,Bytes13} = asn1_wrapper:encode('ChoTypeRefCho','ChoTRcho',{'choCho-E',{choInt,88}}),
-    ?line {ok,{'choCho-E',{choInt,88}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoTRcho',lists:flatten(Bytes13)),
-    
-    ?line {ok,Bytes14} = asn1_wrapper:encode('ChoTypeRefCho','ChoTRcho',{'choChoE-E',{choInt,88}}),
-    ?line {ok,{'choChoE-E',{choInt,88}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoTRcho',lists:flatten(Bytes14)),
-    
-    
-
-    ?line {ok,Bytes21} = asn1_wrapper:encode('ChoTypeRefCho','ChoChoInline',{bool1,true}),
-    ?line {ok,{bool1,true}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoChoInline',lists:flatten(Bytes21)),
-    
-    ?line {ok,Bytes22} = asn1_wrapper:encode('ChoTypeRefCho','ChoChoInline',{'choCho',{bool,true}}),
-    ?line {ok,{'choCho',{bool,true}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoChoInline',lists:flatten(Bytes22)),
-    
-    ?line {ok,Bytes23} = asn1_wrapper:encode('ChoTypeRefCho','ChoChoInline',{'choCho',{octStr,"kk"}}),
-    ?line {ok,{'choCho',{octStr,"kk"}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoChoInline',lists:flatten(Bytes23)),
-    
-    ?line {ok,Bytes24} = asn1_wrapper:encode('ChoTypeRefCho','ChoChoInline',{'choCho',{int,55}}),
-    ?line {ok,{'choCho',{int,55}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoChoInline',lists:flatten(Bytes24)),
-    
-    
-    
-    
-    
+    roundtrip('ChoTRcho', {choCho,{choInt,88}}),
+    roundtrip('ChoTRcho', {choChoE,{choInt,88}}),
+    roundtrip('ChoTRcho', {'choCho-E',{choInt,88}}),
+    roundtrip('ChoTRcho', {'choChoE-E',{choInt,88}}),
+    roundtrip('ChoChoInline', {bool1,true}),
+    roundtrip('ChoChoInline', {choCho,{bool,true}}),
+    roundtrip('ChoChoInline', {choCho,{octStr,"kk"}}),
+    roundtrip('ChoChoInline', {choCho,{int,55}}),
     ok.
+
+roundtrip(Type, Value) ->
+    asn1_test_lib:roundtrip('ChoTypeRefCho', Type, Value).

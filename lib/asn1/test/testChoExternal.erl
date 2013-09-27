@@ -18,24 +18,10 @@
 %%
 %%
 -module(testChoExternal).
-
-
--export([compile/3]).
 -export([external/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include("External.hrl").
-
-
-
-compile(Config, Rules, Optimize) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
-    true = code:add_patha(CaseDir),
-    ok = asn1ct:compile(DataDir ++ "ChoExternal",
-                        [Rules, {outdir, CaseDir}] ++ Optimize).
-
-
 
 external(_Rules) ->
     roundtrip('ChoXCho', {boolCho,true}),
@@ -59,6 +45,4 @@ external(_Rules) ->
     ok.
 
 roundtrip(Type, Value) ->
-    {ok,Encoded} = 'ChoExternal':encode(Type, Value),
-    {ok,Value} = 'ChoExternal':decode(Type, Encoded),
-    ok.
+    asn1_test_lib:roundtrip('ChoExternal', Type, Value).

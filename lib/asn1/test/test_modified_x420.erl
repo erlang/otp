@@ -26,8 +26,9 @@ test(Config) ->
     DataDir = ?config(data_dir,Config),
 
     Der = read_pem(filename:join([DataDir,modified_x420,"p7_signed_data.pem"])),
-    {ok,{_,_,SignedData}} = asn1_wrapper:decode('PKCS7', 'ContentInfo', Der),
-    {ok,_} = asn1_wrapper:decode('PKCS7', 'SignedData', SignedData).
+    {ok,{_,_,SignedData}} = 'PKCS7':decode( 'ContentInfo', Der),
+    {ok,_} = 'PKCS7':decode('SignedData', SignedData),
+    ok.
 
 read_pem(File) ->    
     {ok,Bin} = file:read_file(File),

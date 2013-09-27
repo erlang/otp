@@ -121,9 +121,7 @@ main(_Erule) ->
 	      {'Multiple-Optionals',1,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE}).
 
 roundtrip(M, T, V) ->
-    {ok,Enc} = M:encode(T, V),
-    {ok,V} = M:decode(T, Enc),
-    ok.
+    asn1_test_lib:roundtrip(M, T, V).
 
 enc_dec(M, T, V0) ->
     {ok,Enc} = M:encode(T, V0),

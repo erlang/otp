@@ -19,7 +19,7 @@
 %%
 -module(test_special_decode_performance).
 
--export([go/1,loop2/4,loop1/5]).
+-export([go/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -49,7 +49,7 @@ go1(_,_,[],_,_,AccTime) ->
 %% go1 for common decode
 go1(common,Mod,_,Bin,N,_) ->
     ?line TT=get_top_type(Mod),
-    ?line {Time,Result}=timer:tc(?MODULE,loop1,[Mod,decode,TT,Bin,N]),
+    {Time,Result} = timer:tc(fun() -> loop1(Mod, decode, TT, Bin, N) end),
     case Result of
 	{ok,_R1} ->
 	    io:format("common Decode ~p:decode, ~p times on time ~p~n",
@@ -59,7 +59,7 @@ go1(common,Mod,_,Bin,N,_) ->
     end,
     Time;
 go1(Dec,Mod,[F|Fs],Bin,N,AccTime) ->
-    ?line {Time,Result}=timer:tc(?MODULE,loop2,[Mod,F,Bin,N]),
+    {Time,Result}=timer:tc(fun() -> loop2(Mod, F, Bin, N) end),
     case Result of
 	{ok,_R1} ->
 	    io:format("~p Decode ~p:~p, ~p times on time ~p~n",[Dec,Mod,F,N,Time]);

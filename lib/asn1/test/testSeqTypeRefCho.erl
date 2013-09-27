@@ -27,17 +27,12 @@
 -record('SeqTRcho',{seqCho, seqChoE, 'seqCho-E', 'seqChoE-E'}).
 
 main(_Rules) ->
-    
-
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SeqTypeRefCho','SeqTRcho',
-		      #'SeqTRcho'{'seqCho' = {choOs,"A string 1"},
-				  'seqChoE' = {choOs,"A string 3"},
-				  'seqCho-E' = {choOs,"A string 7"},
-				  'seqChoE-E' = {choOs,"A string 9"}}),
-    ?line {ok,{'SeqTRcho',{choOs,"A string 1"},{choOs,"A string 3"},{choOs,"A string 7"},{choOs,"A string 9"}}} = 
-	asn1_wrapper:decode('SeqTypeRefCho','SeqTRcho',lists:flatten(Bytes11)),
-
-
-
+    roundtrip('SeqTRcho',
+	      #'SeqTRcho'{'seqCho' = {choOs,"A string 1"},
+			  'seqChoE' = {choOs,"A string 3"},
+			  'seqCho-E' = {choOs,"A string 7"},
+			  'seqChoE-E' = {choOs,"A string 9"}}),
     ok.
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SeqTypeRefCho', T, V).

@@ -18,19 +18,16 @@
 %%
 %%
 -module(testSelectionTypes).
-
 -export([test/0]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 test() ->
     Val = ["PrintableString","PrintableString","PrintableString"],
-    ?line {ok,Bin}=asn1_wrapper:encode('SelectionType','MendeleyevTable',Val),          
-    ?line {ok,Val} = asn1_wrapper:decode('SelectionType','MendeleyevTable',Bin),
+    ["Es"] = Val2 = ['SelectionType':einsteinium()],
+    roundtrip('MendeleyevTable', Val),
+    roundtrip('MendeleyevTable', Val2),
+    ok.
 
-    ?line Val2 = ['SelectionType':einsteinium()],
-    ?line ["Es"] = Val2,
-    
-    ?line {ok,Bin2}=asn1_wrapper:encode('SelectionType','MendeleyevTable',Val2),          
-    ?line {ok,Val2} = asn1_wrapper:decode('SelectionType','MendeleyevTable',Bin2).
-
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SelectionType', T, V).

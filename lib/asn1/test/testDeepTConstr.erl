@@ -88,9 +88,7 @@ main(_Erule) ->
 
 
 roundtrip(M, T, V) ->
-    {ok,E} = M:encode(T, V),
-    {ok,V} = M:decode(T, E),
-    ok.
+    asn1_test_lib:roundtrip(M, T, V).
 
 %% Either encoding or decoding must fail.
 must_fail(M, T, V) ->

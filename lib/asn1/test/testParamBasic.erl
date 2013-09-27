@@ -29,53 +29,22 @@
 -record('T22',{number, string}).
 
 main(Rules) ->
-    
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('ParamBasic','T11',
-			    #'T11'{number = 11,
-				   string = "hello"}),
-    ?line {ok,{'T11',11,"hello"}} =
-	asn1_wrapper:decode('ParamBasic','T11',Bytes11),
-	    
-    ?line {ok,Bytes12} = 
-	asn1_wrapper:encode('ParamBasic','T12',
-			    #'T12'{number = 11,
-				   string = <<2#10101:5>>}),
-    {ok,{'T12',11,<<2#10101:5>>}} =
-	asn1_wrapper:decode('ParamBasic','T12',Bytes12),
-    
-    ?line {ok,Bytes13} = 
-	asn1_wrapper:encode('ParamBasic','T21',
-			    #'T21'{number = 11,
-				   string = "hello"}),
-    ?line {ok,{'T21',11,"hello"}} =
-	asn1_wrapper:decode('ParamBasic','T21',Bytes13),
-	    
-    ?line {ok,Bytes14} = 
-	asn1_wrapper:encode('ParamBasic','T22',
-			    #'T22'{number = 11,
-				   string = <<2#10101:5>>}),
-    {ok,{'T22',11,<<2#10101:5>>}} =
-	asn1_wrapper:decode('ParamBasic','T22',Bytes14),
-
+    roundtrip('T11', #'T11'{number=11,string="hello"}),
+    roundtrip('T12', #'T12'{number=11,string = <<21:5>>}),
+    roundtrip('T21', #'T21'{number=11,string="hello"}),
+    roundtrip('T22', #'T22'{number=11,string = <<21:5>>}),
     case Rules of
 	der ->
-
-	    ?line {ok,[48,3,128,1,11]} = 
-		asn1_wrapper:encode('ParamBasic','T11',
-				    #'T11'{number = 11,
-					   string = "hej"}),
-	    ?line {ok,{'T11',11,"hej"}} =
-		asn1_wrapper:decode('ParamBasic','T11',[48,3,128,1,11]),
-	    
-	    ?line {ok,[48,3,128,1,11]} = 
-		asn1_wrapper:encode('ParamBasic','T12',
-				    #'T12'{number = 11,
-					   string = [1,0,1,0]}),
-	    
-	    ?line {ok,{'T12',11,[1,0,1,0]}} =
-		asn1_wrapper:decode('ParamBasic','T12',[48,3,128,1,11]);
+	    <<48,3,128,1,11>> =
+		roundtrip_enc('T11', #'T11'{number=11,string="hej"}),
+	    <<48,3,128,1,11>> =
+		roundtrip_enc('T12', #'T12'{number=11,string=[1,0,1,0]});
 	_ -> ok
     end,
-	    
     ok.
+
+roundtrip(Type, Value) ->
+    asn1_test_lib:roundtrip('ParamBasic', Type, Value).
+
+roundtrip_enc(Type, Value) ->
+    asn1_test_lib:roundtrip_enc('ParamBasic', Type, Value).

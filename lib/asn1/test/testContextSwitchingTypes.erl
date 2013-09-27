@@ -24,31 +24,21 @@
 -include_lib("test_server/include/test_server.hrl").
 
 test(Config) ->
-    ?line ValT = 'ContextSwitchingTypes':'val1-T'(),
-    ?line {ok,Bytes1} =
-	asn1_wrapper:encode('ContextSwitchingTypes','T',ValT),
-    ?line {ok,Result1} = 
-	asn1_wrapper:decode('ContextSwitchingTypes','T',Bytes1),
-    ?line ok = check_EXTERNAL(Result1),
-    ?line {ok,ValT2} = asn1ct:value('ContextSwitchingTypes','T',
-                                    [{i, ?config(case_dir, Config)}]),
-    ?line {ok,Bytes1_2} =
-	asn1_wrapper:encode('ContextSwitchingTypes','T',ValT2),
-    ?line {ok,Result1_2} = 
-	asn1_wrapper:decode('ContextSwitchingTypes','T',Bytes1_2),
-    ?line ok = check_EXTERNAL(Result1_2),
+    ValT = 'ContextSwitchingTypes':'val1-T'(),
+    check_EXTERNAL(enc_dec('T', ValT)),
 
-    ?line ValEP = 'ContextSwitchingTypes':'val1-EP'(),
-    ?line {ok,Bytes2} =
-	asn1_wrapper:encode('ContextSwitchingTypes','EP',ValEP),
-    ?line {ok,_Result2} = 
-	asn1_wrapper:decode('ContextSwitchingTypes','EP',Bytes2),
+    {ok,ValT2} = asn1ct:value('ContextSwitchingTypes', 'T',
+			      [{i,?config(case_dir, Config)}]),
+    check_EXTERNAL(enc_dec('T', ValT2)),
 
-    ?line ValCS = 'ContextSwitchingTypes':'val1-CS'(),
-    ?line {ok,Bytes3} =
-	asn1_wrapper:encode('ContextSwitchingTypes','CS',ValCS),
-    ?line {ok,_Result3} = 
-	asn1_wrapper:decode('ContextSwitchingTypes','CS',Bytes3).
+    ValEP = 'ContextSwitchingTypes':'val1-EP'(),
+    ValEPDec = enc_dec('EP', ValEP),
+    io:format("~p\n~p\n", [ValEP,ValEPDec]),
+
+    ValCS = 'ContextSwitchingTypes':'val1-CS'(),
+    ValCSDec = enc_dec('EP', ValCS),
+    io:format("~p\n~p\n", [ValCS,ValCSDec]),
+    ok.
 
 
 check_EXTERNAL({'EXTERNAL',Identif,DVD,DV})->
@@ -85,3 +75,9 @@ check_object_identifier(Tuple) when is_tuple(Tuple) ->
 	       not is_integer(E)] of
 	[] -> ok
     end.
+
+enc_dec(T, V0) ->
+    M = 'ContextSwitchingTypes',
+    {ok,Enc} = M:encode(T, V0),
+    {ok,V} = M:decode(T, Enc),
+    V.
