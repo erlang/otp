@@ -106,7 +106,13 @@ result(Response = {{_, Code, _}, _, _}, Request =
   when ((Code div 100) =:= 3) andalso (Redirects > ?HTTP_MAX_REDIRECTS) ->
     transparent(Response, Request);
 
-%% force redirect no matter which 30X code we receive
+%% force redirect no matter which 30X code we receive 
+%% but for POST, we change methods upon receiving 303
+result(Response = {{_, 303, _}, _, _},
+       Request = #request{settings =
+			  #http_options{autoredirect = force},
+			  method = post}) ->
+    redirect(Response, Request#request{method = get});
 result(Response = _, 
        Request = #request{settings = 
               #http_options{autoredirect = 
