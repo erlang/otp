@@ -350,7 +350,7 @@ ok</code>
 
     <p> or </p>
 
-    <code>1> PemBin = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey).
+    <code>1> PemEntry = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey).
 {'SubjectPublicKeyInfo', &lt;&lt;48,92...&gt;&gt;, not_encrypted}
 
 2> PemBin = public_key:pem_encode([PemEntry]).
