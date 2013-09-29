@@ -97,9 +97,21 @@ result(Response = {{_,100,_}, _, _}, Request) ->
 %% In redirect loop
 result(Response = {{_, Code, _}, _, _}, Request =
        #request{redircount = Redirects,
+		settings = #http_options{autoredirect = force}}) 
+  when ((Code div 100) =:= 3) andalso (Redirects > ?HTTP_MAX_REDIRECTS) ->
+    transparent(Response, Request);
+result(Response = {{_, Code, _}, _, _}, Request =
+       #request{redircount = Redirects,
 		settings = #http_options{autoredirect = true}}) 
   when ((Code div 100) =:= 3) andalso (Redirects > ?HTTP_MAX_REDIRECTS) ->
     transparent(Response, Request);
+
+%% force redirect no matter which 30X code we receive
+result(Response = _, 
+       Request = #request{settings = 
+              #http_options{autoredirect = 
+                    force}}) ->
+    redirect(Response, Request);
 
 %% multiple choices 
 result(Response = {{_, 300, _}, _, _}, 
