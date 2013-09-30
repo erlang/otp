@@ -27,6 +27,7 @@
 #include "ose.h"
 #undef NIL
 #include "ramlog.h"
+#include "erts.sig"
 
 #include "fcntl.h"
 #include "math.h"

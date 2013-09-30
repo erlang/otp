@@ -68,8 +68,6 @@
 #  define SEL_REALLOC	realloc_wrap
 #  define SEL_FREE	erts_free
 
-#define ERTS_POLL_INVALID_SIGNO 12345
-
 #ifdef ERTS_SMP
 
 #define ERTS_POLLSET_LOCK(PS) \
@@ -308,7 +306,7 @@ static int update_sigsel(ErtsPollSet ps) {
 	 */
 	ps->sigs = SEL_ALLOC(ERTS_ALC_T_POLLSET,sizeof(SIGSELECT)*(2));
 	ps->sigs[0] = 1;
-	ps->sigs[1] = ERTS_POLL_INVALID_SIGNO;
+	ps->sigs[1] = ERTS_SIGNAL_INVALID;
 	return 0;
     }
 

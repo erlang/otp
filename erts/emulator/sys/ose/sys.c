@@ -583,12 +583,6 @@ void fini_getenv_state(GETENV_STATE *state)
 
 /* I. Common stuff */
 
-/*
- * Decreasing the size of it below 16384 is not allowed.
- */
-#define SYSDRIVERASYNCSIG 1000
-#define SYSDRIVERCONFSIG 1001
-
 typedef struct SysDriverAsyncSignal_ {
     SIGSELECT sig_no;
     int type;
@@ -611,6 +605,9 @@ union SIGNAL {
 
 /* II. The spawn/fd drivers */
 
+/*
+ * Decreasing the size of it below 16384 is not allowed.
+ */
 #define ERTS_SYS_READ_BUF_SZ (64*1024)
 
 /* Driver interfaces */
@@ -627,7 +624,7 @@ static void output(ErlDrvData, char*, ErlDrvSizeT);
 static void outputv(ErlDrvData, ErlIOVec*);
 static void stop_select(ErlDrvEvent, void*);
 static int resolve_signal(OseSignal* sig, int *mode) {
-    return sig->sig_no == SYSDRIVERASYNCSIG ? sig->sys_async.type : -1;
+    return sig->sig_no == ERTS_SIGNAL_FD_DRV_ASYNC ? sig->sys_async.type : -1;
 }
 
 OS_PROCESS(fd_writer_process);
@@ -712,9 +709,9 @@ static int set_driver_data(ErlDrvPort port_num,
 	report_exit->ofd = read_write & DO_WRITE ? ofd : -1;
 
 	if (read_write & DO_READ)
-	  report_exit->in_sig_descr = erl_drv_ose_event_alloc(SYSDRIVERASYNCSIG, ifd);
+	  report_exit->in_sig_descr = erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC, ifd);
 	if (read_write & DO_WRITE)
-	  report_exit->out_sig_descr = erl_drv_ose_event_alloc(SYSDRIVERASYNCSIG, ofd);
+	  report_exit->out_sig_descr = erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC, ofd);
 
 	report_exit_list = report_exit;
     }
@@ -730,13 +727,13 @@ static int set_driver_data(ErlDrvPort port_num,
 	driver_data[ifd].pid = pid;
 	driver_data[ifd].alive = 1;
 	driver_data[ifd].status = 0;
-	driver_data[ifd].in_sig_descr = erl_drv_ose_event_alloc(SYSDRIVERASYNCSIG,ifd);
+	driver_data[ifd].in_sig_descr = erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC,ifd);
 
 	driver_data[ifd].in_proc = create_process(OS_PRI_PROC,"beam_fd_reader",
                                                   fd_reader_process, 0x800,
                                                   FD_PROC_PRI, 0, 0, NULL, 0, 0);
 	efs_clone(driver_data[ifd].in_proc);
-	sig = alloc(sizeof(SysDriverConfSignal), SYSDRIVERCONFSIG);
+	sig = alloc(sizeof(SysDriverConfSignal), ERTS_SIGNAL_FD_DRV_CONFIG);
 	sig->conf_async.fd = ifd;
 	sig->conf_async.parent = current_process();
 	send(&sig, driver_data[ifd].in_proc);
@@ -745,12 +742,12 @@ static int set_driver_data(ErlDrvPort port_num,
 	if (read_write & DO_WRITE) {
 	    driver_data[ifd].ofd = ofd;
 	    driver_data[ifd].out_sig_descr =
-	      erl_drv_ose_event_alloc(SYSDRIVERASYNCSIG,ofd);
+	      erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC,ofd);
 	    driver_data[ifd].pdl = driver_pdl_create(port_num);
 	    driver_data[ifd].out_proc = create_process(OS_PRI_PROC, "beam_fd_writer",
                                                        fd_writer_process, 0x800,
                                                        FD_PROC_PRI, 0, 0, NULL, 0, 0);
-	    sig = alloc(sizeof(SysDriverConfSignal), SYSDRIVERCONFSIG);
+	    sig = alloc(sizeof(SysDriverConfSignal), ERTS_SIGNAL_FD_DRV_CONFIG);
 	    sig->conf_async.fd = ofd;
 	    sig->conf_async.parent = current_process();
 	    send(&sig, driver_data[ifd].out_proc);
@@ -771,13 +768,13 @@ static int set_driver_data(ErlDrvPort port_num,
 	driver_data[ofd].pid = pid;
 	driver_data[ofd].alive = 1;
 	driver_data[ofd].status = 0;
-	driver_data[ofd].in_sig_descr = erl_drv_ose_event_alloc(SYSDRIVERASYNCSIG,
+	driver_data[ofd].in_sig_descr = erl_drv_ose_event_alloc(ERTS_SIGNAL_FD_DRV_ASYNC,
 								ofd);
 	driver_data[ofd].out_sig_descr = driver_data[ofd].in_sig_descr;
 	driver_data[ofd].out_proc = create_process(OS_PRI_PROC, "beam_fd_writer",
                                                    fd_writer_process, 0x800,
                                                    FD_PROC_PRI, 0, 0, NULL, 0, 0);
-	sig = alloc(sizeof(SysDriverConfSignal), SYSDRIVERCONFSIG);
+	sig = alloc(sizeof(SysDriverConfSignal), ERTS_SIGNAL_FD_DRV_CONFIG);
 	sig->conf_async.fd = ofd;
 	sig->conf_async.parent = current_process();
 	send(&sig, driver_data[ofd].out_proc);
@@ -830,7 +827,7 @@ OS_PROCESS(fd_reader_process) {
     int fd;
     byte *read_buf;
 
-    SIGSELECT sigsel[] = {1,SYSDRIVERCONFSIG};
+    SIGSELECT sigsel[] = {1,ERTS_SIGNAL_FD_DRV_CONFIG};
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init();
@@ -855,7 +852,7 @@ OS_PROCESS(fd_reader_process) {
     }
 #endif
 
-    sigsel[1] = SYSDRIVERASYNCSIG;
+    sigsel[1] = ERTS_SIGNAL_FD_DRV_ASYNC;
 
     read_buf = (byte *) erts_alloc(ERTS_ALC_T_SYS_READ_BUF,
 				   ERTS_SYS_READ_BUF_SZ);
@@ -863,7 +860,7 @@ OS_PROCESS(fd_reader_process) {
 	int errno_copy = errno;
 	ssize_t res;
 	res = read(fd, read_buf, ERTS_SYS_READ_BUF_SZ);
-	sig = alloc(sizeof(SysDriverAsyncSignal), SYSDRIVERASYNCSIG);
+	sig = alloc(sizeof(SysDriverAsyncSignal), ERTS_SIGNAL_FD_DRV_ASYNC);
 	sig->sys_async.buff = read_buf;
 	sig->sys_async.res = res;
 	if (res <= 0 && errno == EBADF) {
@@ -888,7 +885,7 @@ OS_PROCESS(fd_writer_process) {
     OseSignal *sig;
     PROCESS parent;
     int fd;
-    SIGSELECT sigsel[] = { 1, SYSDRIVERCONFSIG, SYSDRIVERASYNCSIG };
+    SIGSELECT sigsel[] = { 1, ERTS_SIGNAL_FD_DRV_CONFIG, ERTS_SIGNAL_FD_DRV_ASYNC };
 
     TRACE;
     /* Only wait for config event with the fd which we are printing to */
@@ -928,7 +925,7 @@ OS_PROCESS(fd_writer_process) {
 	/* fprintf(stderr,"0x%x: fd_writer, receive\n", current_process()); */
 	sig = receive(sigsel);
 	/* size = sig->sys_async.res;*/
-	if (sig->sig_no == SYSDRIVERCONFSIG)
+	if (sig->sig_no == ERTS_SIGNAL_FD_DRV_CONFIG)
 	    return;
 	driver_pdl_lock(driver_data[fd].pdl);
 
@@ -1147,7 +1144,7 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
 	driver_enqv(ix, ev, 0);  /* n is the skip value */
 	driver_pdl_unlock(driver_data[fd].pdl);
 	driver_select(ix, driver_data[fd].out_sig_descr, ERL_DRV_WRITE|ERL_DRV_USE, 1);
-	sig = alloc(sizeof(SysDriverAsyncSignal),SYSDRIVERASYNCSIG);
+	sig = alloc(sizeof(SysDriverAsyncSignal),ERTS_SIGNAL_FD_DRV_ASYNC);
 	sig->sys_async.type = fd;
 	sig->sys_async.res = pb+len;
 	send(&sig,driver_data[fd].out_proc);
@@ -1201,7 +1198,7 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	driver_enq(ix, buf, len);
 	driver_pdl_unlock(driver_data[fd].pdl);
 	driver_select(ix, driver_data[ofd].out_sig_descr, ERL_DRV_WRITE|ERL_DRV_USE, 1);
-	sig = alloc(sizeof(SysDriverAsyncSignal),SYSDRIVERASYNCSIG);
+	sig = alloc(sizeof(SysDriverAsyncSignal),ERTS_SIGNAL_FD_DRV_ASYNC);
 	sig->sys_async.type = fd;
 	sig->sys_async.res = pb+len;
 	send(&sig,driver_data[fd].out_proc);
