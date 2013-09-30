@@ -32,13 +32,13 @@
 
 #if HAVE_MMAP
 #  define HAVE_ERTS_MSEG 1
-#  define HAVE_SUPER_ALIGNED_MB_CARRIERS 1
+#  define ERTS_HAVE_MSEG_SUPER_ALIGNED 1
 #else
 #  define HAVE_ERTS_MSEG 0
-#  define HAVE_SUPER_ALIGNED_MB_CARRIERS 0
+#  define ERTS_HAVE_MSEG_SUPER_ALIGNED 0
 #endif
 
-#if HAVE_SUPER_ALIGNED_MB_CARRIERS
+#if ERTS_HAVE_MSEG_SUPER_ALIGNED
 #  define MSEG_ALIGN_BITS (18)
    /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
 #else

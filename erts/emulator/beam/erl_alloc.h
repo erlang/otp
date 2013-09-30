@@ -54,6 +54,16 @@ void erts_sys_alloc_init(void);
 void *erts_sys_alloc(ErtsAlcType_t, void *, Uint);
 void *erts_sys_realloc(ErtsAlcType_t, void *, void *, Uint);
 void erts_sys_free(ErtsAlcType_t, void *, void *);
+#if ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
+/*
+ * Note 'alignment' must remain the same in calls to
+ * 'erts_sys_aligned_realloc()' and 'erts_sys_aligned_free()'
+ * as in the initial call to 'erts_sys_aligned_alloc()'.
+ */
+void *erts_sys_aligned_alloc(UWord alignment, UWord size);
+void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old_size);
+void erts_sys_aligned_free(UWord alignment, void *ptr);
+#endif
 
 Eterm erts_memory(int *, void *, void *, Eterm);
 Eterm erts_allocated_areas(int *, void *, void *);
