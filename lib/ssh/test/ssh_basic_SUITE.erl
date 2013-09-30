@@ -49,7 +49,9 @@ all() ->
      close].
 
 groups() -> 
-    [{dsa_key, [], [send, peername, exec, exec_compressed, shell, known_hosts, idle_time, rekey, openssh_zlib_basic_test]},
+    [{dsa_key, [], [send,
+		    peername_sockname,
+		    exec, exec_compressed, shell, known_hosts, idle_time, rekey, openssh_zlib_basic_test]},
      {rsa_key, [], [send, exec, exec_compressed, shell, known_hosts, idle_time, rekey, openssh_zlib_basic_test]},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
@@ -474,35 +476,50 @@ send(Config) when is_list(Config) ->
 
 
 %%--------------------------------------------------------------------
-peername() ->
-    [{doc, "Test ssh:peername/1"}].
-peername(Config) when is_list(Config) ->
+peername_sockname() ->
+    [{doc, "Test ssh:peername/1 and ssh:sockname/1"}].
+peername_sockname(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
 
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+					     {subsystems, [{"peername_sockname",
+							    {ssh_peername_sockname_server, []}}
+							  ]}
+					    ]),
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
 					  {user_interaction, false}]),
-    {ok,{IP,Port}} = ssh:peername(ConnectionRef),
-    host_equal(Host,IP),
-    ssh:stop_daemon(Pid).
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:subsystem(ConnectionRef, ChannelId, "peername_sockname", infinity),
+    {ok,{HostPeerClient,PortPeerClient}} = ssh:peername(ConnectionRef),
+    {ok,{HostSockClient,PortSockClient}} = ssh:sockname(ConnectionRef),
+    receive
+	{ssh_cm, ConnectionRef, {data, ChannelId, _, Response}} ->
+	    {PeerNameSrv,SockNameSrv} = binary_to_term(Response),
+	    {ok,{HostPeerSrv,PortPeerSrv}} = PeerNameSrv,
+	    {ok,{HostSockSrv,PortSockSrv}} = SockNameSrv,
+	    host_equal(HostPeerSrv, HostSockClient),
+	    PortPeerSrv = PortSockClient,
+	    host_equal(HostSockSrv, HostPeerClient),
+	    PortSockSrv = PortPeerClient,
+	    host_equal(HostSockSrv, Host),
+	    PortSockSrv = Port
+    after 10000 ->
+	    throw(timeout)
+    end.
 
+host_equal(H1, H2) ->
+    not ordsets:is_disjoint(ips(H1), ips(H2)).
 
-host_equal(Name, IP) when is_list(Name), is_tuple(IP) ->
-    Family = if size(IP)==4 -> inet;
-		size(IP)==8 -> inet6
-	     end,
-    {ok,#hostent{h_addr_list=IPs}} = inet:gethostbyname(Name,Family),
-    lists:any(fun(X) -> X==IP end, IPs);
-host_equal(IP, Name) when is_list(Name), is_tuple(IP) ->
-    host_equal(Name, IP);
-host_equal(X,Y) -> X==Y.
-
+ips(IP) when is_tuple(IP) -> ordsets:from_list([IP]);
+ips(Name) when is_list(Name) ->
+    {ok,#hostent{h_addr_list=IPs4}} = inet:gethostbyname(Name,inet),
+    {ok,#hostent{h_addr_list=IPs6}} = inet:gethostbyname(Name,inet6),
+    ordsets:from_list(IPs4++IPs6).
 
 %%--------------------------------------------------------------------
 close() ->
