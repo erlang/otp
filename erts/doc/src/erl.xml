@@ -524,7 +524,7 @@
 	<p>Calling <c>erlang:halt/1</c> with a string argument will still
 	produce a crash dump.</p>
       </item>
-      <tag><c><![CDATA[+e Number]]></c></tag>
+      <tag><marker id="+e"><c><![CDATA[+e Number]]></c></marker></tag>
       <item>
         <p>Set max number of ETS tables.</p>
       </item>

@@ -2099,13 +2099,14 @@ tuple_to_list(_Tuple) ->
          (creation) -> integer();
          (debug_compiled) -> boolean();
          (dist) -> binary();
+         (dist_buf_busy_limit) -> non_neg_integer();
          (dist_ctrl) -> {Node :: node(),
                          ControllingEntity :: port() | pid()};
          (driver_version) -> string();
 	 (dynamic_trace) -> none | dtrace | systemtap;
          (dynamic_trace_probes) -> boolean();
          (elib_malloc) -> false;
-         (dist_buf_busy_limit) -> non_neg_integer();
+         (ets_limit) -> pos_integer();
          (fullsweep_after) -> {fullsweep_after, non_neg_integer()};
          (garbage_collection) -> [{atom(), integer()}];
          (heap_sizes) -> [non_neg_integer()];
