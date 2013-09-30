@@ -2524,6 +2524,52 @@ void erts_sys_alloc_init(void)
 {
 }
 
+#if ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
+void *erts_sys_aligned_alloc(UWord alignment, UWord size)
+{
+#ifdef HAVE_POSIX_MEMALIGN
+    void *ptr = NULL;
+    int error;
+    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    error = posix_memalign(&ptr, (size_t) alignment, (size_t) size);
+#if HAVE_ERTS_MSEG
+    if (error || !ptr) {
+	erts_mseg_clear_cache();
+	error = posix_memalign(&ptr, (size_t) alignment, (size_t) size);
+    }
+#endif
+    if (error) {
+	errno = error;
+	return NULL;
+    }
+    if (!ptr)
+	errno = ENOMEM;
+    ASSERT(!ptr || (((UWord) ptr) & (alignment - 1)) == 0);
+    return ptr;
+#else
+#  error "Missing erts_sys_aligned_alloc() implementation"
+#endif
+}
+
+void erts_sys_aligned_free(UWord alignment, void *ptr)
+{
+    ASSERT(alignment && (alignment & ~alignment) == 0); /* power of 2 */
+    free(ptr);
+}
+
+void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old_size)
+{
+    void *new_ptr = erts_sys_aligned_alloc(alignment, size);
+    if (new_ptr) {
+	UWord copy_size = old_size < size ? old_size : size;
+	sys_memcpy(new_ptr, ptr, (size_t) copy_size);
+	erts_sys_aligned_free(alignment, ptr);
+    }
+    return new_ptr;
+}
+
+#endif
+
 void *erts_sys_alloc(ErtsAlcType_t t, void *x, Uint sz)
 {
     void *res = malloc((size_t) sz);
