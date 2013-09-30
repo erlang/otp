@@ -29,6 +29,7 @@
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
 	 peername/1,
+	 sockname/1,
 	 stop_listener/1, stop_listener/2, stop_daemon/1, stop_daemon/2,
 	 shell/1, shell/2, shell/3]).
 
@@ -255,6 +256,17 @@ peername(ConnectionRef) ->
     [{peer, {_Name,{IP,Port}}}] =
 	ssh_connection_manager:connection_info(ConnectionRef, [peer]),
     {ok, {IP,Port}}.
+
+%%--------------------------------------------------------------------
+%% Function: sockname(ConnectionRef) -> {ok, {Host,Port}}
+%%                                   |  {error,Error}
+%%
+%% Description: Returns the local address of the connection
+%%--------------------------------------------------------------------
+sockname(ConnectionRef) ->
+    [{sockname, Result}] =
+	ssh_connection_manager:connection_info(ConnectionRef, [sockname]),
+    Result.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

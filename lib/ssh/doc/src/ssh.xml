@@ -367,6 +367,20 @@
     </func>
 
     <func>
+      <name>sockname(ConnectionRef) -> {ok, {Address,Port}} | {error,Error} </name>
+      <fsummary> </fsummary>
+      <type>
+	<v> ConnectionRef = ssh_connection_ref()</v>
+        <v> Address = ip_address()</v>
+	<v> Port = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the local address and port number for a connection.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name>start() -> </name>
       <name>start(Type) -> ok | {error, Reason}</name>
       <fsummary>Starts the SSH application. </fsummary>
