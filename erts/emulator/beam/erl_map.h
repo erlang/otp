@@ -33,11 +33,12 @@ typedef struct map_s {
  *
  * -----------
  * Eterm   THING	
- * Eterm   Keys -> {K1, K2, K3, ..., Kn} where n = arity
+ * Uint    size
+ * Eterm   Keys -> {K1, K2, K3, ..., Kn} where n = size
  * ----
  * Eterm   V1
  * ...
- * Eterm   Vn, where n = arity
+ * Eterm   Vn, where n = size
  * -----------
  */
 
@@ -59,6 +60,7 @@ typedef struct map_s {
 #define map_get_size(x)        (((map_t*)(x))->size)
 
 #define MAP_HEADER             _make_header(1,_TAG_HEADER_MAP)
+#define MAP_HEADER_SIZE        (sizeof(map_t) / sizeof(Eterm))
 
 #endif
 
