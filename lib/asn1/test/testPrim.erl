@@ -36,8 +36,7 @@ bool(Rules) ->
     case Rules of
 	ber ->
 	    [begin
-		 {error,{asn1,{encode_boolean,517}}} =
-		     (catch 'Prim':encode(T, 517))
+		 {error,{asn1,{encode_boolean,517}}} = enc_error(T, 517)
 	     end || T <- Types],
 	    ok;
 	_ ->
@@ -90,12 +89,12 @@ enum(Rules) ->
 
     roundtrip('Enum', monday),
     roundtrip('Enum', thursday),
-    {error,{asn1,{_,4}}} = (catch 'Prim':encode('Enum', 4)),
+    {error,{asn1,{_,4}}} = enc_error('Enum', 4),
 
     case Rules of
 	Per when Per =:= per; Per =:= uper ->
-	    {ok,<<0>>} = 'Prim':encode('SingleEnumVal', true),
-	    {ok,<<0>>} = 'Prim':encode('SingleEnumValExt', true);
+	    <<0>> = roundtrip('SingleEnumVal', true),
+	    <<0>> = roundtrip('SingleEnumValExt', true);
 	ber ->
 	    ok
     end,
@@ -132,10 +131,32 @@ null(_Rules) ->
     ok.
 
 roundtrip(T, V) ->
-    asn1_test_lib:roundtrip_enc('Prim', T, V, V).
+    roundtrip(T, V, V).
 
 roundtrip(Type, Value, ExpectedValue) ->
-    asn1_test_lib:roundtrip_enc('Prim', Type, Value, ExpectedValue).
+    case get(no_ok_wrapper) of
+	false ->
+	    asn1_test_lib:roundtrip_enc('Prim', Type, Value, ExpectedValue);
+	true ->
+	    M = 'Prim',
+	    Enc = M:encode(Type, Value),
+	    ExpectedValue = M:decode(Type, Enc),
+	    Enc
+    end.
+
+enc_error(T, V) ->
+    case get(no_ok_wrapper) of
+	false ->
+	    'Prim':encode(T, V);
+	true ->
+	    try 'Prim':encode(T, V) of
+		_ ->
+		    ?t:fail()
+	    catch
+		_:Reason ->
+		    Reason
+	    end
+    end.
 
 real(_Rules) ->
     %%==========================================================
@@ -177,4 +198,11 @@ real_roundtrip(T, V) ->
     real_roundtrip(T, V, V).
 
 real_roundtrip(Type, Value, ExpectedValue) ->
-    asn1_test_lib:roundtrip('Real', Type, Value, ExpectedValue).
+    case get(no_ok_wrapper) of
+	false ->
+	    asn1_test_lib:roundtrip('Real', Type, Value, ExpectedValue);
+	true ->
+	    M = 'Real',
+	    ExpectedValue = M:decode(Type, M:encode(Type, Value)),
+	    ok
+    end.
