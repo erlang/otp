@@ -248,6 +248,10 @@ badargs(Config) when is_list(Config) ->
 	   binary:matches(<<1,2,3>>,
 			{ac,ets:match_spec_compile([{'_',[],['$_']}])},
 			[{scope,{0,1}}])),
+    %% OTP-11350
+    badarg = ?MASK_ERROR(
+		binary:matches(<<"foo">>, 
+			       [<<>>, <<"f">>])),
     ?line badarg =
 	?MASK_ERROR(binary:longest_common_prefix(
 		      [<<0:10000,1,2,4,1:3>>,

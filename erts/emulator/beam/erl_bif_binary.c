@@ -927,6 +927,9 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	    if (binary_bitsize(b) != 0) {
 		goto badarg;
 	    }
+	    if (binary_size(b) == 0) {
+		goto badarg;
+	    }
 	    ++words;
 	    characters += binary_size(b);
 	}
