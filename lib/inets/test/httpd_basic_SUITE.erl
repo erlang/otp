@@ -39,7 +39,8 @@ all() ->
      script_nocache,
      escaped_url_in_error_body,
      script_timeout,
-     slowdose
+     slowdose,
+     keep_alive_timeout
     ].
 
 groups() -> 
@@ -369,6 +370,26 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     tsp("escaped_url_in_error_body -> done"),    
     ok.
 
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
+keep_alive_timeout(doc) ->
+    ["Test the keep_alive_timeout option"];
+keep_alive_timeout(suite) ->
+    [];
+keep_alive_timeout(Config) when is_list(Config) ->
+    HttpdConf   = ?config(httpd_conf, Config),
+    {ok, Pid}   = inets:start(httpd, [{port, 0}, {keep_alive, true}, {keep_alive_timeout, 2} | HttpdConf]),
+    Info        = httpd:info(Pid),
+    Port        = proplists:get_value(port,         Info),
+    _Address    = proplists:get_value(bind_address, Info),
+    {ok, S} = gen_tcp:connect("localhost", Port, []),
+    receive
+    after 3000 ->
+	    {error, closed} = gen_tcp:send(S, "hey")
+    end,
+    inets:stop(httpd, Pid).
 
 %%-------------------------------------------------------------------------
 %%-------------------------------------------------------------------------
