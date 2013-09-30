@@ -32,6 +32,12 @@ APPLICATION=kernel
 RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 
 # ----------------------------------------------------
+# Help application directory specification
+# ----------------------------------------------------
+EDOC_DIR = $(ERL_TOP)/lib/edoc
+SYNTAX_TOOLS_DIR = $(ERL_TOP)/lib/syntax_tools
+
+# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
@@ -65,6 +71,12 @@ XML_REF3_FILES = application.xml \
 	user.xml \
 	zlib_stub.xml
 
+ifeq ($(findstring ose,$(TARGET)),ose)
+XML_EDOC_FILES = ose.xml
+else
+XML_EDOC_FILES =
+endif
+
 XML_REF4_FILES = app.xml config.xml
 
 XML_REF6_FILES = kernel_app.xml
@@ -76,8 +88,8 @@ BOOK_FILES = book.xml
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_REF4_FILES) \
-	 $(XML_REF6_FILES) $(XML_APPLICATION_FILES)
+	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_EDOC_FILES)\
+	$(XML_REF4_FILES) $(XML_REF6_FILES) $(XML_APPLICATION_FILES)
 
 # ----------------------------------------------------
 
@@ -103,7 +115,7 @@ TOP_SPECS_FILE = specs.xml
 # ----------------------------------------------------
 XML_FLAGS += 
 
-SPECS_ESRC = ../../src
+SRC_DIR = ../../src
 
 SPECS_FLAGS = -I../../include
 
@@ -147,6 +159,15 @@ $(SPECDIR)/specs_init_stub.xml:
 $(SPECDIR)/specs_zlib_stub.xml:
 	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module zlib_stub
+
+ose.xml: $(SRC_DIR)/ose.erl
+	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript $(SRC_DIR)/$(@:%.xml=%.erl)
+ref_man.xml: ref_man.xml.src
+ifeq ($(findstring ose,$(TARGET)),ose)
+	sed -e 's:\(os.xml"/>\):\1\n<xi\:include href="ose.xml"/>:' $< > $@
+else
+	cp $< $@
+endif
 
 # ----------------------------------------------------
 # Release Target

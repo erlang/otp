@@ -117,6 +117,10 @@ MODULES = \
 	user_sup \
 	wrap_log_reader
 
+ifeq ($(findstring ose,$(TARGET)),ose)
+MODULES+=ose
+endif
+
 HRL_FILES= ../include/file.hrl ../include/inet.hrl ../include/inet_sctp.hrl \
 	../include/dist.hrl ../include/dist_util.hrl \
 	../include/net_address.hrl 

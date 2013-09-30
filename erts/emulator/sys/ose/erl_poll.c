@@ -275,7 +275,6 @@ static void update_redir_tables(ErtsPollSet ps) {
   redir_table[0].pid = 0;
 
   for (i = 1; i < ps->sig_count+1; i++) {
-    ramlog_printf("Adding 0x%p -> 0x%p to redir table\n",ps->sigs[i],sched_1);
     redir_table[i].sig = ps->sigs[i];
     redir_table[i].pid = sched_1;
   }
@@ -283,7 +282,6 @@ static void update_redir_tables(ErtsPollSet ps) {
   for (i = 1; i < erts_no_schedulers; i++) {
     ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(i);
     set_redirection(esdp->tid.id,redir_table);
-    ramlog_printf("Setting redir table to 0x%p\n",esdp->tid.id);
   }
 
   SEL_FREE(ERTS_ALC_T_POLLSET,redir_table);
