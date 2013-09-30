@@ -37,7 +37,8 @@
 	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
--export([process_count/1, system_version/1, misc_smoke_tests/1, heap_size/1, wordsize/1, memory/1]).
+-export([process_count/1, system_version/1, misc_smoke_tests/1, heap_size/1, wordsize/1, memory/1,
+         ets_limit/1]).
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(2)).
 
@@ -45,7 +46,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [process_count, system_version, misc_smoke_tests,
-     heap_size, wordsize, memory].
+     heap_size, wordsize, memory, ets_limit].
 
 groups() -> 
     [].
@@ -496,3 +497,52 @@ mapn(_Fun, 0) ->
     [];
 mapn(Fun, N) ->
     [Fun(N) | mapn(Fun, N-1)].
+
+ets_limit(doc) ->
+    "Verify system_info(ets_limit) reflects max ETS table settings.";
+ets_limit(suite) -> [];
+ets_limit(Config0) when is_list(Config0) ->
+    Config = [{testcase,ets_limit}|Config0],
+    true = is_integer(get_ets_limit(Config)),
+    12345 = get_ets_limit(Config, 12345),
+    ok.
+
+get_ets_limit(Config) ->
+    get_ets_limit(Config, 0).
+get_ets_limit(Config, EtsMax) ->
+    Envs = case EtsMax of
+               0 -> [];
+               _ -> [{"ERL_MAX_ETS_TABLES", integer_to_list(EtsMax)}]
+           end,
+    {ok, Node} = start_node(Config, Envs),
+    Me = self(),
+    Ref = make_ref(),
+    spawn_link(Node,
+               fun() ->
+                       Res = erlang:system_info(ets_limit),
+                       unlink(Me),
+                       Me ! {Ref, Res}
+               end),
+    receive
+        {Ref, Res} ->
+            Res
+    end,
+    stop_node(Node),
+    Res.
+
+start_node(Config, Envs) when is_list(Config) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    {A, B, C} = now(),
+    Name = list_to_atom(atom_to_list(?MODULE)
+                        ++ "-"
+                        ++ atom_to_list(?config(testcase, Config))
+                        ++ "-"
+                        ++ integer_to_list(A)
+                        ++ "-"
+                        ++ integer_to_list(B)
+                        ++ "-"
+                        ++ integer_to_list(C)),
+    ?t:start_node(Name, peer, [{args, "-pa "++Pa}, {env, Envs}]).
+
+stop_node(Node) ->
+    ?t:stop_node(Node).
