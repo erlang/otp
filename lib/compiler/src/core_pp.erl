@@ -172,7 +172,12 @@ format_1(#c_map{es=Es}, Ctxt) ->
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      "}~"
     ];
-format_1(#c_map_pair{key=K,val=V}, Ctxt) ->
+format_1(#c_map_pair_assoc{key=K,val=V}, Ctxt) ->
+    ["::<",
+     format_hseq([K,V], ",", add_indent(Ctxt, 1), fun format/2),
+     ">"
+    ];
+format_1(#c_map_pair_exact{key=K,val=V}, Ctxt) ->
     ["~<",
      format_hseq([K,V], ",", add_indent(Ctxt, 1), fun format/2),
      ">"

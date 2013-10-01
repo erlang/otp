@@ -46,7 +46,7 @@ receive_expr timeout try_expr
 sequence catch_expr
 variable clause clause_pattern
 
-map_expr map_pairs map_pair
+map_expr map_pairs map_pair map_pair_assoc map_pair_exact
 map_pattern map_pair_patterns map_pair_pattern
 
 annotation anno_fun anno_expression anno_expressions
@@ -58,7 +58,7 @@ Terminals
 
 %% Separators
 
-'(' ')' '{' '}' '[' ']' '|' ',' '->' '=' '/' '<' '>' ':' '-|' '#' '~'
+'(' ')' '{' '}' '[' ']' '|' ',' '->' '=' '/' '<' '>' ':' '-|' '#' '~' '::'
 
 %% Keywords (atoms are assumed to always be single-quoted).
 
@@ -190,7 +190,7 @@ map_pair_patterns -> map_pair_pattern : ['$1'].
 map_pair_patterns -> map_pair_pattern ',' map_pair_patterns : ['$1' | '$3'].
 
 map_pair_pattern -> '~' '<' anno_pattern ',' anno_pattern '>' :
-			#c_map_pair{key='$3',val='$5'}.
+			#c_map_pair_exact{key='$3',val='$5'}.
 
 cons_pattern -> '[' anno_pattern tail_pattern :
 		    #c_cons{hd='$2',tl='$3'}.
@@ -286,14 +286,19 @@ tuple -> '{' anno_expressions '}' : c_tuple('$2').
 
 map_expr -> '~' '{' '}' '~' : #c_map{es=[]}.
 map_expr -> '~' '{' map_pairs  '}' '~' : #c_map{es='$3'}.
-map_expr -> variable '~' '{' '}' '~' : #c_map{var='$',es=[]}.
+map_expr -> variable '~' '{' '}' '~' : #c_map{var='$1',es=[]}.
 map_expr -> variable '~' '{' map_pairs  '}' '~' : #c_map{var='$1',es='$4'}.
 
 map_pairs -> map_pair : ['$1'].
 map_pairs -> map_pair ',' map_pairs : ['$1' | '$3'].
 
-map_pair -> '~' '<' anno_expression ',' anno_expression'>' :
-		#c_map_pair{key='$3',val='$5'}.
+map_pair -> map_pair_assoc : '$1'.
+map_pair -> map_pair_exact : '$1'.
+
+map_pair_assoc -> '::' '<' anno_expression ',' anno_expression'>' :
+		#c_map_pair_assoc{key='$3',val='$5'}.
+map_pair_exact -> '~' '<' anno_expression ',' anno_expression'>' :
+		#c_map_pair_exact{key='$3',val='$5'}.
 
 cons -> '[' anno_expression tail : c_cons('$2', '$3').
 
@@ -409,3 +414,5 @@ Erlang code.
 
 tok_val(T) -> element(3, T).
 tok_line(T) -> element(2, T).
+
+%% vim: syntax=erlang
