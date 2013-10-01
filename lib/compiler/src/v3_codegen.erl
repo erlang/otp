@@ -1501,11 +1501,18 @@ set_cg([{var,R}], {map,SrcMap,Es}, Le, Vdb, Bef,
 		 {var,SrcVar} -> fetch_var(SrcVar, Int0);
 		 _ -> SrcMap
 	     end,
-    List = flatmap(fun({map_pair,K,{var,V}}) ->
-			   [K,fetch_var(V, Int0)];
-		      ({map_pair,K,E}) ->
-			   [K,E]
-		   end, sort(Es)),
+
+    % MapPairs in put_map must be sorted in ascending Key Order
+    % Key literals must be unique when arriving here in v3_codegen
+
+    SortedEs = lists:sort(fun
+	    ({map_pair,{_T1,K1},_},{map_pair,{_T2,K2},_}) when K1 < K2 -> true;
+	    ({map_pair,{_,_},_},{map_pair,{_,_},_}) -> false
+	end, Es),
+    List = flatmap(fun
+	    ({map_pair,K,{var,V}}) -> [K,fetch_var(V, Int0)];
+	    ({map_pair,K,E}) -> [K,E]
+	end, SortedEs),
     Live = max_reg(Bef#sr.reg),
     Int1 = clear_dead(Int0, Le#l.i, Vdb),
     Aft = Bef#sr{reg=put_reg(R, Int1#sr.reg)},
