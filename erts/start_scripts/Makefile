@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2012. All Rights Reserved.
+# Copyright Ericsson AB 1997-2013. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -34,12 +34,16 @@ INSTALL_SCRIPTS = \
 	$(SS_ROOT)/start_clean.script \
 	$(SS_ROOT)/start_clean.boot \
 	$(SS_ROOT)/start_sasl.boot \
-	$(SS_ROOT)/start_sasl.script
+	$(SS_ROOT)/start_sasl.script \
+	$(SS_ROOT)/no_dot_erlang.boot \
+	$(SS_ROOT)/no_dot_erlang.script
+
 
 REL_SCRIPTS = \
 	$(SS_ROOT)/start_clean.rel \
 	$(SS_ROOT)/start_sasl.rel \
-	$(SS_ROOT)/start_all_example.rel
+	$(SS_ROOT)/start_all_example.rel \
+	$(SS_ROOT)/no_dot_erlang.rel \
 
 ifneq ($(findstring win32,$(TARGET)),win32)
 RELEASES_SRC = RELEASES.src
@@ -82,6 +86,13 @@ $(SS_ROOT)/start_sasl.boot:	$(SS_ROOT)/start_sasl.rel
 	$(V_at)( cd $(SS_TMP) && \
 	$(ERLC) $(SASL_FLAGS) $(SCRIPT_PATH) -o $(SS_ROOT) $< )
 
+$(SS_ROOT)/no_dot_erlang.script \
+$(SS_ROOT)/no_dot_erlang.boot:	$(SS_ROOT)/no_dot_erlang.rel
+	$(gen_verbose)$(INSTALL_DIR) $(SS_TMP)
+	$(V_at)( cd $(SS_TMP) && \
+	$(ERLC) $(SASL_FLAGS) $(SCRIPT_PATH) +no_warn_sasl +no_dot_erlang -o $(SS_ROOT) $< )
+
+
 $(SS_ROOT)/start_clean.rel: $(SS_ROOT)/start_clean.rel.src \
 			../vsn.mk \
 			$(LIBPATH)/kernel/vsn.mk \
@@ -103,6 +114,16 @@ $(SS_ROOT)/start_sasl.rel:	$(SS_ROOT)/start_sasl.rel.src \
             -e 's;%STDLIB_VSN%;$(STDLIB_VSN);' \
             -e 's;%SASL_VSN%;$(SASL_VSN);' \
           $(SS_ROOT)/start_sasl.rel.src > $(SS_ROOT)/start_sasl.rel
+
+$(SS_ROOT)/no_dot_erlang.rel: $(SS_ROOT)/no_dot_erlang.rel.src \
+			../vsn.mk \
+			$(LIBPATH)/kernel/vsn.mk \
+			$(LIBPATH)/stdlib/vsn.mk
+	$(gen_verbose)sed -e 's;%SYS_VSN%;$(SYSTEM_VSN);' \
+            -e 's;%ERTS_VSN%;$(VSN);' \
+            -e 's;%KERNEL_VSN%;$(KERNEL_VSN);' \
+            -e 's;%STDLIB_VSN%;$(STDLIB_VSN);' \
+          $(SS_ROOT)/no_dot_erlang.rel.src > $(SS_ROOT)/no_dot_erlang.rel
 
 $(SS_ROOT)/start_all_example.rel:	$(SS_ROOT)/start_all_example.rel.src \
 			../vsn.mk \
@@ -140,7 +161,13 @@ $(ERL_TOP)/bin/start_clean.script:
 	$(V_at)( cd $(SS_TMP) && \
 	  $(ERLC) $(SCRIPT_PATH) +no_warn_sasl +otp_build -o $@ $(SS_ROOT)/start_clean.rel )
 
+$(ERL_TOP)/bin/no_dot_erlang.script:
+	$(gen_verbose)$(INSTALL_DIR) $(SS_TMP)
+	$(V_at)( cd $(SS_TMP) && \
+	  $(ERLC) $(SCRIPT_PATH) +no_warn_sasl +otp_build +no_dot_erlang -o $@ $(SS_ROOT)/no_dot_erlang.rel )
+
 ## Special target used from system/build/Makefile for source code release bootstrap.
+## Add no_dot_erlang after next release
 bootstrap_scripts: $(SS_ROOT)/start_clean.rel
 	$(V_at)$(INSTALL_DIR) $(TESTROOT)/bin
 	$(V_at)$(INSTALL_DIR) $(SS_TMP)
