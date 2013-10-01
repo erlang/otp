@@ -1088,6 +1088,7 @@ make_hash2(Eterm term)
 #define HCONST_13 0x08d12e65UL
 #define HCONST_14 0xa708a81eUL
 #define HCONST_15 0x454021d7UL
+#define HCONST_16 0xe3779b90UL
 
 #define UINT32_HASH_2(Expr1, Expr2, AConst)       \
          do {                                     \
@@ -1188,6 +1189,28 @@ make_hash2(Eterm term)
 		    ESTACK_PUSH(s, tmp);
 		}
 		term = elem[1];
+	    }
+	    break;
+	    case MAP_SUBTAG:
+	    {
+		map_t *mp = (map_t *)map_val(term);
+		int i;
+		int size = map_get_size(mp);
+		Eterm *ks = map_get_keys(mp);
+		Eterm *vs = map_get_values(mp);
+		UINT32_HASH(size, HCONST_16);
+		if (size == 0) /* Empty Map */
+		    goto hash2_common;
+
+		for (i = size - 1; i >= 0; i--) {
+		    tmp = vs[i];
+		    ESTACK_PUSH(s, tmp);
+		}
+		for (i = size - 1; i >= 1; i--) {
+		    tmp = ks[i];
+		    ESTACK_PUSH(s, tmp);
+		}
+		term = ks[0];
 	    }
 	    break;
 	    case EXPORT_SUBTAG:
