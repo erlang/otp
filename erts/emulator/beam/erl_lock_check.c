@@ -132,6 +132,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
 #endif /* __WIN32__ */
     {	"alcu_init_atoms",			NULL			},
     {	"mseg_init_atoms",			NULL			},
+    {	"mmap_init_atoms",			NULL			},
     {	"drv_tsd",				NULL			},
     {	"async_enq_mtx",			NULL			},
 #ifdef ERTS_SMP

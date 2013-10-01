@@ -2039,6 +2039,64 @@ int erts_mmap_in_supercarrier(void *ptr)
     return ERTS_MMAP_IN_SUPERCARRIER(ptr);
 }
 
+
+static struct {
+    Eterm total;
+    Eterm total_sa;
+    Eterm total_sua;
+    Eterm used;
+    Eterm used_sa;
+    Eterm used_sua;
+    Eterm max;
+    Eterm allocated;
+    Eterm reserved;
+    Eterm sizes;
+    Eterm free_segs;
+    Eterm supercarrier;
+    Eterm os;
+    Eterm scs;
+    Eterm sco;
+    Eterm scrpm;
+    Eterm scmgc;
+
+    int is_initialized;
+    erts_mtx_t init_mutex;
+}am;
+
+static void ERTS_INLINE atom_init(Eterm *atom, char *name)
+{
+    *atom = am_atom_put(name, strlen(name));
+}
+#define AM_INIT(AM) atom_init(&am.AM, #AM)
+
+static void init_atoms(void)
+{
+    erts_mtx_lock(&am.init_mutex);
+
+    if (!am.is_initialized) {
+        AM_INIT(total);
+        AM_INIT(total_sa);
+        AM_INIT(total_sua);
+        AM_INIT(used);
+        AM_INIT(used_sa);
+        AM_INIT(used_sua);
+        AM_INIT(max);
+        AM_INIT(allocated);
+        AM_INIT(reserved);
+        AM_INIT(sizes);
+        AM_INIT(free_segs);
+        AM_INIT(supercarrier);
+        AM_INIT(os);
+        AM_INIT(scs);
+        AM_INIT(sco);
+        AM_INIT(scrpm);
+        AM_INIT(scmgc);
+        am.is_initialized = 1;
+    }
+    erts_mtx_unlock(&am.init_mutex);
+};
+
+
 #ifdef HARD_DEBUG_MSEG
 static void hard_dbg_mseg_init(void);
 #endif
@@ -2085,6 +2143,7 @@ erts_mmap_init(ErtsMMapInit *init)
 #endif
 
     erts_smp_mtx_init(&mmap_state.mtx, "erts_mmap");
+    erts_mtx_init(&am.init_mutex, "mmap_init_atoms");
 
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
     if (init->virtual_range.start) {
@@ -2245,56 +2304,6 @@ erts_mmap_init(ErtsMMapInit *init)
     hard_dbg_mseg_init();
 #endif
 }
-
-static struct {
-    Eterm total;
-    Eterm total_sa;
-    Eterm total_sua;
-    Eterm used;
-    Eterm used_sa;
-    Eterm used_sua;
-    Eterm max;
-    Eterm allocated;
-    Eterm reserved;
-    Eterm sizes;
-    Eterm free_segs;
-    Eterm supercarrier;
-    Eterm os;
-    Eterm scs;
-    Eterm sco;
-    Eterm scrpm;
-    Eterm scmgc;
-
-    int is_initialized;
-}am;
-
-static void ERTS_INLINE atom_init(Eterm *atom, char *name)
-{
-    *atom = am_atom_put(name, strlen(name));
-}
-#define AM_INIT(AM) atom_init(&am.AM, #AM)
-
-static void init_atoms(void)
-{
-    AM_INIT(total);
-    AM_INIT(total_sa);
-    AM_INIT(total_sua);
-    AM_INIT(used);
-    AM_INIT(used_sa);
-    AM_INIT(used_sua);
-    AM_INIT(max);
-    AM_INIT(allocated);
-    AM_INIT(reserved);
-    AM_INIT(sizes);
-    AM_INIT(free_segs);
-    AM_INIT(supercarrier);
-    AM_INIT(os);
-    AM_INIT(scs);
-    AM_INIT(sco);
-    AM_INIT(scrpm);
-    AM_INIT(scmgc);
-    am.is_initialized = 1;
-};
 
 
 static ERTS_INLINE void
