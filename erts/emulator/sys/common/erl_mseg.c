@@ -962,8 +962,6 @@ init_atoms(ErtsMsegAllctr_t *ma)
 #ifdef DEBUG
     Eterm *atom;
 #endif
-
-    ERTS_MSEG_UNLOCK(ma);
     erts_mtx_lock(&init_atoms_mutex);
 
     if (!atoms_initialized) {
@@ -1007,7 +1005,6 @@ init_atoms(ErtsMsegAllctr_t *ma)
 #endif
     }
 
-    ERTS_MSEG_LOCK(ma);
     atoms_initialized = 1;
     erts_mtx_unlock(&init_atoms_mutex);
 }
@@ -1293,13 +1290,7 @@ erts_mseg_info_options(int ix,
     ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_IX(ix);
     Eterm res;
 
-    ERTS_MSEG_LOCK(ma);
-
-    ERTS_DBG_MA_CHK_THR_ACCESS(ma);
-
     res = info_options(ma, "option ", print_to_p, print_to_arg, hpp, szp);
-
-    ERTS_MSEG_UNLOCK(ma);
 
     return res;
 }
@@ -1318,10 +1309,6 @@ erts_mseg_info(int ix,
     Eterm values[4];
     Uint n = 0;
 
-    ERTS_MSEG_LOCK(ma);
-
-    ERTS_DBG_MA_CHK_THR_ACCESS(ma);
-
     if (hpp || szp) {
 	
 	if (!atoms_initialized)
@@ -1334,6 +1321,10 @@ erts_mseg_info(int ix,
     }
     values[n++] = info_version(ma, print_to_p, print_to_arg, hpp, szp);
     values[n++] = info_options(ma, "option ", print_to_p, print_to_arg, hpp, szp);
+
+    ERTS_MSEG_LOCK(ma);
+    ERTS_DBG_MA_CHK_THR_ACCESS(ma);
+
 #if HALFWORD_HEAP
     values[n++] = info_memkind(ma, &ma->low_mem, print_to_p, print_to_arg, begin_max_per, hpp, szp);
     values[n++] = info_memkind(ma, &ma->hi_mem, print_to_p, print_to_arg, begin_max_per, hpp, szp);
