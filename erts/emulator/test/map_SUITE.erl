@@ -70,36 +70,36 @@ end_per_group(_GroupName, Config) -> Config.
 
 t_build_and_match_literals(Config) when is_list(Config) ->
     #{} = id(#{}),
-    #{1=>a} = id(#{1=>a}),
-    #{1=>a,2=>b} = id(#{1=>a,2=>b}),
-    #{1=>a,2=>b,3=>"c"} = id(#{1=>a,2=>b,3=>"c"}),
-    #{1=>a,2=>b,3=>"c","4"=>"d"} = id(#{1=>a,2=>b,3=>"c","4"=>"d"}),
-    #{1=>a,2=>b,3=>"c","4"=>"d",<<"5">>=><<"e">>} =
+    #{1:=a} = id(#{1=>a}),
+    #{1:=a,2:=b} = id(#{1=>a,2=>b}),
+    #{1:=a,2:=b,3:="c"} = id(#{1=>a,2=>b,3=>"c"}),
+    #{1:=a,2:=b,3:="c","4":="d"} = id(#{1=>a,2=>b,3=>"c","4"=>"d"}),
+    #{1:=a,2:=b,3:="c","4":="d",<<"5">>:=<<"e">>} =
 	id(#{1=>a,2=>b,3=>"c","4"=>"d",<<"5">>=><<"e">>}),
-    #{1=>a,2=>b,3=>"c","4"=>"d",<<"5">>=><<"e">>,{"6",7}=>"f"} =
+    #{1:=a,2:=b,3:="c","4":="d",<<"5">>:=<<"e">>,{"6",7}:="f"} =
 	id(#{1=>a,2=>b,3=>"c","4"=>"d",<<"5">>=><<"e">>,{"6",7}=>"f"}),
-    #{1=>a,2=>b,3=>"c","4"=>"d",<<"5">>=><<"e">>,{"6",7}=>"f",8=>g} =
+    #{1:=a,2:=b,3:="c","4":="d",<<"5">>:=<<"e">>,{"6",7}:="f",8:=g} =
 	id(#{1=>a,2=>b,3=>"c","4"=>"d",<<"5">>=><<"e">>,{"6",7}=>"f",8=>g}),
 
-    #{<<"hi all">> => 1} = id(#{<<"hi",32,"all">> => 1}),
+    #{<<"hi all">> := 1} = id(#{<<"hi",32,"all">> => 1}),
 
-    #{a=>X,a=>X=3,b=>4} = id(#{a=>3,b=>4}), % weird but ok =)
+    #{a:=X,a:=X=3,b:=4} = id(#{a=>3,b=>4}), % weird but ok =)
 
-    #{ a=>#{ b=>#{c => third, b=>second}}, b=>first} =
+    #{ a:=#{ b:=#{c := third, b:=second}}, b:=first} =
 	id(#{ b=>first, a=>#{ b=>#{c => third, b=> second}}}),
 
     M = #{ map_1=>#{ map_2=>#{value_3 => third}, value_2=> second}, value_1=>first},
-    M = #{ map_1=>#{ map_2=>#{value_3 => third}, value_2=> second}, value_1=>first} =
+    M = #{ map_1:=#{ map_2:=#{value_3 := third}, value_2:= second}, value_1:=first} =
 	 id(#{ map_1=>#{ map_2=>#{value_3 => third}, value_2=> second}, value_1=>first}),
 
     %% error case
     %V = 32,
     %{'EXIT',{{badmatch,_},_}} = (catch (#{<<"hi all">> => 1} = id(#{<<"hi",V,"all">> => 1}))),
-    {'EXIT',{{badmatch,_},_}} = (catch (#{x=>3,x=>2} = id(#{x=>3}))),
-    {'EXIT',{{badmatch,_},_}} = (catch (#{x=>2} = id(#{x=>3}))),
-    {'EXIT',{{badmatch,_},_}} = (catch (#{x=>3} = id({a,b,c}))),
-    {'EXIT',{{badmatch,_},_}} = (catch (#{x=>3} = id(#{y=>3}))),
-    {'EXIT',{{badmatch,_},_}} = (catch (#{x=>3} = id(#{x=>"three"}))),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3,x:=2} = id(#{x=>3}))),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{x:=2} = id(#{x=>3}))),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id({a,b,c}))),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{y=>3}))),
+    {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{x=>"three"}))),
     ok.
 
 %% Tests size(Map).
@@ -137,7 +137,7 @@ map_is_size(_,_) -> false.
 % test map updates without matching
 t_update_literals(Config) when is_list(Config) ->
     Map = #{x=>1,y=>2,z=>3,q=>4},
-    #{x=>"d",q=>"4"} = loop_update_literals_x_q(Map, [
+    #{x:="d",q:="4"} = loop_update_literals_x_q(Map, [
 		{"a","1"},{"b","2"},{"c","3"},{"d","4"}
 	]),
     ok.
@@ -149,7 +149,7 @@ loop_update_literals_x_q(Map, [{X,Q}|Vs]) ->
 % test map updates with matching
 t_match_and_update_literals(Config) when is_list(Config) ->
     Map = #{x=>0,y=>"untouched",z=>"also untouched",q=>1},
-    #{x=>16,q=>21,y=>"untouched",z=>"also untouched"} = loop_match_and_update_literals_x_q(Map, [
+    #{x:=16,q:=21,y:="untouched",z:="also untouched"} = loop_match_and_update_literals_x_q(Map, [
 	    {1,2},{3,4},{5,6},{7,8}
 	]),
     M0 = id(#{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
@@ -159,11 +159,11 @@ t_match_and_update_literals(Config) when is_list(Config) ->
 	4 => number, 18446744073709551629 => wat},
     M0 = M2,
 
-    #{ 4 => another_number, int => 3 } = M2#{ 4 => another_number },
+    #{ 4 := another_number, int := 3 } = M2#{ 4 => another_number },
     ok.
 
 loop_match_and_update_literals_x_q(Map, []) -> Map;
-loop_match_and_update_literals_x_q(#{q=>Q0,x=>X0} = Map, [{X,Q}|Vs]) ->
+loop_match_and_update_literals_x_q(#{q:=Q0,x:=X0} = Map, [{X,Q}|Vs]) ->
     loop_match_and_update_literals_x_q(Map#{q=>Q0+Q,x=>X0+X},Vs).
 
 
@@ -202,17 +202,17 @@ t_guard_sequence(Config) when is_list(Config) ->
 	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(#{b=>5})),
 	ok.
 
-map_guard_sequence_1(#{seq=>1=Seq, val=>Val}) -> {Seq,Val};
-map_guard_sequence_1(#{seq=>2=Seq, val=>Val}) -> {Seq,Val};
-map_guard_sequence_1(#{seq=>3=Seq, val=>Val}) -> {Seq,Val};
-map_guard_sequence_1(#{seq=>4=Seq, val=>Val}) -> {Seq,Val};
-map_guard_sequence_1(#{seq=>5=Seq, val=>Val}) -> {Seq,Val}.
+map_guard_sequence_1(#{seq:=1=Seq, val:=Val}) -> {Seq,Val};
+map_guard_sequence_1(#{seq:=2=Seq, val:=Val}) -> {Seq,Val};
+map_guard_sequence_1(#{seq:=3=Seq, val:=Val}) -> {Seq,Val};
+map_guard_sequence_1(#{seq:=4=Seq, val:=Val}) -> {Seq,Val};
+map_guard_sequence_1(#{seq:=5=Seq, val:=Val}) -> {Seq,Val}.
 
-map_guard_sequence_2(#{ a=>3 }=M) -> {1, M};
-map_guard_sequence_2(#{ a=>4 }=M) -> {2, M};
-map_guard_sequence_2(#{ a=>X, a=>X, b=>4 }=M) -> {3,X,M};
-map_guard_sequence_2(#{ a=>X, a=>Y, b=>3 }=M) when X =:= Y -> {4,X,Y,M};
-map_guard_sequence_2(#{ a=>X, a=>Y }=M) when X =:= Y -> {5,X,Y,M}.
+map_guard_sequence_2(#{ a:=3 }=M) -> {1, M};
+map_guard_sequence_2(#{ a:=4 }=M) -> {2, M};
+map_guard_sequence_2(#{ a:=X, a:=X, b:=4 }=M) -> {3,X,M};
+map_guard_sequence_2(#{ a:=X, a:=Y, b:=3 }=M) when X =:= Y -> {4,X,Y,M};
+map_guard_sequence_2(#{ a:=X, a:=Y }=M) when X =:= Y -> {5,X,Y,M}.
 
 
 t_guard_update(Config) when is_list(Config) ->
@@ -233,18 +233,18 @@ t_guard_receive(Config) when is_list(Config) ->
     B2  = <<"was appended">>,
     B3  = <<B1/binary, B2/binary>>,
 
-    #{id=>1, res=>Big} = M1 = call(Pid, M0#{op=>sub,in=>{1 bsl 65, 3}}),
-    #{id=>2, res=>26}  = M2 = call(Pid, M1#{op=>idiv,in=>{53,2}}),
-    #{id=>3, res=>832} = M3 = call(Pid, M2#{op=>imul,in=>{26,32}}),
-    #{id=>4, res=>4}   = M4 = call(Pid, M3#{op=>add,in=>{1,3}}),
-    #{id=>5, res=>Big} = M5 = call(Pid, M4#{op=>sub,in=>{1 bsl 65, 3}}),
-    #{id=>6, res=>B3}  = M6 = call(Pid, M5#{op=>"append",in=>{B1,B2}}),
-    #{id=>7, res=>4}   = _  = call(Pid, M6#{op=>add,in=>{1,3}}),
+    #{id:=1, res:=Big} = M1 = call(Pid, M0#{op=>sub,in=>{1 bsl 65, 3}}),
+    #{id:=2, res:=26}  = M2 = call(Pid, M1#{op=>idiv,in=>{53,2}}),
+    #{id:=3, res:=832} = M3 = call(Pid, M2#{op=>imul,in=>{26,32}}),
+    #{id:=4, res:=4}   = M4 = call(Pid, M3#{op=>add,in=>{1,3}}),
+    #{id:=5, res:=Big} = M5 = call(Pid, M4#{op=>sub,in=>{1 bsl 65, 3}}),
+    #{id:=6, res:=B3}  = M6 = call(Pid, M5#{op=>"append",in=>{B1,B2}}),
+    #{id:=7, res:=4}   = _  = call(Pid, M6#{op=>add,in=>{1,3}}),
 
 
     %% update old maps and check id update
-    #{id=>2, res=>B3} = call(Pid, M1#{op=>"append",in=>{B1,B2}}),
-    #{id=>5, res=>99} = call(Pid, M4#{op=>add,in=>{33, 66}}),
+    #{id:=2, res:=B3} = call(Pid, M1#{op=>"append",in=>{B1,B2}}),
+    #{id:=5, res:=99} = call(Pid, M4#{op=>add,in=>{33, 66}}),
 
     %% cleanup
     done = call(Pid, done),
@@ -255,19 +255,19 @@ call(Pid, M) ->
 
 guard_receive_loop() ->
     receive
-	{Pid, #{ id=>Id, op=>"append", in=>{X,Y}}=M} when is_binary(X), is_binary(Y) ->
+	{Pid, #{ id:=Id, op:="append", in:={X,Y}}=M} when is_binary(X), is_binary(Y) ->
 	    Pid ! {self(), M#{ id=>Id+1, res=><<X/binary,Y/binary>>}},
 	    guard_receive_loop();
-	{Pid, #{ id=>Id, op=>add, in=>{X,Y}}} ->
+	{Pid, #{ id:=Id, op:=add, in:={X,Y}}} ->
 	    Pid ! {self(), #{ id=>Id+1, res=>X+Y}},
 	    guard_receive_loop();
-	{Pid, #{ id=>Id, op=>sub,  in=>{X,Y}}=M} ->
+	{Pid, #{ id:=Id, op:=sub,  in:={X,Y}}=M} ->
 	    Pid ! {self(), M#{ id=>Id+1, res=>X-Y}},
 	    guard_receive_loop();
-	{Pid, #{ id=>Id, op=>idiv, in=>{X,Y}}=M} ->
+	{Pid, #{ id:=Id, op:=idiv, in:={X,Y}}=M} ->
 	    Pid ! {self(), M#{ id=>Id+1, res=>X div Y}},
 	    guard_receive_loop();
-	{Pid, #{ id=>Id, op=>imul, in=>{X,Y}}=M} ->
+	{Pid, #{ id:=Id, op:=imul, in:={X,Y}}=M} ->
 	    Pid ! {self(), M#{ id=>Id+1, res=>X * Y}},
 	    guard_receive_loop();
 	{Pid, done} ->
@@ -279,20 +279,20 @@ guard_receive_loop() ->
 
 
 t_list_comprehension(Config) when is_list(Config) ->
-    [#{k=>1},#{k=>2},#{k=>3}] = [#{k=>I} || I <- [1,2,3]],
+    [#{k:=1},#{k:=2},#{k:=3}] = [#{k:=I} || I <- [1,2,3]],
     ok.
 
 t_guard_fun(Config) when is_list(Config) ->
     F1 = fun
-	    (#{s=>v,v=>V})     -> {v,V};
-	    (#{s=>t,v=>{V,V}}) -> {t,V};
-	    (#{s=>l,v=>[V,V]}) -> {l,V}
+	    (#{s:=v,v:=V})     -> {v,V};
+	    (#{s:=t,v:={V,V}}) -> {t,V};
+	    (#{s:=l,v:=[V,V]}) -> {l,V}
     end,
     
     F2 = fun
-	    (#{s=>T,v=>{V,V}}) -> {T,V};
-	    (#{s=>T,v=>[V,V]}) -> {T,V};
-	    (#{s=>T,v=>V})     -> {T,V}
+	    (#{s:=T,v:={V,V}}) -> {T,V};
+	    (#{s:=T,v:=[V,V]}) -> {T,V};
+	    (#{s:=T,v:=V})     -> {T,V}
     end,
     V = <<"hi">>,
 
@@ -305,7 +305,7 @@ t_guard_fun(Config) when is_list(Config) ->
     {l,V} = F2(#{s=>l,v=>[V,V]}),
 
     %% error case
-    {'EXIT', {function_clause,[{?MODULE,_,[#{s=>none,v=>none}],_}|_]}} = (catch F1(#{s=>none,v=>none})),
+    {'EXIT', {function_clause,[{?MODULE,_,[#{s:=none,v:=none}],_}|_]}} = (catch F1(#{s=>none,v=>none})),
     ok.
 
 
@@ -339,9 +339,9 @@ t_map_sort_literals(Config) when is_list(Config) ->
     %% lists:sort
 
     SortVs = [#{"a"=>1},#{a=>2},#{1=>3},#{<<"a">>=>4}],
-    [#{1=>ok},#{a=>ok},#{"a"=>ok},#{<<"a">>=>ok}] = lists:sort([#{"a"=>ok},#{a=>ok},#{1=>ok},#{<<"a">>=>ok}]),
-    [#{1=>3},#{a=>2},#{"a"=>1},#{<<"a">>=>4}] = lists:sort(SortVs),
-    [#{1=>3},#{a=>2},#{"a"=>1},#{<<"a">>=>4}] = lists:sort(lists:reverse(SortVs)),
+    [#{1:=ok},#{a:=ok},#{"a":=ok},#{<<"a">>:=ok}] = lists:sort([#{"a"=>ok},#{a=>ok},#{1=>ok},#{<<"a">>=>ok}]),
+    [#{1:=3},#{a:=2},#{"a":=1},#{<<"a">>:=4}] = lists:sort(SortVs),
+    [#{1:=3},#{a:=2},#{"a":=1},#{<<"a">>:=4}] = lists:sort(lists:reverse(SortVs)),
 
     ok.
 
@@ -435,27 +435,27 @@ t_bif_map_put(Config) when is_list(Config) ->
     M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
 	4 => number, 18446744073709551629 => wat},
 
-    M1 = #{ "hi" => "hello"} = map:put("hi", "hello", #{}),
+    M1 = #{ "hi" := "hello"} = map:put("hi", "hello", #{}),
 
     ["hi"]    = map:keys(M1),
     ["hello"] = map:values(M1),
 
-    M2 = #{ int => 3 } = map:put(int, 3, M1),
+    M2 = #{ int := 3 } = map:put(int, 3, M1),
 
     [int,"hi"]  = map:keys(M2),
     [3,"hello"] = map:values(M2),
 
-    M3 = #{ <<"key">> => <<"value">> } = map:put(<<"key">>, <<"value">>, M2),
+    M3 = #{ <<"key">> := <<"value">> } = map:put(<<"key">>, <<"value">>, M2),
 
     [int,"hi",<<"key">>]    = map:keys(M3),
     [3,"hello",<<"value">>] = map:values(M3),
 
-    M4 = #{ 18446744073709551629 => wat } = map:put(18446744073709551629, wat, M3),
+    M4 = #{ 18446744073709551629 := wat } = map:put(18446744073709551629, wat, M3),
 
     [18446744073709551629,int,"hi",<<"key">>] = map:keys(M4),
     [wat,3,"hello",<<"value">>]               = map:values(M4),
 
-    M0 = #{ 4 => number } = M5 = map:put(4, number, M4),
+    M0 = #{ 4 := number } = M5 = map:put(4, number, M4),
 
     [4,18446744073709551629,int,"hi",<<"key">>] = map:keys(M5),
     [number,wat,3,"hello",<<"value">>]          = map:values(M5),
@@ -495,7 +495,7 @@ t_bif_map_remove(Config) when is_list(Config) ->
     M0 = map:remove(5,M0),
     M0 = map:remove("hi there",M0),
 
-    #{ "hi" => "hello", int => 3, 4 => number} = map:remove(18446744073709551629,map:remove(<<"key">>,M0)),
+    #{ "hi" := "hello", int := 3, 4 := number} = map:remove(18446744073709551629,map:remove(<<"key">>,M0)),
 
     %% error case
     {'EXIT',{badarg,[{map,remove,_,_}|_]}} = (catch map:remove(a,1 bsl 65 + 3)),
