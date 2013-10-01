@@ -34,7 +34,7 @@ binary_comprehension
 tuple
 %struct
 record_expr record_tuple record_field record_fields
-map_expr map_tuple map_field map_fields map_key
+map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
 try_expr try_catch try_clause try_clauses
@@ -60,7 +60,7 @@ char integer float atom string var
 '*' '/' 'div' 'rem' 'band' 'and'
 '+' '-' 'bor' 'bxor' 'bsl' 'bsr' 'or' 'xor'
 '++' '--'
-'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<=' '=>'
+'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<=' '=>' ':='
 '<<' '>>'
 '!' '=' '::' '..' '...'
 'spec' 'callback' % helper
@@ -344,8 +344,14 @@ map_tuple -> '{' map_fields '}' : '$2'.
 map_fields -> map_field : ['$1'].
 map_fields -> map_field ',' map_fields : ['$1' | '$3'].
 
-map_field -> map_key '=>' expr :
-	{map_field,?line('$1'),'$1','$3'}.
+map_field -> map_field_assoc : '$1'.
+map_field -> map_field_exact : '$1'.
+
+map_field_assoc -> map_key '=>' expr :
+	{map_field_assoc,?line('$1'),'$1','$3'}.
+
+map_field_exact -> map_key ':=' expr :
+	{map_field_exact,?line('$1'),'$1','$3'}.
 
 map_key -> expr : '$1'.
 
