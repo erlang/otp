@@ -107,7 +107,9 @@ vu_expr(V, #c_tuple{es=Es}) ->
     vu_expr_list(V, Es);
 vu_expr(V, #c_map{es=Es}) ->
     vu_expr_list(V, Es);
-vu_expr(V, #c_map_pair{key=Key,val=Val}) ->
+vu_expr(V, #c_map_pair_assoc{key=Key,val=Val}) ->
+    vu_expr_list(V, [Key,Val]);
+vu_expr(V, #c_map_pair_exact{key=Key,val=Val}) ->
     vu_expr_list(V, [Key,Val]);
 vu_expr(V, #c_binary{segments=Ss}) ->
     vu_seg_list(V, Ss);

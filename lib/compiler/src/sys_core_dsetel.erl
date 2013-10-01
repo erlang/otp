@@ -105,10 +105,14 @@ visit(Env0, #c_tuple{es=Es0}=R) ->
 visit(Env0, #c_map{es=Es0}=R) ->
     {Es1,Env1} = visit_list(Env0, Es0),
     {R#c_map{es=Es1}, Env1};
-visit(Env0, #c_map_pair{key=K0,val=V0}=R) ->
+visit(Env0, #c_map_pair_assoc{key=K0,val=V0}=R) ->
     {K,Env1} = visit(Env0, K0),
     {V,Env2} = visit(Env1, V0),
-    {R#c_map_pair{key=K,val=V}, Env2};
+    {R#c_map_pair_assoc{key=K,val=V}, Env2};
+visit(Env0, #c_map_pair_exact{key=K0,val=V0}=R) ->
+    {K,Env1} = visit(Env0, K0),
+    {V,Env2} = visit(Env1, V0),
+    {R#c_map_pair_exact{key=K,val=V}, Env2};
 visit(Env0, #c_cons{hd=H0,tl=T0}=R) ->
     {H1,Env1} = visit(Env0, H0),
     {T1,Env2} = visit(Env1, T0),
@@ -221,7 +225,7 @@ visit_pat(Env0, #c_tuple{es=Es}, Vs) ->
     visit_pats(Es, Env0, Vs);
 visit_pat(Env0, #c_map{es=Es}, Vs) ->
     visit_pats(Es, Env0, Vs);
-visit_pat(Env0, #c_map_pair{key=V,val=K}, Vs0) ->
+visit_pat(Env0, #c_map_pair_exact{key=V,val=K}, Vs0) ->
     {Vs1, Env1} = visit_pat(Env0, V, Vs0),
     visit_pat(Env1, K, Vs1);
 visit_pat(Env0, #c_cons{hd=H,tl=T}, Vs0) ->

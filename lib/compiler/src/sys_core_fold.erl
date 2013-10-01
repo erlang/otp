@@ -438,18 +438,28 @@ pair_list_reversed([E|Es],Ctxt,Sub,Out,Keys) ->
 %% check if key already is present in map, i.e. #{ a=>1, a=>2 }
 %% where 'a' is duplicate. Update maps set with the key if not present.
 
-map_has_key(#c_map_pair{key=#c_literal{val=K}},Ks) ->
+map_has_key(MapPair,Ks) ->
+    K = map_get_literal_key_from_pair(MapPair),
     case gb_sets:is_element(K,Ks) of
 	false -> {false, gb_sets:add(K,Ks)};
 	true  -> {true, K}
     end.
 
-pair(#c_map_pair{key=K,val=V}, effect, Sub) ->
+map_get_literal_key_from_pair(#c_map_pair_assoc{key=#c_literal{val=K}}) -> K;
+map_get_literal_key_from_pair(#c_map_pair_exact{key=#c_literal{val=K}}) -> K.
+
+pair(#c_map_pair_assoc{key=K,val=V}, effect, Sub) ->
     make_effect_seq([K,V], Sub);
-pair(#c_map_pair{key=K0,val=V0}=Pair, value=Ctxt, Sub) ->
+pair(#c_map_pair_exact{key=K,val=V}, effect, Sub) ->
+    make_effect_seq([K,V], Sub);
+pair(#c_map_pair_assoc{key=K0,val=V0}=Pair, value=Ctxt, Sub) ->
     K = expr(K0, Ctxt, Sub),
     V = expr(V0, Ctxt, Sub),
-    Pair#c_map_pair{key=K,val=V}.
+    Pair#c_map_pair_assoc{key=K,val=V};
+pair(#c_map_pair_exact{key=K0,val=V0}=Pair, value=Ctxt, Sub) ->
+    K = expr(K0, Ctxt, Sub),
+    V = expr(V0, Ctxt, Sub),
+    Pair#c_map_pair_exact{key=K,val=V}.
 
 bitstr_list(Es, Sub) ->
     [bitstr(E, Sub) || E <- Es].
@@ -1559,10 +1569,10 @@ map_pair_pattern_list(Ps0, Isub, Osub0) ->
     {Ps,{_,Osub}} = mapfoldl(fun map_pair_pattern/2, {Isub,Osub0}, Ps0),
     {Ps,Osub}.
 
-map_pair_pattern(#c_map_pair{key=K0,val=V0}=Pair, {Isub,Osub0}) ->
+map_pair_pattern(#c_map_pair_exact{key=K0,val=V0}=Pair, {Isub,Osub0}) ->
     {K,Osub1} = pattern(K0, Isub, Osub0),
     {V,Osub} = pattern(V0, Isub, Osub1),
-    {Pair#c_map_pair{key=K,val=V},{Isub,Osub}}.
+    {Pair#c_map_pair_exact{key=K,val=V},{Isub,Osub}}.
 
 bin_pattern_list(Ps0, Isub, Osub0) ->
     {Ps,{_,Osub}} = mapfoldl(fun bin_pattern/2, {Isub,Osub0}, Ps0),
