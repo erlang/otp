@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -241,13 +241,25 @@ compare(Utc0, Local) ->
 %% Two linear times can be subtracted to give their difference
 %% in seconds.
 %%
-%% XXX Limitations: The length of months and leap years are not
-%% taken into account; thus a comparision of dates is only
-%% valid if they are in the SAME month.
+%% XXX Limitations: Simplified leap year calc will fail for 2100 :-)
 
 linear_time({{Year, Mon, Day}, {Hour, Min, Sec}}) ->
-    86400*(366*Year + 31*(Mon-1) + (Day-1)) +
+    86400*(year_to_days(Year) + month_to_days(Year,Mon) + (Day-1)) +
 	3600*Hour + 60*Min + Sec.
+
+year_to_days(Year) ->
+    Year * 365 + (Year-1) div 4.
+
+month_to_days(Year, Mon) ->
+    DoM = [31,days_in_february(Year),31,30,31,30,31,31,30,31,30,31],
+    {PastMonths,_} = lists:split(Mon-1, DoM),
+    lists:sum(PastMonths).
+
+days_in_february(Year) ->
+    case (Year rem 4) of
+	0 -> 29;
+	_ -> 28
+    end.
 
 %% This functions returns either the normal timezone or the
 %% the DST timezone, depending on the given UTC time.
