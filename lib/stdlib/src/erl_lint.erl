@@ -1368,7 +1368,9 @@ pattern({tuple,_Line,Ps}, Vt, Old, Bvt, St) ->
     pattern_list(Ps, Vt, Old, Bvt, St);
 pattern({map,_Line,Ps}, Vt, Old, Bvt, St) ->
     pattern_list(Ps, Vt, Old, Bvt, St);
-pattern({map_field,_Line,_,P}, Vt, Old, Bvt0, St0) ->
+pattern({map_field_assoc,_Line,_,_}=Pat, _, _, _, St) ->
+    {[],[],add_error(element(2, Pat), illegal_pattern, St)};
+pattern({map_field_exact,_Line,_,P}, Vt, Old, Bvt0, St0) ->
     {Pvt,Bvt,St1} = pattern(P, Vt, Old, Bvt0, St0),
     {Pvt,Bvt,St1};
 %%pattern({struct,_Line,_Tag,Ps}, Vt, Old, Bvt, St) ->
@@ -1762,7 +1764,9 @@ gexpr({map,_Line,Es}, Vt, St) ->
     gexpr_list(Es, Vt, St);
 gexpr({map,_Line,Src,Es}, Vt, St) ->
     gexpr_list([Src|Es], Vt, St);
-gexpr({map_field,_Line,K,V}, Vt, St) ->
+gexpr({map_field_assoc,_Line,K,V}, Vt, St) ->
+    gexpr_list([K,V], Vt, St);
+gexpr({map_field_exact,_Line,K,V}, Vt, St) ->
     gexpr_list([K,V], Vt, St);
 gexpr({record_index,Line,Name,Field}, _Vt, St) ->
     check_record(Line, Name, St,
@@ -1985,7 +1989,9 @@ expr({map,_Line,Es}, Vt, St) ->
     expr_list(Es, Vt, St);
 expr({map,_Line,Src,Es}, Vt, St) ->
     expr_list([Src|Es], Vt, St);
-expr({map_field,_Line,K,V}, Vt, St) ->
+expr({map_field_assoc,_Line,K,V}, Vt, St) ->
+    expr_list([K,V], Vt, St);
+expr({map_field_exact,_Line,K,V}, Vt, St) ->
     expr_list([K,V], Vt, St);
 expr({record_index,Line,Name,Field}, _Vt, St) ->
     check_record(Line, Name, St,

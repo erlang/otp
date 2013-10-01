@@ -231,10 +231,10 @@ pattern({tuple,Line,Ps}, St0) ->
 pattern({map,Line,Ps}, St0) ->
     {TPs,St1} = pattern_list(Ps, St0),
     {{map,Line,TPs},St1};
-pattern({map_field,Line,K0,V0}, St0) ->
+pattern({map_field_exact,Line,K0,V0}, St0) ->
     {K,St1} = pattern(K0, St0),
     {V,St2} = pattern(V0, St1),
-    {{map_field,Line,K,V},St2};
+    {{map_field_exact,Line,K,V},St2};
 %%pattern({struct,Line,Tag,Ps}, St0) ->
 %%    {TPs,TPsvs,St1} = pattern_list(Ps, St0),
 %%    {{tuple,Line,[{atom,Line,Tag}|TPs]},TPsvs,St1};
@@ -334,10 +334,14 @@ expr({map,Line,Es0}, St0) ->
 expr({map,Line,Var,Es0}, St0) ->
     {Es1,St1} = expr_list(Es0, St0),
     {{map,Line,Var,Es1},St1};
-expr({map_field,Line,K0,V0}, St0) ->
+expr({map_field_assoc,Line,K0,V0}, St0) ->
     {K,St1} = expr(K0, St0),
     {V,St2} = expr(V0, St1),
-    {{map_field,Line,K,V},St2};
+    {{map_field_assoc,Line,K,V},St2};
+expr({map_field_exact,Line,K0,V0}, St0) ->
+    {K,St1} = expr(K0, St0),
+    {V,St2} = expr(V0, St1),
+    {{map_field_exact,Line,K,V},St2};
 expr({bin,Line,Es0}, St0) ->
     {Es1,St1} = expr_bin(Es0, St0),
     {{bin,Line,Es1},St1};
