@@ -30,7 +30,7 @@
 	t_map_sort_literals/1,
 	t_size/1, t_map_size/1,
 
-	%% BIFs
+	%% Specific Map BIFs
 	t_bif_map_get/1,
 	t_bif_map_find/1,
 	t_bif_map_is_key/1,
@@ -38,7 +38,13 @@
 	t_bif_map_new/1,
 	t_bif_map_put/1,
 	t_bif_map_remove/1,
-	t_bif_map_values/1
+	t_bif_map_values/1,
+	t_bif_map_to_list/1,
+	t_bif_map_from_list/1,
+
+	%% erlang
+	t_erlang_hash/1,
+	t_map_encode_decode/1
     ]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -57,7 +63,11 @@ all() -> [
 	%% Specific Map BIFs
 	t_bif_map_get,t_bif_map_find,t_bif_map_is_key,
 	t_bif_map_keys,t_bif_map_new,t_bif_map_put,
-	t_bif_map_remove,t_bif_map_values
+	t_bif_map_remove,t_bif_map_values,
+	t_bif_map_to_list, t_bif_map_from_list,
+
+	%% erlang
+	t_erlang_hash, t_map_encode_decode
     ].
 
 groups() -> [].
@@ -562,7 +572,134 @@ t_bif_map_values(Config) when is_list(Config) ->
     {'EXIT',{badarg,[{map,values,_,_}|_]}} = (catch map:values(atom)),
     {'EXIT',{badarg,[{map,values,_,_}|_]}} = (catch map:values([])),
     {'EXIT',{badarg,[{map,values,_,_}|_]}} = (catch map:values(<<>>)),
+    ok.
 
+t_erlang_hash(Config) when is_list(Config) ->
+
+    39679005  = erlang:phash2(#{}),
+    106033788 = erlang:phash2(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 }),
+    119861073 = erlang:phash2(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} }),
+    87559846  = erlang:phash2(#{ 1 => a }),
+    76038729  = erlang:phash2(#{ a => 1 }),
+
+    M0 = #{ a => 1, "key" => <<"value">> },
+    M1 = map:remove("key",M0),
+    M2 = M1#{ "key" => <<"value">> },
+
+    67968757  = erlang:phash2(M0),
+    76038729  = erlang:phash2(M1),
+    67968757  = erlang:phash2(M2),
+    ok.
+
+t_map_encode_decode(Config) when is_list(Config) ->
+    <<131,116,0,0,0,0>> = erlang:term_to_binary(#{}),
+    Pairs = [
+	{a,b},{"key","values"},{<<"key">>,<<"value">>},
+	{1,b},{[atom,1],{<<"wat">>,1,2,3}},
+	{aa,"values"},
+	{1 bsl 64 + (1 bsl 50 - 1), sc1},
+	{99, sc2},
+	{1 bsl 65 + (1 bsl 51 - 1), sc3},
+	{88, sc4},
+	{1 bsl 66 + (1 bsl 52 - 1), sc5},
+	{77, sc6},
+	{1 bsl 67 + (1 bsl 53 - 1), sc3},
+	{75, sc6}, {-10,sc8},
+	{<<>>, sc9}, {3.14158, sc10},
+	{[3.14158], sc11}, {more_atoms, sc12},
+	{{more_tuples}, sc13}, {self(), sc14},
+	{{},{}},{[],[]}
+    ],
+    ok = map_encode_decode_and_match(Pairs,[],#{}),
+
+    %% error cases
+    %% template: <<131,116,0,0,0,2,100,0,1,97,100,0,1,98,97,1,97,1>>
+    %% which is: #{ a=>1, b=>1 }
+
+    %% order violation
+    %% literally #{ b=>1, a=>1 } in the internal order (bad)
+    {'EXIT',{badarg,[{_,_,_,_}|_]}} = (catch
+	erlang:binary_to_term(<<131,116,0,0,0,2,100,0,1,98,100,0,1,97,97,1,97,1>>)),
+
+    %% uniqueness violation
+    %% literally #{ a=>1, a=>1 }
+    {'EXIT',{badarg,[{_,_,_,_}|_]}} = (catch
+	erlang:binary_to_term(<<131,116,0,0,0,2,100,0,1,97,100,0,1,97,97,1,97,1>>)),
+
+    %% bad size (too large)
+    {'EXIT',{badarg,[{_,_,_,_}|_]}} = (catch
+	erlang:binary_to_term(<<131,116,0,0,0,12,100,0,1,97,100,0,1,98,97,1,97,1>>)),
+
+    %% bad size (too small) .. should fail just truncate it .. weird.
+    %% possibly change external format so truncated will be #{a:=1}
+    #{ a:=b } =
+	erlang:binary_to_term(<<131,116,0,0,0,1,100,0,1,97,100,0,1,98,97,1,97,1>>),
+
+    ok.
+
+map_encode_decode_and_match([{K,V}|Pairs], EncodedPairs, M0) ->
+    M1 = map:put(K,V,M0),
+    B0 = erlang:term_to_binary(M1),
+    Ls = lists:sort([{K, erlang:term_to_binary(K), erlang:term_to_binary(V)}|EncodedPairs]),
+    %% sort Ks and Vs according to term spec, then match it
+    ok = match_encoded_map(B0, length(Ls), [Kbin||{_,Kbin,_}<-Ls] ++ [Vbin||{_,_,Vbin}<-Ls]),
+    %% decode and match it
+    M1 = erlang:binary_to_term(B0),
+    map_encode_decode_and_match(Pairs,Ls,M1);
+map_encode_decode_and_match([],_,_) -> ok.
+
+match_encoded_map(<<131,116,Size:32,Encoded/binary>>,Size,Items) ->
+    match_encoded_map(Encoded,Items);
+match_encoded_map(_,_,_) -> no_match_size.
+
+match_encoded_map(<<>>,[]) -> ok;
+match_encoded_map(Bin,[<<131,Item/binary>>|Items]) ->
+    Size = erlang:byte_size(Item),
+    <<EncodedTerm:Size/binary, Bin1/binary>> = Bin,
+    EncodedTerm = Item, %% Asssert
+    match_encoded_map(Bin1,Items).
+
+
+t_bif_map_to_list(Config) when is_list(Config) ->
+    [] = map:to_list(#{}),
+    [{a,1},{b,2}] = map:to_list(#{a=>1,b=>2}),
+    [{a,1},{b,2},{c,3}] = map:to_list(#{c=>3,a=>1,b=>2}),
+    [{a,1},{b,2},{g,3}] = map:to_list(#{g=>3,a=>1,b=>2}),
+    [{a,1},{b,2},{g,3},{"c",4}] = map:to_list(#{g=>3,a=>1,b=>2,"c"=>4}),
+    [{3,v2},{hi,v4},{{hi,3},v5},{"hi",v3},{<<"hi">>,v1}] = map:to_list(#{
+	    <<"hi">>=>v1,3=>v2,"hi"=>v3,hi=>v4,{hi,3}=>v5}),
+
+    [{3,v7},{hi,v9},{{hi,3},v10},{"hi",v8},{<<"hi">>,v6}] = map:to_list(#{
+	    <<"hi">>=>v1,3=>v2,"hi"=>v3,hi=>v4,{hi,3}=>v5,
+	    <<"hi">>=>v6,3=>v7,"hi"=>v8,hi=>v9,{hi,3}=>v10}),
+
+    %% error cases
+    {'EXIT', {badarg,_}} = (catch map:to_list(id(a))),
+    {'EXIT', {badarg,_}} = (catch map:to_list(id(42))),
+    ok.
+
+
+t_bif_map_from_list(Config) when is_list(Config) ->
+    #{} = map:from_list([]),
+    A   = map:from_list([]),
+    0   = erlang:map_size(A),
+
+    #{a:=1,b:=2}  = map:from_list([{a,1},{b,2}]),
+    #{c:=3,a:=1,b:=2} = map:from_list([{a,1},{b,2},{c,3}]),
+    #{g:=3,a:=1,b:=2} = map:from_list([{a,1},{b,2},{g,3}]),
+
+    #{a:=2} = map:from_list([{a,1},{a,3},{a,2}]),
+
+    #{ <<"hi">>:=v1,3:=v3,"hi":=v6,hi:=v4,{hi,3}:=v5} =
+	map:from_list([{3,v3},{"hi",v6},{hi,v4},{{hi,3},v5},{<<"hi">>,v1}]),
+
+    #{<<"hi">>:=v6,3:=v8,"hi":=v11,hi:=v9,{hi,3}:=v10} =
+	map:from_list([ {{hi,3},v3}, {"hi",v0},{3,v1}, {<<"hi">>,v4}, {hi,v2},
+	    {<<"hi">>,v6}, {{hi,3},v10},{"hi",v11}, {hi,v9}, {3,v8}]),
+
+    %% error cases
+    {'EXIT', {badarg,_}} = (catch map:from_list(id(a))),
+    {'EXIT', {badarg,_}} = (catch map:from_list(id(42))),
     ok.
 
 
