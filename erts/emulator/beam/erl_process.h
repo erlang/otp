@@ -688,6 +688,9 @@ typedef struct {
     ErlHeapFragment *bp;
 } ErtsPendExit;
 
+typedef struct ErtsProcSysTask_ ErtsProcSysTask;
+typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
+
 #ifdef ERTS_SMP
 
 typedef struct ErtsPendingSuspend_ ErtsPendingSuspend;
@@ -855,6 +858,7 @@ struct process {
     Uint64 bin_old_vheap_sz;	/* Virtual old heap block size for binaries */
     Uint64 bin_old_vheap;	/* Virtual old heap size for binaries */
 
+    ErtsProcSysTaskQs *sys_task_qs;
     erts_smp_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
 
 #ifdef ERTS_SMP
@@ -924,24 +928,66 @@ void erts_check_for_holes(Process* p);
 #  error "Need to increase ERTS_PSFLG_PRIO_SHIFT"
 #endif
 
-#define ERTS_PSFLG_PRIO_SHIFT 2
+#define ERTS_PSFLGS_PRIO_BITS 2
+#define ERTS_PSFLGS_PRIO_MASK \
+    ((((erts_aint32_t) 1) << ERTS_PSFLGS_PRIO_BITS) - 1)
+
+#define ERTS_PSFLGS_ACT_PRIO_OFFSET (0*ERTS_PSFLGS_PRIO_BITS)
+#define ERTS_PSFLGS_USR_PRIO_OFFSET (1*ERTS_PSFLGS_PRIO_BITS)
+#define ERTS_PSFLGS_PRQ_PRIO_OFFSET (2*ERTS_PSFLGS_PRIO_BITS)
+#define ERTS_PSFLGS_ZERO_BIT_OFFSET (3*ERTS_PSFLGS_PRIO_BITS)
+
+#define ERTS_PSFLGS_QMASK_BITS 4
+#define ERTS_PSFLGS_QMASK \
+    ((((erts_aint32_t) 1) << ERTS_PSFLGS_QMASK_BITS) - 1)
+#define ERTS_PSFLGS_IN_PRQ_MASK_OFFSET \
+    ERTS_PSFLGS_ZERO_BIT_OFFSET
 
 #define ERTS_PSFLG_BIT(N) \
-    (((erts_aint32_t) 1) << (ERTS_PSFLG_PRIO_SHIFT + (N)))
+    (((erts_aint32_t) 1) << (ERTS_PSFLGS_ZERO_BIT_OFFSET + (N)))
 
-#define ERTS_PSFLG_PRIO_MASK 		(ERTS_PSFLG_BIT(0) - 1)
+/*
+ * ACT_PRIO -> Active prio, i.e., currently active prio. This
+ *             prio may be higher than user prio.
+ * USR_PRIO -> User prio. i.e., prio the user has set.
+ * PRQ_PRIO -> Prio queue prio, i.e., prio queue currently
+ *             enqueued in. 
+ */
+#define ERTS_PSFLGS_ACT_PRIO_MASK \
+    (ERTS_PSFLGS_PRIO_MASK << ERTS_PSFLGS_ACT_PRIO_OFFSET)
+#define ERTS_PSFLGS_USR_PRIO_MASK \
+    (ERTS_PSFLGS_PRIO_MASK << ERTS_PSFLGS_USR_PRIO_OFFSET)
+#define ERTS_PSFLGS_PRQ_PRIO_MASK \
+    (ERTS_PSFLGS_PRIO_MASK << ERTS_PSFLGS_PRQ_PRIO_OFFSET)
+#define ERTS_PSFLG_IN_PRQ_MAX 		ERTS_PSFLG_BIT(0)
+#define ERTS_PSFLG_IN_PRQ_HIGH		ERTS_PSFLG_BIT(1)
+#define ERTS_PSFLG_IN_PRQ_NORMAL	ERTS_PSFLG_BIT(2)
+#define ERTS_PSFLG_IN_PRQ_LOW 		ERTS_PSFLG_BIT(3)
+#define ERTS_PSFLG_FREE			ERTS_PSFLG_BIT(4)
+#define ERTS_PSFLG_EXITING		ERTS_PSFLG_BIT(5)
+#define ERTS_PSFLG_PENDING_EXIT		ERTS_PSFLG_BIT(6)
+#define ERTS_PSFLG_ACTIVE		ERTS_PSFLG_BIT(7)
+#define ERTS_PSFLG_IN_RUNQ		ERTS_PSFLG_BIT(8)
+#define ERTS_PSFLG_RUNNING		ERTS_PSFLG_BIT(9)
+#define ERTS_PSFLG_SUSPENDED		ERTS_PSFLG_BIT(10)
+#define ERTS_PSFLG_GC			ERTS_PSFLG_BIT(11)
+#define ERTS_PSFLG_BOUND		ERTS_PSFLG_BIT(12)
+#define ERTS_PSFLG_TRAP_EXIT		ERTS_PSFLG_BIT(13)
+#define ERTS_PSFLG_ACTIVE_SYS		ERTS_PSFLG_BIT(14)
+#define ERTS_PSFLG_RUNNING_SYS		ERTS_PSFLG_BIT(15)
+#define ERTS_PSFLG_PROXY		ERTS_PSFLG_BIT(16)
 
-#define ERTS_PSFLG_FREE			ERTS_PSFLG_BIT(0)
-#define ERTS_PSFLG_EXITING		ERTS_PSFLG_BIT(1)
-#define ERTS_PSFLG_PENDING_EXIT		ERTS_PSFLG_BIT(2)
-#define ERTS_PSFLG_ACTIVE		ERTS_PSFLG_BIT(3)
-#define ERTS_PSFLG_IN_RUNQ		ERTS_PSFLG_BIT(4)
-#define ERTS_PSFLG_RUNNING		ERTS_PSFLG_BIT(5)
-#define ERTS_PSFLG_SUSPENDED		ERTS_PSFLG_BIT(6)
-#define ERTS_PSFLG_GC			ERTS_PSFLG_BIT(7)
-#define ERTS_PSFLG_BOUND		ERTS_PSFLG_BIT(8)
-#define ERTS_PSFLG_TRAP_EXIT		ERTS_PSFLG_BIT(9)
+#define ERTS_PSFLGS_IN_PRQ_MASK 	(ERTS_PSFLG_IN_PRQ_MAX		\
+					 | ERTS_PSFLG_IN_PRQ_HIGH	\
+					 | ERTS_PSFLG_IN_PRQ_NORMAL	\
+					 | ERTS_PSFLG_IN_PRQ_LOW)
 
+#define ERTS_PSFLGS_GET_ACT_PRIO(PSFLGS) \
+    (((PSFLGS) >> ERTS_PSFLGS_ACT_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
+#define ERTS_PSFLGS_GET_USR_PRIO(PSFLGS) \
+    (((PSFLGS) >> ERTS_PSFLGS_USR_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
+#define ERTS_PSFLGS_GET_PRQ_PRIO(PSFLGS) \
+    (((PSFLGS) >> ERTS_PSFLGS_USR_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
 
 /* The sequential tracing token is a tuple of size 5:
  *

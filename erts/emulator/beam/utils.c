@@ -1675,7 +1675,7 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 	p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0);
 	if (p) {
 	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
-	    if (state & ERTS_PSFLG_RUNNING)
+	    if (state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))
 		p = NULL;
 	}
     }

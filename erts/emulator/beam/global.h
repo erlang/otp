@@ -655,6 +655,10 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg);
 
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
+/* beam_bif_load.c */
+Eterm erts_check_process_code(Process *c_p, Eterm module, int allow_gc, int *redsp);
+
+
 /* beam_load.c */
 typedef struct {
     BeamInstr* current;		/* Pointer to: Mod, Name, Arity */
