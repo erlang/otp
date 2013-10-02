@@ -50,7 +50,7 @@
              | hrl.
 
 %% Internal parsed format with a version tag.
--type parsed() :: maybe_improper_list(integer(), orddict:orddict()).
+-type parsed() :: list().
 
 %% Literal dictionary or path. A NL of CR identifies the former.
 -type dict() :: iolist()
