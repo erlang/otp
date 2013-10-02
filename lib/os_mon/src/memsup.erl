@@ -721,20 +721,19 @@ reply(Pending, MemUsage, SysMemUsage) ->
 %% get_memory_usage(OS) -> {Alloc, Total}
 
 %% Darwin:
-%% Uses vm_stat command. This appears to lie about the page size in
-%% Mac OS X 10.2.2 - the pages given are based on 4000 bytes, but
-%% the vm_stat command tells us that it is 4096...
+%% Uses vm_stat command.
 get_memory_usage({unix,darwin}) ->
     Str1 = os:cmd("/usr/bin/vm_stat"),
-    
-    {[Free],     Str2} = fread_value("Pages free:~d.", Str1),
-    {[Active],   Str3} = fread_value("Pages active:~d.", Str2),
-    {[Inactive], Str4} = fread_value("Pages inactive:~d.", Str3),
-    {[_],        Str5} = fread_value("Pages speculative:~d.", Str4),
+    PageSize = 4096,
+
+    {[Free],        Str2} = fread_value("Pages free:~d.", Str1),
+    {[Active],      Str3} = fread_value("Pages active:~d.", Str2),
+    {[Inactive],    Str4} = fread_value("Pages inactive:~d.", Str3),
+    {[Speculative], Str5} = fread_value("Pages speculative:~d.", Str4),
     {[Wired],       _} = fread_value("Pages wired down:~d.", Str5),
 
-    NMemUsed  = (Wired + Active + Inactive) * 4000,
-    NMemTotal = NMemUsed + Free * 4000,
+    NMemUsed  = (Wired + Active + Inactive) * PageSize,
+    NMemTotal = NMemUsed + (Free + Speculative) * PageSize,
     {NMemUsed,NMemTotal};
 
 %% FreeBSD: Look in /usr/include/sys/vmmeter.h for the format of struct
