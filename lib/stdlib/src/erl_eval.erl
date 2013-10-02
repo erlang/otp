@@ -241,18 +241,26 @@ expr({record,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
     erlang:raise(error, {undef_record,Name}, stacktrace());
 
 %% map
-expr({map_field,_,EK, EV}, Bs0, Lf, Ef, RBs) ->
+expr({map_field_assoc,_,EK, EV}, Bs0, Lf, Ef, RBs) ->
     {value,K,Bs1} = expr(EK, Bs0, Lf, Ef, none),
     {value,V,Bs2} = expr(EV, Bs0, Lf, Ef, none),
-    ret_expr({K,V}, merge_bindings(Bs1,Bs2), RBs);
+    ret_expr({map_assoc,K,V}, merge_bindings(Bs1,Bs2), RBs);
+expr({map_field_exact,_,EK, EV}, Bs0, Lf, Ef, RBs) ->
+    {value,K,Bs1} = expr(EK, Bs0, Lf, Ef, none),
+    {value,V,Bs2} = expr(EV, Bs0, Lf, Ef, none),
+    ret_expr({map_exact,K,V}, merge_bindings(Bs1,Bs2), RBs);
 expr({map,_, Binding,Es}, Bs0, Lf, Ef, RBs) ->
     {value, Map0, Bs1} = expr(Binding, Bs0, Lf, Ef, RBs),
     {Vs,Bs} = expr_list(Es, Bs1, Lf, Ef),
-    ret_expr(lists:foldl(fun({K,V}, Mi) -> map:put(K,V,Mi) end, Map0, Vs), Bs, RBs);
+    ret_expr(lists:foldl(fun
+		({map_assoc,K,V}, Mi) -> map:put(K,V,Mi);
+		({map_exact,K,V}, Mi) -> map:update(K,V,Mi)
+	end, Map0, Vs), Bs, RBs);
 expr({map,_,Es}, Bs0, Lf, Ef, RBs) ->
     {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef),
-    ret_expr(lists:foldl(fun({K,V}, Mi) -> map:put(K,V,Mi) end, map:new(), Vs), Bs, RBs);
-
+    ret_expr(lists:foldl(fun
+		({map_assoc,K,V}, Mi) -> map:put(K,V,Mi)
+	    end, map:new(), Vs), Bs, RBs);
 
 expr({block,_,Es}, Bs, Lf, Ef, RBs) ->
     exprs(Es, Bs, Lf, Ef, RBs);
@@ -1137,9 +1145,12 @@ match_tuple([E|Es], Tuple, I, Bs0, BBs) ->
 match_tuple([], _, _, Bs, _BBs) ->
     {match,Bs}.
 
-match_map([{map_field, _, K, V}|Fs], Map, Bs0, BBs) ->
-    Vm = try map:get(element(3,K),Map)
-    catch error:_ -> throw(nomatch)
+match_map([{map_field_exact, _, K, V}|Fs], Map, Bs0, BBs) ->
+    Vm = try
+	{value, Ke, _} = expr(K, new_bindings()),
+	map:get(Ke,Map)
+    catch error:_ ->
+	throw(nomatch)
     end,
     {match, Bs} = match1(V, Vm, Bs0, BBs),
     match_map(Fs, Map, Bs, BBs);
