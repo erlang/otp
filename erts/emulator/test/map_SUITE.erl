@@ -23,6 +23,7 @@
 -export([
 	t_build_and_match_literals/1,
 	t_update_literals/1,t_match_and_update_literals/1,
+	update_assoc/1,update_exact/1,
 	t_guard_bifs/1, t_guard_sequence/1, t_guard_update/1,
 	t_guard_receive/1, t_guard_fun/1,
 	t_list_comprehension/1,
@@ -48,6 +49,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> [
 	t_build_and_match_literals,
 	t_update_literals, t_match_and_update_literals,
+	update_assoc,update_exact,
 	t_guard_bifs, t_guard_sequence, t_guard_update,
 	t_guard_receive,t_guard_fun, t_list_comprehension,
 	t_map_sort_literals,
@@ -166,6 +168,42 @@ loop_match_and_update_literals_x_q(Map, []) -> Map;
 loop_match_and_update_literals_x_q(#{q:=Q0,x:=X0} = Map, [{X,Q}|Vs]) ->
     loop_match_and_update_literals_x_q(Map#{q=>Q0+Q,x=>X0+X},Vs).
 
+update_assoc(Config) when is_list(Config) ->
+    M0 = id(#{1=>a,2=>b,3.0=>c,4=>d,5=>e}),
+
+    M1 = M0#{1=>42,2=>100,4=>[a,b,c]},
+    #{1:=42,2:=100,3.0:=c,4:=[a,b,c],5:=e} = M1,
+    M1 = M0#{1.0=>wrong,1:=42,2.0=>wrong,2.0=>100,4.0=>[a,b,c]},
+
+    M2 = M0#{3.0=>new},
+    #{1:=a,2:=b,3.0:=new,4:=d,5:=e} = M2,
+    M2 = M0#{3.0:=wrong,3.0=>new},
+
+    %% Errors cases.
+    BadMap = id(badmap),
+    {'EXIT',{badarg,_}} = (catch BadMap#{nonexisting=>val}),
+
+    ok.
+
+update_exact(Config) when is_list(Config) ->
+    M0 = id(#{1=>a,2=>b,3.0=>c,4=>d,5=>e}),
+
+    M1 = M0#{1:=42,2:=100,4:=[a,b,c]},
+    #{1:=42,2:=100,3.0:=c,4:=[a,b,c],5:=e} = M1,
+    M1 = M0#{1:=wrong,1=>42,2=>wrong,2:=100,4:=[a,b,c]},
+
+    M2 = M0#{3.0:=new},
+    #{1:=a,2:=b,3.0:=new,4:=d,5:=e} = M2,
+    M2 = M0#{3.0=>wrong,3.0:=new},
+    M2 = M0#{3=>wrong,3.0:=new},
+
+    %% Errors cases.
+    {'EXIT',{badarg,_}} = (catch M0#{nonexisting:=val}),
+    {'EXIT',{badarg,_}} = (catch M0#{1.0:=v,1.0=>v2}),
+    {'EXIT',{badarg,_}} = (catch M0#{42.0:=v,42:=v2}),
+    {'EXIT',{badarg,_}} = (catch M0#{42=>v1,42.0:=v2,42:=v3}),
+
+    ok.
 
 t_guard_bifs(Config) when is_list(Config) ->
     true   = map_guard_head(#{a=>1}),

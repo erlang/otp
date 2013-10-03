@@ -866,15 +866,10 @@ valfun_4({bs_final2,Src,Dst}, Vst0) ->
     assert_term(Src, Vst0),
     set_type_reg(binary, Dst, Vst0);
 %% Map instructions.
-valfun_4({put_map,{f,Fail},Src,Dst,Live,{list,List}}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    [assert_term(Term, Vst0) || Term <- List],
-    assert_term(Src, Vst0),
-    Vst1 = heap_alloc(0, Vst0),
-    Vst2 = branch_state(Fail, Vst1),
-    Vst = prune_x_regs(Live, Vst2),
-    set_type_reg(term, Dst, Vst);
+valfun_4({put_map_assoc,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_map(Fail, Src, Dst, Live, List, Vst);
+valfun_4({put_map_exact,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_map(Fail, Src, Dst, Live, List, Vst);
 valfun_4({get_map_element,{f,Fail},Src,Key,Dst}, Vst0) ->
     assert_term(Src, Vst0),
     assert_term(Key, Vst0),
@@ -882,6 +877,16 @@ valfun_4({get_map_element,{f,Fail},Src,Key,Dst}, Vst0) ->
     set_type_reg(term, Dst, Vst);
 valfun_4(_, _) ->
     error(unknown_instruction).
+
+verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+    [assert_term(Term, Vst0) || Term <- List],
+    assert_term(Src, Vst0),
+    Vst1 = heap_alloc(0, Vst0),
+    Vst2 = branch_state(Fail, Vst1),
+    Vst = prune_x_regs(Live, Vst2),
+    set_type_reg(term, Dst, Vst).
 
 %%
 %% Common code for validating bs_get* instructions.

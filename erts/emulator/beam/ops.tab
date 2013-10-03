@@ -1474,11 +1474,16 @@ apply_last I P
 # has_map_field Fail Src Key => jump Fail
 # get_map_element Fail Src Key Dst => jump Fail
 
-put_map F n Dst Live Size Rest=* => new_map F Dst Live Size Rest
-put_map F Src Dst Live Size Rest=* => update_map F Src Dst Live Size Rest
+put_map_assoc F n Dst Live Size Rest=* => new_map F Dst Live Size Rest
+put_map_exact F n Dst Live Size Rest=* => new_map F Dst Live Size Rest
+put_map_assoc F Src Dst Live Size Rest=* => \
+	       update_map_assoc F Src Dst Live Size Rest
+put_map_exact F Src Dst Live Size Rest=* => \
+	      update_map_exact F Src Dst Live Size Rest
 
 new_map j d I I
-update_map j d d I I
+update_map_assoc j d d I I
+update_map_exact j d d I I
 
 is_map Fail cq => jump Fail
 

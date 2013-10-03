@@ -1488,7 +1488,7 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
     %% Now generate the complete code for constructing the binary.
     Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
     {Sis++Code,Aft,St};
-set_cg([{var,R}], {map,SrcMap,Es}, Le, Vdb, Bef,
+set_cg([{var,R}], {map,SrcMap,Es0}, Le, Vdb, Bef,
        #cg{in_catch=InCatch,bfail=Bfail}=St) ->
     Fail = {f,Bfail},
     {Sis,Int0} =
@@ -1501,24 +1501,41 @@ set_cg([{var,R}], {map,SrcMap,Es}, Le, Vdb, Bef,
 		 {var,SrcVar} -> fetch_var(SrcVar, Int0);
 		 _ -> SrcMap
 	     end,
-
-    %% MapPairs in put_map must be sorted in ascending Key order.
-    %% Key literals must be unique when arriving here in v3_codegen.
-
-    SortedEs = lists:sort(fun({_,{_T1,K1},_},{_,{_T2,K2},_}) ->
-				  K1 =< K2
-			  end, Es),
-    List = flatmap(fun
-	    ({map_pair_assoc,K,{var,V}}) -> [K,fetch_var(V, Int0)];
-	    ({map_pair_exact,K,{var,V}}) -> [K,fetch_var(V, Int0)];
-	    ({map_pair_assoc,K,E}) -> [K,E];
-	    ({map_pair_exact,K,E}) -> [K,E]
-	end, SortedEs),
-    Live = max_reg(Bef#sr.reg),
+    {Assoc,Exact} =
+	try
+	    cg_map_pairs(Es0)
+	catch
+	    throw:badarg ->
+		{[],[{{float,0.0},{atom,badarg}},
+		     {{integer,0},{atom,badarg}}]}
+	end,
+    F = fun ({K,{var,V}}) -> [K,fetch_var(V, Int0)];
+	    ({K,E}) -> [K,E]
+	end,
+    AssocList = flatmap(F, Assoc),
+    ExactList = flatmap(F, Exact),
+    Live0 = max_reg(Bef#sr.reg),
     Int1 = clear_dead(Int0, Le#l.i, Vdb),
     Aft = Bef#sr{reg=put_reg(R, Int1#sr.reg)},
     Target = fetch_reg(R, Aft#sr.reg),
-    Code = [Line,{put_map,Fail,SrcReg,Target,Live,{list,List}}],
+    Code = [Line] ++
+	case {AssocList,ExactList} of
+	    {[_|_],[]} ->
+		[{put_map_assoc,Fail,SrcReg,Target,Live0,{list,AssocList}}];
+	    {[_|_],[_|_]} ->
+		Live = case Target of
+			   {x,TargetX} when TargetX =:= Live0 ->
+			       Live0 + 1;
+			   _ ->
+			       Live0
+		       end,
+		[{put_map_assoc,Fail,SrcReg,Target,Live0,{list,AssocList}},
+		 {put_map_exact,Fail,Target,Target,Live,{list,ExactList}}];
+	    {[],[_|_]} ->
+		[{put_map_exact,Fail,SrcReg,Target,Live0,{list,ExactList}}];
+	    {[],[]} ->
+		[{put_map_assoc,Fail,SrcReg,Target,Live0,{list,[]}}]
+	end,
     {Sis++Code,Aft,St};
 set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
     %% Find a place for the return register first.
@@ -1531,6 +1548,68 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
 		  [{move,cg_reg_arg(Other, Int),Ret}]
 	  end,
     {Ais,clear_dead(Int, Le#l.i, Vdb),St}.
+
+%% cg_map_pairs(MapPairs) -> {Assoc,Exact}
+%%  Assoc = Exact = [{K,V}]
+%%
+%%  Remove multiple assignments to the same key, and return
+%%  one list key-value list with all keys that may or may not exist
+%%  (Assoc), and one with keys that must exist (Exact).
+%%
+
+cg_map_pairs(Es0) ->
+    Es = cg_map_pairs_1(Es0, 0),
+    R0 = sofs:relation(Es),
+    R1 = sofs:relation_to_family(R0),
+    R2 = sofs:to_external(R1),
+
+    %% R2 is now [{KeyValue,[{Order,Op,OriginalKey,Value}]}]
+    R3 = [begin
+	      %% The value for the last pair determines the value.
+	      {_,_,_,V} = lists:last(Vs),
+	      {Op,{_,SortOrder}=K} = map_pair_op_and_key(Vs),
+	      {Op,{SortOrder,K,V}}
+	  end || {_,Vs} <- R2],
+
+    %% R3 is now [{Op,{Key,Value}}]
+    R = lists:sort(R3),
+
+    %% R4 is now sorted with all alloc first in the list, followed by
+    %% all exact.
+    {Assoc,Exact} = lists:partition(fun({Op,_}) -> Op =:= assoc end, R),
+    {[{K,V} || {_,{_,K,V}} <- Assoc],
+     [{K,V} || {_,{_,K,V}} <- Exact]}.
+
+cg_map_pairs_1([{map_pair_assoc,{_,Kv}=K,V}|T], Order) ->
+    [{Kv,{Order,assoc,K,V}}|cg_map_pairs_1(T, Order+1)];
+cg_map_pairs_1([{map_pair_exact,{_,Kv}=K,V}|T], Order) ->
+    [{Kv,{Order,exact,K,V}}|cg_map_pairs_1(T, Order+1)];
+cg_map_pairs_1([], _) -> [].
+
+%% map_pair_op_and_key({_,Op,K,_}) -> {Operator,Key}
+%%  Determine the operator and key to use. Throw a 'badarg'
+%%  exception if there are contradictory exact updates.
+
+map_pair_op_and_key(L) ->
+    case [K || {_,exact,K,_} <- L] of
+	[K] ->
+	    %% There is a single ':=' operator. Use that key.
+	    {exact,K};
+	[K|T] ->
+	    %% There is more than one ':=' operator. All of them
+	    %% must have the same key.
+	    case lists:all(fun(E) -> E =:= K end, T) of
+		true ->
+		    {exact,K};
+		false ->
+		    %% Some keys are different, e.g. 1 and 1.0.
+		    throw(badarg)
+	    end;
+	[] ->
+	    %% Only '=>' operators. Use the first key in the list.
+	    [{_,assoc,K,_}|_] = L,
+	    {assoc,K}
+    end.
 
 %%%
 %%% Code generation for constructing binaries.
