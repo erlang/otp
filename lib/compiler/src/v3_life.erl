@@ -369,8 +369,10 @@ literal(#k_tuple{es=Es}, Ctxt) ->
     {tuple,literal_list(Es, Ctxt)};
 literal(#k_map{var=Var,es=Es}, Ctxt) ->
     {map,literal(Var, Ctxt),literal_list(Es, Ctxt)};
-literal(#k_map_pair{key=K,val=V}, Ctxt) ->
-    {map_pair,literal(K, Ctxt),literal(V, Ctxt)};
+literal(#k_map_pair_assoc{key=K,val=V}, Ctxt) ->
+    {map_pair_assoc,literal(K, Ctxt),literal(V, Ctxt)};
+literal(#k_map_pair_exact{key=K,val=V}, Ctxt) ->
+    {map_pair_exact,literal(K, Ctxt),literal(V, Ctxt)};
 literal(#k_literal{val=V}, _Ctxt) ->
     {literal,V}.
 
@@ -402,7 +404,9 @@ literal2(#k_tuple{es=Es}, Ctxt) ->
     {tuple,literal_list2(Es, Ctxt)};
 literal2(#k_map{es=Es}, Ctxt) ->
     {map,literal_list2(Es, Ctxt)};
-literal2(#k_map_pair{key=K,val=V}, Ctxt) ->
+literal2(#k_map_pair_assoc{key=K,val=V}, Ctxt) ->
+    {map_pair,literal2(K, Ctxt),literal2(V, Ctxt)};
+literal2(#k_map_pair_exact{key=K,val=V}, Ctxt) ->
     {map_pair,literal2(K, Ctxt),literal2(V, Ctxt)}.
 
 literal_list2(Ks, Ctxt) ->

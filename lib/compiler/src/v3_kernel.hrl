@@ -39,7 +39,8 @@
 
 -record(k_tuple, {anno=[],es}).
 -record(k_map, {anno=[],var,es}).
--record(k_map_pair, {anno=[],key,val}).
+-record(k_map_pair_assoc, {anno=[],key,val}).
+-record(k_map_pair_exact, {anno=[],key,val}).
 -record(k_cons, {anno=[],hd,tl}).
 -record(k_binary, {anno=[],segs}).
 -record(k_bin_seg, {anno=[],size,unit,type,flags,seg,next}).
