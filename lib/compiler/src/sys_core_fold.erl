@@ -418,35 +418,8 @@ expr(#c_try{anno=A,arg=E0,vars=Vs0,body=B0,evars=Evs0,handler=H0}=Try, _, Sub0) 
 expr_list(Es, Ctxt, Sub) ->
     [expr(E, Ctxt, Sub) || E <- Es].
 
-%% traverse pairs in reverse
-%% - remove later literals since they will be overwritten.
-
 pair_list(Es, Ctxt, Sub) ->
-    pair_list_reversed(lists:reverse(Es), Ctxt, Sub, [], gb_sets:empty()).
-
-pair_list_reversed([],_,_,Es,_) -> Es;
-pair_list_reversed([E|Es],Ctxt,Sub,Out,Keys) ->
-    Pair = pair(E,Ctxt,Sub),
-    case map_has_key(Pair,Keys) of
-	{false,Keys1} ->
-	    pair_list_reversed(Es,Ctxt,Sub,[Pair|Out],Keys1);
-	{true,K} ->
-	    add_warning(E, {map_pair_key_overloaded,K}),
-	    pair_list_reversed(Es,Ctxt,Sub,Out,Keys)
-    end.
-
-%% check if key already is present in map, i.e. #{ a=>1, a=>2 }
-%% where 'a' is duplicate. Update maps set with the key if not present.
-
-map_has_key(MapPair,Ks) ->
-    K = map_get_literal_key_from_pair(MapPair),
-    case gb_sets:is_element(K,Ks) of
-	false -> {false, gb_sets:add(K,Ks)};
-	true  -> {true, K}
-    end.
-
-map_get_literal_key_from_pair(#c_map_pair_assoc{key=#c_literal{val=K}}) -> K;
-map_get_literal_key_from_pair(#c_map_pair_exact{key=#c_literal{val=K}}) -> K.
+    [pair(E, Ctxt, Sub) || E <- Es].
 
 pair(#c_map_pair_assoc{key=K,val=V}, effect, Sub) ->
     make_effect_seq([K,V], Sub);
