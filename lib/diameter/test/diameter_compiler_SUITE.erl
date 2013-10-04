@@ -31,9 +31,14 @@
 %% testcases
 -export([format/1,    format/2,
          replace/1,   replace/2,
-         generate/1,  generate/4]).
+         generate/1,  generate/4,
+         flatten1/1,  flatten1/3,
+         flatten2/1]).
 
 -export([dict/0]).  %% fake dictionary module
+
+%% dictionary callbacks for flatten2/1
+-export(['A1'/3, 'Unsigned32'/3]).
 
 -define(base, "base_rfc3588.dia").
 -define(util, diameter_util).
@@ -335,7 +340,9 @@ suite() ->
 all() ->
     [format,
      replace,
-     generate].
+     generate,
+     flatten1,
+     flatten2].
 
 %% Error handling testcases will make an erroneous dictionary out of
 %% the base dictionary and check that the expected error results.
@@ -361,11 +368,11 @@ format(Config) ->
 
 format(Mods, Bin) ->
     B = modify(Bin, Mods),
-    {ok, Dict} = make(B, []),
-    {ok, D} = make(diameter_make:format(Dict), []),
+    {ok, Dict} = parse(B, []),
+    {ok, D} = parse(diameter_make:format(Dict), []),
     {Dict, Dict} = {Dict, D}.
 
-make(File, Opts) ->
+parse(File, Opts) ->
     case diameter_make:codec(File, [parse, hrl, return | Opts]) of
         {ok, [Dict, _]} ->
             {ok, Dict};
@@ -387,7 +394,7 @@ replace(Config) ->
 
 replace({E, Mods}, Bin) ->
     B = modify(Bin, Mods),
-    case {E, make(B, [{include, here()}]), Mods} of
+    case {E, parse(B, [{include, here()}]), Mods} of
         {ok, {ok, Dict}, _} ->
             Dict;
         {_, {error, S}, _} ->
@@ -412,7 +419,7 @@ generate(Config) ->
 
 generate(Mods, Bin, N, Mode) ->
     B = modify(Bin, Mods ++ [{"@name .*", "@name dict" ++ ?L(N)}]),
-    {ok, Dict} = make(B, []),
+    {ok, Dict} = parse(B, []),
     File = "dict" ++ integer_to_list(N),
     {_, ok} = {Dict, diameter_make:codec(Dict,
                                          [{name, File},
@@ -432,6 +439,104 @@ generate(parse, File, Dict) ->
 
 generate(hrl, _, _) ->
     ok.
+
+%% ===========================================================================
+%% flatten1/1
+
+flatten1(_Config) ->
+    [Vsn | BaseD] = diameter_gen_base_rfc6733:dict(),
+    {ok, I} = parse("@inherits diameter_gen_base_rfc6733\n", []),
+    [Vsn | FlatD] = diameter_make:flatten(I),
+    [] = ?util:run([{?MODULE, [flatten1, K, BaseD, FlatD]}
+                    || K <- [avp_types, grouped, enum]]).
+
+flatten1(Key, BaseD, FlatD) ->
+    Vs = orddict:fetch(Key, BaseD),
+    Vs = orddict:fetch(Key, FlatD).
+
+%% ===========================================================================
+%% flatten2/1
+
+flatten2(_Config) ->
+    Dict1 =
+        "@name diameter_test1\n"
+        "@prefix diameter_test1\n"
+        "@vendor 666 test\n"
+        "@avp_vendor_id 111 A1 A3\n"
+        "@avp_vendor_id 222 A4 A6\n"
+        "@custom_types " ++ ?S(?MODULE) ++ " A1 A4\n"
+        "@codecs " ++ ?S(?MODULE) ++ " A3 A6\n"
+        "@avp_types\n"
+        "A1 1001 Unsigned32 V\n"
+        "A2 1002 Unsigned32 V\n"
+        "A3 1003 Unsigned32 V\n"
+        "A4 1004 Unsigned32 V\n"
+        "A5 1005 Unsigned32 V\n"
+        "A6 1006 Unsigned32 V\n"
+        "@end ignored\n",
+    Dict2 =
+        "@name diameter_test2\n"
+        "@prefix diameter_test2\n"
+        "@vendor 777 test\n"
+        "@inherits diameter_test1 A1 A2 A3\n"
+        "@inherits diameter_gen_base_rfc6733\n"
+        "@avp_vendor_id 333 A1\n",
+
+    {ok, [E1, {_,B1}]}
+        = diameter_make:codec(Dict1, [erl, beam, return]),
+    ct:pal("~s", [E1]),
+    {module, diameter_test1}
+        = code:load_binary(diameter_test1, "diameter_test1", B1),
+
+
+    {ok, [D2, E2, {_,B2}]}
+        = diameter_make:codec(Dict2, [parse, erl, beam, return]),
+    ct:pal("~s", [E2]),
+    {module, diameter_test2}
+        = code:load_binary(diameter_test2, "diameter_test2", B2),
+
+
+    Flat = lists:flatten(diameter_make:format(diameter_make:flatten(D2))),
+    ct:pal("~s", [Flat]),
+    {ok, [E3, {_,B3}]}
+        = diameter_make:codec(Flat, [erl, beam, return,
+                                     {name, "diameter_test3"}]),
+    ct:pal("~s", [E3]),
+    {module, diameter_test3}
+        = code:load_binary(diameter_test3, "diameter_test3", B3),
+
+    {M1, M2, M3} = {diameter_test1, diameter_test2, diameter_test3},
+
+    [{1001, 111, M1, 'A1'},  %% @avp_vendor_id
+     {1002, 666, M1, 'A2'},  %% @vendor
+     {1003, 111, M1, 'A3'},  %% @avp_vendor_id
+     {1004, 222, M1, 'A4'},  %% @avp_vendor_id
+     {1005, 666, M1, 'A5'},  %% @vendor
+     {1006, 222, M1, 'A6'},  %% @avp_vendor_id
+     {1001, 333, M2, 'A1'},  %% M2 @avp_vendor_id
+     {1002, 666, M2, 'A2'},  %% M1 @vendor
+     {1003, 666, M2, 'A3'},  %% M1 @vendor
+     {1001, 333, M3, 'A1'},  %% (as for M2)
+     {1002, 666, M3, 'A2'},  %%   "
+     {1003, 666, M3, 'A3'}]  %%   "
+        = [{Code, Vid, Mod, Name}
+           || Mod <- [M1, M2, M3],
+              Code <- lists:seq(1001, 1006),
+              Vid <- [666, 111, 222, 777, 333],
+              {Name, 'Unsigned32'} <- [Mod:avp_name(Code, Vid)]],
+
+    [] = [{A,T,M,RC} || A <- ['A1', 'A3'],
+                        T <- [encode, decode],
+                        M <- [M2, M3],
+                        Ref <- [make_ref()],
+                        RC <- [M:avp(T, Ref, A)],
+                        RC /= {T, Ref}].
+
+'A1'(T, 'Unsigned32', Ref) ->
+    {T, Ref}.
+
+'Unsigned32'(T, 'A3', Ref) ->
+    {T, Ref}.
 
 %% ===========================================================================
 

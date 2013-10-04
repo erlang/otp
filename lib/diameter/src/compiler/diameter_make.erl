@@ -107,19 +107,97 @@ format([?VERSION | Dict]) ->
    -> parsed().
 
 flatten([?VERSION = V | Dict]) ->
-    [V | lists:foldl(fun flatten/2, Dict, [[avp_types, import_avps],
-                                           [grouped, import_groups],
-                                           [enum, import_enums]])].
+    [V | lists:foldl(fun flatten/2,
+                     Dict,
+                     [avp_vendor_id,
+                      custom_types,
+                      codecs,
+                      [avp_types, import_avps],
+                      [grouped, import_groups],
+                      [enum, import_enums]])].
+
+%% ===========================================================================
+
+%% flatten/2
 
 flatten([_,_] = Keys, Dict) ->
     [Values, Imports] = [orddict:fetch(K, Dict) || K <- Keys],
-    Vs = lists:append([Values | [V || {_,V} <- Imports]]),
-    lists:foldl(fun store/2,
+    Vs = lists:append([Values | [V || {_Mod, V} <- Imports]]),
+    lists:foldl(fun({K,V},D) -> orddict:store(K,V,D) end,
                 Dict,
-                lists:zip([inherits | Keys], [[], Vs, []])).
+                lists:zip([inherits | Keys], [[], Vs, []]));
 
-store({Key, Value}, Dict) ->
-    orddict:store(Key, Value, Dict).
+%% Inherited avp's setting the 'V' flag get their value either from
+%% @avp_vendor_id in the inheriting dictionary or from @vendor in the
+%% *inherited* (not inheriting) dictionary: add the latter to
+%% @avp_vendor_id as required.
+flatten(avp_vendor_id = Key, Dict) ->
+    Def = orddict:find(vendor, Dict),
+    ModD = imports(Dict),
+    Vids = orddict:fetch(Key, Dict),
+    Avps = lists:append([As || {_,As} <- Vids]),
+    orddict:store(Key,
+                  dict:fold(fun(M, As, A) -> vid(M, As -- Avps, Def, A) end,
+                            Vids,
+                            ModD),
+                  Dict);
+
+%% Import @codecs and @custom_types from inherited dictionaries as
+%% required.
+flatten(Key, Dict) ->
+    ImportAvps = orddict:fetch(import_avps, Dict),
+    ImportItems = [{M, As}
+                   || {Mod, Avps} <- ImportAvps,
+                      [_|D] <- [Mod:dict()],
+                      {M,As0} <- orddict:fetch(Key, D),
+                      F <- [fun(A) -> lists:keymember(A, 1, Avps) end],
+                      [_|_] = As <- [lists:filter(F, As0)]],
+    orddict:store(Key,
+                  lists:foldl(fun merge/2,
+                              orddict:fetch(Key, Dict),
+                              ImportItems),
+                  Dict).
+
+%% merge/2
+
+merge({Mod, _Avps} = T, Acc) ->
+    merge(lists:keyfind(Mod, 1, Acc), T, Acc).
+
+merge({Mod, Avps}, {Mod, As}, Acc) ->
+    lists:keyreplace(Mod, 1, Acc, {Mod, Avps ++ As});
+merge(false, T, Acc) ->
+    [T | Acc].
+
+%% imports/1
+%%
+%% Return a module() -> [AVP] dict of inherited AVP's setting the V flag.
+
+imports(Dict) ->
+    lists:foldl(fun imports/2,
+                dict:new(),
+                orddict:fetch(import_avps, Dict)).
+
+imports({Mod, Avps}, Dict) ->
+    dict:store(Mod,
+               [A || {A,_,_,Fs} <- Avps, lists:member($V, Fs)],
+               Dict).
+
+%% vid/4
+
+vid(_, [], _, Acc) ->
+    Acc;
+vid(Mod, Avps, Def, Acc) ->
+    v(Mod:vendor_id(), Avps, Def, Acc).
+
+v(Vid, _, {ok, {Vid, _}}, Acc) -> %% same id as inheriting dictionary's
+    Acc;
+v(Vid, Avps, _, Acc) ->
+    case lists:keyfind(Vid, 1, Acc) of
+        {Vid, As} ->
+            lists:keyreplace(Vid, 1, Acc, {Vid, As ++ Avps});
+        false ->
+            [{Vid, Avps} | Acc]
+    end.
 
 %% ===========================================================================
 
