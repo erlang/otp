@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,8 +30,8 @@
 -export([publickey_msg/1, password_msg/1, keyboard_interactive_msg/1,
 	 service_request_msg/1, init_userauth_request_msg/1,
 	 userauth_request_msg/1, handle_userauth_request/3,
-	 handle_userauth_info_request/3, handle_userauth_info_response/2,
-	 userauth_messages/0
+	 handle_userauth_info_request/3, handle_userauth_info_response/2
+	 %%userauth_messages/0
 	]).
 
 %%--------------------------------------------------------------------
@@ -43,7 +43,7 @@ publickey_msg([Alg, #ssh{user = User,
 		       opts = Opts} = Ssh]) ->
 
     Hash = sha, %% Maybe option?!
-    ssh_bits:install_messages(userauth_pk_messages()),
+    %%ssh_bits:install_messages(userauth_pk_messages()),
     KeyCb = proplists:get_value(key_cb, Opts, ssh_file),
 
     case KeyCb:user_key(Alg, Opts) of
@@ -69,7 +69,7 @@ publickey_msg([Alg, #ssh{user = User,
 
 password_msg([#ssh{opts = Opts, io_cb = IoCb,
 		   user = User, service = Service} = Ssh]) ->
-    ssh_bits:install_messages(userauth_passwd_messages()),
+    %%ssh_bits:install_messages(userauth_passwd_messages()),
     Password = case proplists:get_value(password, Opts) of
 		   undefined -> 
 		       user_interaction(IoCb, Ssh);
@@ -99,7 +99,7 @@ user_interaction(IoCb, Ssh) ->
 %% See RFC 4256 for info on keyboard-interactive
 keyboard_interactive_msg([#ssh{user = User,
 			       service = Service} = Ssh]) ->
-    ssh_bits:install_messages(userauth_keyboard_interactive_messages()),
+    %%ssh_bits:install_messages(userauth_keyboard_interactive_messages()),
     ssh_transport:ssh_packet(
       #ssh_msg_userauth_request{user = User,
 				service = Service,
@@ -239,7 +239,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 			     partial_success = false}, Ssh)}
 	    end;
 	?FALSE ->
-	    ssh_bits:install_messages(userauth_pk_messages()),
+	    %%ssh_bits:install_messages(userauth_pk_messages()),
 	    {not_authorized, {User, undefined},
 	     ssh_transport:ssh_packet(
 	       #ssh_msg_userauth_pk_ok{algorithm_name = Alg,
@@ -278,23 +278,23 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{},
 			      description = "Server does not support" 
 			      "keyboard-interactive", 
 			      language = "en"}).
-userauth_messages() ->
-    [ {ssh_msg_userauth_request, ?SSH_MSG_USERAUTH_REQUEST,
-       [string, 
-	string, 
-	string, 
-	'...']},
+%% userauth_messages() ->
+%%     [ {ssh_msg_userauth_request, ?SSH_MSG_USERAUTH_REQUEST,
+%%        [string,
+%% 	string,
+%% 	string,
+%% 	'...']},
 
-      {ssh_msg_userauth_failure, ?SSH_MSG_USERAUTH_FAILURE,
-       [string, 
-	boolean]},
+%%       {ssh_msg_userauth_failure, ?SSH_MSG_USERAUTH_FAILURE,
+%%        [string,
+%% 	boolean]},
 
-      {ssh_msg_userauth_success, ?SSH_MSG_USERAUTH_SUCCESS,
-       []},
+%%       {ssh_msg_userauth_success, ?SSH_MSG_USERAUTH_SUCCESS,
+%%        []},
 
-      {ssh_msg_userauth_banner, ?SSH_MSG_USERAUTH_BANNER,
-       [string, 
-	string]}].
+%%       {ssh_msg_userauth_banner, ?SSH_MSG_USERAUTH_BANNER,
+%%        [string,
+%% 	string]}].
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -431,31 +431,31 @@ keyboard_interact(IoCb, Name, Instr, Prompts, Opts) ->
 	      end,
 	      Prompts).
 
-userauth_passwd_messages() ->
-    [ 
-      {ssh_msg_userauth_passwd_changereq, ?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ,
-       [string, 
-	string]}
-     ].
+%% userauth_passwd_messages() ->
+%%     [
+%%       {ssh_msg_userauth_passwd_changereq, ?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ,
+%%        [string,
+%% 	string]}
+%%      ].
 
-userauth_keyboard_interactive_messages() ->
-    [ {ssh_msg_userauth_info_request, ?SSH_MSG_USERAUTH_INFO_REQUEST,
-       [string, 
-	string,
-	string,
-	uint32,
-	'...']},
+%% userauth_keyboard_interactive_messages() ->
+%%     [ {ssh_msg_userauth_info_request, ?SSH_MSG_USERAUTH_INFO_REQUEST,
+%%        [string,
+%% 	string,
+%% 	string,
+%% 	uint32,
+%% 	'...']},
 
-      {ssh_msg_userauth_info_response, ?SSH_MSG_USERAUTH_INFO_RESPONSE,
-       [uint32, 
-	'...']}
-     ].
+     %%  {ssh_msg_userauth_info_response, ?SSH_MSG_USERAUTH_INFO_RESPONSE,
+     %%   [uint32,
+     %% 	'...']}
+     %% ].
 
-userauth_pk_messages() ->
-    [ {ssh_msg_userauth_pk_ok, ?SSH_MSG_USERAUTH_PK_OK,
-       [string, % algorithm name
-	binary]} % key blob
-     ].
+%% userauth_pk_messages() ->
+%%     [ {ssh_msg_userauth_pk_ok, ?SSH_MSG_USERAUTH_PK_OK,
+%%        [string, % algorithm name
+%% 	binary]} % key blob
+%%      ].
 
 other_alg('ssh-rsa') ->
     'ssh-dss';

@@ -111,7 +111,6 @@ peer_address(ConnectionHandler) ->
 init([Role, Manager, Socket, SshOpts]) ->
     process_flag(trap_exit, true),
     {NumVsn, StrVsn} = ssh_transport:versions(Role, SshOpts),
-    ssh_bits:install_messages(ssh_transport:transport_messages(NumVsn)),
     {Protocol, Callback, CloseTag} = 
 	proplists:get_value(transport, SshOpts, {tcp, gen_tcp, tcp_closed}),
     try init_ssh(Role, NumVsn, StrVsn, SshOpts, Socket) of
@@ -323,7 +322,6 @@ new_keys(#ssh_msg_newkeys{} = Msg, #state{ssh_params = Ssh0} = State0) ->
 userauth(#ssh_msg_service_request{name = "ssh-userauth"} = Msg, 
 	 #state{ssh_params = #ssh{role = server, 
 				  session_id = SessionId} = Ssh0} = State) ->
-    ssh_bits:install_messages(ssh_auth:userauth_messages()),
     try ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0) of
 	{ok, {Reply, Ssh}} ->
 	    send_msg(Reply, State),
@@ -887,7 +885,7 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 	    {stop, {shutdown, Reason}, State0}
     end;
 generate_event(Msg, StateName, State0, EncData) ->
-    Event = ssh_bits:decode(Msg),
+    Event = ssh_message:decode(Msg),
     State = generate_event_new_state(State0, EncData),
     case Event of
 	#ssh_msg_kexinit{} ->
@@ -931,7 +929,6 @@ after_new_keys(#state{renegotiate = true} = State) ->
     {connected, State#state{renegotiate = false}};
 after_new_keys(#state{renegotiate = false, 
 		      ssh_params = #ssh{role = client} = Ssh0} = State) ->
-    ssh_bits:install_messages(ssh_auth:userauth_messages()),
     {Msg, Ssh} = ssh_auth:service_request_msg(Ssh0),
     send_msg(Msg, State),
     {userauth, State#state{ssh_params = Ssh}};

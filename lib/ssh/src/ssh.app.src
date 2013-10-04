@@ -8,6 +8,7 @@
 	     ssh_acceptor,
 	     ssh_acceptor_sup,
 	     ssh_auth,
+	     ssh_message,
 	     ssh_bits,
 	     ssh_cli,
              ssh_client_key_api,

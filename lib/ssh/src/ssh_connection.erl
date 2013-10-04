@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -44,7 +44,7 @@
 	 channel_open_failure_msg/4, channel_request_msg/4,
 	 global_request_msg/3, request_failure_msg/0, 
 	 request_success_msg/1, bind/4, unbind/3, unbind_channel/2, 
-	 bound_channel/3, messages/0]).
+	 bound_channel/3]).
 
 %%--------------------------------------------------------------------
 %%% Internal application API
@@ -879,70 +879,6 @@ bound_channel(IP, Port, Connection) ->
 	{value, {{IP, Port}, ChannelPid}} -> ChannelPid;
 	_ -> undefined
     end.
-
-messages() ->
-    [ {ssh_msg_global_request, ?SSH_MSG_GLOBAL_REQUEST,
-       [string, 
-	boolean,
-	'...']},
-      
-      {ssh_msg_request_success, ?SSH_MSG_REQUEST_SUCCESS,
-       ['...']},
-      
-      {ssh_msg_request_failure, ?SSH_MSG_REQUEST_FAILURE,
-       []},
-      
-      {ssh_msg_channel_open, ?SSH_MSG_CHANNEL_OPEN,
-       [string,
-	uint32,
-	uint32,
-	uint32,
-	'...']},
-
-      {ssh_msg_channel_open_confirmation, ?SSH_MSG_CHANNEL_OPEN_CONFIRMATION,
-       [uint32,
-	uint32,
-	uint32,
-	uint32,
-	'...']},
-
-      {ssh_msg_channel_open_failure, ?SSH_MSG_CHANNEL_OPEN_FAILURE,
-       [uint32,
-	uint32,
-	string,
-	string]},
-
-      {ssh_msg_channel_window_adjust, ?SSH_MSG_CHANNEL_WINDOW_ADJUST,
-       [uint32,
-	uint32]},
-
-      {ssh_msg_channel_data, ?SSH_MSG_CHANNEL_DATA,
-       [uint32,
-	binary]},
-
-      {ssh_msg_channel_extended_data, ?SSH_MSG_CHANNEL_EXTENDED_DATA,
-       [uint32,
-	uint32,
-	binary]},
-
-      {ssh_msg_channel_eof, ?SSH_MSG_CHANNEL_EOF,
-       [uint32]},
-
-      {ssh_msg_channel_close, ?SSH_MSG_CHANNEL_CLOSE,
-       [uint32]},
-
-      {ssh_msg_channel_request, ?SSH_MSG_CHANNEL_REQUEST,
-       [uint32,
-	string,
-	boolean,
-	'...']},
-
-      {ssh_msg_channel_success, ?SSH_MSG_CHANNEL_SUCCESS,
-       [uint32]},
-
-      {ssh_msg_channel_failure, ?SSH_MSG_CHANNEL_FAILURE,
-       [uint32]}
-     ].
 
 encode_ip(Addr) when is_tuple(Addr) ->
     case catch inet_parse:ntoa(Addr) of

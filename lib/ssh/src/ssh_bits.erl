@@ -25,19 +25,19 @@
 
 -include("ssh.hrl").
 
--export([encode/1, encode/2]).
--export([decode/1, decode/2, decode/3]).
+-export([encode/2, decode/2]).
+%%-export([decode/1, decode/2, decode/3]).
 -export([mpint/1,  bignum/1, string/1, name_list/1]).
--export([b64_encode/1, b64_decode/1]).
--export([install_messages/1, uninstall_messages/1]).
+%%-export([b64_encode/1, b64_decode/1]).
+%%-export([install_messages/1, uninstall_messages/1]).
 
 %% integer utils
 -export([isize/1]).
 -export([random/1]).
--export([xor_bits/2, fill_bits/2]).
+%%-export([xor_bits/2, fill_bits/2]).
 -export([i2bin/2, bin2i/1]).
 
--import(lists, [foreach/2, reverse/1]).
+%%-import(lists, [foreach/2, reverse/1]).
 
 -define(name_list(X), 
 	(fun(B) -> ?binary(B) end)(list_to_binary(name_concat(X)))).
@@ -102,30 +102,30 @@ bignum(X) ->
     <<?UINT16(XSz),0:Pad/unsigned-integer,X:XSz/big-unsigned-integer>>.
 
 
-install_messages(Codes) ->
-    foreach(fun({Name, Code, Ts}) ->
-		    put({msg_name,Code}, {Name,Ts}),
-		    put({msg_code,Name}, {Code,Ts})
-	    end, Codes).
+%% install_messages(Codes) ->
+%%     foreach(fun({Name, Code, Ts}) ->
+%% 		    put({msg_name,Code}, {Name,Ts}),
+%% 		    put({msg_code,Name}, {Code,Ts})
+%% 	    end, Codes).
 
-uninstall_messages(Codes) ->
-    foreach(fun({Name, Code, _Ts}) ->
-		    erase({msg_name,Code}),
-		    erase({msg_code,Name})
-	    end, Codes).
+%% uninstall_messages(Codes) ->
+%%     foreach(fun({Name, Code, _Ts}) ->
+%% 		    erase({msg_name,Code}),
+%% 		    erase({msg_code,Name})
+%% 	    end, Codes).
 
 %%
 %% Encode a record, the type spec is expected to be 
 %% in process dictionary under the key {msg_code, RecodeName}
 %%
-encode(Record) ->
-    case get({msg_code, element(1, Record)}) of
-	undefined -> 
-	    {error, unimplemented};
-	{Code, Ts} ->
-	    Data = enc(tl(tuple_to_list(Record)), Ts),
-	    list_to_binary([Code, Data])
-    end.
+%% encode(Record) ->
+%%     case get({msg_code, element(1, Record)}) of
+%% 	undefined ->
+%% 	    {error, unimplemented};
+%% 	{Code, Ts} ->
+%% 	    Data = enc(tl(tuple_to_list(Record)), Ts),
+%% 	    list_to_binary([Code, Data])
+%%     end.
 
 encode(List, Types) ->
     list_to_binary(enc(List, Types)).
@@ -136,74 +136,70 @@ encode(List, Types) ->
 enc(Xs, Ts) ->
     enc(Xs, Ts, 0).
 
-enc(Xs, [Type|Ts], Offset) ->
-    case Type of
-	boolean ->
-	    X=hd(Xs), 
-	    [?boolean(X) | enc(tl(Xs), Ts, Offset+1)];
-	byte ->
-	    X=hd(Xs),
-	    [?byte(X) | enc(tl(Xs), Ts,Offset+1)];
-	uint16 ->  
-	    X=hd(Xs),
-	    [?uint16(X) | enc(tl(Xs), Ts,Offset+2)];
-	uint32 ->
-	    X=hd(Xs),
-	    [?uint32(X) | enc(tl(Xs), Ts,Offset+4)];
-	uint64 ->
-	    X=hd(Xs),
-	    [?uint64(X) | enc(tl(Xs), Ts,Offset+8)];
-	mpint ->
-	    Y=mpint(hd(Xs)),
-	    [Y | enc(tl(Xs), Ts,Offset+size(Y))];
-	bignum ->  
-	    Y=bignum(hd(Xs)),
-	    [Y | enc(tl(Xs),Ts,Offset+size(Y))];
-	string ->
-	    X0=hd(Xs),
-	    Y=?string(X0),
-	    [Y | enc(tl(Xs),Ts,Offset+size(Y))];
-	binary ->
-	    X0=hd(Xs),
-	    Y=?binary(X0),
-	    [Y | enc(tl(Xs), Ts,Offset+size(Y))];
-	name_list -> 
-	    X0=hd(Xs),
-	    Y=?name_list(X0),
-	    [Y | enc(tl(Xs), Ts, Offset+size(Y))];
-	cookie -> 
-	    [random(16) | enc(tl(Xs), Ts, Offset+16)];
-	{pad,N} ->
-	    K = (N - (Offset rem N)) rem N,
-	    [fill_bits(K,0) | enc(Xs, Ts, Offset+K)];
-	'...' when Ts==[] ->
-	    X=hd(Xs),
-	    if is_binary(X) -> 
-		    [X];
-	       is_list(X) ->
-		    [list_to_binary(X)];
-	       X==undefined ->
-		    []
-	    end
+enc(Xs, [boolean|Ts], Offset) ->
+    X = hd(Xs),
+    [?boolean(X) | enc(tl(Xs), Ts, Offset+1)];
+enc(Xs, [byte|Ts], Offset) ->
+    X = hd(Xs),
+    [?byte(X) | enc(tl(Xs), Ts,Offset+1)];
+enc(Xs, [uint16|Ts], Offset) ->
+    X = hd(Xs),
+    [?uint16(X) | enc(tl(Xs), Ts,Offset+2)];
+enc(Xs, [uint32 |Ts], Offset) ->
+    X = hd(Xs),
+    [?uint32(X) | enc(tl(Xs), Ts,Offset+4)];
+enc(Xs, [uint64|Ts], Offset) ->
+    X = hd(Xs),
+    [?uint64(X) | enc(tl(Xs), Ts,Offset+8)];
+enc(Xs, [mpint|Ts], Offset) ->
+    Y = mpint(hd(Xs)),
+    [Y | enc(tl(Xs), Ts,Offset+size(Y))];
+enc(Xs, [bignum|Ts], Offset) ->
+    Y = bignum(hd(Xs)),
+    [Y | enc(tl(Xs),Ts,Offset+size(Y))];
+enc(Xs, [string|Ts], Offset) ->
+    X0 = hd(Xs),
+    Y = ?string(X0),
+    [Y | enc(tl(Xs),Ts,Offset+size(Y))];
+enc(Xs, [binary|Ts], Offset) ->
+     X0 = hd(Xs),
+    Y = ?binary(X0),
+    [Y | enc(tl(Xs), Ts,Offset+size(Y))];
+enc(Xs, [name_list|Ts], Offset) ->
+    X0 = hd(Xs),
+    Y = ?name_list(X0),
+    [Y | enc(tl(Xs), Ts, Offset+size(Y))];
+enc(Xs, [cookie|Ts], Offset) ->
+    [random(16) | enc(tl(Xs), Ts, Offset+16)];
+enc(Xs, [{pad,N}|Ts], Offset) ->
+    K = (N - (Offset rem N)) rem N,
+    [fill_bits(K,0) | enc(Xs, Ts, Offset+K)];
+enc(Xs, ['...'| []], _Offset) ->
+    X = hd(Xs),
+    if is_binary(X) ->
+	    [X];
+       is_list(X) ->
+	    [list_to_binary(X)];
+       X==undefined ->
+	    []
     end;
+
 enc([], [],_) ->
     [].
-
-
 
 %%
 %% Decode a SSH record the type is encoded as the first byte
 %% and the type spec MUST be installed in {msg_name, ID}
 %%
 
-decode(Binary = <<?BYTE(ID), _/binary>>) ->
-    case get({msg_name, ID}) of
-	undefined -> 
-	    {unknown, Binary};
-	{Name, Ts} ->
-	    {_, Elems} = decode(Binary,1,Ts),
-	    list_to_tuple([Name | Elems])
-    end.
+%% decode(Binary = <<?BYTE(ID), _/binary>>) ->
+%%     case get({msg_name, ID}) of
+%% 	undefined ->
+%% 	    {unknown, Binary};
+%% 	{Name, Ts} ->
+%% 	    {_, Elems} = decode(Binary,1,Ts),
+%% 	    list_to_tuple([Name | Elems])
+%%     end.
 
 %%
 %% Decode a binary form offset 0
@@ -214,15 +210,15 @@ decode(Binary, Types) when is_binary(Binary) andalso is_list(Types) ->
     Elems.
 
 
-%%
-%% Decode a binary from byte offset Offset
-%% return {UpdatedOffset, DecodedElements}
-%%
+%% %%
+%% %% Decode a binary from byte offset Offset
+%% %% return {UpdatedOffset, DecodedElements}
+%% %%
 decode(Binary, Offset, Types) ->
-    decode(Binary, Offset, Types, []).
+     decode(Binary, Offset, Types, []).
 
 decode(Binary, Offset, [Type|Ts], Acc) ->
-    case Type of
+     case Type of
 	boolean ->
 	    <<_:Offset/binary, ?BOOLEAN(X0), _/binary>> = Binary,
 	    X = if X0 == 0 -> false; true -> true end,
@@ -262,11 +258,11 @@ decode(Binary, Offset, [Type|Ts], Acc) ->
 	    Size = size(Binary),
 	    if Size < Offset + 4  ->
 		    %% empty string at end
-		    {Size, reverse(["" | Acc])};
+		    {Size, lists:reverse(["" | Acc])};
 	       true ->
 		    <<_:Offset/binary,?UINT32(L), X:L/binary,_/binary>> =
 			Binary,
-		    decode(Binary, Offset+4+L, Ts, [binary_to_list(X) | 
+		    decode(Binary, Offset+4+L, Ts, [binary_to_list(X) |
 						    Acc])
 	    end;
 
@@ -290,10 +286,10 @@ decode(Binary, Offset, [Type|Ts], Acc) ->
 	
 	'...' when Ts==[] ->
 	    <<_:Offset/binary, X/binary>> = Binary,
-	    {Offset+size(X), reverse([X | Acc])}
-    end;
-decode(_Binary, Offset, [], Acc) ->
-    {Offset, reverse(Acc)}.
+	    {Offset+size(X), lists:reverse([X | Acc])}
+     end;
+ decode(_Binary, Offset, [], Acc) ->
+     {Offset, lists:reverse(Acc)}.
 
 
 
@@ -378,13 +374,13 @@ fill(N,C) ->
     end.
 
 %% xor 2 binaries
-xor_bits(XBits, YBits) ->
-    XSz = size(XBits)*8,
-    YSz = size(YBits)*8,
-    Sz = if XSz < YSz -> XSz; true -> YSz end, %% min
-    <<X:Sz, _/binary>> = XBits,
-    <<Y:Sz, _/binary>> = YBits,
-    <<(X bxor Y):Sz>>.
+%% xor_bits(XBits, YBits) ->
+%%     XSz = size(XBits)*8,
+%%     YSz = size(YBits)*8,
+%%     Sz = if XSz < YSz -> XSz; true -> YSz end, %% min
+%%     <<X:Sz, _/binary>> = XBits,
+%%     <<Y:Sz, _/binary>> = YBits,
+%%     <<(X bxor Y):Sz>>.
 
 
 %% random/1
@@ -393,18 +389,18 @@ xor_bits(XBits, YBits) ->
 random(N) ->
     crypto:strong_rand_bytes(N).
 
-%%
-%% Base 64 encode/decode
-%%
+%% %%
+%% %% Base 64 encode/decode
+%% %%
 
-b64_encode(Bs) when is_list(Bs) -> 
-    base64:encode(Bs);    
-b64_encode(Bin) when is_binary(Bin) ->
-    base64:encode(Bin).
+%% b64_encode(Bs) when is_list(Bs) ->
+%%     base64:encode(Bs);
+%% b64_encode(Bin) when is_binary(Bin) ->
+%%     base64:encode(Bin).
 
-b64_decode(Bin) when is_binary(Bin) -> 
-    base64:mime_decode(Bin);
-b64_decode(Cs) when is_list(Cs) -> 
-    base64:mime_decode(Cs).
+%% b64_decode(Bin) when is_binary(Bin) ->
+%%     base64:mime_decode(Bin);
+%% b64_decode(Cs) when is_list(Cs) ->
+%%     base64:mime_decode(Cs).
 
 

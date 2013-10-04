@@ -183,7 +183,6 @@ send_eof(ConnectionManager, ChannelId) ->
 %%--------------------------------------------------------------------
 init([server, _Socket, Opts]) ->
     process_flag(trap_exit, true),
-    ssh_bits:install_messages(ssh_connection:messages()),
     Cache = ssh_channel:cache_create(),
     {ok, #state{role = server, 
 		connection_state = #connection{channel_cache = Cache,
@@ -196,7 +195,6 @@ init([server, _Socket, Opts]) ->
 init([client, Opts]) ->  
     process_flag(trap_exit, true),
     {links, [Parent]} = process_info(self(), links),
-    ssh_bits:install_messages(ssh_connection:messages()),
     Cache = ssh_channel:cache_create(),
     Address =  proplists:get_value(address, Opts),
     Port = proplists:get_value(port, Opts),
@@ -762,7 +760,7 @@ cast(Pid, Msg) ->
     gen_server:cast(Pid, Msg).
 
 decode_ssh_msg(BinMsg) when is_binary(BinMsg)->
-    ssh_bits:decode(BinMsg);
+    ssh_message:decode(BinMsg);
 decode_ssh_msg(Msg) ->
     Msg.
 
@@ -774,7 +772,7 @@ do_send_msg({channel_data, Pid, Data}) ->
 do_send_msg({channel_requst_reply, From, Data}) ->
     gen_server:reply(From, Data);
 do_send_msg({connection_reply, Pid, Data}) ->
-    Msg = ssh_bits:encode(Data),
+    Msg = ssh_message:encode(Data),
     ssh_connection_handler:send(Pid, Msg);
 do_send_msg({flow_control, Cache, Channel, From, Msg}) ->
     ssh_channel:cache_update(Cache, Channel#channel{flow_control = undefined}),
