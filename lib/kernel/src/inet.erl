@@ -667,6 +667,9 @@ con_opt([Opt | Opts], R, As) ->
 		false ->
 		    {error, badarg}
 	    end;
+        {active,N} when is_integer(N), N < 32768, N >= -32768 ->
+            NOpts = lists:keydelete(active, 1, R#connect_opts.opts),
+            con_opt(Opts, R#connect_opts { opts = [{active,N}|NOpts] }, As);
 	{Name,Val} when is_atom(Name) -> con_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -733,6 +736,9 @@ list_opt([Opt | Opts], R, As) ->
 		false ->
 		    {error, badarg}
 	    end;
+        {active,N} when is_integer(N), N < 32768, N >= -32768 ->
+            NOpts = lists:keydelete(active, 1, R#listen_opts.opts),
+            list_opt(Opts, R#listen_opts { opts = [{active,N}|NOpts] }, As);
 	{Name,Val} when is_atom(Name) -> list_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -787,6 +793,9 @@ udp_opt([Opt | Opts], R, As) ->
 		false ->
 		    {error, badarg}
 	    end;
+        {active,N} when is_integer(N), N < 32768, N >= -32768 ->
+            NOpts = lists:keydelete(active, 1, R#udp_opts.opts),
+            udp_opt(Opts, R#udp_opts { opts = [{active,N}|NOpts] }, As);
 	{Name,Val} when is_atom(Name) -> udp_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -805,7 +814,7 @@ udp_add(Name, Val, R, Opts, As) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Currently supported options include:
 %  (*) {mode,   list|binary}	 or just list|binary
-%  (*) {active, true|false|once}
+%  (*) {active, true|false|once|N}
 %  (*) {sctp_module, inet_sctp|inet6_sctp} or just inet|inet6
 %  (*) options set via setsockopt.
 %      The full list is below in sctp_options/0 .
@@ -867,6 +876,9 @@ sctp_opt([Opt|Opts], Mod, R, As) ->
 		false ->
 		    {error, badarg}
 	    end;
+        {active,N} when is_integer(N), N < 32768, N >= -32768 ->
+            NOpts = lists:keydelete(active, 1, R#sctp_opts.opts),
+            sctp_opt(Opts, Mod, R#sctp_opts { opts = [{active,N}|NOpts] }, As);
 	{Name,Val}	-> sctp_opt (Opts, Mod, R, As, Name, Val);
 	_ -> {error,badarg}
     end;
