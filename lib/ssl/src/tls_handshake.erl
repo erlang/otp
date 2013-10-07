@@ -120,17 +120,16 @@ hello(#client_hello{client_version = ClientVersion,
 		    cipher_suites = CipherSuites,
 		    compression_methods = Compressions,
 		    random = Random,
-		    extensions = HelloExt},
+		    extensions = #hello_extensions{elliptic_curves = Curves} = HelloExt},
       #ssl_options{versions = Versions} = SslOpts,
       {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
     Version = ssl_handshake:select_version(tls_record, ClientVersion, Versions),
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
-	    %% TODO: need to take supported Curves into Account when selecting the CipherSuite....
-	    %%       if whe have an ECDSA cert with an unsupported curve, we need to drop ECDSA ciphers
+	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(Version)),
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, Compressions,
-					       Port, Session0, Version,
+					       Port, Session0#session{ecc = ECCCurve}, Version,
 					       SslOpts, Cache, CacheCb, Cert),
 	    case CipherSuite of 
 		no_suite ->

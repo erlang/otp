@@ -45,7 +45,8 @@
 	  master_secret,
 	  srp_username,
 	  is_resumable,
-	  time_stamp
+	  time_stamp,
+	  ecc
 	  }).
 
 -define(NUM_OF_SESSION_ID_BYTES, 32).  % TSL 1.1 & SSL 3
