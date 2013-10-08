@@ -322,7 +322,7 @@
 	<p>
 	  Branch off an existing association <anno>Assoc</anno>
 	  in a socket <anno>Socket</anno> of type <c>seqpacket</c>
-	  (one-to-may style) into
+	  (one-to-many style) into
 	  a new socket <anno>NewSocket</anno> of type <c>stream</c>
 	  (one-to-one style).
 	</p>
