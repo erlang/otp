@@ -70,7 +70,7 @@ client_hello(Host, Port, ConnectionStates,
 		 }.
 
 %%--------------------------------------------------------------------
--spec server_hello(#session{}, tls_version(), #connection_states{},
+-spec server_hello(binary(), tls_version(), #connection_states{},
 		   #hello_extensions{}) -> #server_hello{}.
 %%
 %% Description: Creates a server hello message.
