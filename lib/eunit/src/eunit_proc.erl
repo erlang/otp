@@ -643,11 +643,11 @@ io_request({get_until, _Prompt, _M, _F, _As}, Buf) ->
 io_request({setopts, _Opts}, Buf) ->
     {ok, Buf};
 io_request(getopts, Buf) ->
-    {error, {error, enotsup}, Buf};
+    {{error, enotsup}, Buf};
 io_request({get_geometry,columns}, Buf) ->
-    {error, {error, enotsup}, Buf};
+    {{error, enotsup}, Buf};
 io_request({get_geometry,rows}, Buf) ->
-    {error, {error, enotsup}, Buf};
+    {{error, enotsup}, Buf};
 io_request({requests, Reqs}, Buf) ->
     io_requests(Reqs, {ok, Buf});
 io_request(_, Buf) ->
@@ -657,3 +657,10 @@ io_requests([R | Rs], {ok, Buf}) ->
     io_requests(Rs, io_request(R, Buf));
 io_requests(_, Result) ->
     Result.
+
+-ifdef(TEST).
+io_error_test_() ->
+    [?_assertMatch({error, enotsup}, io:getopts()),
+     ?_assertMatch({error, enotsup}, io:columns()),
+     ?_assertMatch({error, enotsup}, io:rows())].
+-endif.
