@@ -42,8 +42,8 @@
 		log,                 % User provided log function
 		timeout = infinity,  % Request timeout
 		anon_auth = false,   % Allow anonymous authentication
-		use_tls = false,      % LDAP/LDAPS
-		tls_opts = [] % ssl:ssloptsion()
+		use_tls = false,     % LDAP/LDAPS
+		tls_opts = []        % ssl:ssloption()
 	       }).
 
 %%% For debug purposes
@@ -389,8 +389,7 @@ try_connect([],_) ->
 do_connect(Host, Data, Opts) when Data#eldap.use_tls == false ->
     gen_tcp:connect(Host, Data#eldap.port, Opts, Data#eldap.timeout);
 do_connect(Host, Data, Opts) when Data#eldap.use_tls == true ->
-    SslOpts = [{verify,0} | Opts ++ Data#eldap.tls_opts],
-    ssl:connect(Host, Data#eldap.port, SslOpts).
+    ssl:connect(Host, Data#eldap.port, Opts ++ Data#eldap.tls_opts).
 
 loop(Cpid, Data) ->
     receive
