@@ -6353,7 +6353,7 @@ static Eterm get_map_element(Eterm map, Eterm key)
 
 #define GET_TERM(term, dest)					\
 do {								\
-    Eterm src = term;						\
+    Eterm src = (Eterm)(term);					\
     switch (src & _TAG_IMMED1_MASK) {				\
     case (R_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
 	dest = x(0);						\
@@ -6380,7 +6380,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     Eterm keys;
     Eterm *mhp,*thp;
     Eterm *E;
-    Eterm *tp;
+    BeamInstr *ptr;
     map_t *mp;
 
     if (HeapWordsLeft(p) < need) {
@@ -6390,18 +6390,18 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     thp    = p->htop;
     mhp    = thp + 1 + n/2;
     E      = p->stop;
-    tp     = &Arg(4);
+    ptr    = &Arg(4);
     keys   = make_tuple(thp);
     *thp++ = make_arityval(n/2);
 
-    mp = (map_t *)mhp; mhp += 3;
+    mp = (map_t *)mhp; mhp += MAP_HEADER_SIZE;
     mp->thing_word = MAP_HEADER;
     mp->size = n/2;
     mp->keys = keys;
 
     for (i = 0; i < n/2; i++) {
-	GET_TERM(*tp++, *thp++);
-	GET_TERM(*tp++, *mhp++);
+	GET_TERM(*ptr++, *thp++);
+	GET_TERM(*ptr++, *mhp++);
     }
     p->htop = mhp;
     return make_map(mp);
@@ -6420,7 +6420,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Eterm* E;
     Eterm* old_keys;
     Eterm* old_vals;
-    Eterm* new_p;
+    BeamInstr* new_p;
     Eterm new_key;
     Eterm* kp;
 
@@ -6445,7 +6445,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      */
 
     num_updates = Arg(4) / 2;
-    need = 2*(num_old+num_updates) + 1 + sizeof(map_t) / sizeof(Eterm);
+    need = 2*(num_old+num_updates) + 1 + MAP_HEADER_SIZE;
     if (HeapWordsLeft(p) < need) {
 	Uint live = Arg(3);
 	reg[live] = map;
@@ -6484,7 +6484,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     res = make_map(hp);
     mp = (map_t *)hp;
-    hp += sizeof(map_t) / sizeof(Eterm);
+    hp += MAP_HEADER_SIZE;
     mp->thing_word = MAP_HEADER;
     mp->keys = make_tuple(kp-1);
 
@@ -6599,7 +6599,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Eterm* E;
     Eterm* old_keys;
     Eterm* old_vals;
-    Eterm* new_p;
+    BeamInstr* new_p;
     Eterm new_key;
 
     if (is_not_map(map)) {
@@ -6621,7 +6621,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * Allocate the exact heap space needed.
      */
 
-    need = num_old + sizeof(map_t) / sizeof(Eterm);
+    need = num_old + MAP_HEADER_SIZE;
     if (HeapWordsLeft(p) < need) {
 	Uint live = Arg(3);
 	reg[live] = map;
@@ -6642,7 +6642,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     res = make_map(hp);
     mp = (map_t *)hp;
-    hp += sizeof(map_t) / sizeof(Eterm);
+    hp += MAP_HEADER_SIZE;
     mp->thing_word = MAP_HEADER;
     mp->size = num_old;
     mp->keys = old_mp->keys;
