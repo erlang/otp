@@ -132,10 +132,8 @@ docs:
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
 $(LIBRARY): $(OBJ_FILES) 
-	$(ar_verbose)
-	-$(AR) $(AR_OUT) $@ $(OBJ_FILES)
-	$(ranlib_verbose)
-	-$(RANLIB) $@
+	-$(V_AR) $(AR_OUT) $@ $(OBJ_FILES)
+	-$(V_RANLIB) $@
 
 $(OBJDIR)/%.o: %.c
 	$(V_CC) $(CC_FLAGS) -c -o $@ $(ALL_CFLAGS) $<
