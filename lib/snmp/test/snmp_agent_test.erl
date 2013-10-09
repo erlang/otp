@@ -34,6 +34,7 @@
 	 %% all_tcs - misc
 	 app_info/1, 
 	 info_test/1, 
+         create_local_db_dir/1,
 
 	 %% all_tcs - test_v1
 	 simple/1, 
@@ -1506,7 +1507,8 @@ finish_misc(Config) ->
 misc_cases() -> 
     [
      app_info, 
-     info_test
+     info_test,
+     create_local_db_dir
     ].
 
 app_info(suite) -> [];
@@ -1539,7 +1541,75 @@ app_dir(App) ->
 	    "undefined"
     end.
 
+create_local_db_dir(Config) when is_list(Config) ->
+    ?P(create_local_db_dir),
+    DataDir = snmp_test_lib:lookup(data_dir, Config),
+    T = erlang:now(),
+    [As,Bs,Cs] = [integer_to_list(I) || I <- tuple_to_list(T)],
+    DbDir = filename:join([DataDir, As, Bs, Cs]),
+    ok = del_dir(DbDir, 3),
+    Name = list_to_atom(atom_to_list(create_local_db_dir)
+                        ++"-"++As++"-"++Bs++"-"++Cs),
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok,Node} = ?t:start_node(Name, slave, [{args, "-pa "++Pa}]),
 
+    %% first start with a nonexisting DbDir
+    Fun1 = fun() ->
+                   false = filelib:is_dir(DbDir),
+                   process_flag(trap_exit,true),
+                   {error, {error, {failed_open_dets, {file_error, _, _}}}} =
+                       snmpa_local_db:start_link(normal, DbDir, [{verbosity,trace}]),
+                   false = filelib:is_dir(DbDir),
+                   {ok, not_found}
+           end,
+    {ok, not_found} = nodecall(Node, Fun1),
+    %% now start with a nonexisting DbDir but pass the
+    %% create_local_db_dir option as well
+    Fun2 = fun() ->
+                   false = filelib:is_dir(DbDir),
+                   process_flag(trap_exit,true),
+                   {ok, _Pid} =
+                       snmpa_local_db:start_link(normal, DbDir,
+                                                 create_db_and_dir, [{verbosity,trace}]),
+                   snmpa_local_db:stop(),
+                   true = filelib:is_dir(DbDir),
+                   {ok, found}
+           end,
+    {ok, found} = nodecall(Node, Fun2),
+    %% cleanup
+    ?t:stop_node(Node),
+    ok = del_dir(DbDir, 3),
+    ok.
+
+nodecall(Node, Fun) ->
+    Parent = self(),
+    Ref = make_ref(),
+    spawn_link(Node,
+               fun() ->
+                       Res = Fun(),
+                       unlink(Parent),
+                       Parent ! {Ref, Res}
+               end),
+    receive
+        {Ref, Res} ->
+            Res
+    end.
+
+del_dir(_Dir, 0) ->
+    ok;
+del_dir(Dir, Depth) ->
+    case filelib:is_dir(Dir) of
+        true ->
+            {ok, Files} = file:list_dir(Dir),
+            lists:map(fun(F) ->
+                              Nm = filename:join(Dir,F),
+                              ok = file:delete(Nm)
+                      end, Files),
+            ok = file:del_dir(Dir),
+            del_dir(filename:dirname(Dir), Depth-1);
+        false ->
+            ok
+    end.
 
 %v1_cases() -> [loop_mib];
 v1_cases() -> 
