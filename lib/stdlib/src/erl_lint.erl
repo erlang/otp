@@ -225,6 +225,8 @@ format_error({too_many_arguments,Arity}) ->
 		  "maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]);
 %% --- patterns and guards ---
 format_error(illegal_pattern) -> "illegal pattern";
+format_error({illegal_map_key_variable,K}) ->
+    io_lib:format("illegal use of variable ~w in map",[K]);
 format_error(illegal_bin_pattern) ->
     "binary patterns cannot be matched in parallel using '='";
 format_error(illegal_expr) -> "illegal expression";
@@ -232,6 +234,9 @@ format_error({illegal_guard_local_call, {F,A}}) ->
     io_lib:format("call to local/imported function ~w/~w is illegal in guard",
 		  [F,A]);
 format_error(illegal_guard_expr) -> "illegal guard expression";
+%% --- maps ---
+format_error(illegal_map_construction) ->
+    "only association operators '=>' are allowed in map construction";
 %% --- records ---
 format_error({undefined_record,T}) ->
     io_lib:format("record ~w undefined", [T]);
@@ -1368,11 +1373,17 @@ pattern({tuple,_Line,Ps}, Vt, Old, Bvt, St) ->
     pattern_list(Ps, Vt, Old, Bvt, St);
 pattern({map,_Line,Ps}, Vt, Old, Bvt, St) ->
     pattern_list(Ps, Vt, Old, Bvt, St);
-pattern({map_field_assoc,_Line,_,_}=Pat, _, _, _, St) ->
-    {[],[],add_error(element(2, Pat), illegal_pattern, St)};
-pattern({map_field_exact,_Line,_,P}, Vt, Old, Bvt0, St0) ->
-    {Pvt,Bvt,St1} = pattern(P, Vt, Old, Bvt0, St0),
-    {Pvt,Bvt,St1};
+pattern({map_field_assoc,Line,_,_}, _, _, _, St) ->
+    {[],[],add_error(Line, illegal_pattern, St)};
+pattern({map_field_exact,Line,KP,VP}, Vt, Old, Bvt0, St0) ->
+    %% if the key pattern has variables we should fail
+    case expr(KP,[],St0) of
+	{[],_} ->
+	    pattern(VP, Vt, Old, Bvt0, St0);
+	{[Var|_],_} ->
+	    %% found variables in key expression
+	    {Vt,Old,add_error(Line,{illegal_map_key_variable,element(1,Var)},St0)}
+    end;
 %%pattern({struct,_Line,_Tag,Ps}, Vt, Old, Bvt, St) ->
 %%    pattern_list(Ps, Vt, Old, Bvt, St);
 pattern({record_index,Line,Name,Field}, _Vt, _Old, _Bvt, St) ->
@@ -1985,14 +1996,24 @@ expr({bc,_Line,E,Qs}, Vt, St) ->
     handle_comprehension(E, Qs, Vt, St);
 expr({tuple,_Line,Es}, Vt, St) ->
     expr_list(Es, Vt, St);
-expr({map,_Line,Es}, Vt, St) ->
-    expr_list(Es, Vt, St);
+expr({map,Line,Es}, Vt, St) ->
+    {Rvt,St1} = expr_list(Es,Vt,St),
+    case is_valid_map_construction(Es) of
+	true  -> {Rvt,St1};
+	false -> {[],add_error(Line,illegal_map_construction,St1)}
+    end;
 expr({map,_Line,Src,Es}, Vt, St) ->
     expr_list([Src|Es], Vt, St);
-expr({map_field_assoc,_Line,K,V}, Vt, St) ->
-    expr_list([K,V], Vt, St);
-expr({map_field_exact,_Line,K,V}, Vt, St) ->
-    expr_list([K,V], Vt, St);
+expr({map_field_assoc,Line,K,V}, Vt, St) ->
+    case is_valid_map_key(K,St) of
+	true  -> expr_list([K,V], Vt, St);
+	{false,Var} -> {[],add_error(Line,{illegal_map_key_variable,Var},St)}
+    end;
+expr({map_field_exact,Line,K,V}, Vt, St) ->
+    case is_valid_map_key(K,St) of
+	true  -> expr_list([K,V], Vt, St);
+	{false,Var} -> {[],add_error(Line,{illegal_map_key_variable,Var},St)}
+    end;
 expr({record_index,Line,Name,Field}, _Vt, St) ->
     check_record(Line, Name, St,
                  fun (Dfs, St1) -> record_field(Field, Name, Dfs, St1) end);
@@ -2250,6 +2271,20 @@ is_valid_call(Call) ->
         {record_index, _, _, _} -> false;
         {tuple, _, Exprs} when length(Exprs) =/= 2 -> false;
         _ -> true
+    end.
+
+%% check_map_construction
+%% Only #{ K => V }, i.e. assoc is a valid construction
+is_valid_map_construction([{map_field_assoc,_,_,_}|Es]) ->
+    is_valid_map_construction(Es);
+is_valid_map_construction([]) -> true;
+is_valid_map_construction(_)  -> false.
+
+is_valid_map_key(K,St) ->
+    case expr(K,[],St) of
+	{[],_} -> true;
+	{[Var|_],_} ->
+	    {false,element(1,Var)}
     end.
 
 %% record_def(Line, RecordName, [RecField], State) -> State.

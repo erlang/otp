@@ -327,7 +327,7 @@ guard_receive_loop() ->
 
 
 t_list_comprehension(Config) when is_list(Config) ->
-    [#{k:=1},#{k:=2},#{k:=3}] = [#{k:=I} || I <- [1,2,3]],
+    [#{k:=1},#{k:=2},#{k:=3}] = [#{k=>I} || I <- [1,2,3]],
     ok.
 
 t_guard_fun(Config) when is_list(Config) ->

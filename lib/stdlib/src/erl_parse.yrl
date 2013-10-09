@@ -335,8 +335,6 @@ map_expr -> expr_max '#' map_tuple :
 	{map, ?line('$2'),'$1','$3'}.
 map_expr -> map_expr '#' map_tuple :
 	{map, ?line('$2'),'$1','$3'}.
-map_expr -> map_expr '.' atom :
-	{map_field, ?line('$2'),'$1','$3'}.
 
 map_tuple -> '{' '}' : [].
 map_tuple -> '{' map_fields '}' : '$2'.
