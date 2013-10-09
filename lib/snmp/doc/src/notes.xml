@@ -46,7 +46,7 @@
 
       <list type="bulleted">
         <item>
-          <p>Enable SNMP to create missing database directories. </p>
+          <p>[agent] Enable SNMP to create missing database directories. </p>
 	  <p>Add 
 	  <seealso marker="snmp_app#db_init_error">
 	  {db_init_error, create_db_and_dir}</seealso> option to SNMP 
@@ -60,6 +60,15 @@
 	  is unchanged. </p>
 	  <p>Steve Vinoski</p>
           <p>Own Id: OTP-11352</p>
+        </item>
+
+        <item>
+          <p>[manager] Improved handling of unexpected return values from
+	  <seealso marker="snmpm_user">snmpm_user</seealso>
+	  callback functions. </p>
+	  <p>Violations of the documented API (crashes or invalid return 
+	  values) will now result in an error message. </p>
+          <p>Own Id: OTP-11307</p>
         </item>
 
       </list>
@@ -167,7 +176,7 @@
       </list>
 -->
     </section>
-
+    
   </section> <!-- 4.24.2 -->
 
 

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -681,6 +681,15 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    Parent ! {async_event, TargetName, {report, SnmpReport}}, 
 	    loop(S);
 
+	{handle_invalid_result, _Pid, In, Out} ->
+	    d("loop -> received invalid result callback from manager for "
+	      "~n   In:  ~p", 
+	      "~n   Out: ~p", [In, Out]),
+	    info("received invalid result message: "
+		 "~n   In:  ~p"
+		 "~n   Out: ~p", [In, Out]),
+	    loop(S);
+
 	{'EXIT', Parent, Reason} ->
 	    d("received exit signal from parent: ~n~p", [Reason]),
 	    info("received exit signal from parent: ~n~p", [Reason]),
@@ -770,7 +779,7 @@ handle_pdu(TargetName, ReqId, SnmpResponse, UserPid) ->
  
 handle_trap(TargetName, SnmpTrap, UserPid) ->
     UserPid ! {handle_trap, self(), TargetName, SnmpTrap},
-    ok.
+    ignore.
  
 handle_inform(TargetName, SnmpInform, UserPid) ->
     UserPid ! {handle_inform, self(), TargetName, SnmpInform},
@@ -778,12 +787,12 @@ handle_inform(TargetName, SnmpInform, UserPid) ->
 	{handle_inform_no_response, TargetName} ->
 	    no_reply;
 	{handle_inform_response, TargetName} ->
-	    ok
+	    ignore
     end.
 
 handle_report(TargetName, SnmpReport, UserPid) ->
     UserPid ! {handle_report, self(), TargetName, SnmpReport},
-    ok.
+    ignore.
 
 
 %%----------------------------------------------------------------------

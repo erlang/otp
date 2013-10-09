@@ -91,8 +91,30 @@
 	]).
 
 -export_type([
+	      snmp_timer/0, 
+
+	      engine_id/0, 
+	      tdomain/0, 
+	      community/0, 
+	      mms/0, 
+	      version/0, 
+	      sec_model/0, 
+	      sec_name/0, 
+	      sec_level/0, 
+
 	      oid/0,
- 
+	      varbind/0, 
+	      ivarbind/0, 
+	      asn1_type/0, 
+	      table_info/0, 
+	      variable_info/0, 
+	      me/0, 
+	      trap/0, 
+	      notification/0, 
+	      pdu/0, 
+	      trappdu/0, 
+	      mib/0, 
+
 	      void/0
 	     ]).
 
@@ -149,14 +171,38 @@
 
 -define(APPLICATION, snmp).
 
+-include_lib("snmp/include/snmp_types.hrl").
 
 
 %%-----------------------------------------------------------------
 %% Types
 %%-----------------------------------------------------------------
 
--type oid()  :: [non_neg_integer()].
--type void() :: term().
+-type snmp_timer()    :: #snmp_incr_timer{}.
+
+-type engine_id()     :: string().
+-type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
+-type community()     :: string().
+-type mms()           :: non_neg_integer().
+-type version()       :: v1 | v2 | v3.
+-type sec_model()     :: any | v1 | v2c | usm.
+-type sec_name()      :: string().
+-type sec_level()     :: noAuthNoPriv | authNoPriv | authPriv.
+
+-type oid()           :: [non_neg_integer()].
+-type varbind()       :: #varbind{}.
+-type ivarbind()      :: #ivarbind{}.
+-type asn1_type()     :: #asn1_type{}.
+-type table_info()    :: #table_info{}.
+-type variable_info() :: #variable_info{}.
+-type me()            :: #me{}.
+-type trap()          :: #trap{}.
+-type notification()  :: #notification{}.
+-type mib()           :: #mib{}.
+-type pdu()           :: #pdu{}.
+-type trappdu()       :: #trappdu{}.
+
+-type void()          :: term().
 
 
 %%-----------------------------------------------------------------
