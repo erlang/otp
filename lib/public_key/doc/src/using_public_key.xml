@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -90,7 +90,7 @@
 [{'RSAPrivateKey',&lt;&lt;224,108,117,203,152,40,15,77,128,126,
                     221,195,154,249,85,208,202,251,109,
                     119,120,57,29,89,19,9,...&gt;&gt;,
-                  {"DES-EDE3-CBC",&lt;&lt;"kÙeø¼pµL"&gt;&gt;}}]
+                  {"DES-EDE3-CBC",&lt;&lt;"kÃ™eÃ¸Â¼pÂµL"&gt;&gt;}}]
 
     </code>
 
