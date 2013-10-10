@@ -1125,7 +1125,18 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 }
 
 
-enum B2TState { /*B2TUncompress,*/ B2TSize, B2TDecodeInit, B2TDecode, B2TDecodeFail, B2TBadArg, B2TDone };
+enum B2TState {
+    /*B2TUncompress,*/
+    B2TSize,
+    B2TDecodeInit,
+    B2TDecode,
+    B2TDecodeList,
+    B2TDecodeTuple,
+
+    B2TDone,
+    B2TDecodeFail,
+    B2TBadArg
+};
 
 typedef struct {
 } B2TSizeContext;
@@ -1137,6 +1148,10 @@ typedef struct {
     Eterm* hp_start;
     Eterm* hp;
     Eterm* hp_end;
+    int remaining_n;
+#ifdef DEBUG
+    Eterm* container_start;
+#endif
 } B2TDecodeContext;
 
 typedef struct {
@@ -1153,7 +1168,7 @@ typedef struct B2TContext_t {
     byte* aligned_alloc;
     ErtsBinary2TermState b2ts;
     //Uint ext_size;
-    Uint reds;
+    SWord reds;
     Eterm trap_bin;
     enum B2TState state;
     union {
@@ -1309,6 +1324,12 @@ BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
 
 #define B2T_BYTES_PER_REDUCTION 100
 
+static unsigned sverk_rand(void)
+{
+    static unsigned prev = 17;
+    prev = (prev * 214013 + 2531011);
+    return prev;
+}
 
 static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
 {
@@ -1326,7 +1347,7 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
     } else {
 	ctx = ERTS_MAGIC_BIN_DATA(context_b);
     }
-    ctx->reds = 1; /*(Uint)(ERTS_BIF_REDS_LEFT(p) * B2T_BYTES_PER_REDUCTION);*/
+    ctx->reds = 1 + sverk_rand() % 4; /*(Uint)(ERTS_BIF_REDS_LEFT(p) * B2T_BYTES_PER_REDUCTION);*/
 
     do {
         switch (ctx->state) {
@@ -1360,6 +1381,10 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
             /*fall through*/
         case B2TDecodeInit:
             if (context_b == NULL && ctx->b2ts.extsize > ctx->reds) {
+                /*SVERK Can we do a better prediction that is still safe
+                    OR is there a way to do HAlloc after result some how...
+                    ... support for mutiple HReleases maybe?
+                    */
                 /* dec_term will probably trap, allocate space for magic bin
                    before result term to make it easy to trim with HRelease.
                  */
@@ -1374,7 +1399,9 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
             ctx->u.dc.hp_end   = ctx->u.dc.hp_start + ctx->heap_size;
             ctx->state = B2TDecode;
             /*fall through*/
-        case B2TDecode:
+	case B2TDecode:
+        case B2TDecodeList:
+        case B2TDecodeTuple:
             dec_term(NULL, NULL, NULL, &MSO(p), NULL, ctx);
             break;
 
@@ -1404,7 +1431,7 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
             return ctx->u.dc.res;
 
         }
-    }while (ctx->reds);
+    }while (ctx->reds || ctx->state >= B2TDone);
 
     if (context_b == NULL) {
         ASSERT(ctx->trap_bin == THE_NON_VALUE);
@@ -1415,7 +1442,7 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
         sys_memcpy(ctx, &c_buff, sizeof(B2TContext));
 
         if (!magic_space) {
-            ASSERT(ctx->state != B2TDecode);
+            ASSERT(ctx->state < B2TDecode);
             magic_space = HAlloc(p, PROC_BIN_SIZE);
         }
         ctx->trap_bin = erts_mk_magic_binary_term(&magic_space, &MSO(p), context_b);
@@ -2778,28 +2805,81 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
     ErtsAtomEncoding char_enc;
     register Eterm* hp;        /* Please don't take the address of hp */
     Eterm* next;
-    byte* ep_trap_limit;
+    SWord reds;
 
     if (ctx) {
+        reds = ctx->reds;
+        next = ctx->u.dc.next;
+
+        if (ctx->state != B2TDecode) {
+            n = ctx->u.dc.remaining_n;
+            if (reds < n) {
+                ctx->u.dc.remaining_n -= reds;
+                n = reds;
+            }
+            else {
+                ctx->u.dc.remaining_n = 0;
+            }
+            reds -= n;
+
+            switch (ctx->state) {
+            case B2TDecodeList:
+                objp = next - 2;
+                while (n > 0) {
+                    objp[0] = (Eterm) COMPRESS_POINTER(next);
+                    objp[1] = make_list(next);
+                    next = objp;
+                    objp -= 2;
+                    n--;
+                }
+                break;
+
+            case B2TDecodeTuple:
+                objp = next - 1;
+                while (n-- > 0) {
+                    objp[0] = (Eterm) COMPRESS_POINTER(next);
+                    next = objp;
+                    objp--;
+                }
+                break;
+
+            default:
+                ASSERT(!"Unknown state");
+            }
+            if (ctx->u.dc.remaining_n) {
+                ctx->u.dc.next = next;
+                ctx->reds = 0;
+                return NULL;
+            }
+            ASSERT(next == ctx->u.dc.container_start);
+            ctx->state = B2TDecode;
+        }
+
         hp_saved = ctx->u.dc.hp_start;
         ep = ctx->u.dc.ep;
-        ep_trap_limit = ep + ctx->reds;
-        if (ep_trap_limit < ep) {
-            ep_trap_limit = (byte*)ERTS_UWORD_MAX; /*SVERK Is there a safe way to create a "largest ptr" */
-        }
-        next = ctx->u.dc.next;
         hpp = &ctx->u.dc.hp;
     }
     else {
         hp_saved = *hpp;
-        ep_trap_limit = (byte*)ERTS_UWORD_MAX; /*SVERK - " - */
+        reds = ERTS_SWORD_MAX;
         next = objp;
         *next = (Eterm) (UWord) NULL;
     }
-    ASSERT(ep < ep_trap_limit);
     hp = *hpp;
 
     while (next != NULL) {
+
+        if (reds <= 0) {
+            if (ctx) {
+                ctx->u.dc.ep = ep;
+                ctx->u.dc.next = next;
+                ctx->u.dc.hp = hp;
+                ctx->reds = 0;
+                return NULL;
+            }
+            reds = ERTS_SWORD_MAX;
+        }
+
 	objp = next;
 	next = (Eterm *) EXPAND_POINTER(*objp);
 
@@ -2918,8 +2998,20 @@ dec_term_atom_common:
 	tuple_loop:
 	    *objp = make_tuple(hp);
 	    *hp++ = make_arityval(n);
+        #ifdef DEBUG
+            if (ctx) ctx->u.dc.container_start = hp;
+        #endif
 	    hp += n;
-	    objp = hp - 1;
+            objp = hp - 1;
+            if (ctx) {
+                if (reds < n) {
+                    ASSERT(reds > 0);
+                    ctx->state = B2TDecodeTuple;
+                    ctx->u.dc.remaining_n = n - reds;
+                    n = reds;
+                }
+		reds -= n;
+	    }
 	    while (n-- > 0) {
 		objp[0] = (Eterm) COMPRESS_POINTER(next);
 		next = objp;
@@ -2937,17 +3029,30 @@ dec_term_atom_common:
 		break;
 	    }
 	    *objp = make_list(hp);
-	    hp += 2*n;
+        #ifdef DEBUG
+            if (ctx) ctx->u.dc.container_start = hp;
+        #endif
+            hp += 2 * n;
 	    objp = hp - 2;
 	    objp[0] = (Eterm) COMPRESS_POINTER((objp+1));
 	    objp[1] = (Eterm) COMPRESS_POINTER(next);
 	    next = objp;
 	    objp -= 2;
-	    while (--n > 0) {
+            n--;
+	    if (ctx) {
+                if (reds < n) {
+		    ctx->state = B2TDecodeList;
+		    ctx->u.dc.remaining_n = n - reds;
+		    n = reds;
+		}
+		reds -= n;
+	    }
+            while (n > 0) {
 		objp[0] = (Eterm) COMPRESS_POINTER(next);
-		objp[1] = make_list(objp + 2);
+		objp[1] = make_list(next);
 		next = objp;
 		objp -= 2;
+                n--;
 	    }
 	    break;
 	case STRING_EXT:
@@ -3494,20 +3599,16 @@ dec_term_atom_common:
 	    *hpp = hp_saved;
             if (ctx) {
                 ctx->state = B2TDecodeFail;
+		ctx->reds = reds;
             }
             return NULL;
 	}
-        if (ep > ep_trap_limit) {
-            ASSERT(ctx);
-	    ctx->u.dc.ep = ep;
-	    ctx->u.dc.next = next;
-	    ctx->u.dc.hp = hp;
-	    ctx->reds = 0;
-	    return NULL;
-        }
+
+        --reds;
     }
     if (ctx) {
         ctx->state = B2TDone;
+	ctx->reds = reds;
     }
     *hpp = hp;
     return ep;
