@@ -338,7 +338,7 @@ exec_script(false,Info,Script,_AfterScript,_RequestURI) ->
 %%
 
 proxy(#mod{config_db = ConfigDb} = Info, Port) ->
-    Timeout = httpd_util:lookup(ConfigDb, cgi_timeout, ?DEFAULT_CGI_TIMEOUT),
+    Timeout = httpd_util:lookup(ConfigDb, script_timeout, ?DEFAULT_CGI_TIMEOUT),
     proxy(Info, Port, 0, undefined,[], Timeout).
 
 proxy(Info, Port, Size, StatusCode, AccResponse, Timeout) ->
