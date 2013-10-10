@@ -1125,13 +1125,15 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 }
 
 
-enum B2TState {
+enum B2TState { /* order is somewhat significant */
     /*B2TUncompress,*/
     B2TSize,
     B2TDecodeInit,
+
     B2TDecode,
     B2TDecodeList,
     B2TDecodeTuple,
+    B2TDecodeString,
 
     B2TDone,
     B2TDecodeFail,
@@ -1150,7 +1152,7 @@ typedef struct {
     Eterm* hp_end;
     int remaining_n;
 #ifdef DEBUG
-    Eterm* container_start;
+    Eterm* container_end;
 #endif
 } B2TDecodeContext;
 
@@ -1402,6 +1404,7 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
 	case B2TDecode:
         case B2TDecodeList:
         case B2TDecodeTuple:
+        case B2TDecodeString:
             dec_term(NULL, NULL, NULL, &MSO(p), NULL, ctx);
             break;
 
@@ -2808,8 +2811,11 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
     SWord reds;
 
     if (ctx) {
-        reds = ctx->reds;
-        next = ctx->u.dc.next;
+        hp_saved = ctx->u.dc.hp_start;
+        reds     = ctx->reds;
+        next     = ctx->u.dc.next;
+        ep       = ctx->u.dc.ep;
+        hpp      = &ctx->u.dc.hp;
 
         if (ctx->state != B2TDecode) {
             n = ctx->u.dc.remaining_n;
@@ -2832,6 +2838,7 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
                     objp -= 2;
                     n--;
                 }
+                ASSERT(ctx->u.dc.remaining_n || next == ctx->u.dc.container_end);
                 break;
 
             case B2TDecodeTuple:
@@ -2841,23 +2848,35 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
                     next = objp;
                     objp--;
                 }
+                ASSERT(ctx->u.dc.remaining_n || next == ctx->u.dc.container_end);
+                break;
+
+            case B2TDecodeString:
+                hp = *hpp;
+                hp[-1] = make_list(hp);  /* overwrite the premature NIL */
+                while (n-- > 0) {
+                    hp[0] = make_small(*ep++);
+                    hp[1] = make_list(hp+2);
+                    hp += 2;
+                }
+                hp[-1] = NIL;
+                *hpp = hp;
+                ASSERT(ctx->u.dc.remaining_n || hp == ctx->u.dc.container_end);
                 break;
 
             default:
                 ASSERT(!"Unknown state");
             }
-            if (ctx->u.dc.remaining_n) {
+            if (!ctx->u.dc.remaining_n) {
+                ctx->state = B2TDecode;
+            }
+            if (reds <= 0) {
                 ctx->u.dc.next = next;
+                ctx->u.dc.ep = ep;
                 ctx->reds = 0;
                 return NULL;
             }
-            ASSERT(next == ctx->u.dc.container_start);
-            ctx->state = B2TDecode;
         }
-
-        hp_saved = ctx->u.dc.hp_start;
-        ep = ctx->u.dc.ep;
-        hpp = &ctx->u.dc.hp;
     }
     else {
         hp_saved = *hpp;
@@ -2868,17 +2887,6 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
     hp = *hpp;
 
     while (next != NULL) {
-
-        if (reds <= 0) {
-            if (ctx) {
-                ctx->u.dc.ep = ep;
-                ctx->u.dc.next = next;
-                ctx->u.dc.hp = hp;
-                ctx->reds = 0;
-                return NULL;
-            }
-            reds = ERTS_SWORD_MAX;
-        }
 
 	objp = next;
 	next = (Eterm *) EXPAND_POINTER(*objp);
@@ -2998,13 +3006,11 @@ dec_term_atom_common:
 	tuple_loop:
 	    *objp = make_tuple(hp);
 	    *hp++ = make_arityval(n);
-        #ifdef DEBUG
-            if (ctx) ctx->u.dc.container_start = hp;
-        #endif
 	    hp += n;
             objp = hp - 1;
             if (ctx) {
                 if (reds < n) {
+                    IF_DEBUG(ctx->u.dc.container_end = hp - n;)
                     ASSERT(reds > 0);
                     ctx->state = B2TDecodeTuple;
                     ctx->u.dc.remaining_n = n - reds;
@@ -3029,9 +3035,6 @@ dec_term_atom_common:
 		break;
 	    }
 	    *objp = make_list(hp);
-        #ifdef DEBUG
-            if (ctx) ctx->u.dc.container_start = hp;
-        #endif
             hp += 2 * n;
 	    objp = hp - 2;
 	    objp[0] = (Eterm) COMPRESS_POINTER((objp+1));
@@ -3041,6 +3044,7 @@ dec_term_atom_common:
             n--;
 	    if (ctx) {
                 if (reds < n) {
+                    IF_DEBUG(ctx->u.dc.container_end = hp - 2*(n+1);)
 		    ctx->state = B2TDecodeList;
 		    ctx->u.dc.remaining_n = n - reds;
 		    n = reds;
@@ -3063,6 +3067,15 @@ dec_term_atom_common:
 		break;
 	    }
 	    *objp = make_list(hp);
+            if (ctx) {
+                if (reds < n) {
+                    IF_DEBUG(ctx->u.dc.container_end = hp + n*2;)
+                    ctx->state = B2TDecodeString;
+                    ctx->u.dc.remaining_n = n - reds;
+                    n = reds;
+		}
+                reds -= n;
+            }
 	    while (n-- > 0) {
 		hp[0] = make_small(*ep++);
 		hp[1] = make_list(hp+2);
@@ -3604,7 +3617,20 @@ dec_term_atom_common:
             return NULL;
 	}
 
-        --reds;
+        if (--reds <= 0) {
+            if (ctx) {
+                if (next || ctx->state != B2TDecode) {
+                    ctx->u.dc.ep = ep;
+                    ctx->u.dc.next = next;
+                    ctx->u.dc.hp = hp;
+                    ctx->reds = 0;
+                    return NULL;
+                }
+            }
+            else {
+                reds = ERTS_SWORD_MAX;
+            }
+        }
     }
     if (ctx) {
         ctx->state = B2TDone;
