@@ -108,7 +108,7 @@ static int encode_size_struct_int(Process *p, ErtsAtomCacheMap *acmp, Eterm obj,
 
 static Export binary_to_term_trap_export;
 static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1);
-static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b);
+static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* context_b);
 
 void erts_init_external(void) {
 #if 1 /* In R16 */
@@ -1169,7 +1169,7 @@ typedef struct B2TContext_t {
     Sint heap_size;
     byte* aligned_alloc;
     ErtsBinary2TermState b2ts;
-    //Uint ext_size;
+    Uint32 flags;
     SWord reds;
     Eterm trap_bin;
     enum B2TState state;
@@ -1316,15 +1316,22 @@ static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1)
     Binary *context_bin = ((ProcBin *) binary_val(BIF_ARG_1))->val;
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(context_bin) == b2t_context_destructor);
 
-    return binary_to_term_int(BIF_P, THE_NON_VALUE, context_bin);
+    return binary_to_term_int(BIF_P, 0, THE_NON_VALUE, context_bin);
 }
 
 BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
 {
-    return binary_to_term_int(BIF_P, BIF_ARG_1, NULL);
+/*SVERK  if (++sverk_cnt % 1000 == 0) {
+        erts_fprintf(stderr, "Call #%u to binary_to_term_int()\n", sverk_cnt);
+    }
+    if (sverk_cnt == 1767) {
+        sverk_break();
+    }
+*/
+    return binary_to_term_int(BIF_P, 0, BIF_ARG_1, NULL);
 }
 
-#define B2T_BYTES_PER_REDUCTION 100
+#define B2T_BYTES_PER_REDUCTION 128
 
 static unsigned sverk_rand(void)
 {
@@ -1333,11 +1340,13 @@ static unsigned sverk_rand(void)
     return prev;
 }
 
-static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
+static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* context_b)
 {
+    SWord initial_reds = 1 + sverk_rand() % 4; /*(Uint)(ERTS_BIF_REDS_LEFT(p) * B2T_BYTES_PER_REDUCTION);*/
     byte* bytes;
     B2TContext c_buff;
     B2TContext *ctx;
+    ErtsDistExternal fakedep;
     Eterm* magic_space = NULL;
 
     if (context_b == NULL) {
@@ -1345,11 +1354,12 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
         ctx = &c_buff;
 	ctx->state = B2TSize;
         ctx->aligned_alloc = NULL;
+        ctx->flags = flags;
         IF_DEBUG(ctx->trap_bin = THE_NON_VALUE;)
     } else {
 	ctx = ERTS_MAGIC_BIN_DATA(context_b);
     }
-    ctx->reds = 1 + sverk_rand() % 4; /*(Uint)(ERTS_BIF_REDS_LEFT(p) * B2T_BYTES_PER_REDUCTION);*/
+    ctx->reds = initial_reds;
 
     do {
         switch (ctx->state) {
@@ -1405,7 +1415,8 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
         case B2TDecodeList:
         case B2TDecodeTuple:
         case B2TDecodeString:
-            dec_term(NULL, NULL, NULL, &MSO(p), NULL, ctx);
+            fakedep.flags = ctx->flags;
+            dec_term(&fakedep, NULL, NULL, &MSO(p), NULL, ctx);
             break;
 
         case B2TDecodeFail:
@@ -1416,6 +1427,7 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
             if (context_b) {
                 erts_set_gc_state(p, 1);
             }
+            BUMP_REDS(p, (initial_reds - ctx->reds) / B2T_BYTES_PER_REDUCTION);
             BIF_ERROR(p, BADARG);
 
         case B2TDone:
@@ -1431,6 +1443,7 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
                 erts_set_gc_state(p, 1);
             }
 
+            BUMP_REDS(p, (initial_reds - ctx->reds) / B2T_BYTES_PER_REDUCTION);
             return ctx->u.dc.res;
 
         }
@@ -1461,24 +1474,15 @@ static Eterm binary_to_term_int(Process* p, Eterm bin, Binary* context_b)
 
 BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
 {
-    Sint heap_size;
-    Eterm res;
     Eterm opts;
     Eterm opt;
-    Eterm* hp;
-    Eterm* endp;
-    Sint size;
-    byte* bytes;
-    byte* temp_alloc = NULL;
-    ErtsBinary2TermState b2ts;
-    ErtsDistExternal fakedep;
+    Uint32 flags = 0;
 
-    fakedep.flags = 0;
     opts = BIF_ARG_2;
     while (is_list(opts)) {
         opt = CAR(list_val(opts));
         if (opt == am_safe) {
-	    fakedep.flags |= ERTS_DIST_EXT_BTT_SAFE;
+            flags |= ERTS_DIST_EXT_BTT_SAFE;
         }
 	else {
             goto error;
@@ -1489,35 +1493,10 @@ BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
     if (is_not_nil(opts))
         goto error;
 
-    if ((bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc)) == NULL) {
-    error:
-	erts_free_aligned_binary_bytes(temp_alloc);
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    size = binary_size(BIF_ARG_1);
+    return binary_to_term_int(BIF_P, flags, BIF_ARG_1, NULL);
 
-    heap_size = binary2term_prepare(&b2ts, bytes, size);
-    if (heap_size < 0)
-	goto error;
-
-    hp = HAlloc(BIF_P, heap_size);
-    endp = hp + heap_size;
-
-    res = binary2term_create(&fakedep, &b2ts, &hp, &MSO(BIF_P));
-
-    erts_free_aligned_binary_bytes(temp_alloc);
-
-    if (hp > endp) {
-	erl_exit(1, ":%s, line %d: heap overrun by %d words(s)\n",
-		 __FILE__, __LINE__, hp-endp);
-    }
-
-    HRelease(BIF_P, endp, hp);
-
-    if (res == THE_NON_VALUE)
-	goto error;
-
-    return res;
+error:
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 Eterm
