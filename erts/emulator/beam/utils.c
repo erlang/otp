@@ -3021,6 +3021,14 @@ buf_to_intlist(Eterm** hpp, const char *buf, size_t len, Eterm tail)
 ** Return remaining bytes in buffer on success
 **        ERTS_IOLIST_TO_BUF_OVERFLOW on overflow
 **        ERTS_IOLIST_TO_BUF_TYPE_ERROR on type error (including that result would not be a whole number of bytes)
+**
+** Note! 
+** Do not detect indata errors in this fiunction that are not detected by erts_iolist_size!
+**
+** A caller should be able to rely on a successful return from erts_iolist_to_buf
+** if erts_iolist_size is previously successfully called and erts_iolist_to_buf 
+** is called with a buffer at least as large as the value given by erts_iolist_size.
+** 
 */
 
 ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
@@ -3127,6 +3135,11 @@ ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char* buf, ErlDrvSizeT alloced_len)
 
 /*
  * Return 0 if successful, and non-zero if unsuccessful.
+ *
+ * It is vital that if erts_iolist_to_buf would return an error for
+ * any type of term data, this function should do so as well.
+ * Any input term error detected in erts_iolist_to_buf should also
+ * be detected in this function!
  */
 int erts_iolist_size(Eterm obj, ErlDrvSizeT* sizep)
 {
@@ -4006,6 +4019,27 @@ erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
 #endif
 }
 
+const char *erts_basename(const char* path, char* buff) {
+  /* This function is not compliant with bash basename. Edge cases like "//"
+     and "/path//" do not work properly.
+   */
+  int i;
+  int len = strlen(path);
+  const char *basename = path;
+  for (i = 0; path[i] != '\0'; i++) {
+    if (path[i] == '/') {
+      if (path[i+1] == '\0') {
+	    memcpy(buff,basename,len - (basename-path));
+	    buff[len - (basename-path)-1] = '\0';
+	    basename = buff;
+	    break;
+      } else { basename = path+i;}
+    }
+  }
+  if (basename == path)
+    return path;
+  return basename+1;
+}
 
 /*
  * A millisecond timestamp without time correction where there's no hrtime

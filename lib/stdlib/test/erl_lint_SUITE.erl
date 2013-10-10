@@ -48,6 +48,7 @@
 	  unused_function/1,
 	  unsafe_vars/1,unsafe_vars2/1,
 	  unsafe_vars_try/1,
+	  unsized_binary_in_bin_gen_pattern/1,
 	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
 	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
 	  otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1, otp_11254/1,
@@ -80,6 +81,7 @@ all() ->
     [{group, unused_vars_warn}, export_vars_warn,
      shadow_vars, unused_import, unused_function,
      unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
+     unsized_binary_in_bin_gen_pattern,
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
      otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,export_all,
@@ -1125,6 +1127,35 @@ unsafe_vars_try(Config) when is_list(Config) ->
            [],
            {errors,[{13,erl_lint,{unsafe_var,'Acc',{'try',6}}}],[]}}],
         ?line [] = run(Config, Ts),
+    ok.
+
+unsized_binary_in_bin_gen_pattern(doc) ->
+    "Unsized binary fields are forbidden in patterns of bit string generators";
+unsized_binary_in_bin_gen_pattern(suite) -> [];
+unsized_binary_in_bin_gen_pattern(Config) when is_list(Config) ->
+    Ts = [{unsized_binary_in_bin_gen_pattern,
+	   <<"t({bc,binary,Bin}) ->
+		  << <<X,Tail/binary>> || <<X,Tail/binary>> <= Bin >>;
+	      t({bc,bits,Bin}) ->
+		  << <<X,Tail/bits>> || <<X,Tail/bits>> <= Bin >>;
+	      t({bc,bitstring,Bin}) ->
+		  << <<X,Tail/bits>> || <<X,Tail/bitstring>> <= Bin >>;
+	      t({lc,binary,Bin}) ->
+		  [ {X,Tail} || <<X,Tail/binary>> <= Bin ];
+	      t({lc,bits,Bin}) ->
+		  [ {X,Tail} || <<X,Tail/bits>> <= Bin ];
+	      t({lc,bitstring,Bin}) ->
+		  [ {X,Tail} || <<X,Tail/bitstring>> <= Bin ].">>,
+	   [],
+	   {errors,
+	    [{2,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {4,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {6,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {8,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {10,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {12,erl_lint,unsized_binary_in_bin_gen_pattern}],
+	     []}}],
+    [] = run(Config, Ts),
     ok.
 
 guard(doc) ->

@@ -694,7 +694,7 @@ pwd() ->
       Dir :: file:name().
 
 cd(Dir) ->
-    file:set_cwd(Dir),
+    _ = file:set_cwd(Dir),
     pwd().
 
 %% ls()

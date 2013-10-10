@@ -58,7 +58,7 @@ start(NoCtrlG) ->
     start(NoCtrlG, false).
 
 start(NoCtrlG, StartSync) ->
-    code:ensure_loaded(user_default),
+    _ = code:ensure_loaded(user_default),
     spawn(fun() -> server(NoCtrlG, StartSync) end).
 
 %% Find the pid of the current evaluator process.
@@ -677,8 +677,10 @@ exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0, W) ->
             if
                 Es =:= [] ->
                     VS = pp(V0, 1, RT),
-                    [io:requests([{put_chars, unicode, VS}, nl]) ||
-                        W =:= cmd],
+                    case W of
+                        cmd -> io:requests([{put_chars, unicode, VS}, nl]);
+                        pmt -> ok
+                    end,
                     %% Don't send the result back if it will be
                     %% discarded anyway.
                     V = if

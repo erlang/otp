@@ -1,4 +1,3 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
@@ -2601,9 +2600,9 @@ otp_7232(doc) ->
     "OTP-7232. qlc:info() bug.";
 otp_7232(suite) -> [];
 otp_7232(Config) when is_list(Config) ->
-    Info = <<"qlc:info(qlc:sort(qlc:q([X || X <- [1000,2000]]), "
+    Info = <<"qlc:info(qlc:sort(qlc:q([X || X <- [55296,56296]]), "
              "{order, fun(A,B)-> A>B end})).">>,
-    "qlc:sort([1000,2000],\n"
+    "qlc:sort([55296,56296],\n"
     "         [{order,\n"
     "           fun(A, B) ->\n"
     "                  A > B\n"

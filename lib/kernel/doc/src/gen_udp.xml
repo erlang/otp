@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2012</year>
+      <year>1997</year><year>2013</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -145,14 +145,23 @@
               <seealso marker="inet#setopts/2">inet:setopts/2</seealso>.</p>
           </item>
         </taglist>
-        <p>The returned socket <c><anno>Socket</anno></c> is used to send packets
-          from this port with <c>send/4</c>. When UDP packets arrive at
-          the opened port, they are delivered as messages:</p>
+        <p>The returned socket <c><anno>Socket</anno></c> is used to send
+          packets from this port with <c>send/4</c>. When UDP packets arrive
+          at the opened port, if the socket is in an active mode the packets
+          are delivered as messages to the controlling process:</p>
         <code type="none">
 {udp, Socket, IP, InPortNo, Packet}</code>
-        <p>Note that arriving UDP packets that are longer than
+        <p>If the socket is not in an active mode, data can be
+          retrieved via the <seealso marker="#recv/2">recv/2,3</seealso> calls.
+          Note that arriving UDP packets that are longer than
           the receive buffer option specifies, might be truncated
           without warning.</p>
+        <p>When a socket in <c>{active, N}</c> mode (see <seealso marker="inet#setopts/2">
+          inet:setopts/2</seealso> for details) transitions to passive
+          (<c>{active, false}</c>) mode, the controlling process is notified by a
+          message of the following form:</p>
+        <code type="none">
+{udp_passive, Socket}</code>
         <p><c>IP</c> and <c>InPortNo</c> define the address from which
           <c>Packet</c> came. <c>Packet</c> is a list of bytes if
           the option <c>list</c> was specified. <c>Packet</c> is a

@@ -47,19 +47,23 @@ ifdef BUILD_ALL
 				$(subst /,,$(wildcard */)))
 endif
 
-ifdef BOOTSTRAP
-  SUB_DIRECTORIES = \
-    kernel stdlib compiler
+ifdef BUILD_STATIC_LIBS
+  SUB_DIRECTORIES = asn1 crypto
 else
-  ifdef SECONDARY_BOOTSTRAP
-    SUB_DIRECTORIES = hipe parsetools asn1/src
+  ifdef BOOTSTRAP
+    SUB_DIRECTORIES = \
+      kernel stdlib compiler
   else
-    ifdef TERTIARY_BOOTSTRAP
-      SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
-    else # Not bootstrap build
-      SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
-			$(ERLANG_APPLICATIONS) \
-			$(EXTRA_APPLICATIONS)
+    ifdef SECONDARY_BOOTSTRAP
+      SUB_DIRECTORIES = hipe parsetools asn1/src
+    else
+      ifdef TERTIARY_BOOTSTRAP
+        SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
+      else # Not bootstrap build
+        SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
+			  $(ERLANG_APPLICATIONS) \
+			  $(EXTRA_APPLICATIONS)
+      endif
     endif
   endif
 endif

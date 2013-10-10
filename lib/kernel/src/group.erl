@@ -309,15 +309,17 @@ io_requests([], Stat, _) ->
 %%  The ACK contains the return value.
 
 io_reply(From, ReplyAs, Reply) ->
-    From ! {io_reply,ReplyAs,Reply}.
+    From ! {io_reply,ReplyAs,Reply},
+    ok.
 
 %% send_drv(Drv, Message)
 %% send_drv_reqs(Drv, Requests)
 
 send_drv(Drv, Msg) ->
-    Drv ! {self(),Msg}.
+    Drv ! {self(),Msg},
+    ok.
 
-send_drv_reqs(_Drv, []) -> [];
+send_drv_reqs(_Drv, []) -> ok;
 send_drv_reqs(Drv, Rs) ->
     send_drv(Drv, {requests,Rs}).
 

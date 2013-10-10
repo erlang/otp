@@ -45,10 +45,7 @@ open(Name, Mode) ->
 open1({binary,Bin}, read, _Raw, Opts) ->
     case file:open(Bin, [ram,binary,read]) of
 	{ok,File} ->
-	    case Opts of
-		[compressed] -> ram_file:uncompress(File);
-		[] -> ok
-	    end,
+            _ = [ram_file:uncompress(File) || Opts =:= [compressed]],
 	    {ok,{read,File}};
 	Error ->
 	    Error

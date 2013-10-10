@@ -18,7 +18,7 @@
 
 {application, compiler,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "4.9.2"},
+  {vsn, "4.9.1"},
   {modules, [
 	     beam_a,
 	     beam_asm,
