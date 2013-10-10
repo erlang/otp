@@ -482,11 +482,7 @@ handle_cast({mnesia_down, mnesia_controller, Node}, State) ->
     mnesia_tm:mnesia_down(Node),
     {noreply, State};
 
-handle_cast({mnesia_down, mnesia_tm, {Node, Pending}}, State) ->
-    mnesia_locker:mnesia_down(Node, Pending),
-    {noreply, State};
-
-handle_cast({mnesia_down, mnesia_locker, Node}, State) ->
+handle_cast({mnesia_down, mnesia_tm, Node}, State) ->
     Down = {mnesia_down, Node},
     mnesia_lib:report_system_event(Down),
     GoingDown = lists:delete(Node, State#state.going_down),
