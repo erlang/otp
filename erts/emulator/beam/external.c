@@ -1717,12 +1717,10 @@ erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags) {
 /* #define EXTREME_TTB_TRAPPING 1 */
 
 #ifndef EXTREME_TTB_TRAPPING
-#define TERM_TO_BINARY_LOOP_FACTOR 500
-#define TERM_TO_BINARY_SIZE_FACTOR 500000
-#define TERM_TO_BINARY_COMPRESS_CHUNK 500000
+#define TERM_TO_BINARY_LOOP_FACTOR 32
+#define TERM_TO_BINARY_COMPRESS_CHUNK (1 << 18)
 #else
 #define TERM_TO_BINARY_LOOP_FACTOR 1
-#define TERM_TO_BINARY_SIZE_FACTOR 10
 #define TERM_TO_BINARY_COMPRESS_CHUNK 10
 #endif
 
@@ -1859,7 +1857,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		    /* Finish in one go */
 		    res = erts_term_to_binary_simple(p, Term, size, 
 						     level, flags);
-		    BUMP_REDS(p, size / TERM_TO_BINARY_SIZE_FACTOR);
+		    BUMP_REDS(p, 1);
 		    return res;
 		}
 
