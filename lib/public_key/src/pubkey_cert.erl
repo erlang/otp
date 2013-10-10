@@ -319,6 +319,8 @@ verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
 %%
 %% Description: Extracts a specific extension from a list of extensions.
 %%--------------------------------------------------------------------
+select_extension(_, asn1_NOVALUE) ->
+    undefined;
 select_extension(_, []) ->
     undefined;
 select_extension(Id, [#'Extension'{extnID = Id} = Extension | _]) ->
@@ -341,8 +343,8 @@ match_name(uniformResourceIdentifier, URI,  [PermittedName | Rest]) ->
     case split_uri(URI) of
 	incomplete ->
 	    false;
-	{_, _, Host, _, _} ->
-	    match_name(fun is_valid_host_or_domain/2, Host,
+	{_, _, _Host, _, _} ->
+	    match_name(fun is_valid_host_or_domain/2, URI,
 		       PermittedName, Rest)
     end;
 

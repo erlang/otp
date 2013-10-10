@@ -39,7 +39,13 @@ validate(OtpCert, OtherDPCRLs, DP, {DerCRL, CRL}, {DerDeltaCRL, DeltaCRL},
 		CertIssuer = TBSCert#'OTPTBSCertificate'.issuer,
 		TBSCRL = CRL#'CertificateList'.tbsCertList,
 		CRLIssuer =  TBSCRL#'TBSCertList'.issuer,
-		AltNames = subject_alt_names(TBSCert#'OTPTBSCertificate'.extensions),
+		AltNames = case pubkey_cert:select_extension(?'id-ce-subjectAltName',
+							     TBSCert#'OTPTBSCertificate'.extensions) of
+			     undefined ->
+				[];
+			     Ext ->
+				Ext#'Extension'.extnValue
+			   end,
 		revoked_status(DP, IDP, {directoryName, CRLIssuer},
 			       [ {directoryName, CertIssuer} | AltNames], SerialNumber, Revoked,
 			       DeltaRevoked, RevokedState1);
@@ -401,7 +407,8 @@ match_one([{Type, Name} | Names], CandidateNames) ->
     case Candidates of
 	[] ->
 	    false;
-	[_|_] -> case pubkey_cert:match_name(Type, Name, Candidates) of
+	[_|_] ->
+	case pubkey_cert:match_name(Type, Name, Candidates) of
 		     true ->
 			 true;
 		 false ->
@@ -663,6 +670,8 @@ status(Reason) ->
 verify_extensions([#'TBSCertList_revokedCertificates_SEQOF'{crlEntryExtensions = Ext} | Rest]) ->
     verify_extensions(pubkey_cert:extensions_list(Ext)) and verify_extensions(Rest);
 verify_extensions([]) ->
+    true;
+verify_extensions(asn1_NOVALUE) ->
     true;
 verify_extensions([#'Extension'{critical = true, extnID = Id} | Rest]) ->
     case lists:member(Id, [?'id-ce-authorityKeyIdentifier',

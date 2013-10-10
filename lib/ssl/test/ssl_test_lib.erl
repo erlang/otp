@@ -152,7 +152,9 @@ start_client(Args) ->
         case lists:member(return_socket, Args) of
             true -> { Result, Socket };
             false -> Result
-        end
+        end;
+	{connect_failed, Reason} ->
+	    {connect_failed, Reason}
     end.
 
 run_client(Opts) ->
@@ -191,7 +193,7 @@ run_client(Opts) ->
 	    end;
 	{error, Reason} ->
 	    ct:log("Client: connection failed: ~p ~n", [Reason]),
-	       Pid ! {self(), {error, Reason}}
+	       Pid ! {connect_failed, Reason}
     end.
 
 close(Pid) ->
