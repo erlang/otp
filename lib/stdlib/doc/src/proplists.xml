@@ -36,7 +36,7 @@
   <description>
     <p>Property lists are ordinary lists containing entries in the form
       of either tuples, whose first elements are keys used for lookup and
-      insertion, or atoms, which work as shorthand for tuples <c>{Atom, true}</c>. (Other terms are allowed in the lists, but are ignored
+      insertion; or in the form of atoms, which work as shorthand for tuples <c>{Atom, true}</c>. (Other terms are allowed in the lists, but are ignored
       by this module.) If there is more than one entry in a list for a
       certain key, the first occurrence normally overrides any later
       (irrespective of the arity of the tuples).</p>
