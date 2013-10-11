@@ -60,6 +60,7 @@
 -export_type([timestamp/0]).
 
 -type ext_binary() :: binary().
+-type map() :: term(). %% FIXME: remove when handled internally.
 -type timestamp() :: {MegaSecs :: non_neg_integer(),
                       Secs :: non_neg_integer(),
                       MicroSecs :: non_neg_integer()}.
@@ -104,10 +105,9 @@
 -export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
 -export([list_to_integer/1, list_to_integer/2]).
 -export([list_to_pid/1, list_to_tuple/1, loaded/0]).
--export([localtime/0, make_ref/0, match_spec_test/3, md5/1, md5_final/1]).
+-export([localtime/0, make_ref/0, map_size/1, match_spec_test/3, md5/1, md5_final/1]).
 -export([md5_init/0, md5_update/2, module_loaded/1, monitor/2]).
--export([monitor_node/2, monitor_node/3, nif_error/1, nif_error/2
-]).
+-export([monitor_node/2, monitor_node/3, nif_error/1, nif_error/2]).
 -export([node/0, node/1, now/0, phash/2, phash2/1, phash2/2]).
 -export([pid_to_list/1, port_close/1, port_command/2, port_command/3]).
 -export([port_connect/2, port_control/3, port_get_data/1]).
@@ -128,7 +128,7 @@
 -export([abs/1, append/2, element/2, get_module_info/2, hd/1,
          is_atom/1, is_binary/1, is_bitstring/1, is_boolean/1,
          is_float/1, is_function/1, is_function/2, is_integer/1,
-         is_list/1, is_number/1, is_pid/1, is_port/1, is_record/2,
+         is_list/1, is_map/1, is_number/1, is_pid/1, is_port/1, is_record/2,
          is_record/3, is_reference/1, is_tuple/1, load_module/2,
          load_nif/2, localtime_to_universaltime/2, make_fun/3,
          make_tuple/2, make_tuple/3, nodes/1, open_port/2,
@@ -1149,6 +1149,12 @@ localtime() ->
 make_ref() ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:map_size/1
+-spec map_size(Map) -> non_neg_integer() when
+      Map :: map().
+map_size(_Map) ->
+    erlang:nif_error(undefined).
+
 %% match_spec_test/3
 -spec erlang:match_spec_test(P1, P2, P3) -> TestResult when
       P1 :: [term()] | tuple(),
@@ -1737,6 +1743,12 @@ is_number(_Term) ->
 -spec is_pid(Term) -> boolean() when
       Term :: term().
 is_pid(_Term) ->
+    erlang:nif_error(undefined).
+
+%% Shadowed by erl_bif_types: erlang:is_map/1
+-spec is_map(Map) -> boolean() when
+      Map :: map().
+is_map(_Map) ->
     erlang:nif_error(undefined).
 
 %% Shadowed by erl_bif_types: erlang:is_port/1
