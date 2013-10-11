@@ -343,12 +343,6 @@ validate_loop(Error, _Log, _Write, _PrevTS, _PrevSN) ->
 %% log(Log, Packet, Addr, Port)
 %%-----------------------------------------------------------------
 
--spec log(Log    :: log(), 
-	  Packet :: binary() | {v3_header(), ScopedPDU :: list()}, 
-	  Addr   :: inet:ip_address(), 
-	  Port   :: inet:port_number()) ->
-    ok | {error, Reason :: term()}.
-
 log(#snmp_log{id = Log, seqno = SeqNo}, Packet, Addr, Port) ->
     ?vtrace("log -> entry with"
 	    "~n   Log:  ~p"
@@ -594,14 +588,14 @@ maybe_unblock(Log, true = _Block) ->
     %% 	    "~n   Res:        ~p", [log_status(Log), Res]),
     Res.
 
-log_status(Log) ->
-    Info = disk_log:info(Log),
-    case lists:keysearch(status, 1, Info) of
-	{value, {status, Status}} ->
-	    Status;
-	false ->
-	    undefined
-    end.
+%% log_status(Log) ->
+%%     Info = disk_log:info(Log),
+%%     case lists:keysearch(status, 1, Info) of
+%% 	{value, {status, Status}} ->
+%% 	    Status;
+%% 	false ->
+%% 	    undefined
+%%     end.
 
 
 %% -- do_log_to_text ---
