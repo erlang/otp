@@ -96,7 +96,7 @@ struct B2TContext_t;
 static byte* dec_term(ErtsDistExternal *, Eterm**, byte*, ErlOffHeap*, Eterm*, struct B2TContext_t*);
 static byte* dec_atom(ErtsDistExternal *, byte*, Eterm*);
 static byte* dec_pid(ErtsDistExternal *, Eterm**, byte*, ErlOffHeap*, Eterm*);
-static Sint decoded_size(byte *ep, byte* endp, int internal_tags);
+static Sint decoded_size(byte *ep, byte* endp, int internal_tags, struct B2TContext_t*);
 static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1);
 
 static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint flags, 
@@ -889,7 +889,7 @@ erts_decode_dist_ext_size(ErtsDistExternal *edep)
 	    goto fail;
 	ep = edep->extp+1;
     }
-    res = decoded_size(ep, edep->ext_endp, 0);
+    res = decoded_size(ep, edep->ext_endp, 0, NULL);
     if (res >= 0)
 	return res;
  fail:
@@ -901,12 +901,12 @@ Sint erts_decode_ext_size(byte *ext, Uint size)
 {
     if (size == 0 || *ext != VERSION_MAGIC)
 	return -1;
-    return decoded_size(ext+1, ext+size, 0);
+    return decoded_size(ext+1, ext+size, 0, NULL);
 }
 
 Sint erts_decode_ext_size_ets(byte *ext, Uint size)
 {
-    Sint sz = decoded_size(ext, ext+size, 1);
+    Sint sz = decoded_size(ext, ext+size, 1, NULL);
     ASSERT(sz >= 0);
     return sz;
 }
@@ -1126,7 +1126,7 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 
 
 enum B2TState { /* order is somewhat significant */
-    /*B2TUncompress,*/
+    B2TPrepare,
     B2TSize,
     B2TDecodeInit,
 
@@ -1141,6 +1141,10 @@ enum B2TState { /* order is somewhat significant */
 };
 
 typedef struct {
+    int heap_size;
+    int terms;
+    byte* ep;
+    int atom_extra_skip;
 } B2TSizeContext;
 
 typedef struct {
@@ -1210,21 +1214,15 @@ static uLongf binary2term_uncomp_size(byte* data, Sint size)
     return err == Z_STREAM_END ? uncomp_size : 0;
 }
 
-static ERTS_INLINE Sint
+static ERTS_INLINE int
 binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size)
 {
-    Sint res;
     byte *bytes = data;
     Sint size = data_size;
 
     state->exttmp = 0;
 
     if (size < 1 || *bytes != VERSION_MAGIC) {
-    error:
-	if (state->exttmp)
-	    erts_free(ERTS_ALC_T_EXT_TERM_DATA, state->extp);
-	state->extp = NULL;
-	state->exttmp = 0;
 	return -1;
     }
     bytes++;
@@ -1239,20 +1237,17 @@ binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size)
 	if (dest_len > 32*1024*1024
 	    || (state->extp = erts_alloc_fnf(ERTS_ALC_T_EXT_TERM_DATA, dest_len)) == NULL) {
 	    if (dest_len != binary2term_uncomp_size(bytes, size)) {
-		goto error;
+                return -1;
 	    }
 	    state->extp = erts_alloc(ERTS_ALC_T_EXT_TERM_DATA, dest_len);
 	}
 	state->exttmp = 1;
 	if (erl_zlib_uncompress(state->extp, &dest_len, bytes, size) != Z_OK)
-	    goto error;
+            return -1;
 	size = (Sint) dest_len;
     }
     state->extsize = size;
-    res = decoded_size(state->extp, state->extp + size, 0);
-    if (res < 0)
-	goto error;
-    return res;
+    return 0;
 }
 
 static ERTS_INLINE void
@@ -1280,7 +1275,18 @@ binary2term_create(ErtsDistExternal *edep, ErtsBinary2TermState *state, Eterm **
 Sint
 erts_binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size)
 {
-    return binary2term_prepare(state, data, data_size);
+    Sint res;
+
+    if (binary2term_prepare(state, data, data_size) < 0 ||
+        (res=decoded_size(state->extp, state->extp + state->extsize, 0, NULL)) < 0) {
+
+        if (state->exttmp)
+            erts_free(ERTS_ALC_T_EXT_TERM_DATA, state->extp);
+        state->extp = NULL;
+	state->exttmp = 0;
+	return -1;
+    }
+    return res;
 }
 
 void
@@ -1319,17 +1325,6 @@ static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1)
     return binary_to_term_int(BIF_P, 0, THE_NON_VALUE, context_bin);
 }
 
-BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
-{
-/*SVERK  if (++sverk_cnt % 1000 == 0) {
-        erts_fprintf(stderr, "Call #%u to binary_to_term_int()\n", sverk_cnt);
-    }
-    if (sverk_cnt == 1767) {
-        sverk_break();
-    }
-*/
-    return binary_to_term_int(BIF_P, 0, BIF_ARG_1, NULL);
-}
 
 #define B2T_BYTES_PER_REDUCTION 128
 
@@ -1352,18 +1347,19 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
     if (context_b == NULL) {
 	/* Setup enough to get started */
         ctx = &c_buff;
-	ctx->state = B2TSize;
+	ctx->state = B2TPrepare;
         ctx->aligned_alloc = NULL;
         ctx->flags = flags;
         IF_DEBUG(ctx->trap_bin = THE_NON_VALUE;)
     } else {
 	ctx = ERTS_MAGIC_BIN_DATA(context_b);
+        ASSERT(ctx->state != B2TPrepare);
     }
     ctx->reds = initial_reds;
 
     do {
         switch (ctx->state) {
-        case B2TSize:
+        case B2TPrepare:
             bytes = erts_get_aligned_binary_bytes_extra(bin,
                                                         &ctx->aligned_alloc,
                                                         ERTS_ALC_T_EXT_TERM_DATA,
@@ -1381,16 +1377,19 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
                 break;
             }
 
+            ctx->reds = 0; /*SVERK*/
+            ctx->u.sc.heap_size = 0;
+            ctx->u.sc.terms = 1;
+            ctx->u.sc.ep = ctx->b2ts.extp;
+            ctx->u.sc.atom_extra_skip = 0;
+            ctx->state = B2TSize;
+            break;
 
+        case B2TSize:
+            ctx->heap_size = decoded_size(NULL, ctx->b2ts.extp + ctx->b2ts.extsize,
+                                          0, ctx);
+            break;
 
-            ctx->state = B2TDecodeInit;
-
-            if (ctx->b2ts.extsize >= ctx->reds) {
-                ctx->reds = 0;
-                break;
-            }
-            ctx->reds -= ctx->b2ts.extsize;
-            /*fall through*/
         case B2TDecodeInit:
             if (context_b == NULL && ctx->b2ts.extsize > ctx->reds) {
                 /*SVERK Can we do a better prediction that is still safe
@@ -1470,6 +1469,18 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
 
     BUMP_ALL_REDS(p);
     BIF_TRAP1(&binary_to_term_trap_export, p, ctx->trap_bin);
+}
+
+BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
+{
+/*SVERK  if (++sverk_cnt % 1000 == 0) {
+        erts_fprintf(stderr, "Call #%u to binary_to_term_int()\n", sverk_cnt);
+    }
+    if (sverk_cnt == 1767) {
+        sverk_break();
+    }
+*/
+    return binary_to_term_int(BIF_P, 0, BIF_ARG_1, NULL);
 }
 
 BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
@@ -3901,18 +3912,32 @@ encode_size_struct_int(Process *p, ErtsAtomCacheMap *acmp, Eterm obj,
 }
 
 static Sint
-decoded_size(byte *ep, byte* endp, int internal_tags)
+decoded_size(byte *ep, byte* endp, int internal_tags, B2TContext* ctx)
 {
     int heap_size = 0;
     int terms;
     int atom_extra_skip = 0;
     Uint n;
+    SWord reds;
 
+    if (ctx) {
+        heap_size = ctx->u.sc.heap_size;
+        terms = ctx->u.sc.terms;
+        ep = ctx->u.sc.ep;
+        atom_extra_skip = ctx->u.sc.atom_extra_skip;
+        reds = ctx->reds;
+    }
+    else {
+        heap_size = 0;
+        terms = 1;
+        atom_extra_skip = 0;
+        reds = ERTS_SWORD_MAX;
+    }
 #define SKIP(sz)				\
     do {					\
 	if ((sz) <= endp-ep) {			\
 	    ep += (sz);				\
-        } else { return -1; };			\
+        } else { goto error; };			\
     } while (0)
 
 #define SKIP2(sz1, sz2)				\
@@ -3920,25 +3945,27 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 	Uint sz = (sz1) + (sz2);		\
 	if (sz1 < sz && (sz) <= endp-ep) {	\
 	    ep += (sz);				\
-        } else { return -1; }			\
+        } else { goto error; }			\
     } while (0)
 
 #define CHKSIZE(sz)				\
     do {					\
-	 if ((sz) > endp-ep) { return -1; }	\
+	 if ((sz) > endp-ep) { goto error; }	\
     } while (0)
 
 #define ADDTERMS(n)				\
     do {					\
         int before = terms;		        \
 	terms += (n);                           \
-	if (terms < before) return -1;     	\
+	if (terms < before) goto error;     	\
     } while (0)
 
-
-    for (terms=1; terms > 0; terms--) {
-	int tag;
-
+    ASSERT(terms > 0);
+    do {
+        int tag;
+        /*SVERK
+        erts_fprintf(stderr, "SVERK tag=%d ep=%p terms=%d heap_size=%d endp=%p\n",
+                     ep[0], ep, terms, heap_size, endp); */
 	CHKSIZE(1);
 	tag = ep++[0];
 	switch (tag) {
@@ -3959,7 +3986,7 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 	    CHKSIZE(4);
 	    n = get_int32(ep);
 	    if (n > BIG_ARITY_MAX*sizeof(ErtsDigit)) {
-		return -1;
+		goto error;
 	    }
 	    SKIP2(n,4+1);		/* skip, size,sign,digits */
 	    heap_size += 1+1+(n+sizeof(Eterm)-1)/sizeof(Eterm); /* XXX: 1 too much? */
@@ -3968,7 +3995,7 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 	    CHKSIZE(2);
 	    n = get_int16(ep);
 	    if (n > MAX_ATOM_CHARACTERS) {
-		return -1;
+		goto error;
 	    }
 	    SKIP(n+2+atom_extra_skip);
 	    atom_extra_skip = 0;
@@ -3978,7 +4005,7 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 	    n = get_int16(ep);
 	    ep += 2;
 	    if (n > MAX_ATOM_SZ_LIMIT) {
-		return -1;
+		goto error;
 	    }
 	    SKIP(n+atom_extra_skip);
 	    atom_extra_skip = 0;
@@ -3987,7 +4014,7 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 	    CHKSIZE(1);
 	    n = get_int8(ep);
 	    if (n > MAX_ATOM_CHARACTERS) {
-		return -1;
+		goto error;
 	    }
 	    SKIP(n+1+atom_extra_skip);
 	    atom_extra_skip = 0;
@@ -3997,7 +4024,7 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 	    n = get_int8(ep);
 	    ep++;
 	    if (n > MAX_ATOM_SZ_LIMIT) {
-		return -1;
+		goto error;
 	    }
 	    SKIP(n+atom_extra_skip);
 	    atom_extra_skip = 0;
@@ -4026,7 +4053,7 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 		id_words = get_int16(ep);
 		    
 		if (id_words > ERTS_MAX_REF_NUMBERS)
-		    return -1;
+		    goto error;
 
 		ep += 2;
 		atom_extra_skip = 1 + 4*id_words;
@@ -4128,7 +4155,7 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 		num_free = get_int32(ep);
 		ep += 4;
 		if (num_free > MAX_ARG) {
-		    return -1;
+		    goto error;
 		}
 		terms += 4 + num_free;
 		heap_size += ERL_FUN_SIZE + num_free;
@@ -4145,24 +4172,50 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 
 	case BINARY_INTERNAL_REF:
 	    if (!internal_tags) {
-		return -1;
+		goto error;
 	    }
 	    SKIP(sizeof(ProcBin));
 	    heap_size += PROC_BIN_SIZE;
 	    break;
 	case BIT_BINARY_INTERNAL_REF:
 	    if (!internal_tags) {
-		return -1;
+		goto error;
 	    }
 	    SKIP(2+sizeof(ProcBin));
 	    heap_size += PROC_BIN_SIZE + ERL_SUB_BIN_SIZE;
 	    break;
 	default:
-	    return -1;
+	    goto error;
 	}
-    }
+        terms--;
+
+        if (--reds <= 0) {
+            if (ctx && terms > 0) {
+                ctx->u.sc.heap_size = heap_size;
+                ctx->u.sc.terms = terms;
+                ctx->u.sc.ep = ep;
+                ctx->u.sc.atom_extra_skip = atom_extra_skip;
+                ctx->reds = 0;
+                return 0;
+            }
+            reds = ERTS_SWORD_MAX;
+        }
+    }while (terms > 0);
+
     /* 'terms' may be non-zero if it has wrapped around */
-    return terms==0 ? heap_size : -1;
+    if (terms == 0) {
+        if (ctx) {
+            ctx->state = B2TDecodeInit;
+            ctx->reds = reds;
+        }
+        return heap_size;
+    }
+
+error:
+    if (ctx) {
+        ctx->state = B2TBadArg;
+    }
+    return -1;
 #undef SKIP
 #undef SKIP2
 #undef CHKSIZE
