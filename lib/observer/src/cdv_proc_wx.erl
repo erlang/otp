@@ -99,6 +99,7 @@ init_stack_page(Parent, Pid, _Info) ->
     init_memory_page(Parent, Pid, "StackDump").
 
 init_memory_page(Parent, Pid, What) ->
+    Win = observer_lib:html_window(Parent),
     Html =
 	case crashdump_viewer:expand_memory(Pid,What) of
 	    {ok,Memory} ->
@@ -106,7 +107,8 @@ init_memory_page(Parent, Pid, What) ->
 	    {error,Reason} ->
 		crashdump_viewer_html:warning(Reason)
 	end,
-    observer_lib:html_window(Parent,Html).
+    wxHtmlWindow:setPage(Win,Html),
+    Win.
 
 init_ets_page(Parent, Pid, _Info) ->
     cdv_virtual_list:start_link(Parent, cdv_ets_wx, Pid).

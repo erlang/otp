@@ -346,6 +346,22 @@ handle_info({nodedown, Node},
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
 
+handle_info({open_link, Pid0}, State = #state{pro_panel=ProcViewer, frame=Frame}) ->
+    Pid = case Pid0 of
+	      [_|_] -> try list_to_pid(Pid0) catch _:_ -> Pid0 end;
+	      _ -> Pid0
+	  end,
+    %% Forward to process tab
+    case is_pid(Pid) of
+	true  -> wx_object:get_pid(ProcViewer) ! {procinfo_open, Pid};
+	false ->
+	    Msg = io_lib:format("Information about ~p is not available or implemented",[Pid]),
+	    Info = wxMessageDialog:new(Frame, Msg),
+	    wxMessageDialog:showModal(Info),
+	    wxMessageDialog:destroy(Info)
+    end,
+    {noreply, State};
+
 handle_info({'EXIT', Pid, _Reason}, State) ->
     io:format("Child (~s) crashed exiting:  ~p ~p~n",
 	      [pid2panel(Pid, State), Pid,_Reason]),

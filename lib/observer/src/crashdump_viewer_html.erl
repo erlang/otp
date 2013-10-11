@@ -53,6 +53,7 @@
 	 chunk/3]).
 
 -include("crashdump_viewer.hrl").
+-include("observer_defs.hrl").
 
 %%%-----------------------------------------------------------------
 %%% Welcome frame
@@ -497,51 +498,94 @@ expanded_memory(Heading,Expanded) ->
 expanded_memory_body(Heading,[]) ->
     [case Heading of
 	 "MsgQueue" -> "No messages were found";
-	 "StackDump" -> "No stack dump was found";
-	 "Dictionary" -> "No dictionary was found"
+	 "Message Queue" -> "No messages were found";
+	 "StackDump"  -> "No stack dump was found";
+	 "Dictionary" -> "No dictionary was found";
+	 "ProcState"  -> "Information could not be retrieved,"
+			     " system messages may not be handled by this process."
      end];
 expanded_memory_body(Heading,Expanded) ->
+    Attr = "BORDER=0 CELLPADDING=0 CELLSPACING=1 WIDTH=100%",
     [case Heading of
 	 "MsgQueue" ->
-	     table(
-	       "BORDER=4 CELLPADDING=4",
-	       [tr(
-		  [th("Message"),
-		   th("SeqTraceToken")]) |
-		lists:map(fun(Msg) -> msgq_table(Msg) end, Expanded)]);
+	     table(Attr,
+		   [tr(
+		      [th("WIDTH=70%","Message"),
+		       th("WIDTH=30%","SeqTraceToken")]) |
+		    element(1, lists:mapfoldl(fun(Msg, Even) ->
+						      {msgq_table(Msg, Even),
+						       not Even}
+					      end,
+					      true, Expanded))]);
+	 "Message Queue" ->
+	     table(Attr,
+		   [tr(
+		      [th("WIDTH=10%","Id"),
+		       th("WIDTH=90%","Message")]) |
+		    element(1, lists:mapfoldl(fun(Msg, {Even,N}) ->
+						      {msgq_table(Msg, N, Even),
+						       {not Even, N+1}}
+					      end,
+					      {true,1}, Expanded))]);
 	 "StackDump" ->
-	     table(
-	       "BORDER=4 CELLPADDING=4",
-	       [tr(
-		  [th("Label"),
-		   th("Term")]) |
-		lists:map(fun(Entry) -> stackdump_table(Entry) end, Expanded)]);
+	     table(Attr,
+		   [tr(
+		      [th("WIDTH=20%","Label"),
+		       th("WIDTH=80%","Term")]) |
+		    element(1, lists:mapfoldl(fun(Entry, Even) ->
+						      {stackdump_table(Entry, Even),
+						       not Even}
+					      end, true, Expanded))]);
+	 "ProcState" ->
+	     table(Attr,
+		   [tr(
+		      [th("WIDTH=20%","Label"),
+		       th("WIDTH=80%","Information")]) |
+		    element(1, lists:mapfoldl(fun(Entry, Even) ->
+						      {proc_state(Entry,Even),
+						       not Even}
+					      end, true, Expanded))]);
 	 _ ->
-	     table(
-	       "BORDER=4 CELLPADDING=4",
-	       [tr(
-		  [th("Key"),
-		   th("Value")]) |
-		lists:map(fun(Entry) -> dict_table(Entry) end, Expanded)])
+	     table(Attr,
+		   [tr(
+		      [th("WIDTH=30%","Key"),
+		       th("WIDTH=70%","Value")]) |
+		    element(1, lists:mapfoldl(fun(Entry, Even) ->
+						      {dict_table(Entry,Even),
+						       not Even}
+					      end, true, Expanded))])
      end].
 
-msgq_table({Msg0,Token0}) ->
+msgq_table({Msg0,Token0}, Even) ->
     Token = case Token0 of
 		[] -> "";
 		_ -> io_lib:fwrite("~w",[Token0])
 	    end,
     Msg = href_proc_port(lists:flatten(io_lib:format("~p",[Msg0]))),
-    tr([td(pre(Msg)), td(Token)]).
-    
-stackdump_table({Label0,Term0}) ->
+    tr(color(Even),[td(pre(Msg)), td(Token)]).
+
+msgq_table(Msg0, Id, Even) ->
+    Msg = href_proc_port(lists:flatten(io_lib:format("~p",[Msg0]))),
+    tr(color(Even),[td(integer_to_list(Id)), td(pre(Msg))]).
+
+stackdump_table({Label0,Term0},Even) ->
     Label = io_lib:format("~w",[Label0]),
     Term = href_proc_port(lists:flatten(io_lib:format("~p",[Term0]))),
-    tr([td("VALIGN=top",Label), td(pre(Term))]).
-    
-dict_table({Key0,Value0}) ->
+    tr(color(Even), [td("VALIGN=center",pre(Label)), td(pre(Term))]).
+
+dict_table({Key0,Value0}, Even) ->
     Key = href_proc_port(lists:flatten(io_lib:format("~p",[Key0]))),
     Value = href_proc_port(lists:flatten(io_lib:format("~p",[Value0]))),
-    tr([td("VALIGN=top",pre(Key)), td(pre(Value))]).
+    tr(color(Even), [td("VALIGN=center",pre(Key)), td(pre(Value))]).
+
+proc_state({Key0,Value0}, Even) ->
+    Key = lists:flatten(io_lib:format("~s",[Key0])),
+    Value = href_proc_port(lists:flatten(io_lib:format("~p",[Value0]))),
+    tr(color(Even), [td("VALIGN=center",Key), td(pre(Value))]).
+
+
+color(true) -> io_lib:format("BGCOLOR=\"#~2.16.0B~2.16.0B~2.16.0B\"", tuple_to_list(?BG_EVEN));
+color(false) -> io_lib:format("BGCOLOR=\"#~2.16.0B~2.16.0B~2.16.0B\"", tuple_to_list(?BG_ODD)).
 
 
 %%%-----------------------------------------------------------------

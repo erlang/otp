@@ -106,6 +106,22 @@ handle_event(#wx{id=?REFRESH}, #state{frame=Frame, pid=Pid, pages=Pages}=State) 
     end,
     {noreply, State};
 
+handle_event(#wx{event=#wxMouse{type=left_down}, userData=TargetPid}, State) ->
+    observer ! {open_link, TargetPid},
+    {noreply, State};
+
+handle_event(#wx{obj=Obj, event=#wxMouse{type=enter_window}}, State) ->
+    wxTextCtrl:setForegroundColour(Obj,{0,0,100,255}),
+    {noreply, State};
+
+handle_event(#wx{obj=Obj, event=#wxMouse{type=leave_window}}, State) ->
+    wxTextCtrl:setForegroundColour(Obj,?wxBLUE),
+    {noreply, State};
+
+handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Info}}}, State) ->
+    observer ! {open_link, Info},
+    {noreply, State};
+
 handle_event(Event, _State) ->
     error({unhandled_event, Event}).
 
@@ -139,58 +155,37 @@ init_process_page(Panel, Pid) ->
 		     observer_lib:update_info(UpFields, Fields)
 	     end}.
 
-init_text_page(Parent) ->
-    Style = ?wxTE_MULTILINE bor ?wxTE_RICH2 bor ?wxTE_READONLY,
-    Text = wxTextCtrl:new(Parent, ?wxID_ANY, [{style, Style}]),
-    Font = observer_wx:get_attrib({font, fixed}),
-    Attr = wxTextAttr:new(?wxBLACK, [{font, Font}]),
-    true = wxTextCtrl:setDefaultStyle(Text, Attr),
-    wxTextAttr:destroy(Attr),
-    Text.
 
 init_message_page(Parent, Pid) ->
-    Text = init_text_page(Parent),
-    Format = fun(Message, Number) ->
-		     {io_lib:format("~-4.w ~p~n", [Number, Message]),
-		      Number+1}
-	     end,
+    Win = observer_lib:html_window(Parent),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info,
 					      [Pid, messages])
 		     of
-			 {messages,RawMessages} ->
-			     {Messages,_} = lists:mapfoldl(Format, 1, RawMessages),
-			     Last = wxTextCtrl:getLastPosition(Text),
-			     wxTextCtrl:remove(Text, 0, Last),
-			     case Messages =:= [] of
-				 true ->
-				     wxTextCtrl:writeText(Text, "No messages");
-				 false ->
-				     wxTextCtrl:writeText(Text, Messages)
-			     end;
+			 {messages, Messages} ->
+			     Html = crashdump_viewer_html:expanded_memory("Message Queue", Messages),
+			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
 		     end
 	     end,
     Update(),
-    {Text, Update}.
+    {Win, Update}.
 
 init_dict_page(Parent, Pid) ->
-    Text = init_text_page(Parent),
+    Win = observer_lib:html_window(Parent),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, dictionary])
 		     of
-			 {dictionary,RawDict} ->
-			     Dict = [io_lib:format("~-20.w ~p~n", [K, V]) || {K, V} <- RawDict],
-			     Last = wxTextCtrl:getLastPosition(Text),
-			     wxTextCtrl:remove(Text, 0, Last),
-			     wxTextCtrl:writeText(Text, Dict);
+			 {dictionary,Dict} ->
+			     Html = crashdump_viewer_html:expanded_memory("Dictionary", Dict),
+			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
 		     end
 	     end,
     Update(),
-    {Text, Update}.
+    {Win, Update}.
 
 init_stack_page(Parent, Pid) ->
     LCtrl = wxListCtrl:new(Parent, [{style, ?wxLC_REPORT bor ?wxLC_HRULES}]),
@@ -236,58 +231,58 @@ init_stack_page(Parent, Pid) ->
     Update(),
     {LCtrl, Update}.
 
-
 init_state_page(Parent, Pid) ->
-    Text = init_text_page(Parent),
+    Win = observer_lib:html_window(Parent),
     Update = fun() ->
-		     %% First, test if sys:get_status/2 have any chance to return an answer
-		     case rpc:call(node(Pid), proc_lib, translate_initial_call, [Pid])
-		     of
-			 %% Not a gen process
-			 {proc_lib,init_p,5} -> Misc = [{"Information", "Not available"}];
-			 %% May be a gen process
-			 {M, _F, _A} ->
-			     %% Get the behavio(u)r
-			     I = rpc:call(node(Pid), M, module_info, [attributes]),
-			     case lists:keyfind(behaviour, 1, I) of
-				 false -> case lists:keyfind(behavior, 1, I) of
-					      false		-> B = undefined;
-					      {behavior, [B]}	-> B
-					  end;
-				 {behaviour, [B]} -> B
-			     end,
-			     %% but not sure that system messages are treated by this process
-			     %% so using a rpc with a small timeout in order not to lag the display
-			     case rpc:call(node(Pid), sys, get_status, [Pid, 200])
-			     of
-				 {status, _, {module, _}, [_PDict, _SysState, _Parent, _Dbg,
-							   [Header,{data, First},{data, Second}]]} ->
-				     Misc = [{"Behaviour", B}] ++ [Header] ++ First ++ Second;
-				 {status, _, {module, _}, [_PDict, _SysState, _Parent, _Dbg,
-							   [Header,{data, First}, OtherFormat]]} ->
-				     Misc = [{"Behaviour", B}] ++ [Header] ++ First ++ [{"State",OtherFormat}];
-				 {status, _, {module, _}, [_PDict, _SysState, _Parent, _Dbg,
-							   OtherFormat]} ->
-				     %% Formatted status ?
-				     case lists:keyfind(format_status, 1, rpc:call(node(Pid), M, module_info, [exports])) of
-					 false	-> Opt = {"Format", unknown};
-					 _	-> Opt = {"Format", overriden}
-				     end,
-				     Misc = [{"Behaviour", B}] ++ [Opt, {"State",OtherFormat}];
-				 {badrpc,{'EXIT',{timeout, _}}} ->
-				     Misc = [{"Information","Timed out"},
-					     {"Tip","system messages are probably not treated by this process"}]
-			     end;
-			 _ -> Misc=[], throw(process_undefined)
-		     end,
-		     Dict = [io_lib:format("~-20.s ~tp~n", [K, V]) || {K, V} <- Misc],
-		     Last = wxTextCtrl:getLastPosition(Text),
-		     wxTextCtrl:remove(Text, 0, Last),
-		     wxTextCtrl:writeText(Text, Dict)
+		     StateInfo = fetch_state_info(Pid),
+		     Html = crashdump_viewer_html:expanded_memory("ProcState", StateInfo),
+		     wxHtmlWindow:setPage(Win, Html)
 	     end,
     Update(),
-    {Text, Update}.
+    {Win, Update}.
 
+fetch_state_info(Pid) ->
+    %% First, test if sys:get_status/2 have any chance to return an answer
+    case rpc:call(node(Pid), proc_lib, translate_initial_call, [Pid]) of
+	%% Not a gen process
+	{proc_lib,init_p,5} -> [];
+	%% May be a gen process
+	{M, _F, _A} -> fetch_state_info2(Pid, M);
+	_ -> throw(process_undefined)
+    end.
+
+fetch_state_info2(Pid, M) ->
+    %% Get the behavio(u)r
+    I = rpc:call(node(Pid), M, module_info, [attributes]),
+    case lists:keyfind(behaviour, 1, I) of
+	false -> case lists:keyfind(behavior, 1, I) of
+		     false		-> B = undefined;
+		     {behavior, [B]}	-> B
+		 end;
+	{behaviour, [B]} -> B
+    end,
+    %% but not sure that system messages are treated by this process
+    %% so using a rpc with a small timeout in order not to lag the display
+    case rpc:call(node(Pid), sys, get_status, [Pid, 200])
+    of
+	{status, _, {module, _},
+	 [_PDict, _SysState, _Parent, _Dbg,
+	  [Header,{data, First},{data, Second}]]} ->
+	    [{"Behaviour", B}, Header] ++ First ++ Second;
+	{status, _, {module, _},
+	 [_PDict, _SysState, _Parent, _Dbg,
+	  [Header,{data, First}, OtherFormat]]} ->
+	    [{"Behaviour", B}, Header] ++ First ++ [{"State",OtherFormat}];
+	{status, _, {module, _},
+	 [_PDict, _SysState, _Parent, _Dbg, OtherFormat]} ->
+	    %% Formatted status ?
+	    case lists:keyfind(format_status, 1, rpc:call(node(Pid), M, module_info, [exports])) of
+		false	-> Opt = {"Format", unknown};
+		_	-> Opt = {"Format", overriden}
+	    end,
+	    [{"Behaviour", B}, Opt, {"State",OtherFormat}];
+	{badrpc,{'EXIT',{timeout, _}}} -> []
+    end.
 
 create_menus(MenuBar) ->
     Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]},
@@ -301,6 +296,7 @@ process_info_fields(Pid) ->
 		{"Registered Name",  registered_name},
 		{"Status",           status},
 		{"Message Queue Len",message_queue_len},
+		{"Group Leader",     {click, group_leader}},
 		{"Priority",         priority},
 		{"Trap Exit",        trap_exit},
 		{"Reductions",       reductions},
@@ -311,11 +307,10 @@ process_info_fields(Pid) ->
 		{"Suspending",       suspending},
 		{"Sequential Trace Token", sequential_trace_token},
 		{"Error Handler",    error_handler}]},
-	      {"Connections",
-	       [{"Group Leader",     group_leader},
-		{"Links",            links},
-		{"Monitors",         monitors},
-		{"Monitored by",     monitored_by}]},
+	      {scroll_boxes,
+	       [{"Links",            {click, links}},
+		{"Monitors",         {click, filter_monitor_info()}},
+		{"Monitored by",     {click, monitored_by}}]},
 	      {"Memory and Garbage Collection", right,
 	       [{"Memory",           {bytes, memory}},
 		{"Stack and Heaps",  {bytes, total_heap_size}},
@@ -364,4 +359,10 @@ get_gc_info(Arg) ->
     fun(Data) ->
 	    GC = proplists:get_value(garbage_collection, Data),
 	    proplists:get_value(Arg, GC)
+    end.
+
+filter_monitor_info() ->
+    fun(Data) ->
+	    Ms = proplists:get_value(monitors, Data),
+	    [Pid || {process, Pid} <- Ms]
     end.

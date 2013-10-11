@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -191,20 +191,16 @@ dump_to_file(Parent, FileName, Holder) ->
 start_procinfo(undefined, _Frame, Opened) ->
     Opened;
 start_procinfo(Pid, Frame, Opened) ->
-    %% This code doesn't work until we collect which windows have been
-    %% closed maybe it should moved to observer_wx.erl
-    %% and add a global menu which remembers windows.
-    %% case lists:keyfind(Pid, 1, Opened) of
-    %% 	false ->
-    case observer_procinfo:start(Pid, Frame, self()) of
-	{error, _} -> Opened;
-	PI -> [{Pid, PI} | Opened]
+    case lists:keyfind(Pid, 1, Opened) of
+	false ->
+	    case observer_procinfo:start(Pid, Frame, self()) of
+		{error, _} -> Opened;
+		PI -> [{Pid, PI} | Opened]
+	    end;
+	{_, PI} ->
+	    wxFrame:raise(PI),
+	    Opened
     end.
-    %%;
-    %% 	{_, PI} ->
-    %% 	    wxFrame:raise(PI),
-    %% 	    Opened
-    %% end.
 
 call(Holder, What) ->
     Ref = erlang:monitor(process, Holder),
@@ -235,8 +231,13 @@ handle_info(refresh_interval, #state{holder=Holder}=State) ->
 
 handle_info({procinfo_menu_closed, Pid},
 	    #state{procinfo_menu_pids=Opened}=State) ->
-    NewPids = lists:delete(Pid, Opened),
+    NewPids = lists:keydelete(Pid, 1, Opened),
     {noreply, State#state{procinfo_menu_pids=NewPids}};
+
+handle_info({procinfo_open, Pid},
+	    #state{panel=Panel, procinfo_menu_pids=Opened}=State) ->
+    Opened2 = start_procinfo(Pid, Panel, Opened),
+    {noreply, State#state{procinfo_menu_pids=Opened2}};
 
 handle_info({active, Node},
 	    #state{holder=Holder, timer=Timer, parent=Parent}=State) ->
@@ -378,8 +379,7 @@ handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
 
 handle_event(#wx{event=#wxList{type=command_list_item_activated}},
 	     #state{panel=Panel, procinfo_menu_pids=Opened,
-		    sel={_, [Pid|_]}}=State)
-  when Pid =/= undefined ->
+		    sel={_, [Pid|_]}}=State) ->
     Opened2 = start_procinfo(Pid, Panel, Opened),
     {noreply, State#state{procinfo_menu_pids=Opened2}};
 
