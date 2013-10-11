@@ -105,8 +105,9 @@ ttb:p(all, call)</code>
         <v>Nodes   = atom() | [atom()] | all | existing | new</v>
         <v>Opts = Opt | [Opt]</v>
         <v>Opt = {file,Client} | {handler, FormatHandler} | {process_info,PI} |
-          shell | {shell, ShellSpec} | {timer, TimerSpec} | {overload, {MSec, Module, Function}}
-          | {flush, MSec} | resume | {resume, FetchTimeout}</v>
+          shell | {shell, ShellSpec} | {timer, TimerSpec} |
+	  {overload_check, {MSec, Module, Function}} |
+	{flush, MSec} | resume | {resume, FetchTimeout}</v>
         <v>TimerSpec = MSec | {MSec, StopOpts}</v>
         <v>MSec = FetchTimeout = integer()</v>
         <v>Module = Function = atom() </v>
@@ -158,7 +159,7 @@ ttb:p(all, call)</code>
           network communication are always present. The timer starts after
           <c>ttb:p/2</c> is issued, so you can set up your trace patterns before.
         </p>
-        <p>The <c>overload</c> option allows to enable overload
+        <p>The <c>overload_check</c> option allows to enable overload
           checking on the nodes under trace. <c>Module:Function(check)</c>
           is performed each <c>MSec</c> milliseconds. If the check returns
           <c>true</c>, the tracing is disabled on a given node.<br/>
