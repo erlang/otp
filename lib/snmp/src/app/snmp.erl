@@ -49,8 +49,8 @@
 
 	 read_mib/1, 
  
-	 log_to_txt/5, log_to_txt/6, log_to_txt/7,
-	 log_to_io/4,  log_to_io/5,  log_to_io/6,
+	 log_to_txt/5, log_to_txt/6, log_to_txt/7, log_to_txt/8, 
+	 log_to_io/4,  log_to_io/5,  log_to_io/6,  log_to_io/7, 
 	 change_log_size/2,
 
 	 octet_string_to_bits/1, bits_to_octet_string/1, 
@@ -91,7 +91,10 @@
 	]).
 
 -export_type([
+	      dir/0, 
+	      
 	      oid/0,
+	      mib_name/0, 
  
 	      void/0
 	     ]).
@@ -155,8 +158,10 @@
 %% Types
 %%-----------------------------------------------------------------
 
--type oid()  :: [non_neg_integer()].
--type void() :: term().
+-type oid()      :: [non_neg_integer()].
+-type void()     :: term().
+-type dir()      :: string().
+-type mib_name() :: string().
 
 
 %%-----------------------------------------------------------------
@@ -854,18 +859,60 @@ read_mib(FileName) ->
 %%%-----------------------------------------------------------------
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
-    snmp_log:log_to_txt(LogName, LogFile, LogDir, Mibs, OutFile).
+    Block = false, 
+    Start = null, 
+    Stop  = null, 
+    log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    Start = null, 
+    Stop  = null, 
+    log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) -> 
-    snmp_log:log_to_txt(LogName, LogFile, LogDir, Mibs, OutFile, Start).
+    Block = false, 
+    Stop  = null, 
+    log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    Stop  = null, 
+    log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
-    snmp_log:log_to_txt(LogName, LogFile, LogDir, Mibs, OutFile, Start, Stop).
+    Block = false, 
+    log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> 
+    snmp_log:log_to_txt(LogName, Block, LogFile, LogDir, Mibs, OutFile, 
+			Start, Stop).
+
 
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
-    snmp_log:log_to_io(LogName, LogFile, LogDir, Mibs).
+    Block = false, 
+    Start = null, 
+    Stop  = null, 
+    log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    Start = null, 
+    Stop  = null, 
+    log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
-    snmp_log:log_to_io(LogName, LogFile, LogDir, Mibs, Start).
+    Block = false, 
+    Stop  = null, 
+    log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    Stop  = null, 
+    log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
-    snmp_log:log_to_io(LogName, LogFile, LogDir, Mibs, Start, Stop).
+    Block = false, 
+    log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
+    snmp_log:log_to_io(LogName, Block, LogFile, LogDir, Mibs, Start, Stop).
 
 change_log_size(LogName, NewSize) -> 
     snmp_log:change_size(LogName, NewSize).
@@ -878,12 +925,12 @@ change_log_size(LogName, NewSize) ->
 %% Usage: erl -s snmp str_apply '{Mod,Func,ArgList}'
 str_apply([Atom]) ->
     Str = atom_to_list(Atom),
-    {Mod,Func,Args} = to_erlang_term(Str),
-    apply(Mod,Func,Args).
+    {Mod, Func, Args} = to_erlang_term(Str),
+    apply(Mod, Func, Args).
 
 to_erlang_term(String) ->
     {ok, Tokens, _} = erl_scan:string(lists:append([String, ". "])),
-    {ok,Term} = erl_parse:parse_term(Tokens),
+    {ok, Term}      = erl_parse:parse_term(Tokens),
     Term.
 
 

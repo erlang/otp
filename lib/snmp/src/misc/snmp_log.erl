@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,8 +24,8 @@
 	 create/4, create/5, create/6, open/1, open/2, 
 	 change_size/2, close/1, sync/1, info/1, 
 	 log/4, 
-	 log_to_txt/5, log_to_txt/6, log_to_txt/7,
-	 log_to_io/4,  log_to_io/5,  log_to_io/6
+	 log_to_txt/6, log_to_txt/7, log_to_txt/8, 
+	 log_to_io/5,  log_to_io/6,  log_to_io/7
 	]).
 -export([
 	 upgrade/1, upgrade/2, 
@@ -34,7 +34,17 @@
 -export([
 	 validate/1, validate/2
 	]).
+%% <BACKWARD-COMPAT>
+-export([
+	 log_to_txt/5, 
+	 log_to_io/4 
+	]).
+%% </BACKWARD-COMPAT>
 
+-export_type([
+	      log/0, 
+	      log_time/0
+	     ]).
 
 -define(SNMP_USE_V3, true).
 -include("snmp_types.hrl").
@@ -46,6 +56,17 @@
 -define(LOG_TYPE,   wrap).
 
 -record(snmp_log, {id, seqno}).
+
+
+%%-----------------------------------------------------------------
+%% Types
+%%-----------------------------------------------------------------
+
+-opaque log() :: #snmp_log{}.
+-type log_time() :: null | 
+                    calendar:datetime() | 
+                    {local_time,     calendar:datetime()} |
+                    {universal_time, calendar:datetime()}.
 
 
 %% --------------------------------------------------------------------
@@ -322,6 +343,11 @@ validate_loop(Error, _Log, _Write, _PrevTS, _PrevSN) ->
 %% log(Log, Packet, Addr, Port)
 %%-----------------------------------------------------------------
 
+-spec log(Log    :: log(), 
+	  Packet :: binary() | {v3_header(), ScopedPDU :: list()}, 
+	  Addr   :: inet:ip_address(), 
+	  Port   :: inet:port_number()) ->
+    ok | {error, Reason :: term()}.
 
 log(#snmp_log{id = Log, seqno = SeqNo}, Packet, Addr, Port) ->
     ?vtrace("log -> entry with"
@@ -378,53 +404,86 @@ do_change_size(Log, NewSize) ->
 
 %% -- log_to_txt ---
 
+%% <BACKWARD-COMPAT>
 log_to_txt(Log, FileName, Dir, Mibs, TextFile) ->
-    log_to_txt(Log, FileName, Dir, Mibs, TextFile, null, null).
+    log_to_txt(Log, false, FileName, Dir, Mibs, TextFile).
+%% </BACKWARD-COMPAT>
 
+log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile) 
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, null, null);
+%% <BACKWARD-COMPAT>
 log_to_txt(Log, FileName, Dir, Mibs, TextFile, Start) ->
-    log_to_txt(Log, FileName, Dir, Mibs, TextFile, Start, null).
+    log_to_txt(Log, false, FileName, Dir, Mibs, TextFile, Start, null).
+%% </BACKWARD-COMPAT>
 
-log_to_txt(Log, FileName, Dir, Mibs, TextFile, Start, Stop) 
-  when is_list(Mibs) andalso is_list(TextFile) ->
+log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, Start) 
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, Start, null);
+%% <BACKWARD-COMPAT>
+log_to_txt(Log, FileName, Dir, Mibs, TextFile, Start, Stop) ->
+    log_to_txt(Log, false, FileName, Dir, Mibs, TextFile, Start, Stop).
+%% </BACKWARD-COMPAT>
+
+log_to_txt(Log, Block, FileName, Dir, Mibs, TextFile, Start, Stop) 
+  when (((Block =:= true) orelse (Block =:= false)) andalso 
+	is_list(Mibs) andalso is_list(TextFile)) ->
     ?vtrace("log_to_txt -> entry with"
 	    "~n   Log:      ~p"
+	    "~n   Block:    ~p"
 	    "~n   FileName: ~p"
 	    "~n   Dir:      ~p"
 	    "~n   Mibs:     ~p"
 	    "~n   TextFile: ~p"
 	    "~n   Start:    ~p"
 	    "~n   Stop:     ~p", 
-	    [Log, FileName, Dir, Mibs, TextFile, Start, Stop]),
+	    [Log, Block, FileName, Dir, Mibs, TextFile, Start, Stop]),
     File = filename:join(Dir, FileName),
     Converter = fun(L) ->
 			do_log_to_file(L, TextFile, Mibs, Start, Stop)
 		end,
-    log_convert(Log, File, Converter).
+    log_convert(Log, Block, File, Converter).
 
 
 %% -- log_to_io ---
 
+%% <BACKWARD-COMPAT>
 log_to_io(Log, FileName, Dir, Mibs) ->
-    log_to_io(Log, FileName, Dir, Mibs, null, null).
+    log_to_io(Log, false, FileName, Dir, Mibs, null, null).
+%% </BACKWARD-COMPAT>
 
+log_to_io(Log, Block, FileName, Dir, Mibs) 
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    log_to_io(Log, Block, FileName, Dir, Mibs, null, null); 
+%% <BACKWARD-COMPAT>
 log_to_io(Log, FileName, Dir, Mibs, Start) ->
-    log_to_io(Log, FileName, Dir, Mibs, Start, null).
+    log_to_io(Log, false, FileName, Dir, Mibs, Start, null).
+%% </BACKWARD-COMPAT>
 
-log_to_io(Log, FileName, Dir, Mibs, Start, Stop) 
+log_to_io(Log, Block, FileName, Dir, Mibs, Start) 
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    log_to_io(Log, Block, FileName, Dir, Mibs, Start, null); 
+%% <BACKWARD-COMPAT>
+log_to_io(Log, FileName, Dir, Mibs, Start, Stop) ->
+    log_to_io(Log, false, FileName, Dir, Mibs, Start, Stop).
+%% </BACKWARD-COMPAT>
+
+log_to_io(Log, Block, FileName, Dir, Mibs, Start, Stop) 
   when is_list(Mibs) ->
     ?vtrace("log_to_io -> entry with"
 	    "~n   Log:      ~p"
+	    "~n   Block:    ~p"
 	    "~n   FileName: ~p"
 	    "~n   Dir:      ~p"
 	    "~n   Mibs:     ~p"
 	    "~n   Start:    ~p"
 	    "~n   Stop:     ~p", 
-	    [Log, FileName, Dir, Mibs, Start, Stop]),
+	    [Log, Block, FileName, Dir, Mibs, Start, Stop]),
     File = filename:join(Dir, FileName),
     Converter = fun(L) ->
 			do_log_to_io(L, Mibs, Start, Stop)
 		end,
-    log_convert(Log, File, Converter).
+    log_convert(Log, Block, File, Converter).
 
 
 %% --------------------------------------------------------------------
@@ -433,50 +492,115 @@ log_to_io(Log, FileName, Dir, Mibs, Start, Stop)
 
 %% -- log_convert ---
 
-log_convert(#snmp_log{id = Log}, File, Converter) ->
-    do_log_convert(Log, File, Converter);
-log_convert(Log, File, Converter) ->
-    do_log_convert(Log, File, Converter).
+log_convert(#snmp_log{id = Log}, Block, File, Converter) ->
+    do_log_convert(Log, Block, File, Converter);
+log_convert(Log, Block, File, Converter) ->
+    do_log_convert(Log, Block, File, Converter).
 
-do_log_convert(Log, File, Converter) ->
+do_log_convert(Log, Block, File, Converter) ->
     %% ?vtrace("do_log_converter -> entry with"
-    %% 	    "~n   Log:  ~p"
-    %% 	    "~n   File: ~p"
-    %% 	    "~n   disk_log:info(Log): ~p", [Log, File, disk_log:info(Log)]),
+    %% 	    "~n   Log:   ~p"
+    %% 	    "~n   Block: ~p"
+    %% 	    "~n   File:  ~p"
+    %% 	    "~n   disk_log:info(Log): ~p", 
+    %% 	    [Log, Block, File, disk_log:info(Log)]),
+    Verbosity  = get(verbosity), 
     {Pid, Ref} = 
 	erlang:spawn_monitor(
 	  fun() ->
-		  Result = do_log_convert2(Log, File, Converter),
+		  put(sname,     lc),
+		  put(verbosity, Verbosity), 
+		  Result = do_log_convert2(Log, Block, File, Converter),
 		  exit(Result)
 	  end),
     receive 
 	{'DOWN', Ref, process, Pid, Result} ->
 	    %% ?vtrace("do_log_converter -> received result"
-	    %% 	    "~n   Result: ~p"
+	    %% 	    "~n   Result:             ~p"
 	    %% 	    "~n   disk_log:info(Log): ~p", 
 	    %% 	    [Result, disk_log:info(Log)]),
 	    Result
     end.
     
-do_log_convert2(Log, File, Converter) ->
+do_log_convert2(Log, Block, File, Converter) ->
+
+    %% ?vtrace("do_log_converter2 -> entry with"
+    %% 	    "~n   Log:   ~p"
+    %% 	    "~n   Block: ~p"
+    %% 	    "~n   File:  ~p"
+    %% 	    "~n   disk_log:info(Log): ~p", 
+    %% 	    [Log, Block, File, disk_log:info(Log)]),
+
     %% First check if the caller process has already opened the
     %% log, because if we close an already open log we will cause
     %% a runtime error.
+
     case is_owner(Log) of
 	true ->
-	    Converter(Log);
+	    ?vtrace("do_log_converter2 -> convert an already owned log", []),
+	    maybe_block(Log, Block), 
+	    Res = Converter(Log),
+	    maybe_unblock(Log, Block), 
+	    Res;
 	false ->
 	    %% Not yet member of the ruling party, apply for membership...
+	    ?vtrace("do_log_converter2 -> convert log", []),
 	    case log_open(Log, File) of
 		{ok, _} ->
+		    ?vtrace("do_log_converter2 -> "
+			    "convert (the now opened) log", []),
+		    maybe_block(Log, Block), 
 		    Res = Converter(Log),
+		    maybe_unblock(Log, Block), 
 		    disk_log:close(Log),
 		    Res;
 		{error, {name_already_open, _}} ->
-                    Converter(Log);
+		    ?vtrace("do_log_converter2 -> "
+			    "convert (an already opened) log", []),
+		    maybe_block(Log, Block), 
+                    Res = Converter(Log), 
+		    maybe_unblock(Log, Block), 
+		    Res;
                 {error, Reason} ->
+		    ?vinfo("do_log_converter2 -> "
+			   "failed converting log - open failed: "
+			   "~n   Reason: ~p", [Reason]),
                     {error, {Log, Reason}}
 	    end
+    end.
+
+
+maybe_block(_Log, false = _Block) ->
+    %% ?vtrace("maybe_block(false) -> entry", []),
+    ok;
+maybe_block(Log, true = _Block) ->
+    %% ?vtrace("maybe_block(true) -> entry when"
+    %% 	    "~n   Log Status: ~p", [log_status(Log)]),
+    Res = disk_log:block(Log, true),
+    %% ?vtrace("maybe_block(true) -> "
+    %% 	    "~n   Log Status: ~p"
+    %% 	    "~n   Res:        ~p", [log_status(Log), Res]),
+    Res.
+
+maybe_unblock(_Log, false = _Block) ->
+    %% ?vtrace("maybe_unblock(false) -> entry", []),
+    ok;
+maybe_unblock(Log, true = _Block) ->
+    %% ?vtrace("maybe_unblock(true) -> entry when"
+    %% 	    "~n   Log Status: ~p", [log_status(Log)]),
+    Res = disk_log:unblock(Log),
+    %% ?vtrace("maybe_unblock(true) -> "
+    %% 	    "~n   Log Status: ~p"
+    %% 	    "~n   Res:        ~p", [log_status(Log), Res]),
+    Res.
+
+log_status(Log) ->
+    Info = disk_log:info(Log),
+    case lists:keysearch(status, 1, Info) of
+	{value, {status, Status}} ->
+	    Status;
+	false ->
+	    undefined
     end.
 
 
