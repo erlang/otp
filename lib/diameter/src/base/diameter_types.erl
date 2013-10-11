@@ -92,6 +92,9 @@
   when is_binary(Bin) ->
     binary_to_list(Bin);
 
+'OctetString'(decode, B) ->
+    ?INVALID_LENGTH(B);
+
 'OctetString'(encode = M, zero) ->
     'OctetString'(M, []);
 
@@ -255,9 +258,7 @@
        2 == A, 16 == size(B) ->
     list_to_tuple([N || <<N:A/unit:8>> <= B]);
 
-'Address'(decode, <<A:16, _/binary>> = B)
-  when 1 == A;
-       2 == A ->
+'Address'(decode, B) ->
     ?INVALID_LENGTH(B);
 
 'Address'(encode, T) ->
@@ -278,13 +279,19 @@
     <<_,_/binary>> = 'OctetString'(M, X);
 
 'DiameterIdentity'(decode = M, <<_,_/binary>> = X) ->
-    'OctetString'(M, X).
+    'OctetString'(M, X);
+
+'DiameterIdentity'(decode, X) ->
+    ?INVALID_LENGTH(X).
 
 %% --------------------
 
 'DiameterURI'(decode, Bin)
   when is_binary(Bin) ->
     scan_uri(Bin);
+
+'DiameterURI'(decode, B) ->
+    ?INVALID_LENGTH(B);
 
 %% The minimal DiameterURI is "aaa://x", 7 characters.
 'DiameterURI'(encode = M, zero) ->
@@ -330,8 +337,12 @@
 
 %% --------------------
 
-'UTF8String'(decode, Bin) ->
+'UTF8String'(decode, Bin)
+  when is_binary(Bin) ->
     tl([0|_] = unicode:characters_to_list([0, Bin])); %% assert list return
+
+'UTF8String'(decode, B) ->
+    ?INVALID_LENGTH(B);
 
 'UTF8String'(encode = M, zero) ->
     'UTF8String'(M, []);
