@@ -71,6 +71,24 @@
           <p>Own Id: OTP-11307</p>
         </item>
 
+        <item>
+          <p>Add (atl) log conversion block option. </p>
+	  <p>It is now possible to request that the Audit Trail Log should
+	  be blocked during conversion (<c>log_to_txt</c> or <c>log_to_io</c>). 
+	  This could be usefull when coverting a large log (when there is
+	  a chance it may otherwise wrap during conversion). </p>
+	  <p>See 
+	  agent 
+	  <seealso marker="snmpa#log_to_txt">log_to_txt</seealso> and
+	  <seealso marker="snmpa#log_to_io">log_to_io</seealso> and also 
+	  manager 
+	  <seealso marker="snmpm#log_to_txt">log_to_txt</seealso> and
+	  <seealso marker="snmpm#log_to_io">log_to_io</seealso> 
+	  for details. </p>
+          <p>Own Id: OTP-11396</p>
+          <p>Own Id: seq12433</p>
+        </item>
+
       </list>
 
     </section>

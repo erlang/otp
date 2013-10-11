@@ -75,11 +75,10 @@
 
 	 %% 
 	 %% Logging
-	 log_to_txt/1, 
-	 log_to_txt/2, log_to_txt/3, log_to_txt/4,
-	 log_to_txt/5, log_to_txt/6, log_to_txt/7, 
-	 log_to_io/1,  log_to_io/2,  log_to_io/3,
-	 log_to_io/4,  log_to_io/5,  log_to_io/6, 
+	 log_to_txt/1, log_to_txt/2, log_to_txt/3, log_to_txt/4, 
+	 log_to_txt/5, log_to_txt/6, log_to_txt/7, log_to_txt/8, 
+	 log_to_io/1,  log_to_io/2,  log_to_io/3,  log_to_io/4, 
+	 log_to_io/5,  log_to_io/6,  log_to_io/7, 
 	 change_log_size/1,
 	 get_log_type/0,
 	 set_log_type/1,
@@ -787,43 +786,204 @@ cancel_async_request(UserId, ReqId) ->
 %%% Audit Trail Log functions (for backward compatibility)
 %%%-----------------------------------------------------------------
 
+-spec log_to_txt(LogDir :: snmp:dir()) ->
+    snmp:void().
+
 log_to_txt(LogDir) ->
     log_to_txt(LogDir, []). 
-log_to_txt(LogDir, Mibs) ->
+
+-spec log_to_txt(LogDir :: snmp:dir(), 
+		 Block  :: boolean()) ->
+    snmp:void();
+                (LogDir :: snmp:dir(), 
+		 Mibs   :: [snmp:mib_name()]) ->
+    snmp:void().
+
+log_to_txt(LogDir, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    Mibs    = [], 
     OutFile = "snmpm_log.txt",       
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
-log_to_txt(LogDir, Mibs, OutFile) ->
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
+log_to_txt(LogDir, Mibs) ->
+    Block   = false, 
+    OutFile = "snmpm_log.txt",       
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
-log_to_txt(LogDir, Mibs, OutFile, LogName) ->
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir :: snmp:dir(), 
+		 Mibs   :: [snmp:mib_name()], 
+		 Block  :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, Block)  
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    OutFile = "snmpm_log.txt",       
+    LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
+log_to_txt(LogDir, Mibs, OutFile) ->
+    Block   = false, 
+    LogName = ?audit_trail_log_name, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 Block   :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, Block)  
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    LogName = ?audit_trail_log_name, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block); 
+log_to_txt(LogDir, Mibs, OutFile, LogName) ->
+    Block   = false, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 Block   :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, Block)  
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
+    Block = false, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Block   :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Start   :: snmp_log:log_time()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block)  
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start).
+    Block = false, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Block   :: boolean(), 
+		 Start   :: snmp_log:log_time()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Start   :: snmp_log:log_time(), 
+		 Stop    :: snmp_log:log_time()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop).
+    Block = false, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Block   :: boolean(), 
+		 Start   :: snmp_log:log_time(), 
+		 Stop    :: snmp_log:log_time()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 
 log_to_io(LogDir) ->
     log_to_io(LogDir, []).
+
+log_to_io(LogDir, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    Mibs    = [], 
+    LogName = ?audit_trail_log_name, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs) ->
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
-log_to_io(LogDir, Mibs, LogName) ->
+
+log_to_io(LogDir, Mibs, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
+log_to_io(LogDir, Mibs, LogName) ->
+    Block   = false, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
+
+log_to_io(LogDir, Mibs, LogName, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
+    Block = false, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Start).
+    Block = false, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start); 
 log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop).
+    Block = false, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
     
 
 change_log_size(NewSize) ->
