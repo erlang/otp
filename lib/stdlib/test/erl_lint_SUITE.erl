@@ -2859,7 +2859,15 @@ behaviour_basic(Config) when is_list(Config) ->
               stop(_) -> ok.
              ">>,
            [],
-	   []}
+           []},
+
+          {behaviour4,
+           <<"-behavior(application).  %% Test callbacks with export_all
+              -compile(export_all).
+              stop(_) -> ok.
+             ">>,
+           [],
+           {warnings,[{1,erl_lint,{undefined_behaviour_func,{start,2},application}}]}}
 	 ],
     ?line [] = run(Config, Ts),
     ok.
