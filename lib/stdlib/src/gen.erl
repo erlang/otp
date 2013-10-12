@@ -37,7 +37,9 @@
 %%-----------------------------------------------------------------
 
 -type linkage()    :: 'link' | 'nolink'.
--type emgr_name()  :: {'local', atom()} | {'global', term()} | {via, atom(), term()}.
+-type emgr_name()  :: {'local', atom()}
+                    | {'global', term()} 
+                    | {'via', Modulename :: atom(), Key :: term()}.
 
 -type start_ret()  :: {'ok', pid()} | 'ignore' | {'error', term()}.
 
