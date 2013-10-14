@@ -938,7 +938,7 @@ print_emu_arg(em_state *state)
     struct hostent *hp;
     struct in_addr iaddr;
     usgnd_int_16 port;
-    int saddr_size = sizeof(saddr);
+    unsigned int saddr_size = sizeof(saddr);
     size_t size;
     char *format = "> Emulator command line argument: +Mit %s\n";
 
@@ -2555,7 +2555,7 @@ init_connection(em_state *state)
     SOCKET lsock;
     SOCKET sock = INVALID_SOCKET;
     struct sockaddr_in my_addr;
-    int oth_addr_len;
+    unsigned int oth_addr_len;
     struct sockaddr_in oth_addr;
 #ifdef __WIN32__
     WORD wVersionRequested = MAKEWORD(2,0);
