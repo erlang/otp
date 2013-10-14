@@ -3570,7 +3570,6 @@ resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
 	    /* Old carrier unchanged; restore... */
 	    STAT_SYS_ALLOC_SBC_ALLOC(allctr, old_crr_sz, old_blk_sz);
 	}
-	DEBUG_SAVE_ALIGNMENT(new_crr);
 	return new_blk;
     }
 #endif
