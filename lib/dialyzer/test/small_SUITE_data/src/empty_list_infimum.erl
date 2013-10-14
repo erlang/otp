@@ -1,6 +1,6 @@
 %%
-%% The Original Code is RabbitMQ.
-%%
+%% This is stripped down code from RabbitMQ. It is used to report an
+%% invalid type specification for function list_vhost_permissions/1.
 %% The Initial Developer of the Original Code is VMware, Inc.
 %%
 
@@ -38,7 +38,7 @@ vhost_perms_info_keys() ->
 -spec list_vhost_permissions(vhost()) -> infos().
 
 list_vhost_permissions(VHostPath) ->
-    list_permissions(vhost_perms_info_keys(), rabbit_foo:some_list()).
+    list_permissions(vhost_perms_info_keys(), some_mod:some_function()).
 
 filter_props(Keys, Props) ->
     [T || T = {K, _} <- Props, lists:member(K, Keys)].

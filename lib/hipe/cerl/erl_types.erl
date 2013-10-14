@@ -671,8 +671,9 @@ t_solve_remote(?function(Domain, Range), ET, R, C) ->
   {RT2, RR2} = t_solve_remote(Range, ET, R, C),
   {?function(RT1, RT2), RR1 ++ RR2};
 t_solve_remote(?list(Types, Term, Size), ET, R, C) ->
-  {RT, RR} = t_solve_remote(Types, ET, R, C),
-  {?list(RT, Term, Size), RR};
+  {RT1, RR1} = t_solve_remote(Types, ET, R, C),
+  {RT2, RR2} = t_solve_remote(Term, ET, R, C),
+  {?list(RT1, RT2, Size), RR1 ++ RR2};
 t_solve_remote(?product(Types), ET, R, C) ->
   {RL, RR} = list_solve_remote(Types, ET, R, C),
   {?product(RL), RR};
@@ -1349,8 +1350,8 @@ t_maybe_improper_list() ->
 t_maybe_improper_list(_Content, ?unit) -> ?none;
 t_maybe_improper_list(?unit, _Termination) -> ?none;
 t_maybe_improper_list(Content, Termination) ->
-  %% Safety check
-  true = t_is_subtype(t_nil(), Termination),
+  %% Safety check: would be nice to have but does not work with remote types
+  %% true = t_is_subtype(t_nil(), Termination),
   ?list(Content, Termination, ?unknown_qual).
 
 -spec t_is_maybe_improper_list(erl_type()) -> boolean().
@@ -1365,8 +1366,8 @@ t_is_maybe_improper_list(_) -> false.
 %% t_improper_list(?unit, _Termination) -> ?none;
 %% t_improper_list(_Content, ?unit) -> ?none;
 %% t_improper_list(Content, Termination) ->
-%%   %% Safety check
-%%   false = t_is_subtype(t_nil(), Termination),
+%%   %% Safety check: would be nice to have but does not work with remote types
+%%   %% false = t_is_subtype(t_nil(), Termination),
 %%   ?list(Content, Termination, ?any).  
 
 -spec lift_list_to_pos_empty(erl_type()) -> erl_type().
