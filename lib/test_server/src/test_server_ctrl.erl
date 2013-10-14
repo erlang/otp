@@ -2221,20 +2221,22 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	{Ref,Ref} ->
 	    case check_props(parallel, ParentMode) of
 		false ->
-		    %% this is a skipped end conf for a top level parallel group,
-		    %% buffered io can be flushed
+		    %% this is a skipped end conf for a top level parallel
+		    %% group, buffered io can be flushed
 		    handle_test_case_io_and_status(),
 		    set_io_buffering(undefined),
-		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, false, SkipMode),
+		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+					   false, SkipMode),
 		    test_server_sup:framework_call(report, [tc_auto_skip,
 							    {Mod,Func,Comment}]),
 		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
 					delete_status(Ref, Status));
 		_ ->
-		    %% this is a skipped end conf for a parallel group nested under a
-		    %% parallel group (io buffering is active)
+		    %% this is a skipped end conf for a parallel group nested
+		    %% under a parallel group (io buffering is active)
 		    wait_for_cases(Ref),
-		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, true, SkipMode),
+		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+					   true, SkipMode),
 		    test_server_sup:framework_call(report, [tc_auto_skip,
 							    {Mod,Func,Comment}]),
 		    case CurrIOHandler of
@@ -2246,18 +2248,21 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 			_ ->
 			    ok
 		    end,
-		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
+		    run_test_cases_loop(Cases, Config,
+					TimetrapData, ParentMode,
 					delete_status(Ref, Status))
 	    end;
 	{Ref,false} ->
 	    %% this is a skipped end conf for a non-parallel group that's not
 	    %% nested under a parallel group
-	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, false, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
+	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+				   false, SkipMode),
+	    test_server_sup:framework_call(report, [tc_auto_skip,
+						    {Mod,Func,Comment}]),
 
-	    %% Check if this group is auto skipped because of error in the init conf.
-	    %% If so, check if the parent group is a sequence, and if it is, skip
-	    %% all proceeding tests in that group.
+	    %% Check if this group is auto skipped because of error in the
+	    %% init conf. If so, check if the parent group is a sequence,
+	    %% and if it is, skip all proceeding tests in that group.
 	    GrName = get_name(Mode),
 	    Cases1 =
 		case get_tc_results(Status) of
@@ -2270,7 +2275,8 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 				    ParentRef ->
 					Reason = {group_result,GrName,failed},
 					skip_cases_upto(ParentRef, Cases,
-							Reason, tc, Mode)
+							Reason, tc, Mode,
+							auto_skip_case)
 				end;
 			    false ->
 				Cases
@@ -2283,8 +2289,10 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	{Ref,_} ->
 	    %% this is a skipped end conf for a non-parallel group nested under
 	    %% a parallel group (io buffering is active)
-	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, true, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
+	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+				   true, SkipMode),
+	    test_server_sup:framework_call(report, [tc_auto_skip,
+						    {Mod,Func,Comment}]),
 	    case CurrIOHandler of
 		{Ref,_} ->
 		    %% current_io_handler was set by start conf of this
@@ -2299,20 +2307,27 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	{_,false} ->
 	    %% this is a skipped start conf for a group which is not nested
 	    %% under a parallel group
-	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, false, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
-	    run_test_cases_loop(Cases, Config, TimetrapData, [conf(Ref,[])|Mode], Status);
+	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+				   false, SkipMode),
+	    test_server_sup:framework_call(report, [tc_auto_skip,
+						    {Mod,Func,Comment}]),
+	    run_test_cases_loop(Cases, Config, TimetrapData,
+				[conf(Ref,[])|Mode], Status);
 	{_,Ref0} when is_reference(Ref0) ->
-	    %% this is a skipped start conf for a group nested under a parallel group
-	    %% and if this is the first nested group, io buffering must be activated
+	    %% this is a skipped start conf for a group nested under a parallel
+	    %% group and if this is the first nested group, io buffering must
+	    %% be activated
 	    if CurrIOHandler == undefined ->
 		    set_io_buffering({Ref,self()});
 	       true ->
 		    ok
 	    end,
-	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, true, SkipMode),
-	    test_server_sup:framework_call(report, [tc_auto_skip,{Mod,Func,Comment}]),
-	    run_test_cases_loop(Cases, Config, TimetrapData, [conf(Ref,[])|Mode], Status)
+	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment,
+				   true, SkipMode),
+	    test_server_sup:framework_call(report, [tc_auto_skip,
+						    {Mod,Func,Comment}]),
+	    run_test_cases_loop(Cases, Config, TimetrapData,
+				[conf(Ref,[])|Mode], Status)
     end;
 
 run_test_cases_loop([{auto_skip_case,{Case,Comment},SkipMode}|Cases],
@@ -2333,7 +2348,8 @@ run_test_cases_loop([{skip_case,{conf,Ref,Case,Comment}}|Cases0],
 		{Cases0,tl(Config)};
 	    _ ->
 		%% skipped start conf
-		{skip_cases_upto(Ref, Cases0, Comment, conf, Mode),Config}
+		{skip_cases_upto(Ref, Cases0, Comment, conf, Mode, skip_case),
+		 Config}
 	end,
     test_server_sup:framework_call(report, [tc_user_skip,{Mod,Func,Comment}]),
     run_test_cases_loop(Cases, Config1, TimetrapData, Mode,
@@ -2597,7 +2613,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			  "~n*** ~w returned bad elements in Config: ~p.~n",
 			  [Func,Bad]),
 		    Reason = {failed,{Mod,init_per_suite,bad_return}},
-		    Cases2 = skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),
+		    Cases2 = skip_cases_upto(Ref, Cases, Reason, conf, CurrMode,
+					     auto_skip_case),
 		    set_io_buffering(IOHandler),
 		    stop_minor_log_file(),
 		    run_test_cases_loop(Cases2, Config, TimetrapData, Mode,
@@ -2623,7 +2640,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			print(minor, "~n*** ~w failed.~n"
 			      "    Skipping all cases.", [Func]),
 			Reason = {failed,{Mod,Func,Fail}},
-			{skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),
+			{skip_cases_upto(Ref, Cases, Reason, conf, CurrMode,
+					 auto_skip_case),
 			 Config,
 			 update_status(failed, group_result, get_name(Mode),
 				       delete_status(Ref, Status2))};
@@ -2635,13 +2653,15 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
 	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode, Status3);
+
 	{_,{Skip,Reason},_} when StartConf and ((Skip==skip) or (Skip==skipped)) ->
 	    ReportAbortRepeat(skipped),
 	    print(minor, "~n*** ~w skipped.~n"
 		  "    Skipping all cases.", [Func]),
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
-	    run_test_cases_loop(skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),
+	    run_test_cases_loop(skip_cases_upto(Ref, Cases, Reason, conf,
+						CurrMode, skip_case),
 				Config, TimetrapData, Mode,
 				delete_status(Ref, Status2));
 	{_,{skip_and_save,Reason,_SavedConfig},_} when StartConf ->
@@ -2650,13 +2670,15 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		  "    Skipping all cases.", [Func]),
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
-	    run_test_cases_loop(skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),
+	    run_test_cases_loop(skip_cases_upto(Ref, Cases, Reason, conf,
+						CurrMode, skip_case),
 				Config, TimetrapData, Mode,
 				delete_status(Ref, Status2));
 	{_,_Other,_} when Func == init_per_suite ->
 	    print(minor, "~n*** init_per_suite failed to return a Config list.~n", []),
 	    Reason = {failed,{Mod,init_per_suite,bad_return}},
-	    Cases2 = skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),
+	    Cases2 = skip_cases_upto(Ref, Cases, Reason, conf, CurrMode,
+				     auto_skip_case),
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
 	    run_test_cases_loop(Cases2, Config, TimetrapData, Mode,
@@ -2668,7 +2690,6 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    stop_minor_log_file(),
 	    run_test_cases_loop(Cases, [hd(Config)|Config], TimetrapData,
 				Mode, Status2);
-
 	{_,_EndConfRetVal,Opts} ->
 	    %% Check if return_group_result is set (ok, skipped or failed) and
 	    %% if so:
@@ -2683,7 +2704,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			case {curr_ref(Mode),check_prop(sequence, Mode)} of
 			    {ParentRef,ParentRef} ->
 				Reason = {group_result,GrName,failed},
-				{skip_cases_upto(ParentRef, Cases, Reason, tc, Mode),
+				{skip_cases_upto(ParentRef, Cases, Reason, tc,
+						 Mode, auto_skip_case),
 				 update_status(failed, group_result, GrName,
 					       delete_status(Ref, Status2))};
 			    _ ->
@@ -2701,16 +2723,19 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    ReportRepeatStop(),
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
-	    run_test_cases_loop(Cases2, tl(Config), TimetrapData, Mode, Status3)
+	    run_test_cases_loop(Cases2, tl(Config), TimetrapData,
+				Mode, Status3)
     end;
 
-run_test_cases_loop([{make,Ref,{Mod,Func,Args}}|Cases0], Config, TimetrapData, Mode, Status) ->
+run_test_cases_loop([{make,Ref,{Mod,Func,Args}}|Cases0], Config, TimetrapData,
+		    Mode, Status) ->
     case run_test_case(Ref, 0, Mod, Func, Args, skip_init, TimetrapData) of
 	{_,Why={'EXIT',_},_} ->
 	    print(minor, "~n*** ~w failed.~n"
  		  "    Skipping all cases.", [Func]),
 	    Reason = {failed,{Mod,Func,Why}},
-	    Cases = skip_cases_upto(Ref, Cases0, Reason, conf, Mode),
+	    Cases = skip_cases_upto(Ref, Cases0, Reason, conf, Mode,
+				    auto_skip_case),
 	    stop_minor_log_file(),
 	    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status);
 	{_,_Whatever,_} ->
@@ -2791,7 +2816,8 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
 				  "    Skipping all other cases in sequence.",
 				  [Func]),
 			    Reason = {failed,{Mod,Func}},
-			    Cases2 = skip_cases_upto(Ref, Cases, Reason, tc, Mode),
+			    Cases2 = skip_cases_upto(Ref, Cases, Reason, tc,
+						     Mode, auto_skip_case),
 			    stop_minor_log_file(),
 			    run_test_cases_loop(Cases2, Config, TimetrapData, Mode, Status1)
 		    end
@@ -3079,9 +3105,17 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
     Comment1 = reason_to_string(Comment),
 
     print(major, "~n=case          ~w:~w", [Mod,Func]),
-    print(major, "=started         ~s", [lists:flatten(timestamp_get(""))]),
-    print(major, "=result          skipped: ~ts", [Comment1]),
-    print(2,"*** Skipping test case #~w ~w ***", [CaseNum,{Mod,Func}]),
+    print(major, "=started       ~s", [lists:flatten(timestamp_get(""))]),
+    if Type == auto ->
+	    print(major, "=result        auto_skipped: ~ts", [Comment1]);
+       Type == user ->
+	    print(major, "=result        skipped: ~ts", [Comment1])
+    end,
+    if CaseNum == 0 ->
+	    print(2,"*** Skipping ~w ***", [{Mod,Func}]);
+       true ->
+	    print(2,"*** Skipping test case #~w ~w ***", [CaseNum,{Mod,Func}])
+    end,
     TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),	       
     GroupName =	case get_name(Mode) of
 		    undefined -> "";
@@ -3110,12 +3144,14 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% skip_cases_upto(Ref, Cases, Reason, Origin, Mode) -> Cases1
+%% skip_cases_upto(Ref, Cases, Reason, Origin, Mode, SkipType) -> Cases1
 %%
+%% SkipType = skip_case | auto_skip_case
 %% Mark all cases tagged with Ref as skipped.
 
-skip_cases_upto(Ref, Cases, Reason, Origin, Mode) ->
-    {_,Modified,Rest} = modify_cases_upto(Ref, {skip,Reason,Origin,Mode}, Cases),
+skip_cases_upto(Ref, Cases, Reason, Origin, Mode, SkipType) ->
+    {_,Modified,Rest} =
+	modify_cases_upto(Ref, {skip,Reason,Origin,Mode,SkipType}, Cases),
     Modified++Rest.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3161,25 +3197,33 @@ modify_cases_upto(Ref, ModOp, Cases, Orig, Alt) ->
     end.
 
 %% next case is a conf with same ref, must be end conf = we're done
-modify_cases_upto1(Ref, {skip,Reason,conf,Mode}, [{conf,Ref,_Props,MF}|T], Orig, Alt) ->
+modify_cases_upto1(Ref, {skip,Reason,conf,_,skip_case},
+		   [{conf,Ref,_Props,MF}|T], Orig, Alt) ->
+    {Orig,[{skip_case,{conf,Ref,MF,Reason}}|Alt],T};
+modify_cases_upto1(Ref, {skip,Reason,conf,Mode,auto_skip_case},
+		   [{conf,Ref,_Props,MF}|T], Orig, Alt) ->
     {Orig,[{auto_skip_case,{conf,Ref,MF,Reason},Mode}|Alt],T};
 modify_cases_upto1(Ref, {copy,NewRef}, [{conf,Ref,Props,MF}=C|T], Orig, Alt) ->
     {[C|Orig],[{conf,NewRef,update_repeat(Props),MF}|Alt],T};
 
 %% we've skipped all remaining cases in a sequence
-modify_cases_upto1(Ref, {skip,_,tc,_}, [{conf,Ref,_Props,_MF}|_]=Cs, Orig, Alt) ->
+modify_cases_upto1(Ref, {skip,_,tc,_,_},
+		   [{conf,Ref,_Props,_MF}|_]=Cs, Orig, Alt) ->
     {Orig,Alt,Cs};
 
 %% next is a make case
-modify_cases_upto1(Ref, {skip,Reason,_,Mode}, [{make,Ref,MF}|T], Orig, Alt) ->
-    {Orig,[{auto_skip_case,{make,Ref,MF,Reason},Mode}|Alt],T};
+modify_cases_upto1(Ref, {skip,Reason,_,Mode,SkipType},
+		   [{make,Ref,MF}|T], Orig, Alt) ->
+    {Orig,[{SkipType,{make,Ref,MF,Reason},Mode}|Alt],T};
 modify_cases_upto1(Ref, {copy,NewRef}, [{make,Ref,MF}=M|T], Orig, Alt) ->
     {[M|Orig],[{make,NewRef,MF}|Alt],T};
 
 %% next case is a user skipped end conf with the same ref = we're done
-modify_cases_upto1(Ref, {skip,Reason,_,Mode}, [{skip_case,{Type,Ref,MF,_Cmt}}|T], Orig, Alt) ->
-    {Orig,[{auto_skip_case,{Type,Ref,MF,Reason},Mode}|Alt],T};
-modify_cases_upto1(Ref, {copy,NewRef}, [{skip_case,{Type,Ref,MF,Cmt}}=C|T], Orig, Alt) ->
+modify_cases_upto1(Ref, {skip,Reason,_,Mode,SkipType},
+		   [{skip_case,{Type,Ref,MF,_Cmt}}|T], Orig, Alt) ->
+    {Orig,[{SkipType,{Type,Ref,MF,Reason},Mode}|Alt],T};
+modify_cases_upto1(Ref, {copy,NewRef},
+		   [{skip_case,{Type,Ref,MF,Cmt}}=C|T], Orig, Alt) ->
     {[C|Orig],[{skip_case,{Type,NewRef,MF,Cmt}}|Alt],T};
 
 %% next is a skip_case, could be one test case or 'all' in suite, we must proceed
@@ -3187,13 +3231,17 @@ modify_cases_upto1(Ref, ModOp, [{skip_case,{_F,_Cmt}}=MF|T], Orig, Alt) ->
     modify_cases_upto1(Ref, ModOp, T, [MF|Orig], [MF|Alt]);
 
 %% next is a normal case (possibly in a sequence), mark as skipped, or copy, and proceed
-modify_cases_upto1(Ref, {skip,Reason,_,Mode}=Op, [{_M,_F}=MF|T], Orig, Alt) ->
+modify_cases_upto1(Ref, {skip,Reason,_,_,skip_case}=Op,
+		   [{_M,_F}=MF|T], Orig, Alt) ->
+    modify_cases_upto1(Ref, Op, T, Orig, [{skip_case,{MF,Reason}}|Alt]);
+modify_cases_upto1(Ref, {skip,Reason,_,Mode,auto_skip_case}=Op,
+		   [{_M,_F}=MF|T], Orig, Alt) ->
     modify_cases_upto1(Ref, Op, T, Orig, [{auto_skip_case,{MF,Reason},Mode}|Alt]);
 modify_cases_upto1(Ref, CopyOp, [{_M,_F}=MF|T], Orig, Alt) ->
     modify_cases_upto1(Ref, CopyOp, T, [MF|Orig], [MF|Alt]);
 
 %% next is some other case, ignore or copy
-modify_cases_upto1(Ref, {skip,_,_,_}=Op, [_|T], Orig, Alt) ->
+modify_cases_upto1(Ref, {skip,_,_,_,_}=Op, [_|T], Orig, Alt) ->
     modify_cases_upto1(Ref, Op, T, Orig, Alt);
 modify_cases_upto1(Ref, CopyOp, [C|T], Orig, Alt) ->
     modify_cases_upto1(Ref, CopyOp, T, [C|Orig], [C|Alt]).
@@ -3704,8 +3752,8 @@ progress(skip, CaseNum, Mod, Func, Loc, Reason, Time,
 		     fun() -> {?auto_skip_color,auto_skip} end,
 		     fun() -> {?user_skip_color,skip} end),
     print(major, "=result        skipped", []),
-    print(1, "*** SKIPPED *** ~ts",
-	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
+    print(1, "*** SKIPPED ~ts ***",
+	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,Func,
 						     {skipped,Reason1}}]),
     ReasonStr = reason_to_string(Reason1),
@@ -3734,8 +3782,8 @@ progress(skip, CaseNum, Mod, Func, Loc, Reason, Time,
 progress(failed, CaseNum, Mod, Func, Loc, timetrap_timeout, T,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: timeout, ~p", [Loc]),
-    print(1, "*** FAILED *** ~ts",
-	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
+    print(1, "*** FAILED ~ts ***",
+	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
 				   [tc_done,{Mod,Func,
 					     {failed,timetrap_timeout}}]),
@@ -3760,8 +3808,8 @@ progress(failed, CaseNum, Mod, Func, Loc, timetrap_timeout, T,
 progress(failed, CaseNum, Mod, Func, Loc, {testcase_aborted,Reason}, _T,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: testcase_aborted, ~p", [Loc]),
-    print(1, "*** FAILED *** ~ts",
-	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
+    print(1, "*** FAILED ~ts ***",
+	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
 				   [tc_done,{Mod,Func,
 					     {failed,testcase_aborted}}]),
@@ -3786,8 +3834,8 @@ progress(failed, CaseNum, Mod, Func, Loc, {testcase_aborted,Reason}, _T,
 progress(failed, CaseNum, Mod, Func, unknown, Reason, Time,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: ~p, ~w", [Reason,unknown]),
-    print(1, "*** FAILED *** ~ts",
-	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
+    print(1, "*** FAILED ~ts ***",
+	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,Func,
 						     {failed,Reason}}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
@@ -3822,8 +3870,8 @@ progress(failed, CaseNum, Mod, Func, unknown, Reason, Time,
 progress(failed, CaseNum, Mod, Func, Loc, Reason, Time,
 	 Comment0, {St0,St1}) ->
     print(major, "=result        failed: ~p, ~p", [Reason,Loc]),
-    print(1, "*** FAILED *** ~ts",
-	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
+    print(1, "*** FAILED ~ts ***",
+	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,Func,
 						     {failed,Reason}}]),
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
@@ -3933,11 +3981,11 @@ update_skip_counters(RetVal, {US,AS}) ->
     {_,Result} = if_auto_skip(RetVal, fun() -> {US,AS+1} end, fun() -> {US+1,AS} end),
     Result.
 
-get_info_str(Func, 0, _Cases) ->
-    atom_to_list(Func);
-get_info_str(_Func, CaseNum, unknown) ->
+get_info_str(Mod,Func, 0, _Cases) ->
+    io_lib:format("~w", [{Mod,Func}]);
+get_info_str(_Mod,_Func, CaseNum, unknown) ->
     "test case " ++ integer_to_list(CaseNum);
-get_info_str(_Func, CaseNum, Cases) ->
+get_info_str(_Mod,_Func, CaseNum, Cases) ->
     "test case " ++ integer_to_list(CaseNum) ++
 	" of " ++ integer_to_list(Cases).
 
