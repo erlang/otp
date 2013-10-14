@@ -2510,7 +2510,8 @@ ERTS_POLL_EXPORT(erts_poll_destroy_pollset)(ErtsPollSet ps)
 	pollsets = pollsets->next;
     else {
 	ErtsPollSet prev_ps;
-	for (prev_ps = pollsets; ps != prev_ps->next; prev_ps = prev_ps->next);
+	for (prev_ps = pollsets; ps != prev_ps->next; prev_ps = prev_ps->next)
+            ;
 	ASSERT(ps == prev_ps->next);
 	prev_ps->next = ps->next;
     }
