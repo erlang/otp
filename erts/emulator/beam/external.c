@@ -1127,6 +1127,8 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 
 enum B2TState { /* order is somewhat significant */
     B2TPrepare,
+    B2TUncompressChunk,
+    B2TSizeInit,
     B2TSize,
     B2TDecodeInit,
 
@@ -1161,12 +1163,9 @@ typedef struct {
 } B2TDecodeContext;
 
 typedef struct {
-    /*Uint real_size;
-    Uint dest_len;
-    byte *dbytes;
-    Binary *result_bin;
-    Binary *destination_bin;
-    z_stream stream;*/
+    z_stream stream;
+    byte* dbytes;
+    Uint dleft;
 } B2TUncompressContext;
 
 typedef struct B2TContext_t {
@@ -1215,7 +1214,8 @@ static uLongf binary2term_uncomp_size(byte* data, Sint size)
 }
 
 static ERTS_INLINE int
-binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size)
+binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size,
+		    B2TContext* ctx)
 {
     byte *bytes = data;
     Sint size = data_size;
@@ -1229,6 +1229,8 @@ binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size)
     size--;
     if (size < 5 || *bytes != COMPRESSED) {
 	state->extp = bytes;
+        if (ctx)
+	    ctx->state = B2TSizeInit;
     }
     else  {
 	uLongf dest_len = (Uint32) get_int32(bytes+1);
@@ -1236,14 +1238,33 @@ binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size)
 	size -= 5;	
 	if (dest_len > 32*1024*1024
 	    || (state->extp = erts_alloc_fnf(ERTS_ALC_T_EXT_TERM_DATA, dest_len)) == NULL) {
+            /*
+             * Try avoid out-of-memory crash due to corrupted 'dest_len'
+             * by checking the actual length of the uncompressed data.
+             * The only way to do that is to uncompress it. Sad but true.
+             */
 	    if (dest_len != binary2term_uncomp_size(bytes, size)) {
                 return -1;
 	    }
 	    state->extp = erts_alloc(ERTS_ALC_T_EXT_TERM_DATA, dest_len);
+            ctx->reds -= dest_len;
 	}
 	state->exttmp = 1;
-	if (erl_zlib_uncompress(state->extp, &dest_len, bytes, size) != Z_OK)
-            return -1;
+        if (ctx) {
+	    if (erl_zlib_inflate_start(&ctx->u.uc.stream, bytes, size) != Z_OK)
+		return -1;
+
+	    ctx->u.uc.dbytes = state->extp;
+	    ctx->u.uc.dleft = dest_len;
+	    ctx->state = B2TUncompressChunk;
+        }
+	else {
+	    uLongf dlen = dest_len;
+	    if (erl_zlib_uncompress(state->extp, &dlen, bytes, size) != Z_OK
+		|| dlen != dest_len) {
+		return -1;
+	    }
+        }
 	size = (Sint) dest_len;
     }
     state->extsize = size;
@@ -1277,7 +1298,7 @@ erts_binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size
 {
     Sint res;
 
-    if (binary2term_prepare(state, data, data_size) < 0 ||
+    if (binary2term_prepare(state, data, data_size, NULL) < 0 ||
         (res=decoded_size(state->extp, state->extp + state->extsize, 0, NULL)) < 0) {
 
         if (state->exttmp)
@@ -1307,6 +1328,9 @@ static void b2t_destroy_context(B2TContext* context)
                                          ERTS_ALC_T_EXT_TERM_DATA);
     context->aligned_alloc = NULL;
     binary2term_abort(&context->b2ts);
+    if (context->state == B2TUncompressChunk) {
+	erl_zlib_inflate_finish(&context->u.uc.stream);
+    }
 }
 
 static void b2t_context_destructor(Binary *context_bin)
@@ -1359,7 +1383,8 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
 
     do {
         switch (ctx->state) {
-        case B2TPrepare:
+        case B2TPrepare: {
+            Uint bin_size;
             bytes = erts_get_aligned_binary_bytes_extra(bin,
                                                         &ctx->aligned_alloc,
                                                         ERTS_ALC_T_EXT_TERM_DATA,
@@ -1369,24 +1394,48 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
                 ctx->state = B2TBadArg;
                 break;
             }
-
-            ctx->heap_size = binary2term_prepare(&ctx->b2ts, bytes,
-                                                 binary_size(bin));
-            if (ctx->heap_size < 0) {
-                ctx->state = B2TBadArg;
-                break;
+            bin_size = binary_size(bin);
+            if (ctx->aligned_alloc) {
+                ctx->reds -= bin_size / 8;
             }
-
-            ctx->reds = 0; /*SVERK*/
-            ctx->u.sc.heap_size = 0;
-            ctx->u.sc.terms = 1;
-            ctx->u.sc.ep = ctx->b2ts.extp;
-            ctx->u.sc.atom_extra_skip = 0;
-            ctx->state = B2TSize;
+            if (binary2term_prepare(&ctx->b2ts, bytes, bin_size, ctx) < 0) {
+		ctx->state = B2TBadArg;
+	    }
             break;
+        }
+	case B2TUncompressChunk:
+	    {
+		Uint chunk = ctx->reds;
+		int zret;
+                if (chunk > ctx->u.uc.dleft)
+		    chunk = ctx->u.uc.dleft;
 
+		zret = erl_zlib_inflate_chunk(&ctx->u.uc.stream,
+					      ctx->u.uc.dbytes, &chunk);
+		ctx->u.uc.dbytes += chunk;
+		ctx->u.uc.dleft  -= chunk;
+                if (zret == Z_OK && ctx->u.uc.dleft > 0) {
+		    ctx->reds = 0;
+		}
+                else if (erl_zlib_inflate_finish(&ctx->u.uc.stream) == Z_OK
+			 && zret == Z_STREAM_END
+			 && ctx->u.uc.dleft == 0) {
+		    ctx->reds -= chunk;
+		    ctx->state = B2TSizeInit;
+		}
+		else {
+		    ctx->state = B2TBadArg;
+		}
+		break;
+	    }
+
+	case B2TSizeInit:
+	    ctx->u.sc.ep = NULL;
+	    ctx->state = B2TSize;
+	    /*fall through*/
         case B2TSize:
-            ctx->heap_size = decoded_size(NULL, ctx->b2ts.extp + ctx->b2ts.extsize,
+            ctx->heap_size = decoded_size(ctx->b2ts.extp,
+					  ctx->b2ts.extp + ctx->b2ts.extsize,
                                           0, ctx);
             break;
 
@@ -1455,7 +1504,9 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
                                              b2t_context_destructor);
         ctx = ERTS_MAGIC_BIN_DATA(context_b);
         sys_memcpy(ctx, &c_buff, sizeof(B2TContext));
-
+        if (ctx->state >= B2TDecode && ctx->u.dc.next == &c_buff.u.dc.res) {
+            ctx->u.dc.next = &ctx->u.dc.res;
+        }
         if (!magic_space) {
             ASSERT(ctx->state < B2TDecode);
             magic_space = HAlloc(p, PROC_BIN_SIZE);
@@ -3914,25 +3965,27 @@ encode_size_struct_int(Process *p, ErtsAtomCacheMap *acmp, Eterm obj,
 static Sint
 decoded_size(byte *ep, byte* endp, int internal_tags, B2TContext* ctx)
 {
-    int heap_size = 0;
+    int heap_size;
     int terms;
-    int atom_extra_skip = 0;
+    int atom_extra_skip;
     Uint n;
     SWord reds;
 
     if (ctx) {
-        heap_size = ctx->u.sc.heap_size;
-        terms = ctx->u.sc.terms;
-        ep = ctx->u.sc.ep;
-        atom_extra_skip = ctx->u.sc.atom_extra_skip;
         reds = ctx->reds;
+        if (ctx->u.sc.ep) {
+            heap_size = ctx->u.sc.heap_size;
+            terms = ctx->u.sc.terms;
+            ep = ctx->u.sc.ep;
+            atom_extra_skip = ctx->u.sc.atom_extra_skip;
+            goto init_done;
+        }
     }
-    else {
-        heap_size = 0;
-        terms = 1;
-        atom_extra_skip = 0;
-        reds = ERTS_SWORD_MAX;
-    }
+    heap_size = 0;
+    terms = 1;
+    atom_extra_skip = 0;
+init_done:
+
 #define SKIP(sz)				\
     do {					\
 	if ((sz) <= endp-ep) {			\
@@ -4189,16 +4242,13 @@ decoded_size(byte *ep, byte* endp, int internal_tags, B2TContext* ctx)
 	}
         terms--;
 
-        if (--reds <= 0) {
-            if (ctx && terms > 0) {
-                ctx->u.sc.heap_size = heap_size;
-                ctx->u.sc.terms = terms;
-                ctx->u.sc.ep = ep;
-                ctx->u.sc.atom_extra_skip = atom_extra_skip;
-                ctx->reds = 0;
-                return 0;
-            }
-            reds = ERTS_SWORD_MAX;
+        if (ctx && --reds <= 0 && terms > 0) {
+            ctx->u.sc.heap_size = heap_size;
+            ctx->u.sc.terms = terms;
+            ctx->u.sc.ep = ep;
+            ctx->u.sc.atom_extra_skip = atom_extra_skip;
+            ctx->reds = 0;
+            return 0;
         }
     }while (terms > 0);
 
