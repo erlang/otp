@@ -35,7 +35,7 @@
 
 -export([merge/3, rmerge/3, sort/2, umerge/3, rumerge/3, usort/2]).
 
--export([all/2,any/2,map/2,flatmap/2,foldl/3,foldr/3,filter/2,
+-export([all/2,any/2,map/2,find/2,find/3,flatmap/2,foldl/3,foldr/3,filter/2,
 	 partition/2,zf/2,filtermap/2,
 	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,splitwith/2,
 	 split/2]).
@@ -1269,6 +1269,31 @@ foldr(F, Accu, []) when is_function(F, 2) -> Accu.
 
 filter(Pred, List) when is_function(Pred, 1) ->
     [ E || E <- List, Pred(E) ].
+
+%% Equivalent to find(Pred, List, false).
+
+-spec find(Pred, List) -> {value, Elem} | false when
+      Pred :: fun((Elem :: T) -> boolean()),
+      List :: [T],
+      Elem :: T,
+      T :: term().
+
+find(Pred, List) when is_function(Pred, 1) ->
+    find(Pred, List, false).
+
+-spec find(Pred, List, Default) -> {value, Elem} | Default when
+      Pred :: fun((Elem :: T) -> boolean()),
+      List :: [T],
+      Elem :: T,
+      T :: term(),
+      Default :: term().
+
+find(Pred, [], Default) when is_function(Pred, 1) -> Default;
+find(Pred, [H|T], Default) ->
+    case Pred(H) of
+        true ->  {value, H};
+        false -> find(Pred, T, Default)
+    end.
 
 %% Equivalent to {filter(F, L), filter(NotF, L)}, if NotF = 'fun(X) ->
 %% not F(X) end'.
