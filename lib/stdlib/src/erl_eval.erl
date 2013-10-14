@@ -912,7 +912,7 @@ type_test(binary) -> is_binary;
 type_test(record) -> is_record;
 type_test(Test) -> Test.
 
-
+
 %% match(Pattern, Term, Bindings) ->
 %%	{match,NewBindings} | nomatch
 %%      or erlang:error({illegal_pattern, Pattern}).
@@ -1051,7 +1051,7 @@ match_list([], [], Bs, _BBs) ->
     {match,Bs};
 match_list(_, _, _Bs, _BBs) ->
     nomatch.
-
+
 %% new_bindings()
 %% bindings(Bindings)
 %% binding(Name, Bindings)

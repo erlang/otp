@@ -5654,7 +5654,6 @@ build_stacktrace(Process* c_p, Eterm exc) {
     return res;
 }
 
-
 static BeamInstr*
 call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
 {
@@ -5702,7 +5701,6 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
     return ep->addressv[erts_active_code_ix()];
 }
 
-
 static Export*
 apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, Eterm* reg)
 {
@@ -6208,7 +6206,6 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     return make_fun(funp);
 }
 
-
 
 int catchlevel(Process *p)
 {

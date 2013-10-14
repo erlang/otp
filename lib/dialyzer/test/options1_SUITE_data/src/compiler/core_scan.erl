@@ -123,7 +123,7 @@ format_error(Other) -> io_lib:write(Other).
 
 string_thing($') -> "atom";
 string_thing($") -> "string".
-
+
 %% Re-entrant pre-scanner.
 %%
 %% If the input list of characters is insufficient to build a term the
@@ -241,7 +241,7 @@ pre_comment(eof, Sofar, Pos) ->
 
 pre_error(E, Epos, Pos) ->
     {error,{Epos,core_scan,E}, Pos}.
-
+
 %% scan(CharList, StartPos)
 %%  This takes a list of characters and tries to tokenise them.
 %%
