@@ -23,7 +23,7 @@
 int oe_ei_encode_term(CORBA_Environment *ev, void *t) {
   int size = ev->_iout;
   
-  (int) ei_encode_term(NULL, &size, t);
+  ei_encode_term(NULL, &size, t);
   
   if (size >= ev->_outbufsz) {
     char *buf = ev->_outbuf;
