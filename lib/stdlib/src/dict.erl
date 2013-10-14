@@ -386,7 +386,7 @@ merge(F, D1, D2) ->
 		      update(K, fun (V1) -> F(K, V1, V2) end, V2, D)
 	      end, D1, D2).
 
-
+
 %% get_slot(Hashdb, Key) -> Slot.
 %%  Get the slot.  First hash on the new range, if we hit a bucket
 %%  which has not been split use the unsplit buddy bucket.

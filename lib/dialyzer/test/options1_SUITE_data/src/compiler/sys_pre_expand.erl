@@ -647,7 +647,7 @@ new_fun_name(#expand{func=F,arity=A,fcount=I}=St) ->
 	++ "-fun-" ++ integer_to_list(I) ++ "-",
     {list_to_atom(Name),St#expand{fcount=I+1}}.
 
-
+
 %% normalise_fields([RecDef]) -> [Field].
 %%  Normalise the field definitions to always have a default value. If
 %%  none has been given then use 'undefined'.
@@ -881,7 +881,7 @@ bin_expand_strings(Es) ->
 			end, Es1, S);
 	      (E, Es1) -> [E|Es1]
 	  end, [], Es).
-
+
 %% new_var_name(State) -> {VarName,State}.
 
 new_var_name(St) ->
