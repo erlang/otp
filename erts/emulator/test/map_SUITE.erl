@@ -28,7 +28,8 @@
 	t_guard_receive/1, t_guard_fun/1,
 	t_list_comprehension/1,
 	t_map_sort_literals/1,
-	t_size/1, t_map_size/1,
+	%t_size/1,
+	t_map_size/1,
 
 	%% Specific Map BIFs
 	t_bif_map_get/1,
@@ -67,7 +68,9 @@ all() -> [
 	t_bif_map_to_list, t_bif_map_from_list,
 
 	%% erlang
-	t_erlang_hash, t_map_encode_decode
+	t_erlang_hash, t_map_encode_decode,
+	%t_size,
+	t_map_size
     ].
 
 groups() -> [].
@@ -115,14 +118,15 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     ok.
 
 %% Tests size(Map).
+%% not implemented, perhaps it shouldn't be either
 
-t_size(Config) when is_list(Config) ->
+%t_size(Config) when is_list(Config) ->
 %    0 = size(#{}),
 %    1 = size(#{a=>1}),
 %    1 = size(#{a=>#{a=>1}}),
 %    2 = size(#{a=>1, b=>2}),
 %    3 = size(#{a=>1, b=>2, b=>"3"}),
-    ok.
+%    ok.
 
 t_map_size(Config) when is_list(Config) ->
     0 = map_size(id(#{})),
@@ -132,10 +136,12 @@ t_map_size(Config) when is_list(Config) ->
     3 = map_size(id(#{a=>1, b=>2, b=>"3","33"=><<"n">>})),
 
     true = map_is_size(#{a=>1}, 1),
-    true = map_is_size(#{a=>1, a=>2}, 2),
+    true = map_is_size(#{a=>1, a=>2}, 1),
     M = #{ "a" => 1, "b" => 2},
+    true  = map_is_size(M, 2),
+    false = map_is_size(M, 3),
     true  = map_is_size(M#{ "a" => 2}, 2),
-    false = map_is_size(M#{ "a" => 2}, 3),
+    false = map_is_size(M#{ "c" => 2}, 2),
 
    %% Error cases.
     {'EXIT',{badarg,_}} = (catch map_size([])),
