@@ -12,7 +12,7 @@ erl
 
 2)-------
 To start slapd:
-   sudo slapd -f $ERL_TOP/lib/eldap/test/ldap_server/myslapd.conf -F /tmp/slapd/slapd.d -h "ldap://localhost:9876 ldaps://localhost:9877"
+   sudo slapd -f $ERL_TOP/lib/eldap/test/ldap_server/slapd.conf -F /tmp/slapd/slapd.d -h "ldap://localhost:9876 ldaps://localhost:9877"
 
 This will however not work, since slapd is guarded by apparmor that checks that slapd does not access other than allowed files...
 
