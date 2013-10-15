@@ -255,7 +255,7 @@ idle_time(Config) ->
     ssh_connection:close(ConnectionRef, Id),
     receive
     after 10000 ->
-	    {error,channel_closed} = ssh_connection:session_channel(ConnectionRef, 1000)
+	    {error, closed} = ssh_connection:session_channel(ConnectionRef, 1000)
     end,
     ssh:stop_daemon(Pid).
 %%--------------------------------------------------------------------
@@ -448,10 +448,11 @@ internal_error(Config) when is_list(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-    {error,"Internal error"} =
+    {error,Error} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
 				 {user_dir, UserDir},
 				 {user_interaction, false}]),
+    check_error(Error),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -564,6 +565,15 @@ openssh_zlib_basic_test(Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
   
+%% Due to timing the error message may or may not be delivered to
+%% the "tcp-application" before the socket closed message is recived
+check_error("Internal error") ->
+    ok;
+check_error("Connection Lost") ->
+    ok;
+check_error(Error) ->
+    ct:fail(Error).
+
 basic_test(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),

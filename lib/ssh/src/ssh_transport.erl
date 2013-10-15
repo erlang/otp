@@ -29,7 +29,6 @@
 -include("ssh_transport.hrl").
 -include("ssh.hrl").
 
--export([connect/5, accept/4]). 
 -export([versions/2, hello_version_msg/1]).
 -export([next_seqnum/1, decrypt_first_block/2, decrypt_blocks/3,
 	 is_valid_mac/3,
@@ -77,52 +76,6 @@ is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 
 yes_no(Ssh, Prompt)  ->
     (Ssh#ssh.io_cb):yes_no(Prompt, Ssh).
-
-connect(ConnectionSup, Address, Port, SocketOpts, Opts) ->    
-    Timeout = proplists:get_value(connect_timeout, Opts, infinity),
-    {_, Callback, _} =  
-	proplists:get_value(transport, Opts, {tcp, gen_tcp, tcp_closed}),
-    case do_connect(Callback, Address, Port, SocketOpts, Timeout) of
- 	{ok, Socket} ->
-	    {ok, Pid} = 
-		ssh_connection_sup:start_handler_child(ConnectionSup,
-						       [client, Socket,
-							[{address, Address},
-							 {port, Port} |
-							 Opts]]), 
-	    Callback:controlling_process(Socket, Pid),
-	    ssh_connection_handler:send_event(Pid, socket_control),
-	    {ok, Pid};
-	{error, Reason} ->
-	    {error, Reason} 
-    end.
-
-do_connect(Callback, Address, Port, SocketOpts, Timeout) ->
-    Opts = [{active, false} | SocketOpts],
-    case Callback:connect(Address, Port, Opts, Timeout) of
-	{error, nxdomain} -> 
-	    Callback:connect(Address, Port, lists:delete(inet6, Opts), Timeout);
-	{error, eafnosupport}  ->
-	    Callback:connect(Address, Port, lists:delete(inet6, Opts), Timeout);
-	{error, enetunreach}  ->
-	    Callback:connect(Address, Port, lists:delete(inet6, Opts), Timeout);
-	Other ->
-	    Other
-    end.
-
-accept(Address, Port, Socket, Options) ->
-    {_, Callback, _} =  
-	proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
-    ConnectionSup =
-	ssh_system_sup:connection_supervisor(
-	  ssh_system_sup:system_supervisor(Address, Port)),
-    {ok, Pid} = 
-	ssh_connection_sup:start_handler_child(ConnectionSup,
-					       [server, Socket,
-						[{address, Address},
-						 {port, Port} | Options]]),
-    Callback:controlling_process(Socket, Pid),
-    {ok, Pid}.
 
 format_version({Major,Minor}) ->
     "SSH-" ++ integer_to_list(Major) ++ "." ++ 

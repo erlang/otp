@@ -53,7 +53,6 @@ MODULES= \
 	ssh_connection_sup \
 	ssh_connection \
 	ssh_connection_handler \
-	ssh_connection_manager \
 	ssh_shell \
 	ssh_system_sup \
 	ssh_subsystem_sup \

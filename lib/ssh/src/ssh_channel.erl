@@ -284,7 +284,7 @@ handle_info(Msg, #state{cm = ConnectionManager, channel_cb = Module,
 terminate(Reason, #state{cm = ConnectionManager, 
  			 channel_id = ChannelId,
  			 close_sent = false} = State) ->
-    ssh_connection:close(ConnectionManager, ChannelId),
+    catch ssh_connection:close(ConnectionManager, ChannelId),
     terminate(Reason, State#state{close_sent = true});
 terminate(_, #state{channel_cb = Cb, channel_state = ChannelState}) ->
     catch Cb:terminate(Cb, ChannelState),

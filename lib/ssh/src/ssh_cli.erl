@@ -32,9 +32,6 @@
 %% ssh_channel callbacks
 -export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2]).
 
-%% backwards compatibility
--export([listen/1, listen/2, listen/3, listen/4, stop/1]).
-
 %% state
 -record(state, {
 	  cm,
@@ -444,8 +441,9 @@ start_shell(ConnectionManager, State) ->
 			   {arity, 1} ->
 			       fun() -> Shell(User) end;
 			   {arity, 2} ->
-			       {ok, PeerAddr} = 
-				   ssh_connection_manager:peer_addr(ConnectionManager),
+			       [{ok, PeerAddr}] =
+				   ssh_connection_handler:info(ConnectionManager,
+							       [peer]),
 			       fun() -> Shell(User, PeerAddr) end;
 			   _ ->
 			       Shell
@@ -470,8 +468,8 @@ start_shell(ConnectionManager, Cmd, #state{exec=Shell} = State) when is_function
 	    {arity, 2} ->
 		fun() -> Shell(Cmd, User) end;
 	    {arity, 3} ->
-		{ok, PeerAddr} = 
-		    ssh_connection_manager:peer_addr(ConnectionManager),
+		[{ok, PeerAddr}] =
+		    ssh_connection_handler:connection_info(ConnectionManager, [peer]),
 		fun() -> Shell(Cmd, User, PeerAddr) end;
 	    _ ->
 		Shell
@@ -505,31 +503,3 @@ not_zero(0, B) ->
 not_zero(A, _) -> 
     A.
 
-%%% Backwards compatibility
-	    
-%%--------------------------------------------------------------------
-%% Function: listen(...) -> {ok,Pid} | ignore | {error,Error}
-%% Description: Starts a listening server
-%% Note that the pid returned is NOT the pid of this gen_server;
-%% this server is started when an SSH connection is made on the
-%% listening port
-%%--------------------------------------------------------------------
-listen(Shell) ->
-    listen(Shell, 22).
-
-listen(Shell, Port) ->
-    listen(Shell, Port, []).
-
-listen(Shell, Port, Opts) ->
-    listen(Shell, any, Port, Opts).
-
-listen(Shell, HostAddr, Port, Opts) ->
-    ssh:daemon(HostAddr, Port, [{shell, Shell} | Opts]).
-    
-
-%%--------------------------------------------------------------------
-%% Function: stop(Pid) -> ok
-%% Description: Stops the listener
-%%--------------------------------------------------------------------
-stop(Pid) ->
-    ssh:stop_listener(Pid).

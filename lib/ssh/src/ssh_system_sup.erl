@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@
 -export([init/1]).
 
 %%%=========================================================================
-%%%  API
+%%% Internal  API
 %%%=========================================================================
 start_link(ServerOpts) ->
     Address = proplists:get_value(address, ServerOpts),
@@ -146,7 +146,7 @@ ssh_acceptor_child_spec(ServerOpts) ->
 ssh_subsystem_child_spec(ServerOpts) ->
     Name = make_ref(),
     StartFunc = {ssh_subsystem_sup, start_link, [ServerOpts]},
-    Restart = transient, 
+    Restart = temporary,
     Shutdown = infinity,
     Modules = [ssh_subsystem_sup],
     Type = supervisor,

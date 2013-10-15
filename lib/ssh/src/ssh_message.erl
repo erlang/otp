@@ -29,7 +29,7 @@
 -include("ssh_auth.hrl").
 -include("ssh_transport.hrl").
 
--export([encode/1, decode/1, encode_host_key/1]).
+-export([encode/1, decode/1, encode_host_key/1, decode_keyboard_interactive_prompts/2]).
 
 encode(#ssh_msg_global_request{
 	  name = Name,
@@ -237,6 +237,9 @@ encode(#ssh_msg_kex_dh_gex_request_old{n = N}) ->
 encode(#ssh_msg_kex_dh_gex_group{p = Prime, g = Generator}) ->
     ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_GROUP, Prime, Generator],
 		    [byte, mpint, mpint]);
+
+encode(#ssh_msg_kex_dh_gex_init{e = Public}) ->
+    ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_INIT, Public], [byte, mpint]);
 
 encode(#ssh_msg_kex_dh_gex_reply{
 	  %% Will be private key encode_host_key extracts only the public part!
@@ -468,6 +471,13 @@ decode(<<?BYTE(?SSH_MSG_DEBUG), ?BYTE(Bool), ?UINT32(Len0), Msg:Len0/binary,
     #ssh_msg_debug{always_display = erl_boolean(Bool),
 		   message = Msg,
 		   language = Lang}.
+
+decode_keyboard_interactive_prompts(<<>>, Acc) ->
+    lists:reverse(Acc);
+decode_keyboard_interactive_prompts(<<?UINT32(Len), Prompt:Len/binary, ?BYTE(Bool), Bin/binary>>,
+				    Acc) ->
+    decode_keyboard_interactive_prompts(Bin, [{Prompt, erl_boolean(Bool)} | Acc]).
+
 erl_boolean(0) ->
     false;
 erl_boolean(1) ->
