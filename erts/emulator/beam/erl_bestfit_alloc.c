@@ -75,9 +75,6 @@
 
 #define BF_BLK_SZ(B)            MBC_FBLK_SZ(&(B)->hdr)
 
-#undef ASSERT
-#define ASSERT ASSERT_EXPR
-
 #if 1
 #define RBT_ASSERT	ASSERT
 #else

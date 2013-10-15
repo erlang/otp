@@ -294,7 +294,7 @@ ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(proclist,
 				 ERTS_ALC_T_PROC_LIST)
 
 #define ERTS_SCHED_SLEEP_INFO_IX(IX)					\
-    (ASSERT_EXPR(-1 <= ((int) (IX))					\
+    (ASSERT(-1 <= ((int) (IX))					        \
 		 && ((int) (IX)) < ((int) erts_no_schedulers)),		\
      &aligned_sched_sleep_info[(IX)].ssi)
 

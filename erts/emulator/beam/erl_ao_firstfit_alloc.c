@@ -85,9 +85,6 @@
 #define SET_RED(N)		(((AOFF_RBTree_t *) (N))->flags |= RED_FLG)
 #define SET_BLACK(N)		(((AOFF_RBTree_t *) (N))->flags &= ~RED_FLG)
 
-#undef ASSERT
-#define ASSERT ASSERT_EXPR
-
 #if 1
 #define RBT_ASSERT	ASSERT
 #else

@@ -132,6 +132,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
 #endif /* __WIN32__ */
     {	"alcu_init_atoms",			NULL			},
     {	"mseg_init_atoms",			NULL			},
+    {	"mmap_init_atoms",			NULL			},
     {	"drv_tsd",				NULL			},
     {	"async_enq_mtx",			NULL			},
 #ifdef ERTS_SMP
@@ -185,7 +186,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "sys_gethrtime",                        NULL                    },
 #endif
 #endif
-    {	"erts_alloc_hard_debug",		NULL			}
+    {	"erts_alloc_hard_debug",		NULL			},
+    {	"hard_dbg_mseg",		        NULL	                },
+    {	"erts_mmap",				NULL			}
 };
 
 #define ERTS_LOCK_ORDER_SIZE \
