@@ -226,7 +226,7 @@ static int copy_hostent(struct hostent *dest, const struct hostent *src, char *b
   
   while(*(src_aliases)) {
     if (buflen < sizeof(*pptr)) return -1;
-    *pptr = src_aliases;
+    *pptr = (char *)src_aliases;
     advance_buf(buffer,buflen,sizeof(*pptr));
     src_aliases++;
     pptr++;
