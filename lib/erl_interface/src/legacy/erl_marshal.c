@@ -290,7 +290,7 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 	    return 0;
 	}
 	/* SMALL_INTEGER */
-	if ((ul < 256) && (ul >= 0)) {
+	if (ul < 256) {
 	    *(*ext)++ = ERL_SMALL_INTEGER_EXT;
 	    *(*ext)++ = ul & 0xff;
 	    return 0;
