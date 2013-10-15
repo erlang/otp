@@ -96,11 +96,12 @@ union SIGNAL {
 static PROCESS blockId(void) {
    static PROCESS bid = (PROCESS)0;
 
-   if (bid == 0) {
+   /* For now we only use the same block. */
+   /*   if (bid == 0) {
       bid = create_block("Erlang-VM", 0, 0, 0, 0);
    }
-
-   return bid;
+   return bid; */
+   return 0;
 }
 
 static void thr_exit_cleanup(ethr_tid *tid, void *res)
@@ -141,8 +142,10 @@ static OS_PROCESS(thr_wrapper)
         * the function return current domain. */
        OSADDRESS   domain   = get_pid_info(current_process(), 16);
 
+#ifdef DEBUG
        fprintf(stderr,"[0x%x] New process. Bid:0x%x, domain:%d, exec mode:%s\n",
                current_process(), bid, domain, execMode);
+#endif
     }
 
     {
@@ -392,10 +395,11 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 			     use_stack_size, /*opts->prio+5*/31, 0,
                              blockId(), NULL, 0, 0);
 
-    if (ose_bind_process(tid->id, opts->coreNo)) {
+    /* For now we do not attempt to bind schedulers to different cores.
+      if (ose_bind_process(tid->id, opts->coreNo)) {
        printf("[0x%x] Binding pid 0x%x (%s) to core no %u.\n",
               current_process(), tid->id, opts->name, opts->coreNo);
-    }
+	      }*/
 
     /*FIXME!!! Normally this shouldn't be used in shared mode. Still there is
      * a problem with stdin fd in fd_ processes which should be further
