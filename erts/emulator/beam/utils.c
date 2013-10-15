@@ -735,6 +735,8 @@ erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
 #define FUNNY_NUMBER10 268440479
 #define FUNNY_NUMBER11 268440577
 #define FUNNY_NUMBER12 268440581
+#define FUNNY_NUMBER13 268440593
+#define FUNNY_NUMBER14 268440611
 
 static Uint32
 hash_binary_bytes(Eterm bin, Uint sz, Uint32 hash)
@@ -787,7 +789,7 @@ Uint32 make_hash(Eterm term_arg)
 
     /* Must not collide with the real tag_val_def's: */
 #define MAKE_HASH_TUPLE_OP 0x11
-#define MAKE_HASH_FUN_OP 0x12
+#define MAKE_HASH_TERM_ARRAY_OP 0x12
 #define MAKE_HASH_CDR_PRE_OP 0x13
 #define	MAKE_HASH_CDR_POST_OP 0x14
 
@@ -878,7 +880,7 @@ tail_recur:
 	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_uniq;
 	    if (num_free > 0) {
 		if (num_free > 1) {
-		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_FUN_OP);
+		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_TERM_ARRAY_OP);
 		}
 		term = funp->env[0];
 		goto tail_recur;
@@ -968,6 +970,24 @@ tail_recur:
 	    hash *= is_neg ? FUNNY_NUMBER4 : FUNNY_NUMBER3;
 	    break;
 	}	
+    case MAP_DEF:
+	{
+	    map_t *mp = (map_t *)map_val(term);
+	    int size  = map_get_size(mp);
+	    Eterm *ks = map_get_keys(mp);
+	    Eterm *vs = map_get_values(mp);
+
+	    /* Use a prime with size to remedy some of
+	     * the {} and <<>> hash problems */
+	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + size;
+	    if (size == 0)
+		break;
+
+	    /* push values first */
+	    WSTACK_PUSH3(stack, (UWord)vs, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
+	    WSTACK_PUSH3(stack, (UWord)ks, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
+	    break;
+	}
     case TUPLE_DEF: 
 	{
 	    Eterm* ptr = tuple_val(term);
@@ -977,7 +997,7 @@ tail_recur:
 	    op = MAKE_HASH_TUPLE_OP;	    
 	}/*fall through*/
     case MAKE_HASH_TUPLE_OP:
-    case MAKE_HASH_FUN_OP:
+    case MAKE_HASH_TERM_ARRAY_OP:
 	{
 	    Uint i = (Uint) WSTACK_POP(stack);
 	    Eterm* ptr = (Eterm*) WSTACK_POP(stack);
@@ -1206,6 +1226,9 @@ make_hash2(Eterm term)
 		    tmp = vs[i];
 		    ESTACK_PUSH(s, tmp);
 		}
+		/* We do not want to expose the tuple representation.
+		 * Do not push the keys as a tuple.
+		 */
 		for (i = size - 1; i >= 1; i--) {
 		    tmp = ks[i];
 		    ESTACK_PUSH(s, tmp);
@@ -1514,7 +1537,7 @@ tail_recur:
 	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_uniq;
 	    if (num_free > 0) {
 		if (num_free > 1) {
-		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_FUN_OP);
+		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_TERM_ARRAY_OP);
 		}
 		term = funp->env[0];
 		goto tail_recur;
@@ -1627,6 +1650,24 @@ tail_recur:
 	}
 	break;
 
+    case MAP_DEF:
+	{
+	    map_t *mp = (map_t *)map_val(term);
+	    int size  = map_get_size(mp);
+	    Eterm *ks = map_get_keys(mp);
+	    Eterm *vs = map_get_values(mp);
+
+	    /* Use a prime with size to remedy some of
+	     * the {} and <<>> hash problems */
+	    hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + size;
+	    if (size == 0)
+		break;
+
+	    /* push values first */
+	    WSTACK_PUSH3(stack, (UWord)vs, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
+	    WSTACK_PUSH3(stack, (UWord)ks, (UWord) size, MAKE_HASH_TERM_ARRAY_OP);
+	    break;
+	}
     case TUPLE_DEF: 
 	{
 	    Eterm* ptr = tuple_val(term);
@@ -1636,7 +1677,7 @@ tail_recur:
 	    op = MAKE_HASH_TUPLE_OP;
 	}/*fall through*/ 
     case MAKE_HASH_TUPLE_OP:
-    case MAKE_HASH_FUN_OP:
+    case MAKE_HASH_TERM_ARRAY_OP:
 	{
 	    Uint i = (Uint) WSTACK_POP(stack);
 	    Eterm* ptr = (Eterm*) WSTACK_POP(stack);
@@ -1664,7 +1705,7 @@ tail_recur:
     return hash;
     
 #undef MAKE_HASH_TUPLE_OP
-#undef MAKE_HASH_FUN_OP
+#undef MAKE_HASH_TERM_ARRAY_OP
 #undef MAKE_HASH_CDR_PRE_OP
 #undef MAKE_HASH_CDR_POST_OP
 }
