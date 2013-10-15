@@ -107,9 +107,9 @@ endif
 
 GL_LIBS         = @GL_LIBS@
 
-CC_O		= $(CC) -c $(CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
+CC_O		= $(V_CC) -c $(CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
 OBJC_CC_O	= $(OBJC_CC) -c $(CFLAGS) $(OBJC_CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
-CPP_O		= $(CPP) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS) 
+CPP_O		= $(V_CPP) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS)
 
 # Targets
 
@@ -138,36 +138,36 @@ $(GL_OBJECTS): $(GL_H)
 $(WX_OBJECTS): $(GENERATED_H) $(GENERAL_H) 
 
 $(SYS_TYPE)/%.o: %.cpp 
-	mkdir -p $(SYS_TYPE)
+	$(V_at)mkdir -p $(SYS_TYPE)
 	$(CPP_O) $< -o $@
 
 $(SYS_TYPE)/%.o: %.c 
-	mkdir -p $(SYS_TYPE)
+	$(V_at)mkdir -p $(SYS_TYPE)
 	$(CC_O) $< -o $@
 
 $(SYS_TYPE)/wxe_ps_init.o: wxe_ps_init.c 
-	mkdir -p $(SYS_TYPE)
-	$(OBJC_CC_O) $< -o $@
+	$(V_at)mkdir -p $(SYS_TYPE)
+	$(cc_verbose)$(OBJC_CC_O) $< -o $@
 
 $(SYS_TYPE)/%.o: gen/%.cpp 
-	mkdir -p $(SYS_TYPE)
+	$(V_at)mkdir -p $(SYS_TYPE)
 	$(CPP_O) $< -o $@
 
 $(SYS_TYPE)/%.o: gen/%.c 
-	mkdir -p $(SYS_TYPE)
+	$(V_at)mkdir -p $(SYS_TYPE)
 	$(CC_O) $< -o $@
 
 $(SYS_TYPE)/wxe_win32.$(RC_FILE_EXT): wxe_win32.rc
-	mkdir -p $(SYS_TYPE)
+	$(V_at)mkdir -p $(SYS_TYPE)
 	$(RESCOMP) -o $@ $< 
 
 $(TARGET_DIR)/wxe_driver$(SO_EXT): $(WX_OBJECTS)
-	mkdir -p $(TARGET_DIR)
-	$(LD) $(LDFLAGS) $(WX_OBJECTS) $(WX_LIBS) -o $@
+	$(V_at)mkdir -p $(TARGET_DIR)
+	$(V_LD) $(LDFLAGS) $(WX_OBJECTS) $(WX_LIBS) -o $@
 
 $(TARGET_DIR)/erl_gl$(SO_EXT): $(GL_OBJECTS)
-	mkdir -p $(TARGET_DIR)
-	$(CC) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
+	$(V_at)mkdir -p $(TARGET_DIR)
+	$(V_CC) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
 
 
 # ----------------------------------------------------
