@@ -33,7 +33,9 @@
 #include "erl_efile.h"
 /*#include <utime.h>*/
 #ifdef HAVE_UNISTD_H
+#ifndef __OSE__
 #include <unistd.h>
+#endif
 #endif
 #ifdef HAVE_SYS_UIO_H
 #include <sys/types.h>
@@ -60,8 +62,11 @@
 #endif
 
 #ifdef __OSE__
+#include "unistd.h"
 #include "sys/stat.h"
 #include "dirent.h"
+#include "sys/time.h"
+#include "time.h"
 #endif
 
 /* Find a definition of MAXIOV, that is used in the code later. */
@@ -826,10 +831,8 @@ efile_truncate_file(Efile_error* errInfo, int *fd, int flags)
 {
 #ifndef NO_FTRUNCATE
     off_t offset;
-
-    return check_error((offset = lseek(*fd, 0, 1)) >= 0 &&
-		       ftruncate(*fd, offset) == 0 ? 1 : -1,
-		       errInfo);
+    return check_error((offset = lseek(*fd, 0, SEEK_CUR)) >= 0 &&
+          ftruncate(*fd, offset) == 0 ? 1 : -1, errInfo);
 #else
     return 1;
 #endif
