@@ -2091,7 +2091,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_sequential_tracer) {
 	val = erts_get_system_seq_tracer();
-	ASSERT(is_internal_pid(val) || is_internal_port(val) || val==am_false)
+	ASSERT(is_internal_pid(val) || is_internal_port(val) || val==am_false);
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_sequential_tracer, val);
 	BIF_RET(res);
@@ -3289,6 +3289,9 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    erts_smp_thr_progress_unblock();
 	    BIF_RET(res);
 	}
+        else if (ERTS_IS_ATOM_STR("mmap", BIF_ARG_1)) {
+            BIF_RET(erts_mmap_debug_info(BIF_P));
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);

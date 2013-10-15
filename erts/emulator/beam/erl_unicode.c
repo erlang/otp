@@ -1476,6 +1476,9 @@ static Eterm do_utf8_to_list_normalize(Process *p, Uint num, byte *bytes, Uint s
     Uint16 savepoints[4];
     int numpoints = 0;
 
+    if (num == 0)
+	return NIL;
+
     ASSERT(num > 0);
 
     hp = HAlloc(p,num * 2); /* May be to much */

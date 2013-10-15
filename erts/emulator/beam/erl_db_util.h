@@ -457,7 +457,7 @@ int erts_db_is_compiled_ms(Eterm term);
    && ERTS_MAGIC_BIN_DESTRUCTOR((BP)) == erts_db_match_prog_destructor)
 
 #define Binary2MatchProg(BP) \
-  (ASSERT_EXPR(IsMatchProgBinary((BP))), \
+  (ASSERT(IsMatchProgBinary((BP))), \
    ((MatchProg *) ERTS_MAGIC_BIN_DATA((BP))))
 /*
 ** Debugging 

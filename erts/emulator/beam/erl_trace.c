@@ -2184,7 +2184,7 @@ trace_gc(Process *p, Eterm what)
 	AM_bin_old_vheap_block_size
     };
 
-    Uint values[] = {
+    UWord values[] = {
 	OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0,
 	HEAP_SIZE(p),
 	MBUF_SIZE(p),
@@ -2198,7 +2198,7 @@ trace_gc(Process *p, Eterm what)
 	BIN_OLD_VHEAP_SZ(p)
     };
 #define LOCAL_HEAP_SIZE						\
-    (sizeof(values)/sizeof(Eterm)) *				\
+    (sizeof(values)/sizeof(*values)) *				\
 	(2/*cons*/ + 3/*2-tuple*/ + BIG_UINT_HEAP_SIZE) +	\
 	5/*4-tuple */ + TS_HEAP_WORDS
     DeclareTmpHeap(local_heap,LOCAL_HEAP_SIZE,p);
@@ -2206,7 +2206,7 @@ trace_gc(Process *p, Eterm what)
     Eterm* limit;
 #endif
 
-    ASSERT(sizeof(values)/sizeof(Uint) == sizeof(tags)/sizeof(Eterm));
+    ASSERT(sizeof(values)/sizeof(*values) == sizeof(tags)/sizeof(Eterm));
 
     UseTmpHeap(LOCAL_HEAP_SIZE,p);
 
@@ -2214,9 +2214,9 @@ trace_gc(Process *p, Eterm what)
 	hp = local_heap;
 #ifdef DEBUG
 	size = 0;
-	(void) erts_bld_atom_uint_2tup_list(NULL,
+	(void) erts_bld_atom_uword_2tup_list(NULL,
 					    &size,
-					    sizeof(values)/sizeof(Uint),
+					    sizeof(values)/sizeof(*values),
 					    tags,
 					    values);
 	size += 5/*4-tuple*/ + TS_SIZE(p);
@@ -2229,9 +2229,9 @@ trace_gc(Process *p, Eterm what)
 			    ERTS_TRACE_FLAGS(p));
 
 	size = 0;
-	(void) erts_bld_atom_uint_2tup_list(NULL,
+	(void) erts_bld_atom_uword_2tup_list(NULL,
 					    &size,
-					    sizeof(values)/sizeof(Uint),
+					    sizeof(values)/sizeof(*values),
 					    tags,
 					    values);
 	size += 5/*4-tuple*/ + TS_SIZE(p);
@@ -2244,9 +2244,9 @@ trace_gc(Process *p, Eterm what)
     ASSERT(size <= LOCAL_HEAP_SIZE);
 #endif
 
-    msg = erts_bld_atom_uint_2tup_list(&hp,
+    msg = erts_bld_atom_uword_2tup_list(&hp,
 				       NULL,
-				       sizeof(values)/sizeof(Uint),
+				       sizeof(values)/sizeof(*values),
 				       tags,
 				       values);
 
@@ -2415,7 +2415,7 @@ monitor_long_gc(Process *p, Uint time) {
 	am_old_heap_size,
 	am_heap_size
     };
-    Eterm values[] = {
+    UWord values[] = {
 	time,
 	OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0,
 	HEAP_SIZE(p),
@@ -2436,9 +2436,9 @@ monitor_long_gc(Process *p, Uint time) {
 #endif
 
     hsz = 0;
-    (void) erts_bld_atom_uint_2tup_list(NULL,
+    (void) erts_bld_atom_uword_2tup_list(NULL,
 					&hsz,
-					sizeof(values)/sizeof(Uint),
+					sizeof(values)/sizeof(*values),
 					tags,
 					values);
     hsz += 5 /* 4-tuple */;
@@ -2449,9 +2449,9 @@ monitor_long_gc(Process *p, Uint time) {
     hp_end = hp + hsz;
 #endif
 
-    list = erts_bld_atom_uint_2tup_list(&hp,
+    list = erts_bld_atom_uword_2tup_list(&hp,
 					NULL,
-					sizeof(values)/sizeof(Uint),
+					sizeof(values)/sizeof(*values),
 					tags,
 					values);
     msg = TUPLE4(hp, am_monitor, p->common.id, am_long_gc, list); 
@@ -2489,7 +2489,7 @@ monitor_large_heap(Process *p) {
 	am_old_heap_size,
 	am_heap_size
     };
-    Uint values[] = {
+    UWord values[] = {
 	OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0,
 	HEAP_SIZE(p),
 	MBUF_SIZE(p),
@@ -2511,9 +2511,9 @@ monitor_large_heap(Process *p) {
 #endif
 
     hsz = 0;
-    (void) erts_bld_atom_uint_2tup_list(NULL,
+    (void) erts_bld_atom_uword_2tup_list(NULL,
 					&hsz,
-					sizeof(values)/sizeof(Uint),
+					sizeof(values)/sizeof(*values),
 					tags,
 					values);
     hsz += 5 /* 4-tuple */;
@@ -2524,9 +2524,9 @@ monitor_large_heap(Process *p) {
     hp_end = hp + hsz;
 #endif
 
-    list = erts_bld_atom_uint_2tup_list(&hp,
+    list = erts_bld_atom_uword_2tup_list(&hp,
 					NULL,
-					sizeof(values)/sizeof(Uint),
+					sizeof(values)/sizeof(*values),
 					tags,
 					values);
     msg = TUPLE4(hp, am_monitor, p->common.id, am_large_heap, list); 

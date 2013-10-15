@@ -1330,7 +1330,7 @@ force_imm_drv_call(ErtsTryImmDrvCallState *sp)
     erts_aint32_t invalid_state;
     Port *prt = sp->port;
 
-    ASSERT(ERTS_IS_CRASH_DUMPING)
+    ASSERT(ERTS_IS_CRASH_DUMPING);
     ASSERT(is_atom(sp->port_op));
 
     invalid_state = sp->state;

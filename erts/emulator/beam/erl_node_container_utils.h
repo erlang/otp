@@ -106,7 +106,7 @@
 #define dist_entry_channel_no(x)				\
   ((x) == erts_this_dist_entry					\
    ? ((Uint) 0)							\
-   : (ASSERT_EXPR(is_atom((x)->sysname)),			\
+   : (ASSERT(is_atom((x)->sysname)),			        \
       (Uint) atom_val((x)->sysname)))
 #define internal_channel_no(x) ((Uint) ERST_INTERNAL_CHANNEL_NO)
 #define external_channel_no(x) \
@@ -122,10 +122,10 @@ extern ErtsPTab erts_proc;
 							  (D), \
 							  _TAG_IMMED1_PID)
 
-#define internal_pid_index(PID)		(ASSERT_EXPR(is_internal_pid((PID))), \
+#define internal_pid_index(PID)		(ASSERT(is_internal_pid((PID))), \
 					 erts_ptab_id2pix(&erts_proc, (PID)))
 
-#define internal_pid_data(PID)		(ASSERT_EXPR(is_internal_pid((PID))), \
+#define internal_pid_data(PID)		(ASSERT(is_internal_pid((PID))), \
 					 erts_ptab_id2data(&erts_proc, (PID)))
 
 #define internal_pid_number(x)		_GET_PID_NUM(internal_pid_data((x)))
@@ -193,10 +193,10 @@ extern ErtsPTab erts_port;
 							  (D), \
 							  _TAG_IMMED1_PORT)
 
-#define internal_port_index(PRT)	(ASSERT_EXPR(is_internal_port((PRT))), \
+#define internal_port_index(PRT)	(ASSERT(is_internal_port((PRT))), \
 					 erts_ptab_id2pix(&erts_port, (PRT)))
 
-#define internal_port_data(PRT)		(ASSERT_EXPR(is_internal_port((PRT))), \
+#define internal_port_data(PRT)		(ASSERT(is_internal_port((PRT))), \
 					 erts_ptab_id2data(&erts_port, (PRT)))
 
 #define internal_port_number(x) _GET_PORT_NUM(internal_port_data((x)))

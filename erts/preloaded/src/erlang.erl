@@ -3499,6 +3499,8 @@ mk_res_list([]) ->
 mk_res_list([Alloc | Rest]) ->
     [{Alloc, []} | mk_res_list(Rest)].
 
+insert_instance(I, N, Rest) when erlang:is_atom(N) ->
+    [{N, I} | Rest];
 insert_instance(I, N, []) ->
     [{instance, N, I}];
 insert_instance(I, N, [{instance, M, _}|_] = Rest) when N < M ->

@@ -1135,10 +1135,10 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
     } while (0)
 
 #define ERTS_RUNQ_IX(IX)						\
-  (ASSERT_EXPR(0 <= (IX) && (IX) < erts_no_run_queues),			\
+  (ASSERT(0 <= (IX) && (IX) < erts_no_run_queues),			\
    &erts_aligned_run_queues[(IX)].runq)
 #define ERTS_SCHEDULER_IX(IX)						\
-  (ASSERT_EXPR(0 <= (IX) && (IX) < erts_no_schedulers),			\
+  (ASSERT(0 <= (IX) && (IX) < erts_no_schedulers),			\
    &erts_aligned_scheduler_data[(IX)].esd)
 
 void erts_pre_init_process(void);

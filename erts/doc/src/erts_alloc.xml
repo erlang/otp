@@ -271,6 +271,65 @@
        memory segment cache is not reused if its size exceeds the
        requested size with more than relative max cache bad fit
        percent of the requested size. Default value is 20.</item>
+      <tag><marker id="MMscmgc"><c><![CDATA[+MMscmgc <amount>]]></c></marker></tag>
+      <item>
+	Set <seealso marker="#MMscs">super carrier</seealso> max guaranteed
+	no of carriers. This parameter defaults to <c>65536</c>. This
+	parameter determines an amount of pre-allocated structures that is
+	needed in order to keep track of different areas in the super carrier.
+	When the system runs out of such structures it may crash due to an
+	out of memory condition.
+      </item>
+      <tag><marker id="MMsco"><c><![CDATA[+MMsco true|false]]></c></marker></tag>
+      <item>
+	Set <seealso marker="#MMscs">super carrier</seealso> only flag. This
+	flag defaults to <c>true</c>. When a super carrier is used and this
+	flag is <c>true</c>, the system will crash when a carrier request
+	cannot be satisfied by the super carrier. When the flag is <c>false</c>
+	the system will try to create requested carrier	by other means.
+	<br/><br/>
+	<em>NOTE</em>: Setting this flag to <c>false</c> may not be supported
+	on all systems. This flag will in that case be ignored.
+	<br/><br/>
+	<em>NOTE</em>: The super carrier cannot be enabled nor
+	disabled on halfword heap systems. This flag will be
+	ignored on halfword heap systems.
+      </item>
+      <tag><marker id="MMscrpm"><c><![CDATA[+MMscrpm true|false]]></c></marker></tag>
+      <item>
+	Set <seealso marker="#MMscs">super carrier</seealso> reserve physical
+	memory flag. This flag defaults	to <c>true</c>. When this flag is
+	<c>true</c>, physical memory will be reserved for the whole super
+	carrier at once when it is created. The reservation will after that
+	be left unchanged. When this flag is set to <c>false</c> only virtual
+	address space will be reserved for the super carrier upon creation.
+	The system will attempt to reserve physical memory upon carrier
+	creations in the super carrier, and attempt to unreserve physical
+	memory upon carrier destructions in the super carrier.
+	<br/><br/>
+	<em>NOTE</em>: What reservation of physical memory actually means
+	highly depends on the operating system, and how it is configured. For
+	example, different memory overcommit settings on Linux drastically
+	change the behaviour. Also note, setting this flag to <c>false</c>
+	may not be supported on all systems. This flag will in that case
+	be ignored.
+	<br/><br/>
+	<em>NOTE</em>: The super carrier cannot be enabled nor
+	disabled on halfword heap systems. This flag will be
+	ignored on halfword heap systems.
+      </item>
+      <tag><marker id="MMscs"><c><![CDATA[+MMscs <size in MB>]]></c></marker></tag>
+      <item>
+	Set super carrier size (in MB). The super carrier size defaults to
+	zero; i.e, the super carrier is by default disabled. The super
+	carrier is a large continuous area in the virtual address space.
+	The system will always try to create new carriers in the super
+	carrier.
+	<br/><br/>
+	<em>NOTE</em>: The super carrier cannot be enabled nor
+	disabled on halfword heap systems. This flag will be
+	ignored on halfword heap systems.
+      </item>
       <tag><marker id="MMmcs"><c><![CDATA[+MMmcs <amount>]]></c></marker></tag>
       <item>
        Max cached segments. The maximum number of memory segments

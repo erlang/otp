@@ -29,6 +29,7 @@
 	 bucket_mask/1,
 	 rbtree/1,
 	 mseg_clear_cache/1,
+	 erts_mmap/1,
 	 cpool/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -41,7 +42,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,
-     bucket_mask, rbtree, mseg_clear_cache, cpool].
+     bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool].
 
 groups() -> 
     [].
@@ -109,6 +110,59 @@ mseg_clear_cache(Cfg) -> ?line drv_case(Cfg).
 cpool(suite) -> [];
 cpool(doc) ->   [];
 cpool(Cfg) -> ?line drv_case(Cfg).
+
+erts_mmap(Config) when is_list(Config) ->
+    case {?t:os_type(), is_halfword_vm()} of
+	{{unix, _}, false} ->
+	    [erts_mmap_do(Config, SCO, SCRPM, SCMGC)
+	     || SCO <-[true,false], SCMGC <-[1234,0], SCRPM <- [true,false]];
+
+	{_,true} ->
+	    {skipped, "No supercarrier support on halfword vm"};
+	{SkipOs,_} ->
+	    ?line {skipped,
+		   lists:flatten(["Not run on "
+				  | io_lib:format("~p",[SkipOs])])}
+    end.
+
+
+erts_mmap_do(Config, SCO, SCRPM, SCMGC) ->
+    SCS = 100, % Mb
+    O1 = "+MMscs" ++ integer_to_list(SCS)
+	++ " +MMsco" ++ atom_to_list(SCO)
+	++ " +MMscrpm" ++ atom_to_list(SCRPM),
+    Opts = case SCMGC of
+	       0 -> O1;
+	       _ -> O1 ++ " +MMscmgc"++integer_to_list(SCMGC)
+	   end,
+    {ok, Node} = start_node(Config, Opts),
+    Self = self(),
+    Ref = make_ref(),
+    F = fun () ->
+		SI = erlang:system_info({allocator,mseg_alloc}),
+		{erts_mmap,EM} = lists:keyfind(erts_mmap, 1, SI),
+		{supercarrier,SC} = lists:keyfind(supercarrier, 1, EM),
+		{sizes,Sizes} = lists:keyfind(sizes, 1, SC),
+		{free_segs,Segs} = lists:keyfind(free_segs,1,SC),
+		{total,Total} = lists:keyfind(total,1,Sizes),
+		Total = SCS*1024*1024,
+
+		{reserved,Reserved} = lists:keyfind(reserved,1,Segs),
+		true = (Reserved >= SCMGC),
+
+		case {SCO,lists:keyfind(os,1,EM)} of
+		    {true, false} -> ok;
+		    {false, {os,_}} -> ok
+		end,
+
+		Self ! {Ref, ok}
+	end,
+
+    spawn_link(Node, F),
+    Result = receive {Ref, Rslt} -> Rslt end,
+    stop_node(Node),
+    Result.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                        %%
@@ -179,7 +233,9 @@ receive_drv_result(Port, CaseName) ->
 		  ?line {comment, Comment}
 	  end.
 
-start_node(Config) when is_list(Config) ->
+start_node(Config) ->
+    start_node(Config, []).
+start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
     ?line Pa = filename:dirname(code:which(?MODULE)),
     ?line {A, B, C} = now(),
     ?line Name = list_to_atom(atom_to_list(?MODULE)
@@ -191,7 +247,14 @@ start_node(Config) when is_list(Config) ->
 			      ++ integer_to_list(B)
 			      ++ "-"
 			      ++ integer_to_list(C)),
-    ?line ?t:start_node(Name, slave, [{args, "-pa "++Pa}]).
+    ?line ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
 
 stop_node(Node) ->
     ?t:stop_node(Node).
+
+is_halfword_vm() ->
+    case {erlang:system_info({wordsize, internal}),
+	  erlang:system_info({wordsize, external})} of
+	{4, 8} -> true;
+	{WS, WS} -> false
+    end.
