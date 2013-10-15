@@ -46,10 +46,12 @@ ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(message,
 
 
 
+#ifdef DEBUG
 static ERTS_INLINE int in_heapfrag(const Eterm* ptr, const ErlHeapFragment *bp)
 {
     return ((unsigned)(ptr - bp->mem) < bp->used_size);
 }
+#endif
 
 
 void
