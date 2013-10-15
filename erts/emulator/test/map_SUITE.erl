@@ -23,7 +23,7 @@
 -export([
 	t_build_and_match_literals/1,
 	t_update_literals/1,t_match_and_update_literals/1,
-	update_assoc/1,update_exact/1,
+	t_update_assoc/1,t_update_exact/1,
 	t_guard_bifs/1, t_guard_sequence/1, t_guard_update/1,
 	t_guard_receive/1, t_guard_fun/1,
 	t_list_comprehension/1,
@@ -55,7 +55,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> [
 	t_build_and_match_literals,
 	t_update_literals, t_match_and_update_literals,
-	update_assoc,update_exact,
+	t_update_assoc,t_update_exact,
 	t_guard_bifs, t_guard_sequence, t_guard_update,
 	t_guard_receive,t_guard_fun, t_list_comprehension,
 	t_map_sort_literals,
@@ -178,7 +178,7 @@ loop_match_and_update_literals_x_q(Map, []) -> Map;
 loop_match_and_update_literals_x_q(#{q:=Q0,x:=X0} = Map, [{X,Q}|Vs]) ->
     loop_match_and_update_literals_x_q(Map#{q=>Q0+Q,x=>X0+X},Vs).
 
-update_assoc(Config) when is_list(Config) ->
+t_update_assoc(Config) when is_list(Config) ->
     M0 = id(#{1=>a,2=>b,3.0=>c,4=>d,5=>e}),
 
     M1 = M0#{1=>42,2=>100,4=>[a,b,c]},
@@ -195,7 +195,7 @@ update_assoc(Config) when is_list(Config) ->
 
     ok.
 
-update_exact(Config) when is_list(Config) ->
+t_update_exact(Config) when is_list(Config) ->
     M0 = id(#{1=>a,2=>b,3.0=>c,4=>d,5=>e}),
 
     M1 = M0#{1:=42,2:=100,4:=[a,b,c]},
@@ -576,11 +576,22 @@ t_bif_map_values(Config) when is_list(Config) ->
 
 t_erlang_hash(Config) when is_list(Config) ->
 
+    ok = t_bif_erlang_phash2(),
+    ok = t_bif_erlang_phash(),
+    ok = t_bif_erlang_hash(),
+
+    ok.
+
+t_bif_erlang_phash2() ->
+
     39679005  = erlang:phash2(#{}),
     106033788 = erlang:phash2(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 }),
     119861073 = erlang:phash2(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} }),
     87559846  = erlang:phash2(#{ 1 => a }),
     76038729  = erlang:phash2(#{ a => 1 }),
+
+    79950245  = erlang:phash2(#{{} => <<>>}),
+    11244490  = erlang:phash2(#{<<>> => {}}),
 
     M0 = #{ a => 1, "key" => <<"value">> },
     M1 = map:remove("key",M0),
@@ -590,6 +601,47 @@ t_erlang_hash(Config) when is_list(Config) ->
     76038729  = erlang:phash2(M1),
     67968757  = erlang:phash2(M2),
     ok.
+
+t_bif_erlang_phash() ->
+    Sz = 1 bsl 32,
+    268440612  = erlang:phash(#{},Sz),
+    1196461908 = erlang:phash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz),
+    3944426064 = erlang:phash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz),
+    1394238263 = erlang:phash(#{ 1 => a },Sz),
+    4066388227 = erlang:phash(#{ a => 1 },Sz),
+
+    1578050717 = erlang:phash(#{{} => <<>>},Sz),
+    1578050717 = erlang:phash(#{<<>> => {}},Sz), % yep, broken
+
+    M0 = #{ a => 1, "key" => <<"value">> },
+    M1 = map:remove("key",M0),
+    M2 = M1#{ "key" => <<"value">> },
+
+    3590546636 = erlang:phash(M0,Sz),
+    4066388227 = erlang:phash(M1,Sz),
+    3590546636 = erlang:phash(M2,Sz),
+    ok.
+
+t_bif_erlang_hash() ->
+    Sz = 1 bsl 27 - 1,
+    5158      = erlang:hash(#{},Sz),
+    71555838  = erlang:hash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz),
+    5497225   = erlang:hash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz),
+    126071654 = erlang:hash(#{ 1 => a },Sz),
+    126426236 = erlang:hash(#{ a => 1 },Sz),
+
+    101655720 = erlang:hash(#{{} => <<>>},Sz),
+    101655720 = erlang:hash(#{<<>> => {}},Sz), % yep, broken
+
+    M0 = #{ a => 1, "key" => <<"value">> },
+    M1 = map:remove("key",M0),
+    M2 = M1#{ "key" => <<"value">> },
+
+    38260486  = erlang:hash(M0,Sz),
+    126426236 = erlang:hash(M1,Sz),
+    38260486  = erlang:hash(M2,Sz),
+    ok.
+
 
 t_map_encode_decode(Config) when is_list(Config) ->
     <<131,116,0,0,0,0>> = erlang:term_to_binary(#{}),
