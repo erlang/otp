@@ -149,21 +149,6 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_EXIT_AFTER_DUMP exit
 #endif
 
-#ifdef DEBUG
-#  define ASSERT(e) \
-  if (e) { \
-     ; \
-  } else { \
-     erl_assert_error(#e, __FILE__, __LINE__); \
-  }
-#  define ASSERT_EXPR(e) \
-    ((void) ((e) ? 1 : (erl_assert_error(#e, __FILE__, __LINE__), 0)))
-void erl_assert_error(char* expr, char* file, int line);
-#else
-#  define ASSERT(e)
-#  define ASSERT_EXPR(e) ((void) 1)
-#endif
-
 /*
  * Microsoft C/C++: We certainly want to use stdarg.h and prototypes.
  * But MSC doesn't define __STDC__, unless we compile with the -Za
@@ -212,6 +197,22 @@ void erl_assert_error(char* expr, char* file, int line);
 #    define __noreturn
 #    define __decl_noreturn 
 #  endif
+#endif
+
+#ifdef DEBUG
+#  define ASSERT(e) \
+  if (e) { \
+     ; \
+  } else { \
+     erl_assert_error(#e, __FILE__, __LINE__); \
+  }
+#  define ASSERT_EXPR(e) \
+    ((void) ((e) ? 1 : (erl_assert_error(#e, __FILE__, __LINE__), 0)))
+__decl_noreturn void __noreturn
+erl_assert_error(char* expr, char* file, int line);
+#else
+#  define ASSERT(e)
+#  define ASSERT_EXPR(e) ((void) 1)
 #endif
 
 /*

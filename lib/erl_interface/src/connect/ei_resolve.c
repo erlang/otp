@@ -173,6 +173,8 @@ static int verify_dns_configuration(void)
 
 #endif    
 
+#if defined(VXWORKS) || _REENTRANT
+
 /* 
  * Copy the contents of one struct hostent to another, i.e. don't just
  * copy the pointers, copy all the data and create new pointers, etc.
@@ -226,7 +228,7 @@ static int copy_hostent(struct hostent *dest, const struct hostent *src, char *b
   
   while(*(src_aliases)) {
     if (buflen < sizeof(*pptr)) return -1;
-    *pptr = src_aliases;
+    *pptr = (char *)src_aliases;
     advance_buf(buffer,buflen,sizeof(*pptr));
     src_aliases++;
     pptr++;
@@ -357,6 +359,10 @@ static struct hostent *my_gethostbyname_r(const char *name,
   return rval;
 }
 
+#endif /* defined(VXWORKS) || _REENTRANT */
+
+#if defined(VXWORKS) || EI_THREADS != false
+
 static struct hostent *my_gethostbyaddr_r(const char *addr,
 					  int length, 
 					  int type, 
@@ -418,6 +424,7 @@ static struct hostent *my_gethostbyaddr_r(const char *addr,
   return rval;
 }
 
+#endif /* defined(VXWORKS) || EI_THREADS != false */
 
 #endif /* !HAVE_GETHOSTBYNAME_R */
 
