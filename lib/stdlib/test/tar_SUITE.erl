@@ -651,6 +651,7 @@ open_add_close(Config) when is_list(Config) ->
     ?line TarOne = filename:join(Dir, "archive1.tar"),
     ?line {ok,AD} = erl_tar:open(TarOne, [write]),
     ?line ok = erl_tar:add(AD, FileOne, []),
+    ?line ok = erl_tar:add(AD, FileOne, [{name_in_archive, "first_file_again"}]),
     ?line ok = erl_tar:add(AD, FileTwo, "second file", []),
     ?line ok = erl_tar:add(AD, FileThree, [verbose]),
     ?line ok = erl_tar:add(AD, ADir, [verbose]),
@@ -660,7 +661,7 @@ open_add_close(Config) when is_list(Config) ->
     ?line ok = erl_tar:t(TarOne),
     ?line ok = erl_tar:tt(TarOne),
 
-    ?line {ok,[FileOne,"second file",FileThree,ADir,SomeContent]} = erl_tar:table(TarOne),
+    ?line {ok,[FileOne, "first_file_again","second file",FileThree,ADir,SomeContent]} = erl_tar:table(TarOne),
 
     ?line delete_files(["oac_file","oac_small","oac_big",Dir,AnotherDir,ADir]),
 

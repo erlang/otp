@@ -84,7 +84,8 @@
         <v>TarDescriptor = term()</v>
         <v>Filename = filename()</v>
         <v>Options = [Option]</v>
-        <v>Option = dereference|verbose</v>
+        <v>Option = dereference|verbose|{name_in_archive,NameInArchive}</v>
+        <v>NameInArchive = filename()</v>
         <v>RetValue = ok|{error,{Filename,Reason}}</v>
         <v>Reason = term()</v>
       </type>
@@ -103,6 +104,12 @@
           <tag><c>verbose</c></tag>
           <item>
             <p>Print an informational message about the file being added.</p>
+          </item>
+          <tag><c>{name_in_archive,NameInArchive}</c></tag>
+          <item>
+            <p><c>NameInArchive</c> is the name under which the file will
+          be stored in the tar file. That is the name that the file will
+          get when it will be extracted from the tar file.</p>
           </item>
         </taglist>
       </desc>
