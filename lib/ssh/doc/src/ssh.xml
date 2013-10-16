@@ -141,7 +141,7 @@
             <p>Sets the preferred public key algorithm to use for user
 	    authentication. If the the preferred algorithm fails for
 	    some reason, the other algorithm is tried. The  default is
-	    to try <c><![CDATA[ssh_rsa]]></c> first.</p>
+	    to try <c><![CDATA['ssh-rsa']]></c> first.</p>
 	  </item>
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
@@ -248,7 +248,7 @@
 	    requested by the client. Default is to use the erlang shell:
 	    <c><![CDATA[{shell, start, []}]]></c>
 	  </item>
-	  <tag><c><![CDATA[{ssh_cli,{channel_callback(),
+	  <tag><c><![CDATA[{ssh_cli, {channel_callback(),
 	  channel_init_args()}}]]></c></tag>
 	  <item>
 	    Provides your own cli implementation, i.e. a channel callback
