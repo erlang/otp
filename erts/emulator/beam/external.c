@@ -1476,7 +1476,7 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
                 erts_set_gc_state(p, 1);
             }
             BUMP_REDS(p, (initial_reds - ctx->reds) / B2T_BYTES_PER_REDUCTION);
-            BIF_ERROR(p, BADARG);
+            BIF_ERROR(p, BADARG & ~EXF_SAVETRACE);
 
         case B2TDone:
             b2t_destroy_context(ctx);
@@ -1522,7 +1522,7 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
     BIF_TRAP1(&binary_to_term_trap_export, p, ctx->trap_bin);
 }
 
-BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
+BIF_RETTYPE erts_internal_binary_to_term_1(BIF_ALIST_1)
 {
 /*SVERK  if (++sverk_cnt % 1000 == 0) {
         erts_fprintf(stderr, "Call #%u to binary_to_term_int()\n", sverk_cnt);
@@ -1534,7 +1534,7 @@ BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
     return binary_to_term_int(BIF_P, 0, BIF_ARG_1, NULL);
 }
 
-BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
+BIF_RETTYPE erts_internal_binary_to_term_2(BIF_ALIST_2)
 {
     Eterm opts;
     Eterm opt;

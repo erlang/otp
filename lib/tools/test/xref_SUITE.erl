@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1099,6 +1099,7 @@ read_expected(Version) ->
 	  {POS1+1,{FF,{mod17,fun17,0}}},
 	  {POS1+2,{FF,{erlang,spawn,1}}},
 	  {POS1+2,{FF,{read,local,0}}},
+	  {POS1+3,{FF,{erlang,binary_to_term,1}}},
 	  {POS1+3,{FF,{erlang,spawn,1}}},
 	  {POS1+4,{FF,{dist,func,0}}},
 	  {POS1+4,{FF,{erlang,spawn,1}}},
@@ -1212,7 +1213,6 @@ read_expected(Version) ->
     OKB1 = [{POS13+1,{FF,{erts_debug,apply,4}}},
             {POS13+2,{FF,{erts_debug,apply,4}}},
             {POS13+3,{FF,{erts_debug,apply,4}}},
-            {POS1+3, {FF,{erlang,binary_to_term,1}}},
             {POS3+1, {FF,{erlang,spawn,3}}},
             {POS3+2, {FF,{erlang,spawn,3}}},
             {POS3+3,  {FF,{erlang,spawn_link,3}}},
