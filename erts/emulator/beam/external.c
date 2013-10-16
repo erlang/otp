@@ -1131,7 +1131,6 @@ enum B2TState { /* order is somewhat significant */
     B2TSizeInit,
     B2TSize,
     B2TDecodeInit,
-
     B2TDecode,
     B2TDecodeList,
     B2TDecodeTuple,
@@ -1157,9 +1156,6 @@ typedef struct {
     Eterm* hp;
     Eterm* hp_end;
     int remaining_n;
-#ifdef DEBUG
-    Eterm* container_end;
-#endif
 } B2TDecodeContext;
 
 typedef struct {
@@ -1352,20 +1348,28 @@ static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1)
 
 #define B2T_BYTES_PER_REDUCTION 128
 
-static unsigned sverk_rand(void)
+/* Define for testing */
+/*#define EXTREME_B2T_TRAPPING 1*/
+
+#ifdef EXTREME_B2T_TRAPPING
+static unsigned b2t_rand(void)
 {
     static unsigned prev = 17;
     prev = (prev * 214013 + 2531011);
     return prev;
 }
+#endif
+
 
 static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* context_b)
 {
-    SWord initial_reds = 1 + sverk_rand() % 4; /*(Uint)(ERTS_BIF_REDS_LEFT(p) * B2T_BYTES_PER_REDUCTION);*/
-    byte* bytes;
+#ifdef EXTREME_B2T_TRAPPING
+    SWord initial_reds = 1 + b2t_rand() % 4;
+#else
+    SWord initial_reds = (Uint)(ERTS_BIF_REDS_LEFT(p) * B2T_BYTES_PER_REDUCTION);
+#endif
     B2TContext c_buff;
     B2TContext *ctx;
-    ErtsDistExternal fakedep;
     Eterm* magic_space = NULL;
 
     if (context_b == NULL) {
@@ -1384,6 +1388,7 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
     do {
         switch (ctx->state) {
         case B2TPrepare: {
+	    byte* bytes;
             Uint bin_size;
             bytes = erts_get_aligned_binary_bytes_extra(bin,
                                                         &ctx->aligned_alloc,
@@ -1403,32 +1408,30 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
 	    }
             break;
         }
-	case B2TUncompressChunk:
-	    {
-		Uint chunk = ctx->reds;
-		int zret;
-                if (chunk > ctx->u.uc.dleft)
-		    chunk = ctx->u.uc.dleft;
+	case B2TUncompressChunk: {
+            Uint chunk = ctx->reds;
+            int zret;
 
-		zret = erl_zlib_inflate_chunk(&ctx->u.uc.stream,
-					      ctx->u.uc.dbytes, &chunk);
-		ctx->u.uc.dbytes += chunk;
-		ctx->u.uc.dleft  -= chunk;
-                if (zret == Z_OK && ctx->u.uc.dleft > 0) {
-		    ctx->reds = 0;
-		}
-                else if (erl_zlib_inflate_finish(&ctx->u.uc.stream) == Z_OK
-			 && zret == Z_STREAM_END
-			 && ctx->u.uc.dleft == 0) {
-		    ctx->reds -= chunk;
-		    ctx->state = B2TSizeInit;
-		}
-		else {
-		    ctx->state = B2TBadArg;
-		}
-		break;
-	    }
-
+            if (chunk > ctx->u.uc.dleft)
+                chunk = ctx->u.uc.dleft;
+            zret = erl_zlib_inflate_chunk(&ctx->u.uc.stream,
+                                          ctx->u.uc.dbytes, &chunk);
+            ctx->u.uc.dbytes += chunk;
+            ctx->u.uc.dleft  -= chunk;
+            if (zret == Z_OK && ctx->u.uc.dleft > 0) {
+                ctx->reds = 0;
+            }
+            else if (erl_zlib_inflate_finish(&ctx->u.uc.stream) == Z_OK
+                     && zret == Z_STREAM_END
+                     && ctx->u.uc.dleft == 0) {
+                ctx->reds -= chunk;
+                ctx->state = B2TSizeInit;
+            }
+            else {
+                ctx->state = B2TBadArg;
+            }
+            break;
+        }
 	case B2TSizeInit:
 	    ctx->u.sc.ep = NULL;
 	    ctx->state = B2TSize;
@@ -1441,11 +1444,7 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
 
         case B2TDecodeInit:
             if (context_b == NULL && ctx->b2ts.extsize > ctx->reds) {
-                /*SVERK Can we do a better prediction that is still safe
-                    OR is there a way to do HAlloc after result some how...
-                    ... support for mutiple HReleases maybe?
-                    */
-                /* dec_term will probably trap, allocate space for magic bin
+                /* dec_term will maybe trap, allocate space for magic bin
                    before result term to make it easy to trim with HRelease.
                  */
                 magic_space = HAlloc(p, PROC_BIN_SIZE);
@@ -1462,11 +1461,12 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
 	case B2TDecode:
         case B2TDecodeList:
         case B2TDecodeTuple:
-        case B2TDecodeString:
+        case B2TDecodeString: {
+	    ErtsDistExternal fakedep;
             fakedep.flags = ctx->flags;
             dec_term(&fakedep, NULL, NULL, &MSO(p), NULL, ctx);
             break;
-
+	}
         case B2TDecodeFail:
             HRelease(p, ctx->u.dc.hp_end, ctx->u.dc.hp_start);
             /*fall through*/
@@ -1495,7 +1495,7 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
             return ctx->u.dc.res;
 
         }
-    }while (ctx->reds || ctx->state >= B2TDone);
+    }while (ctx->reds > 0 || ctx->state >= B2TDone);
 
     if (context_b == NULL) {
         ASSERT(ctx->trap_bin == THE_NON_VALUE);
@@ -1524,13 +1524,6 @@ static Eterm binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binary* con
 
 BIF_RETTYPE erts_internal_binary_to_term_1(BIF_ALIST_1)
 {
-/*SVERK  if (++sverk_cnt % 1000 == 0) {
-        erts_fprintf(stderr, "Call #%u to binary_to_term_int()\n", sverk_cnt);
-    }
-    if (sverk_cnt == 1767) {
-        sverk_break();
-    }
-*/
     return binary_to_term_int(BIF_P, 0, BIF_ARG_1, NULL);
 }
 
@@ -2879,7 +2872,6 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
                     objp -= 2;
                     n--;
                 }
-                ASSERT(ctx->u.dc.remaining_n || next == ctx->u.dc.container_end);
                 break;
 
             case B2TDecodeTuple:
@@ -2889,7 +2881,6 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
                     next = objp;
                     objp--;
                 }
-                ASSERT(ctx->u.dc.remaining_n || next == ctx->u.dc.container_end);
                 break;
 
             case B2TDecodeString:
@@ -2902,7 +2893,6 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap,
                 }
                 hp[-1] = NIL;
                 *hpp = hp;
-                ASSERT(ctx->u.dc.remaining_n || hp == ctx->u.dc.container_end);
                 break;
 
             default:
@@ -3051,7 +3041,6 @@ dec_term_atom_common:
             objp = hp - 1;
             if (ctx) {
                 if (reds < n) {
-                    IF_DEBUG(ctx->u.dc.container_end = hp - n;)
                     ASSERT(reds > 0);
                     ctx->state = B2TDecodeTuple;
                     ctx->u.dc.remaining_n = n - reds;
@@ -3085,7 +3074,6 @@ dec_term_atom_common:
             n--;
 	    if (ctx) {
                 if (reds < n) {
-                    IF_DEBUG(ctx->u.dc.container_end = hp - 2*(n+1);)
 		    ctx->state = B2TDecodeList;
 		    ctx->u.dc.remaining_n = n - reds;
 		    n = reds;
@@ -3110,7 +3098,6 @@ dec_term_atom_common:
 	    *objp = make_list(hp);
             if (ctx) {
                 if (reds < n) {
-                    IF_DEBUG(ctx->u.dc.container_end = hp + n*2;)
                     ctx->state = B2TDecodeString;
                     ctx->u.dc.remaining_n = n - reds;
                     n = reds;
@@ -3981,6 +3968,9 @@ decoded_size(byte *ep, byte* endp, int internal_tags, B2TContext* ctx)
             goto init_done;
         }
     }
+    else
+        reds = 0; /* not used but compiler warns anyway */
+
     heap_size = 0;
     terms = 1;
     atom_extra_skip = 0;
@@ -4016,9 +4006,6 @@ init_done:
     ASSERT(terms > 0);
     do {
         int tag;
-        /*SVERK
-        erts_fprintf(stderr, "SVERK tag=%d ep=%p terms=%d heap_size=%d endp=%p\n",
-                     ep[0], ep, terms, heap_size, endp); */
 	CHKSIZE(1);
 	tag = ep++[0];
 	switch (tag) {
