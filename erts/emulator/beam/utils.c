@@ -4019,28 +4019,6 @@ erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
 #endif
 }
 
-const char *erts_basename(const char* path, char* buff) {
-  /* This function is not compliant with bash basename. Edge cases like "//"
-     and "/path//" do not work properly.
-   */
-  int i;
-  int len = strlen(path);
-  const char *basename = path;
-  for (i = 0; path[i] != '\0'; i++) {
-    if (path[i] == '/') {
-      if (path[i+1] == '\0') {
-	    memcpy(buff,basename,len - (basename-path));
-	    buff[len - (basename-path)-1] = '\0';
-	    basename = buff;
-	    break;
-      } else { basename = path+i;}
-    }
-  }
-  if (basename == path)
-    return path;
-  return basename+1;
-}
-
 /*
  * A millisecond timestamp without time correction where there's no hrtime
  * - for tracing on "long" things...

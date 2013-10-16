@@ -186,11 +186,6 @@ extern void erts_ddll_remove_monitor(Process *p,
 extern Eterm erts_ddll_monitor_driver(Process *p,
 				      Eterm description,
 				      ErtsProcLocks plocks);
-/*
- * Max no. of drivers (linked in and dynamically loaded). Each table
- * entry uses 4 bytes.
- */
-#define DRIVER_TAB_SIZE 32
 
 /*
 ** Just like the driver binary but with initial flags
@@ -854,7 +849,7 @@ void erts_lcnt_enable_io_lock_count(int enable);
 
 /* driver_tab.c */
 typedef void *(*ErtsStaticNifInitFPtr)(void);
-ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name);
+ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name, int len);
 int erts_is_static_nif(void *handle);
 void erts_init_static_drivers(void);
 
@@ -863,7 +858,6 @@ void erl_drv_thr_init(void);
 
 /* utils.c */
 void erts_cleanup_offheap(ErlOffHeap *offheap);
-const char *erts_basename(const char* path, char* buff);
 
 Uint64 erts_timestamp_millis(void);
 
@@ -924,6 +918,10 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf,
 					int allow_empty, int allow_atom,
 					int encoding,
 					Sint *used /* out */);
+char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
+                                     char *statbuf, size_t statbuf_size,
+                                     ErtsAlcType_t alloc_type, Sint* used,
+                                     Uint extra_wchars);
 Eterm erts_convert_native_to_filename(Process *p, byte *bytes);
 Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail);
