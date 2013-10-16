@@ -35,6 +35,7 @@
     <p>References:</p>
     <list type="bulleted">
       <item> <p>RFC 4510 - RFC 4519</p> </item>
+      <item> <p>RFC 2830</p> </item>
     </list>
     <p>The above publications can be found at <url href="http://www.ietf.org">IETF</url>.
     </p>
@@ -84,6 +85,34 @@ filter()    See present/1, substrings/2,
       </type>
       <desc>
         <p>Shutdown the connection.</p>
+      </desc>
+    </func>
+    <func>
+      <name>start_tls(Handle, Options) -> ok | {error,Error}</name>
+      <fsummary>Shutdown the connection.</fsummary>
+      <desc>
+        <p>Same as start_tls(Handle, Options, infinity)</p>
+      </desc>
+    </func>
+    <func>
+      <name>start_tls(Handle, Options, Timeout) -> ok | {error,Error}</name>
+      <fsummary>Shutdown the connection.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+	<v>Options = ssl:ssl_options()</v>
+	<v>Timeout = inifinity | positive_integer()</v>
+      </type>
+      <desc>
+        <p>Upgrade the connection associated with <c>Handle</c> to a tls connection if possible.</p>
+        <p>Among the Error responses we find:</p>
+	<taglist>
+	  <tag><c>tls_already_started</c></tag>
+	  <item>The connection is already encrypted.  The connection is not affected.</item>
+	  <tag><c>{response,ResponseFromServer}</c></tag>
+	  <item>The upgrade was refused by the LDAP server.  The <c>ResponseFromServer</c> is an atom delivered byt the LDAP server explained in section 2.3 of rfc 2830. The connection is not affected, so it is still un-encrypted.</item>
+	  <tag><c>Error</c></tag>
+	  <item>Any error responded from ssl:connect/3</item>
+	</taglist>
       </desc>
     </func>
     <func>
