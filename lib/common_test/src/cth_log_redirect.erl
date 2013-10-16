@@ -34,12 +34,14 @@
 %% Event handler Callbacks
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
-	 terminate/1]).
+	 terminate/2, code_change/3]).
 
 %% Other
 -export([handle_remote_events/1]).
 
 -include("ct.hrl").
+
+-behaviour(gen_event).
 
 -record(eh_state, {log_func,
 		   curr_suite,
@@ -184,7 +186,7 @@ handle_call({handle_remote_events,Bool}, State) ->
 handle_call(_Query, _State) ->
     {error, bad_query}.
 
-terminate(_State) ->
+terminate(_Arg, _State) ->
     error_logger:delete_report_handler(?MODULE),
     [].
 
@@ -236,3 +238,6 @@ format_header(#eh_state{curr_suite = Suite,
 			curr_func = TC}) ->
     io_lib:format("System report during ~w:~w/1 in ~w",
 		  [Suite,TC,Group]).
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
