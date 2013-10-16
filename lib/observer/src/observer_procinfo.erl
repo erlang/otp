@@ -35,7 +35,9 @@
 -record(state, {parent,
 		frame,
 		pid,
-		pages=[]
+		pages=[],
+		expand_table,
+		expand_wins=[]
 	       }).
 
 -record(worker, {panel, callback}).
@@ -47,6 +49,7 @@ start(Process, ParentFrame, Parent) ->
 
 init([Pid, ParentFrame, Parent]) ->
     try
+	Table = ets:new(observer_expand,[set,protected]),
 	Title=case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, registered_name]) of
 		  [] -> io_lib:format("~p",[Pid]);
 		  {registered_name, Registered} -> io_lib:format("~p (~p)",[Registered, Pid]);
@@ -60,11 +63,11 @@ init([Pid, ParentFrame, Parent]) ->
 
 	Notebook = wxNotebook:new(Frame, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
 
-	ProcessPage = init_panel(Notebook, "Process Information", Pid, fun init_process_page/2),
-	MessagePage = init_panel(Notebook, "Messages", Pid, fun init_message_page/2),
-	DictPage    = init_panel(Notebook, "Dictionary", Pid, fun init_dict_page/2),
-	StackPage   = init_panel(Notebook, "Stack Trace", Pid, fun init_stack_page/2),
-	StatePage   = init_panel(Notebook, "State", Pid, fun init_state_page/2),
+	ProcessPage = init_panel(Notebook, "Process Information", [Pid], fun init_process_page/2),
+	MessagePage = init_panel(Notebook, "Messages", [Pid,Table], fun init_message_page/3),
+	DictPage    = init_panel(Notebook, "Dictionary", [Pid,Table], fun init_dict_page/3),
+	StackPage   = init_panel(Notebook, "Stack Trace", [Pid], fun init_stack_page/2),
+	StatePage   = init_panel(Notebook, "State", [Pid,Table], fun init_state_page/3),
 
 	wxFrame:connect(Frame, close_window),
 	wxMenu:connect(Frame, command_menu_selected),
@@ -73,7 +76,8 @@ init([Pid, ParentFrame, Parent]) ->
 	{Frame, #state{parent=Parent,
 		       pid=Pid,
 		       frame=Frame,
-		       pages=[ProcessPage,MessagePage,DictPage,StackPage,StatePage]
+		       pages=[ProcessPage,MessagePage,DictPage,StackPage,StatePage],
+		       expand_table=Table
 		      }}
     catch error:{badrpc, _} ->
 	    observer_wx:return_to_localnode(ParentFrame, node(Pid)),
@@ -83,10 +87,10 @@ init([Pid, ParentFrame, Parent]) ->
 	    {stop, normal}
     end.
 
-init_panel(Notebook, Str, Pid, Fun) ->
+init_panel(Notebook, Str, FunArgs, Fun) ->
     Panel  = wxPanel:new(Notebook),
     Sizer  = wxBoxSizer:new(?wxHORIZONTAL),
-    {Window,Callback} = Fun(Panel, Pid),
+    {Window,Callback} = apply(Fun,[Panel|FunArgs]),
     wxSizer:add(Sizer, Window, [{flag, ?wxEXPAND bor ?wxALL}, {proportion, 1}, {border, 5}]),
     wxPanel:setSizer(Panel, Sizer),
     true = wxNotebook:addPage(Notebook, Panel, Str),
@@ -99,7 +103,8 @@ handle_event(#wx{event=#wxClose{type=close_window}}, State) ->
 handle_event(#wx{id=?wxID_CLOSE, event=#wxCommand{type=command_menu_selected}}, State) ->
     {stop, normal, State};
 
-handle_event(#wx{id=?REFRESH}, #state{frame=Frame, pid=Pid, pages=Pages}=State) ->
+handle_event(#wx{id=?REFRESH}, #state{frame=Frame, pid=Pid, pages=Pages, expand_table=T}=State) ->
+    ets:delete_all_objects(T),
     try [(W#worker.callback)() || W <- Pages]
     catch process_undefined ->
 	    wxFrame:setTitle(Frame, io_lib:format("*DEAD* ~p",[Pid]))
@@ -118,12 +123,31 @@ handle_event(#wx{obj=Obj, event=#wxMouse{type=leave_window}}, State) ->
     wxTextCtrl:setForegroundColour(Obj,?wxBLUE),
     {noreply, State};
 
+handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href="#Term?"++Keys}}},
+	     #state{frame=Frame,expand_table=T,expand_wins=Opened0}=State) ->
+    [{"key1",Key1},{"key2",Key2},{"key3",Key3}] = httpd:parse_query(Keys),
+    Id = {T,{list_to_integer(Key1),list_to_integer(Key2),list_to_integer(Key3)}},
+    Opened =
+	case lists:keyfind(Id,1,Opened0) of
+	    false ->
+		Win = observer_term_wx:start(Id,Frame),
+		[{Id,Win}|Opened0];
+	    {_,Win} ->
+		wxFrame:raise(Win),
+		Opened0
+	end,
+    {noreply,State#state{expand_wins=Opened}};
+
 handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Info}}}, State) ->
     observer ! {open_link, Info},
     {noreply, State};
 
 handle_event(Event, _State) ->
     error({unhandled_event, Event}).
+
+handle_info({expand_win_closed,Id}, #state{expand_wins=Opened0}=State) ->
+    Opened = lists:keydelete(Id,1,Opened0),
+    {noreply,State#state{expand_wins=Opened}};
 
 handle_info(_Info, State) ->
     %% io:format("~p: ~p, Handle info: ~p~n", [?MODULE, ?LINE, Info]),
@@ -135,7 +159,8 @@ handle_call(Call, From, _State) ->
 handle_cast(Cast, _State) ->
     error({unhandled_cast, Cast}).
 
-terminate(_Reason, #state{parent=Parent,pid=Pid,frame=Frame}) ->
+terminate(_Reason, #state{parent=Parent,pid=Pid,frame=Frame,expand_table=T}) ->
+    T=/=undefined andalso ets:delete(T),
     Parent ! {procinfo_menu_closed, Pid},
     case Frame of
 	undefined ->  ok;
@@ -156,14 +181,14 @@ init_process_page(Panel, Pid) ->
 	     end}.
 
 
-init_message_page(Parent, Pid) ->
+init_message_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info,
 					      [Pid, messages])
 		     of
 			 {messages, Messages} ->
-			     Html = crashdump_viewer_html:expanded_memory("Message Queue", Messages),
+			     Html = crashdump_viewer_html:expandable_term("Message Queue", Messages, Table),
 			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
@@ -172,13 +197,13 @@ init_message_page(Parent, Pid) ->
     Update(),
     {Win, Update}.
 
-init_dict_page(Parent, Pid) ->
+init_dict_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, dictionary])
 		     of
 			 {dictionary,Dict} ->
-			     Html = crashdump_viewer_html:expanded_memory("Dictionary", Dict),
+			     Html = crashdump_viewer_html:expandable_term("Dictionary", Dict, Table),
 			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
@@ -231,11 +256,11 @@ init_stack_page(Parent, Pid) ->
     Update(),
     {LCtrl, Update}.
 
-init_state_page(Parent, Pid) ->
+init_state_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
     Update = fun() ->
 		     StateInfo = fetch_state_info(Pid),
-		     Html = crashdump_viewer_html:expanded_memory("ProcState", StateInfo),
+		     Html = crashdump_viewer_html:expandable_term("ProcState", StateInfo, Table),
 		     wxHtmlWindow:setPage(Win, Html)
 	     end,
     Update(),

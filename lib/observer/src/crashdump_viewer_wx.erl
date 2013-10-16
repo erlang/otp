@@ -16,7 +16,7 @@
 %%
 %% %CopyrightEnd%
 -module(crashdump_viewer_wx).
-
+-compile(export_all).
 -behaviour(wx_object).
 
 -export([start/1]).
@@ -89,30 +89,19 @@ set_status(What) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init(File) ->
-    {ok,CdvServer} = crashdump_viewer:start_link(),
-
+init(File0) ->
     register(?SERVER, self()),
     wx:new(),
+
+    {ok,CdvServer} = crashdump_viewer:start_link(),
+
     catch wxSystemOptions:setOption("mac.listctrl.always_use_generic", 1),
-    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Crashdump viewer",
+    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Crashdump Viewer",
 			[{size, {850, 600}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
     IconFile = filename:join(code:priv_dir(observer), "erlang_observer.png"),
     Icon = wxIcon:new(IconFile, [{type,?wxBITMAP_TYPE_PNG}]),
     wxFrame:setIcon(Frame, Icon),
     wxIcon:destroy(Icon),
-
-    State = #state{server=CdvServer, file = File, frame = Frame},
-    UpdState = setup(State),
-    process_flag(trap_exit, true),
-    {Frame, UpdState}.
-
-setup(#state{file = File0, frame = Frame} = State) ->
-    %% Setup Menubar & Menus
-    MenuBar = wxMenuBar:new(),
-    DefMenus = default_menus(),
-    observer_lib:create_menus(DefMenus, MenuBar, default),
-    wxFrame:setMenuBar(Frame, MenuBar),
 
     %% Setup panels
     Panel = wxPanel:new(Frame, []),
@@ -120,22 +109,6 @@ setup(#state{file = File0, frame = Frame} = State) ->
 
     %% Setup "statusbar" to show warnings
     StatusBar = observer_lib:create_status_bar(Panel),
-
-    %% Load a crashdump
-    File = load_dump(Panel,File0),
-
-    %% Set window title
-    T1 = "Crashdump Viewer: ",
-    Title =
-	if length(File) > 70 ->
-		T1 ++ filename:basename(File);
-	   true ->
-		T1 ++ File
-	end,
-    wxFrame:setTitle(Frame, Title),
-
-    %% General information Panel
-    GenPanel = add_page(Notebook, ?GEN_STR, cdv_info_page, cdv_gen_wx),
 
     %% Setup sizer create early to get it when window shows
     MainSizer = wxBoxSizer:new(?wxVERTICAL),
@@ -151,8 +124,41 @@ setup(#state{file = File0, frame = Frame} = State) ->
     wxMenu:connect(Frame, command_menu_selected),
     wxFrame:show(Frame),
 
-    %% I postpone the creation of the other tabs so they can query/use
-    %% the window size
+    case load_dump(Frame,File0) of
+	{ok,File} ->
+	    %% Set window title
+	    T1 = "Crashdump Viewer: ",
+	    Title =
+		if length(File) > 70 ->
+			T1 ++ filename:basename(File);
+		   true ->
+			T1 ++ File
+		end,
+	    wxFrame:setTitle(Frame, Title),
+
+	    setup(#state{server=CdvServer,
+			 file=File,
+			 frame=Frame,
+			 status_bar=StatusBar,
+			 notebook=Notebook,
+			 main_panel=Panel});
+	error ->
+	    wxFrame:destroy(Frame),
+	    wx:destroy(),
+	    crashdump_viewer:stop(),
+	    ignore
+    end.
+
+setup(#state{frame=Frame, notebook=Notebook, main_panel=Panel}=State) ->
+
+    %% Setup Menubar & Menus
+    MenuBar = wxMenuBar:new(),
+    DefMenus = default_menus(),
+    observer_lib:create_menus(DefMenus, MenuBar, default),
+    wxFrame:setMenuBar(Frame, MenuBar),
+
+    %% General information Panel
+    GenPanel = add_page(Notebook, ?GEN_STR, cdv_info_page, cdv_gen_wx),
 
     %% Process Panel
     ProPanel = add_page(Notebook, ?PRO_STR, cdv_virtual_list, cdv_proc_wx),
@@ -189,38 +195,22 @@ setup(#state{file = File0, frame = Frame} = State) ->
 
     GenPid = wx_object:get_pid(GenPanel),
     GenPid ! active,
-    UpdState = State#state{file = File,
-			   main_panel = Panel,
-			   notebook = Notebook,
-			   menubar = MenuBar,
-			   status_bar = StatusBar,
-			   gen_panel = GenPanel,
-			   pro_panel = ProPanel,
-			   port_panel = PortPanel,
-			   ets_panel = EtsPanel,
-			   timer_panel = TimerPanel,
-			   fun_panel = FunPanel,
-			   atom_panel = AtomPanel,
-			   dist_panel = DistPanel,
-			   mod_panel = ModPanel,
-			   mem_panel = MemPanel,
-			   int_panel = IntPanel,
-			   active_tab = GenPid
-			  },
-    %% Create resources which we don't want to duplicate
-    SysFont = wxSystemSettings:getFont(?wxSYS_SYSTEM_FIXED_FONT),
-    Fixed = case wxFont:isFixedWidth(SysFont) of
-		true -> SysFont;
-		false -> %% Sigh
-		    SysFontSize = wxFont:getPointSize(SysFont),
-		    wxFont:new(SysFontSize,
-			       ?wxFONTFAMILY_MODERN,
-			       ?wxFONTSTYLE_NORMAL,
-			       ?wxFONTWEIGHT_NORMAL)
-	    end,
-    put({font, fixed}, Fixed),
-    UpdState.
-
+    observer_lib:destroy_progress_dialog(),
+    process_flag(trap_exit, true),
+    {Frame, State#state{menubar = MenuBar,
+			gen_panel = GenPanel,
+			pro_panel = ProPanel,
+			port_panel = PortPanel,
+			ets_panel = EtsPanel,
+			timer_panel = TimerPanel,
+			fun_panel = FunPanel,
+			atom_panel = AtomPanel,
+			dist_panel = DistPanel,
+			mod_panel = ModPanel,
+			mem_panel = MemPanel,
+			int_panel = IntPanel,
+			active_tab = GenPid
+		       }}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -230,7 +220,6 @@ handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changing}},
     case get_active_pid(State) of
 	Previous -> {noreply, State};
 	Pid ->
-	    Previous ! not_active,
 	    Pid ! active,
 	    {noreply, State#state{active_tab=Pid}}
     end;
@@ -241,21 +230,28 @@ handle_event(#wx{event = #wxClose{}}, State) ->
 handle_event(#wx{id = ?wxID_OPEN,
 		 event = #wxCommand{type = command_menu_selected}},
 	     State) ->
-    File = load_dump(State#state.main_panel,undefined),
-    Panels = [State#state.gen_panel,
-	      State#state.pro_panel,
-	      State#state.port_panel,
-	      State#state.ets_panel,
-	      State#state.timer_panel,
-	      State#state.fun_panel,
-	      State#state.atom_panel,
-	      State#state.dist_panel,
-	      State#state.mod_panel,
-	      State#state.mem_panel,
-	      State#state.int_panel],
-    _ = [wx_object:get_pid(Panel) ! new_dump || Panel<-Panels],
-    State#state.active_tab ! active,
-    {noreply, State#state{file=File}};
+    NewState =
+	case load_dump(State#state.frame,undefined) of
+	    {ok,File} ->
+		Panels = [State#state.gen_panel,
+			  State#state.pro_panel,
+			  State#state.port_panel,
+			  State#state.ets_panel,
+			  State#state.timer_panel,
+			  State#state.fun_panel,
+			  State#state.atom_panel,
+			  State#state.dist_panel,
+			  State#state.mod_panel,
+			  State#state.mem_panel,
+			  State#state.int_panel],
+		_ = [wx_object:call(Panel,new_dump) || Panel<-Panels],
+		wxNotebook:setSelection(State#state.notebook,0),
+		observer_lib:destroy_progress_dialog(),
+		State#state{file=File};
+	    error ->
+		State
+    end,
+    {noreply,NewState};
 
 handle_event(#wx{id = ?wxID_EXIT,
 		 event = #wxCommand{type = command_menu_selected}},
@@ -313,6 +309,7 @@ handle_info(_Info, State) ->
 
 terminate(_Reason, #state{frame = Frame}) ->
     wxFrame:destroy(Frame),
+    wx:destroy(),
     crashdump_viewer:stop(),
     ok.
 
@@ -390,57 +387,42 @@ default_menus() ->
 	true ->
 	    %% On Mac quit and about will be moved to the "default' place
 	    %% automagicly, so just add them to a menu that always exist.
-	    %% But not to the help menu for some reason
-%!	    {Tag, Menus} = NodeMenu,
-%!	    [{Tag, Menus ++ [Quit,About]}, {"&Help", [Help]}]
-	    [{"File", [Quit,About]}, {"&Help", [Help,UG,Howto]}] %?siri: does this work?
+	    [{"File", [Open, About,Quit]}, {"&Help", [Help,UG,Howto]}] 
     end.
 
 
-load_dump(Panel,undefined) ->
-    FD  =  wxFileDialog:new(Panel,
+load_dump(Frame,undefined) ->
+    FD  =  wxFileDialog:new(wx:null(),
 			    [{style,?wxFD_OPEN bor ?wxFD_FILE_MUST_EXIST}]),
     case wxFileDialog:showModal(FD) of
 	?wxID_OK ->
 	    Path = wxFileDialog:getPath(FD),
 	    wxDialog:destroy(FD),
-	    load_dump(Panel, Path);
+	    load_dump(Frame,Path);
 	_ ->
-	    wxDialog:destroy(FD)
+	    wxDialog:destroy(FD),
+	    error
     end;
-load_dump(Panel, FileName) ->
+load_dump(Frame,FileName) ->
+    ok = observer_lib:display_progress_dialog("Crashdump Viewer",
+					      "Loading crashdump"),
     crashdump_viewer:read_file(FileName),
-    update_progress(Panel,false),
-    FileName.
-
-update_progress(Panel,PD) ->
-    case crashdump_viewer:get_progress() of
-	{ok, done} ->
-	    wxProgressDialog:destroy(PD);
-	{ok, Percent} when is_integer(Percent) ->
-	    wxProgressDialog:update(PD,Percent),
-	    update_progress(Panel,PD);
-	{ok,Msg} ->
-	    case PD of
-		false -> ok;
-		_ -> wxProgressDialog:destroy(PD)
-	    end,
-	    update_progress(Panel,new_progress(Msg));
-	{error, Reason} ->
-	    wxProgressDialog:destroy(PD),
-	    FailMsg = file:format_error(Reason),
-	    MD = wxMessageDialog:new(Panel, FailMsg),
-	    wxDialog:showModal(MD),
-	    wxDialog:destroy(MD)
+    case observer_lib:wait_for_progress() of
+	ok    ->
+	    %% Set window title
+	    T1 = "Crashdump Viewer: ",
+	    Title =
+		if length(FileName) > 70 ->
+			T1 ++ filename:basename(FileName);
+		   true ->
+			T1 ++ FileName
+		end,
+	    wxFrame:setTitle(Frame, Title),
+	    {ok,FileName};
+	error ->
+	    error
     end.
 
-new_progress(Msg) ->
-  wxProgressDialog:new("Crashdump viewer",Msg,
-		       [{maximum,100},
-			{style,
-			 ?wxPD_APP_MODAL bor
-			     ?wxPD_SMOOTH bor
-			     ?wxPD_AUTO_HIDE}]).
 %%%-----------------------------------------------------------------
 %%% Find help document (HTML files)
 get_help_doc(HelpId) ->

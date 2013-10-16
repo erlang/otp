@@ -63,22 +63,6 @@ handle_info(active, State) ->
     crashdump_viewer_wx:set_status(State#state.trunc_warn),
     {noreply, State};
 
-handle_info(not_active, #state{} = State) ->
-    {noreply, State};
-
-handle_info(new_dump, #state{callback=Callback,panel=Panel,
-			     sizer=Sizer,fpanel=FPanel} = State) ->
-    {InfoFields,Info,TW} = Callback:get_info(),
-    NewFPanel =
-	wx:batch(
-	  fun() ->
-		  wxWindow:destroy(FPanel),
-		  FP = create_field_panel(Panel,Sizer,InfoFields,Info),
-		  wxSizer:layout(Sizer),
-		  FP
-	  end),
-    {noreply, State#state{fpanel=NewFPanel,trunc_warn=TW}};
-
 handle_info(Info, State) ->
     io:format("~p:~p: Unhandled info: ~p~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
@@ -89,6 +73,19 @@ terminate(_Reason, _State) ->
 code_change(_, _, State) ->
     {ok, State}.
 
+handle_call(new_dump, _From, #state{callback=Callback,panel=Panel,
+				    sizer=Sizer,fpanel=FPanel} = State) ->
+    {InfoFields,Info,TW} = Callback:get_info(),
+    NewFPanel =
+	wx:batch(
+	  fun() ->
+		  wxWindow:destroy(FPanel),
+		  FP = create_field_panel(Panel,Sizer,InfoFields,Info),
+		  wxSizer:layout(Sizer),
+		  FP
+	  end),
+    {reply, ok, State#state{fpanel=NewFPanel,trunc_warn=TW}};
+
 handle_call(Msg, _From, State) ->
     io:format("~p~p: Unhandled Call ~p~n",[?MODULE, ?LINE, Msg]),
     {reply, ok, State}.
@@ -96,6 +93,18 @@ handle_call(Msg, _From, State) ->
 handle_cast(Msg, State) ->
     io:format("~p~p: Unhandled cast ~p~n",[?MODULE, ?LINE, Msg]),
     {noreply, State}.
+
+handle_event(#wx{event=#wxMouse{type=left_down},userData=Target}, State) ->
+    cdv_virtual_list:start_detail_win(Target),
+    {noreply, State};
+
+handle_event(#wx{obj=Obj,event=#wxMouse{type=enter_window}},State) ->
+    wxTextCtrl:setForegroundColour(Obj,{0,0,100,255}),
+    {noreply, State};
+
+handle_event(#wx{obj=Obj,event=#wxMouse{type=leave_window}},State) ->
+    wxTextCtrl:setForegroundColour(Obj,?wxBLUE),
+    {noreply, State};
 
 handle_event(Event, State) ->
     io:format("~p:~p: Unhandled event ~p\n", [?MODULE,?LINE,Event]),

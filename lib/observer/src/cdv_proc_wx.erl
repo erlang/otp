@@ -48,9 +48,9 @@ col_spec() ->
     [{"Pid", ?wxLIST_FORMAT_CENTRE,  120},
      {"Name or Initial Func", ?wxLIST_FORMAT_LEFT, 250},
      {"State", ?wxLIST_FORMAT_LEFT, 100},
-     {"Reds", ?wxLIST_FORMAT_RIGHT, 100},
-     {"Memory", ?wxLIST_FORMAT_RIGHT, 100},
-     {"MsgQ",  ?wxLIST_FORMAT_RIGHT, 100}].
+     {"Reds", ?wxLIST_FORMAT_RIGHT, 80},
+     {"Memory", ?wxLIST_FORMAT_RIGHT, 80},
+     {"MsgQ",  ?wxLIST_FORMAT_RIGHT, 50}].
 
 get_info(_) ->
     {ok,Info,TW} = crashdump_viewer:processes(),
@@ -63,8 +63,13 @@ get_detail_cols(_) ->
 get_details(Id) ->
     case crashdump_viewer:proc_details(Id) of
 	{ok,Info,TW} ->
-	    Proplist =
+	    %% The following table is used by crashdump_viewer_html
+	    %% for storing expanded terms and it is read by
+	    %% cdv_html_page when a link to an expandable term is clicked.
+	    Tab = ets:new(cdv_expand,[set,public]),
+	    Proplist0 =
 		crashdump_viewer:to_proplist(record_info(fields,proc),Info),
+	    Proplist = [{expand_table,Tab}|Proplist0],
 	    Title = io_lib:format("~s (~p)",[Info#proc.name, Id]),
 	    {ok,{Title,Proplist,TW}};
 	{error,{other_node,NodeId}} ->
@@ -78,42 +83,38 @@ get_details(Id) ->
     end.
 
 detail_pages() ->
-    [{simple, "General Information",   fun init_gen_page/3},
-     {simple, "Messages",   fun init_message_page/3},
-     {simple, "Dictionary", fun init_dict_page/3},
-     {simple, "Stack Dump", fun init_stack_page/3},
-     {list,   "ETS tables", fun init_ets_page/3},
-     {list,   "Timers",     fun init_timer_page/3}].
+    [{"General Information",   fun init_gen_page/2},
+     {"Messages",   fun init_message_page/2},
+     {"Dictionary", fun init_dict_page/2},
+     {"Stack Dump", fun init_stack_page/2},
+     {"ETS tables", fun init_ets_page/2},
+     {"Timers",     fun init_timer_page/2}].
 
-init_gen_page(Parent, _Pid, Info) ->
+init_gen_page(Parent, Info) ->
     Fields = info_fields(),
-    cdv_detail_win:init_detail_page(Parent, Fields, Info).
+    cdv_info_page:start_link(Parent,{Fields,Info,[]}).
 
-init_message_page(Parent, Pid, _Info) ->
-    init_memory_page(Parent, Pid, "MsgQueue").
+init_message_page(Parent, Info) ->
+    init_memory_page(Parent, Info, msg_q, "MsgQueue").
 
-init_dict_page(Parent, Pid, _Info) ->
-    init_memory_page(Parent, Pid, "Dictionary").
+init_dict_page(Parent, Info) ->
+    init_memory_page(Parent, Info, dict, "Dictionary").
 
-init_stack_page(Parent, Pid, _Info) ->
-    init_memory_page(Parent, Pid, "StackDump").
+init_stack_page(Parent, Info) ->
+    init_memory_page(Parent, Info, stack_dump, "StackDump").
 
-init_memory_page(Parent, Pid, What) ->
-    Win = observer_lib:html_window(Parent),
-    Html =
-	case crashdump_viewer:expand_memory(Pid,What) of
-	    {ok,Memory} ->
-		crashdump_viewer_html:expanded_memory(What,Memory);
-	    {error,Reason} ->
-		crashdump_viewer_html:warning(Reason)
-	end,
-    wxHtmlWindow:setPage(Win,Html),
-    Win.
+init_memory_page(Parent, Info0, Tag, Heading) ->
+    Info = proplists:get_value(Tag,Info0),
+    Tab = proplists:get_value(expand_table,Info0),
+    Html = crashdump_viewer_html:expandable_term(Heading,Info,Tab),
+    cdv_html_page:start_link(Parent,{expand,Html,Tab}).
 
-init_ets_page(Parent, Pid, _Info) ->
+init_ets_page(Parent, Info) ->
+    Pid = proplists:get_value(pid,Info),
     cdv_virtual_list:start_link(Parent, cdv_ets_wx, Pid).
 
-init_timer_page(Parent, Pid, _Info) ->
+init_timer_page(Parent, Info) ->
+    Pid = proplists:get_value(pid,Info),
     cdv_virtual_list:start_link(Parent, cdv_timer_wx, Pid).
 
 %%%-----------------------------------------------------------------

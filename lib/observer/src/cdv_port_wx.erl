@@ -46,10 +46,10 @@ col_to_elem(?COL_CTRL) -> #port.controls;
 col_to_elem(?COL_SLOT) -> #port.slot.
 
 col_spec() ->
-    [{"Id", ?wxLIST_FORMAT_LEFT,  120},
+    [{"Id", ?wxLIST_FORMAT_LEFT,  100},
      {"Connected", ?wxLIST_FORMAT_LEFT, 120},
-     {"Name", ?wxLIST_FORMAT_LEFT, 200},
-     {"Controls", ?wxLIST_FORMAT_LEFT, 250},
+     {"Name", ?wxLIST_FORMAT_LEFT, 150},
+     {"Controls", ?wxLIST_FORMAT_LEFT, 200},
      {"Slot", ?wxLIST_FORMAT_RIGHT, 50}].
 
 get_info(_) ->
@@ -77,11 +77,11 @@ get_details(Id) ->
     end.
 
 detail_pages() ->
-    [{simple, "General Information",   fun init_gen_page/3}].
+    [{"General Information",   fun init_gen_page/2}].
 
-init_gen_page(Parent, _Id, Info) ->
+init_gen_page(Parent, Info) ->
     Fields = info_fields(),
-    cdv_detail_win:init_detail_page(Parent, Fields, Info).
+    cdv_info_page:start_link(Parent,{Fields,Info,[]}).
 
 format({I1,I2}) ->
     "#Port<"++integer_to_list(I1) ++ "." ++ integer_to_list(I2) ++ ">";
@@ -94,7 +94,7 @@ format(D) ->
 info_fields() ->
     [{"Overview",
       [{"Name",             name},
-       {"Connected",        connected},
+       {"Connected",        {click,connected}},
        {"Slot",             slot},
        {"Controls",         controls}]},
     {scroll_boxes,

@@ -23,9 +23,16 @@
 -include("crashdump_viewer.hrl").
 
 get_info() ->
-    [{"Hash Tables",cdv_table_page,get_hash_info()},
-     {"Index Tables",cdv_table_page,get_index_info()},
-     {"Internal ETS Tables",cdv_table_page,get_internal_ets_info()}].
+    observer_lib:report_progress({ok,"Processing internal tables"}),
+    HashInfo = get_hash_info(),
+    observer_lib:report_progress({ok,33}),
+    IndexInfo = get_index_info(),
+    observer_lib:report_progress({ok,66}),
+    IntEtsInfo = get_internal_ets_info(),
+    observer_lib:report_progress({ok,100}),
+    [{"Hash Tables",cdv_table_page,HashInfo},
+     {"Index Tables",cdv_table_page,IndexInfo},
+     {"Internal ETS Tables",cdv_table_page,IntEtsInfo}].
 
 %%%-----------------------------------------------------------------
 %%% Hash tables

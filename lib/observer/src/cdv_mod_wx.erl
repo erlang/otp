@@ -59,33 +59,32 @@ get_details(Id) ->
     {ok,{Title,Proplist,TW}}.
 
 detail_pages() ->
-    [{simple, "General Information",      fun init_gen_page/3},
-     {simple, "Current Attributes",       fun init_curr_attr_page/3},
-     {simple, "Current Compilation Info", fun init_curr_comp_page/3},
-     {simple, "Old Attributes",           fun init_old_attr_page/3},
-     {simple, "Old Compilation Info",     fun init_old_comp_page/3}].
+    [{"General Information",      fun init_gen_page/2},
+     {"Current Attributes",       fun init_curr_attr_page/2},
+     {"Current Compilation Info", fun init_curr_comp_page/2},
+     {"Old Attributes",           fun init_old_attr_page/2},
+     {"Old Compilation Info",     fun init_old_comp_page/2}].
 
-init_gen_page(Parent, _Id, Info) ->
+init_gen_page(Parent, Info) ->
     Fields = info_fields(),
-    cdv_detail_win:init_detail_page(Parent, Fields, Info).
+    cdv_info_page:start_link(Parent,{Fields,Info,[]}).
 
-init_curr_attr_page(Parent, _Id, Info) ->
+init_curr_attr_page(Parent, Info) ->
     init_info_page(Parent, proplists:get_value(current_attrib,Info)).
 
-init_curr_comp_page(Parent, _Id, Info) ->
+init_curr_comp_page(Parent, Info) ->
     init_info_page(Parent, proplists:get_value(current_comp_info,Info)).
 
-init_old_attr_page(Parent, _Id, Info) ->
+init_old_attr_page(Parent, Info) ->
     init_info_page(Parent, proplists:get_value(old_attrib,Info)).
 
-init_old_comp_page(Parent, _Id, Info) ->
+init_old_comp_page(Parent, Info) ->
     init_info_page(Parent, proplists:get_value(old_comp_info,Info)).
 
 init_info_page(Parent, undefined) ->
     init_info_page(Parent, "");
 init_info_page(Parent, String) ->
-    Html = crashdump_viewer_html:plain_page(String),
-    observer_lib:html_window(Parent,Html).
+    cdv_html_page:start_link(Parent,crashdump_viewer_html:plain_page(String)).
 
 format({Bin,q}) when is_binary(Bin) ->
     [$'|binary_to_list(Bin)];

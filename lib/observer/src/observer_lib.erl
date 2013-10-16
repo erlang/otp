@@ -20,6 +20,8 @@
 
 -export([get_wx_parent/1,
 	 display_info_dialog/1, display_yes_no_dialog/1,
+	 display_progress_dialog/2, destroy_progress_dialog/0,
+	 wait_for_progress/0, report_progress/1,
 	 user_term/3, user_term_multiline/3,
 	 interval_dialog/4, start_timer/1, stop_timer/1,
 	 display_info/2, fill_info/2, update_info/2, to_str/1,
@@ -103,7 +105,9 @@ setup_timer(Bool, {Timer, Old}) ->
     setup_timer(Bool, {false, Old}).
 
 display_info_dialog(Str) ->
-    Dlg = wxMessageDialog:new(wx:null(), Str),
+    display_info_dialog("",Str).
+display_info_dialog(Title,Str) ->
+    Dlg = wxMessageDialog:new(wx:null(), Str, [{caption,Title}]),
     wxMessageDialog:showModal(Dlg),
     wxMessageDialog:destroy(Dlg),
     ok.
@@ -267,27 +271,23 @@ create_menus(Menus, MenuBar, Type) ->
 		  create_menu(Tag, Ms, Index, MenuBar, Type)
 	  end,
     [{First, _}|_] = Menus,
-    OnMac = os:type() =:= {unix, darwin},
     Index = if Type =:= default -> 0;
 	       First =:= "File" -> 0;
-	       OnMac -> 0;
 	       true -> 1
 	    end,
     wx:foldl(Add, Index, Menus),
     ok.
 
 create_menu("File", MenuItems, Index, MenuBar, Type) ->
-    OnMac = os:type() =:= {unix, darwin},
-    if OnMac, Type =:= default ->
-	    Index;
-       not OnMac, Type =:= plugin ->
+    if
+	Type =:= plugin ->
 	    MenuId = wxMenuBar:findMenu(MenuBar, "File"),
 	    Menu = wxMenuBar:getMenu(MenuBar, MenuId),
 	    lists:foldl(fun(Record, N) ->
 				create_menu_item(Record, Menu, N)
 			end, 0, MenuItems),
 	    Index + 1;
-       true ->
+	true ->
 	    Menu = wxMenu:new(),
 	    lists:foldl(fun(Record, N) ->
 				create_menu_item(Record, Menu, N)
@@ -429,15 +429,18 @@ create_box(Panel, Data) ->
 			 case Value0 of
 			     {click,"unknown"} ->
 				 wxTextCtrl:new(Panel, ?wxID_ANY,
-						[{style,?MULTI_LINE_STYLE},
+						[{style,?SINGLE_LINE_STYLE},
 						 {value,"unknown"}]);
 			     {click,Value} ->
 				 link_entry(Panel,Value);
 			     _ ->
 				 Value = to_str(Value0),
-				 wxTextCtrl:new(Panel, ?wxID_ANY,
-						[{style,?MULTI_LINE_STYLE},
-						 {value,Value}])
+				 TCtrl = wxTextCtrl:new(Panel, ?wxID_ANY,
+							[{style,?SINGLE_LINE_STYLE},
+							 {value,Value}]),
+				 length(Value) > 50 andalso
+				     wxWindow:setToolTip(TCtrl,wxToolTip:new(Value)),
+				 TCtrl
 			 end,
 		     wxSizer:add(Line, 10, 0), % space of size 10 horisontally
 		     wxSizer:add(Line, Field, RightProportion),
@@ -471,18 +474,15 @@ link_entry2(Panel,{Target,Str},Cursor) ->
     wxWindow:setToolTip(TC, ToolTip),
     TC.
 
-to_link(Tuple = {_Target, _Str}) -> Tuple;
-to_link(Target) -> {Target, to_str(Target)}.
+to_link(Tuple = {_Target, _Str}) ->
+    Tuple;
+to_link(Target0) ->
+    Target=to_str(Target0),
+    {Target, Target}.
 
 html_window(Panel) ->
     Win = wxHtmlWindow:new(Panel, [{style, ?wxHW_SCROLLBAR_AUTO}]),
-    FixedName = case whereis(observer) of
-		    undefined -> "courier";
-		    _Pid ->
-			Fixed = observer_wx:get_attrib({font,fixed}),
-			wxFont:getFaceName(Fixed)
-		end,
-    wxHtmlWindow:setFonts(Win, "", FixedName),
+    %% wxHtmlWindow:setFonts(Win, "", FixedName),
     wxHtmlWindow:connect(Win,command_html_link_clicked),
     Win.
 
@@ -647,3 +647,95 @@ create_status_bar(Panel) ->
     wxTextCtrl:setDefaultStyle(StatusBar,Red),
     wxTextAttr:destroy(Red),
     StatusBar.
+
+%%%-----------------------------------------------------------------
+%%% Progress dialog
+-define(progress_handler,cdv_progress_handler).
+display_progress_dialog(Title,Str) ->
+    Caller = self(),
+    Env = wx:get_env(),
+    spawn_link(fun() ->
+		       progress_handler(Caller,Env,Title,Str)
+	       end),
+    ok.
+
+wait_for_progress() ->
+    receive
+	continue ->
+	    ok;
+	Error ->
+	    Error
+    end.
+
+destroy_progress_dialog() ->
+    report_progress(finish).
+
+report_progress(Progress) ->
+    case whereis(?progress_handler) of
+	Pid when is_pid(Pid) ->
+	    Pid ! {progress,Progress},
+	    ok;
+	_ ->
+	    ok
+    end.
+
+progress_handler(Caller,Env,Title,Str) ->
+    register(?progress_handler,self()),
+    wx:set_env(Env),
+    PD = progress_dialog(Env,Title,Str),
+    progress_loop(Title,PD,Caller).
+progress_loop(Title,PD,Caller) ->
+    receive
+	{progress,{ok,done}} -> % to make wait_for_progress/0 return
+	    Caller ! continue,
+	    progress_loop(Title,PD,Caller);
+	{progress,{ok,Percent}} when is_integer(Percent) ->
+	    update_progress(PD,Percent),
+	    progress_loop(Title,PD,Caller);
+	{progress,{ok,Msg}} ->
+	    update_progress_text(PD,Msg),
+	    progress_loop(Title,PD,Caller);
+	{progress,{error, Reason}} ->
+	    finish_progress(PD),
+	    FailMsg =
+		if is_list(Reason) -> Reason;
+		   true -> file:format_error(Reason)
+		end,
+	    display_info_dialog("Crashdump Viewer Error",FailMsg),
+	    Caller ! error,
+	    unregister(?progress_handler),
+	    unlink(Caller);
+	{progress,finish} ->
+	    finish_progress(PD),
+	    unregister(?progress_handler),
+	    unlink(Caller)
+    end.
+
+progress_dialog(Env,Title,Str) ->
+    %% Spawning separat process to hold this since we use showModal.
+    spawn_link(
+      fun() ->
+	      wx:set_env(Env),
+	      PD = wxProgressDialog:new(Title,Str,
+					[{maximum,101},
+					 {style,
+					  ?wxPD_APP_MODAL bor
+					      ?wxPD_SMOOTH bor
+					      ?wxPD_AUTO_HIDE}]),
+	      wxProgressDialog:setMinSize(PD,{200,-1}),
+	      ?progress_handler ! {progress_dialog,PD},
+	      wxProgressDialog:showModal(PD),
+	      wxDialog:destroy(PD)
+      end),
+    receive
+	{progress_dialog,PD} ->
+	    timer:sleep(300), % To allow the window to show before reporting
+	    PD
+    end.
+
+update_progress(PD,Value) ->
+    wxProgressDialog:update(PD,Value).
+update_progress_text(PD,Text) ->
+    wxProgressDialog:update(PD,0,[{newmsg,Text}]).
+finish_progress(PD) ->
+    wxProgressDialog:endModal(PD, ?wxID_OK).

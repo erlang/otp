@@ -40,13 +40,16 @@
 	 dyn_page
 	}).
 
-start_link(Notebook, Callback) ->
-    wx_object:start_link(?MODULE, [Notebook, Callback], []).
+start_link(Notebook, Info) ->
+    wx_object:start_link(?MODULE, [Notebook, Info], []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init([Notebook, Callback]) ->
+init([Notebook, Callback]) when is_atom(Callback) ->
     Pages = Callback:get_info(),
+    {MainPanel,State0} = init([Notebook, Pages]),
+    {MainPanel,State0#state{callback=Callback}};
+init([Notebook, Pages]) ->
     MainPanel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxHORIZONTAL),
     LeftMenuSizer = wxStaticBoxSizer:new(?wxVERTICAL,MainPanel,
@@ -70,14 +73,14 @@ init([Notebook, Callback]) ->
 				  {proportion, 1}, {border, 5}]),
     wxPanel:setSizer(MainPanel, Sizer),
 
-    {MainPanel, #state{main_panel=MainPanel,
-		       main_sizer=Sizer,
-		       menu=LeftMenu,
-		       menu_sizer=LeftMenuSizer,
-		       callback=Callback,
-		       pages=Pages,
-		       dyn_panel=DynPanel
-		      }}.
+    State = load_dyn_page(#state{main_panel=MainPanel,
+				 main_sizer=Sizer,
+				 menu=LeftMenu,
+				 menu_sizer=LeftMenuSizer,
+				 pages=Pages,
+				 dyn_panel=DynPanel
+				}),
+    {MainPanel, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -86,17 +89,6 @@ handle_info(active, State) ->
 	wx:batch(
 	  fun() ->
 		  update_dyn_page(State)
-	  end),
-    {noreply, NewState};
-
-handle_info(not_active, State) ->
-    {noreply, State};
-
-handle_info(new_dump, State) ->
-    NewState =
-	wx:batch(
-	  fun() ->
-		  update_left_menu(State)
 	  end),
     {noreply, NewState};
 
@@ -110,12 +102,20 @@ terminate(_Reason, _State) ->
 code_change(_, _, State) ->
     {ok, State}.
 
+handle_call(new_dump, _From, State) ->
+    NewState =
+	wx:batch(
+	  fun() ->
+		  update_left_menu(State)
+	  end),
+    {reply, ok, NewState};
+
 handle_call(Msg, _From, State) ->
-    io:format("~p~p: Unhandled Call ~p~n",[?MODULE, ?LINE, Msg]),
+    io:format("~p:~p: Unhandled Call ~p~n",[?MODULE, ?LINE, Msg]),
     {reply, ok, State}.
 
 handle_cast(Msg, State) ->
-    io:format("~p~p: Unhandled cast ~p~n",[?MODULE, ?LINE, Msg]),
+    io:format("~p:~p: Unhandled cast ~p~n",[?MODULE, ?LINE, Msg]),
     {noreply, State}.
 
 handle_event(#wx{event=#wxCommand{type=command_listbox_selected,
@@ -167,15 +167,13 @@ load_dyn_page(#state{main_sizer=MainSizer,
 		     dyn_panel=DynPanel,
 		     menu=Menu,
 		     pages=Pages} = State) ->
-    {Page,Sizer} = 
-	wx:batch(fun() ->
-			 wxWindow:freeze(DynPanel),
-			 Name = wxListBox:getStringSelection(Menu),
-			 Res = load_dyn_page(DynPanel,Name,Pages),
-			 wxSizer:layout(MainSizer),
-			 wxWindow:thaw(DynPanel),
-			 Res
-		 end),
+    %% Freeze and thaw causes a hang (and is not needed) on 2.9 and higher
+    DoFreeze = [?wxMAJOR_VERSION,?wxMINOR_VERSION] < [2,9],
+    DoFreeze andalso wxWindow:freeze(DynPanel),
+    Name = wxListBox:getStringSelection(Menu),
+    {Page,Sizer} = load_dyn_page(DynPanel,Name,Pages),
+    wxSizer:layout(MainSizer),
+    DoFreeze andalso wxWindow:thaw(DynPanel),
     wx_object:get_pid(Page) ! active,
     State#state{dyn_page=Page,dyn_sizer=Sizer}.
 

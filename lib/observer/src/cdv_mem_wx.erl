@@ -23,11 +23,17 @@
 -include_lib("wx/include/wx.hrl").
 
 get_info() ->
+    observer_lib:report_progress({ok,"Processing memory info"}),
+    MemInfo = get_mem_info(),
+    observer_lib:report_progress({ok,33}),
     {AllocInfo,AllocTW} = get_alloc_info(),
-    [{"Memory",cdv_info_page,get_mem_info()}
+    observer_lib:report_progress({ok,66}),
+    AreaInfo = get_area_info(),
+    observer_lib:report_progress({ok,100}),
+    [{"Memory",cdv_info_page,MemInfo}
      | [{Title,cdv_table_page,{Cols,Data,AllocTW}} ||
 	   {Title,Cols,Data} <- AllocInfo]] ++
-	[{"Allocated Areas",cdv_table_page,get_area_info()}].
+	[{"Allocated Areas",cdv_table_page,AreaInfo}].
 
 
 %%%-----------------------------------------------------------------
@@ -74,5 +80,5 @@ fix_alloc([]) ->
     [].
 
 alloc_columns(Columns) ->
-    [{"",   ?wxLIST_FORMAT_LEFT,  200} |
-     [{Column, ?wxLIST_FORMAT_RIGHT, 150} || Column <- Columns]].
+    [{"",   ?wxLIST_FORMAT_LEFT,  180} |
+     [{Column, ?wxLIST_FORMAT_RIGHT, 140} || Column <- Columns]].

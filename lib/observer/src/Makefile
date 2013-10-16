@@ -43,6 +43,7 @@ MODULES= \
 	cdv_detail_win \
 	cdv_table_page \
 	cdv_multi_panel \
+	cdv_html_page \
 	cdv_gen_wx \
 	cdv_proc_wx \
 	cdv_port_wx \
@@ -55,6 +56,8 @@ MODULES= \
 	cdv_mod_wx \
 	cdv_mem_wx \
 	cdv_int_tab_wx \
+	cdv_bin_wx \
+	cdv_term_wx \
 	etop \
 	etop_gui \
 	etop_tr \
@@ -71,6 +74,7 @@ MODULES= \
 	observer_traceoptions_wx \
 	observer_tv_table \
 	observer_tv_wx \
+	observer_term_wx \
 	ttb \
 	ttb_et
 

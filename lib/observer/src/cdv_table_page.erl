@@ -72,9 +72,6 @@ handle_info(active, State) ->
     crashdump_viewer_wx:set_status(State#state.trunc_warn),
     {noreply, State};
 
-handle_info(not_active, #state{} = State) ->
-    {noreply, State};
-
 handle_info(Info, State) ->
     io:format("~p:~p: Unhandled info: ~p~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.

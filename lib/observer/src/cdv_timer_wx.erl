@@ -37,9 +37,9 @@ col_to_elem(?COL_MSG)   -> #timer.msg;
 col_to_elem(?COL_TIME)  -> #timer.time.
 
 col_spec() ->
-    [{"Owner",      ?wxLIST_FORMAT_LEFT,   150},
-     {"Message",    ?wxLIST_FORMAT_LEFT,   500},
-     {"Time left (ms)",  ?wxLIST_FORMAT_RIGHT,  150}].
+    [{"Owner",      ?wxLIST_FORMAT_LEFT,   110},
+     {"Message",    ?wxLIST_FORMAT_LEFT,   400},
+     {"Time left (ms)",  ?wxLIST_FORMAT_RIGHT,  80}].
 
 get_info(Owner) ->
     {ok,Info,TW} = crashdump_viewer:timers(Owner),

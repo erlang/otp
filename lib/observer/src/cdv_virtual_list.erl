@@ -162,7 +162,7 @@ do_start_detail_win(Id, #state{panel=Panel,detail_wins=Opened,
     NewOpened =
 	case lists:keyfind(Id, 1, Opened) of
 	    false ->
-		case cdv_detail_win:start(Id, Panel, Callback) of
+		case cdv_detail_win:start_link(Id, Panel, Callback) of
 		    {error, _} ->
 			Opened;
 		    IW ->
@@ -197,30 +197,11 @@ call(_,_) ->
 handle_info({holder_updated, Count}, State=#state{grid=Grid}) ->
     wxListCtrl:setItemCount(Grid, Count),
     Count > 0 andalso wxListCtrl:refreshItems(Grid, 0, Count-1),
-
     {noreply, State};
-
-handle_info({detail_win_closed, Id},#state{detail_wins=Opened}=State) ->
-    Opened2 = lists:keydelete(Id, 1, Opened),
-    {noreply, State#state{detail_wins=Opened2}};
 
 handle_info(active, State) ->
     crashdump_viewer_wx:set_status(State#state.trunc_warn),
     {noreply, State};
-
-handle_info(not_active, State) ->
-    {noreply, State};
-
-handle_info(new_dump,
-	    #state{grid=Grid,detail_wins=Opened,
-		   holder=Holder,callback=Callback}=State) ->
-    lists:foreach(fun({_Id, IW}) -> wxFrame:destroy(IW) end, Opened),
-    wxListCtrl:deleteAllItems(Grid),
-    Ref = erlang:monitor(process,Holder),
-    Holder ! stop,
-    receive {'DOWN',Ref,_,_,_} -> ok end,
-    {NewHolder,TW} = spawn_table_holder(Callback, all),
-    {noreply, State#state{detail_wins=[],holder=NewHolder,trunc_warn=TW}};
 
 handle_info(Info, State) ->
     io:format("~p:~p, Unexpected info: ~p~n", [?MODULE, ?LINE, Info]),
@@ -233,6 +214,17 @@ terminate(_Reason, #state{holder=Holder}) ->
 code_change(_, _, State) ->
     {ok, State}.
 
+handle_call(new_dump, _From,
+	    #state{grid=Grid,detail_wins=Opened,
+		   holder=Holder,callback=Callback}=State) ->
+    lists:foreach(fun({_Id, IW}) -> wxFrame:destroy(IW) end, Opened),
+    wxListCtrl:deleteAllItems(Grid),
+    Ref = erlang:monitor(process,Holder),
+    Holder ! stop,
+    receive {'DOWN',Ref,_,_,_} -> ok end,
+    {NewHolder,TW} = spawn_table_holder(Callback, all),
+    {reply, ok, State#state{detail_wins=[],holder=NewHolder,trunc_warn=TW}};
+
 handle_call(Msg, _From, State) ->
     io:format("~p:~p: Unhandled call ~p~n",[?MODULE, ?LINE, Msg]),
     {reply, ok, State}.
@@ -240,6 +232,10 @@ handle_call(Msg, _From, State) ->
 handle_cast({start_detail_win,Id}, State) ->
     State2 = do_start_detail_win(Id, State),
     {noreply, State2};
+
+handle_cast({detail_win_closed, Id},#state{detail_wins=Opened}=State) ->
+    Opened2 = lists:keydelete(Id, 1, Opened),
+    {noreply, State#state{detail_wins=Opened2}};
 
 handle_cast(Msg, State) ->
     io:format("~p:~p: Unhandled cast ~p~n", [?MODULE, ?LINE, Msg]),
@@ -333,16 +329,17 @@ spawn_table_holder(Callback, Owner) ->
 	end,
     {Holder,TW}.
 
-init_table_holder(Parent, Attrs, Callback, Info0) ->
-    Info = array:from_list(Info0),
-    S = handle_update(Info, #holder{parent=Parent,
-				    info=Info,
-				    sort=#sort{sort_key=
-						   Callback:col_to_elem(id)},
-				    attrs=Attrs,
-				    callback=Callback
-				   }),
-    table_holder(S).
+init_table_holder(Parent, Attrs, Callback, InfoList0) ->
+    Sort = #sort{sort_key=Callback:col_to_elem(id)},
+    {_Sort, InfoList} = do_sort(Sort,InfoList0),
+    Info = array:from_list(InfoList),
+    NRows = array:size(Info),
+    Parent ! {holder_updated, NRows},
+    table_holder(#holder{parent=Parent,
+			 info=Info,
+			 sort=Sort,
+			 attrs=Attrs,
+			 callback=Callback}).
 
 table_holder(#holder{callback=Callback, attrs=Attrs}=S0) ->
     receive
@@ -372,14 +369,6 @@ change_sort(Col, S0=#holder{parent=Parent, info=Info0, sort=Sort0}) ->
     Info = array:from_list(InfoList),
     Parent ! {holder_updated, NRows},
     S0#holder{info=Info, last_row=undefined, sort=Sort}.
-
-handle_update(Info0, S0=#holder{parent=Parent, sort=Sort}) ->
-    NRows = array:size(Info0),
-    InfoList0 = array:to_list(Info0),
-    {_Sort, InfoList} = do_sort(Sort, InfoList0),
-    Info = array:from_list(InfoList),
-    Parent ! {holder_updated, NRows},
-    S0#holder{info=Info, last_row=undefined}.
 
 sort(Col, Opt=#sort{sort_key=Col, sort_incr=Bool}, Table) ->
     do_sort(Opt#sort{sort_incr=not Bool}, Table);

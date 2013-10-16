@@ -22,11 +22,11 @@
 -include("crashdump_viewer.hrl").
 
 get_info() ->
-    {ok,Info} = crashdump_viewer:init_general_info(),
+    {ok,Info,TW} = crashdump_viewer:general_info(),
     Fields = info_fields(),
     Proplist =
 	crashdump_viewer:to_proplist(record_info(fields,general_info),Info),
-    {Fields,Proplist,[]}.
+    {Fields,Proplist,TW}.
 
 info_fields() ->
     [{"General Information",

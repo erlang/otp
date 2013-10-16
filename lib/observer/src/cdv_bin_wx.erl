@@ -20,17 +20,60 @@
 -export([get_details/1,
 	 detail_pages/0]).
 
--include_lib("wx/include/wx.hrl").
--include("crashdump_viewer.hrl").
-
 %% Callbacks for cdv_detail_win
 get_details(Id) ->
     {ok,Bin} = crashdump_viewer:expand_binary(Id),
-    {ok,{"Expanded Binary", io_lib:format("~tp",[Bin]), []}}.
+    {ok,{"Expanded Binary", Bin, []}}.
 
 detail_pages() ->
-    [{simple, "Binary", fun init_bin_page/3}].
+    [{"Binary", fun init_bin_page/2}].
 
-init_bin_page(Parent, _, Bin) ->
-    Html = crashdump_viewer_html:plain_page(Bin),
-    observer_lib:html_window(Parent,Html).
+init_bin_page(Parent,Bin) ->
+    cdv_multi_panel:start_link(
+      Parent,
+      [{"Format \~p",cdv_html_page,format_bin_fun("~p",Bin)},
+       {"Format \~tp",cdv_html_page,format_bin_fun("~tp",Bin)},
+       {"Format \~w",cdv_html_page,format_bin_fun("~w",Bin)},
+       {"Format \~s",cdv_html_page,format_bin_fun("~s",Bin)},
+       {"Format \~ts",cdv_html_page,format_bin_fun("~ts",Bin)},
+       {"Hex",cdv_html_page,hex_binary_fun(Bin)},
+       {"Term",cdv_html_page, binary_to_term_fun(Bin)}]).
+
+format_bin_fun(Format,Bin) ->
+    fun() ->
+	    try io_lib:format(Format,[Bin]) of
+		Str -> plain_html(lists:flatten(Str))
+	    catch error:badarg ->
+		    Warning = "This binary can not be formatted with " ++ Format,
+		    crashdump_viewer_html:warning(Warning)
+	    end
+    end.
+
+binary_to_term_fun(Bin) ->
+    fun() ->
+	    try binary_to_term(Bin) of
+		Term -> plain_html(io_lib:format("~p",[Term]))
+	    catch error:badarg ->
+		    Warning = "This binary can not be coverted to an Erlang term",
+		    crashdump_viewer_html:warning(Warning)
+	    end
+    end.
+
+-define(line_break,25).
+hex_binary_fun(Bin) ->
+    fun() ->
+	    S = "<<" ++ format_hex(Bin,?line_break) ++ ">>",
+	    plain_html(io_lib:format("~s",[S]))
+    end.
+
+format_hex(<<B1:4,B2:4>>,_) ->
+    [integer_to_list(B1,16),integer_to_list(B2,16)];
+format_hex(<<B1:4,B2:4,Bin/binary>>,0) ->
+    [integer_to_list(B1,16),integer_to_list(B2,16),$,,$\n,$\s,$\s
+     | format_hex(Bin,?line_break)];
+format_hex(<<B1:4,B2:4,Bin/binary>>,N) ->
+    [integer_to_list(B1,16),integer_to_list(B2,16),$,
+     | format_hex(Bin,N-1)].
+
+plain_html(Text) ->
+    crashdump_viewer_html:plain_page(Text).

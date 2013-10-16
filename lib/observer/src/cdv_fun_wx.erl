@@ -44,11 +44,11 @@ col_to_elem(?COL_REFC)  -> #fu.refc.
 
 col_spec() ->
     [{"Module",         ?wxLIST_FORMAT_LEFT,   200},
-     {"Uniq",           ?wxLIST_FORMAT_RIGHT,  150},
-     {"Index",          ?wxLIST_FORMAT_RIGHT,  60},
+     {"Uniq",           ?wxLIST_FORMAT_RIGHT,  100},
+     {"Index",          ?wxLIST_FORMAT_RIGHT,  50},
      {"Address",        ?wxLIST_FORMAT_LEFT,   120},
      {"Native Address", ?wxLIST_FORMAT_LEFT,   120},
-     {"Refc",           ?wxLIST_FORMAT_RIGHT,  60}].
+     {"Refc",           ?wxLIST_FORMAT_RIGHT,  50}].
 
 get_info(_) ->
     {ok,Info,TW} = crashdump_viewer:funs(),

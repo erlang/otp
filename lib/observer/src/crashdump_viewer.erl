@@ -42,10 +42,9 @@
 -export([start/0,start/1,stop/0,script_start/0,script_start/1]).
 
 %% GUI API
--export([start_link/0,
-	 get_progress/0]).
+-export([start_link/0]).
 -export([read_file/1,
-	 init_general_info/0,
+	 general_info/0,
 	 processes/0,
 	 proc_details/1,
 	 port/1,
@@ -64,8 +63,7 @@
 	 allocator_info/0,
 	 hash_tables/0,
 	 index_tables/0,
-	 expand_binary/1,
-	 expand_memory/2]).
+	 expand_binary/1]).
 
 %% Library function
 -export([to_proplist/2, to_value_list/1]).
@@ -86,8 +84,6 @@
 -define(chunk_size,1000). % number of bytes read from crashdump at a time
 -define(max_line_size,100). % max number of bytes (i.e. characters) the
 			    % line_head/1 function can return
--define(max_display_binary_size,50). % max size of a binary that will be
-				      % directly displayed.
 -define(not_available,"N/A").
 
 
@@ -233,13 +229,13 @@ start_link() ->
 %%%-----------------------------------------------------------------
 %%% Called by crashdump_viewer_wx
 read_file(File) ->
-    cast({read_file,File,self()}).
+    cast({read_file,File}).
 
 %%%-----------------------------------------------------------------
 %%% The following functions are called when the different tabs are
 %%% created
-init_general_info() ->
-    call(init_general_info).
+general_info() ->
+    call(general_info).
 processes() ->
     call(procs_summary).
 ports() ->
@@ -284,25 +280,10 @@ port(Id) ->
     call({port,Id}).
 
 %%%-----------------------------------------------------------------
-%%% Stack dump, message queue and dictionary tabs in process detail
-%%% window
-expand_memory(Pid,What) ->
-    call({expand_memory,Pid,What}).
-
-%%%-----------------------------------------------------------------
 %%% Called when "<< xxx bytes>>" link is clicket to open a new window
 %%% displaying the whole binary.
 expand_binary(Pos) ->
     call({expand_binary,Pos}).
-
-%%%-----------------------------------------------------------------
-%%% Wait for a progress report when reading/processing crash dump.
-%%% Called from crashdump_viewer_wx.
-get_progress() ->
-    receive
-	{progress,Status} ->
-	    Status
-    end.
 
 %%====================================================================
 %% Server functions
@@ -330,50 +311,34 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_call(init_general_info,_From,State=#state{file=File}) ->
+handle_call(general_info,_From,State=#state{file=File}) ->
     GenInfo = general_info(File),
-    [{DumpVsn,_}] = lookup_index(?erl_crash_dump),
     NumAtoms = GenInfo#general_info.num_atoms,
     WS = parse_vsn_str(GenInfo#general_info.system_vsn,4),
-    NewState = State#state{dump_vsn=[list_to_integer(L) ||
-					L<-string:tokens(DumpVsn,".")],
-			   wordsize=WS,
-			   num_atoms=NumAtoms},
-    {reply,{ok,GenInfo},NewState};
-handle_call({expand_memory,Pid,What},_From,State=#state{file=File,binaries=B}) ->
-    Reply = 
-	case truncated_warning([{?proc,Pid}]) of
-	    [] ->
-		{ok,expand_memory(File,What,Pid,B)};
-	    _TW ->
-		Info = 
-		    "The crashdump is truncated in the middle of this "
-		    "process' memory information, so this information "
-		    "can not be extracted.",
-		{error,Info}
-	end,
-    {reply,Reply,State};
-handle_call({expand_binary,Pos0},_From,State=#state{file=File}) ->
-    Pos = list_to_integer(Pos0),
+    TW = case get(truncated) of
+	     true -> ["WARNING: The crash dump is truncated. "
+		      "Some information might be missing."];
+	     false -> []
+	 end,
+    {reply,{ok,GenInfo,TW},State#state{wordsize=WS, num_atoms=NumAtoms}};
+handle_call({expand_binary,{Offset,Size,Pos}},_From,State=#state{file=File}) ->
     Fd = open(File),
     pos_bof(Fd,Pos),
-    {Bin,_Line} = get_binary(val(Fd)),
+    {Bin,_Line} = get_binary(Offset,Size,val(Fd)),
     close(Fd),
     {reply,{ok,Bin},State};
 handle_call(procs_summary,_From,State=#state{file=File,wordsize=WS}) ->
     TW = truncated_warning([?proc]),
     Procs = procs_summary(File,WS),
     {reply,{ok,Procs,TW},State};
-handle_call({proc_details,Pid},_From,State=#state{file=File,wordsize=WS})->
+handle_call({proc_details,Pid},_From,
+	    State=#state{file=File,wordsize=WS,dump_vsn=DumpVsn,binaries=B})->
     Reply = 
-	case get_proc_details(File,Pid,State#state.dump_vsn,WS) of
-	    {ok,Proc} -> 
-		TW = truncated_warning([{?proc,Pid}]),
+	case get_proc_details(File,Pid,WS,DumpVsn,B) of
+	    {ok,Proc,TW} ->
 		{ok,Proc,TW};
-	    {other_node,Node} -> 
-		{error,{other_node,Node}};
-	    not_found -> 
-		{error,not_found}
+	    Other ->
+		{error,Other}
 	end,
     {reply, Reply, State};
 handle_call({port,Id},_From,State=#state{file=File}) ->
@@ -469,13 +434,13 @@ handle_call(index_tables,_From,State=#state{file=File}) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_cast({read_file,File,ProgressReceiver}, _State) ->
-    case do_read_file(File,ProgressReceiver) of
-	{ok,Binaries} ->
-	    report_progress(ProgressReceiver,{ok,done}),
-	    {noreply, #state{file=File,binaries=Binaries}};
+handle_cast({read_file,File}, _State) ->
+    case do_read_file(File) of
+	{ok,Binaries,DumpVsn} ->
+	    observer_lib:report_progress({ok,done}),
+	    {noreply, #state{file=File,binaries=Binaries,dump_vsn=DumpVsn}};
 	Error ->
-	    report_progress(ProgressReceiver,Error),
+	    end_progress(Error),
 	    {noreply, #state{}}
     end;
 handle_cast(stop,State) ->
@@ -565,10 +530,6 @@ compare_pid("<"++Id,"<"++OtherId) ->
 compare_pid(_,_) ->
     false.
 
-report_progress(Receiver,Progress) ->
-    Receiver ! {progress,Progress},
-    ok.
-
 open(File) ->
     {ok,Fd} = file:open(File,[read,read_ahead,raw,binary]),
     Fd.
@@ -623,22 +584,14 @@ get_chunk(Fd) ->
 
 %% Read and report progress
 progress_read(Fd) ->
-    {R,RBytes} =
+    {R,Bytes} =
 	case read(Fd) of
 	    {ok,Bin} ->
 		{{ok,Bin},size(Bin)};
 	    Other ->
 		{Other,0}
 	end,
-    {Receiver,Bytes,Size} = get(progress),
-    Bytes1 = Bytes + RBytes,
-    Percent0 = (100*Bytes) div Size,
-    Percent = (100*Bytes1) div Size,
-    if Percent > Percent0 ->
-	    report_progress(Receiver,{ok,Percent});
-       true -> ok
-    end,
-    put(progress,{Receiver,Bytes1,Size}),
+    update_progress(Bytes),
     R.
 
 read(Fd) ->
@@ -801,14 +754,13 @@ parse_vsn_str(Str,WS) ->
 %%%
 %%% Progress is reported during the time and MUST be checked with
 %%% crashdump_viewer:get_progress/0 until it returns {ok,done}.
-do_read_file(File,ProgressReceiver) ->
+do_read_file(File) ->
     case file:read_file_info(File) of
 	{ok,#file_info{type=regular,
 		       access=FileA,
 		       size=Size}} when FileA=:=read; FileA=:=read_write ->
 	    Fd = open(File),
-	    report_progress(ProgressReceiver,{ok,"Reading file"}),
-	    put(progress,{ProgressReceiver,0,Size}),
+	    init_progress("Reading file",Size),
 	    case progress_read(Fd) of
 		{ok,<<$=:8,TagAndRest/binary>>} ->
 		    {Tag,Id,Rest,N1} = tag(Fd,TagAndRest,1),
@@ -818,11 +770,14 @@ do_read_file(File,ProgressReceiver) ->
 			    insert_index(Tag,Id,N1+1),
 			    put(last_tag,{Tag,""}),
 			    indexify(Fd,Rest,N1),
-			    erase(progress),
+			    end_progress(),
 			    check_if_truncated(),
-			    Binaries = read_binaries(Fd,ProgressReceiver),
+			    [{DumpVsn0,_}] = lookup_index(?erl_crash_dump),
+			    DumpVsn = [list_to_integer(L) ||
+					L<-string:tokens(DumpVsn0,".")],
+			    Binaries = read_binaries(Fd,DumpVsn),
 			    close(Fd),
-			    {ok,Binaries};
+			    {ok,Binaries,DumpVsn};
 			_Other ->
 			    R = io_lib:format(
 				  "~s is not an Erlang crash dump~n",
@@ -1059,47 +1014,28 @@ procs_summary(File,WS) ->
 			   _ -> Proc
 		       end
 	       end,
-    lookup_and_parse_index(File,?proc,ParseFun).
+    lookup_and_parse_index(File,?proc,ParseFun,"processes").
 
 %%-----------------------------------------------------------------
 %% Page with one process
-get_proc_details(File,Pid,DumpVsn,WS) ->
+get_proc_details(File,Pid,WS,DumpVsn,Binaries) ->
     case lookup_index(?proc,Pid) of
 	[{_,Start}] ->
 	    Fd = open(File),
-	    pos_bof(Fd,Start),
-	    Proc0 = 
-		case DumpVsn of
-		    [0,0] ->
-			%% Old version (translated)
-			#proc{pid=Pid};
-		    _ ->
-			#proc{pid=Pid,
-			      stack_dump=if_exist(?proc_stack,Pid),
-			      msg_q=if_exist(?proc_messages,Pid),
-			      dict=if_exist(?proc_dictionary,Pid)}
+	    {{Stack,MsgQ,Dict},TW} =
+		case truncated_warning([{?proc,Pid}]) of
+		    [] ->
+			{expand_memory(Fd,Pid,DumpVsn,Binaries),[]};
+		    TW0 ->
+			{{[],[],[]},TW0}
 		end,
+	    pos_bof(Fd,Start),
+	    Proc0 = #proc{pid=Pid,stack_dump=Stack,msg_q=MsgQ,dict=Dict},
 	    Proc = get_procinfo(Fd,fun all_procinfo/5,Proc0,WS),
 	    close(Fd),
-	    {ok,Proc};
+	    {ok,Proc,TW};
 	_ ->
 	    maybe_other_node(Pid)
-    end.
-
-if_exist(Tag,Key) ->
-    case count_index(Tag,Key) of
-	0 -> 
-	    Tag1 = 
-		case is_proc_tag(Tag) of
-		    true -> ?proc;
-		    false -> Tag
-		end,
-	    case truncated_here({Tag1,Key}) of
-		true -> truncated;
-		false -> undefined
-	    end;
-	_ -> 
-	    expand
     end.
 
 get_procinfo(Fd,Fun,Proc,WS) ->
@@ -1141,11 +1077,7 @@ get_procinfo(Fd,Fun,Proc,WS) ->
 
 main_procinfo(Fd,Fun,Proc,WS,LineHead) ->
     case LineHead of
-	"Stack dump" ->
-	    %% This is the last element in older dumps (DumpVsn=0.0)
-	    Proc;
 	"=" ++ _next_tag ->
-	    %% DumpVsn=0.1 or newer: No stack dump here
 	    Proc;
 	"arity = " ++ _ ->
 	    %%! Temporary workaround
@@ -1295,97 +1227,70 @@ maybe_other_node(Id) ->
     end.
 
 
-expand_memory(File,What,Pid,Binaries) ->
-    Fd = open(File),
+expand_memory(Fd,Pid,DumpVsn,Binaries) ->
+    BinAddrAdj = get_bin_addr_adj(DumpVsn),
     put(fd,Fd),
-    Dict = read_heap(Fd,Pid,Binaries),
-    Expanded = 
-	case What of
-	    "StackDump" -> read_stack_dump(Fd,Pid,Dict);
-	    "MsgQueue" -> read_messages(Fd,Pid,Dict);
-	    "Dictionary" -> read_dictionary(Fd,?proc_dictionary,Pid,Dict)
-	end,
+    Dict = read_heap(Fd,Pid,BinAddrAdj,Binaries),
+    Expanded = {read_stack_dump(Fd,Pid,BinAddrAdj,Dict),
+		read_messages(Fd,Pid,BinAddrAdj,Dict),
+		read_dictionary(Fd,Pid,BinAddrAdj,Dict)},
     erase(fd),
-    close(Fd),
     Expanded.
-    
+
+%%%-----------------------------------------------------------------
+%%% This is a workaround for a bug in dump versions prior to 0.3:
+%%% Addresses were truncated to 32 bits. This could cause binaries to
+%%% get the same address as heap terms in the dump. To work around it
+%%% we always store binaries on very high addresses in the gb_tree.
+get_bin_addr_adj(DumpVsn) when DumpVsn < [0,3] ->
+    16#f bsl 64;
+get_bin_addr_adj(_) ->
+    0.
+
 %%%
 %%% Read binaries.
 %%%
-read_binaries(Fd,ProgressReceiver) ->
+read_binaries(Fd,DumpVsn) ->
     AllBinaries = lookup_index(?binary),
-    NumBinaries = length(AllBinaries),
-    ReportInterval = (NumBinaries div 100) + 1,
-    report_progress(ProgressReceiver,{ok,"Processing binaries"}),
-    read_binaries(Fd, AllBinaries, gb_trees:empty(),
-		  ProgressReceiver,ReportInterval,ReportInterval,0).
-
-read_binaries(Fd,Bins,Dict,Receiver,0,ReportInterval,Percent0) ->
-    Percent = Percent0+1,
-    report_progress(Receiver,{ok,Percent}),
-    read_binaries(Fd,Bins,Dict,Receiver,ReportInterval,ReportInterval,Percent);
-read_binaries(Fd,[{Addr0,Pos}|Bins],Dict0,Receiver,Count,ReportInterval,Percent) ->
-    pos_bof(Fd,Pos),
-    {Addr,_} = get_hex(Addr0),
-    Dict = 
-	case line_head(Fd) of
-	    {eof,_} ->
-		gb_trees:enter(Addr,'#CDVTruncatedBinary',Dict0);
-	    Size0 ->
-		{Size,_} = get_hex(Size0),
-		if Size > ?max_display_binary_size ->
-			gb_trees:enter(Addr,{'#CDVTooBig',binary,Pos},Dict0);
-		   true ->
-			pos_bof(Fd,Pos),
-			Line = val(Fd),
-			parse_binary(Addr,Line,Dict0)
-		end
-	end,
-    read_binaries(Fd,Bins,Dict,Receiver,Count-1,ReportInterval,Percent);
-read_binaries(_Fd,[],Dict,Receiver,_Count,_ReportInterval,_Percent) ->
-    report_progress(Receiver,{ok,100}),
-    Dict.
-
-parse_binary(Addr, Line0, Dict) ->
-    case get_hex(Line0) of
-	{N,":"++Line1} ->
-	    {Bin,Line} = get_binary(N, Line1, []),
-	    [] = skip_blanks(Line),
-	    gb_trees:enter(Addr, Bin, Dict);
-	{_N,[]} ->
-	    %% If the dump is truncated before the ':' in this line, then
-	    %% line_head/1 might not discover it (if a \n has been inserted
-	    %% somehow???)
-	    gb_trees:enter(Addr,'#CDVTruncatedBinary',Dict)
-    end.
-
-
+    AddrAdj = get_bin_addr_adj(DumpVsn),
+    Fun = fun({Addr0,Pos},Dict0) ->
+		  pos_bof(Fd,Pos),
+		  {HexAddr,_} = get_hex(Addr0),
+		  Addr = HexAddr bor AddrAdj,
+		  Bin =
+		      case line_head(Fd) of
+			  {eof,_} -> '#CDVTruncatedBinary';
+			  _Size   -> {'#CDVBin',Pos}
+		      end,
+		  gb_trees:enter(Addr,Bin,Dict0)
+	  end,
+    progress_foldl("Processing binaries",Fun,gb_trees:empty(),AllBinaries).
 
 %%%
 %%% Read top level section.
 %%%
 
-read_stack_dump(Fd,Pid,Dict) ->
+read_stack_dump(Fd,Pid,BinAddrAdj,Dict) ->
     case lookup_index(?proc_stack,Pid) of
 	[{_,Start}] ->
 	    pos_bof(Fd,Start),
-	    read_stack_dump1(Fd,Dict,[]);
+	    read_stack_dump1(Fd,BinAddrAdj,Dict,[]);
 	[] ->
 	    []
     end.
-read_stack_dump1(Fd,Dict,Acc) ->
+read_stack_dump1(Fd,BinAddrAdj,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case val(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
-	    Stack = parse_top(Line,Dict),
-	    read_stack_dump1(Fd,Dict,[Stack|Acc])
+	    Stack = parse_top(Line,BinAddrAdj,Dict),
+	    read_stack_dump1(Fd,BinAddrAdj,Dict,[Stack|Acc])
     end.
 
-parse_top(Line0, D) ->
+parse_top(Line0, BinAddrAdj, D) ->
     {Label,Line1} = get_label(Line0),
-    {Term,Line,D} = parse_term(Line1, D),
+    {Term,Line,D} = parse_term(Line1, BinAddrAdj, D),
     [] = skip_blanks(Line),
     {Label,Term}.
 
@@ -1393,27 +1298,27 @@ parse_top(Line0, D) ->
 %%% Read message queue.
 %%%
 
-read_messages(Fd,Pid,Dict) ->
+read_messages(Fd,Pid,BinAddrAdj,Dict) ->
     case lookup_index(?proc_messages,Pid) of
 	[{_,Start}] ->
 	    pos_bof(Fd,Start),
-	    read_messages1(Fd,Dict,[]);
+	    read_messages1(Fd,BinAddrAdj,Dict,[]);
 	[] ->
 	    []
     end.
-read_messages1(Fd,Dict,Acc) ->
+read_messages1(Fd,BinAddrAdj,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case val(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
-	    Msg = parse_message(Line,Dict),
-	    read_messages1(Fd,Dict,[Msg|Acc])
+	    Msg = parse_message(Line,BinAddrAdj,Dict),
+	    read_messages1(Fd,BinAddrAdj,Dict,[Msg|Acc])
     end.
     
-parse_message(Line0, D) ->
-    {Msg,":"++Line1,_} = parse_term(Line0, D),
-    {Token,Line,_} = parse_term(Line1, D),
+parse_message(Line0, BinAddrAdj, D) ->
+    {Msg,":"++Line1,_} = parse_term(Line0, BinAddrAdj, D),
+    {Token,Line,_} = parse_term(Line1, BinAddrAdj, D),
     [] = skip_blanks(Line),
     {Msg,Token}.
     
@@ -1421,26 +1326,26 @@ parse_message(Line0, D) ->
 %%% Read process dictionary
 %%%
 
-read_dictionary(Fd,Tag,Pid,Dict) ->
-    case lookup_index(Tag,Pid) of
+read_dictionary(Fd,Pid,BinAddrAdj,Dict) ->
+    case lookup_index(?proc_dictionary,Pid) of
 	[{_,Start}] ->
 	    pos_bof(Fd,Start),
-	    read_dictionary1(Fd,Dict,[]);
+	    read_dictionary1(Fd,BinAddrAdj,Dict,[]);
 	[] ->
 	    []
     end.
-read_dictionary1(Fd,Dict,Acc) ->
+read_dictionary1(Fd,BinAddrAdj,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case val(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
-	    Msg = parse_dictionary(Line,Dict),
-	    read_dictionary1(Fd,Dict,[Msg|Acc])
+	    Msg = parse_dictionary(Line,BinAddrAdj,Dict),
+	    read_dictionary1(Fd,BinAddrAdj,Dict,[Msg|Acc])
     end.
     
-parse_dictionary(Line0, D) ->
-    {Entry,Line,_} = parse_term(Line0, D),
+parse_dictionary(Line0, BinAddrAdj, D) ->
+    {Entry,Line,_} = parse_term(Line0, BinAddrAdj, D),
     [] = skip_blanks(Line),
     Entry.
     
@@ -1448,16 +1353,16 @@ parse_dictionary(Line0, D) ->
 %%% Read heap data.
 %%%
 
-read_heap(Fd,Pid,Dict0) ->
+read_heap(Fd,Pid,BinAddrAdj,Dict0) ->
     case lookup_index(?proc_heap,Pid) of
 	[{_,Pos}] ->
 	    pos_bof(Fd,Pos),
-	    read_heap(Dict0);
+	    read_heap(BinAddrAdj,Dict0);
 	[] ->
 	    Dict0
     end.
 
-read_heap(Dict0) ->
+read_heap(BinAddrAdj,Dict0) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case get(fd) of
 	end_of_heap ->
@@ -1468,14 +1373,14 @@ read_heap(Dict0) ->
 		    put(fd, end_of_heap),
 		    Dict0;
 		Line ->
-		    Dict = parse(Line,Dict0),
-		    read_heap(Dict)
+		    Dict = parse(Line,BinAddrAdj,Dict0),
+		    read_heap(BinAddrAdj,Dict)
 	    end
     end.
 
-parse(Line0, Dict0) ->
+parse(Line0, BinAddrAdj, Dict0) ->
     {Addr,":"++Line1} = get_hex(Line0),
-    {_Term,Line,Dict} = parse_heap_term(Line1, Addr, Dict0),
+    {_Term,Line,Dict} = parse_heap_term(Line1, Addr, BinAddrAdj, Dict0),
     [] = skip_blanks(Line),
     Dict.
 
@@ -1498,7 +1403,7 @@ get_port(File,Port) ->
 %% Page with all ports
 get_ports(File) ->
     ParseFun = fun(Fd,Id) -> get_portinfo(Fd,#port{id=port_to_tuple(Id)}) end,
-    lookup_and_parse_index(File,?port,ParseFun).
+    lookup_and_parse_index(File,?port,ParseFun,"ports").
 
 %% Converting port string to tuple to secure correct sorting. This is
 %% converted back in cdv_port_wx:format/1.
@@ -1566,7 +1471,7 @@ get_ets_tables(File,Pid,WS) ->
     ParseFun = fun(Fd,Id) ->
 		       get_etsinfo(Fd,#ets_table{pid=list_to_pid(Id)},WS)
 	       end,
-    lookup_and_parse_index(File,{?ets,Pid},ParseFun).
+    lookup_and_parse_index(File,{?ets,Pid},ParseFun,"ets").
 
 get_etsinfo(Fd,EtsTable,WS) ->
     case line_head(Fd) of
@@ -1619,7 +1524,7 @@ get_internal_ets_tables(File,WS) ->
 %% Page with list of all timers 
 get_timers(File,Pid) ->
     ParseFun = fun(Fd,Id) -> get_timerinfo_1(Fd,#timer{pid=list_to_pid(Id)}) end,
-    lookup_and_parse_index(File,{?timer,Pid},ParseFun).
+    lookup_and_parse_index(File,{?timer,Pid},ParseFun,"timers").
 
 get_timerinfo_1(Fd,Timer) ->
     case line_head(Fd) of
@@ -1758,7 +1663,7 @@ loaded_mods(File) ->
 	    [] ->
 		{"unknown","unknown"}
     end,
-    {CC,OC,lookup_and_parse_index(File,?mod,ParseFun)}.
+    {CC,OC,lookup_and_parse_index(File,?mod,ParseFun,"modules")}.
 
 get_loaded_mod_totals(Fd,{CC,OC}) ->
     case line_head(Fd) of
@@ -1845,7 +1750,7 @@ hex_to_dec(N) -> list_to_integer(N).
 %% Page with list of all funs
 funs(File) ->
     ParseFun = fun(Fd,_Id) -> get_funinfo(Fd,#fu{}) end,
-    lookup_and_parse_index(File,?fu,ParseFun).
+    lookup_and_parse_index(File,?fu,ParseFun,"funs").
 
 get_funinfo(Fd,Fu) ->
     case line_head(Fd) of
@@ -1883,6 +1788,7 @@ atoms(File,NumAtoms) ->
 get_atoms(Fd,NumAtoms) ->
     case get_chunk(Fd) of
 	{ok,Bin} ->
+	    init_progress("Processing atoms",NumAtoms),
 	    get_atoms(Fd,Bin,NumAtoms,[]);
 	eof ->
 	    []
@@ -1896,17 +1802,19 @@ get_atoms(Fd,Bin,NumAtoms,Atoms) ->
     get_atoms1(Fd,Bins,NumAtoms,Atoms).
 
 get_atoms1(_Fd,[<<"=",_/binary>>|_],_N,Atoms) ->
+    end_progress(),
     Atoms;
 get_atoms1(Fd,[LastBin],N,Atoms) ->
     case get_chunk(Fd) of
 	{ok,Bin0} ->
 	    get_atoms(Fd,<<LastBin/binary,Bin0/binary>>,N,Atoms);
 	eof ->
-	    Atoms
+	    end_progress(),
+	    [{N,get_atom(LastBin)}|Atoms]
     end;
 get_atoms1(Fd,[Bin|Bins],N,Atoms) ->
+    update_progress(),
     get_atoms1(Fd,Bins,N-1,[{N,get_atom(Bin)}|Atoms]).
-
 
 %% This ensures sorting according to first actual letter in the atom,
 %% disregarding possible single quote. It is formatted back to correct
@@ -2309,113 +2217,117 @@ get_indextableinfo1(Fd,IndexTable) ->
 %%%-----------------------------------------------------------------
 %%% Parse memory in crashdump version 0.1 and newer
 %%%
-parse_heap_term([$l|Line0], Addr, D0) ->	%Cons cell.
-    {H,"|"++Line1,D1} = parse_term(Line0, D0),
-    {T,Line,D2} = parse_term(Line1, D1),
+parse_heap_term([$l|Line0], Addr, BinAddrAdj, D0) ->	%Cons cell.
+    {H,"|"++Line1,D1} = parse_term(Line0, BinAddrAdj, D0),
+    {T,Line,D2} = parse_term(Line1, BinAddrAdj, D1),
     Term = [H|T],
     D = gb_trees:insert(Addr, Term, D2),
     {Term,Line,D};
-parse_heap_term([$t|Line0], Addr, D) ->		%Tuple
+parse_heap_term([$t|Line0], Addr, BinAddrAdj, D) ->	%Tuple
     {N,":"++Line} = get_hex(Line0),
-    parse_tuple(N, Line, Addr, D, []);
-parse_heap_term([$F|Line0], Addr, D0) ->	%Float
+    parse_tuple(N, Line, Addr, BinAddrAdj, D, []);
+parse_heap_term([$F|Line0], Addr, _BinAddrAdj, D0) ->	%Float
     {N,":"++Line1} = get_hex(Line0),
     {Chars,Line} = get_chars(N, Line1),
     Term = list_to_float(Chars),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("B16#"++Line0, Addr, D0) ->	%Positive big number.
+parse_heap_term("B16#"++Line0, Addr, _BinAddrAdj, D0) -> %Positive big number.
     {Term,Line} = get_hex(Line0),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("B-16#"++Line0, Addr, D0) ->	%Negative big number
+parse_heap_term("B-16#"++Line0, Addr, _BinAddrAdj, D0) -> %Negative big number
     {Term0,Line} = get_hex(Line0),
     Term = -Term0,
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("B"++Line0, Addr, D0) ->	%Decimal big num (new in R10B-something).
+parse_heap_term("B"++Line0, Addr, _BinAddrAdj, D0) ->	%Decimal big num
     case string:to_integer(Line0) of
 	{Int,Line} when is_integer(Int) ->
 	    D = gb_trees:insert(Addr, Int, D0),
 	    {Int,Line,D}
     end;
-parse_heap_term([$P|Line0], Addr, D0) ->	% External Pid.
+parse_heap_term([$P|Line0], Addr, _BinAddrAdj, D0) ->	% External Pid.
     {Pid0,Line} = get_id(Line0),
-    Pid = "#CDVPid"++Pid0,
+    Pid = ['#CDVPid'|Pid0],
     D = gb_trees:insert(Addr, Pid, D0),
     {Pid,Line,D};
-parse_heap_term([$p|Line0], Addr, D0) ->        % External Port.
+parse_heap_term([$p|Line0], Addr, _BinAddrAdj, D0) ->   % External Port.
     {Port0,Line} = get_id(Line0),
-    Port = "#CDVPort"++Port0,
+    Port = ['#CDVPort'|Port0],
     D = gb_trees:insert(Addr, Port, D0),
     {Port,Line,D};
-parse_heap_term("E"++Line0, Addr, D0) ->	%Term encoded in external format.
+parse_heap_term("E"++Line0, Addr, _BinAddrAdj, D0) ->	%Term encoded in external format.
     {Bin,Line} = get_binary(Line0),
     Term = binary_to_term(Bin),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("Yh"++Line0, Addr, D0) ->	%Heap binary.
+parse_heap_term("Yh"++Line0, Addr, _BinAddrAdj, D0) ->	%Heap binary.
     {Term,Line} = get_binary(Line0),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("Yc"++Line0, Addr, D0) ->	%Reference-counted binary.
-    {Binp,":"++Line1} = get_hex(Line0),
-    {First,":"++Line2} = get_hex(Line1),
+parse_heap_term("Yc"++Line0, Addr, BinAddrAdj, D0) ->	%Reference-counted binary.
+    {Binp0,":"++Line1} = get_hex(Line0),
+    {Offset,":"++Line2} = get_hex(Line1),
     {Sz,Line} = get_hex(Line2),
+    Binp = Binp0 bor BinAddrAdj,
     Term = case gb_trees:lookup(Binp, D0) of
-	       {value,<<_:First/binary,T:Sz/binary,_/binary>>} -> T;
-	       {value,{'#CDVTooBig',binary,Pos}} -> cdvbin(Sz,Pos);
-	       {value,'#CDVTruncatedBinary'} -> '#CDVTruncatedBinary';
+	       {value,Bin} -> cdvbin(Offset,Sz,Bin);
 	       none -> '#CDVNonexistingBinary'
 	   end,
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("Ys"++Line0, Addr, D0) ->	%Sub binary.
-    {Binp,":"++Line1} = get_hex(Line0),
-    {First,":"++Line2} = get_hex(Line1),
+parse_heap_term("Ys"++Line0, Addr, BinAddrAdj, D0) ->	%Sub binary.
+    {Binp0,":"++Line1} = get_hex(Line0),
+    {Offset,":"++Line2} = get_hex(Line1),
     {Sz,Line} = get_hex(Line2),
+    Binp = Binp0 bor BinAddrAdj,
     Term = case gb_trees:lookup(Binp, D0) of
-	       {value,<<_:First/binary,T:Sz/binary,_/binary>>} -> T;
-	       {value,{'#CDVTooBig',binary,Pos}} -> cdvbin(Sz,Pos);
-	       {value,'#CDVTruncatedBinary'} -> '#CDVTruncatedBinary';
+	       {value,Bin} -> cdvbin(Offset,Sz,Bin);
+	       none when Binp0=/=Binp ->
+		   %% Might it be on the heap?
+		   case gb_trees:lookup(Binp0, D0) of
+		       {value,Bin} -> cdvbin(Offset,Sz,Bin);
+		       none -> '#CDVNonexistingBinary'
+		   end;
 	       none -> '#CDVNonexistingBinary'
 	   end,
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D}.
 
 
-parse_tuple(0, Line, Addr, D0, Acc) ->
+parse_tuple(0, Line, Addr, _, D0, Acc) ->
     Tuple = list_to_tuple(lists:reverse(Acc)),
     D = gb_trees:insert(Addr, Tuple, D0),
     {Tuple,Line,D};
-parse_tuple(N, Line0, Addr, D0, Acc) ->
-    case parse_term(Line0, D0) of
+parse_tuple(N, Line0, Addr, BinAddrAdj, D0, Acc) ->
+    case parse_term(Line0, BinAddrAdj, D0) of
 	{Term,[$,|Line],D} when N > 1 ->
-	    parse_tuple(N-1, Line, Addr, D, [Term|Acc]);
+	    parse_tuple(N-1, Line, Addr, BinAddrAdj, D, [Term|Acc]);
 	{Term,Line,D}->
-	    parse_tuple(N-1, Line, Addr, D, [Term|Acc])
+	    parse_tuple(N-1, Line, Addr, BinAddrAdj, D, [Term|Acc])
     end.
 
-parse_term([$H|Line0], D) ->			%Pointer to heap term.
+parse_term([$H|Line0], BinAddrAdj, D) ->        %Pointer to heap term.
     {Ptr,Line} = get_hex(Line0),
-    deref_ptr(Ptr, Line, D);
-parse_term([$N|Line], D) ->			%[] (nil).
+    deref_ptr(Ptr, Line, BinAddrAdj, D);
+parse_term([$N|Line], _, D) ->			%[] (nil).
     {[],Line,D};
-parse_term([$I|Line0], D) ->			%Small.
+parse_term([$I|Line0], _, D) ->			%Small.
     {Int,Line} = string:to_integer(Line0),
     {Int,Line,D};
-parse_term([$A|_]=Line, D) ->			%Atom.
+parse_term([$A|_]=Line, _, D) ->		%Atom.
     parse_atom(Line, D);
-parse_term([$P|Line0], D) ->			%Pid.
+parse_term([$P|Line0], _, D) ->			%Pid.
     {Pid,Line} = get_id(Line0),
-    {"#CDVPid"++Pid,Line,D};
-parse_term([$p|Line0], D) ->			%Port.
+    {['#CDVPid'|Pid],Line,D};
+parse_term([$p|Line0], _, D) ->			%Port.
     {Port,Line} = get_id(Line0),
-    {"#CDVPort"++Port,Line,D};
-parse_term([$S|Str0], D) ->			%Information string.
+    {['#CDVPort'|Port],Line,D};
+parse_term([$S|Str0], _, D) ->			%Information string.
     Str = lists:reverse(skip_blanks(lists:reverse(Str0))),
     {Str,[],D};
-parse_term([$D|Line0], D) ->                    %DistExternal
+parse_term([$D|Line0], _, D) ->                 %DistExternal
     try
 	{AttabSize,":"++Line1} = get_hex(Line0),
 	{Attab, "E"++Line2} = parse_atom_translation_table(AttabSize, Line1, []),
@@ -2455,7 +2367,7 @@ parse_atom_translation_table(N, Line0, As) ->
     
     
 
-deref_ptr(Ptr, Line, D0) ->
+deref_ptr(Ptr, Line, BinAddrAdj, D0) ->
     case gb_trees:lookup(Ptr, D0) of
 	{value,Term} ->
 	    {Term,Line,D0};
@@ -2467,10 +2379,10 @@ deref_ptr(Ptr, Line, D0) ->
 		    case val(Fd) of
 			"="++_ ->
 			    put(fd, end_of_heap),
-			    deref_ptr(Ptr, Line, D0);
+			    deref_ptr(Ptr, Line, BinAddrAdj, D0);
 			L ->
-			    D = parse(L, D0),
-			    deref_ptr(Ptr, Line, D)
+			    D = parse(L, BinAddrAdj, D0),
+			    deref_ptr(Ptr, Line, BinAddrAdj, D)
 		    end
 	    end
     end.
@@ -2508,13 +2420,16 @@ get_chars(0, Line, Acc) ->
 get_chars(N, [H|T], Acc) ->
     get_chars(N-1, T, [H|Acc]).
 
-get_id(Line) ->
-    get_id(Line, []).
+get_id(Line0) ->
+    [$<|Line] = lists:dropwhile(fun($<) -> false; (_) -> true end,Line0),
+    get_id(Line, [], []).
 
-get_id([$>|Line], Acc) ->
-    {lists:reverse(Acc, [$>]),Line};
-get_id([H|T], Acc) ->
-    get_id(T, [H|Acc]).
+get_id([$>|Line], Acc, Id) ->
+    {lists:reverse(Id,[list_to_integer(lists:reverse(Acc))]),Line};
+get_id([$.|Line], Acc, Id) ->
+    get_id(Line,[],[list_to_integer(lists:reverse(Acc))|Id]);
+get_id([H|T], Acc, Id) ->
+    get_id(T, [H|Acc], Id).
 
 get_label(L) ->
     get_label(L, []).
@@ -2532,19 +2447,26 @@ get_label([H|T], Acc) ->
 
 get_binary(Line0) ->
     {N,":"++Line} = get_hex(Line0),
-    get_binary(N, Line, []).
+    do_get_binary(N, Line, []).
 
-get_binary(0, Line, Acc) ->
+get_binary(Offset,Size,Line0) ->
+    {_N,":"++Line} = get_hex(Line0),
+    do_get_binary(Size, lists:sublist(Line,(Offset*2)+1,Size*2), []).
+
+do_get_binary(0, Line, Acc) ->
     {list_to_binary(lists:reverse(Acc)),Line};
-get_binary(N, [A,B|Line], Acc) ->
+do_get_binary(N, [A,B|Line], Acc) ->
     Byte = (get_hex_digit(A) bsl 4) bor get_hex_digit(B),
-    get_binary(N-1, Line, [Byte|Acc]);
-get_binary(_N, [], _Acc) ->
+    do_get_binary(N-1, Line, [Byte|Acc]);
+do_get_binary(_N, [], _Acc) ->
     {'#CDVTruncatedBinary',[]}.
 
-cdvbin(Sz,Pos) ->
-    "#CDVBin<"++integer_to_list(Sz)++","++integer_to_list(Pos)++">".
-
+cdvbin(Offset,Size,{'#CDVBin',Pos}) ->
+    ['#CDVBin',Offset,Size,Pos];
+cdvbin(Offset,Size,['#CDVBin',_,_,Pos]) ->
+    ['#CDVBin',Offset,Size,Pos];
+cdvbin(_,_,'#CDVTruncatedBinary') ->
+    '#CDVTruncatedBinary'.
 
 %%-----------------------------------------------------------------
 %% Functions for accessing the cdv_dump_index_table
@@ -2563,8 +2485,6 @@ lookup_index(Tag,Id) ->
 
 count_index(Tag) ->
     ets:select_count(cdv_dump_index_table,[{{{Tag,'_'},'_'},[],[true]}]).
-count_index(Tag,Id) ->
-    ets:select_count(cdv_dump_index_table,[{{{Tag,'_'},Id},[],[true]}]).
 
 
 %%-----------------------------------------------------------------
@@ -2605,16 +2525,14 @@ tag_to_atom(UnknownTag) ->
 
 %%%-----------------------------------------------------------------
 %%% Fetch next chunk from crashdump file
-lookup_and_parse_index(File,What,ParseFun) when is_list(File) ->
-    Fd = open(File),
+lookup_and_parse_index(File,What,ParseFun,Str) when is_list(File) ->
     Indices = lookup_index(What),
-    R = lists:map(fun({Id,Start}) ->
-			  pos_bof(Fd,Start),
-			  ParseFun(Fd,Id)
-		  end,
-		  Indices),
-    close(Fd),
-    R.
+    Fun  = fun(Fd,{Id,Start}) ->
+		   pos_bof(Fd,Start),
+		   ParseFun(Fd,Id)
+	   end,
+    Report = "Processing " ++ Str,
+    progress_pmap(Report,File,Fun,Indices).
 
 %%%-----------------------------------------------------------------
 %%% Convert a record to a proplist
@@ -2627,3 +2545,112 @@ to_proplist(Fields,Record) ->
 to_value_list(Record) ->
     [_RecordName|Values] = tuple_to_list(Record),
     Values.
+
+%%%-----------------------------------------------------------------
+%%% Fold over List and report progress in percent.
+%%% Report is the text to be presented in the progress dialog.
+%%% Acc0 is the initial accumulator and will be passed to Fun as the
+%%% second arguement, i.e. Fun = fun(Item,Acc) -> NewAcc end.
+progress_foldl(Report,Fun,Acc0,List) ->
+    init_progress(Report, length(List)),
+    progress_foldl1(Fun,Acc0,List).
+
+progress_foldl1(Fun,Acc,[H|T]) ->
+    update_progress(),
+    progress_foldl1(Fun,Fun(H,Acc),T);
+progress_foldl1(_Fun,Acc,[]) ->
+    end_progress(),
+    Acc.
+
+
+%%%-----------------------------------------------------------------
+%%% Map over List and report progress in percent.
+%%% Report is the text to be presented in the progress dialog.
+%%% Distribute the load over a number of processes, and File is opened
+%%% on each process and passed to the Fun as first argument.
+%%% I.e. Fun = fun(Fd,Item) -> ItemResult end.
+progress_pmap(Report,File,Fun,List) ->
+    NTot = length(List),
+    NProcs = erlang:system_info(schedulers) * 2,
+    NPerProc = (NTot div NProcs) + 1,
+
+    %% Worker processes send message to collector for each ReportInterval.
+    ReportInterval = (NTot div 100) + 1,
+
+    %% Progress reporter on collector process reports 1 percent for
+    %% each message from worker process.
+    init_progress(Report,99),
+
+    Collector = self(),
+    {[],Pids} =
+	lists:foldl(
+	  fun(_,{L,Ps}) ->
+		  {L1,L2} = if length(L)>=NPerProc -> lists:split(NPerProc,L);
+			       true -> {L,[]} % last chunk
+			    end,
+		  P = spawn(
+			fun() ->
+				progress_map(Collector,ReportInterval,File,Fun,L1)
+			end),
+		  erlang:monitor(process,P),
+		  {L2,[P|Ps]}
+	  end,
+	  {List,[]},
+	  lists:seq(1,NProcs)),
+    collect(Pids,[]).
+
+progress_map(Collector,ReportInterval,File,Fun,List) ->
+    Fd = open(File),
+    init_progress(ReportInterval, fun(_) -> Collector ! progress end, ok),
+    progress_map(Fd,Fun,List,[]).
+progress_map(Fd,Fun,[H|T],Acc) ->
+    update_progress(),
+    progress_map(Fd,Fun,T,[Fun(Fd,H)|Acc]);
+progress_map(Fd,_Fun,[],Acc) ->
+    close(Fd),
+    exit({pmap_done,Acc}).
+
+collect([],Acc) ->
+    end_progress(),
+    lists:append(Acc);
+collect(Pids,Acc) ->
+    receive
+	progress ->
+	    update_progress(),
+	    collect(Pids,Acc);
+	{'DOWN', _Ref, process, Pid, {pmap_done,Result}} ->
+	    collect(lists:delete(Pid,Pids),[Result|Acc])
+    end.
+
+%%%-----------------------------------------------------------------
+%%% Help functions for progress reporting
+
+%% Set text in progress dialog and initialize the progress counter
+init_progress(Report,N) ->
+    observer_lib:report_progress({ok,Report}),
+    Interval = (N div 100) + 1,
+    Fun = fun(P0) -> P=P0+1,observer_lib:report_progress({ok,P}),P end,
+    init_progress(Interval,Fun,0).
+init_progress(Interval,Fun,Acc) ->
+    put(progress,{Interval,Interval,Fun,Acc}),
+    ok.
+
+%% Count progress and report on given interval
+update_progress() ->
+    update_progress(1).
+update_progress(Processed) ->
+    do_update_progress(get(progress),Processed).
+
+do_update_progress({Count,Interval,Fun,Acc},Processed) when Processed>Count ->
+    do_update_progress({Interval,Interval,Fun,Fun(Acc)},Processed-Count);
+do_update_progress({Count,Interval,Fun,Acc},Processed) ->
+    put(progress,{Count-Processed,Interval,Fun,Acc}),
+    ok.
+
+%% End progress reporting for this item
+end_progress() ->
+    end_progress({ok,100}).
+end_progress(Report) ->
+    observer_lib:report_progress(Report),
+    erase(progress),
+    ok.

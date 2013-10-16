@@ -30,10 +30,10 @@
 -define(COL_NAME,  ?COL_ID+1).
 -define(COL_SLOT,  ?COL_NAME+1).
 -define(COL_OWNER, ?COL_SLOT+1).
--define(COL_TYPE,  ?COL_OWNER+1).
--define(COL_BUCK,  ?COL_TYPE+1).
+-define(COL_BUCK,  ?COL_OWNER+1).
 -define(COL_OBJ,   ?COL_BUCK+1).
 -define(COL_MEM,   ?COL_OBJ+1).
+-define(COL_TYPE,  ?COL_MEM+1).
 
 %% Callbacks for cdv_virtual_list
 col_to_elem(id) -> col_to_elem(?COL_ID);
@@ -49,12 +49,13 @@ col_to_elem(?COL_MEM)   -> #ets_table.memory.
 col_spec() ->
     [{"Id",      ?wxLIST_FORMAT_LEFT,   200},
      {"Name",    ?wxLIST_FORMAT_LEFT,   200},
-     {"Slot",    ?wxLIST_FORMAT_RIGHT,  60},
+     {"Slot",    ?wxLIST_FORMAT_RIGHT,  50},
      {"Owner",   ?wxLIST_FORMAT_CENTRE, 90},
-     {"Type",    ?wxLIST_FORMAT_LEFT,   60},
-     {"Buckets", ?wxLIST_FORMAT_RIGHT,  60},
-     {"Objects", ?wxLIST_FORMAT_RIGHT,  80},
-     {"Memory",  ?wxLIST_FORMAT_RIGHT,  80}].
+     {"Buckets", ?wxLIST_FORMAT_RIGHT,  50},
+     {"Objects", ?wxLIST_FORMAT_RIGHT,  50},
+     {"Memory",  ?wxLIST_FORMAT_RIGHT,  80},
+     {"Type",    ?wxLIST_FORMAT_LEFT,   50}
+    ].
 
 get_info(Owner) ->
     {ok,Info,TW} = crashdump_viewer:ets_tables(Owner),

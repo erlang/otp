@@ -19,13 +19,10 @@
 
 -behaviour(wx_object).
 
--export([start/3]).
+-export([start_link/3]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2]).
-
--export([init_detail_page/3]).
-
 
 -include_lib("wx/include/wx.hrl").
 -include("crashdump_viewer.hrl").
@@ -37,15 +34,12 @@
 		pages=[]
 	       }).
 
-
 %% Defines
 -define(ID_NOTEBOOK, 604).
 
 %% Detail view
-start(Id, ParentFrame, Callback) ->
+start_link(Id, ParentFrame, Callback) ->
     wx_object:start_link(?MODULE, [Id, ParentFrame, Callback, self()], []).
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -72,9 +66,9 @@ init(Id,ParentFrame,Callback,Parent,{Title,Info,TW}) ->
     wxFrame:setMenuBar(Frame, MenuBar),
 
     Panel = wxPanel:new(Frame, []),
-    Notebook = wxNotebook:new(Panel, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
-    wxSizer:add(Sizer, Notebook, [{proportion, 1}, {flag, ?wxEXPAND}]),
+    {InfoPanel,Pages} = create_pages(Panel,Callback:detail_pages(),[Info]),
+    wxSizer:add(Sizer, InfoPanel, [{proportion, 1}, {flag, ?wxEXPAND}]),
 
     case TW of
 	[] ->
@@ -90,9 +84,6 @@ init(Id,ParentFrame,Callback,Parent,{Title,Info,TW}) ->
 
     wxPanel:setSizer(Panel, Sizer),
 
-    Pages = [init_panel(Type, Notebook, PageTitle, Fun, [Id,Info])
-	     || {Type,PageTitle,Fun} <- Callback:detail_pages()],
-
     wxFrame:connect(Frame, close_window),
     wxMenu:connect(Frame, command_menu_selected),
     wxFrame:show(Frame),
@@ -102,8 +93,23 @@ init(Id,ParentFrame,Callback,Parent,{Title,Info,TW}) ->
 		   pages=Pages
 		  }}.
 
-init_panel(simple, Notebook, Str, Fun, FunArgs) ->
-    Panel  = wxScrolledWindow:new(Notebook),
+create_pages(Panel,[{_PageTitle,Fun}],FunArgs) ->
+    %% Only one page - don't create notebook
+    Page = init_panel(Panel, Fun, FunArgs),
+    {Page,[Page]};
+create_pages(Panel,PageSpecs,FunArgs) ->
+    Notebook = wxNotebook:new(Panel, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
+    Pages = [init_tab(Notebook, PageTitle, Fun, FunArgs)
+	     || {PageTitle,Fun} <- PageSpecs],
+    {Notebook, Pages}.
+
+init_tab(Notebook,Title,Fun,FunArgs) ->
+    Panel = init_panel(Notebook,Fun,FunArgs),
+    true = wxNotebook:addPage(Notebook, Panel, Title),
+    Panel.
+
+init_panel(ParentWin, Fun, FunArgs) ->
+    Panel  = wxScrolledWindow:new(ParentWin),
     wxScrolledWindow:enableScrolling(Panel,true,true),
     wxScrolledWindow:setScrollbars(Panel,1,1,0,0),
     Sizer  = wxBoxSizer:new(?wxHORIZONTAL),
@@ -112,13 +118,7 @@ init_panel(simple, Notebook, Str, Fun, FunArgs) ->
 				{proportion, 1},
 				{border, 5}]),
     wxPanel:setSizer(Panel, Sizer),
-    true = wxNotebook:addPage(Notebook, Panel, Str),
-    Panel;
-init_panel(list, Notebook, Str, Fun, FunArgs) ->
-    Panel = apply(Fun, [Notebook | FunArgs]),
-    true = wxNotebook:addPage(Notebook, Panel, Str),
     Panel.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%Callbacks%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 handle_event(#wx{event=#wxClose{type=close_window}}, State) ->
@@ -128,41 +128,11 @@ handle_event(#wx{id=?wxID_CLOSE, event=#wxCommand{type=command_menu_selected}},
 	     State) ->
     {stop, normal, State};
 
-handle_event(#wx{event=#wxHtmlLink{type=command_html_link_clicked,
-				   linkInfo=#wxHtmlLinkInfo{href=Target}}},
-	     State) ->
-    case Target of
-	"#Binary<" ++ Id0 ->
-	    Id = string:strip(Id0,right,$>),
-	    start(Id, State#state.frame, cdv_bin_wx);
-	_ ->
-	    cdv_virtual_list:start_detail_win(Target)
-    end,
-    {noreply, State};
-
-handle_event(#wx{event=#wxMouse{type=left_down},
-		 userData=Target},
-	     State) ->
-    cdv_virtual_list:start_detail_win(Target),
-    {noreply, State};
-
-handle_event(#wx{obj=Obj,
-		 event=#wxMouse{type=enter_window}},
-	     State) ->
-    wxTextCtrl:setForegroundColour(Obj,{0,0,100,255}),
-    {noreply, State};
-
-handle_event(#wx{obj=Obj,
-		 event=#wxMouse{type=leave_window}},
-	     State) ->
-    wxTextCtrl:setForegroundColour(Obj,?wxBLUE),
-    {noreply, State};
-
 handle_event(Event, _State) ->
     error({unhandled_event, Event}).
 
 handle_info(_Info, State) ->
-    %% io:format("~p: ~p, Handle info: ~p~n", [?MODULE, ?LINE, Info]),
+    %% io:format("~p: ~p, Handle info: ~p~n", [?MODULE, ?LINE, _Info]),
     {noreply, State}.
 
 handle_call(Call, From, _State) ->
@@ -172,7 +142,7 @@ handle_cast(Cast, _State) ->
     error({unhandled_cast, Cast}).
 
 terminate(_Reason, #state{parent=Parent,id=Id,frame=Frame}) ->
-    Parent ! {detail_win_closed, Id},
+    wx_object:cast(Parent,{detail_win_closed, Id}),
     case Frame of
 	undefined ->  ok;
 	_ -> wxFrame:destroy(Frame)
@@ -183,11 +153,6 @@ code_change(_, _, State) ->
     {ok, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-init_detail_page(Panel, Fields, Info) ->
-    Filled = observer_lib:fill_info(Fields, Info),
-    {FPanel, _, _UpFields} = observer_lib:display_info(Panel, Filled),
-    FPanel.
-
 create_menus(MenuBar) ->
     Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]}],
     observer_lib:create_menus(Menus, MenuBar, new_window).

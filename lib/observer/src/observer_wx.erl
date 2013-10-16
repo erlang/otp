@@ -131,6 +131,10 @@ setup(#state{frame = Frame} = State) ->
     wxFrame:connect(Frame, close_window, [{skip, true}]),
     wxMenu:connect(Frame, command_menu_selected),
     wxFrame:show(Frame),
+
+    %% Freeze and thaw is buggy currently
+    DoFreeze = [?wxMAJOR_VERSION,?wxMINOR_VERSION] < [2,9],
+    DoFreeze andalso wxWindow:freeze(Panel),
     %% I postpone the creation of the other tabs so they can query/use
     %% the window size
 
@@ -154,9 +158,10 @@ setup(#state{frame = Frame} = State) ->
     TracePanel = observer_trace_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
 
-
-    %% Force redraw (window needs it)
+    %% Force redraw (windows needs it)
     wxWindow:refresh(Panel),
+    DoFreeze andalso wxWindow:thaw(Panel),
+
     wxFrame:raise(Frame),
     wxFrame:setFocus(Frame),
 
@@ -574,13 +579,6 @@ remove_menu_items([{MenuStr = "File", Menus}|Rest], MenuBar) ->
 	    Menu = wxMenuBar:getMenu(MenuBar, MenuId),
 	    Items = [wxMenu:findItem(Menu, Tag) || #create_menu{text=Tag} <- Menus],
 	    [wxMenu:delete(Menu, MItem) || MItem <- Items],
-	    case os:type() =:= {unix, darwin} of
-	    	true ->
-	    	    wxMenuBar:remove(MenuBar, MenuId),
-	    	    wxMenu:destroy(Menu);
-	    	false ->
-	    	    ignore
-	    end,
 	    remove_menu_items(Rest, MenuBar)
     end;
 remove_menu_items([{"Nodes", _}|_], _MB) ->

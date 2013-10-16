@@ -44,8 +44,8 @@ col_to_elem(?COL_TYPE)  -> #nod.conn_type.
 
 col_spec() ->
     [{"Name",            ?wxLIST_FORMAT_LEFT,   300},
-     {"Connection type", ?wxLIST_FORMAT_LEFT,   150},
-     {"Controller",      ?wxLIST_FORMAT_LEFT,   150},
+     {"Connection type", ?wxLIST_FORMAT_LEFT,   130},
+     {"Controller",      ?wxLIST_FORMAT_LEFT,   130},
      {"Channel",         ?wxLIST_FORMAT_RIGHT,  80},
      {"Creation",        ?wxLIST_FORMAT_RIGHT,  80}].
 
@@ -64,11 +64,11 @@ get_details(Id) ->
     {ok,{Title,Proplist,TW}}.
 
 detail_pages() ->
-    [{simple, "General Information",   fun init_gen_page/3}].
+    [{"General Information",   fun init_gen_page/2}].
 
-init_gen_page(Parent, _Id, Info) ->
+init_gen_page(Parent, Info) ->
     Fields = info_fields(),
-    cdv_detail_win:init_detail_page(Parent, Fields, Info).
+    cdv_info_page:start_link(Parent,{Fields,Info,[]}).
 
 %%%-----------------------------------------------------------------
 %%% Internal
