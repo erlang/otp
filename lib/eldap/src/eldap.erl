@@ -512,11 +512,9 @@ exec_extended_req_reply(Data, {ok,Msg}) when
 	{extendedResp, Result} ->
 	    case Result#'ExtendedResponse'.resultCode of
 		success ->
-		    io:format('eldap: exec_start_tls = ~p~n',[success]),
 		    {ok,Data};
-		Error   ->
-		    io:format('eldap: exec_start_tls = ~p~n',[Error]),
-		    {error, Error}
+		Error ->
+		    {error, {response,Error}}
 	    end;
 	Other -> {error, Other}
     end;
