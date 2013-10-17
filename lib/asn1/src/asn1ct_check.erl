@@ -4229,9 +4229,10 @@ constraint_union(S,C) when is_list(C) ->
 constraint_union(_S,C) ->
     [C].
 
-constraint_union1(S,[A={'ValueRange',_},union,B={'ValueRange',_}|Rest],Acc) ->
-    AunionB = constraint_union_vr([A,B]),
-    constraint_union1(S, AunionB++Rest, Acc);
+constraint_union1(S, [{'ValueRange',{Lb1,Ub1}},union,
+		      {'ValueRange',{Lb2,Ub2}}|Rest], Acc) ->
+    AunionB = {'ValueRange',{c_min(Lb1, Lb2),max(Ub1, Ub2)}},
+    constraint_union1(S,  [AunionB|Rest], Acc);
 constraint_union1(S,[A={'SingleValue',_},union,B={'SingleValue',_}|Rest],Acc) ->
     AunionB = constraint_union_sv(S,[A,B]),
     constraint_union1(S,Rest,Acc ++ AunionB);
@@ -4255,42 +4256,9 @@ constraint_union_sv(_S,SV) ->
 	[N] -> [{'SingleValue',N}];
 	L -> [{'SingleValue',L}]
     end.
-
-%% REMOVE????
-%%constraint_union(S,VR,'ValueRange') ->
-%%    constraint_union_vr(VR).
-
-%% constraint_union_vr(VR)
-%% VR = [{'ValueRange',{Lb,Ub}},...]
-%% Lb = 'MIN' | integer()
-%% Ub = 'MAX' | integer()
-%% Returns if possible only one ValueRange tuple with a range that
-%% is a union of all ranges in VR.
-constraint_union_vr(VR) ->
-    %% Sort VR by Lb in first hand and by Ub in second hand
-    Fun=fun({_,{'MIN',_B1}},{_,{A2,_B2}}) when is_integer(A2)->true;
-	   ({_,{A1,_B1}},{_,{'MAX',_B2}}) when is_integer(A1) -> true;
-	   ({_,{A1,_B1}},{_,{A2,_B2}}) when is_integer(A1),is_integer(A2),A1<A2 -> true;
-	   ({_,{A,B1}},{_,{A,B2}}) when B1=<B2->true;
-	   (_,_)->false end,
-    SortedVR = lists:usort(Fun,VR),
-    constraint_union_vr(SortedVR, []).
-
-constraint_union_vr([],Acc) ->
-    lists:reverse(Acc);
-constraint_union_vr([C|Rest],[]) ->
-    constraint_union_vr(Rest,[C]);
-constraint_union_vr([{_,{Lb,Ub2}}|Rest],[{_,{Lb,_Ub1}}|Acc]) -> %Ub2 > Ub1
-    constraint_union_vr(Rest,[{'ValueRange',{Lb,Ub2}}|Acc]);
-constraint_union_vr([{_,{_,Ub}}|Rest],A=[{_,{_,Ub}}|_Acc]) ->
-    constraint_union_vr(Rest,A);
-constraint_union_vr([{_,{Lb2,Ub2}}|Rest], [{_,{Lb1,Ub1}}|Acc])
-  when Ub1 =< Lb2, Ub1 < Ub2 ->
-    constraint_union_vr(Rest,[{'ValueRange',{Lb1,Ub2}}|Acc]);
-constraint_union_vr([{_,{_,Ub2}}|Rest],A=[{_,{_,Ub1}}|_Acc]) when Ub2=<Ub1->
-    constraint_union_vr(Rest,A);
-constraint_union_vr([VR|Rest],Acc) ->
-    constraint_union_vr(Rest,[VR|Acc]).
+c_min('MIN', _) -> 'MIN';
+c_min(_, 'MIN') -> 'MIN';
+c_min(A, B) -> min(A, B).
 
 union_sv_vr(_S,{'SingleValue',SV},VR) 
   when is_integer(SV) ->
