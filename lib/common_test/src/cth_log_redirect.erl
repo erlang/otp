@@ -34,7 +34,7 @@
 %% Event handler Callbacks
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/1, terminate/2, code_change/3]).
 
 %% Other
 -export([handle_remote_events/1]).
@@ -186,9 +186,12 @@ handle_call({handle_remote_events,Bool}, State) ->
 handle_call(_Query, _State) ->
     {error, bad_query}.
 
-terminate(_Arg, _State) ->
+terminate(_) ->
     error_logger:delete_report_handler(?MODULE),
     [].
+
+terminate(_Arg, _State) ->
+    ok.
 
 tag_event(Event) ->
     {calendar:local_time(), Event}.
