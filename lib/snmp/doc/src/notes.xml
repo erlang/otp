@@ -34,6 +34,74 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.25</title>
+    <p>Version 4.25 supports code replacement in runtime from/to
+    version 4.24.2, 4.24.1, 4.24, 4.23.1 and 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Improved documentation for the functions for 
+	  loading and unloading mibs, 
+	  see <seealso marker="snmpa#load_mibs">load_mibs</seealso> and 
+	  <seealso marker="snmpa#unload_mibs">unload_mibs</seealso> for 
+	  more info. </p>
+          <p>Also added new functions for loading and unloading a single mib, 
+	  see <seealso marker="snmpa#load_mib">load_mib</seealso> and 
+	  <seealso marker="snmpa#unload_mib">unload_mib</seealso> for 
+	  more info. </p>
+          <p>Own Id: OTP-11216</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Wrong block cypher type used for AES ('aes_cbf128' 
+	  instead of 'aes_cfb128') when performing AES block 
+	  encrypt/decrypt which breaks SNMP usmAesCfb128Protocol 
+	  in agent and manager. </p>
+          <p>Own Id: OTP-11412</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.25 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.24.2</title>
     <p>Version 4.24.2 supports code replacement in runtime from/to
     version 4.24.1, 4.24, 4.23.1 and 4.23. </p>
