@@ -1509,11 +1509,11 @@ int erts_net_message(Port *prt,
 	    break;
 	}
 	rp = erts_pid2proc(NULL, 0, mon->pid, rp_locks);
+
+	erts_destroy_monitor(mon);
 	if (rp == NULL) {
 	    break;
 	}
-
-	erts_destroy_monitor(mon);
 
 	mon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
 
