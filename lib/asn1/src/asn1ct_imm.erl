@@ -319,14 +319,22 @@ per_enc_extensions(Val0, Pos0, NumBits, Aligned) when NumBits > 0 ->
 	{'cond',[[{eq,Bitmap,0}],
 		 ['_'|Length ++ PutBits]],{var,"Extensions"}}].
 
-per_enc_optional(Val0, {Pos,Def}, _Aligned) when is_integer(Pos) ->
+per_enc_optional(Val0, {Pos,DefVals}, _Aligned) when is_integer(Pos),
+						     is_list(DefVals) ->
     Val1 = lists:concat(["element(",Pos,", ",Val0,")"]),
     {B,[Val]} = mk_vars(Val1, []),
     Zero = {put_bits,0,1,[1]},
     One = {put_bits,1,1,[1]},
-    B++[{'cond',[[{eq,Val,asn1_DEFAULT},Zero],
-		 [{eq,Val,Def},Zero],
-		 ['_',One]]}];
+    B++[{'cond',
+	 [[{eq,Val,DefVal},Zero] || DefVal <- DefVals] ++ [['_',One]]}];
+per_enc_optional(Val0, {Pos,{call,M,F,A}}, _Aligned) when is_integer(Pos) ->
+    Val1 = lists:concat(["element(",Pos,", ",Val0,")"]),
+    {B,[Val,Tmp]} = mk_vars(Val1, [tmp]),
+    Zero = {put_bits,0,1,[1]},
+    One = {put_bits,1,1,[1]},
+    B++[{call,M,F,[Val|A],Tmp},
+	{'cond',
+	 [[{eq,Tmp,true},Zero],['_',One]]}];
 per_enc_optional(Val0, Pos, _Aligned) when is_integer(Pos) ->
     Val1 = lists:concat(["element(",Pos,", ",Val0,")"]),
     {B,[Val]} = mk_vars(Val1, []),
@@ -352,7 +360,12 @@ per_enc_sof(Val0, Constraint, ElementVar, ElementImm, Aligned) ->
 	    PreBlock ++ EncLen ++ Lc
     end.
 
-enc_absent(Val0, AbsVals, Body) ->
+enc_absent(Val0, {call,M,F,A}, Body) ->
+    {B,[Var,Tmp]} = mk_vars(Val0, [tmp]),
+    B++[{call,M,F,[Var|A],Tmp},
+	{'cond',
+	 [[{eq,Tmp,true}],['_'|Body]]}];
+enc_absent(Val0, AbsVals, Body) when is_list(AbsVals) ->
     {B,[Var]} = mk_vars(Val0, []),
     Cs = [[{eq,Var,Aval}] || Aval <- AbsVals] ++ [['_'|Body]],
     B++build_cond(Cs).

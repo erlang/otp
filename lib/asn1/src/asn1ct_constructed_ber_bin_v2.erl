@@ -1155,7 +1155,8 @@ gen_dec_line(Erules,TopType,Cname,CTags,Type,OptOrMand,DecObjInf)  ->
 		
 		emit([indent(4),"_ ->",nl]),
 		case OptOrMand of
-		    {'DEFAULT', Def} ->
+		    {'DEFAULT', Def0} ->
+			Def = asn1ct_gen:conform_value(Type, Def0),
 			emit([indent(8),"{",{asis,Def},",",{prev,tlv},"}",nl]);
 		    'OPTIONAL' ->
 			emit([indent(8),"{ asn1_NOVALUE, ",{prev,tlv},"}",nl])
