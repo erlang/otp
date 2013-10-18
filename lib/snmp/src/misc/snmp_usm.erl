@@ -16,6 +16,8 @@
 %%
 %% %CopyrightEnd%
 %% 
+%% AES: RFC 3826
+%% 
 
 -module(snmp_usm).
 
@@ -24,7 +26,7 @@
 -export([passwd2localized_key/3, localize_key/3]).
 -export([auth_in/4, auth_out/4, set_msg_auth_params/3]).
 -export([des_encrypt/3, des_decrypt/3]).
--export([aes_encrypt/3, aes_decrypt/5]).
+-export([aes_encrypt/5, aes_decrypt/5]).
 
 
 -define(SNMP_USE_V3, true).
@@ -241,11 +243,9 @@ des_decrypt(PrivKey, BadMsgPrivParams, EncData) ->
     throw({error, {bad_msgPrivParams, PrivKey, BadMsgPrivParams, EncData}}).
     
 
-aes_encrypt(PrivKey, Data, SaltFun) ->
+aes_encrypt(PrivKey, Data, SaltFun, EngineBoots, EngineTime) ->
     AesKey = PrivKey,
     Salt = SaltFun(),
-    EngineBoots = snmp_framework_mib:get_engine_boots(),
-    EngineTime = snmp_framework_mib:get_engine_time(),
     IV = list_to_binary([?i32(EngineBoots), ?i32(EngineTime) | Salt]),
     EncData = crypto:block_encrypt(?BLOCK_CIPHER_AES, 
 				   AesKey, IV, Data),

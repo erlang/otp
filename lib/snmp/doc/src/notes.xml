@@ -77,6 +77,15 @@
           <p>Own Id: OTP-11412</p>
         </item>
 
+        <item>
+          <p>[manager] When performing the AES encryption, invalid values for 
+	  the EngineBoots and EngineTime was used. </p>
+	  <p>The values of the local agent was used, which would have produced 
+	  some values if an agent was actually running. 
+	  If not it would have caused a crash. </p>
+	  <p>Own Id: OTP-11413</p>
+        </item>
+
       </list>
 
     </section>

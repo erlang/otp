@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,6 +19,9 @@
 %%-----------------------------------------------------------------
 %% This module implements the User Based Security Model for SNMP,
 %% as defined in rfc2274.
+%% 
+%% AES: RFC 3826
+%% 
 %%-----------------------------------------------------------------
 
 -module(snmpm_usm).
@@ -416,11 +419,14 @@ get_des_salt() ->
     [?i32(EngineBoots), ?i32(SaltInt)].
 
 aes_encrypt(PrivKey, Data) ->
-    snmp_usm:aes_encrypt(PrivKey, Data, fun get_aes_salt/0).
+    EngineBoots = get_engine_boots(), 
+    EngineTime  = get_engine_time(), 
+    snmp_usm:aes_encrypt(PrivKey, Data, fun get_aes_salt/0, 
+			 EngineBoots, EngineTime).
 
 aes_decrypt(PrivKey, UsmSecParams, EncData) ->
-    #usmSecurityParameters{msgPrivacyParameters = MsgPrivParams,
-			   msgAuthoritativeEngineTime = EngineTime,
+    #usmSecurityParameters{msgPrivacyParameters        = MsgPrivParams,
+			   msgAuthoritativeEngineTime  = EngineTime,
 			   msgAuthoritativeEngineBoots = EngineBoots} =
 	UsmSecParams,
     snmp_usm:aes_decrypt(PrivKey, MsgPrivParams, EncData, 
