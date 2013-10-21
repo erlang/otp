@@ -95,19 +95,29 @@
 
     <section>
       <title>Fixed Bugs and Malfunctions</title>
-      <p>-</p>
-
 <!--
+      <p>-</p>
+-->
+
       <list type="bulleted">
         <item>
-          <p>[agent] 
-	  see <seealso marker="snmpa#load_mibs">load_mibs</seealso> and 
-	  <seealso marker="snmpa#unload_mibs">unload_mibs</seealso>. </p>
-          <p>Own Id: OTP-11216</p>
+          <p>Wrong block cypher type used for AES ('aes_cbf128' 
+	  instead of 'aes_cfb128') when performing AES block 
+	  encrypt/decrypt which breaks SNMP usmAesCfb128Protocol 
+	  in agent and manager. </p>
+          <p>Own Id: OTP-11412</p>
+        </item>
+
+        <item>
+          <p>[manager] When performing the AES encryption, invalid values for 
+	  the EngineBoots and EngineTime was used. </p>
+	  <p>The values of the local agent was used, which would have produced 
+	  "some" values if an agent was actually running. 
+	  If not it would have caused a crash. </p>
+	  <p>Own Id: OTP-11413</p>
         </item>
 
       </list>
--->
 
     </section>
 

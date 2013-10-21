@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -16,6 +16,9 @@
 %%
 %% %CopyrightEnd%
 %%
+%% AES: RFC 3826
+%% 
+
 -module(snmpa_usm).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
@@ -652,7 +655,10 @@ get_des_salt() ->
     [?i32(EngineBoots), ?i32(SaltInt)].
 
 aes_encrypt(PrivKey, Data) ->
-    snmp_usm:aes_encrypt(PrivKey, Data, fun get_aes_salt/0).
+    EngineBoots = snmp_framework_mib:get_engine_boots(),
+    EngineTime  = snmp_framework_mib:get_engine_time(),
+    snmp_usm:aes_encrypt(PrivKey, Data, fun get_aes_salt/0, 
+			 EngineBoots, EngineTime).
 
 aes_decrypt(PrivKey, UsmSecParams, EncData) ->
     #usmSecurityParameters{msgPrivacyParameters        = PrivParams,
