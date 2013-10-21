@@ -210,11 +210,7 @@ typedef struct {
   void *res;
 } ethr_tid;
 
-struct ethr_tsd_key__ {
-  PROCESS id;
-  char key[];
-};
-typedef struct ethr_tsd_key__* ethr_tsd_key;
+typedef OSPPDKEY ethr_tsd_key;
 
 #undef ETHR_HAVE_ETHR_SIG_FUNCS
 

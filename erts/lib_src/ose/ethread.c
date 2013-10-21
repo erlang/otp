@@ -115,11 +115,6 @@ static void thr_exit_cleanup(ethr_tid *tid, void *res)
      ethr_ts_event_destructor__((void *) ethr_get_tse__());
 }
 
-/* For debug purpose. The process name will be stored in a per-process pointer
- * for quick access.
- */
-static OSPPDKEY nameKey = 0;
-
 //static OS_PROCESS(thr_wrapper);
 static OS_PROCESS(thr_wrapper)
 {
@@ -151,13 +146,6 @@ static OS_PROCESS(thr_wrapper)
     {
        SIGSELECT sigsel[] = {1,ETHREADWRAPDATASIG};
        union SIGNAL *init_msg = receive(sigsel);
-
-       {
-          char **name = (char**)ose_get_ppdata(nameKey);
-
-          *name = (char*)alloc(strlen(init_msg->data.name)+1, 0);
-          strcpy(*name, init_msg->data.name);
-       }
 
        thr_func = init_msg->data.thr_func;
        arg      = init_msg->data.arg;
@@ -306,8 +294,6 @@ ethr_init(ethr_init_data *id)
     signal_fsem(current_process());
 
     ETHR_ASSERT(&main_thr_tid == ETHR_GET_OWN_TID__);
-
-    ose_create_ppdata("ProcName", &nameKey);
 
     ethr_not_inited__ = 0;
 
@@ -537,7 +523,7 @@ int
 ethr_tsd_key_create(ethr_tsd_key *keyp)
 {
     ethr_tid *tid = ETHR_GET_OWN_TID__;
-    ethr_tsd_key key;
+    char keyname[31];
 
 #if ETHR_XCHK
     if (ethr_not_inited__) {
@@ -552,13 +538,10 @@ ethr_tsd_key_create(ethr_tsd_key *keyp)
     if (tid->tsd_key_index > 999)
       return EAGAIN;
 
-    /* ethread_tsd_key_YYYYYYYY_XXX\0 */
-    key = malloc(sizeof(ethr_tsd_key)+sizeof(char)*(strlen("ethread_tsd_key_0xYYYYYYYY_XXX")+1));
     /* What do we do it tds_key_index happens to wrap? Slot search? */
-    sprintf(key->key,"ethread_tsd_key_0x%x_%d",tid->id,tid->tsd_key_index++);
-    key->id = current_process();
+    sprintf(keyname,"ethread_tsd_key_0x%x_%d",tid->id,tid->tsd_key_index++);
 
-    *keyp = key;
+    ose_create_ppdata(keyname,keyp);
 
     return 0;
 }
@@ -572,20 +555,24 @@ ethr_tsd_key_delete(ethr_tsd_key key)
 	return EACCES;
     }
 #endif
-    free(key);
+    /* Not possible to delete ppdata */
+
     return 0;
 }
 
 int
 ethr_tsd_set(ethr_tsd_key key, void *value)
 {
+    void **ppdp;
 #if ETHR_XCHK
     if (ethr_not_inited__) {
 	ETHR_ASSERT(0);
 	return EACCES;
     }
 #endif
-    return set_envp(current_process(), key->key, (OSADDRESS)value)?0:1;
+    ppdp = (void **)ose_get_ppdata(key);
+    *ppdp = value;
+    return 0;
 }
 
 void *
@@ -597,7 +584,7 @@ ethr_tsd_get(ethr_tsd_key key)
 	return NULL;
     }
 #endif
-    return (void*)get_envp(current_process(),key->key);
+    return *(void**)ose_get_ppdata(key);
 }
 
 /*
@@ -644,15 +631,4 @@ ETHR_IMPL_NORETURN__
 ethr_abort__(void)
 {
     abort();
-}
-
-const char *procName(void);
-const char *
-procName(void) {
-   char **procName_p = (char**)ose_get_ppdata(nameKey);
-   if (procName_p) {
-      return *procName_p;
-   }
-
-   return NULL;
 }
