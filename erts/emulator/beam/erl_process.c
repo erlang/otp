@@ -7471,6 +7471,7 @@ alloc_process(ErtsRunQueue *rq, erts_aint32_t state)
     
     p->approx_started = erts_get_approx_time();
     p->rcount = 0;
+    p->heap = NULL;
 
 
     ASSERT(p == (Process *) (erts_ptab_pix2intptr_nob(
@@ -7583,7 +7584,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     hipe_init_process_smp(&p->hipe_smp);
 #endif
 #endif
-
     p->heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*sz);
     p->old_hend = p->old_htop = p->old_heap = NULL;
     p->high_water = p->heap;
