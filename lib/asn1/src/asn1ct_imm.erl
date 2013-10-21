@@ -1007,6 +1007,25 @@ mk_var(Base, V) ->
 
 per_enc_integer_1(Val, [], Aligned) ->
     [{'cond',[['_'|per_enc_unconstrained(Val, Aligned)]]}];
+per_enc_integer_1(Val, [{{'SingleValue',[_|_]=Svs}=Constr,[]}], Aligned) ->
+    %% An extensible constraint such as (1|17, ...).
+    %%
+    %% A subtle detail is that the extension root as described in the
+    %% ASN.1 spec should be used to determine whether a particular value
+    %% belongs to the extension root (as opposed to the effective
+    %% constraint, which will be used for the actual encoding).
+    %%
+    %% So for the example above, only the integers 1 and 17 should be
+    %% encoded as root values (extension bit = 0).
+
+    [{'ValueRange',{Lb,Ub}}] = effective_constraint(integer, [Constr]),
+    Root = [begin
+		{[],_,Put} = per_enc_constrained(Sv, Lb, Ub, Aligned),
+		[{eq,Val,Sv},{put_bits,0,1,[1]}|Put]
+	    end || Sv <- Svs],
+    Cs = Root ++ [['_',{put_bits,1,1,[1]}|
+		   per_enc_unconstrained(Val, Aligned)]],
+    build_cond(Cs);
 per_enc_integer_1(Val0, [{{_,_}=Constr,[]}], Aligned) ->
     {Prefix,Check,Action} = per_enc_integer_2(Val0, Constr, Aligned),
     Prefix++build_cond([[Check,{put_bits,0,1,[1]}|Action],
@@ -1017,7 +1036,7 @@ per_enc_integer_1(Val0, [Constr], Aligned) ->
     Prefix++build_cond([[Check|Action],
 			['_',{error,Val0}]]).
 
-per_enc_integer_2(Val, {'SingleValue',Sv}, Aligned) ->
+per_enc_integer_2(Val, {'SingleValue',Sv}, Aligned) when is_integer(Sv) ->
     per_enc_constrained(Val, Sv, Sv, Aligned);
 per_enc_integer_2(Val0, {'ValueRange',{Lb,'MAX'}}, Aligned)
   when is_integer(Lb) ->
