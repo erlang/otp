@@ -43,7 +43,8 @@
 		timeout = infinity,  % Request timeout
 		anon_auth = false,   % Allow anonymous authentication
 		use_tls = false,     % LDAP/LDAPS
-		tls_opts = []        % ssl:ssloption()
+		tls_opts = [],       % ssl:ssloption()
+		tcp_opts = []        % inet6 support
 	       }).
 
 %%% For debug purposes
@@ -358,6 +359,8 @@ parse_args([{sslopts, Opts}|T], Cpid, Data) when is_list(Opts) ->
     parse_args(T, Cpid, Data#eldap{use_tls = true, tls_opts = Opts ++ Data#eldap.tls_opts});
 parse_args([{sslopts, _}|T], Cpid, Data) ->
     parse_args(T, Cpid, Data);
+parse_args([{tcpopts, Opts}|T], Cpid, Data) when is_list(Opts) ->
+    parse_args(T, Cpid, Data#eldap{tcp_opts = inet6_opt(Opts) ++ Data#eldap.tcp_opts});
 parse_args([{log, F}|T], Cpid, Data) when is_function(F) ->
     parse_args(T, Cpid, Data#eldap{log = F});
 parse_args([{log, _}|T], Cpid, Data) ->
@@ -367,6 +370,14 @@ parse_args([H|_], Cpid, _) ->
     exit(wrong_option);
 parse_args([], _, Data) ->
     Data.
+
+inet6_opt(Opts) ->
+    case proplists:get_value(inet6, Opts) of
+	true ->
+	    [inet6];
+	_ ->
+	    []
+    end.
 
 %%% Try to connect to the hosts in the listed order,
 %%% and stop with the first one to which a successful
@@ -387,9 +398,11 @@ try_connect([],_) ->
     {error,"connect failed"}.
 
 do_connect(Host, Data, Opts) when Data#eldap.use_tls == false ->
-    gen_tcp:connect(Host, Data#eldap.port, Opts, Data#eldap.timeout);
+    gen_tcp:connect(Host, Data#eldap.port, Opts ++ Data#eldap.tcp_opts,
+		    Data#eldap.timeout);
 do_connect(Host, Data, Opts) when Data#eldap.use_tls == true ->
-    ssl:connect(Host, Data#eldap.port, Opts ++ Data#eldap.tls_opts).
+    ssl:connect(Host, Data#eldap.port,
+		Opts ++ Data#eldap.tls_opts ++ Data#eldap.tcp_opts).
 
 loop(Cpid, Data) ->
     receive
