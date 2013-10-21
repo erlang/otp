@@ -2467,7 +2467,7 @@ os_prompt% </pre>
           fails, a <c>nodedown</c> message is delivered.</p>
         <p>Nodes connected through hidden connections can be monitored
           as any other node.</p>
-        <p>Failure: <c>badarg</c>if the local node is not alive.</p>
+        <p>Failure: <c>badarg</c> if the local node is not alive.</p>
       </desc>
     </func>
     <func>
