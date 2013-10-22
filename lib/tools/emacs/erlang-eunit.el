@@ -40,6 +40,10 @@ This is useful, reducing the save-compile-load-test cycle to one keychord.")
 (defvar erlang-eunit-recent-info '((mode . nil) (module . nil) (test . nil) (cover . nil))
   "Info about the most recent running of an EUnit test representation.")
 
+(defvar erlang-error-regexp-alist
+  '(("^\\([^:( \t\n]+\\)[:(][ \t]*\\([0-9]+\\)[:) \t]" . (1 2)))
+  "*Patterns for matching Erlang errors.")
+
 ;;;
 ;;; Switch between src/EUnit test buffers
 ;;;
