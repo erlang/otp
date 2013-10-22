@@ -28,6 +28,7 @@ new(Mod, Eq) ->
 	(from_list, L) -> from_list(Mod, L);
 	(module, []) -> Mod;
 	(size, D) -> Mod:size(D);
+	(is_empty, D) -> Mod:is_empty(D);
 	(to_list, D) -> to_list(Mod, D)
     end.
 

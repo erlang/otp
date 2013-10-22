@@ -20,7 +20,7 @@
 -module(orddict).
 
 %% Standard interface.
--export([new/0,is_key/2,to_list/1,from_list/1,size/1]).
+-export([new/0,is_key/2,to_list/1,from_list/1,size/1,is_empty/1]).
 -export([fetch/2,find/2,fetch_keys/1,erase/2]).
 -export([store/3,append/3,append_list/3,update/3,update/4,update_counter/3]).
 -export([fold/3,map/2,filter/2,merge/3]).
@@ -63,6 +63,12 @@ from_list(Pairs) ->
       Orddict :: orddict().
 
 size(D) -> length(D).
+
+-spec is_empty(Orddict) -> boolean() when
+      Orddict :: orddict().
+
+is_empty([]) -> true;
+is_empty([_|_]) -> false.
 
 -spec fetch(Key, Orddict) -> Value when
       Key :: term(),
