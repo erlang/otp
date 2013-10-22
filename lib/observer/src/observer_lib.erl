@@ -339,9 +339,17 @@ create_attrs() ->
     #attrs{even = wxListItemAttr:new(Text, ?BG_EVEN, Font),
 	   odd  = wxListItemAttr:new(Text, ?BG_ODD, Font),
 	   deleted = wxListItemAttr:new(?FG_DELETED, ?BG_DELETED, Font),
-	   changed = wxListItemAttr:new(Text, ?BG_CHANGED, Font),
+	   changed_even = wxListItemAttr:new(Text, mix(?BG_CHANGED,?BG_EVEN), Font),
+	   changed_odd  = wxListItemAttr:new(Text, mix(?BG_CHANGED,?BG_ODD), Font),
+	   new_even = wxListItemAttr:new(Text, mix(?BG_NEW,?BG_EVEN), Font),
+	   new_odd  = wxListItemAttr:new(Text, mix(?BG_NEW, ?BG_ODD), Font),
 	   searched = wxListItemAttr:new(Text, ?BG_SEARCHED, Font)
 	  }.
+
+mix(RGB,_) -> RGB.
+
+%% mix({R,G,B},{MR,MG,MB}) ->
+%%     {trunc(R*MR/255), trunc(G*MG/255), trunc(B*MB/255)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
