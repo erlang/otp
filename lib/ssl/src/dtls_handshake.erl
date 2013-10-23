@@ -335,7 +335,7 @@ dtls_fragment_init(Length, 0, Length, Body) ->
     {Length, [{0, Length}], Body};
 dtls_fragment_init(Length, FragmentOffset, FragmentLength, Body) ->
     Bin = dtls_fragment_bin_add(FragmentOffset, FragmentLength, Body, <<0:(Length*8)>>),
-    {Length, [{FragmentOffset, FragmentLength}], Bin}.
+    {Length, [{FragmentOffset, FragmentOffset + FragmentLength}], Bin}.
 
 dtls_fragment_bin_add(FragmentOffset, FragmentLength, Add, Buffer) ->
     <<First:FragmentOffset/bytes, _:FragmentLength/bytes, Rest/binary>> = Buffer,
