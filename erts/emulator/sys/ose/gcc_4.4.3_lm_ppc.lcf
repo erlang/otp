@@ -56,6 +56,10 @@ SECTIONS
   *(.rodata.*)
   *(.gnu.linkonce.r.*)
  } > rom :ph_rom
+ .eh_frame_hdr :
+ {
+  *(.eh_frame_hdr)
+ } > rom :ph_rom
  .eh_frame :
  {
   __EH_FRAME_BEGIN__ = .;
