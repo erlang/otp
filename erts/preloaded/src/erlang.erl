@@ -60,7 +60,6 @@
 -export_type([timestamp/0]).
 
 -type ext_binary() :: binary().
--type map() :: term(). %% FIXME: remove when handled internally.
 -type timestamp() :: {MegaSecs :: non_neg_integer(),
                       Secs :: non_neg_integer(),
                       MicroSecs :: non_neg_integer()}.
