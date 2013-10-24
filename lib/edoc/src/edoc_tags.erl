@@ -460,6 +460,8 @@ check_type(#t_var{}, P, Ls, Ts) ->
     check_types3(Ts, P, Ls);
 check_type(#t_fun{args = Args, range = Range}, P, Ls, Ts) ->
     check_type(Range, P, Ls, Args++Ts);
+check_type(#t_map{}, P, Ls, Ts) ->
+    check_types3(Ts, P, Ls);
 check_type(#t_tuple{types = Types}, P, Ls, Ts) ->
     check_types3(Types ++Ts, P, Ls);
 check_type(#t_list{type = Type}, P, Ls, Ts) ->

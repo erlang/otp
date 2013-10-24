@@ -29,13 +29,14 @@ Nonterminals
 start spec func_type utype_list utype_tuple utypes utype ptypes ptype
 nutype function_name where_defs defs defs2 def typedef etype
 throws qname ref aref mref lref pref var_list vars fields field
+utype_map utype_map_fields utype_map_field
 futype_list bin_base_type bin_unit_type.
 
 Terminals
 atom float integer var an_var string start_spec start_typedef start_throws
 start_ref
 
-'(' ')' ',' '.' '->' '{' '}' '[' ']' '|' '+' ':' '::' '=' '/' '//' '*'
+'(' ')' ',' '.' '=>' '->' '{' '}' '[' ']' '|' '+' ':' '::' '=' '/' '//' '*'
 '#' 'where' '<<' '>>' '..' '...'.
 
 Rootsymbol start.
@@ -69,6 +70,14 @@ utype_list -> '(' utypes ')' : {lists:reverse('$2'), tok_line('$1')}.
 futype_list -> utype_list : '$1'.
 futype_list -> '(' '...' ')' : {[#t_var{name = '...'}], tok_line('$1')}.
 
+utype_map -> '#' '{' utype_map_fields '}' : lists:reverse('$3').
+
+utype_map_fields -> '$empty' : [].
+utype_map_fields -> utype_map_field : ['$1'].
+utype_map_fields -> utype_map_fields ',' utype_map_field : ['$3' | '$1'].
+
+utype_map_field -> utype '=>' utype : #t_map_field{ k_type = '$1', v_type = '$3'}.
+
 utype_tuple -> '{' utypes '}' : lists:reverse('$2').
 
 %% Produced in reverse order.
@@ -91,9 +100,10 @@ ptype -> var : #t_var{name = tok_val('$1')}.
 ptype -> atom : #t_atom{val = tok_val('$1')}.
 ptype -> integer: #t_integer{val = tok_val('$1')}.
 ptype -> integer '..' integer: #t_integer_range{from = tok_val('$1'),
-                                                   to = tok_val('$3')}.
+                                                  to = tok_val('$3')}.
 ptype -> float: #t_float{val = tok_val('$1')}.
 ptype -> utype_tuple : #t_tuple{types = '$1'}.
+ptype -> utype_map : #t_map{types = '$1'}.
 ptype -> '[' ']' : #t_nil{}.
 ptype -> '[' utype ']' : #t_list{type = '$2'}.
 ptype -> '[' utype ',' '...' ']' : #t_nonempty_list{type = '$2'}.
@@ -462,3 +472,5 @@ throw_error(parse_param, L) ->
     throw({error, L, "missing parameter name"});
 throw_error({Where, E}, L) when is_list(Where) ->
     throw({error,L,{"unknown error parsing ~ts: ~P.",[Where,E,15]}}).
+
+%% vim: ft=erlang
