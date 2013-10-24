@@ -896,7 +896,7 @@ normalise({cons,_,Head,Tail}) ->
 normalise({tuple,_,Args}) ->
     list_to_tuple(normalise_list(Args));
 normalise({map,_,Pairs}=M) ->
-    map:from_list(lists:map(fun
+    maps:from_list(lists:map(fun
 		%% only allow '=>'
 		({map_field_assoc,_,K,V}) -> {normalise(K),normalise(V)};
 		(_) -> erlang:error({badarg,M})

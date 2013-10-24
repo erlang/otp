@@ -253,14 +253,14 @@ expr({map,_, Binding,Es}, Bs0, Lf, Ef, RBs) ->
     {value, Map0, Bs1} = expr(Binding, Bs0, Lf, Ef, RBs),
     {Vs,Bs} = expr_list(Es, Bs1, Lf, Ef),
     ret_expr(lists:foldl(fun
-		({map_assoc,K,V}, Mi) -> map:put(K,V,Mi);
-		({map_exact,K,V}, Mi) -> map:update(K,V,Mi)
+		({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
+		({map_exact,K,V}, Mi) -> maps:update(K,V,Mi)
 	end, Map0, Vs), Bs, RBs);
 expr({map,_,Es}, Bs0, Lf, Ef, RBs) ->
     {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef),
     ret_expr(lists:foldl(fun
-		({map_assoc,K,V}, Mi) -> map:put(K,V,Mi)
-	    end, map:new(), Vs), Bs, RBs);
+		({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi)
+	    end, maps:new(), Vs), Bs, RBs);
 
 expr({block,_,Es}, Bs, Lf, Ef, RBs) ->
     exprs(Es, Bs, Lf, Ef, RBs);
@@ -1148,7 +1148,7 @@ match_tuple([], _, _, Bs, _BBs) ->
 match_map([{map_field_exact, _, K, V}|Fs], Map, Bs0, BBs) ->
     Vm = try
 	{value, Ke, _} = expr(K, new_bindings()),
-	map:get(Ke,Map)
+	maps:get(Ke,Map)
     catch error:_ ->
 	throw(nomatch)
     end,

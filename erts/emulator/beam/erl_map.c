@@ -38,25 +38,25 @@
  * - erlang:is_map/1
  * - erlang:map_size/1
  *
- * - map:find/2
- * - map:from_list/1
- * - map:get/2
- * - map:is_key/2
- * - map:keys/1
- * - map:merge/2
- * - map:new/0
- * - map:put/3
- * - map:remove/2
- * - map:to_list/1
- * - map:update/3
- * - map:values/1
+ * - maps:find/2
+ * - maps:from_list/1
+ * - maps:get/2
+ * - maps:is_key/2
+ * - maps:keys/1
+ * - maps:merge/2
+ * - maps:new/0
+ * - maps:put/3
+ * - maps:remove/2
+ * - maps:to_list/1
+ * - maps:update/3
+ * - maps:values/1
  *
  * TODO:
- * - map:foldl/3
- * - map:foldr/3
- * - map:map/3
- * - map:size/1
- * - map:without/2
+ * - maps:foldl/3
+ * - maps:foldr/3
+ * - maps:map/3
+ * - maps:size/1
+ * - maps:without/2
  *
  */
 
@@ -80,10 +80,10 @@ BIF_RETTYPE map_size_1(BIF_ALIST_1) {
     BIF_ERROR(BIF_P, BADARG);
 }
 
-/* map:to_list/1
+/* maps:to_list/1
  */
 
-BIF_RETTYPE map_to_list_1(BIF_ALIST_1) {
+BIF_RETTYPE maps_to_list_1(BIF_ALIST_1) {
     if (is_map(BIF_ARG_1)) {
 	Uint n;
 	Eterm* hp;
@@ -107,11 +107,11 @@ BIF_RETTYPE map_to_list_1(BIF_ALIST_1) {
     BIF_ERROR(BIF_P, BADARG);
 }
 
-/* map:find/2
+/* maps:find/2
  * return value if key *equals* a key in the map
  */
 
-BIF_RETTYPE map_find_2(BIF_ALIST_2) {
+BIF_RETTYPE maps_find_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
 	Eterm *hp, *ks,*vs, key, res;
 	map_t *mp;
@@ -137,12 +137,12 @@ BIF_RETTYPE map_find_2(BIF_ALIST_2) {
     }
     BIF_ERROR(BIF_P, BADARG);
 }
-/* map:get/2
+/* maps:get/2
  * return value if key *matches* a key in the map
  * exception bad_key if none matches
  */
 
-BIF_RETTYPE map_get_2(BIF_ALIST_2) {
+BIF_RETTYPE maps_get_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
 	Eterm *hp, *ks,*vs, key, error;
 	map_t *mp;
@@ -184,11 +184,11 @@ error:
     BIF_ERROR(BIF_P, BADARG);
 }
 
-/* map:from_list/1
+/* maps:from_list/1
  * List may be unsorted [{K,V}]
  */
 
-BIF_RETTYPE map_from_list_1(BIF_ALIST_1) {
+BIF_RETTYPE maps_from_list_1(BIF_ALIST_1) {
     Eterm *kv, item = BIF_ARG_1;
     Eterm *hp, *thp,*vs, *ks, keys, res;
     map_t *mp;
@@ -305,10 +305,10 @@ error:
     BIF_ERROR(BIF_P, BADARG);
 }
 
-/* map:is_key/2
+/* maps:is_key/2
  */
 
-BIF_RETTYPE map_is_key_2(BIF_ALIST_2) {
+BIF_RETTYPE maps_is_key_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
 	Eterm *ks, key;
 	map_t *mp;
@@ -340,10 +340,10 @@ BIF_RETTYPE map_is_key_2(BIF_ALIST_2) {
     BIF_ERROR(BIF_P, BADARG);
 }
 
-/* map:keys/1
+/* maps:keys/1
  */
 
-BIF_RETTYPE map_keys_1(BIF_ALIST_1) {
+BIF_RETTYPE maps_keys_1(BIF_ALIST_1) {
     if (is_map(BIF_ARG_1)) {
 	Eterm *hp, *ks, res = NIL;
 	map_t *mp;
@@ -366,10 +366,10 @@ BIF_RETTYPE map_keys_1(BIF_ALIST_1) {
     }
     BIF_ERROR(BIF_P, BADARG);
 }
-/* map:merge/2
+/* maps:merge/2
  */
 
-BIF_RETTYPE map_merge_2(BIF_ALIST_2) {
+BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_1) && is_map(BIF_ARG_2)) {
 	Eterm *hp,*thp;
 	Eterm tup;
@@ -452,10 +452,10 @@ BIF_RETTYPE map_merge_2(BIF_ALIST_2) {
     }
     BIF_ERROR(BIF_P, BADARG);
 }
-/* map:new/2
+/* maps:new/2
  */
 
-BIF_RETTYPE map_new_0(BIF_ALIST_0) {
+BIF_RETTYPE maps_new_0(BIF_ALIST_0) {
     Eterm* hp;
     Eterm tup;
     map_t *mp;
@@ -472,10 +472,10 @@ BIF_RETTYPE map_new_0(BIF_ALIST_0) {
     BIF_RET(make_map(mp));
 }
 
-/* map:put/3
+/* maps:put/3
  */
 
-BIF_RETTYPE map_put_3(BIF_ALIST_3) {
+BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
     if (is_map(BIF_ARG_3)) {
 	Sint n,i;
 	Sint c = 0;
@@ -582,10 +582,10 @@ BIF_RETTYPE map_put_3(BIF_ALIST_3) {
     BIF_ERROR(BIF_P, BADARG);
 }
 
-/* map:remove/3
+/* maps:remove/3
  */
 
-BIF_RETTYPE map_remove_2(BIF_ALIST_2) {
+BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
     if (is_map(BIF_ARG_2)) {
 	Sint n;
 	Sint found = 0;
@@ -656,10 +656,10 @@ BIF_RETTYPE map_remove_2(BIF_ALIST_2) {
     BIF_ERROR(BIF_P, BADARG);
 }
 
-/* map:update/3
+/* maps:update/3
  */
 
-BIF_RETTYPE map_update_3(BIF_ALIST_3) {
+BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
     if (is_map(BIF_ARG_3)) {
 	Sint n,i;
 	Sint found = 0;
@@ -719,10 +719,10 @@ BIF_RETTYPE map_update_3(BIF_ALIST_3) {
 }
 
 
-/* map:values/1
+/* maps:values/1
  */
 
-BIF_RETTYPE map_values_1(BIF_ALIST_1) {
+BIF_RETTYPE maps_values_1(BIF_ALIST_1) {
     if (is_map(BIF_ARG_1)) {
 	Eterm *hp, *vs, res = NIL;
 	map_t *mp;

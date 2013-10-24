@@ -278,7 +278,7 @@ write_ref(Ref) ->
     erlang:ref_to_list(Ref).
 
 write_map(Map, D) when is_integer(D) ->
-    [$#,${,write_map_body(map:to_list(Map), D),$}].
+    [$#,${,write_map_body(maps:to_list(Map), D),$}].
 
 write_map_body(_, 0) -> "...";
 write_map_body([],_) -> [];

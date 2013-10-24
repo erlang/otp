@@ -580,18 +580,18 @@ bif re:inspect/2
 
 ubif erlang:is_map/1
 ubif erlang:map_size/1
-bif map:to_list/1
-bif map:find/2
-bif map:get/2
-bif map:from_list/1
-bif map:is_key/2
-bif map:keys/1
-bif map:merge/2
-bif map:new/0
-bif map:put/3
-bif map:remove/2
-bif map:update/3
-bif map:values/1
+bif maps:to_list/1
+bif maps:find/2
+bif maps:get/2
+bif maps:from_list/1
+bif maps:is_key/2
+bif maps:keys/1
+bif maps:merge/2
+bif maps:new/0
+bif maps:put/3
+bif maps:remove/2
+bif maps:update/3
+bif maps:values/1
 
 #
 # Obsolete

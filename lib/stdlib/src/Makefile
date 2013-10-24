@@ -91,7 +91,7 @@ MODULES= \
 	lib \
 	lists \
 	log_mf_h \
-	map \
+	maps \
 	math \
 	ms_transform \
 	otp_internal \

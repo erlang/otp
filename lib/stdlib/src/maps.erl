@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 
--module(map).
+-module(maps).
 
 -export([
 	foldl/3,
@@ -46,7 +46,7 @@
 
 -type map() :: term(). %% FIXME: remove when erl_bif_types knows map().
 
-%% Shadowed by erl_bif_types: map:get/3
+%% Shadowed by erl_bif_types: maps:get/3
 -spec get(Key,Map) -> Value when
     Key :: term(),
     Map :: map(),
@@ -55,7 +55,7 @@
 get(_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: map:find/3
+%% Shadowed by erl_bif_types: maps:find/3
 -spec find(Key,Map) -> {ok, Value} | error when
     Key :: term(),
     Map :: map(),
@@ -64,7 +64,7 @@ get(_,_) -> erlang:nif_error(undef).
 find(_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: map:from_list/1
+%% Shadowed by erl_bif_types: maps:from_list/1
 -spec from_list([{Key,Value}]) -> Map when
     Key :: term(),
     Value :: term(),
@@ -73,7 +73,7 @@ find(_,_) -> erlang:nif_error(undef).
 from_list(_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: map:is_key/2
+%% Shadowed by erl_bif_types: maps:is_key/2
 -spec is_key(Key,Map) -> boolean() when
     Key :: term(),
     Map :: map().
@@ -81,7 +81,7 @@ from_list(_) -> erlang:nif_error(undef).
 is_key(_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: map:keys/1
+%% Shadowed by erl_bif_types: maps:keys/1
 -spec keys(Map) -> Keys when
     Map :: map(),
     Keys :: [Key],
@@ -90,7 +90,7 @@ is_key(_,_) -> erlang:nif_error(undef).
 keys(_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: map:merge/2
+%% Shadowed by erl_bif_types: maps:merge/2
 -spec merge(Map1,Map2) -> Map3 when
     Map1 :: map(),
     Map2 :: map(),
@@ -100,14 +100,14 @@ merge(_,_) -> erlang:nif_error(undef).
 
 
 
-%% Shadowed by erl_bif_types: map:new/0
+%% Shadowed by erl_bif_types: maps:new/0
 -spec new() -> Map when
     Map :: map().
 
 new() -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: map:put/3
+%% Shadowed by erl_bif_types: maps:put/3
 -spec put(Key,Value,Map1) -> Map2 when
     Key :: term(),
     Value :: term(),
@@ -117,7 +117,7 @@ new() -> erlang:nif_error(undef).
 put(_,_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: map:put/3
+%% Shadowed by erl_bif_types: maps:put/3
 -spec remove(Key,Map1) -> Map2 when
     Key :: term(),
     Map1 :: map(),
@@ -126,7 +126,7 @@ put(_,_,_) -> erlang:nif_error(undef).
 remove(_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: map:to_list/1
+%% Shadowed by erl_bif_types: maps:to_list/1
 -spec to_list(Map) -> [{Key,Value}] when
     Map :: map(),
     Key :: term(),
@@ -135,7 +135,7 @@ remove(_,_) -> erlang:nif_error(undef).
 to_list(_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: map:update/3
+%% Shadowed by erl_bif_types: maps:update/3
 -spec update(Key,Value,Map1) -> Map2 when
     Key :: term(),
     Value :: term(),
@@ -145,7 +145,7 @@ to_list(_) -> erlang:nif_error(undef).
 update(_,_,_) -> erlang:nif_error(undef).
 
 
-%% Shadowed by erl_bif_types: map:values/1
+%% Shadowed by erl_bif_types: maps:values/1
 -spec values(Map) -> Keys when
     Map :: map(),
     Keys :: [Key],
@@ -167,7 +167,7 @@ values(_) -> erlang:nif_error(undef).
     V :: term().
 
 foldl(Fun, Init, Map) ->
-    lists:foldl(fun({K,V},A) -> Fun(K,V,A) end,Init,map:to_list(Map)).
+    lists:foldl(fun({K,V},A) -> Fun(K,V,A) end,Init,maps:to_list(Map)).
 
 -spec foldr(Fun,Init,Map) -> Acc when
     Fun :: fun((K,V,AccIn) -> AccOut),
@@ -179,9 +179,8 @@ foldl(Fun, Init, Map) ->
     K :: term(),
     V :: term().
 
-
 foldr(Fun, Init, Map) ->
-    lists:foldr(fun({K,V},A) -> Fun(K,V,A) end,Init,map:to_list(Map)).
+    lists:foldr(fun({K,V},A) -> Fun(K,V,A) end,Init,maps:to_list(Map)).
 
 
 -spec map(Fun,Map1) -> Map2 when
@@ -192,12 +191,12 @@ foldr(Fun, Init, Map) ->
     V1 :: term(),
     V2 :: term().
 
-
 map(Fun, Map) ->
-    map:from_list(lists:map(fun
+    maps:from_list(lists:map(fun
 		({K,V}) ->
 		    {K,Fun(K,V)}
-	    end,map:to_list(Map))).
+	    end,maps:to_list(Map))).
+
 
 -spec size(Map) -> non_neg_integer() when
     Map :: map().
@@ -212,4 +211,4 @@ size(Map) ->
     K :: term().
 
 without(Ks, M) ->
-    map:from_list([{K,V}||{K,V} <- map:to_list(M), not lists:member(K, Ks)]).
+    maps:from_list([{K,V}||{K,V} <- maps:to_list(M), not lists:member(K, Ks)]).
