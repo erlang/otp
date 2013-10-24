@@ -164,7 +164,7 @@ values(_) -> erlang:nif_error(undef).
     K :: term(),
     V :: term().
 
-foldl(Fun, Init, Map) ->
+foldl(Fun, Init, Map) when is_function(Fun,3), is_map(Map) ->
     lists:foldl(fun({K,V},A) -> Fun(K,V,A) end,Init,maps:to_list(Map)).
 
 -spec foldr(Fun,Init,Map) -> Acc when
@@ -177,7 +177,7 @@ foldl(Fun, Init, Map) ->
     K :: term(),
     V :: term().
 
-foldr(Fun, Init, Map) ->
+foldr(Fun, Init, Map) when is_function(Fun,3), is_map(Map) ->
     lists:foldr(fun({K,V},A) -> Fun(K,V,A) end,Init,maps:to_list(Map)).
 
 
@@ -189,7 +189,7 @@ foldr(Fun, Init, Map) ->
     V1 :: term(),
     V2 :: term().
 
-map(Fun, Map) ->
+map(Fun, Map) when is_function(Fun, 2), is_map(Map) ->
     maps:from_list(lists:map(fun
 		({K,V}) ->
 		    {K,Fun(K,V)}
@@ -199,8 +199,9 @@ map(Fun, Map) ->
 -spec size(Map) -> non_neg_integer() when
     Map :: map().
 
-size(Map) ->
+size(Map) when is_map(Map) ->
     erlang:map_size(Map).
+
 
 -spec without(Ks,Map1) -> Map2 when
     Ks :: [K],
@@ -208,5 +209,5 @@ size(Map) ->
     Map2 :: map(),
     K :: term().
 
-without(Ks, M) ->
+without(Ks, M) when is_list(Ks), is_map(M) ->
     maps:from_list([{K,V}||{K,V} <- maps:to_list(M), not lists:member(K, Ks)]).
