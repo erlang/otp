@@ -888,6 +888,12 @@ normalise({cons,_,Head,Tail}) ->
     [normalise(Head)|normalise(Tail)];
 normalise({tuple,_,Args}) ->
     list_to_tuple(normalise_list(Args));
+normalise({map,_,Pairs}=M) ->
+    map:from_list(lists:map(fun
+		%% only allow '=>'
+		({map_field_assoc,_,K,V}) -> {normalise(K),normalise(V)};
+		(_) -> erlang:error({badarg,M})
+	    end, Pairs));
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;
