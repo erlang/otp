@@ -1405,26 +1405,14 @@ compile_beam_opts(doc) ->
     ["Take compiler options from beam in cover:compile_beam"];
 compile_beam_opts(suite) -> [];
 compile_beam_opts(Config) when is_list(Config) ->
-    ?line ok = file:set_cwd(?config(priv_dir, Config)),
-    ?line IncDir = filename:join(?config(data_dir, Config),
+    {ok, Cwd} = file:get_cwd(),
+    ok = file:set_cwd(?config(priv_dir, Config)),
+    IncDir = filename:join(?config(data_dir, Config),
                                  "included_functions"),
-    File = "t.erl",
-    Test = <<"-module(t).
-             -export([exported/0]).
-             -include(\"cover_inc.hrl\").
-             -ifdef(BOOL).
-             macro() ->
-                 ?MACRO.
-             -endif.
-             exported() ->
-                 ok.
-             nonexported() ->
-                 ok.
-             ">>,
-    ?line ok = file:write_file(File, Test),
+    File = filename:join([?config(data_dir, Config), "otp_11439", "t.erl"]),
     %% use all compiler options allowed by cover:filter_options
     %% i and d don't make sense when compiling from beam though
-    ?line {ok, t} =
+    {ok, t} =
         compile:file(File, [{i, IncDir},
                             {d, 'BOOL'},
                             {d, 'MACRO', macro_defined},
@@ -1438,12 +1426,12 @@ compile_beam_opts(Config) when is_list(Config) ->
          {nonexported,0},
          {module_info,0},
          {module_info,1}],
-    ?line Exports = t:module_info(exports),
-    ?line {ok, t} = cover:compile_beam("t"),
-    ?line Exports = t:module_info(exports),
-    ?line cover:stop(),
-    ?line ok = file:delete(File),
-
+    Exports = t:module_info(exports),
+    {ok, t} = cover:compile_beam("t"),
+    Exports = t:module_info(exports),
+    cover:stop(),
+    ok = file:delete("t.beam"),
+    ok = file:set_cwd(Cwd),
     ok.
 
 %%--Auxiliary------------------------------------------------------------
