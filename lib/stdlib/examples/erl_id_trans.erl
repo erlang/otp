@@ -144,6 +144,13 @@ pattern({cons,Line,H0,T0}) ->
 pattern({tuple,Line,Ps0}) ->
     Ps1 = pattern_list(Ps0),
     {tuple,Line,Ps1};
+pattern({map,Line,Ps0}) ->
+    Ps1 = pattern_list(Ps0),
+    {map,Line,Ps1};
+pattern({map_field_exact,Line,K,V}) ->
+    Ke = pattern(K),
+    Ve = pattern(V),
+    {map_field_exact,Line,Ke,Ve};
 %%pattern({struct,Line,Tag,Ps0}) ->
 %%    Ps1 = pattern_list(Ps0),
 %%    {struct,Line,Tag,Ps1};
@@ -251,6 +258,20 @@ gexpr({float,Line,F}) -> {float,Line,F};
 gexpr({atom,Line,A}) -> {atom,Line,A};
 gexpr({string,Line,S}) -> {string,Line,S};
 gexpr({nil,Line}) -> {nil,Line};
+gexpr({map,Line,Map0,Es0}) ->
+    [Map1|Es1] = gexpr_list([Map0|Es0]),
+    {map,Line,Map1,Es1};
+gexpr({map,Line,Es0}) ->
+    Es1 = gexpr_list(Es0),
+    {map,Line,Es1};
+gexpr({map_field_assoc,Line,K,V}) ->
+    Ke = gexpr(K),
+    Ve = gexpr(V),
+    {map_field_assoc,Line,Ke,Ve};
+gexpr({map_field_exact,Line,K,V}) ->
+    Ke = gexpr(K),
+    Ve = gexpr(V),
+    {map_field_exact,Line,Ke,Ve};
 gexpr({cons,Line,H0,T0}) ->
     H1 = gexpr(H0),
     T1 = gexpr(T0),				%They see the same variables
@@ -356,6 +377,20 @@ expr({bc,Line,E0,Qs0}) ->
 expr({tuple,Line,Es0}) ->
     Es1 = expr_list(Es0),
     {tuple,Line,Es1};
+expr({map,Line,Map0,Es0}) ->
+    [Map1|Es1] = exprs([Map0|Es0]),
+    {map,Line,Map1,Es1};
+expr({map,Line,Es0}) ->
+    Es1 = exprs(Es0),
+    {map,Line,Es1};
+expr({map_field_assoc,Line,K,V}) ->
+    Ke = expr(K),
+    Ve = expr(V),
+    {map_field_assoc,Line,Ke,Ve};
+expr({map_field_exact,Line,K,V}) ->
+    Ke = expr(K),
+    Ve = expr(V),
+    {map_field_exact,Line,Ke,Ve};
 %%expr({struct,Line,Tag,Es0}) ->
 %%    Es1 = pattern_list(Es0),
 %%    {struct,Line,Tag,Es1};
