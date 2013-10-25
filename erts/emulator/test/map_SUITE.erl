@@ -45,13 +45,18 @@
 
 	%% erlang
 	t_erlang_hash/1,
-	t_map_encode_decode/1
+	t_map_encode_decode/1,
+
+	%% misc
+	t_pdict/1,
+	t_ets/1,
+	t_dets/1,
+	t_tracing/1
     ]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("stdlib/include/ms_transform.hrl").
 
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [].
 
 all() -> [
 	t_build_and_match_literals,
@@ -70,7 +75,12 @@ all() -> [
 	%% erlang
 	t_erlang_hash, t_map_encode_decode,
 	%t_size,
-	t_map_size
+	t_map_size,
+
+        %% Other functions
+	t_pdict,
+	t_ets,
+	t_tracing
     ].
 
 groups() -> [].
@@ -760,6 +770,129 @@ t_bif_map_from_list(Config) when is_list(Config) ->
     {'EXIT', {badarg,_}} = (catch map:from_list(id(42))),
     ok.
 
+%% MISC
+t_pdict(_Config) ->
+
+    put(#{ a => b, b => a},#{ c => d}),
+    put(get(#{ a => b, b => a}),1),
+    1 = get(#{ c => d}),
+    #{ c := d } = get(#{ a => b, b => a}).
+
+t_ets(_Config) ->
+
+    Tid = ets:new(map_table,[]),
+
+    [ets:insert(Tid,{maps:from_list([{I,-I}]),I}) || I <- lists:seq(1,100)],
+
+
+    [{#{ 2 := -2},2}] = ets:lookup(Tid,#{ 2 => -2 }),
+
+    %% Test equal
+    [3,4] = lists:sort(
+	      ets:select(Tid,[{{'$1','$2'},
+			       [{'or',{'==','$1',#{ 3 => -3 }},
+				 {'==','$1',#{ 4 => -4 }}}],
+			       ['$2']}])),
+    %% Test match
+    [30,50] = lists:sort(
+		ets:select(Tid,
+			   [{{#{ 30 => -30}, '$1'},[],['$1']},
+			    {{#{ 50 => -50}, '$1'},[],['$1']}]
+			  )),
+
+    ets:insert(Tid,{#{ a => b, b => c, c => a},transitivity}),
+
+    %% Test equal with map of different size
+    [] = ets:select(Tid,[{{'$1','_'},[{'==','$1',#{ b => c }}],['$_']}]),
+
+    %% Test match with map of different size
+    [{#{ a := b },_}] = ets:select(Tid,[{{#{ b => c },'_'},[],['$_']}]),
+
+    %% Test match with don't care value
+    [{#{ a := b },_}] = ets:select(Tid,[{{#{ b => '_' },'_'},[],['$_']}]),
+
+    %% Test is_map bif
+    ets:insert(Tid,{not_a_map,2}),
+    100 = length(ets:select(Tid,[{'$1',[{is_map,{element,1,'$1'}}],['$_']}])),
+
+    %% Test map_size bif
+    [3] = ets:select(Tid,[{{'$1','_'},[{'==',{map_size,'$1'},3}],
+			   [{map_size,'$1'}]}]),
+
+    true = ets:delete(Tid,#{50 => -50}),
+    [] = ets:lookup(Tid,#{50 => -50}),
+
+    ets:delete(Tid),
+    ok.
+
+t_dets(_Config) ->
+    ok.
+
+t_tracing(_Config) ->
+
+    dbg:stop_clear(),
+    {ok,Tracer} = dbg:tracer(process,{fun trace_collector/2, self()}),
+    dbg:p(self(),c),
+
+    %% Test basic map call
+    {ok,_} = dbg:tpl(?MODULE,id,x),
+    id(#{ a => b }),
+    {trace,_,call,{?MODULE,id,[#{ a := b }]}} = getmsg(Tracer),
+    {trace,_,return_from,{?MODULE,id,1},#{ a := b }} = getmsg(Tracer),
+    dbg:ctpl(),
+
+    %% Test equals in argument list
+    {ok,_} = dbg:tpl(?MODULE,id,[{['$1'],[{'==','$1',#{ b => c}}],
+				  [{return_trace}]}]),
+    id(#{ a => b }),
+    id(#{ b => c }),
+    {trace,_,call,{?MODULE,id,[#{ b := c }]}} = getmsg(Tracer),
+    {trace,_,return_from,{?MODULE,id,1},#{ b := c }} = getmsg(Tracer),
+    dbg:ctpl(),
+
+    %% Test match in head
+    {ok,_} = dbg:tpl(?MODULE,id,[{[#{b => c}],[],[]}]),
+    id(#{ a => b }),
+    id(#{ b => c }),
+    {trace,_,call,{?MODULE,id,[#{ b := c }]}} = getmsg(Tracer),
+    dbg:ctpl(),
+
+    %% Test map guard bifs
+    {ok,_} = dbg:tpl(?MODULE,id,[{['$1'],[{'or',{is_map,{element,1,'$1'}},
+					   {'==',{map_size,'$1'},2}}],[]}]),
+    id(#{ a => b }),
+    id({1,2}),
+    id({#{ a => b},2}),
+    id(#{ a => b, b => c}),
+    {trace,_,call,{?MODULE,id,[{#{ a := b },2}]}} = getmsg(Tracer),
+    {trace,_,call,{?MODULE,id,[#{ a := b, b := c }]}} = getmsg(Tracer),
+    dbg:ctpl(),
+
+    %% Test fun2ms, DOES NOT COMPILE!!
+    %MS = dbg:fun2ms(fun([A]) when A == #{ a => b} -> ok end),
+    %dbg:tpl(?MODULE,id,MS),
+    %id(#{ a => b }),
+    %id(#{ b => c }),
+    %{trace,_,call,{?MODULE,id,[#{ a := b }]}} = getmsg(Tracer),
+    %dbg:ctpl(),
+
+    %% Check to extra messages
+    timeout = getmsg(Tracer),
+
+    dbg:stop_clear(),
+    ok.
+
+getmsg(_Tracer) ->
+    receive
+	V -> V
+    after 50 ->
+	    timeout
+    end.
+
+trace_collector(Msg,Parent) ->
+    io:format("~p~n",[Msg]),
+    Parent ! Msg,
+    Parent.
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
