@@ -566,6 +566,12 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
+	am_is_map,
+	&is_map_1,
+	1,
+	DBIF_ALL
+    },
+    {
 	am_is_binary,
 	&is_binary_1,
 	1,
@@ -628,6 +634,12 @@ static DMCGuardBif guard_tab[] =
     {
 	am_size,
 	&size_1,
+	1,
+	DBIF_ALL
+    },
+    {
+	am_map_size,
+	&map_size_1,
 	1,
 	DBIF_ALL
     },
