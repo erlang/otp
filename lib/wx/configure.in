@@ -413,7 +413,22 @@ define(wx_warn_text,[
     fi
 else
     AC_MSG_CHECKING(for wxWidgets in standard locations)
-		  
+
+    # Check whether --with-wxdir was given.
+    AC_MSG_NOTICE(OptionCheck: [$with_wxdir $with_wx_prefix])
+
+    if test "${with_wxdir+set}" = set; then :
+      withval=$with_wxdir;  CWXWIN0=$withval
+    else
+      # Check whether --with-wx-prefix was given.
+      if test "${with_wx_prefix+set}" = set; then :
+        withval=$with_wx_prefix; CWXWIN0=$withval
+      else
+        echo Setting it empty
+        CWXWIN0=""
+      fi
+    fi
+
     if test "x$MIXED_MSYS" = "xyes"; then
         CWXWIN_CONFIG=`win2msys_path.sh $wx_config_name 2>/dev/null`
     else
@@ -444,9 +459,10 @@ else
 		;;
     esac	
 			
-    CWXPATH="$CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3.* $CWXWIN4.*"
+    CWXPATH="$CWXWIN0 $CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3.* $CWXWIN4.*"
 
     for dir in $CWXPATH; do
+        AC_MSG_NOTICE(Checking: [$dir])
 	if test -f $dir/include/wx/wx.h; then
 	    WXINCLUDE_MSVC=$dir/include/msvc
 	    WXINCLUDE_PLAIN=$dir/include
