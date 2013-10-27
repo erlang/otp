@@ -553,16 +553,22 @@ expr({'try',L,Es0,[],[],As0}, St0) ->
     %% 'try ... after ... end'
     {Es1,St1} = exprs(Es0, St0),
     {As1,St2} = exprs(As0, St1),
-    {Evs,Hs0,St3} = try_after(As1, St2),
-    %% We must kill the id for any funs in the duplicated after body,
-    %% to avoid getting two local functions having the same name.
-    Hs = kill_id_anns(Hs0),
+    {Name,St3} = new_fun_name("after", St2),
     {V,St4} = new_var(St3),		% (must not exist in As1)
-    %% TODO: this duplicates the 'after'-code; should lift to function.
-    Lanno = lineno_anno(L, St4),
-    {#itry{anno=#a{anno=Lanno},args=Es1,vars=[V],body=As1++[V],
-	   evars=Evs,handler=Hs},
-     [],St4};
+    LA = lineno_anno(L, St4),
+    Lanno = #a{anno=LA},
+    Fc = function_clause([], LA, {Name,0}),
+    Fun = #ifun{anno=Lanno,id=[],vars=[],
+		clauses=[#iclause{anno=Lanno,pats=[],
+				  guard=[#c_literal{val=true}],
+				  body=As1}],
+		fc=Fc},
+    App = #iapply{anno=Lanno,op=#c_var{anno=LA,name={Name,0}},args=[]},
+    {Evs,Hs,St5} = try_after([App], St4),
+    Try = #itry{anno=Lanno,args=Es1,vars=[V],body=[App,V],evars=Evs,handler=Hs},
+    Letrec = #iletrec{anno=Lanno,defs=[{{Name,0},Fun}],
+		      body=[Try]},
+    {Letrec,[],St5};
 expr({'try',L,Es,Cs,Ecs,As}, St0) ->
     %% 'try ... [of ...] [catch ...] after ... end'
     expr({'try',L,[{'try',L,Es,Cs,Ecs,[]}],[],[],As}, St0);
@@ -1135,28 +1141,13 @@ bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
     %%Anno = Anno0#a{anno=[compiler_generated|A]},
     {set_anno(E, Anno),Pre,St}.
 
-append_tail_segment(Segs, St) ->
-    app_tail_seg(Segs, St, []).
-
-app_tail_seg([#c_bitstr{val=Var0,size=#c_literal{val=all}}=Seg0]=L,
-	     St0, Acc) ->
-    case Var0 of
-	#c_var{name='_'} ->
-	    {Var,St} = new_var(St0),
-	    Seg = Seg0#c_bitstr{val=Var},
-	    {reverse(Acc, [Seg]),Var,St};
-	#c_var{} ->
-	    {reverse(Acc, L),Var0,St0}
-    end;
-app_tail_seg([H|T], St, Acc) ->
-    app_tail_seg(T, St, [H|Acc]);
-app_tail_seg([], St0, Acc) ->
+append_tail_segment(Segs, St0) ->
     {Var,St} = new_var(St0),
     Tail = #c_bitstr{val=Var,size=#c_literal{val=all},
 		     unit=#c_literal{val=1},
 		     type=#c_literal{val=binary},
 		     flags=#c_literal{val=[unsigned,big]}},
-    {reverse(Acc, [Tail]),Var,St}.
+    {Segs++[Tail],Var,St}.
 
 emasculate_segments(Segs, St) ->
     emasculate_segments(Segs, St, []).
@@ -2055,24 +2046,6 @@ cexpr(Lit, _As, St) ->
     Vs = Anno#a.us,
     %%Vs = lit_vars(Lit),
     {set_anno(Lit, Anno#a.anno),[],Vs,St}.
-
-%% Kill the id annotations for any fun inside the expression.
-%% Necessary when duplicating code in try ... after.
-
-kill_id_anns(#ifun{clauses=Cs0}=Fun) ->
-    Cs = kill_id_anns(Cs0),
-    Fun#ifun{clauses=Cs,id=[]};
-kill_id_anns(#a{}=A) ->
-    %% Optimization: Don't waste time searching for funs inside annotations.
-    A;
-kill_id_anns([H|T]) ->
-    [kill_id_anns(H)|kill_id_anns(T)];
-kill_id_anns([]) -> [];
-kill_id_anns(Tuple) when is_tuple(Tuple) ->
-    L0 = tuple_to_list(Tuple),
-    L = kill_id_anns(L0),
-    list_to_tuple(L);
-kill_id_anns(Other) -> Other.
 
 %% lit_vars(Literal) -> [Var].
 

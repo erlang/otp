@@ -65,6 +65,10 @@ init([Pid, ParentFrame, Parent]) ->
 	DictPage    = init_panel(Notebook, "Dictionary", Pid, fun init_dict_page/2),
 	StackPage   = init_panel(Notebook, "Stack Trace", Pid, fun init_stack_page/2),
 	StatePage   = init_panel(Notebook, "State", Pid, fun init_state_page/2),
+   case gen_server:call(observer, log_status) of
+      true  -> LogPage     = init_panel(Notebook, "Log", Pid, fun init_log_page/2);
+      false -> ok
+   end,
 
 	wxFrame:connect(Frame, close_window),
 	wxMenu:connect(Frame, command_menu_selected),
@@ -288,6 +292,29 @@ init_state_page(Parent, Pid) ->
     Update(),
     {Text, Update}.
 
+init_log_page(Parent, Pid) ->
+    Text = init_text_page(Parent),
+    Update = fun() -> Target = filename:join(code:priv_dir(observer), pid_to_list(Pid)),
+            {ok, Fd} = file:open(Target, [write, read]),
+            rpc:call(node(Pid), rb, rescan, [[{start_log, Fd}]]),
+            %% observer can observe remote nodes
+            %% There is no function to get the local
+            %% pid from the remote pid ...
+            %% So grep will fail to find remote pid in remote local log.
+            %% i.e. <4589.42.1> will not be found, but <0.42.1> will
+            %% Let's replace first integer by zero
+            LocalPid = "<0" ++ re:replace(pid_to_list(Pid),"\<([0-9]{1,})","",[{return, list}]),
+            rpc:call(node(Pid), rb , grep, [LocalPid]),
+            file:close(Fd),
+            {ok, Logs} = file:read_file(Target),
+            file:delete(Target),
+            Log = [io_lib:format("Log search : ~ts~n~ts~n",[LocalPid, binary_to_list(Logs)])],
+            Last = wxTextCtrl:getLastPosition(Text),
+            wxTextCtrl:remove(Text, 0, Last),
+            wxTextCtrl:writeText(Text, Log)
+    end,
+    Update(),
+    {Text, Update}.
 
 create_menus(MenuBar) ->
     Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]},

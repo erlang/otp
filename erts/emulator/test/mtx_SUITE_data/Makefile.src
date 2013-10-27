@@ -17,8 +17,8 @@
 # %CopyrightEnd%
 # 
 
-include @erts_lib_include_internal_generated@@DS@ethread.mk
-include @erts_lib_include_internal_generated@@DS@erts_internal.mk
+include @erts_lib_make_ethread@
+include @erts_lib_make_internal@
 
 NIF_LIBS = mtx_SUITE@dll@
 

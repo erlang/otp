@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -456,47 +456,66 @@ fe80::204:acff:fe17:bf38
         <p>Sets one or more options for a socket. The following options
           are available:</p>
         <taglist>
-          <tag><c>{active, true | false | once}</c></tag>
+          <tag><c>{active, true | false | once | N}</c></tag>
           <item>
             <p>If the value is <c>true</c>, which is the default,
               everything received from the socket will be sent as
               messages to the receiving process. If the value is
               <c>false</c> (passive mode), the process must explicitly
-              receive incoming data by calling <c>gen_tcp:recv/2,3</c>
-              or <c>gen_udp:recv/2,3</c> (depending on the type of
-              socket).</p>
+              receive incoming data by calling
+              <seealso marker="gen_tcp#recv/2"><c>gen_tcp:recv/2,3</c></seealso>,
+              <seealso marker="gen_udp#recv/2"><c>gen_udp:recv/2,3</c></seealso>
+              or <seealso marker="gen_sctp#recv/1"><c>gen_sctp:recv/1,2</c></seealso>
+              (depending on the type of socket).</p>
             <p>If the value is <c>once</c> (<c>{active, once}</c>),
               <em>one</em> data message from the socket will be sent
               to the process.  To receive one more message,
               <c>setopts/2</c> must be called again with the
               <c>{active, once}</c> option.</p>
-            <p>When using <c>{active, once}</c>, the socket changes
-              behaviour automatically when data is received. This can
-              sometimes be confusing in combination with connection
-              oriented sockets (i.e. <c>gen_tcp</c>) as a socket with
-              <c>{active, false}</c> behaviour reports closing
+            <p>If the value is an integer <c>N</c> in the range -32768 to 32767
+              (inclusive), the value is added to the socket's count of data
+              messages sent to the controlling process. A socket's default
+              message count is 0. If a negative value is specified and its
+              magnitude is equal to or greater than the socket's current
+              message count, the socket's message count is set to 0. Once
+              the socket's message count reaches 0, either due to sending
+              received data messages to the process or by being explicitly set,
+              the process is then notified by a special message, specific to
+              the type of socket, that the socket has entered passive
+              mode. Once the socket enters passive mode, to receive more
+              messages <c>setopts/2</c> must be called again to set the
+              socket back into an active mode.</p>
+            <p>When using <c>{active, once}</c> or <c>{active, N}</c>, the
+              socket changes behaviour automatically when data is received.
+              This can sometimes be confusing in combination with
+              connection-oriented sockets (i.e. <c>gen_tcp</c>) as a socket
+              with <c>{active, false}</c> behaviour reports closing
               differently than a socket with <c>{active, true}</c>
               behaviour. To make programming easier, a socket where
               the peer closed and this was detected while in
               <c>{active, false}</c> mode, will still generate the
               message
-              <c>{tcp_closed,Socket}</c> when set to <c>{active, once}</c> or <c>{active, true}</c> mode. It is therefore
+              <c>{tcp_closed,Socket}</c> when set to <c>{active, once}</c>,
+              <c>{active, true}</c> or <c>{active, N}</c> mode. It is therefore
               safe to assume that the message
               <c>{tcp_closed,Socket}</c>, possibly followed by socket
               port termination (depending on the <c>exit_on_close</c>
               option) will eventually appear when a socket changes
               back and forth between <c>{active, true}</c> and
-              <c>{active, false}</c> mode. However, 
+              <c>{active, false}</c> mode. However,
               <em>when</em> peer closing is detected is all up to the
               underlying TCP/IP stack and protocol.</p>
-            <p>Note that <c>{active,true}</c> mode provides no flow
+            <p>Note that <c>{active, true}</c> mode provides no flow
               control; a fast sender could easily overflow the
-              receiver with incoming messages. Use active mode only if
+              receiver with incoming messages. The same is true of
+              <c>{active, N}</c> mode while the message count is greater
+              than zero. Use active mode only if
               your high-level protocol provides its own flow control
               (for instance, acknowledging received messages) or the
-              amount of data exchanged is small. <c>{active,false}</c>
-              mode or use of the <c>{active, once}</c> mode provides
-              flow control; the other side will not be able send
+              amount of data exchanged is small. <c>{active, false}</c>
+              mode, use of the <c>{active, once}</c> mode or <c>{active, N}</c>
+              mode with values of <c>N</c> appropriate for the application
+              provides flow control; the other side will not be able send
               faster than the receiver can read.</p>
           </item>
 

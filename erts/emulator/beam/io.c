@@ -2765,6 +2765,7 @@ void erts_init_io(int port_tab_size,
     init_driver(&fd_driver, &fd_driver_entry, NULL);
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
+    erts_init_static_drivers();
     for (dp = driver_tab; *dp != NULL; dp++)
 	erts_add_driver_entry(*dp, NULL, 1);
 

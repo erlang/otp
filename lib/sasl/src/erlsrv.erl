@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,7 @@ current_version() ->
 run_erlsrv(Command) ->
     run_erlsrv(current_version(),Command).
 run_erlsrv(EVer, Command) ->
-    case catch(open_port({spawn, erlsrv(EVer) ++ " " ++ Command}, 
+    case catch(open_port({spawn, "\"" ++ erlsrv(EVer) ++ "\" " ++ Command},
 			 [{line,1000}, in, eof])) of
 	{'EXIT',{Reason,_}} ->
 	    {port_error, Reason};
@@ -53,7 +53,7 @@ run_erlsrv(EVer, Command) ->
     end.
 
 run_erlsrv_interactive(EVer, Commands) ->
-    case catch(open_port({spawn, erlsrv(EVer) ++ " readargs"}, 
+    case catch(open_port({spawn, "\""++ erlsrv(EVer) ++ "\" readargs"},
 			 [{line,1000}, eof])) of
 	{'EXIT',{Reason,_}} ->
 	    {port_error, Reason};
@@ -71,11 +71,14 @@ write_all_data(Port,[]) ->
     Port ! {self(), {command, io_lib:nl()}},
     ok;
 write_all_data(Port,[H|T]) ->
-    Port ! {self(), {command, H ++ io_lib:nl()}},
+    Port ! {self(), {command, unicode:characters_to_binary([H,io_lib:nl()])}},
     write_all_data(Port,T).
 
 read_all_data(Port) ->
-	lists:reverse(read_all_data(Port,[],[])).
+    Data0 = lists:reverse(read_all_data(Port,[],[])),
+    %% Convert from utf8 to a list of chars
+    [unicode:characters_to_list(list_to_binary(Data)) || Data <- Data0].
+
 read_all_data(Port,Line,Lines) ->
     receive
 	{Port, {data, {noeol,Data}}} ->
@@ -178,7 +181,7 @@ get_service(EVer, ServiceName) ->
 				[]
 			end
 		end,
-	    %%% First split by Env:
+            %%% First split by Env:
 	    {Before, After} = split_by_env(Data),
 	    FirstPass = lists:flatten(lists:map(F,Before)),
 	    %%% If the arguments are there, split them to

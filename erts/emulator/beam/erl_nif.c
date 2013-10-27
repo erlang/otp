@@ -1213,7 +1213,8 @@ static void close_lib(struct erl_module_nif* lib)
 	lib->entry->unload(&env, lib->priv_data);
 	post_nif_noproc(&env);
     }
-    erts_sys_ddll_close(lib->handle);
+    if (!erts_is_static_nif(lib->handle))
+      erts_sys_ddll_close(lib->handle);
     lib->handle = NULL;
 }
 
@@ -1564,12 +1565,13 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     static const char upgrade[] = "upgrade";
     char* lib_name = NULL;
     void* handle = NULL;
-    void* init_func;
+    void* init_func = NULL;
     ErlNifEntry* entry = NULL;
     ErlNifEnv env;
-    int len, i, err;
+    int i, err, encoding;
     Module* mod;
     Eterm mod_atom;
+    const Atom* mod_atomp;
     Eterm f_atom;
     BeamInstr* caller;
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
@@ -1578,18 +1580,17 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     struct erl_module_nif* lib = NULL;
     int reload_warning = 0;
 
-    len = list_length(BIF_ARG_1);
-    if (len < 0) {
+    encoding = erts_get_native_filename_encoding();
+    if (encoding == ERL_FILENAME_WIN_WCHAR) {
+        /* Do not convert the lib name to utf-16le yet, do that in win32 specific code */
+        /* since lib_name is used in error messages */
+        encoding = ERL_FILENAME_UTF8;
+    }
+    lib_name = erts_convert_filename_to_encoding(BIF_ARG_1, NULL, 0,
+                                                 ERTS_ALC_T_TMP, 1, 0, encoding, NULL);
+    if (!lib_name) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-
-    lib_name = (char *) erts_alloc(ERTS_ALC_T_TMP, len + 1);
-
-    if (intlist_to_buf(BIF_ARG_1, lib_name, len) != len) {
-	erts_free(ERTS_ALC_T_TMP, lib_name);
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    lib_name[len] = '\0';
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
 	erts_free(ERTS_ALC_T_TMP, lib_name);
@@ -1613,13 +1614,19 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     mod=erts_get_module(mod_atom, erts_active_code_ix());
     ASSERT(mod != NULL);
 
+    mod_atomp = atom_tab(atom_val(mod_atom));
+    init_func = erts_static_nif_get_nif_init((char*)mod_atomp->name, mod_atomp->len);
+    if (init_func != NULL)
+      handle = init_func;
+
     if (!in_area(caller, mod->curr.code, mod->curr.code_length)) {
 	ASSERT(in_area(caller, mod->old.code, mod->old.code_length));
 
 	ret = load_nif_error(BIF_P, "old_code", "Calling load_nif from old "
 			     "module '%T' not allowed", mod_atom);
     }    
-    else if ((err=erts_sys_ddll_open2(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
+    else if (init_func == NULL &&
+	     (err=erts_sys_ddll_open2(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
 	const char slogan[] = "Failed to load NIF library";
 	if (strstr(errdesc.str, lib_name) != NULL) {
 	    ret = load_nif_error(BIF_P, "load_failed", "%s: '%s'", slogan, errdesc.str);
@@ -1628,7 +1635,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    ret = load_nif_error(BIF_P, "load_failed", "%s %s: '%s'", slogan, lib_name, errdesc.str);
 	}
     }
-    else if (erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) != ERL_DE_NO_ERROR) {
+    else if (init_func == NULL &&
+	     erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) != ERL_DE_NO_ERROR) {
 	ret  = load_nif_error(BIF_P, bad_lib, "Failed to find library init"
 			      " function: '%s'", errdesc.str);
 	
@@ -1784,7 +1792,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
         if (lib != NULL) {
 	    erts_free(ERTS_ALC_T_NIF, lib);
 	}
-	if (handle != NULL) {
+	if (handle != NULL && !erts_is_static_nif(handle)) {
 	    erts_sys_ddll_close(handle);
 	}
 	erts_sys_ddll_free_error(&errdesc);

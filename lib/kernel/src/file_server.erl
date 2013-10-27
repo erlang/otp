@@ -78,7 +78,8 @@ init([]) ->
     process_flag(trap_exit, true),
     case ?PRIM_FILE:start() of
 	{ok, Handle} ->
-	    ets:new(?FILE_IO_SERVER_TABLE, [named_table]),
+	    ?FILE_IO_SERVER_TABLE =
+                ets:new(?FILE_IO_SERVER_TABLE, [named_table]),
 	    {ok, Handle};
 	{error, Reason} ->
 	    {stop, Reason}

@@ -37,7 +37,7 @@ plain smp frag smp_frag:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile FLAVOR=$@
 
 clean generate depend docs release release_spec release_docs release_docs_spec \
-  tests release_tests release_tests_spec:
+  tests release_tests release_tests_spec static_lib:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@
 
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -217,17 +217,23 @@ do_register_node(NodeName, TcpPort) ->
 	    Extra = "",
 	    Elen = length(Extra),
 	    Len = 1+2+1+1+2+2+2+length(Name)+2+Elen,
-	    gen_tcp:send(Socket, [?int16(Len), ?EPMD_ALIVE2_REQ,
-				   ?int16(TcpPort),
-				   $M,
-				   0,
-				   ?int16(epmd_dist_high()),
-				   ?int16(epmd_dist_low()),
-				   ?int16(length(Name)),
-				   Name,
-				   ?int16(Elen),
-				   Extra]),
-	    wait_for_reg_reply(Socket, []);
+            Packet = [?int16(Len), ?EPMD_ALIVE2_REQ,
+                      ?int16(TcpPort),
+                      $M,
+                      0,
+                      ?int16(epmd_dist_high()),
+                      ?int16(epmd_dist_low()),
+                      ?int16(length(Name)),
+                      Name,
+                      ?int16(Elen),
+                      Extra],
+	    case gen_tcp:send(Socket, Packet) of
+                ok ->
+                    wait_for_reg_reply(Socket, []);
+                Error ->
+                    close(Socket),
+                    Error
+            end;
 	Error ->
 	    Error
     end.
@@ -294,8 +300,14 @@ get_port(Node, EpmdAddress, Timeout) ->
 	{ok, Socket} ->
 	    Name = to_string(Node),
 	    Len = 1+length(Name),
-	    gen_tcp:send(Socket, [?int16(Len),?EPMD_PORT_PLEASE2_REQ, Name]),
-	    wait_for_port_reply(Socket, []);
+	    Msg = [?int16(Len),?EPMD_PORT_PLEASE2_REQ,Name],
+	    case gen_tcp:send(Socket, Msg) of
+		ok ->
+		    wait_for_port_reply(Socket, []);
+		_Error ->
+		    ?port_please_failure2(_Error),
+		    noport
+	    end;
 	_Error -> 
 	    ?port_please_failure2(_Error),
 	    noport
@@ -374,7 +386,7 @@ wait_for_port_reply_name(Socket, Len, Sofar) ->
 %	    io:format("data = ~p~n", _Data),
 	    wait_for_port_reply_name(Socket, Len, Sofar);
 	{tcp_closed, Socket} ->
-	    "foobar"
+	    ok
     end.
 		    
 
@@ -424,19 +436,24 @@ get_names(EpmdAddress) ->
     end.
 
 do_get_names(Socket) ->
-    gen_tcp:send(Socket, [?int16(1),?EPMD_NAMES]),
-    receive
-	{tcp, Socket, [P0,P1,P2,P3|T]} ->
-	    EpmdPort = ?u32(P0,P1,P2,P3),
-	    case get_epmd_port() of
-		EpmdPort ->
-		    names_loop(Socket, T, []);
-		_ ->
-		    close(Socket),
-		    {error, address}
+    case gen_tcp:send(Socket, [?int16(1),?EPMD_NAMES]) of
+	ok ->
+	    receive
+		{tcp, Socket, [P0,P1,P2,P3|T]} ->
+		    EpmdPort = ?u32(P0,P1,P2,P3),
+		    case get_epmd_port() of
+			EpmdPort ->
+			    names_loop(Socket, T, []);
+			_ ->
+			    close(Socket),
+			    {error, address}
+		    end;
+		{tcp_closed, Socket} ->
+		    {ok, []}
 	    end;
-	{tcp_closed, Socket} ->
-	    {ok, []}
+	_ ->
+	    close(Socket),
+	    {error, address}
     end.
 
 names_loop(Socket, Acc, Ps) ->

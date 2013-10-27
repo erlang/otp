@@ -296,6 +296,18 @@ Some of the available `configure` options are:
     you can build using a fallback implementation based on mutexes or spinlocks.
     Performance of the SMP runtime system will however suffer immensely without
     an implementation for native atomic memory accesses.
+*   `--enable-static-{nifs,drivers}` - To allow usage of nifs and drivers on OSs
+    that do not support dynamic linking of libraries it is possible to statically
+    link nifs and drivers with the main Erlang VM binary. This is done by passing
+    a comma seperated list to the archives that you want to statically link. e.g.
+    `--enable-static-nifs=/home/$USER/my_nif.a`. The path has to be absolute and the
+    name of the archive has to be the same as the module, i.e. `my_nif` in the
+    example above. This is also true for drivers, but then it is the driver name
+    that has to be the same as the filename. You also have to define
+    `STATIC_ERLANG_{NIF,DRIVER}` when compiling the .o files for the nif/driver.
+    If your nif/driver depends on some other dynamic library, you now have to link
+    that to the Erlang VM binary. This is easily achived by passing `LIBS=-llibname`
+    to configure.
 *   `--without-$app` - By default all applications in Erlang/OTP will be included
 	in a release. If this is not wanted it is possible to specify that Erlang/OTP
 	should be compiled without that applications, i.e. `--without-wx`. There is

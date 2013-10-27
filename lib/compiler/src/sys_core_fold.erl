@@ -2342,6 +2342,25 @@ move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 	    Case#c_case{arg=Cexpr,clauses=[Ca,Cb]};
 	{_,_,_} -> impossible
     end;
+move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
+		   #c_seq{arg=Sarg0,body=Sbody0}=Seq, Sub0) ->
+    %%
+    %% let <Lvars> = do <Seq-arg>
+    %%                  <Seq-body>
+    %% in <Let-body>
+    %%
+    %%       ==>
+    %%
+    %% do <Seq-arg>
+    %%    let <Lvars> = <Seq-body>
+    %%    in <Let-body>
+    %%
+    Sarg = body(Sarg0, Sub0),
+    Sbody1 = body(Sbody0, Sub0),
+    {Lvs,Sbody,Sub} = let_substs(Lvs0, Sbody1, Sub0),
+    Lbody = body(Lbody0, Sub),
+    Seq#c_seq{arg=Sarg,body=Let#c_let{vars=Lvs,arg=core_lib:make_values(Sbody),
+				      body=Lbody}};
 move_let_into_expr(_Let, _Expr, _Sub) -> impossible.
 
 is_failing_clause(#c_clause{body=B}) ->

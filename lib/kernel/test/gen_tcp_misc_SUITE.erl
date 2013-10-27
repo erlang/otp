@@ -25,7 +25,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 controlling_process/1, controlling_process_self/1,
-	 no_accept/1, close_with_pending_output/1,
+	 no_accept/1, close_with_pending_output/1, active_n/1,
 	 data_before_close/1, iter_max_socks/1, get_status/1,
 	 passive_sockets/1, accept_closed_by_other_process/1,
 	 init_per_testcase/2, end_per_testcase/2,
@@ -70,7 +70,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [controlling_process, controlling_process_self, no_accept,
      close_with_pending_output, data_before_close,
-     iter_max_socks, passive_sockets,
+     iter_max_socks, passive_sockets, active_n,
      accept_closed_by_other_process, otp_3924, closed_socket,
      shutdown_active, shutdown_passive, shutdown_pending,
      default_options, http_bad_packet, busy_send,
@@ -406,6 +406,114 @@ send_loop(_Sock, _Data, 0) -> ok;
 send_loop(Sock, Data, Left) ->
     ok = gen_tcp:send(Sock, Data),
     send_loop(Sock, Data, Left-1).
+
+%% Test {active,N} option
+active_n(doc) ->
+    ["Verify operation of the {active,N} option."];
+active_n(suite) -> [];
+active_n(Config) when is_list(Config) ->
+    N = 3,
+    LS = ok(gen_tcp:listen(0, [{active,N}])),
+    [{active,N}] = ok(inet:getopts(LS, [active])),
+    ok = inet:setopts(LS, [{active,-N}]),
+    receive
+        {tcp_passive, LS} -> ok
+    after
+        5000 ->
+            exit({error,tcp_passive_failure})
+    end,
+    [{active,false}] = ok(inet:getopts(LS, [active])),
+    ok = inet:setopts(LS, [{active,0}]),
+    receive
+        {tcp_passive, LS} -> ok
+    after
+        5000 ->
+            exit({error,tcp_passive_failure})
+    end,
+    ok = inet:setopts(LS, [{active,32767}]),
+    {error,einval} = inet:setopts(LS, [{active,1}]),
+    {error,einval} = inet:setopts(LS, [{active,-32769}]),
+    ok = inet:setopts(LS, [{active,-32768}]),
+    receive
+        {tcp_passive, LS} -> ok
+    after
+        5000 ->
+            exit({error,tcp_passive_failure})
+    end,
+    [{active,false}] = ok(inet:getopts(LS, [active])),
+    ok = inet:setopts(LS, [{active,N}]),
+    ok = inet:setopts(LS, [{active,true}]),
+    [{active,true}] = ok(inet:getopts(LS, [active])),
+    receive
+        _ -> exit({error,active_n})
+    after
+        0 ->
+            ok
+    end,
+    ok = inet:setopts(LS, [{active,N}]),
+    ok = inet:setopts(LS, [{active,once}]),
+    [{active,once}] = ok(inet:getopts(LS, [active])),
+    receive
+        _ -> exit({error,active_n})
+    after
+        0 ->
+            ok
+    end,
+    {error,einval} = inet:setopts(LS, [{active,32768}]),
+    ok = inet:setopts(LS, [{active,false}]),
+    [{active,false}] = ok(inet:getopts(LS, [active])),
+    Port = ok(inet:port(LS)),
+    C = ok(gen_tcp:connect("localhost", Port, [{active,N}])),
+    [{active,N}] = ok(inet:getopts(C, [active])),
+    S = ok(gen_tcp:accept(LS)),
+    ok = inet:setopts(S, [{active,N}]),
+    [{active,N}] = ok(inet:getopts(S, [active])),
+    repeat(3,
+           fun(I) ->
+                   Msg = "message "++integer_to_list(I),
+                   ok = gen_tcp:send(C, Msg),
+                   receive
+                       {tcp,S,Msg} ->
+                           ok = gen_tcp:send(S, Msg)
+                   after
+                       5000 ->
+                           exit({error,timeout})
+                   end,
+                   receive
+                       {tcp,C,Msg} ->
+                           ok
+                   after
+                       5000 ->
+                           exit({error,timeout})
+                   end
+           end),
+    receive
+        {tcp_passive,S} ->
+            [{active,false}] = ok(inet:getopts(S, [active]))
+    after
+        5000 ->
+            exit({error,tcp_passive})
+    end,
+    receive
+        {tcp_passive,C} ->
+            [{active,false}] = ok(inet:getopts(C, [active]))
+    after
+        5000 ->
+            exit({error,tcp_passive})
+    end,
+    LS2 = ok(gen_tcp:listen(0, [{active,0}])),
+    receive
+        {tcp_passive,LS2} ->
+            [{active,false}] = ok(inet:getopts(LS2, [active]))
+    after
+        5000 ->
+            exit({error,tcp_passive})
+    end,
+    ok = gen_tcp:close(LS2),
+    ok = gen_tcp:close(C),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(LS),
+    ok.
 
 -define(OTP_3924_MAX_DELAY, 100).
 %% Taken out of the blue, but on intra host connections
@@ -2659,3 +2767,5 @@ oct_aloop(S,X,Times) ->
 	    gen_tcp:close(S),
 	    closed
     end.
+
+ok({ok,V}) -> V.

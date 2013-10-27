@@ -219,7 +219,7 @@ parse_file(Epp) ->
 	    [{eof,Location}]
     end.
 
--define(DEFAULT_ENCODING, latin1).
+-define(DEFAULT_ENCODING, utf8).
 
 -spec default_encoding() -> source_encoding().
 
@@ -644,7 +644,7 @@ leave_file(From, St) ->
 		    enter_file_reply(From, OldName, CurrLoc, CurrLoc),
                     case OldName2 =:= OldName of
                         true ->
-                            From;
+                            ok;
                         false ->
                             NFrom = wait_request(NextSt),
                             enter_file_reply(NFrom, OldName2, OldLoc,

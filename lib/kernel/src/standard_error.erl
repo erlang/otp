@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -69,7 +69,7 @@ run(P) ->
 server_loop(Port) ->
     receive
 	{io_request,From,ReplyAs,Request} when is_pid(From) ->
-	    do_io_request(Request, From, ReplyAs, Port),
+	    _ = do_io_request(Request, From, ReplyAs, Port),
 	    server_loop(Port);
 	{'EXIT',Port,badsig} ->			% Ignore badsig errors
 	    server_loop(Port);
@@ -175,7 +175,7 @@ io_reply(From, ReplyAs, Reply) ->
 
 %% put_chars
 put_chars(Chars, Port) when is_binary(Chars) ->
-    put_port(Chars, Port),
+    _ = put_port(Chars, Port),
     {ok,ok};
 put_chars(Chars, Port) ->
     case catch list_to_binary(Chars) of

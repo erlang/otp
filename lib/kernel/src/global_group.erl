@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1149,9 +1149,14 @@ do_unlink(Pid, State) ->
 %%%====================================================================================
 %%% Send a nodeup/down messages to monitoring Pids in the own global group.
 %%%====================================================================================
-send_monitor([P|T], M, no_conf) -> safesend_nc(P, M), send_monitor(T, M, no_conf);
-send_monitor([P|T], M, SyncState) -> safesend(P, M), send_monitor(T, M, SyncState);
-send_monitor([], _, _) -> ok.
+send_monitor([P|T], M, no_conf) ->
+    _ = safesend_nc(P, M),
+    send_monitor(T, M, no_conf);
+send_monitor([P|T], M, SyncState) ->
+    _ = safesend(P, M),
+    send_monitor(T, M, SyncState);
+send_monitor([], _, _) ->
+    ok.
 
 safesend(Name, {Msg, Node}) when is_atom(Name) ->
     case lists:member(Node, get_own_nodes()) of

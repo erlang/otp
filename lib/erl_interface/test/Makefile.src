@@ -17,7 +17,7 @@
 # %CopyrightEnd%
 #
 
-include @erl_interface_mk_include@@DS@eidefs.mk
+include @erl_interface_mk_include@
 
 CC0 = @CC@
 CC = ..@DS@all_SUITE_data@DS@gccifier@exe@ -CC"$(CC0)"

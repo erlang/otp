@@ -42,7 +42,7 @@
 #define DEFAULT_PROGNAME "erl"
 
 #ifdef __WIN32__
-#define INI_FILENAME "erl.ini"
+#define INI_FILENAME L"erl.ini"
 #define INI_SECTION "erlang"
 #define DIRSEP "\\"
 #define PATHSEP ";"
@@ -1193,11 +1193,14 @@ start_epmd(char *epmd)
 	strcat(epmd, arg1);
     }
     {
-	STARTUPINFO start;
+	wchar_t wcepmd[MAXPATHLEN+100];
+	STARTUPINFOW start;
 	PROCESS_INFORMATION pi;
 	memset(&start, 0, sizeof (start));
 	start.cb = sizeof (start);
-	if (!CreateProcess(NULL, epmd, NULL, NULL, FALSE, 
+	MultiByteToWideChar(CP_UTF8, 0, epmd, -1, wcepmd, MAXPATHLEN+100);
+
+	if (!CreateProcessW(NULL, wcepmd, NULL, NULL, FALSE, 
 			       CREATE_DEFAULT_ERROR_MODE | DETACHED_PROCESS,
 			       NULL, NULL, &start, &pi))
 	    result = -1;
@@ -1391,53 +1394,49 @@ static void get_start_erl_data(char *file)
 }
 
 
-static char *replace_filename(char *path, char *new_base) 
+static wchar_t *replace_filename(wchar_t *path, wchar_t *new_base) 
 {
-    int plen = strlen(path);
-    char *res = emalloc((plen+strlen(new_base)+1)*sizeof(char));
-    char *p;
+    int plen = wcslen(path);
+    wchar_t *res = (wchar_t *) emalloc((plen+wcslen(new_base)+1)*sizeof(wchar_t));
+    wchar_t *p;
 
-    strcpy(res,path);
-    for (p = res+plen-1 ;p >= res && *p != '\\'; --p)
+    wcscpy(res,path);
+    for (p = res+plen-1 ;p >= res && *p != L'\\'; --p)
         ;
-    *(p+1) ='\0';
-    strcat(res,new_base);
+    *(p+1) =L'\0';
+    wcscat(res,new_base);
     return res;
 }
 
-static char *path_massage(char *long_path)
+static char *path_massage(wchar_t *long_path)
 {
      char *p;
-
-     p = emalloc(MAX_PATH+1);
-     strcpy(p, long_path);
-     GetShortPathName(p, p, MAX_PATH);
+     int len;
+     len = WideCharToMultiByte(CP_UTF8, 0, long_path, -1, NULL, 0, NULL, NULL);
+     p = emalloc(len*sizeof(char));
+     WideCharToMultiByte(CP_UTF8, 0, long_path, -1, p, len, NULL, NULL);
      return p;
 }
     
 static char *do_lookup_in_section(InitSection *inis, char *name, 
-				  char *section, char *filename, int is_path)
+				  char *section, wchar_t *filename, int is_path)
 {
     char *p = lookup_init_entry(inis, name);
 
     if (p == NULL) {
-	error("Could not find key %s in section %s of file %s",
+	error("Could not find key %s in section %s of file %S",
 	      name,section,filename);
     }
 
-    if (is_path) {
-	return path_massage(p);
-    } else {
-	return strsave(p);
-    }
+    return strsave(p);
 }
 
-
+// Setup bindir, rootdir and progname as utf8 buffers
 static void get_parameters(int argc, char** argv)
 {
-    char *p;
-    char buffer[MAX_PATH];
-    char *ini_filename;
+    wchar_t *p;
+    wchar_t buffer[MAX_PATH];
+    wchar_t *ini_filename;
     HANDLE module = GetModuleHandle(NULL); /* This might look strange, but we want the erl.ini 
 					      that resides in the same dir as erl.exe, not 
 					      an erl.ini in our directory */
@@ -1448,34 +1447,35 @@ static void get_parameters(int argc, char** argv)
         error("Cannot GetModuleHandle()");
     }
 
-    if (GetModuleFileName(module,buffer,MAX_PATH) == 0) {
+    if (GetModuleFileNameW(module,buffer,MAX_PATH) == 0) {
         error("Could not GetModuleFileName");
     }
 
     ini_filename = replace_filename(buffer,INI_FILENAME);
 
     if ((inif = load_init_file(ini_filename)) == NULL) {
+	wchar_t wbindir[MAX_PATH];
+	wchar_t wrootdir[MAX_PATH];
+
 	/* Assume that the path is absolute and that
 	   it does not contain any symbolic link */
-	
-	char buffer[MAX_PATH];
-	
+
 	/* Determine bindir */
-	if (GetEnvironmentVariable("ERLEXEC_DIR", buffer, MAX_PATH) == 0) {
-	    strcpy(buffer, ini_filename);
-	    for (p = buffer+strlen(buffer)-1; p >= buffer && *p != '\\'; --p)
+	if (GetEnvironmentVariableW(L"ERLEXEC_DIR", buffer, MAX_PATH) == 0) {
+	    wcscpy(buffer, ini_filename);
+	    for (p = buffer+wcslen(buffer)-1; p >= buffer && *p != L'\\'; --p)
 		;
-	    *p ='\0';
+	    *p = L'\0';
 	}
 	bindir = path_massage(buffer);
 
 	/* Determine rootdir */
-	for (p = buffer+strlen(buffer)-1; p >= buffer && *p != '\\'; --p)
+	for (p = buffer+wcslen(buffer)-1; p >= buffer && *p != L'\\'; --p)
 	    ;
 	p--;
-	for (;p >= buffer && *p != '\\'; --p)
+	for (;p >= buffer && *p != L'\\'; --p)
 	    ;
-	*p ='\0';
+	*p =L'\0';
 	rootdir = path_massage(buffer);
 
 	/* Hardcoded progname */

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -74,40 +74,6 @@ appup_test(_Config) ->
     check_appup(NokVsns,DownTo,error),
     ok.
 
-
-%% For sasl, the versions up to R14B03 were not according to the rule
-%% used for other core applications - i.e. to change the second number
-%% at major releases, the third at maintenance releases and the fourth
-%% for patches - therefore test versions up to and including R16 are
-%% hardcoded.
-%% (All versions below are not necessarily existing.)
--define(r12_vsns,["2.1.5"]).
--define(r13_vsns,["2.1.6","2.1.7.1","2.1.9","2.1.9.1.2"]).
--define(r14_vsns,["2.1.9.2","2.1.9.2.20","2.1.9.4","2.1.10"]).
--define(r15_major,"2.2").
--define(r16_major,"2.3").
--define(r17_major,"2.4").
-create_test_vsns(?r15_major ++ Rest) ->
-    R15Vsns =
-	case string:tokens(Rest,".") of
-	    [] -> [];
-	    ["1"] -> [?r15_major];
-	    _ -> [?r15_major,?r15_major++".1"]
-	end,
-    OkVsns = ?r13_vsns ++ ?r14_vsns ++ R15Vsns,
-    NokVsns = ?r12_vsns ++ [?r15_major++",1", ?r16_major],
-    {OkVsns,NokVsns};
-create_test_vsns(?r16_major ++ Rest) ->
-    R16Vsns =
-	case string:tokens(Rest,".") of
-	    [] -> [];
-	    ["1"] -> [?r16_major];
-	    _ -> [?r16_major,?r16_major++".1"]
-	end,
-    OkVsns = ?r14_vsns ++ [?r15_major, ?r15_major ++ ".1.4"] ++ R16Vsns,
-    NokVsns = ?r13_vsns ++ [?r16_major++",1", ?r17_major],
-    {OkVsns,NokVsns};
-%% Normal erts case - i.e. for versions that comply to the erts standard
 create_test_vsns(Current) ->
     [XStr,YStr|Rest] = string:tokens(Current,"."),
     X = list_to_integer(XStr),

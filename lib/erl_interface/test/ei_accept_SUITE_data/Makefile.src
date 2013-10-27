@@ -17,13 +17,12 @@
 # %CopyrightEnd%
 #
 
-include @erl_interface_mk_include@@DS@eidefs.mk
+include @erl_interface_mk_include@
 
 CC0 = @CC@
 CC = ..@DS@all_SUITE_data@DS@gccifier@exe@ -CC"$(CC0)"
 LD = @LD@
-LIBPATH = @erl_interface_libpath@
-LIBEI = $(LIBPATH)/@erl_interface_eilib@
+LIBEI = @erl_interface_eilib@
 LIBFLAGS = ../all_SUITE_data/ei_runner@obj@ \
 	$(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
 	@erl_interface_threadlib@

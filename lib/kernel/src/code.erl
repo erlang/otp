@@ -364,7 +364,7 @@ load_code_server_prerequisites() ->
 	      lists,
 	      os,
 	      unicode],
-    [M = M:module_info(module) || M <- Needed],
+    _ = [M = M:module_info(module) || M <- Needed],
     ok.
 
 do_stick_dirs() ->

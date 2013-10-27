@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -81,7 +81,7 @@ init_per_suite(Config) when is_list(Config) ->
     application:start(inets), % will be using the http client later
     httpc:set_options([{ipfamily,inet6fb4}]),
     DataDir = ?config(data_dir,Config),
-    Rels = [R || R <- [r14b,r15b], ?t:is_release_available(R)] ++ [current],
+    Rels = [R || R <- [r15b,r16b], ?t:is_release_available(R)] ++ [current],
     io:format("Creating crash dumps for the following releases: ~p", [Rels]),
     AllDumps = create_dumps(DataDir,Rels),
     ?t:timetrap_cancel(Dog),
@@ -800,6 +800,7 @@ rel_opt(Rel) ->
 	r13b -> [{erl,[{release,"r13b_patched"}]}];
 	r14b -> [{erl,[{release,"r14b_latest"}]}]; %naming convention changed
 	r15b -> [{erl,[{release,"r15b_latest"}]}];
+	r16b -> [{erl,[{release,"r16b_latest"}]}];
 	current -> []
     end.
 
@@ -813,7 +814,8 @@ dump_prefix(Rel) ->
 	r13b -> "r13b_dump.";
 	r14b -> "r14b_dump.";
 	r15b -> "r15b_dump.";
-	current -> "r16b_dump."
+	r16b -> "r16b_dump.";
+	current -> "r17b_dump."
     end.
 
 compat_rel(Rel) ->
@@ -826,5 +828,6 @@ compat_rel(Rel) ->
 	r13b -> "+R13 ";
 	r14b -> "+R14 ";
 	r15b -> "+R15 ";
+	r16b -> "+R16 ";
 	current -> ""
     end.

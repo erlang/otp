@@ -30,7 +30,7 @@
 -define(ASN1_NIF_VSN,1).
 
 load_nif() ->
-    LibBaseName = "asn1_erl_nif",
+    LibBaseName = "asn1rt_nif",
     PrivDir = code:priv_dir(asn1),
     LibName = case erlang:system_info(build_type) of
 		  opt ->

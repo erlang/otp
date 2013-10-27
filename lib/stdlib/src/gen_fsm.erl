@@ -549,7 +549,7 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, Debug) ->
 	{stop, Reason, Reply, NStateData} when From =/= undefined ->
 	    {'EXIT', R} = (catch terminate(Reason, Name, Msg, Mod,
 					   StateName, NStateData, Debug)),
-	    reply(Name, From, Reply, Debug, StateName),
+	    _ = reply(Name, From, Reply, Debug, StateName),
 	    exit(R);
 	{'EXIT', What} ->
 	    terminate(What, Name, Msg, Mod, StateName, StateData, Debug);
