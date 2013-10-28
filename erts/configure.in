@@ -426,6 +426,17 @@ AS_HELP_STRING([--enable-static-drivers], [comma seperated list of linked-in dri
 	       STATIC_DRIVERS=no)
 AC_SUBST(STATIC_DRIVERS)
 
+AC_ARG_WITH(ets-write-concurrency-locks,
+  AS_HELP_STRING([--with-ets-write-concurrency-locks={8,16,32,64,128,256}],
+                 [specify how many locks the write_concurrency option for ets should use.])
+  AS_HELP_STRING([--without-ets-write-concurrency-locks],
+                 [use the default number of write_concurrency locks (default)]))
+
+if test X"$with_ets_write_concurrency_locks" != X""; then
+   AC_DEFINE_UNQUOTED(ERTS_DB_HASH_LOCK_CNT,$with_ets_write_concurrency_locks,
+		      [Define to override the default number of write_concurrency locks])
+fi
+
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
