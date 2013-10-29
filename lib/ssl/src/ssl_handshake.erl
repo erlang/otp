@@ -53,7 +53,7 @@
 	 select_session/10, supported_ecc/1]).
 
 %% Extensions handling
--export([client_hello_extensions/5,
+-export([client_hello_extensions/6,
 	 handle_client_hello_extensions/8, %% Returns server hello extensions
 	 handle_server_hello_extensions/9, select_curve/2
 	]).
@@ -85,7 +85,7 @@ hello_request() ->
 server_hello_done() ->
     #server_hello_done{}.
 
-client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renegotiation) ->
+client_hello_extensions(Host, Version, CipherSuites, SslOpts, ConnectionStates, Renegotiation) ->
     {EcPointFormats, EllipticCurves} =
 	case advertises_ec_ciphers(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites)) of
 	    true ->
@@ -104,7 +104,8 @@ client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renego
        elliptic_curves = EllipticCurves,
        next_protocol_negotiation =
 	   encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
-					      Renegotiation)}.
+					      Renegotiation),
+       sni = sni(Host)}.
 
 %%--------------------------------------------------------------------
 -spec certificate(der_cert(), db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
@@ -641,7 +642,19 @@ encode_hello_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Res
     ListLen = byte_size(SignAlgoList),
     Len = ListLen + 2,
     encode_hello_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT),
-				 ?UINT16(Len), ?UINT16(ListLen), SignAlgoList/binary, Acc/binary>>).
+				 ?UINT16(Len), ?UINT16(ListLen), SignAlgoList/binary, Acc/binary>>);
+encode_hello_extensions([#sni{hostname = Hostname} | Rest], Acc) ->
+    HostLen = length(Hostname),
+    HostnameBin = list_to_binary(Hostname),
+    % Hostname type (1 byte) + Hostname length (2 bytes) + Hostname (HostLen bytes)
+    ServerNameLength = 1 + 2 + HostLen,
+    % ServerNameListSize (2 bytes) + ServerNameLength
+    ExtLength = 2 + ServerNameLength,
+    encode_hello_extensions(Rest, <<?UINT16(?SNI_EXT), ?UINT16(ExtLength),
+				    ?UINT16(ServerNameLength),
+				    ?BYTE(?SNI_NAMETYPE_HOST_NAME),
+				    ?UINT16(HostLen), HostnameBin/binary,
+				    Acc/binary>>).
 
 enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
 			ClientRandom, ServerRandom, PrivateKey) ->
@@ -1081,9 +1094,10 @@ hello_extensions_list(#hello_extensions{renegotiation_info = RenegotiationInfo,
 					hash_signs = HashSigns,
 					ec_point_formats = EcPointFormats,
 					elliptic_curves = EllipticCurves,
-					next_protocol_negotiation = NextProtocolNegotiation}) ->
+					next_protocol_negotiation = NextProtocolNegotiation,
+					sni = Sni}) ->
     [Ext || Ext <- [RenegotiationInfo, SRP, HashSigns,
-		    EcPointFormats,EllipticCurves, NextProtocolNegotiation], Ext =/= undefined].
+		    EcPointFormats, EllipticCurves, NextProtocolNegotiation, Sni], Ext =/= undefined].
 
 srp_user(#ssl_options{srp_identity = {UserName, _}}) ->
     #srp{username = UserName};
@@ -1146,6 +1160,13 @@ select_curve(Curves, [Curve| Rest]) ->
 	    select_curve(Curves, Rest)
     end.
 
+sni(Host) ->
+    %% RFC 6066, Section 3: Currently, the only server names supported are
+    %% DNS hostnames
+    case inet_parse:domain(Host) of
+        false -> undefined;
+        true -> #sni{hostname = Host}
+    end.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------

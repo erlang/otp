@@ -52,6 +52,8 @@
       <item>CRL and policy certificate extensions are not supported
       yet. However CRL verification is supported by public_key, only not integrated
       in ssl yet. </item>
+      <item>Support for 'Server Name Indication' extension client side
+      (RFC 6066 section 3).</item>
     </list>
  
   </section>
