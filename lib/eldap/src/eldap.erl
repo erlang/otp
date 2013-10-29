@@ -47,7 +47,7 @@
 		anon_auth = false,   % Allow anonymous authentication
 		ldaps = false,       % LDAP/LDAPS
 		using_tls = false,   % true if LDAPS or START_TLS executed
-		tls_opts = [],       % ssl:ssloptsion()
+		tls_opts = [],       % ssl:ssloption()
 		tcp_opts = []        % inet6 support
 	       }).
 
@@ -415,7 +415,7 @@ do_connect(Host, Data, Opts) when Data#eldap.ldaps == false ->
     gen_tcp:connect(Host, Data#eldap.port, Opts ++ Data#eldap.tcp_opts,
 		    Data#eldap.timeout);
 do_connect(Host, Data, Opts) when Data#eldap.ldaps == true ->
-    SslOpts = [{verify,0} | Opts ++ Data#eldap.tls_opts ++ Data#eldap.tcp_opts],
+    SslOpts = Opts ++ Data#eldap.tls_opts ++ Data#eldap.tcp_opts,
     ssl:connect(Host, Data#eldap.port, SslOpts).
 
 loop(Cpid, Data) ->
