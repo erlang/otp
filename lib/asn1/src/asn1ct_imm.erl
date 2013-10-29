@@ -975,6 +975,7 @@ split_off_nonbuilding(Imm) ->
 is_nonbuilding({apply,_,_,_}) -> true;
 is_nonbuilding({assign,_,_}) -> true;
 is_nonbuilding({call,_,_,_,_}) -> true;
+is_nonbuilding({call_gen,_,_,_,_,_,_}) -> true;
 is_nonbuilding({'cond',_,_}) -> true;
 is_nonbuilding({lc,_,_,_,_}) -> true;
 is_nonbuilding({sub,_,_,_}) -> true;
@@ -1404,6 +1405,9 @@ per_enc_open_type_output([{apply,F,A}], Acc) ->
 per_enc_open_type_output([{call,M,F,A}], Acc) ->
     Dst = output_var(),
     {Dst,lists:reverse(Acc, [{call,M,F,A,{var,atom_to_list(Dst)}}])};
+per_enc_open_type_output([{call_gen,P,K,G,I,As}], Acc) ->
+    Dst = output_var(),
+    {Dst,lists:reverse(Acc, [{call_gen,P,K,G,I,As,{var,atom_to_list(Dst)}}])};
 per_enc_open_type_output([{'cond',Cs}], Acc) ->
     Dst = output_var(),
     {Dst,lists:reverse(Acc, [{'cond',Cs,{var,atom_to_list(Dst)}}])};
@@ -1644,7 +1648,9 @@ enc_pre_cg_2({block,Bl0}, StL, StB) ->
     enc_pre_cg_1(Bl0, StL, StB);
 enc_pre_cg_2({call,_,_,_}=Imm, _, _) ->
     Imm;
-enc_pre_cg_2({call_gen,_,_,_,_}=Imm, _, _) ->
+enc_pre_cg_2({call_gen,_,_,_,_,_}=Imm, _, _) ->
+    Imm;
+enc_pre_cg_2({call_gen,_,_,_,_,_,_}=Imm, _, _) ->
     Imm;
 enc_pre_cg_2({'cond',Cs0}, StL, _StB) ->
     Cs = [{C,enc_pre_cg_1(Act, StL, outside_seq)} || [C|Act] <- Cs0],
@@ -1739,8 +1745,12 @@ enc_cg({call,M,F,As0,Dst}) ->
     As = [mk_val(A) || A <- As0],
     emit([mk_val(Dst)," = "]),
     asn1ct_func:call(M, F, As);
-enc_cg({call_gen,Prefix,Key,Gen,As0}) ->
+enc_cg({call_gen,Prefix,Key,Gen,_,As0}) ->
     As = [mk_val(A) || A <- As0],
+    asn1ct_func:call_gen(Prefix, Key, Gen, As);
+enc_cg({call_gen,Prefix,Key,Gen,_,As0,Dst}) ->
+    As = [mk_val(A) || A <- As0],
+    emit([mk_val(Dst)," = "]),
     asn1ct_func:call_gen(Prefix, Key, Gen, As);
 enc_cg({'cond',Cs}) ->
     enc_cg_cond(Cs);
@@ -1860,7 +1870,7 @@ mk_val(Other) -> {asis,Other}.
 
 bit_string_name2pos_fun(NNL, Src) ->
     {call_gen,"bit_string_name2pos_",NNL,
-     fun(Fd, Name) -> gen_name2pos(Fd, Name, NNL) end,[Src]}.
+     fun(Fd, Name) -> gen_name2pos(Fd, Name, NNL) end,[],[Src]}.
 
 gen_name2pos(Fd, Name, Names) ->
     Cs0 = gen_name2pos_cs(Names, Name),
@@ -2124,7 +2134,9 @@ per_fixup([{call,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{call,_,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
-per_fixup([{call_gen,_,_,_,_}=H|T]) ->
+per_fixup([{call_gen,_,_,_,_,_}=H|T]) ->
+    [H|per_fixup(T)];
+per_fixup([{call_gen,_,_,_,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{error,_}=H|T]) ->
     [H|per_fixup(T)];

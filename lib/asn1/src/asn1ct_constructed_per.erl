@@ -1014,13 +1014,16 @@ enc_var_type_call(Erule, Name, RestFieldNames,
 		  {_,Key,Code} <- ObjSet1],
     ObjSet = lists:sort([P || {_,B}=P <- ObjSet2, B =/= none]),
     Key = erlang:md5(term_to_binary({encode,ObjSet,RestFieldNames,Extensible})),
+    Imm = enc_objset_imm(Erule, Name, ObjSet, RestFieldNames, Extensible),
+    Lambda = {lambda,[{var,"Val"},{var,"Id"}],Imm},
     Gen = fun(_Fd, N) ->
-		  enc_objset(Erule, Name, N, ObjSet,
-			     RestFieldNames, Extensible)
+		  Aligned = is_aligned(Erule),
+		  emit([{asis,N},"(Val, Id) ->",nl]),
+		  asn1ct_imm:enc_cg(Imm, Aligned),
+		  emit([".",nl])
 	  end,
     Prefix = lists:concat(["enc_os_",Name]),
-    F = asn1ct_func:call_gen(Prefix, Key, Gen),
-    [{apply,F,[{var,atom_to_list(Val)},{var,Fun}]}].
+    [{call_gen,Prefix,Key,Gen,Lambda,[{var,atom_to_list(Val)},{var,Fun}]}].
 
 fix_object_code(Name, [{Name,B}|_], _ClassFields) ->
     B;
@@ -1042,9 +1045,7 @@ fix_object_code(Name, [], ClassFields) ->
 	    end
     end.
 
-
-enc_objset(Erule, Component, Name, ObjSet, RestFieldNames, Extensible) ->
-    asn1ct_name:start(),
+enc_objset_imm(Erule, Component, ObjSet, RestFieldNames, Extensible) ->
     Aligned = is_aligned(Erule),
     E = {error,
 	 fun() ->
@@ -1053,17 +1054,14 @@ enc_objset(Erule, Component, Name, ObjSet, RestFieldNames, Extensible) ->
 		       "{value,Val},"
 		       "{unique_name_and_value,'_'}})",nl])
 	 end},
-    Imm = [{'cond',
-	    [[{eq,{var,"Id"},Key}|
-	      enc_obj(Erule, Obj, RestFieldNames, Aligned)] ||
-		{Key,Obj} <- ObjSet] ++
-		[['_',case Extensible of
-			  false -> E;
-			  true -> {put_bits,{var,"Val"},binary,[1]}
-		      end]]}],
-    emit([{asis,Name},"(Val, Id) ->",nl]),
-    asn1ct_imm:enc_cg(Imm, Aligned),
-    emit([".",nl]).
+    [{'cond',
+      [[{eq,{var,"Id"},Key}|
+	enc_obj(Erule, Obj, RestFieldNames, Aligned)] ||
+	  {Key,Obj} <- ObjSet] ++
+	  [['_',case Extensible of
+		    false -> E;
+		    true -> {put_bits,{var,"Val"},binary,[1]}
+		end]]}].
 
 enc_obj(Erule, Obj, RestFieldNames0, Aligned) ->
     case Obj of
