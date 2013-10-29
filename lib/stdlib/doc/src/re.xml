@@ -40,8 +40,8 @@
     <p>This module contains regular expression matching functions for
     strings and binaries.</p>
 
-    <p>The regular expression syntax and semantics resemble that of
-    Perl.</p>
+    <p>The <seealso marker="#regexp_syntax">regular expression</seealso>
+    syntax and semantics resemble that of Perl.</p>
 
     <p>The library's matching algorithms are currently based on the
     PCRE library, but not all of the PCRE library is interfaced and
@@ -877,7 +877,7 @@ nomatch
     </func>     
     </funcs>
     
-
+  <marker id="regexp_syntax"></marker>
   <section>
     <title>PERL LIKE REGULAR EXPRESSIONS SYNTAX</title>
     <p>The following sections contain reference material for the
