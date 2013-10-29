@@ -215,6 +215,7 @@ or
 
 Step 4: Run the following commands to configure the build:
 
+    $ autoconf
     $ ./configure  [ options ]
 
 By default, Erlang/OTP will be installed in `/usr/local/{bin,lib/erlang}`.
