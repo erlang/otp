@@ -58,6 +58,41 @@
     <p>Which nodes are allowed to communicate with each other is handled
       by the magic cookie system, see
       <seealso marker="doc/reference_manual:distributed">Distributed Erlang</seealso> in the Erlang Reference Manual.</p>
+    <p><c>net_kernel</c> handles registration of distributed nodes with
+      <seealso marker="epmd">epmd</seealso> daemon. When a distributed
+      node is started, it connects to a local instance of <c>epmd</c>
+      and passes it information about all transports it listens on
+      and the associated ports that other nodes should use to connect
+      to it.  Another Erlang node that wishes to connect to the current
+      distributed Erlang node queries its <c>epmd</c> daemon giving it
+      a list of transports it supports, and gets back a list of ports
+      with matching transports. A user-level function can be given to
+      <c>net_kernel</c> via
+<pre>$ <input>erl -sname foobar -proto_dist_mf module function ...</input></pre>
+      The <c>-proto_dist_mf module function</c> instruct <c>net_kernel</c>
+      to use the <c>module:function/4</c> for handling connection
+      transport selection.  That function has the following signature:
+<pre>(LocalProtoMods::[Mod::atom()], PeerNode::atom(),
+      PeerIp::tuple(), PeerPortMods::[{Port::integer(), Mod::atom()}]) ->
+        {ok, {Port::integer(), Mod::atom()}} | false.
+
+    The parameters are:
+        LocalProtoMods - list of transport modules that current node activated.
+                         It is taken from "-proto_dist" command-line option
+                         and can be accessed via net_kernel:dist_protos().
+
+        PeerNode       - The remote node that current node is trying to
+                         connect to.
+
+        PeerIp         - IP address of the remote node.
+
+        PeerPortMods   - List of {Port, Mod} pairs on the peer node, where
+                         Port is the port number that Mod transport is
+                         listening on.</pre>
+      A sample implementation of two such custom functions
+      <c>dist_selector:select_first/4</c> and <c>dist_selector:select/4</c>
+      can be found in <c>lib/kernel/examples/uds_dist/src/dist_selector.erl.
+    </p>
   </description>
   <funcs>
     <func>

@@ -16,7 +16,7 @@ OBJECTS=$(OBJECT_DIR)/uds_drv$(OBJ_EXT)
 LDFLAGS=-G -h $(TARGET_NAME)
 
 # Works if building in open source source tree
-ERL_INCLUDE=$(ERL_TOP)/erts/emulator/beam
+ERL_INCLUDE=$(ERL_TOP)/erts/emulator/beam -I$(ERL_TOP)/erts/include
 
 opt: setup $(OBJECTS)
 	$(LD) $(LDFLAGS) $(OBJECTS) -o $(TARGET) $(LIBRARIES)

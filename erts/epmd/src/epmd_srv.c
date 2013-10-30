@@ -1,4 +1,4 @@
-/* -*- c-indent-level: 2; c-continued-statement-offset: 2 -*- */ 
+/* -*- c-indent-level: 2; c-continued-statement-offset: 2 -*- */
 /*
  * %CopyrightBegin%
  *
@@ -30,7 +30,7 @@
 #endif
 
 /*
- *  
+ *
  *  This server is a local name server for Erlang nodes. Erlang nodes can
  *  ask this server for the listening port of other Erlang nodes on the
  *  machine EPMD is running on. New distributed nodes that are started
@@ -73,15 +73,15 @@ static int conn_open(EpmdVars*,int);
 static int conn_close_fd(EpmdVars*,int);
 
 static void node_init(EpmdVars*);
-static Node *node_reg2(EpmdVars*, int, char*, int, int, unsigned char, unsigned char, int, int, int, char*);
+static Node *node_reg2(EpmdVars*, int, int, char*, int, int,
+    unsigned char, int, const char*, int, int, int, char*);
 static int node_unreg(EpmdVars*,char*);
 static int node_unreg_sock(EpmdVars*,int);
-
 static int reply(EpmdVars*,int,char *,int);
 static void dbg_print_buf(EpmdVars*,char *,int);
 static void print_names(EpmdVars*);
 
-static int is_same_str(char *x, char *y)
+static int is_same_str(const char *x, const char *y)
 {
     int i = 0;
     /*
@@ -98,7 +98,85 @@ static int is_same_str(char *x, char *y)
     return 0;
 }
 
-static int copy_str(char *x, char *y)
+/* Find a port corresponding to a protocol that matches the first
+ * supported protocols by this node. Return the number of the
+ * protocol in the protocol[] array that resulted in the match
+ */
+static int match_proto(struct enode *node, unsigned char proto_count,
+    const char* proto_names, unsigned short* port)
+{
+    const struct eproto* p;
+    const char* q;
+    int i;
+
+    if (!proto_count) {
+        /* The caller likely is <= R16B node */
+        *port = node->portproto->port;
+        return 0;
+    }
+
+    for (p = node->portproto; p < node->portproto + node->portprotolen; ++p) {
+        if (node->epmd_version < 3) {
+            *port = p->port;
+            return 0;
+        }
+        for (q = proto_names, i = 0; q && i != proto_count; q += *q + 1, ++i)
+            if (p->proto_name_len == *q && !memcmp(p->proto_name, q+1, *q)) {
+                *port = p->port;
+                return i;
+            }
+    }
+    return -1;
+}
+
+/* Write N,Len,Name1len,Name1,Name2len,Name2,... */
+static int fill_portprotos(struct enode *node,
+    char *dest, const char *dend,
+    unsigned char proto_count, const char *proto_names)
+{
+    const struct eproto *p = node->portproto;
+    const char *q;
+    char *start = dest++;       /* Counter of protocol entries */
+    int i, n = 0;
+
+    dest += 2;  /* Skip 2-byte length of encoded protocol names */
+
+    while (p < node->portproto + node->portprotolen &&
+           (dest + 2 + p->proto_name_len + 1) <= dend) {
+        for (q = proto_names, i = 0; i != proto_count; q += *q + 1, ++i) {
+            /* R16B node doesn't pass protocol name to epmd, so we can't
+             * match node's port by protocol. We just return the first
+             * registered port. If the R16B node starts more than one dist
+             * transport, it wouldn't be possible to distinguish which
+             * one is bound to which port. */
+            int v = node->epmd_version < 3;
+
+            /* Determine if the protocol name is of interest to the caller.
+             * If it is, encode the port/protocol name details */
+            if (v || (p->proto_name_len == *q &&
+                      !memcmp(p->proto_name, q+1, *q))) {
+                put_int16(p->port, dest);
+                dest += 2;
+                *dest++ = p->proto_name_len;
+                memcpy(dest, p->proto_name, p->proto_name_len);
+                dest += p->proto_name_len;
+                n++;
+            }
+            if (v)
+                goto fill_portprotos_return;
+        }
+        p++;
+    }
+
+fill_portprotos_return:
+    *start = n;         /* Number of port/protocol items in the result */
+    q = start + 1;
+    n = dest - (start+3);
+    put_int16(n, q);    /* Length of encoded protocol names */
+    return dest - start;
+}
+
+static int copy_str(char *x, const char *y)
 {
     int i = 0;
     /*
@@ -113,6 +191,42 @@ static int copy_str(char *x, char *y)
 	    return i;
 	i++;
     }
+}
+
+static int dump_ports(struct enode *node, char *wbuf, const char *wend,
+    const char *prefix, const char *suffix, int new_fmt,
+    int include_fd, const char *eol)
+{
+    int r, i;
+    char *p = wbuf;
+
+    if (wbuf + strlen(prefix) + strlen(suffix) + 9 > wend)
+        return -1;
+
+    /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
+       change in syntax will break < OTP R3A */
+
+    p += copy_str(p, prefix);
+    p += copy_str(p, node->symname);
+    r = erts_snprintf(p, wend-p, "%s at port", suffix);
+    if (r < 0) return r;
+    p += r;
+
+    if (new_fmt) {
+        for (i = 0; i < node->portprotolen; i++, p += r)
+            if ((r = erts_snprintf(p, wend-p,
+                        " %hu#%s", node->portproto[i].port,
+                        node->portproto[i].proto_name)) < 0)
+                return r;
+    } else {
+        r = erts_snprintf(p, wend-p, " %hu", node->portproto[0].port);
+        if (r < 0) return r;
+        p += r;
+    }
+    r = include_fd
+      ? erts_snprintf(p, wend-p, ", fd = %d%s", node->fd, eol)
+      : erts_snprintf(p, wend-p, "%s", eol);
+    return r < 0 ? r : (p + r) - wbuf;
 }
 
 static int length_str(char *x)
@@ -157,7 +271,7 @@ static int verify_utf8(const char *src, int sz, int null_term)
 		(((*source) == 0xE0) && (source[1] < 0xA0)) /* overlong */ ) {
 		return -1;
 	    }
-	    if ((((*source) & ((unsigned char) 0xF)) == 0xD) && 
+	    if ((((*source) & ((unsigned char) 0xF)) == 0xD) &&
 		((source[1] & 0x20) != 0)) {
 		return -1;
 	    }
@@ -173,12 +287,12 @@ static int verify_utf8(const char *src, int sz, int null_term)
 		return -1;
 	    }
 	    if ((((*source) & ((unsigned char)0x7)) > 0x4U) ||
-		((((*source) & ((unsigned char)0x7)) == 0x4U) && 
+		((((*source) & ((unsigned char)0x7)) == 0x4U) &&
 		 ((source[1] & ((unsigned char)0x3F)) > 0xFU))) {
 		return -1;
 	    }
 	    source += 4;
-	    size -= 4; 
+	    size -= 4;
 	} else {
 	    return -1;
 	}
@@ -297,12 +411,12 @@ void run(EpmdVars *g)
 	  epmd_cleanup_exit(g,1);
 	}
       g->listenfd[i] = listensock[i];
-  
+
       /*
        * Note that we must not enable the SO_REUSEADDR on Windows,
        * because addresses will be reused even if they are still in use.
        */
-  
+
 #if !defined(__WIN32__)
       opt = 1;
       if (setsockopt(listensock[i],SOL_SOCKET,SO_REUSEADDR,(char* ) &opt,
@@ -312,7 +426,7 @@ void run(EpmdVars *g)
 	  epmd_cleanup_exit(g,1);
 	}
 #endif
-  
+
       /* In rare cases select returns because there is someone
 	 to accept but the request is withdrawn before the
 	 accept function is called. We set the listen socket
@@ -400,7 +514,7 @@ void run(EpmdVars *g)
 	      goto select_again;
 	    }
 	  }
-	  
+	
 	/* Check all open streams marked by select for data or a
 	   close.  We also close all open sockets except ALIVE
 	   with no activity for a long period */
@@ -429,7 +543,7 @@ void run(EpmdVars *g)
 
 static void do_read(EpmdVars *g,Connection *s)
 {
-  int val, pack_size;
+  int val = 0, pack_size;
 
   if (s->open == EPMD_FALSE)
     {
@@ -449,6 +563,7 @@ static void do_read(EpmdVars *g,Connection *s)
 	{
 	  node_unreg_sock(g,s->fd);
 	  epmd_conn_close(g,s);
+          return;
 	}
       else if (val < 0)
 	{
@@ -456,7 +571,9 @@ static void do_read(EpmdVars *g,Connection *s)
 			   s->fd, val, errno);
 	  node_unreg_sock(g,s->fd);
 	  epmd_conn_close(g,s);
+          return;
 	}
+      /*
       else
 	{
 	  dbg_tty_printf(g,1,"got more than expected on ALIVE socket %d (%d)",
@@ -467,6 +584,7 @@ static void do_read(EpmdVars *g,Connection *s)
 	  epmd_conn_close(g,s);
 	}
       return;
+      */
     }
 
   /* If unknown size we request the whole buffer - what we got - 1
@@ -477,7 +595,8 @@ static void do_read(EpmdVars *g,Connection *s)
      this epmd. */
 
   pack_size = s->want ? s->want : INBUF_SIZE - 1;
-  val = read(s->fd, s->buf + s->got, pack_size - s->got);
+  if (!val)
+    val = read(s->fd, s->buf + s->got, pack_size - s->got);
 
   if (val == 0)
     {
@@ -522,9 +641,9 @@ static void do_read(EpmdVars *g,Connection *s)
 	  return;
 	}
     }
-  
+
   s->mod_time = current_time(g); /* Note activity */
-  
+
   if (s->want == s->got)
     {
       /* Do action and close up */
@@ -533,7 +652,11 @@ static void do_read(EpmdVars *g,Connection *s)
       do_request(g, s->fd, s, s->buf + 2, s->got - 2);
 
       if (!s->keep)
-	epmd_conn_close(g,s);		/* Normal close */
+        epmd_conn_close(g,s);		/* Normal close */
+      else {
+        s->want = 0;
+        s->got  = 0;
+      }
     }
 }
 
@@ -572,7 +695,9 @@ static void do_request(g, fd, s, buf, bsize)
      char *buf;
      int bsize;
 {
-  char wbuf[OUTBUF_SIZE];	/* Buffer for writing */
+  char wbuf[16384];	/* Buffer for writing */
+  char *wbegin = wbuf+2; /* 2-bytes for the reply length */
+  const char *wend = wbuf+sizeof(wbuf);
   int i;
 
   buf[bsize] = '\0'; /* Needed for strcmp in PORT2 and STOP requests
@@ -580,10 +705,15 @@ static void do_request(g, fd, s, buf, bsize)
 
   switch (*buf)
     {
+    case EPMD_ALIVE3_REQ:
     case EPMD_ALIVE2_REQ:
-      dbg_printf(g,1,"** got ALIVE2_REQ");
+    {
+      const int   ver = *buf == EPMD_ALIVE3_REQ ? 3 : 0;
+      const char* cmd = ver >= 3 ? "ALIVE3_REQ" : "ALIVE2_REQ";
+
+      dbg_printf(g,1,"** got %s", cmd);
       if (!s->local_peer) {
-	   dbg_printf(g,0,"ALIVE2_REQ from non local address");
+	   dbg_printf(g,0,"%s from non local address", cmd);
 	   return;
       }
 
@@ -593,62 +723,84 @@ static void do_request(g, fd, s, buf, bsize)
 
       if (bsize <= 13) /* at least one character for the node name */
 	{
-	  dbg_printf(g,0,"packet to small for request ALIVE2_REQ (%d)",bsize);
+	  dbg_printf(g,0,"packet to small for request %s (%d)", cmd, bsize);
 	  return;
 	}
 
       {
 	Node *node;
-	int eport;
+	int n, eport;
 	unsigned char nodetype;
-	unsigned char protocol;
+	unsigned char protocol = 0;
 	unsigned short highvsn;
 	unsigned short lowvsn;
 	int namelen;
 	int extralen;
-	char *name; 
+	char *name;
 	char *extra;
-	eport = get_int16(&buf[1]);
-	nodetype = buf[3];
-	protocol = buf[4];
-	highvsn = get_int16(&buf[5]);
-	lowvsn = get_int16(&buf[7]);
-	namelen = get_int16(&buf[9]);
-	if (namelen + 13 > bsize) {
-	    dbg_printf(g,0,"Node name size error in ALIVE2_REQ");
-	    return;
-	}
-	extralen = get_int16(&buf[11+namelen]);
+        const char *proto_name = ""; /* 1-byte sz followed by string */
+        char *q, *p = buf+1;
+        const char *end = buf + bsize;
+        eport = get_int16(p); p += 2;
+        nodetype = *p++;
+        if (ver < 3) {
+            protocol = *p++;
+        } else {
+            int len = *p;
+            if (len > MAXNAMELEN) {
+                dbg_printf(g,0,"Protocol name length (%d) error in ALIVE2_REQ", len);
+                return;
+            }
+            proto_name = p;
+            p += len + 1;
+        }
+        highvsn = get_int16(p); p += 2;
+        lowvsn  = get_int16(p); p += 2;
+        namelen = get_int16(p); p += 2;
+        if (p + namelen > end) {
+            dbg_printf(g,0,"Node name size error in ALIVE2_REQ");
+            return;
+        }
+        name = p; p += namelen;
+        for (q = name; q < p; ++q)
+            if (*q == '\0')  {
+                dbg_printf(g,0,"node name contains ascii 0 in ALIVE2_REQ");
+                return;
+            }
 
-	if (extralen + namelen + 13 > bsize) {
-	    dbg_printf(g,0,"Extra info size error in ALIVE2_REQ");
-	    return;
-	}
+        extralen = get_int16(p); p += 2;
 
-	for (i = 11 ; i < 11 + namelen; i ++)
-	    if (buf[i] == '\000')  {
-		dbg_printf(g,0,"node name contains ascii 0 in ALIVE2_REQ");
-		return;
-	    }
-	name = &buf[11];
-	name[namelen]='\000';
+        if (p + extralen > end) {
+            dbg_printf(g,0,"Extra info size error in ALIVE2_REQ");
+            return;
+        }
 
-	extra = &buf[11+namelen+2];
-	extra[extralen]='\000';
-	wbuf[0] = EPMD_ALIVE2_RESP;
-	if ((node = node_reg2(g, namelen, name, fd, eport, nodetype, protocol,
+        name[namelen]='\0';
+
+        extra = p;
+        extra[extralen]='\0';
+
+        wbuf[0] = 0;
+        wbuf[1] = 4;
+	wbuf[2] = EPMD_ALIVE2_RESP;
+	if ((node = node_reg2(g, ver, namelen, name, fd, eport, nodetype,
+                              (int)protocol, proto_name,
 			      highvsn, lowvsn, extralen, extra)) == NULL) {
-	    wbuf[1] = 1; /* error */
-	    put_int16(99, wbuf+2);
+	    wbuf[3] = 1; /* error */
+	    put_int16(99, wbuf+4);
 	} else {
-	    wbuf[1] = 0; /* ok */
-	    put_int16(node->creation, wbuf+2);
+	    wbuf[3] = 0; /* ok */
+	    put_int16(node->creation, wbuf+4);
 	}
-  
+
 	if (g->delay_write)		/* Test of busy server */
 	  sleep(g->delay_write);
 
-	if (reply(g, fd, wbuf, 4) != 4)
+        p = wbegin + 4;
+        if (ver >= 3) wbegin = wbuf;
+        n = p - wbegin;
+
+	if (reply(g, fd, wbegin, n) != n)
 	  {
 	    dbg_tty_printf(g,1,"** failed to send ALIVE2_RESP for \"%s\"",
 			   name);
@@ -659,65 +811,134 @@ static void do_request(g, fd, s, buf, bsize)
 	s->keep = EPMD_TRUE;		/* Don't close on inactivity */
       }
       break;
+    }
 
-    case EPMD_PORT2_REQ:
-      dbg_printf(g,1,"** got PORT2_REQ");
+    case EPMD_PORT_PLEASE3_REQ:
+    case EPMD_PORT_PLEASE2_REQ:
+    {
+      const int   ver = *buf == EPMD_PORT_PLEASE3_REQ ? 3 : 0;
+      const char *cmd = ver >= 3 ? "PORT_PLEASE3_REQ" : "PORT_PLEASE_REQ";
+      char         *p = wbegin;
+      int    n_protos = 0;
+      const char *start = buf + 1;
+      const char *name = start;    /* Points to node name */
+      const char *q = start;
+      const char *end = buf + bsize - (buf[bsize-1] == '\0' ? 1 : 0); /* Skip null */
+      const char *const empty = '\0';
+      const char *proto_names = '\0';
+      const int  size = end - start;
 
-      if (buf[bsize - 1] == '\000') /* Skip null termination */
-	bsize--;
+      dbg_printf(g,1,"** got %s (size=%d)", cmd, size);
 	
-      if (bsize <= 1)
+      if (ver < 3 && size < 1 || ver >= 3 && size < 6)
 	{
-	  dbg_printf(g,0,"packet too small for request PORT2_REQ (%d)", bsize);
+	  dbg_printf(g,0,"packet too small for request %s", cmd);
 	  return;
 	}
 
-      for (i = 1; i < bsize; i++)
-	if (buf[i] == '\000')
+      if (ver >= 3)
+        {
+          int len;
+          /* This request is in the new (R17) format:
+           *    1--1--1-2-N---------1-M-------
+           *    90 0  K N Protocols M NodeName
+           */
+          q++;
+          n_protos = *q++;
+          len      = get_int16(q); q += 2;
+
+          if (q + len > end || n_protos > MAXPROTOS)
+            {
+              dbg_printf(g,0,"invalid packet format for request %s"
+                             " (protos=%d, len=%d)", cmd, n_protos, len);
+              name = empty;
+              goto failed_port_please2;
+            }
+          proto_names = q;
+          q += len;
+          start = ++q; /* Skip name length */
+        }
+
+      name = start;
+
+      for (; q < end; ++q)
+	if (*q == '\0')
 	  {
-	    dbg_printf(g,0,"node name contains ascii 0 in PORT2_REQ");
-	    return;
+	    dbg_printf(g,0,"node name contains ascii 0 in %s", cmd);
+            goto failed_port_please2;
 	  }
 
       {
-	char *name = &buf[1]; /* Points to node name */
 	int nsz;
 	Node *node;
 
-	nsz = verify_utf8(name, bsize, 0);
+	name = start; /* Points to node name */
+
+	nsz = verify_utf8(name, end - start, 0);
 	if (nsz < 1 || 255 < nsz) {
-	    dbg_printf(g,0,"invalid node name in PORT2_REQ");
+	    dbg_printf(g,0,"invalid node name in %s", cmd);
 	    return;
 	}
 
-	wbuf[0] = EPMD_PORT2_RESP;
+	*p++ = EPMD_PORT2_RESP;
 	for (node = g->nodes.reg; node; node = node->next) {
-	    int offset;
-	    if (is_same_str(node->symname, name)) {
-		wbuf[1] = 0; /* ok */
-		put_int16(node->port,wbuf+2);
-		wbuf[4] = node->nodetype;
-		wbuf[5] = node->protocol;
-		put_int16(node->highvsn,wbuf+6);
-		put_int16(node->lowvsn,wbuf+8);
-		put_int16(length_str(node->symname),wbuf+10);
-		offset = 12;
-		offset += copy_str(wbuf + offset,node->symname);
-		put_int16(node->extralen,wbuf + offset);
-		offset += 2;
-		memcpy(wbuf + offset,node->extra,node->extralen);
-		offset += node->extralen;
-		if (reply(g, fd, wbuf, offset) != offset)
+	    int n;
+	    unsigned short port;
+	    if (is_same_str(node->symname, name)
+                && (n = match_proto(node, n_protos, proto_names, &port)) > -1)
+              {
+                *p++ = 0; /* ok */
+
+                if (ver >= 3) /* Format for release >= R17 */
+                  {
+                    put_int16(0,p); /* filler */ p += 2;
+                    p += fill_portprotos(node,
+                        p, wend, n_protos, proto_names);
+                    *p++ = node->nodetype;
+                  }
+                else /* Format prior R16 */
+                  {
+                    put_int16(port,p); p += 2;
+                    *p++ = node->nodetype;
+                    *p++ = 0;
+                  }
+
+                if (p + 8 + node->symnamelen + node->extralen > wend)
+                    goto failed_port_please2;
+
+                put_int16(node->highvsn, p); p += 2;
+                put_int16(node->lowvsn,  p); p += 2;
+                put_int16(length_str(node->symname), p); p += 2;
+                p += copy_str(p, node->symname);
+                put_int16(node->extralen, p); p += 2;
+                memcpy(p, node->extra, node->extralen); p += node->extralen;
+                wend = p;
+
+                /* Write packet length */
+                n = wend - wbegin;
+                put_int16(n, wbuf);
+                if (ver >= 3) wbegin = wbuf;
+                n = wend - wbegin;
+
+		if (reply(g, fd, wbegin, n) != n)
 		  {
 		    dbg_tty_printf(g,1,"** failed to send PORT2_RESP (ok) for \"%s\"",name);
 		    return;
 		  }
 		dbg_tty_printf(g,1,"** sent PORT2_RESP (ok) for \"%s\"",name);
 		return;
-	    }
+	      }
 	}
-	wbuf[1] = 1; /* error */
-	if (reply(g, fd, wbuf, 2) != 2)
+
+      failed_port_please2:
+        put_int16(2, wbuf);
+	wbuf[2] = EPMD_PORT2_RESP;
+        wbuf[3] = 1; /* error */
+        wend = wbuf + 4;
+        if (ver >= 3) wbegin = wbuf;
+        nsz = wend - wbegin;
+
+	if (reply(g, fd, wbegin, nsz) != nsz)
 	  {
 	    dbg_tty_printf(g,1,"** failed to send PORT2_RESP (error) for \"%s\"",name);
 	    return;
@@ -726,148 +947,159 @@ static void do_request(g, fd, s, buf, bsize)
 	return;
       }
       break;
+    }
 
+    case EPMD_NAMES3_REQ:
     case EPMD_NAMES_REQ:
-      dbg_printf(g,1,"** got NAMES_REQ");
+    {
+      const int   ver = *buf == EPMD_NAMES3_REQ ? 3 : 0;
+      const char *cmd = ver >= 3 ? "NAMES3_REQ" : "NAMES_REQ";
+      char         *p = wbegin;
+      Node *node;
+
+      dbg_printf(g,1,"** got %s", cmd);
+
+      put_int32(g->port, p); p += 4;
+
+      for (node = g->nodes.reg; node; node = node->next, p += i)
       {
-	Node *node;
+          /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
+             change in syntax will break < OTP R3A */
 
-	i = htonl(g->port);
-	memcpy(wbuf,&i,4);
+          i = dump_ports(node, p, wend, "name ", "", ver, 0, "\n");
+          if (i < 0)
+          {
+              dbg_tty_printf(g,1,"failed to send NAMES_RESP");
+              return;
+          }
+      }
 
-	if (reply(g, fd,wbuf,4) != 4)
-	  {
-	    dbg_tty_printf(g,1,"failed to send NAMES_RESP");
-	    return;
-	  }
+      i = p - wbegin;
+      put_int16(i, wbuf);
+      if (ver >= 3) wbegin = wbuf;
+      i = p - wbegin;
 
-	for (node = g->nodes.reg; node; node = node->next)
-	  {
-	    int len = 0;
-	    int r;
-
-	    /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
-	       change in syntax will break < OTP R3A */
-
-	    len += copy_str(&wbuf[len], "name ");
-	    len += copy_str(&wbuf[len], node->symname);
-	    r = erts_snprintf(&wbuf[len], sizeof(wbuf)-len,
-			      " at port %d\n", node->port);
-	    if (r < 0)
-		goto failed_names_resp;
-	    len += r;
-	    if (reply(g, fd, wbuf, len) != len)
-	      {
-	      failed_names_resp:
-		dbg_tty_printf(g,1,"failed to send NAMES_RESP");
-		return;
-	      }
-	  }
+      if (reply(g, fd, wbegin, i) != i)
+      {
+          dbg_tty_printf(g,1,"failed to send NAMES_RESP");
+          return;
       }
       dbg_tty_printf(g,1,"** sent NAMES_RESP");
       break;
+    }
 
+    case EPMD_DUMP3_REQ:
     case EPMD_DUMP_REQ:
-      dbg_printf(g,1,"** got DUMP_REQ");
+    {
+      const int   ver = *buf == EPMD_DUMP3_REQ ? 3 : 0;
+      const char *cmd = ver > 0 ? "DUMP3_REQ" : "DUMP_REQ";
+      char *p = wbegin;
+      Node *node;
+
+      dbg_printf(g,1,"** got %s", cmd);
       if (!s->local_peer) {
-	   dbg_printf(g,0,"DUMP_REQ from non local address");
+	   dbg_printf(g,0,"%s from non local address", cmd);
 	   return;
       }
-      {
-	Node *node;
 
-	i = htonl(g->port);
-	memcpy(wbuf,&i,4);
-	if (reply(g, fd,wbuf,4) != 4)
-	  {
-	    dbg_tty_printf(g,1,"failed to send DUMP_RESP");
-	    return;
-	  }
+      put_int32(g->port, p); p += 4;
 
-	for (node = g->nodes.reg; node; node = node->next)
-	  {
-	      int len = 0, r;
+      for (node = g->nodes.reg; node; node = node->next, p += i)
+        {
+            i = dump_ports(node, p, wend,
+                    "active name     <", ">", ver, 1, "\n");
+            if (i < 0)
+                goto failed_dump_resp;
+        }
 
-	    /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
-	       change in syntax will break < OTP R3A */
+      for (node = g->nodes.unreg; node; node = node->next, p += i)
+        {
+            i = dump_ports(node, p, wend,
+                    "old/unused name <", ">", ver, 1, "\n");
+            if (i < 0)
+                goto failed_dump_resp;
+        }
 
-	      len += copy_str(&wbuf[len], "active name     <");
-	      len += copy_str(&wbuf[len], node->symname);
-	      r = erts_snprintf(&wbuf[len], sizeof(wbuf)-len,
-				"> at port %d, fd = %d\n",
-				node->port, node->fd);
-	      if (r < 0)
-		  goto failed_dump_resp;
-	      len += r + 1;
-	      if (reply(g, fd,wbuf,len) != len)
-	      {
-	      failed_dump_resp:
-		dbg_tty_printf(g,1,"failed to send DUMP_RESP");
-		return;
-	      }
-	  }
+      i = p - wbegin;
+      put_int16(i, wbuf);
+      if (ver >= 3) wbegin = wbuf;
+      i = p - wbegin;
 
-	for (node = g->nodes.unreg; node; node = node->next)
-	  {
-	      int len = 0, r;
+      if (reply(g, fd, wbegin, i) != i)
+          goto failed_dump_resp;
 
-	    /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
-	       change in syntax will break < OTP R3A */
-
-	      len += copy_str(&wbuf[len], "old/unused name <");
-	      len += copy_str(&wbuf[len], node->symname);
-	      r = erts_snprintf(&wbuf[len], sizeof(wbuf)-len,
-				">, port = %d, fd = %d \n",
-				node->port, node->fd);
-	      if (r < 0)
-		  goto failed_dump_resp2;
-	      len += r + 1;
-	      if (reply(g, fd,wbuf,len) != len)
-	      {
-	      failed_dump_resp2:
-		dbg_tty_printf(g,1,"failed to send DUMP_RESP");
-		return;
-	      }
-	  }
-      }
       dbg_tty_printf(g,1,"** sent DUMP_RESP");
       break;
 
+    failed_dump_resp:
+      dbg_tty_printf(g,1,"failed to send DUMP_RESP");
+      return;
+    }
+
+    case EPMD_KILL3_REQ:
     case EPMD_KILL_REQ:
+    {
+      const int   ver = *buf == EPMD_KILL3_REQ ? 3 : 0;
+      const char *cmd = ver > 0 ? "KILL3_REQ" : "KILL_REQ";
+      char         *p = wbegin;
+      int stop = 0;
+
       if (!s->local_peer) {
-	   dbg_printf(g,0,"KILL_REQ from non local address");
+	   dbg_printf(g,0,"%s from non local address", cmd);
 	   return;
       }
-      dbg_printf(g,1,"** got KILL_REQ");
+      dbg_printf(g,1,"** got %s", cmd);
 
-      if (!g->brutal_kill && (g->nodes.reg != NULL)) {
-	  dbg_printf(g,0,"Disallowed KILL_REQ, live nodes");
-	  if (reply(g, fd,"NO",2) != 2)
-	      dbg_printf(g,0,"failed to send reply to KILL_REQ");
+      if (bsize < 1) {
+	  dbg_printf(g,0,"packet too small for request %s (%d)",cmd,bsize);
 	  return;
       }
 
-      if (reply(g, fd,"OK",2) != 2)
-	dbg_printf(g,0,"failed to send reply to KILL_REQ");
-      dbg_tty_printf(g,1,"epmd killed");
-      conn_close_fd(g,fd);	/* We never return to caller so close here */
-      dbg_printf(g,0,"got KILL_REQ - terminates normal");
-      epmd_cleanup_exit(g,0);			/* Normal exit */
+      if (!g->brutal_kill && (g->nodes.reg != NULL)) {
+	  dbg_printf(g,0,"Disallowed %s, live nodes", cmd);
+          strncpy(p, "NO", 2); p += 2;
+      } else {
+          strncpy(p, "OK", 2); p += 2;
+          stop = 1;
+      }
 
+      i = p - wbegin;
+      put_int16(i, wbuf);
+      if (ver >= 3) wbegin = wbuf;
+      i = p - wbegin;
+
+      if (reply(g, fd, wbegin, i) != i)
+	dbg_printf(g,0,"failed to send reply to %s", cmd);
+
+      if (!stop)
+          return;
+
+      conn_close_fd(g,fd);	/* We never return to caller so close here */
+      dbg_tty_printf(g,1,"epmd killed");
+      dbg_printf(g,0,"got %s - terminates normal", cmd);
+      epmd_cleanup_exit(g,0);			/* Normal exit */
+    }
+
+    case EPMD_STOP3_REQ:
     case EPMD_STOP_REQ:
-      dbg_printf(g,1,"** got STOP_REQ");
+    {
+      const int   ver = *buf == EPMD_STOP3_REQ ? 3 : 0;
+      const char *cmd = ver > 0 ? "STOP3_REQ" : "STOP_REQ";
+      char         *p = wbegin;
+
+      dbg_printf(g,1,"** got %s", cmd);
       if (!s->local_peer) {
-	   dbg_printf(g,0,"STOP_REQ from non local address");
+	   dbg_printf(g,0,"%s from non local address", cmd);
 	   return;
       }
       if (!g->brutal_kill) {
-	  dbg_printf(g,0,"Disallowed STOP_REQ, no relaxed_command_check");
+	  dbg_printf(g,0,"Disallowed %s, no relaxed_command_check", cmd);
 	  return;
       }
 
-      if (bsize <= 1 )
+      if (bsize < 1)
 	{
-	  dbg_printf(g,0,"packet too small for request STOP_REQ (%d)",bsize);
+	  dbg_printf(g,0,"packet too small for request %s (%d)",cmd,bsize);
 	  return;
 	}
 
@@ -877,28 +1109,43 @@ static void do_request(g, fd, s, buf, bsize)
 
 	if ((node_fd = node_unreg(g,name)) < 0)
 	  {
-	    if (reply(g, fd,"NOEXIST",7) != 7)
+            strncpy(p, "NOEXIST", 7); p += 7;
+            i = p - wbegin;
+            put_int16(i, wbuf);
+            if (ver > 0) wbegin = wbuf;
+            i = p - wbegin;
+
+	    if (reply(g, fd, wbegin, i) != i)
 	      {
 		dbg_tty_printf(g,1,"failed to send STOP_RESP NOEXIST");
 		return;
 	      }
 	    dbg_tty_printf(g,1,"** sent STOP_RESP NOEXIST");
 	  }
+        else
+          {
+	    conn_close_fd(g,node_fd);
+	    dbg_tty_printf(g,1,"epmd connection stopped");
 
-	conn_close_fd(g,node_fd);
-	dbg_tty_printf(g,1,"epmd connection stopped");
+            strncpy(p, "STOPPED", 7); p += 7;
+            i = p - wbegin;
+            put_int16(i, wbuf);
+            if (ver > 0) wbegin = wbuf;
+            i = p - wbegin;
 
-	if (reply(g, fd,"STOPPED",7) != 7)
-	  {
-	    dbg_tty_printf(g,1,"failed to send STOP_RESP STOPPED");
-	    return;
-	  }
-	dbg_tty_printf(g,1,"** sent STOP_RESP STOPPED");
+	    if (reply(g, fd, wbegin, i) != i)
+	      {
+	        dbg_tty_printf(g,1,"failed to send STOP_RESP STOPPED");
+	        return;
+	      }
+	    dbg_tty_printf(g,1,"** sent STOP_RESP STOPPED");
+          }
       }
       break;
+    }
 
     default:
-      dbg_printf(g,0,"got garbage ");
+      dbg_printf(g,0,"got garbage (%c)", *buf);
     }
 }
 
@@ -963,7 +1210,7 @@ static int conn_open(EpmdVars *g,int fd)
 
       g->active_conn++;
       s = &g->conn[i];
-     
+
       /* From now on we want to know if there are data to be read */
       select_fd_set(g, fd);
 
@@ -1020,7 +1267,7 @@ static int conn_close_fd(EpmdVars *g,int fd)
 	epmd_conn_close(g,&g->conn[i]);
 	return EPMD_TRUE;
       }
-  
+
   return EPMD_FALSE;
 }
 
@@ -1068,8 +1315,9 @@ static int node_unreg(EpmdVars *g,char *name)
   for (; node; prev = &node->next, node = node->next)
     if (is_same_str(node->symname, name))
       {
-	dbg_tty_printf(g,1,"unregistering '%s:%d', port %d",
-		       node->symname, node->creation, node->port);
+	dbg_tty_printf(g,1,"unregistering '%s:%d', ports[%d]: %d",
+		       node->symname, node->creation, node->portprotolen,
+                       node->portproto[0].port);
 
 	*prev = node->next;	/* Link out from "reg" list */
 
@@ -1103,8 +1351,9 @@ static int node_unreg_sock(EpmdVars *g,int fd)
   for (; node; prev = &node->next, node = node->next)
     if (node->fd == fd)
       {
-	dbg_tty_printf(g,1,"unregistering '%s:%d', port %d",
-		       node->symname, node->creation, node->port);
+	dbg_tty_printf(g,1,"unregistering '%s:%d', port[%d]: %d",
+		       node->symname, node->creation, node->portprotolen,
+                       node->portproto[0].port);
 
 	*prev = node->next;	/* Link out from "reg" list */
 
@@ -1146,12 +1395,14 @@ static int node_unreg_sock(EpmdVars *g,int fd)
  */
 
 static Node *node_reg2(EpmdVars *g,
+                       int epmd_proto_version,
 		       int namelen,
 		       char* name,
 		       int fd,
 		       int port,
 		       unsigned char nodetype,
-		       unsigned char protocol,
+		       int protocol,
+		       const char* proto_name,
 		       int highvsn,
 		       int lowvsn,
 		       int extralen,
@@ -1160,6 +1411,7 @@ static Node *node_reg2(EpmdVars *g,
   Node *prev;			/* Point to previous node or NULL */
   Node *node;			/* Point to first node */
   int sz;
+  unsigned short reg_port;      /* Registered port */
 
   /* Can be NULL; means old style */
   if (extra == NULL)
@@ -1209,8 +1461,19 @@ static Node *node_reg2(EpmdVars *g,
   for (node = g->nodes.reg; node; node = node->next)
     if (is_same_str(node->symname, name))
       {
-	dbg_printf(g,0,"node name already occupied %s", name);
-	return NULL;
+        if (match_proto(node, 1, proto_name, &reg_port) >= 0)
+          {
+            dbg_printf(g,0,"node name already occupied %s (port %d)",name,reg_port);
+            return NULL;
+          }
+        else if (node->portprotolen + 1 > MAXPROTOS)
+          {
+            dbg_printf(g,0,"node %s exhausted max number of protocols %d",
+                       name, MAXPROTOS);
+            return NULL;
+          }
+        else
+          goto add_node_proto;
       }
 
   /* Try to find the name in the used queue so that we
@@ -1246,6 +1509,8 @@ static Node *node_reg2(EpmdVars *g,
 	/* When reusing we change the "creation" number 1..3 */
 
 	node->creation = node->creation % 3 + 1;
+        node->portprotolen = 0;
+        node->epmd_version = epmd_proto_version;
 
 	break;
       }
@@ -1261,6 +1526,8 @@ static Node *node_reg2(EpmdVars *g,
 	{
 	  /* MAX_UNREG_COUNT > 1 so no need to check unreg_tail */
 	  node = g->nodes.unreg;	/* Take first == oldest */
+          node->portprotolen = 0;
+          node->epmd_version = epmd_proto_version;
 	  g->nodes.unreg = node->next; /* Link out */
 	  g->nodes.unreg_count--;
 	}
@@ -1273,38 +1540,48 @@ static Node *node_reg2(EpmdVars *g,
 	    }
 
 	  node->creation = (current_time(g) % 3) + 1; /* "random" 1-3 */
+          node->epmd_version = epmd_proto_version;
+          node->portprotolen = 0;
 	}
     }
 
   node->next = g->nodes.reg; /* Link into "reg" queue */
   g->nodes.reg  = node;
 
+add_node_proto:
+
+  {
+    struct eproto *p = &node->portproto[node->portprotolen];
+    p->port = port;
+    p->proto_name_len = *proto_name;
+    if (p->proto_name_len)
+      strncpy(p->proto_name, proto_name+1, p->proto_name_len);
+    p->proto_name[p->proto_name_len] = '\0';
+  }
+  node->portprotolen++;
   node->fd       = fd;
-  node->port     = port;
   node->nodetype = nodetype;
-  node->protocol = protocol;
   node->highvsn  = highvsn;
   node->lowvsn   = lowvsn;
   node->extralen = extralen;
   memcpy(node->extra,extra,extralen);
+  node->symnamelen = namelen;
   copy_str(node->symname,name);
   select_fd_set(g, fd);
 
-  if (highvsn == 0) {
-    dbg_tty_printf(g,1,"registering '%s:%d', port %d",
-		   node->symname, node->creation, node->port);
-  } else {
-    dbg_tty_printf(g,1,"registering '%s:%d', port %d",
-		   node->symname, node->creation, node->port);
-    dbg_tty_printf(g,1,"type %d proto %d highvsn %d lowvsn %d",
+  dbg_tty_printf(g,1,"registering '%s:%d', port %d protoname '%s'",
+		 node->symname, node->creation, port,
+         node->portproto[node->portprotolen-1].proto_name);
+  if (highvsn != 0) {
+    dbg_tty_printf(g,1," type %d proto %d highvsn %d lowvsn %d",
 		   nodetype, protocol, highvsn, lowvsn);
-  }      
+  }
 
   print_names(g);
 
   return node;
 }
-  
+
 
 static time_t current_time(EpmdVars *g)
 {
@@ -1337,7 +1614,7 @@ static int reply(EpmdVars *g,int fd,char *buf,int len)
 
   return val;
 }
-      
+
 
 #define LINEBYTECOUNT 16
 
@@ -1406,17 +1683,24 @@ static void dbg_print_buf(EpmdVars *g,char *buf,int len)
 
 static void print_names(EpmdVars *g)
 {
-  int count = 0;
+  int count = 0, r;
   Node *node;
+  char wbuf[2048];
+  char *p = wbuf, *wend = wbuf + sizeof(wbuf);
 
   if ((g->is_daemon) ||		/* Don't want to write to stderr if daemon */
       (g->debug < 3))		/* or debug level too low */
     return;
 
-  for (node = g->nodes.reg; node; node = node->next)
+  for (node = g->nodes.reg; node; node = node->next, p = wbuf)
     {
-      fprintf(stderr,"*****     active name     \"%s#%d\" at port %d, fd = %d\r\n",
-	      node->symname, node->creation, node->port, node->fd);
+      p += erts_snprintf(p, wend-p,
+                    "*****     active name (creation: %d) ",
+                    node->creation);
+      r = dump_ports(node, p, wend, "", "", 1, 1, "\r\n");
+      if (r < 0)
+          erts_snprintf(p, wend-p, "[error: buffer overflow]\r\n");
+      fprintf(stderr, wbuf);
       count ++;
     }
 

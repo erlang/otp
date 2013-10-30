@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(inet_tcp_dist).
@@ -21,11 +21,12 @@
 %% Handles the connection setup phase with other Erlang nodes.
 
 -export([listen/1, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, is_node_name/1]).
+	 sync_setup/10, close/1, select/1, is_node_name/1]).
 
 %% internal exports
 
--export([accept_loop/2,do_accept/6,do_setup/6,getstat/1,tick/1]).
+-deprecated([setup/5]).
+-export([accept_loop/2,do_accept/6,setup/5,getstat/1,tick/1, splitnode/2]).
 
 -import(error_logger,[error_msg/2]).
 
@@ -52,10 +53,7 @@
 %% ------------------------------------------------------------
 
 select(Node) ->
-    case split_node(atom_to_list(Node), $@, []) of
-	[_,_Host] -> true;
-	_ -> false
-    end.
+    dist_util:is_node_name(Node).
 
 %% ------------------------------------------------------------
 %% Create the listen socket, i.e. the port that this erlang
@@ -67,7 +65,8 @@ listen(Name) ->
 	{ok, Socket} ->
 	    TcpAddress = get_tcp_address(Socket),
 	    {_,Port} = TcpAddress#net_address.address,
-	    case erl_epmd:register_node(Name, Port) of
+        Proto = dist_util:module_to_dist_proto(?MODULE),
+	    case erl_epmd:register_node(Name, Port, Proto) of
 		{ok, Creation} ->
 		    {ok, {Socket, TcpAddress, Creation}};
 		Error ->
@@ -172,18 +171,18 @@ do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 		      this_flags = 0,
 		      allowed = Allowed,
 		      f_send = fun(S,D) -> inet_tcp:send(S,D) end,
-		      f_recv = fun(S,N,T) -> inet_tcp:recv(S,N,T) 
+		      f_recv = fun(S,N,T) -> inet_tcp:recv(S,N,T)
 			       end,
-		      f_setopts_pre_nodeup = 
+		      f_setopts_pre_nodeup =
 		      fun(S) ->
-			      inet:setopts(S, 
+			      inet:setopts(S,
 					   [{active, false},
 					    {packet, 4},
 					    nodelay()])
 		      end,
-		      f_setopts_post_nodeup = 
+		      f_setopts_post_nodeup =
 		      fun(S) ->
-			      inet:setopts(S, 
+			      inet:setopts(S,
 					   [{active, true},
 					    {deliver, port},
 					    {packet, 4},
@@ -219,7 +218,7 @@ nodelay() ->
 	_ ->
 	    {nodelay, true}
     end.
-	    
+	
 
 %% ------------------------------------------------------------
 %% Get remote information about a Socket.
@@ -227,7 +226,7 @@ nodelay() ->
 get_remote_id(Socket, Node) ->
     case inet:peername(Socket) of
 	{ok,Address} ->
-	    case split_node(atom_to_list(Node), $@, []) of
+        case dist_util:split_node(atom_to_list(Node), $@) of
 		[_,Host] ->
 		    #net_address{address=Address,host=Host,
 				 protocol=tcp,family=inet};
@@ -245,74 +244,24 @@ get_remote_id(Socket, Node) ->
 %% ------------------------------------------------------------
 
 setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
-    spawn_opt(?MODULE, do_setup, 
-	      [self(), Node, Type, MyNode, LongOrShortNames, SetupTime],
-	      [link, {priority, max}]).
+    Kernel = self(),
+    spawn_opt(fun() ->
+        do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime)
+    end, [link, {priority, max}]).
 
-do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
+do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     ?trace("~p~n",[{inet_tcp_dist,self(),setup,Node}]),
     [Name, Address] = splitnode(Node, LongOrShortNames),
     case inet:getaddr(Address, inet) of
 	{ok, Ip} ->
 	    Timer = dist_util:start_timer(SetupTime),
-	    case erl_epmd:port_please(Name, Ip) of
-		{port, TcpPort, Version} ->
-		    ?trace("port_please(~p) -> version ~p~n", 
-			   [Node,Version]),
-		    dist_util:reset_timer(Timer),
-		    case inet_tcp:connect(Ip, TcpPort, 
-					  [{active, false}, 
-					   {packet,2}]) of
-			{ok, Socket} ->
-			    HSData = #hs_data{
-			      kernel_pid = Kernel,
-			      other_node = Node,
-			      this_node = MyNode,
-			      socket = Socket,
-			      timer = Timer,
-			      this_flags = 0,
-			      other_version = Version,
-			      f_send = fun inet_tcp:send/2,
-			      f_recv = fun inet_tcp:recv/3,
-			      f_setopts_pre_nodeup = 
-			      fun(S) ->
-				      inet:setopts
-					(S, 
-					 [{active, false},
-					  {packet, 4},
-					  nodelay()])
-			      end,
-			      f_setopts_post_nodeup = 
-			      fun(S) ->
-				      inet:setopts
-					(S, 
-					 [{active, true},
-					  {deliver, port},
-					  {packet, 4},
-					  nodelay()])
-			      end,
-			      f_getll = fun inet:getll/1,
-			      f_address = 
-			      fun(_,_) ->
-				      #net_address{
-				   address = {Ip,TcpPort},
-				   host = Address,
-				   protocol = tcp,
-				   family = inet}
-			      end,
-			      mf_tick = fun ?MODULE:tick/1,
-			      mf_getstat = fun ?MODULE:getstat/1,
-			      request_type = Type
-			     },
-			    dist_util:handshake_we_started(HSData);
-			_ ->
-			    %% Other Node may have closed since 
-			    %% port_please !
-			    ?trace("other node (~p) "
-				   "closed since port_please.~n", 
-				   [Node]),
-			    ?shutdown(Node)
-		    end;
+        Proto = net_kernel:module_to_dist_proto(?MODULE),
+	    case erl_epmd:port_please(Name, Ip, [Proto], infinity) of
+		{ports, [{TcpPort, _Proto}], Version, _Opts} ->
+		    ?trace("port_please(~p, [~p]) -> version ~p~n",
+			   [Node,Proto,Version]),
+            sync_setup(Kernel, Node, Name, Address, Type, MyNode,
+                       Timer, Ip, TcpPort, Version);
 		_ ->
 		    ?trace("port_please (~p) "
 			   "failed.~n", [Node]),
@@ -324,6 +273,61 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
 	    ?shutdown(Node)
     end.
 
+sync_setup(Kernel, Node, _Name, Address, Type, MyNode, Timer,
+           Ip, TcpPort, Version) ->
+    dist_util:reset_timer(Timer),
+    case inet_tcp:connect(Ip, TcpPort, [{active, false}, {packet,2}]) of
+    {ok, Socket} ->
+        HSData = #hs_data{
+          kernel_pid = Kernel,
+          other_node = Node,
+          this_node = MyNode,
+          socket = Socket,
+          timer = Timer,
+          this_flags = 0,
+          other_version = Version,
+          f_send = fun inet_tcp:send/2,
+          f_recv = fun inet_tcp:recv/3,
+          f_setopts_pre_nodeup =
+          fun(S) ->
+              inet:setopts
+            (S,
+             [{active, false},
+              {packet, 4},
+              nodelay()])
+          end,
+          f_setopts_post_nodeup =
+          fun(S) ->
+              inet:setopts
+            (S,
+             [{active, true},
+              {deliver, port},
+              {packet, 4},
+              nodelay()])
+          end,
+          f_getll = fun inet:getll/1,
+          f_address =
+          fun(_,_) ->
+              #net_address{
+           address = {Ip,TcpPort},
+           host = Address,
+           protocol = tcp,
+           family = inet}
+          end,
+          mf_tick = fun ?MODULE:tick/1,
+          mf_getstat = fun ?MODULE:getstat/1,
+          request_type = Type
+         },
+        dist_util:handshake_we_started(HSData);
+    _ ->
+        %% Other Node may have closed since
+        %% port_please !
+        ?trace("other node (~p) "
+           "closed since port_please.~n",
+           [Node]),
+        ?shutdown(Node)
+    end.
+
 %%
 %% Close a socket.
 %%
@@ -333,10 +337,10 @@ close(Socket) ->
 
 %% If Node is illegal terminate the connection setup!!
 splitnode(Node, LongOrShortNames) ->
-    case split_node(atom_to_list(Node), $@, []) of
+    case dist_util:split_node(Node) of
 	[Name|Tail] when Tail =/= [] ->
 	    Host = lists:append(Tail),
-	    case split_node(Host, $., []) of
+        case dist_util:split_node(Host, $.) of
 		[_] when LongOrShortNames =:= longnames ->
 		    error_msg("** System running to use "
 			      "fully qualified "
@@ -361,10 +365,6 @@ splitnode(Node, LongOrShortNames) ->
 	    error_msg("** Nodename ~p illegal **~n", [Node]),
 	    ?shutdown(Node)
     end.
-
-split_node([Chr|T], Chr, Ack) -> [lists:reverse(Ack)|split_node(T, Chr, [])];
-split_node([H|T], Chr, Ack)   -> split_node(T, Chr, [H|Ack]);
-split_node([], _, Ack)        -> [lists:reverse(Ack)].
 
 %% ------------------------------------------------------------
 %% Fetch local information about a Socket.
@@ -414,20 +414,15 @@ check_ip([{OwnIP, _, Netmask}|IFs], PeerIP) ->
     end;
 check_ip([], PeerIP) ->
     {false, PeerIP}.
-    
+
 mask({M1,M2,M3,M4}, {IP1,IP2,IP3,IP4}) ->
     {M1 band IP1,
      M2 band IP2,
      M3 band IP3,
      M4 band IP4}.
 
-is_node_name(Node) when is_atom(Node) ->
-    case split_node(atom_to_list(Node), $@, []) of
-	[_, _Host] -> true;
-	_ -> false
-    end;
-is_node_name(_Node) ->
-    false.
+is_node_name(Node) ->
+    dist_util:is_node_name(Node).
 
 tick(Sock) ->
     ?to_port(Sock,[],[force]).

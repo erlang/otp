@@ -22,13 +22,19 @@
 /* Definitions of message codes */
 
 /* Registration and queries */
-#define EPMD_ALIVE2_REQ 'x'
-#define EPMD_PORT2_REQ 'z'
-#define EPMD_ALIVE2_RESP 'y'
-#define EPMD_PORT2_RESP 'w'
-#define EPMD_NAMES_REQ 'n'
+#define EPMD_ALIVE2_REQ       'x'
+#define EPMD_ALIVE3_REQ       'X'
+#define EPMD_PORT_PLEASE2_REQ 'z'
+#define EPMD_PORT_PLEASE3_REQ 'Z'
+#define EPMD_ALIVE2_RESP      'y'
+#define EPMD_PORT2_RESP       'w'
+#define EPMD_NAMES_REQ        'n'
+#define EPMD_NAMES3_REQ       'N'
 
 /* Interactive client command codes */
-#define EPMD_DUMP_REQ 'd'
-#define EPMD_KILL_REQ 'k'
-#define EPMD_STOP_REQ 's'
+#define EPMD_DUMP_REQ  'd'
+#define EPMD_DUMP3_REQ 'D'
+#define EPMD_KILL_REQ  'k'
+#define EPMD_KILL3_REQ 'K'
+#define EPMD_STOP_REQ  's'
+#define EPMD_STOP3_REQ 'S'

@@ -160,6 +160,7 @@ int main(int argc, char** argv)
     g->argv = NULL;
 #endif
 
+    g->version        = 3;
     g->addresses      = get_addresses();
     g->port           = get_port_no();
     g->debug          = 0;
@@ -185,6 +186,10 @@ int main(int argc, char** argv)
 	if ((strcmp(argv[0], "-debug")==0) ||
 	    (strcmp(argv[0], "-d")==0)) {
 	    g->debug += 1;
+	    argv++; argc--;
+	} else if (strcmp(argv[0], "-v2") == 0) {
+            /* <= R16 compatibility code */
+	    g->version = 2;
 	    argv++; argc--;
 	} else if (strcmp(argv[0], "-packet_timeout") == 0) {
 	    if ((argc == 1) ||
@@ -225,20 +230,20 @@ int main(int argc, char** argv)
 	    argv += 2; argc -= 2;
 	} else if (strcmp(argv[0], "-names") == 0) {
 	    if (argc == 1)
-		epmd_call(g, EPMD_NAMES_REQ);
+		epmd_call(g, EPMD_NAMES3_REQ);
 	    else
 		usage(g);
 	    epmd_cleanup_exit(g,0);
 	} else if (strcmp(argv[0], "-started") == 0) {
 	    g->silent = 1;
 	    if (argc == 1)
-		epmd_call(g, EPMD_NAMES_REQ);
+		epmd_call(g, EPMD_NAMES3_REQ);
 	    else
 		usage(g);
 	    epmd_cleanup_exit(g,0);
 	} else if (strcmp(argv[0], "-dump") == 0) {
 	    if (argc == 1)
-		epmd_call(g, EPMD_DUMP_REQ);
+		epmd_call(g, EPMD_DUMP3_REQ);
 	    else
 		usage(g);
 	    epmd_cleanup_exit(g,0);

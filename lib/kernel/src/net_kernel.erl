@@ -23,7 +23,7 @@
 -define(nodedown(N, State), verbose({?MODULE, ?LINE, nodedown, N}, 1, State)).
 -define(nodeup(N, State), verbose({?MODULE, ?LINE, nodeup, N}, 1, State)).
 
-%%-define(dist_debug, true).
+%-define(dist_debug, true).
 
 %-define(DBG,erlang:display([?MODULE,?LINE])).
 
@@ -77,7 +77,8 @@
 	 spawn_func/6,
 	 ticker/2,
 	 ticker_loop/2,
-	 aux_ticker/4]).
+	 aux_ticker/4,
+     dist_protos/0]).
 
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,
 	 terminate/2,code_change/3]).
@@ -96,16 +97,18 @@
 	  conn_owners = [], %% List of connection owner pids,
 	  pend_owners = [], %% List of potential owners
 	  listen,       %% list of  #listen
-	  allowed,       %% list of allowed nodes in a restricted system
-	  verbose = 0,   %% level of verboseness
-	  publish_on_nodes = undefined
+	  allowed,      %% list of allowed nodes in a restricted system
+	  verbose = 0,  %% level of verboseness
+	  publish_on_nodes = undefined,
+      proto_dist_mf %% Custom Mod:Fun to be called to select conn. transport
 	 }).
 
 -record(listen, {
 		 listen,     %% listen pid
 		 accept,     %% accepting pid
 		 address,    %% #net_address
-		 module      %% proto module
+		 module,     %% proto module
+         proto       %% proto name
 		}).
 
 -define(LISTEN_ID, #listen.listen).
@@ -175,6 +178,17 @@ i(Node) ->                     print_info(Node).
 
 verbose(Level) when is_integer(Level) ->
     request({verbose, Level}).
+
+-spec dist_protos() -> [string()].
+dist_protos() ->
+    case request(dist_protos) of
+    L when is_list(L) ->
+        L;
+    ignore ->
+        [];
+    _ ->
+        ["inet_tcp"]
+    end.
 
 -spec set_net_ticktime(NetTicktime, TransitionPeriod) -> Res when
       NetTicktime :: pos_integer(),
@@ -360,33 +374,82 @@ start_link([Name, LongOrShortNames, Ticktime]) ->
 	    exit(nodistribution)
     end.
 
+try_load(M) ->
+    case erlang:module_loaded(M) of
+    true ->
+        ok;
+    false ->
+        {ok, Path} = erl_prim_loader:get_path(),
+        try_load(M, atom_to_list(M) ++ ".beam", ["."|Path])
+    end.
+
+try_load(Mod, _M, []) ->
+    throw({module_not_loaded, Mod});
+try_load(Mod, M, [P|T]) ->
+    F = filename:join(P, M),
+    case erl_prim_loader:read_file_info(F) of
+    {ok, _} ->
+        case erl_prim_loader:get_file(F) of
+        {ok, Bin, _FName} ->
+            {module, Mod} = erlang:load_module(Mod, Bin);
+        error ->
+            try_load(Mod, M, T)
+        end;
+    error ->
+        try_load(Mod, M, T)
+    end.
+
 %% auth:get_cookie should only be able to return an atom
 %% tuple cookies are unknowns
 
 init({Name, LongOrShortNames, TickT}) ->
     process_flag(trap_exit,true),
-    case init_node(Name, LongOrShortNames) of
-	{ok, Node, Listeners} ->
-	    process_flag(priority, max),
-	    Ticktime = to_integer(TickT),
-	    Ticker = spawn_link(net_kernel, ticker, [self(), Ticktime]),
-	    {ok, #state{name = Name,
-			node = Node,
-			type = LongOrShortNames,
-			tick = #tick{ticker = Ticker, time = Ticktime},
-			connecttime = connecttime(),
-			connections =
-			ets:new(sys_dist,[named_table,
-					  protected,
-					  {keypos, 2}]),
-			listen = Listeners,
-			allowed = [],
-			verbose = 0
-		       }};
-	Error ->
-	    {stop, Error}
-    end.
+    try
+        case proto_dist_mf() of
+        {M,F} ->
+            try
+                % FIXME: code_server is not started
+                % at this point, so we can't call code:ensure_loaded/1.
+                % Instead we call try_load/1 below. Is there a better
+                % way to do this?
+                try_load(M)
+            catch _:Er ->
+                error_msg("** Module '~w' loading failed: ~p~n  ~p~n",
+                    [M, Er, erlang:get_stacktrace()]),
+                throw(Er)
+            end,
+            erlang:function_exported(M, F, 4) orelse
+                throw({proto_dist_mf, undef, {M,F,4}}),
+            MF = {M,F};
+        undefined ->
+            MF = undefined
+        end,
 
+        case init_node(Name, LongOrShortNames) of
+        {ok, Node, Listeners} ->
+            process_flag(priority, max),
+            Ticktime = to_integer(TickT),
+            Ticker = spawn_link(net_kernel, ticker, [self(), Ticktime]),
+            {ok, #state{name = Name,
+                node = Node,
+                type = LongOrShortNames,
+                tick = #tick{ticker = Ticker, time = Ticktime},
+                connecttime = connecttime(),
+                connections =
+                ets:new(sys_dist,[named_table,
+                          protected,
+                          {keypos, 2}]),
+                          listen = Listeners,
+                          allowed = [],
+                          verbose = 0,
+                          proto_dist_mf = MF
+                   }};
+        Error ->
+            {stop, Error}
+        end
+    catch _:E ->
+        {stop, E}
+    end.
 
 %% ------------------------------------------------------------
 %% handle_call.
@@ -507,6 +570,10 @@ handle_call({publish_on_node, Node}, From, State) ->
 handle_call({verbose, Level}, From, State) ->
     async_reply({reply, State#state.verbose, State#state{verbose = Level}},
                 From);
+
+handle_call(dist_protos, From, #state{listen = Listen} = State) ->
+    Protos = [L#listen.proto || L <- Listen],
+    async_reply({reply, Protos, State}, From);
 
 %%
 %% Set new ticktime
@@ -1149,39 +1216,89 @@ setup(Node,Type,From,State) ->
 		      "disallowed node ~w ** ~n", [Node]),
 	    {error, bad_node};
 	_ ->
-	    case select_mod(Node, State#state.listen) of
-		{ok, L} ->
-		    Mod = L#listen.module,
-		    LAddr = L#listen.address,
-		    MyNode = State#state.node,
-		    Pid = Mod:setup(Node,
-				    Type,
-				    MyNode,
-				    State#state.type,
-				    State#state.connecttime),
-		    Addr = LAddr#net_address {
-					      address = undefined,
-					      host = undefined },
-		    ets:insert(sys_dist, #connection{node = Node,
-						     state = pending,
-						     owner = Pid,
-						     waiting = [From],
-						     address = Addr,
-						     type = normal}),
-		    {ok, Pid};
-		Error ->
-		    Error
-	    end
+        % Protos is a list of transport protocols supported
+        % by current node
+        Kernel = self(),
+        Pid = spawn_opt(fun() ->
+            do_epmd_port_please(Kernel, Node, Type, State#state.node,
+                 State#state.type, State#state.connecttime,
+                 State#state.proto_dist_mf, State#state.listen)
+        end, [link, {priority, max}]),
+
+        ets:insert(sys_dist, #connection{node = Node,
+                         state = pending,
+                         owner = Pid,
+                         waiting = [From],
+                         address = #net_address{},
+                         type = normal}),
+        {ok, Pid}
+    end.
+
+do_epmd_port_please(Kernel, Node, Type, MyNode,
+        LongOrShortNames, SetupTime, ProtoDistMF, Listeners) ->
+    % First, we try to obtain a list of port/protocols on the remote node
+    % that current node supports. This is accomplished by passing Protos to
+    % the remote epmd when doing port lookup. The return value from it is
+    % PortProtos = [{Port, Proto::string()}]
+    ?tckr_dbg({do_epmd_port_please,Node}),
+    [Name, Address] = inet_tcp_dist:splitnode(Node, LongOrShortNames),
+    case inet:getaddr(Address, inet) of
+	{ok, Ip} ->
+        MyProtos = [L#listen.proto || L <- Listeners],
+	    Timer    = dist_util:start_timer(SetupTime),
+	    case erl_epmd:port_please(Name, Ip, MyProtos, infinity) of
+		{ports, PortProtos, Version, _Opts} ->
+            ?tckr_dbg({do_epmd_port_please,Node,ports,PortProtos}),
+            % Now we need to figure out which protocol to use
+            % to connect to the remote node.
+            PortProtoMods = [{Port, list_to_atom(M ++ "_dist")}
+                            || {Port, M} <- PortProtos],
+            Transp = [L#listen.module || L <- Listeners],
+            case select_mod(Transp, Node, Ip, PortProtoMods, ProtoDistMF) of
+            {ok, {Port, Mod}} ->
+                ?tckr_dbg({do_epmd_port_please,Node,select_mod,{Port,Mod}}),
+                Mod:sync_setup(Kernel, Node, Name, Address, Type, MyNode,
+                               Timer, Ip, Port, Version);
+            Error ->
+                ?tckr_dbg({do_epmd_port_please,select_mod,{error,Error}}),
+                Error
+            end;
+        Other ->
+            ?tckr_dbg({do_epmd_port_please,port_please,{error,Other}}),
+            Other
+        end;
+    Other2 ->
+        ?tckr_dbg({do_epmd_port_please,getaddr,{error,Other2}}),
+        Other2
     end.
 
 %%
 %% Find a module that is willing to handle connection setup to Node
 %%
-select_mod(Node, [L|Ls]) ->
-    Mod = L#listen.module,
+select_mod(_Transp, Node, _Ip, PortProtoMods, undefined) ->
+    select_mod(Node, PortProtoMods);
+select_mod(Transp, Node, Ip, PortProtoMods, {M,F}) ->
+    try
+        % Args: (LocalTransp::[Mod::atom()]
+        %        PeerNode::atom(), PeerIp::tuple(),
+        %        PeerProtos::[{Port::integer(), Mod::atom()}],
+        %       )
+        case M:F(Transp, Node, Ip, PortProtoMods) of
+        {ok, {_Port, _Mod}} = R ->
+            R;
+        false ->
+            transport_rejected
+        end
+    catch _:E ->
+	    error_msg("** Error in selecting transport ~w:~w(~p,~p) ->~n  ~p",
+		         [M,F,Node,PortProtoMods,E]),
+        select_mod(Node, PortProtoMods)
+    end.
+
+select_mod(Node, [{Port,Mod}|T]) ->
     case Mod:select(Node) of
-	true -> {ok, L};
-	false -> select_mod(Node, Ls)
+	true  -> {ok, {Port, Mod}};
+	false -> select_mod(Node, T)
     end;
 select_mod(Node, []) ->
     {error, {unsupported_address_type, Node}}.
@@ -1271,12 +1388,8 @@ create_hostpart(Name, LongOrShortNames) ->
 %%
 %%
 protocol_childspecs() ->
-    case init:get_argument(proto_dist) of
-	{ok, [Protos]} ->
-	    protocol_childspecs(Protos);
-	_ ->
-	    protocol_childspecs(["inet_tcp"])
-    end.
+    Protos = dist_proto_names(),
+    protocol_childspecs(Protos).
 
 protocol_childspecs([]) ->
     [];
@@ -1289,6 +1402,21 @@ protocol_childspecs([H|T]) ->
 	    protocol_childspecs(T)
     end.
 
+dist_proto_names() ->
+    case init:get_argument(proto_dist) of
+	{ok, [Protos]} ->
+	    Protos;
+	_ ->
+	    ["inet_tcp"]
+    end.
+
+proto_dist_mf() ->
+    case init:get_argument(proto_dist_mf) of
+	{ok, [[M,F]]} ->
+        {list_to_atom(M), list_to_atom(F)};
+	_ ->
+	    undefined
+    end.
 
 %%
 %% epmd_module() -> module_name of erl_epmd or similar gen_server_module.
@@ -1307,12 +1435,8 @@ epmd_module() ->
 %%
 
 start_protos(Name,Node) ->
-    case init:get_argument(proto_dist) of
-	{ok, [Protos]} ->
-	    start_protos(Name,Protos, Node);
-	_ ->
-	    start_protos(Name,["inet_tcp"], Node)
-    end.
+    Protos = dist_proto_names(),
+    start_protos(Name,Protos, Node).
 
 start_protos(Name,Ps, Node) ->
     case start_protos(Name, Ps, Node, []) of
@@ -1332,7 +1456,8 @@ start_protos(Name, [Proto | Ps], Node, Ls) ->
 		      listen = Socket,
 		      address = Address,
 		      accept = AcceptPid,
-		      module = Mod },
+		      module = Mod,
+              proto  = Proto },
 		    start_protos(Name,Ps, Node, [L|Ls]);
 		_ ->
 		    Mod:close(Socket),
