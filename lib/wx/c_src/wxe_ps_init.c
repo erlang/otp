@@ -44,8 +44,12 @@ int is_packaged_app() {
    /* if(mainBundle) { */
    /*    return (CFBundleGetValueForInfoDictionaryKey(mainBundle, CFSTR("CFBundlePackageType")) != nil); */
    /* } */
+#ifdef MAC_OS_X_VERSION_10_6
    NSString *  appName = [[NSRunningApplication currentApplication] localizedName];
    return (strncmp("beam", [appName UTF8String], 4) != 0);
+#else
+   return 0;
+#endif
 }
 
 void * wxe_ps_init2() {
