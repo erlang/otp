@@ -690,6 +690,14 @@ $(OBJDIR)/%.o: $(TTF_DIR)/%.c
 $(OBJDIR)/%.o: sys/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
+ifeq ($(findstring ose,$(TARGET)),ose)
+$(OBJDIR)/ose_confd.o: $(OSE_CONFD)
+	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(OBJDIR)/crt0_lm.o: $(CRT0_LM)
+	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+endif
+
 $(OBJDIR)/%.o: sys/common/%.c
 	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
@@ -815,8 +823,8 @@ OS_OBJS = \
 	$(OBJDIR)/gzio.o \
 	$(OBJDIR)/elib_memmove.o
 
-OS_OBJS += $(OSEROOT)/src/ose_confd.o \
-	$(OSEROOT)/src/crt0_lm.o
+OS_OBJS += $(OBJDIR)/ose_confd.o \
+	$(OBJDIR)/crt0_lm.o
 
 OS_OBJS += $(OBJDIR)/sys_float.o \
 					 $(OBJDIR)/sys_time.o

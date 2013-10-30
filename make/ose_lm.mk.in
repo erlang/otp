@@ -42,6 +42,8 @@ STRIP	     = @erl_xcomp_ose_STRIP@
 LM_POST_LINK = @erl_xcomp_ose_LM_POST_LINK@
 LM_SET_CONF  = @erl_xcomp_ose_LM_SET_CONF@
 LM_ELF_SIZE  = @erl_xcomp_ose_LM_ELF_SIZE@
+OSE_CONFD    = @erl_xcomp_ose_CONFD@
+CRT0_LM      = @erl_xcomp_ose_CRT0_LM@
 endif
 
 define build-ose-load-module

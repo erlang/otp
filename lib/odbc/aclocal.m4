@@ -84,6 +84,8 @@ AC_ARG_VAR(erl_xcomp_ose_LM_SET_CONF, [Sets the configuration for an OSE load mo
 AC_ARG_VAR(erl_xcomp_ose_LM_ELF_SIZE, [Prints the section size information for an OSE load module (only used when cross compiling for OSE)])
 AC_ARG_VAR(erl_xcomp_ose_LM_LCF, [OSE load module linker configuration file (only used when cross compiling for OSE)])
 AC_ARG_VAR(erl_xcomp_ose_LM_CONF, [OSE load module default configuration file (only used when cross compiling for OSE)])
+AC_ARG_VAR(erl_xcomp_ose_CONFD, [OSE OSE confd source file])
+AC_ARG_VAR(erl_xcomp_ose_CRT0_LM, [OSE crt0 lm source file])
 
 ])
 
@@ -1106,7 +1108,12 @@ case "$THR_LIB_NAME" in
 		AC_DEFINE(ETHR_PTHREADS, 1, [Define if you have pthreads])
 		;;
 	     ose_threads)
-		AC_DEFINE(ETHR_OSE_THREADS, 1, [Define if you have OSE style threads])		ETHR_THR_LIB_BASE_DIR=ose
+		AC_DEFINE(ETHR_OSE_THREADS, 1,
+		   [Define if you have OSE style threads])
+		ETHR_THR_LIB_BASE_DIR=ose
+		AC_CHECK_HEADER(ose_spi/ose_spi.h,
+		  AC_DEFINE(HAVE_OSE_SPI, 1,
+		    [Define if you have the "ose_spi/ose_spi.h" header file.]))
 		;;
 	esac
 	if test "x$THR_LIB_NAME" == "xpthread"; then

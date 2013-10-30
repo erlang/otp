@@ -125,23 +125,30 @@ static OS_PROCESS(thr_wrapper)
     void *arg;
     ethr_ts_event *tsep = NULL;
 
+#ifdef DEBUG
     {
        PROCESS pid = current_process();
 
-       const char *execMode = get_pid_info(pid, OSE_PI_SUPERVISOR)
-          ? "Supervisor"
-          : "User";
+       const char *execMode;
+
        PROCESS     bid      = get_bid(pid);
 
        /* In the call below, 16 is a secret number provided by frbr that makes
         * the function return current domain. */
        OSADDRESS   domain   = get_pid_info(current_process(), 16);
 
-#ifdef DEBUG
+#ifdef HAVE_OSE_SPI_H
+       execMode = get_pid_info(pid, OSE_PI_SUPERVISOR)
+          ? "Supervisor"
+          : "User";
+#else
+       execMode = "unknown";
+#endif
+
        fprintf(stderr,"[0x%x] New process. Bid:0x%x, domain:%d, exec mode:%s\n",
                current_process(), bid, domain, execMode);
-#endif
     }
+#endif
 
     {
        SIGSELECT sigsel[] = {1,ETHREADWRAPDATASIG};

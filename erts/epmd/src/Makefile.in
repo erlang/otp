@@ -135,9 +135,9 @@ clean:
 	rm -f *~ core
 
 ifeq ($(findstring ose,$(TARGET)),ose)
-$(OBJDIR)/ose_confd.o: $(OSEROOT)/src/ose_confd.c
+$(OBJDIR)/ose_confd.o: $(OSE_CONFD)
 	$(V_CC) $(CFLAGS) -o $@ -c $<
-$(OBJDIR)/crt0_lm.o: $(OSEROOT)/src/crt0_lm.c
+$(OBJDIR)/crt0_lm.o: $(CRT0_LM)
 	$(V_CC) $(CFLAGS) -o $@ -c $<
 OSE_LM_OBJS += $(OBJDIR)/ose_confd.o $(OBJDIR)/crt0_lm.o
 endif

@@ -852,6 +852,11 @@ OS_PROCESS(fd_reader_process) {
     }
 #endif
 
+    if (fd == 0) {
+      FILE *ffd = stdin;
+      (void)stdin;
+    }
+
     sigsel[1] = ERTS_SIGNAL_FD_DRV_ASYNC;
 
     read_buf = (byte *) erts_alloc(ERTS_ALC_T_SYS_READ_BUF,
@@ -909,8 +914,10 @@ OS_PROCESS(fd_writer_process) {
     /* Why do I need these?!? */
     if (fd == 1) {
       FILE* ffd = stdout;
+      (void)stdout;
     } else if (fd == 2) {
       FILE* ffd = stderr;
+      (void)stderr;
     }
 
     while (1) {

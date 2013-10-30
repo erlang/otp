@@ -17,10 +17,25 @@
  * %CopyrightEnd%
  */
 
+#include <stdlib.h>
+
 int
 main(int argc, char **argv) {
 
+  /* When starting using pm_create -c ARGV="-- -root ..", argv[0] is the first
+     part of ARGV and not the name of the executable. So we shuffle some
+     pointers here to make erl_start happy. */
+  if (argv[0][0] == '-') {
+    int i;
+    char **tmp_argv = malloc(sizeof(char*)*(argc+1));
+    for (i = 0; i < argc; i++)
+      tmp_argv[i+1] = argv[i];
+    tmp_argv = "beam";
+    erl_start(argc,tmp_argv);
+    free(tmp_argv);
+  } else {
    erl_start(argc,argv);
+  }
 
    stop(current_process());
 

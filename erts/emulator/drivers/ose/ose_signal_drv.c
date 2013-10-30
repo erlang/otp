@@ -28,7 +28,10 @@
 #include "sys.h"
 #include "erl_driver.h"
 #include "ose.h"
+
+#ifdef HAVE_OSE_SPI_H
 #include "ose_spi/ose_spi.h"
+#endif
 
 #define DEBUG_ATTACH   0
 #define DEBUG_HUNT     0
@@ -819,6 +822,7 @@ static ErlDrvSSizeT control(ErlDrvData driver_data, unsigned int cmd,
       return sizeof(PROCESS);
     }
 
+#ifdef HAVE_OSE_SPI_H
     case GET_NAME:
     {
       const PROCESS spid = get_u32(buf);
@@ -839,6 +843,7 @@ static ErlDrvSSizeT control(ErlDrvData driver_data, unsigned int cmd,
 
       return n;
     }
+#endif
     default:
     {
       /* Unknown command */
