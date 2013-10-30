@@ -93,13 +93,13 @@ case 100: { // wxEvtHandler::Connect
   int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
   char *class_name = bp; bp+= *class_nameLen;
   if(eventType > 0 ) {
-     wxeCallbackData * Evt_cb = new wxeCallbackData(Ecmd.caller,(void *) This,
-     		       	      	    		    class_name,*fun_cb, 
-		                                    *skip, userData);
-     This->Connect((int) *winid,(int) *lastId,eventType, 
-	           (wxObjectEventFunction)(wxEventFunction) &wxeEvtListener::forward, 
-	           Evt_cb, Listener);
-     rt.addAtom("ok");
+    wxeCallbackData * Evt_cb = new wxeCallbackData(Ecmd.caller,getRef(This, memenv),
+    		    		       	      	   class_name,*fun_cb,
+		                                   *skip, userData, Listener);
+    This->Connect((int) *winid,(int) *lastId,eventType,
+	          (wxObjectEventFunction)(wxEventFunction) &wxeEvtListener::forward,
+	          Evt_cb, Listener);
+    rt.addAtom("ok");
   } else {
     rt.addAtom("badarg");
     rt.addAtom("event_type");

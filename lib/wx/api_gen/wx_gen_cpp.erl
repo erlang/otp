@@ -1223,7 +1223,7 @@ encode_events(Evs) ->
 
     w("~n rt.addAtom((char*)\"wx\");~n"
       " rt.addInt((int) event->GetId());~n"
-      " rt.addRef(getRef((void *)(cb->obj), memenv), cb->class_name);~n"
+      " rt.addRef(cb->obj, cb->class_name);~n"
       " rt.addExt2Term(cb->user_data);~n"),
 
     w(" switch(Etype->cID) {~n"),

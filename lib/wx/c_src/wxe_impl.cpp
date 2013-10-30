@@ -880,8 +880,9 @@ wxETreeItemData::~wxETreeItemData()
  * CallbackData *
  * ****************************************************************************/
 
-wxeCallbackData::wxeCallbackData(ErlDrvTermData caller,void * req, char *req_type,
-				 int funcb, int skip_ev, wxeErlTerm * userData)
+wxeCallbackData::wxeCallbackData(ErlDrvTermData caller, int req, char *req_type,
+				 int funcb, int skip_ev, wxeErlTerm * userData,
+				 wxeEvtListener *handler_cb)
   : wxObject()
 {
   listener = caller;
@@ -890,12 +891,25 @@ wxeCallbackData::wxeCallbackData(ErlDrvTermData caller,void * req, char *req_typ
   strcpy(class_name, req_type);
   skip = skip_ev;
   user_data = userData;
+  handler = handler_cb;
 }
 
 wxeCallbackData::~wxeCallbackData() {
-  // fprintf(stderr, "CBD Deleteing %x %s\r\n", (unsigned int) this, class_name); fflush(stderr);
+  // fprintf(stderr, "CBD Deleteing %p %s\r\n", this, class_name); fflush(stderr);
   if(user_data) {
     delete user_data;
+  }
+  ptrMap::iterator it;
+  it = ((WxeApp *)wxTheApp)->ptr2ref.find(handler);
+  if(it != ((WxeApp *)wxTheApp)->ptr2ref.end()) {
+    wxeRefData *refd = it->second;
+    wxeReturn rt = wxeReturn(WXE_DRV_PORT, refd->memenv->owner, false);
+    rt.addAtom("wx_delete_cb");
+    rt.addInt(fun_id);
+    rt.addRef(refd->ref, "wxeEvtListener");
+    rt.addRef(obj, class_name);
+    rt.addTupleCount(4);
+    rt.send();
   }
 }
 
