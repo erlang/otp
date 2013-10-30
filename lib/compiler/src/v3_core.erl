@@ -493,11 +493,11 @@ expr({map,L,Es0}, St0) ->
     {Es1,Eps,St1} = map_pair_list(Es0, St0),
     A = lineno_anno(L, St1),
     {#c_map{anno=A,es=Es1},Eps,St1};
-expr({map,L,{var,Vl,Map},Es0}, St0) ->
-    {Es1,Eps,St1} = map_pair_list(Es0, St0),
-    A = lineno_anno(L, St1),
-    Av = lineno_anno(Vl, St1),
-    {#c_map{anno=A,var=#c_var{anno=Av,name=Map},es=Es1},Eps,St1};
+expr({map,L,M0,Es0}, St0) ->
+    {M1,Mps,St1} = safe(M0, St0),
+    {Es1,Eps,St2} = map_pair_list(Es0, St1),
+    A = lineno_anno(L, St2),
+    {#c_map{anno=A,var=M1,es=Es1},Mps++Eps,St2};
 expr({bin,L,Es0}, St0) ->
     try expr_bin(Es0, lineno_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
@@ -1505,7 +1505,7 @@ pattern({cons,L,H,T}, St) ->
 pattern({tuple,L,Ps}, St) ->
     ann_c_tuple(lineno_anno(L, St), pattern_list(Ps, St));
 pattern({map,L,Ps}, St) ->
-    #c_map{anno=lineno_anno(L, St),es=sort(pattern_list(Ps, St))};
+    #c_map{anno=lineno_anno(L, St), es=sort(pattern_list(Ps, St))};
 pattern({map_field_exact,L,K,V}, St) ->
     %% FIXME: Better way to construct literals? or missing case
     %% {Key,_,_} = expr(K, St),
