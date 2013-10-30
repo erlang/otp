@@ -23,6 +23,7 @@
 -export([
 	t_build_and_match_literals/1,
 	t_update_literals/1,t_match_and_update_literals/1,
+	t_update_map_expressions/1,
 	t_update_assoc/1,t_update_exact/1,
 	t_guard_bifs/1, t_guard_sequence/1, t_guard_update/1,
 	t_guard_receive/1, t_guard_fun/1,
@@ -67,6 +68,7 @@ suite() -> [].
 all() -> [
 	t_build_and_match_literals,
 	t_update_literals, t_match_and_update_literals,
+	t_update_map_expressions,
 	t_update_assoc,t_update_exact,
 	t_guard_bifs, t_guard_sequence, t_guard_update,
 	t_guard_receive,t_guard_fun, t_list_comprehension,
@@ -137,6 +139,7 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id(#{x=>"three"}))),
     ok.
 
+
 %% Tests size(Map).
 %% not implemented, perhaps it shouldn't be either
 
@@ -163,7 +166,7 @@ t_map_size(Config) when is_list(Config) ->
     true  = map_is_size(M#{ "a" => 2}, 2),
     false = map_is_size(M#{ "c" => 2}, 2),
 
-   %% Error cases.
+    %% Error cases.
     {'EXIT',{badarg,_}} = (catch map_size([])),
     {'EXIT',{badarg,_}} = (catch map_size(<<1,2,3>>)),
     {'EXIT',{badarg,_}} = (catch map_size(1)),
@@ -203,6 +206,22 @@ t_match_and_update_literals(Config) when is_list(Config) ->
 loop_match_and_update_literals_x_q(Map, []) -> Map;
 loop_match_and_update_literals_x_q(#{q:=Q0,x:=X0} = Map, [{X,Q}|Vs]) ->
     loop_match_and_update_literals_x_q(Map#{q=>Q0+Q,x=>X0+X},Vs).
+
+
+t_update_map_expressions(Config) when is_list(Config) ->
+    M = maps:new(),
+    #{ a := 1 } = M#{a => 1},
+
+    #{ b := 2 } = (maps:new())#{ b => 2 },
+
+    #{ a :=42, b:=42, c:=42 } = (maps:from_list([{a,1},{b,2},{c,3}]))#{ a := 42, b := 42, c := 42 },
+    #{ "a" :=1, "b":=42, "c":=42 } = (maps:from_list([{"a",1},{"b",2}]))#{ "b" := 42, "c" => 42 },
+
+    %% Error cases, FIXME: should be 'badmap'?
+    {'EXIT',{badarg,_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
+    {'EXIT',{badarg,_}} = (catch (id([]))#{ a := 42, b => 2 }),
+    ok.
+
 
 t_update_assoc(Config) when is_list(Config) ->
     M0 = id(#{1=>a,2=>b,3.0=>c,4=>d,5=>e}),
