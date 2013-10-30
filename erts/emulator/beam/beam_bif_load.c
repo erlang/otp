@@ -495,6 +495,8 @@ BIF_RETTYPE erts_internal_check_process_code_2(BIF_ALIST_2)
 
     res = erts_check_process_code(BIF_P, BIF_ARG_1, allow_gc, &reds);
 
+    ASSERT(is_value(res));
+
     BIF_RET2(res, reds);
 
 badarg:
@@ -782,6 +784,16 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 		}
 	    }
 	}
+    }
+
+    if (rp->flags & F_DISABLE_GC) {
+	/*
+	 * Cannot proceed. Process has disabled gc in order to
+	 * safely leave inconsistent data on the heap and/or
+	 * off heap lists. Need to wait for gc to be enabled
+	 * again.
+	 */ 
+	return THE_NON_VALUE;
     }
 
     /*

@@ -1316,8 +1316,11 @@ end
 define etp-proc-state-int
 # Args: int
 #
-  if ($arg0 & 0xff800000)
+  if ($arg0 & 0xff000000)
     printf "GARBAGE | "
+  end
+  if ($arg0 & 0x800000)
+    printf "delayed-sys | "
   end
   if ($arg0 & 0x400000)
     printf "proxy | "

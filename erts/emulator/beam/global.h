@@ -1114,7 +1114,12 @@ erts_alloc_message_heap_state(Uint size,
 	if (statep)
 	    *statep = state;
 	if ((state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
+	    || (receiver->flags & F_DISABLE_GC)
 	    || HEAP_LIMIT(receiver) - HEAP_TOP(receiver) <= size) {
+	    /*
+	     * The heap is either potentially in an inconsistent
+	     * state, or not large enough.
+	     */
 #ifdef ERTS_SMP
 	    if (locked_main) {
 		*receiver_locks &= ~ERTS_PROC_LOCK_MAIN;

@@ -631,8 +631,9 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_SCHED_ID			2
 #define ERTS_PSD_DIST_ENTRY			3
 #define ERTS_PSD_CALL_TIME_BP			4
+#define ERTS_PSD_DELAYED_GC_TASK_QS		5
 
-#define ERTS_PSD_SIZE				5
+#define ERTS_PSD_SIZE				6
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -655,6 +656,9 @@ typedef struct {
 
 #define ERTS_PSD_CALL_TIME_BP_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_CALL_TIME_BP_SET_LOCKS ERTS_PROC_LOCK_MAIN
+
+#define ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 typedef struct {
     ErtsProcLocks get_locks;
@@ -859,6 +863,7 @@ struct process {
     Uint64 bin_old_vheap;	/* Virtual old heap size for binaries */
 
     ErtsProcSysTaskQs *sys_task_qs;
+
     erts_smp_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
 
 #ifdef ERTS_SMP
@@ -976,6 +981,7 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_ACTIVE_SYS		ERTS_PSFLG_BIT(14)
 #define ERTS_PSFLG_RUNNING_SYS		ERTS_PSFLG_BIT(15)
 #define ERTS_PSFLG_PROXY		ERTS_PSFLG_BIT(16)
+#define ERTS_PSFLG_DELAYED_SYS		ERTS_PSFLG_BIT(17)
 
 #define ERTS_PSFLGS_IN_PRQ_MASK 	(ERTS_PSFLG_IN_PRQ_MAX		\
 					 | ERTS_PSFLG_IN_PRQ_HIGH	\
@@ -1102,6 +1108,7 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define F_HAVE_BLCKD_MSCHED  (1 <<  8) /* Process has blocked multi-scheduling */
 #define F_P2PNR_RESCHED      (1 <<  9) /* Process has been rescheduled via erts_pid2proc_not_running() */
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
+#define F_DISABLE_GC         (1 << 11) /* Disable GC */
 
 /* process trace_flags */
 #define F_SENSITIVE          (1 << 0)
@@ -1192,6 +1199,7 @@ void erts_late_init_process(void);
 void erts_early_init_scheduling(int);
 void erts_init_scheduling(int, int);
 
+int erts_set_gc_state(Process *c_p, int enable);
 Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable);
 Eterm erts_gc_info_request(Process *c_p);
 Uint64 erts_get_proc_interval(void);
@@ -1636,6 +1644,11 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
   ((process_breakpoint_time_t *) erts_psd_get((P), ERTS_PSD_CALL_TIME_BP))
 #define ERTS_PROC_SET_CALL_TIME(P, L, PBT) \
   ((process_breakpoint_time_t *) erts_psd_set((P), (L), ERTS_PSD_CALL_TIME_BP, (void *) (PBT)))
+
+#define ERTS_PROC_GET_DELAYED_GC_TASK_QS(P) \
+    ((ErtsProcSysTaskQs *) erts_psd_get((P), ERTS_PSD_DELAYED_GC_TASK_QS))
+#define ERTS_PROC_SET_DELAYED_GC_TASK_QS(P, L, PBT) \
+    ((ErtsProcSysTaskQs *) erts_psd_set((P), (L), ERTS_PSD_DELAYED_GC_TASK_QS, (void *) (PBT)))
 
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);

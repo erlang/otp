@@ -55,7 +55,9 @@
 	 no_priority_inversion/1,
 	 no_priority_inversion2/1,
 	 system_task_blast/1,
-	 system_task_on_suspended/1]).
+	 system_task_on_suspended/1,
+	 gc_request_when_gc_disabled/1,
+	 gc_request_blast_when_gc_disabled/1]).
 -export([prio_server/2, prio_client/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -95,7 +97,8 @@ groups() ->
        otp_7738_resume]},
      {system_task, [],
       [no_priority_inversion, no_priority_inversion2,
-       system_task_blast, system_task_on_suspended]}].
+       system_task_blast, system_task_on_suspended,
+       gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled]}].
 
 init_per_suite(Config) ->
     A0 = case application:start(sasl) of
@@ -2361,15 +2364,69 @@ system_task_on_suspended(Config) when is_list(Config) ->
 	    ok
     end.
 
-gc_req(_Pid, 0) ->
-    [];
-gc_req(Pid, N) ->
-    R0 = erts_internal:request_system_task(Pid, low, garbage_collect),
-    R1 = erts_internal:request_system_task(Pid, normal, garbage_collect),
-    R2 = erts_internal:request_system_task(Pid, high, garbage_collect),
-    R3 = erts_internal:request_system_task(Pid, max, garbage_collect),
-    [R0, R1, R2, R3 | gc_req(Pid, N-1)].
-		  
+gc_request_when_gc_disabled(Config) when is_list(Config) ->
+    Master = self(),
+    AIS = erts_debug:set_internal_state(available_internal_state, true),
+    {P, M} = spawn_opt(fun () ->
+			       true = erts_debug:set_internal_state(gc_state,
+								    false),
+			       Master ! {self(), gc_state, false},
+			       receive after 1000 -> ok end,
+			       Master ! {self(), gc_state, true},
+			       false = erts_debug:set_internal_state(gc_state,
+								     true),
+			       receive after 100 -> ok end
+		       end, [monitor, link]),
+    receive {P, gc_state, false} -> ok end,
+    ReqId = make_ref(),
+    async = garbage_collect(P, [{async, ReqId}]),
+    receive
+	{garbage_collect, ReqId, Result} ->
+	    ?t:fail({unexpected_gc, Result});
+	{P, gc_state, true} ->
+	    ok
+    end,
+    receive {garbage_collect, ReqId, true} -> ok end,
+    erts_debug:set_internal_state(available_internal_state, AIS),
+    receive {'DOWN', M, process, P, _Reason} -> ok end,
+    ok.
+
+gc_request_blast_when_gc_disabled(Config) when is_list(Config) ->
+    Master = self(),
+    AIS = erts_debug:set_internal_state(available_internal_state, true),
+    {P, M} = spawn_opt(fun () ->
+			       true = erts_debug:set_internal_state(gc_state,
+								    false),
+			       Master ! {self(), gc_state, false},
+			       receive after 1000 -> ok end,
+			       false = erts_debug:set_internal_state(gc_state,
+								     true),
+			       receive after 100 -> ok end
+		       end, [monitor, link]),
+    receive {P, gc_state, false} -> ok end,
+    PMs = lists:map(fun (N) ->
+			    Prio = case N rem 4 of
+				       0 -> max;
+				       1 -> high;
+				       2 -> normal;
+				       3 -> low
+				   end,
+			    spawn_opt(fun () ->
+					      erlang:garbage_collect(P)
+				      end, [monitor, link, {priority, Prio}])
+		    end, lists:seq(1, 10000)),
+    lists:foreach(fun ({Proc, Mon}) ->
+			  receive
+			      {'DOWN', Mon, process, Proc, normal} ->
+				  ok
+			  end
+		  end,
+		  PMs),
+    erts_debug:set_internal_state(available_internal_state, AIS),
+    receive {'DOWN', M, process, P, _Reason} -> ok end,
+    ok.
+
+
 %% Internal functions
 
 wait_until(Fun) ->

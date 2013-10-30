@@ -513,6 +513,11 @@ erts_pre_init_process(void)
      erts_psd_required_locks[ERTS_PSD_CALL_TIME_BP].set_locks
 	 = ERTS_PSD_CALL_TIME_BP_SET_LOCKS;
 
+     erts_psd_required_locks[ERTS_PSD_DELAYED_GC_TASK_QS].get_locks
+	 = ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS;
+     erts_psd_required_locks[ERTS_PSD_DELAYED_GC_TASK_QS].set_locks
+	 = ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS;
+
      /* Check that we have locks for all entries */
      for (ix = 0; ix < ERTS_PSD_SIZE; ix++) {
 	 ERTS_SMP_LC_ASSERT(erts_psd_required_locks[ix].get_locks);
@@ -7033,7 +7038,7 @@ erts_set_process_priority(Process *p, Eterm value)
 	    oprio = ERTS_PSFLGS_GET_USR_PRIO(a);
 	    n = e = a;
 
-	    if (!(a & ERTS_PSFLG_ACTIVE_SYS))
+	    if (!(a & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DELAYED_SYS)))
 		aprio = nprio;
 	    else {
 		int max_qbit;
@@ -7043,7 +7048,15 @@ erts_set_process_priority(Process *p, Eterm value)
 		    slocked = 1;
 		}
 
-		max_qbit = p->sys_task_qs->qmask;
+		max_qbit = 0;
+		if (a & ERTS_PSFLG_ACTIVE_SYS)
+		    max_qbit |= p->sys_task_qs->qmask;
+		if (a & ERTS_PSFLG_DELAYED_SYS) {
+		    ErtsProcSysTaskQs *qs;
+		    qs = ERTS_PROC_GET_DELAYED_GC_TASK_QS(p);
+		    ASSERT(qs);
+		    max_qbit |= qs->qmask;
+		}
 		max_qbit &= -max_qbit;
 		switch (max_qbit) {
 		case MAX_BIT:
@@ -7731,11 +7744,13 @@ notify_sys_task_executed(Process *c_p, ErtsProcSysTask *st, Eterm st_result)
 }
 
 static ERTS_INLINE ErtsProcSysTask *
-fetch_sys_task(Process *c_p, erts_aint32_t state, int *qmaskp)
+fetch_sys_task(Process *c_p, erts_aint32_t state, int *qmaskp, int *priop)
 {
     ErtsProcSysTaskQs *unused_qs = NULL;
     int qbit, qmask;
     ErtsProcSysTask *st, **qp;
+
+    *priop = -1; /* Shut up annoying erroneous warning */
 
     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
 
@@ -7770,20 +7785,24 @@ fetch_sys_task(Process *c_p, erts_aint32_t state, int *qmaskp)
     switch (qbit) {
     case MAX_BIT:
 	qp = &c_p->sys_task_qs->q[PRIORITY_MAX];
+	*priop = PRIORITY_MAX;
 	break;
     case HIGH_BIT:
 	qp = &c_p->sys_task_qs->q[PRIORITY_HIGH];
+	*priop = PRIORITY_HIGH;
 	break;
     case NORMAL_BIT:
 	if (!(qmask & PRIORITY_LOW)
 	    || ++c_p->sys_task_qs->ncount <= RESCHEDULE_LOW) {
 	    qp = &c_p->sys_task_qs->q[PRIORITY_NORMAL];
+	    *priop = PRIORITY_NORMAL;
 	    break;
 	}
 	c_p->sys_task_qs->ncount = 0;
 	/* Fall through */
     case LOW_BIT:
 	qp = &c_p->sys_task_qs->q[PRIORITY_LOW];
+	*priop = PRIORITY_LOW;
 	break;
     default:
 	ERTS_INTERNAL_ERROR("Invalid qmask");
@@ -7807,6 +7826,12 @@ fetch_sys_task(Process *c_p, erts_aint32_t state, int *qmaskp)
 
 	qmask2 = qmask;
 
+	if (state & ERTS_PSFLG_DELAYED_SYS) {
+	    ErtsProcSysTaskQs *qs = ERTS_PROC_GET_DELAYED_GC_TASK_QS(c_p);
+	    ASSERT(qs);
+	    qmask2 |= qs->qmask;
+	}
+
 	switch (qmask2 & -qmask2) {
 	case MAX_BIT:
 	    st_prio = PRIORITY_MAX;
@@ -7818,15 +7843,16 @@ fetch_sys_task(Process *c_p, erts_aint32_t state, int *qmaskp)
 	    st_prio = PRIORITY_NORMAL;
 	    break;
 	case LOW_BIT:
-	    st_prio = PRIORITY_LOW;
-	    break;
 	case 0:
 	    st_prio = PRIORITY_LOW;
-	    unused_qs = c_p->sys_task_qs;
-	    c_p->sys_task_qs = NULL;
 	    break;
 	default:
 	    ERTS_INTERNAL_ERROR("Invalid qmask");
+	}
+
+	if (!qmask) {
+	    unused_qs = c_p->sys_task_qs;
+	    c_p->sys_task_qs = NULL;
 	}
 
 	a = state;
@@ -7862,6 +7888,8 @@ done:
     return st;
 }
 
+static void save_gc_task(Process *c_p, ErtsProcSysTask *st, int prio);
+
 static int
 execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 {
@@ -7875,6 +7903,7 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 
     do {
 	ErtsProcSysTask *st;
+	int st_prio;
 	Eterm st_res;
 
 	if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
@@ -7886,24 +7915,39 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    break;
 	}
 
-	st = fetch_sys_task(c_p, state, &qmask);
+	st = fetch_sys_task(c_p, state, &qmask, &st_prio);
 	if (!st)
 	    break;
 
 	switch (st->type) {
 	case ERTS_PSTT_GC:
-	    if (!garbage_collected) {
-		FLAGS(c_p) |= F_NEED_FULLSWEEP;
-		reds += erts_garbage_collect(c_p, 0, c_p->arg_reg, c_p->arity);
-		garbage_collected = 1;
+	    if (c_p->flags & F_DISABLE_GC) {
+		save_gc_task(c_p, st, st_prio);
+		st = NULL;
+		reds++;
 	    }
-	    st_res = am_true;
+	    else {
+		if (!garbage_collected) {
+		    FLAGS(c_p) |= F_NEED_FULLSWEEP;
+		    reds += erts_garbage_collect(c_p,
+						 0,
+						 c_p->arg_reg,
+						 c_p->arity);
+		    garbage_collected = 1;
+		}
+		st_res = am_true;
+	    }
 	    break;
 	case ERTS_PSTT_CPC:
 	    st_res = erts_check_process_code(c_p,
 					     st->arg[0],
 					     st->arg[1] == am_true,
 					     &reds);
+	    if (is_non_value(st_res)) {
+		/* Needed gc, but gc was disabled */
+		save_gc_task(c_p, st, st_prio);
+		st = NULL;
+	    }
 	    break;
 	default:
 	    ERTS_INTERNAL_ERROR("Invalid process sys task type");
@@ -7934,8 +7978,9 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
     do {
 	ErtsProcSysTask *st;
 	Eterm st_res;
+	int st_prio;
 
-	st = fetch_sys_task(c_p, state, &qmask);
+	st = fetch_sys_task(c_p, state, &qmask, &st_prio);
 	if (!st)
 	    break;
 
@@ -8166,6 +8211,183 @@ badarg:
     if (free_stqs)
 	proc_sys_task_queues_free(free_stqs);
     BIF_ERROR(BIF_P, BADARG);
+}
+
+static void
+save_gc_task(Process *c_p, ErtsProcSysTask *st, int prio)
+{
+    erts_aint32_t state;
+    ErtsProcSysTaskQs *qs;
+
+    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
+
+    qs = ERTS_PROC_GET_DELAYED_GC_TASK_QS(c_p);
+    if (!qs) {
+	st->next = st->prev = st;
+	qs = proc_sys_task_queues_alloc();
+	qs->qmask = 1 << prio;
+	qs->ncount = 0;
+	qs->q[PRIORITY_MAX] = NULL;
+	qs->q[PRIORITY_HIGH] = NULL;
+	qs->q[PRIORITY_NORMAL] = NULL;
+	qs->q[PRIORITY_LOW] = NULL;
+	qs->q[prio] = st;
+	(void) ERTS_PROC_SET_DELAYED_GC_TASK_QS(c_p, ERTS_PROC_LOCK_MAIN, qs);
+    }
+    else {
+	if (!qs->q[prio]) {
+	    st->next = st->prev = st;
+	    qs->q[prio] = st;
+	    qs->qmask |= 1 << prio;
+	}
+	else {
+	    st->next = qs->q[prio];
+	    st->prev = qs->q[prio]->prev;
+	    st->next->prev = st;
+	    st->prev->next = st;
+	    ASSERT(qs->qmask & (1 << prio));
+	}
+    }
+
+    state = erts_smp_atomic32_read_nob(&c_p->state);
+    ASSERT((ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS) & state);
+
+    while (!(state & ERTS_PSFLG_DELAYED_SYS)
+	   || prio < ERTS_PSFLGS_GET_ACT_PRIO(state)) {
+	erts_aint32_t n, e;
+
+	n = e = state;
+	n |= ERTS_PSFLG_DELAYED_SYS;
+	if (prio < ERTS_PSFLGS_GET_ACT_PRIO(state)) {
+	    n &= ~ERTS_PSFLGS_ACT_PRIO_MASK;
+	    n |= prio << ERTS_PSFLGS_ACT_PRIO_OFFSET;
+	}
+	state = erts_smp_atomic32_cmpxchg_relb(&c_p->state, n, e);
+	if (state == e)
+	    break;
+    }
+}
+
+int
+erts_set_gc_state(Process *c_p, int enable)
+{
+    int res;
+    ErtsProcSysTaskQs *dgc_tsk_qs;
+    ASSERT(c_p == erts_get_current_process());
+    ASSERT((ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)
+	   & erts_smp_atomic32_read_nob(&c_p->state));
+    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
+
+    res = !(c_p->flags & F_DISABLE_GC);
+
+    if (!enable) {
+	c_p->flags |= F_DISABLE_GC;
+	return res;
+    }
+
+    c_p->flags &= ~F_DISABLE_GC;
+
+    dgc_tsk_qs = ERTS_PROC_GET_DELAYED_GC_TASK_QS(c_p);
+    if (!dgc_tsk_qs)
+	return res;
+
+    /* Move delayed gc tasks into sys tasks queues. */
+
+    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
+
+    if (!c_p->sys_task_qs) {
+	c_p->sys_task_qs = dgc_tsk_qs;
+	dgc_tsk_qs = NULL;
+    }
+    else {
+	ErtsProcSysTaskQs *stsk_qs;
+	int prio;
+
+	/*
+	 * We push delayed tasks to the front of the queue
+	 * since they have already made it to the front
+	 * once and then been delayed after that.
+	 */
+
+	stsk_qs = c_p->sys_task_qs;
+
+	while (dgc_tsk_qs->qmask) {
+	    int qbit = dgc_tsk_qs->qmask & -dgc_tsk_qs->qmask;
+	    dgc_tsk_qs->qmask &= ~qbit;
+	    switch (qbit) {
+	    case MAX_BIT:
+		prio = PRIORITY_MAX;
+		break;
+	    case HIGH_BIT:
+		prio = PRIORITY_HIGH;
+		break;
+	    case NORMAL_BIT:
+		prio = PRIORITY_NORMAL;
+		break;
+	    case LOW_BIT:
+		prio = PRIORITY_LOW;
+		break;
+	    default:
+		ERTS_INTERNAL_ERROR("Invalid qmask");
+		prio = -1;
+		break;
+	    }
+
+	    ASSERT(dgc_tsk_qs->q[prio]);
+
+	    if (!stsk_qs->q[prio]) {
+		stsk_qs->q[prio] = dgc_tsk_qs->q[prio];
+		stsk_qs->qmask |= 1 << prio;
+	    }
+	    else {
+		ErtsProcSysTask *first1, *last1, *first2, *last2;
+
+		ASSERT(stsk_qs->qmask & (1 << prio));
+		first1 = dgc_tsk_qs->q[prio];
+		last1 = first1->prev;
+		first2 = stsk_qs->q[prio];
+		last2 = first1->prev;
+
+		last1->next = first2;
+		first2->prev = last1;
+
+		first1->prev = last2;
+		last2->next = first1;
+
+		stsk_qs->q[prio] = first1;
+	    }
+
+	}
+    }
+
+#ifdef DEBUG
+    {
+	int qmask;
+	erts_aint32_t aprio, state =
+#endif
+
+	    erts_smp_atomic32_read_bset_nob(&c_p->state,
+					    (ERTS_PSFLG_DELAYED_SYS
+					     | ERTS_PSFLG_ACTIVE_SYS),
+					    ERTS_PSFLG_ACTIVE_SYS);
+
+#ifdef DEBUG
+	ASSERT(state & ERTS_PSFLG_DELAYED_SYS);
+	qmask = c_p->sys_task_qs->qmask;
+	aprio = ERTS_PSFLGS_GET_ACT_PRIO(state);
+	ASSERT(ERTS_PSFLGS_GET_USR_PRIO(state) >= aprio);
+	ASSERT((qmask & -qmask) >= (1 << aprio));
+    }
+#endif
+
+    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
+
+    (void) ERTS_PROC_SET_DELAYED_GC_TASK_QS(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+
+    if (dgc_tsk_qs)
+	proc_sys_task_queues_free(dgc_tsk_qs);
+
+    return res;
 }
 
 void
@@ -9839,6 +10061,7 @@ erts_continue_exit_process(Process *p)
 	p->flags &= ~F_USING_DB;
     }
 
+    erts_set_gc_state(p, 1);
     state = erts_smp_atomic32_read_acqb(&p->state);
     if (state & ERTS_PSFLG_ACTIVE_SYS) {
 	if (cleanup_sys_tasks(p, state, CONTEXT_REDS) >= CONTEXT_REDS/2)
