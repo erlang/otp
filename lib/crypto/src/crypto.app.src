@@ -20,6 +20,7 @@
    [{description, "CRYPTO version 2"},
     {vsn, "%VSN%"},
     {modules, [crypto,
+	       crypto_ec_curves,
 	       crypto_app,
 	       crypto_sup,
 	       crypto_server]},

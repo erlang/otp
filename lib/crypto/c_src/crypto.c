@@ -384,100 +384,6 @@ static ErlNifFunc nif_funcs[] = {
     {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif}
 };
 
-#if defined(HAVE_EC)
-struct nid_map {
-    char *name;
-    int nid;
-    ERL_NIF_TERM atom;
-};
-
-static struct nid_map ec_curves[] = {
-    /* prime field curves */
-    /* secg curves */
-    { "secp112r1", NID_secp112r1 },
-    { "secp112r2", NID_secp112r2 },
-    { "secp128r1", NID_secp128r1 },
-    { "secp128r2", NID_secp128r2 },
-    { "secp160k1", NID_secp160k1 },
-    { "secp160r1", NID_secp160r1 },
-    { "secp160r2", NID_secp160r2 },
-    /* SECG secp192r1 is the same as X9.62 prime192v1 */
-    { "secp192r1", NID_X9_62_prime192v1 },
-    { "secp192k1", NID_secp192k1 },
-    { "secp224k1", NID_secp224k1 },
-    { "secp224r1", NID_secp224r1 },
-    { "secp256k1", NID_secp256k1 },
-    /* SECG secp256r1 is the same as X9.62 prime256v1 */
-    { "secp256r1", NID_X9_62_prime256v1 },
-    { "secp384r1", NID_secp384r1 },
-    { "secp521r1", NID_secp521r1 },
-    /* X9.62 curves */
-    { "prime192v1", NID_X9_62_prime192v1 },
-    { "prime192v2", NID_X9_62_prime192v2 },
-    { "prime192v3", NID_X9_62_prime192v3 },
-    { "prime239v1", NID_X9_62_prime239v1 },
-    { "prime239v2", NID_X9_62_prime239v2 },
-    { "prime239v3", NID_X9_62_prime239v3 },
-    { "prime256v1", NID_X9_62_prime256v1 },
-    /* characteristic two field curves */
-    /* NIST/SECG curves */
-    { "sect113r1", NID_sect113r1 },
-    { "sect113r2", NID_sect113r2 },
-    { "sect131r1", NID_sect131r1 },
-    { "sect131r2", NID_sect131r2 },
-    { "sect163k1", NID_sect163k1 },
-    { "sect163r1", NID_sect163r1 },
-    { "sect163r2", NID_sect163r2 },
-    { "sect193r1", NID_sect193r1 },
-    { "sect193r2", NID_sect193r2 },
-    { "sect233k1", NID_sect233k1 },
-    { "sect233r1", NID_sect233r1 },
-    { "sect239k1", NID_sect239k1 },
-    { "sect283k1", NID_sect283k1 },
-    { "sect283r1", NID_sect283r1 },
-    { "sect409k1", NID_sect409k1 },
-    { "sect409r1", NID_sect409r1 },
-    { "sect571k1", NID_sect571k1 },
-    { "sect571r1", NID_sect571r1 },
-    /* X9.62 curves */
-    { "c2pnb163v1", NID_X9_62_c2pnb163v1 },
-    { "c2pnb163v2", NID_X9_62_c2pnb163v2 },
-    { "c2pnb163v3", NID_X9_62_c2pnb163v3 },
-    { "c2pnb176v1", NID_X9_62_c2pnb176v1 },
-    { "c2tnb191v1", NID_X9_62_c2tnb191v1 },
-    { "c2tnb191v2", NID_X9_62_c2tnb191v2 },
-    { "c2tnb191v3", NID_X9_62_c2tnb191v3 },
-    { "c2pnb208w1", NID_X9_62_c2pnb208w1 },
-    { "c2tnb239v1", NID_X9_62_c2tnb239v1 },
-    { "c2tnb239v2", NID_X9_62_c2tnb239v2 },
-    { "c2tnb239v3", NID_X9_62_c2tnb239v3 },
-    { "c2pnb272w1", NID_X9_62_c2pnb272w1 },
-    { "c2pnb304w1", NID_X9_62_c2pnb304w1 },
-    { "c2tnb359v1", NID_X9_62_c2tnb359v1 },
-    { "c2pnb368w1", NID_X9_62_c2pnb368w1 },
-    { "c2tnb431r1", NID_X9_62_c2tnb431r1 },
-    /* the WAP/WTLS curves
-     * [unlike SECG, spec has its own OIDs for curves from X9.62] */
-    { "wtls1", NID_wap_wsg_idm_ecid_wtls1 },
-    { "wtls3", NID_wap_wsg_idm_ecid_wtls3 },
-    { "wtls4", NID_wap_wsg_idm_ecid_wtls4 },
-    { "wtls5", NID_wap_wsg_idm_ecid_wtls5 },
-    { "wtls6", NID_wap_wsg_idm_ecid_wtls6 },
-    { "wtls7", NID_wap_wsg_idm_ecid_wtls7 },
-    { "wtls8", NID_wap_wsg_idm_ecid_wtls8 },
-    { "wtls9", NID_wap_wsg_idm_ecid_wtls9 },
-    { "wtls10", NID_wap_wsg_idm_ecid_wtls10 },
-    { "wtls11", NID_wap_wsg_idm_ecid_wtls11 },
-    { "wtls12", NID_wap_wsg_idm_ecid_wtls12 },
-    /* IPSec curves */
-    { "ipsec3", NID_ipsec3 },
-    { "ipsec4", NID_ipsec4 }
-};
-
-#define EC_CURVES_CNT (sizeof(ec_curves)/sizeof(struct nid_map))
-
-#endif /* HAVE_EC */
-
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 
 
@@ -632,12 +538,6 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_tpbasis = enif_make_atom(env,"tpbasis");
     atom_ppbasis = enif_make_atom(env,"ppbasis");
     atom_onbasis = enif_make_atom(env,"onbasis");
-
-    {
-	int i;
-	for (i = 0; i < EC_CURVES_CNT; i++)
-	    ec_curves[i].atom =  enif_make_atom(env,ec_curves[i].name);
-    }
 #endif
 
     init_digest_types(env);
@@ -2962,21 +2862,9 @@ static ERL_NIF_TERM blowfish_ofb64_encrypt(ErlNifEnv* env, int argc, const ERL_N
 }
 
 #if defined(HAVE_EC)
-static int term2curve_id(ERL_NIF_TERM nid)
-{
-    int i;
-
-    for (i = 0; i < EC_CURVES_CNT; i++)
-	if (ec_curves[i].atom == nid)
-	    return ec_curves[i].nid;
-
-    return 0;
-}
-
 static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 {
     EC_KEY *key = NULL;
-    int nid = 0;
     int c_arity = -1;
     const ERL_NIF_TERM* curve;
     ErlNifBinary seed;
@@ -2988,18 +2876,12 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
     EC_GROUP *group = NULL;
     EC_POINT *point = NULL;
 
-    if (enif_is_atom(env, curve_arg)) {
-	nid = term2curve_id(curve_arg);
-	if (nid == 0)
-	    return NULL;
-	key = EC_KEY_new_by_curve_name(nid);
-    }
-    else if (enif_is_tuple(env, curve_arg)
-	     && enif_get_tuple(env,curve_arg,&c_arity,&curve)
-	     && c_arity == 5
-	     && get_bn_from_bin(env, curve[3], &bn_order)
-	     && (curve[4] != atom_none && get_bn_from_bin(env, curve[4], &cofactor))) {
-	/* {Field, Prime, Point, Order, CoFactor} = Curve */
+    /* {Field, Prime, Point, Order, CoFactor} = Curve */
+    if (enif_is_tuple(env, curve_arg)
+	&& enif_get_tuple(env,curve_arg,&c_arity,&curve)
+	&& c_arity == 5
+	&& get_bn_from_bin(env, curve[3], &bn_order)
+	&& (curve[4] != atom_none && get_bn_from_bin(env, curve[4], &cofactor))) {
 
 	int f_arity = -1;
 	const ERL_NIF_TERM* field;
