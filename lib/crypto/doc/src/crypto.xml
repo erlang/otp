@@ -99,7 +99,9 @@
 
     <p><code>ecdh_private() = key_value() </code></p>
 
-    <p><code>ecdh_params() =  ec_named_curve() |
+    <p><code>ecdh_params() =  ec_named_curve() | ec_explicit_curve()</code></p>
+
+    <p><code>ec_explicit_curve() =
     {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(), CoFactor :: none | integer()} </code></p>
 
     <p><code>ec_field() = {prime_field, Prime :: integer()} |
@@ -114,7 +116,11 @@
       secp192k1| secp160r2| secp128r2| secp128r1| sect233r1| sect233k1| sect193r2| sect193r1|
       sect131r2| sect131r1| sect283r1| sect283k1| sect163r2| secp256k1| secp160k1| secp160r1|
       secp112r2| secp112r1| sect113r2| sect113r1| sect239k1| sect163r1| sect163k1| secp256r1|
-      secp192r1 </code></p>
+      secp192r1|
+      brainpoolP160r1| brainpoolP160t1| brainpoolP192r1| brainpoolP192t1| brainpoolP224r1|
+      brainpoolP224t1| brainpoolP256r1| brainpoolP256t1| brainpoolP320r1| brainpoolP320t1|
+      brainpoolP384r1| brainpoolP384t1| brainpoolP512r1| brainpoolP512t1
+    </code></p>
 
      <p><code>stream_cipher() = rc4 | aes_ctr </code></p>
 
@@ -680,7 +686,29 @@
       </desc>
     </func>
 
-    
+    <func>
+      <name>ec_curves() -> EllipticCurveList </name>
+      <fsummary>Provide a list of available named elliptic curves.</fsummary>
+      <type>
+      <v>EllipticCurveList = [ec_named_curve()]</v>
+      </type>
+      <desc>
+        <p>Can be used to determine which named elliptic curves are supported.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>ec_curve(NamedCurve) -> EllipticCurve </name>
+      <fsummary>Get the defining parameters of a elliptic curve.</fsummary>
+      <type>
+      <v>NamedCurve = ec_named_curve()</v>
+      <v>EllipticCurve = ec_explicit_curve()</v>
+      </type>
+      <desc>
+        <p>Return the defining parameters of a elliptic curve.</p>
+      </desc>
+    </func>
+
   <func>
       <name>verify(Algorithm, DigestType, Msg, Signature, Key) -> boolean()</name>
       <fsummary>Verifies a digital signature.</fsummary>
