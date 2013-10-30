@@ -47,6 +47,12 @@
 	t_erlang_hash/1,
 	t_map_encode_decode/1,
 
+	%% maps module not bifs
+	t_maps_fold/1,
+	t_maps_map/1,
+	t_maps_size/1,
+	t_maps_without/1,
+
 	%% misc
 	t_pdict/1,
 	t_ets/1,
@@ -74,8 +80,12 @@ all() -> [
 
 	%% erlang
 	t_erlang_hash, t_map_encode_decode,
-	%t_size,
 	t_map_size,
+
+	%% maps module
+	t_maps_fold, t_maps_map,
+	t_maps_size, t_maps_without,
+
 
         %% Other functions
 	t_pdict,
@@ -769,6 +779,49 @@ t_bif_map_from_list(Config) when is_list(Config) ->
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(a))),
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(42))),
     ok.
+
+%% Maps module, not BIFs
+t_maps_fold(_Config) ->
+
+    Vs = lists:seq(1,100),
+    Rs = lists:reverse(Vs),
+    M  = maps:from_list([{{k,I},{v,I}}||I<-Vs]),
+
+    %% foldl
+    5050 = maps:foldl(fun({k,_},{v,V},A) -> V + A end, 0, M),
+    Rs = maps:foldl(fun({k,_},{v,V},A) -> [V|A] end, [], M),
+
+    %% foldr
+    5050 = maps:foldr(fun({k,_},{v,V},A) -> V + A end, 0, M),
+    Vs = maps:foldr(fun({k,_},{v,V},A) -> [V|A] end, [], M),
+
+    ok.
+
+t_maps_map(_Config) ->
+    Vs = lists:seq(1,100),
+    M1 = maps:from_list([{I,I}||I<-Vs]),
+    M2 = maps:from_list([{I,{token,I}}||I<-Vs]),
+
+    M2 = maps:map(fun(_K,V) -> {token,V} end, M1),
+    ok.
+
+t_maps_size(_Config) ->
+    Vs = lists:seq(1,100),
+    lists:foldl(fun(I,M) ->
+		M1 = maps:put(I,I,M),
+		I  = maps:size(M1),
+		M1
+	end, #{}, Vs),
+    ok.
+
+
+t_maps_without(_Config) ->
+    Ki = [11,22,33,44,55,66,77,88,99],
+    M0 = maps:from_list([{{k,I},{v,I}}||I<-lists:seq(1,100)]),
+    M1 = maps:from_list([{{k,I},{v,I}}||I<-lists:seq(1,100) -- Ki]),
+    M1 = maps:without([{k,I}||I <- Ki],M0),
+    ok.
+
 
 %% MISC
 t_pdict(_Config) ->
