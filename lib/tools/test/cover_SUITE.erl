@@ -28,7 +28,7 @@
 	 export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1,
-	 otp_10979_hanging_node/1]).
+	 otp_10979_hanging_node/1, compile_beam_opts/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -53,7 +53,7 @@ all() ->
 	     dont_reconnect_after_stop, stop_node_after_disconnect,
 	     export_import, otp_5031, eif, otp_5305, otp_5418,
 	     otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
-	     otp_8340, otp_10979_hanging_node];
+	     otp_8340, otp_10979_hanging_node, compile_beam_opts];
 	_pid ->
 	    {skip,
 	     "It looks like the test server is running "
@@ -1399,6 +1399,39 @@ otp_10979_hanging_node(_Config) ->
 	    ct:fail(hanging_process)
     end,
 
+    ok.
+
+compile_beam_opts(doc) ->
+    ["Take compiler options from beam in cover:compile_beam"];
+compile_beam_opts(suite) -> [];
+compile_beam_opts(Config) when is_list(Config) ->
+    {ok, Cwd} = file:get_cwd(),
+    ok = file:set_cwd(?config(priv_dir, Config)),
+    IncDir = filename:join(?config(data_dir, Config),
+                                 "included_functions"),
+    File = filename:join([?config(data_dir, Config), "otp_11439", "t.erl"]),
+    %% use all compiler options allowed by cover:filter_options
+    %% i and d don't make sense when compiling from beam though
+    {ok, t} =
+        compile:file(File, [{i, IncDir},
+                            {d, 'BOOL'},
+                            {d, 'MACRO', macro_defined},
+                            export_all,
+                            debug_info,
+                            return_errors]),
+    Exports =
+        [{func1,0},
+         {macro, 0},
+         {exported,0},
+         {nonexported,0},
+         {module_info,0},
+         {module_info,1}],
+    Exports = t:module_info(exports),
+    {ok, t} = cover:compile_beam("t"),
+    Exports = t:module_info(exports),
+    cover:stop(),
+    ok = file:delete("t.beam"),
+    ok = file:set_cwd(Cwd),
     ok.
 
 %%--Auxiliary------------------------------------------------------------
