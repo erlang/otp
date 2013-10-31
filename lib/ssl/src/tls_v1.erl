@@ -368,8 +368,9 @@ finished_label(server) ->
 
 %% list ECC curves in prefered order
 ecc_curves(_Minor) ->
-    [?sect571r1,?sect571k1,?secp521r1,?sect409k1,?sect409r1,
-     ?secp384r1,?sect283k1,?sect283r1,?secp256k1,?secp256r1,
+    [?sect571r1,?sect571k1,?secp521r1,?brainpoolP512r1,
+     ?sect409k1,?sect409r1,?brainpoolP384r1,?secp384r1,
+     ?sect283k1,?sect283r1,?brainpoolP256r1,?secp256k1,?secp256r1,
      ?sect239k1,?sect233k1,?sect233r1,?secp224k1,?secp224r1,
      ?sect193r1,?sect193r2,?secp192k1,?secp192r1,?sect163k1,
      ?sect163r1,?sect163r2,?secp160k1,?secp160r1,?secp160r2].
@@ -399,7 +400,10 @@ oid_to_enum(?secp224r1) -> 21;
 oid_to_enum(?secp256k1) -> 22;
 oid_to_enum(?secp256r1) -> 23;
 oid_to_enum(?secp384r1) -> 24;
-oid_to_enum(?secp521r1) -> 25.
+oid_to_enum(?secp521r1) -> 25;
+oid_to_enum(?brainpoolP256r1) -> 26;
+oid_to_enum(?brainpoolP384r1) -> 27;
+oid_to_enum(?brainpoolP512r1) -> 28.
 
 enum_to_oid(1) -> ?sect163k1;
 enum_to_oid(2) -> ?sect163r1;
@@ -425,7 +429,10 @@ enum_to_oid(21) -> ?secp224r1;
 enum_to_oid(22) -> ?secp256k1;
 enum_to_oid(23) -> ?secp256r1;
 enum_to_oid(24) -> ?secp384r1;
-enum_to_oid(25) -> ?secp521r1.
+enum_to_oid(25) -> ?secp521r1;
+enum_to_oid(26) -> ?brainpoolP256r1;
+enum_to_oid(27) -> ?brainpoolP384r1;
+enum_to_oid(28) -> ?brainpoolP512r1.
 
 sufficent_ec_support() ->
     CryptoSupport = crypto:supports(),
