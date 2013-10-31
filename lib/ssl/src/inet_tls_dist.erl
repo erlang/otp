@@ -95,11 +95,6 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     end.
 
 close(Socket) ->
-    try
-	erlang:error(foo)
-    catch _:_ ->
-	    io:format("close called ~p ~p~n",[Socket, erlang:get_stacktrace()])
-    end,
     gen_tcp:close(Socket),
     ok.
 
