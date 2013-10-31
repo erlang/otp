@@ -1719,20 +1719,14 @@ enc_cg(align) ->
 enc_cg({apply,F0,As0}) ->
     As = enc_call_args(As0, ""),
     case F0 of
-	{M,F} ->
-	    emit([{asis,M},":",{asis,F},"(",As,")"]);
-	F when is_atom(F) ->
-	    emit([{asis,F},"(",As,")"])
+	{local,F,_} when is_atom(F) ->
+	    emit([{asis,F},"(",As,")"]);
+	{M,F,_} ->
+	    emit([{asis,M},":",{asis,F},"(",As,")"])
     end;
-enc_cg({apply,F0,As0,Dst}) ->
-    As = enc_call_args(As0, ""),
+enc_cg({apply,F,As,Dst}) ->
     emit([mk_val(Dst)," = "]),
-    case F0 of
-	{M,F} ->
-	    emit([{asis,M},":",{asis,F},"(",As,")"]);
-	F when is_atom(F) ->
-	    emit([{asis,F},"(",As,")"])
-    end;
+    enc_cg({apply,F,As});
 enc_cg({assign,Dst0,Expr}) ->
     Dst = mk_val(Dst0),
     emit([Dst," = ",Expr]);

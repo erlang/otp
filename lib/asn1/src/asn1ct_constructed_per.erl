@@ -562,10 +562,9 @@ gen_encode_sof(Erule, Typename, SeqOrSetOf, D) ->
 gen_encode_sof_imm(Erule, Typename, SeqOrSetOf, #type{}=D) ->
     {_SeqOrSetOf,ComponentType} = D#type.def,
     Aligned = is_aligned(Erule),
-    Constructed_Suffix =
-	asn1ct_gen:constructed_suffix(SeqOrSetOf,
-				      ComponentType#type.def),
-    Conttype = asn1ct_gen:get_inner(ComponentType#type.def),
+    CompType = ComponentType#type.def,
+    Constructed_Suffix = asn1ct_gen:constructed_suffix(SeqOrSetOf, CompType),
+    Conttype = asn1ct_gen:get_inner(CompType),
     Currmod = get(currmod),
     Imm0 = case asn1ct_gen:type(Conttype) of
 	       {primitive,bif} ->
@@ -577,11 +576,12 @@ gen_encode_sof_imm(Erule, Typename, SeqOrSetOf, #type{}=D) ->
 				[{objfun,_}|_] -> [{var,"ObjFun"}];
 				_ -> []
 			    end,
-		   [{apply,Enc,[{var,"Comp"}|ObjArg]}];
+		   [{apply,{local,Enc,CompType},
+		     [{var,"Comp"}|ObjArg]}];
 	       #'Externaltypereference'{module=Currmod,type=Ename} ->
-		   [{apply,enc_func(Ename),[{var,"Comp"}]}];
+		   [{apply,{local,enc_func(Ename),CompType},[{var,"Comp"}]}];
 	       #'Externaltypereference'{module=EMod,type=Ename} ->
-		   [{apply,{EMod,enc_func(Ename)},[{var,"Comp"}]}];
+		   [{apply,{EMod,enc_func(Ename),CompType},[{var,"Comp"}]}];
 	       'ASN1_OPEN_TYPE' ->
 		   asn1ct_gen_per:gen_encode_prim_imm('Comp',
 						      #type{def='ASN1_OPEN_TYPE'},
@@ -967,9 +967,11 @@ gen_enc_line_imm_1(Erule, TopType, Cname, Type, Element, DynamicEnc) ->
 	    CurrMod = get(currmod),
 	    case asn1ct_gen:type(Atype) of
 		#'Externaltypereference'{module=CurrMod,type=EType} ->
-		    [{apply,enc_func(EType),[{expr,Element}]}];
+		    [{apply,{local,enc_func(EType),Atype},
+		      [{expr,Element}]}];
 		#'Externaltypereference'{module=Mod,type=EType} ->
-		    [{apply,{Mod,enc_func(EType)},[{expr,Element}]}];
+		    [{apply,{Mod,enc_func(EType),Atype},
+		      [{expr,Element}]}];
 		{primitive,bif} ->
 		    asn1ct_gen_per:gen_encode_prim_imm(Element, Type, Aligned);
 		'ASN1_OPEN_TYPE' ->
@@ -988,9 +990,11 @@ gen_enc_line_imm_1(Erule, TopType, Cname, Type, Element, DynamicEnc) ->
 		    Enc = enc_func(asn1ct_gen:list2name(NewTypename)),
 		    case {Type#type.tablecinf,DynamicEnc} of
 			{[{objfun,_}|_R],{_,EncFun}} ->
-			    [{apply,Enc,[{expr,Element},{var,EncFun}]}];
+			    [{apply,{local,Enc,Type},
+			      [{expr,Element},{var,EncFun}]}];
 			_ ->
-			    [{apply,Enc,[{expr,Element}]}]
+			    [{apply,{local,Enc,Type},
+			      [{expr,Element}]}]
 		    end
 	    end
     end.
@@ -1082,7 +1086,7 @@ enc_obj(Erule, Obj, RestFieldNames0, Aligned) ->
 		    gen_encode_sof_imm(Erule, name, InnerType, Def)
 	    end;
 	#typedef{name=Type} ->
-	    [{apply,enc_func(Type),[{var,"Val"}]}];
+	    [{apply,{local,enc_func(Type),Type},[{var,"Val"}]}];
 	#'Externalvaluereference'{module=Mod,value=Value} ->
 	    case asn1_db:dbget(Mod, Value) of
 		#typedef{typespec=#'Object'{def=Def}} ->
@@ -1095,9 +1099,9 @@ enc_obj(Erule, Obj, RestFieldNames0, Aligned) ->
 	    Func = enc_func(Type),
 	    case get(currmod) of
 		Mod ->
-		    [{apply,Func,[{var,"Val"}]}];
+		    [{apply,{local,Func,Obj},[{var,"Val"}]}];
 		_ ->
-		    [{apply,{Mod,Func},[{var,"Val"}]}]
+		    [{apply,{Mod,Func,Obj},[{var,"Val"}]}]
 	    end
     end.
 

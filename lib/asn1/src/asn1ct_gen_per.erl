@@ -149,7 +149,7 @@ gen_encode_prim_imm(Val, #type{def=Type0,constraint=Constraint}, Aligned) ->
 	    case Constraint of
 		[#'Externaltypereference'{type=Tname}] ->
 		    EncFunc = enc_func(Tname),
-		    Imm = [{apply,EncFunc,[{expr,Val}]}],
+		    Imm = [{apply,{local,EncFunc,[]},[{expr,Val}]}],
 		    asn1ct_imm:per_enc_open_type(Imm, Aligned);
 		[] ->
 		    Imm = [{call,erlang,iolist_to_binary,[{expr,Val}]}],
