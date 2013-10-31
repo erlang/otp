@@ -147,6 +147,20 @@ namedCurves(?'sect163r1') -> sect163r1;
 namedCurves(?'sect163k1') -> sect163k1;
 namedCurves(?'secp256r1') -> secp256r1;
 namedCurves(?'secp192r1') -> secp192r1;
+namedCurves(?'brainpoolP160r1') -> brainpoolP160r1;
+namedCurves(?'brainpoolP160t1') -> brainpoolP160t1;
+namedCurves(?'brainpoolP192r1') -> brainpoolP192r1;
+namedCurves(?'brainpoolP192t1') -> brainpoolP192t1;
+namedCurves(?'brainpoolP224r1') -> brainpoolP224r1;
+namedCurves(?'brainpoolP224t1') -> brainpoolP224t1;
+namedCurves(?'brainpoolP256r1') -> brainpoolP256r1;
+namedCurves(?'brainpoolP256t1') -> brainpoolP256t1;
+namedCurves(?'brainpoolP320r1') -> brainpoolP320r1;
+namedCurves(?'brainpoolP320t1') -> brainpoolP320t1;
+namedCurves(?'brainpoolP384r1') -> brainpoolP384r1;
+namedCurves(?'brainpoolP384t1') -> brainpoolP384t1;
+namedCurves(?'brainpoolP512r1') -> brainpoolP512r1;
+namedCurves(?'brainpoolP512t1') -> brainpoolP512t1;
 
 namedCurves(sect571r1) -> ?'sect571r1';
 namedCurves(sect571k1) -> ?'sect571k1';
@@ -180,7 +194,21 @@ namedCurves(sect239k1) -> ?'sect239k1';
 namedCurves(sect163r1) -> ?'sect163r1';
 namedCurves(sect163k1) -> ?'sect163k1';
 namedCurves(secp256r1) -> ?'secp256r1';
-namedCurves(secp192r1) -> ?'secp192r1'.
+namedCurves(secp192r1) -> ?'secp192r1';
+namedCurves(brainpoolP160r1) -> ?'brainpoolP160r1';
+namedCurves(brainpoolP160t1) -> ?'brainpoolP160t1';
+namedCurves(brainpoolP192r1) -> ?'brainpoolP192r1';
+namedCurves(brainpoolP192t1) -> ?'brainpoolP192t1';
+namedCurves(brainpoolP224r1) -> ?'brainpoolP224r1';
+namedCurves(brainpoolP224t1) -> ?'brainpoolP224t1';
+namedCurves(brainpoolP256r1) -> ?'brainpoolP256r1';
+namedCurves(brainpoolP256t1) -> ?'brainpoolP256t1';
+namedCurves(brainpoolP320r1) -> ?'brainpoolP320r1';
+namedCurves(brainpoolP320t1) -> ?'brainpoolP320t1';
+namedCurves(brainpoolP384r1) -> ?'brainpoolP384r1';
+namedCurves(brainpoolP384t1) -> ?'brainpoolP384t1';
+namedCurves(brainpoolP512r1) -> ?'brainpoolP512r1';
+namedCurves(brainpoolP512t1) -> ?'brainpoolP512t1'.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
