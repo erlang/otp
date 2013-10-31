@@ -208,7 +208,8 @@ ERTS_GLB_INLINE void erts_smp_write_lock(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_smp_write_unlock(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_smp_lc_rwlock_is_rlocked(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_smp_lc_rwlock_is_rwlocked(erts_smp_rwlock_t *lock);
-ERTS_GLB_INLINE void erts_smp_tsd_key_create(erts_smp_tsd_key_t *keyp);
+ERTS_GLB_INLINE void erts_smp_tsd_key_create(erts_smp_tsd_key_t *keyp,
+					     char *keyname);
 ERTS_GLB_INLINE void erts_smp_tsd_key_delete(erts_smp_tsd_key_t key);
 ERTS_GLB_INLINE void erts_smp_tsd_set(erts_smp_tsd_key_t key, void *value);
 ERTS_GLB_INLINE void * erts_smp_tsd_get(erts_smp_tsd_key_t key);
@@ -1323,10 +1324,10 @@ erts_smp_lc_rwlock_is_rwlocked(erts_smp_rwlock_t *lock)
 }
 
 ERTS_GLB_INLINE void
-erts_smp_tsd_key_create(erts_smp_tsd_key_t *keyp)
+erts_smp_tsd_key_create(erts_smp_tsd_key_t *keyp, char* keyname)
 {
 #ifdef ERTS_SMP
-    erts_tsd_key_create(keyp);
+    erts_tsd_key_create(keyp,keyname);
 #endif
 }
 

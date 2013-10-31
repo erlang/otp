@@ -512,7 +512,7 @@ void
 erts_pre_init_process(void)
 {
 #ifdef USE_THREADS
-    erts_tsd_key_create(&sched_data_key);
+    erts_tsd_key_create(&sched_data_key, "erts_sched_data_key");
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK

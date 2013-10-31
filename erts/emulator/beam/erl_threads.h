@@ -605,7 +605,7 @@ ERTS_GLB_INLINE void erts_write_lock(erts_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_write_unlock(erts_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_lc_rwlock_is_rlocked(erts_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_lc_rwlock_is_rwlocked(erts_rwlock_t *lock);
-ERTS_GLB_INLINE void erts_tsd_key_create(erts_tsd_key_t *keyp);
+ERTS_GLB_INLINE void erts_tsd_key_create(erts_tsd_key_t *keyp, char *keyname);
 ERTS_GLB_INLINE void erts_tsd_key_delete(erts_tsd_key_t key);
 ERTS_GLB_INLINE void erts_tsd_set(erts_tsd_key_t key, void *value);
 ERTS_GLB_INLINE void * erts_tsd_get(erts_tsd_key_t key);
@@ -2707,10 +2707,10 @@ erts_lc_rwlock_is_rwlocked(erts_rwlock_t *lock)
 }
 
 ERTS_GLB_INLINE void
-erts_tsd_key_create(erts_tsd_key_t *keyp)
+erts_tsd_key_create(erts_tsd_key_t *keyp, char *keyname)
 {
 #ifdef USE_THREADS
-    int res = ethr_tsd_key_create(keyp);
+    int res = ethr_tsd_key_create(keyp, keyname);
     if (res)
 	erts_thr_fatal_error(res, "create thread specific data key");
 #endif

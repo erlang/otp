@@ -527,10 +527,8 @@ ethr_leave_ts_event(ethr_ts_event *tsep)
  */
 
 int
-ethr_tsd_key_create(ethr_tsd_key *keyp)
+ethr_tsd_key_create(ethr_tsd_key *keyp, char *keyname)
 {
-    ethr_tid *tid = ETHR_GET_OWN_TID__;
-    char keyname[31];
 
 #if ETHR_XCHK
     if (ethr_not_inited__) {
@@ -542,11 +540,6 @@ ethr_tsd_key_create(ethr_tsd_key *keyp)
 	return EINVAL;
     }
 #endif
-    if (tid->tsd_key_index > 999)
-      return EAGAIN;
-
-    /* What do we do it tds_key_index happens to wrap? Slot search? */
-    sprintf(keyname,"ethread_tsd_key_0x%x_%d",tid->id,tid->tsd_key_index++);
 
     ose_create_ppdata(keyname,keyp);
 

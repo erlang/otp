@@ -2747,8 +2747,10 @@ void erts_init_io(int port_tab_size,
 			    &drv_list_rwmtx_opts,
 			    "driver_list");
     driver_list = NULL;
-    erts_smp_tsd_key_create(&driver_list_lock_status_key);
-    erts_smp_tsd_key_create(&driver_list_last_error_key);
+    erts_smp_tsd_key_create(&driver_list_lock_status_key,
+			    "erts_driver_list_lock_status_key");
+    erts_smp_tsd_key_create(&driver_list_last_error_key,
+			    "erts_driver_list_last_error_key");
 
     erts_ptab_init_table(&erts_port,
 			 ERTS_ALC_T_PORT_TABLE,

@@ -121,7 +121,7 @@ void erl_drv_thr_init(void)
 {
     int i;
 #ifdef USE_THREADS
-    int res = ethr_tsd_key_create(&tid_key);
+    int res = ethr_tsd_key_create(&tid_key,"erts_tid_key");
     if (res == 0)
 	res = ethr_install_exit_handler(thread_exit_handler);
     if (res != 0)

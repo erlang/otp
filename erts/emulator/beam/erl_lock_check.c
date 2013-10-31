@@ -1332,7 +1332,7 @@ erts_lc_init(void)
     if (ethr_spinlock_init(&free_blocks_lock) != 0)
 	lc_abort();
 
-    erts_tsd_key_create(&locks_key);
+    erts_tsd_key_create(&locks_key,"erts_lock_check_key");
 }
 
 void

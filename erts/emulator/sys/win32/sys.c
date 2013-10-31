@@ -3197,7 +3197,7 @@ void erl_sys_init(void)
     noinherit_std_handle(STD_ERROR_HANDLE);
 
 #ifdef ERTS_SMP
-    erts_smp_tsd_key_create(&win32_errstr_key);
+    erts_smp_tsd_key_create(&win32_errstr_key,"win32_errstr_key");
     InitializeCriticalSection(&htbc_lock);
 #endif
     erts_smp_atomic_init_nob(&pipe_creation_counter,0);
