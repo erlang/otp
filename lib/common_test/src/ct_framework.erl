@@ -1256,14 +1256,20 @@ report(What,Data) ->
 		{_,{SkipOrFail,_Reason}} ->
 		    add_to_stats(SkipOrFail)
 	    end;
-	tc_user_skip ->	    
-	    %% test case specified as skipped in testspec
+	tc_user_skip ->
+	    %% test case specified as skipped in testspec, or init
+	    %% config func for suite/group has returned {skip,Reason}
 	    %% Data = {Suite,Case,Comment}
 	    ct_event:sync_notify(#event{name=tc_user_skip,
 					node=node(),
 					data=Data}),
-	    ct_hooks:on_tc_skip(What, Data),
-	    add_to_stats(user_skipped);
+	    case Data of
+		{_,Func,_} when Func /= end_per_suite, Func /= end_per_group ->
+		    ct_hooks:on_tc_skip(What, Data),
+		    add_to_stats(user_skipped);
+		_ ->
+		    ok
+	    end;
 	tc_auto_skip ->
 	    %% test case skipped because of error in init_per_suite
 	    %% Data = {Suite,Case,Comment}

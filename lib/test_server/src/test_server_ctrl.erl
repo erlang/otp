@@ -2662,7 +2662,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    stop_minor_log_file(),
 	    run_test_cases_loop(skip_cases_upto(Ref, Cases, Reason, conf,
 						CurrMode, skip_case),
-				Config, TimetrapData, Mode,
+				[hd(Config)|Config], TimetrapData, Mode,
 				delete_status(Ref, Status2));
 	{_,{skip_and_save,Reason,_SavedConfig},_} when StartConf ->
 	    ReportAbortRepeat(skipped),
@@ -2672,7 +2672,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    stop_minor_log_file(),
 	    run_test_cases_loop(skip_cases_upto(Ref, Cases, Reason, conf,
 						CurrMode, skip_case),
-				Config, TimetrapData, Mode,
+				[hd(Config)|Config], TimetrapData, Mode,
 				delete_status(Ref, Status2));
 	{_,_Other,_} when Func == init_per_suite ->
 	    print(minor, "~n*** init_per_suite failed to return a Config list.~n", []),
