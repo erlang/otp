@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -152,7 +152,17 @@ image_of_sname(mgr)       -> "MGR";
 image_of_sname(mgr_misc)  -> "MGR_MISC";
 
 image_of_sname(undefined) -> "";
-image_of_sname(V)         -> lists:flatten(io_lib:format("~p",[V])).
+image_of_sname(S) when is_list(S) -> 
+    %% The assumption is that its a printable string, 
+    %% but just in case it is some other list...
+    try lists:flatten(io_lib:format("~s", [S])) of
+	L ->
+	    L
+    catch
+	_:_ ->
+	    lists:flatten(io_lib:format("~p", [S]))
+    end;
+image_of_sname(V)         -> lists:flatten(io_lib:format("~p", [V])).
 
 
 validate(info)  -> info;
