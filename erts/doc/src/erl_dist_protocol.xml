@@ -104,12 +104,16 @@ By default EPMD listens on port 4369.
 	</row>
       <tcaption></tcaption></table>
 
+      <p>
+        Starting with R17 each response is also preceded by a two-byte length
+        field in the format shown above
+      </p>
       <section>
 	<title>Register a node in the EPMD</title>
 	<p>
 	  When a distributed node is started it registers itself in EPMD.
-	  The message ALIVE2_REQ described below is sent from the node towards
-	  EPMD. The response from EPMD is ALIVE2_RESP.
+	  The message ALIVE2_REQ/ALIVE3_REQ described below is sent from
+      the node towards EPMD. The response from EPMD is ALIVE2_RESP.
 	</p>
 	<table align="left">
 	  <row>
@@ -136,7 +140,35 @@ By default EPMD listens on port 4369.
 	    <cell align="center">Elen</cell>
 	    <cell align="center">Extra</cell>
 	  </row>
-	<tcaption>ALIVE2_REQ (120)</tcaption></table>
+	<tcaption>ALIVE2_REQ (120): Releases before R17</tcaption></table>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">Nlen</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">Elen</cell>
+	  </row>
+	  <row>
+	    <cell align="center">88</cell>
+	    <cell align="center">PortNo</cell>
+	    <cell align="center">NodeType</cell>
+	    <cell align="center">Plen</cell>
+	    <cell align="center">ProtoName</cell>
+	    <cell align="center">HighestVersion</cell>
+	    <cell align="center">LowestVersion</cell>
+	    <cell align="center">Nlen</cell>
+	    <cell align="center">NodeName</cell>
+	    <cell align="center">Elen</cell>
+	    <cell align="center">Extra</cell>
+	  </row>
+	<tcaption>ALIVE3_REQ (88)</tcaption></table>
 	  <taglist>
 	    <tag><c>PortNo</c></tag>
 	    <item>
@@ -148,7 +180,16 @@ By default EPMD listens on port 4369.
 	    </item>
 	    <tag><c>Protocol</c></tag>
 	    <item>
-	      0 = tcp/ip-v4, ...
+	      0 = tcp/ip-v4, ...        % Not used
+	    </item>
+	    <tag><c>Plen</c></tag>
+	    <item>
+	      The length (in bytes) of the <c>ProtoName</c> field.
+	    </item>
+	    <tag><c>ProtoName</c></tag>
+	    <item>
+	      Name of the protocol handling module without "_dist" suffix
+          (e.g. "inet_tcp"). The name doesn't include trailing null.
 	    </item>
 	    <tag><c>HighestVersion</c></tag>
 	    <item>
@@ -224,19 +265,61 @@ By default EPMD listens on port 4369.
 	<table align="left">
 	<row>
 	  <cell align="center">1</cell>
-	  <cell align="center">N</cell>
+	  <cell align="center">Nlen</cell>
 	</row>
 	<row>
 	  <cell align="center">122</cell>
 	  <cell align="center">NodeName</cell>
 	</row>
-      <tcaption>PORT_PLEASE2_REQ (122)</tcaption></table>
-      <p>
-	where N = Length - 1
-      </p>
+      <tcaption>PORT_PLEASE2_REQ (122): Release prior R17</tcaption></table>
 
-      <p>
-      </p>
+	<table align="left">
+	<row>
+	  <cell align="center">1</cell>
+	  <cell align="center">1</cell>
+	  <cell align="center">1</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">Mlen</cell>
+	  <cell align="center">1</cell>
+	  <cell align="center">N</cell>
+	</row>
+	<row>
+	  <cell align="center">90</cell>
+	  <cell align="center">0</cell>
+	  <cell align="center">Ncount</cell>
+	  <cell align="center">Mlen</cell>
+	  <cell align="center">ProtoNames</cell>
+	  <cell align="center">N</cell>
+	  <cell align="center">NodeName</cell>
+	</row>
+      <tcaption>PORT_PLEASE3_REQ (90): Release >= R17</tcaption></table>
+
+	  <taglist>
+	    <tag><c>Nlen</c></tag>
+	    <item>
+              Equals Length-1
+            </item>
+	    <tag><c>NodeName</c></tag>
+	    <item>
+              Name of the node for which to return the port information.
+            </item>
+	    <tag><c>ProtoNames</c></tag>
+	    <item>
+	      Array of names of protocol handling modules that the requesting
+              node supports. The names is an array of strings where each
+              string's 0th byte is the string size, and each string doesn't
+              end with a null terminator. (Example: &gt;&gt;3,$a,$b,$c&lt;&lt;)
+	    </item>
+	    <tag><c>Ncount</c></tag>
+	    <item>
+              Number of protocols supported by the requesting node.
+            </item>
+	    <tag><c>Mlen</c></tag>
+	    <item>
+              Number of bytes of the array of ProtoNames
+            </item>
+	  </taglist>
+
       <table align="left">
 	<row>
 	  <cell align="center">1</cell>
@@ -278,10 +361,57 @@ By default EPMD listens on port 4369.
 	  <cell align="center">Elen</cell>
 	  <cell align="center">Extra</cell>
 	</row>
-      <tcaption>PORT2_RESP when Result = 0.</tcaption></table>
-<p>
-If Result > 0, the packet only consists of [119, Result].
-</p>
+      <tcaption>
+        PORT2_RESP when Result = 0 and
+        PORT_PLEASE2_REQ doesn't contain ProtoNames details (Release prior R17).
+      </tcaption></table>
+
+      <p>Or</p>
+      <table align="left">
+	<row>
+	  <cell align="center">1</cell>
+	  <cell align="center">1</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">1</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">Mlen</cell>
+	  <cell align="center">1</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">Nlen</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">Elen</cell>
+	</row>
+	<row>
+	  <cell align="center">119</cell>
+	  <cell align="center">Result</cell>
+	  <cell align="center">0</cell>
+	  <cell align="center">Ncount</cell>
+	  <cell align="center">Mlen</cell>
+	  <cell align="center">PortProtos</cell>
+	  <cell align="center">NodeType</cell>
+	  <cell align="center">HighestVersion</cell>
+	  <cell align="center">LowestVersion</cell>
+	  <cell align="center">Nlen</cell>
+	  <cell align="center">NodeName</cell>
+	  <cell align="center">Elen</cell>
+	  <cell align="center">Extra</cell>
+	</row>
+      <tcaption>
+        PORT2_RESP when Result = 0 and
+        PORT_PLEASE2_REQ contains ProtoNames (Release >= R17).
+      </tcaption></table>
+	<taglist>
+	  <tag><c>PortProtos</c></tag>
+	  <item>
+            Is an array of items, containing PortNo (2 bytes),
+            Length of protocol name (1 byte), Protocol Name (no trailing null).
+            Example: &lt;&lt;4,0, 8, "inet_tcp"&gt;&gt;.
+          </item>
+        </taglist>
+
+        <p>If Result > 0, the packet only consists of [119, Result].</p>
 
         <p>EPMD will close the socket as soon as it has sent the information.</p>
       </section>
@@ -300,8 +430,16 @@ If Result > 0, the packet only consists of [119, Result].
 	  <row>
 	    <cell align="center">110</cell>
 	  </row>
-	<tcaption>NAMES_REQ (110)</tcaption></table>
+	<tcaption>NAMES2_REQ (110): Releases prior to R17</tcaption></table>
 	
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	  </row>
+	  <row>
+	    <cell align="center">78</cell>
+	  </row>
+	<tcaption>NAMES3_REQ (78): Releases >= R17</tcaption></table>
 
 	<p>The response for a <c>NAMES_REQ</c> looks like this:</p>
 	<table align="left">
@@ -320,10 +458,19 @@ If Result > 0, the packet only consists of [119, Result].
 	  closed by EPMD.
 	</p>
 	<p>
-	  NodeInfo is, as expressed in Erlang:
+	  NodeInfo is, as expressed in Erlang (if request size was 1 byte):
 	</p>
 	<code>
 	io:format("name ~ts at port ~p~n", [NodeName, Port]).
+	</code>
+	<p>
+	  NodeInfo is, as expressed in Erlang (if request size was 2 byte):
+	</p>
+	<code>
+        io:format("name ~ts at port~s~n",
+            [NodeName, [io_lib:format(" ~p#~s", [P,S]) || {P,S} &lt;- PortProtos]]).
+        Example:
+            "name abc at port 1234#inet_tcp 1235#inet_tls\n"
 	</code>
       </section>
 
@@ -341,7 +488,16 @@ If Result > 0, the packet only consists of [119, Result].
 	  <row>
 	    <cell align="center">100</cell>
 	  </row>
-	<tcaption>DUMP_REQ</tcaption></table>
+	<tcaption>DUMP_REQ: Releases prior to R17</tcaption></table>
+
+	<table align="left">
+	  <row>
+	  <cell align="center">1</cell>
+	  </row>
+	  <row>
+	    <cell align="center">68</cell>
+	  </row>
+	<tcaption>DUMP3_REQ: Releases >= R17</tcaption></table>
 
 	<p>The response for a <c>DUMP_REQ</c> looks like this:</p>
 	<table align="left">
@@ -363,15 +519,27 @@ If Result > 0, the packet only consists of [119, Result].
 	  NodeInfo is, as expressed in Erlang:
 	</p>
 	<code>
-	io:format("active name     ~ts at port ~p, fd = ~p ~n",
+        % Releases before R17:
+        io:format("active name     ~ts at port ~p, fd = ~p~n",
 	          [NodeName, Port, Fd]).
+
+        % Releases >= R17:
+        io:format("name ~ts at port~s~n",
+            [NodeName, [io_lib:format(" ~p#~s", [P,S]) || {P,S} &lt;- PortProtos]]).
+        Example:
+            "active name     abc at port 1234#inet_tcp 1235#inet6_tcp, fd = 4\n"
 	</code>
 	<p>
 	  or
 	</p>
 	<code>
+        % Releases before R17:
 	io:format("old/unused name ~ts at port ~p, fd = ~p~n",
 	          [NodeName, Port, Fd]).
+
+        % Releases >= R17:
+        io:format("old/unused name ~ts at port~s, fd = ~p~n",
+            [NodeName, [io_lib:format(" ~p#~s", [P,S]) || {P,S} &lt;- PortProtos]]).
 	</code>
 
       </section>
@@ -388,7 +556,16 @@ If Result > 0, the packet only consists of [119, Result].
 	  <row>
 	    <cell align="center">107</cell>
 	  </row>
-	<tcaption>KILL_REQ</tcaption></table>
+	<tcaption>KILL_REQ: Releases prior to R17</tcaption></table>
+
+	<table align="left">
+	  <row>
+	  <cell align="center">1</cell>
+	  </row>
+	  <row>
+	    <cell align="center">75</cell>
+	  </row>
+	<tcaption>KILL3_REQ: Releases &gt;= R17 </tcaption></table>
 
 	<p>The response fo a <c>KILL_REQ</c> looks like this:</p>
 	<table align="left">
@@ -400,7 +577,7 @@ If Result > 0, the packet only consists of [119, Result].
 	  </row>
 	<tcaption>KILL_RESP</tcaption></table>
 	<p>
-	  where <c>OKString</c> is "OK".
+	  where <c>OKString</c> is "OK" on success, and "NO" on failure.
 	</p>
       </section>
 
@@ -416,7 +593,17 @@ If Result > 0, the packet only consists of [119, Result].
 	    <cell align="center">115</cell>
 	    <cell align="center">NodeName</cell>
 	  </row>
-	<tcaption>STOP_REQ</tcaption></table>
+	<tcaption>STOP_REQ: Releases prior to R17</tcaption></table>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">n</cell>
+	  </row>
+	  <row>
+	    <cell align="center">83</cell>
+	    <cell align="center">NodeName</cell>
+	  </row>
+	<tcaption>STOP3_REQ: Releases &gt;= R17</tcaption></table>
 	<p>
 	  where n = Length - 1
 	</p>

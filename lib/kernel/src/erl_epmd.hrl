@@ -18,12 +18,18 @@
 %%
 
 -define(EPMD_ALIVE2_REQ, $x).
--define(EPMD_PORT_PLEASE2_REQ, $z).
--define(EPMD_ALIVE2_RESP, $y).
+-define(EPMD_ALIVE3_REQ, $X).
+-define(EPMD_PORT2_REQ,  $z).
+-define(EPMD_PORT3_REQ,  $Z).
+-define(EPMD_ALIVE2_RESP,$y).
 -define(EPMD_PORT2_RESP, $w).
--define(EPMD_NAMES, $n).
+-define(EPMD_NAMES2,     $n).
+-define(EPMD_NAMES3,     $N).
 
 %% Commands used only by interactive client
 -define(EPMD_DUMP, $d).
+-define(EPMD_DUMP3,$D).
 -define(EPMD_KILL, $k).
+-define(EPMD_KILL3,$K).
 -define(EPMD_STOP, $s).
+-define(EPMD_STOP3,$S).

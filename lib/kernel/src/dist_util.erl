@@ -26,9 +26,11 @@
 
 %%-compile(export_all).
 -export([handshake_we_started/1, handshake_other_started/1,
-	 start_timer/1, setup_timer/2, 
+	 start_timer/1, setup_timer/2,
 	 reset_timer/1, cancel_timer/1,
-	 shutdown/3, shutdown/4]).
+	 shutdown/3, shutdown/4,
+     module_to_dist_proto/1, split_node/1, split_node/2, is_node_name/1
+    ]).
 
 -import(error_logger,[error_msg/2]).
 
@@ -53,12 +55,12 @@
 
 -define(int16(X), [((X) bsr 8) band 16#ff, (X) band 16#ff]).
 
--define(int32(X), 
+-define(int32(X),
 	[((X) bsr 24) band 16#ff, ((X) bsr 16) band 16#ff,
 	 ((X) bsr 8) band 16#ff, (X) band 16#ff]).
 
 -define(i16(X1,X0),
-        (?u16(X1,X0) - 
+        (?u16(X1,X0) -
          (if (X1) > 127 -> 16#10000; true -> 0 end))).
 
 -define(u16(X1,X0),
@@ -146,7 +148,7 @@ handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
 %% check if connecting node is allowed to connect
 %% with allow-node-scheme
 %%
-is_allowed(#hs_data{other_node = Node, 
+is_allowed(#hs_data{other_node = Node,
 		    allowed = Allowed} = HSData) ->
     case lists:member(Node, Allowed) of
 	false when Allowed =/= [] ->
@@ -219,7 +221,7 @@ mark_pending(#hs_data{kernel_pid=Kernel,
 	nok_pending ->
 	    send_status(HSData, nok),
 	    ?shutdown(Node);
-	    
+	
 	up_pending ->
 	    %% Check if connection is still alive, no
 	    %% implies that the connection is no longer pending
@@ -228,7 +230,7 @@ mark_pending(#hs_data{kernel_pid=Kernel,
 
 	    %% This can happen if the other node goes down,
 	    %% and goes up again and contact us before we have
-	    %% detected that the socket was closed. 
+	    %% detected that the socket was closed.
 	    wait_pending(Kernel),
 	    reset_timer(HSData#hs_data.timer);
 
@@ -240,14 +242,14 @@ mark_pending(#hs_data{kernel_pid=Kernel,
 
 
 %%
-%% Marking pending and negotiating away 
+%% Marking pending and negotiating away
 %% simultaneous connection problems
 %%
 
 wait_pending(Kernel) ->
     receive
 	{Kernel, pending} ->
-	    ?trace("wait_pending returned for pid ~p.~n", 
+	    ?trace("wait_pending returned for pid ~p.~n",
 		   [self()]),
 	    ok
     end.
@@ -258,7 +260,7 @@ do_alive(#hs_data{other_node = Node} = HSData) ->
 	true  -> true;
 	false -> ?shutdown(Node)
     end.
-    
+
 do_mark_pending(Kernel, MyNode, Node, Address, Flags) ->
     Kernel ! {self(), {accept_pending,MyNode,Node,Address,
 		       publish_type(Flags)}},
@@ -274,7 +276,7 @@ is_pending(Kernel, Node) ->
     receive
 	{Kernel, {is_pending, Reply}} -> Reply
     end.
-    
+
 %%
 %% This will tell the net_kernel about the nodedown as it
 %% recognizes the exit signal.
@@ -295,9 +297,39 @@ shutdown(_Module, _Line, _Data, Reason) ->
 		    [_Module,_Line, _Data, Reason]),
     flush_down(),
     exit(Reason).
-%% Use this line to debug connection.  
+%% Use this line to debug connection.
 %% Set net_kernel verbose = 1 as well.
 %%    exit({Reason, ?MODULE, _Line, _Data, erlang:now()}).
+
+%% Distribution protocol modules are identified without
+%% the "_dist" prefix. This function strips the prefix
+-spec module_to_dist_proto(Module::atom()) -> string().
+module_to_dist_proto(Module) when is_atom(Module) ->
+    S = atom_to_list(Module),
+    case lists:reverse(S) of
+    "tsid_" ++ T ->
+        lists:reverse(T);
+    _ ->
+        S
+    end.
+
+split_node(Node) when is_atom(Node) ->
+    split_node(atom_to_list(Node), $@, []).
+split_node(Name, Chr) when is_list(Name), is_integer(Chr) ->
+    split_node(Name, Chr, []).
+
+split_node([Chr|T], Chr, Ack) -> [lists:reverse(Ack)|split_node(T, Chr, [])];
+split_node([H|T], Chr, Ack)   -> split_node(T, Chr, [H|Ack]);
+split_node([], _, Ack)        -> [lists:reverse(Ack)].
+
+-spec is_node_name(Node::atom()) -> boolean().
+is_node_name(Node) when is_atom(Node) ->
+    case split_node(Node) of
+	[_, _Host] -> true;
+	_ -> false
+    end;
+is_node_name(_Node) ->
+    false.
 
 
 flush_down() ->
@@ -318,8 +350,8 @@ handshake_we_started(#hs_data{request_type=ReqType,
     {PreOtherFlags,ChallengeA} = recv_challenge(HSData),
     {ThisFlags,OtherFlags} = adjust_flags(PreThisFlags, PreOtherFlags),
     NewHSData = HSData#hs_data{this_flags = ThisFlags,
-			       other_flags = OtherFlags, 
-			       other_started = false}, 
+			       other_flags = OtherFlags,
+			       other_started = false},
     check_dflag_xnc(NewHSData),
     MyChallenge = gen_challenge(),
     {MyCookie,HisCookie} = get_cookies(Node),
@@ -339,19 +371,19 @@ connection(#hs_data{other_node = Node,
 		    f_setopts_pre_nodeup = FPreNodeup,
 		    f_setopts_post_nodeup = FPostNodeup}= HSData) ->
     cancel_timer(HSData#hs_data.timer),
-    PType = publish_type(HSData#hs_data.other_flags), 
+    PType = publish_type(HSData#hs_data.other_flags),
     case FPreNodeup(Socket) of
-	ok -> 
+	ok ->
 	    do_setnode(HSData), % Succeeds or exits the process.
 	    Address = FAddress(Socket,Node),
 	    mark_nodeup(HSData,Address),
 	    case FPostNodeup(Socket) of
 		ok ->
-		    con_loop(HSData#hs_data.kernel_pid, 
-			     Node, 
-			     Socket, 
+		    con_loop(HSData#hs_data.kernel_pid,
+			     Node,
+			     Socket,
 			     Address,
-			     HSData#hs_data.this_node, 
+			     HSData#hs_data.this_node,
 			     PType,
 			     #tick{},
 			     HSData#hs_data.mf_tick,
@@ -380,12 +412,12 @@ gen_challenge() ->
     %% A(8) B(16) C(16)
     %% D(16),E(8), F(16) G(8) H(16)
     ( ((A bsl 24) + (E bsl 16) + (G bsl 8) + F) bxor
-      (B + (C bsl 16)) bxor 
+      (B + (C bsl 16)) bxor
       (D + (H bsl 16)) ) band 16#ffffffff.
 
 %%
 %% Get the cookies for a node from auth
-%%    
+%%
 get_cookies(Node) ->
     case auth:get_cookie(Node) of
 	X when is_atom(X) ->
@@ -394,20 +426,20 @@ get_cookies(Node) ->
 %	    {Y,Z};
 %	_ ->
 %	    erlang:error("Corrupt cookie database")
-    end.    
+    end.
 
 %% No error return; either succeeds or terminates the process.
-do_setnode(#hs_data{other_node = Node, socket = Socket, 
+do_setnode(#hs_data{other_node = Node, socket = Socket,
 		    other_flags = Flags, other_version = Version,
 		    f_getll = GetLL}) ->
     case GetLL(Socket) of
 	{ok,Port} ->
-	    ?trace("setnode(md5,~p ~p ~p)~n", 
-		   [Node, Port, {publish_type(Flags), 
-				 '(', Flags, ')', 
+	    ?trace("setnode(md5,~p ~p ~p)~n",
+		   [Node, Port, {publish_type(Flags),
+				 '(', Flags, ')',
 				 Version}]),
-	    case (catch 
-		  erlang:setnode(Node, Port, 
+	    case (catch
+		  erlang:setnode(Node, Port,
 				 {Flags, Version, '', ''})) of
 		{'EXIT', {system_limit, _}} ->
 		    error_msg("** Distribution system limit reached, "
@@ -426,10 +458,10 @@ do_setnode(#hs_data{other_node = Node, socket = Socket,
 	    ?shutdown(Node)
     end.
 
-mark_nodeup(#hs_data{kernel_pid = Kernel, 
-		     other_node = Node, 
+mark_nodeup(#hs_data{kernel_pid = Kernel,
+		     other_node = Node,
 		     other_flags = Flags,
-		     other_started = OtherStarted}, 
+		     other_started = OtherStarted},
 	    Address) ->
     Kernel ! {self(), {nodeup,Node,Address,publish_type(Flags),
 		       true}},
@@ -466,11 +498,11 @@ con_loop(Kernel, Node, Socket, TcpAddress,
 	    con_loop(Kernel, Node, Socket, TcpAddress, MyNode, Type,
 		     Tick, MFTick, MFGetstat);
 	{Kernel, tick} ->
-	    case send_tick(Socket, Tick, Type, 
+	    case send_tick(Socket, Tick, Type,
 			   MFTick, MFGetstat) of
 		{ok, NewTick} ->
 		    con_loop(Kernel, Node, Socket, TcpAddress,
-			     MyNode, Type, NewTick, MFTick,  
+			     MyNode, Type, NewTick, MFTick,
 			     MFGetstat);
 		{error, not_responding} ->
  		    error_msg("** Node ~p not responding **~n"
@@ -484,9 +516,9 @@ con_loop(Kernel, Node, Socket, TcpAddress,
 	    case MFGetstat(Socket) of
 		{ok, Read, Write, _} ->
 		    From ! {self(), get_status, {ok, Read, Write}},
-		    con_loop(Kernel, Node, Socket, TcpAddress, 
-			     MyNode, 
-			     Type, Tick, 
+		    con_loop(Kernel, Node, Socket, TcpAddress,
+			     MyNode,
+			     Type, Tick,
 			     MFTick, MFGetstat);
 		_ ->
 		    ?shutdown2(Node, get_status_failed)
@@ -498,33 +530,33 @@ con_loop(Kernel, Node, Socket, TcpAddress,
 %% Misc. functions.
 %% ------------------------------------------------------------
 
-send_name(#hs_data{socket = Socket, this_node = Node, 
-		   f_send = FSend, 
+send_name(#hs_data{socket = Socket, this_node = Node,
+		   f_send = FSend,
 		   this_flags = Flags,
 		   other_version = Version}) ->
     ?trace("send_name: node=~w, version=~w\n",
 	   [Node,Version]),
-    ?to_port(FSend, Socket, 
+    ?to_port(FSend, Socket,
 	     [$n, ?int16(Version), ?int32(Flags), atom_to_list(Node)]).
 
-send_challenge(#hs_data{socket = Socket, this_node = Node, 
-			other_version = Version, 
+send_challenge(#hs_data{socket = Socket, this_node = Node,
+			other_version = Version,
 			this_flags = Flags,
 			f_send = FSend},
 	       Challenge ) ->
     ?trace("send: challenge=~w version=~w\n",
 	   [Challenge,Version]),
     ?to_port(FSend, Socket, [$n,?int16(Version), ?int32(Flags),
-			     ?int32(Challenge), 
+			     ?int32(Challenge),
 			     atom_to_list(Node)]).
 
-send_challenge_reply(#hs_data{socket = Socket, f_send = FSend}, 
+send_challenge_reply(#hs_data{socket = Socket, f_send = FSend},
 		     Challenge, Digest) ->
     ?trace("send_reply: challenge=~w digest=~p\n",
 	   [Challenge,Digest]),
     ?to_port(FSend, Socket, [$r,?int32(Challenge),Digest]).
 
-send_challenge_ack(#hs_data{socket = Socket, f_send = FSend}, 
+send_challenge_ack(#hs_data{socket = Socket, f_send = FSend},
 		   Digest) ->
     ?trace("send_ack: digest=~p\n", [Digest]),
     ?to_port(FSend, Socket, [$a,Digest]).
@@ -546,7 +578,7 @@ recv_name(#hs_data{socket = Socket, f_recv = Recv}) ->
     end.
 
 get_name([$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4 | OtherNode]) ->
-    {?u32(Flag1, Flag2, Flag3, Flag4), list_to_atom(OtherNode), 
+    {?u32(Flag1, Flag2, Flag3, Flag4), list_to_atom(OtherNode),
      ?u16(VersionA,VersionB)};
 get_name(Data) ->
     ?shutdown(Data).
@@ -578,16 +610,16 @@ recv_challenge(#hs_data{socket=Socket,other_node=Node,
 		    ?shutdown(no_node)
 	    end;
 	_ ->
-	    ?shutdown(no_node)	    
+	    ?shutdown(no_node)	
     end.
 
 
 %%
 %% wait for challenge response after send_challenge
 %%
-recv_challenge_reply(#hs_data{socket = Socket, 
+recv_challenge_reply(#hs_data{socket = Socket,
 			      other_node = NodeB,
-			      f_recv = FRecv}, 
+			      f_recv = FRecv},
 		     ChallengeA, Cookie) ->
     case FRecv(Socket, 0, infinity) of
 	{ok,[$r,CB3,CB2,CB1,CB0 | SumB]} when length(SumB) =:= 16 ->
@@ -608,8 +640,8 @@ recv_challenge_reply(#hs_data{socket = Socket,
 	    ?shutdown(no_node)
     end.
 
-recv_challenge_ack(#hs_data{socket = Socket, f_recv = FRecv, 
-			    other_node = NodeB}, 
+recv_challenge_ack(#hs_data{socket = Socket, f_recv = FRecv,
+			    other_node = NodeB},
 		   ChallengeB, CookieA) ->
     case FRecv(Socket, 0, infinity) of
 	{ok,[$a|SumB]} when length(SumB) =:= 16 ->
@@ -628,7 +660,7 @@ recv_challenge_ack(#hs_data{socket = Socket, f_recv = FRecv,
 	    ?shutdown(NodeB)
     end.
 
-recv_status(#hs_data{kernel_pid = Kernel, socket = Socket, 
+recv_status(#hs_data{kernel_pid = Kernel, socket = Socket,
 		     other_node = Node, f_recv = Recv} = HSData) ->
     case Recv(Socket, 0, infinity) of
 	{ok, [$s|StrStat]} ->
@@ -636,12 +668,12 @@ recv_status(#hs_data{kernel_pid = Kernel, socket = Socket,
 	    ?debug({dist_util,self(),recv_status, Node, Stat}),
 	    case Stat of
 		not_allowed -> ?shutdown(Node);
-		nok  -> 
+		nok  ->
 		    %% wait to be killed by net_kernel
 		    receive
 		    after infinity -> ok
 		    end;
-		alive -> 
+		alive ->
 		    Reply = is_pending(Kernel, Node),
 		    ?debug({is_pending,self(),Reply}),
 		    send_status(HSData, Reply),
@@ -653,7 +685,7 @@ recv_status(#hs_data{kernel_pid = Kernel, socket = Socket,
 		_ -> Stat
 	    end;
 	_Error ->
-	    ?debug({dist_util,self(),recv_status_error, 
+	    ?debug({dist_util,self(),recv_status_error,
 		Node, _Error}),
 	    ?shutdown(Node)
     end.
@@ -665,35 +697,35 @@ send_status(#hs_data{socket = Socket, other_node = Node,
     case FSend(Socket, [$s | atom_to_list(Stat)]) of
 	{error, _} ->
 	    ?shutdown(Node);
-	_ -> 
+	_ ->
 	    true
     end.
-    
-    
+
+
 
 %%
 %% Send a TICK to the other side.
 %%
-%% This will happen every 15 seconds (by default) 
-%% The idea here is that every 15 secs, we write a little 
-%% something on the connection if we haven't written anything for 
+%% This will happen every 15 seconds (by default)
+%% The idea here is that every 15 secs, we write a little
+%% something on the connection if we haven't written anything for
 %% the last 15 secs.
-%% This will ensure that nodes that are not responding due to 
-%% hardware errors (Or being suspended by means of ^Z) will 
-%% be considered to be down. If we do not want to have this  
-%% we must start the net_kernel (in erlang) without its 
-%% ticker process, In that case this code will never run 
+%% This will ensure that nodes that are not responding due to
+%% hardware errors (Or being suspended by means of ^Z) will
+%% be considered to be down. If we do not want to have this
+%% we must start the net_kernel (in erlang) without its
+%% ticker process, In that case this code will never run
 
-%% And then every 60 seconds we also check the connection and 
-%% close it if we havn't received anything on it for the 
-%% last 60 secs. If ticked == tick we havn't received anything 
-%% on the connection the last 60 secs. 
+%% And then every 60 seconds we also check the connection and
+%% close it if we havn't received anything on it for the
+%% last 60 secs. If ticked == tick we havn't received anything
+%% on the connection the last 60 secs.
 
-%% The detection time interval is thus, by default, 45s < DT < 75s 
+%% The detection time interval is thus, by default, 45s < DT < 75s
 
-%% A HIDDEN node is always (if not a pending write) ticked if 
-%% we haven't read anything as a hidden node only ticks when it receives 
-%% a TICK !! 
+%% A HIDDEN node is always (if not a pending write) ticked if
+%% we haven't read anything as a hidden node only ticks when it receives
+%% a TICK !!
 	
 send_tick(Socket, Tick, Type, MFTick, MFGetstat) ->
     #tick{tick = T0,

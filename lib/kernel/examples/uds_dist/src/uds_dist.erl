@@ -3,16 +3,16 @@
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved via the world wide web at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 %% AB. All Rights Reserved.''
-%% 
+%%
 %%     $Id$
 %%
 -module(uds_dist).
@@ -20,11 +20,12 @@
 %% Handles the connection setup phase with other Erlang nodes.
 
 -export([childspecs/0, listen/1, accept/1, accept_connection/5,
-	 setup/4, close/1, select/1, is_node_name/1]).
+	 sync_setup/10, close/1, select/1, is_node_name/1]).
 
 %% internal exports
 
--export([accept_loop/2,do_accept/6,do_setup/5, getstat/1,tick/1]).
+-deprecated([setup/5]).
+-export([accept_loop/2,do_accept/6,setup/5, getstat/1,tick/1]).
 
 -import(error_logger,[error_msg/2]).
 
@@ -44,15 +45,9 @@
 
 -include("dist.hrl").
 -include("dist_util.hrl").
--record(tick, {read = 0,
-	       write = 0,
-	       tick = 0,
-	       ticked = 0
-	       }).
-
 
 %% -------------------------------------------------------------
-%% This function should return a valid childspec, so that 
+%% This function should return a valid childspec, so that
 %% the primitive ssl_server gets supervised
 %% -------------------------------------------------------------
 childspecs() ->
@@ -67,10 +62,10 @@ childspecs() ->
 
 select(Node) ->
     {ok, MyHost} = inet:gethostname(),
-    case split_node(atom_to_list(Node), $@, []) of
+    case dist_util:split_node(Node) of
 	[_, MyHost] ->
 	    true;
-	_ -> 
+	_ ->
 	    false
     end.
 
@@ -82,12 +77,22 @@ select(Node) ->
 listen(Name) ->
     case uds:listen(atom_to_list(Name)) of
 	{ok, Socket} ->
-	    {ok, {Socket, 
-		  #net_address{address = [], 
-			       host = inet:gethostname(),
-			       protocol = uds, 
-			       family = uds}, 
-		  uds:get_creation(Socket)}};
+        Port = 0, % Dummy value - it won't be used to connect
+        Proto = dist_util:module_to_dist_proto(?MODULE),
+        % In the epmd registration call we can pass anything in the
+        % Extra parameter, such as the UDS file name
+        UdsName = atom_to_binary(Name, latin1),
+	    case erl_epmd:register_node(Name, Port, Proto, UdsName) of
+        {ok, Creation} ->
+            {ok, {Socket,
+              #net_address{address = [],
+                       host = inet:gethostname(),
+                       protocol = uds,
+                       family = uds},
+              Creation}};
+        _ ->
+		    uds:get_creation(Socket)
+        end;
 	Error ->
 	    Error
     end.
@@ -146,13 +151,12 @@ do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 	      ?DFLAG_FUN_TAGS,
 	      allowed = Allowed,
 	      f_send = fun(S,D) -> uds:send(S,D) end,
-	      f_recv = fun(S,N,T) -> uds:recv(S) 
-		       end,
-	      f_setopts_pre_nodeup = 
+	      f_recv = fun(S,_N,_T) -> uds:recv(S) end,
+	      f_setopts_pre_nodeup =
 	      fun(S) ->
 		      uds:set_mode(S, intermediate)
 	      end,
-	      f_setopts_post_nodeup = 
+	      f_setopts_post_nodeup =
 	      fun(S) ->
 		      uds:set_mode(S, data)
 	      end,
@@ -170,8 +174,8 @@ do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 %% Get remote information about a Socket.
 %% ------------------------------------------------------------
 
-get_remote_id(Socket, Node) ->
-    [_, Host] = split_node(atom_to_list(Node), $@, []),
+get_remote_id(_Socket, Node) ->
+    [_, Host] = dist_util:split_node(Node),
     #net_address {
 		  address = [],
 		  host = Host,
@@ -183,69 +187,96 @@ get_remote_id(Socket, Node) ->
 %% Performs the handshake with the other side.
 %% ------------------------------------------------------------
 
-setup(Node, MyNode, LongOrShortNames,SetupTime) ->
-    spawn_link(?MODULE, do_setup, [self(),
-				   Node,
-				   MyNode,
-				   LongOrShortNames,
-				   SetupTime]).
+setup(Node, Type, MyNode, LongOrShortNames, SetupTime) ->
+    Kernel = self(),
+    spawn_opt(fun() ->
+        do_setup(Kernel, Node, Type, MyNode,
+                 LongOrShortNames, SetupTime)
+    end, [link, {priority, max}]).
 
-do_setup(Kernel, Node, MyNode, LongOrShortNames,SetupTime) ->
-    process_flag(priority, max),
+do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     ?trace("~p~n",[{uds_dist,self(),setup,Node}]),
     [Name, Address] = splitnode(Node, LongOrShortNames),
-    {ok, MyName} = inet:gethostname(), 
+    {ok, MyName} = inet:gethostname(),
     case Address of
 	MyName ->
-	    Timer = dist_util:start_timer(SetupTime),
-	    case uds:connect(Name) of
-		{ok, Socket} ->
-		    HSData = #hs_data{
-		      kernel_pid = Kernel,
-		      other_node = Node,
-		      this_node = MyNode,
-		      socket = Socket,
-		      timer = Timer,
-		      this_flags = ?DFLAG_PUBLISHED bor
-		      ?DFLAG_ATOM_CACHE bor
-		      ?DFLAG_EXTENDED_REFERENCES bor
-		      ?DFLAG_DIST_MONITOR bor
-		      ?DFLAG_FUN_TAGS,
-		      other_version = 1,
-		      f_send = fun(S,D) -> 
-				       uds:send(S,D) 
-			       end,
-			      f_recv = fun(S,N,T) -> 
-					       uds:recv(S) 
-				       end,
-		      f_setopts_pre_nodeup = 
-		      fun(S) ->
-			      uds:set_mode(S, intermediate)
-		      end,
-		      f_setopts_post_nodeup = 
-		      fun(S) ->
-			      uds:set_mode(S, data)
-		      end,
-		      f_getll = fun(S) ->
-					uds:get_port(S)
-				end,
-		      f_address = 
-		      fun(_,_) ->
-			      #net_address{
-			        address = [],
-			        host = Address,
-			        protocol = uds,
-			        family = uds}
-		      end,
-		      mf_tick = {?MODULE, tick},
-		      mf_getstat = {?MODULE,getstat}
-		     },
-		    dist_util:handshake_we_started(HSData);
-		_ ->
-		    ?shutdown(Node)
-	    end;
-	Other ->
+        case inet:getaddr(Address, inet) of
+        {ok, Ip} ->
+            Proto = dist_util:module_to_dist_proto(?MODULE),
+            case erl_epmd:port_please(Name, Ip, [Proto], infinity) of
+            {ports, [{_Port, _Proto}], _Version, Opts} ->
+                % We can use Extra the data in Opts to determine some run-time
+                % information about the running node, such as the name of
+                % the UDS socket file, if we store that information at
+                % EPMD when doing the erl_epmd:register_node/4 call.
+                case proplists:get_value(extra, Opts) of
+                undefined ->
+                    % Node didn't provide Extra to epmd at registration.
+                    % We can abort connection attempt here.
+                    UdsFilename = Name;
+                BUdsFilename when is_binary(BUdsFilename) ->
+                    UdsFilename = binary_to_list(BUdsFilename)
+                end,
+                Timer = dist_util:start_timer(SetupTime),
+                sync_setup(Kernel, Node, UdsFilename, Address, Type, MyNode,
+                           Timer, undefined, undefined, undefined);
+            _ ->
+                ?shutdown(Node)
+            end;
+        _ ->
+            ?shutdown(Node)
+        end;
+	_Other ->
 	    ?shutdown(Node)
+    end.
+
+sync_setup(Kernel, Node, Name, Address, Type, MyNode, Timer,
+           _Ip, _Port, _Version) ->
+    case uds:connect(Name) of
+    {ok, Socket} ->
+        HSData = #hs_data{
+          kernel_pid = Kernel,
+          other_node = Node,
+          this_node = MyNode,
+          socket = Socket,
+          timer = Timer,
+          this_flags = ?DFLAG_PUBLISHED bor
+          ?DFLAG_ATOM_CACHE bor
+          ?DFLAG_EXTENDED_REFERENCES bor
+          ?DFLAG_DIST_MONITOR bor
+          ?DFLAG_FUN_TAGS,
+          other_version = 1,
+          f_send = fun(S,D) ->
+                   uds:send(S,D)
+               end,
+              f_recv = fun(S,_N,_T) ->
+                       uds:recv(S)
+                   end,
+          f_setopts_pre_nodeup =
+          fun(S) ->
+              uds:set_mode(S, intermediate)
+          end,
+          f_setopts_post_nodeup =
+          fun(S) ->
+              uds:set_mode(S, data)
+          end,
+          f_getll = fun(S) ->
+                uds:get_port(S)
+            end,
+          f_address =
+          fun(_,_) ->
+              #net_address{
+                address = [],
+                host = Address,
+                protocol = uds,
+                family = uds}
+          end,
+          mf_tick = {?MODULE, tick},
+          mf_getstat = {?MODULE,getstat}
+         },
+        dist_util:handshake_we_started(HSData);
+    _ ->
+        ?shutdown(Node)
     end.
 
 %%
@@ -257,10 +288,10 @@ close(Socket) ->
 
 %% If Node is illegal terminate the connection setup!!
 splitnode(Node, LongOrShortNames) ->
-    case split_node(atom_to_list(Node), $@, []) of
+    case dist_util:split_node(Node) of
 	[Name|Tail] when Tail /= [] ->
 	    Host = lists:append(Tail),
-	    case split_node(Host, $., []) of
+        case dist_util:split_node(Host, $.) of
 		[_] when LongOrShortNames == longnames ->
 		    error_msg("** System running to use "
 			      "fully qualified "
@@ -286,17 +317,8 @@ splitnode(Node, LongOrShortNames) ->
 	    ?shutdown(Node)
     end.
 
-split_node([Chr|T], Chr, Ack) -> [lists:reverse(Ack)|split_node(T, Chr, [])];
-split_node([H|T], Chr, Ack)   -> split_node(T, Chr, [H|Ack]);
-split_node([], _, Ack)        -> [lists:reverse(Ack)].
-
-is_node_name(Node) when atom(Node) ->
-    case split_node(atom_to_list(Node), $@, []) of
-	[_, Host] -> true;
-	_ -> false
-    end;
 is_node_name(Node) ->
-    false.
+    dist_util:is_node_name(Node).
 
 tick(Sock) ->
     uds:tick(Sock).

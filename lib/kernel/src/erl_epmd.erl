@@ -29,9 +29,15 @@
 -endif.
 
 %% External exports
--export([start/0, start_link/0, stop/0, port_please/2, 
-	 port_please/3, names/0, names/1,
-	 register_node/2, open/0, open/1, open/2]).
+-export([start/0, start_link/0, stop/0,
+     port_please/2, port_please/3, port_please/4,
+     names/0, names/1,
+	 register_node/3, register_node/4,
+     open/0, open/1, open/2]).
+
+%% Deprecated External exports
+-export([register_node/2]).
+-deprecated([register_node/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -39,7 +45,7 @@
 
 -import(lists, [reverse/1]).
 
--record(state, {socket, port_no = -1, name = ""}).
+-record(state, {socket, name = "", portprotos = []}).
 -type state() :: #state{}.
 
 -include("inet_int.hrl").
@@ -60,27 +66,43 @@ start_link() ->
 stop() ->
     gen_server:call(?MODULE, stop, infinity).
 
-
-%% Lookup a node "Name" at Host
-%% return {port, P, Version} | noport
+-type port_please_reply() ::
+        {ports, [{Port :: integer(), Proto :: atom()}],
+                Version :: integer(),
+                Opts :: [{epmd, {Addr :: tuple(), Port :: non_neg_integer()}} |
+                         {extra, Extra :: binary()}]} |
+        noport.
+%% Lookup a node "Node" at Host given a list of supported protocols.
 %%
-
+-spec port_please(Node :: atom() | string(), Host :: atom() | list() | tuple()) ->
+        port_please_reply().
 port_please(Node, Host) ->
   port_please(Node, Host, infinity).
 
-port_please(Node,HostName, Timeout) when is_atom(HostName) ->
-  port_please1(Node,atom_to_list(HostName), Timeout);
-port_please(Node,HostName, Timeout) when is_list(HostName) ->
-  port_please1(Node,HostName, Timeout);
-port_please(Node, EpmdAddr, Timeout) ->
-  get_port(Node, EpmdAddr, Timeout).
+-spec port_please(Node :: atom() | string(), Host :: atom() | list() | tuple(),
+                  infinity | non_neg_integer() | [string()]) ->
+        port_please_reply().
+port_please(Node, HostName, Timeout) when is_integer(Timeout); Timeout =:= infinity ->
+  port_please1(Node, HostName, net_kernel:dist_protos(), Timeout, system);
+port_please(Node, HostName, Protos) when is_list(Protos) ->
+  port_please(Node, HostName, Protos, infinity).
+
+-spec port_please(Node :: atom() | string(), Host :: atom() | list() | tuple(),
+                   Protos :: [string()], Timeout :: infinity | non_neg_integer()) ->
+        port_please_reply().
+port_please(Node,HostName, Protos, Timeout) when is_atom(HostName), is_list(Protos) ->
+  port_please1(Node, atom_to_list(HostName), Protos, Timeout, user);
+port_please(Node, HostName, Protos, Timeout) when is_list(HostName), is_list(Protos) ->
+  port_please1(Node,HostName, Protos, Timeout, user);
+port_please(Node, EpmdAddr, Protos, Timeout) ->
+  get_ports(Node, EpmdAddr, Protos, Timeout, user).
 
 
 
-port_please1(Node,HostName, Timeout) ->
+port_please1(Node, HostName, Protos, Timeout, DistSource) ->
   case inet:gethostbyname(HostName, inet, Timeout) of
     {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
-      get_port(Node, EpmdAddr, Timeout);
+      get_ports(Node, EpmdAddr, Protos, Timeout, DistSource);
     Else ->
       Else
   end.
@@ -89,24 +111,44 @@ names() ->
     {ok, H} = inet:gethostname(),
     names(H).
 
-names(HostName) when is_atom(HostName) ->
-  names1(atom_to_list(HostName));
-names(HostName) when is_list(HostName) ->
-  names1(HostName);
-names(EpmdAddr) ->
-  get_names(EpmdAddr).
+names(Host) ->
+    names1(Host, ?EPMD_NAMES3).
 
-names1(HostName) ->
+names1(HostName, Opt) when is_atom(HostName) ->
+  names2(atom_to_list(HostName), Opt);
+names1(HostName, Opt) when is_list(HostName) ->
+  names2(HostName, Opt);
+names1(EpmdAddr, Opt) ->
+  get_names(EpmdAddr, Opt).
+
+names2(HostName, Opt) when is_integer(Opt) ->
   case inet:gethostbyname(HostName) of
     {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
-      get_names(EpmdAddr);
+      get_names(EpmdAddr, Opt);
     Else ->
       Else
   end.
 
 
+-spec register_node(Name :: atom() | string(), PortNo :: non_neg_integer()) ->
+            {alive, Socket :: inet:socket(), Creation :: integer()} |
+            {error, any()}.
 register_node(Name, PortNo) ->
-    gen_server:call(erl_epmd, {register, Name, PortNo}, infinity).
+    register_node(Name, PortNo, "inet_tcp").
+
+-spec register_node(Name :: atom() | string(), PortNo :: non_neg_integer(),
+        Proto :: string()) ->
+            {alive, Socket :: inet:socket(), Creation :: integer()} |
+            {error, any()}.
+register_node(Name, PortNo, Proto) when is_list(Proto) ->
+    register_node(Name, PortNo, Proto, <<>>).
+
+-spec register_node(Name :: atom() | string(), PortNo :: non_neg_integer(),
+        Proto :: string(), Extra :: binary()) ->
+            {alive, Socket :: inet:socket(), Creation :: integer()} |
+            {error, any()}.
+register_node(Name, PortNo, Proto, Extra) when is_list(Proto), is_binary(Extra) ->
+    gen_server:call(erl_epmd, {register, Name, PortNo, Proto, Extra}, infinity).
 
 %%%----------------------------------------------------------------------
 %%% Callback functions from gen_server
@@ -119,29 +161,24 @@ init(_) ->
 	    
 %%----------------------------------------------------------------------
 
--type calls() :: 'client_info_req' | 'stop' | {'register', term(), term()}.
+-type calls() :: 'client_info_req' | 'stop' |
+                 {'register', string(), integer(), string(), binary()}.
 
 -spec handle_call(calls(), term(), state()) ->
         {'reply', term(), state()} | {'stop', 'shutdown', 'ok', state()}.
 
-handle_call({register, Name, PortNo}, _From, State) ->
-    case State#state.socket of
-	P when P < 0 ->
-	    case do_register_node(Name, PortNo) of
-		{alive, Socket, Creation} ->
-		    S = State#state{socket = Socket,
-				    port_no = PortNo,
-				    name = Name},
-		    {reply, {ok, Creation}, S};
-		Error ->
-		    {reply, Error, State}
-	    end;
-	_ ->
-	    {reply, {error, already_registered}, State}
+handle_call({register, Name, PortNo, Proto, Extra}, _From, State) ->
+    case do_register_node(State#state.socket, Name, PortNo, Proto, Extra) of
+    {alive, Socket, Creation} ->
+        P = [{Proto, PortNo} | proplists:delete(Proto, State#state.portprotos)],
+        S = State#state{socket = Socket, portprotos = P, name = Name},
+        {reply, {ok, Creation}, S};
+    Error ->
+        {reply, Error, State#state{socket = -1}}
     end;
 
 handle_call(client_info_req, _From, State) ->
-    Reply = {ok,{r4,State#state.name,State#state.port_no}},
+    Reply = {ok,{r5,State#state.name,State#state.portprotos}},
     {reply, Reply, State};
   
 handle_call(stop, _From, State) ->
@@ -191,51 +228,48 @@ get_epmd_port() ->
 	error ->
 	    ?erlang_daemon_port
     end.
-	    
+
 %%
 %% Epmd socket
 %%
 open() -> open({127,0,0,1}).  % The localhost IP address.
 
 open({A,B,C,D}=EpmdAddr) when ?ip(A,B,C,D) ->
-    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet]);
+    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet,{packet,2},binary]);
 open({A,B,C,D,E,F,G,H}=EpmdAddr) when ?ip6(A,B,C,D,E,F,G,H) ->
-    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet6]).
+    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet6,{packet,2},binary]).
 
 open({A,B,C,D}=EpmdAddr, Timeout) when ?ip(A,B,C,D) ->
-    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet], Timeout);
+    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet,{packet,2},binary], Timeout);
 open({A,B,C,D,E,F,G,H}=EpmdAddr, Timeout) when ?ip6(A,B,C,D,E,F,G,H) ->
-    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet6], Timeout).
+    gen_tcp:connect(EpmdAddr, get_epmd_port(), [inet6,{packet,2},binary], Timeout).
 
 close(Socket) ->
     gen_tcp:close(Socket).
 
-do_register_node(NodeName, TcpPort) ->
+do_register_node(Socket, NodeName, Port, Proto, Extra)
+        when is_integer(Socket), Socket < 0, is_binary(Extra) ->
     case open() of
-	{ok, Socket} ->
-	    Name = to_string(NodeName),
-	    Extra = "",
-	    Elen = length(Extra),
-	    Len = 1+2+1+1+2+2+2+length(Name)+2+Elen,
-            Packet = [?int16(Len), ?EPMD_ALIVE2_REQ,
-                      ?int16(TcpPort),
-                      $M,
-                      0,
-                      ?int16(epmd_dist_high()),
-                      ?int16(epmd_dist_low()),
-                      ?int16(length(Name)),
-                      Name,
-                      ?int16(Elen),
-                      Extra],
-	    case gen_tcp:send(Socket, Packet) of
-                ok ->
-                    wait_for_reg_reply(Socket, []);
-                Error ->
-                    close(Socket),
-                    Error
-            end;
-	Error ->
-	    Error
+    {ok, S} ->
+        do_register_node(S, NodeName, Port, Proto, Extra);
+    Error ->
+        Error
+    end;
+do_register_node(Socket, NodeName, Port, Proto, Extra)
+        when is_list(Proto), is_binary(Extra) ->
+    Name = to_string(NodeName),
+    Packet = <<?EPMD_ALIVE3_REQ, Port:16/integer, $M,
+               (length(Proto)), (list_to_binary(Proto))/binary,
+               (epmd_dist_high()):16/integer,
+               (epmd_dist_low()):16/integer,
+               (length(Name)):16/integer, (list_to_binary(Name))/binary,
+               (byte_size(Extra)):16/integer, Extra/binary>>,
+    case gen_tcp:send(Socket, Packet) of
+        ok ->
+            wait_for_reg_reply(Socket);
+        Error ->
+            close(Socket),
+            Error
     end.
 
 epmd_dist_high() ->
@@ -268,22 +302,14 @@ epmd_dist_low() ->
 
 %%% (When we reply 'duplicate_name', it's because it's the most likely
 %%% reason; there is no interpretation of the error result code.)
-wait_for_reg_reply(Socket, SoFar) ->
+wait_for_reg_reply(Socket) ->
     receive
-	{tcp, Socket, Data0} ->
-	    case SoFar ++ Data0 of
-		[$y, Result, A, B] ->
-		    case Result of
-			0 ->
-			    {alive, Socket, ?u16(A, B)};
-			_ ->
-			    {error, duplicate_name}
-		    end;
-		Data when length(Data) < 4 ->
-		    wait_for_reg_reply(Socket, Data);
-		Garbage ->
-		    {error, {garbage_from_epmd, Garbage}}
-	    end;
+	{tcp, Socket, <<?EPMD_ALIVE2_RESP, 0, Creation:16/integer>>} ->
+        {alive, Socket, Creation};
+	{tcp, Socket, <<?EPMD_ALIVE2_RESP, _>>} ->
+        {error, duplicate_name};
+	{tcp, Socket, Garbage} ->
+        {error, {garbage_from_epmd, Garbage}};
 	{tcp_closed, Socket} ->
 	    {error, epmd_close}
     after 10000 ->
@@ -295,15 +321,17 @@ wait_for_reg_reply(Socket, SoFar) ->
 %% Lookup a node "Name" at Host
 %%
 
-get_port(Node, EpmdAddress, Timeout) ->
+get_ports(_Node, _EpmdAddress, [], _Timeout, system) ->
+    noport;
+get_ports(Node, EpmdAddress, [], Timeout, user) ->
+    get_ports(Node, EpmdAddress, net_kernel:dist_protos(), Timeout, system);
+get_ports(Node, EpmdAddress, Protos, Timeout, _DistSource) when is_list(Protos) ->
     case open(EpmdAddress, Timeout) of
 	{ok, Socket} ->
-	    Name = to_string(Node),
-	    Len = 1+length(Name),
-	    Msg = [?int16(Len),?EPMD_PORT_PLEASE2_REQ,Name],
+        Msg = encode_port_please(Node, Protos),
 	    case gen_tcp:send(Socket, Msg) of
 		ok ->
-		    wait_for_port_reply(Socket, []);
+		    wait_for_port_reply(Socket);
 		_Error ->
 		    ?port_please_failure2(_Error),
 		    noport
@@ -313,26 +341,43 @@ get_port(Node, EpmdAddress, Timeout) ->
 	    noport
     end.
 
+encode_port_please(Node, Protos) ->
+    % R17 packet format
+    Name  = to_string(Node),
+    BProt = list_to_binary([[length(N),list_to_binary(N)] || N <- Protos]),
+    <<?EPMD_PORT3_REQ, 0, (length(Protos)),
+        (byte_size(BProt)):16/integer, BProt/binary,
+        (length(Name)), (list_to_binary(Name))/binary>>.
 
-wait_for_port_reply(Socket, SoFar) ->
+wait_for_port_reply(Socket) ->
+    {ok, AddrPort} = inet:peername(Socket),
     receive
-	{tcp, Socket, Data0} ->
-%	    io:format("got ~p~n", [Data0]),
-	    case SoFar ++ Data0 of
-		[$w, Result | Rest] ->
-		    case Result of
-			0 ->
-			    wait_for_port_reply_cont(Socket, Rest);
-			_ ->
-			    ?port_please_failure(),
-			    wait_for_close(Socket, noport)
-		    end;
-		Data when length(Data) < 2 ->
-		    wait_for_port_reply(Socket, Data);
-		Garbage ->
-		    ?port_please_failure(),
-		    {error, {garbage_from_epmd, Garbage}}
-	    end;
+	{tcp, Socket, % R17 packet format
+        <<?EPMD_PORT2_RESP,
+            0,              % Result
+            0:16/integer,   % Filler
+            _ProtoCount,
+            Len:16/integer,  Protos:Len/binary,
+            _NodeType,
+            High:16/integer, Low:16/integer,
+            NLen:16/integer,_Name:NLen/binary,
+            ELen:16/integer, Extra:ELen/binary>>} ->
+        Version    = best_version(Low, High),
+        PortProtos = split_port_protos(Protos),
+        {ports, PortProtos, Version, reply_opts(AddrPort, Extra)};
+	%{tcp, Socket, % R16 packet format
+    %    <<?EPMD_PORT2_RESP, 0, Port:16/integer, _Tp, Proto,
+    %        High:16/integer, Low:16/integer,
+    %        NLen:16/integer,_Name:NLen/binary,
+    %       ELen:16/integer, Extra:ELen/binary>>} ->
+    %   Version = best_version(Low, High),
+    %   {ports, [{Port, proto_mod(Proto)}], Version, reply_opts(AddrPort,Extra)};
+	{tcp, Socket, <<?EPMD_PORT2_RESP, _, _/binary>>} ->
+        ?port_please_failure(),
+        wait_for_close(Socket, noport);
+	{tcp, Socket, <<?EPMD_PORT2_RESP, Garbage/binary>>} ->
+        ?port_please_failure(),
+        {error, {garbage_from_epmd, Garbage}};
 	{tcp_closed, Socket} ->
 	    ?port_please_failure(),
 	    closed
@@ -342,53 +387,16 @@ wait_for_port_reply(Socket, SoFar) ->
 	    noport
     end.
 
-wait_for_port_reply_cont(Socket, SoFar) when length(SoFar) >= 10 ->
-    wait_for_port_reply_cont2(Socket, SoFar);
-wait_for_port_reply_cont(Socket, SoFar) ->
-    receive
-	{tcp, Socket, Data0} ->
-	    case SoFar ++ Data0 of
-		Data when length(Data) >= 10 ->
-		    wait_for_port_reply_cont2(Socket, Data);
-		Data when length(Data) < 10 ->
-		    wait_for_port_reply_cont(Socket, Data);
-		Garbage ->
-		    ?port_please_failure(),
-		    {error, {garbage_from_epmd, Garbage}}
-	    end;
-	{tcp_closed, Socket} ->
-	    ?port_please_failure(),
-	    noport
-    after 10000 ->
-	    ?port_please_failure(),
-	    gen_tcp:close(Socket),
-	    noport
-    end.
+%proto_mod(0) -> "inet_tcp";
+%proto_mod(_) -> "".
 
-wait_for_port_reply_cont2(Socket, Data) ->
-    [A, B, _Type, _Proto, HighA, HighB,
-     LowA, LowB, NLenA, NLenB | Rest] = Data,
-    wait_for_port_reply_name(Socket,
-			     ?u16(NLenA, NLenB),
-			     Rest),
-    Low = ?u16(LowA, LowB),
-    High = ?u16(HighA, HighB),
-    Version = best_version(Low, High),
-%    io:format("Returning ~p~n", [{port, ?u16(A, B), Version}]),
-    {port, ?u16(A, B), Version}.
-%    {port, ?u16(A, B)}.
+reply_opts(AddrPort, <<>>)  -> [{epmd, AddrPort}];
+reply_opts(AddrPort, Extra) -> [{epmd, AddrPort}, {extra, Extra}].
 
-%%% Throw away the rest of the message; we won't use any of it anyway,
-%%% currently.
-wait_for_port_reply_name(Socket, Len, Sofar) ->
-    receive
-	{tcp, Socket, _Data} ->
-%	    io:format("data = ~p~n", _Data),
-	    wait_for_port_reply_name(Socket, Len, Sofar);
-	{tcp_closed, Socket} ->
-	    ok
-    end.
-		    
+split_port_protos(<<>>) ->
+    [];
+split_port_protos(<<I:16/integer, Len, Proto:Len/binary, Rest/binary>>) ->
+    [{I, binary_to_list(Proto)} | split_port_protos(Rest)].
 
 best_version(Low, High) ->
     OurLow =  epmd_dist_low(),
@@ -427,25 +435,30 @@ to_string(S) when is_list(S) -> S.
 %% Find names on epmd
 %%
 %%
-get_names(EpmdAddress) ->
+get_names(EpmdAddress, Opt) ->
     case open(EpmdAddress) of
 	{ok, Socket} ->
-	    do_get_names(Socket);
+	    do_get_names(Socket, Opt);
 	_Error ->
 	    {error, address}
     end.
 
-do_get_names(Socket) ->
-    case gen_tcp:send(Socket, [?int16(1),?EPMD_NAMES]) of
+do_get_names(Socket, Opcode) ->
+    case gen_tcp:send(Socket, <<Opcode>>) of
 	ok ->
 	    receive
-		{tcp, Socket, [P0,P1,P2,P3|T]} ->
-		    EpmdPort = ?u32(P0,P1,P2,P3),
+		{tcp, Socket, <<EpmdPort:32/integer, Data/binary>>} ->
+            close(Socket),
 		    case get_epmd_port() of
 			EpmdPort ->
-			    names_loop(Socket, T, []);
+                try
+                    [parse_name(binary:split(B, <<" ">>, [global,trim]), Opcode)
+                     || <<"name ", B/binary>> <- binary:split(Data, <<"\n">>,
+                                                              [global,trim])]
+                catch _:_ ->
+                    {error, format}
+                end;
 			_ ->
-			    close(Socket),
 			    {error, address}
 		    end;
 		{tcp_closed, Socket} ->
@@ -456,49 +469,12 @@ do_get_names(Socket) ->
 	    {error, address}
     end.
 
-names_loop(Socket, Acc, Ps) ->
-    receive
-	{tcp, Socket, Bytes} ->
-	    {NAcc, NPs} = scan_names(Acc ++ Bytes, Ps),
-	    names_loop(Socket, NAcc, NPs);
-	{tcp_closed, Socket} ->
-	    {_, NPs} = scan_names(Acc, Ps),
-	    {ok, NPs}
-    end.
-
-scan_names(Buf, Ps) ->
-    case scan_line(Buf, []) of
-	{Line, NBuf} ->
-	    case parse_line(Line) of
-		{ok, Entry} -> 
-		    scan_names(NBuf, [Entry | Ps]);
-		error ->
-		    scan_names(NBuf, Ps)
-	    end;
-	[] -> {Buf, Ps}
-    end.
-
-
-scan_line([$\n | Buf], Line) -> {reverse(Line), Buf};
-scan_line([C | Buf], Line) -> scan_line(Buf, [C|Line]);
-scan_line([], _) -> [].
-
-parse_line("name " ++ Buf0) ->
-    case parse_name(Buf0, []) of
-	{Name, Buf1}  ->
-	    case Buf1 of
-		"at port " ++ Buf2 ->
-		    case catch list_to_integer(Buf2) of
-			{'EXIT', _} -> error;
-			Port -> {ok, {Name, Port}}
-		    end;
-		_ -> error
-	    end;
-	error -> error
-    end;
-parse_line(_) -> error.
-
-
-parse_name([$\s | Buf], Name) -> {reverse(Name), Buf};
-parse_name([C | Buf], Name) -> parse_name(Buf, [C|Name]);
-parse_name([], _Name) -> error.
+parse_name([Name | Data], Opcode) ->
+    parse_name(binary_to_list(Name), Data, Opcode).
+parse_name(Name, [<<"at">>, <<"port">> | PortProtos], ?EPMD_NAMES3) ->
+    {ok, {Name, [begin
+                    [I, S] = binary:split(B, <<"#">>),
+                    {binary_to_integer(I), binary_to_list(S)}
+                 end || B <- PortProtos]}};
+parse_name(Name, [<<"at">>, <<"port">>, Port], ?EPMD_NAMES2) ->
+    {ok, {Name, binary_to_integer(Port)}}.% Legacy R16 format

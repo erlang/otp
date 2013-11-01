@@ -230,6 +230,11 @@
  */
 #define MAXSYMLEN (255*4)
 
+/*
+ * Maximum number of distribution protocols per node
+ */
+#define MAXPROTOS 32
+#define MAXNAMELEN 128
 #define MAX_LISTEN_SOCKETS 16
 
 /*
@@ -247,8 +252,18 @@
 #define get_int16(s) ((((unsigned char*)  (s))[0] << 8) | \
                       (((unsigned char*)  (s))[1]))
 
-#define put_int16(i, s) {((unsigned char*)(s))[0] = ((i) >> 8) & 0xff; \
-                        ((unsigned char*)(s))[1] = (i)         & 0xff;}
+#define get_int32(s) ((((unsigned char*)  (s))[0] << 24) | \
+                      (((unsigned char*)  (s))[1] << 16) | \
+                      (((unsigned char*)  (s))[2] << 8) | \
+                      (((unsigned char*)  (s))[3]))
+
+#define put_int16(i, s) {((unsigned char*)(s))[0] = ((i) >> 8)  & 0xff; \
+                         ((unsigned char*)(s))[1] =  (i)        & 0xff;}
+
+#define put_int32(i, s) {((unsigned char*)(s))[0] = ((i) >> 24) & 0xff; \
+                         ((unsigned char*)(s))[1] = ((i) >> 16) & 0xff; \
+                         ((unsigned char*)(s))[2] = ((i) >> 8)  & 0xff; \
+                         ((unsigned char*)(s))[3] =  (i)        & 0xff;}
 
 #if defined(__GNUC__)
 #  define EPMD_INLINE __inline__
@@ -275,14 +290,23 @@ typedef struct {
   time_t mod_time;		/* Last activity on this socket */
 } Connection;
 
+struct eproto {
+  unsigned short port;          /* Port number of Erlang node */
+  int  proto_name_len;          /* Length of protocol name */
+  char proto_name[MAXNAMELEN+1];/* Name of protocol module (without "_dist")
+                                   E.g. "inet_tcp", "inet6_tcp", etc.) */
+};
+
 struct enode {
   struct enode *next;
   int fd;			/* The socket in use */
-  unsigned short port;		/* Port number of Erlang node */
+  int epmd_version; /* Version of EPMD ALIVE_REQ used by node to register */
+  int portprotolen;
+  struct eproto portproto[MAXPROTOS];	/* Port number of Erlang node */
+  int  symnamelen;
   char symname[MAXSYMLEN+1];	/* Name of the Erlang node */
   short creation;		/* Started as a random number 1..3 */
   char nodetype;                /* 77 = normal erlang node 72 = hidden (c-node */
-  char protocol;                /* 0 = tcp/ipv4 */
   unsigned short highvsn;       /* 0 = OTP-R3 erts-4.6.x, 1 = OTP-R4 erts-4.7.x*/
   unsigned short lowvsn;
   int extralen;
@@ -303,6 +327,7 @@ typedef struct {
    to all functions. This makes this program reentrant */
 
 typedef struct {
+  int version;
   int port;
   int debug;
   int silent; 
@@ -338,5 +363,3 @@ int  start_epmd(char *,char *,char *,char *,char *,char *,char *,char *,char *,c
 int  epmd(int,char **);
 int  epmd_dbg(int,int);
 #endif
-
-

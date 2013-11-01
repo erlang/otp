@@ -6,7 +6,7 @@ EBIN=../ebin
 EMULATOR=beam
 ERLC=erlc
 # Works if building in open source source tree
-KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/src
+KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
 ERLCFLAGS+= -W -b$(EMULATOR) -I$(KERNEL_INCLUDE)
 APP=uds_dist.app
 
